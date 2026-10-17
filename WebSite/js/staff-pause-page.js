@@ -781,8 +781,9 @@
       sendBtnClass: "vc-staff-request__submit",
       userKindLabel: "Tu",
       panelTitle: "Discussione",
-      panelHint: "Chat privata sulla richiesta · si chiude alla decisione",
+      panelHint: "Disponibile quando lo staff ti aggiunge · emoji · allegati",
       closedMessage: "Chat in sola lettura: la richiesta non è più in attesa.",
+      emptyReadOnlyMessage: "Lo staff non ti ha ancora aggiunto a questa discussione.",
     });
   }
 
@@ -1346,6 +1347,10 @@
       return Promise.resolve(loadMonth(cur.year, cur.month));
     };
     window.__vcPtrSoftRefresh = window.__vcStaffPageRefresh;
+    try {
+      var ST = window.VcStaffTools || window.VCStaffTools;
+      if (ST && typeof ST.installRealtimeSoftRefreshBus === "function") ST.installRealtimeSoftRefreshBus();
+    } catch (eBus) {}
   }
 
   function boot() {
@@ -1372,10 +1377,22 @@
     window.addEventListener("vc:staff-access-ok", initAfterAccess, { once: true });
     window.addEventListener("vc:access-ok", initAfterAccess, { once: true });
         var tries = 0;
-    var timer = window.setInterval(function () {
+    var timer = null;
+    /* perfRoiPack1: pause boot poll when tab is hidden, restart on show */
+    function _pauseBootTick() {
+      if (document.hidden) return;
       tries += 1;
-      if (tryInit() || tries > 40) window.clearInterval(timer);
-    }, 250);
+      if (tryInit() || tries > 40) { window.clearInterval(timer); timer = null; }
+    }
+    timer = window.setInterval(_pauseBootTick, 250);
+    document.addEventListener("visibilitychange", function _pauseBootVis() {
+      /* perfRoiPack1 */
+      if (!document.hidden && !timer) {
+        timer = window.setInterval(_pauseBootTick, 250);
+      } else if (document.hidden && timer) {
+        window.clearInterval(timer); timer = null;
+      }
+    }, false);
   }
 
   if (document.readyState === "loading") {

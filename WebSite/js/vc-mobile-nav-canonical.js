@@ -32,7 +32,7 @@
     return normPath(window.location.pathname || "/");
   }
 
-  /** Profilo utente (non leaderboard Users): /user/?id=… o /user/ID/ */
+  /** Profilo utente (non leaderboard Classifiche): /user/?id=… o /user/ID/ */
   function profileDetailUserId() {
     try {
       var here = currentPath();
@@ -57,10 +57,10 @@
     if (!target || target === "#") return false;
     // Home tile only — never treat "/" as a prefix match for other pages.
     if (target === "/") return here === "/";
-    /* mobileNavProfileActive1: sul profilo non evidenziare Users. */
-    if (target === "/user" || target === "/users") {
+    /* classificheRename1: sul profilo non evidenziare Classifiche. */
+    if (target === "/classifiche" || target === "/user" || target === "/users") {
       if (isUserProfileDetailPage()) return false;
-      return here === "/user" || here === "/users";
+      return here === "/classifiche" || here === "/user" || here === "/users";
     }
     if (target === here) return true;
     /* Prefissi solo su sezioni note con sottopagine (match esatto del segmento base). */
@@ -102,14 +102,14 @@
         tiles: [
           { href: "/vote/", icon: "fa-thumbs-o-up", label: t("nav.voteServer", "Vota il server"), loading: "vote" },
           { href: "/recensioni/", icon: "fa-star-o", label: t("nav.reviews", "Recensioni") },
-          { href: "/donazioni/", icon: "fa-heart-o", label: t("nav.donations", "Donazioni") },
+          { href: "/donazioni/", icon: "fa-gift", label: t("nav.donations", "Donazioni") },
           { href: "/perks/", icon: "fa-diamond", label: t("nav.perks", "Perks") },
         ],
       },
       {
         title: String(t("nav.community", "Community")).toUpperCase(),
         tiles: [
-          { href: "/user/", icon: "fa-users", label: t("nav.users", "Users") },
+          { href: "/classifiche/", icon: "fa-trophy", label: t("nav.users", "Classifiche") },
           { href: "/ruoli/", icon: "fa-shield", label: t("nav.roles", "Ruoli") },
           { href: "/regole/", icon: "fa-file-text-o", label: t("nav.rules", "Regole") },
           { href: "/faq/", icon: "fa-question-circle", label: t("nav.faq", "FAQ") },

@@ -21,8 +21,11 @@ const {
 const { countOpenWebTickets } = require("./siteWebTicketsApi");
 const { sendJsonWithEtag, weakEtagFromJson, weakEtagFromParts } = require("./siteHttpEtag");
 
-const DASH_CACHE_TTL_MS = 20_000;
+const DASH_CACHE_TTL_MS = 45_000;
+/* apiWarmSwr1 */
+const DASH_STALE_KEEP_MS = 5 * 60 * 1000;
 let dashCache = null;
+let dashInflight = null;
 
 async function buildDashboardPayload(client, viewerMember) {
   const guildId = String(IDs.guilds.main || "");
@@ -104,13 +107,63 @@ async function handleSiteStaffDashboardGet(client, req, res) {
         etag: dashCache.etag || weakEtagFromParts(["dash", cacheKey, dashCache.exp]),
       });
     }
+    if (
+      dashCache &&
+      dashCache.key === cacheKey &&
+      dashCache.staleUntil > now &&
+      dashCache.payload
+    ) {
+      if (!dashInflight) {
+        dashInflight = buildDashboardPayload(client, access.member)
+          .then((payload) => {
+            if (payload?.ok) {
+              const etag = weakEtagFromJson(payload);
+              const t = Date.now();
+              dashCache = {
+                key: cacheKey,
+                exp: t + DASH_CACHE_TTL_MS,
+                staleUntil: t + DASH_STALE_KEEP_MS,
+                payload,
+                etag,
+              };
+            }
+            return payload;
+          })
+          .catch((err) => {
+            global.logger?.warn?.("[WEBHOOK] site-staff-dashboard refresh:", err?.message || err);
+            return null;
+          })
+          .finally(() => {
+            dashInflight = null;
+          });
+      }
+      return sendJsonWithEtag(req, res, dashCache.payload, {
+        cacheControl: "private, no-cache",
+        etag: dashCache.etag || weakEtagFromParts(["dash", cacheKey, dashCache.exp]),
+        extraHeaders: { "X-VC-Dash-Stale": "1" },
+      });
+    }
+
+    if (dashInflight && dashCache?.key === cacheKey && dashCache?.payload) {
+      return sendJsonWithEtag(req, res, dashCache.payload, {
+        cacheControl: "private, no-cache",
+        etag: dashCache.etag || weakEtagFromParts(["dash", cacheKey, dashCache.exp]),
+        extraHeaders: { "X-VC-Dash-Stale": "1" },
+      });
+    }
 
     const payload = await buildDashboardPayload(client, access.member);
     if (!payload.ok) {
       return res.status(payload.status || 500).json(payload);
     }
     const etag = weakEtagFromJson(payload);
-    dashCache = { key: cacheKey, exp: now + DASH_CACHE_TTL_MS, payload, etag };
+    dashCache = {
+      key: cacheKey,
+      exp: now + DASH_CACHE_TTL_MS,
+      staleUntil: now + DASH_STALE_KEEP_MS,
+      payload,
+      etag,
+    };
     return sendJsonWithEtag(req, res, payload, {
       cacheControl: "private, no-cache",
       etag,
@@ -121,8 +174,24 @@ async function handleSiteStaffDashboardGet(client, req, res) {
   }
 }
 
+async function warmSiteStaffDashboardDeps(client) {
+  try {
+    const guildId = String(IDs.guilds.main || "");
+    await Promise.all([
+      getCachedStaffRoster(client),
+      countOpenWebTickets(guildId).catch(() => null),
+      countPendingPausesCached(guildId).catch(() => null),
+    ]);
+    return true;
+  } catch (err) {
+    global.logger?.warn?.("[WEBHOOK] site-staff-dashboard warm:", err?.message || err);
+    return false;
+  }
+}
+
 module.exports = {
   handleSiteStaffDashboardGet,
+  warmSiteStaffDashboardDeps,
   memberIsHighStaffEligible,
   memberHasDirectorRole,
   memberCanReviewAppelli,

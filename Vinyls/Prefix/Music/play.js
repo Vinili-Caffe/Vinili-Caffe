@@ -65,23 +65,28 @@ module.exports = {
       return;
     }
     const spotifyEmoji = "<:VC_Spotify:1482527369477492797>";
-    const embedDescRaw =
-      typeof result.embedDescription === "string" && result.embedDescription.trim()
-        ? result.embedDescription.trim()
-        : typeof result.embedBody === "string" && result.embedBody.trim()
-          ? result.embedBody.trim()
-          : "";
-    const okDesc = result.ok ? (embedDescRaw || String(result.message || "").trim()) : null;
+    /* nameSearchOrig1: embedBody già = "In riproduzione: [link]" — no doppio Now Playing EN */
+    const okDesc =
+      result.ok && typeof result.embedBody === "string" && result.embedBody.trim()
+        ? result.embedBody.trim()
+        : result.ok && typeof result.embedDescription === "string" && result.embedDescription.trim()
+          ? `In riproduzione: ${result.embedDescription.trim()}`
+          : result.ok
+            ? String(result.message || "").trim()
+            : null;
     const embed = new EmbedBuilder().setColor(result.ok ? 0x6f4e37 : 0xe74c3c);
-    if (result.ok && (result.embedTitle || embedDescRaw)) {
+    if (result.ok) {
       const rawTitle = String(result.embedTitle || "").trim();
-      const safeTitle = rawTitle && rawTitle.toLowerCase() !== "now playing" ? rawTitle : "";
+      const safeTitle =
+        rawTitle &&
+        rawTitle.toLowerCase() !== "now playing" &&
+        rawTitle.toLowerCase() !== "in riproduzione"
+          ? rawTitle
+          : "";
       if (safeTitle) embed.setTitle(safeTitle.slice(0, 256));
-      embed.setDescription(okDesc ? `${spotifyEmoji} Now Playing: ${okDesc}` : `${spotifyEmoji} Now Playing`);
+      embed.setDescription(okDesc ? `${spotifyEmoji} ${okDesc}` : `${spotifyEmoji} In riproduzione`);
     } else {
-      embed.setDescription(
-        result.ok ? `${spotifyEmoji} Now Playing: ${okDesc || String(result.message || "").trim()}` : `<:vegax:1443934876440068179> ${result.message}`,
-      );
+      embed.setDescription(`<:vegax:1443934876440068179> ${result.message}`);
     }
     await safeMessageReply(
       message,

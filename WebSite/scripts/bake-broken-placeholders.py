@@ -19,7 +19,7 @@ VER_STAFF = "20260831phBakeStaff1"
 COMMON_REPS = {
     # Plain & (not &amp;): used in both HTML and JS configs. HTML5 accepts it;
     # &amp; inside JS strings shows literally in document.title / UI.
-    "{{SITE_NAME}}": "Vinili & Caffè",
+    "{{SITE_NAME}}": "🎃 Vinili & Caffè 🍂 • Italia • Social • Gaming",
     "{{YEAR}}": str(datetime.now().year),
     "{{SITE_URL}}": "https://www.viniliecaffe.it/",
     "{{COOKIEYES_BLOCK}}": "",
@@ -61,6 +61,12 @@ COMMON_REPS = {
     "{{DONATIONS_URL}}": "/donazioni/",
     "{{FAQ_URL}}": "/faq/",
     "{{VOTE_URL}}": "/vote/",
+    "{{VOTE_PAGE_TITLE}}": "Vinili & Caffè | Vota",
+    "{{VOTE_META_DESCRIPTION}}": "Vota Vinili & Caffè su Discadia e Top.gg e supporta la community Discord.",
+    "{{VOTE_OG_TITLE}}": "Vinili & Caffè | Vota",
+    "{{VOTE_OG_URL}}": "https://www.viniliecaffe.it/vote/",
+    "{{DISCADIA_VOTE_URL}}": "https://discadia.com/vote/viniliecaffe/",
+    "{{TOPGG_VOTE_URL}}": "https://top.gg/discord/servers/832911595289169920/vote",
     "{{PERKS_URL}}": "/perks/",
     "{{RUOLI_PAGE_URL}}": "/ruoli/",
     "{{REVIEWS_PAGE_URL}}": "/recensioni/",

@@ -60,12 +60,13 @@ async function mirrorTrackHistory(guildId, userId, entry, kindOverride) {
 }
 
 function firePexDepexSiteNotif(guild, { kind, targetUser, oldRoleId, newRoleId, reason, actorUser, sourceHint }) {
+  const targetUserId = String(targetUser?.id || "").trim();
   try {
     const { notifyStaffPexDepex, memberDisplayName } = require("../Web/siteStaffEventNotifications");
     void notifyStaffPexDepex({
       guild,
       kind,
-      targetUserId: String(targetUser?.id || ""),
+      targetUserId,
       targetName: memberDisplayName(null, targetUser, targetUser?.id),
       oldRoleId,
       newRoleId,
@@ -74,6 +75,12 @@ function firePexDepexSiteNotif(guild, { kind, targetUser, oldRoleId, newRoleId, 
       actorName: memberDisplayName(null, actorUser, actorUser?.id),
       sourceHint,
     }).catch(() => 0);
+  } catch (_) {}
+  /* staffProfLiveAll1: clear cache → broadcast WS ai profili aperti */
+  try {
+    require("../Web/siteStaffProfileApi").clearStaffProfileCacheForUser(targetUserId, {
+      action: kind || sourceHint || "career",
+    });
   } catch (_) {}
 }
 const ROLE_OWNER = IDs.roles.Founder;
@@ -339,6 +346,86 @@ function getHighestLadderRole(member) {
   return null;
 }
 
+/** Index in STAFF_LADDER_ROLES (Helper=0 … Founder/Owner=max). -1 = fuori scala. */
+function staffLadderRankIndex(roleId) {
+  const id = String(roleId || "").trim();
+  if (!id) return -1;
+  return STAFF_LADDER_ROLES.indexOf(id);
+}
+
+function getMemberStaffLadderRank(member) {
+  return staffLadderRankIndex(getHighestLadderRole(member));
+}
+
+async function resolveGuildActorMember(guild, actorUserOrMember) {
+  if (actorUserOrMember?.roles?.cache) return actorUserOrMember;
+  const id = String(actorUserOrMember?.id || "").trim();
+  if (!id || !guild) return null;
+  return (
+    guild.members?.cache?.get?.(id) ||
+    (await guild.members?.fetch?.(id).catch(() => null)) ||
+    null
+  );
+}
+
+/**
+ * staffCareerRankGuard1: niente pex/depex su pari o superiori; niente pex verso ruolo >= al proprio.
+ * Target senza scala (es. PM-only) ok se l'attore ha un grado ladder (o è Founder/Owner).
+ */
+function assertStaffCareerHierarchy(actorMember, targetMember, { destinationRoleId = null } = {}) {
+  if (!actorMember || !targetMember) {
+    return {
+      ok: false,
+      message:
+        "<:VC_Lock:1482526739044368476> Impossibile verificare i ruoli per pex/depex.",
+    };
+  }
+  if (String(actorMember.id) === String(targetMember.id)) {
+    return {
+      ok: false,
+      message: "<:VC_Attention:1482534443632558151> Non puoi usare questa azione su te stesso.",
+    };
+  }
+
+  const actorRank = getMemberStaffLadderRank(actorMember);
+  const targetRank = getMemberStaffLadderRank(targetMember);
+  const topRoleId = STAFF_LADDER_ROLES.length
+    ? STAFF_LADDER_ROLES[STAFF_LADDER_ROLES.length - 1]
+    : "";
+  const actorIsTop = Boolean(topRoleId && actorMember.roles?.cache?.has?.(topRoleId));
+
+  if (targetRank >= 0) {
+    if (actorRank < 0) {
+      return {
+        ok: false,
+        message:
+          "<:VC_Lock:1482526739044368476> Non puoi pexare o depexare un membro con ruolo nella scala staff: il tuo grado è inferiore o assente.",
+      };
+    }
+    if (!actorIsTop && targetRank >= actorRank) {
+      return {
+        ok: false,
+        message:
+          "<:VC_Lock:1482526739044368476> Non puoi pexare o depexare un membro con ruolo uguale o superiore al tuo.",
+      };
+    }
+  }
+
+  const destId = String(destinationRoleId || "").trim();
+  if (destId) {
+    const destRank = staffLadderRankIndex(destId);
+    if (destRank >= 0 && (actorRank < 0 || (!actorIsTop && destRank >= actorRank))) {
+      return {
+        ok: false,
+        message:
+          "<:VC_Lock:1482526739044368476> Non puoi pexare a un ruolo uguale o superiore al tuo.",
+      };
+    }
+  }
+
+  return { ok: true };
+}
+
 function getNextLadderRoleId(currentId) {
   const idx = STAFF_LADDER_ROLES.indexOf(currentId);
   if (idx < 0 || idx >= STAFF_LADDER_ROLES.length - 1) return null;
@@ -381,6 +468,12 @@ async function runProspectStaffPex(guild, client, targetUser, actorUser, reason,
   const roleAfter = String(targetRoleId || "");
   if (!roleAfter || !STAFF_LADDER_ROLES.includes(roleAfter)) {
     return { ok: false, message: "<:vegax:1443934876440068179> Ruolo target non valido per il PEX iniziale staff." };
+  }
+  /* staffCareerRankGuard1 */
+  {
+    const actorMember = await resolveGuildActorMember(guild, actorUser);
+    const rankGate = assertStaffCareerHierarchy(actorMember, member, { destinationRoleId: roleAfter });
+    if (!rankGate.ok) return rankGate;
   }
   const roleAfterName = guild.roles.cache.get(roleAfter)?.name || roleAfter;
   if (member.roles.cache.has(roleAfter)) {
@@ -468,6 +561,16 @@ ${actionEmoji} \`${rb?.name || "Member"}\` <a:VC_Arrow:1482706699365257397> \`${
 async function runProspectStaffPexToPartnerManager(guild, client, targetUser, actorUser, reason) {
   if (String(targetUser.id) === String(actorUser.id)) {
     return { ok: false, message: "<:VC_Attention:1482534443632558151> Non puoi usare questa azione su te stesso." };
+  }
+  /* staffCareerRankGuard1: PM non è scala, ma blocca se il target ha già grado >= attore */
+  {
+    const resolveMemberEarly = createMemberResolver(guild);
+    const targetEarly = await resolveMemberEarly(targetUser.id);
+    const actorMember = await resolveGuildActorMember(guild, actorUser);
+    if (targetEarly) {
+      const rankGate = assertStaffCareerHierarchy(actorMember, targetEarly, {});
+      if (!rankGate.ok) return rankGate;
+    }
   }
   const resolveMember = createMemberResolver(guild);
   const member = await resolveMember(targetUser.id);
@@ -575,6 +678,12 @@ async function runProfileStaffPex(guild, client, targetUser, actorUser, reason) 
   if (member.roles.cache.has(roleAfter)) {
     return { ok: false, message: `<:VC_Attention:1482534443632558151> ${targetUser} ha già il ruolo successivo.` };
   }
+  /* staffCareerRankGuard1 */
+  {
+    const actorMember = await resolveGuildActorMember(guild, actorUser);
+    const rankGate = assertStaffCareerHierarchy(actorMember, member, { destinationRoleId: roleAfter });
+    if (!rankGate.ok) return rankGate;
+  }
   const staffChat =
     guild.channels.cache.get(IDs.channels?.staffChat) ||
     (await getGuildChannelCached(guild, IDs.channels?.staffChat));
@@ -645,6 +754,12 @@ async function runProfileStaffDepex(guild, client, targetUser, actorUser, reason
   const member = await resolveMember(targetUser.id);
   if (!member) {
     return { ok: false, message: "<:VC_Attention:1482534443632558151> Utente non trovato nel server." };
+  }
+  /* staffCareerRankGuard1 */
+  {
+    const actorMember = await resolveGuildActorMember(guild, actorUser);
+    const rankGate = assertStaffCareerHierarchy(actorMember, member, {});
+    if (!rankGate.ok) return rankGate;
   }
   const pexDepexChannel = await resolveStaffPexDepexChannel(guild, client || guild.client);
   const mode = String(targetRemoval || "auto").toLowerCase();
@@ -814,7 +929,9 @@ async function runProfileStaffWarnAdd(guild, client, targetUser, actorUser, reas
     }).catch(() => 0);
   } catch (_) {}
   try {
-    require("../Web/siteStaffProfileApi").clearStaffProfileCacheForUser(targetUser.id);
+    require("../Web/siteStaffProfileApi").clearStaffProfileCacheForUser(targetUser.id, {
+      action: "warn_add",
+    });
   } catch (_) {}
   return { ok: true };
 }
@@ -910,7 +1027,9 @@ async function runProfileStaffWarnRemove(guild, client, targetUser, actorUser, r
     }).catch(() => 0);
   } catch (_) {}
   try {
-    require("../Web/siteStaffProfileApi").clearStaffProfileCacheForUser(targetUser.id);
+    require("../Web/siteStaffProfileApi").clearStaffProfileCacheForUser(targetUser.id, {
+      action: "warn_rm",
+    });
   } catch (_) {}
   return {
     ok: true,
@@ -947,6 +1066,11 @@ async function runProfileStaffCompleteDepex(guild, client, targetUser, actorMemb
   if (!member) {
     return { ok: false, message: "<:VC_Attention:1482534443632558151> Utente non trovato nel server." };
   }
+  /* staffCareerRankGuard1 */
+  {
+    const rankGate = assertStaffCareerHierarchy(actorMember, member, {});
+    if (!rankGate.ok) return rankGate;
+  }
   const completeDepexRoleChain = [
     ROLE_HELPER,
     ROLE_MODERATOR,
@@ -966,6 +1090,10 @@ async function runProfileStaffCompleteDepex(guild, client, targetUser, actorMemb
     }
   }
   if (!roleToRemove) {
+    /* depexPmOnlyFullFix1: depex_full su PM-only → stesso path di depex_pm */
+    if (ROLE_PARTNER_MANAGER && member.roles.cache.has(ROLE_PARTNER_MANAGER)) {
+      return runProfileStaffDepex(guild, client, targetUser, actorUser, reason, "partner_manager");
+    }
     return { ok: false, message: "<:VC_Attention:1482534443632558151> L'utente non ha un ruolo staff da depexare." };
   }
   const isAdminOrAbove = [ROLE_ADMIN, ROLE_MANAGER, ROLE_CO_OWNER, ROLE_OWNER].filter(Boolean).includes(roleToRemove);
@@ -1038,4 +1166,7 @@ module.exports = {
   getHighestLadderRole,
   getNextLadderRoleId,
   peekDepexLadderTargetRoleId,
+  staffLadderRankIndex,
+  getMemberStaffLadderRank,
+  assertStaffCareerHierarchy,
 };

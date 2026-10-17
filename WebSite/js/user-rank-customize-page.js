@@ -16,10 +16,12 @@
   var previewRefreshQueued = false;
   var previewLastSignature = "";
   var previewBakedOpacity = 0.8;
+  var opacityDragging = false;
   var liveCustomizePollTimer = null;
   var LIVE_CUSTOMIZE_POLL_MS = 90000;
   var PREVIEW_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
-  var PREVIEW_CACHE_KEY = "vc_rank_customize_preview_cache_v5";
+  /* rankFontRaceFix1: invalida cache preview avvelenata dalla race font lato server */
+  var PREVIEW_CACHE_KEY = "vc_rank_customize_preview_cache_v6";
   var THEME_CACHE_KEY = "vc_rank_customize_payload_v1";
   var THEME_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
   var RANK_TAB_STORAGE_KEY = "vc_rank_customize_active_tab";
@@ -106,22 +108,60 @@
     if (!Number.isFinite(baked)) baked = 0.8;
     baked = Math.max(0, Math.min(1, baked));
     var delta = alpha - baked;
-    /* rankOpacityLive1: anteprima immediata rispetto all'ultima PNG server */
+    /* rankOpacitySmooth1: anteprima locale rispetto alla PNG baked (niente spam server in drag) */
+    if (Math.abs(delta) < 0.004) {
+      overlay.style.opacity = "0";
+      overlay.style.background = "transparent";
+      overlay.style.mixBlendMode = "normal";
+      if (img) img.style.filter = "";
+      return;
+    }
     if (delta >= 0) {
       overlay.style.background = panel;
       overlay.style.mixBlendMode = "normal";
-      overlay.style.opacity = String(Math.min(0.92, delta * 0.9));
+      overlay.style.opacity = String(Math.min(0.95, delta * 1.05));
       if (img) img.style.filter = "";
     } else {
-      /* opacità ↓: schiarisci i box sull'immagine baked (fino al refresh server) */
-      overlay.style.background = "rgba(255,255,255,0.08)";
+      /* opacità ↓: schiarisci in modo leggibile anche sotto al 5–10% baked */
+      var drop = Math.abs(delta);
+      var towardClear = baked > 0.001 ? Math.min(1, drop / baked) : 1;
+      var strength = Math.max(drop * 1.35, towardClear * 0.55);
+      overlay.style.background = "rgba(248, 244, 236, 0.22)";
       overlay.style.mixBlendMode = "soft-light";
-      overlay.style.opacity = String(Math.min(0.85, Math.abs(delta) * 1.15));
+      overlay.style.opacity = String(Math.min(0.98, 0.12 + strength * 0.9));
       if (img) {
-        var lift = Math.min(0.35, Math.abs(delta) * 0.55);
-        img.style.filter = "brightness(" + String(1 + lift) + ") contrast(" + String(1 - lift * 0.35) + ")";
+        var lift = Math.min(0.72, 0.08 + strength * 0.7);
+        img.style.filter =
+          "brightness(" +
+          String(1 + lift) +
+          ") contrast(" +
+          String(1 - lift * 0.42) +
+          ") saturate(" +
+          String(Math.max(0.55, 1 - lift * 0.35)) +
+          ")";
       }
     }
+  }
+
+  function beginOpacityDrag() {
+    opacityDragging = true;
+    if (previewRefreshTimer) {
+      window.clearTimeout(previewRefreshTimer);
+      previewRefreshTimer = null;
+    }
+    previewRefreshQueued = false;
+    /* invalida render in volo così non azzera l'overlay locale a metà drag */
+    previewRenderToken += 1;
+    previewRenderInFlight = false;
+  }
+
+  function finishOpacityDrag() {
+    if (!draft) return;
+    var range = byId("vc-rank-opacity-range");
+    if (range) draft.overlayOpacity = fromPct(range.value);
+    setLocalOpacityDragPreview(true);
+    opacityDragging = false;
+    schedulePreviewRefresh(140);
   }
 
   var COLOR_FIELDS = [
@@ -130,6 +170,39 @@
     { key: "multiplierColor", title: "Moltiplicatore", subtitle: "Testo moltiplicatore XP", icon: "fa-bolt" },
     { key: "valueColor", title: "Valori", subtitle: "Server rank e weekly rank", icon: "fa-bar-chart" },
     { key: "labelColor", title: "Etichette", subtitle: 'Label come "LEVEL", "EXP", ecc...', icon: "fa-tag" },
+  ];
+
+  /* rankFontHex1: fallback se API non manda fonts */
+  var FALLBACK_RANK_FONTS = [
+    { key: "arial", label: "Arial" },
+    { key: "sans", label: "Noto Sans" },
+    { key: "serif", label: "Georgia" },
+    { key: "mono", label: "Mono" },
+    { key: "display", label: "Fraktur" },
+    { key: "mplus", label: "M PLUS Rounded" },
+    { key: "dela", label: "Dela Gothic One" },
+    { key: "dot", label: "DotGothic16" },
+    { key: "pop", label: "Hachi Maru Pop" },
+    { key: "rampart", label: "Rampart One" },
+    { key: "reggae", label: "Reggae One" },
+    { key: "rocknroll", label: "RocknRoll One" },
+    { key: "yuji", label: "Yuji Syuku" },
+    { key: "yusei", label: "Yusei Magic" },
+    { key: "jiyu", label: "Jiyu no Tsubasa" },
+    { key: "shippori", label: "Shippori Mincho" },
+    { key: "bruno", label: "Bruno Ace SC" },
+    { key: "castoro", label: "Castoro Titling" },
+    { key: "poltawski", label: "Poltawski Nowy" },
+    { key: "vina", label: "Vina Sans" },
+    { key: "exo2", label: "Exo 2" },
+    { key: "inconsolata", label: "Inconsolata" },
+    { key: "script", label: "Dancing Script" },
+    { key: "verdana", label: "Verdana" },
+    { key: "tahoma", label: "Tahoma" },
+    { key: "helvetica", label: "Helvetica" },
+    { key: "times", label: "Times" },
+    { key: "impact", label: "Impact" },
+    { key: "comic", label: "Comic" },
   ];
 
   function byId(id) {
@@ -293,10 +366,29 @@
         html.style.removeProperty("touch-action");
       }
       if (body) {
-        body.classList.remove("vc-page-cine-layout");
+        /* persCineLayout2: tieni cine layout su /personalizza (hero baked) */
+        var keepCine = false;
         try {
-          delete body.dataset.vcPageCineLayout;
-        } catch (eDs) {}
+          keepCine =
+            body.getAttribute("data-vc-cine-baked") === "1" ||
+            Boolean(document.querySelector(".vc-page-cine-hero, #vc-page-intro"));
+        } catch (eKeep) {}
+        if (keepCine) {
+          body.classList.add("vc-page-cine-layout");
+          try {
+            body.dataset.vcPageCineLayout = "1";
+          } catch (eDsKeep) {}
+          try {
+            var mainKeep =
+              document.getElementById("vc-personalizza-root") || document.querySelector("main");
+            if (mainKeep) mainKeep.classList.add("vc-page-cine-main");
+          } catch (eMainKeep) {}
+        } else {
+          body.classList.remove("vc-page-cine-layout");
+          try {
+            delete body.dataset.vcPageCineLayout;
+          } catch (eDs) {}
+        }
         body.style.removeProperty("position");
         body.style.removeProperty("inset");
         body.style.removeProperty("top");
@@ -344,27 +436,99 @@
     clearRankCustomizePending();
   }
 
+  function persGateMarkup(opts) {
+    opts = opts || {};
+    var login = opts.login === true;
+    var kicker = opts.kicker || "Personalizza";
+    var title = opts.title || (login ? "Accedi per continuare" : "Impossibile caricare");
+    var body = opts.body || "";
+    var perks = login
+      ? '<ul class="vc-pers-gate__perks" aria-label="Cosa puoi personalizzare">' +
+        '<li><i class="fa fa-id-card-o" aria-hidden="true"></i><span>Rank card</span></li>' +
+        '<li><i class="fa fa-star" aria-hidden="true"></i><span>Ruoli</span></li>' +
+        '<li><i class="fa fa-sliders" aria-hidden="true"></i><span>Privacy &amp; altro</span></li>' +
+        "</ul>"
+      : "";
+    var actions = login
+      ? '<button type="button" class="vc-pers-gate__cta" data-vc-discord-login>' +
+        '<img class="vc-discord-login-emoji" src="/images/discord.gif?v=20260908loginGif1" width="20" height="20" alt="" decoding="async" aria-hidden="true" />' +
+        "<span>Accedi con Discord</span></button>" +
+        '<a class="vc-pers-gate__secondary" href="/"><i class="fa fa-chevron-left" aria-hidden="true"></i><span>Torna alla Home</span></a>'
+      : '<button type="button" class="vc-pers-gate__cta vc-pers-gate__cta--ghost" data-vc-pers-reload="1">' +
+        '<i class="fa fa-refresh" aria-hidden="true"></i><span>Ricarica la pagina</span></button>';
+    return (
+      '<div class="vc-pers-gate' +
+      (login ? " is-login" : " is-error") +
+      '" data-vc-pers-gate="persGateUi1">' +
+      '<section class="vc-pers-gate__card">' +
+      '<div class="vc-pers-gate__badge" aria-hidden="true"><i class="fa ' +
+      (login ? "fa-lock" : "fa-exclamation-triangle") +
+      '"></i></div>' +
+      '<p class="vc-pers-gate__kicker">' +
+      esc(kicker) +
+      "</p>" +
+      '<h1 class="vc-pers-gate__title">' +
+      esc(title) +
+      "</h1>" +
+      '<p class="vc-pers-gate__lead">' +
+      esc(body) +
+      "</p>" +
+      perks +
+      '<div class="vc-pers-gate__actions">' +
+      actions +
+      "</div></section></div>"
+    );
+  }
+
   function showRankFatalError(message) {
     var app = byId("vc-rank-customize-app");
     if (!app) {
       hideRankCustomizeLoading();
       return;
     }
-    var home = "/";
-    try {
-      if (window.__VC_AUTH && window.__VC_AUTH.homeUrl) home = String(window.__VC_AUTH.homeUrl).replace(/\/+$/, "") || "/";
-    } catch (eHome) {}
     app.hidden = false;
+    var msg = String(message || "Errore sconosciuto.");
+    var needsLogin = /login|accedi|discord/i.test(msg);
     app.innerHTML =
       '<div class="vc-rank-customize-fatal">' +
-      '<div class="vc-rank-editor-topbar"><a class="vc-user-profile-backbtn" href="' +
-      esc(home) +
-      '"><i class="fa fa-chevron-left" aria-hidden="true"></i> Home</a></div>' +
-      '<section class="vc-rank-editor-hero">' +
-      '<div class="vc-rank-editor-hero__icon"><i class="fa fa-exclamation-triangle" aria-hidden="true"></i></div>' +
-      "<div><h1>Impossibile caricare</h1><p>" +
-      esc(String(message || "Errore sconosciuto.")) +
-      "</p></div></section></div>";
+      persGateMarkup({
+        login: needsLogin,
+        kicker: "Rank card",
+        title: needsLogin ? "Accedi per continuare" : "Impossibile caricare",
+        body: needsLogin
+          ? "Collega Discord per personalizzare colori, opacità e wallpaper della rank card."
+          : msg,
+      }) +
+      "</div>";
+    var reloadBtn = app.querySelector("[data-vc-pers-reload]");
+    if (reloadBtn) {
+      reloadBtn.addEventListener("click", function () {
+        try {
+          window.location.reload();
+        } catch (eRel) {}
+      });
+    }
+    Array.prototype.slice
+      .call(app.querySelectorAll(".vc-pers-gate__cta[data-vc-discord-login]"))
+      .forEach(function (btn) {
+        if (btn.__vcPersGateOauth) return;
+        btn.__vcPersGateOauth = true;
+        btn.addEventListener("click", function (ev) {
+          try {
+            if (ev && ev.preventDefault) ev.preventDefault();
+          } catch (e0) {}
+          if (typeof window.__vcDiscordStartOAuthRedirect === "function") {
+            window.__vcDiscordStartOAuthRedirect(btn);
+            return;
+          }
+          if (typeof window.__vcDiscordStartOAuth === "function") {
+            window.__vcDiscordStartOAuth(btn);
+            return;
+          }
+          var hdr = byId("discord-login-btn");
+          if (hdr) hdr.click();
+        });
+      });
     hideRankCustomizeLoading();
   }
 
@@ -454,7 +618,24 @@
       var fallback = field.key === "primaryTextColor" ? "#FFCB05" : "#202225";
       next[field.key] = normalizeHexDisplay(next[field.key], fallback);
     });
+    next.fontKey = sanitizeFontKey(next.fontKey);
     return next;
+  }
+
+  function rankFonts() {
+    return Array.isArray(loaded && loaded.fonts) && loaded.fonts.length
+      ? loaded.fonts
+      : FALLBACK_RANK_FONTS;
+  }
+
+  function sanitizeFontKey(value) {
+    var raw = String(value == null ? "" : value).trim().toLowerCase();
+    if (!raw) return "arial";
+    var list = rankFonts();
+    for (var i = 0; i < list.length; i += 1) {
+      if (String(list[i].key || "").toLowerCase() === raw) return raw;
+    }
+    return "arial";
   }
 
   function wallpapers() {
@@ -556,10 +737,12 @@
   function previewMarkup(data, theme) {
     var signature = previewSignatureForTheme(theme);
     var matchingCache = loadCachedPreview(signature, true);
-        var initialPreviewSrc = "";
+    var initialPreviewSrc = "";
     if (matchingCache) initialPreviewSrc = matchingCache;
-    else if (previewObjectUrl) initialPreviewSrc = previewObjectUrl;
-    /* personalizzaRankFix1: mai riusare una preview cache di un altro tema/utente */
+    else if (previewObjectUrl && previewLastSignature && previewLastSignature === signature) {
+      initialPreviewSrc = previewObjectUrl;
+    }
+    /* personalizzaRankFix1 + rankFontRaceFix1: mai riusare blob/cache di un altro tema */
     return (
       '<div class="vc-rank-editor-preview__imagewrap' + (initialPreviewSrc ? " is-ready" : "") + '">' +
       '<div class="vc-rankcard-ph" aria-hidden="true">' +
@@ -587,9 +770,43 @@
     previewObjectUrl = "";
   }
 
+  function hashShort(str) {
+    var s = String(str || "");
+    var h = 2166136261;
+    var step = Math.max(1, Math.floor(s.length / 256));
+    for (var i = 0; i < s.length; i += step) {
+      h ^= s.charCodeAt(i);
+      h = Math.imul(h, 16777619);
+    }
+    if (s.length > 2) {
+      h ^= s.charCodeAt(s.length - 1);
+      h = Math.imul(h, 16777619);
+      h ^= s.charCodeAt(Math.floor(s.length / 2));
+      h = Math.imul(h, 16777619);
+    }
+    return (h >>> 0).toString(16);
+  }
+
   function previewSignatureForTheme(theme) {
     var normalized = normalizeTheme(effectiveRankTheme(theme || {}));
-    return JSON.stringify(normalized);
+    var wp = String(normalized.wallpaperUrl || "");
+    /* rankTabSwitchFix1: mai data-URL interi; rankFontRaceFix1: ordine stabile + fontKey esplicito */
+    return JSON.stringify({
+      fontKey: sanitizeFontKey(normalized.fontKey),
+      overlayOpacity: normalized.overlayOpacity,
+      wallpaperKey: String(normalized.wallpaperKey || "default"),
+      wallpaperUrl: wp ? "custom:len=" + wp.length + ":h=" + hashShort(wp) : "",
+      panelColor: normalized.panelColor,
+      primaryTextColor: normalized.primaryTextColor,
+      secondaryTextColor: normalized.secondaryTextColor,
+      multiplierColor: normalized.multiplierColor,
+      valueColor: normalized.valueColor,
+      labelColor: normalized.labelColor,
+      progressStartColor: normalized.progressStartColor,
+      progressEndColor: normalized.progressEndColor,
+      ringColor: normalized.ringColor,
+      rankBoxBorderColor: normalized.rankBoxBorderColor,
+    });
   }
 
   function loadCachedPreview(signature, allowExpired) {
@@ -832,7 +1049,7 @@
           } catch (ePrev) {}
         }
         syncPreviewBakedOpacityFromDraft();
-        setLocalOpacityDragPreview(false);
+        if (!opacityDragging) setLocalOpacityDragPreview(false);
       })
       .catch(function (err) {
         if (myToken !== previewRenderToken) return;
@@ -844,11 +1061,11 @@
           markCustomizePreviewReady(img, false);
           setCustomizePreviewStatus(status, "Anteprima non disponibile al momento.", true);
         }
-        setLocalOpacityDragPreview(false);
+        if (!opacityDragging) setLocalOpacityDragPreview(false);
       })
       .finally(function () {
         previewRenderInFlight = false;
-        if (previewRefreshQueued) {
+        if (previewRefreshQueued && !opacityDragging) {
           previewRefreshQueued = false;
           refreshServerPreview();
         }
@@ -904,7 +1121,7 @@
         '<div class="vc-rank-editor-card__body">' +
         '<div class="vc-rank-editor-uploadrow">' +
         '<label class="vc-rank-editor-uploadbtn" for="vc-rank-wallpaper-file"><i class="fa fa-upload" aria-hidden="true"></i> Scegli allegato</label>' +
-        '<input type="file" id="vc-rank-wallpaper-file" accept="image/png,image/jpeg,image/webp,image/gif" hidden />' +
+        '<input type="file" id="vc-rank-wallpaper-file" name="vc-rank-wallpaper-file" accept="image/png,image/jpeg,image/webp,image/gif" hidden />' +
         '<button type="button" class="vc-rank-editor-reset" id="vc-rank-clear-wallpaper"><i class="fa fa-trash-o" aria-hidden="true"></i> Rimuovi</button>' +
         "</div>" +
         '<p class="vc-rank-editor-uploadhint">PNG, JPG, WEBP o GIF (GIF senza ricompressione). L&apos;immagine viene ottimizzata quando possibile.</p>' +
@@ -921,7 +1138,220 @@
     );
   }
 
-  function render() {
+  function buildFontRowMarkup() {
+    var current = sanitizeFontKey(draft && draft.fontKey);
+    var options = rankFonts()
+      .map(function (font) {
+        var key = String(font.key || "");
+        var label = String(font.label || key);
+        return (
+          '<option value="' +
+          esc(key) +
+          '"' +
+          (key === current ? " selected" : "") +
+          ">" +
+          esc(label) +
+          "</option>"
+        );
+      })
+      .join("");
+    return (
+      '<div class="vc-rank-fontrow" data-vc-rank-font="rankFontHex1">' +
+      '<span class="vc-rank-fontrow__icon" aria-hidden="true"><i class="fa fa-font"></i></span>' +
+      '<span class="vc-rank-fontrow__copy">' +
+      "<strong>Font testi</strong>" +
+      "<em>Applica a tutte le scritte della rank card</em>" +
+      "</span>" +
+      '<select id="vc-rank-font-select" name="vc-rank-font-select" class="vc-rank-fontrow__select" data-rank-font aria-label="Font testi rank card">' +
+      options +
+      "</select></div>"
+    );
+  }
+
+  function buildColorCardsMarkup() {
+    /* vcColorPick1: picker custom bacheca al posto di type=color */
+    /* rankHexBesideSwatch1: un solo swatch (picker) + hex accanto, titolo a destra */
+    var CP = window.VcColorPicker;
+    return (
+      '<div class="vc-rank-fieldgrid">' +
+      COLOR_FIELDS.map(function (field) {
+        var value = normalizeHexDisplay(draft[field.key], field.key === "primaryTextColor" ? "#FFCB05" : "#202225");
+        var pickerHtml =
+          CP && typeof CP.markup === "function"
+            ? CP.markup({
+                id: "vc-rank-cp-" + field.key,
+                value: value,
+                defaultHex: value,
+                ariaLabel: field.title,
+                showHexInput: false,
+                showReset: false,
+                allowEmpty: false,
+                className: "vc-cp--swatch-only",
+                wrapAttrs: 'data-rank-cp="' + esc(field.key) + '"',
+              })
+            : '<input class="vc-rank-editor-colorrow__picker" id="vc-rank-color-' +
+              esc(field.key) +
+              '" name="vc-rank-color-' +
+              esc(field.key) +
+              '" type="color" value="' +
+              esc(value.toLowerCase()) +
+              '" data-rank-field="' +
+              esc(field.key) +
+              '" aria-label="' +
+              esc(field.title) +
+              '" />';
+        return (
+          '<div class="vc-rank-fieldrow" data-rank-fieldrow="' +
+          esc(field.key) +
+          '" data-vc-rank-hex="rankHexBesideSwatch1">' +
+          '<div class="vc-rank-fieldrow__color">' +
+          '<div class="vc-rank-fieldrow__inputs">' +
+          pickerHtml +
+          "</div>" +
+          '<input class="vc-rank-editor-colorrow__hex vc-rank-fieldrow__hex" id="vc-rank-hex-' +
+          esc(field.key) +
+          '" name="vc-rank-hex-' +
+          esc(field.key) +
+          '" type="text" value="' +
+          esc(value) +
+          '" maxlength="7" data-rank-hex="' +
+          esc(field.key) +
+          '" aria-label="Hex ' +
+          esc(field.title) +
+          '" autocomplete="off" />' +
+          "</div>" +
+          '<div class="vc-rank-fieldrow__copy">' +
+          "<strong>" +
+          esc(field.title) +
+          "</strong>" +
+          "<span>" +
+          esc(field.subtitle) +
+          "</span></div></div>"
+        );
+      }).join("") +
+      "</div>"
+    );
+  }
+
+  function buildPanelBody() {
+    if (activeTab === "colors") {
+      return (
+        '<div class="vc-rank-opacity-row">' +
+        '<span class="vc-rank-opacity-row__icon" aria-hidden="true"><i class="fa fa-sliders"></i></span>' +
+        '<span class="vc-rank-opacity-row__copy">' +
+        "<strong>Opacità sfondo</strong>" +
+        "<em>Opacità dei box della rank card</em>" +
+        "</span>" +
+        '<input id="vc-rank-opacity-range" name="vc-rank-opacity-range" class="vc-rank-opacity-row__range" type="range" min="0" max="100" step="1" value="' +
+        esc(String(toPct(draft.overlayOpacity))) +
+        '" aria-label="Opacità sfondo" />' +
+        '<span class="vc-rank-opacity-row__pct" id="vc-rank-opacity-label">' +
+        esc(String(toPct(draft.overlayOpacity))) +
+        "%</span>" +
+        "</div>" +
+        buildFontRowMarkup() +
+        buildColorCardsMarkup()
+      );
+    }
+    /* rankPresetShell1: preset in container dedicato */
+    var list = wallpapers();
+    var count = list.length;
+    return (
+      '<div class="vc-rank-wall-block" data-vc-rank-wall="rankPresetShell1">' +
+      '<section class="vc-rank-preset-shell" aria-labelledby="vc-rank-presets-title">' +
+      '<header class="vc-rank-preset-shell__head">' +
+      '<span class="vc-rank-preset-shell__icon" aria-hidden="true"><i class="fa fa-picture-o"></i></span>' +
+      '<div class="vc-rank-preset-shell__copy">' +
+      '<strong id="vc-rank-presets-title">Preset</strong>' +
+      "<span>Scegli uno sfondo pronto all&apos;uso per la rank card</span>" +
+      "</div>" +
+      '<span class="vc-rank-preset-shell__count" aria-label="' +
+      esc(String(count)) +
+      ' preset">' +
+      esc(String(count)) +
+      "</span>" +
+      "</header>" +
+      '<div class="vc-rank-preset-shell__body">' +
+      (count
+        ? '<div class="vc-rank-editor-wallgrid">' + wallpaperGalleryMarkup() + "</div>"
+        : '<p class="vc-rank-preset-shell__empty">Nessun preset disponibile al momento.</p>') +
+      "</div>" +
+      "</section>" +
+      '<section class="vc-rank-preset-shell vc-rank-preset-shell--custom" aria-label="Wallpaper personalizzato">' +
+      wallpaperCustomMarkup() +
+      "</section>" +
+      "</div>"
+    );
+  }
+
+  function syncSubtabButtons() {
+    Array.prototype.slice
+      .call(document.querySelectorAll("#vc-rank-customize-app [data-rank-tab]"))
+      .forEach(function (button) {
+        var id = String(button.getAttribute("data-rank-tab") || "");
+        button.classList.toggle("is-active", id === activeTab);
+      });
+  }
+
+  function renderPanel(opts) {
+    opts = opts || {};
+    var panel = document.querySelector("#vc-rank-customize-app .vc-rank-controls__panel");
+    if (!panel || !loaded || !draft) {
+      render({ forcePreviewRefresh: Boolean(opts.forcePreviewRefresh) });
+      return;
+    }
+    panel.innerHTML = buildPanelBody();
+    syncSubtabButtons();
+    bindPanelUi();
+    if (opts.forcePreviewRefresh) refreshServerPreview();
+  }
+
+  function scrollRankTabsIntoView() {
+    try {
+      var hub = window.__VC_PERS_HUB_API;
+      if (hub && typeof hub.scheduleScrollToTabs === "function") {
+        hub.scheduleScrollToTabs();
+        return;
+      }
+      if (hub && typeof hub.scrollToTabs === "function") {
+        hub.scrollToTabs();
+        return;
+      }
+    } catch (eHub) {}
+    try {
+      var el =
+        document.querySelector("#vc-rank-customize-app .vc-rank-subtabs") ||
+        document.getElementById("vc-pers-hub-tabs");
+      if (!el) return;
+      var y =
+        el.getBoundingClientRect().top +
+        (window.pageYOffset || document.documentElement.scrollTop || 0) -
+        72;
+      window.scrollTo({ top: Math.max(0, Math.round(y)), left: 0, behavior: "auto" });
+    } catch (e) {}
+  }
+
+  function switchRankEditorTab(tab) {
+    var next = normalizeRankTab(tab) || "colors";
+    if (next === activeTab) {
+      syncSubtabButtons();
+      scrollRankTabsIntoView();
+      return;
+    }
+    syncRankTabToUrl(next);
+    if (next === "wallpaper") {
+      activeAccordion = draft && draft.wallpaperUrl ? "custom-wallpaper" : "";
+    } else {
+      activeAccordion = activeAccordion && activeAccordion !== "custom-wallpaper" ? activeAccordion : "panelColor";
+    }
+    /* rankTabSwitchFix1: aggiorna solo il pannello — non distruggere preview / draft */
+    renderPanel({ forcePreviewRefresh: false });
+    /* persTabScroll2: resta sull’altezza switcher, non in cima */
+    scrollRankTabsIntoView();
+  }
+
+  function render(opts) {
+    opts = opts || {};
     var app = byId("vc-rank-customize-app");
     if (!app || !loaded || !draft) return;
     var backHref = profileUrl(
@@ -930,71 +1360,42 @@
         (currentUser && currentUser.id) ||
         ""
     );
-    var colorCards = COLOR_FIELDS.map(function (field) {
-      var value = normalizeHexDisplay(draft[field.key], field.key === "primaryTextColor" ? "#FFCB05" : "#202225");
-      var pickerValue = value.toLowerCase();
-      var isOpen = activeAccordion === field.key;
-      return (
-        '<details class="vc-rank-editor-card" data-rank-accordion="' + esc(field.key) + '"' + (isOpen ? " open" : "") + ">" +
-        '<summary class="vc-rank-editor-card__summary" data-rank-accordion-trigger="' + esc(field.key) + '">' +
-        '<span class="vc-rank-editor-card__icon"><i class="fa ' + esc(field.icon) + '" aria-hidden="true"></i></span>' +
-        '<span class="vc-rank-editor-card__copy"><strong>' + esc(field.title) + "</strong><span>" + esc(field.subtitle) + "</span></span>" +
-        '<span class="vc-rank-editor-card__swatch" style="background:' + esc(value) + '"></span>' +
-        '<i class="fa fa-angle-down vc-rank-editor-card__chev" aria-hidden="true"></i>' +
-        "</summary>" +
-        '<div class="vc-rank-editor-card__body">' +
-        '<div class="vc-rank-editor-colorrow">' +
-        '<input class="vc-rank-editor-colorrow__picker" type="color" value="' + esc(pickerValue) + '" data-rank-field="' + esc(field.key) + '" />' +
-        '<input class="vc-rank-editor-colorrow__hex" type="text" value="' + esc(value) + '" maxlength="7" data-rank-hex="' + esc(field.key) + '" />' +
-        '<button type="button" class="vc-rank-editor-updatebtn" data-rank-apply="' + esc(field.key) + '"><i class="fa fa-eye" aria-hidden="true"></i> Aggiorna Anteprima</button>' +
-        "</div>" +
-        "</div>" +
-        "</details>"
-      );
-    }).join("");
 
-        var preservedPreview = app.querySelector(".vc-rank-editor-preview__imagewrap");
+    var preservedPreview = app.querySelector(".vc-rank-editor-preview__imagewrap");
     if (preservedPreview) preservedPreview.remove();
 
     var hubOn = Boolean(window.__VC_PERS_HUB && window.__VC_PERS_HUB.enabled);
-    var panelBody =
-      activeTab === "colors"
-        ? '<div class="vc-rank-opacity-row">' +
-          '<span class="vc-rank-opacity-row__icon" aria-hidden="true"><i class="fa fa-sliders"></i></span>' +
-          '<span class="vc-rank-opacity-row__copy">' +
-          "<strong>Opacità sfondo</strong>" +
-          "<em>Opacità dei box della rank card</em>" +
-          "</span>" +
-          '<input id="vc-rank-opacity-range" class="vc-rank-opacity-row__range" type="range" min="0" max="100" step="1" value="' + esc(String(toPct(draft.overlayOpacity))) + '" aria-label="Opacità sfondo" />' +
-          '<span class="vc-rank-opacity-row__pct" id="vc-rank-opacity-label">' + esc(String(toPct(draft.overlayOpacity))) + "%</span>" +
-      "</div>" +
-          colorCards
-        : '<section class="vc-rank-editor-wallgrid">' + wallpaperGalleryMarkup() + "</section>" + wallpaperCustomMarkup();
+    var panelBody = buildPanelBody();
 
     app.innerHTML =
-      '<div class="vc-cpf vc-rank-as-cpf">' +
-      '<a class="vc-cpf-back" href="' + esc(backHref) + '"><i class="fa fa-chevron-left" aria-hidden="true"></i><span>Profilo</span></a>' +
-      (hubOn ? "" : '<header class="vc-cpf-top"><h1>Rank card</h1></header>') +
+      '<div class="vc-cpf vc-rank-as-cpf" data-vc-rank-layout="persRankStack1">' +
+      '<div class="vc-rank-topbar">' +
+      (hubOn
+        ? ""
+        : '<a class="vc-cpf-back" href="' +
+          esc(backHref) +
+          '"><i class="fa fa-chevron-left" aria-hidden="true"></i><span>Profilo</span></a>' +
+          '<h1 class="vc-rank-topbar__title">Rank card</h1>') +
       '<nav class="vc-rank-subtabs" aria-label="Sezioni rank card">' +
-      '<button type="button" class="vc-rank-subtabs__item' + (activeTab === "colors" ? " is-active" : "") + '" data-rank-tab="colors"><i class="fa fa-tint" aria-hidden="true"></i><span>Colori</span></button>' +
-      '<button type="button" class="vc-rank-subtabs__item' + (activeTab === "wallpaper" ? " is-active" : "") + '" data-rank-tab="wallpaper"><i class="fa fa-picture-o" aria-hidden="true"></i><span>Wallpaper</span></button>' +
+      '<button type="button" class="vc-rank-subtabs__item' +
+      (activeTab === "colors" ? " is-active" : "") +
+      '" data-rank-tab="colors"><i class="fa fa-tint" aria-hidden="true"></i><span>Colori</span></button>' +
+      '<button type="button" class="vc-rank-subtabs__item' +
+      (activeTab === "wallpaper" ? " is-active" : "") +
+      '" data-rank-tab="wallpaper"><i class="fa fa-picture-o" aria-hidden="true"></i><span>Wallpaper</span></button>' +
       "</nav>" +
-      '<div class="vc-rank-shell">' +
-      '<aside class="vc-rank-preview" aria-label="Anteprima">' +
+      '<div class="vc-cpf-actions vc-rank-editor-actions">' +
+      '<button type="button" class="vc-cpf-btn vc-cpf-btn--primary vc-rank-editor-save" id="vc-rank-save"><i class="fa fa-floppy-o" aria-hidden="true"></i> Salva</button>' +
+      '<button type="button" class="vc-cpf-btn vc-rank-editor-reset" id="vc-rank-reset"><i class="fa fa-undo" aria-hidden="true"></i> Reset</button>' +
+      "</div></div>" +
+      '<section class="vc-rank-hero" aria-label="Anteprima">' +
       '<div class="vc-rank-preview__frame">' +
       '<div id="vc-rank-preview-mount"></div>' +
-      "</div></aside>" +
-      '<div class="vc-rank-controls">' +
+      "</div></section>" +
       '<div class="vc-rank-controls__panel">' +
       panelBody +
       "</div>" +
-      '<div class="vc-rank-controls__footer">' +
-      '<div class="vc-cpf-actions vc-rank-editor-actions">' +
-      '<button type="button" class="vc-cpf-btn vc-cpf-btn--primary vc-rank-editor-save" id="vc-rank-save"><i class="fa fa-floppy-o" aria-hidden="true"></i> Salva modifiche</button>' +
-      '<button type="button" class="vc-cpf-btn vc-rank-editor-reset" id="vc-rank-reset"><i class="fa fa-undo" aria-hidden="true"></i> Reset</button>' +
-      "</div>" +
-      '<p class="vc-rank-editor-status" id="vc-rank-status"></p>' +
-      "</div></div></div></div>";
+      '<p class="vc-rank-editor-status" id="vc-rank-status"></p></div>';
 
     var mount = byId("vc-rank-preview-mount");
     if (preservedPreview && mount) {
@@ -1007,7 +1408,7 @@
     app.hidden = false;
     bindUi();
     hideRankCustomizeLoading();
-    refreshServerPreview();
+    if (opts.forcePreviewRefresh !== false) refreshServerPreview();
   }
 
   var statusTimer = null;
@@ -1110,25 +1511,27 @@
     }, 4200);
   }
 
-  function applyField(field) {
-    var hexInput = document.querySelector('[data-rank-hex="' + field + '"]');
-    var picker = document.querySelector('[data-rank-field="' + field + '"]');
-    var value = String((hexInput && hexInput.value) || (picker && picker.value) || "").trim();
-    if (!/^#?[0-9a-fA-F]{6}$/.test(value)) {
-      setStatus("Inserisci un colore hex valido.", true);
-      return;
-    }
-    draft[field] = normalizeHexDisplay(value, draft[field]);
+  /* rankColorLive1: anteprima subito, niente bottone Applica / re-render pannello */
+  function applyFieldLive(field, rawValue, opts) {
+    opts = opts || {};
+    if (!draft || !field) return false;
+    var value = String(rawValue == null ? "" : rawValue).trim();
+    if (!/^#?[0-9a-fA-F]{6}$/.test(value)) return false;
+    var next = normalizeHexDisplay(value, draft[field]);
+    var prev = normalizeHexDisplay(draft[field], next);
+    draft[field] = next;
     if (field === "primaryTextColor") {
-      draft.progressStartColor = draft[field];
-      draft.progressEndColor = draft[field];
-      draft.ringColor = draft[field];
+      draft.progressStartColor = next;
+      draft.progressEndColor = next;
+      draft.ringColor = next;
     }
     if (field === "labelColor") {
-      draft.secondaryTextColor = draft[field];
+      draft.secondaryTextColor = next;
     }
+    if (prev.toLowerCase() === next.toLowerCase() && !opts.force) return true;
     previewLastSignature = "";
-    render();
+    schedulePreviewRefresh(opts.delay != null ? opts.delay : 120);
+    return true;
   }
 
   function readFileAsDataUrl(file) {
@@ -1182,74 +1585,97 @@
     return out;
   }
 
-  function bindUi() {
-    Array.prototype.slice.call(document.querySelectorAll("[data-rank-accordion-trigger]")).forEach(function (summary) {
+  function bindPanelUi() {
+    Array.prototype.slice.call(document.querySelectorAll("#vc-rank-customize-app [data-rank-accordion-trigger]")).forEach(function (summary) {
       summary.addEventListener("click", function (ev) {
         ev.preventDefault();
         var key = String(summary.getAttribute("data-rank-accordion-trigger") || "");
         activeAccordion = activeAccordion === key ? "" : key;
-        render();
+        renderPanel({ forcePreviewRefresh: false });
       });
     });
 
     var range = byId("vc-rank-opacity-range");
     if (range) {
+      range.addEventListener("pointerdown", beginOpacityDrag);
+      range.addEventListener("touchstart", beginOpacityDrag, { passive: true });
       range.addEventListener("input", function () {
+        if (!opacityDragging) beginOpacityDrag();
         draft.overlayOpacity = fromPct(range.value);
         var label = byId("vc-rank-opacity-label");
         if (label) label.textContent = String(toPct(draft.overlayOpacity)) + "%";
         var badge = document.querySelector(".vc-rank-editor-card__badge");
         if (badge) badge.textContent = String(toPct(draft.overlayOpacity)) + "%";
-        /* rankOpacityLive1: feedback istantaneo + refresh server debounced (no Salva) */
+        /* solo overlay locale — niente PNG server a ogni tick (lag) */
         setLocalOpacityDragPreview(true);
-        schedulePreviewRefresh(70);
       });
-      range.addEventListener("change", function () {
-        draft.overlayOpacity = fromPct(range.value);
-        /* tieni overlay finché non arriva la PNG aggiornata */
-        setLocalOpacityDragPreview(true);
-        schedulePreviewRefresh(0);
-      });
+      range.addEventListener("change", finishOpacityDrag);
+      range.addEventListener("pointerup", finishOpacityDrag);
+      range.addEventListener("pointercancel", finishOpacityDrag);
+      range.addEventListener("touchend", finishOpacityDrag, { passive: true });
     }
 
-    Array.prototype.slice.call(document.querySelectorAll("[data-rank-field]")).forEach(function (input) {
+    Array.prototype.slice.call(document.querySelectorAll("#vc-rank-customize-app [data-rank-field]")).forEach(function (input) {
       input.addEventListener("input", function () {
-        var target = document.querySelector('[data-rank-hex="' + input.getAttribute("data-rank-field") + '"]');
-        if (target) target.value = normalizeHexDisplay(input.value, target.value);
+        var key = String(input.getAttribute("data-rank-field") || "");
+        var target = document.querySelector('#vc-rank-customize-app [data-rank-hex="' + key + '"]');
+        var shown = normalizeHexDisplay(input.value, (target && target.value) || input.value);
+        if (target) target.value = shown;
+        applyFieldLive(key, shown, { delay: 100 });
       });
     });
 
-    Array.prototype.slice.call(document.querySelectorAll("[data-rank-apply]")).forEach(function (button) {
-      button.addEventListener("click", function () {
-        applyField(button.getAttribute("data-rank-apply"));
+    Array.prototype.slice.call(document.querySelectorAll("#vc-rank-customize-app [data-rank-hex]")).forEach(function (input) {
+      input.addEventListener("input", function () {
+        var key = String(input.getAttribute("data-rank-hex") || "");
+        applyFieldLive(key, input.value, { delay: 160 });
+      });
+      input.addEventListener("change", function () {
+        var key = String(input.getAttribute("data-rank-hex") || "");
+        var shown = normalizeHexDisplay(input.value, draft[key]);
+        if (/^#?[0-9a-fA-F]{6}$/.test(String(input.value || "").trim())) {
+          input.value = shown;
+          applyFieldLive(key, shown, { delay: 40, force: true });
+        }
       });
     });
 
-    Array.prototype.slice.call(document.querySelectorAll("[data-rank-tab]")).forEach(function (button) {
-      button.addEventListener("click", function () {
-        syncRankTabToUrl(button.getAttribute("data-rank-tab"));
-        activeAccordion = activeTab === "wallpaper" ? "" : activeAccordion || "panelColor";
-        render();
+    /* vcColorPick1 + rankColorLive1: picker → draft + preview subito */
+    Array.prototype.slice.call(document.querySelectorAll("#vc-rank-customize-app [data-rank-cp]")).forEach(function (wrap) {
+      var key = String(wrap.getAttribute("data-rank-cp") || "");
+      if (!key || !window.VcColorPicker || typeof window.VcColorPicker.bind !== "function") return;
+      var hexInput = document.querySelector('#vc-rank-customize-app [data-rank-hex="' + key + '"]');
+      window.VcColorPicker.bind(wrap, {
+        hexInput: hexInput || null,
+        onChange: function (v) {
+          var shown = normalizeHexDisplay(v, (hexInput && hexInput.value) || "#202225");
+          if (hexInput) hexInput.value = shown;
+          applyFieldLive(key, shown, { delay: 100 });
+        },
       });
     });
 
-    var backBtn = document.querySelector(".vc-rank-editor-topbar .vc-user-profile-backbtn");
-    if (backBtn && backBtn.dataset.vcBackBound !== "1") {
-      backBtn.dataset.vcBackBound = "1";
-      backBtn.addEventListener("click", function (ev) {
-        var id = String((loaded && loaded.userId) || parseTargetUserId() || "").trim();
-        if (!/^\d{17,20}$/.test(id)) return;
-        ev.preventDefault();
-        redirectToProfile(id);
+    var fontSelect = byId("vc-rank-font-select");
+    if (fontSelect) {
+      fontSelect.addEventListener("change", function () {
+        if (!draft) return;
+        draft.fontKey = sanitizeFontKey(fontSelect.value);
+        fontSelect.value = draft.fontKey;
+        previewLastSignature = "";
+        schedulePreviewRefresh(80);
       });
     }
 
-    Array.prototype.slice.call(document.querySelectorAll("[data-rank-wallpaper]")).forEach(function (button) {
+    Array.prototype.slice.call(document.querySelectorAll("#vc-rank-customize-app [data-rank-wallpaper]")).forEach(function (button) {
       button.addEventListener("click", function () {
-        draft.wallpaperKey = String(button.getAttribute("data-rank-wallpaper") || "default");
+        var key = String(button.getAttribute("data-rank-wallpaper") || "default");
+        var hadCustom = Boolean(draft && draft.wallpaperUrl);
+        draft.wallpaperKey = key;
         draft.wallpaperUrl = "";
         previewLastSignature = "";
-        render();
+        activeAccordion = "";
+        renderPanel({ forcePreviewRefresh: true });
+        if (hadCustom) setStatus("Preset applicato: il wallpaper custom è stato sostituito (Salva per confermare).", false);
       });
     });
 
@@ -1263,8 +1689,9 @@
           draft.wallpaperKey = "default";
           draft.wallpaperUrl = await optimizeWallpaperFile(file);
           previewLastSignature = "";
-          render();
-          setStatus("");
+          activeAccordion = "custom-wallpaper";
+          renderPanel({ forcePreviewRefresh: true });
+          setStatus("Wallpaper custom pronto. Premi Salva per applicarlo.", false);
         } catch (err) {
           setStatus(
             err && err.message === "file_too_large"
@@ -1283,18 +1710,44 @@
       clearWallpaperBtn.addEventListener("click", function () {
         draft.wallpaperUrl = "";
         previewLastSignature = "";
-        render();
+        renderPanel({ forcePreviewRefresh: true });
       });
     }
+  }
 
-    var saveBtn = byId("vc-rank-save");
-    if (saveBtn) {
-      saveBtn.addEventListener("click", saveTheme);
-    }
+  function bindUi() {
+    var app = byId("vc-rank-customize-app");
+    bindPanelUi();
+    if (!app || app._vcRankChromeBound) return;
+    app._vcRankChromeBound = true;
 
-    var resetBtn = byId("vc-rank-reset");
-    if (resetBtn) {
-      resetBtn.addEventListener("click", resetTheme);
+    app.addEventListener("click", function (ev) {
+      var tabBtn = ev.target && ev.target.closest ? ev.target.closest("[data-rank-tab]") : null;
+      if (tabBtn && app.contains(tabBtn)) {
+        ev.preventDefault();
+        switchRankEditorTab(tabBtn.getAttribute("data-rank-tab"));
+        return;
+      }
+      if (ev.target && ev.target.closest && ev.target.closest("#vc-rank-save")) {
+        ev.preventDefault();
+        saveTheme();
+        return;
+      }
+      if (ev.target && ev.target.closest && ev.target.closest("#vc-rank-reset")) {
+        ev.preventDefault();
+        resetTheme();
+      }
+    });
+
+    var backBtn = document.querySelector(".vc-rank-editor-topbar .vc-user-profile-backbtn");
+    if (backBtn && backBtn.dataset.vcBackBound !== "1") {
+      backBtn.dataset.vcBackBound = "1";
+      backBtn.addEventListener("click", function (ev) {
+        var id = String((loaded && loaded.userId) || parseTargetUserId() || "").trim();
+        if (!/^\d{17,20}$/.test(id)) return;
+        ev.preventDefault();
+        redirectToProfile(id);
+      });
     }
   }
 
@@ -1312,6 +1765,7 @@
           theme: body.theme || {},
           defaults: body.defaults || null,
           wallpapers: body.wallpapers || null,
+          fonts: body.fonts || null,
           permissions: body.permissions || null,
           stats: body.stats || null,
         })
@@ -1339,6 +1793,7 @@
         theme: parsed.theme || {},
         defaults: parsed.defaults || undefined,
         wallpapers: Array.isArray(parsed.wallpapers) ? parsed.wallpapers : undefined,
+        fonts: Array.isArray(parsed.fonts) ? parsed.fonts : undefined,
         permissions: parsed.permissions || undefined,
         stats: parsed.stats || undefined,
         _fromCache: true,
@@ -1618,9 +2073,14 @@
           return;
         }
         draft = normalizeTheme(Object.assign({}, draft, body.theme || {}));
+        if (loaded) {
+          loaded = Object.assign({}, loaded, { theme: draft, ok: true });
+          saveRankPayloadCache(loaded);
+        }
         setStatus("", false);
         showSaveSuccessToast();
-        render();
+        previewLastSignature = "";
+        render({ forcePreviewRefresh: true });
       })
       .catch(function (err) {
         var status = Number(err && err.status);
@@ -1788,6 +2248,10 @@
 
         if (!loaded && attempt === 0) {
       try {
+        if (!getToken()) {
+          showRankFatalError("Devi effettuare il login con Discord per personalizzare la rank card.");
+          return;
+        }
         var cached = loadRankPayloadCache(
           targetUserId || (currentUser && currentUser.id) || ""
         );
@@ -1883,6 +2347,74 @@
     currentUser = ev && ev.detail ? ev.detail.user || null : null;
     if (!isPersHubRankTab()) return;
     enforceTargetOwnership(parseTargetUserId(), currentUser);
+  });
+
+  function forceLoginGateAfterLogout() {
+    try {
+      localStorage.removeItem(THEME_CACHE_KEY);
+      localStorage.removeItem(PREVIEW_CACHE_KEY);
+      sessionStorage.removeItem(PREVIEW_CACHE_KEY);
+      localStorage.removeItem("vc_rank_customize_preview_cache_v5");
+      sessionStorage.removeItem("vc_rank_customize_preview_cache_v5");
+    } catch (eClr) {}
+    loaded = null;
+    draft = null;
+    currentUser = null;
+    try {
+      stopLiveCustomizePolling();
+    } catch (eStop) {}
+    showRankFatalError("Devi effettuare il login con Discord per personalizzare la rank card.");
+  }
+  try {
+    window.__vcRankForceLoginGate = forceLoginGateAfterLogout;
+  } catch (eExp) {}
+  window.addEventListener("vc:auth-logout", function () {
+    forceLoginGateAfterLogout();
+  });
+  window.addEventListener("pageshow", function () {
+    try {
+      if (!getToken()) forceLoginGateAfterLogout();
+    } catch (ePs) {}
+  });
+  function pingHubScroll() {
+    try {
+      var hub = window.__VC_PERS_HUB_API;
+      if (hub && typeof hub.afterPanelScrollToTabs === "function") hub.afterPanelScrollToTabs();
+      else if (hub && typeof hub.scheduleScrollToTabs === "function") hub.scheduleScrollToTabs();
+    } catch (ePing) {}
+  }
+
+  /* persTabScroll2: hub soft-nav → boot/render rank senza reload */
+  document.addEventListener("vc:pers-hub-navigate", function () {
+    try {
+      if (!isPersHubRankTab()) {
+        try {
+          stopLiveCustomizePolling();
+        } catch (eStop) {}
+        return;
+      }
+      if (!loaded) {
+        scheduleMain();
+        pingHubScroll();
+        return;
+      }
+      try {
+        restoreRankTabFromUrl();
+      } catch (eTab) {}
+      try {
+        /* rankFontRaceFix1: al rientro tab forza refresh preview (no early-return stale) */
+        previewLastSignature = "";
+        render({ forcePreviewRefresh: true });
+      } catch (eRen) {
+        try {
+          main(0);
+        } catch (eMain) {}
+      }
+      try {
+        startLiveCustomizePolling();
+      } catch (ePoll) {}
+      pingHubScroll();
+    } catch (eNav) {}
   });
 
   if (document.readyState === "loading") {

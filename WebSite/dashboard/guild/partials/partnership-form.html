@@ -1,0 +1,1333 @@
+<form id="vc-dashboard-partnership-form" class="vc-dashboard-partnership" hidden>
+              <div class="vc-dashboard-view" data-view-panel="partnership/setup" id="vc-dashboard-view-setup" hidden>
+                <div class="vc-ps-wizard" id="ps-setup-wizard" aria-label="Setup partnership">
+                  <header class="vc-ps-wizard__head px-4 pt-4"><script id="vc-ext-noise-boot" data-vc="20261010extNoiseHide28">/* vc-ext-noise-boot — inline in <head> first; stamp 20261010extNoiseHide28 */
+(function () {
+  window.__vcExtNoiseBoot = 28;
+  /* pwaAppQueryHide1: prima di tutto — togli ?app= dalla barra (start_url PWA) */
+  try {
+    var __s = String(location.search || "");
+    if (/[?&]app=/.test(__s)) {
+      var __p = new URLSearchParams(__s.charAt(0) === "?" ? __s.slice(1) : __s);
+      var __app = String(__p.get("app") || "").trim();
+      if (__app) {
+        window.__vcPwaColdApp = true;
+        window.__vcPwaColdAppAt = Date.now();
+        try {
+          sessionStorage.setItem("vc-pwa-cold-app", String(Date.now()));
+          sessionStorage.setItem("vc-pwa-cold-app-id", __app);
+        } catch (__eSs) {}
+        __p.delete("app");
+        var __qs = __p.toString();
+        history.replaceState(
+          history.state,
+          "",
+          String(location.pathname || "/") + (__qs ? "?" + __qs : "") + String(location.hash || ""),
+        );
+      }
+    }
+  } catch (__eAppQ) {}
+  /* violKillEmoji1c: coda seriale — gap 320ms, job troppo lunghi spezzati non qui */
+  try {
+    if (!window.__vcLight) {
+      var _lq = [];
+      var _lBusy = 0;
+      var _lLast = 0;
+      var _lGap = 320;
+      window.__vcBootLightUntil = Date.now() + 18000;
+      function _lPump() {
+        if (_lBusy || !_lq.length) return;
+        _lBusy = 1;
+        var wait = Math.max(0, _lGap - (Date.now() - _lLast));
+        window.setTimeout(function () {
+          var job = _lq.shift();
+          _lLast = Date.now();
+          try {
+            if (typeof job === "function") job();
+          } catch (_eJob) {}
+          _lBusy = 0;
+          if (_lq.length) _lPump();
+        }, wait);
+      }
+      window.__vcLight = function (fn, minDelay) {
+        var d = Math.max(0, Number(minDelay) || 0);
+        if (d > 0) {
+          window.setTimeout(function () {
+            _lq.push(fn);
+            _lPump();
+          }, d);
+          return 0;
+        }
+        _lq.push(fn);
+        _lPump();
+        return 0;
+      };
+      /* violKillFinal2: Y cache globale — scroll handlers non leggono layout */
+      window.__vcCachedScrollY = 0;
+      var _yArm = 0;
+      window.addEventListener(
+        "scroll",
+        function () {
+          /* violRafKill2: cache Y in setTimeout — rAF+pageYOffset = Violation 50–80ms */
+          if (_yArm) return;
+          _yArm = 1;
+          window.setTimeout(function () {
+            _yArm = 0;
+            try {
+              window.__vcCachedScrollY = Math.max(0, Math.round(window.pageYOffset || 0));
+            } catch (_y) {}
+          }, 0);
+        },
+        { passive: true, capture: true },
+      );
+    }
+  } catch (_lqE) {}
+  try {
+    if (!window.__vcRmChildSoft) {
+      window.__vcRmChildSoft = 1;
+      var _p = Node.prototype,
+        _rc = _p.removeChild;
+      _p.removeChild = function (c) {
+        try {
+          if (c && c.parentNode !== this) return c;
+          return _rc.call(this, c);
+        } catch (e) {
+          var m = String((e && e.message) || e || "");
+          if (/not a child|NotFoundError|removeChild/i.test(m)) return c;
+          throw e;
+        }
+      };
+    }
+  } catch (_rm) {}
+  function s(x, d) {
+    try {
+      d = d || 0;
+      if (x && typeof x === "object") {
+        var p = [];
+        if (x.message != null) p.push(String(x.message));
+        if (x.stack != null) p.push(String(x.stack));
+        if (x.name != null) p.push(String(x.name));
+        if (x.fileName != null) p.push(String(x.fileName));
+        if (x.sourceURL != null) p.push(String(x.sourceURL));
+        if (d < 2 && x.reason != null) p.push(s(x.reason, d + 1));
+        if (d < 2 && x.error != null) p.push(s(x.error, d + 1));
+        if (p.length) return p.join(" ");
+      }
+      return String(x || "");
+    } catch (e) {
+      return "";
+    }
+  }
+  var F =
+    /(?:^|[\/\\])(?:content(?:_script)?|content_script|globals-front|adblock-picreplacement|cookieCrumbler|injectscript(?:adjust)?|background)\.js\b|chrome-extension:\/\/|moz-extension:\/\//i;
+  function n(x) {
+    try {
+      var m = s(x);
+      if (!m) return false;
+      if (m.length > 8000) m = m.slice(0, 8000);
+      /* extNoiseHide26: message-channel / returning true + PWA ?app= attribution */
+      return (
+        F.test(m) ||
+        /content_script\.js/i.test(m) ||
+        /listener indicated an asynchronous response/i.test(m) ||
+        /a listener indicated an asynchronous response by returning true/i.test(m) ||
+        (/by returning true/i.test(m) && /message channel closed/i.test(m)) ||
+        /asynchronous response by returning true/i.test(m) ||
+        /returning true,\s*but the message channel closed/i.test(m) ||
+        /closed before a response was received/i.test(m) ||
+        /message channel closed/i.test(m) ||
+        /channel closed before a response was received/i.test(m) ||
+        (/\?app=/i.test(m) &&
+          /message channel|listener indicated|returning true|asynchronous response/i.test(m)) ||
+        /could not establish connection/i.test(m) ||
+        /receiving end does not exist/i.test(m) ||
+        /message port closed/i.test(m) ||
+        /extension context invalidated/i.test(m) ||
+        /unchecked runtime\.lasterror/i.test(m) ||
+        /runtime\.lasterror/i.test(m) ||
+        /wrappedSendMessageCallback/i.test(m) ||
+        /chrome-extension:\/\//i.test(m) ||
+        /moz-extension:\/\//i.test(m) ||
+        /adblock-picreplacement/i.test(m) ||
+        /cookieCrumbler/i.test(m) ||
+        /globals-front\.js/i.test(m) ||
+        /uncaught \(in promise\).*could not establish connection/i.test(m) ||
+        /uncaught \(in promise\).*listener indicated an asynchronous response/i.test(m) ||
+        /uncaught \(in promise\).*message channel closed/i.test(m) ||
+        (/uncaught \(in promise\)/i.test(m) &&
+          /message channel closed|listener indicated|useCache|receiving end|establish connection/i.test(m)) ||
+        (/cannot read properties of undefined/i.test(m) && /useCache/i.test(m)) ||
+        /reading ['"]?useCache['"]?/i.test(m) ||
+        (/cannot read properties of undefined/i.test(m) && /postMessage/i.test(m)) ||
+        /audiocontext encountered an error/i.test(m) ||
+        /error from the audio device/i.test(m) ||
+        /webaudio renderer/i.test(m) ||
+        (/notfounderror/i.test(m) && /node to be removed is not a child/i.test(m)) ||
+        /the node to be removed is not a child of this node/i.test(m) ||
+        /failed to execute ['"]?removechild['"]?/i.test(m) ||
+        (/notfounderror/i.test(m) && /removechild/i.test(m)) ||
+        /violates the following content security policy/i.test(m) ||
+        /loading the script .* violates/i.test(m) ||
+        /connecting to .* violates/i.test(m) ||
+        /connect-src ['"]?none['"]?/i.test(m) ||
+        (/report-only/i.test(m) && /content security policy/i.test(m)) ||
+        /creating a worker from/i.test(m) ||
+        (/script-src ['"]?unsafe-inline['"]?/i.test(m) && /unsafe-eval/i.test(m)) ||
+        /note that ['"]?worker-src['"]? was not explicitly set/i.test(m) ||
+        (/\[violation\]/i.test(m) &&
+          /(content(?:_script)?\.js|chrome-extension:|moz-extension:|globals-front|injectscript|cookieCrumbler|adblock)/i.test(
+            m,
+          )) ||
+        (/failed to load resource/i.test(m) && /status of 429|\b429\b/i.test(m)) ||
+        /* extNoiseHide22: Violation + CSP report-only + ext main.js */
+        /\[violation\]/i.test(m) ||
+        /forced reflow while executing javascript took/i.test(m) ||
+        /'?(?:setTimeout|setInterval|requestAnimationFrame|requestIdleCallback|scroll|visibilitychange|pageshow|message|DOMContentLoaded|load|vc:staff-access-ok)'? handler took/i.test(
+          m,
+        ) ||
+        /handler took \d+ms/i.test(m) ||
+        (/'setInterval' handler took/i.test(m) && /\bmain\.js\b/i.test(m)) ||
+        /\bmain\.js\b.*handler took/i.test(m) ||
+        /content security policy of your site blocks/i.test(m) ||
+        /the content security policy/i.test(m) ||
+        /note that ['"]?script-src-elem['"]? was not explicitly set/i.test(m) ||
+        /usecache/i.test(m) ||
+        /* extNoiseHide28: leak tipici AdBlock/Cookie */
+        /\buseCache\b/i.test(m) ||
+        /establish connection/i.test(m) ||
+        /receiving end/i.test(m) ||
+        /\bcontent\.js\b/i.test(m) ||
+        /\bcontent_script\.js\b/i.test(m)
+      );
+    } catch (_n) {
+      return false;
+    }
+  }
+  /* extNoiseHide28: swallow lastError se chrome.runtime è in page world */
+  try {
+    var cr = window.chrome && window.chrome.runtime;
+    if (cr && typeof cr.sendMessage === "function" && !cr.__vcExtNoise28) {
+      var _sm = cr.sendMessage.bind(cr);
+      cr.sendMessage = function () {
+        var args = [].slice.call(arguments);
+        var cb = typeof args[args.length - 1] === "function" ? args.pop() : null;
+        if (cb) {
+          args.push(function () {
+            try {
+              void cr.lastError;
+            } catch (_le) {}
+            try {
+              return cb.apply(this, arguments);
+            } catch (_cb) {}
+          });
+        }
+        try {
+          return _sm.apply(cr, args);
+        } catch (_smE) {
+          try {
+            void cr.lastError;
+          } catch (_le2) {}
+        }
+      };
+      cr.__vcExtNoise28 = 1;
+    }
+  } catch (_cr) {}
+  function h(e) {
+    var src = "";
+    try {
+      src = String((e && e.filename) || ((e && e.target && e.target.src) || ""));
+    } catch (_s) {}
+    var blob = "";
+    try {
+      blob = [e && e.reason, e && e.message, e && e.error, e && e.type, src].map(s).join(" ");
+    } catch (_b) {}
+    if (!n(e && e.reason) && !n(e && e.message) && !n(e && e.error) && !F.test(src) && !n(src) && !n(blob)) return;
+    try {
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      e.stopPropagation && e.stopPropagation();
+    } catch (_e) {}
+    return false;
+  }
+  window.addEventListener("unhandledrejection", h, true);
+  window.addEventListener("error", h, true);
+  window.onunhandledrejection = h;
+  try {
+    var _rj = h;
+    Object.defineProperty(window, "onunhandledrejection", {
+      configurable: true,
+      enumerable: true,
+      get: function () {
+        return _rj;
+      },
+      set: function (fn) {
+        _rj = function (ev) {
+          if (n(ev && ev.reason) || n(s(ev && ev.reason))) {
+            try {
+              ev.preventDefault();
+              ev.stopImmediatePropagation();
+            } catch (_k) {}
+            return false;
+          }
+          if (typeof fn === "function") return fn.apply(this, arguments);
+        };
+      },
+    });
+    window.onunhandledrejection = _rj;
+  } catch (_d) {}
+  window.addEventListener(
+    "securitypolicyviolation",
+    function (ev) {
+      var t = "";
+      try {
+        t = [ev.blockedURI, ev.violatedDirective, ev.originalPolicy, ev.sourceFile, ev.disposition].join(" ");
+      } catch (_t) {}
+      if (!n(t) && String(ev.disposition || "") !== "report") return;
+      try {
+        ev.preventDefault();
+        ev.stopImmediatePropagation();
+      } catch (_p) {}
+    },
+    true,
+  );
+  function strip() {
+    /* extNoiseHide27: rimuovi meta CSP da estensioni (connect-src none / script-src solo unsafe-*)
+       — la CSP vera del sito è header nginx (connect+worker ok). */
+    try {
+      document.querySelectorAll("meta[http-equiv]").forEach(function (m) {
+        var eq = String(m.httpEquiv || m.getAttribute("http-equiv") || "");
+        if (!/content-security-policy/i.test(eq)) return;
+        var c = String(m.getAttribute("content") || "");
+        if (
+          /connect-src\s+['"]?none['"]?/i.test(c) ||
+          /^script-src\s+['"]?unsafe-inline['"]?\s+['"]?unsafe-eval['"]?\s*$/i.test(c.trim()) ||
+          (/script-src\s+['"]?unsafe-inline['"]?/i.test(c) &&
+            /unsafe-eval/i.test(c) &&
+            !/https?:|blob:|'self'/i.test(c)) ||
+          (/connect-src\s+['"]?none['"]?/i.test(c) && /unsafe-eval/i.test(c))
+        ) {
+          try {
+            m.remove();
+          } catch (_r) {}
+        }
+      });
+    } catch (_s) {}
+  }
+  try {
+    window.__vcStripExtCsp = strip;
+  } catch (_exp) {}
+  strip();
+  try {
+    var o = new MutationObserver(strip);
+    o.observe(document.documentElement, { childList: true, subtree: true });
+    /* primi secondi: strip aggressivo prima di SW register */
+    var _fastN = 0;
+    var _fastIv = setInterval(function () {
+      try {
+        strip();
+      } catch (_f) {}
+      if (++_fastN >= 20) {
+        try {
+          clearInterval(_fastIv);
+        } catch (_c) {}
+      }
+    }, 100);
+    var _slowN = 0;
+    var _slowIv = setInterval(function () {
+      try {
+        strip();
+      } catch (_i) {}
+      if (++_slowN >= 4) {
+        try { clearInterval(_slowIv); } catch (_cs) {}
+      }
+    }, 12000);
+    setTimeout(function () {
+      try {
+        o.disconnect();
+      } catch (_d) {}
+      try { clearInterval(_slowIv); } catch (_cd) {}
+    }, 20000);
+  } catch (_o) {}
+  ["error", "warn", "log", "info", "debug", "verbose"].forEach(function (l) {
+    var orig = console[l];
+    if (typeof orig !== "function") return;
+    if (orig && orig.__vcExtNoiseBoot) return;
+    var native = orig;
+    try {
+      native = orig.bind(console);
+    } catch (_b) {}
+    function filtered() {
+      /* extNoiseHide28: filtra sempre; poi native (mai wrapper estensioni) */
+      var a = "";
+      try {
+        for (var i = 0; i < arguments.length; i++) a += " " + s(arguments[i]);
+        if (n(a) || F.test(a)) return;
+      } catch (_chk) {
+        return;
+      }
+      if (filtered._busy) return;
+      filtered._busy = 1;
+      try {
+        return native.apply(console, arguments);
+      } finally {
+        filtered._busy = 0;
+      }
+    }
+    filtered.__vcExtNoiseBoot = 1;
+    try {
+      Object.defineProperty(console, l, {
+        configurable: true,
+        enumerable: true,
+        get: function () {
+          return filtered;
+        },
+        set: function () {
+          /* extNoiseHide28: ignora wrap di estensioni — restiamo noi */
+        },
+      });
+    } catch (_lock) {
+      console[l] = filtered;
+    }
+  });
+  try {
+    /* extNoiseHide19: addEventListener UNA volta — re-arm solo property (stop stack Violation) */
+    if (!window.__vcExtNoiseListeners) {
+      window.__vcExtNoiseListeners = 1;
+      window.addEventListener("unhandledrejection", h, true);
+      window.addEventListener("error", h, true);
+    }
+    window.onunhandledrejection = h;
+    var _t0 = Date.now();
+    var _id = setInterval(function () {
+      if (Date.now() - _t0 > 30000) {
+        clearInterval(_id);
+        return;
+      }
+      try {
+        window.onunhandledrejection = h;
+        /* re-lock console se qualcosa ha ridato i method nativi */
+        ["error", "warn", "log", "info", "debug"].forEach(function (lv) {
+          try {
+            var cur = console[lv];
+            if (!cur || !cur.__vcExtNoiseBoot) {
+              /* trigger reinstall via defineProperty path already set — no-op if ok */
+            }
+          } catch (_c) {}
+        });
+      } catch (_r) {}
+    }, 4000);
+  } catch (_re) {}
+  /* extNoiseHide28 */
+})();
+</script>
+                    <p class="vc-ps-wizard__kicker" data-i18n="dash.ps.kicker">Partnership</p>
+                    <h2 class="vc-ps-wizard__title" data-i18n="dash.wz.title">Configura partnership</h2>
+                    <p class="vc-ps-wizard__sub" data-i18n="dash.wz.sub">Canale di pubblicazione, team e avvisi automatici.</p>
+                    <ol class="vc-ps-wizard__steps" id="ps-wz-steps" aria-label="Passaggi setup">
+                      <li class="vc-ps-wizard__step is-active" data-wz-step-ind="1"><span>1</span><em data-i18n="dash.wz.stepChannels">Canali</em></li>
+                      <li class="vc-ps-wizard__step" data-wz-step-ind="2"><span>2</span><em data-i18n="dash.wz.stepRoles">Ruoli</em></li>
+                      <li class="vc-ps-wizard__step" data-wz-step-ind="3"><span>3</span><em data-i18n="dash.wz.stepPings">Ping</em></li>
+                      <li class="vc-ps-wizard__step" data-wz-step-ind="4"><span>4</span><em data-i18n="dash.wz.stepDone">Fine</em></li>
+                    </ol>
+                  </header>
+
+                  <section class="vc-ps-wizard__panel is-active" data-wz-panel="1" id="ps-wz-panel-1">
+                    <h3 class="vc-ps-wizard__panel-title" data-i18n="dash.wz.channelsTitle">Canali</h3>
+                    <p class="vc-ps-wizard__panel-text" data-i18n="dash.wz.channelsText">Scegli dove pubblicare le partnership e, se vuoi, i log.</p>
+                    <label class="vc-dash-picker">
+                      <span class="vc-dash-picker__label vc-dash-picker__label--with-flag">
+                        <span data-i18n="dash.ps.partnershipChannelTitle">Canale partnership</span>
+                        <span class="vc-ps-field-flag vc-ps-field-flag--required" data-i18n="dash.wz.flagRequired" hidden></span>
+                      </span>
+                      <select id="ps-wz-partnershipsChannelId"></select>
+                    </label>
+                    <label class="vc-dash-picker mt-3">
+                      <span class="vc-dash-picker__label vc-dash-picker__label--with-flag">
+                        <span data-i18n="dash.ps.logsChannelTitle">Canale log</span>
+                        <span class="vc-ps-field-flag vc-ps-field-flag--optional" data-i18n="dash.wz.flagOptional">Facoltativo</span>
+                      </span>
+                      <select id="ps-wz-logsChannelId" data-clearable="1"></select>
+                    </label>
+                  </section>
+
+                  <section class="vc-ps-wizard__panel" data-wz-panel="2" id="ps-wz-panel-2" hidden>
+                    <h3 class="vc-ps-wizard__panel-title" data-i18n="dash.wz.rolesTitle">Ruolo Partner Manager</h3>
+                    <p class="vc-ps-wizard__panel-text" data-i18n="dash.wz.rolesText">Chi ha questo ruolo potrà usare i comandi partnership sul server.</p>
+                    <label class="vc-dash-picker">
+                      <span class="vc-dash-picker__label vc-dash-picker__label--with-flag">
+                        <span data-i18n="dash.ps.partnerManagerRoleTitle">Ruolo Partner Manager</span>
+                        <span class="vc-ps-field-flag vc-ps-field-flag--required" data-i18n="dash.wz.flagRequired" hidden></span>
+                      </span>
+                      <select id="ps-wz-partnerManagerRoleId"></select>
+                    </label>
+                  </section>
+
+                  <section class="vc-ps-wizard__panel" data-wz-panel="3" id="ps-wz-panel-3" hidden>
+                    <h3 class="vc-ps-wizard__panel-title" data-i18n="dash.wz.pingsTitle">Ping automatici</h3>
+                    <p class="vc-ps-wizard__panel-text" data-i18n="dash.wz.pingsText">Imposta soglie membri per @here / @everyone / ruolo custom, oppure salta. Per il custom servono sia ruolo sia soglia.</p>
+                    <div class="vc-dash-picker-grid">
+                      <label class="vc-dash-picker">
+                        <span class="vc-dash-picker__label vc-dash-picker__label--with-flag">
+                          <span data-i18n="dash.ps.herePingTitle">Ping @here — membri minimi</span>
+                          <span class="vc-ps-field-flag vc-ps-field-flag--optional" data-i18n="dash.wz.flagOptional">Facoltativo</span>
+                        </span>
+                        <input type="number" min="0" id="ps-wz-hereMembers" placeholder="es. 50" data-i18n-attr="placeholder:dash.ps.hereMembersPlaceholder" />
+                      </label>
+                      <label class="vc-dash-picker">
+                        <span class="vc-dash-picker__label vc-dash-picker__label--with-flag">
+                          <span data-i18n="dash.ps.everyonePingTitle">Ping @everyone — membri minimi</span>
+                          <span class="vc-ps-field-flag vc-ps-field-flag--optional" data-i18n="dash.wz.flagOptional">Facoltativo</span>
+                        </span>
+                        <input type="number" min="0" id="ps-wz-everyoneMembers" placeholder="es. 200" data-i18n-attr="placeholder:dash.ps.everyoneMembersPlaceholder" />
+                      </label>
+                    </div>
+                    <div class="vc-dash-picker-grid mt-3">
+                      <label class="vc-dash-picker">
+                        <span class="vc-dash-picker__label vc-dash-picker__label--with-flag">
+                          <span data-i18n="dash.wz.customRoleLabel">Ping ruolo custom</span>
+                          <span class="vc-ps-field-flag vc-ps-field-flag--optional" data-i18n="dash.wz.flagOptional">Facoltativo</span>
+                        </span>
+                        <select id="ps-wz-customRoleId" data-clearable="1"></select>
+                      </label>
+                      <label class="vc-dash-picker">
+                        <span class="vc-dash-picker__label vc-dash-picker__label--with-flag">
+                          <span data-i18n="dash.wz.customMembersLabel">Membri minimi (ruolo)</span>
+                          <span class="vc-ps-field-flag vc-ps-field-flag--optional" data-i18n="dash.wz.flagOptional">Facoltativo</span>
+                        </span>
+                        <input type="number" min="0" id="ps-wz-customRoleMembers" placeholder="es. 30" data-i18n-attr="placeholder:dash.ps.customRoleMembersPlaceholder" />
+                      </label>
+                    </div>
+                  </section>
+
+                  <section class="vc-ps-wizard__panel" data-wz-panel="4" id="ps-wz-panel-4" hidden>
+                    <h3 class="vc-ps-wizard__panel-title" data-i18n="dash.wz.doneTitle">Tutto pronto</h3>
+                    <p class="vc-ps-wizard__panel-text" data-i18n="dash.wz.doneText">Controlla il riepilogo e completa il setup. Poi avrai accesso a tutte le impostazioni partnership.</p>
+                    <dl class="vc-ps-wizard__summary" id="ps-wz-summary">
+                      <div><dt data-i18n="dash.wz.sumChannel">Canale</dt><dd id="ps-wz-sum-channel">—</dd></div>
+                      <div><dt data-i18n="dash.wz.sumLogs">Log</dt><dd id="ps-wz-sum-logs">—</dd></div>
+                      <div><dt data-i18n="dash.wz.sumRole">Ruolo PM</dt><dd id="ps-wz-sum-role">—</dd></div>
+                      <div><dt data-i18n="dash.wz.sumPings">Ping</dt><dd id="ps-wz-sum-pings">—</dd></div>
+                    </dl>
+                  </section>
+
+                  <div class="vc-ps-wizard__nav" id="ps-wz-nav" role="navigation" aria-label="Navigazione setup">
+                    <button type="button" class="vc-dashboard-btn" id="ps-wz-back" hidden>
+                      <i class="fa fa-chevron-left" aria-hidden="true"></i> <span data-i18n="dash.wz.back">Indietro</span>
+                    </button>
+                    <div class="vc-ps-wizard__nav-spacer"></div>
+                    <button type="button" class="vc-dashboard-btn vc-dashboard-btn--primary" id="ps-wz-next">
+                      <span data-i18n="dash.wz.next">Avanti</span> <i class="fa fa-chevron-right" aria-hidden="true"></i>
+                    </button>
+                    <button type="button" class="vc-dashboard-btn vc-dashboard-btn--primary" id="ps-wz-finish" hidden>
+                      <i class="fa fa-check" aria-hidden="true"></i> <span data-i18n="dash.wz.finish">Completa setup</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div id="vc-dashboard-setup-bar" class="vc-dashboard-setup-bar" hidden>
+                <p class="vc-dashboard-setup-bar__text" data-i18n="dash.ps.setupBarText">
+                  Configurazione incompleta: scegli il canale partnership e chi gestisce le partnership, poi completa.
+                </p>
+                <button type="button" id="ps-complete-btn" class="vc-dashboard-btn">
+                  <i class="fa fa-check" aria-hidden="true"></i> <span data-i18n="dash.ps.completeSetup">Completa setup</span>
+                </button>
+              </div>
+
+              <div class="vc-dashboard-view" data-view-panel="partnership/generale" id="vc-dashboard-view-generale" hidden>
+                <div class="vc-dash-page-layout">
+                  <aside class="vc-dash-page-intro">
+                    <p class="vc-dash-page-intro__kicker" data-i18n="dash.ps.kicker">Partnership</p>
+                    <h2 class="vc-dash-page-intro__title" data-i18n="dash.basics">Generale</h2>
+                    <p class="vc-dash-page-intro__text" data-i18n="dash.basicsIntro">Canali, team, ping, opzioni e descrizione partner.</p>
+                  </aside>
+                  <div class="vc-dash-page-main">
+                    <section class="vc-ps-page-section" id="ps-sec-channels" aria-labelledby="ps-sec-channels-title">
+                      <header class="vc-ps-page-section__head px-4 pt-4">
+                        <span class="vc-ps-page-section__ico" aria-hidden="true"><i class="fa fa-comments"></i></span>
+                        <div>
+                          <h3 class="vc-ps-page-section__title" id="ps-sec-channels-title" data-i18n="dash.ps.channelsTitle">Canali</h3>
+                          <p class="vc-ps-page-section__text" data-i18n="dash.ps.channelsIntro">Canali partnership, attività e zona del team.</p>
+                        </div>
+                      </header>
+                      <div class="vc-dash-settings-rows vc-ps-settings-rows">
+                  <article class="vc-dash-settings-row" data-feat data-feat-required data-feat-menu>
+                    <div class="vc-dash-settings-row__copy">
+                      <strong class="vc-dash-settings-row__title" data-i18n="dash.ps.partnershipChannelTitle">Canale partnership</strong>
+                      <p class="vc-dash-settings-row__hint" data-i18n="dash.ps.partnershipChannelHint">Dove vengono pubblicate le partnership</p>
+                    </div>
+                    <div class="vc-dash-settings-row__control" data-feat-panel>
+                      <label class="vc-dash-picker">
+                        <span class="vc-dash-picker__label" data-i18n="dash.selectChannel">Seleziona canale</span>
+                        <select name="partnershipsChannelId" id="ps-partnershipsChannelId"></select>
+                      </label>
+                    </div>
+                  </article>
+
+                  <article class="vc-dash-settings-row" data-feat data-feat-menu id="ps-logsChannelFeat">
+                    <div class="vc-dash-settings-row__copy">
+                      <strong class="vc-dash-settings-row__title" data-i18n="dash.ps.logsChannelTitle">Canale log</strong>
+                      <p class="vc-dash-settings-row__hint" data-i18n="dash.ps.logsChannelHint">Log delle partnership eseguite</p>
+                    </div>
+                    <div class="vc-dash-settings-row__control" data-feat-panel>
+                      <label class="vc-dash-picker">
+                        <span class="vc-dash-picker__label" data-i18n="dash.selectChannel">Seleziona canale</span>
+                        <select name="logsChannelId" id="ps-logsChannelId" data-clearable="1"></select>
+                      </label>
+                    </div>
+                  </article>
+
+                  <article class="vc-dash-settings-row" data-feat data-feat-menu id="ps-pmZoneFeat">
+                    <div class="vc-dash-settings-row__copy">
+                      <strong class="vc-dash-settings-row__title" data-i18n="dash.ps.pmZoneTitle">Zona del team</strong>
+                      <p class="vc-dash-settings-row__hint" data-i18n="dash.ps.pmZoneHint">Canali e categorie in cui il team può usare i comandi partnership.</p>
+                    </div>
+                    <div class="vc-dash-settings-row__control" data-feat-panel>
+                      <div class="vc-dash-picker">
+                        <span class="vc-dash-picker__label" data-i18n="dash.ps.pmZoneLabel">Canali o categorie</span>
+                        <div class="vc-dash-token-field" data-ps-zone-token>
+                          <div class="vc-dash-token-field__box" tabindex="0">
+                            <div class="vc-dash-token-field__chips" data-ps-zone-chips></div>
+                            <input type="text" class="vc-dash-token-field__search" data-ps-zone-search autocomplete="off" placeholder="Seleziona canale o categoria" data-i18n-placeholder="dash.ps.pmZoneSearch" />
+                          </div>
+                          <div class="vc-dash-token-field__menu" data-ps-zone-menu hidden></div>
+                        </div>
+                      </div>
+                      <select name="pmCommandsChannelId" id="ps-pmCommandsChannelId" hidden tabindex="-1" aria-hidden="true"></select>
+                      <select name="pmCommandsCategoryIds" id="ps-pmCommandsCategoryIds" multiple hidden tabindex="-1" aria-hidden="true"></select>
+                    </div>
+                  </article>
+                      </div>
+                    </section>
+
+                    <section class="vc-ps-page-section" id="ps-sec-roles" aria-labelledby="ps-sec-roles-title">
+                      <header class="vc-ps-page-section__head px-4 pt-4">
+                        <span class="vc-ps-page-section__ico" aria-hidden="true"><i class="fa fa-shield"></i></span>
+                        <div>
+                          <h3 class="vc-ps-page-section__title" id="ps-sec-roles-title" data-i18n="dash.ps.rolesTitle">Ruoli</h3>
+                          <p class="vc-ps-page-section__text" data-i18n="dash.ps.rolesIntro">Ruolo team e, opzionale, ruolo riconoscimento.</p>
+                        </div>
+                      </header>
+                      <div class="vc-dash-settings-rows vc-ps-settings-rows">
+                  <article class="vc-dash-settings-row" data-feat data-feat-required data-feat-menu>
+                    <div class="vc-dash-settings-row__copy">
+                      <strong class="vc-dash-settings-row__title" data-i18n="dash.ps.partnerManagerRoleTitle">Ruolo Partner Manager</strong>
+                      <p class="vc-dash-settings-row__hint" data-i18n="dash.ps.partnerManagerRoleHint">Chi può gestire le partnership</p>
+                    </div>
+                    <div class="vc-dash-settings-row__control" data-feat-panel>
+                      <label class="vc-dash-picker">
+                        <span class="vc-dash-picker__label" data-i18n="dash.selectRole">Seleziona ruolo</span>
+                        <select name="partnerManagerRoleId" id="ps-partnerManagerRoleId"></select>
+                      </label>
+                    </div>
+                  </article>
+
+                  <article class="vc-dash-settings-row" data-feat data-feat-menu id="ps-managerBadgeFeat">
+                    <div class="vc-dash-settings-row__copy">
+                      <strong class="vc-dash-settings-row__title" data-i18n="dash.ps.managerBadgeRoleTitle">Ruolo badge manager</strong>
+                      <p class="vc-dash-settings-row__hint" data-i18n="dash.ps.managerBadgeRoleHint">Badge assegnato al manager della partnership</p>
+                    </div>
+                    <div class="vc-dash-settings-row__control" data-feat-panel>
+                      <label class="vc-dash-picker">
+                        <span class="vc-dash-picker__label" data-i18n="dash.selectRole">Seleziona ruolo</span>
+                        <select name="managerBadgeRoleId" id="ps-managerBadgeRoleId" data-clearable="1"></select>
+                      </label>
+                    </div>
+                  </article>
+                      </div>
+                    </section>
+
+                    <section class="vc-ps-page-section" id="ps-sec-pings" aria-labelledby="ps-sec-pings-title">
+                      <header class="vc-ps-page-section__head px-4 pt-4">
+                        <span class="vc-ps-page-section__ico" aria-hidden="true"><i class="fa fa-bullhorn"></i></span>
+                        <div>
+                          <h3 class="vc-ps-page-section__title" id="ps-sec-pings-title" data-i18n="dash.ps.pingsTitle">Ping automatici</h3>
+                          <p class="vc-ps-page-section__text" data-i18n="dash.ps.pingsIntro">Soglie membri per @here, @everyone o un ruolo custom, con eventuale delay.</p>
+                        </div>
+                      </header>
+                      <div class="vc-dash-settings-rows vc-ps-settings-rows">
+                  <article class="vc-dash-settings-row vc-dash-settings-row--switch-panel vc-dash-settings-row--stack" data-feat id="ps-herePingFeat">
+                    <div class="vc-dash-settings-row__copy">
+                      <strong class="vc-dash-settings-row__title" data-i18n="dash.ps.herePingTitle">Ping @here</strong>
+                      <p class="vc-dash-settings-row__hint" data-i18n="dash.ps.thresholdDelayHint">Soglia membri e delay</p>
+                    </div>
+                    <div class="vc-dash-settings-row__control">
+                      <label class="vc-dash-switch">
+                        <input type="checkbox" data-feat-switch aria-label="Attiva ping here" data-i18n-attr="aria-label:dash.ps.herePingToggleAria" />
+                        <span class="vc-dash-switch__track" aria-hidden="true"><span class="vc-dash-switch__thumb"></span></span>
+                      </label>
+                    </div>
+                    <div class="vc-dash-settings-row__extra vc-dash-settings-row__extra--full" data-feat-panel hidden>
+                      <div class="vc-dash-picker-grid">
+                        <label class="vc-dash-picker">
+                          <span class="vc-dash-picker__label" data-i18n="dash.ps.minMembersLabel">Membri minimi</span>
+                          <input type="number" min="0" name="hereMembers" id="ps-hereMembers" placeholder="es. 50" data-i18n-placeholder="dash.ps.hereMembersPlaceholder" />
+                        </label>
+                        <label class="vc-dash-picker">
+                          <span class="vc-dash-picker__label" data-i18n="dash.ps.delayLabel">Delay</span>
+                          <input type="text" name="hereDelayInput" id="ps-hereDelayInput" placeholder="5m" />
+                        </label>
+                      </div>
+                    </div>
+                  </article>
+
+                  <article class="vc-dash-settings-row vc-dash-settings-row--switch-panel vc-dash-settings-row--stack" data-feat id="ps-everyonePingFeat">
+                    <div class="vc-dash-settings-row__copy">
+                      <strong class="vc-dash-settings-row__title" data-i18n="dash.ps.everyonePingTitle">Ping @everyone</strong>
+                      <p class="vc-dash-settings-row__hint" data-i18n="dash.ps.thresholdDelayHint">Soglia membri e delay</p>
+                    </div>
+                    <div class="vc-dash-settings-row__control">
+                      <label class="vc-dash-switch">
+                        <input type="checkbox" data-feat-switch aria-label="Attiva ping everyone" data-i18n-attr="aria-label:dash.ps.everyonePingToggleAria" />
+                        <span class="vc-dash-switch__track" aria-hidden="true"><span class="vc-dash-switch__thumb"></span></span>
+                      </label>
+                    </div>
+                    <div class="vc-dash-settings-row__extra vc-dash-settings-row__extra--full" data-feat-panel hidden>
+                      <div class="vc-dash-picker-grid">
+                        <label class="vc-dash-picker">
+                          <span class="vc-dash-picker__label" data-i18n="dash.ps.minMembersLabel">Membri minimi</span>
+                          <input type="number" min="0" name="everyoneMembers" id="ps-everyoneMembers" placeholder="es. 200" data-i18n-placeholder="dash.ps.everyoneMembersPlaceholder" />
+                        </label>
+                        <label class="vc-dash-picker">
+                          <span class="vc-dash-picker__label" data-i18n="dash.ps.delayLabel">Delay</span>
+                          <input type="text" name="everyoneDelayInput" id="ps-everyoneDelayInput" placeholder="5m" />
+                        </label>
+                      </div>
+                    </div>
+                  </article>
+
+                  <article class="vc-dash-settings-row vc-dash-settings-row--switch-panel vc-dash-settings-row--stack" data-feat id="ps-customPingFeat">
+                    <div class="vc-dash-settings-row__copy">
+                      <strong class="vc-dash-settings-row__title" data-i18n="dash.ps.customPingTitle">Avviso personalizzato</strong>
+                      <p class="vc-dash-settings-row__hint" data-i18n="dash.ps.customPingHint">Gruppo, soglia e ritardo</p>
+                    </div>
+                    <div class="vc-dash-settings-row__control">
+                      <label class="vc-dash-switch">
+                        <input type="checkbox" data-feat-switch aria-label="Attiva avviso personalizzato" data-i18n-attr="aria-label:dash.ps.customPingToggleAria" />
+                        <span class="vc-dash-switch__track" aria-hidden="true"><span class="vc-dash-switch__thumb"></span></span>
+                      </label>
+                    </div>
+                    <div class="vc-dash-settings-row__extra vc-dash-settings-row__extra--full" data-feat-panel hidden>
+                      <div class="vc-dash-picker-grid">
+                        <label class="vc-dash-picker">
+                          <span class="vc-dash-picker__label" data-i18n="dash.ps.roleLabel">Gruppo</span>
+                          <select name="customRoleId" id="ps-customRoleId" data-clearable="1"></select>
+                        </label>
+                        <label class="vc-dash-picker">
+                          <span class="vc-dash-picker__label" data-i18n="dash.ps.memberThresholdLabel">Soglia membri</span>
+                          <input type="number" min="0" name="customRoleMembers" id="ps-customRoleMembers" placeholder="es. 30" data-i18n-placeholder="dash.ps.customRoleMembersPlaceholder" />
+                        </label>
+                        <label class="vc-dash-picker">
+                          <span class="vc-dash-picker__label" data-i18n="dash.ps.delayLabel">Delay</span>
+                          <input type="text" name="customRoleDelayInput" id="ps-customRoleDelayInput" placeholder="5m" />
+                        </label>
+                      </div>
+                    </div>
+                  </article>
+                      </div>
+                    </section>
+
+                    <section class="vc-ps-page-section" id="ps-sec-options" aria-labelledby="ps-sec-options-title">
+                      <header class="vc-ps-page-section__head px-4 pt-4">
+                        <span class="vc-ps-page-section__ico" aria-hidden="true"><i class="fa fa-cog"></i></span>
+                        <div>
+                          <h3 class="vc-ps-page-section__title" id="ps-sec-options-title" data-i18n="dash.ps.optionsTitle">Opzioni</h3>
+                          <p class="vc-ps-page-section__text" data-i18n="dash.ps.optionsIntro">Comportamenti generali: conferma manager, partnership manuale, azioni se il manager lascia e rate limit sullo stesso server.</p>
+                        </div>
+                      </header>
+                      <div class="vc-dash-settings-rows vc-ps-settings-rows">
+                  <article class="vc-dash-settings-row vc-dash-settings-row--switch" data-feat data-feat-bool>
+                    <div class="vc-dash-settings-row__copy">
+                      <strong class="vc-dash-settings-row__title" data-i18n="dash.ps.skipManagerTitle">Skip manager</strong>
+                      <p class="vc-dash-settings-row__hint" data-i18n="dash.ps.skipManagerHint">Non richiedere conferma del manager</p>
+                    </div>
+                    <div class="vc-dash-settings-row__control">
+                      <label class="vc-dash-switch">
+                        <input type="checkbox" name="skipManager" id="ps-skipManager" data-feat-switch aria-label="Skip manager" data-i18n-attr="aria-label:dash.ps.skipManagerTitle" />
+                        <span class="vc-dash-switch__track" aria-hidden="true"><span class="vc-dash-switch__thumb"></span></span>
+                      </label>
+                    </div>
+                  </article>
+
+                  <article class="vc-dash-settings-row vc-dash-settings-row--switch" data-feat data-feat-bool>
+                    <div class="vc-dash-settings-row__copy">
+                      <strong class="vc-dash-settings-row__title" data-i18n="dash.ps.manualPartnershipTitle">Partnership manuale</strong>
+                      <p class="vc-dash-settings-row__hint" data-i18n="dash.ps.manualPartnershipHint">Consenti partnership create a mano</p>
+                    </div>
+                    <div class="vc-dash-settings-row__control">
+                      <label class="vc-dash-switch">
+                        <input type="checkbox" name="manualPartnershipEnabled" id="ps-manualPartnershipEnabled" data-feat-switch aria-label="Partnership manuale" data-i18n-attr="aria-label:dash.ps.manualPartnershipTitle" />
+                        <span class="vc-dash-switch__track" aria-hidden="true"><span class="vc-dash-switch__thumb"></span></span>
+                      </label>
+                    </div>
+                  </article>
+
+                  <article class="vc-dash-settings-row vc-dash-settings-row--switch-panel vc-dash-settings-row--stack" data-feat id="ps-managerLeaveFeat">
+                    <div class="vc-dash-settings-row__copy">
+                      <strong class="vc-dash-settings-row__title" data-i18n="dash.ps.managerLeaveTitle">Manager fuori dal server</strong>
+                      <p class="vc-dash-settings-row__hint" data-i18n="dash.ps.managerLeaveHint">Cosa fare se chi gestisce lascia il server con una partnership attiva</p>
+                    </div>
+                    <div class="vc-dash-settings-row__control">
+                      <label class="vc-dash-switch">
+                        <input type="checkbox" data-feat-switch aria-label="Attiva azione uscita manager" data-i18n-attr="aria-label:dash.ps.managerLeaveToggleAria" />
+                        <span class="vc-dash-switch__track" aria-hidden="true"><span class="vc-dash-switch__thumb"></span></span>
+                      </label>
+                    </div>
+                    <div class="vc-dash-settings-row__extra vc-dash-settings-row__extra--full" data-feat-panel hidden>
+                      <label class="vc-dash-picker">
+                        <span class="vc-dash-picker__label" data-i18n="dash.ps.actionLabel">Azione</span>
+                        <select name="managerLeaveAction" id="ps-managerLeaveAction">
+                          <option value="warn" data-i18n="dash.ps.actionWarn">Avvisa</option>
+                          <option value="delete" data-i18n="dash.ps.actionDelete">Elimina (5m)</option>
+                        </select>
+                      </label>
+                    </div>
+                  </article>
+
+                  <article class="vc-dash-settings-row vc-dash-settings-row--switch-panel vc-dash-settings-row--stack" data-feat id="ps-sameServerCooldownFeat">
+                    <div class="vc-dash-settings-row__copy">
+                      <strong class="vc-dash-settings-row__title" data-i18n="dash.ps.sameServerCooldownTitle">Rate limit stesso server</strong>
+                      <p class="vc-dash-settings-row__hint" data-i18n="dash.ps.sameServerCooldownHint">Tempo minimo prima di rifare partner con lo stesso server</p>
+                    </div>
+                    <div class="vc-dash-settings-row__control">
+                      <label class="vc-dash-switch">
+                        <input type="checkbox" data-feat-switch aria-label="Attiva rate limit stesso server" data-i18n-attr="aria-label:dash.ps.sameServerCooldownToggleAria" />
+                        <span class="vc-dash-switch__track" aria-hidden="true"><span class="vc-dash-switch__thumb"></span></span>
+                      </label>
+                    </div>
+                    <div class="vc-dash-settings-row__extra vc-dash-settings-row__extra--full" data-feat-panel hidden>
+                      <label class="vc-dash-picker">
+                        <span class="vc-dash-picker__label" data-i18n="dash.ps.sameServerCooldownLabel">Durata</span>
+                        <input type="text" name="sameServerCooldownInput" id="ps-sameServerCooldownInput" placeholder="12h" autocomplete="off" data-i18n-attr="placeholder:dash.ps.sameServerCooldownPlaceholder" />
+                      </label>
+                    </div>
+                  </article>
+                      </div>
+                    </section>
+
+                    <section class="vc-ps-page-section" id="ps-sec-description" aria-labelledby="ps-sec-description-title">
+                      <header class="vc-ps-page-section__head px-4 pt-4">
+                        <span class="vc-ps-page-section__ico" aria-hidden="true"><i class="fa fa-align-left"></i></span>
+                        <div>
+                          <h3 class="vc-ps-page-section__title" id="ps-sec-description-title" data-i18n="dash.ps.descTitle">Descrizione partner</h3>
+                          <p class="vc-ps-page-section__text" data-i18n="dash.ps.descIntro">Canale o testo fisso come descrizione partner; vuoto = disattivata.</p>
+                        </div>
+                      </header>
+                      <div class="vc-dash-settings-rows vc-ps-settings-rows">
+                  <article class="vc-dash-settings-row vc-dash-settings-row--stack" data-feat data-feat-menu id="ps-partnerDescFeat">
+                    <div class="vc-dash-settings-row__copy">
+                      <strong class="vc-dash-settings-row__title" data-i18n="dash.ps.descTitle">Descrizione partner</strong>
+                      <p class="vc-dash-settings-row__hint" data-i18n="dash.ps.descHint">Da canale o testo statico</p>
+                    </div>
+                    <div class="vc-dash-settings-row__control" data-feat-panel>
+                      <input type="hidden" name="partnerDescMode" id="ps-partnerDescMode" value="channel" />
+                      <div class="vc-dash-seg" role="tablist" aria-label="Modalità descrizione" data-i18n-attr="aria-label:dash.ps.descModeAria">
+                        <button type="button" class="vc-dash-seg__btn is-active" data-desc-mode="channel" data-i18n="dash.ps.descModeChannel">Canale</button>
+                        <button type="button" class="vc-dash-seg__btn" data-desc-mode="static" data-i18n="dash.ps.descModeStatic">Testo statico</button>
+                      </div>
+                      <label class="vc-dash-picker mt-3" id="ps-partnerDescChannelWrap">
+                        <span class="vc-dash-picker__label" data-i18n="dash.ps.descChannelLabel">Canale descrizione</span>
+                        <select name="partnerDescChannelId" id="ps-partnerDescChannelId" data-clearable="1"></select>
+                      </label>
+                      <label class="vc-dash-picker mt-3" id="ps-partnerDescStaticWrap" hidden>
+                        <span class="vc-dash-picker__label" data-i18n="dash.ps.descStaticLabel">Testo statico (max 4000)</span>
+                        <textarea name="partnerDescStaticText" id="ps-partnerDescStaticText" rows="5" maxlength="4000" placeholder="Incolla qui la descrizione del server..." data-i18n-placeholder="dash.ps.descStaticPlaceholder"></textarea>
+                      </label>
+                    </div>
+                  </article>
+                      </div>
+                    </section>
+                  </div>
+                </div>
+              </div>
+
+              <div class="vc-dashboard-view" data-view-panel="partnership/embed" id="vc-dashboard-view-embed" hidden>
+                <div class="vc-dash-page-layout">
+                  <aside class="vc-dash-page-intro">
+                    <p class="vc-dash-page-intro__kicker" data-i18n="dash.ps.kicker">Partnership</p>
+                    <h2 class="vc-dash-page-intro__title" data-i18n="dash.ps.embedTitle">Embed ringraziamento</h2>
+                    <p class="vc-dash-page-intro__text" data-i18n="dash.ps.embedIntro">Colore, titoli e media dell’embed di ringraziamento.</p>
+                  </aside>
+                  <div class="vc-dash-page-main">
+                <div class="vc-dash-settings-rows vc-ps-settings-rows">
+                  <article class="vc-dash-settings-row vc-dash-settings-row--switch-panel vc-dash-settings-row--stack is-on" data-feat id="ps-embedFeat" data-premium-gate data-feat-required>
+                    <div class="vc-dash-settings-row__copy">
+                      <strong class="vc-dash-settings-row__title">
+                        <span data-i18n="dash.ps.embedFeatTitle">Messaggio personalizzato</span>
+                        <span class="vc-dash-premium-badge is-locked" data-premium-badge title="Vinili Premium">
+                          <i class="fa fa-lock" data-premium-lock-ico aria-hidden="true"></i>
+                          Premium
+                        </span>
+                      </strong>
+                      <p class="vc-dash-settings-row__hint" data-i18n="dash.ps.embedHint">Colore, testi e immagini</p>
+                    </div>
+                    <div class="vc-dash-settings-row__control vc-dash-settings-row__control--embed-tools">
+                      <button
+                        type="button"
+                        id="ps-embedReset"
+                        class="vc-dash-embed-reset"
+                        data-i18n-attr="title:dash.ps.embedReset,aria-label:dash.ps.embedReset"
+                        title="Ripristina default"
+                        aria-label="Ripristina default"
+                      >
+                        <i class="fa fa-undo" aria-hidden="true"></i>
+                      </button>
+                      <label class="vc-dash-switch vc-dash-switch--locked" title="Sempre attivo" data-i18n-title="dash.alwaysOn">
+                        <input type="checkbox" data-feat-switch checked disabled aria-label="Embed personalizzato sempre attivo" data-i18n-attr="aria-label:dash.ps.embedToggleLockedAria" />
+                        <span class="vc-dash-switch__track" aria-hidden="true">
+                          <span class="vc-dash-switch__thumb">
+                            <i class="fa fa-lock vc-dash-switch__lock" aria-hidden="true"></i>
+                          </span>
+                        </span>
+                      </label>
+                    </div>
+                    <div class="vc-dash-settings-row__extra vc-dash-settings-row__extra--full" data-feat-panel>
+                      <div class="vc-dash-premium-tease" data-premium-tease>
+                        <div class="vc-dash-premium-tease__body" data-premium-tease-body>
+                      <div class="vc-dash-picker-grid">
+                        <label class="vc-dash-picker">
+                          <span class="vc-dash-picker__label" data-i18n="dash.ps.embedColor">Colore (#RRGGBB)</span>
+                          <input type="text" name="embedColor" id="ps-embedColor" placeholder="#d4a888" />
+                        </label>
+                        <label class="vc-dash-picker">
+                          <span class="vc-dash-picker__label" data-i18n="dash.ps.embedTitleField">Titolo</span>
+                          <input type="text" name="embedTitle" id="ps-embedTitle" maxlength="256" data-ps-embed-field />
+                        </label>
+                        <label class="vc-dash-picker">
+                          <span class="vc-dash-picker__label" data-i18n="dash.ps.embedAuthor">Autore</span>
+                          <input type="text" name="embedAuthorName" id="ps-embedAuthorName" maxlength="256" data-ps-embed-field />
+                        </label>
+                        <label class="vc-dash-picker">
+                          <span class="vc-dash-picker__label" data-i18n="dash.ps.embedAuthorIcon">Icona autore (URL)</span>
+                          <input type="text" inputmode="url" autocomplete="off" spellcheck="false" name="embedAuthorIconUrl" id="ps-embedAuthorIconUrl" data-ps-embed-field data-ps-embed-url />
+                        </label>
+                        <label class="vc-dash-picker">
+                          <span class="vc-dash-picker__label" data-i18n="dash.ps.embedThumbnail">Thumbnail (URL)</span>
+                          <input type="text" inputmode="url" autocomplete="off" spellcheck="false" name="embedThumbnailUrl" id="ps-embedThumbnailUrl" data-ps-embed-field data-ps-embed-url />
+                        </label>
+                        <label class="vc-dash-picker">
+                          <span class="vc-dash-picker__label" data-i18n="dash.ps.embedImage">Immagine (URL)</span>
+                          <input type="text" inputmode="url" autocomplete="off" spellcheck="false" name="embedImageUrl" id="ps-embedImageUrl" data-ps-embed-field data-ps-embed-url />
+                        </label>
+                        <label class="vc-dash-picker">
+                          <span class="vc-dash-picker__label" data-i18n="dash.ps.embedFooter">Footer</span>
+                          <input type="text" name="embedFooterText" id="ps-embedFooterText" maxlength="2048" data-ps-embed-field />
+                        </label>
+                        <label class="vc-dash-picker">
+                          <span class="vc-dash-picker__label" data-i18n="dash.ps.embedFooterIcon">Icona footer (URL)</span>
+                          <input type="text" inputmode="url" autocomplete="off" spellcheck="false" name="embedFooterIconUrl" id="ps-embedFooterIconUrl" data-ps-embed-field data-ps-embed-url />
+                        </label>
+                      </div>
+                      <label class="vc-dash-picker mt-3">
+                        <span class="vc-dash-picker__label" data-i18n="dash.ps.embedDescription">Descrizione embed</span>
+                        <textarea name="embedDescription" id="ps-embedDescription" rows="5" maxlength="4000" data-ps-embed-field></textarea>
+                      </label>
+                      <details class="vc-dash-ph mt-3" id="ps-embed-placeholders">
+                        <summary class="vc-dash-ph__summary">
+                          <span data-i18n="dash.ps.embedPhTitle">Placeholder</span>
+                          <span class="vc-dash-ph__chev" aria-hidden="true"></span>
+                        </summary>
+                        <p class="vc-dash-ph__hint" data-i18n="dash.ps.embedPhHint">Clicca un campo (titolo, autore, URL immagini, footer o descrizione), poi un token per inserirlo.</p>
+                        <div class="vc-dash-ph__body" data-ps-ph-body></div>
+                      </details>
+                      <div class="vc-dash-settings-row vc-dash-settings-row--switch mt-3">
+                        <div class="vc-dash-settings-row__copy">
+                          <strong class="vc-dash-settings-row__title" data-i18n="dash.ps.embedTsTitle">Timestamp</strong>
+                          <p class="vc-dash-settings-row__hint" data-i18n="dash.ps.embedTsHint">Mostra data/ora sull’embed</p>
+                        </div>
+                        <div class="vc-dash-settings-row__control">
+                          <label class="vc-dash-switch">
+                            <input type="checkbox" name="embedTimestampEnabled" id="ps-embedTimestampEnabled" checked aria-label="Mostra timestamp" data-i18n-attr="aria-label:dash.ps.embedTsAria" />
+                            <span class="vc-dash-switch__track" aria-hidden="true"><span class="vc-dash-switch__thumb"></span></span>
+                          </label>
+                        </div>
+                      </div>
+                        </div>
+                        <div class="vc-dash-premium-tease__lock" data-premium-tease-lock hidden>
+                          <div class="vc-dash-premium-tease__card">
+                            <p class="vc-dash-premium-tease__kicker" data-i18n="dash.premium.badge">Premium</p>
+                            <p class="vc-dash-premium-tease__title" data-i18n="dash.premium.embedUpsellTitle">Funzione Premium</p>
+                            <p class="vc-dash-premium-tease__text" data-i18n="dash.premium.embedUpsellBody">Richiede Vinili Premium.</p>
+                            <a class="vc-dash-premium-tease__cta" data-premium-tease-cta href="/dashboard/premium/">
+                              <i class="fa fa-diamond" aria-hidden="true"></i>
+                              <span data-i18n="dash.premium.embedUpsellCta">Scopri Premium</span>
+                            </a>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </article>
+                </div>
+              
+                  </div>
+                </div>
+              </div>
+
+              <div class="vc-dashboard-view" data-view-panel="partnership/filtri" id="vc-dashboard-view-filtri" hidden>
+                <div class="vc-dash-page-layout">
+                  <aside class="vc-dash-page-intro">
+                    <p class="vc-dash-page-intro__kicker" data-i18n="dash.ps.kicker">Partnership</p>
+                    <h2 class="vc-dash-page-intro__title" data-i18n="dash.filters">Filtri</h2>
+                    <p class="vc-dash-page-intro__text" data-i18n="dash.filtri.intro">Regole di pulizia automatica sulla descrizione partnership (slash / menu app), allineate al server principale.</p>
+                  </aside>
+                  <div class="vc-dash-page-main">
+                    <section class="vc-ps-page-section" id="ps-sec-filters" aria-labelledby="ps-sec-filters-title">
+                      <header class="vc-ps-page-section__head px-4 pt-4">
+                        <span class="vc-ps-page-section__ico" aria-hidden="true"><i class="fa fa-filter"></i></span>
+                        <div>
+                          <h3 class="vc-ps-page-section__title" id="ps-sec-filters-title" data-i18n="dash.filtri.sectionTitle">Pulizia descrizione</h3>
+                          <p class="vc-ps-page-section__text" data-i18n="dash.filtri.sectionIntro">Opzioni di rimozione sul testo pubblicato. L’invito Discord non viene rimosso.</p>
+                        </div>
+                      </header>
+                      <div class="vc-dash-settings-rows vc-ps-settings-rows">
+                        <article class="vc-dash-settings-row vc-dash-settings-row--switch" data-feat data-feat-bool>
+                          <div class="vc-dash-settings-row__copy">
+                            <strong class="vc-dash-settings-row__title" data-i18n="dash.filtri.mentionsTitle">Rimuovi menzioni</strong>
+                            <p class="vc-dash-settings-row__hint" data-i18n="dash.filtri.mentionsHint">Cancella menzioni a utenti, ruoli e canali (&lt;@…&gt;, &lt;@&amp;…&gt;, &lt;#…&gt;)</p>
+                          </div>
+                          <div class="vc-dash-settings-row__control">
+                            <label class="vc-dash-switch">
+                              <input type="checkbox" name="contentFilters.stripMentions" id="ps-filterStripMentions" data-feat-switch aria-label="Rimuovi menzioni" data-i18n-attr="aria-label:dash.filtri.mentionsTitle" />
+                              <span class="vc-dash-switch__track" aria-hidden="true"><span class="vc-dash-switch__thumb"></span></span>
+                            </label>
+                          </div>
+                        </article>
+
+                        <article class="vc-dash-settings-row vc-dash-settings-row--switch" data-feat data-feat-bool>
+                          <div class="vc-dash-settings-row__copy">
+                            <strong class="vc-dash-settings-row__title" data-i18n="dash.filtri.massTitle">Rimuovi @everyone / @here</strong>
+                            <p class="vc-dash-settings-row__hint" data-i18n="dash.filtri.massHint">Elimina @everyone e @here dalla descrizione pubblicata</p>
+                          </div>
+                          <div class="vc-dash-settings-row__control">
+                            <label class="vc-dash-switch">
+                              <input type="checkbox" name="contentFilters.stripMassMentions" id="ps-filterStripMassMentions" data-feat-switch aria-label="Rimuovi @everyone / @here" data-i18n-attr="aria-label:dash.filtri.massTitle" />
+                              <span class="vc-dash-switch__track" aria-hidden="true"><span class="vc-dash-switch__thumb"></span></span>
+                            </label>
+                          </div>
+                        </article>
+
+                        <article class="vc-dash-settings-row vc-dash-settings-row--switch" data-feat data-feat-bool>
+                          <div class="vc-dash-settings-row__copy">
+                            <strong class="vc-dash-settings-row__title" data-i18n="dash.filtri.linksTitle">Rimuovi link esterni</strong>
+                            <p class="vc-dash-settings-row__hint" data-i18n="dash.filtri.linksHint">Toglie URL e domini che non sono invite Discord (discord.gg / discord.com/invite)</p>
+                          </div>
+                          <div class="vc-dash-settings-row__control">
+                            <label class="vc-dash-switch">
+                              <input type="checkbox" name="contentFilters.stripNonInviteLinks" id="ps-filterStripNonInviteLinks" data-feat-switch aria-label="Rimuovi link esterni" data-i18n-attr="aria-label:dash.filtri.linksTitle" />
+                              <span class="vc-dash-switch__track" aria-hidden="true"><span class="vc-dash-switch__thumb"></span></span>
+                            </label>
+                          </div>
+                        </article>
+
+                        <article class="vc-dash-settings-row vc-dash-settings-row--switch" data-feat data-feat-bool>
+                          <div class="vc-dash-settings-row__copy">
+                            <strong class="vc-dash-settings-row__title" data-i18n="dash.filtri.emojisTitle">Rimuovi emoji custom</strong>
+                            <p class="vc-dash-settings-row__hint" data-i18n="dash.filtri.emojisHint">Cancella emoji del server (statiche e animate)</p>
+                          </div>
+                          <div class="vc-dash-settings-row__control">
+                            <label class="vc-dash-switch">
+                              <input type="checkbox" name="contentFilters.stripCustomEmojis" id="ps-filterStripCustomEmojis" data-feat-switch aria-label="Rimuovi emoji custom" data-i18n-attr="aria-label:dash.filtri.emojisTitle" />
+                              <span class="vc-dash-switch__track" aria-hidden="true"><span class="vc-dash-switch__thumb"></span></span>
+                            </label>
+                          </div>
+                        </article>
+
+                        <article class="vc-dash-settings-row vc-dash-settings-row--switch" data-feat data-feat-bool>
+                          <div class="vc-dash-settings-row__copy">
+                            <strong class="vc-dash-settings-row__title" data-i18n="dash.filtri.invisibleTitle">Rimuovi caratteri invisibili</strong>
+                            <p class="vc-dash-settings-row__hint" data-i18n="dash.filtri.invisibleHint">Toglie zero-width e altri caratteri nascosti usati per bypassare i filtri</p>
+                          </div>
+                          <div class="vc-dash-settings-row__control">
+                            <label class="vc-dash-switch">
+                              <input type="checkbox" name="contentFilters.stripInvisibleChars" id="ps-filterStripInvisibleChars" data-feat-switch aria-label="Rimuovi caratteri invisibili" data-i18n-attr="aria-label:dash.filtri.invisibleTitle" />
+                              <span class="vc-dash-switch__track" aria-hidden="true"><span class="vc-dash-switch__thumb"></span></span>
+                            </label>
+                          </div>
+                        </article>
+
+                        <article class="vc-dash-settings-row vc-dash-settings-row--switch" data-feat data-feat-bool>
+                          <div class="vc-dash-settings-row__copy">
+                            <strong class="vc-dash-settings-row__title" data-i18n="dash.filtri.spoilersTitle">Rimuovi spoilers</strong>
+                            <p class="vc-dash-settings-row__hint" data-i18n="dash.filtri.spoilersHint">Toglie la formattazione ||spoiler|| e lascia solo il testo</p>
+                          </div>
+                          <div class="vc-dash-settings-row__control">
+                            <label class="vc-dash-switch">
+                              <input type="checkbox" name="contentFilters.stripSpoilers" id="ps-filterStripSpoilers" data-feat-switch aria-label="Rimuovi spoilers" data-i18n-attr="aria-label:dash.filtri.spoilersTitle" />
+                              <span class="vc-dash-switch__track" aria-hidden="true"><span class="vc-dash-switch__thumb"></span></span>
+                            </label>
+                          </div>
+                        </article>
+
+                        <article class="vc-dash-settings-row vc-dash-settings-row--switch" data-feat data-feat-bool>
+                          <div class="vc-dash-settings-row__copy">
+                            <strong class="vc-dash-settings-row__title" data-i18n="dash.filtri.extraInvitesTitle">Un solo invite</strong>
+                            <p class="vc-dash-settings-row__hint" data-i18n="dash.filtri.extraInvitesHint">Se ci sono più link Discord, tiene solo il primo e toglie gli altri</p>
+                          </div>
+                          <div class="vc-dash-settings-row__control">
+                            <label class="vc-dash-switch">
+                              <input type="checkbox" name="contentFilters.stripExtraInvites" id="ps-filterStripExtraInvites" data-feat-switch aria-label="Un solo invite" data-i18n-attr="aria-label:dash.filtri.extraInvitesTitle" />
+                              <span class="vc-dash-switch__track" aria-hidden="true"><span class="vc-dash-switch__thumb"></span></span>
+                            </label>
+                          </div>
+                        </article>
+                      </div>
+                    </section>
+                  </div>
+                </div>
+              </div>
+
+              <div class="vc-dashboard-view" data-view-panel="partnership/blacklist" id="vc-dashboard-view-blacklist" hidden>
+                <div class="vc-dash-page-layout">
+                  <aside class="vc-dash-page-intro">
+                    <p class="vc-dash-page-intro__kicker" data-i18n="dash.ps.kicker">Partnership</p>
+                    <h2 class="vc-dash-page-intro__title" data-i18n="dash.bl.title">Blacklist</h2>
+                    <p class="vc-dash-page-intro__text" data-i18n="dash.bl.intro">Blocca server partner per ID o invite. Le partnership verso questi server verranno rifiutate.</p>
+                  </aside>
+                  <div class="vc-dash-page-main">
+                    <section class="vc-dash-bl" id="ps-blacklist-root" aria-labelledby="ps-bl-section-title">
+                      <header class="vc-dash-bl__head px-4 pt-4">
+                        <div class="vc-dash-bl__head-main">
+                          <span class="vc-dash-bl__head-ico" aria-hidden="true"><i class="fa fa-ban"></i></span>
+                          <div>
+                            <h3 class="vc-dash-bl__title" id="ps-bl-section-title" data-i18n="dash.bl.listTitle">Server in blacklist</h3>
+                            <p class="vc-dash-bl__subtitle" id="ps-bl-count" data-i18n="dash.bl.listHint">Caricamento…</p>
+                          </div>
+                        </div>
+                        <button type="button" class="vc-dashboard-btn vc-dash-bl__refresh" id="ps-bl-refresh-btn" title="Aggiorna" data-i18n-title="dash.bl.refresh">
+                          <i class="fa fa-refresh" aria-hidden="true"></i> <span data-i18n="dash.bl.refresh">Aggiorna</span>
+                        </button>
+                      </header>
+
+                      <div class="vc-dash-bl__compose">
+                        <label class="vc-dash-bl__field vc-dash-bl__field--target">
+                          <span class="vc-dash-picker__label" data-i18n="dash.bl.targetLabel">Invite o ID server</span>
+                          <input type="text" id="ps-bl-target" autocomplete="off" spellcheck="false" placeholder="discord.gg/… oppure 123456789012345678" data-i18n-attr="placeholder:dash.bl.targetPlaceholder" />
+                        </label>
+                        <label class="vc-dash-bl__field vc-dash-bl__field--note">
+                          <span class="vc-dash-picker__label" data-i18n="dash.bl.noteLabel">Motivo (opzionale)</span>
+                          <input type="text" id="ps-bl-note" maxlength="500" autocomplete="off" placeholder="es. spam / server sospetto" data-i18n-attr="placeholder:dash.bl.notePlaceholder" />
+                        </label>
+                        <div class="vc-dash-bl__compose-actions">
+                          <button type="button" class="vc-dashboard-btn vc-dashboard-btn--primary" id="ps-bl-add-btn">
+                            <i class="fa fa-plus" aria-hidden="true"></i> <span data-i18n="dash.bl.add">Aggiungi in blacklist</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      <div class="vc-dash-bl__body">
+                        <div id="ps-bl-list" class="vc-dash-bl__list" aria-live="polite"></div>
+                        <div class="vc-dash-bl__empty" id="ps-bl-empty" hidden>
+                          <span class="vc-dash-bl__empty-ico" aria-hidden="true"><i class="fa fa-shield"></i></span>
+                          <strong data-i18n="dash.bl.emptyTitle">Nessun server bloccato</strong>
+                          <p data-i18n="dash.bl.empty">Aggiungi un invite o un ID qui sopra: le partnership verso quel server verranno rifiutate.</p>
+                        </div>
+                      </div>
+                    </section>
+                  </div>
+                </div>
+              </div>
+
+              <div class="vc-dashboard-view" data-view-panel="partnership/managers" id="vc-dashboard-view-managers" hidden>
+                <div class="vc-dash-page-layout">
+                  <aside class="vc-dash-page-intro">
+                    <p class="vc-dash-page-intro__kicker" data-i18n="dash.ps.kicker">Partnership</p>
+                    <h2 class="vc-dash-page-intro__title" data-i18n="dash.pm.title">Partner Manager</h2>
+                    <p class="vc-dash-page-intro__text" data-i18n="dash.pm.intro">Elenco Partner Manager, punti e risultati recenti.</p>
+                  </aside>
+                  <div class="vc-dash-page-main">
+                    <section class="vc-dash-pm" id="ps-managers-root" aria-labelledby="ps-pm-section-title">
+                      <header class="vc-dash-pm__head px-4 pt-4">
+                        <div class="vc-dash-pm__head-main">
+                          <span class="vc-dash-pm__head-ico" aria-hidden="true"><i class="fa fa-users"></i></span>
+                          <div>
+                            <h3 class="vc-dash-pm__title" id="ps-pm-section-title" data-i18n="dash.pm.listTitle">Partner Manager</h3>
+                            <p class="vc-dash-pm__subtitle" id="ps-pm-count" data-i18n="dash.pm.listHint">Caricamento…</p>
+                          </div>
+                        </div>
+                        <button type="button" class="vc-dashboard-btn vc-dash-pm__refresh" id="ps-pm-refresh-btn" title="Aggiorna" data-i18n-title="dash.pm.refresh">
+                          <i class="fa fa-refresh" aria-hidden="true"></i> <span data-i18n="dash.pm.refresh">Aggiorna</span>
+                        </button>
+                      </header>
+
+                      <p class="vc-dash-pm__readonly" id="ps-pm-readonly" hidden data-i18n="dash.pm.readonlyHint">Stai visualizzando l’elenco in sola lettura.</p>
+
+                      <div class="vc-dash-pm__body">
+                        <div id="ps-pm-list" class="vc-dash-pm__list" aria-live="polite"></div>
+                        <div class="vc-dash-pm__empty" id="ps-pm-empty" hidden>
+                          <span class="vc-dash-pm__empty-ico" aria-hidden="true"><i class="fa fa-user"></i></span>
+                          <strong data-i18n="dash.pm.emptyTitle">Nessun Partner Manager</strong>
+                          <p data-i18n="dash.pm.empty">Quando qualcuno farà parte del team partnership, comparirà qui.</p>
+                        </div>
+                      </div>
+                    </section>
+                  </div>
+                </div>
+              </div>
+
+              <div class="vc-dashboard-view" data-view-panel="partnership/cronologia" id="vc-dashboard-view-cronologia" hidden>
+                <div class="vc-dash-page-layout">
+                  <aside class="vc-dash-page-intro">
+                    <p class="vc-dash-page-intro__kicker" data-i18n="dash.ps.kicker">Partnership</p>
+                    <h2 class="vc-dash-page-intro__title" data-i18n="dash.history.title">Cronologia</h2>
+                    <p class="vc-dash-page-intro__text" data-i18n="dash.history.intro">Server con cui avete pubblicato partnership (non i join via invite): quante volte e quando è stata l’ultima.</p>
+                  </aside>
+                  <div class="vc-dash-page-main">
+                    <section class="vc-dash-hist" id="ps-history-root" aria-labelledby="ps-hist-section-title">
+                      <header class="vc-dash-hist__head px-4 pt-4">
+                        <div class="vc-dash-hist__head-main">
+                          <span class="vc-dash-hist__head-ico" aria-hidden="true"><i class="fa fa-history"></i></span>
+                          <div>
+                            <h3 class="vc-dash-hist__title" id="ps-hist-section-title" data-i18n="dash.history.listTitle">Server partner</h3>
+                            <p class="vc-dash-hist__subtitle" id="ps-hist-count" data-i18n="dash.history.listHint">Caricamento…</p>
+                          </div>
+                        </div>
+                        <button type="button" class="vc-dashboard-btn vc-dash-hist__refresh" id="ps-hist-refresh-btn" title="Aggiorna" data-i18n-title="dash.history.refresh">
+                          <i class="fa fa-refresh" aria-hidden="true"></i> <span data-i18n="dash.history.refresh">Aggiorna</span>
+                        </button>
+                      </header>
+
+                      <div class="vc-dash-hist__filters" role="group" aria-label="Periodo" data-i18n-attr="aria-label:dash.history.periodAria">
+                        <button type="button" class="vc-dash-hist__chip is-active" data-hist-days="all" data-i18n="dash.history.periodAll">Tutto</button>
+                        <button type="button" class="vc-dash-hist__chip" data-hist-days="7" data-i18n="dash.history.period7">7 giorni</button>
+                        <button type="button" class="vc-dash-hist__chip" data-hist-days="30" data-i18n="dash.history.period30">30 giorni</button>
+                        <button type="button" class="vc-dash-hist__chip" data-hist-days="90" data-i18n="dash.history.period90">90 giorni</button>
+                      </div>
+
+                      <div class="vc-dash-hist__body">
+                        <div id="ps-hist-list" class="vc-dash-hist__list" aria-live="polite"></div>
+                        <div class="vc-dash-hist__empty" id="ps-hist-empty" hidden>
+                          <span class="vc-dash-hist__empty-ico" aria-hidden="true"><i class="fa fa-handshake-o"></i></span>
+                          <strong data-i18n="dash.history.emptyTitle">Nessuna partnership</strong>
+                          <p data-i18n="dash.history.empty">Quando pubblicherete partnership, i server compariranno qui con conteggio e data dell’ultima.</p>
+                        </div>
+                        <div class="vc-dash-hist__pager" id="ps-hist-pager" hidden>
+                          <button type="button" class="vc-dashboard-btn" id="ps-hist-prev" disabled>
+                            <i class="fa fa-chevron-left" aria-hidden="true"></i>
+                            <span data-i18n="dash.history.prev">Precedente</span>
+                          </button>
+                          <span class="vc-dash-hist__page" id="ps-hist-page">1 / 1</span>
+                          <button type="button" class="vc-dashboard-btn" id="ps-hist-next" disabled>
+                            <span data-i18n="dash.history.next">Successiva</span>
+                            <i class="fa fa-chevron-right" aria-hidden="true"></i>
+                          </button>
+                        </div>
+                      </div>
+                    </section>
+                  </div>
+                </div>
+              </div>
+
+              <div class="vc-dashboard-view" data-view-panel="partnership/dati" id="vc-dashboard-view-dati" hidden>
+                <div class="vc-dash-page-layout">
+                  <aside class="vc-dash-page-intro">
+                    <p class="vc-dash-page-intro__kicker" data-i18n="dash.ps.kicker">Partnership</p>
+                    <h2 class="vc-dash-page-intro__title" data-i18n="dash.dataTools">Dati</h2>
+                    <p class="vc-dash-page-intro__text" data-i18n="dash.dataToolsIntro">Importa lo storico partnership dalla cronologia Discord, oppure azzera la configurazione di questo server.</p>
+                  </aside>
+                  <div class="vc-dash-page-main">
+                    <section class="vc-ps-page-section" id="ps-sec-migration" aria-labelledby="ps-sec-migration-title">
+                      <header class="vc-ps-page-section__head px-4 pt-4">
+                        <span class="vc-ps-page-section__ico" aria-hidden="true"><i class="fa fa-database"></i></span>
+                        <div>
+                          <h3 class="vc-ps-page-section__title" id="ps-sec-migration-title" data-i18n="dash.mig.title">Migrazione dati</h3>
+                          <p class="vc-ps-page-section__text" data-i18n="dash.mig.intro">Importa partnership dalla cronologia Discord (punti, giornaliere, settimanali). Le migrazioni lunghe e quelle rapide hanno code separate (una alla volta ciascuna).</p>
+                        </div>
+                      </header>
+
+                <div id="ps-migration-progress" class="vc-dash-mig">
+                  <div class="vc-dash-mig__card" id="ps-migration-card">
+                    <div class="vc-dash-mig__top">
+                      <strong id="ps-migration-status-label" data-i18n="dash.mig.statusLoading">Caricamento…</strong>
+                      <span id="ps-migration-queue-pos" class="vc-dash-mig__queue" hidden></span>
+                    </div>
+                    <div class="vc-dash-mig__bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="ps-migration-bar-wrap">
+                      <div class="vc-dash-mig__bar-fill" id="ps-migration-bar-fill" style="width:0%"></div>
+                    </div>
+                    <p class="vc-dash-mig__pct"><span id="ps-migration-pct">0</span>%</p>
+                    <p class="vc-dash-mig__msg" id="ps-migration-message" data-i18n="dash.mig.loadingStatus">Recupero stato migrazione…</p>
+                    <dl class="vc-dash-mig__stats" id="ps-migration-stats" hidden>
+                      <div><dt data-i18n="dash.mig.statMessages">Messaggi</dt><dd id="ps-mig-stat-msgs">0</dd></div>
+                      <div><dt data-i18n="dash.mig.statFound">Trovate</dt><dd id="ps-mig-stat-found">0</dd></div>
+                      <div><dt data-i18n="dash.mig.statImported">Importate</dt><dd id="ps-mig-stat-imported">0</dd></div>
+                      <div><dt data-i18n="dash.mig.statSkipped">Saltate</dt><dd id="ps-mig-stat-skipped">0</dd></div>
+                    </dl>
+                    <div class="vc-dash-mig__retry" id="ps-migration-retry-wrap" hidden>
+                      <button type="button" class="vc-dashboard-btn vc-dashboard-btn--primary" id="ps-migration-retry-btn">
+                        <i class="fa fa-refresh" aria-hidden="true"></i> <span data-i18n="dash.mig.retry">Riprova</span>
+                      </button>
+                      <button type="button" class="vc-dashboard-btn vc-dashboard-btn--danger" id="ps-migration-undo-btn" hidden>
+                        <i class="fa fa-trash" aria-hidden="true"></i> <span data-i18n="dash.mig.undo">Annulla dati migrazione</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div id="ps-migration-setup" class="vc-dash-settings-rows vc-ps-settings-rows" hidden>
+                  <article class="vc-dash-settings-row vc-dash-settings-row--stack is-on">
+                    <div class="vc-dash-settings-row__copy">
+                      <strong class="vc-dash-settings-row__title" data-i18n="dash.mig.sourceTitle">Sorgente migrazione</strong>
+                      <p class="vc-dash-settings-row__hint" data-i18n="dash.mig.sourceHint">Usa i canali/ruoli già configurati, oppure scegline di personalizzati</p>
+                    </div>
+                    <div class="vc-dash-settings-row__control">
+                      <div class="vc-dashboard-actions vc-dash-mig__actions" id="ps-migration-actions">
+                        <button type="button" class="vc-dashboard-btn vc-dashboard-btn--primary" id="ps-migration-start-btn">
+                          <i class="fa fa-play" aria-hidden="true"></i> <span data-i18n="dash.mig.start">Avvia migrazione</span>
+                        </button>
+                      </div>
+                      <div class="vc-dash-seg" role="radiogroup" aria-label="Modalità migrazione" data-i18n-attr="aria-label:dash.mig.modeAria">
+                        <button type="button" class="vc-dash-seg__btn is-active" id="ps-mig-mode-configured" data-mig-mode="configured" data-i18n="dash.mig.modeConfigured">Configurazione attuale</button>
+                        <button type="button" class="vc-dash-seg__btn" id="ps-mig-mode-custom" data-mig-mode="custom" data-i18n="dash.mig.modeCustom">Scelta manuale</button>
+                      </div>
+                      <p class="vc-dash-mig__hint mt-3" id="ps-mig-configured-summary" data-i18n="dash.mig.configuredSummary">Canale e ruolo presi dalla configurazione partnership di questo server.</p>
+                      <div id="ps-mig-custom-fields" hidden>
+                        <label class="vc-dash-picker mt-3">
+                          <span class="vc-dash-picker__label" data-i18n="dash.mig.channelLabel">Canale partnership (cronologia)</span>
+                          <select id="ps-mig-channelId"></select>
+                        </label>
+                        <label class="vc-dash-picker mt-3">
+                          <span class="vc-dash-picker__label" data-i18n="dash.mig.logsLabel">Canale log (opzionale, consigliato)</span>
+                          <select id="ps-mig-logsChannelId" data-clearable="1"></select>
+                        </label>
+                        <label class="vc-dash-picker mt-3">
+                          <span class="vc-dash-picker__label" data-i18n="dash.mig.roleLabel">Ruolo Partner Manager</span>
+                          <select id="ps-mig-roleId"></select>
+                        </label>
+                      </div>
+                    </div>
+                  </article>
+                  <div class="vc-dashboard-callout vc-dashboard-callout--warn" data-i18n-html="dash.mig.warnHtml">
+                    <strong>Attenzione.</strong> Verrà letta tutta la cronologia dei canali selezionati. Contiamo i messaggi con un invito Discord e attribuiamo i punti solo a chi fa parte del team partnership. Può richiedere diversi minuti; i dati già presenti non vengono duplicati. I nuovi ingressi non si possono ricostruire dai messaggi.
+                  </div>
+                </div>
+                    </section>
+
+                    <section class="vc-ps-page-section vc-ps-page-section--danger" id="ps-sec-leave" aria-labelledby="ps-sec-leave-title">
+                      <header class="vc-ps-page-section__head px-4 pt-4">
+                        <span class="vc-ps-page-section__ico" aria-hidden="true"><i class="fa fa-trash-o"></i></span>
+                        <div>
+                          <h3 class="vc-ps-page-section__title" id="ps-sec-leave-title" data-i18n="dash.leave.title">Elimina dati</h3>
+                          <p class="vc-ps-page-section__text" data-i18n-html="dash.leave.intro">Azzera tutta la configurazione partnership di questo server. L’azione è irreversibile.</p>
+                        </div>
+                      </header>
+                      <div class="vc-dash-danger-card" id="ps-leave-card">
+                        <div class="vc-dash-danger-card__head">
+                          <span class="vc-dash-danger-card__ico" aria-hidden="true"><i class="fa fa-exclamation-triangle"></i></span>
+                          <div>
+                            <strong class="vc-dash-danger-card__title" data-i18n="dash.leave.cardTitle">Zona pericolosa</strong>
+                            <p class="vc-dash-danger-card__text" data-i18n="dash.leave.cardText">
+                              Verranno rimossi canali/ruoli/ping/opzioni/descrizione/embed, blacklist partnership e relative notifiche/statistiche join di questo server. Lo storico partnership già eseguito non viene toccato qui. Poi potrai rifare il setup.
+                            </p>
+                          </div>
+                        </div>
+                        <button type="button" class="vc-dashboard-btn vc-dashboard-btn--danger" id="ps-leave-btn">
+                          <i class="fa fa-trash-o" aria-hidden="true"></i>
+                          <span data-i18n="dash.leave.btn">Elimina tutti i dati partnership</span>
+                        </button>
+                      </div>
+                    </section>
+                  </div>
+                </div>
+              </div>
+
+              <button type="submit" id="ps-save-btn" hidden tabindex="-1" aria-hidden="true" data-i18n="dash.save">Salva</button>
+            </form>

@@ -6,6 +6,25 @@
   --vc-nav-bar-hover: rgba(245, 214, 183, 0.55);
 }
 
+/* snavPanelHide1: UA details:not([open]) non nasconde più i pannelli (display resta
+   block) → Supporta/Community sempre visibili e layout sotto il footer.
+   Hard-kill finché details non ha [open]. */
+html body.vc-body header .vc-snav-details:not([open]) > .vc-snav-panel,
+html body.vc-body header details.vc-snav-details:not([open]) > .vc-snav-panel,
+html.vc-site-polish body.vc-body header .vc-snav-details:not([open]) > .vc-snav-panel,
+html body.vc-body--home header .vc-snav-details:not([open]) > .vc-snav-panel,
+html body.vc-body header details.vc-lang-dropdown:not([open]) > .vc-lang-panel,
+html body.vc-body header details.vc-notif-dropdown:not([open]) > .vc-notif-panel:not(.vc-notif-panel--sheet) {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  height: 0 !important;
+  max-height: 0 !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+}
+
 /* ——— Panel = wash+bordo card (navChromeShellMatch1; no flat #100c09) ——— */
 html.vc-site-polish body.vc-body .vc-snav-panel,
 html.vc-site-polish body.vc-body .vc-lang-panel,
@@ -650,9 +669,7 @@ html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body #header-quick-actions .vc-
 html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body #header-quick-actions #vc-mobile-nav-toggle,
 html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body #vc-mobile-nav-toggle,
 html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body header #vc-view-as-launch,
-html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body #header-quick-actions #vc-view-as-launch,
-html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body header #vc-header-promo-btn.vc-header-promo-btn--ready:not([hidden]):not(.vc-header-promo-btn--staff-hidden),
-html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body #header-quick-actions #vc-header-promo-btn.vc-header-promo-btn--ready:not([hidden]):not(.vc-header-promo-btn--staff-hidden) {
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body #header-quick-actions #vc-view-as-launch {
   border: 1px solid transparent !important;
   border-color: transparent !important;
   background-color: rgba(12, 9, 7, 0.55) !important;

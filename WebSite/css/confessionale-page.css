@@ -47,20 +47,57 @@ html.vc-confessionale-intro-active:not(.vc-confessionale-curtain-done) body.vc-c
   visibility: hidden !important;
 }
 
-/* Photo background: confessional booth (locked — do not let site GIF override) */
-html.vc-confessionale-route body.vc-confessionale-page .vc-home-cine {
-  background-color: #100c09;
-  background-image: url("/images/Confessionale-GF.jpg?v=20260909confessionale8") !important;
+/* Photo background: confessional booth (locked — do not let site GIF override)
+   confBgVeilRestore1: batte look-core topVeilFlat / site-photo veil generico
+   confBgLockPersist1: batte gif-paused/page-hidden (JPG statico: mai hide) + crop 116vw look-core
+   confBgNoGifBlack1: JPG sempre; veil più leggero (niente “nero sopra”); hide sfondo.gif leak */
+html.vc-confessionale-route body.vc-confessionale-page .vc-home-cine,
+html.vc-site-polish.vc-confessionale-route body.vc-confessionale-page .vc-home-cine,
+html.vc-site-photo-bg.vc-confessionale-route body.vc-confessionale-page .vc-home-cine,
+html.vc-site-photo-bg.vc-site-polish.vc-confessionale-route body.vc-confessionale-page .vc-home-cine,
+html.vc-confessionale-route.vc-gif-paused body.vc-confessionale-page .vc-home-cine,
+html.vc-confessionale-route.vc-page-hidden body.vc-confessionale-page .vc-home-cine,
+html.vc-site-photo-bg.vc-confessionale-route.vc-gif-paused body.vc-confessionale-page .vc-home-cine,
+html.vc-site-polish.vc-site-photo-bg.vc-confessionale-route.vc-gif-paused body.vc-confessionale-page .vc-home-cine,
+html.vc-site-photo-bg.vc-confessionale-route.vc-page-hidden body.vc-confessionale-page .vc-home-cine,
+html.vc-site-polish.vc-site-photo-bg.vc-confessionale-route.vc-page-hidden body.vc-confessionale-page .vc-home-cine {
+  background-color: #100c09 !important;
+  background-image: url("/images/Confessionale-GF.jpg?v=20261012confBgNoGifBlack1") !important;
   background-size: cover !important;
   background-position: center center !important;
   background-repeat: no-repeat !important;
 }
 
-.vc-confessionale-page .vc-home-cine__photo {
-  object-fit: cover;
-  object-position: center center;
+html.vc-confessionale-route body.vc-confessionale-page .vc-home-cine__photo,
+html.vc-site-photo-bg.vc-confessionale-route body.vc-confessionale-page .vc-home-cine__photo,
+html.vc-site-polish.vc-confessionale-route body.vc-confessionale-page .vc-home-cine__photo,
+html.vc-site-polish.vc-site-photo-bg.vc-confessionale-route body.vc-confessionale-page .vc-home-cine__photo,
+html.vc-confessionale-route.vc-gif-paused body.vc-confessionale-page .vc-home-cine__photo,
+html.vc-confessionale-route.vc-page-hidden body.vc-confessionale-page .vc-home-cine__photo,
+html.vc-site-photo-bg.vc-confessionale-route.vc-gif-paused body.vc-confessionale-page .vc-home-cine__photo,
+html.vc-site-polish.vc-site-photo-bg.vc-confessionale-route.vc-gif-paused body.vc-confessionale-page .vc-home-cine__photo,
+html.vc-site-photo-bg.vc-confessionale-route.vc-page-hidden body.vc-confessionale-page .vc-home-cine__photo,
+html.vc-site-polish.vc-site-photo-bg.vc-confessionale-route.vc-page-hidden body.vc-confessionale-page .vc-home-cine__photo {
+  position: absolute !important;
+  inset: 0 !important;
+  left: 0 !important;
+  top: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: none !important;
+  max-height: none !important;
+  object-fit: cover !important;
+  object-position: center center !important;
   /* confessionalePerf5: niente filter full-viewport (compositing continuo) */
   filter: none !important;
+  -webkit-filter: none !important;
+  transform: none !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  display: block !important;
+  pointer-events: none !important;
 }
 
 html.vc-confessionale-route body.vc-confessionale-page .vc-home-cine__grain,
@@ -71,10 +108,74 @@ html.vc-confessionale-route body.vc-confessionale-page .vc-home-cine__canvas {
   pointer-events: none !important;
 }
 
-.vc-confessionale-page .vc-home-cine__veil {
+html.vc-confessionale-route body.vc-confessionale-page .vc-home-cine__veil,
+html.vc-site-polish.vc-confessionale-route body.vc-confessionale-page .vc-home-cine__veil,
+html.vc-site-photo-bg body.vc-confessionale-page .vc-home-cine__veil,
+html.vc-site-photo-bg.vc-site-polish.vc-confessionale-route body.vc-confessionale-page .vc-home-cine__veil,
+html.vc-site-polish.vc-site-photo-bg.vc-confessionale-route body.vc-confessionale-page .vc-home-cine__veil,
+html.vc-site-photo-bg.vc-site-polish body.vc-confessionale-page .vc-home-cine__veil {
+  opacity: 1 !important;
+  filter: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  /* confBgNoGifBlack1: veil leggero — la foto deve restare leggibile */
   background:
-    radial-gradient(ellipse 70% 55% at 50% 42%, rgba(20, 8, 8, 0.25) 0%, rgba(10, 6, 6, 0.55) 55%, rgba(8, 5, 5, 0.78) 100%),
-    linear-gradient(180deg, rgba(12, 6, 6, 0.35) 0%, rgba(10, 6, 6, 0.55) 100%);
+    radial-gradient(ellipse 72% 58% at 50% 40%, rgba(20, 8, 8, 0.08) 0%, rgba(10, 6, 6, 0.22) 52%, rgba(8, 5, 5, 0.42) 100%),
+    linear-gradient(180deg, rgba(12, 6, 6, 0.12) 0%, rgba(10, 6, 6, 0.28) 100%) !important;
+  background-image:
+    radial-gradient(ellipse 72% 58% at 50% 40%, rgba(20, 8, 8, 0.08) 0%, rgba(10, 6, 6, 0.22) 52%, rgba(8, 5, 5, 0.42) 100%),
+    linear-gradient(180deg, rgba(12, 6, 6, 0.12) 0%, rgba(10, 6, 6, 0.28) 100%) !important;
+}
+
+/* confBgNoGifBlack1: se un JS reimposta sfondo.gif, nascondi img e lascia il JPG sul stage */
+html.vc-confessionale-route body.vc-confessionale-page .vc-home-cine__photo[src*="sfondo"],
+html.vc-confessionale-route body.vc-confessionale-page .vc-home-cine__photo[src$=".gif"],
+html.vc-confessionale-route body.vc-confessionale-page .vc-home-cine__photo[src*=".gif?"],
+html.vc-confessionale-route body.vc-confessionale-page .vc-home-cine__photo[src*=".webp"] {
+  opacity: 0 !important;
+  visibility: hidden !important;
+}
+
+/* confBgLockPersist1: telefono — batte look-core topVeilFlat flat + crop 116vw */
+@media (max-width: 1199.98px), (pointer: coarse) {
+  html.vc-confessionale-route body.vc-confessionale-page .vc-home-cine__veil,
+  html.vc-site-polish.vc-confessionale-route body.vc-confessionale-page .vc-home-cine__veil,
+  html.vc-site-photo-bg.vc-site-polish.vc-confessionale-route body.vc-confessionale-page .vc-home-cine__veil,
+  html.vc-site-photo-bg.vc-site-polish body.vc-body.vc-confessionale-page .vc-home-cine__veil {
+    background:
+      radial-gradient(ellipse 72% 58% at 50% 40%, rgba(20, 8, 8, 0.08) 0%, rgba(10, 6, 6, 0.22) 52%, rgba(8, 5, 5, 0.42) 100%),
+      linear-gradient(180deg, rgba(12, 6, 6, 0.12) 0%, rgba(10, 6, 6, 0.28) 100%) !important;
+    background-image:
+      radial-gradient(ellipse 72% 58% at 50% 40%, rgba(20, 8, 8, 0.08) 0%, rgba(10, 6, 6, 0.22) 52%, rgba(8, 5, 5, 0.42) 100%),
+      linear-gradient(180deg, rgba(12, 6, 6, 0.12) 0%, rgba(10, 6, 6, 0.28) 100%) !important;
+    filter: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+  html.vc-confessionale-route body.vc-confessionale-page .vc-home-cine__photo,
+  html.vc-site-photo-bg.vc-site-polish.vc-confessionale-route body.vc-confessionale-page .vc-home-cine__photo,
+  html.vc-site-photo-bg.vc-site-polish body.vc-body.vc-confessionale-page .vc-home-cine__photo {
+    inset: 0 !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    object-position: center center !important;
+    transform: none !important;
+    filter: none !important;
+  }
+}
+
+/* confTypeSfxClash1: mai chip tastiera sopra la musica confessionale */
+html.vc-confessionale-route #vc-type-sfx-player,
+html.vc-confessionale-route .vc-type-sfx-player,
+body.vc-confessionale-page #vc-type-sfx-player,
+body.vc-confessionale-page .vc-type-sfx-player,
+body:has(#vc-confessionale-music-player) #vc-type-sfx-player,
+body:has(.vc-bgm-player--confessionale) .vc-type-sfx-player {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
 }
 
 /* Nascondi chrome/player sotto l'intro fullscreen */
@@ -342,10 +443,36 @@ html.vc-confessionale-curtain-done .vc-confessionale-smoke *,
 html.vc-confessionale-curtain-done,
 html.vc-confessionale-curtain-done body {
   overflow: auto !important;
-  overscroll-behavior: auto !important;
+  /* confPtrAnim1: contain (non auto) — auto/none uccideva il PTR vinyl */
+  overscroll-behavior: contain !important;
+  overscroll-behavior-y: contain !important;
   touch-action: manipulation !important;
   height: auto !important;
   max-height: none !important;
+}
+
+/* confPtrAnim1: batte look-core/nav overscroll:none (alta specificità) */
+html.vc-site-polish.vc-confessionale-route.vc-confessionale-curtain-done.vc-ptr-ready,
+html.vc-site-polish.vc-confessionale-route.vc-confessionale-curtain-done.vc-ptr-ready body.vc-body.vc-confessionale-page,
+html.vc-site-polish.vc-page-cine-ready.vc-chrome-scroll-armed.vc-confessionale-route.vc-ptr-ready,
+html.vc-site-polish.vc-page-cine-ready.vc-chrome-scroll-armed.vc-confessionale-route.vc-ptr-ready body.vc-body.vc-confessionale-page,
+html.vc-site-polish.vc-page-cine-ready.vc-chrome-scroll-armed.vc-confessionale-route.vc-ptr-ready:not(.vc-chrome-bar-loading):not(.vc-loading-scroll-lock):not(.vc-loader-blocking-live):not(.vc-interaction-hold):not(.vc-scroll-soft-lock):not(.vc-dialog-open):not(.vc-notif-sheet-open):not(.vc-notif-drawer-open):not(.vc-img-lb-open),
+html.vc-site-polish.vc-page-cine-ready.vc-chrome-scroll-armed.vc-confessionale-route.vc-ptr-ready:not(.vc-chrome-bar-loading):not(.vc-loading-scroll-lock):not(.vc-loader-blocking-live):not(.vc-interaction-hold):not(.vc-scroll-soft-lock):not(.vc-dialog-open):not(.vc-notif-sheet-open):not(.vc-notif-drawer-open):not(.vc-img-lb-open)
+  body.vc-body.vc-confessionale-page {
+  overscroll-behavior: contain !important;
+  overscroll-behavior-y: contain !important;
+}
+
+/* confPtrAnim1: disco PTR sopra chrome/musica; in refresh sopra sipario */
+html.vc-confessionale-route .vc-ptr,
+body.vc-confessionale-page .vc-ptr,
+html.vc-confessionale-route .vc-ptr.is-on,
+body.vc-confessionale-page .vc-ptr.is-on {
+  z-index: 110120 !important;
+}
+html.vc-confessionale-route .vc-ptr.is-refreshing,
+body.vc-confessionale-page .vc-ptr.is-refreshing {
+  z-index: 2147483010 !important;
 }
 
 html.vc-staff-app-revealed.vc-confessionale-curtain-done body.vc-confessionale-page > header,
@@ -1038,7 +1165,8 @@ body.vc-confessionale-page .vc-bgm-player.vc-bgm-player--confessionale {
   position: fixed;
   right: max(1rem, env(safe-area-inset-right, 0px));
   bottom: max(1rem, env(safe-area-inset-bottom, 0px));
-  z-index: 10035;
+  /* confBgMusicVol1: sopra chrome/nav (10050–10350), sotto loader/modali */
+  z-index: 110090;
   display: inline-flex;
   flex-direction: row;
   align-items: center;
@@ -1049,6 +1177,8 @@ body.vc-confessionale-page .vc-bgm-player.vc-bgm-player--confessionale {
   padding: 0;
   border: none;
   background: transparent;
+  touch-action: manipulation;
+  overscroll-behavior: contain;
   box-shadow: none;
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
@@ -1174,7 +1304,7 @@ body.vc-confessionale-page .vc-bgm-player--confessionale.is-open .vc-bgm-player_
   }
 }
 
-/* Mobile + touch: chiuso = solo bottone. Aperto = CARD verticale (meta sopra, mute sotto). */
+/* phoneBgmVolBar1: telefono — chiuso = solo bottone; aperto = barra volume verticale stretta */
 @media (max-width: 900px), (hover: none), (pointer: coarse) {
   html body.vc-confessionale-page #vc-confessionale-music-player.vc-bgm-player.vc-bgm-player--confessionale,
   html body.vc-confessionale-page #vc-confessionale-music-player.vc-bgm-player.vc-bgm-player--confessionale:hover,
@@ -1182,7 +1312,7 @@ body.vc-confessionale-page .vc-bgm-player--confessionale.is-open .vc-bgm-player_
   html body.vc-confessionale-page #vc-confessionale-music-player.vc-bgm-player.vc-bgm-player--confessionale.is-open {
     display: inline-flex !important;
     flex-direction: column-reverse !important;
-    align-items: flex-end !important;
+    align-items: center !important;
     justify-content: flex-end !important;
     gap: 0 !important;
     padding: 0 !important;
@@ -1192,21 +1322,22 @@ body.vc-confessionale-page .vc-bgm-player--confessionale.is-open .vc-bgm-player_
     box-shadow: none !important;
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
-    max-width: min(16.75rem, calc(100vw - 1.5rem)) !important;
+    max-width: 3.2rem !important;
     min-width: 0 !important;
     width: auto !important;
   }
 
   html body.vc-confessionale-page #vc-confessionale-music-player.vc-bgm-player.vc-bgm-player--confessionale.is-open {
-    align-items: stretch !important;
-    gap: 0.55rem !important;
-    padding: 0.65rem 0.7rem 0.7rem !important;
-    border: 1px solid rgba(240, 208, 144, 0.38) !important;
-    border-radius: 1.15rem !important;
-    background: linear-gradient(155deg, rgba(42, 16, 18, 0.97), rgba(14, 7, 8, 0.96)) !important;
-    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.55) !important;
-    max-width: min(16.75rem, calc(100vw - 1.5rem)) !important;
-    width: min(16.75rem, calc(100vw - 1.5rem)) !important;
+    align-items: center !important;
+    gap: 0.28rem !important;
+    padding: 0.42rem 0.3rem 0.3rem !important;
+    border: 1px solid rgba(240, 208, 144, 0.42) !important;
+    border-radius: 1.55rem !important;
+    background: linear-gradient(180deg, rgba(42, 16, 18, 0.97), rgba(14, 7, 8, 0.96)) !important;
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.5) !important;
+    width: 2.95rem !important;
+    min-width: 2.95rem !important;
+    max-width: 2.95rem !important;
   }
 
   html body.vc-confessionale-page #vc-confessionale-music-player.vc-bgm-player--confessionale::after {
@@ -1219,8 +1350,10 @@ body.vc-confessionale-page .vc-bgm-player--confessionale.is-open .vc-bgm-player_
 
   html body.vc-confessionale-page #vc-confessionale-music-player.is-open .vc-bgm-player__toggle,
   html body.vc-confessionale-page #vc-confessionale-music-player .vc-bgm-player__toggle {
-    align-self: flex-end;
+    align-self: center !important;
     order: 1 !important;
+    width: 2.35rem !important;
+    height: 2.35rem !important;
   }
 
   html body.vc-confessionale-page #vc-confessionale-music-player .vc-bgm-player__meta {
@@ -1258,9 +1391,10 @@ body.vc-confessionale-page .vc-bgm-player--confessionale.is-open .vc-bgm-player_
     bottom: auto !important;
     left: auto !important;
     width: 100% !important;
-    max-width: none !important;
+    max-width: 100% !important;
     min-width: 0 !important;
-    max-height: none !important;
+    max-height: 7.25rem !important;
+    height: auto !important;
     opacity: 1 !important;
     pointer-events: auto !important;
     transform: none !important;
@@ -1272,6 +1406,59 @@ body.vc-confessionale-page .vc-bgm-player--confessionale.is-open .vc-bgm-player_
     background: transparent !important;
     display: flex !important;
     flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 0 !important;
+  }
+
+  html body.vc-confessionale-page #vc-confessionale-music-player.is-open .vc-bgm-player__label {
+    display: none !important;
+  }
+
+  html body.vc-confessionale-page #vc-confessionale-music-player.is-open,
+  html body.vc-confessionale-page #vc-confessionale-music-player.vc-bgm-player--confessionale.is-open {
+    touch-action: none !important;
+  }
+
+  html body.vc-confessionale-page #vc-confessionale-music-player.is-open .vc-bgm-player__slider-row {
+    position: relative !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 0 !important;
+    width: 1.7rem !important;
+    height: 6.6rem !important;
+    padding: 0 !important;
+    /* confPhoneVolPointer1: hit-area verticale; JS mappa Y→volume (range ruotato bugga) */
+    touch-action: none !important;
+    cursor: ns-resize;
+    -webkit-user-select: none !important;
+    user-select: none !important;
+  }
+
+  html body.vc-confessionale-page #vc-confessionale-music-player.is-open .vc-bgm-player__slider-row > .fa {
+    display: none !important;
+  }
+
+  html body.vc-confessionale-page #vc-confessionale-music-player.is-open .vc-bgm-player__range {
+    position: absolute !important;
+    left: 50% !important;
+    top: 50% !important;
+    width: 6.2rem !important;
+    height: 1.15rem !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    flex: none !important;
+    transform: translate(-50%, -50%) rotate(-90deg) !important;
+    transform-origin: center center !important;
+    -webkit-appearance: none !important;
+    appearance: none !important;
+    background: transparent !important;
+    writing-mode: horizontal-tb !important;
+    /* confPhoneVolPointer1: solo visuale — i touch vanno sulla row */
+    pointer-events: none !important;
+    touch-action: none !important;
   }
 
   html body.vc-confessionale-page #vc-confessionale-music-player .vc-bgm-player__meta::before {
@@ -1279,8 +1466,11 @@ body.vc-confessionale-page .vc-bgm-player--confessionale.is-open .vc-bgm-player_
   }
 
   html body.vc-confessionale-page #vc-confessionale-music-player.is-open .vc-bgm-player__meta *,
-  html body.vc-confessionale-page #vc-confessionale-music-player.is-open .vc-bgm-player__range {
+  html body.vc-confessionale-page #vc-confessionale-music-player.is-open .vc-bgm-player__slider-row {
     pointer-events: auto !important;
+  }
+  html body.vc-confessionale-page #vc-confessionale-music-player.is-open .vc-bgm-player__range {
+    pointer-events: none !important;
   }
 }
 

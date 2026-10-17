@@ -129,13 +129,11 @@ function loadVinylsConfig() {
 async function main() {
   process.env.SITE_API_PROCESS = "1";
   const port = Number(process.env.SITE_API_PORT || 3020) || 3020;
-  const mongo =
-    process.env.MONGO_URL_LOCAL ||
-    process.env.MONGODB_URI_LOCAL ||
-    process.env.MONGO_URL ||
-    process.env.MONGODB_URI;
+  /* mongoSingleSource1 */
+  const { buildMongoUrl } = require("../../Utils/Database/mongoConnect");
+  const mongo = buildMongoUrl();
   if (!mongo) {
-    console.error("[SITE-API] Missing MONGO_URL");
+    console.error("[SITE-API] Missing MONGO_URL / MONGO_URL_LOCAL");
     process.exit(1);
   }
 
@@ -262,6 +260,7 @@ async function main() {
     const isSiteWikiHelp = pathStr.startsWith("/webhooks/site-wiki-help");
     const isSiteReviews = pathStr.startsWith("/webhooks/site-reviews");
     const isSiteBoards = pathStr.startsWith("/webhooks/site-boards");
+    const isSiteUserPresence = pathStr.startsWith("/webhooks/site-user-presence");
     const isSiteSuggestions = pathStr.startsWith("/webhooks/site-suggestions");
     const isSiteBotFeedback = pathStr.startsWith("/webhooks/site-bot-feedback");
     const isSiteWebTickets = pathStr.startsWith("/webhooks/site-web-tickets");
@@ -292,6 +291,7 @@ async function main() {
     /* siteApiDeviceEverywhere1: chrome-prefs / discord-me / cookie / dashboard anche in CORS */
     const isSiteChromePrefs = pathStr === "/webhooks/site-chrome-prefs";
     const isSiteDiscordMe = pathStr === "/webhooks/site-discord-me";
+    const isSiteBoot = pathStr === "/webhooks/site-boot";
     const isSiteCookieConsent = pathStr === "/webhooks/site-cookie-consent";
     const isSiteDashboard = pathStr.startsWith("/webhooks/site-dashboard");
     const isSiteWelcomePronouns = pathStr.startsWith("/webhooks/site-welcome-pronouns");
@@ -320,6 +320,7 @@ async function main() {
       !isSiteWikiHelp &&
       !isSiteReviews &&
       !isSiteBoards &&
+      !isSiteUserPresence &&
       !isSiteSuggestions &&
       !isSiteBotFeedback &&
       !isSiteWebTickets &&
@@ -333,6 +334,7 @@ async function main() {
       !isSiteProfileExtras &&
       !isSiteChromePrefs &&
       !isSiteDiscordMe &&
+      !isSiteBoot &&
       !isSiteCookieConsent &&
       !isSiteDashboard &&
       !isSiteWelcomePronouns &&
@@ -372,6 +374,7 @@ async function main() {
       isSiteRankCard ||
       isSiteReviews ||
       isSiteBoards ||
+      isSiteUserPresence ||
       isSiteSuggestions ||
       isSiteBotFeedback ||
       isSiteNotifications ||
@@ -525,20 +528,30 @@ async function main() {
     });
     try {
       const { warmSiteRolesCache } = require("../../Utils/Web/siteRolesApi");
-      setTimeout(() => {
-        warmSiteRolesCache(client);
-      }, 2500);
+      const warmRoles = () => {
+        try {
+          warmSiteRolesCache(client);
+        } catch (e) {
+          console.warn("[SITE-API] site-roles warm:", e?.message || e);
+        }
+      };
+      setTimeout(warmRoles, 2500);
+      /* siteUsersSwr1: tieni cache calda — evita cold Discord su /ruoli */
+      setInterval(warmRoles, 60_000).unref?.();
     } catch (err) {
       console.warn("[SITE-API] site-roles warm:", err?.message || err);
     }
     /* siteApiW4: warm users + live-event so first public hit isn't cold */
     try {
       const { warmSiteUsersLeaderboardCache } = require("../../Utils/Web/siteUsersLeaderboardApi");
-      setTimeout(() => {
+      const warmUsers = () => {
         warmSiteUsersLeaderboardCache(client).catch((e) => {
           console.warn("[SITE-API] site-users warm:", e?.message || e);
         });
-      }, 4500);
+      };
+      setTimeout(warmUsers, 4500);
+      /* siteUsersSwr1: refresh periodico classifiche (TTL 90s) */
+      setInterval(warmUsers, 55_000).unref?.();
     } catch (err) {
       console.warn("[SITE-API] site-users warm init:", err?.message || err);
     }
@@ -549,6 +562,106 @@ async function main() {
       }, 3000);
     } catch (err) {
       console.warn("[SITE-API] site-live-event warm:", err?.message || err);
+    }
+    /* apiWarmSwr1: wiki / boards / staff roster+organico / dash deps */
+    try {
+      const { warmSiteWikiHelpCache } = require("../../Utils/Web/siteWikiHelpApi");
+      const warmWiki = () => {
+        warmSiteWikiHelpCache(client).catch((e) => {
+          console.warn("[SITE-API] site-wiki-help warm:", e?.message || e);
+        });
+      };
+      setTimeout(warmWiki, 5000);
+      setInterval(warmWiki, 75_000).unref?.();
+    } catch (err) {
+      console.warn("[SITE-API] site-wiki-help warm init:", err?.message || err);
+    }
+    try {
+      const { warmSiteBoardsListingsCache } = require("../../Utils/Web/siteBoardsApi");
+      const warmBoards = () => {
+        warmSiteBoardsListingsCache(client).catch((e) => {
+          console.warn("[SITE-API] site-boards warm:", e?.message || e);
+        });
+      };
+      setTimeout(warmBoards, 6000);
+      setInterval(warmBoards, 70_000).unref?.();
+    } catch (err) {
+      console.warn("[SITE-API] site-boards warm init:", err?.message || err);
+    }
+    try {
+      const { warmStaffRosterCache } = require("../../Utils/Web/siteStaffRosterCache");
+      const { warmSiteStaffOrganicoCache } = require("../../Utils/Web/siteStaffOrganicoApi");
+      const { warmSiteStaffDashboardDeps } = require("../../Utils/Web/siteStaffDashboardApi");
+      const warmStaff = () => {
+        warmStaffRosterCache(client)
+          .then(() =>
+            Promise.all([
+              warmSiteStaffOrganicoCache(client).catch(() => null),
+              warmSiteStaffDashboardDeps(client).catch(() => null),
+            ]),
+          )
+          .catch((e) => {
+            console.warn("[SITE-API] staff warm:", e?.message || e);
+          });
+      };
+      setTimeout(warmStaff, 7000);
+      setInterval(warmStaff, 90_000).unref?.();
+    } catch (err) {
+      console.warn("[SITE-API] staff warm init:", err?.message || err);
+    }
+    /* apiWarmSwr2: kick/twitch PIP + vote board + reviews list + compiti workers */
+    try {
+      const { warmSiteKickLiveCache } = require("../../Utils/Web/siteKickLiveApi");
+      const { warmSiteTwitchLiveCache } = require("../../Utils/Web/siteTwitchLiveApi");
+      const warmLivePip = () => {
+        Promise.all([
+          warmSiteKickLiveCache(client).catch(() => null),
+          warmSiteTwitchLiveCache(client).catch(() => null),
+        ]).catch((e) => {
+          console.warn("[SITE-API] live-pip warm:", e?.message || e);
+        });
+      };
+      /* twitchTokenFailBackoff2: warm dopo boot (CPU/FD saturi a 2.5s → ENFILE/23) */
+      setTimeout(warmLivePip, 20_000);
+      setInterval(warmLivePip, 55_000).unref?.();
+    } catch (err) {
+      console.warn("[SITE-API] live-pip warm init:", err?.message || err);
+    }
+    try {
+      const { warmSiteVoteBoardCache } = require("../../Utils/Web/siteVoteApi");
+      const warmVote = () => {
+        warmSiteVoteBoardCache(client).catch((e) => {
+          console.warn("[SITE-API] site-vote warm:", e?.message || e);
+        });
+      };
+      setTimeout(warmVote, 2500);
+      setInterval(warmVote, 80_000).unref?.();
+    } catch (err) {
+      console.warn("[SITE-API] site-vote warm init:", err?.message || err);
+    }
+    try {
+      const { warmSiteReviewsListCache } = require("../../Utils/Web/siteReviewsApi");
+      const warmReviews = () => {
+        warmSiteReviewsListCache(client).catch((e) => {
+          console.warn("[SITE-API] site-reviews warm:", e?.message || e);
+        });
+      };
+      setTimeout(warmReviews, 3000);
+      setInterval(warmReviews, 25_000).unref?.();
+    } catch (err) {
+      console.warn("[SITE-API] site-reviews warm init:", err?.message || err);
+    }
+    try {
+      const { warmSiteStaffCompitiWorkersCache } = require("../../Utils/Web/siteStaffCompitiApi");
+      const warmCompiti = () => {
+        warmSiteStaffCompitiWorkersCache(client).catch((e) => {
+          console.warn("[SITE-API] compiti workers warm:", e?.message || e);
+        });
+      };
+      setTimeout(warmCompiti, 10000);
+      setInterval(warmCompiti, 100_000).unref?.();
+    } catch (err) {
+      console.warn("[SITE-API] compiti warm init:", err?.message || err);
     }
     try {
       const {

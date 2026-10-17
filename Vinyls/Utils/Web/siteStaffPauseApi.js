@@ -656,14 +656,23 @@ async function handleSiteStaffPausePost(client, req, res) {
 
     res.setHeader("Cache-Control", "private, no-store");
     const pauseId = String(result.pauseId || "").trim();
+    const pauseIds = Array.isArray(result.pauseIds)
+      ? result.pauseIds.map((id) => String(id || "").trim()).filter(Boolean)
+      : pauseId
+        ? [pauseId]
+        : [];
     const dedupeKey = pauseId ? buildWorkflowDedupeKey("pause", [member.id, pauseId]) : "";
     return res.status(200).json({
       ok: true,
       pauseId,
+      pauseIds,
       dedupeKey,
       message:
-        "Richiesta inviata. Puoi discutere con gli High Staff dalla chat qui sotto (come il thread Discord). Si chiude automaticamente a decisione.",
+        pauseIds.length > 1
+          ? "Richieste inviate (una per ruolo). L'High Staff può accettarle o rifiutarle in modo indipendente."
+          : "Richiesta inviata. Puoi discutere con gli High Staff dalla chat qui sotto (come il thread Discord). Si chiude automaticamente a decisione.",
       role: requestedRole,
+      roleTracks: Array.isArray(result.roleTracks) ? result.roleTracks : undefined,
     });
   } catch (err) {
     global.logger?.error?.("[WEBHOOK] site-staff-pause POST:", err);

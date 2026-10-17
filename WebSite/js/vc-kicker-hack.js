@@ -1,4 +1,5 @@
-/* kickerPcShort1: su PC scramble ~0.12s (prima ~0.4s); mobile invariato */
+/* kickerPcShort1 + textSettlePre1: primo paint = testo finale subito (no scramble post-reveal).
+   Scramble solo su langchange (opts.scramble). */
 (function () {
   "use strict";
 
@@ -159,12 +160,17 @@
   function elVisiblyReady(el) {
     if (!el || !pageRevealReady()) return false;
     if (bootCurtainBlocking()) return false;
+    /* violKillFinal2: a boot niente offsetWidth (Forced reflow / timeout 64ms+) */
+    if (window.__vcBootLightUntil && Date.now() < window.__vcBootLightUntil) {
+      try {
+        if (el.hidden || el.hasAttribute("hidden")) return false;
+      } catch (eBootVis) {}
+      return true;
+    }
     if (viewportBlockedByGate(el)) return false;
-    /* violPass6: niente getComputedStyle+getBCR (Forced reflow dopo class write) */
     try {
       if (el.hidden || el.hasAttribute("hidden")) return false;
       if (el.offsetParent === null && el.tagName !== "BODY") {
-        /* può essere fixed — non escludere solo per offsetParent */
         var w = el.offsetWidth || 0;
         var h = el.offsetHeight || 0;
         if (w < 2 && h < 2) return false;
@@ -363,6 +369,28 @@
     return "";
   }
 
+  function settleInstant(el, target) {
+    if (!el) return;
+    try {
+      stop(el);
+    } catch (eSt) {}
+    if (target) rememberFinal(el, target);
+    var finalTxt = target || el.getAttribute("data-vc-hack-final") || String(el.textContent || "").trim();
+    if (finalTxt && !looksLikeI18nKey(finalTxt)) {
+      el.textContent = finalTxt;
+    }
+    el.classList.remove("is-hacking");
+    try {
+      clearHackLook(el);
+    } catch (eCl) {}
+    el.setAttribute("data-vc-hack-done", "1");
+    el.setAttribute("data-vc-hack-seen", "1");
+    el.setAttribute("data-vc-hack-played-visible", "1");
+    el.setAttribute("data-vc-hack-settled-pre", "1");
+    el.removeAttribute("data-vc-hack-pending");
+    el.removeAttribute("data-vc-hack-waiting");
+  }
+
   function play(el, opts) {
     if (!el) return;
     if (isNoHackKicker(el)) {
@@ -371,6 +399,7 @@
     }
     opts = opts || {};
     var force = opts.force === true;
+    var wantScramble = opts.scramble === true;
     var target = resolveText(el, opts.text);
     if (!target || looksLikeNoise(target, target.length) || looksLikeI18nKey(target)) {
       target = el.getAttribute("data-vc-hack-final") || target;
@@ -381,39 +410,32 @@
       return;
     }
 
-    /* mai scramble dietro curtain / prima del cine-ready (anche con force) */
+    /* textSettlePre1: default = testo finale subito (anche sotto curtain) */
+    if (!wantScramble) {
+      settleInstant(el, target);
+      return;
+    }
+
+    /* scramble (solo langchange): se curtain su, settle e stop */
     if (!pageRevealReady() || bootCurtainBlocking()) {
-      el.setAttribute("data-vc-hack-final", target);
-      el.removeAttribute("data-vc-hack-done");
-      el.setAttribute("data-vc-hack-pending", "1");
-      scheduleRevealReplay();
+      settleInstant(el, target);
       return;
     }
     if (!elVisiblyReady(el)) {
       if (!force) {
-        el.removeAttribute("data-vc-hack-done");
-        el.setAttribute("data-vc-hack-pending", "1");
-        scheduleRevealReplay();
+        settleInstant(el, target);
         return;
       }
-      /* force: solo hidden attr, no getComputedStyle */
       try {
         if (el.hidden || el.hasAttribute("hidden")) {
-          el.setAttribute("data-vc-hack-pending", "1");
-          scheduleRevealReplay();
+          settleInstant(el, target);
           return;
         }
       } catch (eForceVis) {}
     }
 
     if (prefersReduced()) {
-      rememberFinal(el, target);
-      el.textContent = target;
-      el.classList.remove("is-hacking");
-      clearHackLook(el);
-      el.setAttribute("data-vc-hack-done", "1");
-      el.setAttribute("data-vc-hack-seen", "1");
-      el.removeAttribute("data-vc-hack-pending");
+      settleInstant(el, target);
       return;
     }
 
@@ -561,110 +583,32 @@
     if (!el) return;
     if (el.getAttribute("data-vc-hack-waiting") === "1") return;
     el.setAttribute("data-vc-hack-waiting", "1");
-    var started = false;
-    var noiseRaf = 0;
     var targetHint = rememberFinal(el) || resolveText(el) || "Benvenuto su";
 
-    function noiseStep() {
-      if (started) return;
-      if (!pageRevealReady() || !elVisiblyReady(el)) {
-        noiseRaf = window.setTimeout(noiseStep, 40);
-        return;
-      }
-      var noiseW = 0;
-      try {
-        noiseW = Math.ceil(el.offsetWidth || 0);
-      } catch (eNw) {
-        noiseW = 0;
-      }
-      el.classList.add("vc-kicker-hack", "is-hacking");
-      applyHackLook(el, noiseW);
-      el.textContent = scrambleFrame(targetHint, 0);
-      noiseRaf = window.setTimeout(noiseStep, 40);
-    }
-
-    function stopNoise() {
-      try {
-        if (noiseRaf) clearTimeout(noiseRaf);
-      } catch (e) {}
-      noiseRaf = 0;
-    }
-
     function go(forcedText) {
-      if (started && !forcedText) return;
-      started = true;
       el.removeAttribute("data-vc-hack-waiting");
-      stopNoise();
-      el.removeAttribute("data-vc-hack-seen");
-      el.removeAttribute("data-vc-hack-done");
-      var txt = forcedText || resolveText(el) || el.textContent;
-      if (txt) rememberFinal(el, txt);
-      play(el, { force: true, text: txt });
+      var txt = forcedText || resolveText(el) || el.textContent || targetHint;
+      settleInstant(el, txt);
     }
 
-    function hasToken() {
-      try {
-        if (typeof window.__vcDiscordGetAccessToken === "function") {
-          if (String(window.__vcDiscordGetAccessToken() || "").trim()) return true;
-        }
-      } catch (e0) {}
-      try {
-        return Boolean(String(localStorage.getItem("vc_discord_access_token") || "").trim());
-      } catch (e1) {
-        return false;
-      }
-    }
-
-    /* only real pronoun resolve — not the default placeholder attr */
-    if (el.getAttribute("data-vc-welcome-pronoun-ready") === "1" && elVisiblyReady(el) && pageRevealReady()) {
+    if (el.getAttribute("data-vc-welcome-pronoun-ready") === "1") {
       go(resolveText(el));
       return;
     }
 
-    if (!prefersReduced() && pageRevealReady() && !bootCurtainBlocking()) noiseStep();
-    else if (!pageRevealReady() || bootCurtainBlocking()) {
-      el.setAttribute("data-vc-hack-pending", "1");
-      el.removeAttribute("data-vc-hack-waiting");
-      scheduleRevealReplay();
-      return;
-    }
-
-    var tries = 0;
-    var noiseStartedAt = Date.now();
-    var iv = window.setInterval(function () {
-      tries += 1;
-      if (!pageRevealReady() || bootCurtainBlocking()) return;
-      var ready = el.getAttribute("data-vc-welcome-pronoun-ready") === "1";
-      if (ready && elVisiblyReady(el)) {
-        clearInterval(iv);
-        go(resolveText(el));
-        return;
-      }
-      /* kickerFastAll2: noise welcome max ~160ms poi decode */
-      var elapsed = Date.now() - noiseStartedAt;
-      var maxMs = desktopNow() ? 70 : 120;
-      if (elapsed >= maxMs || tries >= 6) {
-        clearInterval(iv);
-        go(resolveText(el) || el.textContent);
-      }
-    }, 60);
+    /* textSettlePre1: testo subito; upgrade silenzioso quando arriva il pronoun */
+    settleInstant(el, targetHint);
+    el.removeAttribute("data-vc-hack-waiting");
 
     document.addEventListener("vc:welcome-pronoun-ready", function onReady(ev) {
       try {
         if (ev && ev.detail && ev.detail.el && ev.detail.el !== el) return;
       } catch (e) {}
-      clearInterval(iv);
       var txt = "";
       try {
         txt = (ev && ev.detail && ev.detail.text) || "";
       } catch (eT) {}
-      if (txt) rememberFinal(el, txt);
-      if (elVisiblyReady(el)) go(txt || resolveText(el));
-      else {
-        el.setAttribute("data-vc-hack-pending", "1");
-        el.removeAttribute("data-vc-hack-waiting");
-        scheduleRevealReplay();
-      }
+      go(txt || resolveText(el));
     });
   }
 
@@ -716,7 +660,6 @@
     var initial = resolveText(el);
     if (!el.getAttribute("data-vc-hack-bound")) {
       el.setAttribute("data-vc-hack-bound", "1");
-      /* welcomePronouns6: do not early-lock Benvenut* before pronoun resolve */
       if (initial && !(isHomeWelcome(el) && isInclusiveWelcome(initial))) {
         rememberFinal(el, initial);
       }
@@ -726,18 +669,14 @@
       }
     }
 
-    /* pending gendered decode after curtain */
+    /* pronoun ready: aggiorna testo senza scramble */
     if (
-      force &&
-      el.getAttribute("data-vc-hack-pending") === "1" &&
       el.getAttribute("data-vc-welcome-pronoun-ready") === "1" &&
-      elVisiblyReady(el)
+      (force || el.getAttribute("data-vc-hack-pending") === "1" || el.getAttribute("data-vc-hack-settled-pre") === "1")
     ) {
       var pendingTxt = resolveText(el) || el.getAttribute("data-vc-hack-final") || "";
       if (pendingTxt) {
-        el.removeAttribute("data-vc-hack-seen");
-        el.removeAttribute("data-vc-hack-done");
-        play(el, { force: true, text: pendingTxt, delayMs: 0 });
+        settleInstant(el, pendingTxt);
         return;
       }
     }
@@ -751,47 +690,19 @@
       return;
     }
 
-    if (!elVisiblyReady(el)) {
+    /* textSettlePre1: settle immediato (anche se non ancora “visibile” / curtain su) */
+    var txt = resolveText(el) || initial || String(el.textContent || "").trim();
+    if (txt && !looksLikeI18nKey(txt)) {
+      settleInstant(el, txt);
+      return;
+    }
+    if (el.getAttribute("data-i18n")) {
       el.setAttribute("data-vc-hack-pending", "1");
-      el.removeAttribute("data-vc-hack-done");
       scheduleRevealReplay();
       observeEl(el);
       return;
     }
-
-    if (!resolveText(el) && el.getAttribute("data-i18n")) {
-      el.setAttribute("data-vc-hack-pending", "1");
-      scheduleRevealReplay();
-      return;
-    }
-
-    if (isHomePage() && isHomeWelcome(el)) {
-      /* kickerFastAll3: niente noise loop — scramble immediato; il listener pronome aggiorna dopo */
-      window.setTimeout(function () {
-        if (!pageRevealReady() || bootCurtainBlocking()) {
-          el.setAttribute("data-vc-hack-pending", "1");
-          scheduleRevealReplay();
-          return;
-        }
-        if (el.getAttribute("data-vc-welcome-pronoun-ready") === "1") {
-          play(el, { force: true, text: resolveText(el), delayMs: 0 });
-        } else {
-          play(el, { force: true, delayMs: 0 });
-        }
-      }, pageRevealReady() && !bootCurtainBlocking() ? settleAfterReadyMs() : settleAfterReadyMs() + 80);
-      return;
-    }
-
-    /* aspetta paint DOPO cine-ready — su PC altrimenti parte nascosto / troppo presto */
-    window.setTimeout(function () {
-      if (!pageRevealReady() || bootCurtainBlocking() || (!elVisiblyReady(el) && !force)) {
-        el.setAttribute("data-vc-hack-pending", "1");
-        scheduleRevealReplay();
-        observeEl(el);
-        return;
-      }
-      play(el, { delayMs: desktopNow() ? 8 : 10, force: true });
-    }, pageRevealReady() && !bootCurtainBlocking() ? settleAfterReadyMs() : settleAfterReadyMs() + 100);
+    settleInstant(el, txt);
   }
 
   function bootAll(root, opts) {
@@ -822,37 +733,24 @@
     for (var i = 0; i < kickers.length; i += 1) {
       var el = kickers[i];
       if (el.classList.contains("is-hacking")) continue;
-      /* già visto a curtain giù: non riaprire lo scramble */
-      if (el.getAttribute("data-vc-hack-played-visible") === "1") continue;
-      if (!elVisiblyReady(el)) {
-        observeEl(el);
+      if (el.getAttribute("data-vc-hack-played-visible") === "1" && el.getAttribute("data-vc-hack-pending") !== "1")
         continue;
-      }
-      if (el.getAttribute("data-vc-hack-seen") === "1" && el.getAttribute("data-vc-hack-pending") !== "1") {
-        continue;
-      }
-      el.removeAttribute("data-vc-hack-done");
-      el.removeAttribute("data-vc-hack-pending");
-      bootOne(el, { force: true });
+      var txt = resolveText(el) || el.getAttribute("data-vc-hack-final") || String(el.textContent || "").trim();
+      if (txt && !looksLikeI18nKey(txt)) settleInstant(el, txt);
+      else observeEl(el);
     }
   }
 
   var revealTimer = 0;
   function scheduleRevealReplay() {
     window.clearTimeout(revealTimer);
-    revealTimer = window.setTimeout(function () {
-      if (!pageRevealReady() || bootCurtainBlocking()) {
-        scheduleRevealReplay();
-        return;
-      }
-      window.setTimeout(replayPending, replayAfterReadyMs());
-    }, replayAfterReadyMs());
+    /* textSettlePre1: non aspettare curtain — settle subito */
+    revealTimer = window.setTimeout(replayPending, 16);
   }
 
   function onLangChange() {
     var kickers = collectKickers();
     var i = 0;
-    /* violPass7: uno per tick — play() sync era Violation setTimeout */
     function slice() {
       if (i >= kickers.length) return;
       var el = kickers[i++];
@@ -860,8 +758,9 @@
         el.removeAttribute("data-vc-hack-seen");
         el.removeAttribute("data-vc-hack-done");
         el.removeAttribute("data-vc-hack-played-visible");
+        el.removeAttribute("data-vc-hack-settled-pre");
         rememberFinal(el, resolveText(el) || el.textContent);
-        play(el, { force: true, delayMs: 0 });
+        play(el, { force: true, scramble: true, delayMs: 0 });
       } catch (eLc) {}
       if (i < kickers.length) window.setTimeout(slice, 48);
     }
@@ -879,38 +778,10 @@
     if (revealWatchBound) return;
     revealWatchBound = true;
     function onReveal() {
-      /* kickerHack12: su reveal, riforza i kicker hero anche se un decode “fantasma” era già done */
+      /* textSettlePre1: NO reset/scramble su reveal — solo settle pending residui */
       try {
-        var kickers = collectKickers();
-        for (var i = 0; i < kickers.length; i += 1) {
-          var el = kickers[i];
-          if (!el) continue;
-          if (el.classList.contains("is-hacking")) continue;
-          var hero =
-            el.classList.contains("vc-hero-kicker") ||
-            el.classList.contains("vc-confessionale-kicker") ||
-            isHomeWelcome(el);
-          /* kickerPcVisible1: dopo curtain riforza SEMPRE i hero (anche se già done dietro opacity 0) */
-          /* kickerFastAll2: se già giocato a curtain giù, non ri-scramble (allungava tutto) */
-          if (el.getAttribute("data-vc-hack-played-visible") === "1") continue;
-          if (
-            !hero &&
-            el.getAttribute("data-vc-hack-done") !== "1" &&
-            el.getAttribute("data-vc-hack-pending") !== "1"
-          ) {
-            continue;
-          }
-          if (hero) {
-            try {
-              stop(el);
-            } catch (eStopH) {}
-          }
-          el.removeAttribute("data-vc-hack-seen");
-          el.removeAttribute("data-vc-hack-done");
-          el.setAttribute("data-vc-hack-pending", "1");
-        }
+        replayPending();
       } catch (eRep) {}
-      window.setTimeout(scheduleRevealReplay, settleAfterReadyMs());
     }
     document.addEventListener("vc:page-cine-ready", onReveal);
     window.addEventListener("vc-page-cine-ready", onReveal);
@@ -1054,7 +925,7 @@
   }
 
   window.VcKickerHack = {
-    ver: "20261002violPass12",
+    ver: "20261009cueTextSettle2",
     play: play,
     boot: boot,
     bootAll: function (root) {

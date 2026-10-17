@@ -1,0 +1,354 @@
+/* stickyChrome2b + ticketsStickyKill1 + wikiBotStickyKill1 + switcherStickyKill2
+   + profileSwitcherStickyKill1
+   — sticky SOLO #vc-sticky-toc (legal); switcher/tabs scorrono con la pagina */
+:root {
+  --vc-sticky-top: calc(max(0.85rem, env(safe-area-inset-top, 0px)) + 4.35rem);
+  --vc-sticky-z: 42;
+  --vc-sticky-bg: rgba(16, 12, 9, 0.92);
+  --vc-sticky-bg-light: rgba(250, 246, 240, 0.94);
+  --vc-sticky-line: rgba(245, 214, 183, 0.16);
+}
+html[data-vc-theme="light"] {
+  --vc-sticky-bg: var(--vc-sticky-bg-light);
+  --vc-sticky-line: rgba(111, 78, 55, 0.14);
+}
+html.vc-view-as-on {
+  --vc-sticky-top: calc(
+    max(0.85rem, env(safe-area-inset-top, 0px)) + 4.35rem + var(--vc-view-as-bar-h, 3.1rem)
+  );
+}
+
+/* sticky solo legal TOC */
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body :is(#vc-sticky-toc, .vc-sticky-bar#vc-sticky-toc),
+html.vc-site-polish body.vc-body#top #vc-page-content :is(#vc-sticky-toc, .vc-sticky-bar#vc-sticky-toc),
+html.vc-site-polish body.vc-body :is(#vc-sticky-toc, .vc-sticky-bar#vc-sticky-toc),
+html body.vc-body :is(#vc-sticky-toc, .vc-sticky-bar#vc-sticky-toc) {
+  position: sticky !important;
+  top: var(--vc-sticky-top) !important;
+  z-index: var(--vc-sticky-z) !important;
+}
+
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body #vc-sticky-toc.is-stuck,
+html.vc-site-polish body.vc-body #vc-sticky-toc.is-stuck {
+  background: var(--vc-sticky-bg) !important;
+  background-image: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.28) !important;
+  border-bottom: 1px solid var(--vc-sticky-line) !important;
+}
+
+/* switcherStickyKill2 + profileSwitcherStickyKill1: TUTTI gli switcher/tab = relative (no follow scroll) */
+html body.vc-body :is(
+  #vc-regole-tabs,
+  .vc-regole-tabs,
+  #vc-staff-guide-tabs,
+  #vc-ul-board-tabs,
+  .vc-ul-board-tabs,
+  .vc-notify-filter-bar,
+  .vc-notif-scope-bar,
+  .vc-feedback-scope-bar,
+  .vc-candidature-tabs,
+  .vc-wiki-bot-switch,
+  .vc-wiki-bot-switch__seg,
+  .vc-wiki-cmd-shell .vc-cmd-tabs,
+  .vc-role-seg-switch,
+  .vc-role-seg-switch__seg,
+  .vc-appelli-mode,
+  .vc-cpf-dock,
+  .vc-pers-hub__tabs,
+  .vc-wt-scope-bar,
+  .vc-wt-scope-dock,
+  .vc-wt-filter-menu,
+  .vc-sticky-stack,
+  .vc-feedback-scope-dock,
+  .vc-reviews-scope-dock,
+  #vc-notif-scope-dock,
+  .vc-user-profile-tabs,
+  [data-vc-profile-tabs],
+  .vc-user-profile-switcher,
+  .vc-staff-pt-seg
+),
+html.vc-site-polish body.vc-body :is(
+  #vc-regole-tabs,
+  .vc-regole-tabs,
+  #vc-staff-guide-tabs,
+  #vc-ul-board-tabs,
+  .vc-ul-board-tabs,
+  .vc-notify-filter-bar,
+  .vc-notif-scope-bar,
+  .vc-feedback-scope-bar,
+  .vc-candidature-tabs,
+  .vc-wiki-bot-switch,
+  .vc-wiki-bot-switch__seg,
+  .vc-wiki-cmd-shell .vc-cmd-tabs,
+  .vc-role-seg-switch,
+  .vc-role-seg-switch__seg,
+  .vc-appelli-mode,
+  .vc-cpf-dock,
+  .vc-pers-hub__tabs,
+  .vc-wt-scope-bar,
+  .vc-wt-scope-dock,
+  .vc-wt-filter-menu,
+  .vc-sticky-stack,
+  .vc-feedback-scope-dock,
+  .vc-reviews-scope-dock,
+  #vc-notif-scope-dock,
+  .vc-user-profile-tabs,
+  [data-vc-profile-tabs],
+  .vc-user-profile-switcher,
+  .vc-staff-pt-seg
+),
+html body.vc-body#top #vc-page-content :is(
+  #vc-regole-tabs,
+  .vc-regole-tabs,
+  #vc-staff-guide-tabs,
+  #vc-ul-board-tabs,
+  .vc-ul-board-tabs,
+  .vc-notify-filter-bar,
+  .vc-notif-scope-bar,
+  .vc-feedback-scope-bar,
+  .vc-candidature-tabs,
+  .vc-wiki-bot-switch,
+  .vc-wiki-bot-switch__seg,
+  .vc-role-seg-switch,
+  .vc-cpf-dock,
+  .vc-pers-hub__tabs,
+  .vc-wt-scope-bar,
+  #vc-notif-scope-dock,
+  .vc-user-profile-tabs,
+  [data-vc-profile-tabs],
+  .vc-user-profile-switcher,
+  .vc-staff-pt-seg
+),
+html body.vc-body.vc-users-page .vc-user-profile-tabs,
+html body.vc-body.vc-user-profile-page .vc-user-profile-tabs,
+html body.vc-body.vc-users-page [data-vc-profile-tabs],
+html body.vc-body.vc-user-profile-page [data-vc-profile-tabs],
+html.vc-site-polish body.vc-body.vc-users-page .vc-user-profile-tabs,
+html.vc-site-polish body.vc-body.vc-user-profile-page .vc-user-profile-tabs {
+  position: relative !important;
+  top: auto !important;
+  bottom: auto !important;
+  z-index: auto !important;
+}
+
+html body.vc-body :is(
+  #vc-regole-tabs,
+  .vc-regole-tabs,
+  .vc-notif-scope-bar,
+  .vc-feedback-scope-bar,
+  .vc-notify-filter-bar,
+  .vc-wiki-bot-switch,
+  .vc-cpf-dock,
+  .vc-pers-hub__tabs,
+  .vc-candidature-tabs,
+  .vc-ul-board-tabs,
+  #vc-staff-guide-tabs,
+  .vc-user-profile-tabs,
+  [data-vc-profile-tabs],
+  .vc-user-profile-switcher,
+  .vc-staff-pt-seg
+).is-stuck,
+html body.vc-body :is(
+  #vc-regole-tabs,
+  .vc-regole-tabs,
+  .vc-notif-scope-bar,
+  .vc-feedback-scope-bar,
+  .vc-notify-filter-bar,
+  .vc-wiki-bot-switch,
+  .vc-cpf-dock,
+  .vc-pers-hub__tabs,
+  .vc-user-profile-tabs,
+  [data-vc-profile-tabs],
+  .vc-user-profile-switcher,
+  .vc-staff-pt-seg
+).vc-sticky-armed {
+  background-image: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  box-shadow: none !important;
+  border-bottom-width: 0 !important;
+}
+
+/* profileSwitcherStickyKill1: pin LAST — Community|Staff non sticky su phone/PC */
+html body.vc-body .vc-user-profile-tabs,
+html body.vc-body [data-vc-profile-tabs],
+html body.vc-body .vc-user-profile-switcher,
+html.vc-site-polish body.vc-body .vc-user-profile-tabs,
+html.vc-site-polish body.vc-body [data-vc-profile-tabs],
+html.vc-site-polish body.vc-body.vc-users-page .vc-user-profile-tabs,
+html.vc-site-polish body.vc-body.vc-user-profile-page .vc-user-profile-tabs,
+html body.vc-body#top #vc-page-content .vc-user-profile-tabs,
+html body.vc-body#top #vc-page-content [data-vc-profile-tabs] {
+  position: relative !important;
+  top: auto !important;
+  bottom: auto !important;
+  inset: auto !important;
+  z-index: auto !important;
+}
+
+/* ticketsStickyKill1: zero sticky su Personali|Staff + filtri */
+html body.vc-body.vc-web-tickets-page .vc-sticky-stack,
+html.vc-site-polish body.vc-body.vc-web-tickets-page .vc-sticky-stack,
+html body.vc-body.vc-web-tickets-page#top #vc-page-content .vc-sticky-stack,
+html body.vc-body.vc-web-tickets-page .vc-wt-filter-menu,
+html body.vc-body.vc-web-tickets-page .vc-wt-scope-dock,
+html body.vc-body.vc-web-tickets-page .vc-wt-scope-bar,
+html body.vc-body.vc-web-tickets-page .vc-notif-scope-bar.vc-wt-scope-bar,
+html.vc-site-polish body.vc-body.vc-web-tickets-page .vc-wt-filter-menu,
+html.vc-site-polish body.vc-body.vc-web-tickets-page .vc-wt-scope-dock {
+  position: relative !important;
+  top: auto !important;
+  bottom: auto !important;
+  z-index: auto !important;
+}
+html body.vc-body.vc-web-tickets-page .vc-sticky-stack,
+html.vc-site-polish body.vc-body.vc-web-tickets-page .vc-sticky-stack,
+html body.vc-body.vc-web-tickets-page .vc-sticky-stack.is-stuck,
+html body.vc-body.vc-web-tickets-page .vc-wt-filter-menu.is-stuck,
+html body.vc-body.vc-web-tickets-page .vc-wt-scope-dock.is-stuck {
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  box-shadow: none !important;
+  border-bottom: 0 !important;
+}
+
+@media (min-width: 901px) {
+  html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body.vc-web-tickets-page #vc-wt-sidebar,
+  html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body.vc-web-tickets-page .vc-wt-sidebar,
+  html.vc-site-polish body.vc-body.vc-web-tickets-page#top #vc-page-content #vc-wt-sidebar,
+  html.vc-site-polish body.vc-body.vc-web-tickets-page #vc-wt-sidebar,
+  html body.vc-body.vc-web-tickets-page #vc-wt-sidebar,
+  html.vc-site-polish body.vc-body.vc-web-tickets-page .vc-wt-sidebar,
+  html body.vc-body.vc-web-tickets-page .vc-wt-sidebar {
+    position: sticky !important;
+    top: var(--vc-sticky-top) !important;
+    z-index: 30 !important;
+    align-self: start !important;
+    max-height: calc(100dvh - var(--vc-sticky-top) - 1rem) !important;
+    overflow: auto !important;
+    overscroll-behavior: contain;
+  }
+}
+
+/* legalTocKill1: switcher sezioni policy rimosso */
+#vc-sticky-toc,
+#vc-sticky-toc.vc-sticky-bar,
+#vc-sticky-toc.vc-sticky-armed {
+  display: none !important;
+  visibility: hidden !important;
+  height: 0 !important;
+  max-height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  pointer-events: none !important;
+}
+#vc-sticky-toc[hidden] { display: none !important; }
+#vc-sticky-toc .vc-sticky-toc__btn {
+  flex: 0 0 auto;
+  appearance: none;
+  border: 1px solid rgba(245, 214, 183, 0.22);
+  background: rgba(20, 15, 12, 0.55);
+  color: rgba(247, 236, 223, 0.92);
+  border-radius: 999px;
+  padding: 0.35rem 0.75rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+html[data-vc-theme="light"] #vc-sticky-toc .vc-sticky-toc__btn {
+  border-color: rgba(111, 78, 55, 0.22);
+  background: rgba(255, 252, 248, 0.9);
+  color: rgba(60, 42, 30, 0.92);
+}
+#vc-sticky-toc .vc-sticky-toc__btn.is-on {
+  border-color: rgba(212, 168, 136, 0.55);
+  background: rgba(212, 168, 136, 0.18);
+}
+
+/* switcherWideOpaque1: dopo page-bundle — full-width + fill solido (pers-hub) */
+html.vc-site-polish:not([data-vc-theme="light"]) body.vc-body.vc-users-page #vc-ul-board-tabs.vc-ul-board-tabs,
+html.vc-site-polish:not([data-vc-theme="light"]) body.vc-body.vc-users-page .vc-ul-board-tabs.vc-ul-board-switcher,
+html.vc-site-polish:not([data-vc-theme="light"]) body.vc-body#top #vc-page-content #vc-ul-board-tabs.vc-ul-board-tabs,
+html.vc-site-polish:not([data-vc-theme="light"]) body.vc-body#top #vc-page-content .vc-ul-board-tabs.vc-ul-board-switcher,
+html.vc-site-polish:not([data-vc-theme="light"]) body.vc-body.vc-users-page .vc-ul-toolbar > #vc-ul-board-tabs {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  gap: 0.2rem !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  align-self: stretch !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+  padding: 0.28rem !important;
+  border-radius: 1rem !important;
+  border: 1px solid rgba(232, 196, 156, 0.28) !important;
+  background: #16100c !important;
+  background-color: #16100c !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  overflow: visible !important;
+  opacity: 1 !important;
+}
+html.vc-site-polish[data-vc-theme="light"] body.vc-body.vc-users-page #vc-ul-board-tabs.vc-ul-board-tabs,
+html.vc-site-polish[data-vc-theme="light"] body.vc-body.vc-users-page .vc-ul-board-tabs.vc-ul-board-switcher,
+html.vc-site-polish[data-vc-theme="light"] body.vc-body#top #vc-page-content #vc-ul-board-tabs {
+  display: flex !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  align-self: stretch !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+  border-radius: 1rem !important;
+  background: #efe6dc !important;
+  background-color: #efe6dc !important;
+  background-image: none !important;
+  opacity: 1 !important;
+}
+html.vc-site-polish body.vc-body.vc-users-page #vc-ul-board-tabs .vc-notify-filter-btn,
+html.vc-site-polish body.vc-body.vc-users-page #vc-ul-board-tabs .vc-ul-filter-tab,
+html.vc-site-polish body.vc-body#top #vc-page-content #vc-ul-board-tabs .vc-notify-filter-btn,
+html.vc-site-polish body.vc-body#top #vc-page-content #vc-ul-board-tabs .vc-ul-filter-tab {
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: none !important;
+  border: 1px solid transparent !important;
+  border-radius: 999px !important;
+  box-shadow: none !important;
+  color: rgba(247, 236, 223, 0.82) !important;
+}
+html.vc-site-polish body.vc-body.vc-users-page #vc-ul-board-tabs .vc-notify-filter-btn--on,
+html.vc-site-polish body.vc-body.vc-users-page #vc-ul-board-tabs .vc-ul-filter-tab--open,
+html.vc-site-polish body.vc-body.vc-users-page #vc-ul-board-tabs .vc-ul-filter-tab[aria-expanded="true"],
+html.vc-site-polish body.vc-body#top #vc-page-content #vc-ul-board-tabs .vc-notify-filter-btn--on,
+html.vc-site-polish body.vc-body#top #vc-page-content #vc-ul-board-tabs .vc-ul-filter-tab--open,
+html.vc-site-polish body.vc-body#top #vc-page-content #vc-ul-board-tabs .vc-ul-filter-tab[aria-expanded="true"] {
+  background: #3a281c !important;
+  background-color: #3a281c !important;
+  background-image: none !important;
+  border: 2px solid rgba(245, 214, 183, 0.95) !important;
+  border-color: rgba(245, 214, 183, 0.95) !important;
+  color: #fff8f0 !important;
+  box-shadow: 0 0 0 1px rgba(255, 247, 236, 0.45) !important;
+}
+/* ulBusyCursor1: grid busy/skeleton non eredita loading cursor sulle card */
+html.vc-site-cursor-ok body.vc-users-page #vc-ul-grid.is-loading .vc-ul-card,
+html.vc-site-cursor-ok body.vc-users-page #vc-ul-grid.is-loading .vc-ul-card *,
+html.vc-site-cursor-ok body.vc-users-page #vc-ul-grid[aria-busy="true"] .vc-ul-card,
+html.vc-site-cursor-ok body.vc-users-page #vc-ul-grid[aria-busy="true"] .vc-ul-card *,
+html.vc-site-cursor-ok body.vc-users-page #vc-ul-grid .vc-ul-card,
+html.vc-site-cursor-ok body.vc-users-page #vc-ul-grid .vc-ul-card * {
+  cursor: url(/images/musicrecordspin-cursor-static.png) 12 12,
+    url(/images/musicrecordspin-cursor-static.png) 12 12, pointer !important;
+}

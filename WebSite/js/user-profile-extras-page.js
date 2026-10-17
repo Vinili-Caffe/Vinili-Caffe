@@ -28,6 +28,8 @@
   var guildEmojisLoaded = false;
   var guildEmojisLoading = false;
   var emojiPickerToken = 0;
+  /* persTabSwitchLoad1: abort paint se la tab extras non è più attiva */
+  var extrasNavSeq = 0;
 
   function byId(id) {
     return document.getElementById(id);
@@ -55,8 +57,28 @@
     return "";
   }
 
-  function isExtrasTab() {
+  function isExtrasTab(tabHint) {
+    var t = String(tabHint || "").trim().toLowerCase();
+    if (t && EXTRAS_TABS[t]) return true;
     return Boolean(EXTRAS_TABS[parseTab()]);
+  }
+
+  function isExtrasNavCurrent(seq) {
+    return Number(seq || 0) === Number(extrasNavSeq || 0);
+  }
+
+  function showExtrasTabBoot() {
+    var app = byId("vc-custom-profile-app");
+    if (!app) return;
+    try {
+      app.hidden = false;
+      app.removeAttribute("hidden");
+      app.innerHTML =
+        '<div class="vc-cpf vc-profile-extras" data-vc-pex-tab-boot="1">' +
+        '<div class="vc-cpf-tab-boot" role="status" aria-live="polite">' +
+        '<span class="vc-user-profile-loader__spin" aria-hidden="true"></span>' +
+        "<p>Caricamento…</p></div></div>";
+    } catch (eBootUi) {}
   }
 
   function getToken() {
@@ -336,10 +358,43 @@
     var token = (emojiPickerToken += 1);
     var unicodeOnly = opts.unicodeOnly === true;
     var preferCustom = opts.preferCustom === true;
+    var anchorSelector = opts.anchorSelector ? String(opts.anchorSelector) : "";
+    var anchorRect = null;
+    try {
+      if (anchor && anchor.getBoundingClientRect) {
+        var r0 = anchor.getBoundingClientRect();
+        if (r0 && (r0.width > 1 || r0.height > 1)) {
+          anchorRect = {
+            left: r0.left,
+            top: r0.top,
+            width: r0.width,
+            height: r0.height,
+            right: r0.right,
+            bottom: r0.bottom,
+          };
+        }
+      }
+    } catch (eRect0) {}
     var openWith = function (emojis) {
       if (token !== emojiPickerToken) return;
+      var live = anchor;
+      if (anchorSelector) {
+        try {
+          var found = document.querySelector(anchorSelector);
+          if (found) live = found;
+        } catch (eFind) {}
+      } else if (!live || !document.body.contains(live)) {
+        try {
+          live =
+            document.querySelector("[data-px-emoji-pick]") ||
+            document.querySelector("[data-px='reactions-pick']") ||
+            live;
+        } catch (eFind2) {}
+      }
       window.VcEmojiPicker.open({
-        anchor: anchor,
+        anchor: live,
+        anchorSelector: anchorSelector,
+        anchorRect: anchorRect,
         guildEmojis: unicodeOnly ? [] : emojis || [],
         unicodeOnly: unicodeOnly,
         preferCustom: !unicodeOnly && preferCustom && emojis && emojis.length > 0,
@@ -661,20 +716,109 @@
     } catch (e) {}
   }
 
+  function persGateMarkup(opts) {
+    opts = opts || {};
+    var login = opts.login === true;
+    var kicker = opts.kicker || "Personalizza";
+    var title = opts.title || (login ? "Accedi per continuare" : "Impossibile caricare");
+    var body = opts.body || "";
+    var perks = login
+      ? '<ul class="vc-pers-gate__perks" aria-label="Cosa puoi personalizzare">' +
+        '<li><i class="fa fa-id-card-o" aria-hidden="true"></i><span>Rank card</span></li>' +
+        '<li><i class="fa fa-star" aria-hidden="true"></i><span>Ruoli</span></li>' +
+        '<li><i class="fa fa-sliders" aria-hidden="true"></i><span>Privacy &amp; altro</span></li>' +
+        "</ul>"
+      : "";
+    var actions = login
+      ? '<button type="button" class="vc-pers-gate__cta" data-vc-discord-login>' +
+        '<img class="vc-discord-login-emoji" src="/images/discord.gif?v=20260908loginGif1" width="20" height="20" alt="" decoding="async" aria-hidden="true" />' +
+        "<span>Accedi con Discord</span></button>" +
+        '<a class="vc-pers-gate__secondary" href="/"><i class="fa fa-chevron-left" aria-hidden="true"></i><span>Torna alla Home</span></a>'
+      : '<button type="button" class="vc-pers-gate__cta vc-pers-gate__cta--ghost" data-vc-pers-reload="1">' +
+        '<i class="fa fa-refresh" aria-hidden="true"></i><span>Ricarica la pagina</span></button>';
+    return (
+      '<div class="vc-pers-gate' +
+      (login ? " is-login" : " is-error") +
+      '" data-vc-pers-gate="persGateUi1">' +
+      '<section class="vc-pers-gate__card">' +
+      '<div class="vc-pers-gate__badge" aria-hidden="true"><i class="fa ' +
+      (login ? "fa-lock" : "fa-exclamation-circle") +
+      '"></i></div>' +
+      '<p class="vc-pers-gate__kicker">' +
+      esc(kicker) +
+      "</p>" +
+      '<h1 class="vc-pers-gate__title">' +
+      esc(title) +
+      "</h1>" +
+      '<p class="vc-pers-gate__lead">' +
+      esc(body) +
+      "</p>" +
+      perks +
+      '<div class="vc-pers-gate__actions">' +
+      actions +
+      "</div></section></div>"
+    );
+  }
+
   function showExtrasFatal(message) {
     var app = byId("vc-custom-profile-app");
     if (!app) {
       killLoaders();
       return;
     }
+    if (!isExtrasTab()) {
+      killLoaders();
+      return;
+    }
+    var msg = String(message || "Impossibile caricare.");
+    var needsLogin = /login|accedi|discord/i.test(msg);
     app.hidden = false;
+    app.removeAttribute("hidden");
     app.dataset.vcCpfReady = "1";
-    app.innerHTML = shell(
-      layout(
-        stageCard("fa-exclamation-circle", "Errore", message || "Impossibile caricare."),
-        blockBody('<p class="vc-cpf-empty">' + esc(message || "Impossibile caricare.") + "</p>"),
-      ),
-    );
+    var hubOn = Boolean(window.__VC_PERS_HUB && window.__VC_PERS_HUB.enabled);
+    app.innerHTML =
+      '<div class="vc-cpf vc-profile-extras">' +
+      (hubOn
+        ? ""
+        : '<a class="vc-cpf-back vc-pers-back" href="/user"><i class="fa fa-chevron-left" aria-hidden="true"></i><span>Profilo</span></a>') +
+      persGateMarkup({
+        login: needsLogin,
+        kicker: "Personalizza",
+        title: needsLogin ? "Accedi per continuare" : "Impossibile caricare",
+        body: needsLogin
+          ? "Collega Discord per gestire privacy, reazioni e le altre impostazioni del profilo."
+          : msg,
+      }) +
+      "</div>";
+    var reloadBtn = app.querySelector("[data-vc-pers-reload]");
+    if (reloadBtn) {
+      reloadBtn.addEventListener("click", function () {
+        try {
+          window.location.reload();
+        } catch (eRel) {}
+      });
+    }
+    Array.prototype.slice
+      .call(app.querySelectorAll(".vc-pers-gate__cta[data-vc-discord-login]"))
+      .forEach(function (btn) {
+        if (btn.__vcPersGateOauth) return;
+        btn.__vcPersGateOauth = true;
+        btn.addEventListener("click", function (ev) {
+          try {
+            if (ev && ev.preventDefault) ev.preventDefault();
+          } catch (e0) {}
+          if (typeof window.__vcDiscordStartOAuthRedirect === "function") {
+            window.__vcDiscordStartOAuthRedirect(btn);
+            return;
+          }
+          if (typeof window.__vcDiscordStartOAuth === "function") {
+            window.__vcDiscordStartOAuth(btn);
+            return;
+          }
+          var hdr = document.getElementById("discord-login-btn");
+          if (hdr) hdr.click();
+        });
+      });
     killLoaders();
   }
 
@@ -729,7 +873,7 @@
   }
 
   function shell(inner) {
-    return '<div class="vc-cpf vc-profile-extras">' + inner + "</div>";
+    return '<div class="vc-cpf vc-profile-extras" data-vc-pers-layout="persAllStack1">' + inner + "</div>";
   }
 
   function stageCard(icon, title, meta, opts) {
@@ -769,8 +913,17 @@
     return '<div class="vc-cpf-actions">' + html + "</div>";
   }
 
-  function layout(stage, blocks) {
-    return '<div class="vc-cpf-layout vc-px-layout">' + stage + editor(blocks) + "</div>";
+  function layout(stage, blocks, dockHint) {
+    return (
+      '<div class="vc-cpf-layout vc-px-layout" data-vc-pers-layout="persAllStack1">' +
+      stage +
+      '<div class="vc-cpf-dock">' +
+      '<p class="vc-cpf-dock__hint">' +
+      esc(dockHint || "Modifica sotto") +
+      "</p></div>" +
+      editor(blocks) +
+      "</div>"
+    );
   }
 
   function btn(primary, ghost, danger, label, px) {
@@ -1016,6 +1169,7 @@
     if (hiddenId === "vc-px-bday-day") placeholder = "Giorno";
     else if (hiddenId === "vc-px-bday-month") placeholder = "Mese";
     else if (hiddenId === "vc-px-bday-year") placeholder = "Anno";
+    else if (hiddenId === "vc-px-role-cat") placeholder = "Categoria";
     else {
       var titleEl = panel
         ? panel.querySelector(".vc-px-select__title")
@@ -1025,6 +1179,7 @@
         if (t.indexOf("giorno") >= 0) placeholder = "Giorno";
         else if (t.indexOf("mese") >= 0) placeholder = "Mese";
         else if (t.indexOf("anno") >= 0) placeholder = "Anno";
+        else if (t.indexOf("categoria") >= 0) placeholder = "Categoria";
       }
     }
     var text = placeholder;
@@ -1123,6 +1278,7 @@
               btn(false, false, true, "Rimuovi", "birthday-clear"),
           ),
       ),
+      "Data e privacy età",
     );
   }
 
@@ -1162,7 +1318,46 @@
               btn(false, true, false, "Tutto bloccato", "privacy-all-off"),
           ),
       ),
+      "Visibilità elementi",
     );
+  }
+
+  /* rolesDiscordIcon1: icona ruolo Discord (webp / animated) o unicodeEmoji */
+  function roleOptionIconHtml(o) {
+    if (!o || String(o.value || "") === "remove") {
+      return '<span class="vc-profile-extras__option-icon vc-profile-extras__option-icon--none" aria-hidden="true"></span>';
+    }
+    var iconUrl = String(o.iconUrl || "").trim();
+    var anim =
+      Boolean(o.iconAnimated) ||
+      /[?&]animated=true\b/i.test(iconUrl) ||
+      /\/a_[a-f0-9]+\.(webp|gif|png)/i.test(iconUrl);
+    if (/cdn\.discordapp\.com\/role-icons\//i.test(iconUrl)) {
+      iconUrl = iconUrl.replace(/\.(png|jpe?g|gif)(\?|$)/i, ".webp$2");
+    } else if (anim && /\.png(\?|$)/i.test(iconUrl)) {
+      iconUrl = iconUrl.replace(/\.png(\?|$)/i, ".webp$1");
+    }
+    if (anim && iconUrl && !/[?&]animated=/i.test(iconUrl)) {
+      iconUrl += (iconUrl.indexOf("?") >= 0 ? "&" : "?") + "animated=true";
+    }
+    if (iconUrl) {
+      return (
+        '<img class="vc-profile-extras__option-icon' +
+        (anim ? " is-animated" : "") +
+        '" src="' +
+        esc(iconUrl) +
+        '" alt="" width="22" height="22" loading="lazy" decoding="async" referrerpolicy="no-referrer" />'
+      );
+    }
+    var emoji = String(o.emoji || "").trim();
+    if (emoji) {
+      return (
+        '<span class="vc-profile-extras__option-emoji" aria-hidden="true">' +
+        esc(emoji) +
+        "</span>"
+      );
+    }
+    return '<span class="vc-profile-extras__option-icon vc-profile-extras__option-icon--none" aria-hidden="true"></span>';
   }
 
   function renderRoles() {
@@ -1204,32 +1399,28 @@
         }
       }
     }
-    var catBtns = cats
-      .map(function (c) {
-        return (
-          '<button type="button" class="vc-profile-extras__chip' +
-          (c.key === cat ? " is-active" : "") +
-          '" data-px="role-cat" data-key="' +
-          esc(c.key) +
-          '">' +
-          esc(c.label) +
-          "</button>"
-        );
-      })
-      .join("");
+    /* rolesCatDd1: categorie in dropdown custom (niente chip categoria) */
+    var catOptions = cats.map(function (c) {
+      return { value: String(c.key || ""), label: String(c.label || c.key || "Categoria") };
+    });
     var rows = options
       .map(function (o) {
         var val = String(o.value || "");
         var isSel = val !== "remove" && selectedIds.indexOf(val) >= 0;
+        var name = String(o.label || val);
         return (
           '<button type="button" class="vc-profile-extras__option' +
           (isSel ? " is-selected" : "") +
           (val === "remove" ? " is-remove" : "") +
+          (o.iconUrl || o.emoji ? " has-discord-icon" : "") +
           '" data-px="role-pick" data-value="' +
           esc(val) +
-          '"><span class="vc-profile-extras__option-label">' +
-          esc(o.label || val) +
-          '</span><span class="vc-profile-extras__option-mark" aria-hidden="true">' +
+          '"><span class="vc-profile-extras__option-main">' +
+          roleOptionIconHtml(o) +
+          '<span class="vc-profile-extras__option-label">' +
+          esc(name) +
+          "</span></span>" +
+          '<span class="vc-profile-extras__option-mark" aria-hidden="true">' +
           (isSel ? '<i class="fa fa-check"></i>' : "") +
           "</span></button>"
         );
@@ -1243,10 +1434,12 @@
     return layout(
       stageCard("fa-tags", selectedLabel, catLabel),
       blockBody(
-        '<label class="vc-cpf-field vc-cpf-field--roles-cat"><span>Categoria</span>' +
-          '<div class="vc-profile-extras__chips">' +
-          catBtns +
-          "</div></label>" +
+        '<div class="vc-cpf-field vc-cpf-field--roles-cat"><span>Categoria</span>' +
+          pxSelectHtml("vc-px-role-cat", catOptions, cat, {
+            placeholder: "Categoria",
+            title: "Categoria",
+          }) +
+          "</div>" +
           '<div class="vc-cpf-field vc-cpf-field--roles-pick"><span>Opzione</span>' +
           '<div class="vc-profile-extras__options vc-profile-extras__options--compact" role="listbox">' +
           (rows || '<p class="vc-cpf-empty">Nessuna opzione in questa categoria.</p>') +
@@ -1255,6 +1448,7 @@
           hint +
           "</p>",
       ),
+      "Categoria e opzioni",
     );
   }
 
@@ -1264,6 +1458,7 @@
       return layout(
         stageCard("fa-smile-o", "Reactions", "Accesso mancante"),
         blockBody('<p class="vc-cpf-empty">Serve VIP, Booster, Double Booster, VIP+ o Level 70.</p>'),
+        "Accesso richiesto",
       );
     }
     var tokens = Array.isArray(r.reactions) ? r.reactions : [];
@@ -1286,6 +1481,7 @@
           ").</p>" +
           actions(btn(false, true, false, "Azzera tutto", "reactions-clear")),
       ),
+      "Slot emoji",
     );
   }
 
@@ -1295,6 +1491,7 @@
       return layout(
         stageCard("fa-commenting-o", "Response", "Accesso mancante"),
         blockBody('<p class="vc-cpf-empty">' + esc(r.accessHint || "Funzione riservata.") + "</p>"),
+        "Accesso richiesto",
       );
     }
     var text = String(r.text || "").trim();
@@ -1317,12 +1514,14 @@
               btn(false, true, false, "Rimuovi", "response-clear"),
           ),
       ),
+      "Testo risposta",
     );
   }
 
   function render() {
     var app = byId("vc-custom-profile-app");
     if (!app) return;
+    if (!isExtrasTab()) return;
     var tab = parseTab();
     var body = "";
     if (tab === "birthday") body = renderBirthday();
@@ -1330,13 +1529,15 @@
     else if (tab === "roles") body = renderRoles();
     else if (tab === "reactions") body = renderReactions();
     else if (tab === "response") body = renderResponse();
+    else return;
     app.hidden = false;
+    app.removeAttribute("hidden");
     app.dataset.vcCpfReady = "1";
     app.classList.toggle("is-busy", Boolean(state.busy));
     app.innerHTML = shell(body);
     try {
       if (window.VcPageTitle) window.VcPageTitle.set(titleFor(tab));
-      else document.title = "Vinili & Caffè | " + titleFor(tab);
+      else document.title = "Vinili & Caffè \u01C0 " + titleFor(tab);
     } catch (e) {}
     wire();
     wireExtrasUi();
@@ -1424,7 +1625,10 @@
             else next[pickIdx] = token;
             run("mention_reaction", { action: "set", reactions: next });
           },
-          { preferCustom: true },
+          {
+            preferCustom: true,
+            anchorSelector: '[data-px="reactions-pick"][data-index="' + String(pickIdx) + '"]',
+          },
         );
         return;
       }
@@ -1482,12 +1686,20 @@
           (btn.closest && btn.closest(".vc-px-select__panel.is-portaled") && btn.closest(".vc-px-select__panel.is-portaled")._vcPxRoot) ||
           null;
         if (!pickRoot) return;
-        setPxSelectValue(pickRoot, btn.getAttribute("data-px-select-value") || "");
+        var pickedVal = btn.getAttribute("data-px-select-value") || "";
+        setPxSelectValue(pickRoot, pickedVal);
         var pickId = ((pickRoot.querySelector('input[type="hidden"]') || {}).id) || "";
         if (pickId === "vc-px-bday-month" || pickId === "vc-px-bday-year") {
           try {
             syncBirthdayDayOptions();
           } catch (eSyncDay) {}
+        }
+        if (pickId === "vc-px-role-cat") {
+          /* rolesCatDd1 */
+          state.roleCat = String(pickedVal || "pronouns");
+          closePxSelects();
+          render();
+          return;
         }
         closePxSelects();
         return;
@@ -1513,7 +1725,11 @@
             if (!value) return;
             insertAtPxRichInput(ta, value, pick);
           },
-          { preferCustom: true, focusTarget: ta },
+          {
+            preferCustom: true,
+            focusTarget: ta,
+            anchorSelector: '[data-px-emoji-pick="response"]',
+          },
         );
       });
     }
@@ -1560,12 +1776,20 @@
             var panel = pickBtn.closest(".vc-px-select__panel.is-portaled");
             var root = panel && panel._vcPxRoot;
             if (root) {
-              setPxSelectValue(root, pickBtn.getAttribute("data-px-select-value") || "");
+              var pickedVal2 = pickBtn.getAttribute("data-px-select-value") || "";
+              setPxSelectValue(root, pickedVal2);
               var pickId = ((root.querySelector('input[type="hidden"]') || {}).id) || "";
               if (pickId === "vc-px-bday-month" || pickId === "vc-px-bday-year") {
                 try {
                   syncBirthdayDayOptions();
                 } catch (eSyncDay2) {}
+              }
+              if (pickId === "vc-px-role-cat") {
+                /* rolesCatDd1 */
+                state.roleCat = String(pickedVal2 || "pronouns");
+                closePxSelects();
+                render();
+                return;
               }
               closePxSelects();
             }
@@ -1619,33 +1843,41 @@
     return msg.indexOf("timeout") >= 0 || msg.indexOf("rete") >= 0 || msg.indexOf("riprova") >= 0;
   }
 
-  async function boot(attempt) {
-    if (!isExtrasTab()) return;
+  async function boot(attempt, navSeq) {
+    var hintOk = isExtrasTab();
+    if (!hintOk) return;
     attempt = Number(attempt) || 0;
+    var seq = navSeq != null ? Number(navSeq) : Number(extrasNavSeq || 0);
     var app = byId("vc-custom-profile-app");
     if (!app) return;
     setExtrasLoaderCopy("Caricamento…", "Un momento…");
-    app.hidden = true;
+    /* persTabSwitchLoad1: niente app.hidden=true (lasciava pannello vuoto allo switch) */
+    showExtrasTabBoot();
     if (!getToken()) {
+      if (!isExtrasNavCurrent(seq) || !isExtrasTab()) return;
       showExtrasFatal("Accedi con Discord per gestire queste impostazioni.");
       return;
     }
     try {
       var data = await apiGet();
+      if (!isExtrasNavCurrent(seq) || !isExtrasTab()) return;
       if ((!data || !data.ok) && isRetryableExtrasError(data) && attempt < 3) {
         setExtrasLoaderCopy(
           "Caricamento…",
           (data && data.message) || "Un momento…",
         );
+        showExtrasTabBoot();
         await new Promise(function (resolve) {
           setTimeout(resolve, 500 + attempt * 400);
         });
-        return boot(attempt + 1);
+        if (!isExtrasNavCurrent(seq) || !isExtrasTab()) return;
+        return boot(attempt + 1, seq);
       }
       if (!data || !data.ok) {
         var cachedExtras = readCachedExtrasPayload(getToken());
         if (cachedExtras) {
           state.data = cachedExtras;
+          if (!isExtrasNavCurrent(seq) || !isExtrasTab()) return;
           render();
           return;
         }
@@ -1653,21 +1885,30 @@
         return;
       }
       state.data = data;
-            if (parseTab() === "reactions" || parseTab() === "response") {
+      if (!isExtrasNavCurrent(seq) || !isExtrasTab()) return;
+      render();
+      if (parseTab() === "reactions" || parseTab() === "response") {
         void ensureGuildEmojis().then(function () {
           try {
+            if (!isExtrasNavCurrent(seq) || !isExtrasTab()) return;
+            /* emojiAnchorPos1: non re-render se picker aperto (stacca l'anchor) */
+            if (window.VcEmojiPicker && typeof window.VcEmojiPicker.isOpen === "function" && window.VcEmojiPicker.isOpen()) {
+              return;
+            }
             if (parseTab() === "reactions" || parseTab() === "response") render();
           } catch (eRe) {}
         });
       }
-      render();
     } catch (e) {
+      if (!isExtrasNavCurrent(seq)) return;
       if (attempt < 2) {
         await new Promise(function (resolve) {
           setTimeout(resolve, 500);
         });
-        return boot(attempt + 1);
+        if (!isExtrasNavCurrent(seq) || !isExtrasTab()) return;
+        return boot(attempt + 1, seq);
       }
+      if (!isExtrasTab()) return;
       showExtrasFatal("Errore di rete o timeout. Ricarica la pagina.");
     }
   }
@@ -1686,6 +1927,40 @@
   }
 
   window.__VC_PROFILE_EXTRAS_API = { isExtrasTab: isExtrasTab, boot: boot, parseTab: parseTab };
+
+  function pingHubScroll() {
+    try {
+      var hub = window.__VC_PERS_HUB_API;
+      if (hub && typeof hub.afterPanelScrollToTabs === "function") hub.afterPanelScrollToTabs();
+      else if (hub && typeof hub.scheduleScrollToTabs === "function") hub.scheduleScrollToTabs();
+    } catch (ePing) {}
+  }
+
+  /* persTabScroll1 / persTabSwitchLoad1: hub soft-nav → boot/render con seq */
+  document.addEventListener("vc:pers-hub-navigate", function (ev) {
+    try {
+      var hint = String((ev && ev.detail && ev.detail.tab) || "").trim().toLowerCase();
+      if (!isExtrasTab(hint)) return;
+      extrasNavSeq += 1;
+      var seq = extrasNavSeq;
+      if (!getToken()) {
+        showExtrasFatal("Accedi con Discord per gestire queste impostazioni.");
+        pingHubScroll();
+        return;
+      }
+      if (state && state.data) {
+        render();
+        pingHubScroll();
+        return;
+      }
+      showExtrasTabBoot();
+      Promise.resolve(boot(0, seq)).then(pingHubScroll).catch(pingHubScroll);
+    } catch (eNav) {
+      try {
+        console.warn("[vc-pex] hub-nav", eNav);
+      } catch (eW) {}
+    }
+  });
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", scheduleBoot);
   else scheduleBoot();

@@ -338,27 +338,31 @@ const ids = {
     DMsOpened: "1544830708340756621",
     DMsClosed: "1544830706482413589",
     AsktoDM: "1544830704477540393",
+    /** Ex Revive Chat — ora unico ping revive (ingloba Revive Voc). */
+    ReviveServer: "1544830674848972861",
+    /** @deprecated alias di ReviveServer */
     ReviveChat: "1544830674848972861",
-    ReviveVoc: "1544830672802422854",
-    SerataFilm: "1544830665688612924",
+    /** @deprecated migrato in ReviveServer (ruolo Discord eliminato) */
+    ReviveVoc: "1544830674848972861",
+    /** @deprecated migrato in Events (ruolo Discord eliminato) */
+    SerataFilm: "1544830669023346688",
     Partnership: "1544830657073774717",
     Events: "1544830669023346688",
     HogwartsEventParticipant: "1507000390493798511",
     HogwartsFinaleWinnerBonus: "1544830792168116234",
     News: "1544830667366338600",
-    Polls: "1544830663822147625",
     Bump: "1544830661637046303",
     Minigames: "1544830659543965706",
     Notturno: "1544830670814314508",
     Live: "1544830654896676896",
     KickSub: "1544830822031298592",
     KickModerator: "1544831244640976917",
-    /** Ex-Changelogs; Status migrato qui e ruolo Status eliminato. */
-    Updates: "1544830652908707894",
-    /** @deprecated alias di Updates */
-    Changelogs: "1544830652908707894",
-    /** @deprecated migrato in Updates */
-    Status: "1544830652908707894",
+    /** @deprecated migrato in News (Updates/Changelogs/Status eliminati) */
+    Updates: "1544830667366338600",
+    /** @deprecated alias di News */
+    Changelogs: "1544830667366338600",
+    /** @deprecated alias di News */
+    Status: "1544830667366338600",
     HobbyAnimeManga: "1544830701042405459",
     HobbyLettura: "1544830698664239244",
     HobbyScrittura: "1544830695854313488",
@@ -382,6 +386,8 @@ const ids = {
     GameValorant: "1553352516496916591",
     GameFifa: "1553352553230508143",
     GameBrawlStars: "1553441825279189033",
+    GameBrawlhalla: "1555925386607464519",
+    GameGenshinImpact: "1555925401518473306",
     Nord: "1544830651033976872",
     Centro: "1544830648131395604",
     Sud: "1544830644516036611",

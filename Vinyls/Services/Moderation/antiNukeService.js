@@ -47,7 +47,17 @@ const COMMAND_LOCK_CACHE_TTL_MS = 2_000;
 const QUARANTINE_ROLE_SNAPSHOTS = new Map();
 const ANTINUKE_CONFIG_PATH = path.resolve(__dirname, "../../Utils/Config/antiNukeConfig.json",);
 const ANTINUKE_PANIC_SNAPSHOT_PATH = path.resolve(__dirname, "..", "..", "Data", "antiNukePanicSnapshot.json");
+/* rebootDurability1: quarantine role timers/snapshots → disk */
+const ANTINUKE_QUARANTINE_SNAPSHOT_PATH = path.resolve(
+  __dirname,
+  "..",
+  "..",
+  "Data",
+  "antiNukeQuarantineSnapshot.json",
+);
 let antinukePanicLoaded = false;
+let antinukeQuarantineFlushRegistered = false;
+let antinukeQuarantineRestored = false;
 const ANTINUKE_CONFIG = { enabled: true, detectPrune: false, vanityGuard: true, autoQuarantine: { enabled: true, strictMode: true, strictMemberRoleAddition: true, monitorPublicRoles: true, monitorChannelPermissions: true, quarantineRoleId: "1442568884833095832", quarantineTimeoutMs: 24 * 60 * 60_000, whitelistUserIds: new Set(["610531025470095390", "700814270069342339",]), }, kickBanFilter: { enabled: true, minuteLimit: 5, hourLimit: 15, heatPerAction: 20, }, roleCreationFilter: { enabled: true, minuteLimit: 5, hourLimit: 15, heatPerAction: 10, }, roleDeletionFilter: { enabled: true, minuteLimit: 3, hourLimit: 10, heatPerAction: 25, }, channelCreationFilter: { enabled: true, minuteLimit: 4, hourLimit: 12, heatPerAction: 16, }, channelDeletionFilter: { enabled: true, minuteLimit: 3, hourLimit: 8, heatPerAction: 25, }, webhookCreationFilter: { enabled: true, minuteLimit: 3, hourLimit: 10, heatPerAction: 15, }, webhookUpdateFilter: { enabled: true, minuteLimit: 4, hourLimit: 12, heatPerAction: 12, }, webhookDeletionFilter: { enabled: true, minuteLimit: 3, hourLimit: 8, heatPerAction: 10, }, inviteCreationFilter: { enabled: true, minuteLimit: 4, hourLimit: 15, heatPerAction: 12, }, panicMode: { enabled: true, useHeatAlgorithm: true, thresholdHeat: 130, decayPerSec: 5, durationMs: 10 * 60_000, maxDurationMs: 45 * 60_000, extendByMsOnTrigger: 2 * 60_000, lockdown: { dangerousRoles: true, unlockDangerousRolesOnFinish: true, lockModerationCommands: true, lockAllCommands: true, channelLockdown: true, banAttackExecutor: false, roleAllowlistIds: new Set([]), }, warnedRoleIds: new Set([String(IDs.roles.HighStaff || ""),].filter(Boolean)), whitelistCategoryIds: new Set([]), autoBackupSync: { enabled: false, restoreDeletedRoles: true, deleteNewRoles: true, restoreDeletedChannels: true, deleteNewChannels: true, deleteNewWebhooks: true, }, instantRollbackWhileActive: { enabled: true, quarantineExecutor: true, deleteCreatedRoles: true, deleteCreatedChannels: true, deleteCreatedWebhooks: true, }, }, };
 const ANTINUKE_PRESETS = { safe: { kickBanFilter: { minuteLimit: 6, hourLimit: 18, heatPerAction: 18 }, roleCreationFilter: { minuteLimit: 6, hourLimit: 16, heatPerAction: 9 }, roleDeletionFilter: { minuteLimit: 4, hourLimit: 10, heatPerAction: 22 }, channelCreationFilter: { minuteLimit: 5, hourLimit: 12, heatPerAction: 14 }, channelDeletionFilter: { minuteLimit: 3, hourLimit: 8, heatPerAction: 24 }, webhookCreationFilter: { minuteLimit: 4, hourLimit: 12, heatPerAction: 12 }, webhookUpdateFilter: { minuteLimit: 5, hourLimit: 14, heatPerAction: 10 }, webhookDeletionFilter: { minuteLimit: 4, hourLimit: 10, heatPerAction: 10 }, inviteCreationFilter: { minuteLimit: 5, hourLimit: 16, heatPerAction: 10 }, panicMode: { thresholdHeat: 140, decayPerSec: 5, durationMs: 8 * 60_000, maxDurationMs: 30 * 60_000, extendByMsOnTrigger: 90_000, autoBackupSync: { enabled: true, restoreDeletedRoles: true, deleteNewRoles: true, restoreDeletedChannels: true, deleteNewChannels: true, deleteNewWebhooks: true, }, }, }, balanced: { kickBanFilter: { minuteLimit: 5, hourLimit: 15, heatPerAction: 20 }, roleCreationFilter: { minuteLimit: 5, hourLimit: 15, heatPerAction: 10 }, roleDeletionFilter: { minuteLimit: 3, hourLimit: 10, heatPerAction: 25 }, channelCreationFilter: { minuteLimit: 4, hourLimit: 12, heatPerAction: 16 }, channelDeletionFilter: { minuteLimit: 3, hourLimit: 8, heatPerAction: 25 }, webhookCreationFilter: { minuteLimit: 3, hourLimit: 10, heatPerAction: 15 }, webhookUpdateFilter: { minuteLimit: 4, hourLimit: 12, heatPerAction: 12 }, webhookDeletionFilter: { minuteLimit: 3, hourLimit: 8, heatPerAction: 10 }, inviteCreationFilter: { minuteLimit: 4, hourLimit: 15, heatPerAction: 12 }, panicMode: { thresholdHeat: 130, decayPerSec: 5, durationMs: 10 * 60_000, maxDurationMs: 45 * 60_000, extendByMsOnTrigger: 2 * 60_000, autoBackupSync: { enabled: true, restoreDeletedRoles: true, deleteNewRoles: true, restoreDeletedChannels: true, deleteNewChannels: true, deleteNewWebhooks: true, }, }, }, strict: { kickBanFilter: { minuteLimit: 4, hourLimit: 12, heatPerAction: 25 }, roleCreationFilter: { minuteLimit: 4, hourLimit: 12, heatPerAction: 12 }, roleDeletionFilter: { minuteLimit: 2, hourLimit: 8, heatPerAction: 30 }, channelCreationFilter: { minuteLimit: 3, hourLimit: 10, heatPerAction: 18 }, channelDeletionFilter: { minuteLimit: 2, hourLimit: 6, heatPerAction: 30 }, webhookCreationFilter: { minuteLimit: 2, hourLimit: 8, heatPerAction: 18 }, webhookUpdateFilter: { minuteLimit: 3, hourLimit: 9, heatPerAction: 16 }, webhookDeletionFilter: { minuteLimit: 2, hourLimit: 6, heatPerAction: 14 }, inviteCreationFilter: { minuteLimit: 3, hourLimit: 10, heatPerAction: 15 }, panicMode: { thresholdHeat: 110, decayPerSec: 4, durationMs: 12 * 60_000, maxDurationMs: 60 * 60_000, extendByMsOnTrigger: 3 * 60_000, autoBackupSync: { enabled: true, restoreDeletedRoles: true, deleteNewRoles: true, restoreDeletedChannels: true, deleteNewChannels: true, deleteNewWebhooks: true, }, }, }, };
 const ANTINUKE_MAX_HEAT = 100;
@@ -1175,7 +1185,14 @@ async function restoreDeletedRoleSnapshots(guild, state) {
   let failed = 0;
   pending.sort((a, b) => Number(a.position || 0) - Number(b.position || 0));
   for (const snap of pending) {
-    const payload = { name: String(snap.name || "restored-role"), color: Number(snap.color || 0), hoist: Boolean(snap.hoist), mentionable: Boolean(snap.mentionable), permissions: BigInt(String(snap.permissions || "0")), reason: "AntiNuke restore: deleted role snapshot", };
+    const payload = {
+      name: String(snap.name || "restored-role"),
+      colors: { primaryColor: Number(snap.color || 0) },
+      hoist: Boolean(snap.hoist),
+      mentionable: Boolean(snap.mentionable),
+      permissions: BigInt(String(snap.permissions || "0")),
+      reason: "AntiNuke restore: deleted role snapshot",
+    };
     const role = await guild.roles.create(payload).catch(() => null);
     if (!role) {
       failed += 1;
@@ -1442,45 +1459,165 @@ async function triggerAntiNukePanicExternal(
   return { ok: true, ...panic };
 }
 
-function scheduleQuarantineRoleRollback(guild, userId, roleId, durationMs) {
+function persistAntiNukeQuarantineSnapshotNow() {
+  const now = Date.now();
+  const payload = {};
+  for (const [key, row] of QUARANTINE_ROLE_TIMERS.entries()) {
+    const fireAt = Number(row?.fireAt || 0);
+    if (!key || !Number.isFinite(fireAt) || fireAt <= now - 60_000) continue;
+    const parts = String(key).split(":");
+    const guildId = String(parts[0] || "").trim();
+    const userId = String(parts[1] || "").trim();
+    const roleId = String(parts[2] || "").trim();
+    if (!guildId || !userId || !roleId) continue;
+    const snapshot = Array.isArray(QUARANTINE_ROLE_SNAPSHOTS.get(key))
+      ? QUARANTINE_ROLE_SNAPSHOTS.get(key).map(String).filter(Boolean)
+      : [];
+    payload[key] = { guildId, userId, roleId, fireAt, snapshot };
+  }
+  // Keep snapshots that still have a live timer row (already covered) — also
+  // keep orphan snapshots only while a matching timer exists.
+  writeSnapshotWithMeta({
+    filePath: ANTINUKE_QUARANTINE_SNAPSHOT_PATH,
+    walPath: `${ANTINUKE_QUARANTINE_SNAPSHOT_PATH}.wal`,
+    key: "vinyls_antinuke_quarantine",
+    version: 1,
+    payload,
+  });
+}
+
+function ensureAntiNukeQuarantineFlushRegistered() {
+  if (antinukeQuarantineFlushRegistered) return;
+  antinukeQuarantineFlushRegistered = true;
+  armShutdownCheckpoint();
+  registerShutdownFlush("vinyls_antinuke_quarantine", () => persistAntiNukeQuarantineSnapshotNow());
+}
+
+async function runQuarantineRoleRollback(guild, userId, roleId, keyOverride = "") {
+  const key =
+    String(keyOverride || "").trim() ||
+    `${String(guild?.id || "")}:${String(userId || "")}:${String(roleId || "")}`;
+  QUARANTINE_ROLE_TIMERS.delete(key);
+  try {
+    const member = await getGuildMemberCached(guild, String(userId), { ttlMs: 30_000 });
+    const snapshot = QUARANTINE_ROLE_SNAPSHOTS.get(key) || [];
+    QUARANTINE_ROLE_SNAPSHOTS.delete(key);
+    persistAntiNukeQuarantineSnapshotNow();
+    if (!member) return;
+    if (!member.roles.cache.has(String(roleId))) return;
+    const me = guild?.members?.me || null;
+    const highestPosition = Number(me?.roles?.highest?.position || 0);
+    const restoreRoleIds = snapshot
+      .map((id) => String(id || "").trim())
+      .filter(Boolean)
+      .filter((id) => id !== String(guild.id) && id !== String(roleId))
+      .filter((id) => {
+        const role = guild.roles.cache.get(id);
+        if (!role) return false;
+        if (role.managed) return false;
+        return Number(role.position || 0) < highestPosition;
+      });
+    const reasonRollback = "<:cancel:1461730653677551691> AntiNuke quarantine timeout elapsed";
+    if (restoreRoleIds.length > 0) {
+      await member.roles.set(restoreRoleIds, reasonRollback).catch(async () => {
+        await member.roles.remove(String(roleId), reasonRollback).catch(() => { });
+      });
+    } else {
+      await member.roles.remove(String(roleId), reasonRollback).catch(() => { });
+    }
+  } catch (err) {
+    global.logger?.warn?.("[antiNuke] ", err?.message || err);
+  }
+}
+
+function scheduleQuarantineRoleRollback(guild, userId, roleId, durationMs, fireAtMs = null) {
   const key = `${String(guild?.id || "")}:${String(userId || "")}:${String(roleId || "")}`;
   if (!guild?.id || !userId || !roleId) return;
+  ensureAntiNukeQuarantineFlushRegistered();
   const old = QUARANTINE_ROLE_TIMERS.get(key);
-  if (old) clearTimeout(old);
-  const timer = setTimeout(async () => {
-    QUARANTINE_ROLE_TIMERS.delete(key);
-    try {
-      const member = await getGuildMemberCached(guild, String(userId), { ttlMs: 30_000 });
-      const snapshot = QUARANTINE_ROLE_SNAPSHOTS.get(key) || [];
-      QUARANTINE_ROLE_SNAPSHOTS.delete(key);
-      if (!member) return;
-      if (!member.roles.cache.has(String(roleId))) return;
-      const me = guild?.members?.me || null;
-      const highestPosition = Number(me?.roles?.highest?.position || 0);
-      const restoreRoleIds = snapshot
-        .map((id) => String(id || "").trim())
-        .filter(Boolean)
-        .filter((id) => id !== String(guild.id) && id !== String(roleId))
-        .filter((id) => {
-          const role = guild.roles.cache.get(id);
-          if (!role) return false;
-          if (role.managed) return false;
-          return Number(role.position || 0) < highestPosition;
-        });
-      const reasonRollback = "<:cancel:1461730653677551691> AntiNuke quarantine timeout elapsed";
-      if (restoreRoleIds.length > 0) {
-        await member.roles.set(restoreRoleIds, reasonRollback).catch(async () => {
-          await member.roles.remove(String(roleId), reasonRollback).catch(() => { });
-        });
-      } else {
-        await member.roles.remove(String(roleId), reasonRollback).catch(() => { });
-      }
-    } catch (err) {
-      global.logger?.warn?.("[antiNuke] ", err?.message || err);
-    }
-  }, Math.max(1_000, Number(durationMs || 0)));
+  if (old?.timer) clearTimeout(old.timer);
+  else if (old) clearTimeout(old);
+  const fireAt = Number.isFinite(Number(fireAtMs))
+    ? Number(fireAtMs)
+    : Date.now() + Math.max(1_000, Number(durationMs || 0));
+  const delay = Math.max(1_000, fireAt - Date.now());
+  const timer = setTimeout(() => {
+    void runQuarantineRoleRollback(guild, userId, roleId, key);
+  }, delay);
   if (typeof timer.unref === "function") timer.unref();
-  QUARANTINE_ROLE_TIMERS.set(key, timer);
+  QUARANTINE_ROLE_TIMERS.set(key, { timer, fireAt });
+  persistAntiNukeQuarantineSnapshotNow();
+}
+
+function restoreAntiNukeQuarantineTimersOnStartup(client) {
+  if (!client || antinukeQuarantineRestored) return { restored: 0, expired: 0 };
+  antinukeQuarantineRestored = true;
+  ensureAntiNukeQuarantineFlushRegistered();
+  const raw = readSnapshotWithMeta({
+    filePath: ANTINUKE_QUARANTINE_SNAPSHOT_PATH,
+    walPath: `${ANTINUKE_QUARANTINE_SNAPSHOT_PATH}.wal`,
+    key: "vinyls_antinuke_quarantine",
+    version: 1,
+    fallback: {},
+  });
+  let restored = 0;
+  let expired = 0;
+  const now = Date.now();
+  for (const [key, row] of Object.entries(raw || {})) {
+    const guildId = String(row?.guildId || String(key).split(":")[0] || "").trim();
+    const userId = String(row?.userId || String(key).split(":")[1] || "").trim();
+    const roleId = String(row?.roleId || String(key).split(":")[2] || "").trim();
+    const fireAt = Number(row?.fireAt || 0);
+    if (!guildId || !userId || !roleId || !Number.isFinite(fireAt)) continue;
+    const mapKey = `${guildId}:${userId}:${roleId}`;
+    if (QUARANTINE_ROLE_TIMERS.has(mapKey)) continue;
+    const snapshot = Array.isArray(row?.snapshot) ? row.snapshot.map(String).filter(Boolean) : [];
+    if (snapshot.length) QUARANTINE_ROLE_SNAPSHOTS.set(mapKey, snapshot);
+
+    const guild =
+      client.guilds?.cache?.get(guildId) ||
+      null;
+    const runWithGuild = async () => {
+      const g =
+        guild ||
+        (await client.guilds?.fetch?.(guildId).catch(() => null));
+      if (!g) {
+        QUARANTINE_ROLE_TIMERS.delete(mapKey);
+        QUARANTINE_ROLE_SNAPSHOTS.delete(mapKey);
+        persistAntiNukeQuarantineSnapshotNow();
+        return;
+      }
+      await runQuarantineRoleRollback(g, userId, roleId, mapKey);
+    };
+
+    if (fireAt <= now) {
+      expired += 1;
+      void runWithGuild();
+      continue;
+    }
+
+    if (!guild) {
+      // Re-arm with a stub that fetches guild at fire time.
+      const delay = Math.max(1_000, fireAt - now);
+      const timer = setTimeout(() => {
+        void runWithGuild();
+      }, delay);
+      timer.unref?.();
+      QUARANTINE_ROLE_TIMERS.set(mapKey, { timer, fireAt });
+      restored += 1;
+      continue;
+    }
+
+    scheduleQuarantineRoleRollback(guild, userId, roleId, fireAt - now, fireAt);
+    restored += 1;
+  }
+  persistAntiNukeQuarantineSnapshotNow();
+  if (restored || expired) {
+    global.logger?.info?.(
+      `[antiNuke] quarantine restore: restored=${restored} expiredNow=${expired}`,
+    );
+  }
+  return { restored, expired };
 }
 
 function quarantineOutcomeLabel(outcome) {
@@ -3207,4 +3344,4 @@ async function shouldBlockAllCommands(guild, options = {}) {
   return blocked;
 }
 
-module.exports = { ANTINUKE_CONFIG, ANTINUKE_PRESETS, handleRoleUpdate, handleMemberRoleAddition, handleChannelOverwrite, handleVanityGuard, handleKickBanAction, handleRoleCreationAction, handleRoleDeletionAction, handleChannelCreationAction, handleChannelDeletionAction, handleWebhookCreationAction, handleWebhookUpdateAction, handleWebhookDeletionAction, handleInviteCreationAction, handleThreadCreationAction, handleThreadDeletionAction, handlePruneAction, quarantineExecutor, isAntiNukePanicActive, shouldBlockModerationCommands, shouldBlockAllCommands, invalidateCommandLockCache, isWhitelistedExecutor, isWhitelistedExecutorAsync, applyAntiNukePreset, getAntiNukeStatusSnapshot, stopAntiNukePanic, triggerAntiNukePanicExternal, enableAntiNukePanic, setAntiNukeConfigSnapshot, addMaintenanceAllowlistUser, removeMaintenanceAllowlistUser, listMaintenanceAllowlist, rehydrateAntiNukePanicForGuild };
+module.exports = { ANTINUKE_CONFIG, ANTINUKE_PRESETS, handleRoleUpdate, handleMemberRoleAddition, handleChannelOverwrite, handleVanityGuard, handleKickBanAction, handleRoleCreationAction, handleRoleDeletionAction, handleChannelCreationAction, handleChannelDeletionAction, handleWebhookCreationAction, handleWebhookUpdateAction, handleWebhookDeletionAction, handleInviteCreationAction, handleThreadCreationAction, handleThreadDeletionAction, handlePruneAction, quarantineExecutor, isAntiNukePanicActive, shouldBlockModerationCommands, shouldBlockAllCommands, invalidateCommandLockCache, isWhitelistedExecutor, isWhitelistedExecutorAsync, applyAntiNukePreset, getAntiNukeStatusSnapshot, stopAntiNukePanic, triggerAntiNukePanicExternal, enableAntiNukePanic, setAntiNukeConfigSnapshot, addMaintenanceAllowlistUser, removeMaintenanceAllowlistUser, listMaintenanceAllowlist, rehydrateAntiNukePanicForGuild, restoreAntiNukeQuarantineTimersOnStartup };

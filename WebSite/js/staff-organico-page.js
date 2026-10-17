@@ -695,6 +695,8 @@
         });
       };
       window.__vcPtrSoftRefresh = window.__vcStaffPageRefresh;
+      var ST = window.VcStaffTools || window.VCStaffTools;
+      if (ST && typeof ST.installRealtimeSoftRefreshBus === "function") ST.installRealtimeSoftRefreshBus();
     } catch (ePtr) {}
   }
   function boot() {

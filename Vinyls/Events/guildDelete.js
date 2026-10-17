@@ -23,6 +23,28 @@ module.exports = {
         }).catch(() => null);
       } catch (_) {}
 
+      /* boardsBotLeftPurge1: se il server era in bacheca, cancella scheda + dati */
+      try {
+        const { deleteServerListingsForLeftGuild } = require("../Utils/Web/siteBoardsApi");
+        const client = guild.client || global.botClient || null;
+        await deleteServerListingsForLeftGuild(client, guild.id, {
+          reason: "bot_left_guild",
+        }).catch((err) => {
+          global.logger?.warn?.(
+            "[guildDelete] boards listing purge failed:",
+            guild.id,
+            err?.message || err,
+          );
+          return null;
+        });
+      } catch (err) {
+        global.logger?.warn?.(
+          "[guildDelete] boards listing purge require failed:",
+          guild.id,
+          err?.message || err,
+        );
+      }
+
       if (isMultiGuildLayerEnabled() && !isViniliProtectedGuild(guild.id)) {
         await handleTenantGuildBotRemoved(guild.id).catch((err) => {
           global.logger?.warn?.(

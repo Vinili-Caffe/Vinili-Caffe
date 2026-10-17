@@ -100,11 +100,8 @@ function extractUserId(body, rawText) {
 
 async function main() {
   const port = Number(process.env.DISCADIA_VOTE_INTAKE_PORT || 3010) || 3010;
-  const mongo =
-    process.env.MONGO_URL_LOCAL ||
-    process.env.MONGODB_URI_LOCAL ||
-    process.env.MONGO_URL ||
-    process.env.MONGODB_URI;
+  /* mongoSingleSource1 */
+  const mongo = require("../../Utils/Database/mongoConnect").buildMongoUrl();
   if (!mongo) {
     console.error("[DISCADIA INTAKE] Missing MONGO_URL");
     process.exit(1);

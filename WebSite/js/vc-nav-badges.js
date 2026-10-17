@@ -1,11 +1,22 @@
 /* navBadgeSyncAll5: bust HTML stale + force reload se script src non è la ver canone */
 (function () {
-  var VER = "20260928lsGetStorm1";
+  var VER = "20261015vcStorage2";
   if (window.VcNavBadges && window.VcNavBadges.ver === VER) return;
-  /* non far downgrade da CDN stale (?v=pageAlign1 / navBadgeSeen1 / rateLimitCalm1) */
+  /* non far downgrade da CDN stale — confronta YYYYMMDD numerico (stringa grezza rompe 202609>202610) */
   try {
     var prevBadge = window.VcNavBadges && window.VcNavBadges.ver;
-    if (prevBadge && String(prevBadge) > String(VER)) return;
+    if (prevBadge) {
+      var a = String(prevBadge).match(/^(\d{8})/);
+      var b = String(VER).match(/^(\d{8})/);
+      if (a && b) {
+        var an = Number(a[1]);
+        var bn = Number(b[1]);
+        if (an > bn) return;
+        if (an === bn && String(prevBadge) > String(VER)) return;
+      } else if (String(prevBadge) > String(VER)) {
+        return;
+      }
+    }
   } catch (ePrev) {}
   window.VcNavBadges = null;
   var BADGE_CLASS = "vc-nav-feat-badge";
@@ -34,8 +45,9 @@
     { path: "/vote", kind: "updated", until: "2026-11-30" },
     { path: "/recensioni", kind: "updated", until: "2026-11-30" },
     /* community */
-    { path: "/user", kind: "updated", until: "2026-11-30", aliases: ["/users"] },
-    { path: "/users", kind: "updated", until: "2026-11-30", aliases: ["/user"] },
+    { path: "/classifiche", kind: "updated", until: "2026-11-30", aliases: ["/user", "/users"] },
+    { path: "/user", kind: "updated", until: "2026-11-30", aliases: ["/classifiche", "/users"] },
+    { path: "/users", kind: "updated", until: "2026-11-30", aliases: ["/classifiche", "/user"] },
     { path: "/ruoli", kind: "updated", until: "2026-11-30" },
     { path: "/regole", kind: "updated", until: "2026-11-30" },
     { path: "/faq", kind: "updated", until: "2026-11-30" },
@@ -57,7 +69,10 @@
   function loadSeenLocalOnly() {
     if (seenMem && typeof seenMem === "object") return seenMem;
     try {
-      var raw = window.localStorage.getItem(SEEN_KEY);
+      var raw =
+        window.VcStorage && typeof window.VcStorage.get === "function"
+          ? window.VcStorage.get(SEEN_KEY, { scope: "ls" })
+          : window.localStorage.getItem(SEEN_KEY);
       if (!raw) {
         seenMem = {};
         return seenMem;
@@ -105,7 +120,12 @@
   function saveSeen(map, opts) {
     seenMem = map && typeof map === "object" ? map : {};
     try {
-      window.localStorage.setItem(SEEN_KEY, JSON.stringify(seenMem));
+      var json = JSON.stringify(seenMem);
+      if (window.VcStorage && typeof window.VcStorage.set === "function") {
+        window.VcStorage.set(SEEN_KEY, json, { scope: "ls", immediate: true });
+      } else {
+        window.localStorage.setItem(SEEN_KEY, json);
+      }
     } catch (eSave) {}
     if (!opts || opts.sync !== false) publishSeen(seenMem);
   }
@@ -378,6 +398,52 @@
     );
   }
 
+  function summaryLeadIcon(sum) {
+    if (!sum || !sum.querySelector) return null;
+    var kids = sum.children;
+    var i;
+    for (i = 0; i < kids.length; i += 1) {
+      var c = kids[i];
+      if (!c || !c.classList) continue;
+      if (c.tagName !== "I") continue;
+      if (c.classList.contains("vc-snav-chev")) continue;
+      if (c.classList.contains("fa-chevron-down")) continue;
+      if (c.classList.contains("vc-mobile-nav-section-chev")) continue;
+      if (c.classList.contains("fa")) return c;
+    }
+    return (
+      sum.querySelector(":scope > i.fa:not(.vc-snav-chev):not(.fa-chevron-down):not(.vc-mobile-nav-section-chev)") ||
+      null
+    );
+  }
+
+  function clearSummaryPips(sum) {
+    if (!sum) return;
+    var olds = sum.querySelectorAll("." + BADGE_CLASS);
+    var oi;
+    for (oi = 0; oi < olds.length; oi += 1) {
+      if (olds[oi] && olds[oi].parentNode) olds[oi].parentNode.removeChild(olds[oi]);
+    }
+    sum.classList.remove("has-nav-feat-badge", "has-nav-feat-badge-ico");
+    var icos = sum.querySelectorAll(".has-nav-feat-badge-ico");
+    for (oi = 0; oi < icos.length; oi += 1) icos[oi].classList.remove("has-nav-feat-badge-ico");
+  }
+
+  function attachPipToSummary(sum, kind) {
+    if (!sum || !kind) return;
+    clearSummaryPips(sum);
+    var badge = makePip(kind);
+    var ico = summaryLeadIcon(sum);
+    if (ico) {
+      ico.classList.add("has-nav-feat-badge-ico");
+      ico.appendChild(badge);
+      sum.classList.add("has-nav-feat-badge");
+      return;
+    }
+    sum.classList.add("has-nav-feat-badge", "has-nav-feat-badge-ico");
+    sum.appendChild(badge);
+  }
+
   function labelSpan(a) {
     if (!a || !a.children) return null;
     var i;
@@ -454,14 +520,12 @@
     }
     var sum = det.querySelector(":scope > .vc-snav-summary, .vc-snav-summary");
     if (!sum) return;
-    var old = sum.querySelector("." + BADGE_CLASS);
-    if (old && old.parentNode) old.parentNode.removeChild(old);
-    sum.classList.remove("has-nav-feat-badge", "has-nav-feat-badge-ico");
     var kind = preferKind(kinds);
-    if (!kind) return;
-    var badge = makePip(kind);
-    sum.classList.add("has-nav-feat-badge", "has-nav-feat-badge-ico");
-    sum.appendChild(badge);
+    if (!kind) {
+      clearSummaryPips(sum);
+      return;
+    }
+    attachPipToSummary(sum, kind);
   }
 
   function decorateMobileSections(entries) {
@@ -481,14 +545,12 @@
       }
       var sum = sec.querySelector(":scope > summary.vc-mobile-nav-section-title");
       if (!sum) continue;
-      var old = sum.querySelector("." + BADGE_CLASS);
-      if (old && old.parentNode) old.parentNode.removeChild(old);
-      sum.classList.remove("has-nav-feat-badge", "has-nav-feat-badge-ico");
       var kind = preferKind(kinds);
-      if (!kind) continue;
-      var badge = makePip(kind);
-      sum.classList.add("has-nav-feat-badge", "has-nav-feat-badge-ico");
-      sum.appendChild(badge);
+      if (!kind) {
+        clearSummaryPips(sum);
+        continue;
+      }
+      attachPipToSummary(sum, kind);
     }
   }
 
@@ -620,12 +682,18 @@
   }
 
   var scheduled = 0;
+  /* violKillIdle2 marker */
+  /* violKillReflow1 + violKillVis1 marker */
   function scheduleApply() {
     if (scheduled) return;
+    /* violKillIdle2: debounce più lungo + skip tab nascosta */
     scheduled = window.setTimeout(function () {
       scheduled = 0;
+      try {
+        if (document.hidden || document.visibilityState === "hidden") return;
+      } catch (eHid) {}
       apply(document);
-    }, 120);
+    }, 280);
   }
 
   function bindObserver() {

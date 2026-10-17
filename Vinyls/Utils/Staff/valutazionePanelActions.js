@@ -22,11 +22,13 @@ const { TENANT_EMBED_COLOR } = require("../../MultiGuild/utils/tenantEmbedBrandi
 
 const VALUTAZIONE_EMBED_COLOR = TENANT_EMBED_COLOR;
 
-function clearWebStaffProfileCache(userId) {
+/* staffProfLiveAll1: clear → WS profilo aperto */
+/* staffProfLiveAll1: clear → WS profili aperti */
+function clearWebStaffProfileCache(userId, action = "valutazione") {
   const uid = String(userId || "").trim();
   if (!/^\d{16,22}$/.test(uid)) return;
   try {
-    require("../Web/siteStaffProfileApi").clearStaffProfileCacheForUser(uid);
+    require("../Web/siteStaffProfileApi").clearStaffProfileCacheForUser(uid, { action });
   } catch (_) {}
 }
 

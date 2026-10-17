@@ -107,6 +107,21 @@ function ensurePm2App(name, script, memRestart, extraEnv, nodeOpts, overrides) {
 module.exports = {
   apps: [
     lavalinkPm2App,
+    {
+      name: "spotify-token-cache",
+      cwd: path.join(base, "Lavalink"),
+      script: path.join(base, "Lavalink", "spotify-token-cache.js"),
+      interpreter: nodeInterpreter,
+      exec_mode: "fork",
+      instances: 1,
+      ...HA_RESTART,
+      max_memory_restart: "80M",
+      env: {
+        NODE_ENV: "production",
+        SPOTIFY_TOKEN_UPSTREAM: "http://127.0.0.1:8002/api/token",
+        SPOTIFY_TOKEN_CACHE_PORT: "8003",
+      },
+    },
     ensurePm2App(
       "discadia-votes",
       "Vinyls/Services/Web/discadiaVoteIntakeApp.js",

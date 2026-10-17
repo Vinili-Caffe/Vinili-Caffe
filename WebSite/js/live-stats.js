@@ -124,7 +124,21 @@
         return;
       }
     } catch (ePt) {}
-    var full = "Vinili & Caffè | " + page;
+    var brand = "🎃 Vinili & Caffè 🍂 • Italia • Social • Gaming";
+    try {
+      if (window.VcPageTitle && typeof window.VcPageTitle.brand === "function") {
+        brand = String(window.VcPageTitle.brand() || brand).trim() || brand;
+      } else if (window.__VC_SITE_BRAND && (window.__VC_SITE_BRAND.titleName || window.__VC_SITE_BRAND.siteName)) {
+        brand = String(window.__VC_SITE_BRAND.titleName || window.__VC_SITE_BRAND.siteName).trim() || brand;
+      }
+    } catch (eBrand) {}
+    /* titleBrandMatch1: SEP = U+01C0 — Win converte |/│/｜/❘(U+2758) → "-" */
+    var sep =
+      (window.VcPageTitle && window.VcPageTitle.SEP) || " \u01C0 ";
+    var full = brand + sep + page;
+    /* titleOgDingbat1: mai | ASCII / box / dingbat in title/og (Win → "-") */
+    full = String(full).replace(/\s*[|\u2502\uFF5C\u2758]\s*/g, sep);
+    full = String(full).replace(/(\bGaming)\s+[-–—−]\s+(?=\S)/g, "$1" + sep);
     try {
       if (document.title !== full) document.title = full;
     } catch (eTitle) {}
@@ -132,7 +146,7 @@
       var og = document.querySelector('meta[property="og:title"]');
       if (og) og.setAttribute("content", full);
       var tw = document.querySelector('meta[name="twitter:title"]');
-      if (tw) tw.setAttribute("content", full);
+      if (tw) tw.setAttribute("content", page);
     } catch (eMeta) {}
   }
 
@@ -1205,8 +1219,12 @@
     if (!rosterKind) return;
     var animate = !(opts && opts.animate === false);
     var html = "";
+    /* liveStatsAvatar1: se rebuildiamo HTML non early-return (prima dirty=false
+       bloccava il paint mentre il roster era aperto → pulse/staff “congelati”). */
+    var fromCache = false;
     if (!rosterHtmlDirty[rosterKind] && rosterHtmlCache[rosterKind]) {
       html = rosterHtmlCache[rosterKind];
+      fromCache = true;
     } else {
       if (rosterKind === "boost") html = renderBoostRosterHtml();
       else if (rosterKind === "staff") html = renderStaffRosterHtml();
@@ -1215,7 +1233,11 @@
       rosterHtmlCache[rosterKind] = html;
       rosterHtmlDirty[rosterKind] = false;
     }
-    if (body.getAttribute("data-roster-kind") === rosterKind && body.childNodes.length && !rosterHtmlDirty[rosterKind]) {
+    if (
+      fromCache &&
+      body.getAttribute("data-roster-kind") === rosterKind &&
+      body.childNodes.length
+    ) {
       return;
     }
     body.setAttribute("data-roster-kind", rosterKind || "");
@@ -1365,7 +1387,9 @@
     });
   }
 
-    function tick() {
+  var lastLiveStatsWsAt = 0;
+
+  function tick() {
     if (typeof document !== "undefined" && document.hidden) return;
     Promise.all([fetchExtraStatsJson(), refreshInvite().catch(function () {
       return null;
@@ -1407,6 +1431,15 @@
     });
   }
 
+  function tickFromWs() {
+    lastLiveStatsWsAt = Date.now();
+    tick();
+  }
+
+  try {
+    window.addEventListener("vc:live-stats-changed", tickFromWs);
+  } catch (eWsLs) {}
+
   function reveal247() {
     var n = document.querySelector(".vc-stat-247");
     if (!n) return;
@@ -1428,10 +1461,15 @@
       if (pending <= 0) {
         setTimeout(reveal247, Math.min(520, maxDur * 0.45));
         tick();
-        var ms = Number(cfg.pollIntervalMs) || 45000;
+        /* liveStatsCalm1: default 120s (era 45s); WS resta primario */
+        var ms = Math.max(60000, Number(cfg.pollIntervalMs) || 120000);
         if (!pollStarted && ms >= 5000 && !isLocalDevHost()) {
           pollStarted = true;
-          setInterval(tick, ms);
+          /* wsShell1: poll resta fallback; se WS ha tickato di recente, skip */
+          setInterval(function () {
+            if (lastLiveStatsWsAt && Date.now() - lastLiveStatsWsAt < Math.max(ms * 2, 180000)) return;
+            tick();
+          }, ms);
         }
       }
     }
@@ -1642,7 +1680,8 @@
   var prim = document.getElementById("vc-live-event-primary");
   if (!root || !reopenBtn || !titleEl || !descEl || !prim) return;
 
-  var pollMs = Math.max(20000, Math.min(600000, Number(cfg.liveEventPollMs) || 90000));
+  /* liveStatsCalm1: live-event default 180s (era 90s) */
+  var pollMs = Math.max(60000, Math.min(600000, Number(cfg.liveEventPollMs) || 180000));
   var lastEventPayload = null;
   var lastShownEventId = "";
 

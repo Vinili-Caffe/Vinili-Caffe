@@ -1,6 +1,8 @@
 /**
- * vc-source-guard5 / sourceGuardOwnerF12_1:
- * deterrenza anti-copia (non e' sicurezza reale).
+ * vc-source-guard6 / sourceGuardClassicKeys1:
+ * deterrenza anti-devtools (non e' sicurezza reale).
+ * Consenti a tutti le shortcut classiche: copia/incolla/taglia/annulla/ripeti/seleziona tutto.
+ * Resta bloccato: F12, Ctrl+U, Ctrl+S, Ctrl+Shift+I/J/C/K, Ctrl+Shift+S, Ctrl+Alt+I.
  * Bypass SOLO owner Discord 295500038401163264:
  *  - Discord profile / uid persistito
  *  - ?vc-dev=1 (resta in localStorage)
@@ -103,6 +105,29 @@
     );
   }
 
+  /* sourceGuardClassicKeys1: Ctrl/Cmd + C/V/X/Z/Y/A sempre consentiti */
+  function isClassicEditShortcut(ev, k, key) {
+    var ctrl = ev.ctrlKey || ev.metaKey;
+    if (!ctrl || ev.altKey) return false;
+    if (ev.shiftKey && !(k === 90 || key === "z")) return false;
+    /* Ctrl+Shift+Z = redo (come Ctrl+Y) */
+    if (ev.shiftKey && (k === 90 || key === "z")) return true;
+    return (
+      k === 65 ||
+      k === 67 ||
+      k === 86 ||
+      k === 88 ||
+      k === 89 ||
+      k === 90 ||
+      key === "a" ||
+      key === "c" ||
+      key === "v" ||
+      key === "x" ||
+      key === "y" ||
+      key === "z"
+    );
+  }
+
   document.addEventListener(
     "contextmenu",
     function (ev) {
@@ -142,8 +167,18 @@
       }
 
       if (window.__vcSourceGuardOff) return;
+
+      /* Classiche: non bloccare mai (anche fuori dagli input) */
+      if (isClassicEditShortcut(ev, k, key)) return;
+
+      /* Torna indietro / avanti cronologia browser */
+      if (alt && !ctrl && (k === 37 || k === 39 || key === "arrowleft" || key === "arrowright")) {
+        return;
+      }
+
       if (isEditable(ev.target) && !(ctrl && (k === 83 || key === "s"))) return;
 
+      /* Pericolose: salva, view-source, F12, DevTools */
       if (ctrl && !shift && (k === 83 || k === 85 || key === "s" || key === "u")) return block(ev);
       if (ctrl && shift && (k === 83 || key === "s")) return block(ev);
       if (k === 123 || key === "f12") return block(ev);
@@ -160,14 +195,11 @@
 
   if (!window.__vcSourceGuardOff) {
     try {
-      var st = document.createElement("style");
-      st.id = "vc-source-guard-css";
-      st.textContent =
-        "html.vc-source-guard-on body{-webkit-user-select:none!important;user-select:none!important;}" +
-        "html.vc-source-guard-on body :is(input,textarea,select,[contenteditable],[contenteditable=true],[contenteditable='']){" +
-        "-webkit-user-select:text!important;user-select:text!important;}";
-      (document.head || document.documentElement).appendChild(st);
-      document.documentElement.classList.add("vc-source-guard-on");
+      var st = document.getElementById("vc-source-guard-css");
+      if (st && st.parentNode) st.parentNode.removeChild(st);
+      /* sourceGuardClassicKeys1: selezione testo OK (serve a Ctrl+C); niente user-select:none globale */
+      document.documentElement.classList.remove("vc-source-guard-on");
+      document.documentElement.classList.add("vc-source-guard-soft");
     } catch (eCss) {}
   }
 

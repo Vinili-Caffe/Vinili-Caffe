@@ -290,6 +290,8 @@ const staffPauseEntrySchema = new Schema(
     ruoloRichiesto: String,
     ruolo: String,
         ruoloGradeId: { type: String, default: null },
+    /** pauseBothSplit1: gruppo condiviso quando la richiesta partiva da "Entrambi" */
+    pauseGroupId: { type: String, default: null },
     stafferInPausa: { type: Number, default: 0 },
     status: { type: String, default: "pending" },
     cancelledAt: { type: Date, default: null },
@@ -623,6 +625,10 @@ const activityUserProfileSchema = new Schema(
         type: Schema.Types.Mixed,
         default: () => ({}),
       },
+      /** compitiSwapSchema1: +1 scambio Staffer della settimana (prima strict dropava i campi). */
+      siteStaffCompitiSwapBonus: { type: Number, default: 0 },
+      siteStaffCompitiSwapBonusWeek: { type: String, default: "" },
+      siteStaffCompitiSwapBonusMonth: { type: String, default: "" },
       tenantPartnership: {
         suppressManagerPing: { type: Boolean, default: false },
         ephemeralCommands: { type: Boolean, default: false },
@@ -704,6 +710,15 @@ const activityUserProfileSchema = new Schema(
                     finaleRoleRewards: {
             type: Schema.Types.Mixed,
             default: () => ({}),
+          },
+        },
+        halloween: {
+          candy: {
+            eventKey: { type: String, default: "" },
+            balance: { type: Number, default: 0 },
+            earned: { type: Number, default: 0 },
+            owned: { type: [String], default: [] },
+            updatedAt: { type: Date, default: null },
           },
         },
       },
@@ -814,11 +829,15 @@ const SITE_DOCUMENT_TYPE = Object.freeze({
     WEB_PUSH_SUBSCRIPTION: "web_push_subscription",
     /* pushGonePersist1: denylist FCM/WNS 410 — survvive restart site-api */
     WEB_PUSH_GONE_ENDPOINT: "web_push_gone_endpoint",
+    /* pushShownAckCrossProc1: SW /push/shown survvive site-api↔bots (RAM Map era vuota) */
+    WEB_PUSH_SHOWN_ACK: "web_push_shown_ack",
     STAFF_WORKFLOW: "staff_workflow",
     BOARD_LISTING: "board_listing",
     BOARD_VOTE: "board_vote",
     BOARD_BUMP: "board_bump",
     BOARD_REPORT: "board_report",
+    /* boardsListingReviews1 */
+    BOARD_REVIEW: "board_review",
 });
 
 const siteSuggestionCommentSchema = new Schema(
@@ -885,7 +904,8 @@ const siteDocumentSchema = new Schema(
         contentLang: { type: String, default: null, trim: true, maxlength: 8 },
     staffUserId: { type: String, default: null, index: true },
     rating: { type: Number, min: 1, max: 5 },
-    content: { type: String, trim: true, maxlength: 2000 },
+    /* boardsKeepMdDraft1: descrizioni bacheca fino a 8k (prima 2k tronca/rompe md) */
+    content: { type: String, trim: true, maxlength: 8000 },
     authorName: { type: String, default: "" },
     authorAvatarUrl: { type: String, default: "" },
     staffName: { type: String, default: "" },
@@ -935,6 +955,9 @@ const siteDocumentSchema = new Schema(
     pushUserAgent: { type: String, default: "", trim: true, maxlength: 300 },
     /* pushMultiDevice3: mobile|desktop|tablet|unknown — diversity prune */
     pushDeviceClass: { type: String, default: "", trim: true, maxlength: 16 },
+    /* pushApplePhonePrefer1: hint client grezzo + standalone (Mac ≠ iPhone) */
+    pushClientDeviceClass: { type: String, default: "", trim: true, maxlength: 16 },
+    pushStandalone: { type: Boolean, default: false },
 
         workflowQueue: { type: String, default: "", trim: true, maxlength: 24, index: true },
     workflowKind: { type: String, default: "", trim: true, maxlength: 32 },
@@ -955,8 +978,8 @@ const siteDocumentSchema = new Schema(
     boardKind: { type: String, default: null, trim: true, maxlength: 16 },
     boardDiscordId: { type: String, default: "", trim: true, maxlength: 32, index: true },
     boardSlug: { type: String, default: "", trim: true, maxlength: 80, index: true },
-    boardTagline: { type: String, default: "", trim: true, maxlength: 160 },
-    boardTags: { type: [String], default: undefined },
+    /* boardsTagline500: descrizione breve max 500 */
+    boardTagline: { type: String, default: "", trim: true, maxlength: 500 },
     boardInviteUrl: { type: String, default: "", trim: true, maxlength: 500 },
     boardBotInviteUrl: { type: String, default: "", trim: true, maxlength: 500 },
     boardBannerUrl: { type: String, default: "", trim: true, maxlength: 500 },
@@ -965,8 +988,17 @@ const siteDocumentSchema = new Schema(
     boardNsfw: { type: Boolean, default: false },
     boardScore: { type: Number, default: 0, index: true },
     boardVotes30d: { type: Number, default: 0 },
+    /* boardsVoteFlow1: contatore voti mese corrente (Europe/Rome) */
+    boardVotesMonth: { type: Number, default: 0 },
+    boardVotesMonthKey: { type: String, default: "", trim: true, maxlength: 16 },
     boardBumps7d: { type: Number, default: 0 },
     boardBumpedAt: { type: Date, default: null, index: true },
+    /* boardsListingReviews1 */
+    boardRatingAvg: { type: Number, default: 0 },
+    boardReviewsCount: { type: Number, default: 0 },
+    /* boardsVoteFlow1: reminder voto bacheca (su BOARD_VOTE) */
+    boardRemindAt: { type: Date, default: null, index: true },
+    boardRemindSentAt: { type: Date, default: null },
     boardAccent: { type: String, default: "", trim: true, maxlength: 32 },
     boardMarkdown: { type: String, default: "", trim: true, maxlength: 4000 },
     boardStats: { type: Schema.Types.Mixed, default: null },
@@ -979,6 +1011,8 @@ const siteDocumentSchema = new Schema(
     boardVisitorNotes: { type: String, default: "", trim: true, maxlength: 1000 },
     boardSiteUrl: { type: String, default: "", trim: true, maxlength: 500 },
     boardSocials: { type: Schema.Types.Mixed, default: null },
+    /* boardsFeatures1: Free/Paid + partnership/verify */
+    boardFeatures: { type: Schema.Types.Mixed, default: null },
   },
   { timestamps: true },
 );
@@ -1049,6 +1083,21 @@ siteDocumentSchema.index(
 siteDocumentSchema.index(
   { docType: 1, updatedAt: 1 },
   { name: "web_push_gone_endpoint_ttl", partialFilterExpression: { docType: SITE_DOC.WEB_PUSH_GONE_ENDPOINT } },
+);
+siteDocumentSchema.index(
+  { docType: 1, pushEndpoint: 1 },
+  {
+    unique: true,
+    name: "web_push_shown_ack_unique",
+    partialFilterExpression: {
+      docType: SITE_DOC.WEB_PUSH_SHOWN_ACK,
+      pushEndpoint: { $type: "string", $gt: "" },
+    },
+  },
+);
+siteDocumentSchema.index(
+  { docType: 1, updatedAt: 1 },
+  { name: "web_push_shown_ack_ttl", partialFilterExpression: { docType: SITE_DOC.WEB_PUSH_SHOWN_ACK } },
 );
 siteDocumentSchema.index(
   { docType: 1, status: 1, expiresAt: 1 },
@@ -1217,6 +1266,22 @@ siteDocumentSchema.index(
 siteDocumentSchema.index(
   { docType: 1, boardListingId: 1, userId: 1, createdAt: -1 },
   { name: "board_bump_listing_user", partialFilterExpression: { docType: SITE_DOC.BOARD_BUMP } },
+);
+siteDocumentSchema.index(
+  { docType: 1, boardListingId: 1, userId: 1 },
+  {
+    unique: true,
+    name: "board_review_listing_user_unique",
+    partialFilterExpression: {
+      docType: SITE_DOC.BOARD_REVIEW,
+      boardListingId: { $type: "string", $gt: "" },
+      userId: { $type: "string", $gt: "" },
+    },
+  },
+);
+siteDocumentSchema.index(
+  { docType: 1, boardListingId: 1, status: 1, createdAt: -1 },
+  { name: "board_review_listing_status", partialFilterExpression: { docType: SITE_DOC.BOARD_REVIEW } },
 );
 
 const MOD_CASE_COLLECTION = process.env.MOD_CASE_COLLECTION ? String(process.env.MOD_CASE_COLLECTION).trim() : "mod_case";

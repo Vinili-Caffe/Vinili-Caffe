@@ -130,8 +130,11 @@ function fontStackNumeric(size, weight) {
 
 function fontStackWithPrimary(primary, size, weight) {
   const prefix = weight ? `${weight} ` : "";
-  const stack = [`"${primary}"`, ...BASE_STACK].join(", ");
-  return `${prefix}${size}px ${stack}`;
+  const p = String(primary || PRIMARY_FONT).trim() || PRIMARY_FONT;
+  /* rankFontStackFix1: con node-canvas, se dopo un font registerFont metti
+     altri font nominati (Arial/Noto/…) il primario viene ignorato.
+     Solo `"Family", sans-serif` mantiene Yusei/Dela/ecc. */
+  return `${prefix}${size}px "${p}", sans-serif`;
 }
 
 function fontStackPrimaryOnly(size, weight) {

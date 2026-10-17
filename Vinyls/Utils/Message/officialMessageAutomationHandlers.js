@@ -13,7 +13,18 @@ const {
 const IDs = require("../Config/ids");
 const { getGuildChannelCached, getGuildMemberCached } = require("../Interaction/interactionEntityCache");
 const { EPHEMERAL_TTL_NORMAL_MS, scheduleMessageDeletion } = require("../Config/ephemeralMessageTtl");
-const { normalizeMovieNightProposalForCompare } = require("../Community/movieNightProposal");
+const {
+  normalizeMovieNightProposalForCompare,
+  movieNightTitlesMatch,
+  extractMovieNightProposalTitle,
+} = require("../Community/movieNightProposal");
+const {
+  ensureWatchedMovieNightTitlesReady,
+  isProposedMovieNightTitleAlreadyWatched,
+} = require("../Community/movieNightWatchedTitles");
+const { validateMovieNightProposalContent } = require("../Community/movieNightProposalRules");
+const { getBotState } = require("../BotState/botStateStore");
+const MOVIE_NIGHT_STATE_KEY = "movieNightAnnouncement.v1";
 const { TENANT_EMBED_COLOR } = require("../../MultiGuild/utils/tenantEmbedBranding");
 const VOTE_CHANNEL_ID = IDs.channels.supporters;
 const COMMANDS_CHANNEL_ID = IDs.channels.commands;
@@ -191,9 +202,15 @@ function isMovieNightVoteThread(message) {
 }
 
 function movieNightProposalTextsMatch(leftRaw, rightRaw) {
+  /* threadDupEpisode1: confronta titoli estratti — "Kung Fu Panda 1" ≡ "Kung Fu Panda" */
+  const leftExtracted = extractMovieNightProposalTitle(leftRaw) || String(leftRaw || "").trim();
+  const rightExtracted = extractMovieNightProposalTitle(rightRaw) || String(rightRaw || "").trim();
+  if (leftExtracted && rightExtracted && movieNightTitlesMatch(leftExtracted, rightExtracted)) return true;
+  if (movieNightTitlesMatch(leftRaw, rightRaw)) return true;
   const leftTitle = normalizeMovieNightProposalForCompare(leftRaw);
   const rightTitle = normalizeMovieNightProposalForCompare(rightRaw);
   if (leftTitle && rightTitle && leftTitle === rightTitle) return true;
+  if (leftTitle && rightTitle && movieNightTitlesMatch(leftTitle, rightTitle)) return true;
   const leftText = normalizeThreadVoteText(leftRaw);
   const rightText = normalizeThreadVoteText(rightRaw);
   return Boolean(leftText && rightText && leftText === rightText);
@@ -232,24 +249,55 @@ async function findDuplicateMovieNightProposal(thread, message) {
   );
 }
 
+async function rejectMovieNightProposal(message, reasonText) {
+  await message.delete().catch((err) => {
+    global.logger?.warn?.("[MOVIE NIGHT VOTE] reject delete failed:", err?.message || err);
+  });
+  const warning = await message.channel
+    .send({ content: `${message.author} ${reasonText}` })
+    .catch(() => null);
+  if (warning) scheduleMessageDeletion(warning, EPHEMERAL_TTL_NORMAL_MS);
+  return true;
+}
+
+async function movieNightStrictProposalRulesEnabled(message) {
+  const state = await getBotState(MOVIE_NIGHT_STATE_KEY, null).catch(() => null);
+  if (!state || state.strictProposalRules !== true) return false;
+  const stateThreadId = String(state.threadId || "").trim();
+  const channelId = String(message?.channel?.id || "").trim();
+  if (stateThreadId && channelId && stateThreadId === channelId) return true;
+  /* se lo state punta a un thread nuovo, non applicare strict su thread vecchi */
+  return false;
+}
+
 async function handleMovieNightVoteMessage(message) {
   if (!message?.guild) return false;
   if (message.author?.bot || message.webhookId || message.system) return false;
   if (!isMovieNightVoteThread(message)) return false;
 
-  const duplicate = await findDuplicateMovieNightProposal(message.channel, message);
-  if (duplicate) {
-    await message.delete().catch((err) => {
-      global.logger?.warn?.("[MOVIE NIGHT VOTE] duplicate delete failed:", err?.message || err);
-    });
-    const warning = await message.channel
-      .send({ content: `${message.author} questo film è già stato suggerito nel thread.` })
-      .catch(() => null);
-    if (warning) scheduleMessageDeletion(warning, EPHEMERAL_TTL_NORMAL_MS);
-    return true;
+  if (!messageHasMovieNightProposalContent(message.content)) return false;
+
+  await ensureWatchedMovieNightTitlesReady(message.client).catch(() => null);
+
+  /* movieNightStrictProposal1: anno/durata solo se lo state del thread corrente ha strictProposalRules */
+  if (await movieNightStrictProposalRulesEnabled(message)) {
+    const validation = await validateMovieNightProposalContent(message.content, { enforceMeta: true }).catch(
+      () => ({ ok: true }),
+    );
+    if (validation && validation.ok === false) {
+      return rejectMovieNightProposal(message, validation.message || "proposta non valida.");
+    }
   }
 
-  if (!messageHasMovieNightProposalContent(message.content)) return false;
+  const proposalTitle = extractMovieNightProposalTitle(message.content) || String(message.content || "").trim();
+  if (proposalTitle && (await isProposedMovieNightTitleAlreadyWatched(proposalTitle))) {
+    return rejectMovieNightProposal(message, "questo film è già stato visto in una serata precedente.");
+  }
+
+  const duplicate = await findDuplicateMovieNightProposal(message.channel, message);
+  if (duplicate) {
+    return rejectMovieNightProposal(message, "questo film è già stato suggerito nel thread.");
+  }
 
   const reacted = await message.react(MOVIE_NIGHT_THREAD_REACTION).then(() => true).catch(() => false);
   if (!reacted && MOVIE_NIGHT_THREAD_REACTION !== DEFAULT_THREAD_VOTE_REACTION) {

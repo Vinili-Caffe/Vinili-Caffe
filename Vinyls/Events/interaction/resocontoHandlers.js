@@ -698,15 +698,19 @@ async function applyPmAction(guild, payload, reasonOverride = null, actor = null
   }
   if (payload.actionKey !== "dp") return "<a:VC_Alert:1482706673176150077> Nessuna operazione eseguita.";
 
+  /* depexPmKeepStaff1: depex PM = SOLO Partner Manager (+ Member).
+     Mai togliere scala staff / Staff / High Staff (prima wipeava dual-track a caso). */
+  const hadLadderBefore =
+    Boolean(ROLE_HELPER && member.roles.cache.has(ROLE_HELPER)) ||
+    Boolean(ROLE_MODERATOR && member.roles.cache.has(ROLE_MODERATOR)) ||
+    Boolean(ROLE_SENIOR_MODERATOR && member.roles.cache.has(ROLE_SENIOR_MODERATOR)) ||
+    Boolean(ROLE_DIRECTOR && member.roles.cache.has(ROLE_DIRECTOR)) ||
+    Boolean(ROLE_ADMIN && member.roles.cache.has(ROLE_ADMIN)) ||
+    Boolean(ROLE_MANAGER && member.roles.cache.has(ROLE_MANAGER)) ||
+    Boolean(ROLE_CO_OWNER && member.roles.cache.has(ROLE_CO_OWNER)) ||
+    Boolean(ROLE_OWNER && member.roles.cache.has(ROLE_OWNER));
   const partnerRoleRemoved = await ensureRoleRemoved(guild, member, ROLE_PARTNER_MANAGER);
   if (!partnerRoleRemoved) return "<a:VC_Alert:1482706673176150077> Depex PM non applicato: impossibile rimuovere il ruolo Partner Manager.";
-  await member.roles.remove(ROLE_HELPER).catch(() => null);
-  await member.roles.remove(ROLE_MODERATOR).catch(() => null);
-  await member.roles.remove(ROLE_SENIOR_MODERATOR).catch(() => null);
-  await member.roles.remove(ROLE_DIRECTOR).catch(() => null);
-  await member.roles.remove(ROLE_STAFF).catch(() => null);
-  await member.roles.remove(ROLE_HIGH_STAFF).catch(() => null);
-  await stripStafferAwardRoles(member);
   if (ROLE_MEMBER) {
     const memberRoleAdded = await ensureRoleAdded(guild, member, ROLE_MEMBER);
     if (!memberRoleAdded) return "<a:VC_Alert:1482706673176150077> Depex PM applicato parzialmente: impossibile ripristinare il ruolo Member.";
@@ -714,12 +718,15 @@ async function applyPmAction(guild, payload, reasonOverride = null, actor = null
   const memberAfterPmDepex = await getGuildMemberCached(guild, payload.userId, { preferFresh: true }).catch(() => member);
   await syncStaffDbAndPauseChannelAfterDepex(guild, payload.userId, memberAfterPmDepex);
   const depexReason = String(reasonOverride || "").trim() || "Limiti settimanali non raggiunti";
+  const logNewRoleId = hadLadderBefore
+    ? resolvePexDepexLogRoleAfterId(memberAfterPmDepex) || ROLE_MEMBER || ""
+    : ROLE_MEMBER || "";
   await sendPexDepexLog(
     guild,
     "depex",
     member.user,
     ROLE_PARTNER_MANAGER,
-    ROLE_MEMBER || "",
+    logNewRoleId,
     depexReason,
   );
   fireResocontoPexDepexNotif(
@@ -728,12 +735,13 @@ async function applyPmAction(guild, payload, reasonOverride = null, actor = null
     member.user,
     "depex",
     ROLE_PARTNER_MANAGER,
-    ROLE_MEMBER || "",
+    logNewRoleId,
     depexReason,
     `resoconto-pm-depex:${payload.userId}`,
   );
-  await bumpCandidatureCooldownAfterStaffRemoval(payload.userId);
-  return "<:success:1461731530333229226> Depex PM applicato e dati partner rimossi.";
+  /* Solo se era PM-only (niente scala) ha senso il cooldown candidatura staff. */
+  if (!hadLadderBefore) await bumpCandidatureCooldownAfterStaffRemoval(payload.userId);
+  return "<:success:1461731530333229226> Depex PM applicato.";
 }
 
 async function applyStaffResocontoPendingValutazioni(

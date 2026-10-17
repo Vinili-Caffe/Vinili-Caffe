@@ -1927,25 +1927,60 @@ async function syncLiveVoiceSessionsFromGateway(client) {
       ).catch(() => { });
     }
 
+    /* voiceGhostAward1: sessione aperta ma user non più in VC (reboot/offline leave)
+       → chiudi come leave normale (EXP + bucket), non azzerare a vuoto. */
     const openSessions = await ActivityUserProfile.find({ guildId, "profile.totals.sessionStartedAt": { $ne: null } })
-      .select("userId")
-      .lean()
+      .select(
+        "userId profile.totals.sessionStartedAt profile.totals.sessionChannelId profile.totals.expAwardedSeconds profile.totals.voiceActivityBucketFlushSeconds profile.totals.voiceTotalSeconds profile.totals.voiceDailySeconds profile.totals.voiceWeeklySeconds profile.totals.exp",
+      )
       .catch(() => []);
 
-    for (const row of openSessions) {
-      const userId = String(row?.userId || "");
+    for (const doc of openSessions || []) {
+      const userId = String(doc?.userId || "");
       if (!userId || activeUserIds.has(userId)) continue;
-      await ActivityUserProfile.updateOne(
-        { guildId, userId },
-        {
-          $set: {
-            "profile.totals.sessionStartedAt": null,
-            "profile.totals.sessionChannelId": null,
-            "profile.totals.expAwardedSeconds": 0,
-            "profile.totals.voiceActivityBucketFlushSeconds": 0,
+      try {
+        const channelId = String(doc.profile?.totals?.sessionChannelId || "");
+        const flushedBefore = Math.max(0, Number(doc.profile?.totals?.voiceActivityBucketFlushSeconds || 0));
+        let member = null;
+        try {
+          member = await guild.members.fetch(userId).catch(() => null);
+        } catch (_) {
+          member = null;
+        }
+        const ignored = await shouldIgnoreExpForMember({
+          guildId,
+          member,
+          channelId: channelId || null,
+        }).catch(() => false);
+        const elapsedSeconds = await recordVoiceSessionEnd(doc, now, guild, ignored, channelId || null);
+        const remainingBucket = Math.max(0, Number(elapsedSeconds || 0) - flushedBefore);
+        if (channelId && remainingBucket > 0) {
+          await bumpDailyVoice(guildId, userId, channelId, remainingBucket);
+          await bumpHourlyVoice(guildId, userId, channelId, remainingBucket);
+        }
+        if (!doc.profile) doc.profile = {};
+        if (!doc.profile.totals) doc.profile.totals = {};
+        doc.profile.totals.voiceActivityBucketFlushSeconds = 0;
+        await doc.save().catch(() => null);
+      } catch (err) {
+        global.logger?.warn?.(
+          "[activity] voice ghost close failed:",
+          guildId,
+          userId,
+          err?.message || err,
+        );
+        await ActivityUserProfile.updateOne(
+          { guildId, userId },
+          {
+            $set: {
+              "profile.totals.sessionStartedAt": null,
+              "profile.totals.sessionChannelId": null,
+              "profile.totals.expAwardedSeconds": 0,
+              "profile.totals.voiceActivityBucketFlushSeconds": 0,
+            },
           },
-        },
-      ).catch(() => { });
+        ).catch(() => { });
+      }
     }
   }
 }

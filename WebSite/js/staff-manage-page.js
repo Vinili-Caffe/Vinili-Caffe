@@ -736,19 +736,21 @@
       if (m.canDepexLadder && !depexSameAsMember) {
         choices.push({ id: "depex", label: "Depex" + arrow + depexDest });
       }
-      /* depexPmDupMember1: PM-only → una sola voce Member (niente PM→Member + Depex→Member) */
+      /* depexPmDupMember1 / depexPmOnlyFullFix1: PM-only → depex_pm (non depex_full: API non tocca PM) */
       var isPmOnly = Boolean(m.isPmOnly);
       if (m.canDepexPm && isPm && !isPmOnly) {
         choices.push({ id: "depex_pm", label: "Rimuovi Partner Manager", danger: true });
       }
-      if (m.canDepexFull !== false) {
+      if (isPmOnly && m.canDepexPm && isPm) {
+        choices.push({ id: "depex_pm", label: "Depex" + arrow + memberDest, danger: true });
+      } else if (m.canDepexFull) {
         choices.push({ id: "depex_full", label: "Depex" + arrow + memberDest, danger: true });
       }
       if (!choices.length && m.canDepexLadder && depexSameAsMember) {
         choices.push({ id: "depex_full", label: "Depex" + arrow + memberDest, danger: true });
       }
       if (!choices.length && m.canDepexPm && isPm) {
-        choices.push({ id: "depex_full", label: "Depex" + arrow + memberDest, danger: true });
+        choices.push({ id: "depex_pm", label: "Depex" + arrow + memberDest, danger: true });
       }
       if (!choices.length) {
         setActionStatus("Nessuna opzione di depex disponibile.", true);
@@ -771,10 +773,11 @@
   function renderCareerForge(m) {
     var canAct = !state.readOnly;
     var isPm = Boolean(m.isPm);
+    /* staffCareerRankGuard1: canDepexFull false = blocco reale (prima !== false apriva comunque) */
     var canPexHub = Boolean(m.canPex || m.canPexProspect || (m.canPexPm && !isPm));
-    var canDepexHub = Boolean(
-      m.canDepexLadder || (m.canDepexPm && isPm) || m.canDepexFull !== false,
-    );
+    var canDepexHub = Boolean(m.canDepexLadder || (m.canDepexPm && isPm) || m.canDepexFull);
+    var rankBlocked = Boolean(m.careerRankBlocked);
+    var rankMsg = String(m.careerRankBlockMessage || "").trim();
     var html =
       '<section class="vc-staff-rank-forge" aria-label="Gestione carriera">' +
       '<div class="vc-staff-rank-forge__badge">' +
@@ -802,6 +805,10 @@
         '<span class="vc-staff-rank-forge__name">Depex</span>' +
         '<span class="vc-staff-rank-forge__hint">Scegli tipo di depex</span></button>' +
         "</div>";
+      if (rankBlocked && rankMsg) {
+        html +=
+          '<p class="vc-staff-manage-readonly" role="status">' + T.esc(rankMsg) + "</p>";
+      }
     }
 
     html +=
@@ -995,6 +1002,23 @@
         window.__vcCloseStaffManageSheet();
       }
     } catch (eClose) {}
+    /* pexCloseSheet1: mai lasciare la class che nasconde le frecce peer */
+    try {
+      var sheet = document.getElementById("vc-staff-manage-sheet");
+      if (sheet) sheet.remove();
+    } catch (eRm) {}
+    try {
+      document.documentElement.classList.remove("vc-staff-manage-sheet-open");
+    } catch (eCls) {}
+    try {
+      document.dispatchEvent(new CustomEvent("vc:staff-manage-sheet-closed"));
+    } catch (eEv) {}
+  }
+
+  /* pexCloseSheet1: dopo pex/depex chiudi sempre lo sheet (CSS sheet-open nascondeva le frecce). */
+  function finishCareerActionUi(info) {
+    notifyModalUpdated(info || { leftStaff: false, member: state.member });
+    closeManageSheetSafe();
   }
 
   function refreshAfterCareerAction(action, meta) {
@@ -1013,24 +1037,22 @@
           canPex: false,
         });
       }
-      notifyModalUpdated({
+      finishCareerActionUi({
         leftStaff: true,
         hardRefresh: true,
         action: act,
         member: state.member,
       });
-      closeManageSheetSafe();
       return Promise.resolve();
     }
     if (hardRefresh) {
-      notifyModalUpdated({
+      finishCareerActionUi({
         leftStaff: false,
         hardRefresh: true,
         joinedLadder: true,
         action: act,
         member: state.member,
       });
-      closeManageSheetSafe();
       return Promise.resolve();
     }
     return T.fetchJson(apiUrl(state.selectedId, { fresh: true }), { cache: false, ttlMs: 0, persistMs: 0 })
@@ -1042,28 +1064,30 @@
           if (data.sections) state.sections = data.sections;
           state.member = data.member || state.member;
           if (act.indexOf("depex") === 0 && !memberStillOnStaff(state.member)) {
-            notifyModalUpdated({
+            finishCareerActionUi({
               leftStaff: true,
               hardRefresh: true,
               action: act,
               member: state.member,
             });
-            closeManageSheetSafe();
             return;
           }
           if (shouldHardRefreshAfterCareer(act, beforeMember, state.member)) {
-            notifyModalUpdated({
+            finishCareerActionUi({
               leftStaff: false,
               hardRefresh: true,
               joinedLadder: true,
               action: act,
               member: state.member,
             });
-            closeManageSheetSafe();
             return;
           }
-          renderDetail();
-          notifyModalUpdated({ leftStaff: false, hardRefresh: false, action: act, member: state.member });
+          finishCareerActionUi({
+            leftStaff: false,
+            hardRefresh: false,
+            action: act,
+            member: state.member,
+          });
           return;
         }
         /* Dopo depex completo il GET torna not_staff: non è un errore di rete. */
@@ -1080,43 +1104,48 @@
               canPex: false,
             });
           }
-          notifyModalUpdated({
+          finishCareerActionUi({
             leftStaff: true,
             hardRefresh: true,
             action: act,
             member: state.member,
           });
-          closeManageSheetSafe();
           return;
         }
-        renderDetail();
-        notifyModalUpdated({ leftStaff: false, hardRefresh: false, action: act, member: state.member });
+        finishCareerActionUi({
+          leftStaff: false,
+          hardRefresh: false,
+          action: act,
+          member: state.member,
+        });
       })
       .catch(function () {
         /* POST già ok: non mascherare il successo con errore di rete sul refresh. */
         if (act.indexOf("depex") === 0 && !memberStillOnStaff(state.member)) {
-          notifyModalUpdated({
+          finishCareerActionUi({
             leftStaff: true,
             hardRefresh: true,
             action: act,
             member: state.member,
           });
-          closeManageSheetSafe();
           return;
         }
         if (shouldHardRefreshAfterCareer(act, beforeMember, state.member)) {
-          notifyModalUpdated({
+          finishCareerActionUi({
             leftStaff: false,
             hardRefresh: true,
             joinedLadder: true,
             action: act,
             member: state.member,
           });
-          closeManageSheetSafe();
           return;
         }
-        renderDetail();
-        notifyModalUpdated({ leftStaff: false, hardRefresh: false, action: act, member: state.member });
+        finishCareerActionUi({
+          leftStaff: false,
+          hardRefresh: false,
+          action: act,
+          member: state.member,
+        });
       });
   }
 

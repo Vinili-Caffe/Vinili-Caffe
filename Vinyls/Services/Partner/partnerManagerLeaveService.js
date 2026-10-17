@@ -1,3 +1,4 @@
+const path = require("path");
 const {
   EmbedBuilder,
   ActionRowBuilder,
@@ -22,9 +23,15 @@ const {
   isPartnershipOperational,
 } = require("../../Utils/Partner/partnershipConfigResolver");
 const { ensurePartnershipChannelInvite } = require("./partnershipInviteService");
+const { readSnapshotWithMeta, writeSnapshotWithMeta } = require("../../../shared/recovery/snapshotStore");
+const { registerShutdownFlush, armShutdownCheckpoint } = require("../../../shared/recovery/shutdownCheckpoint");
 
 const GRACE_MS = 5 * 60 * 1000;
 const WARN_REASON = "Manager uscito dal server — warn";
+/* rebootDurability1: grace manager leave → snapshot disk */
+const GRACE_SNAPSHOT_PATH = path.join(__dirname, "..", "..", "Data", "partnerManagerLeaveGraceSnapshot.json");
+let graceFlushRegistered = false;
+let graceRestored = false;
 
 function getRomeDateKey(date = new Date()) {
   return new Intl.DateTimeFormat("en-CA", {
@@ -282,12 +289,45 @@ async function sendManagerLeaveFollowUpDm(user, embed) {
   }
 }
 
+function persistGraceSnapshot(client) {
+  const map = client ? getGraceMap(client) : null;
+  const payload = {};
+  const now = Date.now();
+  if (map) {
+    for (const [key, row] of map.entries()) {
+      const deadlineAt = Number(row?.deadlineAt || 0);
+      if (!key || !Number.isFinite(deadlineAt) || deadlineAt <= now - 60_000) continue;
+      payload[key] = {
+        deadlineAt,
+        leaveAction: String(row?.leaveAction || "delete"),
+        guildId: String(row?.guildId || ""),
+        managerUserId: String(row?.managerUserId || ""),
+      };
+    }
+  }
+  writeSnapshotWithMeta({
+    filePath: GRACE_SNAPSHOT_PATH,
+    walPath: `${GRACE_SNAPSHOT_PATH}.wal`,
+    key: "vinyls_partner_manager_leave_grace",
+    version: 1,
+    payload,
+  });
+}
+
+function ensureGraceFlushRegistered(client) {
+  if (graceFlushRegistered) return;
+  graceFlushRegistered = true;
+  armShutdownCheckpoint();
+  registerShutdownFlush("vinyls_partner_manager_leave_grace", () => persistGraceSnapshot(client));
+}
+
 function clearGraceTimer(client, guildId, userId) {
   const map = getGraceMap(client);
   const key = graceKey(guildId, userId);
   const existing = map.get(key);
   if (existing?.timeout) clearTimeout(existing.timeout);
   map.delete(key);
+  persistGraceSnapshot(client);
 }
 
 async function runGraceExpiry(client, guildId, managerUserId) {
@@ -295,6 +335,7 @@ async function runGraceExpiry(client, guildId, managerUserId) {
   const key = graceKey(guildId, managerUserId);
   const entry = map.get(key);
   map.delete(key);
+  persistGraceSnapshot(client);
   if (!entry) return;
 
   const guild = client.guilds.cache.get(guildId) || (await client.guilds.fetch(guildId).catch(() => null));
@@ -319,21 +360,71 @@ async function runGraceExpiry(client, guildId, managerUserId) {
   }
 }
 
-function scheduleGraceTimer(client, guildId, managerUserId, leaveAction) {
-  clearGraceTimer(client, guildId, managerUserId);
+function scheduleGraceTimer(client, guildId, managerUserId, leaveAction, deadlineAtMs = null) {
+  const map0 = getGraceMap(client);
+  const key0 = graceKey(guildId, managerUserId);
+  const existing0 = map0.get(key0);
+  if (existing0?.timeout) clearTimeout(existing0.timeout);
+  map0.delete(key0);
+  ensureGraceFlushRegistered(client);
   const map = getGraceMap(client);
   const key = graceKey(guildId, managerUserId);
+  const deadlineAt = Number.isFinite(Number(deadlineAtMs))
+    ? Number(deadlineAtMs)
+    : Date.now() + GRACE_MS;
+  const delay = Math.max(1_000, deadlineAt - Date.now());
   const timeout = setTimeout(() => {
     void runGraceExpiry(client, guildId, managerUserId);
-  }, GRACE_MS);
+  }, delay);
   timeout.unref?.();
   map.set(key, {
     timeout,
-    deadlineAt: Date.now() + GRACE_MS,
+    deadlineAt,
     leaveAction,
     guildId: String(guildId),
     managerUserId: String(managerUserId),
   });
+  persistGraceSnapshot(client);
+}
+
+function restorePartnerManagerLeaveGraceOnStartup(client) {
+  if (!client || graceRestored) return { restored: 0, expired: 0 };
+  graceRestored = true;
+  ensureGraceFlushRegistered(client);
+  const raw = readSnapshotWithMeta({
+    filePath: GRACE_SNAPSHOT_PATH,
+    walPath: `${GRACE_SNAPSHOT_PATH}.wal`,
+    key: "vinyls_partner_manager_leave_grace",
+    version: 1,
+    fallback: {},
+  });
+  let restored = 0;
+  let expired = 0;
+  const now = Date.now();
+  for (const [key, row] of Object.entries(raw || {})) {
+    const guildId = String(row?.guildId || key.split(":")[0] || "").trim();
+    const managerUserId = String(row?.managerUserId || key.split(":")[1] || "").trim();
+    const deadlineAt = Number(row?.deadlineAt || 0);
+    if (!guildId || !managerUserId || !Number.isFinite(deadlineAt)) continue;
+    if (deadlineAt <= now) {
+      expired += 1;
+      getGraceMap(client).set(graceKey(guildId, managerUserId), {
+        timeout: null,
+        deadlineAt,
+        leaveAction: row?.leaveAction || "delete",
+        guildId,
+        managerUserId,
+      });
+      void runGraceExpiry(client, guildId, managerUserId);
+      continue;
+    }
+    scheduleGraceTimer(client, guildId, managerUserId, row?.leaveAction || "delete", deadlineAt);
+    restored += 1;
+  }
+  if (restored || expired) {
+    global.logger?.info?.(`[partnerManagerLeave] grace restore: restored=${restored} expiredNow=${expired}`);
+  }
+  return { restored, expired };
 }
 
 async function handleTenantPartnerManagerLeave(member, client) {
@@ -382,4 +473,5 @@ module.exports = {
   handleTenantPartnerManagerLeave,
   handleTenantPartnerManagerRejoin,
   shouldHandleTenantManagerLeave,
+  restorePartnerManagerLeaveGraceOnStartup,
 };

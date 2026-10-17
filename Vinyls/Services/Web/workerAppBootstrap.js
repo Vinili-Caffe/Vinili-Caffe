@@ -35,13 +35,18 @@ function loadVinylsConfig() {
 }
 
 function resolveMongoUrl() {
-  return (
-    process.env.MONGO_URL_LOCAL ||
-    process.env.MONGODB_URI_LOCAL ||
-    process.env.MONGO_URL ||
-    process.env.MONGODB_URI ||
-    ""
-  );
+  /* mongoSingleSource1 */
+  try {
+    return require("../../Utils/Database/mongoConnect").buildMongoUrl() || "";
+  } catch (_) {
+    return (
+      process.env.MONGO_URL_LOCAL ||
+      process.env.MONGODB_URI_LOCAL ||
+      process.env.MONGO_URL ||
+      process.env.MONGODB_URI ||
+      ""
+    );
+  }
 }
 
 function resolveDiscordToken() {

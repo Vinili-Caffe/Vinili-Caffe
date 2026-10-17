@@ -16,6 +16,25 @@ function mountSiteWebhookRoutes(app, client, deps) {
   const createSitePaymentOrder = deps.createSitePaymentOrder;
   const captureSitePaymentOrder = deps.captureSitePaymentOrder;
   const handleSitePayPalWebhook = deps.handleSitePayPalWebhook;
+  /* pageTune1: ETag/304 su GET pubblici boards/wiki/reviews/suggestions */
+  const { sendJsonWithEtag, weakEtagFromJson } = require("../../Utils/Web/siteHttpEtag");
+  function replyJsonEtag(req, res, out, opts = {}) {
+    const status = Number(out && out.status) || Number(opts.status) || 200;
+    if (!out || out.ok === false) {
+      return res.status(status).json(out);
+    }
+    if (opts.cacheControl) res.setHeader("Cache-Control", opts.cacheControl);
+    if (opts.extraHeaders && typeof opts.extraHeaders === "object") {
+      for (const [k, v] of Object.entries(opts.extraHeaders)) {
+        if (v != null) res.setHeader(k, String(v));
+      }
+    }
+    return sendJsonWithEtag(req, res, out, {
+      status,
+      cacheControl: opts.cacheControl,
+      etag: weakEtagFromJson(out),
+    });
+  }
 
   /* siteApiW8: notif/access/summary/organico/pause/dashboard/tickets tengono ETag (304); resto staff no-store */
   function applyStaffApiNoStore(req, res, next) {
@@ -201,6 +220,7 @@ function mountSiteWebhookRoutes(app, client, deps) {
   const { buildCommunityRulesSitePayload } = require("../../Utils/Web/communityRulesPayload");
   const { handleSiteUsersLeaderboardGet } = require("../../Utils/Web/siteUsersLeaderboardApi");
   const { handleSiteVoteGet } = require("../../Utils/Web/siteVoteApi");
+  const { handleSiteWordleTodayGet, handleSiteWordleGuessPost } = require("../../Utils/Web/siteWordleApi");
   const { handleSiteLiveEventGet } = require("../../Utils/Web/siteLiveEventApi");
   const { handleSiteRolesGet } = require("../../Utils/Web/siteRolesApi");
   const { submitSiteRoleRequest, leaveSiteRole, getSiteRoleRequestStates } = require("../../Utils/Web/siteRoleRequestApi");
@@ -220,12 +240,28 @@ function mountSiteWebhookRoutes(app, client, deps) {
     submitListing,
     generateInvite,
     guildBoardDefaults,
+    probeBoardLink,
+    uploadBoardBanner,
+    serveBoardBannerFile,
     listMine,
+    getMyListingById,
+    deleteMyListing,
+    refreshMyListing,
     listClaimableServers,
     voteListing,
     bumpListing,
     reportListing,
+    listListingReviews,
+    createListingReview,
+    toggleListingReviewLike,
+    reportListingReview,
+    upsertListingReviewReply,
+    startListingVoteSession,
+    progressListingVoteSession,
+    setListingVoteReminder,
+    ensureBoardsVoteReminderScheduler,
     modListPending,
+    getListingForStaffReview,
     modDecide,
     ensureBoardsStatsScheduler,
     clientIp: boardsClientIp,
@@ -252,6 +288,7 @@ function mountSiteWebhookRoutes(app, client, deps) {
     handleSiteNotificationsDeletePost,
     handleSiteNotificationsPushVapidGet,
     handleSiteNotificationsPushSubscribePost,
+    handleSiteNotificationsPushShownPost,
     handleSiteNotificationsPushUnsubscribePost,
   } = require("../../Utils/Web/siteInAppNotificationsApi");
   const { completeSiteVerify } = require("../../Utils/Web/siteVerifyApi");
@@ -344,12 +381,26 @@ function mountSiteWebhookRoutes(app, client, deps) {
       return res.status(500).json({ ok: false, error: "internal", message: "Errore interno. Riprova tra poco." });
     }
   });
+
+  /* siteUserPresence1: online/idle sul sito (heartbeat + query) */
+  {
+    const {
+      handleSiteUserPresenceHeartbeat,
+      handleSiteUserPresenceQuery,
+    } = require("../../Utils/Web/siteUserPresenceApi");
+    app.post("/webhooks/site-user-presence", (req, res) => handleSiteUserPresenceHeartbeat(req, res));
+    app.post("/webhooks/site-user-presence/query", (req, res) => handleSiteUserPresenceQuery(req, res));
+    app.get("/webhooks/site-user-presence/query", (req, res) => handleSiteUserPresenceQuery(req, res));
+  }
+
   app.get("/webhooks/site-users", (req, res) => {
     return handleSiteUsersLeaderboardGet(client, req, res);
   });
   app.get("/webhooks/site-vote", (req, res) => {
     return handleSiteVoteGet(client, req, res);
   });
+  app.get("/webhooks/site-wordle/today", (req, res) => handleSiteWordleTodayGet(client, req, res));
+  app.post("/webhooks/site-wordle/guess", (req, res) => handleSiteWordleGuessPost(client, req, res));
   app.get("/webhooks/site-notifications", (req, res) => {
     return handleSiteNotificationsGet(client, req, res);
   });
@@ -368,6 +419,9 @@ function mountSiteWebhookRoutes(app, client, deps) {
   app.post("/webhooks/site-notifications/push/subscribe", (req, res) => {
     return handleSiteNotificationsPushSubscribePost(client, req, res);
   });
+  app.post("/webhooks/site-notifications/push/shown", (req, res) => {
+    return handleSiteNotificationsPushShownPost(client, req, res);
+  });
   app.post("/webhooks/site-notifications/push/unsubscribe", (req, res) => {
     return handleSiteNotificationsPushUnsubscribePost(client, req, res);
   });
@@ -376,11 +430,19 @@ function mountSiteWebhookRoutes(app, client, deps) {
   app.get("/webhooks/site-chrome-prefs", (req, res) => handleSiteChromePrefsGet(client, req, res));
   app.post("/webhooks/site-chrome-prefs", (req, res) => handleSiteChromePrefsPost(client, req, res));
   app.get("/webhooks/site-cookie-consent", (req, res) => handleSiteCookieConsentGet(client, req, res));
+  /* siteBoot1: me skim + unread + theme/prefs in un round-trip */
+  try {
+    const { handleSiteBootGet } = require("../../Utils/Web/siteBootApi");
+    app.get("/webhooks/site-boot", (req, res) => handleSiteBootGet(client, req, res));
+  } catch (eBootRoute) {
+    global.logger?.warn?.("[WEBHOOK] site-boot mount skipped:", eBootRoute?.message || eBootRoute);
+  }
   /* discordMeProxy1: browser → same-origin proxy (evita CORS/500 discord.com in console) */
   app.get("/webhooks/site-discord-me", async (req, res) => {
     try {
-      res.set("Cache-Control", "private, no-store, no-cache, must-revalidate");
-      res.set("Pragma", "no-cache");
+      /* apiJankCut1: private short TTL — allinea process cache oauth (~90s), meno RTT Discord */
+      res.set("Cache-Control", "private, max-age=45, stale-while-revalidate=120");
+      res.set("Vary", "Authorization");
       const accessToken = normalizeHeaderSecret(req.headers.authorization);
       if (!accessToken) {
         return res.status(401).json({ ok: false, error: "missing_token", message: "401" });
@@ -923,11 +985,7 @@ function mountSiteWebhookRoutes(app, client, deps) {
       const bot = String(req.query?.bot || req.query?.pane || "prod");
       const viewAs = parseViewAsFromReq(req);
       const out = await getWikiHelpAccess(client, { accessToken, bot, viewAs });
-      try {
-        res.setHeader("Cache-Control", "no-store");
-        const cats = Array.isArray(out?.catalog?.categories) ? out.catalog.categories.length : 0;
-        res.setHeader("X-VC-Wiki-Cats", String(cats));
-      } catch (_) {}
+      const cats = Array.isArray(out?.catalog?.categories) ? out.catalog.categories.length : 0;
       try {
         if (accessToken) {
           const fs = require("fs");
@@ -939,14 +997,17 @@ function mountSiteWebhookRoutes(app, client, deps) {
               guest: out?.guest,
               userId: out?.userId || null,
               viewAs: out?.viewAs || null,
-              cats: Array.isArray(out?.catalog?.categories) ? out.catalog.categories.length : -1,
+              cats,
               cmd: out?.catalog?.commandCount ?? null,
               authError: out?.authError || null,
             }) + "\n";
           fs.appendFileSync("/tmp/vc_wiki_auth_hits.log", line);
         }
       } catch (_) {}
-      return res.status(Number(out.status) || 200).json(out);
+      return replyJsonEtag(req, res, out, {
+        cacheControl: accessToken ? "private, max-age=60" : "public, max-age=120",
+        extraHeaders: { "X-VC-Wiki-Cats": String(cats) },
+      });
     } catch (err) {
       global.logger?.error?.("[WEBHOOK] site-wiki-help:", err);
       return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
@@ -1100,8 +1161,9 @@ function mountSiteWebhookRoutes(app, client, deps) {
         return res.status(Number(out?.status) || 500).json(out || { ok: false, error: "preview_failed" });
       }
       res.setHeader("Content-Type", String(out.mimeType || "image/png"));
-      /* rankFastPaint1: browser può riusare PNG ~1min (niente no-store → paint lento) */
-      res.setHeader("Cache-Control", "public, max-age=60, stale-while-revalidate=300");
+      /* rankCardSpeed1: browser 3min + SWR; server ha anche cache memoria 2min */
+      res.setHeader("Cache-Control", "public, max-age=180, stale-while-revalidate=600");
+      if (out.cache) res.setHeader("X-VC-Rank-Cache", String(out.cache));
       return res.status(200).send(out.image);
     } catch (err) {
       global.logger?.error?.("[WEBHOOK] site-rank-card-public get:", err);
@@ -1253,11 +1315,9 @@ function mountSiteWebhookRoutes(app, client, deps) {
       const accessToken = normalizeHeaderSecret(req.headers.authorization);
       const kind = String((req.query && req.query.kind) || "").trim();
       const out = await getSiteReviews(client, { accessToken, kind });
-      if (out && out.ok) {
-        // cinePolish1: short private cache — safe (auth-aware body via Bearer); browsers still use VcApiCache.
-        res.setHeader("Cache-Control", accessToken ? "private, max-age=30" : "public, max-age=45");
-      }
-      return res.status(Number(out.status) || 500).json(out);
+      return replyJsonEtag(req, res, out, {
+        cacheControl: accessToken ? "private, max-age=30" : "public, max-age=45",
+      });
     } catch (err) {
       global.logger?.error?.("[WEBHOOK] site-reviews get:", err);
       return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
@@ -1352,11 +1412,18 @@ function mountSiteWebhookRoutes(app, client, deps) {
   });
 
   /* Vinili Boards — /webhooks/site-boards/... */
+  /* boardsSchedaMissUi1: miss atteso → HTTP 200 (body.status resta 404) così la console non spammand 404 */
+  function boardsSoftGetHttpStatus(out) {
+    const code = Number(out && out.status) || 500;
+    if (out && out.ok) return 200;
+    const err = String((out && out.error) || "");
+    if (err === "not_found" || err === "pending_not_public") return 200;
+    return code;
+  }
   app.get("/webhooks/site-boards/config", async (req, res) => {
     try {
       const out = getBoardsPublicConfig(client);
-      res.setHeader("Cache-Control", "public, max-age=30");
-      return res.status(Number(out.status) || 500).json(out);
+      return replyJsonEtag(req, res, out, { cacheControl: "public, max-age=30" });
     } catch (err) {
       global.logger?.error?.("[WEBHOOK] site-boards config:", err);
       return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
@@ -1368,8 +1435,7 @@ function mountSiteWebhookRoutes(app, client, deps) {
         q: req.query?.q,
         limit: req.query?.limit,
       });
-      res.setHeader("Cache-Control", "public, max-age=20");
-      return res.status(Number(out.status) || 500).json(out);
+      return replyJsonEtag(req, res, out, { cacheControl: "public, max-age=20" });
     } catch (err) {
       global.logger?.error?.("[WEBHOOK] site-boards tags:", err);
       return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
@@ -1390,15 +1456,17 @@ function mountSiteWebhookRoutes(app, client, deps) {
         kind: req.query?.kind,
         q: req.query?.q,
         tag: req.query?.tag,
+        category: req.query?.category,
+        locale: req.query?.locale,
+        guildTag: req.query?.guildTag || req.query?.guildtag,
         sort: req.query?.sort,
         page: req.query?.page,
         perPage: req.query?.perPage,
         allowClosed,
       });
-      if (out?.ok) {
-        res.setHeader("Cache-Control", allowClosed ? "private, max-age=15" : "public, max-age=30");
-      }
-      return res.status(Number(out.status) || 500).json(out);
+      return replyJsonEtag(req, res, out, {
+        cacheControl: allowClosed ? "private, max-age=15" : "public, max-age=30",
+      });
     } catch (err) {
       global.logger?.error?.("[WEBHOOK] site-boards listings:", err);
       return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
@@ -1415,8 +1483,12 @@ function mountSiteWebhookRoutes(app, client, deps) {
           if (staff?.ok) allowClosed = true;
         } catch (_) {}
       }
-      const out = await getListingBySlug(client, req.params?.slug, { allowClosed });
-      return res.status(Number(out.status) || 500).json(out);
+      const out = await getListingBySlug(client, req.params?.slug, {
+        allowClosed,
+        /* boardsPendingRedirect1: owner può aprire slug/id pending */
+        accessToken: accessToken || "",
+      });
+      return res.status(boardsSoftGetHttpStatus(out)).json(out);
     } catch (err) {
       global.logger?.error?.("[WEBHOOK] site-boards listing:", err);
       return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
@@ -1547,6 +1619,77 @@ function mountSiteWebhookRoutes(app, client, deps) {
       return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
     }
   });
+  /* boardsLinkCheck1 */
+  app.post("/webhooks/site-boards/probe-link", async (req, res) => {
+    try {
+      const accessToken = normalizeHeaderSecret(req.headers.authorization);
+      if (!accessToken) {
+        return res.status(401).json({
+          ok: false,
+          error: "missing_token",
+          message: "Header Authorization: Bearer <token> richiesto.",
+        });
+      }
+      const body = req.body && typeof req.body === "object" ? req.body : {};
+      const out = await probeBoardLink(client, {
+        accessToken,
+        kind: body.kind || body.type,
+        value: body.value || body.url || body.handle,
+      });
+      return res.status(Number(out.status) || 500).json(out);
+    } catch (err) {
+      global.logger?.error?.("[WEBHOOK] site-boards probe-link:", err);
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+    }
+  });
+  /* boardsVoteFlow1 */
+  try {
+    ensureBoardsVoteReminderScheduler(client);
+  } catch (_) {}
+  app.post("/webhooks/site-boards/listings/:id/vote-session", async (req, res) => {
+    try {
+      const accessToken = normalizeHeaderSecret(req.headers.authorization);
+      if (!accessToken) {
+        return res.status(401).json({
+          ok: false,
+          error: "missing_token",
+          message: "Header Authorization: Bearer <token> richiesto.",
+        });
+      }
+      const out = await startListingVoteSession(client, {
+        accessToken,
+        listingId: req.params?.id,
+      });
+      return res.status(Number(out.status) || 500).json(out);
+    } catch (err) {
+      global.logger?.error?.("[WEBHOOK] site-boards vote-session:", err);
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+    }
+  });
+  app.post("/webhooks/site-boards/listings/:id/vote-progress", async (req, res) => {
+    try {
+      const accessToken = normalizeHeaderSecret(req.headers.authorization);
+      if (!accessToken) {
+        return res.status(401).json({
+          ok: false,
+          error: "missing_token",
+          message: "Header Authorization: Bearer <token> richiesto.",
+        });
+      }
+      const body = req.body && typeof req.body === "object" ? req.body : {};
+      const out = await progressListingVoteSession(client, {
+        accessToken,
+        listingId: req.params?.id,
+        sessionId: body.sessionId,
+        step: body.step,
+        markStart: body.markStart === true,
+      });
+      return res.status(Number(out.status) || 500).json(out);
+    } catch (err) {
+      global.logger?.error?.("[WEBHOOK] site-boards vote-progress:", err);
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+    }
+  });
   app.post("/webhooks/site-boards/listings/:id/vote", async (req, res) => {
     try {
       const accessToken = normalizeHeaderSecret(req.headers.authorization);
@@ -1557,14 +1700,44 @@ function mountSiteWebhookRoutes(app, client, deps) {
           message: "Header Authorization: Bearer <token> richiesto.",
         });
       }
+      const body = req.body && typeof req.body === "object" ? req.body : {};
       const out = await voteListing(
         client,
-        { accessToken, listingId: req.params?.id },
+        {
+          accessToken,
+          listingId: req.params?.id,
+          sessionId: body.sessionId,
+          turnstileToken: body.turnstileToken || body["cf-turnstile-response"],
+          remind: body.remind === true || body.reminder === true,
+        },
         { ip: boardsClientIp(req) },
       );
       return res.status(Number(out.status) || 500).json(out);
     } catch (err) {
       global.logger?.error?.("[WEBHOOK] site-boards vote:", err);
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+    }
+  });
+  app.post("/webhooks/site-boards/listings/:id/vote-reminder", async (req, res) => {
+    try {
+      const accessToken = normalizeHeaderSecret(req.headers.authorization);
+      if (!accessToken) {
+        return res.status(401).json({
+          ok: false,
+          error: "missing_token",
+          message: "Header Authorization: Bearer <token> richiesto.",
+        });
+      }
+      const body = req.body && typeof req.body === "object" ? req.body : {};
+      const out = await setListingVoteReminder(client, {
+        accessToken,
+        listingId: req.params?.id,
+        enable: body.enable !== false && body.remind !== false,
+        remind: body.remind,
+      });
+      return res.status(Number(out.status) || 500).json(out);
+    } catch (err) {
+      global.logger?.error?.("[WEBHOOK] site-boards vote-reminder:", err);
       return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
     }
   });
@@ -1611,6 +1784,148 @@ function mountSiteWebhookRoutes(app, client, deps) {
       return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
     }
   });
+  /* boardsListingReviews1 */
+  app.get("/webhooks/site-boards/listings/:id/reviews", async (req, res) => {
+    try {
+      const accessToken = normalizeHeaderSecret(req.headers.authorization) || "";
+      const out = await listListingReviews(client, {
+        accessToken,
+        listingId: req.params?.id,
+        sort: req.query?.sort,
+        page: req.query?.page,
+        perPage: req.query?.perPage,
+      });
+      return res.status(Number(out.status) || 500).json(out);
+    } catch (err) {
+      global.logger?.error?.("[WEBHOOK] site-boards reviews list:", err);
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+    }
+  });
+  app.post("/webhooks/site-boards/listings/:id/reviews", async (req, res) => {
+    try {
+      const accessToken = normalizeHeaderSecret(req.headers.authorization);
+      if (!accessToken) {
+        return res.status(401).json({
+          ok: false,
+          error: "missing_token",
+          message: "Header Authorization: Bearer <token> richiesto.",
+        });
+      }
+      const body = req.body && typeof req.body === "object" ? req.body : {};
+      const out = await createListingReview(
+        client,
+        {
+          accessToken,
+          listingId: req.params?.id,
+          rating: body.rating,
+          content: body.content || body.text,
+        },
+        { ip: boardsClientIp(req) },
+      );
+      return res.status(Number(out.status) || 500).json(out);
+    } catch (err) {
+      global.logger?.error?.("[WEBHOOK] site-boards reviews create:", err);
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+    }
+  });
+  app.post("/webhooks/site-boards/reviews/:id/like", async (req, res) => {
+    try {
+      const accessToken = normalizeHeaderSecret(req.headers.authorization);
+      if (!accessToken) {
+        return res.status(401).json({
+          ok: false,
+          error: "missing_token",
+          message: "Header Authorization: Bearer <token> richiesto.",
+        });
+      }
+      const out = await toggleListingReviewLike(client, {
+        accessToken,
+        reviewId: req.params?.id,
+      });
+      return res.status(Number(out.status) || 500).json(out);
+    } catch (err) {
+      global.logger?.error?.("[WEBHOOK] site-boards review like:", err);
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+    }
+  });
+  app.post("/webhooks/site-boards/reviews/:id/report", async (req, res) => {
+    try {
+      const accessToken = normalizeHeaderSecret(req.headers.authorization);
+      if (!accessToken) {
+        return res.status(401).json({
+          ok: false,
+          error: "missing_token",
+          message: "Header Authorization: Bearer <token> richiesto.",
+        });
+      }
+      const body = req.body && typeof req.body === "object" ? req.body : {};
+      const out = await reportListingReview(client, {
+        accessToken,
+        reviewId: req.params?.id,
+        reason: body.reason,
+      });
+      return res.status(Number(out.status) || 500).json(out);
+    } catch (err) {
+      global.logger?.error?.("[WEBHOOK] site-boards review report:", err);
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+    }
+  });
+  /* boardsReviewReply1 */
+  app.post("/webhooks/site-boards/reviews/:id/reply", async (req, res) => {
+    try {
+      const accessToken = normalizeHeaderSecret(req.headers.authorization);
+      if (!accessToken) {
+        return res.status(401).json({
+          ok: false,
+          error: "missing_token",
+          message: "Header Authorization: Bearer <token> richiesto.",
+        });
+      }
+      const body = req.body && typeof req.body === "object" ? req.body : {};
+      const out = await upsertListingReviewReply(client, {
+        accessToken,
+        reviewId: req.params?.id,
+        content: body.content || body.text,
+        clear: body.clear === true || body.delete === true,
+      });
+      return res.status(Number(out.status) || 500).json(out);
+    } catch (err) {
+      global.logger?.error?.("[WEBHOOK] site-boards review reply:", err);
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+    }
+  });
+  /* boardsBannerUpload1 */
+  app.get("/webhooks/site-boards/files/:userId/:fileName", async (req, res) => {
+    try {
+      await serveBoardBannerFile(req, res);
+    } catch (err) {
+      global.logger?.error?.("[WEBHOOK] site-boards banner file:", err);
+      if (!res.headersSent) {
+        return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+      }
+    }
+  });
+  app.post("/webhooks/site-boards/me/banner-upload", async (req, res) => {
+    try {
+      const accessToken = normalizeHeaderSecret(req.headers.authorization);
+      if (!accessToken) {
+        return res.status(401).json({
+          ok: false,
+          error: "missing_token",
+          message: "Header Authorization: Bearer <token> richiesto.",
+        });
+      }
+      const body = req.body && typeof req.body === "object" ? req.body : {};
+      const out = await uploadBoardBanner(client, {
+        accessToken,
+        image: body.image || body.dataUrl || body.bannerImage,
+      });
+      return res.status(Number(out.status) || 500).json(out);
+    } catch (err) {
+      global.logger?.error?.("[WEBHOOK] site-boards banner-upload:", err);
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+    }
+  });
   app.get("/webhooks/site-boards/me/listings", async (req, res) => {
     try {
       const accessToken = normalizeHeaderSecret(req.headers.authorization);
@@ -1625,6 +1940,69 @@ function mountSiteWebhookRoutes(app, client, deps) {
       return res.status(Number(out.status) || 500).json(out);
     } catch (err) {
       global.logger?.error?.("[WEBHOOK] site-boards me:", err);
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+    }
+  });
+  /* boardsMinePreview1: GET scheda owner per anteprima pending/draft */
+  app.get("/webhooks/site-boards/me/listings/:id", async (req, res) => {
+    try {
+      const accessToken = normalizeHeaderSecret(req.headers.authorization);
+      if (!accessToken) {
+        return res.status(401).json({
+          ok: false,
+          error: "missing_token",
+          message: "Header Authorization: Bearer <token> richiesto.",
+        });
+      }
+      const out = await getMyListingById(client, {
+        accessToken,
+        listingId: req.params?.id,
+      });
+      return res.status(boardsSoftGetHttpStatus(out)).json(out);
+    } catch (err) {
+      global.logger?.error?.("[WEBHOOK] site-boards me get:", err);
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+    }
+  });
+  /* boardsMineDelete1: DELETE scheda owner (bozza / ritiro) */
+  app.delete("/webhooks/site-boards/me/listings/:id", async (req, res) => {
+    try {
+      const accessToken = normalizeHeaderSecret(req.headers.authorization);
+      if (!accessToken) {
+        return res.status(401).json({
+          ok: false,
+          error: "missing_token",
+          message: "Header Authorization: Bearer <token> richiesto.",
+        });
+      }
+      const out = await deleteMyListing(client, {
+        accessToken,
+        listingId: req.params?.id,
+      });
+      return res.status(Number(out.status) || 500).json(out);
+    } catch (err) {
+      global.logger?.error?.("[WEBHOOK] site-boards me delete:", err);
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+    }
+  });
+  /* boardsOwnerTools1: POST refresh Discord istantaneo (owner) */
+  app.post("/webhooks/site-boards/me/listings/:id/refresh", async (req, res) => {
+    try {
+      const accessToken = normalizeHeaderSecret(req.headers.authorization);
+      if (!accessToken) {
+        return res.status(401).json({
+          ok: false,
+          error: "missing_token",
+          message: "Header Authorization: Bearer <token> richiesto.",
+        });
+      }
+      const out = await refreshMyListing(client, {
+        accessToken,
+        listingId: req.params?.id,
+      });
+      return res.status(Number(out.status) || 500).json(out);
+    } catch (err) {
+      global.logger?.error?.("[WEBHOOK] site-boards me refresh:", err);
       return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
     }
   });
@@ -1665,6 +2043,27 @@ function mountSiteWebhookRoutes(app, client, deps) {
       return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
     }
   });
+  /* boardsRevPreview1: GET anteprima staff per id (pending ok) */
+  app.get("/webhooks/site-boards/mod/listings/:id", async (req, res) => {
+    try {
+      const accessToken = normalizeHeaderSecret(req.headers.authorization);
+      if (!accessToken) {
+        return res.status(401).json({
+          ok: false,
+          error: "missing_token",
+          message: "Header Authorization: Bearer <token> richiesto.",
+        });
+      }
+      const out = await getListingForStaffReview(client, {
+        accessToken,
+        listingId: req.params?.id,
+      });
+      return res.status(boardsSoftGetHttpStatus(out)).json(out);
+    } catch (err) {
+      global.logger?.error?.("[WEBHOOK] site-boards mod get:", err);
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+    }
+  });
   app.post("/webhooks/site-boards/mod/listings/:id", async (req, res) => {
     try {
       const accessToken = normalizeHeaderSecret(req.headers.authorization);
@@ -1702,10 +2101,9 @@ function mountSiteWebhookRoutes(app, client, deps) {
     try {
       const accessToken = normalizeHeaderSecret(req.headers.authorization);
       const out = await getSiteSuggestions(client, { accessToken, board: req.query?.board });
-      if (out && out.ok) {
-        res.setHeader("Cache-Control", accessToken ? "private, max-age=20" : "public, max-age=30");
-      }
-      return res.status(Number(out.status) || 500).json(out);
+      return replyJsonEtag(req, res, out, {
+        cacheControl: accessToken ? "private, max-age=20" : "public, max-age=30",
+      });
     } catch (err) {
       global.logger?.error?.("[WEBHOOK] site-suggestions get:", err);
       return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });

@@ -113,6 +113,15 @@ async function notifyUsers(guild, userIds, payload, excludeIds = []) {
   return ids.length;
 }
 
+function puntiToltiProfileOpenUrl(pmUserId) {
+  const uid = String(pmUserId || "").trim();
+  /* partnerPtChrono1 / ptNotifProfile1: fuori inbox → card Partner sul profilo */
+  if (/^\d{16,22}$/.test(uid)) {
+    return `/user/?id=${encodeURIComponent(uid)}&tab=staff&staffOpen=pm-punti-tolti`;
+  }
+  return "/user/?tab=staff&staffOpen=pm-punti-tolti";
+}
+
 async function notifyPuntiToltiPending(opts = {}) {
   const guild = opts.guild;
   const guildId = String(guild?.id || opts.guildId || "").trim();
@@ -127,9 +136,9 @@ async function notifyPuntiToltiPending(opts = {}) {
     title: "Punti tolti — segnalazione in attesa",
     body:
       (reporterName ? `${reporterName} ha segnalato ` : "Nuova segnalazione per ") +
-      `${pmName}${rule ? `: ${rule}` : ""}. Conferma o nega in Punti tolti PM.`,
+      `${pmName}${rule ? `: ${rule}` : ""}. Conferma o nega dalla card Partner sul profilo.`,
     kind: STAFF_KIND,
-    openUrl: "/notifications/?view=staff&inbox=punti-tolti",
+    openUrl: puntiToltiProfileOpenUrl(pmUserId),
     dedupeKey: messageId ? `pt-pending:${messageId}` : `pt-pending:${pmUserId}:${Date.now()}`,
   }, [pmUserId]);
 }
@@ -152,9 +161,9 @@ async function notifyPuntiToltiReviewed(opts = {}) {
         ? `L'High Staff ha confermato la rimozione punti per ${pmName}.`
         : `L'High Staff ha negato la segnalazione punti per ${pmName}.`,
       kind: STAFF_KIND,
-      /* notifCats3: Inbox → Punti tolti. */
+      /* notifCats3 / ptNotifProfile1: profilo Partner (non inbox). */
       channel: "inbox",
-      openUrl: "/notifications/?view=staff&inbox=punti-tolti",
+      openUrl: puntiToltiProfileOpenUrl(opts.pmUserId),
       dedupeKey: messageId ? `pt-review:${messageId}:${isConfirm ? "ok" : "no"}` : undefined,
     },
   );
@@ -171,9 +180,9 @@ async function notifyPuntiToltiPointsRemoved(opts = {}) {
     title: "Punto partnership rimosso",
     body: `${actorName} ha registrato una rimozione punti${rule ? `: ${rule}` : ""}.`,
     kind: STAFF_KIND,
-    /* notifCats3: Inbox → Punti tolti (not Personali). */
+    /* notifCats3 / ptNotifProfile1: profilo Partner (non inbox). */
     channel: "inbox",
-    openUrl: "/notifications/?view=staff&inbox=punti-tolti",
+    openUrl: puntiToltiProfileOpenUrl(pmUserId),
     dedupeKey: opts.dedupeKey || `pt-removed:${pmUserId}:${String(opts.sourceHint || Date.now())}`,
   });
 }

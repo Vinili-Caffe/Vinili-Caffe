@@ -6,6 +6,8 @@ const {
   buildFullProfileRoleLabelForEmbed,
   resolveStaffProfileKind,
   resolveStaffPartnerPointsDisplay,
+  PROFILE_PROSPECT,
+  PROFILE_PM_ONLY,
 } = require("../Staff/staffProfilePanelRuntime");
 const {
   resolvePartnerPointsShown,
@@ -22,6 +24,9 @@ const {
   getHighestLadderRole,
   getNextLadderRoleId,
   peekDepexLadderTargetRoleId,
+  assertStaffCareerHierarchy,
+  staffLadderRankIndex,
+  getMemberStaffLadderRank,
 } = require("../Staff/staffPanelActions");
 const { viewerIsFounder } = require("../Staff/staffProfilePanelRuntime");
 const { clearStaffProfileCacheForUser } = require("./siteStaffProfileApi");
@@ -485,10 +490,14 @@ function buildMemberPauseBlock(guild, targetMember, staffDoc, pausedSet) {
 function buildProspectPexChoices(viewerMember, { fromPartnerManager = false } = {}) {
   const fromLabel = fromPartnerManager ? "Partner Manager" : "Member";
   const founder = viewerIsFounder(viewerMember);
+  const viewerRank = getMemberStaffLadderRank(viewerMember);
   const out = [];
   const push = (action, roleKey, label) => {
     const roleId = String(IDs.roles?.[roleKey] || "").trim();
     if (!roleId) return;
+    /* staffCareerRankGuard1: solo destinazioni strettamente sotto il grado viewer */
+    const destRank = staffLadderRankIndex(roleId);
+    if (destRank >= 0 && !founder && (viewerRank < 0 || destRank >= viewerRank)) return;
     out.push({
       id: action,
       label: `${fromLabel} → ${label}`,
@@ -521,11 +530,12 @@ async function buildMemberDetail(guild, targetMember, pausedSet, viewerMember = 
   const staff = mergeStaffEmbedded(doc?.staff || {}, legacyMap.get(uid) || null);
   const displayRoleId = resolveStaffProfileDisplayRoleId(targetMember);
   let label = buildFullProfileRoleLabelForEmbed(guild, targetMember);
-  label = stripDiscordDecorations(label) || "Staff";
+  const profileKind = resolveStaffProfileKind(targetMember);
+  const isPmOnly = profileKind === PROFILE_PM_ONLY || profileKind === "pm_only";
+  const isProspect = profileKind === PROFILE_PROSPECT || profileKind === "prospect";
+  label = stripDiscordDecorations(label) || (isProspect ? "Member" : "Staff");
   const ladderRoleId = getHighestLadderRole(targetMember) || null;
   const ladderRole = ladderRoleId ? guild.roles.cache.get(ladderRoleId) : null;
-  const profileKind = resolveStaffProfileKind(targetMember);
-  const isPmOnly = profileKind === "pm_only";
   const roleName = (roleId) => {
     const id = String(roleId || "").trim();
     if (!id) return null;
@@ -540,10 +550,13 @@ async function buildMemberDetail(guild, targetMember, pausedSet, viewerMember = 
   const memberRoleLabel = roleName(IDs.roles?.Member) || "Member";
   const pexTargetLabel = roleName(pexTargetRoleId) || (pexTargetRoleId ? "Ruolo nuovo" : null);
   // pexPmRolePick1: da PM-only offri scelta grado (Helper + avanzati se Founder), come Discord.
+  // prospectPexSwitch1: anche Member non-staff → scelte Member→Helper/…
   const prospectPexChoices =
     isPmOnly && memberIsPm(targetMember)
       ? buildProspectPexChoices(viewerMember, { fromPartnerManager: true })
-      : [];
+      : isProspect || (!ladderRoleId && !memberHasStaffRole(targetMember) && !memberIsPm(targetMember))
+        ? buildProspectPexChoices(viewerMember, { fromPartnerManager: false })
+        : [];
   const depexTargetLabel =
     depexTargetRoleId === "" || depexTargetRoleId === String(IDs.roles?.Member || "")
       ? memberRoleLabel
@@ -553,6 +566,18 @@ async function buildMemberDetail(guild, targetMember, pausedSet, viewerMember = 
     !depexTargetRoleId ||
     depexTargetRoleId === "" ||
     String(depexTargetRoleId) === String(IDs.roles?.Member || "");
+
+  /* staffCareerRankGuard1: UI — nascondi pex/depex se viewer ≤ target (o destinazione ≥ viewer) */
+  const rankTouch = viewerMember
+    ? assertStaffCareerHierarchy(viewerMember, targetMember, {})
+    : { ok: true };
+  const rankPexDest = viewerMember
+    ? assertStaffCareerHierarchy(viewerMember, targetMember, {
+        destinationRoleId: pexTargetRoleId || null,
+      })
+    : { ok: true };
+  const canCareerTouch = Boolean(rankTouch.ok);
+  const canCareerPex = Boolean(rankPexDest.ok);
 
   let partnerPointsSpendable = Math.max(0, Math.floor(Number(resolvePartnerPointsShown(staff) || 0)));
   let partnerPointsEarned = Math.max(
@@ -582,6 +607,7 @@ async function buildMemberDetail(guild, targetMember, pausedSet, viewerMember = 
     displayRoleLabel: label,
     profileKind,
     isPmOnly,
+    isProspect: Boolean(isProspect),
     isPm: memberIsPm(targetMember),
     onPause: Boolean(pausedSet?.has?.(uid)),
     ladderRoleId,
@@ -594,13 +620,21 @@ async function buildMemberDetail(guild, targetMember, pausedSet, viewerMember = 
         : depexTargetRoleId || null,
     depexTargetLabel,
     memberRoleLabel,
-    canPex: Boolean(ladderRoleId && pexTargetRoleId),
-    canPexProspect: isPmOnly && memberIsPm(targetMember),
+    canPex: Boolean(ladderRoleId && pexTargetRoleId && canCareerPex),
+    canPexProspect: Boolean(prospectPexChoices.length && canCareerTouch),
     prospectPexChoices,
-    canPexPm: !memberIsPm(targetMember),
-    canDepexLadder: Boolean(ladderRoleId) && !depexLadderIsMember,
-    canDepexPm: memberIsPm(targetMember),
-    canDepexFull: Boolean(ladderRoleId) || memberIsPm(targetMember) || memberHasStaffRole(targetMember),
+    canPexPm: Boolean(!memberIsPm(targetMember) && canCareerTouch),
+    canDepexLadder: Boolean(ladderRoleId && !depexLadderIsMember && canCareerTouch),
+    canDepexPm: Boolean(memberIsPm(targetMember) && canCareerTouch),
+    canDepexFull: Boolean(
+      canCareerTouch &&
+        (ladderRoleId || memberIsPm(targetMember) || memberHasStaffRole(targetMember)),
+    ),
+    careerRankBlocked: !canCareerTouch,
+    careerRankBlockMessage: canCareerTouch
+      ? null
+      : stripDiscordDecorations(rankTouch.message) ||
+        "Non puoi pexare o depexare un membro con ruolo uguale o superiore al tuo.",
     depexLadderIsMember,
     viewerIsFounder: viewerIsFounder(viewerMember),
     valutazioni: {
@@ -771,11 +805,14 @@ async function handleSiteStaffManageGet(client, req, res) {
           });
         }
       } else if (!memberHasStaffRole(targetMember) && !memberIsPm(targetMember)) {
-        return res.status(400).json({
-          ok: false,
-          error: "not_staff",
-          message: "L'utente selezionato non è nello staff.",
-        });
+        /* prospectPexSwitch1: high staff writers possono aprire la scheda Carriera su Member */
+        if (!access.canWrite) {
+          return res.status(400).json({
+            ok: false,
+            error: "not_staff",
+            message: "L'utente selezionato non è nello staff.",
+          });
+        }
       }
       member = await buildMemberDetail(guild, targetMember, roster.paused, access.member);
     }
@@ -919,6 +956,38 @@ async function handleSiteStaffManagePost(client, req, res) {
       });
     }
 
+    /* staffCareerRankGuard1: blocco API precoce (oltre al check nelle run*) */
+    const isCareerAction =
+      action === "pex" ||
+      action === "pex_pm" ||
+      action === "depex" ||
+      action === "depex_pm" ||
+      action === "depex_full" ||
+      Object.prototype.hasOwnProperty.call(PROSPECT_PEX_ROLE_BY_ACTION, action);
+    if (isCareerAction) {
+      let destinationRoleId = null;
+      if (action === "pex") {
+        const cur = getHighestLadderRole(targetMember);
+        destinationRoleId = cur
+          ? getNextLadderRoleId(cur)
+          : String(IDs.roles?.Helper || "").trim() || null;
+      } else if (Object.prototype.hasOwnProperty.call(PROSPECT_PEX_ROLE_BY_ACTION, action)) {
+        destinationRoleId = String(PROSPECT_PEX_ROLE_BY_ACTION[action]() || "").trim() || null;
+      }
+      const rankGate = assertStaffCareerHierarchy(access.member, targetMember, {
+        destinationRoleId,
+      });
+      if (!rankGate.ok) {
+        return res.status(403).json({
+          ok: false,
+          error: "rank_forbidden",
+          message:
+            stripDiscordDecorations(rankGate.message) ||
+            "Non puoi pexare o depexare un membro con ruolo uguale o superiore al tuo.",
+        });
+      }
+    }
+
     const actorUser = access.member.user || access.user;
     const targetUser = targetMember.user || { id: targetId };
     let result = { ok: false, message: "Azione non eseguita." };
@@ -964,7 +1033,12 @@ async function handleSiteStaffManagePost(client, req, res) {
     } else if (action === "depex_pm") {
       result = await runProfileStaffDepex(guild, client, targetUser, actorUser, reason, "partner_manager");
     } else if (action === "depex_full") {
-      result = await runProfileStaffCompleteDepex(guild, client, targetUser, access.member, reason);
+      /* depexPmOnlyFullFix1: senza scala ma con PM → depex_pm (evita 400 not staff ladder) */
+      if (!getHighestLadderRole(targetMember) && memberIsPm(targetMember)) {
+        result = await runProfileStaffDepex(guild, client, targetUser, actorUser, reason, "partner_manager");
+      } else {
+        result = await runProfileStaffCompleteDepex(guild, client, targetUser, access.member, reason);
+      }
     } else if (action === "val_pos") {
       result = await runValutazionePositiveAddForPanel(guild, access.member, targetUser, reason);
     } else if (action === "val_neg") {
@@ -1047,7 +1121,8 @@ async function handleSiteStaffManagePost(client, req, res) {
     }
 
         try {
-      clearStaffProfileCacheForUser(targetId);
+      /* staffProfLiveAll1: clear → broadcast WS (warn/val/pause/pex/…) */
+      clearStaffProfileCacheForUser(targetId, { action });
     } catch (_) {}
     try {
       clearWebsiteMemberCaches(targetId);

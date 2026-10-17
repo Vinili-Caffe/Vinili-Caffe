@@ -60,7 +60,8 @@ const lastMusicEndHandledByGuild = new Map();
 const pendingQueueEndedTimers = new Map();
 const musicIdleSince = new Map();
 const MUSIC_QUEUE_SNAPSHOT_PATH = path.join(__dirname, "..", "..", "Data", "musicQueueSnapshot.json");
-const MUSIC_QUEUE_SNAPSHOT_INTERVAL_MS = 15000;
+/* posResume1: 5s → posizione più fedele al riavvio (prima 15s = fino a 15s di rewind) */
+const MUSIC_QUEUE_SNAPSHOT_INTERVAL_MS = 5000;
 
 function logMusic(...args) {
   if (!MUSIC_LOGS) return;
@@ -113,6 +114,8 @@ function serializeSessionSnapshot(session) {
     history,
     voiceChannelId: session?.voiceChannelId ? String(session.voiceChannelId) : null,
     playingEncoded: session?.playingEncoded ? String(session.playingEncoded) : null,
+    /* posResume1: ms nella traccia corrente (0 = inizio) */
+    playingPositionMs: Math.max(0, Math.floor(Number(session?.playingPositionMs) || 0)),
   };
   const hasResumeHint = Boolean(out.playingEncoded && out.voiceChannelId);
   if (
@@ -162,6 +165,7 @@ function restoreSessionSnapshotRow(row) {
     history,
     voiceChannelId: row?.voiceChannelId ? String(row.voiceChannelId) : null,
     playingEncoded: row?.playingEncoded ? String(row.playingEncoded) : null,
+    playingPositionMs: Math.max(0, Math.floor(Number(row?.playingPositionMs) || 0)),
   };
 }
 
@@ -173,6 +177,9 @@ function mergeSessionSnapshotFromLivePlayer(client, guildId, session) {
   const conn = client.shoukaku.connections?.get(gid);
   if (typeof player?.track === "string" && player.track.length) {
     base.playingEncoded = player.track;
+  }
+  if (player && Number.isFinite(Number(player.position))) {
+    base.playingPositionMs = Math.max(0, Math.floor(Number(player.position) || 0));
   }
   if (conn?.channelId) {
     base.voiceChannelId = String(conn.channelId);
@@ -319,10 +326,16 @@ function scheduleMusicPlaybackResume(client) {
       logMusic("playback resume deferred: Lavalink non ancora CONNECTED (riprovo al collegamento nodo)");
       return;
     }
-    client._musicPlaybackResumeDone = true;
-    await resumeRestoredMusicSessions(client).catch((err) => {
-      global.logger?.warn?.("[MUSIC] playback resume failed:", err?.message || err);
-    });
+    /* queueResumeKeep1: inProgress PRIMA di done — voice leave a boot non deve wipe la coda */
+    client._musicPlaybackResumeInProgress = true;
+    try {
+      await resumeRestoredMusicSessions(client).catch((err) => {
+        global.logger?.warn?.("[MUSIC] playback resume failed:", err?.message || err);
+      });
+    } finally {
+      client._musicPlaybackResumeInProgress = false;
+      client._musicPlaybackResumeDone = true;
+    }
   };
   setImmediate(() => void run());
 }
@@ -346,8 +359,18 @@ async function resumeRestoredMusicSessions(client) {
   for (const [guildId, session] of [...guildQueues.entries()]) {
     const gid = String(guildId || "").trim();
     if (!gid || !session) continue;
-    const encoded = String(session.playingEncoded || "").trim();
+    let encoded = String(session.playingEncoded || "").trim();
     const vcId = String(session.voiceChannelId || "").trim();
+    /* queueResumeKeep1: se manca playingEncoded ma c'è coda → riparti dal primo track */
+    if (!encoded && Array.isArray(session.tracks) && session.tracks.length > 0) {
+      const next = session.tracks.shift();
+      encoded = String(next?.encoded || next?.track || "").trim();
+      if (encoded) {
+        session.playingEncoded = encoded;
+        session.nowPlaying = next?.info || next?.nowPlaying || session.nowPlaying || null;
+        session.playingPositionMs = 0;
+      }
+    }
     if (!encoded || !vcId || !/^\d{17,22}$/.test(vcId)) continue;
     if (sh.players?.get(gid)?.track) continue;
     if (sh.connections?.get(gid)?.channelId) continue;
@@ -389,9 +412,13 @@ async function resumeRestoredMusicSessions(client) {
       }
       attachEndHandler(client, player, gid);
       await player.setGlobalVolume(resolveDefaultJoinGlobalVolume());
-      await playEncodedFromStart(player, encoded);
+      /* posResume1: riparti da snapshot (rewind 1.5s per non saltare battuta) */
+      const rawPos = Math.max(0, Math.floor(Number(session.playingPositionMs) || 0));
+      const resumePos = rawPos > 2500 ? Math.max(0, rawPos - 1500) : 0;
+      await playEncodedFromStart(player, encoded, { position: resumePos });
+      session.playingPositionMs = resumePos;
       persistMusicQueueSnapshotNow(client);
-      logMusic(`resumed session in guild ${gid}`);
+      logMusic(`resumed session in guild ${gid} @${resumePos}ms`);
     } catch (err) {
       global.logger?.warn?.("[MUSIC] resume join/play failed", gid, err?.message || err);
     }
@@ -474,13 +501,14 @@ async function playEncodedFromStart(player, encoded, options = {}) {
     throw new Error("playEncodedFromStart: argomenti non validi");
   }
   const skipOauth = Boolean(options?.skipOauth);
+  const position = Math.max(0, Math.floor(Number(options?.position) || 0));
   const access = skipOauth ? null : await getYoutubeOauthAccessToken().catch(() => null);
   const track = access
     ? { encoded: enc, userData: { "oauth-token": access } }
     : { encoded: enc };
-  if (access) logMusic("play with yt oauth-token", enc.slice(0, 24));
-  else logMusic("playTrack from start", enc.slice(0, 24));
-  await player.playTrack({ track, position: 0 });
+  if (access) logMusic("play with yt oauth-token", enc.slice(0, 24), position ? `@${position}ms` : "");
+  else logMusic("playTrack", enc.slice(0, 24), position ? `@${position}ms` : "from start");
+  await player.playTrack({ track, position });
 }
 
 function parseLavalinkHost() {
@@ -519,6 +547,25 @@ function guildHasBlockingNativeVoiceConnection(guildId) {
   const conn = getVoiceConnection(gid);
   if (!conn) return false;
   return conn.state?.status !== VoiceConnectionStatus.Destroyed;
+}
+
+async function clearBlockingNativeVoiceForMusic(guildId, client) {
+  const gid = String(guildId || "").trim();
+  if (!gid || !guildHasBlockingNativeVoiceConnection(gid)) return false;
+  try {
+    const { purgeTtsVoicePersistence } = require("../TTS/ttsService");
+    await purgeTtsVoicePersistence(gid, client).catch(() => {});
+  } catch (_) {}
+  try {
+    const leftover = getVoiceConnection(gid);
+    if (leftover && leftover.state?.status !== VoiceConnectionStatus.Destroyed) {
+      try {
+        leftover.destroy();
+      } catch (_) {}
+    }
+  } catch (_) {}
+  await new Promise((r) => setTimeout(r, 700));
+  return guildHasBlockingNativeVoiceConnection(gid);
 }
 
 function normalizeLavalinkLoadType(res) {
@@ -622,22 +669,67 @@ function filterOutSpotifyPodcastTracks(tracks) {
   return tracks.filter((t) => !isLikelySpotifyPodcastTrack(t));
 }
 
+function parsePlainMusicQueryHint(raw) {
+  const q = String(raw || "").replace(/,/g, " ").replace(/\s+/g, " ").trim();
+  if (!q) return { title: "", author: "", query: "" };
+  let title = q;
+  let author = "";
+  const dash = q.match(/^(.{2,80}?)\s+[-–—]\s+(.{2,120})$/);
+  if (dash) {
+    author = dash[1].trim();
+    title = dash[2].trim();
+  } else {
+    const by = q.match(/^(.{2,120}?)\s+by\s+(.{2,80})$/i);
+    if (by) {
+      title = by[1].trim();
+      author = by[2].trim();
+    } else {
+      /* nameSearchStrict1: "titolo di Artista" / "titolo del Artista" */
+      const di = q.match(/^(.{2,120}?)\s+(?:di|del|della|dei|degli|by)\s+(.{2,80})$/i);
+      if (di) {
+        title = di[1].trim();
+        author = di[2].trim();
+      }
+    }
+  }
+  return { title, author, query: [title, author].filter(Boolean).join(" ").trim() || q };
+}
+
 function buildResolveAttempts(userQuery) {
   const raw = String(userQuery || "").trim();
   if (!raw) return [];
   const mode = getMusicSearchMode();
   const primary = normalizeLavalinkResolveQuery(raw);
   const attempts = [];
-    if (isPlainTextMusicQuery(raw)) {
-    attempts.push(`ytmsearch:${raw}`, `ytsearch:${raw}`, `scsearch:${raw}`);
-    const simplified = raw.replace(/,/g, " ").replace(/\s+/g, " ").trim();
-    if (simplified && simplified !== raw) {
-      attempts.push(`ytmsearch:${simplified}`, `ytsearch:${simplified}`, `scsearch:${simplified}`);
+  if (isPlainTextMusicQuery(raw)) {
+    /* matchStrict2: ytsearch prima (ytmsearch spinge cover/karaoke), + official audio */
+    /* nameSearchStrict1: se c'è artista → query artista-titolo PRIMA; ytmsearch dopo (cover) */
+    const hint = parsePlainMusicQueryHint(raw);
+    const base = hint.query || raw.replace(/,/g, " ").replace(/\s+/g, " ").trim();
+    const officialQ = `${base} official audio`.replace(/\s+/g, " ").trim();
+    const topicQ = hint.author
+      ? `${hint.title} ${hint.author} topic`.replace(/\s+/g, " ").trim()
+      : `${base} topic`;
+    if (hint.author && hint.title) {
+      attempts.push(
+        `ytsearch:${hint.author} - ${hint.title} official audio`,
+        `ytsearch:${hint.author} - ${hint.title}`,
+        `ytsearch:${hint.title} ${hint.author} official audio`,
+        `ytsearch:${hint.title} ${hint.author} topic`,
+        `ytsearch:${hint.title} ${hint.author}`,
+      );
     }
+    attempts.push(
+      `ytsearch:${officialQ}`,
+      `ytsearch:${topicQ}`,
+      `ytsearch:${base}`,
+      `ytmsearch:${base}`,
+      `scsearch:${base}`,
+    );
     if (mode === "spotify" || mode === "spotify_first") {
       /* spsearchFix1: non appendere spsearch (LavaSrc SocketTimeout); yt* già in attempts */
     }
-    return [...new Set(attempts)];
+    return [...new Set(attempts.filter(Boolean))];
   }
   attempts.push(primary);
   const spotifyUriAlt = openSpotifyHttpsToSpotifyUri(raw);
@@ -670,10 +762,11 @@ function buildStableRemirrorAttempts(title, author, isrc) {
   const a = String(author || "").trim().split(",")[0].trim();
   const isrcClean = String(isrc || "").trim().replace(/\s+/g, "");
   const q = [t, a].filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
-    if (t && a) attempts.push(`ytmsearch:"${t}" ${a}`);
-  if (t) attempts.push(`ytmsearch:"${t}"`);
-  if (q) attempts.push(`ytsearch:${q}`);
-  if (isrcClean) attempts.push(`ytmsearch:${isrcClean}`, `ytsearch:${isrcClean}`);
+  /* isrcFirst1: ISRC prima (metadata Spotify), poi titolo — altrimenti cover/remix vincono */
+  if (isrcClean) attempts.push(`ytsearch:${isrcClean}`, `ytmsearch:${isrcClean}`);
+  if (q) attempts.push(`ytsearch:${q} official audio`, `ytsearch:${q}`);
+  if (t && a) attempts.push(`ytsearch:${a} - ${t}`, `ytmsearch:${t} ${a}`);
+  if (t) attempts.push(`ytsearch:${t} official audio`, `ytmsearch:${t}`);
   return [...new Set(attempts.filter(Boolean))];
 }
 
@@ -715,9 +808,62 @@ function jaccardTokenSimilarity(a, b) {
   return inter / (A.size + B.size - inter);
 }
 
+const COVER_BAIT_RE =
+  /\b(cover|covers|karaoke|instrumental|nightcore|daycore|slowed|reverb|sped\s*up|speed\s*up|8d\s*audio|bass\s*boosted|mashup|bootleg|fan[\s-]?made|tribute|piano\s*version|guitar\s*version|violin|orchestra|reaction|live\s*performance|full\s*album|hour\s*version|1\s*hour|remix|bootleg|edit\s*audio|tiktok|shorts|meme|parody|chipmunk|female\s*version|male\s*version)\b/i;
+/* nameSearchStrict1: soglie ricerca per nome (prima 0.62 = troppa roba sbagliata) */
+const NAME_SEARCH_MIN = 0.78;
+const NAME_SEARCH_MIN_WITH_ARTIST = 0.84;
+const NAME_SEARCH_FALLBACK_MIN = 0.72;
+const OFFICIAL_HINT_RE =
+  /\b(official\s*(audio|video|music\s*video|mv)|topic|vevo|audio\s*oficial|lyric\s*video)\b/i;
+const WANT_COVER_OK_RE = /\b(cover|karaoke|nightcore|slowed|sped\s*up|remix|instrumental)\b/i;
+
+function rawMusicHaystack(candidate) {
+  const info = candidate && typeof candidate === "object" ? candidate : {};
+  return `${info.title || ""} ${info.author || ""} ${info.uri || ""}`;
+}
+
+function isLikelyCoverBait(candidate, wanted) {
+  const wantRaw = `${wanted?.title || ""} ${wanted?.author || ""}`;
+  if (WANT_COVER_OK_RE.test(wantRaw)) return false;
+  return COVER_BAIT_RE.test(rawMusicHaystack(candidate));
+}
+
+function officialTrackBonus(candidate) {
+  const hay = rawMusicHaystack(candidate);
+  let bonus = 0;
+  if (OFFICIAL_HINT_RE.test(hay)) bonus += 0.18;
+  if (/\bvevo\b/i.test(hay) || /\btopic\b/i.test(String(candidate?.author || ""))) bonus += 0.08;
+  return bonus;
+}
+
+function durationMatchPenalty(wanted, candidate) {
+  const wantLen = Number(wanted?.length || wanted?.duration || 0);
+  const candLen = Number(candidate?.length || candidate?.duration || 0);
+  if (!(wantLen > 5_000) || !(candLen > 5_000)) return 0;
+  const ratio = Math.min(wantLen, candLen) / Math.max(wantLen, candLen);
+  if (ratio >= 0.88) return 0.06;
+  if (ratio >= 0.75) return 0;
+  if (ratio >= 0.55) return -0.18;
+  return -0.45;
+}
+
+function normalizeIsrcCode(value) {
+  return String(value || "")
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "");
+}
+
 function scoreTrackMetaMatch(wanted, candidate) {
   const wantTitle = normalizeMusicMatchText(wanted?.title);
   const candTitle = normalizeMusicMatchText(candidate?.title);
+  const wantIsrc = normalizeIsrcCode(wanted?.isrc);
+  const candIsrc = normalizeIsrcCode(candidate?.isrc);
+  /* isrcFirst1: match ISRC esatto = originale Spotify (anche se titolo YT differisce) */
+  if (wantIsrc && candIsrc && wantIsrc === candIsrc) {
+    return 1.2;
+  }
   if (!wantTitle || !candTitle) return 0;
 
   const wantTokens = musicTokenSet(wantTitle);
@@ -744,10 +890,10 @@ function scoreTrackMetaMatch(wanted, candidate) {
     const lenRatio =
       Math.min(wantTitle.length, candTitle.length) /
       Math.max(wantTitle.length, candTitle.length);
-        score = Math.max(score, 0.45 + 0.5 * lenRatio);
+    score = Math.max(score, 0.45 + 0.5 * lenRatio);
   }
 
-    if (wantTokens.size && candTokens.size && candTokens.size >= wantTokens.size * 2 && precision < 0.5) {
+  if (wantTokens.size && candTokens.size && candTokens.size >= wantTokens.size * 2 && precision < 0.5) {
     score = Math.min(score, 0.45);
   }
 
@@ -755,17 +901,37 @@ function scoreTrackMetaMatch(wanted, candidate) {
   const candAuthor = normalizeMusicMatchText(String(candidate?.author || "").split(",")[0]);
   if (wantAuthor && candAuthor) {
     if (wantAuthor === candAuthor || candAuthor.includes(wantAuthor) || wantAuthor.includes(candAuthor)) {
-      score += 0.12;
+      score += 0.18;
     } else if (jaccardTokenSimilarity(wantAuthor, candAuthor) >= 0.5) {
-      score += 0.05;
+      score += 0.06;
     } else {
-      score -= 0.4;
+      /* nameSearchStrict1: artista sbagliato = quasi sempre scarta */
+      score -= 0.65;
     }
+  } else if (wantAuthor && !candAuthor) {
+    score -= 0.12;
   }
-  return Math.max(0, Math.min(1.15, score));
+
+  score += officialTrackBonus(candidate);
+  score += durationMatchPenalty(wanted, candidate);
+  if (isLikelyCoverBait(candidate, wanted)) score -= 0.7;
+  if (wantIsrc && !candIsrc && score >= 0.7) score += 0.08;
+
+  return Math.max(0, Math.min(1.25, score));
 }
 
-function pickBestTrackMatch(tracks, wanted, { minScore = 0.55 } = {}) {
+function authorMatchesWanted(wanted, candidate) {
+  const wantAuthor = normalizeMusicMatchText(String(wanted?.author || "").split(",")[0]);
+  if (!wantAuthor) return true;
+  const candAuthor = normalizeMusicMatchText(String(candidate?.author || "").split(",")[0]);
+  if (!candAuthor) return false;
+  if (wantAuthor === candAuthor || candAuthor.includes(wantAuthor) || wantAuthor.includes(candAuthor)) {
+    return true;
+  }
+  return jaccardTokenSimilarity(wantAuthor, candAuthor) >= 0.55;
+}
+
+function pickBestTrackMatch(tracks, wanted, { minScore = 0.55, requireAuthor = false, rejectCover = false } = {}) {
   if (!Array.isArray(tracks) || !tracks.length) return null;
   const want = wanted && (wanted.title || wanted.author)
     ? wanted
@@ -773,7 +939,10 @@ function pickBestTrackMatch(tracks, wanted, { minScore = 0.55 } = {}) {
   let best = null;
   let bestScore = -1;
   for (const t of tracks) {
-    const score = scoreTrackMetaMatch(want, t?.info || {});
+    const info = t?.info || {};
+    if (rejectCover && isLikelyCoverBait(info, want)) continue;
+    if (requireAuthor && !authorMatchesWanted(want, info)) continue;
+    const score = scoreTrackMetaMatch(want, info);
     if (score > bestScore) {
       best = t;
       bestScore = score;
@@ -804,17 +973,30 @@ function cloneTrackWithRequester(fromTrack, pick, fallbackInfo, matchScore = 0) 
   };
 }
 
-const MIRROR_MATCH_MIN = 0.72;
+const MIRROR_MATCH_MIN = 0.78;
+/* isrcFirst1: con ISRC Spotify soglia più alta sul solo titolo (evita cover/fake) */
+const MIRROR_TITLE_MATCH_MIN = 0.86;
 
 async function collectPlayableMirrorCandidates(node, track) {
   const info = track?.info || {};
   const src = String(info.sourceName || "").toLowerCase();
   const title = String(info.title || "").trim();
   const author = String(info.author || "").trim();
-  const isrc = String(info.isrc || "").trim();
-  const wanted = { title, author };
+  const isrc = String(info.isrc || info?.pluginInfo?.isrc || track?.pluginInfo?.isrc || "").trim();
+  const wanted = {
+    title,
+    author,
+    isrc,
+    length: Number(info.length || info.duration || 0) || 0,
+  };
   const scored = [];
   const seen = new Set();
+  const isrcClean = normalizeIsrcCode(isrc);
+  const minForAttempt = (identifier) => {
+    const id = String(identifier || "");
+    if (isrcClean && (id.includes(isrcClean) || /isrc/i.test(id))) return MIRROR_MATCH_MIN;
+    return isrcClean ? MIRROR_TITLE_MATCH_MIN : MIRROR_MATCH_MIN;
+  };
 
   function pushCand(cand, matchScore, baseBonus = 0) {
     const enc = String(cand?.encoded || "").trim();
@@ -841,9 +1023,17 @@ async function collectPlayableMirrorCandidates(node, track) {
     try {
       const resolved = await node.rest.resolve(identifier);
       const found = tracksFromResolve(resolved);
+      const floor = minForAttempt(identifier);
       return found
-        .map((pick) => ({ pick, score: scoreTrackMetaMatch(wanted, pick?.info || {}) }))
-        .filter((row) => row.pick?.encoded && row.score >= MIRROR_MATCH_MIN)
+        .map((pick) => ({
+          pick,
+          score: scoreTrackMetaMatch(wanted, {
+            ...(pick?.info || {}),
+            isrc: pick?.info?.isrc || (isrcClean && String(identifier).includes(isrcClean) ? isrcClean : ""),
+          }),
+          identifier,
+        }))
+        .filter((row) => row.pick?.encoded && row.score >= floor)
         .sort((a, b) => b.score - a.score)
         .slice(0, 5);
     } catch (err) {
@@ -852,16 +1042,30 @@ async function collectPlayableMirrorCandidates(node, track) {
     }
   }
 
-    const firstBatch = attempts.slice(0, 2);
-  const rest = attempts.slice(2);
-  const early = (await Promise.all(firstBatch.map(resolveOne))).flat();
-  for (const row of early) {
-    pushCand(cloneTrackWithRequester(track, row.pick, info, row.score), row.score);
+  /* isrcFirst1: risolvi ISRC prima; se hit forte salta fuzzy titolo */
+  const isrcAttempts = isrcClean
+    ? attempts.filter((a) => String(a).includes(isrcClean))
+    : [];
+  const titleAttempts = attempts.filter((a) => !isrcClean || !String(a).includes(isrcClean));
+  if (isrcAttempts.length) {
+    const isrcHits = (await Promise.all(isrcAttempts.map(resolveOne))).flat();
+    for (const row of isrcHits) {
+      pushCand(cloneTrackWithRequester(track, row.pick, info, row.score), row.score, 0.12);
+    }
   }
-  if (!scored.some((row) => row.matchScore >= 0.85) && rest.length) {
-    const later = (await Promise.all(rest.map(resolveOne))).flat();
-    for (const row of later) {
+  const hasStrongIsrc = scored.some((row) => Number(row.matchScore) >= 0.95);
+  if (!hasStrongIsrc && titleAttempts.length) {
+    const firstBatch = titleAttempts.slice(0, 2);
+    const rest = titleAttempts.slice(2);
+    const early = (await Promise.all(firstBatch.map(resolveOne))).flat();
+    for (const row of early) {
       pushCand(cloneTrackWithRequester(track, row.pick, info, row.score), row.score);
+    }
+    if (!scored.some((row) => row.matchScore >= 0.88) && rest.length) {
+      const later = (await Promise.all(rest.map(resolveOne))).flat();
+      for (const row of later) {
+        pushCand(cloneTrackWithRequester(track, row.pick, info, row.score), row.score);
+      }
     }
   }
 
@@ -1027,6 +1231,7 @@ async function playWithMirrorFallbacks(player, session, node, track) {
       const playGen = markFreshPlayAttempt(session);
       session.nowPlaying = describeTrack(cand);
       session.playingEncoded = cand.encoded;
+      session.playingPositionMs = 0;
       try {
         if (player.paused) await player.setPaused(false).catch(() => {});
         await playEncodedFromStart(player, cand.encoded, { skipOauth: isHttp(cand) });
@@ -1103,6 +1308,32 @@ async function resolvePlayableTracks(node, userQuery, options = {}) {
     }
   }
 
+  const pooled = [];
+  const seenEnc = new Set();
+  const plainText = isPlainTextMusicQuery(userQuery);
+  const plainHint = plainText ? parsePlainMusicQueryHint(userQuery) : null;
+  const plainWanted = plainText
+    ? {
+        title: metaHint?.title || plainHint.title || userQuery,
+        author: metaHint?.author || plainHint.author || "",
+      }
+    : null;
+
+  async function remirrorAndReturn(tracks, resolved) {
+    const musicOnly = filterOutSpotifyPodcastTracks(tracks);
+    if (!musicOnly.length) return null;
+    const remirrored = [];
+    for (const t of musicOnly) {
+      const mirrored = await remirrorToStableAudio(node, t);
+      if (mirrored?.encoded) remirrored.push(mirrored);
+    }
+    if (!remirrored.length) return null;
+    const src = String(remirrored[0]?.info?.sourceName || "").toLowerCase();
+    if (preferNonSpotify && src === "spotify") return null;
+    if (src === "spotify") return null;
+    return { tracks: remirrored, resolved };
+  }
+
   for (const identifier of attempts) {
     try {
       lastResolved = await node.rest.resolve(identifier);
@@ -1112,29 +1343,75 @@ async function resolvePlayableTracks(node, userQuery, options = {}) {
     }
     logMusic("resolve ok", { loadType: lastResolved?.loadType, identifier: identifier.slice(0, 80) });
     let tracks = tracksFromResolve(lastResolved);
-        if (normalizeLavalinkLoadType(lastResolved) === "search" && tracks.length > 1) {
-      const wanted = metaHint?.title
-        ? metaHint
-        : isPlainTextMusicQuery(userQuery)
-          ? { title: userQuery, author: "" }
-          : { title: tracks[0]?.info?.title || "", author: tracks[0]?.info?.author || "" };
-      const best = pickBestTrackMatch(tracks, wanted, { minScore: 0.45 }) || tracks[0];
+    const isSearch = normalizeLavalinkLoadType(lastResolved) === "search";
+    let wanted;
+    if (metaHint?.title) {
+      wanted = metaHint;
+    } else if (plainText) {
+      wanted = plainWanted;
+    } else {
+      wanted = {
+        title: tracks[0]?.info?.title || "",
+        author: tracks[0]?.info?.author || "",
+        length: tracks[0]?.info?.length || 0,
+      };
+    }
+
+    if (isSearch) {
+      /* nameSearchStrict1: pool da TUTTI gli attempt, pick solo a fine (niente primo hit cieco) */
+      for (const t of tracks.slice(0, 10)) {
+        const enc = String(t?.encoded || "");
+        if (!enc || seenEnc.has(enc)) continue;
+        seenEnc.add(enc);
+        pooled.push(t);
+      }
+      if (plainText) continue;
+      const best = pickBestTrackMatch(pooled.length ? pooled : tracks, wanted, {
+        minScore: NAME_SEARCH_MIN,
+        rejectCover: true,
+      });
+      if (!best?.encoded) continue;
       tracks = [best];
+    } else if (!tracks.length) {
+      continue;
     }
-    if (!tracks.length) continue;
-    const musicOnly = filterOutSpotifyPodcastTracks(tracks);
-    if (!musicOnly.length) continue;
-    const remirrored = [];
-    for (const t of musicOnly) {
-      const mirrored = await remirrorToStableAudio(node, t);
-      if (mirrored?.encoded) remirrored.push(mirrored);
+
+    if (!isSearch || !plainText) {
+      const out = await remirrorAndReturn(tracks, lastResolved);
+      if (out) return out;
     }
-    if (!remirrored.length) continue;
-    const src = String(remirrored[0]?.info?.sourceName || "").toLowerCase();
-    if (preferNonSpotify && src === "spotify") continue;
-    if (src === "spotify") continue;
-    return { tracks: remirrored, resolved: lastResolved };
   }
+
+  if (plainText && pooled.length) {
+    const requireAuthor = Boolean(String(plainWanted?.author || "").trim());
+    let best = pickBestTrackMatch(pooled, plainWanted, {
+      minScore: requireAuthor ? NAME_SEARCH_MIN_WITH_ARTIST : NAME_SEARCH_MIN,
+      requireAuthor,
+      rejectCover: true,
+    });
+    if (!best?.encoded) {
+      best = pickBestTrackMatch(pooled, plainWanted, {
+        minScore: NAME_SEARCH_FALLBACK_MIN,
+        requireAuthor: false,
+        rejectCover: true,
+      });
+    }
+    if (!best?.encoded) {
+      logMusic("name search: nessun match sopra soglia", {
+        q: String(userQuery || "").slice(0, 80),
+        pool: pooled.length,
+      });
+      return { tracks: [], resolved: lastResolved };
+    }
+    logMusic("name search pick", {
+      title: String(best?.info?.title || "").slice(0, 60),
+      author: String(best?.info?.author || "").slice(0, 40),
+      pool: pooled.length,
+    });
+    const out = await remirrorAndReturn([best], lastResolved);
+    if (out) return out;
+  }
+
   return { tracks: [], resolved: lastResolved };
 }
 
@@ -1936,6 +2213,7 @@ function getSession(guildId) {
       nowPlaying: null,
       voiceChannelId: null,
       playingEncoded: null,
+      playingPositionMs: 0,
       musicSessionOwnerId: null,
       currentRequesterUserId: null,
       currentRequesterUserTag: null,
@@ -1958,6 +2236,7 @@ function getSession(guildId) {
   if (s.musicSessionOwnerId === undefined) s.musicSessionOwnerId = null;
   if (s.voiceChannelId === undefined) s.voiceChannelId = null;
   if (s.playingEncoded === undefined) s.playingEncoded = null;
+  if (s.playingPositionMs === undefined) s.playingPositionMs = 0;
   return s;
 }
 
@@ -2193,20 +2472,31 @@ async function handleMusicBotVoiceDisconnect(client, guild) {
   }
   const sh = client.shoukaku;
   const session = guildQueues.get(gid);
-  const hadPlayer = Boolean(sh?.players?.get(gid));
+  const player = sh?.players?.get(gid);
+  const activelyPlaying = Boolean(player?.track);
+  const hadPlayer = Boolean(player);
   const hadConn = Boolean(sh?.connections?.get(gid)?.channelId);
   const hadSessionMusic = Boolean(session && (session.tracks?.length || session.nowPlaying));
-  const hadResumeHint = Boolean(
-    session?.voiceChannelId && String(session.playingEncoded || "").trim(),
-  );
+  const hadResumeHint = guildHasMusicVoiceResumeHint(gid);
+  /* queueResumeKeep1: leave fantasma a boot (prima che resume finisca / senza track attiva) → tieni coda */
+  const keepForResume =
+    !intentional &&
+    hadResumeHint &&
+    !activelyPlaying &&
+    (Boolean(client._musicPlaybackResumeInProgress) || !client._musicPlaybackResumeDone);
   const textChannelId = session?.textChannelId || null;
   if (hadPlayer || hadSessionMusic || hadConn || hadResumeHint) {
     /* playlistRaceFix1: leave intenzionale (AFK probe / stop) tiene la sessione in RAM */
-    if (!intentional) {
-      guildQueues.delete(gid);
-    } else {
+    if (intentional || keepForResume) {
       persistMusicQueueSnapshotNow(client);
-      logMusic("voice disconnect intentional — keep queue session", { guildId: gid });
+      logMusic(
+        keepForResume
+          ? "voice disconnect during resume window — keep queue session"
+          : "voice disconnect intentional — keep queue session",
+        { guildId: gid },
+      );
+    } else {
+      guildQueues.delete(gid);
     }
     endListeners.delete(gid);
     if (sh?.players?.get(gid)) {
@@ -2217,12 +2507,12 @@ async function handleMusicBotVoiceDisconnect(client, guild) {
     try {
       await sh?.leaveVoiceChannel(gid);
     } catch (_) {}
-    if (textChannelId && !intentional) {
+    if (textChannelId && !intentional && !keepForResume) {
       await sendMusicKickedFromVoiceEmbed(client, textChannelId, gid);
     }
   }
   persistMusicQueueSnapshotNow(client);
-  if (!intentional) {
+  if (!intentional && !keepForResume) {
     const { purgeTtsVoicePersistence } = require("../TTS/ttsService");
     await purgeTtsVoicePersistence(gid, client).catch(() => {});
     try {
@@ -2240,6 +2530,14 @@ async function destroyGhostMusicStateIfBotNotInVoice(client, guild) {
   const player = sh.players?.get(gid);
   const conn = sh.connections?.get(gid);
   const session = guildQueues.get(gid);
+  /* queueResumeKeep1: non wipe snapshot in attesa di resume */
+  if (
+    guildHasMusicVoiceResumeHint(gid) &&
+    !player?.track &&
+    (Boolean(client._musicPlaybackResumeInProgress) || !client._musicPlaybackResumeDone)
+  ) {
+    return;
+  }
   const stale =
     Boolean(player?.track) ||
     Boolean(conn?.channelId) ||
@@ -2284,6 +2582,7 @@ async function playSessionTrackNow(client, player, session, guildId, track, opts
       if (started.interrupted) return { ok: false, interrupted: true };
       if (started.ok && started.track) {
         session.playingEncoded = started.track.encoded;
+        session.playingPositionMs = 0;
         session.nowPlaying = describeTrack(started.track);
         session.earlyPlayFailed = false;
         session.suppressQueueEndUntil = Date.now() + 4000;

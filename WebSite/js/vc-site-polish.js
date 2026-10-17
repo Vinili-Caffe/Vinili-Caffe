@@ -618,7 +618,7 @@
       if (document.querySelector('script[src*="vc-home-cine"]')) return;
     } catch (e0) {}
     var s = document.createElement("script");
-    s.src = "/js/vc-home-cine.js?v=20260929cpuIdleHard1";
+    s.src = "/js/vc-home-cine.js?v=20261009cueMarginBar1";
     s.defer = true;
     (document.body || document.documentElement).appendChild(s);
   }

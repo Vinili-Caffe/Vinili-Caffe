@@ -160,8 +160,18 @@ async function releaseVoteReminderSlot(guildId, userId, voteListing) {
 
 const voteReminderDispatchInflight = new Set();
 /* votePushPhoneRetry1: PC ok + telefono fail → ritenta solo mobile (no ri-banner PC) */
+/* votePushPhoneZombie2 (storico): hedge su Apple 201 → doppio banner se il primo era reale */
+/* votePushPhoneStop3: stop al primo soft-retry con mobileSent>0 */
+/* votePushPhoneNoHedge4: Niente apple_zombie_hedge — APNs 201 + mobileSent>0 = ok.
+   I Topic :prN unici facevano partire un secondo banner. Zombie veri → catchup PWA. */
 const voteReminderPhoneRetryTimers = new Map();
-const VOTE_PHONE_RETRY_DELAYS_MS = Object.freeze([90_000, 10 * 60_000, 45 * 60_000]);
+const VOTE_PHONE_RETRY_MISS_DELAYS_MS = Object.freeze([
+  25_000,
+  90_000,
+  3 * 60_000,
+  15 * 60_000,
+  45 * 60_000,
+]);
 
 function voteReminderLockKey(guildId, userId, voteListing, lastVoteAtMs) {
   const atMin = Math.floor(Math.max(0, Number(lastVoteAtMs) || 0) / 60_000);
@@ -180,11 +190,27 @@ function clearVoteReminderPhoneRetries(userId, voteListing) {
   }
 }
 
+/* pushSkipRead1: mark-read → stop tutti i soft-retry vote di quell'user */
+function clearVoteReminderPhoneRetriesForUser(userId) {
+  const uid = String(userId || "").trim();
+  if (!uid) return;
+  const needle = `:${uid}:`;
+  for (const [key, timer] of voteReminderPhoneRetryTimers) {
+    if (String(key).indexOf(needle) === -1) continue;
+    clearTimeout(timer);
+    voteReminderPhoneRetryTimers.delete(key);
+  }
+}
+
 function scheduleVoteReminderPhoneRetries(payload) {
   const uid = String(payload?.userId || "").trim();
   const listing = voteListingKey(payload?.voteListing);
   if (!uid) return;
   clearVoteReminderPhoneRetries(uid, listing);
+  const reason = String(payload?.reason || "mobile_miss").trim() || "mobile_miss";
+  /* votePushPhoneNoHedge4: solo miss reale; niente hedge zombie */
+  if (reason !== "mobile_miss") return;
+  const delays = VOTE_PHONE_RETRY_MISS_DELAYS_MS;
   const base = {
     userId: uid,
     title: String(payload?.title || "").trim(),
@@ -195,18 +221,46 @@ function scheduleVoteReminderPhoneRetries(payload) {
     dedupeKey: String(payload?.dedupeKey || "").trim(),
     ttlSeconds: 60 * 60 * 12,
   };
-  VOTE_PHONE_RETRY_DELAYS_MS.forEach((delayMs, idx) => {
+  delays.forEach((delayMs, idx) => {
     const key = `phone:${listing}:${uid}:${idx}`;
     const timer = setTimeout(() => {
       voteReminderPhoneRetryTimers.delete(key);
       void (async () => {
         try {
+          /* pushSkipRead1: no retry se reminder già letto/dismesso */
+          try {
+            const notifSvc = require("../../Utils/Web/siteInAppNotificationsService");
+            if (typeof notifSvc.isSiteInAppNotificationStillUnread === "function") {
+              const still = await notifSvc.isSiteInAppNotificationStillUnread(uid, base.id, base.dedupeKey, {
+                missingMeansUnread: false,
+              });
+              if (!still) {
+                clearVoteReminderPhoneRetries(uid, listing);
+                global.logger?.info?.("[VOTE REMINDER] phone retry skip (read):", uid, listing, idx + 1);
+                return;
+              }
+            }
+          } catch (_) {}
           const { sendWebPushToUser } = require("../../Utils/Web/siteWebPushService");
-          const out = await sendWebPushToUser(uid, base, { deviceFilter: "mobile" });
+          /* Topic unico per tentativo (no collapse FCM con il primo “ok” fantasma) */
+          const out = await sendWebPushToUser(
+            uid,
+            {
+              ...base,
+              dedupeKey: String(base.dedupeKey || "") + ":pr" + String(idx + 1),
+              topicAttempt: idx + 1,
+            },
+            { deviceFilter: "mobile" },
+          );
           const mobileSent = Number(out?.mobileSent) || 0;
           if (mobileSent > 0) {
             global.logger?.info?.("[VOTE REMINDER] phone retry delivered:", uid, listing, idx + 1);
+            /* votePushPhoneStop3: ack mobile → cancella i retry ancora in coda */
             clearVoteReminderPhoneRetries(uid, listing);
+            global.logger?.info?.("[VOTE REMINDER] phone retry stop (delivered):", uid, listing, {
+              attempt: idx + 1,
+              reason,
+            });
             return;
           }
           global.logger?.warn?.("[VOTE REMINDER] phone retry miss:", uid, listing, idx + 1, {
@@ -222,10 +276,13 @@ function scheduleVoteReminderPhoneRetries(payload) {
     if (typeof timer.unref === "function") timer.unref();
     voteReminderPhoneRetryTimers.set(key, timer);
   });
-  global.logger?.warn?.("[VOTE REMINDER] phone miss after desktop push — scheduled retries:", uid, listing, {
+  global.logger?.info?.("[VOTE REMINDER] phone soft-retries after desktop push:", uid, listing, {
     mobileTargets: payload?.mobileTargets,
     mobileFailed: payload?.mobileFailed,
+    mobileSent: payload?.mobileSent,
     desktopSent: payload?.desktopSent,
+    reason,
+    attempts: delays.length,
   });
 }
 
@@ -1073,23 +1130,23 @@ async function dispatchVoteReminder(client, { guildId, userId, voteListing, last
     const mobileCandidates = Number(pushOut.mobileCandidates) || mobileTargets;
     const mobileSent = Number(pushOut.mobileSent) || 0;
     const desktopSent = Number(pushOut.desktopSent) || 0;
-    /* telefono aveva sub (anche 410/gone) ma zero delivery → ritenta solo mobile */
-    if (
-      mobileCandidates > 0 &&
-      mobileSent === 0 &&
-      (desktopSent > 0 || Number(pushOut.sent) > 0)
-    ) {
-      scheduleVoteReminderPhoneRetries({
-        userId: uid,
-        voteListing: listing,
-        title: siteOpts.title,
-        body: siteOpts.body,
-        openUrl: siteOpts.openUrl,
-        dedupeKey: siteOpts.dedupeKey,
-        notifId: pushOut.notifId,
+    /* votePushPhoneNoHedge4:
+       - miss reale (mobileSent=0) → retry lunghi, stop al primo ack
+       - Apple/FCM 201 (mobileSent>0) → niente secondo push (evita doppio banner)
+       - catchup PWA resta per eventuali token zombie */
+    let phoneRetryReason = "";
+    if (mobileCandidates > 0 && (desktopSent > 0 || Number(pushOut.sent) > 0)) {
+      if (mobileSent === 0) phoneRetryReason = "mobile_miss";
+    }
+    /* pushPhoneAllSoftRetry1: soft-retry mobile ora in fireNotificationPush (tutte le kind).
+       Evita doppio schedule vote-only qui. */
+    if (phoneRetryReason) {
+      global.logger?.info?.("[VOTE REMINDER] mobile miss — soft-retry via siteInApp:", uid, listing, {
         mobileTargets: mobileCandidates,
         mobileFailed: pushOut.mobileFailed,
+        mobileSent,
         desktopSent,
+        reason: phoneRetryReason,
       });
     }
 
@@ -1561,4 +1618,4 @@ async function awardBumpVoteExp(client, guild, userId, source, previousLastAt, c
   return { baseExp, fastBonus, streakBonus, effectiveExp, newStreak, bestStreak, isFast };
 }
 
-module.exports = { createBumpReminderService, recordBump: disboardService.recordBump, restorePendingReminders: disboardService.restorePendingReminders, startBumpDueReminderSweepLoop, recordDiscadiaBump: discadiaBumpService.recordBump, restorePendingDiscadiaReminders: discadiaBumpService.restorePendingReminders, recordDiscadiaVote, enqueueVoteCompletedSiteNotification, sendDueReminders: sendDueDiscadiaVoteReminders, startDiscadiaVoteReminderLoop, restorePendingVoteReminders, awardBumpVoteExp, getVoteCooldownMs, isVoteListingRecordedAtOrAfter, voteStateLastAt, extractDiscadiaVoteState };
+module.exports = { createBumpReminderService, recordBump: disboardService.recordBump, restorePendingReminders: disboardService.restorePendingReminders, startBumpDueReminderSweepLoop, recordDiscadiaBump: discadiaBumpService.recordBump, restorePendingDiscadiaReminders: discadiaBumpService.restorePendingReminders, recordDiscadiaVote, enqueueVoteCompletedSiteNotification, sendDueReminders: sendDueDiscadiaVoteReminders, startDiscadiaVoteReminderLoop, restorePendingVoteReminders, awardBumpVoteExp, getVoteCooldownMs, isVoteListingRecordedAtOrAfter, voteStateLastAt, extractDiscadiaVoteState, clearVoteReminderPhoneRetriesForUser };

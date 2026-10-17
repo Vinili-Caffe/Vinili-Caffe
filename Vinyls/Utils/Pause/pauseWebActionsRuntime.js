@@ -32,6 +32,7 @@ const {
   formatPauseRoleLabelForMessage,
   normalizePauseRoleChoice,
   getPauseRoleTargets,
+  hasSiblingAcceptedPauseSameRange,
   PAUSE_ROLE_STAFF,
   PAUSE_ROLE_PM,
   PAUSE_ROLE_BOTH,
@@ -46,10 +47,18 @@ const { invalidateStaffPauseCalendarCache } = require("../Web/siteStaffPauseApi"
 
 const pauseActionLocks = new Set();
 
-function notifyStaffPauseCalendarChanged() {
+function notifyStaffPauseCalendarChanged(userId) {
   try {
     const { broadcastSiteStaffPausesChanged } = require("../Web/siteSuggestionsBroadcast");
     broadcastSiteStaffPausesChanged();
+  } catch {
+      }
+  /* staffProfLiveAll1: profilo aperto si aggiorna su accept/reject/cancel pausa */
+  const uid = String(userId || "").trim();
+  if (!/^\d{16,22}$/.test(uid)) return;
+  try {
+    const { clearStaffProfileCacheForUser } = require("../Web/siteStaffProfileApi");
+    clearStaffProfileCacheForUser(uid, { action: "pause" });
   } catch {
       }
 }
@@ -285,7 +294,7 @@ async function rejectPauseRequestWeb(client, guild, actorMember, userId, pauseId
       await msg.edit({ content: currentContent + rejectedSuffix, components: [] }).catch(() => null);
     }
     invalidateStaffPauseCalendarCache();
-    notifyStaffPauseCalendarChanged();
+    notifyStaffPauseCalendarChanged(userId);
     try {
       const { updateStaffWorkflowFromPause, workflowActorExtras } = require("../Web/siteStaffWorkflowStore");
       await updateStaffWorkflowFromPause(
@@ -324,8 +333,8 @@ async function acceptPauseRequestWeb(client, guild, actorMember, userId, pauseId
       return { ok: false, status: 404, message: "Staffer non trovato nel server." };
     }
 
-    const giorniRichiesti = getPauseDaysBetween(targetPause.dataRichiesta, targetPause.dataRitorno);
-    if (!giorniRichiesti) {
+    const rangeDays = getPauseDaysBetween(targetPause.dataRichiesta, targetPause.dataRitorno);
+    if (!rangeDays) {
       return { ok: false, status: 400, message: "Date pausa non valide." };
     }
 
@@ -334,6 +343,12 @@ async function acceptPauseRequestWeb(client, guild, actorMember, userId, pauseId
     const budget = computeStaffPauseDayBudget(member, stafferRecord, roleChoice);
     const maxGiorni = budget.maxGiorni;
     const usedBefore = budget.usedDays;
+    /* pauseBothSplit1: se l'altro ruolo è già accettato sulla stessa finestra, non riscalare giorni */
+    const siblingCovered = hasSiblingAcceptedPauseSameRange(
+      stafferRecord?.staff?.pauses || stafferRecord?.pauses,
+      targetPause,
+    );
+    const giorniRichiesti = siblingCovered ? 0 : rangeDays;
     const giorniUsati = usedBefore + giorniRichiesti;
     const giorniRimanenti = maxGiorni - giorniUsati;
     if (giorniRimanenti < 0) {
@@ -522,7 +537,7 @@ async function acceptPauseRequestWeb(client, guild, actorMember, userId, pauseId
     scheduleStaffListRefresh(client, guildId, 800);
     if (pauseChannel) void maybeRepositionPauseSticky(pauseChannel, client).catch(() => null);
     invalidateStaffPauseCalendarCache();
-    notifyStaffPauseCalendarChanged();
+    notifyStaffPauseCalendarChanged(userId);
     try {
       const { updateStaffWorkflowFromPause, workflowActorExtras } = require("../Web/siteStaffWorkflowStore");
       await updateStaffWorkflowFromPause(
@@ -580,10 +595,85 @@ async function cancelPauseRequestWeb(client, guild, actorMember, userId, pauseId
       giorniUsati: consumedForCancelledPause,
       cancelledAt: new Date(),
     });
+    targetPause.status = "cancelled";
+    targetPause.giorniUsati = consumedForCancelledPause;
+    targetPause.cancelledAt = new Date();
+
+    const roleChoiceForPause =
+      normalizePauseRoleChoice(targetPause?.ruolo || targetPause?.ruoloRichiesto) || PAUSE_ROLE_STAFF;
+    const budgetCancel = member
+      ? computeStaffPauseDayBudget(member, stafferRecord, roleChoiceForPause)
+      : null;
+    const maxGiorni = budgetCancel
+      ? budgetCancel.maxGiorni
+      : getBasePauseLimit(null, roleChoiceForPause) + getValPosTradedPauseBonusDays(stafferRecord);
+    const giorniTotaliUsati = budgetCancel
+      ? budgetCancel.usedDays
+      : computeConsumedPauseDays(stafferRecord.staff?.pauses);
+    const giorniRimanenti = Math.max(0, maxGiorni - giorniTotaliUsati);
+
+    const roleLabelForCancel = formatPauseRoleLabelForMessage(
+      guild,
+      roleChoiceForPause === PAUSE_ROLE_BOTH ? PAUSE_ROLE_STAFF : roleChoiceForPause,
+      member,
+    );
+    const cancelledContent = buildCancelledPauseLogContent({
+      roleLabel: roleLabelForCancel,
+      effectiveUserId: userId,
+      dataRichiesta: targetPause.dataRichiesta,
+      dataRitorno: targetPause.dataRitorno,
+      giorniScalati: consumedForCancelledPause,
+      giorniTotaliUsati,
+      maxGiorni,
+      giorniRimanenti,
+    });
+    const pmRole = guild?.roles?.cache?.get(String(IDs.roles?.PartnerManager || ""));
+    const cancelledContentPm = buildCancelledPauseLogContent({
+      roleLabel: pmRole?.name || "Partner Manager",
+      effectiveUserId: userId,
+      dataRichiesta: targetPause.dataRichiesta,
+      dataRitorno: targetPause.dataRitorno,
+      giorniScalati: consumedForCancelledPause,
+      giorniTotaliUsati,
+      maxGiorni,
+      giorniRimanenti,
+    });
+
+    const {
+      isDiscordWorkflowUiEnabled,
+      buildInboxManageLinkRow,
+    } = require("../Web/discordWorkflowUiGate");
+    const discordUi = isDiscordWorkflowUiEnabled();
+    const buttonsRow = discordUi
+      ? buildAcceptedButtonsRow(userId, pauseId, { hideCancel: true })
+      : buildInboxManageLinkRow("pause");
+    const msgComponents = buttonsRow ? [buttonsRow] : [];
+
+    const staffMsg = await fetchPauseRequestMessage(guild, targetPause);
+    const pauseChannel = staffMsg?.channel || null;
+    if (staffMsg?.editable) {
+      await staffMsg.edit({ content: cancelledContent, components: msgComponents }).catch(() => null);
+    }
+    const pmMsgId = String(targetPause.requestMessageIdPm || "").trim();
+    if (pmMsgId && pauseChannel?.messages?.fetch) {
+      const pmMsg = await pauseChannel.messages.fetch(pmMsgId).catch(() => null);
+      if (pmMsg?.editable) {
+        await pmMsg.edit({ content: cancelledContentPm, components: msgComponents }).catch(() => null);
+      }
+    }
+    if (pauseChannel?.send) {
+      const actorTag = actorMember?.displayName || actorMember?.id || "sito";
+      await pauseChannel
+        .send({
+          content: `<:cancel:1461730653677551691> Pausa annullata per <@${userId}> (via sito · ${actorTag}). <a:VC_Calendar:1482706208149475358> Giorni scalati: \`${consumedForCancelledPause}\`. <:VC_Clock:1473359204189474886> Totale usati: \`${giorniTotaliUsati}/${maxGiorni}\` (\`${giorniRimanenti}\` rimanenti).`,
+        })
+        .catch(() => null);
+      void maybeRepositionPauseSticky(pauseChannel, client).catch(() => null);
+    }
 
     scheduleStaffListRefresh(client, guildId, 800);
     invalidateStaffPauseCalendarCache();
-    notifyStaffPauseCalendarChanged();
+    notifyStaffPauseCalendarChanged(userId);
     try {
       const { updateStaffWorkflowFromPause, workflowActorExtras } = require("../Web/siteStaffWorkflowStore");
       await updateStaffWorkflowFromPause(

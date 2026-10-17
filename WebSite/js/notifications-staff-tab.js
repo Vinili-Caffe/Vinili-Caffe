@@ -1,7 +1,10 @@
 (function () {
   "use strict";
 
-  var ASSET_V = "20261002bootNoPreGrad3";
+  /* inboxBootOnce1: un solo paint lista — no card «Aggiornamento» / secondo skeleton */
+  /* staffAsset404Fix1: usa ?v= (file base) — i twin hashati formIdName1/AvatarPrecise1 non esistevano → 404 */
+  var ASSET_V = "20261009emojiAnchorPos1";
+  var MD_V = "20261011resoDecisionVerb1";
   /* versioned filenames: CF edge ignores ?v= and served stale JS */
   var TOKEN_KEY = "vc_discord_access_token";
   var SCOPE_PREF_KEY = "vc_notif_scope_pref";
@@ -155,6 +158,40 @@
     } catch (e) {}
     return "personal";
   }
+
+  /* pauseResoNotifProfile1: deep-link legacy inbox=pause|resoconti|punti-tolti → profilo */
+  function redirectOutOfInboxQueues() {
+    try {
+      var sp = new URLSearchParams(location.search || "");
+      var inbox = String(sp.get("inbox") || "")
+        .trim()
+        .toLowerCase();
+      var open =
+        inbox === "pause"
+          ? "pause"
+          : inbox === "resoconti"
+            ? "resoconto"
+            : inbox === "punti-tolti"
+              ? "pm-punti-tolti"
+              : "";
+      if (!open) return false;
+      var sid = "";
+      try {
+        sid = String((window.__VC_DISCORD_PROFILE && window.__VC_DISCORD_PROFILE.id) || "").trim();
+      } catch (eSid) {}
+      var next = new URL("/user/", location.origin);
+      if (/^\d{16,22}$/.test(sid)) next.searchParams.set("id", sid);
+      next.searchParams.set("tab", "staff");
+      next.searchParams.set("staffOpen", open);
+      var item = String(sp.get("item") || "").trim();
+      if (open === "pause" && item) next.searchParams.set("pauseId", item);
+      if (open === "resoconto" && item) next.searchParams.set("resoId", item);
+      location.replace(next.pathname + next.search);
+      return true;
+    } catch (eRedir) {}
+    return false;
+  }
+  if (redirectOutOfInboxQueues()) return;
 
   function writeTabToUrl(next) {
     try {
@@ -514,18 +551,18 @@
 
   function warmInboxPrefetch() {
     if (!readToken()) return;
-    var tabOrder = ["pause", "candidature", "appelli", "resoconti"];
+    var tabOrder = ["candidature", "appelli", "revisione"];
     /* notifSheetOpenFix1: rispetta ?inbox= dalla URL (non prefetchare un'altra coda) */
     var urlInbox = "";
     try {
       var sp = new URLSearchParams(location.search || "");
       urlInbox = String(sp.get("inbox") || "").trim().toLowerCase();
       if (urlInbox === "staff" || urlInbox === "personal") urlInbox = "";
-      if (
-        urlInbox &&
-        tabOrder.indexOf(urlInbox) < 0 &&
-        urlInbox !== "punti-tolti"
-      ) {
+      /* pauseResoNotifProfile1: code fuori inbox → non prefetchare */
+      if (urlInbox === "pause" || urlInbox === "resoconti" || urlInbox === "punti-tolti") {
+        urlInbox = "";
+      }
+      if (urlInbox && tabOrder.indexOf(urlInbox) < 0) {
         urlInbox = "";
       }
     } catch (eUrlIn) {}
@@ -542,6 +579,7 @@
           }
         }
         if (!targetTab) return null;
+        if (targetTab === "punti-tolti" || targetTab === "pause" || targetTab === "resoconti") return null;
         var token = readToken();
         if (!token) return null;
         var url =
@@ -549,7 +587,7 @@
           (workflowApiUrl().indexOf("?") >= 0 ? "&" : "?") +
           "queue=" +
           encodeURIComponent(targetTab) +
-          "&scope=pending&page=1&pageSize=20";
+          "&scope=pending&page=1&pageSize=10";
                 var prefetchCtrl =
           typeof AbortController !== "undefined" ? new AbortController() : null;
         var prefetchTimer = window.setTimeout(function () {
@@ -707,7 +745,7 @@
       loadScript("/js/vc-emoji-render.js?v=20260824emoji1"),
       loadScript("/js/vc-site-toast.js?v=20260825siteToast1"),
       loadScript("/js/vc-dialog.js?v=20260826dialog1"),
-      loadScript("/js/vc-emoji-picker.js?v=20260825subjChat1"),
+      loadScript("/js/vc-emoji-picker.js?v=" + ASSET_V),
     ]).catch(function () {});
     return staffDeferredPromise;
   }
@@ -716,20 +754,20 @@
     if (staffCriticalPromise) return staffCriticalPromise;
     ensureStaffConfig();
         var cssPromise = Promise.all([
-      loadCss("/css/staff-pause." + ASSET_V + ".css"),
-      loadCss("/css/notif-staff-embed." + ASSET_V + ".css"),
-      loadCss("/css/vc-workflow-chat." + ASSET_V + ".css"),
+      loadCss("/css/staff-pause.css?v=" + ASSET_V),
+      loadCss("/css/notif-staff-embed.css?v=" + ASSET_V),
+      loadCss("/css/vc-workflow-chat.css?v=" + ASSET_V),
+      loadCss("/css/vc-discord-md.css?v=" + MD_V),
     ]);
-    var jsPromise = loadScript("/js/staff-tools-common." + ASSET_V + ".js")
-      .then(function () {
-        return loadScript("/js/vc-chat-typing." + ASSET_V + ".js");
-      })
-      .then(function () {
-        return loadScript("/js/vc-workflow-chat." + ASSET_V + ".js");
-      })
-      .then(function () {
-        return loadScript("/js/staff-inbox-page." + ASSET_V + ".js");
-      });
+    /* inboxLoadFast1: common+typing+chat in parallelo, poi inbox (dipende da loro) */
+    var jsPromise = Promise.all([
+      loadScript("/js/vc-discord-md.js?v=" + MD_V),
+      loadScript("/js/staff-tools-common.js?v=" + ASSET_V),
+      loadScript("/js/vc-chat-typing.js?v=" + ASSET_V),
+      loadScript("/js/vc-workflow-chat.js?v=" + ASSET_V),
+    ]).then(function () {
+      return loadScript("/js/staff-inbox-page.20261015notifSheetReadyOpen1.js?v=20261015notifSheetReadyOpen1");
+    });
     staffCriticalPromise = Promise.all([cssPromise, jsPromise]).then(function () {
       return true;
     });
@@ -1211,17 +1249,30 @@
       teardownNotifStaffTabAfterLogout();
       return;
     }
-    softStaffAccess().then(function () {
-      revealTabs();
-    });
-    warmInboxPrefetch();
-    if (scope === "staff" && staffBooted) {
+    /* hangKill5: post-load — soft access / prefetch / boot non nello stesso tick */
+    window.setTimeout(function () {
+      softStaffAccess().then(function () {
+        revealTabs();
+      });
+    }, 60);
+    window.setTimeout(function () {
+      warmInboxPrefetch();
+    }, 220);
+    window.setTimeout(function () {
+      if (scope === "staff" && staffBooted) {
+        try {
+          if (window.VCStaffInboxEmbed && typeof window.VCStaffInboxEmbed.boot === "function") {
+            window.VCStaffInboxEmbed.boot();
+          }
+        } catch (eProfBoot) {}
+      }
       try {
-        if (window.VCStaffInboxEmbed && typeof window.VCStaffInboxEmbed.boot === "function") {
-          window.VCStaffInboxEmbed.boot();
+        if (typeof window.__vcReleaseInteractionHold === "function") {
+          window.__vcReleaseInteractionHold();
         }
-      } catch (eProfBoot) {}
-    }
+        document.documentElement.classList.remove("vc-interaction-hold");
+      } catch (eHoldClr) {}
+    }, 400);
   });
   document.addEventListener("vc:page-cine-ready", function () {
     flattenNotifCineHero();

@@ -1,7 +1,22 @@
 /* 20260913cursorStatic1: animated GIF cursors (vinyl default / coffee pointer) */
+/* hangKill2: empty/ready → niente loading-cursor storm su tutta la pagina */
 :root {
   --vc-cursor-default: url("/images/musicrecordspin-cursor-static.png") 12 12, auto;
   --vc-cursor-pointer: url("/images/coffe-cursor-static.png") 9 11, pointer;
+}
+html.vc-page-cine-ready body.vc-notifications-page #vc-staff-inbox-list:not(.is-loading):not(.is-refreshing),
+html.vc-page-cine-ready body.vc-notifications-page #vc-staff-inbox-list:not(.is-loading):not(.is-refreshing) *,
+html.vc-page-cine-ready body.vc-notifications-page #vc-staff-inbox-list .vc-staff-inbox-empty,
+html.vc-page-cine-ready body.vc-notifications-page #vc-staff-inbox-list .vc-staff-inbox-empty * {
+  cursor: var(--vc-cursor-default, auto) !important;
+}
+html.vc-page-cine-ready body.vc-notifications-page #vc-staff-inbox-list .vc-staff-inbox-empty ~ *,
+html.vc-page-cine-ready body.vc-notifications-page {
+  pointer-events: auto !important;
+}
+html.vc-page-cine-ready body.vc-notifications-page #vc-staff-inbox-list.is-refreshing::after {
+  /* hangKill2: spinner soft max 2s visual — JS clearInboxLoading lo spegne; CSS non blocca click */
+  pointer-events: none !important;
 }
 body.vc-notifications-page .vc-notif-staff-inbox,
 body.vc-notifications-page #vc-staff-inbox.vc-notif-staff-inbox {
@@ -1755,3 +1770,33 @@ body.vc-notifications-page .vc-notif-staff-inbox .vc-staff-inbox-status {
   justify-self: end !important;
   flex-shrink: 0 !important;
 }
+
+/* switcherPhoneStack1: staff inbox switcher stack on phone */
+@media (max-width: 720px) {
+  body.vc-notifications-page .vc-notif-staff-inbox #vc-staff-inbox-unified.vc-staff-inbox-unified-bar,
+  body.vc-notifications-page .vc-notif-staff-inbox .vc-staff-inbox-unified-bar.vc-staff-inbox-toolbar__filters,
+  body.vc-notifications-page .vc-notif-personal-inbox .vc-staff-inbox-unified-bar {
+    display: flex !important;
+    flex-direction: column !important;
+    flex-wrap: nowrap !important;
+    align-items: stretch !important;
+    gap: 0.5rem !important;
+    width: 100% !important;
+  }
+  body.vc-notifications-page .vc-notif-staff-inbox .vc-staff-inbox-unified-bar > .vc-staff-inbox-filter-group,
+  body.vc-notifications-page .vc-notif-staff-inbox .vc-staff-inbox-unified-bar > .vc-staff-pt-seg,
+  body.vc-notifications-page .vc-notif-personal-inbox .vc-staff-inbox-unified-bar > .vc-staff-pt-seg,
+  body.vc-notifications-page .vc-notif-personal-inbox .vc-staff-inbox-unified-bar > .vc-notify-filter-bar {
+    flex: 0 0 auto !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    justify-content: center !important;
+  }
+  body.vc-notifications-page .vc-notif-staff-inbox #vc-staff-inbox-filters,
+  body.vc-notifications-page .vc-notif-staff-inbox #vc-staff-inbox-filters.vc-staff-inbox-filter-group--board {
+    border-top: 0 !important;
+    padding-top: 0 !important;
+    margin-top: 0 !important;
+  }
+}
+/* switcherPhoneStack1 */

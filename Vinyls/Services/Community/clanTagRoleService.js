@@ -30,42 +30,70 @@ async function hasMatchingTag(member, client, userForClan = null, options = {}) 
   return resolved.match;
 }
 
+async function restGetMemberClan(client, guildId, userId) {
+  const gid = String(guildId || "");
+  const uid = String(userId || "");
+  if (!client?.rest || !gid || !uid) return { clan: null, ok: false };
+  let lastErr = null;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      const raw = await client.rest.get(`/guilds/${gid}/members/${uid}`);
+      return { clan: raw?.user?.clan ?? null, ok: true };
+    } catch (err) {
+      lastErr = err;
+      const code = String(err?.code || err?.cause?.code || err?.message || "");
+      const retryable = /CONNECT_TIMEOUT|ETIMEDOUT|ECONNRESET|ECONNABORTED|UND_ERR|EAI_AGAIN|AbortError|TimeoutError|503|429/i.test(code)
+        || Number(err?.status) === 429
+        || Number(err?.status) === 503;
+      if (!retryable || attempt >= 1) break;
+      await new Promise((r) => setTimeout(r, 350 * (attempt + 1)));
+    }
+  }
+  void lastErr;
+  return { clan: null, ok: false };
+}
+
 async function resolveClanTagMatch(member, client, userForClan = null, options = {}) {
   const user = userForClan || member?.user;
   if (!user) return { match: null, lookupFailed: true };
 
   const guildTagConfig = IDs.sponsorGuildTagConfig || {};
   const mainTagNorm = normalizeForMatch(MAIN_SERVER_TAG);
+  const memberId = String(member?.id || user?.id || "");
+  const guildId = String(member?.guild?.id || "");
 
   let clan = null;
   let lookupFailed = false;
   if (userForClan) {
     clan = userForClan.clan ?? null;
-        if (!clan && client && member?.guild?.id) {
-      try {
-        const raw = await client.rest.get(`/guilds/${member.guild.id}/members/${member.id}`);
-        clan = raw.user?.clan ?? null;
-      } catch (_) {
-        lookupFailed = true;
-      }
+    if (!clan && client && guildId && memberId) {
+      const got = await restGetMemberClan(client, guildId, memberId);
+      if (got.ok) clan = got.clan;
+      else lookupFailed = true;
     }
-  } else if (options.refreshFromApi === true && client && member?.guild?.id) {
-    try {
-      const raw = await client.rest.get(`/guilds/${member.guild.id}/members/${member.id}`);
-      clan = raw.user?.clan ?? null;
-    } catch (e) {
+  } else if (options.refreshFromApi === true && client && guildId && memberId) {
+    const got = await restGetMemberClan(client, guildId, memberId);
+    if (got.ok) {
+      clan = got.clan;
+    } else {
       clan = user.clan ?? null;
       if (!clan) lookupFailed = true;
     }
   } else {
     clan = user.clan ?? null;
-    if (!clan && client && member?.guild?.id) {
-      try {
-        const raw = await client.rest.get(`/guilds/${member.guild.id}/members/${member.id}`);
-        clan = raw.user?.clan ?? null;
-      } catch (e) {
-        lookupFailed = true;
-      }
+    if (!clan && client && guildId && memberId) {
+      const got = await restGetMemberClan(client, guildId, memberId);
+      if (got.ok) clan = got.clan;
+      else lookupFailed = true;
+    }
+  }
+
+  /* clanLookupRetry1: se il guild corrente fallisce, prova main + sponsor. */
+  if (lookupFailed && client && memberId) {
+    const alt = await fetchUserClanViaMemberApi(client, memberId);
+    if (alt.ok) {
+      clan = alt.clan;
+      lookupFailed = false;
     }
   }
 
@@ -119,16 +147,43 @@ async function fetchUserClanViaMemberApi(client, userId) {
     const g = String(gid || "");
     if (!g || seen.has(g)) continue;
     seen.add(g);
-    try {
-      const raw = await client.rest.get(`/guilds/${g}/members/${uid}`);
-      return { clan: raw?.user?.clan ?? null, ok: true };
-    } catch (_) { }
+    const got = await restGetMemberClan(client, g, uid);
+    if (got.ok) return got;
   }
   return { clan: null, ok: false };
 }
 
 const MEMBER_EVENT_CLAN_SYNC_THROTTLE_MS = 8000;
 const lastClanSyncAfterMemberEventByUser = new Map();
+const CLAN_LOOKUP_FAIL_LOG_COOLDOWN_MS = 30 * 60 * 1000;
+const lastClanLookupFailLogByUser = new Map();
+
+function warnClanLookupFailed(kind, userId, guildId = "") {
+  const uid = String(userId || "");
+  if (!uid) return;
+  const now = Date.now();
+  const key = `${kind}:${uid}`;
+  const last = Number(lastClanLookupFailLogByUser.get(key) || 0);
+  if (now - last < CLAN_LOOKUP_FAIL_LOG_COOLDOWN_MS) return;
+  lastClanLookupFailLogByUser.set(key, now);
+  if (lastClanLookupFailLogByUser.size > 2000) {
+    for (const [k, ts] of lastClanLookupFailLogByUser) {
+      if (now - Number(ts || 0) > CLAN_LOOKUP_FAIL_LOG_COOLDOWN_MS) lastClanLookupFailLogByUser.delete(k);
+    }
+  }
+  if (kind === "sponsor") {
+    global.logger?.warn?.(
+      "[ClanTagService] skip sync Guilded sponsor: lookup clan fallito",
+      guildId,
+      uid,
+    );
+    return;
+  }
+  global.logger?.warn?.(
+    "[ClanTagService] skip rimozione Guilded: lookup clan fallito",
+    uid,
+  );
+}
 
 const GUILDED_ANNOUNCE_COOLDOWN_MS = 24 * 60 * 60 * 1000;
 const lastGuildedChannelAnnounceByUserId = new Map();
@@ -251,21 +306,14 @@ async function applyClanTagGuildedRoles(member, client, options = {}) {
         await tryRevokePicPermsIfIneligible(member);
       } catch (_) {}
     } else if (lookupFailed) {
-      global.logger?.warn?.(
-        "[ClanTagService] skip rimozione Guilded: lookup clan fallito",
-        member.id,
-      );
+      warnClanLookupFailed("main", member.id);
     }
     return { added: addedMain, addedMain, addedSponsor };
   }
 
   if (guildHasSponsorGuildedExtra(g, client)) {
     if (lookupFailed) {
-      global.logger?.warn?.(
-        "[ClanTagService] skip sync Guilded sponsor: lookup clan fallito",
-        member.guild.id,
-        member.id,
-      );
+      warnClanLookupFailed("sponsor", member.id, member.guild.id);
       return { added: false, addedMain: false, addedSponsor: false };
     }
     const map = client.config.guildedRoleIds;

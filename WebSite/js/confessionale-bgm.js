@@ -593,17 +593,23 @@
       true,
     );
 
-    function onVolInput() {
-      var pct = Number(range.value);
-      if (!Number.isFinite(pct)) return;
-      persistVolume(pct / 100);
+    function applyVolumePct(pct, fromUi) {
+      var n = Number(pct);
+      if (!Number.isFinite(n)) return;
+      n = Math.max(0, Math.min(100, Math.round(n)));
+      if (range && fromUi !== false) {
+        try {
+          range.value = String(n);
+        } catch (eR) {}
+      }
+      persistVolume(n / 100);
       if (audio) {
         try {
           audio.muted = false;
           audio.volume = baseVol;
         } catch (eVol) {}
       }
-      if (pct <= 0) {
+      if (n <= 0) {
         stopAudible();
         return;
       }
@@ -615,8 +621,79 @@
         updateUi();
       }
     }
+    function onVolInput() {
+      applyVolumePct(range.value, false);
+    }
     range.addEventListener("input", onVolInput);
     range.addEventListener("change", onVolInput);
+
+    /* confPhoneVolPointer1: range ruotato -90deg su mobile → solo 0/100.
+       Mappa Y della slider-row → 0–100 (alto=100). */
+    (function bindPhoneVolPointer() {
+      var row = range.parentElement;
+      if (!row) return;
+      var dragging = false;
+      var activePtr = null;
+      function pctFromClientY(clientY) {
+        var rect = row.getBoundingClientRect();
+        if (!rect || !(rect.height > 0)) return Number(range.value) || 0;
+        var t = (rect.bottom - Number(clientY)) / rect.height;
+        if (!Number.isFinite(t)) return Number(range.value) || 0;
+        return Math.max(0, Math.min(100, t * 100));
+      }
+      function onPtrDown(ev) {
+        if (!isCoarseUi()) return;
+        if (!isPlayerOpen()) return;
+        if (ev && ev.target && toggleBtn && (ev.target === toggleBtn || toggleBtn.contains(ev.target))) {
+          return;
+        }
+        dragging = true;
+        activePtr = ev && ev.pointerId != null ? ev.pointerId : null;
+        try {
+          if (typeof row.setPointerCapture === "function" && activePtr != null) {
+            row.setPointerCapture(activePtr);
+          }
+        } catch (eCap) {}
+        try {
+          if (ev && typeof ev.preventDefault === "function") ev.preventDefault();
+          if (ev && typeof ev.stopPropagation === "function") ev.stopPropagation();
+        } catch (ePrev) {}
+        applyVolumePct(pctFromClientY(ev.clientY), true);
+      }
+      function onPtrMove(ev) {
+        if (!dragging) return;
+        if (activePtr != null && ev && ev.pointerId != null && ev.pointerId !== activePtr) return;
+        try {
+          if (ev && typeof ev.preventDefault === "function") ev.preventDefault();
+        } catch (eM) {}
+        applyVolumePct(pctFromClientY(ev.clientY), true);
+      }
+      function onPtrUp(ev) {
+        if (!dragging) return;
+        if (activePtr != null && ev && ev.pointerId != null && ev.pointerId !== activePtr) return;
+        dragging = false;
+        try {
+          if (typeof row.releasePointerCapture === "function" && activePtr != null) {
+            row.releasePointerCapture(activePtr);
+          }
+        } catch (eRel) {}
+        activePtr = null;
+      }
+      row.addEventListener("pointerdown", onPtrDown, { passive: false });
+      row.addEventListener("pointermove", onPtrMove, { passive: false });
+      row.addEventListener("pointerup", onPtrUp, { passive: true });
+      row.addEventListener("pointercancel", onPtrUp, { passive: true });
+      row.addEventListener(
+        "touchmove",
+        function (ev) {
+          if (!dragging) return;
+          try {
+            if (ev && typeof ev.preventDefault === "function") ev.preventDefault();
+          } catch (eT) {}
+        },
+        { passive: false },
+      );
+    })();
     updateUi();
   }
 

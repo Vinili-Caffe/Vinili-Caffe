@@ -37,6 +37,21 @@ const {
   taskById,
 } = require("./siteStaffCompitiCatalog");
 
+/** siteLiveAll1 */
+function emitCompitiRealtime(extras = {}) {
+  try {
+    const { broadcastSiteStaffCompitiChanged } = require("./siteSuggestionsBroadcast");
+    broadcastSiteStaffCompitiChanged(extras);
+  } catch (_) {}
+  try {
+    const uid = String(extras.userId || "").trim();
+    if (/^\d{16,22}$/.test(uid)) {
+      const { clearStaffProfileCacheForUser } = require("./siteStaffProfileApi");
+      clearStaffProfileCacheForUser(uid, { action: extras.action || "compiti" });
+    }
+  } catch (_) {}
+}
+
 /** Label storici per task rimossi dal catalogo. */
 const LEGACY_TASK_LABELS = Object.freeze({
   invite_users: "Invitare utenti (storico)",
@@ -862,12 +877,48 @@ async function grantCompitiSwapBonus(guildId, userId, amount = 1, { weekKey = ""
     monthKeyForWeekKey(wk) ||
     compitiActiveMonthKey(wk);
   const cur = await loadSwapBonus(guildId, userId, mk);
-  if (wk && cur.weekKey === wk && !cur.expired) {
+  if (wk && cur.weekKey === wk && Number(cur.bonus || 0) > 0 && !cur.expired) {
     return { ok: true, swapBonus: cur.bonus, granted: 0, skipped: true, monthKey: mk };
   }
-  const next = cur.expired ? add : cur.bonus + add;
+  /* compitiSwapSchema1: se week match ma bonus 0 (strict drop storico) → ri-grant. */
+  const next =
+    cur.expired || !Number(cur.bonus || 0)
+      ? add
+      : wk && cur.weekKey === wk
+        ? Math.max(Number(cur.bonus || 0), add)
+        : Number(cur.bonus || 0) + add;
   await saveSwapBonusState(guildId, userId, { bonus: next, weekKey: wk || cur.weekKey, monthKey: mk });
-  return { ok: true, swapBonus: next, granted: add, monthKey: mk };
+  const granted = Math.max(0, next - Math.max(0, Number(cur.expired ? 0 : cur.bonus) || 0));
+  return { ok: true, swapBonus: next, granted: granted || (next > 0 ? add : 0), monthKey: mk };
+}
+
+/** Se ha ancora il ruolo Staffer della settimana, assicura il +1 swap del week corrente. */
+async function ensureStafferCompitiSwapBonus(client, guildId, userId, monthKey = "") {
+  try {
+    const roleId = String(IDs.roles?.StafferDellaSettimana || "").trim();
+    if (!roleId || !guildId || !userId) {
+      return loadSwapBonus(guildId, userId, monthKey);
+    }
+    const guild =
+      client?.guilds?.cache?.get?.(guildId) ||
+      (await client?.guilds?.fetch?.(guildId).catch(() => null));
+    const member =
+      guild?.members?.cache?.get?.(userId) ||
+      (await guild?.members?.fetch?.(userId).catch(() => null));
+    if (!member?.roles?.cache?.has?.(roleId)) {
+      return loadSwapBonus(guildId, userId, monthKey);
+    }
+    const {
+      getStaffWeekKeyNow,
+      resolveStafferBonusMonthKey,
+    } = require("../Staff/stafferDellaSettimanaWeekKey");
+    const weekKey = getStaffWeekKeyNow();
+    const mk = resolveStafferBonusMonthKey({ weekKey, monthKey });
+    await grantCompitiSwapBonus(guildId, userId, 1, { weekKey, monthKey: mk });
+    return loadSwapBonus(guildId, userId, monthKey || mk);
+  } catch (_) {
+    return loadSwapBonus(guildId, userId, monthKey);
+  }
 }
 
 /**
@@ -1219,7 +1270,7 @@ async function handleSiteStaffCompitiGet(client, req, res) {
       plan,
     );
     const monthEntries = buildMonthEntries(monthKey, targetId, mapFresh, plan, deadlines, weekKey);
-    const swapBonus = (await loadSwapBonus(guildId, targetId, monthKey)).bonus;
+    const swapBonus = (await ensureStafferCompitiSwapBonus(client, guildId, targetId, monthKey)).bonus;
 
     let graceMember = null;
     if (targetId === viewerId) {
@@ -1381,6 +1432,7 @@ async function handleSiteStaffCompitiPost(client, req, res) {
         monthEntries: buildMonthEntries(monthKey, targetId, map, planAfter, deadlines, weekKey),
         plan: buildPublicPlan(monthKey, planAfter, map, weekKey, swapBonusAfter),
       });
+      emitCompitiRealtime({ userId: targetId, weekKey, action: decision === "approve" ? "approve" : "reject" });
 
       setImmediate(() => {
         Promise.resolve()
@@ -1547,6 +1599,7 @@ async function handleSiteStaffCompitiPost(client, req, res) {
       const lockedFresh = lockedTaskIdsForMonth(mapFresh, monthKey, weekKey, plan).filter(
         (id) => id !== entryFresh.taskId,
       );
+      emitCompitiRealtime({ userId: viewerId, weekKey, action: "swap" });
       return res.status(200).json({
         ok: true,
         weekKey,
@@ -1690,6 +1743,11 @@ async function handleSiteStaffCompitiPost(client, req, res) {
       }
     }
 
+    emitCompitiRealtime({
+      userId: viewerId,
+      weekKey,
+      action: String(req.body?.action || req.body?.mode || "save").trim().toLowerCase() || "save",
+    });
     return res.status(200).json({
       ok: true,
       weekKey,
@@ -2012,6 +2070,18 @@ async function tickInviteActiveCompiti(client, opts = {}) {
   return hits;
 }
 
+/* apiWarmSwr2: full guild.members.fetch per workers list (cold staff compiti) */
+async function warmSiteStaffCompitiWorkersCache(client) {
+  try {
+    const guildId = String(client?.config?.mainGuildId || IDs.guilds?.main || "").trim();
+    if (!guildId) return null;
+    return await listWorkerMembers(client, guildId, { force: true });
+  } catch (err) {
+    global.logger?.warn?.("[site-staff-compiti] warm workers:", err?.message || err);
+    return null;
+  }
+}
+
 module.exports = {
   handleSiteStaffCompitiGet,
   handleSiteStaffCompitiPost,
@@ -2031,4 +2101,5 @@ module.exports = {
   weekKeysInRomeMonth,
   REASON_OK,
   REASON_FAIL,
+  warmSiteStaffCompitiWorkersCache,
 };

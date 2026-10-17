@@ -1,5 +1,6 @@
 (function (global) {
   "use strict";
+  /* siteChatLagAll1: refreshDom soft-patch messaggi (no remount composer su poll/WS) */
 
   var cfg = null;
   var state = {
@@ -276,7 +277,7 @@
       return (
         '<img class="vc-wfc-react__emoji" src="' +
         esc(global.VcEmojiPicker.customUrl(r.emojiId, r.animated, 20)) +
-        '" alt="" width="16" height="16" />'
+        '" data-vc-avatar="0" alt="" width="16" height="16" />'
       );
     }
     return '<span class="vc-wfc-react__emoji">' + esc(r.emoji || "?") + "</span>";
@@ -370,6 +371,64 @@
     );
   }
 
+  function renderOneMessageHtml(m) {
+    if (!m || !m.id) return "";
+    var kind = String(m.authorKind || "staff").toLowerCase();
+    var body = String(m.content || "").replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F\uFFFD]/g, "");
+    if (kind === "system") {
+      return (
+        '<li class="vc-wfc-msg vc-wfc-msg--system" data-msg-id="' +
+        esc(m.id) +
+        '">' +
+        '<div class="vc-wfc-system" role="status">' +
+        '<span class="vc-wfc-system__label">Sistema</span>' +
+        '<span class="vc-wfc-system__text">' +
+        esc(plainPreviewText(body) || "Aggiornamento") +
+        "</span>" +
+        '<time class="vc-wfc-system__time">' +
+        esc(formatChatTime(m.createdAt)) +
+        "</time></div></li>"
+      );
+    }
+    var mine = String(m.authorId || "") === String(state.profileId || "");
+    var userLabel = String(c("userKindLabel") || "Richiedente");
+    var roleLabel = String(m.authorRoleLabel || "").trim();
+    var kindLabel =
+      kind === "user" ? userLabel : roleLabel || String(c("staffKindLabel") || "").trim() || "Staff";
+    return (
+      '<li class="vc-wfc-msg' +
+      (mine ? " is-mine" : "") +
+      (kind === "user" ? " is-requester" : "") +
+      '" data-msg-id="' +
+      esc(m.id) +
+      '">' +
+      '<span class="vc-wfc-msg__av">' +
+      avatarHtml(m.authorAvatarUrl, m.authorId, {
+        width: 28,
+        height: 28,
+        className: "vc-wfc-avatar",
+      }) +
+      "</span>" +
+      '<div class="vc-wfc-msg__bubble">' +
+      messageActionsHtml(m, !state.canSend) +
+      '<div class="vc-wfc-msg__meta"><strong>' +
+      esc(m.authorName || (kind === "user" ? "Richiedente" : "Staff")) +
+      '</strong><span class="vc-wfc-role">' +
+      esc(kindLabel) +
+      "</span><time>" +
+      esc(formatChatTime(m.createdAt)) +
+      "</time>" +
+      receiptTicksHtml(m, mine) +
+      (m.editedAt ? '<span class="vc-wfc-msg__edited">(modificato)</span>' : "") +
+      "</div>" +
+      replyQuoteHtml(m) +
+      (body ? '<div class="vc-wfc-msg__text">' + formatBodyWithMentions(body) + "</div>" : "") +
+      mediaGalleryHtml(m.imageUrls) +
+      reactionsBarHtml(m, !state.canSend) +
+      "</div></li>"
+    );
+  }
+
   function renderMessagesHtml() {
     if (state.loading && !state.messages.length) {
       return '<p class="vc-wfc-empty">Caricamento chat…</p>';
@@ -386,68 +445,104 @@
     }
     return (
       '<ul class="vc-wfc-list" role="list">' +
-      state.messages
-        .map(function (m) {
-          var kind = String(m.authorKind || "staff").toLowerCase();
-          var body = String(m.content || "").replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F\uFFFD]/g, "");
-          if (kind === "system") {
-            return (
-              '<li class="vc-wfc-msg vc-wfc-msg--system" data-msg-id="' +
-              esc(m.id) +
-              '">' +
-              '<div class="vc-wfc-system" role="status">' +
-              '<span class="vc-wfc-system__label">Sistema</span>' +
-              '<span class="vc-wfc-system__text">' +
-              esc(plainPreviewText(body) || "Aggiornamento") +
-              "</span>" +
-              '<time class="vc-wfc-system__time">' +
-              esc(formatChatTime(m.createdAt)) +
-              "</time></div></li>"
-            );
-          }
-          var mine = String(m.authorId || "") === String(state.profileId || "");
-          var userLabel = String(c("userKindLabel") || "Richiedente");
-          var roleLabel = String(m.authorRoleLabel || "").trim();
-          var kindLabel =
-            kind === "user" ? userLabel : roleLabel || String(c("staffKindLabel") || "").trim() || "Staff";
-          return (
-            '<li class="vc-wfc-msg' +
-            (mine ? " is-mine" : "") +
-            (kind === "user" ? " is-requester" : "") +
-            '" data-msg-id="' +
-            esc(m.id) +
-            '">' +
-            '<span class="vc-wfc-msg__av">' +
-            avatarHtml(m.authorAvatarUrl, m.authorId, {
-              width: 28,
-              height: 28,
-              className: "vc-wfc-avatar",
-            }) +
-            "</span>" +
-            '<div class="vc-wfc-msg__bubble">' +
-            messageActionsHtml(m, !state.canSend) +
-            '<div class="vc-wfc-msg__meta"><strong>' +
-            esc(m.authorName || (kind === "user" ? "Richiedente" : "Staff")) +
-            '</strong><span class="vc-wfc-role">' +
-            esc(kindLabel) +
-            "</span><time>" +
-            esc(formatChatTime(m.createdAt)) +
-            "</time>" +
-            receiptTicksHtml(m, mine) +
-            (m.editedAt ? '<span class="vc-wfc-msg__edited">(modificato)</span>' : "") +
-            "</div>" +
-            replyQuoteHtml(m) +
-            (body
-              ? '<div class="vc-wfc-msg__text">' + formatBodyWithMentions(body) + "</div>"
-              : "") +
-            mediaGalleryHtml(m.imageUrls) +
-            reactionsBarHtml(m, !state.canSend) +
-            "</div></li>"
-          );
-        })
-        .join("") +
+      state.messages.map(renderOneMessageHtml).join("") +
       "</ul>"
     );
+  }
+
+  function panelShellKey() {
+    var forceReadOnly = c("forceReadOnly") === true;
+    var item = { status: state.status || "pending", dedupeKey: state.dedupeKey };
+    var canSend = panelCanSend(item, state.dedupeKey);
+    var meta = subjectChatMeta();
+    var subj = "";
+    if (state.isStaffReviewer && meta && meta.inviteOnly) {
+      subj = [
+        meta.canRemove ? "rm" : "",
+        meta.canInvite ? "inv" : "",
+        meta.active ? "on" : "",
+      ].join("");
+    }
+    return [
+      String(state.dedupeKey || ""),
+      forceReadOnly ? "1" : "0",
+      canSend ? "1" : "0",
+      state.replyTo && state.replyTo.id ? String(state.replyTo.id) : "",
+      String((state.composerImages || []).length),
+      subj,
+    ].join("|");
+  }
+
+  function patchErrorDom(root) {
+    if (!root) return;
+    var existing = null;
+    var kids = root.children;
+    for (var i = 0; i < kids.length; i += 1) {
+      if (kids[i].classList && kids[i].classList.contains("vc-wfc-error")) {
+        existing = kids[i];
+        break;
+      }
+    }
+    var want = state.error && state.dedupeKey ? String(state.error) : "";
+    if (!want) {
+      if (existing && existing.parentNode) existing.parentNode.removeChild(existing);
+      return;
+    }
+    if (!existing) {
+      existing = document.createElement("p");
+      existing.className = "vc-wfc-error";
+      existing.setAttribute("role", "alert");
+      var form = byId("vc-wfc-form");
+      var closed = root.querySelector(".vc-wfc-closed");
+      var before = form || closed;
+      if (before) root.insertBefore(existing, before);
+      else root.appendChild(existing);
+    }
+    existing.textContent = want;
+  }
+
+  function syncMessagesDom() {
+    var scroll = byId("vc-wfc-scroll");
+    if (!scroll) return false;
+    var nextFp = messagesFingerprint(state.messages);
+    var prevFp = scroll.getAttribute("data-vc-msg-fp") || "";
+    if (prevFp === nextFp && scroll.querySelector(".vc-wfc-list")) return true;
+    if ((state.loading && !state.messages.length) || !state.messages.length) {
+      scroll.innerHTML = renderMessagesHtml();
+      scroll.setAttribute("data-vc-msg-fp", nextFp);
+      return true;
+    }
+    var list = scroll.querySelector(".vc-wfc-list");
+    if (!list) {
+      scroll.innerHTML = renderMessagesHtml();
+      scroll.setAttribute("data-vc-msg-fp", nextFp);
+      return true;
+    }
+    var oldIds = [];
+    var kids = list.children;
+    for (var i = 0; i < kids.length; i += 1) {
+      if (!kids[i].getAttribute) continue;
+      var oid = String(kids[i].getAttribute("data-msg-id") || "");
+      if (oid) oldIds.push(oid);
+    }
+    var newIds = state.messages.map(function (m) {
+      return String((m && m.id) || "");
+    });
+    var canAppend =
+      newIds.length > oldIds.length &&
+      oldIds.every(function (id, idx) {
+        return id === newIds[idx];
+      });
+    if (canAppend) {
+      for (var j = oldIds.length; j < state.messages.length; j += 1) {
+        list.insertAdjacentHTML("beforeend", renderOneMessageHtml(state.messages[j]));
+      }
+      scroll.setAttribute("data-vc-msg-fp", nextFp);
+      return true;
+    }
+    scroll.innerHTML = renderMessagesHtml();
+    scroll.setAttribute("data-vc-msg-fp", nextFp);
+    return true;
   }
 
   function receiptTicksHtml(m, mine) {
@@ -656,11 +751,11 @@
         : "";
     var sendClass = String(c("sendBtnClass") || "vc-wfc-send-btn");
     var panelTitle = String(c("panelTitle") || "Discussione");
-    // Only archive/force mode uses the "Solo lettura · cronologia" copy.
+    // Only archive/force mode uses the "Solo lettura \u00B7 cronologia" copy.
     var panelHint = forceReadOnly
-      ? "Solo lettura · cronologia completa"
+      ? "Solo lettura \u00B7 cronologia completa"
       : canSend
-        ? String(c("panelHint") || "Emoji · @utenti · #canali · risposte · allegati")
+        ? String(c("panelHint") || "Emoji \u00B7 @utenti \u00B7 #canali \u00B7 risposte \u00B7 allegati")
         : String(c("closedHint") || c("panelHint") || "Discussione chiusa");
     var manage = forceReadOnly || !canSend ? "" : subjectManageHtml();
     return (
@@ -687,10 +782,10 @@
           '<div class="vc-wfc-composer__row">' +
           '<label class="vc-wfc-composer__attach" title="Allega immagine o video">' +
           '<i class="fa fa-picture-o" aria-hidden="true"></i>' +
-          '<input type="file" id="vc-wfc-file" accept="image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm,video/quicktime" multiple hidden />' +
+          '<input type="file" id="vc-wfc-file" name="wfcAttachments" accept="image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm,video/quicktime" multiple hidden />' +
           "</label>" +
           '<button type="button" class="vc-wfc-composer__emoji" id="vc-wfc-emoji" title="Emoji"><i class="fa fa-smile-o" aria-hidden="true"></i></button>' +
-          '<textarea id="vc-wfc-input" rows="2" maxlength="2000" enterkeyhint="send" placeholder="Scrivi… (@ utenti, # canali)"></textarea>' +
+          '<textarea id="vc-wfc-input" name="wfcMessage" rows="2" maxlength="2000" enterkeyhint="send" placeholder="Scrivi… (@ utenti, # canali)" autocomplete="off"></textarea>' +
           '<button type="submit" class="' +
           esc(sendClass) +
           '" id="vc-wfc-send"' +
@@ -920,8 +1015,13 @@
     }, 120);
   }
 
+  var mentionFloatBound = false;
+
   function ensureMentionMenu() {
     var menu = byId("vc-wfc-mention-menu");
+    if (menu && menu.parentElement !== document.body) {
+      document.body.appendChild(menu);
+    }
     if (menu) return menu;
     menu = document.createElement("div");
     menu.id = "vc-wfc-mention-menu";
@@ -929,6 +1029,29 @@
     menu.hidden = true;
     document.body.appendChild(menu);
     return menu;
+  }
+
+  /* pickerFloatFix1: riposiziona @/# su scroll/resize/visualViewport (mobile) */
+  function syncMentionMenuFloat() {
+    if (!(state.mentionMenu && state.mentionMenu.open)) return;
+    if (window.__vcWfcMentionRaf) return;
+    window.__vcWfcMentionRaf = window.requestAnimationFrame(function () {
+      window.__vcWfcMentionRaf = 0;
+      positionMentionMenu();
+    });
+  }
+
+  function bindMentionFloatListeners() {
+    if (mentionFloatBound) return;
+    mentionFloatBound = true;
+    window.addEventListener("resize", syncMentionMenuFloat, { passive: true });
+    window.addEventListener("scroll", syncMentionMenuFloat, { passive: true, capture: true });
+    try {
+      if (window.visualViewport) {
+        window.visualViewport.addEventListener("resize", syncMentionMenuFloat, { passive: true });
+        window.visualViewport.addEventListener("scroll", syncMentionMenuFloat, { passive: true });
+      }
+    } catch (eVv) {}
   }
 
   function hideMentionMenu() {
@@ -949,9 +1072,10 @@
   }
 
   function positionMentionMenu() {
-    var menu = byId("vc-wfc-mention-menu");
+    var menu = ensureMentionMenu();
     var input = byId("vc-wfc-input");
     if (!menu || !input || menu.hidden) return;
+    bindMentionFloatListeners();
     var rect = input.getBoundingClientRect();
     var row = (input.closest && input.closest(".vc-wfc-composer__row")) || input;
     var widthRect = row.getBoundingClientRect ? row.getBoundingClientRect() : rect;
@@ -963,10 +1087,13 @@
     var gap = 8;
     var visibleTop = vpTop + gap;
     var visibleBottom = vpTop + vpH - gap;
+    var layoutH = (document.documentElement && document.documentElement.clientHeight) || window.innerHeight || 0;
+    var keyboardOpen = layoutH > 0 && vpH > 0 && vpH < layoutH * 0.85;
     var wantMax = state.mentionMenu.mode === "channel" ? 360 : 280;
     var spaceAbove = Math.max(0, rect.top - visibleTop);
     var spaceBelow = Math.max(0, visibleBottom - rect.bottom);
-    var preferAbove = spaceAbove >= 96 || spaceAbove >= spaceBelow;
+    var preferAbove = keyboardOpen || spaceAbove >= 96 || spaceAbove >= spaceBelow;
+    if (preferAbove && spaceAbove < 72 && spaceBelow > spaceAbove + 24) preferAbove = false;
     var maxH = Math.min(wantMax, Math.max(96, (preferAbove ? spaceAbove : spaceBelow) - gap));
     var width = Math.min(Math.max(widthRect.width || rect.width || 240, 240), Math.max(200, vpW - gap * 2));
     var left = Math.max(vpLeft + gap, Math.min(widthRect.left, vpLeft + vpW - width - gap));
@@ -1001,8 +1128,9 @@
         top = Math.max(visibleTop, rect.top - menuH - gap);
       }
     }
-    menu.style.top = Math.round(Math.max(visibleTop, top)) + "px";
+    menu.style.top = Math.round(Math.max(visibleTop, Math.min(top, visibleBottom - Math.min(menuH, maxH)))) + "px";
     menu.style.visibility = "visible";
+    menu.setAttribute("data-vc-float", "pickerFloatFix1");
   }
 
   function wireMentionMenuFilters(menu) {
@@ -1093,8 +1221,8 @@
               : '<span class="vc-wt-mention-menu__av vc-wt-mention-menu__av--fallback">' + avMark + "</span>";
           var prefix = type === "channel" ? "#" : "@";
           var sub = type === "role" ? "Ruolo" : type === "channel" ? it.channelKind || "Canale" : it.username || "Utente";
-          if (type === "channel" && it.parentName) sub += " · " + it.parentName;
-          if (type === "user" && it.roleName) sub = it.roleName + (it.username ? " · @" + it.username : "");
+          if (type === "channel" && it.parentName) sub += " \u00B7 " + it.parentName;
+          if (type === "user" && it.roleName) sub = it.roleName + (it.username ? " \u00B7 @" + it.username : "");
           return (
             '<button type="button" class="' +
             cls +
@@ -1359,7 +1487,7 @@
     var form = document.createElement("form");
     form.className = "vc-wfc-msg__edit";
     form.innerHTML =
-      '<textarea class="vc-wfc-msg__edit-input" rows="3" maxlength="2000"></textarea>' +
+      '<textarea class="vc-wfc-msg__edit-input" id="vc-wfc-edit-input" name="wfcEditMessage" rows="3" maxlength="2000" autocomplete="off"></textarea>' +
       '<div class="vc-wfc-msg__edit-actions">' +
       '<button type="button" data-edit-cancel>Annulla</button>' +
       '<button type="submit">Salva</button>' +
@@ -1504,13 +1632,35 @@
     textarea.focus();
   }
 
+  function captureAnchorRect(el) {
+    try {
+      if (!el || !el.getBoundingClientRect) return null;
+      var r0 = el.getBoundingClientRect();
+      if (!r0 || (r0.width <= 1 && r0.height <= 1)) return null;
+      return {
+        left: r0.left,
+        top: r0.top,
+        width: r0.width,
+        height: r0.height,
+        right: r0.right,
+        bottom: r0.bottom,
+      };
+    } catch (e) {
+      return null;
+    }
+  }
+
   function openEmojiPickerForComposer(ev) {
     var anchor = ev && ev.currentTarget ? ev.currentTarget : byId("vc-wfc-emoji");
     var input = byId("vc-wfc-input");
     if (!global.VcEmojiPicker || !anchor) return;
+    var anchorRect = captureAnchorRect(anchor);
     ensureGuildEmojis(function (emojis) {
+      var live = document.getElementById("vc-wfc-emoji") || anchor;
       global.VcEmojiPicker.open({
-        anchor: anchor,
+        anchor: live,
+        anchorSelector: "#vc-wfc-emoji",
+        anchorRect: anchorRect,
         guildEmojis: emojis,
         preferCustom: true,
         preferAbove: true,
@@ -1528,11 +1678,16 @@
   }
 
   function openEmojiPickerForReaction(messageId) {
-    var msgEl = document.querySelector('[data-msg-id="' + messageId + '"] .vc-wfc-react--add');
+    var sel = '[data-msg-id="' + messageId + '"] .vc-wfc-react--add';
+    var msgEl = document.querySelector(sel);
     if (!global.VcEmojiPicker) return;
+    var anchorRect = captureAnchorRect(msgEl || byId("vc-wfc-scroll"));
     ensureGuildEmojis(function (emojis) {
+      var live = document.querySelector(sel) || byId("vc-wfc-scroll");
       global.VcEmojiPicker.open({
-        anchor: msgEl || byId("vc-wfc-scroll"),
+        anchor: live,
+        anchorSelector: sel,
+        anchorRect: anchorRect,
         guildEmojis: emojis,
         preferCustom: false,
         preferAbove: true,
@@ -1804,7 +1959,10 @@
             err === "rate_limited_client" ||
             err === "rate_limited" ||
             st === 429;
+          /* staffRevChatKey1: 404 not_found = pratica assente — non ritentare (spam console) */
+          var hardMiss = err === "not_found" || st === 404;
           var canRetry =
+            !hardMiss &&
             retryCount < (isRate ? 6 : opts.silent ? 0 : 3) &&
             (err === "aborted" ||
               err === "timeout" ||
@@ -1813,12 +1971,10 @@
               err === "network_error" ||
               err === "invalid_json" ||
               err === "empty_body" ||
-              err === "not_found" ||
               Boolean(out.soft) ||
               Boolean(out.data && out.data.soft) ||
               isRate ||
               st === 401 ||
-              st === 404 ||
               st === 408 ||
               st === 0 ||
               st === 502 ||
@@ -1828,9 +1984,7 @@
           if (canRetry) {
             var delay = isRate
               ? Math.min(9000, 900 + retryCount * 1100)
-              : err === "not_found" || st === 404
-                ? 500
-                : 350;
+              : 350;
             // Keep loading; never flash "Chat in coda…" during backoff.
             if (!opts.silent) {
               state.error = "";
@@ -1970,11 +2124,34 @@
     if (!opts.skipCapture) captureDraft();
     var scroll = byId("vc-wfc-scroll");
     var nearBottom = scroll ? scroll.scrollHeight - scroll.scrollTop - scroll.clientHeight < 48 : true;
+    var shell = panelShellKey();
     var item = { status: state.status || "pending", dedupeKey: state.dedupeKey };
+    var canSend = panelCanSend(item, state.dedupeKey);
+    var hasForm = Boolean(byId("vc-wfc-form"));
+    var canSoft =
+      !opts.force &&
+      root.getAttribute("data-vc-shell") === shell &&
+      Boolean(scroll) &&
+      ((canSend && hasForm) || (!canSend && !hasForm));
+    if (canSoft) {
+      syncMessagesDom();
+      patchErrorDom(root);
+      var sendBtn = byId("vc-wfc-send");
+      if (sendBtn) sendBtn.disabled = Boolean(state.sending);
+      var inv = byId("vc-wfc-subject-invite");
+      var rm = byId("vc-wfc-subject-remove");
+      if (inv) inv.disabled = Boolean(state.managingSubject);
+      if (rm) rm.disabled = Boolean(state.managingSubject);
+      if (nearBottom) scrollToBottom();
+      return;
+    }
     var wrap = document.createElement("div");
     wrap.innerHTML = renderPanel(item, state.tab);
     var fresh = wrap.firstChild;
     if (!fresh) return;
+    fresh.setAttribute("data-vc-shell", shell);
+    var freshScroll = fresh.querySelector("#vc-wfc-scroll");
+    if (freshScroll) freshScroll.setAttribute("data-vc-msg-fp", messagesFingerprint(state.messages));
     root.replaceWith(fresh);
     bindComposer();
     restoreDraft();

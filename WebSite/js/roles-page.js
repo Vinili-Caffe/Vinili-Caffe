@@ -1,6 +1,12 @@
 (function () {
   "use strict";
-    var PER_PAGE = 9;
+
+  /* rolesLoaderAlign1: niente shell-visible — loader fullscreen come classifiche/personalizza */
+  try {
+    var staleShell = document.getElementById("vc-roles-shell-visible-css");
+    if (staleShell && staleShell.parentNode) staleShell.parentNode.removeChild(staleShell);
+  } catch (eShell) {}
+  var PER_PAGE = 9;
   var ACCESS_TOKEN_KEY = "vc_discord_access_token";
   var EXPIRES_AT_KEY = "vc_discord_expires_at";
   var state = {
@@ -535,10 +541,37 @@
     return '<span class="vc-role-card-swatch" style="background:' + esc(hex) + '"></span>';
   }
 
+  /* discordRoleLook2: role-icons CDN → webp; animated se a_* */
+  function normalizeDiscordRoleIconUrl(rawUrl, animatedFlag) {
+    var iconUrl = String(rawUrl || "").trim();
+    var anim =
+      animatedFlag === true ||
+      /[?&]animated=true\b/i.test(iconUrl) ||
+      /\/a_[a-f0-9]+\.(webp|gif|png)/i.test(iconUrl);
+    if (/cdn\.discordapp\.com\/role-icons\//i.test(iconUrl)) {
+      iconUrl = iconUrl.replace(/\.(png|jpe?g|gif)(\?|$)/i, ".webp$2");
+    } else if (anim && /\.png(\?|$)/i.test(iconUrl)) {
+      iconUrl = iconUrl.replace(/\.png(\?|$)/i, ".webp$1");
+    }
+    /* loadSyncPack1: no animated=true — still frame only */
+    return { iconUrl: iconUrl, anim: anim };
+  }
+
   function roleIcon(row) {
-    var iconUrl = String(row.roleIconUrl || "").trim();
+    var norm = normalizeDiscordRoleIconUrl(
+      row && row.roleIconUrl,
+      row && row.roleIconAnimated,
+    );
+    var iconUrl = norm.iconUrl;
+    var anim = norm.anim;
     if (/^https?:\/\//i.test(iconUrl)) {
-      return '<img class="vc-role-card-iconimg" src="' + esc(iconUrl) + '" alt="" width="52" height="52" loading="lazy" decoding="async" referrerpolicy="no-referrer" />';
+      return (
+        '<img class="vc-role-card-iconimg' +
+        (anim ? " is-animated" : "") +
+        '" src="' +
+        esc(iconUrl) +
+        '" alt="" width="52" height="52" loading="lazy" decoding="async" referrerpolicy="no-referrer" />'
+      );
     }
     var emoji = String(row.roleEmoji || "").trim();
     if (emoji) {
@@ -625,8 +658,75 @@
     );
   }
 
+  /* roleContrast1: nomi ruolo scuri leggibili su dark */
+  function readableDiscordRoleColor(input) {
+    var raw = String(input || "").trim();
+    if (!raw || raw === "transparent") return raw;
+    var r;
+    var g;
+    var b;
+    var m = raw.match(/^#([0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i);
+    if (m) {
+      var h = m[1];
+      if (h.length === 3) h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
+      if (h.length === 8) h = h.slice(0, 6);
+      r = parseInt(h.slice(0, 2), 16);
+      g = parseInt(h.slice(2, 4), 16);
+      b = parseInt(h.slice(4, 6), 16);
+    } else {
+      var m2 = raw.match(/^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/i);
+      if (!m2) return raw;
+      r = Number(m2[1]);
+      g = Number(m2[2]);
+      b = Number(m2[3]);
+    }
+    function lin(c) {
+      c = c / 255;
+      return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+    }
+    function hex(rr, gg, bb) {
+      return (
+        "#" +
+        [rr, gg, bb]
+          .map(function (x) {
+            return ("0" + Math.max(0, Math.min(255, x)).toString(16)).slice(-2);
+          })
+          .join("")
+      );
+    }
+    var L = 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+    if (L >= 0.36) return hex(r, g, b);
+    var mix = 0;
+    var outR = r;
+    var outG = g;
+    var outB = b;
+    while (L < 0.52 && mix < 0.95) {
+      mix += 0.05;
+      outR = Math.round(r + (255 - r) * mix);
+      outG = Math.round(g + (255 - g) * mix);
+      outB = Math.round(b + (255 - b) * mix);
+      L = 0.2126 * lin(outR) + 0.7152 * lin(outG) + 0.0722 * lin(outB);
+    }
+    return hex(outR, outG, outB);
+  }
+
   function renderCard(row) {
     var ownerName = String(row.ownerDisplayName || row.ownerUsername || "Utente").trim() || "Utente";
+    var roleColor = String((row && row.roleColor) || "").trim();
+    var roleNameText = roleColor ? readableDiscordRoleColor(roleColor) : "";
+    var nameInk = roleNameText || "#f2f3f5";
+    /* roleContrast1d: inline !important batte look-core title gradient (clip:text) */
+    var nameStyle =
+      " style=\"font-family:'gg sans',Inter,system-ui,sans-serif!important;font-weight:600!important;" +
+      (roleColor ? "--vc-role-name:" + esc(roleColor) + ";" : "") +
+      (roleNameText ? "--vc-role-name-text:" + esc(roleNameText) + ";" : "") +
+      "color:" +
+      esc(nameInk) +
+      "!important;-webkit-text-fill-color:" +
+      esc(nameInk) +
+      "!important;background:none!important;background-image:none!important;" +
+      "-webkit-background-clip:border-box!important;background-clip:border-box!important;" +
+      '"';
     var expiryChip = row.isPermanent
       ? '<span class="vc-role-chip vc-role-chip--perm"><i class="fa fa-link" aria-hidden="true"></i> Permanente</span>'
       : '<span class="vc-role-chip vc-role-chip--temp"><i class="fa fa-clock-o" aria-hidden="true"></i> ' + esc(formatDateIt(row.expiresAt)) + "</span>";
@@ -639,7 +739,11 @@
       roleSwatch(row) +
       "</div>" +
       '<div class="vc-role-card-topcopy">' +
-      '<h2 class="vc-role-card-name">' + esc(row.roleName || "Ruolo custom") + "</h2>" +
+      '<h2 class="vc-role-card-name vc-discord-entity" data-vc-emoji-skip="1"' +
+      nameStyle +
+      ">" +
+      esc(row.roleName || "Ruolo custom") +
+      "</h2>" +
       '<p class="vc-role-card-date"><i class="fa fa-calendar-o" aria-hidden="true"></i> ' + esc(formatDateIt(row.createdAt)) + "</p>" +
       "</div>" +
       "</div>" +
@@ -676,9 +780,19 @@
   }
 
   function renderModalRoleIcon(row) {
-    var iconUrl = String((row && row.roleIconUrl) || "").trim();
+    var norm = normalizeDiscordRoleIconUrl(
+      row && row.roleIconUrl,
+      row && row.roleIconAnimated,
+    );
+    var iconUrl = norm.iconUrl;
     if (/^https?:\/\//i.test(iconUrl)) {
-      return '<img class="vc-role-modal-iconimg" src="' + esc(iconUrl) + '" alt="" width="56" height="56" loading="lazy" decoding="async" referrerpolicy="no-referrer" />';
+      return (
+        '<img class="vc-role-modal-iconimg' +
+        (norm.anim ? " is-animated" : "") +
+        '" src="' +
+        esc(iconUrl) +
+        '" alt="" width="56" height="56" loading="lazy" decoding="async" referrerpolicy="no-referrer" />'
+      );
     }
     var emoji = String((row && row.roleEmoji) || "").trim();
     if (emoji) {
@@ -925,11 +1039,21 @@
   function renderRequestRoleIcon(row) {
     var icon = byId("vc-role-request-icon");
     if (!icon) return;
-    var iconUrl = String((row && row.roleIconUrl) || "").trim();
+    var norm = normalizeDiscordRoleIconUrl(
+      row && row.roleIconUrl,
+      row && row.roleIconAnimated,
+    );
+    var iconUrl = norm.iconUrl;
     var emoji = String((row && row.roleEmoji) || "").trim();
     var swatch = '<span class="vc-role-request-swatch" style="background:' + esc(String((row && row.roleColor) || "#f8fafc")) + '"></span>';
     if (/^https?:\/\//i.test(iconUrl)) {
-      icon.innerHTML = '<img class="vc-role-request-iconimg" src="' + esc(iconUrl) + '" alt="" width="56" height="56" loading="lazy" decoding="async" referrerpolicy="no-referrer" />' + swatch;
+      icon.innerHTML =
+        '<img class="vc-role-request-iconimg' +
+        (norm.anim ? " is-animated" : "") +
+        '" src="' +
+        esc(iconUrl) +
+        '" alt="" width="56" height="56" loading="lazy" decoding="async" referrerpolicy="no-referrer" />' +
+        swatch;
       return;
     }
     if (emoji) {
@@ -1576,9 +1700,53 @@
       throw lastErr || new Error("timeout");
     }
 
+    var paintedEarly = false;
+    function peekRolesCacheBody() {
+      try {
+        var key =
+          window.VcApiCache && typeof window.VcApiCache.keyFor === "function"
+            ? window.VcApiCache.keyFor(api, { scope: "roles", v: "roles5" })
+            : "roles:anon:roles5:" + api;
+        if (window.VcApiCache && typeof window.VcApiCache.peekBody === "function") {
+          var hit = window.VcApiCache.peekBody(key, {
+            ttlMs: 90000,
+            staleMs: 600000,
+            persistMs: 20 * 60 * 1000,
+          });
+          if (hit && hit.body && hit.body.ok === true) return hit.body;
+        }
+        var stores = [window.sessionStorage, window.localStorage];
+        var prefixes = ["vc:apicache:", "vc:apicache:local:"];
+        for (var s = 0; s < stores.length; s += 1) {
+          for (var p = 0; p < prefixes.length; p += 1) {
+            try {
+              var raw = stores[s] && stores[s].getItem(prefixes[p] + key);
+              if (!raw) continue;
+              var entry = JSON.parse(raw);
+              var val = entry && entry.value;
+              var body = val && val.body ? val.body : val;
+              if (body && body.ok === true && Array.isArray(body.rows)) return body;
+            } catch (_e) {}
+          }
+        }
+      } catch (_peek) {}
+      return null;
+    }
+
+    if (!silent && opts.bypassCache !== true) {
+      try {
+        var earlyBody = peekRolesCacheBody();
+        if (earlyBody) {
+          applyRolesPayload(earlyBody, true);
+          setLoading(false);
+          paintedEarly = true;
+        }
+      } catch (_early) {}
+    }
+
     if (!silent) {
       state.lastAppliedSummarySig = "";
-      setLoading(true, "Caricamento…", "Un momento…");
+      if (!paintedEarly) setLoading(true, "Caricamento…", "Un momento…");
       setState("", false);
     }
 
@@ -1594,9 +1762,12 @@
             persistMs: 20 * 60 * 1000,
             timeoutMs: 22000,
             onStale: function (cached) {
-              if (silent || !cached || !cached.body) return;
+              if (silent || paintedEarly || !cached || !cached.body) return;
               try {
                 applyRolesPayload(cached.body, true);
+                /* apiStaleFirst1: mostra subito lista stale, niente overlay 2–3s */
+                setLoading(false);
+                paintedEarly = true;
               } catch (eSt) {}
             },
           },
@@ -1674,7 +1845,7 @@
         try {
       window.setTimeout(function () {
         if (state.loading) setLoading(false);
-      }, 9000);
+      }, 1600);
     } catch (eFailsafe) {}
     window.addEventListener("vc-discord-profile", function () {
       if (state.activeRequestRoleId) {
@@ -1713,9 +1884,21 @@
 
   window.addEventListener("beforeunload", stopLiveRolesPolling);
 
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", main, { once: true });
-  } else {
-    main();
+  /* apiStaleFirst2: sync in fondo pagina — grid già nel DOM, non aspettare DCL/defer */
+  try {
+    if (byId("vc-roles-grid")) {
+      main();
+    } else if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", main, { once: true });
+    } else {
+      main();
+    }
+  } catch (eBoot) {
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", main, { once: true });
+    } else {
+      main();
+    }
   }
 })();
+/* apiStaleFirst2 */

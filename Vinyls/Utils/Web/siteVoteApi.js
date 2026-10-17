@@ -141,6 +141,137 @@ async function fetchUserIdentity(client, guild, userId, { allowFetch = false } =
   return out;
 }
 
+async function buildVoteBoardPayload(client, { searchUserId = "" } = {}) {
+  const guildId = resolveGuildId(client);
+  if (!guildId) {
+    const err = new Error("no_guild");
+    err.code = "no_guild";
+    throw err;
+  }
+  const guild =
+    client.guilds.cache.get(guildId) || (await client.guilds.fetch(guildId).catch(() => null));
+  if (!guild) {
+    const err = new Error("guild_unavailable");
+    err.code = "guild_unavailable";
+    throw err;
+  }
+
+  const docs = await ActivityUserProfile.find({
+    guildId,
+    $or: [
+      { "profile.totals.exp.bumpVoteRewards.discadia_vote.voteCount": { $gt: 0 } },
+      { "profile.totals.exp.bumpVoteRewards.discadia_vote.voteCountTopgg": { $gt: 0 } },
+      { "profile.totals.exp.bumpVoteRewards.discadia_vote.voteCountDiscadia": { $gt: 0 } },
+      { "profile.totals.exp.bumpVoteRewards.discadia_vote.prevVoteCountTopgg": { $gt: 0 } },
+      { "profile.totals.exp.bumpVoteRewards.discadia_vote.prevVoteCountDiscadia": { $gt: 0 } },
+    ],
+  })
+    .select("userId profile.totals.exp.bumpVoteRewards.discadia_vote")
+    .lean()
+    .catch(() => []);
+
+  const now = new Date();
+  const rowsBase = docs
+    .map((doc) => {
+      const counts = combinedVotesFromLeaf(voteLeaf(doc), now);
+      return {
+        userId: String(doc?.userId || ""),
+        votes: counts.total,
+        topggVotes: counts.topgg,
+        discadiaVotes: counts.discadia,
+      };
+    })
+    .filter((row) => row.userId && row.votes > 0)
+    .sort((a, b) => b.votes - a.votes || a.userId.localeCompare(b.userId));
+
+  // Do not filter by partial guild.members.cache — incomplete cache hid voters / empty board on phones.
+  const activeRowsBase = rowsBase.sort(
+    (a, b) => b.votes - a.votes || a.userId.localeCompare(b.userId),
+  );
+
+  const totalVotes = activeRowsBase.reduce((sum, row) => sum + row.votes, 0);
+  const topRowsBase = activeRowsBase.slice(0, 50);
+  /* voteIdentityFetch1: cache-only for deep ranks; Discord fetch for top 20 missing names. */
+  const identities = await Promise.all(
+    topRowsBase.map(async (base, i) => {
+      const cachedOnly = await fetchUserIdentity(client, guild, base.userId, {
+        allowFetch: false,
+      });
+      const needFetch =
+        i < 20 &&
+        (!cachedOnly.displayName ||
+          cachedOnly.displayName === "Utente" ||
+          !cachedOnly.username);
+      if (!needFetch) return cachedOnly;
+      return fetchUserIdentity(client, guild, base.userId, { allowFetch: true });
+    }),
+  );
+  const rows = topRowsBase.map((base, i) => {
+    const identity = identities[i] || {
+      username: "",
+      displayName: "Utente",
+      avatarUrl: "",
+    };
+    return {
+      rank: i + 1,
+      userId: base.userId,
+      username: identity.username,
+      displayName: identity.displayName,
+      avatarUrl: identity.avatarUrl,
+      votes: base.votes,
+      topggVotes: base.topggVotes,
+      discadiaVotes: base.discadiaVotes,
+    };
+  });
+
+  let personal = {
+    userId: searchUserId,
+    votes: 0,
+    topggVotes: 0,
+    discadiaVotes: 0,
+    rank: null,
+    topgg: platformVoteState(client, {}, "topgg"),
+    discadia: platformVoteState(client, {}, "discadia"),
+  };
+  if (searchUserId) {
+    const idx = activeRowsBase.findIndex((row) => row.userId === searchUserId);
+    const personalDoc = await ActivityUserProfile.findOne({ guildId, userId: searchUserId })
+      .select("profile.totals.exp.bumpVoteRewards.discadia_vote")
+      .lean()
+      .catch(() => null);
+    const personalLeaf = voteLeaf(personalDoc);
+    if (idx >= 0) {
+      personal = {
+        userId: searchUserId,
+        votes: activeRowsBase[idx].votes,
+        topggVotes: activeRowsBase[idx].topggVotes,
+        discadiaVotes: activeRowsBase[idx].discadiaVotes,
+        rank: idx + 1,
+        topgg: platformVoteState(client, personalLeaf, "topgg"),
+        discadia: platformVoteState(client, personalLeaf, "discadia"),
+      };
+    } else {
+      const c = combinedVotesFromLeaf(personalLeaf, now);
+      personal.votes = c.total;
+      personal.topggVotes = c.topgg;
+      personal.discadiaVotes = c.discadia;
+      personal.topgg = platformVoteState(client, personalLeaf, "topgg");
+      personal.discadia = platformVoteState(client, personalLeaf, "discadia");
+    }
+  }
+
+  return {
+    ok: true,
+    stats: {
+      totalVotes,
+      totalVoters: activeRowsBase.length,
+      goal: 1000,
+    },
+    personal,
+    rows,
+  };
+}
+
 async function handleSiteVoteGet(client, req, res) {
   try {
     const guildId = resolveGuildId(client);
@@ -160,137 +291,41 @@ async function handleSiteVoteGet(client, req, res) {
       });
     }
 
-    const guild =
-      client.guilds.cache.get(guildId) || (await client.guilds.fetch(guildId).catch(() => null));
-    if (!guild) {
-      return res.status(503).json({ ok: false, error: "guild_unavailable", message: "Guild non disponibile." });
-    }
-
-    const docs = await ActivityUserProfile.find({
-      guildId,
-      $or: [
-        { "profile.totals.exp.bumpVoteRewards.discadia_vote.voteCount": { $gt: 0 } },
-        { "profile.totals.exp.bumpVoteRewards.discadia_vote.voteCountTopgg": { $gt: 0 } },
-        { "profile.totals.exp.bumpVoteRewards.discadia_vote.voteCountDiscadia": { $gt: 0 } },
-        { "profile.totals.exp.bumpVoteRewards.discadia_vote.prevVoteCountTopgg": { $gt: 0 } },
-        { "profile.totals.exp.bumpVoteRewards.discadia_vote.prevVoteCountDiscadia": { $gt: 0 } },
-      ],
-    })
-      .select(
-        "userId profile.totals.exp.bumpVoteRewards.discadia_vote",
-      )
-      .lean()
-      .catch(() => []);
-
-    const now = new Date();
-    const rowsBase = docs
-      .map((doc) => {
-        const counts = combinedVotesFromLeaf(voteLeaf(doc), now);
-        return {
-          userId: String(doc?.userId || ""),
-          votes: counts.total,
-          topggVotes: counts.topgg,
-          discadiaVotes: counts.discadia,
-        };
-      })
-      .filter((row) => row.userId && row.votes > 0)
-      .sort((a, b) => b.votes - a.votes || a.userId.localeCompare(b.userId));
-
-    // Do not filter by partial guild.members.cache — incomplete cache hid voters / empty board on phones.
-    const activeRowsBase = rowsBase.sort(
-      (a, b) => b.votes - a.votes || a.userId.localeCompare(b.userId),
-    );
-
-    const totalVotes = activeRowsBase.reduce((sum, row) => sum + row.votes, 0);
-    const topRowsBase = activeRowsBase.slice(0, 50);
-    /* voteIdentityFetch1: cache-only for deep ranks; Discord fetch for top 20 missing names. */
-    const identities = await Promise.all(
-      topRowsBase.map(async (base, i) => {
-        const cachedOnly = await fetchUserIdentity(client, guild, base.userId, {
-          allowFetch: false,
-        });
-        const needFetch =
-          i < 20 &&
-          (!cachedOnly.displayName ||
-            cachedOnly.displayName === "Utente" ||
-            !cachedOnly.username);
-        if (!needFetch) return cachedOnly;
-        return fetchUserIdentity(client, guild, base.userId, { allowFetch: true });
-      }),
-    );
-    const rows = topRowsBase.map((base, i) => {
-      const identity = identities[i] || {
-        username: "",
-        displayName: "Utente",
-        avatarUrl: "",
-      };
-      return {
-        rank: i + 1,
-        userId: base.userId,
-        username: identity.username,
-        displayName: identity.displayName,
-        avatarUrl: identity.avatarUrl,
-        votes: base.votes,
-        topggVotes: base.topggVotes,
-        discadiaVotes: base.discadiaVotes,
-      };
-    });
-
-    let personal = {
-      userId: searchUserId,
-      votes: 0,
-      topggVotes: 0,
-      discadiaVotes: 0,
-      rank: null,
-      topgg: platformVoteState(client, {}, "topgg"),
-      discadia: platformVoteState(client, {}, "discadia"),
-    };
-    if (searchUserId) {
-      const idx = activeRowsBase.findIndex((row) => row.userId === searchUserId);
-      const personalDoc = await ActivityUserProfile.findOne({ guildId, userId: searchUserId })
-        .select("profile.totals.exp.bumpVoteRewards.discadia_vote")
-        .lean()
-        .catch(() => null);
-      const personalLeaf = voteLeaf(personalDoc);
-      if (idx >= 0) {
-        personal = {
-          userId: searchUserId,
-          votes: activeRowsBase[idx].votes,
-          topggVotes: activeRowsBase[idx].topggVotes,
-          discadiaVotes: activeRowsBase[idx].discadiaVotes,
-          rank: idx + 1,
-          topgg: platformVoteState(client, personalLeaf, "topgg"),
-          discadia: platformVoteState(client, personalLeaf, "discadia"),
-        };
-      } else {
-        const c = combinedVotesFromLeaf(personalLeaf, now);
-        personal.votes = c.total;
-        personal.topggVotes = c.topgg;
-        personal.discadiaVotes = c.discadia;
-        personal.topgg = platformVoteState(client, personalLeaf, "topgg");
-        personal.discadia = platformVoteState(client, personalLeaf, "discadia");
-      }
-    }
-
-    const payload = {
-      ok: true,
-      stats: {
-        totalVotes,
-        totalVoters: activeRowsBase.length,
-        goal: 1000,
-      },
-      personal,
-      rows,
-    };
+    const payload = await buildVoteBoardPayload(client, { searchUserId });
     cacheSet(cacheKey, payload);
     return sendJsonWithEtag(req, res, payload, {
       cacheControl: "public, max-age=30",
       etag: weakEtagFromJson(payload),
     });
   } catch (err) {
+    if (err?.code === "no_guild") {
+      return res.status(503).json({ ok: false, error: "no_guild", message: "Guild non configurata." });
+    }
+    if (err?.code === "guild_unavailable") {
+      return res
+        .status(503)
+        .json({ ok: false, error: "guild_unavailable", message: "Guild non disponibile." });
+    }
     global.logger?.error?.("[WEBHOOK] site-vote:", err);
     return res.status(500).json({ ok: false, error: "internal" });
   }
 }
 
-module.exports = { handleSiteVoteGet };
+/* apiWarmSwr2: board anonima (no userId) — evita cold Discord identity su /vota */
+async function warmSiteVoteBoardCache(client) {
+  try {
+    const guildId = resolveGuildId(client);
+    if (!guildId) return null;
+    const cacheKey = `vote:v3:${guildId}:-`;
+    const hit = cacheGet(cacheKey);
+    if (hit) return hit;
+    const payload = await buildVoteBoardPayload(client, { searchUserId: "" });
+    cacheSet(cacheKey, payload);
+    return payload;
+  } catch (err) {
+    global.logger?.warn?.("[site-vote] warm:", err?.message || err);
+    return null;
+  }
+}
+
+module.exports = { handleSiteVoteGet, warmSiteVoteBoardCache };

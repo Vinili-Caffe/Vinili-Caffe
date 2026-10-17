@@ -128,7 +128,6 @@
     "enabled": true,
     "syncOnStartup": true,
     "skipBotDetectionFor": [
-      "word_blacklist",
       "mention_everyone",
       "mention_hour_cap"
     ],

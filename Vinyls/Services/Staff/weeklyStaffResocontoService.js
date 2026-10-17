@@ -929,6 +929,9 @@ function overviewLooksLikeEmptyFallback(overview) {
 }
 
 function isStaffRolesHistoryPexRow(row) {
+  const kind = String(row?.kind || "").trim().toLowerCase();
+  if (kind === "pex") return true;
+  if (kind === "depex") return false;
   const oldRole = String(row?.oldRole || "");
   const newRole = String(row?.newRole || "");
   const oldRank = RESOCONTO_ROLE_RANK.has(oldRole) ? Number(RESOCONTO_ROLE_RANK.get(oldRole)) : null;
@@ -1013,13 +1016,19 @@ function wasPexedOnResocontoDay(staffDoc, referenceNow = new Date()) {
 }
 
 function shouldSkipLimitAutovalutazioniForStaffMember({
+  graceNewStaffRole = false,
   wasPexedResocontoDay = false,
-}) {
-  return Boolean(wasPexedResocontoDay);
+} = {}) {
+  /* resoNewStaffGrace2: auto-val limiti solo skip per Member→staff (nuovo), non helper→mod */
+  return Boolean(graceNewStaffRole || wasPexedResocontoDay);
 }
 
-function shouldSkipSanctionAutovalutazioniForStaffMember() {
-  return false;
+function shouldSkipSanctionAutovalutazioniForStaffMember({
+  graceNewStaffRole = false,
+  wasPexedResocontoDay = false,
+} = {}) {
+  /* resoNewStaffGrace2: niente auto-val sanzioni ai nuovi in staff (Member→staff) */
+  return Boolean(graceNewStaffRole || wasPexedResocontoDay);
 }
 
 function computeStaffAction(activityGrade, behaviorGrade, pexedInWeek, positiveCount, negativeCount) {
@@ -1431,29 +1440,53 @@ function wasPromotedToRoleInWindow(staffDoc, roleId, windowStart, windowEndExclu
 }
 
 function wasFirstStaffPromotionFromMemberInWindow(staffDoc, roleId, windowStart, windowEndExclusive) {
-  const targetRoleId = String(roleId || "");
   const memberRoleId = String(IDs.roles.Member || "").trim();
-  if (!targetRoleId || !windowStart || !windowEndExclusive) return false;
-  const staffTrackRoleIds = new Set(STAFF_ROLE_PRIORITY.map((id) => String(id)));
+  if (!windowStart || !windowEndExclusive) return false;
+  const staffLadderRoleIds = new Set(STAFF_ROLE_PRIORITY.map((id) => String(id)).filter(Boolean));
   const pmRoleId = String(IDs.roles.PartnerManager || "").trim();
-  if (pmRoleId) staffTrackRoleIds.add(pmRoleId);
-
-  const history = Array.isArray(staffDoc?.rolesHistory) ? staffDoc.rolesHistory : [];
   const t0 = windowStart.getTime();
   const t1 = windowEndExclusive.getTime();
-  return history.some((row) => {
-    if (String(row?.newRole || "") !== targetRoleId) return false;
-    if (!isStaffRolesHistoryPexRow(row)) return false;
+
+  /* resoNewStaffGrace2: grace SOLO ingresso vero in staff
+     - Member → qualsiasi ruolo staff/PM
+     - PM → ladder staff (Helper+)
+     NON helper→mod / pex interni ladder (quelli restano soggetti ad auto-val limiti). */
+  const rowIsNewStaffEntry = (row) => {
+    if (!row) return false;
+    const kind = String(row?.kind || "").trim().toLowerCase();
+    if (kind === "depex") return false;
     const when = row?.date ? new Date(row.date) : null;
     if (!when || Number.isNaN(when.getTime())) return false;
     const ms = when.getTime();
     if (ms < t0 || ms >= t1) return false;
+    const newRole = String(row?.newRole || "").trim();
     const oldRole = String(row?.oldRole || "").trim();
+    if (!newRole) return false;
+
+    const newIsLadder = staffLadderRoleIds.has(newRole);
+    const newIsPm = Boolean(pmRoleId && newRole === pmRoleId);
+    if (!newIsLadder && !newIsPm) return false;
+
+    /* helper→mod ecc.: old già in ladder → mai grace */
+    if (oldRole && staffLadderRoleIds.has(oldRole)) return false;
+
+    const looksLikePex =
+      kind === "pex" ||
+      isStaffRolesHistoryPexRow(row) ||
+      (memberRoleId && oldRole === memberRoleId) ||
+      (pmRoleId && oldRole === pmRoleId && newIsLadder);
+
+    if (!looksLikePex) return false;
+
     if (memberRoleId && oldRole === memberRoleId) return true;
-    if (pmRoleId && oldRole === pmRoleId && targetRoleId !== pmRoleId) return true;
-    if (oldRole && staffTrackRoleIds.has(oldRole)) return false;
+    if (pmRoleId && oldRole === pmRoleId && newIsLadder) return true;
     return false;
-  });
+  };
+
+  const history = Array.isArray(staffDoc?.rolesHistory) ? staffDoc.rolesHistory : [];
+  if (history.some(rowIsNewStaffEntry)) return true;
+  const track = Array.isArray(staffDoc?.trackHistory) ? staffDoc.trackHistory : [];
+  return track.some(rowIsNewStaffEntry);
 }
 
 function computePmAction(weeklyPartners, pmPexedInWeek) {
@@ -2126,7 +2159,7 @@ async function applyWeeklyStaffAutoValutazioniForMember({
   const weeklySanctions = sanctionCountByModId?.get?.(userId) || 0;
   const metWeeklySanctionLimit =
     sanctionLimit != null && weeklySanctions >= sanctionLimit;
-  if (metWeeklySanctionLimit && !skipSanctionAutovalutazione) {
+  if (metWeeklySanctionLimit && !skipSanctionAutovalutazione && !graceNewStaffRole) {
     sanctionsResult = await ensureWeeklyLimitAutoValutazione({
       guild,
       member,
@@ -2143,6 +2176,8 @@ async function applyWeeklyStaffAutoValutazioniForMember({
       );
       return { ok: false };
     });
+  } else if (graceNewStaffRole && metWeeklySanctionLimit) {
+    sanctionsResult = { ok: true, skipped: "grace_new_role" };
   }
 
   if (reachedTripleWeeklyLimits && !inPauseAtLeastOneDay && guild?.id && userId) {
@@ -2694,9 +2729,13 @@ async function runWeeklyStaffResocontoSegment(client, segment, opts = {}) {
       matchStaffSegment &&
       (wasPexedResocontoDay || alreadyHadStaffResocontoThisCycle);
     const skipLimitAutovalutazione = shouldSkipLimitAutovalutazioniForStaffMember({
+      graceNewStaffRole,
       wasPexedResocontoDay,
     });
-    const skipSanctionAutovalutazione = shouldSkipSanctionAutovalutazioniForStaffMember();
+    const skipSanctionAutovalutazione = shouldSkipSanctionAutovalutazioniForStaffMember({
+      graceNewStaffRole,
+      wasPexedResocontoDay,
+    });
     if (matchStaffSegment && alreadyHadStaffResocontoThisCycle) completedCount += 1;
     if (matchStaffSegment && alreadyHadStaffResocontoThisCycle) skippedCounts.alreadyPosted += 1;
     if (matchStaffSegment && wasPexedResocontoDay) skippedCounts.pexWindow += 1;
@@ -3321,9 +3360,13 @@ async function runWeeklyLimitAutoValutazioniCatchupSegment(client, segment, now 
     );
     const wasPexedResocontoDay = wasPexedOnResocontoDay(staffDoc, now);
     const skipLimitAutovalutazione = shouldSkipLimitAutovalutazioniForStaffMember({
+      graceNewStaffRole,
       wasPexedResocontoDay,
     });
-    const skipSanctionAutovalutazione = shouldSkipSanctionAutovalutazioniForStaffMember();
+    const skipSanctionAutovalutazione = shouldSkipSanctionAutovalutazioniForStaffMember({
+      graceNewStaffRole,
+      wasPexedResocontoDay,
+    });
     const limitsKey = `weekly_limits:${resocontoWeekKey}:${staffRoleId}`;
     const sanctionsKey = `weekly_sanzioni:${resocontoWeekKey}:${staffRoleId}`;
     const limitsEntry = findAutoValutazioneEntry(staffDoc, limitsKey);

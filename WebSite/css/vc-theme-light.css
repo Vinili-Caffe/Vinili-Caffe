@@ -1,7 +1,7 @@
-/* vcThemeLightFull1: tema chiaro completo Ã¢ÃÂÃÂ batte soft-fx (token + wash + fill) */
+/* vcThemeLightFull1: tema chiaro completo — batte soft-fx (token + wash + fill) */
 
 /* ------------------------------------------------------------------ */
-/* 1) Token look Ã¢ÃÂÃÂ ink mocha su sabbia                                  */
+/* 1) Token look — ink mocha su sabbia                                  */
 /* ------------------------------------------------------------------ */
 html[data-vc-theme="light"],
 html.vc-site-polish[data-vc-theme="light"],
@@ -69,11 +69,14 @@ html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) {
 /* ------------------------------------------------------------------ */
 /* 2) Body / page canvas                                                */
 /* ------------------------------------------------------------------ */
-html[data-vc-theme="light"],
-html[data-vc-theme="light"] body,
-html[data-vc-theme="light"] body.vc-body,
-html.vc-site-polish[data-vc-theme="light"] body.vc-body,
-html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body {
+html[data-vc-theme="light"] {
+  color-scheme: light !important;
+}
+/* boardsSchedaBgFade1: cream solo fuori scheda bacheca (default/accent fill) */
+html[data-vc-theme="light"]:not(.vc-boards-page-banner-bg) body,
+html[data-vc-theme="light"]:not(.vc-boards-page-banner-bg) body.vc-body,
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-boards-page-banner-bg) body.vc-body,
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off):not(.vc-boards-page-banner-bg) body.vc-body {
   color: var(--vc-look-text) !important;
   background-color: #efe6dc !important;
   background-image:
@@ -84,9 +87,9 @@ html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body {
   color-scheme: light !important;
 }
 
-html[data-vc-theme="light"] body.vc-body::before,
-html.vc-site-polish[data-vc-theme="light"] body.vc-body::before,
-html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body::before {
+html[data-vc-theme="light"]:not(.vc-boards-page-banner-bg) body.vc-body::before,
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-boards-page-banner-bg) body.vc-body::before,
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off):not(.vc-boards-page-banner-bg) body.vc-body::before {
   background:
     radial-gradient(ellipse 88% 72% at 52% 0%, rgba(255, 248, 238, 0.55), transparent 56%),
     radial-gradient(ellipse 72% 54% at 100% 100%, rgba(212, 168, 136, 0.16), transparent 46%) !important;
@@ -198,7 +201,7 @@ html[data-vc-theme="light"] :is(
 }
 
 /* ------------------------------------------------------------------ */
-/* 3b) Card / nav wash Ã¢ÃÂÃÂ specificitÃÂÃ  = soft-fx perf/photo/home          */
+/* 3b) Card / nav wash — specificità = soft-fx perf/photo/home          */
 /* ------------------------------------------------------------------ */
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body--home :is(
   .vc-hero-head,
@@ -333,7 +336,7 @@ html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body :is
 }
 
 /* ------------------------------------------------------------------ */
-/* 5) Typography Ã¢ÃÂÃÂ fill + TW remaps                                     */
+/* 5) Typography — fill + TW remaps                                     */
 /* ------------------------------------------------------------------ */
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body :is(
   main p:not(.vc-pers-hub__kicker):not(.vc-staff-compiti-book *):not(.vc-cmd-pill):not(.vc-user-profile-id):not(.vc-user-profile-handle):not(.vc-user-profile-block__sub):not(.vc-user-profile-stat__label):not(.vc-user-profile-levelbar__meta):not(.vc-candidature-notice-msg),
@@ -354,7 +357,7 @@ html[data-vc-theme="light"] :is(p, .vc-page-cine-lead, .vc-muted, .vc-hero-about
   background-clip: border-box !important;
 }
 
-/* candNoticeCream1: gate charcoal forever Ã¢ÃÂÃÂ keep cream even when light look-text is mocha */
+/* candNoticeCream1: gate charcoal forever — keep cream even when light look-text is mocha */
 html[data-vc-theme="light"] body.vc-candidature-page #vc-candidature-gate .vc-candidature-notice-msg,
 html[data-vc-theme="light"] body.vc-candidature-page #vc-candidature-gate .vc-candidature-notice-ico,
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body.vc-candidature-page #vc-candidature-gate .vc-candidature-notice-msg,
@@ -426,9 +429,12 @@ html[data-vc-theme="light"] footer.vc-premium-footer .vc-premium-footer__inner {
 
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body > footer.vc-premium-footer .vc-premium-footer__outer::after,
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body footer.vc-premium-footer .vc-premium-footer__outer::after {
-  opacity: 0.35 !important;
-  filter: invert(0) !important;
-  background: radial-gradient(ellipse 80% 60% at 50% 0%, rgba(212, 168, 136, 0.2), transparent 70%) !important;
+  /* 20261014footerNavRing1: light = stesso anello navbar light */
+  opacity: 1 !important;
+  filter: none !important;
+  -webkit-filter: none !important;
+  background: var(--vc-nav-shell-ring-light, var(--vc-nav-ring-light)) !important;
+  background-image: var(--vc-nav-shell-ring-light, var(--vc-nav-ring-light)) !important;
 }
 
 html[data-vc-theme="light"] .vc-premium-footer__social {
@@ -517,6 +523,18 @@ html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body :is
   color: #2a1c14 !important;
   -webkit-text-fill-color: #2a1c14 !important;
 }
+/* boardsReviewsEmptyCard1: sort recensioni su scheda cine scura — non cream/testo scuro */
+html[data-vc-theme="light"] body.vc-boards-page #vc-boards-reviews-sort,
+html[data-vc-theme="light"] body.vc-boards-page .vc-boards-reviews__sort select,
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body.vc-boards-page #vc-boards-reviews-sort,
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body.vc-boards-page .vc-boards-reviews__sort select {
+  background: #1c1713 !important;
+  background-color: #1c1713 !important;
+  background-image: none !important;
+  border-color: #5a4536 !important;
+  color: #f7f1ea !important;
+  -webkit-text-fill-color: #f7f1ea !important;
+}
 
 html[data-vc-theme="light"] :is(input, textarea, select)::placeholder {
   color: rgba(58, 40, 28, 0.45) !important;
@@ -525,7 +543,7 @@ html[data-vc-theme="light"] :is(input, textarea, select)::placeholder {
 
 /* ------------------------------------------------------------------ */
 /* 9) Theme switcher (themeToggleBothIcons2f)                            */
-/* sole sx + luna dx nella track Ã¢ÃÂÃÂ knob scorre sopra                    */
+/* sole sx + luna dx nella track — knob scorre sopra                    */
 /* ------------------------------------------------------------------ */
 .vc-theme-switch {
   --vc-ts-w: 74px;
@@ -727,7 +745,7 @@ html[data-vc-theme="light"] .vc-theme-switch__knob {
     scale(0.92);
 }
 
-/* ÃÂÃ© | switch | policy Ã¢ÃÂÃÂ desktop 3 col; mobile stack (footerThemeMobile1) */
+/* © | switch | policy — desktop 3 col; mobile stack (footerThemeMobile1) */
 .vc-premium-footer__legal {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
@@ -763,7 +781,7 @@ html[data-vc-theme="light"] .vc-theme-switch__knob {
   min-width: 0;
 }
 
-/* desktop only: batte soft-fx Ã¢ÃÂÃÂ switch in mezzo sulla stessa riga */
+/* desktop only: batte soft-fx — switch in mezzo sulla stessa riga */
 @media (min-width: 721px) {
   html.vc-site-polish body.vc-body > footer.vc-premium-footer .vc-premium-footer__legal > .vc-theme-switch,
   html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body > footer.vc-premium-footer .vc-premium-footer__legal > .vc-theme-switch,
@@ -777,7 +795,7 @@ html[data-vc-theme="light"] .vc-theme-switch__knob {
   }
 }
 
-/* mobile: 1 colonna Ã¢ÃÂÃÂ ÃÂÃ© / switch / policy. Mai grid-column:2 (rompeva il ÃÂÃ© a 0px) */
+/* mobile: 1 colonna — © / switch / policy. Mai grid-column:2 (rompeva il © a 0px) */
 @media (max-width: 720px) {
   html.vc-site-polish body.vc-body > footer.vc-premium-footer .vc-premium-footer__legal,
   html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body > footer.vc-premium-footer .vc-premium-footer__legal,
@@ -882,12 +900,12 @@ html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body :is
   .vc-home-cine-hero .vc-brand-glow,
   .vc-staff-hub-card h2,
   .vc-staff-block h2
-),
+):not(.vc-has-emoji),
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body :is(
   .vc-brand-glow,
   .vc-page-cine-title,
   .vc-page-cine-hero h1
-) span:not(.vc-emoji):not(.vc-sponsor-emoji) {
+):not(.vc-has-emoji) span:not(.vc-emoji):not(.vc-sponsor-emoji) {
   background-color: transparent !important;
   background-image: var(--vc-look-grad-title) !important;
   -webkit-background-clip: text !important;
@@ -1086,7 +1104,7 @@ html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top
   animation: none !important;
 }
 
-/* themeLightFull7c: lead/p soft-fx grad-text Ã¢ÃÂÃÂ stessa catena :not() */
+/* themeLightFull7c: lead/p soft-fx grad-text — stessa catena :not() */
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top main :is(
   p:not(.vc-staff-compiti-book *):not(.vc-cmd-pill):not(.vc-stat-label):not(.vc-stat-num):not(.vc-stat-247):not(.vc-user-profile-id):not(.vc-user-profile-handle):not(.vc-user-profile-block__sub):not(.vc-user-profile-stat__label):not(.vc-user-profile-levelbar__meta):not(.vc-candidature-notice-msg),
   .vc-page-cine-lead,
@@ -1299,8 +1317,9 @@ html.vc-site-polish[data-vc-theme="light"] body.vc-body#top #vc-page-intro .vc-h
   -webkit-backdrop-filter: none !important;
 }
 
-html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-intro .vc-hero-head:not(#discord-login-btn) :is(p,span,a,.text-white,.vc-muted):not(h1):not(h2):not(h3):not(.vc-brand-glow):not(.vc-page-cine-title):not(.vc-hero-brand-pre):not(.vc-hero-brand-caffe):not(.text-emerald-300):not(.vc-vote-platform-cta):not(.vc-vote-more-btn):not(.vc-vote-more-btn--primary):not(.vc-vote-platform-ico):not(.vc-regole-disclaimer):not(#vc-regole-disclaimer):not(.vc-support-donate-refund-note):not(a.vc-header-pill):not(a.vc-home-cine-cta):not(.vc-btn-sand):not(.horiz-cta):not(.vc-cmd-pill),
-html.vc-site-photo-bg.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-intro .vc-hero-head:not(#discord-login-btn) :is(p,span,a,.text-white,.vc-muted):not(h1):not(h2):not(h3):not(.vc-brand-glow):not(.vc-page-cine-title):not(.vc-hero-brand-pre):not(.vc-hero-brand-caffe):not(.text-emerald-300):not(.vc-vote-platform-cta):not(.vc-vote-more-btn):not(.vc-vote-more-btn--primary):not(.vc-vote-platform-ico):not(.vc-regole-disclaimer):not(#vc-regole-disclaimer):not(.vc-support-donate-refund-note):not(a.vc-header-pill):not(a.vc-home-cine-cta):not(.vc-btn-sand):not(.horiz-cta):not(.vc-cmd-pill),
+/* innerCardConic3: :is(...,a,...) non deve wipe-are a.vc-vote-platform-card (conic interno) */
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-intro .vc-hero-head:not(#discord-login-btn) :is(p,span,a,.text-white,.vc-muted):not(h1):not(h2):not(h3):not(.vc-brand-glow):not(.vc-page-cine-title):not(.vc-hero-brand-pre):not(.vc-hero-brand-caffe):not(.text-emerald-300):not(.vc-vote-platform-cta):not(.vc-vote-more-btn):not(.vc-vote-more-btn--primary):not(.vc-vote-platform-ico):not(.vc-vote-platform-card):not(a.vc-vote-platform-card):not(.vc-regole-disclaimer):not(#vc-regole-disclaimer):not(.vc-support-donate-refund-note):not(a.vc-header-pill):not(a.vc-home-cine-cta):not(.vc-btn-sand):not(.horiz-cta):not(.vc-cmd-pill),
+html.vc-site-photo-bg.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-intro .vc-hero-head:not(#discord-login-btn) :is(p,span,a,.text-white,.vc-muted):not(h1):not(h2):not(h3):not(.vc-brand-glow):not(.vc-page-cine-title):not(.vc-hero-brand-pre):not(.vc-hero-brand-caffe):not(.text-emerald-300):not(.vc-vote-platform-cta):not(.vc-vote-more-btn):not(.vc-vote-more-btn--primary):not(.vc-vote-platform-ico):not(.vc-vote-platform-card):not(a.vc-vote-platform-card):not(.vc-regole-disclaimer):not(#vc-regole-disclaimer):not(.vc-support-donate-refund-note):not(a.vc-header-pill):not(a.vc-home-cine-cta):not(.vc-btn-sand):not(.horiz-cta):not(.vc-cmd-pill),
 html.vc-site-polish[data-vc-theme="light"] body.vc-body#top #vc-page-intro .vc-hero-head :is(p,.text-white):not(h1):not(h2):not(h3):not(.vc-brand-glow):not(.vc-page-cine-title):not(.vc-hero-brand-pre):not(.vc-hero-brand-caffe):not(.text-emerald-300):not(.vc-vote-platform-cta):not(.vc-vote-more-btn--primary):not(.vc-regole-disclaimer):not(#vc-regole-disclaimer):not(.vc-support-donate-refund-note):not(.vc-cmd-pill) {
   color: #2a1c14 !important;
   -webkit-text-fill-color: #2a1c14 !important;
@@ -1334,7 +1353,7 @@ html[data-vc-theme="light"] body.vc-body .vc-necessity-banner__text {
   -webkit-text-fill-color: #2a1c14 !important;
 }
 
-/* tipCardsRestore1 was tipBoxKill1 Ã¢ÃÂÃÂ tip CARD restano card (solo wrapper aside = transparent) */
+/* tipCardsRestore1 was tipBoxKill1 — tip CARD restano card (solo wrapper aside = transparent) */
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-intro .vc-page-cine-aside-inline .grid > [class*="rounded-"]:not(button):not(a):not(img):not(svg):not(input):not(#discord-login-btn),
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-intro .vc-hero-head .grid > [class*="rounded-"]:not(button):not(a):not(img):not(svg):not(input):not(#discord-login-btn),
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-intro .vc-support-page-hero .grid > [class*="rounded-"]:not(button):not(a):not(img):not(svg):not(input):not(#discord-login-btn),
@@ -1364,7 +1383,7 @@ html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top
   -webkit-text-fill-color: #2a1c14 !important;
 }
 
-/* necessity pill Ã¢ÃÂÃÂ kill dark layered gradients */
+/* necessity pill — kill dark layered gradients */
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top .vc-necessity-banner__pill:not(#discord-login-btn),
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body .vc-necessity-banner__pill:not(#discord-login-btn),
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-content .vc-necessity-banner__pill:not(#discord-login-btn),
@@ -1493,7 +1512,7 @@ html.vc-site-polish[data-vc-theme="light"] .vc-home-scrollcue {
   }
 }
 
-/* voteCtaReadable3: specificitÃÂÃ  >= wipe light hero/span */
+/* voteCtaReadable3: specificità >= wipe light hero/span */
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body .vc-support-page-hero .vc-vote-platform-cta,
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top .vc-support-page-hero .vc-vote-platform-cta,
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-vote-page .vc-support-page-hero .vc-vote-platform-cta,
@@ -1515,7 +1534,7 @@ html body.vc-vote-page .vc-vote-platform-cta {
 }
 
 /* ------------------------------------------------------------------ */
-/* themeLightFull10: finish light Ã¢ÃÂÃÂ CTA ghost, gate, app shells, chrome */
+/* themeLightFull10: finish light — CTA ghost, gate, app shells, chrome */
 /* ------------------------------------------------------------------ */
 
 html[data-vc-theme="light"] body,
@@ -1760,24 +1779,29 @@ html[data-vc-theme="light"] #vc-mobile-nav-toggle i {
   opacity: 1 !important;
 }
 
-/* Header promo capsule (Candidature APERTE) */
+/* Header promo capsule (Candidature APERTE) — navPromoGhost1: fill opaco + testo scuro
+   (transparent + testo cream = fantasma dietro/nella navbar in light) */
 html[data-vc-theme="light"] .vc-header-promo-btn,
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body .vc-header-promo-btn,
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top .vc-header-promo-btn {
   background-color: #f3ebe3 !important;
   background-image:
-    linear-gradient(#f3ebe3, #ebe1d6),
-    linear-gradient(135deg, rgba(212, 168, 136, 0.5), rgba(111, 78, 55, 0.3)) !important;
+    linear-gradient(#fffaf4, #ebe1d6),
+    linear-gradient(135deg, rgba(212, 168, 136, 0.65), rgba(111, 78, 55, 0.4)) !important;
   background-origin: padding-box, border-box !important;
   background-clip: padding-box, border-box !important;
   -webkit-background-clip: padding-box, border-box !important;
   border: 1px solid transparent !important;
-  color: #2a1c14 !important;
-  -webkit-text-fill-color: #2a1c14 !important;
+  border-color: transparent !important;
+  color: #1a120e !important;
+  -webkit-text-fill-color: #1a120e !important;
+  box-shadow: none !important;
 }
 html[data-vc-theme="light"] .vc-header-promo-btn :is(.vc-header-promo-btn__label, .vc-header-promo-btn__badge, span) {
-  color: #2a1c14 !important;
-  -webkit-text-fill-color: #2a1c14 !important;
+  color: #1a120e !important;
+  -webkit-text-fill-color: #1a120e !important;
+  background-image: none !important;
+  opacity: 1 !important;
 }
 
 /* Cookie accept: dark ink on sand */
@@ -1906,7 +1930,7 @@ html.vc-site-polish[data-vc-theme="light"] .vc-header-promo-btn .vc-header-promo
 }
 
 /* ------------------------------------------------------------------ */
-/* themeLightFull11b: ID-level wash Ã¢ÃÂÃÂ batte soft-fx cardWashGrad1h (#top #vc-page-content) */
+/* themeLightFull11b: ID-level wash — batte soft-fx cardWashGrad1h (#top #vc-page-content) */
 /* ------------------------------------------------------------------ */
 html.vc-site-photo-bg.vc-perf-mid.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-content :is(
   .vc-home-deck,
@@ -2044,29 +2068,56 @@ html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top
   opacity: 1 !important;
 }
 
-/* Brand wordmark: solid ink (kill metal clip-text on cream nav) */
+/* wmGradUl2: brand wordmark = metallo clip (host/track trasparenti; __text gradient) */
 html.vc-site-photo-bg.vc-perf-mid.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top header :is(
   a.vc-header-site-name,
-  .vc-header-site-name__text,
-  .vc-header-site-name__track,
-  .vc-nav-brand-text,
-  a.vc-header-site-name > span
+  .vc-header-site-name__track
 ),
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top header :is(
   a.vc-header-site-name,
-  .vc-header-site-name__text,
-  .vc-header-site-name__track,
-  .vc-nav-brand-text,
-  a.vc-header-site-name > span
+  .vc-header-site-name__track
 ),
-html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body header a.vc-header-site-name,
-html[data-vc-theme="light"] body.vc-body header a.vc-header-site-name .vc-header-site-name__text {
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body header a.vc-header-site-name {
   background: none !important;
   background-image: none !important;
   -webkit-background-clip: border-box !important;
   background-clip: border-box !important;
-  color: #1a120e !important;
-  -webkit-text-fill-color: #1a120e !important;
+  color: transparent !important;
+  -webkit-text-fill-color: transparent !important;
+  text-shadow: none !important;
+  filter: none !important;
+  opacity: 1 !important;
+}
+html.vc-site-photo-bg.vc-perf-mid.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top header :is(
+  .vc-header-site-name__text,
+  .vc-nav-brand-text,
+  a.vc-header-site-name > span:not(.vc-header-site-name__track)
+),
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top header :is(
+  .vc-header-site-name__text,
+  .vc-nav-brand-text,
+  a.vc-header-site-name > span:not(.vc-header-site-name__track)
+),
+html[data-vc-theme="light"] body.vc-body header a.vc-header-site-name .vc-header-site-name__text,
+html[data-vc-theme="light"] body.vc-body header a.vc-header-site-name.is-marquee .vc-header-site-name__text,
+html[data-vc-theme="light"] body.vc-body header a.vc-header-site-name.is-marquee .vc-header-site-name__text.is-clone {
+  /* wmUlUnify2: light con picco chiaro */
+  background-image: linear-gradient(
+    180deg,
+    #3a281c 0%,
+    #6f4e37 16%,
+    #a67c52 32%,
+    #f0e0c8 50%,
+    #a67c52 68%,
+    #6f4e37 84%,
+    #3a281c 100%
+  ) !important;
+  background-color: transparent !important;
+  background-size: 100% 100% !important;
+  -webkit-background-clip: text !important;
+  background-clip: text !important;
+  color: transparent !important;
+  -webkit-text-fill-color: transparent !important;
   text-shadow: none !important;
   filter: none !important;
   opacity: 1 !important;
@@ -2189,7 +2240,7 @@ html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top
   animation: vc-nav-glow-spin 8s linear infinite !important;
 }
 
-/* themeLightFull11c: batte cardStaticGlow1 :is(#statsÃ¢ÃÂÃ¦:not(:has())) Ã¢ÃÂÃÂ stessa max-spec + light */
+/* themeLightFull11c: batte cardStaticGlow1 :is(#stats…:not(:has())) — stessa max-spec + light */
 html.vc-site-photo-bg.vc-perf-mid.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-content :is(
   .vc-home-deck,
   .vc-home-index,
@@ -2528,7 +2579,7 @@ html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body hea
 }
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top header .vc-nav-shell,
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top header .vc-nav-shell.vc-glass {
-  /* navChromeGradBorder1: niente alone sand Ã¢ÃÂÃÂ bordo = ::after */
+  /* navChromeGradBorder1: niente alone sand — bordo = ::after */
   box-shadow: none !important;
 }
 
@@ -2536,7 +2587,7 @@ html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body > footer.vc-premium-footer .vc-premium-footer__outer,
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body footer.vc-premium-footer .vc-premium-footer__outer,
 html[data-vc-theme="light"] footer.vc-premium-footer .vc-premium-footer__outer {
-  border-radius: 1.35rem !important;
+  border-radius: 1.25rem !important;
   overflow: hidden !important;
   box-shadow:
     0 14px 36px rgba(60, 40, 24, 0.12),
@@ -2566,7 +2617,7 @@ html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body foo
   border-radius: inherit !important;
 }
 
-/* Divisori piÃÂÃ¹ visibili in light */
+/* Divisori più visibili in light */
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-content .vc-home-index__col + .vc-home-index__col,
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-content .vc-stat-strip > * + *,
 html.vc-site-polish[data-vc-theme="light"] .vc-home-index [class*="col"] + [class*="col"],
@@ -2587,25 +2638,49 @@ html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top
 }
 
 
-/* themeLightPolish2Dividers: divisori scuri leggibili su cream */
+/* themeLightPolish2Dividers + footerSepWarm2: mocha su cream, no neon bianco */
+html.vc-site-polish[data-vc-theme="light"] {
+  --vc-sep-v: linear-gradient(
+    180deg,
+    rgba(111, 78, 55, 0) 0%,
+    rgba(111, 78, 55, 0.22) 18%,
+    rgba(111, 78, 55, 0.48) 50%,
+    rgba(111, 78, 55, 0.22) 82%,
+    rgba(111, 78, 55, 0) 100%
+  );
+  --vc-sep-glow: none;
+}
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-content .vc-home-index__col + .vc-home-index__col::before,
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body--home .vc-home-index__col + .vc-home-index__col::before,
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body #stats .vc-stat-cell + .vc-stat-cell::before,
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body .vc-stat-strip .vc-stat-cell + .vc-stat-cell::before,
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body footer.vc-premium-footer .vc-premium-footer__navcols > .vc-premium-footer__col + .vc-premium-footer__col::before {
-  background: linear-gradient(
-    180deg,
-    rgba(111, 78, 55, 0.05) 0%,
-    rgba(111, 78, 55, 0.42) 22%,
-    rgba(90, 60, 40, 0.72) 50%,
-    rgba(111, 78, 55, 0.42) 78%,
-    rgba(111, 78, 55, 0.05) 100%
-  ) !important;
-  box-shadow:
-    0 0 6px rgba(111, 78, 55, 0.22),
-    0 0 12px rgba(168, 118, 82, 0.12) !important;
-  width: 1.5px !important;
+  background: var(--vc-sep-v) !important;
+  background-image: var(--vc-sep-v) !important;
+  box-shadow: none !important;
+  filter: none !important;
+  width: 1px !important;
   opacity: 1 !important;
+  border: 0 !important;
+}
+/* bugListBoot1: light-theme phone 2-col — kill divider on 1st col each row (odd children) */
+@media (max-width: 767.98px) {
+  html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body #stats .vc-stat-cell:nth-child(2n + 1)::before,
+  html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body .vc-stat-strip .vc-stat-cell:nth-child(2n + 1)::before,
+  html.vc-site-polish[data-vc-theme="light"].vc-soft-fx-off body.vc-body #stats .vc-stat-cell:nth-child(2n + 1)::before,
+  html.vc-site-polish[data-vc-theme="light"].vc-soft-fx-off body.vc-body .vc-stat-strip .vc-stat-cell:nth-child(2n + 1)::before,
+  html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body--home .vc-home-index__col:nth-child(2n + 1)::before,
+  html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body #stats .vc-home-index__col:nth-child(2n + 1)::before,
+  html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-content .vc-home-index__col:nth-child(2n + 1)::before,
+  html.vc-site-polish[data-vc-theme="light"].vc-soft-fx-off body.vc-body--home .vc-home-index__col:nth-child(2n + 1)::before,
+  html.vc-site-polish[data-vc-theme="light"].vc-soft-fx-off body.vc-body #stats .vc-home-index__col:nth-child(2n + 1)::before {
+    content: none !important;
+    display: none !important;
+    width: 0 !important;
+    opacity: 0 !important;
+    box-shadow: none !important;
+    background: none !important;
+  }
 }
 
 /* themeLightPolish2CueFix: pill scrollcue batte background:none */
@@ -2636,7 +2711,7 @@ html[data-vc-theme="light"] body.vc-body--home .vc-home-scrollcue__label {
 
 /* themeLightNuke1: cue arrow, view-as, gradients, deck idx, seps, account popover, snav boxes */
 
-/* Ã¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂ Scroll cue freccia: cream/gold su foto scura (NON mocha) Ã¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂ */
+/* ——— Scroll cue freccia: cream/gold su foto scura (NON mocha) ——— */
 html.vc-site-photo-bg.vc-perf-mid.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top main .vc-home-scrollcue .vc-home-scrollcue__chev,
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top main .vc-home-scrollcue__chev,
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body--home .vc-home-scrollcue__chev,
@@ -2674,7 +2749,7 @@ html[data-vc-theme="light"] .vc-home-scrollcue__chev span {
     drop-shadow(0 0 14px rgba(212, 168, 136, 0.55)) !important;
 }
 
-/* Ã¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂ View-as eye GIF: contrasto + glow su cream Ã¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂ */
+/* ——— View-as eye GIF: contrasto + glow su cream ——— */
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top header #vc-view-as-launch,
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #header-quick-actions #vc-view-as-launch,
 html[data-vc-theme="light"] body.vc-body header #vc-view-as-launch {
@@ -2705,7 +2780,7 @@ html[data-vc-theme="light"] #vc-view-as-launch img {
     drop-shadow(0 0 10px rgba(168, 118, 82, 0.4)) !important;
 }
 
-/* Ã¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂ Brand + hero title: ripristina gradient mocha (clip text) Ã¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂ */
+/* ——— Brand + hero title: ripristina gradient mocha (clip text) ——— */
 html.vc-site-photo-bg.vc-perf-mid.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top header :is(
   a.vc-header-site-name,
   .vc-header-site-name__text,
@@ -2755,7 +2830,7 @@ html[data-vc-theme="light"] .vc-hero-head .vc-hero-brand-caffe {
   opacity: 1 !important;
 }
 
-/* Ã¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂ Snav labels: gradient testo mocha + niente box fantasma Ã¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂ */
+/* ——— Snav labels: gradient testo mocha + niente box fantasma ——— */
 html.vc-site-photo-bg.vc-perf-mid.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top header .vc-header-snav :is(
   .vc-snav-item,
   .vc-snav-summary,
@@ -2827,7 +2902,7 @@ html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top
   opacity: 1 !important;
 }
 
-/* Ã¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂ Deck numeri 01/02/03 (classe reale: __idx) Ã¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂ */
+/* ——— Deck numeri 01/02/03 (classe reale: __idx) ——— */
 html.vc-site-photo-bg.vc-perf-mid.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-content .vc-home-deck__idx,
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-content .vc-home-deck__idx,
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body--home .vc-home-deck__idx,
@@ -2844,23 +2919,15 @@ html[data-vc-theme="light"] .vc-home-deck__num {
   filter: none !important;
 }
 
-/* Ã¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂ Separatori: snav + deck + legal = mocha visibile su cream Ã¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂ */
+/* ——— Separatori light: 1px no-glow (sepStyle1px1) ——— */
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top header .vc-snav-sep,
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top header .vc-header-snav > .vc-snav-sep,
 html.vc-site-photo-bg.vc-perf-mid.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body header .vc-snav-sep,
 html[data-vc-theme="light"] .vc-snav-sep {
-  background: linear-gradient(
-    180deg,
-    rgba(111, 78, 55, 0.05) 0%,
-    rgba(111, 78, 55, 0.45) 22%,
-    rgba(90, 60, 40, 0.78) 50%,
-    rgba(111, 78, 55, 0.45) 78%,
-    rgba(111, 78, 55, 0.05) 100%
-  ) !important;
+  background: var(--vc-sep-v) !important;
   background-color: transparent !important;
-  box-shadow:
-    0 0 6px rgba(111, 78, 55, 0.28),
-    0 0 12px rgba(168, 118, 82, 0.16) !important;
+  background-image: var(--vc-sep-v) !important;
+  box-shadow: none !important;
   opacity: 1 !important;
   filter: none !important;
 }
@@ -2868,17 +2935,9 @@ html[data-vc-theme="light"] .vc-snav-sep {
   html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body--home .vc-home-deck__cell + .vc-home-deck__cell::before,
   html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-content .vc-home-deck__cell + .vc-home-deck__cell::before,
   html[data-vc-theme="light"] .vc-home-deck__cell + .vc-home-deck__cell::before {
-    background: linear-gradient(
-      180deg,
-      rgba(111, 78, 55, 0.05) 0%,
-      rgba(111, 78, 55, 0.42) 22%,
-      rgba(90, 60, 40, 0.72) 50%,
-      rgba(111, 78, 55, 0.42) 78%,
-      rgba(111, 78, 55, 0.05) 100%
-    ) !important;
-    box-shadow:
-      0 0 6px rgba(111, 78, 55, 0.22),
-      0 0 12px rgba(168, 118, 82, 0.12) !important;
+    background: var(--vc-sep-v) !important;
+    background-image: var(--vc-sep-v) !important;
+    box-shadow: none !important;
     opacity: 1 !important;
   }
 }
@@ -2893,14 +2952,14 @@ html[data-vc-theme="light"] footer.vc-premium-footer .vc-premium-footer__legal n
     rgba(111, 78, 55, 0.08) 100%
   ) !important;
   background-color: rgba(111, 78, 55, 0.45) !important;
-  box-shadow: 0 0 6px rgba(111, 78, 55, 0.25) !important;
+  box-shadow: none !important;
   opacity: 1 !important;
   visibility: visible !important;
-  width: 1.5px !important;
-  height: 0.85rem !important;
+  width: 1px !important;
+  height: 1.35rem !important;
 }
 
-/* Ã¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂ Account popover: cream + ink (batte soft-fx #12100c) Ã¢ÃÂÃÂ NO opacity/visibility force (chiude fantasma) Ã¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂ */
+/* ——— Account popover: cream + ink (batte soft-fx #12100c) — NO opacity/visibility force (chiude fantasma) ——— */
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top header .discord-account-popover,
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body header .discord-account-popover,
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body .discord-account-popover,
@@ -2983,7 +3042,7 @@ html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body hea
   background: #faf6f0 !important;
 }
 
-/* Ã¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂ CTA / pills: border gradient + soft glow (non flat) Ã¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂ */
+/* ——— CTA / pills: border gradient + soft glow (non flat) ——— */
 html.vc-site-photo-bg.vc-perf-mid.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-content a.vc-header-pill,
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top .vc-hero-head a.vc-header-pill,
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top main a.vc-home-cine-cta {
@@ -3001,7 +3060,7 @@ html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top
   visibility: visible !important;
 }
 
-/* Ã¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂ Notif / icon btn: gradient sand come hamburger (hdrIconGrad1) Ã¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂ */
+/* ——— Notif / icon btn: gradient sand come hamburger (hdrIconGrad1) ——— */
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top header :is(
   .vc-notif-summary > i,
   .vc-notif-summary .fa,
@@ -3026,7 +3085,7 @@ html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top
     drop-shadow(0 0 10px rgba(212, 168, 136, 0.28)) !important;
 }
 
-/* Ã¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂ Deck / index titles keep ink readable Ã¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂ */
+/* ——— Deck / index titles keep ink readable ——— */
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-content :is(
   .vc-home-deck__title,
   .vc-home-deck__kicker,
@@ -3070,7 +3129,7 @@ html[data-vc-theme="light"] .vc-home-scrollcue__chev span {
 
 /* themeLightPolish3a: stats chev, view-as dark, deck hover, grads, notif panel, legal bar */
 
-/* Ã¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂ Stats freccie (staff/community chev): mocha su cream Ã¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂ */
+/* ——— Stats freccie (staff/community chev): mocha su cream ——— */
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #stats .vc-stat-staff-chev,
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body #stats .vc-stat-staff-chev,
 html[data-vc-theme="light"] #stats .vc-stat-staff-chev {
@@ -3081,7 +3140,7 @@ html[data-vc-theme="light"] #stats .vc-stat-staff-chev {
   filter: drop-shadow(0 0 4px rgba(168, 118, 82, 0.35)) !important;
 }
 
-/* Ã¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂ Stats numeri: gradient mocha + hover glow Ã¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂ */
+/* ——— Stats numeri: gradient mocha + hover glow ——— */
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #stats :is(
   .vc-stat-num, .vc-stat-num-inner, .vc-stat-247, .vc-stat-label
 ),
@@ -3119,7 +3178,7 @@ html[data-vc-theme="light"] #stats .vc-stat-cell:hover :is(.vc-stat-num, .vc-sta
     drop-shadow(0 0 18px rgba(168, 118, 82, 0.3)) !important;
 }
 
-/* Ã¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂ View-as: come dark (cerchio dark + GIF normale, no cream fill) Ã¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂ */
+/* ——— View-as: come dark (cerchio dark + GIF normale, no cream fill) ——— */
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top header #vc-view-as-launch,
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #header-quick-actions #vc-view-as-launch,
 html[data-vc-theme="light"] body.vc-body header #vc-view-as-launch {
@@ -3146,14 +3205,14 @@ html[data-vc-theme="light"] #vc-view-as-launch img {
   mix-blend-mode: normal !important;
   background: transparent !important;
   background-color: transparent !important;
-  /* niente invert/cream Ã¢ÃÂÃÂ GIF dark-trans come in dark mode */
+  /* niente invert/cream — GIF dark-trans come in dark mode */
   filter: drop-shadow(0 0 5px rgba(168, 118, 82, 0.45))
     drop-shadow(0 0 10px rgba(111, 78, 55, 0.28)) !important;
   -webkit-filter: drop-shadow(0 0 5px rgba(168, 118, 82, 0.45))
     drop-shadow(0 0 10px rgba(111, 78, 55, 0.28)) !important;
 }
 
-/* Ã¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂ Deck idx hover: effetto amber come dark Ã¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂ */
+/* ——— Deck idx hover: effetto amber come dark ——— */
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body--home .vc-home-deck__cell:hover .vc-home-deck__idx,
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-content .vc-home-deck__cell:hover .vc-home-deck__idx,
 html[data-vc-theme="light"] .vc-home-deck__cell:hover .vc-home-deck__idx {
@@ -3165,7 +3224,7 @@ html[data-vc-theme="light"] .vc-home-deck__cell:hover .vc-home-deck__idx {
   opacity: 1 !important;
 }
 
-/* Ã¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂ Card / nav / footer: anello gradient glow Ã¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂ */
+/* ——— Card / nav / footer: anello gradient glow ——— */
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-content :is(
   .vc-hero-head, .vc-home-deck, .vc-home-index, .vc-home-feature, .vc-stat-strip
 )::after,
@@ -3210,7 +3269,7 @@ html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top
   -webkit-text-fill-color: transparent !important;
 }
 
-/* Ã¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂ Footer legal: barra top divisoria mocha Ã¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂ */
+/* ——— Footer legal: barra top divisoria mocha ——— */
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body > footer.vc-premium-footer .vc-premium-footer__legal,
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body footer.vc-premium-footer .vc-premium-footer__legal,
 html[data-vc-theme="light"] footer.vc-premium-footer .vc-premium-footer__legal {
@@ -3218,7 +3277,7 @@ html[data-vc-theme="light"] footer.vc-premium-footer .vc-premium-footer__legal {
   box-shadow: 0 -1px 0 rgba(212, 168, 136, 0.18) !important;
 }
 
-/* Ã¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂ Notif panel: light completo Ã¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂ */
+/* ——— Notif panel: light completo ——— */
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top header .vc-notif-panel :is(
   .vc-notif-panel-title,
   .vc-notif-panel-sub,
@@ -3453,13 +3512,10 @@ html[data-vc-theme="light"] .vc-home-scrollcue.is-away * {
   pointer-events: none !important;
 }
 
-/* profileStatCream1: cream cards + mocha ink (batte soft-fx opaque + old sand text) */
+/* profileStatCream1: shell esterne cream solide */
 html.vc-site-photo-bg.vc-perf-mid.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body.vc-users-page.vc-user-profile-page#top main :is(
   .vc-user-profile-hero,
   .vc-user-profile-block,
-  .vc-user-profile-stat,
-  .vc-user-profile-mini,
-  .vc-user-profile-badges,
   .vc-user-profile-disclosure,
   .vc-user-profile-accordion,
   .vc-user-profile-custompanel,
@@ -3467,21 +3523,11 @@ html.vc-site-photo-bg.vc-perf-mid.vc-site-polish[data-vc-theme="light"]:not(.vc-
 ),
 html.vc-site-photo-bg.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body.vc-users-page.vc-user-profile-page#top main :is(
   .vc-user-profile-hero,
-  .vc-user-profile-block,
-  .vc-user-profile-stat,
-  .vc-user-profile-mini,
-  .vc-user-profile-badges
-),
-html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body.vc-users-page.vc-user-profile-page#top main :is(
-  .vc-user-profile-stat,
-  .vc-user-profile-mini
+  .vc-user-profile-block
 ),
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body.vc-staff-profile-home.vc-user-profile-page#top main :is(
-  .vc-user-profile-stat,
-  .vc-user-profile-mini,
   .vc-user-profile-hero,
-  .vc-user-profile-block,
-  .vc-user-profile-badges
+  .vc-user-profile-block
 ) {
   background: #faf6f0 !important;
   background-color: #faf6f0 !important;
@@ -3489,6 +3535,45 @@ html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body.vc-
   border: 1px solid transparent !important;
   border-color: transparent !important;
   box-shadow: 0 8px 20px rgba(60, 40, 24, 0.08) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  filter: none !important;
+}
+/* cardInnerNavRing2 light: SOLO card interne = --vc-nav-ring-light */
+html.vc-site-photo-bg.vc-perf-mid.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body.vc-users-page.vc-user-profile-page#top main :is(
+  .vc-user-profile-stat,
+  .vc-user-profile-mini,
+  .vc-user-profile-badges
+),
+html.vc-site-photo-bg.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body.vc-users-page.vc-user-profile-page#top main :is(
+  .vc-user-profile-stat,
+  .vc-user-profile-mini,
+  .vc-user-profile-badges
+),
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body.vc-users-page.vc-user-profile-page#top main :is(
+  .vc-user-profile-stat,
+  .vc-user-profile-mini,
+  .vc-user-profile-badges
+),
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body.vc-staff-profile-home.vc-user-profile-page#top main :is(
+  .vc-user-profile-stat,
+  .vc-user-profile-mini,
+  .vc-user-profile-badges
+) {
+  background-color: #faf6f0 !important;
+  background-image:
+    radial-gradient(120% 90% at 0% 0%, rgba(255, 248, 238, 0.92), transparent 52%),
+    radial-gradient(90% 70% at 100% 0%, rgba(212, 168, 136, 0.2), transparent 48%),
+    linear-gradient(175deg, #fffaf4 0%, #f7f1ea 48%, #efe6dc 100%),
+    var(--vc-nav-ring-light) !important;
+  background-origin: padding-box, padding-box, padding-box, border-box !important;
+  background-clip: padding-box, padding-box, padding-box, border-box !important;
+  -webkit-background-clip: padding-box, padding-box, padding-box, border-box !important;
+  border: 2px solid transparent !important;
+  border-width: 2px !important;
+  border-style: solid !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
   filter: none !important;
@@ -4148,7 +4233,7 @@ html[data-vc-theme="light"] .vc-cmd-search .fa {
   -webkit-text-fill-color: #3a281c !important;
 }
 
-/* category + command rows / open bodies Ã¢ÃÂÃÂ batte soft-fx main #100c09 */
+/* category + command rows / open bodies — batte soft-fx main #100c09 */
 html.vc-site-photo-bg.vc-perf-mid.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-content #wiki-comandi-panel :is(
   .vc-cmd-acc, .vc-cmd-grp, details.vc-cmd-grp, .vc-cmd-item, details.vc-cmd-item,
   .vc-cmd-acc-body, .vc-cmd-grp-list, .vc-cmd-item-body, .vc-cmd-field
@@ -4170,16 +4255,16 @@ html[data-vc-theme="light"] .vc-wiki-cmd-shell :is(
   background-image:
     radial-gradient(120% 90% at 0% 0%, rgba(255, 248, 238, 0.9), transparent 52%),
     linear-gradient(175deg, #fffaf4 0%, #f3ebe3 100%),
-    conic-gradient(from 0deg, rgba(111, 78, 55, 0.72) 0deg, rgba(180, 130, 90, 0.55) 90deg, rgba(139, 99, 70, 0.58) 180deg, rgba(180, 130, 90, 0.55) 270deg, rgba(111, 78, 55, 0.72) 360deg) !important;
+    var(--vc-nav-ring-light) !important;
   background-origin: padding-box, padding-box, border-box !important;
+  /* innerCardConic3: NON forzare clip border-box (nascondeva il conic) */
   background-clip: padding-box, padding-box, border-box !important;
   -webkit-background-clip: padding-box, padding-box, border-box !important;
-  -webkit-background-clip: border-box !important;
-  background-clip: border-box !important;
-  border-color: rgba(111, 78, 55, 0.18) !important;
+  border: 2px solid transparent !important;
+  border-color: transparent !important;
   color: #2a1c14 !important;
   -webkit-text-fill-color: #2a1c14 !important;
-  box-shadow: 0 2px 10px rgba(60, 40, 24, 0.06) !important;
+  box-shadow: none !important;
   filter: none !important;
 }
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #wiki-comandi-panel :is(
@@ -4190,6 +4275,47 @@ html[data-vc-theme="light"] .vc-wiki-cmd-shell :is(.vc-cmd-acc-sum, .vc-cmd-item
   -webkit-text-fill-color: #2a1c14 !important;
   background: transparent !important;
   background-image: none !important;
+}
+/* wikiLightIco1: look-core lascia icone sand-scure su card crema → blocchi neri.
+   Pill icone light + titolo leggibile (niente metal-fill scuro su crema). */
+html.vc-site-photo-bg.vc-perf-mid.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-content #wiki-comandi-panel .vc-cmd-acc-ico,
+html.vc-site-photo-bg.vc-perf-mid.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #wiki-comandi-panel .vc-cmd-acc-ico,
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #wiki-comandi-panel .vc-cmd-acc-ico,
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-wiki-page .vc-wiki-cmd-shell .vc-cmd-acc-ico,
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-wiki-page .vc-wiki-cmd-shell .vc-cmd-acc-ico--violet,
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-wiki-page .vc-wiki-cmd-shell .vc-cmd-acc-ico--teal,
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-wiki-page .vc-wiki-cmd-shell .vc-cmd-acc-ico--amber,
+html[data-vc-theme="light"] body.vc-wiki-page .vc-wiki-cmd-shell .vc-cmd-acc-ico,
+html[data-vc-theme="light"] body.vc-wiki-page .vc-wiki-cmd-shell .vc-cmd-acc-ico--violet,
+html[data-vc-theme="light"] body.vc-wiki-page .vc-wiki-cmd-shell .vc-cmd-acc-ico--teal,
+html[data-vc-theme="light"] body.vc-wiki-page .vc-wiki-cmd-shell .vc-cmd-acc-ico--amber {
+  background: linear-gradient(145deg, #f3ebe1, #e5d5c4) !important;
+  background-image: linear-gradient(145deg, #f3ebe1, #e5d5c4) !important;
+  background-color: #efe4d6 !important;
+  color: #3a281c !important;
+  -webkit-text-fill-color: #3a281c !important;
+  border: 1px solid rgba(111, 78, 55, 0.28) !important;
+  box-shadow: none !important;
+  filter: none !important;
+}
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-wiki-page .vc-wiki-cmd-shell .vc-cmd-acc-ico .fa,
+html[data-vc-theme="light"] body.vc-wiki-page .vc-wiki-cmd-shell .vc-cmd-acc-ico .fa {
+  color: #3a281c !important;
+  -webkit-text-fill-color: #3a281c !important;
+}
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-wiki-page .vc-wiki-cmd-shell .vc-cmd-acc-title,
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-wiki-page .vc-wiki-cmd-shell .vc-cmd-grp-title,
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-wiki-page .vc-wiki-cmd-shell .vc-cmd-acc-meta,
+html[data-vc-theme="light"] body.vc-wiki-page .vc-wiki-cmd-shell .vc-cmd-acc-title,
+html[data-vc-theme="light"] body.vc-wiki-page .vc-wiki-cmd-shell .vc-cmd-grp-title,
+html[data-vc-theme="light"] body.vc-wiki-page .vc-wiki-cmd-shell .vc-cmd-acc-meta {
+  background: none !important;
+  background-image: none !important;
+  -webkit-background-clip: border-box !important;
+  background-clip: border-box !important;
+  color: #2a1c14 !important;
+  -webkit-text-fill-color: #2a1c14 !important;
+  filter: none !important;
 }
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #wiki-comandi-panel :is(
   .vc-cmd-acc-chev, .vc-cmd-item-chev, .fa.vc-cmd-acc-chev, .fa.vc-cmd-item-chev
@@ -4210,7 +4336,7 @@ html[data-vc-theme="light"] .vc-wiki-cmd-shell .vc-cmd-pill .fa {
   -webkit-text-fill-color: #3a281c !important;
 }
 
-/* themeLightCardsAll1: sweep card/shell cream Ã¢ÃÂÃÂ batte soft-fx rounded+#100c09 su tutte le pagine */
+/* themeLightCardsAll1: sweep card/shell cream — batte soft-fx rounded+#100c09 su tutte le pagine */
 html.vc-site-photo-bg.vc-perf-mid.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-content :is(
   .vc-page-cine-card, .vc-fx-card, .vc-home-panel, .vc-home-deck, .vc-home-index, .vc-home-feature,
   .vc-home-highlights, .vc-home-highlight-card, .vc-home-linkpanel, .vc-home-storycard,
@@ -4273,7 +4399,7 @@ html[data-vc-theme="light"] :is(
   -webkit-backdrop-filter: none !important;
 }
 
-/* ink leggibile dentro le card sweep Ã¢ÃÂÃÂ ESCLUDI badge angolo */
+/* ink leggibile dentro le card sweep — ESCLUDI badge angolo */
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-content :is(
   .vc-sponsor-embed, .vc-sponsor-card, .vc-support-donate-role, .vc-perks-card, .vc-page-cine-card,
   .vc-fx-card, .vc-faq-group, .vc-regole-card, .vc-legal-card, .vc-404-card
@@ -4327,32 +4453,48 @@ html[data-vc-theme="light"] .vc-cmd-code--example {
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body #vc-site-back-top,
 html.vc-site-photo-bg.vc-perf-mid.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-site-back-top,
 html[data-vc-theme="light"] #vc-site-back-top {
-  background: linear-gradient(180deg, #fffaf4 0%, #f3ebe3 100%) !important;
+  border: 1.35px solid transparent !important;
+  border-color: transparent !important;
   background-color: #faf6f0 !important;
-  background-image: linear-gradient(180deg, #fffaf4 0%, #f3ebe3 100%) !important;
-  border: 1px solid rgba(111, 78, 55, 0.32) !important;
-  border-color: rgba(111, 78, 55, 0.32) !important;
+  background-image:
+    linear-gradient(180deg, #fffaf4 0%, #f3ebe3 100%),
+    conic-gradient(
+      from 0deg,
+      rgba(111, 78, 55, 0.72) 0deg,
+      rgba(180, 130, 90, 0.55) 90deg,
+      rgba(139, 99, 70, 0.58) 180deg,
+      rgba(180, 130, 90, 0.55) 270deg,
+      rgba(111, 78, 55, 0.72) 360deg
+    ) !important;
+  background-origin: padding-box, border-box !important;
+  background-clip: padding-box, border-box !important;
+  -webkit-background-clip: padding-box, border-box !important;
   color: #3a281c !important;
   -webkit-text-fill-color: #3a281c !important;
-  box-shadow:
-    0 0 0 1px rgba(212, 168, 136, 0.35),
-    0 8px 22px rgba(60, 40, 24, 0.16),
-    inset 0 1px 0 rgba(255, 255, 255, 0.7) !important;
+  box-shadow: none !important;
   filter: none !important;
 }
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body #vc-site-back-top:hover,
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body #vc-site-back-top:focus-visible,
 html[data-vc-theme="light"] #vc-site-back-top:hover,
 html[data-vc-theme="light"] #vc-site-back-top:focus-visible {
-  background: linear-gradient(180deg, #fffdf9 0%, #efe6dc 100%) !important;
   background-color: #fffaf4 !important;
-  border-color: rgba(111, 78, 55, 0.45) !important;
+  background-image:
+    linear-gradient(180deg, #fffdf9 0%, #efe6dc 100%),
+    conic-gradient(
+      from 0deg,
+      rgba(111, 78, 55, 0.85) 0deg,
+      rgba(168, 118, 82, 0.65) 90deg,
+      rgba(139, 99, 70, 0.7) 180deg,
+      rgba(168, 118, 82, 0.65) 270deg,
+      rgba(111, 78, 55, 0.85) 360deg
+    ) !important;
+  background-origin: padding-box, border-box !important;
+  background-clip: padding-box, border-box !important;
+  -webkit-background-clip: padding-box, border-box !important;
   color: #1a120e !important;
   -webkit-text-fill-color: #1a120e !important;
-  box-shadow:
-    0 0 0 1.5px rgba(168, 118, 82, 0.4),
-    0 10px 26px rgba(60, 40, 24, 0.18),
-    inset 0 1px 0 rgba(255, 255, 255, 0.8) !important;
+  box-shadow: none !important;
 }
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body #vc-site-back-top .fa,
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body #vc-site-back-top > i,
@@ -4532,7 +4674,7 @@ html[data-vc-theme="light"] body.vc-body .vc-support-page-hero .grid.gap-4 > div
   color: #2a1c14 !important;
 }
 
-/* typeSfx light chrome (file CSS Ã¢ÃÂÃÂ batte landing-ext dark) */
+/* typeSfx light chrome (file CSS — batte landing-ext dark) */
 html[data-vc-theme="light"] #vc-type-sfx-player .vc-bgm-player__toggle,
 html[data-vc-theme="light"] .vc-type-sfx-player .vc-bgm-player__toggle {
   background: rgba(255, 250, 244, 0.94) !important;
@@ -4559,7 +4701,7 @@ html[data-vc-theme="light"] .vc-type-sfx-player .vc-bgm-player__slider-row > .fa
   opacity: 0.88 !important;
 }
 
-/* typeSfxTrackLight1: barra volume visibile su cream (dark usava cream 22% Ã¢ÃÂÃÂ invisibile) */
+/* typeSfxTrackLight1: barra volume visibile su cream (dark usava cream 22% → invisibile) */
 html[data-vc-theme="light"] #vc-type-sfx-player .vc-bgm-player__range::-webkit-slider-runnable-track,
 html[data-vc-theme="light"] .vc-type-sfx-player .vc-bgm-player__range::-webkit-slider-runnable-track,
 html[data-vc-theme="light"] #vc-type-sfx-player.vc-bgm-player.is-open .vc-bgm-player__range::-webkit-slider-runnable-track,
@@ -4701,7 +4843,7 @@ html[data-vc-theme="light"] .vc-premium-footer__legal a:hover {
 /* themeLightBadgeEmojiBullet1: badge angoli + emoji line + bullets   */
 /* ------------------------------------------------------------------ */
 
-/* Badge angolo (sponsor / donazioni / perks) Ã¢ÃÂÃÂ leggibili in light */
+/* Badge angolo (sponsor / donazioni / perks) — leggibili in light */
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body :is(
   .vc-sponsor-embed__badge,
   .vc-sponsor-embed__badge--popular,
@@ -4784,24 +4926,30 @@ html.vc-site-polish body.vc-sponsor-page .vc-sponsor-line {
   align-items: center !important;
 }
 
-html.vc-site-polish[data-vc-theme="light"] body.vc-sponsor-page .vc-sponsor-line__ico,
+/* sponsorIcoFootOnly3: card ico bare (no box); foot disclaimer tiene il cerchio */
+html.vc-site-polish[data-vc-theme="light"] body.vc-sponsor-page .vc-sponsor-line__ico:not(.vc-sponsor-foot > .vc-sponsor-line__ico),
 html.vc-site-polish body.vc-sponsor-page .vc-sponsor-line > .vc-sponsor-line__ico,
-html[data-vc-theme="light"] body.vc-sponsor-page .vc-sponsor-line__ico {
+html[data-vc-theme="light"] body.vc-sponsor-page .vc-sponsor-line__ico:not(.vc-sponsor-foot > .vc-sponsor-line__ico) {
   display: inline-flex !important;
   align-items: center !important;
   justify-content: center !important;
   align-self: center !important;
-  width: 1.55rem !important;
-  height: 1.55rem !important;
+  width: auto !important;
+  height: 1em !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
   margin: 0 !important;
   padding: 0 !important;
   line-height: 1 !important;
-  font-size: 1.05rem !important;
+  font-size: 1em !important;
   vertical-align: middle !important;
   transform: none !important;
-  background: rgba(111, 78, 55, 0.08) !important;
+  background: transparent !important;
+  background-color: transparent !important;
   background-image: none !important;
-  border: 1px solid rgba(111, 78, 55, 0.16) !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
   color: unset !important;
   -webkit-text-fill-color: unset !important;
   filter: none !important;
@@ -4832,12 +4980,15 @@ html.vc-site-polish body.vc-sponsor-page .vc-sponsor-embed__kicker > .vc-sponsor
   display: inline-flex !important;
   align-items: center !important;
   justify-content: center !important;
-  vertical-align: middle !important;
+  vertical-align: -0.12em !important;
   line-height: 1 !important;
-  transform: translateY(0.02em) !important;
+  transform: none !important;
   color: unset !important;
   -webkit-text-fill-color: unset !important;
   background: none !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
   filter: none !important;
 }
 
@@ -4862,7 +5013,7 @@ html[data-vc-theme="light"] body.vc-sponsor-page .vc-sponsor-list > li {
   -webkit-text-fill-color: #2a1c14 !important;
 }
 
-/* voteStatsLight1: Statistiche Globali Ã¢ÃÂÃÂ nested statbox + progress cream (no #100c09 / glass dark) */
+/* voteStatsLight1: Statistiche Globali — nested statbox + progress cream (no #100c09 / glass dark) */
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-content :is(
   .vc-vote-live-card,
   .vc-vote-live-statbox,
@@ -4906,7 +5057,7 @@ html[data-vc-theme="light"] body.vc-body :is(.vc-vote-live-statbox, .vc-vote-pro
   filter: none !important;
 }
 
-/* nested inset: un filo piÃÂÃ¹ saturo del parent cream */
+/* nested inset: un filo più saturo del parent cream */
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-content .vc-vote-live-card .vc-vote-live-statbox,
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-content .vc-vote-live-card .vc-vote-progress,
 html.vc-scroll-busy.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-content .vc-vote-live-card .vc-vote-live-statbox,
@@ -5042,8 +5193,8 @@ html[data-vc-theme="light"] .vc-support-donate-new {
   opacity: 1 !important;
 }
 
-/* B) Verifica Selfie / GUIDA RAPIDA Ã¢ÃÂÃÂ cream panel + mocha ink
-   (batte soft-fx body#top #vc-page-content .vc-perks-verify-box Ã¢ÃÂÃÂ 2 ID) */
+/* B) Verifica Selfie / GUIDA RAPIDA — cream panel + mocha ink
+   (batte soft-fx body#top #vc-page-content .vc-perks-verify-box → 2 ID) */
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body.vc-perks-page#top #vc-page-content .vc-perks-verify-box,
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-content .vc-perks-verify-box,
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body.vc-perks-page#top #vc-page-content .vc-perks-verify-guide__inner,
@@ -5262,7 +5413,7 @@ html.vc-site-polish[data-vc-theme="light"] .vc-role-modal-backdrop {
   background: rgba(239, 230, 220, 0.72) !important;
 }
 
-/* E) Loading / boot / transition Ã¢ÃÂÃÂ cream stage + mocha copy */
+/* E) Loading / boot / transition — cream stage + mocha copy */
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body :is(
   .vc-ul-loading, #vc-roles-loading, #vc-staff-loading, #vc-shared-boot-overlay,
   #vc-shared-boot-overlay[data-vc-dash-boot="1"],
@@ -5432,7 +5583,7 @@ html[data-vc-theme="light"] body.vc-body header .vc-snav-panel a.vc-snav-row :is
   -webkit-filter: none !important;
   opacity: 1 !important;
 }
-/* hdrIconGrad1: nuclear Ã¢ÃÂÃÂ campana + bars stesso sand gradient (fine file) */
+/* hdrIconGrad1: nuclear — campana + bars stesso sand gradient (fine file) */
 html.vc-site-photo-bg.vc-perf-mid.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top header .vc-notif-summary > i.fa,
 html.vc-site-photo-bg.vc-perf-mid.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top header .vc-notif-summary > i.fa-bell,
 html.vc-site-photo-bg.vc-perf-mid.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top header .vc-notif-summary > i.fa-bell-o,
@@ -5599,7 +5750,7 @@ html[data-vc-theme="light"] body.vc-body #discord-login-btn img {
   mix-blend-mode: normal !important;
 }
 
-/* tipCardsRestore1 (ex tipBoxKill1): tip card cream+bordo Ã¢ÃÂÃÂ wrapper aside resta kill */
+/* tipCardsRestore1 (ex tipBoxKill1): tip card cream+bordo — wrapper aside resta kill */
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top .vc-page-cine-aside-inline .grid > [class*="rounded-"],
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top .vc-page-cine-aside-inline > [class*="rounded-"],
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top .vc-page-cine-hero .vc-page-cine-aside-inline .grid > [class*="rounded-"],
@@ -5688,18 +5839,14 @@ html[data-vc-theme="light"] a.vc-header-pill:not(.vc-home-cine-cta):not(#discord
 }
 
 
-/* sponsorIcoLight1: Ã¢ÃÂÃ¦ / ! / simboli non-emoji leggibili su cream */
+/* sponsorIcoLight1: ✦ / ! / simboli non-emoji leggibili su cream */
 html[data-vc-theme="light"] body.vc-sponsor-page .vc-sponsor-bullet,
 html[data-vc-theme="light"] body.vc-sponsor-page .vc-sponsor-prices .vc-sponsor-bullet,
 html[data-vc-theme="light"] body.vc-sponsor-page .vc-sponsor-prices--eventi-mini .vc-sponsor-bullet,
 html[data-vc-theme="light"] body.vc-sponsor-page .vc-sponsor-tier__head > span:first-child,
-html[data-vc-theme="light"] body.vc-sponsor-page .vc-sponsor-foot > .vc-sponsor-line__ico,
 html.vc-site-polish[data-vc-theme="light"] body.vc-sponsor-page .vc-sponsor-bullet,
-html.vc-site-polish[data-vc-theme="light"] body.vc-sponsor-page .vc-sponsor-foot > .vc-sponsor-line__ico,
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body.vc-sponsor-page#top main .vc-sponsor-bullet,
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body.vc-sponsor-page#top #vc-page-content .vc-sponsor-bullet,
-html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body.vc-sponsor-page#top main .vc-sponsor-foot > .vc-sponsor-line__ico,
-html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body.vc-sponsor-page#top #vc-page-content .vc-sponsor-foot > .vc-sponsor-line__ico,
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body .vc-sponsor-bullet,
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body .vc-sponsor-prices .vc-sponsor-bullet {
   color: #6f4e37 !important;
@@ -5714,9 +5861,35 @@ html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body .vc
   text-shadow: none !important;
   font-family: "Inter", ui-sans-serif, system-ui, sans-serif !important;
 }
+/* sponsorIcoFootOnly3: ! disclaimer = cerchio ambra anche in light */
+html[data-vc-theme="light"] body.vc-sponsor-page .vc-sponsor-foot > .vc-sponsor-line__ico,
+html.vc-site-polish[data-vc-theme="light"] body.vc-sponsor-page .vc-sponsor-foot > .vc-sponsor-line__ico,
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body.vc-sponsor-page#top main .vc-sponsor-foot > .vc-sponsor-line__ico,
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body.vc-sponsor-page#top #vc-page-content .vc-sponsor-foot > .vc-sponsor-line__ico {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 1.65rem !important;
+  height: 1.65rem !important;
+  min-width: 1.65rem !important;
+  min-height: 1.65rem !important;
+  border-radius: 999px !important;
+  border: 1px solid rgba(166, 124, 82, 0.4) !important;
+  background: rgba(166, 124, 82, 0.14) !important;
+  background-color: rgba(166, 124, 82, 0.14) !important;
+  background-image: none !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35) !important;
+  color: #6f4e37 !important;
+  -webkit-text-fill-color: #6f4e37 !important;
+  font-weight: 800 !important;
+  font-family: "Inter", ui-sans-serif, system-ui, sans-serif !important;
+  opacity: 1 !important;
+  filter: none !important;
+  text-shadow: none !important;
+}
 
 /* voteNestedLight1: reward inset + nested vote panels = cream (mai #100c09)
-   icoBoxAlign1: icon box (gift/chart) esclusi Ã¢ÃÂÃÂ stile dedicato sotto */
+   icoBoxAlign1: icon box (gift/chart) esclusi — stile dedicato sotto */
 html[data-vc-theme="light"] body.vc-vote-page :is(
   .vc-vote-live-statbox,
   .vc-vote-live-card,
@@ -5781,17 +5954,28 @@ html[data-vc-theme="light"] body.vc-vote-page :is(
   .vc-vote-progress-head span,
   .vc-vote-progress-head strong,
   article.vc-fx-card li,
-  article.vc-fx-card li span,
+  article.vc-fx-card li span:not(.vc-vote-step-num),
   article.vc-fx-card p,
   article.vc-fx-card h2
 ),
-html.vc-site-polish[data-vc-theme="light"] body.vc-vote-page article.vc-fx-card :is(p, h2, li, span, strong):not(.vc-vote-platform-cta):not(i):not(.fa) {
+html.vc-site-polish[data-vc-theme="light"] body.vc-vote-page article.vc-fx-card :is(p, h2, li, span, strong):not(.vc-vote-platform-cta):not(.vc-vote-step-num):not(i):not(.fa) {
   color: #2a1c14 !important;
   -webkit-text-fill-color: #2a1c14 !important;
   background-image: none !important;
   -webkit-background-clip: border-box !important;
   background-clip: border-box !important;
   text-shadow: none !important;
+}
+/* voteStepBronze1: step nums = anello caffè, non blu Tailwind / non flat cream wipe */
+html[data-vc-theme="light"] body.vc-vote-page .vc-vote-step-num,
+html.vc-site-polish[data-vc-theme="light"] body.vc-vote-page article.vc-fx-card .vc-vote-step-num {
+  background: rgba(111, 78, 55, 0.18) !important;
+  background-color: rgba(111, 78, 55, 0.18) !important;
+  background-image: none !important;
+  color: #6f4e37 !important;
+  -webkit-text-fill-color: #6f4e37 !important;
+  border: 1px solid rgba(168, 118, 82, 0.55) !important;
+  box-shadow: none !important;
 }
 /* icoBoxAlign1 / voteGiftIcoAlign1: icon box gift = stesso della chart live */
 html[data-vc-theme="light"] body.vc-vote-page .vc-vote-live-ico,
@@ -5853,7 +6037,7 @@ html.vc-site-polish[data-vc-theme="light"] body.vc-vote-page .vc-vote-live-chip 
   -webkit-text-fill-color: #2a1c14 !important;
 }
 
-/* tipAsideKill2: wrapper tip sotto Cosa trovi/Suggerimento Ã¢ÃÂÃÂ mai cream plate; tip = solo L-bordo */
+/* tipAsideKill2: wrapper tip sotto Cosa trovi/Suggerimento — mai cream plate; tip = solo L-bordo */
 html[data-vc-theme="light"] body.vc-body :is(
   .vc-page-cine-aside-inline,
   .vc-page-cine-aside-below,
@@ -5961,17 +6145,18 @@ html[data-vc-theme="light"] body.vc-vote-page .vc-vote-platform-cta:hover {
   color: #1a120e !important;
   -webkit-text-fill-color: #1a120e !important;
   box-shadow: 0 12px 26px rgba(111, 78, 55, 0.28) !important;
-}/* tipCardsRestore1: force tip cards visible in light (faq/regole/wiki heroes) */
-html[data-vc-theme="light"] body.vc-body .vc-support-page-hero .grid.gap-4 > [class*="rounded-"],
-html[data-vc-theme="light"] body.vc-body .vc-support-page-hero .grid.gap-4 > div,
+}/* tipCardsRestore1: force tip cards visible in light (faq/regole/wiki heroes)
+   innerCardConic2: esclude platform card (nav-ring interno a hero) */
+html[data-vc-theme="light"] body.vc-body .vc-support-page-hero .grid.gap-4 > [class*="rounded-"]:not(.vc-vote-platform-card),
+html[data-vc-theme="light"] body.vc-body .vc-support-page-hero .grid.gap-4 > div:not(.vc-vote-platform-card),
 html[data-vc-theme="light"] body.vc-body .vc-page-cine-aside-inline .grid > [class*="rounded-"],
 html[data-vc-theme="light"] body.vc-body .vc-wiki-tips-grid > [class*="rounded-"],
 html[data-vc-theme="light"] body.vc-body .vc-page-cine-aside-below .grid > [class*="rounded-"],
-html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-intro .vc-support-page-hero .grid.gap-4 > [class*="rounded-"],
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-intro .vc-support-page-hero .grid.gap-4 > [class*="rounded-"]:not(.vc-vote-platform-card),
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-intro .vc-page-cine-aside-inline .grid > [class*="rounded-"],
-html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top main .vc-support-page-hero .grid.gap-4 > div,
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top main .vc-support-page-hero .grid.gap-4 > div:not(.vc-vote-platform-card),
 html.vc-site-photo-bg.vc-perf-mid.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-intro .vc-page-cine-aside-inline .grid > [class*="rounded-"],
-html.vc-site-photo-bg.vc-perf-mid.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top main .vc-support-page-hero .grid.gap-4 > [class*="rounded-"] {
+html.vc-site-photo-bg.vc-perf-mid.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top main .vc-support-page-hero .grid.gap-4 > [class*="rounded-"]:not(.vc-vote-platform-card) {
   background: #ffffff !important;
   background-color: #ffffff !important;
   background-image: linear-gradient(175deg, #fffaf4 0%, #f7f1ea 55%, #efe6dc 100%) !important;
@@ -5998,7 +6183,7 @@ html[data-vc-theme="light"] body.vc-body .vc-page-cine-aside-inline .grid > [cla
   color: #6f4e37 !important;
   -webkit-text-fill-color: #6f4e37 !important;
 }
-/* tipAsideKill stays Ã¢ÃÂÃÂ only wrappers transparent */
+/* tipAsideKill stays — only wrappers transparent */
 html[data-vc-theme="light"] body.vc-body :is(.vc-page-cine-aside-inline, .vc-page-cine-aside-below, .vc-wiki-tips-grid, .vc-wiki-tips-below, .vc-page-cine-aside-inline > .grid) {
   background: transparent !important;
   background-color: transparent !important;
@@ -6006,7 +6191,7 @@ html[data-vc-theme="light"] body.vc-body :is(.vc-page-cine-aside-inline, .vc-pag
   border: none !important;
   box-shadow: none !important;
 }
-/* tipCardsRestore1c: disclaimer amber Ã¢ÃÂÃÂ batte wipe hero (3 ID via :not(#discord-login-btn)) */
+/* tipCardsRestore1c + regoleDisclaimerMobileWrap2: block flow (no flex overflow su telefono) */
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-intro .vc-hero-head:not(#discord-login-btn) p#vc-regole-disclaimer,
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-intro .vc-hero-head:not(#discord-login-btn) p#vc-regole-disclaimer.vc-regole-disclaimer,
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-intro .vc-hero-head:not(#discord-login-btn) p.vc-regole-disclaimer.vc-support-donate-refund-note,
@@ -6014,12 +6199,19 @@ html.vc-site-photo-bg.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off)
 html.vc-site-photo-bg.vc-perf-mid.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-intro .vc-support-page-hero p#vc-regole-disclaimer,
 html[data-vc-theme="light"] body.vc-body #vc-regole-disclaimer,
 html[data-vc-theme="light"] body.vc-body .vc-regole-disclaimer {
-  display: flex !important;
-  align-items: flex-start !important;
-  gap: 0.5rem !important;
-  max-width: 36rem !important;
+  display: block !important;
+  align-items: unset !important;
+  gap: 0 !important;
+  box-sizing: border-box !important;
+  /* disclaimerAlignSponsor1: stesse metriche del box /sponsor/ */
+  max-width: min(32rem, 100%) !important;
+  width: 100% !important;
   margin: 1rem auto 0 !important;
-  padding: 0.75rem 0.95rem !important;
+  padding: 0.72rem 0.9rem !important;
+  white-space: normal !important;
+  overflow-wrap: break-word !important;
+  word-break: break-word !important;
+  overflow-x: clip !important;
   border-radius: 0.85rem !important;
   border: 1px solid transparent !important;
   border-color: transparent !important;
@@ -6050,11 +6242,25 @@ html[data-vc-theme="light"] body.vc-body .vc-regole-disclaimer {
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-intro .vc-hero-head:not(#discord-login-btn) p#vc-regole-disclaimer > .fa,
 html[data-vc-theme="light"] body.vc-body #vc-regole-disclaimer > .fa,
 html[data-vc-theme="light"] body.vc-body .vc-regole-disclaimer > .fa {
+  display: inline !important;
   color: #b45309 !important;
   -webkit-text-fill-color: #b45309 !important;
   background: none !important;
   position: static !important;
   float: none !important;
+  margin: 0 0.4em 0 0 !important;
+}
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-intro .vc-hero-head:not(#discord-login-btn) p#vc-regole-disclaimer > span,
+html[data-vc-theme="light"] body.vc-body #vc-regole-disclaimer > span,
+html[data-vc-theme="light"] body.vc-body .vc-regole-disclaimer > span {
+  display: inline !important;
+  flex: unset !important;
+  width: auto !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  white-space: normal !important;
+  overflow-wrap: break-word !important;
+  word-break: break-word !important;
 }
 /* tip cards = cream fill + bordo card normale (no tip-edge ::before) */
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-intro .vc-page-cine-aside-inline .grid > [class*="rounded-"]:not(button):not(a):not(img):not(svg):not(input):not(#discord-login-btn),
@@ -6076,7 +6282,7 @@ html.vc-site-photo-bg.vc-perf-mid.vc-site-polish[data-vc-theme="light"]:not(.vc-
   -webkit-background-clip: padding-box, padding-box, padding-box, border-box !important;
 }
 
-/* fbRvLight1: feedback+recensioni light Ã¢ÃÂÃÂ no nested filter shells, reply leggibile, chips/CTA */
+/* fbRvLight1: feedback+recensioni light — no nested filter shells, reply leggibile, chips/CTA */
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top :is(
   .vc-feedback-filters__main,
   .vc-feedback-filters__rows,
@@ -6218,7 +6424,7 @@ html[data-vc-theme="light"] body.vc-body :is(
   -webkit-text-fill-color: #ffffff !important;
   background: none !important;
 }
-/* RISPOSTA DEL SERVER Ã¢ÃÂÃÂ cream box, testo scuro */
+/* RISPOSTA DEL SERVER — cream box, testo scuro */
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body .vc-reviews-card__reply,
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-reviews-page .vc-reviews-card__reply,
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body .vc-reviews-stage__card .vc-reviews-card__reply,
@@ -6256,7 +6462,7 @@ html[data-vc-theme="light"] body.vc-body .vc-reviews-card__reply-meta {
   -webkit-text-fill-color: rgba(42, 28, 20, 0.62) !important;
   background: transparent !important;
 }
-/* scope STAFF/SERVER pill Ã¢ÃÂÃÂ niente metÃÂÃ  dark */
+/* scope STAFF/SERVER pill — niente metà dark */
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top :is(
   .vc-feedback-scope-bar,
   .vc-notif-scope-bar.vc-feedback-scope-bar,
@@ -6291,7 +6497,7 @@ html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top
   box-shadow: 0 4px 12px rgba(60, 40, 24, 0.1) !important;
 }
 
-/* fbRvLight1b: kill anello rame filtri Ã¢ÃÂÃÂ stessa :not chain di cardStaticGlow1 */
+/* fbRvLight1b: kill anello rame filtri — stessa :not chain di cardStaticGlow1 */
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-content #vc-feedback-filters.vc-feedback-filters:not(#discord-login-btn):not(.vc-ul-loading-card):not(.vc-roles-loading-card):not(.vc-staff-loading__card):not(.vc-user-profile-loader):not(.vc-reviews-stage__card):not(.vc-wt-board)::before,
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-content #vc-reviews-filters.vc-feedback-filters:not(#discord-login-btn):not(.vc-ul-loading-card):not(.vc-roles-loading-card):not(.vc-staff-loading__card):not(.vc-user-profile-loader):not(.vc-reviews-stage__card):not(.vc-wt-board)::before,
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-content .vc-feedback-filters:not(#discord-login-btn):not(.vc-ul-loading-card):not(.vc-roles-loading-card):not(.vc-staff-loading__card):not(.vc-user-profile-loader):not(.vc-reviews-stage__card):not(.vc-wt-board)::before,
@@ -6401,7 +6607,7 @@ html[data-vc-theme="light"] body.vc-body .vc-stat-strip > .vc-notify-stat {
   overflow: visible !important;
 }
 
-/* statStripKill1b: batte themeLightFull11b :is(#stats .vc-stat-strip) Ã¢ÃÂÃÂ 3 ID via :is max */
+/* statStripKill1b: batte themeLightFull11b :is(#stats .vc-stat-strip) — 3 ID via :is max */
 html.vc-site-photo-bg.vc-perf-mid.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-content :is(
   #stats .vc-stat-strip:has(.vc-notify-stat),
   #stats .vc-stat-strip:has(.vc-vote-live-statbox),
@@ -6671,7 +6877,7 @@ html[data-vc-theme="light"] body.vc-body :is(
   .vc-role-modal-swatch,
   .vc-role-card-swatch
 ) {
-  /* keep inline role color Ã¢ÃÂÃÂ only frame the swatch */
+  /* keep inline role color — only frame the swatch */
   background-image: none !important;
   border: 2px solid #faf6f0 !important;
   border-color: #faf6f0 !important;
@@ -6798,7 +7004,7 @@ html[data-vc-theme="light"] body.vc-appelli-page :is(
   color: #2a1c14 !important;
   -webkit-text-fill-color: #2a1c14 !important;
 }
-/* appelliRulesLight1: box regole cream (prima restava slate scuro Ã¢ÃÂÃÂ testo mocha illeggibile) */
+/* appelliRulesLight1: box regole cream (prima restava slate scuro → testo mocha illeggibile) */
 /* appelliRulesLight2: cream+mocha light / sabbia dark; kill clip:text */
 html[data-vc-theme="light"] body.vc-appelli-page :is(.vc-unban-rules, .vc-unmute-rules),
 html.vc-site-polish[data-vc-theme="light"] body.vc-appelli-page :is(.vc-unban-rules, .vc-unmute-rules),
@@ -6864,38 +7070,37 @@ html.vc-auth-logged-out #unmute-status-wrap {
   border: 0 !important;
 }
 
-/* candHeroCompact1: esito/requisiti sotto hero (tutti i viewport) */
+/* candTipsHeroShow1: tip esito/requisiti DENTRO hero (override candHeroCompact1) */
 html.vc-site-polish body.vc-candidature-page.vc-page-cine-layout .vc-page-cine-hero .vc-candidature-hero-pair,
 body.vc-candidature-page.vc-page-cine-layout .vc-page-cine-hero .vc-candidature-hero-pair,
 body.vc-candidature-page.vc-page-cine-layout .vc-hero-head .vc-candidature-hero-pair,
+body.vc-candidature-page.vc-page-cine-layout .vc-page-cine-aside-inline .vc-candidature-hero-pair,
 body.vc-candidature-page .vc-support-page-hero .vc-candidature-hero-pair {
-  display: none !important;
+  display: grid !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  width: 100% !important;
+  gap: 0.85rem !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
 }
 html.vc-site-polish body.vc-candidature-page .vc-candidature-pair-below,
 body.vc-candidature-page .vc-candidature-pair-below,
 html.vc-site-polish body.vc-candidature-page .vc-candidature-pair-below:not([hidden]),
 body.vc-candidature-page .vc-candidature-pair-below:not([hidden]) {
-  display: block !important;
-  visibility: visible !important;
-  width: min(56rem, calc(100% - 2rem)) !important;
-  max-width: min(56rem, calc(100vw - 2rem)) !important;
-  margin: 0.85rem auto 1.5rem !important;
-  box-sizing: border-box !important;
+  display: none !important;
+  visibility: hidden !important;
 }
-html.vc-site-polish body.vc-candidature-page .vc-candidature-pair-below .vc-candidature-hero-pair,
-body.vc-candidature-page .vc-candidature-pair-below .vc-candidature-hero-pair {
-  display: grid !important;
-  grid-template-columns: 1fr !important;
-  gap: 0.85rem !important;
-  width: 100% !important;
-}
-@media (min-width: 640px) {
-  html.vc-site-polish body.vc-candidature-page .vc-candidature-pair-below .vc-candidature-hero-pair,
-  body.vc-candidature-page .vc-candidature-pair-below .vc-candidature-hero-pair {
-    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+@media (max-width: 639.98px) {
+  html.vc-site-polish body.vc-candidature-page.vc-page-cine-layout .vc-page-cine-hero .vc-candidature-hero-pair,
+  body.vc-candidature-page.vc-page-cine-layout .vc-page-cine-hero .vc-candidature-hero-pair,
+  body.vc-candidature-page.vc-page-cine-layout .vc-hero-head .vc-candidature-hero-pair,
+  body.vc-candidature-page.vc-page-cine-layout .vc-page-cine-aside-inline .vc-candidature-hero-pair,
+  body.vc-candidature-page .vc-support-page-hero .vc-candidature-hero-pair {
+    grid-template-columns: 1fr !important;
+    gap: 0.75rem !important;
   }
 }
-/* hero copy piÃÂÃ¹ compatta da guest */
+/* hero copy più compatta da guest */
 html.vc-site-polish body.vc-candidature-page.vc-page-cine-layout .vc-page-cine-hero .vc-hero-about,
 html.vc-site-polish body.vc-candidature-page.vc-page-cine-layout .vc-page-cine-hero #candidature-welcome,
 body.vc-candidature-page #candidature-welcome {
@@ -7056,7 +7261,11 @@ html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-wiki-page#top .vc-wiki-tips-grid > [class*="rounded-"],
 html[data-vc-theme="light"] body.vc-page-cine-layout .vc-page-cine-aside-inline .grid > [class*="rounded-"] {
   position: relative !important;
-  overflow: hidden !important;
+  /* siteScrollTrap1: clip — no wheel trap */
+  overflow: clip !important;
+  overflow-x: clip !important;
+  overflow-y: clip !important;
+  touch-action: pan-y !important;
   border: 1px solid transparent !important;
   border-left-width: 1px !important;
   border-left-color: transparent !important;
@@ -7095,7 +7304,11 @@ html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body .vc-support-hero-pillar-ro
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body .vc-support-hero-pillar-row,
 html[data-vc-theme="light"] body.vc-body .vc-support-hero-pillar-row {
   position: relative !important;
-  overflow: hidden !important;
+  /* siteScrollTrap1: clip — no wheel trap */
+  overflow: clip !important;
+  overflow-x: clip !important;
+  overflow-y: clip !important;
+  touch-action: pan-y !important;
 }
 html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body .vc-support-hero-pillar-row::before,
 html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body.vc-donazioni-page .vc-support-hero-pillar-row::before,
@@ -7115,7 +7328,7 @@ html[data-vc-theme="light"] body.vc-body .vc-support-hero-pillar-row::before {
   padding: 0 !important;
 }
 
-/* reviewsSoft429Fix1 / toastInkLight1 / switcherLightAll1 Ã¢ÃÂÃÂ mirror soft-fx (theme-light load order) */
+/* reviewsSoft429Fix1 / toastInkLight1 / switcherLightAll1 — mirror soft-fx (theme-light load order) */
 html[data-vc-theme="light"] body.vc-body :is(.vc-reviews-empty, article.vc-reviews-empty) {
   background: #faf6f0 !important;
   background-color: #faf6f0 !important;
@@ -7160,10 +7373,11 @@ html[data-vc-theme="light"] body.vc-body :is(
   -webkit-text-fill-color: #1a120e !important;
 }
 
-/* disclaimerBgUnify1: TUTTI i disclaimer light = stesso cream #fff8e8 (donazioni/perks/regole/sponsor/tickets) */
+/* disclaimerBgUnify1 + disclaimerAlignSponsor1: cream unificato anche candidature/appelli/stack */
 html[data-vc-theme="light"] body.vc-body :is(
   .vc-support-donate-refund-note,
   p.vc-support-donate-refund-note,
+  .vc-support-donate-refund-note--stack,
   .vc-regole-disclaimer,
   p.vc-regole-disclaimer,
   #vc-regole-disclaimer,
@@ -7173,6 +7387,7 @@ html[data-vc-theme="light"] body.vc-body :is(
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top :is(
   .vc-support-donate-refund-note,
   p.vc-support-donate-refund-note,
+  .vc-support-donate-refund-note--stack,
   .vc-regole-disclaimer,
   #vc-regole-disclaimer,
   .vc-tickets-hours-disclaimer,
@@ -7197,7 +7412,10 @@ html[data-vc-theme="light"] body.vc-body :is(
   .vc-perks-page,
   .vc-sponsor-page,
   .vc-regole-page,
-  .vc-web-tickets-page
+  .vc-web-tickets-page,
+  .vc-candidature-page,
+  .vc-appelli-page,
+  .vc-unban-page
 ) :is(
   .vc-support-donate-refund-note,
   .vc-regole-disclaimer,
@@ -7218,15 +7436,16 @@ html[data-vc-theme="light"] body.vc-body :is(
       rgba(212, 168, 136, 0.7) 270deg,
       rgba(180, 130, 90, 0.88) 360deg
     ) !important;
-  background-origin: padding-box, padding-box, padding-box, border-box !important;
-  background-clip: padding-box, padding-box, padding-box, border-box !important;
-  -webkit-background-clip: padding-box, padding-box, padding-box, border-box !important;
-  border: 1px solid transparent !important;
-  border-color: transparent !important;
-  border-radius: 0.85rem !important;
+  background-origin: border-box !important;
+  background-clip: padding-box !important;
+  -webkit-background-clip: padding-box !important;
+  background-image: linear-gradient(180deg, #fffaf0 0%, #fff8e8 55%, #f7efd8 100%) !important;
+  border: 1px solid rgba(168, 118, 82, 0.72) !important;
+  border-color: rgba(168, 118, 82, 0.72) !important;
+  border-radius: 1.65rem !important;
   color: #2a1c14 !important;
   -webkit-text-fill-color: #2a1c14 !important;
-  box-shadow: none !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55) !important;
   filter: none !important;
   opacity: 1 !important;
   visibility: visible !important;
@@ -7268,7 +7487,7 @@ html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top
   background: none !important;
 }
 
-/* queueBatch1: coda chat Ã¢ÃÂÃÂ toast icons, switcher scope/chips, reviews nav/cards/stars, candidature pill */
+/* queueBatch1: coda chat — toast icons, switcher scope/chips, reviews nav/cards/stars, candidature pill */
 html[data-vc-theme="light"] body.vc-body :is(
   .vc-dash-save-toast,
   .vc-rank-save-toast,
@@ -7390,7 +7609,7 @@ html[data-vc-theme="light"] body.vc-body .vc-reviews-stage__nav :is(i, .fa, svg)
 }
 html[data-vc-theme="light"] body.vc-body .vc-reviews-stage__card.is-center,
 html[data-vc-theme="light"] body.vc-body .vc-reviews-stage__card {
-  /* reviewsStageCardDotsFix1: was max-height:none Ã¢ÃÂÃÂ side cards covered dots */
+  /* reviewsStageCardDotsFix1: was max-height:none — side cards covered dots */
   max-height: 22.75rem !important;
   overflow: hidden !important;
 }
@@ -7447,7 +7666,7 @@ html[data-vc-theme="light"] body.vc-body#top #vc-header-promo-btn.vc-header-prom
   opacity: 1 !important;
 }
 
-/* queueBatch1b: batte reviewsStageLayoutFix1 max-height/overflow (specificitÃÂÃ  full) */
+/* queueBatch1b: batte reviewsStageLayoutFix1 max-height/overflow (specificità full) */
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body .vc-reviews-stage__card,
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body .vc-reviews-stage__card.is-center,
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-content .vc-reviews-stage__card.is-center,
@@ -7461,7 +7680,7 @@ html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top
   overflow: visible !important;
 }
 
-/* scrollCueLightAll2: freccia mocha (no cream/glow dark) Ã¢ÃÂÃÂ TUTTE le pagine light */
+/* scrollCueLightAll2: freccia mocha (no cream/glow dark) — TUTTE le pagine light */
 html.vc-site-photo-bg.vc-perf-mid.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top main .vc-home-scrollcue:not(.is-away) .vc-home-scrollcue__label,
 html.vc-site-photo-bg.vc-perf-mid.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top main .vc-home-scrollcue .vc-home-scrollcue__label,
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top main .vc-home-scrollcue:not(.is-away) .vc-home-scrollcue__label,
@@ -7550,53 +7769,35 @@ html[data-vc-theme="light"] .vc-home-scrollcue:hover .vc-home-scrollcue__chev sp
   -webkit-filter: none !important;
 }
 
-/* scrollbarLight1: track cream + thumb mocha (verticale + orizzontale) */
+/* hideScrollGutter0: pagina light senza barra; pannelli sotto restano thin */
 html[data-vc-theme="light"],
 html[data-vc-theme="light"] body.vc-body,
 html.vc-site-polish[data-vc-theme="light"] body.vc-body {
   color-scheme: light !important;
-  scrollbar-width: thin !important;
-  scrollbar-color: rgba(111, 78, 55, 0.55) rgba(250, 246, 240, 0.92) !important;
+  scrollbar-width: none !important;
+  scrollbar-gutter: auto !important;
+  scrollbar-color: transparent transparent !important;
+  -ms-overflow-style: none !important;
 }
-html[data-vc-theme="light"] body.vc-body *,
-html.vc-site-polish[data-vc-theme="light"] body.vc-body * {
-  scrollbar-width: thin;
-  scrollbar-color: rgba(111, 78, 55, 0.5) rgba(245, 236, 224, 0.95);
-}
-html[data-vc-theme="light"] ::-webkit-scrollbar,
+html[data-vc-theme="light"]::-webkit-scrollbar,
 html[data-vc-theme="light"] body.vc-body::-webkit-scrollbar,
-html.vc-site-polish[data-vc-theme="light"] body.vc-body::-webkit-scrollbar,
-html[data-vc-theme="light"] body.vc-body *::-webkit-scrollbar {
-  width: 10px !important;
-  height: 10px !important;
+html.vc-site-polish[data-vc-theme="light"] body.vc-body::-webkit-scrollbar {
+  width: 0 !important;
+  height: 0 !important;
+  display: none !important;
+  background: transparent !important;
 }
-html[data-vc-theme="light"] ::-webkit-scrollbar-track,
+html[data-vc-theme="light"]::-webkit-scrollbar-track,
 html[data-vc-theme="light"] body.vc-body::-webkit-scrollbar-track,
-html.vc-site-polish[data-vc-theme="light"] body.vc-body::-webkit-scrollbar-track,
-html[data-vc-theme="light"] body.vc-body *::-webkit-scrollbar-track {
-  background: rgba(250, 246, 240, 0.95) !important;
-  border-radius: 999px !important;
-}
-html[data-vc-theme="light"] ::-webkit-scrollbar-thumb,
+html[data-vc-theme="light"]::-webkit-scrollbar-thumb,
 html[data-vc-theme="light"] body.vc-body::-webkit-scrollbar-thumb,
-html.vc-site-polish[data-vc-theme="light"] body.vc-body::-webkit-scrollbar-thumb,
-html[data-vc-theme="light"] body.vc-body *::-webkit-scrollbar-thumb {
-  background: rgba(111, 78, 55, 0.48) !important;
-  border-radius: 999px !important;
-  border: 2px solid rgba(250, 246, 240, 0.95) !important;
+html[data-vc-theme="light"]::-webkit-scrollbar-corner,
+html[data-vc-theme="light"] body.vc-body::-webkit-scrollbar-corner {
+  display: none !important;
+  background: transparent !important;
+  border: 0 !important;
 }
-html[data-vc-theme="light"] ::-webkit-scrollbar-thumb:hover,
-html[data-vc-theme="light"] body.vc-body::-webkit-scrollbar-thumb:hover,
-html.vc-site-polish[data-vc-theme="light"] body.vc-body::-webkit-scrollbar-thumb:hover,
-html[data-vc-theme="light"] body.vc-body *::-webkit-scrollbar-thumb:hover {
-  background: rgba(90, 62, 42, 0.72) !important;
-}
-html[data-vc-theme="light"] ::-webkit-scrollbar-corner,
-html[data-vc-theme="light"] body.vc-body::-webkit-scrollbar-corner,
-html[data-vc-theme="light"] body.vc-body *::-webkit-scrollbar-corner {
-  background: rgba(250, 246, 240, 0.95) !important;
-}
-/* pannelli header (lingue/snav) Ã¢ÃÂÃÂ scrollbar light visibile, non nascosta */
+/* pannelli header (lingue/snav) — scrollbar light visibile, non nascosta */
 html[data-vc-theme="light"] body.vc-body header .vc-lang-panel,
 html[data-vc-theme="light"] body.vc-body header .vc-snav-panel,
 html.vc-site-polish[data-vc-theme="light"] body.vc-body#top header .vc-lang-panel,
@@ -7637,7 +7838,7 @@ html[data-vc-theme="light"] body.vc-body header .discord-account-popover {
 
 /* snavDropUnify1 */
 
-/* reviewsLightSwitcher1: pin active ALL switchers Ã¢ÃÂÃÂ batte soft-fx :is(#vc-regole-tabs) inflated */
+/* reviewsLightSwitcher1: pin active ALL switchers — batte soft-fx :is(#vc-regole-tabs) inflated */
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top :is(
   .vc-regole-tabs,
   .vc-regole-tabs--sub,
@@ -8103,7 +8304,7 @@ html:not([data-vc-theme="light"]) body.vc-body :is(
   -webkit-text-fill-color: #1a120e !important;
 }
 
-/* emptyCardShell1: riquadro empty state (feedback/recensioni/confessionale/notify/ul) Ã¢ÃÂÃÂ mai transparent */
+/* emptyCardShell1: riquadro empty state (feedback/recensioni/confessionale/notify/ul) — mai transparent */
 /* emptyHiddenFix1: display:block !important non deve vincere su [hidden] */
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top :is(
   .vc-reviews-empty[hidden],
@@ -8235,7 +8436,7 @@ html[data-vc-theme="light"] body.vc-body :is(.vc-reviews-empty__icon, .vc-ul-emp
   -webkit-text-fill-color: #1a120e !important;
 }
 
-/* dark: stesso riquadro (mocha) Ã¢ÃÂÃÂ batte wipe nested transparent */
+/* dark: stesso riquadro (mocha) — batte wipe nested transparent */
 /* emptyHiddenFix1 */
 html.vc-site-polish:not([data-vc-theme="light"]):not(.vc-soft-fx-off) body.vc-body#top :is(
   .vc-reviews-empty[hidden],
@@ -8402,7 +8603,7 @@ html.vc-site-polish:not([data-vc-theme="light"]) body.vc-body#top #vc-page-conte
   border-top-style: none !important;
 }
 
-/* scrollCueWhite1: niente chip cream Ã¢ÃÂÃÂ freccia bianca su foto-bg */
+/* scrollCueWhite1: niente chip cream — freccia bianca su foto-bg */
 html[data-vc-theme="light"] body.vc-body .vc-home-scrollcue .vc-home-scrollcue__chev,
 html[data-vc-theme="light"] .vc-home-scrollcue__chev,
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top .vc-home-scrollcue .vc-home-scrollcue__chev,
@@ -8819,7 +9020,7 @@ html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top
   border-top-style: none !important;
 }
 
-/* wtOuterShellKill1: #vc-wt-app NON ÃÂÃ¨ card Ã¢ÃÂÃÂ niente cream/ombra sotto filter+layout (doppi angoli) */
+/* wtOuterShellKill1: #vc-wt-app NON è card — niente cream/ombra sotto filter+layout (doppi angoli) */
 html.vc-site-photo-bg.vc-perf-mid.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body.vc-web-tickets-page#top #vc-wt-app.vc-wt-app,
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body.vc-web-tickets-page#top #vc-wt-app.vc-wt-app,
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top.vc-web-tickets-page #vc-page-content #vc-wt-app.vc-wt-app,
@@ -8864,7 +9065,7 @@ html.vc-site-polish body.vc-body:not(.vc-body--home) :is(.vc-unban-rules-wrap, .
   padding: 0 !important;
 }
 
-/* candNoticeCream1c: end-of-file pin Ã¢ÃÂÃÂ gate charcoal, cream ink beats card ink sweeps */
+/* candNoticeCream1c: end-of-file pin — gate charcoal, cream ink beats card ink sweeps */
 html[data-vc-theme="light"] body.vc-candidature-page #vc-candidature-gate .vc-candidature-notice-msg,
 html[data-vc-theme="light"] body.vc-candidature-page #vc-candidature-gate .vc-candidature-notice-ico,
 html.vc-site-polish[data-vc-theme="light"] body.vc-body.vc-candidature-page #vc-candidature-gate .vc-candidature-notice-msg,
@@ -8878,7 +9079,7 @@ html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top
   background-clip: border-box !important;
 }
 
-/* candNoticeCream1e: nuclear cream Ã¢ÃÂÃÂ #top+#gate beats mocha; always cream on charcoal gate */
+/* candNoticeCream1e: nuclear cream — #top+#gate beats mocha; always cream on charcoal gate */
 html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body#top main #vc-candidature-gate.vc-candidature-notice .vc-candidature-notice-msg,
 html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body#top main #vc-candidature-gate.vc-candidature-notice .vc-candidature-notice-ico,
 html.vc-site-polish body.vc-body#top #vc-page-content #vc-candidature-gate .vc-candidature-notice-msg,
@@ -8896,33 +9097,49 @@ html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top
   opacity: 1 !important;
 }
 
-/* candTipsInHero1: tip esito/requisiti DENTRO hero (annulla candHeroCompact1 + phone park) */
-html.vc-site-polish body.vc-candidature-page.vc-page-cine-layout .vc-page-cine-hero .vc-candidature-hero-pair,
-body.vc-candidature-page.vc-page-cine-layout .vc-page-cine-hero .vc-candidature-hero-pair,
-body.vc-candidature-page.vc-page-cine-layout .vc-hero-head .vc-candidature-hero-pair,
-body.vc-candidature-page.vc-page-cine-layout .vc-page-cine-aside-inline .vc-candidature-hero-pair,
-body.vc-candidature-page .vc-support-page-hero .vc-candidature-hero-pair,
-html.vc-site-polish body.vc-candidature-page .vc-support-page-hero .vc-candidature-hero-pair {
-  display: grid !important;
-  visibility: visible !important;
-  opacity: 1 !important;
-  width: 100% !important;
-  gap: 0.85rem !important;
-  grid-template-columns: 1fr !important;
+/* candTipsHeroShow1: tip restano in hero anche telefono (override candTipsPhoneBelow*) */
+@media (max-width: 639.98px) {
+  html.vc-site-polish body.vc-candidature-page.vc-page-cine-layout .vc-page-cine-hero .vc-candidature-hero-pair,
+  body.vc-candidature-page.vc-page-cine-layout .vc-page-cine-hero .vc-candidature-hero-pair,
+  body.vc-candidature-page.vc-page-cine-layout .vc-hero-head .vc-candidature-hero-pair,
+  body.vc-candidature-page.vc-page-cine-layout .vc-page-cine-aside-inline .vc-candidature-hero-pair,
+  body.vc-candidature-page .vc-support-page-hero .vc-candidature-hero-pair,
+  html.vc-site-polish body.vc-candidature-page .vc-support-page-hero .vc-candidature-hero-pair {
+    display: grid !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    width: 100% !important;
+    gap: 0.75rem !important;
+    grid-template-columns: 1fr !important;
+  }
+  html.vc-site-polish body.vc-candidature-page .vc-candidature-pair-below,
+  body.vc-candidature-page .vc-candidature-pair-below,
+  html.vc-site-polish body.vc-candidature-page .vc-candidature-pair-below:not([hidden]),
+  body.vc-candidature-page .vc-candidature-pair-below:not([hidden]) {
+    display: none !important;
+    visibility: hidden !important;
+  }
 }
 @media (min-width: 640px) {
   html.vc-site-polish body.vc-candidature-page.vc-page-cine-layout .vc-page-cine-hero .vc-candidature-hero-pair,
   body.vc-candidature-page.vc-page-cine-layout .vc-page-cine-hero .vc-candidature-hero-pair,
+  body.vc-candidature-page.vc-page-cine-layout .vc-hero-head .vc-candidature-hero-pair,
+  body.vc-candidature-page.vc-page-cine-layout .vc-page-cine-aside-inline .vc-candidature-hero-pair,
   body.vc-candidature-page .vc-support-page-hero .vc-candidature-hero-pair,
   html.vc-site-polish body.vc-candidature-page .vc-support-page-hero .vc-candidature-hero-pair {
+    display: grid !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    width: 100% !important;
+    gap: 0.85rem !important;
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
   }
-}
-html.vc-site-polish body.vc-candidature-page .vc-candidature-pair-below,
-body.vc-candidature-page .vc-candidature-pair-below,
-html.vc-site-polish body.vc-candidature-page .vc-candidature-pair-below:not([hidden]),
-body.vc-candidature-page .vc-candidature-pair-below:not([hidden]) {
-  display: none !important;
+  html.vc-site-polish body.vc-candidature-page .vc-candidature-pair-below,
+  body.vc-candidature-page .vc-candidature-pair-below,
+  html.vc-site-polish body.vc-candidature-page .vc-candidature-pair-below:not([hidden]),
+  body.vc-candidature-page .vc-candidature-pair-below:not([hidden]) {
+    display: none !important;
+  }
 }
 
 /* scrollCueDark1: dark = testo bianco solido (niente metal clip charcoal) */
@@ -9002,7 +9219,7 @@ html.vc-site-polish body.vc-page-cine-layout:not(.vc-web-tickets-page):not(.vc-u
 html.vc-site-polish main .vc-support-page-hero:not(.is-collapsed),
 body.vc-body--home .vc-home-cine-hero:not(.is-collapsed),
 body.vc-page-cine-layout:not(.vc-web-tickets-page):not(.vc-user-profile-route) .vc-page-cine-hero:not(.is-collapsed) {
-  padding-bottom: 5.75rem !important;
+  padding-bottom: 5.5rem !important;
   box-sizing: border-box !important;
 }
 
@@ -9133,7 +9350,7 @@ html:has(.vc-wfc-subject-overlay:not([hidden])) body {
   touch-action: none !important;
 }
 
-/* scrollCueClear2: piu spazio sotto card (bordo cream light) Ã¢ÃÂÃÂ gap ~dark feel */
+/* scrollCueClear2: piu spazio sotto card (bordo cream light) — gap ~dark feel */
 html.vc-site-polish body.vc-body--home .vc-home-cine-hero > .vc-home-scrollcue,
 html.vc-site-polish body.vc-page-cine-layout:not(.vc-web-tickets-page):not(.vc-user-profile-route) .vc-page-cine-hero:not(.is-collapsed) > .vc-home-scrollcue,
 html.vc-site-polish main .vc-support-page-hero:not(.is-collapsed) > .vc-home-scrollcue,
@@ -9176,23 +9393,25 @@ body.vc-page-cine-layout:not(.vc-web-tickets-page):not(.vc-user-profile-route) .
   max-height: calc(100dvh - 5.5rem - 7.75rem) !important;
 }
 
-/* scrollCueClear2b: batte landing-core 6.4rem su support/home/cine hero */
-html.vc-site-polish body.vc-page-cine-layout:not(.vc-web-tickets-page) .vc-page-cine-hero:not(.is-collapsed),
-html.vc-site-polish body.vc-page-cine-layout:not(.vc-web-tickets-page) .vc-page-cine-hero.vc-support-page-hero:not(.is-collapsed),
-html.vc-site-polish body.vc-page-cine-layout:not(.vc-web-tickets-page) .vc-page-cine-hero.vc-support-page-hero:first-of-type:not(.is-collapsed),
-html.vc-site-polish body.vc-page-cine-layout:not(.vc-web-tickets-page) main > .vc-support-page-hero:first-of-type:not(.is-collapsed),
-html.vc-site-polish body.vc-page-cine-layout:not(.vc-web-tickets-page) .vc-page-cine-hero.vc-home-cine-hero:not(.is-collapsed),
-html.vc-site-polish body.vc-page-cine-layout:not(.vc-web-tickets-page) .vc-page-cine-hero.vc-vote-page-hero:not(.is-collapsed),
-html.vc-site-polish body.vc-page-cine-layout:not(.vc-web-tickets-page) .vc-page-cine-hero.vc-notify-hero:not(.is-collapsed),
-html.vc-site-polish body.vc-page-cine-layout:not(.vc-web-tickets-page) .vc-page-cine-hero.vc-staff-hero:not(.is-collapsed),
-html.vc-site-polish body.vc-body--home .vc-home-cine-hero:not(.is-truncated),
-html.vc-site-polish body.vc-body--home #intro.vc-home-cine-hero,
-html body.vc-body--home #intro.vc-home-cine-hero,
-html body.vc-body--home .vc-home-cine-hero,
-html.vc-site-polish body.vc-candidature-page .vc-page-cine-hero:not(.is-collapsed),
-html.vc-site-polish body.vc-candidature-page .vc-support-page-hero:not(.is-collapsed) {
-  padding-bottom: 8.5rem !important;
-  box-sizing: border-box !important;
+/* scrollCueClear2b: desk only (phone = heroPhoneCenter2 simmetrico) */
+@media (min-width: 640px) {
+  html.vc-site-polish body.vc-page-cine-layout:not(.vc-web-tickets-page) .vc-page-cine-hero:not(.is-collapsed),
+  html.vc-site-polish body.vc-page-cine-layout:not(.vc-web-tickets-page) .vc-page-cine-hero.vc-support-page-hero:not(.is-collapsed),
+  html.vc-site-polish body.vc-page-cine-layout:not(.vc-web-tickets-page) .vc-page-cine-hero.vc-support-page-hero:first-of-type:not(.is-collapsed),
+  html.vc-site-polish body.vc-page-cine-layout:not(.vc-web-tickets-page) main > .vc-support-page-hero:first-of-type:not(.is-collapsed),
+  html.vc-site-polish body.vc-page-cine-layout:not(.vc-web-tickets-page) .vc-page-cine-hero.vc-home-cine-hero:not(.is-collapsed),
+  html.vc-site-polish body.vc-page-cine-layout:not(.vc-web-tickets-page) .vc-page-cine-hero.vc-vote-page-hero:not(.is-collapsed),
+  html.vc-site-polish body.vc-page-cine-layout:not(.vc-web-tickets-page) .vc-page-cine-hero.vc-notify-hero:not(.is-collapsed),
+  html.vc-site-polish body.vc-page-cine-layout:not(.vc-web-tickets-page) .vc-page-cine-hero.vc-staff-hero:not(.is-collapsed),
+  html.vc-site-polish body.vc-body--home .vc-home-cine-hero:not(.is-truncated),
+  html.vc-site-polish body.vc-body--home #intro.vc-home-cine-hero,
+  html body.vc-body--home #intro.vc-home-cine-hero,
+  html body.vc-body--home .vc-home-cine-hero,
+  html.vc-site-polish body.vc-candidature-page .vc-page-cine-hero:not(.is-collapsed),
+  html.vc-site-polish body.vc-candidature-page .vc-support-page-hero:not(.is-collapsed) {
+    padding-bottom: 5.5rem !important;
+    box-sizing: border-box !important;
+  }
 }
 
 html.vc-site-polish body.vc-page-cine-layout:not(.vc-web-tickets-page) .vc-page-cine-hero:not(.is-collapsed) > .vc-home-scrollcue,
@@ -9220,7 +9439,7 @@ html body.vc-body--home .vc-home-cine-hero .vc-hero-head {
   max-height: calc(100dvh - 5.5rem - 8.5rem) !important;
 }
 
-/* scrollCueClear2c: phone Ã¢ÃÂÃÂ ancora un filo di aria sotto la card */
+/* scrollCueClear2c + heroPhoneCenter3: phone pad simmetrico (no 9.5rem bottom) */
 @media (max-width: 639.98px), (pointer: coarse) {
   html.vc-site-polish body.vc-page-cine-layout:not(.vc-web-tickets-page) .vc-page-cine-hero:not(.is-collapsed),
   html.vc-site-polish body.vc-page-cine-layout:not(.vc-web-tickets-page) .vc-page-cine-hero.vc-support-page-hero:not(.is-collapsed),
@@ -9229,14 +9448,15 @@ html body.vc-body--home .vc-home-cine-hero .vc-hero-head {
   html.vc-site-polish body.vc-candidature-page .vc-page-cine-hero:not(.is-collapsed),
   html.vc-site-polish body.vc-body--home .vc-home-cine-hero:not(.is-truncated),
   html body.vc-body--home .vc-home-cine-hero {
-    padding-bottom: 9.5rem !important;
+    padding-top: max(5.5rem, calc(env(safe-area-inset-top, 0px) + 4.5rem)) !important;
+    padding-bottom: max(5.5rem, calc(env(safe-area-inset-bottom, 0px) + 4.5rem)) !important;
   }
   html.vc-site-polish body.vc-page-cine-layout:not(.vc-web-tickets-page) .vc-page-cine-hero:not(.is-collapsed) .vc-hero-head,
   html.vc-site-polish body.vc-page-cine-layout:not(.vc-web-tickets-page) .vc-page-cine-hero.vc-support-page-hero:not(.is-collapsed) .vc-hero-head,
   html.vc-site-polish body.vc-candidature-page .vc-page-cine-hero:not(.is-collapsed) .vc-hero-head,
   html.vc-site-polish body.vc-body--home .vc-home-cine-hero:not(.is-truncated) .vc-hero-head {
-    max-height: calc(100svh - 5.5rem - 9.5rem) !important;
-    max-height: calc(100dvh - 5.5rem - 9.5rem) !important;
+    max-height: calc(100svh - 5.5rem - 5.5rem) !important;
+    max-height: calc(100dvh - 5.5rem - 5.5rem) !important;
   }
 }
 
@@ -9286,59 +9506,74 @@ html:not([data-vc-theme="light"]) #vc-site-back-top > i {
   color: transparent !important;
   -webkit-text-fill-color: transparent !important;
   text-shadow: none !important;
-  filter: drop-shadow(0 0 8px rgba(212, 168, 136, 0.45)) !important;
-  -webkit-filter: drop-shadow(0 0 8px rgba(212, 168, 136, 0.45)) !important;
-}
-
-/* keep fab shell opaque Ã¢ÃÂÃÂ only glyph is metal */
-html.vc-site-polish:not([data-vc-theme="light"]):not(.vc-soft-fx-off) body.vc-body #vc-site-back-top {
-  background-image: linear-gradient(180deg, rgba(26, 20, 15, 0.94), rgba(16, 12, 9, 0.96)) !important;
-  background-color: rgba(16, 12, 9, 0.96) !important;
-  -webkit-background-clip: border-box !important;
-  background-clip: border-box !important;
-  color: #f7efe4 !important;
-  -webkit-text-fill-color: #f7efe4 !important;
   filter: none !important;
   -webkit-filter: none !important;
 }
 
-/* desk = same cardÃ¢ÃÂÃÂcue air as phone (9.5rem) */
-html.vc-site-polish body.vc-page-cine-layout:not(.vc-web-tickets-page) .vc-page-cine-hero:not(.is-collapsed),
-html.vc-site-polish body.vc-page-cine-layout:not(.vc-web-tickets-page) .vc-page-cine-hero.vc-support-page-hero:not(.is-collapsed),
-html.vc-site-polish body.vc-page-cine-layout:not(.vc-web-tickets-page) .vc-page-cine-hero.vc-support-page-hero:first-of-type:not(.is-collapsed),
-html.vc-site-polish body.vc-page-cine-layout:not(.vc-web-tickets-page) main > .vc-support-page-hero:first-of-type:not(.is-collapsed),
-html.vc-site-polish body.vc-page-cine-layout:not(.vc-web-tickets-page) .vc-page-cine-hero.vc-home-cine-hero:not(.is-collapsed),
-html.vc-site-polish body.vc-page-cine-layout:not(.vc-web-tickets-page) .vc-page-cine-hero.vc-vote-page-hero:not(.is-collapsed),
-html.vc-site-polish body.vc-page-cine-layout:not(.vc-web-tickets-page) .vc-page-cine-hero.vc-notify-hero:not(.is-collapsed),
-html.vc-site-polish body.vc-page-cine-layout:not(.vc-web-tickets-page) .vc-page-cine-hero.vc-staff-hero:not(.is-collapsed),
-html.vc-site-polish body.vc-body--home .vc-home-cine-hero:not(.is-truncated),
-html.vc-site-polish body.vc-body--home #intro.vc-home-cine-hero,
-html body.vc-body--home #intro.vc-home-cine-hero,
-html body.vc-body--home .vc-home-cine-hero,
-html.vc-site-polish body.vc-candidature-page .vc-page-cine-hero:not(.is-collapsed),
-html.vc-site-polish body.vc-candidature-page .vc-support-page-hero:not(.is-collapsed),
-html.vc-site-polish main .vc-support-page-hero:not(.is-collapsed),
-html.vc-site-polish main .vc-notify-hero:not(.is-collapsed),
-html.vc-site-polish main .vc-vote-page-hero:not(.is-collapsed),
-html.vc-site-polish main .vc-staff-hero:not(.is-collapsed),
-html.vc-site-polish main .vc-page-cine-hero:not(.is-collapsed) {
-  padding-bottom: 9.5rem !important;
-  box-sizing: border-box !important;
+/* backTopConic1: shell conic, no glow */
+html.vc-site-polish:not([data-vc-theme="light"]):not(.vc-soft-fx-off) body.vc-body #vc-site-back-top {
+  border: 1.35px solid transparent !important;
+  border-color: transparent !important;
+  background-color: #100c09 !important;
+  background-image:
+    linear-gradient(180deg, rgba(26, 20, 15, 0.96), rgba(16, 12, 9, 0.98)),
+    conic-gradient(
+      from 0deg,
+      rgba(247, 236, 223, 0.88) 0deg,
+      rgba(212, 168, 136, 0.62) 90deg,
+      rgba(180, 130, 90, 0.68) 180deg,
+      rgba(212, 168, 136, 0.62) 270deg,
+      rgba(247, 236, 223, 0.88) 360deg
+    ) !important;
+  background-origin: padding-box, border-box !important;
+  background-clip: padding-box, border-box !important;
+  -webkit-background-clip: padding-box, border-box !important;
+  color: #f7efe4 !important;
+  -webkit-text-fill-color: #f7efe4 !important;
+  box-shadow: none !important;
+  filter: none !important;
+  -webkit-filter: none !important;
 }
 
-html.vc-site-polish body.vc-page-cine-layout:not(.vc-web-tickets-page) .vc-page-cine-hero:not(.is-collapsed) .vc-hero-head,
-html.vc-site-polish body.vc-page-cine-layout:not(.vc-web-tickets-page) .vc-page-cine-hero.vc-support-page-hero:not(.is-collapsed) .vc-hero-head,
-html.vc-site-polish body.vc-page-cine-layout:not(.vc-web-tickets-page) main > .vc-support-page-hero:first-of-type:not(.is-collapsed) .vc-hero-head,
-html.vc-site-polish body.vc-page-cine-layout:not(.vc-web-tickets-page) .vc-page-cine-hero:not(.is-collapsed) .vc-page-cine-card,
-html.vc-site-polish body.vc-body--home .vc-home-cine-hero:not(.is-truncated) .vc-hero-head,
-html.vc-site-polish body.vc-candidature-page .vc-page-cine-hero:not(.is-collapsed) .vc-hero-head,
-html body.vc-body--home .vc-home-cine-hero .vc-hero-head,
-html.vc-site-polish main .vc-support-page-hero:not(.is-collapsed) .vc-hero-head,
-html.vc-site-polish main .vc-notify-hero:not(.is-collapsed) .vc-hero-head,
-html.vc-site-polish main .vc-vote-page-hero:not(.is-collapsed) .vc-hero-head,
-html.vc-site-polish main .vc-staff-hero:not(.is-collapsed) .vc-hero-head {
-  max-height: calc(100svh - 5.5rem - 9.5rem) !important;
-  max-height: calc(100dvh - 5.5rem - 9.5rem) !important;
+/* desk only — phone pad simmetrico in scrollCueClear2c (heroPhoneCenter2) */
+@media (min-width: 640px) {
+  html.vc-site-polish body.vc-page-cine-layout:not(.vc-web-tickets-page) .vc-page-cine-hero:not(.is-collapsed),
+  html.vc-site-polish body.vc-page-cine-layout:not(.vc-web-tickets-page) .vc-page-cine-hero.vc-support-page-hero:not(.is-collapsed),
+  html.vc-site-polish body.vc-page-cine-layout:not(.vc-web-tickets-page) .vc-page-cine-hero.vc-support-page-hero:first-of-type:not(.is-collapsed),
+  html.vc-site-polish body.vc-page-cine-layout:not(.vc-web-tickets-page) main > .vc-support-page-hero:first-of-type:not(.is-collapsed),
+  html.vc-site-polish body.vc-page-cine-layout:not(.vc-web-tickets-page) .vc-page-cine-hero.vc-home-cine-hero:not(.is-collapsed),
+  html.vc-site-polish body.vc-page-cine-layout:not(.vc-web-tickets-page) .vc-page-cine-hero.vc-vote-page-hero:not(.is-collapsed),
+  html.vc-site-polish body.vc-page-cine-layout:not(.vc-web-tickets-page) .vc-page-cine-hero.vc-notify-hero:not(.is-collapsed),
+  html.vc-site-polish body.vc-page-cine-layout:not(.vc-web-tickets-page) .vc-page-cine-hero.vc-staff-hero:not(.is-collapsed),
+  html.vc-site-polish body.vc-body--home .vc-home-cine-hero:not(.is-truncated),
+  html.vc-site-polish body.vc-body--home #intro.vc-home-cine-hero,
+  html body.vc-body--home #intro.vc-home-cine-hero,
+  html body.vc-body--home .vc-home-cine-hero,
+  html.vc-site-polish body.vc-candidature-page .vc-page-cine-hero:not(.is-collapsed),
+  html.vc-site-polish body.vc-candidature-page .vc-support-page-hero:not(.is-collapsed),
+  html.vc-site-polish main .vc-support-page-hero:not(.is-collapsed),
+  html.vc-site-polish main .vc-notify-hero:not(.is-collapsed),
+  html.vc-site-polish main .vc-vote-page-hero:not(.is-collapsed),
+  html.vc-site-polish main .vc-staff-hero:not(.is-collapsed),
+  html.vc-site-polish main .vc-page-cine-hero:not(.is-collapsed) {
+    padding-bottom: 5.5rem !important;
+    box-sizing: border-box !important;
+  }
+
+  html.vc-site-polish body.vc-page-cine-layout:not(.vc-web-tickets-page) .vc-page-cine-hero:not(.is-collapsed) .vc-hero-head,
+  html.vc-site-polish body.vc-page-cine-layout:not(.vc-web-tickets-page) .vc-page-cine-hero.vc-support-page-hero:not(.is-collapsed) .vc-hero-head,
+  html.vc-site-polish body.vc-page-cine-layout:not(.vc-web-tickets-page) main > .vc-support-page-hero:first-of-type:not(.is-collapsed) .vc-hero-head,
+  html.vc-site-polish body.vc-page-cine-layout:not(.vc-web-tickets-page) .vc-page-cine-hero:not(.is-collapsed) .vc-page-cine-card,
+  html.vc-site-polish body.vc-body--home .vc-home-cine-hero:not(.is-truncated) .vc-hero-head,
+  html.vc-site-polish body.vc-candidature-page .vc-page-cine-hero:not(.is-collapsed) .vc-hero-head,
+  html body.vc-body--home .vc-home-cine-hero .vc-hero-head,
+  html.vc-site-polish main .vc-support-page-hero:not(.is-collapsed) .vc-hero-head,
+  html.vc-site-polish main .vc-notify-hero:not(.is-collapsed) .vc-hero-head,
+  html.vc-site-polish main .vc-vote-page-hero:not(.is-collapsed) .vc-hero-head,
+  html.vc-site-polish main .vc-staff-hero:not(.is-collapsed) .vc-hero-head {
+    max-height: calc(100svh - 5.5rem - 6.5rem) !important;
+    max-height: calc(100dvh - 5.5rem - 6.5rem) !important;
+  }
 }
 
 /* cue dock: freccia un filo piu alta (tutte le cine) */
@@ -9409,8 +9644,8 @@ html:not([data-vc-theme="light"]) #vc-site-back-top > i::before {
   color: transparent !important;
   -webkit-text-fill-color: transparent !important;
   text-shadow: none !important;
-  filter: drop-shadow(0 0 8px rgba(212, 168, 136, 0.45)) !important;
-  -webkit-filter: drop-shadow(0 0 8px rgba(212, 168, 136, 0.45)) !important;
+  filter: none !important;
+  -webkit-filter: none !important;
 }
 
 /* scrollCueAlignGrad2: batte 0.2rem phone media + allinea dock */
@@ -9463,7 +9698,7 @@ body.vc-body--home .vc-home-cine-hero > .vc-home-scrollcue {
   }
 }
 
-/* scrollCueDeskLow1: SOLO PC Ã¢ÃÂÃÂ cue a filo margine basso (scritta+freccia), pad hero stretto */
+/* scrollCueDeskLow1: SOLO PC — cue a filo margine basso (scritta+freccia), pad hero stretto */
 @media (min-width: 640px) and (pointer: fine) {
   html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body--home .vc-home-cine-hero > .vc-home-scrollcue,
   html.vc-site-polish:not(.vc-soft-fx-off) body.vc-page-cine-layout .vc-page-cine-hero > .vc-home-scrollcue,
@@ -9498,7 +9733,7 @@ body.vc-body--home .vc-home-cine-hero > .vc-home-scrollcue {
   html.vc-site-polish main .vc-vote-page-hero:not(.is-collapsed),
   html.vc-site-polish main .vc-staff-hero:not(.is-collapsed),
   html.vc-site-polish main .vc-page-cine-hero:not(.is-collapsed) {
-    padding-bottom: 6.5rem !important;
+    padding-bottom: 5.5rem !important;
     box-sizing: border-box !important;
   }
 
@@ -9516,7 +9751,7 @@ body.vc-body--home .vc-home-cine-hero > .vc-home-scrollcue {
   }
 }
 
-/* scrollCueDeskLow2: PC Ã¢ÃÂÃÂ scritta poco sopra freccia (gap stretto + chev compatta) */
+/* scrollCueDeskLow2: PC — scritta poco sopra freccia (gap stretto + chev compatta) */
 @media (min-width: 640px) and (pointer: fine) {
   html.vc-site-polish body.vc-body--home .vc-home-cine-hero > .vc-home-scrollcue,
   html.vc-site-polish body.vc-page-cine-layout .vc-page-cine-hero > .vc-home-scrollcue,
@@ -9611,7 +9846,7 @@ body.vc-page-cine-layout .vc-page-cine-hero > .vc-home-scrollcue {
   }
 }
 
-/* scrollCueMarginVisible2: aria extra sotto Ã¢ÃÂÃÂ le punte rotate della freccia non devono tagliarsi */
+/* scrollCueMarginVisible2: aria extra sotto — le punte rotate della freccia non devono tagliarsi */
 html.vc-site-polish body.vc-body--home .vc-home-cine-hero > .vc-home-scrollcue,
 html.vc-site-polish body.vc-page-cine-layout .vc-page-cine-hero > .vc-home-scrollcue,
 html.vc-site-polish main .vc-page-cine-hero > .vc-home-scrollcue,
@@ -9825,7 +10060,7 @@ html[data-vc-theme="light"] .vc-home-scrollcue__chev span:nth-child(2) {
   opacity: 0.65 !important;
 }
 
-/* scrollCueUnify2: stessa specificita light/dark Ã¢ÃÂÃÂ geometria identica, solo colori diversi */
+/* scrollCueUnify2: stessa specificita light/dark — geometria identica, solo colori diversi */
 html.vc-site-polish:not(.vc-soft-fx-off):not([data-vc-theme="light"]) body.vc-body .vc-home-scrollcue .vc-home-scrollcue__chev,
 html.vc-site-polish:not(.vc-soft-fx-off):not([data-vc-theme="light"]) body.vc-body--home .vc-home-scrollcue__chev,
 html.vc-site-polish:not(.vc-soft-fx-off):not([data-vc-theme="light"]) body.vc-page-cine-layout .vc-home-scrollcue__chev,
@@ -9960,7 +10195,7 @@ html[data-vc-theme="light"] .vc-home-scrollcue__chev span:nth-child(2) {
   opacity: 0.65 !important;
 }
 
-/* scrollCueUnify2c: width cross-axis in column flex Ã¢ÃÂÃÂ batte White1 2.65rem (stessa catena .scrollcue .chev) */
+/* scrollCueUnify2c: width cross-axis in column flex — batte White1 2.65rem (stessa catena .scrollcue .chev) */
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body .vc-home-scrollcue .vc-home-scrollcue__chev,
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body--home .vc-home-scrollcue .vc-home-scrollcue__chev,
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-page-cine-layout .vc-home-scrollcue .vc-home-scrollcue__chev,
@@ -10004,7 +10239,7 @@ html[data-vc-theme="light"] .vc-home-scrollcue:not(.is-away) .vc-home-scrollcue_
   opacity: 0.65 !important;
 }
 
-/* lightGradParity4b: stessi gradienti dark (conic/pill/tickets) invertiti cream+mocha Ã¢ÃÂÃÂ tutte le pagine */
+/* lightGradParity4b: stessi gradienti dark (conic/pill/tickets) invertiti cream+mocha — tutte le pagine */
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body :is(
   .vc-page-cine-card,
   .vc-fx-card,
@@ -10277,10 +10512,10 @@ html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top
 
 /* lightDarkParity5: EOF — titoli gradient + CTA/pill twin (batte wipe mid hero :is(a,p))
    emojiColorFix3: skip boards form hero title */
-html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-intro .vc-hero-head :is(h1,h2,.vc-brand-glow,.vc-page-cine-title),
-html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top main :is(h1,h2:not(.vc-boards-form-hero__title),.vc-brand-glow,.vc-page-cine-title),
-html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body :is(main h1, main h2:not(.vc-boards-form-hero__title), h1.vc-brand-glow, .vc-brand-glow, .vc-page-cine-title, .vc-home-cine-hero h1, .vc-page-cine-hero h1),
-html.vc-site-photo-bg.vc-perf-mid.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top main :is(h1,.vc-brand-glow) {
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-intro .vc-hero-head :is(h1,h2,.vc-brand-glow,.vc-page-cine-title):not(.vc-has-emoji),
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top main :is(h1,h2:not(.vc-boards-form-hero__title),.vc-brand-glow,.vc-page-cine-title):not(.vc-has-emoji),
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body :is(main h1, main h2:not(.vc-boards-form-hero__title), h1.vc-brand-glow, .vc-brand-glow, .vc-page-cine-title, .vc-home-cine-hero h1, .vc-page-cine-hero h1):not(.vc-has-emoji),
+html.vc-site-photo-bg.vc-perf-mid.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top main :is(h1,.vc-brand-glow):not(.vc-has-emoji) {
   background-color: transparent !important;
   background-image: var(--vc-look-grad-title) !important;
   -webkit-background-clip: text !important;
@@ -10357,7 +10592,7 @@ html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-page-cin
 }
 
 
-/* lightDarkParity5c: hero titles Ã¢ÃÂÃÂ batte #vc-page-intro wipe (2 ID) */
+/* lightDarkParity5c: hero titles — batte #vc-page-intro wipe (2 ID) */
 html.vc-site-photo-bg.vc-perf-mid.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-intro .vc-hero-head :is(h1,h2,h3,.vc-brand-glow,.vc-page-cine-title),
 html.vc-site-photo-bg.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-intro .vc-hero-head :is(h1,h2,.vc-brand-glow),
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-intro .vc-hero-head :is(h1,h2,h3,.vc-brand-glow,.vc-page-cine-title),
@@ -10411,7 +10646,7 @@ html[data-vc-theme="light"] .vc-wiki-cmd-shell .vc-cmd-pill {
   text-shadow: none !important;
 }
 
-/* lightDarkParity5d2: wiki cmd-pill Ã¢ÃÂÃÂ batte :not(#id) 3-ID wipe */
+/* lightDarkParity5d2: wiki cmd-pill — batte :not(#id) 3-ID wipe */
 html.vc-site-photo-bg.vc-perf-mid.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #wiki-comandi-panel .vc-wiki-cmd-shell p.vc-cmd-pill:not(#discord-login-btn):not(#vc-regole-disclaimer),
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #wiki-comandi-panel .vc-wiki-cmd-shell .vc-cmd-pill:not(#discord-login-btn):not(#vc-regole-disclaimer),
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #wiki-comandi-panel .vc-cmd-pill:not(#discord-login-btn):not(#vc-regole-disclaimer),
@@ -10507,7 +10742,7 @@ html.vc-site-photo-bg.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off)
   animation: vc-home-metal-sheen 8s ease-in-out infinite !important;
 }
 /* heroMetalLight4c superseded by heroMetalLight5 */
-/* EOF pin heroMetalLight5: light metal scuro Ã¢ÃÂÃÂ niente cream flash sulle card */
+/* EOF pin heroMetalLight5: light metal scuro — niente cream flash sulle card */
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off),
 html[data-vc-theme="light"].vc-site-polish:not(.vc-soft-fx-off) {
   --vc-look-grad-title: linear-gradient(118deg, #2a1c14 0%, #6f4e37 14%, #a67c52 28%, #4a3020 42%, #8b6342 55%, #c9a07a 70%, #5c3d28 84%, #9a7350 94%, #241710 100%);
@@ -10552,7 +10787,7 @@ html[data-vc-theme="light"] {
   --vc-look-text: rgba(42, 28, 20, 0.9);
   --vc-look-muted: rgba(90, 62, 42, 0.72);
   --vc-look-title: rgba(36, 23, 16, 0.96);
-  /* mirror dark champagne metal Ã¢ÃÂÃÂ mocha metal (stesso angolo/stop count) */
+  /* mirror dark champagne metal → mocha metal (stesso angolo/stop count) */
   --vc-look-grad-title: linear-gradient(
     118deg,
     #5c3d28 0%,
@@ -10628,9 +10863,10 @@ html[data-vc-theme="light"] {
 }
 
 /* EOF pin lightDarkParity1: body + card wash = mirror dark (solo colori) */
-html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body,
-html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body--home,
-html[data-vc-theme="light"] body.vc-body {
+/* boardsSchedaBgFade2: fuori scheda bacheca */
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off):not(.vc-boards-page-banner-bg) body.vc-body,
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off):not(.vc-boards-page-banner-bg) body.vc-body--home,
+html[data-vc-theme="light"]:not(.vc-boards-page-banner-bg) body.vc-body {
   color: var(--vc-look-text) !important;
   background-color: #efe6dc !important;
 }
@@ -10746,7 +10982,7 @@ html[data-vc-theme="light"] .vc-home-scrollcue__label {
   border: 0 !important;
   box-shadow: none !important;
 }
-/* freccia: mocha mid (mirror dark sand border) Ã¢ÃÂÃÂ no bianco solido */
+/* freccia: mocha mid (mirror dark sand border) — no bianco solido */
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body .vc-home-scrollcue .vc-home-scrollcue__chev span,
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body--home .vc-home-scrollcue__chev span,
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-page-cine-layout .vc-home-scrollcue__chev span,
@@ -10763,7 +10999,7 @@ html[data-vc-theme="light"] .vc-home-scrollcue__chev span {
   -webkit-filter: drop-shadow(0 1px 3px rgba(255, 255, 255, 0.45)) !important;
 }
 
-/* reviewsStageCardDotsFix2: light theme Ã¢ÃÂÃÂ solid fill, clip cards, clear dots */
+/* reviewsStageCardDotsFix2: light theme — solid fill, clip cards, clear dots */
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-content #vc-reviews-stage .vc-reviews-stage__track,
 html[data-vc-theme="light"] body.vc-reviews-page .vc-reviews-stage__track {
   overflow: hidden !important;
@@ -10959,7 +11195,7 @@ html.vc-site-polish[data-vc-theme="light"] body.vc-vote-page .vc-page-cine-hero 
   transform: none !important;
 }
 
-/* switcherBorderUnify1: light Ã¢ÃÂÃÂ stesso anello conic bronzo su tutti i track */
+/* switcherBorderUnify1: light — stesso anello conic bronzo su tutti i track */
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body :is(
   .vc-regole-tabs,
   .vc-regole-tabs--sub,
@@ -11027,7 +11263,61 @@ html[data-vc-theme="light"] .vc-notif-panel :is(
   -webkit-background-clip: padding-box, border-box !important;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45) !important;
 }
-/* acctMenuGradRestore1: light Ã¢ÃÂÃÂ nome + span voci a gradiente bronzo */
+/* notifScopeSwitchStaffFix1: light — pill Personali|Inbox anche su /compiti/ (no body#top) */
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body .vc-notif-scope-switch__seg,
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body .vc-notif-panel .vc-notif-scope-switch__seg,
+html[data-vc-theme="light"] .vc-notif-panel .vc-notif-scope-switch__seg,
+html.vc-notif-sheet-open[data-vc-theme="light"] body.vc-body .vc-notif-scope-switch__seg,
+html.vc-staff-compiti-route[data-vc-theme="light"] body.vc-body .vc-notif-scope-switch__seg,
+html.vc-staff-route[data-vc-theme="light"] body.vc-body .vc-notif-scope-switch__seg {
+  display: grid !important;
+  grid-template-columns: 1fr 1fr !important;
+  width: fit-content !important;
+  max-width: 100% !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+  border-radius: 999px !important;
+  justify-content: stretch !important;
+}
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body .vc-notif-scope-switch:not([hidden]):has(.vc-notif-scope-switch__seg),
+html.vc-notif-sheet-open[data-vc-theme="light"] body.vc-body .vc-notif-scope-switch:not([hidden]):has(.vc-notif-scope-switch__seg),
+html.vc-staff-compiti-route[data-vc-theme="light"] body.vc-body .vc-notif-scope-switch:not([hidden]):has(.vc-notif-scope-switch__seg) {
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+  width: 100% !important;
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+/* notifScopeSwitchHidden1: light — hidden batte flex */
+html[data-vc-theme="light"] body.vc-body .vc-notif-scope-switch[hidden],
+html.vc-notif-sheet-open[data-vc-theme="light"] body.vc-body .vc-notif-scope-switch[hidden],
+html.vc-site-polish[data-vc-theme="light"] body.vc-body .vc-notif-scope-switch[hidden] {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  height: 0 !important;
+  max-height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  border: 0 !important;
+}
+/* notifScopeSwitchStaff3: light EOF mirror */
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body .vc-notif-panel .vc-notif-scope-switch__seg,
+html[data-vc-theme="light"] body.vc-body .vc-notif-dropdown .vc-notif-scope-switch__seg,
+html.vc-notif-sheet-open[data-vc-theme="light"] body.vc-body .vc-notif-scope-switch__seg {
+  display: grid !important;
+  grid-template-columns: 1fr 1fr !important;
+  width: fit-content !important;
+  max-width: min(100%, 22rem) !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+  border-radius: 999px !important;
+  flex: 0 0 auto !important;
+}
+/* acctMenuGradRestore1: light — nome + span voci a gradiente bronzo */
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body .discord-account-popover__name,
 html[data-vc-theme="light"] .discord-account-popover__name {
   background-image: var(--vc-look-grad-brand, linear-gradient(135deg, #6f4e37, #a07850 45%, #8b6346)) !important;
@@ -11054,7 +11344,7 @@ html[data-vc-theme="light"] .discord-account-popover__item:not(.discord-account-
   -webkit-text-fill-color: #6f4e37 !important;
 }
 
-/* switcherTrackEdge1: light Ã¢ÃÂÃÂ conic su __inner, non su outer/active */
+/* switcherTrackEdge1: light — conic su __inner, non su outer/active */
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body .vc-user-profile-tabs,
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body .vc-user-profile-switcher,
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top .vc-user-profile-tabs,
@@ -11110,7 +11400,7 @@ html[data-vc-theme="light"] .vc-user-profile-tabs a[role="tab"][aria-selected="t
   -webkit-text-fill-color: #fffaf4 !important;
 }
 
-/* navChromeGradBorder1: light ÃÂ nav shell senza alone, solo bordo ::after */
+/* navChromeGradBorder1: light  nav shell senza alone, solo bordo ::after */
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body header .vc-nav-shell,
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body > header .vc-nav-shell,
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top header .vc-nav-shell,
@@ -11154,7 +11444,7 @@ html[data-vc-theme="light"] body.vc-body header .vc-nav-shell {
 }
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body header .vc-nav-shell::after,
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top header .vc-nav-shell::after {
-  /* bordo gi� sul background-clip � spegni alone ::after */
+  /* bordo già sul background-clip — spegni alone ::after */
   content: none !important;
   display: none !important;
   opacity: 0 !important;
@@ -11555,8 +11845,9 @@ html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body.vc-
   .vc-user-profile-mini,
   .vc-user-profile-badges
 ) {
-  border: 1px solid transparent !important;
-  border-width: 1px !important;
+  /* cardInnerNavRing2: non ridipingere a 1px — bordo 2px + nav-ring sopra */
+  border: 2px solid transparent !important;
+  border-width: 2px !important;
   border-style: solid !important;
   border-color: transparent !important;
 }
@@ -11648,8 +11939,9 @@ html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body.vc-
   .vc-user-profile-mini,
   .vc-user-profile-badges
 ) {
-  border: 1px solid transparent !important;
-  border-width: 1px !important;
+  /* cardInnerNavRing: thick3 light non torna a 1px sugli interni */
+  border: 2px solid transparent !important;
+  border-width: 2px !important;
   border-color: transparent !important;
 }
 
@@ -11822,7 +12114,11 @@ html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body.vc-
 ) {
   position: relative !important;
   isolation: isolate !important;
-  overflow: hidden !important;
+  /* profileScroll2: clip — no wheel trap */
+  overflow: clip !important;
+  overflow-x: clip !important;
+  overflow-y: clip !important;
+  touch-action: pan-y !important;
   background-color: #faf6f0 !important;
   background-image:
     radial-gradient(120% 90% at 0% 0%, rgba(255, 248, 238, 0.85), transparent 52%),
@@ -11996,3 +12292,550 @@ html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body.vc-
 }
 
 /* scrollCueNeverScroll1 */
+
+/* ═══════════════════════════════════════════════════════════════
+   notifSheetUnifyAll1 — light: stesse regole sheet anche se portale
+   su body (prima solo header .vc-notif-panel → look diverso)
+   ═══════════════════════════════════════════════════════════════ */
+html.vc-site-polish[data-vc-theme="light"] body.vc-body > .vc-notif-dropdown .vc-notif-panel,
+html.vc-site-polish[data-vc-theme="light"] body.vc-body#top > .vc-notif-dropdown .vc-notif-panel,
+html[data-vc-theme="light"] body.vc-body > .vc-notif-dropdown .vc-notif-panel {
+  background-color: #faf6f0 !important;
+  background-image:
+    radial-gradient(120% 90% at 0% 0%, rgba(255, 248, 238, 0.92), transparent 52%),
+    linear-gradient(175deg, #fffaf4 0%, #f3ebe3 55%, #efe6dc 100%) !important;
+  border-color: rgba(168, 132, 98, 0.35) !important;
+  color: #2a1c14 !important;
+  -webkit-text-fill-color: #2a1c14 !important;
+  box-shadow: -18px 0 52px rgba(80, 50, 30, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.55) !important;
+}
+html.vc-site-polish[data-vc-theme="light"].vc-notif-drawer-open body.vc-body > .vc-notif-dropdown[open] .vc-notif-panel,
+html.vc-site-polish[data-vc-theme="light"].vc-notif-sheet-open body.vc-body > .vc-notif-dropdown[open] .vc-notif-panel,
+html[data-vc-theme="light"].vc-notif-drawer-open body.vc-body > .vc-notif-dropdown[open] .vc-notif-panel,
+html[data-vc-theme="light"].vc-notif-sheet-open body.vc-body > .vc-notif-dropdown[open] .vc-notif-panel {
+  top: 0 !important;
+  bottom: 0 !important;
+  right: 0 !important;
+  left: auto !important;
+  margin-top: 0 !important;
+  position: fixed !important;
+  width: min(26rem, 100vw) !important;
+  height: 100dvh !important;
+  max-height: 100dvh !important;
+  border-radius: 1.35rem 0 0 1.35rem !important;
+}
+html.vc-site-polish[data-vc-theme="light"] body.vc-body > .vc-notif-dropdown .vc-notif-panel :is(
+  .vc-notif-panel-title,
+  .vc-notif-panel-sub,
+  .vc-notif-item-title,
+  .vc-notif-item-body,
+  .vc-notif-see-all,
+  .vc-notif-scope-switch__btn:not(.is-active):not([aria-selected="true"]),
+  span,
+  i,
+  .fa
+),
+html[data-vc-theme="light"] body.vc-body > .vc-notif-dropdown .vc-notif-panel :is(
+  .vc-notif-panel-title,
+  .vc-notif-panel-sub,
+  .vc-notif-see-all,
+  .vc-notif-scope-switch__btn:not(.is-active):not([aria-selected="true"])
+) {
+  color: #2a1c14 !important;
+  -webkit-text-fill-color: #2a1c14 !important;
+  background-image: none !important;
+  -webkit-background-clip: border-box !important;
+  background-clip: border-box !important;
+}
+/* notifSheetUnifyAll1 */
+
+/* notifSheetScopeActive1 — light: fill attivo anche senza body#top / fuori header */
+html[data-vc-theme="light"] body.vc-body #vc-notif-bell-tab-personal.is-active,
+html[data-vc-theme="light"] body.vc-body #vc-notif-bell-tab-personal[aria-selected="true"],
+html[data-vc-theme="light"] body.vc-body #vc-notif-bell-tab-staff.is-active,
+html[data-vc-theme="light"] body.vc-body #vc-notif-bell-tab-staff[aria-selected="true"],
+html[data-vc-theme="light"].vc-notif-sheet-open body.vc-body #vc-notif-bell-tab-personal.is-active,
+html[data-vc-theme="light"].vc-notif-sheet-open body.vc-body #vc-notif-bell-tab-staff.is-active,
+html[data-vc-theme="light"].vc-notif-drawer-open body.vc-body #vc-notif-bell-tab-personal.is-active,
+html[data-vc-theme="light"].vc-notif-drawer-open body.vc-body #vc-notif-bell-tab-staff.is-active,
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body #vc-notif-dropdown .vc-notif-scope-switch__btn.is-active,
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body #vc-notif-dropdown .vc-notif-scope-switch__btn[aria-selected="true"],
+html[data-vc-theme="light"] body.vc-body #vc-notif-dropdown .vc-notif-scope-switch__btn.is-active,
+html[data-vc-theme="light"] body.vc-body #vc-notif-dropdown .vc-notif-scope-switch__btn[aria-selected="true"] {
+  background: linear-gradient(180deg, #fffaf4 0%, #f0e6da 55%, #efe6dc 100%) !important;
+  background-color: #faf6f0 !important;
+  background-image: linear-gradient(180deg, #fffaf4 0%, #f0e6da 55%, #efe6dc 100%) !important;
+  border: 1px solid rgba(111, 78, 55, 0.34) !important;
+  border-color: rgba(111, 78, 55, 0.34) !important;
+  color: #1a120e !important;
+  -webkit-text-fill-color: #1a120e !important;
+  box-shadow: 0 2px 8px rgba(60, 40, 24, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.65) !important;
+  filter: none !important;
+  -webkit-filter: none !important;
+}
+html[data-vc-theme="light"] body.vc-body #vc-notif-bell-tab-personal:not(.is-active):not([aria-selected="true"]),
+html[data-vc-theme="light"] body.vc-body #vc-notif-bell-tab-staff:not(.is-active):not([aria-selected="true"]),
+html[data-vc-theme="light"].vc-notif-sheet-open body.vc-body #vc-notif-bell-tab-personal:not(.is-active):not([aria-selected="true"]),
+html[data-vc-theme="light"].vc-notif-sheet-open body.vc-body #vc-notif-bell-tab-staff:not(.is-active):not([aria-selected="true"]),
+html[data-vc-theme="light"] body.vc-body #vc-notif-dropdown .vc-notif-scope-switch__btn:not(.is-active):not([aria-selected="true"]) {
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: none !important;
+  color: #3a281c !important;
+  -webkit-text-fill-color: #3a281c !important;
+  box-shadow: none !important;
+}
+/* notifSheetScopeActive8 — track ≠ pill (light) */
+html[data-vc-theme="light"] #vc-notif-bell-scope .vc-notif-scope-switch__seg,
+html[data-vc-theme="light"] .vc-notif-scope-switch__seg {
+  background: rgba(111, 78, 55, 0.16) !important;
+  background-color: rgba(111, 78, 55, 0.16) !important;
+  background-image: none !important;
+}
+html[data-vc-theme="light"] #vc-notif-bell-tab-personal.is-active,
+html[data-vc-theme="light"] #vc-notif-bell-tab-personal[aria-selected="true"],
+html[data-vc-theme="light"] #vc-notif-bell-tab-staff.is-active,
+html[data-vc-theme="light"] #vc-notif-bell-tab-staff[aria-selected="true"],
+html[data-vc-theme="light"] #vc-notif-bell-tab-personal[data-vc-scope-on="1"],
+html[data-vc-theme="light"] #vc-notif-bell-tab-staff[data-vc-scope-on="1"] {
+  background-color: #fff8f0 !important;
+  background-image: linear-gradient(180deg, #fffefb 0%, #f7efe6 55%, #f0e6da 100%) !important;
+  color: #1a120e !important;
+  -webkit-text-fill-color: #1a120e !important;
+  border: 1px solid rgba(111, 78, 55, 0.4) !important;
+  box-shadow: 0 2px 8px rgba(60, 40, 24, 0.14), inset 0 1px 0 rgba(255, 255, 255, 0.75) !important;
+}
+html[data-vc-theme="light"] #vc-notif-bell-tab-personal:not(.is-active):not([aria-selected="true"]),
+html[data-vc-theme="light"] #vc-notif-bell-tab-staff:not(.is-active):not([aria-selected="true"]),
+html[data-vc-theme="light"] #vc-notif-bell-tab-personal[data-vc-scope-on="0"],
+html[data-vc-theme="light"] #vc-notif-bell-tab-staff[data-vc-scope-on="0"] {
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: none !important;
+  color: #3a281c !important;
+  -webkit-text-fill-color: #3a281c !important;
+  box-shadow: none !important;
+}
+/* notifSheetScopeActive1 + Active2 + Active8 cachebust */
+
+/* disclaimerAlignSponsor1c: light regole = metriche sponsor (last-win) */
+html[data-vc-theme="light"] body.vc-body p#vc-regole-disclaimer.vc-regole-disclaimer.vc-support-donate-refund-note,
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-intro .vc-hero-head p#vc-regole-disclaimer.vc-regole-disclaimer.vc-support-donate-refund-note,
+html.vc-site-polish[data-vc-theme="light"] body.vc-body.vc-regole-page #vc-regole-disclaimer {
+  max-width: min(32rem, 100%) !important;
+  padding: 0.72rem 0.9rem !important;
+  padding-top: 0.72rem !important;
+  padding-right: 0.9rem !important;
+  padding-bottom: 0.72rem !important;
+  padding-left: 0.9rem !important;
+  border-radius: 0.85rem !important;
+  font-size: 0.84rem !important;
+  line-height: 1.5 !important;
+}
+/* disclaimerAlignSponsor1c */
+
+/* disclaimerLookShot1: light — stesso look screenshot (raggio+bordo+flex) */
+html[data-vc-theme="light"] body.vc-body :is(
+  .vc-support-donate-refund-note,
+  p.vc-support-donate-refund-note,
+  .vc-regole-disclaimer,
+  #vc-regole-disclaimer
+),
+html.vc-site-polish[data-vc-theme="light"] body.vc-body :is(
+  .vc-support-donate-refund-note,
+  p.vc-support-donate-refund-note,
+  .vc-regole-disclaimer,
+  #vc-regole-disclaimer
+),
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-intro .vc-hero-head p#vc-regole-disclaimer.vc-regole-disclaimer.vc-support-donate-refund-note,
+html[data-vc-theme="light"] body.vc-body.vc-regole-page #vc-regole-disclaimer {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 0.65rem !important;
+  max-width: min(34rem, 100%) !important;
+  padding: 0.95rem 1.15rem !important;
+  border-radius: 1.65rem !important;
+  border: 1px solid rgba(168, 118, 82, 0.72) !important;
+  border-color: rgba(168, 118, 82, 0.72) !important;
+  background-color: #fff8e8 !important;
+  background-image: linear-gradient(180deg, #fffaf0 0%, #fff8e8 55%, #f7efd8 100%) !important;
+  background-clip: padding-box !important;
+  -webkit-background-clip: padding-box !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55) !important;
+  color: #2a1c14 !important;
+  -webkit-text-fill-color: #2a1c14 !important;
+  font-size: 0.86rem !important;
+  line-height: 1.5 !important;
+}
+html[data-vc-theme="light"] body.vc-body :is(
+  .vc-support-donate-refund-note,
+  .vc-regole-disclaimer,
+  #vc-regole-disclaimer
+) > :is(.fa, i.fa) {
+  color: #d4a017 !important;
+  -webkit-text-fill-color: #d4a017 !important;
+  margin: 0 !important;
+  flex-shrink: 0 !important;
+}
+html[data-vc-theme="light"] body.vc-body .vc-support-donate-refund-note--stack {
+  flex-direction: column !important;
+  align-items: stretch !important;
+  gap: 0.45rem !important;
+}
+html[data-vc-theme="light"] body.vc-body .vc-support-donate-refund-note strong,
+html[data-vc-theme="light"] body.vc-body #vc-regole-disclaimer strong {
+  color: #1f140e !important;
+  -webkit-text-fill-color: #1f140e !important;
+}
+/* disclaimerLookShot1 */
+
+/* disclaimerLookShot2: light — batte cine + unify transparent border */
+html[data-vc-theme="light"].vc-site-polish body.vc-page-cine-layout .vc-page-cine-hero .vc-page-cine-hero-copy > p.vc-support-donate-refund-note,
+html[data-vc-theme="light"].vc-site-polish body.vc-page-cine-layout .vc-page-cine-hero .vc-page-cine-hero-copy > p.vc-support-donate-refund-note:not(#vc-regole-disclaimer):not(.vc-regole-disclaimer),
+html[data-vc-theme="light"].vc-site-polish body.vc-page-cine-layout .vc-page-cine-hero .vc-hero-head > p.vc-support-donate-refund-note,
+html[data-vc-theme="light"].vc-site-polish body.vc-sponsor-page.vc-page-cine-layout .vc-page-cine-hero .vc-page-cine-hero-copy > p.vc-support-donate-refund-note,
+html[data-vc-theme="light"].vc-site-polish body.vc-donazioni-page.vc-page-cine-layout .vc-page-cine-hero .vc-page-cine-hero-copy > p.vc-support-donate-refund-note,
+html[data-vc-theme="light"].vc-site-polish body.vc-perks-page.vc-page-cine-layout .vc-page-cine-hero .vc-page-cine-hero-copy > p.vc-support-donate-refund-note,
+html[data-vc-theme="light"].vc-site-polish body.vc-body :is(
+  .vc-support-donate-refund-note,
+  p.vc-support-donate-refund-note,
+  .vc-regole-disclaimer,
+  #vc-regole-disclaimer
+),
+html[data-vc-theme="light"] body.vc-body :is(
+  .vc-support-donate-refund-note,
+  p.vc-support-donate-refund-note,
+  .vc-regole-disclaimer,
+  #vc-regole-disclaimer
+),
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-intro .vc-hero-head p#vc-regole-disclaimer.vc-regole-disclaimer.vc-support-donate-refund-note {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 0.65rem !important;
+  max-width: min(34rem, 100%) !important;
+  padding: 0.95rem 1.15rem !important;
+  padding-top: 0.95rem !important;
+  padding-right: 1.15rem !important;
+  padding-bottom: 0.95rem !important;
+  padding-left: 1.15rem !important;
+  border-radius: 1.65rem !important;
+  border-top-left-radius: 1.65rem !important;
+  border-top-right-radius: 1.65rem !important;
+  border-bottom-right-radius: 1.65rem !important;
+  border-bottom-left-radius: 1.65rem !important;
+  border: 1px solid rgba(168, 118, 82, 0.72) !important;
+  border-color: rgba(168, 118, 82, 0.72) !important;
+  background-color: #fff8e8 !important;
+  background-image: linear-gradient(180deg, #fffaf0 0%, #fff8e8 55%, #f7efd8 100%) !important;
+  background-clip: padding-box !important;
+  -webkit-background-clip: padding-box !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55) !important;
+  color: #2a1c14 !important;
+  -webkit-text-fill-color: #2a1c14 !important;
+  font-size: 0.86rem !important;
+  line-height: 1.5 !important;
+}
+html[data-vc-theme="light"].vc-site-polish body.vc-page-cine-layout .vc-page-cine-hero .vc-page-cine-hero-copy > p.vc-support-donate-refund-note > :is(.fa, i.fa),
+html[data-vc-theme="light"] body.vc-body .vc-support-donate-refund-note > :is(.fa, i.fa) {
+  color: #d4a017 !important;
+  -webkit-text-fill-color: #d4a017 !important;
+  margin: 0 !important;
+  flex-shrink: 0 !important;
+}
+html[data-vc-theme="light"] body.vc-body .vc-support-donate-refund-note--stack {
+  flex-direction: column !important;
+  align-items: stretch !important;
+}
+/* disclaimerLookShot2 */
+
+/* disclaimerLookShot3: light + #top — last win su ID */
+html[data-vc-theme="light"].vc-site-polish body.vc-body#top .vc-page-cine-hero :is(
+  .vc-support-donate-refund-note,
+  p.vc-support-donate-refund-note,
+  .vc-regole-disclaimer,
+  #vc-regole-disclaimer
+),
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top .vc-page-cine-hero :is(
+  .vc-support-donate-refund-note,
+  p.vc-support-donate-refund-note,
+  .vc-regole-disclaimer,
+  #vc-regole-disclaimer
+),
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-intro .vc-hero-head:not(#discord-login-btn) p#vc-regole-disclaimer,
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-intro .vc-hero-head:not(#discord-login-btn) p.vc-regole-disclaimer.vc-support-donate-refund-note,
+html.vc-site-photo-bg.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-intro .vc-hero-head:not(#discord-login-btn) p#vc-regole-disclaimer,
+html.vc-site-photo-bg.vc-perf-mid.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-intro .vc-support-page-hero p#vc-regole-disclaimer,
+html[data-vc-theme="light"].vc-site-polish body.vc-body#top #vc-page-content :is(
+  .vc-support-donate-refund-note,
+  p.vc-support-donate-refund-note,
+  .vc-regole-disclaimer,
+  #vc-regole-disclaimer
+),
+html[data-vc-theme="light"] body.vc-body#top :is(
+  .vc-support-donate-refund-note,
+  p.vc-support-donate-refund-note,
+  .vc-regole-disclaimer,
+  #vc-regole-disclaimer
+) {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 0.65rem !important;
+  max-width: min(34rem, 100%) !important;
+  width: 100% !important;
+  padding: 0.95rem 1.15rem !important;
+  padding-top: 0.95rem !important;
+  padding-right: 1.15rem !important;
+  padding-bottom: 0.95rem !important;
+  padding-left: 1.15rem !important;
+  border-radius: 1.65rem !important;
+  border-top-left-radius: 1.65rem !important;
+  border-top-right-radius: 1.65rem !important;
+  border-bottom-right-radius: 1.65rem !important;
+  border-bottom-left-radius: 1.65rem !important;
+  border: 1px solid rgba(168, 118, 82, 0.72) !important;
+  border-color: rgba(168, 118, 82, 0.72) !important;
+  background-color: #fff8e8 !important;
+  background-image: linear-gradient(180deg, #fffaf0 0%, #fff8e8 55%, #f7efd8 100%) !important;
+  background-clip: padding-box !important;
+  -webkit-background-clip: padding-box !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55) !important;
+  color: #2a1c14 !important;
+  -webkit-text-fill-color: #2a1c14 !important;
+  font-size: 0.86rem !important;
+  line-height: 1.5 !important;
+  text-align: left !important;
+}
+html[data-vc-theme="light"].vc-site-polish body.vc-body#top .vc-page-cine-hero .vc-support-donate-refund-note > :is(.fa, i.fa),
+html[data-vc-theme="light"] body.vc-body#top .vc-support-donate-refund-note > :is(.fa, i.fa) {
+  color: #d4a017 !important;
+  -webkit-text-fill-color: #d4a017 !important;
+  margin: 0 !important;
+  flex-shrink: 0 !important;
+}
+html[data-vc-theme="light"] body.vc-body#top .vc-support-donate-refund-note--stack {
+  flex-direction: column !important;
+  align-items: stretch !important;
+}
+/* disclaimerLookShot3 */
+
+/* emojiColorFast1 */
+
+
+/* emojiColorFast2 */
+
+/* 20261010footerCardNavRing1: light — social/outer = anello navbar, no bordo mocha solido */
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body > footer.vc-premium-footer .vc-premium-footer__outer,
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body footer.vc-premium-footer .vc-premium-footer__outer,
+html[data-vc-theme="light"] body.vc-body > footer.vc-premium-footer .vc-premium-footer__outer {
+  border: 0 !important;
+  border-width: 0 !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+html.vc-site-photo-bg.vc-perf-mid.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top > footer.vc-premium-footer .vc-premium-footer__social,
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top > footer.vc-premium-footer .vc-premium-footer__social,
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body footer.vc-premium-footer .vc-premium-footer__social,
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body .vc-footer-social-ico,
+html[data-vc-theme="light"] .vc-premium-footer__social,
+html[data-vc-theme="light"] .vc-footer-social-ico {
+  border: var(--vc-nav-chrome-ring-w, 2px) solid transparent !important;
+  border-width: var(--vc-nav-chrome-ring-w, 2px) !important;
+  border-style: solid !important;
+  border-color: transparent !important;
+  background-color: var(--vc-nav-shell-fill-light, #f7f1ea) !important;
+  background-image:
+    linear-gradient(var(--vc-nav-shell-fill-light, #f7f1ea), var(--vc-nav-shell-fill-light, #f7f1ea)),
+    var(--vc-nav-ring-light, conic-gradient(
+      from 0deg,
+      rgba(92, 58, 34, 0.9) 0deg,
+      rgba(168, 110, 66, 0.55) 45deg,
+      rgba(92, 58, 34, 0.75) 90deg,
+      rgba(168, 110, 66, 0.5) 135deg,
+      rgba(92, 58, 34, 0.85) 180deg,
+      rgba(168, 110, 66, 0.52) 225deg,
+      rgba(92, 58, 34, 0.72) 270deg,
+      rgba(168, 110, 66, 0.5) 315deg,
+      rgba(92, 58, 34, 0.9) 360deg
+    )) !important;
+  background-origin: padding-box, border-box !important;
+  background-clip: padding-box, border-box !important;
+  -webkit-background-clip: padding-box, border-box !important;
+  box-shadow: none !important;
+  filter: none !important;
+}
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body footer.vc-premium-footer .vc-premium-footer__social:is(:hover, :focus-visible),
+html[data-vc-theme="light"] .vc-premium-footer__social:is(:hover, :focus-visible) {
+  border-color: transparent !important;
+  background-color: #efe6db !important;
+  background-image:
+    linear-gradient(#efe6db, #efe6db),
+    var(--vc-nav-ring-light) !important;
+  background-origin: padding-box, border-box !important;
+  background-clip: padding-box, border-box !important;
+  -webkit-background-clip: padding-box, border-box !important;
+  box-shadow: none !important;
+}
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body footer.vc-premium-footer .vc-premium-footer__social::before,
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body footer.vc-premium-footer .vc-premium-footer__social::after,
+html[data-vc-theme="light"] .vc-premium-footer__social::before,
+html[data-vc-theme="light"] .vc-premium-footer__social::after,
+html[data-vc-theme="light"] .vc-footer-social-ico::before,
+html[data-vc-theme="light"] .vc-footer-social-ico::after {
+  content: none !important;
+  display: none !important;
+  opacity: 0 !important;
+  background: none !important;
+}
+/* footerCardNavRing1 */
+
+/* cardInnerNavRing3b light LAST — batte thick3/userLightInk: SOLO interni = nav-ring */
+html.vc-site-photo-bg.vc-perf-mid.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body.vc-users-page.vc-user-profile-page#top main :is(
+  .vc-user-profile-stat,
+  .vc-user-profile-mini,
+  .vc-user-profile-badges
+):not(:has(#vc-roles-grid)):not(:has(#vc-ul-grid)):not(:has(#vc-glow-kill-a)):not(:has(#vc-glow-kill-b)),
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body.vc-users-page.vc-user-profile-page#top main :is(
+  .vc-user-profile-stat,
+  .vc-user-profile-mini,
+  .vc-user-profile-badges
+):not(:has(#vc-roles-grid)):not(:has(#vc-ul-grid)):not(:has(#vc-glow-kill-a)):not(:has(#vc-glow-kill-b)),
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body.vc-user-profile-page#top main :is(
+  .vc-user-profile-hero,
+  .vc-user-profile-block,
+  .vc-user-profile-disclosure,
+  .vc-user-profile-accordion
+) :is(
+  .vc-user-profile-stat,
+  .vc-user-profile-mini,
+  .vc-user-profile-badges
+) {
+  background-color: #faf6f0 !important;
+  background-image:
+    radial-gradient(120% 90% at 0% 0%, rgba(255, 248, 238, 0.92), transparent 52%),
+    radial-gradient(90% 70% at 100% 0%, rgba(212, 168, 136, 0.2), transparent 48%),
+    linear-gradient(175deg, #fffaf4 0%, #f7f1ea 48%, #efe6dc 100%),
+    var(--vc-nav-ring-light) !important;
+  background-origin: padding-box, padding-box, padding-box, border-box !important;
+  background-clip: padding-box, padding-box, padding-box, border-box !important;
+  -webkit-background-clip: padding-box, padding-box, padding-box, border-box !important;
+  border: 2px solid transparent !important;
+  border-width: 2px !important;
+  border-style: solid !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  filter: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+/* cardInnerNavRing3b */
+
+/* 20261013innerCardConic3 light LAST — platform/perks/wiki interni = nav-ring */
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-vote-page.vc-body#top #vote-platforms > a.vc-vote-platform-card,
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-vote-page #vote-platforms > a.vc-vote-platform-card,
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body .vc-hero-head a.vc-vote-platform-card,
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-content .vc-hero-head a.vc-vote-platform-card,
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body .vc-support-donate-role .vc-perks-tier-acc,
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-content .vc-support-donate-role .vc-perks-tier-acc,
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body .vc-wiki-cmd-shell .vc-cmd-acc-body,
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body .vc-wiki-cmd-shell .vc-cmd-grp-list,
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-content .vc-wiki-cmd-shell .vc-cmd-acc-body,
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-content .vc-wiki-cmd-shell .vc-cmd-grp-list,
+html.vc-site-photo-bg.vc-perf-mid.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-vote-page #vote-platforms > a.vc-vote-platform-card,
+html.vc-site-photo-bg.vc-perf-mid.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body .vc-support-donate-role .vc-perks-tier-acc,
+html.vc-site-photo-bg.vc-perf-mid.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body .vc-wiki-cmd-shell .vc-cmd-acc-body {
+  border: 2px solid transparent !important;
+  border-width: 2px !important;
+  border-style: solid !important;
+  border-color: transparent !important;
+  background-color: #faf6f0 !important;
+  background-image:
+    radial-gradient(120% 90% at 0% 0%, rgba(255, 248, 238, 0.92), transparent 52%),
+    radial-gradient(90% 70% at 100% 0%, rgba(212, 168, 136, 0.2), transparent 48%),
+    linear-gradient(175deg, #fffaf4 0%, #f7f1ea 48%, #efe6dc 100%),
+    var(--vc-nav-ring-light) !important;
+  background-origin: padding-box, padding-box, padding-box, border-box !important;
+  background-clip: padding-box, padding-box, padding-box, border-box !important;
+  -webkit-background-clip: padding-box, padding-box, padding-box, border-box !important;
+  box-shadow: none !important;
+  filter: none !important;
+  -webkit-filter: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+/* innerCardConic3 */
+/* innerCardConic4 */
+/* innerCardConic4 */
+
+/* pcHeroCenter4: batte theme-light pb asimmetrico su home/hero PC */
+html.vc-site-polish body.vc-body--home .vc-home-cine-hero:not(.is-truncated),
+html.vc-site-polish body.vc-body--home#top .vc-home-cine-hero:not(.is-truncated),
+html.vc-site-polish[data-vc-theme="light"] body.vc-body--home .vc-home-cine-hero:not(.is-collapsed),
+html.vc-site-polish[data-vc-theme="dark"] body.vc-body--home .vc-home-cine-hero:not(.is-collapsed),
+html.vc-site-polish body.vc-page-cine-layout:not(.vc-web-tickets-page):not(.vc-user-profile-route):not(.vc-dashboard-page) .vc-page-cine-hero:not(.is-collapsed),
+html.vc-site-polish body.vc-page-cine-layout:not(.vc-web-tickets-page):not(.vc-user-profile-route):not(.vc-dashboard-page) .vc-page-cine-hero.vc-support-page-hero:not(.is-collapsed),
+html.vc-site-polish body.vc-page-cine-layout:not(.vc-web-tickets-page):not(.vc-user-profile-route):not(.vc-dashboard-page) .vc-support-page-hero.vc-page-cine-hero:not(.is-collapsed),
+html.vc-site-polish body.vc-page-cine-layout:not(.vc-web-tickets-page):not(.vc-user-profile-route):not(.vc-dashboard-page) main > .vc-support-page-hero:first-of-type:not(.is-collapsed),
+body.vc-body--home .vc-home-cine-hero:not(.is-truncated),
+body.vc-page-cine-layout:not(.vc-web-tickets-page):not(.vc-user-profile-route):not(.vc-dashboard-page) .vc-page-cine-hero:not(.is-collapsed) {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  min-height: 100vh !important;
+  min-height: 100dvh !important;
+  box-sizing: border-box !important;
+  padding-top: 5.5rem !important;
+  padding-bottom: 5.5rem !important;
+}
+@media (min-width: 640px), (min-width: 640px) and (pointer: fine) {
+  html.vc-site-polish body.vc-body--home .vc-home-cine-hero:not(.is-collapsed),
+  html.vc-site-polish body.vc-page-cine-layout:not(.vc-web-tickets-page):not(.vc-user-profile-route):not(.vc-dashboard-page) .vc-page-cine-hero:not(.is-collapsed),
+  html.vc-site-polish[data-vc-theme="light"] body.vc-body--home .vc-home-cine-hero:not(.is-collapsed),
+  body.vc-body--home .vc-home-cine-hero:not(.is-collapsed) {
+    padding-top: 5.5rem !important;
+    padding-bottom: 5.5rem !important;
+    justify-content: center !important;
+    align-items: center !important;
+  }
+}
+/* pcHeroCenter4 */
+
+/* navPromoGhost1: chiude cascade wars (home-polish/footer-fix) — pill leggibile in light */
+html[data-vc-theme="light"] body.vc-body header #vc-header-promo-btn.vc-header-promo-btn,
+html[data-vc-theme="light"] body.vc-body #header-quick-actions #vc-header-promo-btn.vc-header-promo-btn,
+html[data-vc-theme="light"] body.vc-body header #vc-header-promo-btn.vc-header-promo-btn--candidature,
+html[data-vc-theme="light"] body.vc-body #header-quick-actions #vc-header-promo-btn.vc-header-promo-btn--candidature,
+html.vc-site-polish[data-vc-theme="light"] body.vc-body #header-quick-actions #vc-header-promo-btn.vc-header-promo-btn--candidature {
+  background-color: #f3ebe3 !important;
+  background-image:
+    linear-gradient(#fffaf4, #ebe1d6),
+    linear-gradient(135deg, rgba(212, 168, 136, 0.65), rgba(111, 78, 55, 0.4)) !important;
+  background-origin: padding-box, border-box !important;
+  background-clip: padding-box, border-box !important;
+  -webkit-background-clip: padding-box, border-box !important;
+  border: 1px solid transparent !important;
+  color: #1a120e !important;
+  -webkit-text-fill-color: #1a120e !important;
+  opacity: 1 !important;
+}
+html[data-vc-theme="light"] body.vc-body header #vc-header-promo-btn :is(
+  .vc-header-promo-btn__label,
+  .vc-header-promo-btn__badge,
+  .vc-header-promo-btn__unit,
+  span
+),
+html[data-vc-theme="light"] body.vc-body #header-quick-actions #vc-header-promo-btn :is(
+  .vc-header-promo-btn__label,
+  .vc-header-promo-btn__badge,
+  .vc-header-promo-btn__unit,
+  span
+) {
+  color: #1a120e !important;
+  -webkit-text-fill-color: #1a120e !important;
+  opacity: 1 !important;
+  background-image: none !important;
+}
+/* navPromoGhost1 */

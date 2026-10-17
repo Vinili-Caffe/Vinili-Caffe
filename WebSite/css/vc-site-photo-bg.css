@@ -388,19 +388,20 @@ html.vc-site-photo-bg.vc-site-polish body.vc-body *::after {
   -webkit-backdrop-filter: none !important;
 }
 
-/* gifBgAlways1 + gifBgEverywhere1: tab nascosta → niente decode GIF. Idle freeze rimosso (GIF sempre on). */
-html.vc-site-photo-bg.vc-page-hidden .vc-home-cine__photo,
-html.vc-site-polish.vc-site-photo-bg.vc-page-hidden .vc-home-cine__photo,
-html.vc-site-photo-bg.vc-gif-paused .vc-home-cine__photo,
-html.vc-site-polish.vc-site-photo-bg.vc-gif-paused .vc-home-cine__photo {
+/* gifBgAlways1 + gifBgEverywhere1: tab nascosta → niente decode GIF. Idle freeze rimosso (GIF sempre on).
+   confBgLockPersist1: confessionale escluso — JPG locked non va nascosto (sfondo “spariva”). */
+html.vc-site-photo-bg.vc-page-hidden:not(.vc-confessionale-route) .vc-home-cine__photo,
+html.vc-site-polish.vc-site-photo-bg.vc-page-hidden:not(.vc-confessionale-route) .vc-home-cine__photo,
+html.vc-site-photo-bg.vc-gif-paused:not(.vc-confessionale-route) .vc-home-cine__photo,
+html.vc-site-polish.vc-site-photo-bg.vc-gif-paused:not(.vc-confessionale-route) .vc-home-cine__photo {
   display: none !important;
   visibility: hidden !important;
   opacity: 0 !important;
 }
-html.vc-site-photo-bg.vc-page-hidden .vc-home-cine,
-html.vc-site-polish.vc-site-photo-bg.vc-page-hidden .vc-home-cine,
-html.vc-site-photo-bg.vc-gif-paused .vc-home-cine,
-html.vc-site-polish.vc-site-photo-bg.vc-gif-paused .vc-home-cine {
+html.vc-site-photo-bg.vc-page-hidden:not(.vc-confessionale-route) .vc-home-cine,
+html.vc-site-polish.vc-site-photo-bg.vc-page-hidden:not(.vc-confessionale-route) .vc-home-cine,
+html.vc-site-photo-bg.vc-gif-paused:not(.vc-confessionale-route) .vc-home-cine,
+html.vc-site-polish.vc-site-photo-bg.vc-gif-paused:not(.vc-confessionale-route) .vc-home-cine {
   background-color: #100c09 !important;
   background-image: none !important;
 }

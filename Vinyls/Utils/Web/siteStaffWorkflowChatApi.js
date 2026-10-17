@@ -39,8 +39,9 @@ const {
 } = require("./siteWebTicketsApi");
 
 const WORKFLOW_DOC = SITE_DOCUMENT_TYPE.STAFF_WORKFLOW;
-const QUEUES = new Set(["pause", "candidature", "appelli", "resoconti"]);
-const INVITE_ONLY_QUEUES = new Set(["candidature", "appelli"]);
+const QUEUES = new Set(["pause", "candidature", "appelli", "resoconti", "revisione"]);
+/* pauseInviteOnly1: pause come candidature/appelli — HS always; richiedente solo se aggiunto */
+const INVITE_ONLY_QUEUES = new Set(["candidature", "appelli", "pause"]);
 const MAX_MESSAGES = 200;
 const MAX_CONTENT = 2000;
 const MAX_IMAGES = 3;
@@ -58,8 +59,19 @@ function bearerFromRequest(req) {
 
 function parseQueueFromDedupe(dedupeKey) {
   const key = String(dedupeKey || "").trim();
+  /* boardsInbox: dedupe canonico = boards:revisione:<listingId> */
+  if (/^boards:revisione:/i.test(key)) return "revisione";
   const q = key.split(":")[0];
   return QUEUES.has(q) ? q : "";
+}
+
+function canonicalizeWorkflowChatKey(dedupeKey) {
+  const key = String(dedupeKey || "").trim();
+  if (!key) return "";
+  if (/^boards:revisione:/i.test(key)) return key;
+  const m = key.match(/^revisione:([a-f0-9]{24})$/i);
+  if (m) return `boards:revisione:${m[1]}`;
+  return key;
 }
 
 function uploadFolderKey(dedupeKey) {
@@ -80,6 +92,8 @@ function memberCanAccessQueue(member, guild, queue) {
   if (q === "resoconti") {
     return memberCanViewResocontiInbox(member);
   }
+  /* boardsRevHsOnly1: coda bacheca solo High Staff */
+  if (q === "revisione") return memberIsHighStaffEligible(member);
   return false;
 }
 
@@ -819,7 +833,7 @@ async function resolveWorkflowChatAccess(client, accessToken, dedupeKey, opts = 
     return { ok: false, status: 503, error: "guild_unavailable", message: "Server non disponibile." };
   }
 
-  const key = String(dedupeKey || "").trim();
+  let key = canonicalizeWorkflowChatKey(dedupeKey);
   if (!key) {
     return { ok: false, status: 400, error: "bad_key", message: "dedupeKey mancante." };
   }
@@ -835,9 +849,23 @@ async function resolveWorkflowChatAccess(client, accessToken, dedupeKey, opts = 
   if (!workflow && (queue === "appelli" || queue === "candidature")) {
     workflow = await ensureInviteQueueWorkflowFromKey(client, guild.id, key, queue);
   }
+  /* staffRevChatKey1: client a volte manda revisione:<id> invece di boards:revisione:<id> */
+  if (!workflow && queue === "revisione") {
+    const alt = canonicalizeWorkflowChatKey(key);
+    if (alt && alt !== key) {
+      workflow = await loadWorkflowDoc(guild.id, alt);
+      if (workflow) key = alt;
+    }
+    const raw = String(dedupeKey || "").trim();
+    if (!workflow && raw && raw !== key && raw !== alt) {
+      workflow = await loadWorkflowDoc(guild.id, raw);
+      if (workflow) key = String(workflow.dedupeKey || raw);
+    }
+  }
   if (!workflow) {
     return { ok: false, status: 404, error: "not_found", message: "Pratica non trovata." };
   }
+  if (workflow.dedupeKey) key = String(workflow.dedupeKey);
 
   const subjectUserId = String(workflow.userId || "").trim();
   const status = String(workflow.status || "pending").toLowerCase();
@@ -846,7 +874,7 @@ async function resolveWorkflowChatAccess(client, accessToken, dedupeKey, opts = 
   const subjectChat = normalizeSubjectChat(workflow?.workflowFields?.subjectChat);
   const subjectActive = subjectChatHasActive(subjectChat);
   const subjectEverInvited = subjectChatEverInvited(subjectChat);
-        const subjectMayJoin = queue === "pause" || (inviteOnly && subjectEverInvited);
+  const subjectMayJoin = inviteOnly && subjectEverInvited;
 
   const staffAccess = await assertWebsiteStaffAccess(client, token, {
     req: opts.req,
@@ -855,26 +883,27 @@ async function resolveWorkflowChatAccess(client, accessToken, dedupeKey, opts = 
   if (staffAccess.ok && memberCanAccessQueue(staffAccess.member, guild, queue)) {
     const memberId = String(staffAccess.member?.id || "").trim();
     const isSubject = Boolean(subjectUserId && memberId && subjectUserId === memberId);
-    if (!(isSubject && !subjectMayJoin)) {
-      return {
-        ok: true,
-        guild,
-        workflow,
-        queue,
-        dedupeKey: key,
-        member: staffAccess.member,
-        isStaffReviewer: true,
-        isSubject,
-        authorKind: isSubject && subjectMayJoin ? "user" : "staff",
-        canSend: pending,
-        status,
-        subjectUserId,
-        inviteOnly,
-        subjectChat,
-        subjectActive,
-        subjectMayJoin,
-      };
-    }
+    /* boardsRevSelfChat1: reviewer website-staff SEMPRE entra come staff.
+       Prima: se eri anche mittente (es. scheda bacheca propria) →
+       "Questa chat è riservata allo staff" 🤡 */
+    return {
+      ok: true,
+      guild,
+      workflow,
+      queue,
+      dedupeKey: key,
+      member: staffAccess.member,
+      isStaffReviewer: true,
+      isSubject,
+      authorKind: "staff",
+      canSend: pending,
+      status,
+      subjectUserId,
+      inviteOnly,
+      subjectChat,
+      subjectActive,
+      subjectMayJoin,
+    };
   }
 
   if (!subjectMayJoin) {
@@ -1141,9 +1170,7 @@ async function handleSiteStaffWorkflowChatPost(client, req, res) {
 
     try {
       const subjectInChat =
-        access.queue === "pause" ||
-        !access.inviteOnly ||
-        subjectChatHasActive(access.subjectChat);
+        !access.inviteOnly || subjectChatHasActive(access.subjectChat);
       let participantStaffIds = [];
       try {
         const peerRows = await SiteWorkflowChatMessage.find({

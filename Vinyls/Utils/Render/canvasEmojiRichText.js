@@ -1,4 +1,4 @@
-const { drawTextWithSpecialFallback, fontStack } = require("./canvasFonts");
+const { drawTextWithSpecialFallback, fontStack, fontStackWithPrimary } = require("./canvasFonts");
 const { normalizeTextForCanvas, replaceCanvasCompatChars } = require("./canvasUtils");
 const { safeLoadImage } = require("./safeLoadImage");
 
@@ -33,9 +33,14 @@ function shouldSkipRichWrap(text) {
   return !String(text || "").trim();
 }
 
-function textWidth(ctx, text, size = 16, weight = "600") {
+function resolveRichFontCss(size, weight, fontPrimary) {
+  if (fontPrimary) return fontStackWithPrimary(String(fontPrimary), size, weight);
+  return fontStack(size, weight);
+}
+
+function textWidth(ctx, text, size = 16, weight = "600", fontPrimary = null) {
   ctx.save();
-  ctx.font = fontStack(size, weight);
+  ctx.font = resolveRichFontCss(size, weight, fontPrimary);
   const width = ctx.measureText(String(text || "")).width;
   ctx.restore();
   return width;
@@ -54,8 +59,10 @@ function drawLabel(
     baseline = "middle",
     useNumericFont = false,
     forcePrimaryFont = false,
+    fontPrimary = null,
   } = {},
 ) {
+  const fontCss = fontPrimary ? resolveRichFontCss(size, weight, fontPrimary) : null;
   drawTextWithSpecialFallback(ctx, prepareVisibleText(text), x, y, {
     size,
     weight,
@@ -63,8 +70,9 @@ function drawLabel(
     align,
     baseline,
     normalizeCompatibility: false,
-    useNumericFont,
-    forcePrimaryFont,
+    useNumericFont: fontPrimary ? false : useNumericFont,
+    forcePrimaryFont: fontPrimary ? false : forcePrimaryFont,
+    fontCss: fontCss || undefined,
   });
 }
 
@@ -212,7 +220,80 @@ function twemojiUrlsFromCodepointList(cps) {
 }
 
 function emojiDrawSizeForFont(size) {
-  return Math.max(size + 1, Math.round(size * 1.12));
+  /* rankNickTight1: stessa densità del nick Discord (niente box Twemoji oversized) */
+  const n = Math.max(10, Number(size) || 16);
+  return Math.round(n);
+}
+
+const emojiContentBoxCache = new Map();
+
+/** Bounding box alpha>8 del PNG emoji (cache per url/size). */
+function emojiContentBox(img) {
+  try {
+    const key = `${img.width}x${img.height}:${img.src || img._src || ""}`;
+    if (emojiContentBoxCache.has(key)) return emojiContentBoxCache.get(key);
+    const w = Math.max(1, Number(img.width) || 1);
+    const h = Math.max(1, Number(img.height) || 1);
+    const probe = createOffscreenCanvas(w, h);
+    if (!probe) {
+      const fallback = { sx: 0, sy: 0, sw: w, sh: h };
+      emojiContentBoxCache.set(key, fallback);
+      return fallback;
+    }
+    const pctx = probe.getContext("2d");
+    pctx.clearRect(0, 0, w, h);
+    pctx.drawImage(img, 0, 0);
+    const { data } = pctx.getImageData(0, 0, w, h);
+    let minX = w;
+    let minY = h;
+    let maxX = -1;
+    let maxY = -1;
+    for (let y = 0; y < h; y += 1) {
+      for (let x = 0; x < w; x += 1) {
+        const a = data[(y * w + x) * 4 + 3];
+        if (a > 8) {
+          if (x < minX) minX = x;
+          if (y < minY) minY = y;
+          if (x > maxX) maxX = x;
+          if (y > maxY) maxY = y;
+        }
+      }
+    }
+    const box =
+      maxX < 0
+        ? { sx: 0, sy: 0, sw: w, sh: h }
+        : {
+            sx: minX,
+            sy: minY,
+            sw: Math.max(1, maxX - minX + 1),
+            sh: Math.max(1, maxY - minY + 1),
+          };
+    emojiContentBoxCache.set(key, box);
+    return box;
+  } catch {
+    const w = Math.max(1, Number(img.width) || 1);
+    const h = Math.max(1, Number(img.height) || 1);
+    return { sx: 0, sy: 0, sw: w, sh: h };
+  }
+}
+
+function createOffscreenCanvas(w, h) {
+  try {
+    if (typeof createCanvas === "function") return createCanvas(w, h);
+  } catch {
+        }
+  try {
+    const { createCanvas: cc } = require("canvas");
+    return cc(w, h);
+  } catch {
+    return null;
+  }
+}
+
+/** Crop al contenuto reale Twemoji (niente padding trasparente). */
+function drawEmojiImageTight(ctx, img, destX, destY, destSize) {
+  const box = emojiContentBox(img);
+  ctx.drawImage(img, box.sx, box.sy, box.sw, box.sh, destX, destY, destSize, destSize);
 }
 
 function emojiToTwemojiUrls(emoji) {
@@ -308,12 +389,38 @@ async function getEmojiImage(token) {
   }
 }
 
-function tokenWidth(ctx, token, size, weight) {
+function tokenWidth(ctx, token, size, weight, fontPrimary = null) {
   if (token.type === "emoji" || token.type === "custom_emoji") {
-    const drawSize = emojiDrawSizeForFont(size);
-    return drawSize + 1;
+    /* content-box emoji ≈ quasi full drawSize */
+    return Math.max(1, Math.round(emojiDrawSizeForFont(size) * 0.94));
   }
-  return textWidth(ctx, token.value, size, weight);
+  return textWidth(ctx, token.value, size, weight, fontPrimary);
+}
+
+function measureRichTextWidth(ctx, text, size = 16, weight = "600", fontPrimary = null) {
+  const tokens = tokenizeEmojiText(text);
+  let width = 0;
+  for (const token of tokens) {
+    width += tokenWidth(ctx, token, size, weight, fontPrimary);
+  }
+  return width;
+}
+
+function fitRichText(ctx, text, maxWidth, size = 16, weight = "600", fallback = "", fontPrimary = null) {
+  const value = String(text || "").trim() || String(fallback || "");
+  if (!value) return "";
+  if (measureRichTextWidth(ctx, value, size, weight, fontPrimary) <= maxWidth) return value;
+  const chars = Array.from(value);
+  let out = chars;
+  const ellipsis = "...";
+  while (
+    out.length > 1 &&
+    measureRichTextWidth(ctx, `${out.join("")}${ellipsis}`, size, weight, fontPrimary) > maxWidth
+  ) {
+    out = out.slice(0, -1);
+  }
+  if (!out.length) return ellipsis;
+  return `${out.join("")}${ellipsis}`;
 }
 
 async function drawLabelWithEmoji(
@@ -329,6 +436,7 @@ async function drawLabelWithEmoji(
     baseline = "middle",
     forcePrimaryFont = false,
     useNumericFont = false,
+    fontPrimary = null,
   } = {},
 ) {
   const labelOpts = {
@@ -339,6 +447,7 @@ async function drawLabelWithEmoji(
     baseline,
     forcePrimaryFont,
     useNumericFont,
+    fontPrimary,
   };
   const tokens = tokenizeEmojiText(text);
   const hasEmoji = tokens.some(
@@ -350,18 +459,23 @@ async function drawLabelWithEmoji(
   }
 
   const total = tokens.reduce(
-    (sum, token) => sum + tokenWidth(ctx, token, size, weight),
+    (sum, token) => sum + tokenWidth(ctx, token, size, weight, fontPrimary),
     0,
   );
   let cursorX = x;
   if (align === "center") cursorX = x - total / 2;
   else if (align === "right") cursorX = x - total;
+  let prevKind = "";
 
   for (const token of tokens) {
     if (token.type === "text") {
       if (token.value) {
-        drawLabel(ctx, token.value, cursorX, y, { ...labelOpts, align: "left" });
-        cursorX += textWidth(ctx, token.value, size, weight);
+        /* rankNickTight1d: testo dopo emoji — pull lieve (no overlap) */
+        const textPull =
+          prevKind === "emoji" ? Math.max(0, Math.round(size * 0.04)) : 0;
+        drawLabel(ctx, token.value, cursorX - textPull, y, { ...labelOpts, align: "left" });
+        cursorX += textWidth(ctx, token.value, size, weight, fontPrimary) - textPull;
+        prevKind = "text";
       }
       continue;
     }
@@ -372,6 +486,11 @@ async function drawLabelWithEmoji(
         : await getEmojiImage(token.value);
     if (img) {
       const drawSize = emojiDrawSizeForFont(size);
+      /* dopo testo: chiudi gap; dopo emoji: advance più corto */
+      const pull =
+        prevKind === "text" ? Math.max(0, Math.round(drawSize * 0.08)) : 0;
+      const adv =
+        prevKind === "emoji" ? 0.92 : 0.96;
       let drawY = y;
       if (baseline === "middle") drawY = y - drawSize / 2;
       else if (baseline === "top" || baseline === "alphabetic" || baseline === "hanging")
@@ -379,14 +498,19 @@ async function drawLabelWithEmoji(
       else if (baseline === "bottom") drawY = y - drawSize;
       ctx.imageSmoothingEnabled = true;
       ctx.imageSmoothingQuality = "high";
-      ctx.drawImage(img, cursorX, drawY, drawSize, drawSize);
-      cursorX += drawSize + 1;
+      drawEmojiImageTight(ctx, img, cursorX - pull, drawY, drawSize);
+      cursorX += Math.max(1, Math.round(drawSize * adv) - pull);
+      prevKind = "emoji";
     } else if (token.type === "custom_emoji" && token.raw) {
       drawLabel(ctx, token.raw, cursorX, y, { ...labelOpts, align: "left" });
-      cursorX += textWidth(ctx, token.raw, size, weight);
+      cursorX += textWidth(ctx, token.raw, size, weight, fontPrimary);
+      prevKind = "text";
     } else if (token.type === "emoji" && token.value) {
       const drawSize = emojiDrawSizeForFont(size);
-      drawTextWithSpecialFallback(ctx, token.value, cursorX + drawSize / 2, y, {
+      const pull =
+        prevKind === "text" ? Math.max(0, Math.round(drawSize * 0.08)) : 0;
+      const adv = prevKind === "emoji" ? 0.92 : 0.96;
+      drawTextWithSpecialFallback(ctx, token.value, cursorX - pull + drawSize / 2, y, {
         size,
         weight,
         color,
@@ -394,11 +518,14 @@ async function drawLabelWithEmoji(
         baseline,
         normalizeCompatibility: false,
         forcePrimaryFont: false,
+        fontCss: fontPrimary ? resolveRichFontCss(size, weight, fontPrimary) : undefined,
       });
-      cursorX += drawSize + 1;
+      cursorX += Math.max(1, Math.round(drawSize * adv) - pull);
+      prevKind = "emoji";
     } else {
       const drawSize = emojiDrawSizeForFont(size);
-      cursorX += drawSize + 1;
+      cursorX += Math.max(1, Math.round(drawSize * 0.8));
+      prevKind = "emoji";
     }
   }
 }
@@ -425,7 +552,7 @@ function expandTokensForWrap(tokens) {
 
 function measureAtomic(ctx, u, size, weight) {
   if (u.type === "emoji" || u.type === "custom_emoji") {
-    return emojiDrawSizeForFont(size) + 1;
+    return Math.max(1, Math.round(emojiDrawSizeForFont(size) * 0.94));
   }
   return textWidth(ctx, u.value, size, weight);
 }
@@ -543,6 +670,8 @@ module.exports = {
   drawLabelWithEmoji,
   wrapRichTextToLines,
   textWidth,
+  measureRichTextWidth,
+  fitRichText,
   getEmojiImage,
   emojiDrawSizeForFont,
 };

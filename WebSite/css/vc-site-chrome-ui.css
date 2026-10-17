@@ -1,22 +1,53 @@
-/* vcSiteChromeUi18  progress bar transform diretto + spring; cursore cheap */
-/* scrollPaintHoles1  durante scroll spegne backdrop-filter (buchi GPU) */
+/* vcSiteChromeUi18 — progress bar transform diretto + spring; cursore cheap */
+/* progGlowUnify1: UNA sola barra sand-glow (load + scroll); track trasparente; glow = box-shadow */
+/* scrollPaintHoles1 — durante scroll spegne backdrop-filter (buchi GPU) */
 :root {
-  --vc-chrome-progress-h: 3.5px;
+  --vc-chrome-progress-h: 3px;
   --vc-chrome-sand: var(--vc-sand, #d4a888);
   --vc-chrome-sand-rgb: 212, 168, 136;
+  --vc-prog-glow:
+    0 0 4px rgba(255, 250, 243, 0.65),
+    0 0 10px rgba(212, 168, 136, 0.8),
+    0 0 18px rgba(184, 137, 104, 0.4);
+  --vc-prog-fill: linear-gradient(
+    90deg,
+    #8f6b3f 0%,
+    #c49a72 18%,
+    #e8c9a8 42%,
+    #fffaf3 50%,
+    #e8c9a8 58%,
+    #d4a888 78%,
+    #b88968 100%
+  );
 }
 
 #vc-site-progress {
   position: fixed;
   top: 0;
   left: 0;
-  right: 0;
-  width: 100%;
+  /* hideScrollbar1: no gutter 12px */
+  right: 0 !important;
+  width: auto;
   height: var(--vc-chrome-progress-h);
-  z-index: 2147482500;
+  /* homeBootFix2: sopra sipario hard */
+  z-index: 2147483500;
   pointer-events: none;
   background: transparent;
-  overflow: hidden;
+  /* glow deve poter uscire dal track */
+  overflow: visible !important;
+}
+#vc-site-progress.is-loading {
+  height: 3px !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+#vc-site-progress:not(.is-loading) {
+  height: 3px !important;
+  opacity: 0.92 !important;
+}
+#vc-site-progress:not(.is-loading).is-at-top {
+  opacity: 0 !important;
+  visibility: hidden !important;
 }
 html.vc-view-as-bar-on #vc-site-progress {
   top: var(--vc-view-as-bar-h, 3.1rem);
@@ -29,25 +60,18 @@ html.vc-view-as-bar-on #vc-site-progress {
   transform: scaleX(0);
   will-change: transform;
   backface-visibility: hidden;
-  /* progBarGrad1: sand metal gradient */
   background-color: #d4a888;
-  background-image: linear-gradient(
-    90deg,
-    #8f6b3f 0%,
-    #c49a72 18%,
-    #e8c9a8 42%,
-    #fffaf3 50%,
-    #e8c9a8 58%,
-    #d4a888 78%,
-    #b88968 100%
-  );
-  box-shadow: none;
+  background-image: var(--vc-prog-fill);
+  box-shadow: var(--vc-prog-glow);
   filter: none;
   transition: none !important;
 }
 
-/* fxAlignPhonePc1 / progNoBlurBg1: progress track  solo barra, zero sfondo/blur */
-#vc-site-progress {
+/* track: trasparente; fill: glow sand unico (load = scroll) */
+#vc-site-progress,
+html body #vc-site-progress,
+html body.vc-body #vc-site-progress,
+html.vc-site-polish body.vc-body #vc-site-progress {
   background: transparent !important;
   background-color: transparent !important;
   background-image: none !important;
@@ -55,26 +79,50 @@ html.vc-view-as-bar-on #vc-site-progress {
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
   filter: none !important;
+  -webkit-filter: none !important;
+  outline: none !important;
+  border: 0 !important;
+  overflow: visible !important;
+  isolation: isolate !important;
+  contain: none !important;
+  right: 0 !important;
+  left: 0 !important;
 }
 #vc-site-progress::before,
-#vc-site-progress::after {
+#vc-site-progress::after,
+html body #vc-site-progress::before,
+html body #vc-site-progress::after {
   content: none !important;
   display: none !important;
-}
-#vc-site-progress__bar {
+  opacity: 0 !important;
   box-shadow: none !important;
   filter: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+#vc-site-progress__bar,
+html body #vc-site-progress__bar,
+html body.vc-body #vc-site-progress__bar,
+html.vc-site-polish body.vc-body #vc-site-progress__bar,
+html.vc-site-polish body.vc-body #vc-site-progress.is-loading #vc-site-progress__bar,
+html.vc-site-polish body.vc-body #vc-site-progress:not(.is-loading) #vc-site-progress__bar {
   background-color: #d4a888 !important;
-  background-image: linear-gradient(
-    90deg,
-    #8f6b3f 0%,
-    #c49a72 18%,
-    #e8c9a8 42%,
-    #fffaf3 50%,
-    #e8c9a8 58%,
-    #d4a888 78%,
-    #b88968 100%
-  ) !important;
+  background-image: var(--vc-prog-fill) !important;
+  box-shadow: var(--vc-prog-glow) !important;
+  filter: none !important;
+  -webkit-filter: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+@media (max-width: 1199.98px), (pointer: coarse) {
+  /* stesso glow anche telefono — niente seconda barra flat */
+  #vc-site-progress__bar,
+  html body #vc-site-progress__bar,
+  html body.vc-body #vc-site-progress__bar,
+  html.vc-site-polish body.vc-body #vc-site-progress__bar {
+    background-image: var(--vc-prog-fill) !important;
+    box-shadow: var(--vc-prog-glow) !important;
+  }
 }
 
 /*
@@ -105,14 +153,22 @@ html.vc-view-as-bar-on #vc-site-progress {
     transparent 72%
   ) !important;
   box-shadow: none !important;
-  transition: opacity 0.12s ease;
+  /* cursorSync1: solo opacity — MAI transition su transform (alone in ritardo) */
+  transition: opacity 0.1s ease !important;
+  transition-property: opacity !important;
+  will-change: transform;
   contain: layout style paint size;
   isolation: isolate;
 }
-html.vc-site-cursor-on #vc-site-cursor-light {
+html.vc-site-cursor-on #vc-site-cursor-light,
+html.vc-site-cursor-on.vc-perf-mid #vc-site-cursor-light,
+html.vc-site-cursor-on.vc-perf-mid body.vc-body #vc-site-cursor-light,
+html.vc-site-cursor-on.vc-site-polish body.vc-body #vc-site-cursor-light {
   opacity: 1 !important;
   visibility: visible !important;
   display: block !important;
+  /* cursorSync1: lock no transform tween */
+  transition-property: opacity !important;
 }
 #vc-site-cursor-light::before,
 #vc-site-cursor-light::after,
@@ -122,24 +178,40 @@ html.vc-site-cursor-on #vc-site-cursor-light::after {
   display: none !important;
 }
 
-/* backTopGlow1: alone cream sui bordi (come logo/nav) */
+/* backTopConic1: anello conic come navbar — ZERO glow esterno */
+/* backTopPhoneFix1: fixed + destra — batte CSS mancante/override → static in basso a sx */
+html body.vc-body #vc-site-back-top,
+html.vc-site-polish body.vc-body #vc-site-back-top,
 #vc-site-back-top {
-  position: fixed;
-  right: max(0.9rem, env(safe-area-inset-right, 0px));
-  bottom: max(0.95rem, env(safe-area-inset-bottom, 0px));
-  z-index: 2147481800;
+  position: fixed !important;
+  left: auto !important;
+  right: max(0.9rem, env(safe-area-inset-right, 0px)) !important;
+  bottom: max(0.95rem, env(safe-area-inset-bottom, 0px)) !important;
+  top: auto !important;
+  z-index: 2147481800 !important;
   width: 2.65rem;
   height: 2.65rem;
   border-radius: 999px;
-  border: 1px solid rgba(245, 214, 183, 0.55);
-  background: linear-gradient(180deg, rgba(26, 20, 15, 0.94), rgba(16, 12, 9, 0.96));
+  border: 1.35px solid transparent;
+  border-color: transparent;
+  background-color: #100c09;
+  background-image:
+    linear-gradient(180deg, rgba(26, 20, 15, 0.96), rgba(16, 12, 9, 0.98)),
+    conic-gradient(
+      from 0deg,
+      rgba(247, 236, 223, 0.88) 0deg,
+      rgba(212, 168, 136, 0.62) 90deg,
+      rgba(180, 130, 90, 0.68) 180deg,
+      rgba(212, 168, 136, 0.62) 270deg,
+      rgba(247, 236, 223, 0.88) 360deg
+    );
+  background-origin: padding-box, border-box;
+  background-clip: padding-box, border-box;
+  -webkit-background-clip: padding-box, border-box;
   color: #f7efe4;
-  box-shadow:
-    0 0 0 1.5px rgba(245, 214, 183, 0.42),
-    0 0 12px rgba(236, 205, 176, 0.48),
-    0 0 22px rgba(168, 118, 82, 0.28),
-    0 12px 28px rgba(0, 0, 0, 0.42),
-    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  box-shadow: none;
+  filter: none;
+  -webkit-filter: none;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -152,29 +224,37 @@ html.vc-site-cursor-on #vc-site-cursor-light::after {
     opacity 0.22s ease,
     transform 0.22s ease,
     visibility 0.22s ease,
-    border-color 0.18s ease,
     background 0.18s ease,
-    box-shadow 0.18s ease,
     bottom 0.22s ease;
   pointer-events: none;
 }
+/* backTopPhoneShow1: is-on deve battere html body #… (opacity:0) */
+html body.vc-body #vc-site-back-top.is-on,
+html.vc-site-polish body.vc-body #vc-site-back-top.is-on,
 #vc-site-back-top.is-on {
-  opacity: 1;
-  visibility: visible;
-  transform: none;
-  pointer-events: auto;
+  opacity: 1 !important;
+  visibility: visible !important;
+  transform: none !important;
+  pointer-events: auto !important;
 }
 #vc-site-back-top:hover,
 #vc-site-back-top:focus-visible {
-  border-color: rgba(247, 236, 223, 0.78);
-  background: rgba(212, 168, 136, 0.16);
+  background-image:
+    linear-gradient(180deg, rgba(32, 24, 18, 0.98), rgba(18, 14, 10, 0.99)),
+    conic-gradient(
+      from 0deg,
+      rgba(255, 247, 236, 0.95) 0deg,
+      rgba(236, 205, 176, 0.72) 90deg,
+      rgba(212, 168, 136, 0.78) 180deg,
+      rgba(236, 205, 176, 0.72) 270deg,
+      rgba(255, 247, 236, 0.95) 360deg
+    );
+  background-origin: padding-box, border-box;
+  background-clip: padding-box, border-box;
+  -webkit-background-clip: padding-box, border-box;
   color: #fff8ee;
-  box-shadow:
-    0 0 0 1.5px rgba(247, 236, 223, 0.55),
-    0 0 16px rgba(236, 205, 176, 0.62),
-    0 0 28px rgba(168, 118, 82, 0.36),
-    0 12px 28px rgba(0, 0, 0, 0.42),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  box-shadow: none;
+  filter: none;
   outline: none;
 }
 #vc-site-back-top .fa {
@@ -182,44 +262,53 @@ html.vc-site-cursor-on #vc-site-cursor-light::after {
   line-height: 1;
   color: #f7efe4;
   -webkit-text-fill-color: #f7efe4;
-  text-shadow: 0 0 8px rgba(245, 214, 183, 0.35);
+  text-shadow: none;
+  filter: none;
 }
 
 body:has(#vc-type-sfx-player:not([hidden])) #vc-site-back-top,
 body:has(.vc-type-sfx-player:not([hidden])) #vc-site-back-top,
 html:has(#vc-type-sfx-player:not([hidden])) #vc-site-back-top {
-  bottom: calc(0.95rem + 3.85rem + env(safe-area-inset-bottom, 0px));
+  bottom: calc(0.95rem + 3.85rem + env(safe-area-inset-bottom, 0px)) !important;
 }
 body:has(#vc-wfc-live-fab:not([hidden])) #vc-site-back-top,
 body:has(.vc-wfc-live-fab:not([hidden])) #vc-site-back-top {
-  bottom: calc(0.95rem + 3.85rem + env(safe-area-inset-bottom, 0px));
+  bottom: calc(0.95rem + 3.85rem + env(safe-area-inset-bottom, 0px)) !important;
 }
 body:has(#vc-type-sfx-player:not([hidden])):has(#vc-wfc-live-fab:not([hidden])) #vc-site-back-top,
 body:has(.vc-type-sfx-player:not([hidden])):has(.vc-wfc-live-fab:not([hidden])) #vc-site-back-top {
-  bottom: calc(0.95rem + 7.5rem + env(safe-area-inset-bottom, 0px));
+  bottom: calc(0.95rem + 7.5rem + env(safe-area-inset-bottom, 0px)) !important;
 }
 
 /* footerLayoutAll1: cookie banner ? alza back-top, non coprire i legali */
 body:has(.vc-necessity-banner--visible) #vc-site-back-top,
 html:has(.vc-necessity-banner--visible) #vc-site-back-top {
-  bottom: calc(4.35rem + env(safe-area-inset-bottom, 0px));
+  bottom: calc(4.35rem + env(safe-area-inset-bottom, 0px)) !important;
 }
 body:has(.vc-necessity-banner--visible):has(#vc-type-sfx-player:not([hidden])) #vc-site-back-top,
 body:has(.vc-necessity-banner--visible):has(.vc-wfc-live-fab:not([hidden])) #vc-site-back-top {
-  bottom: calc(4.35rem + 3.85rem + env(safe-area-inset-bottom, 0px));
+  bottom: calc(4.35rem + 3.85rem + env(safe-area-inset-bottom, 0px)) !important;
 }
 
 @media (max-width: 640px) {
+  html body.vc-body #vc-site-back-top,
+  html.vc-site-polish body.vc-body #vc-site-back-top,
   #vc-site-back-top {
     width: 2.45rem;
     height: 2.45rem;
-    right: max(0.7rem, env(safe-area-inset-right, 0px));
+    right: max(0.7rem, env(safe-area-inset-right, 0px)) !important;
+    left: auto !important;
   }
   body:has(.vc-necessity-banner--visible) #vc-site-back-top,
   html:has(.vc-necessity-banner--visible) #vc-site-back-top {
-    bottom: calc(5.1rem + env(safe-area-inset-bottom, 0px));
+    bottom: calc(5.1rem + env(safe-area-inset-bottom, 0px)) !important;
   }
 }
+/* backTopPhoneFix1 */
+/* backTopPhoneShow1 */
+/* backTopPhoneShow2 */
+/* midScrollYankKill1 */
+/* midScrollYankKill2 */
 
 @media (hover: none) and (pointer: coarse) {
   html:not(.vc-site-cursor-ok) #vc-site-cursor-light,
@@ -303,3 +392,122 @@ html.vc-home-motion-ready.vc-site-polish .vc-home-rise:not(.is-in) {
 }
 
 /* fxAlignPhonePc1 */
+
+/* wmUlHostGrad1b: batte soft-fx/look — niente ::after sul testo marquee (linea solo HOST) */
+html.vc-site-polish body.vc-body--home header a.vc-header-site-name.is-marquee .vc-header-site-name__text::after,
+html.vc-site-polish body.vc-body--home header a.vc-header-site-name.is-marquee .vc-header-site-name__text.is-clone::after,
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body--home header a.vc-header-site-name.is-marquee:not(.vc-snav-item) .vc-header-site-name__text::after,
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body--home header a.vc-header-site-name.is-marquee:not(.vc-snav-item) .vc-header-site-name__text.is-clone::after,
+html body.vc-body--home .vc-header-bar a.vc-header-site-name.is-marquee .vc-header-site-name__text::after,
+html body.vc-body--home .vc-header-bar a.vc-header-site-name.is-marquee .vc-header-site-name__text.is-clone::after {
+  content: none !important;
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  background: none !important;
+  background-image: none !important;
+}
+html.vc-site-polish body.vc-body--home header a.vc-header-site-name.is-marquee:not(.vc-snav-item)::after,
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body--home header a.vc-header-site-name.is-marquee:not(.vc-snav-item)::after,
+html body.vc-body--home .vc-header-bar a.vc-header-site-name.is-marquee:not(.vc-snav-item)::after {
+  content: "" !important;
+  display: block !important;
+  position: absolute !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: 100% !important;
+  height: 1.5px !important;
+  /* wmUlSingleBar2: no pill AA double-edge; chrome-ui caricato dopo soft-fx */
+  border-radius: 0 !important;
+  pointer-events: none !important;
+  z-index: 8 !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  box-shadow: none !important;
+  background-color: transparent !important;
+  background-image: linear-gradient(
+    90deg,
+    #6f4e37 0%,
+    #8b6e4d 14%,
+    #c4a07a 28%,
+    #f4e9d8 50%,
+    #c4a07a 72%,
+    #8b6e4d 86%,
+    #6f4e37 100%
+  ) !important;
+  -webkit-background-clip: border-box !important;
+  background-clip: border-box !important;
+}
+html.vc-site-polish body.vc-body--home header a.vc-header-site-name.is-marquee .vc-header-site-name__text,
+html.vc-site-polish body.vc-body--home header a.vc-header-site-name.is-marquee .vc-header-site-name__text.is-clone,
+html.vc-site-polish body.vc-body--home header a.vc-header-site-name.is-marquee .vc-header-site-name__metal,
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body--home header a.vc-header-site-name.is-marquee .vc-header-site-name__metal,
+html body.vc-body--home .vc-header-bar a.vc-header-site-name.is-marquee .vc-header-site-name__text,
+html body.vc-body--home .vc-header-bar a.vc-header-site-name.is-marquee .vc-header-site-name__metal {
+  padding-bottom: 0 !important;
+}
+/* wmUlHostGrad1b */
+/* wmUlSingleBar2 */
+
+/* bootKitAccel1: badge corner owned by vc-site-chrome-kit (avoid fight) */
+/* badgeInBellLive1: badge notifiche dentro il bottone campanella (non fuori) — DEPRECATED */
+html body .vc-notif-summary {
+  position: relative !important;
+  overflow: visible !important;
+}
+html body .vc-notif-summary .vc-notif-badge,
+html body #vc-notif-badge.vc-notif-badge {
+  position: absolute !important;
+  top: 0.14rem !important;
+  right: 0.12rem !important;
+  left: auto !important;
+  bottom: auto !important;
+  z-index: 5 !important;
+  transform: none !important;
+}
+
+/* sbFreezeKill1: blocco hideScrollbar rimosso (freeze); hide via soft-fx html only */
+
+/* floatContentHide1 + floatCoverFix1: hide PER float (classe .vc-float-over-content)
+   — solo overlap reale footer/card; include freccia #vc-site-back-top */
+:is(
+  #vc-site-back-top,
+  #vc-twitch-pip,
+  #vc-twitch-pip-reopen,
+  .vc-twitch-pip,
+  .vc-twitch-pip-reopen,
+  .vc-kick-pip,
+  .vc-kick-pip-reopen,
+  #vc-type-sfx-player,
+  .vc-type-sfx-player,
+  #vc-confessionale-music-player,
+  #vc-sf-music-player,
+  .vc-bgm-player--confessionale,
+  .vc-bgm-player--seratafilm,
+  .vc-bgm-player--hogwarts,
+  .vc-hw-music-fab,
+  .vc-home-scrollcue,
+  #vc-home-scrollcue
+).vc-float-over-content {
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  transform: translateY(1.25rem) !important;
+  transition:
+    opacity 0.18s ease,
+    visibility 0.18s ease,
+    transform 0.18s ease !important;
+}
+/* floatCoverFix1: freccia is-on resta nascosta se overlap (batte opacity:1 di is-on) */
+html body.vc-body #vc-site-back-top.is-on.vc-float-over-content,
+html.vc-site-polish body.vc-body #vc-site-back-top.is-on.vc-float-over-content,
+#vc-site-back-top.is-on.vc-float-over-content {
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  transform: translateY(1.25rem) !important;
+}
+/* floatContentHide1 + floatCoverFix1 */

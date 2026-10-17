@@ -23,6 +23,21 @@ const { getHogwartsCharacterBank } = require("../../Data/Minigames/hogwartsChara
 const { buildImageAttachmentFromRelativePath, resolveShopItemPublicImageUrl } = require("../../Utils/Web/hogwartsEventAssets");
 const { safeLoadImage } = require("../../Utils/Render/safeLoadImage");
 const { shouldApplyHogwartsBonusTheme, resolveHogwartsBonusPromptTitle, resolveHogwartsBonusPromptSubtitle, pickHogwartsBonusBank } = require("../../Utils/Minigames/hogwartsBonusMinigameTheme");
+const {
+  isHalloweenEventLiveForMinigames,
+  isHalloweenExclusiveMinigamesEnabled,
+  isHalloweenMinigameType,
+  shouldUseHalloweenTheme,
+  getHalloweenExclusiveAvailableTypes,
+  getHalloweenQuizBank,
+  getHalloweenMemoryEmojiBank,
+  getHalloweenHangmanWords,
+  getHalloweenGuessYearBank,
+  getHalloweenCompleteVerseBank,
+  buildHalloweenMissingEmojiRound,
+  buildHalloweenCountBatsRound,
+} = require("../../Utils/Minigames/halloweenMinigameHooks");
+const { addHalloweenCandy, resolveEventKey: resolveHalloweenCandyEventKey } = require("../Community/halloweenCandyService");
 const { resolveHogwartsEventConfig, isEventWindowOpen } = require("../../Utils/Web/hogwartsSortingConfig");
 const { findSortingDoc, resolveSortedHouseId, resolveHouseIdFromMemberRoles, normalizeHogwartsHouseId: normalizeSortedHouseId } = require("../../Utils/Web/hogwartsSortingResolve");
 const { getHouseMeta } = require("../../Utils/Web/hogwartsSortingBank");
@@ -70,6 +85,7 @@ const hogwartsSpawnPersistTimerByClient = new WeakMap();
 const lastHogwartsSpawnRomeMinuteByChannel = new Map();
 let hogwartsSpawnPersistClientRef = null;
 let hogwartsSpawnShutdownPersistArmed = false;
+let hogwartsPodiumAwardsShutdownFlushArmed = false;
 const HOGWARTS_SPAWN_CHECKPOINT_INTERVAL_MS = 45_000;
 const HOGWARTS_SPAWN_REQUIREMENT_MAX_WAIT_MS_DEFAULT = 5 * 60 * 1000;
 const HOGWARTS_SPAWN_REQUIREMENT_RETRY_MS_DEFAULT = 2 * 60 * 1000;
@@ -644,6 +660,8 @@ function getConfig(client) {
   const cfg = client?.config?.minigames || null;
   if (!cfg) return null;
   const hogwartsEventLive = isHogwartsEventLiveForMinigames(client);
+  const halloweenEventLive = !hogwartsEventLive && isHalloweenEventLiveForMinigames(client);
+  const halloweenExclusiveDuringEvent = isHalloweenExclusiveMinigamesEnabled(client, cfg);
   const hogwartsExclusiveDuringEvent = cfg.hogwartsExclusiveDuringEvent !== false;
   const hogwartsQuizRaw = cfg.hogwartsQuiz;
   const findScrollRaw = cfg.findScroll;
@@ -688,6 +706,8 @@ function getConfig(client) {
     ...cfg,
     hogwartsEventLive,
     hogwartsExclusiveDuringEvent,
+    halloweenEventLive,
+    halloweenExclusiveDuringEvent,
     hogwartsQuiz: hogwartsQuizCfg,
     findScroll: findScrollCfg,
     hogwartsMemoryEmoji: hogwartsMemoryCfg,
@@ -716,6 +736,17 @@ function getConfig(client) {
       if (active.hintTimeout) clearTimeout(active.hintTimeout);
       if (active.revealTimeout) clearTimeout(active.revealTimeout);
       activeGames.delete(out.channelId);
+    }
+  } else if (halloweenEventLive && halloweenExclusiveDuringEvent) {
+    const active = out.channelId ? activeGames.get(out.channelId) : null;
+    if (active?.type && !isHalloweenMinigameType(active.type)) {
+      if (active.timeout) clearTimeout(active.timeout);
+      if (active.hintTimeout) clearTimeout(active.hintTimeout);
+      if (active.revealTimeout) clearTimeout(active.revealTimeout);
+      activeGames.delete(out.channelId);
+    }
+    if (rotationQueue.some((type) => !isHalloweenMinigameType(type))) {
+      rotationQueue = [];
     }
   }
   return out;
@@ -1173,6 +1204,18 @@ function armHogwartsSpawnShutdownPersist() {
     const client = hogwartsSpawnPersistClientRef;
     if (!client) return;
     await persistHogwartsSpawnSchedulerDocAwait(client, "shutdown");
+  });
+}
+
+/* rebootDurability1: await in-flight hogwarts podium awards on shutdown */
+function armHogwartsPodiumAwardsShutdownFlush() {
+  if (hogwartsPodiumAwardsShutdownFlushArmed) return;
+  hogwartsPodiumAwardsShutdownFlushArmed = true;
+  armShutdownCheckpoint();
+  registerShutdownFlush("vinyls_hogwarts_podium_pending_awards", async () => {
+    const keys = [...hogwartsPodiumPendingAwards.keys()];
+    if (!keys.length) return;
+    await Promise.allSettled(keys.map((key) => waitForHogwartsPodiumPendingAwards(key)));
   });
 }
 
@@ -7010,6 +7053,9 @@ function getAvailableGameTypes(cfg) {
     appendHogwartsEventBonusGameTypes(cfg, types);
     return types;
   }
+  if (shouldUseHalloweenTheme(cfg)) {
+    return getHalloweenExclusiveAvailableTypes(cfg);
+  }
   if (cfg?.guessNumber !== false) types.push("guessNumber");
   if (cfg?.guessWord?.apiUrl) types.push("guessWord");
   if (cfg?.guessFlag?.apiUrl) types.push("guessFlag");
@@ -7111,6 +7157,7 @@ async function runHogwartsPodiumRegisterExclusive(channelId, task) {
 function trackHogwartsPodiumAward(channelId, awardPromise) {
   const key = String(channelId || "").trim();
   if (!key) return awardPromise;
+  armHogwartsPodiumAwardsShutdownFlush();
   let bucket = hogwartsPodiumPendingAwards.get(key);
   if (!bucket) {
     bucket = new Set();
@@ -8017,6 +8064,8 @@ function buildMinigameTimeoutEmbedForGame(game) {
       return buildTimeoutMathEmbed(String(game.answer ?? "0"));
     case "findBot":
       return buildTimeoutFindBotEmbed();
+    case "halloweenFindGhost":
+      return buildTimeoutFindBotEmbed().setTitle("Tempo scaduto — il fantasma è scappato 👻");
     case "findBotVoice":
       return buildTimeoutFindBotVoiceEmbed();
     case "findScroll":
@@ -8035,6 +8084,23 @@ function buildMinigameTimeoutEmbedForGame(game) {
       return buildTimeoutSynonymAntonymEmbed(String(game.word || ""), String(game.answer ?? game.answers?.[0] ?? ""), String(game.kind || ""));
     case "guessCity":
       return buildTimeoutGuessCityEmbed(String(game.landmark || ""), String(game.city || game.answers?.[0] || ""));
+    case "halloweenQuiz":
+      return buildTimeoutItalianGkEmbed(String(game.displayAnswer || game.answers?.[0] || "sconosciuta")).setTitle("Tempo scaduto — Quiz Halloween");
+    case "halloweenMissingEmoji":
+      return new EmbedBuilder()
+        .setColor(MINIGAME_EMBED_COLOR)
+        .setTitle("Tempo scaduto 🎃")
+        .setDescription(`L'emoji mancante era **${game.displayAnswer || game.missing || "?"}**.`);
+    case "halloweenCountBats":
+      return new EmbedBuilder()
+        .setColor(MINIGAME_EMBED_COLOR)
+        .setTitle("Tempo scaduto 🦇")
+        .setDescription(`I pipistrelli erano **${game.displayAnswer || game.count || "?"}**.`);
+    case "halloweenTrickOrTreat":
+      return new EmbedBuilder()
+        .setColor(MINIGAME_EMBED_COLOR)
+        .setTitle("Trick or Treat terminato 🎃")
+        .setDescription("Il round è scaduto.");
     default:
       return null;
   }
@@ -8096,8 +8162,28 @@ function buildGameSnapshotFromPersistedState(state) {
       game.word = parsed?.word || String(state.target || "parola sconosciuta");
       return game;
     case "italianGK":
+    case "halloweenQuiz":
       game.displayAnswer = parsed?.displayAnswer || parsed?.answers?.[0] || "sconosciuta";
       game.answers = parsed?.answers || [];
+      return game;
+    case "halloweenMissingEmoji":
+      game.display = parsed?.display || "";
+      game.missing = parsed?.missing || "";
+      game.displayAnswer = parsed?.missing || parsed?.answers?.[0] || "?";
+      game.answers = parsed?.answers || [];
+      return game;
+    case "halloweenCountBats":
+      game.display = parsed?.display || "";
+      game.count = Number(parsed?.count);
+      game.displayAnswer = String(parsed?.count ?? parsed?.answers?.[0] ?? "?");
+      game.answers = parsed?.answers || [];
+      return game;
+    case "halloweenTrickOrTreat":
+      game.treatChancePercent = Number(parsed?.treatChancePercent ?? 55);
+      game.candyOnTreat = Number(parsed?.candyOnTreat ?? 1);
+      game.claimedBy = parsed?.claimedBy && typeof parsed.claimedBy === "object" ? parsed.claimedBy : {};
+      game.customId = parsed?.customId || state.customId || "";
+      game.multiClaim = true;
       return game;
     case "hogwartsQuiz":
       game.displayAnswer = parsed?.displayAnswer || parsed?.answers?.[0] || parsed?.sourceAnswers?.[0] || "sconosciuta";
@@ -8160,6 +8246,7 @@ function buildGameSnapshotFromPersistedState(state) {
       game.answers = parsed?.answers || [];
       return game;
     case "findBot":
+    case "halloweenFindGhost":
     case "findBotVoice":
     case "findScroll":
       return game;
@@ -8261,7 +8348,7 @@ async function closeExpiredMinigameState(client, cfg, channel, state) {
     buildMinigameTimeoutEmbedForGame(game),
     { allowPersistedClose: true },
   );
-  if (type === "findBot" || type === "findScroll") {
+  if (type === "findBot" || type === "findScroll" || type === "halloweenFindGhost") {
     await deleteFindMinigameRemoteMessage(channel.guild, state);
   }
   if (type === "findBotVoice") {
@@ -8406,17 +8493,24 @@ async function getNextGameType(client, cfg) {
   const guildId = cfg?.guildId ?? (cfg?.channelId ? (await getChannelCached(client, cfg.channelId))?.guild?.id ?? null : null);
   await loadRotationState(client, cfg, guildId);
   const todayKey = getRomeDateKey(new Date());
-  const hogwartsAlternate = isHogwartsAlternatingRotationActive(cfg);
+  const halloweenCycle = shouldUseHalloweenTheme(cfg);
+  const hogwartsAlternate = !halloweenCycle && isHogwartsAlternatingRotationActive(cfg);
   const { themed: hogwartsThemed, bonus: hogwartsBonus } = hogwartsAlternate
     ? splitHogwartsEventGameTypes(available, cfg)
     : { themed: [], bonus: [] };
   const queueSet = new Set(rotationQueue);
   const queueMatchesConfig = available.length === queueSet.size && available.every((t) => queueSet.has(t));
-  if (rotationDate !== todayKey || rotationQueue.length === 0 || !queueMatchesConfig) {
+  if (rotationDate !== todayKey || rotationQueue.length === 0 || (!halloweenCycle && !queueMatchesConfig)) {
     rotationDate = todayKey;
     rotationQueue = hogwartsAlternate
       ? buildHogwartsAlternatingRotationQueue(hogwartsThemed, hogwartsBonus, cfg)
       : shuffleArray(expandGameTypesByRotationWeight(cfg, available.slice()));
+  }
+  if (halloweenCycle) {
+    const badQueue = rotationQueue.some((t) => !available.includes(t));
+    if (badQueue || rotationQueue.length === 0) {
+      rotationQueue = shuffleArray(available.slice());
+    }
   }
   const channelId = cfg?.channelId;
   const now = Date.now();
@@ -8428,7 +8522,7 @@ async function getNextGameType(client, cfg) {
     return typeof at === "number" && now - at < getGameTypeCooldownMs(type, cfg);
   };
   const halfAvailable = Math.floor(available.length / 2);
-  if (rotationQueue.length < halfAvailable && available.length > 0) {
+  if (!halloweenCycle && rotationQueue.length < halfAvailable && available.length > 0) {
     rotationQueue = hogwartsAlternate
       ? buildHogwartsAlternatingRotationQueue(hogwartsThemed, hogwartsBonus, cfg)
       : shuffleArray(expandGameTypesByRotationWeight(cfg, available.slice()));
@@ -8437,7 +8531,12 @@ async function getNextGameType(client, cfg) {
   if (hogwartsAlternate) {
     next = pickHogwartsAlternatingGameType(cfg, channelId, hogwartsThemed, hogwartsBonus, excludeSet, isOnCooldown);
   }
-  if (!next) next = rotationQueue.shift() || available[0];
+  if (!next) {
+    if (halloweenCycle && rotationQueue.length === 0) {
+      rotationQueue = shuffleArray(available.slice());
+    }
+    next = rotationQueue.shift() || available[0];
+  }
   while ((excludeSet.has(next) || isOnCooldown(next)) && (rotationQueue.length > 0 || available.length > 1)) {
     if (hogwartsAlternate) {
       const retry = pickHogwartsAlternatingGameType(cfg, channelId, hogwartsThemed, hogwartsBonus, excludeSet, isOnCooldown);
@@ -8447,15 +8546,22 @@ async function getNextGameType(client, cfg) {
       }
     }
     if (rotationQueue.length > 0) {
-      rotationQueue.push(next);
-      next = rotationQueue.shift();
+      if (halloweenCycle) {
+        next = rotationQueue.shift();
+      } else {
+        rotationQueue.push(next);
+        next = rotationQueue.shift();
+      }
+    } else if (halloweenCycle) {
+      rotationQueue = shuffleArray(available.filter((t) => t !== next));
+      break;
     } else {
       const others = available.filter((t) => !excludeSet.has(t) && !isOnCooldown(t));
       next = others.length ? others[randomBetween(0, others.length - 1)] : available[0];
       break;
     }
   }
-  if (next) {
+  if (next && !halloweenCycle) {
     rotationQueue = rotationQueue.filter((type) => type !== next);
     rotationQueue.push(next);
   }
@@ -9549,7 +9655,9 @@ async function startHangmanGame(client, cfg) {
   if (!channelId || activeGames.has(channelId)) return false;
 
   let words = [];
-  if (shouldApplyHogwartsBonusTheme(cfg, "hangman")) {
+  if (shouldUseHalloweenTheme(cfg)) {
+    words = getHalloweenHangmanWords().map(normalizeWord).filter(isValidHangmanWord);
+  } else if (shouldApplyHogwartsBonusTheme(cfg, "hangman")) {
     words = getHogwartsHangmanWords().map(normalizeWord).filter(isValidHangmanWord);
   }
   const apiUrl = cfg?.hangman?.apiUrl || cfg?.guessWord?.apiUrl || null;
@@ -9570,7 +9678,9 @@ async function startHangmanGame(client, cfg) {
     const customWords = Array.isArray(cfg?.hangman?.words) ? cfg.hangman.words : [];
     const fallbackWords = customWords.length
       ? customWords
-      : pickHogwartsBonusBank(cfg, "hangman", getHangmanWords(), getHogwartsHangmanWords);
+      : shouldUseHalloweenTheme(cfg)
+        ? getHalloweenHangmanWords()
+        : pickHogwartsBonusBank(cfg, "hangman", getHangmanWords(), getHogwartsHangmanWords);
     words = fallbackWords.map(normalizeWord).filter(isValidHangmanWord);
   }
   if (!words.length) return false;
@@ -9592,7 +9702,8 @@ async function startHangmanGame(client, cfg) {
   const maskedWord = maskHangmanWord(word, new Set(guessedLetters));
   const hangmanAttachment = buildPromptImageAttachment("Impiccato", [maskedWord, `Errori: 0/${maxMisses}`],
     "hangman", "", client, isBurrobirraActiveForChannel(client, channelId));
-  const hangmanEmbed = applyHogwartsBonusEmbedTitle(buildHangmanEmbed(maskedWord, rewardExp, durationMs), cfg, "hangman", "Impiccato");
+  let hangmanEmbed = applyHogwartsBonusEmbedTitle(buildHangmanEmbed(maskedWord, rewardExp, durationMs), cfg, "hangman", "Impiccato");
+  if (shouldUseHalloweenTheme(cfg)) hangmanEmbed.setTitle("Impiccato Halloween 🎃");
   if (hangmanAttachment) {
     hangmanEmbed.setImage(`attachment://${hangmanAttachment.name}`);
   }
@@ -11092,6 +11203,16 @@ async function leaveFindBotVoiceChannel(guildId) {
   findBotVoiceSessionByGuild.delete(gid);
 }
 
+function hasFindBotVoiceSession(guildId, channelId = "") {
+  const gid = String(guildId || "").trim();
+  if (!gid) return false;
+  const session = findBotVoiceSessionByGuild.get(gid);
+  if (!session) return false;
+  const cid = String(channelId || "").trim();
+  if (!cid) return true;
+  return String(session.channelId || "") === cid;
+}
+
 async function joinFindBotVoiceChannel(guild, voiceChannel) {
   const gid = String(guild?.id || "").trim();
   if (!gid || !voiceChannel?.id) return false;
@@ -11099,9 +11220,16 @@ async function joinFindBotVoiceChannel(guild, voiceChannel) {
   await leaveFindBotVoiceChannel(gid);
   const liveGuild = guild?.voiceAdapterCreator ? guild : await guild.fetch().catch(() => guild);
   if (!liveGuild?.voiceAdapterCreator) return false;
+  const channelId = String(voiceChannel.id);
+  /* Pending PRIMA di join: voiceStateUpdate “bot solo in VC” altrimenti chiama leaveTtsGuild e butta fuori il minigame. */
+  findBotVoiceSessionByGuild.set(gid, {
+    channelId,
+    connection: null,
+    pending: true,
+  });
   try {
     const connection = joinVoiceChannel({
-      channelId: voiceChannel.id,
+      channelId,
       guildId: gid,
       adapterCreator: liveGuild.voiceAdapterCreator,
       selfDeaf: true,
@@ -11109,7 +11237,7 @@ async function joinFindBotVoiceChannel(guild, voiceChannel) {
     });
     await entersState(connection, VoiceConnectionStatus.Ready, 15_000);
     findBotVoiceSessionByGuild.set(gid, {
-      channelId: String(voiceChannel.id),
+      channelId,
       connection,
     });
     return true;
@@ -11182,14 +11310,19 @@ function getActiveFindBotVoiceGame(client) {
 }
 
 function shouldDeferTtsLeaveForFindBotVoiceMinigame(client, guildId, channelId) {
+  const gid = String(guildId || "").trim();
+  const cid = String(channelId || "").trim();
+  /* Sessione pending/ready: copre la race join → empty-VC leave prima di activeGames.set */
+  if (hasFindBotVoiceSession(gid, cid)) return true;
   const active = getActiveFindBotVoiceGame(client);
   if (!active) return false;
-  const guild = client?.guilds?.cache?.get(String(guildId || "")) || null;
-  const botVoiceId = guild ? resolveFindBotVoiceBotChannelId(guild, active.game) : String(active.game.channelId || active.game.voiceChannelId || "");
-  return (
-    String(active.game.guildId || "") === String(guildId || "") &&
-    String(botVoiceId || "") === String(channelId || "")
-  );
+  if (String(active.game.guildId || "") !== gid) return false;
+  const guild = client?.guilds?.cache?.get(gid) || null;
+  const botVoiceId = guild
+    ? resolveFindBotVoiceBotChannelId(guild, active.game)
+    : String(active.game.channelId || active.game.voiceChannelId || "");
+  if (!cid) return Boolean(botVoiceId);
+  return String(botVoiceId || "") === cid;
 }
 
 async function startFindBotGame(client, cfg) {
@@ -11872,7 +12005,7 @@ async function catchUpTextMinigameWinFromHistory(client, cfg, channel, game) {
 
 async function tryAwardMissedMinigameWinFromHistory(client, cfg, channel, state) {
   const type = String(state?.type || "").trim();
-  if (!type || type === "treasureHunt" || type === "hogwartsObservationTower" || type === "findBot" || type === "findBotVoice" || type === "findScroll" || type === "hangman") {
+  if (!type || type === "treasureHunt" || type === "hogwartsObservationTower" || type === "findBot" || type === "halloweenFindGhost" || type === "findBotVoice" || type === "findScroll" || type === "hangman" || type === "halloweenTrickOrTreat") {
     return false;
   }
   const chId = String(cfg?.channelId || channel?.id || "").trim();
@@ -12341,7 +12474,9 @@ async function startHogwartsMemoryEmojiGame(client, cfg) {
 }
 
 async function startStandardMemoryEmojiGame(client, cfg) {
-  const bank = pickHogwartsBonusBank(cfg, "memoryEmoji", getMemoryEmojiBank(), getHogwartsMemoryEmojiBank);
+  const bank = shouldUseHalloweenTheme(cfg)
+    ? getHalloweenMemoryEmojiBank()
+    : pickHogwartsBonusBank(cfg, "memoryEmoji", getMemoryEmojiBank(), getHogwartsMemoryEmojiBank);
   return startMemoryEmojiGame(client, cfg, {
     type: "memoryEmoji",
     cfgKey: "memoryEmoji",
@@ -12352,7 +12487,9 @@ async function startStandardMemoryEmojiGame(client, cfg) {
 async function startGuessYearGame(client, cfg) {
   const channelId = cfg.channelId;
   if (!channelId || activeGames.has(channelId)) return false;
-  const bank = pickHogwartsBonusBank(cfg, "guessYear", getGuessYearBank(), getHogwartsGuessYearBank);
+  const bank = shouldUseHalloweenTheme(cfg)
+    ? getHalloweenGuessYearBank()
+    : pickHogwartsBonusBank(cfg, "guessYear", getGuessYearBank(), getHogwartsGuessYearBank);
   const pick = pickQuestionAvoidRecent(channelId, "guessYear", bank, (r) => `${r.type}:${r.title}:${r.year}`, 25);
   if (!pick) return false;
   const rewardExp = normalizeRewardExp(cfg?.guessYear?.rewardExp ?? 150);
@@ -12362,9 +12499,10 @@ async function startGuessYearGame(client, cfg) {
   await sendMinigameRolePing(channel, cfg);
   const typeLabel = { film: "Film", series: "Serie TV", song: "Canzone", album: "Album" }[pick.type] || pick.type;
   const lines = [pick.subtitle ? `${pick.title} — ${pick.subtitle}` : pick.title, `Categoria: ${typeLabel}`];
-  const attachment = buildPromptImageAttachment("Indovina l'anno", lines, "guess_year", "", client, isBurrobirraActiveForChannel(client, channelId));
+  const attachment = buildPromptImageAttachment(shouldUseHalloweenTheme(cfg) ? "Indovina l'anno Halloween" : "Indovina l'anno", lines, "guess_year", "", client, isBurrobirraActiveForChannel(client, channelId));
   const imageUrl = attachment ? `attachment://${attachment.name}` : null;
   const embed = buildGuessYearEmbed(pick.title, pick.subtitle || null, rewardExp, durationMs, imageUrl);
+  if (shouldUseHalloweenTheme(cfg)) embed.setTitle("Indovina l'anno Halloween 🎃");
   const gameMessage = await sendMinigameMessage(channel, { embeds: [embed], files: attachment ? [attachment] : [] }, MINIGAME_QUESTION_BURROBIRRA).catch(() => null);
   const timeout = scheduleMinigameRoundTimeout(client, cfg, channelId, channel, durationMs);
   const yearHint = `<a:VC_Flame:1482725674711126140> L'anno è tra **${pick.year - 5}** e **${pick.year + 5}**.`;
@@ -12398,7 +12536,9 @@ async function startGuessYearGame(client, cfg) {
 async function startCompleteVerseGame(client, cfg) {
   const channelId = cfg.channelId;
   if (!channelId || activeGames.has(channelId)) return false;
-  const bank = pickHogwartsBonusBank(cfg, "completeVerse", getCompleteVerseBank(), getHogwartsCompleteVerseBank);
+  const bank = shouldUseHalloweenTheme(cfg)
+    ? getHalloweenCompleteVerseBank()
+    : pickHogwartsBonusBank(cfg, "completeVerse", getCompleteVerseBank(), getHogwartsCompleteVerseBank);
   const pick = pickQuestionAvoidRecent(channelId, "completeVerse", bank, (r) => r.verse, 15);
   if (!pick) return false;
   const rewardExp = normalizeRewardExp(cfg?.completeVerse?.rewardExp ?? 150);
@@ -12406,9 +12546,10 @@ async function startCompleteVerseGame(client, cfg) {
   const channel = await getChannelCached(client, channelId);
   if (!channel) return false;
   await sendMinigameRolePing(channel, cfg);
-  const attachment = buildPromptImageAttachment("Completa il verso", [pick.verse, `${pick.song} — ${pick.artist}`], "complete_verse", "", client, isBurrobirraActiveForChannel(client, channelId));
+  const attachment = buildPromptImageAttachment(shouldUseHalloweenTheme(cfg) ? "Completa il verso Halloween" : "Completa il verso", [pick.verse, `${pick.song} — ${pick.artist}`], "complete_verse", "", client, isBurrobirraActiveForChannel(client, channelId));
   const imageUrl = attachment ? `attachment://${attachment.name}` : null;
   const embed = buildCompleteVerseEmbed(pick.verse, rewardExp, durationMs, imageUrl);
+  if (shouldUseHalloweenTheme(cfg)) embed.setTitle("Completa il verso Halloween 🎃");
   const gameMessage = await sendMinigameMessage(channel, { embeds: [embed], files: attachment ? [attachment] : [] }, MINIGAME_QUESTION_BURROBIRRA).catch(() => null);
   const timeout = scheduleMinigameRoundTimeout(client, cfg, channelId, channel, durationMs);
   const hintText = `Verso: ${buildRevealHint(pick.answer)}`;
@@ -13934,10 +14075,384 @@ function is429Error(error) {
   return status === 429 || (typeof msg === "string" && msg.includes("429"));
 }
 
+async function startHalloweenQuizGame(client, cfg) {
+  const channelId = cfg.channelId;
+  if (!channelId || activeGames.has(channelId)) return false;
+  const bank = getHalloweenQuizBank();
+  const localPick = pickQuestionAvoidRecent(channelId, "halloweenQuiz", bank, (q) => q?.question, 20);
+  if (!localPick?.question || !Array.isArray(localPick?.answers)) return false;
+  const questionRow = {
+    question: polishItalianQuestionText(String(localPick.question)),
+    answers: buildAliases(localPick.answers),
+  };
+  if (!questionRow.answers.length) return false;
+  const rewardExp = normalizeRewardExp(cfg?.halloweenQuiz?.rewardExp ?? cfg?.italianGK?.rewardExp ?? 150);
+  const durationMs = applyBurrobirraStrongDurationMs(client, channelId, Math.max(60000, Number(cfg?.halloweenQuiz?.durationMs || 180000)));
+  const channel = await getChannelCached(client, channelId);
+  if (!channel) return false;
+  await sendMinigameRolePing(channel, cfg);
+  const attachment = buildPromptImageAttachment("Quiz Halloween", [questionRow.question], "halloween_quiz", "", client, isBurrobirraActiveForChannel(client, channelId));
+  const embed = buildItalianGkEmbed(questionRow.question, rewardExp, durationMs).setTitle("Quiz Halloween 🎃");
+  if (attachment) embed.setImage(`attachment://${attachment.name}`);
+  const gameMessage = await sendMinigameMessage(channel, { embeds: [embed], files: attachment ? [attachment] : [] }, MINIGAME_QUESTION_BURROBIRRA).catch(() => null);
+  const displayAnswer = String(localPick.answers[0] || questionRow.answers[0] || "sconosciuta");
+  const timeout = scheduleMinigameRoundTimeout(client, cfg, channelId, channel, durationMs);
+  const hintTimeout = await scheduleGenericHint(client, channelId, durationMs, `Risposta: ${buildRevealHint(displayAnswer)}`);
+  activeGames.set(channelId, {
+    type: "halloweenQuiz",
+    question: questionRow.question,
+    answers: questionRow.answers,
+    displayAnswer,
+    rewardExp,
+    startedAt: Date.now(),
+    endsAt: Date.now() + durationMs,
+    timeout,
+    hintTimeout,
+    gameMessageId: gameMessage?.id || null,
+  });
+  await saveActiveGame(client, cfg, {
+    type: "halloweenQuiz",
+    target: JSON.stringify({ question: questionRow.question, answers: questionRow.answers, displayAnswer }),
+    rewardExp,
+    startedAt: new Date(),
+    endsAt: new Date(Date.now() + durationMs),
+    gameMessageId: gameMessage?.id || null,
+  });
+  stampMinigameBurrobirraApplies(channelId, client);
+  markSent(channelId);
+  return true;
+}
+
+async function startHalloweenFindGhostGame(client, cfg) {
+  const channelId = cfg.channelId;
+  if (!channelId || activeGames.has(channelId)) return false;
+  const durationMs = applyBurrobirraStrongDurationMs(client, channelId, Math.max(60000, Number(cfg?.halloweenFindGhost?.durationMs || cfg?.findBot?.durationMs || 300000)));
+  const rewardExp = normalizeRewardExp(cfg?.halloweenFindGhost?.rewardExp ?? cfg?.findBot?.rewardExp ?? 200);
+  const requiredRoleId = cfg?.findBot?.requiredRoleId || null;
+  const excludedChannelIds = cfg?.findBot?.excludedChannelIds || null;
+  const mainChannel = await getChannelCached(client, channelId);
+  if (!mainChannel?.guild) return false;
+  let targetChannel = await pickRandomFindBotChannel(mainChannel.guild, requiredRoleId, channelId, excludedChannelIds);
+  if (!targetChannel) targetChannel = await pickRandomFindBotChannel(mainChannel.guild, requiredRoleId, null, excludedChannelIds);
+  if (!targetChannel) return false;
+  await sendMinigameRolePing(mainChannel, cfg, cfg.roleId);
+  const findBotAttachment = buildPromptImageAttachment("Trova il fantasma", ["Cerca il messaggio nascosto in un canale del server.", "Clicca il pulsante quando lo trovi!"], "halloween_find_ghost", "", client, false);
+  const findBotEmbed = buildFindBotEmbed(rewardExp, durationMs)
+    .setTitle("Trova il fantasma 👻")
+    .setDescription(
+      [
+        `<:VC_Halloween:1558964785113206824> Un fantasma si è nascosto in un canale del server!`,
+        `<:VC_EXP:1482534670896730143> Chi lo trova vince **${rewardExp} exp**.`,
+        `> <a:VC_pixeltime:1482535344103620771> Hai ${formatItalianMinutesBold(Math.max(1, Math.round(durationMs / 60000)))} per cercarlo.`,
+      ].join("\n"),
+    );
+  if (findBotAttachment) findBotEmbed.setImage(`attachment://${findBotAttachment.name}`);
+  const mainMessage = await sendMinigameMessage(mainChannel, { embeds: [findBotEmbed], files: findBotAttachment ? [findBotAttachment] : [] }).catch(() => null);
+  const customId = `minigame_findghost:${Date.now()}`;
+  const row = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(customId)
+      .setEmoji("<:VC_Halloween:1558964785113206824>")
+      .setLabel("Ho trovato il fantasma!")
+      .setStyle(ButtonStyle.Primary),
+  );
+  const gameMessage = await sendMinigameMessage(targetChannel, {
+    embeds: [buildFindBotButtonEmbed(rewardExp, durationMs).setTitle("👻 Fantasma trovato?")],
+    components: [row],
+  }).catch(() => null);
+  if (!gameMessage) return false;
+  const timeout = scheduleFindMinigameTimeout(client, cfg, channelId, mainChannel, customId, durationMs, () =>
+    buildTimeoutFindBotEmbed().setTitle("Tempo scaduto — il fantasma è scappato 👻"),
+  );
+  const hintTimeout = await scheduleMinuteHint(client, targetChannel.id, durationMs, channelId);
+  activeGames.set(channelId, {
+    type: "halloweenFindGhost",
+    rewardExp,
+    startedAt: Date.now(),
+    endsAt: Date.now() + durationMs,
+    timeout,
+    hintTimeout,
+    channelId: targetChannel.id,
+    messageId: gameMessage?.id || null,
+    mainMessageId: mainMessage?.id || null,
+    customId,
+  });
+  await saveActiveGame(client, cfg, {
+    type: "halloweenFindGhost",
+    rewardExp,
+    startedAt: new Date(),
+    endsAt: new Date(Date.now() + durationMs),
+    targetChannelId: targetChannel.id,
+    gameMessageId: gameMessage?.id || null,
+    mainMessageId: mainMessage?.id || null,
+    customId,
+  });
+  stampMinigameBurrobirraApplies(channelId, client);
+  markSent(channelId);
+  return true;
+}
+
+async function startHalloweenMissingEmojiGame(client, cfg) {
+  const channelId = cfg.channelId;
+  if (!channelId || activeGames.has(channelId)) return false;
+  const pick = buildHalloweenMissingEmojiRound();
+  if (!pick?.missing) return false;
+  const rewardExp = normalizeRewardExp(cfg?.halloweenMissingEmoji?.rewardExp ?? 150);
+  const durationMs = applyBurrobirraStrongDurationMs(client, channelId, Math.max(60000, Number(cfg?.halloweenMissingEmoji?.durationMs || 180000)));
+  const channel = await getChannelCached(client, channelId);
+  if (!channel) return false;
+  await sendMinigameRolePing(channel, cfg);
+  const minutes = Math.max(1, Math.round(durationMs / 60000));
+  const embed = new EmbedBuilder()
+    .setColor(MINIGAME_EMBED_COLOR)
+    .setTitle("Quale emoji manca? 🎃")
+    .setDescription(
+      [
+        `<:VC_Halloween:1558964785113206824> Sequenza: **${pick.display}**`,
+        `Scrivi l'emoji mancante per vincere **${rewardExp} exp**.`,
+        `> <a:VC_pixeltime:1482535344103620771> Hai ${formatItalianMinutesBold(minutes)}.`,
+      ].join("\n"),
+    );
+  const gameMessage = await sendMinigameMessage(channel, { embeds: [embed] }).catch(() => null);
+  const timeout = scheduleMinigameRoundTimeout(client, cfg, channelId, channel, durationMs);
+  activeGames.set(channelId, {
+    type: "halloweenMissingEmoji",
+    display: pick.display,
+    missing: pick.missing,
+    answers: pick.answers,
+    displayAnswer: pick.missing,
+    rewardExp,
+    startedAt: Date.now(),
+    endsAt: Date.now() + durationMs,
+    timeout,
+    hintTimeout: null,
+    gameMessageId: gameMessage?.id || null,
+  });
+  await saveActiveGame(client, cfg, {
+    type: "halloweenMissingEmoji",
+    target: JSON.stringify({ display: pick.display, missing: pick.missing, answers: pick.answers }),
+    rewardExp,
+    startedAt: new Date(),
+    endsAt: new Date(Date.now() + durationMs),
+    gameMessageId: gameMessage?.id || null,
+  });
+  stampMinigameBurrobirraApplies(channelId, client);
+  markSent(channelId);
+  return true;
+}
+
+async function startHalloweenCountBatsGame(client, cfg) {
+  const channelId = cfg.channelId;
+  if (!channelId || activeGames.has(channelId)) return false;
+  const pick = buildHalloweenCountBatsRound();
+  if (!pick || !Number.isFinite(pick.count)) return false;
+  const rewardExp = normalizeRewardExp(cfg?.halloweenCountBats?.rewardExp ?? 150);
+  const durationMs = applyBurrobirraStrongDurationMs(client, channelId, Math.max(60000, Number(cfg?.halloweenCountBats?.durationMs || 180000)));
+  const channel = await getChannelCached(client, channelId);
+  if (!channel) return false;
+  await sendMinigameRolePing(channel, cfg);
+  const minutes = Math.max(1, Math.round(durationMs / 60000));
+  const embed = new EmbedBuilder()
+    .setColor(MINIGAME_EMBED_COLOR)
+    .setTitle("Conta i pipistrelli 🦇")
+    .setDescription(
+      [
+        `${pick.display}`,
+        `Quanti 🦇 ci sono? Scrivi il numero per vincere **${rewardExp} exp**.`,
+        `> <a:VC_pixeltime:1482535344103620771> Hai ${formatItalianMinutesBold(minutes)}.`,
+      ].join("\n"),
+    );
+  const gameMessage = await sendMinigameMessage(channel, { embeds: [embed] }).catch(() => null);
+  const timeout = scheduleMinigameRoundTimeout(client, cfg, channelId, channel, durationMs);
+  activeGames.set(channelId, {
+    type: "halloweenCountBats",
+    display: pick.display,
+    count: pick.count,
+    answers: pick.answers,
+    displayAnswer: String(pick.count),
+    rewardExp,
+    startedAt: Date.now(),
+    endsAt: Date.now() + durationMs,
+    timeout,
+    hintTimeout: null,
+    gameMessageId: gameMessage?.id || null,
+  });
+  await saveActiveGame(client, cfg, {
+    type: "halloweenCountBats",
+    target: JSON.stringify({ display: pick.display, count: pick.count, answers: pick.answers }),
+    rewardExp,
+    startedAt: new Date(),
+    endsAt: new Date(Date.now() + durationMs),
+    gameMessageId: gameMessage?.id || null,
+  });
+  stampMinigameBurrobirraApplies(channelId, client);
+  markSent(channelId);
+  return true;
+}
+
+async function startHalloweenTrickOrTreatGame(client, cfg) {
+  const channelId = cfg.channelId;
+  if (!channelId || activeGames.has(channelId)) return false;
+  const rewardExp = normalizeRewardExp(cfg?.halloweenTrickOrTreat?.rewardExp ?? 100);
+  const durationMs = Math.max(60000, Number(cfg?.halloweenTrickOrTreat?.durationMs || 180000));
+  const treatChancePercent = Math.max(0, Math.min(100, Number(cfg?.halloweenTrickOrTreat?.treatChancePercent ?? 55)));
+  const candyOnTreat = Math.max(0, Math.floor(Number(cfg?.halloweenTrickOrTreat?.candyOnTreat ?? 1)));
+  const channel = await getChannelCached(client, channelId);
+  if (!channel) return false;
+  await sendMinigameRolePing(channel, cfg);
+  const minutes = Math.max(1, Math.round(durationMs / 60000));
+  const customId = `minigame_trickortreat:${Date.now()}`;
+  const embed = new EmbedBuilder()
+    .setColor(MINIGAME_EMBED_COLOR)
+    .setTitle("Trick or Treat! 🍬")
+    .setDescription(
+      [
+        `<:VC_Halloween:1558964785113206824> Premi il pulsante: **dolcetto** = caramella (+${candyOnTreat}) e **${rewardExp} exp**, **scherzetto** = nulla.`,
+        `Ognuno può giocare **una sola volta** in questo round.`,
+        `> <a:VC_pixeltime:1482535344103620771> Round aperto per ${formatItalianMinutesBold(minutes)}.`,
+      ].join("\n"),
+    );
+  const row = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(customId)
+      .setEmoji("<:VC_Halloween:1558964785113206824>")
+      .setLabel("Trick or Treat!")
+      .setStyle(ButtonStyle.Success),
+  );
+  const gameMessage = await sendMinigameMessage(channel, { embeds: [embed], components: [row] }).catch(() => null);
+  if (!gameMessage) return false;
+  const timeout = setTimeout(async () => {
+    const game = activeGames.get(channelId);
+    if (!game || game.type !== "halloweenTrickOrTreat") return;
+    clearMinigameRoundTimers(game);
+    activeGames.delete(channelId);
+    await clearActiveGame(client, cfg).catch(() => {});
+    const claimed = Object.keys(game.claimedBy || {}).length;
+    await sendMinigameMessage(channel, {
+      embeds: [
+        new EmbedBuilder()
+          .setColor(MINIGAME_EMBED_COLOR)
+          .setTitle("Trick or Treat terminato 🎃")
+          .setDescription(`Round chiuso. Partecipanti: **${claimed}**.`),
+      ],
+    }).catch(() => {});
+  }, durationMs);
+  timeout.unref?.();
+  activeGames.set(channelId, {
+    type: "halloweenTrickOrTreat",
+    rewardExp,
+    treatChancePercent,
+    candyOnTreat,
+    claimedBy: {},
+    customId,
+    startedAt: Date.now(),
+    endsAt: Date.now() + durationMs,
+    timeout,
+    hintTimeout: null,
+    gameMessageId: gameMessage.id,
+    multiClaim: true,
+  });
+  await saveActiveGame(client, cfg, {
+    type: "halloweenTrickOrTreat",
+    target: JSON.stringify({ treatChancePercent, candyOnTreat, claimedBy: {}, customId }),
+    rewardExp,
+    startedAt: new Date(),
+    endsAt: new Date(Date.now() + durationMs),
+    gameMessageId: gameMessage.id,
+    customId,
+  });
+  markSent(channelId);
+  return true;
+}
+
+async function handleHalloweenTrickOrTreatButton(interaction, game, cfg) {
+  const userId = String(interaction.user?.id || "");
+  if (!userId) return true;
+  if (!game.claimedBy || typeof game.claimedBy !== "object") game.claimedBy = {};
+  if (game.claimedBy[userId]) {
+    await interaction.reply({ content: "🎃 Hai già bussato in questo round!", flags: 1 << 6 }).catch(() => {});
+    return true;
+  }
+  game.claimedBy[userId] = true;
+  const roll = Math.random() * 100;
+  const treat = roll < Number(game.treatChancePercent ?? 55);
+  if (!treat) {
+    await interaction.reply({ content: "👻 **Scherzetto!** Questa volta niente…", flags: 1 << 6 }).catch(() => {});
+    return true;
+  }
+  let candyLine = "";
+  let candyThumb = "";
+  const candyAmt = Math.max(0, Math.floor(Number(game.candyOnTreat ?? 1)));
+  if (candyAmt > 0) {
+    const candy = await addHalloweenCandy({
+      guildId: interaction.guild.id,
+      userId,
+      amount: candyAmt,
+      eventKey: resolveHalloweenCandyEventKey(interaction.client),
+      reason: "trick_or_treat",
+      source: "halloweenTrickOrTreat",
+      client: interaction.client,
+    });
+    if (candy?.ok) {
+      const first = candy.firstAward;
+      const nameBit = first?.name ? ` **${first.name}**` : " caramella";
+      const collBit =
+        Number(candy.ownedCount) > 0
+          ? ` · collezione **${candy.ownedCount}/${candy.total}**`
+          : "";
+      candyLine = ` <:VC_Halloween:1558964785113206824>${nameBit}${collBit}`;
+      candyThumb = String(first?.imageUrl || "").trim();
+    } else if (candy?.code === "collection_complete") {
+      candyLine = ` · collezione completa **${candy.ownedCount}/${candy.total}** 🎃`;
+    }
+  }
+  const baseExp = normalizeRewardExp(game.rewardExp || 0);
+  let effectiveExp = baseExp;
+  try {
+    const doc = await ActivityUserProfile.findOne({ guildId: interaction.guild.id, userId })
+      .select("profile.totals.exp.minigame")
+      .lean()
+      .catch(() => null);
+    const prevStreak = Number(doc?.profile?.totals?.exp?.minigame?.currentStreak ?? 0);
+    const prevBest = Number(doc?.profile?.totals?.exp?.minigame?.bestStreak ?? 0);
+    const newStreak = prevStreak + 1;
+    const bestStreak = Math.max(prevBest, newStreak);
+    await incrementMinigameWinCounters(interaction.guild.id, userId, baseExp, newStreak, bestStreak);
+    const member = await getGuildMemberCached(interaction.guild, userId, { ttlMs: 20_000 }).catch(() => null);
+    const ignoreExp = await shouldIgnoreExpForMember({
+      guildId: interaction.guild.id,
+      member,
+      channelId: cfg.channelId || null,
+    });
+    if (!ignoreExp && baseExp > 0) {
+      await addExpWithLevel(interaction.guild, userId, baseExp, false, true);
+    }
+    effectiveExp = baseExp;
+  } catch (err) {
+    warnMinigame(err);
+  }
+  const expBit = effectiveExp > 0 ? ` +**${effectiveExp}** exp` : "";
+  const replyPayload = {
+    content: `🍬 **Dolcetto!**${expBit}${candyLine}`,
+    flags: 1 << 6,
+  };
+  if (candyThumb) {
+    replyPayload.embeds = [
+      new EmbedBuilder()
+        .setColor(MINIGAME_EMBED_COLOR)
+        .setThumbnail(candyThumb)
+        .setDescription("Nuova caramella nel profilo!"),
+    ];
+  }
+  await interaction.reply(replyPayload).catch(() => {});
+  return true;
+}
+
 async function safeStartGameByType(client, cfg, gameType) {
   try {
     await refreshBurrobirraCaches(client);
     if (cfg?.hogwartsEventLive && isHogwartsExclusiveMinigamesEnabled(client, cfg) && !isHogwartsEventMinigameType(gameType, cfg)) return false;
+    if (shouldUseHalloweenTheme(cfg) && !isHalloweenMinigameType(gameType)) return false;
     if (gameType === "guessWord") return startGuessWordGame(client, cfg);
     if (gameType === "guessFlag") return startGuessFlagGame(client, cfg);
     if (gameType === "guessPlayer") return startGuessPlayerGame(client, cfg);
@@ -13958,6 +14473,7 @@ async function safeStartGameByType(client, cfg, gameType) {
     if (gameType === "mathExpression")
       return startMathExpressionGame(client, cfg);
     if (gameType === "findBot") return startFindBotGame(client, cfg);
+    if (gameType === "halloweenFindGhost") return startHalloweenFindGhostGame(client, cfg);
     if (gameType === "findBotVoice") return startFindBotVoiceGame(client, cfg);
     if (gameType === "findScroll") return startFindScrollGame(client, cfg);
     if (gameType === "memoryEmoji") return startStandardMemoryEmojiGame(client, cfg);
@@ -13973,6 +14489,10 @@ async function safeStartGameByType(client, cfg, gameType) {
     if (gameType === "synonymAntonym") return startSynonymAntonymGame(client, cfg);
     if (gameType === "guessCity") return startGuessCityGame(client, cfg);
     if (gameType === "treasureHunt") return startTreasureHuntGame(client, cfg);
+    if (gameType === "halloweenQuiz") return startHalloweenQuizGame(client, cfg);
+    if (gameType === "halloweenMissingEmoji") return startHalloweenMissingEmojiGame(client, cfg);
+    if (gameType === "halloweenCountBats") return startHalloweenCountBatsGame(client, cfg);
+    if (gameType === "halloweenTrickOrTreat") return startHalloweenTrickOrTreatGame(client, cfg);
     return false;
   } catch (error) {
     warnMinigame(error);
@@ -15426,7 +15946,7 @@ async function handleMinigameMessage(message, client) {
     return false;
   }
 
-  if (game.type === "italianGK") {
+  if (game.type === "italianGK" || game.type === "halloweenQuiz") {
     if (await rejectMinigameShotgunListingGuess(message, content, "multiline")) return false;
     if (
       isLooseAliasGuessCorrect(contentForGuess, game.answers, normalizeCountryName, {
@@ -15443,6 +15963,26 @@ async function handleMinigameMessage(message, client) {
       maxRatio: 0.25,
       minGuessLength: 2,
     });
+    return false;
+  }
+
+  if (game.type === "halloweenMissingEmoji") {
+    const guess = String(content || "").trim();
+    if (guess && game.answers?.some((a) => String(a) === guess || guess.includes(String(a)))) {
+      await handleMinigameWin(message, game, cfg);
+      return true;
+    }
+    await reactMinigameWrongEmoji(message, game);
+    return false;
+  }
+
+  if (game.type === "halloweenCountBats") {
+    const n = Number.parseInt(String(contentForGuess || "").replace(/[^\d]/g, ""), 10);
+    if (Number.isFinite(n) && n === Number(game.count)) {
+      await handleMinigameWin(message, game, cfg);
+      return true;
+    }
+    await reactMinigameWrongEmoji(message, game);
     return false;
   }
 
@@ -15889,13 +16429,34 @@ ${game.previewUrl}`,
     return true;
   }
 
+  if (String(interaction.customId || "").startsWith("minigame_trickortreat:")) {
+    const totGame = activeGames.get(cfg.channelId);
+    if (!totGame || totGame.type !== "halloweenTrickOrTreat" || interaction.customId !== totGame.customId) {
+      await interaction
+        .reply({
+          content: "<:cancel:1461730653677551691> Round Trick or Treat non attivo.",
+          flags: 1 << 6,
+        })
+        .catch(() => {});
+      return true;
+    }
+    await handleHalloweenTrickOrTreatButton(interaction, totGame, cfg);
+    return true;
+  }
+
   const game = activeGames.get(cfg.channelId);
   const isFindBotButton =
     String(interaction.customId || "").startsWith("minigame_findbot:");
+  const isFindGhostButton =
+    String(interaction.customId || "").startsWith("minigame_findghost:");
   const isFindScrollButton =
     String(interaction.customId || "").startsWith("minigame_findscroll:");
-  const isFindHiddenButton = isFindBotButton || isFindScrollButton;
-  const expectedType = isFindScrollButton ? "findScroll" : "findBot";
+  const isFindHiddenButton = isFindBotButton || isFindScrollButton || isFindGhostButton;
+  const expectedType = isFindScrollButton
+    ? "findScroll"
+    : isFindGhostButton
+      ? "halloweenFindGhost"
+      : "findBot";
   let liveGame = game && game.type === expectedType ? game : null;
   let liveMapKey = liveGame ? String(cfg.channelId || "") : "";
     if (!liveGame && isFindHiddenButton) {
@@ -16421,14 +16982,14 @@ async function restoreActiveGames(client) {
     });
     return;
   }
-  if (state.type === "italianGK") {
+  if (state.type === "italianGK" || state.type === "halloweenQuiz") {
     const parsed = parseStateTarget(state.target);
     const question = parsed?.question || "Domanda";
     const answers = Array.isArray(parsed?.answers) ? parsed.answers : [];
     const displayAnswer = parsed?.displayAnswer || answers[0] || "sconosciuta";
-    const timeout = setTimeout(async () => { const game = activeGames.get(cfg.channelId); if (!game) return; await sendMinigameTimeoutAndClose(client, cfg, cfg.channelId, channel, game, buildTimeoutItalianGkEmbed(game.displayAnswer)); }, remainingMs); timeout.unref?.();
+    const timeout = setTimeout(async () => { const game = activeGames.get(cfg.channelId); if (!game) return; await sendMinigameTimeoutAndClose(client, cfg, cfg.channelId, channel, game, buildMinigameTimeoutEmbedForGame(game)); }, remainingMs); timeout.unref?.();
     activeGames.set(cfg.channelId, {
-      type: "italianGK",
+      type: state.type,
       question,
       answers,
       displayAnswer,
@@ -16437,6 +16998,57 @@ async function restoreActiveGames(client) {
       endsAt,
       timeout,
       gameMessageId: state.gameMessageId || null,
+    });
+    return;
+  }
+  if (state.type === "halloweenMissingEmoji" || state.type === "halloweenCountBats") {
+    const parsed = parseStateTarget(state.target);
+    const snapshot = buildGameSnapshotFromPersistedState(state);
+    const timeout = setTimeout(async () => {
+      const game = activeGames.get(cfg.channelId);
+      if (!game) return;
+      await sendMinigameTimeoutAndClose(client, cfg, cfg.channelId, channel, game, buildMinigameTimeoutEmbedForGame(game));
+    }, remainingMs);
+    timeout.unref?.();
+    activeGames.set(cfg.channelId, {
+      ...snapshot,
+      type: state.type,
+      rewardExp: Number(state.rewardExp || 0),
+      startedAt: new Date(state.startedAt).getTime(),
+      endsAt,
+      timeout,
+      gameMessageId: state.gameMessageId || null,
+      missing: parsed?.missing,
+      count: parsed?.count,
+      display: parsed?.display,
+      answers: parsed?.answers || snapshot.answers,
+      displayAnswer: snapshot.displayAnswer,
+    });
+    return;
+  }
+  if (state.type === "halloweenTrickOrTreat") {
+    const parsed = parseStateTarget(state.target);
+    const customId = state.customId || parsed?.customId || `minigame_trickortreat:restored:${Date.now()}`;
+    const timeout = setTimeout(async () => {
+      const game = activeGames.get(cfg.channelId);
+      if (!game || game.type !== "halloweenTrickOrTreat") return;
+      clearMinigameRoundTimers(game);
+      activeGames.delete(cfg.channelId);
+      await clearActiveGame(client, cfg).catch(() => {});
+    }, remainingMs);
+    timeout.unref?.();
+    activeGames.set(cfg.channelId, {
+      type: "halloweenTrickOrTreat",
+      rewardExp: Number(state.rewardExp || 0),
+      treatChancePercent: Number(parsed?.treatChancePercent ?? 55),
+      candyOnTreat: Number(parsed?.candyOnTreat ?? 1),
+      claimedBy: parsed?.claimedBy && typeof parsed.claimedBy === "object" ? parsed.claimedBy : {},
+      customId,
+      startedAt: new Date(state.startedAt).getTime(),
+      endsAt,
+      timeout,
+      gameMessageId: state.gameMessageId || null,
+      multiClaim: true,
     });
     return;
   }
@@ -16757,11 +17369,15 @@ async function restoreActiveGames(client) {
     await mountTreasureHuntGame(client, cfg, channel, state, remainingMs);
     return;
   }
-  if (state.type === "findBot") {
-    const timeout = scheduleFindMinigameTimeout(client, cfg, cfg.channelId, channel, state.customId, remainingMs, buildTimeoutFindBotEmbed);
+  if (state.type === "findBot" || state.type === "halloweenFindGhost") {
+    const timeoutEmbedBuilder =
+      state.type === "halloweenFindGhost"
+        ? () => buildTimeoutFindBotEmbed().setTitle("Tempo scaduto — il fantasma è scappato 👻")
+        : buildTimeoutFindBotEmbed;
+    const timeout = scheduleFindMinigameTimeout(client, cfg, cfg.channelId, channel, state.customId, remainingMs, timeoutEmbedBuilder);
     const hintTimeout = await scheduleMinuteHint(client, state.targetChannelId, remainingMs, cfg.channelId,);
     const game = {
-      type: "findBot",
+      type: state.type,
       rewardExp: Number(state.rewardExp || 0),
       startedAt: new Date(state.startedAt).getTime(),
       endsAt,
@@ -16774,7 +17390,7 @@ async function restoreActiveGames(client) {
     };
     restoreHogwartsPodiumFromState(cfg.channelId, state, game);
     activeGames.set(cfg.channelId, game);
-    if (isHogwartsPodiumWinMode(cfg, "findBot", game) && isHogwartsPodiumRoundComplete(game, cfg.channelId)) {
+    if (isHogwartsPodiumWinMode(cfg, state.type, game) && isHogwartsPodiumRoundComplete(game, cfg.channelId)) {
       await closeHogwartsPodiumRoundIfComplete(client, cfg, game, cfg.channelId, channel, {
         beforeClose: async () => {
           await deleteFindMinigameRemoteMessage(channel.guild, state);
@@ -16886,7 +17502,7 @@ function clearGameForChannel(channelId, client = null, guildId = null) {
   blockMinigameRehydrate(id);
   for (const [mainChId, g] of [...activeGames.entries()]) {
     const targetId = String(g?.channelId || g?.voiceChannelId || "");
-    if ((g?.type === "findBot" || g?.type === "findScroll" || g?.type === "findBotVoice") && targetId === id) {
+    if ((g?.type === "findBot" || g?.type === "halloweenFindGhost" || g?.type === "findScroll" || g?.type === "findBotVoice") && targetId === id) {
       if (g.type === "findBotVoice") {
         void leaveFindBotVoiceChannel(guildId || g.guildId);
       }
@@ -16947,7 +17563,7 @@ async function isMinigameFloodExemptChannel(message) {
 
     const mainChId = String(cfg.channelId || "");
     if (mainChId && msgChId === mainChId) return true;
-    if ((game.type === "findBot" || game.type === "findScroll") && String(game.channelId || "") === msgChId) {
+    if ((game.type === "findBot" || game.type === "halloweenFindGhost" || game.type === "findScroll") && String(game.channelId || "") === msgChId) {
       return true;
     }
     if (isHouseCh) {
@@ -17046,4 +17662,4 @@ async function handleMinigameVoiceState(oldState, newState, client) {
   return handleFindBotVoiceWin(client, guild, member, active.game, active.cfg);
 }
 
-module.exports = { startMinigameLoop, forceStartMinigame, restoreActiveGames, bootstrapMinigameScheduler, handleMinigameMessage, handleMinigameButton, handleMinigameReaction, handleMinigameVoiceState, shouldDeferTtsLeaveForFindBotVoiceMinigame, clearGameForChannel, isMinigameFloodExemptChannel, isMinigameChannelBusy, isMainChatMinigameChannelBusy, hasAnyHouseChannelMinigameBusy, hasAnyActiveMinigame, spawnHouseChannelMinigame, getActiveGameForChannel, getConfig, pickObservationTowerTier, isMinigameSnipeSuppressed, pickSnipeEntryForChannel, redactSnipeContentForMinigame, suppressMinigameSnipe, shouldSkipStoringSnipe, startFinaleChaosFindScroll, tickFinaleChaosFindScrollHints };
+module.exports = { startMinigameLoop, forceStartMinigame, restoreActiveGames, bootstrapMinigameScheduler, handleMinigameMessage, handleMinigameButton, handleMinigameReaction, handleMinigameVoiceState, shouldDeferTtsLeaveForFindBotVoiceMinigame, hasFindBotVoiceSession, clearGameForChannel, isMinigameFloodExemptChannel, isMinigameChannelBusy, isMainChatMinigameChannelBusy, hasAnyHouseChannelMinigameBusy, hasAnyActiveMinigame, spawnHouseChannelMinigame, getActiveGameForChannel, getConfig, pickObservationTowerTier, isMinigameSnipeSuppressed, pickSnipeEntryForChannel, redactSnipeContentForMinigame, suppressMinigameSnipe, shouldSkipStoringSnipe, startFinaleChaosFindScroll, tickFinaleChaosFindScrollHints };

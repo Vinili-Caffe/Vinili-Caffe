@@ -1,6 +1,7 @@
 const IDs = require("../Config/ids");
 const { CustomRole } = require("../../Schemas/Community/communitySchemas");
 const { userAvatarUrlDynamic } = require("../Discord/guildDiscordIdentity");
+const { discordRoleIconUrl } = require("../Discord/discordRoleIconUrl");
 const { isHogwartsSystemRoleId } = require("./hogwartsSortingConfig");
 const { collectBlockedSystemRoleIds, isListableUserCustomRole } = require("../Community/userCustomRoleFilter");
 const { sendJsonWithEtag, weakEtagFromParts } = require("./siteHttpEtag");
@@ -12,10 +13,14 @@ const IDENTITY_BATCH_CONCURRENCY = 8;
 /* rolesMemberCountFix1: roster completo per conteggi reali (role.members cache era parziale) */
 const MEMBERS_HYDRATE_TTL_MS = 5 * 60 * 1000;
 const MEMBERS_FETCH_BUDGET_MS = 55_000;
+/* siteUsersSwr1/rolesFastPath1: sul GET non aspettare il roster Discord intero */
+const MEMBERS_FETCH_REQUEST_BUDGET_MS = 1_200;
 let cache = { at: 0, payload: null, refreshing: false };
+let mentionsCache = { at: 0, payload: null, refreshing: false };
 let membersHydratedAt = 0;
 let membersHydrating = null;
 const BLOCKED_ROLE_IDS = collectBlockedSystemRoleIds();
+const MENTIONS_CACHE_TTL_MS = 5 * 60 * 1000;
 
 function resolveGuildId(client) {
   return String(client?.config?.mainGuildId || IDs.guilds?.main || "").trim();
@@ -251,11 +256,23 @@ function membersRosterLooksComplete(guild) {
   return cached >= 200;
 }
 
-async function ensureCustomRoleMemberRoster(guild) {
+async function ensureCustomRoleMemberRoster(guild, opts) {
   if (!guild?.members?.fetch) return;
   const fresh = Date.now() - membersHydratedAt < MEMBERS_HYDRATE_TTL_MS;
   if (fresh && membersRosterLooksComplete(guild)) return;
+  const budget = Math.max(
+    200,
+    Number(opts?.budgetMs) > 0 ? Number(opts.budgetMs) : MEMBERS_FETCH_BUDGET_MS,
+  );
   if (membersHydrating) {
+    /* rolesFastPath1: su request path non restare appeso al fetch lungo in corso */
+    if (budget <= MEMBERS_FETCH_REQUEST_BUDGET_MS) {
+      await Promise.race([
+        membersHydrating.catch(() => {}),
+        new Promise((resolve) => setTimeout(resolve, budget)),
+      ]);
+      return;
+    }
     await membersHydrating.catch(() => {});
     return;
   }
@@ -268,7 +285,7 @@ async function ensureCustomRoleMemberRoster(guild) {
           global.logger?.warn?.("[WEBHOOK] site-roles members roster:", err?.message || err);
           return null;
         }),
-        new Promise((resolve) => setTimeout(resolve, MEMBERS_FETCH_BUDGET_MS)),
+        new Promise((resolve) => setTimeout(resolve, Math.max(budget, MEMBERS_FETCH_BUDGET_MS))),
       ]);
       if (Number(guild?.members?.cache?.size || 0) > 0) {
         membersHydratedAt = Date.now();
@@ -277,6 +294,13 @@ async function ensureCustomRoleMemberRoster(guild) {
       membersHydrating = null;
     }
   })();
+  if (budget <= MEMBERS_FETCH_REQUEST_BUDGET_MS) {
+    await Promise.race([
+      membersHydrating.catch(() => {}),
+      new Promise((resolve) => setTimeout(resolve, budget)),
+    ]);
+    return;
+  }
   await membersHydrating;
 }
 
@@ -337,8 +361,13 @@ async function buildSiteRolesPayload(client) {
   const filtered = (Array.isArray(docs) ? docs : []).filter((doc) => (doc?.roleId || doc?.secondaryRoleId) && !isExpired(doc));
   const ownerIds = filtered.map((doc) => doc.userId);
   // rolesPrefetchNoise1: never guild.members.fetch() full roster on every page hit.
-  // rolesMemberCountFix1: fetch roster at most ogni MEMBERS_HYDRATE_TTL durante rebuild cache.
-  await ensureCustomRoleMemberRoster(guild);
+  // rolesFastPath1: request = budget corto; completa in background se serve.
+  await ensureCustomRoleMemberRoster(guild, { budgetMs: MEMBERS_FETCH_REQUEST_BUDGET_MS });
+  if (!membersRosterLooksComplete(guild) || Date.now() - membersHydratedAt >= MEMBERS_HYDRATE_TTL_MS) {
+    setImmediate(() => {
+      ensureCustomRoleMemberRoster(guild, { budgetMs: MEMBERS_FETCH_BUDGET_MS }).catch(() => {});
+    });
+  }
   await hydrateRoleOwners(client, guild, ownerIds);
   const identityByOwner = await fetchUserIdentitiesBatch(client, guild, ownerIds);
   const rows = [];
@@ -375,7 +404,7 @@ async function buildSiteRolesPayload(client) {
       const expiresAt = doc.expiresAt ? new Date(doc.expiresAt).toISOString() : null;
       const humanMembers = collectHumanMembersForRole(guild, role);
       const memberCount = humanMembers.length;
-      const iconUrl = typeof role.iconURL === "function" ? role.iconURL({ size: 256 }) : "";
+      const roleIcon = discordRoleIconUrl(role, { size: 256 });
       const members = humanMembers
         .map((m) => memberIdentityFromGuildMember(m, doc.userId, guild))
         .sort((a, b) => {
@@ -392,7 +421,8 @@ async function buildSiteRolesPayload(client) {
         roleName: String(role.name || "Ruolo custom").trim(),
         roleColor: normalizeHexColor(role),
         roleEmoji: String(role.unicodeEmoji || "").trim(),
-        roleIconUrl: String(iconUrl || "").trim(),
+        roleIconUrl: String(roleIcon.iconUrl || "").trim(),
+        roleIconAnimated: Boolean(roleIcon.iconAnimated),
         createdAt,
         expiresAt,
         isPermanent: !expiresAt,
@@ -469,8 +499,71 @@ function warmSiteRolesCache(client) {
   });
 }
 
+async function buildRoleMentionsCatalog(client) {
+  const guildId = resolveGuildId(client);
+  if (!guildId) return { ok: false, error: "missing_guild", roles: [] };
+  const guild =
+    client.guilds.cache.get(guildId) ||
+    (await client.guilds.fetch(guildId).catch(() => null));
+  if (!guild) return { ok: false, error: "guild_unavailable", roles: [] };
+  try {
+    if (guild.roles?.fetch) await guild.roles.fetch().catch(() => null);
+  } catch (_) {}
+  const everyoneId = String(guild.id || "");
+  const roles = [];
+  for (const role of guild.roles.cache.values()) {
+    const id = String(role?.id || "").trim();
+    if (!id || id === everyoneId) continue;
+    const name = String(role?.name || "").trim();
+    if (!name || name === "@everyone") continue;
+    const icon = discordRoleIconUrl(role, { size: 64 });
+    roles.push({
+      id,
+      name,
+      color: normalizeHexColor(role),
+      iconUrl: String(icon.iconUrl || "").trim(),
+      iconAnimated: Boolean(icon.iconAnimated),
+      emoji: String(role?.unicodeEmoji || "").trim(),
+    });
+  }
+  roles.sort((a, b) => String(a.name || "").localeCompare(String(b.name || ""), "it", { sensitivity: "base" }));
+  return { ok: true, roles };
+}
+
+async function refreshMentionsCatalog(client) {
+  if (mentionsCache.refreshing && mentionsCache.payload) return mentionsCache.payload;
+  mentionsCache.refreshing = true;
+  try {
+    const payload = await buildRoleMentionsCatalog(client);
+    mentionsCache = { at: Date.now(), payload, refreshing: false };
+    return payload;
+  } catch (err) {
+    mentionsCache.refreshing = false;
+    throw err;
+  }
+}
+
 async function handleSiteRolesGet(client, req, res) {
   try {
+    const q = req?.query || {};
+    const wantMentions =
+      String(q.catalog || "").trim().toLowerCase() === "mentions" ||
+      String(q.mentions || "").trim() === "1";
+    if (wantMentions) {
+      const nowM = Date.now();
+      if (mentionsCache.payload && nowM - mentionsCache.at < MENTIONS_CACHE_TTL_MS) {
+        return sendJsonWithEtag(req, res, mentionsCache.payload, {
+          cacheControl: "public, max-age=60, stale-while-revalidate=300",
+          etag: weakEtagFromParts(["role-mentions", mentionsCache.at || 0, mentionsCache.payload?.roles?.length || 0]),
+        });
+      }
+      const payload = await refreshMentionsCatalog(client);
+      return sendJsonWithEtag(req, res, payload, {
+        cacheControl: "public, max-age=60, stale-while-revalidate=300",
+        etag: weakEtagFromParts(["role-mentions", mentionsCache.at || 0, payload?.roles?.length || 0]),
+      });
+    }
+
     const now = Date.now();
     if (cache.payload && now - cache.at < CACHE_TTL_MS) {
       return sendRolesPayload(req, res, cache.payload);
@@ -503,6 +596,7 @@ async function handleSiteRolesGet(client, req, res) {
 
 function invalidateSiteRolesCache() {
   cache = { at: 0, payload: null, refreshing: false };
+  mentionsCache = { at: 0, payload: null, refreshing: false };
   membersHydratedAt = 0;
 }
 

@@ -57,13 +57,18 @@ async function getOrFetchEntity({
 
 async function getGuildChannelCached(guild, channelId, options = {}) {
   if (!guild || !channelId) return null;
+  let resolvedId = String(channelId);
+  try {
+    const { remapChannelIdForGuild } = require("../Config/testGuildMirrorRemap");
+    resolvedId = remapChannelIdForGuild(guild.id, channelId) || resolvedId;
+  } catch (_) {}
   return getOrFetchEntity({
     kind: "channel",
     parentId: guild.id,
-    entityId: channelId,
+    entityId: resolvedId,
     ttlMs: options.ttlMs,
-    resolveFromCache: () => guild.channels?.cache?.get(String(channelId)) || null,
-    fetchEntity: () => guild.channels.fetch(String(channelId)),
+    resolveFromCache: () => guild.channels?.cache?.get(String(resolvedId)) || null,
+    fetchEntity: () => guild.channels.fetch(String(resolvedId)),
   });
 }
 
@@ -132,13 +137,18 @@ async function resolveGuildMemberPresence(guild, userId, options = {}) {
 
 async function getGuildRoleCached(guild, roleId, options = {}) {
   if (!guild || !roleId) return null;
+  let resolvedId = String(roleId);
+  try {
+    const { remapRoleIdForGuild } = require("../Config/testGuildMirrorRemap");
+    resolvedId = remapRoleIdForGuild(guild.id, roleId) || resolvedId;
+  } catch (_) {}
   return getOrFetchEntity({
     kind: "role",
     parentId: guild.id,
-    entityId: roleId,
+    entityId: resolvedId,
     ttlMs: options.ttlMs,
-    resolveFromCache: () => guild.roles?.cache?.get(String(roleId)) || null,
-    fetchEntity: () => guild.roles.fetch(String(roleId)),
+    resolveFromCache: () => guild.roles?.cache?.get(String(resolvedId)) || null,
+    fetchEntity: () => guild.roles.fetch(String(resolvedId)),
   });
 }
 

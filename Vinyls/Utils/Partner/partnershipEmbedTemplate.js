@@ -38,6 +38,8 @@ const TEMPLATE_REPLACEMENTS = [
   ["{pings}", "pings"],
   ["{timestamp}", "timestamp"],
   ["{points}", "userPoints"],
+  ["{user.points.spendable}", "userPoints"],
+  ["{user.partnerships.total}", "userPartnershipsCount"],
   ["{rewards.inChannel}", "rewardsInChannel"],
 ];
 
@@ -70,6 +72,7 @@ function buildThankYouTemplateVars({
   partnerServerName = "",
   partnerIcon = "",
   shownPartnerPoints = 0,
+  totalPartnerEarned = null,
   staffPartnerActions = [],
   pingPlan = null,
 } = {}) {
@@ -115,8 +118,13 @@ function buildThankYouTemplateVars({
     userId: String(actorUser?.id || ""),
     userTag: String(actorUser?.username || accountUsername(actorMember) || ""),
     userAvatar: guildMemberDisplayAvatarUrlDynamic(actorMember) || "",
+    /* thankYouSpendableOnly1: points=spendibile; partnerships.count resta totale fatti (token esplicito) */
     userPoints: String(shownPartnerPoints ?? 0),
-    userPartnershipsCount: String(shownPartnerPoints ?? 0),
+    userPartnershipsCount: String(
+      totalPartnerEarned != null && totalPartnerEarned !== ""
+        ? totalPartnerEarned
+        : shownPartnerPoints ?? 0,
+    ),
     userPartnershipsWeek: String(countPartnerCreatesInRange(staffPartnerActions, 7 * 86_400_000)),
     userPartnershipsDay: String(countPartnerCreatesInRange(staffPartnerActions, 86_400_000)),
     managerMention,

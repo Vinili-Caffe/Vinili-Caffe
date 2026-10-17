@@ -10,15 +10,25 @@ const DEDUPE_KEY_MAX = 120;
 const UNREAD_COUNT_TTL_MS = 12_000;
 const unreadCountCache = new Map();
 const unreadCountInflight = new Map();
+/* apiWarmSwr1: list SWR per-user */
+const LIST_CACHE_TTL_MS = 10_000;
+const LIST_STALE_KEEP_MS = 60_000;
+const listCache = new Map();
+const listInflight = new Map();
 
 function invalidateUnreadCountCache(userId) {
   const uid = normalizeUserId(userId);
   if (!uid) {
     unreadCountCache.clear();
+    unreadCountInflight.clear();
+    listCache.clear();
+    listInflight.clear();
     return;
   }
   unreadCountCache.delete(uid);
   unreadCountInflight.delete(uid);
+  listCache.delete(uid);
+  listInflight.delete(uid);
 }
 
 function normalizeUserId(userId) {
@@ -76,6 +86,7 @@ const DEDICATED_INBOX_QUEUES = new Set([
   "appelli",
   "resoconti",
   "punti-tolti",
+  "revisione",
 ]);
 
 function inboxQueueIdFromOpenUrl(openUrl) {
@@ -86,12 +97,26 @@ function inboxQueueIdFromOpenUrl(openUrl) {
     const inbox = String(u.searchParams.get("inbox") || "")
       .trim()
       .toLowerCase();
-    return DEDICATED_INBOX_QUEUES.has(inbox) ? inbox : "";
+    if (DEDICATED_INBOX_QUEUES.has(inbox)) return inbox;
+    /* ptNotifProfile1: openUrl profilo Partner */
+    const staffOpen = String(u.searchParams.get("staffOpen") || "")
+      .trim()
+      .toLowerCase();
+    if (staffOpen === "pm-punti-tolti" || staffOpen === "punti-tolti" || staffOpen === "punti") {
+      return "punti-tolti";
+    }
+    if (staffOpen === "pause") return "pause";
+    if (staffOpen === "resoconto" || staffOpen === "resoconti") return "resoconti";
+    return "";
   } catch (_) {
     const m = String(raw)
       .toLowerCase()
-      .match(/[?&]inbox=(pause|candidature|appelli|resoconti|punti-tolti)\b/);
-    return m ? m[1] : "";
+      .match(/[?&]inbox=(pause|candidature|appelli|resoconti|punti-tolti|revisione)\b/);
+    if (m) return m[1];
+    if (/[?&]staffopen=pm-punti-tolti\b/i.test(raw) || /[?&]staffopen=punti-tolti\b/i.test(raw)) {
+      return "punti-tolti";
+    }
+    return "";
   }
 }
 
@@ -113,7 +138,7 @@ function isDedicatedInboxQueueAlert({ openUrl, dedupeKey, channel, title, body }
   ) {
     return false;
   }
-  if (/^inbox:(pause|candidature|appelli|resoconti)(?::|$)/.test(key)) return true;
+  if (/^inbox:(pause|candidature|appelli|resoconti|revisione)(?::|$)/.test(key)) return true;
   if (/^pt-pending:/.test(key)) return true;
   if (/^wfc:(invite|remove|msg):staff:/.test(key)) return true;
   const queue = inboxQueueIdFromOpenUrl(openUrl);
@@ -391,6 +416,10 @@ function fireNotifDismissPush(userId, spec = {}) {
     const openUrls = Array.isArray(spec.openUrls)
       ? [...new Set(spec.openUrls.map((x) => String(x || "").trim()).filter(Boolean))].slice(0, 40)
       : [];
+    /* pushAutoDismiss1: dedupeKey → SW matcha digest/tag anche senza id mongo */
+    const dedupeKeys = Array.isArray(spec.dedupeKeys)
+      ? [...new Set(spec.dedupeKeys.map((x) => String(x || "").trim()).filter(Boolean))].slice(0, 40)
+      : [];
     const pageUrl = String(spec.pageUrl || "").trim().slice(0, 500);
     const key =
       spec.all === true
@@ -407,7 +436,7 @@ function fireNotifDismissPush(userId, spec = {}) {
     const now = Date.now();
     const prev = Number(lastDismissPushAt.get(key) || 0);
     /* pushTicketOpenDismiss1: force bypass throttle (open ticket da altro device) */
-    const throttleMs = spec.force === true ? 1500 : 12000;
+    const throttleMs = spec.force === true ? 2500 : 45000;
     if (now - prev < throttleMs) return;
     lastDismissPushAt.set(key, now);
     if (lastDismissPushAt.size > 400) {
@@ -415,17 +444,14 @@ function fireNotifDismissPush(userId, spec = {}) {
         if (now - Number(at || 0) > 120000) lastDismissPushAt.delete(k);
       }
     }
-    const { sendWebPushToUser } = require("./siteWebPushService");
-    void sendWebPushToUser(uid, {
-      type: "dismiss",
-      ticketId: singleTicket || ticketIds[0] || "",
-      id: singleId || ids[0] || "",
-      ids,
-      ticketIds,
-      openUrls,
-      pageUrl,
-      all: spec.all === true,
-    });
+    /* pushPhoneAlive4: niente webpush dismiss (starve telefono). Solo cache unread + WS. */
+    try {
+      invalidateUnreadCountCache(uid);
+    } catch (_) {}
+    try {
+      const { broadcastSiteNotificationsChanged } = require("./siteSuggestionsBroadcast");
+      broadcastSiteNotificationsChanged({ userId: uid });
+    } catch (_) {}
   } catch (_) {}
 }
 
@@ -642,11 +668,286 @@ async function pushInboxItemAtomic(userId, newItem, dedupe = null) {
   return { ok: Boolean(saved), inserted: Boolean(saved) };
 }
 
-function broadcastInboxChanged() {
+function broadcastInboxChanged(userId = "") {
+  const uid = normalizeUserId(userId);
   try {
     const { broadcastSiteNotificationsChanged } = require("./siteSuggestionsBroadcast");
-    broadcastSiteNotificationsChanged();
+    if (!uid) {
+      broadcastSiteNotificationsChanged();
+      return;
+    }
+    /* badgeCrossDevice1: fanout con unread fresco per badge OS/in-app altri device */
+    void (async () => {
+      let unread;
+      try {
+        invalidateUnreadCountCache(uid);
+        const counted = await countSiteInAppUnreadForUser(uid);
+        unread = Math.max(0, Math.min(99, Number(counted?.unread) || 0));
+      } catch (_) {
+        unread = undefined;
+      }
+      broadcastSiteNotificationsChanged({ userId: uid, unread });
+    })().catch(() => {
+      try {
+        broadcastSiteNotificationsChanged({ userId: uid });
+      } catch (_) {}
+    });
   } catch (_) {}
+}
+
+/* pushPhoneAllSoftRetry1: soft-retry mobile per TUTTE le notif (non solo vote_reminder).
+   Stesso pattern di bumpService votePushPhoneRetry — FCM/APNs spesso miss al primo colpo. */
+/* pushAppleZombieHedge5: APNs 201 ≠ banner iOS. NoHedge4 spegneva i retry se mobileSent>0
+   e il catchup PWA restava bloccato da toasted → Top.gg solo su PC. Hedge corto solo Apple. */
+/* pushDesktopMissRetry1 + pushShownAckVisible1: retry PC se desktopSent=0; SW ack su visible. */
+/* pushClosedPwaNoRotate1: PWA chiusa/kill → SW spesso NON fa /push/shown anche se APNs 201.
+   rotate+denylist uccideva la sub Apple → push morte finché non riapri. Hedge lungo, MAI rotate. */
+const mobilePushSoftRetryTimers = new Map();
+const MOBILE_PUSH_SOFT_RETRY_DELAYS_MS = Object.freeze([
+  25_000,
+  90_000,
+  3 * 60_000,
+  15 * 60_000,
+  45 * 60_000,
+]);
+/* pushAppleHedgeLight1: APNs 201 ≠ banner iPhone (PWA kill/SW morto).
+   Hedge CORTO (4 ping) finché /push/shown — niente rotate/denylist (pushClosedPwaNoRotate1).
+   Prima pushAppleNoZombieHedge1=stop totale → telefono muto se 201 fantasma. */
+/* pushAppleWaitUntil1: primo rewake prima (8s) con Topic/mpr distinto — non aspettare 20s. */
+/* bugListBoot1: one hedge ping max after APNs 201; stop spam after first delivery attempt */
+const APPLE_ZOMBIE_HEDGE_DELAYS_MS = Object.freeze([8_000]);
+const appleZombieHedgeBases = new Set();
+
+function mobilePushSoftRetryKeyBase(userId, dedupeKey, id) {
+  const uid = normalizeUserId(userId);
+  const dk = String(dedupeKey || "").trim().slice(0, 120) || String(id || "").trim().slice(0, 80) || "na";
+  return `mpr:${uid}:${dk}`;
+}
+
+function clearMobilePushSoftRetries(userId, dedupeKey, id, { includeAppleHedge = true } = {}) {
+  const base = mobilePushSoftRetryKeyBase(userId, dedupeKey, id);
+  if (!base.startsWith("mpr:")) return;
+  if (!includeAppleHedge && appleZombieHedgeBases.has(base)) return;
+  const prefix = `${base}:`;
+  for (const [key, timer] of mobilePushSoftRetryTimers) {
+    if (!String(key).startsWith(prefix) && key !== base) continue;
+    clearTimeout(timer);
+    mobilePushSoftRetryTimers.delete(key);
+  }
+  appleZombieHedgeBases.delete(base);
+}
+
+/* pushSkipRead1: non ri-mandare push se già letta / dismessa.
+   missingMeansUnread=true → primo send (fail-open se non ancora in DB).
+   missingMeansUnread=false → soft-retry (stop se purged/assente). */
+async function isSiteInAppNotificationStillUnread(userId, id, dedupeKey, { missingMeansUnread = false } = {}) {
+  const uid = normalizeUserId(userId);
+  const nid = String(id || "").trim();
+  const dk = String(dedupeKey || "").trim();
+  if (!uid) return missingMeansUnread;
+  if (!nid && !dk) return missingMeansUnread;
+  try {
+    const inbox = await SiteDocument.findOne(inboxQuery(uid)).select("inAppNotifItems").lean().catch(() => null);
+    const items = Array.isArray(inbox?.inAppNotifItems) ? inbox.inAppNotifItems : [];
+    let item = null;
+    if (nid) {
+      item = items.find((it) => String(it?._id || "") === nid) || null;
+    }
+    if (!item && dk) {
+      item = items.find((it) => String(it?.dedupeKey || "").trim() === dk) || null;
+    }
+    if (!item) return Boolean(missingMeansUnread);
+    return !item.readAt;
+  } catch (_) {
+    return Boolean(missingMeansUnread);
+  }
+}
+
+function clearPushRetriesForInboxItem(userId, item) {
+  const uid = normalizeUserId(userId);
+  if (!uid || !item) return;
+  const nid = String(item._id || item.id || "").trim();
+  const dk = String(item.dedupeKey || "").trim();
+  try {
+    /* pushAppleHedgeKeepOnRead1: mark-read da PC non spegne hedge Apple zombie */
+    clearMobilePushSoftRetries(uid, dk, nid, { includeAppleHedge: false });
+  } catch (_) {}
+  try {
+    const kind = String(item.notifKind || item.kind || "").trim().toLowerCase();
+    if (kind === "vote_reminder" || /vote_reminder/.test(dk)) {
+      const bump = require("../../Services/Bump/bumpService");
+      if (typeof bump.clearVoteReminderPhoneRetriesForUser === "function") {
+        bump.clearVoteReminderPhoneRetriesForUser(uid);
+      }
+    }
+  } catch (_) {}
+}
+
+function scheduleMobilePushSoftRetries(userId, payload, pushOut) {
+  const uid = normalizeUserId(userId);
+  if (!uid || !payload) return;
+  if (pushOut?.skipped === true) return;
+  const mobileCandidates =
+    Number(pushOut?.mobileCandidates) || Number(pushOut?.mobileTargets) || 0;
+  const mobileSent = Number(pushOut?.mobileSent) || 0;
+  const mobileAppleSent = Number(pushOut?.mobileAppleSent) || 0;
+  if (mobileCandidates <= 0) return;
+  /* FCM/Android ack → stop. Apple APNs 201 → hedge corto (pushAppleHedgeLight1). */
+  const appleOnlyAck = mobileSent > 0 && mobileAppleSent > 0 && mobileAppleSent >= mobileSent;
+  let delays = MOBILE_PUSH_SOFT_RETRY_DELAYS_MS;
+  let reason = "mobile_miss";
+  if (mobileSent > 0) {
+    if (appleOnlyAck && APPLE_ZOMBIE_HEDGE_DELAYS_MS.length > 0) {
+      delays = APPLE_ZOMBIE_HEDGE_DELAYS_MS;
+      reason = "apple_zombie_hedge";
+    } else {
+      clearMobilePushSoftRetries(uid, payload.dedupeKey, payload.id);
+      return;
+    }
+  }
+
+  const baseKey = mobilePushSoftRetryKeyBase(uid, payload.dedupeKey, payload.id);
+  clearMobilePushSoftRetries(uid, payload.dedupeKey, payload.id);
+  if (reason === "apple_zombie_hedge") appleZombieHedgeBases.add(baseKey);
+  else appleZombieHedgeBases.delete(baseKey);
+
+  const base = {
+    title: String(payload.title || "").trim(),
+    body: String(payload.body || "").trim(),
+    openUrl: String(payload.openUrl || "").trim(),
+    kind: normalizeKind(payload.kind),
+    id: String(payload.id || "").trim(),
+    ticketId: String(payload.ticketId || "").trim(),
+    messageId: String(payload.messageId || "").trim(),
+    channel: String(payload.channel || "").trim().slice(0, 16),
+    dedupeKey: String(payload.dedupeKey || "").trim().slice(0, 180),
+    ttlSeconds: Number(payload.ttlSeconds) > 0 ? Number(payload.ttlSeconds) : 60 * 60 * 12,
+  };
+  if (!base.title && !base.body) return;
+
+  delays.forEach((delayMs, idx) => {
+    const key = `${baseKey}:${idx}`;
+    const timer = setTimeout(() => {
+      mobilePushSoftRetryTimers.delete(key);
+      void (async () => {
+        try {
+          /* pushSkipRead1: skip soft-retry se già letta — ma NON per apple_zombie_hedge
+             (pushAppleHedgeKeepOnRead1: lettura PC ≠ banner iPhone). */
+          if (reason !== "apple_zombie_hedge") {
+            const stillUnread = await isSiteInAppNotificationStillUnread(uid, base.id, base.dedupeKey, {
+              missingMeansUnread: false,
+            });
+            if (!stillUnread) {
+              clearMobilePushSoftRetries(uid, payload.dedupeKey, payload.id);
+              global.logger?.info?.("[siteInAppNotifications] mobile soft-retry skip (read):", uid, base.kind, idx + 1);
+              return;
+            }
+          }
+          /* pushAppleShownAck1 + pushShownAckCrossProc1: stop se SW Apple ha mostrato (Mongo) */
+          try {
+            const { wasWebPushShown } = require("./siteWebPushService");
+            if (await wasWebPushShown(base.id, base.dedupeKey)) {
+              clearMobilePushSoftRetries(uid, payload.dedupeKey, payload.id);
+              global.logger?.info?.("[siteInAppNotifications] mobile soft-retry stop (shown ack):", uid, base.kind, idx + 1);
+              return;
+            }
+          } catch (_) {}
+          const { sendWebPushToUser } = require("./siteWebPushService");
+          const out = await sendWebPushToUser(
+            uid,
+            {
+              ...base,
+              dedupeKey: String(base.dedupeKey || "") + ":mpr" + String(idx + 1),
+              topicAttempt: idx + 1,
+            },
+            { deviceFilter: "mobile" },
+          );
+          /* dopo send: shown-ack può arrivare dal hedge stesso (lookup cross-process) */
+          try {
+            const { wasWebPushShown } = require("./siteWebPushService");
+            if (
+              (await wasWebPushShown(base.id, base.dedupeKey)) ||
+              (await wasWebPushShown(base.id, String(base.dedupeKey || "") + ":mpr" + String(idx + 1)))
+            ) {
+              clearMobilePushSoftRetries(uid, payload.dedupeKey, payload.id);
+              global.logger?.info?.("[siteInAppNotifications] mobile soft-retry stop (shown ack):", uid, base.kind, idx + 1);
+              return;
+            }
+          } catch (_) {}
+          const got = Number(out?.mobileSent) || 0;
+          const gotApple = Number(out?.mobileAppleSent) || 0;
+          /* miss path: stop al primo ack. apple hedge: continua finché shown-ack o fine tentativi. */
+          if (got > 0 && !(reason === "apple_zombie_hedge" && gotApple >= got)) {
+            clearMobilePushSoftRetries(uid, payload.dedupeKey, payload.id);
+            global.logger?.info?.("[siteInAppNotifications] mobile soft-retry delivered:", uid, base.kind, idx + 1);
+            return;
+          }
+          if (got > 0 && reason === "apple_zombie_hedge") {
+            global.logger?.info?.("[siteInAppNotifications] apple zombie hedge ping:", uid, base.kind, idx + 1, {
+              mobileAppleSent: gotApple,
+            });
+            /* pushClosedPwaNoRotate1: esaurito hedge SENZA shown-ack ≠ token morto.
+               PWA kill/chiusa: APNs 201 ok ma SW non gira → no /push/shown.
+               rotate+denylist spegneva le push fino al reopen. Solo nudge WS soft. */
+            if (idx >= delays.length - 1) {
+              try {
+                const { wasWebPushShown } = require("./siteWebPushService");
+                await new Promise((r) => setTimeout(r, 2500));
+                if (!(await wasWebPushShown(base.id, base.dedupeKey))) {
+                  global.logger?.info?.(
+                    "[siteInAppNotifications] apple hedge exhausted keep sub (no rotate):",
+                    uid,
+                    base.kind,
+                  );
+                  try {
+                    const { broadcastSiteRealtime, notifyExternalSiteRealtime } = require("./siteSuggestionsBroadcast");
+                    const payload = {
+                      type: "vc:push-resubscribe",
+                      userId: uid,
+                      reason: "apple_hedge_exhausted_soft",
+                      at: new Date().toISOString(),
+                    };
+                    broadcastSiteRealtime(payload);
+                    notifyExternalSiteRealtime(payload);
+                  } catch (_) {}
+                } else {
+                  global.logger?.info?.(
+                    "[siteInAppNotifications] apple hedge skip nudge (shown ack late):",
+                    uid,
+                    base.kind,
+                  );
+                }
+              } catch (_) {}
+              appleZombieHedgeBases.delete(baseKey);
+            }
+            return;
+          }
+          global.logger?.warn?.("[siteInAppNotifications] mobile soft-retry miss:", uid, base.kind, idx + 1, {
+            mobileTargets: out?.mobileTargets,
+            mobileFailed: out?.mobileFailed,
+            skippedGone: out?.skippedGone,
+          });
+        } catch (err) {
+          global.logger?.warn?.(
+            "[siteInAppNotifications] mobile soft-retry error:",
+            uid,
+            err?.message || err,
+          );
+        }
+      })();
+    }, delayMs);
+    if (typeof timer.unref === "function") timer.unref();
+    mobilePushSoftRetryTimers.set(key, timer);
+  });
+  global.logger?.info?.("[siteInAppNotifications] mobile soft-retries armed:", uid, base.kind, {
+    mobileCandidates,
+    mobileSent,
+    mobileAppleSent,
+    desktopSent: Number(pushOut?.desktopSent) || 0,
+    sent: Number(pushOut?.sent) || 0,
+    reason,
+    attempts: delays.length,
+  });
 }
 
 function fireNotificationPush(
@@ -656,25 +957,71 @@ function fireNotificationPush(
 ) {
   /* notifPushSync1: invalidate before WS fanout so mode=count on other devices is fresh */
   invalidateUnreadCountCache(userId);
-  broadcastInboxChanged();
+  broadcastInboxChanged(userId);
   if (push === false) return Promise.resolve({ ok: true, skipped: true, reason: "push_disabled" });
   try {
     const { sendWebPushToUser } = require("./siteWebPushService");
-    return sendWebPushToUser(userId, {
-      title,
-      body,
-      openUrl: openUrl || "",
-      kind,
-      id: String(id || ""),
-      ticketId: String(ticketId || "").trim(),
-      messageId: String(messageId || "").trim(),
-      /* notifBellInboxBadge1: client classifica inbox vs personali senza aspettare sync */
-      channel: String(channel || "").trim().slice(0, 16),
-      dedupeKey: String(dedupeKey || "").trim().slice(0, 180),
-      ttlSeconds: Number(ttlSeconds) || undefined,
-      /* notifDigestRace1: SW tag stabile su digest */
-      msgCount: Number(msgCount) > 0 ? Math.min(99, Math.floor(Number(msgCount))) : undefined,
-    }).catch((err) => {
+    /* pushBadgeSyncPhone1: allega unreadCount al content push → badge telefono allineato */
+    return (async () => {
+      let unreadCount = -1;
+      try {
+        const counted = await countSiteInAppUnreadForUser(userId);
+        unreadCount = Math.max(0, Math.min(99, Number(counted?.unread) || 0));
+      } catch (_) {
+        unreadCount = -1;
+      }
+      const payload = {
+        title,
+        body,
+        openUrl: openUrl || "",
+        kind,
+        id: String(id || ""),
+        ticketId: String(ticketId || "").trim(),
+        messageId: String(messageId || "").trim(),
+        channel: String(channel || "").trim().slice(0, 16),
+        dedupeKey: String(dedupeKey || "").trim().slice(0, 180),
+        ttlSeconds: Number(ttlSeconds) || undefined,
+        msgCount: Number(msgCount) > 0 ? Math.min(99, Math.floor(Number(msgCount))) : undefined,
+        unreadCount,
+      };
+      /* pushSkipRead1: race mark-read vs push — non spedire se già letta */
+      if (payload.id || payload.dedupeKey) {
+        const stillUnread = await isSiteInAppNotificationStillUnread(userId, payload.id, payload.dedupeKey, {
+          missingMeansUnread: true,
+        });
+        if (!stillUnread) {
+          return { ok: true, sent: 0, skipped: true, reason: "already_read_pushSkipRead1" };
+        }
+      }
+      const out = await sendWebPushToUser(userId, payload);
+      try {
+        /* pushPhoneAllSoftRetry1 */
+        scheduleMobilePushSoftRetries(userId, payload, out);
+      } catch (_) {}
+      /* pushDesktopMissRetry1: se Apple/mobile ok ma desktopSent=0 → 1 retry solo PC
+         (sub Chrome a volte miss al primo colpo / race prune). */
+      try {
+        if ((Number(out?.desktopSent) || 0) === 0 && out?.skipped !== true) {
+          const deskTimer = setTimeout(() => {
+            void sendWebPushToUser(
+              userId,
+              {
+                ...payload,
+                dedupeKey: String(payload.dedupeKey || payload.id || "") + ":dpr1",
+                topicAttempt: 1,
+              },
+              { deviceFilter: "desktop" },
+            ).then((deskOut) => {
+              if ((Number(deskOut?.desktopSent) || 0) > 0) {
+                global.logger?.info?.("[siteInAppNotifications] desktop miss retry ok:", userId, payload.kind);
+              }
+            }).catch(() => null);
+          }, 3500);
+          if (typeof deskTimer.unref === "function") deskTimer.unref();
+        }
+      } catch (_) {}
+      return out;
+    })().catch((err) => {
       global.logger?.warn?.("[siteInAppNotifications] push send failed:", err?.message || err);
       return { ok: false, sent: 0, failed: 1 };
     });
@@ -847,11 +1194,20 @@ async function removeInboxItemByDedupeKey(userId, dedupeKey) {
   const changed = Number(res?.modifiedCount ?? res?.nModified ?? 0) > 0;
   if (changed) {
     invalidateUnreadCountCache(uid);
-    broadcastInboxChanged();
+    /* notifAutoDismissSync1: unread mirato → badge subito (no fanout cieco) */
+    broadcastInboxChanged(uid);
     /* ticketSmartNotif1: rimozione dedupe → dismiss OS su tutti i device */
     const tid = hit ? normalizeTicketId(hit.ticketId) || ticketIdFromOpenUrl(hit.openUrl) : "";
     const nid = hit && hit._id ? String(hit._id) : "";
-    fireNotifDismissPush(uid, { id: nid, ticketId: tid });
+    const ou = hit ? String(hit.openUrl || "").trim() : "";
+    const dk = hit ? String(hit.dedupeKey || "").trim() : "";
+    fireNotifDismissPush(uid, {
+      id: nid,
+      ticketId: tid,
+      openUrls: ou ? [ou] : [],
+      dedupeKeys: dk ? [dk] : [],
+      force: true,
+    });
   }
   return changed;
 }
@@ -941,6 +1297,7 @@ async function removeSiteInAppNotificationsMatching(opts = {}) {
 
   let users = 0;
   let removed = 0;
+  const touchedUsers = [];
   await Promise.all(
     docs.map(async (doc) => {
       const uid = normalizeUserId(doc.userId);
@@ -948,6 +1305,8 @@ async function removeSiteInAppNotificationsMatching(opts = {}) {
       const kept = [];
       const removedIds = [];
       const removedOpenUrls = [];
+      const removedDedupeKeys = [];
+      const queuesHit = new Set();
       let ticketId = "";
       for (const it of doc.inAppNotifItems) {
         if (!inboxItemMatchesDedupeSpec(it, matchSpec)) {
@@ -958,9 +1317,39 @@ async function removeSiteInAppNotificationsMatching(opts = {}) {
         if (it?._id) removedIds.push(String(it._id));
         const ou = String(it?.openUrl || "").trim();
         if (ou && !removedOpenUrls.includes(ou)) removedOpenUrls.push(ou);
+        const dk = String(it?.dedupeKey || "").trim();
+        if (dk && !removedDedupeKeys.includes(dk)) removedDedupeKeys.push(dk);
+        const qHit = dk.match(/^inbox:([^:]+):/i);
+        if (qHit && qHit[1]) queuesHit.add(String(qHit[1]).toLowerCase());
         if (!ticketId) {
           ticketId = normalizeTicketId(it.ticketId) || ticketIdFromOpenUrl(it.openUrl) || "";
         }
+      }
+      /* pushAutoDismiss1: se togliamo new/item di una coda, via anche digest collassato
+         (altrimenti in-app some paths sparisce ma il banner digest resta). */
+      if (queuesHit.size) {
+        const still = [];
+        for (const it of kept) {
+          const dk = String(it?.dedupeKey || "").trim();
+          let dropDigest = false;
+          for (const q of queuesHit) {
+            if (dk === `inbox:${q}:digest:${uid}`) {
+              dropDigest = true;
+              break;
+            }
+          }
+          if (!dropDigest) {
+            still.push(it);
+            continue;
+          }
+          removed += 1;
+          if (it?._id) removedIds.push(String(it._id));
+          const ou = String(it?.openUrl || "").trim();
+          if (ou && !removedOpenUrls.includes(ou)) removedOpenUrls.push(ou);
+          if (dk && !removedDedupeKeys.includes(dk)) removedDedupeKeys.push(dk);
+        }
+        kept.length = 0;
+        kept.push(...still);
       }
       if (kept.length === doc.inAppNotifItems.length) return;
       doc.inAppNotifItems = kept;
@@ -970,19 +1359,42 @@ async function removeSiteInAppNotificationsMatching(opts = {}) {
         return;
       }
       users += 1;
+      touchedUsers.push(uid);
       invalidateUnreadCountCache(uid);
-      /* notifReadDismissOs1: dismiss OS anche per openUrl (candidature senza ticketId) */
+      /* notifReadDismissOs1 / pushAutoDismiss1: dismiss OS id + openUrl + dedupe (digest) */
       if (forceDismiss) {
+        const aliasOpen = [];
+        for (const q of queuesHit) {
+          if (q === "resoconti") {
+            aliasOpen.push("/user/?tab=staff&staffOpen=resoconto");
+            aliasOpen.push("/notifications/?view=staff&inbox=resoconti");
+          } else if (q === "pause") {
+            aliasOpen.push("/user/?tab=staff&staffOpen=pause");
+            aliasOpen.push("/staff/pause/");
+          } else if (q === "candidature" || q === "appelli" || q === "revisione" || q === "punti-tolti") {
+            aliasOpen.push(`/notifications/?view=staff&inbox=${encodeURIComponent(q)}`);
+          }
+          removedDedupeKeys.push(`inbox:${q}:digest:${uid}`);
+        }
         fireNotifDismissPush(uid, {
           ids: removedIds,
           ticketId,
-          openUrls: removedOpenUrls.length ? removedOpenUrls : openUrls,
+          openUrls: [...new Set([...(removedOpenUrls.length ? removedOpenUrls : openUrls), ...aliasOpen])].slice(
+            0,
+            40,
+          ),
+          dedupeKeys: removedDedupeKeys,
           force: true,
         });
       }
     }),
   ).catch(() => null);
-  if (users > 0) broadcastInboxChanged();
+  /* notifAutoDismissSync1: un broadcast per user con unread fresco */
+  for (const uid of [...new Set(touchedUsers)]) {
+    try {
+      broadcastInboxChanged(uid);
+    } catch (_) {}
+  }
   return { users, removed };
 }
 
@@ -1001,7 +1413,7 @@ async function removeSiteInAppNotificationsForTicket(
   await migrateLegacyInAppNotificationsForUser(uid).catch(() => null);
   const doc = await SiteDocument.findOne(inboxQuery(uid)).catch(() => null);
   if (!doc || !Array.isArray(doc.inAppNotifItems) || !doc.inAppNotifItems.length) {
-    if (forceDismiss) fireNotifDismissPush(uid, { ticketId: tid });
+    if (forceDismiss) fireNotifDismissPush(uid, { ticketId: tid, force: true });
     return 0;
   }
 
@@ -1039,7 +1451,7 @@ async function removeSiteInAppNotificationsForTicket(
   }
   const removed = doc.inAppNotifItems.length - kept.length;
   if (removed <= 0) {
-    if (forceDismiss) fireNotifDismissPush(uid, { ticketId: tid });
+    if (forceDismiss) fireNotifDismissPush(uid, { ticketId: tid, force: true });
     return 0;
   }
   doc.inAppNotifItems = kept;
@@ -1050,8 +1462,9 @@ async function removeSiteInAppNotificationsForTicket(
     return 0;
   }
   invalidateUnreadCountCache(uid);
-  broadcastInboxChanged();
-  fireNotifDismissPush(uid, { ticketId: tid, ids: removedIds });
+  broadcastInboxChanged(uid);
+  /* pushPurgeOsDismiss1: sempre force — chiusura ticket non deve perdere dismiss per throttle */
+  fireNotifDismissPush(uid, { ticketId: tid, ids: removedIds, force: true });
   return removed;
 }
 
@@ -1249,11 +1662,9 @@ async function enqueueSiteInAppNotification(opts = {}) {
     const items = Array.isArray(inbox?.inAppNotifItems) ? inbox.inAppNotifItems : [];
     const existing = items.find((it) => itemMatchesDedupeWindow(it, dedupeKeyRaw, since));
     if (existing) {
-            const shouldRetryPush =
-        sendPush &&
-        !existing.readAt &&
-        (isReminderNotificationKind(existing.notifKind || kind, existing.title || title, existing.body || body) ||
-          isReminderNotificationKind(kind, title, body));
+            /* pushPhoneAllSoftRetry1: re-push anche non-reminder se unread in finestra dedupe
+         (prima solo reminder → staff/inbox/ticket silenziosi sul telefono) */
+      const shouldRetryPush = sendPush && !existing.readAt;
       if (shouldRetryPush) {
         const pushTtl =
           Number(opts.pushTtlSeconds) > 0
@@ -1287,6 +1698,7 @@ async function enqueueSiteInAppNotification(opts = {}) {
             opts.__pushOut.mobileFailed = Number(pushResult?.mobileFailed) || 0;
             opts.__pushOut.mobileTargets = Number(pushResult?.mobileTargets) || 0;
             opts.__pushOut.mobileCandidates = Number(pushResult?.mobileCandidates) || 0;
+            opts.__pushOut.mobileAppleSent = Number(pushResult?.mobileAppleSent) || 0;
             opts.__pushOut.desktopSent = Number(pushResult?.desktopSent) || 0;
             opts.__pushOut.skippedGone = Number(pushResult?.skippedGone) || 0;
             opts.__pushOut.notifId = String(existing._id || opts.__pushOut.notifId || "");
@@ -1388,6 +1800,7 @@ async function enqueueSiteInAppNotification(opts = {}) {
         opts.__pushOut.mobileFailed = Number(pushResult?.mobileFailed) || 0;
         opts.__pushOut.mobileTargets = Number(pushResult?.mobileTargets) || 0;
         opts.__pushOut.mobileCandidates = Number(pushResult?.mobileCandidates) || 0;
+        opts.__pushOut.mobileAppleSent = Number(pushResult?.mobileAppleSent) || 0;
         opts.__pushOut.desktopSent = Number(pushResult?.desktopSent) || 0;
         opts.__pushOut.skippedGone = Number(pushResult?.skippedGone) || 0;
         opts.__pushOut.notifId = String(newItem._id || "");
@@ -1441,9 +1854,13 @@ async function deleteSiteInAppNotifications(filter = {}) {
   }
   if (count > 0) {
     try {
-      invalidateUnreadCountCache();
-      const { broadcastSiteNotificationsChanged } = require("./siteSuggestionsBroadcast");
-      broadcastSiteNotificationsChanged();
+      if (uid) {
+        invalidateUnreadCountCache(uid);
+        broadcastInboxChanged(uid);
+      } else {
+        invalidateUnreadCountCache();
+        broadcastInboxChanged();
+      }
     } catch (_) {}
   }
   return count;
@@ -1473,13 +1890,15 @@ async function markSiteInAppNotificationRead(userId, notificationId) {
   const modified = Number(out?.modifiedCount ?? out?.nModified ?? 0) > 0;
   /* pushBadgeVisitFix1: dismiss OS anche se già letta (modified=0) — badge altri device */
   if (item || modified) {
+    try {
+      clearPushRetriesForInboxItem(uid, item || { _id: nid, id: nid });
+    } catch (_) {}
     fireNotifDismissPush(uid, { id: nid, ticketId, force: true });
   }
-  if (modified) {
+  if (modified || item) {
     try {
-      invalidateUnreadCountCache();
-      const { broadcastSiteNotificationsChanged } = require("./siteSuggestionsBroadcast");
-      broadcastSiteNotificationsChanged();
+      invalidateUnreadCountCache(uid);
+      broadcastInboxChanged(uid);
     } catch (_) {}
   }
   return modified;
@@ -1516,6 +1935,12 @@ async function markSiteInAppNotificationsReadMany(userId, notificationIds) {
     { arrayFilters: [{ "i._id": { $in: oids } }] },
   ).catch(() => null);
   const modified = Number(out?.modifiedCount ?? out?.nModified ?? 0) > 0 ? ids.length : 0;
+  try {
+    for (const it of items) {
+      const iid = String(it?._id || "").trim();
+      if (iid && idSet.has(iid)) clearPushRetriesForInboxItem(uid, it);
+    }
+  } catch (_) {}
   /* notifReadDismissOs1: dismiss OS anche se già lette (modified=0) */
   fireNotifDismissPush(uid, {
     ids,
@@ -1524,11 +1949,10 @@ async function markSiteInAppNotificationsReadMany(userId, notificationIds) {
     all: ids.length > 40,
     force: true,
   });
-  if (modified > 0) {
+  if (modified > 0 || ids.length) {
     try {
-      invalidateUnreadCountCache();
-      const { broadcastSiteNotificationsChanged } = require("./siteSuggestionsBroadcast");
-      broadcastSiteNotificationsChanged();
+      invalidateUnreadCountCache(uid);
+      broadcastInboxChanged(uid);
     } catch (_) {}
   }
   return modified;
@@ -1552,11 +1976,15 @@ async function markAllSiteInAppNotificationsRead(userId) {
   if (n > 0) {
     await doc.save().catch(() => null);
     try {
-      invalidateUnreadCountCache();
-      const { broadcastSiteNotificationsChanged } = require("./siteSuggestionsBroadcast");
-      broadcastSiteNotificationsChanged();
+      invalidateUnreadCountCache(uid);
+      broadcastInboxChanged(uid);
     } catch (_) {}
   }
+  try {
+    for (const it of doc.inAppNotifItems || []) {
+      if (it) clearPushRetriesForInboxItem(uid, it);
+    }
+  } catch (_) {}
   /* notifReadDismissOs1: dismiss OS anche se già tutte lette */
   fireNotifDismissPush(uid, { all: true, force: true });
   return n;
@@ -1588,10 +2016,15 @@ async function markSiteInAppNotificationsReadForTicket(userId, ticketId) {
     await doc.save().catch(() => null);
     try {
       invalidateUnreadCountCache(uid);
-      const { broadcastSiteNotificationsChanged } = require("./siteSuggestionsBroadcast");
-      broadcastSiteNotificationsChanged();
+      broadcastInboxChanged(uid);
     } catch (_) {}
   }
+  try {
+    for (const it of doc.inAppNotifItems || []) {
+      if (!it || !markedIds.includes(String(it._id || ""))) continue;
+      clearPushRetriesForInboxItem(uid, it);
+    }
+  } catch (_) {}
   /* pushTicketOpenDismiss1: sempre dismiss per ticketId (anche se già lette / store locale vuoto) */
   fireNotifDismissPush(uid, { ticketId: tid, ids: markedIds, force: true });
   return n;
@@ -1626,9 +2059,34 @@ function pageContextFromUrlServer(pageUrl) {
         .trim()
         .toLowerCase();
     if (!/^[a-f0-9]{24}$/i.test(ticket)) ticket = "";
-    return { path, inbox, ticket, href: String(pageUrl || "") };
+    const staffOpen = String(u.searchParams.get("staffOpen") || "")
+      .trim()
+      .toLowerCase();
+    const profileUserId = String(u.searchParams.get("id") || "")
+      .trim();
+    const pauseId = String(u.searchParams.get("pauseId") || "").trim();
+    const resoId = String(u.searchParams.get("resoId") || "").trim();
+    return {
+      path,
+      inbox,
+      ticket,
+      staffOpen,
+      profileUserId,
+      pauseId,
+      resoId,
+      href: String(pageUrl || ""),
+    };
   } catch (_) {
-    return { path: "", inbox: "", ticket: "", href: "" };
+    return {
+      path: "",
+      inbox: "",
+      ticket: "",
+      staffOpen: "",
+      profileUserId: "",
+      pauseId: "",
+      resoId: "",
+      href: "",
+    };
   }
 }
 
@@ -1671,11 +2129,28 @@ function openUrlMatchesPageContextServer(openUrl, ticketId, ctx) {
       return true;
     }
   }
+  /* pauseNotifVisitFix1: NON segnare lette le pause solo perché si apre /user/
+     (prima ogni visita profilo cancellava la campanella). Serve staffOpen + match id/pauseId. */
   if (
-    (destInbox === "pause" || /inbox=pause\b/i.test(raw) || /\/staff\/pause/i.test(destPath)) &&
-    (/\/staff\/pause$/i.test(ctx.path) || ctx.inbox === "pause")
+    destInbox === "pause" ||
+    /inbox=pause\b/i.test(raw) ||
+    /\/staff\/pause/i.test(destPath) ||
+    /staffopen=pause\b/i.test(raw)
   ) {
-    return true;
+    if (/\/staff\/pause$/i.test(ctx.path) || ctx.inbox === "pause") return true;
+    if (/\/user$/i.test(ctx.path) && String(ctx.staffOpen || "") === "pause") {
+      try {
+        const dest = new URL(raw || "/", "https://viniliecaffe.it");
+        const destUid = String(dest.searchParams.get("id") || "").trim();
+        const destPid = String(dest.searchParams.get("pauseId") || "").trim();
+        const sameUser =
+          !destUid ||
+          !ctx.profileUserId ||
+          String(ctx.profileUserId) === destUid;
+        const samePause = !destPid || !ctx.pauseId || String(ctx.pauseId) === destPid;
+        if (sameUser && samePause) return true;
+      } catch (_) {}
+    }
   }
   if (
     (destInbox === "appelli" || /inbox=appelli\b/i.test(raw) || /\/appelli/i.test(destPath)) &&
@@ -1689,11 +2164,41 @@ function openUrlMatchesPageContextServer(openUrl, ticketId, ctx) {
   ) {
     return true;
   }
+  if (destInbox === "resoconti" || /inbox=resoconti\b/i.test(raw) || /staffopen=resocont/i.test(raw)) {
+    if (/\/staff\/resoconti$/i.test(ctx.path) || ctx.inbox === "resoconti") return true;
+    if (/\/user$/i.test(ctx.path) && /^resocont/i.test(String(ctx.staffOpen || ""))) {
+      try {
+        const dest = new URL(raw || "/", "https://viniliecaffe.it");
+        const destUid = String(dest.searchParams.get("id") || "").trim();
+        const destRid = String(dest.searchParams.get("resoId") || "").trim();
+        const sameUser =
+          !destUid ||
+          !ctx.profileUserId ||
+          String(ctx.profileUserId) === destUid;
+        const sameReso = !destRid || !ctx.resoId || String(ctx.resoId) === destRid;
+        if (sameUser && sameReso) return true;
+      } catch (_) {}
+    }
+  }
+  /* pauseResoNotifProfile1: openUrl profilo ↔ visita /user SOLO con stesso staffOpen + id */
   if (
-    (destInbox === "resoconti" || /inbox=resoconti\b/i.test(raw)) &&
-    (/\/staff\/resoconti$/i.test(ctx.path) || ctx.inbox === "resoconti")
+    /\/user$/i.test(ctx.path) &&
+    /\/user$/i.test(destPath) &&
+    /staffopen=(pause|resocont|pm-punti)/i.test(raw)
   ) {
-    return true;
+    try {
+      const dest = new URL(raw || "/", "https://viniliecaffe.it");
+      const destOpen = String(dest.searchParams.get("staffOpen") || "")
+        .trim()
+        .toLowerCase();
+      const ctxOpen = String(ctx.staffOpen || "").trim().toLowerCase();
+      if (destOpen && ctxOpen && destOpen === ctxOpen) {
+        const destUid = String(dest.searchParams.get("id") || "").trim();
+        if (!destUid || !ctx.profileUserId || String(ctx.profileUserId) === destUid) {
+          return true;
+        }
+      }
+    } catch (_) {}
   }
   if (!destPath || destPath === "/") return false;
   if (destPath === ctx.path) {
@@ -1749,6 +2254,12 @@ async function markSiteInAppNotificationsReadForPage(userId, pageUrl, extra = {}
       const forceByTicket = tid && extraTickets.includes(tid);
       const byPage = openUrlMatchesPageContextServer(ou, tid, ctx);
       if (!forceById && !forceByTicket && !byPage) continue;
+      /* voteRemKeep1: reminder voto non si consumano per visita /vote (solo voto reale / tap) */
+      {
+        const kindPage = normalizeKind(it.notifKind || it.kind);
+        const dkPage = String(it.dedupeKey || "").toLowerCase();
+        if (kindPage === "vote_reminder" || /vote_reminder_/.test(dkPage)) continue;
+      }
       if (!it.readAt) {
         it.readAt = now;
         n += 1;
@@ -1760,8 +2271,7 @@ async function markSiteInAppNotificationsReadForPage(userId, pageUrl, extra = {}
       await doc.save().catch(() => null);
       try {
         invalidateUnreadCountCache(uid);
-        const { broadcastSiteNotificationsChanged } = require("./siteSuggestionsBroadcast");
-        broadcastSiteNotificationsChanged();
+        broadcastInboxChanged(uid);
       } catch (_) {}
     }
   }
@@ -1788,7 +2298,7 @@ async function markSiteInAppNotificationsReadForPage(userId, pageUrl, extra = {}
   return n;
 }
 
-async function listSiteInAppNotificationsForUser(userId, limit = 50) {
+async function listSiteInAppNotificationsForUserUncached(userId, limit = 50) {
   const uid = normalizeUserId(userId);
   if (!uid) return [];
   await migrateLegacyInAppNotificationsForUser(uid).catch(() => null);
@@ -1862,9 +2372,61 @@ async function listSiteInAppNotificationsForUser(userId, limit = 50) {
       readAt: doc.readAt ? new Date(doc.readAt).getTime() : null,
       filtered: Boolean(filtered),
     });
-    if (mapped.length >= lim) break;
+    if (mapped.length >= 100) break;
   }
-  return mapped;
+  return mapped.slice(0, lim);
+}
+
+async function listSiteInAppNotificationsForUser(userId, limit = 50) {
+  const uid = normalizeUserId(userId);
+  if (!uid) return [];
+  const lim = Math.min(100, Math.max(1, Number(limit) || 50));
+  const now = Date.now();
+  const cached = listCache.get(uid);
+  if (cached && now - cached.at < LIST_CACHE_TTL_MS && Array.isArray(cached.items)) {
+    return cached.items.slice(0, lim);
+  }
+  if (cached && now - cached.at < LIST_STALE_KEEP_MS && Array.isArray(cached.items)) {
+    if (!listInflight.has(uid)) {
+      const p = listSiteInAppNotificationsForUserUncached(uid, 100)
+        .then((items) => {
+          listCache.set(uid, { at: Date.now(), items });
+          if (listCache.size > 800) {
+            const cutoff = Date.now() - LIST_STALE_KEEP_MS;
+            for (const [k, v] of listCache) {
+              if (!v || v.at < cutoff) listCache.delete(k);
+            }
+          }
+          return items;
+        })
+        .catch((err) => {
+          global.logger?.warn?.("[site-notif] list refresh:", err?.message || err);
+          return cached.items;
+        })
+        .finally(() => listInflight.delete(uid));
+      listInflight.set(uid, p);
+    }
+    return cached.items.slice(0, lim);
+  }
+
+  let inflight = listInflight.get(uid);
+  if (!inflight) {
+    inflight = listSiteInAppNotificationsForUserUncached(uid, 100)
+      .then((items) => {
+        listCache.set(uid, { at: Date.now(), items });
+        if (listCache.size > 800) {
+          const cutoff = Date.now() - LIST_STALE_KEEP_MS;
+          for (const [k, v] of listCache) {
+            if (!v || v.at < cutoff) listCache.delete(k);
+          }
+        }
+        return items;
+      })
+      .finally(() => listInflight.delete(uid));
+    listInflight.set(uid, inflight);
+  }
+  const items = await inflight;
+  return Array.isArray(items) ? items.slice(0, lim) : [];
 }
 
 async function countSiteInAppUnreadForUser(userId) {
@@ -1882,7 +2444,13 @@ async function countSiteInAppUnreadForUser(userId) {
 
   inflight = (async () => {
     await migrateLegacyInAppNotificationsForUser(uid).catch(() => null);
-    const inbox = await SiteDocument.findOne(inboxQuery(uid)).select("inAppNotifItems").lean().catch(() => null);
+    /* inboxUnreadSlim1: project only fields used by unread counter */
+    const inbox = await SiteDocument.findOne(inboxQuery(uid))
+      .select(
+        "inAppNotifItems.readAt inAppNotifItems.createdAt inAppNotifItems.notifKind inAppNotifItems.kind inAppNotifItems.title inAppNotifItems.body inAppNotifItems.openUrl inAppNotifItems.dedupeKey inAppNotifItems.notifChannel inAppNotifItems.channel",
+      )
+      .lean()
+      .catch(() => null);
     const items = Array.isArray(inbox?.inAppNotifItems) ? inbox.inAppNotifItems : [];
     const prefsGuildId = String(IDs.guilds?.main || "").trim();
     const skipCtx = await buildSkipContext(prefsGuildId, uid).catch(() => ({
@@ -1967,13 +2535,15 @@ async function deleteSiteInAppNotificationForUser(userId, notificationId) {
     { $pull: { inAppNotifItems: { _id: oid } } },
   ).catch(() => null);
   const modified = Number(out?.modifiedCount ?? out?.nModified ?? 0) > 0;
-  /* pushBadgeVisitFix1: dismiss OS anche se già cancellata / race multi-device */
+  /* pushDismissBtn1: stop soft-retry voto + dismiss OS (anche se già cancellata) */
+  try {
+    clearPushRetriesForInboxItem(uid, item || { _id: nid, id: nid, ticketId });
+  } catch (_) {}
   fireNotifDismissPush(uid, { id: nid, ticketId, force: true });
-  if (modified) {
+  if (modified || item) {
     try {
-      invalidateUnreadCountCache();
-      const { broadcastSiteNotificationsChanged } = require("./siteSuggestionsBroadcast");
-      broadcastSiteNotificationsChanged();
+      invalidateUnreadCountCache(uid);
+      broadcastInboxChanged(uid);
     } catch (_) {}
   }
   return modified;
@@ -2000,9 +2570,8 @@ async function deleteAllSiteInAppNotificationsForUser(userId) {
   if (count > 0) {
     fireNotifDismissPush(uid, { all: true });
     try {
-      invalidateUnreadCountCache();
-      const { broadcastSiteNotificationsChanged } = require("./siteSuggestionsBroadcast");
-      broadcastSiteNotificationsChanged();
+      invalidateUnreadCountCache(uid);
+      broadcastInboxChanged(uid);
     } catch (_) {}
   }
   return count;
@@ -2038,5 +2607,8 @@ module.exports = {
   markSiteInAppNotificationsReadForTicket,
   markSiteInAppNotificationsReadForPage,
   migrateLegacyInAppNotificationsForUser,
+  isSiteInAppNotificationStillUnread,
+  clearMobilePushSoftRetries,
+  scheduleMobilePushSoftRetries,
 };
 /* notifUseful1 marker */

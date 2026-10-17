@@ -170,14 +170,39 @@ function deepMergeChrome(base, patch) {
   return sanitizeChromePrefs(out);
 }
 
+/* chromePrefs401Soft1: prefs UI non-critiche — missing/invalid token → 200 anonymous
+   (niente Failed to load 401 in console su guest / sessione scaduta). */
+function anonymousChromePrefsPayload(extra = {}) {
+  return {
+    ok: true,
+    prefs: {},
+    anonymous: true,
+    ...extra,
+  };
+}
+
 async function handleSiteChromePrefsGet(client, req, res) {
   try {
     const accessToken = normalizeHeaderSecret(req.headers.authorization);
     if (!accessToken) {
-      return res.status(401).json({ ok: false, error: "missing_token", message: "Authorization Bearer richiesto." });
+      res.setHeader("Cache-Control", "private, no-store");
+      return res.status(200).json(anonymousChromePrefsPayload({ error: "missing_token" }));
     }
     const resolved = await resolveWebsiteGuildMember(client, accessToken);
-    if (!resolved.ok) return res.status(Number(resolved.status) || 401).json(resolved);
+    if (!resolved.ok) {
+      const st = Number(resolved.status) || 401;
+      /* solo auth: soft 200; 5xx restano errori veri */
+      if (st === 401 || st === 403 || resolved.error === "missing_token" || resolved.error === "invalid_token") {
+        res.setHeader("Cache-Control", "private, no-store");
+        return res.status(200).json(
+          anonymousChromePrefsPayload({
+            error: resolved.error || "auth",
+            message: resolved.message || "",
+          }),
+        );
+      }
+      return res.status(st).json(resolved);
+    }
     const guildId = resolveGuildId(client) || resolved.guild?.id;
     const doc = await ActivityUserProfile.findOne({ guildId: String(guildId || ""), userId: resolved.userId })
       .select("profile.siteChromePrefs")
@@ -198,10 +223,24 @@ async function handleSiteChromePrefsPost(client, req, res) {
   try {
     const accessToken = normalizeHeaderSecret(req.headers.authorization);
     if (!accessToken) {
-      return res.status(401).json({ ok: false, error: "missing_token", message: "Authorization Bearer richiesto." });
+      res.setHeader("Cache-Control", "private, no-store");
+      return res.status(200).json({ ok: false, skipped: true, anonymous: true, error: "missing_token" });
     }
     const resolved = await resolveWebsiteGuildMember(client, accessToken);
-    if (!resolved.ok) return res.status(Number(resolved.status) || 401).json(resolved);
+    if (!resolved.ok) {
+      const st = Number(resolved.status) || 401;
+      if (st === 401 || st === 403 || resolved.error === "missing_token" || resolved.error === "invalid_token") {
+        res.setHeader("Cache-Control", "private, no-store");
+        return res.status(200).json({
+          ok: false,
+          skipped: true,
+          anonymous: true,
+          error: resolved.error || "auth",
+          message: resolved.message || "",
+        });
+      }
+      return res.status(st).json(resolved);
+    }
     const guildId = resolveGuildId(client) || resolved.guild?.id;
     const body = req.body && typeof req.body === "object" ? req.body : {};
     const patch = body.prefs && typeof body.prefs === "object" ? body.prefs : body;

@@ -1,10 +1,109 @@
 (function () {
+  /* perfRoiPack2: window messaggi lunghi (ultimi N + load older) — no look change */
+  /* lazyEverywhere1: composer+emoji-picker solo su focus/interact (no warm a boot) */
+  /* ticketsCpu45_1: #4 reactions fingerprint (no JSON.stringify); #5 md-live solo tab focus; #6 WS skip */
+  /* ticketsMsgRailCpu1: msg tools delegation; rail no gap dx; CPU idle poll #1–#3 */
+  /* ticketsRailComposer1: sidebar = card/pager (no gap dx); composer #/@/+/bottoni; placeholder CSS */
+  /* ticketsUiFix1: no toast rete falso; no remount skel su retry; card lista più larghe; no scrollbar chat vuota */
   /* ticketMsgEmojiFix1: emoji/mentions/markdown in link embeds + reply + composer */
+  /* pickerFloatFix1: @/#/+ menu fixed al viewport su scroll/mobile */
   /* siteApiW8: ETag/304 on quiet list/detail polls */
   /* ticketPhoneFirst1: phone first-paint staff chrome + lista (ruoli/filter/cine) */
   /* ticket429Flash1: no 429 storm + no force soft-fx (flash flat) */
   /* composerMdCaret1: no auto-<a> su markdown link (caret bug) */
+  /* composerMdPlain1: overlay no fake @/# mention chips; heading size = caret */
+  /* composerMentionShow1: menzioni <@id> di nuovo visibili (chip), no md-gap hidden */
+  /* ticketsComposerLag1: meno Forced reflow in basso (autosize + md-live throttle) */
+  /* ticketsPerfPack1: md-live off mobile/lunghi; autosize grow senza height:0; presence/poll WS */
+  /* ticketsChatLag2: typing debounce draft; md-live solo con markup; no remount chat su resolve nomi */
+  /* ticketPushGate1: push obbligatorie prima di aprire un ticket (no silent ignore) */
   var ACCESS_TOKEN_KEY = "vc_discord_access_token";
+
+  /* ticketsMsgRailCpu1: pin CSS last-wins (rail piena + tools cliccabili + placeholder abs) */
+  try {
+    if (!window.__vcTicketsMsgRailCpu1Pin) {
+      window.__vcTicketsMsgRailCpu1Pin = 1;
+      try {
+        var oldCpuPin = document.getElementById("vc-tickets-msg-rail-cpu1");
+        if (oldCpuPin && oldCpuPin.parentNode) oldCpuPin.parentNode.removeChild(oldCpuPin);
+      } catch (eRmCpu) {}
+      var uiPin = document.createElement("style");
+      uiPin.id = "vc-tickets-msg-rail-cpu1";
+      uiPin.setAttribute("data-vc", "ticketsMsgRailCpu1b");
+      uiPin.textContent =
+        "@media (min-width:901px){" +
+        "body.vc-web-tickets-page .vc-wt-layout," +
+        "html.vc-site-polish body.vc-web-tickets-page .vc-wt-layout," +
+        "html.vc-site-polish body.vc-body.vc-web-tickets-page#top .vc-wt-layout{" +
+        "grid-template-columns:minmax(260px,22rem) minmax(0,1fr)!important;column-gap:0!important;gap:0!important}" +
+        "}" +
+        "body.vc-web-tickets-page .vc-wt-sidebar," +
+        "html.vc-site-polish body.vc-web-tickets-page .vc-wt-sidebar," +
+        "html.vc-site-polish body.vc-body.vc-web-tickets-page#top .vc-wt-sidebar{" +
+        "padding-right:0!important;margin-right:0!important}" +
+        "body.vc-web-tickets-page .vc-wt-list," +
+        "html.vc-site-polish body.vc-web-tickets-page .vc-wt-list," +
+        "html.vc-site-polish body.vc-body.vc-web-tickets-page#top .vc-wt-list," +
+        "html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body.vc-web-tickets-page#top .vc-wt-list{" +
+        "align-items:stretch!important;width:100%!important;box-sizing:border-box!important;" +
+        "padding:0 0 0.55rem 0.4rem!important;padding-right:0!important}" +
+        "body.vc-web-tickets-page .vc-wt-item," +
+        "html.vc-site-polish body.vc-web-tickets-page .vc-wt-item," +
+        "html.vc-site-polish body.vc-body.vc-web-tickets-page#top .vc-wt-item," +
+        "html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body.vc-web-tickets-page#top .vc-wt-item{" +
+        "width:100%!important;max-width:none!important;box-sizing:border-box!important;" +
+        "align-self:stretch!important;min-width:0!important;margin-inline:0!important;" +
+        "border-top-right-radius:0.85rem!important;border-bottom-right-radius:0.85rem!important}" +
+        "body.vc-web-tickets-page #vc-wt-pager-wrap," +
+        "html.vc-site-polish body.vc-web-tickets-page #vc-wt-pager-wrap{" +
+        "width:100%!important;max-width:100%!important;box-sizing:border-box!important;" +
+        "justify-content:center!important;padding-right:0.35rem!important}" +
+        "body.vc-web-tickets-page .vc-wt-pager," +
+        "html.vc-site-polish body.vc-web-tickets-page .vc-wt-pager{" +
+        "max-width:100%!important;box-sizing:border-box!important}" +
+        /* msg tools: sempre cliccabili su hover/stack (no pointer-events race) */
+        "body.vc-web-tickets-page .vc-wt-msg__tools{" +
+        "opacity:0;pointer-events:none;transform:translateY(4px)}" +
+        "body.vc-web-tickets-page .vc-wt-msg:hover .vc-wt-msg__tools," +
+        "body.vc-web-tickets-page .vc-wt-msg:focus-within .vc-wt-msg__tools," +
+        "body.vc-web-tickets-page .vc-wt-msg__stack:hover .vc-wt-msg__tools," +
+        "body.vc-web-tickets-page .vc-wt-msg__tools:hover," +
+        "body.vc-web-tickets-page .vc-wt-msg__tools:focus-within{" +
+        "opacity:1!important;pointer-events:auto!important;transform:none!important}" +
+        "@media (hover:none){body.vc-web-tickets-page .vc-wt-msg__tools{" +
+        "opacity:1!important;pointer-events:auto!important;transform:none!important}}" +
+        /* placeholder: absolute fuori dal flusso editing (sitewide contenteditable) */
+        ".vc-wt-composer__input," +
+        ".vc-profile-extras .vc-px-composer__input{position:relative!important}" +
+        ".vc-wt-composer__input:empty:before," +
+        ".vc-wt-composer__input.is-empty:before," +
+        ".vc-profile-extras .vc-px-composer__input.is-empty:before{" +
+        "content:attr(data-placeholder)!important;position:absolute!important;" +
+        "left:0.85rem!important;right:0.85rem!important;top:0.7rem!important;" +
+        "margin:0!important;pointer-events:none!important;user-select:none!important;" +
+        "-webkit-user-select:none!important;z-index:0!important}" +
+        "body.vc-web-tickets-page .vc-wt-chat__log," +
+        "body.vc-web-tickets-page #vc-wt-chat-log," +
+        "body.vc-web-tickets-page .vc-wt-chat--closed .vc-wt-chat__log," +
+        "html.vc-site-polish body.vc-web-tickets-page .vc-wt-chat__log," +
+        "html.vc-site-polish body.vc-web-tickets-page #vc-wt-chat-log{" +
+        "scrollbar-width:none!important}" +
+        "body.vc-web-tickets-page .vc-wt-chat__log::-webkit-scrollbar," +
+        "body.vc-web-tickets-page #vc-wt-chat-log::-webkit-scrollbar," +
+        "body.vc-web-tickets-page .vc-wt-chat--closed .vc-wt-chat__log::-webkit-scrollbar," +
+        "html.vc-site-polish body.vc-web-tickets-page .vc-wt-chat__log::-webkit-scrollbar," +
+        "html.vc-site-polish body.vc-web-tickets-page #vc-wt-chat-log::-webkit-scrollbar{" +
+        "width:0!important;height:0!important;display:none!important;visibility:hidden!important;" +
+        "background:transparent!important}";
+      (document.head || document.documentElement).appendChild(uiPin);
+      try {
+        ["vc-tickets-ui-fix1", "vc-tickets-rail-composer1"].forEach(function (id) {
+          var oldPin = document.getElementById(id);
+          if (oldPin && oldPin.parentNode) oldPin.parentNode.removeChild(oldPin);
+        });
+      } catch (eOldPin) {}
+    }
+  } catch (eUiPin) {}
   var ACCESS_EXPIRES_KEY = "vc_discord_expires_at";
   var cfg = (typeof window !== "undefined" && window.__VC_WEB_TICKETS) || {};
   var isStaffMode = false;
@@ -197,14 +296,32 @@
   }
 
   function ticketPollIntervalMs() {
-    // ticketsCpuHard2: poll più lento — WS copre il realtime
+    // ticketsCpuHard2 + ticketsPerfPack1 + ticketsMsgRailCpu1 #1: idle lista = poll molto più lento
     var wsOpen = state.ws && state.ws.readyState === 1;
-    if (isCoarseMobile()) return wsOpen ? 22000 : 14000;
-    return wsOpen ? 16000 : 9000;
+    var fresh = wsOpen && wsFreshForQuietPoll();
+    var idleList = !state.selectedId;
+    if (idleList) {
+      if (isCoarseMobile()) return fresh ? 120000 : wsOpen ? 90000 : 60000;
+      return fresh ? 90000 : wsOpen ? 60000 : 45000;
+    }
+    if (isCoarseMobile()) return fresh ? 55000 : wsOpen ? 32000 : 16000;
+    return fresh ? 45000 : wsOpen ? 22000 : 11000;
   }
 
   function ticketPresenceIntervalMs() {
-    return isCoarseMobile() ? 75000 : 45000;
+    /* ticketsPerfPack1: heartbeat raro; eventi focus/visibility fanno il lavoro */
+    return isCoarseMobile() ? 120000 : 90000;
+  }
+
+  function wsFreshForQuietPoll() {
+    try {
+      if (!state.ws || state.ws.readyState !== 1) return false;
+      var last = Number(state.lastWsEventAt || 0);
+      if (!last) return true;
+      return Date.now() - last < 45000;
+    } catch (e0) {
+      return false;
+    }
   }
 
   function toastHostEl() {
@@ -433,16 +550,98 @@
     return raw;
   }
 
-  function avatarHtml(url, name, cls) {
+  /* ticketsMsgRailCpu1 / #3: freeze GIF nel host (prima era solo nel chunk → ReferenceError + MO morto) */
+  function freezeTicketsAnimatedMedia(root) {
+    try {
+      var imgs;
+      if (root && root.tagName === "IMG") {
+        imgs = [root];
+      } else {
+        var scope = root && root.querySelectorAll ? root : document;
+        imgs = scope.querySelectorAll("img");
+      }
+      for (var i = 0; i < imgs.length; i += 1) {
+        var img = imgs[i];
+        if (!img || img.getAttribute("data-vc-tickets-still") === "1") continue;
+        var src = String(img.getAttribute("src") || img.currentSrc || "").trim();
+        if (!src) continue;
+        if (!/cdn\.discordapp\.com|media\.discordapp\.net/i.test(src)) continue;
+        if (!/\.gif(?:$|[?#])/i.test(src) && !/[?&]animated=true/i.test(src)) {
+          img.setAttribute("data-vc-tickets-still", "1");
+          continue;
+        }
+        var next = stillDiscordMediaUrl(src, 0);
+        if (next && next !== src) {
+          img.setAttribute("data-vc-avatar-static", "1");
+          img.setAttribute("src", next);
+          try {
+            img.src = next;
+          } catch (eSrc) {}
+        }
+        img.setAttribute("data-vc-tickets-still", "1");
+      }
+    } catch (eFreeze) {}
+  }
+
+  function wakeTicketAvatars(root) {
+    try {
+      if (window.VcWakeDeferredMedia && typeof window.VcWakeDeferredMedia === "function") {
+        window.VcWakeDeferredMedia(root || document);
+      }
+    } catch (eWake) {}
+    try {
+      if (window.VcDiscordAvatar && typeof window.VcDiscordAvatar.scan === "function") {
+        window.VcDiscordAvatar.scan(root || document);
+      }
+    } catch (eScan) {}
+    try {
+      if (window.VcAvatarFallback && typeof window.VcAvatarFallback.scan === "function") {
+        window.VcAvatarFallback.scan(root || document);
+      }
+    } catch (eFb) {}
+  }
+
+  /* ticketAvPalette1 + ticketsUiPack1: eager + fallback lettera (no silhouette coffee) */
+  function avatarHtml(url, name, cls, userId) {
     var src = stillDiscordMediaUrl(String(url || "").trim(), 64);
     var letter = String(name || "?").trim().charAt(0).toUpperCase() || "?";
+    var safeLetter = esc(letter).replace(/"/g, "");
+    var uid = String(userId || "").trim();
+    var uidAttr = /^\d{16,22}$/.test(uid) ? ' data-user-id="' + esc(uid) + '"' : "";
+    if (!src && /^\d{16,22}$/.test(uid)) {
+      try {
+        if (window.VcDiscordAvatar && typeof window.VcDiscordAvatar.defaultEmbedAvatarUrl === "function") {
+          src = window.VcDiscordAvatar.defaultEmbedAvatarUrl(uid, 64) || "";
+        }
+      } catch (eDef) {}
+      if (!src) {
+        var idx = 0;
+        try {
+          idx = Number((BigInt(uid) >> 22n) % 6n);
+        } catch (eIdx) {
+          idx = Number(uid.slice(-2)) % 6;
+        }
+        src = "https://cdn.discordapp.com/embed/avatars/" + idx + ".png?size=64";
+      }
+    }
     if (src) {
+      var onErr =
+        "this.onerror=null;var p=this.parentNode;if(!p)return;var s=document.createElement('span');" +
+        "s.className='" +
+        esc(cls || "vc-wt-avatar") +
+        " vc-wt-avatar--fallback';s.setAttribute('aria-hidden','true');s.textContent='" +
+        safeLetter +
+        "';p.replaceChild(s,this);";
       return (
         '<img class="' +
         esc(cls || "vc-wt-avatar") +
-        '" src="' +
+        ' vc-avatar vc-avatar--ready" src="' +
         esc(src) +
-        '" alt="" width="36" height="36" loading="lazy" decoding="async" data-vc-avatar-fallback="1" data-vc-avatar-static="1" />'
+        '" alt="" width="36" height="36" loading="eager" decoding="async" fetchpriority="high" data-vc-avatar="1" data-vc-avatar-static="1"' +
+        uidAttr +
+        ' onerror="' +
+        onErr +
+        '" />'
       );
     }
     return '<span class="' + esc(cls || "vc-wt-avatar") + ' vc-wt-avatar--fallback" aria-hidden="true">' + esc(letter) + "</span>";
@@ -897,6 +1096,19 @@
     });
   }
 
+  var _composerDraftTimer = 0;
+  var _chatScrollOlderT = 0; /* loadSyncPack1: debounce auto load-older on scroll near top */
+  function scheduleSaveTicketComposerDraft() {
+    /* ticketsChatLag2: localStorage sync a ogni key = jank; debounce */
+    if (_composerDraftTimer) clearTimeout(_composerDraftTimer);
+    _composerDraftTimer = setTimeout(function () {
+      _composerDraftTimer = 0;
+      try {
+        saveTicketComposerDraft();
+      } catch (eDraft) {}
+    }, 420);
+  }
+
   function loadTicketComposerDraft(id) {
     var D = draftsApi();
     if (!D || !id) return "";
@@ -1196,12 +1408,19 @@
       state.listHardStartedAt = 0;
       state.tickets = Array.isArray(state.tickets) ? state.tickets : [];
       clearTicketsBusyState();
-      setStatus("Caricamento ticket troppo lento. Riprovo.", true);
+      var hasList = Array.isArray(state.tickets) && state.tickets.length > 0;
+      /* ticketsUiFix1: se già dipinto, no toast “lento” + no skel remount */
+      if (!hasList) setStatus("Caricamento ticket troppo lento. Riprovo.", true);
       try {
         renderShell();
       } catch (ePaint) {}
       window.setTimeout(function () {
-        if (getToken()) void loadList({ soft: false, forceShell: true, skipOpen: !state.selectedId });
+        if (!getToken()) return;
+        void loadList({
+          soft: hasList,
+          forceShell: !hasList,
+          skipOpen: !state.selectedId,
+        });
       }, 400);
     }, ms);
   }
@@ -1350,6 +1569,86 @@
     return list;
   }
 
+  /* ticketListDedupe2: import Discord + mirror web = stessa chat due volte.
+     Match user+cat ±60s se previewCore uguale OPPURE subjectCore uguale. */
+  function ticketPreviewCore(t) {
+    var prev = String((t && t.lastMessagePreview) || "")
+      .toLowerCase()
+      .replace(/\[embed[^\]]*\]/gi, " ")
+      .replace(/\b(?:titolo|title|descrizione|description|footer|fields?)\s*:/gi, " ")
+      .replace(/\s+/g, " ")
+      .replace(/[*_#`•·:]+/g, " ")
+      .replace(/@\S+/g, "@")
+      .replace(/nessun contenuto[^\s]*/gi, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+    return prev.slice(0, 28);
+  }
+
+  function ticketSubjectCore(t) {
+    return String((t && (t.subject || t.channelName || "")) || "")
+      .toLowerCase()
+      .replace(/[^\p{L}\p{N}]+/gu, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 36);
+  }
+
+  function ticketEventCore(t) {
+    var p = String((t && t.lastMessagePreview) || "").toLowerCase();
+    if (/__chiusura__|chiusura/.test(p) && /confermato|verr\u00e0 chiuso|verra chiuso/.test(p)) {
+      return "ev:close_confirm";
+    }
+    if (/ticket claimato|__ticket claimato__/.test(p)) return "ev:claim";
+    return "";
+  }
+
+  function ticketsAreImportDup(a, b) {
+    if (!a || !b) return false;
+    if (String(a.userId || "") !== String(b.userId || "")) return false;
+    if (String(a.category || "").toLowerCase() !== String(b.category || "").toLowerCase()) return false;
+    if (Math.abs(ticketActivityMs(a) - ticketActivityMs(b)) > 60000) return false;
+    var ea = ticketEventCore(a);
+    var eb = ticketEventCore(b);
+    if (ea && eb && ea === eb) return true;
+    var pa = ticketPreviewCore(a);
+    var pb = ticketPreviewCore(b);
+    if (pa && pb && pa === pb) return true;
+    var sa = ticketSubjectCore(a);
+    var sb = ticketSubjectCore(b);
+    return Boolean(sa && sb && sa === sb);
+  }
+
+  function ticketDedupeScore(t) {
+    var msgs = Math.max(0, Number(t && t.messageCount) || 0);
+    var prev = ticketPreviewCore(t);
+    var prevScore = prev && !/nessun contenuto/i.test(prev) ? 1 : 0;
+    var num = ticketNumberValue(t);
+    var at = ticketActivityMs(t);
+    return msgs * 1e12 + prevScore * 1e10 + num * 1e6 + at;
+  }
+
+  function dedupeTicketsList(list) {
+    if (!Array.isArray(list) || list.length < 2) return Array.isArray(list) ? list : [];
+    var kept = [];
+    for (var i = 0; i < list.length; i += 1) {
+      var t = list[i];
+      if (!t) continue;
+      var hit = -1;
+      for (var j = 0; j < kept.length; j += 1) {
+        if (!ticketsAreImportDup(kept[j], t)) continue;
+        hit = j;
+        break;
+      }
+      if (hit < 0) {
+        kept.push(t);
+        continue;
+      }
+      if (ticketDedupeScore(t) > ticketDedupeScore(kept[hit])) kept[hit] = t;
+    }
+    return kept;
+  }
+
   function applyListPayload(data) {
     if (!data || !data.ok) return false;
     if (data.viewerId) state.viewerId = data.viewerId || state.viewerId;
@@ -1389,11 +1688,16 @@
         });
       }
     }
+    var rawIncomingCount = incoming.length;
+    incoming = dedupeTicketsList(incoming);
     state.tickets = sortTicketsInPlace(incoming);
     var pageSize = Math.max(5, Math.min(50, Number(data.pageSize) || Number(state.listPageSize) || 20));
     var total = Math.max(0, Number(data.total));
     if (!Number.isFinite(total)) total = state.tickets.length;
-    if (!wantsStaffInbox() && incoming.length < (Array.isArray(data.tickets) ? data.tickets.length : 0)) {
+    if (
+      (!wantsStaffInbox() && incoming.length < (Array.isArray(data.tickets) ? data.tickets.length : 0)) ||
+      incoming.length < rawIncomingCount
+    ) {
       total = state.tickets.length;
     }
     var totalPages = Math.max(1, Number(data.totalPages) || Math.ceil(total / pageSize) || 1);
@@ -1474,6 +1778,7 @@
     var forceShell = opts.forceShell === true;
     var viewSnap = state.viewMode === "staff" ? "staff" : "user";
     var reqKey = apiBase() + listQuery();
+    var haveTickets = Array.isArray(state.tickets) && state.tickets.length > 0;
     /* ticketSwitchFreeze2: dedupe solo se stesso key E promise viva; forceShell sempre fresh */
     if (
       !soft &&
@@ -1489,10 +1794,28 @@
       : (state.listLoadGen = (Number(state.listLoadGen) || 0) + 1);
     if (!soft) {
       state.listHardStartedAt = Date.now();
-      showTicketsLoadingShell(
-        wantsStaffInbox() ? "Caricamento inbox staff…" : "Caricamento ticket…",
-        { force: forceShell, watchdogMs: forceShell ? 10000 : 16000 },
-      );
+      var loadMsg = wantsStaffInbox() ? "Caricamento inbox staff…" : "Caricamento ticket…";
+      var wdMs = forceShell ? 10000 : 16000;
+      /* ticketsUiFix1: no remount skel su retry / se lista già piena (flash loop) */
+      if (isRetry || (haveTickets && !forceShell)) {
+        if (!haveTickets) {
+          showTicketsLoadingShell(loadMsg, { force: false, watchdogMs: wdMs });
+        } else {
+          try {
+            var listBusy = byId("vc-wt-list");
+            if (listBusy) {
+              listBusy.classList.add("is-refreshing");
+              listBusy.removeAttribute("data-inbox-loading");
+            }
+          } catch (eRef) {}
+          armTicketsBusyWatchdog(wdMs);
+        }
+      } else {
+        showTicketsLoadingShell(loadMsg, {
+          force: forceShell && !haveTickets,
+          watchdogMs: wdMs,
+        });
+      }
     }
     var p = fetchJson(reqKey, {
       method: "GET",
@@ -1541,7 +1864,7 @@
                 attempt: attempt + 1,
                 _retry: true,
                 _loadGen: loadGen,
-                forceShell: opts.forceShell,
+                forceShell: false,
                 skipOpen: opts.skipOpen,
               });
             });
@@ -1558,7 +1881,8 @@
                 attempt: attempt + 1,
                 _retry: true,
                 _loadGen: loadGen,
-                forceShell: opts.forceShell || (!soft && attempt >= 1),
+                /* ticketsUiFix1: retry mai forceShell (niente skel loop) */
+                forceShell: false,
                 skipOpen: opts.skipOpen,
               });
             });
@@ -1569,7 +1893,13 @@
             }).then(function () {
               if (loadGen !== state.listLoadGen) return false;
               if ((state.viewMode === "staff" ? "staff" : "user") !== viewSnap) return false;
-              return loadList({ soft: false, attempt: attempt + 1, _retry: true, _loadGen: loadGen, forceShell: opts.forceShell });
+              return loadList({
+                soft: Array.isArray(state.tickets) && state.tickets.length > 0,
+                attempt: attempt + 1,
+                _retry: true,
+                _loadGen: loadGen,
+                forceShell: false,
+              });
             });
           }
           clearTicketsBusyState();
@@ -1606,11 +1936,11 @@
             if (loadGen !== state.listLoadGen) return false;
             if ((state.viewMode === "staff" ? "staff" : "user") !== viewSnap) return false;
             return loadList({
-              soft: false,
+              soft: Array.isArray(state.tickets) && state.tickets.length > 0,
               attempt: attempt + 1,
               _retry: true,
               _loadGen: loadGen,
-              forceShell: true,
+              forceShell: false,
               skipOpen: opts.skipOpen,
             });
           });
@@ -1653,14 +1983,31 @@
           }).then(function () {
             if (loadGen !== state.listLoadGen) return false;
             if ((state.viewMode === "staff" ? "staff" : "user") !== viewSnap) return false;
-            return loadList({ soft: false, attempt: attempt + 1, _retry: true, _loadGen: loadGen, forceShell: opts.forceShell });
+            return loadList({
+              soft: Array.isArray(state.tickets) && state.tickets.length > 0,
+              attempt: attempt + 1,
+              _retry: true,
+              _loadGen: loadGen,
+              forceShell: false,
+            });
           });
         }
         clearTicketsBusyState();
         /* notifApiErr1: abort/superseded → no error toast */
         if (aborted) {
           state.tickets = state.tickets || [];
-          if (!soft) renderShell();
+          if (!soft && !(Array.isArray(state.tickets) && state.tickets.length)) renderShell();
+          return false;
+        }
+        /* ticketsUiFix1: se la lista è già dipinta, niente toast “Errore di rete” falso */
+        if (Array.isArray(state.tickets) && state.tickets.length) {
+          try {
+            refreshListPane();
+          } catch (eKeep) {
+            try {
+              renderShell();
+            } catch (eKeep2) {}
+          }
           return false;
         }
         setStatus("Errore di rete.", true);
@@ -1770,6 +2117,7 @@
       stopTicketTypingRoom();
     }
     state.selectedId = id;
+    state._msgWinStart = undefined; /* perfRoiPack2: reset window su switch ticket */
     state.composerText = loadTicketComposerDraft(id);
     state.composerImages = [];
     state.replyTo = null;
@@ -1961,6 +2309,15 @@
           restorePageScroll(yHold);
           return;
         }
+        /* ticketsUiFix1: no toast rete se chat già caricata per questo ticket */
+        if (
+          state.selectedId === id &&
+          Array.isArray(state.messages) &&
+          state.messages.length
+        ) {
+          restorePageScroll(yHold);
+          return;
+        }
         setStatus("Errore di rete.", true);
         restorePageScroll(yHold);
       });
@@ -2123,6 +2480,32 @@
     return perms;
   }
 
+  /* ticketsRailComposer1: helper spostati dal chunk (lazy) — evitano ReferenceError */
+  function isRichInput(el) {
+    return Boolean(el && el.isContentEditable);
+  }
+  function activeInputLine(before) {
+    var lines = String(before || "").split("\n");
+    return lines[lines.length - 1] || "";
+  }
+  function textBeforeCaret(el) {
+    if (!el || !isRichInput(el)) return "";
+    var sel = window.getSelection();
+    if (!sel || !sel.rangeCount) return serializeRichInput(el);
+    try {
+      var endRange = sel.getRangeAt(0);
+      var range = document.createRange();
+      range.selectNodeContents(el);
+      range.setEnd(endRange.endContainer, endRange.endOffset);
+      var frag = range.cloneContents();
+      var tmp = document.createElement("div");
+      tmp.appendChild(frag);
+      return serializeRichInput(tmp);
+    } catch (eTbc) {
+      return serializeRichInput(el);
+    }
+  }
+
   function readComposerContext(el) {
     if (!el) return null;
     var raw = "";
@@ -2159,17 +2542,26 @@
 
   function scheduleComposerSuggest(el, immediate) {
     if (!el) return;
+    function runSuggest() {
+      try {
+        var api = wtComposerApiSafe();
+        if (api && typeof api.onRichInputMaybeMention === "function") {
+          api.onRichInputMaybeMention(el);
+          return;
+        }
+      } catch (eSug) {}
+    }
     if (state.composerSuggestTimer) {
       clearTimeout(state.composerSuggestTimer);
       state.composerSuggestTimer = null;
     }
     if (immediate) {
-      onRichInputMaybeMention(el);
+      runSuggest();
       return;
     }
     state.composerSuggestTimer = setTimeout(function () {
       state.composerSuggestTimer = null;
-      onRichInputMaybeMention(el);
+      runSuggest();
     }, 60);
   }
 
@@ -2287,6 +2679,18 @@
     return state.tickets
       .map(function (t) {
         var active = t.id === state.selectedId ? " is-active" : "";
+        var previewTxt = ticketListPreviewText(t);
+        var aria =
+          "#" +
+          String(t.ticketNumber || "") +
+          " " +
+          statusLabel(t) +
+          ". " +
+          ticketDisplayName(t) +
+          ". " +
+          previewTxt +
+          ". " +
+          formatTime(t.lastMessageAt || t.createdAt);
         return (
           '<button type="button" class="vc-wt-item' +
           active +
@@ -2294,9 +2698,11 @@
           statusClass(t) +
           '" data-ticket-id="' +
           esc(t.id) +
+          '" aria-label="' +
+          esc(aria) +
           '">' +
           ticketListIconHtml() +
-          '<span class="vc-wt-item__body">' +
+          '<span class="vc-wt-item__body" aria-hidden="true">' +
           '<span class="vc-wt-item__top"><span class="vc-wt-item__num">#' +
           esc(t.ticketNumber) +
           '</span><span class="vc-wt-item__badge">' +
@@ -2306,7 +2712,7 @@
           esc(ticketDisplayName(t)) +
           "</span>" +
           '<span class="vc-wt-item__preview">' +
-          formatMessageContent(ticketListPreviewText(t), {
+          formatMessageContent(previewTxt, {
             still: true,
             singleLine: true,
             plainPreview: true,
@@ -2717,6 +3123,10 @@
     }
         raw = raw.replace(/\s*@(?:ruolo|canale)\b/gi, "");
     raw = raw.replace(/\s*#canale\b/gi, "");
+    /* ticketPreviewBleed1: mai footer/copyright sito nella preview lista */
+    raw = raw.replace(/\u00a9?\s*20\d{2}\s*Vinili\s*&\s*Caff[eè][^\n]*/gi, " ");
+    raw = raw.replace(/Tutti i diritti riservati\.?/gi, " ");
+    raw = raw.replace(/All rights reserved\.?/gi, " ");
     raw = raw.replace(/\s+/g, " ").trim();
     if (!raw || isUselessMessageContent(raw)) {
       return String((t && (t.categoryLabel || t.subject)) || "Ticket").trim();
@@ -2724,72 +3134,34 @@
     return raw.length > 120 ? raw.slice(0, 119) + "…" : raw;
   }
 
-    var UNICODE_EMOJI_SHORTCODES = {
-    white_small_square: "▫",
-    black_small_square: "▪",
-    white_medium_small_square: "◽",
-    black_medium_small_square: "◾",
-    white_medium_square: "⬜",
-    black_medium_square: "⬛",
-    white_large_square: "⬜",
-    black_large_square: "⬛",
-    small_orange_diamond: "🔸",
-    small_blue_diamond: "🔹",
-    large_orange_diamond: "🔶",
-    large_blue_diamond: "🔷",
-    arrow_forward: "▶",
-    arrow_backward: "◀",
-    arrow_up: "⬆",
-    arrow_down: "⬇",
-    arrow_right: "➡",
-    arrow_left: "⬅",
-    heavy_check_mark: "✅",
-    x: "❌",
-    warning: "⚠",
-    informational: "ℹ",
-    star: "⭐",
-    sparkles: "✨",
-    tada: "🎉",
-    wave: "👋",
-    thumbsup: "👍",
-    thumbsdown: "👎",
-    eyes: "👀",
-    lock: "🔒",
-    unlock: "🔓",
-    pencil: "✏",
-    memo: "📝",
-    clipboard: "📋",
-    speech_balloon: "💬",
-    bump: "🔨",
-  };
+    
+  /* optPass4: emoji maps lazy via __VC_WT_EMOJI */
+  var UNICODE_EMOJI_SHORTCODES = (window.__VC_WT_EMOJI && window.__VC_WT_EMOJI.UNICODE_EMOJI_SHORTCODES) || null;
+  var KNOWN_EMOJI_FALLBACKS = (window.__VC_WT_EMOJI && window.__VC_WT_EMOJI.KNOWN_EMOJI_FALLBACKS) || null;
+  function ensureTicketsEmojiMaps() {
+    if (UNICODE_EMOJI_SHORTCODES && KNOWN_EMOJI_FALLBACKS) return Promise.resolve();
+    if (window.__VC_WT_EMOJI) {
+      UNICODE_EMOJI_SHORTCODES = window.__VC_WT_EMOJI.UNICODE_EMOJI_SHORTCODES;
+      KNOWN_EMOJI_FALLBACKS = window.__VC_WT_EMOJI.KNOWN_EMOJI_FALLBACKS;
+      return Promise.resolve();
+    }
+    if (window.__VC_WT_EMOJI_LOADING) return window.__VC_WT_EMOJI_LOADING;
+    window.__VC_WT_EMOJI_LOADING = new Promise(function (resolve, reject) {
+      var s = document.createElement("script");
+      s.src = "/js/web-tickets-page-chat.20261009optPass4.js?v=20261009optPass4";
+      s.onload = function () {
+        try {
+          UNICODE_EMOJI_SHORTCODES = window.__VC_WT_EMOJI.UNICODE_EMOJI_SHORTCODES;
+          KNOWN_EMOJI_FALLBACKS = window.__VC_WT_EMOJI.KNOWN_EMOJI_FALLBACKS;
+        } catch (e0) {}
+        resolve();
+      };
+      s.onerror = function () { window.__VC_WT_EMOJI_LOADING = null; reject(new Error("wt_emoji")); };
+      (document.head || document.documentElement).appendChild(s);
+    });
+    return window.__VC_WT_EMOJI_LOADING;
+  }
 
-  var KNOWN_EMOJI_FALLBACKS = {
-    vc_ticket: { id: "1482535175283019888", name: "VC_Ticket", animated: false },
-    vcticket: { id: "1482535175283019888", name: "VC_Ticket", animated: false },
-    vc_claim: { id: "1478517202016669887", name: "VC_claim", animated: false },
-    vcclaim: { id: "1478517202016669887", name: "VC_claim", animated: false },
-    vc_close: { id: "1478517239136256020", name: "VC_close", animated: false },
-    vcclose: { id: "1478517239136256020", name: "VC_close", animated: false },
-    vc_open: { id: "1478517277279129712", name: "VC_open", animated: false },
-    vcopen: { id: "1478517277279129712", name: "VC_open", animated: false },
-    vc_file: { id: "1478515880722698300", name: "VC_file", animated: false },
-    vcfile: { id: "1478515880722698300", name: "VC_file", animated: false },
-    vc_alert: { id: "1482706673176150077", name: "VC_Alert", animated: true },
-    vcalert: { id: "1482706673176150077", name: "VC_Alert", animated: true },
-    vc_attention: { id: "1482534443632558151", name: "VC_Attention", animated: false },
-    vcattention: { id: "1482534443632558151", name: "VC_Attention", animated: false },
-    vc_arrow: { id: "1482706699365257397", name: "VC_Arrow", animated: true },
-    vcarrow: { id: "1482706699365257397", name: "VC_Arrow", animated: true },
-    vc_cross: { id: "1482532424570376253", name: "VC_Cross", animated: true },
-    vccross: { id: "1482532424570376253", name: "VC_Cross", animated: true },
-    vc_verified: { id: "1482532479637127188", name: "VC_Verified", animated: true },
-    vcverified: { id: "1482532479637127188", name: "VC_Verified", animated: true },
-    thankyou: { id: "1329504268369002507", name: "ThankYou", animated: true },
-    vc_thankyou: { id: "1330186319673950401", name: "VC_ThankYou", animated: true },
-    vcthankyou: { id: "1330186319673950401", name: "VC_ThankYou", animated: true },
-    loading: { id: "1443934440614264924", name: "loading", animated: true },
-    reportmessage: { id: "1443670575376765130", name: "reportmessage", animated: false },
-  };
 
   function resolveClaimFallbackUserId() {
     return String((state.detail && state.detail.claimedBy) || "").trim();
@@ -3368,7 +3740,9 @@
     var s = normalizeDiscordMarkup(raw);
     s = stashDiscordCustomTokens(s, stash, { still: true, size: 22, asSpans: true });
     s = replaceEmojiShortcodes(s, stash, true, 22);
-    s = replacePlainTranscriptMentions(s, stash);
+    /* composerMdPlain1: niente replacePlainTranscriptMentions qui —
+       l'overlay trasformava @nome/#… in chip menzione mentre il testo reale
+       restava plain → cursore sfalsato e "tag" fantasma. Solo markup Discord reale. */
     s = s.replace(/\[([^\]]+)\]\(\s*<?(https?:\/\/[^)\s>]+)>?\s*\)/gi, function (_m, label, url) {
       /* composerMdCaret1: span non <a> — overlay only; niente focus/navigazione sul live */
       return stash(
@@ -3519,25 +3893,44 @@
     while ((m = re.exec(s))) {
       pushText(s.slice(last, m.index));
       if (m[4]) {
+        /* composerMentionShow1: ghost = larghezza markup <@id>; label = chip @nome */
+        if (!(state.userResolveAttempted && state.userResolveAttempted[m[4]])) {
+          queueContentResolve({ userIds: [m[4]] });
+        }
         parts.push(
-          '<span class="vc-wt-md-gap vc-wt-mention vc-wt-mention--user" aria-hidden="true">@' +
+          '<span class="vc-wt-composer-mention vc-wt-composer-mention--user" aria-hidden="true">' +
+            '<span class="vc-wt-composer-mention__ghost">' +
+            esc(m[0]) +
+            "</span>" +
+            '<span class="vc-wt-composer-mention__label vc-wt-mention vc-wt-mention--user">@' +
             esc(resolveMentionName("user", m[4])) +
-            "</span>",
+            "</span></span>",
         );
       } else if (m[5]) {
         if (resolveMentionName("role", m[5]) === "ruolo") {
           queueContentResolve({ roleIds: [m[5]] });
         }
         parts.push(
-          '<span class="vc-wt-md-gap vc-wt-mention vc-wt-mention--role" aria-hidden="true">@' +
+          '<span class="vc-wt-composer-mention vc-wt-composer-mention--role" aria-hidden="true">' +
+            '<span class="vc-wt-composer-mention__ghost">' +
+            esc(m[0]) +
+            "</span>" +
+            '<span class="vc-wt-composer-mention__label vc-wt-mention vc-wt-mention--role">@' +
             esc(resolveMentionName("role", m[5])) +
-            "</span>",
+            "</span></span>",
         );
       } else if (m[6]) {
+        if (!(state.channelResolveAttempted && state.channelResolveAttempted[m[6]])) {
+          queueContentResolve({ channelIds: [m[6]] });
+        }
         parts.push(
-          '<span class="vc-wt-md-gap vc-wt-mention vc-wt-mention--channel" aria-hidden="true">#' +
+          '<span class="vc-wt-composer-mention vc-wt-composer-mention--channel" aria-hidden="true">' +
+            '<span class="vc-wt-composer-mention__ghost">' +
+            esc(m[0]) +
+            "</span>" +
+            '<span class="vc-wt-composer-mention__label vc-wt-mention vc-wt-mention--channel">#' +
             esc(resolveMentionName("channel", m[6])) +
-            "</span>",
+            "</span></span>",
         );
       } else {
         parts.push(
@@ -3552,34 +3945,102 @@
     return parts.join("");
   }
 
-  function syncComposerLivePreview(el) {
+  function composerNeedsMdLive(text) {
+    var s = String(text || "");
+    if (!s) return false;
+    /* ticketsChatLag2: overlay solo se c'è markup reale (plain typing = 0 innerHTML) */
+    return /[*_~`|>]|<(?:@!?|@&|#|a?:[A-Za-z0-9_]+:\d+)/.test(s);
+  }
+
+  function composerMdLiveTooHeavy(text) {
+    var s = String(text || "");
+    if (!s) return false;
+    /* ticketsCpu45_1 #5: niente md-live se tab nascosta / finestra non focused */
+    try {
+      if (document.visibilityState === "hidden") return true;
+      if (typeof document.hasFocus === "function" && !document.hasFocus()) return true;
+    } catch (eFocus) {}
+    /* ticketsPerfPack1: mobile o testi lunghi → niente overlay md (CPU/reflow) */
+    if (isCoarseMobile()) return true;
+    if (!composerNeedsMdLive(s)) return true;
+    if (s.length > 220) return true;
+    var nl = 0;
+    for (var i = 0; i < s.length; i += 1) {
+      if (s.charCodeAt(i) === 10) {
+        nl += 1;
+        if (nl > 8) return true;
+      }
+    }
+    return false;
+  }
+
+  function syncComposerLivePreview(el, opts) {
     if (!el) return;
     var host = el.parentElement;
     var live = host && host.classList.contains("vc-wt-composer__editor") ? host.querySelector(".vc-wt-composer__md-live") : null;
     if (!live) return;
     var text = serializeRichInput(el);
-    live.innerHTML = buildComposerLiveHtml(text);
-    syncComposerAutosize(el);
-    live.scrollTop = el.scrollTop;
-    live.scrollLeft = el.scrollLeft;
+    if (composerMdLiveTooHeavy(text)) {
+      if (el._vcMdLiveHtml !== "") {
+        el._vcMdLiveHtml = "";
+        live.innerHTML = "";
+      }
+      el.classList.remove("has-md-live");
+      syncComposerAutosize(el, opts);
+      return;
+    }
+    var html = buildComposerLiveHtml(text);
+    /* ticketsComposerLag1: skip DOM se markdown invariato */
+    if (el._vcMdLiveHtml !== html) {
+      el._vcMdLiveHtml = html;
+      live.innerHTML = html;
+    }
+    syncComposerAutosize(el, opts);
+    if (live.scrollTop !== el.scrollTop) live.scrollTop = el.scrollTop;
+    if (live.scrollLeft !== el.scrollLeft) live.scrollLeft = el.scrollLeft;
     el.classList.toggle("has-md-live", Boolean(String(text || "").trim() || richInputHasVisualTokens(el)));
   }
 
   /* composerAutoGrow1: altezza tipo Discord (sale col testo, poi scroll). */
-  function syncComposerAutosize(el) {
+  function syncComposerAutosize(el, opts) {
     if (!el || !isRichInput(el)) return;
     var host = el.parentElement;
     var live = host && host.classList.contains("vc-wt-composer__editor") ? host.querySelector(".vc-wt-composer__md-live") : null;
     var minH = 44;
     var maxH = Math.max(140, Math.min(Math.floor((window.innerHeight || 800) * 0.42), 360));
-    el.style.height = "auto";
-    if (live) {
-      live.style.height = "auto";
-      live.style.bottom = "auto";
+    var force = opts && opts.force;
+    var shrink = force || (opts && opts.shrink) || el._vcAutoGrowShrink;
+    var now = Date.now();
+    /* ticketsComposerLag1: max ~20Hz mentre digiti (prima: reflow a ogni key) */
+    if (!force && el._vcAutoGrowAt && now - el._vcAutoGrowAt < 50) {
+      el._vcAutoGrowPending = 1;
+      if (shrink) el._vcAutoGrowShrink = 1;
+      return;
     }
-    void el.offsetHeight;
+    el._vcAutoGrowAt = now;
+    el._vcAutoGrowPending = 0;
+    el._vcAutoGrowShrink = 0;
+    var prevH = Number(el._vcAutoGrowH) || 0;
+    /* ticketsPerfPack1: height:0 solo su shrink/force — grow usa scrollHeight corrente */
+    if (shrink || !prevH) {
+      el.style.height = "0px";
+      if (live) {
+        live.style.height = "0px";
+        live.style.bottom = "auto";
+      }
+    } else {
+      el.style.overflowY = "hidden";
+      if (live) live.style.overflowY = "hidden";
+    }
     var contentH = Math.max(el.scrollHeight || 0, live ? live.scrollHeight || 0 : 0, minH);
     var next = Math.min(Math.max(contentH, minH), maxH);
+    /* skip style writes se altezza stabile (±1px) */
+    if (!force && prevH && Math.abs(prevH - next) < 1.5) {
+      el.style.height = prevH + "px";
+      if (live) live.style.height = prevH + "px";
+      return;
+    }
+    el._vcAutoGrowH = next;
     el.style.height = next + "px";
     el.style.maxHeight = maxH + "px";
     el.style.overflowY = contentH > maxH ? "auto" : "hidden";
@@ -3599,6 +4060,13 @@
     el._vcMdLiveRaf = requestAnimationFrame(function () {
       el._vcMdLiveRaf = 0;
       syncComposerLivePreview(el);
+      if (el._vcAutoGrowPending) {
+        if (el._vcAutoGrowTimer) clearTimeout(el._vcAutoGrowTimer);
+        el._vcAutoGrowTimer = setTimeout(function () {
+          el._vcAutoGrowTimer = 0;
+          syncComposerAutosize(el, { force: true });
+        }, 48);
+      }
     });
   }
 
@@ -4038,9 +4506,20 @@
           state.linkCache[url] = links[url];
           if (JSON.stringify(prevL || null) !== JSON.stringify(links[url] || null)) linksChanged = true;
         });
-                if (linksChanged || avatarsChanged || namesChanged) {
-          refreshListPane();
+                if (linksChanged) {
+          /* embed/link preview: serve rebuild */
           refreshChatLogMarkup();
+        } else if (namesChanged) {
+          /* ticketsChatLag2: patch label in-place — no remount chat lunga */
+          refreshMentionTokenLabels();
+        }
+        if (avatarsChanged && !linksChanged) {
+          try {
+            wakeTicketAvatars(byId("vc-wt-chat-log"));
+          } catch (eAv) {}
+        }
+        if (linksChanged || avatarsChanged || namesChanged) {
+          refreshListPane();
         }
       })
       .catch(function () {
@@ -4114,6 +4593,7 @@
     wireMessageTools(log);
     wireEmojiImgFallback(log);
     freezeTicketsAnimatedMedia(log);
+    wakeTicketAvatars(log);
     scrollChatBottom(false);
   }
 
@@ -4125,6 +4605,16 @@
   }
 
   function formatMessageContent(content, opts) {
+    if (!UNICODE_EMOJI_SHORTCODES || !KNOWN_EMOJI_FALLBACKS) {
+      try { ensureTicketsEmojiMaps(); } catch (eE) {}
+      if (window.__VC_WT_EMOJI) {
+        UNICODE_EMOJI_SHORTCODES = window.__VC_WT_EMOJI.UNICODE_EMOJI_SHORTCODES;
+        KNOWN_EMOJI_FALLBACKS = window.__VC_WT_EMOJI.KNOWN_EMOJI_FALLBACKS;
+      }
+      if (!UNICODE_EMOJI_SHORTCODES) UNICODE_EMOJI_SHORTCODES = {};
+      if (!KNOWN_EMOJI_FALLBACKS) KNOWN_EMOJI_FALLBACKS = {};
+    }
+
     opts = opts || {};
     var still = opts.still === true;
     var singleLine = opts.singleLine === true;
@@ -4241,7 +4731,8 @@
       /* ticketsCpuHard3: mai emoji animate in chat (CPU continuo) */
       var wantAnimated = false;
       void isAnimated;
-      var size = still ? 32 : 48;
+      /* ticketMsgEmojiFlat1: size CDN allineato a inline 1.15em (48 sembrava “cerchio grosso”) */
+      var size = still ? 24 : 32;
       var url =
         window.VcEmojiPicker && typeof window.VcEmojiPicker.customUrl === "function"
           ? window.VcEmojiPicker.customUrl(eid, wantAnimated, size)
@@ -4310,6 +4801,22 @@
     return ids.indexOf(String(state.viewerId || "")) >= 0;
   }
 
+  /* ticketsCpu45_1 #4: confronto reactions senza JSON.stringify (quiet poll thread lunghi) */
+  function reactionsFingerprint(reactions) {
+    if (!reactions || !reactions.length) return "";
+    var parts = [];
+    for (var i = 0; i < reactions.length; i += 1) {
+      var r = reactions[i];
+      if (!r) continue;
+      var emojiKey = r.emojiId
+        ? "id:" + String(r.emojiId)
+        : "n:" + String(r.emoji || r.name || "");
+      var count = r.count != null ? Number(r.count) || 0 : Array.isArray(r.userIds) ? r.userIds.length : 0;
+      parts.push(emojiKey + ":" + count + ":" + (reactionMe(r) ? "1" : "0"));
+    }
+    return parts.join("|");
+  }
+
   function resolveReactionName(userId) {
     var id = String(userId || "");
     if (!id) return "Utente";
@@ -4362,13 +4869,13 @@
       label =
         '<img class="vc-wt-reaction__emoji" src="' +
         esc(reactionUrl) +
-        '" data-vc-emoji-id="' +
+        '" data-vc-avatar="0" data-vc-emoji-id="' +
         esc(emojiId) +
         '" data-vc-emoji-animated="' +
         (animated ? "1" : "0") +
         '" alt=":' +
         esc(r.name || "emoji") +
-        ':" loading="lazy" decoding="async" />';
+        ':" width="16" height="16" loading="lazy" decoding="async" />';
     } else {
       label = '<span class="vc-wt-reaction__emoji">' + esc(r.emoji || "") + "</span>";
     }
@@ -4844,7 +5351,7 @@
       '" data-msg-id="' +
       esc(m.id) +
       '">' +
-      avatarHtml(resolveMessageAvatarUrl(m), displayMessageAuthorName(m), "vc-wt-msg__avatar") +
+      avatarHtml(resolveMessageAvatarUrl(m), displayMessageAuthorName(m), "vc-wt-msg__avatar", m.authorId) +
       '<div class="vc-wt-msg__main">' +
       '<div class="vc-wt-msg__stack">' +
       '<div class="vc-wt-msg__bubble">' +
@@ -5146,7 +5653,7 @@
       '<button type="button" class="vc-wt-composer__emoji" id="vc-wt-composer-emoji" title="Emoji" aria-label="Emoji"><i class="fa fa-smile-o" aria-hidden="true"></i></button>' +
       '<div class="vc-wt-composer__editor">' +
       '<div class="vc-wt-composer__md-live" aria-hidden="true"></div>' +
-      '<div id="vc-wt-composer-text" class="vc-wt-composer__input" contenteditable="plaintext-only" role="textbox" aria-multiline="true" enterkeyhint="send" data-placeholder="' +
+      '<div id="vc-wt-composer-text" class="vc-wt-composer__input" contenteditable="true" role="textbox" aria-multiline="true" enterkeyhint="send" data-placeholder="' +
       esc(
         (state.detail && state.detail.permissions && state.detail.permissions.canUseCommands
           ? "Scrivi un messaggio… (@ utenti, # canali, +desc / /partnership)"
@@ -5386,11 +5893,38 @@
     }
     var closed = state.detail.status === "closed";
     var pendingOpen = Boolean(state.detail._openPending) && !(state.messages && state.messages.length);
-    var logHtml = pendingOpen
-      ? '<div class="vc-wt-chat-loading" aria-busy="true" aria-live="polite">' +
+    var logHtml;
+    if (pendingOpen) {
+      logHtml =
+        '<div class="vc-wt-chat-loading" aria-busy="true" aria-live="polite">' +
         '<span class="vc-wt-chat-loading__spin" aria-hidden="true"></span>' +
-        "<p>Caricamento messaggi…</p></div>"
-      : state.messages.map(messageHtml).join("");
+        "<p>Caricamento messaggi…</p></div>";
+    } else {
+      /* perfRoiPack2: window ultimi N messaggi (DOM bound); load older espande */
+      /* loadSyncPack1: marker */
+      var MSG_WIN = 80;
+      var allMsgs = state.messages || [];
+      var winStart =
+        Number.isFinite(state._msgWinStart) && state._msgWinStart >= 0
+          ? Math.min(state._msgWinStart, Math.max(0, allMsgs.length - 1))
+          : Math.max(0, allMsgs.length - MSG_WIN);
+      /* loadSyncPack1: trim older end if window grew beyond MSG_WIN*2 */
+      var maxWin = MSG_WIN * 2;
+      if (allMsgs.length - winStart > maxWin) {
+        winStart = allMsgs.length - maxWin;
+      }
+      state._msgWinStart = winStart;
+      var slice = allMsgs.slice(winStart);
+      var older =
+        winStart > 0
+          ? '<div class="vc-wt-chat-load-older">' +
+            '<button type="button" class="vc-wt-chat-load-older__btn" data-act="load-older-msgs">' +
+            "Carica messaggi precedenti (" +
+            String(winStart) +
+            ")</button></div>"
+          : "";
+      logHtml = older + slice.map(messageHtml).join("");
+    }
     return (
       '<div class="vc-wt-chat' +
       (closed ? " vc-wt-chat--closed" : "") +
@@ -5416,6 +5950,122 @@
       if (menu) menu.hidden = true;
       if (btn) btn.setAttribute("aria-expanded", "false");
     });
+  }
+
+  /* ticketsConsoleFix1: composer lazy — stub safe prima del chunk (no ReferenceError) */
+  function wtComposerApiSafe() {
+    try {
+      return (
+        (window.__VC_WT_COMPOSER_HOST && window.__VC_WT_COMPOSER_HOST._api) ||
+        window.__vcWtComposerApi ||
+        null
+      );
+    } catch (eApi) {
+      return null;
+    }
+  }
+  function hideMentionMenu() {
+    var api = wtComposerApiSafe();
+    if (api && typeof api.hideMentionMenu === "function") {
+      api.hideMentionMenu();
+      return;
+    }
+    try {
+      if (state.mentionMenu) {
+        state.mentionMenu.open = false;
+        state.mentionMenu.items = [];
+        state.mentionMenu.index = 0;
+        state.mentionMenu.q = "";
+      }
+      var menu = byId("vc-wt-mention-menu");
+      if (menu) {
+        menu.hidden = true;
+        menu.innerHTML = "";
+      }
+    } catch (eMm) {}
+  }
+  function hideCommandMenu() {
+    var api = wtComposerApiSafe();
+    if (api && typeof api.hideCommandMenu === "function") {
+      api.hideCommandMenu();
+      return;
+    }
+    try {
+      if (state.commandMenu) {
+        state.commandMenu.open = false;
+        state.commandMenu.items = [];
+        state.commandMenu.index = 0;
+        state.commandMenu.q = "";
+      }
+      var menu = byId("vc-wt-command-menu");
+      if (menu) {
+        menu.hidden = true;
+        menu.innerHTML = "";
+      }
+    } catch (eCm) {}
+  }
+  function hideReactionTipPortal() {
+    var api = wtComposerApiSafe();
+    if (api && typeof api.hideReactionTipPortal === "function") {
+      api.hideReactionTipPortal();
+      return;
+    }
+    try {
+      var tip = byId("vc-wt-reaction-tip");
+      if (tip && tip.parentNode) tip.parentNode.removeChild(tip);
+    } catch (eRt) {}
+  }
+  function serializeRichInput(el) {
+    var api = wtComposerApiSafe();
+    if (api && typeof api.serializeRichInput === "function") return api.serializeRichInput(el);
+    if (!el) return "";
+    try {
+      if (el.isContentEditable || (el.getAttribute && el.getAttribute("contenteditable"))) {
+        return String(el.innerText || el.textContent || "").replace(/\u00a0/g, " ");
+      }
+    } catch (eSer) {}
+    return String(el.value || "");
+  }
+  function fillRichInput(el, text) {
+    var api = wtComposerApiSafe();
+    if (api && typeof api.fillRichInput === "function") {
+      api.fillRichInput(el, text);
+      return;
+    }
+    if (!el) return;
+    var s = String(text || "");
+    try {
+      if (el.isContentEditable || (el.getAttribute && el.getAttribute("contenteditable"))) {
+        el.textContent = s;
+        try {
+          el.classList.toggle("is-empty", !s);
+        } catch (eCls) {}
+        return;
+      }
+    } catch (eFill) {}
+    try {
+      el.value = s;
+    } catch (eVal) {}
+  }
+  function applyMentionPick(item) {
+    var api = wtComposerApiSafe();
+    if (api && typeof api.applyMentionPick === "function") api.applyMentionPick(item);
+  }
+  function applyCommandPick(item) {
+    var api = wtComposerApiSafe();
+    if (api && typeof api.applyCommandPick === "function") api.applyCommandPick(item);
+  }
+  function renderMentionMenu() {
+    var api = wtComposerApiSafe();
+    if (api && typeof api.renderMentionMenu === "function") api.renderMentionMenu();
+  }
+  function renderCommandMenu() {
+    var api = wtComposerApiSafe();
+    if (api && typeof api.renderCommandMenu === "function") api.renderCommandMenu();
+  }
+  function syncFloatingMenus() {
+    var api = wtComposerApiSafe();
+    if (api && typeof api.syncFloatingMenus === "function") api.syncFloatingMenus();
   }
 
   function dismissFloatingUi() {
@@ -5495,6 +6145,22 @@
         chatPaneHtml() +
         "</section></div></div>";
       wireAll();
+      /* ticketsUiPack1: sticky filtri dopo paint (MO da solo poteva arrivare prima) */
+      try {
+        document.dispatchEvent(new CustomEvent("vc:tickets-ready"));
+      } catch (eReady) {}
+      try {
+        if (window.VcStickyChrome && typeof window.VcStickyChrome.scan === "function") {
+          window.VcStickyChrome.scan();
+        }
+      } catch (eScan) {}
+      window.setTimeout(function () {
+        try {
+          if (window.VcStickyChrome && typeof window.VcStickyChrome.scan === "function") {
+            window.VcStickyChrome.scan();
+          }
+        } catch (eScan2) {}
+      }, 120);
     });
   }
 
@@ -5738,15 +6404,52 @@
             }
             return;
           }
-          state.composeOpen = true;
-          clearTicketSelection();
-          state.composeOpen = true;
-          renderShell();
+          var openCompose = function () {
+            state.composeOpen = true;
+            clearTicketSelection();
+            state.composeOpen = true;
+            renderShell();
+          };
+          /* ticketPushGate1: staff skip; utenti devono attivare push */
+          if (isStaffMode) {
+            openCompose();
+            return;
+          }
+          if (
+            window.VcTicketsPushGate &&
+            typeof window.VcTicketsPushGate.ensureReady === "function"
+          ) {
+            window.VcTicketsPushGate.ensureReady().then(function (ok) {
+              if (ok) openCompose();
+            });
+            return;
+          }
+          openCompose();
           return;
         }
         if (act === "cancel-compose") {
           state.composeOpen = false;
           renderShell();
+          return;
+        }
+        /* perfRoiPack2: espandi window messaggi (load older) */
+        if (act === "load-older-msgs") {
+          try {
+            var logEl = byId("vc-wt-chat-log");
+            var prevH = logEl ? Number(logEl.scrollHeight) || 0 : 0;
+            var prevTop = logEl ? Number(logEl.scrollTop) || 0 : 0;
+            var curStart = Number.isFinite(state._msgWinStart) ? state._msgWinStart : 0;
+            state._msgWinStart = Math.max(0, curStart - 80);
+            renderShell();
+            window.requestAnimationFrame(function () {
+              try {
+                var log2 = byId("vc-wt-chat-log");
+                if (!log2) return;
+                var nextH = Number(log2.scrollHeight) || 0;
+                log2.scrollTop = Math.max(0, prevTop + (nextH - prevH));
+              } catch (eScr) {}
+            });
+          } catch (eOlder) {}
           return;
         }
         if (act === "claim") return postAction("/claim", null, y);
@@ -5938,7 +6641,7 @@
         cancelLabel: "Annulla",
         icon: "fa-handshake-o",
         multiline: true,
-        maxLength: 1800,
+        maxLength: 4000,
       }).then(function (value) {
         if (value === null) return null;
         var s = String(value || "").trim();
@@ -5991,6 +6694,7 @@
       : pickTicketUser({
           title: "Manager partnership",
           message: "Come su Discord: scegli l’utente manager della partnership.",
+          guildSearch: true,
         });
     return managerPromise
       .then(function (managerId) {
@@ -6148,7 +6852,7 @@
               '<button type="button" class="vc-wt-user-pick__row" data-user-id="' +
               esc(u.id) +
               '">' +
-              avatarHtml(u.avatarUrl, u.name, "vc-wt-user-pick__av") +
+              avatarHtml(u.avatarUrl, u.name, "vc-wt-user-pick__av", u.id) +
               "<span><strong>" +
               esc(u.name || "Utente") +
               "</strong><small>" +
@@ -6157,6 +6861,10 @@
             );
           })
           .join("");
+        wakeTicketAvatars(list);
+        window.requestAnimationFrame(function () {
+          wakeTicketAvatars(list);
+        });
       }
       function search(q) {
         var url =
@@ -6199,2472 +6907,324 @@
     });
   }
 
+  /* ticketsComposerLazy1: composer/interact → web-tickets-page-composer.js */
+  function ensureWtComposerHost() {
+    if (window.__VC_WT_COMPOSER_HOST && window.__VC_WT_COMPOSER_HOST.__vcReady) {
+      return window.__VC_WT_COMPOSER_HOST;
+    }
+    var host = {
+      __vcReady: 1,
+      state: state,
+      addComposerMediaFiles: addComposerMediaFiles,
+      apiActionFailed: apiActionFailed,
+      apiBase: apiBase,
+      apiErrorText: apiErrorText,
+      appendMessage: appendMessage,
+      authHeaders: authHeaders,
+      avatarHtml: avatarHtml,
+      byId: byId,
+      capturePageScrollY: capturePageScrollY,
+      chatHeadHtml: chatHeadHtml,
+      clearReplyTarget: clearReplyTarget,
+      composerHtml: composerHtml,
+      composerLockedReason: composerLockedReason,
+      dismissFloatingUi: dismissFloatingUi,
+      effectivePermissions: effectivePermissions,
+      esc: esc,
+      fetchJson: fetchJson,
+      getToken: getToken,
+      jumpToMessage: jumpToMessage,
+      mergeTicketDetail: mergeTicketDetail,
+      messageHtml: messageHtml,
+      pulseTicketTyping: pulseTicketTyping,
+      queueContentResolve: queueContentResolve,
+      ratingDockHtml: ratingDockHtml,
+      readComposerContext: readComposerContext,
+      refreshChatLogMarkup: refreshChatLogMarkup,
+      refreshChatPane: refreshChatPane,
+      refreshListPane: refreshListPane,
+      refreshTicketInList: refreshTicketInList,
+      rememberMentionName: rememberMentionName,
+      rememberStaffRole: rememberStaffRole,
+      renderPreviews: renderPreviews,
+      renderShell: renderShell,
+      resolveMentionName: resolveMentionName,
+      restorePageScroll: restorePageScroll,
+      runPartnershipCommandFlow: runPartnershipCommandFlow,
+      saveTicketComposerDraft: saveTicketComposerDraft,
+      scheduleComposerLivePreview: scheduleComposerLivePreview,
+      scheduleComposerSuggest: scheduleComposerSuggest,
+      scheduleSaveTicketComposerDraft: scheduleSaveTicketComposerDraft,
+      scrollChatBottom: scrollChatBottom,
+      sendMessage: sendMessage,
+      setStatus: setStatus,
+      startReplyToMessage: startReplyToMessage,
+      stillDiscordMediaUrl: stillDiscordMediaUrl,
+      freezeTicketsAnimatedMedia: freezeTicketsAnimatedMedia,
+      syncComposerAutosize: syncComposerAutosize,
+      syncComposerReplyBar: syncComposerReplyBar,
+      wakeTicketAvatars: wakeTicketAvatars,
+      wireChatActions: wireChatActions,
+      wireEmojiImgFallback: wireEmojiImgFallback,
+      withPageScrollPreserved: withPageScrollPreserved,
+      ensureTicketsEmojiMaps: ensureTicketsEmojiMaps,
+      _api: null,
+      install: function (api) {
+        host._api = api || null;
+        try { window.__vcWtComposerApi = api; } catch (eA) {}
+      },
+    };
+    window.__VC_WT_COMPOSER_HOST = host;
+    return host;
+  }
+  function ensureEmojiPickerScript() {
+    if (window.VcEmojiPicker) return Promise.resolve(window.VcEmojiPicker);
+    if (window.__vcEmojiPickerLoading) return window.__vcEmojiPickerLoading;
+    window.__vcEnsureEmojiPickerScript = ensureEmojiPickerScript;
+    window.__vcEmojiPickerLoading = new Promise(function (resolve, reject) {
+      var ver = "20261009emojiAnchorPos1";
+      try {
+        var m = window.__VC_ASSET_VERS;
+        if (m && m.EMOJI_PICKER_VER) ver = String(m.EMOJI_PICKER_VER);
+      } catch (eV) {}
+      var existing = document.querySelector('script[src*="vc-emoji-picker"]');
+      if (existing) {
+        var tries = 0;
+        var poll = setInterval(function () {
+          tries += 1;
+          if (window.VcEmojiPicker) {
+            clearInterval(poll);
+            window.__vcEmojiPickerLoading = null;
+            resolve(window.VcEmojiPicker);
+            return;
+          }
+          if (tries >= 80) {
+            clearInterval(poll);
+            window.__vcEmojiPickerLoading = null;
+            reject(new Error("emoji-picker"));
+          }
+        }, 50);
+        return;
+      }
+      var s = document.createElement("script");
+      s.src = "/js/vc-emoji-picker.js?v=" + ver;
+      s.async = true;
+      s.onload = function () {
+        window.__vcEmojiPickerLoading = null;
+        resolve(window.VcEmojiPicker || null);
+      };
+      s.onerror = function () {
+        window.__vcEmojiPickerLoading = null;
+        reject(new Error("emoji-picker"));
+      };
+      (document.body || document.documentElement).appendChild(s);
+    });
+    return window.__vcEmojiPickerLoading;
+  }
+
+  function ensureWtComposerChunk() {
+    if (window.__VC_WT_COMPOSER_CHUNK) {
+      return Promise.resolve(window.__vcWtComposerApi || null);
+    }
+    if (window.__vcWtComposerLoading) return window.__vcWtComposerLoading;
+    ensureWtComposerHost();
+    window.__vcWtComposerLoading = new Promise(function (resolve, reject) {
+      var ver = "20261016lazyEverywhere1";
+      try {
+        var m = window.__VC_ASSET_VERS;
+        if (m && m.WT_COMPOSER_VER) ver = String(m.WT_COMPOSER_VER);
+      } catch (eV) {}
+      var s = document.createElement("script");
+      s.src = "/js/web-tickets-page-composer." + ver + ".js?v=" + ver;
+      s.async = true;
+      s.onload = function () {
+        window.__vcWtComposerLoading = null;
+        resolve(window.__vcWtComposerApi || null);
+      };
+      s.onerror = function () {
+        window.__vcWtComposerLoading = null;
+        try { console.warn("[vc] wt-composer chunk failed"); } catch (eW) {}
+        reject(new Error("wt-composer"));
+      };
+      (document.body || document.documentElement).appendChild(s);
+    });
+    return window.__vcWtComposerLoading;
+  }
+
+  function armComposerLazyOnInteract() {
+    if (window.__vcWtComposerArm) return;
+    window.__vcWtComposerArm = 1;
+    function wake() {
+      try {
+        ensureWtComposerChunk().catch(function () {});
+      } catch (eC) {}
+      try {
+        ensureEmojiPickerScript().catch(function () {});
+      } catch (eP) {}
+    }
+    document.addEventListener(
+      "pointerdown",
+      function (ev) {
+        try {
+          var t = ev.target;
+          if (!t || !t.closest) return;
+          if (
+            t.closest(
+              "#vc-wt-composer, .vc-wt-composer, [data-react-add], [data-msg-edit], [data-vc-emoji-open], .vc-wt-composer__emoji",
+            )
+          ) {
+            wake();
+          }
+        } catch (ePd) {}
+      },
+      true,
+    );
+    document.addEventListener(
+      "focusin",
+      function (ev) {
+        try {
+          var t = ev.target;
+          if (!t || !t.closest) return;
+          if (t.closest("#vc-wt-composer, .vc-wt-composer")) wake();
+        } catch (eFi) {}
+      },
+      true,
+    );
+  }
+  function wtComposerApi() {
+    return (
+      (window.__VC_WT_COMPOSER_HOST && window.__VC_WT_COMPOSER_HOST._api) ||
+      window.__vcWtComposerApi ||
+      null
+    );
+  }
   function ensureGuildEmojis() {
-    if (state.guildEmojisLoaded) return Promise.resolve(state.guildEmojis);
-    if (state.guildEmojisLoading) {
-      return new Promise(function (resolve) {
-        var n = 0;
-        var t = setInterval(function () {
-          n += 1;
-          if (state.guildEmojisLoaded || n > 40) {
-            clearInterval(t);
-            resolve(state.guildEmojis);
-          }
-        }, 100);
-      });
-    }
-    state.guildEmojisLoading = true;
-    return fetchJson(apiBase() + "/emojis", { headers: authHeaders(false) })
-      .then(function (out) {
-        state.guildEmojisLoading = false;
-        state.guildEmojisLoaded = true;
-        state.guildEmojis =
-          out.data && out.data.ok && Array.isArray(out.data.emojis) ? out.data.emojis : [];
-        if (out.data && out.data.guildId) state.guildId = String(out.data.guildId);
-        refreshEmojiDependentUi();
-        return state.guildEmojis;
-      })
-      .catch(function () {
-        state.guildEmojisLoading = false;
-        state.guildEmojisLoaded = true;
-        state.guildEmojis = [];
-        return state.guildEmojis;
-      });
+    return ensureWtComposerChunk().then(function () {
+      var api = wtComposerApi();
+      if (api && typeof api.ensureGuildEmojis === "function") return api.ensureGuildEmojis();
+      return [];
+    });
   }
-
   function refreshEmojiDependentUi() {
-    refreshListPane();
-    if (state.messages && state.messages.length && byId("vc-wt-chat-log")) {
-      refreshChatLogMarkup();
-    }
-  }
-
-  function isRichInput(el) {
-    return Boolean(el && el.isContentEditable);
-  }
-
-  function customEmojiUrl(id, animated, size) {
-    var sz = size || 32;
-    /* ticketsCpuHard3: ignore animated flag */
-    if (window.VcEmojiPicker && typeof window.VcEmojiPicker.customUrl === "function") {
-      return window.VcEmojiPicker.customUrl(id, false, sz);
-    }
-    return "https://cdn.discordapp.com/emojis/" + id + ".webp?size=" + sz;
-  }
-
-  function freezeTicketsAnimatedMedia(root) {
-    try {
-      var imgs;
-      if (root && root.tagName === "IMG") {
-        imgs = [root];
-      } else {
-        var scope = root && root.querySelectorAll ? root : document;
-        imgs = scope.querySelectorAll("img");
-      }
-      for (var i = 0; i < imgs.length; i += 1) {
-        var img = imgs[i];
-        if (!img || img.getAttribute("data-vc-tickets-still") === "1") continue;
-        var src = String(img.getAttribute("src") || img.currentSrc || "").trim();
-        if (!src) continue;
-        if (!/cdn\.discordapp\.com|media\.discordapp\.net/i.test(src)) continue;
-        if (!/\.gif(?:$|[?#])/i.test(src) && !/[?&]animated=true/i.test(src)) {
-          img.setAttribute("data-vc-tickets-still", "1");
-          continue;
-        }
-        var next = stillDiscordMediaUrl(src, 0);
-        if (next && next !== src) {
-          img.setAttribute("data-vc-avatar-static", "1");
-          img.setAttribute("src", next);
-          try {
-            img.src = next;
-          } catch (eSrc) {}
-        }
-        img.setAttribute("data-vc-tickets-still", "1");
-      }
-    } catch (eFreeze) {}
-  }
-
-  function makeEmojiTokenEl(markup, name, id, animated) {
-    var img = document.createElement("img");
-    img.className = "vc-wt-inline-emoji vc-wt-composer__emoji-token";
-    img.src = customEmojiUrl(id, animated, 32);
-    img.alt = ":" + (name || "emoji") + ":";
-    img.title = ":" + (name || "emoji") + ":";
-    img.draggable = false;
-    img.setAttribute("data-emoji-markup", String(markup || ""));
-    img.setAttribute("data-vc-emoji-id", String(id || ""));
-    img.setAttribute("data-vc-emoji-animated", animated ? "1" : "0");
-    return img;
-  }
-
-  function makeMentionTokenEl(item) {
-    var span = document.createElement("span");
-    var type =
-      item && item.type === "channel" ? "channel" : item && item.type === "role" ? "role" : "user";
-    span.className = "vc-wt-mention vc-wt-mention--" + type;
-    span.contentEditable = "false";
-    span.setAttribute("data-mention-markup", String((item && item.markup) || ""));
-    span.setAttribute("data-mention-type", type);
-    span.setAttribute("data-mention-id", String((item && item.id) || ""));
-    var label =
-      type === "channel"
-        ? "#" + String((item && item.name) || "canale")
-        : "@" + String((item && item.name) || (type === "role" ? "ruolo" : "utente"));
-    if (type === "user" && item && item.roleName) {
-      label += " · " + String(item.roleName);
-      span.classList.add("is-staff");
-      rememberStaffRole(item.id, item.roleId, item.roleName, item.roleKey);
-    }
-    span.textContent = label;
-    rememberMentionName(type, item && item.id, item && item.name);
-    return span;
-  }
-
-  function serializeRichRoot(root) {
-    if (!root) return "";
-    var out = "";
-    function walk(node) {
-      if (!node) return;
-      if (node.nodeType === 3) {
-        out += String(node.nodeValue || "");
-        return;
-      }
-      if (node.nodeType !== 1) return;
-      var mention = node.getAttribute && node.getAttribute("data-mention-markup");
-      if (mention) {
-        out += mention;
-        return;
-      }
-      var markup = node.getAttribute && node.getAttribute("data-emoji-markup");
-      if (markup) {
-        out += markup;
-        return;
-      }
-      var tag = String(node.tagName || "").toUpperCase();
-      if (tag === "BR") {
-        out += "\n";
-        return;
-      }
-      var kids = node.childNodes;
-      for (var i = 0; i < kids.length; i += 1) walk(kids[i]);
-      if ((tag === "DIV" || tag === "P") && node !== root) out += "\n";
-    }
-    walk(root);
-    return out.replace(/\u00a0/g, " ").replace(/\n{3,}/g, "\n\n").replace(/\s+$/g, "").slice(0, 2000);
-  }
-
-  function getRichCaretSerializeOffset(el) {
-    if (!el || !isRichInput(el)) return -1;
-    try {
-      var sel = window.getSelection();
-      if (!sel || !sel.rangeCount) return -1;
-      var node = sel.focusNode;
-      var off = sel.focusOffset;
-      if (!node || (node !== el && !el.contains(node))) return -1;
-      var range = document.createRange();
-      range.selectNodeContents(el);
-      range.setEnd(node, off);
-      var wrap = document.createElement("div");
-      wrap.appendChild(range.cloneContents());
-      return serializeRichRoot(wrap).length;
-    } catch (eOff) {
-      return -1;
-    }
-  }
-
-  function setRichCaretSerializeOffset(el, offset) {
-    if (!el || !isRichInput(el)) return;
-    var target = Math.max(0, Number(offset) || 0);
-    try {
-      var range = document.createRange();
-      var placed = false;
-      var seen = 0;
-      function visit(n) {
-        if (placed || !n) return;
-        if (n.nodeType === 3) {
-          var tlen = String(n.nodeValue || "").length;
-          if (seen + tlen >= target) {
-            var at = Math.max(0, Math.min(tlen, target - seen));
-            range.setStart(n, at);
-            range.collapse(true);
-            placed = true;
-            return;
-          }
-          seen += tlen;
-          return;
-        }
-        if (n.nodeType !== 1) return;
-        var mention = n.getAttribute && n.getAttribute("data-mention-markup");
-        var emoji = n.getAttribute && n.getAttribute("data-emoji-markup");
-        var tag = String(n.tagName || "").toUpperCase();
-        if (mention || emoji || tag === "BR") {
-          var tok = mention ? String(mention) : emoji ? String(emoji) : "\n";
-          var tokLen = tok.length;
-          if (seen + tokLen >= target) {
-            try {
-              range.setStartAfter(n);
-              range.collapse(true);
-              placed = true;
-            } catch (eAfter) {
-              seen += tokLen;
-            }
-            return;
-          }
-          seen += tokLen;
-          return;
-        }
-        var kids = n.childNodes;
-        for (var i = 0; i < kids.length && !placed; i += 1) visit(kids[i]);
-        if (!placed && (tag === "DIV" || tag === "P") && n !== el) seen += 1;
-      }
-      visit(el);
-      if (!placed) {
-        range.selectNodeContents(el);
-        range.collapse(false);
-      }
-      var sel = window.getSelection();
-      if (!sel) return;
-      sel.removeAllRanges();
-      sel.addRange(range);
-    } catch (eSet) {}
-  }
-
-  function unwrapComposerAutolinks(el) {
-    /* composerMdCaret1: Chrome/Safari auto-<a> dopo URL/markdown completo → caret rotto */
-    if (!el || !isRichInput(el) || !el.querySelector) return false;
-    var links = el.querySelectorAll("a");
-    if (!links.length) return false;
-    var caret = getRichCaretSerializeOffset(el);
-    for (var i = links.length - 1; i >= 0; i -= 1) {
-      var a = links[i];
-      if (!a || !a.parentNode) continue;
-      if (a.getAttribute && (a.getAttribute("data-mention-markup") || a.getAttribute("data-emoji-markup"))) {
-        continue;
-      }
-      var text = document.createTextNode(String(a.textContent || ""));
-      a.parentNode.replaceChild(text, a);
-    }
-    if (caret >= 0) setRichCaretSerializeOffset(el, caret);
-    return true;
-  }
-
-  function applyRichInputPlaintextMode(el) {
-    if (!el || !el.setAttribute) return;
-    try {
-      el.setAttribute("contenteditable", "plaintext-only");
-      if (String(el.contentEditable || "").toLowerCase() === "false") {
-        el.setAttribute("contenteditable", "true");
-      }
-    } catch (ePl) {
-      try {
-        el.setAttribute("contenteditable", "true");
-      } catch (e2) {}
-    }
-  }
-
-  function serializeRichInput(el) {
-    if (!el) return "";
-    if (!isRichInput(el)) return String(el.value || "");
-    return serializeRichRoot(el);
-  }
-
-  function fillRichInput(el, text) {
-    if (!el) return;
-    if (!isRichInput(el)) {
-      el.value = String(text || "");
-      return;
-    }
-    applyRichInputPlaintextMode(el);
-    el.innerHTML = "";
-    var s = String(text || "");
-    if (!s) {
-      el.classList.add("is-empty");
-      scheduleComposerLivePreview(el);
-      return;
-    }
-    var re = /<(a?):([a-zA-Z0-9_]+):(\d{5,32})>|<@!?(\d{5,32})>|<@&(\d{5,32})>|<#(\d{5,32})>/g;
-    var last = 0;
-    var m;
-    var frag = document.createDocumentFragment();
-    while ((m = re.exec(s))) {
-      if (m.index > last) frag.appendChild(document.createTextNode(s.slice(last, m.index)));
-      if (m[4]) {
-        frag.appendChild(
-          makeMentionTokenEl({
-            type: "user",
-            id: m[4],
-            name: resolveMentionName("user", m[4]),
-            markup: "<@" + m[4] + ">",
-          }),
-        );
-      } else if (m[5]) {
-        if (resolveMentionName("role", m[5]) === "ruolo") {
-          queueContentResolve({ roleIds: [m[5]] });
-        }
-        frag.appendChild(
-          makeMentionTokenEl({
-            type: "role",
-            id: m[5],
-            name: resolveMentionName("role", m[5]),
-            markup: "<@&" + m[5] + ">",
-          }),
-        );
-      } else if (m[6]) {
-        frag.appendChild(
-          makeMentionTokenEl({
-            type: "channel",
-            id: m[6],
-            name: resolveMentionName("channel", m[6]),
-            markup: "<#" + m[6] + ">",
-          }),
-        );
-      } else {
-        frag.appendChild(makeEmojiTokenEl(m[0], m[2], m[3], m[1] === "a"));
-      }
-      last = m.index + m[0].length;
-    }
-    if (last < s.length) frag.appendChild(document.createTextNode(s.slice(last)));
-    el.appendChild(frag);
-    el.classList.toggle("is-empty", !serializeRichInput(el));
-    wireEmojiImgFallback(el);
-    scheduleComposerLivePreview(el);
-  }
-
-  function richInputHasVisualTokens(el) {
-    return Boolean(el && el.querySelector && el.querySelector("img, .vc-wt-mention"));
-  }
-
-  function syncRichInputEmptyState(el) {
-    if (!el || !isRichInput(el)) return;
-    var text = serializeRichInput(el);
-    var empty = !String(text || "").trim() && !richInputHasVisualTokens(el);
-    if (empty) {
-      if (el.childNodes.length) el.innerHTML = "";
-      el.classList.add("is-empty");
-      if (document.activeElement === el) placeCaretInRichInput(el);
-    } else {
-      el.classList.remove("is-empty");
-    }
-  }
-
-  function placeCaretInRichInput(el) {
-    if (!el) return;
-    try {
-      try {
-        el.focus({ preventScroll: true });
-      } catch (eF) {
-        el.focus();
-      }
-      var range = document.createRange();
-      range.setStart(el, 0);
-      range.collapse(true);
-      var sel = window.getSelection();
-      if (!sel) return;
-      sel.removeAllRanges();
-      sel.addRange(range);
-    } catch (e) {}
-  }
-
-  function placeCaretAtEnd(el) {
-    if (!el) return;
-    try {
-      try {
-        el.focus({ preventScroll: true });
-      } catch (eF) {
-        el.focus();
-      }
-      var range = document.createRange();
-      if (!el.childNodes.length) {
-        range.setStart(el, 0);
-        range.collapse(true);
-      } else {
-        range.selectNodeContents(el);
-        range.collapse(false);
-      }
-      var sel = window.getSelection();
-      sel.removeAllRanges();
-      sel.addRange(range);
-    } catch (e) {}
-  }
-
-  function insertAtCursor(el, text, pick) {
-    if (!el) return;
-    var insert = String(text || "");
-    if (!isRichInput(el)) {
-      var value = String(el.value || "");
-      var start = typeof el.selectionStart === "number" ? el.selectionStart : value.length;
-      var end = typeof el.selectionEnd === "number" ? el.selectionEnd : value.length;
-      var next = value.slice(0, start) + insert + value.slice(end);
-      if (next.length > 2000) next = next.slice(0, 2000);
-      el.value = next;
-      var caret = Math.min(2000, start + insert.length);
-      try {
-        el.focus();
-        el.setSelectionRange(caret, caret);
-      } catch (e2) {}
-      el.dispatchEvent(new Event("input", { bubbles: true }));
-      return;
-    }
-
-    el.focus();
-    var sel = window.getSelection();
-    if (!sel || !sel.rangeCount) placeCaretAtEnd(el);
-    sel = window.getSelection();
-    if (!sel || !sel.rangeCount) return;
-    var range = sel.getRangeAt(0);
-    if (!el.contains(range.commonAncestorContainer) && range.commonAncestorContainer !== el) {
-      placeCaretAtEnd(el);
-      sel = window.getSelection();
-      range = sel.getRangeAt(0);
-    }
-    range.deleteContents();
-
-    var node = null;
-    if (pick && pick.type === "custom" && pick.markup) {
-      var cm = String(pick.markup).match(/^<(a?):([a-zA-Z0-9_]+):(\d{5,32})>$/);
-      if (cm) {
-        node = makeEmojiTokenEl(pick.markup, cm[2] || pick.name, cm[3] || pick.id, cm[1] === "a" || pick.animated);
-      }
-    }
-    if (!node && insert) {
-      var custom = insert.match(/^<(a?):([a-zA-Z0-9_]+):(\d{5,32})>$/);
-      if (custom) {
-        node = makeEmojiTokenEl(insert, custom[2], custom[3], custom[1] === "a");
-      } else {
-        node = document.createTextNode(insert);
-      }
-    }
-    if (!node) return;
-
-    var piece =
-      (node.getAttribute && node.getAttribute("data-emoji-markup")) ||
-      String(node.nodeValue || "");
-    if (serializeRichInput(el).length + String(piece).length > 2000) return;
-
-    range.insertNode(node);
-    range.setStartAfter(node);
-    range.collapse(true);
-    sel.removeAllRanges();
-    sel.addRange(range);
-    el.classList.remove("is-empty");
-    if (node.tagName === "IMG") wireEmojiImgFallback(el);
-    el.dispatchEvent(new Event("input", { bubbles: true }));
-  }
-
-  function textBeforeCaret(el) {
-    if (!el || !isRichInput(el)) return "";
-    var sel = window.getSelection();
-    if (!sel || !sel.rangeCount) return serializeRichInput(el);
-    try {
-      var endRange = sel.getRangeAt(0);
-      var range = document.createRange();
-      range.selectNodeContents(el);
-      range.setEnd(endRange.endContainer, endRange.endOffset);
-      var frag = range.cloneContents();
-      var tmp = document.createElement("div");
-      tmp.appendChild(frag);
-      return serializeRichInput(tmp);
-    } catch (e) {
-      return serializeRichInput(el);
-    }
-  }
-
-  function textAfterCaret(el) {
-    if (!el || !isRichInput(el)) return "";
-    var sel = window.getSelection();
-    if (!sel || !sel.rangeCount) return "";
-    try {
-      var range = sel.getRangeAt(0).cloneRange();
-      range.selectNodeContents(el);
-      range.setStart(sel.getRangeAt(0).endContainer, sel.getRangeAt(0).endOffset);
-      return String(range.toString() || "");
-    } catch (e2) {
-      return "";
-    }
-  }
-
-  function ensureMentionMenu() {
-    var menu = byId("vc-wt-mention-menu");
-    if (menu && menu.parentElement !== document.body) {
-      document.body.appendChild(menu);
-    }
-    if (menu) return menu;
-    menu = document.createElement("div");
-    menu.id = "vc-wt-mention-menu";
-    menu.className = "vc-wt-mention-menu";
-    menu.hidden = true;
-    menu.setAttribute("role", "listbox");
-    menu.setAttribute("aria-label", "Menzioni");
-    document.body.appendChild(menu);
-    return menu;
-  }
-
-  function ensureCommandMenu() {
-    var menu = byId("vc-wt-command-menu");
-    if (menu && menu.parentElement !== document.body) {
-      document.body.appendChild(menu);
-    }
-    if (menu) return menu;
-    menu = document.createElement("div");
-    menu.id = "vc-wt-command-menu";
-    menu.className = "vc-wt-command-menu";
-    menu.hidden = true;
-    menu.setAttribute("role", "listbox");
-    menu.setAttribute("aria-label", "Comandi staff");
-    document.body.appendChild(menu);
-    return menu;
-  }
-
-  function botCommandPrefix() {
-    return String(state.commandPrefix || "+");
-  }
-
-  function composerMenuAnchor(el) {
-    if (!el) return null;
-    if (el.closest) {
-      var row = el.closest(".vc-wt-composer__row");
-      if (row) return row;
-      var form = el.closest(".vc-wt-composer");
-      if (form) return form;
-    }
-    return el;
-  }
-
-  function floatingMenuViewport() {
-    try {
-      var vv = window.visualViewport;
-      if (vv && typeof vv.height === "number" && vv.height > 0) {
-        return {
-          top: Number(vv.offsetTop) || 0,
-          left: Number(vv.offsetLeft) || 0,
-          width: Number(vv.width) || window.innerWidth || 0,
-          height: Number(vv.height) || window.innerHeight || 0,
-        };
-      }
-    } catch (eVv) {}
-    return {
-      top: 0,
-      left: 0,
-      width: window.innerWidth || 0,
-      height: window.innerHeight || 0,
-    };
-  }
-
-  function floatingMenuLayoutHeight() {
-    try {
-      var docH = document.documentElement && document.documentElement.clientHeight;
-      if (docH && docH > 0) return docH;
-    } catch (eDoc) {}
-    return window.innerHeight || 0;
-  }
-
-  /* ticketComposerEmptyMenu1: empty /+/#/@ menu height must not inflate to 140 */
-  function positionFloatingMenu(menu, el, maxHeight) {
-    if (!menu || !el || menu.hidden) return;
-    var inputRect = el.getBoundingClientRect();
-    var widthAnchor = composerMenuAnchor(el) || el;
-    var widthRect = widthAnchor.getBoundingClientRect();
-    var vp = floatingMenuViewport();
-    var layoutH = floatingMenuLayoutHeight();
-    var gap = 8;
-    var visibleTop = vp.top + gap;
-    var visibleBottom = vp.top + vp.height - gap;
-    var spaceAbove = Math.max(0, inputRect.top - visibleTop);
-    var spaceBelow = Math.max(0, visibleBottom - inputRect.bottom);
-    var wantMax = maxHeight || 280;
-    var keyboardOpen = layoutH > 0 && vp.height > 0 && vp.height < layoutH * 0.85;
-    var preferAbove =
-      keyboardOpen || spaceAbove >= Math.min(120, wantMax) || spaceAbove >= spaceBelow;
-    if (preferAbove && spaceAbove < 72 && spaceBelow > spaceAbove + 24) {
-      preferAbove = false;
-    }
-    var room = Math.max(0, (preferAbove ? spaceAbove : spaceBelow) - gap);
-    var maxH = Math.min(wantMax, Math.max(96, room || 96));
-    var width = Math.min(
-      Math.max(widthRect.width || inputRect.width || 240, 240),
-      Math.max(200, vp.width - gap * 2),
-    );
-    var left = Math.max(
-      vp.left + gap,
-      Math.min(widthRect.left, vp.left + vp.width - width - gap),
-    );
-    menu.style.position = "fixed";
-    menu.style.zIndex = "200000";
-    menu.style.left = Math.round(left) + "px";
-    menu.style.width = Math.round(width) + "px";
-    menu.style.maxWidth = Math.round(vp.width - gap * 2) + "px";
-    menu.style.bottom = "auto";
-    menu.style.maxHeight = Math.round(maxH) + "px";
-    menu.style.visibility = "hidden";
-    menu.style.opacity = "0";
-    menu.style.pointerEvents = "none";
-    /* Misura altezza reale del contenuto (1 riga ≠ maxH) così non fluttua a metà chat.
-       Non gonfiare gli empty state (~hint): altrimenti top = input - 140 e la barra
-       sottile resta sospesa in mezzo alla chat. */
-    var menuH = 0;
-    try {
-      menuH = Math.ceil(menu.getBoundingClientRect().height || menu.offsetHeight || 0);
-    } catch (eH) {
-      menuH = 0;
-    }
-    if (!menuH) {
-      /* Misura fallita: fallback solo se zero, non se compact empty */
-      menuH = Math.min(maxH, 56);
-    }
-    menuH = Math.min(menuH, maxH);
-
-    var top;
-    if (preferAbove) {
-      top = inputRect.top - menuH - gap;
-      if (top < visibleTop) {
-        if (spaceBelow > spaceAbove + 16) {
-          preferAbove = false;
-          top = inputRect.bottom + gap;
-          maxH = Math.min(wantMax, Math.max(96, spaceBelow - gap));
-          menu.style.maxHeight = Math.round(maxH) + "px";
-          try {
-            menuH = Math.min(
-              Math.ceil(menu.getBoundingClientRect().height || menu.offsetHeight || menuH),
-              maxH,
-            );
-          } catch (eH2) {}
-        } else {
-          top = visibleTop;
-          maxH = Math.max(72, Math.min(maxH, inputRect.top - gap - top));
-          menu.style.maxHeight = Math.round(maxH) + "px";
-          top = Math.max(visibleTop, inputRect.top - Math.min(menuH, maxH) - gap);
-        }
-      }
-    } else {
-      top = inputRect.bottom + gap;
-      if (top + Math.min(96, menuH) > visibleBottom) {
-        if (spaceAbove > spaceBelow + 16) {
-          preferAbove = true;
-          maxH = Math.min(wantMax, Math.max(96, spaceAbove - gap));
-          menu.style.maxHeight = Math.round(maxH) + "px";
-          try {
-            menuH = Math.min(
-              Math.ceil(menu.getBoundingClientRect().height || menu.offsetHeight || menuH),
-              maxH,
-            );
-          } catch (eH3) {}
-          top = Math.max(visibleTop, inputRect.top - menuH - gap);
-        } else {
-          top = Math.max(visibleTop, visibleBottom - maxH);
-          maxH = Math.max(72, Math.min(maxH, visibleBottom - top));
-          menu.style.maxHeight = Math.round(maxH) + "px";
-        }
-      }
-    }
-    menu.style.top = Math.round(top) + "px";
-    menu.style.visibility = "visible";
-    menu.style.opacity = "1";
-    menu.style.pointerEvents = "auto";
-    var placeKey =
-      (preferAbove ? "a:" : "b:") +
-      Math.round(top) +
-      ":" +
-      Math.round(maxH) +
-      ":" +
-      Math.round(left) +
-      ":" +
-      Math.round(width) +
-      ":" +
-      Math.round(menuH);
-    menu.setAttribute("data-vc-float-place", placeKey);
-  }
-
-  var floatMenuSyncTimer = 0;
-  function syncFloatingMenus() {
-    if (!(state.mentionMenu.open || state.commandMenu.open)) return;
-    if (window.__vcWtFloatMenuRaf) return;
-    window.__vcWtFloatMenuRaf = window.requestAnimationFrame(function () {
-      window.__vcWtFloatMenuRaf = 0;
-      syncFloatingMenusNow();
+    var api = wtComposerApi();
+    if (api && typeof api.refreshEmojiDependentUi === "function") return api.refreshEmojiDependentUi();
+    return ensureWtComposerChunk().then(function () {
+      var a2 = wtComposerApi();
+      if (a2 && a2.refreshEmojiDependentUi) a2.refreshEmojiDependentUi();
     });
   }
-
-  function syncFloatingMenusNow() {
-    if (floatMenuSyncTimer) return;
-    floatMenuSyncTimer = window.setTimeout(function () {
-      floatMenuSyncTimer = 0;
-      if (state.commandMenu.open) {
-        positionCommandMenu(byId(state.commandMenu.elId || "vc-wt-composer-text"));
-      }
-      if (state.mentionMenu.open) {
-        positionMentionMenu(byId(state.mentionMenu.elId || "vc-wt-composer-text"));
-      }
-    }, 48);
-  }
-
-  function positionMentionMenu(el) {
-    var maxH = (state.mentionMenu.mode || "") === "channel" ? 360 : 260;
-    positionFloatingMenu(byId("vc-wt-mention-menu"), el, maxH);
-  }
-
-  function hideMentionMenu() {
-    state.mentionMenu = { open: false, q: "", items: [], index: 0, elId: "", mode: "user", filter: "all" };
-    var menu = byId("vc-wt-mention-menu");
-    if (menu) {
-      menu.hidden = true;
-      menu.innerHTML = "";
-      try {
-        menu.removeAttribute("data-vc-float-place");
-        menu.style.top = "";
-        menu.style.bottom = "";
-      } catch (eHideMm) {}
-    }
-  }
-
-  function renderMentionMenu() {
-    var menu = ensureMentionMenu();
-    var mode = state.mentionMenu.mode || "user";
-    var filter = state.mentionMenu.filter || "all";
-    var showFilters = mode !== "channel" && effectivePermissions().isStaffViewer;
-    var filtersHtml = showFilters
-      ? '<div class="vc-wt-mention-menu__filters" role="tablist">' +
-        [
-          { id: "all", label: "Tutti" },
-          { id: "users", label: "Utenti" },
-          { id: "roles", label: "Ruoli" },
-        ]
-          .map(function (f) {
-            return (
-              '<button type="button" class="vc-wt-mention-menu__filter' +
-              (filter === f.id ? " is-on" : "") +
-              '" data-mention-filter="' +
-              f.id +
-              '" role="tab" aria-selected="' +
-              (filter === f.id ? "true" : "false") +
-              '">' +
-              f.label +
-              "</button>"
-            );
-          })
-          .join("") +
-        "</div>"
-      : "";
-    if (state.mentionMenu.loading) {
-      menu.hidden = false;
-      menu.innerHTML =
-        filtersHtml +
-        '<p class="vc-wt-mention-menu__hint">' +
-        (mode === "channel" ? "Caricamento canali…" : "Caricamento menzioni…") +
-        "</p>";
-      wireMentionMenuFilters(menu);
-      positionMentionMenu(byId(state.mentionMenu.elId || "vc-wt-composer-text"));
-      return;
-    }
-    var items = state.mentionMenu.items || [];
-    if (!state.mentionMenu.open) {
-      menu.hidden = true;
-      menu.innerHTML = "";
-      return;
-    }
-    if (!items.length) {
-      menu.hidden = false;
-      menu.innerHTML =
-        filtersHtml +
-        '<p class="vc-wt-mention-menu__hint">' +
-        (mode === "channel" ? "Nessun canale trovato" : "Nessuna menzione trovata") +
-        "</p>";
-      wireMentionMenuFilters(menu);
-      positionMentionMenu(byId(state.mentionMenu.elId || "vc-wt-composer-text"));
-      return;
-    }
-    menu.hidden = false;
-    menu.innerHTML =
-      filtersHtml +
-      items
-        .map(function (it, idx) {
-          var type = String(it.type || "user");
-          var icon = String(it.channelIcon || "");
-          var cls =
-            "vc-wt-mention-menu__item" +
-            (idx === state.mentionMenu.index ? " is-active" : "") +
-            (type === "role" ? " is-role" : type === "channel" ? " is-channel is-channel--" + (icon || "text") : " is-user");
-          var avMark = "#";
-          if (type === "role") avMark = "R";
-          else if (type === "channel") {
-            if (icon === "voice" || icon === "stage") avMark = "♫";
-            else if (icon === "thread") avMark = "⎘";
-            else if (icon === "forum" || icon === "media") avMark = "☰";
-            else if (icon === "news") avMark = "!";
-            else avMark = "#";
-          } else avMark = "@";
-          var av =
-            type === "user" && it.avatarUrl
-              ? '<img class="vc-wt-mention-menu__av" src="' + esc(it.avatarUrl) + '" alt="" />'
-              : '<span class="vc-wt-mention-menu__av vc-wt-mention-menu__av--fallback">' +
-                avMark +
-                "</span>";
-          var prefix = type === "channel" ? "#" : "@";
-          var sub = "Utente";
-          if (type === "role") sub = "Ruolo";
-          else if (type === "channel") {
-            sub = it.channelKind || "Canale";
-            if (it.parentName) sub += " · " + it.parentName;
-          } else if (it.roleName) {
-            sub = String(it.roleName);
-            if (it.username) sub += " · @" + it.username;
-          } else if (it.username) sub = it.username;
-          return (
-            '<button type="button" class="' +
-            cls +
-            '" data-mention-idx="' +
-            idx +
-            '">' +
-            av +
-            '<span class="vc-wt-mention-menu__meta"><strong>' +
-            prefix +
-            esc(it.name) +
-            "</strong><small>" +
-            esc(sub) +
-            "</small></span></button>"
-          );
-        })
-        .join("");
-    wireMentionMenuFilters(menu);
-    menu.querySelectorAll("[data-mention-idx]").forEach(function (btn) {
-      if (btn._vcMentionPickWired) return;
-      btn._vcMentionPickWired = true;
-      function pick(ev) {
-        if (ev) {
-          ev.preventDefault();
-          ev.stopPropagation();
-        }
-        var i = Number(btn.getAttribute("data-mention-idx"));
-        var item = (state.mentionMenu.items || [])[i];
-        applyMentionPick(item);
-      }
-      /* ticketMentionTab1: solo mousedown (no click doppio → doppio insert) */
-      btn.addEventListener("mousedown", pick);
-      btn.addEventListener("mouseenter", function () {
-        var i = Number(btn.getAttribute("data-mention-idx"));
-        if (!Number.isFinite(i) || i < 0) return;
-        if (state.mentionMenu.index === i) return;
-        state.mentionMenu.index = i;
-        menu.querySelectorAll("[data-mention-idx]").forEach(function (b) {
-          b.classList.toggle("is-active", Number(b.getAttribute("data-mention-idx")) === i);
-        });
-      });
-    });
-    positionMentionMenu(byId(state.mentionMenu.elId || "vc-wt-composer-text"));
-  }
-
-  function wireMentionMenuFilters(menu) {
-    if (!menu) return;
-    menu.querySelectorAll("[data-mention-filter]").forEach(function (btn) {
-      if (btn._vcMentionFilterWired) return;
-      btn._vcMentionFilterWired = true;
-      btn.addEventListener("mousedown", function (ev) {
-        ev.preventDefault();
-        ev.stopPropagation();
-        var next = String(btn.getAttribute("data-mention-filter") || "all");
-        if (next === String(state.mentionMenu.filter || "all")) return;
-        /* ticketPhoneTabList1: forza reload (prima sameOpen restava true perché filter già aggiornato) */
-        state.mentionMenu.filter = next;
-        state.mentionMenu.items = [];
-        state.mentionMenu.loading = true;
-        state.mentionMenu.index = 0;
-        fetchMentions(state.mentionMenu.q || "", state.mentionMenu.elId, state.mentionMenu.mode || "user");
-      });
-    });
-  }
-
-  function escapeRegExp(s) {
-    return String(s || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  }
-
-  function applyMentionPick(item) {
-    if (!item) return;
-    var el = byId(state.mentionMenu.elId || "vc-wt-composer-text");
-    if (!el) return;
-    var type = String(item.type || "user");
-    var id = String(item.id || "").trim();
-    if (!id) return;
-    var markup = String(item.markup || "").trim();
-    if (!markup) {
-      if (type === "channel") markup = "<#" + id + ">";
-      else if (type === "role") markup = "<@&" + id + ">";
-      else markup = "<@" + id + ">";
-    }
-    item.markup = markup;
-    rememberMentionName(type, id, item.name);
-    if (type === "user" && item.roleName) rememberStaffRole(id, item.roleId, item.roleName, item.roleKey);
-
-    var trigger = type === "channel" ? "#" : "@";
-    var q = String(state.mentionMenu.q != null ? state.mentionMenu.q : "");
-    /* ticketMentionTab1: sostituisci solo il trigger sotto il caret (no append cieco) */
-    var before = (isRichInput(el) ? textBeforeCaret(el) : String(el.value || "").slice(0, el.selectionStart || 0)).replace(
-      /\u00a0/g,
-      " ",
-    );
-    var after = (isRichInput(el) ? textAfterCaret(el) : String(el.value || "").slice(el.selectionStart || 0)).replace(
-      /\u00a0/g,
-      " ",
-    );
-    if (!before && !after) {
-      before = serializeRichInput(el).replace(/\u00a0/g, " ");
-      after = "";
-    }
-    var needle = trigger + q;
-    var idx = before.lastIndexOf(needle);
-    var replaced = false;
-    if (idx >= 0 && before.slice(idx) === needle) {
-      var prev = idx > 0 ? before.charAt(idx - 1) : "";
-      var insideMarkup = prev === "<" || (trigger === "@" && prev === "!");
-      if (!insideMarkup) {
-        before = before.slice(0, idx) + markup + " ";
-        replaced = true;
-      }
-    }
-    if (!replaced) {
-      /* fallback: fine del testo serializzato (mousedown può aver perso il caret) */
-      var fullFallback = serializeRichInput(el).replace(/\u00a0/g, " ");
-      var tIdx = fullFallback.lastIndexOf(needle);
-      if (tIdx >= 0 && fullFallback.slice(tIdx) === needle) {
-        var tPrev = tIdx > 0 ? fullFallback.charAt(tIdx - 1) : "";
-        if (!(tPrev === "<" || (trigger === "@" && tPrev === "!"))) {
-          before = fullFallback.slice(0, tIdx) + markup + " ";
-          after = "";
-          replaced = true;
-        }
-      }
-    }
-    if (!replaced) {
-      hideMentionMenu();
-      return;
-    }
-    var full = before + after;
-
-    fillRichInput(el, full);
-    placeCaretAtEnd(el);
-    try {
-      el.focus({ preventScroll: true });
-    } catch (eFocus) {
-      try {
-        el.focus();
-      } catch (eFocus2) {}
-    }
-    el.classList.remove("is-empty");
-    if (el.id === "vc-wt-composer-text") {
-      state.composerText = serializeRichInput(el);
-      saveTicketComposerDraft();
-    }
-    scheduleComposerLivePreview(el);
-    hideMentionMenu();
-  }
-
-  function fetchMentions(q, elId, mode) {
-    mode = mode || "user";
-    var filter = mode === "channel" ? "all" : String(state.mentionMenu.filter || "all");
-    var sameOpen =
-      state.mentionMenu &&
-      state.mentionMenu.open &&
-      String(state.mentionMenu.q || "") === String(q || "") &&
-      String(state.mentionMenu.mode || "") === mode &&
-      String(state.mentionMenu.filter || "all") === filter;
-    var keepIndex = sameOpen ? Math.max(0, Number(state.mentionMenu.index) || 0) : 0;
-    state.mentionMenu = {
-      open: true,
-      q: q || "",
-      items: sameOpen ? state.mentionMenu.items || [] : [],
-      index: keepIndex,
-      elId: elId || "vc-wt-composer-text",
-      loading: !sameOpen || !(state.mentionMenu.items && state.mentionMenu.items.length),
-      mode: mode,
-      filter: filter,
-    };
-    renderMentionMenu();
-    var url =
-      apiBase() +
-      "/mentions?q=" +
-      encodeURIComponent(q || "") +
-      (mode === "channel" ? "&kind=channels" : "") +
-      (mode !== "channel" && filter !== "all" ? "&filter=" + encodeURIComponent(filter) : "") +
-      (state.selectedId ? "&ticketId=" + encodeURIComponent(state.selectedId) : "");
-    return fetchJson(url, { method: "GET", headers: authHeaders(), cache: "no-store" }).then(function (out) {
-      if (!out.res.ok || !out.data || !out.data.ok) {
-        state.mentionMenu = {
-          open: true,
-          q: q || "",
-          items: [],
-          index: 0,
-          elId: elId || "vc-wt-composer-text",
-          loading: false,
-          mode: mode,
-          filter: filter,
-        };
-        renderMentionMenu();
-        return;
-      }
-      var items = [];
-      if (mode === "channel") {
-        items = Array.isArray(out.data.channels) ? out.data.channels : [];
-        items.forEach(function (c) {
-          rememberMentionName("channel", c.id, c.name);
-        });
-      } else {
-        var users = Array.isArray(out.data.users) ? out.data.users : [];
-        var roles = [];
-        if (effectivePermissions().isStaffViewer) {
-          roles = Array.isArray(out.data.roles) ? out.data.roles : [];
-        }
-        users.forEach(function (u) {
-          rememberMentionName("user", u.id, u.name);
-          if (u.roleName) rememberStaffRole(u.id, u.roleId, u.roleName, u.roleKey);
-        });
-        roles.forEach(function (r) {
-          rememberMentionName("role", r.id, r.name);
-        });
-        items = users.concat(roles).slice(0, 24);
-      }
-      var list = mode === "channel" ? items.slice(0, 80) : items.slice(0, 24);
-      var idx = keepIndex;
-      if (idx >= list.length) idx = Math.max(0, list.length - 1);
-      state.mentionMenu = {
-        open: true,
-        q: q || "",
-        items: list,
-        index: idx,
-        elId: elId || "vc-wt-composer-text",
-        loading: false,
-        mode: mode,
-        filter: filter,
-      };
-      renderMentionMenu();
-    }).catch(function () {
-      state.mentionMenu = {
-        open: true,
-        q: q || "",
-        items: [],
-        index: 0,
-        elId: elId || "vc-wt-composer-text",
-        loading: false,
-        mode: mode,
-        filter: filter,
-      };
-      renderMentionMenu();
-    });
-  }
-
-  function hideCommandMenu() {
-    state.commandMenu = { open: false, q: "", items: [], index: 0, prefix: "+", elId: "" };
-    var menu = byId("vc-wt-command-menu");
-    if (menu) {
-      menu.hidden = true;
-      menu.innerHTML = "";
-      try {
-        menu.removeAttribute("data-vc-float-place");
-        menu.style.top = "";
-        menu.style.bottom = "";
-      } catch (eHideCm) {}
-    }
-  }
-
-  function positionCommandMenu(el) {
-    positionFloatingMenu(byId("vc-wt-command-menu"), el, 320);
-  }
-
-  function ensureCommandCatalog() {
-    var ticketId = String(state.selectedId || (state.detail && state.detail.id) || "").trim();
-    if (!ticketId) {
-      state.commandCatalog = [];
-      state.slashCatalog = [];
-      state.commandCatalogLoaded = false;
-      state.commandCatalogTicketId = "";
-      return Promise.resolve(state.commandCatalog);
-    }
-    /* ticketCommandsSoft1: fetch solo se partnership / canUseCommands */
-    var perms = effectivePermissions();
-    if (!perms || !perms.canUseCommands) {
-      state.commandCatalog = [];
-      state.slashCatalog = [];
-      state.commandCatalogLoaded = true;
-      state.commandCatalogTicketId = ticketId;
-      return Promise.resolve(state.commandCatalog);
-    }
-    if (state.commandCatalogLoaded && state.commandCatalogTicketId === ticketId) {
-      return Promise.resolve(state.commandCatalog);
-    }
-    if (state.commandCatalogLoading && state.commandCatalogLoadTicketId === ticketId) {
-      return state.commandCatalogLoading;
-    }
-    state.commandCatalogLoadTicketId = ticketId;
-    state.commandCatalogLoading = fetchJson(
-      apiBase() + "/commands?ticketId=" + encodeURIComponent(ticketId),
-      {
-        method: "GET",
-        headers: authHeaders(),
-        cache: "no-store",
-      }
-    )
-      .then(function (out) {
-        state.commandCatalogLoading = null;
-        var stillSame =
-          String(state.selectedId || (state.detail && state.detail.id) || "") === ticketId;
-        if (!stillSame) return state.commandCatalog;
-        if (!out.res.ok || !out.data || !out.data.ok) {
-          state.commandCatalog = [];
-          state.slashCatalog = [];
-          state.commandCatalogLoaded = false;
-          state.commandCatalogTicketId = "";
-          return state.commandCatalog;
-        }
-        state.commandPrefix = String(out.data.prefix || "+") || "+";
-        state.commandCatalog = Array.isArray(out.data.commands) ? out.data.commands : [];
-        state.slashCatalog = Array.isArray(out.data.slashCommands) ? out.data.slashCommands : [];
-        state.commandCatalogLoaded = true;
-        state.commandCatalogTicketId = ticketId;
-        return state.commandCatalog;
-      })
-      .catch(function () {
-        state.commandCatalogLoading = null;
-        if (String(state.selectedId || (state.detail && state.detail.id) || "") !== ticketId) {
-          return state.commandCatalog;
-        }
-        state.commandCatalog = [];
-        state.slashCatalog = [];
-        state.commandCatalogLoaded = false;
-        state.commandCatalogTicketId = "";
-        return state.commandCatalog;
-      });
-    return state.commandCatalogLoading;
-  }
-
-  function filterCommandCatalog(q, prefixChar) {
-    var needle = String(q || "").toLowerCase();
-    var isSlash = String(prefixChar || "") === "/";
-    var list = isSlash ? state.slashCatalog || [] : state.commandCatalog || [];
-    var prefix = isSlash ? "/" : botCommandPrefix() || "+";
-    var out = [];
-    for (var i = 0; i < list.length; i += 1) {
-      var c = list[i];
-      var name = String(c.name || "").toLowerCase();
-      var aliases = Array.isArray(c.aliases) ? c.aliases : [];
-      var invoke = String(c.invoke || name).toLowerCase();
-      if (needle) {
-        var aliasHit = "";
-        for (var a = 0; a < aliases.length; a += 1) {
-          if (String(aliases[a]).indexOf(needle) === 0) {
-            aliasHit = String(aliases[a]);
-            break;
-          }
-        }
-        if (
-          invoke.indexOf(needle) !== 0 &&
-          name.indexOf(needle) !== 0 &&
-          !aliasHit &&
-          invoke.indexOf(needle) < 0 &&
-          name.indexOf(needle) < 0
-        ) {
-          var any = false;
-          for (var b = 0; b < aliases.length; b += 1) {
-            if (String(aliases[b]).indexOf(needle) >= 0) {
-              any = true;
-              aliasHit = String(aliases[b]);
-              break;
-            }
-          }
-          if (!any) continue;
-        }
-        if (invoke.indexOf(needle) !== 0 && name.indexOf(needle) !== 0 && aliasHit) invoke = aliasHit;
-      }
-      out.push({
-        name: name,
-        invoke: invoke,
-        description: c.description || "",
-        usage: c.usage || prefix + invoke,
-        category: c.category || "",
-        prefix: prefix,
-        kind: isSlash ? "slash" : "prefix",
-      });
-    }
-    return out.slice(0, 12);
-  }
-
-  function renderCommandMenu() {
-    var menu = ensureCommandMenu();
-    if (state.commandMenu.loading) {
-      menu.hidden = false;
-      menu.innerHTML = '<p class="vc-wt-command-menu__hint">Caricamento comandi…</p>';
-      positionCommandMenu(byId(state.commandMenu.elId || "vc-wt-composer-text"));
-      return;
-    }
-    var items = state.commandMenu.items || [];
-    if (!state.commandMenu.open) {
-      menu.hidden = true;
-      menu.innerHTML = "";
-      return;
-    }
-    if (!items.length) {
-      menu.hidden = false;
-      menu.innerHTML = '<p class="vc-wt-command-menu__hint">Nessun comando trovato</p>';
-      positionCommandMenu(byId(state.commandMenu.elId || "vc-wt-composer-text"));
-      return;
-    }
-    menu.hidden = false;
-    menu.innerHTML =
-      '<p class="vc-wt-command-menu__hint">' +
-      (String(state.commandMenu.trigger || "") === "/" ? "Slash command" : "Comandi prefix") +
-      "</p>" +
-      items
-        .map(function (it, idx) {
-          var cls = "vc-wt-command-menu__item" + (idx === state.commandMenu.index ? " is-active" : "");
-          var label = esc(it.prefix + it.invoke);
-          var cmdLabel = it.prefix + it.invoke;
-          var descText = it.description || "";
-          if (!descText && it.usage && it.usage !== cmdLabel) descText = it.usage;
-          var desc = esc(descText);
-          return (
-            '<button type="button" class="' +
-            cls +
-            '" data-cmd-idx="' +
-            idx +
-            '">' +
-            '<span class="vc-wt-command-menu__ico" aria-hidden="true">' +
-            esc(it.prefix) +
-            "</span>" +
-            '<span class="vc-wt-command-menu__meta"><strong>' +
-            label +
-            "</strong>" +
-            (desc ? "<small>" + desc + "</small>" : "") +
-            "</span></button>"
-          );
-        })
-        .join("");
-    menu.querySelectorAll("[data-cmd-idx]").forEach(function (btn) {
-      if (btn._vcCmdPickWired) return;
-      btn._vcCmdPickWired = true;
-      function pick(ev) {
-        if (ev) {
-          ev.preventDefault();
-          ev.stopPropagation();
-        }
-        var i = Number(btn.getAttribute("data-cmd-idx"));
-        var item = (state.commandMenu.items || [])[i];
-        applyCommandPick(item);
-      }
-      /* ticketMentionTab1: solo mousedown; hover aggiorna selezione Tab/Enter */
-      btn.addEventListener("mousedown", pick);
-      btn.addEventListener("mouseenter", function () {
-        var i = Number(btn.getAttribute("data-cmd-idx"));
-        if (!Number.isFinite(i) || i < 0) return;
-        if (state.commandMenu.index === i) return;
-        state.commandMenu.index = i;
-        menu.querySelectorAll("[data-cmd-idx]").forEach(function (b) {
-          b.classList.toggle("is-active", Number(b.getAttribute("data-cmd-idx")) === i);
-        });
-      });
-    });
-    positionCommandMenu(byId(state.commandMenu.elId || "vc-wt-composer-text"));
-  }
-
-  function applyCommandPick(item) {
-    if (!item || !item.invoke) return;
-    var invokeLower = String(item.invoke || "").trim().toLowerCase();
-    if (item.kind === "slash" && (invokeLower === "partnership" || String(item.name || "").toLowerCase() === "partnership")) {
-      hideCommandMenu();
-      var elClear = byId(state.commandMenu.elId || "vc-wt-composer-text");
-      if (elClear) {
-        fillRichInput(elClear, "");
-        state.composerText = "";
-        saveTicketComposerDraft();
-      }
-      // Sempre riapribile: non dipendere da busy di un comando precedente.
-      state.busy = false;
-      runPartnershipCommandFlow("/partnership");
-      return;
-    }
-    var el = byId(state.commandMenu.elId || "vc-wt-composer-text");
-    if (!el) return;
-    var prefix = String(item.prefix || state.commandMenu.trigger || botCommandPrefix() || "+").charAt(0) || "+";
-    var invoke = String(item.invoke || "").trim();
-    if (!invoke) return;
-    var cmdText = prefix + invoke + " ";
-    var full = serializeRichInput(el).replace(/\u00a0/g, " ");
-    var lines = full.split("\n");
-    var last = lines[lines.length - 1] || "";
-    var m = last.match(/^([+!/])([^\s]*)$/);
-    if (m) {
-      lines[lines.length - 1] = prefix + invoke + " ";
-      full = lines.join("\n");
-    } else {
-      var q = String(state.commandMenu.q != null ? state.commandMenu.q : "");
-      var trailing = new RegExp(
-        "(?:^|\\n)([+!/])" + escapeRegExp(q) + "\\s*$",
-      );
-      if (trailing.test(full)) {
-        full = full.replace(/(?:^|\n)([+!/])[^\s]*\s*$/, function (all) {
-          var nl = all.charAt(0) === "\n" ? "\n" : "";
-          return nl + prefix + invoke + " ";
-        });
-      } else {
-        full = (full ? full.replace(/\s*$/, "") + "\n" : "") + cmdText;
-      }
-    }
-    fillRichInput(el, full);
-    placeCaretAtEnd(el);
-    try {
-      el.focus({ preventScroll: true });
-    } catch (eFocus) {
-      try {
-        el.focus();
-      } catch (eFocus2) {}
-    }
-    el.classList.remove("is-empty");
-    state.composerText = serializeRichInput(el);
-    saveTicketComposerDraft();
-    scheduleComposerLivePreview(el);
-    hideCommandMenu();
-  }
-
-  function showCommandMenu(q, triggerChar, elId) {
-    var trigger = String(triggerChar || botCommandPrefix() || "+").charAt(0) || "+";
-    var prefix = trigger === "/" ? "/" : botCommandPrefix() || "+";
-    var sameOpen =
-      state.commandMenu &&
-      state.commandMenu.open &&
-      String(state.commandMenu.q || "") === String(q || "") &&
-      String(state.commandMenu.trigger || "") === trigger;
-    var keepIndex = sameOpen ? Math.max(0, Number(state.commandMenu.index) || 0) : 0;
-    state.commandMenu = {
-      open: true,
-      q: q || "",
-      items: sameOpen ? state.commandMenu.items || [] : [],
-      index: keepIndex,
-      prefix: prefix,
-      trigger: trigger,
-      elId: elId || "vc-wt-composer-text",
-      loading: !sameOpen || !(state.commandMenu.items && state.commandMenu.items.length),
-    };
-    renderCommandMenu();
-    ensureCommandCatalog().then(function () {
-      var items = filterCommandCatalog(q, trigger);
-      var idx = keepIndex;
-      if (idx >= items.length) idx = Math.max(0, items.length - 1);
-      state.commandMenu = {
-        open: true,
-        q: q || "",
-        items: items,
-        index: idx,
-        prefix: prefix,
-        trigger: trigger,
-        elId: elId || "vc-wt-composer-text",
-        loading: false,
-      };
-      renderCommandMenu();
-    });
-  }
-
-  function activeInputLine(before) {
-    var lines = String(before || "").split("\n");
-    return lines[lines.length - 1] || "";
-  }
-
-  function onRichInputMaybeMention(el) {
-    if (!el) return;
-    if (!isRichInput(el) && el.tagName !== "TEXTAREA" && el.tagName !== "INPUT") return;
-    var ctx = readComposerContext(el);
-    if (!ctx) {
-      hideMentionMenu();
-      hideCommandMenu();
-      syncRichInputEmptyState(el);
-      return;
-    }
-    if (ctx.kind === "mention") {
-      hideCommandMenu();
-      if (state.mentionTimer) clearTimeout(state.mentionTimer);
-      var userDelay = ctx.q ? 120 : 0;
-      state.mentionTimer = setTimeout(function () {
-        state.mentionTimer = null;
-        fetchMentions(ctx.q, el.id, "user");
-      }, userDelay);
-      return;
-    }
-    if (ctx.kind === "channel") {
-      hideCommandMenu();
-      if (state.mentionTimer) clearTimeout(state.mentionTimer);
-      var chDelay = ctx.q ? 120 : 0;
-      state.mentionTimer = setTimeout(function () {
-        state.mentionTimer = null;
-        fetchMentions(ctx.q, el.id, "channel");
-      }, chDelay);
-      return;
-    }
-    if (ctx.kind === "command") {
-      hideMentionMenu();
-      if (state.commandTimer) clearTimeout(state.commandTimer);
-      state.commandTimer = setTimeout(function () {
-        state.commandTimer = null;
-        showCommandMenu(ctx.q, ctx.prefix, el.id);
-      }, 0);
-      return;
-    }
-  }
-
   function openEmojiPicker(anchor, onPick, preferCustom) {
-    if (!window.VcEmojiPicker) {
-      setStatus("Picker emoji non disponibile.", true);
-      return;
-    }
-    if (typeof window.VcEmojiPicker.isOpen === "function" && window.VcEmojiPicker.isOpen()) {
-      state.emojiPickerToken += 1;
-      state.emojiPickerOpening = false;
-      window.VcEmojiPicker.close();
-      return;
-    }
-    if (state.emojiPickerOpening) {
-      state.emojiPickerToken += 1;
-      state.emojiPickerOpening = false;
-      window.VcEmojiPicker.close();
-      return;
-    }
-    var token = (state.emojiPickerToken += 1);
-    state.emojiPickerOpening = true;
-    ensureGuildEmojis().then(function (emojis) {
-      state.emojiPickerOpening = false;
-      if (token !== state.emojiPickerToken) return;
-      if (typeof window.VcEmojiPicker.isOpen === "function" && window.VcEmojiPicker.isOpen()) return;
-      if (typeof window.VcEmojiPicker.toggle === "function") {
-        window.VcEmojiPicker.toggle({
-          anchor: anchor,
-          guildEmojis: emojis,
-          preferCustom: preferCustom === true && emojis && emojis.length > 0,
-          onPick: onPick,
-        });
-        return;
-      }
-      window.VcEmojiPicker.open({
-        anchor: anchor,
-        guildEmojis: emojis,
-        preferCustom: preferCustom === true && emojis && emojis.length > 0,
-        onPick: onPick,
-      });
-    });
-  }
-
-  function patchMessageInState(msg) {
-    if (!msg || !msg.id) return;
-    var found = false;
-    state.messages = state.messages.map(function (m) {
-      if (m.id === msg.id) {
-        found = true;
-        return msg;
-      }
-      return m;
-    });
-    if (!found) return;
-    var node = document.querySelector('[data-msg-id="' + msg.id + '"]');
-    if (node) {
-      var tmp = document.createElement("div");
-      tmp.innerHTML = messageHtml(msg);
-      var next = tmp.firstElementChild;
-      if (next) {
-        node.replaceWith(next);
-        wireMessageReactions(next);
-        wireMessageTools(next);
-      }
-    }
-  }
-
-  function toggleReaction(messageId, emojiMarkup) {
-    if (!state.selectedId || !messageId || !emojiMarkup || state.busy) return;
-    fetchJson(
-      apiBase() +
-        "/" +
-        encodeURIComponent(state.selectedId) +
-        "/messages/" +
-        encodeURIComponent(messageId) +
-        "/reactions",
-      {
-        method: "POST",
-        headers: authHeaders(true),
-        body: JSON.stringify({ emoji: emojiMarkup }),
-      },
-    )
-      .then(function (out) {
-        if (!out.res.ok || !out.data || !out.data.ok) {
-          setStatus(apiErrorText(out.data && out.data.message, "Reazione fallita."), true);
-          return;
-        }
-        if (out.data.message) patchMessageInState(out.data.message);
-        if (out.data.ticket) refreshTicketInList(out.data.ticket);
-      })
+    return ensureEmojiPickerScript()
       .catch(function () {
-        setStatus("Errore di rete.", true);
+        return null;
+      })
+      .then(function () {
+        return ensureWtComposerChunk();
+      })
+      .then(function () {
+        var api = wtComposerApi();
+        if (api && typeof api.openEmojiPicker === "function") {
+          return api.openEmojiPicker(anchor, onPick, preferCustom);
+        }
       });
   }
-
-  function hideReactionTipPortal() {
-    var tip = document.getElementById("vc-wt-reaction-tip-portal");
-    if (tip) tip.remove();
-  }
-
-  function showReactionTipPortal(btn) {
-    hideReactionTipPortal();
-    if (!btn) return;
-    var text = btn.getAttribute("data-react-tip") || btn.getAttribute("aria-label") || "";
-    if (!text) return;
-    var tip = document.createElement("div");
-    tip.id = "vc-wt-reaction-tip-portal";
-    tip.className = "vc-wt-reaction-tip-portal";
-    tip.textContent = text;
-    document.body.appendChild(tip);
-    var rect = btn.getBoundingClientRect();
-    var pad = 8;
-    var tw = tip.offsetWidth || 120;
-    var th = tip.offsetHeight || 28;
-    var left = Math.min(Math.max(pad, rect.left + rect.width / 2 - tw / 2), window.innerWidth - tw - pad);
-    var top = rect.top - th - 8;
-    if (top < pad) top = rect.bottom + 8;
-    tip.style.left = Math.round(left) + "px";
-    tip.style.top = Math.round(top) + "px";
-  }
-
   function wireMessageReactions(scope) {
-    var root = scope || document;
-    var closed = state.detail && state.detail.status === "closed";
-    root.querySelectorAll("[data-react-emoji]").forEach(function (btn) {
-      if (btn._vcWired) return;
-      btn._vcWired = true;
-      btn.addEventListener("click", function () {
-        if (closed) return;
-        var msgEl = btn.closest("[data-msg-id]");
-        var mid = msgEl && msgEl.getAttribute("data-msg-id");
-        var emoji = btn.getAttribute("data-react-emoji");
-        if (mid && emoji) toggleReaction(mid, emoji);
-      });
-      btn.addEventListener("mouseenter", function () {
-        showReactionTipPortal(btn);
-      });
-      btn.addEventListener("mouseleave", hideReactionTipPortal);
-      btn.addEventListener("focus", function () {
-        showReactionTipPortal(btn);
-      });
-      btn.addEventListener("blur", hideReactionTipPortal);
-    });
-    root.querySelectorAll("[data-react-add]").forEach(function (btn) {
-      if (btn._vcWired) return;
-      btn._vcWired = true;
-      btn.addEventListener("click", function () {
-        if (closed) return;
-        var mid = btn.getAttribute("data-react-add");
-        openEmojiPicker(btn, function (pick) {
-          if (!pick || !pick.markup || !mid) return;
-          toggleReaction(mid, pick.markup);
-        }, true);
-      });
-    });
-    root.querySelectorAll("[data-wt-spoiler]").forEach(function (el) {
-      if (el._vcWired) return;
-      el._vcWired = true;
-      function reveal(ev) {
-        if (el.classList.contains("is-open")) {
-                    if (ev && ev.target && ev.target.closest && ev.target.closest("a")) return;
-                    if (ev) {
-            ev.preventDefault();
-            ev.stopPropagation();
-          }
-          el.classList.remove("is-open");
-          return;
-        }
-        if (ev) {
-          ev.preventDefault();
-          ev.stopPropagation();
-        }
-        el.classList.add("is-open");
-      }
-      el.addEventListener("click", reveal);
-      el.addEventListener("keydown", function (ev) {
-        if (ev.key === "Enter" || ev.key === " ") {
-          reveal(ev);
-        }
-      });
-    });
-    wireMessageTools(root);
-    wireEmojiImgFallback(root);
-  }
-
-  function removeMessageFromUi(messageId) {
-    if (!messageId) return;
-    state.deletedMessageIds[messageId] = true;
-    state.messages = state.messages.filter(function (m) {
-      return m && m.id !== messageId;
-    });
-        state.seenMessageIds[messageId] = true;
-    var node = document.querySelector('[data-msg-id="' + messageId + '"]');
-    if (node) node.remove();
-  }
-
-  function startEditMessage(messageId) {
-    var msg = null;
-    for (var i = 0; i < state.messages.length; i += 1) {
-      if (state.messages[i] && state.messages[i].id === messageId) {
-        msg = state.messages[i];
-        break;
-      }
-    }
-    if (!msg) return;
-    var node = document.querySelector('[data-msg-id="' + messageId + '"]');
-    if (!node) return;
-    var bubble = node.querySelector(".vc-wt-msg__bubble");
-    if (!bubble || bubble.querySelector(".vc-wt-msg__edit")) return;
-    var textEl = bubble.querySelector(".vc-wt-msg__text");
-    if (textEl) textEl.hidden = true;
-    var form = document.createElement("form");
-    form.className = "vc-wt-msg__edit";
-    form.innerHTML =
-      '<textarea class="vc-wt-msg__edit-input" rows="3" maxlength="2000"></textarea>' +
-      '<div class="vc-wt-msg__edit-actions">' +
-      '<button type="button" class="vc-wt-action vc-wt-action--ghost" data-edit-cancel>Annulla</button>' +
-      '<button type="submit" class="vc-wt-action">Salva</button>' +
-      "</div>";
-    var ta = form.querySelector("textarea");
-    ta.value = String(msg.content || "");
-    var insertAfter = textEl || bubble.querySelector(".vc-wt-msg__meta");
-    if (insertAfter && insertAfter.nextSibling) bubble.insertBefore(form, insertAfter.nextSibling);
-    else bubble.appendChild(form);
-    ta.focus();
-    form.addEventListener("submit", function (ev) {
-      ev.preventDefault();
-      saveEditMessage(messageId, ta.value);
-    });
-    form.querySelector("[data-edit-cancel]").addEventListener("click", function () {
-      form.remove();
-      if (textEl) textEl.hidden = false;
-    });
-  }
-
-  function saveEditMessage(messageId, content) {
-    if (!state.selectedId || !messageId || state.busy) return;
-    var text = String(content || "").trim();
-    var existing = null;
-    for (var i = 0; i < state.messages.length; i += 1) {
-      if (state.messages[i] && state.messages[i].id === messageId) {
-        existing = state.messages[i];
-        break;
-      }
-    }
-    var imageCount = existing && Array.isArray(existing.imageUrls) ? existing.imageUrls.length : 0;
-        if (!text && !imageCount) {
-      deleteMessage(messageId, { fromEmptyEdit: true });
-      return;
-    }
-    state.busy = true;
-    fetchJson(
-      apiBase() +
-        "/" +
-        encodeURIComponent(state.selectedId) +
-        "/messages/" +
-        encodeURIComponent(messageId),
-      {
-        method: "PATCH",
-        headers: authHeaders(true),
-        body: JSON.stringify({ content: text }),
-      },
-    )
-      .then(function (out) {
-        state.busy = false;
-        if (!out.res.ok || !out.data || !out.data.ok) {
-          setStatus(apiErrorText(out.data && out.data.message, "Modifica fallita."), true);
-          return;
-        }
-        if (out.data.deleted && out.data.messageId) {
-          removeMessageFromUi(out.data.messageId);
-          if (out.data.ticket) refreshTicketInList(out.data.ticket);
-          return;
-        }
-        if (out.data.message) patchMessageInState(out.data.message);
-        if (out.data.ticket) refreshTicketInList(out.data.ticket);
+    return ensureWtComposerChunk()
+      .then(function () {
+        var api = wtComposerApi();
+        if (api && typeof api.wireMessageReactions === "function") api.wireMessageReactions(scope);
       })
-      .catch(function () {
-        state.busy = false;
-        setStatus("Errore di rete.", true);
-      });
+      .catch(function () {});
   }
-
-  function deleteMessage(messageId, opts) {
-    if (!state.selectedId || !messageId || state.busy) return;
-    opts = opts || {};
-    var scrollY = capturePageScrollY();
-    var run = function () {
-            removeMessageFromUi(messageId);
-      state.busy = true;
-      fetchJson(
-        apiBase() +
-          "/" +
-          encodeURIComponent(state.selectedId) +
-          "/messages/" +
-          encodeURIComponent(messageId),
-        {
-          method: "DELETE",
-          headers: authHeaders(true),
-        },
-      )
-        .then(function (out) {
-          state.busy = false;
-                    var alreadyGone =
-            out.res &&
-            out.res.status === 404 &&
-            out.data &&
-            (out.data.error === "not_found" || /non trovato/i.test(String(out.data.message || "")));
-          if ((!out.res.ok || !out.data || !out.data.ok) && !alreadyGone) {
-            setStatus(apiErrorText(out.data && out.data.message, "Eliminazione fallita."), true);
-            return;
-          }
-          removeMessageFromUi(messageId);
-          if (out.data && out.data.ticket) refreshTicketInList(out.data.ticket);
-          setStatus("");
-        })
-        .catch(function () {
-          state.busy = false;
-          setStatus("Errore di rete.", true);
-        })
-        .finally(function () {
-          restorePageScroll(scrollY);
-        });
-    };
-    var confirmTitle = opts.fromEmptyEdit ? "Elimina messaggio" : "Elimina messaggio";
-    var confirmMsg = opts.fromEmptyEdit
-      ? "Hai lasciato il messaggio vuoto. Vuoi eliminarlo?"
-      : "Vuoi eliminare questo messaggio? L’azione non si può annullare.";
-    (typeof window.__vcEnsureDialog === "function"
-      ? window.__vcEnsureDialog()
-      : Promise.resolve(window.VcDialog)
-    ).then(function (D) {
-      if (!D || typeof D.confirm !== "function") return;
-      return D.confirm({
-        title: confirmTitle,
-        message: confirmMsg,
-        confirmLabel: "Elimina",
-        cancelLabel: "Annulla",
-        danger: true,
-        icon: "fa-trash-o",
-      }).then(function (ok) {
-        restorePageScroll(scrollY);
-        if (ok) run();
-      });
-    });
-  }
-
-  function copyMessageText(messageId) {
-    var id = String(messageId || "");
-    var msg = (state.messages || []).filter(function (m) {
-      return m && m.id === id;
-    })[0];
-    var text = msg ? String(msg.content || "").trim() : "";
-    if (!text) {
-      setStatus("Questo messaggio non ha testo da copiare.", true);
-      return;
-    }
-    function done() {
-      setStatus("Testo copiato.");
-    }
-    function fail() {
-      setStatus("Impossibile copiare il testo.", true);
-    }
-    if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
-      navigator.clipboard.writeText(text).then(done).catch(fail);
-      return;
-    }
-    var ta = document.createElement("textarea");
-    ta.value = text;
-    ta.setAttribute("readonly", "");
-    ta.style.cssText = "position:fixed;left:-9999px;top:0";
-    document.body.appendChild(ta);
-    ta.select();
-    try {
-      if (document.execCommand("copy")) done();
-      else fail();
-    } catch (e) {
-      fail();
-    }
-    document.body.removeChild(ta);
-  }
-
   function wireMessageTools(scope) {
-    var root = scope || document;
-    root.querySelectorAll("[data-msg-copy]").forEach(function (btn) {
-      if (btn._vcWired) return;
-      btn._vcWired = true;
-      btn.addEventListener("click", function (ev) {
-        ev.preventDefault();
-        ev.stopPropagation();
-        copyMessageText(btn.getAttribute("data-msg-copy"));
-      });
-    });
-    root.querySelectorAll("[data-msg-edit]").forEach(function (btn) {
-      if (btn._vcWired) return;
-      btn._vcWired = true;
-      btn.addEventListener("click", function (ev) {
-        ev.preventDefault();
-        ev.stopPropagation();
-        startEditMessage(btn.getAttribute("data-msg-edit"));
-      });
-    });
-    root.querySelectorAll("[data-msg-del]").forEach(function (btn) {
-      if (btn._vcWired) return;
-      btn._vcWired = true;
-      btn.addEventListener("click", function (ev) {
-        ev.preventDefault();
-        ev.stopPropagation();
-        deleteMessage(btn.getAttribute("data-msg-del"));
-      });
-    });
-    root.querySelectorAll("[data-msg-reply]").forEach(function (btn) {
-      if (btn._vcWired) return;
-      btn._vcWired = true;
-      btn.addEventListener("click", function (ev) {
-        ev.preventDefault();
-        ev.stopPropagation();
-        startReplyToMessage(btn.getAttribute("data-msg-reply"));
-      });
-    });
-    root.querySelectorAll("[data-jump-msg]").forEach(function (btn) {
-      if (btn._vcWired) return;
-      btn._vcWired = true;
-      btn.addEventListener("click", function (ev) {
-        ev.preventDefault();
-        ev.stopPropagation();
-        jumpToMessage(btn.getAttribute("data-jump-msg"));
-      });
-    });
-    root.querySelectorAll(".vc-wt-msg-embed[data-open-url]").forEach(function (el) {
-      if (el._vcWired) return;
-      el._vcWired = true;
-      function openEmbed(ev) {
-        if (ev && ev.target && ev.target.closest && ev.target.closest("a,button")) return;
-        var url = String(el.getAttribute("data-open-url") || "").trim();
-        if (!url || url === "#") return;
-        if (ev) {
+    armMsgToolsDelegation();
+    return ensureWtComposerChunk()
+      .then(function () {
+        var api = wtComposerApi();
+        if (api && typeof api.wireMessageTools === "function") api.wireMessageTools(scope);
+      })
+      .catch(function () {});
+  }
+
+  /* ticketsMsgRailCpu1: delegation sync (reply/jump) + chunk per edit/del/react — no dipendenza da wire async */
+  function armMsgToolsDelegation() {
+    if (window.__vcWtMsgToolsDelegated) return;
+    window.__vcWtMsgToolsDelegated = 1;
+    document.addEventListener(
+      "click",
+      function (ev) {
+        try {
+          var t = ev.target;
+          if (!t || !t.closest) return;
+          if (!t.closest("#vc-wt-app, .vc-wt-chat, #vc-wt-chat-log")) return;
+          var reply = t.closest("[data-msg-reply]");
+          if (reply) {
+            ev.preventDefault();
+            ev.stopPropagation();
+            startReplyToMessage(reply.getAttribute("data-msg-reply"));
+            return;
+          }
+          var jump = t.closest("[data-jump-msg]");
+          if (jump) {
+            ev.preventDefault();
+            ev.stopPropagation();
+            jumpToMessage(jump.getAttribute("data-jump-msg"));
+            return;
+          }
+          var copy = t.closest("[data-msg-copy]");
+          var edit = t.closest("[data-msg-edit]");
+          var del = t.closest("[data-msg-del]");
+          var react = t.closest("[data-react-emoji]");
+          var reactAdd = t.closest("[data-react-add]");
+          if (!(copy || edit || del || react || reactAdd)) return;
           ev.preventDefault();
           ev.stopPropagation();
-        }
-        try {
-          window.open(url, "_blank", "noopener,noreferrer");
-        } catch (eOpen) {}
-      }
-      el.addEventListener("click", openEmbed);
-      el.addEventListener("keydown", function (ev) {
-        if (ev.key === "Enter" || ev.key === " ") openEmbed(ev);
-      });
-    });
-  }
-
-  function ensureChatLogScroll() {
-    var log = byId("vc-wt-chat-log");
-    if (!log) return;
-    log.style.minHeight = "0";
-    log.style.overflowY = "scroll";
-    var stage = log.closest(".vc-wt-chat__stage");
-    if (stage) {
-      stage.style.minHeight = "0";
-      stage.style.flex = "1 1 auto";
-      stage.style.overflow = "hidden";
-    }
-  }
-
-  function patchComposerHtml() {
-    var chat = document.querySelector(".vc-wt-chat");
-    if (!chat || !state.detail) return;
-    var lock = composerLockedReason();
-    chat.classList.toggle("vc-wt-chat--closed", lock === "closed");
-    var existing = chat.querySelector(".vc-wt-composer, form.vc-wt-composer");
-    if (!lock && existing && existing.id === "vc-wt-composer") {
-      syncComposerReplyBar();
-      wireComposer();
-      ensureChatLogScroll();
-      return;
-    }
-    if (existing) {
-      var tmp = document.createElement("div");
-      tmp.innerHTML = composerHtml();
-      var next = tmp.firstElementChild;
-      if (next) {
-        dismissFloatingUi();
-        existing.replaceWith(next);
-      }
-    }
-    if (lock === "closed") {
-      var oldDock = byId("vc-wt-rate-dock");
-      if (oldDock) oldDock.remove();
-      patchRateDock({ settled: true });
-      wireChatActions();
-      wireRatingPanel();
-      ensureChatLogScroll();
-      return;
-    }
-    if (lock === "claimed" || lock === "unclaimed") {
-      wireChatActions();
-      ensureChatLogScroll();
-      return;
-    }
-    var oldDockOpen = byId("vc-wt-rate-dock");
-    if (oldDockOpen) oldDockOpen.remove();
-    wireComposer();
-    ensureChatLogScroll();
-  }
-
-  function patchRateDock(opts) {
-    opts = opts || {};
-    var chat = document.querySelector(".vc-wt-chat");
-    if (!chat || !state.detail) return;
-    var existing = byId("vc-wt-rate-dock");
-    var html = ratingDockHtml(state.detail, { settled: Boolean(opts.settled || existing) });
-    if (!html) {
-      if (existing) existing.remove();
-      ensureChatLogScroll();
-      return;
-    }
-    var tmp = document.createElement("div");
-    tmp.innerHTML = html;
-    var next = tmp.firstElementChild;
-    if (!next) return;
-    var stage = chat.querySelector(".vc-wt-chat__stage");
-    var log = byId("vc-wt-chat-log");
-    if (existing) {
-      existing.replaceWith(next);
-    } else if (stage && log) {
-      if (log.nextSibling) stage.insertBefore(next, log.nextSibling);
-      else stage.appendChild(next);
-    } else {
-      var composer = chat.querySelector(".vc-wt-composer, form.vc-wt-composer");
-      if (composer) chat.insertBefore(next, composer);
-      else chat.appendChild(next);
-    }
-    wireChatActions();
-    wireRatingPanel();
-    ensureChatLogScroll();
-  }
-
-  function wireRatingPanel() {
-    document.querySelectorAll("[data-rate-set]").forEach(function (btn) {
-      if (btn._vcWired) return;
-      btn._vcWired = true;
-      btn.addEventListener("click", function () {
-        var kind = btn.getAttribute("data-rate-set");
-        var value = Math.max(1, Math.min(5, Math.round(Number(btn.getAttribute("data-rate-value") || 0) || 0)));
-        if (kind === "ticket") state.rateDraftTicket = value;
-        else if (kind === "staffer") state.rateDraftStaffer = value;
-        patchRateDock({ settled: true });
-      });
-    });
-  }
-
-  function submitTicketRating() {
-    if (!state.selectedId || state.busy) return;
-    var ticketRating = Math.max(1, Math.min(5, Math.round(Number(state.rateDraftTicket) || 0)));
-    var stafferRating = Math.max(1, Math.min(5, Math.round(Number(state.rateDraftStaffer) || 0)));
-    if (!ticketRating || !stafferRating) {
-      setStatus("Scegli un voto da 1 a 5 per il ticket e per lo staffer.", true);
-      return;
-    }
-    state.busy = true;
-    setStatus("Invio valutazione…", false);
-    fetchJson(apiBase() + "/" + encodeURIComponent(state.selectedId) + "/rate", {
-      method: "POST",
-      headers: authHeaders(true),
-      body: JSON.stringify({ ticketRating: ticketRating, stafferRating: stafferRating }),
-    })
-      .then(function (out) {
-        state.busy = false;
-        if (!out.res.ok || !out.data || !out.data.ok) {
-          setStatus(apiErrorText(out.data && out.data.message, "Valutazione non inviata."), true);
-          return;
-        }
-        state.rateDraftTicket = 0;
-        state.rateDraftStaffer = 0;
-        if (out.data.ticket) {
-          state.detail = out.data.ticket;
-          refreshTicketInList(out.data.ticket);
-        }
-        var avg = out.data.staffer && out.data.staffer.avgRating;
-        var stafferId = out.data.staffer && out.data.staffer.id;
-        if (stafferId && avg != null) {
-          state.messages = (state.messages || []).map(function (m) {
-            if (String(m.authorId) === String(stafferId) && String(m.authorKind) === "staff") {
-              return Object.assign({}, m, { authorAvgRating: avg });
-            }
-            return m;
-          });
-          renderShell();
-        } else {
-          patchComposerHtml();
-        }
-        setStatus("Grazie! Valutazione salvata.", false);
-      })
-      .catch(function () {
-        state.busy = false;
-        setStatus("Errore di rete.", true);
-      });
-  }
-
-  function postAction(suffix, body, preservedScrollY) {
-    if (!state.selectedId) {
-      setStatus("Apri un ticket prima.", true);
-      return;
-    }
-    if (state.busy) {
-      setStatus("Operazione già in corso…", false);
-      return;
-    }
-    if (!getToken()) {
-      setStatus("Sessione Discord assente. Ricarica o accedi di nuovo.", true);
-      return;
-    }
-    var scrollY = Math.max(0, Number(preservedScrollY) || 0);
-    if (!scrollY) scrollY = capturePageScrollY();
-    state.busy = true;
-    setChatActionsBusy(true);
-    /* ticketCloseTimeout1: 35s anche desktop — Discord member resolve può superare 18s */
-    var actionId = String(state.selectedId || "");
-    fetchJson(apiBase() + "/" + encodeURIComponent(actionId) + suffix, {
-      method: "POST",
-      headers: authHeaders(true),
-      body: JSON.stringify(body || {}),
-      timeoutMs: 35000,
-    })
-      .then(function (out) {
-        if (apiActionFailed(out)) {
-          var apiMsg = apiErrorText(out.data && out.data.message, "");
-          var code = String((out.data && out.data.error) || "");
-          var status = Number((out.res && out.res.status) || 0);
-          var fallback =
-            status === 401 || code === "unauthorized" || code === "missing_token" || code === "invalid_token"
-              ? "Sessione Discord scaduta in questo browser. Riaccedi qui (ogni browser ha login separato)."
-              : status === 403 || code === "forbidden"
-                ? "Non hai i permessi per questa azione."
-                : status === 409
-                  ? apiMsg || "Azione non disponibile (ticket già aggiornato)."
-                  : status === 429 || code === "rate_limited"
-                    ? "Troppe richieste. Riprova tra poco."
-                    : status >= 500 || code === "internal" || code === "member_unavailable" || code === "discord_unreachable"
-                      ? "Discord lento o errore server. Riprova tra poco."
-                      : status
-                        ? "Operazione non riuscita (" + status + "). Riprova."
-                        : "Operazione non riuscita. Riprova.";
-          if (status === 401 || code === "unauthorized" || code === "missing_token" || code === "invalid_token") {
-            try {
-              if (typeof window.__vcNotifyAuthFailure === "function") {
-                window.__vcNotifyAuthFailure(status, out.data, { reason: "web-tickets-401", skipRedirect: true });
-              } else if (typeof window.__vcDiscordCompleteLogout === "function") {
-                window.__vcDiscordCompleteLogout({ reason: "web-tickets-401", forceToast: true, skipRedirect: true });
+          ensureWtComposerChunk()
+            .then(function () {
+              var api = wtComposerApi();
+              if (!api) return;
+              if (copy && typeof api.copyMessageText === "function") {
+                api.copyMessageText(copy.getAttribute("data-msg-copy"));
+                return;
               }
-            } catch (eAuth) {}
-          }
-          setStatus(apiMsg || fallback, true);
-          return;
-        }
-        withPageScrollPreserved(function () {
-          if (out.data.ticket) {
-            state.detail = mergeTicketDetail(out.data.ticket, { trustPermissions: true });
-            refreshTicketInList(state.detail);
-            refreshChatChrome();
-          }
-          if (out.data.message && typeof out.data.message === "object") {
-            appendMessage(out.data.message, out.data.ticket);
-          }
-          patchComposerHtml();
-          scrollChatBottom(true);
-        });
-        if (suffix === "/claim") setStatus("Ticket claimato.", false);
-        else if (suffix === "/unclaim") setStatus("Ticket rilasciato.", false);
-        else if (suffix === "/close" || suffix.indexOf("/close-request") === 0) setStatus("Operazione completata.", false);
-        else setStatus("Operazione completata.", false);
-      })
-      .catch(function (err) {
-        var aborted = err && (err.name === "AbortError" || err.code === 20);
-        var shouldReconcile =
-          aborted &&
-          actionId &&
-          (suffix === "/close" ||
-            suffix === "/claim" ||
-            suffix === "/unclaim" ||
-            suffix.indexOf("/close-request") === 0);
-        if (!shouldReconcile) {
-          setStatus(aborted ? "Timeout: riprova (rete lenta)." : "Errore di rete. Riprova.", true);
-          return;
-        }
-        /* ticketCloseTimeout1: server spesso ha già chiuso/claimato mentre il client abortiva */
-        setStatus("Verifico stato ticket…", false);
-        return fetchJson(apiBase() + "/" + encodeURIComponent(actionId), {
-          method: "GET",
-          headers: authHeaders(),
-          cache: "no-store",
-          timeoutMs: 12000,
-        })
-          .then(function (out) {
-            if (!(out.res && out.res.ok && out.data && out.data.ok && out.data.ticket)) {
-              setStatus("Timeout: riprova (rete lenta).", true);
-              return;
-            }
-            if (state.selectedId !== actionId) return;
-            withPageScrollPreserved(function () {
-              state.detail = mergeTicketDetail(out.data.ticket, { trustPermissions: true });
-              if (Array.isArray(out.data.messages)) {
-                state.messages = out.data.messages;
-                state.seenMessageIds = {};
-                state.messages.forEach(function (m) {
-                  if (m && m.id) state.seenMessageIds[m.id] = true;
-                });
+              if (edit && typeof api.startEditMessage === "function") {
+                api.startEditMessage(edit.getAttribute("data-msg-edit"));
+                return;
               }
-              refreshTicketInList(state.detail);
-              refreshChatPane();
-              patchComposerHtml();
-              scrollChatBottom(true);
-            });
-            var st = String((state.detail && state.detail.status) || "");
-            if (suffix === "/close" && st === "closed") {
-              setStatus("Operazione completata.", false);
-              return;
-            }
-            if (suffix === "/claim" && String((state.detail && state.detail.claimedBy) || "").trim()) {
-              setStatus("Ticket claimato.", false);
-              return;
-            }
-            if (suffix === "/unclaim" && !String((state.detail && state.detail.claimedBy) || "").trim()) {
-              setStatus("Ticket rilasciato.", false);
-              return;
-            }
-            if (suffix === "/close-request" && state.detail && state.detail.closeRequestedAt) {
-              setStatus("Operazione completata.", false);
-              return;
-            }
-            if (
-              (suffix === "/close-request/accept" && st === "closed") ||
-              (suffix === "/close-request/reject" && state.detail && !state.detail.closeRequestedAt)
-            ) {
-              setStatus("Operazione completata.", false);
-              return;
-            }
-            setStatus("Timeout: riprova (rete lenta).", true);
-          })
-          .catch(function () {
-            setStatus("Timeout: riprova (rete lenta).", true);
-          });
-      })
-      .finally(function () {
-        state.busy = false;
-        setChatActionsBusy(false);
-        restorePageScroll(scrollY);
-        try {
-          requestAnimationFrame(function () {
-            restorePageScroll(scrollY);
-          });
-        } catch (eRaf) {}
-        try {
-          if (typeof window.__vcHoldPageScroll === "function") window.__vcHoldPageScroll(220);
-        } catch (eHold) {}
-      });
-  }
-
-  function setChatActionsBusy(on) {
-    try {
-      document.querySelectorAll(".vc-wt-action[data-act]").forEach(function (btn) {
-        if (on) btn.setAttribute("aria-busy", "true");
-        else btn.removeAttribute("aria-busy");
-        btn.disabled = Boolean(on);
-      });
-    } catch (eBusyUi) {}
-  }
-
-  function refreshChatChrome() {
-    if (!state.detail) return;
-    var top = byId("vc-wt-chat-top");
-    if (!top) return;
-    var wrap = document.createElement("div");
-    wrap.innerHTML = chatHeadHtml(state.detail);
-    var next = wrap.firstElementChild;
-    if (next) top.replaceWith(next);
-    wireChatActions();
-    patchComposerHtml();
-  }
-
-  function wireComposer() {
-    var form = byId("vc-wt-composer");
-    if (!form || form._vcWired) return;
-    form._vcWired = true;
-    form.addEventListener("submit", function (ev) {
-      ev.preventDefault();
-      sendMessage();
-    });
-    form.addEventListener("click", function (ev) {
-      var t = ev.target;
-      if (!t || !t.closest) return;
-      if (t.closest("[data-reply-cancel]")) {
-        ev.preventDefault();
-        clearReplyTarget();
-      }
-    });
-    var ta = byId("vc-wt-composer-text");
-    if (ta && !ta._vcWired) {
-      ta._vcWired = true;
-      applyRichInputPlaintextMode(ta);
-      fillRichInput(ta, state.composerText || "");
-      syncComposerAutosize(ta);
-      ta.addEventListener("input", function () {
-        unwrapComposerAutolinks(ta);
-        syncRichInputEmptyState(ta);
-        state.composerText = serializeRichInput(ta);
-        saveTicketComposerDraft();
-        scheduleComposerLivePreview(ta);
-        scheduleComposerSuggest(ta, false);
-        syncComposerAutosize(ta);
-        pulseTicketTyping(Boolean(String(state.composerText || "").trim()));
-      });
-      ta.addEventListener("paste", function () {
-        window.setTimeout(function () {
-          unwrapComposerAutolinks(ta);
-          syncRichInputEmptyState(ta);
-          state.composerText = serializeRichInput(ta);
-          scheduleComposerLivePreview(ta);
-          syncComposerAutosize(ta);
-        }, 0);
-      });
-      ta.addEventListener("scroll", function () {
-        syncComposerLivePreview(ta);
-      }, { passive: true });
-      window.addEventListener("resize", function () {
-        syncComposerAutosize(ta);
-      });
-      ta.addEventListener("keyup", function (ev) {
-        var key = String(ev.key || "");
-        if (key === ")" || key === " " || key === "Enter") {
-          unwrapComposerAutolinks(ta);
-        }
-        if (
-          key === "ArrowDown" ||
-          key === "ArrowUp" ||
-          key === "ArrowLeft" ||
-          key === "ArrowRight" ||
-          key === "Enter" ||
-          key === "Tab" ||
-          key === "Escape"
-        ) {
-          return;
-        }
-        scheduleComposerLivePreview(ta);
-        scheduleComposerSuggest(ta, false);
-      });
-      ta.addEventListener("beforeinput", function () {
-        scheduleComposerLivePreview(ta);
-        scheduleComposerSuggest(ta, false);
-      });
-      ta.addEventListener("click", function () {
-        scheduleComposerSuggest(ta, true);
-      });
-      ta.addEventListener("focus", function () {
-        if (effectivePermissions().canUseCommands) void ensureCommandCatalog();
-      });
-      ta.addEventListener(
-        "keydown",
-        function (ev) {
-        /* ticketMentionTab1: capture + sync index da .is-active (hover) prima di Tab/Enter */
-        function activeMenuIndex(menuId, attr, fallback) {
-          var menu = byId(menuId);
-          var active = menu && menu.querySelector(".is-active[" + attr + "]");
-          if (active) {
-            var i = Number(active.getAttribute(attr));
-            if (Number.isFinite(i) && i >= 0) return i;
-          }
-          return Math.max(0, Number(fallback) || 0);
-        }
-        if (state.commandMenu.open && state.commandMenu.items.length) {
-          if (ev.key === "ArrowDown") {
-            ev.preventDefault();
-            ev.stopPropagation();
-            state.commandMenu.index = (state.commandMenu.index + 1) % state.commandMenu.items.length;
-            renderCommandMenu();
-            return;
-          }
-          if (ev.key === "ArrowUp") {
-            ev.preventDefault();
-            ev.stopPropagation();
-            state.commandMenu.index =
-              (state.commandMenu.index - 1 + state.commandMenu.items.length) % state.commandMenu.items.length;
-            renderCommandMenu();
-            return;
-          }
-          if (ev.key === "Enter" || ev.key === "Tab") {
-            ev.preventDefault();
-            ev.stopPropagation();
-            state.commandMenu.index = activeMenuIndex(
-              "vc-wt-command-menu",
-              "data-cmd-idx",
-              state.commandMenu.index,
-            );
-            applyCommandPick(state.commandMenu.items[state.commandMenu.index]);
-            return;
-          }
-          if (ev.key === "Escape") {
-            ev.preventDefault();
-            hideCommandMenu();
-            return;
-          }
-        }
-        if (state.mentionMenu.open) {
-          if (ev.key === "ArrowDown" && state.mentionMenu.items.length) {
-            ev.preventDefault();
-            ev.stopPropagation();
-            state.mentionMenu.index = (state.mentionMenu.index + 1) % state.mentionMenu.items.length;
-            renderMentionMenu();
-            return;
-          }
-          if (ev.key === "ArrowUp" && state.mentionMenu.items.length) {
-            ev.preventDefault();
-            ev.stopPropagation();
-            state.mentionMenu.index =
-              (state.mentionMenu.index - 1 + state.mentionMenu.items.length) % state.mentionMenu.items.length;
-            renderMentionMenu();
-            return;
-          }
-          if ((ev.key === "Enter" || ev.key === "Tab") && state.mentionMenu.items.length) {
-            ev.preventDefault();
-            ev.stopPropagation();
-            state.mentionMenu.index = activeMenuIndex(
-              "vc-wt-mention-menu",
-              "data-mention-idx",
-              state.mentionMenu.index,
-            );
-            applyMentionPick(state.mentionMenu.items[state.mentionMenu.index]);
-            return;
-          }
-          if (ev.key === "Tab" && state.mentionMenu.open) {
-            /* menu aperto ma ancora loading: non togliere focus dal composer */
-            ev.preventDefault();
-            ev.stopPropagation();
-            return;
-          }
-          if (ev.key === "Escape") {
-            ev.preventDefault();
-            hideMentionMenu();
-            return;
-          }
-        }
-        if (ev.key === "Escape" && state.replyTo) {
-          ev.preventDefault();
-          clearReplyTarget();
-          return;
-        }
-        if (!ev.ctrlKey && !ev.metaKey && !ev.altKey && (ev.key === "@" || ev.key === "#" || ev.key === "+" || ev.key === "!" || ev.key === "/")) {
-          setTimeout(function () {
-            scheduleComposerSuggest(ta, true);
-          }, 0);
-        }
-        if (ev.key === "Backspace" || ev.key === "Delete") {
-          setTimeout(function () {
-            syncRichInputEmptyState(ta);
-            scheduleComposerSuggest(ta, true);
-          }, 0);
-        }
-        if (ev.key === "Enter" && !ev.shiftKey) {
-          ev.preventDefault();
-          sendMessage();
-        }
+              if (del && typeof api.deleteMessage === "function") {
+                api.deleteMessage(del.getAttribute("data-msg-del"));
+                return;
+              }
+              if (react && typeof api.toggleReaction === "function") {
+                var msgEl = react.closest("[data-msg-id]");
+                var mid = msgEl && msgEl.getAttribute("data-msg-id");
+                var emoji = react.getAttribute("data-react-emoji");
+                if (mid && emoji) api.toggleReaction(mid, emoji);
+                return;
+              }
+              if (reactAdd && typeof api.openEmojiPicker === "function") {
+                var midAdd = reactAdd.getAttribute("data-react-add");
+                api.openEmojiPicker(
+                  reactAdd,
+                  function (pick) {
+                    if (!pick || !pick.markup || !midAdd) return;
+                    if (typeof api.toggleReaction === "function") api.toggleReaction(midAdd, pick.markup);
+                  },
+                  true,
+                );
+              }
+            })
+            .catch(function () {});
+        } catch (eDel) {}
       },
-        true,
-      );
-      ta.addEventListener("paste", function (ev) {
-        var cd = ev.clipboardData || window.clipboardData || null;
-        var files = [];
-        if (cd && cd.items && cd.items.length) {
-          for (var i = 0; i < cd.items.length; i += 1) {
-            var it = cd.items[i];
-            if (!it || it.kind !== "file") continue;
-            var f = it.getAsFile && it.getAsFile();
-            if (f) files.push(f);
-          }
-        }
-        if (!files.length && cd && cd.files && cd.files.length) {
-          files = Array.prototype.slice.call(cd.files);
-        }
-        if (files.length) {
-          ev.preventDefault();
-          void addComposerMediaFiles(files);
-          return;
-        }
-        var clip = (cd && cd.getData && cd.getData("text")) || "";
-        if (!clip) return;
-        ev.preventDefault();
-        if (/<(a?):([a-zA-Z0-9_]+):(\d{5,32})>/.test(clip)) {
-          var parts = clip.split(/(<(?:a?):[a-zA-Z0-9_]+:\d{5,32}>)/g);
-          parts.forEach(function (part) {
-            if (!part) return;
-            insertAtCursor(ta, part);
-          });
-        } else {
-          insertAtCursor(ta, clip.slice(0, 2000));
-        }
-        state.composerText = serializeRichInput(ta);
-        scheduleComposerLivePreview(ta);
-        scheduleComposerSuggest(ta, true);
-      });
-    }
-    var emojiBtn = byId("vc-wt-composer-emoji");
-    if (emojiBtn && !emojiBtn._vcWired) {
-      emojiBtn._vcWired = true;
-      emojiBtn.addEventListener("click", function () {
-        openEmojiPicker(emojiBtn, function (pick) {
-          if (!pick || !pick.markup) return;
-          insertAtCursor(byId("vc-wt-composer-text"), pick.markup, pick);
-          state.composerText = serializeRichInput(byId("vc-wt-composer-text"));
-          scheduleComposerLivePreview(byId("vc-wt-composer-text"));
-        });
-      });
-    }
-    var file = byId("vc-wt-composer-file");
-    if (file && !file._vcWired) {
-      file._vcWired = true;
-      file.addEventListener("change", function () {
-        void addComposerMediaFiles(file.files).then(function () {
-          file.value = "";
-        });
-      });
-    }
-    if (form && !form._vcDropWired) {
-      form._vcDropWired = true;
-      form.addEventListener("dragover", function (ev) {
-        if (!ev.dataTransfer) return;
-        var types = ev.dataTransfer.types;
-        var hasFiles = false;
-        if (types) {
-          for (var ti = 0; ti < types.length; ti += 1) {
-            if (String(types[ti]).toLowerCase() === "files") {
-              hasFiles = true;
-              break;
-            }
-          }
-        }
-        if (!hasFiles) return;
-        ev.preventDefault();
-        form.classList.add("is-drop-target");
-      });
-      form.addEventListener("dragleave", function (ev) {
-        if (ev.relatedTarget && form.contains(ev.relatedTarget)) return;
-        form.classList.remove("is-drop-target");
-      });
-      form.addEventListener("drop", function (ev) {
-        form.classList.remove("is-drop-target");
-        var files = ev.dataTransfer && ev.dataTransfer.files ? ev.dataTransfer.files : null;
-        if (!files || !files.length) return;
-        ev.preventDefault();
-        void addComposerMediaFiles(files);
-      });
-    }
-    var prev = byId("vc-wt-composer-previews");
-    if (prev && !prev._vcWired) {
-      prev._vcWired = true;
-      renderPreviews("vc-wt-composer-previews", state.composerImages || []);
-      prev.addEventListener("click", function (ev) {
-        var btn = ev.target.closest("[data-rm-img]");
-        if (!btn) return;
-        var i = Number(btn.getAttribute("data-rm-img"));
-        state.composerImages.splice(i, 1);
-        renderPreviews("vc-wt-composer-previews", state.composerImages);
-      });
-    }
+      true,
+    );
+  }
+  function wireComposer() {
+    return ensureWtComposerChunk().then(function () {
+      var api = wtComposerApi();
+      if (api && typeof api.wireComposer === "function") api.wireComposer();
+    });
   }
 
   function wireOpenCatCards() {
@@ -8900,46 +7460,75 @@
 
   function createTicket(categoryId) {
     if (state.busy) return;
-    state.draftCategory = categoryId || state.draftCategory || "supporto";
-    state.busy = true;
-    setStatus("Apertura ticket…", false);
-    fetchJson(apiBase(), {
-      method: "POST",
-      headers: authHeaders(true),
-      body: JSON.stringify({
-        category: state.draftCategory,
-      }),
-    })
-      .then(function (out) {
-        state.busy = false;
-        if (!out.res.ok || !out.data || !out.data.ok) {
-          setStatus(apiErrorText(out.data && out.data.message, "Creazione fallita."), true);
-          return;
-        }
-        state.composeOpen = false;
-        state.draftSubject = "";
-        state.draftContent = "";
-        state.draftImages = [];
-        state.detail = out.data.ticket;
-        state.messages = out.data.messages || [];
-        state.selectedId = out.data.ticket && out.data.ticket.id;
-        state.seenMessageIds = {};
-        state.deletedMessageIds = {};
-        state.messages.forEach(function (m) {
-          if (m && m.id) state.seenMessageIds[m.id] = true;
-        });
-        setHashTicket(state.selectedId);
-        state.listPage = 1;
-        return loadList().then(function () {
-          renderShell();
-          scrollChatBottom(true);
-          setStatus("Ticket aperto.", false);
-        });
+    var runCreate = function () {
+      state.draftCategory = categoryId || state.draftCategory || "supporto";
+      state.busy = true;
+      setStatus("Apertura ticket…", false);
+      fetchJson(apiBase(), {
+        method: "POST",
+        headers: authHeaders(true),
+        body: JSON.stringify({
+          category: state.draftCategory,
+        }),
       })
-      .catch(function () {
-        state.busy = false;
-        setStatus("Errore di rete.", true);
+        .then(function (out) {
+          state.busy = false;
+          if (!out.res.ok || !out.data || !out.data.ok) {
+            /* ticketPushApi1: API rifiuta senza push → riapri tutorial */
+            if (out.data && out.data.error === "push_required") {
+              setStatus(apiErrorText(out.data.message, "Attiva le notifiche push per aprire un ticket."), true);
+              if (
+                window.VcTicketsPushGate &&
+                typeof window.VcTicketsPushGate.ensureReady === "function"
+              ) {
+                window.VcTicketsPushGate.ensureReady().then(function (ok) {
+                  if (ok) createTicket(categoryId);
+                });
+              }
+              return;
+            }
+            setStatus(apiErrorText(out.data && out.data.message, "Creazione fallita."), true);
+            return;
+          }
+          state.composeOpen = false;
+          state.draftSubject = "";
+          state.draftContent = "";
+          state.draftImages = [];
+          state.detail = out.data.ticket;
+          state.messages = out.data.messages || [];
+          state.selectedId = out.data.ticket && out.data.ticket.id;
+          state.seenMessageIds = {};
+          state.deletedMessageIds = {};
+          state.messages.forEach(function (m) {
+            if (m && m.id) state.seenMessageIds[m.id] = true;
+          });
+          setHashTicket(state.selectedId);
+          state.listPage = 1;
+          return loadList().then(function () {
+            renderShell();
+            scrollChatBottom(true);
+            setStatus("Ticket aperto.", false);
+          });
+        })
+        .catch(function () {
+          state.busy = false;
+          setStatus("Errore di rete.", true);
+        });
+    };
+    if (isStaffMode) {
+      runCreate();
+      return;
+    }
+    if (
+      window.VcTicketsPushGate &&
+      typeof window.VcTicketsPushGate.ensureReady === "function"
+    ) {
+      window.VcTicketsPushGate.ensureReady().then(function (ok) {
+        if (ok) runCreate();
       });
+      return;
+    }
+    runCreate();
   }
 
   function wireAll() {
@@ -9074,18 +7663,19 @@
     }
     if (!state.floatMenuScrollWired) {
       state.floatMenuScrollWired = true;
+      /* pickerFloatFix1: riposiziona su scroll pagina; skip solo scroll interno al menu */
       function onFloatMenuViewportChange(ev) {
         if (!(state.mentionMenu.open || state.commandMenu.open)) return;
         try {
           var t = ev && ev.target;
           if (
             t &&
+            t !== window &&
+            t !== document &&
+            t !== document.documentElement &&
+            t !== document.body &&
             t.closest &&
-            (t.closest("#vc-wt-mention-menu") ||
-              t.closest("#vc-wt-command-menu") ||
-              t.closest("#vc-wt-composer-text") ||
-              t.closest(".vc-wt-chat-log") ||
-              t.closest(".vc-wt-list"))
+            (t.closest("#vc-wt-mention-menu") || t.closest("#vc-wt-command-menu"))
           ) {
             return;
           }
@@ -9112,6 +7702,36 @@
     wireMessageReactions(document);
     wireMessageTools(document);
     void ensureGuildEmojis();
+    /* loadSyncPack1: auto load-older when chat log scrolled near top */
+    (function () {
+      var logEl = byId("vc-wt-chat-log");
+      if (!logEl) return;
+      logEl.addEventListener("scroll", function onChatLogScroll() {
+        if (Number(logEl.scrollTop) >= 80) return;
+        var curStart = Number.isFinite(state._msgWinStart) ? state._msgWinStart : 0;
+        if (curStart <= 0) return;
+        if (_chatScrollOlderT) return;
+        _chatScrollOlderT = window.setTimeout(function () {
+          _chatScrollOlderT = 0;
+          var logNow = byId("vc-wt-chat-log");
+          if (!logNow) return;
+          var prevH = Number(logNow.scrollHeight) || 0;
+          var prevTop = Number(logNow.scrollTop) || 0;
+          var cs = Number.isFinite(state._msgWinStart) ? state._msgWinStart : 0;
+          if (cs <= 0) return;
+          state._msgWinStart = Math.max(0, cs - 80);
+          renderShell();
+          window.requestAnimationFrame(function () {
+            try {
+              var log2 = byId("vc-wt-chat-log");
+              if (!log2) return;
+              var nextH = Number(log2.scrollHeight) || 0;
+              log2.scrollTop = Math.max(0, prevTop + (nextH - prevH));
+            } catch (eScr) {}
+          });
+        }, 250);
+      }, { passive: true });
+    })();
   }
 
   function onFilterChipClick(btn) {
@@ -9517,31 +8137,59 @@
 
   function stopPoll() {
     if (state.pollTimer) {
-      clearInterval(state.pollTimer);
+      clearTimeout(state.pollTimer);
+      try {
+        clearInterval(state.pollTimer);
+      } catch (eClr) {}
       state.pollTimer = null;
     }
   }
 
-  function startPoll() {
-    stopPoll();
-    state.pollTimer = setInterval(function () {
-      if (document.visibilityState === "hidden") return;
-      if (window.VcApiCache && typeof window.VcApiCache.isWebhookBlocked === "function") {
-        if (window.VcApiCache.isWebhookBlocked()) return;
+  function runPollTick() {
+    if (document.visibilityState === "hidden") return;
+    if (window.VcApiCache && typeof window.VcApiCache.isWebhookBlocked === "function") {
+      if (window.VcApiCache.isWebhookBlocked()) return;
+    }
+    // WS zombie: connesso ma senza eventi da troppo → forza sync chat aperta.
+    var wsOpen = state.ws && state.ws.readyState === 1;
+    if (wsOpen && state.selectedId && state.lastWsEventAt) {
+      var silentFor = Date.now() - Number(state.lastWsEventAt || 0);
+      if (silentFor > 45000) {
+        try {
+          state.ws.close();
+        } catch (eZ) {}
       }
-      // WS zombie: connesso ma senza eventi da troppo → forza sync chat aperta.
-      var wsOpen = state.ws && state.ws.readyState === 1;
-      if (wsOpen && state.selectedId && state.lastWsEventAt) {
-        var silentFor = Date.now() - Number(state.lastWsEventAt || 0);
-        if (silentFor > 45000) {
-          try {
-            state.ws.close();
-          } catch (eZ) {}
-        }
-      }
+    }
+    /* ticketsPerfPack1: con WS fresco alterna list/detail — niente doppio GET ogni tick */
+    var fresh = wsFreshForQuietPoll();
+    var tick = (state.pollTick = (Number(state.pollTick) || 0) + 1);
+    if (!fresh) {
       void loadListQuiet();
       if (state.selectedId) void refreshDetailQuiet();
-    }, ticketPollIntervalMs());
+      return;
+    }
+    if (tick % 2 === 1) {
+      void loadListQuiet();
+    } else if (state.selectedId) {
+      void refreshDetailQuiet();
+    } else {
+      void loadListQuiet();
+    }
+  }
+
+  function startPoll() {
+    /* ticketsMsgRailCpu1 #2: setTimeout chain — ricalcola intervallo a ogni tick */
+    stopPoll();
+    function scheduleNext() {
+      state.pollTimer = setTimeout(function () {
+        state.pollTimer = null;
+        try {
+          runPollTick();
+        } catch (eTick) {}
+        scheduleNext();
+      }, ticketPollIntervalMs());
+    }
+    scheduleNext();
   }
 
   function scheduleLoadListQuiet() {
@@ -9701,7 +8349,7 @@
 
   function startTicketPresence() {
     stopTicketPresence(false);
-    /* ticket429Flash1: presence dopo un beat (lascia finire list), interval più largo su mobile */
+    /* ticket429Flash1 + ticketsPerfPack1: beat iniziale; heartbeat senza force (dedupe key) */
     window.setTimeout(function () {
       if (!getToken()) return;
       sendTicketPresence({ force: true });
@@ -9709,8 +8357,20 @@
     state.presenceTimer = setInterval(function () {
       if (document.visibilityState === "hidden") return;
       if (ticketsRateLimitedNow()) return;
-      sendTicketPresence({ force: true });
-    }, Math.max(ticketPresenceIntervalMs(), isCoarseMobile() ? 60000 : 30000));
+      sendTicketPresence({});
+    }, ticketPresenceIntervalMs());
+    if (!state.presenceFocusWired) {
+      state.presenceFocusWired = true;
+      window.addEventListener("focus", function () {
+        if (document.visibilityState === "hidden") return;
+        if (!getToken()) return;
+        sendTicketPresence({ force: true });
+      });
+      window.addEventListener("blur", function () {
+        if (!getToken()) return;
+        sendTicketPresence({ force: true });
+      });
+    }
   }
 
   function stopTicketPresence(clearRemote) {
@@ -9764,9 +8424,10 @@
             return;
           }
           var prev = byIdMap[m.id];
-          var prevJson = JSON.stringify((prev && prev.reactions) || []);
-          var nextJson = JSON.stringify(m.reactions || []);
-          if (prevJson !== nextJson) patchMessageInState(m);
+          /* ticketsCpu45_1 #4: fingerprint leggero al posto di JSON.stringify×2 per msg */
+          if (reactionsFingerprint(prev && prev.reactions) !== reactionsFingerprint(m.reactions)) {
+            patchMessageInState(m);
+          }
         });
         if (added > 0) {
           scrollChatBottom(false);
@@ -10007,9 +8668,24 @@
     }, 80);
   }
 
-  function boot() {
+  function prefetchTicketsEmojiIdle() {
     try {
-      freezeTicketsAnimatedMedia(document);
+      var run = function () { ensureTicketsEmojiMaps().catch(function () {}); };
+      if (typeof requestIdleCallback === "function") requestIdleCallback(run, { timeout: 4000 });
+      else setTimeout(run, 1200);
+    } catch (ePf) {}
+  }
+  function boot() {
+    prefetchTicketsEmojiIdle();
+    /* lazyEverywhere1: composer/picker solo su interact — no warm a boot */
+    try {
+      armComposerLazyOnInteract();
+    } catch (eCompArm) {}
+
+    try {
+      armMsgToolsDelegation();
+      var stillRoot = byId("vc-wt-app") || document;
+      freezeTicketsAnimatedMedia(stillRoot);
       if (!window.__vcTicketsStillMo && typeof MutationObserver === "function") {
         window.__vcTicketsStillMo = new MutationObserver(function (muts) {
           for (var i = 0; i < muts.length; i += 1) {
@@ -10018,12 +8694,14 @@
               var n = nodes[j];
               if (!n || n.nodeType !== 1) continue;
               if (n.tagName === "IMG" || (n.querySelector && n.querySelector("img"))) {
-                freezeTicketsAnimatedMedia(n.tagName === "IMG" ? n.parentNode || document : n);
+                freezeTicketsAnimatedMedia(n.tagName === "IMG" ? n.parentNode || stillRoot : n);
               }
             }
           }
         });
-        window.__vcTicketsStillMo.observe(document.documentElement, { childList: true, subtree: true });
+        /* ticketsMsgRailCpu1 #3: observer solo su #vc-wt-app (no storm documentElement) */
+        var moRoot = byId("vc-wt-app") || document.documentElement;
+        window.__vcTicketsStillMo.observe(moRoot, { childList: true, subtree: true });
       }
     } catch (eStillBoot) {}
     if (state.bootWired) {
@@ -10082,6 +8760,11 @@
           state.presenceResumeTimer = null;
         }
         stopTicketPresence(true);
+        /* ticketsCpu45_1 #5: spegni overlay md mentre la tab è nascosta */
+        try {
+          var edHide = document.querySelector(".vc-wt-composer__editor [contenteditable], .vc-wt-composer__input");
+          if (edHide) syncComposerLivePreview(edHide, { force: true });
+        } catch (eMdHide) {}
         return;
       }
       if (state.presenceResumeTimer) clearTimeout(state.presenceResumeTimer);
@@ -10093,7 +8776,24 @@
         if (state.selectedId) void refreshDetailQuiet();
         if (!state.ws || state.ws.readyState > 1) connectWs();
         else startPoll();
+        try {
+          var edShow = document.querySelector(".vc-wt-composer__editor [contenteditable], .vc-wt-composer__input");
+          if (edShow) scheduleComposerLivePreview(edShow);
+        } catch (eMdShow) {}
       }, isCoarseMobile() ? 900 : 350);
+    });
+    /* ticketsCpu45_1 #5: blur finestra → stop md-live; focus → riprendi */
+    window.addEventListener("blur", function () {
+      try {
+        var edBlur = document.querySelector(".vc-wt-composer__editor [contenteditable], .vc-wt-composer__input");
+        if (edBlur) syncComposerLivePreview(edBlur, { force: true });
+      } catch (eBlur) {}
+    });
+    window.addEventListener("focus", function () {
+      try {
+        var edFocus = document.querySelector(".vc-wt-composer__editor [contenteditable], .vc-wt-composer__input");
+        if (edFocus) scheduleComposerLivePreview(edFocus);
+      } catch (eFocus) {}
     });
     try {
       /* ticketStaffRemember2: Staff SOLO se ?view=staff (eri lì + refresh).

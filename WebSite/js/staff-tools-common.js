@@ -342,6 +342,45 @@
     };
     window.__vcStaffPageRefresh = wrapped;
     window.__vcPtrSoftRefresh = wrapped;
+    installRealtimeSoftRefreshBus();
+  }
+
+  /* siteLiveAll1: qualsiasi evento WS → soft-refresh pagina staff aperta */
+  function installRealtimeSoftRefreshBus() {
+    if (window.__vcRealtimeSoftRefreshInstalled) return;
+    window.__vcRealtimeSoftRefreshInstalled = 1;
+    var timer = 0;
+    var lastSig = "";
+    function bump(payload) {
+      var sig = "";
+      try {
+        sig = String((payload && payload.type) || "") + "|" + Date.now();
+      } catch (e0) {
+        sig = String(Date.now());
+      }
+      if (sig === lastSig) return;
+      lastSig = sig;
+      window.clearTimeout(timer);
+      timer = window.setTimeout(function () {
+        try {
+          if (typeof window.__vcStaffPageRefresh === "function") {
+            window.__vcStaffPageRefresh(payload && payload.detail ? payload.detail : payload);
+          }
+        } catch (e1) {}
+      }, 200);
+    }
+    window.__vcRealtimeSoftBump = bump;
+    [
+      "vc:staff-workflow-changed",
+      "vc:staff-pauses-changed",
+      "vc:staff-compiti-changed",
+      "vc:staff-profile-changed",
+      "vc:site-ui-changed",
+    ].forEach(function (name) {
+      window.addEventListener(name, function (ev) {
+        bump({ type: name, detail: ev && ev.detail });
+      });
+    });
   }
 
   function ensureStaffCineLayout() {
@@ -798,10 +837,15 @@
     onAccessReady: onAccessReady,
     bootPage: bootPage,
     registerPtrRefresh: registerPtrRefresh,
+    installRealtimeSoftRefreshBus: installRealtimeSoftRefreshBus,
     showPanelLoading: showPanelLoading,
     clearPanelLoading: clearPanelLoading,
     confirm: confirmDialog,
     prompt: promptDialog,
     alert: alertDialog,
   };
+  global.VcStaffTools = global.VCStaffTools;
+  try {
+    installRealtimeSoftRefreshBus();
+  } catch (eBusBoot) {}
 })(window);

@@ -1,6 +1,7 @@
 /**
  * themeSync1: light|dark|auto synced across devices via site-chrome-prefs.
  * emojiColorFix3: titleGrad skips boards hero + .vc-emoji
+ * pageHang1: no CSS move/rebuild storm on html class churn (“La pagina non risponde”)
  */
 (function vcTheme() {
   if (window.__vcTheme) return;
@@ -203,8 +204,76 @@
     syncSwitchers(resolve(readPref()));
   }
 
+
+  /* themeSwitchAlways1: layout switcher sempre (dark mode non ha theme-light) */
+  var THEME_SWITCH_VER = "20261006themeScrollFix1";
+  function ensureThemeSwitchCss() {
+    try {
+      var id = "vc-theme-switch-css";
+      var link = document.getElementById(id);
+      if (!link) link = document.querySelector('link[href*="vc-theme-switch.css"]');
+      if (!link) {
+        link = document.createElement("link");
+        link.rel = "stylesheet";
+        link.id = id;
+        link.href = "/css/vc-theme-switch.css?v=" + THEME_SWITCH_VER;
+        (document.head || document.documentElement).appendChild(link);
+      } else {
+        link.id = id;
+        if (String(link.href || "").indexOf(THEME_SWITCH_VER) === -1) {
+          link.href = "/css/vc-theme-switch.css?v=" + THEME_SWITCH_VER;
+        }
+      }
+      link.media = "all";
+      try {
+        link.disabled = false;
+      } catch (eEn) {}
+      return link;
+    } catch (eSwCss) {
+      return null;
+    }
+  }
+
+  /* bootFast1ThemeLightOnDemand + bootPerfAll1: dark = zero download theme-light */
+  var THEME_LIGHT_VER = "20261013bootPerfAll1";
+  function ensureThemeLightCss(enable) {
+    try {
+      var link = document.getElementById("vc-theme-light-css");
+      if (!link) link = document.querySelector('link[href*="vc-theme-light.css"]');
+      if (!link) {
+        if (!enable) return null;
+        link = document.createElement("link");
+        link.rel = "stylesheet";
+        link.id = "vc-theme-light-css";
+        link.href = "/css/vc-theme-light.css?v=" + THEME_LIGHT_VER;
+        (document.head || document.documentElement).appendChild(link);
+      }
+      link.id = "vc-theme-light-css";
+      if (enable) {
+        link.media = "all";
+        link.disabled = false;
+        try {
+          link.removeAttribute("data-vc-defer-css");
+        } catch (eRm) {}
+      } else {
+        link.media = "not all";
+        try { link.disabled = true; } catch (eDis) {}
+      }
+      return link;
+    } catch (eEns) {
+      return null;
+    }
+  }
+
   function pinThemeCssLast() {
     try {
+      if (resolve(readPref()) !== "light") {
+        ensureThemeLightCss(false);
+        return;
+      }
+      ensureThemeLightCss(true);
+      /* pageHang1: dopo il primo pin stabile non muovere più i link CSS (recalc totale) */
+      if (pinThemeCssLast._done) return;
       if (pinThemeCssLast._busy) return;
       var theme = document.getElementById("vc-theme-light-css");
       if (!theme) theme = document.querySelector('link[href*="vc-theme-light.css"]');
@@ -215,20 +284,28 @@
       if (!head) return;
       /* lightPerf1: gia' in coda → no move (no MutationObserver storm) */
       var last = head.lastElementChild;
-      if (runtime && last === runtime && runtime.previousElementSibling === theme) return;
-      if (!runtime && last === theme) return;
+      if (runtime && last === runtime && runtime.previousElementSibling === theme) {
+        pinThemeCssLast._done = 1;
+        return;
+      }
+      if (!runtime && last === theme) {
+        pinThemeCssLast._done = 1;
+        return;
+      }
       pinThemeCssLast._busy = true;
       head.appendChild(theme);
       if (runtime) head.appendChild(runtime);
       try {
         var emojiCss = document.getElementById("vc-emoji-color-css");
         if (!emojiCss) emojiCss = document.querySelector('link[href*="vc-emoji-color.css"]');
-        if (emojiCss) {
+        if (emojiCss && !pinThemeCssLast._emojiPinned) {
+          pinThemeCssLast._emojiPinned = 1;
           var mount = document.body || head;
           mount.appendChild(emojiCss);
         }
       } catch (eEmojiPin) {}
       pinThemeCssLast._busy = false;
+      pinThemeCssLast._done = 1;
     } catch (ePin) {
       pinThemeCssLast._busy = false;
     }
@@ -242,12 +319,13 @@
       injectLightRuntime._built = "";
       return;
     }
-    /* lightPerf1: non riscrivere il blocco CSS (caro) se gia' presente
-       emojiColorFix3: bump marker so old runtime (pre emoji skip) is rebuilt */
-    if (style && style.parentNode === document.head && style.getAttribute("data-vc-light-rt") === "emoji4" && style.textContent) {
-      try {
-        if (style.nextSibling) document.head.appendChild(style);
-      } catch (eKeep) {}
+    /* lightPerf1 + pageHang1: se già presente NON muovere/riscrivere (appendChild = style recalc → hang) */
+    if (
+      style &&
+      style.parentNode &&
+      style.getAttribute("data-vc-light-rt") === "pageHang1" &&
+      style.textContent
+    ) {
       return;
     }
     if (!style) {
@@ -272,9 +350,10 @@
       "color:transparent!important;-webkit-text-fill-color:transparent!important;text-shadow:none!important;filter:none!important;";
     if (!injectLightRuntime._built) {
     style.textContent =
-      'html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body,' +
-      'html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top,' +
-      'html[data-vc-theme="light"] body.vc-body{' +
+      /* boardsSchedaBgFade2: non dipingere cream sul fill scheda bacheca */
+      'html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off):not(.vc-boards-page-banner-bg) body.vc-body,' +
+      'html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off):not(.vc-boards-page-banner-bg) body.vc-body#top,' +
+      'html[data-vc-theme="light"]:not(.vc-boards-page-banner-bg) body.vc-body{' +
       "color:#2a1c14!important;background-color:#efe6dc!important;}" +
       'html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-content :is(' +
       ".vc-page-cine-card,.vc-fx-card,.vc-home-panel,.vc-hero-head,.vc-home-deck,.vc-home-index," +
@@ -409,7 +488,7 @@
       "border:1px solid transparent!important;color:#1a120e!important;-webkit-text-fill-color:#1a120e!important;" +
       "box-shadow:0 0 14px rgba(212,168,136,.35)!important;text-shadow:none!important;filter:none!important;}" +
       'html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body footer .vc-premium-footer__outer{' +
-      "border-radius:1.35rem!important;overflow:hidden!important;" +
+      "border-radius:1.25rem!important;overflow:hidden!important;" +
       "box-shadow:0 14px 36px rgba(60,40,24,.12),0 0 22px rgba(212,168,136,.14)!important;}" +
       'html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body footer :is(.vc-premium-footer__card,.vc-premium-footer__inner){' +
       "background:transparent!important;background-image:none!important;border:0!important;box-shadow:none!important;border-radius:inherit!important;}" +
@@ -558,7 +637,35 @@
       'html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top main .vc-hero-head :is(.vc-brand-glow,.vc-hero-brand-pre,.vc-hero-brand-caffe){' +
       "background-image:var(--vc-look-grad-title)!important;background-color:transparent!important;" +
       "-webkit-background-clip:text!important;background-clip:text!important;color:transparent!important;-webkit-text-fill-color:transparent!important;}" +
-      /* profileOpaqueLightText2: dark opaque profile cards keep sand text (beat main h1 ink) */
+      /* userLightInk1: cream SOLO shell esterne — le card interne restano nav-ring (cardInnerNavRing) */
+      'html.vc-site-photo-bg.vc-perf-mid.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body.vc-users-page.vc-user-profile-page#top main :is(' +
+      ".vc-user-profile-hero,.vc-user-profile-block,.vc-user-profile-disclosure,.vc-user-profile-accordion" +
+      "):not(:has(#vc-roles-grid)):not(:has(#vc-ul-grid)):not(:has(#vc-glow-kill-a)):not(:has(#vc-glow-kill-b))," +
+      'html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body.vc-users-page.vc-user-profile-page#top main :is(' +
+      ".vc-user-profile-hero,.vc-user-profile-block,.vc-user-profile-disclosure,.vc-user-profile-accordion){" +
+      "background:#faf6f0!important;background-color:#faf6f0!important;background-image:none!important;" +
+      "background-clip:border-box!important;-webkit-background-clip:border-box!important;" +
+      "border:1px solid rgba(111,78,55,.14)!important;box-shadow:0 8px 20px rgba(60,40,24,.08)!important;}" +
+      /* cardInnerNavRing3 light: SOLO card INTERNE = --vc-nav-ring-light (batte userLightInk cream) */
+      'html.vc-site-photo-bg.vc-perf-mid.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body.vc-users-page.vc-user-profile-page#top main :is(' +
+      ".vc-user-profile-stat,.vc-user-profile-mini,.vc-user-profile-badges" +
+      "):not(:has(#vc-roles-grid)):not(:has(#vc-ul-grid)):not(:has(#vc-glow-kill-a)):not(:has(#vc-glow-kill-b))," +
+      'html.vc-site-photo-bg.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body.vc-users-page.vc-user-profile-page#top main :is(' +
+      ".vc-user-profile-stat,.vc-user-profile-mini,.vc-user-profile-badges)," +
+      'html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body.vc-users-page.vc-user-profile-page#top main :is(' +
+      ".vc-user-profile-stat,.vc-user-profile-mini,.vc-user-profile-badges)," +
+      'html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body.vc-user-profile-page#top main :is(' +
+      ".vc-user-profile-hero,.vc-user-profile-block,.vc-user-profile-disclosure,.vc-user-profile-accordion) :is(" +
+      ".vc-user-profile-stat,.vc-user-profile-mini,.vc-user-profile-badges){" +
+      "background-color:#faf6f0!important;" +
+      "background-image:radial-gradient(120% 90% at 0% 0%,rgba(255,248,238,.92),transparent 52%)," +
+      "radial-gradient(90% 70% at 100% 0%,rgba(212,168,136,.2),transparent 48%)," +
+      "linear-gradient(175deg,#fffaf4 0%,#f7f1ea 48%,#efe6dc 100%),var(--vc-nav-ring-light)!important;" +
+      "background-origin:padding-box,padding-box,padding-box,border-box!important;" +
+      "background-clip:padding-box,padding-box,padding-box,border-box!important;" +
+      "-webkit-background-clip:padding-box,padding-box,padding-box,border-box!important;" +
+      "border:2px solid transparent!important;border-width:2px!important;border-color:transparent!important;" +
+      "box-shadow:none!important;}" +
       'html.vc-site-photo-bg.vc-perf-mid.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body.vc-users-page.vc-user-profile-page#top main :is(' +
       ".vc-user-profile-name,.vc-user-profile-name__text,.vc-user-profile-block__title," +
       ".vc-user-profile-stat__value,.vc-user-profile-mini__value,h1.vc-user-profile-name)," +
@@ -570,7 +677,7 @@
       'html.vc-site-photo-bg.vc-perf-mid.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-content .vc-user-profile-name,' +
       'html.vc-site-photo-bg.vc-perf-mid.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-content .vc-user-profile-name__text,' +
       'html.vc-site-photo-bg.vc-perf-mid.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-content .vc-user-profile-name .vc-user-profile-name__text{' +
-      "color:rgba(247,236,223,.98)!important;-webkit-text-fill-color:rgba(247,236,223,.98)!important;" +
+      "color:#1a120e!important;-webkit-text-fill-color:#1a120e!important;" +
       "background-image:none!important;-webkit-background-clip:border-box!important;background-clip:border-box!important;}" +
       'html.vc-site-photo-bg.vc-perf-mid.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body.vc-users-page.vc-user-profile-page#top main :is(' +
       ".vc-user-profile-id,.vc-user-profile-handle,.vc-user-profile-block__sub," +
@@ -581,7 +688,7 @@
       ".vc-user-profile-id,.vc-user-profile-handle,.vc-user-profile-stat__label,.vc-user-profile-levelbar__meta)," +
       'html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body.vc-users-page.vc-user-profile-page#top main :is(' +
       ".vc-user-profile-id,.vc-user-profile-handle,.vc-user-profile-stat__label,.vc-user-profile-levelbar__meta){" +
-      "color:rgba(240,222,201,.86)!important;-webkit-text-fill-color:rgba(240,222,201,.86)!important;" +
+      "color:rgba(42,28,20,.62)!important;-webkit-text-fill-color:rgba(42,28,20,.62)!important;" +
       "background-image:none!important;}" +
       /* themeLightSwitcherSweep1 runtime: cream tracks + ink tabs */
       'html.vc-site-photo-bg.vc-perf-mid.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-content :is(' +
@@ -627,15 +734,19 @@
       ".vc-candidature-tab--on,.vc-notify-filter-btn--on) :is(span,i,svg)," +
       'html[data-vc-theme="light"] :is(.vc-candidature-tab--on,.vc-ul-board-tabs .vc-notify-filter-btn--on) :is(span,i,svg){' +
       "color:#1a120e!important;-webkit-text-fill-color:#1a120e!important;opacity:1!important;}" +
-      /* themeLightFooterSocial1: IG/Discord/TikTok cream + mocha */
+      /* footerCardNavRing1: IG/Discord/TikTok = anello navbar (no bordo mocha solido) */
       'html.vc-site-photo-bg.vc-perf-mid.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top > footer.vc-premium-footer .vc-premium-footer__social,' +
       'html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body footer.vc-premium-footer .vc-premium-footer__social,' +
       'html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body .vc-footer-social-ico,' +
       'html[data-vc-theme="light"] .vc-premium-footer__social{' +
-      "background:#f3ebe3!important;background-color:#f3ebe3!important;" +
-      "background-image:linear-gradient(180deg,#fffaf4 0%,#efe6dc 100%)!important;" +
-      "border:1px solid rgba(111,78,55,.36)!important;color:#3a281c!important;-webkit-text-fill-color:#3a281c!important;" +
-      "box-shadow:0 0 0 1.5px rgba(168,118,82,.38),0 0 12px rgba(212,168,136,.32),inset 0 1px 0 rgba(255,255,255,.6)!important;}" +
+      "background-color:var(--vc-nav-shell-fill-light,#f7f1ea)!important;" +
+      "background-image:linear-gradient(var(--vc-nav-shell-fill-light,#f7f1ea),var(--vc-nav-shell-fill-light,#f7f1ea)),var(--vc-nav-ring-light)!important;" +
+      "background-origin:padding-box,border-box!important;background-clip:padding-box,border-box!important;-webkit-background-clip:padding-box,border-box!important;" +
+      "border:2px solid transparent!important;border-color:transparent!important;color:#3a281c!important;-webkit-text-fill-color:#3a281c!important;" +
+      "box-shadow:none!important;filter:none!important;}" +
+      'html.vc-site-polish[data-vc-theme="light"] body.vc-body > footer.vc-premium-footer .vc-premium-footer__outer,' +
+      'html[data-vc-theme="light"] body.vc-body > footer.vc-premium-footer .vc-premium-footer__outer{' +
+      "border:0!important;border-width:0!important;border-color:transparent!important;box-shadow:none!important;}" +
       'html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body footer.vc-premium-footer .vc-premium-footer__social :is(i,svg,path,.fa,.vc-footer-tiktok-ico),' +
       'html[data-vc-theme="light"] .vc-premium-footer__social :is(i,svg,path,.fa,.vc-footer-tiktok-ico){' +
       "color:#3a281c!important;-webkit-text-fill-color:#3a281c!important;fill:#3a281c!important;opacity:1!important;filter:none!important;}" +
@@ -677,6 +788,7 @@
       "color:#1a120e!important;-webkit-text-fill-color:#1a120e!important;background:transparent!important;}" +
       'html[data-vc-theme="light"] .vc-cmd-search input::placeholder,html[data-vc-theme="light"] #wiki-cmd-search::placeholder{' +
       "color:rgba(58,40,28,.55)!important;-webkit-text-fill-color:rgba(58,40,28,.55)!important;}" +
+      /* innerCardConic4: runtime NON wipe-are conic wiki (cmd body/item = nav-ring) */
       'html.vc-site-photo-bg.vc-perf-mid.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-content #wiki-comandi-panel :is(' +
       ".vc-cmd-item,details.vc-cmd-item,.vc-cmd-acc-body,.vc-cmd-grp-list,.vc-cmd-item-body,.vc-cmd-field)," +
       'html.vc-site-photo-bg.vc-perf-mid.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top main #wiki-comandi-panel :is(' +
@@ -685,9 +797,13 @@
       ".vc-cmd-item,.vc-cmd-acc-body,.vc-cmd-grp-list,.vc-cmd-item-body)," +
       'html[data-vc-theme="light"] .vc-wiki-cmd-shell :is(.vc-cmd-item,.vc-cmd-acc-body,.vc-cmd-item-body){' +
       "background:#faf6f0!important;background-color:#faf6f0!important;" +
-      "background-image:radial-gradient(120% 90% at 0% 0%,rgba(255,248,238,.9),transparent 52%),linear-gradient(175deg,#fffaf4 0%,#f3ebe3 100%)!important;" +
-      "-webkit-background-clip:border-box!important;background-clip:border-box!important;" +
-      "border-color:rgba(111,78,55,.18)!important;color:#2a1c14!important;-webkit-text-fill-color:#2a1c14!important;filter:none!important;}" +
+      "background-image:radial-gradient(120% 90% at 0% 0%,rgba(255,248,238,.9),transparent 52%)," +
+      "linear-gradient(175deg,#fffaf4 0%,#f3ebe3 100%),var(--vc-nav-ring-light)!important;" +
+      "background-origin:padding-box,padding-box,border-box!important;" +
+      "background-clip:padding-box,padding-box,border-box!important;" +
+      "-webkit-background-clip:padding-box,padding-box,border-box!important;" +
+      "border:2px solid transparent!important;border-color:transparent!important;" +
+      "color:#2a1c14!important;-webkit-text-fill-color:#2a1c14!important;filter:none!important;}" +
       /* themeLightCardsAll1 */
       'html.vc-site-photo-bg.vc-perf-mid.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-content :is(' +
       ".vc-page-cine-card,.vc-fx-card,.vc-home-panel,.vc-faq-group,.vc-legal-card,.vc-regole-card,.vc-sponsor-card," +
@@ -724,16 +840,27 @@
       "border:1px solid rgba(212,168,136,.28)!important;filter:none!important;opacity:1!important;}" +
       'html[data-vc-theme="light"] .vc-cmd-code--example{' +
       "color:rgba(232,201,168,.94)!important;-webkit-text-fill-color:rgba(232,201,168,.94)!important;}" +
-      /* themeLightBackTop1 */
+      /* backTopConic2: anello conic navbar, zero glow (era themeLightBackTop1 con shadow) */
       'html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body #vc-site-back-top,' +
       'html.vc-site-photo-bg.vc-perf-mid.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-site-back-top,' +
       'html[data-vc-theme="light"] #vc-site-back-top{' +
-      "background:linear-gradient(180deg,#fffaf4 0%,#f3ebe3 100%)!important;background-color:#faf6f0!important;" +
-      "border:1px solid rgba(111,78,55,.32)!important;color:#3a281c!important;-webkit-text-fill-color:#3a281c!important;" +
-      "box-shadow:0 0 0 1px rgba(212,168,136,.35),0 8px 22px rgba(60,40,24,.16),inset 0 1px 0 rgba(255,255,255,.7)!important;filter:none!important;}" +
+      "border:1.35px solid transparent!important;border-color:transparent!important;" +
+      "background-color:#faf6f0!important;" +
+      "background-image:linear-gradient(180deg,#fffaf4,#f3ebe3)," +
+      "conic-gradient(from 0deg,rgba(111,78,55,.72) 0deg,rgba(180,130,90,.55) 90deg," +
+      "rgba(139,99,70,.58) 180deg,rgba(180,130,90,.55) 270deg,rgba(111,78,55,.72) 360deg)!important;" +
+      "background-origin:padding-box,border-box!important;" +
+      "background-clip:padding-box,border-box!important;-webkit-background-clip:padding-box,border-box!important;" +
+      "color:#3a281c!important;-webkit-text-fill-color:#3a281c!important;" +
+      "box-shadow:none!important;filter:none!important;}" +
       'html[data-vc-theme="light"] #vc-site-back-top:hover,html[data-vc-theme="light"] #vc-site-back-top:focus-visible{' +
-      "background:linear-gradient(180deg,#fffdf9 0%,#efe6dc 100%)!important;border-color:rgba(111,78,55,.45)!important;" +
-      "color:#1a120e!important;-webkit-text-fill-color:#1a120e!important;}" +
+      "background-color:#fffaf4!important;" +
+      "background-image:linear-gradient(180deg,#fffdf9,#efe6dc)," +
+      "conic-gradient(from 0deg,rgba(111,78,55,.85) 0deg,rgba(168,118,82,.65) 90deg," +
+      "rgba(139,99,70,.7) 180deg,rgba(168,118,82,.65) 270deg,rgba(111,78,55,.85) 360deg)!important;" +
+      "background-origin:padding-box,border-box!important;" +
+      "background-clip:padding-box,border-box!important;-webkit-background-clip:padding-box,border-box!important;" +
+      "color:#1a120e!important;-webkit-text-fill-color:#1a120e!important;box-shadow:none!important;}" +
       'html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body #vc-site-back-top .fa,' +
       'html[data-vc-theme="light"] #vc-site-back-top .fa,html[data-vc-theme="light"] #vc-site-back-top > i{' +
       "color:#3a281c!important;-webkit-text-fill-color:#3a281c!important;background:none!important;" +
@@ -752,10 +879,11 @@
       "border-color:rgba(111,78,55,.18)!important;" +
       "box-shadow:inset 0 1px 0 rgba(255,255,255,.45),0 16px 40px rgba(60,40,24,.1),0 0 20px rgba(212,168,136,.08)!important;" +
       "backdrop-filter:blur(16px) saturate(130%)!important;-webkit-backdrop-filter:blur(16px) saturate(130%)!important;filter:none!important;}" +
-      'html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top .vc-support-page-hero .grid.gap-4 > div,' +
-      'html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top .vc-support-page-hero [class*="rounded-[1.6rem]"],' +
-      'html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top main .vc-support-page-hero [class*="rounded-[1.6rem]"],' +
-      'html[data-vc-theme="light"] body.vc-body .vc-support-page-hero [class*="rounded-[1.6rem]"]{' +
+      /* innerCardConic2: non wipe-are platform/perks card interne (nav-ring) */
+      'html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top .vc-support-page-hero .grid.gap-4 > div:not(.vc-vote-platform-card):not(.vc-perks-tier-acc),' +
+      'html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top .vc-support-page-hero [class*="rounded-[1.6rem]"]:not(.vc-vote-platform-card):not(a.vc-vote-platform-card),' +
+      'html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top main .vc-support-page-hero [class*="rounded-[1.6rem]"]:not(.vc-vote-platform-card):not(a.vc-vote-platform-card),' +
+      'html[data-vc-theme="light"] body.vc-body .vc-support-page-hero [class*="rounded-[1.6rem]"]:not(.vc-vote-platform-card):not(a.vc-vote-platform-card){' +
       "background:rgba(255,250,244,.38)!important;background-color:rgba(255,250,244,.38)!important;background-image:none!important;" +
       "border-color:rgba(111,78,55,.16)!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.35)!important;" +
       "backdrop-filter:blur(12px) saturate(120%)!important;-webkit-backdrop-filter:blur(12px) saturate(120%)!important;filter:none!important;}" +
@@ -855,6 +983,27 @@
       "background-image:linear-gradient(175deg,#fffaf4 0%,#efe4d6 100%)!important;" +
       "background-origin:padding-box!important;background-clip:padding-box!important;" +
       "-webkit-background-clip:padding-box!important;animation:none!important;filter:none!important;}" +
+      /* boardsGuidelinesNoCardBg5: linee guida recensioni — niente box/anello mai */
+      'html[data-vc-theme="light"] body.vc-boards-guidelines-page .vc-legal-card,' +
+      'html[data-vc-theme="light"] body.vc-boards-guidelines-page .vc-legal-card:hover,' +
+      'html[data-vc-theme="light"] body.vc-boards-guidelines-page .vc-legal-card:focus-within,' +
+      'html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body.vc-boards-guidelines-page#top #vc-page-content .vc-legal-card,' +
+      'html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body.vc-boards-guidelines-page#top #vc-page-content .vc-legal-card:is(:hover,:focus-within),' +
+      'html.vc-site-photo-bg.vc-perf-mid.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body.vc-boards-guidelines-page#top #vc-page-content .vc-legal-card,' +
+      'html.vc-site-photo-bg.vc-perf-mid.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body.vc-boards-guidelines-page#top #vc-page-content .vc-legal-card:is(:hover,:focus-within),' +
+      'html.vc-site-polish[data-vc-theme="light"] body.vc-boards-guidelines-page.vc-page-cine-layout .vc-legal-card:is(:hover,:focus-within){' +
+      "background:transparent!important;background-color:transparent!important;background-image:none!important;" +
+      "border-color:transparent!important;border-width:0!important;box-shadow:none!important;filter:none!important;" +
+      "backdrop-filter:none!important;-webkit-backdrop-filter:none!important;}" +
+      'html[data-vc-theme="light"] body.vc-boards-guidelines-page .vc-legal-card::before,' +
+      'html[data-vc-theme="light"] body.vc-boards-guidelines-page .vc-legal-card::after,' +
+      'html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body.vc-boards-guidelines-page#top #vc-page-content .vc-legal-card::before,' +
+      'html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body.vc-boards-guidelines-page#top #vc-page-content .vc-legal-card::after,' +
+      'html.vc-site-photo-bg.vc-perf-mid.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body.vc-boards-guidelines-page#top #vc-page-content .vc-legal-card::before,' +
+      'html.vc-site-photo-bg.vc-perf-mid.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body.vc-boards-guidelines-page#top #vc-page-content .vc-legal-card::after{' +
+      "content:none!important;display:none!important;opacity:0!important;visibility:hidden!important;" +
+      "background:none!important;background-image:none!important;box-shadow:none!important;" +
+      "-webkit-mask:none!important;mask:none!important;padding:0!important;border:0!important;}" +
       "";
 
       injectLightRuntime._built = style.textContent;
@@ -862,8 +1011,8 @@
       style.textContent = injectLightRuntime._built;
     }
     try {
-      style.setAttribute("data-vc-light-rt", "emoji4");
-      document.head.appendChild(style);
+      style.setAttribute("data-vc-light-rt", "pageHang1");
+      if (!style.parentNode) document.head.appendChild(style);
     } catch (eMove) {}
   }
 
@@ -1048,13 +1197,23 @@
   function apply(pref) {
     var p = pref || readPref();
     var resolved = resolve(p);
+    var prevTheme = "";
+    try {
+      prevTheme = String(document.documentElement.getAttribute("data-vc-theme") || "");
+    } catch (ePrev) {}
     try {
       document.documentElement.setAttribute("data-vc-theme-pref", p);
       document.documentElement.setAttribute("data-vc-theme", resolved);
       document.documentElement.style.colorScheme = resolved;
     } catch (e) {}
+    if (prevTheme && prevTheme !== resolved) {
+      pinThemeCssLast._done = 0;
+      keepLightOnTop._last = 0;
+    }
     setThemeColor(resolved);
     syncSwitchers(resolved);
+    ensureThemeSwitchCss();
+    ensureThemeLightCss(resolved === "light");
     injectLightRuntime(resolved);
     pinThemeCssLast();
     scheduleScrollCuePaint();
@@ -1103,6 +1262,7 @@
   bind();
 
   function bootDom() {
+    ensureThemeSwitchCss();
     pinThemeCssLast();
     ensureSwitcherInFooter();
     injectLightRuntime(resolve(readPref()));
@@ -1116,35 +1276,65 @@
   }
   /* navBootTrim1: niente secondo paint a t=0 (duplicava setProperty storm) */
 
-  /* lightPerf1: niente observer su main/head (riscriveva CSS a ogni mutazione → lag)
-     solo pin leggero a soft-fx-ready + cambio tema */
+  /* lightPerf1 + pageHang1: pin una volta; MO solo su data-vc-theme; disarm dopo ready */
   function keepLightOnTop() {
     if (resolve(readPref()) !== "light") return;
+    var now = Date.now();
+    if (keepLightOnTop._last && now - keepLightOnTop._last < 1500) return;
+    keepLightOnTop._last = now;
     pinThemeCssLast();
     injectLightRuntime("light");
     scheduleScrollCuePaint();
   }
+  function disarmThemeFlashObs() {
+    try {
+      if (window.__vcThemeFlashObs) {
+        window.__vcThemeFlashObs.disconnect();
+        window.__vcThemeFlashObs = null;
+      }
+    } catch (eOff) {}
+  }
   try {
     var flashObs = new MutationObserver(function (muts) {
       if (resolve(readPref()) !== "light") return;
-      var themeOnly = false;
+      var themeChange = false;
       for (var i = 0; i < muts.length; i++) {
         var m = muts[i];
-        if (m.type === "attributes" && (m.attributeName === "data-vc-theme" || m.attributeName === "class")) {
-          themeOnly = true;
+        /* pageHang1: ignora class churn (cine/chrome) — solo cambio tema */
+        if (m.type === "attributes" && m.attributeName === "data-vc-theme") {
+          themeChange = true;
           break;
         }
       }
-      if (!themeOnly) return;
+      if (!themeChange) return;
+      pinThemeCssLast._done = 0;
       if (flashObs._t) window.clearTimeout(flashObs._t);
-      flashObs._t = window.setTimeout(keepLightOnTop, 120);
+      flashObs._t = window.setTimeout(keepLightOnTop, 160);
     });
+    window.__vcThemeFlashObs = flashObs;
     flashObs.observe(document.documentElement, {
       attributes: true,
-      attributeFilter: ["class", "data-vc-theme"],
+      attributeFilter: ["data-vc-theme"],
     });
-    document.addEventListener("vc:soft-fx-ready", keepLightOnTop);
+    document.addEventListener(
+      "vc:soft-fx-ready",
+      function () {
+        keepLightOnTop();
+        window.setTimeout(disarmThemeFlashObs, 400);
+      },
+      { once: true }
+    );
     window.setTimeout(keepLightOnTop, 300);
+    window.setTimeout(disarmThemeFlashObs, 2500);
+    try {
+      document.addEventListener(
+        "vc:page-cine-ready",
+        function () {
+          window.setTimeout(disarmThemeFlashObs, 200);
+        },
+        { once: true }
+      );
+    } catch (eCine) {}
   } catch (eFlash) {}
 
   window.__vcTheme = {

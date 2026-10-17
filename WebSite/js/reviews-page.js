@@ -38,6 +38,9 @@
     stageSlideTimer: null,
     stageForceMotion: false,
     fetchGen: 0,
+    /* reviewsLikeScrollStay1: no disable/focus-loss; quiet refresh like-only */
+    likeInFlight: Object.create(null),
+    likeStayUntil: 0,
     draft: {
       server: { rating: 5, content: "" },
       staff: { rating: 5, content: "", staffUserId: "" },
@@ -497,6 +500,73 @@
     }
   }
 
+  /* reviewsLikeScrollStay1: fingerprint senza like — quiet refresh non ricostruisce lo stage */
+  function reviewsStructureFingerprint(body) {
+    try {
+      function stripLikes(list) {
+        if (!Array.isArray(list)) return [];
+        return list.map(function (r) {
+          if (!r || typeof r !== "object") return r;
+          return {
+            id: r.id,
+            rating: r.rating,
+            content: r.content,
+            createdAt: r.createdAt,
+            updatedAt: r.updatedAt,
+            author: r.author,
+            staffUserId: r.staffUserId,
+            targetUserId: r.targetUserId,
+            lang: r.lang,
+            serverReply: r.serverReply
+              ? {
+                  content: r.serverReply.content,
+                  updatedAt: r.serverReply.updatedAt,
+                  authorId: r.serverReply.authorId,
+                }
+              : null,
+          };
+        });
+      }
+      var reviews = (body && body.reviews) || {};
+      return JSON.stringify({
+        server: stripLikes(reviews.server),
+        staff: stripLikes(reviews.staff),
+        bot: stripLikes(reviews.bot),
+        viewerId: body && body.viewer ? body.viewer.id || body.viewer.userId || "" : "",
+        staffers: (body && body.staffers) || null,
+        langFilter: state.langFilter,
+        board: state.board,
+        filterStars: state.filterStars,
+        filterStaffUserId: state.filterStaffUserId,
+        sortBy: state.sortBy,
+        page: state.reviewsPager.page,
+        carouselIndex: state.carouselIndex,
+        replyOpenId: state.replyOpenId,
+      });
+    } catch (e) {
+      return "";
+    }
+  }
+
+  function syncAllReviewLikesFromPayload(body) {
+    var reviews = body && body.reviews;
+    if (!reviews) return;
+    var buckets = ["server", "staff", "bot"];
+    for (var b = 0; b < buckets.length; b += 1) {
+      var list = reviews[buckets[b]];
+      if (!Array.isArray(list)) continue;
+      for (var i = 0; i < list.length; i += 1) {
+        var r = list[i];
+        if (!r || !r.id) continue;
+        var n = Math.max(
+          0,
+          Math.round(Number(Array.isArray(r.likes) ? r.likes.length : r.likeCount || 0)),
+        );
+        patchReviewLikeUi(r.id, Boolean(r.likedByViewer), n);
+      }
+    }
+  }
+
   function refreshReviewsPayloadQuiet() {
     if (state.editModalOpen || isTypingInReviewField()) return Promise.resolve();
     if (!byId("vc-reviews-server-list")) return Promise.resolve();
@@ -517,9 +587,30 @@
           state.payload = body;
           return;
         }
+        /* reviewsLikeScrollStay1: stesso contenuto → solo patch like, no render/scroll */
+        var structNew = reviewsStructureFingerprint(body);
+        var structOld = reviewsStructureFingerprint(state.payload);
+        if (structNew && structNew === structOld) {
+          state.payload = body;
+          state.renderFingerprint = fp;
+          holdReviewsPageScroll(900);
+          syncAllReviewLikesFromPayload(body);
+          holdReviewsPageScroll(900);
+          return;
+        }
+        if (Date.now() < Number(state.likeStayUntil || 0)) {
+          state.payload = body;
+          state.renderFingerprint = fp;
+          holdReviewsPageScroll(900);
+          syncAllReviewLikesFromPayload(body);
+          holdReviewsPageScroll(900);
+          return;
+        }
+        holdReviewsPageScroll(900);
         state.payload = body;
         syncDraftFromPayload();
         render();
+        holdReviewsPageScroll(900);
       })
       .catch(function () {});
   }
@@ -1366,6 +1457,7 @@
   }
 
   function stageSlotsKey(slots, idx, n) {
+    /* reviewsLikeScrollStay1: like fuori dalla key — patch DOM senza rebuild stage */
     return (
       String(n) +
       "@" +
@@ -1385,8 +1477,6 @@
             ":" +
             String((r.serverReply && r.serverReply.content) || "").length +
             ":" +
-            String(Array.isArray(r.likes) ? r.likes.length : r.likeCount || 0) +
-            ":" +
             (state.replyOpenId === r.id ? "1" : "0")
           );
         })
@@ -1394,32 +1484,87 @@
     );
   }
 
+  function stageCssLenPx(raw, fallback) {
+    var s = String(raw || "").trim();
+    if (!s) return fallback;
+    var n = parseFloat(s);
+    if (!isFinite(n)) return fallback;
+    if (s.indexOf("rem") !== -1) {
+      var rootFs = 16;
+      try {
+        rootFs =
+          parseFloat(window.getComputedStyle(document.documentElement).fontSize) ||
+          16;
+      } catch (eFs) {}
+      return n * rootFs;
+    }
+    return n;
+  }
+
   function syncStageTrackHeight(root) {
     if (!root) return;
     /* reviewsLikeReplyStay1: misura anche con reply aperta (laterali restano) */
+    var cards = root.querySelectorAll(
+      ".vc-reviews-stage__card.is-center, .vc-reviews-stage__card.is-left, .vc-reviews-stage__card.is-right",
+    );
+    var ci;
     if (root.classList.contains("is-solo") || root.classList.contains("is-empty")) {
       root.style.removeProperty("min-height");
+      for (ci = 0; ci < cards.length; ci += 1) {
+        try {
+          cards[ci].style.removeProperty("min-height");
+        } catch (eClr) {}
+      }
       return;
     }
-    /* violPass11: solo offsetHeight centro — niente getBoundingClientRect loop (Forced reflow) */
-    var center = root.querySelector(".vc-reviews-stage__card.is-center");
-    if (!center) return;
-    var targetH = 0;
-    try {
-      targetH = Math.ceil(center.offsetHeight || 0);
-    } catch (eH) {
-      targetH = 0;
-    }
-    if (targetH <= 80) return;
-    var sides = root.querySelectorAll(
-      ".vc-reviews-stage__card.is-left, .vc-reviews-stage__card.is-right",
-    );
-    for (var i = 0; i < sides.length; i += 1) {
+    /*
+     * reviewsStageStackH1: altezza track = max del trio (centro+laterali),
+     * non solo la card centrale corta senza risposta — altrimenti le dietro
+     * finiscono sui pallini (absolute + border-box min-height).
+     */
+    if (!cards.length) return;
+    for (ci = 0; ci < cards.length; ci += 1) {
       try {
-        sides[i].style.setProperty("min-height", targetH + "px", "important");
-      } catch (eSide) {}
+        cards[ci].style.removeProperty("min-height");
+      } catch (eClr2) {}
     }
-    root.style.setProperty("min-height", targetH + 28 + "px", "important");
+    var maxCardH = 0;
+    for (ci = 0; ci < cards.length; ci += 1) {
+      try {
+        maxCardH = Math.max(maxCardH, Math.ceil(cards[ci].offsetHeight || 0));
+      } catch (eH) {}
+    }
+    if (maxCardH <= 80) return;
+    for (ci = 0; ci < cards.length; ci += 1) {
+      try {
+        cards[ci].style.setProperty("min-height", maxCardH + "px", "important");
+      } catch (eSet) {}
+    }
+    var sideY = 26;
+    var sideScale = 0.88;
+    try {
+      var stageEl = byId("vc-reviews-stage");
+      var st = stageEl ? window.getComputedStyle(stageEl) : null;
+      if (st) {
+        sideY = stageCssLenPx(st.getPropertyValue("--vc-stage-side-y"), sideY);
+        var sc = parseFloat(st.getPropertyValue("--vc-stage-side-scale"));
+        if (isFinite(sc) && sc > 0) sideScale = sc;
+      }
+    } catch (eVar) {}
+    var centerBottom = maxCardH;
+    var sideBottom = sideY + maxCardH * sideScale;
+    var contentBottom = Math.max(centerBottom, sideBottom);
+    try {
+      var trackTop = root.getBoundingClientRect().top;
+      for (ci = 0; ci < cards.length; ci += 1) {
+        var br = cards[ci].getBoundingClientRect();
+        contentBottom = Math.max(contentBottom, br.bottom - trackTop);
+      }
+    } catch (eRect) {}
+    var gap = 28;
+    var floor = 320;
+    var trackH = Math.max(Math.ceil(contentBottom + gap), floor);
+    root.style.setProperty("min-height", trackH + "px", "important");
   }
 
   var _stageHeightRaf = 0;
@@ -1596,6 +1741,8 @@
         stage.setAttribute("data-count", String(n));
         stage.setAttribute("data-index", String(idx + 1));
       }
+      /* reviewsLikeScrollStay1: stage stabile → sync solo cuori */
+      syncAllReviewLikesFromPayload(state.payload);
       scheduleStageTrackHeight(root);
       return;
     }
@@ -2695,7 +2842,7 @@
     return false;
   }
 
-  /* reviewsLikeReplyStay1: update like UI without full stage rebuild (no scroll jump) */
+  /* reviewsLikeReplyStay1 / reviewsLikeScrollStay1: patch DOM only — no stage rebuild */
   function patchReviewLikeUi(reviewId, liked, likeCount) {
     var rid = String(reviewId || "").trim();
     if (!rid) return;
@@ -2720,15 +2867,6 @@
         if (label) label.textContent = String(n);
       } catch (eBtn) {}
     }
-    /* keep stageKey in sync so a later render does not force a needless rebuild */
-    try {
-      if (state.stageKey) {
-        state.stageKey = String(state.stageKey).replace(
-          new RegExp("(" + rid.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + ":[^:]*:[^:]*:[^:]*:)(\\d+)(:)"),
-          "$1" + String(n) + "$3",
-        );
-      }
-    } catch (eKey) {}
   }
 
   function holdReviewsPageScroll(ms) {
@@ -2738,16 +2876,73 @@
         (document.documentElement && document.documentElement.scrollTop) ||
         (document.body && document.body.scrollTop) ||
         0;
+      /* body position:fixed → pageYOffset 0: recupera top negativo */
+      try {
+        if ((!y || y < 1) && document.body && document.body.style.position === "fixed") {
+          var topRaw = document.body.style.top || "";
+          if (topRaw.charAt(0) === "-") y = Math.abs(parseInt(topRaw, 10) || 0);
+        }
+      } catch (eFixY) {}
       if (typeof window.__vcHoldPageScroll === "function") {
         window.__vcHoldPageScroll(Math.max(120, Number(ms) || 280), y);
-      } else {
-        window.setTimeout(function () {
-          try {
-            window.scrollTo(0, y);
-          } catch (eScr) {}
-        }, 0);
       }
+      /* reviewsLikeScrollStay1: holdPageScroll è capped ~280ms — ripeti restore locale */
+      var until = Date.now() + Math.max(280, Number(ms) || 280);
+      function restore() {
+        try {
+          var cur =
+            window.scrollY ||
+            (document.documentElement && document.documentElement.scrollTop) ||
+            0;
+          if (y > 24 && cur < 24) {
+            window.scrollTo(0, y);
+            if (document.documentElement) document.documentElement.scrollTop = y;
+            if (document.body) document.body.scrollTop = y;
+          }
+        } catch (eScr) {}
+        if (Date.now() < until) {
+          window.requestAnimationFrame(restore);
+        }
+      }
+      window.requestAnimationFrame(restore);
+      window.setTimeout(restore, 0);
+      window.setTimeout(restore, 120);
+      window.setTimeout(restore, 280);
+      window.setTimeout(restore, Math.min(900, Number(ms) || 280));
     } catch (eHold) {}
+  }
+
+  function readLikeUiState(buttonEl, reviewId) {
+    var liked = false;
+    var count = 0;
+    try {
+      if (buttonEl) {
+        liked = buttonEl.classList.contains("is-liked");
+        var label = buttonEl.querySelector(".vc-reviews-like__n");
+        count = Math.max(0, Math.round(Number((label && label.textContent) || 0) || 0));
+      }
+    } catch (eUi) {}
+    if (!buttonEl && state.payload && state.payload.reviews) {
+      var buckets = ["server", "staff", "bot"];
+      var rid = String(reviewId || "");
+      for (var b = 0; b < buckets.length; b += 1) {
+        var list = state.payload.reviews[buckets[b]];
+        if (!Array.isArray(list)) continue;
+        for (var i = 0; i < list.length; i += 1) {
+          if (String((list[i] && list[i].id) || "") === rid) {
+            liked = Boolean(list[i].likedByViewer);
+            count = Math.max(
+              0,
+              Math.round(
+                Number(Array.isArray(list[i].likes) ? list[i].likes.length : list[i].likeCount || 0),
+              ),
+            );
+            return { liked: liked, count: count };
+          }
+        }
+      }
+    }
+    return { liked: liked, count: count };
   }
 
   function toggleReviewLike(reviewId, buttonEl) {
@@ -2756,10 +2951,23 @@
       setStatus(t("reviews.loginToLike", "Accedi con Discord per mettere like."), true);
       return;
     }
-    holdReviewsPageScroll(480);
-    if (buttonEl) buttonEl.disabled = true;
+    var rid = String(reviewId || "").trim();
+    if (!rid) return;
+    if (state.likeInFlight[rid]) return;
+    state.likeInFlight[rid] = true;
+    state.likeStayUntil = Date.now() + 2400;
+    holdReviewsPageScroll(1200);
+    /* reviewsLikeScrollStay1: NON disabled — evita focus→body→scroll top */
+    try {
+      if (buttonEl) buttonEl.setAttribute("aria-busy", "true");
+    } catch (eBusy) {}
     setStatus("", false);
-    fetch(reviewActionUrl(reviewId, "like"), {
+    var before = readLikeUiState(buttonEl, rid);
+    var optLiked = !before.liked;
+    var optCount = Math.max(0, before.count + (optLiked ? 1 : -1));
+    patchReviewLikeInPayload(rid, optLiked, optCount);
+    patchReviewLikeUi(rid, optLiked, optCount);
+    fetch(reviewActionUrl(rid, "like"), {
       method: "POST",
       headers: {
         Authorization: "Bearer " + token,
@@ -2770,7 +2978,6 @@
         if (!body || body.ok !== true) {
           throw new Error((body && body.message) || t("reviews.likeError", "Errore like."));
         }
-        setStatus(body.message || "Ok.", false);
         /* voteLikeStale1: patch immediato + invalida cache + bump gen (no stale quiet/WS revert) */
         try {
           if (window.VcApiCache) {
@@ -2780,23 +2987,32 @@
             }
           }
         } catch (eInvL) {}
-        if (patchReviewLikeInPayload(reviewId, body.liked, body.likeCount)) {
+        state.likeStayUntil = Date.now() + 2400;
+        if (patchReviewLikeInPayload(rid, body.liked, body.likeCount)) {
           state.fetchGen = Number(state.fetchGen || 0) + 1;
           state.renderFingerprint = reviewsPayloadFingerprint(state.payload);
-          /* reviewsLikeReplyStay1: no full render — DOM patch only */
-          patchReviewLikeUi(reviewId, body.liked, body.likeCount);
-          holdReviewsPageScroll(480);
+          patchReviewLikeUi(rid, body.liked, body.likeCount);
+          holdReviewsPageScroll(1200);
           return;
         }
-        holdReviewsPageScroll(480);
-        return fetchPayload({ force: true });
+        patchReviewLikeUi(rid, body.liked, body.likeCount);
+        holdReviewsPageScroll(1200);
       })
       .catch(function (err) {
+        patchReviewLikeInPayload(rid, before.liked, before.count);
+        patchReviewLikeUi(rid, before.liked, before.count);
         setStatus(err && err.message ? err.message : t("reviews.likeError", "Errore like."), true);
       })
       .then(function () {
-        if (buttonEl) buttonEl.disabled = false;
-        holdReviewsPageScroll(320);
+        try {
+          delete state.likeInFlight[rid];
+        } catch (eDel) {
+          state.likeInFlight[rid] = false;
+        }
+        try {
+          if (buttonEl) buttonEl.removeAttribute("aria-busy");
+        } catch (eBusyOff) {}
+        holdReviewsPageScroll(800);
       });
   }
 

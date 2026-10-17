@@ -195,15 +195,39 @@
   justify-self: stretch;
 }
 
+/* avatarOvalKill1: footprint fisso, mai stretch sulla bubble */
+.vc-wfc-msg {
+  align-items: start !important;
+  --vc-av-size: 1.75rem;
+}
+.vc-wfc-msg > .vc-presence-wrap,
+.vc-wfc-msg > .vc-presence-wrap--clip,
+.vc-wfc-msg > .vc-presence-wrap--sized {
+  width: 1.75rem !important;
+  height: 1.75rem !important;
+  min-width: 1.75rem !important;
+  min-height: 1.75rem !important;
+  max-width: 1.75rem !important;
+  max-height: 1.75rem !important;
+  align-self: start !important;
+  flex: 0 0 1.75rem !important;
+  place-self: start !important;
+}
 .vc-wfc-msg__av {
   display: block;
   width: 1.75rem;
   height: 1.75rem;
+  min-width: 1.75rem;
+  min-height: 1.75rem;
+  max-width: 1.75rem;
+  max-height: 1.75rem;
   border-radius: 999px;
   overflow: hidden;
   flex-shrink: 0;
+  align-self: start;
   background: rgba(20, 14, 10, 0.9);
   isolation: isolate;
+  aspect-ratio: 1 / 1;
 }
 
 .vc-wfc-msg__av img,
@@ -388,13 +412,19 @@
 
 .vc-wfc-msg__tools {
   position: absolute;
-  top: -0.35rem;
+  top: 0.1rem;
   right: 0.25rem;
+  z-index: 6;
   display: flex;
   gap: 0.15rem;
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.15s ease;
+  overflow: visible;
+}
+.vc-wfc-msg {
+  overflow: visible !important;
+  position: relative;
 }
 
 .vc-wfc-msg:hover .vc-wfc-msg__tools,
@@ -545,10 +575,25 @@
 
 .vc-wfc-react__emoji {
   line-height: 1;
+  font-size: 0.95rem;
 }
 
+/* reactEmojiNoAvatar1: no avatar circle su emoji reaction workflow */
+img.vc-wfc-react__emoji,
+img.vc-wfc-react__emoji.vc-avatar,
 .vc-wfc-react__emoji img {
-  display: block;
+  width: 1rem !important;
+  height: 1rem !important;
+  min-width: 1rem !important;
+  min-height: 1rem !important;
+  max-width: 1rem !important;
+  max-height: 1rem !important;
+  object-fit: contain !important;
+  border-radius: 0 !important;
+  clip-path: none !important;
+  -webkit-clip-path: none !important;
+  display: block !important;
+  background: transparent !important;
 }
 
 .vc-wfc-empty,
@@ -642,15 +687,22 @@
   align-items: center;
   justify-content: center;
   border-radius: 0.45rem;
-  border: 1px solid rgba(212, 168, 136, 0.22);
-  background: rgba(255, 255, 255, 0.04);
-  color: #e8c9ae;
+  border: 1px solid rgba(212, 168, 136, 0.34);
+  background: rgba(28, 20, 16, 0.92);
+  color: #e8c9a8;
+  -webkit-text-fill-color: #e8c9a8;
   cursor: var(--vc-cursor-pointer);
+}
+.vc-wfc-composer__attach i,
+.vc-wfc-composer__emoji i {
+  color: #e8c9a8;
+  -webkit-text-fill-color: #e8c9a8;
 }
 
 .vc-wfc-composer__attach:hover,
 .vc-wfc-composer__emoji:hover {
-  background: rgba(212, 168, 136, 0.12);
+  background: rgba(212, 168, 136, 0.14);
+  border-color: rgba(212, 168, 136, 0.55);
 }
 
 .vc-wfc-composer textarea {

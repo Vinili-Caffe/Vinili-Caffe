@@ -20,6 +20,9 @@ WebSite/css/*.20[0-9][0-9][0-9][0-9][0-9][0-9]*.css
 WebSite/**/*.20[0-9][0-9][0-9][0-9][0-9][0-9]*.js.gz
 WebSite/**/*.20[0-9][0-9][0-9][0-9][0-9][0-9]*.css.gz
 
+# Precompressed siblings for nginx gzip_static — generate on VPS via deploy_assets.py only
+WebSite/**/*.gz
+
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
@@ -200,3 +203,4 @@ Vinyls/Data/Hogwarts/*.jsonl
 Vinyls/Data/noDmList.json*
 Vinyls/Data/ticketReopenOutsideSessions.json*
 shared/discord/chatHubPacing.snapshot.json
+WebSite/scripts/_archive/oneshot/

@@ -203,7 +203,7 @@ function cleanPauseSubjectDisplayName(name, userId) {
     .replace(/\s*sono in pausa!?/gi, "")
     .replace(/\s+/g, " ")
     .trim();
-    if (!n || /^[\s\u115f\u1160\u200b\u200c\u200d\u2060\u3164\ufeff\uffa0ღ᲼]+$/iu.test(n)) {
+    if (!n || /^[\s\u115f\u1160\u200b\u200c\u200d\u2060\u3164\ufeff\uffa0áƒ¦á²¼]+$/iu.test(n)) {
     return "";
   }
   if (isSnowflakeLikeLabel(n, userId)) return "";
@@ -212,15 +212,32 @@ function cleanPauseSubjectDisplayName(name, userId) {
 
 function pauseRoleDisplayLabel(trackOrFields, member, guild = null) {
   const track = pauseTrackRoleKey(trackOrFields);
+  const g = guild || member?.guild || null;
   const labeled =
     trackOrFields && typeof trackOrFields === "object"
       ? String(trackOrFields.ruoloLabel || "").trim()
       : "";
+  /* pauseBothRoles1: Entrambi non deve collassare sul solo grado staff (es. Moderator) */
+  if (track === "Entrambi") {
+    try {
+      if (member) return formatPauseRoleLabelForMessage(g, "Entrambi", member);
+    } catch (_) {}
+    if (labeled && !/entrambi|\bboth\b|partner\s*manager/i.test(labeled)) {
+      const pmRole = g?.roles?.cache?.get(String(IDs.roles?.PartnerManager || ""));
+      const pmLabel = pmRole?.name || "Partner Manager";
+      return `${labeled} e ${pmLabel}`;
+    }
+    try {
+      return formatPauseRoleLabelForMessage(g, "Entrambi", member);
+    } catch (_) {
+      return "Entrambi";
+    }
+  }
   if (labeled && !/^(staff|partnermanager|partner manager|entrambi|both)$/i.test(labeled)) {
     return labeled;
   }
   try {
-    return formatPauseRoleLabelForMessage(guild || member?.guild || null, track, member);
+    return formatPauseRoleLabelForMessage(g, track, member);
   } catch (_) {
     return track === "PartnerManager" ? "Partner Manager" : track === "Entrambi" ? "Entrambi" : "Staff";
   }
@@ -774,6 +791,8 @@ function docToListItem(doc, memberCache) {
       start,
       end,
       motivazione: stripDiscordDecorations(doc?.reason || doc?.body || ""),
+      ruolo: roleLabel || track,
+      ruoloLabel: roleLabel || track,
       ruoloRichiesto: roleLabel || track,
       ruoloTrack: track,
       phase: getPausePhase(start, end, today),
@@ -795,6 +814,20 @@ function docToListItem(doc, memberCache) {
       messageId: String(doc?.workflowMessageId || ""),
       channelId: String(doc?.workflowChannelId || ""),
       kind: String(doc?.workflowKind || ""),
+    };
+  }
+  /* boardsSchedaIdFix1: revisione → id scheda = workflowMessageId (NON _id workflow) */
+  if (queue === "revisione") {
+    const listingId = String(doc?.workflowMessageId || "").trim();
+    const kind = String(doc?.workflowKind || doc?.workflowType || "server").trim().toLowerCase() || "server";
+    return {
+      ...base,
+      id: listingId,
+      listingId,
+      messageId: listingId,
+      channelId: String(doc?.workflowChannelId || ""),
+      kind: kind === "bot" || kind === "bots" ? "bot" : "server",
+      type: kind === "bot" || kind === "bots" ? "bot" : "server",
     };
   }
   if (queue === "resoconti") {
@@ -832,15 +865,32 @@ function docToListItem(doc, memberCache) {
       proposedLabel,
       roleId: doc?.workflowRoleId ? String(doc.workflowRoleId) : null,
       roleLabel: (() => {
+        /* pauseRolePrecise1 / resoRolePrecise1: mai lasciare generico "Staff" se abbiamo roleId */
         const kind = String(doc?.workflowKind || "").trim().toLowerCase();
         if (kind === "p") return "Partner Manager";
         const rid = String(doc?.workflowRoleId || "").trim();
         const guild = member?.guild || null;
-        if (rid && guild?.roles?.cache?.get) {
-          const name = String(guild.roles.cache.get(rid)?.name || "").trim();
+        const byId = {
+          [String(IDs.roles.Helper || "")]: "Helper",
+          [String(IDs.roles.Mod || "")]: "Mod",
+          [String(IDs.roles.SeniorModerator || "")]: "Senior Moderator",
+          [String(IDs.roles.Director || "")]: "Director",
+          [String(IDs.roles.HighStaff || "")]: "High Staff",
+          [String(IDs.roles.PartnerManager || "")]: "Partner Manager",
+          [String(IDs.roles.Staff || "")]: "Staff",
+        };
+        if (rid) {
+          const live = guild?.roles?.cache?.get?.(rid);
+          const name = String(live?.name || byId[rid] || "").trim();
           if (name) return name;
         }
-        if (kind === "s") return "Staff";
+        try {
+          if (member) {
+            const ranked = formatPauseRoleLabelForMessage(guild, "Staff", member);
+            if (ranked && !/^(staff)$/i.test(ranked)) return ranked;
+          }
+        } catch (_) {}
+        if (kind === "s") return byId[rid] || "";
         return "";
       })(),
       weekKey,
@@ -883,6 +933,7 @@ function docToListItem(doc, memberCache) {
   }
   return base;
 }
+
 
 function parseNumberedQaBlocks(text) {
   const raw = stripDiscordDecorations(text || "", { keepNewlines: true });
@@ -1098,6 +1149,22 @@ function buildDetailFields(doc, member = null) {
       })
       .filter((field) => field.name || field.value);
     if (rows.length) return rows;
+  }
+  /* boardsRevSheetUi1: meta object con rows QA */
+  if (
+    queue === "revisione" &&
+    wf &&
+    typeof wf === "object" &&
+    !Array.isArray(wf) &&
+    Array.isArray(wf.rows) &&
+    wf.rows.length
+  ) {
+    return wf.rows
+      .map((field) => ({
+        name: stripDiscordDecorations(field?.name || "", { keepNewlines: true }),
+        value: stripDiscordDecorations(field?.value || "", { keepNewlines: true }),
+      }))
+      .filter((field) => field.name || field.value);
   }
   if (wf && typeof wf === "object" && !Array.isArray(wf)) {
     const rows = [];
@@ -1691,6 +1758,17 @@ async function upsertStaffWorkflowItem(payload) {
     global.logger?.warn?.("[staff-workflow] upsert failed:", dedupeKey, err?.message || err);
     return null;
   });
+  /* siteLiveAll1 + inboxBadgeLive1: bust summary + WS subito */
+  if (doc) {
+    try {
+      const { invalidateWorkflowSummaryCache } = require("./siteStaffWorkflowApi");
+      invalidateWorkflowSummaryCache();
+    } catch (_) {}
+    try {
+      const { broadcastSiteStaffWorkflowChangedDebounced } = require("./siteSuggestionsBroadcast");
+      broadcastSiteStaffWorkflowChangedDebounced(queue);
+    } catch (_) {}
+  }
   return doc;
 }
 
@@ -1776,6 +1854,16 @@ async function updateStaffWorkflowStatusByDedupe(guildId, dedupeKey, status, ext
       const { broadcastSiteStaffWorkflowChanged } = require("./siteSuggestionsBroadcast");
       broadcastSiteStaffWorkflowChanged(String(doc.workflowQueue || ""));
     } catch (_) {}
+    /* resoPendBadge1 + staffProfLiveAll1: invalida + WS profili aperti */
+    try {
+      const uid = String(doc.userId || extras.userId || "").trim();
+      if (uid) {
+        const { clearStaffProfileCacheForUser } = require("./siteStaffProfileApi");
+        clearStaffProfileCacheForUser(uid, {
+          action: String(doc.workflowQueue || "workflow"),
+        });
+      }
+    } catch (_) {}
     /* smartNotifLifecycle1: decide/close → purge inbox+chat push residue */
     if (["accepted", "rejected", "cancelled", "closed"].includes(String(next || "").toLowerCase())) {
       try {
@@ -1855,6 +1943,10 @@ async function cancelPendingResocontiWorkflowForUser(guildId, userId, extras = {
     try {
       const { broadcastSiteStaffWorkflowChanged } = require("./siteSuggestionsBroadcast");
       broadcastSiteStaffWorkflowChanged("resoconti");
+    } catch (_) {}
+    try {
+      const { clearStaffProfileCacheForUser } = require("./siteStaffProfileApi");
+      clearStaffProfileCacheForUser(uid, { action: "resoconti" });
     } catch (_) {}
   }
   return modified;
@@ -2136,10 +2228,12 @@ function filterPauseInboxItemsCachedOnly(guild, items, knownStaffIds = null) {
     const status = String(item?.status || "").trim().toLowerCase() || "pending";
     const uid = String(item?.userId || "").trim();
     if (!uid) continue;
+    /* pauseReviewFix1: usa track (Staff/Entrambi/PM), non label display tipo "Moderator" */
     const ruolo =
+      item?.ruoloTrack ||
+      item?.workflowFields?.ruoloTrack ||
       item?.ruoloRichiesto ||
       item?.ruolo ||
-      item?.ruoloTrack ||
       item?.workflowFields?.ruoloRichiesto ||
       item?.fields?.ruoloRichiesto ||
       "Staff";
@@ -2449,6 +2543,8 @@ async function listStaffWorkflowFromDb(client, guildId, queue, opts = {}) {
       }
     } else if (q === "appelli") {
       if (roleFilter === "unban" || roleFilter === "unmute") filter.workflowKind = roleFilter;
+    } else if (q === "revisione") {
+      if (roleFilter === "server" || roleFilter === "bot") filter.workflowKind = roleFilter;
     } else if (q === "pause") {
       if (roleFilter === "staff") {
                 filter.$and = [
@@ -2505,10 +2601,19 @@ async function listStaffWorkflowFromDb(client, guildId, queue, opts = {}) {
     if (week) filter.workflowWeekKey = week;
   }
 
-  const total = await SiteDocument.countDocuments(filter).maxTimeMS(8000).catch(() => 0);
   const skip = (page - 1) * pageSize;
 
-        const resocontoRoleBranches = [...RESOCONTO_LIST_ROLE_RANK.entries()].map(([roleId, rank]) => ({
+  /* inboxLoadFast1: lista slim — niente content/body pesanti in list */
+  const listProject = {
+    content: 0,
+    "workflowFields.description": 0,
+    "workflowFields.body": 0,
+    "workflowFields.markdown": 0,
+    "workflowFields.answers": 0,
+    "workflowMeta.raw": 0,
+  };
+
+  const resocontoRoleBranches = [...RESOCONTO_LIST_ROLE_RANK.entries()].map(([roleId, rank]) => ({
     case: { $eq: ["$workflowRoleId", roleId] },
     then: rank,
   }));
@@ -2561,7 +2666,7 @@ async function listStaffWorkflowFromDb(client, guildId, queue, opts = {}) {
           { $sort: { _sortRole: 1, _sortTs: 1, _sortCreated: 1, _id: 1 } },
           { $skip: skip },
           { $limit: pageSize },
-          { $project: { _sortRole: 0, _sortTs: 0, _sortCreated: 0 } },
+          { $project: { _sortRole: 0, _sortTs: 0, _sortCreated: 0, ...listProject } },
         ]
       : [
           {
@@ -2575,28 +2680,46 @@ async function listStaffWorkflowFromDb(client, guildId, queue, opts = {}) {
           { $sort: { _sortTs: -1, _sortCreated: -1, _id: -1 } },
           { $skip: skip },
           { $limit: pageSize },
-          { $project: { _sortTs: 0, _sortCreated: 0 } },
+          { $project: { _sortTs: 0, _sortCreated: 0, ...listProject } },
         ];
 
-  let docs = await SiteDocument.aggregate([{ $match: filter }, ...sortStages])
-    .option({ maxTimeMS: 8000 })
-    .catch(() => null);
+  /* inboxLoadFast1 + inboxApiBoot1: page 1 → skip countDocuments (approx total);
+     page≥2 o exact → count ∥ aggregate. */
+  const skipExactCount = opts.skipExactCount === true && page === 1 && !opts.exactTotal;
+  let total = 0;
+  let aggDocs = null;
+  if (skipExactCount) {
+    aggDocs = await SiteDocument.aggregate([{ $match: filter }, ...sortStages])
+      .option({ maxTimeMS: 4000 })
+      .catch(() => null);
+  } else {
+    const pair = await Promise.all([
+      SiteDocument.countDocuments(filter).maxTimeMS(4000).catch(() => 0),
+      SiteDocument.aggregate([{ $match: filter }, ...sortStages])
+        .option({ maxTimeMS: 4000 })
+        .catch(() => null),
+    ]);
+    total = pair[0];
+    aggDocs = pair[1];
+  }
+  let docs = aggDocs;
   if (!Array.isArray(docs)) {
-    const all = await SiteDocument.find(filter).maxTimeMS(8000).lean().catch(() => []);
-    if (q === "resoconti") {
-      all.sort((a, b) => {
-        const roleDiff = resocontoListSortRank(a) - resocontoListSortRank(b);
-        if (roleDiff) return roleDiff;
-        return workflowSortTimestamp(a) - workflowSortTimestamp(b);
-      });
-      docs = all.slice(skip, skip + pageSize);
-    } else {
-    all.sort((a, b) => workflowSortTimestamp(b) - workflowSortTimestamp(a));
-      docs = all.slice(skip, skip + pageSize);
-    }
+    const pageDocs = await SiteDocument.find(filter)
+      .select("-content -workflowFields.description -workflowFields.body -workflowFields.markdown -workflowFields.answers -workflowMeta.raw")
+      .sort({ createdAt: q === "resoconti" ? 1 : -1 })
+      .skip(skip)
+      .limit(pageSize)
+      .maxTimeMS(4000)
+      .lean()
+      .catch(() => []);
+    docs = Array.isArray(pageDocs) ? pageDocs : [];
   }
 
       let items = (docs || []).map((doc) => docToListItem(doc, null));
+  if (skipExactCount) {
+    /* hasMore se pagina piena — total minimo per FE badge/empty */
+    total = items.length < pageSize ? items.length : page * pageSize + 1;
+  }
 
     if (q === "pause" && client && items.length) {
     try {
@@ -2604,9 +2727,12 @@ async function listStaffWorkflowFromDb(client, guildId, queue, opts = {}) {
     const guild =
         client.guilds?.cache?.get(gid) || (await client.guilds?.fetch?.(gid).catch(() => null));
       const needIds = items.map((it) => String(it.userId || "").trim()).filter(Boolean);
+      /* inboxLoadFast1: pause list = cache-only (max ~120ms), niente storm Discord */
       const identityMap = await resolveWebUserIdentitiesBatch(client, guild, needIds, {
+        cacheOnly: true,
+        fillFallback: false,
         cap: 40,
-        budgetMs: 2200,
+        budgetMs: 120,
       });
       items = items.map((item) => {
         const hit = identityMap?.get?.(String(item.userId || ""));
@@ -2649,12 +2775,13 @@ async function listStaffWorkflowFromDb(client, guildId, queue, opts = {}) {
         /* inboxAvatarFetch1: fetch anche se manca solo l'avatar (prima solo il nome) */
         return nameBad || !avatarOk;
       });
-      if (stillNeed.length) {
-        /* inboxAvatarFetch1: budget un po' più largo per avatar utenti fuori guild */
+      if (stillNeed.length && !(opts.hydrateCacheOnly === true || opts.fast === true)) {
+        /* inboxLoadFast1: budget corto — lista prima, hydrate pesante sul detail */
+        /* inboxApiBoot1: boot/fast = solo cache (niente +280ms Discord sul primo paint) */
         const fetched = await resolveWebUserIdentitiesBatch(client, guild, stillNeed, {
-          cap: 32,
-          batchSize: 6,
-          budgetMs: 1400,
+          cap: 16,
+          batchSize: 8,
+          budgetMs: 280,
           skipGuildMember: true,
           fillFallback: false,
         });
@@ -3268,22 +3395,12 @@ async function listStaffWorkflowForInbox(client, guild, viewerMember, queue, opt
     const listScope = String(opts.scope || "pending").toLowerCase();
     if (opts.forceSync || Date.now() - lastAppeal > INBOX_SYNC_MIN_MS) {
       listStaffWorkflowForInbox.__syncAt.set(appealSyncKey, Date.now());
-      const syncPromise = syncAppealsToWorkflowStore(guild, {
+      /* inboxLoadFast1: sync Discord sempre in background — lista DB subito */
+      void syncAppealsToWorkflowStore(guild, {
         scope: listScope === "pending" ? "pending" : "all",
         maxPages: opts.forceSync ? 4 : 2,
         skipSanctionCheck: Boolean(opts.forceSync),
       }).catch(() => 0);
-      if (opts.forceSync) {
-        await Promise.race([
-          syncPromise,
-          new Promise((resolve) => {
-            /* notifQueueFast1: 22s → 6s — lista DB non deve aspettare Discord sync */
-            setTimeout(resolve, 6000);
-          }),
-        ]);
-      } else {
-        void syncPromise;
-      }
     }
   }
 
@@ -3317,24 +3434,22 @@ async function listStaffWorkflowForInbox(client, guild, viewerMember, queue, opt
   let result = await listStaffWorkflowFromDb(client, guildId, queue, opts);
   let items = result.items;
 
+  /* inboxLoadFast1: empty pending → kick sync in background, niente secondo await Discord */
   if (
     q === "appelli" &&
     guild &&
     opts.forceSync &&
-    String(opts.scope || "pending").toLowerCase() === "pending"
+    String(opts.scope || "pending").toLowerCase() === "pending" &&
+    !items.length
   ) {
-    if (!items.length) {
-      await syncAppealsToWorkflowStore(guild, {
-        scope: "pending",
-        maxPages: 6,
-        skipSanctionCheck: true,
-      }).catch(() => 0);
-    }
-    result = await listStaffWorkflowFromDb(client, guildId, queue, opts);
-    items = result.items;
+    void syncAppealsToWorkflowStore(guild, {
+      scope: "pending",
+      maxPages: 6,
+      skipSanctionCheck: true,
+    }).catch(() => 0);
   }
 
-    if (q === "appelli" && guild) {
+  if (q === "appelli" && guild) {
     const appealSyncKey = `appeals:${guildId}`;
     if (!listStaffWorkflowForInbox.__pruneAt) listStaffWorkflowForInbox.__pruneAt = new Map();
     const lastAppealPrune = Number(listStaffWorkflowForInbox.__pruneAt.get(appealSyncKey) || 0);
@@ -3686,6 +3801,7 @@ module.exports = {
   resocontoWorkflowItemFromDoc,
   resocontoWorkflowItemFromSnapshot,
   parseResocontoOutcomeFromContent,
+  resolveResocontoDocStatus,
   deriveResocontoStatusLabel,
   buildResocontoInboxPreview,
   deriveResocontoStaffFlags,

@@ -101,11 +101,8 @@ client.logs = require("./Utils/Moderation/logs");
 
 const { assertBotTokenIdentity } = require("../shared/config/env");
 const envToken = process.env.DISCORD_TOKEN || process.env.DISCORD_TOKEN_OFFICIAL;
-const envMongoUrl =
-  process.env.MONGO_URL_LOCAL ||
-  process.env.MONGODB_URI_LOCAL ||
-  process.env.MONGO_URL ||
-  process.env.MONGODB_URI;
+/* mongoSingleSource1 */
+const envMongoUrl = require("./Utils/Database/mongoConnect").buildMongoUrl(client);
 client.config.token = envToken || client.config.token;
 client.config.mongoURL = envMongoUrl || client.config.mongoURL;
 applyListenerCeiling(client, client.config);

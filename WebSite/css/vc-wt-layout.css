@@ -757,6 +757,113 @@ html.vc-site-polish body.vc-web-tickets-page main .vc-wt-sidebar {
   }
 }
 
+/* ticketMsgToolsClip1 + ticketsPanelLayerKill1: no contain per-msg (tools + jank) */
+/* ticketsChatLag2: niente contain:none sul msg — soft-fx usa content-visibility:auto */
+html body.vc-body.vc-web-tickets-page main .vc-wt-msg,
+html.vc-site-polish body.vc-body.vc-web-tickets-page main .vc-wt-msg {
+  transform: none !important;
+  will-change: auto !important;
+  overflow: visible !important;
+}
+html body.vc-body.vc-web-tickets-page main .vc-wt-msg__stack,
+html.vc-site-polish body.vc-body.vc-web-tickets-page main .vc-wt-msg__stack {
+  overflow: visible !important;
+}
+html body.vc-body.vc-web-tickets-page main .vc-wt-msg__tools,
+html.vc-site-polish body.vc-body.vc-web-tickets-page main .vc-wt-msg__tools {
+  z-index: 6 !important;
+  top: 0.1rem !important;
+  overflow: visible !important;
+}
+
+/* ticketsStickyKill1: NO sticky / NO fascia dietro switcher+filtri */
+html body.vc-body.vc-web-tickets-page .vc-sticky-stack,
+html.vc-site-polish body.vc-body.vc-web-tickets-page .vc-sticky-stack,
+html body.vc-body.vc-web-tickets-page#top #vc-page-content .vc-sticky-stack,
+html.vc-site-polish body.vc-body.vc-web-tickets-page#top #vc-page-content .vc-sticky-stack {
+  position: relative !important;
+  top: auto !important;
+  z-index: auto !important;
+  width: 100% !important;
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  box-shadow: none !important;
+  border: 0 !important;
+}
+html[data-vc-theme="light"] body.vc-body.vc-web-tickets-page .vc-sticky-stack,
+html.vc-site-polish[data-vc-theme="light"] body.vc-body.vc-web-tickets-page .vc-sticky-stack {
+  background: transparent !important;
+  background-color: transparent !important;
+}
+html body.vc-body.vc-web-tickets-page #vc-wt-app,
+html body.vc-body.vc-web-tickets-page .vc-wt-chrome,
+html body.vc-body.vc-web-tickets-page .vc-wt-board,
+html body.vc-body.vc-web-tickets-page .vc-reviews-section.vc-wt-board,
+html.vc-site-polish body.vc-body.vc-web-tickets-page #vc-wt-app,
+html.vc-site-polish body.vc-body.vc-web-tickets-page .vc-wt-chrome {
+  overflow: visible !important;
+}
+html body.vc-body.vc-web-tickets-page .vc-wt-scope-dock,
+html body.vc-body.vc-web-tickets-page .vc-sticky-stack .vc-wt-scope-dock {
+  margin-bottom: 0.55rem !important;
+  position: relative !important;
+  top: auto !important;
+}
+html body.vc-body.vc-web-tickets-page .vc-wt-filter-menu,
+html body.vc-body.vc-web-tickets-page .vc-sticky-stack .vc-wt-filter-menu {
+  position: relative !important;
+  top: auto !important;
+}
+
+/* ticketsUiPack1: attach = stessa palette sand dell'emoji (no bianco piatto) */
+html body.vc-body.vc-web-tickets-page .vc-wt-composer__attach,
+html.vc-site-polish body.vc-body.vc-web-tickets-page .vc-wt-composer__attach,
+html body.vc-body.vc-web-tickets-page .vc-wt-composer__emoji,
+html.vc-site-polish body.vc-body.vc-web-tickets-page .vc-wt-composer__emoji {
+  border: 1px solid rgba(212, 168, 136, 0.34) !important;
+  background: rgba(28, 20, 16, 0.92) !important;
+  background-image: none !important;
+  color: #e8c9a8 !important;
+  -webkit-text-fill-color: #e8c9a8 !important;
+  box-shadow: inset 0 1px 0 rgba(255, 247, 236, 0.06) !important;
+}
+html body.vc-body.vc-web-tickets-page .vc-wt-composer__attach i,
+html body.vc-body.vc-web-tickets-page .vc-wt-composer__emoji i,
+html.vc-site-polish body.vc-body.vc-web-tickets-page .vc-wt-composer__attach i,
+html.vc-site-polish body.vc-body.vc-web-tickets-page .vc-wt-composer__emoji i {
+  color: #e8c9a8 !important;
+  -webkit-text-fill-color: #e8c9a8 !important;
+  opacity: 1 !important;
+  filter: none !important;
+}
+html body.vc-body.vc-web-tickets-page .vc-wt-composer__attach:hover,
+html body.vc-body.vc-web-tickets-page .vc-wt-composer__emoji:hover {
+  border-color: rgba(212, 168, 136, 0.55) !important;
+  background: rgba(212, 168, 136, 0.14) !important;
+  color: #f6eadc !important;
+}
+
+/* ticketsUiPack1: avatar picker modal — cerchio + no silhouette bg rotta */
+html body.vc-body .vc-wt-user-pick__av,
+html body.vc-body .vc-wt-user-pick__row .vc-wt-avatar,
+html body.vc-body .vc-wt-user-pick__row img.vc-avatar {
+  width: 2rem !important;
+  height: 2rem !important;
+  border-radius: 999px !important;
+  object-fit: cover !important;
+  background: #1a120d !important;
+  background-image: none !important;
+  flex-shrink: 0 !important;
+}
+html body.vc-body .vc-wt-user-pick__av.vc-avatar--pending,
+html body.vc-body .vc-wt-user-pick__row img.vc-avatar--pending {
+  background-image: none !important;
+  opacity: 1 !important;
+}
+
 .vc-wt-msg--pending {
   opacity: 0.62;
   pointer-events: none;
@@ -765,7 +872,7 @@ html.vc-site-polish body.vc-web-tickets-page main .vc-wt-sidebar {
   filter: saturate(0.85);
 }
 
-/* msgReadReceipts1: spunte stile WhatsApp */
+/* msgReadReceipts1 + ticketAvPalette1: spunte in palette sand (no WhatsApp blue) */
 .vc-msg-ticks {
   display: inline-flex;
   align-items: center;
@@ -776,7 +883,7 @@ html.vc-site-polish body.vc-web-tickets-page main .vc-wt-sidebar {
   color: rgba(210, 194, 178, 0.55);
 }
 .vc-msg-ticks.is-read {
-  color: #53bdeb;
+  color: #d4a888;
 }
 .vc-msg-ticks__svg {
   display: block;
@@ -788,7 +895,7 @@ html.vc-site-polish body.vc-web-tickets-page main .vc-wt-sidebar {
   color: rgba(247, 236, 223, 0.5);
 }
 .vc-wt-msg.is-mine .vc-msg-ticks.is-read {
-  color: #53bdeb;
+  color: #f0d4a8;
 }
 
 html.vc-site-polish body.vc-web-tickets-page .vc-reviews-page-layout,
@@ -938,8 +1045,9 @@ html.vc-site-polish body.vc-web-tickets-page #vc-tickets-hours-disclaimer > .fa 
   flex-shrink: 0 !important;
   margin: 0.2em 0 0 !important;
   line-height: 1 !important;
-  color: rgba(251, 191, 36, 0.95) !important;
-  -webkit-text-fill-color: rgba(251, 191, 36, 0.95) !important;
+  /* ticketAvPalette1: sand al posto di amber Tailwind */
+  color: rgba(232, 201, 168, 0.95) !important;
+  -webkit-text-fill-color: rgba(232, 201, 168, 0.95) !important;
   background: none !important;
   -webkit-background-clip: border-box !important;
   background-clip: border-box !important;
@@ -999,10 +1107,22 @@ html.vc-site-polish body.vc-web-tickets-page #vc-tickets-hours-disclaimer strong
     justify-content: center !important;
   }
 
-  /* tip Come funziona / Nota: fuori dalla hero (park JS) — mai dentro la card */
+  /* tipTicketsInHero1: tip Come funziona / Nota DENTRO hero su telefono */
   body.vc-page-cine-layout.vc-web-tickets-page .vc-page-cine-hero .vc-page-cine-aside-inline,
   html.vc-site-polish body.vc-page-cine-layout.vc-web-tickets-page .vc-page-cine-hero .vc-page-cine-aside-inline {
-    display: none !important;
+    display: block !important;
+    width: 100% !important;
+    margin-top: 0.35rem !important;
+  }
+  body.vc-page-cine-layout.vc-web-tickets-page .vc-page-cine-hero .vc-page-cine-hero__inner:has(.vc-hero-head--has-aside),
+  html.vc-site-polish body.vc-page-cine-layout.vc-web-tickets-page .vc-page-cine-hero .vc-page-cine-hero__inner:has(.vc-hero-head--has-aside) {
+    max-height: none !important;
+    overflow: visible !important;
+  }
+  body.vc-page-cine-layout.vc-web-tickets-page .vc-page-cine-hero .vc-hero-head.vc-hero-head--has-aside,
+  html.vc-site-polish body.vc-page-cine-layout.vc-web-tickets-page .vc-page-cine-hero .vc-hero-head.vc-hero-head--has-aside {
+    max-height: none !important;
+    overflow: visible !important;
   }
 
   body.vc-page-cine-layout.vc-web-tickets-page .vc-page-cine-hero .vc-hero-head,
@@ -1809,5 +1929,233 @@ html[data-vc-theme="light"] body.vc-web-tickets-page .vc-wt-chat-loading {
 html[data-vc-theme="light"] body.vc-web-tickets-page .vc-wt-chat-loading__spin {
   border-color: rgba(111, 78, 55, 0.22);
   border-top-color: rgba(111, 78, 55, 0.85);
+}
+
+/* ticketAvPalette1: icone/accent Discord blurple → sand palette */
+body.vc-web-tickets-page .vc-tip-row > .fa,
+body.vc-web-tickets-page .vc-tip-row .fa,
+html.vc-site-polish body.vc-web-tickets-page .vc-tip-row > .fa,
+html.vc-site-polish body.vc-web-tickets-page .vc-tip-row .fa {
+  color: rgba(232, 201, 168, 0.95) !important;
+  -webkit-text-fill-color: rgba(232, 201, 168, 0.95) !important;
+}
+html[data-vc-theme="light"] body.vc-web-tickets-page .vc-tip-row > .fa,
+html[data-vc-theme="light"] body.vc-web-tickets-page .vc-tip-row .fa {
+  color: #6f4e37 !important;
+  -webkit-text-fill-color: #6f4e37 !important;
+}
+body.vc-web-tickets-page .vc-wt-composer__reply {
+  background: rgba(212, 168, 136, 0.1) !important;
+  border-color: rgba(212, 168, 136, 0.28) !important;
+  border-left-color: #d4a888 !important;
+}
+body.vc-web-tickets-page .vc-wt-composer__reply > .fa {
+  color: #d4a888 !important;
+  -webkit-text-fill-color: #d4a888 !important;
+}
+body.vc-web-tickets-page .vc-wt-msg__tool {
+  color: #e8dfd4 !important;
+}
+body.vc-web-tickets-page .vc-wt-msg__tool:hover {
+  color: #f0d4a8 !important;
+}
+body.vc-web-tickets-page .vc-wt-msg--staff .vc-wt-msg__bubble {
+  border-color: rgba(212, 168, 136, 0.32) !important;
+  background: rgba(212, 168, 136, 0.1) !important;
+}
+body.vc-web-tickets-page .vc-wt-msg--bot .vc-wt-msg__bubble {
+  border-color: rgba(212, 168, 136, 0.42) !important;
+  background: rgba(212, 168, 136, 0.12) !important;
+}
+body.vc-web-tickets-page .vc-wt-msg__role,
+body.vc-web-tickets-page .vc-wt-msg__role--helper,
+body.vc-web-tickets-page .vc-wt-msg__role--mod,
+body.vc-web-tickets-page .vc-wt-msg__role--senior-mod,
+body.vc-web-tickets-page .vc-wt-msg__role--high-staff,
+body.vc-web-tickets-page .vc-wt-msg__role--director,
+body.vc-web-tickets-page .vc-wt-msg__role--admin,
+body.vc-web-tickets-page .vc-wt-msg__role--manager,
+body.vc-web-tickets-page .vc-wt-msg__role--founder,
+body.vc-web-tickets-page .vc-wt-msg__role--community-manager,
+body.vc-web-tickets-page .vc-wt-msg__role--staff {
+  color: #f0d4a8 !important;
+  -webkit-text-fill-color: #f0d4a8 !important;
+  background: rgba(212, 168, 136, 0.2) !important;
+}
+body.vc-web-tickets-page .vc-wt-msg__role--bot {
+  color: #1a120e !important;
+  -webkit-text-fill-color: #1a120e !important;
+  background: #d4a888 !important;
+}
+@keyframes vc-wt-msg-flash {
+  0%,
+  100% {
+    box-shadow: none;
+  }
+  28% {
+    box-shadow: 0 0 0 2px rgba(212, 168, 136, 0.55);
+    background: rgba(212, 168, 136, 0.16);
+  }
+}
+
+/* avatarOvalKill1 + ticketAvCircle1: presence --sized non deve allungare l'avatar */
+html body.vc-body.vc-web-tickets-page .vc-wt-msg,
+html.vc-site-polish body.vc-body.vc-web-tickets-page .vc-wt-msg {
+  align-items: start !important;
+  --vc-av-size: 36px;
+}
+html body.vc-body.vc-web-tickets-page .vc-wt-msg > .vc-presence-wrap,
+html body.vc-body.vc-web-tickets-page .vc-wt-msg > .vc-presence-wrap--sized,
+html body.vc-body.vc-web-tickets-page .vc-wt-msg > .vc-presence-wrap--clip,
+html.vc-site-polish body.vc-body.vc-web-tickets-page .vc-wt-msg > .vc-presence-wrap,
+html.vc-site-polish body.vc-body.vc-web-tickets-page .vc-wt-msg > .vc-presence-wrap--sized,
+html.vc-site-polish body.vc-body.vc-web-tickets-page .vc-wt-msg > .vc-presence-wrap--clip {
+  width: 36px !important;
+  height: 36px !important;
+  min-width: 36px !important;
+  min-height: 36px !important;
+  max-width: 36px !important;
+  max-height: 36px !important;
+  align-self: start !important;
+  flex: 0 0 36px !important;
+  box-sizing: border-box !important;
+}
+/* ticketMsgEmojiFlat1: SOLO avatar colonna — mai emoji in bubble/composer (erano 36px cerchio) */
+html body.vc-body.vc-web-tickets-page .vc-wt-msg > .vc-wt-msg__avatar,
+html body.vc-body.vc-web-tickets-page .vc-wt-msg > img.vc-wt-msg__avatar,
+html body.vc-body.vc-web-tickets-page .vc-wt-msg > img.vc-avatar,
+html body.vc-body.vc-web-tickets-page .vc-wt-msg > .vc-presence-wrap > img,
+html body.vc-body.vc-web-tickets-page .vc-wt-msg > .vc-presence-wrap--sized > img,
+html body.vc-body.vc-web-tickets-page .vc-wt-msg > .vc-presence-wrap--clip > img,
+html.vc-site-polish body.vc-body.vc-web-tickets-page .vc-wt-msg > .vc-wt-msg__avatar,
+html.vc-site-polish body.vc-body.vc-web-tickets-page .vc-wt-msg > img.vc-avatar,
+html.vc-site-polish body.vc-body.vc-web-tickets-page .vc-wt-msg > .vc-presence-wrap > img {
+  width: 36px !important;
+  height: 36px !important;
+  min-width: 36px !important;
+  min-height: 36px !important;
+  max-width: 36px !important;
+  max-height: 36px !important;
+  aspect-ratio: 1 / 1 !important;
+  object-fit: cover !important;
+  object-position: center center !important;
+  border-radius: 50% !important;
+  align-self: start !important;
+  flex-shrink: 0 !important;
+  display: block !important;
+}
+/* ticketMsgEmojiFlat1: emoji messaggio/composer = inline Discord-like, no cerchio */
+html body.vc-body.vc-web-tickets-page .vc-wt-msg__text :is(img.vc-emoji, img.vc-twemoji, img.vc-wt-inline-emoji, img.vc-discord-emoji, img.vc-wt-composer__emoji-token),
+html body.vc-body.vc-web-tickets-page .vc-wt-msg__bubble :is(img.vc-emoji, img.vc-twemoji, img.vc-wt-inline-emoji, img.vc-discord-emoji),
+html body.vc-body.vc-web-tickets-page .vc-wt-composer__input :is(img.vc-emoji, img.vc-twemoji, img.vc-wt-inline-emoji, img.vc-wt-composer__emoji-token),
+html body.vc-body.vc-web-tickets-page .vc-wt-msg__text .vc-wt-unicode-emoji,
+html.vc-site-polish body.vc-body.vc-web-tickets-page .vc-wt-msg__text :is(img.vc-emoji, img.vc-twemoji, img.vc-wt-inline-emoji, img.vc-discord-emoji, img.vc-wt-composer__emoji-token),
+html.vc-site-polish body.vc-body.vc-web-tickets-page .vc-wt-composer__input :is(img.vc-emoji, img.vc-twemoji, img.vc-wt-inline-emoji, img.vc-wt-composer__emoji-token) {
+  width: 1.15em !important;
+  height: 1.15em !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  max-width: 1.25em !important;
+  max-height: 1.25em !important;
+  aspect-ratio: auto !important;
+  object-fit: contain !important;
+  object-position: center !important;
+  border-radius: 0 !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  clip-path: none !important;
+  -webkit-clip-path: none !important;
+  display: inline-block !important;
+  vertical-align: -0.2em !important;
+  margin: 0 0.06em !important;
+  padding: 0 !important;
+  flex: 0 0 auto !important;
+  align-self: auto !important;
+}
+/* ticketAvCircle1 */
+
+/* ticketAvMineOrder1: presence wrap è il grid-child — order sull'img non basta
+   (is-mine: bubble finiva nella colonna 36px → testo verticale) */
+html body.vc-body.vc-web-tickets-page .vc-wt-msg.is-mine,
+html.vc-site-polish body.vc-body.vc-web-tickets-page .vc-wt-msg.is-mine {
+  grid-template-columns: minmax(0, 1fr) 36px !important;
+}
+html body.vc-body.vc-web-tickets-page .vc-wt-msg:not(.is-mine),
+html.vc-site-polish body.vc-body.vc-web-tickets-page .vc-wt-msg:not(.is-mine) {
+  grid-template-columns: 36px minmax(0, 1fr) !important;
+}
+html body.vc-body.vc-web-tickets-page .vc-wt-msg.is-mine > .vc-presence-wrap,
+html body.vc-body.vc-web-tickets-page .vc-wt-msg.is-mine > .vc-presence-wrap--sized,
+html body.vc-body.vc-web-tickets-page .vc-wt-msg.is-mine > .vc-presence-wrap--clip,
+html body.vc-body.vc-web-tickets-page .vc-wt-msg.is-mine > .vc-wt-msg__avatar,
+html.vc-site-polish body.vc-body.vc-web-tickets-page .vc-wt-msg.is-mine > .vc-presence-wrap,
+html.vc-site-polish body.vc-body.vc-web-tickets-page .vc-wt-msg.is-mine > .vc-wt-msg__avatar {
+  order: 2 !important;
+  grid-column: 2 !important;
+}
+html body.vc-body.vc-web-tickets-page .vc-wt-msg.is-mine > .vc-wt-msg__main,
+html.vc-site-polish body.vc-body.vc-web-tickets-page .vc-wt-msg.is-mine > .vc-wt-msg__main {
+  order: 1 !important;
+  grid-column: 1 !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+}
+html body.vc-body.vc-web-tickets-page .vc-wt-msg .vc-wt-msg__bubble,
+html.vc-site-polish body.vc-body.vc-web-tickets-page .vc-wt-msg .vc-wt-msg__bubble {
+  min-width: 0 !important;
+  max-width: 100% !important;
+  width: auto !important;
+}
+html body.vc-body.vc-web-tickets-page .vc-wt-msg .vc-wt-msg__text,
+html.vc-site-polish body.vc-body.vc-web-tickets-page .vc-wt-msg .vc-wt-msg__text {
+  white-space: pre-wrap !important;
+  overflow-wrap: anywhere !important;
+  word-break: normal !important;
+}
+/* ticketAvMineOrder1 */
+
+/* ticketsStickyKill1 cachebust */
+
+
+/* ticketsStickyKill1 cachebust */
+
+/* ticketsMsgRailCpu1: card a filo chat — no gap 0.9rem, rail 22rem, list pad-dx 0 */
+@media (min-width: 901px) {
+  body.vc-web-tickets-page .vc-wt-layout,
+  html.vc-site-polish body.vc-web-tickets-page .vc-wt-layout,
+  html.vc-site-polish body.vc-body.vc-web-tickets-page#top .vc-wt-layout,
+  html.vc-site-polish body.vc-web-tickets-page #vc-wt-app .vc-wt-layout {
+    grid-template-columns: minmax(260px, 22rem) minmax(0, 1fr) !important;
+    column-gap: 0 !important;
+    gap: 0 !important;
+  }
+}
+body.vc-web-tickets-page .vc-wt-sidebar,
+html.vc-site-polish body.vc-web-tickets-page .vc-wt-sidebar {
+  padding-right: 0 !important;
+}
+body.vc-web-tickets-page .vc-wt-list,
+html.vc-site-polish body.vc-web-tickets-page .vc-wt-list,
+html.vc-site-polish body.vc-body.vc-web-tickets-page#top .vc-wt-list,
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body.vc-web-tickets-page#top .vc-wt-list {
+  padding: 0 0 0.55rem 0.4rem !important;
+  padding-right: 0 !important;
+  align-items: stretch !important;
+}
+body.vc-web-tickets-page .vc-wt-item,
+html.vc-site-polish body.vc-web-tickets-page .vc-wt-item,
+html.vc-site-polish body.vc-body.vc-web-tickets-page#top .vc-wt-item,
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body.vc-web-tickets-page#top .vc-wt-item {
+  width: 100% !important;
+  max-width: none !important;
+  margin-inline: 0 !important;
+}
+body.vc-web-tickets-page .vc-wt-msg:hover .vc-wt-msg__tools,
+body.vc-web-tickets-page .vc-wt-msg__stack:hover .vc-wt-msg__tools,
+body.vc-web-tickets-page .vc-wt-msg__tools:hover {
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  transform: none !important;
 }
 

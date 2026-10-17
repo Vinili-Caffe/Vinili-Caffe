@@ -553,9 +553,13 @@
 
   if (!window.__vcPtrBooted) {
     try {
-      if (!document.querySelector('script[src*="vc-ptr.js"]')) {
+      if (
+        !document.querySelector(
+          'script[src*="/vc-ptr.js"], script[src*="/vc-ptr."]',
+        )
+      ) {
         var ptr = document.createElement("script");
-        ptr.src = "/js/vc-ptr.js?v=20260826ptrHard1";
+        ptr.src = "/js/vc-ptr.20261017ptrScrollRestore2.js?v=20261017ptrScrollRestore2";
         ptr.defer = true;
         (document.head || document.documentElement).appendChild(ptr);
       }

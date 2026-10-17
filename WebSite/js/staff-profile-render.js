@@ -242,8 +242,12 @@
     opts = opts || {};
     var stillActive = Boolean(opts.stillActive);
     var currentRole = normalizeCareerRoleToken(opts.currentRole || "");
+    var track = String(opts.track || "").trim().toLowerCase();
     if (!Array.isArray(rows) || !rows.length) return [];
-    if (isPartnerManagerRole(currentRole) || opts.track === "pm") {
+    /* careerStaffPmFix1: Staff+PM track staff + currentRole PM → non slice PM-only */
+    var forcePmOnly =
+      track === "pm" || (isPartnerManagerRole(currentRole) && track !== "staff");
+    if (forcePmOnly) {
       return slicePartnerManagerCareer(rows, opts);
     }
     var chrono = rows.slice().sort(function (a, b) {
@@ -253,7 +257,11 @@
     var scala = sliceLatestStaffLadderStint(chrono, { stillActive: stillActive });
     var pins = pinLatestCareerPexRows(chrono);
     var merged = mergeCareerRowSets([scala, pins]);
-    if (!merged.length) return [];
+    if (!merged.length) {
+      var pmFallback = slicePartnerManagerCareer(rows, opts);
+      if (pmFallback.length) return pmFallback;
+      return [];
+    }
     return merged.sort(function (a, b) {
       return careerRowSortMs(b) - careerRowSortMs(a);
     });
@@ -323,6 +331,102 @@
       esc(label) +
       "</span>"
     );
+  }
+
+  /* resoPendBadge1: aggiorna badge Gestisci/Resoconto dopo conferma-rifiuto senza reload profilo */
+  function syncResoPendingBadge(rootOrSheet, pendingCount) {
+    var n = Math.max(0, Math.floor(Number(pendingCount) || 0));
+    var root =
+      (rootOrSheet && rootOrSheet.__vcStatRoot) ||
+      (rootOrSheet && rootOrSheet.classList && rootOrSheet.classList.contains("vc-staff-profile-panel")
+        ? rootOrSheet
+        : null) ||
+      (rootOrSheet && rootOrSheet.closest && rootOrSheet.closest(".vc-staff-profile-panel")) ||
+      (global.document && global.document.querySelector(".vc-staff-profile-panel"));
+    if (!root || !root.querySelector) return;
+    var payload =
+      root.__vcStaffPayload ||
+      (rootOrSheet && rootOrSheet.__vcStatPayload) ||
+      null;
+    if (payload) {
+      if (!payload.resoconto || typeof payload.resoconto !== "object") payload.resoconto = {};
+      payload.resoconto.pendingCount = n;
+    }
+    var wrap = root.querySelector(".vc-staff-manage-cta-wrap");
+    if (!wrap) return;
+    var badgeHtml = pendingBadgeHtml(n);
+    wrap.classList.toggle("has-pending", n > 0);
+    var toggle = wrap.querySelector("[data-vc-staff-manage-toggle]");
+    if (toggle) {
+      toggle.classList.toggle("has-pending", n > 0);
+      var aria = "Gestisci";
+      if (n) aria += " (" + n + " resoconti in attesa)";
+      toggle.setAttribute("aria-label", aria);
+      var oldToggleBadge = toggle.querySelector(".vc-staff-profile-pending");
+      if (oldToggleBadge) oldToggleBadge.remove();
+      if (badgeHtml) toggle.insertAdjacentHTML("afterbegin", badgeHtml);
+    }
+    var resoItem = wrap.querySelector("[data-vc-staff-reso]");
+    if (resoItem) {
+      resoItem.classList.toggle("has-pending", n > 0);
+      var oldItemBadge = resoItem.querySelector(".vc-staff-profile-pending");
+      if (oldItemBadge) oldItemBadge.remove();
+      if (badgeHtml) resoItem.insertAdjacentHTML("beforeend", badgeHtml);
+    }
+  }
+
+  function countPendingResoItems(items) {
+    if (!Array.isArray(items) || !items.length) return 0;
+    var n = 0;
+    for (var i = 0; i < items.length; i++) {
+      if (String((items[i] && items[i].status) || "").toLowerCase() === "pending") n += 1;
+    }
+    return n;
+  }
+
+  /* pausePendBadge1: badge "Giorni di pausa rimanenti" dopo accept/reject senza F5 */
+  function syncPausePendingBadge(rootOrSheet, pendingCount, remainingOpt) {
+    var n = Math.max(0, Math.floor(Number(pendingCount) || 0));
+    var root =
+      (rootOrSheet && rootOrSheet.__vcStatRoot) ||
+      (rootOrSheet && rootOrSheet.classList && rootOrSheet.classList.contains("vc-staff-profile-panel")
+        ? rootOrSheet
+        : null) ||
+      (rootOrSheet && rootOrSheet.closest && rootOrSheet.closest(".vc-staff-profile-panel")) ||
+      (global.document && global.document.querySelector(".vc-staff-profile-panel"));
+    if (!root || !root.querySelector) return;
+    var payload =
+      root.__vcStaffPayload ||
+      (rootOrSheet && rootOrSheet.__vcStatPayload) ||
+      null;
+    if (payload) {
+      if (!payload.pause || typeof payload.pause !== "object") payload.pause = {};
+      payload.pause.pendingCount = n;
+      if (remainingOpt != null && Number.isFinite(Number(remainingOpt))) {
+        if (!payload.pause.quota || typeof payload.pause.quota !== "object") payload.pause.quota = {};
+        payload.pause.quota.remaining = Math.max(0, Math.floor(Number(remainingOpt)));
+      }
+    }
+    var card = root.querySelector('[data-vc-stat="pause"]');
+    if (!card) return;
+    var badgeHtml = pendingBadgeHtml(n);
+    card.classList.toggle("has-pending", n > 0);
+    var oldBadge = card.querySelector(".vc-staff-profile-pending");
+    if (oldBadge) oldBadge.remove();
+    if (badgeHtml) card.insertAdjacentHTML("afterbegin", badgeHtml);
+    if (remainingOpt != null && Number.isFinite(Number(remainingOpt))) {
+      var valEl = card.querySelector(".vc-user-profile-stat__value");
+      if (valEl) valEl.textContent = String(Math.max(0, Math.floor(Number(remainingOpt))));
+    }
+  }
+
+  function countPendingPauseItems(items) {
+    if (!Array.isArray(items) || !items.length) return 0;
+    var n = 0;
+    for (var i = 0; i < items.length; i++) {
+      if (String((items[i] && items[i].status) || "").toLowerCase() === "pending") n += 1;
+    }
+    return n;
   }
 
   function statCard(value, label, opts) {
@@ -482,30 +586,23 @@
     if (!payload || typeof payload !== "object") return "";
     if (!payload.identity || typeof payload.identity !== "object") payload.identity = {};
     var id = payload.identity;
-    var payloadId = String(id.userId || id.id || payload.targetUserId || "").trim();
-    /* staffSwitchIdLock1: se manca identity, stamp only when targetUserId matches expected
-       (mai sovrascrivere un body di un altro user con l'id richiesto). */
+    var payloadId = String(id.userId || id.id || "").trim();
+    var tid = String(payload.targetUserId || "").trim();
+    /* staffIdLock3: identity di un altro user → reject SEMPRE.
+       Anche se targetUserId matcha: riscrivere solo userId lasciava nome/avatar/stats del viewer. */
+    if (expectedId && payloadId && expectedId !== payloadId) return "";
+    if (expectedId && tid && tid !== expectedId) return "";
+    /* manca identity.userId ma targetUserId ok → stamp id */
     if (expectedId && !payloadId) {
-      var tidEmpty = String(payload.targetUserId || "").trim();
-      if (tidEmpty && tidEmpty !== expectedId) return "";
+      if (tid && tid !== expectedId) return "";
+      if (!tid) return "";
       id.userId = expectedId;
       payload.targetUserId = expectedId;
       return expectedId;
     }
-    if (expectedId && payloadId && expectedId !== payloadId) {
-      // Prefer explicit targetUserId when it matches the requested peer.
-      var tid = String(payload.targetUserId || "").trim();
-      if (tid && tid === expectedId) {
-        id.userId = expectedId;
-        return expectedId;
-      }
-      /* staffSwitchIdLock1: mismatch → reject (prima stampava expectedId sul body sbagliato
-         → “te stesso” sotto id peer). */
-      return "";
-    }
     if (!payload.targetUserId && payloadId) payload.targetUserId = payloadId;
     if (!id.userId && payloadId) id.userId = payloadId;
-    return payloadId || expectedId;
+    return payloadId || (tid === expectedId ? expectedId : "") || "";
   }
 
   function renderPayloadHtml(payload, opts) {
@@ -782,40 +879,11 @@
       }
     }
 
-        if (partner && !isFounder) {
-      var canManagePmPoints = canWriteStaffManage();
-      if (!pmOnly) {
-        html +=
-          '<section class="vc-user-profile-block vc-staff-pm-block">' +
-          '<div class="vc-user-profile-block__head">' +
-          '<span class="vc-user-profile-block__title">Partner Manager</span>' +
-          "</div>" +
-          '<div class="vc-user-profile-grid3">' +
-          '<article class="vc-user-profile-mini vc-user-profile-mini--action" data-vc-stat="pm-shop-spend" role="button" tabindex="0" title="' +
-          (canManagePmPoints ? "Riscatta premi e storico shop" : "Storico riscatti shop") +
-          '"><span class="vc-user-profile-mini__label">Spesi in shop</span><span class="vc-user-profile-mini__value">' +
-          esc(partner.redeemSpend || 0) +
-          "</span></article>" +
-          '<article class="vc-user-profile-mini vc-user-profile-mini--action" data-vc-stat="pm-points" role="button" tabindex="0" title="' +
-          (canManagePmPoints ? "Gestisci punti PM" : "Punti PM") +
-          '"><span class="vc-user-profile-mini__label">Punti PM</span><span class="vc-user-profile-mini__value">' +
-          esc(partner.points != null ? partner.points : 0) +
-          "</span></article>" +
-          (canOpenPmPuntiTolti(payload)
-            ? '<article class="vc-user-profile-mini vc-user-profile-mini--action' +
-              (Number(partner.pendingPuntiTolti) > 0 ? " has-pending" : "") +
-              '" data-vc-stat="pm-punti-tolti" role="button" tabindex="0" title="Cronologia punti tolti">' +
-              pendingBadgeHtml(partner.pendingPuntiTolti) +
-              '<span class="vc-user-profile-mini__label">Partner</span><span class="vc-user-profile-mini__value">' +
-              esc(partner.partnerCount != null ? partner.partnerCount : 0) +
-              "</span></article>"
-            : '<div class="vc-user-profile-mini"><span class="vc-user-profile-mini__label">Partner</span><span class="vc-user-profile-mini__value">' +
-              esc(partner.partnerCount != null ? partner.partnerCount : 0) +
-              "</span></div>") +
-          "</div></section>";
-      }
-      if (partner.shop && global.VCStaffPmShop) {
-        html += global.VCStaffPmShop.renderShopSection(partner.shop, { readOnly: !isSelf });
+    /* pmCardKill1 / pmCardScroll1: niente card "Partner Manager" — self e other.
+       Metriche restano nelle top-stat / Gestisci; shop premi solo self. */
+    if (partner && !isFounder) {
+      if (isSelf && partner.shop && global.VCStaffPmShop) {
+        html += global.VCStaffPmShop.renderShopSection(partner.shop, { readOnly: false });
       }
     }
 
@@ -864,6 +932,12 @@
     } catch (eRel) {}
   }
 
+  function notifyProfileSheetClosed() {
+    try {
+      global.document.dispatchEvent(new CustomEvent("vc:staff-profile-sheet-closed"));
+    } catch (eEv) {}
+  }
+
   function closeStatSheet() {
     try {
       if (typeof global.__vcArmSheetCloseGuard === "function") global.__vcArmSheetCloseGuard(520);
@@ -878,6 +952,8 @@
       if (typeof global.__vcSyncLoaderScrollLock === "function") global.__vcSyncLoaderScrollLock();
       else if (typeof global.__vcUnpinPageScroll === "function") global.__vcUnpinPageScroll();
     } catch (eUnpin) {}
+    /* staffProfLivePause1: rimonta frecce peer dopo chiusura sheet */
+    notifyProfileSheetClosed();
   }
 
   function reasonEntriesFromPayload(payload, kind) {
@@ -1104,9 +1180,9 @@
         if (meta.isMid) cls += " is-range-mid";
         if (meta.pending) cls += " is-pending";
         title =
-          "In pausa · " +
+          "In pausa \u00B7 " +
           formatRangeLabel(meta.range.start, meta.range.end) +
-          " · " +
+          " \u00B7 " +
           phaseTagLabel(meta.phase, meta.range.statusLabel);
         if (meta.isStart) {
           label =
@@ -1156,7 +1232,7 @@
         '<p class="vc-staff-mini-cal__banner">' +
         '<i class="fa fa-moon-o" aria-hidden="true"></i>' +
         "<span>" +
-        hintBits.join(" · ") +
+        hintBits.join(" \u00B7 ") +
         " in " +
         monthLabelIt(year, month) +
         "</span></p>";
@@ -1751,8 +1827,8 @@
             "</span></div>" +
             '<span class="vc-staff-pm-shop-spend__meta">' +
             esc(formatShopRedeemWhen(item.createdAt)) +
-            (who ? " · " + esc(who) : "") +
-            (item.invite ? " · " + esc(String(item.invite)) : "") +
+            (who ? " \u00B7 " + esc(who) : "") +
+            (item.invite ? " \u00B7 " + esc(String(item.invite)) : "") +
             "</span>" +
             (links ? '<div class="vc-staff-pt-card__links">' + links + "</div>" : "") +
             actions +
@@ -1924,9 +2000,24 @@
     return { label: label, messages: messages, hours: hours, sanctions: sanctions };
   }
 
-  function pickResoItem(items, track) {
+  function pickResoItem(items, track, focusId) {
     var rows = Array.isArray(items) ? items : [];
     if (!rows.length) return null;
+    var fid = String(focusId || "").trim();
+    if (fid) {
+      var byFocus = rows.find(function (it) {
+        if (!it) return false;
+        var mid = String(it.messageId || "").trim();
+        var rid = String(it.recordId || it.id || "").trim();
+        var dk = String(it.dedupeKey || "").trim();
+        if (mid && mid === fid) return true;
+        if (rid && rid === fid) return true;
+        if (dk && (dk === fid || dk.indexOf(fid) >= 0)) return true;
+        if (fid.indexOf(mid) >= 0 && mid) return true;
+        return false;
+      });
+      if (byFocus) return byFocus;
+    }
     var want = String(track || "").toLowerCase();
     if (want === "p" || want === "pm") {
       return (
@@ -2017,7 +2108,7 @@
         var voiceLabel = formatResoVoiceHours(p.voiceSeconds);
         return (
           '<div class="vc-staff-reso-chart__col" title="' +
-          esc(label + " " + dayNum + " · " + msg + " msg · " + voiceLabel) +
+          esc(label + " " + dayNum + " \u00B7 " + msg + " msg \u00B7 " + voiceLabel) +
           '">' +
           '<div class="vc-staff-reso-chart__pair">' +
           '<div class="vc-staff-reso-chart__slot">' +
@@ -2178,6 +2269,31 @@
     );
   }
 
+  function resolveResoDecisionVerb(item) {
+    var status = String((item && item.status) || "").toLowerCase();
+    var actionKey = String((item && (item.actionKey || item.workflowActionKey)) || "")
+      .trim()
+      .toLowerCase();
+    var byKey = {
+      vp: "Valutazione positiva",
+      vn: "Valutazione negativa",
+      nl: "Nulla",
+      px: "Pex",
+      dp: "Depex",
+      rc: "Richiamo",
+      batch: "Azioni multiple",
+    };
+    if (byKey[actionKey]) return byKey[actionKey];
+    var statusLabel = String((item && item.statusLabel) || "").trim();
+    if (statusLabel && !/^(accettata|rifiutata|annullata|gestita|chiusa|in attesa)$/i.test(statusLabel)) {
+      return statusLabel;
+    }
+    if (status === "rejected") return "Rifiutata";
+    if (status === "accepted") return "Accettata";
+    if (status === "cancelled") return "Annullata";
+    return "Gestita";
+  }
+
   function renderProfileResoDecisionMeta(item) {
     if (!item || item.canAct) return "";
     var status = String(item.status || "").toLowerCase();
@@ -2201,14 +2317,8 @@
       }
     } catch (eWhen) {}
     if (!by && !when) return "";
-    var verb =
-      status === "rejected"
-        ? "Rifiutata"
-        : status === "accepted"
-          ? "Accettata"
-          : status === "cancelled"
-            ? "Annullata"
-            : "Gestita";
+    /* resoDecisionVerb1: Depex/Richiamo/… non “Accettata” solo perché status=accepted */
+    var verb = resolveResoDecisionVerb(item);
     var heading = by ? verb + " da " + by : verb;
     return (
       '<div class="vc-staff-inbox-detail__field vc-staff-inbox-detail__qa vc-staff-inbox-detail__field--decision"><h4>' +
@@ -2331,32 +2441,32 @@
       : [
           {
             key: "vp",
-            label: "Valutazione positiva · limiti raggiunti",
+            label: "Valutazione positiva \u00B7 limiti raggiunti",
             reason: "Limiti settimanali completati.",
           },
           {
             key: "vp",
-            label: "Valutazione positiva · limiti doppi",
+            label: "Valutazione positiva \u00B7 limiti doppi",
             reason: "Limiti settimanali superati almeno del doppio.",
           },
           {
             key: "vn",
-            label: "Valutazione negativa · limiti non raggiunti",
+            label: "Valutazione negativa \u00B7 limiti non raggiunti",
             reason: "Limiti settimanali non raggiunti.",
           },
           {
             key: "vp",
-            label: "Valutazione positiva · compito sanzioni",
+            label: "Valutazione positiva \u00B7 compito sanzioni",
             reason: "Compito sanzioni completato.",
           },
           {
             key: "vp",
-            label: "Valutazione positiva · griglia",
+            label: "Valutazione positiva \u00B7 griglia",
             reason: "Valutazione positiva da griglia attività/condotta.",
           },
           {
             key: "vn",
-            label: "Valutazione negativa · griglia",
+            label: "Valutazione negativa \u00B7 griglia",
             reason: "Valutazione negativa da griglia attività/condotta.",
           },
           { key: "nl", label: "Nulla", reason: "" },
@@ -2464,11 +2574,15 @@
     var id = (payload && payload.identity) || {};
     var displayName =
       String(item.displayName || id.displayName || id.username || "Resoconto").trim() || "Resoconto";
-    var roleLabel =
-      String(item.roleLabel || "").trim() ||
-      (RESOCONTO_ROLE_LIMITS[String(item.roleId || "")] &&
-        RESOCONTO_ROLE_LIMITS[String(item.roleId || "")].label) ||
-      kindLabel;
+    /* resoRolePrecise1: "Staff" generico non batte il ruolo da roleId (Helper/Mod/…) */
+    var roleLabel = String(item.roleLabel || "").trim();
+    if (!roleLabel || /^(staff)$/i.test(roleLabel)) {
+      roleLabel =
+        (RESOCONTO_ROLE_LIMITS[String(item.roleId || "")] &&
+          RESOCONTO_ROLE_LIMITS[String(item.roleId || "")].label) ||
+        "";
+    }
+    if (!roleLabel) roleLabel = kindLabel;
     var msgTip =
       limits.messages != null
         ? "Limite settimanale " +
@@ -2578,7 +2692,7 @@
       "</h3>" +
       '<p class="vc-staff-reso-hero__meta">' +
       esc(roleLabel) +
-      (statusLabel ? " · " + esc(statusLabel) : "") +
+      (statusLabel ? " \u00B7 " + esc(statusLabel) : "") +
       "</p></div>" +
       rolesChrono +
       "</div>" +
@@ -2594,7 +2708,13 @@
   }
 
   function closeProfileResoSheet() {
+    teardownPauseReviewChat();
     var sheet = global.document.getElementById("vc-staff-reso-sheet");
+    var wasOpen = Boolean(
+      sheet &&
+        sheet.getAttribute("data-profile-reso") === "1" &&
+        !sheet.hidden,
+    );
     if (sheet && sheet.getAttribute("data-profile-reso") === "1") {
       try {
         sheet.classList.remove("is-in");
@@ -2613,6 +2733,7 @@
       if (typeof global.__vcSyncLoaderScrollLock === "function") global.__vcSyncLoaderScrollLock();
       else if (typeof global.__vcUnpinPageScroll === "function") global.__vcUnpinPageScroll();
     } catch (eUnpin) {}
+    if (wasOpen) notifyProfileSheetClosed();
   }
 
   function ensureProfileResoSheet() {
@@ -2729,6 +2850,10 @@
             actBtn.disabled = false;
             return;
           }
+          try {
+            /* resoPendBadge1: togli subito il badge; paint successivo ricalcola dai pending reali */
+            syncResoPendingBadge(sheet, 0);
+          } catch (eSync) {}
           loadProfileResocontoIntoSheet(sheet, {});
         })
         .catch(function () {
@@ -2750,12 +2875,14 @@
     return sheet;
   }
 
-  function openProfileResoSheet(payload, root) {
+  function openProfileResoSheet(payload, root, opts) {
+    opts = opts || {};
     closeStatSheet();
     var sheet = ensureProfileResoSheet();
     sheet.__vcStatPayload = payload;
     sheet.__vcStatRoot = root;
     sheet.__vcStatKind = "resoconto";
+    sheet.__vcFocusResoId = String(opts.focusId || "").trim();
     sheet.hidden = false;
     try {
       sheet.removeAttribute("hidden");
@@ -2779,7 +2906,7 @@
     if (body) body.innerHTML = '<p class="vc-staff-stat-sheet__hint">Carico resoconto…</p>';
     var foot = sheet.querySelector("#vc-staff-reso-foot");
     if (foot) foot.innerHTML = "";
-    loadProfileResocontoIntoSheet(sheet, {});
+    loadProfileResocontoIntoSheet(sheet, { focusId: sheet.__vcFocusResoId });
   }
 
   function paintProfileReso(sheet) {
@@ -2787,12 +2914,16 @@
     var body = sheet.querySelector("#vc-staff-reso-body");
     var foot = sheet.querySelector("#vc-staff-reso-foot");
     var kicker = sheet.querySelector(".vc-staff-reso-sheet__kicker");
-    var item = pickResoItem(sheet.__vcResoState.items, sheet.__vcResoState.track);
+    var item = pickResoItem(
+      sheet.__vcResoState.items,
+      sheet.__vcResoState.track,
+      sheet.__vcFocusResoId || sheet.__vcResoState.focusId,
+    );
     var isPm = item && String(item.kind || "").toLowerCase() === "p";
     var kindLabel = isPm ? "Partner Manager" : "Staff";
     if (kicker) {
       kicker.textContent =
-        "Resoconto · " + kindLabel + (item && item.weekLabel ? " · " + item.weekLabel : "");
+        "Resoconto \u00B7 " + kindLabel + (item && item.weekLabel ? " \u00B7 " + item.weekLabel : "");
     }
     if (body) {
       body.innerHTML = renderProfileResoInboxBody(sheet.__vcResoState, sheet.__vcStatPayload || {});
@@ -2800,6 +2931,9 @@
     if (foot) {
       foot.innerHTML = item ? profileResoActionButtons(item) : "";
     }
+    try {
+      syncResoPendingBadge(sheet, countPendingResoItems(sheet.__vcResoState.items));
+    } catch (eBadge) {}
     try {
       if (global.VcAvatarFallback && typeof global.VcAvatarFallback.scan === "function") {
         global.VcAvatarFallback.scan(sheet);
@@ -2898,6 +3032,7 @@
           weeks: Array.isArray(out.data.weeks) ? out.data.weeks : [],
           items: items,
           track: track,
+          focusId: String(opts.focusId || sheet.__vcFocusResoId || "").trim(),
         };
         paintProfileReso(sheet);
       })
@@ -3206,16 +3341,77 @@
     return "is-pending";
   }
 
-  function pauseReviewRoleBadgesHtml(item) {
-    var labels = [];
-    var ruolo = String((item && (item.ruolo || item.ruoloLabel || item.ruoloRichiesto)) || "").trim();
-    if (ruolo) labels.push(ruolo);
-    if (!labels.length && Array.isArray(item && item.roles)) {
-      item.roles.forEach(function (r) {
-        var lab = String((r && (r.label || r.name || r)) || "").trim();
-        if (lab) labels.push(lab);
-      });
+  function pauseReviewProfileRoleFallback(payload) {
+    var role = (payload && payload.role) || {};
+    var career = (payload && payload.career) || {};
+    var lab = String(
+      (role && role.label) || (career && career.currentRole) || "",
+    ).trim();
+    lab = lab
+      .replace(/<a?:[^:]+:\d+>/gi, "")
+      .replace(/^[\s\u0F04\u2726\u2727\u2605\u2606\u25C6\u25C7\u2022\u00B7\u2756\u2735]+/, "")
+      .replace(/\s+/g, " ")
+      .trim();
+    if (!lab || /^(staff|—|-)$/i.test(lab)) return "";
+    /* se label composto "Helper \u00B7 …" tieni il primo pezzo staff-like */
+    var first = lab.split(/\s*[\u00B7|/]\s*/)[0];
+    return String(first || lab).trim();
+  }
+
+  function pauseReviewRoleLabels(item, payload) {
+    var track = String((item && item.ruoloTrack) || "")
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, "");
+    var raw = String((item && (item.ruolo || item.ruoloLabel || item.ruoloRichiesto)) || "").trim();
+    var low = raw.toLowerCase();
+    var profileFallback = pauseReviewProfileRoleFallback(payload);
+    function clean(lab) {
+      return String(lab || "")
+        .replace(/<a?:[^:]+:\d+>/gi, "")
+        .replace(/^[\s\u0F04\u2726\u2727\u2605\u2606\u25C6\u25C7\u2022\u00B7\u2756\u2735]+/, "")
+        .replace(/\s+/g, " ")
+        .trim();
     }
+    var both = track === "entrambi" || track === "both" || /\bentrambi\b|\bboth\b/.test(low);
+    if (both) {
+      var parts = raw
+        .split(/\s+e\s+/i)
+        .map(clean)
+        .filter(Boolean);
+      var generic = /^(entrambi|both|staff)$/i;
+      if (parts.length >= 2 && parts.every(function (p) { return !generic.test(p); })) {
+        return parts.slice(0, 2);
+      }
+      var rank = parts.find(function (p) {
+        return p && !generic.test(p) && !/partner\s*manager/i.test(p);
+      });
+      if (rank) return [rank, "Partner Manager"];
+      if (profileFallback && !/partner\s*manager/i.test(profileFallback)) {
+        return [profileFallback, "Partner Manager"];
+      }
+      return ["Staff", "Partner Manager"];
+    }
+    if (track === "partnermanager" || track === "pm" || /partner\s*manager|\bpm\b/.test(low)) {
+      return ["Partner Manager"];
+    }
+    var pretty = clean(raw);
+    if (pretty && !/^(staff)$/i.test(pretty)) return [pretty];
+    if (profileFallback) return [profileFallback];
+    if (Array.isArray(item && item.roles)) {
+      var fromRoles = [];
+      item.roles.forEach(function (r) {
+        var lab = clean(String((r && (r.label || r.name || r)) || ""));
+        if (lab && !/^(staff)$/i.test(lab)) fromRoles.push(lab);
+      });
+      if (fromRoles.length) return fromRoles;
+    }
+    if (pretty) return [pretty];
+    return [];
+  }
+
+  function pauseReviewRoleBadgesHtml(item, payload) {
+    var labels = pauseReviewRoleLabels(item, payload);
     if (!labels.length) return "";
     return labels
       .map(function (lab) {
@@ -3242,31 +3438,88 @@
     );
   }
 
+  function pauseReviewCanAct(item) {
+    if (!item) return false;
+    if (String(item.status || "").toLowerCase() !== "pending") return false;
+    var pid = String(item.id || item.pauseId || "").trim();
+    var uid = String(item.userId || "").trim();
+    /* pauseReviewFix1: pending + id = azioni (anche Entrambi da storico profilo) */
+    return Boolean(pid && uid);
+  }
+
+  /* pauseCancelAccept1: annulla pause accettate (non finite) come Discord / gestione */
+  function pauseReviewCanCancel(item) {
+    if (!item) return false;
+    if (String(item.status || "").toLowerCase() !== "accepted") return false;
+    if (String(item.phase || "").toLowerCase() === "ended") return false;
+    var pid = String(item.id || item.pauseId || "").trim();
+    var uid = String(item.userId || "").trim();
+    return Boolean(pid && uid);
+  }
+
   function pauseReviewActionButtons(item) {
-    if (!item || !item.canAct) return "";
-    var uid = esc(String(item.userId || ""));
-    var pid = esc(String(item.id || item.pauseId || ""));
+    var uid = esc(String((item && item.userId) || ""));
+    var pid = esc(String((item && (item.id || item.pauseId)) || ""));
     if (!uid || !pid) return "";
+    if (pauseReviewCanAct(item)) {
+      return (
+        '<div class="vc-staff-inbox-actions vc-staff-inbox-actions--forge">' +
+        '<div class="vc-staff-rank-forge__rail">' +
+        '<button type="button" class="vc-staff-rank-forge__card is-up" data-pause-act="accept" data-user-id="' +
+        uid +
+        '" data-id="' +
+        pid +
+        '">' +
+        '<span class="vc-staff-rank-forge__ico" aria-hidden="true"><i class="fa fa-check"></i></span>' +
+        '<span class="vc-staff-rank-forge__name">Accetta</span>' +
+        '<span class="vc-staff-rank-forge__hint">Approva la pausa richiesta</span></button>' +
+        '<button type="button" class="vc-staff-rank-forge__card is-down" data-pause-act="reject" data-user-id="' +
+        uid +
+        '" data-id="' +
+        pid +
+        '">' +
+        '<span class="vc-staff-rank-forge__ico" aria-hidden="true"><i class="fa fa-times"></i></span>' +
+        '<span class="vc-staff-rank-forge__name">Rifiuta</span>' +
+        '<span class="vc-staff-rank-forge__hint">Chiudi senza accettare</span></button>' +
+        "</div></div>"
+      );
+    }
+    if (pauseReviewCanCancel(item)) {
+      return (
+        '<div class="vc-staff-inbox-actions vc-staff-inbox-actions--forge">' +
+        '<div class="vc-staff-rank-forge__rail">' +
+        '<button type="button" class="vc-staff-rank-forge__card is-down" data-pause-act="cancel" data-user-id="' +
+        uid +
+        '" data-id="' +
+        pid +
+        '">' +
+        '<span class="vc-staff-rank-forge__ico" aria-hidden="true"><i class="fa fa-ban"></i></span>' +
+        '<span class="vc-staff-rank-forge__name">Annulla pausa</span>' +
+        '<span class="vc-staff-rank-forge__hint">Giorni gi\u00e0 trascorsi scalati dal budget</span></button>' +
+        "</div></div>"
+      );
+    }
+    return "";
+  }
+
+  function pauseDateStatusKey(item) {
+    if (!item) return "";
+    /* pauseBothSplit1: stesso periodo su track diversi = due richieste (non collassare) */
+    var track = String(
+      (item && (item.ruoloTrack || item.ruoloRichiesto || item.ruolo || item.ruoloLabel)) || "",
+    )
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, "");
     return (
-      '<div class="vc-staff-inbox-actions vc-staff-inbox-actions--forge">' +
-      '<div class="vc-staff-rank-forge__rail">' +
-      '<button type="button" class="vc-staff-rank-forge__card is-up" data-pause-act="accept" data-user-id="' +
-      uid +
-      '" data-id="' +
-      pid +
-      '">' +
-      '<span class="vc-staff-rank-forge__ico" aria-hidden="true"><i class="fa fa-check"></i></span>' +
-      '<span class="vc-staff-rank-forge__name">Accetta</span>' +
-      '<span class="vc-staff-rank-forge__hint">Approva la pausa richiesta</span></button>' +
-      '<button type="button" class="vc-staff-rank-forge__card is-down" data-pause-act="reject" data-user-id="' +
-      uid +
-      '" data-id="' +
-      pid +
-      '">' +
-      '<span class="vc-staff-rank-forge__ico" aria-hidden="true"><i class="fa fa-times"></i></span>' +
-      '<span class="vc-staff-rank-forge__name">Rifiuta</span>' +
-      '<span class="vc-staff-rank-forge__hint">Chiudi senza accettare</span></button>' +
-      "</div></div>"
+      "r:" +
+      String(item.start || item.startIso || "") +
+      "|" +
+      String(item.end || item.endIso || "") +
+      "|" +
+      String(item.status || "") +
+      "|" +
+      track
     );
   }
 
@@ -3274,46 +3527,79 @@
     var out = [];
     var seen = {};
     var uid = targetUserIdFromPayload(payload);
+    function markSeen(row) {
+      var key = pauseItemKey(row);
+      var dateKey = pauseDateStatusKey(row);
+      if (key) seen[key] = true;
+      if (dateKey) seen[dateKey] = true;
+    }
+    function alreadySeen(row) {
+      var key = pauseItemKey(row);
+      var dateKey = pauseDateStatusKey(row);
+      return (key && seen[key]) || (dateKey && seen[dateKey]);
+    }
+    var id = (payload && payload.identity) || {};
+    var profileAvatar = String(resolveProfileAvatarUrl(id) || id.avatarUrl || "").trim();
+    var profileRole = pauseReviewProfileRoleFallback(payload);
     (Array.isArray(apiItems) ? apiItems : []).forEach(function (it) {
       if (!it) return;
       var row = Object.assign({}, it);
       if (!row.userId && uid) row.userId = uid;
-      var key = pauseItemKey(row);
-      if (!key || seen[key]) return;
-      seen[key] = true;
+      if (!row.id && row.pauseId) row.id = row.pauseId;
+      if (!row.pauseId && row.id) row.pauseId = row.id;
+      if (!row.avatarUrl && profileAvatar) row.avatarUrl = profileAvatar;
+      var st = String(row.status || "").toLowerCase();
+      if (st === "pending" && row.id) row.canAct = true;
+      /* pauseCancelAccept1 */
+      row.canCancel =
+        st === "accepted" && String(row.phase || "").toLowerCase() !== "ended" && Boolean(row.id);
+      var ruoloNow = String(row.ruolo || row.ruoloLabel || "").trim();
+      if ((!ruoloNow || /^(staff)$/i.test(ruoloNow)) && profileRole) {
+        row.ruolo = profileRole;
+        row.ruoloLabel = profileRole;
+      }
+      if (alreadySeen(row)) return;
+      markSeen(row);
       out.push(row);
     });
     var hist = historyFromPayloadOrDom(payload, null);
     (Array.isArray(hist) ? hist : []).forEach(function (h) {
       if (!h) return;
+      var hid = String(h.id || h.pauseId || "").trim();
+      var st = String(h.status || "accepted").trim() || "accepted";
+      var ruoloHist = String(h.ruolo || h.ruoloLabel || h.ruoloRichiesto || "").trim();
+      if ((!ruoloHist || /^(staff)$/i.test(ruoloHist)) && profileRole) ruoloHist = profileRole;
+      var phaseHist = String(h.phase || "").trim();
       var row = {
-        id: "",
-        pauseId: "",
+        id: hid,
+        pauseId: hid,
         userId: uid,
+        displayName: String(id.displayName || "").trim() || undefined,
+        avatarUrl: profileAvatar || undefined,
         start: String(h.start || "").trim(),
         end: String(h.end || "").trim(),
         startIso: String(h.startIso || "").trim(),
         endIso: String(h.endIso || "").trim(),
-        status: String(h.status || "accepted").trim() || "accepted",
+        status: st,
         statusLabel: h.statusLabel || "",
-        phase: h.phase || "",
+        phase: phaseHist,
         motivazione: String(h.motivazione || h.reason || "").trim(),
-        ruolo: String(h.ruolo || "").trim(),
-        canAct: false,
+        ruolo: ruoloHist,
+        ruoloLabel: String(h.ruoloLabel || ruoloHist || "").trim(),
+        ruoloTrack: String(h.ruoloTrack || h.ruoloRichiesto || "").trim(),
+        ruoloRichiesto: String(h.ruoloRichiesto || h.ruolo || "").trim(),
+        /* pauseReviewFix1: preserva canAct/id dallo storico profilo (Entrambi) */
+        canAct: st.toLowerCase() === "pending" && Boolean(hid),
+        /* pauseCancelAccept1 */
+        canCancel:
+          st.toLowerCase() === "accepted" &&
+          phaseHist.toLowerCase() !== "ended" &&
+          Boolean(hid),
         fromHistory: true,
+        dedupeKey: hid && uid ? "pause:" + uid + ":" + hid : "",
       };
-      var key = pauseItemKey(row);
-      /* dedupe su date+status anche se workflow ha id */
-      var dateKey =
-        "r:" +
-        String(row.start || row.startIso || "") +
-        "|" +
-        String(row.end || row.endIso || "") +
-        "|" +
-        String(row.status || "");
-      if (seen[key] || seen[dateKey]) return;
-      seen[key] = true;
-      seen[dateKey] = true;
+      if (alreadySeen(row)) return;
+      markSeen(row);
       out.push(row);
     });
     out.sort(function (a, b) {
@@ -3327,7 +3613,7 @@
     return out;
   }
 
-  function renderProfilePauseListHtml(items, selectedKey) {
+  function renderProfilePauseListHtml(items, selectedKey, payload) {
     var rows = Array.isArray(items) ? items : [];
     if (!rows.length) {
       return '<p class="vc-staff-stat-sheet__hint">Nessuna richiesta di pausa in archivio per questo staff.</p>';
@@ -3357,7 +3643,7 @@
             '<p class="vc-staff-pause-review-list__range">' +
             esc(range) +
             "</p>" +
-            (pauseReviewRoleBadgesHtml(it) || "") +
+            (pauseReviewRoleBadgesHtml(it, payload) || "") +
             (motive
               ? '<p class="vc-staff-pause-review-list__motive">' + esc(motive) + "</p>"
               : "") +
@@ -3378,9 +3664,10 @@
     if (!item) {
       return '<p class="vc-staff-stat-sheet__hint">Seleziona una richiesta.</p>';
     }
+    var id = (payload && payload.identity) || {};
     var displayName =
       String((item && item.displayName) || "").trim() ||
-      String((((payload || {}).identity || {}).displayName) || "").trim() ||
+      String(id.displayName || "").trim() ||
       "Staff";
     var rangeMeta =
       item.start && item.end
@@ -3391,12 +3678,18 @@
     var motivazione = String(
       item.motivazione || item.content || item.body || item.preview || item.reason || "",
     ).trim();
+    var uid = String(item.userId || targetUserIdFromPayload(payload) || id.userId || "").trim();
+    var avatarUrl = String(item.avatarUrl || "").trim();
+    if (!avatarUrl || /cdn\.discordapp\.com\/embed\/avatars\//i.test(avatarUrl)) {
+      avatarUrl = String(resolveProfileAvatarUrl(id) || id.avatarUrl || "").trim();
+    }
     var avatarHtml = "";
     try {
       if (global.VCStaffTools && typeof global.VCStaffTools.avatarImgHtml === "function") {
-        avatarHtml = global.VCStaffTools.avatarImgHtml(item.avatarUrl, item.userId, {
+        avatarHtml = global.VCStaffTools.avatarImgHtml(avatarUrl, uid, {
           width: 56,
           height: 56,
+          avatarHash: id.avatar || id.avatarHash || "",
         });
       }
     } catch (eAv) {}
@@ -3416,7 +3709,7 @@
       '<h3 class="vc-staff-reso-hero__name">' +
       esc(displayName) +
       "</h3>" +
-      pauseReviewRoleBadgesHtml(item) +
+      pauseReviewRoleBadgesHtml(item, payload) +
       "</div>" +
       (rangeMeta ? '<p class="vc-staff-reso-hero__meta">' + esc(rangeMeta) + "</p>" : "") +
       "</div>" +
@@ -3429,8 +3722,161 @@
         ? '<div class="vc-staff-inbox-detail__field vc-staff-inbox-detail__qa"><h4>Motivazione</h4><div class="vc-staff-inbox-detail__answer">' +
           esc(motivazione).replace(/\n/g, "<br>") +
           "</div></div>"
-        : '<p class="vc-staff-stat-sheet__hint">Nessuna motivazione registrata.</p>')
+        : '<p class="vc-staff-stat-sheet__hint">Nessuna motivazione registrata.</p>') +
+      /* pauseInviteOnly1: discussione HS; richiedente solo se aggiunto (come candidature) */
+      '<div class="vc-staff-pause-chat" id="vc-staff-pause-chat">' +
+      '<div class="vc-staff-pause-chat__intro">' +
+      '<p class="vc-staff-pause-chat__kicker">Discussione</p>' +
+      '<p class="vc-staff-pause-chat__hint">High staff \u00B7 aggiungi il richiedente se serve</p>' +
+      "</div>" +
+      '<div id="vc-staff-pause-chat-mount"></div></div>'
     );
+  }
+
+  function pauseWorkflowChatApiBase() {
+    var T = global.VCStaffTools;
+    var c = global.__VC_STAFF_WORKFLOW_CHAT || {};
+    if (T && typeof T.resolveApiUrl === "function") {
+      return T.resolveApiUrl(c, "/webhooks/site-staff-workflow-chat");
+    }
+    var base = String(c.apiUrl || "/webhooks/site-staff-workflow-chat").trim();
+    if (/\{\{/.test(base)) base = "/webhooks/site-staff-workflow-chat";
+    return base;
+  }
+
+  function pauseWorkflowDedupeKey(item) {
+    if (!item) return "";
+    var dk = String(item.dedupeKey || "").trim();
+    if (dk.indexOf("pause:") === 0) return dk;
+    var uid = String(item.userId || "").trim();
+    var pid = String(item.id || item.pauseId || "").trim();
+    return uid && pid ? "pause:" + uid + ":" + pid : "";
+  }
+
+  function ensurePauseWorkflowChatAssets() {
+    if (global.VcWorkflowChat) return Promise.resolve(true);
+    return new Promise(function (resolve) {
+      var ver = "20261009emojiAnchorPos1";
+      try {
+        var existing = global.document.querySelector('script[data-vc-wfc="1"]');
+        if (existing) {
+          var tries = 0;
+          var t = global.setInterval(function () {
+            tries += 1;
+            if (global.VcWorkflowChat || tries > 40) {
+              global.clearInterval(t);
+              resolve(Boolean(global.VcWorkflowChat));
+            }
+          }, 50);
+          return;
+        }
+      } catch (eEx) {}
+      try {
+        if (!global.document.querySelector('link[data-vc-wfc-css="1"]')) {
+          var link = global.document.createElement("link");
+          link.rel = "stylesheet";
+          link.href = "/css/vc-workflow-chat.css?v=" + ver;
+          link.setAttribute("data-vc-wfc-css", "1");
+          global.document.head.appendChild(link);
+        }
+      } catch (eCss) {}
+      var s = global.document.createElement("script");
+      s.src = "/js/vc-workflow-chat.js?v=" + ver;
+      s.defer = true;
+      s.setAttribute("data-vc-wfc", "1");
+      s.onload = function () {
+        resolve(Boolean(global.VcWorkflowChat));
+      };
+      s.onerror = function () {
+        resolve(false);
+      };
+      global.document.head.appendChild(s);
+    });
+  }
+
+  function bootPauseReviewChat(item) {
+    var mount = global.document.getElementById("vc-staff-pause-chat-mount");
+    if (!mount || !item) return;
+    var key = pauseWorkflowDedupeKey(item);
+    if (!key) {
+      mount.innerHTML =
+        '<p class="vc-staff-stat-sheet__hint">Chat non disponibile per questa richiesta.</p>';
+      return;
+    }
+    ensurePauseWorkflowChatAssets().then(function (ok) {
+      if (!ok || !global.VcWorkflowChat) {
+        mount.innerHTML =
+          '<p class="vc-staff-stat-sheet__hint is-error">Chat non caricata.</p>';
+        return;
+      }
+      var chatItem = Object.assign({}, item, {
+        dedupeKey: key,
+        status: String(item.status || "pending"),
+        canAct: pauseReviewCanAct(item),
+      });
+      try {
+        global.VcWorkflowChat.init({
+          apiBase: pauseWorkflowChatApiBase,
+          getProfileId: function () {
+            return String((global.__VC_DISCORD_PROFILE && global.__VC_DISCORD_PROFILE.id) || "");
+          },
+          dedupeKeyForItem: function (it) {
+            return pauseWorkflowDedupeKey(it);
+          },
+          formatMessageHtml: function (txt) {
+            return esc(String(txt || "")).replace(/\n/g, "<br>");
+          },
+          esc: esc,
+          avatarHtml: function (url, userId, opts) {
+            var T = global.VCStaffTools;
+            if (T && typeof T.avatarImgHtml === "function") {
+              return T.avatarImgHtml(url, userId, opts || {});
+            }
+            return "";
+          },
+          fetchJson: function (url, opts) {
+            var T = global.VCStaffTools;
+            if (T && typeof T.fetchJson === "function") return T.fetchJson(url, opts);
+            return fetch(url, opts || {}).then(function (res) {
+              return res.json().then(function (data) {
+                return { res: res, data: data };
+              });
+            });
+          },
+          byId: function (id) {
+            return global.document.getElementById(id);
+          },
+          getToken: getStaffToken,
+          sendBtnClass: "vc-staff-inbox-btn vc-staff-inbox-btn--ok",
+          forceReadOnly: false,
+          panelTitle: "Discussione",
+          panelHint: "Emoji \u00B7 @utenti \u00B7 #canali \u00B7 risposte \u00B7 allegati",
+          closedHint: "Pratica chiusa",
+          closedMessage: "Chat in sola lettura: la pratica non è più in attesa.",
+          emptyReadOnlyMessage: "Nessun messaggio in discussione.",
+          notify: function (msg, isError) {
+            try {
+              if (global.VcSiteToast && typeof global.VcSiteToast.show === "function") {
+                global.VcSiteToast.show(msg, Boolean(isError));
+              }
+            } catch (eN) {}
+          },
+        });
+        mount.innerHTML = global.VcWorkflowChat.renderPanel(chatItem, "pause");
+        global.VcWorkflowChat.boot(chatItem, "pause");
+      } catch (eBoot) {
+        mount.innerHTML =
+          '<p class="vc-staff-stat-sheet__hint is-error">Errore avvio chat.</p>';
+      }
+    });
+  }
+
+  function teardownPauseReviewChat() {
+    try {
+      if (global.VcWorkflowChat && typeof global.VcWorkflowChat.teardown === "function") {
+        global.VcWorkflowChat.teardown();
+      }
+    } catch (eT) {}
   }
 
   function renderProfilePauseReviewBody(sheet) {
@@ -3453,7 +3899,7 @@
       head +
       '<div class="vc-staff-pause-review-section">' +
       '<p class="vc-staff-pause-review-section__title">Richieste</p>' +
-      renderProfilePauseListHtml(items, item ? pauseItemKey(item) : "") +
+      renderProfilePauseListHtml(items, item ? pauseItemKey(item) : "", payload) +
       "</div>"
     );
   }
@@ -3517,6 +3963,7 @@
     var titleEl = sheet.querySelector("#vc-staff-reso-title");
     var item = sheet.__vcPauseItem || null;
     var view = sheet.__vcPauseView || "list";
+    teardownPauseReviewChat();
     if (kicker) {
       kicker.textContent =
         view === "detail" ? "Richiesta pausa" : "Pause \u00b7 richieste";
@@ -3530,6 +3977,9 @@
     }
     if (foot) {
       foot.innerHTML = view === "detail" && item ? pauseReviewActionButtons(item) : "";
+    }
+    if (view === "detail" && item) {
+      bootPauseReviewChat(item);
     }
     try {
       if (global.VcAvatarFallback && typeof global.VcAvatarFallback.scan === "function") {
@@ -3570,6 +4020,8 @@
         sheet.__vcPauseView = "list";
         sheet.__vcPauseItem = pending[0] || null;
         paintProfilePauseReview(sheet);
+        /* pausePendBadge1 */
+        syncPausePendingBadge(sheet, pending.length);
       })
       .catch(function () {
         if (!sheet.isConnected) return;
@@ -3580,9 +4032,11 @@
         if (!merged.length && body) {
           body.innerHTML =
             '<p class="vc-staff-stat-sheet__hint is-error">Errore nel caricamento.</p>';
+          syncPausePendingBadge(sheet, 0);
           return;
         }
         paintProfilePauseReview(sheet);
+        syncPausePendingBadge(sheet, countPendingPauseItems(merged));
       });
   }
 
@@ -3668,7 +4122,12 @@
       var action = String(actBtn.getAttribute("data-pause-act") || "");
       var userId = String(actBtn.getAttribute("data-user-id") || "").trim();
       var pauseId = String(actBtn.getAttribute("data-id") || "").trim();
-      if (!userId || !pauseId || (action !== "accept" && action !== "reject")) return;
+      if (
+        !userId ||
+        !pauseId ||
+        (action !== "accept" && action !== "reject" && action !== "cancel")
+      )
+        return;
       var confirmOpts =
         action === "reject"
           ? {
@@ -3677,11 +4136,19 @@
               confirmLabel: "Rifiuta",
               danger: true,
             }
-          : {
-              title: "Accetta pausa",
-              message: "Accettare questa richiesta di pausa?",
-              confirmLabel: "Accetta",
-            };
+          : action === "cancel"
+            ? {
+                title: "Annulla pausa",
+                message:
+                  "Annullare la pausa? I giorni gi\u00e0 trascorsi verranno scalati dal budget annuale.",
+                confirmLabel: "Annulla pausa",
+                danger: true,
+              }
+            : {
+                title: "Accetta pausa",
+                message: "Accettare questa richiesta di pausa?",
+                confirmLabel: "Accetta",
+              };
       dlgConfirm(confirmOpts).then(function (ok) {
         if (!ok) return;
         sheet.__vcPauseBusy = true;
@@ -3710,15 +4177,62 @@
             try {
               if (global.VcSiteToast && typeof global.VcSiteToast.show === "function") {
                 global.VcSiteToast.show(
-                  action === "reject" ? "Pausa rifiutata." : "Pausa accettata.",
+                  action === "reject"
+                    ? "Pausa rifiutata."
+                    : action === "cancel"
+                      ? "Pausa annullata."
+                      : "Pausa accettata.",
                   false,
                 );
               }
             } catch (eOk) {}
+            /* pausePendBadge1: aggiorna subito badge (prima del reload async) */
+            try {
+              var itemsNow = Array.isArray(sheet.__vcPauseItems) ? sheet.__vcPauseItems : [];
+              var nextPending = 0;
+              var wantKey = "id:" + pauseId;
+              for (var pi = 0; pi < itemsNow.length; pi += 1) {
+                var it = itemsNow[pi];
+                if (!it) continue;
+                var idMatch =
+                  pauseItemKey(it) === wantKey ||
+                  String(it.id || it.pauseId || "").trim() === pauseId ||
+                  String(it.messageId || "").trim() === pauseId;
+                if (idMatch) {
+                  it.status =
+                    action === "reject"
+                      ? "rejected"
+                      : action === "cancel"
+                        ? "cancelled"
+                        : "accepted";
+                  it.statusLabel =
+                    action === "reject"
+                      ? "Rifiutata"
+                      : action === "cancel"
+                        ? "Annullata"
+                        : "Accettata";
+                  it.canAct = false;
+                  it.canCancel = false;
+                  continue;
+                }
+                if (String(it.status || "").toLowerCase() === "pending") nextPending += 1;
+              }
+              var remainHint =
+                out.data && out.data.remaining != null
+                  ? out.data.remaining
+                  : out.data && out.data.quota && out.data.quota.remaining != null
+                    ? out.data.quota.remaining
+                    : null;
+              syncPausePendingBadge(sheet, nextPending, remainHint);
+            } catch (eBadge) {}
             sheet.__vcPauseView = "list";
             sheet.__vcPauseItem = null;
             loadProfilePauseIntoSheet(sheet);
-            var reload = sheet.__vcStatRoot && sheet.__vcStatRoot.__vcReloadProfile;
+            /* pausePendBadge1: era __vcReloadProfile (mai settato) → badge stale fino a F5 */
+            var reload =
+              (sheet.__vcStatRoot && sheet.__vcStatRoot.__vcStaffReload) ||
+              (sheet.__vcStatRoot && sheet.__vcStatRoot.__vcReloadProfile) ||
+              null;
             if (typeof reload === "function") {
               try {
                 reload();
@@ -3793,8 +4307,8 @@
       esc(String(pos)) +
       "</b></span></div>" +
       '<div class="vc-staff-pause-trade-card__form">' +
-      '<label><span>Valutazioni positive</span><input type="number" min="1" max="50" value="1" data-pause-trade-pos /></label>' +
-      '<label><span>Giorni</span><input type="number" min="1" max="60" value="1" data-pause-trade-days /></label>' +
+      '<label for="vc-pause-trade-pos"><span>Valutazioni positive</span><input type="number" id="vc-pause-trade-pos" name="pauseTradePos" min="1" max="50" value="1" data-pause-trade-pos autocomplete="off" /></label>' +
+      '<label for="vc-pause-trade-days"><span>Giorni</span><input type="number" id="vc-pause-trade-days" name="pauseTradeDays" min="1" max="60" value="1" data-pause-trade-days autocomplete="off" /></label>' +
       '<button type="button" class="vc-staff-stat-sheet__act is-pos" data-stat-act="pos_pause_trade">Scambia</button>' +
       "</div></div>"
     );
@@ -3827,9 +4341,9 @@
     }
     html +=
       '<div class="vc-staff-pm-points-card__form">' +
-      '<label><span>Quantit\u00e0</span><input type="number" min="1" max="500" value="1" data-pm-points-amt /></label>' +
-      '<label class="vc-staff-pm-points-card__reason"><span>Motivazione <em>(facoltativa)</em></span>' +
-      '<input type="text" maxlength="400" placeholder="Es. errore shop / premio manuale" data-pm-points-reason /></label>' +
+      '<label for="vc-pm-points-amt"><span>Quantit\u00e0</span><input type="number" id="vc-pm-points-amt" name="pmPointsAmt" min="1" max="500" value="1" data-pm-points-amt autocomplete="off" /></label>' +
+      '<label class="vc-staff-pm-points-card__reason" for="vc-pm-points-reason"><span>Motivazione <em>(facoltativa)</em></span>' +
+      '<input type="text" id="vc-pm-points-reason" name="pmPointsReason" maxlength="400" placeholder="Es. errore shop / premio manuale" data-pm-points-reason autocomplete="off" /></label>' +
       '<div class="vc-staff-pm-points-card__btns">' +
       '<button type="button" class="vc-staff-stat-sheet__act is-pos" data-stat-act="pm_points_add">' +
       '<i class="fa fa-plus" aria-hidden="true"></i> Aggiungi</button>' +
@@ -3937,9 +4451,9 @@
             "</strong>" +
             '<span class="vc-staff-pm-shop-spend__meta">' +
             esc(formatShopRedeemWhen(row.createdAt)) +
-            " · −" +
+            " \u00B7 −" +
             esc(String(row.pointCost != null ? row.pointCost : 0)) +
-            " pt · " +
+            " pt \u00B7 " +
             esc(shopRedeemSourceLabel(row.source)) +
             "</span>" +
             (reason
@@ -4163,7 +4677,7 @@
   }
 
   function tryConsumeStaffOpenFromUrl(root, payload) {
-    /* pauseOutInbox1: notifica pausa → /user/?id=…&tab=staff&staffOpen=pause */
+    /* pauseOutInbox1 / pauseResoNotifProfile1: notifica → staffOpen=pause|resoconto|pm-punti-tolti */
     if (!root || !payload) return;
     try {
       if (root.getAttribute("data-vc-staff-open-done") === "1") return;
@@ -4171,27 +4685,42 @@
       var open = String(q.get("staffOpen") || "")
         .trim()
         .toLowerCase();
-      if (open !== "pause") return;
+      var kind = "";
+      if (open === "pause") kind = "pause";
+      else if (open === "pm-punti-tolti" || open === "punti-tolti" || open === "punti") kind = "pm-punti-tolti";
+      else if (open === "resoconto" || open === "resoconti") kind = "resoconto";
+      if (!kind) return;
+      /* notifSheetReadyOpen1: tieni hint id PRIMA di strip URL */
+      var focusResoId = String(q.get("resoId") || "").trim();
+      var focusPauseId = String(q.get("pauseId") || "").trim();
       root.setAttribute("data-vc-staff-open-done", "1");
       q.delete("staffOpen");
       q.delete("pauseId");
+      q.delete("resoId");
       var next = q.toString();
       var path = String(global.location.pathname || "/user/");
       global.history.replaceState({}, "", path + (next ? "?" + next : "") + String(global.location.hash || ""));
       global.setTimeout(function () {
         try {
-          openStatSheet(root.__vcStaffPayload || payload, "pause", root);
+          if (kind === "resoconto") {
+            openProfileResoSheet(root.__vcStaffPayload || payload, root, { focusId: focusResoId });
+          } else {
+            openStatSheet(root.__vcStaffPayload || payload, kind, root, {
+              focusId: focusPauseId || focusResoId,
+            });
+          }
         } catch (eOpen) {}
       }, 40);
     } catch (eConsume) {}
   }
 
-  function openStatSheet(payload, kind, root) {
+  function openStatSheet(payload, kind, root, opts) {
+    opts = opts || {};
     closeStatSheet();
     if (kind === "pm-punti-tolti" && !canOpenPmPuntiTolti(payload)) return;
     if (kind === "resoconto" && !canOpenResoconto(payload)) return;
     if (kind === "resoconto") {
-      openProfileResoSheet(payload, root);
+      openProfileResoSheet(payload, root, opts);
       return;
     }
     var title = "Dettaglio";
@@ -5374,23 +5903,20 @@
     } catch (e) {}
   }
 
-  // staffPeerFix2: viewport-fixed near margins, under notif drawer (~10210+), never 10420.
+  /* peerArrowsMargin1: dock esteso fuori card; left/right solo CSS (no overlap stats) */
   function pinPeerBtn(btn, side) {
     if (!btn) return;
-    var edge = "max(0.65rem, env(safe-area-inset-" + side + ", 0px))";
-    btn.style.setProperty("position", "fixed", "important");
+    btn.style.setProperty("position", "absolute", "important");
     btn.style.setProperty("bottom", "auto", "important");
     btn.style.setProperty("margin", "0", "important");
     btn.style.setProperty("top", "50%", "important");
     btn.style.setProperty("transform", "translateY(-50%)", "important");
-    btn.style.setProperty("z-index", "10090", "important");
-    if (side === "left") {
-      btn.style.setProperty("left", edge, "important");
-      btn.style.setProperty("right", "auto", "important");
-    } else {
-      btn.style.setProperty("right", edge, "important");
-      btn.style.setProperty("left", "auto", "important");
-    }
+    btn.style.setProperty("z-index", "28", "important");
+    /* left/right: CSS peerArrowsMargin1 (dock overhang) — no inline che batte !important */
+    try {
+      btn.style.removeProperty("left");
+      btn.style.removeProperty("right");
+    } catch (eClr) {}
   }
 
   function mountStaffPeerDock(neighbors, hooks) {
@@ -5457,7 +5983,19 @@
       }
     });
 
-    (global.document.body || global.document.documentElement).appendChild(dock);
+    var host = peerDockHost();
+    if (host) {
+      try {
+        host.classList.add("vc-staff-peer-dock-host");
+      } catch (eHostCls) {}
+      try {
+        host.appendChild(dock);
+      } catch (eHostApp) {
+        (global.document.body || global.document.documentElement).appendChild(dock);
+      }
+    } else {
+      (global.document.body || global.document.documentElement).appendChild(dock);
+    }
     pinPeerBtn(dock.querySelector(".vc-staff-peer-dock__btn--prev"), "left");
     pinPeerBtn(dock.querySelector(".vc-staff-peer-dock__btn--next"), "right");
     try {
@@ -5635,16 +6173,20 @@
       return Modal.open(uid, {
         displayName: name,
         onUpdated: function (info) {
+          /* pexCloseSheet1: allinea hardRefresh/joinedLadder al path auto-open manage */
+          var reload = null;
+          if (typeof root.__vcStaffReload === "function") reload = root.__vcStaffReload;
+          else if (hooks && typeof hooks.onReload === "function") reload = hooks.onReload;
+          if (!reload) return;
           if (info && info.leftStaff) {
-            if (typeof root.__vcStaffReload === "function") {
-              root.__vcStaffReload({ leftStaff: true });
-            } else if (hooks && typeof hooks.onReload === "function") {
-              hooks.onReload({ leftStaff: true });
-            }
+            reload({ leftStaff: true });
             return;
           }
-          if (typeof root.__vcStaffReload === "function") root.__vcStaffReload(info || null);
-          else if (hooks && typeof hooks.onReload === "function") hooks.onReload(info || null);
+          if (info && (info.hardRefresh || info.joinedLadder)) {
+            reload(info);
+            return;
+          }
+          reload(info || null);
         },
       });
     });
@@ -5820,6 +6362,17 @@
       try {
         img.classList.add("vc-avatar");
       } catch (eCls) {}
+      /* gifFailPng1: coffee stuck (GIF demoted) → ricostruisci da data-avatar-hash */
+      try {
+        var src0 = String(img.getAttribute("src") || "");
+        if (
+          (/^data:image\/svg\+xml/i.test(src0) || img.getAttribute("data-vc-avatar-fallback") === "1") &&
+          global.VcAvatarFallback &&
+          typeof global.VcAvatarFallback.recoverCoffee === "function"
+        ) {
+          if (global.VcAvatarFallback.recoverCoffee(img)) continue;
+        }
+      } catch (eRec) {}
       if (img.complete && img.naturalWidth > 0) {
         try {
           img.classList.add("vc-avatar--ready");
@@ -5847,7 +6400,7 @@
     }
     if (global.VcAvatarFallback && typeof global.VcAvatarFallback.scan === "function") {
       try {
-        global.VcAvatarFallback.scan();
+        global.VcAvatarFallback.scan(root);
       } catch (eScan) {}
     }
   }
@@ -5865,9 +6418,28 @@
         else return false;
       }
     } catch (eLive) {}
-    var html = renderPayloadHtml(payload, opts);
+    /* staffPeerPaintRetry1: catch throw render (career/retention edge) → empty false, non crash */
+    var html = "";
+    try {
+      html = renderPayloadHtml(payload, opts);
+    } catch (eHtml) {
+      try {
+        console.error("[vc-staff-profile] renderPayloadHtml failed", eHtml);
+      } catch (eLog) {}
+      return false;
+    }
     // staffPeerEmpty1 / staffSwitchStuck1 / staffPeerFix2 / staffTabOrganico1: never treat empty as OK.
     if (!String(html || "").trim()) return false;
+    try {
+      if (root.isConnected === false) {
+        var live2 =
+          global.document.getElementById("vc-user-profile-staff-panel") ||
+          (global.document.querySelector &&
+            global.document.querySelector("#vc-user-profile-view #vc-user-profile-staff-panel"));
+        if (live2) root = live2;
+        else return false;
+      }
+    } catch (eLive2) {}
     root.innerHTML = html;
     root.hidden = false;
     finalizeStaffAvatars(root);
@@ -5896,6 +6468,7 @@
     renderInto: renderInto,
     bindInteractions: bindInteractions,
     resolveProfileAvatarUrl: resolveProfileAvatarUrl,
+    finalizeStaffAvatars: finalizeStaffAvatars,
     mountStaffPeerDock: mountStaffPeerDock,
     unmountStaffPeerDock: unmountStaffPeerDock,
     mountStaffListDock: mountStaffListDock,

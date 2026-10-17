@@ -25,9 +25,13 @@ const { decideResocontoFromWeb } = require("../../Events/interaction/resocontoHa
 const { memberHasResocontoButtonAccess } = require("../Staff/resocontoAccess");
 
 const WORKFLOW_DOC = SITE_DOCUMENT_TYPE.STAFF_WORKFLOW;
-const QUEUES = new Set(["summary", "pause", "candidature", "appelli", "resoconti"]);
+const QUEUES = new Set(["summary", "pause", "candidature", "appelli", "resoconti", "revisione"]);
+/* punti-tolti usa /site-staff-pm-points-removed — vecchio JS manda ancora queue=punti-tolti */
 /* siteApiW3 / workflowCacheFix1 / workflowCacheFix2: solo globalThis (niente const locale → no TDZ) */
-const WORKFLOW_SUMMARY_TTL_MS = 15_000;
+/* inboxLoadFast1: summary TTL più lungo — boot fa summary+list e non deve ricostruire ogni 15s */
+/* inboxBadgeLive1: TTL corto — pending nuovi non devono restare invisibili sulla campanella */
+/* inboxApiBoot1: TTL 45s (invalidate su write già c’è) + list∥summary su includeSummary */
+const WORKFLOW_SUMMARY_TTL_MS = 45_000;
 
 function getWorkflowSummaryCache() {
   if (!globalThis.__vcWorkflowSummaryCache) globalThis.__vcWorkflowSummaryCache = new Map();
@@ -138,22 +142,76 @@ async function buildWorkflowSummary(client, member, canManageHighStaff) {
       candidature: 0,
       appelli: 0,
       resoconti: 0,
+      revisione: 0,
     };
 
     const canReviewCandidature = memberHasCandidatureReviewAccess(member, guild);
     const canViewResoconti = memberCanViewResocontiInbox(member);
-    const [pauseN, appelliN, candidatureN, resocontiN] = await Promise.all([
-      canManageHighStaff ? countPendingWorkflow(guild.id, "pause") : Promise.resolve(0),
-      canReviewAppelli ? countPendingWorkflow(guild.id, "appelli") : Promise.resolve(0),
-      canReviewCandidature ? countPendingWorkflow(guild.id, "candidature") : Promise.resolve(0),
-      canViewResoconti
-        ? countPendingWorkflow(guild.id, "resoconti", { weekKey: resocontoWeekKey })
-        : Promise.resolve(0),
-    ]);
-    summary.pause = pauseN;
-    summary.appelli = appelliN;
-    summary.candidature = candidatureN;
-    summary.resoconti = resocontiN;
+    /* boardsRevHsOnly1: revisione bacheca = High Staff only */
+    const canReviewBoards = canManageHighStaff;
+    /* inboxApiBoot1: un solo aggregate $group invece di 5 countDocuments */
+    const wantedQueues = [];
+    if (canManageHighStaff) wantedQueues.push("pause");
+    if (canReviewAppelli) wantedQueues.push("appelli");
+    if (canReviewCandidature) wantedQueues.push("candidature");
+    if (canViewResoconti) wantedQueues.push("resoconti");
+    if (canReviewBoards) wantedQueues.push("revisione");
+    try {
+      if (wantedQueues.length) {
+        const match = {
+          docType: WORKFLOW_DOC,
+          guildId: String(guild.id || ""),
+          status: "pending",
+          workflowQueue: { $in: wantedQueues },
+        };
+        const grouped = await SiteDocument.aggregate([
+          { $match: match },
+          {
+            $group: {
+              _id: {
+                q: "$workflowQueue",
+                wk: { $ifNull: ["$workflowWeekKey", ""] },
+              },
+              n: { $sum: 1 },
+            },
+          },
+        ])
+          .option({ maxTimeMS: 4000 })
+          .catch(() => null);
+        if (Array.isArray(grouped)) {
+          for (const row of grouped) {
+            const q = String(row?._id?.q || "").trim();
+            const wk = String(row?._id?.wk || "").trim();
+            const n = Number(row?.n) || 0;
+            if (!q || !Object.prototype.hasOwnProperty.call(summary, q)) continue;
+            if (q === "resoconti" && resocontoWeekKey) {
+              if (wk && wk !== resocontoWeekKey) continue;
+              if (!wk) {
+                /* weekKey assente → conta comunque (legacy) */
+              }
+            }
+            summary[q] += n;
+          }
+        } else {
+          throw new Error("summary_agg_failed");
+        }
+      }
+    } catch (_) {
+      const [pauseN, appelliN, candidatureN, resocontiN, revisioneN] = await Promise.all([
+        canManageHighStaff ? countPendingWorkflow(guild.id, "pause") : Promise.resolve(0),
+        canReviewAppelli ? countPendingWorkflow(guild.id, "appelli") : Promise.resolve(0),
+        canReviewCandidature ? countPendingWorkflow(guild.id, "candidature") : Promise.resolve(0),
+        canViewResoconti
+          ? countPendingWorkflow(guild.id, "resoconti", { weekKey: resocontoWeekKey })
+          : Promise.resolve(0),
+        canReviewBoards ? countPendingWorkflow(guild.id, "revisione") : Promise.resolve(0),
+      ]);
+      summary.pause = pauseN;
+      summary.appelli = appelliN;
+      summary.candidature = candidatureN;
+      summary.resoconti = resocontiN;
+      summary.revisione = revisioneN;
+    }
 
     const payload = {
       ok: true,
@@ -165,8 +223,9 @@ async function buildWorkflowSummary(client, member, canManageHighStaff) {
         appelliReview: canReviewAppelli,
         director: memberHasDirectorRole(member),
         canViewResoconti,
+        boardsReview: canReviewBoards,
       },
-      revision: `${summary.pause}:${summary.candidature}:${summary.appelli}:${summary.resoconti}:${resocontoWeekKey}`,
+      revision: `${summary.pause}:${summary.candidature}:${summary.appelli}:${summary.resoconti}:${summary.revisione}:${resocontoWeekKey}`,
     };
     getWorkflowSummaryCache().set(cacheKey, { at: Date.now(), payload });
     if (getWorkflowSummaryCache().size > 200) {
@@ -192,6 +251,9 @@ async function fetchWorkflowItemDetail(client, guild, access, queue, itemId, use
   const discordPosts = isDiscordWorkflowChannelPostsEnabled();
 
   if (q === "pause" && !canManageHighStaff) {
+    return { ok: false, status: 403, error: "forbidden", message: "Solo High Staff." };
+  }
+  if (q === "revisione" && !canManageHighStaff) {
     return { ok: false, status: 403, error: "forbidden", message: "Solo High Staff." };
   }
   if (q === "candidature" && !memberHasCandidatureReviewAccess(access.member, guild)) {
@@ -302,6 +364,27 @@ async function fetchWorkflowItemDetail(client, guild, access, queue, itemId, use
     }
   }
 
+  /* inboxLoadFast1: upsert revisione in background — non bloccare l'apertura scheda */
+  if (q === "revisione" && id) {
+    void (async () => {
+      try {
+        const { SiteDocument, SITE_DOCUMENT_TYPE } = require("../../Schemas/Community/communitySchemas");
+        const listing = await SiteDocument.findOne({
+          docType: SITE_DOCUMENT_TYPE.BOARD_LISTING,
+          _id: id,
+        })
+          .lean()
+          .catch(() => null);
+        if (!listing) return;
+        const { upsertBoardsRevisioneWorkflow } = require("./siteBoardsInboxBridge");
+        await upsertBoardsRevisioneWorkflow(listing, {
+          status: listing.status || "pending",
+          notify: false,
+        }).catch(() => null);
+      } catch (_) {}
+    })();
+  }
+
   const detail = await getStaffWorkflowDetailFromDb(client, guild.id, q, id, userId);
   if (!detail) {
     return { ok: false, status: 404, error: "not_found", message: "Voce non trovata." };
@@ -318,6 +401,16 @@ async function handleSiteStaffWorkflowGet(client, req, res) {
     }
 
     const queue = String(req.query?.queue || "summary").trim().toLowerCase();
+    if (queue === "punti-tolti") {
+      return res.status(200).json({
+        ok: true,
+        queue: "punti-tolti",
+        items: [],
+        pagination: { page: 1, pageSize: 20, total: 0, totalPages: 1 },
+        summary: {},
+        redirect: "/webhooks/site-staff-pm-points-removed",
+      });
+    }
     if (!QUEUES.has(queue)) {
       return res.status(400).json({ ok: false, error: "bad_queue", message: "Coda non valida." });
     }
@@ -332,9 +425,13 @@ async function handleSiteStaffWorkflowGet(client, req, res) {
     const itemId = String(req.query?.itemId || req.query?.id || "").trim();
     const userId = String(req.query?.userId || "").trim();
     const forceSync = String(req.query?.sync || "").trim() === "1";
+    /* inboxLoadFast1: summary già arriva da queue=summary / prefetch — list non la ricalcola */
+    const includeSummary =
+      String(req.query?.includeSummary || "").trim() === "1" ||
+      String(req.query?.summary || "").trim() === "1";
 
     if (forceSync && queue !== "resoconti") {
-            void scheduleStaffWorkflowBackfill(client, guild, access.member, {
+      void scheduleStaffWorkflowBackfill(client, guild, access.member, {
         force: true,
         awaitCompletion: false,
       }).catch(() => null);
@@ -362,6 +459,9 @@ async function handleSiteStaffWorkflowGet(client, req, res) {
     if (queue === "pause" && !canManageHighStaff) {
       return res.status(403).json({ ok: false, error: "forbidden", message: "Solo High Staff." });
     }
+    if (queue === "revisione" && !canManageHighStaff) {
+      return res.status(403).json({ ok: false, error: "forbidden", message: "Solo High Staff." });
+    }
     if (queue === "candidature" && !memberHasCandidatureReviewAccess(access.member, guild)) {
       return res.status(403).json({ ok: false, error: "forbidden", message: "Non autorizzato a revisionare candidature." });
     }
@@ -386,13 +486,22 @@ async function handleSiteStaffWorkflowGet(client, req, res) {
       }
     }
 
-    const [listOut, summaryOut] = await Promise.all([
-      listStaffWorkflowForInbox(client, guild, access.member, queue, {
-        ...listQuery,
-        forceSync,
-      }),
-            buildWorkflowSummary(client, access.member, canManageHighStaff).catch(() => null),
-    ]);
+    const fastBoot =
+      String(req.query?.fast || "").trim() === "1" ||
+      includeSummary ||
+      Number(listQuery.page || 1) === 1;
+    /* inboxApiBoot1: list ∥ summary — niente await sequenziale sul primo paint */
+    const listPromise = listStaffWorkflowForInbox(client, guild, access.member, queue, {
+      ...listQuery,
+      forceSync,
+      fast: fastBoot,
+      hydrateCacheOnly: fastBoot,
+      skipExactCount: Number(listQuery.page || 1) === 1,
+    });
+    const summaryPromise = includeSummary
+      ? buildWorkflowSummary(client, access.member, canManageHighStaff).catch(() => null)
+      : Promise.resolve(null);
+    const [listOut, summaryOut] = await Promise.all([listPromise, summaryPromise]);
     return res.status(200).json({
       ok: true,
       queue,
@@ -540,6 +649,17 @@ async function handleSiteStaffWorkflowPost(client, req, res) {
         overrideActionKey,
         reason,
       });
+    } else if (queue === "revisione") {
+      /* boardsRevHsOnly1 */
+      if (!canManageHighStaff) {
+        return res.status(403).json({ ok: false, error: "forbidden", message: "Solo High Staff." });
+      }
+      const { decideBoardsFromWorkflow } = require("./siteBoardsInboxBridge");
+      result = await decideBoardsFromWorkflow(
+        client,
+        { accessToken, member: access.member },
+        body,
+      );
     } else {
       return res.status(400).json({ ok: false, error: "bad_queue", message: "Coda non valida." });
     }

@@ -3070,6 +3070,113 @@
     if (sidebar) sidebar.classList.remove("is-force-collapsed");
   }
 
+  /* guildLazy1: HTML partials for heavy views (tickets/bacheca/partnership) */
+  var GUILD_PARTIAL_VER = "20261009guildLazy1";
+  var GUILD_PARTIAL_BASE = "/dashboard/guild/partials/";
+  var GUILD_PARTIALS = {
+    "bacheca/personalizza": {
+      file: "bacheca-personalizza.html",
+      hostId: "vc-dashboard-view-bacheca-stile",
+    },
+    "tickets/pannelli": {
+      file: "tickets-pannelli.html",
+      hostId: "vc-dashboard-view-tickets-pannelli",
+    },
+    "tickets/aperti": {
+      file: "tickets-aperti.html",
+      hostId: "vc-dashboard-view-tickets-aperti",
+    },
+    "tickets/transcripts": {
+      file: "tickets-transcripts.html",
+      hostId: "vc-dashboard-view-tickets-transcripts",
+    },
+    "tickets/teams": {
+      file: "tickets-teams.html",
+      hostId: "vc-dashboard-view-tickets-teams",
+    },
+    "tickets/blacklist": {
+      file: "tickets-blacklist.html",
+      hostId: "vc-dashboard-view-tickets-blacklist",
+    },
+    "tickets/forms": {
+      file: "tickets-forms.html",
+      hostId: "vc-dashboard-view-tickets-forms",
+    },
+    __partnership: {
+      file: "partnership-form.html",
+      hostId: "vc-dashboard-partnership-host",
+    },
+  };
+  var __guildPartialInflight = Object.create(null);
+
+  function resolveGuildPartialConf(view) {
+    if (GUILD_PARTIALS[view]) return GUILD_PARTIALS[view];
+    if (String(view || "").indexOf("partnership/") === 0) return GUILD_PARTIALS.__partnership;
+    return null;
+  }
+
+  function onGuildPartialMounted(root) {
+    if (!root) return;
+    try {
+      if (window.VcI18n && typeof window.VcI18n.apply === "function") {
+        window.VcI18n.apply(root);
+      } else if (window.VcI18n && typeof window.VcI18n.translateTree === "function") {
+        window.VcI18n.translateTree(root);
+      }
+    } catch (eI18n) {}
+  }
+
+  function ensureGuildViewPartial(view) {
+    var conf = resolveGuildPartialConf(view);
+    if (!conf) return null;
+    var host = byId(conf.hostId);
+    if (!host) return null;
+    if (host.getAttribute("data-vc-partial-loaded") === "1") return null;
+    /* already replaced by a loaded root with same id */
+    if (!host.hasAttribute("data-vc-partial") && host.children && host.children.length) {
+      host.setAttribute("data-vc-partial-loaded", "1");
+      return null;
+    }
+    var key = conf.file;
+    if (__guildPartialInflight[key]) return __guildPartialInflight[key];
+    __guildPartialInflight[key] = fetch(GUILD_PARTIAL_BASE + conf.file + "?v=" + GUILD_PARTIAL_VER, {
+      credentials: "same-origin",
+      cache: "force-cache",
+    })
+      .then(function (r) {
+        if (!r.ok) throw new Error("guild_partial_" + conf.file);
+        return r.text();
+      })
+      .then(function (html) {
+        var tmp = document.createElement("div");
+        tmp.innerHTML = String(html || "").trim();
+        var node = tmp.firstElementChild;
+        if (!node) throw new Error("guild_partial_empty_" + conf.file);
+        node.setAttribute("data-vc-partial-loaded", "1");
+        host.replaceWith(node);
+        onGuildPartialMounted(node);
+        return node;
+      })
+      .finally(function () {
+        delete __guildPartialInflight[key];
+      });
+    return __guildPartialInflight[key];
+  }
+
+  function prefetchGuildPartialsIdle() {
+    try {
+      var run = function () {
+        ["bacheca/personalizza", "tickets/pannelli"].forEach(function (v) {
+          try {
+            ensureGuildViewPartial(v);
+          } catch (e0) {}
+        });
+      };
+      if (typeof requestIdleCallback === "function") requestIdleCallback(run, { timeout: 4000 });
+      else setTimeout(run, 1800);
+    } catch (ePref) {}
+  }
+
   function applyView(viewId, options) {
     var view = normalizeView(viewId);
     var opts = options || {};
@@ -3103,6 +3210,36 @@
     }
     if (partnershipReady && String(view).indexOf("partnership/") === 0) {
       view = gatePartnershipView(view);
+    }
+
+    /* guildCoreSplit1: tickets JS before tickets views */
+    if (!opts.__ticketsJsReady && String(view).indexOf("tickets/") === 0) {
+      ensureGuildExt()
+        .then(function () { return ensureGuildTickets(); })
+        .then(function () {
+          applyView(view, Object.assign({}, opts, { __ticketsJsReady: true }));
+        })
+        .catch(function () {
+          applyView(view, Object.assign({}, opts, { __ticketsJsReady: true }));
+        });
+      return;
+    }
+    /* guildLazy1: load HTML fragment before showing the view */
+    if (!opts.__partialReady) {
+      var waitPartial = ensureGuildViewPartial(view);
+      if (waitPartial && typeof waitPartial.then === "function") {
+        waitPartial
+          .then(function () {
+            applyView(view, Object.assign({}, opts, { __partialReady: true }));
+          })
+          .catch(function (err) {
+            try {
+              globalThis.console && console.warn && console.warn("[guildLazy]", err);
+            } catch (eW) {}
+            applyView(view, Object.assign({}, opts, { __partialReady: true }));
+          });
+        return;
+      }
     }
 
     if (state.successView && state.successView !== view) {
@@ -7681,9 +7818,9 @@
         for (var i = 0; i < scripts.length; i++) {
           var src = String(scripts[i].getAttribute("src") || scripts[i].src || "");
           var m = src.match(/^(.*\/js\/)dashboard-guild-core\.js/);
-          if (m) return m[1] + "dashboard-guild-ext.js?v=20260901guildSplitFix2";
+          if (m) return m[1] + "dashboard-guild-ext.js?v=20261009guildCoreSplit1";
         }
-        return "/js/dashboard-guild-ext.js?v=20260901guildSplitFix2";
+        return "/js/dashboard-guild-ext.js?v=20261009guildCoreSplit1";
       })();
       s.defer = true;
       s.onload = function () { G._extLoading = false; resolve(G); };
@@ -7692,17 +7829,60 @@
     });
   }
   function ensureGuildExt() { return loadGuildExtScript(); }
+
+  G._ticketsReady = false;
+  G._ticketsQueue = [];
+  G._flushTicketsQueue = function () {
+    var q = G._ticketsQueue || [];
+    G._ticketsQueue = [];
+    q.forEach(function (fn) {
+      try { fn(); } catch (e) {}
+    });
+  };
+  function loadGuildTicketsScript() {
+    return new Promise(function (resolve, reject) {
+      if (G._ticketsReady) { resolve(G); return; }
+      if (G._ticketsLoading) {
+        G._ticketsQueue.push(function () { resolve(G); });
+        return;
+      }
+      G._ticketsLoading = true;
+      var s = document.createElement("script");
+      s.src = (function () {
+        var scripts = document.getElementsByTagName("script");
+        for (var i = 0; i < scripts.length; i++) {
+          var src = String(scripts[i].getAttribute("src") || scripts[i].src || "");
+          var m = src.match(/^(.*\/js\/)dashboard-guild-core\.js/);
+          if (m) return m[1] + "dashboard-guild-tickets.js?v=20261009guildCoreSplit1";
+        }
+        return "/js/dashboard-guild-tickets.js?v=20261009guildCoreSplit1";
+      })();
+      s.defer = true;
+      s.onload = function () { G._ticketsLoading = false; resolve(G); };
+      s.onerror = function () { G._ticketsLoading = false; reject(new Error("guild_tickets_load_failed")); };
+      (document.head || document.documentElement).appendChild(s);
+    });
+  }
+  function ensureGuildTickets() { return loadGuildTicketsScript(); }
+  /* guildCoreSplit1 marker */
+
   async function loadSettings(seq) {
     var g = await ensureGuildExt();
     return g.loadSettings(seq);
   }
   async function loadTickets(opts) {
-    var g = await ensureGuildExt();
+    await ensureGuildExt();
+    var g = await ensureGuildTickets();
     return g.loadTickets(opts);
   }
   G.prefetchExtChunk = function () {
-    return ensureGuildExt().catch(function () {});
+    return ensureGuildExt()
+      .then(function () { return ensureGuildTickets(); })
+      .catch(function () {});
   };
+  G.ensureGuildTickets = ensureGuildTickets;
+
+  G.prefetchGuildPartialsIdle = prefetchGuildPartialsIdle;
 
   async function loadOverview(opts) {
     opts = opts || {};
@@ -8174,7 +8354,9 @@
       if (g.wireBachecaForm) g.wireBachecaForm();
       if (g.wireBachecaFeaturesForm) g.wireBachecaFeaturesForm();
       if (g.wireBachecaStyleForm) g.wireBachecaStyleForm();
-      if (g.wireTicketsUi) g.wireTicketsUi();
+      return ensureGuildTickets().then(function (tg) {
+        if (tg.wireTicketsUi) tg.wireTicketsUi();
+      });
     }).catch(function () {});
     var descMode = byId("ps-partnerDescMode");
     if (descMode) descMode.addEventListener("change", updateDescModeVisibility);

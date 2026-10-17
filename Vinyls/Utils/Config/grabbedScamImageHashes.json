@@ -1,0 +1,64 @@
+{
+  "version": 1,
+  "generatedAt": "2026-10-08T22:11:37.946Z",
+  "dHashMaxDist": 8,
+  "aHashMaxDist": 6,
+  "refs": [
+    {
+      "id": "mrbeast-dopxbit",
+      "file": "mrbeast-dopxbit.png",
+      "sha256": "ae28d0dda026abdfb89c755d6d3a806f8eed62dec88ff90a05b1a97d13164c65",
+      "dHash": "d81c0d8e0b1b86a4",
+      "aHash": "001c0006060e47ff"
+    },
+    {
+      "id": "mrbeast-peagax",
+      "file": "mrbeast-peagax.png",
+      "sha256": "ef923ba7a26c24ba5c26e6db834c24df89b351da2dfa275fc658772c4660d722",
+      "dHash": "6ce2101302eadac1",
+      "aHash": "1e00000003177f78"
+    },
+    {
+      "id": "mrbeast-serowin",
+      "file": "mrbeast-serowin.png",
+      "sha256": "a4c08c8b427014d90068ebf466ec63bf3a94e82d48bfcdfd5293cf4eec315164",
+      "dHash": "9e0510fe291e9ef7",
+      "aHash": "06000e7e000e42ff"
+    },
+    {
+      "id": "riftroll-collage",
+      "file": "riftroll-collage.png",
+      "sha256": "52d892592475d79e81829cd7237a45e453e92daedbd129dc5d85f84a4bb005ea",
+      "dHash": "2c8ccc9edbabf194",
+      "aHash": "0e6c2e021880180f"
+    },
+    {
+      "id": "withdraw-2500",
+      "file": "withdraw-2500.png",
+      "sha256": "a78b7101e8a4e633e1e3d3290f07a4a23fdab1a714ea9f9a1bb0416a16efd640",
+      "dHash": "808a896968479521",
+      "aHash": "e0f0f0f0f8e000f0"
+    },
+    {
+      "id": "withdraw-3400",
+      "file": "withdraw-3400.png",
+      "sha256": "ceaaffa8d3a7138b160500a390e2b379d61f4c7764417d6ef26a16bd67576841",
+      "dHash": "4be9b8ecfcecfcde",
+      "aHash": "00001c1c3e3e0400"
+    },
+    {
+      "id": "withdraw-5600-a",
+      "file": "withdraw-5600-a.jpg",
+      "sha256": "585a946364d852dd449c11f8d7099f49754b285df7c164cdc9045423f727cabe",
+      "dHash": "cafcb87824c48000",
+      "aHash": "0f2f1f1f064000fc"
+    },
+    {
+      "id": "withdraw-5600-b",
+      "file": "withdraw-5600-b.jpg",
+      "sha256": "585a946364d852dd449c11f8d7099f49754b285df7c164cdc9045423f727cabe",
+      "dHash": "cafcb87824c48000",
+      "aHash": "0f2f1f1f064000fc"
+    }
+  ]
+}

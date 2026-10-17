@@ -5,8 +5,16 @@
  * Debounced per thread+user; cancelled on read or reply; re-checked at fire time.
  */
 
+const path = require("path");
+const { readSnapshotWithMeta, writeSnapshotWithMeta } = require("../../../shared/recovery/snapshotStore");
+const { registerShutdownFlush, armShutdownCheckpoint } = require("../../../shared/recovery/shutdownCheckpoint");
+
 const DEFAULT_DELAY_MS = 4 * 60 * 1000;
 const pending = new Map();
+/* rebootDurability1: pending chat DM fallbacks → snapshot disk */
+const SNAPSHOT_PATH = path.join(__dirname, "..", "..", "Data", "siteChatDmFallbackSnapshot.json");
+let flushRegistered = false;
+let restoredOnStartup = false;
 
 function delayMs() {
   const raw = Number.parseInt(String(process.env.VC_CHAT_DM_FALLBACK_MS || "").trim(), 10);
@@ -18,6 +26,50 @@ function makeKey(scope, threadId, userId) {
   return `${String(scope || "").trim()}:${String(threadId || "").trim()}:${String(userId || "").trim()}`;
 }
 
+function serializeEntry(entry) {
+  if (!entry) return null;
+  const fireAt = Number(entry.fireAt || 0);
+  if (!Number.isFinite(fireAt) || fireAt <= 0) return null;
+  return {
+    fireAt,
+    scope: String(entry.scope || "").trim(),
+    threadId: String(entry.threadId || "").trim(),
+    userId: String(entry.userId || "").trim(),
+    guildId: String(entry.guildId || "").trim(),
+    messageId: String(entry.messageId || "").trim(),
+    openPath: String(entry.openPath || "").trim().slice(0, 400),
+    title: String(entry.title || "").trim().slice(0, 120),
+    body: String(entry.body || "").trim().slice(0, 300),
+    label: String(entry.label || "").trim().slice(0, 80),
+    kind: String(entry.kind || "").trim() || "info",
+  };
+}
+
+function persistPendingNow() {
+  const payload = {};
+  const now = Date.now();
+  for (const [key, entry] of pending.entries()) {
+    const row = serializeEntry(entry);
+    if (!key || !row) continue;
+    if (row.fireAt <= now - 60_000) continue;
+    payload[key] = row;
+  }
+  writeSnapshotWithMeta({
+    filePath: SNAPSHOT_PATH,
+    walPath: `${SNAPSHOT_PATH}.wal`,
+    key: "vinyls_site_chat_dm_fallback",
+    version: 1,
+    payload,
+  });
+}
+
+function ensureFlushRegistered() {
+  if (flushRegistered) return;
+  flushRegistered = true;
+  armShutdownCheckpoint();
+  registerShutdownFlush("vinyls_site_chat_dm_fallback", () => persistPendingNow());
+}
+
 function clearEntry(key) {
   const entry = pending.get(key);
   if (!entry) return;
@@ -25,6 +77,7 @@ function clearEntry(key) {
     if (entry.timer) clearTimeout(entry.timer);
   } catch (_) {}
   pending.delete(key);
+  persistPendingNow();
 }
 
 function cancelChatDmFallback(scope, threadId, userId) {
@@ -119,6 +172,7 @@ async function workflowStillNeedsDm(entry) {
 
 async function fireFallback(key, entry) {
   pending.delete(key);
+  persistPendingNow();
   try {
     const check = await userStillNeedsDm(entry);
     if (!check.ok) return { sent: false, reason: check.reason };
@@ -164,6 +218,15 @@ async function fireFallback(key, entry) {
   }
 }
 
+function armEntryTimer(key, entry) {
+  const wait = Math.max(1_000, Number(entry.fireAt || 0) - Date.now());
+  entry.timer = setTimeout(() => {
+    void fireFallback(key, entry);
+  }, wait);
+  if (typeof entry.timer.unref === "function") entry.timer.unref();
+  pending.set(key, entry);
+}
+
 /**
  * Schedule (or reset debounce) a Discord DM if the user has no active web push.
  * @param {import("discord.js").Client} client
@@ -175,6 +238,8 @@ async function scheduleChatDmFallback(client, opts = {}) {
   const userId = String(opts.userId || "").trim();
   if (!client?.users || !scope || !threadId || !userId) return { scheduled: false, reason: "bad_args" };
   if (!/^\d{16,22}$/.test(userId)) return { scheduled: false, reason: "bad_user" };
+
+  ensureFlushRegistered();
 
   try {
     const { userHasActiveWebPush } = require("./siteWebPushService");
@@ -197,6 +262,7 @@ async function scheduleChatDmFallback(client, opts = {}) {
   const key = makeKey(scope, threadId, userId);
   clearEntry(key);
 
+  const wait = delayMs();
   const entry = {
     client,
     scope,
@@ -209,15 +275,12 @@ async function scheduleChatDmFallback(client, opts = {}) {
     body: String(opts.body || "").trim().slice(0, 300),
     label: String(opts.label || "").trim().slice(0, 80),
     kind: String(opts.kind || (scope === "ticket" ? "web_ticket" : "mod")).trim() || "info",
+    fireAt: Date.now() + wait,
     timer: null,
   };
 
-  const wait = delayMs();
-  entry.timer = setTimeout(() => {
-    void fireFallback(key, entry);
-  }, wait);
-  if (typeof entry.timer.unref === "function") entry.timer.unref();
-  pending.set(key, entry);
+  armEntryTimer(key, entry);
+  persistPendingNow();
   return { scheduled: true, delayMs: wait };
 }
 
@@ -225,9 +288,57 @@ function pendingChatDmFallbackCount() {
   return pending.size;
 }
 
+async function restoreChatDmFallbacksOnStartup(client) {
+  if (!client || restoredOnStartup) return { restored: 0, fired: 0 };
+  restoredOnStartup = true;
+  ensureFlushRegistered();
+
+  const raw = readSnapshotWithMeta({
+    filePath: SNAPSHOT_PATH,
+    walPath: `${SNAPSHOT_PATH}.wal`,
+    key: "vinyls_site_chat_dm_fallback",
+    version: 1,
+    fallback: {},
+  });
+
+  let restored = 0;
+  let fired = 0;
+  const now = Date.now();
+
+  for (const [key, row] of Object.entries(raw || {})) {
+    const serialized = serializeEntry(row);
+    if (!key || !serialized) continue;
+    if (pending.has(key)) continue;
+
+    const entry = {
+      ...serialized,
+      client,
+      timer: null,
+    };
+
+    if (serialized.fireAt <= now) {
+      fired += 1;
+      void fireFallback(key, entry);
+      continue;
+    }
+
+    armEntryTimer(key, entry);
+    restored += 1;
+  }
+
+  persistPendingNow();
+  if (restored || fired) {
+    global.logger?.info?.(
+      `[chat-dm-fallback] restore: restored=${restored} firedNow=${fired}`,
+    );
+  }
+  return { restored, fired };
+}
+
 module.exports = {
   scheduleChatDmFallback,
   cancelChatDmFallback,
   pendingChatDmFallbackCount,
   delayMs,
+  restoreChatDmFallbacksOnStartup,
 };

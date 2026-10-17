@@ -615,8 +615,17 @@ function invalidateStaffRosterCache() {
   pausesCountCache = null;
 }
 
+/* apiWarmSwr1: keep roster hot for organico/dashboard */
+function warmStaffRosterCache(client) {
+  return getCachedStaffRoster(client).catch((err) => {
+    global.logger?.warn?.("[staff-roster] warm:", err?.message || err);
+    return null;
+  });
+}
+
 module.exports = {
   getCachedStaffRoster,
+  warmStaffRosterCache,
   getPausedUserIdsCached,
   getOpenTicketStatsCached,
   countPendingPausesCached,

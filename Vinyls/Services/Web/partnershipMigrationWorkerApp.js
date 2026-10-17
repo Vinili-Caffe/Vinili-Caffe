@@ -38,11 +38,8 @@ function loadVinylsConfig() {
 }
 
 async function main() {
-  const mongo =
-    process.env.MONGO_URL_LOCAL ||
-    process.env.MONGODB_URI_LOCAL ||
-    process.env.MONGO_URL ||
-    process.env.MONGODB_URI;
+  /* mongoSingleSource1 */
+  const mongo = require("../../Utils/Database/mongoConnect").buildMongoUrl();
   if (!mongo) {
     console.error("[PARTNERSHIP-MIGRATION] Missing MONGO_URL / MONGODB_URI");
     process.exit(1);

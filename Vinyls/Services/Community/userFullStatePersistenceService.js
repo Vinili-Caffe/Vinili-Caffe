@@ -13,6 +13,7 @@ const {
   isTrackedPersonalityRoleId,
   ALL_PERSONALITY_TRACKED_ROLE_IDS,
 } = require("../../Utils/Community/personalityRolePersistence");
+const { registerShutdownFlush, armShutdownCheckpoint } = require("../../../shared/recovery/shutdownCheckpoint");
 
 const SCHEMA_VERSION = 1;
 const DEBOUNCE_MS = 2_500;
@@ -28,6 +29,8 @@ let loopHandle = null;
 let sweepBusy = false;
 let lastFullBackfillAtMs = 0;
 let lastLightSweepAtMs = 0;
+/* rebootDurability1: flush debounce pendingByKey on shutdown */
+let shutdownFlushRegistered = false;
 
 function mainGuildId() {
   return String(IDs.guilds?.main || "").trim();
@@ -228,28 +231,33 @@ async function persistUserFullState(guildId, userId, options = {}) {
   const uid = String(userId || "").trim();
   if (!isValidGuildUserId(gid, uid)) return { ok: false, reason: "invalid_ids" };
 
+  /* roleShrinkRevalidate1: cache membro spesso incompleta (1 ruolo) → false shrink.
+     Preferisci fetch fresco; se ancora “shrink” rivaluta con force:true prima di skip. */
   let member = options.member || null;
   const client = options.client || global.botClient || null;
-  if (!member) {
-    const guild = options.guild || (client ? await getClientGuildCached(client, gid) : null);
-    if (guild) {
-      member = await getGuildMemberCached(guild, uid).catch(() => null);
-      if (!member) member = await guild.members.fetch(uid).catch(() => null);
-    }
+  let guild = options.guild || member?.guild || null;
+  if (!guild && client) {
+    guild = await getClientGuildCached(client, gid).catch(() => null);
+  }
+  if (!member && guild) {
+    member = await getGuildMemberCached(guild, uid, { preferFresh: true }).catch(() => null);
+    if (!member) member = await guild.members.fetch({ user: uid, force: true }).catch(() => null);
   }
   if (!member?.guild || member.user?.bot) {
     return { ok: false, reason: "no_member" };
   }
+  if (!guild) guild = member.guild;
 
   const profileLean = await ActivityUserProfile.findOne({ guildId: gid, userId: uid })
     .select("profile.customRole profile.personalityRoleIds")
     .lean()
     .catch(() => null);
 
-  const state = await buildDiscordState(member, profileLean, options.reason || "persist");
+  let state = await buildDiscordState(member, profileLean, options.reason || "persist");
 
   // Non sovrascrivere un discordState ricco con lo strip mute (pochi ruoli).
   let skipRoleShrink = false;
+  let shrinkMute = false;
   try {
     const {
       memberIsInMuteMirrorState,
@@ -257,6 +265,7 @@ async function persistUserFullState(guildId, userId, options = {}) {
     } = require("../Moderation/mutedMirrorRoleService");
     if (memberIsInMuteMirrorState(member) || (await hasPendingMuteMirrorSnapshot(gid, uid).catch(() => false))) {
       skipRoleShrink = true;
+      shrinkMute = true;
     }
   } catch (_) {}
 
@@ -268,15 +277,35 @@ async function persistUserFullState(guildId, userId, options = {}) {
     const existingIds = Array.isArray(existing?.profile?.discordState?.roleIds)
       ? existing.profile.discordState.roleIds.map(String).filter(Boolean)
       : [];
-    const nextIds = Array.isArray(state.roleIds) ? state.roleIds.map(String).filter(Boolean) : [];
-    if (existingIds.length >= 5 && nextIds.length < Math.max(2, Math.floor(existingIds.length * 0.35))) {
-      skipRoleShrink = true;
-      global.logger?.warn?.(
-        "[USER FULL STATE] skip discordState role shrink:",
-        gid,
-        uid,
-        `${nextIds.length}<${existingIds.length}`,
-      );
+    let nextIds = Array.isArray(state.roleIds) ? state.roleIds.map(String).filter(Boolean) : [];
+    const shrinkThreshold = Math.max(2, Math.floor(existingIds.length * 0.35));
+    if (existingIds.length >= 5 && nextIds.length < shrinkThreshold) {
+      /* roleShrinkRevalidate1: un GUILD_MEMBER_UPDATE parziale non deve congelare i ruoli */
+      const freshMember = await guild.members.fetch({ user: uid, force: true }).catch(() => null);
+      if (freshMember && !freshMember.user?.bot) {
+        member = freshMember;
+        state = await buildDiscordState(member, profileLean, options.reason || "persist");
+        nextIds = Array.isArray(state.roleIds) ? state.roleIds.map(String).filter(Boolean) : [];
+      }
+      if (nextIds.length < shrinkThreshold) {
+        skipRoleShrink = true;
+        const reason = String(options.reason || "");
+        const quiet =
+          shrinkMute ||
+          reason === "leave_backup" ||
+          /leave|remove|timeout|mute/i.test(reason);
+        const line = `${nextIds.length}<${existingIds.length}`;
+        if (quiet) {
+          global.logger?.info?.("[USER FULL STATE] keep discordState roles (strip/leave):", gid, uid, line);
+        } else {
+          global.logger?.warn?.(
+            "[USER FULL STATE] skip discordState role shrink:",
+            gid,
+            uid,
+            line,
+          );
+        }
+      }
     }
   }
 
@@ -319,10 +348,48 @@ async function persistUserFullState(guildId, userId, options = {}) {
   return { ok: true, roleCount: state.roleIds.length, personalityCount: state.personalityRoleIds.length };
 }
 
+async function flushPendingUserFullStateOnShutdown() {
+  const entries = [...pendingByKey.entries()];
+  pendingByKey.clear();
+  const tasks = [];
+  for (const [key, row] of entries) {
+    if (row?.timer) {
+      try {
+        clearTimeout(row.timer);
+      } catch (_) {}
+    }
+    const idx = String(key || "").indexOf(":");
+    if (idx <= 0) continue;
+    const gid = key.slice(0, idx);
+    const uid = key.slice(idx + 1);
+    if (!gid || !uid) continue;
+    const { timer: _timer, ...opts } = row || {};
+    tasks.push(
+      persistUserFullState(gid, uid, { ...opts, reason: opts?.reason || "shutdown_flush" }).catch((err) => {
+        global.logger?.warn?.(
+          "[USER FULL STATE] shutdown persist failed:",
+          gid,
+          uid,
+          err?.message || err,
+        );
+      }),
+    );
+  }
+  if (tasks.length) await Promise.allSettled(tasks);
+}
+
+function ensureUserFullStateShutdownFlush() {
+  if (shutdownFlushRegistered) return;
+  shutdownFlushRegistered = true;
+  armShutdownCheckpoint();
+  registerShutdownFlush("vinyls_user_full_state_pending", () => flushPendingUserFullStateOnShutdown());
+}
+
 function schedulePersistUserFullState(guildId, userId, options = {}) {
   const gid = String(guildId || "").trim();
   const uid = String(userId || "").trim();
   if (!isValidGuildUserId(gid, uid)) return;
+  ensureUserFullStateShutdownFlush();
   const key = `${gid}:${uid}`;
   const prev = pendingByKey.get(key);
   if (prev?.timer) clearTimeout(prev.timer);
@@ -529,6 +596,7 @@ function startUserFullStatePersistenceLoop(client) {
   // Deve girare sul bot gateway (serve GuildMembers), non sul bot-scheduler REST.
   if (!client) return null;
   if (loopHandle) return loopHandle;
+  ensureUserFullStateShutdownFlush();
 
   setTimeout(() => {
     runUserFullStateSweep(client).catch((err) => {

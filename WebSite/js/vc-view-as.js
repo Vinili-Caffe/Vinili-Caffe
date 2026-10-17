@@ -572,6 +572,16 @@
       "#" +
       LAUNCH_ID +
       "[hidden]{display:none!important}" +
+      /* viewAsNoOrphan1: hide se fuori header (status/pagine senza quick-actions) */
+      "body.vc-status-page #" +
+      LAUNCH_ID +
+      ",#" +
+      LAUNCH_ID +
+      ":not(header #" +
+      LAUNCH_ID +
+      "):not(#header-quick-actions #" +
+      LAUNCH_ID +
+      "){display:none!important;visibility:hidden!important;pointer-events:none!important}" +
       /* phoneNavCircles1 + navChromeCirclesAlign1: Anteprima = cerchio 44px anche su PC */
       "#" +
       LAUNCH_ID +
@@ -758,21 +768,36 @@
       } catch (eOrd) {}
       return;
     }
-    if (!btn.parentNode) (document.body || document.documentElement).appendChild(btn);
+    /* viewAsNoOrphan1: mai append su body (es. /status/ senza header → bottone a caso) */
+    try {
+      if (btn.parentNode && !btn.closest("#header-quick-actions, header")) {
+        btn.parentNode.removeChild(btn);
+      }
+    } catch (eOrphan) {}
+    try {
+      global.__vcViewAsLaunchBtn = btn;
+    } catch (eHold) {}
     if (!global.__vcViewAsLaunchNavWatch) {
       global.__vcViewAsLaunchNavWatch = true;
       var tries = 0;
       var timer = global.setInterval(function () {
         tries += 1;
         var slot = document.getElementById("header-quick-actions");
-        var launch = document.getElementById(LAUNCH_ID);
+        var launch =
+          global.__vcViewAsLaunchBtn || document.getElementById(LAUNCH_ID);
         if (slot && launch) {
           placeLauncherInNav(launch);
           global.clearInterval(timer);
           global.__vcViewAsLaunchNavWatch = false;
+          try {
+            global.__vcViewAsLaunchBtn = null;
+          } catch (eClr) {}
         } else if (tries > 40) {
           global.clearInterval(timer);
           global.__vcViewAsLaunchNavWatch = false;
+          try {
+            global.__vcViewAsLaunchBtn = null;
+          } catch (eClr2) {}
         }
       }, 120);
     }
@@ -1046,16 +1071,19 @@
     boot();
   }
   global.addEventListener("vc:staff-access-ok", function (ev) {
+    /* violKillAll1: maybeShow fuori dal custom event (era Violation 150ms+) */
     var detail = (ev && ev.detail) || {};
-    maybeShow(detail.perms || detail || global.__VC_STAFF_PERMS);
-    /* viewAsFreeze1: maybeShow already applyChrome(); re-entering enforceGuestChrome
-       on the same tick re-triggered staff listeners and froze the page. */
-    try {
-      var m = readMode();
-      if (m === "logout" || m === "member") {
-        global.__VC_STAFF_MENU_ALLOWED = false;
-      }
-    } catch (eMenu) {}
+    global.setTimeout(function () {
+      try {
+        maybeShow(detail.perms || detail || global.__VC_STAFF_PERMS);
+      } catch (eShow) {}
+      try {
+        var m = readMode();
+        if (m === "logout" || m === "member") {
+          global.__VC_STAFF_MENU_ALLOWED = false;
+        }
+      } catch (eMenu) {}
+    }, 48);
   });
   global.addEventListener("vc:view-as-allowed", function () {
     if (!hasRealAuthToken() && !readMode()) {
@@ -1094,3 +1122,6 @@
     }
   } catch (eInt) {}
 })(typeof window !== "undefined" ? window : globalThis);
+
+/* violKillAll1 */
+

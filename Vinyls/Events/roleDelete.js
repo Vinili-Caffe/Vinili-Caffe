@@ -66,6 +66,17 @@ module.exports = {
 
     if (client) {
       queueIdsCatalogSync(client, guildId, "roleDelete");
+      try {
+        const { getMainGuildId } = require("../Utils/Config/testGuildMirrorRemap");
+        if (String(guildId) === String(getMainGuildId() || "")) {
+          const { mirrorMainRoleDeleteToTest } = require("../Services/Partner/testGuildMirrorSyncService");
+          void mirrorMainRoleDeleteToTest(client, role).catch((err) => {
+            global.logger?.warn?.("[roleDelete] test mirror:", err?.message || err);
+          });
+        }
+      } catch (eMirror) {
+        global.logger?.warn?.("[roleDelete] test mirror hook:", eMirror?.message || eMirror);
+      }
     }
   },
 };

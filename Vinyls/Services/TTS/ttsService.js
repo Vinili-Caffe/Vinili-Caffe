@@ -1429,6 +1429,24 @@ async function leaveTtsGuild(guildId, client) {
   await stopVoiceContinuousCapture(guildId, client).catch(() => null);
   markTtsVoiceDisconnectSuppress(guildId);
   clearTtsPostJoinVoiceGrace(guildId);
+
+  /* findBotVoice: mai destroy della connessione del minigame (anche se empty-VC leave gareggia col join). */
+  if (client) {
+    try {
+      const { shouldDeferTtsLeaveForFindBotVoiceMinigame } = require("../Minigames/minigameService");
+      const guildEarly = await getClientGuildCached(client, guildId);
+      const meEarly =
+        guildEarly?.members?.me ??
+        (guildEarly && client.user?.id ? await getGuildMemberCached(guildEarly, client.user.id) : null);
+      const holdChannelId = String(meEarly?.voice?.channelId || "");
+      if (shouldDeferTtsLeaveForFindBotVoiceMinigame(client, guildId, holdChannelId)) {
+        return { ok: false, reason: "find_bot_voice_active" };
+      }
+    } catch (err) {
+      global.logger?.warn?.("[TTS] findBotVoice leave guard:", err?.message || err);
+    }
+  }
+
   let lockedChannelId = getLockedChannelId(guildId);
   if (!lockedChannelId) {
     lockedChannelId = findLockedChannelIdByGuild(guildId);
@@ -1438,6 +1456,12 @@ async function leaveTtsGuild(guildId, client) {
     const guild = await getClientGuildCached(client, guildId);
     const me = guild?.members?.me ?? (guild && client.user?.id ? await getGuildMemberCached(guild, client.user.id) : null);
     if (me?.voice?.channelId) {
+      try {
+        const { shouldDeferTtsLeaveForFindBotVoiceMinigame } = require("../Minigames/minigameService");
+        if (shouldDeferTtsLeaveForFindBotVoiceMinigame(client, guildId, String(me.voice.channelId))) {
+          return { ok: false, reason: "find_bot_voice_active" };
+        }
+      } catch (_) {}
       try {
         const existing = getVoiceConnection(String(guildId));
         if (existing) {

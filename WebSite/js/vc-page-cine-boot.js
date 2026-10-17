@@ -1,43 +1,293 @@
+/* 20261015jsWakeIdle2: hold watchdog non eterno (500ms forever = 1k wake) */
+/* 20261014cursorMqStable1 */
 (function () {
   try {
     var root = document.documentElement;
     if (!root) return;
 
+    /* loadClickGate1: gate DOM subito (anche pre-body) — click non devono passare */
+    try {
+      var earlyGate = document.getElementById("vc-load-click-gate");
+      if (!earlyGate) {
+        earlyGate = document.createElement("div");
+        earlyGate.id = "vc-load-click-gate";
+        earlyGate.setAttribute("aria-hidden", "true");
+        earlyGate.setAttribute("data-vc", "loadClickGate1");
+        earlyGate.style.cssText =
+          "display:block;position:fixed;inset:0;z-index:2147483400;opacity:0;pointer-events:auto;background:transparent";
+        (document.body || root).appendChild(earlyGate);
+      }
+    } catch (eEarlyGate) {}
+
+    /* loadGateOnce1: sipario resta fino a curtain-off (no flash pagina → loader) */
+    function ensureHardSipario() {
+      try {
+        var hsRules =
+          "#vc-pre-cine-hard-sipario{" +
+          "position:fixed!important;inset:0!important;top:0!important;right:0!important;bottom:0!important;left:0!important;" +
+          "width:100vw!important;height:100dvh!important;z-index:2147483000!important;margin:0!important;padding:0!important;" +
+          "border:0!important;background:#100c09!important;opacity:1!important;visibility:visible!important;" +
+          "pointer-events:auto!important;display:block!important}" +
+          "html:not(.vc-cine-curtain-off) #vc-pre-cine-hard-sipario," +
+          "html.vc-boot-loader-gate:not(.vc-cine-curtain-off) #vc-pre-cine-hard-sipario," +
+          "html.vc-chrome-bar-loading:not(.vc-cine-curtain-off) #vc-pre-cine-hard-sipario{" +
+          "display:block!important;opacity:1!important;visibility:visible!important;pointer-events:auto!important;" +
+          "position:fixed!important;inset:0!important;z-index:2147483000!important;background:#100c09!important}" +
+          "html.vc-cine-curtain-off #vc-pre-cine-hard-sipario{" +
+          "display:none!important;opacity:0!important;visibility:hidden!important;pointer-events:none!important}";
+        var hs = document.getElementById("vc-pre-cine-hard-sipario-css");
+        if (!hs) {
+          hs = document.createElement("style");
+          hs.id = "vc-pre-cine-hard-sipario-css";
+          (document.head || root).appendChild(hs);
+        }
+        hs.setAttribute("data-vc", "20261011siparioCurtainHide1");
+        hs.textContent = hsRules;
+        var el = document.getElementById("vc-pre-cine-hard-sipario");
+        if (!el) {
+          el = document.createElement("div");
+          el.id = "vc-pre-cine-hard-sipario";
+          el.setAttribute("aria-hidden", "true");
+          var host = document.body || root;
+          if (host.firstChild) host.insertBefore(el, host.firstChild);
+          else host.appendChild(el);
+        }
+        /* siparioLoadPage1: loader fullscreen (profilo); toast solo post-curtain via auth-inject */
+        try {
+          var scr = document.getElementById("vc-boot-load-screen");
+          if (!scr) {
+            scr = document.createElement("div");
+            scr.id = "vc-boot-load-screen";
+            el.appendChild(scr);
+          }
+          scr.setAttribute("role", "status");
+          scr.setAttribute("aria-live", "polite");
+          scr.setAttribute("aria-label", "Caricamento…");
+          scr.setAttribute("data-vc", "siparioLoadPage2");
+          scr.innerHTML =
+            '<span class="vc-boot-load-screen__spin" aria-hidden="true"></span>' +
+            '<p class="vc-boot-load-screen__title">Caricamento…</p>' +
+            '<p class="vc-boot-load-screen__sub">Un momento…</p>';
+        } catch (eScr) {}
+      } catch (eHs) {}
+    }
+    function bakeCineLayoutClass() {
+      try {
+        var body = document.body;
+        if (!body) return;
+        if (body.classList.contains("vc-body--home")) return;
+        if (root.classList.contains("vc-page-cine-boot") || body.querySelector(".vc-page-cine-hero, .vc-support-page-hero, #vc-page-intro")) {
+          body.classList.add("vc-page-cine-layout");
+          body.dataset.vcPageCineLayout = "1";
+        }
+      } catch (eBake) {}
+    }
+    ensureHardSipario();
+    /* bugListBoot1B + loadClickGate1: blocca TUTTI i click finché barra/chrome load */
+    try {
+      var cgId = "vc-bugListBoot1-clickgate";
+      var cg = document.getElementById(cgId);
+      if (!cg) {
+        cg = document.createElement("style");
+        cg.id = cgId;
+        (document.head || root).appendChild(cg);
+      }
+      cg.setAttribute("data-vc", "loadClickGate1");
+      cg.textContent =
+        /* loadClickGate1: overlay invisibile cattura click finché chrome non armed
+           (anche dopo curtain / senza barCls — prima passavano nav/main) */
+        "html:not(.vc-chrome-scroll-armed) #vc-load-click-gate," +
+        "html.vc-chrome-bar-loading #vc-load-click-gate," +
+        "html.vc-interaction-hold #vc-load-click-gate," +
+        "html.vc-loading-scroll-lock #vc-load-click-gate," +
+        "html.vc-loader-blocking-live #vc-load-click-gate," +
+        "html:not(.vc-cine-curtain-off) #vc-load-click-gate{" +
+        "display:block!important;opacity:0!important;visibility:visible!important;" +
+        "pointer-events:auto!important;position:fixed!important;inset:0!important;" +
+        "z-index:2147483400!important;background:transparent!important;border:0!important;" +
+        "margin:0!important;padding:0!important;cursor:inherit!important}" +
+        "html.vc-chrome-scroll-armed.vc-cine-curtain-off:not(.vc-chrome-bar-loading):not(.vc-interaction-hold):not(.vc-loading-scroll-lock):not(.vc-loader-blocking-live) #vc-load-click-gate{" +
+        "display:none!important;pointer-events:none!important}" +
+        /* no curtain-off: blocca nav/footer finché sipario è su */
+        "html:not(.vc-cine-curtain-off) header a," +
+        "html:not(.vc-cine-curtain-off) header button," +
+        "html:not(.vc-cine-curtain-off) #header-quick-actions," +
+        "html:not(.vc-cine-curtain-off) .vc-mobile-nav-drawer," +
+        "html:not(.vc-cine-curtain-off) footer a," +
+        "html:not(.vc-cine-curtain-off) main a," +
+        "html:not(.vc-cine-curtain-off) main button," +
+        /* chrome-bar-loading: anche post-sipario */
+        "html.vc-chrome-bar-loading header a," +
+        "html.vc-chrome-bar-loading header button," +
+        "html.vc-chrome-bar-loading #header-quick-actions," +
+        "html.vc-chrome-bar-loading .vc-mobile-nav-drawer," +
+        "html.vc-chrome-bar-loading footer a," +
+        "html.vc-chrome-bar-loading main a," +
+        "html.vc-chrome-bar-loading main button," +
+        "html.vc-chrome-bar-loading a," +
+        "html.vc-chrome-bar-loading button," +
+        "html.vc-chrome-bar-loading [role=button]," +
+        "html.vc-chrome-bar-loading summary," +
+        /* interaction-hold / scroll-lock */
+        "html.vc-interaction-hold header a," +
+        "html.vc-interaction-hold header button," +
+        "html.vc-interaction-hold #header-quick-actions," +
+        "html.vc-interaction-hold .vc-mobile-nav-drawer," +
+        "html.vc-interaction-hold footer a," +
+        "html.vc-interaction-hold main a," +
+        "html.vc-interaction-hold main button," +
+        "html.vc-interaction-hold a," +
+        "html.vc-interaction-hold button," +
+        "html.vc-loading-scroll-lock header a," +
+        "html.vc-loading-scroll-lock header button," +
+        "html.vc-loading-scroll-lock #header-quick-actions," +
+        "html.vc-loading-scroll-lock .vc-mobile-nav-drawer," +
+        "html.vc-loading-scroll-lock footer a," +
+        "html.vc-loading-scroll-lock main a," +
+        "html.vc-loading-scroll-lock main button," +
+        "html.vc-loading-scroll-lock a," +
+        "html.vc-loading-scroll-lock button{pointer-events:none!important}" +
+        /* sipario e ::before devono catturare i click durante load */
+        "html:not(.vc-cine-curtain-off)::before{pointer-events:auto!important}" +
+        "#vc-pre-cine-hard-sipario{pointer-events:auto!important}";
+      if (!document.getElementById("vc-load-click-gate")) {
+        var gate = document.createElement("div");
+        gate.id = "vc-load-click-gate";
+        gate.setAttribute("aria-hidden", "true");
+        gate.setAttribute("data-vc", "loadClickGate1");
+        (document.body || root).appendChild(gate);
+      }
+    } catch (eCg) {}
+    bakeCineLayoutClass();
+    /* cursorWinFlashKill1: arm vinyl pin SUBITO (non aspettare chrome-ui ~5s) */
+    try {
+      var coarseOnly =
+        window.matchMedia &&
+        window.matchMedia("(hover: none) and (pointer: coarse)").matches &&
+        !(window.matchMedia("(pointer: fine)").matches);
+      if (!coarseOnly) {
+        root.classList.add("vc-site-cursor-ok");
+        var pre = new Image();
+        pre.src = "/images/musicrecordspin-cursor-static.png";
+        var pre2 = new Image();
+        pre2.src = "/images/coffe-cursor-static.png";
+      }
+    } catch (eCurEarly) {}
+    if (document.readyState === "loading") {
+      document.addEventListener(
+        "DOMContentLoaded",
+        function () {
+          ensureHardSipario();
+          bakeCineLayoutClass();
+        },
+        { once: true },
+      );
+    }
+
     /* bootNoPreGrad2 EARLY: sipario soft-fx/curtain PRIMA di tutto (anti flash flat) */
     try {
-      if (!document.getElementById("vc-cine-early-sipario")) {
-        var earlySip = document.createElement("style");
+      var earlySip = document.getElementById("vc-cine-early-sipario");
+      if (!earlySip) {
+        earlySip = document.createElement("style");
         earlySip.id = "vc-cine-early-sipario";
-        earlySip.setAttribute("data-vc", "bootNoPreGrad3");
-        earlySip.textContent =
-          "html.vc-site-polish:not(.vc-soft-fx-ready):not(.vc-soft-fx-off) body.vc-body>main," +
-          "html.vc-site-polish:not(.vc-soft-fx-ready):not(.vc-soft-fx-off) body.vc-body>header," +
-          "html.vc-site-polish:not(.vc-soft-fx-ready):not(.vc-soft-fx-off) body.vc-body>footer," +
-          "html.vc-site-polish:not(.vc-cine-curtain-off) body.vc-body>main," +
-          "html.vc-site-polish:not(.vc-cine-curtain-off) body.vc-body>header," +
-          "html.vc-site-polish:not(.vc-cine-curtain-off) body.vc-body>footer," +
-          "html.vc-page-cine-boot:not(.vc-cine-curtain-off) body.vc-body>main," +
-          "html.vc-page-cine-boot:not(.vc-cine-curtain-off) body.vc-body>header," +
-          "html.vc-page-cine-boot:not(.vc-cine-curtain-off) body.vc-body>footer{" +
-          "opacity:0!important;visibility:hidden!important;pointer-events:none!important}" +
-          "html.vc-site-polish:not(.vc-cine-curtain-off)::before," +
-          "html.vc-page-cine-boot:not(.vc-cine-curtain-off)::before," +
-          "html.vc-site-polish:not(.vc-soft-fx-ready):not(.vc-soft-fx-off)::before{" +
-          "content:\"\"!important;position:fixed!important;inset:0!important;top:0!important;right:0!important;" +
-          "bottom:0!important;left:0!important;width:100vw!important;height:100dvh!important;" +
-          "z-index:2147482990!important;margin:0!important;padding:0!important;border:0!important;" +
-          "background:#100c09!important;opacity:1!important;visibility:visible!important;" +
-          "pointer-events:auto!important;display:block!important}" +
-          "html.vc-cine-curtain-off.vc-soft-fx-ready::before," +
-          "html.vc-cine-curtain-off.vc-soft-fx-off::before{" +
-          "display:none!important;opacity:0!important;visibility:hidden!important;pointer-events:none!important}";
         (document.head || root).appendChild(earlySip);
       }
+      earlySip.setAttribute("data-vc", "loadCueBakeFast1");
+      earlySip.textContent =
+        /* siparioThemeGate1: niente gate theme-light-ready (nero fisso se theme null) */
+        "html.vc-site-polish:not(.vc-soft-fx-ready):not(.vc-soft-fx-off) body.vc-body>main," +
+        "html.vc-site-polish:not(.vc-soft-fx-ready):not(.vc-soft-fx-off) body.vc-body>header," +
+        "html.vc-site-polish:not(.vc-soft-fx-ready):not(.vc-soft-fx-off) body.vc-body>footer," +
+        "html.vc-site-polish:not(.vc-look-core-ready):not(.vc-soft-fx-off) body.vc-body>main," +
+        "html.vc-site-polish:not(.vc-look-core-ready):not(.vc-soft-fx-off) body.vc-body>header," +
+        "html.vc-site-polish:not(.vc-look-core-ready):not(.vc-soft-fx-off) body.vc-body>footer," +
+        "html.vc-site-polish:not(.vc-cine-curtain-off) body.vc-body>main," +
+        "html.vc-site-polish:not(.vc-cine-curtain-off) body.vc-body>header," +
+        "html.vc-site-polish:not(.vc-cine-curtain-off) body.vc-body>footer," +
+        "html.vc-page-cine-boot:not(.vc-cine-curtain-off) body.vc-body>main," +
+        "html.vc-page-cine-boot:not(.vc-cine-curtain-off) body.vc-body>header," +
+        "html.vc-page-cine-boot:not(.vc-cine-curtain-off) body.vc-body>footer{" +
+        "opacity:0!important;visibility:hidden!important;pointer-events:none!important}" +
+        /* siparioNoYoyoReady1: ::before solo senza curtain-off (mai yoyo post-reveal) */
+        "html.vc-site-polish.vc-page-cine-boot:not(.vc-cine-curtain-off)::before," +
+        "html.vc-site-polish.vc-page-cine-boot:not(.vc-cine-curtain-off):not(.vc-page-cine-ready)::before," +
+        "html.vc-site-polish.vc-page-cine-boot:not(.vc-look-core-ready)::before," +
+        "html.vc-site-polish:not(.vc-cine-curtain-off)::before," +
+        "html.vc-page-cine-boot:not(.vc-cine-curtain-off)::before," +
+        "html.vc-site-polish:not(.vc-soft-fx-ready):not(.vc-soft-fx-off)::before," +
+        "html.vc-site-polish:not(.vc-look-core-ready):not(.vc-soft-fx-off)::before{" +
+        "content:\"\"!important;position:fixed!important;inset:0!important;top:0!important;right:0!important;" +
+        "bottom:0!important;left:0!important;width:100vw!important;height:100dvh!important;" +
+        "z-index:2147482990!important;margin:0!important;padding:0!important;border:0!important;" +
+        "background:#100c09!important;opacity:1!important;visibility:visible!important;" +
+        "pointer-events:auto!important;display:block!important}" +
+        "html.vc-cine-curtain-off.vc-soft-fx-ready.vc-look-core-ready::before," +
+        "html.vc-cine-curtain-off.vc-soft-fx-off::before{" +
+        "content:none!important;display:none!important;opacity:0!important;visibility:hidden!important;pointer-events:none!important}" +
+        "html.vc-site-polish:not(.vc-look-core-ready):not(.vc-soft-fx-off) body.vc-body>main," +
+        "html.vc-site-polish:not(.vc-look-core-ready):not(.vc-soft-fx-off) body.vc-body>header," +
+        "html.vc-site-polish:not(.vc-look-core-ready):not(.vc-soft-fx-off) body.vc-body>footer{" +
+        "opacity:0!important;visibility:hidden!important;pointer-events:none!important}";
     } catch (eEarly) {}
 
     /* Photo-bg: niente blank lungo su DCL. */
-    /* Marker: bootNoPreGrad3 — sipario fino a soft-fx; cine resta sotto (no flash flat/pre-cine) */
-    var BOOT_VER = "bootNoPreGrad3";
+    /* Marker: bootOneShot2 — un solo gate (CSS≠release; release=chrome done) */
+    var BOOT_VER = "ptrScrollYoYoKill1";
+
+    function isCineBaked() {
+      try {
+        var b = document.body;
+        if (!b) return false;
+        if (b.getAttribute("data-vc-cine-baked") === "1") return true;
+        if (b.dataset && b.dataset.vcCineBaked === "1") return true;
+        return Boolean(document.querySelector(".vc-page-cine-hero__inner > .vc-hero-head"));
+      } catch (eBaked) {
+        return false;
+      }
+    }
+
+    /* bootBolt2: CSS critico sync — sipario non aspetta il landing-core da 1MB */
+    try {
+      if (!document.getElementById("vc-boot-critical-css")) {
+        var crit = document.createElement("style");
+        crit.id = "vc-boot-critical-css";
+        crit.setAttribute("data-vc", "bootBolt2");
+        crit.textContent =
+          ".vc-support-page-hero a.vc-header-pill,.vc-support-page-hero a.vc-home-cine-cta," +
+          ".vc-page-cine-hero a.vc-header-pill,.vc-page-cine-hero a.vc-home-cine-cta," +
+          ".vc-home-cine-hero a.vc-header-pill,.vc-home-cine-hero a.vc-home-cine-cta{" +
+          "display:inline-flex!important;align-items:center!important;justify-content:center!important;" +
+          "gap:.35rem!important;box-sizing:border-box!important;min-height:0!important;height:auto!important;" +
+          "min-width:0!important;width:auto!important;max-width:100%!important;flex:0 1 auto!important;" +
+          "padding:.45rem 1.1rem!important;font-size:.72rem!important;line-height:1.2!important;" +
+          "letter-spacing:.08em!important;text-transform:uppercase!important;border-radius:9999px!important;" +
+          "text-decoration:none!important}" +
+          ".vc-support-page-hero a.vc-home-cine-cta,.vc-page-cine-hero a.vc-home-cine-cta," +
+          ".vc-home-cine-hero a.vc-home-cine-cta{" +
+          "background:linear-gradient(180deg,#f0dcc8 0%,#d4a888 58%,#b88968 100%)!important;" +
+          "background-color:#d4a888!important;color:rgba(22,14,9,.98)!important;" +
+          "-webkit-text-fill-color:rgba(22,14,9,.98)!important;border:1px solid rgba(212,168,136,.48)!important;" +
+          "box-shadow:none!important;font-weight:800!important}" +
+          ".vc-support-page-hero a.vc-header-pill:not(.vc-home-cine-cta)," +
+          ".vc-page-cine-hero a.vc-header-pill:not(.vc-home-cine-cta)," +
+          ".vc-home-cine-hero a.vc-header-pill:not(.vc-home-cine-cta){" +
+          "background:transparent!important;background-image:none!important;" +
+          "border:1px solid rgba(212,168,136,.42)!important;color:#f7eadb!important;" +
+          "-webkit-text-fill-color:#f7eadb!important;box-shadow:none!important;font-weight:700!important}" +
+          ".vc-support-page-hero [class*=flex-wrap]:has(>a.vc-header-pill){" +
+          "display:flex!important;flex-wrap:wrap!important;align-items:center!important;" +
+          "justify-content:center!important;gap:.7rem!important;margin-inline:auto!important}" +
+          "body.vc-page-cine-layout main,body.vc-body main{color:#f7eadb}";
+        (document.head || root).appendChild(crit);
+      }
+    } catch (eCrit) {}
+    /* preloadViolKill1: no late style preload — sheet già in head; preload post-parse = unused warn */
+
+    /* rolesLoaderAlign1: rimuovi shell-visible legacy su /ruoli (loader = altri) */
+    try {
+      var staleRolesShell = document.getElementById("vc-roles-shell-visible-css");
+      if (staleRolesShell && staleRolesShell.parentNode) staleRolesShell.parentNode.removeChild(staleRolesShell);
+    } catch (eRolesShell) {}
     var CRITICAL_FORCE_MS = 0;
     var FAILSAFE_MS = 0;
     var HARD_FAILSAFE_MS = 0;
@@ -48,27 +298,101 @@
 
     function chromeBarStillLoading() {
       try {
-        if (root.classList.contains("vc-chrome-bar-loading")) return true;
+        /* toastSyncAll2: solo LoadDone (VisualReady può arrivare prima → early curtain) */
+        if (window.__vcChromeLoadDone === true) return false;
+        var age = Date.now() - Number(window.__vcCineBootStartedAt || Date.now());
+        /* toastSyncAll2: failsafe solo ~6.5s — NON alzare sipario a 2.8s (2° load) */
+        var HARD_MS = 6500;
+        if (age >= HARD_MS) return false;
         var prog = document.getElementById("vc-site-progress");
+        if (!window.__vcChromeUiBooted) return true;
+        if (window.__vcChromeLoadDone !== true) return true;
         if (prog && prog.classList.contains("is-loading")) return true;
-        if (window.__vcChromeUiBooted && !window.__vcChromeLoadDone) return true;
-        /* barra top ancora in fill finale (LoadDone già true ma freeze attivo) */
-        if (window.__vcChromeLoadDone && !window.__vcChromeScrollArmed) return true;
-        /* chrome UI non ancora bootato: tieni lock (gap pre-barra) */
-        if (!window.__vcChromeUiBooted && window.__vcChromeLoadDone !== true) {
-          var age = Date.now() - Number(window.__vcCineBootStartedAt || Date.now());
-          if (age < 4500) return true;
-        }
+        if (root.classList.contains("vc-chrome-bar-loading")) return true;
       } catch (eChrome) {}
       return false;
     }
 
+    function canLiftCurtainNow(force) {
+      try {
+        if (boardsViewStillPending()) return false;
+      } catch (eBd) {}
+      try {
+        /* aspetta che il loader pagina esista (gate) — poi alza: si vede loader, non il contenuto */
+        if (bootLoaderGateActive()) return false;
+      } catch (eGate) {}
+      try {
+        /* toastSyncAll2: anche force=true rispetta chrome (no bypass → early curtain) */
+        if (chromeBarStillLoading()) return false;
+      } catch (eBar) {}
+      if (force) return true;
+      return true;
+    }
+
+    function boardsViewStillPending() {
+      try {
+        if (!root.classList.contains("vc-boards-view-pending")) return false;
+        if (window.__vcBoardsContentReady) return false;
+        var started = Number(window.__vcCineBootStartedAt || 0) || Date.now();
+        var age = Date.now() - started;
+        /* toastSyncAll1: boards pending fino a ready o hard ~6.5s (no 2.8s early) */
+        return age < 6500;
+      } catch (eBd) {
+        return false;
+      }
+    }
+
+    function bootLoaderGateActive() {
+      /* loadGateFirst1: html.vc-boot-loader-gate finché non c'è pending/loader visibile/ready */
+      try {
+        if (!(root.classList.contains("vc-boot-loader-gate") || root.getAttribute("data-vc-boot-loader") === "1")) {
+          return false;
+        }
+        if (root.classList.contains("vc-page-cine-ready") && root.classList.contains("vc-cine-curtain-off")) {
+          return false;
+        }
+        if (
+          root.classList.contains("vc-user-leader-pending") ||
+          root.classList.contains("vc-user-profile-pending") ||
+          root.classList.contains("vc-rank-customize-pending") ||
+          root.classList.contains("vc-custom-profile-pending") ||
+          root.classList.contains("vc-session-verify-pending") ||
+          (root.classList.contains("vc-staff-access-pending") && !root.classList.contains("vc-staff-app-revealed"))
+        ) {
+          return false;
+        }
+        var live = document.querySelector(
+          '.vc-ul-loading:not([hidden]),#vc-ul-loading:not([hidden]),#vc-roles-loading:not([hidden]),' +
+            '#vc-staff-loading:not([hidden]):not(.vc-staff-loading--hidden),#vc-shared-boot-overlay:not([hidden]),' +
+            '#vc-rank-customize-loading:not([hidden]),#vc-custom-profile-loading:not([hidden]),' +
+            '#vc-dashboard-loading:not([hidden]),#vc-dashboard-guild-loading:not([hidden]),' +
+            '#vc-hw-loading:not([hidden]),#vc-seratafilm-loading:not([hidden]),' +
+            '#vc-user-profile-loading:not([hidden]),.vc-reviews-gate:not([hidden]):not(.vc-reviews-gate--dismissed)'
+        );
+        return !live;
+      } catch (eGate) {
+        return false;
+      }
+    }
     function pageLoaderStillBlocking() {
       try {
+        /* profileRelockKill2: chrome già armed → spinner profilo non tiene sipario/lock */
+        var chromeOpenBlk = false;
+        try {
+          chromeOpenBlk =
+            root.classList.contains("vc-chrome-scroll-armed") ||
+            (window.__vcChromeLoadDone === true &&
+              (window.__vcChromeScrollArmed === true ||
+                root.classList.contains("vc-cine-curtain-off") ||
+                root.classList.contains("vc-page-cine-ready")));
+        } catch (eChromeBlk) {
+          chromeOpenBlk = false;
+        }
         if (chromeBarStillLoading()) return true;
-        if (root.classList.contains("vc-loader-blocking-live")) return true;
+        /* flashKillReady1: non usare la class stessa come fonte (loop sticky) */
+        if (boardsViewStillPending()) return true;
         if (root.classList.contains("vc-user-leader-pending")) return true;
-        if (root.classList.contains("vc-user-profile-pending")) return true;
+        if (!chromeOpenBlk && root.classList.contains("vc-user-profile-pending")) return true;
         if (root.classList.contains("vc-rank-customize-pending")) return true;
         if (root.classList.contains("vc-custom-profile-pending")) return true;
         if (root.classList.contains("vc-session-verify-pending")) return true;
@@ -76,38 +400,52 @@
           return true;
         }
         /* inboxFreezeKill2: vc-notif-staff-loading NON è più gate di scroll/cine */
-        var live = document.querySelector(
+        var liveSel =
           '.vc-ul-loading:not([hidden]),' +
-            '#vc-ul-loading:not([hidden]),' +
-            '#vc-roles-loading:not([hidden]),' +
-            '#vc-staff-loading:not([hidden]):not(.vc-staff-loading--hidden),' +
-            '#vc-shared-boot-overlay:not([hidden]),' +
-            '.vc-rank-customize-loading:not([hidden]),' +
-            '#vc-rank-customize-loading:not([hidden]),' +
-            '.vc-session-verify-overlay:not(.vc-session-verify-overlay--hidden),' +
-            '#vc-dashboard-loading:not([hidden]),' +
-            '#vc-dashboard-guild-loading:not([hidden]),' +
-            '#vc-hw-loading:not([hidden]),' +
-            '#vc-seratafilm-loading:not([hidden]),' +
-            '.vc-reviews-gate:not([hidden]):not(.vc-reviews-gate--dismissed),' +
-            '.vc-page-transition.vc-page-transition--on,' +
-            '#vc-user-profile-loading:not([hidden]),' +
-            '#vc-custom-profile-loading:not([hidden])'
-        );
+          '#vc-ul-loading:not([hidden]),' +
+          '#vc-roles-loading:not([hidden]),' +
+          '#vc-staff-loading:not([hidden]):not(.vc-staff-loading--hidden),' +
+          '#vc-shared-boot-overlay:not([hidden]),' +
+          '.vc-rank-customize-loading:not([hidden]),' +
+          '#vc-rank-customize-loading:not([hidden]),' +
+          '.vc-session-verify-overlay:not(.vc-session-verify-overlay--hidden),' +
+          '#vc-dashboard-loading:not([hidden]),' +
+          '#vc-dashboard-guild-loading:not([hidden]),' +
+          '#vc-hw-loading:not([hidden]),' +
+          '#vc-seratafilm-loading:not([hidden]),' +
+          '.vc-reviews-gate:not([hidden]):not(.vc-reviews-gate--dismissed),' +
+          '.vc-page-transition.vc-page-transition--on,' +
+          '#vc-custom-profile-loading:not([hidden])';
+        if (!chromeOpenBlk) {
+          liveSel += ',#vc-user-profile-loading:not([hidden])';
+        }
+        var live = document.querySelector(liveSel);
         return !!live;
       } catch (eBlk) {
         return false;
       }
     }
 
-    /* softFxNoFouc2 / siteApiW11: promote deferred print sheets ASAP (before reveal checks) */
+    /* bootBolt1: promote critical sheets ASAP (no print→all flash) */
     try {
-      ["vc-soft-fx-css", "vc-glow-fix-css", "vc-nav-menu-solid-css", "vc-landing-ext-css"].forEach(function (id) {
+      [
+        "vc-look-core-css",
+        "vc-soft-fx-css",
+        "vc-chrome-polish-css",
+        "vc-landing-core-css",
+        "vc-landing-ext-css",
+      ].forEach(function (id) {
         var el = document.getElementById(id);
         if (!el) return;
         el.media = "all";
         el.removeAttribute("onload");
       });
+      var coreLinks = document.querySelectorAll('link[rel="stylesheet"][href*="vc-landing-core"]');
+      for (var ci = 0; ci < coreLinks.length; ci += 1) {
+        try {
+          coreLinks[ci].media = "all";
+        } catch (eCoreM) {}
+      }
     } catch (eSoftPromote) {}
 
     /* scrollUnlockNoLanding2: CSS gate locks html.vc-site-polish:not(.vc-cine-curtain-off)
@@ -118,14 +456,148 @@
           return;
         }
       } catch (eHoldGate) {}
+      /* schedaBootCue1: non togliere sipario/boot finché scheda non è pronta */
       try {
-        if (root.classList.contains("vc-soft-fx-ready") || softFxIntentionallyOff()) {
+        if (boardsViewStillPending()) return;
+      } catch (eBdUnlock) {}
+      try {
+        var awaitingBootLoader = false;
+        var loaderBlocking = false;
+        /* loadGateOnce1: check loader/barra PRIMA di alzare sipario (no flash pagina) */
+        try {
+          awaitingBootLoader = bootLoaderGateActive();
+          loaderBlocking = pageLoaderStillBlocking() || awaitingBootLoader;
+        } catch (eKeep) {
+          awaitingBootLoader = false;
+          loaderBlocking = false;
+        }
+        if (
+          (root.classList.contains("vc-soft-fx-ready") || softFxIntentionallyOff()) &&
+          (root.classList.contains("vc-look-core-ready") || softFxIntentionallyOff()) &&
+          themeSheetsReady() &&
+          canLiftCurtainNow(false)
+        ) {
+          try {
+            root.classList.add("vc-theme-light-ready");
+          } catch (eTh) {}
           root.classList.add("vc-cine-curtain-off");
+          try {
+            root.classList.remove("vc-boot-loader-gate");
+            root.removeAttribute("data-vc-boot-loader");
+          } catch (eGateClr) {}
+          awaitingBootLoader = false;
+          try {
+            loaderBlocking = pageLoaderStillBlocking();
+          } catch (eLb2) {
+            loaderBlocking = false;
+          }
         }
-        root.classList.remove("vc-page-cine-boot", "vc-scroll-soft-lock");
-        if (!pageLoaderStillBlocking()) {
-          root.classList.remove("vc-loading-scroll-lock");
+        /* scrollKill1: top-lock always off; cine-boot resta se ancora in attesa del loader */
+        root.classList.remove("vc-scroll-soft-lock", "vc-scroll-reload-top-lock", "vc-ptr-scroll-restore-pending");
+        if (
+          awaitingBootLoader &&
+          !root.classList.contains("vc-page-cine-ready") &&
+          !root.classList.contains("vc-cine-curtain-off")
+        ) {
+          root.classList.add("vc-loading-scroll-lock", "vc-loader-blocking-live", "vc-page-cine-boot");
+        } else if (!loaderBlocking && root.classList.contains("vc-cine-curtain-off")) {
+          /* barOneShot1: sipario off ≠ unlock se barra/load ancora vivi */
+          var barAlive = false;
+          try {
+            barAlive =
+              window.__vcChromeLoadDone !== true ||
+              window.__vcLoadBarCompleting ||
+              !window.__vcLoadBarFullPainted ||
+              root.classList.contains("vc-chrome-bar-loading") ||
+              !!(document.getElementById("vc-site-progress") &&
+                document.getElementById("vc-site-progress").classList.contains("is-loading"));
+          } catch (eBarA) {
+            barAlive = window.__vcChromeLoadDone !== true;
+          }
+          root.classList.remove("vc-page-cine-boot");
+          if (barAlive) {
+            root.classList.add("vc-loading-scroll-lock", "vc-loader-blocking-live");
+          } else {
+            root.classList.remove("vc-loading-scroll-lock", "vc-loader-blocking-live");
+          }
+        } else if (loaderBlocking) {
+          /* 20261014uiFixPack1: loader/barra ancora vivi → tieni lock anche a sipario alzato */
+          root.classList.add("vc-loading-scroll-lock", "vc-loader-blocking-live");
+        } else if (
+          !root.classList.contains("vc-page-cine-ready") &&
+          !root.classList.contains("vc-cine-curtain-off")
+        ) {
+          root.classList.add("vc-loading-scroll-lock", "vc-loader-blocking-live");
         }
+        try {
+          /* ptrScrollRestore1: NON segnare Done qui — altrimenti a fine loading resta in alto.
+             Done solo se non c’è Y da ripristinare (o già atterrato). */
+          var wantRestoreY = 0;
+          try {
+            wantRestoreY = Math.max(
+              0,
+              Number(window.__vcPtrRestoreTargetY || 0) || 0,
+              Number(window.__vcPtrRestoreY || 0) || 0,
+              Number(window.__vcViewStateRestoreY || 0) || 0,
+            );
+            if (wantRestoreY < 2) {
+              var attrRy = root.getAttribute("data-vc-ptr-restore-y");
+              wantRestoreY = Math.max(0, Number(attrRy || 0) || 0);
+            }
+          } catch (eWy) {
+            wantRestoreY = 0;
+          }
+          var liveY = 0;
+          try {
+            liveY = Math.max(
+              0,
+              Math.round(
+                Number(window.pageYOffset) ||
+                  Number((document.documentElement && document.documentElement.scrollTop) || 0) ||
+                  0,
+              ),
+            );
+          } catch (eLy) {}
+          if (wantRestoreY < 2 || window.__vcDiscardScrollRestore) {
+            window.__vcPtrRestoreDone = 1;
+          } else if (liveY >= wantRestoreY - 80) {
+            window.__vcPtrRestoreDone = 1;
+          } else {
+            window.__vcPtrRestoreDone = 0;
+            window.__vcPtrRestoreUnpinStarted = 0;
+            try {
+              window.setTimeout(function () {
+                try {
+                  if (typeof window.__vcPtrFinalizeScroll === "function") {
+                    window.__vcPtrFinalizeScroll();
+                  }
+                } catch (eF) {}
+              }, 60);
+              window.setTimeout(function () {
+                try {
+                  if (
+                    !window.__vcPtrRestoreDone &&
+                    typeof window.__vcPtrFinalizeScroll === "function"
+                  ) {
+                    window.__vcPtrFinalizeScroll();
+                  }
+                } catch (eF2) {}
+              }, 400);
+            } catch (eArm) {}
+          }
+          /* bootScrollHard1: non ammazzare i guard wheel finché hold/lock/loader vivi */
+          var stillLocked =
+            root.classList.contains("vc-interaction-hold") ||
+            root.classList.contains("vc-loading-scroll-lock") ||
+            root.classList.contains("vc-loader-blocking-live") ||
+            root.classList.contains("vc-chrome-bar-loading") ||
+            pageLoaderStillBlocking();
+          if (!stillLocked) window.__vcBootScrollGuardsKilled = 1;
+        } catch (eDone) {}
+        try {
+          var topCss = document.getElementById("vc-scroll-reload-top-lock-css");
+          if (topCss && topCss.parentNode) topCss.parentNode.removeChild(topCss);
+        } catch (eTopCss) {}
       } catch (eCls) {}
       try {
         var cur = document.getElementById("vc-cine-boot-curtain");
@@ -253,14 +725,14 @@
     var desktop = isDesktopNav();
     var standalone = isStandalonePwa();
     if (SITE_PHOTO_BG) {
-      /* browserParity1: stessi failsafe browser/PWA — niente scorciatoie standalone che rivelano flat */
-      CRITICAL_FORCE_MS = desktop ? 1800 : phone ? 2400 : 2000;
-      FAILSAFE_MS = desktop ? 2400 : phone ? 3200 : 2800;
-      HARD_FAILSAFE_MS = desktop ? 4200 : phone ? 5200 : 4800;
+      /* bootBolt1: failsafe aggressivi — happy path = CSS core+look */
+      CRITICAL_FORCE_MS = desktop ? 700 : phone ? 900 : 800;
+      FAILSAFE_MS = desktop ? 900 : phone ? 1200 : 1000;
+      HARD_FAILSAFE_MS = desktop ? 1400 : phone ? 1800 : 1600;
     } else {
-      CRITICAL_FORCE_MS = desktop ? 1600 : phone ? 2200 : 1800;
-      FAILSAFE_MS = desktop ? 2200 : phone ? 2800 : 2400;
-      HARD_FAILSAFE_MS = desktop ? 4000 : phone ? 4800 : 4400;
+      CRITICAL_FORCE_MS = desktop ? 600 : phone ? 800 : 700;
+      FAILSAFE_MS = desktop ? 800 : phone ? 1100 : 900;
+      HARD_FAILSAFE_MS = desktop ? 1200 : phone ? 1600 : 1400;
     }
     try {
       root.classList.add("vc-home-motion-ready");
@@ -275,16 +747,48 @@
     // bootNoPreGrad1: anche soft-fx-ready obbligatorio (no flash flat / pre-gradient).
     // cineNoFlash10: overflow lock solo finché NON ready — altrimenti polish senza curtain-off
     // lascia overflow:hidden per sempre anche a pagina visibile.
+    /* bootKitAccel1: locks/sipario in vc-site-boot-kit.css — cineGate = delta hold/sheet */
+    try {
+      (function ensureBootKitFromCine() {
+        var ver = "20261011consoleClean1";
+        if (document.getElementById("vc-site-boot-kit-css") || document.querySelector('link[href*="vc-site-boot-kit"]')) return;
+        var link = document.createElement("link");
+        link.id = "vc-site-boot-kit-css";
+        link.rel = "stylesheet";
+        link.href = "/css/vc-site-boot-kit." + ver + ".css?v=" + ver;
+        link.setAttribute("data-vc", "consoleClean1");
+        (document.head || root).insertBefore(link, (document.head || root).firstChild);
+      })();
+    } catch (eBk) {}
+    /* gestureLockBoot1 + bootKitAccel1: keep unlock/hold delta (core lock in boot-kit) */
     var cineGate =
       "html.vc-site-polish:not(.vc-cine-curtain-off):not(.vc-page-cine-ready)," +
       "html.vc-site-polish:not(.vc-cine-curtain-off):not(.vc-page-cine-ready) body," +
       "html.vc-page-cine-boot:not(.vc-cine-curtain-off):not(.vc-page-cine-ready)," +
       "html.vc-page-cine-boot:not(.vc-cine-curtain-off):not(.vc-page-cine-ready) body," +
-      "html.vc-site-polish:not(.vc-soft-fx-ready):not(.vc-soft-fx-off)," +
-      "html.vc-site-polish:not(.vc-soft-fx-ready):not(.vc-soft-fx-off) body{" +
+      /* scrollKill1: soft-fx gate NON deve tenere overflow:hidden a sipario alzato */
+      "html.vc-site-polish:not(.vc-cine-curtain-off):not(.vc-page-cine-ready):not(.vc-soft-fx-ready):not(.vc-soft-fx-off)," +
+      "html.vc-site-polish:not(.vc-cine-curtain-off):not(.vc-page-cine-ready):not(.vc-soft-fx-ready):not(.vc-soft-fx-off) body{" +
       "overflow:hidden!important;overflow-x:hidden!important;overflow-y:hidden!important;" +
-      "overscroll-behavior:none!important;touch-action:none!important;" +
+      "overscroll-behavior:none!important;touch-action:none!important;pointer-events:auto!important;" +
       "height:100%!important;max-height:100dvh!important}" +
+      "html.vc-site-polish:not(.vc-cine-curtain-off) *,html.vc-page-cine-boot:not(.vc-cine-curtain-off) *{" +
+      "touch-action:none!important;overscroll-behavior:none!important}" +
+      /* gestureLockBoot1: curtain-off libera SOLO senza lock/barra/load */
+      "html.vc-cine-curtain-off:not(.vc-chrome-bar-loading):not(.vc-loading-scroll-lock):not(.vc-loader-blocking-live):not(.vc-interaction-hold)," +
+      "html.vc-page-cine-ready:not(.vc-chrome-bar-loading):not(.vc-loading-scroll-lock):not(.vc-loader-blocking-live):not(.vc-interaction-hold)," +
+      "html.vc-cine-curtain-off.vc-scroll-reload-top-lock:not(.vc-chrome-bar-loading)," +
+      "html.vc-page-cine-ready.vc-scroll-reload-top-lock:not(.vc-chrome-bar-loading){" +
+      "overflow-x:hidden!important;overflow-y:auto!important;" +
+      "overscroll-behavior:auto!important;touch-action:pan-y!important;" +
+      "height:auto!important;max-height:none!important}" +
+      "html.vc-cine-curtain-off:not(.vc-chrome-bar-loading):not(.vc-loading-scroll-lock):not(.vc-loader-blocking-live):not(.vc-interaction-hold) body," +
+      "html.vc-page-cine-ready:not(.vc-chrome-bar-loading):not(.vc-loading-scroll-lock):not(.vc-loader-blocking-live):not(.vc-interaction-hold) body," +
+      "html.vc-cine-curtain-off.vc-scroll-reload-top-lock:not(.vc-chrome-bar-loading) body," +
+      "html.vc-page-cine-ready.vc-scroll-reload-top-lock:not(.vc-chrome-bar-loading) body{" +
+      "overflow:visible!important;overflow-x:visible!important;overflow-y:visible!important;" +
+      "touch-action:pan-y!important;height:auto!important;max-height:none!important;" +
+      "position:static!important;top:auto!important}" +
       "html,body{overflow-anchor:none}" +
       "html.vc-page-cine-ready,html.vc-page-cine-ready body{overflow-anchor:none}" +
       /* bootNoPreGrad1: hide UI until curtain-off AND soft-fx (gradients) */
@@ -321,50 +825,115 @@
       "bottom:0!important;left:0!important;width:100vw!important;height:100dvh!important;" +
       "z-index:2147483000!important;margin:0!important;padding:0!important;border:0!important;" +
       "background:#100c09!important;opacity:1!important;visibility:visible!important;" +
-      "pointer-events:auto!important}" +
-      "html.vc-cine-curtain-off.vc-soft-fx-ready #vc-cine-boot-curtain," +
+      "pointer-events:auto!important;touch-action:none!important;overscroll-behavior:none!important}" +
+      /* bootReadyPaint1: sipario giù solo con soft-fx AND look-core (come home) */
+      "html.vc-cine-curtain-off.vc-soft-fx-ready.vc-look-core-ready #vc-cine-boot-curtain," +
       "html.vc-cine-curtain-off.vc-soft-fx-off #vc-cine-boot-curtain," +
-      "html.vc-cine-curtain-off.vc-soft-fx-ready::before," +
+      "html.vc-cine-curtain-off.vc-soft-fx-ready.vc-look-core-ready::before," +
       "html.vc-cine-curtain-off.vc-soft-fx-off::before{" +
       "display:none!important;opacity:0!important;visibility:hidden!important;pointer-events:none!important}" +
+      "html.vc-site-polish:not(.vc-look-core-ready):not(.vc-soft-fx-off)::before{" +
+      "content:\"\"!important;position:fixed!important;inset:0!important;" +
+      "z-index:2147482990!important;background:#100c09!important;opacity:1!important;" +
+      "visibility:visible!important;pointer-events:auto!important;display:block!important}" +
       /* loadScrollLockFs1 / barScrollLock1 / hamScrollBarGate1: ready sblocca scroll SOLO senza loader/lock/hold/barra */
-      "html.vc-page-cine-ready:not(.vc-loading-scroll-lock):not(.vc-loader-blocking-live):not(.vc-interaction-hold):not(.vc-chrome-bar-loading):not(:has(#vc-site-progress.is-loading)):not(.vc-user-leader-pending):not(.vc-user-profile-pending):not(.vc-rank-customize-pending):not(.vc-custom-profile-pending):not(.vc-session-verify-pending):not(.vc-notif-staff-loading)," +
-      "html.vc-page-cine-ready:not(.vc-loading-scroll-lock):not(.vc-loader-blocking-live):not(.vc-interaction-hold):not(.vc-chrome-bar-loading):not(:has(#vc-site-progress.is-loading)):not(.vc-user-leader-pending):not(.vc-user-profile-pending):not(.vc-rank-customize-pending):not(.vc-custom-profile-pending):not(.vc-session-verify-pending):not(.vc-notif-staff-loading) body{" +
+      /* themeScrollFix1: SOLO html scrolla — body overflow-y:auto doppio rompe drag scrollbar */
+      "html.vc-page-cine-ready:not(.vc-loading-scroll-lock):not(.vc-loader-blocking-live):not(.vc-chrome-bar-loading):not(.vc-user-leader-pending):not(.vc-user-profile-pending):not(.vc-rank-customize-pending):not(.vc-custom-profile-pending):not(.vc-session-verify-pending):not(.vc-notif-staff-loading){" +
       "overflow-x:hidden!important;overflow-y:auto!important;" +
       "overscroll-behavior:auto!important;touch-action:auto!important;" +
+      "height:auto!important;max-height:none!important;" +
+      /* hideScrollGutter0: zero spazio barra pagina */
+      "scrollbar-width:none!important;scrollbar-gutter:auto!important;-ms-overflow-style:none!important}" +
+      "html.vc-page-cine-ready:not(.vc-loading-scroll-lock):not(.vc-loader-blocking-live):not(.vc-chrome-bar-loading):not(.vc-user-leader-pending):not(.vc-user-profile-pending):not(.vc-rank-customize-pending):not(.vc-custom-profile-pending):not(.vc-session-verify-pending):not(.vc-notif-staff-loading) body{" +
+      "overflow:visible!important;overflow-x:visible!important;overflow-y:visible!important;" +
+      "overscroll-behavior:auto!important;touch-action:pan-y!important;" +
       "height:auto!important;max-height:none!important}" +
+      "html.vc-page-cine-ready:not(.vc-chrome-bar-loading):not(.vc-loading-scroll-lock)::-webkit-scrollbar," +
+      "html.vc-page-cine-ready:not(.vc-chrome-bar-loading):not(.vc-loading-scroll-lock) body::-webkit-scrollbar{" +
+      "width:0!important;height:0!important;display:none!important;background:transparent!important}" +
+      "html.vc-page-cine-ready:not(.vc-chrome-bar-loading):not(.vc-loading-scroll-lock)::-webkit-scrollbar-thumb," +
+      "html.vc-page-cine-ready:not(.vc-chrome-bar-loading):not(.vc-loading-scroll-lock)::-webkit-scrollbar-track{" +
+      "display:none!important;background:transparent!important}" +
+      /* gestureLockBoot1: lock load/barra = nessuna gesture (anche post curtain-off) */
       "html.vc-loading-scroll-lock,html.vc-loading-scroll-lock body," +
       "html.vc-loader-blocking-live,html.vc-loader-blocking-live body," +
-      "html.vc-interaction-hold,html.vc-interaction-hold body," +
       "html.vc-chrome-bar-loading,html.vc-chrome-bar-loading body," +
-      "html:has(#vc-site-progress.is-loading),html:has(#vc-site-progress.is-loading) body," +
       "html.vc-page-cine-ready.vc-loading-scroll-lock,html.vc-page-cine-ready.vc-loading-scroll-lock body," +
       "html.vc-page-cine-ready.vc-loader-blocking-live,html.vc-page-cine-ready.vc-loader-blocking-live body," +
-      "html.vc-page-cine-ready.vc-interaction-hold,html.vc-page-cine-ready.vc-interaction-hold body," +
       "html.vc-page-cine-ready.vc-chrome-bar-loading,html.vc-page-cine-ready.vc-chrome-bar-loading body," +
-      "html.vc-page-cine-ready:has(#vc-site-progress.is-loading),html.vc-page-cine-ready:has(#vc-site-progress.is-loading) body," +
-      "html:has(.vc-ul-loading:not([hidden])),html:has(.vc-ul-loading:not([hidden])) body," +
-      "html:has(#vc-roles-loading:not([hidden])),html:has(#vc-roles-loading:not([hidden])) body," +
-      "html:has(#vc-staff-loading:not([hidden]):not(.vc-staff-loading--hidden)),html:has(#vc-staff-loading:not([hidden]):not(.vc-staff-loading--hidden)) body," +
-      "html:has(#vc-shared-boot-overlay:not([hidden])),html:has(#vc-shared-boot-overlay:not([hidden])) body," +
-      "html:has(.vc-session-verify-overlay:not(.vc-session-verify-overlay--hidden)),html:has(.vc-session-verify-overlay:not(.vc-session-verify-overlay--hidden)) body{" +
+      "html.vc-cine-curtain-off.vc-loading-scroll-lock,html.vc-cine-curtain-off.vc-loading-scroll-lock body," +
+      "html.vc-cine-curtain-off.vc-loader-blocking-live,html.vc-cine-curtain-off.vc-loader-blocking-live body," +
+      "html.vc-cine-curtain-off.vc-chrome-bar-loading,html.vc-cine-curtain-off.vc-chrome-bar-loading body," +
+      "html.vc-user-leader-pending,html.vc-user-leader-pending body," +
+      "html.vc-user-profile-pending,html.vc-user-profile-pending body," +
+      "html.vc-rank-customize-pending,html.vc-rank-customize-pending body," +
+      "html.vc-custom-profile-pending,html.vc-custom-profile-pending body," +
+      "html.vc-session-verify-pending,html.vc-session-verify-pending body," +
+      "html.vc-notif-staff-loading,html.vc-notif-staff-loading body," +
+      "html.vc-chrome-bar-loading,html.vc-chrome-bar-loading body," +
+      "html.vc-loading-scroll-lock,html.vc-loading-scroll-lock body{" +
       "overflow:hidden!important;overflow-x:hidden!important;overflow-y:hidden!important;" +
-      "overscroll-behavior:none!important;touch-action:none!important;" +
+      "overscroll-behavior:none!important;touch-action:none!important;pointer-events:auto!important;" +
       "height:100%!important;max-height:100dvh!important;" +
       "scrollbar-width:none!important}" +
-      "html.vc-chrome-bar-loading::-webkit-scrollbar," +
-      "html.vc-loading-scroll-lock::-webkit-scrollbar," +
-      "html.vc-interaction-hold::-webkit-scrollbar," +
-      "html:has(#vc-site-progress.is-loading)::-webkit-scrollbar{width:0!important;height:0!important;display:none!important}" +
+      "html.vc-loading-scroll-lock *,html.vc-loader-blocking-live *,html.vc-chrome-bar-loading *," +
+      "html.vc-interaction-hold *{" +
+      "touch-action:none!important;overscroll-behavior:none!important}" +
+      "html.vc-interaction-hold,html.vc-interaction-hold body," +
+      "html.vc-page-cine-ready.vc-interaction-hold,html.vc-page-cine-ready.vc-interaction-hold body{" +
+      "touch-action:none!important;pointer-events:auto!important}" +
+      /* bootOneShot2 + gestureLockBoot1: lock barra anche se curtain già off */
+      "html.vc-chrome-bar-loading," +
+      "html.vc-chrome-bar-loading body," +
+      "html.vc-loading-scroll-lock," +
+      "html.vc-loading-scroll-lock body," +
+      "html.vc-loader-blocking-live," +
+      "html.vc-loader-blocking-live body{" +
+      "overflow:hidden!important;overflow-x:hidden!important;overflow-y:hidden!important;" +
+      "overscroll-behavior:none!important;touch-action:none!important;" +
+      "height:100%!important;max-height:100dvh!important;scrollbar-width:none!important}" +
+      "html.vc-loading-scroll-lock:not(.vc-cine-curtain-off)::-webkit-scrollbar," +
+      "html.vc-loader-blocking-live:not(.vc-cine-curtain-off)::-webkit-scrollbar," +
+      "html.vc-chrome-bar-loading:not(.vc-cine-curtain-off)::-webkit-scrollbar{" +
+      "width:0!important;height:0!important;display:none!important}" +
+      /* gestureLockBoot1: sipario giù scrolla SOLO senza lock/barra/load */
+      "html.vc-cine-curtain-off:not(.vc-chrome-bar-loading):not(.vc-loading-scroll-lock):not(.vc-loader-blocking-live):not(.vc-interaction-hold)," +
+      "html.vc-cine-curtain-off.vc-scroll-reload-top-lock:not(.vc-chrome-bar-loading):not(.vc-loading-scroll-lock)," +
+      "html.vc-cine-curtain-off.vc-user-leader-pending:not(.vc-chrome-bar-loading)," +
+      "html.vc-cine-curtain-off.vc-user-profile-pending:not(.vc-chrome-bar-loading)," +
+      "html.vc-cine-curtain-off.vc-rank-customize-pending:not(.vc-chrome-bar-loading)," +
+      "html.vc-cine-curtain-off.vc-custom-profile-pending:not(.vc-chrome-bar-loading)," +
+      "html.vc-cine-curtain-off.vc-session-verify-pending:not(.vc-chrome-bar-loading)," +
+      "html.vc-cine-curtain-off.vc-notif-staff-loading:not(.vc-chrome-bar-loading){" +
+      "overflow-x:hidden!important;overflow-y:auto!important;" +
+      "overscroll-behavior:auto!important;touch-action:pan-y!important;" +
+      "height:auto!important;max-height:none!important;scrollbar-width:none!important;scrollbar-gutter:auto!important;-ms-overflow-style:none!important}" +
+      "html.vc-cine-curtain-off:not(.vc-chrome-bar-loading):not(.vc-loading-scroll-lock):not(.vc-loader-blocking-live):not(.vc-interaction-hold) body," +
+      "html.vc-cine-curtain-off.vc-scroll-reload-top-lock:not(.vc-chrome-bar-loading) body," +
+      "html.vc-cine-curtain-off.vc-user-profile-pending:not(.vc-chrome-bar-loading) body," +
+      "html.vc-cine-curtain-off.vc-session-verify-pending:not(.vc-chrome-bar-loading) body{" +
+      "overflow:visible!important;overflow-x:visible!important;overflow-y:visible!important;" +
+      "touch-action:pan-y!important;height:auto!important;max-height:none!important;" +
+      "position:static!important;top:auto!important}" +
       /* interactHold1: anche se il sipario glitcha, niente click su chrome a metà boot */
-      /* vcLoadingCursorBack1: cursore loading = :VC_Loading: a raggi (PNG).
-         Fallback auto — MAI wait (anello blu Windows). */
-      "html.vc-interaction-hold,html.vc-interaction-hold body,html.vc-interaction-hold *{" +
-      "cursor:url('/images/vc-loading-cursor.png?v=20260920vcLoadingCursorClean1') 16 16, auto!important}" +
+      /* cursorMqStable1: URL solo html/body; * inherit — loading solo su controllo busy */
+      "html.vc-site-cursor-ok," +
+      "html.vc-site-cursor-ok body," +
+      "html.vc-site-cursor-ok.vc-interaction-hold," +
+      "html.vc-site-cursor-ok.vc-interaction-hold body," +
+      "html.vc-site-cursor-ok.vc-chrome-bar-loading," +
+      "html.vc-site-cursor-ok.vc-chrome-bar-loading body," +
+      "html.vc-site-cursor-ok.vc-loading-scroll-lock," +
+      "html.vc-site-cursor-ok.vc-loading-scroll-lock body{" +
+      "cursor:url(/images/musicrecordspin-cursor-static.png) 12 12," +
+      "url(/images/musicrecordspin-cursor-static.png) 12 12, auto!important}" +
+      "html.vc-site-cursor-ok.vc-interaction-hold *," +
+      "html.vc-site-cursor-ok *{cursor:inherit!important}" +
       "html body :is(.is-loading,.is-saving,.is-refreshing,:disabled,[aria-busy='true']," +
       ".vc-candidature-submit--loading,.vc-rank-editor-save.is-saving," +
       ".vc-kick-pip__play.is-loading){" +
-      "cursor:url('/images/vc-loading-cursor.png?v=20260920vcLoadingCursorClean1') 16 16, auto!important}" +
+      "cursor:url('/images/vc-loading-cursor.png?v=20260920vcLoadingCursorClean1') 16 16," +
+      "url(/images/musicrecordspin-cursor-static.png) 12 12, auto!important}" +
       "html.vc-interaction-hold body>header," +
       "html.vc-interaction-hold body>main," +
       "html.vc-interaction-hold body>footer," +
@@ -412,7 +981,7 @@
       try {
         var existingGate = document.getElementById("vc-cine-noflash-gate-css");
         if (existingGate) {
-          existingGate.setAttribute("data-vc", "bootNoPreGrad3");
+          existingGate.setAttribute("data-vc", "hangKill4");
           existingGate.textContent = cineGate;
         }
       } catch (eGateUp) {}
@@ -447,13 +1016,19 @@
     function ensureBootCurtain() {
       try {
         if (root.classList.contains("vc-cine-curtain-off")) return;
-        /* ready senza boot: non lasciare il sipario montato (bug PWA recover) */
+        /* bootOneShot3: ready precoce (home-cine) NON forza sipario prima di chrome */
         if (
           root.classList.contains("vc-page-cine-ready") &&
           !root.classList.contains("vc-page-cine-boot") &&
           !root.classList.contains("vc-interaction-hold")
         ) {
-          liftBootCurtain(true);
+          if (
+            window.__vcChromeLoadDone === true ||
+            window.__vcChromeVisualReady === 1 ||
+            canLiftCurtainNow(false)
+          ) {
+            liftBootCurtain(false);
+          }
           return;
         }
         var cur = document.getElementById("vc-cine-boot-curtain");
@@ -472,22 +1047,40 @@
 
     function chromeSettleReady() {
       try {
-        if (document.readyState === "loading") return false;
+        /* bootBolt1: non bloccare sipario su DCL (HTML lunghi ~1s+) — basta body */
+        if (!document.body) return false;
       } catch (eRs) {
         return false;
       }
-      try {
-        if (document.querySelector('script[src*="vc-i18n"]')) {
-          if (!window.VcI18n || typeof window.VcI18n.apply !== "function") return false;
-        }
-      } catch (eI18) {}
       return true;
+    }
+
+    function clearChromeBarGate() {
+      /* bootBarGate1c: NON settare LoadDone=true (ammazzava armLoadProgress).
+         Togli lock solo dopo chrome-ui finish o failsafe età lungo. */
+      try {
+        var age = Date.now() - Number(window.__vcCineBootStartedAt || Date.now());
+        if (!window.__vcChromeUiBooted && age < 1600) return;
+        if (window.__vcChromeUiBooted && window.__vcChromeLoadDone === false && age < 2000) return;
+        var prog = document.getElementById("vc-site-progress");
+        if (prog && prog.classList.contains("is-loading") && age < 2000) return;
+        if (root.classList.contains("vc-chrome-bar-loading") && age < 1600) return;
+      } catch (eGate) {}
+      try {
+        root.classList.remove("vc-chrome-bar-loading", "vc-loading-scroll-lock");
+      } catch (eClrBar) {}
+      try {
+        /* solo scroll-armed se chrome ha già chiuso la barra; altrimenti lascia a chrome-ui */
+        if (window.__vcChromeLoadDone === true) {
+          window.__vcChromeScrollArmed = true;
+          root.classList.add("vc-chrome-scroll-armed");
+        }
+      } catch (eArm) {}
     }
 
     function landBootScrollAfterReveal() {
       try {
         if (window.__vcBootRevealLanded) return;
-        window.__vcBootRevealLanded = true;
         var h = String(location.hash || "").replace(/^#/, "");
         var deepLink = Boolean(h && h.indexOf("access_token=") !== 0) || isHashDeepLinkNav();
         /* notifHashYoYo1: disarm SEMPRE (anche con hash) — prima i guard restavano pinY=0 */
@@ -497,23 +1090,52 @@
         if (!deepLink) {
           var restoreY = 0;
           try {
-            restoreY = Math.max(
-              0,
-              Number(window.__vcPtrRestoreTargetY || 0) || 0,
-              Number(window.__vcPtrRestoreY || 0) || 0,
-              Number(window.__vcViewStateRestoreY || 0) || 0,
-            );
-            if (restoreY < 2) {
-              var attr = document.documentElement.getAttribute("data-vc-ptr-restore-y");
-              restoreY = Math.max(0, Number(attr || 0) || 0);
+            /* classFlash4: su classifiche ignora SEMPRE restoreY stale (ex personalizza) —
+               anche con ptr-pending spoof — yank mid continuo altrimenti */
+            var pathNow = String((location && location.pathname) || "").replace(/\/+$/, "") || "/";
+            var isLeader =
+              pathNow === "/classifiche" ||
+              document.documentElement.classList.contains("vc-user-leader-route") ||
+              document.documentElement.classList.contains("vc-user-leader-pending");
+            var ptrPending = document.documentElement.classList.contains("vc-ptr-scroll-restore-pending");
+            var ptrReload = false;
+            try {
+              ptrReload = sessionStorage.getItem("vc_ptr_reload_v1") === "1";
+            } catch (ePtrR) {}
+            if (isLeader && !(ptrPending && ptrReload)) {
+              window.__vcPtrRestoreTargetY = 0;
+              window.__vcPtrRestoreY = 0;
+              window.__vcViewStateRestoreY = 0;
+              window.__vcDiscardScrollRestore = 1;
+              document.documentElement.removeAttribute("data-vc-ptr-restore-y");
+              restoreY = 0;
+            } else {
+              restoreY = Math.max(
+                0,
+                Number(window.__vcPtrRestoreTargetY || 0) || 0,
+                Number(window.__vcPtrRestoreY || 0) || 0,
+                Number(window.__vcViewStateRestoreY || 0) || 0,
+                Number(window.__vcRestoredScrollStickyY || 0) || 0,
+              );
+              if (restoreY < 2) {
+                var attr = document.documentElement.getAttribute("data-vc-ptr-restore-y");
+                restoreY = Math.max(0, Number(attr || 0) || 0);
+              }
+              /* ptrScrollYoYoKill1: idrata da session se window vars ancora vuoti */
+              if (restoreY < 2) {
+                try {
+                  var rawLand =
+                    sessionStorage.getItem("vc_scroll_restore_anchor_v1") ||
+                    sessionStorage.getItem("vc_ptr_scroll_v1");
+                  if (rawLand) {
+                    var dataLand = JSON.parse(rawLand);
+                    var yLand = Math.max(0, Math.round(Number(dataLand && dataLand.y) || 0));
+                    if (yLand >= 2) restoreY = yLand;
+                  }
+                } catch (eSesLand) {}
+              }
             }
           } catch (eRy) {}
-          var yNow = Math.max(bootScrollY(), Number(bootScrollIntentY) || 0, restoreY);
-          try {
-            if (typeof window.__vcBootScrollIntentY === "number") {
-              yNow = Math.max(yNow, Number(window.__vcBootScrollIntentY) || 0);
-            }
-          } catch (eIntY) {}
           /* scrollReloadNoYank1: se c'è restore, NON scrollare qui.
              I boot-guard (pinY=0) riportavano su → yo-yo ~1s. Finalize fa UN salto. */
           var keepUserScroll = restoreY > 24;
@@ -527,21 +1149,12 @@
             bootScrollPinY = restoreY;
             try {
               if (typeof window.__vcPtrFinalizeScroll === "function") {
+                /* bootViolSnap1: un solo finalize (era 60+450+1200 → Violation) */
                 window.setTimeout(function () {
                   try {
                     window.__vcPtrFinalizeScroll();
                   } catch (eF2) {}
-                }, 60);
-                window.setTimeout(function () {
-                  try {
-                    window.__vcPtrFinalizeScroll();
-                  } catch (eF3) {}
-                }, 450);
-                window.setTimeout(function () {
-                  try {
-                    window.__vcPtrFinalizeScroll();
-                  } catch (eF4) {}
-                }, 1200);
+                }, 80);
               }
             } catch (eFin) {}
           } else {
@@ -559,12 +1172,27 @@
             try {
               document.documentElement.classList.remove("vc-scroll-reload-top-lock");
             } catch (eUnlock) {}
-            forceBootScrollTop();
+            /* scrollPostSiparioYoyo1: se l'utente ha già scrollato, non hard-top */
+            var liveLandY = 0;
             try {
-              window.requestAnimationFrame(function () {
-                forceBootScrollTop();
-              });
-            } catch (eRafTop) {}
+              liveLandY = Math.max(0, Math.round(Number(bootScrollY()) || 0));
+            } catch (eLiveLand) {
+              liveLandY = 0;
+            }
+            if (liveLandY < 24) {
+              /* bootNoFooter1 + bootViolSnap1: uno snap sync + un rAF.
+                 I setTimeout 120/380 erano Violation Forced reflow ~260ms su OGNI pagina. */
+              forceBootScrollTop({ hard: true });
+              try {
+                window.requestAnimationFrame(function () {
+                  try {
+                    if (Math.max(0, Math.round(Number(bootScrollY()) || 0)) < 24) {
+                      forceBootScrollTop({ hard: true });
+                    }
+                  } catch (eRafChk) {}
+                });
+              } catch (eRafTop) {}
+            }
           }
         } else {
           try {
@@ -577,97 +1205,149 @@
         try {
           document.dispatchEvent(new CustomEvent("vc:cine-curtain-off"));
         } catch (eEv) {}
+        try {
+          window.__vcBootRevealLanded = true;
+        } catch (eLanded) {}
       } catch (eTop2) {}
     }
 
     function finishReleaseInteractionHold() {
       if (releaseHoldDone) return;
-      /* bootNoPreGrad1: aspetta soft-fx (gradient) prima del reveal — meglio sipario che flash flat */
+      /* bootBolt1: sipario appena core+look(+theme); no photo decode, no 2×rAF+90 */
       try {
         var waitCss = !landingCssReady() && !softFxIntentionallyOff();
         var age = Date.now() - Number(window.__vcCineBootStartedAt || bootStartedAt || Date.now());
-        var softFailMs = HARD_FAILSAFE_MS + 2400;
+        var softFailMs = HARD_FAILSAFE_MS + 800;
         if (waitCss && age < softFailMs) {
           releaseHoldScheduled = false;
           scheduleReleaseInteractionHold();
           return;
         }
-        /* bootNoPreGrad3: aspetta decode foto cine (breve) prima di alzare sipario */
-        if (!cineBgPaintReady() && age < Math.min(softFailMs, 1800)) {
-          releaseHoldScheduled = false;
-          scheduleReleaseInteractionHold();
-          return;
-        }
       } catch (eSoftHold) {}
+      /* ancora senza CSS a failsafe? tieni sipario, marca solo hold off per click — no fake ready */
+      var cssOk = false;
+      try {
+        cssOk = landingCssReady() || softFxIntentionallyOff();
+      } catch (eCssOk) {}
+      if (!cssOk) {
+        try {
+          root.classList.remove("vc-interaction-hold");
+        } catch (eHoldOnly) {}
+        releaseHoldScheduled = false;
+        window.setTimeout(function () {
+          try {
+            scheduleReleaseInteractionHold();
+          } catch (eRe) {}
+        }, 48);
+        return;
+      }
       releaseHoldDone = true;
       function go() {
         try {
-          if (landingCssReady() || softFxIntentionallyOff()) {
-            root.classList.add("vc-soft-fx-ready");
-          } else if (!root.classList.contains("vc-soft-fx-ready")) {
-            root.classList.add("vc-soft-fx-ready");
+          if (!themeSheetsReady()) {
+            releaseHoldDone = false;
+            releaseHoldScheduled = false;
+            scheduleReleaseInteractionHold();
+            return;
           }
+        } catch (eThGo) {}
+        /* loadGateOnce2: non alzare sipario finché barra/loader-gate bloccano */
+        try {
+          if (!canLiftCurtainNow(false)) {
+            releaseHoldDone = false;
+            releaseHoldScheduled = false;
+            scheduleReleaseInteractionHold();
+            return;
+          }
+        } catch (eLiftWait) {}
+        try {
+          root.classList.add("vc-look-core-ready", "vc-soft-fx-ready", "vc-theme-light-ready");
         } catch (eSoftMark) {}
         try {
           root.classList.remove("vc-interaction-hold");
         } catch (eHold) {}
         try {
           root.classList.add("vc-cine-curtain-off");
+          root.classList.remove("vc-page-cine-boot");
         } catch (eOff) {}
+        try {
+          clearChromeBarGate();
+        } catch (eBar) {}
         try {
           var cur = document.getElementById("vc-cine-boot-curtain");
           if (cur && cur.parentNode) cur.parentNode.removeChild(cur);
         } catch (eRm) {}
-        /* violPass4: unlock spezzato — un handler non deve fare unlock+disarm+land insieme */
-        /* violPass7: land ancora più tardi e in macrotask isolato (era ~310ms Violation) */
+        try {
+          kickSecondaryChromeReady();
+        } catch (eChromeKick) {}
         window.setTimeout(function () {
           try {
             forceUnlockPageScroll();
           } catch (eForce) {}
+          try {
+            window.__vcBootScrollGuardsKilled = 1;
+            disarmBootScrollGuards();
+          } catch (eDis) {}
         }, 0);
         window.setTimeout(function () {
           try {
-            maybeDisarmBootScrollGuards();
-          } catch (eDis) {}
-        }, 80);
-        window.setTimeout(function () {
-          window.setTimeout(function () {
-            try {
-              landBootScrollAfterReveal();
-            } catch (eLand) {}
-          }, 0);
-        }, 200);
+            landBootScrollAfterReveal();
+          } catch (eLand) {}
+        }, 32);
       }
+      /* bootBolt1: 1 rAF — sheetHasRules già true, niente delay artificiale */
       try {
-        window.setTimeout(go, phone || standalone ? 80 : 140);
+        window.requestAnimationFrame(go);
       } catch (eRaf) {
-        go();
+        window.setTimeout(go, 0);
       }
     }
 
     function forceClearInteractionHold() {
+      /* bootReadyPaint1: togli hold; curtain-off solo se CSS davvero pronto (no fake soft-fx) */
+      var alreadyOpen = false;
       try {
-        var age =
-          Date.now() - Number(window.__vcCineBootStartedAt || bootStartedAt || Date.now());
-        if (!root.classList.contains("vc-soft-fx-ready") && !softFxIntentionallyOff()) {
-          if (landingCssReady() || age >= HARD_FAILSAFE_MS + 2400) {
-            root.classList.add("vc-soft-fx-ready");
-          }
+        alreadyOpen =
+          root.classList.contains("vc-cine-curtain-off") ||
+          window.__vcChromeVisualReady === 1 ||
+          window.__vcChromeLoadDone === true;
+      } catch (eOpen) {}
+      try {
+        if (landingCssReady() || softFxIntentionallyOff()) {
+          root.classList.add("vc-look-core-ready", "vc-soft-fx-ready");
+          if (themeSheetsReady()) root.classList.add("vc-theme-light-ready");
         }
       } catch (eSoftForce) {}
       try {
         root.classList.remove("vc-interaction-hold");
       } catch (eClr) {}
+      /* bootHoldJump1: hold fantasma post-open → solo strip class, ZERO unlock/unpin (yank fondo) */
+      if (alreadyOpen) {
+        releaseHoldDone = true;
+        releaseHoldScheduled = false;
+        return;
+      }
       try {
-        if (root.classList.contains("vc-soft-fx-ready") || softFxIntentionallyOff()) {
+        if (
+          ((root.classList.contains("vc-soft-fx-ready") && root.classList.contains("vc-look-core-ready")) ||
+            softFxIntentionallyOff()) &&
+          themeSheetsReady() &&
+          canLiftCurtainNow(false)
+        ) {
+          root.classList.add("vc-theme-light-ready");
           root.classList.add("vc-cine-curtain-off");
+          root.classList.remove("vc-page-cine-boot");
         }
       } catch (eOff) {}
+      try {
+        clearChromeBarGate();
+      } catch (eBar2) {}
       try {
         forceUnlockPageScroll();
       } catch (eUn) {}
       try {
-        maybeDisarmBootScrollGuards();
+        window.__vcBootScrollGuardsKilled = 1;
+        disarmBootScrollGuards();
       } catch (eDis) {}
       releaseHoldDone = true;
       releaseHoldScheduled = false;
@@ -688,10 +1368,10 @@
         n += 1;
         var hard = false;
         try {
-          /* bootNoPreGrad1: aspetta soft-fx fino a ~2.4s prima del hard release */
+          /* bootBolt1: hard più corto */
           hard =
             Date.now() - Number(window.__vcCineBootStartedAt || bootStartedAt || Date.now()) >=
-            HARD_FAILSAFE_MS + 2400;
+            HARD_FAILSAFE_MS + 800;
         } catch (eHard) {}
         var softOk = false;
         try {
@@ -701,7 +1381,7 @@
           finishReleaseInteractionHold();
           return;
         }
-        window.setTimeout(tick, 40);
+        window.setTimeout(tick, 12);
       }
       function start() {
         window.setTimeout(tick, 0);
@@ -717,19 +1397,31 @@
       }
     }
 
-    /* holdFreezeKill1: watchdog globale — hold morto = cursore loading + click bloccati */
+    /* holdFreezeKill1 + jsWakeIdle2: watchdog hold — MAI interval eterno
+       (return early ogni 500ms = 2 wake/s → 1k riattivazioni in ~8 min). */
     try {
-      window.setInterval(function () {
-        try {
-          if (!root.classList.contains("vc-interaction-hold")) return;
-          if (!root.classList.contains("vc-page-cine-ready") && !root.classList.contains("vc-cine-curtain-off")) {
-            return;
-          }
-          var age = Date.now() - Number(window.__vcCineBootStartedAt || bootStartedAt || Date.now());
-          if (age < HARD_FAILSAFE_MS + 2400) return;
-          forceClearInteractionHold();
-        } catch (eWd) {}
-      }, 700);
+      if (!window.__vcHoldWatchArmed) {
+        window.__vcHoldWatchArmed = 1;
+        var holdWatchN = 0;
+        var holdWatchIv = window.setInterval(function () {
+          holdWatchN += 1;
+          try {
+            var holdOn = root.classList.contains("vc-interaction-hold");
+            var ready =
+              root.classList.contains("vc-page-cine-ready") ||
+              root.classList.contains("vc-cine-curtain-off");
+            if (!holdOn || holdWatchN >= 40) {
+              window.clearInterval(holdWatchIv);
+              return;
+            }
+            if (!ready) return;
+            var age = Date.now() - Number(window.__vcCineBootStartedAt || bootStartedAt || Date.now());
+            if (age < HARD_FAILSAFE_MS + 900) return;
+            forceClearInteractionHold();
+            window.clearInterval(holdWatchIv);
+          } catch (eWd) {}
+        }, 500);
+      }
     } catch (eWdArm) {}
 
     function liftBootCurtain(force) {
@@ -739,30 +1431,46 @@
           return;
         }
       } catch (eGate) {}
+      /* schedaBootCue1: force=false non alza sipario su scheda pending */
+      try {
+        if (!force && boardsViewStillPending()) return;
+      } catch (eBdLift) {}
       try {
         root.classList.remove("vc-interaction-hold");
       } catch (eHoldOff) {}
       try {
-        /* bootNoPreGrad1: curtain-off solo con soft-fx (o force dopo failsafe) */
+        /* bootReadyPaint1 + homeParityThemeGate1: soft+look(+theme-light) reali */
+        if (landingCssReady() || softFxIntentionallyOff()) {
+          root.classList.add("vc-look-core-ready", "vc-soft-fx-ready");
+          if (themeSheetsReady()) root.classList.add("vc-theme-light-ready");
+        }
         if (
-          force ||
-          root.classList.contains("vc-soft-fx-ready") ||
-          softFxIntentionallyOff() ||
-          landingCssReady()
+          (((root.classList.contains("vc-soft-fx-ready") && root.classList.contains("vc-look-core-ready")) ||
+            softFxIntentionallyOff() ||
+            (force && (landingCssReady() || softFxIntentionallyOff()))) &&
+            themeSheetsReady())
         ) {
-          if (!root.classList.contains("vc-soft-fx-ready") && !softFxIntentionallyOff()) {
-            root.classList.add("vc-soft-fx-ready");
+          if (!(boardsViewStillPending() && !force) && canLiftCurtainNow(force)) {
+            root.classList.add("vc-theme-light-ready");
+            root.classList.add("vc-cine-curtain-off");
+            root.classList.remove("vc-page-cine-boot");
+            try {
+              root.classList.remove("vc-boot-loader-gate");
+              root.removeAttribute("data-vc-boot-loader");
+            } catch (eGateLift) {}
+            try {
+              clearChromeBarGate();
+            } catch (eBar3) {}
+            try {
+              var cur = document.getElementById("vc-cine-boot-curtain");
+              if (cur && cur.parentNode) cur.parentNode.removeChild(cur);
+            } catch (eRm) {}
+            try {
+              forceUnlockPageScroll();
+            } catch (eForceLift) {}
           }
-          root.classList.add("vc-cine-curtain-off");
         }
       } catch (eOff) {}
-      try {
-        var cur = document.getElementById("vc-cine-boot-curtain");
-        if (cur && cur.parentNode) cur.parentNode.removeChild(cur);
-      } catch (eRm) {}
-      try {
-        forceUnlockPageScroll();
-      } catch (eForceLift) {}
       releaseHoldDone = true;
     }
 
@@ -784,8 +1492,97 @@
     } catch (eCurExp) {}
 
     try {
-      root.classList.add("vc-loading-scroll-lock", "vc-interaction-hold", "vc-chrome-bar-loading");
+      /* loadGateOnce1: non riarmare hold/bar se già rivelata (era silent 2° load) */
+      if (
+        !root.classList.contains("vc-page-cine-ready") &&
+        !root.classList.contains("vc-cine-curtain-off")
+      ) {
+        root.classList.add("vc-loading-scroll-lock", "vc-interaction-hold", "vc-chrome-bar-loading");
+      }
     } catch (eLockCls) {}
+
+    /* bootBarGate1c: stub barra + lock CSS specificity > bake overflow:auto (vote/…) */
+    try {
+      (function ensureBootProgressStub() {
+        var css = document.getElementById("vc-boot-progress-stub-css");
+        var created = false;
+        if (!css) {
+          css = document.createElement("style");
+          css.id = "vc-boot-progress-stub-css";
+          created = true;
+        }
+        css.setAttribute("data-vc", "progGlowUnify1");
+        css.textContent =
+          "html.vc-site-polish.vc-page-cine-boot.vc-loading-scroll-lock:not(.vc-page-cine-ready)," +
+          "html.vc-site-polish.vc-page-cine-boot.vc-chrome-bar-loading:not(.vc-page-cine-ready)," +
+          "html.vc-page-cine-boot.vc-loading-scroll-lock:not(.vc-page-cine-ready)," +
+          "html.vc-page-cine-boot.vc-chrome-bar-loading:not(.vc-page-cine-ready)," +
+          "html.vc-site-polish.vc-loading-scroll-lock,html.vc-site-polish.vc-chrome-bar-loading," +
+          "html.vc-site-polish.vc-page-cine-boot.vc-loading-scroll-lock:not(.vc-page-cine-ready) body," +
+          "html.vc-site-polish.vc-page-cine-boot.vc-chrome-bar-loading:not(.vc-page-cine-ready) body," +
+          "html.vc-page-cine-boot.vc-loading-scroll-lock:not(.vc-page-cine-ready) body," +
+          "html.vc-page-cine-boot.vc-chrome-bar-loading:not(.vc-page-cine-ready) body," +
+          "html.vc-site-polish.vc-loading-scroll-lock body,html.vc-site-polish.vc-chrome-bar-loading body{" +
+          "overflow:hidden!important;overflow-x:hidden!important;overflow-y:hidden!important;" +
+          "overscroll-behavior:none!important;touch-action:none!important;max-height:100dvh!important}" +
+          /* progGlowUnify1: stessa sand-glow chrome-ui */
+          "#vc-site-progress{position:fixed!important;top:0!important;left:0!important;right:0!important;" +
+          "width:auto!important;z-index:2147483500!important;pointer-events:none!important;" +
+          "background:transparent!important;overflow:visible!important;contain:none!important;" +
+          "backdrop-filter:none!important;-webkit-backdrop-filter:none!important;" +
+          "filter:none!important;box-shadow:none!important}" +
+          "#vc-site-progress.is-loading{height:3px!important;opacity:1!important;visibility:visible!important;display:block!important}" +
+          "#vc-site-progress:not(.is-loading){height:3px!important;opacity:0.92!important}" +
+          "#vc-site-progress__bar{display:block!important;height:100%!important;width:100%!important;" +
+          "transform-origin:left center!important;background:#d4a888!important;" +
+          "background-image:linear-gradient(90deg,#8f6b3f,#c49a72,#e8c9a8,#fffaf3,#e8c9a8,#d4a888,#b88968)!important;" +
+          "box-shadow:0 0 4px rgba(255,250,243,.65),0 0 10px rgba(212,168,136,.8),0 0 18px rgba(184,137,104,.4)!important;" +
+          "filter:none!important;backdrop-filter:none!important}";
+        if (created) (document.head || root).appendChild(css);
+        function mountStub() {
+          var wrap = document.getElementById("vc-site-progress");
+          if (!wrap) {
+            wrap = document.createElement("div");
+            wrap.id = "vc-site-progress";
+            wrap.setAttribute("aria-hidden", "true");
+            var bar0 = document.createElement("div");
+            bar0.id = "vc-site-progress__bar";
+            wrap.appendChild(bar0);
+            (document.body || root).appendChild(wrap);
+          }
+          wrap.classList.add("is-loading");
+          function paintPct(pct) {
+            var barEl = document.getElementById("vc-site-progress__bar");
+            if (!barEl) {
+              barEl = document.createElement("div");
+              barEl.id = "vc-site-progress__bar";
+              wrap.appendChild(barEl);
+            }
+            try {
+              barEl.style.setProperty("transform", "scaleX(" + pct.toFixed(4) + ")", "important");
+            } catch (eTr) {
+              barEl.style.transform = "scaleX(" + pct.toFixed(4) + ")";
+            }
+          }
+          paintPct(0.18);
+          if (!window.__vcChromeUiBooted) {
+            var t0 = performance.now();
+            var pulse = window.setInterval(function () {
+              try {
+                if (window.__vcChromeUiBooted) {
+                  window.clearInterval(pulse);
+                  return;
+                }
+                var age = Math.min(1, (performance.now() - t0) / 2600);
+                paintPct(0.14 + age * 0.75);
+              } catch (ePulse) {}
+            }, 50);
+          }
+        }
+        if (document.body) mountStub();
+        else document.addEventListener("DOMContentLoaded", mountStub, { once: true });
+      })();
+    } catch (eStub) {}
 
     /* loadFreezeHard1: freeze totale finché hold/lock/barra top — pin Y, no yo-yo */
     var bootScrollGuardsOn = false;
@@ -815,35 +1612,71 @@
       } catch (eH) {}
       return false;
     }
-    function forceBootScrollTop() {
+    function forceBootScrollTop(opts) {
       try {
-        /* scrollReloadKillYoYo2: non azzerare durante restore scroll reload */
-        if (document.documentElement.classList.contains("vc-ptr-scroll-restore-pending")) return;
-        if (window.__vcPtrRestoreUnpinStarted && !window.__vcPtrRestoreDone) return;
+        var hard = opts && opts.hard === true;
         /* notifHashYoYo1: click notifica con #target — non strappare su/giù */
         if (isHashDeepLinkNav()) return;
-        var restoreY = Math.max(
-          0,
-          Number(window.__vcPtrRestoreTargetY || 0) || 0,
-          Number(window.__vcPtrRestoreY || 0) || 0,
-          Number(window.__vcViewStateRestoreY || 0) || 0,
-        );
-        if (restoreY > 8 && !window.__vcPtrRestoreDone) return;
-        /* scrollStayAll1: mai azzerare se l'utente ha già scrollato / pagina già ready */
-        var y =
-          window.pageYOffset ||
-          (document.documentElement && document.documentElement.scrollTop) ||
-          (document.body && document.body.scrollTop) ||
-          0;
-        if (y > 8) return;
+        var stillBooting =
+          root.classList.contains("vc-page-cine-boot") && !root.classList.contains("vc-page-cine-ready");
+        /*
+         * bootStayTop2: PRIMA il restoreY>8 faceva early-return durante il sipario →
+         * niente snap top → scroll-anchoring/clampa in FONDO. Durante boot SEMPRE top;
+         * il restore Y parte solo dopo ready (ptr/view-state con max REALE).
+         */
+        /* scrollBarTrack3c: mai hard-top se restore Y in coda (unpin azzerava dopo visual-ready) */
+        /* classFlash4: classifiche ignora restore stale — altrimenti early-return → resta mid */
+        try {
+          var pathForce = String((location && location.pathname) || "").replace(/\/+$/, "") || "/";
+          var leaderForce =
+            pathForce === "/classifiche" ||
+            root.classList.contains("vc-user-leader-route") ||
+            root.classList.contains("vc-user-leader-pending");
+          var wantRestore = Math.max(
+            0,
+            Number(window.__vcPtrRestoreTargetY || 0) || 0,
+            Number(window.__vcPtrRestoreY || 0) || 0,
+            Number(window.__vcViewStateRestoreY || 0) || 0,
+            Number(window.__vcRestoredScrollStickyY || 0) || 0,
+          );
+          if (leaderForce && window.__vcDiscardScrollRestore) {
+            wantRestore = 0;
+          }
+          /* ptrScrollYoYoKill1: se già mid / sticky restore → MAI yank a 0 (era: Done spoof → hard top) */
+          var liveForce = Math.max(0, Math.round(Number(bootScrollY()) || 0));
+          var stickyAt = Number(window.__vcRestoredScrollStickyAt || 0) || 0;
+          var stickyFresh = stickyAt && Date.now() - stickyAt < 4000;
+          if (wantRestore >= 2 && !window.__vcPtrRestoreDone) return;
+          if (wantRestore >= 2 && liveForce >= 2) return;
+          if (stickyFresh && wantRestore >= 2) return;
+          if (liveForce >= 24 && (window.__vcPtrRestoreDone || stickyFresh || window.__vcChromeVisualReady === 1)) {
+            return;
+          }
+          if (
+            wantRestore >= 2 &&
+            window.__vcChromeVisualReady === 1 &&
+            liveForce >= 2
+          ) {
+            return;
+          }
+        } catch (eWant) {}
+        if (stillBooting || hard) {
+          /* bootViolSnap1: un solo scrollTo — no scrollTop×2 (Forced reflow) */
+          bootScrollToY(0);
+          return;
+        }
+        /* scrollReloadKillYoYo2: post-ready — non azzerare se restore in unpin */
+        if (document.documentElement.classList.contains("vc-ptr-scroll-restore-pending")) return;
+        if (window.__vcPtrRestoreUnpinStarted && !window.__vcPtrRestoreDone) return;
+        /* scrollStayAll1: soft path — non azzerare mid-page / post-land */
         if (window.__vcBootRevealLanded && root.classList.contains("vc-cine-curtain-off")) return;
         if (root.classList.contains("vc-page-cine-ready") && root.classList.contains("vc-cine-curtain-off")) return;
-        window.scrollTo(0, 0);
-        if (document.documentElement) document.documentElement.scrollTop = 0;
-        if (document.body) document.body.scrollTop = 0;
+        var ySoft = Number(window.pageYOffset || 0) || 0;
+        if (ySoft > 8) return;
+        bootScrollToY(0);
       } catch (eTop) {}
     }
-    function restoreBootScrollY(y) {
+    function bootScrollToY(y) {
       var n = Math.max(0, Number(y) || 0);
       try {
         if (typeof window.scrollTo === "function") {
@@ -853,28 +1686,43 @@
             window.scrollTo(0, n);
           }
         }
-        if (document.documentElement) document.documentElement.scrollTop = n;
-        if (document.body) document.body.scrollTop = n;
-      } catch (eRest) {}
+      } catch (eScr) {}
+    }
+    function restoreBootScrollY(y) {
+      /* bootViolSnap1: un solo scrollTo */
+      bootScrollToY(y);
     }
     function bootScrollShouldBlock() {
       try {
+        /* gestureLockBoot1: blocco finché sipario O caricamento vivi */
+        if (window.__vcBootScrollGuardsKilled) return false;
         if (root.classList.contains("vc-interaction-hold")) return true;
         if (root.classList.contains("vc-loader-blocking-live")) return true;
         if (root.classList.contains("vc-loading-scroll-lock")) return true;
         if (root.classList.contains("vc-chrome-bar-loading")) return true;
+        var prog = document.getElementById("vc-site-progress");
+        if (prog && prog.classList.contains("is-loading")) return true;
+        if (curtainStillUp() && !root.classList.contains("vc-cine-curtain-off")) return true;
         if (root.classList.contains("vc-page-cine-boot") && !root.classList.contains("vc-page-cine-ready")) {
           return true;
         }
-        if (curtainStillUp() && !root.classList.contains("vc-cine-curtain-off")) return true;
-        /* cpuFreezeTrim1: niente lock eterno su flag chrome — solo durante barra is-loading */
-        var prog = document.getElementById("vc-site-progress");
-        if (prog && prog.classList.contains("is-loading")) return true;
+        /* solo dopo sipario giù + load finito → libera */
+        if (root.classList.contains("vc-page-cine-ready") && root.classList.contains("vc-cine-curtain-off")) {
+          return false;
+        }
+        if (root.classList.contains("vc-cine-curtain-off") && window.__vcChromeLoadDone === true) {
+          return false;
+        }
       } catch (eShould) {}
       return false;
     }
     function onBootScrollBlock(e) {
       try {
+        /* gestureLockBoot1: stop solo se né sipario né load */
+        if (window.__vcBootScrollGuardsKilled) {
+          disarmBootScrollGuards();
+          return;
+        }
         if (!bootScrollShouldBlock()) {
           maybeDisarmBootScrollGuards();
           return;
@@ -911,6 +1759,11 @@
               Number(window.__vcViewStateRestoreY || 0) || 0,
             );
             if (ryGuard > 8 && !window.__vcPtrRestoreDone) return;
+            /* ptrScrollRestore1: Done spoof + Y target → non yank a pin 0 */
+            if (ryGuard > 8 && Math.abs(bootScrollY() - ryGuard) > 80) {
+              restoreBootScrollY(ryGuard);
+              return;
+            }
           } catch (eRyG) {}
           /* notifHashYoYo1: lascia stare lo scroll verso #target */
           if (isHashDeepLinkNav()) {
@@ -930,12 +1783,25 @@
       bootScrollGuardsOn = true;
       bootScrollPinY = bootScrollY();
       try {
-        document.addEventListener("wheel", onBootScrollBlock, { capture: true, passive: false });
-        document.addEventListener("touchmove", onBootScrollBlock, { capture: true, passive: false });
-        document.addEventListener("keydown", onBootScrollBlock, { capture: true, passive: false });
+        /* gestureLockBoot1: tutte le gesture, non solo wheel/scroll */
+        var opts = { capture: true, passive: false };
+        document.addEventListener("wheel", onBootScrollBlock, opts);
+        document.addEventListener("touchstart", onBootScrollBlock, opts);
+        document.addEventListener("touchmove", onBootScrollBlock, opts);
+        document.addEventListener("touchend", onBootScrollBlock, opts);
+        document.addEventListener("pointerdown", onBootScrollBlock, opts);
+        document.addEventListener("pointermove", onBootScrollBlock, opts);
+        document.addEventListener("gesturestart", onBootScrollBlock, opts);
+        document.addEventListener("gesturechange", onBootScrollBlock, opts);
+        document.addEventListener("gestureend", onBootScrollBlock, opts);
+        document.addEventListener("keydown", onBootScrollBlock, opts);
         /* cpuFreezeTrim1: scroll listener PASSIVE — no preventDefault storm */
         window.addEventListener("scroll", onBootScrollBlock, { capture: true, passive: true });
       } catch (eArm) {}
+      try {
+        root.style.setProperty("touch-action", "none", "important");
+        if (document.body) document.body.style.setProperty("touch-action", "none", "important");
+      } catch (eTaArm) {}
       if (bootScrollPinY <= 8 && !isHashDeepLinkNav()) forceBootScrollTop();
       /* cpuFreezeTrim1: NO setInterval 120ms — solo hard timeout failsafe */
       try {
@@ -953,10 +1819,23 @@
       bootScrollGuardsOn = false;
       try {
         document.removeEventListener("wheel", onBootScrollBlock, true);
+        document.removeEventListener("touchstart", onBootScrollBlock, true);
         document.removeEventListener("touchmove", onBootScrollBlock, true);
+        document.removeEventListener("touchend", onBootScrollBlock, true);
+        document.removeEventListener("pointerdown", onBootScrollBlock, true);
+        document.removeEventListener("pointermove", onBootScrollBlock, true);
+        document.removeEventListener("gesturestart", onBootScrollBlock, true);
+        document.removeEventListener("gesturechange", onBootScrollBlock, true);
+        document.removeEventListener("gestureend", onBootScrollBlock, true);
         document.removeEventListener("keydown", onBootScrollBlock, true);
         window.removeEventListener("scroll", onBootScrollBlock, true);
       } catch (eDis) {}
+      try {
+        if (!bootScrollShouldBlock()) {
+          root.style.removeProperty("touch-action");
+          if (document.body) document.body.style.removeProperty("touch-action");
+        }
+      } catch (eTaDis) {}
       try {
         if (bootScrollWatchTimer) {
           window.clearTimeout(bootScrollWatchTimer);
@@ -965,14 +1844,45 @@
       } catch (eClr) {}
     }
     function maybeDisarmBootScrollGuards() {
+      /* 20261014uiFixPack1: sblocca SOLO se bootScrollShouldBlock=false (loader/barra finiti) */
+      if (window.__vcBootScrollGuardsKilled) {
+        disarmBootScrollGuards();
+        return;
+      }
       if (bootScrollShouldBlock()) {
         armBootScrollGuards();
         return;
       }
+      try {
+        window.__vcBootScrollGuardsKilled = 1;
+      } catch (eKill) {}
       disarmBootScrollGuards();
     }
     armBootScrollGuards();
+    /* 20261014uiFixPack1: failsafe soft — se dopo 12s loader ancora on, sblocca; altrimenti solo se non blocking */
+    window.setTimeout(function () {
+      try {
+        if (bootScrollShouldBlock()) {
+          /* ancora in load: lascia guards; riprova unlock CSS classes solo se curtain già off */
+          return;
+        }
+        window.__vcBootScrollGuardsKilled = 1;
+        disarmBootScrollGuards();
+        forceUnlockPageScroll();
+      } catch (eFs) {}
+    }, 12000);
+    window.setTimeout(function () {
+      try {
+        if (!bootScrollShouldBlock()) return;
+        window.__vcBootScrollGuardsKilled = 1;
+        disarmBootScrollGuards();
+        forceUnlockPageScroll();
+      } catch (eFs2) {}
+    }, 20000);
 
+    /* navEmptyCine2: main/header restano gated su core/home (anti flash precine
+       su grad-baked). Solo snav/qa hanno escape cine/soft — il pin soft-fx +
+       markSoftFxReady(styles-ready) riempie la navbar senza alzare il contenuto. */
     var navGuard =
       "html:not(.vc-core-styles-ready):not(.vc-home-styles-ready) body.vc-body>main," +
       "html:not(.vc-core-styles-ready):not(.vc-home-styles-ready) body.vc-body>footer," +
@@ -981,8 +1891,8 @@
       "html:not(.vc-core-styles-ready):not(.vc-home-styles-ready) #vc-mobile-nav-drawer," +
       "html:not(.vc-core-styles-ready):not(.vc-home-styles-ready) .vc-mobile-nav-drawer{" +
       "display:none!important;visibility:hidden!important;opacity:0!important;pointer-events:none!important}" +
-      "html:not(.vc-core-styles-ready):not(.vc-home-styles-ready) body.vc-body header nav.vc-header-snav," +
-      "html:not(.vc-core-styles-ready):not(.vc-home-styles-ready) body.vc-body header #header-quick-actions{" +
+      "html:not(.vc-core-styles-ready):not(.vc-home-styles-ready):not(.vc-page-cine-ready):not(.vc-soft-fx-ready) body.vc-body header nav.vc-header-snav," +
+      "html:not(.vc-core-styles-ready):not(.vc-home-styles-ready):not(.vc-page-cine-ready):not(.vc-soft-fx-ready) body.vc-body header #header-quick-actions{" +
       "display:none!important}";
     if (!document.getElementById("vc-nav-boot-guard-css")) {
       var guardEl = document.createElement("style");
@@ -1019,26 +1929,41 @@
       if (oldDesk && oldDesk.parentNode) oldDesk.parentNode.removeChild(oldDesk);
     } catch (eOldDesk) {}
 
+    /* bootExtMatch1: match also versioned names (vc-landing-ext.YYYY….css) */
+    function isLandingCoreHref(href) {
+      return href.indexOf("vc-landing-core") !== -1;
+    }
+    function isLandingExtHref(href) {
+      return href.indexOf("vc-landing-ext") !== -1;
+    }
+    function isLandingMonoHref(href) {
+      return (
+        href.indexOf("vc-landing.css") !== -1 &&
+        href.indexOf("vc-landing-core") === -1 &&
+        href.indexOf("vc-landing-ext") === -1
+      );
+    }
+
     function isVcBundleStylesheet(href) {
       return (
-        href.indexOf("vc-landing.css") !== -1 ||
-        href.indexOf("vc-landing-core.css") !== -1 ||
-        href.indexOf("vc-landing-ext.css") !== -1 ||
+        isLandingMonoHref(href) ||
+        isLandingCoreHref(href) ||
+        isLandingExtHref(href) ||
         href.indexOf("tw-build.css") !== -1 ||
-        href.indexOf("vc-soft-fx.css") !== -1
+        href.indexOf("vc-soft-fx") !== -1
       );
     }
 
     /* Critical for reveal: core + ext + soft-fx wash (+ tw/photo). Soft-fx = gradient cards/nav. */
     function isCriticalRevealStylesheet(href) {
       return (
-        href.indexOf("vc-landing-core.css") !== -1 ||
-        href.indexOf("vc-landing-ext.css") !== -1 ||
+        isLandingCoreHref(href) ||
+        isLandingExtHref(href) ||
         href.indexOf("tw-build.css") !== -1 ||
         href.indexOf("vc-site-photo-bg.css") !== -1 ||
-        href.indexOf("vc-soft-fx.css") !== -1 ||
+        href.indexOf("vc-soft-fx") !== -1 ||
         /* legacy pages that only ship the monolith */
-        (href.indexOf("vc-landing.css") !== -1 && href.indexOf("vc-landing-core") === -1 && href.indexOf("vc-landing-ext") === -1)
+        isLandingMonoHref(href)
       );
     }
 
@@ -1065,29 +1990,91 @@
     }
 
     function findLandingCssLinks() {
-      var out = { core: null, ext: null, mono: null, tw: null, photo: null, soft: null };
+      var out = {
+        core: null,
+        ext: null,
+        mono: null,
+        tw: null,
+        photo: null,
+        soft: null,
+        look: null,
+        theme: null,
+      };
       try {
         var links = document.querySelectorAll('link[rel="stylesheet"]');
         for (var i = 0; i < links.length; i += 1) {
           var href = String(links[i].getAttribute("href") || links[i].href || "");
-          if (href.indexOf("vc-landing-core.css") !== -1) out.core = links[i];
-          else if (href.indexOf("vc-landing-ext.css") !== -1) out.ext = links[i];
-          else if (href.indexOf("vc-landing.css") !== -1) out.mono = links[i];
+          if (isLandingCoreHref(href)) out.core = links[i];
+          else if (isLandingExtHref(href)) out.ext = links[i];
+          else if (isLandingMonoHref(href)) out.mono = links[i];
           else if (href.indexOf("tw-build.css") !== -1) out.tw = links[i];
           else if (href.indexOf("vc-site-photo-bg.css") !== -1) out.photo = links[i];
-          else if (href.indexOf("vc-soft-fx.css") !== -1) out.soft = links[i];
+          else if (href.indexOf("vc-soft-fx") !== -1) out.soft = links[i];
+          else if (href.indexOf("vc-look-core") !== -1) out.look = links[i];
+          else if (href.indexOf("vc-theme-light") !== -1) out.theme = links[i];
         }
         if (!out.soft) {
           out.soft = document.getElementById("vc-soft-fx-css");
+        }
+        if (!out.look) {
+          out.look = document.getElementById("vc-look-core-css");
+        }
+        if (!out.theme) {
+          out.theme = document.getElementById("vc-theme-light-css");
         }
       } catch (eFind) {}
       return out;
     }
 
+    /* bootBolt2: light aspetta theme-light, ma max ~200ms — look già anti-FOUC principale */
+    function themeSheetsReady() {
+      try {
+        var theme = String(root.getAttribute("data-vc-theme") || "");
+        if (theme !== "light") {
+          try {
+            root.classList.add("vc-theme-light-ready");
+          } catch (eDark) {}
+          return true;
+        }
+        var L = findLandingCssLinks();
+        var link =
+          L.theme ||
+          document.getElementById("vc-theme-light-css") ||
+          document.querySelector('link[href*="vc-theme-light"]');
+        if (!link) {
+          try {
+            root.classList.add("vc-theme-light-ready");
+          } catch (eNo) {}
+          return true;
+        }
+        if (sheetAppliesToScreen(link) && sheetHasRules(link)) {
+          try {
+            root.classList.add("vc-theme-light-ready");
+          } catch (eOk) {}
+          return true;
+        }
+        var age = Date.now() - Number(window.__vcCineBootStartedAt || Date.now());
+        var lookReady = false;
+        try {
+          lookReady = Boolean(L.look && sheetHasRules(L.look));
+        } catch (eLk) {}
+        if (age >= 200 && lookReady) {
+          try {
+            root.classList.add("vc-theme-light-ready");
+          } catch (eSoftTh) {}
+          return true;
+        }
+        return false;
+      } catch (eTh) {
+        return true;
+      }
+    }
+
     function landingCssLinksPresent() {
       var L = findLandingCssLinks();
       if (L.mono) return true;
-      return Boolean(L.core && L.ext);
+      /* bootHomeParity1: core da solo basta (ext versionato non obbligatorio) */
+      return Boolean(L.core || L.ext);
     }
 
     function sheetAppliesToScreen(link) {
@@ -1107,13 +2094,12 @@
 
     function softFxIntentionallyOff() {
       try {
+        /* siparioWaitAllCss2: MAI usare soft-fx-ready+perf-* come "off"
+           (apriva il sipario prima che i CSS finissero di caricarsi). */
         if (root.classList.contains("vc-soft-fx-off")) return true;
-        if (root.classList.contains("vc-soft-fx-ready") && root.classList.contains("vc-perf-mid")) return true;
-        if (root.classList.contains("vc-soft-fx-ready") && root.classList.contains("vc-perf-lite")) return true;
-        if (root.classList.contains("vc-soft-fx-ready") && root.classList.contains("vc-perf-touch")) return true;
         var soft =
           document.getElementById("vc-soft-fx-css") ||
-          document.querySelector('link[href*="vc-soft-fx.css"]');
+          document.querySelector('link[href*="vc-soft-fx"]');
         if (soft && (soft.disabled || soft.getAttribute("data-vc-soft-disabled") === "1")) return true;
         if (soft) {
           var med = String(soft.media || "").trim().toLowerCase();
@@ -1143,26 +2129,139 @@
       return true;
     }
 
+    function bootCriticalReady() {
+      try {
+        return Boolean(document.getElementById("vc-boot-critical-css"));
+      } catch (eCritR) {
+        return false;
+      }
+    }
+
     function landingCssReady() {
       var L = findLandingCssLinks();
       var baseOk = false;
-      if (L.mono) baseOk = sheetHasRules(L.mono);
-      else if (L.core && L.ext) baseOk = sheetHasRules(L.core) && sheetHasRules(L.ext);
+      /* bootBolt2: critical sync basta per base — non attendere landing-core 1MB */
+      if (bootCriticalReady()) baseOk = true;
+      else if (L.mono) baseOk = sheetHasRules(L.mono);
+      else if (L.core) baseOk = sheetHasRules(L.core);
+      else if (L.ext) baseOk = sheetHasRules(L.ext);
       if (!baseOk) return false;
       /* holdFreezeKill1: con soft-fx-off (perf mid/lite) soft NON è requisito reveal/hold */
       if (softFxIntentionallyOff()) return true;
-      /* cineNoFlash11: soft-fx = gradient cards/nav — senza sheet = flash flat */
-      if (L.soft) {
-        if (!sheetAppliesToScreen(L.soft)) return false;
-        if (!sheetHasRules(L.soft)) return false;
+      /* lookCoreBake1: gradient/cine = look-core; senza sheet = flash flat → cine */
+      var lookOk = true;
+      if (L.look) {
+        if (!sheetAppliesToScreen(L.look)) return false;
+        if (!sheetHasRules(L.look)) return false;
       } else {
-        try {
-          if (!document.documentElement.classList.contains("vc-soft-fx-ready")) return false;
-        } catch (eSoft) {
-          return false;
-        }
+        lookOk = false;
       }
+      /* bootBolt1: soft-fx = hover — non blocca se look già pronto (mark soft-ready al reveal) */
+      if (!lookOk) {
+        if (L.soft) {
+          if (!sheetAppliesToScreen(L.soft)) return false;
+          if (!sheetHasRules(L.soft)) return false;
+        } else {
+          try {
+            if (!document.documentElement.classList.contains("vc-soft-fx-ready")) return false;
+          } catch (eSoft) {
+            return false;
+          }
+        }
+      } else if (L.soft && sheetAppliesToScreen(L.soft) && !sheetHasRules(L.soft)) {
+        /* look ok: soft in volo ok — kick listener lo completa */
+        try {
+          kickSoftSheetListener(L.soft);
+        } catch (eSoftKick) {}
+      }
+      /* homeParityThemeGate1: aspetta theme-light in light */
+      if (!themeSheetsReady()) return false;
+      /* bootBolt1: chrome secondario (nav/glow) NON blocca sipario */
+      try {
+        kickSecondaryChromeReady();
+      } catch (eSecKick) {}
       return true;
+    }
+
+    function kickSoftSheetListener(link) {
+      try {
+        if (!link || link.__vcBoltSoftKick) return;
+        link.__vcBoltSoftKick = 1;
+        function onSoft() {
+          try {
+            if (sheetHasRules(link)) root.classList.add("vc-soft-fx-ready");
+          } catch (eMark) {}
+          try {
+            if (root.classList.contains("vc-interaction-hold")) scheduleReleaseInteractionHold();
+          } catch (eSched) {}
+        }
+        if (sheetHasRules(link)) {
+          onSoft();
+          return;
+        }
+        link.addEventListener("load", onSoft, { once: true });
+        link.addEventListener("error", onSoft, { once: true });
+      } catch (eKick) {}
+    }
+
+    function secondaryChromeCssReady() {
+      try {
+        var nav =
+          document.getElementById("vc-nav-menu-solid-css") ||
+          document.querySelector('link[href*="vc-nav-menu-solid"]');
+        var glow =
+          document.getElementById("vc-glow-forms-css") ||
+          document.getElementById("vc-glow-form-css") ||
+          document.querySelector('link[href*="glow-form"]');
+        var chromeUi =
+          document.getElementById("vc-site-chrome-ui-css") ||
+          document.querySelector('link[href*="vc-site-chrome-ui"]');
+        if (nav && sheetAppliesToScreen(nav) && !sheetHasRules(nav)) return false;
+        if (glow && sheetAppliesToScreen(glow) && !sheetHasRules(glow)) return false;
+        if (chromeUi && sheetAppliesToScreen(chromeUi) && !sheetHasRules(chromeUi)) return false;
+        try {
+          if ((nav && sheetHasRules(nav)) || (glow && sheetHasRules(glow)) || (chromeUi && sheetHasRules(chromeUi))) {
+            root.classList.add("vc-chrome-css-ready");
+          }
+        } catch (eMark) {}
+        return true;
+      } catch (eSec) {
+        return true;
+      }
+    }
+
+    /* bootBolt1: nav/glow/chrome-ui si applicano in background post-sipario */
+    function kickSecondaryChromeReady() {
+      try {
+        if (secondaryChromeCssReady()) return;
+        var links = [];
+        var nav =
+          document.getElementById("vc-nav-menu-solid-css") ||
+          document.querySelector('link[href*="vc-nav-menu-solid"]');
+        var glow =
+          document.getElementById("vc-glow-forms-css") ||
+          document.getElementById("vc-glow-form-css") ||
+          document.querySelector('link[href*="glow-form"]');
+        var chromeUi =
+          document.getElementById("vc-site-chrome-ui-css") ||
+          document.querySelector('link[href*="vc-site-chrome-ui"]');
+        if (nav) links.push(nav);
+        if (glow) links.push(glow);
+        if (chromeUi) links.push(chromeUi);
+        for (var i = 0; i < links.length; i += 1) {
+          (function (link) {
+            if (link.__vcBoltChromeKick) return;
+            link.__vcBoltChromeKick = 1;
+            function onChrome() {
+              try {
+                secondaryChromeCssReady();
+              } catch (eOn) {}
+            }
+            link.addEventListener("load", onChrome, { once: true });
+            link.addEventListener("error", onChrome, { once: true });
+          })(links[i]);
+        }
+      } catch (eKick2) {}
     }
 
     function coreStylesReady() {
@@ -1171,29 +2270,68 @@
 
     function markCoreStylesReady() {
       try {
-        root.classList.add("vc-core-styles-ready");
+        root.classList.add("vc-core-styles-ready", "vc-styles-ready", "vc-home-styles-ready");
       } catch (e5) {}
+      /* bootHomeParity1b: look/soft subito quando i fogli ci sono — non aspettare layout cine */
+      try {
+        if (landingCssReady() || softFxIntentionallyOff()) {
+          root.classList.add("vc-look-core-ready", "vc-soft-fx-ready");
+        }
+      } catch (eLook) {}
+    }
+
+    function revealAsSoonAsCssReady() {
+      try {
+        if (root.classList.contains("vc-page-cine-ready")) return;
+        if (root.classList.contains("vc-user-leader-pending") || root.classList.contains("vc-user-leader-route")) {
+          return;
+        }
+        if (!landingCssReady() && !softFxIntentionallyOff()) return;
+        /* dashboard: layout cine obbligatorio */
+        if (isDashboardCineRoot()) return;
+        if (pathExcluded()) {
+          revealWhenCssReady(0);
+          return;
+        }
+        /* bootHomeParity1c: non aspettare DOMContentLoaded — HTML lunghi ritardavano di ~1.5s */
+        revealExcluded();
+      } catch (eEarlyRev) {}
     }
 
     function waitCoreStyles(n) {
       n = n || 0;
       if (coreStylesReady()) {
         markCoreStylesReady();
+        revealAsSoonAsCssReady();
         return;
       }
-      /* cineNoFlash6: do not mark core ready without sheets — that lifted nav-guards early */
-      var maxPass = phone ? 120 : desktop ? 100 : 140;
-      var delayMs = phone ? 40 : desktop ? 35 : 45;
+      /* bootBolt1: poll più stretto */
+      var maxPass = phone ? 48 : desktop ? 40 : 56;
+      var delayMs = phone ? 12 : desktop ? 10 : 14;
       if (n < maxPass) {
         window.setTimeout(function () {
           waitCoreStyles(n + 1);
         }, delayMs);
         return;
       }
-      if (landingCssLinksPresent()) markCoreStylesReady();
+      /* bootExtMatch1: failsafe: also mark if any landing sheet has rules */
+      if (landingCssLinksPresent()) {
+        markCoreStylesReady();
+        revealAsSoonAsCssReady();
+        return;
+      }
+      try {
+        var Lf = findLandingCssLinks();
+        if (
+          (Lf.core && sheetHasRules(Lf.core)) ||
+          (Lf.ext && sheetHasRules(Lf.ext)) ||
+          (Lf.mono && sheetHasRules(Lf.mono))
+        ) {
+          markCoreStylesReady();
+          revealAsSoonAsCssReady();
+        }
+      } catch (eFsCore) {}
     }
-
-    waitCoreStyles(0);
 
     function markStylesReadyOnly() {
       try {
@@ -1205,19 +2343,34 @@
     function revealExcluded() {
       try {
         /* interactHold1: marca ready ma tieni sipario/hold finché chrome non è settled */
-        root.classList.add(
+        /* profileRelockKill2 + bootHoldJump1: se sipario già giù / chrome done,
+           NON riattaccare hold (era flash cursore + unlock→fondo a ~2.8s). */
+        var chromeAlready =
+          root.classList.contains("vc-chrome-scroll-armed") ||
+          root.classList.contains("vc-cine-curtain-off") ||
+          window.__vcChromeVisualReady === 1 ||
+          window.__vcChromeLoadDone === true ||
+          window.__vcChromeScrollArmed === true ||
+          (root.classList.contains("vc-page-cine-ready") && !curtainStillUp());
+        var holdClasses = [
           "vc-page-cine-ready",
           "vc-styles-ready",
           "vc-core-styles-ready",
           "vc-home-motion-ready",
           "vc-home-styles-ready",
-          "vc-interaction-hold",
-        );
+        ];
+        if (!chromeAlready) holdClasses.push("vc-interaction-hold");
+        root.classList.add.apply(root.classList, holdClasses);
         try {
-          if (landingCssReady()) root.classList.add("vc-soft-fx-ready");
+          if (landingCssReady()) root.classList.add("vc-look-core-ready", "vc-soft-fx-ready");
         } catch (eSoftR) {}
-        root.classList.remove("vc-page-cine-boot");
-        /* keep vc-loading-scroll-lock until hold release */
+        if (chromeAlready) {
+          try {
+            root.classList.remove("vc-interaction-hold", "vc-scroll-soft-lock", "vc-loading-scroll-lock");
+          } catch (eHoldOff) {}
+        }
+        /* bootBolt1: NON togliere vc-page-cine-boot qui —
+           altrimenti inline hide muore prima del curtain-off → flash layout */
       } catch (eRev) {}
       try {
         ensureBootCurtain();
@@ -1242,6 +2395,7 @@
     function hasCineInterior() {
       try {
         if (window.__vcPageCineReadyDone) return true;
+        if (isCineBaked()) return true;
         var hero = document.querySelector(".vc-page-cine-hero, .vc-home-cine-hero");
         if (!hero) return false;
         return Boolean(
@@ -1264,10 +2418,27 @@
 
     function ensureHomeCineScript() {
       try {
+        /* profileFreezeKill3: NEVER inject home-cine on /user/?id= — freezes main thread */
+        if (window.__vcHomeCineProfileSkip) return;
+        try {
+          var p = String(location.pathname || "").replace(/\/+$/, "") || "/";
+          var q = new URLSearchParams(location.search || "");
+          var id = String(q.get("id") || q.get("userId") || q.get("uid") || "").trim();
+          if (
+            ((p === "/user" || p === "/users") && /^\d{17,20}$/.test(id)) ||
+            /^\/users?\/\d{17,20}$/.test(p) ||
+            (document.documentElement &&
+              (document.documentElement.classList.contains("vc-user-profile-route") ||
+                document.documentElement.classList.contains("vc-user-profile-pending")))
+          ) {
+            window.__vcHomeCineProfileSkip = 1;
+            return;
+          }
+        } catch (eProf) {}
         if (typeof window.__vcPageHeroLayout === "function") return;
         if (document.querySelector('script[src*="vc-home-cine"]')) return;
         var s = document.createElement("script");
-        s.src = "/js/vc-home-cine.js?v=20261002extOnlyFix1";
+        s.src = "/js/vc-home-cine.20261012profileHangKill2.js?v=20261012profileFreezeKill3";
         s.async = true;
         (document.head || root).appendChild(s);
       } catch (eHc) {}
@@ -1289,8 +2460,8 @@
           }
           return;
         }
-        if (!landingCssReady() && Date.now() - bootStartedAt < HARD_FAILSAFE_MS + 2400) {
-          armRevealFailsafe(standalone ? 220 : 350);
+        if (!landingCssReady() && Date.now() - bootStartedAt < HARD_FAILSAFE_MS + 900) {
+          armRevealFailsafe(standalone ? 180 : 280);
           return;
         }
         try {
@@ -1299,11 +2470,12 @@
             window.__vcPageHeroLayout({ force: true });
           }
         } catch (eLay) {}
-        /* cineNoFlash7: se il layout arriva tardi, aspetta ancora un po’ prima del reveal piatto */
-        if (!hasCineLayout() && Date.now() - bootStartedAt < HARD_FAILSAFE_MS) {
+        /* schedaBootCue1: aspetta contenuto scheda prima del reveal */
+        if (boardsViewStillPending()) {
           armRevealFailsafe(standalone ? 220 : 280);
           return;
         }
+        /* bootBolt1: niente wait layout — CSS già su support-hero */
         revealWhenCssReady(0);
       }, Math.max(FAILSAFE_MS, Number(ms) || FAILSAFE_MS));
     }
@@ -1357,22 +2529,25 @@
         promoteDeferredStylesheets();
         var L = findLandingCssLinks();
         wireLink(L.core, "core");
-        wireLink(L.ext, "ext");
+        wireLink(L.look, "look");
+        wireLink(L.soft, "soft");
+        wireLink(L.theme, "theme");
         wireLink(L.mono, "mono");
+        /* bootBolt1: ext/photo/tw non bloccano finish — wire solo per mark */
+        wireLink(L.ext, "ext");
         wireLink(L.tw, "tw");
         wireLink(L.photo, "photo");
-        wireLink(L.soft, "soft");
         if (landingCssReady()) {
           finish(false);
           return;
         }
         var elapsed = Date.now() - startedAt;
-        /* bootNoPreGrad1: non soft-force senza soft-fx/landing — FOUC flat */
-        if (elapsed >= HARD_FAILSAFE_MS + 2400) {
+        /* bootBolt1: force più corto */
+        if (elapsed >= HARD_FAILSAFE_MS + 400) {
           finish(true);
           return;
         }
-        window.setTimeout(tick, 40);
+        window.setTimeout(tick, 12);
       }
 
       tick();
@@ -1389,18 +2564,7 @@
 
     function waitForLayoutAndReveal(n) {
       n = n || 0;
-      if (root.classList.contains("vc-page-cine-ready") && hasCineLayout() && hasCineInterior()) {
-        if (curtainStillUp()) {
-          if (root.classList.contains("vc-interaction-hold")) scheduleReleaseInteractionHold();
-          else liftBootCurtain(true);
-        }
-        return;
-      }
-      if (tryApplyLayout()) {
-        revealWhenCssReady(0);
-        return;
-      }
-      if (root.classList.contains("vc-page-cine-ready") && hasCineLayout() && hasCineInterior()) {
+      if (root.classList.contains("vc-page-cine-ready")) {
         if (curtainStillUp()) {
           if (root.classList.contains("vc-interaction-hold")) scheduleReleaseInteractionHold();
           else liftBootCurtain(true);
@@ -1420,45 +2584,42 @@
           revealWhenCssReady(0);
           return;
         }
-        if (n < 60) {
+        if (n < 40) {
           window.setTimeout(function () {
             waitForLayoutAndReveal(n + 1);
-          }, 40);
+          }, 28);
           return;
         }
         revealWhenCssReady(0);
         return;
       }
-      /* cineNoFlash7: aspetta layout class + interior (non solo DOM hero preesistente). */
-      try {
-        ensureHomeCineScript();
-        if (typeof window.__vcEnsureCommunityPageCineLayout === "function") {
-          window.__vcEnsureCommunityPageCineLayout();
-        } else if (typeof window.__vcPageHeroLayout === "function") {
-          window.__vcPageHeroLayout({ force: true });
+      /* cineBake1: se DOM già baked → reveal su CSS, niente poll remap */
+      if (isCineBaked()) {
+        if (landingCssReady() || softFxIntentionallyOff()) {
+          revealExcluded();
+          return;
         }
-      } catch (ePhotoLay) {}
-      if (hasCineLayout() && hasCineInterior() && landingCssReady()) {
+      } else {
+        try {
+          ensureHomeCineScript();
+          if (typeof window.__vcEnsureCommunityPageCineLayout === "function") {
+            window.__vcEnsureCommunityPageCineLayout();
+          } else if (typeof window.__vcPageHeroLayout === "function") {
+            window.__vcPageHeroLayout({ force: true });
+          }
+        } catch (ePhotoLay) {}
+        if (tryApplyLayout() && landingCssReady()) {
+          revealExcluded();
+          return;
+        }
+      }
+      if (landingCssReady() || softFxIntentionallyOff()) {
         revealExcluded();
         return;
       }
-      /* navRevealFast1: meno poll layout (prima ~4.8s su photo-bg) */
-      var maxPoll = SITE_PHOTO_BG ? 40 : 28;
-      var pollMs = SITE_PHOTO_BG ? 35 : 28;
+      var maxPoll = SITE_PHOTO_BG ? 8 : 6;
+      var pollMs = 12;
       if (n >= maxPoll) {
-        if (!landingCssReady() && Date.now() - bootStartedAt < HARD_FAILSAFE_MS) {
-          window.setTimeout(function () {
-            waitForLayoutAndReveal(n);
-          }, 80);
-          return;
-        }
-        /* cineNoFlash6: last try layout, then reveal (curtain covers until lift) */
-        try {
-          ensureHomeCineScript();
-          if (typeof window.__vcPageHeroLayout === "function") {
-            window.__vcPageHeroLayout({ force: true });
-          }
-        } catch (eLast) {}
         revealWhenCssReady(0);
         return;
       }
@@ -1509,22 +2670,29 @@
 
     function revealWhenCssReady(n) {
       n = n || 0;
+      /* schedaBootCue1: non rivelare scheda finché API non ha dipinto */
+      if (boardsViewStillPending()) {
+        window.setTimeout(function () {
+          revealWhenCssReady(n + 1);
+        }, 80);
+        return;
+      }
       /* bootNoPreGrad1: niente sipario giù senza soft-fx/landing */
       if (landingCssReady() || softFxIntentionallyOff()) {
         revealExcluded();
         return;
       }
-      var softFailMs = HARD_FAILSAFE_MS + 2400;
-      if (Date.now() - bootStartedAt >= softFailMs || n >= 120) {
+      var softFailMs = HARD_FAILSAFE_MS + 400;
+      if (Date.now() - bootStartedAt >= softFailMs || n >= 40) {
         try {
-          root.classList.add("vc-soft-fx-ready");
+          root.classList.add("vc-look-core-ready", "vc-soft-fx-ready");
         } catch (eFs) {}
         revealExcluded();
         return;
       }
       window.setTimeout(function () {
         revealWhenCssReady(n + 1);
-      }, 40);
+      }, 12);
     }
 
     if (!root.classList.contains("vc-site-polish")) return;
@@ -1557,7 +2725,11 @@
       var obs = new MutationObserver(function () {
         if (!root.classList.contains("vc-user-leader-pending")) {
           obs.disconnect();
-          if (root.classList.contains("vc-page-cine-ready")) {
+          /* loadGateOnce1: mai secondo boot se sipario già giù / ready */
+          if (
+            root.classList.contains("vc-page-cine-ready") ||
+            root.classList.contains("vc-cine-curtain-off")
+          ) {
             markStylesReadyOnly();
             return;
           }
@@ -1577,14 +2749,47 @@
       return;
     }
 
-    if (!root.classList.contains("vc-page-cine-boot")) {
+    /* loadGateOnce2: script defer tardivo non deve riattaccare boot su pagina già aperta */
+    var alreadyOpen =
+      root.classList.contains("vc-page-cine-ready") || root.classList.contains("vc-cine-curtain-off");
+    if (alreadyOpen) {
+      try {
+        root.classList.remove("vc-page-cine-boot");
+        root.classList.add("vc-page-cine-ready");
+      } catch (eAlready) {}
+      try {
+        ensureHomeCineScript();
+      } catch (eHcOpen) {}
+    } else if (!root.classList.contains("vc-page-cine-boot")) {
       root.classList.add("vc-page-cine-boot");
+      /* siparioNoYoyoReady1: discord-auth già rivelato → pin ready subito (no secondo hide) */
+      try {
+        if (
+          root.classList.contains("vc-cine-curtain-off") &&
+          (root.classList.contains("vc-soft-fx-ready") || root.classList.contains("vc-soft-fx-off")) &&
+          (root.classList.contains("vc-look-core-ready") || root.classList.contains("vc-soft-fx-off"))
+        ) {
+          root.classList.add("vc-page-cine-ready");
+        }
+      } catch (eReadyPin) {}
       ensureHomeCineScript();
       armRevealFailsafe(isDashboardCineRoot() ? Math.max(FAILSAFE_MS, 2200) : FAILSAFE_MS);
     } else if (isDashboardCineRoot()) {
       ensureHomeCineScript();
       armRevealFailsafe(Math.max(FAILSAFE_MS, 2200));
     }
+    /* siparioNoYoyoReady1: anche se boot già in HTML, pin ready se già rivelata */
+    try {
+      if (
+        root.classList.contains("vc-page-cine-boot") &&
+        !root.classList.contains("vc-page-cine-ready") &&
+        root.classList.contains("vc-cine-curtain-off") &&
+        (root.classList.contains("vc-soft-fx-ready") || root.classList.contains("vc-soft-fx-off")) &&
+        (root.classList.contains("vc-look-core-ready") || root.classList.contains("vc-soft-fx-off"))
+      ) {
+        root.classList.add("vc-page-cine-ready");
+      }
+    } catch (eReadyPin2) {}
     /* bootNoPreGrad1: sempre riscrivi gate (HTML inline vecchio rivelava pre-soft-fx) */
     try {
       var bootCss = document.getElementById("vc-page-cine-boot-css");
@@ -1606,6 +2811,14 @@
         "vc:soft-fx-ready",
         function () {
           try {
+            /* siparioNoYoyoReady1: se curtain già giù, pin ready (anti hide post-reveal) */
+            if (
+              root.classList.contains("vc-cine-curtain-off") &&
+              root.classList.contains("vc-page-cine-boot") &&
+              !root.classList.contains("vc-page-cine-ready")
+            ) {
+              root.classList.add("vc-page-cine-ready");
+            }
             if (root.classList.contains("vc-interaction-hold") || !root.classList.contains("vc-cine-curtain-off")) {
               scheduleReleaseInteractionHold();
             }
@@ -1622,23 +2835,48 @@
       } catch (eDashCore) {}
     }
 
+    /* bootHomeParity1c: parte subito (CSS poll), DCL solo come backup */
+    waitCoreStyles(0);
+    try {
+      if (
+        !alreadyOpen &&
+        !root.classList.contains("vc-user-leader-pending") &&
+        !root.classList.contains("vc-user-leader-route")
+      ) {
+        bootPolishPage();
+      }
+    } catch (eBootNow) {}
     if (document.readyState === "loading") {
       document.addEventListener("DOMContentLoaded", function () {
         if (root.classList.contains("vc-user-leader-pending") || root.classList.contains("vc-user-leader-route")) return;
+        if (
+          root.classList.contains("vc-page-cine-ready") ||
+          root.classList.contains("vc-cine-curtain-off")
+        ) {
+          try {
+            root.classList.remove("vc-page-cine-boot");
+          } catch (eNoRe) {}
+          if (curtainStillUp()) {
+            if (root.classList.contains("vc-interaction-hold")) scheduleReleaseInteractionHold();
+            else liftBootCurtain(true);
+          }
+          return;
+        }
         bootPolishPage();
       });
-    } else {
-      if (!root.classList.contains("vc-user-leader-pending") && !root.classList.contains("vc-user-leader-route")) {
-        bootPolishPage();
-      }
     }
 
-    window.setTimeout(function () {
+    function hardRevealTick() {
       if (root.classList.contains("vc-page-cine-ready")) {
         if (curtainStillUp()) {
           if (root.classList.contains("vc-interaction-hold")) scheduleReleaseInteractionHold();
           else liftBootCurtain(true);
         }
+        return;
+      }
+      /* schedaBootCue1: hard failsafe ritardato se scheda ancora in fetch */
+      if (boardsViewStillPending()) {
+        window.setTimeout(hardRevealTick, 280);
         return;
       }
       if (!landingCssReady()) {
@@ -1651,13 +2889,17 @@
             }
             return;
           }
+          if (boardsViewStillPending()) {
+            window.setTimeout(hardRevealTick, 280);
+            return;
+          }
           try {
             if (typeof window.__vcPageHeroLayout === "function") {
               window.__vcPageHeroLayout({ force: true });
             }
           } catch (eLate2) {}
           revealWhenCssReady(0);
-        }, standalone ? 400 : 800);
+        }, standalone ? 200 : 320);
         return;
       }
       try {
@@ -1666,7 +2908,11 @@
         }
       } catch (eLate) {}
       revealWhenCssReady(0);
-    }, isDashboardCineRoot() ? Math.max(HARD_FAILSAFE_MS, 2200) : HARD_FAILSAFE_MS);
+    }
+    window.setTimeout(
+      hardRevealTick,
+      isDashboardCineRoot() ? Math.max(HARD_FAILSAFE_MS, 2200) : HARD_FAILSAFE_MS,
+    );
 
     /* cineNoFlash8: watchdog — alza SOLO su failsafe duro, mai solo perché boot è stato tolto */
     try {
@@ -1678,7 +2924,8 @@
             if (curtainWatchN >= 8) window.clearInterval(curtainWatch);
             return;
           }
-          if (Date.now() - bootStartedAt >= HARD_FAILSAFE_MS + 1500) {
+          if (Date.now() - bootStartedAt >= HARD_FAILSAFE_MS + 600) {
+            if (boardsViewStillPending()) return;
             try {
               if (typeof window.__vcPageHeroLayout === "function") {
                 window.__vcPageHeroLayout({ force: true });
@@ -1692,21 +2939,28 @@
     } catch (eWatchArm) {}
 
     try {
-      window.addEventListener("pageshow", function () {
-        try {
-          if (root.classList.contains("vc-page-cine-ready") && curtainStillUp()) {
+      /* violKill2: pageshow/visibility NON devono fare lift sync (Violation 600ms+) */
+      function deferCurtainRecover() {
+        if (window.__vcCineVisLiftSched) return;
+        window.__vcCineVisLiftSched = 1;
+        window.setTimeout(function () {
+          window.__vcCineVisLiftSched = 0;
+          try {
+            if (!(root.classList.contains("vc-page-cine-ready") && curtainStillUp())) return;
             if (root.classList.contains("vc-interaction-hold")) scheduleReleaseInteractionHold();
             else liftBootCurtain(true);
-          }
+          } catch (eDef) {}
+        }, 48);
+      }
+      window.addEventListener("pageshow", function () {
+        try {
+          deferCurtainRecover();
         } catch (ePs) {}
       });
       document.addEventListener("visibilitychange", function () {
         try {
           if (document.visibilityState !== "visible") return;
-          if (root.classList.contains("vc-page-cine-ready") && curtainStillUp()) {
-            if (root.classList.contains("vc-interaction-hold")) scheduleReleaseInteractionHold();
-            else liftBootCurtain(true);
-          }
+          deferCurtainRecover();
         } catch (eVis) {}
       });
     } catch (eLife) {}
@@ -1718,3 +2972,6 @@
 /* violPass5 */
 /* violPass7 */
 /* notifHashYoYo1 */
+/* schedaBootCue1 */
+
+/* ptrScrollYoYoKill1 */

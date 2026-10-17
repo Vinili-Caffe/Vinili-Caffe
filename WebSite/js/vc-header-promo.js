@@ -1,38 +1,19 @@
 (function () {
   /* candPillNoFlash2: default hidden until eligibility decided (no FOUC for staff) */
-  /* notif429Everywhere1: boot pass via rAF/idle — no setTimeout 200ms+ Violation */
-  var PROMO_VER = "20261001navBrandCandFix1";
+  /* violKillIdle2 + violKillReflow1: yield + no write→read sync */
+  var PROMO_VER = "20261008violWakeChunk1";
   var layoutLock = false;
   var layoutCooldownUntil = 0;
   var marqueeSettledUntil = 0;
   var staffHoldUntil = 0;
   var layoutRaf = 0;
+  var lastCompactNav = null;
 
   function runLight(fn) {
-    try {
-      if (typeof window.requestAnimationFrame === "function") {
-        window.requestAnimationFrame(function () {
-          try {
-            if (typeof window.requestIdleCallback === "function") {
-              window.requestIdleCallback(
-                function () {
-                  try {
-                    fn();
-                  } catch (eFn) {}
-                },
-                { timeout: 280 },
-              );
-              return;
-            }
-          } catch (eIdle) {}
-          try {
-            fn();
-          } catch (eFn2) {}
-        });
-        return;
-      }
-    } catch (eRaf) {}
     window.setTimeout(function () {
+      try {
+        if (document.hidden || document.visibilityState === "hidden") return;
+      } catch (eHid) {}
       try {
         fn();
       } catch (eT) {}
@@ -311,10 +292,12 @@
     if (promoMarqueeSignature(btn) !== btn.getAttribute("data-vc-promo-marquee-sig")) return false;
     var stored = Number(btn.getAttribute("data-vc-promo-marquee-dist") || 0);
     if (!Number.isFinite(stored) || stored <= 0) return false;
-    /* handlerPerf1: durante settle non forzare reflow (offsetWidth/getBCR) */
-    if (Date.now() < marqueeSettledUntil) return true;
-    var liveDist = Math.max(Math.ceil(unit.getBoundingClientRect().width || 0), 36);
-    return Math.abs(liveDist - stored) <= 10;
+    /*
+     * candPillMarqueeNoRestart1: una volta avviato con sig+clone ok,
+     * NON ri-misurare larghezze (font/RO/boot pass facevano normalize → anim restart).
+     * Rebuild solo se cambia sig (testo/mode/compact) o force esplicito.
+     */
+    return true;
   }
 
   function schedulePromoRetry(ms) {
@@ -331,7 +314,8 @@
     }, delay);
   }
 
-  function layoutPromoMarquee(btn) {
+  function layoutPromoMarquee(btn, opts) {
+    opts = opts || {};
     if (!btn || btn.hidden) return;
     if (layoutLock) return;
     try {
@@ -343,60 +327,82 @@
       return;
     }
 
-    if (promoMarqueeStable(btn)) return;
+    if (!opts.force && promoMarqueeStable(btn)) return;
 
-    /* handlerPerf1: un solo passaggio misura in rAF (niente void offsetWidth a raffica) */
+    /* violKillFinal2: write → __vcLight → read (no rAF nest = Violation 56ms+) */
     if (layoutRaf) return;
-    layoutRaf = window.requestAnimationFrame(function () {
+    layoutRaf = 1;
+    var afterWrite = function () {
       layoutRaf = 0;
       if (!btn || btn.hidden || layoutLock) return;
-      if (promoMarqueeStable(btn)) return;
+      if (!opts.force && promoMarqueeStable(btn)) return;
       layoutLock = true;
       try {
         normalizePromoDom(btn);
-        var clip = btn.querySelector(".vc-header-promo-btn__clip");
-        var track = clip && clip.querySelector(".vc-header-promo-btn__track");
-        var unit = track && track.querySelector(".vc-header-promo-btn__unit:not(.is-clone)");
-        if (!clip || !track || !unit) {
-          schedulePromoRetry(220);
-          return;
-        }
-        var clipW = Math.floor(clip.getBoundingClientRect().width || clip.clientWidth || 0);
-        var unitW = Math.ceil(unit.getBoundingClientRect().width || unit.scrollWidth || 0);
-        if (unitW <= 0) {
-          schedulePromoRetry(280);
-          return;
-        }
-        if (!isCandidaturePromo(btn) && unitW <= clipW + 2) return;
-
-        var gap = 16;
-        btn.style.setProperty("--vc-promo-marquee-gap", gap + "px");
-        unit.style.paddingInlineEnd = gap + "px";
-        var segment = Math.max(unitW + gap, 36);
-
-        var cloneUnit = unit.cloneNode(true);
-        cloneUnit.classList.add("is-clone");
-        cloneUnit.setAttribute("aria-hidden", "true");
-        cloneUnit.style.paddingInlineEnd = gap + "px";
-        track.appendChild(cloneUnit);
-
-        btn.style.setProperty("--vc-promo-marquee-distance", segment + "px");
-        var duration = Math.max(16, Math.min(30, segment / 10));
-        btn.style.setProperty("--vc-promo-marquee-duration", duration.toFixed(2) + "s");
-        btn.classList.add("is-marquee");
-        if (isCandidaturePromo(btn)) {
-          btn.classList.add("vc-header-promo-btn--candidature-mobile-marquee");
-          btn.classList.add("vc-header-promo-btn--candidature-marquee");
-        }
-        if (isCompactNav()) btn.classList.add("vc-header-promo-btn--mobile-marquee");
-        btn.setAttribute("data-vc-promo-marquee-sig", promoMarqueeSignature(btn));
-        btn.setAttribute("data-vc-promo-marquee-dist", String(segment));
-        layoutCooldownUntil = Date.now() + 1600;
-        marqueeSettledUntil = Date.now() + 5000;
-      } finally {
+      } catch (eNorm) {
         layoutLock = false;
+        return;
       }
-    });
+      var measure = function () {
+        try {
+          if (!btn || btn.hidden) return;
+          if (!opts.force && promoMarqueeStable(btn)) return;
+          var clip = btn.querySelector(".vc-header-promo-btn__clip");
+          var track = clip && clip.querySelector(".vc-header-promo-btn__track");
+          var unit = track && track.querySelector(".vc-header-promo-btn__unit:not(.is-clone)");
+          if (!clip || !track || !unit) {
+            schedulePromoRetry(220);
+            return;
+          }
+          var clipW = Math.floor(Number(btn.getAttribute("data-vc-promo-cw") || 0));
+          var unitW = Math.floor(Number(btn.getAttribute("data-vc-promo-uw") || 0));
+          if (!(clipW > 8)) {
+            clipW = Math.floor(clip.clientWidth || 0);
+            if (clipW > 8) btn.setAttribute("data-vc-promo-cw", String(clipW));
+          }
+          if (!(unitW > 0)) {
+            unitW = Math.ceil(unit.scrollWidth || 0);
+            if (unitW > 0) btn.setAttribute("data-vc-promo-uw", String(unitW));
+          }
+          if (unitW <= 0) {
+            schedulePromoRetry(280);
+            return;
+          }
+          if (!isCandidaturePromo(btn) && unitW <= clipW + 2) return;
+
+          var gap = 16;
+          btn.style.setProperty("--vc-promo-marquee-gap", gap + "px");
+          unit.style.paddingInlineEnd = gap + "px";
+          var segment = Math.max(unitW + gap, 36);
+
+          var cloneUnit = unit.cloneNode(true);
+          cloneUnit.classList.add("is-clone");
+          cloneUnit.setAttribute("aria-hidden", "true");
+          cloneUnit.style.paddingInlineEnd = gap + "px";
+          track.appendChild(cloneUnit);
+
+          btn.style.setProperty("--vc-promo-marquee-distance", segment + "px");
+          var duration = Math.max(7.5, Math.min(14, segment / 18));
+          btn.style.setProperty("--vc-promo-marquee-duration", duration.toFixed(2) + "s");
+          btn.classList.add("is-marquee");
+          if (isCandidaturePromo(btn)) {
+            btn.classList.add("vc-header-promo-btn--candidature-mobile-marquee");
+            btn.classList.add("vc-header-promo-btn--candidature-marquee");
+          }
+          if (isCompactNav()) btn.classList.add("vc-header-promo-btn--mobile-marquee");
+          btn.setAttribute("data-vc-promo-marquee-sig", promoMarqueeSignature(btn));
+          btn.setAttribute("data-vc-promo-marquee-dist", String(segment));
+          layoutCooldownUntil = Date.now() + 2400;
+          marqueeSettledUntil = Date.now() + 12000;
+        } finally {
+          layoutLock = false;
+        }
+      };
+      if (typeof window.__vcLight === "function") window.__vcLight(measure, 160);
+      else window.setTimeout(measure, 160);
+    };
+    if (typeof window.__vcLight === "function") window.__vcLight(afterWrite, 120);
+    else window.setTimeout(afterWrite, 120);
   }
 
   function applyMode(btn, cfg, mode) {
@@ -416,7 +422,8 @@
     btn.href = href || (isEvent ? "/evento" : "/candidature");
     btn.classList.remove("vc-header-promo-btn--event", "vc-header-promo-btn--candidature", "vc-header-promo-btn--mobile-compact");
     btn.classList.add(isEvent ? "vc-header-promo-btn--event" : "vc-header-promo-btn--candidature");
-    if (isCompactNav()) btn.classList.add("vc-header-promo-btn--mobile-compact");
+    var compact = isCompactNav();
+    if (compact) btn.classList.add("vc-header-promo-btn--mobile-compact");
     btn.removeAttribute("aria-label");
     btn.setAttribute(
       "aria-label",
@@ -427,13 +434,20 @@
     var badgeEls = btn.querySelectorAll(".vc-header-promo-btn__badge");
     var label = labelTextForMode(isEvent);
     var badge = badgeTextForMode(isEvent);
+    var textChanged = false;
     var i;
     for (i = 0; i < labelEls.length; i += 1) {
-      labelEls[i].textContent = label;
+      if (String(labelEls[i].textContent || "") !== label) {
+        labelEls[i].textContent = label;
+        textChanged = true;
+      }
       labelEls[i].setAttribute("data-i18n", isEvent ? "header.promo.eventLabel" : "header.promo.appsLabel");
     }
     for (i = 0; i < badgeEls.length; i += 1) {
-      badgeEls[i].textContent = badge;
+      if (String(badgeEls[i].textContent || "") !== badge) {
+        badgeEls[i].textContent = badge;
+        textChanged = true;
+      }
       badgeEls[i].setAttribute(
         "data-i18n",
         isEvent ? "header.promo.eventBadgeShort" : "header.promo.appsBadge",
@@ -446,7 +460,12 @@
       else btn.removeAttribute("aria-current");
     } catch (eCur) {}
 
-    layoutPromoMarquee(btn);
+    var compactChanged = lastCompactNav !== null && lastCompactNav !== compact;
+    lastCompactNav = compact;
+    /* candPillMarqueeNoRestart1: non toccare il track se già in marquee stabile */
+    if (textChanged || compactChanged || !promoMarqueeStable(btn)) {
+      layoutPromoMarquee(btn, { force: textChanged || compactChanged });
+    }
   }
 
   function buildPromoButtonShell(mode) {
@@ -616,15 +635,31 @@
           return;
         }
         window.clearTimeout(window.__vcPromoGateBootT);
+        /* violKillIdle2: boot + marquee spezzati (era setTimeout 650–1500ms) */
         window.__vcPromoGateBootT = window.setTimeout(function () {
+          try {
+            if (document.hidden || document.visibilityState === "hidden") return;
+          } catch (eHidG) {}
           if (window.__vcPromoGateBootedOnce && promoMarqueeStable(document.getElementById("vc-header-promo-btn"))) {
             return;
           }
           window.__vcPromoRetryCount = 0;
           window.__vcPromoGateBootedOnce = true;
-          boot({ layoutOnly: true });
-          syncBrandMarquee();
-        }, 720);
+          /* violWakeChunk1: boot layout fuori dall’handler MO (era 392ms Violation) */
+          function goPromo() {
+            try {
+              boot({ layoutOnly: true });
+            } catch (eBoot) {}
+            window.setTimeout(function () {
+              try {
+                if (document.hidden) return;
+                syncBrandMarquee();
+              } catch (eMq) {}
+            }, 64);
+          }
+          if (typeof window.__vcLight === "function") window.__vcLight(goPromo, 80);
+          else window.setTimeout(goPromo, 80);
+        }, 900);
       });
       mo.observe(root, { attributes: true, attributeFilter: ["class"] });
     } catch (eMo) {}
@@ -663,7 +698,22 @@
     "resize",
     function () {
       window.clearTimeout(window.__vcPromoResizeT);
-      window.__vcPromoResizeT = window.setTimeout(boot, 120);
+      window.__vcPromoResizeT = window.setTimeout(function () {
+        var compact = isCompactNav();
+        var compactChanged = lastCompactNav !== null && lastCompactNav !== compact;
+        lastCompactNav = compact;
+        var btn = document.getElementById("vc-header-promo-btn");
+        if (!btn || btn.hidden || btn.classList.contains("vc-header-promo-btn--staff-hidden")) {
+          boot();
+          return;
+        }
+        if (compact) btn.classList.add("vc-header-promo-btn--mobile-compact");
+        else btn.classList.remove("vc-header-promo-btn--mobile-compact");
+        /* rebuild solo se cambia breakpoint; altrimenti lascia correre l'animazione */
+        if (compactChanged || !promoMarqueeStable(btn)) {
+          layoutPromoMarquee(btn, { force: compactChanged });
+        }
+      }, 180);
     },
     { passive: true },
   );

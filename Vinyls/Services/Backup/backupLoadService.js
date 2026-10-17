@@ -796,7 +796,14 @@ async function applyBackupToGuild(guild, backupId, selectedActions, sourceGuildI
     for (const role of backupRoles) {
       throwIfCancelled(guildKey);
       const created = await guild.roles.create({
-        name: String(role.name || "ruolo"), color: Number(role.color || 0), hoist: Boolean(role.hoist), mentionable: Boolean(role.mentionable), permissions: BigInt(String(role.permissions || "0")), icon: (await resolveAssetInput(role.iconData || role.iconURL || null)) || undefined, unicodeEmoji: role.unicodeEmoji || undefined, reason: `Backup load ${backupId}`,
+        name: String(role.name || "ruolo"),
+        colors: { primaryColor: Number(role.color || 0) },
+        hoist: Boolean(role.hoist),
+        mentionable: Boolean(role.mentionable),
+        permissions: BigInt(String(role.permissions || "0")),
+        icon: (await resolveAssetInput(role.iconData || role.iconURL || null)) || undefined,
+        unicodeEmoji: role.unicodeEmoji || undefined,
+        reason: `Backup load ${backupId}`,
       })
         .catch(() => null);
       if (!created) continue;

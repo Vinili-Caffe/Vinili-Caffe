@@ -267,6 +267,7 @@ async function recoverDonationPackageAnnouncesOnStartup(client, opts = {}) {
   const {
     isRecoveryPrimaryShard,
     DEFAULT_RECOVERY_LOOKBACK_MS,
+    EMBED_DEDUPE_LOOKBACK_MS,
     collectRecentRoleAddsFromAudit,
     botSupportersEmbedExistsForUser,
     recoverySleep,
@@ -283,6 +284,8 @@ async function recoverDonationPackageAnnouncesOnStartup(client, opts = {}) {
   const channel = guild.channels.cache.get(channelId) || (await getGuildChannelCached(guild, channelId));
   if (!channel?.isTextBased?.()) return { ok: false, reason: "channel_not_text" };
   const botId = String(client.user?.id || "");
+  /* come patron/social: dedupe su 90g, non roleAdd-5min (ri-add ruolo / mute restore → falso "missing") */
+  const embedSinceMs = Date.now() - EMBED_DEDUPE_LOOKBACK_MS;
   const roleIds = Object.values(ROLE_ID_BY_TIER).filter(Boolean);
   const adds = await collectRecentRoleAddsFromAudit(guild, roleIds, lookbackMs);
   const seen = new Set();
@@ -305,8 +308,6 @@ async function recoverDonationPackageAnnouncesOnStartup(client, opts = {}) {
     const member = await getGuildMemberCached(guild, uid, { preferFresh: true }).catch(() => null);
     if (!member?.roles?.cache?.has(rid)) continue;
     const bestTier = tierForMemberRoles(member) || tier;
-        const roleAddMs = Number(row.createdMs || 0);
-    const embedSinceMs = Math.max(0, (roleAddMs || Date.now()) - 5 * 60 * 1000);
     const exists = await botSupportersEmbedExistsForUser(channel, uid, botId, embedSinceMs, (blob) =>
       donationAnnounceBlobMatchesTier(blob, bestTier),
     );

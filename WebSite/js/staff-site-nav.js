@@ -3,7 +3,30 @@
   /* Footer Staff = Guida + Compiti (Confessionale → Community) */
   /* pmOpsNavHide1: Compiti solo se canCompiti === true */
   /* Niente "Area staff" sulla navbar dashboard */
+  /* boardsNoStaffNav1: niente sezione Staff sulla navbar bacheca */
+  /* boardsSchedaMissCine1: niente Staff nav/footer bacheca anche con /en/… */
   /* confessionaleCommNav2: Confessionale mai nel menu Staff */
+
+  function pathWithoutLangPrefix(pathname) {
+    var raw = String(pathname || "/").toLowerCase();
+    if (!raw || raw.charAt(0) !== "/") raw = "/" + raw;
+    try {
+      if (window.VcI18n && typeof window.VcI18n.stripLangPrefix === "function") {
+        return String(window.VcI18n.stripLangPrefix(raw) || raw);
+      }
+    } catch (eStrip) {}
+    return raw.replace(
+      /^\/(en|it|es|fr|de|pt|pl|nl|ro|cs|sk|hu|bg|el|tr|ru|uk|ar|ja|ko|zh|hi|sv|da|fi|no|nb|nn|hr|sr|sl|lt|lv|et|id|ms|th|vi|he|fa|bn|ta|te|ml|kn|mr|gu|pa|sw|af|ca|eu|gl|is|ga|cy|sq|mk|bs|az|ka|hy|kk|uz|mn|ne|si|km|lo|my|am|yo|zu|xh|ig|ha)(?=\/|$)/i,
+      "",
+    ) || "/";
+  }
+
+  function sitePathname() {
+    var p = pathWithoutLangPrefix(location.pathname || "/");
+    p = String(p || "/").replace(/\/+$/, "") || "/";
+    if (p.charAt(0) !== "/") p = "/" + p;
+    return p;
+  }
 
   function perms() {
     return (window.__VC_STAFF_PERMS && typeof window.__VC_STAFF_PERMS === "object" && window.__VC_STAFF_PERMS) || {};
@@ -28,6 +51,15 @@
     return false;
   }
 
+  function readStaffMenuStickyLocal() {
+    try {
+      if (window.__VC_STAFF_MENU_ALLOWED === true) return true;
+      return sessionStorage.getItem("vc_staff_menu_allowed") === "1";
+    } catch (eR) {
+      return false;
+    }
+  }
+
   function isStaffNavContext() {
     if (!document.body) return false;
     /* authLogoutFix1: senza sessione non montare/ripristinare chrome staff */
@@ -39,28 +71,56 @@
       return false;
     }
     if (document.body.classList.contains("vc-staff-area")) return true;
-    return window.__VC_STAFF_MENU_ALLOWED === true;
+    /* footerStaffFirstStamp1: sticky subito (come navbar staffStickyFast1) */
+    if (window.__VC_STAFF_MENU_ALLOWED === true) return true;
+    if (readStaffMenuStickyLocal()) {
+      try {
+        window.__VC_STAFF_MENU_ALLOWED = true;
+      } catch (eFl) {}
+      return true;
+    }
+    return false;
   }
 
     function isDashboardSiteNav() {
     try {
-      var raw = String(location.pathname || "/").toLowerCase();
-      var p = raw.replace(/\/+$/, "") || "/";
+      var p = sitePathname();
       if (p === "/dashboard" || p.indexOf("/dashboard/") === 0) return true;
       if (document.body && document.body.classList.contains("vc-dashboard-page")) return true;
     } catch (eDash) {}
     return false;
   }
 
+  /* boardsNoStaffNav1 + boardsSchedaMissCine1 */
+  function isBoardsSiteNav() {
+    try {
+      var p = sitePathname();
+      if (p === "/bacheca" || p.indexOf("/bacheca/") === 0) return true;
+      if (p === "/boards" || p.indexOf("/boards/") === 0) return true;
+      if (document.body) {
+        if (document.body.classList.contains("vc-boards-page")) return true;
+        if (document.body.getAttribute("data-vc-boards-page")) return true;
+      }
+      if (document.documentElement && document.documentElement.classList.contains("vc-boards-header-nav")) {
+        return true;
+      }
+      var snav = document.querySelector("nav.vc-header-snav.vc-header-snav--boards");
+      if (snav) return true;
+    } catch (eBoards) {}
+    return false;
+  }
+
   function isSpecializedSiteNav(snav) {
     try {
+      var p = sitePathname();
       var raw = String(location.pathname || "/").toLowerCase();
-      var p = raw.replace(/\/+$/, "") || "/";
       if (p === "/evento" || p.indexOf("/evento/") === 0 || raw.indexOf("/evento/") === 0 || raw === "/evento/") {
         return true;
       }
       /* Area staff non va nella navbar dashboard */
       if (isDashboardSiteNav()) return true;
+      /* boardsNoStaffNav1: né su bacheca */
+      if (isBoardsSiteNav()) return true;
       if (document.body) {
         if (document.body.classList.contains("vc-hw-page")) return true;
         if (document.body.classList.contains("vc-hw-points-page")) return true;
@@ -479,7 +539,8 @@
 
   function injectStaffFooterColumns() {
     try {
-      if (!isStaffNavContext()) {
+      /* boardsSchedaMissCine1 / boardsFooterOnly1: mai colonna Staff sul footer bacheca */
+      if (!isStaffNavContext() || isBoardsSiteNav()) {
         removeStaffFooterColumns();
         return;
       }
@@ -502,7 +563,7 @@
       }
       var colHtml =
         '<nav class="vc-premium-footer__col" data-vc-footer-staff="1" aria-label="Staff">' +
-        '<h4 data-i18n="nav.staff">Staff</h4>' +
+        '<h2 class="vc-premium-footer__heading" data-i18n="nav.staff">Staff</h2>' +
         "<ul>" +
         lis +
         "</ul></nav>";
@@ -591,9 +652,49 @@
     } catch (eStrip) {}
   }
 
+  function findStaffHeader() {
+    try {
+      var h =
+        document.querySelector("body > .vc-staff-app > header") ||
+        document.querySelector("body > header") ||
+        document.querySelector(".vc-staff-app header");
+      if (h) return h;
+      var shell = document.querySelector("header .vc-nav-shell");
+      if (shell && shell.closest) return shell.closest("header");
+      return document.querySelector("header");
+    } catch (eH) {
+      return document.querySelector("header");
+    }
+  }
+
+  function staffNavAlreadyPainted(header) {
+    try {
+      var root = header || document;
+      return Boolean(root.querySelector("[data-vc-staff-tools-nav], .vc-snav-details--staff"));
+    } catch (eP) {
+      return false;
+    }
+  }
+
+  /* navStaffFirstStamp1: categoria Staff in navbar al primo stamp (come footer) */
+  function paintStaffNavEarly() {
+    try {
+      if (!isStaffNavContext() || isBoardsSiteNav() || isEventDedicatedNavPage()) return false;
+      var header = findStaffHeader();
+      if (!header) return false;
+      var shell = header.querySelector(".vc-nav-shell");
+      if (!shell) return false;
+      injectStaffMenu(header);
+      return staffNavAlreadyPainted(header);
+    } catch (eEarlyNav) {
+      return false;
+    }
+  }
+
   function injectStaffMenu(header) {
+    if (!header) return false;
     var shell = header.querySelector(".vc-nav-shell");
-    if (!shell) return;
+    if (!shell) return false;
 
     var bar = shell.querySelector(".vc-header-bar") || shell;
     var snav = bar.querySelector("nav.vc-header-snav");
@@ -606,7 +707,7 @@
       }
       stripLegacyStaffNavRows(header);
       watchEventNavStaffStrip(header);
-      return;
+      return false;
     }
 
     var p = perms();
@@ -629,14 +730,14 @@
       if (next && existing.parentNode) existing.parentNode.replaceChild(next, existing);
       stripLegacyStaffNavRows(header);
       stripConfessionaleFromStaffMenus(header);
-      return;
+      return true;
     }
 
     if (snav) {
       snav.insertAdjacentHTML("beforeend", html);
       stripLegacyStaffNavRows(header);
       stripConfessionaleFromStaffMenus(header);
-      return;
+      return true;
     }
 
         var brandWrap = bar.querySelector(".flex.min-w-0") || bar.firstElementChild;
@@ -652,6 +753,7 @@
     }
     stripLegacyStaffNavRows(header);
     stripConfessionaleFromStaffMenus(header);
+    return true;
   }
 
   function watchEventNavStaffStrip(header) {
@@ -1169,7 +1271,8 @@
     }
 
     try {
-      if (!isEventDedicatedNavPage()) {
+      /* boardsNoStaffNav1: niente sezione Staff nel drawer su bacheca/dashboard/evento */
+      if (!isEventDedicatedNavPage() && !isSpecializedSiteNav(null)) {
         var staffOk =
           window.__VC_STAFF_MENU_ALLOWED === true ||
           Boolean(perms().ok) ||
@@ -1505,9 +1608,10 @@
         }
         setStaffDrawerOpen(false);
       });
+      /* hamFootSwapDashBach1: Profilo · Dashboard · Bacheca */
       actions.appendChild(prof);
-      actions.appendChild(bach);
       actions.appendChild(dash);
+      actions.appendChild(bach);
       var toolbar = document.createElement("div");
       toolbar.className = "vc-mobile-nav-footer__toolbar";
       toolbar.appendChild(actions);
@@ -1712,12 +1816,20 @@
 
   function upgrade() {
     if (!isStaffNavContext()) {
-      removeStaffFooterColumns();
+      /* footerStaffFirstStamp1: non smontare footer su race sticky→API */
+      if (!readStaffMenuStickyLocal()) removeStaffFooterColumns();
       return;
     }
+    /* footerStaffFirstStamp1 + navStaffFirstStamp1: footer + navbar subito */
+    try {
+      injectStaffFooterColumns();
+    } catch (eFoot0) {}
+    try {
+      paintStaffNavEarly();
+    } catch (eNav0) {}
     /* violPass2: upgrade a slice — idle non deve superare ~50ms */
-    var header = document.querySelector("body > .vc-staff-app > header, body > header, .vc-staff-app header");
     function slice1() {
+      var header = findStaffHeader();
       if (!header) return;
       try {
         ensureSiteBrand(header);
@@ -1727,6 +1839,7 @@
       } catch (e1) {}
     }
     function slice2() {
+      var header = findStaffHeader();
       if (!header) return;
       try {
         enforceStaffMenuGuidaOnly(header);
@@ -1735,6 +1848,7 @@
         stripConfessionaleFromStaffMenus(document);
         watchStaffConfessionaleStrip();
         if (isEventDedicatedNavPage()) watchEventNavStaffStrip(header);
+        if (isBoardsSiteNav()) watchEventNavStaffStrip(header);
         ensureNotifSlot(header);
         ensureHeaderPromo();
       } catch (e2) {}
@@ -1744,60 +1858,64 @@
         ensureStaffDrawerShell();
         wireStaffHamburger();
         injectStaffFooterColumns();
+        paintStaffNavEarly();
+        if (isBoardsSiteNav()) {
+          removeStaffFooterColumns();
+          stripStaffMenuFromSnav(document.querySelector("nav.vc-header-snav"));
+        }
         applyStaffI18n(document);
         document.body.classList.add("vc-staff-site-nav");
       } catch (e3) {}
     }
-    function slice4() {
-      try {
-        window.dispatchEvent(new CustomEvent("vc:staff-notif-ready"));
-      } catch (eNotif) {}
-      try {
-        if (typeof window.__vcMobileNavRebuild === "function") window.__vcMobileNavRebuild();
-      } catch (eRebuild) {}
-      try {
-        if (window.VcNavBadges && typeof window.VcNavBadges.schedule === "function") {
-          window.VcNavBadges.schedule();
-        } else if (window.VcNavBadges && typeof window.VcNavBadges.apply === "function") {
-          window.VcNavBadges.apply(document);
-        }
-      } catch (eBadge) {}
-    }
-    function defer(fn, ms) {
-      /* violPass9/12: solo setTimeout (idle timeout marcava Violation) + gap più larghi */
+    /* violKillCue2: gap più larghi tra slice (era Violation setTimeout 50–126ms) */
+    function defer(fn, ms, critical) {
       window.setTimeout(function () {
+        if (!critical) {
+          try {
+            if (document.hidden || document.visibilityState === "hidden") return;
+          } catch (eHid) {}
+        }
         try {
           fn();
         } catch (eF) {}
-      }, ms || 0);
+      }, ms || 48);
     }
-    /* violPass12: slice1 spezzato (era ~58ms+, con load storm sale) */
     defer(function () {
       try {
+        var header = findStaffHeader();
         if (!header) return;
         ensureSiteBrand(header);
-        injectStaffMenu(header);
       } catch (e1a) {}
-    }, 0);
+    }, 48);
+    /* navStaffFirstStamp1: inject menu anche se tab hidden (senza skip) */
     defer(function () {
       try {
+        paintStaffNavEarly();
+        var header = findStaffHeader();
+        if (!header) return;
+        injectStaffMenu(header);
+      } catch (e1b) {}
+    }, 80, true);
+    defer(function () {
+      try {
+        var header = findStaffHeader();
         if (!header) return;
         stripLegacyStaffNavRows(header);
         stripLegacyStaffNavRows(document);
-      } catch (e1b) {}
-    }, 120);
-    defer(slice2, 320);
-    defer(slice3, 680);
+      } catch (e1c) {}
+    }, 280);
+    defer(slice2, 480);
+    defer(slice3, 900);
     defer(function () {
       try {
         window.dispatchEvent(new CustomEvent("vc:staff-notif-ready"));
       } catch (eNotif) {}
-    }, 900);
+    }, 1200);
     defer(function () {
       try {
         if (typeof window.__vcMobileNavRebuild === "function") window.__vcMobileNavRebuild();
       } catch (eRebuild) {}
-    }, 1200);
+    }, 1600);
     defer(function () {
       try {
         if (window.VcNavBadges && typeof window.VcNavBadges.schedule === "function") {
@@ -1806,7 +1924,7 @@
           window.VcNavBadges.apply(document);
         }
       } catch (eBadge) {}
-    }, 1500);
+    }, 2000);
   }
 
   function boot() {
@@ -1867,26 +1985,47 @@
   window.__vcTeardownStaffSiteNav = teardownStaffSiteNav;
 
   function scheduleStaffNavBoot() {
-    function run() {
+    function tick(doBoot) {
       if (!isStaffNavContext()) return false;
-      boot();
-      return true;
+      try {
+        injectStaffFooterColumns();
+      } catch (eEarly) {}
+      try {
+        paintStaffNavEarly();
+      } catch (eEarlyNav) {}
+      if (doBoot) {
+        try {
+          boot();
+        } catch (eB) {}
+      }
+      return staffNavAlreadyPainted();
     }
-    if (run()) return;
-        var tries = 0;
+    if (tick(true)) return;
+    var tries = 0;
     var timer = window.setInterval(function () {
       tries += 1;
-      if (run() || tries > 40) window.clearInterval(timer);
-    }, 100);
+      var painted = false;
+      try {
+        painted = tick(tries === 1 || tries === 3 || tries === 8 || tries === 20);
+      } catch (eTry) {}
+      if (painted || tries > 50) window.clearInterval(timer);
+    }, 80);
   }
 
   window.addEventListener("vc:staff-access-ok", function () {
+    try {
+      injectStaffFooterColumns();
+    } catch (eOkFoot) {}
+    try {
+      paintStaffNavEarly();
+    } catch (eOkNav) {}
     boot();
   });
   window.addEventListener("vc:langchange", function () {
     try {
       if (!isStaffNavContext()) return;
       injectStaffFooterColumns();
+      paintStaffNavEarly();
       applyStaffI18n(document);
     } catch (eLang) {}
   });
@@ -1899,8 +2038,14 @@
       teardownStaffSiteNav();
       return;
     }
-    if (!window.__VC_STAFF_MENU_ALLOWED) return;
+    if (!window.__VC_STAFF_MENU_ALLOWED && !readStaffMenuStickyLocal()) return;
     /* handlerPerf2 + violKill1 + violPass2: profile boot deferred; upgrade è a slice */
+    try {
+      injectStaffFooterColumns();
+    } catch (eProfFoot) {}
+    try {
+      paintStaffNavEarly();
+    } catch (eProfNav) {}
     var run = function () {
       try {
         boot();
@@ -1908,6 +2053,27 @@
     };
     window.setTimeout(run, 32);
   });
+  /* footerStaffFirstStamp1 + navStaffFirstStamp1: sticky → paint footer+navbar subito */
+  try {
+    if (readStaffMenuStickyLocal()) {
+      try {
+        window.__VC_STAFF_MENU_ALLOWED = true;
+      } catch (eProm) {}
+      var paintBoth = function () {
+        try {
+          injectStaffFooterColumns();
+        } catch (eF) {}
+        try {
+          paintStaffNavEarly();
+        } catch (eN) {}
+      };
+      if (document.body) {
+        paintBoth();
+      } else {
+        document.addEventListener("DOMContentLoaded", paintBoth);
+      }
+    }
+  } catch (eBootFoot) {}
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", scheduleStaffNavBoot);
   } else {
@@ -1915,9 +2081,12 @@
   }
 })();
 /* violKill1 */
+/* violKillCue2 */
 /* extOnlyFix1 */
 /* violPass2 */
 /* violPass4 */
 /* violPass5 */
 /* violPass10 */
 /* violPass12 */
+/* footerStaffFirstStamp1 */
+/* navStaffFirstStamp1 */

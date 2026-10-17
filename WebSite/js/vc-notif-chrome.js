@@ -15,13 +15,62 @@
  * Document-capture sync sempre attivo (anche se landing "possiede" la bell).
  */
 (function () {
-  var VER = "20261002notifSheetUnifyGuard1";
+  var VER = "20261011notifSheetCloseLayout1";
+  /* notifSheetUnifyAll1 */
+  /* notifSheetStayOpen1: grace=portalGuard; outside close non combatte reclaim */
   /* notifSheetUnifyGuard1: sync portalGuard chrome↔landing + switcher unificato */
+  /* notifSheetScopeActive6: paint Personali|Inbox + VER allineata a discord-auth */
   if (window.VcNotifChrome && window.VcNotifChrome.ver === VER) return;
   window.VcNotifChrome = { ver: VER };
 
+  function dismissFlyToasts() {
+    try {
+      var cards = document.querySelectorAll(".vc-notif-fly-card, .vc-notif-ig-toast");
+      for (var i = 0; i < cards.length; i++) {
+        try { cards[i].remove(); } catch (eRm) {}
+      }
+    } catch (e0) {}
+    try {
+      if (typeof window.__vcDismissNotifFlyToasts === "function") window.__vcDismissNotifFlyToasts();
+    } catch (e1) {}
+  }
+
+  function dedupeSeeAll(dd) {
+    try {
+      var root = dd || document.getElementById("vc-notif-dropdown");
+      if (!root) return;
+      var links = root.querySelectorAll("#vc-notif-panel-foot .vc-notif-see-all, #vc-notif-panel-foot a[href*=\"/notifications\"]");
+      var keep = null;
+      for (var i = 0; i < links.length; i++) {
+        var a = links[i];
+        if (!keep) {
+          keep = a;
+          if (!a.id) a.id = "vc-notif-see-all";
+          continue;
+        }
+        try { a.remove(); } catch (eRm) {}
+      }
+    } catch (eD) {}
+  }
+
+  function assertOpenClasses(dd, force) {
+    try {
+      if (!dd) return;
+      if (!force && !dd.open) return;
+      var root = document.documentElement;
+      var mobile = isMobileNotifViewport();
+      if (mobile) {
+        root.classList.add("vc-notif-sheet-open", "vc-notif-dropdown-open");
+        root.classList.remove("vc-notif-drawer-open");
+      } else {
+        root.classList.add("vc-notif-drawer-open", "vc-notif-dropdown-open");
+        root.classList.remove("vc-notif-sheet-open");
+      }
+    } catch (eA) {}
+  }
   var portalGuardUntil = 0;
   var openGraceUntil = 0;
+  var closeLockUntil = 0;
   var portalSyncing = false;
   var portalOpenGen = 0;
   var gestureLockUntil = 0;
@@ -144,7 +193,8 @@
 
 
   function armOpenGrace(ms) {
-    var until = Date.now() + Math.max(400, Number(ms) || 700);
+    /* notifSheetStayOpen1: default 1400 = allinea portalGuard */
+    var until = Date.now() + Math.max(400, Number(ms) || 1400);
     openGraceUntil = until;
     try {
       window.__vcNotifOpenGraceUntil = until;
@@ -198,9 +248,8 @@
         moved = true;
       }
       setSlotHold(true);
-      /* notifSheetSmooth1: se gia' in body e open, non rifare forceOpen (restart anim) */
+      /* notifSheetCloseLayout1: gia' in body+open → non ri-armare guard (bloccava la X) */
       if (!moved && dd.open) {
-        armPortalGuard(1400);
         return;
       }
       portalOpenGen += 1;
@@ -217,7 +266,7 @@
         window.requestAnimationFrame(forceOpen);
       } catch (eRaf) {}
       armPortalGuard(1400);
-      armOpenGrace(750);
+      armOpenGrace(1400);
       return;
     }
     portalOpenGen += 1;
@@ -250,6 +299,10 @@
     var nowOpen = Date.now();
     if (nowOpen < openAnimUntil) return false;
     openAnimUntil = nowOpen + 700;
+    closeLockUntil = 0;
+    try {
+      window.__vcNotifCloseLockUntil = 0;
+    } catch (eClrLock) {}
     gestureLockUntil = Math.max(gestureLockUntil, nowOpen + 520);
     try {
       bellScope = "personal";
@@ -272,12 +325,15 @@
       syncBellScopeChrome();
     } catch (eScope) {}
     portalToBody(dd, true);
-    armPortalGuard(1400);
+    dismissFlyToasts();
     try {
       dd.open = true;
       dd.setAttribute("open", "");
     } catch (eOpen) {}
-    armOpenGrace(750);
+    assertOpenClasses(dd, true);
+    dedupeSeeAll(dd);
+    armPortalGuard(1800);
+    armOpenGrace(1800);
     scheduleSync(0);
     try {
       window.requestAnimationFrame(function () {
@@ -290,11 +346,14 @@
   }
 
   function requestClose(dd) {
-    /* notifCloseGuard1: intentional close must kill forceOpen / portalGuard */
+    /* notifCloseGuard1 + notifSheetCloseLayout1: kill guard/forceOpen + lock anti-reclaim */
     clearPortalGuard();
     openGraceUntil = 0;
+    closeLockUntil = Date.now() + 900;
     try {
       window.__vcNotifOpenGraceUntil = 0;
+      window.__vcNotifPortalGuardUntil = 0;
+      window.__vcNotifCloseLockUntil = closeLockUntil;
     } catch (eGraceClr) {}
     portalOpenGen += 1;
     gestureLockUntil = Date.now() + 520;
@@ -302,7 +361,13 @@
       if (typeof window.__vcArmSheetCloseGuard === "function") window.__vcArmSheetCloseGuard(520);
     } catch (eGhost) {}
     try {
-      document.documentElement.classList.remove("vc-notif-sheet-anim", "vc-notif-sheet-noanim");
+      document.documentElement.classList.remove(
+        "vc-notif-sheet-anim",
+        "vc-notif-sheet-noanim",
+        "vc-notif-sheet-open",
+        "vc-notif-drawer-open",
+        "vc-notif-dropdown-open"
+      );
     } catch (eAnim) {}
     var live = dd || document.getElementById("vc-notif-dropdown");
     if (!live) return;
@@ -314,6 +379,27 @@
         live.removeAttribute("open");
       } catch (eClose2) {}
     }
+    try {
+      var oldBd = live.querySelector(".vc-notif-mobile-backdrop");
+      if (oldBd) oldBd.remove();
+    } catch (eBd) {}
+    try {
+      portalToBody(live, false);
+      ensureInHeader(true);
+    } catch (ePort) {}
+  }
+
+  function closeLockLive() {
+    var now = Date.now();
+    var shared = 0;
+    try {
+      shared = Number(window.__vcNotifCloseLockUntil || 0) || 0;
+    } catch (e) {
+      shared = 0;
+    }
+    var until = Math.max(closeLockUntil, shared);
+    if (until > closeLockUntil) closeLockUntil = until;
+    return now < until;
   }
 
   function primeDesktopDrawer(dd, opts) {
@@ -703,13 +789,92 @@
       else tabS.removeAttribute("hidden");
     }
     var isStaff = bellScope === "staff" && staffOk;
+    try {
+      var segPaint = switchWrap && switchWrap.querySelector(".vc-notif-scope-switch__seg");
+      if (segPaint && segPaint.style) {
+        var lightSeg = false;
+        try {
+          lightSeg = document.documentElement.getAttribute("data-vc-theme") === "light";
+        } catch (eLg) {}
+        segPaint.style.setProperty("transition", "none", "important");
+        if (lightSeg) {
+          segPaint.style.setProperty("background-color", "rgba(111, 78, 55, 0.16)", "important");
+          segPaint.style.setProperty("background-image", "none", "important");
+        } else {
+          segPaint.style.setProperty("background-color", "rgba(14, 10, 8, 0.92)", "important");
+          segPaint.style.setProperty("background-image", "none", "important");
+        }
+      }
+    } catch (eSeg) {}
+    /* notifSheetScopeActive6: reset + fill (mirror landing) se chrome synca da solo */
+    function paintTab(el, on) {
+      if (!el || !el.style) return;
+      var light = false;
+      try {
+        light = document.documentElement.getAttribute("data-vc-theme") === "light";
+      } catch (eTh) {}
+      /* notifSheetScopeActive9: no transition bg — altrimenti fill resta sull’altro tab */
+      el.style.setProperty("transition", "none", "important");
+      el.style.removeProperty("background");
+      el.style.removeProperty("background-color");
+      el.style.removeProperty("background-image");
+      el.style.removeProperty("color");
+      el.style.removeProperty("-webkit-text-fill-color");
+      el.style.removeProperty("border");
+      el.style.removeProperty("box-shadow");
+      try {
+        el.setAttribute("data-vc-scope-on", on ? "1" : "0");
+      } catch (eOn) {}
+      if (on) {
+        if (light) {
+          el.style.setProperty("background-color", "#fff8f0", "important");
+          el.style.setProperty(
+            "background-image",
+            "linear-gradient(180deg, #fffefb 0%, #f7efe6 55%, #f0e6da 100%)",
+            "important",
+          );
+          el.style.setProperty("color", "#1a120e", "important");
+          el.style.setProperty("-webkit-text-fill-color", "#1a120e", "important");
+          el.style.setProperty("border", "1px solid rgba(111, 78, 55, 0.4)", "important");
+          el.style.setProperty(
+            "box-shadow",
+            "0 2px 8px rgba(60, 40, 24, 0.14), inset 0 1px 0 rgba(255, 255, 255, 0.75)",
+            "important",
+          );
+        } else {
+          el.style.setProperty("background-color", "#3a281c", "important");
+          el.style.setProperty("background-image", "none", "important");
+          el.style.setProperty("color", "#fff8f0", "important");
+          el.style.setProperty("-webkit-text-fill-color", "#fff8f0", "important");
+          el.style.setProperty("border", "0 solid transparent", "important");
+          el.style.setProperty("box-shadow", "inset 0 1px 0 rgba(255, 255, 255, 0.1)", "important");
+        }
+      } else {
+        el.style.setProperty("background-color", "transparent", "important");
+        el.style.setProperty("background-image", "none", "important");
+        el.style.setProperty(
+          "color",
+          light ? "#3a281c" : "rgba(236, 214, 188, 0.72)",
+          "important",
+        );
+        el.style.setProperty(
+          "-webkit-text-fill-color",
+          light ? "#3a281c" : "rgba(236, 214, 188, 0.72)",
+          "important",
+        );
+        el.style.setProperty("border", "0 solid transparent", "important");
+        el.style.setProperty("box-shadow", "none", "important");
+      }
+    }
     if (tabP) {
       tabP.classList.toggle("is-active", !isStaff);
       tabP.setAttribute("aria-selected", !isStaff ? "true" : "false");
+      paintTab(tabP, !isStaff);
     }
     if (tabS) {
       tabS.classList.toggle("is-active", isStaff);
       tabS.setAttribute("aria-selected", isStaff ? "true" : "false");
+      paintTab(tabS, isStaff);
     }
     if (personalPane) {
       personalPane.hidden = isStaff;
@@ -784,6 +949,7 @@
             'Vedi tutte le notifiche <i class="fa fa-chevron-right" aria-hidden="true"></i>';
           foot.appendChild(a);
         }
+        dedupeSeeAll(dd);
       }
       var headActions = dd.querySelector(".vc-notif-panel-head-actions");
       if (headActions && !document.getElementById("vc-notif-clear-all")) {
@@ -849,6 +1015,22 @@
     if (!dd) return;
     var root = document.documentElement;
     var mobile = isMobileNotifViewport();
+    /* close lock: mai reclaim dopo X/Esc */
+    if (closeLockLive()) {
+      if (dd.open) {
+        try {
+          dd.open = false;
+          dd.removeAttribute("open");
+        } catch (eCls) {}
+      }
+      try {
+        root.classList.remove("vc-notif-sheet-open", "vc-notif-drawer-open", "vc-notif-dropdown-open");
+      } catch (eRm) {}
+      clearPortalGuard();
+      portalToBody(dd, false);
+      ensureInHeader(true);
+      return;
+    }
     if (!dd.open && portalGuardLive()) {
       try {
         dd.open = true;
@@ -871,6 +1053,10 @@
           root.classList.add("vc-notif-dropdown-open");
         } catch (e0) {}
         portalToBody(dd, true);
+        dismissFlyToasts();
+        assertOpenClasses(dd, true);
+        dedupeSeeAll(dd);
+        /* non re-arm guard a ogni sync: solo open/reclaim (altrimenti close impossibile) */
         try {
           if (typeof window.__vcSyncLoaderScrollLock === "function") window.__vcSyncLoaderScrollLock();
         } catch (eLock) {}
@@ -912,7 +1098,9 @@
           dd.insertBefore(bd, dd.firstChild);
         }
       } else {
-        /* notifBellStayOpen1: overflow-lock can spurious-close <details>; reclaim under guard */
+        /* notifBellStayOpen1: overflow-lock can spurious-close <details>; reclaim under guard.
+           Non fare return a metà: portal + classi + switcher devono restare coerenti
+           altrimenti il panel resta body>absolute sotto il footer. */
         if (portalGuardLive()) {
           try {
             dd.open = true;
@@ -920,14 +1108,26 @@
           } catch (eRe) {}
           try {
             if (mobile) {
-              root.classList.add("vc-notif-sheet-open");
+              root.classList.add("vc-notif-sheet-open", "vc-notif-dropdown-open");
               root.classList.remove("vc-notif-drawer-open");
             } else {
-              root.classList.add("vc-notif-drawer-open");
+              root.classList.add("vc-notif-drawer-open", "vc-notif-dropdown-open");
               root.classList.remove("vc-notif-sheet-open");
             }
-            root.classList.add("vc-notif-dropdown-open");
           } catch (eCls) {}
+          portalToBody(dd, true);
+          dismissFlyToasts();
+          assertOpenClasses(dd, true);
+          dedupeSeeAll(dd);
+          try {
+            if (!dd.__vcBellScopeUiReady) {
+              ensureBellScopeUi();
+              dd.__vcBellScopeUiReady = true;
+            }
+            syncBellScopeChrome();
+            ensureDrawerChromeParity(dd);
+          } catch (eScopeRe) {}
+          armPortalGuard(1800);
           return;
         }
         clearPortalGuard();

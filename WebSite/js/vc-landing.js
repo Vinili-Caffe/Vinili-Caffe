@@ -1,9 +1,15 @@
 
+/* 20261015consoleFixAll1: con __vcMobileNavStandalone non rifare rebuild sul
+   storm vc-dashboard-access / staff-access (17s Violation + doppio lavoro) */
+/* 20261015jsWakeIdle3: libri volanti NON ripartono su bustle (pointermove = wake);
+   ripresa solo tap/wheel esplicito dopo settle */
+/* 20261015jsWakeBurst1: libri volanti off su cpu-settle (meno riattivazioni JS) */
 
 (function () {
   try {
     var ID = "vc-phone-root-unlock-css";
     /* loadScrollLockFs1: lock scroll su TUTTI i viewport durante boot/loader (prima solo phone) */
+    /* hangKill3: overflow lock ok; MAI touch-action:none / :has / chrome-bar freeze */
     var css =
       "html.vc-page-cine-boot:not(.vc-page-cine-ready)," +
       "html.vc-page-cine-boot:not(.vc-page-cine-ready) body," +
@@ -13,33 +19,26 @@
       "html.vc-user-profile-pending,html.vc-user-profile-pending body," +
       "html.vc-loading-scroll-lock,html.vc-loading-scroll-lock body," +
       "html.vc-loader-blocking-live,html.vc-loader-blocking-live body," +
-      "html.vc-interaction-hold,html.vc-interaction-hold body," +
       "html.vc-rank-customize-pending,html.vc-rank-customize-pending body," +
       "html.vc-custom-profile-pending,html.vc-custom-profile-pending body," +
       "html.vc-session-verify-pending,html.vc-session-verify-pending body," +
       "html.vc-staff-access-pending:not(.vc-staff-app-revealed)," +
-      "html.vc-staff-access-pending:not(.vc-staff-app-revealed) body," +
-      "html.vc-notif-staff-loading,html.vc-notif-staff-loading body," +
-      "html.vc-page-cine-ready.vc-interaction-hold,html.vc-page-cine-ready.vc-interaction-hold body," +
-      "html:has(.vc-ul-loading:not([hidden])),html:has(.vc-ul-loading:not([hidden])) body," +
-      "html:has(#vc-roles-loading:not([hidden])),html:has(#vc-roles-loading:not([hidden])) body," +
-      "html:has(#vc-staff-loading:not([hidden]):not(.vc-staff-loading--hidden))," +
-      "html:has(#vc-staff-loading:not([hidden]):not(.vc-staff-loading--hidden)) body," +
-      "html:has(#vc-shared-boot-overlay:not([hidden])),html:has(#vc-shared-boot-overlay:not([hidden])) body," +
-      "html:has(.vc-session-verify-overlay:not(.vc-session-verify-overlay--hidden))," +
-      "html:has(.vc-session-verify-overlay:not(.vc-session-verify-overlay--hidden)) body," +
-      "html:has(#vc-staff-inbox-loading:not([hidden]):not(.vc-staff-loading--hidden))," +
-      "html:has(#vc-staff-inbox-loading:not([hidden]):not(.vc-staff-loading--hidden)) body{" +
+      "html.vc-staff-access-pending:not(.vc-staff-app-revealed) body{" +
       "overflow:hidden!important;overflow-x:hidden!important;overflow-y:hidden!important;" +
-      "overscroll-behavior:none!important;touch-action:none!important;" +
-      "height:100%!important;max-height:100dvh!important}" +
-      /* scrollYankFix1 / loadFreezeHard1: during ANY load lock — freeze totale (no pan-y) */
+      "overscroll-behavior:none!important;height:100%!important;max-height:100dvh!important;" +
+      /* siparioCssBarApi1: lock gesture duro (no pan-y → no yoyo mid-load) */
+      "touch-action:none!important;pointer-events:auto!important}" +
+      "html.vc-chrome-bar-loading,html.vc-chrome-bar-loading body," +
+      "html.vc-interaction-hold,html.vc-interaction-hold body," +
+      "html.vc-page-cine-ready.vc-interaction-hold,html.vc-page-cine-ready.vc-interaction-hold body{" +
+      "overflow:hidden!important;overflow-x:hidden!important;overflow-y:hidden!important;" +
+      "overscroll-behavior:none!important;touch-action:none!important;pointer-events:auto!important}" +
       "html.vc-page-cine-ready.vc-loading-scroll-lock," +
       "html.vc-page-cine-ready.vc-loading-scroll-lock body," +
       "html.vc-page-cine-ready.vc-loader-blocking-live," +
       "html.vc-page-cine-ready.vc-loader-blocking-live body," +
-      "html.vc-page-cine-ready.vc-interaction-hold," +
-      "html.vc-page-cine-ready.vc-interaction-hold body," +
+      "html.vc-page-cine-ready.vc-chrome-bar-loading," +
+      "html.vc-page-cine-ready.vc-chrome-bar-loading body," +
       "html.vc-page-cine-ready.vc-session-verify-pending," +
       "html.vc-page-cine-ready.vc-session-verify-pending body{" +
       "overflow:hidden!important;overflow-x:hidden!important;overflow-y:hidden!important;" +
@@ -47,39 +46,48 @@
       "position:static!important;inset:auto!important;top:auto!important;" +
       "left:auto!important;right:auto!important;bottom:auto!important;" +
       "height:auto!important;max-height:none!important;width:100%!important;" +
-      "touch-action:none!important}" +
+      "touch-action:none!important;pointer-events:auto!important}" +
       "@media (pointer:coarse),(max-width:920px){" +
       "html.vc-page-cine-boot:not(.vc-page-cine-ready) .vc-home-cine," +
       "html.vc-loader-blocking-live .vc-home-cine," +
       "html.vc-loading-scroll-lock .vc-home-cine," +
-      "html.vc-user-leader-pending .vc-home-cine," +
-      "html.vc-notif-staff-loading .vc-home-cine{" +
+      "html.vc-user-leader-pending .vc-home-cine{" +
       "visibility:hidden!important;opacity:0!important;pointer-events:none!important}" +
       "}" +
       "#vc-ul-loading[hidden],.vc-ul-loading[hidden],#vc-roles-loading[hidden]," +
-      "#vc-shared-boot-overlay[hidden]{display:none!important;visibility:hidden!important;opacity:0!important;pointer-events:none!important}";
+      "#vc-shared-boot-overlay[hidden],#vc-staff-inbox-loading[hidden]," +
+      "#vc-staff-inbox-loading.vc-staff-loading--hidden," +
+      ".vc-staff-loading[hidden],.vc-staff-loading.vc-staff-loading--hidden{" +
+      "display:none!important;visibility:hidden!important;opacity:0!important;pointer-events:none!important}";
     function inject() {
       var el = document.getElementById(ID);
       if (!el) {
         el = document.createElement("style");
         el.id = ID;
-        el.setAttribute("data-vc", "loadFreezeHard1");
       }
+      /* hangKill1: sempre riscrivi — niente :has / staff-loading freeze */
+      el.setAttribute("data-vc", "hangKill3");
       el.textContent = css;
       var host = document.head || document.documentElement;
       if (el.parentNode !== host) host.appendChild(el);
+      else host.appendChild(el);
     }
     inject();
     window.__vcPhoneRootUnlockInject = inject;
+    window.__VC_PHONE_ROOT_UNLOCK_VER = "hangKill3";
+    /* notifBellOpen1: thin landing ≠ notif client (non avvelenare LANDING_NOTIF load) */
+    try {
+      window.__VC_LANDING_BOOT = 1;
+    } catch (eMark) {}
+    try {
+      window.setTimeout(inject, 0);
+      window.setTimeout(inject, 400);
+    } catch (eRe) {}
   } catch (eRootUnlock) {}
   try {
-    if (!window.VcPerf || !window.VcPerf.__ready) {
-      var s = document.createElement("script");
-      s.src = "/js/vc-perf.js?v=20260929ulSolidNine1";
-      s.async = false;
-      (document.head || document.documentElement).appendChild(s);
-    } else if (typeof window.VcPerf.apply === "function") {
-      window.VcPerf.apply();
+    /* breatheFast1: se perf già in head, non reiniettare */
+    if (window.VcPerf && window.VcPerf.__ready) {
+      if (typeof window.VcPerf.apply === "function") window.VcPerf.apply();
     }
   } catch (ePerfBoot) {}
 })();
@@ -125,12 +133,8 @@
 })();
 (function () {
   try {
-    if (!window.VcPerf || !window.VcPerf.__ready) {
-      var s = document.createElement("script");
-      s.src = "/js/vc-perf.js?v=20260929ulSolidNine1";
-      s.defer = true;
-      (document.head || document.documentElement).appendChild(s);
-    } else if (typeof window.VcPerf.apply === "function") {
+    /* breatheFast1: vc-perf già in head HTML — niente secondo download */
+    if (window.VcPerf && typeof window.VcPerf.apply === "function") {
       window.VcPerf.apply();
     }
   } catch (ePerfBoot) {}
@@ -471,6 +475,15 @@
       if (a.hasAttribute("download")) return;
       var target = String(a.getAttribute("target") || "").toLowerCase();
       if (target === "_blank") return;
+      /* perfRoiPack1: prefetch solo nav primaria */
+      try {
+        if (
+          !a.closest(".vc-header-snav") &&
+          !a.closest("#vc-mobile-nav-drawer") &&
+          !a.closest("footer.vc-site-footer") &&
+          !a.closest(".vc-premium-footer")
+        ) return;
+      } catch (eNavZone) {}
       prefetchNavHref(a.getAttribute("href") || "");
     }
     document.addEventListener(
@@ -612,7 +625,12 @@
   }
 
   function isPwaColdStartHome() {
-    /* pwaResumeWin1: ?app= OPPURE home PWA senza referrer same-site (Windows a volte droppa ?app=) */
+    /* pwaResumeWin1 / pwaAppQueryHide1 / pwaAppLoopKill1: ?app= (o flag dopo strip) OPPURE home PWA */
+    try {
+      if (window.__vcPwaColdApp) return true;
+      var coldAt = Number(sessionStorage.getItem("vc-pwa-cold-app") || "0") || 0;
+      if (coldAt > 0 && Date.now() - coldAt < 20000) return true;
+    } catch (eCold) {}
     try {
       if (/[?&]app=/.test(String(window.location.search || ""))) return true;
     } catch (e) {}
@@ -637,6 +655,36 @@
       var search = String(window.location.search || "");
       if (/[?&]code=/.test(search) || /[?&]state=/.test(search)) return false;
     } catch (eQ) {}
+    /* navNoYankTyped1: link/omnibox → launchQueue batte resume (senza = resti sulla vecchia pagina) */
+    try {
+      var launchRaw = sessionStorage.getItem("vc-pwa-launch-pending");
+      if (launchRaw) {
+        var launchData = JSON.parse(launchRaw);
+        var launchPath = String((launchData && launchData.p) || "");
+        var launchAt = Number((launchData && launchData.t) || 0);
+        if (launchPath && (!launchAt || Date.now() - launchAt < 120000)) {
+          /* pwaAppLoopKill1: normalizza via safe (strippa ?app=) */
+          launchPath = safeResumePath(launchPath) || launchPath;
+          try {
+            var lu = new URL(launchPath, window.location.origin);
+            lu.searchParams.delete("app");
+            launchPath = lu.pathname + (lu.search || "") + (lu.hash || "");
+          } catch (eLu) {}
+          var launchNorm = String(launchPath).replace(/\/+$/, "") || "/";
+          var launchPathOnly = launchNorm.split("?")[0].split("#")[0] || "/";
+          if (launchPathOnly !== "/") {
+            sessionStorage.removeItem("vc-pwa-launch-pending");
+            try {
+              document.documentElement.style.background = "#100c09";
+              if (document.body) document.body.style.background = "#100c09";
+            } catch (ePaintL) {}
+            window.location.replace(launchPath);
+            return true;
+          }
+          sessionStorage.removeItem("vc-pwa-launch-pending");
+        }
+      }
+    } catch (eLaunchPref) {}
     if (consumeWantHome()) {
       try {
         if (window.VcPwaResume && typeof window.VcPwaResume.save === "function") {
@@ -1057,13 +1105,7 @@
     } catch (eEv) {}
     var banner = document.getElementById("vc-necessity-banner");
     if (banner) closeCookieBanner(banner);
-    if (choice === "accepted") {
-      try {
-        if (typeof window.__vcHogwartsYoutubeStartFromGesture === "function") {
-          window.__vcHogwartsYoutubeStartFromGesture();
-        }
-      } catch (eBgm) {}
-    }
+    /* hogwartsSiteDead1: niente BGM/YouTube Hogwarts post-cookie */
   }
 
   function applyPendingCookieChoiceAfterLogin(tCookieFn) {
@@ -1114,6 +1156,10 @@
       if (typeof window.gtag === "function") {
         window.gtag("consent", "update", {
           analytics_storage: granted ? "granted" : "denied",
+          /* boardsAdsense1 */
+          ad_storage: granted ? "granted" : "denied",
+          ad_user_data: granted ? "granted" : "denied",
+          ad_personalization: granted ? "granted" : "denied",
         });
       }
     } catch (eG) {}
@@ -1586,7 +1632,15 @@
       bestRow.setAttribute("aria-current", "page");
       try {
         var det = bestRow.closest("details.vc-snav-details");
-        if (det) det.classList.add("vc-snav-details--current");
+        /* feedbackLayout1: /feedback non dipingere Richieste come tab attiva
+           (sembra “staff/richieste”); resta solo la row --active. */
+        var rowPath = pathFromHref(bestRow.getAttribute("href"));
+        var skipParentCurrent =
+          rowPath === "/feedback" ||
+          rowPath === "/suggerimenti" ||
+          rowPath === "/tickets" ||
+          rowPath === "/recensioni";
+        if (det && !skipParentCurrent) det.classList.add("vc-snav-details--current");
       } catch (eDet) {}
     }
   }
@@ -1769,7 +1823,7 @@
         var det = sum.closest("details.vc-snav-details");
         if (!det) return;
         closeOtherSnavDetails(det);
-        if (notif) notif.open = false;
+        closeNotifFromHeaderMenus(true);
         closeLangMenu();
         setAccountMenuOpen(false);
       },
@@ -1796,7 +1850,7 @@
         if (d.open) {
           broadcastHeaderMenuOpen(d.id || d.getAttribute("data-menu-id") || "snav");
           closeOtherSnavDetails(d);
-          if (notif) notif.open = false;
+          closeNotifFromHeaderMenus(true);
           closeLangMenu();
           setAccountMenuOpen(false);
         }
@@ -1824,7 +1878,7 @@
       getSnavDetails().forEach(function (other) {
         other.open = false;
       });
-      if (notif) notif.open = false;
+      closeNotifFromHeaderMenus(true);
       setAccountMenuOpen(false);
       syncHeaderDropdownOpenClasses();
     });
@@ -1867,7 +1921,7 @@
       if (!t || !t.closest) return;
       if (!t.closest(".discord-account-menu")) return;
       if (!(notif && notif.open)) return;
-      notif.open = false;
+      closeNotifFromHeaderMenus(true);
       getSnavDetails().forEach(function (other) {
         other.open = false;
       });
@@ -1903,12 +1957,43 @@
       if (panel && ((t && panel.contains(t)) || pointInside(panel, ev))) return true;
       return false;
     }
-    function closeAllHeaderDropdowns() {
+    function closeNotifFromHeaderMenus(force) {
+      /* notifSheetStayOpen1: mai open=false grezzo (rompe portalGuard → loop close/reclaim) */
+      var liveNotif = document.getElementById("vc-notif-dropdown") || notif;
+      if (!liveNotif || !liveNotif.open) return;
+      if (!force) {
+        try {
+          if (Date.now() < Number(window.__vcNotifOpenGraceUntil || 0)) return;
+          if (Date.now() < Number(window.__vcNotifPortalGuardUntil || 0)) return;
+          var rootN = document.documentElement;
+          if (
+            rootN &&
+            (rootN.classList.contains("vc-notif-sheet-open") ||
+              rootN.classList.contains("vc-notif-drawer-open"))
+          ) {
+            return;
+          }
+        } catch (eSkip) {
+          return;
+        }
+      }
+      try {
+        if (window.VcNotifChrome && typeof window.VcNotifChrome.close === "function") {
+          window.VcNotifChrome.close(liveNotif);
+          return;
+        }
+      } catch (eChrome) {}
+      try {
+        liveNotif.open = false;
+        liveNotif.removeAttribute("open");
+      } catch (eClose) {}
+    }
+    function closeAllHeaderDropdowns(opts) {
+      opts = opts || {};
       getSnavDetails().forEach(function (d) {
         d.open = false;
       });
-      var liveNotif = document.getElementById("vc-notif-dropdown") || notif;
-      if (liveNotif) liveNotif.open = false;
+      closeNotifFromHeaderMenus(opts.force === true);
       closeLangMenu();
       setAccountMenuOpen(false);
       syncHeaderDropdownOpenClasses();
@@ -1919,11 +2004,27 @@
         if (typeof ev.button === "number" && ev.button !== 0) return;
         var t = ev.target;
         if (!t || !t.closest) return;
+        try {
+          if (
+            t.closest(
+              "#vc-notif-dropdown, .vc-notif-dropdown, .vc-notif-mobile-backdrop, .vc-notif-panel, summary.vc-notif-summary, .vc-notif-summary",
+            )
+          ) {
+            return;
+          }
+        } catch (eInNotif) {}
         var opens = Array.prototype.slice.call(getSnavDetails()).filter(function (d) {
           return d && d.open;
         });
         var liveNotif = document.getElementById("vc-notif-dropdown") || notif;
-        if (liveNotif && liveNotif.open) opens.push(liveNotif);
+        var sheetChrome = false;
+        try {
+          sheetChrome =
+            document.documentElement.classList.contains("vc-notif-sheet-open") ||
+            document.documentElement.classList.contains("vc-notif-drawer-open");
+        } catch (eSh) {}
+        /* notifSheetStayOpen1: con sheet/drawer aperti non trattare la bell come dropdown header */
+        if (liveNotif && liveNotif.open && !sheetChrome) opens.push(liveNotif);
         var anyOpen = opens.length > 0 || accountMenuOpen;
         try {
           anyOpen =
@@ -2240,8 +2341,9 @@
   function placePreview(preview, anchor) {
     if (!preview || !anchor || !anchor.getBoundingClientRect) return;
     var rect = anchor.getBoundingClientRect();
-    var pw = preview.offsetWidth || 220;
-    var ph = preview.offsetHeight || 96;
+    /* violKillRest1: size CSS fisse — niente offsetWidth dopo innerHTML (Forced reflow) */
+    var pw = 220;
+    var ph = 96;
     var left = rect.left + rect.width / 2 - pw / 2;
     var top = rect.top - ph - 12;
     var preferBelow = false;
@@ -2301,14 +2403,24 @@
   function bindSocialPreview(anchor) {
     if (!anchor || anchor.__vcSocialPreviewBound) return;
     anchor.__vcSocialPreviewBound = true;
-    anchor.addEventListener("mouseenter", function () {
+    var showT = 0;
+    function scheduleShow() {
       if (window.matchMedia && window.matchMedia("(hover: none)").matches) return;
-      showPreview(anchor);
-    });
+      if (showT) return;
+      showT = 1;
+      var go = function () {
+        showT = 0;
+        try {
+          showPreview(anchor);
+        } catch (eSh) {}
+      };
+      /* violKillRest1: mouseenter/focus non fanno layout sync */
+      if (typeof window.__vcLight === "function") window.__vcLight(go, 48);
+      else window.setTimeout(go, 48);
+    }
+    anchor.addEventListener("mouseenter", scheduleShow);
     anchor.addEventListener("mouseleave", hidePreview);
-    anchor.addEventListener("focus", function () {
-      showPreview(anchor);
-    });
+    anchor.addEventListener("focus", scheduleShow);
     anchor.addEventListener("blur", hidePreview);
   }
 
@@ -2321,7 +2433,19 @@
     for (var i = 0; i < links.length; i += 1) {
       bindSocialPreview(links[i]);
     }
-    window.addEventListener("scroll", hidePreview, { passive: true });
+    var hideArm = 0;
+    window.addEventListener(
+      "scroll",
+      function () {
+        if (hideArm) return;
+        hideArm = 1;
+        window.setTimeout(function () {
+          hideArm = 0;
+          hidePreview();
+        }, 100);
+      },
+      { passive: true },
+    );
     window.addEventListener("resize", hidePreview, { passive: true });
   }
 
@@ -2362,7 +2486,7 @@
 
   function syncNavScrollState() {
     ticking = false;
-    /* violPass3: usa Y catturata nello scroll event — niente pageYOffset in rAF (Forced reflow) */
+    /* violKillFinal2: Y solo da cache — niente pageYOffset qui */
     var y = pendingNavY;
     if (y <= TOP_EPS) {
       setNavScrolled(false);
@@ -2377,21 +2501,40 @@
 
   var pendingNavY = 0;
   function onNavScroll() {
-    /* violPass11: preferisci scrollTop già noto; evita doppio listener window+document */
-    try {
-      pendingNavY = document.documentElement.scrollTop || window.pageYOffset || 0;
-    } catch (eY) {
-      pendingNavY = 0;
-    }
+    /* violKillFinal2: scroll = ZERO sync (no pageYOffset/rAF) — era Violation 195ms */
     if (ticking) return;
     ticking = true;
-    window.requestAnimationFrame(syncNavScrollState);
+    var run = function () {
+      try {
+        pendingNavY = Math.max(
+          0,
+          Math.round(Number(window.__vcCachedScrollY) || 0),
+        );
+        if (!(pendingNavY >= 0)) pendingNavY = 0;
+        if (pendingNavY < 2) {
+          try {
+            pendingNavY = Math.max(0, Math.round(window.pageYOffset || 0));
+            window.__vcCachedScrollY = pendingNavY;
+          } catch (eY) {
+            pendingNavY = 0;
+          }
+        }
+      } catch (e0) {
+        pendingNavY = 0;
+      }
+      syncNavScrollState();
+    };
+    if (typeof window.__vcLight === "function") window.__vcLight(run, 80);
+    else window.setTimeout(run, 80);
   }
 
   function initHeaderScrollState() {
-    lastY = getScrollY();
+    try {
+      lastY = Math.max(0, Math.round(Number(window.__vcCachedScrollY) || 0));
+    } catch (eLy) {
+      lastY = 0;
+    }
     setNavScrolled(false);
-    /* violPass11: un solo listener — document+window raddoppiava Violation scroll */
     window.addEventListener("scroll", onNavScroll, { passive: true });
   }
 
@@ -2613,23 +2756,80 @@
   }
 })();
 (function () {
-  /* notifUnifyFix1 / siteApiW7: stesso chunk notif su tutte le pagine; push-cold più rapido */
-    var NOTIF_CHUNK_VER = "20261003pushOpenDestFix1";
+  /* notifLazyOpen1: chunk ~460KB solo deep-link push o primo tap campana */
+    /* bootGraph1: same LANDING_NOTIF_VER as discord-auth (no stale second path) */
+    var NOTIF_CHUNK_VER = (function () {
+      try {
+        var m = window.__VC_ASSET_VERS;
+        if (m && m.LANDING_NOTIF_VER) return String(m.LANDING_NOTIF_VER);
+      } catch (eNv) {}
+      return "20261015classFlash2";
+    })();
+    /* pushPhoneHeal2: eager chunk su PWA+granted (heal FCM 410 senza tap campana) */
+    /* notifCatClearDom1: clear categoria wipe lista Inbox */
+    /* notifSheetStayOpen1: close header menus senza open=false grezzo */
     /* notifReadDismissOs1 */
-  function loadNotifChunk() {
-    if (window.__vcLandingNotifLoading || window.__vcLandingNotifReady) return;
+  function loadNotifChunk(opts) {
+    opts = opts || {};
+    if (opts.openAfter) {
+      try {
+        window.__vcNotifPendingOpen = 1;
+      } catch (eP) {}
+    }
+    /* notifBellOpen1: sync chrome ≠ full notif — aspetta BOOT reale */
+    if (typeof window.__vcEnsureNotifBellScopeUi === "function" || window.__VC_LANDING_NOTIF_BOOT) {
+      try {
+        window.__vcLandingNotifReady = 1;
+      } catch (eReady) {}
+      tryOpenPendingNotif();
+      return;
+    }
+    if (window.__vcLandingNotifReady) {
+      tryOpenPendingNotif();
+      return;
+    }
+    if (window.__vcLandingNotifLoading) return;
     window.__vcLandingNotifLoading = 1;
     var s = document.createElement("script");
-    /* versioned filename: CF edge ignora ?v= e serviva swallow vecchio (arm(0)=arm520) */
-    s.src = "/js/vc-landing-notif." + NOTIF_CHUNK_VER + ".js";
+    /* notifViolKill1: filename stamp + ?v= (CF/browser non devono restare su scrollNuke1) */
+    s.src = "/js/vc-landing-notif." + NOTIF_CHUNK_VER + ".js?v=" + NOTIF_CHUNK_VER;
     s.async = true;
     s.onload = function () {
       try {
         window.__vcLandingNotifReady = 1;
       } catch (e0) {}
+      tryOpenPendingNotif();
+      try {
+        document.dispatchEvent(new CustomEvent("vc:notif-chunk-ready"));
+      } catch (eEv) {}
+    };
+    s.onerror = function () {
+      try {
+        window.__vcLandingNotifLoading = 0;
+        window.__vcNotifPendingOpen = 0;
+      } catch (eErr) {}
     };
     (document.body || document.documentElement).appendChild(s);
   }
+  function tryOpenPendingNotif() {
+    try {
+      if (!window.__vcNotifPendingOpen) return;
+      window.__vcNotifPendingOpen = 0;
+      var dd = document.getElementById("vc-notif-dropdown");
+      if (window.VcNotifChrome && typeof window.VcNotifChrome.openSmooth === "function") {
+        window.VcNotifChrome.openSmooth(dd || null);
+        return;
+      }
+      if (dd && !dd.open) {
+        try {
+          dd.open = true;
+        } catch (eOp) {}
+      }
+    } catch (eOpen) {}
+  }
+  try {
+    window.__vcLoadNotifChunk = loadNotifChunk;
+  } catch (eExp) {}
   if (!window.__vcPinPageScroll) {
     window.__vcPinPageScroll = function () {};
     window.__vcUnpinPageScroll = function () {};
@@ -2637,7 +2837,10 @@
       return false;
     };
     window.__vcHoldPageScroll = function () {};
-    window.__vcSyncLoaderScrollLock = function () {};
+    /* homeScrollLock2: non azzerare sync reale già montato da auth-inject */
+    if (typeof window.__vcSyncLoaderScrollLock !== "function") {
+      window.__vcSyncLoaderScrollLock = function () {};
+    }
     window.__vcHideNotifsForLoader = function () {};
     window.__vcIsBlockingLoaderVisible = function () {
       return false;
@@ -2655,28 +2858,25 @@
       if (u.searchParams.get("vc_from_push")) return true;
       if (/^[a-f0-9]{24}$/i.test(String(u.hash || "").replace(/^#/, "").trim())) return true;
     } catch (e) {}
+    /* pushPhoneHeal2: PWA/telefono con permesso già granted → carica chunk subito
+       (heal FCM 410). Prima lazy-only → endpoint morti senza tap campana. */
+    try {
+      var standalone =
+        (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) ||
+        Boolean(navigator.standalone);
+      if (
+        standalone &&
+        typeof Notification !== "undefined" &&
+        Notification.permission === "granted"
+      ) {
+        return true;
+      }
+    } catch (ePwa) {}
     return false;
   }
   function schedule() {
-    var run = function () {
-      loadNotifChunk();
-    };
-    if (wantsFastNotifBoot()) {
-      run();
-      return;
-    }
-    var delay = 180;
-    try {
-      if (document.body && document.body.classList.contains("vc-web-tickets-page")) delay = 80;
-    } catch (eD) {}
-    try {
-      if (localStorage.getItem("vc_discord_access_token")) delay = Math.min(delay, 120);
-    } catch (e1) {}
-    if (typeof window.requestIdleCallback === "function") {
-      window.requestIdleCallback(run, { timeout: Math.max(400, delay + 200) });
-    } else {
-      window.setTimeout(run, delay);
-    }
+    if (!wantsFastNotifBoot()) return;
+    loadNotifChunk();
   }
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", schedule, { once: true });
@@ -2690,6 +2890,25 @@
           loadNotifChunk();
         }
       } catch (e2) {}
+    },
+    true
+  );
+  document.addEventListener(
+    "click",
+    function (ev) {
+      try {
+        if (window.__vcLandingNotifReady) return;
+        var t = ev.target;
+        if (!t || !t.closest) return;
+        var sum = t.closest("#vc-notif-dropdown summary.vc-notif-summary, #vc-notif-dropdown summary, summary.vc-notif-summary");
+        if (!sum) return;
+        ev.preventDefault();
+        ev.stopPropagation();
+        try {
+          ev.stopImmediatePropagation();
+        } catch (eSip) {}
+        loadNotifChunk({ openAfter: true });
+      } catch (eClick) {}
     },
     true
   );
@@ -3388,9 +3607,9 @@
         onMobileNavTileClick(ev, prof);
       });
       actions.appendChild(prof);
-      /* hamFootTrioLogout1: Profilo · Bacheca · Dashboard, logout sotto */
-      appendBachecaFooterAction(actions);
+      /* hamFootSwapDashBach1: Profilo · Dashboard · Bacheca, logout sotto */
       appendDashboardFooterAction(actions);
+      appendBachecaFooterAction(actions);
       applyFooterActionsLayout(actions);
       var toolbar = document.createElement("div");
       toolbar.className = "vc-mobile-nav-footer__toolbar";
@@ -3486,6 +3705,20 @@
     return false;
   }
 
+  /* boardsNoStaffNav1: niente sezione Staff nel menu su /bacheca */
+  function isBoardsNoStaffNavPage() {
+    try {
+      var p = String(location.pathname || "/").replace(/\/+$/, "") || "/";
+      if (p === "/bacheca" || p.indexOf("/bacheca/") === 0) return true;
+      if (p === "/boards" || p.indexOf("/boards/") === 0) return true;
+      if (document.body) {
+        if (document.body.classList.contains("vc-boards-page")) return true;
+        if (document.body.getAttribute("data-vc-boards-page")) return true;
+      }
+    } catch (eBoards) {}
+    return false;
+  }
+
   function ensureMobileConfessionaleTile(gridRoot) {
     /* confessionaleCommNav3: Confessionale SOLO in Community — strip staff aggressivo */
     if (!gridRoot) return;
@@ -3566,7 +3799,18 @@
 
   function appendStaffGuideSection(gridRoot, sourceDetails) {
     if (!gridRoot) return;
-    if (isEventDedicatedNavPage()) return;
+    if (isEventDedicatedNavPage() || isBoardsNoStaffNavPage()) {
+      /* boardsNoStaffNav1: rimuovi eventuali sezioni Staff già montate */
+      try {
+        var kill = gridRoot.querySelectorAll(
+          ".vc-mobile-nav-section--staff-guide, .vc-mobile-nav-section--staff, [data-vc-staff-section]",
+        );
+        for (var ki = 0; ki < kill.length; ki += 1) {
+          if (kill[ki] && kill[ki].parentNode) kill[ki].parentNode.removeChild(kill[ki]);
+        }
+      } catch (eKill) {}
+      return;
+    }
     try {
       var existingStaffSec = gridRoot.querySelector(".vc-mobile-nav-section--staff-guide");
       if (existingStaffSec && existingStaffSec.tagName !== "DETAILS") {
@@ -4510,24 +4754,33 @@
     bindToggleDirect(toggle);
     if (window.__vcLandingMobileNavListenersBound !== true) {
       window.__vcLandingMobileNavListenersBound = true;
+      /* consoleFixAll1: se vc-mobile-nav.js è standalone, LUI possiede grid/eventi */
+      function landingNavOwnedElsewhere() {
+        return window.__vcMobileNavStandalone === true;
+      }
       window.addEventListener("vc-discord-profile", function () {
+        if (landingNavOwnedElsewhere()) return;
         syncDrawerFooter();
         rebuildGrid();
         removeHeaderDashboardBtn();
       });
       window.addEventListener("vc-server-identity", function () {
+        if (landingNavOwnedElsewhere()) return;
         syncDrawerFooter();
       });
       window.addEventListener("vc-dashboard-access", function () {
+        if (landingNavOwnedElsewhere()) return;
         rebuildGrid();
         removeHeaderDashboardBtn();
       });
       window.addEventListener("vc-auth-session-boot", function () {
+        if (landingNavOwnedElsewhere()) return;
         rebuildGrid();
         removeHeaderDashboardBtn();
         syncDrawerFooter();
       });
       window.addEventListener("vc:staff-access-ok", function () {
+        if (landingNavOwnedElsewhere()) return;
         try {
           var btn = document.getElementById(TOGGLE_ID);
           if (btn) btn.removeAttribute("data-vc-mobile-nav-bound");
@@ -4539,6 +4792,7 @@
         syncDrawerFooter();
       });
       window.addEventListener("vc:staff-notif-ready", function () {
+        if (landingNavOwnedElsewhere()) return;
         try {
           if (typeof window.__vcNormalizeHeaderQuickActionsOrder === "function") {
             window.__vcNormalizeHeaderQuickActionsOrder(document.getElementById("header-quick-actions"));
@@ -4547,6 +4801,16 @@
         rebuildGrid();
       });
       document.addEventListener("vc:langchange", function () {
+        if (landingNavOwnedElsewhere()) {
+          /* solo i18n drawer se esiste; rebuild lo fa mobile-nav */
+          try {
+            if (window.VcI18n && typeof window.VcI18n.apply === "function") {
+              var dOnly = document.getElementById("vc-mobile-nav-drawer");
+              if (dOnly) window.VcI18n.apply(dOnly);
+            }
+          } catch (eLangOnly) {}
+          return;
+        }
         rebuildGrid();
         try {
           if (window.VcI18n && typeof window.VcI18n.apply === "function") {
@@ -4567,8 +4831,11 @@
   }
 
   function init() {
-    revealForbiddenSectionBooks();
-    window.setInterval(revealForbiddenSectionBooks, 60000);
+    /* hogwartsSiteDead1: evento finito — zero poll/fetch/interval/DOM libri */
+    try {
+      markForbiddenBooksGone();
+      removeAllForbiddenBooks();
+    } catch (eHwDead) {}
     bindGlobalToggle();
     ensure();
     var m = getMq();
@@ -4640,7 +4907,17 @@
     }
   }
 
+  /* hogwartsSiteDead1: kill-switch sito — niente load Hogwarts (libri/API/interval) */
+  var HOGWARTS_SITE_DEAD = true;
+
   function revealForbiddenSectionBooks() {
+    if (HOGWARTS_SITE_DEAD) {
+      try {
+        markForbiddenBooksGone();
+        removeAllForbiddenBooks();
+      } catch (eDeadReveal) {}
+      return;
+    }
     if (revealForbiddenBooksTimer) window.clearTimeout(revealForbiddenBooksTimer);
     /* violPass7: due macrotask — evita setTimeout handler 2s+ (fetch/DOM sync) */
     revealForbiddenBooksTimer = window.setTimeout(function () {
@@ -4650,6 +4927,7 @@
   }
 
   function hogwartsEventEnabled() {
+    if (HOGWARTS_SITE_DEAD) return false;
     try {
       var ev = window.__VC_HEADER_PROMO && window.__VC_HEADER_PROMO.event;
       if (ev && ev.enabled === false) return false;
@@ -4675,6 +4953,13 @@
 
   function revealForbiddenSectionBooksImpl() {
     revealForbiddenBooksTimer = null;
+    if (HOGWARTS_SITE_DEAD) {
+      try {
+        markForbiddenBooksGone();
+        removeAllForbiddenBooks();
+      } catch (eDeadImpl) {}
+      return;
+    }
     var now = Date.now();
 
     function proceed() {
@@ -4772,6 +5057,7 @@
   }
 
   function ensureForbiddenBookForCurrentPage() {
+    if (HOGWARTS_SITE_DEAD) return;
     if (document.querySelector("[data-vc-forbidden-book]")) return;
     var id = currentForbiddenBookPageId();
     if (!id || !document.body) return;
@@ -4882,10 +5168,12 @@
   }
 
   function forbiddenBooksApiUrl() {
+    if (HOGWARTS_SITE_DEAD) return "";
     return String(window.__VC_HOGWARTS_FORBIDDEN_BOOKS_API || "/webhooks/site-hogwarts-sorting/forbidden-books").trim() || "/webhooks/site-hogwarts-sorting/forbidden-books";
   }
 
   function forbiddenBooksPublicStatusUrl() {
+    if (HOGWARTS_SITE_DEAD) return "";
     return String(window.__VC_HOGWARTS_FORBIDDEN_BOOKS_STATUS_API || "/webhooks/site-hogwarts-sorting/forbidden-books/status").trim() || "/webhooks/site-hogwarts-sorting/forbidden-books/status";
   }
 
@@ -4896,6 +5184,10 @@
   }
 
   function fetchForbiddenBooksPublicStatus() {
+    if (HOGWARTS_SITE_DEAD) {
+      markForbiddenBooksGone();
+      return Promise.resolve({ ok: true, closed: true, roundActive: false, enabled: false });
+    }
     var now = Date.now();
     if (
       !hogwartsEventEnabled() ||
@@ -4990,9 +5282,12 @@
   }
 
   function forbiddenBooksRequest(method, body) {
+    if (HOGWARTS_SITE_DEAD) return Promise.reject(new Error("closed"));
     var token = getDiscordAccessTokenForForbiddenBooks();
     if (!token) return Promise.reject(new Error("Accedi con Discord e completa lo smistamento per raccogliere i libri."));
-    return fetch(forbiddenBooksApiUrl(), {
+    var apiUrl = forbiddenBooksApiUrl();
+    if (!apiUrl) return Promise.reject(new Error("closed"));
+    return fetch(apiUrl, {
       method: method,
       headers: {
         Authorization: "Bearer " + token,
@@ -5057,14 +5352,16 @@
   }
 
   /* bgGifPause1: stop flying books while tab is in background */
-  document.addEventListener("visibilitychange", function () {
+  /* jsWakeBurst1: anche cpu-settle/sleep — meno riattivazioni JS a idle */
+  function pauseAllForbiddenBookFlights(longPause) {
     var books = document.querySelectorAll("[data-vc-forbidden-book]");
-    if (document.hidden) {
-      for (var i = 0; i < books.length; i += 1) {
-        pauseForbiddenBookFlight(books[i], 60 * 60 * 1000);
-      }
-      return;
+    var ms = longPause ? 60 * 60 * 1000 : 60 * 60 * 1000;
+    for (var i = 0; i < books.length; i += 1) {
+      pauseForbiddenBookFlight(books[i], ms);
     }
+  }
+  function resumeAllForbiddenBookFlights() {
+    var books = document.querySelectorAll("[data-vc-forbidden-book]");
     for (var j = 0; j < books.length; j += 1) {
       try {
         window.clearTimeout(books[j].__vcPauseResumeTimer);
@@ -5072,6 +5369,43 @@
       books[j].__vcFlyPaused = false;
       resumeForbiddenBookFlight(books[j]);
     }
+  }
+  document.addEventListener("visibilitychange", function () {
+    if (document.hidden) {
+      pauseAllForbiddenBookFlights(true);
+      return;
+    }
+    try {
+      if (document.documentElement.classList.contains("vc-cpu-settle")) return;
+    } catch (eSet) {}
+    resumeAllForbiddenBookFlights();
+  });
+  document.addEventListener("vc:cpu-settle", function () {
+    pauseAllForbiddenBookFlights(true);
+  });
+  document.addEventListener("vc:cpu-sleep", function () {
+    pauseAllForbiddenBookFlights(true);
+  });
+  /* jsWakeIdle3: niente resume su bustle/pointermove — solo tap/wheel (dopo thaw settle) */
+  var bookResumeArm = 0;
+  function armForbiddenBookResume() {
+    if (bookResumeArm) return;
+    bookResumeArm = window.setTimeout(function () {
+      bookResumeArm = 0;
+      try {
+        if (document.hidden) return;
+        if (document.documentElement.classList.contains("vc-cpu-settle")) return;
+      } catch (eH) {}
+      resumeAllForbiddenBookFlights();
+    }, 80);
+  }
+  document.addEventListener("pointerdown", armForbiddenBookResume, { passive: true, capture: true });
+  document.addEventListener("wheel", armForbiddenBookResume, { passive: true, capture: true });
+  document.addEventListener("vc:cpu-wake", function () {
+    try {
+      if (document.hidden) return;
+    } catch (eH2) {}
+    resumeAllForbiddenBookFlights();
   });
 
   function forbiddenBookViewport() {
@@ -5257,9 +5591,13 @@
     bootMobileNav();
   }
   window.addEventListener("vc:staff-notif-ready", function () {
-    try {
-      refreshMobileNav();
-    } catch (eStaffNav) {}
+    /* violKillCue2: refreshMobileNav deferred (era Violation setTimeout ~50ms+) */
+    window.setTimeout(function () {
+      try {
+        if (document.hidden) return;
+        refreshMobileNav();
+      } catch (eStaffNav) {}
+    }, 80);
   });
 })();
 
@@ -5276,12 +5614,20 @@ function vcPageAssetVer() {
 }
 
 (function loadPtr() {
+  /* ptrCardDesktop1: non reiniettare stamp vecchio se HTML ha già vc-ptr.STAMP.js
+     (il check src*="vc-ptr.js" NON matcha i file stampati → doppio PTR / VER overwrite) */
   if (window.__vcPtrBooted) return;
   try {
-    if (document.querySelector('script[src*="vc-ptr.js"]')) return;
+    if (
+      document.querySelector(
+        'script[src*="/vc-ptr.js"], script[src*="/vc-ptr."]',
+      )
+    ) {
+      return;
+    }
   } catch (e) {}
   var s = document.createElement("script");
-  s.src = "/js/vc-ptr.js?v=" + vcPageAssetVer();
+  s.src = "/js/vc-ptr.20261017ptrScrollRestore2.js?v=20261017ptrScrollRestore2";
   s.defer = true;
   (document.body || document.documentElement).appendChild(s);
 })();
@@ -5300,11 +5646,12 @@ function vcPageAssetVer() {
 
 (function loadHeaderNameMarquee() {
   function marqueeAssetVer() {
-    return "20261002violPass7";
+    /* wmMqFast2d: async early in head */
+    return "20261008wmMqFast2d";
   }
   function inject() {
     try {
-      if (document.querySelector('script[src*="vc-header-name-marquee.js"]')) return true;
+      if (document.querySelector('script[src*="vc-header-name-marquee"]')) return true;
     } catch (e0) {
       return false;
     }
@@ -5352,7 +5699,7 @@ function vcPageAssetVer() {
 
 (function loadHeaderPromo() {
   function promoAssetVer() {
-    return "20261001navBrandCandFix1";
+    return "20261007violKillAll1";
   }
   try {
     var hasActions = Boolean(document.getElementById("header-quick-actions"));
@@ -5766,7 +6113,43 @@ function vcPageAssetVer() {
     }
   }
 
+  function chromeAllowsCurtainLift() {
+    try {
+      /* toastSyncAll2: solo LoadDone (VisualReady early → sipario prima del toast/chrome) */
+      if (window.__vcChromeLoadDone === true) return true;
+      var age = cineBootAgeMs();
+      /* toastSyncAll2: niente lift a 2.8s (sipario su → poi ancora barra/toast = 2° load) */
+      if (age >= 6500) return true;
+      return false;
+    } catch (eAllow) {}
+    return false;
+  }
+
   function liftCineCurtainNow() {
+    /* toastSyncAll2: sipario solo dopo chrome done (o hard 6.5s) */
+    try {
+      if (!chromeAllowsCurtainLift()) {
+        if (!window.__vcLandingCurtainWait) {
+          window.__vcLandingCurtainWait = 1;
+          var waitN = 0;
+          (function waitChrome() {
+            waitN += 1;
+            try {
+              /* toastSyncAll2: ~180×40ms ≈ 7.2s > hard 6.5s chrome allow */
+              if (chromeAllowsCurtainLift() || waitN > 180) {
+                window.__vcLandingCurtainWait = 0;
+                liftCineCurtainNow();
+                return;
+              }
+            } catch (eW) {
+              window.__vcLandingCurtainWait = 0;
+            }
+            window.setTimeout(waitChrome, 40);
+          })();
+        }
+        return;
+      }
+    } catch (eGate) {}
     try {
       if (typeof window.__vcLiftCineBootCurtain === "function") {
         window.__vcLiftCineBootCurtain();
@@ -5784,10 +6167,11 @@ function vcPageAssetVer() {
   function cineBootAgeMs() {
     try {
       var t = Number(window.__vcCineBootStartedAt || window.__vcPhoneUnfreezeArmedAt || 0) || 0;
-      if (!t) return 99999;
+      /* toastSyncAll2: senza timestamp = età 0 (NON 99999 → early allow) */
+      if (!t) return 0;
       return Math.max(0, Date.now() - t);
     } catch (eAge) {
-      return 99999;
+      return 0;
     }
   }
 
@@ -6077,8 +6461,32 @@ function vcPageAssetVer() {
       }
     } catch (eL) {}
     try {
+      /* iosWinProfilePush1: togli anche overlay profilo (prima restava → gate infinito) */
+      var profLoad = document.getElementById("vc-user-profile-loading");
+      if (profLoad) {
+        try {
+          profLoad.hidden = true;
+          profLoad.setAttribute("hidden", "");
+          profLoad.remove();
+        } catch (eProfRm) {
+          stampHiddenLoader(profLoad);
+        }
+      }
+      document.querySelectorAll("body > .vc-user-profile-loader, [data-vc-profile-boot]").forEach(function (n) {
+        try {
+          if (n && n.closest && n.closest("[data-vc-profile-staff-pane]")) return;
+          if (n && n.getAttribute && n.getAttribute("data-vc-staff-loading")) return;
+          n.hidden = true;
+          n.setAttribute("hidden", "");
+          n.remove();
+        } catch (eBootRm) {}
+      });
+    } catch (eProf) {}
+    try {
       document.documentElement.classList.remove("vc-loading-scroll-lock");
       document.documentElement.classList.remove("vc-user-profile-pending");
+      document.documentElement.classList.remove("vc-user-profile-comm-switch");
+      document.documentElement.classList.remove("vc-loader-blocking-live");
             try {
         var ulStuck = document.getElementById("vc-ul-loading");
         if (loaderLooksDead(ulStuck)) {
@@ -6435,12 +6843,16 @@ function vcPageAssetVer() {
   }
   window.addEventListener("pageshow", function (ev) {
     /* extOnlyFix1: recover fuori dal handler sync */
+    /* pwaResumeLag1: se pagina healthy → solo ghost clear (no recover storm) */
     var persisted = Boolean(ev && ev.persisted);
     window.setTimeout(function () {
       try {
         if (isPhoneOrPwa()) {
-          recover(persisted);
-          clearPhoneHasFreezeGhosts();
+          if (pageLooksHealthy() && !persisted) clearPhoneHasFreezeGhosts();
+          else {
+            recover(persisted);
+            clearPhoneHasFreezeGhosts();
+          }
         } else if (persisted) {
           recover(true);
         }
@@ -6452,6 +6864,11 @@ function vcPageAssetVer() {
     if (!isPhoneOrPwa()) return;
     window.setTimeout(function () {
       try {
+        /* pwaResumeLag1: wake sano = niente recover(force) (era jank "ricarica tutto") */
+        if (pageLooksHealthy()) {
+          clearPhoneHasFreezeGhosts();
+          return;
+        }
         recover(true);
         clearPhoneHasFreezeGhosts();
       } catch (eVis) {}
@@ -6463,10 +6880,13 @@ function vcPageAssetVer() {
       var stand =
         (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) ||
         Boolean(navigator.standalone);
-      if (stand) {
-        recover(true);
+      if (!stand) return;
+      if (pageLooksHealthy()) {
         clearPhoneHasFreezeGhosts();
+        return;
       }
+      recover(true);
+      clearPhoneHasFreezeGhosts();
     } catch (eFocus) {}
   });
 })();
@@ -6484,7 +6904,8 @@ function vcPageAssetVer() {
       if (path !== "/ruoli" && path !== "/roles") {
         jobs.push(function () {
           window.VcApiCache.prefetchIdle(
-            window.VcApiCache.keyFor("/webhooks/site-roles", { scope: "roles", v: "roles2" }),
+            /* pageTune1: allinea warm a roles-page (roles5) — evita doppia cache miss */
+            window.VcApiCache.keyFor("/webhooks/site-roles", { scope: "roles", v: "roles5" }),
             "/webhooks/site-roles",
             { ttlMs: 90000, staleMs: 600000, persistMs: 20 * 60 * 1000, timeoutMs: 28000 },
           );

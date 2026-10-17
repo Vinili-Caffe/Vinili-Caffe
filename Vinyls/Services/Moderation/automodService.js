@@ -17,6 +17,7 @@ const { formatItalianMinutesPlain } = require("../../Utils/Text/italianDurationL
 const { isChannelInTicketCategory } = require("../../Utils/Ticket/ticketCategoryUtils");
 const { isMinigameFloodExemptChannel } = require("../Minigames/minigameService");
 const { loadAutomodScamConfig } = require("../../Utils/Moderation/automodScamConfig");
+const { detectGrabbedScamImage } = require("../../Utils/Moderation/grabbedScamImageMatcher");
 const { createModCase, getModConfig, logModCase, formatDuration } = require("../../Utils/Moderation/moderation");
 const { getGuildChannelCached, getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
 const { memberDisplayName } = require("../../Utils/Discord/guildDiscordIdentity");
@@ -66,7 +67,7 @@ let DISCORD_NATIVE_SKIP_KEYS = new Set([
 const NATIVE_HANDLED_MESSAGES = new Map();
 const NATIVE_HANDLED_TTL_MS = 30_000;
 const PANIC_MODE = { enabled: true, considerActivityHistory: true, useGlobalBadUsersDb: true, triggerCount: 3, triggerWindowMs: 10 * 60_000, durationMs: 10 * 60_000, raidWindowMs: 120_000, raidUserThreshold: 6, raidYoungThreshold: 4, lockCommands: false, };
-const PANIC_TRIGGER_KEYS = new Set(["invite", "scam_pattern", "scam_image_bait", "nsfw_link", "word_blacklist", "link_blacklist", "mention_everyone", "mentions_lockdown", "mention_hour_cap", "unwhitelisted_webhook",]);
+const PANIC_TRIGGER_KEYS = new Set(["invite", "scam_pattern", "scam_image_bait", "grabbed_scam_image", "nsfw_link", "word_blacklist", "link_blacklist", "mention_everyone", "mentions_lockdown", "mention_hour_cap", "unwhitelisted_webhook",]);
 const MENTION_RULES = {
   enabled: true,
   timeoutMs: 45 * 60_000,
@@ -88,7 +89,7 @@ const AUTOMOD_HOT_SNAPSHOT_DEBOUNCE_MS = 2000;
 let automodHotSnapshotLoaded = false;
 let automodHotSnapshotTimer = null;
 const SHORTENER_HOSTS = new Set(["bit.ly", "tinyurl.com", "t.co", "cutt.ly", "is.gd", "rebrand.ly", "tiny.cc", "shorturl.at", "goo.gl", "ow.ly", "buff.ly",]);
-const DEFAULT_AUTOMOD_RUNTIME = { status: { enabled: true, antiSpamEnabled: true, monitorUnwhitelistedWebhooks: true, }, thresholds: { warn: 35, delete: 65, timeout: 100, }, heatSystem: { maxHeat: 100, decayPerSec: 2, resetOnPunishment: true, }, autoTimeouts: { enabled: true, regularStrikeDurationMs: 60_000, capStrikeDurationMs: 11 * 60_000, capStrike: 3, multiplierEnabled: true, multiplierPercent: 200, profileResetMs: 6 * 60 * 60_000, }, autoLockdown: { enabled: true, mentionTrigger: 50, mentionWindowMs: 3_000, mentionHourCap: 20, }, heatFilters: { regularMessage: true, suspiciousAccount: true, similarMessage: true, emojis: true, newLines: true, zalgo: true, characters: true, inviteLinks: true, maliciousLinks: true, nsfwLinks: true, wordBlacklist: true, linkBlacklist: true, mentions: true, attachments: true, webhookMessages: true, crossServerForwards: true, }, heatFactors: { regularMessage: 1, suspiciousAccount: 1, similarMessage: 1, emojis: 1, newLines: 1, zalgo: 1, characters: 1, inviteLinks: 1, maliciousLinks: 1, nsfwLinks: 1, wordBlacklist: 1, linkBlacklist: 1, mentions: 1, attachments: 1, crossServerForward: 1, }, heatCaps: { maxPerMessage: 85, charactersMax: 40, textClusterMax: 35, attachmentClusterMax: 100, mentionClusterMax: 70, }, panic: { enabled: true, considerActivityHistory: true, useGlobalBadUsersDb: true, triggerCount: 3, triggerWindowMs: 10 * 60_000, durationMs: 10 * 60_000, raidWindowMs: 120_000, raidUserThreshold: 6, raidYoungThreshold: 4, lockCommands: false, }, shorteners: { crawl: true, timeoutMs: 2200, maxHops: 3, }, profiles: { default: { exempt: false, heatMultiplier: 1, attachmentHeatMultiplier: 0.12, attachmentClusterMax: 100, imageOnlyMaxCount: 30, mentionsEnabled: true, attachmentsEnabled: true, inviteLinksEnabled: true, }, media: { exempt: false, heatMultiplier: 1, mentionsEnabled: true, attachmentsEnabled: true, inviteLinksEnabled: true, }, ticket: { exempt: false, hateSpeechOnly: true, heatMultiplier: 1, mentionsEnabled: false, attachmentsEnabled: false, inviteLinksEnabled: false, }, staff: { exempt: true, heatMultiplier: 0.25, mentionsEnabled: false, attachmentsEnabled: false, inviteLinksEnabled: false, }, }, discordNative: { enabled: true, syncOnStartup: true, skipBotDetectionFor: ["word_blacklist", "mention_everyone", "mention_hour_cap"], }, };
+const DEFAULT_AUTOMOD_RUNTIME = { status: { enabled: true, antiSpamEnabled: true, monitorUnwhitelistedWebhooks: true, }, thresholds: { warn: 35, delete: 65, timeout: 100, }, heatSystem: { maxHeat: 100, decayPerSec: 2, resetOnPunishment: true, }, autoTimeouts: { enabled: true, regularStrikeDurationMs: 60_000, capStrikeDurationMs: 11 * 60_000, capStrike: 3, multiplierEnabled: true, multiplierPercent: 200, profileResetMs: 6 * 60 * 60_000, }, autoLockdown: { enabled: true, mentionTrigger: 50, mentionWindowMs: 3_000, mentionHourCap: 20, }, heatFilters: { regularMessage: true, suspiciousAccount: true, similarMessage: true, emojis: true, newLines: true, zalgo: true, characters: true, inviteLinks: true, maliciousLinks: true, nsfwLinks: true, wordBlacklist: true, linkBlacklist: true, mentions: true, attachments: true, webhookMessages: true, crossServerForwards: true, }, heatFactors: { regularMessage: 1, suspiciousAccount: 1, similarMessage: 1, emojis: 1, newLines: 1, zalgo: 1, characters: 1, inviteLinks: 1, maliciousLinks: 1, nsfwLinks: 1, wordBlacklist: 1, linkBlacklist: 1, mentions: 1, attachments: 1, crossServerForward: 1, }, heatCaps: { maxPerMessage: 85, charactersMax: 40, textClusterMax: 35, attachmentClusterMax: 100, mentionClusterMax: 70, }, panic: { enabled: true, considerActivityHistory: true, useGlobalBadUsersDb: true, triggerCount: 3, triggerWindowMs: 10 * 60_000, durationMs: 10 * 60_000, raidWindowMs: 120_000, raidUserThreshold: 6, raidYoungThreshold: 4, lockCommands: false, }, shorteners: { crawl: true, timeoutMs: 2200, maxHops: 3, }, profiles: { default: { exempt: false, heatMultiplier: 1, attachmentHeatMultiplier: 0.12, attachmentClusterMax: 100, imageOnlyMaxCount: 30, mentionsEnabled: true, attachmentsEnabled: true, inviteLinksEnabled: true, }, media: { exempt: false, heatMultiplier: 1, mentionsEnabled: true, attachmentsEnabled: true, inviteLinksEnabled: true, }, ticket: { exempt: false, hateSpeechOnly: true, heatMultiplier: 1, mentionsEnabled: false, attachmentsEnabled: false, inviteLinksEnabled: false, }, staff: { exempt: true, heatMultiplier: 0.25, mentionsEnabled: false, attachmentsEnabled: false, inviteLinksEnabled: false, }, }, discordNative: { enabled: true, syncOnStartup: true, skipBotDetectionFor: ["mention_everyone", "mention_hour_cap"], }, };
 
 function deepMerge(base, override) {
   if (!override || typeof override !== "object") return base;
@@ -674,7 +675,7 @@ function clearAutoModPanicState(guildId) {
 
 const WICK_EQUIV = { textClusterMultiplier: 1.1875, upperCharMultiplier: 9.90575, lowerCharMultiplier: 14.866, };
 
-const INSTANT_LINK_KEYS = new Set(["invite", "scam_pattern", "scam_image_bait", "nsfw_link", "word_blacklist", "link_blacklist", "mention_everyone", "mention_hour_cap", "mentions_lockdown",]);
+const INSTANT_LINK_KEYS = new Set(["invite", "scam_pattern", "scam_image_bait", "grabbed_scam_image", "nsfw_link", "word_blacklist", "link_blacklist", "mention_everyone", "mention_hour_cap", "mentions_lockdown",]);
 const SUSPICIOUS_ACCOUNT_STRONG_KEYS = new Set([
   "mention_user",
   "mention_role",
@@ -684,6 +685,7 @@ const SUSPICIOUS_ACCOUNT_STRONG_KEYS = new Set([
   "invite",
   "scam_pattern",
   "scam_image_bait",
+  "grabbed_scam_image",
   "nsfw_link",
   "link_blacklist",
   "attachment_embed",
@@ -1703,7 +1705,7 @@ const SCAM_IMAGE_STRONG_BAIT_PATTERNS = [
   /\b(clicca qui|claim|redeem)\b/i,
   /\b(soldi facili|soldi gratis|guadagna)\b/i,
   /\$\d{2,5}\b/,
-  /\b(riftroll|betchoco|nozawin|serowin)\b/i,
+  /\b(riftroll|betchoco|nozawin|serowin|peagax|dopxbit)\b/i,
 ];
 
 function detectScam(content) {
@@ -2480,6 +2482,23 @@ async function detectViolations(message, state, profile) {
       ),
       info: "bait text + image scam",
     });
+  }
+
+  if (TEXT_RULES.maliciousLinks.enabled) {
+    const grabbedHit = await detectGrabbedScamImage(message).catch((err) => {
+      global.logger?.warn?.("[automod] grabbed scam image scan failed:", err?.message || err);
+      return null;
+    });
+    if (grabbedHit) {
+      violations.push({
+        key: "grabbed_scam_image",
+        heat: profileHeat(
+          percentToHeat(TEXT_RULES.maliciousLinks.heat),
+          "maliciousLinks",
+        ),
+        info: `grabbed bait img (${grabbedHit.kind}:${grabbedHit.id})`,
+      });
+    }
   }
 
   if (await isNsfwUrl(moderationScanText, extractedUrls)) {
@@ -3374,7 +3393,7 @@ function resolveInstantTimeoutOverrideMs(violations = []) {
       maxMs = Math.max(maxMs, Number(MENTION_RULES.timeoutMs || 0));
     } else if (key === "invite") {
       maxMs = Math.max(maxMs, Number(TEXT_RULES.inviteLinks.timeoutMs || 0));
-    } else if (key === "scam_pattern" || key === "scam_image_bait") {
+    } else if (key === "scam_pattern" || key === "scam_image_bait" || key === "grabbed_scam_image") {
       maxMs = Math.max(maxMs, Number(TEXT_RULES.maliciousLinks.timeoutMs || 0));
     } else if (key === "nsfw_link") {
       maxMs = Math.max(maxMs, Number(TEXT_RULES.nsfwLinks.timeoutMs || 0));
@@ -3502,6 +3521,14 @@ async function runAutoModMessage(message) {
   const legitConversation = looksLikeLegitConversation(stripQuotedAndCodeText(String(message.content || "")) || String(message.content || ""),);
   const violations = normalizeViolationsForHeat(rawViolations, { legitConversation, profile });
   if (!violations.length) return { blocked: false };
+
+  /* bot slur catch: evita doppio timeout se Discord Native scatta dopo sul match esatto */
+  if (
+    message?.id &&
+    violations.some((v) => String(v?.key || "") === "word_blacklist")
+  ) {
+    markDiscordNativeHandled(message.id);
+  }
 
   const at = nowMs();
   const shouldCountForPanic = violations.some((v) => PANIC_TRIGGER_KEYS.has(String(v?.key || "")),);

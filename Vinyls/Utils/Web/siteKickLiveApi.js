@@ -651,10 +651,20 @@ async function handleSiteKickLiveThumb(client, req, res) {
   }
 }
 
+/* apiWarmSwr2: tieni cache calda per PIP site-wide */
+function warmSiteKickLiveCache(client) {
+  return refreshLiveCache(client).catch((err) => {
+    global.logger?.warn?.("[site-kick-live] warm:", err?.message || err);
+    return null;
+  });
+}
+
 module.exports = {
   handleSiteKickLiveGet,
   handleSiteKickLiveStreamPlaylist,
   handleSiteKickLiveProxy,
   handleSiteKickLivePreviewMp4,
   handleSiteKickLiveThumb,
+  warmSiteKickLiveCache,
+  refreshLiveCache,
 };

@@ -86,26 +86,26 @@ body.vc-seratafilm-app-revealed #vc-seratafilm-app {
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: flex-start;
-    padding: 1.5rem 1rem 2.5rem;
+    justify-content: center;
+    padding: 1.5rem 1rem;
     box-sizing: border-box;
 }
 
 @media (min-width: 640px) {
     .seratafilm-canvas {
-        padding: 2rem 1.5rem 2.5rem;
+        padding: 2rem 1.5rem;
     }
 }
 
 .dashboard {
-    flex: 1;
+    flex: 0 0 auto;
     max-width: 1400px;
     width: 100%;
     margin: 0 auto;
     display: flex;
     flex-direction: column;
     gap: 28px;
-    min-height: calc(100vh - 5rem);
+    min-height: 0;
 }
 
 .row-main {
@@ -1362,6 +1362,81 @@ body.vc-seratafilm-page .vc-bgm-player--seratafilm.is-open .vc-bgm-player__range
         opacity: 0; pointer-events: none;
         transform: translate3d(0, 0.45rem, 0) scale(0.96);
     }
+
+    /* phoneBgmVolBar1: aperto = barra volume verticale stretta (non pannello largo) */
+    body.vc-seratafilm-page .vc-bgm-player--seratafilm.is-open {
+        display: inline-flex !important;
+        flex-direction: column-reverse !important;
+        align-items: center !important;
+        justify-content: flex-end !important;
+        gap: 0.28rem !important;
+        padding: 0.42rem 0.3rem 0.3rem !important;
+        width: 2.95rem !important;
+        min-width: 2.95rem !important;
+        max-width: 2.95rem !important;
+        border-radius: 1.55rem !important;
+        border: 1px solid rgba(232, 201, 168, 0.48) !important;
+        background: linear-gradient(180deg, rgba(42, 26, 16, 0.97), rgba(14, 9, 7, 0.96)) !important;
+        box-shadow: 0 12px 28px rgba(0, 0, 0, 0.5) !important;
+    }
+    body.vc-seratafilm-page .vc-bgm-player--seratafilm.is-open .vc-bgm-player__meta {
+        position: static !important;
+        right: auto !important;
+        bottom: auto !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+        max-height: 7.25rem !important;
+        opacity: 1 !important;
+        pointer-events: auto !important;
+        transform: none !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        border: none !important;
+        box-shadow: none !important;
+        background: transparent !important;
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        gap: 0 !important;
+    }
+    body.vc-seratafilm-page .vc-bgm-player--seratafilm.is-open .vc-bgm-player__meta::before {
+        display: none !important;
+    }
+    body.vc-seratafilm-page .vc-bgm-player--seratafilm.is-open .vc-bgm-player__label,
+    body.vc-seratafilm-page .vc-bgm-player--seratafilm.is-open .vc-bgm-player__seek-row {
+        display: none !important;
+    }
+    body.vc-seratafilm-page .vc-bgm-player--seratafilm.is-open .vc-bgm-player__slider-row {
+        position: relative !important;
+        display: flex !important;
+        width: 1.7rem !important;
+        height: 6.6rem !important;
+        padding: 0 !important;
+        gap: 0 !important;
+        align-items: center !important;
+        justify-content: center !important;
+    }
+    body.vc-seratafilm-page .vc-bgm-player--seratafilm.is-open .vc-bgm-player__slider-row > .fa {
+        display: none !important;
+    }
+    body.vc-seratafilm-page .vc-bgm-player--seratafilm.is-open .vc-bgm-player__slider-row .vc-bgm-player__range {
+        position: absolute !important;
+        left: 50% !important;
+        top: 50% !important;
+        width: 6.2rem !important;
+        height: 1.15rem !important;
+        margin: 0 !important;
+        flex: none !important;
+        transform: translate(-50%, -50%) rotate(-90deg) !important;
+        transform-origin: center center !important;
+    }
+    body.vc-seratafilm-page .vc-bgm-player--seratafilm.is-open .vc-bgm-player__toggle {
+        width: 2.35rem !important;
+        height: 2.35rem !important;
+    }
 }
 body.vc-seratafilm-page .vc-bgm-player--seratafilm .vc-bgm-player__label {
     font-size: 0.68rem; font-weight: 650; letter-spacing: 0.06em; text-transform: uppercase;
@@ -2018,7 +2093,7 @@ body.vc-seratafilm-page .vc-seratafilm-loading__card,
   max-width: 40rem !important;
 }
 
-/* seratafilmSolidCards3 + sfUiGlowBgm1: opaque cards + warm glow gradient */
+/* seratafilmSolidCards3 + sfUiGlowBgm1 → sfCardGlowKill1: card opache, niente glow */
 body.vc-seratafilm-page .banner-vertical,
 body.vc-seratafilm-page .banner-horizontal,
 body.vc-seratafilm-page .banner-horizontal-2,
@@ -2032,18 +2107,16 @@ body.vc-seratafilm-hogwarts-event .card {
   background-color: #100c09 !important;
   background-image: none !important;
   opacity: 1 !important;
-  border: 1px solid rgba(245, 214, 183, 0.34) !important;
+  border: 1px solid rgba(245, 214, 183, 0.28) !important;
   border-radius: var(--radius) !important;
   overflow: hidden !important;
   isolation: isolate !important;
   background-clip: padding-box !important;
   box-shadow:
-    0 10px 32px rgba(0, 0, 0, 0.55),
-    0 0 0 1px rgba(212, 168, 136, 0.12),
-    0 0 36px rgba(212, 168, 136, 0.22),
-    0 0 64px rgba(247, 201, 72, 0.1),
-    inset 0 1px 0 rgba(255, 247, 236, 0.08) !important;
-  filter: drop-shadow(0 0 16px rgba(212, 168, 136, 0.32)) !important;
+    0 8px 28px rgba(0, 0, 0, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
+  filter: none !important;
+  -webkit-filter: none !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
 }
@@ -2077,24 +2150,10 @@ body.vc-seratafilm-page .card::before,
 body.vc-seratafilm-hogwarts-event .card::before,
 body.vc-seratafilm-page .banner-vertical::before,
 body.vc-seratafilm-hogwarts-event .banner-vertical::before {
-  content: "" !important;
-  position: absolute !important;
-  inset: -1px !important;
-  border-radius: inherit !important;
-  pointer-events: none !important;
-  opacity: 1 !important;
-  padding: 1px !important;
-  background: linear-gradient(
-    135deg,
-    rgba(247, 236, 223, 0.55) 0%,
-    rgba(212, 168, 136, 0.28) 42%,
-    rgba(111, 78, 55, 0.45) 100%
-  ) !important;
-  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0) !important;
-  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0) !important;
-  mask-composite: exclude !important;
-  -webkit-mask-composite: xor !important;
-  z-index: 0 !important;
+  content: none !important;
+  display: none !important;
+  opacity: 0 !important;
+  background: none !important;
 }
 body.vc-seratafilm-page .tile,
 body.vc-seratafilm-hogwarts-event .tile {
@@ -2225,30 +2284,33 @@ body.vc-seratafilm-app-revealed #vc-seratafilm-app {
   display: flex;
   flex-direction: column;
 }
-/* Fullscreen viewport, but dashboard keeps natural sizes/gaps like pre-fit1 */
+/* sfCenterV1: blocco dashboard centrato in viewport (countdown + grazie) */
 body.vc-seratafilm-page .seratafilm-canvas {
   height: 100%;
   min-height: 0 !important;
   max-height: 100%;
   overflow: auto;
   overscroll-behavior: contain;
-  padding: 1.5rem 1rem 2.5rem;
-  justify-content: center;
-  align-items: center;
+  padding: 1.5rem 1rem !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: center !important;
+  align-items: center !important;
   box-sizing: border-box;
 }
 @media (min-width: 640px) {
   body.vc-seratafilm-page .seratafilm-canvas {
-    padding: 2rem 1.5rem 2.5rem;
+    padding: 2rem 1.5rem !important;
   }
 }
 body.vc-seratafilm-page .dashboard {
-  flex: 0 1 auto;
+  flex: 0 0 auto !important;
   width: 100%;
   max-width: 1400px;
   min-height: 0 !important;
   height: auto !important;
   max-height: none;
+  margin-block: auto !important;
   gap: 28px;
   justify-content: flex-start;
   overflow: visible;
@@ -2307,11 +2369,12 @@ body.vc-seratafilm-page .vc-seratafilm-bgm-hint__ico {
 
 @media (max-width: 780px) {
   body.vc-seratafilm-page .seratafilm-canvas {
-    padding: 1rem 0.85rem 1.25rem;
-    justify-content: flex-start;
+    padding: 1rem 0.85rem !important;
+    justify-content: center !important;
   }
   body.vc-seratafilm-page .dashboard {
     gap: 28px;
+    margin-block: auto !important;
   }
   body.vc-seratafilm-page .center-stage .card {
     height: auto !important;
@@ -2340,22 +2403,115 @@ body.vc-seratafilm-page .banner-horizontal {
 }
 body.vc-seratafilm-page .banner-horizontal::before,
 body.vc-seratafilm-hogwarts-event .banner-horizontal::before {
-  content: "" !important;
-  position: absolute !important;
-  inset: -1px !important;
-  border-radius: inherit !important;
-  pointer-events: none !important;
-  opacity: 1 !important;
-  padding: 1px !important;
-  background: linear-gradient(
-    135deg,
-    rgba(247, 236, 223, 0.5) 0%,
-    rgba(212, 168, 136, 0.26) 45%,
-    rgba(111, 78, 55, 0.42) 100%
-  ) !important;
-  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0) !important;
-  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0) !important;
-  mask-composite: exclude !important;
-  -webkit-mask-composite: xor !important;
-  z-index: 0 !important;
+  content: none !important;
+  display: none !important;
+  opacity: 0 !important;
+  background: none !important;
+}
+/* sfCardGlowKill1 */
+
+/* 20261010sfCenterCute1: dashboard davvero al centro viewport + CTA soft */
+body.vc-seratafilm-page #vc-seratafilm-app {
+  width: 100% !important;
+  min-height: 100dvh !important;
+  height: 100dvh !important;
+  max-height: 100dvh !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+  box-sizing: border-box !important;
+}
+body.vc-seratafilm-page.vc-seratafilm-app-revealed #vc-seratafilm-app {
+  display: flex !important;
+}
+body.vc-seratafilm-page .seratafilm-canvas {
+  flex: 1 1 auto !important;
+  width: 100% !important;
+  min-height: 0 !important;
+  height: 100% !important;
+  max-height: 100% !important;
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) !important;
+  align-content: center !important;
+  justify-content: center !important;
+  align-items: center !important;
+  justify-items: center !important;
+  place-content: center !important;
+  place-items: center !important;
+  overflow: auto !important;
+  overscroll-behavior: contain !important;
+  padding: clamp(0.85rem, 2.8vh, 2.25rem) clamp(0.85rem, 2vw, 1.5rem) !important;
+  box-sizing: border-box !important;
+}
+body.vc-seratafilm-page .dashboard {
+  flex: 0 0 auto !important;
+  width: min(1400px, 100%) !important;
+  max-width: 1400px !important;
+  margin: 0 auto !important;
+  align-self: center !important;
+  justify-self: center !important;
+  min-height: 0 !important;
+  height: auto !important;
+}
+body.vc-seratafilm-page .hint .btn.secondary,
+body.vc-seratafilm-thanks-page .hint .btn.secondary,
+body.vc-seratafilm-page .vc-seratafilm-thanks-cta .btn.secondary {
+  appearance: none !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 0.35rem !important;
+  padding: 0.38rem 0.92rem !important;
+  min-height: 2rem !important;
+  border-radius: 999px !important;
+  font-size: 0.84rem !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.01em !important;
+  line-height: 1.2 !important;
+  color: #f0dfcc !important;
+  background: rgba(245, 214, 183, 0.08) !important;
+  border: 1px solid rgba(245, 214, 183, 0.2) !important;
+  box-shadow: none !important;
+  text-decoration: none !important;
+  transform: none !important;
+  filter: none !important;
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease,
+    color 0.18s ease,
+    transform 0.15s ease !important;
+}
+body.vc-seratafilm-page .hint .btn.secondary:hover,
+body.vc-seratafilm-thanks-page .hint .btn.secondary:hover,
+body.vc-seratafilm-page .vc-seratafilm-thanks-cta .btn.secondary:hover {
+  background: rgba(245, 214, 183, 0.16) !important;
+  border-color: rgba(245, 214, 183, 0.36) !important;
+  color: #fff6ea !important;
+  transform: translateY(-1px) !important;
+  filter: none !important;
+  box-shadow: none !important;
+}
+body.vc-seratafilm-page .hint .btn.secondary:active,
+body.vc-seratafilm-thanks-page .hint .btn.secondary:active,
+body.vc-seratafilm-page .vc-seratafilm-thanks-cta .btn.secondary:active {
+  transform: translateY(0) !important;
+  background: rgba(245, 214, 183, 0.12) !important;
+}
+@media (max-width: 780px) {
+  body.vc-seratafilm-page .seratafilm-canvas {
+    place-content: center !important;
+    place-items: stretch !important;
+    justify-items: stretch !important;
+    padding: 1rem 0.85rem !important;
+  }
+  body.vc-seratafilm-page .dashboard {
+    width: 100% !important;
+  }
+  body.vc-seratafilm-page .hint {
+    justify-content: center !important;
+  }
+  body.vc-seratafilm-page .hint .btn.secondary,
+  body.vc-seratafilm-thanks-page .hint .btn.secondary {
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+  }
 }

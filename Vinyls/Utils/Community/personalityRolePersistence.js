@@ -12,7 +12,7 @@ const PERSONALITY_CATEGORY_ROLE_IDS = {
   dm: ["1544830708340756621", "1544830706482413589", "1544830704477540393"],
   relationship: ["1544830640971579462", "1544830638983614524"],
   zodiac: ZODIAC_ROLE_IDS,
-  mentions: [IDs.roles.ReviveChat, IDs.roles.ReviveVoc, IDs.roles.SerataFilm, IDs.roles.Partnership, IDs.roles.Events, IDs.roles.News, IDs.roles.Polls, IDs.roles.Bump, IDs.roles.Minigames, IDs.roles.Notturno, IDs.roles.Live, IDs.roles.Updates].filter(Boolean),
+  mentions: [IDs.roles.ReviveServer || IDs.roles.ReviveChat, IDs.roles.Partnership, IDs.roles.Events, IDs.roles.News, IDs.roles.Bump, IDs.roles.Minigames, IDs.roles.Notturno, IDs.roles.Live].filter(Boolean),
   hobby: [IDs.roles.HobbyAnimeManga, IDs.roles.HobbyLettura, IDs.roles.HobbyScrittura, IDs.roles.HobbyFilmSerieTV, IDs.roles.HobbySport, IDs.roles.HobbyMusica, IDs.roles.HobbyGaming, IDs.roles.HobbyDisegno, IDs.roles.HobbyCucina, IDs.roles.HobbyFotografia].filter(Boolean),
   gaming: [
     IDs.roles.GameMinecraft,
@@ -28,6 +28,8 @@ const PERSONALITY_CATEGORY_ROLE_IDS = {
     IDs.roles.GameValorant,
     IDs.roles.GameFifa,
     IDs.roles.GameBrawlStars,
+    IDs.roles.GameBrawlhalla,
+    IDs.roles.GameGenshinImpact,
   ].filter(Boolean),
   colors1: PERSONALITY_NORMAL_COLOR_ROLE_IDS_ALL,
   colors_plus: [IDs.roles.redPlus, IDs.roles.orangePlus, IDs.roles.yellowPlus, IDs.roles.greenPlus, IDs.roles.bluePlus, IDs.roles.purplePlus, IDs.roles.pinkPlus, IDs.roles.blackPlus, IDs.roles.grayPlus, IDs.roles.whitePlus, IDs.roles.brownPlus, IDs.roles.orangeBlackPlus, IDs.roles.greenBlackPlus, IDs.roles.aquaBlackPlus].filter(Boolean),

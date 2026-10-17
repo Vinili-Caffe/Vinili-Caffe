@@ -1,5 +1,6 @@
-(function () {
-  /* suggestionsKindPhoto1 + feedbackSheet1 + feedback2 + feedback3 + feedbackTags1 + feedbackAvatar1 + feedbackAvatar2 + feedbackUx1 + suggestionsFirstLoadRetry1 + feedbackFmt1 + toastZ1 + feedbackDup1 + feedbackSort1 + feedbackFmt2 + feedbackTabSwitch2 + feedbackNotifColdOpen1 + feedbackDiscussLive1 + feedbackLoadBoot1 + feedbackSheetStay1 + notifSheetFastOpen1 */
+﻿(function () {
+  /* suggestionsKindPhoto1 + … + notifSheetFastOpen1 + notifSheetReadyOpen1
+     (deep-link: scroll card → sheet con riga; no loading shell eterna) */
   var ACCESS_TOKEN_KEY = "vc_discord_access_token";
   var ACCESS_EXPIRES_KEY = "vc_discord_expires_at";
   var SORT_STORAGE_KEY = "vc_feedback_sort";
@@ -61,6 +62,7 @@
       userControlled: false,
     },
     deepLinkAppliedId: "",
+    pendingDeepLinkId: "",
     renderFingerprint: "",
     openSuggestionId: "",
     board: readBoardFromUrl(),
@@ -513,7 +515,8 @@
     state.livePollTimer = setInterval(function () {
       if (document.visibilityState === "hidden") return;
       void refreshPayloadQuiet();
-    }, state.openSuggestionId ? Math.min(4000, livePollIntervalMs()) : livePollIntervalMs());
+    /* pageTune1: open-detail floor 9s (prima fino a 4s = troppo caldo) */
+    }, state.openSuggestionId ? Math.max(9000, livePollIntervalMs()) : livePollIntervalMs());
   }
 
   function suggestionsWsUrl() {
@@ -610,71 +613,27 @@
       .replace(/\"/g, "&quot;");
   }
 
-  /* feedbackFmt2: safe rich text; strip md delimiters (incl. ``double`` code fences). */
+  /* discordMdUnify1: stesso parser Discord di boards/tickets-lite */
   function formatFeedbackHtml(text, opts) {
     opts = opts || {};
     var keepNewlines = opts.keepNewlines !== false;
-    var tokens = [];
-    function stash(html) {
-      var key = "\uE000FB" + tokens.length + "\uE001";
-      tokens.push(html);
-      return key;
-    }
+    try {
+      if (window.VcDiscordMd && typeof window.VcDiscordMd.format === "function") {
+        return window.VcDiscordMd.format(text, {
+          inline: keepNewlines === false ? true : false,
+          classPrefix: "vc-discord-md",
+          emojiClass: "vc-emoji vc-discord-emoji vc-feedback-emoji",
+        });
+      }
+    } catch (eMd) {}
     var s = String(text == null ? "" : text);
-    s = s.replace(/<(a?):([\w~-]+):(\d+)>/g, function (_m, animated, name, id) {
-      var src =
-        "https://cdn.discordapp.com/emojis/" +
-        esc(id) +
-        ".webp?size=64" +
-        (animated === "a" ? "&animated=true" : "&quality=lossless");
-      return stash(
-        '<img class="vc-emoji vc-discord-emoji vc-feedback-emoji" src="' +
-          src +
-          '" alt=":' +
-          esc(name) +
-          ':" title=":' +
-          esc(name) +
-          ':" width="20" height="20" loading="lazy" decoding="async" />',
-      );
-    });
-    /* Code first (stash): Discord ``double`` / ```triple``` fences; avoid leftover ticks. */
-    s = s.replace(/```([^`\n]+)```/g, function (_m, code) {
-      return stash('<code class="vc-feedback-prose__code">' + esc(code) + "</code>");
-    });
-    s = s.replace(/``([^`\n]+)``/g, function (_m, code) {
-      return stash('<code class="vc-feedback-prose__code">' + esc(code) + "</code>");
-    });
-    s = s.replace(/`([^`\n]+)`/g, function (_m, code) {
-      return stash('<code class="vc-feedback-prose__code">' + esc(code) + "</code>");
-    });
-    s = s.replace(/`+/g, "");
-    s = s.replace(/https?:\/\/[^\s<>"']+/gi, function (url) {
-      var clean = String(url || "").replace(/[),.;:!?]+$/g, "");
-      var trail = String(url || "").slice(clean.length);
-      if (!clean) return esc(url);
-      return (
-        stash(
-          '<a class="vc-feedback-prose__link" href="' +
-            esc(clean) +
-            '" target="_blank" rel="noopener noreferrer">' +
-            esc(clean) +
-            "</a>",
-        ) + trail
-      );
-    });
-    var html = esc(s);
-    html = html.replace(/\*\*\*(.+?)\*\*\*/g, "<strong><em>$1</em></strong>");
-    html = html.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
-    html = html.replace(/__(.+?)__/g, "<u>$1</u>");
-    html = html.replace(/~~(.+?)~~/g, "<s>$1</s>");
-    html = html.replace(/\|\|(.+?)\|\|/g, "$1");
-    html = html.replace(/(^|[^\w*])\*(.+?)\*(?!\*)/g, "$1<em>$2</em>");
-    html = html.replace(/(^|[^\w_])_(.+?)_(?!_)/g, "$1<em>$2</em>");
-    if (keepNewlines) html = html.replace(/\r\n|\r|\n/g, "<br>");
-    for (var i = 0; i < tokens.length; i += 1) {
-      html = html.split("\uE000FB" + i + "\uE001").join(tokens[i]);
-    }
-    return html;
+    s = s
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/\"/g, "&quot;");
+    if (keepNewlines) s = s.replace(/\r\n|\r|\n/g, "<br>");
+    return s;
   }
 
   function getToken() {
@@ -1462,7 +1421,7 @@
               "</div>";
           } else {
             innerBody =
-              '<div class="vc-feedback-comment__text vc-feedback-prose">' +
+              '<div class="vc-feedback-comment__text vc-feedback-prose vc-discord-md">' +
               formatFeedbackHtml(c.content) +
               "</div>";
           }
@@ -1559,7 +1518,7 @@
       '<span class="vc-feedback-sheet__decision-status">' +
       esc(statusLabel(status)) +
       "</span></div>" +
-      '<div class="vc-feedback-sheet__decision-text vc-feedback-prose">' +
+      '<div class="vc-feedback-sheet__decision-text vc-feedback-prose vc-discord-md">' +
       formatFeedbackHtml(reason) +
       "</div>" +
       (s.decidedAt
@@ -1647,7 +1606,7 @@
       '"><i class="fa ' +
       statusIcon(s.status) +
       '" aria-hidden="true"></i></span></div>' +
-      '<div class="vc-feedback-sheet__text vc-feedback-prose">' +
+      '<div class="vc-feedback-sheet__text vc-feedback-prose vc-discord-md">' +
       formatFeedbackHtml(s.content) +
       "</div>" +
       suggestionImagesMarkup(s) +
@@ -1725,7 +1684,7 @@
       "</div>" +
       ownActions +
       "</div></div>" +
-      '<div class="vc-feedback-card__preview vc-feedback-prose">' +
+      '<div class="vc-feedback-card__preview vc-feedback-prose vc-discord-md">' +
       formatFeedbackHtml(previewText(s.content, 160)) +
       "</div>" +
       '<div class="vc-feedback-card__meta">' +
@@ -1854,8 +1813,14 @@
         }
       }
     } catch (ePin) {}
+    try {
+      if (typeof window.__vcSyncLoaderScrollLock === "function") window.__vcSyncLoaderScrollLock();
+    } catch (eSync) {}
     window.requestAnimationFrame(function () {
       sheet.classList.add("is-in");
+      try {
+        if (typeof window.__vcSyncLoaderScrollLock === "function") window.__vcSyncLoaderScrollLock();
+      } catch (eSync2) {}
     });
     startDiscussionLiveBoost();
     startLiveSuggestionsPoll();
@@ -1877,20 +1842,29 @@
     if (!sid || !body) return;
     var row = findSuggestionById(sid);
     if (!row) {
-      /* notifSheetFastOpen1: loading shell — non chiudere in attesa della lista */
       if (kicker) {
         kicker.innerHTML =
           '<i class="fa fa-comments-o" aria-hidden="true"></i> ' +
           esc(state.board === "staff" ? "Staff" : "Community");
       }
-      if (title) title.textContent = t("sugg.sheetLoadingTitle", "Discussione");
       if (decision) {
         decision.innerHTML = "";
         decision.hidden = true;
         decision.setAttribute("hidden", "");
       }
-      body.innerHTML = feedbackSheetLoadingMarkup();
       if (foot) foot.innerHTML = "";
+      /* notifSheetReadyOpen1: se lista già caricata → errore, non loading eterno */
+      if (state.payload && payloadMatchesActiveBoard(state.payload)) {
+        if (title) title.textContent = t("sugg.sheetMissingTitle", "Feedback non trovato");
+        body.innerHTML =
+          '<div class="vc-feedback-sheet__loading" role="status">' +
+          "<p>" +
+          esc(t("sugg.sheetMissingHint", "Questo feedback non è più disponibile o non hai accesso.")) +
+          "</p></div>";
+        return;
+      }
+      if (title) title.textContent = t("sugg.sheetLoadingTitle", "Discussione");
+      body.innerHTML = feedbackSheetLoadingMarkup();
       return;
     }
     if (kicker) {
@@ -2014,9 +1988,39 @@
     }
   }
 
+  function resolveDeepLinkSuggestionId() {
+    var fromHash = extractDeepLinkSuggestionId();
+    if (fromHash) return fromHash;
+    var pending = String(state.pendingDeepLinkId || "").trim();
+    if (/^[a-f0-9]{24}$/i.test(pending)) return pending;
+    var open = String(state.openSuggestionId || "").trim();
+    if (/^[a-f0-9]{24}$/i.test(open)) return open;
+    return "";
+  }
+
+  function scrollSuggestionCardIntoView(id) {
+    var sid = String(id || "").trim();
+    if (!sid) return;
+    try {
+      var card = document.getElementById("vc-suggestion-" + sid);
+      if (!card || typeof card.scrollIntoView !== "function") return;
+      card.scrollIntoView({ block: "center", inline: "nearest", behavior: "smooth" });
+    } catch (eScr) {}
+  }
+
+  function stripSuggestionDeepLinkHash() {
+    try {
+      if (!String(window.location.hash || "").trim()) return;
+      if (window.history && typeof window.history.replaceState === "function") {
+        window.history.replaceState(null, document.title, window.location.pathname + window.location.search);
+      }
+    } catch (eStrip) {}
+  }
+
   function ensurePageIncludesDeepLink(sortedSuggestions) {
     if (state.suggestionsPager.userControlled) return;
-    var suggestionId = extractDeepLinkSuggestionId();
+    /* notifSheetReadyOpen1: anche dopo strip hash (pending/open id) */
+    var suggestionId = resolveDeepLinkSuggestionId();
     if (!suggestionId) return;
     var idx = -1;
     for (var i = 0; i < sortedSuggestions.length; i += 1) {
@@ -2058,7 +2062,8 @@
     pager.hidden = false;
     var mp = window.__vcMiniPager;
     if (mp && typeof mp.fill === "function") {
-      mp.fill(pager, page, totalPages, { aria: "Paginazione suggerimenti", classic: true }, {
+      /* feedbackPagerOrganico1: stessa pill numerata di ruoli/classifiche (no classic) */
+      mp.fill(pager, page, totalPages, { aria: "Paginazione feedback" }, {
         go: function (nextPage) {
           var cap = Math.max(1, Number(state.suggestionsPager.totalPages) || 1);
           var next = Math.max(1, Math.min(cap, Number(nextPage) || 1));
@@ -2427,29 +2432,65 @@
 
   function applySuggestionDeepLink() {
     try {
-      var raw = extractDeepLinkSuggestionId();
+      var raw = resolveDeepLinkSuggestionId();
       if (!raw) return;
-      if (state.deepLinkAppliedId === raw && String(state.openSuggestionId || "") === raw) return;
-      /* notifSheetFastOpen1: sheet subito (loading se lista non pronta) */
+      if (state.deepLinkAppliedId === raw && String(state.openSuggestionId || "") === raw) {
+        stripSuggestionDeepLinkHash();
+        return;
+      }
+      /* notifSheetReadyOpen1: aspetta la riga in payload → scroll → sheet pieno */
+      state.pendingDeepLinkId = raw;
+      if (!state.payload) return;
+      var row = findSuggestionById(raw);
+      if (!row) {
+        /* lista caricata ma id assente → sheet con errore, non loading infinito */
+        state.deepLinkAppliedId = raw;
+        openFeedbackSheet(raw);
+        stripSuggestionDeepLinkHash();
+        return;
+      }
       state.deepLinkAppliedId = raw;
-      openFeedbackSheet(raw);
-      try {
-        if (window.history && typeof window.history.replaceState === "function") {
-          window.history.replaceState(null, document.title, window.location.pathname + window.location.search);
-        }
-      } catch (e2) {}
+      state.pendingDeepLinkId = "";
+      scrollSuggestionCardIntoView(raw);
+      window.setTimeout(function () {
+        openFeedbackSheet(raw);
+        stripSuggestionDeepLinkHash();
+      }, 180);
     } catch (e1) {}
   }
 
-  /* notifSheetFastOpen1: soft-open da campanella già su /feedback */
+  /* notifSheetReadyOpen1 + feedbackLayout1: soft-open campanella — board community di default;
+     timeout se fetch hang → sheet errore (no loading eterno) */
   window.__vcFeedbackOpenDeepLink = function (opts) {
     opts = opts || {};
     var id = String(opts.id || "").trim();
     if (!/^[a-f0-9]{24}$/i.test(id)) return false;
     var wantBoard = opts.board === "staff" ? "staff" : "community";
     try {
-      if (wantBoard === "staff" && state.payload && !canAccessStaffBoard()) return false;
-    } catch (eStaff) {}
+      if (wantBoard === "staff" && !canAccessStaffBoard()) wantBoard = "community";
+    } catch (eStaff) {
+      wantBoard = "community";
+    }
+    state.pendingDeepLinkId = id;
+    state.deepLinkAppliedId = "";
+    function finishDeepLink() {
+      try {
+        applySuggestionDeepLink();
+      } catch (eApp) {}
+    }
+    function armDeepLinkWatchdog() {
+      window.setTimeout(function () {
+        try {
+          if (String(state.pendingDeepLinkId || "") !== id) return;
+          if (String(state.openSuggestionId || "") === id && findSuggestionById(id)) return;
+          /* ancora pending dopo 8s → apri sheet (missing/loading resolve in sync) */
+          openFeedbackSheet(id);
+          state.deepLinkAppliedId = id;
+          state.pendingDeepLinkId = "";
+          stripSuggestionDeepLinkHash();
+        } catch (eWd) {}
+      }, 8000);
+    }
     if (wantBoard !== normalizeBoardId(state.board)) {
       state.board = wantBoard;
       state.suggestionsPager.page = 1;
@@ -2462,25 +2503,25 @@
         var uBoard = new URL(window.location.href);
         if (wantBoard === "staff") uBoard.searchParams.set("board", "staff");
         else uBoard.searchParams.delete("board");
-        history.replaceState(null, "", uBoard.pathname + uBoard.search);
+        uBoard.hash = "vc-suggestion-" + id;
+        history.replaceState(null, "", uBoard.pathname + uBoard.search + uBoard.hash);
       } catch (eUrl) {}
       try {
         syncFeedbackScopeBar();
         ensureFeedbackScopeBar();
       } catch (eBar) {}
       showListSkeleton(true);
-      state.deepLinkAppliedId = id;
-      openFeedbackSheet(id);
-      void fetchPayload({ force: true });
+      armDeepLinkWatchdog();
+      void fetchPayload({ force: true }).then(finishDeepLink).catch(finishDeepLink);
       return true;
     }
-    state.deepLinkAppliedId = id;
-    openFeedbackSheet(id);
-    if (!findSuggestionById(id)) {
-      void fetchPayload({ force: false });
-    } else {
+    if (findSuggestionById(id)) {
+      applySuggestionDeepLink();
       void refreshPayloadQuiet();
+      return true;
     }
+    armDeepLinkWatchdog();
+    void fetchPayload({ force: false }).then(finishDeepLink).catch(finishDeepLink);
     return true;
   };
 
@@ -3513,7 +3554,7 @@
     }
     function coldOpenBoost() {
       try {
-        if (extractDeepLinkSuggestionId()) return true;
+        if (resolveDeepLinkSuggestionId()) return true;
         var q = new URLSearchParams(window.location.search || "");
         if (String(q.get("board") || "").trim().toLowerCase() === "staff") return true;
         if (q.get("vcNotif") || String(q.get("from") || "") === "notif") return true;
@@ -3710,8 +3751,8 @@
     try {
       var bootDeep = extractDeepLinkSuggestionId();
       if (bootDeep) {
-        state.deepLinkAppliedId = bootDeep;
-        openFeedbackSheet(bootDeep);
+        /* notifSheetReadyOpen1: non aprire sheet vuoto al boot — aspetta fetch+card */
+        state.pendingDeepLinkId = bootDeep;
       }
     } catch (eDeepBoot) {}
     if (shouldUnlockPage()) {

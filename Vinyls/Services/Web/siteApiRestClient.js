@@ -1761,7 +1761,13 @@ async function createSiteApiRestClient(config, token, options = {}) {
 
   const mainGuildId = String(config?.mainGuildId || "").trim();
   if (/^\d{17,22}$/.test(mainGuildId)) {
-    await client.guilds.fetch(mainGuildId).catch(() => null);
+    /* siteApiFetchLiteBoot1: boot warm senza channels/emojis/events full fetch */
+    const lite = client.guilds?.fetchLite;
+    if (typeof lite === "function") {
+      await lite(mainGuildId).catch(() => null);
+    } else {
+      await client.guilds.fetch(mainGuildId).catch(() => null);
+    }
   }
 
       try {

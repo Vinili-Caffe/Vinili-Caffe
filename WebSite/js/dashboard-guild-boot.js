@@ -1,6 +1,6 @@
 (function () {
   "use strict";
-    var VER = "20260914sitePerfW2a"; /* wave2DashSplit1: idle boot unchanged, bust sync */
+    var VER = "20261009guildCoreSplit1"; /* guildLazy1: HTML partials + core bust */
   var loaded = false;
   var loading = false;
   var queue = [];
@@ -78,6 +78,11 @@
           window.__VC_DG.prefetchExtChunk();
         }
       } catch (eP) {}
+      try {
+        if (window.__VC_DG && typeof window.__VC_DG.prefetchGuildPartialsIdle === "function") {
+          window.__VC_DG.prefetchGuildPartialsIdle();
+        }
+      } catch (eP2) {}
     };
     if (typeof requestIdleCallback === "function") requestIdleCallback(run, { timeout: 5000 });
     else setTimeout(run, 1500);

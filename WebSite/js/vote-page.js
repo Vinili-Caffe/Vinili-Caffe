@@ -530,8 +530,13 @@
 
   function startLiveVotesPolling() {
     stopLiveVotesPolling();
+    /* pageTune1: niente timer attivo a tab nascosta */
+    if (document.visibilityState !== "visible") return;
     livePollTimer = setInterval(function () {
-      if (document.visibilityState !== "visible") return;
+      if (document.visibilityState !== "visible") {
+        stopLiveVotesPolling();
+        return;
+      }
       fetchVotes({ force: false });
     }, LIVE_POLL_MS);
   }
@@ -606,7 +611,12 @@
   });
 
   document.addEventListener("visibilitychange", function () {
-    if (document.visibilityState === "visible") fetchVotes({ force: false });
+    if (document.visibilityState === "visible") {
+      fetchVotes({ force: false });
+      startLiveVotesPolling();
+      return;
+    }
+    stopLiveVotesPolling();
   });
 
   window.addEventListener("vc:site-api-refetch", function () {

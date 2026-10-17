@@ -882,6 +882,7 @@
     appelli: 1,
     resoconti: 1,
     "punti-tolti": 1,
+    revisione: 1,
   };
   function inboxQueueIdFromPageUrl(raw) {
     var s = String(raw || "").trim();
@@ -893,7 +894,9 @@
         .toLowerCase();
       return DEDICATED_INBOX_QUEUES_PAGE[inbox] ? inbox : "";
     } catch (e) {
-      var m = s.toLowerCase().match(/[?&]inbox=(pause|candidature|appelli|resoconti|punti-tolti)\b/);
+      var m = s
+        .toLowerCase()
+        .match(/[?&]inbox=(pause|candidature|appelli|resoconti|punti-tolti|revisione)\b/);
       return m ? m[1] : "";
     }
   }
@@ -1007,12 +1010,12 @@
     }
     if (isPuntiToltiSubjectNotifPage(n)) return false;
     if (isWorkflowDecisionNotifPage(n)) return false;
-    if (/^inbox:(pause|candidature|appelli|resoconti)(?::|$)/.test(key)) return true;
+    if (/^inbox:(pause|candidature|appelli|resoconti|revisione)(?::|$)/.test(key)) return true;
     if (/^pt-pending:/.test(key)) return true;
     if (/^wfc:(invite|remove|msg):staff:/.test(key)) return true;
     if (!inboxQueueIdFromPageUrl(n.openUrl)) return false;
     var hay = (String(n.title || "") + " " + String(n.body || "")).toLowerCase();
-    return /nuovo resoconto|nuovo appello|nuova candidatur|nuova richiesta pausa|punti tolti\s*[—\-–]?\s*segnalazione in attesa|richiedente in chat/.test(
+    return /nuovo resoconto|nuovo appello|nuova candidatur|nuova richiesta pausa|nuova scheda|scheda bacheca|in revisione|punti tolti\s*[—\-–]?\s*segnalazione in attesa|richiedente in chat/.test(
       hay,
     );
   }
@@ -1082,9 +1085,9 @@
     if (kind === "web_ticket" || kind === "web_ticket_mention") return "tickets";
     if (isMentionNotifPage(n)) return "tickets";
     if (isWorkflowDecisionNotifPage(n)) {
-      if (/appelli|unban|unmute|appeal/.test(key + " " + String(n.openUrl || "").toLowerCase())) {
-        return "appelli";
-      }
+      var hayDec = key + " " + String(n.openUrl || "").toLowerCase();
+      if (/appelli|unban|unmute|appeal/.test(hayDec)) return "appelli";
+      if (/revisione|bacheca|scheda (server|bot)/.test(hayDec)) return "revisione";
       return "candidature";
     }
     if (kind === "review") return "reviews";
@@ -1099,6 +1102,7 @@
     { id: "tickets", label: "Ticket", ico: "fa-ticket" },
     { id: "candidature", label: "Candidature", ico: "fa-file-text-o" },
     { id: "appelli", label: "Appelli", ico: "fa-gavel" },
+    { id: "revisione", label: "Bacheca", ico: "fa-th-large" },
     { id: "reviews", label: "Recensioni", ico: "fa-star" },
     { id: "feedback", label: "Feedback", ico: "fa-magic" },
     { id: "confessionale", label: "Confessioni", ico: "fa-id-badge" },
@@ -1170,6 +1174,9 @@
     var items = loadStored();
     var dismissed = loadDismissedSet(uid);
     var next = [];
+    var removed = 0;
+    var removedIds = [];
+    var openUrls = [];
     items.forEach(function (n) {
       if (!n || isInboxLinkedNotifPage(n) || isVoteRegisteredNotifPage(n)) {
         next.push(n);
@@ -1183,18 +1190,49 @@
       if (nid) dismissed.add(nid);
       var fpId = buildNotifFingerprintId(n, uid, String(n.kind || "info"), String(n.openUrl || ""));
       if (fpId) dismissed.add(fpId);
+      removed += 1;
       if (nid) {
+        removedIds.push(nid);
         try {
           deleteSiteNotificationOnServer(nid);
         } catch (e2) {}
       }
+      var ou = String((n && n.openUrl) || "").trim();
+      if (ou && openUrls.indexOf(ou) < 0) openUrls.push(ou);
     });
     saveDismissedSet(dismissed, uid);
     saveStored(next);
+    /* pushDismissBtn1: category trash chiude anche i banner OS */
+    if (removedIds.length) {
+      try {
+        dismissOsNotificationsLocal({ ids: removedIds, openUrls: openUrls });
+      } catch (eOsCat) {}
+      try {
+        if (typeof window.__vcDismissOsNotifs === "function") {
+          window.__vcDismissOsNotifs({ ids: removedIds, openUrls: openUrls });
+        }
+      } catch (eOs2) {}
+    }
     lastNotifyListRenderSig = "";
     renderList();
     refreshNotifBell();
+    /* notifCatClearFix1: se landing ha già pulito, almeno forza paint */
+    if (!removed) {
+      lastNotifyListRenderSig = "";
+      renderList();
+    }
   }
+  try {
+    window.__vcRefreshNotificationsPage = function () {
+      lastNotifyListRenderSig = "";
+      try {
+        renderList();
+      } catch (eR) {}
+      try {
+        refreshNotifBell();
+      } catch (eB) {}
+    };
+  } catch (eHook) {}
   function iconClass(kind) {
     if (kind === "vote" || kind === "vote_reminder") return "fa-check";
     if (kind === "success") return "fa-check-circle";
@@ -1881,8 +1919,24 @@
     var list = byId("vc-notify-list");
     var empty = byId("vc-notify-empty");
     if (!list || !empty) return;
+    /* notifCatClearDom1: rispetta dismissed/clear-all anche se lo store è stale */
+    var uidPage = normalizeUserId(currentUserId);
+    var dismissedPage = loadDismissedSet(uidPage);
+    var clearedAtPage = 0;
+    try {
+      clearedAtPage = Number(localStorage.getItem(CLEAR_ALL_AT_PREFIX + uidPage) || 0) || 0;
+    } catch (eClrAt) {
+      clearedAtPage = 0;
+    }
     var all = loadStored().filter(function (n) {
-      return !isVoteRegisteredNotifPage(n) && !isInboxLinkedNotifPage(n);
+      if (!n) return false;
+      if (isVoteRegisteredNotifPage(n) || isInboxLinkedNotifPage(n)) return false;
+      var nid = String(n.id || "").trim();
+      if (nid && dismissedPage && dismissedPage.has(nid)) return false;
+      var fpId = buildNotifFingerprintId(n, uidPage, String(n.kind || "info"), String(n.openUrl || ""));
+      if (fpId && dismissedPage && dismissedPage.has(fpId)) return false;
+      if (clearedAtPage && Number(n.at || 0) > 0 && Number(n.at || 0) <= clearedAtPage) return false;
+      return true;
     });
     var shown = filteredRows(all);
     setFilterButtons();
@@ -2068,15 +2122,25 @@
           catBar.head.classList.toggle("is-open", open);
           catBar.head.setAttribute("aria-expanded", open ? "true" : "false");
           itemsHost.hidden = !open;
-          if (open) itemsHost.removeAttribute("hidden");
-          else itemsHost.setAttribute("hidden", "");
+          if (open) {
+            itemsHost.removeAttribute("hidden");
+            /* perfRoiPack2: paint solo al primo open */
+            if (!section._vcNotifCatPainted) {
+              (section._vcNotifCatItems || []).forEach(function (n) {
+                appendNotifyPageRow(n, itemsHost);
+              });
+              section._vcNotifCatPainted = true;
+            }
+          } else {
+            itemsHost.setAttribute("hidden", "");
+          }
         },
       });
       var bar = catBar.bar;
       var head = catBar.head;
-      items.forEach(function (n) {
-        appendNotifyPageRow(n, itemsHost);
-      });
+      /* perfRoiPack2: monta righe solo al primo open categoria (no DOM pieno chiuso) */
+      section._vcNotifCatItems = items;
+      section._vcNotifCatPainted = false;
       section.appendChild(bar);
       section.appendChild(itemsHost);
       list.appendChild(section);
@@ -2548,10 +2612,34 @@
 
   window.addEventListener("vc-discord-profile", function (ev) {
     setCurrentUser(ev && ev.detail ? ev.detail.user : null);
-    flushPendingLoginNotification();
-    syncSiteNotificationsFromServer();
-    renderList();
-    initNotifPrefs();
+    /* hangKill5: spezza post-load — sync/render/prefs insieme = freeze dopo caricamento */
+    window.setTimeout(function () {
+      try {
+        flushPendingLoginNotification();
+      } catch (eFlush) {}
+    }, 0);
+    window.setTimeout(function () {
+      try {
+        syncSiteNotificationsFromServer();
+      } catch (eSync) {}
+    }, 120);
+    window.setTimeout(function () {
+      try {
+        /* inbox staff: non ridipingere personali sopra al boot inbox */
+        var staffOn = false;
+        try {
+          staffOn =
+            document.documentElement.classList.contains("vc-notif-early-staff") ||
+            (document.body && document.body.classList.contains("vc-notif-scope-staff"));
+        } catch (eSc) {}
+        if (!staffOn) renderList();
+      } catch (eList) {}
+    }, 280);
+    window.setTimeout(function () {
+      try {
+        initNotifPrefs();
+      } catch (ePrefs) {}
+    }, 520);
   });
 
   document.addEventListener("vc:langchange", function () {

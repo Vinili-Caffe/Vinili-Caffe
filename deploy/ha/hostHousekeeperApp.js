@@ -328,7 +328,7 @@ async function runCleanup(reason) {
   }
 }
 
-async function softMitigate(reason, metrics) {
+async function softMitigate(reason, metrics, { restartHeavy = true } = {}) {
   if (mitigating) return;
   const now = Date.now();
   if (now - lastSoftAt < SOFT_COOLDOWN_MS) {
@@ -338,10 +338,15 @@ async function softMitigate(reason, metrics) {
   mitigating = true;
   lastSoftAt = now;
   try {
-    log("warn", `soft mitigate: ${reason}`, JSON.stringify(metrics));
+    log("warn", `soft mitigate: ${reason}`, JSON.stringify({ ...metrics, restartHeavy: restartHeavy ? 1 : 0 }));
     await runCleanup(`sat:${reason}`);
     await dropPageCache();
-    // Restart heavy PM2 one by one with short gaps (watchdog has grace)
+    /* swapSatNoRestartLoop1: swap pieno cronico ≠ OOM. Restart bots/lavalink/site-api
+       non libera RAM netta e crea il loop di riavvii visto in pm2 logs. */
+    if (!restartHeavy) {
+      log("info", "soft mitigate: cleanup only (no heavy pm2 restart)", reason);
+      return;
+    }
     for (const name of HEAVY_PM2) {
       const r = await run("pm2", ["restart", name], { timeoutMs: 60_000 });
       log(r.code === 0 ? "info" : "error", `pm2 restart ${name}`, r.code === 0 ? "ok" : r.err || r.out);
@@ -392,7 +397,11 @@ async function evaluateSaturation() {
   };
 
   const cpuSat = load.loadRatio >= LOAD_MULT && load.l5 >= load.cpus * (LOAD_MULT * 0.75);
-  const memSat = mem.availPct <= MEM_AVAIL_PCT_CRIT || mem.swapUsedPct >= 92;
+  const memLow = mem.availPct <= MEM_AVAIL_PCT_CRIT;
+  const swapHigh = mem.swapUsedPct >= 92;
+  /* Swap pieno da solo: warning/cleanup. Critico (restart/reboot) solo se anche RAM stretta. */
+  const memSat = memLow || (swapHigh && mem.availPct <= 18);
+  const swapOnlyPressure = swapHigh && !memLow && !memSat;
   const diskSat = disk.ok && disk.pct >= DISK_PCT_CRIT;
   const diskWarn = disk.ok && disk.pct >= DISK_PCT_WARN;
 
@@ -402,6 +411,14 @@ async function evaluateSaturation() {
       lastDiskWarnAt = now;
       log("warn", "disk high — cleanup", `pct=${disk.pct}`);
       await runCleanup("disk_warn");
+    }
+  }
+
+  if (swapOnlyPressure) {
+    const now = Date.now();
+    if (now - lastSoftAt >= SOFT_COOLDOWN_MS) {
+      log("warn", "swap high (cleanup only, no restart loop)", JSON.stringify(metrics));
+      await softMitigate("swap", metrics, { restartHeavy: false });
     }
   }
 
@@ -415,18 +432,18 @@ async function evaluateSaturation() {
   satFails += 1;
   const reasons = [];
   if (cpuSat) reasons.push("cpu");
-  if (memSat) reasons.push("mem");
+  if (memSat) reasons.push(memLow ? "mem" : "mem+swap");
   if (diskSat) reasons.push("disk");
   const reason = reasons.join("+");
   log("warn", `saturated ${reason} (${satFails}/${SAT_FAIL_THRESHOLD})`, JSON.stringify(metrics));
 
   if (satFails === 1 || satFails === Math.ceil(SAT_FAIL_THRESHOLD / 2)) {
-    await softMitigate(reason, metrics);
+    await softMitigate(reason, metrics, { restartHeavy: memLow || cpuSat || diskSat });
   }
 
   if (satFails >= SAT_FAIL_THRESHOLD) {
     // Ultimo soft, poi reboot
-    await softMitigate(`${reason}:pre-reboot`, metrics);
+    await softMitigate(`${reason}:pre-reboot`, metrics, { restartHeavy: memLow || cpuSat || diskSat });
     await new Promise((r) => setTimeout(r, 12_000));
     // Re-check: se dopo soft siamo ok, non rebootare
     const mem2 = memMetrics();

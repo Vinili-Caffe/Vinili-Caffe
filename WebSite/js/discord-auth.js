@@ -1,10 +1,73 @@
+/* postCurtainLazy1 */
 (function () {
+ /* oauthHashKill1: cattura subito #access_token prima che view-state/altri script lo sovrascrivano */
+ try {
+  var __h0 = String(window.location.hash || "");
+  if (__h0 && (__h0.indexOf("access_token=") !== -1 || __h0.indexOf("error=") !== -1)) {
+   window.__vcOauthHashCapture = __h0;
+  }
+ } catch (eOauthCap0) {}
+ /* oauthPhoneBfcache1: strip cache-bust + se Safari ripristina bfcache post-login → hard reload */
+ try {
+  var __oaU = new URL(window.location.href);
+  if (__oaU.searchParams.has("_vc_oa")) {
+   __oaU.searchParams.delete("_vc_oa");
+   history.replaceState(
+    {},
+    document.title,
+    __oaU.pathname + (__oaU.search || "") + (__oaU.hash || ""),
+   );
+  }
+ } catch (eOauthStrip) {}
+ try {
+  window.addEventListener(
+   "pageshow",
+   function (ev) {
+    try {
+     if (!(ev && ev.persisted)) return;
+     var bust = false;
+     try {
+      bust =
+       sessionStorage.getItem("vc_oauth_bfcache_bust_v1") === "1" ||
+       sessionStorage.getItem("vc_oauth_fresh_after_bounce_v1") === "1";
+     } catch (eBust) {
+      bust = false;
+     }
+     if (!bust) {
+      try {
+       var tok =
+        typeof window.__vcDiscordRawLocalStorageGetItem === "function"
+         ? window.__vcDiscordRawLocalStorageGetItem("vc_discord_access_token")
+         : localStorage.getItem("vc_discord_access_token");
+       var loggedOutUi = document.documentElement.classList.contains("vc-auth-logged-out");
+       var loginBtn = document.getElementById("discord-login-btn");
+       var loginVisible =
+        loginBtn &&
+        !loginBtn.hidden &&
+        loginBtn.getAttribute("hidden") == null &&
+        loginBtn.offsetParent !== null;
+       if (tok && (loggedOutUi || loginVisible) && !document.documentElement.classList.contains("vc-view-as-guest")) {
+        bust = true;
+       }
+      } catch (eTok) {}
+     }
+     if (!bust) return;
+     try {
+      sessionStorage.removeItem("vc_oauth_bfcache_bust_v1");
+     } catch (eRm) {}
+     /* tienifresh_after_bounce per welcome toast sul cold load */
+     window.location.reload();
+    } catch (ePsOauth) {}
+   },
+   true,
+  );
+ } catch (eOauthPs) {}
  var __vcRawStorageGetItem = null;
  try {
  if (!window.__vcViewAsLsTokenPatched) {
  window.__vcViewAsLsTokenPatched = true;
  __vcRawStorageGetItem = Storage.prototype.getItem;
- /* swLsStorm2: cache RAM view_as � ogni get token rileggeva sessionStorage */
+ /* swLsStorm2: cache RAM view_as … ogni get token rileggeva sessionStorage */
  var __vcViewAsMem = { v: "", at: 0 };
  Storage.prototype.getItem = function (key) {
  try {
@@ -114,7 +177,12 @@
  localStorage.removeItem("vc_discord_access_token");
  localStorage.removeItem("vc_discord_expires_at");
  sessionStorage.removeItem("vc_view_as_allowed");
+ sessionStorage.removeItem("vc_staff_menu_allowed");
+ sessionStorage.removeItem("vc_dash_menu_allowed");
+ sessionStorage.removeItem("vc_staff_perms_sticky_v1");
  window.__VC_VIEW_AS_ALLOWED = false;
+ window.__VC_STAFF_MENU_ALLOWED = false;
+ window.__VC_DASHBOARD_MENU_ALLOWED = false;
  } catch (eExpClr) {}
  t = "";
  }
@@ -123,6 +191,18 @@
  if (!exp || Date.now() < exp) {
  document.documentElement.classList.add("vc-auth-session-pending");
  document.documentElement.classList.remove("vc-auth-logged-out");
+ /* chromeStickyAll1: sticky Staff/Dash/ViewAs subito, prima della rete */
+ try {
+ if (sessionStorage.getItem("vc_staff_menu_allowed") === "1") {
+ window.__VC_STAFF_MENU_ALLOWED = true;
+ }
+ if (sessionStorage.getItem("vc_dash_menu_allowed") === "1") {
+ window.__VC_DASHBOARD_MENU_ALLOWED = true;
+ }
+ if (sessionStorage.getItem("vc_view_as_allowed") === "1") {
+ window.__VC_VIEW_AS_ALLOWED = true;
+ }
+ } catch (eStickyBoot) {}
  }
  } else if (!viewAsLogout) {
  document.documentElement.classList.add("vc-auth-logged-out");
@@ -132,956 +212,157 @@
  document.documentElement.classList.remove("vc-auth-logged-out");
  }
  } catch (eBootCls) {}
- (function ensureSiteHelperScripts() {
- try {
- function appendScript(path, forceVer) {
- var file = String(path || "").split("/").pop().replace(/\?.*$/, "");
- if (!file) return;
- path = String(path || "").split("?")[0];
- var authEl = document.querySelector('script[src*="discord-auth.js"]');
- var ver = null;
- try {
- var m = authEl && authEl.getAttribute("src") && authEl.getAttribute("src").match(/[?&]v=([^&]+)/);
- ver = forceVer || (m && m[1]) || String(Date.now());
- } catch (eVer) {
- ver = forceVer || String(Date.now());
- }
- var src = path + "?v=" + ver;
- var forceReplace =
- forceVer &&
- (file === "vc-nav-badges.js" || file === "vc-chrome-sync.js");
- if (forceReplace) {
- try {
- var stale = document.querySelectorAll('script[src*="' + file + '"]');
- var si;
- for (si = 0; si < stale.length; si += 1) {
- var curStale = String(stale[si].getAttribute("src") || "");
- if (curStale.indexOf("?v=" + ver) !== -1 || curStale.indexOf("&v=" + ver) !== -1) {
- continue;
- }
- if (stale[si].parentNode) stale[si].parentNode.removeChild(stale[si]);
- }
- } catch (eRmAll) {}
- }
- var existing = document.querySelector('script[src*="' + file + '"]');
- if (existing) {
- try {
- var cur = String(existing.getAttribute("src") || "");
- if (cur === src || cur.indexOf(path + "?v=" + ver) !== -1) return;
- if (forceVer) {
- if (
- (file === "vc-nav-badges.js" || file === "vc-chrome-sync.js") &&
- existing.parentNode
- ) {
- existing.parentNode.removeChild(existing);
- } else {
- existing.setAttribute("src", src);
- return;
- }
- } else {
- return;
- }
- } catch (eUp) {
- return;
- }
- }
- var s = document.createElement("script");
- s.src = src;
- if (file === "vc-dialog.js") s.setAttribute("data-vc-dialog", "1");
- if (file === "vc-image-lightbox.js") s.setAttribute("data-vc-img-lightbox", "1");
- if (file === "vc-view-as.js") s.async = false;
- else s.defer = true;
- (document.head || document.documentElement).appendChild(s);
- }
- function ensureI18nScripts() {
- try {
- if (document.querySelector('script[src*="vc-i18n.js"]')) return;
- var need =
- document.getElementById("vc-lang-toggle") ||
- document.getElementById("vc-lang-dropdown") ||
- document.querySelector("[data-i18n],[data-i18n-html],[data-i18n-title],[data-i18n-attr]");
- if (!need) return;
- appendScript("/js/vc-i18n.js", I18N_VER);
- appendScript("/js/vc-i18n-pages.js", I18N_VER);
- } catch (eI18nEnsure) {}
- }
- function scheduleEnsureI18nScripts() {
- try {
- ensureI18nScripts();
- if (document.readyState === "loading") {
- document.addEventListener("DOMContentLoaded", ensureI18nScripts, { once: true });
- }
- } catch (eI18nSched) {}
- }
- function appendStylesheet(path, forceVer) {
- var file = String(path || "").split("/").pop().replace(/\?.*$/, "");
- if (!file) return;
- path = String(path || "").split("?")[0];
- var existingById = null;
- try {
- if (file === "vc-site-chrome-ui.css") existingById = document.getElementById("vc-site-chrome-ui-css");
- else if (file === "vc-soft-fx.css") existingById = document.getElementById("vc-soft-fx-css");
- else if (file === "vc-nav-chrome-fix.css") existingById = document.getElementById("vc-nav-chrome-fix-css");
- else if (file === "vc-glow-fix.css") existingById = document.getElementById("vc-glow-fix-css");
- else if (file === "vc-nav-menu-solid.css") existingById = document.getElementById("vc-nav-menu-solid-css");
- } catch (eId) {
- existingById = null;
- }
- var existing = existingById || document.querySelector('link[href*="' + file + '"]');
- var ver = null;
- try {
- var existingAuth = document.querySelector('script[src*="discord-auth.js"]');
- var m = existingAuth && existingAuth.getAttribute("src") && existingAuth.getAttribute("src").match(/[?&]v=([^&]+)/);
- ver = forceVer || (m && m[1]) || String(Date.now());
- } catch (eVer) {
- ver = forceVer || String(Date.now());
- }
- var href = path + "?v=" + ver;
- var stableChrome =
- file === "vc-soft-fx.css" ||
- file === "vc-glow-fix.css" ||
- file === "vc-nav-menu-solid.css" ||
- file === "vc-site-chrome-ui.css" ||
- file === "vc-nav-chrome-fix.css";
- if (existing && stableChrome) {
- try {
- existing.media = "all";
- existing.removeAttribute("onload");
- if (file === "vc-soft-fx.css" && !existing.id) existing.id = "vc-soft-fx-css";
- if (file === "vc-glow-fix.css" && !existing.id) existing.id = "vc-glow-fix-css";
- if (file === "vc-nav-menu-solid.css" && !existing.id) existing.id = "vc-nav-menu-solid-css";
- if (file === "vc-site-chrome-ui.css" && !existing.id) existing.id = "vc-site-chrome-ui-css";
- if (file === "vc-nav-chrome-fix.css" && !existing.id) existing.id = "vc-nav-chrome-fix-css";
- var curStable = String(existing.getAttribute("href") || "");
- var verMismatch =
- forceVer &&
- curStable.indexOf("?v=" + forceVer) === -1 &&
- curStable.indexOf("&v=" + forceVer) === -1;
- /* avatarGlowFresh1: upgrade SEMPRE su mismatch (soft-fx + glow-form + chrome).
-    Prima: se sheetOk restava ?v=softFxNoFouc2 in cache CDN ? anello avatar sparito. */
- if (verMismatch) {
- if (file === "vc-soft-fx.css") {
- /* pwaCpuNuke4: MAI togliere vc-soft-fx-ready su upgrade ?
-    opacity:0 + pe:none = freeze totale (soprattutto PWA) finch? load non arriva. */
- window.__vcSoftFxHrefLocked = true;
- try {
- existing.addEventListener(
- "load",
- function () {
- try {
- existing.setAttribute("data-vc-sheet-loaded", "1");
- markSoftFxReady(existing);
- } catch (eLdUp) {}
- },
- { once: true }
- );
- } catch (eLdBind) {}
- }
- existing.setAttribute("href", href);
- }
- } catch (eStable) {}
- return;
- }
- if (existing) {
- try {
- var curHref = String(existing.getAttribute("href") || "");
- if (curHref === href || curHref.indexOf(path + "?v=" + ver) !== -1) {
- return;
- }
- existing.setAttribute("href", href);
- return;
- } catch (eUp) {}
- }
- var link = document.createElement("link");
- link.rel = "stylesheet";
- link.href = href;
- if (file === "vc-image-lightbox.css") link.id = "vc-image-lightbox-css";
- if (file === "vc-site-chrome-ui.css") link.id = "vc-site-chrome-ui-css";
- if (file === "vc-soft-fx.css") link.id = "vc-soft-fx-css";
- if (file === "vc-glow-fix.css") link.id = "vc-glow-fix-css";
- if (file === "vc-nav-menu-solid.css") link.id = "vc-nav-menu-solid-css";
- if (file === "vc-nav-chrome-fix.css") link.id = "vc-nav-chrome-fix-css";
- if (
- file === "vc-soft-fx.css" ||
- file === "vc-glow-form.css" ||
- file === "vc-nav-menu-solid.css" ||
- file === "vc-site-chrome-ui.css" ||
- file === "vc-nav-chrome-fix.css"
- ) {
- link.media = "all";
- }
- (document.head || document.documentElement).appendChild(link);
- }
- function softFxSheetReady(link) {
- if (!link) return false;
- try {
- var n =
- (link.sheet && link.sheet.cssRules && link.sheet.cssRules.length) ||
- (link.sheet && link.sheet.rules && link.sheet.rules.length) ||
- 0;
- if (n > 0) return true;
- } catch (eSh) {
- if (link.getAttribute("data-vc-sheet-loaded") === "1") return true;
- }
- return false;
- }
- function markSoftFxReady(link) {
- try {
- if (!softFxSheetReady(link)) return false;
- var alreadyReady = false;
- try {
- alreadyReady = document.documentElement.classList.contains("vc-soft-fx-ready");
- } catch (eAr) {}
- document.documentElement.classList.add("vc-soft-fx-ready");
- /* lightPerf1: pin light solo al primo ready (evita loop head?pin?head) */
- if (!alreadyReady) {
- try {
- if (window.__vcTheme && typeof window.__vcTheme.pinLast === "function") {
- window.__vcTheme.pinLast();
- } else {
- document.dispatchEvent(new CustomEvent("vc:soft-fx-ready"));
- }
- } catch (ePinLight) {}
- }
- try {
- pinNavChromeFixLast(typeof NAV_CHROME_FIX_VER !== "undefined" ? NAV_CHROME_FIX_VER : null);
- } catch (ePinChrome) {}
- return true;
- } catch (eMk) {
- return false;
- }
- }
-
- function pinNavChromeFixLast(ver) {
- try {
- var fix = document.getElementById("vc-nav-chrome-fix-css");
- if (!fix) fix = document.querySelector('link[href*="vc-nav-chrome-fix.css"]');
- if (!fix) {
- appendStylesheet("/css/vc-nav-chrome-fix.css", ver || NAV_CHROME_FIX_VER);
- fix = document.getElementById("vc-nav-chrome-fix-css") || document.querySelector('link[href*="vc-nav-chrome-fix.css"]');
- }
- if (!fix || !fix.parentNode) return;
- fix.id = "vc-nav-chrome-fix-css";
- fix.media = "all";
- var verOkFix = true;
- if (ver) {
- var want = "/css/vc-nav-chrome-fix.css?v=" + String(ver);
- var cur = String(fix.getAttribute("href") || "");
- verOkFix = cur.indexOf("?v=" + ver) !== -1 || cur.indexOf("&v=" + ver) !== -1;
- if (!verOkFix) {
- fix.setAttribute("href", want);
- }
- }
- /* navBootTrim1: move solo se non � gi� ultimo (appendChild = style recalc full) */
- try {
- if (fix.parentNode.lastElementChild !== fix) {
- fix.parentNode.appendChild(fix);
- }
- } catch (eMove) {}
- /* navChromeFix6: riscrivi vc-nav-noflash (1px+shadow) ? 2px transparent */
- try {
- var nf = document.getElementById("vc-nav-noflash");
- if (nf && nf.textContent && nf.textContent.indexOf("border:1px solid") !== -1) {
- nf.textContent = nf.textContent
- .replace(/border:1px solid rgba\(255,255,255,\.1\)!important/g, "border:2px solid transparent!important")
- .replace(/box-shadow:0 4px 24px rgba\(0,0,0,\.55\),inset 0 1px 0 rgba\(255,255,255,\.06\)!important/g, "box-shadow:none!important")
- .replace(/background-image:none!important/g, "background-image:none!important");
- }
- } catch (eNf) {}
- } catch (ePinFix) {}
- } function pinSoftFxLast(ver) {
- try {
- var softPin = document.getElementById("vc-soft-fx-css");
- if (!softPin) softPin = document.querySelector('link[href*="vc-soft-fx.css"]');
- if (!softPin || !softPin.parentNode) return;
- softPin.id = "vc-soft-fx-css";
- softPin.media = "all";
- softPin.removeAttribute("onload");
- document.querySelectorAll('link[href*="vc-soft-fx.css"]').forEach(function (l) {
- if (l !== softPin && l.parentNode) l.parentNode.removeChild(l);
- });
- var verOk = true;
- if (ver) {
- var want = "/css/vc-soft-fx.css?v=" + String(ver);
- var curPin = String(softPin.getAttribute("href") || "");
- verOk = curPin.indexOf("?v=" + ver) !== -1 || curPin.indexOf("&v=" + ver) !== -1;
- /* acctNameAvFresh2: se la ver non matcha, upgrade SEMPRE (il lock early-return
-    lasciava soft-fx vecchio ? nome account bianco senza gradient) */
- if (!verOk) {
- softPin.setAttribute("href", want);
- window.__vcSoftFxHrefLocked = true;
- softPin.addEventListener(
- "load",
- function () {
- try {
- softPin.setAttribute("data-vc-sheet-loaded", "1");
- } catch (eLd) {}
- markSoftFxReady(softPin);
- },
- { once: true }
- );
- } else {
- window.__vcSoftFxHrefLocked = true;
- if (!(softFxSheetReady(softPin) && markSoftFxReady(softPin))) {
- if (!markSoftFxReady(softPin)) {
- softPin.addEventListener(
- "load",
- function () {
- try {
- softPin.setAttribute("data-vc-sheet-loaded", "1");
- } catch (eLd2) {}
- markSoftFxReady(softPin);
- },
- { once: true }
- );
- }
- }
- }
- } else {
- /* navBootTrim1: gi� pronto ? stop (niente re-pin / load storm) */
- if (!(softFxSheetReady(softPin) && markSoftFxReady(softPin))) {
- if (!markSoftFxReady(softPin)) {
- softPin.addEventListener(
- "load",
- function () {
- try {
- softPin.setAttribute("data-vc-sheet-loaded", "1");
- } catch (eLd3) {}
- markSoftFxReady(softPin);
- },
- { once: true }
- );
- }
- }
- }
- } catch (ePin) {}
- /* pwaIdleCpu1: dopo pin soft-fx, nuke-css deve restare ULTIMO + re-arm PWA */
- try {
- if (window.VcPerf && typeof window.VcPerf.armPwaCpuNuke === "function") {
- window.VcPerf.armPwaCpuNuke();
- }
- var nukeCss = document.getElementById("vc-pwa-cpu-nuke-css");
- if (nukeCss) {
- var mountNuke = document.body || document.documentElement;
- if (mountNuke) mountNuke.appendChild(nukeCss);
- }
- try {
- if (window.VcPerf && typeof window.VcPerf.armSiteCpuSoft === "function") {
- window.VcPerf.armSiteCpuSoft();
- }
- var softCss = document.getElementById("vc-site-cpu-soft-css");
- if (softCss) {
- var mountSoft = document.body || document.documentElement;
- if (mountSoft) mountSoft.appendChild(softCss);
- }
- } catch (eSoftPin) {}
- } catch (eNukePin) {}
- try {
- pinEmojiColorLast(EMOJI_COLOR_VER);
- } catch (eEmojiPin) {}
- }
- function pinEmojiColorLast(ver) {
- try {
- var link = document.getElementById("vc-emoji-color-css");
- if (!link) link = document.querySelector('link[href*="vc-emoji-color.css"]');
- if (!link) {
- link = document.createElement("link");
- link.rel = "stylesheet";
- link.id = "vc-emoji-color-css";
- link.href = "/css/vc-emoji-color.css?v=" + String(ver || EMOJI_COLOR_VER);
- (document.body || document.documentElement).appendChild(link);
- } else {
- link.id = "vc-emoji-color-css";
- if (ver) {
- var want = "/css/vc-emoji-color.css?v=" + String(ver);
- var cur = String(link.getAttribute("href") || "");
- if (cur.indexOf("?v=" + ver) === -1 && cur.indexOf("&v=" + ver) === -1) {
- link.setAttribute("href", want);
- }
- }
- var mount = document.body || document.documentElement;
- if (mount) mount.appendChild(link);
- }
- } catch (ePinEmoji) {}
- }
- function watchSoftFxLast() {
- try {
- if (window.__vcSoftFxPinDone) return;
- window.__vcSoftFxPinDone = 1;
- /* cpuPagesIdle1: one-shot pin sitewide (MO head = CPU storm su inject/nav/reload) */
- pinSoftFxLast(SOFT_FX_VER);
- pinNavChromeFixLast(NAV_CHROME_FIX_VER);
- window.setTimeout(function () {
- try {
- pinSoftFxLast(SOFT_FX_VER);
- pinNavChromeFixLast(NAV_CHROME_FIX_VER);
- if (window.VcPerf && typeof window.VcPerf.armSiteCpuSoft === "function") {
- window.VcPerf.armSiteCpuSoft();
- }
- } catch (ePin2) {}
- }, 400);
- try {
- if (window.__vcSoftFxPinObs) {
- window.__vcSoftFxPinObs.disconnect();
- window.__vcSoftFxPinObs = null;
- }
- } catch (eDiscOld) {}
- } catch (eObs) {}
- }
- if (!window.VcFormDrafts) appendScript("/js/vc-form-drafts.js", "20261003draftToast1");
- if (!window.VcDialog) appendScript("/js/vc-dialog.js", "20261002compitiScrollUnlock2");
- appendStylesheet("/css/vc-image-lightbox.css", "20260908imgLightbox2");
- if (!window.VcImageLightbox) appendScript("/js/vc-image-lightbox.js", "20260908imgLightbox2");
-var SOFT_FX_VER = "20261003boardsFormCleanPrefix1";
-var EMOJI_COLOR_VER = "20261003boardsTagsPick1";
-var EMOJI_RENDER_VER = "20261003bakeEmoji1";
-var NAV_CHROME_VER = "20261002violPass12";
-var NAV_CHROME_FIX_VER = "20260930navMarqueeConfStaff1";
- var KICKER_HACK_VER = "20261002violPass12";
- /* violPass12 */
- var CHROME_SYNC_VER = "20260928lsGetStorm1";
- var NAV_BADGES_VER = "20260928lsGetStorm1";
- var NOTIF_CHROME_VER = "20261002notifSheetUnifyGuard1";
- var LANDING_NOTIF_VER = "20261002violPass12";
- var API_CACHE_VER = "20261002violPass10";
- var TYPE_SFX_VER = "20260930typeSfxFocusOnly1";
- var LANDING_EXT_VER = "20261003candLabelScale1";
- var I18N_VER = "20261002langMenuBind1";
- var WT_LAYOUT_VER = "20260929loadScrollLockAll2";
- var PERF_VER = "20260930pushOpenCold2";
- var USER_LEADER_VER = "20260929ulCountStick1";
- /* loadScrollLockAll2: CSS lock su TUTTE le pagine (anche senza vc-landing / dashboard skip) */
- try {
- (function injectGlobalLoadScrollLockCss() {
- var ID = "vc-global-load-scroll-lock-css";
- var css =
- "html.vc-page-cine-boot:not(.vc-page-cine-ready)," +
- "html.vc-page-cine-boot:not(.vc-page-cine-ready) body," +
- "html.vc-site-polish.vc-page-cine-boot:not(.vc-page-cine-ready)," +
- "html.vc-site-polish.vc-page-cine-boot:not(.vc-page-cine-ready) body," +
- "html.vc-user-leader-pending,html.vc-user-leader-pending body," +
- "html.vc-user-profile-pending,html.vc-user-profile-pending body," +
- "html.vc-loading-scroll-lock,html.vc-loading-scroll-lock body," +
- "html.vc-loading-scroll-lock body.vc-body," +
- "html.vc-loader-blocking-live,html.vc-loader-blocking-live body," +
- "html.vc-loader-blocking-live body.vc-body," +
- "html.vc-interaction-hold,html.vc-interaction-hold body," +
- "html.vc-rank-customize-pending,html.vc-rank-customize-pending body," +
- "html.vc-custom-profile-pending,html.vc-custom-profile-pending body," +
- "html.vc-session-verify-pending,html.vc-session-verify-pending body," +
- "html.vc-staff-access-pending:not(.vc-staff-app-revealed)," +
- "html.vc-staff-access-pending:not(.vc-staff-app-revealed) body," +
- "html.vc-dash-access-pending:not(.vc-dash-access-ready)," +
- "html.vc-dash-access-pending:not(.vc-dash-access-ready) body," +
- "html.vc-chrome-bar-loading,html.vc-chrome-bar-loading body," +
- "html.vc-chrome-bar-loading body.vc-body," +
- "html:has(#vc-site-progress.is-loading)," +
- "html:has(#vc-site-progress.is-loading) body," +
- "html.vc-site-polish.vc-loading-scroll-lock body.vc-body," +
- "html.vc-site-polish.vc-loader-blocking-live body.vc-body," +
- "html.vc-site-polish.vc-page-cine-ready.vc-loading-scroll-lock body.vc-body," +
- "html.vc-site-polish.vc-page-cine-ready.vc-loader-blocking-live body.vc-body," +
- "html.vc-site-polish.vc-page-cine-ready.vc-loading-scroll-lock body.vc-web-tickets-page," +
- "html.vc-site-polish.vc-page-cine-ready.vc-loader-blocking-live body.vc-web-tickets-page," +
- "html.vc-site-polish.vc-page-cine-ready.vc-loading-scroll-lock body.vc-users-page," +
- "html.vc-site-polish.vc-page-cine-ready.vc-loader-blocking-live body.vc-users-page," +
- "html.vc-site-polish.vc-page-cine-ready.vc-loading-scroll-lock body.vc-roles-page," +
- "html.vc-site-polish.vc-page-cine-ready.vc-loader-blocking-live body.vc-roles-page," +
- "html:has(#vc-shared-boot-overlay:not([hidden]))," +
- "html:has(#vc-shared-boot-overlay:not([hidden])) body," +
- "html:has(.vc-ul-loading:not([hidden]))," +
- "html:has(.vc-ul-loading:not([hidden])) body," +
- "html:has(#vc-roles-loading:not([hidden]))," +
- "html:has(#vc-roles-loading:not([hidden])) body," +
- "html:has(#vc-staff-loading:not([hidden]):not(.vc-staff-loading--hidden))," +
- "html:has(#vc-staff-loading:not([hidden]):not(.vc-staff-loading--hidden)) body," +
- "html:has(.vc-session-verify-overlay:not(.vc-session-verify-overlay--hidden))," +
- "html:has(.vc-session-verify-overlay:not(.vc-session-verify-overlay--hidden)) body," +
- "html:has(#vc-cine-boot-curtain:not([hidden]))," +
- "html:has(#vc-cine-boot-curtain:not([hidden])) body," +
- "html:has(.vc-page-transition--on)," +
- "html:has(.vc-page-transition--on) body{" +
- "overflow:hidden!important;overflow-x:hidden!important;overflow-y:hidden!important;" +
- "overscroll-behavior:none!important;touch-action:none!important;" +
- "height:100%!important;max-height:100dvh!important;" +
- "scrollbar-width:none!important}" +
- "html.vc-chrome-bar-loading::-webkit-scrollbar," +
- "html.vc-loading-scroll-lock::-webkit-scrollbar," +
- "html.vc-interaction-hold::-webkit-scrollbar," +
- "html:has(#vc-site-progress.is-loading)::-webkit-scrollbar{width:0!important;height:0!important;display:none!important}" +
- "html.vc-page-cine-ready.vc-loading-scroll-lock," +
- "html.vc-page-cine-ready.vc-loading-scroll-lock body," +
- "html.vc-page-cine-ready.vc-loader-blocking-live," +
- "html.vc-page-cine-ready.vc-loader-blocking-live body," +
- "html.vc-page-cine-ready.vc-interaction-hold," +
- "html.vc-page-cine-ready.vc-interaction-hold body," +
- "html.vc-page-cine-ready.vc-chrome-bar-loading," +
- "html.vc-page-cine-ready.vc-chrome-bar-loading body," +
- "html.vc-page-cine-ready:has(#vc-site-progress.is-loading)," +
- "html.vc-page-cine-ready:has(#vc-site-progress.is-loading) body," +
- "html.vc-site-polish.vc-page-cine-ready.vc-loading-scroll-lock body.vc-body," +
- "html.vc-site-polish.vc-page-cine-ready.vc-loader-blocking-live body.vc-body{" +
- "overflow:hidden!important;overflow-x:hidden!important;overflow-y:hidden!important;" +
- "overscroll-behavior:none!important;touch-action:none!important;" +
- "scrollbar-width:none!important}";
- var el = document.getElementById(ID);
- if (!el) {
- el = document.createElement("style");
- el.id = ID;
- el.setAttribute("data-vc", "hamScrollBarGate1");
- }
- el.textContent = css;
- var host = document.head || document.documentElement;
- if (el.parentNode !== host) host.appendChild(el);
- else if (host.lastChild !== el) host.appendChild(el);
+ /* navUserNoFlash1: chip nome+foto da sticky/me-cache subito … mai shell caff… / bordo rotto */
+ (function earlyNavUserChip() {
+  function esc(s) {
+   return String(s || "")
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/</g, "&lt;");
+  }
+  function paint() {
+   try {
+    if (String(sessionStorage.getItem("vc_view_as") || "").trim().toLowerCase() === "logout") {
+     return false;
+    }
+    var token = String(localStorage.getItem("vc_discord_access_token") || "").trim();
+    if (!token) return false;
+    var state = document.getElementById("discord-login-state");
+    if (!state) return false;
+    if (
+     state.querySelector(
+      ".discord-account-menu .discord-profile-link--chip, .discord-login-row--profile .discord-profile-link--chip",
+     )
+    ) {
+     return true;
+    }
+    var name = "";
+    var av = "";
+    var uid = "";
+    try {
+     var sticky = JSON.parse(localStorage.getItem("vc_server_identity_sticky_v1") || "null");
+     if (sticky && String(sticky.fp || "") === token.slice(0, 24)) {
+      name = String(sticky.displayName || "").trim();
+      av = String(sticky.url || "").trim();
+      uid = String(sticky.userId || "").trim();
+     }
+    } catch (eSt) {}
+    try {
+     var meRaw =
+      sessionStorage.getItem("vc_discord_me_cache_v1") ||
+      localStorage.getItem("vc_discord_me_cache_local_v1");
+     var me = meRaw ? JSON.parse(meRaw) : null;
+     var tokHead = token.slice(0, 32);
+     var fp = String((me && me.fp) || "");
+     var age = me ? Date.now() - Number(me.at || 0) : Infinity;
+     var fpOk =
+      me &&
+      me.user &&
+      isFinite(age) &&
+      age >= 0 &&
+      age <= 86400000 &&
+      (fp.indexOf(tokHead) !== -1 || fp.slice(-24) === token.slice(0, 24) || !fp);
+     if (fpOk) {
+      if (!uid) uid = String(me.user.id || "").trim();
+      if (!name) {
+       name = String(
+        me.user.global_name || me.user.globalName || me.user.displayName || me.user.username || "",
+       ).trim();
+      }
+      if (!av && me.user.id && me.user.avatar) {
+       var ext = String(me.user.avatar).indexOf("a_") === 0 ? "gif" : "png";
+       av =
+        "https://cdn.discordapp.com/avatars/" +
+        me.user.id +
+        "/" +
+        me.user.avatar +
+        "." +
+        ext +
+        "?size=64";
+      }
+     }
+    } catch (eMe) {}
+    if (!name && !av) return false;
+    if (!name) name = "Utente";
+    try {
+     if (av) {
+      var warm = new Image();
+      warm.decoding = "async";
+      try {
+       warm.fetchPriority = "high";
+      } catch (eFp) {}
+      warm.src = av;
+     }
+    } catch (eWarm) {}
+    var label = esc(name);
+    state.hidden = false;
+    state.innerHTML =
+     '<div class="discord-login-row discord-login-row--profile vc-auth-early-shell" data-vc-nav-user-early="1" aria-busy="true">' +
+     '<div class="discord-account-menu">' +
+     '<button type="button" class="discord-profile-link discord-profile-link--chip" aria-label="Menu account ' +
+     label +
+     '" aria-haspopup="true">' +
+     '<span class="discord-avatar-clip">' +
+     '<img class="discord-avatar-img vc-avatar vc-avatar--ready" data-vc-avatar="1" data-vc-nav-early="1"' +
+     (uid ? ' data-user-id="' + esc(uid) + '"' : "") +
+     (av ? ' src="' + esc(av) + '"' : "") +
+     ' alt="" width="34" height="34" decoding="async" fetchpriority="high" aria-label="' +
+     label +
+     '">' +
+     "</span>" +
+     '<span class="discord-profile-link__name vc-marquee" data-vc-nav-user-marquee>' +
+     '<span class="vc-marquee__track"><span class="vc-marquee__text">' +
+     label +
+     "</span></span></span></button></div></div>";
+    try {
+     document.documentElement.classList.add("vc-auth-session-pending");
+     document.documentElement.classList.remove("vc-auth-logged-out");
+     var loginBtn = document.getElementById("discord-login-btn");
+     if (loginBtn) {
+      loginBtn.hidden = true;
+      loginBtn.style.visibility = "hidden";
+      loginBtn.style.pointerEvents = "none";
+     }
+    } catch (eCls) {}
+    return true;
+   } catch (ePaint) {
+    return false;
+   }
+  }
+  if (paint()) return;
+  if (document.readyState === "loading") {
+   document.addEventListener(
+    "DOMContentLoaded",
+    function () {
+     paint();
+    },
+    { once: true },
+   );
+  } else {
+   window.setTimeout(paint, 0);
+  }
+  try {
+   var mo = new MutationObserver(function () {
+    if (paint()) {
+     try {
+      mo.disconnect();
+     } catch (eD) {}
+    }
+   });
+   mo.observe(document.documentElement, { childList: true, subtree: true });
+   window.setTimeout(function () {
+    try {
+     mo.disconnect();
+    } catch (eD2) {}
+   }, 8000);
+  } catch (eMo) {}
  })();
- } catch (eLoadLockCss) {}
- try {
- (function armGlobalLoadScrollLockFallback() {
- if (window.__vcGlobalLoadScrollArmed) return;
- window.__vcGlobalLoadScrollArmed = 1;
- function loaderAlive(el) {
- if (!el) return false;
- try {
- if (el.hidden || el.hasAttribute("hidden")) return false;
- if (el.classList && el.classList.contains("vc-staff-loading--hidden")) return false;
- if (el.classList && el.classList.contains("vc-session-verify-overlay--hidden")) return false;
- /* violPass6: niente getComputedStyle (Forced reflow in tick loader) */
- return (el.offsetWidth || 0) > 0 || (el.offsetHeight || 0) > 0;
- } catch (e) {
- return true;
+ /* megaSplit1: ensureSiteHelperScripts → js/vc-auth-inject.js (before this file) */
+ if (!window.__VC_AUTH_INJECT_BOOT) {
+  try {
+   console.warn("[vc] vc-auth-inject.js missing — load it before discord-auth");
+  } catch (eMiss) {}
  }
- }
- function tick() {
- try {
- if (typeof window.__vcSyncLoaderScrollLock === "function") {
- window.__vcSyncLoaderScrollLock();
- return;
- }
- var root = document.documentElement;
- var live = false;
- if (root.classList.contains("vc-page-cine-boot") && !root.classList.contains("vc-page-cine-ready")) live = true;
- if (root.classList.contains("vc-interaction-hold")) live = true;
- if (root.classList.contains("vc-user-leader-pending") || root.classList.contains("vc-user-profile-pending")) live = true;
- if (root.classList.contains("vc-rank-customize-pending") || root.classList.contains("vc-custom-profile-pending")) live = true;
- if (root.classList.contains("vc-session-verify-pending")) live = true;
- if (root.classList.contains("vc-staff-access-pending") && !root.classList.contains("vc-staff-app-revealed")) live = true;
- if (root.classList.contains("vc-dash-access-pending") && !root.classList.contains("vc-dash-access-ready")) live = true;
- if (root.classList.contains("vc-chrome-bar-loading")) live = true;
- /* bootBarScrollPre1: gap pre-barra � chrome non ancora bootato */
- if (!live && !window.__vcChromeUiBooted && window.__vcChromeLoadDone !== true) {
- try {
- var age = Date.now() - Number(window.__vcCineBootStartedAt || 0);
- if (!window.__vcCineBootStartedAt || age < 4500) live = true;
- } catch (eAge) {
- live = true;
- }
- }
- if (!live && window.__vcChromeUiBooted && !window.__vcChromeLoadDone) live = true;
- /* hamScrollBarGate1: LoadDone ma barra top ancora in fill ? tieni lock */
- if (!live && window.__vcChromeLoadDone && !window.__vcChromeScrollArmed) live = true;
- var progEl = document.getElementById("vc-site-progress");
- if (!live && progEl && progEl.classList.contains("is-loading")) live = true;
- if (!live && loaderAlive(document.getElementById("vc-shared-boot-overlay"))) live = true;
- if (!live && loaderAlive(document.getElementById("vc-cine-boot-curtain"))) live = true;
- if (!live && loaderAlive(document.getElementById("vc-roles-loading"))) live = true;
- if (!live && loaderAlive(document.getElementById("vc-staff-loading"))) live = true;
- if (!live && loaderAlive(document.getElementById("vc-ul-loading"))) live = true;
- if (!live && loaderAlive(document.querySelector(".vc-session-verify-overlay"))) live = true;
- root.classList.toggle("vc-loader-blocking-live", live);
- if (live) root.classList.add("vc-loading-scroll-lock");
- else if (
- !root.classList.contains("vc-interaction-hold") &&
- !root.classList.contains("vc-chrome-bar-loading") &&
- !(window.__vcChromeLoadDone && !window.__vcChromeScrollArmed)
- ) {
- root.classList.remove("vc-loading-scroll-lock");
- }
- } catch (eTick) {}
- }
- window.__vcSyncLoaderScrollLock = tick;
- tick();
- window.setTimeout(tick, 200);
- window.setTimeout(tick, 800);
- window.setTimeout(tick, 2000);
- document.addEventListener("DOMContentLoaded", tick, { once: true });
- window.addEventListener("pageshow", tick);
- document.addEventListener("visibilitychange", function () {
- if (document.visibilityState === "visible") tick();
- });
- try {
- if (typeof MutationObserver !== "undefined") {
- var moT = 0;
- var mo = new MutationObserver(function () {
- if (moT) return;
- /* extCspNoiseKill1 / loadScrollMoLite1: debounce pi� lungo, niente getComputedStyle storm */
- moT = window.setTimeout(function () {
- moT = 0;
- tick();
- }, 180);
- });
- mo.observe(document.documentElement, {
- attributes: true,
- attributeFilter: ["class", "hidden"],
- subtree: false,
- });
- window.setTimeout(function () {
- try {
- if (document.body) {
- /* solo childList body (no subtree+attributes ? Violation setTimeout) */
- mo.observe(document.body, { childList: true, subtree: false, attributes: false });
- }
- var ids = ["vc-shared-boot-overlay", "vc-cine-boot-curtain", "vc-roles-loading", "vc-staff-loading", "vc-ul-loading"];
- for (var ii = 0; ii < ids.length; ii += 1) {
- var el = document.getElementById(ids[ii]);
- if (el) mo.observe(el, { attributes: true, attributeFilter: ["hidden", "class"] });
- }
- } catch (eBody) {}
- }, 0);
- }
- } catch (eMo) {}
- })();
- } catch (eLoadLockArm) {}
- appendStylesheet("/css/vc-glow-fix.css", NAV_CHROME_VER);
- appendStylesheet("/css/vc-site-chrome-ui.css", NAV_CHROME_VER);
- appendStylesheet("/css/vc-nav-menu-solid.css", NAV_CHROME_VER);
- appendStylesheet("/css/vc-soft-fx.css", SOFT_FX_VER);
- appendStylesheet("/css/vc-nav-chrome-fix.css", NAV_CHROME_FIX_VER);
- appendStylesheet("/css/vc-emoji-color.css", EMOJI_COLOR_VER);
- try {
- if (!window.VcEmojiColor) appendScript("/js/vc-emoji-color.js", EMOJI_COLOR_VER);
- } catch (eEmojiColor) {
- appendScript("/js/vc-emoji-color.js", EMOJI_COLOR_VER);
- }
- /* bakeEmoji1: Twemoji img bake sitewide (beats soft-fx monochrome glyphs) */
- try {
- if (!window.VcEmojiRender) appendScript("/js/vc-emoji-render.js", EMOJI_RENDER_VER);
- } catch (eEmojiRender) {
- appendScript("/js/vc-emoji-render.js", EMOJI_RENDER_VER);
- }
- try {
- if (!window.VcApiCache || !window.VcApiCache.__siteApiW4) {
- appendScript("/js/vc-api-cache.js", API_CACHE_VER);
- }
- } catch (eApiCache) {
- appendScript("/js/vc-api-cache.js", API_CACHE_VER);
- }
- appendScript("/js/vc-site-chrome-ui.js", NAV_CHROME_VER);
- try {
- if (!window.__VC_SITE_NOTIFS || typeof window.__VC_SITE_NOTIFS !== "object") {
- window.__VC_SITE_NOTIFS = {
- apiUrl: "/webhooks/site-notifications",
- apiUrlLocal: "",
- wsEnabled: true,
- };
- } else if (!window.__VC_SITE_NOTIFS.apiUrl) {
- window.__VC_SITE_NOTIFS.apiUrl = "/webhooks/site-notifications";
- }
- } catch (eNotifCfg) {}
- try {
- /* notifSheetUnifyDash1: anche dashboard usa lo stesso sheet/chunk (niente skip) */
- var skipLandingNotif = false;
- /* notifUnifyFix1: forza landing/notif chunk allineati su tutte le pagine */
- var needLanding = !skipLandingNotif;
- try {
- if (window.__VC_LANDING_NOTIF_CLIENT_VER !== LANDING_NOTIF_VER) {
- needLanding = !skipLandingNotif;
- window.__VC_LANDING_NOTIF_CLIENT = false;
- window.__vcLandingNotifReady = 0;
- window.__vcLandingNotifLoading = 0;
- }
- } catch (eVer) {}
- if (needLanding && !window.__VC_LANDING_NOTIF_CLIENT) {
- window.__VC_LANDING_NOTIF_CLIENT = true;
- window.__VC_LANDING_NOTIF_CLIENT_VER = LANDING_NOTIF_VER;
- appendScript("/js/vc-landing.js", LANDING_NOTIF_VER);
- }
- } catch (eLandingNotif) {}
- /* langMenuBind1: pagine con toggle lingua ma senza vc-i18n.js in HTML (confessionale, dashboard, staff, puzzle) */
- scheduleEnsureI18nScripts();
- try {
- if (window.VcNotifChrome && window.VcNotifChrome.ver !== NOTIF_CHROME_VER) {
- window.VcNotifChrome = null;
- }
- } catch (eNotifClr) {}
- if (!window.VcNotifChrome || window.VcNotifChrome.ver !== NOTIF_CHROME_VER) {
- appendScript("/js/vc-notif-chrome.js", NOTIF_CHROME_VER);
- }
- try {
- if (window.VcChromeSync && window.VcChromeSync.ver !== CHROME_SYNC_VER) {
- window.VcChromeSync = null;
- window.__VC_CHROME_SYNC = null;
- }
- } catch (eSyncClr) {}
- if (!window.VcChromeSync || window.VcChromeSync.ver !== CHROME_SYNC_VER) {
- appendScript("/js/vc-chrome-sync.js", CHROME_SYNC_VER);
- }
- /* typeSfxAllPages1: chip suono tastiera su tutte le pagine (anche senza tag HTML dedicato) */
- try {
- var skipTypeSfx = false;
- try {
- if (document.body && document.body.classList.contains("vc-dashboard-page")) skipTypeSfx = true;
- if (document.documentElement.classList.contains("vc-perf-lite")) skipTypeSfx = true;
- if (document.documentElement.classList.contains("vc-perf-touch")) skipTypeSfx = true;
- if (document.documentElement.classList.contains("vc-type-sfx-off")) skipTypeSfx = true;
- if (window.VcPerf && typeof window.VcPerf.isPhoneOrPwa === "function" && window.VcPerf.isPhoneOrPwa()) {
- skipTypeSfx = true;
- }
- } catch (eSkipTs) {}
- if (!skipTypeSfx && !window.__VC_TYPE_SFX_INIT) {
- appendScript("/js/vc-type-sfx.js", TYPE_SFX_VER);
- }
- } catch (eTypeSfx) {}
- try {
- if (window.VcKickerHack && window.VcKickerHack.ver !== KICKER_HACK_VER) {
- window.VcKickerHack = null;
- }
- } catch (eKickClr) {}
- if (!window.VcKickerHack || window.VcKickerHack.ver !== KICKER_HACK_VER) {
- appendScript("/js/vc-kicker-hack.js", KICKER_HACK_VER);
- }
- pinSoftFxLast(SOFT_FX_VER);
- pinNavChromeFixLast(NAV_CHROME_FIX_VER);
- watchSoftFxLast();
- try {
- if (window.VcNavBadges && window.VcNavBadges.ver !== NAV_BADGES_VER) {
- window.VcNavBadges = null;
- }
- } catch (eBadgeClr) {}
- if (!window.VcNavBadges || window.VcNavBadges.ver !== NAV_BADGES_VER) {
- appendScript("/js/vc-nav-badges.js", NAV_BADGES_VER);
- }
- window.setTimeout(function () {
- try {
- if (!window.VcNavBadges || window.VcNavBadges.ver !== NAV_BADGES_VER) {
- window.VcNavBadges = null;
- appendScript("/js/vc-nav-badges.js", NAV_BADGES_VER);
- } else if (typeof window.VcNavBadges.schedule === "function") {
- window.VcNavBadges.schedule();
- }
- } catch (eBadgeRetry) {}
- }, 900);
- try {
- var injectSolidInline = function () {
- try {
- var id = "vc-nav-menu-solid-inline";
- var existing = document.getElementById(id);
- if (existing && existing.parentNode) existing.parentNode.removeChild(existing);
- var st = document.createElement("style");
- st.id = id;
- st.setAttribute("data-vc-nav-select-bar", "1");
- /* lightNavDrawerFix1: #100c09 solo in dark; in light cream (prima batteva vc-theme-light) */
- st.textContent =
- "html.vc-site-polish:not([data-vc-theme=\"light\"]) body.vc-body .vc-snav-panel," +
- "html.vc-site-polish:not([data-vc-theme=\"light\"]) body.vc-body .vc-lang-panel," +
- "html.vc-site-polish:not([data-vc-theme=\"light\"]) body.vc-body .vc-notif-panel," +
- "html.vc-site-polish:not([data-vc-theme=\"light\"]) body.vc-body .vc-mobile-nav-drawer__panel," +
- "html:not([data-vc-theme=\"light\"]) body.vc-body header .vc-snav-panel{" +
- "background:#100c09!important;background-color:#100c09!important;background-image:none!important;" +
- "backdrop-filter:none!important;-webkit-backdrop-filter:none!important}" +
- "html.vc-site-polish:not([data-vc-theme=\"light\"]) body.vc-body .discord-account-popover," +
- "html.vc-site-polish:not([data-vc-theme=\"light\"]) body.vc-body header .discord-account-popover," +
- "html.vc-site-polish:not([data-vc-theme=\"light\"]) body.vc-body#top header .discord-account-popover," +
- "html:not([data-vc-theme=\"light\"]) body.vc-body header .discord-account-popover{" +
- "overflow:visible!important;" +
- "border:1.5px solid transparent!important;border-color:transparent!important;" +
- "background-color:#100c09!important;" +
- "background-image:" +
- "radial-gradient(120% 90% at 0% 0%,rgba(236,205,176,.14),transparent 52%)," +
- "radial-gradient(90% 70% at 100% 0%,rgba(111,78,55,.18),transparent 48%)," +
- "linear-gradient(175deg,#17130f 0%,#100c09 55%,#0b0807 100%)," +
- "linear-gradient(135deg,rgba(255,247,236,.95),rgba(236,205,176,.88) 28%,rgba(212,168,136,.78) 52%,rgba(180,130,90,.82) 72%,rgba(236,205,176,.9))!important;" +
- "background-origin:padding-box,padding-box,padding-box,border-box!important;" +
- "background-clip:padding-box,padding-box,padding-box,border-box!important;" +
- "-webkit-background-clip:padding-box,padding-box,padding-box,border-box!important;" +
- "box-shadow:0 0 0 1px rgba(255,247,236,.24),0 0 16px rgba(212,168,136,.32),0 14px 36px rgba(0,0,0,.48)!important;" +
- "backdrop-filter:none!important;-webkit-backdrop-filter:none!important}" +
- "html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body#top header .discord-account-popover__name," +
- "html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body header .discord-account-popover__name," +
- "html.vc-site-polish body.vc-body .discord-account-popover__name," +
- "html.vc-site-polish body.vc-body--home .discord-account-popover__name," +
- "html body.vc-body header .discord-account-popover__name," +
- "html body.vc-body .discord-account-popover__name{" +
- "background-image:linear-gradient(135deg,#f5d6b7,#e8c9a8 45%,#d4a888)!important;" +
- "background-color:transparent!important;-webkit-background-clip:text!important;background-clip:text!important;" +
- "color:transparent!important;-webkit-text-fill-color:transparent!important}" +
- "html.vc-site-polish body.vc-body .discord-account-popover__item:not(.discord-account-popover__item--danger):not(.is-soon)>span," +
- "html body.vc-body .discord-account-popover__item:not(.discord-account-popover__item--danger):not(.is-soon)>span{" +
- "background-image:linear-gradient(180deg,rgba(247,236,223,.98),rgba(236,214,188,.92) 48%,rgba(212,168,136,.88))!important;" +
- "background-color:transparent!important;-webkit-background-clip:text!important;background-clip:text!important;" +
- "color:transparent!important;-webkit-text-fill-color:transparent!important}" +
- "html.vc-site-polish body.vc-body .discord-account-popover__item:not(.discord-account-popover__item--danger):not(.is-soon)>i," +
- "html.vc-site-polish body.vc-body .discord-account-popover__item:not(.discord-account-popover__item--danger):not(.is-soon)>.fa{" +
- "color:rgba(236,205,176,.92)!important;-webkit-text-fill-color:rgba(236,205,176,.92)!important;" +
- "background:none!important;text-shadow:0 0 10px rgba(212,168,136,.35)!important}" +
- "html.vc-site-polish body.vc-body .discord-account-popover__item.is-soon .discord-account-popover__soon-badge," +
- "html body.vc-body .discord-account-popover__item.is-soon .discord-account-popover__soon-badge{" +
- "background-image:none!important;background:rgba(22,16,12,.82)!important;color:#f3dfc6!important;" +
- "-webkit-text-fill-color:#f3dfc6!important;-webkit-background-clip:border-box!important;background-clip:border-box!important}" +
- "html.vc-site-polish body.vc-body .discord-account-popover__item.is-soon .discord-account-popover__soon-inner," +
- "html.vc-site-polish body.vc-body .discord-account-popover__item.is-soon .discord-account-popover__soon-inner span," +
- "html.vc-site-polish body.vc-body .discord-account-popover__item.is-soon .discord-account-popover__soon-inner i{" +
- "background-image:none!important;color:rgba(247,236,223,.88)!important;-webkit-text-fill-color:rgba(247,236,223,.88)!important;" +
- "-webkit-background-clip:border-box!important;background-clip:border-box!important}" +
- "html.vc-site-polish body.vc-body header .vc-header-snav .vc-snav-item," +
- "html.vc-site-polish body.vc-body header .vc-header-snav .vc-snav-summary," +
- "html.vc-site-polish body.vc-body header .vc-header-snav .vc-snav-row," +
- "html body.vc-body header .vc-header-snav .vc-snav-item," +
- "html body.vc-body header .vc-header-snav .vc-snav-summary," +
- "html body.vc-body header .vc-header-snav .vc-snav-row{position:relative!important}" +
- "html.vc-site-polish body.vc-body header .vc-header-snav .vc-snav-item," +
- "html.vc-site-polish body.vc-body header .vc-header-snav .vc-snav-summary," +
- "html.vc-site-polish body.vc-body header .vc-header-snav .vc-snav-item--active," +
- "html.vc-site-polish body.vc-body header .vc-header-snav .vc-snav-item[aria-current=page]," +
- "html.vc-site-polish body.vc-body header .vc-header-snav .vc-snav-details.vc-snav-details--current>.vc-snav-summary," +
- "html.vc-site-polish body.vc-body header .vc-header-snav .vc-snav-item:hover," +
- "html.vc-site-polish body.vc-body header .vc-header-snav .vc-snav-summary:hover," +
- "html.vc-site-polish body.vc-body header .vc-header-snav .vc-snav-item:not(.vc-snav-item--active):not([aria-current=page]):hover," +
- "html.vc-site-polish body.vc-body header .vc-header-snav .vc-snav-details:not([open]):not(.vc-snav-details--current)>.vc-snav-summary:hover," +
- "html.vc-site-polish body.vc-body header .vc-header-snav .vc-snav-details[open]>.vc-snav-summary," +
- "html.vc-site-polish body.vc-body header .vc-header-snav .vc-snav-details[open]>.vc-snav-summary:hover," +
- "html.vc-site-polish body.vc-body header .vc-header-snav .vc-snav-panel .vc-snav-row," +
- "html.vc-site-polish body.vc-body header .vc-header-snav .vc-snav-panel .vc-snav-row:hover," +
- "html.vc-site-polish body.vc-body header .vc-header-snav .vc-snav-panel .vc-snav-row.vc-snav-row--active," +
- "html body.vc-body header .vc-header-snav .vc-snav-item:not(.vc-snav-item--active):not([aria-current=page]):hover," +
- "html body.vc-body header .vc-header-snav .vc-snav-details:not([open]):not(.vc-snav-details--current)>.vc-snav-summary:hover," +
- "html body.vc-body header .vc-header-snav .vc-snav-details[open]>.vc-snav-summary," +
- "html body.vc-body header .vc-header-snav .vc-snav-details[open]>.vc-snav-summary:hover{" +
- "background:transparent!important;background-color:transparent!important;background-image:none!important;box-shadow:none!important;border-color:transparent!important}" +
- "html.vc-site-polish body.vc-body header .vc-header-snav .vc-snav-item--active::after," +
- "html.vc-site-polish body.vc-body header .vc-header-snav .vc-snav-item[aria-current=page]::after," +
- "html.vc-site-polish body.vc-body header .vc-header-snav .vc-snav-details.vc-snav-details--current>.vc-snav-summary::after," +
- "html.vc-site-polish body.vc-body header .vc-header-snav .vc-snav-details[open]>.vc-snav-summary::after," +
- "html body.vc-body header .vc-header-snav .vc-snav-item--active::after," +
- "html body.vc-body header .vc-header-snav .vc-snav-item[aria-current=page]::after," +
- "html body.vc-body header .vc-header-snav .vc-snav-details.vc-snav-details--current>.vc-snav-summary::after," +
- "html body.vc-body header .vc-header-snav .vc-snav-details[open]>.vc-snav-summary::after{" +
- "content:\"\"!important;display:block!important;position:absolute!important;" +
- "left:.7rem!important;right:.7rem!important;bottom:.32rem!important;height:1.5px!important;" +
- "border-radius:999px!important;pointer-events:none!important;" +
- "background:linear-gradient(90deg,rgba(255,247,236,.12),rgba(255,247,236,.98) 18%,rgba(236,205,176,.98) 50%,rgba(212,168,136,.95) 82%,rgba(255,247,236,.12))!important;" +
- "box-shadow:0 0 6px rgba(236,205,176,.62),0 0 12px rgba(168,118,82,.38)!important}" +
- "html.vc-site-polish body.vc-body header .vc-header-snav .vc-snav-item:hover::after," +
- "html.vc-site-polish body.vc-body header .vc-header-snav .vc-snav-summary:hover::after," +
- "html.vc-site-polish body.vc-body header .vc-header-snav .vc-snav-item:not(.vc-snav-item--active):not([aria-current=page]):hover::after," +
- "html.vc-site-polish body.vc-body header .vc-header-snav .vc-snav-details:not([open]):not(.vc-snav-details--current)>.vc-snav-summary:hover::after," +
- "html body.vc-body header .vc-header-snav .vc-snav-item:not(.vc-snav-item--active):not([aria-current=page]):hover::after," +
- "html body.vc-body header .vc-header-snav .vc-snav-details:not([open]):not(.vc-snav-details--current)>.vc-snav-summary:hover::after{" +
- "content:\"\"!important;display:block!important;position:absolute!important;" +
- "left:.7rem!important;right:.7rem!important;bottom:.32rem!important;height:1.5px!important;" +
- "border-radius:999px!important;pointer-events:none!important;" +
- "background:linear-gradient(90deg,rgba(255,247,236,.08),rgba(255,247,236,.82) 18%,rgba(236,205,176,.88) 50%,rgba(212,168,136,.78) 82%,rgba(255,247,236,.08))!important;" +
- "box-shadow:0 0 5px rgba(236,205,176,.48),0 0 10px rgba(168,118,82,.28)!important}" +
- "html.vc-site-polish body.vc-body header .vc-header-snav .vc-snav-item--active:hover::after," +
- "html.vc-site-polish body.vc-body header .vc-header-snav .vc-snav-details.vc-snav-details--current>.vc-snav-summary:hover::after," +
- "html.vc-site-polish body.vc-body header .vc-header-snav .vc-snav-details[open]>.vc-snav-summary:hover::after{" +
- "background:linear-gradient(90deg,rgba(255,247,236,.18),rgba(255,247,236,1) 18%,rgba(236,205,176,1) 50%,rgba(212,168,136,.98) 82%,rgba(255,247,236,.18))!important;" +
- "box-shadow:0 0 7px rgba(236,205,176,.72),0 0 14px rgba(168,118,82,.45)!important}" +
- "html body.vc-body .vc-snav-panel>.vc-snav-row," +
- "html body.vc-body header .vc-header-snav .vc-snav-panel .vc-snav-row," +
- "html.vc-site-polish body.vc-body .vc-snav-panel a.vc-snav-row," +
- "html body.vc-body .discord-account-popover__item," +
- "html.vc-site-polish body.vc-body .discord-account-popover__item," +
- "html body.vc-body .vc-lang-panel:not(.vc-lang-panel--seg) .vc-lang-option," +
- "html body.vc-body .vc-lang-panel:not(.vc-lang-panel--seg) button{" +
- "width:fit-content!important;max-width:100%!important;min-width:0!important;" +
- "box-sizing:border-box!important;white-space:nowrap!important}" +
- "html.vc-site-polish body.vc-body header .vc-header-snav .vc-snav-panel .vc-snav-row:hover::after," +
- "html.vc-site-polish body.vc-body .vc-snav-panel a.vc-snav-row:hover::after," +
- "html.vc-site-polish body.vc-body header .discord-account-popover__item:not(.discord-account-popover__item--danger):hover::after," +
- "html.vc-site-polish body.vc-body .vc-lang-option:hover::after{" +
- "content:\"\"!important;display:block!important;position:absolute!important;" +
- "left:.55rem!important;right:.55rem!important;bottom:.28rem!important;height:1.5px!important;width:auto!important;" +
- "border-radius:999px!important;pointer-events:none!important;" +
- "background:linear-gradient(90deg,rgba(255,247,236,.08),rgba(255,247,236,.82) 18%,rgba(236,205,176,.88) 50%,rgba(212,168,136,.78) 82%,rgba(255,247,236,.08))!important;" +
- "box-shadow:0 0 5px rgba(236,205,176,.48),0 0 10px rgba(168,118,82,.28)!important}" +
- "html.vc-site-polish body.vc-body header .vc-header-snav .vc-snav-panel .vc-snav-row.vc-snav-row--active::after," +
- "html.vc-site-polish body.vc-body header .vc-header-snav .vc-snav-panel .vc-snav-row[aria-current=page]::after," +
- "html.vc-site-polish body.vc-body .vc-snav-panel a.vc-snav-row.vc-snav-row--active::after," +
- "html.vc-site-polish body.vc-body header .discord-account-popover__item.is-current::after," +
- "html.vc-site-polish body.vc-body .vc-lang-option.is-active::after{" +
- "content:\"\"!important;display:block!important;position:absolute!important;" +
- "left:.55rem!important;right:.55rem!important;bottom:.28rem!important;height:1.5px!important;width:auto!important;" +
- "border-radius:999px!important;pointer-events:none!important;" +
- "background:linear-gradient(90deg,rgba(255,247,236,.12),rgba(255,247,236,.98) 18%,rgba(236,205,176,.98) 50%,rgba(212,168,136,.95) 82%,rgba(255,247,236,.12))!important;" +
- "box-shadow:0 0 6px rgba(236,205,176,.62),0 0 12px rgba(168,118,82,.38)!important}" +
- "html.vc-site-polish body.vc-body header .vc-header-snav .vc-snav-summary{" +
- "display:inline-flex!important;align-items:center!important;gap:.22rem!important}" +
- "html.vc-site-polish body.vc-body header .vc-header-snav .vc-snav-summary>i.vc-snav-chev," +
- "html.vc-site-polish body.vc-body header .vc-header-snav .vc-snav-summary>i.fa-chevron-down," +
- "html.vc-site-polish body.vc-body#top header .vc-header-snav .vc-snav-summary>i.vc-snav-chev," +
- "html.vc-site-polish body.vc-body#top header .vc-header-snav .vc-snav-summary>i.fa-chevron-down{" +
- "display:inline-flex!important;align-items:center!important;justify-content:center!important;" +
- "width:.72em!important;height:.72em!important;margin:0 0 0 .12rem!important;padding:0!important;" +
- "line-height:1!important;font-size:.62rem!important;top:0!important;position:relative!important;" +
- "transform:none!important;transform-origin:50% 50%!important;" +
- "color:rgba(245,214,183,.92)!important;-webkit-text-fill-color:rgba(245,214,183,.92)!important;" +
- "background:none!important;opacity:.9!important;visibility:visible!important}" +
- "html.vc-site-polish body.vc-body header .vc-header-snav .vc-snav-summary>i.vc-snav-chev::before," +
- "html.vc-site-polish body.vc-body header .vc-header-snav .vc-snav-summary>i.fa-chevron-down::before," +
- "html.vc-site-polish body.vc-body#top header .vc-header-snav .vc-snav-summary>i.vc-snav-chev::before," +
- "html.vc-site-polish body.vc-body#top header .vc-header-snav .vc-snav-summary>i.fa-chevron-down::before{" +
- "display:block!important;content:\"\\f078\"!important;transform:none!important;" +
- "line-height:1!important;width:1em!important;height:1em!important;margin:0!important;border:0!important;-webkit-mask-image:none!important;mask-image:none!important}" +
- "html.vc-site-polish body.vc-body header .vc-header-snav .vc-snav-details[open]>.vc-snav-summary>i.vc-snav-chev," +
- "html.vc-site-polish body.vc-body header .vc-header-snav .vc-snav-details[open]>.vc-snav-summary>i.fa-chevron-down," +
- "html.vc-site-polish body.vc-body#top header .vc-header-snav .vc-snav-details[open]>.vc-snav-summary>i.vc-snav-chev," +
- "html.vc-site-polish body.vc-body#top header .vc-header-snav .vc-snav-details[open]>.vc-snav-summary>i.fa-chevron-down{" +
- "transform:rotate(180deg)!important;transform-origin:50% 50%!important;top:0!important;" +
- "color:rgba(247,236,223,.98)!important;-webkit-text-fill-color:rgba(247,236,223,.98)!important;opacity:.95!important}" +
- "html.vc-site-polish body.vc-body header .vc-header-snav .vc-snav-details[open]>.vc-snav-summary>i.vc-snav-chev::before," +
- "html.vc-site-polish body.vc-body header .vc-header-snav .vc-snav-details[open]>.vc-snav-summary>i.fa-chevron-down::before," +
- "html.vc-site-polish body.vc-body#top header .vc-header-snav .vc-snav-details[open]>.vc-snav-summary>i.vc-snav-chev::before," +
- "html.vc-site-polish body.vc-body#top header .vc-header-snav .vc-snav-details[open]>.vc-snav-summary>i.fa-chevron-down::before{" +
- "content:\"\\f078\"!important;transform:none!important}" +
- "html.vc-site-polish body.vc-body #vc-site-back-top>i.fa::before," +
- "html.vc-site-polish body.vc-body #vc-site-back-top>i.fa-caret-up::before," +
- "html.vc-site-polish body.vc-body #vc-site-back-top>i.fa-chevron-up::before{" +
- "content:\"\\f077\"!important}" +
- "html.vc-site-polish[data-vc-theme=\"light\"] body.vc-body .vc-snav-panel," +
- "html.vc-site-polish[data-vc-theme=\"light\"] body.vc-body .vc-lang-panel," +
- "html.vc-site-polish[data-vc-theme=\"light\"] body.vc-body .vc-notif-panel," +
- "html.vc-site-polish[data-vc-theme=\"light\"] body.vc-body .vc-mobile-nav-drawer__panel," +
- "html.vc-site-polish[data-vc-theme=\"light\"] body.vc-body #vc-mobile-nav-drawer .vc-mobile-nav-drawer__panel," +
- "html[data-vc-theme=\"light\"] body.vc-body header .vc-snav-panel{" +
- "background:#faf6f0!important;background-color:#faf6f0!important;" +
- "background-image:radial-gradient(120% 90% at 0% 0%,rgba(255,248,238,.9),transparent 52%),linear-gradient(175deg,#fffaf4 0%,#f7f1ea 55%,#efe6dc 100%)!important;" +
- "border:1px solid rgba(111,78,55,.2)!important;border-color:rgba(111,78,55,.2)!important;color:#2a1c14!important;" +
- "box-shadow:0 14px 36px rgba(60,40,24,.14)!important;" +
- "backdrop-filter:none!important;-webkit-backdrop-filter:none!important}" +
- "html[data-vc-theme=\"light\"] body .vc-mobile-nav-drawer .vc-mobile-nav-link," +
- "html[data-vc-theme=\"light\"] body .vc-mobile-nav-drawer .vc-mobile-nav-link span," +
- "html[data-vc-theme=\"light\"] body .vc-mobile-nav-drawer .vc-mobile-nav-link i," +
- "html[data-vc-theme=\"light\"] body .vc-mobile-nav-drawer .vc-mobile-nav-section__title," +
- "html[data-vc-theme=\"light\"] body .vc-mobile-nav-drawer__brand a.vc-header-site-name," +
- "html[data-vc-theme=\"light\"] body .vc-mobile-nav-drawer__brand a.vc-header-site-name .vc-header-site-name__text," +
- "html[data-vc-theme=\"light\"] body .vc-mobile-nav-drawer .vc-mobile-nav-tile," +
- "html[data-vc-theme=\"light\"] body .vc-mobile-nav-drawer .vc-mobile-nav-tile span," +
- "html[data-vc-theme=\"light\"] body .vc-mobile-nav-drawer .vc-mobile-nav-tile i{" +
- "color:#2a1c14!important;-webkit-text-fill-color:#2a1c14!important}" +
- "html[data-vc-theme=\"light\"] body .vc-mobile-nav-drawer .vc-mobile-nav-tile," +
- "html[data-vc-theme=\"light\"] body .vc-mobile-nav-drawer .vc-mobile-nav-link{" +
- "background-color:rgba(255,250,244,.92)!important;border-color:rgba(111,78,55,.18)!important}";
- (document.body || document.documentElement).appendChild(st);
- } catch (eInline) {}
- };
- var reinjectSolid = function () {
- /* navBootTrim1: una sola volta � DOMContentLoaded+load duplicavano pin/recalc */
- if (window.__vcSolidReinjected) return;
- window.__vcSolidReinjected = 1;
- try {
- appendStylesheet("/css/vc-nav-menu-solid.css", NAV_CHROME_VER);
- pinSoftFxLast(SOFT_FX_VER);
- pinNavChromeFixLast(NAV_CHROME_FIX_VER);
- injectSolidInline();
- } catch (eR) {}
- };
- if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", reinjectSolid);
- else window.setTimeout(reinjectSolid, 0);
- } catch (eRe) {}
- appendScript("/js/vc-view-as.js", "20260929swLsStorm2");
- } catch (eHelper) {}
- })();
  (function installVcEnsureDialog() {
  var DIALOG_SRC = "/js/vc-dialog.js?v=20261002compitiScrollUnlock2";
  function ensure() {
@@ -1135,13 +416,16 @@ var NAV_CHROME_FIX_VER = "20260930navMarqueeConfStaff1";
  var PENDING_LOGIN_NOTIF_KEY = "vc_pending_login_notification_v1";
  var OAUTH_LOGIN_COUNT_KEY = "vc_discord_oauth_login_count_v1";
  var OAUTH_FRESH_AFTER_BOUNCE_KEY = "vc_oauth_fresh_after_bounce_v1";
+ var OAUTH_BFCACHE_BUST_KEY = "vc_oauth_bfcache_bust_v1";
  var OAUTH_STATE_NONCE_KEY = "vc_oauth_state_nonce_v1";
  var SITE_SESSION_TTL_MS = 90 * 24 * 60 * 60 * 1000;
  var OAUTH_PENDING_RETURN_KEY = "vc_oauth_pending_return_v1";
  var ME_CACHE_KEY = "vc_discord_me_cache_v1";
  var ME_LOCAL_CACHE_KEY = "vc_discord_me_cache_local_v1";
- var ME_SESSION_TTL_MS = 180000;
- var ME_LOCAL_TTL_MS = 30 * 60 * 1000;
+ /* emojiDiscordFast1: session cache pi… lunga = paint istantaneo da cache */
+ var ME_SESSION_TTL_MS = 15 * 60 * 1000;
+ var ME_LOCAL_TTL_MS = 24 * 60 * 60 * 1000;
+ var ME_FRESH_SKIP_FETCH_MS = 90 * 1000;
  var UID_CACHE_KEY = "vc_discord_uid_v1";
  var OAUTH_SCOPES_KEY = "vc_discord_oauth_scopes_v1";
  var OAUTH_ATTEMPTED_NONE_KEY = "vc_oauth_attempted_none_v1";
@@ -1199,7 +483,7 @@ var NAV_CHROME_FIX_VER = "20260930navMarqueeConfStaff1";
  function forceUnlockSessionVerifyUi() {
  clearSessionVerifyWatchdog();
  try {
- /* violPass3: skip se già unlock — evita lavoro 200ms+ a ogni pageshow */
+ /* violPass3: skip se gi… unlock … evita lavoro 200ms+ a ogni pageshow */
  if (!document.documentElement.classList.contains("vc-session-verify-pending") && !byId(SESSION_OVERLAY_ID)) {
  return;
  }
@@ -1266,15 +550,39 @@ var NAV_CHROME_FIX_VER = "20260930navMarqueeConfStaff1";
  forceUnlockSessionVerifyUi();
  }, SESSION_VERIFY_HARD_MS);
  }
- function closeVcNotifDropdown() {
+ function closeVcNotifDropdown(opts) {
  try {
+ opts = opts || {};
+ var force = opts.force === true;
  /* notifAutoCloseFix1: non chiudere durante grace post-open (click/pointer spurio). */
- if (Date.now() < Number(window.__vcNotifOpenGraceUntil || 0)) return;
+ if (!force && Date.now() < Number(window.__vcNotifOpenGraceUntil || 0)) return;
  try {
- if (window.VcNotifChrome && typeof window.VcNotifChrome.inOpenGrace === "function" && window.VcNotifChrome.inOpenGrace()) {
+ if (
+ !force &&
+ window.VcNotifChrome &&
+ typeof window.VcNotifChrome.inOpenGrace === "function" &&
+ window.VcNotifChrome.inOpenGrace()
+ ) {
  return;
  }
  } catch (eGrace) {}
+ /* notifSheetStayOpen1: outside pointer spurio non abbattere sheet/drawer …
+    (reclaim portalGuard ? close = loop). force:true per snav/account intenzionali. */
+ if (!force) {
+ try {
+ if (Date.now() < Number(window.__vcNotifPortalGuardUntil || 0)) return;
+ } catch (eGuard) {}
+ try {
+ var rootNotif = document.documentElement;
+ if (
+ rootNotif &&
+ (rootNotif.classList.contains("vc-notif-sheet-open") ||
+ rootNotif.classList.contains("vc-notif-drawer-open"))
+ ) {
+ return;
+ }
+ } catch (eSheet) {}
+ }
  try {
  if (window.VcNotifChrome && typeof window.VcNotifChrome.close === "function") {
  window.VcNotifChrome.close(document.getElementById("vc-notif-dropdown"));
@@ -1404,7 +712,7 @@ var NAV_CHROME_FIX_VER = "20260930navMarqueeConfStaff1";
  var profile = t.closest(".discord-profile-link, .discord-account-menu");
  if (!profile || !profile.closest || !profile.closest(".discord-account-menu")) return;
  if (!notifDropdownIsOpen()) return;
- closeVcNotifDropdown();
+ closeVcNotifDropdown({ force: true });
  try {
  document.documentElement.classList.add("vc-header-account-open");
  } catch (e6) {}
@@ -1523,7 +831,7 @@ var NAV_CHROME_FIX_VER = "20260930navMarqueeConfStaff1";
  allItems.forEach(function (a) {
  var p = vcPathnameFromSnavHref(a.getAttribute("href"));
  if (!p) return;
- if (isUserProfileDetail && (p === "/user" || p === "/users")) return;
+ if (isUserProfileDetail && (p === "/user" || p === "/users" || p === "/classifiche")) return;
  var score = vcSnavPathScore(p, cur);
  if (score > bestItemScore) {
  bestItemScore = score;
@@ -1539,7 +847,7 @@ var NAV_CHROME_FIX_VER = "20260930navMarqueeConfStaff1";
  allRows.forEach(function (a) {
  var p = vcPathnameFromSnavHref(a.getAttribute("href"));
  if (!p) return;
- if (isUserProfileDetail && (p === "/user" || p === "/users")) return;
+ if (isUserProfileDetail && (p === "/user" || p === "/users" || p === "/classifiche")) return;
  var score = vcSnavPathScore(p, cur);
  if (score > bestRowScore) {
  bestRowScore = score;
@@ -1551,7 +859,14 @@ var NAV_CHROME_FIX_VER = "20260930navMarqueeConfStaff1";
  bestRow.setAttribute("aria-current", "page");
  try {
  var det = bestRow.closest("details.vc-snav-details");
- if (det) det.classList.add("vc-snav-details--current");
+ /* feedbackLayout1: /feedback|tickets|recensioni — no parent Richieste --current */
+ var rowPath = vcPathnameFromSnavHref(bestRow.getAttribute("href"));
+ var skipParent =
+ rowPath === "/feedback" ||
+ rowPath === "/suggerimenti" ||
+ rowPath === "/tickets" ||
+ rowPath === "/recensioni";
+ if (det && !skipParent) det.classList.add("vc-snav-details--current");
  } catch (eDet) {}
  }
  }
@@ -1560,9 +875,11 @@ var NAV_CHROME_FIX_VER = "20260930navMarqueeConfStaff1";
  } catch (eEx) {}
  markHeaderSnavCurrentFromLocation();
  document.addEventListener("vc:langchange", function () {
+ window.setTimeout(function () {
  try {
  markHeaderSnavCurrentFromLocation();
  } catch (eL) {}
+ }, 32);
  });
  window.setTimeout(markHeaderSnavCurrentFromLocation, 0);
  window.setTimeout(markHeaderSnavCurrentFromLocation, 400);
@@ -1587,7 +904,7 @@ var NAV_CHROME_FIX_VER = "20260930navMarqueeConfStaff1";
  other.open = willOpen && other === det;
  });
  if (willOpen) {
- closeVcNotifDropdown();
+ closeVcNotifDropdown({ force: true });
  closeVcAccountMenu();
  try {
  if (window.VcI18n && typeof window.VcI18n.closeLangMenu === "function") {
@@ -1605,7 +922,7 @@ var NAV_CHROME_FIX_VER = "20260930navMarqueeConfStaff1";
  if (!isHeaderSnavDetails(d) || !d.open) return;
  stampHeaderSnavExclusiveName();
  closeOtherHeaderSnav(d);
- closeVcNotifDropdown();
+ closeVcNotifDropdown({ force: true });
  closeVcAccountMenu();
  },
  true,
@@ -1634,7 +951,18 @@ var NAV_CHROME_FIX_VER = "20260930navMarqueeConfStaff1";
  closed = true;
  });
  if (notifDropdownIsOpen()) {
- closeVcNotifDropdown();
+ /* notifSheetSync1: outside deve chiudere lo sheet (force) — stayOpen bloccava Esc/vuoto */
+ try {
+ if (typeof window.requestCloseNotifDropdown === "function") {
+ window.requestCloseNotifDropdown(document.getElementById("vc-notif-dropdown"));
+ } else if (window.VcNotifChrome && typeof window.VcNotifChrome.close === "function") {
+ window.VcNotifChrome.close(document.getElementById("vc-notif-dropdown"));
+ } else {
+ closeVcNotifDropdown({ force: true });
+ }
+ } catch (eCloseNotif) {
+ closeVcNotifDropdown({ force: true });
+ }
  closed = true;
  }
  if (closed) closeVcAccountMenu();
@@ -1649,6 +977,37 @@ var NAV_CHROME_FIX_VER = "20260930navMarqueeConfStaff1";
  } catch (e) {
  return [];
  }
+ }
+ /* persGateOauth1: CTA login dinamici (gate personalizza) … delegation, non solo bind a boot */
+ function ensureDiscordLoginClickDelegation() {
+ try {
+ if (document.documentElement.getAttribute("data-vc-discord-login-delegated") === "1") return;
+ document.documentElement.setAttribute("data-vc-discord-login-delegated", "1");
+ } catch (eFlag) {
+ if (window.__vcDiscordLoginDelegated) return;
+ window.__vcDiscordLoginDelegated = true;
+ }
+ document.addEventListener(
+ "click",
+ function (ev) {
+ try {
+ var t = ev && ev.target;
+ if (!t || typeof t.closest !== "function") return;
+ var btn = t.closest(DISCORD_LOGIN_BTN_SELECTOR);
+ if (!btn || btn.disabled) return;
+ if (btn.getAttribute("aria-busy") === "true") return;
+ if (btn.classList && btn.classList.contains("discord-login-btn--loading")) return;
+ if (ev.button != null && ev.button !== 0) return;
+ if (ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.altKey) return;
+ try {
+ ev.preventDefault();
+ } catch (ePrev) {}
+ /* oauthPromptNone1: click ? prompt=none (silenzioso); se Discord chiede interazione ? consent con return path */
+ startDiscordOAuthFromUserGesture(btn, authUrl({ prompt: "none" }));
+ } catch (eDel) {}
+ },
+ true,
+ );
  }
  var DISCORD_LOGIN_ICON_HTML =
  '<img class="vc-discord-login-emoji" src="/images/discord-still.png?v=20260929killBrandGifCpu1" width="18" height="18" alt="" decoding="async" aria-hidden="true" />';
@@ -1720,9 +1079,9 @@ var NAV_CHROME_FIX_VER = "20260930navMarqueeConfStaff1";
  } else {
  var emoji = btn.querySelector(".vc-discord-login-emoji");
  if (emoji && String(emoji.getAttribute("src") || "").indexOf("20260908loginGif1") === -1) {
- emoji.setAttribute("src", "/images/discord.gif?v=20260908loginGif1");
+  emoji.setAttribute("src", "/images/discord.gif?v=20260908loginGif1");
  }
- }
+}
  btn.setAttribute("data-vc-login-default-html", btn.innerHTML);
  btn.setAttribute("data-vc-discord-login", "");
  btn.removeAttribute("data-i18n");
@@ -1784,8 +1143,8 @@ var NAV_CHROME_FIX_VER = "20260930navMarqueeConfStaff1";
  el.innerHTML =
  '<div class="vc-session-verify-inner">' +
  '<span class="vc-ul-loading-spinner vc-session-verify-spinner" aria-hidden="true"></span>' +
- '<p class="vc-session-verify-text">Caricamento�</p>' +
- '<p class="vc-session-verify-sub">Un momento�</p>' +
+ '<p class="vc-session-verify-text">Caricamento…</p>' +
+ '<p class="vc-session-verify-sub">Un momento…</p>' +
  "</div>";
  document.body.appendChild(el);
  return el;
@@ -1866,17 +1225,27 @@ var NAV_CHROME_FIX_VER = "20260930navMarqueeConfStaff1";
  sessionStorage.setItem(OAUTH_STATE_NONCE_KEY, nonce);
  } catch (e) {}
  try {
- return encodeURIComponent(payload);
- } catch (e2) {
- return encodeURIComponent(JSON.stringify({ r: returnPath }));
- }
+ localStorage.setItem(OAUTH_STATE_NONCE_KEY, nonce);
+ localStorage.setItem(OAUTH_PENDING_RETURN_KEY, returnPath);
+ } catch (eLs) {}
+ /* oauthHashKill1: NO encodeURIComponent qui … URLSearchParams.set gi… encoda (evita double-encode) */
+ return payload;
  }
  function parseOAuthState(stateRaw) {
  var out = { returnPath: "", validNonce: false };
  var s = String(stateRaw == null ? "" : stateRaw).trim();
  if (!s) return out;
  try {
- var decoded = decodeURIComponent(s);
+ var decoded = s;
+ try {
+ if (/%[0-9A-Fa-f]{2}/.test(s)) decoded = decodeURIComponent(s);
+ } catch (eDec) {
+ decoded = s;
+ }
+ /* second decode se ancora percent-encoded (state double-encoded legacy) */
+ try {
+ if (/%[0-9A-Fa-f]{2}/.test(decoded)) decoded = decodeURIComponent(decoded);
+ } catch (eDec2) {}
  var obj = JSON.parse(decoded);
  var rp = normalizeReturnPath(obj && obj.r);
  if (rp) out.returnPath = rp;
@@ -1887,8 +1256,18 @@ var NAV_CHROME_FIX_VER = "20260930navMarqueeConfStaff1";
  expected = String(sessionStorage.getItem(OAUTH_STATE_NONCE_KEY) || "").trim();
  sessionStorage.removeItem(OAUTH_STATE_NONCE_KEY);
  } catch (e0) {}
+ if (!expected) {
+ try {
+ expected = String(localStorage.getItem(OAUTH_STATE_NONCE_KEY) || "").trim();
+ localStorage.removeItem(OAUTH_STATE_NONCE_KEY);
+ } catch (eLsN) {}
+ }
  out.validNonce = Boolean(expected) && Boolean(n) && n === expected;
  if (!out.validNonce && !expected && out.returnPath && Number.isFinite(ts) && Math.abs(Date.now() - ts) <= 30 * 60 * 1000) {
+ out.validNonce = true;
+ }
+ /* oauthHashKill1: state con returnPath+ts fresco = ok anche se nonce perso (Safari/ITP) */
+ if (!out.validNonce && out.returnPath && Number.isFinite(ts) && Math.abs(Date.now() - ts) <= 30 * 60 * 1000) {
  out.validNonce = true;
  }
  return out;
@@ -1908,11 +1287,16 @@ var NAV_CHROME_FIX_VER = "20260930navMarqueeConfStaff1";
  }
  }
  function parseHashToken() {
- var h = window.location.hash || "";
+ var h = "";
+ try {
+ h = String(window.__vcOauthHashCapture || window.location.hash || "");
+ } catch (eH) {
+ h = String(window.location.hash || "");
+ }
  if (!h || h.indexOf("access_token=") === -1) {
  return { token: "", freshLogin: false, returnPath: "" };
  }
- var p = new URLSearchParams(h.slice(1));
+ var p = new URLSearchParams(h.charAt(0) === "#" ? h.slice(1) : h);
  var t = p.get("access_token");
  var stateParsed = parseOAuthState(p.get("state"));
  var returnPath = stateParsed.returnPath;
@@ -1921,23 +1305,48 @@ var NAV_CHROME_FIX_VER = "20260930navMarqueeConfStaff1";
  returnPath = normalizeReturnPath(sessionStorage.getItem(OAUTH_PENDING_RETURN_KEY));
  } catch (eS) {}
  }
+ if (!returnPath && t) {
+ try {
+ returnPath = normalizeReturnPath(localStorage.getItem(OAUTH_PENDING_RETURN_KEY));
+ } catch (eS2) {}
+ }
  if (!t) return { token: "", freshLogin: false, returnPath: "" };
  if (!stateParsed.validNonce) {
  var pendingReturn = "";
  try {
  pendingReturn = normalizeReturnPath(sessionStorage.getItem(OAUTH_PENDING_RETURN_KEY));
  } catch (ePr) {}
+ if (!pendingReturn) {
+ try {
+ pendingReturn = normalizeReturnPath(localStorage.getItem(OAUTH_PENDING_RETURN_KEY));
+ } catch (ePr2) {}
+ }
  if (pendingReturn) {
  if (!returnPath) returnPath = pendingReturn;
  stateParsed.validNonce = true;
  }
+ }
+ /* oauthHashKill1: token Discord sul nostro redirect_uri = accetta (state mismatch non butta il login) */
+ if (!stateParsed.validNonce && String(t).length >= 16) {
+ stateParsed.validNonce = true;
+ if (!returnPath) returnPath = "/";
  }
  if (!stateParsed.validNonce) return { token: "", freshLogin: false, returnPath: "", stateMismatch: true };
  try {
  sessionStorage.removeItem(OAUTH_PENDING_RETURN_KEY);
  sessionStorage.removeItem(OAUTH_ATTEMPTED_NONE_KEY);
  sessionStorage.removeItem(OAUTH_FORCE_CONSENT_KEY);
+ localStorage.removeItem(OAUTH_PENDING_RETURN_KEY);
+ localStorage.removeItem(OAUTH_STATE_NONCE_KEY);
+ localStorage.removeItem(OAUTH_ATTEMPTED_NONE_KEY);
+ /* chromeUiOauthFix1: login reale azzera anteprima View As logout + force-gate */
+ sessionStorage.removeItem("vc_view_as");
+ sessionStorage.removeItem("vc_force_logged_out_v1");
+ if (typeof window.__vcInvalidateViewAsMem === "function") window.__vcInvalidateViewAsMem();
  } catch (eR) {}
+ try {
+ window.__vcOauthHashCapture = "";
+ } catch (eCapClr) {}
  var expiresInSec = Number(p.get("expires_in") || "0");
  var exp =
  expiresInSec > 0
@@ -2009,18 +1418,49 @@ var NAV_CHROME_FIX_VER = "20260930navMarqueeConfStaff1";
  try {
  window.__VC_SERVER_IDENTITY = null;
  window.__VC_DISCORD_PROFILE = null;
+ window.__VC_ACCOUNT_MENU_USER = null;
  } catch (eIdClr) {}
  sessionStorage.removeItem("vc_staff_access_ok_v2");
  localStorage.removeItem("vc_staff_access_ok_v2_local");
+ sessionStorage.removeItem("vc_staff_menu_allowed");
+ sessionStorage.removeItem("vc_staff_perms_sticky_v1");
+ sessionStorage.removeItem("vc_dash_menu_allowed");
  sessionStorage.removeItem("vc_dash_access_ok_v1");
  localStorage.removeItem("vc_dash_access_ok_v1");
+ sessionStorage.removeItem("vc_view_as_allowed");
+ try {
+ localStorage.removeItem("vc_server_identity_sticky_v1");
+ } catch (eIdSt) {}
+ /* logoutGate1: cache pagine gated (rank/personalizza) non devono sopravvivere al logout */
+ try {
+ localStorage.removeItem("vc_rank_customize_payload_v1");
+ localStorage.removeItem("vc_rank_customize_preview_cache_v5");
+ sessionStorage.removeItem("vc_rank_customize_preview_cache_v5");
+ sessionStorage.setItem("vc_force_logged_out_v1", String(Date.now()));
+ } catch (eRankClr) {}
+ /* vcStorage1: flush + signal altre tab/PWA */
+ try {
+  if (window.VcStorage) {
+   if (typeof window.VcStorage.flushPending === "function") window.VcStorage.flushPending();
+   if (typeof window.VcStorage.broadcast === "function") {
+    window.VcStorage.broadcast("vc:auth-cleared", String(Date.now()));
+   }
+   if (typeof window.VcStorage.remove === "function") {
+    window.VcStorage.remove(ME_LOCAL_CACHE_KEY, { scope: "ls", immediate: true });
+    window.VcStorage.remove(UID_CACHE_KEY, { scope: "ls", immediate: true });
+    window.VcStorage.remove("vc_server_identity_sticky_v1", { scope: "ls", immediate: true });
+   }
+  }
+ } catch (eVsClr) {}
  try {
  window.__VC_STAFF_MENU_ALLOWED = false;
  window.__VC_STAFF_PERMS = null;
+ window.__VC_DASHBOARD_MENU_ALLOWED = false;
  window.__VC_HOGWARTS_STAFF_PREVIEW = false;
+ window.__VC_VIEW_AS_ALLOWED = false;
  } catch (eClrStaff) {}
  if (window.VcApiCache && typeof window.VcApiCache.invalidatePrefix === "function") {
- ["profile:", "chrome:", "avatar:", "feedback:", "suggestions:", "staff:"].forEach(function (prefix) {
+ ["profile:", "chrome:", "avatar:", "feedback:", "suggestions:", "staff:", "rankPers"].forEach(function (prefix) {
  window.VcApiCache.invalidatePrefix(prefix);
  });
  }
@@ -2040,7 +1480,7 @@ var NAV_CHROME_FIX_VER = "20260930navMarqueeConfStaff1";
  window.__vcDiscordHasCommandPermissionsScope = hasCommandPermissionsScope;
  window.__vcDiscordReauthorizeForCommandPermissions = reauthorizeForCommandPermissions;
  } catch (eGt) {}
- /* oauthGuildsScope1 exports after fn defs — see boot exports below */
+ /* oauthGuildsScope1 exports after fn defs … see boot exports below */
  var __vcLastSwAuthToken = null;
  function syncTokenToServiceWorker(token) {
  try {
@@ -2140,6 +1580,24 @@ var NAV_CHROME_FIX_VER = "20260930navMarqueeConfStaff1";
  if (!clientId) return "";
  var redirect = resolveOAuthRedirectUri();
  var prompt = resolveOAuthPrompt(opts);
+ /* oauthPromptNone1: state.r = returnPath esplicito o pending (fallback consent non deve tornare a /) */
+ var pathForState = "";
+ try {
+ pathForState = normalizeReturnPath(opts.returnPath);
+ } catch (eRp0) {
+ pathForState = "";
+ }
+ if (!pathForState) {
+ try {
+ pathForState =
+ normalizeReturnPath(sessionStorage.getItem(OAUTH_PENDING_RETURN_KEY)) ||
+ normalizeReturnPath(localStorage.getItem(OAUTH_PENDING_RETURN_KEY)) ||
+ "";
+ } catch (eRp1) {
+ pathForState = "";
+ }
+ }
+ if (!pathForState) pathForState = currentPathPlusQuery() || "/";
  var q = new URLSearchParams({
  client_id: clientId,
  redirect_uri: redirect,
@@ -2147,16 +1605,26 @@ var NAV_CHROME_FIX_VER = "20260930navMarqueeConfStaff1";
  scope: String(opts.scopes || resolveOAuthScopes()).trim() || "identify",
  prompt: prompt,
  });
- q.set("state", buildOAuthState(currentPathPlusQuery() || "/"));
+ q.set("state", buildOAuthState(pathForState));
  try {
- if (prompt === "none") sessionStorage.setItem(OAUTH_ATTEMPTED_NONE_KEY, "1");
- else sessionStorage.removeItem(OAUTH_ATTEMPTED_NONE_KEY);
+ if (prompt === "none") {
+ sessionStorage.setItem(OAUTH_ATTEMPTED_NONE_KEY, "1");
+ localStorage.setItem(OAUTH_ATTEMPTED_NONE_KEY, "1");
+ } else {
+ sessionStorage.removeItem(OAUTH_ATTEMPTED_NONE_KEY);
+ localStorage.removeItem(OAUTH_ATTEMPTED_NONE_KEY);
+ }
  sessionStorage.removeItem(OAUTH_FORCE_CONSENT_KEY);
  } catch (ePromptFlag) {}
  return "https://discord.com/oauth2/authorize?" + q.toString();
  }
  function parseOAuthCallbackError() {
- var h = String(window.location.hash || "");
+ var h = "";
+ try {
+ h = String(window.__vcOauthHashCapture || window.location.hash || "");
+ } catch (eH) {
+ h = String(window.location.hash || "");
+ }
  var search = String(window.location.search || "");
  var raw = "";
  if (h.indexOf("error=") !== -1) raw = h.replace(/^#/, "");
@@ -2192,10 +1660,16 @@ var NAV_CHROME_FIX_VER = "20260930navMarqueeConfStaff1";
  var info = parseOAuthCallbackError();
  if (!info) return false;
  clearOAuthCallbackFragment();
+ try {
+ window.__vcOauthHashCapture = "";
+ } catch (eCapErr) {}
  var attemptedNone = false;
  try {
- attemptedNone = sessionStorage.getItem(OAUTH_ATTEMPTED_NONE_KEY) === "1";
+ attemptedNone =
+ sessionStorage.getItem(OAUTH_ATTEMPTED_NONE_KEY) === "1" ||
+ localStorage.getItem(OAUTH_ATTEMPTED_NONE_KEY) === "1";
  sessionStorage.removeItem(OAUTH_ATTEMPTED_NONE_KEY);
+ localStorage.removeItem(OAUTH_ATTEMPTED_NONE_KEY);
  sessionStorage.removeItem(OAUTH_FORCE_CONSENT_KEY);
  } catch (eAtt) {}
  var soft =
@@ -2203,10 +1677,24 @@ var NAV_CHROME_FIX_VER = "20260930navMarqueeConfStaff1";
  info.error === "consent_required" ||
  info.error === "interaction_required";
  if (!attemptedNone || !soft) return false;
+ var ret =
+ normalizeReturnPath(info.returnPath) ||
+ normalizeReturnPath(
+ (function () {
  try {
- if (info.returnPath) sessionStorage.setItem(OAUTH_PENDING_RETURN_KEY, info.returnPath);
+ return sessionStorage.getItem(OAUTH_PENDING_RETURN_KEY) || localStorage.getItem(OAUTH_PENDING_RETURN_KEY);
+ } catch (eP) {
+ return "";
+ }
+ })(),
+ ) ||
+ "/";
+ try {
+ sessionStorage.setItem(OAUTH_PENDING_RETURN_KEY, ret);
+ localStorage.setItem(OAUTH_PENDING_RETURN_KEY, ret);
  } catch (eSet) {}
- startDiscordOAuthFromUserGesture(null, authUrl({ prompt: "consent" }));
+ /* oauthPromptNone1: consent con stesso returnPath (niente state.r=/) */
+ startDiscordOAuthFromUserGesture(null, authUrl({ prompt: "consent", returnPath: ret }));
  return true;
  }
  var CMD_PERMS_SCOPE = "applications.commands.permissions.update";
@@ -2304,7 +1792,16 @@ var NAV_CHROME_FIX_VER = "20260930navMarqueeConfStaff1";
  return raw;
  }
  function buildMenuAvatarVisual(user, label, size) {
- var px = Math.max(16, Math.floor(Number(size) || 38));
+ /* violKill4: display px pu… essere 34/38; CDN size SOLO potenza di 2 */
+ var displayPx = Math.max(16, Math.floor(Number(size) || 38));
+ var cdnPx = 64;
+ try {
+ if (window.VcDiscordAvatar && typeof window.VcDiscordAvatar.cdnSize === "function") {
+ cdnPx = window.VcDiscordAvatar.cdnSize(displayPx);
+ }
+ } catch (eSz) {
+ cdnPx = displayPx <= 32 ? 32 : 64;
+ }
  var img = avatarUrl(user);
  var labelEsc = escAttr(label);
  try {
@@ -2313,7 +1810,9 @@ var NAV_CHROME_FIX_VER = "20260930navMarqueeConfStaff1";
  url: img,
  userId: user && user.id,
  avatarHash: user && user.avatar,
- size: px,
+ size: cdnPx,
+ width: displayPx,
+ height: displayPx,
  className: "discord-avatar-img vc-avatar",
  loading: "eager",
  fetchPriority: "high",
@@ -2336,10 +1835,18 @@ var NAV_CHROME_FIX_VER = "20260930navMarqueeConfStaff1";
  );
  }
  var out = img && !/embed\/avatars/i.test(img) ? img : coffee;
+ try {
+ if (out && window.VcDiscordAvatar && typeof window.VcDiscordAvatar.normalizeDiscordCdnSize === "function") {
+ out = window.VcDiscordAvatar.normalizeDiscordCdnSize(out, cdnPx) || out;
+ } else if (out && /[?&]size=\d+/i.test(out)) {
+ out = out.replace(/([?&]size=)\d+/i, "$1" + cdnPx);
+ }
+ } catch (eNormOut) {}
  var hasCdn = out !== coffee;
+ /* navUserNoFlash1: in nav usa --ready subito (pending = bg silhouette flash) */
  return (
  '<img class="discord-avatar-img vc-avatar ' +
- (hasCdn ? "vc-avatar--pending" : "vc-avatar--ready vc-avatar-fallback-img") +
+ (hasCdn ? "vc-avatar--ready" : "vc-avatar--ready vc-avatar-fallback-img") +
  '" data-vc-avatar="1"' +
  (hasCdn ? "" : ' data-vc-avatar-fallback="1"') +
  (hash ? ' data-avatar-hash="' + hash + '"' : "") +
@@ -2347,10 +1854,10 @@ var NAV_CHROME_FIX_VER = "20260930navMarqueeConfStaff1";
  ' src="' +
  escAttr(out) +
  '" alt="" width="' +
- px +
+ displayPx +
  '" height="' +
- px +
- '" decoding="async" aria-label="' +
+ displayPx +
+ '" decoding="async" fetchpriority="high" aria-label="' +
  labelEsc +
  '">'
  );
@@ -2435,20 +1942,28 @@ var NAV_CHROME_FIX_VER = "20260930navMarqueeConfStaff1";
  } catch (eCaret) {}
  }
  function kickAccountMenuPopoverAvatar() {
- var menu = document.querySelector(".discord-account-menu");
+  /* violKillVis1: rAF leggero … avatar + caret spezzati (era Violation rAF 200…350ms) */
+ if (window.__vcKickAvatarRaf) return;
+ window.__vcKickAvatarRaf = window.requestAnimationFrame(function () {
+ window.__vcKickAvatarRaf = 0;
+ try {
+ if (document.hidden) return;
+ } catch (eHid) {}
  var user = null;
  try {
  user = window.__VC_ACCOUNT_MENU_USER || null;
  } catch (eUser) {}
+ try {
  refreshAccountMenuAvatars(user, { onlyPopover: true });
+ } catch (eAv) {}
+ window.setTimeout(function () {
+ try {
+ if (document.hidden) return;
+ var menu = document.querySelector(".discord-account-menu");
  if (!menu) return;
  syncAccountPopoverCaret(menu);
- window.requestAnimationFrame(function () {
- refreshAccountMenuAvatars(user, { onlyPopover: true });
- syncAccountPopoverCaret(menu);
- window.requestAnimationFrame(function () {
- syncAccountPopoverCaret(menu);
- });
+ } catch (eC) {}
+ }, 0);
  });
  }
  function resolveRankCardApiUrl() {
@@ -2527,6 +2042,49 @@ var NAV_CHROME_FIX_VER = "20260930navMarqueeConfStaff1";
  return null;
  }
  }
+ function writeStaffMenuSticky(on) {
+ try {
+ if (on) sessionStorage.setItem("vc_staff_menu_allowed", "1");
+ else sessionStorage.removeItem("vc_staff_menu_allowed");
+ } catch (eSt) {}
+ try {
+ window.__VC_STAFF_MENU_ALLOWED = Boolean(on);
+ } catch (eFl) {}
+ if (!on) {
+ try {
+ sessionStorage.removeItem("vc_staff_perms_sticky_v1");
+ } catch (ePs) {}
+ }
+ }
+ function readStaffMenuSticky() {
+ try {
+ if (window.__VC_STAFF_MENU_ALLOWED === true) return true;
+ return sessionStorage.getItem("vc_staff_menu_allowed") === "1";
+ } catch (eR) {
+ return false;
+ }
+ }
+ function writeStaffPermsSticky(perms) {
+ try {
+ if (!perms || typeof perms !== "object") return;
+ sessionStorage.setItem(
+ "vc_staff_perms_sticky_v1",
+ JSON.stringify({ at: Date.now(), perms: perms }),
+ );
+ } catch (eW) {}
+ }
+ function readStaffPermsSticky() {
+ try {
+ var raw = sessionStorage.getItem("vc_staff_perms_sticky_v1");
+ if (!raw) return null;
+ var o = JSON.parse(raw);
+ if (!o || !o.perms || typeof o.perms !== "object") return null;
+ if (Date.now() - Number(o.at || 0) > 86400000) return null;
+ return o.perms;
+ } catch (eR) {
+ return null;
+ }
+ }
  function writeGateStaffAllowed(token, perms) {
  try {
  var t = String(token || "").trim();
@@ -2544,17 +2102,108 @@ var NAV_CHROME_FIX_VER = "20260930navMarqueeConfStaff1";
  "vc_staff_access_ok_v2_local",
  JSON.stringify(Object.assign({}, entry, { exp: now + 86400000 })),
  );
+ writeStaffMenuSticky(true);
+ if (perms && typeof perms === "object") writeStaffPermsSticky(perms);
  } catch (eGateW) {}
+ }
+ function writeDashMenuSticky(on) {
+ try {
+ if (on) sessionStorage.setItem("vc_dash_menu_allowed", "1");
+ else sessionStorage.removeItem("vc_dash_menu_allowed");
+ } catch (eD) {}
+ try {
+ window.__VC_DASHBOARD_MENU_ALLOWED = Boolean(on);
+ } catch (eDf) {}
+ }
+ function readDashMenuSticky() {
+ try {
+ if (window.__VC_DASHBOARD_MENU_ALLOWED === true) return true;
+ return sessionStorage.getItem("vc_dash_menu_allowed") === "1";
+ } catch (eR) {
+ return false;
+ }
+ }
+ function writeGateDashAllowed(token, access) {
+ try {
+ var t = String(token || "").trim();
+ if (!t) return;
+ var now = Date.now();
+ var allowed = Boolean(access && access.allowed);
+ var entry = {
+ ok: allowed,
+ allowed: allowed,
+ blacklisted: Boolean(access && access.blacklisted),
+ fp: discordSessionFingerprint(t) || menuTokenFp(t),
+ savedAt: now,
+ exp: now + 600000,
+ };
+ sessionStorage.setItem("vc_dash_access_ok_v1", JSON.stringify(entry));
+ localStorage.setItem(
+ "vc_dash_access_ok_v1",
+ JSON.stringify(Object.assign({}, entry, { exp: now + 86400000 })),
+ );
+ writeDashMenuSticky(allowed);
+ } catch (eGateD) {}
  }
  function readGateDashAllowed(token) {
  try {
- var raw = sessionStorage.getItem("vc_dash_access_ok_v1");
+ var t = String(token || "").trim();
+ if (!t) return null;
+ var raw = sessionStorage.getItem("vc_dash_access_ok_v1") || localStorage.getItem("vc_dash_access_ok_v1");
  if (!raw) return null;
  var data = JSON.parse(raw);
  if (!data || !(data.ok === true || data.allowed === true)) return null;
+ var fp = String(data.fp || "");
+ if (fp && fp !== menuTokenFp(t) && fp !== discordSessionFingerprint(t)) return null;
  if (Number(data.exp || 0) <= Date.now()) return null;
  return { allowed: true, blacklisted: Boolean(data.blacklisted) };
  } catch (e) {
+ return null;
+ }
+ }
+ function writeIdentitySticky(token, identity) {
+ try {
+ var t = String(token || "").trim();
+ if (!t || !identity) return;
+ if (!identity.avatarUrl && !identity.displayName) return;
+ var stickyJson = JSON.stringify({
+ fp: menuTokenFp(t),
+ at: Date.now(),
+ url: String(identity.avatarUrl || "").trim(),
+ displayName: String(identity.displayName || "").trim(),
+ memberAvatar: String(identity.memberAvatar || "").trim(),
+ userId: String(identity.userId || "").trim(),
+ });
+ if (window.VcStorage && typeof window.VcStorage.set === "function") {
+  window.VcStorage.set("vc_server_identity_sticky_v1", stickyJson, {
+   scope: "ls",
+   immediate: true,
+  });
+ } else {
+  localStorage.setItem("vc_server_identity_sticky_v1", stickyJson);
+ }
+ } catch (eW) {}
+ }
+ function readIdentitySticky(token) {
+ try {
+ var t = String(token || "").trim();
+ if (!t) return null;
+ var raw =
+  window.VcStorage && typeof window.VcStorage.get === "function"
+   ? window.VcStorage.get("vc_server_identity_sticky_v1", { scope: "ls" })
+   : localStorage.getItem("vc_server_identity_sticky_v1");
+ if (!raw) return null;
+ var data = JSON.parse(raw);
+ if (!data || data.fp !== menuTokenFp(t)) return null;
+ if (Date.now() - Number(data.at || 0) > 604800000) return null;
+ if (!data.url && !data.displayName) return null;
+ return {
+ avatarUrl: String(data.url || "").trim(),
+ displayName: String(data.displayName || "").trim(),
+ memberAvatar: String(data.memberAvatar || "").trim(),
+ userId: String(data.userId || "").trim(),
+ };
+ } catch (eR) {
  return null;
  }
  }
@@ -2575,6 +2224,9 @@ var NAV_CHROME_FIX_VER = "20260930navMarqueeConfStaff1";
  userId: String(cached.userId || "").trim(),
  };
  }
+ /* chromeStickyAll1: sticky 7g se cache corta scaduta */
+ var stickyId = readIdentitySticky(token);
+ if (stickyId) return stickyId;
  }
  var legacy = force ? null : readMenuCache("vc_server_avatar_v1", token, idTtl);
  var apiUrl =
@@ -2625,9 +2277,12 @@ var NAV_CHROME_FIX_VER = "20260930navMarqueeConfStaff1";
  memberAvatar: identity.memberAvatar,
  userId: identity.userId,
  });
+ writeIdentitySticky(token, identity);
  if (identity.avatarUrl) writeMenuCache("vc_server_avatar_v1", token, { url: identity.avatarUrl });
  return identity;
  } catch (e) {
+ var stickyFail = readIdentitySticky(token);
+ if (stickyFail) return stickyFail;
  return legacy && legacy.url ? { avatarUrl: String(legacy.url || "").trim() } : null;
  }
  }
@@ -2647,36 +2302,145 @@ var NAV_CHROME_FIX_VER = "20260930navMarqueeConfStaff1";
  else if (typeof window.__vcMobileNavRebuild === "function") window.__vcMobileNavRebuild();
  } catch (eNav) {}
  }
- async function fetchDashboardMenuAccess(token) {
+ function refreshDashInBackground(token) {
  var t = String(token || "").trim();
- if (!t) return { allowed: false, blacklisted: false, unchecked: true };
- var cached = readMenuCacheWithLocal("vc_menu_dash_v1", "vc_menu_dash_local_v1", t, 180000, 604800000);
- if (cached) {
- return { allowed: Boolean(cached.allowed), blacklisted: Boolean(cached.blacklisted), unchecked: false };
- }
- var fromGate = readGateDashAllowed(t);
- if (fromGate) {
- writeMenuCache("vc_menu_dash_v1", t, fromGate);
- return Object.assign({ unchecked: false }, fromGate);
- }
- try {
- var res = await fetch(dashboardApiBase() + "/access", {
- headers: { Authorization: "Bearer " + t },
- cache: "no-store",
- });
- if (!res.ok) return { allowed: false, blacklisted: false, unchecked: true };
- var data = await res.json().catch(function () {
- return {};
- });
- if (!data || data.ok !== true) return { allowed: false, blacklisted: false, unchecked: true };
+ if (!t) return;
+ if (window.__vcDashPermsRefreshing) return;
+ window.__vcDashPermsRefreshing = true;
+ var dashUrl = dashboardApiBase() + "/access";
+ var finish = function () {
+ window.__vcDashPermsRefreshing = false;
+ };
+ var apply = function (data) {
+ if (!data || data.ok !== true) return;
  var out = {
  allowed: Boolean(data.allowed),
  blacklisted: Boolean(data.blacklisted),
  unchecked: false,
  };
  writeMenuCache("vc_menu_dash_v1", t, out);
+ writeGateDashAllowed(t, out);
+ revealDashboardMenuItem(out);
+ };
+ try {
+ if (window.VcApiCache && typeof window.VcApiCache.fetchWithCache === "function") {
+ var dashKey = window.VcApiCache.keyFor(dashUrl, { scope: "dashAccess", auth: t });
+ window.VcApiCache
+ .fetchWithCache(dashKey, dashUrl, {
+ ttlMs: 180000,
+ staleMs: 600000,
+ persistMs: 604800000,
+ forceNetwork: true,
+ fetchInit: {
+ headers: { Authorization: "Bearer " + t },
+ credentials: "same-origin",
+ cache: "no-store",
+ },
+ })
+ .then(function (payload) {
+ finish();
+ apply(payload && payload.body);
+ })
+ .catch(function () {
+ finish();
+ });
+ return;
+ }
+ fetch(dashUrl, {
+ headers: { Authorization: "Bearer " + t },
+ cache: "no-store",
+ })
+ .then(function (res) {
+ return res.ok
+ ? res.json().catch(function () {
+ return null;
+ })
+ : null;
+ })
+ .then(function (data) {
+ finish();
+ apply(data);
+ })
+ .catch(function () {
+ finish();
+ });
+ } catch (eBg) {
+ finish();
+ }
+ }
+ async function fetchDashboardMenuAccess(token) {
+ var t = String(token || "").trim();
+ if (!t) return { allowed: false, blacklisted: false, unchecked: true };
+ var cached = readMenuCacheWithLocal("vc_menu_dash_v1", "vc_menu_dash_local_v1", t, 180000, 604800000);
+ if (cached) {
+ var fromCache = {
+ allowed: Boolean(cached.allowed),
+ blacklisted: Boolean(cached.blacklisted),
+ unchecked: false,
+ };
+ if (fromCache.allowed) writeDashMenuSticky(true);
+ writeGateDashAllowed(t, fromCache);
+ refreshDashInBackground(t);
+ return fromCache;
+ }
+ var fromGate = readGateDashAllowed(t);
+ if (fromGate) {
+ writeMenuCache("vc_menu_dash_v1", t, fromGate);
+ writeDashMenuSticky(true);
+ refreshDashInBackground(t);
+ return Object.assign({ unchecked: false }, fromGate);
+ }
+ if (readDashMenuSticky()) {
+ refreshDashInBackground(t);
+ return { allowed: true, blacklisted: false, unchecked: false, sticky: true };
+ }
+ try {
+ var dashUrl = dashboardApiBase() + "/access";
+ var data = null;
+ if (window.VcApiCache && typeof window.VcApiCache.fetchWithCache === "function") {
+ var dashKey = window.VcApiCache.keyFor(dashUrl, { scope: "dashAccess", auth: t });
+ var payload = await window.VcApiCache.fetchWithCache(dashKey, dashUrl, {
+ ttlMs: 180000,
+ staleMs: 600000,
+ persistMs: 604800000,
+ fetchInit: {
+ headers: { Authorization: "Bearer " + t },
+ credentials: "same-origin",
+ cache: "default",
+ },
+ });
+ if (!payload || !payload.ok || !payload.body) {
+ if (readDashMenuSticky()) return { allowed: true, blacklisted: false, unchecked: true, sticky: true };
+ return { allowed: false, blacklisted: false, unchecked: true };
+ }
+ data = payload.body;
+ } else {
+ var res = await fetch(dashUrl, {
+ headers: { Authorization: "Bearer " + t },
+ cache: "default",
+ });
+ if (!res.ok) {
+ if (readDashMenuSticky()) return { allowed: true, blacklisted: false, unchecked: true, sticky: true };
+ return { allowed: false, blacklisted: false, unchecked: true };
+ }
+ data = await res.json().catch(function () {
+ return {};
+ });
+ }
+ if (!data || data.ok !== true) {
+ if (readDashMenuSticky()) return { allowed: true, blacklisted: false, unchecked: true, sticky: true };
+ return { allowed: false, blacklisted: false, unchecked: true };
+ }
+ var out = {
+ allowed: Boolean(data.allowed),
+ blacklisted: Boolean(data.blacklisted),
+ unchecked: false,
+ };
+ writeMenuCache("vc_menu_dash_v1", t, out);
+ writeGateDashAllowed(t, out);
  return out;
  } catch (e) {
+ if (readDashMenuSticky()) return { allowed: true, blacklisted: false, unchecked: true, sticky: true };
  return { allowed: false, blacklisted: false, unchecked: true };
  }
  }
@@ -2694,6 +2458,7 @@ var NAV_CHROME_FIX_VER = "20260930navMarqueeConfStaff1";
  if (payload && typeof payload === "object") {
  try {
  window.__VC_STAFF_PERMS = payload;
+ writeStaffPermsSticky(payload);
  } catch (ePerm) {}
  }
  try {
@@ -2705,9 +2470,7 @@ var NAV_CHROME_FIX_VER = "20260930navMarqueeConfStaff1";
  window.dispatchEvent(new CustomEvent("vc:view-as-allowed"));
  }
  } catch (eVa) {}
- try {
- window.__VC_STAFF_MENU_ALLOWED = true;
- } catch (eAllow) {}
+ writeStaffMenuSticky(true);
  ensureStaffSiteNavScript();
  if (writeCache) {
  writeMenuCache("vc_menu_staff_v1", t, {
@@ -2727,7 +2490,7 @@ var NAV_CHROME_FIX_VER = "20260930navMarqueeConfStaff1";
  function applyViewAsGuest(payload) {
  try {
  window.__VC_STAFF_PERMS = payload || {};
- window.__VC_STAFF_MENU_ALLOWED = false;
+ writeStaffMenuSticky(false);
  window.__VC_VIEW_AS_ALLOWED = true;
  try {
  sessionStorage.setItem("vc_view_as_allowed", "1");
@@ -2762,7 +2525,7 @@ var NAV_CHROME_FIX_VER = "20260930navMarqueeConfStaff1";
  sessionStorage.setItem("vc_view_as_allowed", "1");
  } catch (eA) {}
  var menuOn = Boolean(payload && payload.ok && payload.staffMenu !== false);
- window.__VC_STAFF_MENU_ALLOWED = menuOn;
+ writeStaffMenuSticky(menuOn);
  if (menuOn) ensureStaffSiteNavScript();
  revealStaffMenuItem(menuOn);
  window.dispatchEvent(new CustomEvent("vc:view-as-allowed"));
@@ -2818,12 +2581,50 @@ var NAV_CHROME_FIX_VER = "20260930navMarqueeConfStaff1";
  return;
  }
  if (data && data.ok === false) {
+ /* authDiscordSticky1: deny transient Discord (timeout/member_fetch) NON deve
+    azzerare Staff mentre View As resta sticky ? Staff sparisce, Anteprima no */
+ var denyErr = String((data && data.error) || "")
+ .trim()
+ .toLowerCase();
+ var denySt = Number((data && data.status) || 0) || 0;
+ var transientDeny =
+ denySt === 429 ||
+ denySt === 408 ||
+ denySt >= 500 ||
+ /^(discord_timeout|discord_unreachable|guild_unavailable|member_fetch_failed|member_unavailable|misconfigured|upstream|timeout|internal)$/.test(
+ denyErr,
+ );
+ if (transientDeny) {
  try {
- window.__VC_STAFF_MENU_ALLOWED = false;
+ var gateKeep = readGateStaffAllowed(t);
+ if (gateKeep || window.__VC_STAFF_MENU_ALLOWED === true) {
+ applyAllowed(
+ (gateKeep && typeof gateKeep === "object" ? gateKeep : null) ||
+ window.__VC_STAFF_PERMS ||
+ null,
+ false,
+ );
+ }
+ } catch (eKeep) {}
+ return;
+ }
+ try {
+ writeStaffMenuSticky(false);
  writeMenuCache("vc_menu_staff_v1", t, { allowed: false, payload: null });
  sessionStorage.removeItem("vc_staff_access_ok_v2");
  localStorage.removeItem("vc_staff_access_ok_v2_local");
+ /* deny definitivo: togli anche sticky View As (altrimenti Anteprima senza Staff) */
+ sessionStorage.removeItem("vc_view_as_allowed");
+ window.__VC_VIEW_AS_ALLOWED = false;
  } catch (eDeny) {}
+ try {
+ revealStaffMenuItem(false);
+ } catch (eHideStaff) {}
+ try {
+ if (typeof window.__vcTeardownStaffSiteNav === "function") {
+ window.__vcTeardownStaffSiteNav();
+ }
+ } catch (eTear) {}
  }
  }
  function onStaffHttp(res, body) {
@@ -2839,11 +2640,21 @@ var NAV_CHROME_FIX_VER = "20260930navMarqueeConfStaff1";
  if (res && res.ok && body && (body.ok || body.viewAsActive)) return body;
  if (res && (res.status === 401 || res.status === 403)) {
  try {
- window.__VC_STAFF_MENU_ALLOWED = false;
+ writeStaffMenuSticky(false);
  writeMenuCache("vc_menu_staff_v1", t, { allowed: false, payload: null });
  sessionStorage.removeItem("vc_staff_access_ok_v2");
  localStorage.removeItem("vc_staff_access_ok_v2_local");
+ sessionStorage.removeItem("vc_view_as_allowed");
+ window.__VC_VIEW_AS_ALLOWED = false;
  } catch (eDeny2) {}
+ try {
+ revealStaffMenuItem(false);
+ } catch (eHide2) {}
+ try {
+ if (typeof window.__vcTeardownStaffSiteNav === "function") {
+ window.__vcTeardownStaffSiteNav();
+ }
+ } catch (eTear2) {}
  }
  return null;
  }
@@ -2901,7 +2712,7 @@ var NAV_CHROME_FIX_VER = "20260930navMarqueeConfStaff1";
  return true;
  }
  var gateBlob = readGateStaffAllowed(t);
- if (gateBlob || window.__VC_STAFF_MENU_ALLOWED === true) {
+ if (gateBlob || window.__VC_STAFF_MENU_ALLOWED === true || readStaffMenuSticky()) {
  applyAllowed(
  (gateBlob && typeof gateBlob === "object" ? gateBlob : null) || window.__VC_STAFF_PERMS || null,
  false,
@@ -2991,7 +2802,7 @@ var NAV_CHROME_FIX_VER = "20260930navMarqueeConfStaff1";
  window.__vcStaffSiteNavRequested = true;
  try {
  var s = document.createElement("script");
- s.src = "/js/staff-site-nav.js?v=20261002violPass5";
+      s.src = "/js/staff-site-nav.20261013footerStaffPhoneGap1.js?v=20261013footerStaffPhoneGap1";
  s.async = false;
  s.setAttribute("data-vc-staff-site-nav", "1");
  (document.head || document.documentElement).appendChild(s);
@@ -3002,16 +2813,23 @@ var NAV_CHROME_FIX_VER = "20260930navMarqueeConfStaff1";
  var t = getToken();
  if (!t) return false;
  if (window.__VC_DASHBOARD_MENU_BLACKLISTED === true) return false;
- if (window.__VC_DASHBOARD_MENU_ALLOWED === true || window.__VC_DASHBOARD_ACCESS_OK === true) return true;
+ if (window.__VC_DASHBOARD_MENU_ALLOWED === true || window.__VC_DASHBOARD_ACCESS_OK === true) {
+ if (readDashMenuSticky()) writeDashMenuSticky(true);
+ return true;
+ }
  var cached = readMenuCacheWithLocal("vc_menu_dash_v1", "vc_menu_dash_local_v1", t, 180000, 604800000);
  var gate = readGateDashAllowed(t);
+ var sticky = readDashMenuSticky();
  var access = null;
  if (cached) {
  access = { allowed: Boolean(cached.allowed), blacklisted: Boolean(cached.blacklisted) };
  } else if (gate) {
  access = gate;
+ } else if (sticky) {
+ access = { allowed: true, blacklisted: false };
  }
  if (!access) return false;
+ if (access.allowed) writeDashMenuSticky(true);
  revealDashboardMenuItem(access);
  return Boolean(access.allowed);
  } catch (eWarmDash) {
@@ -3027,19 +2845,23 @@ var NAV_CHROME_FIX_VER = "20260930navMarqueeConfStaff1";
  if (!t) return false;
  var cached = readMenuCacheWithLocal("vc_menu_staff_v1", "vc_menu_staff_local_v1", t, 600000, 86400000);
  var gate = readGateStaffAllowed(t);
+ var sticky = readStaffMenuSticky();
  var already = window.__VC_STAFF_MENU_ALLOWED === true;
- if (!(cached && cached.allowed) && !gate && !already) return false;
+ /* staffStickyFast1: sticky semplice basta per montare Staff subito (ruoli via refresh) */
+ if (!(cached && cached.allowed) && !gate && !already && !sticky) return false;
  var payload =
  (cached && cached.payload) ||
  (gate && typeof gate === "object" ? gate : null) ||
  window.__VC_STAFF_PERMS ||
+ readStaffPermsSticky() ||
  null;
  if (payload) {
  try {
  window.__VC_STAFF_PERMS = payload;
+ writeStaffPermsSticky(payload);
  } catch (eP) {}
  }
- window.__VC_STAFF_MENU_ALLOWED = true;
+ writeStaffMenuSticky(true);
  ensureStaffSiteNavScript();
  try {
  window.dispatchEvent(new CustomEvent("vc:staff-access-ok", { detail: { perms: payload || {} } }));
@@ -3132,7 +2954,8 @@ var NAV_CHROME_FIX_VER = "20260930navMarqueeConfStaff1";
  }
  function staffPageHref(userId) {
  var id = resolveAccountUserId(userId);
- return id ? "/user/?id=" + encodeURIComponent(id) : "/user/";
+ /* classificheRename1: senza id non mandare alla board /user bare */
+ return id ? "/user/?id=" + encodeURIComponent(id) : "#";
  }
  function staffApiBase() {
  var isLocal = false;
@@ -3399,7 +3222,9 @@ var NAV_CHROME_FIX_VER = "20260930navMarqueeConfStaff1";
  return;
  }
  try {
- sessionStorage.setItem(OAUTH_PENDING_RETURN_KEY, currentPathPlusQuery() || "/");
+ var retNow = currentPathPlusQuery() || "/";
+ sessionStorage.setItem(OAUTH_PENDING_RETURN_KEY, retNow);
+ localStorage.setItem(OAUTH_PENDING_RETURN_KEY, retNow);
  } catch (e0) {}
  if (visualBtn) {
  if (visualBtn.getAttribute("data-vc-login-default-html") == null) {
@@ -3603,7 +3428,7 @@ var NAV_CHROME_FIX_VER = "20260930navMarqueeConfStaff1";
  if (/^\/personalizza(?:\/|$)/i.test(path)) return "";
  if (/^\/notifications(?:\/|$)/i.test(path)) return "/";
  if (/^\/dati(?:\/|$)/i.test(path)) return "";
- if (isOwnProfileCurrent()) return "/user/";
+ if (isOwnProfileCurrent()) return "/classifiche/";
  if (/^\/evento(?:\/|$)/i.test(path)) {
  try {
  var nav = window.__VC_HOGWARTS_EVENT_NAV;
@@ -3631,7 +3456,8 @@ var NAV_CHROME_FIX_VER = "20260930navMarqueeConfStaff1";
  }
  function teardownStaffChromeAfterLogout() {
  try {
- window.__VC_STAFF_MENU_ALLOWED = false;
+ writeStaffMenuSticky(false);
+ writeDashMenuSticky(false);
  window.__VC_STAFF_PERMS = null;
  window.__VC_HOGWARTS_STAFF_PREVIEW = false;
  } catch (e0) {}
@@ -3720,6 +3546,18 @@ var NAV_CHROME_FIX_VER = "20260930navMarqueeConfStaff1";
  return true;
  }
 
+function isUserInitiatedLogout(reason) {
+ var r = String(reason || "").trim().toLowerCase();
+ return !r || r === "user" || r === "manual" || r === "logout";
+ }
+ function logoutToOAuthAuthorizeUrl() {
+ /* logoutToOAuth1: logout utente ? subito Discord authorize (consent) */
+ try {
+ return authUrl({ prompt: "consent" }) || "";
+ } catch (eAuth) {
+ return "";
+ }
+ }
  function completeLogout(opts) {
  opts = opts || {};
  /* sessionBrowserToast1 */
@@ -3735,11 +3573,18 @@ var NAV_CHROME_FIX_VER = "20260930navMarqueeConfStaff1";
  var dest = "";
  if (!opts.skipRedirect) {
  try {
- if (isOwnProfileCurrent()) dest = "/user/";
+ if (isUserInitiatedLogout(opts.reason)) {
+ dest = logoutToOAuthAuthorizeUrl();
+ }
+ if (!dest) {
+ if (isOwnProfileCurrent()) dest = "/classifiche/";
  else dest = logoutRedirectTarget();
+ }
  } catch (eDest) {
  try {
- dest = logoutRedirectTarget();
+ dest = isUserInitiatedLogout(opts.reason)
+ ? logoutToOAuthAuthorizeUrl() || logoutRedirectTarget()
+ : logoutRedirectTarget();
  } catch (eDest2) {
  dest = "";
  }
@@ -3761,6 +3606,16 @@ var NAV_CHROME_FIX_VER = "20260930navMarqueeConfStaff1";
  if (opts.skipRedirect) return;
  navigateAfterLogout(dest);
  }
+ function markDiscordAuthBootDone(why) {
+ try {
+ window.__vcDiscordAuthBootDone = 1;
+ window.__vcDiscordAuthPainted = 1;
+ document.dispatchEvent(
+ new CustomEvent("vc-discord-auth-boot", { detail: { reason: String(why || "") } }),
+ );
+ } catch (eMark) {}
+ }
+ /* logoutToOAuth1 */
  function renderLoggedOut(opts) {
  opts = opts || {};
  try {
@@ -3803,6 +3658,7 @@ var NAV_CHROME_FIX_VER = "20260930navMarqueeConfStaff1";
  if (!opts.skipRedirect && !getToken()) {
  navigateAfterLogout(logoutRedirectTarget());
  }
+ markDiscordAuthBootDone(opts.viewAsPreview ? "logged-out-preview" : "logged-out");
  }
  try {
  window.__vcDiscordRenderLoggedOut = function () {
@@ -3826,9 +3682,11 @@ var NAV_CHROME_FIX_VER = "20260930navMarqueeConfStaff1";
  var state = byId("discord-login-state");
  if (!state) return;
  state.hidden = false;
+ /* navUserNoFlash1: se early/chip gi… ok, non toccare */
  if (
- state.querySelector(".discord-login-row:not(.vc-auth-pending-shell):not(.vc-auth-early-shell)") ||
- state.querySelector(".vc-auth-early-shell img.discord-avatar-img")
+ state.querySelector(".discord-login-row--profile .discord-profile-link--chip") ||
+ state.querySelector(".vc-auth-early-shell img.discord-avatar-img") ||
+ state.querySelector(".discord-account-menu .discord-profile-link--chip")
  ) {
  return;
  }
@@ -3841,30 +3699,47 @@ var NAV_CHROME_FIX_VER = "20260930navMarqueeConfStaff1";
  return;
  }
  } catch (eCache) {}
- }
- var coffeePending = "";
  try {
- if (window.VcDiscordAvatar && typeof window.VcDiscordAvatar.siteFallbackAvatarUrl === "function") {
- coffeePending = window.VcDiscordAvatar.siteFallbackAvatarUrl();
- }
- } catch (eCp) {}
- if (!coffeePending) {
- coffeePending =
- "data:image/svg+xml;charset=utf-8," +
- encodeURIComponent(
- '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96"><defs><linearGradient id="vcCoffeePend" x1="0" x2="1" y1="0" y2="1"><stop stop-color="#6f4e37"/><stop offset="1" stop-color="#2a1712"/></linearGradient></defs><rect width="96" height="96" rx="48" fill="url(#vcCoffeePend)"/><circle cx="48" cy="36" r="17" fill="#f4dcc2" opacity=".92"/><path d="M20 82c4-18 16-28 28-28s24 10 28 28" fill="#f4dcc2" opacity=".92"/></svg>',
- );
- }
+ var stickyPend = readIdentitySticky(token);
+ if (stickyPend && (stickyPend.avatarUrl || stickyPend.displayName)) {
+ var pendName = String(stickyPend.displayName || "Utente").trim() || "Utente";
+ var pendAv = String(stickyPend.avatarUrl || "").trim();
+ var pendUid = String(stickyPend.userId || "").trim();
+ var pendLabel = escAttr(pendName);
  state.innerHTML =
- '<div class="discord-login-row vc-auth-pending-shell" aria-busy="true" title="' +
- escAttr(i18n("auth.sessionChecking", "Caricamento�")) +
- '">' +
- '<span class="discord-profile-link" aria-hidden="true">' +
+ '<div class="discord-login-row discord-login-row--profile vc-auth-early-shell" data-vc-nav-user-early="1" aria-busy="true">' +
+ '<div class="discord-account-menu">' +
+ '<button type="button" class="discord-profile-link discord-profile-link--chip" aria-label="' +
+ escAttr(i18n("auth.accountMenu", "Menu account")) +
+ " " +
+ pendLabel +
+ '" aria-haspopup="true">' +
  '<span class="discord-avatar-clip">' +
- '<img class="discord-avatar-img vc-avatar vc-avatar--ready vc-avatar-fallback-img" data-vc-avatar="1" data-vc-avatar-fallback="1" src="' +
- escAttr(coffeePending) +
- '" alt="" width="38" height="38" decoding="async" aria-hidden="true" />' +
- "</span></span></div>";
+ '<img class="discord-avatar-img vc-avatar vc-avatar--ready" data-vc-avatar="1" data-vc-nav-early="1"' +
+ (pendUid ? ' data-user-id="' + escAttr(pendUid) + '"' : "") +
+ (pendAv ? ' src="' + escAttr(pendAv) + '"' : "") +
+ ' alt="" width="34" height="34" decoding="async" fetchpriority="high" aria-label="' +
+ pendLabel +
+ '">' +
+ "</span>" +
+ '<span class="discord-profile-link__name vc-marquee" data-vc-nav-user-marquee>' +
+ '<span class="vc-marquee__track"><span class="vc-marquee__text">' +
+ pendLabel +
+ "</span></span></span></button></div></div>";
+ return;
+ }
+ } catch (eStickyPend) {}
+ }
+ /* navUserNoFlash1: niente silhouette caff… … skeleton chip neutro stesso layout finale */
+ state.innerHTML =
+ '<div class="discord-login-row discord-login-row--profile vc-auth-pending-shell vc-auth-pending-shell--chip" aria-busy="true" title="' +
+ escAttr(i18n("auth.sessionChecking", "Caricamento…")) +
+ '">' +
+ '<div class="discord-account-menu">' +
+ '<span class="discord-profile-link discord-profile-link--chip" aria-hidden="true">' +
+ '<span class="discord-avatar-clip"><span class="vc-nav-av-skel" aria-hidden="true"></span></span>' +
+ '<span class="discord-profile-link__name"><span class="vc-nav-name-skel" aria-hidden="true"></span></span>' +
+ "</span></div></div>";
  }
  function postOAuthAccessoRedirectPath() {
  try {
@@ -3955,14 +3830,54 @@ var NAV_CHROME_FIX_VER = "20260930navMarqueeConfStaff1";
  }
  var state = byId("discord-login-state");
  if (!state) return;
+ var tokenForSticky = getToken();
+ var stickyFirst = null;
+ try {
+ stickyFirst =
+ readIdentitySticky(tokenForSticky) ||
+ readMenuCache("vc_server_identity_v1", tokenForSticky, 604800000);
+ } catch (eStickyFirst) {}
  var name = profileDisplayName(user);
+ if (stickyFirst && stickyFirst.displayName) {
+ name = String(stickyFirst.displayName || "").trim() || name;
+ }
  var label = escAttr(name);
  try {
  window.__VC_ACCOUNT_MENU_USER = user;
  } catch (eStoreUser) {}
  var href = escAttr(profileHref(user && user.id));
  var isProfileCurrent = isOwnProfileCurrent(user && user.id);
- var avatarVisual = buildMenuAvatarVisual(user, name, 34);
+ var stickyAv = stickyFirst ? String(stickyFirst.avatarUrl || stickyFirst.url || "").trim() : "";
+ var avatarVisual;
+ if (stickyAv) {
+ var stickyHash = String((stickyFirst && stickyFirst.memberAvatar) || "").trim();
+ avatarVisual =
+ '<img class="discord-avatar-img vc-avatar vc-avatar--ready" data-vc-avatar="1" data-vc-guild-avatar="1" data-vc-guild-src="' +
+ escAttr(stickyAv) +
+ '"' +
+ (stickyHash ? ' data-avatar-hash="' + escAttr(stickyHash) + '"' : "") +
+ (user && user.id ? ' data-user-id="' + escAttr(String(user.id)) + '"' : "") +
+ ' src="' +
+ escAttr(stickyAv) +
+ '" alt="" width="34" height="34" decoding="async" fetchpriority="high" aria-label="' +
+ label +
+ '">';
+ } else {
+ avatarVisual = buildMenuAvatarVisual(user, name, 34);
+ }
+ var keepLoadedAvatar = null;
+ try {
+ var earlyImg = state.querySelector(
+ "img.discord-avatar-img[data-vc-nav-early], .vc-auth-early-shell img.discord-avatar-img, .discord-login-row--profile img.discord-avatar-img",
+ );
+ if (earlyImg && earlyImg.complete && earlyImg.naturalWidth > 0) {
+ var earlySrc = String(earlyImg.getAttribute("src") || earlyImg.src || "").trim();
+ var wantSrc = stickyAv || String(avatarUrl(user) || "").trim();
+ if (earlySrc && (!wantSrc || earlySrc === wantSrc || (stickyAv && earlySrc === stickyAv))) {
+ keepLoadedAvatar = earlyImg;
+ }
+ }
+ } catch (eKeepEarly) {}
  var accountMenuBlock =
  '<div class="discord-account-menu">' +
  '<button type="button" class="discord-profile-link discord-profile-link--chip" aria-label="' +
@@ -3973,8 +3888,12 @@ var NAV_CHROME_FIX_VER = "20260930navMarqueeConfStaff1";
  '<span class="discord-avatar-clip">' +
  avatarVisual +
  "</span>" +
- '<span class="discord-profile-link__name">' +
+ '<span class="discord-profile-link__name vc-marquee" data-vc-nav-user-marquee>' +
+ '<span class="vc-marquee__track">' +
+ '<span class="vc-marquee__text">' +
  label +
+ "</span>" +
+ "</span>" +
  "</span>" +
  "</button>" +
  '<div class="discord-account-popover" role="menu">' +
@@ -4013,6 +3932,24 @@ var NAV_CHROME_FIX_VER = "20260930navMarqueeConfStaff1";
  accountMenuBlock +
  "</div>";
  state.hidden = false;
+ /* navUserNoFlash1: riusa img gi… decodificata dall'early chip */
+ try {
+ if (keepLoadedAvatar) {
+ var freshAv = state.querySelector(".discord-avatar-clip img.discord-avatar-img");
+ if (freshAv && freshAv !== keepLoadedAvatar && freshAv.parentNode) {
+ keepLoadedAvatar.className = freshAv.className;
+ keepLoadedAvatar.removeAttribute("data-vc-nav-early");
+ ["data-vc-avatar", "data-vc-guild-avatar", "data-vc-guild-src", "data-avatar-hash", "data-user-id", "aria-label", "width", "height"].forEach(
+  function (attr) {
+   var v = freshAv.getAttribute(attr);
+   if (v != null) keepLoadedAvatar.setAttribute(attr, v);
+   else keepLoadedAvatar.removeAttribute(attr);
+  },
+ );
+ freshAv.parentNode.replaceChild(keepLoadedAvatar, freshAv);
+ }
+ }
+ } catch (eSwapAv) {}
  try {
  revealStaffMenuItem(window.__VC_STAFF_MENU_ALLOWED === true);
  } catch (eStrip) {}
@@ -4033,10 +3970,29 @@ var NAV_CHROME_FIX_VER = "20260930navMarqueeConfStaff1";
  warmStaffNavEarly();
  warmDashboardNavEarly();
  fetchDashboardMenuAccess(token).then(function (allowed) {
+ /* chromeStickyAll1: rete ko ? non togliere Dashboard se sticky */
+ if (allowed && allowed.unchecked && !allowed.allowed && !readDashMenuSticky()) {
+ return;
+ }
+ if ((!allowed || !allowed.allowed) && readDashMenuSticky() && allowed && allowed.unchecked) {
+ revealDashboardMenuItem({ allowed: true, blacklisted: false, unchecked: true });
+ return;
+ }
+ if (allowed && allowed.allowed === false && allowed.unchecked === false) {
+ writeDashMenuSticky(false);
+ }
  revealDashboardMenuItem(allowed);
  });
  fetchStaffMenuAccess(token).then(function (allowed) {
- revealStaffMenuItem(allowed);
+ /* staffStickyFast1: rete ko / transient ? non smontare se sticky ancora valida */
+ if (allowed || readStaffMenuSticky()) {
+ revealStaffMenuItem(true);
+ try {
+ ensureStaffSiteNavScript();
+ } catch (eEns) {}
+ } else {
+ revealStaffMenuItem(false);
+ }
  });
  var applyServerIdentity = function (identity) {
  if (!identity) return;
@@ -4049,7 +4005,37 @@ var NAV_CHROME_FIX_VER = "20260930navMarqueeConfStaff1";
  ".discord-profile-link__name, .discord-account-popover__name",
  );
  for (var ni = 0; ni < nameEls.length; ni += 1) {
- nameEls[ni].textContent = serverName;
+ var nameHost = nameEls[ni];
+ var marqueeTexts = nameHost.querySelectorAll
+ ? nameHost.querySelectorAll(".vc-marquee__text")
+ : [];
+ if (marqueeTexts && marqueeTexts.length) {
+ var curMq = String(marqueeTexts[0].textContent || "")
+ .replace(/\s+/g, " ")
+ .trim();
+ /* wmMqStable1: stesso nome ? non toccare sig/t0 (evita restart marquee) */
+ if (curMq === serverName && nameHost.classList.contains("is-marquee")) {
+ /* keep running */
+ } else {
+ for (var mt = 0; mt < marqueeTexts.length; mt += 1) {
+ marqueeTexts[mt].textContent = serverName;
+ }
+ nameHost.removeAttribute("data-vc-marquee-sig");
+ }
+ } else {
+ /* navUserMqForce1: se qualcuno ha azzerato il DOM marquee, ricostruiscilo */
+ try {
+ nameHost.classList.add("vc-marquee");
+ nameHost.setAttribute("data-vc-nav-user-marquee", "");
+ nameHost.innerHTML =
+ '<span class="vc-marquee__track"><span class="vc-marquee__text"></span></span>';
+ var tRebuild = nameHost.querySelector(".vc-marquee__text");
+ if (tRebuild) tRebuild.textContent = serverName;
+ nameHost.removeAttribute("data-vc-marquee-sig");
+ } catch (eRebuild) {
+ nameHost.textContent = serverName;
+ }
+ }
  }
  var btn = state.querySelector(".discord-profile-link");
  if (btn) {
@@ -4062,6 +4048,21 @@ var NAV_CHROME_FIX_VER = "20260930navMarqueeConfStaff1";
  for (var ai = 0; ai < imgsNamed.length; ai += 1) {
  imgsNamed[ai].setAttribute("aria-label", serverName);
  }
+ try {
+ window.__vcNavUserMarqueeNeed = 1;
+ function kickUserMq() {
+ try {
+ if (typeof window.__vcNavUserNameMarqueeSync === "function") {
+ window.__vcNavUserNameMarqueeSync();
+ }
+ } catch (eKickMq) {}
+ }
+ kickUserMq();
+ /* homeBootFix2: chrome-ui lazy post-sipario — retry lunghi */
+ [80, 250, 700, 1500, 3200, 6000].forEach(function (ms) {
+ window.setTimeout(kickUserMq, ms);
+ });
+ } catch (eMq) {}
  } catch (eName) {}
  try {
  user.displayName = serverName;
@@ -4134,22 +4135,48 @@ var NAV_CHROME_FIX_VER = "20260930navMarqueeConfStaff1";
  }
  } catch (e) {}
  };
+ /* chromeStickyAll1: identity sticky subito, poi refresh rete */
+ try {
+ var stickyPaint =
+ readIdentitySticky(token) ||
+ readMenuCache("vc_server_identity_v1", token, 604800000);
+ if (stickyPaint && (stickyPaint.avatarUrl || stickyPaint.displayName || stickyPaint.url)) {
+ applyServerIdentity({
+ avatarUrl: String(stickyPaint.avatarUrl || stickyPaint.url || "").trim(),
+ displayName: String(stickyPaint.displayName || "").trim(),
+ memberAvatar: String(stickyPaint.memberAvatar || "").trim(),
+ userId: String(stickyPaint.userId || "").trim(),
+ });
+ }
+ } catch (eStickyId) {}
  var runAvatar = function () {
  /* accountAvatarFresh2: bypass cache identity ? foto guild aggiornata */
- /* avatarHubIdle1: non fare lavoro DOM pesante dentro idle � solo kick della fetch */
+ /* avatarHubIdle1: non fare lavoro DOM pesante dentro idle … solo kick della fetch */
  window.setTimeout(function () {
  fetchServerIdentity(token, { force: true }).then(applyServerIdentity);
  }, 0);
  };
- if (typeof window.requestIdleCallback === "function") {
- window.requestIdleCallback(runAvatar, { timeout: 4000 });
- } else {
+ /* violKillIdle1 */
  window.setTimeout(runAvatar, 600);
- }
  try {
  document.documentElement.classList.remove("vc-auth-session-pending");
  } catch (eClsDone) {}
+ try {
+ window.__vcNavUserMarqueeNeed = 1;
+ function kickUserMqBoot() {
+ try {
+ if (typeof window.__vcNavUserNameMarqueeSync === "function") {
+ window.__vcNavUserNameMarqueeSync();
+ }
+ } catch (eKickBoot) {}
+ }
+ kickUserMqBoot();
+ [80, 250, 700, 1500, 3200, 6000].forEach(function (ms) {
+ window.setTimeout(kickUserMqBoot, ms);
+ });
+ } catch (eNavMq) {}
  emitProfile(user);
+ markDiscordAuthBootDone("logged-in");
  }
  function discordSessionFingerprint(token) {
  var exp = "";
@@ -4157,6 +4184,16 @@ var NAV_CHROME_FIX_VER = "20260930navMarqueeConfStaff1";
  exp = String(localStorage.getItem(EXPIRES_AT_KEY) || "");
  } catch (eFp) {}
  return exp + "|" + String(token || "").slice(0, 32);
+ }
+ function meCacheFpLooseOk(storedFp, token, exactFp) {
+ var fp = String(storedFp || "");
+ var t = String(token || "");
+ if (!fp || !t) return false;
+ if (fp === exactFp) return true;
+ /* navUserNoFlash1: expires drift non deve invalidare paint (stesso token head) */
+ var head32 = t.slice(0, 32);
+ var head24 = t.slice(0, 24);
+ return fp.indexOf(head32) !== -1 || fp.slice(-32) === head32 || fp.slice(-24) === head24;
  }
  function readCachedDiscordMe(token) {
  var fp = discordSessionFingerprint(token);
@@ -4167,7 +4204,15 @@ var NAV_CHROME_FIX_VER = "20260930navMarqueeConfStaff1";
  if (raw) {
  var o = JSON.parse(raw);
  var age = now - Number(o.at || 0);
- if (o && o.v === 1 && o.user && String(o.fp || "") === fp && isFinite(age) && age >= 0 && age <= ME_SESSION_TTL_MS) {
+ if (
+ o &&
+ o.v === 1 &&
+ o.user &&
+ meCacheFpLooseOk(o.fp, token, fp) &&
+ isFinite(age) &&
+ age >= 0 &&
+ age <= ME_SESSION_TTL_MS
+ ) {
  return o.user;
  }
  }
@@ -4177,33 +4222,121 @@ var NAV_CHROME_FIX_VER = "20260930navMarqueeConfStaff1";
  if (rawLocal) {
  var ol = JSON.parse(rawLocal);
  var ageL = now - Number(ol.at || 0);
- if (ol && ol.v === 1 && ol.user && String(ol.fp || "") === fp && isFinite(ageL) && ageL >= 0 && ageL <= ME_LOCAL_TTL_MS) {
+ if (
+ ol &&
+ ol.v === 1 &&
+ ol.user &&
+ meCacheFpLooseOk(ol.fp, token, fp) &&
+ isFinite(ageL) &&
+ ageL >= 0 &&
+ ageL <= ME_LOCAL_TTL_MS
+ ) {
  return ol.user;
  }
  }
  } catch (eRl) {}
  return null;
  }
+ function prefetchDiscordAvatar(user) {
+ try {
+ var url = avatarUrl(user);
+ if (!url || url.indexOf("data:") === 0) return;
+ var img = new Image();
+ img.decoding = "async";
+ try {
+ img.fetchPriority = "high";
+ } catch (eFp) {}
+ img.src = url;
+ if (window.caches && caches.open) {
+ caches.open("vc-discord-avatar-v1").then(function (cache) {
+ return cache.match(url).then(function (hit) {
+ if (hit) return;
+ return cache.add(url).catch(function () {});
+ });
+ }).catch(function () {});
+ }
+ } catch (ePref) {}
+ }
+ function cachedMeAgeMs(token) {
+ try {
+ var fp = discordSessionFingerprint(token);
+ var raw = sessionStorage.getItem(ME_CACHE_KEY);
+ if (raw) {
+ var o = JSON.parse(raw);
+ if (o && o.v === 1 && String(o.fp || "") === fp) {
+ var age = Date.now() - Number(o.at || 0);
+ if (isFinite(age) && age >= 0) return age;
+ }
+ }
+ } catch (eAge) {}
+ try {
+ var rawL = localStorage.getItem(ME_LOCAL_CACHE_KEY);
+ if (rawL) {
+ var ol = JSON.parse(rawL);
+ var fpL = discordSessionFingerprint(token);
+ if (ol && ol.v === 1 && String(ol.fp || "") === fpL) {
+ var ageL = Date.now() - Number(ol.at || 0);
+ if (isFinite(ageL) && ageL >= 0) return ageL;
+ }
+ }
+ } catch (eAgeL) {}
+ return Infinity;
+ }
  function writeCachedDiscordMe(token, user) {
  var fp = discordSessionFingerprint(token);
  var payload = { v: 1, fp: fp, at: Date.now(), user: user };
+ var payloadJson = JSON.stringify(payload);
  try {
- sessionStorage.setItem(ME_CACHE_KEY, JSON.stringify(payload));
+  if (window.VcStorage && typeof window.VcStorage.set === "function") {
+   window.VcStorage.set(ME_CACHE_KEY, payloadJson, { scope: "ss", immediate: true, broadcast: false });
+   window.VcStorage.set(ME_LOCAL_CACHE_KEY, payloadJson, { scope: "ls", immediate: true });
+  } else {
+   sessionStorage.setItem(ME_CACHE_KEY, payloadJson);
+   localStorage.setItem(ME_LOCAL_CACHE_KEY, payloadJson);
+  }
  } catch (eW) {}
- try {
- localStorage.setItem(ME_LOCAL_CACHE_KEY, JSON.stringify(payload));
- } catch (eWl) {}
  try {
  var uid = String(user && user.id || "").trim();
  if (/^\d{17,22}$/.test(uid)) {
- localStorage.setItem(
- UID_CACHE_KEY,
- JSON.stringify({ v: 1, fp: fp, at: Date.now(), uid: uid }),
- );
+  var uidJson = JSON.stringify({ v: 1, fp: fp, at: Date.now(), uid: uid });
+  if (window.VcStorage && typeof window.VcStorage.set === "function") {
+   window.VcStorage.set(UID_CACHE_KEY, uidJson, { scope: "ls", immediate: true });
+  } else {
+   localStorage.setItem(UID_CACHE_KEY, uidJson);
+  }
  }
  } catch (eUid) {}
+ try {
+ prefetchDiscordAvatar(user);
+ } catch (eAv) {}
+ }
+ var __vcMeInFlight = Object.create(null);
+ function applySiteBootPayload(data) {
+ try {
+  if (!data || typeof data !== "object") return;
+  window.__VC_SITE_BOOT = data;
+  if (data.unread) window.__VC_BOOT_UNREAD = data.unread;
+  if (data.prefs) window.__VC_BOOT_PREFS = data.prefs;
+  if (data.theme) {
+   try {
+    var th = String(data.theme || "").trim().toLowerCase();
+    if (th === "light" || th === "dark" || th === "auto") {
+     if (window.VcStorage && typeof window.VcStorage.set === "function") {
+      window.VcStorage.set("vc-theme-pref", th, { scope: "ls", immediate: true });
+     } else {
+      localStorage.setItem("vc-theme-pref", th);
+     }
+     window.__VC_BOOT_THEME = th;
+    }
+   } catch (eTh) {}
+  }
+  try {
+   document.dispatchEvent(new CustomEvent("vc:site-boot", { detail: data }));
+  } catch (eEv) {}
+ } catch (eBootApply) {}
  }
  function fetchMe(token, timeoutMs) {
+ var t = String(token || "");
  var fallback = 8000;
  try {
  if (
@@ -4214,6 +4347,50 @@ var NAV_CHROME_FIX_VER = "20260930navMarqueeConfStaff1";
  }
  } catch (eFb) {}
  var ms = Math.max(2500, Number(timeoutMs) || fallback);
+ var flightKey = "me:" + t;
+ if (__vcMeInFlight[flightKey]) return __vcMeInFlight[flightKey];
+ function track(p) {
+ __vcMeInFlight[flightKey] = p.finally(function () {
+ try {
+ delete __vcMeInFlight[flightKey];
+ } catch (eDel) {}
+ });
+ return __vcMeInFlight[flightKey];
+ }
+ function fetchMeLegacy() {
+ /* apiJankCut1: VcApiCache SWR + inFlight (prima raw fetch per-page) */
+ if (window.VcApiCache && typeof window.VcApiCache.fetchWithCache === "function") {
+ var cacheKey = window.VcApiCache.keyFor("/webhooks/site-discord-me", {
+ scope: "discordMe",
+ auth: t,
+ });
+ return window.VcApiCache.fetchWithCache(cacheKey, "/webhooks/site-discord-me", {
+ ttlMs: 60000,
+ staleMs: 900000,
+ persistMs: 86400000,
+ timeoutMs: ms,
+ isCacheableBody: function (body) {
+ return Boolean(body && (body.id || body.ok === true));
+ },
+ fetchInit: {
+ headers: { Authorization: "Bearer " + t },
+ credentials: "same-origin",
+ cache: "default",
+ },
+ }).then(function (payload) {
+ if (!payload || !payload.ok || !payload.body) {
+ var err = new Error(String((payload && payload.status) || "me_fail"));
+ err.status = payload && payload.status;
+ throw err;
+ }
+ if (payload.body.ok === false) {
+ var e2 = new Error(String(payload.body.error || "me_fail"));
+ e2.status = payload.status;
+ throw e2;
+ }
+ return payload.body;
+ });
+ }
  var ac = new AbortController();
  var tid = setTimeout(function () {
  try {
@@ -4221,9 +4398,10 @@ var NAV_CHROME_FIX_VER = "20260930navMarqueeConfStaff1";
  } catch (eAb) {}
  }, ms);
  return fetch("/webhooks/site-discord-me", {
- headers: { Authorization: "Bearer " + String(token || "") },
+ headers: { Authorization: "Bearer " + t },
  signal: ac.signal,
  credentials: "same-origin",
+ cache: "default",
  })
  .then(function (r) {
  try {
@@ -4248,11 +4426,32 @@ var NAV_CHROME_FIX_VER = "20260930navMarqueeConfStaff1";
  throw e;
  });
  }
+ /* siteBoot1: prova /webhooks/site-boot (me+unread+theme); fallback me dedicato */
+ return track(
+ fetch("/webhooks/site-boot", {
+ headers: { Authorization: "Bearer " + t },
+ credentials: "same-origin",
+ cache: "default",
+ })
+ .then(function (r) {
+ if (!r || !r.ok) throw new Error("boot_" + String(r && r.status));
+ return r.json();
+ })
+ .then(function (data) {
+ if (!data || data.ok === false || !data.me || !data.me.id) throw new Error("boot_no_me");
+ applySiteBootPayload(data);
+ return data.me;
+ })
+ .catch(function () {
+ return fetchMeLegacy();
+ })
+ );
+ }
  var SITE_VERIFY_DONE_PREFIX = "vc_site_verify_done_v1_";
  function readSiteVerifyGuildFromQuery() {
  try {
  var p = new URLSearchParams(window.location.search || "");
- /* siteVerifyOnlyParam1: solo siteVerifyGuild — guildId è usato da bacheca/wizard */
+ /* siteVerifyOnlyParam1: solo siteVerifyGuild … guildId … usato da bacheca/wizard */
  var gid = String(p.get("siteVerifyGuild") || "").trim();
  if (/^\d{17,22}$/.test(gid)) return gid;
  } catch (e) {}
@@ -4377,12 +4576,13 @@ var NAV_CHROME_FIX_VER = "20260930navMarqueeConfStaff1";
  if (maybeFallbackOAuthConsentFromError()) return;
  var parsed = parseHashToken();
  if (parsed && parsed.stateMismatch) {
- try {
- clearToken();
- } catch (eSm) {}
+ /* oauthHashKill1: NON clearToken … solo pulisci hash spoof; login reale gi… gestito sopra */
  try {
  history.replaceState({}, document.title, window.location.pathname + window.location.search);
  } catch (eSm2) {}
+ try {
+ window.__vcOauthHashCapture = "";
+ } catch (eCap) {}
  }
  var here = currentPathPlusQuery();
  var bounce =
@@ -4392,11 +4592,19 @@ var NAV_CHROME_FIX_VER = "20260930navMarqueeConfStaff1";
  if (parsed.freshLogin) {
  sessionStorage.setItem(OAUTH_FRESH_AFTER_BOUNCE_KEY, "1");
  }
+ /* oauthPhoneBfcache1: marca + URL unico — evita restore bfcache pre-login su telefono */
+ sessionStorage.setItem(OAUTH_BFCACHE_BUST_KEY, "1");
  } catch (e0) {}
+ var bounceDest = window.location.origin + parsed.returnPath;
  try {
- window.location.replace(window.location.origin + parsed.returnPath);
+ var bounceU = new URL(bounceDest, window.location.origin);
+ bounceU.searchParams.set("_vc_oa", String(Date.now()));
+ bounceDest = bounceU.origin + bounceU.pathname + bounceU.search + (bounceU.hash || "");
+ } catch (eDest) {}
+ try {
+ window.location.replace(bounceDest);
  } catch (e1) {
- window.location.href = window.location.origin + parsed.returnPath;
+ window.location.href = bounceDest;
  }
  return;
  }
@@ -4406,26 +4614,52 @@ var NAV_CHROME_FIX_VER = "20260930navMarqueeConfStaff1";
  freshFromBounce = true;
  sessionStorage.removeItem(OAUTH_FRESH_AFTER_BOUNCE_KEY);
  }
+ sessionStorage.removeItem(OAUTH_BFCACHE_BUST_KEY);
  } catch (e2) {}
  var freshLogin = Boolean(parsed && parsed.freshLogin) || freshFromBounce;
- var loginBtns = queryDiscordLoginButtons();
- ensureAllNavbarDiscordLoginMarkup();
- loginBtns = queryDiscordLoginButtons();
- for (var lk = 0; lk < loginBtns.length; lk += 1) {
- (function (btn) {
- btn.addEventListener("click", function () {
- startDiscordOAuthFromUserGesture(btn, authUrl({ prompt: "none" }));
- });
- })(loginBtns[lk]);
+ /* oauthPhoneBfcache1: post-login cold boot — sblocca sipario/lock se DOM era a metà */
+ if (freshLogin) {
+ try {
+ document.documentElement.classList.remove(
+  "vc-loading-scroll-lock",
+  "vc-boot-scroll-lock",
+  "vc-interaction-hold",
+  "vc-chrome-bar-loading",
+  "vc-loader-blocking-live",
+ );
+ if (typeof window.__vcForceUnlockChromeScroll === "function") {
+  window.__vcForceUnlockChromeScroll("oauthFreshLogin");
  }
+ } catch (eFreshUnlock) {}
+ }
+ ensureAllNavbarDiscordLoginMarkup();
+ ensureDiscordLoginClickDelegation();
  window.addEventListener(
  "pageshow",
  function (ev) {
- /* violPass3: pageshow body più tardi — forceUnlock era ~244ms Violation */
+ /* violPass3: pageshow body pi… tardi … forceUnlock era ~244ms Violation */
  var persisted = !!(ev && ev.persisted);
  window.setTimeout(function () {
  try {
  if (!isBlockingSessionVerifyPage()) forceUnlockSessionVerifyUi();
+ /* logoutGate1: bfcache/back dopo logout ? UI ancora "loggato" senza token */
+ var tokNow = getToken();
+ if (!tokNow) {
+ var staleProfile = false;
+ try {
+ staleProfile = !!(window.__VC_DISCORD_PROFILE && window.__VC_DISCORD_PROFILE.id);
+ } catch (eStale) {}
+ if (persisted || staleProfile) {
+ try {
+ renderLoggedOut({ skipRedirect: true });
+ } catch (eLoPs) {}
+ try {
+ window.dispatchEvent(
+ new CustomEvent("vc:auth-logout", { detail: { reason: persisted ? "bfcache-no-token" : "stale-profile" } }),
+ );
+ } catch (eEvPs) {}
+ }
+ }
  if (!persisted) return;
  var nodes = queryDiscordLoginButtons();
  for (var pr = 0; pr < nodes.length; pr += 1) {
@@ -4436,6 +4670,15 @@ var NAV_CHROME_FIX_VER = "20260930navMarqueeConfStaff1";
  },
  false,
  );
+ document.addEventListener("visibilitychange", function () {
+ if (document.visibilityState !== "visible") return;
+ try {
+ if (getToken()) return;
+ if (!(window.__VC_DISCORD_PROFILE && window.__VC_DISCORD_PROFILE.id)) return;
+ renderLoggedOut({ skipRedirect: true });
+ window.dispatchEvent(new CustomEvent("vc:auth-logout", { detail: { reason: "visible-no-token" } }));
+ } catch (eVisLo) {}
+ });
  try {
  window.__vcDiscordStartOAuthRedirect = function (visualBtn) {
  startDiscordOAuthFromUserGesture(visualBtn || null, authUrl({ prompt: "none" }));
@@ -4451,6 +4694,7 @@ var NAV_CHROME_FIX_VER = "20260930navMarqueeConfStaff1";
  document.documentElement.classList.remove("vc-session-verify-pending");
  } catch (e2) {}
  renderLoggedOut();
+ markDiscordAuthBootDone("no-token");
  return;
  }
  warmStaffNavEarly();
@@ -4459,6 +4703,9 @@ var NAV_CHROME_FIX_VER = "20260930navMarqueeConfStaff1";
  if (cached) {
  hideSessionVerifyOverlay();
  try {
+ prefetchDiscordAvatar(cached);
+ } catch (ePrefC) {}
+ try {
  if (String(sessionStorage.getItem("vc_view_as") || "").trim().toLowerCase() === "logout") {
  renderLoggedOut({ skipRedirect: true, viewAsPreview: true });
  } else {
@@ -4466,6 +4713,13 @@ var NAV_CHROME_FIX_VER = "20260930navMarqueeConfStaff1";
  }
  } catch (eVaCache) {
  renderLoggedIn(cached);
+ }
+ /* emojiDiscordFast1: se me-cache fresca (<90s) skip fetchMe rete … solo side-effects leggeri */
+ if (cachedMeAgeMs(t) <= ME_FRESH_SKIP_FETCH_MS) {
+ try {
+ afterAuthSideEffects(t).catch(function () {});
+ } catch (eSideFresh) {}
+ return;
  }
  fetchMe(t)
  .then(function (user) {
@@ -4562,27 +4816,36 @@ var NAV_CHROME_FIX_VER = "20260930navMarqueeConfStaff1";
  }
  document.addEventListener("visibilitychange", function () {
  if (document.visibilityState !== "visible") return;
+ /* violKillConsole1: render fuori dall'handler */
+ window.setTimeout(function () {
  try {
  if (getToken()) return;
  if (window.__VC_DISCORD_PROFILE) renderLoggedOut();
  } catch (eVis) {}
+ }, 64);
  });
  document.addEventListener("vc:langchange", function () {
+ /* violKillConsole1: renderLoggedIn sync → Violation ~170ms */
+ window.setTimeout(function () {
  try {
  var profile = window.__VC_DISCORD_PROFILE;
  if (profile && profile.id) renderLoggedIn(profile);
  } catch (eLang) {}
+ }, 48);
  });
- window.addEventListener("vc:staff-access-ok", function () {
+ /* consoleFixAll1: coalesce applyAccountMenu (view-as / staff storm → 700ms+ Violation) */
+ var __vcDashMenuTimer = 0;
+ function scheduleDashMenuApply() {
+ if (__vcDashMenuTimer) return;
+ __vcDashMenuTimer = window.setTimeout(function () {
+ __vcDashMenuTimer = 0;
  try {
  applyAccountMenuDashBacheca(window.__VC_DASHBOARD_MENU_BLACKLISTED === true);
- } catch (eStaffSoon) {}
- });
- window.addEventListener("vc:view-as-allowed", function () {
- try {
- applyAccountMenuDashBacheca(window.__VC_DASHBOARD_MENU_BLACKLISTED === true);
- } catch (eVaSoon) {}
- });
+ } catch (eMenu) {}
+ }, 48);
+ }
+ window.addEventListener("vc:staff-access-ok", scheduleDashMenuApply);
+ window.addEventListener("vc:view-as-allowed", scheduleDashMenuApply);
  if (document.readyState === "loading") {
  try {
  warmStaffNavEarly();
@@ -4605,10 +4868,13 @@ var NAV_CHROME_FIX_VER = "20260930navMarqueeConfStaff1";
  if (window.__VC_ACCESS_GATE_LOADED || window.__VC_ACCESS_GATE_BOOT) return;
  window.__VC_ACCESS_GATE_BOOT = true;
  var s = document.createElement("script");
- s.src = "/js/vc-access-gate.js?v=20260928inboxNoDirector1";
+ s.src = "/js/vc-access-gate.js?v=20261005boardsSoftGateFix2";
  (document.head || document.documentElement).appendChild(s);
  } catch (eBoot) {}
  })();
 })();/* violKill1 */
 /* violPass7 */
 /* snavDropUnify1 */
+
+
+

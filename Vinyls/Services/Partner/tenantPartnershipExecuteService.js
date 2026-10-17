@@ -434,8 +434,9 @@ async function executeTenantPartnership(interaction, { description: rawDescripti
       ? await getOrCreateStaffPartnerDoc(guildId, interaction.user.id)
       : staffDoc;
     const sAfter = staffAfterAudit && staffAfterAudit.staff ? staffAfterAudit.staff : s;
-    /* saldo spendibile (earned − shop) nel thank-you — voluto così */
+    /* thankYouSpendableOnly1: embed default usa solo spendibile */
     const shownPartnerPoints = resolvePartnerPointsShown(sAfter);
+    const totalPartnerEarned = resolvePartnerTotalEarned(sAfter);
 
     const { embed } = await buildThankYouEmbed({
       guild: interaction.guild,
@@ -444,6 +445,7 @@ async function executeTenantPartnership(interaction, { description: rawDescripti
       serverName,
       serverIcon,
       shownPartnerPoints,
+      totalPartnerEarned,
       legacy: Boolean(partnershipCfg?.legacy),
       managerId: resolvedManagerId,
       includeManagerInContent: false,

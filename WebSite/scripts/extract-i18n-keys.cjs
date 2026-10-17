@@ -52,11 +52,21 @@ function evalObjectLiteral(lit) {
 }
 
 function extractLangFromExtendOrDicts(source, lang) {
-    const needle = "\n    " + lang + ": {";
-  const idx = source.indexOf(needle);
-  if (idx < 0) throw new Error("lang block not found: " + lang);
-  const lit = extractObjectLiteral(source, idx + needle.length - 1);
-  return evalObjectLiteral(lit);
+  // pages.js has multiple VcI18n.extend IIFEs — merge every `it:` / `en:` block
+  const needle = "\n    " + lang + ": {";
+  const merged = {};
+  let from = 0;
+  let found = 0;
+  while (true) {
+    const idx = source.indexOf(needle, from);
+    if (idx < 0) break;
+    const lit = extractObjectLiteral(source, idx + needle.length - 1);
+    Object.assign(merged, evalObjectLiteral(lit));
+    found++;
+    from = idx + needle.length;
+  }
+  if (!found) throw new Error("lang block not found: " + lang);
+  return merged;
 }
 
 function extractFromMain() {

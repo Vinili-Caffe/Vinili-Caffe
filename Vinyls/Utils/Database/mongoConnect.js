@@ -81,14 +81,47 @@ function buildConnectOptions(url) {
   return opts;
 }
 
+let dualMongoWarned = false;
+
+function mongoHostKey(url) {
+  const ep = parseMongoEndpoint(url);
+  if (!ep?.host) return "";
+  return `${ep.host}:${ep.port || 27017}`;
+}
+
+/**
+ * mongoSingleSource1: una sola sorgente attiva.
+ * Se esiste MONGO_URL_LOCAL, Atlas (MONGO_URL srv) viene ignorato — evita DB divergenti.
+ */
 function buildMongoUrl(client) {
-  return (
-    process.env.MONGO_URL_LOCAL ||
-    process.env.MONGODB_URI_LOCAL ||
-    process.env.MONGO_URL ||
-    process.env.MONGODB_URI ||
-    client?.config?.mongoURL
-  );
+  const local =
+    String(process.env.MONGO_URL_LOCAL || process.env.MONGODB_URI_LOCAL || "").trim() || null;
+  const remote =
+    String(process.env.MONGO_URL || process.env.MONGODB_URI || "").trim() || null;
+  const fromConfig = String(client?.config?.mongoURL || "").trim() || null;
+
+  if (local) {
+    if (!dualMongoWarned && remote && mongoHostKey(local) !== mongoHostKey(remote)) {
+      dualMongoWarned = true;
+      const msg =
+        "[DATABASE] mongoSingleSource1: uso SOLO LOCAL (" +
+        maskMongoUrlForLog(local) +
+        "); ignoro Atlas/remoto (" +
+        maskMongoUrlForLog(remote) +
+        "). Allinea MONGO_URL a LOCAL o sposta Atlas in MONGO_URL_ATLAS_BACKUP.";
+      try {
+        global.logger?.warn?.(msg);
+      } catch (_) {
+        console.warn(msg);
+      }
+    }
+    return local;
+  }
+  return remote || fromConfig || null;
+}
+
+function resolveMongoUrl(client) {
+  return buildMongoUrl(client);
 }
 
 function mongoUrlWith127(url) {
@@ -360,6 +393,7 @@ async function ensureMongoIndexes({ reason = "manual" } = {}) {
 
 module.exports = {
   buildMongoUrl,
+  resolveMongoUrl,
   connectMongo,
   closeMongoGraceful,
   ensureMongoReady,

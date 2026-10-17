@@ -1707,19 +1707,15 @@
     pageInited = true;
     try {
       document.documentElement.classList.add("vc-compiti-perf");
-      /* compitiUx1: sblocca scroll/cursor anche se access-gate ha già rivelato */
-      document.documentElement.classList.remove(
-        "vc-loading-scroll-lock",
-        "vc-loader-blocking-live",
-        "vc-interaction-hold",
-        "vc-staff-access-pending",
-      );
+      /* compitiChromeSync1: NON togliere chrome-bar-loading / scroll-lock qui —
+         la barra top (vc-site-chrome-ui) arma lo scroll con vc-chrome-scroll-armed.
+         Prima: token → unlock immediato → scrollbar prima della barra. */
+      document.documentElement.classList.remove("vc-staff-access-pending");
       document.documentElement.classList.add("vc-staff-app-revealed", "vc-page-cine-ready");
       document.body.classList.add("vc-staff-app-revealed");
       document.body.style.pointerEvents = "auto";
     } catch (e) {}
     try {
-      if (typeof window.__vcUnpinPageScroll === "function") window.__vcUnpinPageScroll();
       if (typeof window.__vcSyncLoaderScrollLock === "function") window.__vcSyncLoaderScrollLock();
     } catch (eUnlock) {}
     wireUi();
@@ -1748,6 +1744,11 @@
       return loadCompiti(state.mode === "highstaff" ? refreshUid : "");
     };
     window.__vcPtrSoftRefresh = window.__vcStaffPageRefresh;
+    /* siteLiveAll1: WS chrome → soft-refresh compiti aperti */
+    try {
+      var ST = window.VcStaffTools || window.VCStaffTools;
+      if (ST && typeof ST.installRealtimeSoftRefreshBus === "function") ST.installRealtimeSoftRefreshBus();
+    } catch (eBus) {}
   }
 
   function bootUserIdFromQuery() {
@@ -1763,12 +1764,12 @@
   function boot() {
     function tryInit() {
       if (pageInited) return true;
-      var token = getToken();
+      /* compitiChromeSync1: come pause — aspetta access gate, non solo token */
       if (
-        token ||
         document.documentElement.classList.contains("vc-staff-app-revealed") ||
         window.__VC_STAFF_PERMS ||
-        window.__VC_ACCESS_OK
+        window.__VC_ACCESS_OK ||
+        window.__VC_STAFF_ACCESS_OPTIMISTIC
       ) {
         initAfterAccess();
         return true;
@@ -1779,10 +1780,22 @@
     window.addEventListener("vc:staff-access-ok", initAfterAccess, { once: true });
     window.addEventListener("vc:access-ok", initAfterAccess, { once: true });
     var tries = 0;
-    var timer = window.setInterval(function () {
+    var timer = null;
+    /* perfRoiPack1: pause boot poll when tab is hidden, restart on show */
+    function _pauseBootTick() {
+      if (document.hidden) return;
       tries += 1;
-      if (tryInit() || tries > 40) window.clearInterval(timer);
-    }, 120);
+      if (tryInit() || tries > 40) { window.clearInterval(timer); timer = null; }
+    }
+    timer = window.setInterval(_pauseBootTick, 250);
+    document.addEventListener("visibilitychange", function _pauseBootVis() {
+      /* perfRoiPack1 */
+      if (!document.hidden && !timer) {
+        timer = window.setInterval(_pauseBootTick, 250);
+      } else if (document.hidden && timer) {
+        window.clearInterval(timer); timer = null;
+      }
+    }, false);
   }
 
   if (document.readyState === "loading") {
@@ -1791,3 +1804,4 @@
     boot();
   }
 })();
+/* compitiChromeSync1 */

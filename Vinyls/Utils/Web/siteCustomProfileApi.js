@@ -55,7 +55,7 @@ function buildRequirementsMeta() {
       weeklyMinHours: Math.round(CUSTOM_VOC_WEEKLY_MIN_SECONDS / 3600),
       maxFailedWeeks: CUSTOM_VOC_MAX_FAILED_WEEKS,
       deleteAtLabel: "domenica alle 21:00",
-      note: "Minimo 5 ore/settimana nella tua vocale. 3 settimane consecutive sotto soglia → eliminazione.",
+      note: "Minimo 5 ore/settimana nella tua vocale. 3 settimane consecutive sotto soglia → eliminazione e 2 settimane di attesa per ricrearla.",
     },
   };
 }

@@ -1,0 +1,724 @@
+<div class="vc-dashboard-view" data-view-panel="tickets/pannelli" id="vc-dashboard-view-tickets-pannelli" hidden>
+              <aside class="vc-dash-page-intro" id="tk-panels-intro">
+                <p class="vc-dash-page-intro__kicker" data-i18n="dash.tickets.kicker">Tickets</p>
+                <h2 class="vc-dash-page-intro__title" data-i18n="dash.tickets.panelsTitle">Pannelli ticket</h2>
+                <p class="vc-dash-page-intro__text" data-i18n="dash.tickets.panelsIntro">Crea pannelli singoli con un bottone, oppure un multi-panel con bottoni o menu a tendina.</p>
+              </aside>
+
+              <section class="vc-dash-tk-panels" id="tk-panels-root">
+                <div class="vc-dash-tk-panels__grid">
+                  <article class="vc-dash-tk-tx-card vc-dash-tk-panels__card">
+                    <div class="vc-dash-tk__head">
+                      <h3 class="vc-dash-tk__title">
+                        <span data-i18n="dash.tickets.panelsSingleTitle">Pannelli</span>
+                        <span class="vc-dash-tk__count" id="tk-panels-quota" aria-label="Quota pannelli">0 / 25</span>
+                      </h3>
+                      <div class="vc-dash-tk-new">
+                        <button type="button" class="vc-dashboard-btn is-primary" id="tk-panels-new-btn">
+                          <i class="fa fa-plus" aria-hidden="true"></i>
+                          <span data-i18n="dash.tickets.panelsNew">Nuovo pannello</span>
+                        </button>
+                      </div>
+                    </div>
+                    <div class="vc-dash-tk-tx-table-wrap">
+                      <table class="vc-dash-tk-tx-table" id="tk-panels-table">
+                        <thead>
+                          <tr>
+                            <th data-i18n="dash.tickets.panelsColChannel">Canale</th>
+                            <th data-i18n="dash.tickets.panelsColTitle">Titolo</th>
+                            <th data-i18n="dash.tickets.panelsColHours">Orari</th>
+                            <th data-i18n="dash.tickets.panelsColActions">Azioni</th>
+                          </tr>
+                        </thead>
+                        <tbody id="tk-panels-body"></tbody>
+                      </table>
+                    </div>
+                    <div class="vc-dash-tk__empty" id="tk-panels-empty" hidden>
+                      <strong data-i18n="dash.tickets.panelsEmptyTitle">Nessun pannello</strong>
+                      <p data-i18n="dash.tickets.panelsEmpty">Crea un pannello singolo: verrà inviato nel canale con un bottone per aprire il ticket.</p>
+                    </div>
+                  </article>
+
+                  <article class="vc-dash-tk-tx-card vc-dash-tk-panels__card">
+                    <div class="vc-dash-tk__head">
+                      <h3 class="vc-dash-tk__title">
+                        <span data-i18n="dash.tickets.panelsMultiTitle">Multi-panel</span>
+                        <span class="vc-dash-tk__count" id="tk-multipanels-quota" aria-label="Quota multi-panel">0</span>
+                      </h3>
+                      <div class="vc-dash-tk-new">
+                        <button type="button" class="vc-dashboard-btn is-primary" id="tk-multipanels-new-btn">
+                          <i class="fa fa-plus" aria-hidden="true"></i>
+                          <span data-i18n="dash.tickets.panelsMultiNew">Nuovo multi-panel</span>
+                        </button>
+                      </div>
+                    </div>
+                    <div class="vc-dash-tk-tx-table-wrap">
+                      <table class="vc-dash-tk-tx-table" id="tk-multipanels-table">
+                        <thead>
+                          <tr>
+                            <th data-i18n="dash.tickets.panelsColChannel">Canale</th>
+                            <th data-i18n="dash.tickets.panelsColTitle">Titolo</th>
+                            <th data-i18n="dash.tickets.panelsColPanels">Pannelli</th>
+                            <th data-i18n="dash.tickets.panelsColActions">Azioni</th>
+                          </tr>
+                        </thead>
+                        <tbody id="tk-multipanels-body"></tbody>
+                      </table>
+                    </div>
+                    <div class="vc-dash-tk__empty" id="tk-multipanels-empty" hidden>
+                      <strong data-i18n="dash.tickets.panelsMultiEmptyTitle">Nessun multi-panel</strong>
+                      <p data-i18n="dash.tickets.panelsMultiEmpty">Combina almeno 2 pannelli esistenti in un unico embed con bottoni o dropdown.</p>
+                    </div>
+                  </article>
+                </div>
+
+                <div class="vc-dash-tk-panel-editor" id="tk-panel-editor" hidden>
+                  <button type="button" class="vc-dash-tk-panel-editor__back" id="tk-panel-editor-back">
+                    <i class="fa fa-chevron-left" aria-hidden="true"></i>
+                    <span>Torna ai pannelli</span>
+                  </button>
+                  <div class="vc-dash-tk-panel-editor__card">
+                    <h3 class="vc-dash-tk-panel-editor__title" id="tk-panel-editor-title">Crea pannello</h3>
+                    <form id="tk-panel-form" class="vc-dash-tk-form">
+                    <input type="hidden" id="tk-panel-id" value="" />
+
+                    <details class="vc-dash-tk-acc" open>
+                      <summary class="vc-dash-tk-acc__sum"><span>Proprietà ticket</span></summary>
+                      <div class="vc-dash-tk-acc__body">
+                        <input type="hidden" id="tk-panel-ticketType" value="supporto" />
+                        <div class="vc-dash-picker-grid">
+                          <div class="vc-dash-picker">
+                            <span class="vc-dash-picker__label">Menzioni all'apertura</span>
+                            <div id="tk-panel-mentionOnOpen-list" class="vc-dash-tk-pillsel" role="group" aria-label="Menzioni all'apertura"></div>
+                            <p class="vc-dash-picker__hint">
+                              Ping reali dei ruoli selezionati (non solo il nome), sempre in spoiler.
+                            </p>
+                          </div>
+                          <div class="vc-dash-picker">
+                            <span class="vc-dash-picker__label" data-i18n="dash.tickets.supportTeams">Support Teams</span>
+                            <div id="tk-panel-supportTeamIds-list" class="vc-dash-tk-pillsel" role="group" aria-label="Support Teams"></div>
+                          </div>
+                          <label class="vc-dash-picker">
+                            <span class="vc-dash-picker__label">Canale trascrizioni</span>
+                            <select id="tk-panel-transcriptChannelId" data-clearable="1"></select>
+                          </label>
+                          <div class="vc-dash-picker vc-dash-picker--switch">
+                            <span class="vc-dash-picker__label"
+                              >Elimina menzioni <span class="vc-dash-picker__sub">(dopo l'apertura)</span></span
+                            >
+                            <div class="vc-dash-picker__switch">
+                              <label class="vc-dash-switch"
+                                ><input type="checkbox" id="tk-panel-deleteMentionsOnOpen" /><span
+                                  class="vc-dash-switch__track"
+                                  aria-hidden="true"
+                                  ><span class="vc-dash-switch__thumb"></span></span
+                              ></label>
+                            </div>
+                          </div>
+                          <label class="vc-dash-picker">
+                            <span class="vc-dash-picker__label">Categoria ticket</span>
+                            <select id="tk-panel-categoryId" data-clearable="1"></select>
+                          </label>
+                          <label class="vc-dash-picker">
+                            <span class="vc-dash-picker__label">Cooldown apertura (secondi)</span>
+                            <input type="number" id="tk-panel-openCooldownSeconds" min="0" max="86400" step="1" value="0" />
+                          </label>
+                          <label class="vc-dash-picker">
+                            <span class="vc-dash-picker__label">Max ticket aperti per utente</span>
+                            <select id="tk-panel-maxOpenTicketsPerUser" data-clearable="1"></select>
+                          </label>
+                          <label class="vc-dash-picker">
+                            <span class="vc-dash-picker__label">Nascondi bottone Chiudi</span>
+                            <select id="tk-panel-hideCloseButton" data-clearable="1">
+                              <option value="" data-inherit="1" data-inherit-detail="Mostra">Mostra</option>
+                              <option value="0">Mostra</option>
+                              <option value="1">Nascondi</option>
+                            </select>
+                          </label>
+                          <label class="vc-dash-picker">
+                            <span class="vc-dash-picker__label">Nascondi Chiudi con motivo</span>
+                            <select id="tk-panel-hideCloseReasonButton" data-clearable="1">
+                              <option value="" data-inherit="1" data-inherit-detail="Mostra">Mostra</option>
+                              <option value="0">Mostra</option>
+                              <option value="1">Nascondi</option>
+                            </select>
+                          </label>
+                          <label class="vc-dash-picker">
+                            <span class="vc-dash-picker__label">Nascondi bottone Claim</span>
+                            <select id="tk-panel-hideClaimButton" data-clearable="1">
+                              <option value="" data-inherit="1" data-inherit-detail="Mostra">Mostra</option>
+                              <option value="0">Mostra</option>
+                              <option value="1">Nascondi</option>
+                            </select>
+                          </label>
+                          <label class="vc-dash-picker">
+                            <span class="vc-dash-picker__label">Form di apertura</span>
+                            <select id="tk-panel-formId">
+                              <option value="">Nessuno</option>
+                            </select>
+                          </label>
+                        </div>
+                      </div>
+                    </details>
+
+                    <details class="vc-dash-tk-acc" open>
+                      <summary class="vc-dash-tk-acc__sum"><span>Messaggio pannello</span></summary>
+                      <div class="vc-dash-tk-acc__body">
+                        <div class="vc-dash-picker-grid">
+                          <label class="vc-dash-picker vc-dash-picker--full">
+                            <span class="vc-dash-picker__label">Titolo pannello</span>
+                            <input type="text" id="tk-panel-title" maxlength="256" placeholder="Open a ticket!" />
+                          </label>
+                          <label class="vc-dash-picker vc-dash-picker--full">
+                            <span class="vc-dash-picker__label">Contenuto</span>
+                            <textarea id="tk-panel-content" rows="4" maxlength="4096" placeholder="Cliccando il bottone si apre un ticket."></textarea>
+                          </label>
+                          <label class="vc-dash-picker">
+                            <span class="vc-dash-picker__label">Colore</span>
+                            <div class="vc-dash-tk-color">
+                              <input type="color" id="tk-panel-color" class="vc-dash-tk-color__input" value="#6f4e37" />
+                            </div>
+                          </label>
+                          <label class="vc-dash-picker">
+                            <span class="vc-dash-picker__label">Canale pannello</span>
+                            <select id="tk-panel-channelId" required></select>
+                          </label>
+                          <div class="vc-dash-picker vc-dash-picker--switch">
+                            <span class="vc-dash-picker__label">Disabilita pannello</span>
+                            <div class="vc-dash-picker__switch">
+                              <label class="vc-dash-switch"
+                                ><input type="checkbox" id="tk-panel-disabled" /><span class="vc-dash-switch__track" aria-hidden="true"
+                                  ><span class="vc-dash-switch__thumb"></span></span
+                              ></label>
+                            </div>
+                          </div>
+                          <label class="vc-dash-picker">
+                            <span class="vc-dash-picker__label">Colore bottone</span>
+                            <select id="tk-panel-buttonStyle">
+                              <option value="Primary">Blue</option>
+                              <option value="Secondary">Grey</option>
+                              <option value="Success">Green</option>
+                              <option value="Danger">Red</option>
+                            </select>
+                          </label>
+                          <label class="vc-dash-picker">
+                            <span class="vc-dash-picker__label">Testo bottone</span>
+                            <input type="text" id="tk-panel-buttonText" maxlength="80" placeholder="Open a ticket!" />
+                          </label>
+                          <div class="vc-dash-picker vc-dash-picker--full vc-dash-tk-emoji" id="tk-panel-buttonEmoji-wrap">
+                            <span class="vc-dash-picker__label">Emoji bottone</span>
+                            <span class="vc-dash-tk-emoji__sublabel">Emoji custom</span>
+                            <div class="vc-dash-tk-emoji__controls">
+                              <label class="vc-dash-switch" title="Emoji custom">
+                                <input type="checkbox" id="tk-panel-buttonEmoji-custom" />
+                                <span class="vc-dash-switch__track" aria-hidden="true"><span class="vc-dash-switch__thumb"></span></span>
+                              </label>
+                              <div class="vc-dash-tk-emoji__field" id="tk-panel-buttonEmoji-field">
+                                <input type="hidden" id="tk-panel-buttonEmoji" value="" />
+                                <button type="button" class="vc-dash-tk-emoji__value" id="tk-panel-buttonEmoji-value" aria-label="Emoji selezionata">
+                                  <span class="vc-dash-tk-emoji__preview" id="tk-panel-buttonEmoji-preview"></span>
+                                </button>
+                                <button type="button" class="vc-dash-tk-emoji__pick" id="tk-panel-buttonEmoji-pick" aria-label="Scegli emoji" title="Scegli emoji">
+                                  <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7">
+                                    <circle cx="12" cy="12" r="9"></circle>
+                                    <path d="M8.5 10.2h.01M15.5 10.2h.01" stroke-linecap="round"></path>
+                                    <path d="M8.8 14.2c1.1 1.2 2.1 1.6 3.2 1.6s2.1-.4 3.2-1.6" stroke-linecap="round"></path>
+                                  </svg>
+                                </button>
+                              </div>
+                            </div>
+                            <div class="vc-dash-tk-emoji__menu" id="tk-panel-buttonEmoji-menu" hidden>
+                              <input type="search" id="tk-panel-buttonEmoji-search" class="vc-dash-tk-emoji__search" placeholder="Cerca emoji…" autocomplete="off" />
+                              <div class="vc-dash-tk-emoji__grid" id="tk-panel-buttonEmoji-grid" role="listbox" aria-label="Elenco emoji"></div>
+                              <div class="vc-dash-tk-emoji__menu-foot">
+                                <button type="button" class="vc-dash-tk-emoji__clear" id="tk-panel-buttonEmoji-clear">Rimuovi</button>
+                              </div>
+                            </div>
+                          </div>
+                          <label class="vc-dash-picker">
+                            <span class="vc-dash-picker__label">Large image URL <span class="vc-dash-picker__sub">(opzionale)</span></span>
+                            <input type="url" id="tk-panel-largeImageUrl" placeholder="https://..." />
+                          </label>
+                          <label class="vc-dash-picker">
+                            <span class="vc-dash-picker__label">Small image URL <span class="vc-dash-picker__sub">(opzionale)</span></span>
+                            <input type="url" id="tk-panel-smallImageUrl" placeholder="https://..." />
+                          </label>
+                        </div>
+                      </div>
+                    </details>
+
+                    <details class="vc-dash-tk-acc">
+                      <summary class="vc-dash-tk-acc__sum"><span>Welcome message</span></summary>
+                      <div class="vc-dash-tk-acc__body">
+                        <div class="vc-dash-picker-grid">
+                          <label class="vc-dash-picker">
+                            <span class="vc-dash-picker__label">Colore embed</span>
+                            <div class="vc-dash-tk-color">
+                              <input type="color" id="tk-panel-welcome-color" class="vc-dash-tk-color__input" value="#6f4e37" />
+                            </div>
+                          </label>
+                          <label class="vc-dash-picker">
+                            <span class="vc-dash-picker__label">Titolo</span>
+                            <input type="text" id="tk-panel-welcome-title" maxlength="256" />
+                          </label>
+                          <label class="vc-dash-picker">
+                            <span class="vc-dash-picker__label">URL titolo</span>
+                            <input type="url" id="tk-panel-welcome-titleUrl" placeholder="https://..." />
+                          </label>
+                          <label class="vc-dash-picker vc-dash-picker--full">
+                            <span class="vc-dash-picker__label">Descrizione</span>
+                            <textarea id="tk-panel-welcome-description" rows="5" maxlength="4096"></textarea>
+                            <p class="vc-dash-picker__hint">
+                              Usa menzioni vere <code>&lt;@&amp;ID&gt;</code>. Se scrivi il nome di un ruolo già in
+                              “Menzioni all'apertura”, al salvataggio viene convertito in menzione.
+                            </p>
+                            <button type="button" class="vc-dashboard-btn vc-dashboard-btn--ghost" id="tk-panel-welcome-insert-mentions">
+                              Inserisci menzioni ruoli selezionati
+                            </button>
+                          </label>
+                          <label class="vc-dash-picker">
+                            <span class="vc-dash-picker__label">Author name</span>
+                            <input type="text" id="tk-panel-welcome-authorName" maxlength="256" />
+                          </label>
+                          <label class="vc-dash-picker">
+                            <span class="vc-dash-picker__label">Author icon URL</span>
+                            <input type="url" id="tk-panel-welcome-authorIconUrl" placeholder="https://..." />
+                          </label>
+                          <label class="vc-dash-picker">
+                            <span class="vc-dash-picker__label">Author URL</span>
+                            <input type="url" id="tk-panel-welcome-authorUrl" placeholder="https://..." />
+                          </label>
+                          <label class="vc-dash-picker">
+                            <span class="vc-dash-picker__label">Large image URL</span>
+                            <input type="url" id="tk-panel-welcome-largeImageUrl" placeholder="https://..." />
+                          </label>
+                          <label class="vc-dash-picker">
+                            <span class="vc-dash-picker__label">Small image URL (thumbnail)</span>
+                            <input type="url" id="tk-panel-welcome-smallImageUrl" placeholder="https://..." />
+                          </label>
+                          <label class="vc-dash-picker">
+                            <span class="vc-dash-picker__label">Footer</span>
+                            <input type="text" id="tk-panel-welcome-footerText" maxlength="2048" />
+                          </label>
+                          <label class="vc-dash-picker">
+                            <span class="vc-dash-picker__label">Footer icon URL</span>
+                            <input type="url" id="tk-panel-welcome-footerIconUrl" placeholder="https://..." />
+                          </label>
+                          <article class="vc-dash-settings-row vc-dash-settings-row--switch">
+                            <div class="vc-dash-settings-row__copy"><strong class="vc-dash-settings-row__title">Mostra data/ora nel footer</strong></div>
+                            <div class="vc-dash-settings-row__control"><label class="vc-dash-switch"><input type="checkbox" id="tk-panel-welcome-footerTimestamp" /><span class="vc-dash-switch__track" aria-hidden="true"><span class="vc-dash-switch__thumb"></span></span></label></div>
+                          </article>
+                          <div class="vc-dash-picker vc-dash-picker--full">
+                            <span class="vc-dash-picker__label">Campi embed</span>
+                            <div class="vc-dash-tk-fields-list" id="tk-panel-welcome-fields-list"></div>
+                            <button type="button" class="vc-dashboard-btn vc-dash-tk-fields-add" id="tk-panel-welcome-fields-add">
+                              <i class="fa fa-plus" aria-hidden="true"></i>
+                              <span>Aggiungi campo</span>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </details>
+
+                    <details class="vc-dash-tk-acc">
+                      <summary class="vc-dash-tk-acc__sum"><span>Permessi ticket</span></summary>
+                      <div class="vc-dash-tk-acc__body">
+                        <p class="vc-dash-tk__subtitle">Di default partono dai permessi ticket <strong>globali</strong>. Qui puoi <strong>aggiungere o togliere</strong> permessi solo per questo pannello (override completo).</p>
+                        <div class="vc-dash-tk-switch-grid" id="tk-panel-ticketPerms-grid">
+                          <article class="vc-dash-settings-row vc-dash-settings-row--switch" data-perm-key="addReactions">
+                            <div class="vc-dash-settings-row__copy"><strong class="vc-dash-settings-row__title">Aggiungi reazioni</strong><p class="vc-dash-settings-row__hint vc-dash-tk-perm-global-hint" hidden>Attivo in globale</p></div>
+                            <div class="vc-dash-settings-row__control"><label class="vc-dash-switch"><input type="checkbox" id="tk-panel-perm-addReactions" /><span class="vc-dash-switch__track" aria-hidden="true"><span class="vc-dash-switch__thumb"></span></span></label></div>
+                          </article>
+                          <article class="vc-dash-settings-row vc-dash-settings-row--switch" data-perm-key="sendTtsMessages">
+                            <div class="vc-dash-settings-row__copy"><strong class="vc-dash-settings-row__title">Invia messaggi TTS</strong><p class="vc-dash-settings-row__hint vc-dash-tk-perm-global-hint" hidden>Attivo in globale</p></div>
+                            <div class="vc-dash-settings-row__control"><label class="vc-dash-switch"><input type="checkbox" id="tk-panel-perm-sendTtsMessages" /><span class="vc-dash-switch__track" aria-hidden="true"><span class="vc-dash-switch__thumb"></span></span></label></div>
+                          </article>
+                          <article class="vc-dash-settings-row vc-dash-settings-row--switch" data-perm-key="embedLinks">
+                            <div class="vc-dash-settings-row__copy"><strong class="vc-dash-settings-row__title">Incorpora link</strong><p class="vc-dash-settings-row__hint vc-dash-tk-perm-global-hint" hidden>Attivo in globale</p></div>
+                            <div class="vc-dash-settings-row__control"><label class="vc-dash-switch"><input type="checkbox" id="tk-panel-perm-embedLinks" /><span class="vc-dash-switch__track" aria-hidden="true"><span class="vc-dash-switch__thumb"></span></span></label></div>
+                          </article>
+                          <article class="vc-dash-settings-row vc-dash-settings-row--switch" data-perm-key="attachFiles">
+                            <div class="vc-dash-settings-row__copy"><strong class="vc-dash-settings-row__title">Allega file</strong><p class="vc-dash-settings-row__hint vc-dash-tk-perm-global-hint" hidden>Attivo in globale</p></div>
+                            <div class="vc-dash-settings-row__control"><label class="vc-dash-switch"><input type="checkbox" id="tk-panel-perm-attachFiles" /><span class="vc-dash-switch__track" aria-hidden="true"><span class="vc-dash-switch__thumb"></span></span></label></div>
+                          </article>
+                          <article class="vc-dash-settings-row vc-dash-settings-row--switch" data-perm-key="useExternalEmojis">
+                            <div class="vc-dash-settings-row__copy"><strong class="vc-dash-settings-row__title">Usa emoji esterne</strong><p class="vc-dash-settings-row__hint vc-dash-tk-perm-global-hint" hidden>Attivo in globale</p></div>
+                            <div class="vc-dash-settings-row__control"><label class="vc-dash-switch"><input type="checkbox" id="tk-panel-perm-useExternalEmojis" /><span class="vc-dash-switch__track" aria-hidden="true"><span class="vc-dash-switch__thumb"></span></span></label></div>
+                          </article>
+                          <article class="vc-dash-settings-row vc-dash-settings-row--switch" data-perm-key="useExternalStickers">
+                            <div class="vc-dash-settings-row__copy"><strong class="vc-dash-settings-row__title">Usa sticker esterni</strong><p class="vc-dash-settings-row__hint vc-dash-tk-perm-global-hint" hidden>Attivo in globale</p></div>
+                            <div class="vc-dash-settings-row__control"><label class="vc-dash-switch"><input type="checkbox" id="tk-panel-perm-useExternalStickers" /><span class="vc-dash-switch__track" aria-hidden="true"><span class="vc-dash-switch__thumb"></span></span></label></div>
+                          </article>
+                          <article class="vc-dash-settings-row vc-dash-settings-row--switch" data-perm-key="sendVoiceMessages">
+                            <div class="vc-dash-settings-row__copy"><strong class="vc-dash-settings-row__title">Invia messaggi vocali</strong><p class="vc-dash-settings-row__hint vc-dash-tk-perm-global-hint" hidden>Attivo in globale</p></div>
+                            <div class="vc-dash-settings-row__control"><label class="vc-dash-switch"><input type="checkbox" id="tk-panel-perm-sendVoiceMessages" /><span class="vc-dash-switch__track" aria-hidden="true"><span class="vc-dash-switch__thumb"></span></span></label></div>
+                          </article>
+                        </div>
+                      </div>
+                    </details>
+
+                    <details class="vc-dash-tk-acc">
+                      <summary class="vc-dash-tk-acc__sum"><span>Access control</span></summary>
+                      <div class="vc-dash-tk-acc__body">
+                        <p class="vc-dash-tk__subtitle">Definisci chi può aprire questo tipo di ticket. Le regole vengono valutate in ordine: la prima che corrisponde a un ruolo dell'utente decide se può aprirlo.</p>
+                        <div class="vc-dash-tk-rules-list" id="tk-panel-accessRules-list"></div>
+                        <button type="button" class="vc-dashboard-btn vc-dash-tk-rules-add" id="tk-panel-accessRules-add">
+                          <i class="fa fa-plus" aria-hidden="true"></i>
+                          <span>Aggiungi regola</span>
+                        </button>
+                      </div>
+                    </details>
+
+                    <details class="vc-dash-tk-acc">
+                      <summary class="vc-dash-tk-acc__sum"><span>Orari di supporto</span></summary>
+                      <div class="vc-dash-tk-acc__body vc-dash-tk-hours">
+                        <div class="vc-dash-tk-hours-banner" role="note">
+                          <i class="fa fa-clock-o" aria-hidden="true"></i>
+                          <div class="vc-dash-tk-hours-banner__copy">
+                            <strong>Orari di apertura ticket</strong>
+                            <p>Configura quando si possono aprire i ticket da questo pannello. Se nessun giorno è impostato, il pannello resta disponibile 24/7.</p>
+                          </div>
+                        </div>
+                        <p class="vc-dash-tk-hours-lead">Opzionale: limita gli orari di apertura. Se non imposti nulla, il pannello è disponibile 24/7.</p>
+                        <label class="vc-dash-picker vc-dash-tk-hours-tz">
+                          <span class="vc-dash-picker__label">Fuso orario</span>
+                          <select id="tk-panel-supportHours-timezone">
+                            <option value="Europe/Rome">Europe/Rome</option>
+                            <option value="Europe/London">Europe/London</option>
+                            <option value="Europe/Madrid">Europe/Madrid</option>
+                            <option value="Europe/Paris">Europe/Paris</option>
+                            <option value="Europe/Berlin">Europe/Berlin</option>
+                            <option value="Europe/Athens">Europe/Athens</option>
+                            <option value="Europe/Moscow">Europe/Moscow</option>
+                            <option value="UTC">UTC</option>
+                            <option value="America/New_York">America/New_York</option>
+                            <option value="America/Chicago">America/Chicago</option>
+                            <option value="America/Denver">America/Denver</option>
+                            <option value="America/Los_Angeles">America/Los_Angeles</option>
+                            <option value="America/Sao_Paulo">America/Sao_Paulo</option>
+                            <option value="Asia/Dubai">Asia/Dubai</option>
+                            <option value="Asia/Kolkata">Asia/Kolkata</option>
+                            <option value="Asia/Shanghai">Asia/Shanghai</option>
+                            <option value="Asia/Tokyo">Asia/Tokyo</option>
+                            <option value="Australia/Sydney">Australia/Sydney</option>
+                          </select>
+                        </label>
+                        <div class="vc-dash-tk-hours-status" id="tk-panel-supportHours-status" aria-live="polite">
+                          <span class="vc-dash-tk-hours-pill vc-dash-tk-hours-pill--now" id="tk-panel-supportHours-now">—</span>
+                          <span class="vc-dash-tk-hours-pill vc-dash-tk-hours-pill--avail" id="tk-panel-supportHours-avail">Pannello disponibile 24/7</span>
+                        </div>
+                        <div class="vc-dash-tk-hours-days" id="tk-panel-supportHours-days">
+                          <div class="vc-dash-tk-hours-day" data-day="sunday">
+                            <label class="vc-dash-tk-hours-day__enable"><input type="checkbox" id="tk-panel-supportHours-sunday-enabled" /><span>Domenica</span></label>
+                            <input type="checkbox" id="tk-panel-supportHours-sunday-allDay" checked hidden />
+                            <span class="vc-dash-tk-hours-day__badge" data-hours-badge>24/7</span>
+                            <span class="vc-dash-tk-hours-day__range" hidden>
+                              <label class="vc-dash-tk-hours-day__time"><input type="time" id="tk-panel-supportHours-sunday-start" value="09:00" /><i class="fa fa-clock-o" aria-hidden="true"></i></label>
+                              <span class="vc-dash-tk-hours-day__sep">a</span>
+                              <label class="vc-dash-tk-hours-day__time"><input type="time" id="tk-panel-supportHours-sunday-end" value="17:00" /><i class="fa fa-clock-o" aria-hidden="true"></i></label>
+                            </span>
+                          </div>
+                          <div class="vc-dash-tk-hours-day" data-day="monday">
+                            <label class="vc-dash-tk-hours-day__enable"><input type="checkbox" id="tk-panel-supportHours-monday-enabled" /><span>Lunedì</span></label>
+                            <input type="checkbox" id="tk-panel-supportHours-monday-allDay" checked hidden />
+                            <span class="vc-dash-tk-hours-day__badge" data-hours-badge>24/7</span>
+                            <span class="vc-dash-tk-hours-day__range" hidden>
+                              <label class="vc-dash-tk-hours-day__time"><input type="time" id="tk-panel-supportHours-monday-start" value="09:00" /><i class="fa fa-clock-o" aria-hidden="true"></i></label>
+                              <span class="vc-dash-tk-hours-day__sep">a</span>
+                              <label class="vc-dash-tk-hours-day__time"><input type="time" id="tk-panel-supportHours-monday-end" value="17:00" /><i class="fa fa-clock-o" aria-hidden="true"></i></label>
+                            </span>
+                          </div>
+                          <div class="vc-dash-tk-hours-day" data-day="tuesday">
+                            <label class="vc-dash-tk-hours-day__enable"><input type="checkbox" id="tk-panel-supportHours-tuesday-enabled" /><span>Martedì</span></label>
+                            <input type="checkbox" id="tk-panel-supportHours-tuesday-allDay" checked hidden />
+                            <span class="vc-dash-tk-hours-day__badge" data-hours-badge>24/7</span>
+                            <span class="vc-dash-tk-hours-day__range" hidden>
+                              <label class="vc-dash-tk-hours-day__time"><input type="time" id="tk-panel-supportHours-tuesday-start" value="09:00" /><i class="fa fa-clock-o" aria-hidden="true"></i></label>
+                              <span class="vc-dash-tk-hours-day__sep">a</span>
+                              <label class="vc-dash-tk-hours-day__time"><input type="time" id="tk-panel-supportHours-tuesday-end" value="17:00" /><i class="fa fa-clock-o" aria-hidden="true"></i></label>
+                            </span>
+                          </div>
+                          <div class="vc-dash-tk-hours-day" data-day="wednesday">
+                            <label class="vc-dash-tk-hours-day__enable"><input type="checkbox" id="tk-panel-supportHours-wednesday-enabled" /><span>Mercoledì</span></label>
+                            <input type="checkbox" id="tk-panel-supportHours-wednesday-allDay" checked hidden />
+                            <span class="vc-dash-tk-hours-day__badge" data-hours-badge>24/7</span>
+                            <span class="vc-dash-tk-hours-day__range" hidden>
+                              <label class="vc-dash-tk-hours-day__time"><input type="time" id="tk-panel-supportHours-wednesday-start" value="09:00" /><i class="fa fa-clock-o" aria-hidden="true"></i></label>
+                              <span class="vc-dash-tk-hours-day__sep">a</span>
+                              <label class="vc-dash-tk-hours-day__time"><input type="time" id="tk-panel-supportHours-wednesday-end" value="17:00" /><i class="fa fa-clock-o" aria-hidden="true"></i></label>
+                            </span>
+                          </div>
+                          <div class="vc-dash-tk-hours-day" data-day="thursday">
+                            <label class="vc-dash-tk-hours-day__enable"><input type="checkbox" id="tk-panel-supportHours-thursday-enabled" /><span>Giovedì</span></label>
+                            <input type="checkbox" id="tk-panel-supportHours-thursday-allDay" checked hidden />
+                            <span class="vc-dash-tk-hours-day__badge" data-hours-badge>24/7</span>
+                            <span class="vc-dash-tk-hours-day__range" hidden>
+                              <label class="vc-dash-tk-hours-day__time"><input type="time" id="tk-panel-supportHours-thursday-start" value="09:00" /><i class="fa fa-clock-o" aria-hidden="true"></i></label>
+                              <span class="vc-dash-tk-hours-day__sep">a</span>
+                              <label class="vc-dash-tk-hours-day__time"><input type="time" id="tk-panel-supportHours-thursday-end" value="17:00" /><i class="fa fa-clock-o" aria-hidden="true"></i></label>
+                            </span>
+                          </div>
+                          <div class="vc-dash-tk-hours-day" data-day="friday">
+                            <label class="vc-dash-tk-hours-day__enable"><input type="checkbox" id="tk-panel-supportHours-friday-enabled" /><span>Venerdì</span></label>
+                            <input type="checkbox" id="tk-panel-supportHours-friday-allDay" checked hidden />
+                            <span class="vc-dash-tk-hours-day__badge" data-hours-badge>24/7</span>
+                            <span class="vc-dash-tk-hours-day__range" hidden>
+                              <label class="vc-dash-tk-hours-day__time"><input type="time" id="tk-panel-supportHours-friday-start" value="09:00" /><i class="fa fa-clock-o" aria-hidden="true"></i></label>
+                              <span class="vc-dash-tk-hours-day__sep">a</span>
+                              <label class="vc-dash-tk-hours-day__time"><input type="time" id="tk-panel-supportHours-friday-end" value="17:00" /><i class="fa fa-clock-o" aria-hidden="true"></i></label>
+                            </span>
+                          </div>
+                          <div class="vc-dash-tk-hours-day" data-day="saturday">
+                            <label class="vc-dash-tk-hours-day__enable"><input type="checkbox" id="tk-panel-supportHours-saturday-enabled" /><span>Sabato</span></label>
+                            <input type="checkbox" id="tk-panel-supportHours-saturday-allDay" checked hidden />
+                            <span class="vc-dash-tk-hours-day__badge" data-hours-badge>24/7</span>
+                            <span class="vc-dash-tk-hours-day__range" hidden>
+                              <label class="vc-dash-tk-hours-day__time"><input type="time" id="tk-panel-supportHours-saturday-start" value="09:00" /><i class="fa fa-clock-o" aria-hidden="true"></i></label>
+                              <span class="vc-dash-tk-hours-day__sep">a</span>
+                              <label class="vc-dash-tk-hours-day__time"><input type="time" id="tk-panel-supportHours-saturday-end" value="17:00" /><i class="fa fa-clock-o" aria-hidden="true"></i></label>
+                            </span>
+                          </div>
+                        </div>
+                        <div class="vc-dash-tk-hours-actions">
+                          <button type="button" class="vc-dash-tk-hours-action" id="tk-panel-supportHours-copyWeekdays" disabled>
+                            <i class="fa fa-clone" aria-hidden="true"></i>
+                            <span>Copia sui feriali</span>
+                          </button>
+                          <button type="button" class="vc-dash-tk-hours-action" id="tk-panel-supportHours-business">
+                            <i class="fa fa-briefcase" aria-hidden="true"></i>
+                            <span>Orario ufficio</span>
+                          </button>
+                          <button type="button" class="vc-dash-tk-hours-action vc-dash-tk-hours-action--danger" id="tk-panel-supportHours-clear">
+                            <i class="fa fa-times" aria-hidden="true"></i>
+                            <span>Azzera tutto</span>
+                          </button>
+                        </div>
+                      </div>
+                    </details>
+
+                    <div class="vc-dash-tk-panel-editor__actions">
+                      <button type="submit" class="vc-dashboard-btn is-primary" id="tk-panel-save-btn">
+                        <i class="fa fa-paper-plane" aria-hidden="true"></i>
+                        <span>Crea e invia</span>
+                      </button>
+                    </div>
+                  </form>
+                  </div>
+                </div>
+
+                <div class="vc-dash-tk-panel-editor" id="tk-multipanel-editor" hidden>
+                  <button type="button" class="vc-dash-tk-panel-editor__back" id="tk-multipanel-editor-back">
+                    <i class="fa fa-chevron-left" aria-hidden="true"></i>
+                    <span>Torna ai pannelli</span>
+                  </button>
+                  <div class="vc-dash-tk-panel-editor__card">
+                    <h3 class="vc-dash-tk-panel-editor__title" id="tk-multipanel-editor-title">Crea multi-panel</h3>
+                    <form id="tk-multipanel-form" class="vc-dash-tk-form">
+                    <input type="hidden" id="tk-multipanel-id" value="" />
+
+                    <details class="vc-dash-tk-acc" open>
+                      <summary class="vc-dash-tk-acc__sum"><span>Proprietà multi-panel</span></summary>
+                      <div class="vc-dash-tk-acc__body">
+                        <div class="vc-dash-picker-grid">
+                          <label class="vc-dash-picker vc-dash-picker--full">
+                            <span class="vc-dash-picker__label">Canale pannello</span>
+                            <select id="tk-multipanel-channelId" required></select>
+                          </label>
+                          <div class="vc-dash-picker vc-dash-picker--full">
+                            <span class="vc-dash-picker__label">Pannelli (minimo 2)</span>
+                            <div
+                              id="tk-multipanel-panelIds-list"
+                              class="vc-dash-tk-pillsel"
+                              role="group"
+                              aria-label="Pannelli da includere"
+                            ></div>
+                            <p class="vc-dash-tk-panel-checks__empty" id="tk-multipanel-panelIds-empty" hidden>
+                              Crea almeno 2 pannelli singoli prima di fare un multi-panel.
+                            </p>
+                          </div>
+                          <div class="vc-dash-picker vc-dash-picker--switch">
+                            <span class="vc-dash-picker__label">Usa menu dropdown</span>
+                            <div class="vc-dash-picker__switch">
+                              <label class="vc-dash-switch"
+                                ><input type="checkbox" id="tk-multipanel-useDropdown" checked /><span
+                                  class="vc-dash-switch__track"
+                                  aria-hidden="true"
+                                  ><span class="vc-dash-switch__thumb"></span></span
+                              ></label>
+                            </div>
+                          </div>
+                          <label class="vc-dash-picker">
+                            <span class="vc-dash-picker__label">Placeholder dropdown</span>
+                            <input
+                              type="text"
+                              id="tk-multipanel-dropdownPlaceholder"
+                              maxlength="150"
+                              placeholder="Seleziona un argomento..."
+                            />
+                          </label>
+                        </div>
+                      </div>
+                    </details>
+
+                    <details class="vc-dash-tk-acc" open>
+                      <summary class="vc-dash-tk-acc__sum"><span>Personalizzazione pannelli</span></summary>
+                      <div class="vc-dash-tk-acc__body">
+                        <p class="vc-dash-tk__subtitle vc-dash-tk-optcust__hint">
+                          Opzionale: emoji, etichetta e descrizione per ogni voce del menu (o dei bottoni).
+                        </p>
+                        <div id="tk-multipanel-optionCustomizations" class="vc-dash-tk-optcust"></div>
+                        <p class="vc-dash-tk-optcust__empty" id="tk-multipanel-optionCustomizations-empty">
+                          Seleziona almeno un pannello nelle proprietà per personalizzarlo.
+                        </p>
+                        <div class="vc-dash-tk-emoji__menu vc-dash-tk-optcust__emoji-menu" id="tk-multipanel-optcust-emoji-menu" hidden>
+                          <input
+                            type="search"
+                            id="tk-multipanel-optcust-emoji-search"
+                            class="vc-dash-tk-emoji__search"
+                            placeholder="Cerca emoji…"
+                            autocomplete="off"
+                          />
+                          <div
+                            class="vc-dash-tk-emoji__grid"
+                            id="tk-multipanel-optcust-emoji-grid"
+                            role="listbox"
+                            aria-label="Elenco emoji"
+                          ></div>
+                          <div class="vc-dash-tk-emoji__menu-foot">
+                            <button type="button" class="vc-dash-tk-emoji__clear" id="tk-multipanel-optcust-emoji-clear">
+                              Rimuovi
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </details>
+
+                    <details class="vc-dash-tk-acc" open>
+                      <summary class="vc-dash-tk-acc__sum"><span>Messaggio pannello</span></summary>
+                      <div class="vc-dash-tk-acc__body">
+                        <div class="vc-dash-picker-grid">
+                          <label class="vc-dash-picker">
+                            <span class="vc-dash-picker__label">Colore embed</span>
+                            <div class="vc-dash-tk-color">
+                              <input type="color" id="tk-multipanel-color" class="vc-dash-tk-color__input" value="#6f4e37" />
+                            </div>
+                          </label>
+                          <label class="vc-dash-picker">
+                            <span class="vc-dash-picker__label">Titolo</span>
+                            <input type="text" id="tk-multipanel-title" maxlength="256" placeholder="Open a ticket!" />
+                          </label>
+                          <label class="vc-dash-picker">
+                            <span class="vc-dash-picker__label">URL titolo <span class="vc-dash-picker__sub">(opzionale)</span></span>
+                            <input type="url" id="tk-multipanel-titleUrl" placeholder="https://example.com" />
+                          </label>
+                          <label class="vc-dash-picker vc-dash-picker--full">
+                            <span class="vc-dash-picker__label">Descrizione</span>
+                            <textarea
+                              id="tk-multipanel-description"
+                              rows="6"
+                              maxlength="4096"
+                              placeholder="Testo lungo, fino a 4096 caratteri"
+                            ></textarea>
+                          </label>
+                        </div>
+
+                        <details class="vc-dash-tk-acc vc-dash-tk-acc--nested" open>
+                          <summary class="vc-dash-tk-acc__sum"><span>Author</span></summary>
+                          <div class="vc-dash-tk-acc__body">
+                            <div class="vc-dash-picker-grid">
+                              <label class="vc-dash-picker">
+                                <span class="vc-dash-picker__label">Author name</span>
+                                <input type="text" id="tk-multipanel-authorName" maxlength="256" />
+                              </label>
+                              <label class="vc-dash-picker">
+                                <span class="vc-dash-picker__label"
+                                  >Author icon URL <span class="vc-dash-picker__sub">(opzionale)</span></span
+                                >
+                                <input type="url" id="tk-multipanel-authorIconUrl" placeholder="https://..." />
+                              </label>
+                              <label class="vc-dash-picker">
+                                <span class="vc-dash-picker__label"
+                                  >Author URL <span class="vc-dash-picker__sub">(opzionale)</span></span
+                                >
+                                <input type="url" id="tk-multipanel-authorUrl" placeholder="https://..." />
+                              </label>
+                            </div>
+                          </div>
+                        </details>
+
+                        <details class="vc-dash-tk-acc vc-dash-tk-acc--nested" open>
+                          <summary class="vc-dash-tk-acc__sum"><span>Images</span></summary>
+                          <div class="vc-dash-tk-acc__body">
+                            <div class="vc-dash-picker-grid">
+                              <label class="vc-dash-picker">
+                                <span class="vc-dash-picker__label">Large image URL</span>
+                                <input type="url" id="tk-multipanel-largeImageUrl" placeholder="https://..." />
+                              </label>
+                              <label class="vc-dash-picker">
+                                <span class="vc-dash-picker__label">Small image URL</span>
+                                <input type="url" id="tk-multipanel-smallImageUrl" placeholder="https://..." />
+                              </label>
+                            </div>
+                          </div>
+                        </details>
+
+                        <details class="vc-dash-tk-acc vc-dash-tk-acc--nested" open>
+                          <summary class="vc-dash-tk-acc__sum"><span>Footer</span></summary>
+                          <div class="vc-dash-tk-acc__body">
+                            <div class="vc-dash-picker-grid">
+                              <label class="vc-dash-picker">
+                                <span class="vc-dash-picker__label">Footer text <span class="vc-dash-tk-premium" data-i18n="nav.premium">Premium</span></span>
+                                <input type="text" id="tk-multipanel-footerText" maxlength="2048" />
+                              </label>
+                              <label class="vc-dash-picker">
+                                <span class="vc-dash-picker__label"
+                                  >Footer icon URL <span class="vc-dash-picker__sub">(opzionale)</span>
+                                  <span class="vc-dash-tk-premium" data-i18n="nav.premium">Premium</span></span
+                                >
+                                <input type="url" id="tk-multipanel-footerIconUrl" placeholder="https://..." />
+                              </label>
+                              <article class="vc-dash-settings-row vc-dash-settings-row--switch">
+                                <div class="vc-dash-settings-row__copy">
+                                  <strong class="vc-dash-settings-row__title"
+                                    >Footer timestamp <span class="vc-dash-picker__sub">(opzionale)</span></strong
+                                  >
+                                </div>
+                                <div class="vc-dash-settings-row__control">
+                                  <label class="vc-dash-switch"
+                                    ><input type="checkbox" id="tk-multipanel-footerTimestamp" /><span
+                                      class="vc-dash-switch__track"
+                                      aria-hidden="true"
+                                      ><span class="vc-dash-switch__thumb"></span></span
+                                  ></label>
+                                </div>
+                              </article>
+                            </div>
+                          </div>
+                        </details>
+
+                        <details class="vc-dash-tk-acc vc-dash-tk-acc--nested" open>
+                          <summary class="vc-dash-tk-acc__sum"><span>Fields</span></summary>
+                          <div class="vc-dash-tk-acc__body">
+                            <div class="vc-dash-picker vc-dash-picker--full">
+                              <div class="vc-dash-tk-fields-list" id="tk-multipanel-fields-list"></div>
+                              <button type="button" class="vc-dashboard-btn is-primary vc-dash-tk-fields-add" id="tk-multipanel-fields-add">
+                                <i class="fa fa-plus" aria-hidden="true"></i>
+                                <span>Aggiungi campo</span>
+                              </button>
+                            </div>
+                          </div>
+                        </details>
+                      </div>
+                    </details>
+
+                    <div class="vc-dash-tk-panel-editor__actions">
+                      <button type="submit" class="vc-dashboard-btn is-primary" id="tk-multipanel-save-btn">
+                        <i class="fa fa-paper-plane" aria-hidden="true"></i>
+                        <span>Crea e invia</span>
+                      </button>
+                    </div>
+                  </form>
+                  </div>
+                </div>
+              </section>
+            </div>

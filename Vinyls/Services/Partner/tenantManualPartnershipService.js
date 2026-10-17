@@ -28,14 +28,20 @@ const {
 } = require("../../Utils/Partner/partnershipPingUtils");
 const { userSuppressesManagerPing, resolveManagerSelectedBadgeEmojis } = require("./tenantProfilePreferencesService");
 const { buildThankYouEmbed } = require("../../Utils/Partner/partnershipThankYouEmbed");
-const { resolvePartnerTotalEarned } = require("../../Utils/Staff/partnerPointsDisplayUtils");
+const {
+  resolvePartnerTotalEarned,
+  resolvePartnerPointsShown,
+} = require("../../Utils/Staff/partnerPointsDisplayUtils");
 const { touchPartnershipPublishPings } = require("../../MultiGuild/core/tenantPartnershipSettings");
 const { reserveAndPersistPartnershipLogId, sendPartnershipExecuteLog } = require("./partnershipExecuteLogService");
 const { evaluateTenantObjectives } = require("./tenantObjectiveService");
+const { registerShutdownFlush, armShutdownCheckpoint } = require("../../../shared/recovery/shutdownCheckpoint");
 
 const PROCESSING = new Set();
 const PENDING_MANAGER_MS = 5000;
 const pendingManualPartnerships = new Map();
+/* rebootDurability1: cancel pending manual partnerships on shutdown (no orphans) */
+let manualPartnershipShutdownFlushRegistered = false;
 
 function pendingKey(guildId, messageId) {
   return `${String(guildId || "").trim()}:${String(messageId || "").trim()}`;
@@ -110,6 +116,28 @@ async function clearPendingManualPartnership(key, options = {}) {
   }
 }
 
+async function flushCancelPendingManualPartnershipsOnShutdown() {
+  const keys = [...pendingManualPartnerships.keys()];
+  if (!keys.length) return;
+  await Promise.allSettled(
+    keys.map((key) =>
+      clearPendingManualPartnership(key, {
+        deletePartnershipMessage: true,
+        deletePromptMessage: true,
+      }),
+    ),
+  );
+}
+
+function ensureManualPartnershipShutdownFlush() {
+  if (manualPartnershipShutdownFlushRegistered) return;
+  manualPartnershipShutdownFlushRegistered = true;
+  armShutdownCheckpoint();
+  registerShutdownFlush("vinyls_tenant_manual_partnership_pending", () =>
+    flushCancelPendingManualPartnershipsOnShutdown(),
+  );
+}
+
 function findPendingForAuthorChannel(guildId, channelId, authorId) {
   const gid = String(guildId || "").trim();
   const cid = String(channelId || "").trim();
@@ -135,6 +163,7 @@ async function fetchPartnershipMessage(pending) {
 }
 
 async function schedulePendingManagerPrompt(message, inviteMeta) {
+  ensureManualPartnershipShutdownFlush();
   const guildId = String(message.guild?.id || "").trim();
   const messageId = String(message.id || "").trim();
   const key = pendingKey(guildId, messageId);
@@ -270,7 +299,9 @@ async function finalizeManualPartnership(message, managerId, inviteMeta, _option
 
   const member =
     message.member || (await getGuildMemberCached(guild, message.author.id).catch(() => null));
-  const shownPartnerPoints = resolvePartnerTotalEarned(s);
+  /* thankYouSpendableOnly1: embed default usa solo spendibile */
+  const totalPartnerEarned = resolvePartnerTotalEarned(s);
+  const shownPartnerPoints = resolvePartnerPointsShown(s);
   const { embed: thankYouEmbed } = await buildThankYouEmbed({
     guild,
     actorMember: member || message.member || message.author,
@@ -278,6 +309,7 @@ async function finalizeManualPartnership(message, managerId, inviteMeta, _option
     serverName,
     serverIcon: inviteMeta.serverIcon,
     shownPartnerPoints,
+    totalPartnerEarned,
     legacy: false,
     managerId: resolvedManagerId,
     includeManagerInContent: false,

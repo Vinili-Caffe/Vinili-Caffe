@@ -332,6 +332,7 @@
     var rolesHistory = Array.isArray(career.rolesHistory) ? career.rolesHistory : [];
     var sf = payload.serataFilm;
     var pmOnly = String(role.kind || "").toLowerCase() === "pm_only";
+    var isSelf = payload.isSelf === true;
     var isFounder =
       role.isFounder === true ||
       String(role.kind || "").toLowerCase() === "founder" ||
@@ -533,25 +534,9 @@
       }
     }
 
+    /* pmCardKill1: niente card Partner Manager — self e other */
     if (partner && !isFounder) {
-      if (!pmOnly) {
-        html +=
-          '<section class="vc-user-profile-block">' +
-          '<div class="vc-user-profile-block__head">' +
-          '<span class="vc-user-profile-block__title">Partner Manager</span>' +
-          "</div>" +
-          '<div class="vc-user-profile-grid3">' +
-          '<div class="vc-user-profile-mini"><span class="vc-user-profile-mini__label">Spesi in shop</span><span class="vc-user-profile-mini__value">' +
-          esc(partner.redeemSpend || 0) +
-          "</span></div>" +
-          '<div class="vc-user-profile-mini"><span class="vc-user-profile-mini__label">Punti PM</span><span class="vc-user-profile-mini__value">' +
-          esc(partner.points != null ? partner.points : 0) +
-          "</span></div>" +
-          '<div class="vc-user-profile-mini"><span class="vc-user-profile-mini__label">Partner</span><span class="vc-user-profile-mini__value">' +
-          esc(partner.partnerCount != null ? partner.partnerCount : 0) +
-          "</span></div></div></section>";
-      }
-      if (partner.shop && window.VCStaffPmShop) {
+      if (isSelf && partner.shop && window.VCStaffPmShop) {
         html += window.VCStaffPmShop.renderShopSection(partner.shop);
       }
     }

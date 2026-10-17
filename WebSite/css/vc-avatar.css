@@ -63,14 +63,14 @@ img[data-vc-avatar].vc-avatar-fallback-img {
   background-color: #1a120d;
 }
 
-/* dashHeaderAvatarLock1: pending/early shell senza .discord-profile-link
-   altrimenti .discord-avatar-img {width/height:100%} esplode a ~300px e spacca l'header */
-header .vc-auth-pending-shell,
-header .vc-auth-early-shell,
-#header-quick-actions .vc-auth-pending-shell,
-#header-quick-actions .vc-auth-early-shell,
-#discord-login-state .vc-auth-pending-shell,
-#discord-login-state .vc-auth-early-shell {
+/* dashHeaderAvatarLock1: SOLO shell avatar-only (no chip) — size lock.
+   navUserNoFlash1: early/pending col chip = layout finale, niente box 2.35rem rotto */
+header .vc-auth-pending-shell:not(.discord-login-row--profile):not(.vc-auth-pending-shell--chip),
+header .vc-auth-early-shell:not(.discord-login-row--profile),
+#header-quick-actions .vc-auth-pending-shell:not(.discord-login-row--profile):not(.vc-auth-pending-shell--chip),
+#header-quick-actions .vc-auth-early-shell:not(.discord-login-row--profile),
+#discord-login-state .vc-auth-pending-shell:not(.discord-login-row--profile):not(.vc-auth-pending-shell--chip),
+#discord-login-state .vc-auth-early-shell:not(.discord-login-row--profile) {
   box-sizing: border-box !important;
   width: 2.35rem !important;
   height: 2.35rem !important;
@@ -82,27 +82,76 @@ header .vc-auth-early-shell,
   flex: 0 0 2.35rem !important;
   gap: 0 !important;
 }
-header .vc-auth-pending-shell .discord-avatar-clip,
-header .vc-auth-early-shell .discord-avatar-clip,
-#header-quick-actions .vc-auth-pending-shell .discord-avatar-clip,
-#header-quick-actions .vc-auth-early-shell .discord-avatar-clip,
-#discord-login-state .vc-auth-pending-shell .discord-avatar-clip,
-#discord-login-state .vc-auth-early-shell .discord-avatar-clip {
+header .vc-auth-pending-shell:not(.discord-login-row--profile):not(.vc-auth-pending-shell--chip) .discord-avatar-clip,
+header .vc-auth-early-shell:not(.discord-login-row--profile) .discord-avatar-clip,
+#header-quick-actions .vc-auth-pending-shell:not(.discord-login-row--profile):not(.vc-auth-pending-shell--chip) .discord-avatar-clip,
+#header-quick-actions .vc-auth-early-shell:not(.discord-login-row--profile) .discord-avatar-clip,
+#discord-login-state .vc-auth-pending-shell:not(.discord-login-row--profile):not(.vc-auth-pending-shell--chip) .discord-avatar-clip,
+#discord-login-state .vc-auth-early-shell:not(.discord-login-row--profile) .discord-avatar-clip {
   width: 100% !important;
   height: 100% !important;
   max-width: 2.35rem !important;
   max-height: 2.35rem !important;
 }
-header .vc-auth-pending-shell .discord-avatar-img,
-header .vc-auth-early-shell .discord-avatar-img,
-#header-quick-actions .vc-auth-pending-shell .discord-avatar-img,
-#header-quick-actions .vc-auth-early-shell .discord-avatar-img,
-#discord-login-state .vc-auth-pending-shell .discord-avatar-img,
-#discord-login-state .vc-auth-early-shell .discord-avatar-img {
+header .vc-auth-pending-shell:not(.discord-login-row--profile):not(.vc-auth-pending-shell--chip) .discord-avatar-img,
+header .vc-auth-early-shell:not(.discord-login-row--profile) .discord-avatar-img,
+#header-quick-actions .vc-auth-pending-shell:not(.discord-login-row--profile):not(.vc-auth-pending-shell--chip) .discord-avatar-img,
+#header-quick-actions .vc-auth-early-shell:not(.discord-login-row--profile) .discord-avatar-img,
+#discord-login-state .vc-auth-pending-shell:not(.discord-login-row--profile):not(.vc-auth-pending-shell--chip) .discord-avatar-img,
+#discord-login-state .vc-auth-early-shell:not(.discord-login-row--profile) .discord-avatar-img {
   width: 100% !important;
   height: 100% !important;
   max-width: 2.35rem !important;
   max-height: 2.35rem !important;
+}
+
+/* navUserNoFlash1: early/pending chip = stesso footprint del menu account */
+header .vc-auth-early-shell.discord-login-row--profile,
+header .vc-auth-pending-shell.discord-login-row--profile,
+header .vc-auth-pending-shell--chip,
+#header-quick-actions .vc-auth-early-shell.discord-login-row--profile,
+#header-quick-actions .vc-auth-pending-shell.discord-login-row--profile,
+#header-quick-actions .vc-auth-pending-shell--chip,
+#discord-login-state .vc-auth-early-shell.discord-login-row--profile,
+#discord-login-state .vc-auth-pending-shell.discord-login-row--profile,
+#discord-login-state .vc-auth-pending-shell--chip {
+  width: auto !important;
+  height: auto !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  max-width: none !important;
+  max-height: none !important;
+  flex: 0 0 auto !important;
+  overflow: visible !important;
+  gap: inherit !important;
+}
+header .vc-nav-av-skel,
+#header-quick-actions .vc-nav-av-skel,
+#discord-login-state .vc-nav-av-skel {
+  display: block !important;
+  width: 100% !important;
+  height: 100% !important;
+  border-radius: 999px !important;
+  background: #1a120d !important;
+}
+header .vc-nav-name-skel,
+#header-quick-actions .vc-nav-name-skel,
+#discord-login-state .vc-nav-name-skel {
+  display: block !important;
+  width: 4.5rem !important;
+  height: 0.7rem !important;
+  border-radius: 999px !important;
+  background: rgba(244, 220, 194, 0.18) !important;
+}
+/* navUserNoFlash1: in header niente bg silhouette caffè su pending */
+header img.vc-avatar.vc-avatar--pending,
+header img[data-vc-avatar].vc-avatar--pending,
+#header-quick-actions img.vc-avatar.vc-avatar--pending,
+#header-quick-actions img[data-vc-avatar].vc-avatar--pending,
+#discord-login-state img.vc-avatar.vc-avatar--pending,
+#discord-login-state img[data-vc-avatar].vc-avatar--pending {
+  background-image: none !important;
+  background-color: #1a120d !important;
 }
 
 /* avatarGlow1: profile wrap must stay overflow:visible so ::before/::after outer halo is not clipped
@@ -213,8 +262,10 @@ header .vc-auth-early-shell .discord-avatar-img,
 .vc-user-rankcard__avatarclip {
   position: relative !important;
   z-index: 1 !important;
-  border-radius: inherit !important;
+  /* presence wrap sits between avatarwrap and clip → inherit was 0 → square ring */
+  border-radius: 50% !important;
   overflow: hidden !important;
+  box-shadow: none !important;
 }
 
 @supports not (background: color-mix(in srgb, red 50%, blue)) {
@@ -244,4 +295,250 @@ header .vc-auth-early-shell .discord-avatar-img,
     animation: none !important;
   }
 }
+
+/* presenceChatOnly2: pallino SOLO ticket/chat — hide ovunque altrove (navbar/profilo/roster) */
+body.vc-body .vc-presence-dot {
+  display: none !important;
+}
+body.vc-body .vc-wfc-msg .vc-presence-dot,
+body.vc-body .vc-wfc-msg__av .vc-presence-dot,
+body.vc-body #vc-wfc-root .vc-presence-dot,
+body.vc-body .vc-workflow-chat .vc-presence-dot,
+body.vc-body .vc-wt-msg .vc-presence-dot,
+body.vc-body .vc-wt-chat .vc-presence-dot,
+body.vc-body .vc-wt-thread .vc-presence-dot,
+body.vc-body [data-vc-presence-zone] .vc-presence-dot {
+  display: block !important;
+}
+/* —— siteUserPresence / presenceDotOut1 / avatarSquareKill1 / presenceChatOnly2 ——
+   Pallino FUORI dal cerchio (overflow:hidden). Anti-zoom img ovunque.
+   presence wrap non deve lasciare footprint/ombra quadrata dietro il cerchio. */
+.vc-presence-wrap {
+  position: relative !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  vertical-align: middle;
+  overflow: visible !important;
+  flex-shrink: 0;
+  line-height: 0;
+  box-sizing: border-box !important;
+  border-radius: 50% !important;
+  border: 0 !important;
+  outline: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
+}
+.vc-presence-wrap--clip {
+  flex: 0 0 auto !important;
+  border-radius: 50% !important;
+}
+.vc-presence-wrap--clip > .vc-user-profile-avatarclip,
+.vc-presence-wrap--clip > .vc-user-rankcard__avatarclip,
+.vc-presence-wrap--clip > .discord-avatar-clip {
+  border-radius: 50% !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+.vc-presence-wrap--clip > .discord-avatar-clip,
+.vc-presence-wrap--clip > .vc-staff-avatar-wrap,
+.vc-presence-wrap--clip > .vc-ul-avatar,
+.vc-presence-wrap--clip > .vc-wfc-msg__av,
+.vc-presence-wrap--clip > .discord-account-popover__avatar,
+.vc-presence-wrap--clip > .vc-role-member-avatar,
+.vc-presence-wrap--clip > .vc-dash-lb-card__avatar,
+.vc-presence-wrap--clip > .vc-dash-pm__avatar,
+.vc-presence-wrap--clip > .vc-tprof-thumb-wrap,
+.vc-presence-wrap--clip > .vc-cpf-members__av,
+.vc-presence-wrap--clip > .vc-staff-organico-hist__av,
+.vc-presence-wrap--clip > .vc-home-staff-roster__avatar,
+.vc-presence-wrap--clip > .vc-user-profile-avatarclip,
+.vc-presence-wrap--clip > .vc-user-rankcard__avatarclip,
+.vc-presence-wrap--clip > .vc-reviews-card__avatar {
+  display: block !important;
+  width: 100% !important;
+  height: 100% !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  max-width: 100% !important;
+  max-height: 100% !important;
+  box-sizing: border-box !important;
+}
+/* Parent del wrap: non clippare il pallino */
+.discord-profile-link--chip,
+.discord-account-menu,
+.vc-home-staff-roster__person,
+.vc-staff-avatar-wrap,
+.vc-user-profile-avatarwrap,
+.vc-user-rankcard__avatarwrap {
+  overflow: visible !important;
+}
+/* liveStatsAvatar1 + presenceDotOut1: roster footprint */
+.vc-home-staff-roster__person > .vc-presence-wrap--clip {
+  flex: 0 0 auto !important;
+  width: 1.85rem !important;
+  height: 1.85rem !important;
+  min-width: 1.85rem !important;
+  min-height: 1.85rem !important;
+  max-width: 1.85rem !important;
+  max-height: 1.85rem !important;
+}
+/* Anti-zoom globale: img nel wrap/clip = 100% del cerchio, mai 80px nativi */
+.vc-presence-wrap img.vc-avatar,
+.vc-presence-wrap img[data-vc-avatar],
+.vc-presence-wrap img.discord-avatar-img,
+.vc-presence-wrap--clip img,
+.vc-home-staff-roster__avatar img,
+.discord-avatar-clip img,
+.vc-staff-avatar-wrap img,
+.vc-ul-avatar img,
+.vc-user-profile-avatarclip img,
+.vc-user-rankcard__avatarclip img,
+.vc-reviews-card__avatar img,
+.vc-dash-lb-card__avatar img,
+.vc-dash-pm__avatar img,
+.vc-role-member-avatar img,
+.vc-tprof-thumb-wrap img,
+.vc-cpf-members__av img,
+.vc-staff-organico-hist__av img,
+.discord-account-popover__avatar img {
+  width: 100% !important;
+  height: 100% !important;
+  max-width: 100% !important;
+  max-height: 100% !important;
+  object-fit: cover !important;
+  object-position: center center !important;
+  transform: none !important;
+}
+/* avatarOvalKill1: --sized NON deve mai usare height:100% + stretch
+   (in grid/flex con bubble alta l’img diventa ellisse verticale). */
+.vc-presence-wrap--sized {
+  width: max-content !important;
+  height: max-content !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  max-width: none !important;
+  max-height: none !important;
+  align-self: flex-start !important;
+  flex: 0 0 auto !important;
+  place-self: start !important;
+}
+.vc-presence-wrap--sized > img.vc-avatar,
+.vc-presence-wrap--sized > img[data-vc-avatar],
+.vc-presence-wrap--sized > img.discord-avatar-img,
+.vc-presence-wrap--sized > img.vc-wt-msg__avatar,
+.vc-presence-wrap--sized > img.vc-wt-avatar,
+.vc-presence-wrap--sized > img.vc-wfc-avatar {
+  width: var(--vc-av-size, 36px) !important;
+  height: var(--vc-av-size, 36px) !important;
+  min-width: var(--vc-av-size, 36px) !important;
+  min-height: var(--vc-av-size, 36px) !important;
+  max-width: var(--vc-av-size, 36px) !important;
+  max-height: var(--vc-av-size, 36px) !important;
+  aspect-ratio: 1 / 1 !important;
+  object-fit: cover !important;
+  object-position: center center !important;
+  border-radius: 50% !important;
+  flex: 0 0 auto !important;
+  align-self: center !important;
+  display: block !important;
+}
+/* chat rows: avatar in cima, mai stretch sulla bubble */
+.vc-wt-msg,
+.vc-wfc-msg {
+  align-items: flex-start !important;
+}
+.vc-wt-msg > .vc-presence-wrap,
+.vc-wt-msg > .vc-presence-wrap--sized,
+.vc-wt-msg > .vc-presence-wrap--clip,
+.vc-wfc-msg > .vc-presence-wrap,
+.vc-wfc-msg > .vc-presence-wrap--sized,
+.vc-wfc-msg > .vc-presence-wrap--clip,
+.vc-wt-msg > img.vc-wt-msg__avatar,
+.vc-wt-msg > img.vc-avatar {
+  width: var(--vc-av-size, 36px) !important;
+  height: var(--vc-av-size, 36px) !important;
+  min-width: var(--vc-av-size, 36px) !important;
+  min-height: var(--vc-av-size, 36px) !important;
+  max-width: var(--vc-av-size, 36px) !important;
+  max-height: var(--vc-av-size, 36px) !important;
+  align-self: flex-start !important;
+  flex: 0 0 var(--vc-av-size, 36px) !important;
+  place-self: start !important;
+  box-sizing: border-box !important;
+}
+.vc-presence-host {
+  overflow: visible !important;
+}
+.vc-presence-dot {
+  position: absolute !important;
+  right: -2px;
+  bottom: -2px;
+  width: 0.72rem;
+  height: 0.72rem;
+  border-radius: 999px;
+  box-sizing: border-box;
+  border: 2px solid #140f0c;
+  background: #80848e;
+  pointer-events: none;
+  z-index: 8;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.25);
+}
+html[data-vc-theme="light"] .vc-presence-dot {
+  border-color: #f3ebe3;
+}
+.vc-presence-dot[data-status="online"],
+.vc-presence-wrap[data-status="online"] > .vc-presence-dot {
+  background: #23a559;
+}
+.vc-presence-dot[data-status="idle"],
+.vc-presence-wrap[data-status="idle"] > .vc-presence-dot {
+  background: #f0b232;
+}
+.vc-presence-dot[data-status="offline"],
+.vc-presence-wrap[data-status="offline"] > .vc-presence-dot {
+  background: #80848e;
+}
+/* header account chip: pallino sul bordo avatar */
+header .discord-profile-link--chip,
+#header-quick-actions .discord-profile-link--chip {
+  overflow: visible !important;
+}
+header .discord-profile-link--chip > .vc-presence-wrap--clip,
+#header-quick-actions .discord-profile-link--chip > .vc-presence-wrap--clip {
+  flex: 0 0 auto !important;
+  width: calc(2.75rem - 4px) !important;
+  height: calc(2.75rem - 4px) !important;
+  min-width: calc(2.75rem - 4px) !important;
+  min-height: calc(2.75rem - 4px) !important;
+  max-width: calc(2.75rem - 4px) !important;
+  max-height: calc(2.75rem - 4px) !important;
+  overflow: visible !important;
+}
+header .discord-profile-link--chip > .vc-presence-wrap--clip > .discord-avatar-clip,
+#header-quick-actions .discord-profile-link--chip > .vc-presence-wrap--clip > .discord-avatar-clip {
+  width: 100% !important;
+  height: 100% !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  max-width: none !important;
+  max-height: none !important;
+  overflow: hidden !important;
+}
+header .vc-presence-dot,
+#header-quick-actions .vc-presence-dot,
+.discord-account-popover__avatar .vc-presence-dot,
+.vc-presence-wrap--clip > .vc-presence-dot {
+  width: 0.68rem;
+  height: 0.68rem;
+  border-width: 2px;
+  right: -2px;
+  bottom: -2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .vc-presence-dot {
+    transition: none !important;
+  }
+}
+/* presenceDotOut1 */
 

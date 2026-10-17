@@ -440,6 +440,16 @@
     document.__vcImgLightboxBound2 = true;
     /* Capture + early bind: must win over PWA _blank→assignInApp when possible. */
     document.addEventListener("click", onDocClick, true);
+    /* perfRoiPack2: replay first click that triggered on-demand lazy load (stub sets
+       window.__vcImgLightboxPendingClick before injecting this script). */
+    try {
+      var _pc = global.__vcImgLightboxPendingClick;
+      if (_pc && _pc.target) {
+        global.__vcImgLightboxPendingClick = null;
+        var _pr = resolveClickTarget({ target: _pc.target, button: 0 });
+        if (_pr && _pr.items && _pr.items.length) open(_pr.items, _pr.index);
+      }
+    } catch (_ePc) {}
   }
 
   var api = {

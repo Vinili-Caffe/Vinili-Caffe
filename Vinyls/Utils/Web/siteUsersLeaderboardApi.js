@@ -1,4 +1,4 @@
-const { PermissionsBitField, OverwriteType } = require("discord.js");
+const { PermissionsBitField, OverwriteType, Routes } = require("discord.js");
 const IDs = require("../Config/ids");
 const { ActivityUserProfile, CustomRole } = require("../../Schemas/Community/communitySchemas");
 const { getLevelInfo, getGlobalMultiplier, getGuildExpSettings, getRoleMultiplier, getResolvedWeeklyExpMultiplier } = require("../../Services/Community/expService");
@@ -17,6 +17,7 @@ const {
   guildMemberDisplayAvatarUrlForSite,
 } = require("../Discord/guildDiscordIdentity");
 const { stabilizeDiscordCdnAvatarUrl, animatedDiscordCdnAvatarUrl } = require("./siteLiveAvatars");
+const { discordRoleIconUrl } = require("../Discord/discordRoleIconUrl");
 const { getEffectiveJoinedAt } = require("../../Services/Community/effectiveMemberJoinService");
 const { isLitePerf, resolveSitePerfTier } = require("./sitePerfHints");
 const {
@@ -37,7 +38,10 @@ function replyUsers(req, res, payload, cacheControl, extraHeaders) {
 }
 
 const LIST_CACHE_TTL_MS = 90_000;
+/* siteUsersSwr1: servi stale fino a 10m mentre rebuild in background (come site-roles) */
+const LIST_STALE_KEEP_MS = 10 * 60 * 1000;
 const PROFILE_CACHE_TTL_MS = 90_000;
+const PROFILE_STALE_KEEP_MS = 10 * 60 * 1000;
 const BIRTHDAYS_CACHE_TTL_MS = 120_000;
 const IT_MONTH_NAMES = [
   "",
@@ -54,7 +58,7 @@ const IT_MONTH_NAMES = [
   "novembre",
   "dicembre",
 ];
-const PROFILE_CACHE_VER = 7;
+const PROFILE_CACHE_VER = 11;
 const PROFILE_MEMBER_SOFT_TIMEOUT_MS = 400;
 const LIST_MEMBER_WARM_MS = 180;
 const listCache = new Map();
@@ -149,37 +153,67 @@ async function resolveIdentitiesForList(client, guild, userIds, lite, softOnly) 
   return map;
 }
 
-function cacheGet(key) {
+function cacheLookup(key, staleKeepMs) {
   const row = listCache.get(key);
-  if (row && row.expiresAt > Date.now()) return row.payload;
-  return null;
+  if (!row || row.payload == null) return { hit: null, stale: false };
+  const now = Date.now();
+  if (row.expiresAt > now) return { hit: row.payload, stale: false };
+  const at = Number(row.at) > 0 ? Number(row.at) : Number(row.expiresAt) || 0;
+  const keep = Number.isFinite(staleKeepMs) && staleKeepMs > 0 ? staleKeepMs : LIST_STALE_KEEP_MS;
+  if (at > 0 && now - at < keep) return { hit: row.payload, stale: true };
+  return { hit: null, stale: false };
+}
+
+function cacheGet(key) {
+  const { hit, stale } = cacheLookup(key, LIST_STALE_KEEP_MS);
+  return hit && !stale ? hit : null;
 }
 
 function cacheSet(key, payload, ttlMs) {
   const ttl = Number(ttlMs);
+  const now = Date.now();
   listCache.set(key, {
     payload,
-    expiresAt: Date.now() + (Number.isFinite(ttl) && ttl > 0 ? ttl : LIST_CACHE_TTL_MS),
+    at: now,
+    expiresAt: now + (Number.isFinite(ttl) && ttl > 0 ? ttl : LIST_CACHE_TTL_MS),
   });
 }
 
-async function cacheGetOrBuild(key, builder, ttlMs) {
-  const hit = cacheGet(key);
-  if (hit != null) return hit;
+function startCacheBuild(key, builder, ttlMs) {
   let inflight = listCacheInflight.get(key);
-  if (!inflight) {
-    inflight = Promise.resolve()
-      .then(() => builder())
-      .then((payload) => {
-        cacheSet(key, payload, ttlMs);
-        return payload;
-      })
-      .finally(() => {
-        listCacheInflight.delete(key);
-      });
-    listCacheInflight.set(key, inflight);
+  if (inflight) return inflight;
+  inflight = Promise.resolve()
+    .then(() => builder())
+    .then((payload) => {
+      cacheSet(key, payload, ttlMs);
+      return payload;
+    })
+    .finally(() => {
+      listCacheInflight.delete(key);
+    });
+  listCacheInflight.set(key, inflight);
+  return inflight;
+}
+
+/** siteUsersSwr1: se stale, ritorna subito e refresh in background (force=await rebuild) */
+async function cacheGetOrBuild(key, builder, ttlMs, opts) {
+  const staleKeep =
+    Number(opts?.staleKeepMs) > 0 ? Number(opts.staleKeepMs) : LIST_STALE_KEEP_MS;
+  const force = Boolean(opts?.force);
+  const { hit, stale } = cacheLookup(key, staleKeep);
+  if (hit && !stale) return hit;
+  const inflight = startCacheBuild(key, builder, ttlMs);
+  if (hit && stale && !force) {
+    inflight.catch((err) => {
+      global.logger?.warn?.("[WEBHOOK] site-users swr refresh:", key, err?.message || err);
+    });
+    return hit;
   }
   return inflight;
+}
+
+function cacheLookupMeta(key, staleKeepMs) {
+  return cacheLookup(key, staleKeepMs);
 }
 
 function parseIntSafe(v, min, max, def) {
@@ -201,6 +235,63 @@ function nInt(v) {
 
 function resolveGuildId(client) {
   return String(client?.config?.mainGuildId || IDs.guilds?.main || "").trim();
+}
+
+/* membersApproxFix1: guild.memberCount spesso assente sul client site-api → REST with_counts + cache */
+const membersApproxMem = { guildId: "", at: 0, n: null };
+const MEMBERS_APPROX_TTL_MS = 300_000;
+
+async function resolveMembersApprox(client, guild, guildId) {
+  const gid = String(guildId || guild?.id || "").trim();
+  if (!gid) return null;
+  const now = Date.now();
+  if (
+    membersApproxMem.guildId === gid &&
+    now - membersApproxMem.at < MEMBERS_APPROX_TTL_MS &&
+    Number.isFinite(Number(membersApproxMem.n)) &&
+    Number(membersApproxMem.n) > 0
+  ) {
+    return Math.floor(Number(membersApproxMem.n));
+  }
+  const pick = (raw) => {
+    const n = Number(raw);
+    return Number.isFinite(n) && n > 0 ? Math.floor(n) : null;
+  };
+  let n = pick(guild?.memberCount) || pick(guild?.approximateMemberCount);
+  if (n) {
+    membersApproxMem.guildId = gid;
+    membersApproxMem.at = now;
+    membersApproxMem.n = n;
+    return n;
+  }
+  try {
+    const rest = client?.rest || client?._rest;
+    if (rest) {
+      const raw = await rest.get(Routes.guild(gid), {
+        query: new URLSearchParams({ with_counts: "true" }),
+      });
+      n = pick(raw?.approximate_member_count) || pick(raw?.member_count);
+      if (n) {
+        membersApproxMem.guildId = gid;
+        membersApproxMem.at = now;
+        membersApproxMem.n = n;
+        return n;
+      }
+    }
+  } catch (eFetch) {
+    global.logger?.warn?.("[site-users] membersApprox with_counts:", eFetch?.message || eFetch);
+  }
+  try {
+    const cachedGuild = client?.guilds?.cache?.get?.(gid);
+    n = pick(cachedGuild?.memberCount) || pick(cachedGuild?.approximateMemberCount);
+    if (n) {
+      membersApproxMem.guildId = gid;
+      membersApproxMem.at = now;
+      membersApproxMem.n = n;
+      return n;
+    }
+  } catch (eCache) {}
+  return null;
 }
 
 function parseBoard(raw) {
@@ -710,7 +801,10 @@ async function buildCustomProfileData(guild, userId, opts) {
             color2: primaryColors.color2,
             colorMode: primaryColors.colorMode || "solid",
             emoji: String(role.unicodeEmoji || "").trim(),
-            iconUrl: typeof role.iconURL === "function" ? String(role.iconURL({ extension: "png", size: 128 }) || "") : "",
+            ...(() => {
+              const ic = discordRoleIconUrl(role, { size: 128 });
+              return { iconUrl: ic.iconUrl, iconAnimated: ic.iconAnimated };
+            })(),
             createdAt: entityCreatedAtIso(role),
             memberCount: roleMemberCount,
             sharedMembers: [],
@@ -737,10 +831,10 @@ async function buildCustomProfileData(guild, userId, opts) {
             color2: secondaryColors.color2,
             colorMode: secondaryColors.colorMode || "solid",
             emoji: String(secondaryRole.unicodeEmoji || "").trim(),
-            iconUrl:
-              typeof secondaryRole.iconURL === "function"
-                ? String(secondaryRole.iconURL({ extension: "png", size: 128 }) || "")
-                : "",
+            ...(() => {
+              const ic = discordRoleIconUrl(secondaryRole, { size: 128 });
+              return { iconUrl: ic.iconUrl, iconAnimated: ic.iconAnimated };
+            })(),
             createdAt: entityCreatedAtIso(secondaryRole),
             memberCount: secondaryMemberCount,
             sharedMembers: [],
@@ -1023,7 +1117,10 @@ async function buildCustomProfileData(guild, userId, opts) {
           color2: primaryColors.color2,
           colorMode: primaryColors.colorMode || "solid",
           emoji: String(role.unicodeEmoji || "").trim(),
-          iconUrl: typeof role.iconURL === "function" ? String(role.iconURL({ extension: "png", size: 128 }) || "") : "",
+          ...(() => {
+            const ic = discordRoleIconUrl(role, { size: 128 });
+            return { iconUrl: ic.iconUrl, iconAnimated: ic.iconAnimated };
+          })(),
           createdAt: entityCreatedAtIso(role),
           memberCount: roleSharedCount,
           sharedMembers: roleSharedMembers,
@@ -1037,7 +1134,10 @@ async function buildCustomProfileData(guild, userId, opts) {
           color2: secondaryColors.color2,
           colorMode: secondaryColors.colorMode || "solid",
           emoji: String(secondaryRole.unicodeEmoji || "").trim(),
-          iconUrl: typeof secondaryRole.iconURL === "function" ? String(secondaryRole.iconURL({ extension: "png", size: 128 }) || "") : "",
+          ...(() => {
+            const ic = discordRoleIconUrl(secondaryRole, { size: 128 });
+            return { iconUrl: ic.iconUrl, iconAnimated: ic.iconAnimated };
+          })(),
           createdAt: entityCreatedAtIso(secondaryRole),
           memberCount: secondaryRoleSharedCount,
           sharedMembers: secondaryRoleSharedMembers,
@@ -1113,7 +1213,7 @@ function sortHourlyBreakdownForBoard(breakdown, board) {
 }
 
 const SEARCH_SELECT =
-  "userId profile.totals.exp profile.totals.hourly profile.totals.daily profile.totals.messagesTotal profile.totals.messagesWeekly profile.totals.messagesDaily profile.totals.messagesDailyKey profile.totals.voiceTotalSeconds profile.totals.voiceWeeklySeconds profile.totals.voiceDailySeconds profile.totals.voiceDailyKey profile.totals.sessionStartedAt profile.rankCard profile.birthday";
+  "userId profile.totals.exp profile.totals.hourly profile.totals.daily profile.totals.messagesTotal profile.totals.messagesWeekly profile.totals.messagesDaily profile.totals.messagesDailyKey profile.totals.voiceTotalSeconds profile.totals.voiceWeeklySeconds profile.totals.voiceDailySeconds profile.totals.voiceDailyKey profile.totals.sessionStartedAt profile.rankCard profile.birthday profile.events.halloween.candy";
 
 function buildWeeklyMultiplierSources(member, settings, fallbackGlobalExpMultiplier) {
   const sources = [];
@@ -1488,14 +1588,20 @@ async function buildProfileSearchPayload(client, guildId, searchId) {
     ? [...member.roles.cache.values()]
         .filter((role) => String(role?.id || "") && String(role.id) !== String(guild?.id || ""))
         .sort((a, b) => Number(b?.position || 0) - Number(a?.position || 0))
-        .map((role) => ({
-          id: String(role.id),
-          name: String(role.name || "Ruolo"),
-          color:
-            String(role.hexColor || "").trim() && String(role.hexColor || "").trim() !== "#000000"
-              ? String(role.hexColor || "").trim()
-              : "",
-        }))
+        .map((role) => {
+          const ic = discordRoleIconUrl(role, { size: 64 });
+          return {
+            id: String(role.id),
+            name: String(role.name || "Ruolo"),
+            color:
+              String(role.hexColor || "").trim() && String(role.hexColor || "").trim() !== "#000000"
+                ? String(role.hexColor || "").trim()
+                : "",
+            emoji: String(role.unicodeEmoji || "").trim(),
+            iconUrl: ic.iconUrl,
+            iconAnimated: ic.iconAnimated,
+          };
+        })
     : [];
   const profileAvatarUrl =
     (member && siteMemberAvatarUrl(member, 256)) || String(levelRow.avatarUrl || "").trim();
@@ -1503,6 +1609,23 @@ async function buildProfileSearchPayload(client, guildId, searchId) {
   const effectiveJoined = null;
   const romeToday = getRomeDateParts();
   const publicBirthday = buildPublicBirthdayPayload(doc?.profile?.birthday, romeToday);
+  let halloweenCandy = null;
+  try {
+    const { buildHalloweenCandyProfileSection } = require("../../Services/Community/halloweenCandyService");
+    let forceCandyPreview = false;
+    try {
+      const { memberIsHighStaffEligible } = require("../Staff/staffRoleHierarchy");
+      forceCandyPreview = Boolean(member && memberIsHighStaffEligible(member));
+    } catch {
+      forceCandyPreview = false;
+    }
+    halloweenCandy = buildHalloweenCandyProfileSection(doc?.profile?.events?.halloween?.candy, client, "", {
+      forceVisible: forceCandyPreview,
+      guildId: guildId || guild?.id || "",
+    });
+  } catch {
+    halloweenCandy = null;
+  }
 
   return {
     ok: true,
@@ -1536,6 +1659,7 @@ async function buildProfileSearchPayload(client, guildId, searchId) {
       ...(publicBirthday ? { birthday: publicBirthday } : {}),
       ...(Array.isArray(weeklyMultiplierSources) ? { weeklyMultiplierSources } : {}),
       ...(Number.isFinite(Number(expMultiplierResolved)) ? { expMultiplierResolved: Number(expMultiplierResolved) } : {}),
+      ...(halloweenCandy ? { halloweenCandy } : {}),
     },
     rows,
   };
@@ -1681,7 +1805,7 @@ async function buildRowFromDoc(
   return { rank, userId, username: id.username, displayName: id.displayName };
 }
 
-function buildSearchStats(guild, board, d, topAccountUsername, globalExpMult, hourlySingular, activityOverride) {
+function buildSearchStats(guild, board, d, topAccountUsername, globalExpMult, hourlySingular, activityOverride, membersApprox) {
   const ao = activityOverride && typeof activityOverride === "object" ? activityOverride : null;
   let topLevel = 0;
   let topWeeklyExp = 0;
@@ -1717,9 +1841,13 @@ function buildSearchStats(guild, board, d, topAccountUsername, globalExpMult, ho
     board === "weekly" && globalExpMult != null && Number.isFinite(Number(globalExpMult)) && Number(globalExpMult) > 0
       ? Number(globalExpMult)
       : null;
+  const mem =
+    membersApprox != null && Number.isFinite(Number(membersApprox)) && Number(membersApprox) > 0
+      ? Math.floor(Number(membersApprox))
+      : pickMembersFromGuild(guild);
   return {
     rankedUsers: 1,
-    membersApprox: guild?.memberCount ?? null,
+    membersApprox: mem,
     topDisplayName: String(topAccountUsername || "").trim() || "—",
     topPlayerUsername: String(topAccountUsername || "").trim() || "—",
     topLevel: board === "level" ? topLevel : null,
@@ -1729,6 +1857,11 @@ function buildSearchStats(guild, board, d, topAccountUsername, globalExpMult, ho
     topMinigameTotal: board === "minigames" ? topMinigameTotal : null,
     globalExpMultiplier: gm,
   };
+}
+
+function pickMembersFromGuild(guild) {
+  const n = Number(guild?.memberCount ?? guild?.approximateMemberCount);
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : null;
 }
 
 async function handleSiteUsersLeaderboardGet(client, req, res) {
@@ -1782,9 +1915,31 @@ async function handleSiteUsersLeaderboardGet(client, req, res) {
         res.setHeader("Cache-Control", "no-store");
         return res.json(gone);
       }
-      const cachedProfile = cacheGet(profileCacheKey);
-      if (cachedProfile) {
-        return replyUsers(req, res, cachedProfile, "public, max-age=15");
+      const profileMeta = cacheLookupMeta(profileCacheKey, PROFILE_STALE_KEEP_MS);
+      if (profileMeta.hit && !profileMeta.stale) {
+        return replyUsers(req, res, profileMeta.hit, "public, max-age=15");
+      }
+      if (profileMeta.hit && profileMeta.stale) {
+        startCacheBuild(profileCacheKey, async () => {
+          const rebuilt = await buildProfileSearchPayload(client, guildId, searchId);
+          const memberResolved = Boolean(rebuilt && rebuilt._memberResolved);
+          if (rebuilt && Object.prototype.hasOwnProperty.call(rebuilt, "_memberResolved")) {
+            delete rebuilt._memberResolved;
+          }
+          if (rebuilt && !rebuilt.notFound) {
+            rebuilt.inGuild = memberResolved;
+            if (rebuilt.profile && typeof rebuilt.profile === "object") {
+              rebuilt.profile.inGuild = memberResolved;
+            }
+          }
+          if (!rebuilt.notFound && memberResolved) return rebuilt;
+          return profileMeta.hit;
+        }, PROFILE_CACHE_TTL_MS).catch((err) => {
+          global.logger?.warn?.("[WEBHOOK] site-users profile swr:", err?.message || err);
+        });
+        return replyUsers(req, res, profileMeta.hit, "public, max-age=5, stale-while-revalidate=120", {
+          "X-VC-Users-Stale": "1",
+        });
       }
       const payload = await buildProfileSearchPayload(client, guildId, searchId);
       const memberResolved = Boolean(payload && payload._memberResolved);
@@ -1807,6 +1962,7 @@ async function handleSiteUsersLeaderboardGet(client, req, res) {
 
     if (searchId) {
       const guild = client.guilds.cache.get(guildId) || (await client.guilds.fetch(guildId).catch(() => null));
+      const membersApprox = await resolveMembersApprox(client, guild, guildId);
       const doc = await ActivityUserProfile.findOne({ guildId, userId: searchId }).select(SEARCH_SELECT).lean().catch(() => null);
       if (!doc) {
         res.setHeader("Cache-Control", "no-store");
@@ -1821,7 +1977,7 @@ async function handleSiteUsersLeaderboardGet(client, req, res) {
           totalPages: 1,
           stats: {
             rankedUsers: 0,
-            membersApprox: guild?.memberCount ?? null,
+            membersApprox,
             topDisplayName: "",
             topPlayerUsername: "",
             topLevel: null,
@@ -1917,7 +2073,7 @@ async function handleSiteUsersLeaderboardGet(client, req, res) {
         guild && searchId ? await getResolvedWeeklyExpMultiplier(guild, searchId, guildExpSettings).catch(() => null) : null;
       const weeklyEffectiveMultiplier = board === "weekly" ? expMultiplierResolved : null;
       const row = await buildRowFromDoc(client, guild, board, doc, searchRank, pageMaxSecondary, globalExpMultiplier, overrides, weeklyEffectiveMultiplier);
-      const stats = buildSearchStats(guild, board, doc, row.username, globalExpMultiplier, hourlySingular, null);
+      const stats = buildSearchStats(guild, board, doc, row.username, globalExpMultiplier, hourlySingular, null, membersApprox);
       const member =
         guild?.members?.cache?.get?.(searchId) || (guild ? await guild.members.fetch({ user: searchId, force: true }).catch(() => null) : null);
       const profileAvatarUrl =
@@ -1926,14 +2082,20 @@ async function handleSiteUsersLeaderboardGet(client, req, res) {
         ? [...member.roles.cache.values()]
             .filter((role) => String(role?.id || "") && String(role.id) !== String(guild?.id || ""))
             .sort((a, b) => Number(b?.position || 0) - Number(a?.position || 0))
-            .map((role) => ({
-              id: String(role.id),
-              name: String(role.name || "Ruolo"),
-              color:
-                String(role.hexColor || "").trim() && String(role.hexColor || "").trim() !== "#000000"
-                  ? String(role.hexColor || "").trim()
-                  : "",
-            }))
+            .map((role) => {
+              const ic = discordRoleIconUrl(role, { size: 64 });
+              return {
+                id: String(role.id),
+                name: String(role.name || "Ruolo"),
+                color:
+                  String(role.hexColor || "").trim() && String(role.hexColor || "").trim() !== "#000000"
+                    ? String(role.hexColor || "").trim()
+                    : "",
+                emoji: String(role.unicodeEmoji || "").trim(),
+                iconUrl: ic.iconUrl,
+                iconAnimated: ic.iconAnimated,
+              };
+            })
         : [];
       const weeklyMultiplierSources =
         board === "weekly" ? buildWeeklyMultiplierSources(member, guildExpSettings, globalExpMultiplier) : null;
@@ -1984,22 +2146,83 @@ async function handleSiteUsersLeaderboardGet(client, req, res) {
     const perPageMax = lite ? 9 : perfTier === "mid" ? 12 : 24;
     const perPageDefault = lite ? 9 : 12;
     const perPage = parseIntSafe(q.perPage, 1, perPageMax, perPageDefault);
-    const guild =
-      client.guilds.cache.get(guildId) || (await client.guilds.fetch(guildId).catch(() => null));
-    const hourlyBoard = Boolean(guild) && board === "weekly";
+    /* siteUsersSwr1: cache hit prima di Discord/membersApprox */
+    let guild = client.guilds.cache.get(guildId) || null;
+    let hourlyBoard = Boolean(guild) && board === "weekly";
     const romeDayKey = board === "messages" || board === "voice" ? getRomeDayKey(new Date()) : "";
-    const cacheKey = hourlyBoard
-      ? `v4:${guildId}:${board}:hourly:p${page}:n${perPage}:perf${perfTier}`
-      : `v3:${guildId}:${board}:p${page}:n${perPage}:perf${perfTier}`;
-    const cached = cacheGet(cacheKey);
-    if (cached) {
-      return replyUsers(req, res, cached, lite ? "public, max-age=45" : "public, max-age=15", {
+    /* membersApproxFix1: bump cache key — vecchi payload avevano membersApprox:null */
+    let cacheKey = hourlyBoard
+      ? `v5:${guildId}:${board}:hourly:p${page}:n${perPage}:perf${perfTier}`
+      : `v5:${guildId}:${board}:p${page}:n${perPage}:perf${perfTier}`;
+    const listCcFresh = lite ? "public, max-age=45" : "public, max-age=20";
+    const listCcStale = "public, max-age=5, stale-while-revalidate=120";
+    const forceRebuild = Boolean(req && req.__vcForceUsersRebuild);
+    let listMeta = cacheLookupMeta(cacheKey, LIST_STALE_KEEP_MS);
+    if (listMeta.hit && !listMeta.stale) {
+      return replyUsers(req, res, listMeta.hit, lite ? "public, max-age=45" : "public, max-age=15", {
         "X-VC-Perf": perfTier,
       });
     }
+    if (listMeta.hit && listMeta.stale && !forceRebuild) {
+      /* refresh in bg (force) — evita loop sullo stesso stale short-circuit */
+      if (!listCacheInflight.has(cacheKey)) {
+        setImmediate(() => {
+          warmOneUsersQuery(
+            client,
+            {
+              board,
+              page: String(page),
+              perPage: String(perPage),
+              ...(lite ? { perf: "lite" } : {}),
+            },
+            { force: true },
+          ).catch(() => {});
+        });
+      }
+      return replyUsers(req, res, listMeta.hit, listCcStale, {
+        "X-VC-Perf": perfTier,
+        "X-VC-Users-Stale": "1",
+      });
+    }
+
+    if (!guild) {
+      guild = (await client.guilds.fetch(guildId).catch(() => null)) || null;
+      hourlyBoard = Boolean(guild) && board === "weekly";
+      cacheKey = hourlyBoard
+        ? `v5:${guildId}:${board}:hourly:p${page}:n${perPage}:perf${perfTier}`
+        : `v5:${guildId}:${board}:p${page}:n${perPage}:perf${perfTier}`;
+      listMeta = cacheLookupMeta(cacheKey, LIST_STALE_KEEP_MS);
+      if (listMeta.hit && !listMeta.stale) {
+        return replyUsers(req, res, listMeta.hit, lite ? "public, max-age=45" : "public, max-age=15", {
+          "X-VC-Perf": perfTier,
+        });
+      }
+      if (listMeta.hit && listMeta.stale && !forceRebuild) {
+        if (!listCacheInflight.has(cacheKey)) {
+          setImmediate(() => {
+            warmOneUsersQuery(
+              client,
+              {
+                board,
+                page: String(page),
+                perPage: String(perPage),
+                ...(lite ? { perf: "lite" } : {}),
+              },
+              { force: true },
+            ).catch(() => {});
+          });
+        }
+        return replyUsers(req, res, listMeta.hit, listCcStale, {
+          "X-VC-Perf": perfTier,
+          "X-VC-Users-Stale": "1",
+        });
+      }
+    }
+    const membersApprox = await resolveMembersApprox(client, guild, guildId);
 
     const skip = (page - 1) * perPage;
-    const softIds = lite || perfTier === "mid";
+    /* siteUsersSwr1: lista mai bloccata su hydrate Discord duro (fill in background) */
+    const softIds = true;
 
     if (hourlyBoard) {
       /* siteUsersW2: reuse shared weekly-hourly sorted + singleflight page payload */
@@ -2077,7 +2300,7 @@ async function handleSiteUsersLeaderboardGet(client, req, res) {
           totalPages: Math.max(1, Math.ceil(total / perPage)),
           stats: {
             rankedUsers: total,
-            membersApprox: guild?.memberCount ?? null,
+            membersApprox,
             topDisplayName,
             topPlayerUsername: topDisplayName,
             topLevel: null,
@@ -2089,10 +2312,19 @@ async function handleSiteUsersLeaderboardGet(client, req, res) {
           },
           rows,
         };
-      });
-      return replyUsers(req, res, payload, lite ? "public, max-age=45" : "public, max-age=20", {
-        "X-VC-Perf": perfTier,
-      });
+      }, LIST_CACHE_TTL_MS, { force: forceRebuild });
+      const hourlyMeta = cacheLookupMeta(cacheKey, LIST_STALE_KEEP_MS);
+      const hourlyStale = Boolean(hourlyMeta.stale) && !forceRebuild;
+      return replyUsers(
+        req,
+        res,
+        payload,
+        hourlyStale ? listCcStale : listCcFresh,
+        {
+          "X-VC-Perf": perfTier,
+          ...(hourlyStale ? { "X-VC-Users-Stale": "1" } : {}),
+        },
+      );
     }
 
     const filter = boardQuery(board, guildId);
@@ -2250,7 +2482,7 @@ async function handleSiteUsersLeaderboardGet(client, req, res) {
       totalPages: Math.max(1, Math.ceil(total / perPage)),
       stats: {
         rankedUsers: total,
-        membersApprox: guild?.memberCount ?? null,
+        membersApprox,
         topDisplayName,
         topPlayerUsername: topDisplayName,
         topLevel: board === "level" ? topLevel : null,
@@ -2263,9 +2495,12 @@ async function handleSiteUsersLeaderboardGet(client, req, res) {
       },
       rows,
     };
-    });
-    return replyUsers(req, res, payload, lite ? "public, max-age=45" : "public, max-age=20", {
+    }, LIST_CACHE_TTL_MS, { force: forceRebuild });
+    const outMeta = cacheLookupMeta(cacheKey, LIST_STALE_KEEP_MS);
+    const outStale = Boolean(outMeta.stale) && !forceRebuild;
+    return replyUsers(req, res, payload, outStale ? listCcStale : listCcFresh, {
       "X-VC-Perf": perfTier,
+      ...(outStale ? { "X-VC-Users-Stale": "1" } : {}),
     });
   } catch (err) {
     global.logger?.error?.("[WEBHOOK] site-users:", err);
@@ -2273,27 +2508,39 @@ async function handleSiteUsersLeaderboardGet(client, req, res) {
   }
 }
 
-/* siteApiW4: prewarm lite leaderboard pages after site-api listen */
+async function warmOneUsersQuery(client, query, opts) {
+  const req = {
+    query: query || {},
+    headers: {},
+    __vcForceUsersRebuild: Boolean(opts?.force),
+  };
+  const res = {
+    setHeader() {},
+    status() {
+      return this;
+    },
+    json() {
+      return this;
+    },
+  };
+  await handleSiteUsersLeaderboardGet(client, req, res);
+}
+
+/* siteApiW4 + siteUsersSwr1 + apiWarmSwr2: lite/mid/full first pages */
 async function warmSiteUsersLeaderboardCache(client) {
-  const boards = ["level", "weekly"];
-  for (const board of boards) {
-    const req = {
-      query: { board, page: "1", perPage: "9", perf: "lite" },
-      headers: {},
-    };
-    const res = {
-      setHeader() {},
-      status() {
-        return this;
-      },
-      json() {
-        return this;
-      },
-    };
+  const jobs = [
+    { board: "level", page: "1", perPage: "9", perf: "lite" },
+    { board: "weekly", page: "1", perPage: "9", perf: "lite" },
+    { board: "level", page: "1", perPage: "12" },
+    { board: "weekly", page: "1", perPage: "12" },
+    { board: "level", page: "1", perPage: "24" },
+    { board: "weekly", page: "1", perPage: "24" },
+  ];
+  for (const query of jobs) {
     try {
-      await handleSiteUsersLeaderboardGet(client, req, res);
+      await warmOneUsersQuery(client, query, { force: true });
     } catch (err) {
-      global.logger?.warn?.("[WEBHOOK] site-users warm:", board, err?.message || err);
+      global.logger?.warn?.("[WEBHOOK] site-users warm:", query.board, err?.message || err);
     }
   }
 }

@@ -14,6 +14,8 @@ let stopping = false;
 let lavalinkReady = false;
 let settleTimer = null;
 let lavalinkUnavailableLogged = false;
+let lastLavalinkUnavailableLogAt = 0;
+const LAVALINK_UNAVAIL_LOG_COOLDOWN_MS = 5 * 60 * 1000;
 let loaderStarted = false;
 
 function killChildTree(pid) {
@@ -116,10 +118,17 @@ function checkLavalinkStatus() {
         clearTimeout(settleTimer);
         settleTimer = null;
       }
-      if (lavalinkReady || !lavalinkUnavailableLogged) {
+      {
+        const now = Date.now();
+        const shouldLog =
+          (lavalinkReady || !lavalinkUnavailableLogged) &&
+          now - lastLavalinkUnavailableLogAt >= LAVALINK_UNAVAIL_LOG_COOLDOWN_MS;
         lavalinkReady = false;
         lavalinkUnavailableLogged = true;
-        console.warn("[wait-for-lavalink] Lavalink non raggiungibile al momento. Il backend resta attivo, la musica no.");
+        if (shouldLog) {
+          lastLavalinkUnavailableLogAt = now;
+          console.warn("[wait-for-lavalink] Lavalink non raggiungibile al momento. Il backend resta attivo, la musica no.");
+        }
       }
       if (!blockUntilReady && !loaderStarted) runLoader();
       scheduleNextCheck(intervalMs);

@@ -6,9 +6,10 @@
   var AVATAR_CLASS_RE = /(^|[-_])avatar($|[-_])|avatar/i;
 
   function wantsMotion() {
+    /* navGifKeepMotion1: a_* GIF restano vive — reduce-motion non demote avatar Discord */
     try {
-      if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return false;
-    } catch (e) {}
+      if (navigator.connection && navigator.connection.saveData) return false;
+    } catch (eSd) {}
     return true;
   }
 
@@ -43,12 +44,43 @@
     return /\/guilds\/\d+\/users\/\d+\/avatars\//i.test(String(pathnameOrUrl || ""));
   }
 
+  /* boardsAnimIcon2: icone/banner guild Discord (a_*) sono media animabili, non avatar utente */
+  /* reactEmojiNoAvatar1: /emojis/ID.webp (no slash dopo id) — prima il /\d+\/ non matchava
+     e le custom emoji finivano in avatar circle+cover (reaction/picker ritagliate). */
+  function isGuildIconOrBannerPath(pathnameOrUrl) {
+    return /\/(?:icons|banners|app-icons|role-icons|emojis)\/\d+/i.test(String(pathnameOrUrl || ""));
+  }
+
+  /* avatarCdnSize1: Discord CDN accetta solo potenze di 2 (16…4096).
+     size=34/38 dal menu → 400 Bad Request. Round-up al valido successivo. */
+  var CDN_SIZES = [16, 32, 64, 128, 256, 512, 1024, 2048, 4096];
+  function cdnSize(size) {
+    var n = Math.max(1, Math.floor(Number(size) || 128));
+    for (var i = 0; i < CDN_SIZES.length; i += 1) {
+      if (n <= CDN_SIZES[i]) return CDN_SIZES[i];
+    }
+    return 4096;
+  }
+  function setUrlCdnSize(parsedOrSearch, size) {
+    var n = cdnSize(size);
+    if (parsedOrSearch && typeof parsedOrSearch === "object" && "search" in parsedOrSearch) {
+      var parsed = parsedOrSearch;
+      if (/[?&]size=\d+/i.test(parsed.search)) {
+        parsed.search = parsed.search.replace(/([?&]size=)\d+/i, "$1" + n);
+      } else {
+        parsed.search += (parsed.search ? "&" : "?") + "size=" + n;
+      }
+      return n;
+    }
+    return n;
+  }
+
   function buildFromParts(userId, avatarHash, size) {
     var id = String(userId || "").trim();
     var hash = String(avatarHash || "").trim();
     if (!id || !hash) return "";
     var ext = /^a_/i.test(hash) ? "gif" : "png";
-    var n = Number(size) || 128;
+    var n = cdnSize(size);
     return "https://cdn.discordapp.com/avatars/" + id + "/" + hash + "." + ext + "?size=" + n;
   }
 
@@ -58,7 +90,7 @@
     var hash = String(avatarHash || "").trim();
     if (!gid || !id || !hash) return "";
     var ext = /^a_/i.test(hash) ? "gif" : "png";
-    var n = Number(size) || 128;
+    var n = cdnSize(size);
     return (
       "https://cdn.discordapp.com/guilds/" +
       gid +
@@ -110,6 +142,16 @@
     var src = String(url || "").trim();
     if (!src || isDiscordEmbedDefaultUrl(src) || isCoffeeFallbackUrl(src)) return "";
     if (!/^https:\/\/(?:cdn\.discordapp\.com|media\.discordapp\.net)\//i.test(src)) return "";
+    /* violKill4: riscrivi SEMPRE size non-potenza-di-2 (size=34 → 400) */
+    try {
+      var m = src.match(/[?&]size=(\d+)/i);
+      if (m) {
+        var want = cdnSize(m[1]);
+        if (String(want) !== String(m[1])) {
+          src = src.replace(/([?&]size=)\d+/i, "$1" + want);
+        }
+      }
+    } catch (eSz) {}
     return src;
   }
 
@@ -260,7 +302,8 @@
   function imgHtml(opts) {
     var a = opts && typeof opts === "object" ? opts : {};
     var uid = String(a.userId || a.id || "").trim();
-    var size = Math.max(16, Number(a.size || a.width || a.height || 40) || 40);
+    var displayPx = Math.max(16, Number(a.width || a.height || a.size || 40) || 40);
+    var size = cdnSize(a.size != null ? a.size : displayPx);
     var cls = String(a.className || a.class || "vc-avatar").trim() || "vc-avatar";
     if (!/\bvc-avatar\b/.test(cls)) cls += " vc-avatar";
     var loading = a.loading != null ? String(a.loading) : "lazy";
@@ -315,9 +358,9 @@
       '" alt="' +
       escAttr(alt) +
       '" width="' +
-      size +
+      displayPx +
       '" height="' +
-      size +
+      displayPx +
       '" loading="' +
       escAttr(loading) +
       '" decoding="async" referrerpolicy="no-referrer" data-vc-avatar="1"' +
@@ -381,8 +424,7 @@
 
   function prefersStaticAvatars() {
     try {
-      // avatarKeepAnim1: GIF sempre (anche mobile). Solo reduced-motion / save-data → static.
-      if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return true;
+      // navGifKeepMotion1: solo save-data → static (reduce-motion NON spegne a_*)
       if (navigator.connection && navigator.connection.saveData) return true;
     } catch (eStatic) {}
     return false;
@@ -404,17 +446,19 @@
       if (/\/embed\/avatars\//i.test(path)) return raw;
       var pathHash = hashFromDiscordAvatarPath(path);
       var guildPath = isGuildMemberAvatarPath(path);
+      var guildMediaPath = isGuildIconOrBannerPath(path);
       // guildFirstIdentity1: mai ricostruire URL utente da hash profilo su avatar server
-      if (guildPath) {
-        if (!/^a_/i.test(pathHash)) return raw;
-        parsed.pathname = path.replace(/\.(png|webp|jpg|jpeg)(\?|$)/i, ".gif$2");
-        if (size > 0) {
-          if (/[?&]size=\d+/i.test(parsed.search)) {
-            parsed.search = parsed.search.replace(/([?&]size=)\d+/i, "$1" + size);
-          } else {
-            parsed.search += (parsed.search ? "&" : "?") + "size=" + size;
-          }
+      // boardsAnimIcon2: anche /icons/ e /banners/ a_* → .gif
+      if (guildPath || guildMediaPath) {
+        if (size > 0) setUrlCdnSize(parsed, size);
+        else {
+          try {
+            var sm = String(parsed.search || "").match(/[?&]size=(\d+)/i);
+            if (sm) setUrlCdnSize(parsed, Number(sm[1]) || 64);
+          } catch (eSm) {}
         }
+        if (!/^a_/i.test(pathHash)) return parsed.toString();
+        parsed.pathname = path.replace(/\.(png|webp|jpg|jpeg)(\?|$)/i, ".gif$2");
         return parsed.toString();
       }
       // Only upgrade real user/guild avatar paths — never rebuild from embed using hashHint.
@@ -426,13 +470,7 @@
         if (uid) return buildFromParts(uid, hashHint, size);
       }
       parsed.pathname = path.replace(/\.(png|webp|jpg|jpeg)(\?|$)/i, ".gif$2");
-      if (size > 0) {
-        if (/[?&]size=\d+/i.test(parsed.search)) {
-          parsed.search = parsed.search.replace(/([?&]size=)\d+/i, "$1" + size);
-        } else {
-          parsed.search += (parsed.search ? "&" : "?") + "size=" + size;
-        }
-      }
+      if (size > 0) setUrlCdnSize(parsed, size);
       return parsed.toString();
     } catch (e2) {
       if (/\/embed\/avatars\//i.test(raw)) return raw;
@@ -440,7 +478,9 @@
         if (!/\/a_[^/?#]+\./i.test(raw)) return raw;
         var outG = raw.replace(/\.(png|webp|jpg|jpeg)(\?|#|$)/i, ".gif$2");
         if (size > 0 && !/[?&]size=\d+/i.test(outG)) {
-          outG += (outG.indexOf("?") >= 0 ? "&" : "?") + "size=" + size;
+          outG += (outG.indexOf("?") >= 0 ? "&" : "?") + "size=" + cdnSize(size);
+        } else if (size > 0) {
+          outG = outG.replace(/([?&]size=)\d+/i, "$1" + cdnSize(size));
         }
         return outG;
       }
@@ -452,9 +492,26 @@
       }
       var out = raw.replace(/\.(png|webp|jpg|jpeg)(\?|#|$)/i, ".gif$2");
       if (size > 0 && !/[?&]size=\d+/i.test(out)) {
-        out += (out.indexOf("?") >= 0 ? "&" : "?") + "size=" + size;
+        out += (out.indexOf("?") >= 0 ? "&" : "?") + "size=" + cdnSize(size);
+      } else if (size > 0) {
+        out = out.replace(/([?&]size=)\d+/i, "$1" + cdnSize(size));
       }
       return out;
+    }
+  }
+
+  function normalizeDiscordCdnSize(url, size) {
+    var raw = String(url || "").trim();
+    if (!raw || !(size > 0)) return raw;
+    try {
+      var parsed = new URL(raw);
+      if (!isDiscordCdnHost(parsed.hostname)) return raw;
+      setUrlCdnSize(parsed, size);
+      return parsed.toString();
+    } catch (eNormSz) {
+      var n = cdnSize(size);
+      if (/[?&]size=\d+/i.test(raw)) return raw.replace(/([?&]size=)\d+/i, "$1" + n);
+      return raw + (raw.indexOf("?") >= 0 ? "&" : "?") + "size=" + n;
     }
   }
 
@@ -465,10 +522,10 @@
     if (!raw && hash && uid) return buildFromParts(uid, hash, size);
     if (!raw) return "";
     if (isGuildMemberAvatarPath(raw)) {
-      return preferAnimatedUrl(raw, size, "") || raw;
+      return normalizeDiscordCdnSize(preferAnimatedUrl(raw, size, "") || raw, size);
     }
     var next = preferAnimatedUrl(raw, size, hash);
-    return next || raw;
+    return normalizeDiscordCdnSize(next || raw, size);
   }
 
   function preferStaticUrl(url, size) {
@@ -478,13 +535,7 @@
       var parsed = new URL(raw);
       if (!isDiscordCdnHost(parsed.hostname)) return raw;
       parsed.pathname = String(parsed.pathname || "").replace(/\.(gif|webp|jpg|jpeg)(\?|$)/i, ".png$2");
-      if (size > 0) {
-        if (/[?&]size=\d+/i.test(parsed.search)) {
-          parsed.search = parsed.search.replace(/([?&]size=)\d+/i, "$1" + size);
-        } else {
-          parsed.search += (parsed.search ? "&" : "?") + "size=" + size;
-        }
-      }
+      if (size > 0) setUrlCdnSize(parsed, size);
       return parsed.toString();
     } catch (e) {
       return raw.replace(/\.(gif|webp|jpe?g)(\?|#|$)/i, ".png$2");
@@ -495,14 +546,61 @@
     if (!img || img.tagName !== "IMG") return false;
     try {
       if (img.classList && img.classList.contains("vc-header-logo-img")) return false;
+      // boardsAnimIcon2: media bacheca gestiti da VcBoards.animMediaUrl, non demote/fallback avatar
+      if (
+        img.classList &&
+        (img.classList.contains("vc-boards-detail__icon") ||
+          img.classList.contains("vc-boards-card__icon") ||
+          img.classList.contains("vc-boards-mine-card__icon") ||
+          img.classList.contains("vc-boards-form-hero__img") ||
+          img.classList.contains("vc-boards-vote__icon") ||
+          img.classList.contains("vc-boards-guild-tag__badge"))
+      ) {
+        return false;
+      }
     } catch (eLogo) {}
-    if (img.hasAttribute("data-vc-avatar")) return true;
+    if (img.getAttribute("data-vc-anim-media") === "1") return false;
+    try {
+      if (img.classList && img.classList.contains("vc-perks-role-ico")) return false;
+      if (img.closest && img.closest(".vc-sponsor-mention img.vc-perks-role-ico, .vc-sponsor-mention")) {
+        if (/role-icons|\/emojis\//i.test(String(img.getAttribute("src") || ""))) return false;
+        if (img.classList && img.classList.contains("vc-perks-role-ico")) return false;
+      }
+    } catch (eRoleIco) {}
+    var avMark = String(img.getAttribute("data-vc-avatar") || "").trim();
+    if (avMark === "0" || avMark === "false") return false;
+    if (avMark) return true;
     if (img.hasAttribute("data-vc-avatar-fallback")) return true;
     var cls = String(img.className || "");
     var src = String(img.getAttribute("src") || "");
-    if (AVATAR_CLASS_RE.test(cls)) return true;
+    /* reactEmojiNoAvatar1 + ticketMsgEmojiFlat1: mai emoji chat/composer come avatar */
+    if (
+      /\b(?:vc-wt-reaction__emoji|vc-wfc-react__emoji|vc-wt-inline-emoji|vc-discord-emoji|vc-emoji|vc-twemoji|vc-wt-composer__emoji-token)\b/i.test(
+        cls,
+      )
+    ) {
+      return false;
+    }
+    try {
+      if (
+        img.closest &&
+        img.closest(
+          ".vc-emoji-picker__opt, .vc-wt-reaction, .vc-wfc-react, .vc-wt-msg__reactions, .vc-wfc-reactions, .vc-wt-msg__text, .vc-wt-msg__bubble, .vc-wt-composer__input, .vc-wfc-msg__text",
+        )
+      ) {
+        return false;
+      }
+    } catch (eEmoji) {}
+    if (isGuildIconOrBannerPath(src)) return false;
+    if (/\/(?:role-icons|emojis)\//i.test(src)) return false;
+    if (AVATAR_CLASS_RE.test(cls) && !/\bvc-perks-role-ico\b/i.test(cls)) return true;
     if (/\brounded(-full)?\b/i.test(cls)) return true;
-    if (/(?:cdn\.discordapp\.com|media\.discordapp\.net)\//i.test(src)) return true;
+    if (
+      /(?:cdn\.discordapp\.com|media\.discordapp\.net)\//i.test(src) &&
+      !/\/(?:role-icons|emojis)\//i.test(src)
+    ) {
+      return true;
+    }
     return false;
   }
 
@@ -609,14 +707,25 @@
 
     // avatarKeepAnim1: se già paintato OK (GIF/PNG), non riscrivere src (evita flash→demote embed).
     // forceAnimRestart resta consentito per ripartire la GIF.
+    // navBrandAnimEverywhere1: se hash a_* ma src ancora .png (navbar soft) → upgrade.
     try {
       var paintedOk =
         img.naturalWidth > 0 &&
         (img.dataset.vcAvatarOk === "1" ||
           (img.classList && img.classList.contains("vc-avatar--ready")));
       if (paintedOk && !(opts && opts.forceAnimRestart)) {
-        settleReadyOrFallback();
-        return false;
+        var curPaint = String(img.getAttribute("src") || img.src || "");
+        var hashPaint = String(img.getAttribute("data-avatar-hash") || "").trim();
+        var needsGifUpgrade =
+          !prefersStaticAvatars() &&
+          wantsMotion() &&
+          /^a_/i.test(hashPaint) &&
+          /\.png(?:$|[?#])/i.test(curPaint) &&
+          !/\/embed\/avatars\//i.test(curPaint);
+        if (!needsGifUpgrade) {
+          settleReadyOrFallback();
+          return false;
+        }
       }
     } catch (ePaint) {}
 
@@ -642,7 +751,8 @@
     if (isGuildMemberAvatarPath(src) || img.getAttribute("data-vc-guild-avatar") === "1") {
       hashHint = "";
     }
-    var next = preferAnimatedUrl(src, readSize(img), hashHint);
+    var sz = readSize(img);
+    var next = normalizeDiscordCdnSize(preferAnimatedUrl(src, sz, hashHint) || src, sz);
     if (!next || next === src) {
       if (isAnimatedDiscordAvatarUrl(src)) img.dataset[APPLIED] = "1";
       settleReadyOrFallback();
@@ -715,6 +825,8 @@
     preferAnimatedUrl: preferAnimatedUrl,
     preferStaticUrl: preferStaticUrl,
     escAttr: escAttr,
+    cdnSize: cdnSize,
+    normalizeDiscordCdnSize: normalizeDiscordCdnSize,
     imgHtml: imgHtml,
     applyToImage: applyToImage,
     restartAnimation: restartAnimation,
@@ -790,7 +902,7 @@
           window.setTimeout(step, 48);
         }
       }
-      window.setTimeout(step, 0);
+      window.setTimeout(step, 48); /* violKillRest1: no setTimeout(0) */
     }
 
     function scheduleFlush() {
@@ -839,3 +951,5 @@
 /* violPass4 */
 /* violPass5 */
 /* violPass7 */
+/* boardsAnimIcon2 */
+/* navAnimMarqueeKeep1 */

@@ -3,12 +3,14 @@
 
   var STORAGE_KEY = "vc_type_sfx";
   var VOL_KEY = "vc_type_sfx_vol";
-  var MAX_RATE_MS = 28;
+  /* inputLagKill1: meno tick/sec — createBufferSource ogni ~28ms strozzava il main thread */
+  var MAX_RATE_MS = 55;
   var BASE_PEAK = 0.55;
   var lastPlayAt = 0;
   var ctx = null;
   var unlocked = false;
   var masterGain = null;
+  var tickGain = null;
   var clickBufs = null;
   var resumeWait = null;
   var userVol = 0.7;
@@ -18,6 +20,8 @@
   var btn = null;
   var rangeEl = null;
   var volumeUiBound = false;
+  var shellShown = false;
+  var typingHot = false;
 
   function isIt() {
     try {
@@ -82,7 +86,26 @@
     masterGain = c.createGain();
     masterGain.gain.value = 1;
     masterGain.connect(c.destination);
+    tickGain = null;
     return masterGain;
+  }
+
+  function ensureTickGain(c) {
+    var master = ensureMaster(c);
+    if (tickGain && tickGain.context === c) return tickGain;
+    tickGain = c.createGain();
+    tickGain.gain.value = Math.max(0.001, BASE_PEAK * effectiveVol());
+    tickGain.connect(master);
+    return tickGain;
+  }
+
+  function setTypingHot(on) {
+    typingHot = !!on;
+    try {
+      window.__vcTypingHot = typingHot;
+      if (typingHot) document.documentElement.setAttribute("data-vc-typing", "1");
+      else document.documentElement.removeAttribute("data-vc-typing");
+    } catch (eHot) {}
   }
 
   function buildClickBuffer(c, seed) {
@@ -147,14 +170,11 @@
   function emitTick(c, vol) {
     try {
       var bufs = ensureClickBuffers(c);
-      var master = ensureMaster(c);
+      var g = ensureTickGain(c);
+      g.gain.value = Math.max(0.001, BASE_PEAK * vol);
       var src = c.createBufferSource();
       src.buffer = bufs[(Math.random() * bufs.length) | 0];
-      var g = c.createGain();
-      g.gain.value = Math.max(0.001, BASE_PEAK * vol);
       src.connect(g);
-      g.connect(master);
-      // start(0) = subito nella coda audio (meno latenza di currentTime + ramp)
       src.start(0);
     } catch (ePlay) {}
   }
@@ -253,22 +273,43 @@
     }
   }
 
+  function setPlayerOpen(open) {
+    if (!wrap) return;
+    try {
+      wrap.classList.toggle("is-open", Boolean(open));
+      wrap.setAttribute("aria-expanded", open ? "true" : "false");
+    } catch (eO) {}
+  }
+
+  function isPlayerOpen() {
+    return Boolean(wrap && wrap.classList.contains("is-open"));
+  }
+
   function setShellVisible(show) {
-    if (isTouchUi()) {
+    /* phoneTypeSfxVolBar1: su telefono il chip resta (come musica), non più nascosto */
+    if (isDedicatedBgmPage()) {
       show = false;
+      try {
+        document.documentElement.classList.add("vc-type-sfx-off");
+      } catch (eOff2) {}
     }
     if (show) {
+      if (shellShown && wrap && wrap.isConnected && !wrap.hidden) return;
       ensureShell();
       if (wrap) {
         wrap.hidden = false;
         wrap.removeAttribute("hidden");
       }
+      shellShown = true;
       return;
     }
+    if (!shellShown && (!wrap || wrap.hidden)) return;
     if (wrap) {
       wrap.hidden = true;
       wrap.setAttribute("hidden", "");
+      setPlayerOpen(false);
     }
+    shellShown = false;
   }
 
   function refreshShellVisibility() {
@@ -374,18 +415,53 @@
     }
     if (btn && !btn.__vcTypeSfxBound) {
       btn.__vcTypeSfxBound = true;
-      btn.addEventListener("click", function (ev) {
-        ev.preventDefault();
-        unlock();
-        if (effectiveVol() > 0.001) {
-          mutedByUser = true;
-        } else {
-          mutedByUser = false;
-          if (userVol <= 0.001) userVol = lastAudibleVol > 0.001 ? lastAudibleVol : 0.7;
-        }
-        persistPrefs();
-        syncUi();
-        if (effectiveVol() > 0.001) playTick();
+      btn.addEventListener(
+        "click",
+        function (ev) {
+          try {
+            ev.preventDefault();
+            ev.stopPropagation();
+            if (typeof ev.stopImmediatePropagation === "function") ev.stopImmediatePropagation();
+          } catch (e0) {}
+          unlock();
+          /* phoneTypeSfxVolBar1: 1° tap apre barra volume; 2° tap = mute (come musica) */
+          if (isTouchUi() && !isPlayerOpen()) {
+            setPlayerOpen(true);
+            syncUi();
+            return;
+          }
+          if (effectiveVol() > 0.001) {
+            mutedByUser = true;
+          } else {
+            mutedByUser = false;
+            if (userVol <= 0.001) userVol = lastAudibleVol > 0.001 ? lastAudibleVol : 0.7;
+          }
+          persistPrefs();
+          syncUi();
+          if (effectiveVol() > 0.001) playTick();
+        },
+        true,
+      );
+    }
+    if (wrap && !wrap.__vcTypeSfxOutsideBound) {
+      wrap.__vcTypeSfxOutsideBound = true;
+      document.addEventListener(
+        "pointerdown",
+        function (ev) {
+          if (!isPlayerOpen()) return;
+          var t = ev && ev.target;
+          if (t && wrap.contains(t)) return;
+          setPlayerOpen(false);
+        },
+        true,
+      );
+      wrap.addEventListener("pointerleave", function () {
+        if (isTouchUi()) return;
+        setPlayerOpen(false);
+        try {
+          var ae = document.activeElement;
+          if (ae && wrap.contains(ae) && typeof ae.blur === "function") ae.blur();
+        } catch (eBlur) {}
       });
     }
     bindVolumeUi();
@@ -393,12 +469,25 @@
     return wrap;
   }
 
+  function isDedicatedBgmPage() {
+    try {
+      var b = document.body;
+      if (!b) return false;
+      if (b.classList.contains("vc-confessionale-page")) return true;
+      if (b.classList.contains("vc-seratafilm-page")) return true;
+      if (document.querySelector(".vc-bgm-player--confessionale, .vc-bgm-player--seratafilm, #vc-confessionale-music-player")) {
+        return true;
+      }
+    } catch (eP) {}
+    return false;
+  }
+
   function init() {
     if (window.__VC_TYPE_SFX_INIT) return;
     window.__VC_TYPE_SFX_INIT = true;
     if (document.documentElement.classList.contains("vc-type-sfx-off")) return;
-    // Mobile/touch: niente FAB flottante (ingombra) e niente click su soft-keyboard.
-    if (isTouchUi()) {
+    /* confTypeSfxClash1: su confessionale/seratafilm il chip tastiera copre la musica */
+    if (isDedicatedBgmPage()) {
       try {
         document.documentElement.classList.add("vc-type-sfx-off");
       } catch (eOff) {}
@@ -413,9 +502,23 @@
         if (effectiveVol() <= 0.001) return;
         if (!isPrintableKey(ev)) return;
         if (!isTypingTarget(ev.target)) return;
-        setShellVisible(true);
+        /* inputLagKill1: no DOM/shell work sul key path — solo audio */
         unlocked = true;
-        // Se il context è già running (focus/click), tick immediato; altrimenti unlock+play.
+        playTick();
+        if (ctx && ctx.state === "suspended") unlock();
+      },
+      true,
+    );
+
+    /* phoneTypeSfxVolBar1: soft-keyboard spesso non emette keydown — tick su input */
+    document.addEventListener(
+      "input",
+      function (ev) {
+        if (!isTouchUi()) return;
+        if (effectiveVol() <= 0.001) return;
+        var t = ev && ev.target;
+        if (!isTypingTarget(t)) return;
+        unlocked = true;
         playTick();
         if (ctx && ctx.state === "suspended") unlock();
       },
@@ -426,15 +529,23 @@
       "focusin",
       function (ev) {
         if (isShellTarget(ev.target)) {
+          setTypingHot(false);
           setShellVisible(true);
           return;
         }
-        if (!isTypingTarget(ev.target) || !isVisibleField(ev.target)) {
-          refreshShellVisibility();
+        if (!isTypingTarget(ev.target)) {
+          setTypingHot(false);
+          scheduleRefresh();
           return;
         }
+        /* visibility check solo al focus, mai per key */
+        if (!isVisibleField(ev.target)) {
+          setTypingHot(false);
+          scheduleRefresh();
+          return;
+        }
+        setTypingHot(true);
         setShellVisible(true);
-        // Preriscalda AudioContext al focus: il 1° tasto non aspetta resume().
         unlock();
       },
       true,
@@ -443,6 +554,7 @@
     document.addEventListener(
       "focusout",
       function () {
+        setTypingHot(false);
         scheduleRefresh();
       },
       true,
@@ -451,18 +563,36 @@
     document.addEventListener(
       "pointerdown",
       function (ev) {
-        unlock();
+        /* violKill5: no getComputedStyle/getBoundingClientRect su ogni click */
         try {
-          if (ev && ev.target && isShellTarget(ev.target)) {
+          var t = ev && ev.target;
+          if (!t) return;
+          if (isShellTarget(t)) {
+            unlock();
             setShellVisible(true);
             return;
           }
-          if (ev && ev.target && isTypingTarget(ev.target) && isVisibleField(ev.target)) {
+          var n = t.nodeName;
+          if (n === "INPUT" || n === "TEXTAREA" || n === "SELECT" || t.isContentEditable) {
+            unlock();
             setShellVisible(true);
             return;
           }
         } catch (eP) {}
-        scheduleRefresh();
+        /* defer shell refresh fuori dal pointer path */
+        if (typeof window.requestIdleCallback === "function") {
+          window.requestIdleCallback(function () {
+            try {
+              scheduleRefresh();
+            } catch (eI) {}
+          }, { timeout: 800 });
+        } else {
+          window.setTimeout(function () {
+            try {
+              scheduleRefresh();
+            } catch (eT) {}
+          }, 120);
+        }
       },
       true,
     );
@@ -472,21 +602,14 @@
       if (refreshTimer) clearTimeout(refreshTimer);
       refreshTimer = setTimeout(function () {
         refreshTimer = 0;
+        /* inputLagKill1: mai layout probe mentre digiti */
+        if (window.__vcTypingHot) return;
         refreshShellVisibility();
-      }, 120);
+      }, 180);
     }
 
-    try {
-      if (typeof MutationObserver !== "undefined") {
-        var mo = new MutationObserver(scheduleRefresh);
-        mo.observe(document.documentElement, {
-          childList: true,
-          subtree: true,
-          attributes: true,
-          attributeFilter: ["hidden", "class", "style", "contenteditable", "type"],
-        });
-      }
-    } catch (eMo) {}
+    /* inputLagKill1: rimosso MO subtree su documentElement (class/style →
+       getComputedStyle/getBoundingClientRect a ogni mutazione = lag input). */
 
     window.addEventListener("resize", scheduleRefresh);
     window.addEventListener("blur", scheduleRefresh);

@@ -428,7 +428,13 @@ ${staffSanctionRuleIntro("1.3")}                <:VC_DoubleReply:148253233250946
 ${staffSanctionRuleIntro("1.4")}                <:VC_Reply:1482532158080942191> Sanzione: **Ban**
 
                 <:rules:1443307208543703131> **__Regola \`1.5\`__**
-${staffSanctionRuleIntro("1.5")}                <:VC_Reply:1482532158080942191> Sanzione: **Ban**`,
+${staffSanctionRuleIntro("1.5")}                <:VC_Reply:1482532158080942191> Sanzione: **Ban**
+
+                <:rules:1443307208543703131> **__Regola \`1.6\`__**
+${staffSanctionRuleIntro("1.6")}                <:VC_DoubleReply:1482532332509466797> 1° Sanzione: **Mute __12h__**
+                <:VC_DoubleReply:1482532332509466797> 2° Sanzione: **Mute __24h__**
+                <:VC_DoubleReply:1482532332509466797> 3° Sanzione: **Mute __48h__**
+                <:VC_Reply:1482532158080942191> 4° Sanzione: **Ban**`,
 
   testualimoderazione: () => `<:rules:1443307208543703131> **__Regola \`2.1\`__**
 ${staffSanctionRuleIntro("2.1")}                <:VC_DoubleReply:1482532332509466797> 1° Sanzione: **Mute __24h__**

@@ -1,9 +1,86 @@
+/* 20261015classFlash2: SW reload dopo sipario (no restart mid-boot classifiche) */
+/* 20261016pushPhoneAlive4: SW stamp — stop dismiss starve, force upgrade telefono */
+/* 20261015pushIdb1: force SW upgrade telefono + IDB cache grosse */
+/* 20261015pushShowHold1: SW Apple show no early-race + badge sync non azzera
+   unread fresco da WS (suono/pulse sì, badge no) */
+/* 20261015consoleFixAll1: unregister SEMPRE path sw-m1.*.js (CSP worker noise + sticky stamp) */
+/* 20261015pushAppleWaitUntil1: PWA/iOS SW stamp vecchio → unregister+register
+   (Task Manager ancora ?v=20261014push… = fix push non attivi) */
+/* 20261015pushAppleAckRace1: SW Apple show/ack con race (no hang matchAll) */
+/* 20261015pushAppleShowNoCache1: SW Apple no caches.open pre-show (PWA kill hang) */
+/* 20261014pushIphoneMacUa1: SW ack Apple anche con UA Macintosh (iPhone desktop-UA) */
+/* 20261014pushShowFirstClosed1: SW show+ack prima di getNotifications (PWA chiusa) */
+/* 20261014notifAutoDismissSync1: auto-cancel → clear queue cache + summary subito;
+   dismiss PWA anche con sola dedupeKeys; WS notif ricarica badge Inbox */
+/* 20261013phoneSheetBgScroll1: sheet aperti → no scroll pagina dietro (iOS) */
+/* 20261013notifScopeScrollBar1: Inbox→Personali reset scroll + no track a destra */
+/* 20261013bellOpenPersonal1: campanella apre Personali (mai Inbox di default) */
+/* 20261013pageHang2: no applyBellStaffSummaryLive after queue fetch (wipe loop);
+   WS workflow summary debounced */
+/* 20261013inboxBadgeLive1: summary bust on workflow WS + count≥coda caricata;
+   switch Inbox sticky (no bounce Personali); iOS hedge fitto */
+/* 20261013notifFlyTopZOnce1: float su host fixed in <html> (no sotto footer);
+   toast 1× — guard toasted id/fp/mid/dk in show+addNotif */
+/* 20261013pageHang1: MO loader disarm early — class churn = “La pagina non risponde” */
+/* 20261013midScrollYankKill2: unpin non fa scrollTo(0) se utente mid */
+/* 20261012notifFlyOnce1: float IG solo all’arrivo in-app (1×), no pending
+   su path/poll/profile; dismiss se unread=0 (niente stale float) */
+/* 20261012pushKillBgSpam2: SW URL stabile /sw-m1.js (no unregister storm PC);
+   server dismiss solo mobile — stop “sito aggiornato in background” su Chrome */
+/* 20261012pushAppleShownAck1: iOS wake → forceFresh 1×/sessione + probeAfter subscribe */
+/* 20261012pushAppleHedgeKeepOnRead1: SW stamp + shown-ack solo Apple */
+/* 20261012pushShownAckVisible1: SW ack su alreadyVisible + desktop miss retry + resub filtrato */
+/* 20261012pushAppleZombieHedge5: mobile non marca toasted su push-received (sblocca catchup PWA) */
+/* 20261011notifSheetSync1: sheet close (no re-arm guard) + vote_reminder fp/dedupe
+   + badge store-empty no ghost + skipWaiting non automatico */
+/* 20261011badgeCrossOs1: OS badge cross-device — server hold vince su store stale
+   (max local/server re-infiava dopo TTL); SW stamp allineato; TTL unread lungo */
+/* 20261011badgeInBellLive1: badge inset sulla campanella; unread WS/count/BC
+   authoritative (scende subito cross-tab/device, no max store stale) */
+/* 20261009voteRemKeep1: vote_reminder non mark-read su OS close / visita /vote;
+   restano unread finché voto reale o tap esplicito (fix PC ok / phone ghost) */
+/* 20261008badgeCrossDevice1: dismiss push + WS unread → badge OS/in-app sync tra device;
+   PWA: WS notif (no nuke) + applica unreadCount da dismiss subito */
+/* 20261008osBadgeNoFlash2: stop flash badge OS — un solo count (max store/server),
+   niente doppio sync in render; SW non tocca badge se PWA aperta; no setAppBadge in blink */
+/* 20261008bootSpeedAll1: landing-ext defer + skip landing chrome-only */
+/* 20261008bootCoherentFast1: lazy notif ovunque + chrome-load-done */
+/* 20261008violKillReflow3: vis/dismiss hot-path deferred; closeOnly=postOnly */
+/* 20261008pushKillBgSpam1: SW no skipWaiting auto; dismiss off; FCM≠mobile */
+/* 20261008votePushPhoneZombie2: catchup OS solo vote_reminder su PWA (APNs 201 zombie) */
+/* 20261008pushWakeNoReplay1: no catchup OS su PWA/iOS; audio queue se ctx sospeso; mobile UA fix */
+/* 20261008violKillRest1: keydown unlock off; late UI a fette; no sync 50ms+ */
+/* 20261008pushIosShowFirst1: iOS class mobile + heal wake + SW show-first */
+/* 20261007notifSheetRestore1: restore sheet phone (BellFix2) + SW pushPhoneAlive3 */
+/* 20261003notifSheetStayOpen1: stop auto-close loop (outside/loader vs portalGuard) */
+/* 20261003boardsRevPreview1: notif revisione → /bacheca/scheda/?id=&review=1 */
+/* 20261004notifSheetUnifyAll1: stesso sheet notifiche su tutte le pagine */
+/* 20261004boardsNotifRevCat1: sheet Inbox → categoria coda Revisione */
+/* 20261003pauseResoNotifProfile1: pause/resoconti notif → profilo staff (non inbox) */
+/* 20261005pushKillEmptyDismiss1: stop banner vuoti telefono (dismiss quiet-ack nbsp) */
+/* 20261006pushKillEmpty2: SW no ZWSP ack + blank senza inventare titolo */
+/* 20261005readDismissBadge1: mark-read → dismiss push mobile + badge unread inbox */
+/* 20261007pushReadCrossDismiss1: mark-read → dismiss OS anche altri device (SW+server) */
+/* 20261007violKillIdle1: niente requestIdleCallback({timeout}) — Violation idle sitewide */
+/* 20261007violKillIdle2: setTimeout a fette — niente handler 50ms+ (boot/wake/pageshow) */
+/* 20261007violKillReflow1: niente write→read sync (Forced reflow sitewide) */
+/* 20261007violKillVis1: visibility/rAF defer + ext noise 19 */
+/* 20261007violKillFinal1: init seriale __vcLight — zero setTimeout storm */
+/* 20261005pushPhoneVisible2: SW sempre showNotification — no starve FCM/PWA chiusa */
+/* 20261005pushPhoneAlive1: no dismiss webpush (server) + SW blank→banner reale */
+/* 20261007notifBellFix2: title (n)+pagina; badge float corner; toast size reale; pending all pages */
+/* 20261007notifBellFix1: title (n)+pagina; badge float corner; toast size reale; pending all pages */
+/* 20261005notifPendingBadgeLive1: badge pending Inbox/app — refresh subito (wake/open/event) */
+/* 20261003pushBgAlive1: SW senza silent-ack — push anche PWA in background */
+/* 20261003pushPhoneTicketAck1: SW Android ack dismiss/blank — no starve ticket push */
+/* 20261003pushKillGhostSpam1: stop OS “Nuova notifica” + dismiss desktop storm */
 /* siteApiW7: deferred notifications + scroll-lock chunk */
 /* modalScrollStay3: arm/release modal scroll lock (Y before overflow:hidden) */
 /* 20261001pwaPushBellBadge1: PWA focused push → keep optimistic unread (badge campanella) */
 /* 20260930pushVisitDismiss1: visit page → mark read + dismiss OS without notif click */
 /* 20261001pushBadgeVisitFix1: delete→OS+badge; visit page→server mark+dismiss all devices */
 /* 20261002pwaInAppReadDismiss1: PWA mark-read in-app → sempre postMessage dismiss (no throttle 8s) + badge */
+/* 20261011pushSkipRead1: sync dismissed ids → SW; risponde vc:query-notif-dismissed (no flash wake) */
 /* 20261002violPass10: notif boot chunked — niente setTimeout 400ms+ */
 /* 20261002pushAlwaysShow1: SW sempre showNotification (fix push solo a focus) */
 /* 20261002ticketNotifDedup1: OS già mostrato → niente fly/toast gemello (ticket open + sync) */
@@ -11,6 +88,15 @@
 /* 20261002compitiScrollUnlock2: dialog arm invalida sync cache — niente soft-lock sticky */
 /* 20261002notifSheetUnifyGuard1: portalGuard sync chrome↔landing + memo staff + switcher */
 /* 20261002violPass12: pageshow repair delay — meno Violation setTimeout */
+/* 20261003pushPurgeOsDismiss1: purge ticket (chiusura) → dismiss banner OS
+   (prima sparivano solo in-app; OS restava perché item non passava da read). */
+/* 20261003pushVisitOsDismiss2: visita pagina → dismiss OS anche cross-device/mobile
+   (fanout passava solo id; dismiss push saltava mobile; retry post-mark). */
+/* 20261003notifCatClearFix1: Elimina categoria — capture non mangia il click pagina;
+   clear + OS dismiss + refresh /notifications. */
+/* 20261004notifCatClearDom1: clear/trash aggiornava solo il count — con Inbox aperta
+   preserve/patch lasciava le row fisiche; force wipe lista dopo clear. */
+/* 20261004siteLiveAll1: WS chrome → CustomEvent + soft-refresh pagine aperte */
 (function () {
   var STORAGE_PREFIX = "vc_notifications_v1:";
   var DISMISSED_PREFIX = "vc_notifications_dismissed_v1:";
@@ -38,9 +124,10 @@
   var siteNotifsTimer = null;
   var siteRealtimeWs = null;
   var siteRealtimeWsReconnectTimer = null;
-  var SITE_NOTIFS_POLL_MS = 180000;
+  /* badgeInBellLive1: poll fallback più stretto se WS cade (prima 3–4 min) */
+  var SITE_NOTIFS_POLL_MS = 45000;
   var SITE_NOTIFS_POLL_HIDDEN_MS = 0;
-  var SITE_NOTIFS_POLL_PHONE_MS = 240000;
+  var SITE_NOTIFS_POLL_PHONE_MS = 60000;
   var siteNotifsVisibilityTimer = null;
   var notifPeerSyncTimer = null;
   var notifSyncBc = null;
@@ -71,23 +158,67 @@
       if (el.hidden || el.hasAttribute("hidden")) return false;
       if (el.classList && el.classList.contains("vc-staff-loading--hidden")) return false;
       if (el.classList && el.classList.contains("vc-reviews-gate")) return false;
-      var cs = window.getComputedStyle(el);
-      if (!cs) return false;
-      if (cs.display === "none" || cs.visibility === "hidden") return false;
-      if (Number(cs.opacity || "1") < 0.05) return false;
-      if (cs.pointerEvents === "none") return false;
-      var r = el.getBoundingClientRect();
-      if (r.width < 24 || r.height < 24) return false;
-            if (r.width < window.innerWidth * 0.45 && r.height < window.innerHeight * 0.35) return false;
+      if (el.classList && el.classList.contains("vc-session-verify-overlay--hidden")) return false;
+      /* violKillReflow2: class/hidden only — offsetWidth qui = Forced reflow 100–600ms×N */
       return true;
     } catch (eVis) {
       return false;
     }
   }
 
+  /* profileRelockKill2: chrome già sbloccato → spinner profilo/pending NON contano
+     come lock (altrimenti soft-lock torna subito dopo finishLoad). */
+  function chromeScrollAlreadyOpen() {
+    try {
+      if (document.documentElement.classList.contains("vc-chrome-scroll-armed")) return true;
+      if (
+        window.__vcChromeLoadDone === true &&
+        (window.__vcChromeScrollArmed === true ||
+          document.documentElement.classList.contains("vc-page-cine-ready") ||
+          document.documentElement.classList.contains("vc-cine-curtain-off"))
+      ) {
+        return true;
+      }
+    } catch (eChromeOpen) {}
+    return false;
+  }
+
+  function overlayUiNeedsScrollLock(rootEl) {
+    var root = rootEl || document.documentElement;
+    try {
+      if (typeof isNotifPanelChromeOpen === "function" && isNotifPanelChromeOpen(root)) return true;
+      if (typeof isSheetChromeOpen === "function" && isSheetChromeOpen(root)) return true;
+      if (root.classList.contains("vc-mobile-nav-open")) {
+        var navDr = document.getElementById("vc-mobile-nav-drawer");
+        if (navDr && navDr.classList.contains("vc-mobile-nav-drawer--open")) return true;
+      }
+      if (
+        root.classList.contains("vc-staff-stat-sheet-open") ||
+        root.classList.contains("vc-staff-manage-sheet-open") ||
+        root.classList.contains("vc-staff-reso-sheet-open") ||
+        root.classList.contains("vc-feedback-sheet-open") ||
+        root.classList.contains("vc-staff-datepicker-open") ||
+        root.classList.contains("vc-dialog-open") ||
+        root.classList.contains("vc-dash-confirm-open") ||
+        root.classList.contains("vc-reviews-modal-open") ||
+        root.classList.contains("vc-dash-cmds-modal-open") ||
+        root.classList.contains("vc-wfc-subject-open")
+      ) {
+        return true;
+      }
+      if (document.body) {
+        if (document.body.classList.contains("vc-role-modal-open")) return true;
+        if (document.body.classList.contains("vc-dash-cmds-modal-open")) return true;
+        if (document.body.classList.contains("vc-dash-partnership-sheet-open")) return true;
+      }
+    } catch (eOvNeed) {}
+    return false;
+  }
+
   function isBlockingLoaderVisible() {
     try {
       var root = document.documentElement;
+      var chromeOpen = chromeScrollAlreadyOpen();
       var coarse = false;
       try {
         coarse =
@@ -100,7 +231,8 @@
         var ulPend = document.getElementById("vc-ul-loading");
         if (loaderElReallyBlocking(ulPend)) return true;
       }
-      if (root.classList.contains("vc-user-profile-pending")) {
+      /* profileRelockKill2: pending/spinner profilo dopo chrome = overlay, non gate scroll */
+      if (!chromeOpen && root.classList.contains("vc-user-profile-pending")) {
         var prPend = document.getElementById("vc-user-profile-loading");
         var bpPend = document.querySelector("body > .vc-user-profile-loader");
         if (loaderElReallyBlocking(prPend) || loaderElReallyBlocking(bpPend)) return true;
@@ -109,10 +241,8 @@
     var tr = document.getElementById("vc-page-transition");
     if (tr && tr.classList.contains("vc-page-transition--on")) {
       try {
-        var trCs = window.getComputedStyle(tr);
-        if (trCs && trCs.display !== "none" && trCs.visibility !== "hidden" && trCs.pointerEvents !== "none") {
-          return true;
-        }
+        /* hangKill1: no getComputedStyle */
+        if ((tr.offsetWidth || 0) > 0 || (tr.offsetHeight || 0) > 0) return true;
       } catch (eTrVis) {
         return true;
       }
@@ -140,26 +270,34 @@
     } catch (eRk) {
       if (document.querySelector("#vc-rank-customize-loading:not([hidden])")) return true;
     }
-    var staffInboxLoading = document.getElementById("vc-staff-inbox-loading");
-    if (loaderElReallyBlocking(staffInboxLoading)) return true;
-    var profileLoading = document.getElementById("vc-user-profile-loading");
-    if (loaderElReallyBlocking(profileLoading)) return true;
+    /* hangKill1: inbox FS loader NON blocca tutta la pagina */
+    /* profileRelockKill2: dopo chrome-done lo spinner profilo non blocca lo scroll */
+    var chromeOpenLoad = false;
     try {
-      var bodyProf = document.querySelector("body > .vc-user-profile-loader");
-      if (loaderElReallyBlocking(bodyProf)) return true;
-    } catch (eBp) {}
-            try {
-      var view = document.getElementById("vc-user-profile-view");
-      if (view && !view.hidden) {
-        var loaders = view.querySelectorAll(":scope > .vc-user-profile-loader, :scope > [data-vc-profile-boot]");
-        for (var li = 0; li < loaders.length; li += 1) {
-          var L = loaders[li];
-          if (L.hidden || L.hasAttribute("hidden")) continue;
-          if (L.closest && L.closest("[data-vc-profile-staff-pane], .vc-user-profile-staff-pane")) continue;
-          return true;
+      chromeOpenLoad = chromeScrollAlreadyOpen();
+    } catch (eChromeLoad) {
+      chromeOpenLoad = false;
+    }
+    if (!chromeOpenLoad) {
+      var profileLoading = document.getElementById("vc-user-profile-loading");
+      if (loaderElReallyBlocking(profileLoading)) return true;
+      try {
+        var bodyProf = document.querySelector("body > .vc-user-profile-loader");
+        if (loaderElReallyBlocking(bodyProf)) return true;
+      } catch (eBp) {}
+      try {
+        var view = document.getElementById("vc-user-profile-view");
+        if (view && !view.hidden) {
+          var loaders = view.querySelectorAll(":scope > .vc-user-profile-loader, :scope > [data-vc-profile-boot]");
+          for (var li = 0; li < loaders.length; li += 1) {
+            var L = loaders[li];
+            if (L.hidden || L.hasAttribute("hidden")) continue;
+            if (L.closest && L.closest("[data-vc-profile-staff-pane], .vc-user-profile-staff-pane")) continue;
+            return true;
+          }
         }
-      }
-    } catch (eLoad) {}
+      } catch (eLoad) {}
+    }
             return false;
   }
 
@@ -173,7 +311,8 @@
     try {
       var nodes = document.querySelectorAll(
         '.vc-ul-loading:not([hidden]), #vc-ul-loading:not([hidden]), #vc-roles-loading:not([hidden]),' +
-          '.vc-staff-loading:not([hidden]):not(.vc-staff-loading--hidden), #vc-staff-loading:not([hidden]):not(.vc-staff-loading--hidden),' +
+          /* hangKill1: escludi #vc-staff-inbox-loading (ha class vc-staff-loading) */
+          '#vc-staff-loading:not([hidden]):not(.vc-staff-loading--hidden),' +
           '#vc-shared-boot-overlay:not([hidden]), #vc-rank-customize-loading:not([hidden]), #vc-custom-profile-loading:not([hidden]),' +
           '.vc-user-profile-boot:not([hidden]), .vc-ul-loading[data-vc-loader-blocking="1"]:not([hidden]), #vc-roles-loading[data-vc-loader-blocking="1"]:not([hidden])',
       );
@@ -213,17 +352,45 @@
           rootLive.classList.contains("vc-home-styles-ready") ||
           rootLive.classList.contains("vc-styles-ready");
       } catch (eReady) {}
-      if (live && typeof window.__vcPinPageScroll === "function") {
+      /* profileRelockKill1: dopo chrome-done/sipario lo spinner profilo NON deve
+         pin-scroll / overflow:hidden (sblocco → rilock → rotellina morta). */
+      var scrollArmed = false;
+      try {
+        scrollArmed =
+          (window.__vcChromeLoadDone === true &&
+            (pageReady || window.__vcChromeScrollArmed === true)) ||
+          document.documentElement.classList.contains("vc-chrome-scroll-armed");
+      } catch (eArm) {
+        scrollArmed = false;
+      }
+      if (live && !scrollArmed && typeof window.__vcPinPageScroll === "function") {
         try {
           window.__vcPinPageScroll({ soft: pageReady });
         } catch (ePinLive) {}
       }
       /* loadScrollLockAll1: niente force live=false in PWA dopo ready —
          spegneva il lock durante loading reale su molte pagine. */
-      document.documentElement.classList.toggle("vc-loader-blocking-live", live);
+      if (scrollArmed) {
+        document.documentElement.classList.remove(
+          "vc-loader-blocking-live",
+          "vc-loading-scroll-lock",
+        );
+        live = false;
+      } else {
+        document.documentElement.classList.toggle("vc-loader-blocking-live", live);
+      }
       /* loadScrollLockFs1: finché il loader pagina è vivo, tieni anche loading-scroll-lock
          (cine-ready altrimenti rimette overflow:auto). */
-      if (live) {
+      /* scrollNuke1: a sipario alzato NON riattaccare overflow:hidden (rotellina morta) */
+      var curtainOff = false;
+      try {
+        curtainOff =
+          document.documentElement.classList.contains("vc-cine-curtain-off") ||
+          document.documentElement.classList.contains("vc-page-cine-ready") ||
+          window.__vcBootScrollGuardsKilled ||
+          scrollArmed;
+      } catch (eCurt) {}
+      if (live && !curtainOff && !scrollArmed) {
         document.documentElement.classList.add("vc-loading-scroll-lock");
       } else {
         /* loaderLoopFix1: non lasciare scroll-lock orfano — altrimenti pageLooksHealthy
@@ -231,16 +398,20 @@
         var keepPendingLock = false;
         try {
           var rootOff = document.documentElement;
-          keepPendingLock =
-            rootOff.classList.contains("vc-page-cine-boot") &&
-            !rootOff.classList.contains("vc-page-cine-ready");
-          if (!keepPendingLock) {
+          if (scrollArmed || curtainOff) {
+            keepPendingLock = false;
+          } else {
             keepPendingLock =
-              rootOff.classList.contains("vc-user-leader-pending") ||
-              rootOff.classList.contains("vc-user-profile-pending") ||
-              rootOff.classList.contains("vc-rank-customize-pending") ||
-              rootOff.classList.contains("vc-custom-profile-pending") ||
-              rootOff.classList.contains("vc-session-verify-pending");
+              rootOff.classList.contains("vc-page-cine-boot") &&
+              !rootOff.classList.contains("vc-page-cine-ready");
+            if (!keepPendingLock) {
+              keepPendingLock =
+                rootOff.classList.contains("vc-user-leader-pending") ||
+                rootOff.classList.contains("vc-user-profile-pending") ||
+                rootOff.classList.contains("vc-rank-customize-pending") ||
+                rootOff.classList.contains("vc-custom-profile-pending") ||
+                rootOff.classList.contains("vc-session-verify-pending");
+            }
           }
         } catch (ePendOff) {
           keepPendingLock = false;
@@ -418,11 +589,14 @@
     restoreLight();
     var delay = Math.min(Math.max(Number(ms) || 0, 0), 280);
     if (delay > 0) {
-      window.setTimeout(function () {
+      /* notifViolKill1: idle — restoreLight + pageScrollY nello setTimeout = Forced reflow 150–250ms */
+      var runRestore = function () {
         try {
           restoreLight();
         } catch (eT) {}
-      }, delay);
+      };
+      /* violKillIdle1: setTimeout — rIC({timeout}) → Violation idle */
+      window.setTimeout(runRestore, delay);
     }
     return y;
   }
@@ -431,6 +605,7 @@
     if (isBlockingLoaderVisible()) return true;
     try {
       var root = document.documentElement;
+      var chromeOpenFr = chromeScrollAlreadyOpen();
       if (root.classList.contains("vc-rank-customize-pending")) return true;
       if (root.classList.contains("vc-mobile-nav-open")) {
         var navDr = document.getElementById("vc-mobile-nav-drawer");
@@ -440,7 +615,8 @@
         var ulFr = document.getElementById("vc-ul-loading");
         if (loaderElReallyBlocking(ulFr)) return true;
       }
-      if (root.classList.contains("vc-user-profile-pending")) {
+      /* profileRelockKill2: pending profilo post-chrome non congela scroll */
+      if (!chromeOpenFr && root.classList.contains("vc-user-profile-pending")) {
         var prFr = document.getElementById("vc-user-profile-loading");
         var bpFr = document.querySelector("body > .vc-user-profile-loader");
         if (loaderElReallyBlocking(prFr) || loaderElReallyBlocking(bpFr)) return true;
@@ -451,18 +627,16 @@
           Number(navigator.maxTouchPoints || 0) > 0;
         if (!coarseFreeze && root.classList.contains("vc-session-verify-pending")) return true;
       } catch (eSesF) {}
-            if (isNotifPanelChromeOpen(root)) {
-        var ddFrozen = document.getElementById("vc-notif-dropdown");
-        if (ddFrozen && (ddFrozen.open || ddFrozen.hasAttribute("open"))) return true;
-      }
+            /* notifSheetBars1: class alone = frozen (non attendere dd.open — portal race) */
+      if (isNotifPanelChromeOpen(root)) return true;
       if (root.classList.contains("vc-staff-stat-sheet-open")) return true;
       if (root.classList.contains("vc-staff-manage-sheet-open")) return true;
       if (root.classList.contains("vc-staff-reso-sheet-open")) return true;
       if (root.classList.contains("vc-feedback-sheet-open")) return true;
+      if (root.classList.contains("vc-reviews-modal-open")) return true;
       if (root.classList.contains("vc-staff-datepicker-open")) return true;
       if (root.classList.contains("vc-dialog-open")) return true;
       if (root.classList.contains("vc-dash-confirm-open")) return true;
-      if (root.classList.contains("vc-reviews-modal-open")) return true;
       if (root.classList.contains("vc-dash-cmds-modal-open")) return true;
       if (root.classList.contains("vc-wfc-subject-open")) return true;
       try {
@@ -509,6 +683,13 @@
     var body = document.body;
     if (!body) return;
     opts = opts || {};
+    /* profileRelockKill2: dopo chrome unlock rifiuta pin da loader/pending
+       (solo sheet/notif/dialog possono ancora soft-lockare). */
+    try {
+      if (chromeScrollAlreadyOpen() && !overlayUiNeedsScrollLock(document.documentElement)) {
+        return;
+      }
+    } catch (eRefusePin) {}
     var soft = Boolean(opts.soft);
     var phonePin = false;
     var notifChromeOpen = false;
@@ -758,8 +939,8 @@
       } else if (typeof isSheetChromeOpen === "function" && isSheetChromeOpen(root)) {
         mustLock = true;
       } else if (isNotifPanelChromeOpen(root)) {
-        var ddLive = document.getElementById("vc-notif-dropdown");
-        mustLock = Boolean(ddLive && (ddLive.open || ddLive.hasAttribute("open")));
+        /* notifSheetBars1: class sheet/drawer = keep lock */
+        mustLock = true;
       } else {
         mustLock = root.classList.contains("vc-mobile-nav-open");
       }
@@ -838,16 +1019,24 @@
     } catch (eDisc) {
       discardY = scrollPinFromBoot;
     }
-    /* bootScrollLock4: never yank a user who already scrolled past the gate */
+    /* bootScrollLock4 + midScrollYankKill1: never yank a user mid-scroll */
     try {
       var liveY = pageScrollY();
-      if (discardY && (liveY > 24 || (Number(y) || 0) > 24)) {
+      var cachedY = Math.max(0, Math.round(Number(window.__vcCachedScrollY) || 0));
+      if (
+        discardY &&
+        (liveY > 8 ||
+          (Number(y) || 0) > 8 ||
+          cachedY > 8 ||
+          window.__vcUserScrolledAway === 1 ||
+          window.__vcScrollUnlockOnce === 1)
+      ) {
         discardY = false;
-        y = Math.max(Number(y) || 0, liveY);
+        y = Math.max(Number(y) || 0, liveY, cachedY);
       }
     } catch (eKeepLive) {}
     /* scrollYankFix1: never restore to 0 if we still have a meaningful pinned Y */
-    if (discardY && (Number(y) || 0) > 24) {
+    if (discardY && (Number(y) || 0) > 8) {
       discardY = false;
     }
     if (discardY) y = 0;
@@ -882,6 +1071,21 @@
       stripPhoneInlineScrollLocks();
     } catch (eStrip) {}
     if (wasPinned) {
+      /* midScrollYankKill1: se y=0 ma utente mid → ripristina live, non top */
+      try {
+        if (
+          (Number(y) || 0) < 8 &&
+          (window.__vcUserScrolledAway === 1 ||
+            window.__vcScrollUnlockOnce === 1 ||
+            Math.max(0, Math.round(Number(window.__vcCachedScrollY) || 0)) >= 8 ||
+            pageScrollY() >= 8)
+        ) {
+          y = Math.max(
+            pageScrollY(),
+            Math.round(Number(window.__vcCachedScrollY) || 0),
+          );
+        }
+      } catch (eYFix) {}
       try {
         window.scrollTo(0, y);
         if (document.documentElement) document.documentElement.scrollTop = y;
@@ -892,13 +1096,29 @@
         restorePageScrollY(y);
         holdPageScroll(220, y);
       } catch (eHoldUn) {}
-      if (y === 0) {
+      if (y === 0 && window.__vcUserScrolledAway !== 1 && window.__vcScrollUnlockOnce !== 1) {
         try {
-          window.requestAnimationFrame(function () {
-            try {
-              window.scrollTo(0, 0);
-            } catch (eRaf0) {}
-          });
+          var midNow = Math.max(
+            0,
+            Math.round(
+              Number(window.pageYOffset) ||
+                Number(window.__vcCachedScrollY) ||
+                0,
+            ),
+          );
+          if (midNow < 8 && !window.__vcChromeScrollArmed) {
+            window.requestAnimationFrame(function () {
+              try {
+                if (window.__vcUserScrolledAway === 1) return;
+                var still = Math.max(
+                  0,
+                  Math.round(Number(window.pageYOffset) || Number(window.__vcCachedScrollY) || 0),
+                );
+                if (still >= 8) return;
+                window.scrollTo(0, 0);
+              } catch (eRaf0) {}
+            });
+          }
         } catch (eRaf) {}
       }
     }
@@ -1019,6 +1239,12 @@
   function isLoaderScrollLocked() {
     try {
       var root = document.documentElement;
+      /* scrollNuke1: dopo reveal la rotellina DEVE funzionare */
+      if (window.__vcBootScrollGuardsKilled) return false;
+      if (root.classList.contains("vc-cine-curtain-off")) return false;
+      if (root.classList.contains("vc-page-cine-ready") && !root.classList.contains("vc-dialog-open")) {
+        if (!root.classList.contains("vc-page-cine-boot")) return false;
+      }
       if (root.classList.contains("vc-loading-scroll-lock")) return true;
       if (root.classList.contains("vc-loader-blocking-live")) return true;
       if (root.classList.contains("vc-page-cine-boot") && !root.classList.contains("vc-page-cine-ready")) {
@@ -1031,18 +1257,46 @@
     return false;
   }
 
+  /* phoneSheetBgScroll1: solo host scrollabili (mai tutto .vc-notif-panel — altrimenti
+     swipe su head/empty propaga scroll alla pagina dietro su iOS). */
+  var SHEET_SCROLL_HOST_SEL =
+    ".vc-notif-panel-body, .vc-notif-list, .vc-notif-list-wrap, .vc-notif-bell-pane, .vc-notif-bell-inbox, .vc-notif-bell-inbox__list, .vc-staff-stat-sheet__body, .vc-staff-manage-sheet__body, .vc-staff-reso-sheet__body, .vc-feedback-sheet__body, .vc-staff-inbox-sheet .vc-feedback-sheet__body, .vc-staff-datepicker.is-sheet, #vc-staff-inbox, #vc-staff-inbox-list, .vc-notif-staff-inbox, .vc-staff-inbox-body, .vc-staff-inbox-layout, .vc-dialog__text, .vc-dialog__field, .vc-dash-confirm__text, .vc-mobile-nav-drawer__scroll";
+  var SHEET_BACKDROP_SEL =
+    ".vc-notif-mobile-backdrop, .vc-staff-stat-sheet__backdrop, .vc-staff-manage-sheet__backdrop, .vc-staff-reso-sheet__backdrop, .vc-feedback-sheet__backdrop, .vc-dialog__backdrop, .vc-dash-confirm__backdrop, .vc-staff-datepicker-backdrop, .vc-reviews-modal__backdrop";
+  var sheetTouchGuard = { x: 0, y: 0, active: false, scrolling: false };
+
   function isNotifPanelScrollTarget(t) {
-    /* notifSidebar5: wheel/touch on panel content must scroll — not be swallowed by guards/PTR */
+    /* notifSheetBars1: allow touchmove only if host can actually scroll —
+       empty sheet (panel-body) used to pass through → page under scrolled. */
     try {
       if (!t || !t.closest) return false;
-      return Boolean(
-        t.closest(
-          ".vc-notif-panel-body, .vc-notif-list, .vc-notif-list-wrap, .vc-notif-bell-pane, .vc-notif-bell-inbox, .vc-notif-panel",
-        ),
-      );
+      var host = t.closest(SHEET_SCROLL_HOST_SEL);
+      if (!host) return false;
+      return Number(host.scrollHeight || 0) > Number(host.clientHeight || 0) + 1;
     } catch (eHit) {
       return false;
     }
+  }
+
+  function noteSheetTouchStart(e) {
+    try {
+      if (!isPageScrollFrozen() && !isLoaderScrollLocked()) {
+        sheetTouchGuard.active = false;
+        sheetTouchGuard.scrolling = false;
+        return;
+      }
+      var touch = e && e.touches && e.touches[0];
+      if (!touch) return;
+      sheetTouchGuard.x = Number(touch.clientX) || 0;
+      sheetTouchGuard.y = Number(touch.clientY) || 0;
+      sheetTouchGuard.active = true;
+      sheetTouchGuard.scrolling = false;
+    } catch (eTs) {}
+  }
+
+  function noteSheetTouchEnd() {
+    sheetTouchGuard.active = false;
+    sheetTouchGuard.scrolling = false;
   }
 
   function blockLoaderScroll(e) {
@@ -1065,30 +1319,68 @@
     try {
       var t = e && e.target;
       if (t && t.closest) {
+        /* controlli/close: lascia passare (tap); lo scroll pagina è bloccato sotto */
         if (
           t.closest(
-            ".vc-staff-stat-sheet__body, .vc-staff-stat-sheet__panel, .vc-staff-stat-sheet__close, .vc-staff-manage-sheet__panel, .vc-staff-manage-sheet__body, .vc-staff-manage-sheet__close, .vc-staff-reso-sheet__body, .vc-staff-reso-sheet__panel, .vc-staff-reso-sheet__close, .vc-feedback-sheet__body, .vc-feedback-sheet__panel, .vc-feedback-sheet__close, .vc-staff-inbox-sheet .vc-feedback-sheet__body, .vc-staff-datepicker.is-sheet, #vc-staff-inbox, #vc-staff-inbox-list, .vc-notif-staff-inbox, .vc-staff-inbox-body, .vc-staff-inbox-layout, .vc-notif-panel-body, .vc-notif-list, .vc-notif-list-wrap, .vc-notif-bell-pane, .vc-notif-bell-inbox, .vc-notif-panel, .vc-notif-close-mobile, .vc-dialog__text, .vc-dialog__field, .vc-dash-confirm__text, .vc-mobile-nav-drawer__scroll, [data-stat-close], [data-manage-close], [data-reso-close], [data-feedback-close], [data-conf-sheet-close]",
+            ".vc-notif-close-mobile, .vc-staff-stat-sheet__close, .vc-staff-manage-sheet__close, .vc-staff-reso-sheet__close, .vc-feedback-sheet__close, [data-stat-close], [data-manage-close], [data-reso-close], [data-feedback-close], [data-conf-sheet-close], .vc-staff-peer-dock",
           )
         ) {
+          if (e.type === "wheel") {
+            try {
+              e.preventDefault();
+            } catch (eCloseWheel) {}
+          }
           return;
         }
-        if (t.closest(".vc-staff-peer-dock, .vc-notif-mobile-backdrop, .vc-staff-stat-sheet__backdrop, .vc-staff-manage-sheet__backdrop, .vc-staff-reso-sheet__backdrop, .vc-feedback-sheet__backdrop, .vc-dialog__backdrop, .vc-dash-confirm__backdrop, .vc-staff-datepicker-backdrop, .vc-reviews-modal__backdrop")) {
-          /* sheetCloseTap1: preventDefault su touchmove uccide il click iOS di chiusura */
+        if (t.closest(SHEET_BACKDROP_SEL)) {
+          /* phoneSheetBgScroll1: blocca scroll pagina sul backdrop; tap chiusura ok
+             (prevent solo se il dito si muove >8px, non su micro-jitter del tap). */
           if (e.type === "wheel") {
             try {
               e.preventDefault();
             } catch (ePrevBg) {}
+            return;
+          }
+          if (e.type === "touchmove") {
+            var touchBg = e.touches && e.touches[0];
+            if (touchBg && sheetTouchGuard.active) {
+              var dBgX = Math.abs((Number(touchBg.clientX) || 0) - sheetTouchGuard.x);
+              var dBgY = Math.abs((Number(touchBg.clientY) || 0) - sheetTouchGuard.y);
+              if (dBgX > 8 || dBgY > 8 || sheetTouchGuard.scrolling) {
+                sheetTouchGuard.scrolling = true;
+                try {
+                  e.preventDefault();
+                } catch (ePrevBgMove) {}
+              }
+            } else {
+              try {
+                e.preventDefault();
+              } catch (ePrevBgMove2) {}
+            }
           }
           return;
         }
       }
     } catch (eAllow) {}
+    /* phoneSheetBgScroll1: head/empty/fuori host → stop scroll documento */
+    if (e.type === "touchmove" && sheetTouchGuard.active) {
+      try {
+        var touchMv = e.touches && e.touches[0];
+        if (touchMv) {
+          var dX = Math.abs((Number(touchMv.clientX) || 0) - sheetTouchGuard.x);
+          var dY = Math.abs((Number(touchMv.clientY) || 0) - sheetTouchGuard.y);
+          if (dX <= 8 && dY <= 8 && !sheetTouchGuard.scrolling) return;
+          sheetTouchGuard.scrolling = true;
+        }
+      } catch (eDelta) {}
+    }
     try {
       e.preventDefault();
     } catch (ePrev) {}
   }
 
   var loaderScrollGuardOpts = { capture: true, passive: false };
+  var sheetTouchStartOpts = { capture: true, passive: true };
 
   function bindLoaderScrollGuards(enable) {
     var want = Boolean(enable);
@@ -1097,10 +1389,17 @@
       if (want) {
         document.addEventListener("wheel", blockLoaderScroll, loaderScrollGuardOpts);
         document.addEventListener("touchmove", blockLoaderScroll, loaderScrollGuardOpts);
+        document.addEventListener("touchstart", noteSheetTouchStart, sheetTouchStartOpts);
+        document.addEventListener("touchend", noteSheetTouchEnd, sheetTouchStartOpts);
+        document.addEventListener("touchcancel", noteSheetTouchEnd, sheetTouchStartOpts);
         loaderScrollListenersBound = true;
       } else {
         document.removeEventListener("wheel", blockLoaderScroll, loaderScrollGuardOpts);
         document.removeEventListener("touchmove", blockLoaderScroll, loaderScrollGuardOpts);
+        document.removeEventListener("touchstart", noteSheetTouchStart, sheetTouchStartOpts);
+        document.removeEventListener("touchend", noteSheetTouchEnd, sheetTouchStartOpts);
+        document.removeEventListener("touchcancel", noteSheetTouchEnd, sheetTouchStartOpts);
+        noteSheetTouchEnd();
         loaderScrollListenersBound = false;
       }
     } catch (eBind) {
@@ -1120,6 +1419,7 @@
       if (root.classList.contains("vc-staff-stat-sheet-open")) return true;
       if (root.classList.contains("vc-staff-reso-sheet-open")) return true;
       if (root.classList.contains("vc-feedback-sheet-open")) return true;
+      if (root.classList.contains("vc-reviews-modal-open")) return true;
       if (root.classList.contains("vc-staff-datepicker-open")) return true;
                         try {
         var coarseGuard =
@@ -1222,6 +1522,12 @@
     }
     var bootPending = false;
     var pendingGate = false;
+    var chromeOpenLock = false;
+    try {
+      chromeOpenLock = chromeScrollAlreadyOpen();
+    } catch (eChromeLock) {
+      chromeOpenLock = false;
+    }
     try {
       var rootLock = document.documentElement;
       bootPending =
@@ -1229,15 +1535,28 @@
         !rootLock.classList.contains("vc-page-cine-ready");
       pendingGate =
         rootLock.classList.contains("vc-user-leader-pending") ||
-        rootLock.classList.contains("vc-user-profile-pending") ||
         rootLock.classList.contains("vc-rank-customize-pending") ||
         rootLock.classList.contains("vc-custom-profile-pending") ||
         rootLock.classList.contains("vc-session-verify-pending") ||
         (rootLock.classList.contains("vc-staff-access-pending") &&
           !rootLock.classList.contains("vc-staff-app-revealed"));
+      /* profileRelockKill2: profile-pending post-chrome non arma soft-lock */
+      if (!chromeOpenLock && rootLock.classList.contains("vc-user-profile-pending")) {
+        pendingGate = true;
+      }
       /* inboxFreezeKill2: vc-notif-staff-loading rimosso da pendingGate */
     } catch (eGate) {}
     var wantLock = Boolean(on || frozen || bootPending || pendingGate);
+    /* profileRelockKill2: chrome armed → lock solo overlay UI, mai loader profilo */
+    try {
+      if (chromeOpenLock && !overlayUiNeedsScrollLock(document.documentElement)) {
+        wantLock = false;
+        on = false;
+        frozen = false;
+        bootPending = false;
+        pendingGate = false;
+      }
+    } catch (eChromeWant) {}
     /* phoneNavTapFix1: hamburger alone must not arm loading-scroll-lock / soft-lock.
        CSS `.vc-mobile-nav-open` already freezes page scroll; soft-lock ate iOS tile taps. */
     try {
@@ -1294,6 +1613,8 @@
       try {
         document.documentElement.classList.remove("vc-ui-scroll-lock", "vc-scroll-soft-lock");
         document.documentElement.classList.remove("vc-loading-scroll-lock");
+        /* profileRelockKill2: hold orfano post-revealExcluded */
+        if (chromeOpenLock) document.documentElement.classList.remove("vc-interaction-hold");
       } catch (ePhLock) {}
       bindLoaderScrollGuards(false);
     } else {
@@ -1309,6 +1630,28 @@
         );
         if (notifOnlyLock || sheetOnlyLock) {
           document.documentElement.classList.add("vc-scroll-soft-lock");
+        } else if (!wantLock) {
+          document.documentElement.classList.remove("vc-scroll-soft-lock");
+          if (chromeOpenLock) {
+            document.documentElement.classList.remove("vc-interaction-hold");
+            try {
+              var rootStrip = document.documentElement;
+              var bodyStrip = document.body;
+              rootStrip.style.removeProperty("overflow");
+              rootStrip.style.removeProperty("overscroll-behavior");
+              rootStrip.style.removeProperty("touch-action");
+              if (bodyStrip) {
+                bodyStrip.style.removeProperty("overflow");
+                bodyStrip.style.removeProperty("overscroll-behavior");
+                bodyStrip.style.removeProperty("touch-action");
+                bodyStrip.style.removeProperty("position");
+                bodyStrip.style.removeProperty("top");
+                bodyStrip.style.removeProperty("left");
+                bodyStrip.style.removeProperty("right");
+                bodyStrip.style.removeProperty("width");
+              }
+            } catch (eStripInline) {}
+          }
         }
       } catch (eLock) {}
       var guardsForBind = needGuards || (wantLock && !notifOnlyLock && !sheetOnlyLock);
@@ -1354,13 +1697,17 @@
   } catch (eSyncExport) {}
 
   function closeNotifDropdownForLoader() {
-    /* notifBellStayOpen1: never kill an intentional open while portal guard is live */
+    /* notifBellStayOpen1 / notifSheetStayOpen1: loader non deve mai abbattere uno sheet
+       intenzionale (open grezzo senza clearPortalGuard → reclaim loop). */
     try {
       if (landingPortalGuardLive()) return;
+      if (Date.now() < Number(window.__vcNotifOpenGraceUntil || 0)) return;
       var ddGuard = document.getElementById("vc-notif-dropdown");
-      if (ddGuard && (ddGuard.open || ddGuard.hasAttribute("open"))) {
-        if (isNotifPanelChromeOpen(document.documentElement)) return;
-      }
+      if (ddGuard && (ddGuard.open || ddGuard.hasAttribute("open"))) return;
+      if (isNotifPanelChromeOpen(document.documentElement)) return;
+      try {
+        if (notifSheetSessionActive) return;
+      } catch (eSess) {}
     } catch (eGuardClose) {}
     var dd = document.getElementById("vc-notif-dropdown");
     if (dd && dd.open) {
@@ -1462,25 +1809,31 @@
     }
     bindKnownLoaderObservers();
     var loaderBirthMo = null;
-    /* pwaCpuNuke1: su PWA spegni MO class dopo ready — altrimenti class churn = CPU 100%+ */
+    /* hangKill1 + pageHang1/2: spegni SEMPRE i MO loader (anche desktop) —
+       class churn + syncLoader = “La pagina non risponde” su tutte le pagine. */
     function disarmLoaderMosForPwa() {
       try {
-        if (!(window.__VC_PWA_CPU_NUKE || document.documentElement.classList.contains("vc-pwa-cpu-nuke"))) {
-          return;
-        }
         try {
           loaderClassMo.disconnect();
         } catch (eD1) {}
         try {
           if (loaderBirthMo) loaderBirthMo.disconnect();
         } catch (eD2) {}
+        loaderBirthMo = null;
       } catch (eDis) {}
     }
-    /* pwaCpuNuke4: disarm MO subito in PWA (2500ms = CPU storm al boot) */
+    /* pageHang2: disarm immediato + short retries (Notifiche/staff hang) */
+    disarmLoaderMosForPwa();
+    window.setTimeout(disarmLoaderMosForPwa, 0);
+    window.setTimeout(disarmLoaderMosForPwa, 120);
     window.setTimeout(disarmLoaderMosForPwa, 400);
     window.setTimeout(disarmLoaderMosForPwa, 1200);
-    window.setTimeout(disarmLoaderMosForPwa, 2500);
-        try {
+    try {
+      document.addEventListener("vc:soft-fx-ready", disarmLoaderMosForPwa, { once: true });
+      document.addEventListener("vc:page-cine-ready", disarmLoaderMosForPwa, { once: true });
+    } catch (eReadyDis) {}
+    try {
+      /* pageHang1: niente subtree:true su body (DOM storm). Solo childList shallow. */
       loaderBirthMo = new MutationObserver(function (muts) {
         var need = false;
         for (var m = 0; m < muts.length; m++) {
@@ -1504,7 +1857,7 @@
         if (need) scheduleLoaderScrollLock();
       });
       if (document.body) {
-        loaderBirthMo.observe(document.body, { childList: true, subtree: true });
+        loaderBirthMo.observe(document.body, { childList: true, subtree: false });
       }
     } catch (eBirth) {}
     syncLoaderScrollLock();
@@ -1573,20 +1926,46 @@
       .trim()
       .replace(/\bstaff\b/gi, "Staff");
     if (!cleaned) return brand;
-    var pipe = cleaned.indexOf("|");
-    if (pipe >= 0) {
-      var left = cleaned.slice(0, pipe).trim();
-      var right = cleaned.slice(pipe + 1).trim();
+    var sep =
+      (window.VcPageTitle && window.VcPageTitle.SEP) || " \u01C0 ";
+    var pipeMatch = cleaned.match(/\s*[|\u2502\uFF5C\u2758\u01C0]\s*/);
+    if (pipeMatch && pipeMatch.index >= 0) {
+      var left = cleaned.slice(0, pipeMatch.index).trim();
+      var right = cleaned.slice(pipeMatch.index + pipeMatch[0].length).trim();
       if (!right) return brand;
-      if (!left || /^vinili$/i.test(left)) return brand + " | " + right;
-      return left + " | " + right;
+      if (!left || /^vinili$/i.test(left)) return brand + sep + right;
+      return left + sep + right;
     }
-    return brand + " | " + cleaned;
+    return brand + sep + cleaned;
   }
 
   function captureBaseDocumentTitle() {
     var raw = String(document.title || "").trim();
     var cleaned = normalizeBaseDocumentTitle(raw);
+    /* notifBellFix1: se title collassa al solo brand, riprendi da og:title / VcPageTitle */
+    try {
+      var brandNow = siteBrandName();
+      var looksBrandOnly =
+        !cleaned ||
+        cleaned === brandNow ||
+        (/Italia/i.test(cleaned) &&
+          /Social/i.test(cleaned) &&
+          /Gaming/i.test(cleaned) &&
+          !/[|\u2502\uFF5C\u2758\u01C0]/.test(cleaned));
+      if (looksBrandOnly && window.VcPageTitle && typeof window.VcPageTitle.formatWithUnread === "function") {
+        var recovered = window.VcPageTitle.formatWithUnread(0, raw || cleaned);
+        if (recovered && /[|\u2502\uFF5C\u2758\u01C0]/.test(recovered)) cleaned = recovered;
+      }
+      if (looksBrandOnly || (cleaned && !/[|\u2502\uFF5C\u2758\u01C0]/.test(cleaned))) {
+        var ogEl =
+          document.querySelector('meta[property="og:title"]') ||
+          document.querySelector('meta[name="og:title"]');
+        var ogRaw = String((ogEl && ogEl.getAttribute("content")) || "").trim();
+        if (ogRaw && /[|\u2502\uFF5C\u2758\u01C0]/.test(ogRaw)) {
+          cleaned = normalizeBaseDocumentTitle(ogRaw);
+        }
+      }
+    } catch (eRec) {}
     if (windowAttentionTimer && windowAttentionTitle) {
       var attn = String(windowAttentionTitle || "").trim();
       if (cleaned === attn || cleaned === normalizeBaseDocumentTitle(attn)) {
@@ -1597,7 +1976,7 @@
       baseDocumentTitle = cleaned || siteBrandName();
       return baseDocumentTitle;
     }
-        if (
+    if (
       cleaned &&
       cleaned !== baseDocumentTitle &&
       !/^\(\d+\+?(?:\s+notifich[ea])?\)\s+/i.test(raw) &&
@@ -1609,19 +1988,17 @@
   }
 
     function formatTabTitleWithUnread(unread, base) {
+    /* titleNoCount1: niente (n) in title/og — solo setOsAppBadgeCount / favicon */
     try {
       if (window.VcPageTitle && typeof window.VcPageTitle.formatWithUnread === "function") {
         return window.VcPageTitle.formatWithUnread(
-          unread,
+          0,
           base || baseDocumentTitle || document.title || siteBrandName(),
         );
       }
     } catch (eFmt) {}
-    var n = Math.max(0, Math.floor(Number(unread) || 0));
-    var rest = normalizeBaseDocumentTitle(base || baseDocumentTitle || document.title || siteBrandName());
-    if (n <= 0) return rest;
-    var count = n > 99 ? "99+" : String(n);
-    return "(" + count + ") " + rest;
+    void unread;
+    return normalizeBaseDocumentTitle(base || baseDocumentTitle || document.title || siteBrandName());
   }
 
   function resolveFaviconLink() {
@@ -1642,25 +2019,89 @@
 
   function drawFaviconBadgeOnCanvas(ctx, size, unread) {
     var label = unread > 99 ? "99+" : String(unread);
-    var r = size * 0.22;
-    var cx = size - r - size * 0.06;
-    var cy = size - r - size * 0.06;
+    /* taskbarBadgeRed1: badge più grande + rosso vivo (su taskbar 24–32px il vecchio
+       #e11d48 + alone scuro diventava grigio) */
+    var r = size * 0.28;
+    var cx = size - r - size * 0.02;
+    var cy = r + size * 0.02;
     ctx.beginPath();
-    ctx.arc(cx, cy, r + size * 0.04, 0, Math.PI * 2);
-    ctx.fillStyle = "rgba(20, 12, 8, 0.92)";
+    ctx.arc(cx, cy, r + size * 0.055, 0, Math.PI * 2);
+    ctx.fillStyle = "rgba(255, 255, 255, 0.95)";
     ctx.fill();
     ctx.beginPath();
     ctx.arc(cx, cy, r, 0, Math.PI * 2);
-    ctx.fillStyle = "#e11d48";
+    ctx.fillStyle = "#ef4444";
     ctx.fill();
-    ctx.fillStyle = "#fff7ed";
+    ctx.fillStyle = "#ffffff";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.font =
-      "700 " +
-      Math.max(10, Math.floor(size * (label.length > 2 ? 0.28 : 0.34))) +
+      "800 " +
+      Math.max(12, Math.floor(size * (label.length > 2 ? 0.3 : 0.38))) +
       "px system-ui,Segoe UI,sans-serif";
-    ctx.fillText(label, cx, cy + size * 0.02);
+    ctx.fillText(label, cx, cy + size * 0.015);
+  }
+
+  var lastOsBadgeApplied = -1;
+  var osBadgeApplyTimer = 0;
+  var osBadgePendingCount = -1;
+  function resolveOsBadgeUnread() {
+    var local = 0;
+    try {
+      local = Math.max(0, Math.floor(Number(countBellBadgeUnread()) || 0));
+    } catch (eLoc) {
+      local = 0;
+    }
+    var server = 0;
+    try {
+      server = Math.max(0, Math.floor(Number(loadServerUnreadHold()) || 0));
+    } catch (eSrv) {
+      server = 0;
+    }
+    try {
+      if (Date.now() < localMarkHoldUntil && local < server) return local;
+    } catch (eHold) {}
+    try {
+      if (Date.now() < serverUnreadFreshUntil) return server;
+    } catch (eFresh) {}
+    /* badgeCrossOs1: store > server hold = stale dopo mark-read altro device */
+    if (local > server) return server;
+    return Math.max(local, server);
+  }
+  function setOsAppBadgeCount(n) {
+    var count = Math.max(0, Math.floor(Number(n) || 0));
+    if (count > 99) count = 99;
+    /* osBadgeNoFlash2: coalesci burst; applica solo se cambia davvero */
+    osBadgePendingCount = count;
+    if (count === lastOsBadgeApplied && !osBadgeApplyTimer) return;
+    try {
+      if (osBadgeApplyTimer) {
+        try {
+          clearTimeout(osBadgeApplyTimer);
+        } catch (eClr) {}
+        osBadgeApplyTimer = 0;
+      }
+    } catch (eT) {}
+    function apply() {
+      osBadgeApplyTimer = 0;
+      var want = osBadgePendingCount;
+      if (want < 0) return;
+      if (want === lastOsBadgeApplied) return;
+      lastOsBadgeApplied = want;
+      try {
+        if (want > 0 && typeof navigator.setAppBadge === "function") {
+          Promise.resolve(navigator.setAppBadge(want)).catch(function () {});
+        } else if (want <= 0 && typeof navigator.clearAppBadge === "function") {
+          Promise.resolve(navigator.clearAppBadge()).catch(function () {});
+        }
+      } catch (eOsBadge) {}
+    }
+    /* debounce più lungo: poll/WS/render non devono far flashare la taskbar */
+    try {
+      osBadgeApplyTimer = setTimeout(apply, 280);
+    } catch (eTo) {
+      apply();
+    }
   }
 
   function paintPlainFaviconBadge(unread) {
@@ -1747,24 +2188,17 @@
     }
     lastTabUnreadShown = n;
     document.title = want;
-    if (n > 0) {
-      if (typeof navigator.setAppBadge === "function") {
-        try {
-          navigator.setAppBadge(n > 99 ? 99 : n);
-        } catch (eBadge) {}
-      }
-    } else if (typeof navigator.clearAppBadge === "function") {
-      try {
-        navigator.clearAppBadge();
-      } catch (eClear) {}
-    }
+    setOsAppBadgeCount(n);
     updateFaviconBadge(n);
   }
 
     try {
     captureBaseDocumentTitle();
     lastTabUnreadShown = -1;
-    syncBrowserTabNotifBadge(0);
+    /* osBadgeStable1: non clearAppBadge(0) a boot — aspetta unread reale */
+    try {
+      document.title = formatTabTitleWithUnread(0, baseDocumentTitle || siteBrandName());
+    } catch (eTit0) {}
   } catch (eTitleBoot) {}
 
   function pageNeedsWindowAttention() {
@@ -1833,8 +2267,11 @@
           } catch (eClr) {}
           windowAttentionTimer = 0;
         }
-        var baseH = captureBaseDocumentTitle() || "Vinili & Caffè";
-        document.title = "● " + windowAttentionTitle + " · " + baseH;
+        /* notifBellFix1: resta (n) + og/title pagina — no titolo-app / solo ● testo notifica */
+        document.title = formatTabTitleWithUnread(
+          Math.max(1, lastUnreadForAttention || 1),
+          captureBaseDocumentTitle(),
+        );
         applyAttentionFavicon(true);
         return;
       }
@@ -1849,30 +2286,22 @@
       try {
         if (document.hidden || (document.visibilityState && document.visibilityState !== "visible")) {
           stopWindowAttention();
-          var baseStop = captureBaseDocumentTitle() || "Vinili & Caffè";
-          document.title = "● " + windowAttentionTitle + " · " + baseStop;
+          document.title = formatTabTitleWithUnread(
+            Math.max(1, lastUnreadForAttention || 1),
+            captureBaseDocumentTitle(),
+          );
           applyAttentionFavicon(true);
           return;
         }
       } catch (eTickBg) {}
       windowAttentionOn = !windowAttentionOn;
-      var base = captureBaseDocumentTitle() || "Vinili & Caffè";
+      var base = captureBaseDocumentTitle() || siteBrandName();
+      var unreadN = Math.max(1, lastUnreadForAttention || 1);
+      /* osBadgeNoFlash2: blink SOLO title — favicon+setAppBadge facevano flash taskbar PWA */
       if (windowAttentionOn) {
-        document.title = "● " + windowAttentionTitle;
-        applyAttentionFavicon(true);
-        if (typeof navigator.setAppBadge === "function") {
-          try {
-            navigator.setAppBadge(Math.max(1, lastUnreadForAttention || 1));
-          } catch (eOn) {}
-        }
+        document.title = formatTabTitleWithUnread(unreadN, base);
       } else {
-        document.title = base;
-        applyAttentionFavicon(false);
-        if (typeof navigator.clearAppBadge === "function") {
-          try {
-            navigator.clearAppBadge();
-          } catch (eOff) {}
-        }
+        document.title = formatTabTitleWithUnread(0, base);
       }
     };
     tick();
@@ -1940,11 +2369,24 @@
     markSelfNotifSync();
     ignoreSelfNotifSync += 1;
     try {
+      var peerUnread = -1;
+      try {
+        peerUnread = countBellBadgeUnread();
+      } catch (ePu) {
+        peerUnread = -1;
+      }
       try {
         localStorage.setItem(NOTIF_SYNC_KEY, String(Date.now()) + ":" + Math.random().toString(36).slice(2, 8));
       } catch (ePing) {}
       try {
-        if (notifSyncBc) notifSyncBc.postMessage({ t: Date.now() });
+        /* badgeInBellLive1: porta unread agli altri tab (sessionStorage non è condiviso) */
+        if (notifSyncBc) {
+          notifSyncBc.postMessage({
+            t: Date.now(),
+            unread: peerUnread,
+            serverUnread: loadServerUnreadHold(),
+          });
+        }
       } catch (eBcPost) {}
       try {
         window.dispatchEvent(new CustomEvent("vc:notifications-sync"));
@@ -2014,7 +2456,34 @@
     if (k.indexOf(STORAGE_PREFIX) === 0) return true;
     if (k.indexOf(DISMISSED_PREFIX) === 0) return true;
     if (k.indexOf(PENDING_READ_PREFIX) === 0) return true;
+    if (k.indexOf("vc_notif_server_unread_v1:") === 0) return true;
     return false;
+  }
+  function syncDismissedIdsToServiceWorker(ids) {
+    var arr = Array.isArray(ids)
+      ? ids
+          .map(function (x) {
+            return String(x || "").trim();
+          })
+          .filter(Boolean)
+          .slice(-500)
+      : [];
+    if (!arr.length) return;
+    var msg = { type: "vc:sync-dismissed-ids", ids: arr };
+    try {
+      if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+        navigator.serviceWorker.controller.postMessage(msg);
+      }
+    } catch (ePost) {}
+    try {
+      if (navigator.serviceWorker && typeof navigator.serviceWorker.ready === "function") {
+        navigator.serviceWorker.ready.then(function (reg) {
+          try {
+            if (reg && reg.active) reg.active.postMessage(msg);
+          } catch (eAct) {}
+        });
+      }
+    } catch (eReady) {}
   }
   function saveDismissedSet(setLike, userId) {
     var key = userDismissedKey(userId);
@@ -2023,9 +2492,13 @@
     if (arr.length > 500) arr = arr.slice(arr.length - 500);
     var next = JSON.stringify(arr);
     try {
-      if (localStorage.getItem(key) === next) return;
+      if (localStorage.getItem(key) === next) {
+        syncDismissedIdsToServiceWorker(arr);
+        return;
+      }
       localStorage.setItem(key, next);
       notifyNotifStorePeers();
+      syncDismissedIdsToServiceWorker(arr);
     } catch (e) {}
   }
   function markDismissed(id, userId) {
@@ -2077,7 +2550,29 @@
     delete p.id;
     delete p.read;
     delete p.readAt;
+    /* notifSheetSync1: vote_reminder ha stesso title/body/url ogni ciclo —
+       senza dedupeKey il fp collassa e dismiss vecchio nasconde i nuovi (push sì, sheet no). */
+    var dk = String((payload && payload.dedupeKey) || "").trim();
+    var k = String(kind || (payload && payload.kind) || "").toLowerCase();
+    if (dk && (k === "vote_reminder" || /vote_reminder/.test(dk))) {
+      return "fpdk:" + hashText([ownerId, "vote_reminder", dk].join("|"));
+    }
     return buildStableNotifId(p, ownerId, kind, openUrl);
+  }
+  function undismissNotifKeys(keys, userId) {
+    var uid = normalizeUserId(userId || currentUserId);
+    var set = loadDismissedSet(uid);
+    var changed = false;
+    (Array.isArray(keys) ? keys : []).forEach(function (raw) {
+      var k = String(raw || "").trim();
+      if (!k) return;
+      if (set.has(k)) {
+        set.delete(k);
+        changed = true;
+      }
+    });
+    if (changed) saveDismissedSet(set, uid);
+    return changed;
   }
   function isAutoClientNotifId(id) {
     return String(id || "").indexOf("auto:") === 0;
@@ -2349,6 +2844,132 @@
     if (!/^[a-f0-9]{24}$/i.test(tid)) return "";
     return "/tickets/?ticketId=" + encodeURIComponent(tid) + "#" + tid;
   }
+  function unlockScrollAfterPushOpen() {
+    /* pushPhoneScrollUnlock1: soft-open da push lascia a volte overflow/touch lock orfani */
+    var phone = false;
+    try {
+      phone = isCoarsePointerDevice() || isStandalonePwaLocal();
+    } catch (ePh) {
+      phone = /Android|iPhone|iPad|iPod|Mobile/i.test(String(navigator.userAgent || ""));
+    }
+    if (!phone) return;
+    try {
+      var dd = document.getElementById("vc-notif-dropdown");
+      var ddOpen = Boolean(dd && (dd.open || dd.hasAttribute("open")));
+      if (!ddOpen) {
+        document.documentElement.classList.remove(
+          "vc-notif-drawer-open",
+          "vc-notif-sheet-open",
+          "vc-notif-dropdown-open",
+          "vc-notif-overlay-active",
+        );
+      }
+    } catch (eNotifChrome) {}
+    var frozen = false;
+    var loader = false;
+    try {
+      frozen = typeof isPageScrollFrozen === "function" && isPageScrollFrozen();
+    } catch (eFr) {
+      frozen = false;
+    }
+    try {
+      loader = typeof isBlockingLoaderVisible === "function" && isBlockingLoaderVisible();
+    } catch (eLd) {
+      loader = false;
+    }
+    if (frozen || loader) {
+      try {
+        if (typeof window.__vcSyncLoaderScrollLock === "function") window.__vcSyncLoaderScrollLock();
+      } catch (eSyncKeep) {}
+      return;
+    }
+    try {
+      var root = document.documentElement;
+      var bootStuck =
+        root.classList.contains("vc-page-cine-boot") && !root.classList.contains("vc-page-cine-ready");
+      var looksPainted =
+        root.classList.contains("vc-styles-ready") ||
+        root.classList.contains("vc-core-styles-ready") ||
+        root.classList.contains("vc-home-styles-ready") ||
+        root.classList.contains("vc-page-cine-ready") ||
+        !!document.querySelector(
+          "main .vc-page-cine-card, main .vc-home-cine, #vc-web-tickets-root, .vc-boards-root, body.vc-body > main",
+        );
+      if (bootStuck && looksPainted) {
+        var bootAt = Number(window.__vcCineBootStartedAt || window.__vcPhoneUnfreezeArmedAt || 0) || 0;
+        if (!bootAt || Date.now() - bootAt > 700) {
+          root.classList.add("vc-page-cine-ready", "vc-cine-curtain-off");
+          root.classList.remove("vc-page-cine-boot");
+          try {
+            var ov = document.getElementById("vc-shared-boot-overlay");
+            if (ov) {
+              ov.hidden = true;
+              ov.setAttribute("hidden", "");
+              ov.style.setProperty("display", "none", "important");
+              ov.style.setProperty("pointer-events", "none", "important");
+            }
+          } catch (eOv) {}
+          try {
+            var cur = document.getElementById("vc-cine-boot-curtain");
+            if (cur) {
+              cur.hidden = true;
+              cur.setAttribute("hidden", "");
+              cur.style.setProperty("display", "none", "important");
+            }
+          } catch (eCu) {}
+        }
+      }
+    } catch (eBoot) {}
+    try {
+      stripPhoneInlineScrollLocks();
+    } catch (eStrip) {}
+    try {
+      if (typeof unpinPageScroll === "function") unpinPageScroll();
+    } catch (eUnpin) {}
+    try {
+      document.documentElement.classList.remove(
+        "vc-loading-scroll-lock",
+        "vc-scroll-soft-lock",
+        "vc-ui-scroll-lock",
+        "vc-loader-blocking-live",
+      );
+    } catch (eCls) {}
+    try {
+      var body = document.body;
+      if (body) {
+        body.style.removeProperty("position");
+        body.style.removeProperty("top");
+        body.style.removeProperty("left");
+        body.style.removeProperty("right");
+        body.style.removeProperty("width");
+        body.style.removeProperty("overflow");
+        body.style.removeProperty("overscroll-behavior");
+        body.style.removeProperty("touch-action");
+      }
+      document.documentElement.style.removeProperty("overflow");
+      document.documentElement.style.removeProperty("overscroll-behavior");
+      document.documentElement.style.removeProperty("touch-action");
+    } catch (eInline) {}
+    try {
+      if (typeof window.__vcSyncLoaderScrollLock === "function") window.__vcSyncLoaderScrollLock();
+    } catch (eSync) {}
+  }
+
+  function scheduleUnlockScrollAfterPushOpen() {
+    /* violKillCue2: delay min 48 — setTimeout(0)+unlock = Violation */
+    var delays = [48, 220, 800];
+    for (var i = 0; i < delays.length; i += 1) {
+      (function (ms) {
+        window.setTimeout(function () {
+          try {
+            if (document.hidden) return;
+            unlockScrollAfterPushOpen();
+          } catch (eU) {}
+        }, ms);
+      })(delays[i]);
+    }
+  }
+
   function applyOpenDest(url, ticketId) {
     /* pushOpenDestFix1 */
     var dest = String(url || "").trim();
@@ -2391,6 +3012,7 @@
         }
       } catch (eAlready) {}
       pendingNavApplying = false;
+      scheduleUnlockScrollAfterPushOpen();
       return;
     }
     pendingNavApplying = true;
@@ -2400,13 +3022,61 @@
         pendingNavPollTimer = 0;
       }
     } catch (eT) {}
+    var wantHref = resolveNotifDestUrl(dest) || dest;
     try {
-      openNotifDestination(resolveNotifDestUrl(dest), "ticket");
+      openNotifDestination(wantHref, "ticket");
+      scheduleUnlockScrollAfterPushOpen();
     } finally {
+      /* pushWinReuseNav1: se soft-nav non cambia pagina (PWA Windows), forza href */
       window.setTimeout(function () {
+        try {
+          if (!alreadyOnOpenDest(wantHref, tid)) {
+            window.location.href = wantHref;
+          } else {
+            scheduleUnlockScrollAfterPushOpen();
+          }
+        } catch (eForceNav) {}
         pendingNavApplying = false;
-      }, 800);
+      }, 480);
     }
+  }
+
+  function isHomeLikePathForPending() {
+    try {
+      var p = String(location.pathname || "/").replace(/\/+$/, "") || "/";
+      if (p !== "/") return false;
+      return true;
+    } catch (eH) {
+      return false;
+    }
+  }
+
+  function pendingDestDiffersFromHere(url, ticketId) {
+    try {
+      if (alreadyOnOpenDest(url, ticketId)) return false;
+    } catch (eA) {}
+    try {
+      var dest = new URL(String(url || ""), location.origin);
+      var hereP = String(location.pathname || "/").replace(/\/+$/, "") || "/";
+      var destP = String(dest.pathname || "/").replace(/\/+$/, "") || "/";
+      if (hereP !== destP) return true;
+      var hereFull = location.pathname + location.search + location.hash;
+      var destFull = dest.pathname + dest.search + dest.hash;
+      return hereFull !== destFull;
+    } catch (eD) {
+      return true;
+    }
+  }
+
+  /* navNoYankTyped1: se l utente e gia su una pagina precisa (non home),
+     NON applicare pending-nav push/resume — cancella e resta dove e. */
+  function shouldSkipPendingNavForExplicitPage(url, ticketId) {
+    try {
+      if (window.__vcForcePendingNavApply === 1) return false;
+    } catch (eF) {}
+    if (isHomeLikePathForPending()) return false;
+    if (!pendingDestDiffersFromHere(url, ticketId)) return false;
+    return true;
   }
   function consumePendingNavFromSwCache() {
     /* swLsStorm2: una sola passata boot — no poll Cache API */
@@ -2440,6 +3110,8 @@
               }
               var url = String((data && data.url) || "").trim();
               var ticketId = String((data && data.ticketId) || "").trim();
+              /* notifDismissCross1: pending-nav include id = mark-read anche a cold open */
+              var notifId = String((data && data.id) || "").trim();
               try {
                 if (url) {
                   var pu = new URL(url, location.origin);
@@ -2458,15 +3130,34 @@
                   return false;
                 });
               }
+              function markReadFromPendingNav() {
+                try {
+                  noteLocalMarkReadHold();
+                  if (notifId) rememberClickRead(notifId);
+                  if (ticketId) markTicketNotificationsRead(ticketId);
+                  if (notifId) markOneRead(notifId, { openUrl: url });
+                  else if (!ticketId) tryFlushClickReads();
+                } catch (eMarkPend) {}
+              }
+              if (shouldSkipPendingNavForExplicitPage(url, ticketId)) {
+                return cache.delete(SW_PENDING_NAV_URL).then(function () {
+                  try {
+                    markReadFromPendingNav();
+                  } catch (eSkipMark) {}
+                  return false;
+                });
+              }
               if (alreadyOnOpenDest(url, ticketId)) {
                 return cache.delete(SW_PENDING_NAV_URL).then(function () {
                   try {
+                    markReadFromPendingNav();
                     applyOpenDest(url, ticketId);
                   } catch (eSoft) {}
                   return true;
                 });
               }
               return cache.delete(SW_PENDING_NAV_URL).then(function () {
+                markReadFromPendingNav();
                 applyOpenDest(url, ticketId);
                 return true;
               });
@@ -2676,8 +3367,67 @@
     if (!sid) return false;
     return Boolean(loadToastedMap()[sid]);
   }
-    function shouldPlayNotifAlert(row) {
+  /* notifFlyTopZOnce1: dedupe keys oltre id (fp/mid/dk) — no re-float stesso alert */
+  function notifToastDedupeKeys(row) {
+    var keys = [];
+    var id = String((row && row.id) || "").trim();
+    if (id) keys.push(id);
+    var mid = String((row && row.messageId) || "").trim();
+    if (mid) keys.push("mid:" + mid);
+    var dk = String((row && row.dedupeKey) || "").trim();
+    if (dk) keys.push("dk:" + dk);
+    try {
+      var uid = normalizeUserId(currentUserId || (row && row.userId) || "");
+      var kind = String((row && row.kind) || "info");
+      var openUrl = String((row && row.openUrl) || "").trim();
+      var fp = buildNotifFingerprintId(row || {}, uid, kind, openUrl);
+      if (fp) keys.push("fp:" + fp);
+    } catch (eFp) {}
+    return keys;
+  }
+  function rememberToastedRow(row) {
+    var keys = notifToastDedupeKeys(row);
+    for (var i = 0; i < keys.length; i += 1) rememberToastedId(keys[i]);
+  }
+  function wasAlreadyToastedRow(row) {
+    var keys = notifToastDedupeKeys(row);
+    if (!keys.length) return false;
+    var map = loadToastedMap();
+    for (var i = 0; i < keys.length; i += 1) {
+      if (map[keys[i]]) return true;
+    }
+    return false;
+  }
+  function ensureNotifFlyHost() {
+    var h = document.getElementById("vc-notif-fly-host");
+    if (h && h.isConnected) return h;
+    h = document.createElement("div");
+    h.id = "vc-notif-fly-host";
+    h.setAttribute("data-vc", "notifFlyTopZOnce1");
+    h.setAttribute("aria-hidden", "true");
+    try {
+      h.style.setProperty("position", "fixed", "important");
+      h.style.setProperty("inset", "0", "important");
+      h.style.setProperty("width", "100vw", "important");
+      h.style.setProperty("height", "100dvh", "important");
+      h.style.setProperty("pointer-events", "none", "important");
+      h.style.setProperty("z-index", "2147482500", "important");
+      h.style.setProperty("overflow", "visible", "important");
+      h.style.setProperty("transform", "none", "important");
+      h.style.setProperty("filter", "none", "important");
+      h.style.setProperty("contain", "none", "important");
+    } catch (eSt) {}
+    var mount = document.documentElement || document.body;
+    try {
+      mount.appendChild(h);
+    } catch (eApp) {
+      if (document.body) document.body.appendChild(h);
+    }
+    return h;
+  }
+  function shouldPlayNotifAlert(row) {
     if (!row || row.read) return false;
+    if (wasAlreadyToastedRow(row)) return false;
     var id = String(row.id || "").trim();
     if (id && wasAlreadyToasted(id)) return false;
     /* ticketNotifDedup1: OS già mostrato da SW → sync non rifà fly/sound/banner */
@@ -2695,6 +3445,11 @@
     }
     var sid = String(p.id || "").trim();
     if (sid) rememberToastedId(sid);
+    var ids = Array.isArray(p.ids) ? p.ids : [];
+    for (var i = 0; i < ids.length; i += 1) {
+      var xid = String(ids[i] || "").trim();
+      if (xid) rememberToastedId(xid);
+    }
   }
   function clearAllStampKey() {
     var uid = normalizeUserId(currentUserId);
@@ -2810,6 +3565,7 @@
     pause: 1,
     candidature: 1,
     appelli: 1,
+    revisione: 1,
     resoconti: 1,
     "punti-tolti": 1,
   };
@@ -2823,7 +3579,9 @@
         .toLowerCase();
       return DEDICATED_INBOX_QUEUES[inbox] ? inbox : "";
     } catch (eUrl) {
-      var m = s.toLowerCase().match(/[?&]inbox=(pause|candidature|appelli|resoconti|punti-tolti)\b/);
+      var m = s
+        .toLowerCase()
+        .match(/[?&]inbox=(pause|candidature|appelli|resoconti|punti-tolti|revisione)\b/);
       return m ? m[1] : "";
     }
   }
@@ -2944,14 +3702,14 @@
     }
     if (isPuntiToltiSubjectNotifClient(n)) return false;
     if (isWorkflowDecisionNotifClient(n)) return false;
-    if (/^inbox:(pause|candidature|appelli|resoconti)(?::|$)/.test(key)) return true;
+    if (/^inbox:(pause|candidature|appelli|resoconti|revisione)(?::|$)/.test(key)) return true;
     if (/^pt-pending:/.test(key)) return true;
     if (/^wfc:(invite|remove|msg):staff:/.test(key)) return true;
     var queue = inboxQueueIdFromNotifUrl(n.openUrl);
     if (!queue) return false;
     var hay = (String(n.title || "") + " " + String(n.body || "")).toLowerCase();
     if (
-      /nuovo resoconto|nuovo appello|nuova candidatur|nuova richiesta pausa|punti tolti\s*[—\-–]?\s*segnalazione in attesa|richiedente in chat/.test(
+      /nuovo resoconto|nuovo appello|nuova candidatur|nuova richiesta pausa|nuova scheda|scheda bacheca|in revisione|punti tolti\s*[—\-–]?\s*segnalazione in attesa|richiedente in chat/.test(
         hay,
       )
     ) {
@@ -3039,9 +3797,9 @@
     if (kind === "web_ticket" || kind === "web_ticket_mention") return "tickets";
     if (isMentionNotifClient(n)) return "tickets";
     if (isWorkflowDecisionNotifClient(n)) {
-      if (/appelli|unban|unmute|appeal/.test(key + " " + String(n.openUrl || "").toLowerCase())) {
-        return "appelli";
-      }
+      var hayDec = key + " " + String(n.openUrl || "").toLowerCase();
+      if (/appelli|unban|unmute|appeal/.test(hayDec)) return "appelli";
+      if (/revisione|bacheca|scheda (server|bot)/.test(hayDec)) return "revisione";
       return "candidature";
     }
     if (kind === "review") return "reviews";
@@ -3056,6 +3814,7 @@
     { id: "tickets", label: "Ticket", ico: "fa-ticket" },
     { id: "candidature", label: "Candidature", ico: "fa-file-text-o" },
     { id: "appelli", label: "Appelli", ico: "fa-gavel" },
+    { id: "revisione", label: "Bacheca", ico: "fa-th-large" },
     { id: "reviews", label: "Recensioni", ico: "fa-star" },
     { id: "feedback", label: "Feedback", ico: "fa-magic" },
     { id: "confessionale", label: "Confessioni", ico: "fa-id-badge" },
@@ -3191,12 +3950,25 @@
     if (!Object.keys(idSet).length) return;
     var uid = normalizeUserId(currentUserId);
     var next = [];
+    var removedIds = [];
+    var ticketIds = [];
+    var openUrls = [];
+    var dedupeKeys = [];
     loadStored().forEach(function (n) {
       var nid = String((n && n.id) || "").trim();
       if (nid && idSet[nid]) {
         try {
           rememberDismissedNotif(n, uid);
         } catch (eRem) {}
+        removedIds.push(nid);
+        try {
+          var tid = extractTicketIdFromNotif(n) || extractTicketIdFromOpenUrl(n && n.openUrl);
+          if (tid && ticketIds.indexOf(tid) < 0) ticketIds.push(tid);
+          var ou = String((n && n.openUrl) || "").trim();
+          if (ou && openUrls.indexOf(ou) < 0) openUrls.push(ou);
+          var dk = String((n && n.dedupeKey) || "").trim();
+          if (dk && dedupeKeys.indexOf(dk) < 0) dedupeKeys.push(dk);
+        } catch (eMeta) {}
         try {
           deleteSiteNotificationOnServer(nid);
         } catch (eDel) {}
@@ -3205,14 +3977,46 @@
       next.push(n);
     });
     saveStored(next);
+    noteLocalMarkReadHold();
+    try {
+      rememberServerUnreadCount(countBellBadgeUnread());
+    } catch (eHold) {}
+    try {
+      dismissOsNotifications({
+        ids: removedIds,
+        ticketIds: ticketIds,
+        openUrls: openUrls,
+        dedupeKeys: dedupeKeys,
+        closeOnly: true,
+      });
+    } catch (eOs) {}
+    requestAppBadgeSync(countBellBadgeUnread() <= 0);
+    /* notifCatClearDom1: bypass preserve Inbox aperta → ricostruisci lista, non solo count */
+    try {
+      bellInboxExpandLockUntil = 0;
+    } catch (eLockClr) {}
+    try {
+      bellStaffSummarySig = "";
+    } catch (eSigClr) {}
     lastNotifRenderSig = "";
-    render({ force: true });
+    render({ force: true, wipeInbox: true });
     if (bellNotifScope === "staff") {
       try {
         var cached = readCachedBellStaffSummary();
-        renderBellStaffInbox((cached && cached.summary) || {});
+        renderBellStaffInbox((cached && cached.summary) || {}, { force: true });
       } catch (eR) {}
     }
+    /* notifCatClearFix1: /notifications ha lista propria — senza refresh resta ferma */
+    try {
+      if (typeof window.__vcRefreshNotificationsPage === "function") {
+        window.__vcRefreshNotificationsPage();
+      }
+    } catch (ePg) {}
+    window.setTimeout(function () {
+      try {
+        syncSiteNotificationsFromServer({ force: true });
+      } catch (eSync) {}
+    }, 450);
   }
   /* notifCatBarFix1: count+trash+chev on the right; toggle = ico+label only. */
   function buildNotifCategoryBar(opts) {
@@ -3325,6 +4129,7 @@
     if (k === "compiti") return "fa-book";
     if (k === "candidature") return "fa-file-text-o";
     if (k === "appelli") return "fa-gavel";
+    if (k === "revisione") return "fa-th-large";
     if (k === "pause") return "fa-pause";
     return "fa-bell-o";
   }
@@ -3343,6 +4148,7 @@
         var q = inboxQueueIdFromNotifUrl(n.openUrl);
         if (q === "candidature") return "fa-file-text-o";
         if (q === "appelli") return "fa-gavel";
+        if (q === "revisione") return "fa-th-large";
         if (q === "pause") return "fa-pause";
         if (q === "resoconti") return "fa-bar-chart";
         if (q === "punti-tolti") return "fa-minus-circle";
@@ -3351,6 +4157,7 @@
         var hay =
           notifMetaKey(n) + " " + String(n.openUrl || "").toLowerCase() + " " + String(n.title || "").toLowerCase();
         if (/appelli|unban|unmute|appeal/.test(hay)) return "fa-gavel";
+        if (/revisione|bacheca|scheda (server|bot)/.test(hay)) return "fa-th-large";
         if (/candidatur|pex|depex/.test(hay)) return "fa-file-text-o";
         if (/pausa|pause/.test(hay)) return "fa-pause";
         return "fa-check-circle";
@@ -3650,13 +4457,20 @@
       badgeUnread = unread;
     }
     if (!root || !listEl || !badge || !sub) {
-      syncBrowserTabNotifBadge(badgeUnread);
+      /* osBadgeNoFlash2: stesso count della campanella (max store/server), non store-only */
+      try {
+        syncBrowserTabNotifBadge(resolveOsBadgeUnread());
+      } catch (eEarly) {
+        syncBrowserTabNotifBadge(badgeUnread);
+      }
       return;
     }
     var sig = buildNotifStoreSignature(all) + "|u:" + unread + "|b:" + badgeUnread;
     var force = options && options.force === true;
+    var painted = false;
     try {
       paintNotifBellBadgeFromStore();
+      painted = true;
     } catch (ePaint) {
       if (badgeUnread > 0) {
         badge.hidden = false;
@@ -3667,31 +4481,51 @@
       }
     }
     if (badgeUnread <= 0 && windowAttentionTimer) stopWindowAttention();
-    syncBrowserTabNotifBadge(badgeUnread);
+    /* osBadgeNoFlash2: paintNotifBellBadgeFromStore già synca OS badge —
+       secondo pass con store-only faceva flash  N↔max(N,server) */
+    if (!painted) {
+      try {
+        syncBrowserTabNotifBadge(resolveOsBadgeUnread());
+      } catch (eSync2) {
+        syncBrowserTabNotifBadge(badgeUnread);
+      }
+    }
     try {
-      if (badgeUnread > 0) maybeShowPendingUnreadIgToast();
+      /* notifFlyOnce1: niente pending float su render; solo dismiss se unread=0 */
+      if (badgeUnread <= 0) maybeShowPendingUnreadIgToast();
     } catch (eIgPend) {}
     if (!(bellNotifScope === "staff" && canBellStaffInbox())) {
       sub.textContent = formatUnreadSub(unread);
     } else if (typeof renderBellStaffInbox === "function") {
       try {
         sub.textContent = formatUnreadSub(countInboxUnreadNotifs());
-        /* notifCatLoadFix1: peer-sync/render force NON deve wipe code aperte/loading */
-        if (shouldPreserveBellInboxList()) {
+        var wipeInbox = Boolean(options && options.wipeInbox === true);
+        /* notifCatLoadFix1: peer-sync/render force NON deve wipe code aperte/loading
+           notifCatClearDom1: clear/trash → wipeInbox obbligatorio */
+        if (!wipeInbox && shouldPreserveBellInboxList()) {
           var cachedPatch =
             typeof readCachedBellStaffSummary === "function" ? readCachedBellStaffSummary() : null;
           if (cachedPatch && cachedPatch.summary) patchBellStaffInboxCounts(cachedPatch.summary);
         } else {
           var cachedInbox =
             typeof readCachedBellStaffSummary === "function" ? readCachedBellStaffSummary() : null;
-          if (cachedInbox && cachedInbox.summary) renderBellStaffInbox(cachedInbox.summary);
+          if (cachedInbox && cachedInbox.summary) {
+            renderBellStaffInbox(cachedInbox.summary, wipeInbox ? { force: true } : null);
+          } else if (wipeInbox) {
+            renderBellStaffInbox({}, { force: true });
+          }
         }
       } catch (eInboxPaint) {}
     }
     if (all.length > 0) root.classList.add("vc-notif-dropdown--has-items");
     else root.classList.remove("vc-notif-dropdown--has-items");
     syncPushPromptUi();
-    if (!force && sig === lastNotifRenderSig) return;
+    if (!force && sig === lastNotifRenderSig) {
+      try {
+        syncNotifScopeSwitchPending();
+      } catch (ePendSig) {}
+      return;
+    }
     lastNotifRenderSig = sig;
     bindClearAllButton();
     /* notifBellStable1: conserva categorie aperte; no auto-open unread dopo 1° paint */
@@ -3860,14 +4694,40 @@
         toggle.classList.add("is-open");
         toggle.setAttribute("aria-expanded", "true");
       }
-      g.items.forEach(function (n) {
-        appendPersonalNotifRow(itemsHost, n);
-      });
+      /* loadSyncPack1: chunk personal notifs — paint first 20, lazy load rest */
+      (function () {
+        var NOTIF_WIN = 20;
+        var remaining = g.items.slice(NOTIF_WIN);
+        g.items.slice(0, NOTIF_WIN).forEach(function (n) { appendPersonalNotifRow(itemsHost, n); });
+        if (remaining.length) {
+          var moreLi = document.createElement("li");
+          moreLi.className = "vc-notif-row vc-notif-row--load-more";
+          var moreBtn = document.createElement("button");
+          moreBtn.type = "button";
+          moreBtn.className = "vc-notif-load-more-btn";
+          moreBtn.textContent = "Carica altre (" + String(remaining.length) + ")";
+          moreBtn.addEventListener("click", function () {
+            if (moreLi.parentNode) moreLi.parentNode.removeChild(moreLi);
+            var batch = remaining.slice(0, NOTIF_WIN);
+            remaining = remaining.slice(NOTIF_WIN);
+            batch.forEach(function (n) { appendPersonalNotifRow(itemsHost, n); });
+            if (remaining.length) {
+              moreBtn.textContent = "Carica altre (" + String(remaining.length) + ")";
+              itemsHost.appendChild(moreLi);
+            }
+          });
+          moreLi.appendChild(moreBtn);
+          itemsHost.appendChild(moreLi);
+        }
+      })();
       section.appendChild(bar);
       section.appendChild(itemsHost);
       listEl.appendChild(section);
     });
     bellPersonalCatsSettled = true;
+    try {
+      syncNotifScopeSwitchPending();
+    } catch (ePendEnd) {}
   }
   function markAllRead() {
     if (ephemeralDemo) ephemeralDemo.read = true;
@@ -3884,8 +4744,12 @@
       }),
     );
     try {
-      rememberServerUnreadCount(0);
-    } catch (eZero) {}
+      applyAuthoritativeUnread(0, 12000);
+    } catch (eZero) {
+      try {
+        rememberServerUnreadCount(0);
+      } catch (eZero2) {}
+    }
     render({ force: true });
     dismissOsNotifications({ all: true });
     markAllSiteNotificationsReadOnServer().finally(function () {
@@ -3933,9 +4797,23 @@
     rememberClearAllStamp();
     saveStored([]);
     try {
-      rememberServerUnreadCount(0);
-    } catch (eZero2) {}
-    render({ force: true });
+      applyAuthoritativeUnread(0, 12000);
+    } catch (eZero2) {
+      try {
+        rememberServerUnreadCount(0);
+      } catch (eZero3) {}
+    }
+    try {
+      bellInboxExpandLockUntil = 0;
+      bellStaffSummarySig = "";
+    } catch (eLockAll) {}
+    lastNotifRenderSig = "";
+    render({ force: true, wipeInbox: true });
+    if (bellNotifScope === "staff") {
+      try {
+        renderBellStaffInbox({}, { force: true });
+      } catch (eInboxAll) {}
+    }
     /* pushPwaBadgeStable1: clearAll deve chiudere banner OS + badge PWA
        (su Android il pallino icona spesso = notifiche OS, non solo unread inbox) */
     try {
@@ -3945,10 +4823,13 @@
       dismissOsNotifications({ all: true });
     } catch (eOsClr) {}
     try {
-      if (typeof navigator !== "undefined" && typeof navigator.clearAppBadge === "function") {
-        Promise.resolve(navigator.clearAppBadge()).catch(function () {});
-      }
+      setOsAppBadgeCount(0);
     } catch (eBadgeClr) {}
+    try {
+      if (typeof window.__vcRefreshNotificationsPage === "function") {
+        window.__vcRefreshNotificationsPage();
+      }
+    } catch (ePgAll) {}
     clearAllSiteNotificationsOnServer().finally(function () {
       window.setTimeout(function () {
         syncSiteNotificationsFromServer();
@@ -3990,6 +4871,8 @@
     document.addEventListener("touchend", onClearAllGesture, true);
   }
   /* notifSheetUnifyPhone1: clear categoria — stesso capture touch di clear-all (su phone click spesso muore) */
+  /* notifCatClearFix1: non stopImmediatePropagation — altrimenti onClear pagina/bell non parte
+     e /notifications non ri-renderizza. Lock anti doppio-clear resta. */
   var catClearLockUntil = 0;
   function onCatClearGesture(ev) {
     var t = clearAllEventTarget(ev);
@@ -4001,16 +4884,13 @@
     if (now < catClearLockUntil) {
       try {
         if (ev.cancelable) ev.preventDefault();
-        ev.stopPropagation();
       } catch (eL) {}
       return;
     }
     catClearLockUntil = now + 420;
     try {
+      /* touchend: evita ghost click; niente stopPropagation sul path normale */
       if (ev.type === "touchend" && ev.cancelable) ev.preventDefault();
-      if (ev.preventDefault) ev.preventDefault();
-      if (ev.stopPropagation) ev.stopPropagation();
-      if (ev.stopImmediatePropagation) ev.stopImmediatePropagation();
     } catch (eStop) {}
     var catId = String(btn.getAttribute("data-cat-clear") || "").trim();
     var scope = btn.getAttribute("data-cat-scope") === "inbox" ? "inbox" : "personal";
@@ -4083,8 +4963,12 @@
       }),
     );
     try {
-      rememberServerUnreadCount(countBellBadgeUnread());
-    } catch (eHoldDown) {}
+      applyAuthoritativeUnread(countBellBadgeUnread(), 8000);
+    } catch (eHoldDown) {
+      try {
+        rememberServerUnreadCount(countBellBadgeUnread());
+      } catch (eHold2) {}
+    }
     render({ force: true });
     /* pwaInAppReadDismiss1: id + ids + openUrl così SW chiude il banner anche senza click push */
     var openUrls = [];
@@ -4225,18 +5109,62 @@
       navigator.serviceWorker.addEventListener("message", function (ev) {
         var data = ev && ev.data ? ev.data : null;
         if (!data || !data.type) return;
+        /* pushSkipRead1: SW chiede se id già dismesso prima di showNotification (desktop) */
+        if (data.type === "vc:query-notif-dismissed") {
+          var qid = String(data.id || "").trim();
+          var qdk = String(data.dedupeKey || "").trim();
+          var dismissed = false;
+          try {
+            var dset = loadDismissedSet(currentUserId);
+            if (qid && dset.has(qid)) dismissed = true;
+            if (!dismissed && qdk && dset.has(qdk)) dismissed = true;
+            if (!dismissed && qid) {
+              var storedQ = loadStored();
+              for (var qi = 0; qi < (storedQ || []).length; qi += 1) {
+                var row = storedQ[qi];
+                if (!row) continue;
+                if (String(row.id || "").trim() !== qid) continue;
+                if (row.read === true || row.readAt) {
+                  dismissed = true;
+                  break;
+                }
+              }
+            }
+          } catch (eQ) {}
+          try {
+            if (ev.ports && ev.ports[0]) {
+              ev.ports[0].postMessage({ dismissed: dismissed, id: qid });
+            }
+          } catch (ePort) {}
+          return;
+        }
         if (data.type === "vc:push-received") {
           var p = data.payload && typeof data.payload === "object" ? data.payload : {};
           if (String(p.type || "") === "dismiss") {
-            /* pushDismissDedup1: SW chiude già i banner OS; pagina synca inbox + toast locali */
+            /* pushVisitOsDismiss2: SW chiude già; pagina ritenta con openUrls/pageUrl
+               (match visita pagina / candidature senza ticketId) */
             dismissOsNotifications({
               ticketId: p.ticketId,
               id: p.id,
               ids: Array.isArray(p.ids) ? p.ids : [],
               ticketIds: Array.isArray(p.ticketIds) ? p.ticketIds : [],
+              openUrls: Array.isArray(p.openUrls) ? p.openUrls : [],
+              dedupeKeys: Array.isArray(p.dedupeKeys) ? p.dedupeKeys : [],
+              pageUrl: String(p.pageUrl || "").trim(),
               all: p.all === true,
+              closeOnly: true,
             });
             rememberToastedForDismissPush(p);
+            /* badgeCrossDevice1 + badgeInBellLive1: unreadCount dismiss → badge subito */
+            try {
+              var du = Number(p.unreadCount);
+              if (Number.isFinite(du) && du >= 0) {
+                var dUnread = Math.max(0, Math.min(99, Math.floor(du)));
+                applyAuthoritativeUnread(dUnread, 90000);
+              } else if (p.all === true) {
+                applyAuthoritativeUnread(0, 90000);
+              }
+            } catch (eDismissBadge) {}
             scheduleInboxSyncFromPush();
             return;
           }
@@ -4287,6 +5215,8 @@
                   read: false,
                   userId: normalizeUserId(currentUserId),
                   __resetRead: true,
+                  __forceStore: true,
+                  __undismiss: true,
                   __skipOsBanner: true,
                   __skipFlyToast: true,
                   __noRender: false,
@@ -4315,23 +5245,40 @@
             } catch (ePf) {
               pageFocused = document.visibilityState === "visible";
             }
+            /* pushAppleZombieHedge5: su telefono/PWA NON marcar toasted qui —
+               APNs 201 + client in bg bloccava catchup anche senza banner OS. */
+            var mobilePushClient = false;
+            try {
+              mobilePushClient = typeof isMobilePushClient === "function" && isMobilePushClient();
+            } catch (eMobToast) {
+              mobilePushClient = false;
+            }
             if (pageFocused && !alreadyToasted) {
               var toastOk = false;
+              var pushFlyRow = {
+                id: pushToastId || String(Date.now()),
+                title: String(p.title || "Nuova notifica"),
+                body: String(p.body || ""),
+                kind: String(p.kind || "info"),
+                openUrl: String(p.openUrl || "").trim(),
+                ticketId: String(p.ticketId || "").trim(),
+                messageId: String(p.messageId || "").trim(),
+                at: Date.now(),
+                read: false,
+              };
               if (inAppNoOs) {
                 try {
-                  toastOk = showNotifFlyToast({
-                    id: pushToastId || String(Date.now()),
-                    title: String(p.title || "Nuova notifica"),
-                    body: String(p.body || ""),
-                    kind: String(p.kind || "info"),
-                    openUrl: String(p.openUrl || "").trim(),
-                    ticketId: String(p.ticketId || "").trim(),
-                    messageId: String(p.messageId || "").trim(),
-                    at: Date.now(),
-                    read: false,
-                  });
+                  /* notifFlyTopZOnce1: show marca toasted — non prima */
+                  toastOk = showNotifFlyToast(pushFlyRow);
                 } catch (ePushFlyShow) {
                   toastOk = false;
+                }
+              }
+              if (!toastOk && pushToastId && !mobilePushClient) {
+                try {
+                  rememberToastedRow(pushFlyRow);
+                } catch (eRemPush) {
+                  rememberToastedId(pushToastId);
                 }
               }
               try {
@@ -4340,16 +5287,28 @@
               if (inAppNoOs && (toastOk || badgeN > 0 || storedOk)) {
                 playNotifSound();
               }
-              if ((toastOk || badgeN > 0 || storedOk || !inAppNoOs) && pushToastId) {
+            } else if (!pageFocused && pushToastId && !mobilePushClient) {
+              /* pushWakeNoReplay1: OS ha già suonato; marca toasted, niente catchup al reopen */
+              try {
                 rememberToastedId(pushToastId);
-              }
-            } else if (!alreadyToasted && pushToastId && (storedOk || badgeN > 0 || !inAppNoOs)) {
+                rememberRecentOsPush(pushToastId);
+              } catch (eRec) {}
+            } else if (!alreadyToasted && pushToastId && !mobilePushClient && !pageFocused) {
               rememberToastedId(pushToastId);
             }
           } catch (ePushFly) {}
           return;
         }
         if (data.type === "vc:push-resubscribe") {
+          /* pushShownAckVisible1: solo per questo user (broadcast globale WS) */
+          try {
+            var wantUid = String(data.userId || "").trim();
+            var me =
+              String((window.__vcDiscordUser && window.__vcDiscordUser.id) || "") ||
+              String((window.__vcSessionUser && window.__vcSessionUser.id) || "") ||
+              String(localStorage.getItem("vc-discord-uid") || "");
+            if (wantUid && me && wantUid !== me) return;
+          } catch (eUid) {}
           /* pushGonePersist1: non ri-POST l'endpoint morto — forza unsubscribe+subscribe */
           forceFreshPushSubscription({ fromHeal: true }).then(function (ok) {
             if (!ok) {
@@ -4382,12 +5341,38 @@
             tryFlushClickReads();
           }
           applyOpenDest(String(data.url || "").trim(), openTid);
+          scheduleUnlockScrollAfterPushOpen();
           return;
         }
         if (data.type === "vc:notif-os-closed") {
           /* pushBadgeVisitFix1: swipe dismiss OS → mark read locale + server (badge non resta) */
+          /* voteRemKeep1: reminder voto NON si consumano su close OS (PC replace/retry,
+             clearMobileOsToasts, swipe) — restano unread finché voto o tap esplicito */
           var closedId = String(data.id || "").trim();
           var closedTid = String(data.ticketId || "").trim();
+          var closedKind = String(data.kind || "").toLowerCase();
+          var closedDk = String(data.dedupeKey || "").toLowerCase();
+          var skipVoteClose =
+            data.skipMarkRead === true ||
+            closedKind === "vote_reminder" ||
+            /vote_reminder_/.test(closedDk);
+          if (!skipVoteClose && closedId) {
+            try {
+              var closedItem = null;
+              var storedClose = loadStored();
+              for (var ci = 0; ci < (storedClose || []).length; ci += 1) {
+                if (String((storedClose[ci] && storedClose[ci].id) || "").trim() === closedId) {
+                  closedItem = storedClose[ci];
+                  break;
+                }
+              }
+              if (isVoteReminderNotifItem(closedItem)) skipVoteClose = true;
+            } catch (eSkipVote) {}
+          }
+          if (skipVoteClose) {
+            requestAppBadgeSync(countBellBadgeUnread() <= 0);
+            return;
+          }
           noteLocalMarkReadHold();
           if (closedTid) markTicketNotificationsRead(closedTid);
           if (closedId) markOneRead(closedId);
@@ -4414,12 +5399,92 @@
     try {
       var parsed = new URL(u, window.location.origin);
       var path = String(parsed.pathname || "").replace(/\/+$/, "") || "/";
+      /* boardsRevLangPath1: vecchi link /en?/bacheca/server|bots/<id>?review=1 → scheda?id= */
+      try {
+        var pathBare = path.replace(
+          /^\/(it|en|es|fr|de|pt|ru|zh|ja|ko|ar|nl|pl|tr|hi|id|uk|vi|ro|sv)(?=\/|$)/i,
+          "",
+        ) || "/";
+        if (pathBare.charAt(0) !== "/") pathBare = "/" + pathBare;
+        var revPretty = pathBare.match(
+          /^\/(?:bacheca|boards)\/(server|bots)\/([a-f0-9]{24})\/?$/i,
+        );
+        var wantsReview =
+          parsed.searchParams.get("review") === "1" ||
+          parsed.searchParams.get("review") === "true" ||
+          String(parsed.searchParams.get("mode") || "").toLowerCase() === "review";
+        if (revPretty && wantsReview) {
+          return (
+            window.location.origin +
+            "/bacheca/scheda/?id=" +
+            encodeURIComponent(revPretty[2]) +
+            "&review=1"
+          );
+        }
+      } catch (eRevPath) {}
       if (path === "/staff/organico") {
         parsed.searchParams.delete("userId");
         parsed.searchParams.delete("uid");
         parsed.searchParams.delete("id");
         if (/^https?:\/\//i.test(u)) return parsed.href;
         return parsed.pathname + parsed.search + parsed.hash;
+      }
+      /* ptNotifProfile1 / pauseResoNotifProfile1: code fuori inbox → profilo staff */
+      var inbox = String(parsed.searchParams.get("inbox") || "")
+        .trim()
+        .toLowerCase();
+      var tabQ = String(parsed.searchParams.get("tab") || "")
+        .trim()
+        .toLowerCase();
+      if (path === "/staff/inbox" && !inbox && tabQ) inbox = tabQ;
+      /* boardsRevPreview1: inbox revisione + item → anteprima scheda */
+      var onNotifOrStaffInbox =
+        path === "/notifications" ||
+        path.indexOf("/notifications") === 0 ||
+        path === "/staff/inbox";
+      if (onNotifOrStaffInbox && inbox === "revisione") {
+        var revItem = String(parsed.searchParams.get("item") || "").trim();
+        var revLid = revItem
+          .replace(/^boards:revisione:/i, "")
+          .replace(/^revisione:/i, "")
+          .trim();
+        if (!/^[a-f0-9]{24}$/i.test(revLid)) {
+          var revM = revItem.match(/([a-f0-9]{24})/i);
+          revLid = revM ? revM[1] : "";
+        }
+        if (/^[a-f0-9]{24}$/i.test(revLid)) {
+          /* boardsRevLangPath1: scheda?id= resiste a prefisso lingua */
+          return (
+            window.location.origin +
+            "/bacheca/scheda/?id=" +
+            encodeURIComponent(revLid) +
+            "&review=1"
+          );
+        }
+      }
+      var profileOpen = "";
+      if (inbox === "punti-tolti") profileOpen = "pm-punti-tolti";
+      else if (inbox === "pause") profileOpen = "pause";
+      else if (inbox === "resoconti") profileOpen = "resoconto";
+      if (onNotifOrStaffInbox && profileOpen) {
+        var selfId = "";
+        try {
+          selfId = String((window.__VC_DISCORD_PROFILE && window.__VC_DISCORD_PROFILE.id) || "").trim();
+        } catch (eSelf) {}
+        var subjectId = String(parsed.searchParams.get("userId") || parsed.searchParams.get("id") || "").trim();
+        if (!/^\d{16,22}$/.test(subjectId)) subjectId = selfId;
+        var nextU = new URL("/user/", window.location.origin);
+        if (/^\d{16,22}$/.test(subjectId)) nextU.searchParams.set("id", subjectId);
+        nextU.searchParams.set("tab", "staff");
+        nextU.searchParams.set("staffOpen", profileOpen);
+        var pauseId = String(parsed.searchParams.get("pauseId") || "").trim();
+        var itemHint = String(parsed.searchParams.get("item") || "").trim();
+        if (profileOpen === "pause") {
+          if (pauseId) nextU.searchParams.set("pauseId", pauseId);
+          else if (itemHint) nextU.searchParams.set("pauseId", itemHint);
+        }
+        if (profileOpen === "resoconto" && itemHint) nextU.searchParams.set("resoId", itemHint);
+        return nextU.href;
       }
     } catch (eOrg) {}
     if (/^https?:\/\//i.test(u)) return u;
@@ -4484,6 +5549,9 @@
       return "";
     }
     if (/\/tickets/.test(u)) return "Apri ticket";
+    if (/staffopen=pm-punti|inbox=punti-tolti/.test(u)) return "Punti tolti";
+    if (/staffopen=pause|inbox=pause\b/.test(u)) return "Pause";
+    if (/staffopen=resocont|inbox=resoconti\b/.test(u)) return "Resoconti";
     if (/inbox=/.test(u) || /view=staff/.test(u)) return "Inbox staff";
     if (/top\.gg|discadia|\/vote/.test(u)) return "Apri voto";
     if (/\/recensioni/.test(u)) return "Recensioni";
@@ -4525,6 +5593,8 @@
         return;
       } catch (e) {}
     }
+    /* pushPhoneScrollUnlock1: anche soft-return sotto deve sbloccare scroll telefono */
+    var unlockAfterSoft = true;
     try {
       var dest = new URL(String(href), window.location.origin);
       var here = window.location;
@@ -4546,13 +5616,18 @@
             itemQ = String(dest.searchParams.get("item") || "").trim();
             scopeQ = String(dest.searchParams.get("scope") || "pending").trim() || "pending";
           } catch (eIq) {}
+          /* pauseResoNotifProfile1: non soft-open tab inbox morte */
+          var inboxQl = String(inboxQ || "").toLowerCase();
+          if (inboxQl === "pause" || inboxQl === "resoconti" || inboxQl === "punti-tolti") {
+            wantStaffNav = false;
+          }
           try {
-            if (window.VcNotifScope && typeof window.VcNotifScope.setScope === "function") {
+            if (wantStaffNav && window.VcNotifScope && typeof window.VcNotifScope.setScope === "function") {
               window.VcNotifScope.setScope("staff", { push: false, remember: false });
             }
           } catch (eSetSc) {}
           try {
-            if (typeof window.__vcStaffInboxOpenDeepLink === "function") {
+            if (wantStaffNav && typeof window.__vcStaffInboxOpenDeepLink === "function") {
               var softOk = window.__vcStaffInboxOpenDeepLink({
                 inbox: inboxQ,
                 item: itemQ,
@@ -4567,6 +5642,7 @@
                     new CustomEvent("vc:notif-scope", { detail: { scope: "staff", source: "notif-open" } }),
                   );
                 } catch (eSc) {}
+                if (unlockAfterSoft) scheduleUnlockScrollAfterPushOpen();
                 return;
               }
             }
@@ -4591,6 +5667,7 @@
                 uI.searchParams.set("view", "staff");
                 history.replaceState(null, "", uI.pathname + uI.search + (dest.hash || ""));
               } catch (eRepI) {}
+              if (unlockAfterSoft) scheduleUnlockScrollAfterPushOpen();
               return;
             }
           }
@@ -4655,6 +5732,7 @@
               }),
             );
           } catch (eEv) {}
+          if (unlockAfterSoft) scheduleUnlockScrollAfterPushOpen();
           return;
         }
       }
@@ -4677,12 +5755,14 @@
           try {
             var softFb = window.__vcFeedbackOpenDeepLink({ id: sugId, board: wantFbBoard });
             if (softFb) {
+              /* notifSheetReadyOpen1: tieni hash finché la pagina scrolla+apre sheet */
               try {
                 var uFb = new URL(here.href);
                 if (wantFbBoard === "staff") uFb.searchParams.set("board", "staff");
                 else uFb.searchParams.delete("board");
-                history.replaceState(null, "", uFb.pathname + uFb.search);
+                history.replaceState(null, "", uFb.pathname + uFb.search + "#vc-suggestion-" + sugId);
               } catch (eFbUrl) {}
+              if (unlockAfterSoft) scheduleUnlockScrollAfterPushOpen();
               return;
             }
           } catch (eSoftFb) {}
@@ -4712,6 +5792,7 @@
                 else uConf.searchParams.delete("board");
                 history.replaceState(null, "", uConf.pathname + uConf.search + "#vc-conf-card-" + confId);
               } catch (eConfUrl) {}
+              if (unlockAfterSoft) scheduleUnlockScrollAfterPushOpen();
               return;
             }
           } catch (eSoftConf) {}
@@ -4752,6 +5833,8 @@
     root.classList.toggle("vc-notif-overlay-active", isDropdownOpen || hasFlyToast);
   }
 
+  var pendingNotifSound = false;
+
   function unlockNotifAudio() {
     var AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) return Promise.resolve(false);
@@ -4773,6 +5856,14 @@
     } catch (e) {
       return Promise.resolve(false);
     }
+  }
+
+  function flushPendingNotifSound() {
+    if (!pendingNotifSound) return;
+    pendingNotifSound = false;
+    try {
+      playNotifSound();
+    } catch (eFlushSnd) {}
   }
 
   function playNotifTone(ctx, freq, when, dur, peak) {
@@ -4851,6 +5942,12 @@
 
   function isMobilePushClient() {
     try {
+      /* pushWakeNoReplay1: iOS PWA = Macintosh senza Mobile → prima era “desktop”
+         e armava catchup OS a ogni riapertura. */
+      if (typeof isIosLikeDevice === "function" && isIosLikeDevice()) return true;
+      if (typeof detectPushDeviceClass === "function" && detectPushDeviceClass() === "mobile") {
+        return true;
+      }
       return /Android|iPhone|iPad|iPod|Mobile/i.test(String(navigator.userAgent || ""));
     } catch (eMob) {
       return false;
@@ -4874,12 +5971,27 @@
 
   function armDesktopPushCatchup(reason) {
     if (isMobilePushClient()) return;
+    /* pushWakeNoReplay1: PWA installata già riceve OS push — niente re-banner al reopen */
+    try {
+      if (typeof isStandalonePwa === "function" && isStandalonePwa()) return;
+    } catch (ePwa) {}
     desktopPushCatchupArmed = true;
     try {
       if (reason) {
         /* no-op marker for probes */
       }
     } catch (eArm) {}
+  }
+
+  function isGhostOsBannerText(s) {
+    var t = String(s || "")
+      .replace(/[\u200b\u200c\u200d\ufeff\u00a0]/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
+    if (!t) return true;
+    if (/^nuova\s+notifica$/i.test(t)) return true;
+    if (/^(vinili\s*[&e]\s*caff[eè]?|viniliecaffe|vinili)$/i.test(t)) return true;
+    return false;
   }
 
   function showNativeOsBanner(item, opts) {
@@ -4896,33 +6008,55 @@
     try {
       if (!opts.catchup && document.visibilityState === "visible" && document.hasFocus()) return;
     } catch (eFocus) {}
+    /* pushKillGhostSpam1: MAI inventare “Nuova notifica” / solo nome sito */
+    var rawTitle = String(item.title || "")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 120);
+    var rawBody = String(item.body || "").trim().slice(0, 500);
+    if (isGhostOsBannerText(rawTitle) && isGhostOsBannerText(rawBody)) return;
+    var title = !isGhostOsBannerText(rawTitle)
+      ? rawTitle
+      : String(rawBody.split("\n")[0] || "").trim().slice(0, 120);
+    if (isGhostOsBannerText(title)) return;
+    var body = !isGhostOsBannerText(rawBody) && rawBody !== title ? rawBody : "";
     var sid = String(item.id || "").trim();
     var messageId = String(item.messageId || "").trim();
     var ticketId = String(item.ticketId || "").trim();
     var nowMs = Date.now();
     if (sid) recentOsPushAt[sid] = nowMs;
     if (messageId) recentOsPushAt[messageId] = nowMs;
-    var title = String(item.title || "Vinili & Caffè").replace(/\s+/g, " ").trim().slice(0, 120) || "Nuova notifica";
-    var body = String(item.body || "").trim().slice(0, 500);
     var kindLc = String(item.kind || "").toLowerCase();
     var dk = String(item.dedupeKey || "").toLowerCase();
     var voteTag = "";
+    /* votePushPairPhone2: tag + id così Top.gg e Discadia non si sovrascrivono */
     if (kindLc === "vote_reminder" || /vote_reminder_/.test(dk) || /promemoria\s+voto/i.test(title)) {
-      if (/_topgg|top\.gg|topgg/.test(dk) || /top\.gg/i.test(title)) voteTag = "vc-vote-topgg";
-      else if (/_discadia|discadia/.test(dk) || /discadia/i.test(title)) voteTag = "vc-vote-discadia";
-      else voteTag = sid ? "vc-vote-" + sid : "vc-vote-" + String(nowMs);
+      var voteSid = sid ? sid.slice(-10) : "";
+      if (/_topgg|top\.gg|topgg/.test(dk) || /top\.gg/i.test(title)) {
+        voteTag = "vc-vote-topgg" + (voteSid ? "-" + voteSid : "");
+      } else if (/_discadia|discadia/.test(dk) || /discadia/i.test(title)) {
+        voteTag = "vc-vote-discadia" + (voteSid ? "-" + voteSid : "");
+      } else {
+        voteTag = sid ? "vc-vote-" + sid : "vc-vote-" + String(nowMs);
+      }
     }
-        var tag = voteTag
+    /* pushPhoneTopicAll1: tag unico anche fuori dai reminder voto */
+    var isDigestTag =
+      Number(item.msgCount) > 1 || (dk && dk.indexOf(":digest:") !== -1);
+    var isQueueTag = dk.indexOf("web_ticket:queue:") === 0;
+    var tag = voteTag
       ? voteTag
-      : messageId
-      ? "vc-site-msg-" + messageId
-      : ticketId && sid
-        ? "vc-site-ticket-" + ticketId + "-" + sid
-        : sid
-          ? "vc-site-" + sid
-          : "vc-site-" + String(nowMs);
+      : isDigestTag || isQueueTag
+        ? "vc-site-digest-" + (dk.replace(/\W+/g, "").slice(-18) || sid || String(nowMs))
+        : messageId
+          ? "vc-site-msg-" + messageId
+          : ticketId && sid
+            ? "vc-site-ticket-" + ticketId + "-" + sid
+            : sid
+              ? "vc-site-" + sid
+              : "vc-site-" + String(nowMs);
     var optsShow = {
-      body: body || "Nuova notifica",
+      body: body,
       tag: tag,
       renotify: true,
       silent: false,
@@ -4965,6 +6099,76 @@
         .catch(viaPage);
     } else {
       viaPage();
+    }
+  }
+
+  function isVoteReminderNotifItem(it) {
+    if (!it) return false;
+    var k = String(it.kind || "").toLowerCase();
+    var dk = String(it.dedupeKey || "").toLowerCase();
+    var title = String(it.title || "").toLowerCase();
+    return k === "vote_reminder" || /vote_reminder_/.test(dk) || /promemoria\s+voto/.test(title);
+  }
+
+  var votePushCatchupLastAt = 0;
+  /* pushPhoneAllSoftRetry1 */
+  function runVotePushCatchupFromStore() {
+    /* pushPhoneAllSoftRetry1: catchup PWA/mobile per TUTTE le unread recenti
+       (prima solo vote_reminder → altre push “perse” da FCM/APNs restavano invisibili). */
+    try {
+      var mobileOrPwa =
+        isMobilePushClient() || (typeof isStandalonePwa === "function" && isStandalonePwa());
+      if (!mobileOrPwa) return;
+    } catch (eMp) {
+      return;
+    }
+    if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
+    var now = Date.now();
+    if (votePushCatchupLastAt && now - votePushCatchupLastAt < 12000) return;
+    votePushCatchupLastAt = now;
+    var items = [];
+    try {
+      items = loadStored();
+    } catch (eLoad) {
+      items = [];
+    }
+    if (!Array.isArray(items) || !items.length) return;
+    var freshMs = 14 * 60 * 60 * 1000;
+    var candidates = [];
+    for (var i = 0; i < items.length; i += 1) {
+      var it = items[i];
+      if (!it || it.read) continue;
+      var id = String(it.id || "").trim();
+      if (!id) continue;
+      if (wasAlreadyToasted(id)) continue;
+      if (recentlyGotOsPush(it)) continue;
+      var at = Number(it.at) || 0;
+      if (at && now - at > freshMs) continue;
+      try {
+        if (typeof isWatchingTicketChat === "function" && isWatchingTicketChat(it.ticketId, it.openUrl)) {
+          continue;
+        }
+      } catch (eTk) {}
+      try {
+        if (typeof isWatchingWorkflowChat === "function" && isWatchingWorkflowChat(it.openUrl, it.dedupeKey)) {
+          continue;
+        }
+      } catch (eWf) {}
+      candidates.push(it);
+    }
+    /* vote prima (priorità), poi le altre — max 3 banner */
+    candidates.sort(function (a, b) {
+      var av = isVoteReminderNotifItem(a) ? 1 : 0;
+      var bv = isVoteReminderNotifItem(b) ? 1 : 0;
+      if (bv !== av) return bv - av;
+      return (Number(b.at) || 0) - (Number(a.at) || 0);
+    });
+    var maxShow = 3;
+    for (var c = 0; c < candidates.length && c < maxShow; c += 1) {
+      var row = candidates[c];
+      var rid = String(row.id || "").trim();
+      if (rid) rememberToastedId(rid);
+      showNativeOsBanner(row, { catchup: true });
     }
   }
 
@@ -5018,59 +6222,147 @@
   function playNotifSound() {
     var nowMs = Date.now();
     if (nowMs - lastNotifSoundAt < 1800) return;
-        try {
+    try {
       var sharedAt = Number(localStorage.getItem("vc_notif_sound_at_v1") || 0) || 0;
       if (sharedAt && nowMs - sharedAt < 1800) {
         lastNotifSoundAt = sharedAt;
         return;
       }
-      localStorage.setItem("vc_notif_sound_at_v1", String(nowMs));
     } catch (eLs) {}
-    lastNotifSoundAt = nowMs;
     var AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) return;
     unlockNotifAudio().then(function (ok) {
-      if (!ok || !notifAudioCtx) return;
+      if (!ok || !notifAudioCtx) {
+        /* pushWakeNoReplay1: ctx bloccato (PWA non focused) → coda al prossimo focus */
+        pendingNotifSound = true;
+        return;
+      }
       try {
         var ctx = notifAudioCtx;
-        if (ctx.state === "suspended") return;
+        if (ctx.state === "suspended") {
+          pendingNotifSound = true;
+          return;
+        }
+        var stamp = Date.now();
+        lastNotifSoundAt = stamp;
+        try {
+          localStorage.setItem("vc_notif_sound_at_v1", String(stamp));
+        } catch (eStamp) {}
         var now = ctx.currentTime + 0.02;
-                playNotifTone(ctx, 784.0, now, 0.17, 0.22);
+        playNotifTone(ctx, 784.0, now, 0.17, 0.22);
         playNotifTone(ctx, 1174.7, now + 0.1, 0.22, 0.18);
-      } catch (e) {}
+      } catch (e) {
+        pendingNotifSound = true;
+      }
     });
   }
 
-  /* notifIgToastBell1: pill anchored tight under the bell (caret + center) */
+  /* toastBellAnchor2: campana 0×0 / display:none → fallback top-right; re-read rect in rAF. */
+  function resolveVisibleNotifBell() {
+    var nodes = document.querySelectorAll(
+      "#header-quick-actions #vc-notif-dropdown > summary.vc-notif-summary, #vc-notif-dropdown > summary.vc-notif-summary, summary.vc-notif-summary",
+    );
+    var i;
+    for (i = 0; i < nodes.length; i += 1) {
+      var el = nodes[i];
+      if (!el || !el.isConnected) continue;
+      try {
+        var cs = window.getComputedStyle(el);
+        if (cs.display === "none" || cs.visibility === "hidden" || Number(cs.opacity || 1) === 0) continue;
+      } catch (eCs) {}
+      var r = el.getBoundingClientRect();
+      if (r.width >= 8 && r.height >= 8 && (r.top + r.height) > 0 && r.left < window.innerWidth) {
+        return { el: el, rect: r };
+      }
+    }
+    return null;
+  }
+
+  function scheduleNotifToastReanchor(root) {
+    if (!root) return;
+    var tries = 0;
+    function tick() {
+      tries += 1;
+      if (!root || !root.isConnected) return;
+      var hit = resolveVisibleNotifBell();
+      if (hit) {
+        placeNotifPopNearBell(root, hit.el);
+        return;
+      }
+      if (tries < 8) window.setTimeout(tick, 80 + tries * 40);
+    }
+    window.setTimeout(tick, 60);
+  }
+
+  /* notifIgToastBell1 + violKillReflow1 + toastBellAnchor2 */
   function placeNotifPopNearBell(root, bell) {
-    if (!root || !bell) return;
-    var br = bell.getBoundingClientRect();
+    if (!root) return;
     var gap = 4;
     var stack = Math.max(0, notifFlyActiveCount - 1) * 6;
-    /* violPass6: stima size senza root.offsetWidth (Forced reflow) */
-    var rw = 96;
-    var rh = 36;
-    root.style.position = "fixed";
+    root.style.setProperty("position", "fixed", "important");
+    root.style.setProperty("z-index", "2147482501", "important");
+    root.style.setProperty("pointer-events", "auto", "important");
     root.style.display = "inline-flex";
     root.style.width = "auto";
+    root.style.maxWidth = "none";
+    root.style.visibility = "hidden";
     root.classList.add("vc-notif-ig-toast--anchored");
-    var left = br.left + br.width / 2 - rw / 2;
-    if (left < 8) left = 8;
-    if (left + rw > window.innerWidth - 8) left = Math.max(8, window.innerWidth - 8 - rw);
-    var top = br.bottom + gap + stack;
-    var below = true;
-    if (top + rh + 8 > window.innerHeight) {
-      top = Math.max(8, br.top - gap - rh - stack);
-      below = false;
+    var seed = null;
+    try {
+      if (bell && bell.getBoundingClientRect) {
+        var seedR = bell.getBoundingClientRect();
+        if (seedR.width >= 8 && seedR.height >= 8) seed = { el: bell, rect: seedR };
+      }
+    } catch (eSeed) {}
+    if (!seed) seed = resolveVisibleNotifBell();
+    if (!seed) {
+      placeNotifFlyFallback(root);
+      root.style.visibility = "";
+      scheduleNotifToastReanchor(root);
+      return;
     }
-    root.style.top = Math.round(top) + "px";
-    root.style.left = Math.round(left) + "px";
-    root.style.right = "auto";
-    root.style.bottom = "auto";
-    root.classList.toggle("vc-notif-ig-toast--above", !below);
-    root.classList.toggle("vc-notif-ig-toast--below", below);
-    var ox = Math.max(10, Math.min(rw - 10, br.left + br.width / 2 - left));
-    root.style.setProperty("--vc-pop-ox", Math.round(ox) + "px");
+    window.requestAnimationFrame(function () {
+      try {
+        if (!root.isConnected) return;
+        var live = resolveVisibleNotifBell() || seed;
+        var br = live.rect;
+        try {
+          if (live.el) br = live.el.getBoundingClientRect();
+        } catch (eLive) {}
+        if (!(br && br.width >= 8 && br.height >= 8)) {
+          placeNotifFlyFallback(root);
+          root.style.visibility = "";
+          scheduleNotifToastReanchor(root);
+          return;
+        }
+        var rw = Math.max(48, Math.round(root.offsetWidth) || 72);
+        var rh = Math.max(28, Math.round(root.offsetHeight) || 36);
+        var left = br.left + br.width / 2 - rw / 2;
+        if (left < 8) left = 8;
+        if (left + rw > window.innerWidth - 8) left = Math.max(8, window.innerWidth - 8 - rw);
+        var top = br.bottom + gap + stack;
+        var below = true;
+        if (top + rh + 8 > window.innerHeight) {
+          top = Math.max(8, br.top - gap - rh - stack);
+          below = false;
+        }
+        root.style.setProperty("position", "fixed", "important");
+        root.style.top = Math.round(top) + "px";
+        root.style.left = Math.round(left) + "px";
+        root.style.right = "auto";
+        root.style.bottom = "auto";
+        root.style.visibility = "";
+        root.classList.toggle("vc-notif-ig-toast--above", !below);
+        root.classList.toggle("vc-notif-ig-toast--below", below);
+        var ox = Math.max(10, Math.min(rw - 10, br.left + br.width / 2 - left));
+        root.style.setProperty("--vc-pop-ox", Math.round(ox) + "px");
+      } catch (ePlace) {
+        try {
+          placeNotifFlyFallback(root);
+          root.style.visibility = "";
+        } catch (eFb) {}
+      }
+    });
   }
 
   function escNotifDialog(s) {
@@ -5379,15 +6671,47 @@
     try {
       safeTop = Number(window.__vcSafeTop) || 0;
     } catch (eSafe) {}
-    root.style.position = "fixed";
+    var top = Math.max(12, safeTop + 12);
+    var right = 12;
+    try {
+      var qa = document.getElementById("header-quick-actions");
+      if (qa) {
+        var qr = qa.getBoundingClientRect();
+        if (qr.width >= 8 && qr.height >= 8) {
+          top = Math.max(top, Math.round(qr.bottom + 4));
+          right = Math.max(8, Math.round(window.innerWidth - qr.right));
+        }
+      }
+    } catch (eQa) {}
+    root.style.setProperty("position", "fixed", "important");
+    root.style.setProperty("z-index", "2147482501", "important");
+    root.style.setProperty("pointer-events", "auto", "important");
     root.style.display = "inline-flex";
     root.style.width = "auto";
-    root.style.top = Math.round(Math.max(12, safeTop + 12)) + "px";
-    root.style.right = "12px";
+    root.style.maxWidth = "none";
+    root.style.top = Math.round(top) + "px";
+    root.style.right = Math.round(right) + "px";
     root.style.left = "auto";
     root.style.bottom = "auto";
     root.style.setProperty("--vc-pop-ox", "28px");
+    root.classList.add("vc-notif-ig-toast--anchored", "vc-notif-ig-toast--below");
+    root.classList.remove("vc-notif-ig-toast--above");
   }
+
+  /* toastBellAnchor2: probe hook (Playwright) */
+  try {
+    window.__vcDebugShowNotifIgToast = function (row) {
+      return showNotifFlyToast(
+        row || {
+          id: "probe-" + Date.now(),
+          kind: "info",
+          count: 1,
+          title: "probe",
+          read: false,
+        },
+      );
+    };
+  } catch (eDbgToast) {}
 
   /* notifIgToastBell1: restore IG pill, keep bell badge paint, anchor to bell
      pushFocusShow1: mostra toast anche con dropdown aperto; return true se UI mostrata
@@ -5395,6 +6719,11 @@
   function showNotifFlyToast(row) {
     var toastId = String((row && row.id) || "");
     var nowMs = Date.now();
+    var livePill = Boolean(notifIgToastEl && notifIgToastEl.isConnected);
+    /* notifFlyTopZOnce1: già toastato e pill assente → no re-spawn */
+    if (!livePill && wasAlreadyToastedRow(row)) {
+      return false;
+    }
     if (toastId && toastId === lastFlyToastId && nowMs - lastFlyToastAt < 900) {
       /* same id spam — refresh count from store if pill is live */
     } else {
@@ -5405,7 +6734,8 @@
     try {
       paintNotifBellBadgeFromStore();
     } catch (eBell) {}
-    var bell = document.querySelector("#vc-notif-dropdown summary.vc-notif-summary");
+    var bellHit = resolveVisibleNotifBell();
+    var bell = bellHit ? bellHit.el : null;
     if (isOnNotificationsPage()) {
       pulseNotifSummary();
       return false;
@@ -5427,8 +6757,18 @@
     }
     var addCount = Math.max(1, Math.floor(Number(row && row.count) || 1));
     var nextCount = liveUnread > 0 ? liveUnread : addCount;
+    /* notifFlyOnce1: alert unread senza badge → niente float stale */
+    var alertUnread = !(row && row.read === true);
+    if (alertUnread && liveUnread <= 0) {
+      if (livePill) {
+        try {
+          finishNotifIgToast(false);
+        } catch (eDismiss0) {}
+      }
+      return false;
+    }
 
-    if (notifIgToastEl && document.body.contains(notifIgToastEl)) {
+    if (livePill) {
       notifIgToastCount = nextCount;
       notifIgToastKind = kind || notifIgToastKind;
       updateNotifIgToastUi(notifIgToastEl, notifIgToastKind, notifIgToastCount, labelHint, toastIco);
@@ -5436,6 +6776,9 @@
       else placeNotifFlyFallback(notifIgToastEl);
       pulseNotifSummary();
       scheduleNotifIgToastHide();
+      try {
+        rememberToastedRow(row);
+      } catch (eRemLive) {}
       return true;
     }
 
@@ -5446,9 +6789,17 @@
     root.className = "vc-notif-fly-card vc-notif-ig-toast";
     root.setAttribute("role", "status");
     root.setAttribute("aria-live", "polite");
-    root.style.position = "fixed";
-    root.style.zIndex = "100001";
+    root.style.setProperty("position", "fixed", "important");
+    root.style.setProperty("z-index", "2147482501", "important");
+    root.style.setProperty("pointer-events", "auto", "important");
     root.style.display = "inline-flex";
+    root.style.width = "auto";
+    root.style.maxWidth = "none";
+    /* seed viewport coords PRIMA dell’append — evita flash sotto footer */
+    root.style.top = "12px";
+    root.style.right = "12px";
+    root.style.left = "auto";
+    root.style.bottom = "auto";
 
     var ico = document.createElement("span");
     ico.className = "vc-notif-ig-toast__ico";
@@ -5462,8 +6813,15 @@
 
     root.appendChild(ico);
     root.appendChild(countEl);
-    document.body.appendChild(root);
+    try {
+      ensureNotifFlyHost().appendChild(root);
+    } catch (eHost) {
+      document.body.appendChild(root);
+    }
     notifIgToastEl = root;
+    try {
+      rememberToastedRow(row);
+    } catch (eRemNew) {}
     notifFlyActiveCount = 1;
     syncGlobalNotifOverlayClass();
     updateNotifIgToastUi(root, kind, notifIgToastCount, labelHint, toastIco);
@@ -5475,8 +6833,10 @@
     } catch (eAtt) {}
     window.requestAnimationFrame(function () {
       try {
-        var bell2 = document.querySelector("#vc-notif-dropdown summary.vc-notif-summary");
-        if (bell2 && notifIgToastEl === root) placeNotifPopNearBell(root, bell2);
+        if (notifIgToastEl !== root) return;
+        var hit2 = resolveVisibleNotifBell();
+        if (hit2) placeNotifPopNearBell(root, hit2.el);
+        else scheduleNotifToastReanchor(root);
       } catch (eRaf) {}
     });
 
@@ -5510,9 +6870,10 @@
     if (window.__vcNotifIgToastReposBound) return;
     window.__vcNotifIgToastReposBound = true;
     function repos() {
-      if (!notifIgToastEl || !document.body.contains(notifIgToastEl)) return;
-      var bell = document.querySelector("#vc-notif-dropdown summary.vc-notif-summary");
-      if (bell) placeNotifPopNearBell(notifIgToastEl, bell);
+      if (!notifIgToastEl || !notifIgToastEl.isConnected) return;
+      var hit = resolveVisibleNotifBell();
+      if (hit) placeNotifPopNearBell(notifIgToastEl, hit.el);
+      else placeNotifFlyFallback(notifIgToastEl);
     }
     window.addEventListener("resize", repos, { passive: true });
     window.addEventListener("scroll", repos, { passive: true, capture: true });
@@ -5590,70 +6951,20 @@
   }
 
   function maybeShowPendingUnreadIgToast() {
-    /* notifPendingToastNoFlash1: una volta per path; mai di nuovo su poll/sync/merge */
-    if (isOnNotificationsPage()) return;
-    if (!normalizeUserId(currentUserId) || !getDiscordAccessToken()) return;
-    var pathKey = notifPendingToastPathKey();
-    if (notifIgPendingShownPath === pathKey) return;
-    if (notifIgToastEl && document.body.contains(notifIgToastEl)) {
-      try {
-        var live = countBellBadgeUnread();
-        if (live > 0) {
-          notifIgToastCount = live;
-          updateNotifIgToastUi(notifIgToastEl, notifIgToastKind, live, "", notifToastIconClass({ kind: notifIgToastKind }));
-        }
-      } catch (eUpd) {}
-      return;
-    }
-    var unreadItems = [];
+    /* notifFlyOnce1: niente re-show pending su path/poll/profile —
+       float solo da addNotif / merge toastRow / push in-app (1× all’arrivo).
+       Qui solo cleanup: se unread=0 e float ancora su, dismiss. */
+    if (!(notifIgToastEl && notifIgToastEl.isConnected)) return;
+    var live = 0;
     try {
-      unreadItems = bellBadgeUnreadItems();
-    } catch (eRows) {
-      unreadItems = [];
+      live = countBellBadgeUnread();
+    } catch (eLive) {
+      live = 0;
     }
-    if (!unreadItems.length) {
-      /* non azzerare il gate: merge/poll può avere store vuoto un attimo → altrimenti flash */
-      return;
-    }
-    notifIgPendingShownPath = pathKey;
-    var newest = unreadItems[0];
-    for (var i = 1; i < unreadItems.length; i += 1) {
-      if ((Number(unreadItems[i].at) || 0) > (Number(newest.at) || 0)) newest = unreadItems[i];
-    }
-    window.setTimeout(function () {
-      try {
-        if (notifIgPendingShownPath !== pathKey) return;
-        var still = [];
-        try {
-          still = bellBadgeUnreadItems();
-        } catch (eStill) {
-          still = unreadItems;
-        }
-        if (!still.length) {
-          /* unread spariti (letti) — lascia gate così non riparte il float */
-          return;
-        }
-        if (notifPendingToastPathKey() !== pathKey) return;
-        if (notifIgToastEl && document.body.contains(notifIgToastEl)) return;
-        var distinct = countDistinctUnreadNotifs(still);
-        var tip = newest;
-        for (var j = 0; j < still.length; j += 1) {
-          if ((Number(still[j].at) || 0) > (Number(tip.at) || 0)) tip = still[j];
-        }
-        showNotifFlyToast({
-          id: "pending-" + pathKey + "-" + distinct + "-" + String((tip && tip.id) || ""),
-          kind: String((tip && tip.kind) || "info"),
-          count: distinct,
-          title: String((tip && tip.title) || "").trim(),
-          body: "",
-          openUrl: String((tip && tip.openUrl) || "").trim(),
-          ticketId: String((tip && tip.ticketId) || "").trim(),
-          dedupeKey: String((tip && tip.dedupeKey) || "").trim(),
-          channel: String((tip && tip.channel) || "").trim(),
-          read: false,
-        });
-      } catch (eShow) {}
-    }, 700);
+    if (live > 0) return;
+    try {
+      finishNotifIgToast(false);
+    } catch (eDismiss) {}
   }
 
   function addNotif(p) {
@@ -5692,7 +7003,25 @@
     }
     var fpId = buildNotifFingerprintId(p, ownerId, kind, openUrl);
     var dismissed = loadDismissedSet(ownerId);
-    if ((stableId && dismissed.has(stableId)) || (fpId && dismissed.has(fpId))) return { added: false };
+    /* notifSheetSync1: push/OS con id mongo nuovo → togli dismiss fp collassato */
+    if (
+      p &&
+      (p.__forceStore === true || p.__undismiss === true) &&
+      kind === "vote_reminder" &&
+      isServerBackedNotifId(stableId)
+    ) {
+      undismissNotifKeys([fpId, String(p.dedupeKey || "").trim()], ownerId);
+      dismissed = loadDismissedSet(ownerId);
+    }
+    if (stableId && dismissed.has(stableId)) return { added: false };
+    if (fpId && dismissed.has(fpId)) {
+      if (kind === "vote_reminder" && isServerBackedNotifId(stableId)) {
+        undismissNotifKeys([fpId], ownerId);
+        dismissed = loadDismissedSet(ownerId);
+      } else {
+        return { added: false };
+      }
+    }
     var incomingRead = Boolean(p && (p.read === true || p.readAt));
     var ticketId = extractTicketIdFromNotif(p);
     var item = {
@@ -5782,8 +7111,8 @@
     if (!incomingRead && !p.__skipOsBanner) showNativeOsBanner(item);
     if (!incomingRead && !p.__skipFlyToast) {
       try {
-        if (stableId) rememberToastedId(stableId);
-        showNotifFlyToast(item);
+        /* notifFlyTopZOnce1: showNotifFlyToast marca toasted; qui solo skip se già 1× */
+        if (!wasAlreadyToastedRow(item)) showNotifFlyToast(item);
       } catch (eFly) {}
     }
     return { added: true };
@@ -6221,11 +7550,11 @@
         moved = true;
       }
       setNotifHeaderSlotHold(true);
-      /* notifSheetSmooth1: gia' portaled+open → non rifare forceOpen */
+      /* notifSheetSync1 / notifSheetCloseLayout1: gia' portaled+open → NON ri-armare guard
+         (ri-arm bloccava Esc/outside/X come su chrome). */
       if (!moved && dd.open) {
-      armLandingPortalGuard(1400);
-      return;
-    }
+        return;
+      }
     notifPortalOpenGen += 1;
     var openGen = notifPortalOpenGen;
     function forceOpen() {
@@ -6241,7 +7570,7 @@
     } catch (eRaf) {}
     armLandingPortalGuard(1400);
     try {
-      window.__vcNotifOpenGraceUntil = Date.now() + 750;
+      window.__vcNotifOpenGraceUntil = Date.now() + 1400;
     } catch (eGrace) {}
     return;
     }
@@ -6316,13 +7645,17 @@
       syncNotifBellScopeChrome();
     } catch (eScope) {}
     portalNotifDropdownToBody(live, true);
+    /* notifSheetScopeActive1: dopo portal (fuori header) ripittura tab attiva */
+    try {
+      syncNotifBellScopeChrome();
+    } catch (eScope2) {}
     holdPageScroll(220);
     try {
       live.open = true;
       live.setAttribute("open", "");
     } catch (eOpen) {}
     try {
-      window.__vcNotifOpenGraceUntil = Date.now() + 750;
+      window.__vcNotifOpenGraceUntil = Date.now() + 1400;
     } catch (eGrace) {}
     armLandingPortalGuard(1400);
     scheduleNotifSheetChromeSync({ delayMs: 0 });
@@ -6347,6 +7680,12 @@
     try {
       window.__vcNotifOpenGraceUntil = 0;
     } catch (eGraceClr) {}
+    try {
+      window.__vcNotifCloseLockUntil = Date.now() + 900;
+    } catch (eCloseLock) {}
+    try {
+      window.requestCloseNotifDropdown = requestCloseNotifDropdown;
+    } catch (eExp) {}
     notifPortalOpenGen += 1;
     notifBellGestureLockUntil = Date.now() + 520;
     try {
@@ -6642,7 +7981,8 @@
   var lastPushErrorHint = "";
   var PUSH_RESYNC_MIN_MS = 45 * 1000;
   var PUSH_MOBILE_RECREATE_KEY = "vc_push_mobile_recreate_at_v1";
-  var PUSH_MOBILE_RECREATE_MS = 45 * 60 * 1000; /* pushGonePersist1: 45m (era 3h) — FCM muore spesso */
+  var PUSH_MOBILE_RECREATE_MS = 10 * 60 * 1000; /* pushPhoneAlive1: 10m — heal FCM 410 */
+  var PUSH_IOS_RECREATE_MS = 2 * 60 * 1000; /* pushIosShowFirst1: iOS PWA heal più frequente */
   var cachedPushReg = null;
   var cachedVapidPublicKey = "";
   var vapidFetchInFlight = null;
@@ -6666,29 +8006,100 @@
   function rememberServerUnreadCount(n) {
     var v = Math.max(0, Math.floor(Number(n) || 0));
     siteNotifsLastServerUnread = v;
+    var key = serverUnreadSsKey();
+    var lsVal = String(v) + "|" + String(Date.now());
     try {
-      sessionStorage.setItem(serverUnreadSsKey(), String(v));
+      if (window.VcStorage && typeof window.VcStorage.set === "function") {
+        window.VcStorage.set(key, String(v), { scope: "ss", immediate: true, broadcast: false });
+        window.VcStorage.set(key, lsVal, { scope: "ls", immediate: true, broadcast: true });
+        return v;
+      }
+    } catch (eVs) {}
+    try {
+      sessionStorage.setItem(key, String(v));
     } catch (eSs) {}
+    /* chromeStickyAll1: mirror localStorage per paint badge al reload */
+    try {
+      localStorage.setItem(key, lsVal);
+    } catch (eLs) {}
     return v;
   }
   function loadServerUnreadHold() {
     var mem = Number(siteNotifsLastServerUnread);
     if (Number.isFinite(mem) && mem >= 0) return mem;
     try {
+      if (window.VcStorage && typeof window.VcStorage.get === "function") {
+        var ssV = Number(window.VcStorage.get(serverUnreadSsKey(), { scope: "ss" }) || "");
+        if (Number.isFinite(ssV) && ssV >= 0) return ssV;
+        var lsRaw = String(window.VcStorage.get(serverUnreadSsKey(), { scope: "ls" }) || "");
+        var partsVs = lsRaw.split("|");
+        var nVs = Number(partsVs[0] || "");
+        var atVs = Number(partsVs[1] || 0);
+        if (Number.isFinite(nVs) && nVs >= 0 && (!atVs || Date.now() - atVs < 604800000)) return nVs;
+      }
+    } catch (eVsLoad) {}
+    try {
       var raw = Number(sessionStorage.getItem(serverUnreadSsKey()) || "");
       if (Number.isFinite(raw) && raw >= 0) return raw;
     } catch (eLoad) {}
+    try {
+      var ls = String(localStorage.getItem(serverUnreadSsKey()) || "");
+      var parts = ls.split("|");
+      var n = Number(parts[0] || "");
+      var at = Number(parts[1] || 0);
+      if (Number.isFinite(n) && n >= 0 && (!at || Date.now() - at < 604800000)) return n;
+    } catch (eLs) {}
     return 0;
   }
   /* notifBadgeServerTruth1 + pushBellFocusFix1: badge = max(store, server),
      ma dopo click push/local mark non re-infiare dal server per qualche secondo.
-     notifPushBellCatchup1: hold solo se local < server (mai spegnere unread nuovi). */
+     notifPushBellCatchup1: hold solo se local < server (mai spegnere unread nuovi).
+     badgeInBellLive1: se unread fresco da WS/count/peer → server vince anche in discesa. */
   var localMarkHoldUntil = 0;
+  var serverUnreadFreshUntil = 0;
+  var serverUnreadBumpAt = 0;
   function noteLocalMarkReadHold() {
     localMarkHoldUntil = Date.now() + 10000;
   }
   function clearLocalMarkReadHold() {
     localMarkHoldUntil = 0;
+  }
+  function applyAuthoritativeUnread(n, ttlMs, opts) {
+    var v = Math.max(0, Math.min(99, Math.floor(Number(n) || 0)));
+    var prevHold = loadServerUnreadHold();
+    var fromSync = opts && opts.fromSync === true;
+    /* pushShowHold1: sync full subito dopo WS unread>0 non deve azzerare il badge
+       (suono+pulse sì / badge no). Grace ~3s dal bump. WS unread:0 passa. */
+    if (
+      fromSync &&
+      v < prevHold &&
+      prevHold > 0 &&
+      Date.now() < serverUnreadFreshUntil &&
+      serverUnreadBumpAt > 0 &&
+      Date.now() - serverUnreadBumpAt < 3000
+    ) {
+      return paintNotifBellBadgeCount(prevHold);
+    }
+    rememberServerUnreadCount(v);
+    /* badgeCrossOs1: TTL lungo — sync/merge store non deve re-infiare OS badge */
+    serverUnreadFreshUntil = Date.now() + (ttlMs > 0 ? Number(ttlMs) : 60000);
+    if (v > 0) serverUnreadBumpAt = Date.now();
+    else serverUnreadBumpAt = 0;
+    try {
+      setOsAppBadgeCount(v);
+    } catch (eOs) {}
+    try {
+      var ctrl = navigator.serviceWorker && navigator.serviceWorker.controller;
+      if (ctrl) {
+        ctrl.postMessage({
+          type: "vc:set-app-badge",
+          count: v,
+          forceClear: v <= 0,
+          unreadCount: v,
+        });
+      }
+    } catch (eSwBadge) {}
+    return paintNotifBellBadgeCount(v);
   }
   function paintBellBadgeWithServerTruth(storeN) {
     var local = Math.max(0, Math.floor(Number(storeN) || 0));
@@ -6696,8 +8107,36 @@
     if (Date.now() < localMarkHoldUntil && local < server) {
       return paintNotifBellBadgeCount(local);
     }
-    var paint = Math.max(local, server);
-    return paintNotifBellBadgeCount(paint);
+    /* notifSheetSync1: store/list vuoti → niente ghost badge da server hold
+       (Personali "1" + "Nessuna notifica").
+       badgePendingHold1: se WS/count ha appena settato server unread fresco,
+       NON azzerare (suono+pulse sì / badge no). */
+    if (local === 0) {
+      var visible = 0;
+      try {
+        visible = countDistinctUnreadNotifs(rows());
+      } catch (eVis) {
+        visible = 0;
+      }
+      if (visible === 0) {
+        if (Date.now() < serverUnreadFreshUntil && server > 0) {
+          return paintNotifBellBadgeCount(server);
+        }
+        try {
+          serverUnreadFreshUntil = 0;
+          rememberServerUnreadCount(0);
+        } catch (eClrHold) {}
+        return paintNotifBellBadgeCount(0);
+      }
+    }
+    if (Date.now() < serverUnreadFreshUntil) {
+      return paintNotifBellBadgeCount(server);
+    }
+    /* badgeCrossOs1: no max(local,server) in discesa — store stale teneva badge OS alto */
+    if (local > server) {
+      return paintNotifBellBadgeCount(server);
+    }
+    return paintNotifBellBadgeCount(Math.max(local, server));
   }
   var siteNotifsPollBooted = false;
   var pushSubscribeBlockedUntil = 0;
@@ -6754,12 +8193,23 @@
   }
   function storageGet(key) {
     try {
+      if (window.VcStorage && typeof window.VcStorage.get === "function") {
+        return String(window.VcStorage.get(key, { scope: "both" }) || "");
+      }
+    } catch (eVs) {}
+    try {
       return String(localStorage.getItem(key) || sessionStorage.getItem(key) || "");
     } catch (e) {
       return "";
     }
   }
   function storageSet(key, value) {
+    try {
+      if (window.VcStorage && typeof window.VcStorage.set === "function") {
+        window.VcStorage.set(key, value, { scope: "both", immediate: true });
+        return;
+      }
+    } catch (eVs) {}
     try {
       localStorage.setItem(key, value);
     } catch (eL) {}
@@ -6906,12 +8356,34 @@
       sessionStorage.setItem(PUSH_NATIVE_ASKED_KEY, "1");
     } catch (e) {}
   }
+  function vcSwScriptStamp(url) {
+    try {
+      var u = new URL(String(url || ""), window.location.origin);
+      return String(u.searchParams.get("v") || "").trim();
+    } catch (eSt) {
+      var m = String(url || "").match(/[?&]v=([^&]+)/);
+      return m && m[1] ? String(m[1]).trim() : "";
+    }
+  }
+  function vcWantPhoneSwForce() {
+    try {
+      if (isIosLikeDevice()) return true;
+      if (isStandalonePwa()) return true;
+      if (window.matchMedia && window.matchMedia("(display-mode: minimal-ui)").matches) return true;
+    } catch (eW) {}
+    return false;
+  }
   function ensureServiceWorkerRegistration() {
     if (!webPushSupported()) return Promise.resolve(null);
     /* swBackPwa1: anche PWA registra /sw-m1.js (push-only).
        Restano: no getNotifications storm, no Cache API pagina, no auth→SW spam. */
     if (window.__vcSwRegPromise) return window.__vcSwRegPromise;
-    var SW_URL = "/sw-m1.js?v=20261003pushOpenDestFix1";
+    /* pushKillBgSpam2: URL stabile — ?v= solo cache-bust. Unregister di sw-m1.*.js
+       a ogni deploy = toast Chrome “sito aggiornato in background” sul PC.
+       pushSwForceUp1: su PWA/iOS se stamp attivo ≠ want → unregister (update sticky). */
+    /* chromeFlashKill2: desktop no unregister su ?v= — faceva riavviare le tab */
+    var SW_URL = "/sw-m1.js?v=20261016chromeFlashKill2";
+    var SW_WANT = vcSwScriptStamp(SW_URL) || "20261016chromeFlashKill2";
     window.__vcSwRegPromise = Promise.resolve()
       .then(function () {
         return navigator.serviceWorker.getRegistrations().then(function (regs) {
@@ -6926,24 +8398,54 @@
                 (reg.installing && reg.installing.scriptURL) ||
                 "";
             } catch (eU) {}
-            if (String(url).indexOf("sw-m1.js") === -1) {
+            var u = String(url || "");
+            var isSwM1 = u.indexOf("/sw-m1.js") !== -1 || /\/sw-m1\./.test(u);
+            if (!isSwM1) {
+              /* solo SW estranei (altro scope/app) */
               try {
                 kills.push(reg.unregister());
               } catch (eUn) {}
-            } else {
-              /* pwaBgCpu2: forza update sw-m1 (kill idle CPU path) */
+            } else if (u.indexOf("/sw-m1.js") === -1 && /\/sw-m1\.[^/]+\.js/.test(u)) {
+              /* consoleFixAll1: path stampati tipo sw-m1.20261009voteRemKeep1.js → sempre kill */
               try {
-                if (reg && typeof reg.update === "function") kills.push(reg.update().catch(function () {}));
-              } catch (eUpdKill) {}
+                kills.push(reg.unregister());
+              } catch (eUnV) {}
+            } else {
+              var have = vcSwScriptStamp(u);
+              if (have && SW_WANT && have !== SW_WANT) {
+                /* phone/PWA: unregister sticky; desktop: solo update (no tab restart) */
+                if (vcWantPhoneSwForce()) {
+                  try {
+                    kills.push(reg.unregister());
+                  } catch (eUnStamp) {}
+                } else {
+                  try {
+                    if (reg && typeof reg.update === "function")
+                      kills.push(reg.update().catch(function () {}));
+                  } catch (eUpdSoft) {}
+                }
+              } else {
+                try {
+                  if (reg && typeof reg.update === "function") kills.push(reg.update().catch(function () {}));
+                } catch (eUpd2) {}
+              }
             }
           }
           return Promise.all(kills);
         });
       })
       .then(function () {
-        /* consoleNoiseKill2: aspetta strip CSP estensione prima di register worker */
+        /* extNoiseHide27: strip meta CSP estensione, poi register SW */
+        try {
+          if (typeof window.__vcStripExtCsp === "function") window.__vcStripExtCsp();
+        } catch (eSt0) {}
         return new Promise(function (resolve) {
-          window.setTimeout(resolve, 120);
+          window.setTimeout(function () {
+            try {
+              if (typeof window.__vcStripExtCsp === "function") window.__vcStripExtCsp();
+            } catch (eSt1) {}
+            resolve();
+          }, 200);
         });
       })
       .then(function () {
@@ -6957,16 +8459,49 @@
       })
       .then(function (reg) {
         try {
-          /* pushReliability1: forza check update SW (silent:false) */
-          if (reg && typeof reg.update === "function") reg.update().catch(function () {});
-        } catch (eUpd) {}
-        try {
+          /* notifSheetSync1: niente skip-waiting automatico (Chrome: "sito aggiornato in background").
+             Attiva solo dopo gesto utente o se già flaggato. */
           if (reg && reg.waiting) {
+            var allowSkip = false;
             try {
-              reg.waiting.postMessage({ type: "vc:skip-waiting" });
-            } catch (eW) {}
+              allowSkip = window.__vcAllowSwSkipWaiting === true;
+            } catch (eAllow) {}
+            /* chromeFlashKill2: solo gesto utente o PWA/iOS — no auto desktop */
+            try {
+              if (!allowSkip && vcWantPhoneSwForce()) allowSkip = true;
+            } catch (ePhoneSkip) {}
+            if (allowSkip) {
+              try {
+                reg.waiting.postMessage({ type: "vc:skip-waiting" });
+              } catch (eW) {}
+              try {
+                window.__vcAllowSwSkipWaiting = false;
+              } catch (eClr) {}
+            }
           }
         } catch (eUp) {}
+        /* bootToastNoFlash1: niente location.reload post-SW — skip-waiting basta.
+           Il reload a stamp mismatch (active ancora vecchio) faceva ripartire la pagina da sola. */
+        try {
+          var act = reg && reg.active ? String(reg.active.scriptURL || "") : "";
+          var actStamp = vcSwScriptStamp(act);
+          if (vcWantPhoneSwForce() && actStamp && SW_WANT && actStamp !== SW_WANT) {
+            var rk = "vc_sw_force_reload_" + SW_WANT;
+            if (sessionStorage.getItem(rk) !== "1") {
+              sessionStorage.setItem(rk, "1");
+              try {
+                if (reg && reg.waiting) {
+                  reg.waiting.postMessage({ type: "vc:skip-waiting" });
+                }
+              } catch (eSkipForce) {}
+            }
+          }
+        } catch (eForceRl) {}
+        /* pushSkipRead1: id già dismessi → SW subito (anti flash wake) */
+        try {
+          var bootDismissed = Array.from(loadDismissedSet(currentUserId) || []);
+          if (bootDismissed.length) syncDismissedIdsToServiceWorker(bootDismissed);
+        } catch (eBootD) {}
         return navigator.serviceWorker.ready;
       })
       .catch(function () {
@@ -7079,8 +8614,16 @@
   }
   function detectPushDeviceClass() {
     try {
+      /* pushIosShowFirst1: iOS/iPadOS PWA spacciano UA Macintosh senza Mobile —
+         prima del check desktop, altrimenti recreate/heal non partono. */
+      if (isIosLikeDevice()) return "mobile";
       var ua = String(navigator.userAgent || "");
       if (/iPhone|iPad|iPod|Android|Mobile/i.test(ua)) return "mobile";
+      try {
+        if (navigator.platform === "MacIntel" && Number(navigator.maxTouchPoints || 0) > 1) {
+          return "mobile";
+        }
+      } catch (ePad) {}
       if (window.matchMedia && window.matchMedia("(pointer: coarse)").matches && (window.innerWidth || 0) <= 920) {
         return "mobile";
       }
@@ -7123,6 +8666,10 @@
           subscription: json,
           deviceClass: detectPushDeviceClass(),
           userAgent: String(navigator.userAgent || ""),
+          /* pushAppleShownAck1 */
+          probeAfter: opts.probeAfter === true,
+          standalone:
+            typeof isStandalonePwa === "function" ? isStandalonePwa() : false,
         }),
       });
     }
@@ -7457,7 +9004,11 @@
           if (!sub) return false;
           lastPostedPushEndpoint = "";
           lastPostedPushAt = 0;
-          return postPushSubscription(sub, { force: true, _healAttempt: true }).then(function (ok) {
+          return postPushSubscription(sub, {
+            force: true,
+            _healAttempt: true,
+            probeAfter: opts.probeAfter === true || opts.fromWake === true,
+          }).then(function (ok) {
             if (ok) {
               lastPushErrorHint = "";
               rememberPushOk();
@@ -7485,13 +9036,32 @@
 
   function shouldForceMobilePushRecreate() {
     try {
-      if (detectPushDeviceClass() !== "mobile") return false;
+      if (detectPushDeviceClass() !== "mobile" && !isIosLikeDevice()) return false;
       if (typeof Notification === "undefined" || Notification.permission !== "granted") return false;
       var last = Number(storageGet(PUSH_MOBILE_RECREATE_KEY) || "0") || 0;
-      return !last || Date.now() - last > PUSH_MOBILE_RECREATE_MS;
+      var gap = isIosLikeDevice() ? PUSH_IOS_RECREATE_MS : PUSH_MOBILE_RECREATE_MS;
+      return !last || Date.now() - last > gap;
     } catch (e) {
       return false;
     }
+  }
+  /* pushAppleShownAck1: 1× per sessione PWA iOS → forceFresh + probe.
+     (pushWakeNoReplay1: solo re-POST lasciava token Apple 201 senza banner.) */
+  function healIosPushOnWake() {
+    if (!webPushSupported()) return;
+    if (!isIosLikeDevice() || !isStandalonePwa()) return;
+    if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
+    if (!normalizeUserId(currentUserId) || !getDiscordAccessToken()) return;
+    if (pushNativeGestureInFlight || forceFreshPushInFlight) return;
+    var sessionKey = "vc_ios_push_heal_session_v1";
+    try {
+      if (sessionStorage.getItem(sessionKey) === "1") {
+        refreshPushSubscriptionState({ force: true });
+        return;
+      }
+      sessionStorage.setItem(sessionKey, "1");
+    } catch (eSes) {}
+    forceFreshPushSubscription({ fromWake: true, probeAfter: true });
   }
   function refreshPushSubscriptionState(opts) {
     opts = opts || {};
@@ -7908,20 +9478,12 @@
     }
   }
   function connectSiteRealtimeWebSocket() {
-    /* pwaCpuNuke1: PWA desktop → no WS (reconnect storm + sync CPU) */
-    try {
-      if (
-        window.__VC_PWA_CPU_NUKE ||
-        document.documentElement.classList.contains("vc-pwa-cpu-nuke") ||
-        (window.VcPerf && typeof window.VcPerf.isStandalonePwa === "function" && window.VcPerf.isStandalonePwa())
-      ) {
-        return;
-      }
-    } catch (eNukeWs) {}
+    /* badgeCrossDevice1: PWA tiene WS (solo notif/presence) — senza di questo
+       badge/inbox non si aggiornano tra device (poll PWA era a 0). */
     if (typeof WebSocket === "undefined") return;
     var url = siteRealtimeWsUrl();
     if (!url) return;
-    if (!normalizeUserId(currentUserId) || !getDiscordAccessToken()) return;
+    /* wsShell1: WS anche anonimo (boards/live-stats); notif sync resta gated onopen */
     if (Date.now() < siteRealtimeWsBlockedUntil) return;
     try {
       if (typeof window.__vcWebhookGlobalBlockedUntil === "function") {
@@ -7945,14 +9507,65 @@
       siteRealtimeWs = ws;
       ws.onopen = function () {
         siteRealtimeWsFailCount = 0;
-        syncSiteNotificationsFromServer();
+        if (normalizeUserId(currentUserId) && getDiscordAccessToken()) {
+          syncSiteNotificationsFromServer();
+        }
       };
       ws.onmessage = function (ev) {
         try {
           var data = JSON.parse(String(ev.data || "{}"));
           if (data.type === "notifications_changed") {
+            /* badgeCrossDevice1 + badgeInBellLive1: unread payload → badge subito (anche in discesa) */
+            try {
+              var wsUid = String(data.userId || "").trim();
+              var me = normalizeUserId(currentUserId);
+              if (
+                me &&
+                (!wsUid || wsUid === me) &&
+                Number.isFinite(Number(data.unread))
+              ) {
+                var wu = Math.max(0, Math.min(99, Math.floor(Number(data.unread))));
+                applyAuthoritativeUnread(wu, 90000);
+              }
+            } catch (eWsBadge) {}
+            /* notifAutoDismissSync1: auto-purge → bust coda staff + summary (pending fantasma) */
+            try {
+              var meNotif = normalizeUserId(currentUserId);
+              var wsUidN = String(data.userId || "").trim();
+              if (meNotif && (!wsUidN || wsUidN === meNotif)) {
+                bellStaffSummaryAt = 0;
+                bellStaffSummaryEtag = "";
+                bellStaffQueueCache = Object.create(null);
+                sessionStorage.removeItem("vc_inbox_summary_v1");
+                localStorage.removeItem("vc_inbox_summary_local_v1");
+                window.__VC_INBOX_SUMMARY_PREFETCH = null;
+                if (typeof window.__vcNotifAutoDismissSummaryTimer !== "undefined") {
+                  try {
+                    clearTimeout(window.__vcNotifAutoDismissSummaryTimer);
+                  } catch (eClrN) {}
+                }
+                window.__vcNotifAutoDismissSummaryTimer = window.setTimeout(function () {
+                  window.__vcNotifAutoDismissSummaryTimer = 0;
+                  try {
+                    if (normalizeUserId(currentUserId) && getDiscordAccessToken() && canBellStaffInbox()) {
+                      loadBellStaffInboxSummary(true);
+                    }
+                  } catch (eRelN) {}
+                }, 350);
+              }
+            } catch (eNotifSum) {}
             /* notifPushSync1 + notifPushBellCatchup1: force+full subito */
             syncSiteNotificationsFromServer({ force: true, full: true });
+          }
+          /* siteUserPresence1 */
+          if (data.type === "site_presence_changed") {
+            try {
+              window.dispatchEvent(
+                new CustomEvent("vc:site-presence-changed", {
+                  detail: { userId: data.userId, status: data.status },
+                }),
+              );
+            } catch (eSp) {}
           }
           /* leaveProfileLive1 */
           if (data.type === "member_left") {
@@ -7967,6 +9580,109 @@
               );
             } catch (eLeft) {}
           }
+          /* staffProfLiveAll1: qualsiasi mutazione profilo → aggiorna profilo aperto */
+          if (data.type === "staff_profile_changed") {
+            try {
+              window.dispatchEvent(
+                new CustomEvent("vc:staff-profile-changed", {
+                  detail: {
+                    userId: String(data.userId || "").trim(),
+                    action: String(data.action || "").trim(),
+                  },
+                }),
+              );
+            } catch (eProf) {}
+          }
+          /* siteLiveAll1: workflow / pause / compiti / ui generica → soft-refresh */
+          if (data.type === "staff_workflow_changed") {
+            try {
+              window.dispatchEvent(
+                new CustomEvent("vc:staff-workflow-changed", {
+                  detail: { queue: String(data.queue || "").trim(), at: data.at || "" },
+                }),
+              );
+            } catch (eWf) {}
+          }
+          if (data.type === "staff_pauses_changed") {
+            try {
+              window.dispatchEvent(
+                new CustomEvent("vc:staff-pauses-changed", {
+                  detail: { at: data.at || "" },
+                }),
+              );
+            } catch (ePause) {}
+          }
+          if (data.type === "staff_compiti_changed") {
+            try {
+              window.dispatchEvent(
+                new CustomEvent("vc:staff-compiti-changed", {
+                  detail: {
+                    userId: String(data.userId || "").trim(),
+                    weekKey: String(data.weekKey || "").trim(),
+                    action: String(data.action || "").trim(),
+                    at: data.at || "",
+                  },
+                }),
+              );
+            } catch (eComp) {}
+          }
+          if (data.type === "site_ui_changed") {
+            try {
+              window.dispatchEvent(
+                new CustomEvent("vc:site-ui-changed", {
+                  detail: {
+                    scope: String(data.scope || "").trim(),
+                    action: String(data.action || "").trim(),
+                    userId: String(data.userId || "").trim(),
+                    at: data.at || "",
+                  },
+                }),
+              );
+            } catch (eUi) {}
+          }
+          /* wsShell1: bacheca + live stats */
+          if (data.type === "boards_changed") {
+            try {
+              window.dispatchEvent(
+                new CustomEvent("vc:boards-changed", {
+                  detail: {
+                    action: String(data.action || "").trim(),
+                    listingId: String(data.listingId || "").trim(),
+                    slug: String(data.slug || "").trim(),
+                    kind: String(data.kind || "").trim(),
+                    at: data.at || "",
+                  },
+                }),
+              );
+            } catch (eBd) {}
+          }
+          if (data.type === "live_stats_changed") {
+            try {
+              window.dispatchEvent(
+                new CustomEvent("vc:live-stats-changed", {
+                  detail: { at: data.at || "" },
+                }),
+              );
+            } catch (eLs) {}
+          }
+          try {
+            if (
+              data.type === "staff_workflow_changed" ||
+              data.type === "staff_pauses_changed" ||
+              data.type === "staff_compiti_changed" ||
+              data.type === "site_ui_changed" ||
+              data.type === "staff_profile_changed" ||
+              data.type === "boards_changed" ||
+              data.type === "live_stats_changed"
+            ) {
+              if (typeof window.__vcRealtimeSoftBump === "function") {
+                window.__vcRealtimeSoftBump({
+                  type: String(data.type || ""),
+                  detail: data,
+                });
+              }
+            }
+          } catch (eBump) {}
         } catch (e3) {}
       };
       ws.onclose = function () {
@@ -7974,8 +9690,8 @@
         siteRealtimeWsFailCount += 1;
         if (normalizeUserId(currentUserId) && getDiscordAccessToken()) {
           restartSiteNotifsPollTimer();
-          scheduleSiteRealtimeWsReconnect();
         }
+        scheduleSiteRealtimeWsReconnect();
       };
       ws.onerror = function () {
         siteRealtimeWsFailCount += 1;
@@ -8053,45 +9769,74 @@
     try {
       rememberServerUnreadCount(countBellBadgeUnread());
     } catch (eHoldDel) {}
-    render({ force: true });
+    try {
+      bellInboxExpandLockUntil = 0;
+      bellStaffSummarySig = "";
+    } catch (eLockDel) {}
+    lastNotifRenderSig = "";
+    render({ force: true, wipeInbox: true });
+    if (bellNotifScope === "staff") {
+      try {
+        var cachedDel = readCachedBellStaffSummary();
+        renderBellStaffInbox((cachedDel && cachedDel.summary) || {}, { force: true });
+      } catch (eInboxDel) {}
+    }
     dismissOsNotifications({
       id: sid,
       ids: [sid],
       ticketIds: Object.keys(ticketIds),
       openUrls: openUrls,
+      closeOnly: false,
     });
     requestAppBadgeSync(countBellBadgeUnread() <= 0);
     deleteSiteNotificationOnServer(sid);
+    try {
+      if (typeof window.__vcRefreshNotificationsPage === "function") {
+        window.__vcRefreshNotificationsPage();
+      }
+    } catch (ePgDel) {}
   }
 
+  var lastBadgeSyncMsg = "";
+  var badgeSyncTimer = 0;
   function requestAppBadgeSync(forceClear) {
+    var unread = 0;
     try {
-      if (forceClear && typeof navigator !== "undefined" && typeof navigator.clearAppBadge === "function") {
-        Promise.resolve(navigator.clearAppBadge()).catch(function () {});
+      unread = Math.max(0, Number(resolveOsBadgeUnread()) || 0);
+    } catch (eU) {
+      try {
+        unread = Math.max(0, Number(countBellBadgeUnread()) || 0);
+      } catch (eU2) {
+        unread = forceClear ? 0 : -1;
       }
-    } catch (eClr) {}
+    }
+    if (forceClear === true) unread = 0;
+    if (unread >= 0) setOsAppBadgeCount(unread);
+    else if (forceClear === true) setOsAppBadgeCount(0);
+    /* osBadgeNoFlash2: page è source of truth con PWA aperta — mai vc:sync-app-badge
+       (quel path riconta i banner OS e fa flash vs unread inbox) */
+    if (unread < 0 && forceClear !== true) return;
+    var msg =
+      unread >= 0
+        ? { type: "vc:set-app-badge", count: unread, forceClear: unread <= 0 }
+        : { type: "vc:clear-app-badge", forceClear: true, unreadCount: 0 };
+    var sig = msg.type + ":" + String(msg.count != null ? msg.count : msg.unreadCount) + ":" + String(!!msg.forceClear);
+    if (sig === lastBadgeSyncMsg) return;
+    lastBadgeSyncMsg = sig;
+    function post() {
+      badgeSyncTimer = 0;
+      try {
+        var ctrl = navigator.serviceWorker && navigator.serviceWorker.controller;
+        if (ctrl) ctrl.postMessage(msg);
+      } catch (ePost) {}
+      /* osBadgeNoFlash2: un solo post (controller). ready+active doppio = 2× setAppBadge flash */
+    }
     try {
-      var ctrl = navigator.serviceWorker && navigator.serviceWorker.controller;
-      if (ctrl) {
-        ctrl.postMessage({
-          type: forceClear ? "vc:clear-app-badge" : "vc:sync-app-badge",
-          forceClear: forceClear === true,
-        });
-      }
-    } catch (ePost) {}
-    try {
-      if (!("serviceWorker" in navigator)) return;
-      navigator.serviceWorker.ready.then(function (reg) {
-        try {
-          if (reg && reg.active) {
-            reg.active.postMessage({
-              type: forceClear ? "vc:clear-app-badge" : "vc:sync-app-badge",
-              forceClear: forceClear === true,
-            });
-          }
-        } catch (eAct) {}
-      });
-    } catch (eReady) {}
+      if (badgeSyncTimer) clearTimeout(badgeSyncTimer);
+      badgeSyncTimer = setTimeout(post, 280);
+    } catch (eTo) {
+      post();
+    }
   }
   window.__vcDismissNotif = dismissOneSiteNotification;
   window.__vcDismissOsNotifs = dismissOsNotifications;
@@ -8232,14 +9977,16 @@
          altrimenti dopo bell-open/sync i banner OS restano e il badge non scende */
       var isAll = spec.all === true;
       var isVisitDismiss = Boolean(pageUrl) || openUrls.length > 0;
+      /* pushReadDismissBadge1: anche ids/ticketIds = mark-read (no throttle 8s) */
       var isMarkReadDismiss =
-        Boolean(String(spec.id || "").trim()) || Boolean(String(spec.ticketId || "").trim());
-      var hasTarget =
-        isAll ||
-        isVisitDismiss ||
-        isMarkReadDismiss ||
-        (Array.isArray(spec.ids) && spec.ids.length) ||
-        (Array.isArray(spec.ticketIds) && spec.ticketIds.length);
+        Boolean(String(spec.id || "").trim()) ||
+        Boolean(String(spec.ticketId || "").trim()) ||
+        (Array.isArray(spec.ids) && spec.ids.length > 0) ||
+        (Array.isArray(spec.ticketIds) && spec.ticketIds.length > 0);
+      /* notifAutoDismissSync1: lifecycle auto-cancel spesso ha solo dedupeKeys */
+      var isLifecycleDismiss =
+        Array.isArray(spec.dedupeKeys) && spec.dedupeKeys.length > 0;
+      var hasTarget = isAll || isVisitDismiss || isMarkReadDismiss || isLifecycleDismiss;
       if (!hasTarget) return;
       if (
         !isAll &&
@@ -8257,6 +10004,12 @@
         return;
       }
       if (!isVisitDismiss && !isMarkReadDismiss) window.__vcPwaDismissAt = nowD;
+      var unreadNow = 0;
+      try {
+        unreadNow = Math.max(0, Number(countBellBadgeUnread()) || 0);
+      } catch (eUn) {
+        unreadNow = isAll ? 0 : -1;
+      }
       var dismissPayload = {
         type: "vc:dismiss-notifs",
         ticketId: String(spec.ticketId || "").trim().toLowerCase(),
@@ -8264,9 +10017,12 @@
         ticketIds: Array.isArray(spec.ticketIds) ? spec.ticketIds : [],
         ids: Array.isArray(spec.ids) ? spec.ids : [],
         openUrls: openUrls,
+        dedupeKeys: Array.isArray(spec.dedupeKeys) ? spec.dedupeKeys : [],
         pageUrl: pageUrl,
         all: isAll,
         closeOnly: spec.closeOnly === true,
+        unreadCount: unreadNow,
+        forceClear: isAll || unreadNow <= 0,
       };
       try {
         if (navigator.serviceWorker && navigator.serviceWorker.controller) {
@@ -8280,6 +10036,88 @@
             try {
               if (reg && reg.active) reg.active.postMessage(dismissPayload);
             } catch (eAct) {}
+            /* pushDismissBtn1 / notifAutoDismissSync1: getNotifications anche lifecycle (dedupe/openUrl) */
+            if (
+              !(isMarkReadDismiss || isLifecycleDismiss || isVisitDismiss) ||
+              !reg ||
+              typeof reg.getNotifications !== "function"
+            ) {
+              return;
+            }
+            var idMapPwa = {};
+            var tidMapPwa = {};
+            var dkMapPwa = {};
+            var ouMapPwa = {};
+            var sidP = String(spec.id || "").trim();
+            if (sidP) idMapPwa[sidP] = true;
+            (Array.isArray(spec.ids) ? spec.ids : []).forEach(function (x) {
+              var s = String(x || "").trim();
+              if (s) idMapPwa[s] = true;
+            });
+            (Array.isArray(spec.ticketIds) ? spec.ticketIds : []).forEach(function (x) {
+              var t = String(x || "").trim().toLowerCase();
+              if (t) tidMapPwa[t] = true;
+            });
+            var tidP = String(spec.ticketId || "").trim().toLowerCase();
+            if (tidP) tidMapPwa[tidP] = true;
+            (Array.isArray(spec.dedupeKeys) ? spec.dedupeKeys : []).forEach(function (x) {
+              var dk = String(x || "").trim();
+              if (dk) dkMapPwa[dk] = true;
+            });
+            (Array.isArray(openUrls) ? openUrls : []).forEach(function (x) {
+              var ou = String(x || "").trim();
+              if (ou) ouMapPwa[ou] = true;
+            });
+            function matchPwa(notif) {
+              if (!notif) return false;
+              var d = notif.data && typeof notif.data === "object" ? notif.data : {};
+              var nId = String(d.id || "").trim();
+              var nTid = String(d.ticketId || "").trim().toLowerCase();
+              var nDk = String(d.dedupeKey || "").trim();
+              var nOpen = String(d.openUrl || "").trim();
+              var nTag = String(notif.tag || "");
+              if (nId && idMapPwa[nId]) return true;
+              if (nTid && tidMapPwa[nTid]) return true;
+              if (nDk && dkMapPwa[nDk]) return true;
+              for (var dkK in dkMapPwa) {
+                if (!dkMapPwa[dkK]) continue;
+                if (nDk && (nDk === dkK || nDk.indexOf(dkK) === 0 || dkK.indexOf(nDk) === 0)) {
+                  return true;
+                }
+                var dkTag = String(dkK || "").replace(/\W+/g, "").slice(-18);
+                if (dkTag && nTag.indexOf("vc-site-digest-") === 0 && nTag.indexOf(dkTag) !== -1) {
+                  return true;
+                }
+              }
+              if (nOpen && ouMapPwa[nOpen]) return true;
+              for (var ouK in ouMapPwa) {
+                if (!ouMapPwa[ouK]) continue;
+                if (nOpen && (nOpen === ouK || nOpen.indexOf(ouK) !== -1 || ouK.indexOf(nOpen) !== -1)) {
+                  return true;
+                }
+              }
+              for (var ik in idMapPwa) {
+                if (!idMapPwa[ik]) continue;
+                if (nTag === "vc-site-" + ik || nTag.indexOf("vc-site-" + ik) === 0) return true;
+                if (nTag === "vc-site-msg-" + ik) return true;
+                var shortId = ik.length > 10 ? ik.slice(-10) : ik;
+                if (shortId && nTag.indexOf(shortId) !== -1) return true;
+              }
+              for (var tk in tidMapPwa) {
+                if (!tidMapPwa[tk]) continue;
+                if (nTag.indexOf("vc-site-ticket-" + tk) === 0) return true;
+              }
+              return false;
+            }
+            Promise.resolve(reg.getNotifications())
+              .then(function (list) {
+                (list || []).forEach(function (n) {
+                  try {
+                    if (matchPwa(n)) n.close();
+                  } catch (eC) {}
+                });
+              })
+              .catch(function () {});
           });
         }
       } catch (eReadyPwa) {}
@@ -8334,6 +10172,11 @@
     } catch (eCtx) {
       pageCtx = null;
     }
+    var dkMapDesk = {};
+    (Array.isArray(spec.dedupeKeys) ? spec.dedupeKeys : []).forEach(function (x) {
+      var s = String(x || "").trim();
+      if (s) dkMapDesk[s] = true;
+    });
     function matches(notif) {
       if (!notif) return false;
       if (all) return true;
@@ -8342,10 +10185,18 @@
       var nId = String(d.id || "");
       var nMsg = String(d.messageId || "");
       var nOpen = String(d.openUrl || "").trim();
+      var nDk = String(d.dedupeKey || "").trim();
       var nTag = String(notif.tag || "");
       if (nTid && ticketMap[nTid]) return true;
       if (nId && idMap[nId]) return true;
       if (nMsg && (idMap[nMsg] || idMap[nId])) return true;
+      if (nDk && dkMapDesk[nDk]) return true;
+      for (var dkK in dkMapDesk) {
+        if (!dkMapDesk[dkK]) continue;
+        if (nDk && (nDk === dkK || nDk.indexOf(dkK) === 0)) return true;
+        var dkTag = String(dkK || "").replace(/\W+/g, "").slice(-18);
+        if (dkTag && nTag.indexOf("vc-site-digest-") === 0 && nTag.indexOf(dkTag) !== -1) return true;
+      }
       for (var tk in ticketMap) {
         if (!ticketMap[tk]) continue;
         if (nTag === "vc-site-ticket-" + tk) return true;
@@ -8355,19 +10206,46 @@
         if (!idMap[ik]) continue;
         if (nTag === "vc-site-" + ik || nTag.indexOf("vc-site-" + ik) === 0) return true;
         if (nTag === "vc-site-msg-" + ik) return true;
+        /* pushDismissBtn1: vote/digest tag = suffix id */
+        var shortId = ik.length > 10 ? ik.slice(-10) : ik;
+        if (
+          shortId &&
+          nTag.indexOf(shortId) !== -1 &&
+          (nTag.indexOf("vc-vote-") === 0 ||
+            nTag.indexOf("vc-site-digest-") === 0 ||
+            nTag.indexOf("vc-site-") === 0)
+        ) {
+          return true;
+        }
+        if (nTag && nTag.indexOf(ik) !== -1) return true;
       }
       if (nOpen && openUrls.length) {
         var nPath = normalizeNotifPathname(nOpen);
+        var nOpenL = nOpen.toLowerCase();
         for (var oi = 0; oi < openUrls.length; oi += 1) {
           var ou = String(openUrls[oi] || "").trim();
           if (!ou) continue;
           if (ou === nOpen) return true;
           if (nPath && nPath === normalizeNotifPathname(ou)) return true;
+          var ouL = ou.toLowerCase();
+          if (
+            (/staffopen=resocont/i.test(nOpenL) || /inbox=resoconti/i.test(nOpenL)) &&
+            (/staffopen=resocont/i.test(ouL) || /inbox=resoconti/i.test(ouL))
+          ) {
+            return true;
+          }
         }
       }
       if (pageCtx && nOpen && openUrlMatchesNotifPage(nOpen, nTid, pageCtx)) return true;
       return false;
     }
+    var unreadDesk = 0;
+    try {
+      unreadDesk = Math.max(0, Number(countBellBadgeUnread()) || 0);
+    } catch (eUd) {
+      unreadDesk = all ? 0 : -1;
+    }
+    var dedupeKeysPay = Array.isArray(spec.dedupeKeys) ? spec.dedupeKeys : [];
     var payload = {
       type: "vc:dismiss-notifs",
       ticketId: ticketId,
@@ -8375,10 +10253,13 @@
       ticketIds: Object.keys(ticketMap),
       ids: Object.keys(idMap),
       openUrls: openUrls,
+      dedupeKeys: dedupeKeysPay,
       pageUrl: pageUrl,
       all: all,
       /* pushTicketDismissFix1: chiudi banner senza blacklist ticket (messaggi futuri ok) */
       closeOnly: spec.closeOnly === true,
+      unreadCount: unreadDesk,
+      forceClear: all || unreadDesk <= 0,
     };
     function postDismiss(sw) {
       try {
@@ -8390,10 +10271,14 @@
     } catch (eMsg) {}
     if (!("serviceWorker" in navigator)) return;
     var retry = Number(spec.retry || 0);
+    /* violKillReflow3: closeOnly/visit → solo postMessage (SW closeMatching).
+       getNotifications sync-costoso e ridondante (Violation setTimeout 95ms+). */
+    var postOnly = spec.closeOnly === true || spec.postOnly === true;
     navigator.serviceWorker.ready
       .then(function (reg) {
         postDismiss(reg && reg.active);
-        if (!reg || typeof reg.getNotifications !== "function") return;
+        if (postOnly) return null;
+        if (!reg || typeof reg.getNotifications !== "function") return null;
         function closeListed(list) {
           (list || []).forEach(function (notif) {
             try {
@@ -8412,7 +10297,7 @@
         );
       })
       .then(function () {
-        if (!all || retry >= 2) return;
+        if (postOnly || !all || retry >= 2) return;
         window.setTimeout(function () {
           dismissOsNotifications({ all: true, retry: retry + 1 });
         }, 350 * (retry + 1));
@@ -8429,21 +10314,67 @@
     }
   }
   function clearMobileOsToastsOnAppOpen() {
-    dismissOsNotificationsForReadItems(loadStored());
+    /* iosWinProfilePush1: chiudi OS già toastate/lette — iOS le ri-affiora aprendo la PWA */
+    var items = loadStored();
+    var toasted = {};
+    try {
+      toasted = loadToastedMap() || {};
+    } catch (eT) {
+      toasted = {};
+    }
+    var ticketIds = [];
+    var ids = [];
+    var openUrls = [];
+    for (var i = 0; i < (items || []).length; i += 1) {
+      var it = items[i];
+      if (!it) continue;
+      var nid = String(it.id || "").trim();
+      var already = Boolean(it.read) || (nid && toasted[nid]);
+      if (!already) continue;
+      var tid = String(it.ticketId || "").trim().toLowerCase();
+      if (tid && ticketIds.indexOf(tid) < 0) ticketIds.push(tid);
+      if (nid && ids.indexOf(nid) < 0) ids.push(nid);
+      var ou = String(it.openUrl || "").trim();
+      if (ou && openUrls.indexOf(ou) < 0) openUrls.push(ou);
+    }
+    try {
+      Object.keys(toasted).forEach(function (tidKey) {
+        var id = String(tidKey || "").trim();
+        if (id && ids.indexOf(id) < 0) ids.push(id);
+      });
+    } catch (eKeys) {}
+    if (!ticketIds.length && !ids.length && !openUrls.length) {
+      dismissOsNotificationsForReadItems(items);
+      return;
+    }
+    dismissOsNotifications({
+      ticketIds: ticketIds,
+      ids: ids,
+      openUrls: openUrls,
+      closeOnly: true,
+    });
   }
   function dismissOsNotificationsForReadItems(items) {
     var ticketIds = [];
     var ids = [];
+    var openUrls = [];
     for (var i = 0; i < (items || []).length; i += 1) {
       var it = items[i];
       if (!it || !it.read) continue;
       var tid = String(it.ticketId || "").trim().toLowerCase();
-      if (tid) ticketIds.push(tid);
+      if (tid && ticketIds.indexOf(tid) < 0) ticketIds.push(tid);
       var nid = String(it.id || "").trim();
-      if (nid) ids.push(nid);
+      if (nid && ids.indexOf(nid) < 0) ids.push(nid);
+      var ou = String(it.openUrl || "").trim();
+      if (ou && openUrls.indexOf(ou) < 0) openUrls.push(ou);
     }
-    if (!ticketIds.length && !ids.length) return;
-    dismissOsNotifications({ ticketIds: ticketIds, ids: ids });
+    if (!ticketIds.length && !ids.length && !openUrls.length) return;
+    dismissOsNotifications({
+      ticketIds: ticketIds,
+      ids: ids,
+      openUrls: openUrls,
+      closeOnly: true,
+    });
   }
   var lastTicketNotifMark = { id: "", at: 0 };
   function markTicketNotificationsRead(ticketId) {
@@ -8463,11 +10394,25 @@
     );
     if (localUnread) render({ force: true });
     /* pushTicketDismissFix1: aprire ticket chiude OS banner, non silenzia push messaggi successive */
-    dismissOsNotifications({
-      ticketId: tid,
-      closeOnly: true,
-      pageUrl: String(window.location.href || ""),
-    });
+    /* pushPurgeOsDismiss1: retry + openUrls — chiusura/visita non lasciava banner OS */
+    var ticketOpenUrls = [
+      "/tickets/?ticketId=" + encodeURIComponent(tid) + "#" + tid,
+      "/tickets/?view=staff&ticketId=" + encodeURIComponent(tid) + "#" + tid,
+    ];
+    function dismissTicketOs(retry) {
+      dismissOsNotifications({
+        ticketId: tid,
+        ticketIds: [tid],
+        openUrls: ticketOpenUrls,
+        closeOnly: true,
+        pageUrl: String(window.location.href || ""),
+      });
+      if (Number(retry || 0) >= 2) return;
+      window.setTimeout(function () {
+        dismissTicketOs(Number(retry || 0) + 1);
+      }, 350 * (Number(retry || 0) + 1));
+    }
+    dismissTicketOs(0);
     try {
       rememberServerUnreadCount(countBellBadgeUnread());
     } catch (eHold) {}
@@ -8476,6 +10421,7 @@
     markSiteNotificationsReadForTicketOnServer(tid).finally(function () {
       window.setTimeout(function () {
         syncSiteNotificationsFromServer();
+        dismissTicketOs(0);
       }, 400);
     });
   }
@@ -8582,6 +10528,24 @@
       if (destInbox === "appelli" && /\/appelli$/i.test(ctx.path)) return true;
       if (destInbox === "candidature" && /\/candidature$/i.test(ctx.path)) return true;
       if (destInbox === "resoconti" && /\/staff\/resoconti$/i.test(ctx.path)) return true;
+      /* pauseResoNotifProfile1: visita profilo staff apre card pause/resoconto */
+      if (
+        (destInbox === "pause" || destInbox === "resoconti" || destInbox === "punti-tolti") &&
+        /\/user$/i.test(ctx.path)
+      ) {
+        return true;
+      }
+    }
+    /* pauseResoNotifProfile1: openUrl già su /user/?staffOpen=… */
+    if (/\/user$/i.test(ctx.path) && /\/user$/i.test(destPath)) {
+      try {
+        var destOpen = String(new URL(String(openUrl || ""), location.origin).searchParams.get("staffOpen") || "")
+          .trim()
+          .toLowerCase();
+        if (destOpen === "pause" || destOpen === "resoconto" || destOpen === "resoconti" || destOpen === "pm-punti-tolti") {
+          return true;
+        }
+      } catch (eProfMatch) {}
     }
     /* pushBadgeVisitFix1: visita pagina dedicata ↔ openUrl /notifications?inbox=X */
     if (/\/staff\/pause$/i.test(ctx.path) && (/inbox=pause\b/i.test(String(openUrl || "")) || /\/staff\/pause/i.test(destPath))) {
@@ -8670,6 +10634,8 @@
     try {
       loadStored().forEach(function (n) {
         if (!n) return;
+        /* voteRemKeep1: visita /vote|/vota NON consuma i reminder — solo il voto reale */
+        if (isVoteReminderNotifItem(n)) return;
         var tid = extractTicketIdFromNotif(n) || extractTicketIdFromOpenUrl(n && n.openUrl);
         var matches =
           (!n.read && notifMatchesCurrentPage(n)) ||
@@ -8686,10 +10652,11 @@
     } catch (eScan) {}
     if (ctx.ticket) ticketIds[ctx.ticket] = true;
     /* Anche path dedicati senza item in store (alert coda inbox filtrati dal list) */
-    if (ctx.inbox === "pause" || /\/staff\/pause$/i.test(ctx.path)) {
+    if (ctx.inbox === "pause" || /\/staff\/pause$/i.test(ctx.path) || (/\/user$/i.test(ctx.path) && /staffopen=pause/i.test(String(ctx.href || "")))) {
       openUrls.push("/notifications/?view=staff&inbox=pause");
       openUrls.push("/staff/inbox/?tab=pause");
       openUrls.push("/staff/pause/");
+      openUrls.push("/user/?tab=staff&staffOpen=pause");
     }
     if (ctx.inbox === "appelli" || /\/appelli$/i.test(ctx.path)) {
       openUrls.push("/notifications/?view=staff&inbox=appelli");
@@ -8701,17 +10668,34 @@
       openUrls.push("/staff/inbox/?tab=candidature");
       openUrls.push("/candidature/");
     }
-    if (ctx.inbox === "resoconti" || /\/staff\/resoconti$/i.test(ctx.path)) {
+    if (
+      ctx.inbox === "resoconti" ||
+      /\/staff\/resoconti$/i.test(ctx.path) ||
+      (/\/user$/i.test(ctx.path) && /staffopen=resocont/i.test(String(ctx.href || "")))
+    ) {
       openUrls.push("/notifications/?view=staff&inbox=resoconti");
       openUrls.push("/staff/inbox/?tab=resoconti");
+      openUrls.push("/user/?tab=staff&staffOpen=resoconto");
     }
-    dismissOsNotifications({
-      ids: ids,
-      ticketIds: Object.keys(ticketIds),
-      openUrls: openUrls,
-      pageUrl: ctx.href || String(window.location.href || ""),
-      closeOnly: true,
-    });
+    var pageHref = ctx.href || String(window.location.href || "");
+    var tixList = Object.keys(ticketIds);
+    function dismissVisitOs(retry) {
+      dismissOsNotifications({
+        ids: ids,
+        ticketIds: tixList,
+        openUrls: openUrls,
+        pageUrl: pageHref,
+        closeOnly: true,
+        postOnly: true,
+      });
+      /* violKillReflow3: 1 retry leggero (postOnly) — no getNotifications storm */
+      if (Number(retry || 0) < 1) {
+        window.setTimeout(function () {
+          dismissVisitOs(Number(retry || 0) + 1);
+        }, 600);
+      }
+    }
+    dismissVisitOs(0);
     if (ids.length) {
       noteLocalMarkReadHold();
       saveStored(
@@ -8728,13 +10712,13 @@
       render({ force: true });
     }
     requestAppBadgeSync(countBellBadgeUnread() <= 0);
-    var pageHref = ctx.href || String(window.location.href || "");
     /* Sempre server pageUrl: marca anche alert coda dedicata non in store + dismiss altri device */
     markSiteNotificationsReadForPageOnServer(pageHref, {
       ids: ids,
-      ticketIds: Object.keys(ticketIds),
+      ticketIds: tixList,
       openUrls: openUrls,
     }).finally(function () {
+      dismissVisitOs(0);
       window.setTimeout(function () {
         syncSiteNotificationsFromServer();
       }, 500);
@@ -8826,7 +10810,20 @@
       var mapped = mapServerRowToStoredItem(row);
       if (isVoteRegisteredNotifClient(mapped)) continue;
       var fpId = buildNotifFingerprintId(mapped, uid, mapped.kind, mapped.openUrl);
-      if (isClearedAwayServerRow(mapped, dismissed)) continue;
+      if (isClearedAwayServerRow(mapped, dismissed)) {
+        /* notifSheetSync1: reminder nuovo (id mongo) non deve restare nascosto da fp dismiss vecchio */
+        if (
+          String(mapped.kind || "") === "vote_reminder" &&
+          isServerBackedNotifId(sid) &&
+          !(dismissed && dismissed.has(sid))
+        ) {
+          undismissNotifKeys([fpId, String(mapped.dedupeKey || "").trim()], uid);
+          dismissed = loadDismissedSet(uid);
+          if (isClearedAwayServerRow(mapped, dismissed)) continue;
+        } else {
+          continue;
+        }
+      }
       serverIdMap[sid] = true;
       var oldSame = oldById[sid];
       if (mapped.read) {
@@ -8867,6 +10864,10 @@
       );
     }
     var keepLocal = [];
+    var purgedIds = [];
+    var purgedTicketIds = [];
+    var purgedOpenUrls = [];
+    var purgedDedupeKeys = [];
     for (var li = 0; li < oldItems.length; li += 1) {
       var it = oldItems[li];
       var lid = String((it && it.id) || "").trim();
@@ -8884,7 +10885,18 @@
            server non li ha ancora → non droppare (altrimenti badge=0 in PWA focused) */
         keep = true;
       }
-      if (!keep) continue;
+      if (!keep) {
+        /* pushPurgeOsDismiss1 / pushAutoDismiss1: item sparito (lifecycle resoconti ecc.)
+           → chiudi banner OS anche se non era passato da read:true */
+        purgedIds.push(lid);
+        var pTid = extractTicketIdFromNotif(it) || extractTicketIdFromOpenUrl(it && it.openUrl);
+        if (pTid && purgedTicketIds.indexOf(pTid) < 0) purgedTicketIds.push(pTid);
+        var pOu = String((it && it.openUrl) || "").trim();
+        if (pOu && purgedOpenUrls.indexOf(pOu) < 0) purgedOpenUrls.push(pOu);
+        var pDk = String((it && it.dedupeKey) || "").trim();
+        if (pDk && purgedDedupeKeys.indexOf(pDk) < 0) purgedDedupeKeys.push(pDk);
+        continue;
+      }
       var exKind = String((it && it.kind) || "info");
       var exOpen = String((it && it.openUrl) || "");
       var fpId = buildNotifFingerprintId(it, uid, exKind, exOpen);
@@ -8893,6 +10905,15 @@
     }
     var merged = keepLocal.concat(fromServer);
     saveStored(merged);
+    if (purgedIds.length || purgedTicketIds.length || purgedOpenUrls.length || purgedDedupeKeys.length) {
+      dismissOsNotifications({
+        ids: purgedIds,
+        ticketIds: purgedTicketIds,
+        openUrls: purgedOpenUrls,
+        dedupeKeys: purgedDedupeKeys,
+        closeOnly: true,
+      });
+    }
     dismissOsNotificationsForReadItems(merged);
     var changed = beforeSig !== buildNotifStoreSignature(merged);
     var freshMs = 600000;
@@ -9131,10 +11152,13 @@
             localUnread = 0;
           }
           var needFull = serverUnread !== localUnread;
-          rememberServerUnreadCount(serverUnread);
+          /* badgeInBellLive1: count API = verità server (anche se scende) */
           try {
+            applyAuthoritativeUnread(serverUnread, 60000, { fromSync: true });
+          } catch (eBadge) {
+            rememberServerUnreadCount(serverUnread);
             paintBellBadgeWithServerTruth(localUnread);
-          } catch (eBadge) {}
+          }
           if (needFull) {
             setTimeout(function () {
               syncSiteNotificationsFromServer({ force: true, full: true });
@@ -9146,7 +11170,7 @@
         siteNotifsEverFullSynced = true;
         var list = j.items.slice().reverse();
         if (j.unread != null && Number.isFinite(Number(j.unread))) {
-          rememberServerUnreadCount(j.unread);
+          applyAuthoritativeUnread(j.unread, 60000, { fromSync: true });
         } else {
           /* fallback: conta unread grezzi dal payload server (prima del merge client) */
           var rawUnread = 0;
@@ -9155,7 +11179,9 @@
             if (!rit || rit.read === true || rit.readAt || rit.filtered) continue;
             rawUnread += 1;
           }
-          if (rawUnread > loadServerUnreadHold()) rememberServerUnreadCount(rawUnread);
+          if (rawUnread > loadServerUnreadHold()) {
+            applyAuthoritativeUnread(rawUnread, 60000, { fromSync: true });
+          }
         }
         var mergeResult = mergeStoredWithServerNotificationList(list, uid);
         if (mergeResult.changed) render();
@@ -9175,8 +11201,6 @@
           markNotificationsForCurrentPage();
         } catch (ePageMark) {}
         if (mergeResult.toastRow && shouldPlayNotifAlert(mergeResult.toastRow)) {
-          var toastId = String(mergeResult.toastRow.id || "").trim();
-          if (toastId) rememberToastedId(toastId);
           playNotifSound();
           showNativeOsBanner(mergeResult.toastRow, {
             catchup: desktopPushCatchupArmed && !isMobilePushClient(),
@@ -9186,9 +11210,20 @@
             showNotifFlyToast(mergeResult.toastRow);
           } catch (eFlySync) {}
           pulseNotifSummary();
+          /* pushShowHold1: suono+pulse senza store unread → tieni badge da hold/min 1 */
+          try {
+            if (!(mergeResult.toastRow && mergeResult.toastRow.read === true)) {
+              var toastHold = Math.max(1, loadServerUnreadHold(), countBellBadgeUnread());
+              if (toastHold > 0) applyAuthoritativeUnread(toastHold, 60000);
+            }
+          } catch (eToastBadge) {}
         } else if (mergeResult.toastRow) {
-          var mutedId = String(mergeResult.toastRow.id || "").trim();
-          if (mutedId) rememberToastedId(mutedId);
+          try {
+            rememberToastedRow(mergeResult.toastRow);
+          } catch (eMute) {
+            var mutedId = String(mergeResult.toastRow.id || "").trim();
+            if (mutedId) rememberToastedId(mutedId);
+          }
         }
         try {
           runDesktopPushCatchupFromStore();
@@ -9214,9 +11249,15 @@
         if (siteNotifsPendingForceOpts) {
           var pending = siteNotifsPendingForceOpts;
           siteNotifsPendingForceOpts = null;
-          window.setTimeout(function () {
-            syncSiteNotificationsFromServer(pending);
-          }, 0);
+          if (typeof window.__vcLight === "function") {
+            window.__vcLight(function () {
+              syncSiteNotificationsFromServer(pending);
+            }, 200);
+          } else {
+            window.setTimeout(function () {
+              syncSiteNotificationsFromServer(pending);
+            }, 200);
+          }
         }
       });
     return siteNotifsSyncInFlight;
@@ -9262,7 +11303,8 @@
       if (!document.getElementById("vc-notif-dropdown")) return;
     } catch (eDd) {}
     if (!normalizeUserId(currentUserId) || !getDiscordAccessToken()) {
-      disconnectSiteRealtimeWs();
+      /* wsShell1: niente poll notif, ma tieni WS pubblico */
+      connectSiteRealtimeWebSocket();
       return;
     }
     if (siteNotifsPollBooted) {
@@ -9311,6 +11353,8 @@
   var bellInboxExpandLockUntil = 0;
   /* notifCatLoadFix1: sessione sheet — non resettare Personali|Inbox su reclaim toggle */
   var notifSheetSessionActive = false;
+  /* inboxSwitchSticky1: tap Inbox non deve rimbalzare su Personali se perms ancora in volo */
+  var bellStaffScopeStickyUntil = 0;
   var BELL_INBOX_PAGE_SIZE = 8;
   var BELL_SCOPE_PREF_KEY = "vc_notif_scope_pref";
   /* notifSidebar3: declare queue cache/inFlight (were undeclared → expand stuck on Caricamento…). */
@@ -9319,6 +11363,8 @@
     /* pauseOutInbox1: Pause fuori dall'inbox → card giorni sul profilo staff */
     { id: "candidature", label: "Candidature", icon: "fa-file-text-o", requiresCandidatureReview: true },
     { id: "appelli", label: "Appelli", icon: "fa-balance-scale", requiresAppelliReview: true },
+    /* boardsNotifRevCat1: coda Revisione bacheca nello sheet Inbox */
+    { id: "revisione", label: "Revisione", icon: "fa-th-large", requiresBoardsReview: true },
     /* resoProfile1: Resoconti fuori dall'inbox → profilo staff */
     /* partnerPtChrono1: Punti tolti fuori dall'inbox → card Partner sul profilo */
   ];
@@ -9418,6 +11464,45 @@
   }
 
   function notificationsStaffPageUrl(inboxId, itemId) {
+    /* ptNotifProfile1 / pauseResoNotifProfile1: code fuori inbox → profilo */
+    var qId = String(inboxId || "").trim().toLowerCase();
+    /* boardsRevPreview1 */
+    if (qId === "revisione") {
+      var revId = String(itemId || "")
+        .replace(/^boards:revisione:/i, "")
+        .replace(/^revisione:/i, "")
+        .trim();
+      if (!/^[a-f0-9]{24}$/i.test(revId)) {
+        var rm = String(itemId || "").match(/([a-f0-9]{24})/i);
+        revId = rm ? rm[1] : "";
+      }
+      if (/^[a-f0-9]{24}$/i.test(revId)) {
+        return "/bacheca/scheda/?id=" + encodeURIComponent(revId) + "&review=1";
+      }
+      return "/notifications/?view=staff&inbox=revisione&scope=pending";
+    }
+    var profileOpen =
+      qId === "punti-tolti"
+        ? "pm-punti-tolti"
+        : qId === "pause"
+          ? "pause"
+          : qId === "resoconti"
+            ? "resoconto"
+            : "";
+    if (profileOpen) {
+      try {
+        var sid = String((window.__VC_DISCORD_PROFILE && window.__VC_DISCORD_PROFILE.id) || "").trim();
+        var pu = new URL("/user/", window.location.origin);
+        if (/^\d{16,22}$/.test(sid)) pu.searchParams.set("id", sid);
+        pu.searchParams.set("tab", "staff");
+        pu.searchParams.set("staffOpen", profileOpen);
+        if (itemId && profileOpen === "pause") pu.searchParams.set("pauseId", String(itemId));
+        if (itemId && profileOpen === "resoconto") pu.searchParams.set("resoId", String(itemId));
+        return pu.toString();
+      } catch (ePt) {
+        return "/user/?tab=staff&staffOpen=" + encodeURIComponent(profileOpen);
+      }
+    }
     try {
       var u = new URL(NOTIFICATIONS_PATH, window.location.origin);
       u.searchParams.set("view", "staff");
@@ -9468,6 +11553,7 @@
     if (row.requiresHighStaff || row.id === "pause") return true;
     if (row.requiresCandidatureReview || row.id === "candidature") return true;
     if (row.requiresAppelliReview || row.id === "appelli") return true;
+    if (row.requiresBoardsReview || row.id === "revisione") return true;
     if (row.id === "resoconti") return true;
     return false;
   }
@@ -9480,6 +11566,7 @@
         (Object.prototype.hasOwnProperty.call(perms, "highStaff") ||
           Object.prototype.hasOwnProperty.call(perms, "candidatureReview") ||
           Object.prototype.hasOwnProperty.call(perms, "appelliReview") ||
+          Object.prototype.hasOwnProperty.call(perms, "boardsReview") ||
           Object.prototype.hasOwnProperty.call(perms, "isPm") ||
           Object.prototype.hasOwnProperty.call(perms, "pm") ||
           Object.prototype.hasOwnProperty.call(perms, "isHighStaff") ||
@@ -9489,6 +11576,8 @@
     if (!hasPerms) {
       /* inboxResoGate1: senza perms non flashare resoconti; altre code ok dopo fetch */
       if (row.id === "resoconti") return false;
+      /* boardsRevHsOnly1: senza perms non flashare revisione bacheca */
+      if (row.requiresBoardsReview || row.id === "revisione") return false;
       return true;
     }
     /* Pause API is High Staff only — do not treat director as HS. */
@@ -9508,6 +11597,12 @@
     }
     if (row.requiresAppelliReview || row.id === "appelli") {
       return Boolean(perms.appelliReview) || highOrDirector;
+    }
+    /* boardsRevHsOnly1: revisione bacheca solo High Staff */
+    if (row.requiresBoardsReview || row.id === "revisione") {
+      if (perms.boardsReview === true) return true;
+      if (perms.boardsReview === false) return false;
+      return high;
     }
     if (row.id === "resoconti") {
       if (perms.canViewResoconti === true) return true;
@@ -9629,6 +11724,19 @@
       var resoTitle = String(item.title || "").trim();
       if (resoTitle && resoTitle !== title) subtitle = resoTitle;
       else subtitle = String(item.preview || item.roleLabel || item.kind || "").trim().slice(0, 100);
+    } else if (queueId === "revisione") {
+      /* boardsNotifRevCat1 */
+      title = String(item.title || "").trim() || "Scheda bacheca";
+      avatarUrl = String(item.avatarUrl || item.iconUrl || "").trim();
+      var kindR = String(item.kind || item.type || "").toLowerCase();
+      var kindLab = kindR === "bot" ? "Bot" : kindR === "server" ? "Server" : "";
+      var whoR = String(item.displayName || "").trim();
+      var prevR = String(item.preview || item.tagline || "").trim();
+      subtitle = [kindLab, whoR && !/^\d{16,22}$/.test(whoR) ? "da " + whoR : "", prevR]
+        .filter(Boolean)
+        .join(" · ")
+        .slice(0, 100);
+      if (subtitle === title) subtitle = kindLab || "";
     } else {
       subtitle = String(item.preview || item.title || item.type || item.kind || "").trim().slice(0, 100);
       if (subtitle === title) subtitle = "";
@@ -9655,356 +11763,141 @@
     return "/webhooks/site-staff-pm-points-removed";
   }
 
-  function fetchBellInboxQueueItems(row) {
-    var id = row && row.id ? String(row.id) : "";
-    if (!id) return Promise.resolve([]);
-    if (bellStaffQueueInFlight[id]) return bellStaffQueueInFlight[id];
-    var cached = bellStaffQueueCache[id];
-    if (cached && cached.ok !== false && Date.now() - Number(cached.at || 0) < 20000) {
-      return Promise.resolve(cached.items || []);
+  /* notifStaffLazy1: fetch/expand → vc-landing-notif-staff.js (lazy) */
+  function ensureNotifStaffHost() {
+    if (window.__VC_NOTIF_STAFF_HOST && window.__VC_NOTIF_STAFF_HOST.__vcReady) {
+      return window.__VC_NOTIF_STAFF_HOST;
     }
-    var token = getDiscordAccessToken();
-    if (!token) {
-      return Promise.reject(new Error("Accedi per vedere questa coda."));
-    }
-
-    var url;
-    if (row.punti || id === "punti-tolti") {
-      var pt = puntiToltiApiBase();
-      url =
-        pt +
-        (pt.indexOf("?") >= 0 ? "&" : "?") +
-        "limit=" +
-        encodeURIComponent(String(BELL_INBOX_PAGE_SIZE)) +
-        "&pending=1";
-    } else {
-      var api = staffWorkflowsApiBase();
-      /* notifQueueFast1: solo DB — niente sync=1 (Discord sync fino a 22s+) */
-      url =
-        api +
-        (api.indexOf("?") >= 0 ? "&" : "?") +
-        "queue=" +
-        encodeURIComponent(id) +
-        "&scope=pending&pageSize=" +
-        encodeURIComponent(String(BELL_INBOX_PAGE_SIZE));
-    }
-
-    /* notifQueueFast1: timeout 8s — no hang 1min su Caricamento… */
-    var ctrl = typeof AbortController !== "undefined" ? new AbortController() : null;
-    var abortTimer = window.setTimeout(function () {
-      try {
-        if (ctrl) ctrl.abort();
-      } catch (eAb) {}
-    }, 8000);
-    var fetchOpts = {
-      method: "GET",
-      credentials: "include",
-      headers: { Authorization: "Bearer " + token, Accept: "application/json" },
-      cache: "no-store",
+    var host = {
+      __vcReady: 1,
+      BELL_INBOX_ROWS: BELL_INBOX_ROWS,
+      BELL_INBOX_PAGE_SIZE: BELL_INBOX_PAGE_SIZE,
+      getDiscordAccessToken: getDiscordAccessToken,
+      tNotif: tNotif,
+      canBellInboxRow: canBellInboxRow,
+      hideBellInboxForbiddenRow: hideBellInboxForbiddenRow,
+      isBellInboxForbiddenErr: isBellInboxForbiddenErr,
+      isBellInboxBenignErr: isBellInboxBenignErr,
+      escBellHtml: escBellHtml,
+      bellInboxItemFocusId: bellInboxItemFocusId,
+      bellInboxItemLabel: bellInboxItemLabel,
+      bellInboxItemDetail: bellInboxItemDetail,
+      navigateBellInboxHref: navigateBellInboxHref,
+      puntiToltiApiBase: puntiToltiApiBase,
+      staffWorkflowsApiBase: staffWorkflowsApiBase,
+      notificationsStaffPageUrl: notificationsStaffPageUrl,
+      readCachedBellStaffSummary: readCachedBellStaffSummary,
+      paintNotifBellBadgeFromStore: paintNotifBellBadgeFromStore,
+      getState: function (k) {
+        if (k === "bellStaffQueueCache") return bellStaffQueueCache;
+        if (k === "bellStaffQueueInFlight") return bellStaffQueueInFlight;
+        if (k === "bellStaffPerms") return bellStaffPerms;
+        if (k === "bellInboxExpandLockUntil") return bellInboxExpandLockUntil;
+        return null;
+      },
+      setState: function (k, v) {
+        if (k === "bellStaffPerms") bellStaffPerms = v;
+        if (k === "bellInboxExpandLockUntil") bellInboxExpandLockUntil = v;
+      },
+      _api: null,
+      install: function (api) {
+        host._api = api || null;
+        try {
+          window.__vcNotifStaffApi = api;
+        } catch (eA) {}
+      },
     };
-    if (ctrl) fetchOpts.signal = ctrl.signal;
-
-    bellStaffQueueInFlight[id] = fetch(url, fetchOpts)
-      .then(function (res) {
-        return res
-          .json()
-          .catch(function () {
-            return null;
-          })
-          .then(function (body) {
-            return { ok: res.ok, status: res.status, body: body };
-          });
-      })
-      .then(function (out) {
-        /* notifApiErr1: ok:true senza items → lista vuota, non errore */
-        if (out && out.body && out.body.ok === true) {
-          var itemsOk = Array.isArray(out.body.items) ? out.body.items : [];
-          itemsOk = itemsOk.slice(0, BELL_INBOX_PAGE_SIZE);
-          bellStaffQueueCache[id] = { at: Date.now(), items: itemsOk, ok: true };
-          if (out.body.permissions) {
-            bellStaffPerms = out.body.permissions;
-          }
-          return itemsOk;
-        }
-        var st = Number(out && out.status) || 0;
-        var msg =
-          (out && out.body && (out.body.message || out.body.error)) ||
-          (st === 401 ? "Accedi per vedere questa coda." : "Impossibile caricare la coda.");
-        var err = new Error(String(msg));
-        err.status = st;
-        err.benign =
-          st === 401 ||
-          st === 403 ||
-          st === 0 ||
-          st === 408 ||
-          st === 429 ||
-          st >= 500 ||
-          !out ||
-          !out.body;
-        throw err;
-      })
-      .catch(function (err) {
-        var aborted =
-          (err && (err.name === "AbortError" || /abort/i.test(String(err.message || "")))) ||
-          (ctrl && ctrl.signal && ctrl.signal.aborted);
-        if (aborted) {
-          var toErr = new Error("Caricamento troppo lento");
-          toErr.status = 408;
-          toErr.benign = true;
-          if (cached && cached.ok !== false && Array.isArray(cached.items) && cached.items.length) {
-            return cached.items;
-          }
-          throw toErr;
-        }
-        if (cached && cached.ok !== false && Array.isArray(cached.items)) {
-          return cached.items;
-        }
-        throw err || new Error("Impossibile caricare la coda.");
-      })
-      .finally(function () {
-        try {
-          window.clearTimeout(abortTimer);
-        } catch (eClr) {}
-        bellStaffQueueInFlight[id] = null;
-      });
-    return bellStaffQueueInFlight[id];
+    window.__VC_NOTIF_STAFF_HOST = host;
+    return host;
   }
-
-  function renderBellInboxItems(row, host, items) {
-    if (!host) return;
-    host.innerHTML = "";
-    host.hidden = false;
-    host.removeAttribute("hidden");
-    var queueItems = Array.isArray(items) ? items.slice() : [];
-    var ptExtra = [];
-    if (row && row.id === "punti-tolti") {
-      ptExtra = inboxNotifsForBucket("punti-tolti");
-      ptExtra.forEach(function (n) {
-        var item = document.createElement("li");
-        item.className =
-          "vc-notif-bell-inbox__item vc-notif-bell-inbox__item--rich" + (n.read ? "" : " is-unread");
-        var a = document.createElement("a");
-        a.className = "vc-notif-bell-inbox__item-link vc-notif-bell-inbox__item-link--rich";
-        var dest = String(n.openUrl || "").trim();
-        a.href = dest ? resolveNotifDestUrl(dest) : notificationsStaffPageUrl("punti-tolti");
-        var bodySnip = String(n.body || "").trim().slice(0, 110);
-        var whenTxt = timeAgoLocalized(n.at || Date.now());
-        a.innerHTML =
-          '<span class="vc-notif-bell-inbox__item-dot" aria-hidden="true"></span>' +
-          '<span class="vc-notif-bell-inbox__item-copy">' +
-          '<span class="vc-notif-bell-inbox__item-label">' +
-          escBellHtml(String(n.title || "Punti tolti")) +
-          "</span>" +
-          (bodySnip
-            ? '<span class="vc-notif-bell-inbox__item-sub">' + escBellHtml(bodySnip) + "</span>"
-            : "") +
-          '<span class="vc-notif-bell-inbox__item-time">' +
-          escBellHtml(whenTxt) +
-          "</span>" +
-          "</span>" +
-          (!n.read
-            ? '<span class="vc-notif-bell-inbox__item-badge is-pending" aria-label="In attesa"></span>'
-            : "");
-        a.addEventListener("click", function (ev) {
-          ev.preventDefault();
-          try {
-            markOneRead(n.id);
-          } catch (eMark) {}
-          navigateBellInboxHref(a.href);
-        });
-        item.appendChild(a);
-        host.appendChild(item);
-      });
+  function ensureNotifStaffChunk() {
+    if (window.__VC_NOTIF_STAFF_CHUNK) {
+      return Promise.resolve(window.__vcNotifStaffApi || null);
     }
-    if (!queueItems.length && !ptExtra.length) {
-      var empty = document.createElement("li");
-      empty.className = "vc-notif-bell-inbox__item vc-notif-bell-inbox__item--empty";
-      empty.textContent = "Nessuna richiesta";
-      host.appendChild(empty);
-      return;
-    }
-    queueItems.forEach(function (item) {
-      var li = document.createElement("li");
-      li.className = "vc-notif-bell-inbox__item vc-notif-bell-inbox__item--rich";
-      var a = document.createElement("a");
-      a.className = "vc-notif-bell-inbox__item-link vc-notif-bell-inbox__item-link--rich";
-      var focusId = bellInboxItemFocusId(row.id, item);
-      a.href = notificationsStaffPageUrl(row.id, focusId);
-      var det = bellInboxItemDetail(row.id, item);
-      var avHtml = det.avatarUrl
-        ? '<img class="vc-notif-bell-inbox__item-av" src="' +
-          escBellHtml(det.avatarUrl) +
-          '" alt="" width="28" height="28" loading="lazy" decoding="async" />'
-        : '<span class="vc-notif-bell-inbox__item-av vc-notif-bell-inbox__item-av--ph" aria-hidden="true"><i class="fa fa-user"></i></span>';
-      a.innerHTML =
-        avHtml +
-        '<span class="vc-notif-bell-inbox__item-copy">' +
-        '<span class="vc-notif-bell-inbox__item-label">' +
-        escBellHtml(det.title) +
-        "</span>" +
-        (det.subtitle
-          ? '<span class="vc-notif-bell-inbox__item-sub">' + escBellHtml(det.subtitle) + "</span>"
-          : "") +
-        (det.when
-          ? '<span class="vc-notif-bell-inbox__item-time">' + escBellHtml(det.when) + "</span>"
-          : "") +
-        "</span>" +
-        /* notifPendingSwitch1: pip rosso, niente testo Pending */
-        '<span class="vc-notif-bell-inbox__item-badge is-pending" aria-label="In attesa"></span>' +
-        '<i class="fa fa-chevron-right" aria-hidden="true"></i>';
-      a.addEventListener("click", function (ev) {
-        ev.preventDefault();
-        navigateBellInboxHref(a.href);
-      });
-      li.appendChild(a);
-      host.appendChild(li);
-    });
-    var more = document.createElement("li");
-    more.className = "vc-notif-bell-inbox__item vc-notif-bell-inbox__item--more";
-    var moreA = document.createElement("a");
-    moreA.className = "vc-notif-bell-inbox__item-link vc-notif-bell-inbox__item-link--more";
-    moreA.href = notificationsStaffPageUrl(row.id);
-    moreA.textContent = "Apri inbox completa";
-    moreA.addEventListener("click", function (ev) {
-      ev.preventDefault();
-      navigateBellInboxHref(moreA.href);
-    });
-    more.appendChild(moreA);
-    host.appendChild(more);
-  }
-
-  function renderBellInboxLoadError(row, host, message) {
-    if (!host) return;
-    host.innerHTML = "";
-    host.hidden = false;
-    host.removeAttribute("hidden");
-    var li = document.createElement("li");
-    li.className = "vc-notif-bell-inbox__item vc-notif-bell-inbox__item--empty vc-notif-bell-inbox__item--error";
-    var btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "vc-notif-bell-inbox__retry";
-    btn.textContent = String(message || "Errore di caricamento") + " — riprova";
-    btn.addEventListener("click", function (ev) {
-      ev.preventDefault();
-      ev.stopPropagation();
-      host.removeAttribute("data-loaded");
-      host.removeAttribute("data-loading");
-      host.innerHTML =
-        '<li class="vc-notif-bell-inbox__item vc-notif-bell-inbox__item--empty">Caricamento…</li>';
-      loadBellInboxSectionItems(row, host);
-    });
-    li.appendChild(btn);
-    host.appendChild(li);
-  }
-
-  function shouldPreserveBellInboxList() {
-    try {
-      if (bellNotifScope !== "staff") return false;
-      if (Date.now() < Number(bellInboxExpandLockUntil || 0)) return true;
-      var list = document.getElementById("vc-notif-bell-inbox-list");
-      if (!list) return false;
-      if (list.querySelector('[data-loading="1"]')) return true;
-      if (list.querySelector(".vc-notif-bell-inbox__row.is-open")) return true;
-    } catch (ePres) {}
-    return false;
-  }
-
-  function loadBellInboxSectionItems(row, itemsHost) {
-    if (!row || !itemsHost) return;
-    var gen = String((Number(itemsHost.getAttribute("data-gen") || 0) || 0) + 1);
-    itemsHost.setAttribute("data-gen", gen);
-    itemsHost.setAttribute("data-loading", "1");
-    itemsHost.setAttribute("data-load-started", String(Date.now()));
-    fetchBellInboxQueueItems(row)
-      .then(function (items) {
-        if (itemsHost.getAttribute("data-gen") !== gen) return;
-        if (!itemsHost.isConnected) return;
-        itemsHost.removeAttribute("data-loading");
-        itemsHost.setAttribute("data-loaded", "1");
-        renderBellInboxItems(row, itemsHost, items || []);
+    if (window.__vcNotifStaffLoading) return window.__vcNotifStaffLoading;
+    ensureNotifStaffHost();
+    window.__vcNotifStaffLoading = new Promise(function (resolve, reject) {
+      var ver = "20261014notifStaffLazy1";
+      try {
+        var m = window.__VC_ASSET_VERS;
+        if (m && m.NOTIF_STAFF_VER) ver = String(m.NOTIF_STAFF_VER);
+      } catch (eV) {}
+      var s = document.createElement("script");
+      s.src = "/js/vc-landing-notif-staff." + ver + ".js?v=" + ver;
+      s.async = true;
+      s.onload = function () {
+        window.__vcNotifStaffLoading = null;
+        resolve(window.__vcNotifStaffApi || null);
+      };
+      s.onerror = function () {
+        window.__vcNotifStaffLoading = null;
         try {
-          bellInboxExpandLockUntil = Math.max(bellInboxExpandLockUntil, Date.now() + 800);
-        } catch (eLock) {}
-      })
-      .catch(function (err) {
-        if (itemsHost.getAttribute("data-gen") !== gen) return;
-        if (!itemsHost.isConnected) return;
-        itemsHost.removeAttribute("data-loading");
-        itemsHost.removeAttribute("data-loaded");
-        try {
-          bellInboxExpandLockUntil = Math.max(bellInboxExpandLockUntil, Date.now() + 600);
-        } catch (eLock2) {}
-        /* notifInboxGate1: never show "Solo High Staff — riprova"; hide gated queues. */
-        if (isBellInboxForbiddenErr(err) || !canBellInboxRow(row)) {
-          /* notifSheetScopeFix1: se summary ha count > 0 non nascondere — mostra retry */
-          var sumCount = 0;
-          try {
-            var cachedSum = readCachedBellStaffSummary();
-            sumCount = Number(cachedSum && cachedSum.summary && cachedSum.summary[row.id]) || 0;
-          } catch (eSumC) {}
-          if (sumCount <= 0) {
-            hideBellInboxForbiddenRow(row);
-            return;
-          }
-        }
-        /* notifApiErr1: niente toast globale — solo retry inline; benign = copy soft */
-        var benign = isBellInboxBenignErr(err);
-        var msg = benign
-          ? Number(err && err.status) === 401
-            ? "Accedi per vedere questa coda."
-            : "Caricamento non riuscito"
-          : (err && err.message) || "Impossibile caricare la coda.";
-        renderBellInboxLoadError(row, itemsHost, msg);
-      });
+          console.warn("[vc] notif-staff chunk failed");
+        } catch (eW) {}
+        reject(new Error("notif-staff"));
+      };
+      (document.body || document.documentElement).appendChild(s);
+    });
+    return window.__vcNotifStaffLoading;
   }
-
-  function toggleBellInboxSection(row, btn, itemsHost, forceOpen) {
-    if (!btn || !itemsHost) return;
-    if (!canBellInboxRow(row)) {
-      hideBellInboxForbiddenRow(row);
-      return;
-    }
-    var wantOpen =
-      typeof forceOpen === "boolean" ? forceOpen : btn.getAttribute("aria-expanded") !== "true";
-    btn.setAttribute("aria-expanded", wantOpen ? "true" : "false");
-    btn.classList.toggle("is-open", wantOpen);
-    var rowEl = btn.closest(".vc-notif-bell-inbox__row");
-    if (rowEl) rowEl.classList.toggle("is-open", wantOpen);
-    try {
-      var barEl = rowEl && rowEl.querySelector(".vc-notif-cat-bar, .vc-notif-bell-inbox__link");
-      if (barEl) barEl.classList.toggle("is-open", wantOpen);
-    } catch (eBarOpen) {}
-    try {
-      var rid = row && row.id ? String(row.id) : "";
-      if (rid) {
-        if (wantOpen) delete bellUserCollapsedCats["q:" + rid];
-        else bellUserCollapsedCats["q:" + rid] = 1;
+  function staffApi() {
+    return (
+      (window.__VC_NOTIF_STAFF_HOST && window.__VC_NOTIF_STAFF_HOST._api) ||
+      window.__vcNotifStaffApi ||
+      null
+    );
+  }
+  function fetchBellInboxQueueItems(row) {
+    return ensureNotifStaffChunk().then(function () {
+      var api = staffApi();
+      if (!api || typeof api.fetchBellInboxQueueItems !== "function") {
+        return Promise.reject(new Error("staff api"));
       }
-    } catch (eCol) {}
-    if (!wantOpen) {
-      itemsHost.hidden = true;
-      itemsHost.setAttribute("hidden", "");
-      return;
-    }
-    /* notifCatLoadFix1: lock più lungo — peer-sync non deve wipe a metà fetch */
-    bellInboxExpandLockUntil = Date.now() + 2400;
-    itemsHost.hidden = false;
-    itemsHost.removeAttribute("hidden");
-    var loaded = itemsHost.getAttribute("data-loaded") === "1";
-    var loading = itemsHost.getAttribute("data-loading") === "1";
-    var hasRows = Boolean(itemsHost.querySelector(".vc-notif-bell-inbox__item-link, .vc-notif-bell-inbox__retry"));
-    if (loaded && hasRows && forceOpen !== true) return;
-    if (loading) {
-      var started = Number(itemsHost.getAttribute("data-load-started") || 0) || 0;
-      if (started && Date.now() - started < 9000 && forceOpen !== true) return;
-      /* stuck loading → riprova */
-      itemsHost.removeAttribute("data-loading");
-      itemsHost.removeAttribute("data-loaded");
-    }
-    itemsHost.innerHTML =
-      '<li class="vc-notif-bell-inbox__item vc-notif-bell-inbox__item--empty">Caricamento…</li>';
-    loadBellInboxSectionItems(row, itemsHost);
+      return api.fetchBellInboxQueueItems(row);
+    });
   }
+  function renderBellInboxItems(row, hostEl, items) {
+    var api = staffApi();
+    if (api && typeof api.renderBellInboxItems === "function") {
+      return api.renderBellInboxItems(row, hostEl, items);
+    }
+    return ensureNotifStaffChunk().then(function () {
+      var a2 = staffApi();
+      if (a2 && a2.renderBellInboxItems) a2.renderBellInboxItems(row, hostEl, items);
+    });
+  }
+  function renderBellInboxLoadError(row, hostEl, message) {
+    var api = staffApi();
+    if (api && typeof api.renderBellInboxLoadError === "function") {
+      return api.renderBellInboxLoadError(row, hostEl, message);
+    }
+  }
+  function shouldPreserveBellInboxList() {
+    var api = staffApi();
+    if (api && typeof api.shouldPreserveBellInboxList === "function") {
+      return api.shouldPreserveBellInboxList();
+    }
+    try {
+      return Date.now() < Number(bellInboxExpandLockUntil || 0);
+    } catch (eP) {
+      return false;
+    }
+  }
+  function loadBellInboxSectionItems(row, itemsHost) {
+    return ensureNotifStaffChunk().then(function () {
+      var api = staffApi();
+      if (!api || typeof api.loadBellInboxSectionItems !== "function") return;
+      return api.loadBellInboxSectionItems(row, itemsHost);
+    });
+  }
+  function toggleBellInboxSection(row, btn, itemsHost, forceOpen) {
+    return ensureNotifStaffChunk().then(function () {
+      var api = staffApi();
+      if (!api || typeof api.toggleBellInboxSection !== "function") return;
+      return api.toggleBellInboxSection(row, btn, itemsHost, forceOpen);
+    });
+  }
+
 
   function ensureNotifBellScopeUi() {
     var dd = document.getElementById("vc-notif-dropdown");
@@ -10139,7 +12032,39 @@
           window.__vcCanBellStaffMemo = null;
         } catch (eMemo) {}
         syncNotifBellScopeChrome();
+        try {
+          if (bellNotifScope === "staff" && canBellStaffInbox()) {
+            loadBellStaffInboxSummary(true);
+          }
+        } catch (eSumOk) {}
       });
+      /* inboxBadgeLive1 / pageHang2: WS workflow → summary debounced (no storm) */
+      if (!window.__vcNotifWorkflowBadgeWired) {
+        window.__vcNotifWorkflowBadgeWired = true;
+        var workflowBadgeReloadTimer = 0;
+        window.addEventListener("vc:staff-workflow-changed", function () {
+          try {
+            bellStaffSummaryAt = 0;
+            bellStaffSummaryEtag = "";
+            /* notifAutoDismissSync1: cache coda teneva pending dopo auto-cancel */
+            bellStaffQueueCache = Object.create(null);
+            sessionStorage.removeItem("vc_inbox_summary_v1");
+            localStorage.removeItem("vc_inbox_summary_local_v1");
+            window.__VC_INBOX_SUMMARY_PREFETCH = null;
+          } catch (eBust) {}
+          try {
+            if (workflowBadgeReloadTimer) clearTimeout(workflowBadgeReloadTimer);
+          } catch (eClr) {}
+          workflowBadgeReloadTimer = window.setTimeout(function () {
+            workflowBadgeReloadTimer = 0;
+            try {
+              if (normalizeUserId(currentUserId) && getDiscordAccessToken() && canBellStaffInbox()) {
+                loadBellStaffInboxSummary(true);
+              }
+            } catch (eReload) {}
+          }, 450);
+        });
+      }
       window.addEventListener("vc:auth-logout", function () {
         try {
           window.__vcCanBellStaffMemo = null;
@@ -10165,16 +12090,99 @@
         window.__vcPushDetachForLogout = function () {
           return detachCurrentWebPushSubscription({ useRawToken: true });
         };
+        /* ticketPushGate1: API pubblica per gate ticket (obbligatorio push) */
+        window.VcWebPush = {
+          ver: "ticketPushGate1",
+          supported: function () {
+            return webPushSupported();
+          },
+          status: function () {
+            var perm = currentPushPermission() || "default";
+            var iosHome = Boolean(isIosLikeDevice() && !isStandalonePwa());
+            var ready =
+              webPushSupported() &&
+              !iosHome &&
+              perm === "granted" &&
+              (pushSubActive === true || (hadPushOk() && pushSubActive !== false));
+            return {
+              supported: webPushSupported(),
+              permission: perm,
+              subscribed: pushSubActive === true,
+              hadOk: hadPushOk(),
+              iosNeedsHomeScreen: iosHome,
+              standalone: isStandalonePwa(),
+              ready: ready,
+              lastError: String(lastPushErrorHint || ""),
+            };
+          },
+          isReady: function () {
+            try {
+              return window.VcWebPush.status().ready === true;
+            } catch (eR) {
+              return false;
+            }
+          },
+          enableFromGesture: function (btn) {
+            return new Promise(function (resolve) {
+              try {
+                if (isIosLikeDevice() && !isStandalonePwa()) {
+                  resolve({ ok: false, reason: "ios_home" });
+                  return;
+                }
+                if (!webPushSupported()) {
+                  resolve({ ok: false, reason: "unsupported" });
+                  return;
+                }
+                if (currentPushPermission() === "denied") {
+                  resolve({ ok: false, reason: "denied" });
+                  return;
+                }
+                if (btn) {
+                  btn.disabled = true;
+                  btn.textContent = tNotif("notif.pushEnabling", "Attivazione…");
+                }
+                subscribeWebPushNative({ fromGesture: true })
+                  .then(function (ok) {
+                    notePushPermission();
+                    syncPushPromptUi();
+                    if (btn) {
+                      btn.disabled = false;
+                      btn.textContent = tNotif("notif.pushEnable", "Attiva");
+                    }
+                    resolve({
+                      ok: ok === true,
+                      reason: ok ? "" : currentPushPermission() === "denied" ? "denied" : "fail",
+                      permission: currentPushPermission(),
+                      hint: String(lastPushErrorHint || ""),
+                    });
+                  })
+                  .catch(function () {
+                    if (btn) {
+                      btn.disabled = false;
+                      btn.textContent = tNotif("notif.pushEnable", "Attiva");
+                    }
+                    resolve({
+                      ok: false,
+                      reason: "fail",
+                      permission: currentPushPermission(),
+                      hint: String(lastPushErrorHint || ""),
+                    });
+                  });
+              } catch (eEn) {
+                resolve({ ok: false, reason: "fail" });
+              }
+            });
+          },
+        };
       } catch (eHooks) {}
     return true;
   }
 
   function resolveInitialBellScope(opts) {
     opts = opts || {};
-    /* notifSheetScopeFix1: apertura campana → SEMPRE Personali (prima di URL/pref/page). */
-    if (opts.fromBellOpen) {
-      return "personal";
-    }
+    /* bellOpenPersonal1: bottone campanella → SEMPRE Personali.
+       Inbox solo tap esplicito sullo switch (pref/URL non devono riaprire Inbox). */
+    if (opts.fromBellOpen) return "personal";
     var fromUrl = readBellScopeFromUrl();
     if (fromUrl === "staff" && canBellStaffInbox()) return "staff";
     if (isOnNotificationsPage()) {
@@ -10233,6 +12241,68 @@
     paint(document.getElementById("vc-notif-bell-pending-staff"), staffN);
   }
 
+  /* notifSheetScopeActive2/4/6/9: inline fill; no transition su bg (altrimenti tab “sticky”) */
+  function paintNotifBellScopeTab(el, on) {
+    if (!el || !el.style) return;
+    var light = false;
+    try {
+      light = document.documentElement.getAttribute("data-vc-theme") === "light";
+    } catch (eTh) {}
+    /* transition su background-color lasciava il fill sul tab sbagliato */
+    el.style.setProperty("transition", "none", "important");
+    /* reset shorthand first so leftover gradient/color non restano sull’altro tab */
+    el.style.removeProperty("background");
+    el.style.removeProperty("background-color");
+    el.style.removeProperty("background-image");
+    el.style.removeProperty("color");
+    el.style.removeProperty("-webkit-text-fill-color");
+    el.style.removeProperty("border");
+    el.style.removeProperty("box-shadow");
+    try {
+      el.setAttribute("data-vc-scope-on", on ? "1" : "0");
+    } catch (eOn) {}
+    if (on) {
+      if (light) {
+        el.style.setProperty("background-color", "#fff8f0", "important");
+        el.style.setProperty(
+          "background-image",
+          "linear-gradient(180deg, #fffefb 0%, #f7efe6 55%, #f0e6da 100%)",
+          "important",
+        );
+        el.style.setProperty("color", "#1a120e", "important");
+        el.style.setProperty("-webkit-text-fill-color", "#1a120e", "important");
+        el.style.setProperty("border", "1px solid rgba(111, 78, 55, 0.4)", "important");
+        el.style.setProperty(
+          "box-shadow",
+          "0 2px 8px rgba(60, 40, 24, 0.14), inset 0 1px 0 rgba(255, 255, 255, 0.75)",
+          "important",
+        );
+      } else {
+        el.style.setProperty("background-color", "#3a281c", "important");
+        el.style.setProperty("background-image", "none", "important");
+        el.style.setProperty("color", "#fff8f0", "important");
+        el.style.setProperty("-webkit-text-fill-color", "#fff8f0", "important");
+        el.style.setProperty("border", "0 solid transparent", "important");
+        el.style.setProperty("box-shadow", "inset 0 1px 0 rgba(255, 255, 255, 0.1)", "important");
+      }
+    } else {
+      el.style.setProperty("background-color", "transparent", "important");
+      el.style.setProperty("background-image", "none", "important");
+      el.style.setProperty(
+        "color",
+        light ? "#3a281c" : "rgba(236, 214, 188, 0.72)",
+        "important",
+      );
+      el.style.setProperty(
+        "-webkit-text-fill-color",
+        light ? "#3a281c" : "rgba(236, 214, 188, 0.72)",
+        "important",
+      );
+      el.style.setProperty("border", "0 solid transparent", "important");
+      el.style.setProperty("box-shadow", "none", "important");
+    }
+  }
+
   function syncNotifBellScopeChrome() {
     ensureNotifBellScopeUi();
     var switchWrap = document.getElementById("vc-notif-bell-scope");
@@ -10241,9 +12311,13 @@
     var personalPane = document.getElementById("vc-notif-bell-pane-personal");
     var staffPane = document.getElementById("vc-notif-bell-pane-staff");
     var staffOk = canBellStaffInbox();
-    if (!staffOk && bellNotifScope === "staff") bellNotifScope = "personal";
+    /* inboxSwitchSticky1: non demote Inbox→Personali nei primi secondi dopo tap
+       (perms memo/false race). */
+    var stickyStaff = Date.now() < Number(bellStaffScopeStickyUntil || 0);
+    if (!staffOk && bellNotifScope === "staff" && !stickyStaff) bellNotifScope = "personal";
+    var showStaffChrome = staffOk || (stickyStaff && bellNotifScope === "staff");
     if (switchWrap) {
-      if (staffOk) {
+      if (showStaffChrome) {
         switchWrap.hidden = false;
         switchWrap.removeAttribute("hidden");
       } else {
@@ -10252,19 +12326,38 @@
       }
     }
     if (tabS) {
-      tabS.disabled = !staffOk;
-      tabS.setAttribute("aria-disabled", staffOk ? "false" : "true");
-      if (!staffOk) tabS.setAttribute("hidden", "");
+      tabS.disabled = !showStaffChrome;
+      tabS.setAttribute("aria-disabled", showStaffChrome ? "false" : "true");
+      if (!showStaffChrome) tabS.setAttribute("hidden", "");
       else tabS.removeAttribute("hidden");
     }
-    var isStaff = bellNotifScope === "staff" && staffOk;
+    var isStaff = bellNotifScope === "staff" && showStaffChrome;
+    try {
+      var seg = switchWrap && switchWrap.querySelector(".vc-notif-scope-switch__seg");
+      if (seg && seg.style) {
+        var lightSeg = false;
+        try {
+          lightSeg = document.documentElement.getAttribute("data-vc-theme") === "light";
+        } catch (eLg) {}
+        seg.style.setProperty("transition", "none", "important");
+        if (lightSeg) {
+          seg.style.setProperty("background-color", "rgba(111, 78, 55, 0.16)", "important");
+          seg.style.setProperty("background-image", "none", "important");
+        } else {
+          seg.style.setProperty("background-color", "rgba(14, 10, 8, 0.92)", "important");
+          seg.style.setProperty("background-image", "none", "important");
+        }
+      }
+    } catch (eSeg) {}
     if (tabP) {
       tabP.classList.toggle("is-active", !isStaff);
       tabP.setAttribute("aria-selected", !isStaff ? "true" : "false");
+      paintNotifBellScopeTab(tabP, !isStaff);
     }
     if (tabS) {
       tabS.classList.toggle("is-active", isStaff);
       tabS.setAttribute("aria-selected", isStaff ? "true" : "false");
+      paintNotifBellScopeTab(tabS, isStaff);
     }
     if (personalPane) {
       personalPane.hidden = isStaff;
@@ -10292,13 +12385,23 @@
     try {
       syncNotifScopeSwitchPending();
     } catch (ePend) {}
-    /* notifBellStable1: su switch tab niente force summary (wipe+flash); soft solo se staff */
+    /* notifBellStable1: su switch tab niente wipe forzato; notifPendingBadgeLive1: refresh se stale */
     if (staffOk) {
-      if (isStaff) loadBellStaffInboxSummary(false);
-      else {
+      if (isStaff) {
+        var scopeForce =
+          !bellStaffSummaryAt || Date.now() - Number(bellStaffSummaryAt || 0) > 5000;
+        loadBellStaffInboxSummary(scopeForce);
+      } else {
         try {
           paintNotifBellBadgeFromStore();
+          syncNotifScopeSwitchPending();
         } catch (eBadgeOnly) {}
+        try {
+          /* anche su Personali aggiorna i pip pending Inbox se summary vecchia */
+          if (!bellStaffSummaryAt || Date.now() - Number(bellStaffSummaryAt || 0) > 12000) {
+            loadBellStaffInboxSummary(true);
+          }
+        } catch (ePendSoft) {}
       }
     }
   }
@@ -10306,11 +12409,34 @@
   function setBellNotifScope(next, opts) {
     opts = opts || {};
     var want = next === "staff" ? "staff" : "personal";
-    if (want === "staff" && !canBellStaffInbox()) want = "personal";
+    var staffOkNow = canBellStaffInbox();
+    if (want === "staff" && !staffOkNow) {
+      /* inboxSwitchSticky1: tap esplicito Inbox → tieni staff in sticky finché perms arrivano */
+      if (opts.source === "bell") {
+        bellStaffScopeStickyUntil = Date.now() + 6000;
+        want = "staff";
+        try {
+          window.__vcCanBellStaffMemo = null;
+        } catch (eClrMemo) {}
+      } else if (!(Date.now() < Number(bellStaffScopeStickyUntil || 0))) {
+        want = "personal";
+      }
+    } else if (want === "staff" && staffOkNow && opts.source === "bell") {
+      bellStaffScopeStickyUntil = Date.now() + 4000;
+    } else if (want === "personal" && opts.source === "bell") {
+      bellStaffScopeStickyUntil = 0;
+    }
     var prev = bellNotifScope;
     bellNotifScope = want;
     if (!opts || opts.remember !== false) writeBellScopePref(want);
     syncNotifBellScopeChrome();
+    /* notifScopeScrollBar1: cambio tab → scroll body a 0 (niente track fantasma a destra) */
+    if (prev !== want) {
+      try {
+        var panelBody = document.querySelector("#vc-notif-dropdown .vc-notif-panel-body");
+        if (panelBody) panelBody.scrollTop = 0;
+      } catch (eScrollReset) {}
+    }
     if (opts.source === "bell" && !opts.silent) {
       try {
         if (isOnNotificationsPage() && window.VcNotifScope && typeof window.VcNotifScope.setScope === "function") {
@@ -10334,20 +12460,113 @@
       var pref = window.__VC_INBOX_SUMMARY_PREFETCH;
       if (pref && pref.summary) return pref;
       var now = Date.now();
-      var raw = sessionStorage.getItem("vc_inbox_summary_v1");
+      var raw =
+        window.VcStorage && typeof window.VcStorage.get === "function"
+          ? window.VcStorage.get("vc_inbox_summary_v1", { scope: "ss" })
+          : sessionStorage.getItem("vc_inbox_summary_v1");
       if (raw) {
         var parsed = JSON.parse(raw);
-        if (parsed && parsed.summary && now - Number(parsed.at || 0) <= 120000) return parsed;
+        if (parsed && parsed.summary && now - Number(parsed.at || 0) <= 45000) return parsed;
       }
-      var rawLocal = localStorage.getItem("vc_inbox_summary_local_v1");
+      var rawLocal =
+        window.VcStorage && typeof window.VcStorage.get === "function"
+          ? window.VcStorage.get("vc_inbox_summary_local_v1", { scope: "ls" })
+          : localStorage.getItem("vc_inbox_summary_local_v1");
       if (rawLocal) {
         var parsedLocal = JSON.parse(rawLocal);
-        if (parsedLocal && parsedLocal.summary && now - Number(parsedLocal.at || 0) <= 600000) {
+        /* inboxBadgeLive1: cache locale max 45s (prima 10m → badge pending fantasma a 0) */
+        if (parsedLocal && parsedLocal.summary && now - Number(parsedLocal.at || 0) <= 45000) {
           return parsedLocal;
         }
       }
     } catch (eCache) {}
     return null;
+  }
+
+  /* notifPendingBadgeLive1: applica summary fresco → badge campanella + pip Personali|Inbox + app badge */
+  function applyBellStaffSummaryLive(body, opts) {
+    opts = opts || {};
+    if (!body || !body.summary || typeof body.summary !== "object") return false;
+    try {
+      if (body.permissions) bellStaffPerms = body.permissions;
+    } catch (ePerm) {}
+    try {
+      var cachePayload = {
+        summary: body.summary,
+        permissions: body.permissions || null,
+        at: Date.now(),
+      };
+      var cacheJson = JSON.stringify(cachePayload);
+      if (window.VcStorage && typeof window.VcStorage.set === "function") {
+        window.VcStorage.set("vc_inbox_summary_v1", cacheJson, {
+          scope: "ss",
+          immediate: true,
+          broadcast: false,
+        });
+        window.VcStorage.set("vc_inbox_summary_local_v1", cacheJson, {
+          scope: "ls",
+          immediate: true,
+        });
+      } else {
+        sessionStorage.setItem("vc_inbox_summary_v1", cacheJson);
+        localStorage.setItem("vc_inbox_summary_local_v1", cacheJson);
+      }
+      window.__VC_INBOX_SUMMARY_PREFETCH = body;
+    } catch (eStoreLive) {}
+    if (opts.touchAt !== false) {
+      try {
+        bellStaffSummaryAt = Date.now();
+      } catch (eAt) {}
+    }
+    try {
+      if (bellNotifScope === "staff" || opts.paintList === true) {
+        renderBellStaffInbox(body.summary, opts.forceList ? { force: true } : {});
+      }
+    } catch (eList) {}
+    try {
+      paintNotifBellBadgeFromStore();
+    } catch (eBadgeLive) {}
+    try {
+      syncNotifScopeSwitchPending();
+    } catch (ePendLive) {}
+    try {
+      requestAppBadgeSync(countBellBadgeUnread() <= 0);
+    } catch (eApp) {}
+    return true;
+  }
+
+  function wireBellStaffSummaryLive() {
+    if (window.__vcBellStaffSummaryLiveWired) return;
+    window.__vcBellStaffSummaryLiveWired = 1;
+    try {
+      window.addEventListener("vc:inbox-summary-ready", function (ev) {
+        try {
+          var d = ev && ev.detail;
+          if (!d || !d.summary) return;
+          applyBellStaffSummaryLive(d, { touchAt: true });
+        } catch (eEv) {}
+      });
+    } catch (eWireEv) {}
+    try {
+      window.addEventListener("storage", function (ev) {
+        if (!ev) return;
+        var k = String(ev.key || "");
+        if (k !== "vc_inbox_summary_local_v1" && k !== "vc_inbox_summary_v1") return;
+        try {
+          window.__VC_INBOX_SUMMARY_PREFETCH = null;
+          var cached = readCachedBellStaffSummary();
+          if (cached && cached.summary) {
+            applyBellStaffSummaryLive(
+              { ok: true, summary: cached.summary, permissions: cached.permissions || null },
+              { touchAt: false },
+            );
+          } else {
+            paintNotifBellBadgeFromStore();
+            syncNotifScopeSwitchPending();
+          }
+        } catch (eSt) {}
+      });
+    } catch (eWireSt) {}
   }
 
   function patchBellStaffInboxCounts(summary) {
@@ -10370,13 +12589,37 @@
       var li = list.querySelector('.vc-notif-bell-inbox__row[data-bell-inbox="' + row.id + '"]');
       if (!li) return;
       var count = Number(sum[row.id] || 0) || 0;
+      /* notifAutoDismissSync1: summary fresco vince — cache coda non tiene pending fantasma.
+         Inflate solo se cache più recente del summary cache (race fetch coda). */
+      try {
+        var cachedQ = bellStaffQueueCache[row.id];
+        var sumAt = 0;
+        try {
+          var cachedSumAt = readCachedBellStaffSummary();
+          sumAt = Number((cachedSumAt && cachedSumAt.at) || 0) || 0;
+        } catch (eSa) {}
+        if (
+          cachedQ &&
+          Array.isArray(cachedQ.items) &&
+          cachedQ.items.length &&
+          Number(cachedQ.at || 0) > sumAt
+        ) {
+          count = Math.max(count, cachedQ.items.length);
+        } else if (cachedQ && Array.isArray(cachedQ.items) && count < cachedQ.items.length) {
+          try {
+            delete bellStaffQueueCache[row.id];
+          } catch (eDelQ) {}
+        }
+      } catch (eCq) {}
       if (
         (row.punti || row.id === "punti-tolti") &&
         !sum[row.id] &&
         bellStaffQueueCache[row.id] &&
-        Array.isArray(bellStaffQueueCache[row.id].items)
+        Array.isArray(bellStaffQueueCache[row.id].items) &&
+        Number(bellStaffQueueCache[row.id].at || 0) >
+          Number((readCachedBellStaffSummary() && readCachedBellStaffSummary().at) || 0)
       ) {
-        count = bellStaffQueueCache[row.id].items.length;
+        count = Math.max(count, bellStaffQueueCache[row.id].items.length);
       }
       if (row.id === "punti-tolti") count += inboxNotifsForBucket("punti-tolti").length;
       li.classList.toggle("has-count", count > 0);
@@ -10388,7 +12631,9 @@
     });
   }
 
-  function renderBellStaffInbox(summary) {
+  function renderBellStaffInbox(summary, opts) {
+    opts = opts || {};
+    var forceWipe = opts.force === true || opts.wipe === true;
     var list = document.getElementById("vc-notif-bell-inbox-list");
     var hint = document.getElementById("vc-notif-bell-inbox-hint");
     /* notifCats3 marker */
@@ -10401,6 +12646,7 @@
     /* perfDeskCut1 marker */
     /* notifSheetOpenFix1 + notifSheetFastOpen1 marker */
     /* notifCatLoadFix1 marker */
+    /* notifCatClearDom1 marker */
     if (!list) return;
     var sum = summary && typeof summary === "object" ? summary : {};
     /* notifQueueFast1 / notifTapEmptyFix1: skip wipe solo durante load in corso
@@ -10408,19 +12654,27 @@
     var listBusy = false;
     try {
       listBusy =
-        Date.now() < Number(bellInboxExpandLockUntil || 0) ||
-        Boolean(list.querySelector('[data-loading="1"]')) ||
-        Boolean(list.querySelector(".vc-notif-bell-inbox__row.is-open"));
+        !forceWipe &&
+        (Date.now() < Number(bellInboxExpandLockUntil || 0) ||
+          Boolean(list.querySelector('[data-loading="1"]')) ||
+          Boolean(list.querySelector(".vc-notif-bell-inbox__row.is-open")));
     } catch (eBusy) {
       listBusy = false;
     }
-    /* notifCatLoadFix1: con categorie aperte solo patch count (mai wipe) */
+    /* notifCatLoadFix1: con categorie aperte solo patch count (mai wipe)
+       notifCatClearDom1: forceWipe dopo clear/trash → ricostruisci sempre */
     if (listBusy && list.children && list.children.length) {
       try {
         patchBellStaffInboxCounts(sum);
         paintNotifBellBadgeFromStore();
       } catch (ePatch) {}
       return;
+    }
+    if (forceWipe) {
+      try {
+        bellInboxExpandLockUntil = 0;
+        bellStaffSummarySig = "";
+      } catch (eForceClr) {}
     }
     var sigParts = [];
     try {
@@ -10580,13 +12834,35 @@
       if (!canBellInboxRow(row)) return;
       visible += 1;
       var count = Number(sum[row.id] || 0) || 0;
+      try {
+        var cachedQ2 = bellStaffQueueCache[row.id];
+        var sumAt2 = 0;
+        try {
+          var cs2 = readCachedBellStaffSummary();
+          sumAt2 = Number((cs2 && cs2.at) || 0) || 0;
+        } catch (eSa2) {}
+        if (
+          cachedQ2 &&
+          Array.isArray(cachedQ2.items) &&
+          cachedQ2.items.length &&
+          Number(cachedQ2.at || 0) > sumAt2
+        ) {
+          count = Math.max(count, cachedQ2.items.length);
+        } else if (cachedQ2 && Array.isArray(cachedQ2.items) && count < cachedQ2.items.length) {
+          try {
+            delete bellStaffQueueCache[row.id];
+          } catch (eDelQ2) {}
+        }
+      } catch (eCq2) {}
       if (
         (row.punti || row.id === "punti-tolti") &&
         !sum[row.id] &&
         bellStaffQueueCache[row.id] &&
-        Array.isArray(bellStaffQueueCache[row.id].items)
+        Array.isArray(bellStaffQueueCache[row.id].items) &&
+        Number(bellStaffQueueCache[row.id].at || 0) >
+          Number((readCachedBellStaffSummary() && readCachedBellStaffSummary().at) || 0)
       ) {
-        count = bellStaffQueueCache[row.id].items.length;
+        count = Math.max(count, bellStaffQueueCache[row.id].items.length);
       }
       if (row.id === "punti-tolti") count += ptNotifs.length;
       total += count;
@@ -10715,7 +12991,8 @@
         }
       } catch (eHintLoad) {}
     }
-    if (!force && bellStaffSummaryAt && Date.now() - bellStaffSummaryAt < 60000 && cached) {
+    /* notifPendingBadgeLive1: soft throttle 12s (prima 60s → badge pending stale in app) */
+    if (!force && bellStaffSummaryAt && Date.now() - bellStaffSummaryAt < 12000 && cached) {
       return Promise.resolve(cached);
     }
     var token = getDiscordAccessToken();
@@ -10780,21 +13057,38 @@
         }
         if (out.body.__etag) bellStaffSummaryEtag = out.body.__etag;
         if (out.body.permissions) bellStaffPerms = out.body.permissions;
+        /* notifPendingBadgeLive1: cache + badge/app subito (anche su tab Personali) */
         try {
-          var cachePayload = {
-            summary: out.body.summary,
-            permissions: out.body.permissions || null,
-            at: Date.now(),
-          };
-          sessionStorage.setItem("vc_inbox_summary_v1", JSON.stringify(cachePayload));
-          localStorage.setItem("vc_inbox_summary_local_v1", JSON.stringify(cachePayload));
-          window.__VC_INBOX_SUMMARY_PREFETCH = out.body;
-        } catch (eStore) {}
-        /* notifInboxTapFix1: aggiorna DOM staff solo se Inbox è la vista attiva */
-        if (bellNotifScope === "staff") renderBellStaffInbox(out.body.summary);
-        try {
-          paintNotifBellBadgeFromStore();
-        } catch (eBadge) {}
+          applyBellStaffSummaryLive(out.body, { touchAt: false });
+        } catch (eLiveApply) {
+          try {
+            var cachePayload = {
+              summary: out.body.summary,
+              permissions: out.body.permissions || null,
+              at: Date.now(),
+            };
+            var cacheJsonFb = JSON.stringify(cachePayload);
+            if (window.VcStorage && typeof window.VcStorage.set === "function") {
+              window.VcStorage.set("vc_inbox_summary_v1", cacheJsonFb, {
+                scope: "ss",
+                immediate: true,
+                broadcast: false,
+              });
+              window.VcStorage.set("vc_inbox_summary_local_v1", cacheJsonFb, {
+                scope: "ls",
+                immediate: true,
+              });
+            } else {
+              sessionStorage.setItem("vc_inbox_summary_v1", cacheJsonFb);
+              localStorage.setItem("vc_inbox_summary_local_v1", cacheJsonFb);
+            }
+            window.__VC_INBOX_SUMMARY_PREFETCH = out.body;
+          } catch (eStore) {}
+          if (bellNotifScope === "staff") renderBellStaffInbox(out.body.summary);
+          try {
+            paintNotifBellBadgeFromStore();
+          } catch (eBadge) {}
+        }
         return out.body;
       })
       .catch(function () {
@@ -10868,19 +13162,30 @@
             }
           } catch (eSyncOpen) {}
           try {
-            if (canBellStaffInbox()) loadBellStaffInboxSummary(false);
+            /* notifPendingBadgeLive1: all'open forza summary se >5s (badge pending aggiornato) */
+            if (canBellStaffInbox()) {
+              var openForce =
+                !bellStaffSummaryAt || Date.now() - Number(bellStaffSummaryAt || 0) > 5000;
+              loadBellStaffInboxSummary(openForce);
+            }
           } catch (eSumOpen) {}
         } else {
           /* notifBellStayOpen1: overflow-lock / portal sync can spurious-close <details>
              within the open guard — reclaim instead of tearing down. */
           /* notifSheetUnifyGuard1: usa shared guard (chrome openSmooth) */
           if (landingPortalGuardLive()) {
+            var closeLocked = false;
             try {
-              dd.open = true;
-              dd.setAttribute("open", "");
-            } catch (eReOpen) {}
-            scheduleNotifSheetChromeSync({ delayMs: 0 });
-            return;
+              closeLocked = Date.now() < Number(window.__vcNotifCloseLockUntil || 0);
+            } catch (eLock) {}
+            if (!closeLocked) {
+              try {
+                dd.open = true;
+                dd.setAttribute("open", "");
+              } catch (eReOpen) {}
+              scheduleNotifSheetChromeSync({ delayMs: 0 });
+              return;
+            }
           }
           notifSheetSessionActive = false;
           clearLandingPortalGuard();
@@ -10972,7 +13277,8 @@
         if (window.__vcNotifResizeT) window.clearTimeout(window.__vcNotifResizeT);
         window.__vcNotifResizeT = window.setTimeout(function () {
           window.__vcNotifResizeT = 0;
-          window.setTimeout(function () {
+          /* notifViolKill1: idle — sync/restore sync = Forced reflow */
+          var run = function () {
             try {
               syncNotifMobileSheetChrome();
             } catch (eR1) {}
@@ -10983,26 +13289,35 @@
                 restoreNotifScrollAfterClose();
               }
             } catch (eR2) {}
-          }, 0);
+          };
+          /* violKillIdle1: setTimeout — rIC({timeout}) → Violation idle */
+          window.setTimeout(run, 40);
         }, 180);
       });
       window.addEventListener("pageshow", function () {
-        /* violPass4/7/12: repair ancora più spezzato (era ~150ms×2 Violation) */
-        window.setTimeout(function () {
+        /* violKillIdle1: niente rIC({timeout}) — Chrome Violation idle */
+        function idle(fn, fallbackMs) {
           window.setTimeout(function () {
+            try {
+              fn();
+            } catch (eT) {}
+          }, fallbackMs || 80);
+        }
+        window.setTimeout(function () {
+          idle(function () {
             try {
               repairNotifDropdownPortal();
             } catch (ePs1) {}
-          }, 0);
-        }, 480);
+          }, 900);
+        }, 520);
         window.setTimeout(function () {
-          window.setTimeout(function () {
+          idle(function () {
             try {
               var liveDd = document.getElementById("vc-notif-dropdown");
               if (!liveDd || !liveDd.open) restoreNotifScrollAfterClose();
             } catch (ePs2) {}
-          }, 0);
-        }, 720);
+          }, 1200);
+        }, 900);
       });
       /* notifSidebar4: do NOT close drawer on visibilitychange (tab hide / app background). */
     }
@@ -11120,6 +13435,7 @@
   }
 
   function ensureStaffLateNotifUi() {
+    /* violKillRest1: wire leggero sync; render/prefetch/poll in turni separati */
     ensureSiteNotifDropdown();
     var had = Boolean(document.getElementById("vc-notif-dropdown"));
     wireNotifMobileSheet();
@@ -11129,22 +13445,36 @@
     bindClearAllButton();
     removeMarkAllButton();
     try {
-      /* notifMobileSwitch1 / notifSheetUnifyGuard1: late staff gate → clear memo sticky false */
-      try {
-        window.__vcCanBellStaffMemo = null;
-      } catch (eMemoLate) {}
-      syncNotifBellScopeChrome();
-    } catch (eScopeLate) {}
-    /* notifPendingBoot1: prefetch summary non appena staff ok (badge rosso senza aprire Inbox) */
-    try {
-      if (canBellStaffInbox()) loadBellStaffInboxSummary();
-    } catch (ePrefetch) {}
-    if (!had) return;
-    lastNotifRenderSig = "";
-    render({ force: true });
-    if (normalizeUserId(currentUserId) && getDiscordAccessToken()) {
-      scheduleSiteNotificationsPolling();
+      window.__vcCanBellStaffMemo = null;
+    } catch (eMemoLate) {}
+    function light(fn, ms) {
+      if (typeof window.__vcLight === "function") return window.__vcLight(fn, ms);
+      return window.setTimeout(fn, Math.max(48, Number(ms) || 0));
     }
+    light(function () {
+      try {
+        syncNotifBellScopeChrome();
+      } catch (eScopeLate) {}
+    }, 48);
+    light(function () {
+      try {
+        if (canBellStaffInbox()) loadBellStaffInboxSummary();
+      } catch (ePrefetch) {}
+    }, 160);
+    if (!had) return;
+    light(function () {
+      lastNotifRenderSig = "";
+      try {
+        render({ force: true });
+      } catch (eRen) {}
+    }, 280);
+    light(function () {
+      if (normalizeUserId(currentUserId) && getDiscordAccessToken()) {
+        try {
+          scheduleSiteNotificationsPolling();
+        } catch (ePol) {}
+      }
+    }, 420);
   }
 
   function deferAfterFirstPaint(fn, fallbackMs) {
@@ -11161,133 +13491,281 @@
   }
 
   function init() {
+    /* violKillFinal1: init seriale — 1 job per turno */
     ensureSiteNotifDropdown();
     setCurrentUser(window.__VC_DISCORD_PROFILE || null);
-    render();
-    syncGlobalNotifOverlayClass();
-    /* violPass9: AudioContext resume fuori dal keydown sync (era Violation ~675ms) */
+    window.vcNotify = { add: addNotif, refresh: render, clearAll: clearAll };
     function unlockNotifAudioSoon() {
-      window.setTimeout(function () {
+      /* violKillRest1: unlock fuori dallo stack gesture (era keydown 300ms+) */
+      if (notifAudioUnlocked) return;
+      var go = function () {
         try {
           unlockNotifAudio();
         } catch (eUnlock) {}
-      }, 0);
+      };
+      if (typeof window.__vcLight === "function") window.__vcLight(go, 48);
+      else window.setTimeout(go, 48);
     }
     document.addEventListener("pointerdown", unlockNotifAudioSoon, true);
-    document.addEventListener("keydown", unlockNotifAudioSoon, true);
-    wireNotifMobileSheet();
-    wireNotifListClicks();
-    ensureNotifSeeAllLink();
-    wireNotifSeeAllNav();
-    removeMarkAllButton();
-    bindClearAllButton();
-    window.addEventListener("vc:staff-access-ok", ensureStaffLateNotifUi);
-    window.addEventListener("vc:staff-notif-ready", ensureStaffLateNotifUi);
-    window.vcNotify = { add: addNotif, refresh: render, clearAll: clearAll };
-    flushPendingLoginNotification();
-    migrateUnreadKeep1PendingClear();
-    /* notifUnifyFix1: push-cold / mark-read subito (non dopo 2.6s idle) */
-    try {
-      consumeNotifReadFromUrl();
-      consumePendingReadFromSwCache();
-      consumePendingNavFromSwCache();
-      startPendingNavPoll();
-      markNotificationsForCurrentPage();
-    } catch (eEarly) {}
-    /* pushReuseClient1: PWA pageshow (focus da click push) — ritenta pending se boot l’ha perso */
+    /* violKillRest1: niente keydown — pointerdown basta per AudioContext */
+    window.addEventListener("vc:staff-access-ok", function () {
+      if (typeof window.__vcLight === "function") window.__vcLight(ensureStaffLateNotifUi, 180);
+      else window.setTimeout(ensureStaffLateNotifUi, 180);
+    });
+    window.addEventListener("vc:staff-notif-ready", function () {
+      if (typeof window.__vcLight === "function") window.__vcLight(ensureStaffLateNotifUi, 180);
+      else window.setTimeout(ensureStaffLateNotifUi, 180);
+    });
+
+    function light(fn, ms) {
+      if (typeof window.__vcLight === "function") return window.__vcLight(fn, ms);
+      return window.setTimeout(fn, Math.max(160, Number(ms) || 0));
+    }
+    var bootJobs = [
+      function () {
+        try {
+          /* notifSheetScopeActive6: switcher Personali|Inbox dipinto subito */
+          ensureNotifBellScopeUi();
+          syncNotifBellScopeChrome();
+        } catch (eScopeBoot) {}
+      },
+      function () {
+        try {
+          /* chromeStickyAll1: uid da cache + badge sticky subito */
+          bootstrapNotifUserFromCache();
+          paintBellBadgeWithServerTruth(countBellBadgeUnread());
+        } catch (eBadgeSticky) {
+          try {
+            paintNotifBellBadgeFromStore();
+          } catch (eBadge) {}
+        }
+        try {
+          /* siteBoot1: dopo sticky — unread da /webhooks/site-boot (non wipe) */
+          var bootU = window.__VC_BOOT_UNREAD;
+          if (bootU && (bootU.unread != null || bootU.total != null)) {
+            window.__VC_BOOT_UNREAD = null;
+            applyAuthoritativeUnread(bootU.unread, 45000);
+          }
+        } catch (eBootUnread) {}
+      },
+      function () {
+        try {
+          syncGlobalNotifOverlayClass();
+        } catch (eOv) {}
+      },
+      function () {
+        try {
+          wireNotifMobileSheet();
+        } catch (eWire1a) {}
+      },
+      function () {
+        try {
+          wireNotifListClicks();
+        } catch (eWire1b) {}
+      },
+      function () {
+        try {
+          ensureNotifSeeAllLink();
+          wireNotifSeeAllNav();
+          removeMarkAllButton();
+          bindClearAllButton();
+        } catch (eWire2) {}
+      },
+      function () {
+        try {
+          flushPendingLoginNotification();
+          migrateUnreadKeep1PendingClear();
+          consumeNotifReadFromUrl();
+        } catch (eEarly1) {}
+      },
+      function () {
+        try {
+          consumePendingReadFromSwCache();
+          consumePendingNavFromSwCache();
+        } catch (eEarly2) {}
+      },
+      /* violKillFinal1: niente render() a boot — solo badge (render = longtask) */
+    ];
+    for (var bi = 0; bi < bootJobs.length; bi++) light(bootJobs[bi], 280 + bi * 220);
+    light(function () {
+      try {
+        render();
+      } catch (ePaintBoot) {}
+    }, 2400);
+
+    /* pushReuseClient1: PWA pageshow — ritenta pending se boot l’ha perso */
     try {
       window.addEventListener("pageshow", function () {
-        window.setTimeout(function () {
+        light(function () {
           try {
+            if (!isHomeLikePathForPending()) {
+              scheduleUnlockScrollAfterPushOpen();
+              return;
+            }
             window.__vcPendingNavCacheDone = 0;
           } catch (eClr) {}
+        }, 200);
+        light(function () {
           try {
             consumePendingNavFromSwCache();
           } catch (ePs) {}
-        }, 0);
+        }, 360);
+        light(function () {
+          try {
+            scheduleUnlockScrollAfterPushOpen();
+          } catch (eUn) {}
+        }, 520);
       });
     } catch (ePageShow) {}
     deferAfterFirstPaint(function () {
-      /* violPass10: boot notif a fette — un solo setTimeout da 418ms → Violation */
-      window.setTimeout(function () {
-        try {
-          wirePushNotifMarkRead();
-          wirePushPermissionWatch();
-        } catch (e1) {}
-      }, 0);
-      window.setTimeout(function () {
-        try {
-          wirePushAutoRecover();
-          consumePendingNavFromSwCache();
-          startPendingNavPoll();
-        } catch (e2) {}
-      }, 120);
-      window.setTimeout(function () {
-        try {
-          wireSwClientFocusPing();
-          flushPendingReadsToServer();
-          tryFlushClickReads();
-          syncPushPromptUi();
-        } catch (e3) {}
-      }, 280);
-      window.setTimeout(function () {
-        try {
-          markNotificationsForCurrentPage();
-          if (normalizeUserId(currentUserId) && getDiscordAccessToken()) {
+      /* violKillFinal1: late boot seriale */
+      var lateJobs = [
+        function () {
+          try {
+            wirePushNotifMarkRead();
+          } catch (e1a) {}
+        },
+        function () {
+          try {
+            wirePushPermissionWatch();
+          } catch (e1b) {}
+        },
+        function () {
+          try {
+            wirePushAutoRecover();
+          } catch (e2a) {}
+        },
+        function () {
+          try {
+            startPendingNavPoll();
+          } catch (e2b) {}
+        },
+        function () {
+          try {
+            wireSwClientFocusPing();
+            flushPendingReadsToServer();
+          } catch (e3a) {}
+        },
+        function () {
+          try {
+            tryFlushClickReads();
+            syncPushPromptUi();
+          } catch (e3b) {}
+        },
+        function () {
+          try {
+            markNotificationsForCurrentPage();
+          } catch (e4a) {}
+        },
+        function () {
+          try {
+            wireBellStaffSummaryLive();
+          } catch (eWireSum) {}
+          try {
+            connectSiteRealtimeWebSocket();
+          } catch (eWsBoot) {}
+        },
+        function () {
+          try {
+            if (!(normalizeUserId(currentUserId) && getDiscordAccessToken())) {
+              if (isViewAsLogoutMode() && webPushSupported()) {
+                light(function () {
+                  detachCurrentWebPushSubscription({ useRawToken: true });
+                }, 1200);
+              }
+              return;
+            }
             scheduleSiteNotificationsPolling();
             try {
               if (canBellStaffInbox()) {
                 if (readCachedBellStaffSummary()) paintNotifBellBadgeFromStore();
                 loadBellStaffInboxSummary(false);
+                /* lazyEverywhere1: staff chunk solo staff + idle (no warm per guest) */
+                try {
+                  var warmStaff = function () {
+                    ensureNotifStaffChunk().catch(function () {});
+                  };
+                  if (typeof requestIdleCallback === "function") {
+                    requestIdleCallback(warmStaff, { timeout: 3500 });
+                  } else {
+                    setTimeout(warmStaff, 1800);
+                  }
+                } catch (ePre) {}
               }
             } catch (eBootSum) {}
-            if (webPushSupported()) {
-              window.setTimeout(function () {
-                prefetchPushPrereqs().then(function () {
-                  syncExistingWebPushSubscription();
-                });
-              }, pushBootSyncDelayMs());
-              if (!isMobilePushClient()) armDesktopPushCatchup("boot");
-            } else {
-              syncExistingWebPushSubscription();
-            }
-          } else if (isViewAsLogoutMode() && webPushSupported()) {
-            window.setTimeout(function () {
-              detachCurrentWebPushSubscription({ useRawToken: true });
-            }, 1200);
+          } catch (e4b) {}
+        },
+      ];
+      for (var li = 0; li < lateJobs.length; li++) light(lateJobs[li], 400 + li * 180);
+      light(function () {
+        try {
+          if (!(normalizeUserId(currentUserId) && getDiscordAccessToken())) return;
+          if (webPushSupported()) {
+            light(function () {
+              prefetchPushPrereqs().then(function () {
+                syncExistingWebPushSubscription();
+              });
+            }, pushBootSyncDelayMs());
+            if (!isMobilePushClient()) armDesktopPushCatchup("boot");
+          } else {
+            syncExistingWebPushSubscription();
           }
-        } catch (e4) {}
-      }, 480);
-    }, 1100);
+        } catch (e4c) {}
+      }, 2000);
+    }, 1600);
     window.addEventListener("pageshow", function (ev) {
-      /* notifPendingToastNoFlash1 + extOnlyFix1: re-arm deferred */
+      /* violKillFinal1: pageshow seriale */
       var persisted = !!(ev && ev.persisted);
-      window.setTimeout(function () {
+      light(function () {
         try {
           if (persisted) {
             clearNotifPendingToastSessionGate();
             notifIgPendingShownPath = "";
           }
           consumeNotifReadFromUrl();
+        } catch (ePs0) {}
+      }, 200);
+      light(function () {
+        try {
           consumePendingReadFromSwCache();
           consumePendingNavFromSwCache();
           startPendingNavPoll();
+        } catch (ePs1) {}
+      }, 360);
+      light(function () {
+        try {
           clearMobileOsToastsOnAppOpen();
           markNotificationsForCurrentPage();
-          if (normalizeUserId(currentUserId) && getDiscordAccessToken()) {
-            syncExistingWebPushSubscription();
-            try {
-              maybeShowPendingUnreadIgToast();
-            } catch (ePendPs) {}
+        } catch (ePs2) {}
+      }, 520);
+      light(function () {
+        try {
+          if (!(normalizeUserId(currentUserId) && getDiscordAccessToken())) return;
+          syncExistingWebPushSubscription();
+        } catch (ePs3) {}
+      }, 700);
+      light(function () {
+        try {
+          if (!(normalizeUserId(currentUserId) && getDiscordAccessToken())) return;
+          if (!(isIosLikeDevice() || isStandalonePwa()) || !persisted) {
+            maybeShowPendingUnreadIgToast();
           }
-        } catch (ePs) {}
-      }, 0);
+        } catch (ePendPs) {}
+      }, 900);
     });
     window.addEventListener("popstate", function () {
-      markNotificationsForCurrentPage();
+      light(function () {
+        try {
+          markNotificationsForCurrentPage();
+        } catch (ePop) {}
+      }, 200);
     });
     window.addEventListener("hashchange", function () {
-      markNotificationsForCurrentPage();
+      light(function () {
+        try {
+          markNotificationsForCurrentPage();
+        } catch (eHash) {}
+      }, 200);
     });
     /* pushVisitDismiss1: replaceState/pushState (inbox tab, soft open) non sparano popstate */
     try {
@@ -11327,25 +13805,81 @@
         return;
       }
       if (document.visibilityState === "visible") {
-        /* extOnlyFix1: sync pesante fuori dal handler visibility */
+        /* violKillReflow3: ZERO lavoro sync su visibilitychange (era 800ms+) */
         var hiddenFor = pageHiddenSinceAt ? Date.now() - pageHiddenSinceAt : 0;
         pageHiddenSinceAt = 0;
-        window.setTimeout(function () {
+        var light =
+          typeof window.__vcLight === "function"
+            ? function (fn, ms) {
+                window.__vcLight(fn, ms);
+              }
+            : function (fn, ms) {
+                window.setTimeout(fn, Math.max(0, Number(ms) || 0));
+              };
+        light(function () {
+          try {
+            unlockNotifAudio().then(function () {
+              flushPendingNotifSound();
+            });
+          } catch (eAudWake) {}
+        }, 80);
+        light(function () {
+          try {
+            healIosPushOnWake();
+          } catch (eIosHeal) {}
+        }, 160);
+        light(function () {
           try {
             clearMobileOsToastsOnAppOpen();
-            if (!isMobilePushClient() && hiddenFor >= 45000) {
+          } catch (eVis0) {}
+        }, 200);
+        light(function () {
+          try {
+            /* pushWakeNoReplay1: catchup solo tab browser, mai PWA; soglia più alta */
+            if (
+              !isMobilePushClient() &&
+              !(typeof isStandalonePwa === "function" && isStandalonePwa()) &&
+              hiddenFor >= 120000
+            ) {
               armDesktopPushCatchup("wake");
-              try {
-                syncExistingWebPushSubscription();
-              } catch (eWakePush) {}
             }
-            syncSiteNotificationsFromServer({ force: true, full: true });
+          } catch (eVis1) {}
+        }, 280);
+        light(function () {
+          try {
             markNotificationsForCurrentPage();
+          } catch (eVis2) {}
+        }, 420);
+        light(function () {
+          try {
+            /* pwaResumeLag1: resume corto → sync light; full solo hide ≥45s */
+            var fullWake = hiddenFor >= 45000;
+            if (hiddenFor < 6000) return;
+            syncSiteNotificationsFromServer({ force: true, full: fullWake });
+          } catch (eVis3) {}
+        }, 560);
+        light(function () {
+          try {
+            if (hiddenFor < 20000) return;
+            runVotePushCatchupFromStore();
+          } catch (eVoteCatch) {}
+        }, 720);
+        light(function () {
+          try {
+            if (hiddenFor < 12000) return;
             if (normalizeUserId(currentUserId) && getDiscordAccessToken()) {
               syncExistingWebPushSubscription();
             }
-          } catch (eVis) {}
-        }, 0);
+          } catch (eVis4) {}
+        }, 640);
+        light(function () {
+          try {
+            if (hiddenFor < 15000) return;
+            if (normalizeUserId(currentUserId) && getDiscordAccessToken() && canBellStaffInbox()) {
+              loadBellStaffInboxSummary(true);
+            }
+          } catch (eSumWake) {}
+        }, 900);
       }
     });
   }
@@ -11378,7 +13912,8 @@
       if (!isMobilePushClient()) armDesktopPushCatchup("profile");
     } else {
       stopSiteNotifsPoll();
-      disconnectSiteRealtimeWs();
+      /* wsShell1: resta sul bus pubblico (boards/live-stats) */
+      connectSiteRealtimeWebSocket();
     }
   });
   document.addEventListener("vc:langchange", function () {
@@ -11394,39 +13929,79 @@
   });
   document.addEventListener("visibilitychange", function () {
     if (!normalizeUserId(currentUserId) || !getDiscordAccessToken()) return;
-    /* perfBgRam1 + extOnlyFix1: hide sync leggero; show reconnect deferred */
+    /* violKillReflow3: hide/show tutto deferred (disconnect sync = Violation) */
     if (document.visibilityState !== "visible") {
-      try {
-        disconnectSiteRealtimeWs();
-      } catch (eWsOff) {}
-      try {
-        stopSiteNotifsPoll();
-      } catch (ePollOff) {}
+      window.setTimeout(function () {
+        try {
+          disconnectSiteRealtimeWs();
+        } catch (eWsOff) {}
+        try {
+          stopSiteNotifsPoll();
+        } catch (ePollOff) {}
+      }, 0);
       return;
     }
-    window.setTimeout(function () {
+    var lightVis =
+      typeof window.__vcLight === "function"
+        ? function (fn, ms) {
+            window.__vcLight(fn, ms);
+          }
+        : function (fn, ms) {
+            window.setTimeout(fn, Math.max(0, Number(ms) || 0));
+          };
+    lightVis(function () {
       try {
         restartSiteNotifsPollTimer();
+      } catch (ePoll) {}
+    }, 100);
+    lightVis(function () {
+      try {
         var wsUrl = siteRealtimeWsUrl();
         var rs = siteRealtimeWs ? siteRealtimeWs.readyState : 3;
         if (wsUrl && rs !== 0 && rs !== 1) connectSiteRealtimeWebSocket();
-        if (siteNotifsVisibilityTimer) clearTimeout(siteNotifsVisibilityTimer);
-        siteNotifsVisibilityTimer = setTimeout(function () {
-          siteNotifsVisibilityTimer = null;
+      } catch (eWs) {}
+    }, 220);
+    if (siteNotifsVisibilityTimer) clearTimeout(siteNotifsVisibilityTimer);
+    siteNotifsVisibilityTimer = setTimeout(function () {
+      siteNotifsVisibilityTimer = null;
+      lightVis(function () {
+        try {
           syncSiteNotificationsFromServer({ force: true, full: true });
-        }, 120);
-      } catch (eVisOn) {}
-    }, 0);
+        } catch (eSync) {}
+      }, 40);
+      lightVis(function () {
+        try {
+          if (canBellStaffInbox()) loadBellStaffInboxSummary(true);
+        } catch (eSumVis) {}
+      }, 160);
+    }, 360);
   });
   window.addEventListener("storage", function (ev) {
     if (!ev || !isNotifStorageSyncKey(ev.key)) return;
+    /* badgeInBellLive1: mirror unread hold da localStorage altri tab */
+    try {
+      var sk = String(ev.key || "");
+      if (sk.indexOf("vc_notif_server_unread_v1:") === 0 && ev.newValue) {
+        var parts = String(ev.newValue).split("|");
+        var n = Number(parts[0] || "");
+        if (Number.isFinite(n) && n >= 0) applyAuthoritativeUnread(n, 6000);
+      }
+    } catch (eStorUnread) {}
     onNotifStorePeerSync();
   });
   window.addEventListener("vc:notifications-sync", function () {
     onNotifStorePeerSync();
   });
   if (notifSyncBc) {
-    notifSyncBc.addEventListener("message", function () {
+    notifSyncBc.addEventListener("message", function (ev) {
+      try {
+        var d = ev && ev.data ? ev.data : null;
+        if (d && Number.isFinite(Number(d.unread)) && Number(d.unread) >= 0) {
+          applyAuthoritativeUnread(Number(d.unread), 6000);
+        } else if (d && Number.isFinite(Number(d.serverUnread)) && Number(d.serverUnread) >= 0) {
+          applyAuthoritativeUnread(Number(d.serverUnread), 6000);
+        }
+      } catch (eBcUnread) {}
       onNotifStorePeerSync();
     });
   }
@@ -11444,6 +14019,17 @@
       return detachCurrentWebPushSubscription({ useRawToken: true });
     };
   } catch (eExp) {}
+  /* notifSheetScopeActive6: hook subito (non solo dopo ensure/render @2.4s) */
+  try {
+    window.__vcEnsureNotifBellScopeUi = ensureNotifBellScopeUi;
+    window.__vcSyncNotifBellScopeChrome = syncNotifBellScopeChrome;
+    window.__vcSetBellNotifScope = setBellNotifScope;
+    window.__vcLoadBellStaffInboxSummary = loadBellStaffInboxSummary;
+    window.requestCloseNotifDropdown = requestCloseNotifDropdown;
+    window.__vcLandingNotifReady = 1;
+    window.__vcLandingNotifLoading = 0;
+    window.__VC_LANDING_NOTIF_BOOT = true;
+  } catch (eHooksBoot) {}
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", init);
   } else {
@@ -11465,4 +14051,5 @@
 /* violPass4 */
 /* violPass10 */
 /* pwaInAppReadDismiss1 */
+/* violKillCue2 */
 

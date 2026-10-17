@@ -7,7 +7,11 @@ const { getBotState, setBotState } = require("../../Utils/BotState/botStateStore
 const { isMongoReady } = require("../../Utils/Database/mongoConnect");
 const { getClientGuildCached, getGuildChannelCached } = require("../../Utils/Interaction/interactionEntityCache");
 const IDs = require("../../Utils/Config/ids");
-const { extractMovieNightProposalTitle } = require("../../Utils/Community/movieNightProposal");
+const { extractMovieNightProposalTitle, movieNightTitleCompareKey } = require("../../Utils/Community/movieNightProposal");
+const {
+  ensureWatchedMovieNightTitlesReady,
+  mergeWatchedTitleEntries,
+} = require("../../Utils/Community/movieNightWatchedTitles");
 const { siteWorkflowUrl } = require("../../Utils/Web/discordWorkflowUiGate");
 const { resolveSerataFilmHouseLeaderboard, sendSerataFilmHouseLeaderboardToReportChannel, formatCombinedRankingLines, collectHouseRoleIdsFromRanked, HOUSE_POINTS_BY_RANK, startSerataFilmHouseAttendanceSession, snapshotSerataFilmHouseAttendance, clearSerataFilmHouseAttendanceSession, restoreSerataFilmHouseAttendanceSession } = require("./hogwartsSerataFilmHouseLeaderboardService");
 const { isHogwartsWeeklyTopReplaced } = require("./weeklyActivityWinnersService");
@@ -18,8 +22,8 @@ const ANNOUNCE_CRON = "0 15 * * 1";
 const CLOSE_THREAD_CRON = "0 20 * * 5";
 const FINAL_ANNOUNCEMENT_FRIDAY_CRON = "0 21 * * 5";
 const FINAL_ANNOUNCEMENT_SATURDAY_CRON = "0 12 * * 6";
-const EVENT_START_SWEEP_CRON = "*/2 * * * 6";
-const STAGE_CLOSE_SWEEP_CRON = "*/5 * * * 6,0";
+const EVENT_START_SWEEP_CRON = "*/2 * * * 3,6";
+const STAGE_CLOSE_SWEEP_CRON = "*/5 * * * 3,4,6,0";
 let movieNightStageCloseRecoveryRunning = false;
 const FINAL_ANNOUNCE_FRIDAY_WEEKDAY = 5;
 const FINAL_ANNOUNCE_FRIDAY_HOUR = 21;
@@ -36,7 +40,8 @@ const FALLBACK_MOVIE_DESCRIPTION = "Non ho trovato una descrizione affidabile in
 const ANNOUNCEMENT_CHANNEL_ID = "1481660281032675510";
 const MOVIE_NIGHT_EVENT_CHANNEL_ID = "1497535199813042306";
 const EVENTS_ROLE_ID = String(IDs.roles?.Events || "1544830669023346688");
-const SERATA_FILM_ROLE_ID = String(IDs.roles?.SerataFilm || "1544830665688612924");
+/* serataFilmPingMerge1: Serata Film eliminato → ping Events */
+const SERATA_FILM_ROLE_ID = String(IDs.roles?.Events || IDs.roles?.SerataFilm || "1544830669023346688");
 const STAFF_COMMUNICATION_CHANNEL_ID = String(IDs.channels?.staffNews || "1442569239063167139");
 const STAFF_COMMUNICATION_ROLE_ID = String(IDs.roles?.Staff || "1442568910070349985");
 const MOVIE_NIGHT_FILM_HOUR = 21;
@@ -96,7 +101,20 @@ const HARRY_POTTER_MOVIE_NIGHT_SCHEDULE = new Map([
   ["2026-08-15", { skip: true }],
   ["2026-08-22", { skip: true }],
   ["2026-08-29", { title: "Harry Potter e i Doni della Morte - Parte 2" }],
+  // Halloween 2026 — film già scelti, niente thread votazioni quelle settimane
+  ["2026-10-24", { title: "Casper" }],
+  ["2026-10-31", { title: "Nightmare Before Christmas" }],
 ]);
+
+/** Serate film extra a data fissa (non sabato). State separato per non collisionare col sabato della stessa settimana. */
+const EXTRA_FIXED_MOVIE_NIGHTS = new Map([
+  ["2026-10-28", { title: "La sposa cadavere" }],
+]);
+const EXTRA_STATE_KEY = "movieNightExtra.v1";
+const EXTRA_FINAL_EVE_CRON = "0 21 * * 2";
+const EXTRA_FINAL_DAY_CRON = "0 12 * * 3";
+const EXTRA_EVENT_START_SWEEP_CRON = "*/2 * * * 3";
+const EXTRA_STAGE_CLOSE_SWEEP_CRON = "*/5 * * * 3,4";
 let movieNightAnnouncementTasks = null;
 let movieNightAnnouncementRunning = false;
 let movieNightThreadCloseRunning = false;
@@ -223,12 +241,18 @@ function resolveMovieNightStaffAnnounceSlot(now = new Date(), slotHint = "") {
 
 function shouldAttemptMovieNightEventStartRecovery(now = new Date()) {
   const parts = getRomeParts(now);
-  if (parts.weekday === TARGET_WEEKDAY) {
-    const eventWindow = getMovieNightDiscordEventStartWindow();
-    const cur = parts.hour * 60 + parts.minute;
-    return cur >= eventWindow.hour * 60 + eventWindow.minuteLo;
+  const eventWindow = getMovieNightDiscordEventStartWindow();
+  const cur = parts.hour * 60 + parts.minute;
+  const inEveningWindow = cur >= eventWindow.hour * 60 + eventWindow.minuteLo;
+  if (parts.weekday === TARGET_WEEKDAY && inEveningWindow) return true;
+  if (getExtraFixedMovieNight(now) && inEveningWindow) return true;
+  if (parts.weekday === 7 && parts.hour < 8) return true;
+  // early next-day recovery for Wednesday extras (Thu before 04:00)
+  if (parts.hour < 4) {
+    const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    if (getExtraFixedMovieNight(yesterday)) return true;
   }
-  return parts.weekday === 7 && parts.hour < 8;
+  return false;
 }
 
 function shouldAttemptMovieNightStageCloseRecovery(now = new Date()) {
@@ -237,6 +261,11 @@ function shouldAttemptMovieNightStageCloseRecovery(now = new Date()) {
   const filmStart = MOVIE_NIGHT_FILM_HOUR * 60 + MOVIE_NIGHT_FILM_MINUTE;
   if (parts.weekday === TARGET_WEEKDAY) return hm >= filmStart;
   if (parts.weekday === 7) return hm < 4 * 60;
+  if (getExtraFixedMovieNight(now) && hm >= filmStart) return true;
+  if (parts.hour < 4) {
+    const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    if (getExtraFixedMovieNight(yesterday)) return true;
+  }
   return false;
 }
 
@@ -258,8 +287,17 @@ function hasMovieNightSpareggio(state) {
   return Boolean(String(state?.tieBreakerPollMessageId || "").trim());
 }
 
+function getRomeDateKey(date = new Date()) {
+  const parts = getRomeParts(date);
+  return toDateKey(parts.year, parts.month, parts.day);
+}
+
 function getHarryPotterMovieNightScheduleForWeek(date = new Date()) {
   return HARRY_POTTER_MOVIE_NIGHT_SCHEDULE.get(getRomeSaturdayKeyForWeek(date)) || null;
+}
+
+function getExtraFixedMovieNight(date = new Date()) {
+  return EXTRA_FIXED_MOVIE_NIGHTS.get(getRomeDateKey(date)) || null;
 }
 
 function isMovieNightFixedScheduleSkipWeek(date = new Date()) {
@@ -269,6 +307,56 @@ function isMovieNightFixedScheduleSkipWeek(date = new Date()) {
 function getFixedMovieTitleForWeek(date = new Date()) {
   const entry = getHarryPotterMovieNightScheduleForWeek(date);
   return entry?.skip ? null : String(entry?.title || "").trim() || null;
+}
+
+function getFixedMovieTitleForDate(date = new Date()) {
+  const extra = getExtraFixedMovieNight(date);
+  if (extra?.title) return String(extra.title).trim();
+  const parts = getRomeParts(date);
+  if (parts.hour < 4) {
+    const yesterday = new Date(date.getTime() - 24 * 60 * 60 * 1000);
+    const yExtra = getExtraFixedMovieNight(yesterday);
+    if (yExtra?.title) return String(yExtra.title).trim();
+  }
+  return getFixedMovieTitleForWeek(date);
+}
+
+function resolveExtraMovieNightDateKey(now = new Date()) {
+  if (getExtraFixedMovieNight(now)) return getRomeDateKey(now);
+  const parts = getRomeParts(now);
+  if (parts.hour < 4) {
+    const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    if (getExtraFixedMovieNight(yesterday)) return getRomeDateKey(yesterday);
+  }
+  return "";
+}
+
+async function getExtraMovieNightState() {
+  const raw = await getBotState(EXTRA_STATE_KEY, null);
+  return raw && typeof raw === "object" ? raw : {};
+}
+
+async function patchExtraMovieNightState(eventDateKey, patch) {
+  const key = String(eventDateKey || "").trim();
+  if (!key) return null;
+  const all = await getExtraMovieNightState();
+  const prev = all[key] && typeof all[key] === "object" ? all[key] : {};
+  const next = { ...all, [key]: { ...prev, ...patch, eventDateKey: key } };
+  await setBotState(EXTRA_STATE_KEY, next);
+  return next[key];
+}
+
+function isMovieNightClockInStartWindow(startDate) {
+  if (!startDate) return false;
+  const parts = getRomeParts(startDate);
+  const startTotal = parts.hour * 60 + parts.minute;
+  const eventWindow = getMovieNightDiscordEventStartWindow();
+  const eventLo = eventWindow.hour * 60 + eventWindow.minuteLo;
+  const eventHi = eventWindow.hour * 60 + eventWindow.minuteHi;
+  if (startTotal >= eventLo && startTotal <= eventHi) return true;
+  const filmLo = MOVIE_NIGHT_FILM_HOUR * 60 + MOVIE_NIGHT_FILM_MINUTE;
+  const filmHi = filmLo + MOVIE_NIGHT_EVENT_WINDOW_AFTER_MIN;
+  return startTotal >= filmLo && startTotal <= filmHi;
 }
 
 function getMovieNightEventStartDate(event) {
@@ -294,21 +382,27 @@ function isSaturdayMovieNightStart(startDate, now = new Date()) {
   ) {
     return false;
   }
-  const startTotal = parts.hour * 60 + parts.minute;
-  const eventWindow = getMovieNightDiscordEventStartWindow();
-  const eventLo = eventWindow.hour * 60 + eventWindow.minuteLo;
-  const eventHi = eventWindow.hour * 60 + eventWindow.minuteHi;
-  if (startTotal >= eventLo && startTotal <= eventHi) return true;
-  const filmLo = MOVIE_NIGHT_FILM_HOUR * 60 + MOVIE_NIGHT_FILM_MINUTE;
-  const filmHi = filmLo + MOVIE_NIGHT_EVENT_WINDOW_AFTER_MIN;
-  return startTotal >= filmLo && startTotal <= filmHi;
+  return isMovieNightClockInStartWindow(startDate);
+}
+
+function isExtraMovieNightStart(startDate, now = new Date()) {
+  if (!startDate || !getExtraFixedMovieNight(startDate)) return false;
+  const startKey = getRomeDateKey(startDate);
+  const nowKey = getRomeDateKey(now);
+  if (startKey === nowKey) return isMovieNightClockInStartWindow(startDate);
+  const nowParts = getRomeParts(now);
+  if (nowParts.hour < 4) {
+    const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    if (getRomeDateKey(yesterday) === startKey) return isMovieNightClockInStartWindow(startDate);
+  }
+  return false;
 }
 
 function isTargetMovieNightTimeAndChannel(event, now = new Date()) {
   if (!isMovieNightEventChannelAndStatus(event)) return false;
   const startDate = getMovieNightEventStartDate(event);
   if (!startDate) return false;
-  return isSaturdayMovieNightStart(startDate, now);
+  return isSaturdayMovieNightStart(startDate, now) || isExtraMovieNightStart(startDate, now);
 }
 
 function isTargetMovieNightEvent(event, now = new Date()) {
@@ -317,7 +411,7 @@ function isTargetMovieNightEvent(event, now = new Date()) {
 
 function isFixedScheduleMovieNightEvent(event, now = new Date()) {
   const startDate = getMovieNightEventStartDate(event) || now;
-  return Boolean(getFixedMovieTitleForWeek(startDate)) && isTargetMovieNightTimeAndChannel(event, now);
+  return Boolean(getFixedMovieTitleForDate(startDate)) && isTargetMovieNightTimeAndChannel(event, now);
 }
 
 function isRelaxedSaturdayMovieNightEvent(event, now = new Date()) {
@@ -356,21 +450,24 @@ function buildMovieNightAnnouncementMessage() {
   return [
     "## <a:VC_Announce:1482534613568979007> **SERATA FILM**",
     "",
-    `> <:VC_Stats:1482527532682055780> Ecco il thread in cui suggerire il film da guadare **Sabato alle ${MOVIE_NIGHT_DISPLAY_TIME}**. Non c'è un genere definito, quindi potete consigliare **qualsiasi film**.`,
+    `> <:VC_Stats:1482527532682055780> Ecco il thread in cui suggerire il film da guardare **Sabato alle ${MOVIE_NIGHT_DISPLAY_TIME}**. Non c'è un genere definito, quindi potete consigliare **qualsiasi film**.`,
     "",
     "<:VC_PinkQuestionMark:1471892611026391306> Come funziona:",
     "<:VC_DoubleReply:1482532332509466797> Scrivete il nome di uno o più film (in messaggi separati) e il bot in automatico aggiungerà la reaction <a:VC_Vote:1482535223001485473> per votare;",
     "<:VC_Reply:1482532158080942191> Cliccate sulla reaction <a:VC_Vote:1482535223001485473> per votare un film (senza limiti, potete votare per quanti volete);",
     "",
     "<:VC_BanHammer:1482534474502897795> **VIETATO:**",
-    "<:VC_Dot:1482532364222595303> Suggerire titole di saghe;",
-    "<:VC_Dot:1482532364222595303> Suggerire film di durata maggiore di 2 ore;",
-    "<:VC_Dot:1482532364222595303> Suggerire un film già suggerito;",
+    "<:VC_Dot:1482532364222595303> Suggerire titoli di saghe con trama continua, è consentito solo se i film non richiedono di guardare tutti i film della saga in sequenza;",
+    "<:VC_Dot:1482532364222595303> Suggerire film di durata maggiore di 2 ore e 30 minuti;",
+    "<:VC_Dot:1482532364222595303> Suggerire un film già suggerito nello stesso thread;",
+    "<:VC_Dot:1482532364222595303> Suggerire un film già visto in precedenza;",
     "<:VC_Dot:1482532364222595303> Parlare di altro, qui si dovrà solo scrivere il titolo del film.",
     "",
-    "<:VC_Attention:1482534443632558151> **PENA:** __Cancellazione dei messaggi e esclusione totale dal thread__",
+    "<a:VC_Alarm:1482706641618079816> È fatto obbligo di specificare l'anno di uscita del film (anche tra parentesi), soprattutto se ci sono più versioni dello stesso film. Senza anno il messaggio viene cancellato automaticamente.",
     "",
-    `<a:VC_Ping:1482694298687246377>︲<@&${EVENTS_ROLE_ID}> . <@&${SERATA_FILM_ROLE_ID}>`,
+    "<:VC_Attention:1482534443632558151> **PENA:** __Cancellazione dei messaggi__",
+    "",
+    `<a:VC_Ping:1482694298687246377>︲<@&${EVENTS_ROLE_ID}>`,
   ].join("\n");
 }
 
@@ -388,7 +485,7 @@ function buildTieBreakerAnnouncementMessage(threadId, titles) {
     "",
     "<a:VC_Vote:1482535223001485473> __Votate il sondaggio in basso__",
     "",
-    `<a:VC_Ping:1482694298687246377>︲<@&${EVENTS_ROLE_ID}> . <@&${SERATA_FILM_ROLE_ID}>`,
+    `<a:VC_Ping:1482694298687246377>︲<@&${EVENTS_ROLE_ID}>`,
   ].join("\n");
 }
 
@@ -519,7 +616,7 @@ async function publishMovieNightAnnouncement(guild, event, weekKey) {
 
   const message = await channel.send({
     content: buildMovieNightAnnouncementMessage(),
-    allowedMentions: { roles: [EVENTS_ROLE_ID, SERATA_FILM_ROLE_ID] },
+    allowedMentions: { roles: [EVENTS_ROLE_ID] },
     __skipNoticeEmbed: true,
   });
   let thread = await message.startThread({
@@ -542,17 +639,73 @@ async function publishMovieNightAnnouncement(guild, event, weekKey) {
   const previousWeekKey = String(previousState?.weekKey || "");
   const keepPriorWeekFields = previousWeekKey && previousWeekKey === weekKey && previousState && typeof previousState === "object";
   const openReviewFields = pickOpenReviewThreadStateFields(previousState);
+  const archivedWatched = mergeWatchedTitleEntries(
+    previousState?.watchedMovieTitles,
+    previousState?.stageCloseMovieTitle
+      ? {
+          title: previousState.stageCloseMovieTitle,
+          source: "week_roll_stage",
+          weekKey: previousWeekKey,
+          saturdayKey: previousState?.finalAnnouncedSaturdayKey || "",
+        }
+      : null,
+    previousState?.finalMovieTitle
+      ? {
+          title: previousState.finalMovieTitle,
+          source: "week_roll_final",
+          weekKey: previousWeekKey,
+          saturdayKey: previousState?.finalAnnouncedSaturdayKey || "",
+        }
+      : null,
+    previousState?.eventStartMovieTitle
+      ? {
+          title: previousState.eventStartMovieTitle,
+          source: "week_roll_event",
+          weekKey: previousWeekKey,
+          saturdayKey: previousState?.finalAnnouncedSaturdayKey || "",
+        }
+      : null,
+  );
   await setBotState(STATE_KEY, {
     ...(keepPriorWeekFields ? previousState : openReviewFields),
+    watchedMovieTitles: archivedWatched,
+    watchedTitlesBootstrappedAt: previousState?.watchedTitlesBootstrappedAt || "",
     weekKey,
     guildId: String(guild.id || ""),
     eventId: String(event?.id || ""),
     messageId: String(message.id || ""),
     threadId: String(thread?.id || ""),
     announcedAt: new Date().toISOString(),
+    /* movieNightStrictProposal1: anno + durata/vecchiaia dal prossimo announce in poi */
+    strictProposalRules: true,
   });
 
   return { ok: true, messageId: String(message.id || ""), threadId: String(thread?.id || "") };
+}
+
+async function syncLiveMovieNightAnnouncementMessage(client) {
+  const state = await getBotState(STATE_KEY, null).catch(() => null);
+  const messageId = String(state?.messageId || "").trim();
+  const guildId = String(state?.guildId || IDs.guilds?.main || "").trim();
+  if (!messageId || !guildId) return { ok: false, reason: "no_state_message" };
+  const guild = client.guilds.cache.get(guildId) || (await client.guilds.fetch(guildId).catch(() => null));
+  if (!guild) return { ok: false, reason: "guild_not_found" };
+  const channel =
+    guild.channels.cache.get(ANNOUNCEMENT_CHANNEL_ID) ||
+    (await getGuildChannelCached(guild, ANNOUNCEMENT_CHANNEL_ID).catch(() => null));
+  if (!channel?.messages?.fetch) return { ok: false, reason: "channel_unavailable" };
+  const message = await channel.messages.fetch(messageId).catch(() => null);
+  if (!message) return { ok: false, reason: "message_not_found" };
+  const content = buildMovieNightAnnouncementMessage();
+  if (String(message.content || "") === content) {
+    return { ok: true, reason: "already_synced", messageId, skippedStrict: true };
+  }
+  await message.edit({
+    content,
+    allowedMentions: { roles: [...new Set([EVENTS_ROLE_ID, SERATA_FILM_ROLE_ID].filter(Boolean))] },
+  });
+  /* Non attivare strictProposalRules sul thread già aperto */
+  return { ok: true, reason: "edited", messageId, skippedStrict: true };
 }
 
 function truncateDescription(text, maxLength = 520) {
@@ -564,22 +717,66 @@ function truncateDescription(text, maxLength = 520) {
   return `${clean.slice(0, maxLength).replace(/\s+\S*$/, "").trim()}...`;
 }
 
-async function fetchJson(url) {
-  if (typeof fetch !== "function") return null;
-  const signal = typeof AbortSignal !== "undefined" && typeof AbortSignal.timeout === "function" ? AbortSignal.timeout(7000) : undefined;
-  const response = await fetch(url, {
-    signal,
-    headers: {
-      "User-Agent": "ViniliECaffeBot/1.0 (movie-night-announcement)",
-      Accept: "application/json",
-    },
-  }).catch(() => null);
-  if (!response?.ok) return null;
-  return response.json().catch(() => null);
+function isFallbackMovieDescription(text) {
+  const t = String(text || "").trim();
+  if (!t) return true;
+  return t === FALLBACK_MOVIE_DESCRIPTION || t.includes("Non ho trovato una descrizione affidabile");
 }
 
-function buildMovieSearchQueries(title) {
+async function fetchJson(url, { timeoutMs = 12000, retries = 1 } = {}) {
+  if (typeof fetch !== "function") return null;
+  let last = null;
+  for (let attempt = 0; attempt <= Math.max(0, retries); attempt += 1) {
+    const signal =
+      typeof AbortSignal !== "undefined" && typeof AbortSignal.timeout === "function"
+        ? AbortSignal.timeout(timeoutMs)
+        : undefined;
+    const response = await fetch(url, {
+      signal,
+      headers: {
+        /* movieDescWiki1: UA contattabile — Wikimedia blocca UA anonimi/intermittenti */
+        "User-Agent": "ViniliECaffeBot/1.1 (movie-night; +https://viniliecaffe.it; discord.viniliecaffe.gg)",
+        Accept: "application/json",
+      },
+    }).catch((err) => {
+      last = err;
+      return null;
+    });
+    if (response?.ok) {
+      const json = await response.json().catch(() => null);
+      if (json) return json;
+    } else {
+      last = response;
+      /* movieDesc429Fix1: 429 → aspetta Retry-After (max 8s), non martellare */
+      if (response && Number(response.status) === 429) {
+        let waitMs = 2500 * (attempt + 1);
+        try {
+          const ra = Number(response.headers?.get?.("retry-after") || 0);
+          if (Number.isFinite(ra) && ra > 0) waitMs = Math.min(8000, Math.max(waitMs, ra * 1000));
+        } catch (_) {}
+        if (attempt < retries) {
+          await new Promise((r) => setTimeout(r, waitMs));
+          continue;
+        }
+        break;
+      }
+    }
+    if (attempt < retries) {
+      await new Promise((r) => setTimeout(r, 450 * (attempt + 1)));
+    }
+  }
+  if (last) {
+    try {
+      global.logger?.warn?.("[movieNight] fetchJson failed:", String(url).slice(0, 120), last?.status || last?.message || last);
+    } catch (_) {}
+  }
+  return null;
+}
+
+function buildMovieSearchQueries(title, { lean = false } = {}) {
   const rawTitle = String(title || "").trim();
+  /* movieDesc429Fix1: di default 1 sola query — le 3 varianti film×IT/EN ×Wikidata = 429 */
+  if (lean) return rawTitle ? [rawTitle] : [];
   return [...new Set([
     rawTitle,
     `film ${rawTitle}`,
@@ -611,28 +808,53 @@ function scoreMovieTitleMatch(movieTitle, pageTitle) {
   return 0;
 }
 
+function wikipediaPageLooksLikeMovieNoise(pageTitle) {
+  const t = String(pageTitle || "");
+  return /\((franchise|serie|series|soundtrack|album|videogioco|video game|disambigua)\)/i.test(t) ||
+    /\b(franchise|colonna sonora|soundtrack|personaggi di)\b/i.test(t);
+}
+
 function pickBestWikipediaSearchResult(movieTitle, results) {
   let bestTitle = null;
   let bestScore = 0;
   for (const entry of results || []) {
     const pageTitle = String(entry?.title || "").trim();
-    if (!pageTitle) continue;
+    if (!pageTitle || wikipediaPageLooksLikeMovieNoise(pageTitle)) continue;
     const score = scoreMovieTitleMatch(movieTitle, pageTitle);
     if (score > bestScore) {
       bestScore = score;
       bestTitle = pageTitle;
     }
   }
-  return bestScore >= 800 ? bestTitle : null;
+  /* movieDescWiki1: soglia 700 (era 800) — titoli IT/EN con anno/sottotitolo fallivano spesso */
+  if (bestScore >= 700) return bestTitle;
+  /* ultimo tentativo: primo risultato “pulito” se contiene il titolo compatto */
+  const movie = compactMovieTitle(movieTitle);
+  for (const entry of results || []) {
+    const pageTitle = String(entry?.title || "").trim();
+    if (!pageTitle || wikipediaPageLooksLikeMovieNoise(pageTitle)) continue;
+    const page = compactMovieTitle(pageTitle);
+    if (movie && page && (page.includes(movie) || movie.includes(page))) return pageTitle;
+  }
+  return null;
 }
 
 async function searchWikipediaPageTitle(lang, title) {
   const safeLang = String(lang || "it").toLowerCase();
-  for (const query of buildMovieSearchQueries(title)) {
+  /* movieDesc429Fix1: prima solo titolo; se fallisce UNA variante "film …" */
+  const queries = [
+    ...buildMovieSearchQueries(title, { lean: true }),
+    `film ${String(title || "").trim()}`,
+  ].filter(Boolean);
+  const seen = new Set();
+  for (const query of queries) {
+    if (seen.has(query)) continue;
+    seen.add(query);
     const searchUrl = new URL(`https://${safeLang}.wikipedia.org/w/api.php`);
     searchUrl.searchParams.set("action", "query");
     searchUrl.searchParams.set("list", "search");
     searchUrl.searchParams.set("format", "json");
+    searchUrl.searchParams.set("origin", "*");
     searchUrl.searchParams.set("srlimit", "8");
     searchUrl.searchParams.set("srsearch", query);
     const search = await fetchJson(searchUrl.toString());
@@ -640,6 +862,13 @@ async function searchWikipediaPageTitle(lang, title) {
     if (pageTitle) return pageTitle;
   }
   return null;
+}
+
+function wikipediaExtractIsUsable(text) {
+  const clean = String(text || "").replace(/\s+/g, " ").trim();
+  if (clean.length < 60) return false;
+  if (/può riferirsi a|may refer to|disambigua/i.test(clean)) return false;
+  return true;
 }
 
 async function fetchWikipediaExtract(lang, pageTitle) {
@@ -653,10 +882,12 @@ async function fetchWikipediaExtract(lang, pageTitle) {
   extractUrl.searchParams.set("explaintext", "1");
   extractUrl.searchParams.set("redirects", "1");
   extractUrl.searchParams.set("format", "json");
+  extractUrl.searchParams.set("origin", "*");
   extractUrl.searchParams.set("titles", safeTitle);
   const extract = await fetchJson(extractUrl.toString());
   const pages = extract?.query?.pages ? Object.values(extract.query.pages) : [];
-  return pages[0]?.extract || null;
+  const text = pages[0]?.extract || null;
+  return wikipediaExtractIsUsable(text) ? text : null;
 }
 
 function wikidataLooksLikeMovie(entity) {
@@ -665,17 +896,23 @@ function wikidataLooksLikeMovie(entity) {
     entity?.label,
     entity?.match?.text,
   ].map((value) => String(value || "").toLowerCase()).join(" ");
-  return /\b(film|movie|pellicola|cinema|anime)\b/i.test(text);
+  /* movieDescWiki1: escludi soundtrack/franchise/game (prima matchavano per la parola "film") */
+  if (/\b(soundtrack|colonna sonora|franchise|serie televisiva|tv series|videogioco|video game|album|song)\b/i.test(text)) {
+    return false;
+  }
+  return /\b(film|movie|pellicola|cinema|anime|animated)\b/i.test(text);
 }
 
 async function searchWikidataMoviePageTitle(title, targetLang) {
   const ids = [];
   const fallbackIds = [];
+  /* movieDesc429Fix1: max 2 search (it+en, solo titolo) — prima erano fino a 12 → 429 */
   for (const lang of ["it", "en"]) {
-    for (const query of buildMovieSearchQueries(title)) {
+    for (const query of buildMovieSearchQueries(title, { lean: true })) {
       const searchUrl = new URL("https://www.wikidata.org/w/api.php");
       searchUrl.searchParams.set("action", "wbsearchentities");
       searchUrl.searchParams.set("format", "json");
+      searchUrl.searchParams.set("origin", "*");
       searchUrl.searchParams.set("language", lang);
       searchUrl.searchParams.set("uselang", lang);
       searchUrl.searchParams.set("type", "item");
@@ -690,9 +927,9 @@ async function searchWikidataMoviePageTitle(title, targetLang) {
           fallbackIds.push(entity.id);
         }
       }
-      if (ids.length >= 8) break;
+      if (ids.length >= 3) break;
     }
-    if (ids.length >= 8) break;
+    if (ids.length >= 3) break;
   }
   const candidateIds = ids.length ? ids : fallbackIds;
   if (!candidateIds.length) return null;
@@ -700,14 +937,15 @@ async function searchWikidataMoviePageTitle(title, targetLang) {
   const entitiesUrl = new URL("https://www.wikidata.org/w/api.php");
   entitiesUrl.searchParams.set("action", "wbgetentities");
   entitiesUrl.searchParams.set("format", "json");
+  entitiesUrl.searchParams.set("origin", "*");
   entitiesUrl.searchParams.set("props", "sitelinks");
   entitiesUrl.searchParams.set("sitefilter", "itwiki|enwiki");
-  entitiesUrl.searchParams.set("ids", candidateIds.slice(0, 8).join("|"));
+  entitiesUrl.searchParams.set("ids", candidateIds.slice(0, 5).join("|"));
   const data = await fetchJson(entitiesUrl.toString());
   const site = `${String(targetLang || "it").toLowerCase()}wiki`;
   for (const id of candidateIds) {
     const titleForLang = data?.entities?.[id]?.sitelinks?.[site]?.title;
-    if (titleForLang) return titleForLang;
+    if (titleForLang && !wikipediaPageLooksLikeMovieNoise(titleForLang)) return titleForLang;
   }
   return null;
 }
@@ -724,22 +962,72 @@ async function translateEnglishToItalian(text) {
   return truncateDescription(translated);
 }
 
+const movieDescriptionCache = new Map();
+
 async function fetchItalianMovieDescription(title) {
   const rawTitle = String(title || "").trim();
   if (!rawTitle) return FALLBACK_MOVIE_DESCRIPTION;
+  const cacheKey = rawTitle.toLowerCase();
+  if (movieDescriptionCache.has(cacheKey)) return movieDescriptionCache.get(cacheKey);
 
-  const italianPageTitle =
-    (await searchWikidataMoviePageTitle(rawTitle, "it")) ||
-    (await searchWikipediaPageTitle("it", rawTitle));
+  /* movieDesc429Fix1: Wikipedia IT (1–2 req) → extract; Wikidata solo se serve.
+     Prima: fino a ~12+ search Wikidata/Wiki in loop → HTTP 429 → fallback sempre. */
+  const italianPageTitle = await searchWikipediaPageTitle("it", rawTitle);
   const italianDescription = italianPageTitle ? await fetchWikipediaExtract("it", italianPageTitle) : null;
-  if (italianDescription) return truncateDescription(italianDescription);
+  if (italianDescription) {
+    const out = truncateDescription(italianDescription);
+    movieDescriptionCache.set(cacheKey, out);
+    return out;
+  }
 
-  const englishPageTitle =
-    (await searchWikidataMoviePageTitle(rawTitle, "en")) ||
-    (await searchWikipediaPageTitle("en", rawTitle));
+  const viaWikidataIt = await searchWikidataMoviePageTitle(rawTitle, "it");
+  if (viaWikidataIt && viaWikidataIt !== italianPageTitle) {
+    const viaWdDesc = await fetchWikipediaExtract("it", viaWikidataIt);
+    if (viaWdDesc) {
+      const out = truncateDescription(viaWdDesc);
+      movieDescriptionCache.set(cacheKey, out);
+      return out;
+    }
+  }
+
+  const englishPageTitle = await searchWikipediaPageTitle("en", rawTitle);
   const englishDescription = englishPageTitle ? await fetchWikipediaExtract("en", englishPageTitle) : null;
-  const translatedDescription = await translateEnglishToItalian(englishDescription);
-  return translatedDescription || FALLBACK_MOVIE_DESCRIPTION;
+  if (englishDescription) {
+    const translatedDescription = await translateEnglishToItalian(englishDescription);
+    const out =
+      translatedDescription && wikipediaExtractIsUsable(translatedDescription)
+        ? translatedDescription
+        : truncateDescription(englishDescription);
+    movieDescriptionCache.set(cacheKey, out);
+    return out;
+  }
+
+  try {
+    global.logger?.warn?.("[movieNight] description fallback for title:", rawTitle);
+  } catch (_) {}
+  return FALLBACK_MOVIE_DESCRIPTION;
+}
+
+/* movieNightProposalTitleSmart1: titolo annuncio da Wikipedia/Wikidata, non dal messaggio grezzo */
+async function resolveCanonicalMovieTitle(rawTitle) {
+  const extracted = extractMovieNightProposalTitle(rawTitle) || String(rawTitle || "").trim();
+  if (!extracted) return "";
+  try {
+    /* movieDesc429Fix1: Wikipedia prima (meno roundtrip); evita 429 prima della trama */
+    const italianPageTitle =
+      (await searchWikipediaPageTitle("it", extracted)) ||
+      (await searchWikidataMoviePageTitle(extracted, "it"));
+    if (italianPageTitle) return stripMovieTitleDecorations(italianPageTitle) || extracted;
+    const englishPageTitle =
+      (await searchWikipediaPageTitle("en", extracted)) ||
+      (await searchWikidataMoviePageTitle(extracted, "en"));
+    if (englishPageTitle) return stripMovieTitleDecorations(englishPageTitle) || extracted;
+  } catch (err) {
+    try {
+      global.logger?.warn?.("[MOVIE NIGHT] canonicalize title failed:", err?.message || err);
+    } catch (_) {}
+  }
+  return extracted;
 }
 
 async function fetchAllThreadMessages(thread, limit = 1000) {
@@ -788,10 +1076,18 @@ async function collectMovieNightVoteResults(thread, client) {
   const results = [];
   for (const message of proposals) {
     const title = extractMovieNightProposalTitle(message.content);
+    if (!title) continue;
+    const key = movieNightTitleCompareKey(title);
     const votes = await countReactionVotes(getMovieVoteReaction(message), client?.user?.id);
-    results.push({ messageId: String(message.id || ""), title, votes });
+    /* movieNightProposalTitleSmart1: stessi film con testo diverso → un solo risultato (voti sommati) */
+    const existing = results.find((r) => r._key === key);
+    if (existing) {
+      existing.votes += votes;
+      continue;
+    }
+    results.push({ messageId: String(message.id || ""), title, votes, _key: key });
   }
-  return results;
+  return results.map(({ _key, ...rest }) => rest);
 }
 
 async function maybePublishTieBreakerPoll(client, thread, state) {
@@ -813,7 +1109,7 @@ async function maybePublishTieBreakerPoll(client, thread, state) {
 
   const pollMessage = await channel.send({
     content: buildTieBreakerAnnouncementMessage(thread.id, options.map((option) => option.title)),
-    allowedMentions: { roles: [EVENTS_ROLE_ID, SERATA_FILM_ROLE_ID] },
+    allowedMentions: { roles: [...new Set([EVENTS_ROLE_ID, SERATA_FILM_ROLE_ID].filter(Boolean))] },
     __skipNoticeEmbed: true,
     poll: {
       question: { text: `Quale film guardiamo domani alle ${MOVIE_NIGHT_DISPLAY_TIME}?` },
@@ -1001,33 +1297,37 @@ async function resolveMovieTitleFromVoteThread(client, state, weekKey = "") {
 
 async function resolveFinalMovieTitle(client, state, now = new Date()) {
   const weekKey = getRomeWeekKey(now);
-  if (getHarryPotterMovieNightScheduleForWeek(now)?.skip) return null;
-  const fromSchedule = getFixedMovieTitleForWeek(now);
+  if (getHarryPotterMovieNightScheduleForWeek(now)?.skip && !getExtraFixedMovieNight(now)) return null;
+  const fromSchedule = getFixedMovieTitleForDate(now);
   if (fromSchedule) return fromSchedule;
   const savedTitle = String(state?.finalMovieTitle || "").trim();
   if (savedTitle && String(state?.weekKey || "") === weekKey) return savedTitle;
   const hydrated = await hydrateMovieNightStateForWeek(client, state, weekKey);
-  const fromTie = await resolveTieBreakerPollWinner(client, hydrated);
-  if (fromTie) return fromTie;
-  const fromVotes = resolveWinnerFromVoteResults(hydrated?.voteResults);
-  if (fromVotes) return fromVotes;
-  const fromThread = await resolveMovieTitleFromVoteThread(client, hydrated, weekKey).catch(() => null);
-  if (fromThread) return fromThread;
-  const guildId = String(IDs.guilds?.main || client?.config?.mainGuildId || "");
-  const guild = guildId
-    ? await getClientGuildCached(client, guildId).catch(() => null)
-    : null;
-  if (!guild) return null;
-  const event = await findCurrentWeekMovieNightEvent(guild, now);
-  const fromCurrentEvent = resolveTitleFromMovieNightEvent(event);
-  if (fromCurrentEvent) return fromCurrentEvent;
-  const storedEventId = String(hydrated?.eventId || state?.eventId || event?.id || "").trim();
-  if (storedEventId) {
-    const storedEvent = await fetchMovieNightEventById(guild, storedEventId);
-    const fromStored = resolveTitleFromMovieNightEvent(storedEvent);
-    if (fromStored) return fromStored;
+  let raw =
+    (await resolveTieBreakerPollWinner(client, hydrated)) ||
+    resolveWinnerFromVoteResults(hydrated?.voteResults) ||
+    (await resolveMovieTitleFromVoteThread(client, hydrated, weekKey).catch(() => null));
+  if (!raw) {
+    const guildId = String(IDs.guilds?.main || client?.config?.mainGuildId || "");
+    const guild = guildId
+      ? await getClientGuildCached(client, guildId).catch(() => null)
+      : null;
+    if (guild) {
+      const event = await findCurrentWeekMovieNightEvent(guild, now);
+      raw = resolveTitleFromMovieNightEvent(event);
+      if (!raw) {
+        const storedEventId = String(hydrated?.eventId || state?.eventId || event?.id || "").trim();
+        if (storedEventId) {
+          const storedEvent = await fetchMovieNightEventById(guild, storedEventId);
+          raw = resolveTitleFromMovieNightEvent(storedEvent);
+        }
+      }
+    }
   }
-  return null;
+  if (!raw) return null;
+  const cleaned = extractMovieNightProposalTitle(raw) || String(raw).trim();
+  if (!cleaned) return null;
+  return (await resolveCanonicalMovieTitle(cleaned)) || cleaned;
 }
 
 async function describeFinalMovieTitleMiss(client, state, now = new Date()) {
@@ -1416,9 +1716,13 @@ async function runMovieNightFinalAnnouncementCheck(client, opts = {}) {
       const announceStatus = await resolveMovieNightFinalAnnounceStatus(client, state, weekKey, saturdayKey, now);
       if (announceStatus.done) {
         state = await repairMovieNightFinalAnnounceState(client, state, weekKey, saturdayKey, announceStatus);
-        if (announceStatus.repairTitle) {
+        /* movieDescWiki1: ripara anche descrizione fallback (non solo title drift) */
+        const needsDescRepair =
+          Boolean(announceStatus.repairTitle) ||
+          isFallbackMovieDescription(state?.finalMovieDescription);
+        if (needsDescRepair) {
           await repairFinalMovieNightAnnouncementDescription(client).catch((err) => {
-            global.logger?.warn?.("[MOVIE NIGHT FINAL] title drift repair failed:", err?.message || err);
+            global.logger?.warn?.("[MOVIE NIGHT FINAL] description repair failed:", err?.message || err);
           });
         }
         const staffResult = await maybePublishMovieNightStaffCommunication(client, {
@@ -1482,7 +1786,7 @@ async function runMovieNightFinalAnnouncementCheck(client, opts = {}) {
         announceSlot,
         hogwartsEventActive: isHogwartsWeeklyTopReplaced(client),
       }),
-      allowedMentions: { roles: [EVENTS_ROLE_ID, SERATA_FILM_ROLE_ID] },
+      allowedMentions: { roles: [...new Set([EVENTS_ROLE_ID, SERATA_FILM_ROLE_ID].filter(Boolean))] },
       __skipNoticeEmbed: true,
     });
 
@@ -2030,6 +2334,14 @@ async function persistMovieNightStageCloseState({
   reviewThreadCloseAt,
   permissionsClosed,
 }) {
+  const saturdayKey = getRomeSaturdayKeyForWeek(new Date());
+  const watchedMovieTitles = mergeWatchedTitleEntries(state?.watchedMovieTitles, {
+    title,
+    source: "stage_close",
+    weekKey,
+    saturdayKey,
+    at: new Date().toISOString(),
+  });
   await setBotState(STATE_KEY, {
     ...(state && typeof state === "object" ? state : {}),
     weekKey,
@@ -2041,6 +2353,7 @@ async function persistMovieNightStageCloseState({
     reviewThreadClosedAt: threadId ? "" : state?.reviewThreadClosedAt || "",
     stagePermissionsClosedAt: permissionsClosed ? new Date().toISOString() : state?.stagePermissionsClosedAt || "",
     stageClosedAt: new Date().toISOString(),
+    watchedMovieTitles,
   });
 }
 
@@ -2147,6 +2460,9 @@ async function runMovieNightStageCloseRecoveryCheck(client, opts = {}) {
     if (!shouldAttemptMovieNightStageCloseRecovery(now)) {
       return { skipped: true, reason: "outside_window" };
     }
+    if (resolveExtraMovieNightDateKey(now)) {
+      return await runExtraMovieNightStageCloseCheck(client, opts);
+    }
     const fixedSchedule = getHarryPotterMovieNightScheduleForWeek(now);
     if (fixedSchedule?.skip) return { skipped: true, reason: "fixed_schedule_skip" };
     const weekKey = getRomeWeekKey(now);
@@ -2209,16 +2525,17 @@ async function handleMovieNightStageClose(stageInstance, opts = {}) {
     return { ok: false, error: String(err?.message || err) };
   });
 
-  const weekKey = getRomeWeekKey(opts.now || new Date());
+  const weekKey = String(opts.weekKeyOverride || "").trim() || getRomeWeekKey(opts.now || new Date());
   const fixedSchedule = getHarryPotterMovieNightScheduleForWeek(opts.now || new Date());
-  if (fixedSchedule?.skip) return { skipped: true, reason: "fixed_schedule_skip", weekKey, staffAuto };
+  if (fixedSchedule?.skip && !opts.movieTitleOverride) return { skipped: true, reason: "fixed_schedule_skip", weekKey, staffAuto };
 
   const result = await withMovieNightStageCloseLock(weekKey, async () => {
     const state = await getBotState(STATE_KEY, null);
     if (!opts.force) {
         const existingForWeek = await fetchStageCloseMessageForWeek(guild, weekKey, state);
       if (existingForWeek) {
-        const title = (await resolveFinalMovieTitle(client, state, opts.now || new Date()).catch(() => null))
+        const title = String(opts.movieTitleOverride || "").trim()
+          || (await resolveFinalMovieTitle(client, state, opts.now || new Date()).catch(() => null))
           || state?.finalMovieTitle
           || state?.eventStartMovieTitle
           || "il film scelto";
@@ -2239,7 +2556,11 @@ async function handleMovieNightStageClose(stageInstance, opts = {}) {
     }
 
     const permissionsClosed = await closeMovieNightStagePermissions(guild);
-    const title = (await resolveFinalMovieTitle(client, state, opts.now || new Date()).catch(() => null)) || state?.finalMovieTitle || state?.eventStartMovieTitle || "il film scelto";
+    const title = String(opts.movieTitleOverride || "").trim()
+      || (await resolveFinalMovieTitle(client, state, opts.now || new Date()).catch(() => null))
+      || state?.finalMovieTitle
+      || state?.eventStartMovieTitle
+      || "il film scelto";
     const channel = await resolveTextChannelForMovieNight(guild);
     if (!channel?.isTextBased?.() || !channel?.send) {
       return { skipped: true, reason: "announcement_channel_unavailable", weekKey, permissionsClosed };
@@ -2509,6 +2830,7 @@ async function repairFinalMovieNightAnnouncementDescription(client) {
     const needsDescriptionFetch =
       savedTitle !== title ||
       !savedDesc ||
+      isFallbackMovieDescription(savedDesc) ||
       savedHogwartsBlock !== hogwartsEventActive;
     const description = needsDescriptionFetch
       ? await fetchItalianMovieDescription(title)
@@ -2528,7 +2850,7 @@ async function repairFinalMovieNightAnnouncementDescription(client) {
 
     await message.edit({
       content,
-      allowedMentions: { roles: [EVENTS_ROLE_ID, SERATA_FILM_ROLE_ID] },
+      allowedMentions: { roles: [...new Set([EVENTS_ROLE_ID, SERATA_FILM_ROLE_ID].filter(Boolean))] },
     });
     await setBotState(STATE_KEY, {
       ...state,
@@ -2723,6 +3045,182 @@ async function recoverMovieNightAnnouncementsOnStartup(client, opts = {}) {
   return { ok: true, slot, steps };
 }
 
+async function findExtraMovieNightEvent(guild, eventDateKey, now = new Date()) {
+  if (!guild?.scheduledEvents?.fetch || !eventDateKey) return null;
+  const events = await guild.scheduledEvents.fetch().catch(() => null);
+  if (!events?.size) return null;
+  const candidates = [...events.values()].filter((event) => {
+    if (!isMovieNightEventName(event) || !isMovieNightEventChannelAndStatus(event)) return false;
+    const startDate = getMovieNightEventStartDate(event);
+    if (!startDate) return false;
+    return getRomeDateKey(startDate) === eventDateKey && isMovieNightClockInStartWindow(startDate);
+  });
+  if (!candidates.length) return null;
+  return [...candidates].sort((a, b) => Number(a.scheduledStartTimestamp || 0) - Number(b.scheduledStartTimestamp || 0))[0];
+}
+
+async function runExtraMovieNightFinalAnnouncementCheck(client, opts = {}) {
+  const now = opts.now || new Date();
+  const slot = String(opts.slot || "").trim().toLowerCase(); // eve | day
+  const eventDateKey =
+    slot === "eve"
+      ? (() => {
+          const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+          return getExtraFixedMovieNight(tomorrow) ? getRomeDateKey(tomorrow) : "";
+        })()
+      : resolveExtraMovieNightDateKey(now);
+  if (!eventDateKey) return { skipped: true, reason: "no_extra_movie_tonight" };
+  const title = String(EXTRA_FIXED_MOVIE_NIGHTS.get(eventDateKey)?.title || "").trim();
+  if (!title) return { skipped: true, reason: "extra_title_missing", eventDateKey };
+  const all = await getExtraMovieNightState();
+  const state = all[eventDateKey] && typeof all[eventDateKey] === "object" ? all[eventDateKey] : {};
+  const alreadyKey = slot === "eve" ? "finalEveMessageId" : "finalDayMessageId";
+  if (!opts.force && state[alreadyKey]) {
+    return { skipped: true, reason: "already_announced", eventDateKey, slot };
+  }
+  const channel = await fetchAnnouncementChannel(client);
+  if (!channel?.isTextBased?.() || !channel?.send) {
+    return { skipped: true, reason: "announcement_channel_unavailable", eventDateKey };
+  }
+  const description = await fetchItalianMovieDescription(title);
+  const guildId = String(IDs.guilds?.main || client?.config?.mainGuildId || "");
+  const guild = guildId ? await getClientGuildCached(client, guildId).catch(() => null) : null;
+  const event = guild ? await findExtraMovieNightEvent(guild, eventDateKey, now) : null;
+  const announceSlot = slot === "eve" ? "friday" : "saturday";
+  const message = await channel.send({
+    content: buildFinalMovieNightAnnouncementMessage({
+      title,
+      description,
+      eventUrl: buildDiscordEventUrl(guildId || IDs.guilds?.main, event?.id || state.eventId),
+      saturdayKey: eventDateKey,
+      announceSlot,
+      hogwartsEventActive: false,
+    }),
+    allowedMentions: { roles: [...new Set([EVENTS_ROLE_ID, SERATA_FILM_ROLE_ID].filter(Boolean))] },
+    __skipNoticeEmbed: true,
+  });
+  await patchExtraMovieNightState(eventDateKey, {
+    title,
+    description,
+    eventId: String(event?.id || state.eventId || ""),
+    guildId: String(guild?.id || guildId || ""),
+    [alreadyKey]: String(message.id || ""),
+    finalAnnouncedAt: new Date().toISOString(),
+  });
+  try {
+    const staffChannel = await fetchStaffCommunicationChannel(client);
+    if (staffChannel?.isTextBased?.() && staffChannel?.send && !state.staffCommunicationMessageId) {
+      const dateLabel = formatMovieNightStaffDateLabel(
+        slot === "eve" ? new Date(now.getTime() + 24 * 60 * 60 * 1000) : now,
+        { advanceForSaturday: false },
+      );
+      // Per mercoledì: etichetta esplicita
+      const parts = getRomeParts(slot === "eve" ? new Date(now.getTime() + 24 * 60 * 60 * 1000) : now);
+      const monthName = ITALIAN_MONTH_NAMES[Math.max(0, parts.month - 1)] || "";
+      const wedLabel =
+        slot === "eve"
+          ? `Mercoledì ${parts.day} ${monthName}, alle ${MOVIE_NIGHT_DISPLAY_TIME}`
+          : `Oggi, ${parts.day} ${monthName}, alle ${MOVIE_NIGHT_DISPLAY_TIME}`;
+      const staffMsg = await staffChannel.send({
+        content: buildMovieNightStaffCommunicationMessage({
+          title,
+          dateLabel: wedLabel || dateLabel,
+        }),
+        allowedMentions: { roles: [STAFF_COMMUNICATION_ROLE_ID] },
+        __skipNoticeEmbed: true,
+      });
+      await patchExtraMovieNightState(eventDateKey, {
+        staffCommunicationMessageId: String(staffMsg?.id || ""),
+      });
+    }
+  } catch (err) {
+    global.logger?.warn?.("[MOVIE NIGHT EXTRA] staff communication failed:", err?.message || err);
+  }
+  global.logger?.info?.("[MOVIE NIGHT EXTRA] final announce", { eventDateKey, slot, title, messageId: message.id });
+  return { ok: true, eventDateKey, slot, title, messageId: String(message.id || "") };
+}
+
+async function runExtraMovieNightEventStartCheck(client, opts = {}) {
+  const now = opts.now || new Date();
+  const eventDateKey = resolveExtraMovieNightDateKey(now);
+  if (!eventDateKey) return { skipped: true, reason: "no_extra_movie" };
+  const title = String(EXTRA_FIXED_MOVIE_NIGHTS.get(eventDateKey)?.title || "").trim();
+  if (!title) return { skipped: true, reason: "extra_title_missing" };
+  const all = await getExtraMovieNightState();
+  const state = all[eventDateKey] && typeof all[eventDateKey] === "object" ? all[eventDateKey] : {};
+  if (!opts.force && state.eventStartMessageId) {
+    return { skipped: true, reason: "already_started", eventDateKey };
+  }
+  const mainGuildId = String(IDs.guilds?.main || client?.config?.mainGuildId || "");
+  const guild = mainGuildId ? await getClientGuildCached(client, mainGuildId).catch(() => null) : null;
+  if (!guild) return { skipped: true, reason: "guild_unavailable" };
+  const event = await findExtraMovieNightEvent(guild, eventDateKey, now);
+  if (!event) return { skipped: true, reason: "no_event" };
+  const status = Number(event.status || 0);
+  if (status === 3 || status === 4) return { skipped: true, reason: "event_ended" };
+  const startMs = Number(event.scheduledStartTimestamp || getMovieNightEventStartDate(event)?.getTime() || 0);
+  if (status === 1 && startMs && now.getTime() + 60_000 < startMs) {
+    return { skipped: true, reason: "event_not_due" };
+  }
+  const permissionsOpened = await openMovieNightStagePermissions(guild);
+  const channel = guild.channels.cache.get(ANNOUNCEMENT_CHANNEL_ID) || (await getGuildChannelCached(guild, ANNOUNCEMENT_CHANNEL_ID));
+  if (!channel?.isTextBased?.() || !channel?.send) {
+    return { skipped: true, reason: "announcement_channel_unavailable", permissionsOpened };
+  }
+  const message = await channel.send({
+    content: buildMovieNightStartAnnouncementMessage(title),
+    allowedMentions: { parse: ["everyone"], roles: [SERATA_FILM_ROLE_ID] },
+    __skipNoticeEmbed: true,
+  });
+  await patchExtraMovieNightState(eventDateKey, {
+    title,
+    eventId: String(event.id || ""),
+    guildId: String(guild.id || ""),
+    eventStartMessageId: String(message.id || ""),
+    eventStartAnnouncedAt: new Date().toISOString(),
+    stagePermissionsOpenedAt: permissionsOpened ? new Date().toISOString() : state.stagePermissionsOpenedAt || "",
+  });
+  await startSerataFilmSession(event).catch((err) => {
+    global.logger?.warn?.("[MOVIE NIGHT EXTRA] staff session start failed:", err?.message || err);
+  });
+  return { ok: true, eventDateKey, title, messageId: String(message.id || ""), permissionsOpened };
+}
+
+async function runExtraMovieNightStageCloseCheck(client, opts = {}) {
+  const now = opts.now || new Date();
+  const eventDateKey = resolveExtraMovieNightDateKey(now);
+  if (!eventDateKey) return { skipped: true, reason: "no_extra_movie" };
+  if (!shouldAttemptMovieNightStageCloseRecovery(now) && !opts.force) {
+    return { skipped: true, reason: "outside_window" };
+  }
+  const title = String(EXTRA_FIXED_MOVIE_NIGHTS.get(eventDateKey)?.title || getFixedMovieTitleForDate(now) || "il film scelto").trim();
+  const all = await getExtraMovieNightState();
+  const state = all[eventDateKey] && typeof all[eventDateKey] === "object" ? all[eventDateKey] : {};
+  if (!opts.force && state.stageCloseMessageId) {
+    return { skipped: true, reason: "already_closed", eventDateKey };
+  }
+  const mainGuildId = String(IDs.guilds?.main || client?.config?.mainGuildId || "");
+  const guild = mainGuildId ? await getClientGuildCached(client, mainGuildId).catch(() => null) : null;
+  if (!guild) return { skipped: true, reason: "guild_unavailable" };
+  if (!opts.force && (await isSerataFilmStageLive(guild))) {
+    return { skipped: true, reason: "stage_still_live" };
+  }
+  // riusa la chiusura stage standard ma con weekKey = eventDateKey per tracking review
+  const result = await handleMovieNightStageClose(
+    { guild, channelId: MOVIE_NIGHT_EVENT_CHANNEL_ID, client: guild.client },
+    { now, force: Boolean(opts.force), movieTitleOverride: title, weekKeyOverride: eventDateKey },
+  );
+  if (result?.ok || result?.nextState?.stageCloseMessageId) {
+    await patchExtraMovieNightState(eventDateKey, {
+      title,
+      stageCloseMessageId: String(result?.messageId || result?.nextState?.stageCloseMessageId || ""),
+      stageClosedAt: new Date().toISOString(),
+      reviewThreadId: String(result?.threadId || result?.nextState?.reviewThreadId || ""),
+    });
+  }
+  return result || { skipped: true, reason: "stage_close_noop", eventDateKey };
+}
+
 async function runMovieNightEventStartCheck(client, opts = {}) {
   if (movieNightEventStartRunning) return { skipped: true, reason: "already_running" };
   movieNightEventStartRunning = true;
@@ -2730,6 +3228,9 @@ async function runMovieNightEventStartCheck(client, opts = {}) {
     const now = opts.now || new Date();
     if (!shouldAttemptMovieNightEventStartRecovery(now)) {
       return { skipped: true, reason: "outside_window" };
+    }
+    if (resolveExtraMovieNightDateKey(now)) {
+      return await runExtraMovieNightEventStartCheck(client, opts);
     }
     const mainGuildId = String(IDs.guilds?.main || client?.config?.mainGuildId || "");
     const guild = mainGuildId ? await getClientGuildCached(client, mainGuildId).catch(() => null) : null;
@@ -2756,6 +3257,9 @@ function startMovieNightAnnouncementLoop(client) {
   closeMovieNightReviewThreadIfDue(client).catch((err) => {
     global.logger?.warn?.("[MOVIE NIGHT ANNOUNCE] review thread close on loop start failed:", err?.message || err);
   });
+  ensureWatchedMovieNightTitlesReady(client).catch((err) => {
+    global.logger?.warn?.("[MOVIE NIGHT ANNOUNCE] watched titles bootstrap failed:", err?.message || err);
+  });
   const announceTask = cron.schedule(
     ANNOUNCE_CRON,
     runCronDetached("[MOVIE NIGHT ANNOUNCE]", () => runMovieNightAnnouncementCheck(client)),
@@ -2780,6 +3284,20 @@ function startMovieNightAnnouncementLoop(client) {
     ),
     { timezone: TIME_ZONE, noOverlap: true },
   );
+  const extraFinalEveTask = cron.schedule(
+    EXTRA_FINAL_EVE_CRON,
+    runCronDetached("[MOVIE NIGHT EXTRA FINAL EVE]", () =>
+      runExtraMovieNightFinalAnnouncementCheck(client, { slot: "eve" }),
+    ),
+    { timezone: TIME_ZONE, noOverlap: true },
+  );
+  const extraFinalDayTask = cron.schedule(
+    EXTRA_FINAL_DAY_CRON,
+    runCronDetached("[MOVIE NIGHT EXTRA FINAL DAY]", () =>
+      runExtraMovieNightFinalAnnouncementCheck(client, { slot: "day" }),
+    ),
+    { timezone: TIME_ZONE, noOverlap: true },
+  );
   const eventStartSweepTask = cron.schedule(
     EVENT_START_SWEEP_CRON,
     runCronDetached("[MOVIE NIGHT EVENT START]", () => runMovieNightEventStartCheck(client)),
@@ -2790,6 +3308,9 @@ function startMovieNightAnnouncementLoop(client) {
     runCronDetached("[MOVIE NIGHT STAGE CLOSE]", () => runMovieNightStageCloseRecoveryCheck(client)),
     { timezone: TIME_ZONE, noOverlap: true },
   );
+  // keep EXTRA_EVENT_START/STAGE cron constants for documentation; sweeps already cover Wed via EVENT_START_SWEEP_CRON
+  void EXTRA_EVENT_START_SWEEP_CRON;
+  void EXTRA_STAGE_CLOSE_SWEEP_CRON;
   movieNightReviewCloseSweep = setInterval(() => {
     closeMovieNightReviewThreadIfDue(client).catch((err) => {
       global.logger?.warn?.("[MOVIE NIGHT ANNOUNCE] review thread close sweep failed:", err?.message || err);
@@ -2801,10 +3322,12 @@ function startMovieNightAnnouncementLoop(client) {
     closeTask,
     finalAnnouncementFridayTask,
     finalAnnouncementSaturdayTask,
+    extraFinalEveTask,
+    extraFinalDayTask,
     eventStartSweepTask,
     stageCloseSweepTask,
   };
   return movieNightAnnouncementTasks;
 }
 
-module.exports = { buildMovieNightStaffCommunicationMessage, buildFinalMovieNightAnnouncementMessage, buildMovieNightEndAnnouncementMessage, buildMovieNightAnnouncementMessage, buildMovieNightStartAnnouncementMessage, buildTieBreakerAnnouncementMessage, collectMovieNightVoteResults, ensureMovieNightStaffCommunicationOnStartup, fetchItalianMovieDescription, findCurrentWeekMovieNightEvent, getFixedMovieTitleForWeek, getHarryPotterMovieNightScheduleForWeek, getRomeWeekKey, handleMovieNightEventStart, handleMovieNightStageClose, isMovieNightFixedScheduleSkipWeek, isTargetMovieNightEvent, closeMovieNightStagePermissions, closeMovieNightReviewThreadIfDue, repairFinalMovieNightAnnouncementDescription, recoverMovieNightAnnouncementsOnStartup, republishMovieNightStaffCommunicationAsPlainText, runMovieNightAnnouncementCheck, runMovieNightEventStartCheck, runMovieNightFinalAnnouncementCheck, runMovieNightStageCloseRecoveryCheck, runMovieNightThreadCloseCheck, startMovieNightAnnouncementLoop };
+module.exports = { syncLiveMovieNightAnnouncementMessage, buildMovieNightStaffCommunicationMessage, buildFinalMovieNightAnnouncementMessage, buildMovieNightEndAnnouncementMessage, buildMovieNightAnnouncementMessage, buildMovieNightStartAnnouncementMessage, buildTieBreakerAnnouncementMessage, collectMovieNightVoteResults, ensureMovieNightStaffCommunicationOnStartup, fetchItalianMovieDescription, findCurrentWeekMovieNightEvent, getFixedMovieTitleForWeek, getHarryPotterMovieNightScheduleForWeek, getRomeWeekKey, handleMovieNightEventStart, handleMovieNightStageClose, isMovieNightFixedScheduleSkipWeek, isTargetMovieNightEvent, closeMovieNightStagePermissions, closeMovieNightReviewThreadIfDue, repairFinalMovieNightAnnouncementDescription, recoverMovieNightAnnouncementsOnStartup, republishMovieNightStaffCommunicationAsPlainText, resolveCanonicalMovieTitle, runMovieNightAnnouncementCheck, runMovieNightEventStartCheck, runMovieNightFinalAnnouncementCheck, runMovieNightStageCloseRecoveryCheck, runMovieNightThreadCloseCheck, startMovieNightAnnouncementLoop };

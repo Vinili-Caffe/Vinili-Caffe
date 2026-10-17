@@ -210,7 +210,6 @@ async function createPauseRequest({ guild, userId, requesterMention, rawStart, r
   const memberHasPm = Boolean(member?.roles?.cache?.has(IDs.roles.PartnerManager));
   const fallbackRole = memberHasPm && !memberHasStaff ? "PartnerManager" : PAUSE_ROLE_STAFF;
   const normalizedRequestedRole = normalizePauseRoleChoice(requestedRole) || fallbackRole;
-  const ruoloRichiestoDisplay = formatRuoloPausaRichiestoInMessage(guild, normalizedRequestedRole);
   const guildId = String(guild?.id ?? "").trim();
   const uid = String(userId ?? "").trim();
   if (!guild || !guildId || !uid) return { ok: false, error: "<a:VC_Alert:1482706673176150077> Dati pausa non validi." };
@@ -245,14 +244,27 @@ async function createPauseRequest({ guild, userId, requesterMention, rawStart, r
   }
   if (!stafferDoc.staff) stafferDoc.staff = {};
   if (!Array.isArray(stafferDoc.staff.pauses)) stafferDoc.staff.pauses = [];
-  stafferDoc.staff.pauses.push({
-    dataRichiesta: normalized.dataRichiesta,
-    dataRitorno: normalized.dataRitorno,
-    motivazione: reason,
-    ruoloRichiesto: normalizedRequestedRole,
-    status: "pending",
-    createdAt: new Date(),
-  });
+  /* pauseBothSplit1: Entrambi → due richieste indipendenti (Staff + Partner Manager) */
+  const roleTracks =
+    normalizedRequestedRole === PAUSE_ROLE_BOTH
+      ? [PAUSE_ROLE_STAFF, PAUSE_ROLE_PM]
+      : [normalizedRequestedRole];
+  const pauseGroupId =
+    roleTracks.length > 1
+      ? `both:${uid}:${normalized.dataRichiesta}:${normalized.dataRitorno}:${Date.now().toString(36)}`
+      : null;
+  const createdAt = new Date();
+  for (const track of roleTracks) {
+    stafferDoc.staff.pauses.push({
+      dataRichiesta: normalized.dataRichiesta,
+      dataRitorno: normalized.dataRitorno,
+      motivazione: reason,
+      ruoloRichiesto: track,
+      pauseGroupId,
+      status: "pending",
+      createdAt,
+    });
+  }
   stafferDoc.markModified("staff");
   try {
     await stafferDoc.save();
@@ -260,14 +272,16 @@ async function createPauseRequest({ guild, userId, requesterMention, rawStart, r
     global.logger?.error?.("[createPauseRequest] save failed", err);
     return { ok: false, error: "<a:VC_Alert:1482706673176150077> Errore nel salvataggio della richiesta pausa. Riprova o contatta chi gestisce il bot." };
   }
-  const createdPause = stafferDoc.staff.pauses[stafferDoc.staff.pauses.length - 1];
-  const pauseId = String(createdPause?._id || "");
+  const createdPauses = stafferDoc.staff.pauses.slice(-roleTracks.length);
+  const pauseIds = createdPauses.map((p) => String(p?._id || "")).filter(Boolean);
+  const primaryPause = createdPauses[0];
+  const pauseId = pauseIds[0] || "";
 
   const requisitiNonRispettati = [];
-  if (getOnePausePerMonthWarning(stafferDoc, { ...normalized, excludePauseId: pauseId })) {
+  if (getOnePausePerMonthWarning(stafferDoc, { ...normalized, excludePauseIds: pauseIds })) {
     requisitiNonRispettati.push("<:VC_Attention:1482534443632558151> **Una pausa al mese:** hai già una richiesta pausa in questo mese.");
   }
-  if (getOneWeekBetweenWarning(stafferDoc, pauseId)) {
+  if (getOneWeekBetweenWarning(stafferDoc, pauseIds)) {
     requisitiNonRispettati.push("<:VC_Attention:1482534443632558151> **Almeno 1 settimana tra richieste:** l'ultima richiesta pausa è stata fatta da meno di 7 giorni.");
   }
   const warningBlock = requisitiNonRispettati.length
@@ -276,81 +290,88 @@ async function createPauseRequest({ guild, userId, requesterMention, rawStart, r
 
   const highStaffRoleMention =
     pauseChannel?.guild?.roles?.cache?.get(IDs.roles.HighStaff) ? `<@&${IDs.roles.HighStaff}>` : "High Staff";
-  const content = `<:VC_Staff:1494286904089247754> ${highStaffRoleMention} ${mention} ha richiesto una pausa.\n<:VC_Mention:1482526855289634997> Ruolo pausa richiesto: **${ruoloRichiestoDisplay}**\n<a:VC_Calendar:1482706208149475358> Data richiesta: ${normalized.dataRichiesta}\n<a:VC_Calendar:1482706208149475358> Data ritorno: ${normalized.dataRitorno}\n<:VC_reason:1478517122929004544> Motivo: ${reason}${warningBlock}`;
 
   if (discordPosts && pauseChannel?.isTextBased?.()) {
     const discordUi = isDiscordWorkflowUiEnabled();
-    const pauseComponents = discordUi
-      ? [buildPauseRequestButtonsRow(uid, pauseId)]
-      : [buildInboxManageLinkRow("pause")];
-    const posted = await pauseChannel
-      .send({
-        content,
-        components: pauseComponents,
-        __skipNoticeEmbed: true,
-      })
-      .catch(() => null);
-    if (!posted) {
-      createdPause.status = "cancelled";
-      stafferDoc.markModified("staff");
-      await stafferDoc.save().catch(() => null);
-      return {
-        ok: false,
-        error:
-          "<a:VC_Alert:1482706673176150077> Non sono riuscito a inviare la richiesta nel canale.",
-      };
+    let sharedThread = null;
+    for (let i = 0; i < createdPauses.length; i += 1) {
+      const createdPause = createdPauses[i];
+      const thisPauseId = String(createdPause?._id || "");
+      const trackLabel = formatRuoloPausaRichiestoInMessage(guild, createdPause.ruoloRichiesto);
+      const pairNote =
+        createdPauses.length > 1
+          ? `\n<:VC_Attention:1482534443632558151> Richiesta separata (${i + 1}/${createdPauses.length}): puoi accettare/rifiutare questo ruolo indipendentemente dall'altro.`
+          : "";
+      const content = `<:VC_Staff:1494286904089247754> ${highStaffRoleMention} ${mention} ha richiesto una pausa.\n<:VC_Mention:1482526855289634997> Ruolo pausa richiesto: **${trackLabel}**${pairNote}\n<a:VC_Calendar:1482706208149475358> Data richiesta: ${normalized.dataRichiesta}\n<a:VC_Calendar:1482706208149475358> Data ritorno: ${normalized.dataRitorno}\n<:VC_reason:1478517122929004544> Motivo: ${reason}${i === 0 ? warningBlock : ""}`;
+      const pauseComponents = discordUi
+        ? [buildPauseRequestButtonsRow(uid, thisPauseId)]
+        : [buildInboxManageLinkRow("pause")];
+      const posted = await pauseChannel
+        .send({
+          content,
+          components: pauseComponents,
+          __skipNoticeEmbed: true,
+        })
+        .catch(() => null);
+      if (!posted) {
+        for (const p of createdPauses) p.status = "cancelled";
+        stafferDoc.markModified("staff");
+        await stafferDoc.save().catch(() => null);
+        return {
+          ok: false,
+          error:
+            "<a:VC_Alert:1482706673176150077> Non sono riuscito a inviare la richiesta nel canale.",
+        };
+      }
+      createdPause.requestChannelId = String(pauseChannel.id ?? "").trim();
+      createdPause.requestMessageId = posted.id ? String(posted.id) : null;
+
+      if (discordUi && i === 0) {
+        try {
+          sharedThread = await pauseChannel.threads.create({
+            name: `Pausa – ${(member?.user?.username || userId).toString().slice(0, 80)}`,
+            type: ChannelType.PrivateThread,
+            reason: "Richiesta pausa staff",
+          });
+        } catch (_) {
+          sharedThread = null;
+        }
+        if (sharedThread) {
+          await sharedThread.members.add(uid).catch(() => null);
+          const highStaffRoleId = String(IDs.roles.HighStaff || "");
+          if (highStaffRoleId) {
+            await hydrateGuildMembersForRolePings(guild, "[pause thread HighStaff]");
+            const membersWithHighStaff = guild.members.cache.filter((m) =>
+              m.roles.cache.has(highStaffRoleId),
+            );
+            for (const m of membersWithHighStaff.values()) {
+              if (m.user?.bot) continue;
+              await sharedThread.members.add(m.id).catch(() => null);
+            }
+          }
+          await sharedThread
+            .send({
+              content:
+                createdPauses.length > 1
+                  ? `<:VC_Staff:1494286904089247754> Discussione per le richieste pausa di ${mention} (ruoli separati: accettazione indipendente). I messaggi con i pulsanti sono nel canale.`
+                  : `<:VC_Staff:1494286904089247754> Discussione per la richiesta pausa di ${mention}. Il messaggio con i pulsanti è nel canale.`,
+              __skipNoticeEmbed: true,
+            })
+            .catch(() => null);
+          if (warningBlock) {
+            await sharedThread
+              .send({ content: warningBlock.trim(), __skipNoticeEmbed: true })
+              .catch(() => null);
+          }
+        }
+      }
+      if (sharedThread) createdPause.requestThreadId = String(sharedThread.id ?? "").trim();
     }
-    createdPause.requestChannelId = String(pauseChannel.id ?? "").trim();
-    createdPause.requestMessageId = posted.id ? String(posted.id) : null;
     stafferDoc.markModified("staff");
     try {
       await stafferDoc.save();
     } catch (err) {
       global.logger?.error?.("[createPauseRequest] save (messageId) failed", err);
-    }
-
-    if (discordUi) {
-      let thread = null;
-      try {
-        thread = await pauseChannel.threads.create({
-          name: `Pausa – ${(member?.user?.username || userId).toString().slice(0, 80)}`,
-          type: ChannelType.PrivateThread,
-          reason: "Richiesta pausa staff",
-        });
-      } catch (e) {
-              }
-      if (thread) {
-        await thread.members.add(uid).catch(() => null);
-        const highStaffRoleId = String(IDs.roles.HighStaff || "");
-        if (highStaffRoleId) {
-          await hydrateGuildMembersForRolePings(guild, "[pause thread HighStaff]");
-          const membersWithHighStaff = guild.members.cache.filter((m) =>
-            m.roles.cache.has(highStaffRoleId),
-          );
-          for (const m of membersWithHighStaff.values()) {
-            if (m.user?.bot) continue;
-            await thread.members.add(m.id).catch(() => null);
-          }
-        }
-        await thread
-          .send({
-            content: `<:VC_Staff:1494286904089247754> Discussione per la richiesta pausa di ${mention}. Il messaggio con i pulsanti è nel canale.`,
-            __skipNoticeEmbed: true,
-          })
-          .catch(() => null);
-        if (warningBlock) {
-          await thread
-            .send({ content: warningBlock.trim(), __skipNoticeEmbed: true })
-            .catch(() => null);
-        }
-        createdPause.requestThreadId = String(thread.id ?? "").trim();
-        stafferDoc.markModified("staff");
-        try {
-          await stafferDoc.save();
-        } catch (err) {
-          global.logger?.error?.("[createPauseRequest] save (threadId) failed", err);
-        }
-      }
     }
     if (!isSiteApiProcess()) {
       void maybeRepositionPauseSticky(pauseChannel, client).catch(() => null);
@@ -359,7 +380,9 @@ async function createPauseRequest({ guild, userId, requesterMention, rawStart, r
 
   try {
     const { upsertPauseWorkflowFromPause, syncPausesToWorkflowStore } = require("../Web/siteStaffWorkflowStore");
-    await upsertPauseWorkflowFromPause(client, guild, uid, createdPause);
+    for (const createdPause of createdPauses) {
+      await upsertPauseWorkflowFromPause(client, guild, uid, createdPause);
+    }
     void syncPausesToWorkflowStore(guild.client, guild.id).catch(() => 0);
   } catch (_) {}
   try {
@@ -368,18 +391,30 @@ async function createPauseRequest({ guild, userId, requesterMention, rawStart, r
       String(member?.displayName || member?.user?.globalName || member?.user?.username || "").trim() ||
       uid;
     const period = `${normalized.dataRichiesta} → ${normalized.dataRitorno}`;
-    void notifyInboxStaffNewItem({
-      guild,
-      queue: "pause",
-      subjectUserId: uid,
-      subjectName,
-      title: "Nuova richiesta pausa",
-      body: `${subjectName} ha richiesto una pausa (${period}).`,
-      pauseId,
-      dedupeKey: `inbox:pause:new:${pauseId}`,
-    }).catch(() => 0);
+    for (const createdPause of createdPauses) {
+      const thisId = String(createdPause?._id || "");
+      if (!thisId) continue;
+      const trackLabel = formatRuoloPausaRichiestoInMessage(guild, createdPause.ruoloRichiesto);
+      void notifyInboxStaffNewItem({
+        guild,
+        queue: "pause",
+        subjectUserId: uid,
+        subjectName,
+        title: "Nuova richiesta pausa",
+        body: `${subjectName} ha richiesto una pausa · ${trackLabel} (${period}).`,
+        pauseId: thisId,
+        dedupeKey: `inbox:pause:new:${thisId}`,
+      }).catch(() => 0);
+    }
   } catch (_) {}
-  return { ok: true, pauseId };
+  return {
+    ok: true,
+    pauseId,
+    pauseIds,
+    roleTracks,
+    pauseGroupId,
+    primaryPauseId: pauseId,
+  };
 }
 
 module.exports = { PAUSE_REQUEST_ROLE_IDS, createPauseRequest, parsePauseChannelMessageContent, formatRuoloPausaRichiestoInMessage };

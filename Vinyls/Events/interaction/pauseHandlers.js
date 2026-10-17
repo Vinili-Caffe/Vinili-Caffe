@@ -13,15 +13,23 @@ const {
 } = require("../../Utils/Pause/pauseRequestSubmitRuntime");
 const PAUSE_REQUEST_MODAL_ID = "pause_request:modal";
 const { accountUsername } = require("../../Utils/Discord/guildDiscordIdentity");
-const { MS_PER_DAY, parseItalianDate, getPauseDaysBetween, getTodayUtc, getCurrentYearBoundsUtc, countOverlapDays, computeConsumedPauseDays, getMemberRoleLabel, getPauseStatusLabel, computePauseScaledDaysThisYear, getStaffPauseRecord, getStaffAndPauseByRequestMessageId, updatePauseInDb, buildRequestButtonsRow, buildAcceptedButtonsRow, schedulePauseButtonsRemoval, syncSingleAcceptedPauseMessage, getPausePhase, getBasePauseLimit, getPauseRoleLimit, getPauseTimingText, computeStaffersInPauseByRoleForRange, computeStaffersInPauseByStaffRankForRange, getMemberStaffRankRoleId, getStaffRankLimitKey, buildAcceptedPauseLogContent, buildCancelledPauseLogContent, formatPauseRoleLabelForMessage, getPauseReasonFromMessage, normalizePauseRoleChoice, getPauseRoleTargets, roleChoiceAppliesTo, PAUSE_ROLE_STAFF, PAUSE_ROLE_PM, PAUSE_ROLE_BOTH, getBestStaffPauseBonusDays, getStaffPauseBonusDaysTotal, getValPosTradedPauseBonusDays, grantBestStaffPauseBonusYear, computeStaffPauseDayBudget, allocateBestStaffWeekPauseBonusDays } = require("../../Utils/Pause/pauseHandlersUtils");
+const { MS_PER_DAY, parseItalianDate, getPauseDaysBetween, getTodayUtc, getCurrentYearBoundsUtc, countOverlapDays, computeConsumedPauseDays, getMemberRoleLabel, getPauseStatusLabel, computePauseScaledDaysThisYear, getStaffPauseRecord, getStaffAndPauseByRequestMessageId, updatePauseInDb, buildRequestButtonsRow, buildAcceptedButtonsRow, schedulePauseButtonsRemoval, syncSingleAcceptedPauseMessage, getPausePhase, getBasePauseLimit, getPauseRoleLimit, getPauseTimingText, computeStaffersInPauseByRoleForRange, computeStaffersInPauseByStaffRankForRange, getMemberStaffRankRoleId, getStaffRankLimitKey, buildAcceptedPauseLogContent, buildCancelledPauseLogContent, formatPauseRoleLabelForMessage, getPauseReasonFromMessage, normalizePauseRoleChoice, getPauseRoleTargets, roleChoiceAppliesTo, hasSiblingAcceptedPauseSameRange, PAUSE_ROLE_STAFF, PAUSE_ROLE_PM, PAUSE_ROLE_BOTH, getBestStaffPauseBonusDays, getStaffPauseBonusDaysTotal, getValPosTradedPauseBonusDays, grantBestStaffPauseBonusYear, computeStaffPauseDayBudget, allocateBestStaffWeekPauseBonusDays } = require("../../Utils/Pause/pauseHandlersUtils");
 const { buildPauseListPayload, buildPauseListMonthRows } = require("../../Utils/Pause/pauseListRuntime");
 const { scheduleStaffListRefresh } = require("../../Utils/Community/staffListUtils");
 const pauseActionLocks = new Set();
 
-function notifyStaffPauseCalendarChanged() {
+function notifyStaffPauseCalendarChanged(userId) {
   try {
     const { broadcastSiteStaffPausesChanged } = require("../../Utils/Web/siteSuggestionsBroadcast");
     broadcastSiteStaffPausesChanged();
+  } catch {
+      }
+  /* staffProfLiveAll1: profilo aperto si aggiorna su pause Discord */
+  const uid = String(userId || "").trim();
+  if (!/^\d{16,22}$/.test(uid)) return;
+  try {
+    const { clearStaffProfileCacheForUser } = require("../../Utils/Web/siteStaffProfileApi");
+    clearStaffProfileCacheForUser(uid, { action: "pause" });
   } catch {
       }
 }
@@ -232,6 +240,7 @@ async function handlePauseButton(interaction) {
     const rejectedSuffix = currentContent.includes("<:cancel:1461730653677551691>") ? "" : `\n\n<:cancel:1461730653677551691> **Richiesta pausa rifiutata** per <@${effectiveUserId}>.`;
     const updatedContent = currentContent + rejectedSuffix;
     await interaction.message?.edit({ content: updatedContent, components: [] });
+    notifyStaffPauseCalendarChanged(effectiveUserId);
     try {
       const { updateStaffWorkflowFromPause, workflowActorExtras } = require("../../Utils/Web/siteStaffWorkflowStore");
       await updateStaffWorkflowFromPause(
@@ -350,7 +359,7 @@ async function handlePauseButton(interaction) {
 
     await interaction.channel?.send({ content: `<:cancel:1461730653677551691> Pausa annullata per <@${effectiveUserId}>. <a:VC_Calendar:1482706208149475358> Giorni scalati: \`${consumedForCancelledPause}\`. <:VC_Clock:1473359204189474886> Totale usati: \`${giorniTotaliUsati}/${maxGiorni}\` (\`${giorniRimanenti}\` rimanenti).` });
     void maybeRepositionPauseSticky(interaction.channel, interaction.client).catch(() => null);
-    notifyStaffPauseCalendarChanged();
+    notifyStaffPauseCalendarChanged(effectiveUserId);
     try {
       const { updateStaffWorkflowFromPause, workflowActorExtras } = require("../../Utils/Web/siteStaffWorkflowStore");
       await updateStaffWorkflowFromPause(
@@ -380,11 +389,17 @@ async function handlePauseButton(interaction) {
   const budget = computeStaffPauseDayBudget(member, stafferRecord, roleChoice);
   const maxGiorni = budget.maxGiorni;
   const usedBefore = budget.usedDays;
-  const giorniRichiesti=getPauseDaysBetween(targetPause.dataRichiesta,targetPause.dataRitorno,);
-  if (!giorniRichiesti) {
+  const rangeDays = getPauseDaysBetween(targetPause.dataRichiesta, targetPause.dataRitorno);
+  if (!rangeDays) {
     await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> Date pausa non valide.", flags: 1 << 6 }).catch(() => {});
     return true;
   }
+  /* pauseBothSplit1: stesso periodo già accettato sull'altro ruolo → non riscalare giorni */
+  const siblingCovered = hasSiblingAcceptedPauseSameRange(
+    stafferRecord?.staff?.pauses || stafferRecord?.pauses,
+    targetPause,
+  );
+  const giorniRichiesti = siblingCovered ? 0 : rangeDays;
   const giorniUsati = usedBefore + giorniRichiesti;
   const giorniRimanenti = maxGiorni - giorniUsati;
   if (giorniRimanenti < 0) {
@@ -521,7 +536,7 @@ async function handlePauseButton(interaction) {
   }
   scheduleStaffListRefresh(interaction.client, guildId, 800);
   void maybeRepositionPauseSticky(interaction.channel, interaction.client).catch(() => null);
-  notifyStaffPauseCalendarChanged();
+  notifyStaffPauseCalendarChanged(effectiveUserId);
   try {
     const { updateStaffWorkflowFromPause, workflowActorExtras } = require("../../Utils/Web/siteStaffWorkflowStore");
     await updateStaffWorkflowFromPause(

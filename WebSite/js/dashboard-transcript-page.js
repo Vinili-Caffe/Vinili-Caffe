@@ -7,6 +7,9 @@
   var blobUrl = null;
   var loadSeq = 0;
   var loadingTimer = null;
+  // loadSyncPack1 — blob cache per transcript token + html hash
+  var _lastTxToken = null;
+  var _lastHtmlHash = 0;
 
   function byId(id) {
     return document.getElementById(id);
@@ -245,14 +248,57 @@
     blobUrl = null;
   }
 
-  function mountHtml(html) {
+  // loadSyncPack1 — fast djb2-style hash for html change detection
+  function simpleHash(str) {
+    var h = 0;
+    for (var i = 0; i < str.length; i++) {
+      h = (Math.imul(31, h) + str.charCodeAt(i)) | 0;
+    }
+    return h;
+  }
+
+  // loadSyncPack1 — content-visibility style for DiscordChatExporter / chatlog format
+  var CV1_STYLE =
+    '<style id="vc-tx-cv1">\n' +
+    '/* loadSyncPack1 */\n' +
+    '.chatlog__message-group, .chatlog__message, [class*="message-group"], [class*="message"] {\n' +
+    '  content-visibility: auto;\n' +
+    '  contain-intrinsic-size: auto 120px;\n' +
+    '}\n' +
+    '</style>';
+
+  function injectPerfStyle(html) {
+    // loadSyncPack1 — only inject for DiscordChatExporter / chatlog format
+    if (!/chatlog|message[-_]group/i.test(html.substring(0, 4096))) return html;
+    var headClose = html.indexOf('</head>');
+    if (headClose !== -1) {
+      return html.slice(0, headClose) + CV1_STYLE + '\n' + html.slice(headClose);
+    }
+    var bodyClose = html.lastIndexOf('</body>');
+    if (bodyClose !== -1) {
+      return html.slice(0, bodyClose) + CV1_STYLE + '\n' + html.slice(bodyClose);
+    }
+    return html;
+  }
+
+  function mountHtml(html, txToken) {
     var frame = byId("vc-tx-frame");
     if (!frame) {
       setLoading(false);
       return;
     }
-    revokeBlob();
-    var blob = new Blob([html], { type: "text/html;charset=utf-8" });
+    // loadSyncPack1 — skip remount if same token + html hash
+    var htmlHash = simpleHash(html);
+    if (txToken && txToken === _lastTxToken && htmlHash === _lastHtmlHash && blobUrl) {
+      setLoading(false);
+      return;
+    }
+    _lastTxToken = txToken || null;
+    _lastHtmlHash = htmlHash;
+    revokeBlob(); // revoke previous blob URL before creating new one
+    // loadSyncPack1 — inject content-visibility style if chatlog format
+    var finalHtml = injectPerfStyle(html);
+    var blob = new Blob([finalHtml], { type: "text/html;charset=utf-8" });
     blobUrl = URL.createObjectURL(blob);
     var done = false;
     function finish() {
@@ -361,7 +407,7 @@
       rememberAccess(tokenParam, user && user.id);
       showViewer();
       setLoading(true);
-      mountHtml(html);
+      mountHtml(html, tokenParam);
       updateSessionChip();
     } catch (e) {
       if (seq !== loadSeq) return;

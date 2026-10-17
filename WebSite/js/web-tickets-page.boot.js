@@ -1,7 +1,7 @@
 /* wave2TicketsSplit1 / ticketsSkel1: lazy-load heavy tickets page after gate/idle */
 (function () {
   /* ticketSwitchFast1 / ticketSwitchFreeze2 / ticketListStuckFix1 */
-  var VER = "20260930ticketMentionTab1";
+  var VER = "20261008pageTune1";
   if (window.__VC_WEB_TICKETS_BOOT === VER) return;
   window.__VC_WEB_TICKETS_BOOT = VER;
 

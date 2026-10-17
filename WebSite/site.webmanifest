@@ -1,45 +1,62 @@
 {
-  "id": "/?app=vinili-caffe-v12",
-  "name": "Vinili & Caffè",
+  "id": "/?app=vinili-caffe-v25titlePwaDupKill2",
+  "name": "🎃 Vinili & Caffè 🍂 • Italia • Social • Gaming",
   "short_name": "Vinili & Caffè",
-  "description": "Community Discord Vinili & Caffè",
-  "start_url": "/?app=vinili-caffe-v12",
+  "description": "Community Discord italiana · Vinili & Caffè",
+  "start_url": "/?app=vinili-caffe-v25titlePwaDupKill2",
   "scope": "/",
   "display": "standalone",
-  "display_override": ["standalone", "minimal-ui"],
+  "display_override": [
+    "standalone",
+    "minimal-ui"
+  ],
   "launch_handler": {
-    "client_mode": ["focus-existing", "auto"]
+    "client_mode": [
+      "focus-existing",
+      "navigate-existing",
+      "auto"
+    ]
   },
   "handle_links": "preferred",
+  "scope_extensions": [
+    {
+      "type": "origin",
+      "origin": "https://viniliecaffe.it"
+    },
+    {
+      "type": "origin",
+      "origin": "https://www.viniliecaffe.it"
+    }
+  ],
   "background_color": "#100c09",
   "theme_color": "#100c09",
   "icons": [
     {
-      "src": "/images/pwa-icon-192-v7.png?v=20260930pwaLogoDisco1",
+      "src": "/images/pwa-icon-192-v11.png?v=20261006pwaIconClear2",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/images/pwa-icon-512-v7.png?v=20260930pwaLogoDisco1",
+      "src": "/images/pwa-icon-512-v11.png?v=20261006pwaIconClear2",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/images/pwa-icon-192-maskable-v7.png?v=20260930pwaLogoDisco1",
+      "src": "/images/pwa-icon-192-maskable-v11.png?v=20261006pwaIconClear2",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "maskable"
     },
     {
-      "src": "/images/pwa-icon-512-maskable-v7.png?v=20260930pwaLogoDisco1",
+      "src": "/images/pwa-icon-512-maskable-v11.png?v=20261006pwaIconClear2",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
     },
     {
-      "src": "/apple-touch-icon-v7.png?v=20260930pwaLogoDisco1",
+      "src": "/apple-touch-icon-v11.png?v=20261006pwaIconClear2",
       "sizes": "180x180",
       "type": "image/png",
       "purpose": "any"

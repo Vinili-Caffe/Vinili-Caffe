@@ -75,8 +75,13 @@ async function onStafferDellaSettimanaRoleAdded(guildId, userId) {
   const grant = await grantBestStaffWeekPauseBonus(guildId, userId, { weekKey, monthKey });
   try {
     const { grantCompitiSwapBonus } = require("../../Utils/Web/siteStaffCompitiApi");
-    await grantCompitiSwapBonus(guildId, userId, 1, { weekKey, monthKey });
-  } catch (_) {}
+    const swap = await grantCompitiSwapBonus(guildId, userId, 1, { weekKey, monthKey });
+    if (!swap?.ok || Number(swap.granted || 0) < 1) {
+      global.logger?.warn?.("[STAFFER SETTIMANA] compiti swap grant:", swap);
+    }
+  } catch (err) {
+    global.logger?.warn?.("[STAFFER SETTIMANA] compiti swap grant failed:", err?.message || err);
+  }
   await persistStafferDellaSettimanaState(guildId, userId, weekKey);
   return grant;
 }
@@ -128,8 +133,12 @@ async function tickStafferDellaSettimanaWeek(client) {
     try {
       const { grantCompitiSwapBonus } = require("../../Utils/Web/siteStaffCompitiApi");
       const swap = await grantCompitiSwapBonus(guildId, primaryId, 1, { weekKey, monthKey });
+      if (!swap?.ok || (Number(swap.granted || 0) < 1 && !swap?.skipped)) {
+        global.logger?.warn?.("[STAFFER SETTIMANA] tick compiti swap:", swap);
+      }
       granted.push({ userId: primaryId, ...res, compitiSwap: swap });
-    } catch (_) {
+    } catch (err) {
+      global.logger?.warn?.("[STAFFER SETTIMANA] tick compiti swap failed:", err?.message || err);
       granted.push({ userId: primaryId, ...res });
     }
   }

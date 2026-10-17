@@ -1,13 +1,20 @@
 /**
- * vc-view-state1: al reload ripristina scroll, hash, tab e selezione UI.
- * Solo su reload (F5 / Ctrl+R / PTR), non sulla navigazione tra pagine.
+ * vc-view-state1: ripristina scroll, hash, tab e UI aperta.
+ * Su reload (F5 / PTR) + PWA reopen + back/forward (bfNavRestore1).
+ * Mappa per-path in sessionStorage: ogni pagina tiene il proprio snapshot.
+ * loadRestoreAfterBar1: scroll Y solo dopo unlock barra di caricamento.
  */
 (function vcViewState() {
   if (window.__vcViewState) return;
   window.__vcViewState = 1;
+  window.__VC_VIEW_STATE_VER = "20261015homeBootFix2";
 
   var KEY = "vc_view_state_v1";
+  var MAP_KEY = "vc_view_state_map_v1";
+  var MAP_MAX = 28;
   var SCROLL_KEY = "vc_ptr_scroll_v1";
+  var LS_KEY = "vc_pwa_view_state_v1";
+  var LS_PENDING_KEY = "vc_pwa_ui_pending_v1";
   var TTL_MS = 45 * 60 * 1000;
   var saving = false;
 
@@ -28,7 +35,9 @@
     try {
       var sp = String(saved).split("?")[0];
       if (sp.length > 1 && sp.charAt(sp.length - 1) === "/") sp = sp.slice(0, -1);
-      return sp === cur;
+      var cp = String(cur).split("?")[0];
+      if (cp.length > 1 && cp.charAt(cp.length - 1) === "/") cp = cp.slice(0, -1);
+      return sp === cp;
     } catch (ePm) {
       return false;
     }
@@ -47,10 +56,10 @@
     return false;
   }
 
-  /* boardsScrollSaveGuard1: non sovrascrivere Y salvata con 0 (restore / handoff reload) */
+  /* boardsScrollSaveGuard1 + refreshScrollRestore1:
+     non sovrascrivere Y salvata con 0/near-0 durante restore / boot (anche y=2 clobbava). */
   function effectiveSaveY(y) {
     y = Math.max(0, Math.round(Number(y) || 0));
-    if (y >= 2) return y;
     try {
       var ty = Math.max(
         0,
@@ -58,7 +67,8 @@
         Math.round(Number(window.__vcPtrRestoreY || 0) || 0),
         Math.round(Number(window.__vcViewStateRestoreY || 0) || 0),
       );
-      if (ty >= 2) return ty;
+      var savedY = 0;
+      var savedAge = 1e15;
       var raw =
         sessionStorage.getItem("vc_scroll_restore_anchor_v1") ||
         sessionStorage.getItem(KEY) ||
@@ -66,12 +76,21 @@
       if (raw) {
         var d = JSON.parse(raw);
         if (d && pathMatches(d.p) && Number(d.y) >= 2) {
-          var age = Date.now() - (Number(d.t) || 0);
-          if (restorePending() || (age >= 0 && age < 4000)) {
-            return Math.round(Number(d.y) || 0);
-          }
+          savedY = Math.round(Number(d.y) || 0);
+          savedAge = Date.now() - (Number(d.t) || 0);
         }
       }
+      var protect =
+        restorePending() ||
+        (ty >= 2 && !window.__vcPtrRestoreDone) ||
+        (savedY >= 2 && savedAge >= 0 && savedAge < 12000);
+      var keep = Math.max(ty, savedY);
+      if (protect && keep >= 2) {
+        /* live Y molto più basso del target = leak boot, non gesto utente */
+        if (y < 48 || y < keep - 80) return keep;
+      }
+      if (y >= 2) return y;
+      if (keep >= 2 && (restorePending() || (savedAge >= 0 && savedAge < 12000))) return keep;
     } catch (eEy) {}
     return y;
   }
@@ -88,6 +107,172 @@
       if (sessionStorage.getItem("vc_ptr_reload_v1") === "1") return true;
     } catch (e2) {}
     return false;
+  }
+
+  function isBackForwardNav() {
+    try {
+      var list = performance.getEntriesByType && performance.getEntriesByType("navigation");
+      if (list && list[0] && list[0].type) return list[0].type === "back_forward";
+    } catch (e0) {}
+    try {
+      if (performance.navigation && performance.navigation.type === 2) return true;
+    } catch (e1) {}
+    return false;
+  }
+
+  function writeMapEntry(data) {
+    if (!data || !data.p) return;
+    try {
+      var map = {};
+      try {
+        map = JSON.parse(sessionStorage.getItem(MAP_KEY) || "{}") || {};
+      } catch (eParse) {
+        map = {};
+      }
+      if (!map || typeof map !== "object") map = {};
+      map[data.p] = data;
+      var keys = Object.keys(map);
+      if (keys.length > MAP_MAX) {
+        keys.sort(function (a, b) {
+          return (Number(map[a] && map[a].t) || 0) - (Number(map[b] && map[b].t) || 0);
+        });
+        for (var i = 0; i < keys.length - MAP_MAX; i++) {
+          try {
+            delete map[keys[i]];
+          } catch (eDel) {}
+        }
+      }
+      sessionStorage.setItem(MAP_KEY, JSON.stringify(map));
+    } catch (eMap) {}
+  }
+
+  function readMapEntry(wantPath) {
+    try {
+      var map = JSON.parse(sessionStorage.getItem(MAP_KEY) || "{}") || {};
+      if (!map || typeof map !== "object") return null;
+      var cur = wantPath || pagePath();
+      var data = map[cur] || null;
+      if (!data) {
+        var keys = Object.keys(map);
+        for (var i = 0; i < keys.length; i++) {
+          if (pathMatches(keys[i])) {
+            data = map[keys[i]];
+            break;
+          }
+        }
+      }
+      if (!data) return null;
+      var at = Number(data.t) || 0;
+      if (at && Date.now() - at > TTL_MS) return null;
+      return data;
+    } catch (eRead) {
+      return null;
+    }
+  }
+
+  function persistState(data) {
+    if (!data) return;
+    try {
+      sessionStorage.setItem(KEY, JSON.stringify(data));
+    } catch (eKey) {}
+    writeMapEntry(data);
+    persistPwaLocal(data);
+  }
+
+  function wasPwaShell() {
+    try {
+      if (
+        window.matchMedia &&
+        (window.matchMedia("(display-mode: standalone)").matches ||
+          window.matchMedia("(display-mode: fullscreen)").matches ||
+          window.matchMedia("(display-mode: minimal-ui)").matches ||
+          window.matchMedia("(display-mode: window-controls-overlay)").matches)
+      ) {
+        return true;
+      }
+    } catch (eMq) {}
+    try {
+      if (navigator.standalone) return true;
+    } catch (eNs) {}
+    try {
+      return localStorage.getItem("vc-pwa-shell") === "1";
+    } catch (eLs) {
+      return false;
+    }
+  }
+
+  function vsLsGet(key) {
+    try {
+      if (window.VcStorage && typeof window.VcStorage.get === "function") {
+        return window.VcStorage.get(key, { scope: "ls" });
+      }
+    } catch (eVs) {}
+    try {
+      return localStorage.getItem(key);
+    } catch (e) {
+      return null;
+    }
+  }
+  function vsLsSet(key, value) {
+    try {
+      if (window.VcStorage && typeof window.VcStorage.set === "function") {
+        window.VcStorage.set(key, value, { scope: "ls", immediate: true });
+        return;
+      }
+    } catch (eVs) {}
+    try {
+      localStorage.setItem(key, value);
+    } catch (e) {}
+  }
+  function vsLsRemove(key) {
+    try {
+      if (window.VcStorage && typeof window.VcStorage.remove === "function") {
+        window.VcStorage.remove(key, { scope: "ls", immediate: true });
+        return;
+      }
+    } catch (eVs) {}
+    try {
+      localStorage.removeItem(key);
+    } catch (e) {}
+  }
+
+  function persistPwaLocal(data) {
+    if (!data || !wasPwaShell()) return;
+    try {
+      var pendRaw = vsLsGet(LS_PENDING_KEY);
+      if (pendRaw) {
+        var pend = JSON.parse(pendRaw);
+        /* Non sovrascrivere lo snapshot della pagina in pending (es. home cold-start → resume). */
+        if (pend && pend.p && !pathMatches(pend.p)) return;
+      }
+    } catch (ePend) {}
+    try {
+      vsLsSet(LS_KEY, JSON.stringify(data));
+    } catch (eLs) {}
+  }
+
+  function shouldRestorePwaUi() {
+    if (!wasPwaShell()) return false;
+    try {
+      if (sessionStorage.getItem("vc_pwa_ui_restore_v1") === "1") return true;
+    } catch (eFlag) {}
+    try {
+      var raw = vsLsGet(LS_PENDING_KEY);
+      if (!raw) return false;
+      var pend = JSON.parse(raw);
+      return Boolean(pend && pathMatches(pend.p));
+    } catch (ePend) {
+      return false;
+    }
+  }
+
+  function clearPwaUiPending() {
+    try {
+      vsLsRemove(LS_PENDING_KEY);
+    } catch (e0) {}
+    try {
+      sessionStorage.removeItem("vc_pwa_ui_restore_v1");
+    } catch (e1) {}
   }
 
   function pageScrollY() {
@@ -335,14 +520,67 @@
         picks.langOpen = 1;
       }
     } catch (eLang) {}
+    try {
+      var root = document.documentElement;
+      var dd = document.getElementById("vc-notif-dropdown");
+      if (
+        (dd && dd.open) ||
+        (root &&
+          (root.classList.contains("vc-notif-sheet-open") ||
+            root.classList.contains("vc-notif-drawer-open") ||
+            root.classList.contains("vc-notif-dropdown-open")))
+      ) {
+        picks.notifOpen = 1;
+      }
+    } catch (eNotif) {}
+    try {
+      var stats =
+        document.getElementById("stats") ||
+        document.querySelector(".vc-home-live-stats, .vc-stat-strip, [data-vc-live-stats]");
+      if (stats && stats.classList.contains("is-roster-open")) {
+        if (stats.classList.contains("is-staff-open")) picks.roster = "staff";
+        else if (stats.classList.contains("is-boost-open")) picks.roster = "boost";
+        else if (stats.classList.contains("is-members-open")) picks.roster = "members";
+        else if (stats.classList.contains("is-hours-open")) picks.roster = "hours";
+        else {
+          var body = document.getElementById("vc-home-staff-roster");
+          var rk = body && body.getAttribute("data-roster-kind");
+          if (rk) picks.roster = String(rk);
+        }
+      }
+    } catch (eRoster) {}
     return picks;
   }
 
+  /* oauthHashKill1: mai salvare/ripristinare #access_token / #error OAuth (rompeva login Discord) */
+  function isOauthCallbackHash(raw) {
+    var h = String(raw || "").replace(/^#/, "");
+    if (!h) return false;
+    return (
+      h.indexOf("access_token=") !== -1 ||
+      h.indexOf("error=") !== -1 ||
+      h.indexOf("error_description=") !== -1
+    );
+  }
+  function safeHashForPersist() {
+    var h = String(window.location.hash || "");
+    return isOauthCallbackHash(h) ? "" : h;
+  }
+
   function snapshot() {
+    var yNow = Math.max(0, Math.round(pageScrollY()));
+    var maxNow = 0;
+    try {
+      maxNow = Math.max(0, Math.round(pageMaxScrollY()));
+    } catch (eMx) {}
+    try {
+      window.__vcPtrRestoreMaxY = maxNow;
+    } catch (eMx2) {}
     return {
       p: pagePath(),
-      y: Math.max(0, Math.round(pageScrollY())),
-      hash: String(window.location.hash || ""),
+      y: yNow,
+      max: maxNow,
+      hash: safeHashForPersist(),
       t: Date.now(),
       tabs: collectTabs(),
       details: collectDetails(),
@@ -369,13 +607,20 @@
         prev.p = p;
         prev.y = y;
         prev.t = t;
-        prev.hash = String(window.location.hash || "");
-        sessionStorage.setItem(KEY, JSON.stringify(prev));
+        prev.hash = safeHashForPersist();
+        persistState(prev);
       } else {
-        sessionStorage.setItem(
-          KEY,
-          JSON.stringify({ p: p, y: y, hash: String(window.location.hash || ""), t: t, tabs: [], details: [], scrollers: [], picks: {} })
-        );
+        var light = {
+          p: p,
+          y: y,
+          hash: safeHashForPersist(),
+          t: t,
+          tabs: [],
+          details: [],
+          scrollers: [],
+          picks: {},
+        };
+        persistState(light);
       }
     } catch (eLight) {}
   }
@@ -398,15 +643,15 @@
       var next = {
         p: p,
         y: y,
-        hash: String(window.location.hash || ""),
+        hash: safeHashForPersist(),
         t: t,
         tabs: collectTabs(),
         details: collectDetails(),
         scrollers: scrollers,
         picks: collectPicks(),
       };
-      sessionStorage.setItem(KEY, JSON.stringify(next));
       sessionStorage.setItem(SCROLL_KEY, JSON.stringify({ p: p, y: y, t: t }));
+      persistState(next);
     } catch (eUi) {}
   }
 
@@ -422,7 +667,7 @@
       base = {
         p: pagePath(),
         y: y0,
-        hash: String(window.location.hash || ""),
+        hash: safeHashForPersist(),
         t: Date.now(),
         tabs: [],
         details: [],
@@ -459,32 +704,57 @@
             }
           } catch (eScr) {}
           try {
-            sessionStorage.setItem(KEY, JSON.stringify(base));
+            persistState(base);
           } catch (eW) {}
           saving = false;
         };
-        try {
-          if (typeof window.requestIdleCallback === "function") {
-            window.requestIdleCallback(finish, { timeout: 2500 });
-            return;
-          }
-        } catch (eIdle) {}
+        /* violKillIdle1/2 + violKillReflow1 + violKillVis1 + violKillCue2 + violKillAll1 */
         window.setTimeout(finish, 0);
       }, 0);
     }, 0);
   }
 
-  function readState() {
+  function readState(opts) {
+    opts = opts || {};
+    var allowPwaLs = opts.allowPwaLs !== false;
     try {
       var raw = sessionStorage.getItem(KEY);
-      if (!raw) return null;
-      var data = JSON.parse(raw);
-      if (!data || !pathMatches(data.p)) return null;
-      var at = Number(data.t) || 0;
-      if (at && Date.now() - at > TTL_MS) {
-        sessionStorage.removeItem(KEY);
-        return null;
+      var data = null;
+      if (raw) {
+        data = JSON.parse(raw);
+        if (!data || !pathMatches(data.p)) data = null;
+        else {
+          var at = Number(data.t) || 0;
+          if (at && Date.now() - at > TTL_MS) {
+            sessionStorage.removeItem(KEY);
+            data = null;
+          }
+        }
       }
+      /* bfNavRestore1: KEY è “ultima pagina” — per back/forward usa mappa per-path */
+      try {
+        var mapped = readMapEntry(pagePath());
+        if (mapped && pathMatches(mapped.p)) {
+          if (!data || !pathMatches(data.p) || Number(mapped.t || 0) >= Number(data.t || 0)) {
+            data = mapped;
+          }
+        }
+      } catch (eMapR) {}
+      if ((!data || Number(data.y || 0) < 2) && allowPwaLs && wasPwaShell()) {
+        try {
+          var lsRaw = vsLsGet(LS_KEY);
+          if (lsRaw) {
+            var lsData = JSON.parse(lsRaw);
+            if (lsData && pathMatches(lsData.p)) {
+              if (!data || Number(lsData.y || 0) >= Number(data.y || 0)) data = lsData;
+              try {
+                sessionStorage.setItem(KEY, JSON.stringify(data));
+              } catch (eHydrate) {}
+            }
+          }
+        } catch (eLs) {}
+      }
+      if (!data) return null;
       try {
         var anchorRaw = sessionStorage.getItem("vc_scroll_restore_anchor_v1");
         if (anchorRaw) {
@@ -545,6 +815,16 @@
       var selected = el.getAttribute("aria-selected") === "true" || el.classList.contains("is-active");
       if (selected) continue;
       try {
+        /* violKillFinal1: soft restore — el.click() = Forced reflow / Violation 100–300ms */
+        if (window.__vcBootLightUntil && Date.now() < window.__vcBootLightUntil) {
+          try {
+            el.setAttribute("aria-selected", "true");
+          } catch (eA) {}
+          try {
+            el.classList.add("is-active", "is-selected");
+          } catch (eC) {}
+          continue;
+        }
         el.click();
       } catch (eClick) {}
     }
@@ -616,6 +896,7 @@
       var d = details[i];
       var el = findDetailEl(d);
       if (!el) continue;
+      /* reloadRestoreMenus1: ripristina anche snav header (homeNavKill1 li skippava → menù mai aperti al F5) */
       if (el.tagName === "DETAILS") el.open = true;
       else el.classList.add("is-open");
     }
@@ -647,7 +928,9 @@
 
   function restorePicks(picks) {
     if (!picks) return;
-    if (picks.ticket) {
+    /* violKillFinal1: durante boot niente .click() (Forced reflow) */
+    var bootSoft = Boolean(window.__vcBootLightUntil && Date.now() < window.__vcBootLightUntil);
+    if (picks.ticket && !bootSoft) {
       var t =
         document.querySelector('[data-id="' + picks.ticket + '"]') ||
         document.querySelector('[data-ticket-id="' + picks.ticket + '"]') ||
@@ -658,19 +941,30 @@
         } catch (eT) {}
       }
     }
+    /* reloadRestoreMenus1: ripristina hamburger se era aperto al refresh */
     if (picks.mobileNav) {
       try {
-        var openNow =
-          document.documentElement.classList.contains("vc-mobile-nav-open") ||
-          (document.getElementById("vc-mobile-nav-drawer") &&
-            document.getElementById("vc-mobile-nav-drawer").classList.contains("vc-mobile-nav-drawer--open"));
-        if (!openNow) {
-          var tog =
-            document.getElementById("vc-mobile-nav-toggle") ||
-            document.querySelector(".vc-mobile-nav-toggle");
-          if (tog) tog.click();
+        var rootM = document.documentElement;
+        var drawer = document.getElementById("vc-mobile-nav-drawer");
+        var alreadyOpen =
+          (rootM && rootM.classList.contains("vc-mobile-nav-open")) ||
+          (drawer && drawer.classList.contains("vc-mobile-nav-drawer--open"));
+        if (!alreadyOpen) {
+          if (typeof window.__vcOpenMobileNav === "function") {
+            window.__vcOpenMobileNav();
+          } else {
+            var tog = document.getElementById("vc-mobile-nav-toggle");
+            if (tog) tog.click();
+            else {
+              if (rootM) rootM.classList.add("vc-mobile-nav-open");
+              if (drawer) {
+                drawer.classList.add("vc-mobile-nav-drawer--open");
+                drawer.setAttribute("aria-hidden", "false");
+              }
+            }
+          }
         }
-      } catch (eNav) {}
+      } catch (eNavOpen) {}
     }
     if (picks.langOpen) {
       try {
@@ -685,6 +979,57 @@
         }
       } catch (eLang) {}
     }
+    if (picks.notifOpen) {
+      try {
+        var rootN = document.documentElement;
+        var ddN = document.getElementById("vc-notif-dropdown");
+        var already =
+          (ddN && ddN.open) ||
+          (rootN &&
+            (rootN.classList.contains("vc-notif-sheet-open") ||
+              rootN.classList.contains("vc-notif-drawer-open") ||
+              rootN.classList.contains("vc-notif-dropdown-open")));
+        if (!already) {
+          if (typeof window.openNotifDropdownProgrammatic === "function") {
+            window.openNotifDropdownProgrammatic();
+          } else if (ddN) {
+            ddN.open = true;
+            var sum = ddN.querySelector("summary.vc-notif-summary, summary");
+            if (sum) sum.click();
+          }
+        }
+      } catch (eNotifR) {}
+    }
+    if (picks.roster) {
+      try {
+        var kind = String(picks.roster || "");
+        var openCell =
+          document.querySelector(".vc-stat-cell--" + kind + "-open") ||
+          document.querySelector(".vc-stat-cell--" + kind + "[aria-expanded='true']");
+        if (!openCell) {
+          var liveKey = kind === "boost" ? "boosts" : kind;
+          var num = document.querySelector('[data-live-stat="' + liveKey + '"]');
+          var cell = (num && num.closest(".vc-stat-cell")) || document.querySelector(".vc-stat-cell--" + kind);
+          if (cell && cell.getAttribute("aria-expanded") !== "true") {
+            cell.click();
+          }
+        }
+      } catch (eRosterR) {}
+    }
+  }
+
+  function chromeVisualBusy() {
+    try {
+      /* scrollAfterBar2: restore Y SOLO con flag esplicito post-barra (mai prima) */
+      if (window.__vcChromeVisualReady !== 1) return true;
+      var root = document.documentElement;
+      if (root.classList.contains("vc-chrome-bar-loading")) return true;
+      var wrap = document.getElementById("vc-site-progress");
+      if (wrap && wrap.classList.contains("is-loading")) return true;
+      if (window.__vcChromeLoadDone === false) return true;
+      if (!window.__vcChromeForceUnlockAt && !window.__vcChromeLoadDone) return true;
+    } catch (eBusy) {}
+    return false;
   }
 
   function pageReadyForScrollRestore() {
@@ -693,6 +1038,8 @@
       if (root.classList.contains("vc-loader-blocking-live")) return false;
       if (root.classList.contains("vc-loading-scroll-lock")) return false;
       if (root.classList.contains("vc-interaction-hold")) return false;
+      if (root.classList.contains("vc-chrome-bar-loading")) return false;
+      if (chromeVisualBusy()) return false;
       if (root.classList.contains("vc-session-verify-pending")) return false;
       if (root.classList.contains("vc-user-leader-pending")) return false;
       if (root.classList.contains("vc-user-profile-pending")) return false;
@@ -727,6 +1074,29 @@
     }
   }
 
+  var maxScrollCache = 0;
+  function measureRealMaxScrollY() {
+    try {
+      var doc = document.documentElement;
+      var body = document.body;
+      var h = Math.max(
+        (doc && doc.scrollHeight) || 0,
+        (body && body.scrollHeight) || 0,
+      );
+      var vh = window.innerHeight || (doc && doc.clientHeight) || 0;
+      var real = Math.max(0, h - vh);
+      if (real > 0) maxScrollCache = real;
+      return real;
+    } catch (eM) {
+      return maxScrollCache || 0;
+    }
+  }
+  function pageMaxScrollY() {
+    /* bootNoFooter2: MAI usare max salvato (visita precedente) come altezza attuale —
+       altrimenti scrollTo(y) su doc corto clampa in fondo al footer. */
+    return measureRealMaxScrollY();
+  }
+
   function applyScroll(y, force) {
     y = Math.max(0, Math.round(Number(y) || 0));
     if (y < 2) return;
@@ -737,12 +1107,36 @@
     } catch (e0) {}
     /* scrollReloadKillYoYo2: durante pin non scrollTo (combatte top:-Y → yo-yo) */
     try {
-      if (document.documentElement.classList.contains("vc-ptr-scroll-restore-pending")) return;
-      if (window.__vcPtrRestoreDone) return;
-      if (!force && !pageReadyForScrollRestore()) return;
+      var rootA = document.documentElement;
+      /* scrollAfterBar2: anche force aspetta la barra (niente Y mid-load) */
+      if (chromeVisualBusy()) return;
+      /* bootNoFooter2: sipario ancora su → resta in alto, zero restore mid/footer */
+      if (
+        rootA.classList.contains("vc-page-cine-boot") &&
+        !rootA.classList.contains("vc-page-cine-ready") &&
+        !rootA.classList.contains("vc-cine-curtain-off")
+      ) {
+        return;
+      }
+      if (!force) {
+        if (rootA.classList.contains("vc-ptr-scroll-restore-pending")) return;
+        if (window.__vcPtrRestoreDone) return;
+        if (!pageReadyForScrollRestore()) return;
+      } else {
+        try {
+          rootA.classList.remove("vc-scroll-reload-top-lock");
+          rootA.classList.remove("vc-ptr-scroll-restore-pending");
+        } catch (eUnlock) {}
+      }
     } catch (eDefer) {
-      return;
+      if (!force) return;
     }
+    /* homeBootTop1 + bootNoFooter2: misura REALE — mai scroll oltre max (clampa → footer) */
+    try {
+      var maxNow = measureRealMaxScrollY();
+      if (maxNow < 64 && y > 64) return;
+      if (maxNow < y - 24) return;
+    } catch (eShort) {}
     try {
       window.scrollTo(0, y);
       if (document.documentElement) document.documentElement.scrollTop = y;
@@ -752,10 +1146,21 @@
 
   function restoreUiOnly(data) {
     if (!data) return;
-    if (data.hash && String(window.location.hash || "") !== data.hash) {
-      try {
+    try {
+      var curHash = String(window.location.hash || "");
+      /* oauthHashKill1: se siamo sul ritorno Discord, NON toccare l'hash */
+      if (isOauthCallbackHash(curHash)) {
+        restoreTabs(data.tabs);
+        restoreDetails(data.details);
+        restorePicks(data.picks);
+        restoreScrollers(data.scrollers);
+        return;
+      }
+      var wantHash = String(data.hash || "");
+      if (isOauthCallbackHash(wantHash)) wantHash = "";
+      if (wantHash && curHash !== wantHash) {
         if (history.replaceState) {
-          var h = String(data.hash || "");
+          var h = wantHash;
           if (h && h.charAt(0) !== "#") h = "#" + h;
           history.replaceState(
             null,
@@ -765,10 +1170,10 @@
               h,
           );
         } else {
-          window.location.hash = data.hash;
+          window.location.hash = wantHash;
         }
-      } catch (eH) {}
-    }
+      }
+    } catch (eH) {}
     restoreTabs(data.tabs);
     restoreDetails(data.details);
     restorePicks(data.picks);
@@ -785,24 +1190,162 @@
     if (!data) return;
     var doneUi = false;
     var finalized = false;
-    function restoreUiChunked() {
-      /* violPass8: click/open/scrollers a fette — evita Forced reflow unico */
-      window.setTimeout(function () {
+    /* scrollBarTrack2: restore Y con setTimeout — __vcLight (gap 320ms) = attesa eterna */
+    function light(fn, ms) {
+      return window.setTimeout(fn, Math.max(0, Number(ms) || 0));
+    }
+    function restoreYNow(force) {
+      var wantY = Math.max(0, Math.round(Number(data.y) || 0));
+      if (wantY < 2) return false;
+      /* homeBootFix2: home mai restore (evita salto footer a fine boot) */
+      try {
+        var hp = String(window.location.pathname || "").replace(/\/+$/, "") || "/";
+        if (
+          hp === "/" ||
+          (document.body && document.body.classList.contains("vc-body--home"))
+        ) {
+          window.__vcDiscardScrollRestore = 1;
+          return true;
+        }
+      } catch (eHomeRy) {}
+      /* refreshScrollRestore1: discard solo se boot ha scartato (nav nuova), non su F5 */
+      try {
+        if (window.__vcDiscardScrollRestore === 1) return true;
+      } catch (eDisc) {}
+      /* scrollYoYoKill1: MAI unlock/scroll prima della barra — altrimenti Y mid-load → forceTop → Y */
+      if (window.__vcChromeVisualReady !== 1) return false;
+      if (!force && chromeVisualBusy()) return false;
+      try {
+        if (window.__vcPtrRestoreDone) {
+          var curDone = Math.max(
+            0,
+            Math.round(
+              window.pageYOffset ||
+                (document.documentElement && document.documentElement.scrollTop) ||
+                0,
+            ),
+          );
+          if (curDone >= wantY - 48) return true;
+        }
+        /* scrollBarTrack3: togli lock FIXED prima di misurare — altrimenti maxY≈0 e restore fallisce per secondi */
         try {
-          restoreTabs(data.tabs);
-        } catch (eT) {}
-        window.setTimeout(function () {
+          window.__vcTopPinActive = 0;
+          document.documentElement.classList.remove("vc-scroll-reload-top-lock", "vc-ptr-scroll-restore-pending");
+          var topCss = document.getElementById("vc-scroll-reload-top-lock-css");
+          if (topCss && topCss.parentNode) topCss.parentNode.removeChild(topCss);
+        } catch (eUnlock) {}
+        var maxY = measureRealMaxScrollY();
+        /* scrollBarTrack3c + refreshNoFooterJump1: aspetta altezza reale.
+           Math.min(want,max) su doc corto = fondo → resta in footer. */
+        if (maxY < 64) return false;
+        if (maxY < wantY - 24) return false;
+        /* bootNoJumpFooter1: pending in zona footer → scarta (F5/session flash) */
+        if (maxY >= 120 && wantY >= Math.max(80, maxY - 96)) {
           try {
-            restoreDetails(data.details);
-            restorePicks(data.picks);
-          } catch (eD) {}
-          window.setTimeout(function () {
+            window.__vcDiscardScrollRestore = 1;
+            window.__vcPtrRestoreTargetY = 0;
+            window.__vcPtrRestoreY = 0;
+            window.__vcViewStateRestoreY = 0;
+            window.__vcPtrRestoreDone = 1;
+            window.scrollTo(0, 0);
+            if (document.documentElement) document.documentElement.scrollTop = 0;
+            if (document.body) document.body.scrollTop = 0;
+            window.__vcCachedScrollY = 0;
+          } catch (eBotDiscard) {}
+          return true;
+        }
+        var yGo = wantY;
+        try {
+          window.scrollTo({ top: yGo, left: 0, behavior: "instant" });
+        } catch (eInst2) {
+          window.scrollTo(0, yGo);
+        }
+        if (document.documentElement) document.documentElement.scrollTop = yGo;
+        if (document.body) document.body.scrollTop = yGo;
+        var got = Math.max(
+          0,
+          Math.round(
+            window.pageYOffset ||
+              (document.documentElement && document.documentElement.scrollTop) ||
+              (document.body && document.body.scrollTop) ||
+              0,
+          ),
+        );
+        window.__vcCachedScrollY = got > 0 ? got : yGo;
+        cachedScrollY = window.__vcCachedScrollY;
+        if (got < yGo - 48) {
+          /* scroll ancora non applicato — riprova al poll */
+          return false;
+        }
+        window.__vcPtrRestoreDone = 1;
+        try {
+          document.dispatchEvent(new CustomEvent("vc:scroll-restored", { detail: { y: got } }));
+        } catch (eEv) {}
+        return true;
+      } catch (eRy) {
+        return false;
+      }
+    }
+    function armRestoreHeightPoll() {
+      if (window.__vcRestoreHeightPoll) return;
+      window.__vcRestoreHeightPoll = 1;
+      var n = 0;
+      /* refreshScrollRestore1: poll più lungo — pagine lente (boards/wiki/profilo) crescono dopo unlock */
+      var iv = window.setInterval(function () {
+        n += 1;
+        try {
+          if (window.__vcPtrRestoreDone || n > 120) {
+            window.clearInterval(iv);
+            window.__vcRestoreHeightPoll = 0;
+            return;
+          }
+          if (restoreYNow(true)) {
+            window.clearInterval(iv);
+            window.__vcRestoreHeightPoll = 0;
+          }
+        } catch (ePoll) {}
+      }, 50);
+    }
+    function restoreUiChunked() {
+      /* violKillFinal1: 1 pezzo per turno via __vcLight — no click/reflow storm */
+      var tabs = Array.isArray(data.tabs) ? data.tabs.slice() : [];
+      var details = Array.isArray(data.details) ? data.details.slice() : [];
+      function nextTab() {
+        if (!tabs.length) {
+          light(nextDetail, 160);
+          return;
+        }
+        var one = tabs.shift();
+        light(function () {
+          try {
+            restoreTabs([one]);
+          } catch (eT) {}
+          nextTab();
+        }, 160);
+      }
+      function nextDetail() {
+        if (!details.length) {
+          light(function () {
             try {
-              restoreScrollers(data.scrollers);
-            } catch (eS) {}
-          }, 0);
-        }, 0);
-      }, 0);
+              restorePicks(data.picks);
+            } catch (eD2) {}
+            light(function () {
+              try {
+                restoreScrollers(data.scrollers);
+              } catch (eS) {}
+            }, 160);
+          }, 160);
+          return;
+        }
+        var dOne = details.shift();
+        light(function () {
+          try {
+            restoreDetails([dOne]);
+          } catch (eD1) {}
+          nextDetail();
+        }, 160);
+      }
+      light(nextTab, 200);
     }
     function run() {
       if (!doneUi) {
@@ -815,25 +1358,74 @@
           window.__vcPtrRestoreY = yKeep;
           window.__vcViewStateRestoreY = yKeep;
           window.__vcPtrRestoreTargetY = yKeep;
+          try {
+            var mxKeep = Math.max(0, Math.round(Number(data.max) || 0));
+            if (mxKeep >= 2) {
+              window.__vcPtrRestoreMaxY = mxKeep;
+              maxScrollCache = Math.max(maxScrollCache, mxKeep);
+            }
+          } catch (eMxK) {}
           document.documentElement.setAttribute("data-vc-ptr-restore-y", String(yKeep));
         }
       } catch (eKeepY) {}
-      /* scrollReloadNoBounce3: niente applyScroll ripetuto — un solo finalize quando ready */
-      if (finalized || window.__vcPtrRestoreDone) return;
-      if (!pageReadyForScrollRestore()) return;
-      finalized = true;
-      try {
-        if (typeof window.__vcPtrFinalizeScroll === "function") window.__vcPtrFinalizeScroll();
-      } catch (e) {}
+      var wantY = Math.max(0, Math.round(Number(data.y) || 0));
+      if (!finalized && !window.__vcPtrRestoreDone) {
+        if (!pageReadyForScrollRestore()) return;
+        finalized = true;
+        /* scrollBarTrack3b: Y subito + poll altezza (no attesa 600ms) */
+        if (wantY >= 2) {
+          if (!restoreYNow(true)) {
+            armRestoreHeightPoll();
+            light(function () {
+              restoreYNow(true);
+            }, 16);
+            light(function () {
+              restoreYNow(true);
+            }, 80);
+            light(function () {
+              restoreYNow(true);
+            }, 200);
+          }
+        }
+        light(function () {
+          try {
+            if (typeof window.__vcPtrFinalizeScroll === "function") window.__vcPtrFinalizeScroll();
+          } catch (e) {}
+        }, 80);
+        return;
+      }
+      if (
+        wantY >= 2 &&
+        Math.max(0, Math.round(Number(cachedScrollY) || 0)) < wantY - 48 &&
+        pageReadyForScrollRestore()
+      ) {
+        light(function () {
+          restoreYNow(true);
+        }, 120);
+      }
     }
-    var delays = [0, 500, 1200, 2400, 4000, 7000];
-    for (var i = 0; i < delays.length; i++) window.setTimeout(run, delays[i]);
-    window.addEventListener("load", run, { passive: true });
-    document.addEventListener("vc:page-cine-ready", run, { passive: true });
-    document.addEventListener("vc:cine-curtain-off", run, { passive: true });
-    document.addEventListener("vc:access-ok", run, { passive: true });
-    document.addEventListener("vc:boards-content-ready", run, { passive: true });
-    document.addEventListener("DOMContentLoaded", run, { passive: true });
+    /* UI chunked può restare soft; Y parte al visual-ready */
+    var delays = [80, 400, 1200];
+    for (var i = 0; i < delays.length; i++) light(run, delays[i]);
+    function softRun() {
+      run();
+    }
+    function onVisualReady() {
+      /* scrollBarTrack3b: primo paint post-barra = restore Y sync + poll se doc corto */
+      try {
+        if (!restoreYNow(true)) armRestoreHeightPoll();
+      } catch (eVisY) {}
+      softRun();
+    }
+    window.addEventListener("load", softRun, { passive: true });
+    document.addEventListener("vc:page-cine-ready", softRun, { passive: true });
+    document.addEventListener("vc:chrome-visual-ready", onVisualReady, { passive: true });
+    document.addEventListener("vc:cine-curtain-off", softRun, { passive: true });
+    document.addEventListener("vc:access-ok", softRun, { passive: true });
+    document.addEventListener("vc:boards-content-ready", softRun, { passive: true });
+    if (window.__vcChromeVisualReady === 1) {
+      light(onVisualReady, 0);
+    }
   }
 
   /* save continuously + on leave */
@@ -843,31 +1435,40 @@
   /* violPass9: cache Y da scroll — visibilitychange non legge layout (Forced reflow) */
   var cachedScrollY = 0;
   try {
-    cachedScrollY = Math.max(0, Math.round(pageScrollY()));
+    cachedScrollY = Math.max(0, Math.round(window.pageYOffset || 0));
   } catch (eCy0) {}
   function saveSoon() {
-    /* violPass10: scroll → solo Y; UI menus solo su click/toggle (no saveUi ogni scroll) */
+    /* violPass10 + violKill3: scroll → solo Y cached; saveLight idle/debounce lungo */
     if (saveTimer) window.clearTimeout(saveTimer);
     saveTimer = window.setTimeout(function () {
       saveTimer = 0;
+      if (typeof window.__vcLight === "function") {
+        window.__vcLight(function () {
+          try {
+            saveLight();
+          } catch (eSoon) {}
+        }, 160);
+        return;
+      }
       try {
         saveLight();
-      } catch (eSoon) {}
-    }, 320);
+      } catch (eSoon2) {}
+    }, 1200);
     if (!fullSaveTimer) {
       fullSaveTimer = window.setTimeout(function () {
         fullSaveTimer = 0;
-        var kick = function () {
-          try {
-            save();
-          } catch (eFull) {}
-        };
-        if (typeof window.requestIdleCallback === "function") {
-          window.requestIdleCallback(kick, { timeout: 8000 });
-        } else {
-          window.setTimeout(kick, 0);
+        if (typeof window.__vcLight === "function") {
+          window.__vcLight(function () {
+            try {
+              save();
+            } catch (eFull2) {}
+          }, 200);
+          return;
         }
-      }, 8000);
+        try {
+          save();
+        } catch (eFull3) {}
+      }, 16000);
     }
   }
 
@@ -875,13 +1476,43 @@
     if (uiSaveTimer) window.clearTimeout(uiSaveTimer);
     uiSaveTimer = window.setTimeout(function () {
       uiSaveTimer = 0;
+      if (typeof window.__vcLight === "function") {
+        window.__vcLight(function () {
+          try {
+            saveUi();
+          } catch (eUiSoon) {}
+        }, 160);
+        return;
+      }
       try {
         saveUi();
-      } catch (eUiSoon) {}
-    }, 480);
+      } catch (eUiSoon2) {}
+    }, 1200);
   }
 
-  window.addEventListener("scroll", saveSoon, { passive: true });
+  /* violKillAll1: scroll = zero sync (pageYOffset qui = Forced reflow / Violation 170ms+) */
+  /* violKillFinal1: restore seriale __vcLight — no DCL/scrollHeight */
+  var scrollSaveArmed = false;
+  window.addEventListener(
+    "scroll",
+    function () {
+      if (scrollSaveArmed) return;
+      scrollSaveArmed = true;
+      window.setTimeout(function () {
+        scrollSaveArmed = false;
+        try {
+          cachedScrollY = Math.max(0, Math.round(Number(window.__vcCachedScrollY) || 0));
+          if (!(cachedScrollY >= 0)) cachedScrollY = 0;
+          if (cachedScrollY < 2) {
+            cachedScrollY = Math.max(0, Math.round(window.pageYOffset || document.documentElement.scrollTop || 0));
+          }
+          window.__vcCachedScrollY = cachedScrollY;
+        } catch (eCy) {}
+        saveSoon();
+      }, 1500);
+    },
+    { passive: true },
+  );
   window.addEventListener("hashchange", saveSoon, { passive: true });
   document.addEventListener(
     "click",
@@ -907,39 +1538,35 @@
     true,
   );
   window.addEventListener("pagehide", function () {
-    /* violPass10: leave = UI sync (menus) — sync ok su unload */
+    /* violPass10 + refreshScrollRestore1: Y sync subito (debounce non basta su F5 rapido) */
+    try {
+      saveLight();
+    } catch (ePhY) {}
     try {
       saveUi();
     } catch (ePh) {}
   });
   window.addEventListener("beforeunload", function () {
     try {
+      saveLight();
+    } catch (eBuY) {}
+    try {
       saveUi();
     } catch (eBu) {}
   });
-  window.addEventListener(
-    "scroll",
-    function () {
-      try {
-        cachedScrollY = Math.max(0, Math.round(pageScrollY()));
-      } catch (eCy) {}
-    },
-    { passive: true },
-  );
   document.addEventListener("visibilitychange", function () {
-    if (document.visibilityState === "hidden") {
-      /* violPass10: SOLO Y cached — saveUi qui faceva Violation ~500ms+ */
-      try {
-        var yVis = effectiveSaveY(cachedScrollY);
-        if (yVis < 2) return;
-        sessionStorage.setItem(
-          SCROLL_KEY,
-          JSON.stringify({ p: pagePath(), y: yVis, t: Date.now() })
-        );
-      } catch (eVis) {}
-    }
+    if (document.visibilityState !== "hidden") return;
+    /* violKill6: zero DOM — solo Y già cached in sessionStorage */
+    try {
+      var yVis = Math.max(0, Math.round(Number(cachedScrollY) || 0));
+      if (yVis < 2) return;
+      sessionStorage.setItem(
+        SCROLL_KEY,
+        JSON.stringify({ p: pagePath(), y: yVis, t: Date.now() })
+      );
+    } catch (eVis) {}
   });
-  /* handlerPerf2 marker */
+  /* violKill6 */
   /* violPass3 */
   /* violPass4 */
   /* violPass5 */
@@ -949,20 +1576,21 @@
   /* violPass10 */
   /* violPass11 */
 
-  /* restore only on reload */
-  if (isReloadNav()) {
-    var data = readState();
+  /* restore on reload, PWA reopen, oppure back/forward (bfNavRestore1) */
+  if (isReloadNav() || shouldRestorePwaUi() || isBackForwardNav()) {
+    var data = readState({ allowPwaLs: true });
     if (data) {
       window.__vcViewStateData = data;
       scheduleRestore(data);
     }
+    clearPwaUiPending();
   }
 
   window.__vcViewStateApi = {
     save: save,
     saveUi: saveUi,
     restore: function () {
-      scheduleRestore(readState());
+      scheduleRestore(readState({ allowPwaLs: true }));
     },
   };
 })();
@@ -971,3 +1599,10 @@
 /* viewStateMenus2 */
 /* violPass10 */
 /* violPass11 */
+/* pwaResumeUi1 */
+/* bfNavRestore1 */
+/* refreshScrollRestore1 */
+/* reloadRestoreMenus1: niente boot-close aggressivo sui menù dopo restore */
+/* violKill5 */
+/* loadScrollBarGap1 */
+/* reloadRestoreMenus1 */

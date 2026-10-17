@@ -324,15 +324,34 @@ module.exports = {
               knownNativeSlots: nativeSlots,
               expectedSlots: nativeSlots,
               nativeEventSlots: nativeSlots,
-              nativeEventIncrement: !combinedBurst,
-              /* boostDedup1: 2° embed solo se il messaggio nativo è davvero multi-slot */
+              /* boostFalseDouble2: MAI incremental sul messageCreate —
+                 il 1° system msg arrivava dopo memberUpdate (announced=1) e faceva announced+1=2. */
+              nativeEventIncrement: false,
+              /* boostDoubleBurst1: 2 system msg accumulati → conferma 2° embed */
               allowSecondRecovery: combinedBurst,
+              secondBoostConfirmed: combinedBurst,
               startedAt: Math.max(0, nativeTs - 30_000),
               skipNativeScan: combinedBurst,
               nativeLookbackMs: 6 * 60 * 60 * 1000,
               maxSend: nativeSlots,
             })
             .catch(() => null);
+          /* boostDoubleBurst1: se il 2° system msg arriva subito dopo, ritenta con scan nativi */
+          if (!combinedBurst) {
+            setTimeout(() => {
+              void guildMemberUpdateExtras
+                .recoverMissingBoostEmbedsForUser(message.guild, nativeBoost.userId, {
+                  knownNativeSlots: 0,
+                  expectedSlots: 0,
+                  startedAt: Math.max(0, nativeTs - 60_000),
+                  nativeLookbackMs: 10 * 60 * 1000,
+                  skipNativeScan: false,
+                  allowSecondRecovery: true,
+                  maxSend: 2,
+                })
+                .catch(() => null);
+            }, 3500).unref?.();
+          }
           const boostChannelId = require("../Utils/Config/ids").channels?.supporters;
           const boostChannel =
             (boostChannelId && message.guild.channels.cache.get(boostChannelId)) ||

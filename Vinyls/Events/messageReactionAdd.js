@@ -2,6 +2,7 @@ const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, AttachmentBu
 const { skullboardFindOneLean, skullboardUpsert } = require("../Utils/Global/globalSettingsGuildStores");
 const { handleMinigameReaction } = require("../Services/Minigames/minigameService");
 const { handleReactPressReaction } = require("../Services/Community/hogwartsReactPressService");
+const { handleHalloweenEmojiHuntReaction } = require("../Services/Community/halloweenEmojiHuntService");
 const { handleIdeaBugReaction } = require("../Services/Community/ideaBugThreadService");
 const { handlePollVoteReaction } = require("../Services/Community/pollReactionThreadService");
 const IDs = require("../Utils/Config/ids");
@@ -291,6 +292,8 @@ module.exports = {
         const client = reaction.client || reaction.message?.client || user?.client;
         const reactPressHandled = await handleReactPressReaction(client, reaction, user);
         if (reactPressHandled) return;
+        const halloweenHuntHandled = await handleHalloweenEmojiHuntReaction(client, reaction, user);
+        if (halloweenHuntHandled) return;
         const handled = await handleMinigameReaction(client, reaction, user);
         if (handled) return;
         const ideaBugHandled = await handleIdeaBugReaction(reaction, user);

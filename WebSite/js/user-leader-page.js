@@ -324,7 +324,7 @@
 
   function profileHref(userId) {
     var id = String(userId || "").trim();
-    if (!id) return "/user";
+    if (!id) return "/classifiche/";
     try {
       if (window.VCUserProfilePage && typeof window.VCUserProfilePage.profilePublicUrl === "function") {
         return window.VCUserProfilePage.profilePublicUrl(id);
@@ -406,8 +406,8 @@
 
   var state = { page: 1, totalPages: 1, loading: false, board: "level", searchUserId: "", filtersOpen: false, renderFingerprint: "" };
   var liveUsersPollTimer = null;
-  var LIVE_USERS_POLL_MS = 45000;
-  var USERS_CACHE_TTL_MS = 60000;
+  var LIVE_USERS_POLL_MS = 75000; /* pageTune1: meno churn list classifiche */
+  var USERS_CACHE_TTL_MS = 180000; /* perfRoiPack2: 3 min cache TTL (was 60 s) */
   var USERS_STALE_TTL_MS = 10 * 60 * 1000;
   var USERS_FETCH_TIMEOUT_MS = 10000;
   var usersMemoryCache = new Map();
@@ -439,23 +439,38 @@
 
   function readUsersSessionCache(key, now, allowStale) {
     try {
-      var raw = sessionStorage.getItem(key);
-      if (!raw) return null;
+      if (window.VcIdb && typeof window.VcIdb.getSync === "function") {
+        var idbSync = window.VcIdb.getSync(key);
+        if (idbSync != null) return { value: idbSync, stale: false };
+      }
+      var raw =
+        window.VcStorage && typeof window.VcStorage.get === "function"
+          ? window.VcStorage.get(key, { scope: "ss" })
+          : sessionStorage.getItem(key);
+      if (!raw) {
+        if (window.VcIdb && typeof window.VcIdb.get === "function") {
+          window.VcIdb.get(key).then(function () {});
+        }
+        return null;
+      }
       var parsed = JSON.parse(raw);
       if (!parsed || !parsed.value) {
-        sessionStorage.removeItem(key);
+        if (window.VcStorage) window.VcStorage.remove(key, { scope: "ss", immediate: true });
+        else sessionStorage.removeItem(key);
         return null;
       }
       var exp = Number(parsed.expireAt);
       if (!Number.isFinite(exp)) {
-        sessionStorage.removeItem(key);
+        if (window.VcStorage) window.VcStorage.remove(key, { scope: "ss", immediate: true });
+        else sessionStorage.removeItem(key);
         return null;
       }
       if (exp > now) return { value: parsed.value, stale: false };
       var staleUntil = Number(parsed.staleUntil);
       if (!Number.isFinite(staleUntil)) staleUntil = exp + USERS_STALE_TTL_MS;
       if (allowStale && staleUntil > now) return { value: parsed.value, stale: true };
-      sessionStorage.removeItem(key);
+      if (window.VcStorage) window.VcStorage.remove(key, { scope: "ss", immediate: true });
+      else sessionStorage.removeItem(key);
       return null;
     } catch (e) {
       return null;
@@ -465,14 +480,20 @@
   function writeUsersSessionCache(key, value, ttlMs, now) {
     try {
       var ttl = Math.max(1, Number(ttlMs) || USERS_CACHE_TTL_MS);
-      sessionStorage.setItem(
-        key,
-        JSON.stringify({
-          expireAt: now + ttl,
-          staleUntil: now + ttl + USERS_STALE_TTL_MS,
-          value: value,
-        }),
-      );
+      var json = JSON.stringify({
+        expireAt: now + ttl,
+        staleUntil: now + ttl + USERS_STALE_TTL_MS,
+        value: value,
+      });
+      if (window.VcStorage && typeof window.VcStorage.set === "function") {
+        window.VcStorage.set(key, json, { scope: "ss", immediate: true, broadcast: false });
+      } else {
+        sessionStorage.setItem(key, json);
+      }
+      /* pushIdb1: mirror IDB per sopravvivere a quota SS / reload tab */
+      if (window.VcIdb && typeof window.VcIdb.set === "function") {
+        window.VcIdb.set(key, value, ttl + USERS_STALE_TTL_MS);
+      }
     } catch (e) {}
   }
 
@@ -625,7 +646,9 @@
   }
 
   function clearLeaderPending(opts) {
-    var shouldScroll = !(opts && opts.scroll === false);
+    /* classFlash3: scroll alle card SOLO se opts.scroll===true (tab/pager).
+       Default false — altrimenti yank mid-page a ogni reveal. */
+    var shouldScroll = Boolean(opts && opts.scroll === true);
     var root = document.documentElement;
 
     function hideLoader() {
@@ -673,6 +696,21 @@
 
     function scrollAfterReveal() {
       if (isProfileMode()) return;
+      /* classFlash3: al boot azzera restoreY stale (personalizza/PTR) che ti butta a metà */
+      try {
+        if (!shouldScroll) {
+          window.__vcPtrRestoreY = 0;
+          window.__vcPtrRestoreTargetY = 0;
+          window.__vcViewStateRestoreY = 0;
+          document.documentElement.removeAttribute("data-vc-ptr-restore-y");
+          if (typeof window.__vcResetPinnedPageScrollY === "function") {
+            window.__vcResetPinnedPageScrollY(0);
+          }
+          window.scrollTo(0, 0);
+          if (document.documentElement) document.documentElement.scrollTop = 0;
+          if (document.body) document.body.scrollTop = 0;
+        }
+      } catch (eTopBoot) {}
       var yKeep = 0;
       try {
         yKeep =
@@ -683,14 +721,21 @@
           yKeep = Math.max(yKeep, Number(opts.keepY) || 0);
         }
       } catch (eKeep) {}
+      var _layoutAt = 0;
       function refreshCommunityLayout() {
         try {
+          var rootL = document.documentElement;
+          if (rootL && rootL.classList.contains("vc-page-cine-ready")) return;
+          var now = Date.now();
+          /* violKillEmoji1d: max 1 layout/1.2s — force hero = Forced reflow 200–300ms */
+          if (now - _layoutAt < 1200) return;
+          _layoutAt = now;
           if (typeof window.__vcEnsureCommunityPageCineLayout === "function") {
             window.__vcEnsureCommunityPageCineLayout();
             return;
           }
           if (typeof window.__vcPageHeroLayout === "function") {
-            window.__vcPageHeroLayout({ force: true });
+            window.__vcPageHeroLayout({ force: false });
           }
         } catch (eLayout) {}
       }
@@ -725,41 +770,90 @@
       }
       function restoreKeptY() {
         /* scrollStayAll1: tab switch / pager — resta all'altezza, anche se il DOM collassa */
+        /* classFlash3: niente restore mid durante boot/sipario */
+        try {
+          if (!document.documentElement.classList.contains("vc-cine-curtain-off")) return;
+        } catch (eCurt) {}
         if (yKeep < 24) return;
         try {
           if (typeof window.__vcHoldPageScroll === "function") window.__vcHoldPageScroll(320, yKeep);
           else if (typeof window.scrollTo === "function") window.scrollTo(0, yKeep);
         } catch (eRest) {}
       }
-      refreshCommunityLayout();
-      window.setTimeout(refreshCommunityLayout, 0);
-      window.setTimeout(refreshCommunityLayout, 150);
-      window.setTimeout(refreshCommunityLayout, 600);
+      /* violKillEmoji1c: no setTimeout(0)/burst — __vcLight serial (Forced reflow) */
+      function light(fn, ms) {
+        try {
+          if (typeof window.__vcLight === "function") {
+            window.__vcLight(fn, ms);
+            return;
+          }
+        } catch (eL) {}
+        window.setTimeout(fn, Math.max(48, Number(ms) || 48));
+      }
+      light(refreshCommunityLayout, 120);
       if (!shouldScroll) {
-        restoreKeptY();
-        window.setTimeout(restoreKeptY, 0);
-        window.setTimeout(restoreKeptY, 120);
-        window.setTimeout(restoreKeptY, 320);
+        /* classFlash4: boot reveal SEMPRE top — mai restoreKeptY (yKeep mid da unlock) */
+        try {
+          yKeep = 0;
+          window.__vcPtrRestoreY = 0;
+          window.__vcPtrRestoreTargetY = 0;
+          window.__vcViewStateRestoreY = 0;
+          window.scrollTo(0, 0);
+          if (document.documentElement) document.documentElement.scrollTop = 0;
+          if (document.body) document.body.scrollTop = 0;
+        } catch (eTop4) {}
+        light(function () {
+          try {
+            window.scrollTo(0, 0);
+          } catch (eTop4b) {}
+        }, 200);
         return;
       }
-      window.setTimeout(function () {
-        refreshCommunityLayout();
+      light(function () {
         scrollToLeaderCards("auto");
-      }, 120);
-      window.requestAnimationFrame(function () {
-        if (shouldScroll) scrollToLeaderCards("auto");
-      });
+      }, 220);
     }
 
     function finishReveal() {
       try {
-        root.classList.remove("vc-user-leader-pending", "vc-user-leader-route", "vc-loading-scroll-lock");
+        /* classFlashPending2: pending resta finché sipario giù — altrimenti footer
+           flasha (solo footer) prima/durante curtain. */
         if (!root.classList.contains("vc-page-cine-ready")) {
           root.classList.add("vc-page-cine-ready", "vc-core-styles-ready", "vc-styles-ready", "vc-home-styles-ready");
           root.classList.remove("vc-page-cine-boot");
           try {
             document.dispatchEvent(new Event("vc:page-cine-ready"));
           } catch (eEvt) {}
+        }
+        var clearPending = function () {
+          try {
+            root.classList.remove("vc-user-leader-pending", "vc-user-leader-route", "vc-loading-scroll-lock");
+          } catch (eClr) {}
+        };
+        if (root.classList.contains("vc-cine-curtain-off")) {
+          clearPending();
+        } else {
+          var done = false;
+          var once = function () {
+            if (done) return;
+            /* classFlash3: clear pending SOLO a curtain-off reale (no timeout cieco) */
+            if (!root.classList.contains("vc-cine-curtain-off")) return;
+            done = true;
+            clearPending();
+          };
+          try {
+            document.addEventListener("vc:cine-curtain-off", once, { once: true });
+          } catch (eEv) {}
+          var poll = window.setInterval(function () {
+            if (root.classList.contains("vc-cine-curtain-off")) {
+              window.clearInterval(poll);
+              once();
+            }
+          }, 40);
+          window.setTimeout(function () {
+            window.clearInterval(poll);
+            once();
+          }, 8000);
         }
       } catch (ePending) {}
       hideLoader();
@@ -786,8 +880,15 @@
 
     function applyLayout() {
       try {
-        root.classList.add("vc-page-cine-boot");
-        root.classList.remove("vc-user-leader-pending");
+        /* loadGateOnce2: non riarmare boot se sipario già giù (era silent 2° load) */
+        /* classFlashPending2: NON togliere vc-user-leader-pending qui —
+           altrimenti footer/header tornano visibili prima del sipario (flash vuoto).
+           Lo toglie solo finishReveal. */
+        var alreadyOpen =
+          root.classList.contains("vc-page-cine-ready") ||
+          root.classList.contains("vc-cine-curtain-off");
+        if (!alreadyOpen) root.classList.add("vc-page-cine-boot");
+        else root.classList.remove("vc-page-cine-boot");
       } catch (eGate) {}
       try {
         if (typeof window.__vcEnsureCommunityPageCineLayout === "function") {
@@ -855,7 +956,30 @@
     }
     if (title) title.textContent = label || "Caricamento…";
     if (sub) sub.textContent = state.loading ? "Un momento…" : "";
-    if (grid) grid.setAttribute("aria-busy", state.loading ? "true" : "false");
+    /* ulBusyCursor1: aria-busy/is-loading sul grid con card visibili → cursore loading.
+       Busy solo quando skeleton (griglia senza card). */
+    try {
+      if (grid) {
+        var hasCards = Boolean(grid.querySelector(".vc-ul-card"));
+        if (!state.loading || hasCards) {
+          clearUlGridBusy(grid);
+        } else {
+          grid.setAttribute("aria-busy", "true");
+        }
+      }
+    } catch (eBusy) {}
+    /* apiJankCut1: skeleton card mentre API lenta (no griglia vuota) */
+    try {
+      if (
+        state.loading &&
+        grid &&
+        !grid.querySelector(".vc-ul-card") &&
+        window.VcListSkeleton &&
+        typeof window.VcListSkeleton.fill === "function"
+      ) {
+        window.VcListSkeleton.fill(grid, { mode: "cards", count: 6 });
+      }
+    } catch (eSkel) {}
     try {
       if (typeof window.__vcSyncLoaderScrollLock === "function") window.__vcSyncLoaderScrollLock();
     } catch (eSync) {}
@@ -871,24 +995,37 @@
   function setState(msg, isErr) {
     var text = String(msg || "").trim();
     var el = byId("vc-user-leader-state");
-    // leaderToast429Fix1 + toastOnlyAlerts1: tutti gli avvisi → toast (mai banner).
+    // loadToastLinger1: mai banner — solo toast; clear con linger (non sync col fine load).
     if (el) {
       el.textContent = "";
       el.hidden = true;
+      el.setAttribute("hidden", "");
       el.className = "vc-user-leader-state";
     }
     if (!text) {
       try {
-        if (window.VcSiteToast && typeof window.VcSiteToast.hide === "function") window.VcSiteToast.hide();
+        /* loadToastLinger1: se il boot toast è ancora in hold, non killare qui */
+        if (window.__vcBootLoadToastHold) return;
+        if (window.VcSiteToast && typeof window.VcSiteToast.hideLoadLinger === "function") {
+          window.VcSiteToast.hideLoadLinger(1100);
+        } else if (window.VcSiteToast && typeof window.VcSiteToast.hide === "function") {
+          window.setTimeout(function () {
+            try {
+              window.VcSiteToast.hide();
+            } catch (eH2) {}
+          }, 1100);
+        }
       } catch (eHide) {}
       return;
     }
     function paintToast() {
       try {
         if (window.VcSiteToast && typeof window.VcSiteToast.show === "function") {
+          var pending = !isErr && /[…]$|\.\.\.$|caricamento/i.test(text);
           window.VcSiteToast.show(text, Boolean(isErr), {
             ms: isErr ? (/troppe richieste/i.test(text) ? 4200 : 3200) : 1800,
-            pending: !isErr && /[…]$|\.\.\.$|caricamento/i.test(text),
+            pending: pending,
+            bootLoad: pending,
           });
           return true;
         }
@@ -897,11 +1034,7 @@
     }
     if (paintToast()) return;
     window.setTimeout(function () {
-      if (paintToast()) return;
-      if (!el) return;
-      el.textContent = text;
-      el.className = "vc-user-leader-state" + (isErr ? " vc-user-leader-state--err" : "");
-      el.hidden = false;
+      paintToast();
     }, 80);
   }
 
@@ -1446,12 +1579,28 @@
     if (sub) sub.textContent = boardLeadBlurb(board);
   }
 
+  function clearUlGridBusy(grid) {
+    /* ulBusyCursor1: VcListSkeleton.fill lascia is-loading → cursore loading sulle card */
+    try {
+      if (window.VcListSkeleton && typeof window.VcListSkeleton.clearBusy === "function") {
+        window.VcListSkeleton.clearBusy(grid);
+      }
+    } catch (eSk) {}
+    try {
+      if (grid) {
+        grid.classList.remove("is-loading", "is-refreshing");
+        grid.setAttribute("aria-busy", "false");
+      }
+    } catch (eCls) {}
+  }
+
   function render(data) {
     var grid = byId("vc-ul-grid");
     var empty = byId("vc-ul-empty");
     if (!grid || !empty) return;
     var rows = sortRowsForBoard((data && data.rows) || [], String((data && data.board) || state.board || "level"));
     var board = String((data && data.board) || state.board || "level");
+    clearUlGridBusy(grid);
     if (!rows.length) {
       grid.innerHTML = "";
       empty.hidden = false;

@@ -617,11 +617,47 @@
     }
   }
 
+  /* switcherEmojiOnly1: tab switcher = Discord emoji only (no FA beside) */
   var ROLE_DISCORD_EMOJI = {
     helper: "https://cdn.discordapp.com/emojis/1502328751638450426.webp?size=48&quality=lossless",
     pm: "https://cdn.discordapp.com/emojis/1494286911286808576.webp?size=48&quality=lossless",
     staff: "https://cdn.discordapp.com/emojis/1494286904089247754.webp?size=48&quality=lossless",
   };
+
+  function syncSwitcherRoleEmojis() {
+    var pairs = [
+      ["vc-candidature-tab-helper", ROLE_DISCORD_EMOJI.helper],
+      ["vc-candidature-tab-pm", ROLE_DISCORD_EMOJI.pm],
+    ];
+    for (var i = 0; i < pairs.length; i++) {
+      var btn = byId(pairs[i][0]);
+      if (!btn) continue;
+      var fa = btn.querySelectorAll(":scope > i.fa, :scope > .fa");
+      for (var f = 0; f < fa.length; f++) {
+        try {
+          fa[f].remove();
+        } catch (eRm) {
+          fa[f].style.display = "none";
+        }
+      }
+      var img = btn.querySelector(".vc-role-seg-switch__roleico");
+      if (!img) {
+        img = document.createElement("img");
+        img.className = "vc-role-seg-switch__roleico";
+        img.alt = "";
+        img.width = 18;
+        img.height = 18;
+        img.decoding = "async";
+        img.setAttribute("referrerpolicy", "no-referrer");
+        btn.insertBefore(img, btn.firstChild);
+      }
+      if (pairs[i][1] && img.getAttribute("src") !== pairs[i][1]) {
+        img.setAttribute("src", pairs[i][1]);
+      }
+      img.removeAttribute("hidden");
+      btn.classList.remove("is-roleico-fallback");
+    }
+  }
 
   function clearGate() {
     var gate = byId("vc-candidature-gate");
@@ -1063,18 +1099,38 @@
   function setWelcome(user) {
     var el = byId("candidature-welcome");
     if (!el) return;
-    if (!user) {
+    function paint() {
+      if (!user) {
+        setShuffleText(
+          el,
+          t("cand.welcome", "Accedi con Discord per compilare il modulo."),
+        );
+        return;
+      }
+      var name = String(user.username || "utente").trim() || "utente";
       setShuffleText(
         el,
-        t("cand.welcome", "Accedi con Discord per compilare il modulo."),
+        t("cand.welcomeUser", "Benvenuto {name}! Scegli il ruolo e compila tutti i campi.").replace(
+          /\{name\}/g,
+          name,
+        ),
       );
-      return;
     }
-    var name = String(user.username || "utente").trim() || "utente";
-    setShuffleText(
-      el,
-      t("cand.welcomeUser", "Benvenuto {name}! Scegli il ruolo e compila tutti i campi.").replace(/\{name\}/g, name),
-    );
+    /* finish1b: aspetta locale pack prima dello shuffle (altrimenti resta IT) */
+    try {
+      if (
+        window.VcI18n &&
+        typeof window.VcI18n.ensureLocaleBundle === "function" &&
+        typeof window.VcI18n.getLang === "function"
+      ) {
+        var lang = window.VcI18n.getLang();
+        if (lang && lang !== "it") {
+          window.VcI18n.ensureLocaleBundle(lang).then(paint);
+          return;
+        }
+      }
+    } catch (eWait) {}
+    paint();
   }
 
   function showFormWrap(show) {
@@ -1275,10 +1331,41 @@
     });
   }
 
-  function persistCandidatureDraft() {
+  /* candDraftToastKill1: toast solo se form visibile + risposte reali
+     (no “Bozza salvata” su tab/pagehide/form nascosto) */
+  function draftHasContent(answers) {
+    if (!answers || typeof answers !== "object") return false;
+    var keys = Object.keys(answers);
+    for (var i = 0; i < keys.length; i += 1) {
+      var v = answers[keys[i]];
+      if (Array.isArray(v) && v.length) return true;
+      if (typeof v === "string" && v.trim()) return true;
+    }
+    return false;
+  }
+
+  function isCandidatureFormActive() {
+    var inner = byId("vc-candidature-form-inner");
+    return Boolean(currentUser && inner && !inner.hidden);
+  }
+
+  function persistCandidatureDraft(opts) {
+    opts = opts || {};
     if (!window.VcFormDrafts || !currentUser) return;
-    window.VcFormDrafts.save(candidatureDraftKey(activeKind), collectDraftAnswers(), {
-      notify: true,
+    var answers = collectDraftAnswers();
+    var has = draftHasContent(answers);
+    if (!has) {
+      try {
+        window.VcFormDrafts.clear(candidatureDraftKey(activeKind));
+      } catch (eClr) {}
+      try {
+        window.VcFormDrafts.save("candidature:ui", { kind: activeKind });
+      } catch (eUi) {}
+      return;
+    }
+    var wantNotify = opts.notify === true && isCandidatureFormActive();
+    window.VcFormDrafts.save(candidatureDraftKey(activeKind), answers, {
+      notify: wantNotify,
     });
     window.VcFormDrafts.save("candidature:ui", { kind: activeKind });
   }
@@ -1296,24 +1383,35 @@
   function wireCandidatureDraftPersistence() {
     var wrap = byId("vc-candidature-form-wrap");
     if (!wrap || wrap._vcDraftBound) return;
-    var persist =
+    var persistSilent = function () {
+      persistCandidatureDraft({ notify: false });
+    };
+    var persistLoud =
       window.VcFormDrafts && typeof window.VcFormDrafts.debounce === "function"
-        ? window.VcFormDrafts.debounce(persistCandidatureDraft, 200)
-        : persistCandidatureDraft;
-    wrap.addEventListener("input", persist);
-    wrap.addEventListener("change", persist);
-    window.addEventListener("beforeunload", persistCandidatureDraft);
+        ? window.VcFormDrafts.debounce(function () {
+            persistCandidatureDraft({ notify: true });
+          }, 200)
+        : function () {
+            persistCandidatureDraft({ notify: true });
+          };
+    wrap.addEventListener("input", persistLoud);
+    wrap.addEventListener("change", persistLoud);
+    window.addEventListener("beforeunload", persistSilent);
+    window.addEventListener("pagehide", persistSilent);
+    document.addEventListener("visibilitychange", function () {
+      if (document.visibilityState === "hidden") persistSilent();
+    });
     wrap._vcDraftBound = true;
   }
 
   function setKind(kind) {
-    persistCandidatureDraft();
+    persistCandidatureDraft({ notify: false });
     userSelectedKind = true;
     activeKind = kind === "partnermanager" ? "partnermanager" : "helper";
     syncTabActiveUi();
     renderFields();
     syncEligibilityToDom();
-    persistCandidatureDraft();
+    persistCandidatureDraft({ notify: false });
   }
 
   function collectAnswers() {
@@ -1669,6 +1767,7 @@
       }
     }
     syncTabActiveUi();
+    syncSwitcherRoleEmojis();
     wireCandidatureDraftPersistence();
     var tabH = byId("vc-candidature-tab-helper");
     var tabPm = byId("vc-candidature-tab-pm");

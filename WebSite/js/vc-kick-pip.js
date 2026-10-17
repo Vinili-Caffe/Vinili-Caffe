@@ -30,7 +30,8 @@
     var DISMISS_TTL_MS = 18 * 60 * 60 * 1000;
   var POS_KEY = "vc_kick_pip_pos_v2";
   var WATCH_KEY = "vc_kick_pip_watch_v2";
-  var pollMs = Math.max(30000, Math.min(180000, Number(cfg.pollIntervalMs) || 90000));
+  /* liveStatsCalm1: PIP poll default 150s (era 90s) */
+  var pollMs = Math.max(60000, Math.min(300000, Number(cfg.pollIntervalMs) || 150000));
   var previewLimitMs = Math.max(
     60_000,
     Math.min(60 * 60_000, Number(cfg.previewLimitMs) || 10 * 60_000),
@@ -451,7 +452,8 @@
       '"><i class="fa fa-times" aria-hidden="true"></i></button>' +
       "</div>" +
       '<div class="vc-kick-pip__media" id="vc-kick-pip-media">' +
-      '<img class="vc-kick-pip__thumb" id="vc-kick-pip-thumb" alt="" decoding="async" fetchpriority="low" loading="lazy" />' +
+      /* issuesLazyZero1: no loading=lazy senza src (Chrome LazyLoadImageIssue ZeroSize 0×0) */
+      '<img class="vc-kick-pip__thumb" id="vc-kick-pip-thumb" alt="" width="320" height="180" decoding="async" fetchpriority="low" />' +
       '<video class="vc-kick-pip__video" id="vc-kick-pip-video" playsinline webkit-playsinline muted disablePictureInPicture></video>' +
       '<iframe class="vc-kick-pip__player" id="vc-kick-pip-player" title="' +
       t("kickPip.playerTitle", "Player live Kick") +
@@ -992,6 +994,7 @@
     var raw = String(url || "").trim();
     if (!raw) {
       thumbEl.removeAttribute("src");
+      thumbEl.removeAttribute("loading");
       thumbEl.onerror = null;
       thumbEl.hidden = true;
       return;
@@ -1010,6 +1013,7 @@
         thumbEl.hidden = false;
       }
     };
+    thumbEl.setAttribute("loading", "lazy");
     thumbEl.src = finalUrl;
     thumbEl.hidden = false;
   }

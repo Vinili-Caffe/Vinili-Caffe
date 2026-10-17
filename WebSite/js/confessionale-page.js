@@ -331,7 +331,8 @@
       },
       mode: "cors",
       credentials: "omit",
-      cache: "no-store",
+      /* pageTune1: GET usa cache HTTP + ETag server (prima no-store sempre) */
+      cache: String(method || "GET").toUpperCase() === "GET" ? "default" : "no-store",
     };
     if (body != null) {
       opts.headers["Content-Type"] = "application/json";
@@ -1043,15 +1044,36 @@
     return escapeHtml(String(s == null ? "" : s));
   }
 
+  var pendingConfDeepLinkId = "";
+
+  function resolveConfDeepLinkId() {
+    try {
+      var hash = String(location.hash || "");
+      var m = hash.match(/vc-conf-card-([a-f0-9]{24})/i);
+      if (m) return String(m[1] || "");
+    } catch (eH) {}
+    var pending = String(pendingConfDeepLinkId || "").trim();
+    if (/^[a-f0-9]{24}$/i.test(pending)) return pending;
+    var open = String(openSheetId || "").trim();
+    if (/^[a-f0-9]{24}$/i.test(open)) return open;
+    return "";
+  }
+
+  function scrollConfCardIntoView(id) {
+    var sid = String(id || "").trim();
+    if (!sid) return;
+    try {
+      var card = document.getElementById("vc-conf-card-" + sid);
+      if (!card || typeof card.scrollIntoView !== "function") return;
+      card.scrollIntoView({ block: "center", inline: "nearest", behavior: "smooth" });
+    } catch (eScr) {}
+  }
+
   function ensurePageIncludesDeepLink(items) {
     if (confPager.userControlled) return;
-    var hash = "";
-    try {
-      hash = String(location.hash || "");
-    } catch (eH) {}
-    var m = hash.match(/vc-conf-card-([a-f0-9]{24})/i);
-    if (!m) return;
-    var want = String(m[1] || "").toLowerCase();
+    var wantRaw = resolveConfDeepLinkId();
+    if (!wantRaw) return;
+    var want = String(wantRaw || "").toLowerCase();
     var idx = -1;
     for (var i = 0; i < items.length; i += 1) {
       if (String((items[i] && items[i].id) || "").toLowerCase() === want) {
@@ -1204,6 +1226,10 @@
       if (stillOpen && cur) paintConfSheet(cur);
       else if (stillOpen && !cur) paintConfSheetLoading(openSheetId);
       else if (!stillOpen) openSheetId = "";
+    } else if (pendingConfDeepLinkId) {
+      try {
+        applyConfessionDeepLink();
+      } catch (ePend) {}
     }
   }
 
@@ -1220,9 +1246,9 @@
   }
 
   function loadList(force) {
-    if (loadedOnce && !force) return;
-    if (listLoadInFlight && !force) return;
-    if (!isReadTabActive()) return;
+    if (loadedOnce && !force) return Promise.resolve();
+    if (listLoadInFlight && !force) return Promise.resolve();
+    if (!isReadTabActive()) return Promise.resolve();
     var root = byId("vc-conf-list");
     if (root && !loadedOnce) {
       showListSkeleton(true);
@@ -1230,7 +1256,7 @@
     listLoadInFlight = true;
     var boardAtFetch = normalizeBoardId(board);
     var genAtFetch = Number(fetchGen || 0);
-    fetchJson("GET", apiGetUrl())
+    return fetchJson("GET", apiGetUrl())
       .then(function (out) {
         if (normalizeBoardId(board) !== boardAtFetch || Number(fetchGen || 0) !== genAtFetch) return;
         if (!out.res.ok || !out.data.ok) {
@@ -1273,23 +1299,33 @@
   }
 
   function applyConfessionDeepLink() {
-    var hash = "";
-    try {
-      hash = String(location.hash || "");
-    } catch (eH) {}
-    var m = hash.match(/vc-conf-card-([a-f0-9]{24})/i);
-    if (!m) return;
-    /* notifSheetFastOpen1: apri subito (loading se lista non pronta) */
-    openConfSheet(m[1]);
+    var id = resolveConfDeepLinkId();
+    if (!id) return;
+    pendingConfDeepLinkId = id;
+    if (!loadedOnce || !stateItems || !stateItems.length) {
+      /* aspetta lista — openConfSheet dopo paint in renderList */
+      return;
+    }
+    if (!findItemById(id)) {
+      openConfSheet(id);
+      pendingConfDeepLinkId = "";
+      return;
+    }
+    scrollConfCardIntoView(id);
+    window.setTimeout(function () {
+      openConfSheet(id);
+      pendingConfDeepLinkId = "";
+    }, 180);
   }
 
-  /* notifSheetFastOpen1: soft-open da notifica già su /confessionale */
+  /* notifSheetReadyOpen1: soft-open da notifica già su /confessionale */
   window.__vcConfessionaleOpenDeepLink = function (opts) {
     opts = opts || {};
     var id = String(opts.id || "").trim();
     if (!/^[a-f0-9]{24}$/i.test(id)) return false;
     var wantBoard = opts.board === "staff" ? "staff" : "community";
     if (wantBoard === "staff" && loadedOnce && !canAccessStaffBoard) return false;
+    pendingConfDeepLinkId = id;
     if (wantBoard !== normalizeBoardId(board)) {
       board = wantBoard;
       loadedOnce = false;
@@ -1302,13 +1338,26 @@
         syncConfScopeBar();
       } catch (eBar) {}
       showListSkeleton(true);
-      openConfSheet(id);
-      void loadList(true);
+      try {
+        history.replaceState(null, "", location.pathname + location.search + "#vc-conf-card-" + id);
+      } catch (eH) {}
+      void loadList(true).then(function () {
+        try {
+          applyConfessionDeepLink();
+        } catch (eApp) {}
+      });
       return true;
     }
-    openConfSheet(id);
-    if (!findItemById(id)) void loadList(true);
-    else void refreshListQuiet(true);
+    if (findItemById(id)) {
+      applyConfessionDeepLink();
+      void refreshListQuiet(true);
+      return true;
+    }
+    void loadList(true).then(function () {
+      try {
+        applyConfessionDeepLink();
+      } catch (eApp2) {}
+    });
     return true;
   };
 

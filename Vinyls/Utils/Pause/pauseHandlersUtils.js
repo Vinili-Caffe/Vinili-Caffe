@@ -373,9 +373,15 @@ function formatPauseRoleLabelForMessage(guild, roleChoice, member) {
   const pmLabel = pmRole?.name || "Partner Manager";
   const staffRole = guild?.roles?.cache?.get(String(IDs.roles?.Staff || ""));
   const staffFallback = staffRole?.name || "Staff";
+  const staffLabel = member ? getMemberRoleLabel(member) : staffFallback;
 
   if (normalized === PAUSE_ROLE_PM) return pmLabel;
-  if (member) return getMemberRoleLabel(member);
+  if (normalized === PAUSE_ROLE_BOTH) {
+    const left = staffLabel || staffFallback;
+    if (left && pmLabel && left.toLowerCase() !== pmLabel.toLowerCase()) return `${left} e ${pmLabel}`;
+    return left || pmLabel || "Entrambi";
+  }
+  if (member) return staffLabel;
   return staffFallback;
 }
 
@@ -509,14 +515,17 @@ async function updatePauseInDb(guildId, userId, pauseId, setFields) {
 function computeConsumedPauseDays(pauses) {
   if (!Array.isArray(pauses)) return 0;
   const { yearStart, yearEnd } = getCurrentYearBoundsUtc();
+  /* pauseBothSplit1: stessi giorni su Staff+PM non devono contare due volte */
+  const ranges = [];
 
-  return pauses.reduce((total, pause) => {
-    if (!pause) return total;
+  for (const pause of pauses) {
+    if (!pause) continue;
     const start = parseItalianDate(pause.dataRichiesta);
     const plannedEnd = parseItalianDate(pause.dataRitorno);
 
     if (pause.status === "accepted") {
-      return total + countEffectiveOverlapDays(start, plannedEnd, yearStart, yearEnd);
+      if (start && plannedEnd) ranges.push([start.getTime(), plannedEnd.getTime()]);
+      continue;
     }
 
     if (pause.status === "cancelled") {
@@ -529,21 +538,32 @@ function computeConsumedPauseDays(pauses) {
       } else if (start) {
         const consumed = Number(pause.giorniUsati);
         if (Number.isFinite(consumed) && consumed > 0) {
-          effectiveEnd = new Date(
-            start.getTime() + (consumed - 1) * MS_PER_DAY,
-          );
+          effectiveEnd = new Date(start.getTime() + (consumed - 1) * MS_PER_DAY);
         }
       }
-      if (plannedEnd && effectiveEnd && effectiveEnd > plannedEnd)
-        effectiveEnd = plannedEnd;
-      return total + countEffectiveOverlapDays(start, effectiveEnd, yearStart, yearEnd);
+      if (plannedEnd && effectiveEnd && effectiveEnd > plannedEnd) effectiveEnd = plannedEnd;
+      if (start && effectiveEnd) ranges.push([start.getTime(), effectiveEnd.getTime()]);
     }
+  }
 
-    return total;
-  }, 0);
+  if (!ranges.length) return 0;
+  ranges.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  const merged = [];
+  for (const [s, e] of ranges) {
+    if (!merged.length || s > merged[merged.length - 1][1]) {
+      merged.push([s, e]);
+    } else {
+      merged[merged.length - 1][1] = Math.max(merged[merged.length - 1][1], e);
+    }
+  }
+  return merged.reduce(
+    (total, [s, e]) => total + countEffectiveOverlapDays(new Date(s), new Date(e), yearStart, yearEnd),
+    0,
+  );
 }
 
 function getMemberRoleLabel(member) {
+  if (!member?.roles?.cache) return "Staff";
   for (const roleId of STAFF_ROLE_PRIORITY) {
     const role = member.roles.cache.get(roleId);
     if (role) return role.name;
@@ -587,6 +607,19 @@ function roleChoiceAppliesTo(baseRole, pauseRoleChoice) {
   if (!role || !pause) return false;
   if (pause === PAUSE_ROLE_BOTH) return role === PAUSE_ROLE_STAFF || role === PAUSE_ROLE_PM;
   return role === pause;
+}
+
+/** pauseBothSplit1: stessa finestra già accettata sull'altro track → non riscalare i giorni */
+function hasSiblingAcceptedPauseSameRange(pauses, targetPause) {
+  const tid = String(targetPause?._id || targetPause?.id || "").trim();
+  const start = String(targetPause?.dataRichiesta || "").trim();
+  const end = String(targetPause?.dataRitorno || "").trim();
+  if (!start || !end) return false;
+  return (Array.isArray(pauses) ? pauses : []).some((p) => {
+    if (!p || String(p.status || "") !== "accepted") return false;
+    if (tid && String(p._id || "") === tid) return false;
+    return String(p.dataRichiesta || "").trim() === start && String(p.dataRitorno || "").trim() === end;
+  });
 }
 
 function getPauseRoleLimit(roleLabel) {
@@ -636,10 +669,16 @@ function getOnePausePerMonthWarning(staffDoc, normalized) {
   const pauses = Array.isArray(staffDoc?.staff?.pauses) ? staffDoc.staff.pauses : [];
   const newCountKey = getMonthKeyForPauseCount(normalized?.dataRichiesta, normalized?.dataRitorno);
   if (!newCountKey) return null;
-  const excludeId = normalized?.excludePauseId;
+  const excludeIds = new Set();
+  if (normalized?.excludePauseId) excludeIds.add(String(normalized.excludePauseId));
+  if (Array.isArray(normalized?.excludePauseIds)) {
+    for (const id of normalized.excludePauseIds) {
+      if (id != null && String(id)) excludeIds.add(String(id));
+    }
+  }
   const countSameMonth = pauses.filter((p) => {
     if (!p || p.status === "rejected") return false;
-    if (excludeId && String(p._id) === String(excludeId)) return false;
+    if (excludeIds.has(String(p._id))) return false;
     const k = getMonthKeyForPauseCount(p.dataRichiesta, p.dataRitorno);
     return k && k.year === newCountKey.year && k.month === newCountKey.month;
   }).length;
@@ -649,8 +688,15 @@ function getOnePausePerMonthWarning(staffDoc, normalized) {
 
 function getOneWeekBetweenWarning(staffDoc, excludePauseId = null) {
   const pauses = Array.isArray(staffDoc?.staff?.pauses) ? staffDoc.staff.pauses : [];
+  const excludeIds = new Set();
+  if (excludePauseId != null && String(excludePauseId)) excludeIds.add(String(excludePauseId));
+  if (Array.isArray(excludePauseId)) {
+    for (const id of excludePauseId) {
+      if (id != null && String(id)) excludeIds.add(String(id));
+    }
+  }
   const withDate = pauses
-    .filter((p) => p && (p.createdAt || p._id) && String(p._id) !== String(excludePauseId))
+    .filter((p) => p && (p.createdAt || p._id) && !excludeIds.has(String(p._id)))
     .map((p) => ({ ...p, at: p.createdAt ? new Date(p.createdAt).getTime() : 0 }))
     .filter((p) => p.at > 0)
     .sort((a, b) => b.at - a.at);
@@ -1396,6 +1442,13 @@ async function cancelOpenPausesOnMemberLeave(guild, userId, options = {}) {
       broadcastSiteStaffPausesChanged();
     } catch {
     }
+    /* staffProfLiveAll1 */
+    try {
+      if (/^\d{16,22}$/.test(uid)) {
+        require("../Web/siteStaffProfileApi").clearStaffProfileCacheForUser(uid, { action: "pause" });
+      }
+    } catch {
+    }
   }
   return { cancelled };
 }
@@ -1521,4 +1574,4 @@ function startPauseMessageStatusMaintenance(client) {
   });
 }
 
-module.exports = { MS_PER_DAY, parseItalianDate, getPauseDaysBetween, getTodayUtc, getCurrentYearBoundsUtc, getMonthBoundsUtc, filterPausesByMonth, countOverlapDays, countEffectiveOverlapDays, rangesOverlap, computeStaffersInPauseByRoleForRange, computeStaffersInPauseByStaffRankForRange, getMemberStaffRankRoleId, getStaffRankLimitKey, resolvePauseStaffRankRoleId, buildAcceptedPauseLogContent, buildCancelledPauseLogContent, formatPauseRoleLabelForMessage, buildAcceptedPauseMessageContent, getStaffPauseRecord, getStaffAndPauseByRequestMessageId, updatePauseInDb, computeConsumedPauseDays, getMemberRoleLabel, getBasePauseLimit, getPauseRoleLimit, getPauseStatusLabel, getPauseTimingText, computePauseScaledDaysThisYear, buildRequestButtonsRow, buildAcceptedButtonsRow, schedulePauseButtonsRemoval, restorePauseMessageStatusSync, startPauseMessageStatusMaintenance, rewriteStaleCancelledPauseMessages, syncSingleAcceptedPauseMessage, scheduleAcceptedPauseMessagesRefreshAfterRankChange, getRomeMonthKey, getOnePausePerMonthWarning, getOneWeekBetweenWarning, getPauseReasonFromMessage, cancelOpenPausesOnMemberLeave, computeConsumedDaysForCancelledPause, PAUSE_ROLE_STAFF, PAUSE_ROLE_PM, PAUSE_ROLE_BOTH, normalizePauseRoleChoice, getMemberPauseRoleChoices, getPauseRoleTargets, roleChoiceAppliesTo, getBestStaffPauseBonusDays, getValPosTradedPauseBonusDays, getStaffPauseBonusDaysTotal, grantBestStaffPauseBonusYear, getStaffWeekKeyNow, getBestStaffWeekPauseBonusDaysRemaining, allocateBestStaffWeekPauseBonusDays, computeStaffPauseDayBudget, grantBestStaffWeekPauseBonus, computeWeekBonusDaysConsumed, getPausePhase, hasActiveAcceptedStaffPause };
+module.exports = { MS_PER_DAY, parseItalianDate, getPauseDaysBetween, getTodayUtc, getCurrentYearBoundsUtc, getMonthBoundsUtc, filterPausesByMonth, countOverlapDays, countEffectiveOverlapDays, rangesOverlap, computeStaffersInPauseByRoleForRange, computeStaffersInPauseByStaffRankForRange, getMemberStaffRankRoleId, getStaffRankLimitKey, resolvePauseStaffRankRoleId, buildAcceptedPauseLogContent, buildCancelledPauseLogContent, formatPauseRoleLabelForMessage, buildAcceptedPauseMessageContent, getStaffPauseRecord, getStaffAndPauseByRequestMessageId, updatePauseInDb, computeConsumedPauseDays, getMemberRoleLabel, getBasePauseLimit, getPauseRoleLimit, getPauseStatusLabel, getPauseTimingText, computePauseScaledDaysThisYear, buildRequestButtonsRow, buildAcceptedButtonsRow, schedulePauseButtonsRemoval, restorePauseMessageStatusSync, startPauseMessageStatusMaintenance, rewriteStaleCancelledPauseMessages, syncSingleAcceptedPauseMessage, scheduleAcceptedPauseMessagesRefreshAfterRankChange, getRomeMonthKey, getOnePausePerMonthWarning, getOneWeekBetweenWarning, getPauseReasonFromMessage, cancelOpenPausesOnMemberLeave, computeConsumedDaysForCancelledPause, PAUSE_ROLE_STAFF, PAUSE_ROLE_PM, PAUSE_ROLE_BOTH, normalizePauseRoleChoice, getMemberPauseRoleChoices, getPauseRoleTargets, roleChoiceAppliesTo, hasSiblingAcceptedPauseSameRange, getBestStaffPauseBonusDays, getValPosTradedPauseBonusDays, getStaffPauseBonusDaysTotal, grantBestStaffPauseBonusYear, getStaffWeekKeyNow, getBestStaffWeekPauseBonusDaysRemaining, allocateBestStaffWeekPauseBonusDays, computeStaffPauseDayBudget, grantBestStaffWeekPauseBonus, computeWeekBonusDaysConsumed, getPausePhase, hasActiveAcceptedStaffPause };

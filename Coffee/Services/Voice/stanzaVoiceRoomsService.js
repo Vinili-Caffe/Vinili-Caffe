@@ -1088,6 +1088,77 @@ async function applyStanzaMemberServerMute(member, voiceChannelId, muted, reason
   }
 }
 
+async function clearStanzaServerMuteAnywhere(member, reason) {
+  if (!member?.voice) return false;
+  if (!member.voice.serverMute) return true;
+  try {
+    await member.voice.setMute(false, reason);
+    return true;
+  } catch (err) {
+    global.logger?.warn?.("[stanza] clear server mute failed:", err?.message || err);
+    return false;
+  }
+}
+
+function ensureStanzaSilencedUserIds(meta) {
+  if (!meta || typeof meta !== "object") return [];
+  if (!Array.isArray(meta.silencedUserIds)) meta.silencedUserIds = [];
+  meta.silencedUserIds = meta.silencedUserIds
+    .map((id) => String(id || "").trim())
+    .filter((id) => /^\d{5,30}$/.test(id));
+  return meta.silencedUserIds;
+}
+
+function isStanzaUserSilenced(meta, userId) {
+  const id = String(userId || "").trim();
+  if (!id) return false;
+  return ensureStanzaSilencedUserIds(meta).includes(id);
+}
+
+function addStanzaSilencedUser(meta, userId) {
+  const id = String(userId || "").trim();
+  if (!id || !/^\d{5,30}$/.test(id)) return false;
+  const arr = ensureStanzaSilencedUserIds(meta);
+  if (arr.includes(id)) return false;
+  arr.push(id);
+  return true;
+}
+
+function removeStanzaSilencedUser(meta, userId) {
+  const id = String(userId || "").trim();
+  if (!id) return false;
+  const before = ensureStanzaSilencedUserIds(meta);
+  meta.silencedUserIds = before.filter((x) => x !== id);
+  return meta.silencedUserIds.length !== before.length;
+}
+
+function isLegacyStanzaSilenceVoiceOverwrite(ow) {
+  if (!ow) return false;
+  const P = PermissionsBitField.Flags;
+  return Boolean(ow.deny?.has?.(P.Speak) && !ow.deny?.has?.(P.ViewChannel) && !ow.deny?.has?.(P.Connect));
+}
+
+function isLegacyStanzaSilenceTextOverwrite(ow) {
+  if (!ow) return false;
+  const P = PermissionsBitField.Flags;
+  return Boolean(ow.deny?.has?.(P.SendMessages) && !ow.deny?.has?.(P.ViewChannel));
+}
+
+/** Rimuove overwrite Speak/SendMessages del vecchio silenzio-canale (niente permessi aggiunti). */
+async function clearLegacyStanzaSilenceChannelOverwrites(voiceChannel, textChannel, userId, reason) {
+  const id = String(userId || "").trim();
+  if (!id) return;
+  const why = reason || "Stanza: silenzio solo server mute Discord";
+  const vow = voiceChannel?.permissionOverwrites?.cache?.get?.(id);
+  if (isLegacyStanzaSilenceVoiceOverwrite(vow)) {
+    await voiceChannel.permissionOverwrites.delete(id, why).catch(() => {});
+  }
+  const tow = textChannel?.permissionOverwrites?.cache?.get?.(id);
+  if (isLegacyStanzaSilenceTextOverwrite(tow)) {
+    await textChannel.permissionOverwrites.delete(id, why).catch(() => {});
+  }
+}
+
 async function removeStanzaMemberVoiceOverwrite(voiceChannel, userId) {
   const id = String(userId || "").trim();
   if (!id) return true;
@@ -1543,6 +1614,14 @@ async function teardownStanza(guild, channelId, opts = {}) {
   await flushStanzaVisitorVoiceSessionsForChannel(guild.id, id);
   clearStanzaEmptyTeardownTimer(id);
   stanzaVoiceStatusByChannelId.delete(id);
+  const silencedIds = ensureStanzaSilencedUserIds(meta);
+  for (const uid of silencedIds) {
+    const m =
+      guild.members.cache.get(uid) || (await guild.members.fetch(uid).catch(() => null));
+    if (m?.voice?.serverMute) {
+      await clearStanzaServerMuteAnywhere(m, "Stanza: chiusura stanza").catch(() => {});
+    }
+  }
   stanzaChannelMeta.delete(id);
   stanzaOwnerToChannel.delete(ownerKey(meta.guildId, meta.ownerId));
   clearStanzaRenamePending(meta.guildId, meta.ownerId);
@@ -1806,6 +1885,35 @@ async function handleStanzaVoiceOccupied(oldState, newState) {
   }
 }
 
+/**
+ * Silenzio stanza = solo Discord server mute, scoped al canale:
+ * - uscita → smutia (lista resta)
+ * - rientro nella stessa stanza → rimuta finché non smutato dal pannello
+ */
+async function handleStanzaVoiceSilenceSync(oldState, newState) { // stanzaSilenceServerMuteOnly1
+  const guild = newState?.guild || oldState?.guild;
+  if (!guild || !isStanzaGuildAllowed(guild.id)) return;
+  const member = newState?.member || oldState?.member;
+  if (!member || member.user?.bot) return;
+  const leftId = String(oldState?.channelId || "");
+  const joinedId = String(newState?.channelId || "");
+  if (leftId === joinedId) return;
+
+  if (leftId && leftId !== STANZA_LOBBY_VOICE_ID) {
+    const leftMeta = await getStanzaMetaOrRehydrate(guild, leftId);
+    if (leftMeta && isStanzaUserSilenced(leftMeta, member.id)) {
+      await clearStanzaServerMuteAnywhere(member, "Stanza: uscita (silenzio resta in stanza)").catch(() => {});
+    }
+  }
+
+  if (joinedId && joinedId !== STANZA_LOBBY_VOICE_ID) {
+    const joinedMeta = await getStanzaMetaOrRehydrate(guild, joinedId);
+    if (joinedMeta && isStanzaUserSilenced(joinedMeta, member.id)) {
+      await applyStanzaMemberServerMute(member, joinedId, true, "Stanza: rientro silenziato").catch(() => {});
+    }
+  }
+}
+
 function parseStanzaButtonId(customId) {
   const raw = String(customId || "");
   const idx = raw.indexOf(":");
@@ -1833,7 +1941,7 @@ function collectStanzaPermissionMemberLists(voiceChannel, meta) {
   const P = PermissionsBitField.Flags;
   const included = [];
   const excluded = [];
-  const silenced = [];
+  const silencedSet = new Set(ensureStanzaSilencedUserIds(meta));
   for (const ow of voiceChannel.permissionOverwrites.cache.values()) {
     if (Number(ow.type) !== OverwriteType.Member) continue;
     const id = String(ow.id);
@@ -1842,8 +1950,8 @@ function collectStanzaPermissionMemberLists(voiceChannel, meta) {
       excluded.push(id);
       continue;
     }
-    if (ow.deny.has(P.Speak)) {
-      silenced.push(id);
+    if (isLegacyStanzaSilenceVoiceOverwrite(ow)) {
+      silencedSet.add(id);
       continue;
     }
     if (
@@ -1855,7 +1963,7 @@ function collectStanzaPermissionMemberLists(voiceChannel, meta) {
       included.push(id);
     }
   }
-  return { included, excluded, silenced };
+  return { included, excluded, silenced: [...silencedSet] };
 }
 
 function buildStanzaPermissionsListEmbed(voiceChannel, meta) {
@@ -1951,6 +2059,7 @@ function persistStanzaSnapshotNow() {
         guildId: meta.guildId,
         startedAt: meta.startedAt,
         voiceStatus: typeof meta.voiceStatus === "string" ? meta.voiceStatus : null,
+        silencedUserIds: ensureStanzaSilencedUserIds(meta).slice(),
       };
     }
     for (const [key, row] of stanzaRenamePending.entries()) {
@@ -2079,6 +2188,9 @@ function normalizeStanzaRecordFromSnapshot(rec, guildId) {
   let textChannelId = String(rec?.textChannelId || "").trim();
   if (!textChannelId || !/^\d{5,30}$/.test(textChannelId)) textChannelId = null;
   const voiceStatus = typeof rec?.voiceStatus === "string" && rec.voiceStatus.trim() ? rec.voiceStatus.trim() : null;
+  const silencedUserIds = Array.isArray(rec?.silencedUserIds)
+    ? rec.silencedUserIds.map((id) => String(id || "").trim()).filter((id) => /^\d{5,30}$/.test(id))
+    : [];
   return {
     ownerId,
     viceUserId,
@@ -2087,6 +2199,7 @@ function normalizeStanzaRecordFromSnapshot(rec, guildId) {
     guildId: gid,
     startedAt: Number(rec?.startedAt) || Date.now(),
     voiceStatus,
+    silencedUserIds,
   };
 }
 
@@ -2107,6 +2220,12 @@ async function tryRehydrateStanzaRoomFromSnapshotRecord(guild, channelId, rec) {
   const humans = voiceCh.members.filter((m) => !m.user.bot);
   if (humans.size === 0) {
     scheduleStanzaEmptyTeardown(guild, id);
+  } else {
+    for (const m of humans.values()) {
+      if (isStanzaUserSilenced(meta, m.id)) {
+        await applyStanzaMemberServerMute(m, id, true, "Stanza: ripristino silenzio").catch(() => {});
+      }
+    }
   }
   // Heal stripped names after restart (no channelUpdate until next rename).
   if (!isCanonicalStanzaVoiceName(voiceCh.name)) {
@@ -3001,7 +3120,6 @@ async function handleStanzaUsersMemberMessageCreate(message) {
   }
 
   const action = pending.action;
-  const P = PermissionsBitField.Flags;
   let ok = false;
   let doneLine = "";
 
@@ -3025,32 +3143,43 @@ async function handleStanzaUsersMemberMessageCreate(message) {
   } else if (action === "silenzia") {
     const botId = String(message.client?.user?.id || "");
     if (botId) await ensureStanzaBotVoiceOverwrite(voiceCh, botId).catch(() => {});
-    ok = await applyStanzaMemberVoicePerms(voiceCh, targetId, STANZA_VOICE_MEMBER_SILENCE, "Stanza: silenzia utente").catch(() => {});
-    if (ok && tchUsers) {
-      await applyStanzaMemberTextPerms(tchUsers, targetId, STANZA_TEXT_MEMBER_SILENCE, "Stanza: silenzia utente").catch(() => {});
+    await clearLegacyStanzaSilenceChannelOverwrites(
+      voiceCh,
+      tchUsers,
+      targetId,
+      "Stanza: silenzio solo server mute Discord",
+    );
+    addStanzaSilencedUser(meta, targetId);
+    persistStanzaSnapshotNow();
+    if (String(targetMember.voice?.channelId || "") === String(voiceCh.id)) {
+      ok = await applyStanzaMemberServerMute(targetMember, voiceCh.id, true, "Stanza: silenzia utente");
+      doneLine = ok
+        ? `<a:VC_Verified:1482532479637127188> ${targetMember} è stato silenziato.`
+        : failPerm;
+    } else {
+      ok = true;
+      doneLine = `<a:VC_Verified:1482532479637127188> ${targetMember} è silenziato in questa stanza (mute al prossimo ingresso).`;
     }
-    if (ok) {
-      await applyStanzaMemberServerMute(targetMember, voiceCh.id, true, "Stanza: silenzia utente").catch(() => {});
-    }
-    doneLine = ok ? `<a:VC_Verified:1482532479637127188> ${targetMember} è stato silenziato.` : failPerm;
   } else if (action === "smuta") {
-    const ow = voiceCh.permissionOverwrites.cache.get(targetId);
-    const muted =
-      ow &&
-      ow.deny.has(P.Speak) &&
-      !ow.deny.has(P.ViewChannel) &&
-      !ow.deny.has(P.Connect);
-    if (!muted) {
+    const legacyOw = voiceCh.permissionOverwrites.cache.get(targetId);
+    const wasSilenced = isStanzaUserSilenced(meta, targetId) || isLegacyStanzaSilenceVoiceOverwrite(legacyOw);
+    if (!wasSilenced) {
       doneLine = `<a:VC_Cross:1482532424570376253> ${targetMember} non risulta silenziato in questa stanza.`;
     } else {
       const botId = String(message.client?.user?.id || "");
       if (botId) await ensureStanzaBotVoiceOverwrite(voiceCh, botId).catch(() => {});
-      ok = await applyStanzaMemberVoicePerms(voiceCh, targetId, STANZA_VOICE_MEMBER_ALLOW, "Stanza: smuta utente").catch(() => {});
-      if (ok && tchUsers) {
-        await applyStanzaMemberTextPerms(tchUsers, targetId, STANZA_TEXT_MEMBER_ALLOW, "Stanza: smuta utente").catch(() => {});
-      }
-      if (ok) {
-        await applyStanzaMemberServerMute(targetMember, voiceCh.id, false, "Stanza: smuta utente").catch(() => {});
+      await clearLegacyStanzaSilenceChannelOverwrites(
+        voiceCh,
+        tchUsers,
+        targetId,
+        "Stanza: smuta (rimuovi overwrite legacy)",
+      );
+      removeStanzaSilencedUser(meta, targetId);
+      persistStanzaSnapshotNow();
+      if (String(targetMember.voice?.channelId || "") === String(voiceCh.id)) {
+        ok = await applyStanzaMemberServerMute(targetMember, voiceCh.id, false, "Stanza: smuta utente");
+      } else {
+        ok = true;
       }
       doneLine = ok ? `<a:VC_Verified:1482532479637127188> ${targetMember} è stato smutato.` : failPerm;
     }
@@ -3259,6 +3388,7 @@ module.exports = {
   handleStanzaVoiceLobbyJoin,
   handleStanzaVoiceOccupied,
   handleStanzaVoiceEmpty,
+  handleStanzaVoiceSilenceSync,
   handleStanzaButton,
   handleStanzaRenameMessageCreate,
   handleStanzaEmojiMessageCreate,

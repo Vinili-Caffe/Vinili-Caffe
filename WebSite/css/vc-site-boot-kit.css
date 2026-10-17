@@ -1,0 +1,237 @@
+/* 20261011consoleClean1: sipario + load/gesture lock + critical FOUC (single source).
+   HTML keeps a tiny inline gate; this sheet is the shared owner. */
+
+/* ——— Sipario / curtain ——— */
+html.vc-site-polish:not(.vc-cine-curtain-off),
+html.vc-grad-baked:not(.vc-cine-curtain-off),
+html.vc-boot-loader-gate:not(.vc-cine-curtain-off),
+html.vc-page-cine-boot:not(.vc-cine-curtain-off) {
+  background: #100c09 !important;
+  color-scheme: dark;
+}
+html.vc-site-polish:not(.vc-cine-curtain-off)::before,
+html.vc-grad-baked:not(.vc-cine-curtain-off)::before,
+html.vc-boot-loader-gate:not(.vc-cine-curtain-off)::before,
+html.vc-page-cine-boot:not(.vc-cine-curtain-off)::before,
+html.vc-site-polish:not(.vc-soft-fx-ready):not(.vc-soft-fx-off)::before,
+html.vc-site-polish:not(.vc-look-core-ready):not(.vc-soft-fx-off)::before {
+  content: "" !important;
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 2147482990 !important;
+  background: #100c09 !important;
+  display: block !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
+  touch-action: none !important;
+}
+html.vc-cine-curtain-off.vc-site-polish.vc-soft-fx-ready.vc-look-core-ready::before,
+html.vc-cine-curtain-off.vc-site-polish.vc-soft-fx-off::before,
+html.vc-cine-curtain-off.vc-grad-baked::before {
+  content: none !important;
+  display: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+html.vc-site-polish:not(.vc-cine-curtain-off) body.vc-body > main,
+html.vc-site-polish:not(.vc-cine-curtain-off) body.vc-body > header,
+html.vc-site-polish:not(.vc-cine-curtain-off) body.vc-body > footer,
+html.vc-grad-baked:not(.vc-cine-curtain-off) body.vc-body > main,
+html.vc-grad-baked:not(.vc-cine-curtain-off) body.vc-body > header,
+html.vc-grad-baked:not(.vc-cine-curtain-off) body.vc-body > footer,
+html.vc-page-cine-boot:not(.vc-cine-curtain-off) body.vc-body > main,
+html.vc-page-cine-boot:not(.vc-cine-curtain-off) body.vc-body > header,
+html.vc-page-cine-boot:not(.vc-cine-curtain-off) body.vc-body > footer {
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+#vc-cine-boot-curtain,
+#vc-pre-cine-hard-sipario {
+  position: fixed !important;
+  inset: 0 !important;
+  width: 100vw !important;
+  height: 100dvh !important;
+  z-index: 2147483000 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: #100c09 !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
+  touch-action: none !important;
+  overscroll-behavior: none !important;
+}
+html.vc-cine-curtain-off #vc-cine-boot-curtain,
+html.vc-cine-curtain-off #vc-pre-cine-hard-sipario {
+  display: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+html:not(.vc-cine-curtain-off) #vc-pre-cine-hard-sipario,
+html.vc-boot-loader-gate:not(.vc-cine-curtain-off) #vc-pre-cine-hard-sipario,
+html.vc-chrome-bar-loading:not(.vc-cine-curtain-off) #vc-pre-cine-hard-sipario {
+  display: block !important;
+}
+
+/* ——— Gesture / scroll lock during sipario OR load ——— */
+html.vc-page-cine-boot:not(.vc-page-cine-ready),
+html.vc-page-cine-boot:not(.vc-page-cine-ready) body,
+html.vc-site-polish:not(.vc-cine-curtain-off):not(.vc-page-cine-ready),
+html.vc-site-polish:not(.vc-cine-curtain-off):not(.vc-page-cine-ready) body,
+html.vc-loading-scroll-lock,
+html.vc-loading-scroll-lock body,
+html.vc-loader-blocking-live,
+html.vc-loader-blocking-live body,
+html.vc-chrome-bar-loading,
+html.vc-chrome-bar-loading body,
+html.vc-interaction-hold,
+html.vc-interaction-hold body,
+html.vc-user-leader-pending,
+html.vc-user-leader-pending body,
+html.vc-user-profile-pending,
+html.vc-user-profile-pending body,
+html.vc-rank-customize-pending,
+html.vc-rank-customize-pending body,
+html.vc-custom-profile-pending,
+html.vc-custom-profile-pending body,
+html.vc-session-verify-pending,
+html.vc-session-verify-pending body,
+html.vc-notif-staff-loading,
+html.vc-notif-staff-loading body {
+  overflow: hidden !important;
+  overflow-x: hidden !important;
+  overflow-y: hidden !important;
+  overscroll-behavior: none !important;
+  touch-action: none !important;
+  pointer-events: auto !important;
+  height: 100% !important;
+  max-height: 100dvh !important;
+  scrollbar-width: none !important;
+}
+html.vc-loading-scroll-lock *,
+html.vc-loader-blocking-live *,
+html.vc-chrome-bar-loading *,
+html.vc-interaction-hold *,
+html.vc-site-polish:not(.vc-cine-curtain-off) *,
+html.vc-page-cine-boot:not(.vc-cine-curtain-off) * {
+  touch-action: none !important;
+  overscroll-behavior: none !important;
+}
+html.vc-loading-scroll-lock::-webkit-scrollbar,
+html.vc-loader-blocking-live::-webkit-scrollbar,
+html.vc-chrome-bar-loading::-webkit-scrollbar,
+html.vc-loading-scroll-lock body::-webkit-scrollbar,
+html.vc-loader-blocking-live body::-webkit-scrollbar,
+html.vc-chrome-bar-loading body::-webkit-scrollbar {
+  width: 0 !important;
+  height: 0 !important;
+  display: none !important;
+}
+
+/* ——— Unlock only when curtain off AND load/bar idle ——— */
+/* cursorFlashKill3: ZERO :has(is-loading) — thrash overflow = cursore vinyl↔Windows */
+html.vc-cine-curtain-off:not(.vc-chrome-bar-loading):not(.vc-loading-scroll-lock):not(.vc-loader-blocking-live):not(.vc-interaction-hold),
+html.vc-page-cine-ready:not(.vc-chrome-bar-loading):not(.vc-loading-scroll-lock):not(.vc-loader-blocking-live):not(.vc-interaction-hold) {
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  overscroll-behavior: auto !important;
+  touch-action: pan-y !important;
+  height: auto !important;
+  max-height: none !important;
+  /* hideScrollGutter0: niente barra/gutter pagina */
+  scrollbar-width: none !important;
+  scrollbar-gutter: auto !important;
+  -ms-overflow-style: none !important;
+}
+html.vc-cine-curtain-off:not(.vc-chrome-bar-loading):not(.vc-loading-scroll-lock):not(.vc-loader-blocking-live):not(.vc-interaction-hold) body,
+html.vc-page-cine-ready:not(.vc-chrome-bar-loading):not(.vc-loading-scroll-lock):not(.vc-loader-blocking-live):not(.vc-interaction-hold) body {
+  overflow: visible !important;
+  overflow-x: visible !important;
+  overflow-y: visible !important;
+  touch-action: pan-y !important;
+  height: auto !important;
+  max-height: none !important;
+  position: static !important;
+  top: auto !important;
+}
+/* mqCssCursor2: vinyl pin + coffee con fallback vinyl (no freccia mid-hover) */
+html.vc-site-cursor-ok,
+html.vc-site-cursor-ok body,
+html.vc-site-cursor-ok *,
+html.vc-site-cursor-ok.vc-interaction-hold,
+html.vc-site-cursor-ok.vc-interaction-hold body,
+html.vc-site-cursor-ok.vc-interaction-hold *,
+html.vc-site-cursor-ok.vc-chrome-bar-loading,
+html.vc-site-cursor-ok.vc-chrome-bar-loading body,
+html.vc-site-cursor-ok.vc-loading-scroll-lock,
+html.vc-site-cursor-ok.vc-loading-scroll-lock body {
+  cursor: url("/images/musicrecordspin-cursor-static.png") 12 12,
+    url("/images/musicrecordspin-cursor-static.png") 12 12, auto !important;
+}
+@media (pointer: fine) {
+  html.vc-site-cursor-ok a,
+  html.vc-site-cursor-ok button,
+  html.vc-site-cursor-ok [role="button"],
+  html.vc-site-cursor-ok .vc-snav-item,
+  html.vc-site-cursor-ok summary,
+  html.vc-site-cursor-ok a *,
+  html.vc-site-cursor-ok button * {
+    cursor: url("/images/coffe-cursor-static.png") 9 11,
+      url("/images/musicrecordspin-cursor-static.png") 12 12, pointer !important;
+  }
+}
+
+/* ——— FA / auth FOUC ——— */
+html:not(.vc-fa-ready) .fa,
+html:not(.vc-fa-ready) .fas,
+html:not(.vc-fa-ready) .far,
+html:not(.vc-fa-ready) .fab {
+  visibility: hidden !important;
+}
+html.vc-auth-pending #discord-login-btn,
+html.vc-session-verify-pending #discord-login-btn {
+  visibility: hidden !important;
+}
+html.vc-auth-pending .vc-login-state,
+html.vc-session-verify-pending .vc-login-state {
+  visibility: visible !important;
+}
+
+/* ——— Mobile nav critical ——— */
+@media (max-width: 1199.98px) {
+  html body.vc-body > header .vc-header-snav,
+  html body.vc-body header .vc-header-snav {
+    display: none !important;
+  }
+  html body.vc-body > header #vc-mobile-nav-toggle,
+  html body.vc-body header #vc-mobile-nav-toggle {
+    display: inline-flex !important;
+  }
+  html body.vc-body #header-quick-actions #discord-login-btn {
+    display: none !important;
+  }
+}
+
+/* ——— Long-list paint accel (below-fold cards) ——— */
+body.vc-body .vc-boards-card,
+body.vc-body .vc-ul-card,
+body.vc-body .vc-role-card,
+body.vc-body .vc-wiki-card,
+body.vc-body .vc-staff-hub-card,
+body.vc-body .vc-vote-platform-card,
+body.vc-body .vc-perks-card,
+body.vc-body .vc-reviews-card {
+  content-visibility: auto;
+  contain-intrinsic-size: 280px 180px;
+}
+body.vc-body .vc-page-cine-hero,
+body.vc-body .vc-home-cine,
+body.vc-body header,
+body.vc-body footer {
+  content-visibility: visible !important;
+}

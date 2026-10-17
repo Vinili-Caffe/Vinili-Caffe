@@ -25,13 +25,22 @@
   }
 
   async function run(B, root) {
+    /* boardsLoginGate1 */
     if (!B.token()) {
-      root.innerHTML =
-        '<div class="vc-boards-empty">Accedi con Discord. Serve accesso staff Vinili & Caffè.</div>';
+      if (B.showBoardsGate) {
+        B.showBoardsGate({ mode: "login" });
+      } else {
+        root.innerHTML =
+          '<div class="vc-boards-empty">Accedi con Discord. Serve accesso staff Vinili & Caffè.</div>';
+      }
+      try {
+        if (B.markContentReady) B.markContentReady();
+      } catch (_) {}
       return;
     }
+    if (B.dismissBoardsGate) B.dismissBoardsGate();
     root.innerHTML =
-      B.navHtml("browse") +
+      B.navHtml("mod", { hideKind: true }) +
       '<div class="vc-boards-shell">' +
       '<div class="vc-boards-shell__filters">' +
       '<select id="vc-boards-mod-status" class="vc-boards-sort"><option value="pending">In attesa</option><option value="approved">Approvate</option><option value="rejected">Rifiutate</option><option value="suspended">Sospese</option><option value="all">Tutte</option></select>' +
@@ -78,7 +87,9 @@
             " · <em>" +
             B.esc(L.status) +
             "</em></div>" +
-            (L.tagline ? "<p>" + B.esc(L.tagline) + "</p>" : "") +
+            (L.tagline
+              ? '<p class="vc-boards-md">' + B.formatDescHtml(L.tagline, { inline: true }) + "</p>"
+              : "") +
             (L.description ? "<p class=\"text-sm text-slate-300/80\">" + B.esc(L.description) + "</p>" : "") +
             '<div class="vc-boards-mod-row__actions">' +
             '<button type="button" class="vc-boards-btn" data-act="approve">Approva</button>' +

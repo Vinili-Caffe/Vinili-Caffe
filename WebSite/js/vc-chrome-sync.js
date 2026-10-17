@@ -1,22 +1,21 @@
 (function (global) {
   "use strict";
-  var VER = "20260928consoleErrFix1";
+  var VER = "20261017chromePrefs401b";
   if (global.__VC_CHROME_SYNC && global.__VC_CHROME_SYNC.ver === VER) {
     global.VcChromeSync = global.__VC_CHROME_SYNC;
     return;
   }
-  /* navBadgeSyncAll5: bundle CDN con ?v= vecchia non deve downgradare */
-  try {
-    var prevSync = global.__VC_CHROME_SYNC && global.__VC_CHROME_SYNC.ver;
-    if (prevSync && String(prevSync) > String(VER)) {
-      global.VcChromeSync = global.__VC_CHROME_SYNC;
-      return;
-    }
-  } catch (ePrev) {}
+  /* vcStorage1: mirror via VcStorage quando presente + flush pagehide allineato
+     pipPersistHydrate1: subscribe replay + flush push su pagehide (PWA close)
+     cpuIdleCut1: NO string compare su stamp (20260928 > 20261014 in lessico!).
+     chromePrefs401Soft1: rispetta expires_at (no Bearer scaduto → 401 console).
+    Se già caricato un altro ver, lo sostituiamo sempre con questo bundle. */
 
   var CHANNEL = "vc_chrome_widgets_v1";
   var LS_MIRROR = "vc_chrome_prefs_mirror_v1";
   var API = "/webhooks/site-chrome-prefs";
+  var LS_TOKEN = "vc_discord_access_token";
+  var LS_EXPIRES = "vc_discord_expires_at";
   var TAB_ID = "t" + Math.random().toString(36).slice(2, 10);
   var bc = null;
   var listeners = [];
@@ -30,6 +29,11 @@
   /* lsGetStorm1: mirror in RAM — nav-badges chiamava get() a ogni MO (~20/s → Storage Service) */
   var mirrorMem = null;
   var mirrorMemReady = false;
+  /* cpuIdleCut1: coalesce notify broadcast/storage (evita message handler 200ms+) */
+  var notifyTimer = 0;
+  var notifyPending = null;
+  var notifyPendingSource = "";
+  var lastNotifySig = "";
 
   try {
     if (typeof BroadcastChannel === "function") bc = new BroadcastChannel(CHANNEL);
@@ -40,7 +44,11 @@
       if (typeof global.__vcDiscordGetAccessToken === "function") {
         return String(global.__vcDiscordGetAccessToken() || "").trim();
       }
-      return String(localStorage.getItem("vc_discord_access_token") || "").trim();
+      var t = String(localStorage.getItem(LS_TOKEN) || "").trim();
+      if (!t) return "";
+      var exp = Number(localStorage.getItem(LS_EXPIRES) || "0");
+      if (exp && Date.now() >= exp) return "";
+      return t;
     } catch (e) {
       return "";
     }
@@ -49,7 +57,12 @@
   function readMirror() {
     if (mirrorMemReady) return mirrorMem || {};
     try {
-      var raw = localStorage.getItem(LS_MIRROR);
+      var raw = null;
+      if (global.VcStorage && typeof global.VcStorage.get === "function") {
+        raw = global.VcStorage.get(LS_MIRROR, { scope: "ls" });
+      } else {
+        raw = localStorage.getItem(LS_MIRROR);
+      }
       mirrorMem = raw ? JSON.parse(raw) : {};
       if (!mirrorMem || typeof mirrorMem !== "object") mirrorMem = {};
     } catch (e) {
@@ -63,11 +76,44 @@
     mirrorMem = prefs && typeof prefs === "object" ? prefs : {};
     mirrorMemReady = true;
     try {
-      localStorage.setItem(LS_MIRROR, JSON.stringify(mirrorMem));
+      var json = JSON.stringify(mirrorMem);
+      if (global.VcStorage && typeof global.VcStorage.set === "function") {
+        global.VcStorage.set(LS_MIRROR, json, { scope: "ls", immediate: true, broadcast: true });
+      } else {
+        localStorage.setItem(LS_MIRROR, json);
+      }
     } catch (e) {}
   }
 
-  function notify(prefs, source) {
+  function prefsSig(prefs) {
+    try {
+      if (!prefs || typeof prefs !== "object") return "";
+      return (
+        String(prefs.updatedAt || "") +
+        "|" +
+        String(prefs.tabId || "") +
+        "|" +
+        JSON.stringify(prefs.twitchPip || null) +
+        "|" +
+        JSON.stringify(prefs.kickPip || null) +
+        "|" +
+        JSON.stringify(prefs.typeSfx || null) +
+        "|" +
+        JSON.stringify(prefs.hogwartsBgm || null) +
+        "|" +
+        JSON.stringify(prefs.seratafilmBgm || null) +
+        "|" +
+        JSON.stringify(prefs.confessionaleBgm || null)
+      );
+    } catch (eSig) {
+      return String((prefs && prefs.updatedAt) || Date.now());
+    }
+  }
+
+  function flushNotify(prefs, source) {
+    var sig = prefsSig(prefs);
+    if (sig && sig === lastNotifySig && source !== "boot") return;
+    lastNotifySig = sig;
     applyingRemote = true;
     try {
       for (var i = 0; i < listeners.length; i += 1) {
@@ -78,6 +124,26 @@
     } finally {
       applyingRemote = false;
     }
+  }
+
+  function notify(prefs, source) {
+    var src = source || "remote";
+    /* boot/server sync immediato; broadcast/storage coalesced */
+    if (src !== "broadcast" && src !== "storage" && src !== "blocked") {
+      flushNotify(prefs, src);
+      return;
+    }
+    notifyPending = prefs;
+    notifyPendingSource = src;
+    if (notifyTimer) return;
+    notifyTimer = global.setTimeout(function () {
+      notifyTimer = 0;
+      var p = notifyPending;
+      var s = notifyPendingSource || "remote";
+      notifyPending = null;
+      notifyPendingSource = "";
+      if (p) flushNotify(p, s);
+    }, 48);
   }
 
   function mergePrefs(base, incoming) {
@@ -123,6 +189,20 @@
       serverPending = null;
       pushServer(payload);
     }, 700);
+  }
+
+  /* pipPersistHydrate1: chiusura PWA/tab prima del debounce 700ms altrimenti perde twitch/kick prefs */
+  function flushServerPushNow() {
+    if (serverTimer) {
+      try {
+        global.clearTimeout(serverTimer);
+      } catch (eT) {}
+      serverTimer = 0;
+    }
+    if (!serverPending) return;
+    var payload = serverPending;
+    serverPending = null;
+    pushServer(payload);
   }
 
   function invalidateChromeCache() {
@@ -192,6 +272,18 @@
   function pullServer(force) {
     var token = getToken();
     if (!token) return;
+    /* siteBoot1: seed da /webhooks/site-boot (salta un GET chrome-prefs) */
+    try {
+      if (!force && !hydratedServer && global.__VC_BOOT_PREFS) {
+        var bootPrefs = global.__VC_BOOT_PREFS;
+        global.__VC_BOOT_PREFS = null;
+        var seeded = mergePrefs(readMirror(), bootPrefs || {});
+        writeMirror(seeded);
+        notify(seeded, "boot");
+        hydratedServer = true;
+        return;
+      }
+    } catch (eBootSeed) {}
     /* rateLimitCalm1: force = preferisci rete se idle, NON ignora cool-down / singleflight */
     if (pullInFlight) return pullInFlight;
     if (hydratedServer && !force) return;
@@ -223,6 +315,8 @@
         : "";
     function applyData(data) {
       if (!data || data.ok !== true || !data.prefs) return false;
+      /* chromePrefs401Soft1: guest/auth soft — non sovrascrivere mirror locale */
+      if (data.anonymous) return false;
       var local = readMirror();
       var remote = data.prefs || {};
       var remoteAt = Number(remote.updatedAt) || 0;
@@ -331,6 +425,26 @@
     pullServer();
   });
 
+  function flushStorageAndServer() {
+    try {
+      if (global.VcStorage && typeof global.VcStorage.flushPending === "function") {
+        global.VcStorage.flushPending();
+      }
+    } catch (eFs) {}
+    flushServerPushNow();
+  }
+  try {
+    document.addEventListener("visibilitychange", function () {
+      if (document.visibilityState === "hidden") flushStorageAndServer();
+    });
+  } catch (eVis) {}
+  try {
+    global.addEventListener("pagehide", flushStorageAndServer);
+  } catch (ePh) {}
+  try {
+    global.addEventListener("beforeunload", flushStorageAndServer);
+  } catch (eBu) {}
+
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", pullServer);
   } else {
@@ -343,7 +457,17 @@
     get: readMirror,
     publish: publish,
     subscribe: function (fn) {
-      if (typeof fn === "function") listeners.push(fn);
+      if (typeof fn === "function") {
+        listeners.push(fn);
+        /* pipPersistHydrate1: replay mirror subito (pull/boot possono aver già notificato) */
+        try {
+          applyingRemote = true;
+          fn(readMirror(), "subscribe");
+        } catch (eSubReplay) {
+        } finally {
+          applyingRemote = false;
+        }
+      }
       return function () {
         listeners = listeners.filter(function (x) {
           return x !== fn;
@@ -351,6 +475,7 @@
       };
     },
     pullServer: pullServer,
+    flushServer: flushServerPushNow,
         bindExpandablePlayer: function (shell, toggleBtn) {
       if (!shell || shell.__vcExpandBound) return;
       shell.__vcExpandBound = true;

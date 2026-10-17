@@ -1022,6 +1022,9 @@ module.exports = {
         "",
         "<:rules:1443307208543703131> **`REGOLA GENERALE 1.5`**",
         `<:VC_Reply:1482532158080942191> ${MOD_RULE_DETAIL["1.5"]}`,
+        "",
+        "<:rules:1443307208543703131> **`REGOLA GENERALE 1.6`**",
+        `<:VC_Reply:1482532158080942191> ${MOD_RULE_DETAIL["1.6"]}`,
       ].join("\n");
       const textRules = [
         "<:rules:1443307208543703131> **`REGOLA TESTUALE 2.1`**",

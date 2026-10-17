@@ -508,21 +508,47 @@
     for (var attempt = 0; attempt < 3; attempt += 1) {
       if (gen !== loadGen[paneBot]) return false;
       try {
-        var res = await fetch(wikiHelpApiUrl(paneBot), {
-          method: "GET",
-          headers: headers,
-          cache: "no-store",
-          credentials: "same-origin",
-        });
-        lastStatus = Number(res && res.status) || 0;
-        var raw = await res.text();
-        if (raw && raw.charCodeAt(0) === 0xfeff) raw = raw.slice(1);
+        /* pageTune1: VcApiCache + ETag invece di fetch no-store ogni volta */
+        var wikiUrl = wikiHelpApiUrl(paneBot);
         var data = null;
-        try {
-          data = raw ? JSON.parse(raw) : {};
-        } catch (eJson) {
-          lastMsg = "invalid_json:" + String((eJson && eJson.message) || "parse");
-          data = null;
+        if (window.VcApiCache && typeof window.VcApiCache.fetchWithCache === "function") {
+          var cacheKey = window.VcApiCache.keyFor(wikiUrl, {
+            scope: "wiki",
+            auth: headers.Authorization || headers.authorization || "",
+            v: "pageTune1",
+          });
+          var wrapped = await window.VcApiCache.fetchWithCache(cacheKey, wikiUrl, {
+            fetchInit: {
+              method: "GET",
+              headers: headers,
+              credentials: "same-origin",
+              cache: "default",
+            },
+            ttlMs: 120000,
+            staleMs: 30 * 60 * 1000,
+            timeoutMs: 20000,
+          });
+          lastStatus = Number((wrapped && wrapped.status) || 0) || (wrapped && wrapped.ok ? 200 : 0);
+          data = wrapped && wrapped.body ? wrapped.body : null;
+          if (!data && wrapped && wrapped.ok === false) {
+            lastMsg = String((wrapped && wrapped.error) || "cache_fetch_failed");
+          }
+        } else {
+          var res = await fetch(wikiUrl, {
+            method: "GET",
+            headers: headers,
+            cache: "default",
+            credentials: "same-origin",
+          });
+          lastStatus = Number(res && res.status) || 0;
+          var raw = await res.text();
+          if (raw && raw.charCodeAt(0) === 0xfeff) raw = raw.slice(1);
+          try {
+            data = raw ? JSON.parse(raw) : {};
+          } catch (eJson) {
+            lastMsg = "invalid_json:" + String((eJson && eJson.message) || "parse");
+            data = null;
+          }
         }
         if (catalogLooksOk(data)) {
           if (typeof data.economyVisible === "boolean") window.__VC_ECONOMY_VISIBLE = data.economyVisible;

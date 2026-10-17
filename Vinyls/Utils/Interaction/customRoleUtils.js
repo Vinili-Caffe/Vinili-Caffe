@@ -205,12 +205,30 @@ function sanitizeVoiceBaseName(name) {
   return clean;
 }
 
+/* discordNameEmoji1: SEP = U+01C0 ǀ (lettera). Win/font fallback trasformava
+   U+FE32 ︰ in "-" sul sito; |/│/｜ venivano sanitizzati. */
+const CUSTOM_VOC_SEP = "\u01C0";
+const CUSTOM_VOC_SEPARATORS = [
+  CUSTOM_VOC_SEP,
+  "\uFE32",
+  "\u2758",
+  "︲",
+  "|",
+  "│",
+  "｜",
+  "⠂",
+  "•",
+  "·",
+  "—",
+  "–",
+  "-",
+];
+
 function parseCustomVocName(rawName) {
   const name = String(rawName || "").trim();
   if (!name) return { emoji: "", baseName: "privata" };
 
-  const separators = ["\uFE32", "︲", "|", "│", "｜", "⠂", "•", "·", "—", "–"];
-  for (const separator of separators) {
+  for (const separator of CUSTOM_VOC_SEPARATORS) {
     if (!name.includes(separator)) continue;
     const parts = name.split(separator);
     const left = String(parts.shift() || "")
@@ -218,6 +236,8 @@ function parseCustomVocName(rawName) {
       .replace(/^༄/u, "")
       .trim();
     const right = parts.join(separator).trim();
+    /* dash solo se sinistra è emoji corta (evita spezzare nomi con "-") */
+    if (separator === "-" && left.length > 8) continue;
     return { emoji: left, baseName: right || "privata" };
   }
 
@@ -227,7 +247,7 @@ function parseCustomVocName(rawName) {
 function buildCustomVocName(emoji, baseName) {
   const safeEmoji = normalizeCustomVocEmojiValue(emoji) || "\uD83C\uDFA7";
   const safeBase = sanitizeVoiceBaseName(baseName);
-  const prefix = `\u0F04${safeEmoji}\uFE32`;
+  const prefix = `\u0F04${safeEmoji}${CUSTOM_VOC_SEP}`;
   const maxBaseLength = Math.max(1, 100 - prefix.length);
   return `${prefix}${safeBase.slice(0, maxBaseLength)}`;
 }

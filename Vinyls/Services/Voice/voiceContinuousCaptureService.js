@@ -6,11 +6,29 @@ const {
 const prism = require("prism-media");
 
 const PCM_SAMPLE_RATE = 48000;
-const PCM_CHANNELS = 2;
+/* voiceRamLite1: ring mono (½ RAM) + 30s; decode Discord opus stereo → downmix on write */
+const DECODE_CHANNELS = 2;
+const PCM_CHANNELS = 1;
 const PCM_BYTES_PER_SEC = PCM_SAMPLE_RATE * PCM_CHANNELS * 2;
-const CAPTURE_MAX_SEC = 60;
+const CAPTURE_MAX_SEC = 30;
 const PAD_TICK_MS = 200;
-/* Marker: clipAllVoices1 — master mix + undeafen-before-sub + resub on speak */
+
+function downmixStereoChunkToMono(pcmStereo) {
+  const frameBytes = DECODE_CHANNELS * 2;
+  if (!pcmStereo?.length) return pcmStereo;
+  if (pcmStereo.length < frameBytes) return Buffer.alloc(0);
+  const frames = Math.floor(pcmStereo.length / frameBytes);
+  const out = Buffer.alloc(frames * 2);
+  for (let i = 0; i < frames; i += 1) {
+    const off = i * frameBytes;
+    const l = pcmStereo.readInt16LE(off);
+    const r = pcmStereo.readInt16LE(off + 2);
+    out.writeInt16LE(Math.max(-32768, Math.min(32767, Math.round((l + r) / 2))), i * 2);
+  }
+  return out;
+}
+/* Marker: clipAllVoices3 — undeaf music + force resub solo se zombie; mix tutte le track */
+/* clipSpeechClarity1: mix window più larga + gain meno aggressivo (meno distorsione) */
 
 let opusUnavailableLogged = false;
 
@@ -93,9 +111,10 @@ class PcmRingBuffer {
     if (!chunk?.length) return;
     this.padSilenceToNow();
     const now = Date.now();
+    /* 55ms: due frame Opus (~20ms) da speaker diversi spesso arrivano sfasati >30ms */
     const sameWindow =
       this.lastAppendAt &&
-      now - this.lastAppendAt < 30 &&
+      now - this.lastAppendAt < 55 &&
       this.lastAppendLen >= chunk.length &&
       this.size >= chunk.length;
 
@@ -105,7 +124,11 @@ class PcmRingBuffer {
         const pos = (this.head - len + i + this.capacity * 2) % this.capacity;
         const a = this.buffer.readInt16LE(pos);
         const b = chunk.readInt16LE(i);
-        this.buffer.writeInt16LE(softClipSample(a + b), pos);
+        /* somma lineare soft (no tanh) — tanh schiacciava la voce */
+        let sum = a + b;
+        if (sum > 32767) sum = 32767;
+        else if (sum < -32768) sum = -32768;
+        this.buffer.writeInt16LE(sum, pos);
       }
       this.lastWriteAt = now;
       return;
@@ -137,21 +160,44 @@ class PcmRingBuffer {
   }
 }
 
-function pcmBufferHasAudio(buffer) {
+function pcmBufferHasAudio(buffer, threshold = 12) {
   if (!buffer?.length) return false;
   for (let i = 0; i + 1 < buffer.length; i += 2) {
-    if (Math.abs(buffer.readInt16LE(i)) > 24) return true;
+    if (Math.abs(buffer.readInt16LE(i)) > threshold) return true;
+  }
+  return false;
+}
+
+function needsForceResubscribe(row) {
+  if (!row || isSubscriptionDead(row)) return true;
+  /* Mai ricevuto audio = zombie (seed pre-SSRC / pre-undeafen) */
+  if (!row.lastAudioAt) return true;
+  /* Speak recente senza audio recente = stream morto */
+  if (row.spokeAt && row.spokeAt > row.lastAudioAt && Date.now() - row.lastAudioAt > 4_000) {
+    return true;
+  }
+  /* Sub viva ma silenziosa da troppo con speak in corso */
+  if (
+    row.lastAudioAt &&
+    Date.now() - row.lastAudioAt > 12_000 &&
+    row.spokeAt &&
+    row.spokeAt > row.lastAudioAt
+  ) {
+    return true;
   }
   return false;
 }
 
 function softClipSample(sample) {
-  const x = sample / 32768;
-  const y = Math.tanh(x * 1.15);
-  const out = Math.round(y * 32767);
-  if (out > 32767) return 32767;
-  if (out < -32768) return -32768;
-  return out;
+  /* clipSpeechClarity1: soft-knee leggero (tanh distorceva troppo il parlato) */
+  if (sample > 32767) return 32767;
+  if (sample < -32768) return -32768;
+  const a = Math.abs(sample);
+  if (a <= 28000) return sample | 0;
+  const sign = sample < 0 ? -1 : 1;
+  const t = (a - 28000) / (32768 - 28000);
+  const shaped = 28000 + (4767 * t) / (1 + 1.4 * t);
+  return Math.round(sign * Math.min(32767, shaped));
 }
 
 function mixPcmBuffers(buffers) {
@@ -191,8 +237,8 @@ function mixPcmBuffers(buffers) {
     const a = Math.abs(floats[i]);
     if (a > peak) peak = a;
   }
-  const target = 28000;
-  const gain = peak > 1 ? Math.min(3.5, target / peak) : 1;
+  const target = 24000;
+  const gain = peak > 1 ? Math.min(2.2, target / peak) : 1;
   const out = Buffer.alloc(size);
   for (let i = 0; i < floats.length; i += 1) {
     out.writeInt16LE(softClipSample(floats[i] * gain), i * 2);
@@ -200,7 +246,7 @@ function mixPcmBuffers(buffers) {
   return out;
 }
 
-function peakNormalizePcm(buffer, target = 28000) {
+function peakNormalizePcm(buffer, target = 24000) {
   if (!buffer?.length) return buffer;
   let peak = 1;
   for (let i = 0; i + 1 < buffer.length; i += 2) {
@@ -208,8 +254,9 @@ function peakNormalizePcm(buffer, target = 28000) {
     if (a > peak) peak = a;
   }
   if (peak < 512) return buffer;
-  const gain = Math.min(3.5, target / peak);
-  if (gain >= 0.98 && gain <= 1.05) return buffer;
+  /* max 2.2x: gain 3.5x + tanh rendeva la voce “robotica” / incomprensibile */
+  const gain = Math.min(2.2, target / peak);
+  if (gain >= 0.98 && gain <= 1.08) return buffer;
   const out = Buffer.alloc(buffer.length);
   for (let i = 0; i + 1 < buffer.length; i += 2) {
     out.writeInt16LE(softClipSample(buffer.readInt16LE(i) * gain), i);
@@ -277,7 +324,10 @@ function subscribeCaptureUser(capture, userId, { force = false } = {}) {
   if (!connection) return;
 
   const existing = capture.users.get(uid);
-  if (existing && !force && !isSubscriptionDead(existing)) return;
+  /* clipAllVoices3: non distruggere sub sane (force a ogni speak tagliava le altre voci) */
+  if (existing && !needsForceResubscribe(existing) && !force) return;
+  /* Anche con force: se la sub riceve già audio, non toccarla */
+  if (existing && !needsForceResubscribe(existing)) return;
 
   if (existing) {
     destroyUserSubscription(existing);
@@ -287,7 +337,11 @@ function subscribeCaptureUser(capture, userId, { force = false } = {}) {
 
   try {
     const ring = existing?.ring || new PcmRingBuffer(CAPTURE_MAX_SEC);
-    const decoder = new OpusDecoder({ frameSize: 960, channels: PCM_CHANNELS, rate: PCM_SAMPLE_RATE });
+    const decoder = new OpusDecoder({
+      frameSize: 960,
+      channels: DECODE_CHANNELS,
+      rate: PCM_SAMPLE_RATE,
+    });
     const subscription = connection.receiver.subscribe(uid, {
       end: { behavior: EndBehaviorType.Manual },
     });
@@ -296,27 +350,38 @@ function subscribeCaptureUser(capture, userId, { force = false } = {}) {
     decoder.on("error", () => {});
     decoder.on("data", (chunk) => {
       try {
-        ring.write(chunk);
-      } catch {
-      }
-      try {
-        capture.masterRing?.writeMix(chunk);
+        const mono = downmixStereoChunkToMono(chunk);
+        if (!mono?.length) return;
+        ring.write(mono);
+        const row = capture.users.get(uid);
+        if (row) row.lastAudioAt = Date.now();
+        try {
+          capture.masterRing?.writeMix(mono);
+        } catch {
+        }
       } catch {
       }
     });
     subscription.pipe(decoder);
 
-    capture.users.set(uid, { subscription, decoder, ring, subscribedAt: Date.now() });
+    capture.users.set(uid, {
+      subscription,
+      decoder,
+      ring,
+      subscribedAt: Date.now(),
+      lastAudioAt: existing?.lastAudioAt || 0,
+      spokeAt: existing?.spokeAt || 0,
+    });
   } catch (err) {
     markCaptureOpusUnavailable(capture, err);
   }
 }
 
-function seedCaptureMembers(capture, voiceChannel) {
+function seedCaptureMembers(capture, voiceChannel, { force = false } = {}) {
   if (!voiceChannel?.members) return;
   for (const member of voiceChannel.members.values()) {
     if (member.user?.bot) continue;
-    subscribeCaptureUser(capture, member.id);
+    subscribeCaptureUser(capture, member.id, { force });
   }
 }
 
@@ -369,7 +434,7 @@ async function startVoiceContinuousCapture({ guildId, voiceChannel, client, botU
   if (existing && String(existing.voiceChannelId) === String(voiceChannel.id)) {
     existing.connection = connection;
     await ensureCaptureReceive(voiceChannel.guild, existing);
-    seedCaptureMembers(existing, voiceChannel);
+    seedCaptureMembers(existing, voiceChannel, { force: false });
     if (!existing.padTimer) startCapturePadTicker(existing);
     return { ok: true, reused: true };
   }
@@ -392,16 +457,35 @@ async function startVoiceContinuousCapture({ guildId, voiceChannel, client, botU
 
   // Undeafen PRIMA di subscribe: da deaf Discord non manda l'audio degli altri.
   await ensureCaptureReceive(voiceChannel.guild, capture);
+  /* Lascia propagare selfDeaf=false al voice server prima del seed. */
+  await new Promise((r) => setTimeout(r, 350));
 
   capture.onSpeakingStart = (userId) => {
-    // Se la sub è morta (o mai aperta), riapri tenendo il ring — altrimenti no-op.
-    subscribeCaptureUser(capture, userId);
+    const uid = String(userId || "").trim();
+    if (!uid) return;
+    const row = capture.users.get(uid);
+    if (row) row.spokeAt = Date.now();
+    /* clipAllVoices3: force solo se zombie / mai audio — altrimenti lascia la sub viva */
+    subscribeCaptureUser(capture, uid, { force: needsForceResubscribe(row) });
   };
 
   connection.receiver.speaking.on("start", capture.onSpeakingStart);
-  seedCaptureMembers(capture, voiceChannel);
+  seedCaptureMembers(capture, voiceChannel, { force: true });
   startCapturePadTicker(capture);
   captureByGuild.set(gid, capture);
+
+  /* Secondo seed dopo Ready/undeafen stabile */
+  setTimeout(() => {
+    const live = captureByGuild.get(gid);
+    if (!live || live !== capture) return;
+    try {
+      const ch =
+        voiceChannel.guild?.channels?.cache?.get(capture.voiceChannelId) || voiceChannel;
+      seedCaptureMembers(live, ch, { force: false });
+    } catch {
+    }
+  }, 1200).unref?.();
+
   return { ok: true };
 }
 
@@ -421,7 +505,8 @@ function syncCaptureVoiceChannelMember(guildId, member) {
   const capture = captureByGuild.get(String(guildId || "").trim());
   if (!capture || !member || member.user?.bot) return;
   if (String(member.voice?.channelId || "") !== capture.voiceChannelId) return;
-  subscribeCaptureUser(capture, member.id);
+  const existing = capture.users.get(String(member.id));
+  subscribeCaptureUser(capture, member.id, { force: needsForceResubscribe(existing) });
 }
 
 function getVoiceCaptureInfo(guildId) {
@@ -474,7 +559,31 @@ function extractVoiceCaptureClip(guildId, seconds) {
 
   const durationSec = Math.max(1, Math.min(CAPTURE_MAX_SEC, availableSec, Math.floor(Number(seconds) || 1)));
 
-  // Preferisci master mix (tutte le voci già allineate sul wall-clock).
+  /* clipAllVoices3: mix SEMPRE dai ring per-utente (silence-pad + allineamento).
+   * Include anche track “soft” (voce bassa) — non solo picchi fortissimi. */
+  if (rings.length) {
+    const rawBuffers = rings.map((ring) => ring.readLast(durationSec)).filter((buf) => buf?.length);
+    const pcmBuffers = rawBuffers.filter((buf) => pcmBufferHasAudio(buf, 8));
+    const tracks = pcmBuffers.length ? pcmBuffers : rawBuffers.filter((buf) => pcmBufferHasAudio(buf, 1));
+    if (tracks.length >= 1) {
+      const pcm =
+        tracks.length === 1
+          ? peakNormalizePcm(Buffer.from(tracks[0]))
+          : mixPcmBuffers(tracks);
+      if (pcm.length && pcmBufferHasAudio(pcm, 1)) {
+        return {
+          ok: true,
+          pcm,
+          durationSec,
+          voiceChannelName: capture.voiceChannelName,
+          availableSec,
+          source: tracks.length > 1 ? "users_mix" : "users_one",
+          tracks: tracks.length,
+        };
+      }
+    }
+  }
+
   if (capture.masterRing && masterSec >= 1) {
     const masterPcm = capture.masterRing.readLast(durationSec);
     if (masterPcm.length && pcmBufferHasAudio(masterPcm)) {
@@ -485,30 +594,13 @@ function extractVoiceCaptureClip(guildId, seconds) {
         voiceChannelName: capture.voiceChannelName,
         availableSec,
         source: "master",
+        tracks: 1,
       };
     }
   }
 
   if (!rings.length) return { ok: false, reason: "empty", availableSec: 0 };
-
-  const pcmBuffers = rings
-    .map((ring) => ring.readLast(durationSec))
-    .filter((buf) => pcmBufferHasAudio(buf));
-  if (!pcmBuffers.length) return { ok: false, reason: "silent", availableSec };
-
-  const pcm = mixPcmBuffers(pcmBuffers);
-  if (!pcm.length || !pcmBufferHasAudio(pcm)) {
-    return { ok: false, reason: "silent", availableSec };
-  }
-
-  return {
-    ok: true,
-    pcm,
-    durationSec,
-    voiceChannelName: capture.voiceChannelName,
-    availableSec,
-    source: "users",
-  };
+  return { ok: false, reason: "silent", availableSec };
 }
 
 function isVoiceCaptureActive(guildId) {

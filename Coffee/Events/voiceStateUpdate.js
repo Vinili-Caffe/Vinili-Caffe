@@ -1,6 +1,6 @@
 const { handleMusicBotVoiceDisconnect, shouldDeferTtsLeaveForMusicEmptyVc } = require("../Services/Music/lavalinkMusicService");
 const { leaveTtsGuild, handleTtsBotVoiceMove, isTtsPostJoinVoiceGraceActive } = require("../Services/TTS/ttsService");
-const { finalizeStanzaVisitorVoiceSessionIfLeft, handleStanzaVoiceLobbyJoin, handleStanzaVoiceOccupied, handleStanzaVoiceEmpty } = require("../Services/Voice/stanzaVoiceRoomsService");
+const { finalizeStanzaVisitorVoiceSessionIfLeft, handleStanzaVoiceLobbyJoin, handleStanzaVoiceOccupied, handleStanzaVoiceEmpty, handleStanzaVoiceSilenceSync } = require("../Services/Voice/stanzaVoiceRoomsService");
 
 module.exports = {
   name: "voiceStateUpdate",
@@ -28,6 +28,11 @@ module.exports = {
       await handleStanzaVoiceEmpty(oldState, newState);
     } catch (error) {
       global.logger?.warn?.("[voiceStateUpdate] stanza empty:", error?.message || error);
+    }
+    try {
+      await handleStanzaVoiceSilenceSync(oldState, newState);
+    } catch (error) {
+      global.logger?.warn?.("[voiceStateUpdate] stanza silence sync:", error?.message || error);
     }
 
     if (client?.config?.tts?.stayConnected) return;

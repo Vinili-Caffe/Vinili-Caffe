@@ -1654,7 +1654,10 @@ html.vc-site-polish body.vc-body .vc-nav-feat-badge--ico-pip.vc-nav-feat-badge--
 
   .vc-premium-footer__col h4,
   .vc-premium-footer__col .vc-premium-footer__heading {
-    font-size: 0.78rem;
+    font-size: 0.92rem;
+    font-weight: 700;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
   }
 
   .vc-premium-footer__col ul {
@@ -2132,7 +2135,8 @@ a.vc-header-logo-link+a[href]:not(.vc-dashboard-header-guild-name) {
   background: linear-gradient(135deg, rgba(27, 45, 104, 0.72), rgba(20, 68, 92, 0.44));
   box-shadow: 0 18px 48px rgba(0, 0, 0, 0.18);
   padding: 1.35rem;
-  overflow: hidden;
+  /* profileScroll1: clip (non hidden) — hidden mangia la rotella Chrome sul profilo */
+  overflow: clip;
   isolation: isolate;
 }
 .vc-user-profile-hero__head {
@@ -2944,7 +2948,7 @@ body.vc-user-profile-bday-open {
   color: rgba(203, 213, 225, 0.8);
 }
 .vc-user-profile-block--rankcard {
-  overflow: hidden;
+  overflow: clip; /* profileScroll1 */
   isolation: isolate;
 }
 .vc-user-profile-block--rankcard .vc-user-profile-multiplier {
@@ -2954,10 +2958,24 @@ body.vc-user-profile-bday-open {
   padding: 0;
   border-top: 0;
   border-radius: 0.95rem;
-  border: 1px solid rgba(232, 196, 156, 0.18);
-  background:
+  /* multiGradBorder1: stesso conic border delle card profilo */
+  border: 1px solid transparent;
+  border-color: transparent;
+  background-color: #100c09;
+  background-image:
     radial-gradient(ellipse 115% 85% at 15% 0%, rgba(236, 205, 176, 0.1), transparent 54%),
-    linear-gradient(145deg, rgba(28, 20, 15, 0.72), rgba(14, 10, 8, 0.66));
+    linear-gradient(145deg, rgba(28, 20, 15, 0.92), rgba(14, 10, 8, 0.94)),
+    conic-gradient(
+      from 0deg,
+      rgba(247, 236, 223, 0.88) 0deg,
+      rgba(212, 168, 136, 0.62) 90deg,
+      rgba(180, 130, 90, 0.68) 180deg,
+      rgba(212, 168, 136, 0.62) 270deg,
+      rgba(247, 236, 223, 0.88) 360deg
+    );
+  background-origin: padding-box, padding-box, border-box;
+  background-clip: padding-box, padding-box, border-box;
+  -webkit-background-clip: padding-box, padding-box, border-box;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.04),
     0 10px 22px rgba(0, 0, 0, 0.2);
@@ -2986,13 +3004,31 @@ body.vc-user-profile-bday-open {
 .vc-user-profile-multiplier__left {
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.55rem;
   min-width: 0;
-  color: rgba(240, 222, 201, 0.78);
+  color: rgba(240, 222, 201, 0.82);
   font-size: 0.72rem;
   font-weight: 750;
   letter-spacing: 0.08em;
   text-transform: uppercase;
+}
+.vc-user-profile-multiplier__icon {
+  display: inline-grid;
+  place-items: center;
+  width: 1.35rem;
+  height: 1.35rem;
+  border-radius: 0.45rem;
+  color: #f3e2cb;
+  background:
+    linear-gradient(145deg, rgba(236, 205, 176, 0.28), rgba(120, 80, 45, 0.22));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 0 12px rgba(232, 196, 156, 0.18);
+  flex-shrink: 0;
+}
+.vc-user-profile-multiplier__icon svg {
+  display: block;
+  filter: drop-shadow(0 0 4px rgba(255, 220, 170, 0.35));
 }
 .vc-user-profile-multiplier__left .fa {
   color: rgba(232, 196, 156, 0.92);
@@ -3006,11 +3042,34 @@ body.vc-user-profile-bday-open {
 }
 .vc-user-profile-multiplier__total {
   color: rgba(247, 236, 223, 0.98);
-  font-size: 1rem;
+  font-size: 1.05rem;
   font-weight: 800;
   letter-spacing: 0;
   text-shadow: none;
   font-variant-numeric: tabular-nums;
+}
+/* multiUi1: × abbassata come moltiplicatore */
+.vc-multi-x {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 0.04em;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.vc-multi-x__mark {
+  font-size: 0.68em;
+  font-weight: 700;
+  line-height: 1;
+  transform: translateY(0.08em);
+  opacity: 0.82;
+  color: inherit;
+}
+.vc-multi-x__num {
+  font-size: 1em;
+  font-weight: inherit;
+  line-height: 1;
+  letter-spacing: -0.01em;
 }
 .vc-user-profile-multiplier__chev {
   color: rgba(232, 196, 156, 0.72);
@@ -3025,9 +3084,9 @@ body.vc-user-profile-bday-open {
   z-index: 1;
   display: flex;
   flex-direction: column;
-  gap: 0;
+  gap: 0.2rem;
   margin: 0;
-  padding: 0 0.85rem 0.35rem;
+  padding: 0.35rem 0.75rem 0.7rem;
   border: 0;
   border-top: 1px solid rgba(232, 196, 156, 0.12);
   border-radius: 0;
@@ -3044,10 +3103,10 @@ body.vc-user-profile-bday-open {
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
-  min-height: 2.35rem;
-  padding: 0.55rem 0.1rem;
+  min-height: 2.2rem;
+  padding: 0.4rem 0.15rem;
   border: 0;
-  border-bottom: 1px solid rgba(232, 196, 156, 0.1);
+  border-bottom: 1px solid rgba(232, 196, 156, 0.08);
   border-radius: 0;
   background: transparent;
   box-shadow: none;
@@ -3058,9 +3117,8 @@ body.vc-user-profile-bday-open {
 .vc-user-profile-multisource.is-active {
   background: transparent;
 }
-.vc-user-profile-multisource.is-active .vc-user-profile-multisource__label,
-.vc-user-profile-multisource.is-active .vc-user-profile-multisource__value {
-  color: rgba(255, 247, 236, 0.98);
+.vc-user-profile-multisource.is-idle {
+  opacity: 0.55;
 }
 .vc-user-profile-multisource__label {
   display: inline-flex;
@@ -3070,6 +3128,16 @@ body.vc-user-profile-bday-open {
   color: rgba(240, 222, 201, 0.9);
   font-weight: 650;
   font-size: 0.9rem;
+}
+.vc-user-profile-multisource__base {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+  color: rgba(240, 222, 201, 0.88);
+}
+.vc-user-profile-multisource__base-name {
+  font-weight: 650;
 }
 .vc-user-profile-multisource__dot {
   width: 0.48rem;
@@ -3082,12 +3150,54 @@ body.vc-user-profile-bday-open {
 .vc-user-profile-multisource.is-base .vc-user-profile-multisource__dot {
   background: #e8c49c;
 }
+/* multiUi1: chip ruolo stile Discord */
+.vc-user-profile-multisource__role {
+  --vc-multi-accent: #e8c49c;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  max-width: 100%;
+  min-height: 1.45rem;
+  padding: 0.12rem 0.55rem 0.12rem 0.35rem;
+  border-radius: 0.28rem;
+  border: 1px solid color-mix(in srgb, var(--vc-multi-accent) 34%, transparent);
+  background: color-mix(in srgb, var(--vc-multi-accent) 16%, rgba(12, 9, 7, 0.55));
+  color: color-mix(in srgb, var(--vc-multi-accent) 72%, #fff 28%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+.vc-user-profile-multisource__role-dot {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 999px;
+  flex-shrink: 0;
+  background: var(--vc-multi-accent, #e8c49c);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--vc-multi-accent) 35%, transparent);
+}
+.vc-user-profile-multisource__role-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.84rem;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+  line-height: 1.2;
+}
+.vc-user-profile-multisource.is-active .vc-user-profile-multisource__role {
+  border-color: color-mix(in srgb, var(--vc-multi-accent) 48%, transparent);
+  background: color-mix(in srgb, var(--vc-multi-accent) 22%, rgba(12, 9, 7, 0.4));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),
+    0 0 14px color-mix(in srgb, var(--vc-multi-accent) 16%, transparent);
+}
 .vc-user-profile-multisource__value {
-  color: rgba(240, 222, 201, 0.88);
-  font-size: 0.9rem;
+  color: rgba(240, 222, 201, 0.9);
+  font-size: 0.95rem;
   font-weight: 750;
   font-variant-numeric: tabular-nums;
   text-shadow: none;
+}
+.vc-user-profile-multisource__value .vc-multi-x {
+  color: inherit;
 }
 .vc-user-profile-multisource__badge {
   display: none;
@@ -4890,10 +5000,24 @@ body.vc-body.vc-users-page.vc-user-profile-page .vc-user-profile-levelbar__fill 
   box-shadow: 0 0 16px rgba(var(--vc-sand-rgb), 0.24) !important;
 }
 body.vc-body.vc-users-page.vc-user-profile-page .vc-user-profile-multiplier {
-  border-color: rgba(var(--vc-sand-rgb), 0.22) !important;
-  background:
+  /* multiGradBorder1 */
+  border: 1px solid transparent !important;
+  border-color: transparent !important;
+  background-color: #100c09 !important;
+  background-image:
     radial-gradient(ellipse 115% 85% at 15% 0%, rgba(236, 205, 176, 0.12), transparent 54%),
-    linear-gradient(145deg, rgba(28, 20, 15, 0.72), rgba(14, 10, 8, 0.66)) !important;
+    linear-gradient(145deg, rgba(28, 20, 15, 0.92), rgba(14, 10, 8, 0.94)),
+    conic-gradient(
+      from 0deg,
+      rgba(247, 236, 223, 0.88) 0deg,
+      rgba(212, 168, 136, 0.62) 90deg,
+      rgba(180, 130, 90, 0.68) 180deg,
+      rgba(212, 168, 136, 0.62) 270deg,
+      rgba(247, 236, 223, 0.88) 360deg
+    ) !important;
+  background-origin: padding-box, padding-box, border-box !important;
+  background-clip: padding-box, padding-box, border-box !important;
+  -webkit-background-clip: padding-box, padding-box, border-box !important;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.04),
     0 10px 22px rgba(0, 0, 0, 0.2),
@@ -4908,6 +5032,9 @@ body.vc-body.vc-users-page.vc-user-profile-page .vc-user-profile-multiplier__lef
 body.vc-body.vc-users-page.vc-user-profile-page .vc-user-profile-multiplier__left .fa {
   color: rgba(240, 222, 201, 0.82) !important;
 }
+body.vc-body.vc-users-page.vc-user-profile-page .vc-user-profile-multiplier__icon {
+  color: #f3e2cb !important;
+}
 body.vc-body.vc-users-page.vc-user-profile-page .vc-user-profile-multiplier__left .fa {
   color: rgba(232, 196, 156, 0.95) !important;
 }
@@ -4920,9 +5047,12 @@ body.vc-body.vc-users-page.vc-user-profile-page .vc-user-profile-multiplier__che
 body.vc-body.vc-users-page.vc-user-profile-page .vc-user-profile-multisource {
   border-bottom-color: rgba(var(--vc-sand-rgb), 0.12) !important;
 }
-body.vc-body.vc-users-page.vc-user-profile-page .vc-user-profile-multisource__label,
+body.vc-body.vc-users-page.vc-user-profile-page .vc-user-profile-multisource__base,
 body.vc-body.vc-users-page.vc-user-profile-page .vc-user-profile-multisource__value {
   color: rgba(240, 222, 201, 0.9) !important;
+}
+body.vc-body.vc-users-page.vc-user-profile-page .vc-user-profile-multisource__role {
+  color: color-mix(in srgb, var(--vc-multi-accent) 72%, #fff 28%) !important;
 }
 body.vc-body.vc-users-page.vc-user-profile-page .vc-user-profile-badge {
   --vc-profile-badge: #d4a888;
@@ -5706,7 +5836,7 @@ body.vc-body.vc-users-page .vc-ul-progress {
     inset 0 1px 0 rgba(255, 255, 255, 0.05) !important;
 }
 html body.vc-body > footer.vc-premium-footer {
-  padding: 1.5rem clamp(0.75rem, 2vw, 1.5rem) 2rem !important;
+  padding: 1.5rem clamp(0.75rem, 2vw, 1.5rem) 0 !important;
   border: 0 !important;
   background: transparent !important;
   box-shadow: none !important;
@@ -5941,7 +6071,10 @@ html body.vc-body > footer.vc-premium-footer .vc-premium-footer__glass {
 
   html body.vc-body > footer.vc-premium-footer .vc-premium-footer__col h4,
 html body.vc-body > footer.vc-premium-footer .vc-premium-footer__col .vc-premium-footer__heading {
-    font-size: 0.78rem !important;
+    font-size: 0.92rem !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.07em !important;
+    text-transform: uppercase !important;
     width: 100% !important;
     text-align: center !important;
   }
@@ -8932,7 +9065,9 @@ html body.vc-body.vc-dashboard-page > footer.vc-premium-footer {
   transform: translateX(-50%);
   /* toastZ1: above sheets/modals/dialogs (121k?122.5k) and mention menus (200k) */
   z-index: 300000;
-  width: min(92vw, 22rem);
+  /* toastHug1: stretto al contenuto, non 22rem vuoti */
+  width: max-content;
+  max-width: min(92vw, 22rem);
   margin: 0;
   padding: 0;
   pointer-events: none;
@@ -8954,7 +9089,7 @@ html body.vc-body.vc-dashboard-page > footer.vc-premium-footer {
   bottom: calc(1.15rem + env(safe-area-inset-bottom, 0px)) !important;
   transform: translateX(-50%) !important;
   z-index: 300000 !important;
-  width: min(92vw, 22rem) !important;
+  width: max-content !important;
   max-width: min(92vw, 22rem) !important;
   margin: 0 !important;
   padding: 0 !important;
@@ -9249,11 +9384,14 @@ body.vc-dashboard-page:has(#vc-dash-server-switcher:not([hidden])) footer[data-v
   display: flex;
   align-items: center;
   gap: 0.65rem;
+  width: max-content;
+  max-width: 100%;
   padding: 0.7rem 0.95rem;
   border-radius: 0.95rem;
-  border: 1px solid rgba(110, 231, 183, 0.42);
-  background: linear-gradient(145deg, rgba(16, 24, 20, 0.96), rgba(12, 40, 32, 0.92));
-  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.45);
+  /* siparioLoadSand1: toast sand/caffè (no mint) */
+  border: 1px solid rgba(236, 205, 176, 0.45);
+  background: linear-gradient(145deg, #17130f, #100c09);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 247, 236, 0.12);
   opacity: 0;
   transform: translateY(12px);
   transition: opacity 0.18s ease, transform 0.18s ease;
@@ -9277,12 +9415,12 @@ body.vc-dashboard-page:has(#vc-dash-server-switcher:not([hidden])) footer[data-v
   width: 1.85rem;
   height: 1.85rem;
   border-radius: 0.5rem;
-  background: linear-gradient(180deg, #22c55e, #15803d);
+  background: linear-gradient(180deg, #eccdb0, #6f4e37);
   color: #fff;
   font-size: 0.85rem;
 }
 .vc-dash-save-toast.is-pending .vc-dash-save-toast__icon {
-  background: linear-gradient(180deg, #34d399, #0f766e);
+  background: linear-gradient(180deg, #eccdb0, #6f4e37);
 }
 .vc-dash-save-toast__icon .vc-ui-spinner {
   width: 0.95rem;
@@ -9296,7 +9434,7 @@ body.vc-dashboard-page:has(#vc-dash-server-switcher:not([hidden])) footer[data-v
 }
 .vc-dash-save-toast__text {
   margin: 0;
-  color: rgba(241, 245, 249, 0.94);
+  color: rgba(255, 247, 236, 0.94);
   font-size: 0.88rem;
   font-weight: 700;
 }
@@ -17569,11 +17707,6 @@ html.vc-user-profile-pending body > header,
 html.vc-user-profile-pending body > footer,
 html.vc-rank-customize-pending .vc-blob,
 html.vc-rank-customize-pending body > footer,
-html.vc-loader-blocking-live .vc-home-cine,
-html.vc-loader-blocking-live .vc-blob,
-html.vc-loader-blocking-live body > header,
-html.vc-loader-blocking-live body > footer,
-html.vc-loader-blocking-live main,
 html.vc-rank-customize-pending:has(#vc-rank-customize-loading:not([hidden])) .vc-blob,
 html.vc-rank-customize-pending:has(#vc-rank-customize-loading:not([hidden])) body > footer,
 html.vc-custom-profile-pending:has(#vc-custom-profile-loading:not([hidden])) .vc-blob,
@@ -17585,6 +17718,26 @@ html:has(#vc-user-profile-view:not([hidden]) .vc-user-profile-loader) body > foo
   visibility: hidden !important;
   pointer-events: none !important;
 }
+/* flashKillReady1: loader-blocking-live = solo scroll lock; mai hide main/header/footer/cine */
+html.vc-page-cine-ready.vc-loader-blocking-live main,
+html.vc-page-cine-ready.vc-loader-blocking-live body > main,
+html.vc-page-cine-ready.vc-loader-blocking-live body > header,
+html.vc-page-cine-ready.vc-loader-blocking-live body > footer,
+html.vc-cine-curtain-off.vc-loader-blocking-live main,
+html.vc-cine-curtain-off.vc-loader-blocking-live body > main,
+html.vc-cine-curtain-off.vc-loader-blocking-live body > header,
+html.vc-cine-curtain-off.vc-loader-blocking-live body > footer {
+  display: revert !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
+}
+html.vc-page-cine-ready.vc-loader-blocking-live .vc-home-cine,
+html.vc-cine-curtain-off.vc-loader-blocking-live .vc-home-cine {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  pointer-events: none !important;
+}
 /* profileLoadSolidBg1: niente foto sotto il loader profilo (come gli altri gate) */
 html.vc-user-profile-pending .vc-home-cine,
 html:has(#vc-user-profile-view:not([hidden]) .vc-user-profile-loader) .vc-home-cine {
@@ -17593,25 +17746,47 @@ html:has(#vc-user-profile-view:not([hidden]) .vc-user-profile-loader) .vc-home-c
   opacity: 0 !important;
   pointer-events: none !important;
 }
-/* personalizzaBg1: keep bookstore photo under the loader; never leave :has(loading) killing bg after ready */
-html.vc-page-cine-ready:not(.vc-rank-customize-pending):not(.vc-custom-profile-pending) .vc-home-cine,
-html.vc-site-photo-bg.vc-page-cine-ready body.vc-rank-customize-page .vc-home-cine,
-html.vc-site-photo-bg.vc-page-cine-ready body.vc-users-page.vc-rank-customize-page .vc-home-cine,
-html.vc-site-polish.vc-site-photo-bg body.vc-rank-customize-page .vc-home-cine {
+/* personalizzaBg1 restore: after ready, keep cine on normal pages (loader :has can kill it) */
+html.vc-page-cine-ready:not(.vc-rank-customize-pending):not(.vc-custom-profile-pending) .vc-home-cine {
   display: block !important;
   visibility: visible !important;
   opacity: 1 !important;
   pointer-events: none !important;
 }
-html.vc-site-photo-bg body.vc-body.vc-users-page,
-html.vc-site-photo-bg body.vc-body.vc-users-page.vc-rank-customize-page,
-html.vc-site-polish.vc-site-photo-bg body.vc-body.vc-users-page,
-html.vc-site-polish.vc-site-photo-bg body.vc-body.vc-users-page.vc-rank-customize-page {
+/* persLibBg1: /personalizza/ → bookstore/libreria VISIBILE (override persNoPhoto*) */
+html.vc-page-cine-ready:not(.vc-rank-customize-pending):not(.vc-custom-profile-pending) body.vc-rank-customize-page .vc-home-cine,
+html.vc-page-cine-ready:not(.vc-rank-customize-pending):not(.vc-custom-profile-pending) body.vc-users-page.vc-rank-customize-page .vc-home-cine,
+html.vc-site-photo-bg.vc-page-cine-ready:not(.vc-rank-customize-pending):not(.vc-custom-profile-pending) body.vc-rank-customize-page .vc-home-cine,
+html.vc-site-photo-bg.vc-page-cine-ready:not(.vc-rank-customize-pending):not(.vc-custom-profile-pending) body.vc-users-page.vc-rank-customize-page .vc-home-cine,
+html.vc-site-polish.vc-site-photo-bg.vc-page-cine-ready:not(.vc-rank-customize-pending):not(.vc-custom-profile-pending) body.vc-rank-customize-page .vc-home-cine,
+html.vc-page-cine-ready:not(.vc-rank-customize-pending):not(.vc-custom-profile-pending) body.vc-body.vc-rank-customize-page .vc-home-cine {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  pointer-events: none !important;
+  content-visibility: visible !important;
+}
+html.vc-rank-customize-pending .vc-home-cine,
+html.vc-custom-profile-pending .vc-home-cine {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+html.vc-page-cine-ready:not(.vc-rank-customize-pending):not(.vc-custom-profile-pending) body.vc-body.vc-users-page.vc-rank-customize-page,
+html.vc-page-cine-ready:not(.vc-rank-customize-pending):not(.vc-custom-profile-pending) body.vc-body.vc-rank-customize-page,
+html.vc-site-photo-bg.vc-page-cine-ready:not(.vc-rank-customize-pending):not(.vc-custom-profile-pending) body.vc-body.vc-rank-customize-page,
+html.vc-site-polish.vc-site-photo-bg.vc-page-cine-ready:not(.vc-rank-customize-pending):not(.vc-custom-profile-pending) body.vc-body.vc-rank-customize-page {
   background-color: transparent !important;
   background-image: none !important;
 }
-html.vc-site-photo-bg .vc-users-page,
-html.vc-site-polish.vc-site-photo-bg .vc-users-page {
+html.vc-site-photo-bg body.vc-body.vc-users-page:not(.vc-rank-customize-page),
+html.vc-site-polish.vc-site-photo-bg body.vc-body.vc-users-page:not(.vc-rank-customize-page) {
+  background-color: transparent !important;
+  background-image: none !important;
+}
+html.vc-site-photo-bg .vc-users-page:not(.vc-rank-customize-page),
+html.vc-site-polish.vc-site-photo-bg .vc-users-page:not(.vc-rank-customize-page) {
   background-color: transparent !important;
   background-image: none !important;
 }
@@ -18052,6 +18227,31 @@ body.vc-users-page.vc-user-profile-page #vc-page-content {
   visibility: hidden !important;
   pointer-events: none !important;
 }
+/* scrollCueProfileKill2: kill totale (anche body>cue + inline flex) */
+html.vc-user-profile-route .vc-home-scrollcue,
+html.vc-user-profile-route body .vc-home-scrollcue,
+html.vc-user-profile-route body.vc-body > .vc-home-scrollcue,
+body.vc-user-profile-route .vc-home-scrollcue,
+body.vc-user-profile-page .vc-home-scrollcue,
+body.vc-users-page.vc-user-profile-route > .vc-home-scrollcue,
+body.vc-users-page.vc-user-profile-page > .vc-home-scrollcue {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  height: 0 !important;
+  max-height: 0 !important;
+  min-height: 0 !important;
+  width: 0 !important;
+  max-width: 0 !important;
+  overflow: hidden !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  transform: none !important;
+  bottom: auto !important;
+  top: -9999px !important;
+}
 html.vc-user-profile-route body.vc-users-page > main,
 body.vc-users-page.vc-user-profile-route > main,
 body.vc-users-page.vc-user-profile-page > main,
@@ -18239,17 +18439,22 @@ body.vc-users-page:not(.vc-user-profile-route) #vc-ul-pager .vc-notify-filter-bt
   font-size: 1.05rem !important;
   opacity: 1 !important;
 }
-html:has(body.vc-users-page:not(.vc-user-profile-route)):not(.vc-user-leader-pending):not(.vc-user-profile-pending):not(.vc-loading-scroll-lock):not(.vc-loader-blocking-live):not(.vc-chrome-bar-loading):not(:has(#vc-site-progress.is-loading)):not(:has(#vc-user-profile-view:not([hidden]) .vc-user-profile-loader)),
-html:has(body.vc-users-page:not(.vc-user-profile-route)):not(.vc-user-leader-pending):not(.vc-user-profile-pending):not(.vc-loading-scroll-lock):not(.vc-loader-blocking-live):not(.vc-chrome-bar-loading):not(:has(#vc-site-progress.is-loading)):not(:has(#vc-user-profile-view:not([hidden]) .vc-user-profile-loader)) body {
-  overflow: auto !important;
+html:has(body.vc-users-page:not(.vc-user-profile-route)):not(.vc-user-leader-pending):not(.vc-user-profile-pending):not(.vc-loading-scroll-lock):not(.vc-loader-blocking-live):not(.vc-chrome-bar-loading):not(:has(#vc-user-profile-view:not([hidden]) .vc-user-profile-loader)) {
+  overflow: hidden scroll !important;
   overflow-x: hidden !important;
+  overflow-y: scroll !important;
   overscroll-behavior: auto !important;
   height: auto !important;
   max-height: none !important;
 }
-html:not(.vc-user-leader-pending):not(.vc-user-profile-pending):not(.vc-loading-scroll-lock):not(.vc-loader-blocking-live):not(.vc-chrome-bar-loading):not(:has(#vc-site-progress.is-loading)):not(:has(#vc-user-profile-view:not([hidden]) .vc-user-profile-loader)) body.vc-users-page:not(.vc-user-profile-route) {
-  overflow-x: hidden !important;
-  overflow-y: auto !important;
+html:has(body.vc-users-page:not(.vc-user-profile-route)):not(.vc-user-leader-pending):not(.vc-user-profile-pending):not(.vc-loading-scroll-lock):not(.vc-loader-blocking-live):not(.vc-chrome-bar-loading):not(:has(#vc-user-profile-view:not([hidden]) .vc-user-profile-loader)) body {
+  overflow: visible !important;
+  overscroll-behavior: auto !important;
+  height: auto !important;
+  max-height: none !important;
+}
+html:not(.vc-user-leader-pending):not(.vc-user-profile-pending):not(.vc-loading-scroll-lock):not(.vc-loader-blocking-live):not(.vc-chrome-bar-loading):not(:has(#vc-user-profile-view:not([hidden]) .vc-user-profile-loader)) body.vc-users-page:not(.vc-user-profile-route) {
+  overflow: visible !important;
 }
 html.vc-user-leader-pending,
 html.vc-user-leader-pending body,
@@ -18269,8 +18474,6 @@ html.vc-loader-blocking-live,
 html.vc-loader-blocking-live body,
 html.vc-chrome-bar-loading,
 html.vc-chrome-bar-loading body,
-html:has(#vc-site-progress.is-loading),
-html:has(#vc-site-progress.is-loading) body,
 html:has(#vc-user-profile-view:not([hidden]) .vc-user-profile-loader),
 html:has(#vc-user-profile-view:not([hidden]) .vc-user-profile-loader) body,
 html.vc-user-leader-pending:has(body.vc-users-page),
@@ -18359,7 +18562,11 @@ body.vc-user-profile-page .vc-user-profile-hero,
 body.vc-user-profile-route .vc-user-profile-hero {
   position: relative !important;
   z-index: 1 !important;
-  overflow: hidden !important;
+  /* profileScroll1: clip — no scrollport Chrome sulla card hero */
+  overflow: clip !important;
+  overflow-x: clip !important;
+  overflow-y: clip !important;
+  touch-action: pan-y !important;
 }
 .vc-header-bar a.vc-header-logo-link + a[href],
 .vc-header-bar a.vc-header-site-name,
@@ -18386,16 +18593,16 @@ html body header .vc-header-bar a.vc-header-logo-link {
   pointer-events: auto !important;
 }
 /* headerBrandAlign1: oro solo in dark; light = testo scuro (lightNavDrawerFix1) */
-html:not([data-vc-theme="light"]) body header .vc-header-bar a.vc-header-logo-link + a[href]:not(.vc-dashboard-header-guild-name),
-html:not([data-vc-theme="light"]) body header .vc-header-bar a.vc-header-site-name,
-html:not([data-vc-theme="light"]) body header .vc-header-bar a.vc-header-site-name .text-emerald-300,
-html:not([data-vc-theme="light"]) body header .vc-header-bar a.vc-header-site-name .vc-header-site-name__text,
-html:not([data-vc-theme="light"]) body header .vc-header-bar a.vc-header-logo-link + a[href] .text-emerald-300,
-html:not([data-vc-theme="light"]) body header .vc-header-bar a.vc-header-logo-link + a[href] .vc-header-site-name__text,
-html:not([data-vc-theme="light"]) body .vc-mobile-nav-drawer__brand a.vc-header-logo-link + a[href],
-html:not([data-vc-theme="light"]) body .vc-mobile-nav-drawer__brand a.vc-header-site-name,
-html:not([data-vc-theme="light"]) body .vc-mobile-nav-drawer__brand a.vc-header-site-name .text-emerald-300,
-html:not([data-vc-theme="light"]) body .vc-mobile-nav-drawer__brand a.vc-header-site-name .vc-header-site-name__text,
+html:not([data-vc-theme="light"]) body header .vc-header-bar a.vc-header-logo-link + a[href]:not(.vc-dashboard-header-guild-name):not(.is-marquee),
+html:not([data-vc-theme="light"]) body header .vc-header-bar a.vc-header-site-name:not(.is-marquee),
+html:not([data-vc-theme="light"]) body header .vc-header-bar a.vc-header-site-name:not(.is-marquee) .text-emerald-300,
+html:not([data-vc-theme="light"]) body header .vc-header-bar a.vc-header-site-name:not(.is-marquee) .vc-header-site-name__text,
+html:not([data-vc-theme="light"]) body header .vc-header-bar a.vc-header-logo-link + a[href]:not(.is-marquee) .text-emerald-300,
+html:not([data-vc-theme="light"]) body header .vc-header-bar a.vc-header-logo-link + a[href]:not(.is-marquee) .vc-header-site-name__text,
+html:not([data-vc-theme="light"]) body .vc-mobile-nav-drawer__brand a.vc-header-logo-link + a[href]:not(.is-marquee),
+html:not([data-vc-theme="light"]) body .vc-mobile-nav-drawer__brand a.vc-header-site-name:not(.is-marquee),
+html:not([data-vc-theme="light"]) body .vc-mobile-nav-drawer__brand a.vc-header-site-name:not(.is-marquee) .text-emerald-300,
+html:not([data-vc-theme="light"]) body .vc-mobile-nav-drawer__brand a.vc-header-site-name:not(.is-marquee) .vc-header-site-name__text,
 html:not([data-vc-theme="light"]) body header .vc-header-snav .vc-snav-item,
 html:not([data-vc-theme="light"]) body header .vc-header-snav .vc-snav-summary,
 html:not([data-vc-theme="light"]) body header .vc-header-snav .vc-snav-row,
@@ -18661,17 +18868,18 @@ html.vc-site-polish.vc-soft-fx-off body.vc-body :is(
     inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
   filter: none !important;
 }
-html:has(body.vc-users-page:not(.vc-user-profile-route)):not(.vc-user-leader-pending):not(.vc-user-profile-pending):not(.vc-loading-scroll-lock):not(.vc-loader-blocking-live):not(.vc-chrome-bar-loading):not(:has(#vc-site-progress.is-loading)):not(:has(#vc-user-profile-view:not([hidden]) .vc-user-profile-loader)) {
+html:has(body.vc-users-page:not(.vc-user-profile-route)):not(.vc-user-leader-pending):not(.vc-user-profile-pending):not(.vc-loading-scroll-lock):not(.vc-loader-blocking-live):not(.vc-chrome-bar-loading):not(:has(#vc-user-profile-view:not([hidden]) .vc-user-profile-loader)) {
   overflow-x: hidden !important;
   overflow-y: auto !important;
   height: auto !important;
   max-height: none !important;
   overscroll-behavior-y: contain !important;
 }
-html:has(body.vc-users-page:not(.vc-user-profile-route)):not(.vc-user-leader-pending):not(.vc-user-profile-pending):not(.vc-loading-scroll-lock):not(.vc-loader-blocking-live):not(.vc-chrome-bar-loading):not(:has(#vc-site-progress.is-loading)):not(:has(#vc-user-profile-view:not([hidden]) .vc-user-profile-loader)) body,
-html:not(.vc-user-leader-pending):not(.vc-user-profile-pending):not(.vc-loading-scroll-lock):not(.vc-loader-blocking-live):not(.vc-chrome-bar-loading):not(:has(#vc-site-progress.is-loading)):not(:has(#vc-user-profile-view:not([hidden]) .vc-user-profile-loader)) body.vc-users-page:not(.vc-user-profile-route) {
+html:has(body.vc-users-page:not(.vc-user-profile-route)):not(.vc-user-leader-pending):not(.vc-user-profile-pending):not(.vc-loading-scroll-lock):not(.vc-loader-blocking-live):not(.vc-chrome-bar-loading):not(:has(#vc-user-profile-view:not([hidden]) .vc-user-profile-loader)) body,
+html:not(.vc-user-leader-pending):not(.vc-user-profile-pending):not(.vc-loading-scroll-lock):not(.vc-loader-blocking-live):not(.vc-chrome-bar-loading):not(:has(#vc-user-profile-view:not([hidden]) .vc-user-profile-loader)) body.vc-users-page:not(.vc-user-profile-route) {
+  /* profileScroll3: MAI overflow-x:hidden+y:visible (Chrome → y=auto = rotella morta) */
   overflow: visible !important;
-  overflow-x: hidden !important;
+  overflow-x: visible !important;
   overflow-y: visible !important;
   height: auto !important;
   max-height: none !important;
@@ -18682,19 +18890,20 @@ html:not(.vc-user-leader-pending):not(.vc-user-profile-pending):not(.vc-loading-
   bottom: auto !important;
   left: auto !important;
   width: auto !important;
-  touch-action: auto !important;
+  touch-action: pan-y !important;
 }
-html.vc-user-profile-route:not(.vc-user-profile-pending):not(.vc-loading-scroll-lock):not(.vc-chrome-bar-loading):not(:has(#vc-site-progress.is-loading)):not(:has(#vc-user-profile-view:not([hidden]) .vc-user-profile-loader)) {
+html.vc-user-profile-route:not(.vc-user-profile-pending):not(.vc-loading-scroll-lock):not(.vc-chrome-bar-loading):not(:has(#vc-user-profile-view:not([hidden]) .vc-user-profile-loader)) {
   overflow-x: hidden !important;
-  overflow-y: auto !important;
+  overflow-y: scroll !important;
   height: auto !important;
   max-height: none !important;
-  overscroll-behavior-y: contain !important;
+  overscroll-behavior-y: auto !important;
 }
-html.vc-user-profile-route:not(.vc-user-profile-pending):not(.vc-loading-scroll-lock):not(.vc-chrome-bar-loading):not(:has(#vc-site-progress.is-loading)):not(:has(#vc-user-profile-view:not([hidden]) .vc-user-profile-loader)) body.vc-users-page.vc-user-profile-route,
-html.vc-user-profile-route:not(.vc-user-profile-pending):not(.vc-loading-scroll-lock):not(.vc-chrome-bar-loading):not(:has(#vc-site-progress.is-loading)):not(:has(#vc-user-profile-view:not([hidden]) .vc-user-profile-loader)) body.vc-users-page.vc-user-profile-page {
+html.vc-user-profile-route:not(.vc-user-profile-pending):not(.vc-loading-scroll-lock):not(.vc-chrome-bar-loading):not(:has(#vc-user-profile-view:not([hidden]) .vc-user-profile-loader)) body.vc-users-page.vc-user-profile-route,
+html.vc-user-profile-route:not(.vc-user-profile-pending):not(.vc-loading-scroll-lock):not(.vc-chrome-bar-loading):not(:has(#vc-user-profile-view:not([hidden]) .vc-user-profile-loader)) body.vc-users-page.vc-user-profile-page {
+  /* profileScroll3: no x:hidden+y:visible */
   overflow: visible !important;
-  overflow-x: hidden !important;
+  overflow-x: visible !important;
   overflow-y: visible !important;
   height: auto !important;
   max-height: none !important;
@@ -18705,7 +18914,7 @@ html.vc-user-profile-route:not(.vc-user-profile-pending):not(.vc-loading-scroll-
   bottom: auto !important;
   left: auto !important;
   width: auto !important;
-  touch-action: auto !important;
+  touch-action: pan-y !important;
 }
 body.vc-users-page.vc-page-cine-layout:not(.vc-user-profile-route) > main.vc-page-cine-main {
   padding-top: 0 !important;
@@ -18779,7 +18988,7 @@ body.vc-users-page.vc-page-cine-layout:not(.vc-user-profile-route) .vc-page-cine
   align-items: center !important;
 }
 /* loadScrollLockAll2: unlock solo senza loader/lock (anche /ruoli/ = vc-users-page) */
-html.vc-page-cine-ready:not(.vc-loading-scroll-lock):not(.vc-loader-blocking-live):not(.vc-interaction-hold):not(.vc-chrome-bar-loading):not(:has(#vc-site-progress.is-loading)):not(.vc-user-leader-pending):not(.vc-user-profile-pending):has(body.vc-users-page.vc-page-cine-layout:not(.vc-user-profile-route)) {
+html.vc-page-cine-ready:not(.vc-loading-scroll-lock):not(.vc-loader-blocking-live):not(.vc-interaction-hold):not(.vc-chrome-bar-loading):not(.vc-user-leader-pending):not(.vc-user-profile-pending):has(body.vc-users-page.vc-page-cine-layout:not(.vc-user-profile-route)) {
   overflow-y: auto !important;
   height: auto !important;
   max-height: none !important;
@@ -19155,7 +19364,7 @@ body.vc-custom-profile-page .vc-cpf {
   border-radius: 0 !important;
 }
 body.vc-custom-profile-page:not(.vc-loading-scroll-lock):not(:has(#vc-custom-profile-loading:not([hidden]))),
-html:not(.vc-loading-scroll-lock):not(.vc-loader-blocking-live):not(.vc-interaction-hold):not(.vc-chrome-bar-loading):not(:has(#vc-site-progress.is-loading)):not(:has(#vc-custom-profile-loading:not([hidden]))) body.vc-custom-profile-page {
+html:not(.vc-loading-scroll-lock):not(.vc-loader-blocking-live):not(.vc-interaction-hold):not(.vc-chrome-bar-loading):not(:has(#vc-custom-profile-loading:not([hidden]))) body.vc-custom-profile-page {
   position: static !important;
   inset: auto !important;
   overflow-x: hidden !important;
@@ -19169,8 +19378,8 @@ body.vc-custom-profile-page:not(:has(#vc-custom-profile-loading:not([hidden]))) 
   visibility: visible !important;
   pointer-events: auto !important;
 }
-body.vc-custom-profile-page:not(:has(#vc-custom-profile-loading:not([hidden]))) .vc-home-cine,
-body.vc-custom-profile-page:not(:has(#vc-custom-profile-loading:not([hidden]))) .vc-blob {
+body.vc-custom-profile-page:not(.vc-rank-customize-page):not(:has(#vc-custom-profile-loading:not([hidden]))) .vc-home-cine,
+body.vc-custom-profile-page:not(.vc-rank-customize-page):not(:has(#vc-custom-profile-loading:not([hidden]))) .vc-blob {
   display: block !important;
   visibility: visible !important;
   pointer-events: none !important;
@@ -19262,9 +19471,9 @@ html.vc-site-polish--pwa body.vc-body header .vc-nav-shell.vc-glass.vc-nav-shell
   isolation: isolate !important;
 }
 /* loadScrollLockAll2: custom-profile unlock rispetta lock loading */
-html:not(.vc-loading-scroll-lock):not(.vc-loader-blocking-live):not(.vc-interaction-hold):not(.vc-chrome-bar-loading):not(:has(#vc-site-progress.is-loading)):not(.vc-custom-profile-pending):has(body.vc-custom-profile-page),
-html:not(.vc-loading-scroll-lock):not(.vc-loader-blocking-live):not(.vc-interaction-hold):not(.vc-chrome-bar-loading):not(:has(#vc-site-progress.is-loading)):not(.vc-custom-profile-pending):has(body.vc-custom-profile-page) body,
-html:not(.vc-loading-scroll-lock):not(.vc-loader-blocking-live):not(.vc-interaction-hold):not(.vc-chrome-bar-loading):not(:has(#vc-site-progress.is-loading)):not(.vc-custom-profile-pending) body.vc-custom-profile-page {
+html:not(.vc-loading-scroll-lock):not(.vc-loader-blocking-live):not(.vc-interaction-hold):not(.vc-chrome-bar-loading):not(.vc-custom-profile-pending):has(body.vc-custom-profile-page),
+html:not(.vc-loading-scroll-lock):not(.vc-loader-blocking-live):not(.vc-interaction-hold):not(.vc-chrome-bar-loading):not(.vc-custom-profile-pending):has(body.vc-custom-profile-page) body,
+html:not(.vc-loading-scroll-lock):not(.vc-loader-blocking-live):not(.vc-interaction-hold):not(.vc-chrome-bar-loading):not(.vc-custom-profile-pending) body.vc-custom-profile-page {
   overflow-x: hidden !important;
   overflow-y: auto !important;
   height: auto !important;
@@ -19423,9 +19632,9 @@ body.vc-custom-profile-page > footer {
   visibility: visible !important;
   pointer-events: auto !important;
 }
-html.vc-site-polish body.vc-custom-profile-page .vc-home-cine,
-html.vc-site-polish.vc-home-cine-live body.vc-custom-profile-page .vc-home-cine,
-body.vc-custom-profile-page .vc-home-cine {
+html.vc-site-polish body.vc-custom-profile-page:not(.vc-rank-customize-page) .vc-home-cine,
+html.vc-site-polish.vc-home-cine-live body.vc-custom-profile-page:not(.vc-rank-customize-page) .vc-home-cine,
+body.vc-custom-profile-page:not(.vc-rank-customize-page) .vc-home-cine {
   position: fixed !important;
   inset: 0 !important;
   top: 0 !important;
@@ -19594,21 +19803,23 @@ html.vc-rank-customize-pending #vc-pers-hub,
 html.vc-custom-profile-pending #vc-pers-hub {
   display: none !important;
 }
-/* loadScrollLockAll2: pers-tab unlock rispetta lock loading */
-html.vc-page-cine-ready.vc-pers-tab-rank:not(.vc-rank-customize-pending):not(.vc-custom-profile-pending):not(.vc-loading-scroll-lock):not(.vc-loader-blocking-live):not(.vc-interaction-hold):not(.vc-chrome-bar-loading):not(:has(#vc-site-progress.is-loading)),
-html.vc-page-cine-ready.vc-pers-tab-custom:not(.vc-rank-customize-pending):not(.vc-custom-profile-pending):not(.vc-loading-scroll-lock):not(.vc-loader-blocking-live):not(.vc-interaction-hold):not(.vc-chrome-bar-loading):not(:has(#vc-site-progress.is-loading)),
-html.vc-page-cine-ready.vc-pers-tab-rank:not(.vc-rank-customize-pending):not(.vc-custom-profile-pending):not(.vc-loading-scroll-lock):not(.vc-loader-blocking-live):not(.vc-interaction-hold):not(.vc-chrome-bar-loading):not(:has(#vc-site-progress.is-loading)) body,
-html.vc-page-cine-ready.vc-pers-tab-custom:not(.vc-rank-customize-pending):not(.vc-custom-profile-pending):not(.vc-loading-scroll-lock):not(.vc-loader-blocking-live):not(.vc-interaction-hold):not(.vc-chrome-bar-loading):not(:has(#vc-site-progress.is-loading)) body {
+/* loadScrollLockAll2 / scrollPortFix2: SOLO html scrolla */
+html.vc-page-cine-ready.vc-pers-tab-rank:not(.vc-rank-customize-pending):not(.vc-custom-profile-pending):not(.vc-loading-scroll-lock):not(.vc-loader-blocking-live):not(.vc-interaction-hold):not(.vc-chrome-bar-loading),
+html.vc-page-cine-ready.vc-pers-tab-custom:not(.vc-rank-customize-pending):not(.vc-custom-profile-pending):not(.vc-loading-scroll-lock):not(.vc-loader-blocking-live):not(.vc-interaction-hold):not(.vc-chrome-bar-loading) {
   overflow-x: hidden !important;
-  overflow-y: auto !important;
-  overflow: auto !important;
+  overflow-y: scroll !important;
   height: auto !important;
   max-height: none !important;
   touch-action: auto !important;
   overscroll-behavior: auto !important;
 }
-html.vc-page-cine-ready.vc-pers-tab-rank:not(.vc-rank-customize-pending):not(.vc-custom-profile-pending):not(.vc-loading-scroll-lock):not(.vc-loader-blocking-live):not(.vc-interaction-hold):not(.vc-chrome-bar-loading):not(:has(#vc-site-progress.is-loading)) body,
-html.vc-page-cine-ready.vc-pers-tab-custom:not(.vc-rank-customize-pending):not(.vc-custom-profile-pending):not(.vc-loading-scroll-lock):not(.vc-loader-blocking-live):not(.vc-interaction-hold):not(.vc-chrome-bar-loading):not(:has(#vc-site-progress.is-loading)) body {
+html.vc-page-cine-ready.vc-pers-tab-rank:not(.vc-rank-customize-pending):not(.vc-custom-profile-pending):not(.vc-loading-scroll-lock):not(.vc-loader-blocking-live):not(.vc-interaction-hold):not(.vc-chrome-bar-loading) body,
+html.vc-page-cine-ready.vc-pers-tab-custom:not(.vc-rank-customize-pending):not(.vc-custom-profile-pending):not(.vc-loading-scroll-lock):not(.vc-loader-blocking-live):not(.vc-interaction-hold):not(.vc-chrome-bar-loading) body {
+  overflow: visible !important;
+  height: auto !important;
+  max-height: none !important;
+  touch-action: auto !important;
+  overscroll-behavior: auto !important;
   position: static !important;
   inset: auto !important;
   width: auto !important;
@@ -22301,8 +22512,9 @@ html.vc-perf-mid #header-quick-actions #vc-header-promo-btn.vc-header-promo-btn-
   animation-play-state: running !important;
   will-change: transform !important;
 }
+/* cssConsol1: no promo pulse (static) */
 html.vc-perf-mid #header-quick-actions #vc-header-promo-btn.vc-header-promo-btn--candidature .vc-header-promo-btn__dot {
-  animation: vc-header-promo-dot-pulse 1.6s ease-in-out infinite !important;
+  animation: none !important;
 }
 html.vc-perf-mid .vc-home-staff-roster__inner {
   filter: none !important;
@@ -22373,14 +22585,8 @@ html.vc-site-polish.vc-soft-fx-off body.vc-body .vc-sponsor-embed {
   filter: none !important;
 }
 
-/* rolesPhoneGuide1 + phoneHeroScroll1: su telefono tip FUORI hero (scroll), su PC dentro */
+/* rolesTipInHeroPhone1: tip dentro hero anche su telefono (niente card fuori) */
 @media (max-width: 639.98px) {
-  body.vc-body.vc-roles-page.vc-page-cine-layout .vc-roles-hero-aside--desk,
-  body.vc-body.vc-roles-page.vc-page-cine-layout .vc-hero-head .vc-roles-hero-guide,
-  body.vc-body.vc-roles-page.vc-page-cine-layout .vc-page-cine-aside-inline .vc-roles-hero-guide,
-  body.vc-body.vc-roles-page.vc-page-cine-layout .vc-page-cine-aside-inline:has(.vc-roles-hero-guide) {
-    display: none !important;
-  }
   body.vc-body.vc-roles-page.vc-page-cine-layout .vc-support-page-hero .grid {
     gap: 0 !important;
   }
@@ -22399,11 +22605,7 @@ html.vc-site-polish.vc-soft-fx-off body.vc-body .vc-sponsor-embed {
   }
   html.vc-site-polish body.vc-roles-page .vc-roles-guide-below,
   body.vc-body.vc-roles-page .vc-roles-guide-below {
-    display: block !important;
-    width: min(44rem, calc(100vw - 1.5rem)) !important;
-    max-width: min(44rem, calc(100vw - 1.5rem)) !important;
-    margin: 0.85rem auto 1.25rem !important;
-    box-sizing: border-box !important;
+    display: none !important;
   }
 }
 @media (min-width: 640px) {
@@ -23103,7 +23305,7 @@ html.vc-site-polish body.vc-page-cine-layout .vc-page-cine-hero .vc-page-cine-as
   color: rgba(232, 201, 168, 0.82) !important;
 }
 
-html.vc-site-polish body.vc-page-cine-layout .vc-page-cine-hero .vc-page-cine-aside-inline ul {
+html.vc-site-polish body.vc-page-cine-layout .vc-page-cine-hero .vc-page-cine-aside-inline ul:not(.vc-support-hero-pillar-list) {
   margin: 0 !important;
   padding: 0 !important;
   list-style: none !important;
@@ -23118,7 +23320,7 @@ html.vc-site-polish body.vc-page-cine-layout .vc-page-cine-hero .vc-page-cine-as
   margin: 0 !important;
   font-size: 0.84rem !important;
   line-height: 1.45 !important;
-  color: rgba(244, 235, 227, 0.92) !important;
+  /* asideMetalRestore1: no flat color — metal via look-core / chrome-polish */
 }
 html.vc-site-polish body.vc-page-cine-layout .vc-page-cine-hero .vc-page-cine-aside-inline p.mt-3,
 html.vc-site-polish body.vc-page-cine-layout .vc-page-cine-hero .vc-page-cine-aside-inline ul.mt-4,
@@ -23126,7 +23328,6 @@ html.vc-site-polish body.vc-page-cine-layout .vc-page-cine-hero .vc-page-cine-as
   margin: 0.15rem 0 0 !important;
   font-size: 0.84rem !important;
   line-height: 1.45 !important;
-  color: rgba(244, 235, 227, 0.9) !important;
 }
 
 /* vote platform CTA spacing */
@@ -23630,7 +23831,11 @@ html.vc-site-polish body.vc-page-cine-layout .vc-page-cine-hero .vc-sponsor-embe
   max-width: 100% !important;
   height: auto !important;
   box-sizing: border-box !important;
-  overflow: hidden !important;
+  /* siteScrollTrap1: clip — no wheel trap */
+  overflow: clip !important;
+  overflow-x: clip !important;
+  overflow-y: clip !important;
+  touch-action: pan-y !important;
   padding: 0.95rem 1.05rem 1.05rem !important;
   border-radius: 1.15rem !important;
   background: #100c09 !important;
@@ -24152,7 +24357,7 @@ body.vc-reviews-page .vc-reviews-stage__dots {
   align-items: center;
   justify-content: center;
   gap: 0.45rem;
-  margin: 0.35rem auto 0.25rem;
+  margin: 0.65rem auto 0.25rem;
   padding: 0 1rem;
   position: relative;
   z-index: 6;
@@ -24415,7 +24620,11 @@ body.vc-page-cine-layout .vc-page-cine-hero .vc-page-cine-aside-inline > [class*
     inset 0 1px 0 rgba(255, 255, 255, 0.06),
     0 10px 22px rgba(0, 0, 0, 0.28) !important;
   text-align: left !important;
-  overflow: hidden !important;
+  /* siteScrollTrap1: clip — no wheel trap */
+  overflow: clip !important;
+  overflow-x: clip !important;
+  overflow-y: clip !important;
+  touch-action: pan-y !important;
 }
 
 html.vc-site-polish body.vc-page-cine-layout .vc-page-cine-hero .vc-page-cine-aside-inline p,
@@ -25023,8 +25232,8 @@ body.vc-page-cine-layout .vc-page-cine-hero .vc-page-cine-aside-inline [class*="
   margin-bottom: 0 !important;
 }
 
-html.vc-site-polish body.vc-page-cine-layout .vc-page-cine-hero .vc-page-cine-aside-inline ul,
-body.vc-page-cine-layout .vc-page-cine-hero .vc-page-cine-aside-inline ul {
+html.vc-site-polish body.vc-page-cine-layout .vc-page-cine-hero .vc-page-cine-aside-inline ul:not(.vc-support-hero-pillar-list),
+body.vc-page-cine-layout .vc-page-cine-hero .vc-page-cine-aside-inline ul:not(.vc-support-hero-pillar-list) {
   display: flex !important;
   flex-direction: column !important;
   gap: 0.65rem !important;
@@ -25217,9 +25426,9 @@ body.vc-page-cine-layout .vc-page-cine-hero .vc-page-cine-aside-inline .grid > [
   margin-bottom: 0 !important;
 }
 
-html.vc-site-polish body.vc-wiki-page .vc-hero-head .vc-page-cine-aside-inline ul,
-html.vc-site-polish body.vc-page-cine-layout .vc-page-cine-hero .vc-page-cine-aside-inline ul,
-body.vc-page-cine-layout .vc-page-cine-hero .vc-page-cine-aside-inline ul {
+html.vc-site-polish body.vc-wiki-page .vc-hero-head .vc-page-cine-aside-inline ul:not(.vc-support-hero-pillar-list),
+html.vc-site-polish body.vc-page-cine-layout .vc-page-cine-hero .vc-page-cine-aside-inline ul:not(.vc-support-hero-pillar-list),
+body.vc-page-cine-layout .vc-page-cine-hero .vc-page-cine-aside-inline ul:not(.vc-support-hero-pillar-list) {
   display: flex !important;
   flex-direction: column !important;
   gap: 0.7rem !important;
@@ -25994,29 +26203,30 @@ body.vc-body--home .vc-home-cine-hero a.vc-header-pill .vc-cta-discord-ico {
 }
 /* phoneHeroScroll1 */
 
-/* phoneHeroScroll2: batte hide globale tips-below + forza tip fuori hero su telefono */
+/* phoneHeroScroll2: candidature tip fuori; ruoli tip resta in hero (rolesTipInHeroPhone1) */
 @media (max-width: 639.98px) {
   html.vc-site-polish body.vc-roles-page .vc-roles-guide-below,
   html.vc-site-polish body.vc-body.vc-roles-page .vc-roles-guide-below,
   body.vc-body.vc-roles-page .vc-roles-guide-below,
   body.vc-roles-page .vc-roles-guide-below {
-    display: block !important;
-    visibility: visible !important;
-    width: min(44rem, calc(100vw - 1.5rem)) !important;
-    max-width: min(44rem, calc(100vw - 1.5rem)) !important;
-    margin: 0.85rem auto 1.25rem !important;
-    box-sizing: border-box !important;
+    display: none !important;
+    visibility: hidden !important;
   }
 
   html.vc-site-polish body.vc-roles-page.vc-page-cine-layout .vc-roles-hero-aside--desk,
   html.vc-site-polish body.vc-roles-page.vc-page-cine-layout .vc-page-cine-hero .vc-roles-hero-aside,
   html.vc-site-polish body.vc-roles-page.vc-page-cine-layout .vc-page-cine-hero .vc-roles-hero-guide,
   html.vc-site-polish body.vc-roles-page.vc-page-cine-layout .vc-hero-head .vc-roles-hero-guide,
-  html.vc-site-polish body.vc-roles-page.vc-page-cine-layout .vc-page-cine-aside-inline,
   html.vc-site-polish body.vc-roles-page.vc-page-cine-layout .vc-page-cine-aside-inline .vc-roles-hero-guide,
   body.vc-roles-page.vc-page-cine-layout .vc-page-cine-hero .vc-roles-hero-guide,
+  body.vc-body.vc-roles-page.vc-page-cine-layout .vc-roles-hero-aside--desk {
+    display: block !important;
+    visibility: visible !important;
+  }
+  html.vc-site-polish body.vc-roles-page.vc-page-cine-layout .vc-page-cine-aside-inline,
   body.vc-roles-page.vc-page-cine-layout .vc-page-cine-aside-inline {
-    display: none !important;
+    display: flex !important;
+    visibility: visible !important;
   }
 
   html.vc-site-polish body.vc-candidature-page .vc-candidature-pair-below,
@@ -26051,8 +26261,8 @@ body:has(.vc-session-verify-overlay:not(.vc-session-verify-overlay--hidden)) .vc
   pointer-events: none !important;
 }
 @media (max-width: 639.98px) {
-  body.vc-body .vc-notif-fly-card,
-  .vc-notif-fly-card {
+  body.vc-body .vc-notif-fly-card:not(.vc-notif-ig-toast),
+  .vc-notif-fly-card:not(.vc-notif-ig-toast) {
     width: min(22rem, calc(100vw - 1.5rem)) !important;
     max-width: calc(100vw - 1.5rem) !important;
   }
@@ -26909,11 +27119,21 @@ body.vc-staff-guide-page .vc-regole-tab .fa {
   opacity: 0.95 !important;
 }
 
+/* switcherIconsPhone1: icone switcher SEMPRE visibili (anche telefono) */
 @media (max-width: 720px) {
   body.vc-staff-guide-page #vc-staff-guide-tabs.vc-regole-tabs .vc-regole-tab .fa,
   body.vc-regole-page .vc-regole-tabs:not(.vc-regole-tabs--sub) .vc-regole-tab .fa,
-  body.vc-faq-page .vc-regole-tabs:not(.vc-regole-tabs--sub) .vc-regole-tab .fa {
-    display: none !important;
+  body.vc-faq-page .vc-regole-tabs:not(.vc-regole-tabs--sub) .vc-regole-tab .fa,
+  html.vc-site-polish body.vc-staff-guide-page #vc-staff-guide-tabs.vc-regole-tabs .vc-regole-tab .fa,
+  html.vc-site-polish body.vc-regole-page .vc-regole-tabs:not(.vc-regole-tabs--sub) .vc-regole-tab .fa,
+  html.vc-site-polish body.vc-faq-page .vc-regole-tabs:not(.vc-regole-tabs--sub) .vc-regole-tab .fa {
+    display: inline-block !important;
+    visibility: visible !important;
+    opacity: 0.95 !important;
+    font-size: 0.78rem !important;
+    flex-shrink: 0 !important;
+    width: auto !important;
+    height: auto !important;
   }
 }
 
@@ -27225,11 +27445,23 @@ body.vc-dashboard-page .vc-regole-tabs--sub .vc-regole-tab--on:hover {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12) !important;
 }
 
+/* switcherIconsPhone1: sub-tab icone anche telefono */
 @media (max-width: 720px) {
   body.vc-regole-page .vc-regole-tabs--sub .vc-regole-tab .fa,
   body.vc-faq-page .vc-regole-tabs--sub .vc-regole-tab .fa,
-  body.vc-dashboard-page .vc-regole-tabs--sub .vc-regole-tab .fa {
-    display: none !important;
+  body.vc-dashboard-page .vc-regole-tabs--sub .vc-regole-tab .fa,
+  body.vc-staff-guide-page .vc-regole-tabs--sub .vc-regole-tab .fa,
+  html.vc-site-polish body.vc-regole-page .vc-regole-tabs--sub .vc-regole-tab .fa,
+  html.vc-site-polish body.vc-faq-page .vc-regole-tabs--sub .vc-regole-tab .fa,
+  html.vc-site-polish body.vc-dashboard-page .vc-regole-tabs--sub .vc-regole-tab .fa,
+  html.vc-site-polish body.vc-staff-guide-page .vc-regole-tabs--sub .vc-regole-tab .fa {
+    display: inline-block !important;
+    visibility: visible !important;
+    opacity: 0.95 !important;
+    font-size: 0.72rem !important;
+    flex-shrink: 0 !important;
+    width: auto !important;
+    height: auto !important;
   }
 }
 
@@ -27308,6 +27540,7 @@ body.vc-dashboard-page .vc-regole-panel .vc-regole-body-text {
   white-space: pre-wrap !important;
 }
 /* faqRegoleSwitcher2 */
+/* notifSheetUnifyAll1 */
 
 /* notifSidebar2..5: desktop right drawer + expandable Inbox (no classic popup flash).
    notifSidebar5: panel-body is the sole scroller under overflow body-lock (parity with sheetScrollFix1). */
@@ -27328,6 +27561,38 @@ html.vc-notif-drawer-open .vc-notif-dropdown[open],
 html.vc-notif-sheet-open .vc-notif-dropdown[open] {
   touch-action: manipulation;
   pointer-events: auto;
+}
+
+/* phoneSheetBgScroll1: sheet aperti → pagina dietro non scrolla (overscroll iOS) */
+@media (max-width: 639.98px), (pointer: coarse) {
+  html.vc-notif-sheet-open,
+  html.vc-notif-sheet-open body,
+  html.vc-notif-drawer-open,
+  html.vc-notif-drawer-open body,
+  html.vc-feedback-sheet-open,
+  html.vc-feedback-sheet-open body,
+  html.vc-staff-stat-sheet-open,
+  html.vc-staff-stat-sheet-open body,
+  html.vc-staff-manage-sheet-open,
+  html.vc-staff-manage-sheet-open body,
+  html.vc-staff-reso-sheet-open,
+  html.vc-staff-reso-sheet-open body,
+  html.vc-dialog-open,
+  html.vc-dialog-open body {
+    overflow: hidden !important;
+    overscroll-behavior: none !important;
+    overscroll-behavior-y: none !important;
+  }
+
+  html.vc-notif-sheet-open .vc-notif-mobile-backdrop,
+  html.vc-notif-drawer-open .vc-notif-mobile-backdrop,
+  html.vc-feedback-sheet-open .vc-feedback-sheet__backdrop,
+  html.vc-staff-stat-sheet-open .vc-staff-stat-sheet__backdrop,
+  html.vc-staff-manage-sheet-open .vc-staff-manage-sheet__backdrop,
+  html.vc-staff-reso-sheet-open .vc-staff-reso-sheet__backdrop {
+    touch-action: none !important;
+    overscroll-behavior: none !important;
+  }
 }
 
 html.vc-notif-drawer-open .vc-notif-dropdown[open] .vc-notif-panel-body,
@@ -27365,6 +27630,20 @@ html.vc-notif-sheet-open .vc-notif-dropdown[open] .vc-notif-list-wrap {
     overscroll-behavior: contain !important;
     -webkit-overflow-scrolling: touch !important;
     touch-action: pan-y !important;
+    /* notifScopeScrollBar1: Inbox→Personali lasciava track cream a destra (iOS) */
+    scrollbar-width: none !important;
+    -ms-overflow-style: none !important;
+    scrollbar-color: transparent transparent !important;
+    scrollbar-gutter: auto !important;
+  }
+
+  html.vc-notif-sheet-open .vc-notif-dropdown[open] .vc-notif-panel-body::-webkit-scrollbar,
+  html.vc-notif-sheet-open .vc-notif-dropdown[open] .vc-notif-bell-inbox::-webkit-scrollbar,
+  html.vc-notif-sheet-open .vc-notif-dropdown[open] .vc-notif-list::-webkit-scrollbar {
+    width: 0 !important;
+    height: 0 !important;
+    display: none !important;
+    background: transparent !important;
   }
 
   html.vc-notif-sheet-open .vc-notif-dropdown[open] .vc-notif-list,
@@ -27603,8 +27882,20 @@ html.vc-notif-sheet-open .vc-notif-dropdown[open] .vc-notif-list-wrap {
   padding: 0.55rem 0.85rem 0.35rem;
 }
 
-.vc-notif-scope-switch[hidden] {
+/* notifScopeSwitchHidden1: hide batte look-core/theme flex !important */
+.vc-notif-scope-switch[hidden],
+html.vc-notif-sheet-open .vc-notif-dropdown[open] .vc-notif-scope-switch[hidden],
+html.vc-notif-drawer-open .vc-notif-dropdown[open] .vc-notif-scope-switch[hidden],
+html body.vc-body #vc-notif-dropdown .vc-notif-scope-switch[hidden] {
   display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  height: 0 !important;
+  max-height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  border: 0 !important;
 }
 
 /* notifMobileSwitch1: when staff gate passes, switcher must paint in mobile sheet + desktop drawer */
@@ -27623,18 +27914,20 @@ html.vc-notif-sheet-open .vc-notif-dropdown[open] .vc-notif-list-wrap {
   }
 }
 
+/* switcherUnifyAll1c: stesso track/pill delle Regole (Full6 cream ring) */
 .vc-notif-scope-switch__seg {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 0.18rem;
-  width: 100%;
+  gap: 0.2rem;
+  width: fit-content;
+  max-width: min(100%, 22rem);
+  margin-left: auto;
+  margin-right: auto;
   padding: 0.28rem;
   border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(20, 15, 12, 0.92);
-  box-shadow:
-    0 10px 28px rgba(0, 0, 0, 0.28),
-    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(245, 214, 183, 0.2);
+  background: rgba(14, 10, 8, 0.94);
+  box-shadow: inset 0 1px 0 rgba(255, 247, 236, 0.05);
   box-sizing: border-box;
 }
 
@@ -27651,32 +27944,35 @@ html.vc-notif-sheet-open .vc-notif-dropdown[open] .vc-notif-list-wrap {
   padding: 0.45rem 0.35rem;
   border-radius: 999px;
   background: transparent;
-  color: rgba(226, 232, 240, 0.78);
+  color: rgba(247, 236, 223, 0.82);
   font: inherit;
   font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
   line-height: 1.1;
-  transition: background 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
+  transition: background 0.18s ease, color 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
 }
 
 .vc-notif-scope-switch__btn .fa {
   font-size: 0.9em;
-  opacity: 0.92;
+  opacity: 0.95;
+  color: inherit;
 }
 
 .vc-notif-scope-switch__btn:hover {
-  color: #fff;
-  background: rgba(255, 255, 255, 0.06);
+  color: #fff8f0;
+  background: rgba(255, 247, 236, 0.06);
 }
 
 .vc-notif-scope-switch__btn.is-active,
 .vc-notif-scope-switch__btn[aria-selected="true"] {
-  color: #fff;
-  background: linear-gradient(135deg, rgba(212, 168, 136, 0.32), rgba(111, 78, 55, 0.42));
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
-  border-color: rgba(212, 168, 136, 0.18);
+  /* switcherUnifyAll1c: stesso pill Full6 delle Regole */
+  color: #fff8f0;
+  background: #3a281c;
+  box-shadow: 0 0 0 1px rgba(255, 247, 236, 0.45);
+  border: 2px solid rgba(245, 214, 183, 0.95);
+  border-color: rgba(245, 214, 183, 0.95);
 }
 
 /* notifPendingSwitch1: pending rosso sullo switcher Personali|Inbox */
@@ -27973,9 +28269,28 @@ body.vc-notifications-page #vc-notif-tab-staff span {
 }
 
 /* === feedbackSheet1 ? Feedback board cards + discussion sheet === */
+/* feedbackLayout1: lock scroll pagina dietro sheet anche su PC (wheel) */
 html.vc-feedback-sheet-open,
-html.vc-feedback-sheet-open body {
+html.vc-feedback-sheet-open body,
+html.vc-reviews-modal-open,
+html.vc-reviews-modal-open body,
+html.vc-notif-sheet-open,
+html.vc-notif-sheet-open body,
+html.vc-notif-drawer-open,
+html.vc-notif-drawer-open body,
+html.vc-staff-manage-sheet-open,
+html.vc-staff-manage-sheet-open body,
+html.vc-staff-stat-sheet-open,
+html.vc-staff-stat-sheet-open body,
+html.vc-staff-reso-sheet-open,
+html.vc-staff-reso-sheet-open body,
+html.vc-dialog-open,
+html.vc-dialog-open body {
   overflow: hidden !important;
+  overflow-x: hidden !important;
+  overflow-y: hidden !important;
+  overscroll-behavior: none !important;
+  overscroll-behavior-y: none !important;
 }
 
 /* feedback3: Community | Staff switcher centered under hero */
@@ -28329,8 +28644,10 @@ body.vc-suggestions-page .vc-feedback-card {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
-  height: 100%;
-  min-height: 100%;
+  /* feedbackLayout1: height:auto — min-height:100% + CV overlapva le card */
+  height: auto;
+  min-height: 0;
+  align-self: stretch;
   transition: transform 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease;
 }
 body.vc-suggestions-page .vc-feedback-card:hover {
@@ -30439,6 +30756,9 @@ html.vc-site-polish body.vc-staff-organico-page #vc-staff-organico-board.vc-page
   flex-shrink: 0 !important;
   margin-left: auto !important;
   margin-right: 0 !important;
+  position: relative;
+  z-index: 3;
+  pointer-events: auto !important;
 }
 .vc-notif-cat-clear {
   flex-shrink: 0;
@@ -30457,6 +30777,10 @@ html.vc-site-polish body.vc-staff-organico-page #vc-staff-organico-board.vc-page
   justify-content: center;
   font-size: 0.8rem;
   padding: 0;
+  position: relative;
+  z-index: 4;
+  pointer-events: auto !important;
+  touch-action: manipulation;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.07),
     0 1px 2px rgba(0, 0, 0, 0.25);
@@ -31801,13 +32125,14 @@ body.vc-reviews-page .vc-feedback-filters.vc-reviews-filters {
     0 0 0 1.5px rgba(16, 12, 9, 0.85),
     0 0 10px rgba(251, 146, 60, 0.4);
 }
-/* navBadgePipAll1: pip su icona (dropdown + hamburger + snav + toggle) */
+/* navFeatPipIco1: pip su icona categoria (summary lead i.fa), non angolo testo */
 .vc-snav-row-ico.has-nav-feat-badge-ico,
 .vc-mobile-nav-tile__ico.has-nav-feat-badge-ico,
 .vc-mobile-nav-tile-ico.has-nav-feat-badge-ico,
 a.vc-snav-row > i.fa.has-nav-feat-badge-ico,
 a.vc-snav-item > i.fa.has-nav-feat-badge-ico,
 a.vc-mobile-nav-tile > i.fa.has-nav-feat-badge-ico,
+.vc-snav-summary > i.fa.has-nav-feat-badge-ico:not(.vc-snav-chev):not(.fa-chevron-down),
 .vc-snav-summary.has-nav-feat-badge-ico,
 #vc-mobile-nav-toggle.has-nav-feat-badge-ico {
   position: relative !important;
@@ -31863,9 +32188,10 @@ a.vc-snav-row.has-nav-feat-badge > i.fa:first-child {
   align-items: center;
   gap: 0.45rem !important;
 }
-.vc-snav-summary.has-nav-feat-badge-ico > .vc-nav-feat-badge--ico-pip {
-  top: 0.12rem;
-  right: 0.02rem;
+/* summary: pip solo sull'icona lead — niente offset sull'angolo del testo */
+.vc-snav-summary > i.fa.has-nav-feat-badge-ico > .vc-nav-feat-badge--ico-pip {
+  top: -0.1rem;
+  right: -0.16rem;
 }
 #vc-mobile-nav-toggle.has-nav-feat-badge-ico > .vc-nav-feat-badge--ico-pip {
   top: 0.18rem;
@@ -31977,7 +32303,10 @@ details.vc-mobile-nav-section > summary.vc-mobile-nav-section-title > .vc-nav-fe
     right: -0.12rem !important;
     box-shadow: 0 0 0 1px rgba(16, 12, 9, 0.85) !important;
   }
-  .vc-snav-summary.has-nav-feat-badge-ico > .vc-nav-feat-badge--ico-pip,
+  .vc-snav-summary > i.fa.has-nav-feat-badge-ico > .vc-nav-feat-badge--ico-pip {
+    top: -0.06rem !important;
+    right: -0.1rem !important;
+  }
   #vc-mobile-nav-toggle.has-nav-feat-badge-ico > .vc-nav-feat-badge--ico-pip {
     top: 0.14rem !important;
     right: 0.12rem !important;
@@ -33070,9 +33399,9 @@ html.vc-interaction-hold body {
   overflow: hidden !important;
   overscroll-behavior: none !important;
 }
-/* avoid scrollbar appear/disappear nudge after unlock */
-html {
-  scrollbar-gutter: stable;
+/* hideScrollGutter0: niente gutter riservato (track vuota) */
+html.vc-chrome-scroll-armed {
+  scrollbar-gutter: auto !important;
 }
 
 /* scrollYankFix1: post-ready scroll locks must NOT position:fixed+inset:0/height:100% (zeros Y mid-page) */
@@ -33123,12 +33452,23 @@ html.vc-chrome-bar-loading body {
   touch-action: none !important;
 }
 
-/* notifIgToastBell1: show IG pill again, anchored under bell */
+/* notifIgToastBell1 + toastBellAnchor2: show IG pill again, fixed under bell */
 html body .vc-notif-ig-toast,
 html body .vc-notif-fly-card.vc-notif-ig-toast {
   display: inline-flex !important;
   visibility: visible !important;
   pointer-events: auto !important;
+  position: fixed !important;
+  width: auto !important;
+  max-width: none !important;
+  margin: 0 !important;
+}
+@media (max-width: 639.98px) {
+  html body .vc-notif-fly-card.vc-notif-ig-toast,
+  html body .vc-notif-ig-toast {
+    width: auto !important;
+    max-width: none !important;
+  }
 }
 html body .vc-notif-ig-toast.vc-notif-ig-toast--anchored,
 html body .vc-notif-fly-card.vc-notif-ig-toast.vc-notif-ig-toast--anchored {
@@ -33200,21 +33540,32 @@ html body header .vc-notif-badge,
 html body #header-quick-actions .vc-notif-badge,
 html body .vc-notif-summary .vc-notif-badge {
   position: absolute !important;
-  top: -0.28rem !important;
-  right: -0.28rem !important;
-  z-index: 5 !important;
-  min-width: 1.15rem !important;
-  height: 1.15rem !important;
-  padding: 0 0.32rem !important;
+  top: 0 !important;
+  right: 0 !important;
+  left: auto !important;
+  bottom: auto !important;
+  /* notifBadgeSocial2: pip social sull'angolo, non dentro l'anello */
+  transform: translate(48%, -48%) !important;
+  z-index: 20 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  box-sizing: border-box !important;
+  min-width: 1.02rem !important;
+  height: 1.02rem !important;
+  padding: 0 0.26rem !important;
+  border: 0 !important;
   border-radius: 9999px !important;
-  background: linear-gradient(145deg, #f04343, #b91c1c) !important;
+  background: #e11d48 !important;
+  background-image: none !important;
   color: #fff !important;
-  font-size: 0.64rem !important;
-  font-weight: 800 !important;
+  -webkit-text-fill-color: #fff !important;
+  font-size: 0.6rem !important;
+  font-weight: 700 !important;
+  font-variant-numeric: tabular-nums !important;
   line-height: 1 !important;
-  box-shadow:
-    0 0 0 2px rgba(12, 9, 7, 0.95),
-    0 1px 5px rgba(220, 38, 38, 0.5) !important;
+  letter-spacing: 0 !important;
+  box-shadow: 0 0 0 2px #100c09 !important;
   pointer-events: none !important;
 }
 html body header .vc-notif-badge[hidden],
@@ -33425,31 +33776,66 @@ html body.vc-body--home .vc-header-bar a.vc-header-site-name,
 html body.vc-body--home .vc-header-bar a.vc-header-logo-link + a[href]:not(.vc-dashboard-header-guild-name) {
   color: #ead4c0 !important;
   text-decoration: none !important;
+  /* wmUlSingle1: mai underline sull'host — altrimenti doppia linea con lo span figlio pre-marquee */
+  border-bottom: none !important;
+  box-shadow: none !important;
 }
 
-body.vc-body--home .vc-header-bar a.vc-header-site-name .vc-header-site-name__text:not(.is-clone),
-body.vc-body--home .vc-header-bar a.vc-header-logo-link + a[href] .vc-header-site-name__text:not(.is-clone),
-body.vc-body--home .vc-header-bar a.vc-header-site-name > span:not(.vc-header-site-name__track):not(.vc-header-site-name__text),
-body.vc-body--home .vc-header-bar a.vc-header-logo-link + a[href] > span:not(.vc-header-site-name__track):not(.vc-header-site-name__text),
-html body.vc-body--home .vc-header-bar a.vc-header-site-name .vc-header-site-name__text:not(.is-clone),
-html body.vc-body--home .vc-header-bar a.vc-header-logo-link + a[href] .vc-header-site-name__text:not(.is-clone),
-html body.vc-body--home .vc-header-bar a.vc-header-site-name > span:not(.vc-header-site-name__track):not(.vc-header-site-name__text),
-html body.vc-body--home .vc-header-bar a.vc-header-logo-link + a[href] > span:not(.vc-header-site-name__track):not(.vc-header-site-name__text) {
+body.vc-body--home .vc-header-bar a.vc-header-site-name:not(.is-marquee) .vc-header-site-name__text:not(.is-clone),
+body.vc-body--home .vc-header-bar a.vc-header-logo-link + a[href]:not(.is-marquee) .vc-header-site-name__text:not(.is-clone),
+body.vc-body--home .vc-header-bar a.vc-header-site-name:not(.is-marquee) > span:not(.vc-header-site-name__track):not(.vc-header-site-name__text),
+body.vc-body--home .vc-header-bar a.vc-header-logo-link + a[href]:not(.is-marquee) > span:not(.vc-header-site-name__track):not(.vc-header-site-name__text),
+html body.vc-body--home .vc-header-bar a.vc-header-site-name:not(.is-marquee) .vc-header-site-name__text:not(.is-clone),
+html body.vc-body--home .vc-header-bar a.vc-header-logo-link + a[href]:not(.is-marquee) .vc-header-site-name__text:not(.is-clone),
+html body.vc-body--home .vc-header-bar a.vc-header-site-name:not(.is-marquee) > span:not(.vc-header-site-name__track):not(.vc-header-site-name__text),
+html body.vc-body--home .vc-header-bar a.vc-header-logo-link + a[href]:not(.is-marquee) > span:not(.vc-header-site-name__track):not(.vc-header-site-name__text) {
   color: #ead4c0 !important;
   border-bottom: none !important;
-  text-decoration: underline !important;
-  text-decoration-color: currentColor !important;
-  text-underline-offset: 0.22em !important;
-  text-decoration-thickness: 1.5px !important;
+  /* mdUlHomeGrad1: linea via look-core ::after gradient (niente solid inset) */
+  text-decoration: none !important;
+  box-shadow: none !important;
+  padding-bottom: 0.14em !important;
+}
+/* wmGradUl2: marquee __text = metallo clip (niente solid #ead4c0) */
+html body.vc-body--home .vc-header-bar a.vc-header-site-name.is-marquee .vc-header-site-name__text,
+html body.vc-body--home .vc-header-bar a.vc-header-site-name.is-marquee .vc-header-site-name__text.is-clone {
+  border-bottom: none !important;
+  text-decoration: none !important;
+  box-shadow: none !important;
+  padding-bottom: 0.14em !important;
+  color: transparent !important;
+  -webkit-text-fill-color: transparent !important;
 }
 
-/* plain text node fallback (no marquee spans yet) */
-body.vc-body--home .vc-header-bar a.vc-header-site-name:not(:has(.vc-header-site-name__text)),
-body.vc-body--home .vc-header-bar a.vc-header-logo-link + a[href]:not(:has(.vc-header-site-name__text)):not(.vc-dashboard-header-guild-name) {
-  text-decoration: underline !important;
-  text-decoration-color: currentColor !important;
-  text-underline-offset: 0.22em !important;
-  text-decoration-thickness: 1.5px !important;
+/* mdUlHomeGrad1: plain host SOLO se non c'è alcun figlio — underline gradient ::after su look-core */
+body.vc-body--home .vc-header-bar a.vc-header-site-name:not(:has(*)),
+body.vc-body--home .vc-header-bar a.vc-header-logo-link + a[href]:not(:has(*)):not(.vc-dashboard-header-guild-name) {
+  position: relative !important;
+  text-decoration: none !important;
+  box-shadow: none !important;
+  padding-bottom: 0.14em !important;
+}
+body.vc-body--home .vc-header-bar a.vc-header-site-name:not(:has(*))::after,
+body.vc-body--home .vc-header-bar a.vc-header-logo-link + a[href]:not(:has(*)):not(.vc-dashboard-header-guild-name)::after {
+  content: "" !important;
+  display: block !important;
+  position: absolute !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  height: 1.5px !important;
+  border-radius: 999px !important;
+  pointer-events: none !important;
+  background-image: linear-gradient(
+    90deg,
+    #6f4e37 0%,
+    #8b6e4d 16%,
+    #c4a07a 34%,
+    #f4e9d8 50%,
+    #c4a07a 66%,
+    #8b6e4d 84%,
+    #6f4e37 100%
+  ) !important;
 }
 
 /* footerCopyMatch1: copyright = stesso stile delle policy (no underline dedicata) */
@@ -34159,10 +34545,11 @@ body.vc-user-profile-page .vc-staff-prof-boot.vc-user-profile-loader {
   background-image:
     radial-gradient(ellipse 92% 74% at 50% 38%, rgba(232, 196, 156, 0.16) 0%, rgba(28, 20, 14, 0.94) 52%, #0a0706 100%) !important;
 }
-html.vc-user-profile-pending .vc-user-profile-tabs,
-html.vc-user-profile-pending [data-vc-profile-tabs],
-html:has(#vc-user-profile-view:not([hidden]) > .vc-user-profile-loader) .vc-user-profile-tabs,
-html:has(#vc-user-profile-view:not([hidden]) > .vc-user-profile-loader) [data-vc-profile-tabs] {
+/* profileSwitcherShow1: hide tabs solo cold boot */
+html.vc-user-profile-pending:not(:has(#vc-user-profile-view > .vc-user-profile-shell)):not(:has(#vc-user-profile-view #vc-user-profile-staff-panel)) .vc-user-profile-tabs,
+html.vc-user-profile-pending:not(:has(#vc-user-profile-view > .vc-user-profile-shell)):not(:has(#vc-user-profile-view #vc-user-profile-staff-panel)) [data-vc-profile-tabs],
+html:has(#vc-user-profile-view:not([hidden]) > .vc-user-profile-loader):not(:has(#vc-user-profile-view > .vc-user-profile-shell)):not(:has(#vc-user-profile-view #vc-user-profile-staff-panel)) .vc-user-profile-tabs,
+html:has(#vc-user-profile-view:not([hidden]) > .vc-user-profile-loader):not(:has(#vc-user-profile-view > .vc-user-profile-shell)):not(:has(#vc-user-profile-view #vc-user-profile-staff-panel)) [data-vc-profile-tabs] {
   display: none !important;
   visibility: hidden !important;
   opacity: 0 !important;
@@ -34736,33 +35123,53 @@ body.vc-reviews-page .vc-reviews-stage .vc-reviews-stage__card.is-right {
   -webkit-filter: none !important;
 }
 
-/* candTipsInHero1: tip esito/requisiti DENTRO hero (annulla candHeroCompact1 + phone park) */
-html.vc-site-polish body.vc-candidature-page.vc-page-cine-layout .vc-page-cine-hero .vc-candidature-hero-pair,
-body.vc-candidature-page.vc-page-cine-layout .vc-page-cine-hero .vc-candidature-hero-pair,
-body.vc-candidature-page.vc-page-cine-layout .vc-hero-head .vc-candidature-hero-pair,
-body.vc-candidature-page.vc-page-cine-layout .vc-page-cine-aside-inline .vc-candidature-hero-pair,
-body.vc-candidature-page .vc-support-page-hero .vc-candidature-hero-pair,
-html.vc-site-polish body.vc-candidature-page .vc-support-page-hero .vc-candidature-hero-pair {
-  display: grid !important;
-  visibility: visible !important;
-  opacity: 1 !important;
-  width: 100% !important;
-  gap: 0.85rem !important;
-  grid-template-columns: 1fr !important;
+/* candTipsPhoneBelow1: tip esito/requisiti fuori hero SOLO telefono */
+@media (max-width: 639.98px) {
+  html.vc-site-polish body.vc-candidature-page.vc-page-cine-layout .vc-page-cine-hero .vc-candidature-hero-pair,
+  body.vc-candidature-page.vc-page-cine-layout .vc-page-cine-hero .vc-candidature-hero-pair,
+  body.vc-candidature-page.vc-page-cine-layout .vc-hero-head .vc-candidature-hero-pair,
+  body.vc-candidature-page.vc-page-cine-layout .vc-page-cine-aside-inline .vc-candidature-hero-pair,
+  body.vc-candidature-page .vc-support-page-hero .vc-candidature-hero-pair,
+  html.vc-site-polish body.vc-candidature-page .vc-support-page-hero .vc-candidature-hero-pair {
+    display: none !important;
+  }
+  html.vc-site-polish body.vc-candidature-page .vc-candidature-pair-below,
+  body.vc-candidature-page .vc-candidature-pair-below,
+  html.vc-site-polish body.vc-candidature-page .vc-candidature-pair-below:not([hidden]),
+  body.vc-candidature-page .vc-candidature-pair-below:not([hidden]) {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+  html.vc-site-polish body.vc-candidature-page .vc-candidature-pair-below .vc-candidature-hero-pair,
+  body.vc-candidature-page .vc-candidature-pair-below .vc-candidature-hero-pair {
+    display: grid !important;
+    visibility: visible !important;
+    width: 100% !important;
+    gap: 0.75rem !important;
+    grid-template-columns: 1fr !important;
+  }
 }
 @media (min-width: 640px) {
   html.vc-site-polish body.vc-candidature-page.vc-page-cine-layout .vc-page-cine-hero .vc-candidature-hero-pair,
   body.vc-candidature-page.vc-page-cine-layout .vc-page-cine-hero .vc-candidature-hero-pair,
+  body.vc-candidature-page.vc-page-cine-layout .vc-hero-head .vc-candidature-hero-pair,
+  body.vc-candidature-page.vc-page-cine-layout .vc-page-cine-aside-inline .vc-candidature-hero-pair,
   body.vc-candidature-page .vc-support-page-hero .vc-candidature-hero-pair,
   html.vc-site-polish body.vc-candidature-page .vc-support-page-hero .vc-candidature-hero-pair {
+    display: grid !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    width: 100% !important;
+    gap: 0.85rem !important;
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
   }
-}
-html.vc-site-polish body.vc-candidature-page .vc-candidature-pair-below,
-body.vc-candidature-page .vc-candidature-pair-below,
-html.vc-site-polish body.vc-candidature-page .vc-candidature-pair-below:not([hidden]),
-body.vc-candidature-page .vc-candidature-pair-below:not([hidden]) {
-  display: none !important;
+  html.vc-site-polish body.vc-candidature-page .vc-candidature-pair-below,
+  body.vc-candidature-page .vc-candidature-pair-below,
+  html.vc-site-polish body.vc-candidature-page .vc-candidature-pair-below:not([hidden]),
+  body.vc-candidature-page .vc-candidature-pair-below:not([hidden]) {
+    display: none !important;
+  }
 }
 
 /* scrollCueMetal1: label = metallo wordmark/COMMUNITY (testo + frecce) */
@@ -35158,18 +35565,31 @@ html:not([data-vc-theme="light"]) #vc-site-back-top > i {
   color: transparent !important;
   -webkit-text-fill-color: transparent !important;
   text-shadow: none !important;
-  filter: drop-shadow(0 0 8px rgba(212, 168, 136, 0.45)) !important;
-  -webkit-filter: drop-shadow(0 0 8px rgba(212, 168, 136, 0.45)) !important;
+  filter: none !important;
+  -webkit-filter: none !important;
 }
 
-/* keep fab shell opaque — only glyph is metal */
+/* backTopConic1: shell = fill + conic border (come navbar), no glow */
 html.vc-site-polish:not([data-vc-theme="light"]):not(.vc-soft-fx-off) body.vc-body #vc-site-back-top {
-  background-image: linear-gradient(180deg, rgba(26, 20, 15, 0.94), rgba(16, 12, 9, 0.96)) !important;
-  background-color: rgba(16, 12, 9, 0.96) !important;
-  -webkit-background-clip: border-box !important;
-  background-clip: border-box !important;
+  border: 1.35px solid transparent !important;
+  border-color: transparent !important;
+  background-color: #100c09 !important;
+  background-image:
+    linear-gradient(180deg, rgba(26, 20, 15, 0.96), rgba(16, 12, 9, 0.98)),
+    conic-gradient(
+      from 0deg,
+      rgba(247, 236, 223, 0.88) 0deg,
+      rgba(212, 168, 136, 0.62) 90deg,
+      rgba(180, 130, 90, 0.68) 180deg,
+      rgba(212, 168, 136, 0.62) 270deg,
+      rgba(247, 236, 223, 0.88) 360deg
+    ) !important;
+  background-origin: padding-box, border-box !important;
+  background-clip: padding-box, border-box !important;
+  -webkit-background-clip: padding-box, border-box !important;
   color: #f7efe4 !important;
   -webkit-text-fill-color: #f7efe4 !important;
+  box-shadow: none !important;
   filter: none !important;
   -webkit-filter: none !important;
 }
@@ -35281,8 +35701,8 @@ html:not([data-vc-theme="light"]) #vc-site-back-top > i::before {
   color: transparent !important;
   -webkit-text-fill-color: transparent !important;
   text-shadow: none !important;
-  filter: drop-shadow(0 0 8px rgba(212, 168, 136, 0.45)) !important;
-  -webkit-filter: drop-shadow(0 0 8px rgba(212, 168, 136, 0.45)) !important;
+  filter: none !important;
+  -webkit-filter: none !important;
 }
 
 /* scrollCueAlignGrad2: batte 0.2rem phone media + allinea dock */
@@ -36182,7 +36602,7 @@ html.vc-notif-drawer-open #vc-type-sfx-player {
   pointer-events: auto !important;
 }
 
-/* persSolidUi2: /personalizza/ � shell opache su TUTTE le tab (hub + cpf + extras) */
+/* persSolidUi2: /personalizza/ — shell opache su TUTTE le tab (hub + cpf + extras) */
 html body.vc-body.vc-rank-customize-page,
 html body.vc-body.vc-rank-customize-page #vc-personalizza-root,
 html body.vc-body.vc-rank-customize-page #vc-custom-profile-page,
@@ -36572,7 +36992,7 @@ html body .vc-home-scrollcue__chev span {
 }
 /* scrollCueMetal1 pin end */
 
-/* scrollCueMetal1b: same specificity as Unify2 � metal arrows win */
+/* scrollCueMetal1b: same specificity as Unify2 — metal arrows win */
 html.vc-site-polish:not(.vc-soft-fx-off):not([data-vc-theme="light"]) body.vc-body .vc-home-scrollcue .vc-home-scrollcue__chev span,
 html.vc-site-polish:not(.vc-soft-fx-off):not([data-vc-theme="light"]) body.vc-body--home .vc-home-scrollcue__chev span,
 html.vc-site-polish:not(.vc-soft-fx-off):not([data-vc-theme="light"]) body.vc-page-cine-layout .vc-home-scrollcue__chev span,
@@ -36994,9 +37414,7 @@ html.vc-chrome-bar-loading body,
 html.vc-loading-scroll-lock,
 html.vc-loading-scroll-lock body,
 html.vc-interaction-hold,
-html.vc-interaction-hold body,
-html:has(#vc-site-progress.is-loading),
-html:has(#vc-site-progress.is-loading) body {
+html.vc-interaction-hold body{
   overflow: hidden !important;
   overflow-x: hidden !important;
   overflow-y: hidden !important;
@@ -37004,8 +37422,7 @@ html:has(#vc-site-progress.is-loading) body {
 }
 html.vc-chrome-bar-loading::-webkit-scrollbar,
 html.vc-loading-scroll-lock::-webkit-scrollbar,
-html.vc-interaction-hold::-webkit-scrollbar,
-html:has(#vc-site-progress.is-loading)::-webkit-scrollbar {
+html.vc-interaction-hold::-webkit-scrollbar::-webkit-scrollbar {
   width: 0 !important;
   height: 0 !important;
   display: none !important;
@@ -37014,20 +37431,12 @@ html:has(#vc-site-progress.is-loading)::-webkit-scrollbar {
 /* ===== hamScrollBarGate1b-nuclear: batte unlock users/roles/profile ===== */
 html.vc-chrome-bar-loading,
 html.vc-chrome-bar-loading body,
-html:has(#vc-site-progress.is-loading),
-html:has(#vc-site-progress.is-loading) body,
 html.vc-chrome-bar-loading:has(body.vc-users-page),
 html.vc-chrome-bar-loading:has(body.vc-users-page) body,
 html.vc-chrome-bar-loading:has(body.vc-roles-page),
-html.vc-chrome-bar-loading:has(body.vc-roles-page) body,
-html:has(#vc-site-progress.is-loading):has(body.vc-users-page),
-html:has(#vc-site-progress.is-loading):has(body.vc-users-page) body,
-html:has(#vc-site-progress.is-loading):has(body.vc-roles-page),
-html:has(#vc-site-progress.is-loading):has(body.vc-roles-page) body,
+html.vc-chrome-bar-loading:has(body.vc-roles-page) body:has(body.vc-users-page):has(body.vc-users-page) body:has(body.vc-roles-page):has(body.vc-roles-page) body,
 html.vc-chrome-bar-loading body.vc-users-page,
-html.vc-chrome-bar-loading body.vc-roles-page,
-html:has(#vc-site-progress.is-loading) body.vc-users-page,
-html:has(#vc-site-progress.is-loading) body.vc-roles-page {
+html.vc-chrome-bar-loading body.vc-roles-page.vc-users-page.vc-roles-page {
   overflow: hidden !important;
   overflow-x: hidden !important;
   overflow-y: hidden !important;
@@ -37037,8 +37446,7 @@ html:has(#vc-site-progress.is-loading) body.vc-roles-page {
   max-height: 100dvh !important;
   scrollbar-width: none !important;
 }
-html.vc-chrome-bar-loading::-webkit-scrollbar,
-html:has(#vc-site-progress.is-loading)::-webkit-scrollbar {
+html.vc-chrome-bar-loading::-webkit-scrollbar::-webkit-scrollbar {
   width: 0 !important;
   height: 0 !important;
   display: none !important;
@@ -37205,7 +37613,10 @@ html.vc-scrollcue-away body.vc-page-cine-layout .vc-page-cine-hero > .vc-home-sc
 html.vc-scrollcue-away body .vc-home-cine-hero > .vc-home-scrollcue,
 html body.vc-body--home .vc-home-cine-hero > .vc-home-scrollcue.is-away,
 html body.vc-page-cine-layout .vc-page-cine-hero > .vc-home-scrollcue.is-away,
-html.vc-site-polish body.vc-body--home .vc-home-cine-hero > .vc-home-scrollcue.is-away {
+html.vc-site-polish body.vc-body--home .vc-home-cine-hero > .vc-home-scrollcue.is-away,
+html.vc-boards-view-pending .vc-home-scrollcue,
+html.vc-boards-scheda-ui .vc-home-scrollcue,
+body:not(.vc-page-cine-layout):not(.vc-body--home) > .vc-home-scrollcue {
   display: none !important;
   opacity: 0 !important;
   visibility: hidden !important;
@@ -37215,3 +37626,658 @@ html.vc-site-polish body.vc-body--home .vc-home-cine-hero > .vc-home-scrollcue.i
   transform: none !important;
 }
 /* scrollCueNoFollow1 */
+/* schedaBootCue1 */
+
+/* persLibBg1: revert persNoPhoto3 — bookstore/libreria di nuovo visibile su /personalizza/ */
+html.vc-page-cine-ready:not(.vc-rank-customize-pending):not(.vc-custom-profile-pending) body.vc-rank-customize-page .vc-home-cine,
+html.vc-page-cine-ready:not(.vc-rank-customize-pending):not(.vc-custom-profile-pending) body.vc-rank-customize-page.vc-custom-profile-page .vc-home-cine,
+html.vc-site-polish.vc-page-cine-ready:not(.vc-rank-customize-pending):not(.vc-custom-profile-pending) body.vc-body.vc-rank-customize-page .vc-home-cine,
+html.vc-site-polish.vc-page-cine-ready:not(.vc-rank-customize-pending):not(.vc-custom-profile-pending) body.vc-body.vc-rank-customize-page.vc-custom-profile-page .vc-home-cine {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  pointer-events: none !important;
+  content-visibility: visible !important;
+}
+
+/* —— scrollWheelTrap1 (landing-ext last) —— */
+html body .vc-reviews-gate:not([hidden]):not(.vc-reviews-gate--dismissed),
+html body #vc-boards-gate.vc-reviews-gate:not([hidden]):not(.vc-reviews-gate--dismissed),
+html body #vc-wt-gate.vc-reviews-gate:not([hidden]):not(.vc-reviews-gate--dismissed),
+html body #vc-reviews-gate.vc-reviews-gate:not([hidden]):not(.vc-reviews-gate--dismissed) {
+  overflow: visible !important;
+  overflow-x: visible !important;
+  overflow-y: visible !important;
+  touch-action: pan-y !important;
+  align-items: safe center !important;
+  justify-content: safe center !important;
+}
+html body .vc-reviews-gate:not([hidden]):not(.vc-reviews-gate--dismissed) .vc-reviews-gate__main {
+  height: auto !important;
+  max-height: none !important;
+  overflow: visible !important;
+}
+html.vc-site-polish body.vc-body .vc-reviews-gate:not([hidden]):not(.vc-reviews-gate--dismissed) .vc-reviews-gate__card,
+html.vc-site-polish body.vc-body .vc-reviews-gate:not([hidden]):not(.vc-reviews-gate--dismissed) .vc-auth-required-card,
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body .vc-reviews-gate:not([hidden]):not(.vc-reviews-gate--dismissed) .vc-auth-required-card,
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body .vc-reviews-gate:not([hidden]):not(.vc-reviews-gate--dismissed) .vc-reviews-gate__card {
+  overflow: visible !important;
+  overflow-x: visible !important;
+  overflow-y: visible !important;
+  max-height: none !important;
+  height: auto !important;
+}
+/* gate open: non bloccare la rotella sulla pagina (PageDown già funzionava) */
+html.vc-site-polish:has(.vc-reviews-gate:not([hidden]):not(.vc-reviews-gate--dismissed)).vc-chrome-scroll-armed:not(.vc-loading-scroll-lock),
+html.vc-site-polish:has(.vc-reviews-gate:not([hidden]):not(.vc-reviews-gate--dismissed)).vc-chrome-scroll-armed:not(.vc-loading-scroll-lock) body {
+  overflow-x: hidden !important;
+  overflow-y: scroll !important;
+  touch-action: pan-y !important;
+  height: auto !important;
+  max-height: none !important;
+}
+/* gate overlay: non creare scrollport vuoto che mangia la rotella */
+html body .vc-reviews-gate:not([hidden]):not(.vc-reviews-gate--dismissed) {
+  overflow: visible !important;
+  overflow-x: visible !important;
+  overflow-y: visible !important;
+  pointer-events: none !important;
+}
+html body .vc-reviews-gate:not([hidden]):not(.vc-reviews-gate--dismissed) .vc-reviews-gate__main,
+html body .vc-reviews-gate:not([hidden]):not(.vc-reviews-gate--dismissed) .vc-reviews-gate__card,
+html body .vc-reviews-gate:not([hidden]):not(.vc-reviews-gate--dismissed) .vc-auth-required-card,
+html body .vc-reviews-gate:not([hidden]):not(.vc-reviews-gate--dismissed) a,
+html body .vc-reviews-gate:not([hidden]):not(.vc-reviews-gate--dismissed) button {
+  pointer-events: auto !important;
+}
+html:has(.vc-reviews-gate:not([hidden]):not(.vc-reviews-gate--dismissed)),
+html:has(.vc-reviews-gate:not([hidden]):not(.vc-reviews-gate--dismissed)) body {
+  touch-action: manipulation !important;
+}
+/* scrollWheelTrap1 */
+
+
+/* —— siteScrollTrap1: tip cards clip (nuclear, end of file) —— */
+html.vc-site-polish body.vc-page-cine-layout .vc-page-cine-hero .vc-page-cine-aside-inline > [class*="rounded-"],
+html.vc-site-polish body.vc-page-cine-layout .vc-page-cine-hero .vc-page-cine-aside-inline .grid > [class*="rounded-"],
+html.vc-site-polish body.vc-page-cine-layout .vc-page-cine-hero .vc-page-cine-aside-inline .grid > div[class*="rounded-"],
+html.vc-site-polish body.vc-page-cine-layout .vc-page-cine-hero .vc-roles-hero-guide,
+html.vc-site-polish body.vc-page-cine-layout .vc-page-cine-hero .vc-sponsor-embed,
+html.vc-site-polish body.vc-wiki-page .vc-hero-head .vc-page-cine-aside-inline .grid > [class*="rounded-"],
+html.vc-site-polish body.vc-web-tickets-page main [class*="rounded-[1.6rem"],
+html.vc-site-polish body.vc-body#top .vc-support-page-hero .grid.gap-4 > div {
+  overflow: clip !important;
+  overflow-x: clip !important;
+  overflow-y: clip !important;
+  touch-action: pan-y !important;
+}
+/* siteScrollTrap1 */
+
+/* —— profileScroll3: nuclear body visible (end landing-ext) —— */
+html.vc-site-polish body.vc-body.vc-users-page,
+html.vc-site-polish body.vc-body.vc-user-profile-page,
+html.vc-user-profile-route body.vc-users-page,
+html:has(body.vc-users-page) body.vc-users-page {
+  overflow: visible !important;
+  overflow-x: visible !important;
+  overflow-y: visible !important;
+  touch-action: pan-y !important;
+}
+/* profileScroll3 */
+
+/* firstPaintCta1: CTA/pills corrette su markup HTML (.vc-support-page-hero) senza wait remap JS */
+html.vc-site-polish body.vc-page-cine-layout .vc-support-page-hero a.vc-header-pill,
+html.vc-site-polish body.vc-page-cine-layout .vc-support-page-hero a.vc-home-cine-cta,
+html.vc-site-polish .vc-support-page-hero a.vc-header-pill,
+html.vc-site-polish .vc-support-page-hero a.vc-home-cine-cta,
+body.vc-page-cine-layout .vc-support-page-hero a.vc-header-pill,
+body.vc-page-cine-layout .vc-support-page-hero a.vc-home-cine-cta,
+.vc-support-page-hero a.vc-header-pill,
+.vc-support-page-hero a.vc-home-cine-cta {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 0.35rem !important;
+  box-sizing: border-box !important;
+  min-height: 0 !important;
+  height: auto !important;
+  min-width: 0 !important;
+  width: auto !important;
+  max-width: 100% !important;
+  flex: 0 1 auto !important;
+  padding: 0.45rem 1.1rem !important;
+  font-size: 0.72rem !important;
+  line-height: 1.2 !important;
+  letter-spacing: 0.08em !important;
+  text-transform: uppercase !important;
+  border-radius: 9999px !important;
+  text-decoration: none !important;
+}
+
+html.vc-site-polish body.vc-page-cine-layout .vc-support-page-hero a.vc-header-pill .fa,
+html.vc-site-polish .vc-support-page-hero a.vc-header-pill .fa,
+html.vc-site-polish .vc-support-page-hero a.vc-home-cine-cta .fa,
+body.vc-page-cine-layout .vc-support-page-hero a.vc-header-pill .fa,
+.vc-support-page-hero a.vc-header-pill .fa {
+  display: inline-block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  font-size: 0.85em !important;
+  line-height: 1 !important;
+  width: auto !important;
+  height: auto !important;
+  margin: 0 !important;
+}
+
+html.vc-site-polish body.vc-page-cine-layout .vc-support-page-hero a.vc-home-cine-cta,
+html.vc-site-polish .vc-support-page-hero a.vc-home-cine-cta,
+body.vc-page-cine-layout .vc-support-page-hero a.vc-home-cine-cta,
+.vc-support-page-hero a.vc-home-cine-cta {
+  background: linear-gradient(180deg, #f0dcc8 0%, #d4a888 58%, #b88968 100%) !important;
+  background-color: #d4a888 !important;
+  background-image:
+    radial-gradient(120% 92% at 14% 0%, rgba(247, 236, 223, 0.2), transparent 62%),
+    linear-gradient(135deg, rgba(224, 196, 162, 0.98), rgba(181, 142, 108, 0.96)) !important;
+  color: rgba(22, 14, 9, 0.98) !important;
+  -webkit-text-fill-color: rgba(22, 14, 9, 0.98) !important;
+  border: 1px solid rgba(212, 168, 136, 0.48) !important;
+  box-shadow: none !important;
+  font-weight: 800 !important;
+}
+
+html.vc-site-polish body.vc-page-cine-layout .vc-support-page-hero a.vc-header-pill:not(.vc-home-cine-cta),
+html.vc-site-polish .vc-support-page-hero a.vc-header-pill:not(.vc-home-cine-cta),
+body.vc-page-cine-layout .vc-support-page-hero a.vc-header-pill:not(.vc-home-cine-cta),
+.vc-support-page-hero a.vc-header-pill:not(.vc-home-cine-cta) {
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: none !important;
+  border: 1px solid rgba(212, 168, 136, 0.42) !important;
+  color: #f7eadb !important;
+  -webkit-text-fill-color: #f7eadb !important;
+  box-shadow: none !important;
+  font-weight: 700 !important;
+}
+
+html.vc-site-polish body.vc-page-cine-layout .vc-support-page-hero [class*="flex-wrap"]:has(> a.vc-header-pill),
+html.vc-site-polish .vc-support-page-hero [class*="flex-wrap"]:has(> a.vc-header-pill),
+body.vc-page-cine-layout .vc-support-page-hero [class*="flex-wrap"]:has(> a.vc-header-pill),
+.vc-support-page-hero [class*="flex-wrap"]:has(> a.vc-header-pill) {
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: wrap !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: auto !important;
+  max-width: 100% !important;
+  margin-inline: auto !important;
+  box-sizing: border-box !important;
+  gap: 0.7rem !important;
+}
+
+@media (max-width: 640px) {
+  html.vc-site-polish body.vc-page-cine-layout .vc-support-page-hero a.vc-header-pill,
+  html.vc-site-polish .vc-support-page-hero a.vc-header-pill,
+  body.vc-page-cine-layout .vc-support-page-hero a.vc-header-pill,
+  .vc-support-page-hero a.vc-header-pill {
+    padding: 0.45rem 1.1rem !important;
+    font-size: 0.72rem !important;
+    min-height: 0 !important;
+  }
+}
+/* firstPaintCta1 */
+/* 20261011switcherIconsPhone1: pin — ogni switcher pill tiene l icona accanto (anche phone) */
+@media (max-width: 720px) {
+  html.vc-site-polish body.vc-body :is(
+    .vc-regole-tabs,
+    .vc-regole-tabs--sub,
+    #vc-regole-tabs,
+    #vc-staff-guide-tabs,
+    .vc-cmd-tabs,
+    .vc-wiki-bot-switch__seg,
+    .vc-role-seg-switch__seg,
+    .vc-ul-board-tabs,
+    .vc-notif-scope-bar,
+    .vc-notif-scope-switch__seg,
+    .vc-staff-pt-seg,
+    .vc-pers-hub__tabs,
+    .vc-candidature-tabs,
+    .vc-appelli-mode,
+    .vc-wt-scope-bar,
+    .vc-dash-seg
+  ) :is(button, a, [role="tab"]) > :is(i.fa, .fa, img, svg) {
+    display: inline-block !important;
+    visibility: visible !important;
+    opacity: 0.95 !important;
+    flex-shrink: 0 !important;
+  }
+  html.vc-site-polish body.vc-candidature-page .vc-role-seg-switch__btn:has(.vc-role-seg-switch__roleico:not([hidden])) > i.fa {
+    display: none !important;
+  }
+}
+/* 20261011switcherIconsPhone1 */
+
+/* 20261012candyBadge1 + candySilThumb1: collezione caramelle (thumb/sil WebP) */
+/* 20261012candyPanelHw1: pannello Halloween (no torta) + meter */
+.vc-user-profile-block--candy {
+  margin-top: 1.15rem;
+}
+.vc-user-profile-candypanel {
+  border-radius: 1.35rem;
+  border: 1px solid rgba(251, 146, 60, 0.28);
+  background:
+    radial-gradient(ellipse 80% 55% at 8% 0%, rgba(251, 146, 60, 0.16), transparent 52%),
+    radial-gradient(ellipse 60% 45% at 96% 8%, rgba(168, 85, 247, 0.1), transparent 48%),
+    linear-gradient(165deg, rgba(42, 28, 22, 0.92), rgba(18, 12, 10, 0.88));
+  box-shadow:
+    0 16px 36px rgba(2, 8, 23, 0.22),
+    inset 0 1px 0 rgba(255, 248, 235, 0.06);
+  overflow: hidden;
+}
+.vc-user-profile-candypanel__head {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 1rem 1.15rem 0.7rem;
+}
+.vc-user-profile-candypanel__icon {
+  width: 2.55rem;
+  height: 2.55rem;
+  border-radius: 9999px;
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+  background:
+    radial-gradient(circle at 35% 30%, rgba(255, 186, 120, 0.35), transparent 55%),
+    rgba(92, 48, 18, 0.55);
+  border: 1px solid rgba(251, 146, 60, 0.4);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+.vc-user-profile-candypanel__icon img {
+  width: 1.45rem;
+  height: 1.45rem;
+  object-fit: contain;
+  display: block;
+}
+.vc-user-profile-candypanel__copy {
+  min-width: 0;
+  flex: 1;
+  display: grid;
+  gap: 0.1rem;
+}
+.vc-user-profile-candypanel__title {
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  color: rgba(255, 237, 213, 0.98);
+}
+.vc-user-profile-candypanel__sub {
+  font-size: 0.86rem;
+  color: rgba(253, 230, 200, 0.62);
+}
+.vc-user-profile-candypanel__badge {
+  min-width: 2.6rem;
+  height: 1.9rem;
+  padding: 0 0.55rem;
+  border-radius: 9999px;
+  display: inline-grid;
+  place-items: center;
+  font-size: 0.82rem;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  color: rgba(255, 247, 237, 0.98);
+  background: rgba(154, 72, 18, 0.55);
+  border: 1px solid rgba(251, 146, 60, 0.42);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07);
+  white-space: nowrap;
+}
+.vc-user-profile-candypanel__meter {
+  margin: 0 1.15rem 0.85rem;
+  height: 0.42rem;
+  border-radius: 9999px;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 248, 235, 0.1);
+}
+.vc-user-profile-candypanel__meterfill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #c2410c, #fb923c 55%, #fdba74);
+  box-shadow: 0 0 12px rgba(251, 146, 60, 0.35);
+  transition: width 0.45s ease;
+}
+.vc-user-profile-candygrid {
+  list-style: none;
+  margin: 0;
+  padding: 0 1rem 1rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(6.2rem, 1fr));
+  gap: 0.8rem;
+}
+html[data-vc-theme="light"] .vc-user-profile-candypanel {
+  border-color: rgba(194, 65, 12, 0.22);
+  background:
+    radial-gradient(ellipse 80% 55% at 8% 0%, rgba(251, 146, 60, 0.14), transparent 52%),
+    linear-gradient(165deg, rgba(255, 247, 237, 0.96), rgba(255, 237, 213, 0.88));
+  box-shadow: 0 14px 28px rgba(15, 23, 42, 0.08);
+}
+html[data-vc-theme="light"] .vc-user-profile-candypanel__title {
+  color: rgba(67, 20, 7, 0.94);
+}
+html[data-vc-theme="light"] .vc-user-profile-candypanel__sub {
+  color: rgba(120, 53, 15, 0.7);
+}
+html[data-vc-theme="light"] .vc-user-profile-candypanel__badge {
+  color: rgba(67, 20, 7, 0.95);
+  background: rgba(254, 215, 170, 0.85);
+  border-color: rgba(194, 65, 12, 0.28);
+}
+.vc-user-profile-candy {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0.45rem 0.3rem 0.4rem;
+  border-radius: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background:
+    radial-gradient(circle at 30% 20%, rgba(251, 146, 60, 0.12), transparent 55%),
+    rgba(15, 23, 42, 0.35);
+}
+.vc-user-profile-candy__frame {
+  display: grid;
+  place-items: center;
+  width: 3.55rem;
+  height: 3.55rem;
+  border-radius: 0.85rem;
+  overflow: hidden;
+  background: rgba(2, 8, 23, 0.28);
+}
+.vc-user-profile-candy__img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+.vc-user-profile-candy__ph {
+  width: 1.4rem;
+  height: 1.4rem;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.35);
+}
+.vc-user-profile-candy__name {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  min-height: 2.6em;
+  margin-top: 0.2rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  line-height: 1.25;
+  text-align: center;
+  color: rgba(248, 250, 252, 0.92);
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+  word-break: break-word;
+  hyphens: auto;
+}
+.vc-user-profile-candy__name--locked {
+  display: block;
+  width: 100%;
+  min-height: 3.2em;
+  margin-top: 0.15rem;
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+  pointer-events: none;
+}
+.vc-user-profile-candy__nameimg {
+  display: block;
+  width: 100%;
+  max-width: 11.5rem;
+  height: auto;
+  margin: 0 auto;
+  object-fit: contain;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+/* candyNameBlurIos1 */
+.vc-user-profile-candy__name--locked-ph {
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  letter-spacing: 0.12em;
+  color: rgba(255, 248, 235, 0.55) !important;
+  -webkit-text-fill-color: rgba(255, 248, 235, 0.55) !important;
+  font-size: 0.95rem !important;
+  filter: none !important;
+}
+.vc-user-profile-candy--owned {
+  border-color: rgba(251, 146, 60, 0.35);
+  box-shadow: 0 10px 22px rgba(2, 8, 23, 0.18);
+}
+.vc-user-profile-candy--owned .vc-user-profile-candy__img {
+  filter: none !important;
+  -webkit-filter: none !important;
+  opacity: 1 !important;
+}
+.vc-user-profile-candy--owned .vc-user-profile-candy__name {
+  color: rgba(248, 250, 252, 0.92) !important;
+  -webkit-text-fill-color: rgba(248, 250, 252, 0.92) !important;
+}
+.vc-user-profile-candy--missing {
+  opacity: 1;
+}
+.vc-user-profile-candy--missing .vc-user-profile-candy__frame {
+  background: rgba(55, 42, 34, 0.92);
+  border: 1px solid rgba(255, 248, 235, 0.16);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.25);
+}
+.vc-user-profile-candy--missing .vc-user-profile-candy__img {
+  filter: none !important;
+  -webkit-filter: none !important;
+  opacity: 1 !important;
+  mix-blend-mode: normal;
+}
+html[data-vc-theme="light"] .vc-user-profile-candy {
+  border-color: rgba(15, 23, 42, 0.08);
+  background:
+    radial-gradient(circle at 30% 20%, rgba(251, 146, 60, 0.1), transparent 55%),
+    rgba(255, 255, 255, 0.55);
+}
+html[data-vc-theme="light"] .vc-user-profile-candy__name {
+  color: rgba(30, 41, 59, 0.9);
+}
+html[data-vc-theme="light"] .vc-user-profile-candy--missing .vc-user-profile-candy__frame {
+  background: rgba(203, 213, 225, 0.85);
+}
+@media (max-width: 720px) {
+  .vc-user-profile-candygrid {
+    grid-template-columns: repeat(auto-fill, minmax(4.8rem, 1fr));
+    gap: 0.55rem;
+  }
+  .vc-user-profile-candy__frame {
+    width: 3.15rem;
+    height: 3.15rem;
+  }
+}
+/* 20261012candyNameBlurIos1 */
+
+/* profileRelockKill2: dopo sipario/ready niente secondo overflow:hidden
+   (pending / loader-blocking / soft-lock / hold / spinner / barra is-loading). */
+html.vc-page-cine-ready.vc-user-profile-pending,
+html.vc-page-cine-ready.vc-user-profile-pending body,
+html.vc-cine-curtain-off.vc-user-profile-pending,
+html.vc-cine-curtain-off.vc-user-profile-pending body,
+html.vc-chrome-scroll-armed.vc-user-profile-pending,
+html.vc-chrome-scroll-armed.vc-user-profile-pending body,
+html.vc-page-cine-ready.vc-loader-blocking-live,
+html.vc-page-cine-ready.vc-loader-blocking-live body,
+html.vc-cine-curtain-off.vc-loader-blocking-live,
+html.vc-cine-curtain-off.vc-loader-blocking-live body,
+html.vc-chrome-scroll-armed.vc-loader-blocking-live,
+html.vc-chrome-scroll-armed.vc-loader-blocking-live body,
+html.vc-page-cine-ready.vc-loading-scroll-lock,
+html.vc-page-cine-ready.vc-loading-scroll-lock body,
+html.vc-cine-curtain-off.vc-loading-scroll-lock,
+html.vc-cine-curtain-off.vc-loading-scroll-lock body,
+html.vc-chrome-scroll-armed.vc-loading-scroll-lock,
+html.vc-chrome-scroll-armed.vc-loading-scroll-lock body,
+html.vc-page-cine-ready.vc-scroll-soft-lock:not(.vc-notif-drawer-open):not(.vc-notif-sheet-open):not(.vc-dialog-open):not(.vc-staff-manage-sheet-open):not(.vc-staff-stat-sheet-open):not(.vc-staff-reso-sheet-open):not(.vc-feedback-sheet-open),
+html.vc-page-cine-ready.vc-scroll-soft-lock:not(.vc-notif-drawer-open):not(.vc-notif-sheet-open):not(.vc-dialog-open):not(.vc-staff-manage-sheet-open):not(.vc-staff-stat-sheet-open):not(.vc-staff-reso-sheet-open):not(.vc-feedback-sheet-open) body,
+html.vc-cine-curtain-off.vc-scroll-soft-lock:not(.vc-notif-drawer-open):not(.vc-notif-sheet-open):not(.vc-dialog-open):not(.vc-staff-manage-sheet-open):not(.vc-staff-stat-sheet-open):not(.vc-staff-reso-sheet-open):not(.vc-feedback-sheet-open),
+html.vc-cine-curtain-off.vc-scroll-soft-lock:not(.vc-notif-drawer-open):not(.vc-notif-sheet-open):not(.vc-dialog-open):not(.vc-staff-manage-sheet-open):not(.vc-staff-stat-sheet-open):not(.vc-staff-reso-sheet-open):not(.vc-feedback-sheet-open) body,
+html.vc-chrome-scroll-armed.vc-scroll-soft-lock:not(.vc-notif-drawer-open):not(.vc-notif-sheet-open):not(.vc-dialog-open):not(.vc-staff-manage-sheet-open):not(.vc-staff-stat-sheet-open):not(.vc-staff-reso-sheet-open):not(.vc-feedback-sheet-open),
+html.vc-chrome-scroll-armed.vc-scroll-soft-lock:not(.vc-notif-drawer-open):not(.vc-notif-sheet-open):not(.vc-dialog-open):not(.vc-staff-manage-sheet-open):not(.vc-staff-stat-sheet-open):not(.vc-staff-reso-sheet-open):not(.vc-feedback-sheet-open) body,
+html.vc-page-cine-ready.vc-interaction-hold,
+html.vc-page-cine-ready.vc-interaction-hold body,
+html.vc-cine-curtain-off.vc-interaction-hold,
+html.vc-cine-curtain-off.vc-interaction-hold body,
+html.vc-chrome-scroll-armed.vc-interaction-hold,
+html.vc-chrome-scroll-armed.vc-interaction-hold body,
+html.vc-page-cine-ready:has(#vc-user-profile-view:not([hidden]) .vc-user-profile-loader),
+html.vc-page-cine-ready:has(#vc-user-profile-view:not([hidden]) .vc-user-profile-loader) body,
+html.vc-cine-curtain-off:has(#vc-user-profile-view:not([hidden]) .vc-user-profile-loader),
+html.vc-cine-curtain-off:has(#vc-user-profile-view:not([hidden]) .vc-user-profile-loader) body,
+html.vc-page-cine-ready:has(body > .vc-user-profile-loader:not([hidden])),
+html.vc-page-cine-ready:has(body > .vc-user-profile-loader:not([hidden])) body,
+html.vc-cine-curtain-off:has(body > .vc-user-profile-loader:not([hidden])),
+html.vc-cine-curtain-off:has(body > .vc-user-profile-loader:not([hidden])) body,
+html.vc-page-cine-ready,
+html.vc-page-cine-ready body,
+html.vc-cine-curtain-off,
+html.vc-cine-curtain-off body {
+  overflow: auto !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  overscroll-behavior: auto !important;
+  touch-action: auto !important;
+  height: auto !important;
+  max-height: none !important;
+  position: static !important;
+  inset: auto !important;
+  width: auto !important;
+}
+/* profileRelockKill2 */
+
+/* ===== hideScrollGutter0: zero barra + zero gutter pagina (batte boot-kit/cine/look) ===== */
+html,
+html body,
+html.vc-site-polish,
+html.vc-site-polish body,
+html.vc-grad-baked,
+html.vc-grad-baked body,
+html.vc-cine-curtain-off,
+html.vc-cine-curtain-off body,
+html.vc-page-cine-ready,
+html.vc-page-cine-ready body,
+html.vc-chrome-scroll-armed,
+html.vc-chrome-scroll-armed body,
+html.vc-site-polish.vc-chrome-scroll-armed:not(.vc-soft-fx-off),
+html.vc-site-polish.vc-chrome-scroll-armed:not(.vc-soft-fx-off) body.vc-body,
+html.vc-site-polish.vc-page-cine-ready.vc-chrome-scroll-armed:not(.vc-chrome-bar-loading):not(.vc-loading-scroll-lock):not(.vc-loader-blocking-live):not(.vc-interaction-hold):not(.vc-scroll-soft-lock):not(.vc-dialog-open):not(.vc-notif-sheet-open):not(.vc-notif-drawer-open):not(.vc-img-lb-open),
+html.vc-cine-curtain-off:not(.vc-chrome-bar-loading):not(.vc-loading-scroll-lock):not(.vc-loader-blocking-live):not(.vc-interaction-hold),
+html.vc-page-cine-ready:not(.vc-chrome-bar-loading):not(.vc-loading-scroll-lock):not(.vc-loader-blocking-live):not(.vc-interaction-hold),
+html[data-vc-theme="light"],
+html[data-vc-theme="light"] body.vc-body,
+html.vc-site-polish[data-vc-theme="light"] body.vc-body {
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+  scrollbar-gutter: auto !important;
+  scrollbar-color: transparent transparent !important;
+}
+html::-webkit-scrollbar,
+html body::-webkit-scrollbar,
+html.vc-site-polish::-webkit-scrollbar,
+html.vc-site-polish body::-webkit-scrollbar,
+html.vc-chrome-scroll-armed::-webkit-scrollbar,
+html.vc-chrome-scroll-armed body::-webkit-scrollbar,
+html.vc-site-polish.vc-chrome-scroll-armed:not(.vc-soft-fx-off)::-webkit-scrollbar,
+html.vc-site-polish.vc-chrome-scroll-armed:not(.vc-soft-fx-off) body.vc-body::-webkit-scrollbar,
+html.vc-site-polish.vc-page-cine-ready.vc-chrome-scroll-armed:not(.vc-chrome-bar-loading):not(.vc-loading-scroll-lock):not(.vc-loader-blocking-live):not(.vc-interaction-hold):not(.vc-scroll-soft-lock):not(.vc-dialog-open):not(.vc-notif-sheet-open):not(.vc-notif-drawer-open):not(.vc-img-lb-open)::-webkit-scrollbar,
+html.vc-site-polish.vc-page-cine-ready.vc-chrome-scroll-armed:not(.vc-chrome-bar-loading):not(.vc-loading-scroll-lock):not(.vc-loader-blocking-live):not(.vc-interaction-hold):not(.vc-scroll-soft-lock):not(.vc-dialog-open):not(.vc-notif-sheet-open):not(.vc-notif-drawer-open):not(.vc-img-lb-open) body::-webkit-scrollbar,
+html[data-vc-theme="light"]::-webkit-scrollbar,
+html[data-vc-theme="light"] body.vc-body::-webkit-scrollbar,
+html.vc-site-polish[data-vc-theme="light"] body.vc-body::-webkit-scrollbar {
+  width: 0 !important;
+  height: 0 !important;
+  display: none !important;
+  background: transparent !important;
+}
+html::-webkit-scrollbar-track,
+html::-webkit-scrollbar-thumb,
+html body::-webkit-scrollbar-track,
+html body::-webkit-scrollbar-thumb,
+html.vc-site-polish.vc-chrome-scroll-armed:not(.vc-soft-fx-off)::-webkit-scrollbar-track,
+html.vc-site-polish.vc-chrome-scroll-armed:not(.vc-soft-fx-off)::-webkit-scrollbar-thumb,
+html.vc-site-polish.vc-chrome-scroll-armed:not(.vc-soft-fx-off) body.vc-body::-webkit-scrollbar-track,
+html.vc-site-polish.vc-chrome-scroll-armed:not(.vc-soft-fx-off) body.vc-body::-webkit-scrollbar-thumb {
+  display: none !important;
+  width: 0 !important;
+  background: transparent !important;
+  border: 0 !important;
+}
+/* hideScrollGutter0 */
+
+/* ==========================================================================
+   wikiCmdLayout1: chromeAlign ha stripato vc-landing-core dalle pagine
+   landing-ext (wiki/faq/regole…). Il flex/padding di .vc-cmd-acc-sum viveva lì
+   (e in page-bundle). Senza → summary list-item pad0 = righe schiacciate.
+   ========================================================================== */
+.vc-wiki-cmd-shell .vc-cmd-acc-sum,
+.vc-wiki-cmd-shell .vc-cmd-item-sum,
+body.vc-wiki-page .vc-cmd-acc-sum,
+body.vc-wiki-page .vc-cmd-item-sum {
+  display: flex !important;
+  align-items: center !important;
+  gap: 0.75rem !important;
+  padding: 0.85rem 1rem !important;
+  list-style: none !important;
+  cursor: var(--vc-cursor-pointer, pointer);
+  user-select: none;
+}
+.vc-wiki-cmd-shell .vc-cmd-acc-sum::-webkit-details-marker,
+.vc-wiki-cmd-shell .vc-cmd-item-sum::-webkit-details-marker,
+body.vc-wiki-page .vc-cmd-acc-sum::-webkit-details-marker,
+body.vc-wiki-page .vc-cmd-item-sum::-webkit-details-marker {
+  display: none !important;
+}
+.vc-wiki-cmd-shell .vc-cmd-acc-ico,
+body.vc-wiki-page .vc-cmd-acc-ico {
+  flex-shrink: 0 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 2rem !important;
+  height: 2rem !important;
+  border-radius: 0.55rem !important;
+}
+.vc-wiki-cmd-shell .vc-cmd-acc-text,
+body.vc-wiki-page .vc-cmd-acc-text {
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  text-align: left !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 0.15rem !important;
+}
+.vc-wiki-cmd-shell .vc-cmd-acc-chev,
+body.vc-wiki-page .vc-cmd-acc-chev {
+  flex-shrink: 0 !important;
+  margin-left: auto !important;
+}
+.vc-wiki-cmd-shell .vc-cmd-item-sum,
+body.vc-wiki-page .vc-cmd-item-sum {
+  justify-content: space-between !important;
+  padding: 0.95rem 1.05rem !important;
+}
+.vc-wiki-cmd-shell .vc-cmd-acc-body,
+body.vc-wiki-page .vc-cmd-acc-body {
+  padding: 0 1rem 0.85rem !important;
+}
+/* wikiCmdLayout1 EOF */

@@ -22,6 +22,9 @@ const {
   PAUSE_ROLE_STAFF,
   PAUSE_ROLE_PM,
   roleChoiceAppliesTo,
+  formatPauseRoleLabelForMessage,
+  getMemberRoleLabel,
+  normalizePauseRoleChoice,
 } = require("../Pause/pauseHandlersUtils");
 const {
   resolveStaffProfileKind,
@@ -52,7 +55,7 @@ const PROFILE_STALE_CACHE_MS = 45 * 60 * 1000;
 const PROFILE_CACHE_MAX = 200;
 const profileCache = new Map();
 /* careerPinRecentPex2: ultimo pex Helper = qualsiasi →Helper (anche PM→Helper); niente Member→Helper stale */
-const PROFILE_PAYLOAD_VERSION = 25;
+const PROFILE_PAYLOAD_VERSION = 26;
 const STAFF_MEMBER_SOFT_TIMEOUT_MS = 8000;
 const STAFF_MEMBER_HARD_TIMEOUT_MS = 14000;
 const STAFF_LEGACY_SOFT_TIMEOUT_MS = 350;
@@ -142,7 +145,7 @@ function writeProfileCache(viewerUserId, targetUserId, payload) {
   });
 }
 
-function clearStaffProfileCacheForUser(userId) {
+function clearStaffProfileCacheForUser(userId, extras = {}) {
   const uid = String(userId || "").trim();
   if (!uid) return;
   try {
@@ -153,6 +156,12 @@ function clearStaffProfileCacheForUser(userId) {
       }
     }
   } catch (e) {}
+  /* staffProfLiveAll1: ogni mutazione profilo → WS ai viewer aperti (anche di altri) */
+  if (extras && extras.silent === true) return;
+  try {
+    const { broadcastSiteStaffProfileChanged } = require("./siteSuggestionsBroadcast");
+    broadcastSiteStaffProfileChanged(uid, extras && typeof extras === "object" ? extras : {});
+  } catch (_) {}
 }
 
 function recentReasonLines(list, limit = 5) {
@@ -264,8 +273,10 @@ function resolvePauseSnapshot(staffObj, profileKind) {
   };
 }
 
-function serializePauseHistory(staffObj, profileKind, limit = 48) {
+function serializePauseHistory(staffObj, profileKind, limit = 48, ctx = {}) {
   const today = getTodayUtc();
+  const member = ctx.member || null;
+  const guild = ctx.guild || member?.guild || null;
   const allPauses = Array.isArray(staffObj?.pauses) ? staffObj.pauses : [];
   const pauses =
     profileKind === PROFILE_PM_ONLY
@@ -277,16 +288,46 @@ function serializePauseHistory(staffObj, profileKind, limit = 48) {
     .map((p) => {
       const start = parseItalianDate(p.dataRichiesta);
       const end = parseItalianDate(p.dataRitorno);
+      const status = String(p.status || "").trim() || "pending";
+      const pauseId = String(p._id || p.id || "").trim();
+      const trackRaw = String(p.ruolo || p.ruoloRichiesto || "").trim();
+      const track = normalizePauseRoleChoice(trackRaw) || trackRaw || PAUSE_ROLE_STAFF;
+      /* pauseRolePrecise1: badge = grado reale (Helper/Mod/…), non generico Staff */
+      let ruoloLabel = "";
+      try {
+        ruoloLabel = formatPauseRoleLabelForMessage(guild, track || PAUSE_ROLE_STAFF, member);
+      } catch (_) {
+        ruoloLabel = "";
+      }
+      if (!ruoloLabel || /^(staff)$/i.test(String(ruoloLabel).trim())) {
+        try {
+          if (normalizePauseRoleChoice(track) === PAUSE_ROLE_PM) {
+            ruoloLabel = "Partner Manager";
+          } else {
+            ruoloLabel = getMemberRoleLabel(member) || trackRaw || "Staff";
+          }
+        } catch (_) {
+          ruoloLabel = trackRaw || "Staff";
+        }
+      }
+      ruoloLabel = stripDiscordDecorations(ruoloLabel) || ruoloLabel;
       return {
+        /* pauseReviewFix1: id+canAct servono al form HS (Entrambi non deve restare senza azioni) */
+        id: pauseId,
+        pauseId,
         start: String(p.dataRichiesta || "").trim(),
         end: String(p.dataRitorno || "").trim(),
         startIso: toIsoDay(start),
         endIso: toIsoDay(end),
-        status: String(p.status || ""),
+        status,
         statusLabel: getPauseStatusLabel(p, today),
         phase: getPausePhase(p.dataRichiesta, p.dataRitorno),
         motivazione: stripDiscordDecorations(p.motivazione || "") || null,
-        ruolo: String(p.ruolo || p.ruoloRichiesto || "").trim() || null,
+        ruolo: ruoloLabel || trackRaw || null,
+        ruoloLabel: ruoloLabel || null,
+        ruoloTrack: track || null,
+        ruoloRichiesto: trackRaw || null,
+        canAct: status === "pending" && Boolean(pauseId),
         _sort: start ? start.getTime() : 0,
       };
     })
@@ -567,16 +608,23 @@ function sliceToLatestCareerStart(rows, opts = {}) {
   if (!Array.isArray(rows) || !rows.length) return [];
   const stillActive = Boolean(opts.stillActive);
   const currentRole = normalizeCareerRoleToken(opts.currentRole || "");
-  if (isPartnerManagerRole(currentRole) || opts.track === "pm") {
+  const track = String(opts.track || "").trim().toLowerCase();
+  /* careerStaffPmFix1: Staff+PM ha track "staff" ma currentRole display = PM.
+     Non forzare slice PM-only: serve scala staff + pin PM. Solo pm_only → track pm. */
+  const forcePmOnly =
+    track === "pm" || (isPartnerManagerRole(currentRole) && track !== "staff");
+  if (forcePmOnly) {
     return slicePartnerManagerCareer(rows, opts);
   }
   const chrono = rows.slice().sort((a, b) => (a._sort || 0) - (b._sort || 0));
   /* careerPinRecentPex2: scala staff attuale + pin ultimo pex PM + ultimo pex →Helper */
   const scala = sliceLatestStaffLadderStint(chrono, { stillActive });
   const pins = pinLatestCareerPexRows(chrono);
-  const merged = mergeCareerRowSets([scala, pins]);
+  let merged = mergeCareerRowSets([scala, pins]);
   if (!merged.length) {
-    if (!stillActive) return [];
+    /* Dual Staff+PM senza rung ladder: mostra almeno stint PM */
+    const pmFallback = slicePartnerManagerCareer(rows, opts);
+    if (pmFallback.length) return pmFallback;
     return [];
   }
   return merged.sort((a, b) => (b._sort || careerRowSortMsFallback(b)) - (a._sort || careerRowSortMsFallback(a)));
@@ -631,10 +679,32 @@ function dedupeCareerHistoryRows(rows) {
   return out;
 }
 
+/* careerRetentionMerge1: come organico — rolesHistory + retention + track pex/depex.
+   Dopo archive (leave/depex) lo storico può restare solo in staffRolesHistoryRetention. */
+function mergeStaffCareerHistoryRows(staffObj, retentionRows) {
+  const fromStaff = Array.isArray(staffObj?.rolesHistory) ? staffObj.rolesHistory : [];
+  const fromRetention = Array.isArray(retentionRows) ? retentionRows : [];
+  const fromTrack = (Array.isArray(staffObj?.trackHistory) ? staffObj.trackHistory : [])
+    .filter((row) => {
+      const k = String(row?.kind || "").toLowerCase();
+      return k === "pex" || k === "depex";
+    })
+    .map((row) => ({
+      kind: String(row.kind || "").toLowerCase(),
+      oldRole: row.oldRole,
+      newRole: row.newRole,
+      reason: row.reason,
+      date: row.date,
+      actorId: row.actorId,
+      actorName: row.actorName,
+    }));
+  return fromStaff.concat(fromRetention).concat(fromTrack);
+}
+
 function serializeRolesHistory(guild, staffObj, limit = 20, opts = {}) {
   const stillActive = Boolean(opts.stillActive);
   const currentRole = opts.currentRole || "";
-  const hist = Array.isArray(staffObj?.rolesHistory) ? staffObj.rolesHistory : [];
+  const hist = mergeStaffCareerHistoryRows(staffObj, opts.retentionRows);
   const mapped = hist
     .filter((row) => !isHiddenManualStaffCareerReason(row?.reason))
     .map((row) => {
@@ -661,7 +731,7 @@ function serializeRolesHistory(guild, staffObj, limit = 20, opts = {}) {
 }
 
 function resolveTenureIso(staffObj, opts = {}) {
-  const hist = Array.isArray(staffObj?.rolesHistory) ? staffObj.rolesHistory : [];
+  const hist = mergeStaffCareerHistoryRows(staffObj, opts.retentionRows);
   const mapped = hist
     .filter((row) => !isHiddenManualStaffCareerReason(row?.reason))
     .map((row) => {
@@ -864,7 +934,7 @@ async function buildStaffProfilePayloadForWeb(client, member, user, opts = {}) {
   const avatarPromise = resolveStaffProfileAvatarUrl(client, guild, member, targetUser, userId);
   const modstatsPromise = showModstats ? buildModstatsWithBudget(guildId, userId) : Promise.resolve(null);
   const activityPromise = ActivityUserProfile.findOne({ guildId, userId })
-    .select("staff")
+    .select("staff staffRolesHistoryRetention")
     .lean()
     .catch(() => null);
   const legacyPromise = Promise.race([
@@ -917,6 +987,10 @@ async function buildStaffProfilePayloadForWeb(client, member, user, opts = {}) {
     modstatsPromise,
   ]);
   const staff = mergeStaffEmbedded(doc?.staff || {}, legacyMap.get(userId) || null);
+  /* careerRetentionMerge1 */
+  const careerRetentionRows = Array.isArray(doc?.staffRolesHistoryRetention)
+    ? doc.staffRolesHistoryRetention
+    : [];
 
   const pauseRole = profileKind === PROFILE_PM_ONLY ? PAUSE_ROLE_PM : PAUSE_ROLE_STAFF;
   const budget = computeStaffPauseDayBudget(member, doc || { staff }, pauseRole);
@@ -943,6 +1017,7 @@ async function buildStaffProfilePayloadForWeb(client, member, user, opts = {}) {
   const tenureIso = resolveTenureIso(staff, {
     currentRole: careerCurrentRole,
     track: profileKind === PROFILE_PM_ONLY ? "pm" : "staff",
+    retentionRows: careerRetentionRows,
   });
 
   let serataFilm = null;
@@ -991,7 +1066,7 @@ async function buildStaffProfilePayloadForWeb(client, member, user, opts = {}) {
         tradedBonus,
         weekBonus,
       },
-      history: serializePauseHistory(staff, profileKind, 48),
+      history: serializePauseHistory(staff, profileKind, 48, { member, guild }),
       pendingCount: Math.max(
         0,
         (
@@ -1050,6 +1125,7 @@ async function buildStaffProfilePayloadForWeb(client, member, user, opts = {}) {
         stillActive: profileKind === PROFILE_FULL || profileKind === PROFILE_PM_ONLY,
         currentRole: careerCurrentRole,
         track: profileKind === PROFILE_PM_ONLY ? "pm" : "staff",
+        retentionRows: careerRetentionRows,
       }),
       currentRole: careerCurrentRole,
     },
@@ -1077,19 +1153,36 @@ async function handleSiteStaffProfileGet(client, req, res) {
       String(req.query?.fresh || req.query?.nocache || "").trim() === "1" ||
       String(req.query?.fresh || req.query?.nocache || "").trim().toLowerCase() === "true";
     if (wantFresh) {
-      clearStaffProfileCacheForUser(targetUserId);
+      clearStaffProfileCacheForUser(targetUserId, { silent: true });
       clearWebsiteMemberCaches(targetUserId);
     }
 
     const cached = wantFresh ? null : readProfileCache(viewerUserId, targetUserId);
     if (cached) {
-      res.setHeader("Cache-Control", "private, max-age=15");
-      return res.status(200).json({ ...cached, cached: true });
+      const cachedId = String(cached.identity?.userId || cached.identity?.id || cached.targetUserId || "").trim();
+      if (cachedId && cachedId === targetUserId) {
+        res.setHeader("Cache-Control", "private, max-age=15");
+        return res.status(200).json({
+          ...cached,
+          cached: true,
+          isSelf,
+          viewerUserId,
+          targetUserId,
+          identity: {
+            ...(cached.identity && typeof cached.identity === "object" ? cached.identity : {}),
+            userId: targetUserId,
+          },
+        });
+      }
+      clearStaffProfileCacheForUser(targetUserId, { silent: true });
     }
 
-    let targetMember = access.member;
-    let targetUser = access.member?.user || access.user || null;
-            if (!isSelf) {
+    /* staffFreshPeerFix1: su peer NON partire da access.member (viewer).
+       Con fresh=1 saltavamo il soft-fetch ma targetMember restava il viewer
+       → identity_mismatch “Profilo staff incoerente” dopo ogni azione/reload. */
+    let targetMember = isSelf ? access.member : null;
+    let targetUser = isSelf ? access.member?.user || access.user || null : null;
+    if (!isSelf) {
       const guildId = String(IDs.guilds.main || access.member?.guild?.id || "").trim();
       const guild =
         access.member?.guild ||
@@ -1110,10 +1203,10 @@ async function handleSiteStaffProfileGet(client, req, res) {
           readCachedWebsiteMember(targetUserId) ||
           warmed ||
           null;
-            if (cachedMember) {
+      if (cachedMember && String(cachedMember.id || "") === String(targetUserId || "")) {
         targetMember = cachedMember;
       } else {
-        // Soft probe first (no negative-cache poison). Fresh/Riprova skips straight to hard+force.
+        // Soft probe first (no negative-cache poison). Fresh/Riprova → hard+force.
         if (!wantFresh) {
           targetMember = await fetchWebsiteGuildMember(guild, targetUserId, {
             timeoutMs: STAFF_MEMBER_SOFT_TIMEOUT_MS,
@@ -1121,7 +1214,7 @@ async function handleSiteStaffProfileGet(client, req, res) {
             soft: true,
           }).catch(() => null);
         }
-                if (!targetMember) {
+        if (!targetMember || String(targetMember.id || "") !== String(targetUserId || "")) {
           // Await a longer resolve before 503 — fire-and-forget left peer switches empty.
           targetMember = await fetchWebsiteGuildMember(guild, targetUserId, {
             timeoutMs: STAFF_MEMBER_HARD_TIMEOUT_MS,
@@ -1164,13 +1257,22 @@ async function handleSiteStaffProfileGet(client, req, res) {
             readStaleProfileCache(viewerUserId, targetUserId) ||
             readAnyStaleProfileCacheForTarget(targetUserId);
           if (stale) {
-            res.setHeader("Cache-Control", "private, max-age=5");
-            return res.status(200).json({
-              ...stale,
-              isSelf: false,
-              viewerUserId,
-              targetUserId,
-            });
+            const staleId = String(
+              stale.identity?.userId || stale.identity?.id || stale.targetUserId || "",
+            ).trim();
+            if (staleId && staleId === targetUserId) {
+              res.setHeader("Cache-Control", "private, max-age=5");
+              return res.status(200).json({
+                ...stale,
+                isSelf: false,
+                viewerUserId,
+                targetUserId,
+                identity: {
+                  ...(stale.identity && typeof stale.identity === "object" ? stale.identity : {}),
+                  userId: targetUserId,
+                },
+              });
+            }
           }
           return res.status(503).json({
             ok: false,
@@ -1201,6 +1303,41 @@ async function handleSiteStaffProfileGet(client, req, res) {
       payload.targetUserId = targetUserId;
     }
 
+    /* staffFreshPeerFix1 / staffIdLock3: se member ≠ target, non inventare stamp — rifetch fallito */
+    const identityUid = String(payload.identity?.userId || payload.identity?.id || "").trim();
+    const memberUid = String(targetMember?.id || targetUser?.id || "").trim();
+    if (targetUserId && memberUid && memberUid !== targetUserId) {
+      global.logger?.error?.("[WEBHOOK] site-staff-profile member≠target:", {
+        targetUserId,
+        identityUid,
+        memberUid,
+        viewerUserId,
+        wantFresh,
+      });
+      return res.status(503).json({
+        ok: false,
+        error: "member_unavailable",
+        message: "Discord non risponde: riprova tra pochi secondi.",
+      });
+    }
+    if (targetUserId && identityUid && identityUid !== targetUserId) {
+      global.logger?.error?.("[WEBHOOK] site-staff-profile identity≠target:", {
+        targetUserId,
+        identityUid,
+        memberUid,
+        viewerUserId,
+      });
+      return res.status(503).json({
+        ok: false,
+        error: "member_unavailable",
+        message: "Discord non risponde: riprova tra pochi secondi.",
+      });
+    }
+    if (payload.identity && typeof payload.identity === "object" && targetUserId) {
+      payload.identity.userId = targetUserId;
+    }
+    payload.targetUserId = targetUserId;
+
     /* profilePendingBadges1: count pending legati alle card (pause / resoconti / punti tolti). */
     try {
       const guildId = String(IDs.guilds?.main || targetMember?.guild?.id || "").trim();
@@ -1215,6 +1352,7 @@ async function handleSiteStaffProfileGet(client, req, res) {
         } catch (_) {
           weekKey = "";
         }
+        /* resoPendBadge1: non contare doc status=pending già deciduti nel content Discord */
         const resoFilter = {
           docType: WORKFLOW_DOC,
           guildId,
@@ -1224,9 +1362,49 @@ async function handleSiteStaffProfileGet(client, req, res) {
         };
         if (weekKey) resoFilter.workflowWeekKey = weekKey;
 
-        const tasks = [
-          SiteDocument.countDocuments(resoFilter).catch(() => 0),
-        ];
+        const countResoPending = async () => {
+          const docs = await SiteDocument.find(resoFilter)
+            .select("_id status content body")
+            .lean()
+            .maxTimeMS(6000)
+            .catch(() => []);
+          if (!Array.isArray(docs) || !docs.length) return 0;
+          let resolveStatus = null;
+          try {
+            ({ resolveResocontoDocStatus: resolveStatus } = require("./siteStaffWorkflowStore"));
+          } catch (_) {
+            resolveStatus = null;
+          }
+          let pending = 0;
+          const healIds = [];
+          for (const doc of docs) {
+            const st = resolveStatus
+              ? String(resolveStatus(doc) || "pending").toLowerCase()
+              : "pending";
+            if (st === "pending") {
+              pending += 1;
+            } else if (doc?._id) {
+              healIds.push({ id: doc._id, status: st });
+            }
+          }
+          if (healIds.length) {
+            void Promise.all(
+              healIds.map((row) =>
+                SiteDocument.updateOne(
+                  { _id: row.id, status: "pending" },
+                  { $set: { status: row.status, decidedAt: new Date() } },
+                ).catch(() => null),
+              ),
+            ).then(() => {
+              try {
+                clearStaffProfileCacheForUser(uid, { action: "reso_heal", silent: false });
+              } catch (_) {}
+            });
+          }
+          return pending;
+        };
+
+        const tasks = [countResoPending()];
         if (payload.partner) {
           const { SitePmPointsRemovedEntry } = require("../../Schemas/Web/sitePmPointsRemovedSchemas");
           tasks.push(

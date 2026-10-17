@@ -23,12 +23,14 @@ logging:
 
 plugins:
   lavasrc:
-    # ytmsearch prima: ytsearch spesso empty. ISRC senza virgolette (match più stabile).
+    # ISRC senza virgolette (con "…" YouTube matcha video a caso). Poi QUERY.
     providers:
-      - "ytmsearch:\"%ISRC%\""
-      - "ytmsearch:\"%QUERY%\""
-      - "ytsearch:\"%ISRC%\""
+      # matchStrict2: ytsearch prima (ytmsearch spinge cover/karaoke)
+      - "ytsearch:%ISRC%"
+      - "ytsearch:%QUERY% official audio"
       - "ytsearch:%QUERY%"
+      - "ytmsearch:%ISRC%"
+      - "ytmsearch:%QUERY%"
       - "scsearch:%QUERY%"
     sources:
       # Link spotify:track/album/playlist restano ok; spsearch LavaSrc timeouta spesso
@@ -40,6 +42,11 @@ plugins:
       countryCode: "IT"
       playlistLoadLimit: 6
       albumLoadLimit: 6
+      # spotifyTokener1: playlist 37i9… (editoriali/generate) = SOLO Partner API + token web-player.
+      # Senza preferPartnerApi LavaSrc 4.8.3 lancia FriendlyException su id 37i9dQZ*.
+      preferPartnerApi: true
+      # Cache/retry davanti al tokener (Chrome CDP flaky → 500). Node: spotify-token-cache.js :8003
+      customTokenEndpoint: "http://127.0.0.1:8003/api/token"
       # Preferisci resolve URL/URI; spsearch non è usato dal bot dopo spsearchFix1.
   youtube:
     enabled: true

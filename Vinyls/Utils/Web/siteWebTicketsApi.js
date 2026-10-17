@@ -42,6 +42,136 @@ let openWebTicketsInflight = null;
 const webTicketsListCache = new Map();
 const webTicketsListInflight = new Map();
 
+/* ticketListDedupeSrv1: stessi criteri del client (preview/event/subject ±60s) */
+function ticketPreviewCoreSrv(doc) {
+  let prev = String(doc?.lastMessagePreview || "")
+    .toLowerCase()
+    .replace(/\[embed[^\]]*\]/gi, " ")
+    .replace(/\b(?:titolo|title|descrizione|description|footer|fields?)\s*:/gi, " ")
+    .replace(/\s+/g, " ")
+    .replace(/[*_#`•·:]+/g, " ")
+    .replace(/@\S+/g, "@")
+    .replace(/nessun contenuto[^\s]*/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return prev.slice(0, 28);
+}
+
+function ticketEventCoreSrv(doc) {
+  const p = String(doc?.lastMessagePreview || "").toLowerCase();
+  if (/__chiusura__|chiusura/.test(p) && /confermato|verr[aà] chiuso|verra chiuso/.test(p)) {
+    return "ev:close_confirm";
+  }
+  if (/ticket claimato|__ticket claimato__/.test(p)) return "ev:claim";
+  return "";
+}
+
+function ticketSubjectCoreSrv(doc) {
+  return String(doc?.subject || doc?.channelName || "")
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 36);
+}
+
+function ticketActivityMsSrv(doc) {
+  const raw = doc?.lastMessageAt || doc?.updatedAt || doc?.createdAt;
+  const ms = raw ? new Date(raw).getTime() : 0;
+  return Number.isFinite(ms) ? ms : 0;
+}
+
+function ticketDedupeScoreSrv(doc) {
+  const msgs = Math.max(0, Number(doc?.messageCount) || 0);
+  const prev = ticketPreviewCoreSrv(doc);
+  const prevScore = prev && !/nessun contenuto/i.test(prev) ? 1 : 0;
+  const num = Math.max(0, Number(doc?.ticketNumber) || 0);
+  return msgs * 1e12 + prevScore * 1e10 + num * 1e6 + ticketActivityMsSrv(doc);
+}
+
+function ticketsAreImportDupSrv(a, b) {
+  if (!a || !b) return false;
+  if (String(a.userId || "") !== String(b.userId || "")) return false;
+  if (String(a.category || "").toLowerCase() !== String(b.category || "").toLowerCase()) return false;
+  if (Math.abs(ticketActivityMsSrv(a) - ticketActivityMsSrv(b)) > 60_000) return false;
+  const ea = ticketEventCoreSrv(a);
+  const eb = ticketEventCoreSrv(b);
+  if (ea && eb && ea === eb) return true;
+  const pa = ticketPreviewCoreSrv(a);
+  const pb = ticketPreviewCoreSrv(b);
+  if (pa && pb && pa === pb) return true;
+  const sa = ticketSubjectCoreSrv(a);
+  const sb = ticketSubjectCoreSrv(b);
+  return Boolean(sa && sb && sa === sb);
+}
+
+function dedupeTicketDocsSrv(rows) {
+  /* ticketListDedupeShape1: sempre {kept,hidden} — early-return array rompeva .length */
+  if (!Array.isArray(rows) || rows.length < 2) {
+    return { kept: Array.isArray(rows) ? rows.slice() : [], hidden: [] };
+  }
+  const kept = [];
+  const hidden = [];
+  for (const t of rows) {
+    if (!t) continue;
+    let hit = -1;
+    for (let j = 0; j < kept.length; j += 1) {
+      if (!ticketsAreImportDupSrv(kept[j], t)) continue;
+      hit = j;
+      break;
+    }
+    if (hit < 0) {
+      kept.push(t);
+      continue;
+    }
+    if (ticketDedupeScoreSrv(t) > ticketDedupeScoreSrv(kept[hit])) {
+      hidden.push(kept[hit]);
+      kept[hit] = t;
+    } else {
+      hidden.push(t);
+    }
+  }
+  return { kept, hidden };
+}
+
+/* ticketListCacheBust1 + ticketListTotalFix1: await mark prima della cache lista */
+async function markTicketDocsListHidden(hidden, winnerByPair) {
+  if (!Array.isArray(hidden) || !hidden.length) return 0;
+  try {
+    webTicketsListCache.clear();
+  } catch (eClear0) {}
+  let marked = 0;
+  try {
+    for (const doc of hidden) {
+      const id = doc?._id;
+      if (!id) continue;
+      let winnerId = null;
+      if (winnerByPair && typeof winnerByPair.get === "function") {
+        winnerId = winnerByPair.get(String(id)) || null;
+      }
+      const r = await SiteWebTicket.updateOne(
+        { _id: id, listHidden: { $ne: true } },
+        {
+          $set: {
+            listHidden: true,
+            ...(winnerId ? { duplicateOf: winnerId } : {}),
+          },
+        },
+      ).catch(() => null);
+      if (r && (r.modifiedCount || r.matchedCount)) marked += 1;
+    }
+    if (marked) {
+      try {
+        webTicketsListCache.clear();
+        openWebTicketsCache = null;
+      } catch (eClear1) {}
+    }
+  } catch (err) {
+    global.logger?.warn?.("[WEB TICKETS] listHidden mark failed:", err?.message || err);
+  }
+  return marked;
+}
+
 function webTicketsListEtag(listKey, payload, at) {
   const tickets = Array.isArray(payload?.tickets) ? payload.tickets : [];
   const sig = tickets
@@ -3519,7 +3649,7 @@ async function handleSiteWebTicketsMentionsGet(client, req, res) {
         ? {
             id: String(ticket.claimedBy),
             name: String(ticket.claimedByName || "Staff").trim() || "Staff",
-            avatarUrl: "",
+            avatarUrl: String(ticket.claimedByAvatarUrl || "").trim(),
           }
         : null,
       ...listAddedUsers(ticket),
@@ -4046,7 +4176,7 @@ async function handleSiteWebTicketsListGet(client, req, res) {
 
   const statusFilter = String(req.query?.status || "").trim().toLowerCase();
   const categoryFilter = normalizeCategory(req.query?.category);
-  const filter = { guildId };
+  const filter = { guildId, listHidden: { $ne: true } };
   const staffCategories = listAccessibleTicketCategories(actor.member);
 
   const pageRaw = Math.max(1, Math.floor(Number(req.query?.page) || 1));
@@ -4158,11 +4288,29 @@ async function handleSiteWebTicketsListGet(client, req, res) {
   let listInflight = webTicketsListInflight.get(listKey);
   if (!listInflight) {
     listInflight = (async () => {
-      const rows = await SiteWebTicket.find(filter)
+      /* fetch un po' in più: dedupe import può ridurre i risultati pagina */
+      const fetchLimit = Math.min(80, pageSize * 2);
+      const rowsRaw = await SiteWebTicket.find(filter)
         .sort({ lastMessageAt: -1, createdAt: -1, ticketNumber: -1 })
         .skip((page - 1) * pageSize)
-        .limit(pageSize)
+        .limit(fetchLimit)
         .lean();
+      const deduped = dedupeTicketDocsSrv(rowsRaw);
+      const rowsKept = Array.isArray(deduped?.kept) ? deduped.kept : [];
+      const rowsHidden = Array.isArray(deduped?.hidden) ? deduped.hidden : [];
+      if (rowsHidden.length) {
+        const winnerMap = new Map();
+        for (const h of rowsHidden) {
+          const win = rowsKept.find((k) => ticketsAreImportDupSrv(k, h));
+          if (win?._id) winnerMap.set(String(h._id), win._id);
+        }
+        await markTicketDocsListHidden(rowsHidden, winnerMap);
+      }
+      const rows = rowsKept.slice(0, pageSize);
+      /* ticketListTotalFix1: countDocuments includeva i mirror appena nascosti su questa pagina */
+      const adjTotal = Math.max(rows.length, Math.max(0, Number(total) - rowsHidden.length));
+      const adjTotalPages = Math.max(1, Math.ceil(adjTotal / pageSize) || 1);
+      const adjPage = Math.min(page, adjTotalPages);
 
       const tickets = rows.map((doc) => {
         const perms = buildTicketPermissions(actor.member, doc, actor.userId, {
@@ -4185,10 +4333,10 @@ async function handleSiteWebTicketsListGet(client, req, res) {
         viewerAvatarUrl: avatarForMember(actor.member),
         guildId,
         count: tickets.length,
-        total,
-        page,
+        total: adjTotal,
+        page: adjPage,
         pageSize,
-        totalPages,
+        totalPages: adjTotalPages,
         tickets,
         categories,
       };
@@ -4231,6 +4379,24 @@ async function handleSiteWebTicketsCreatePost(client, req, res) {
 
   const category = normalizeCategory(req.body?.category);
   const openerIsStaff = Boolean(actor.isStaff);
+  /* ticketPushApi1 / apiWarmSwr1: utenti devono avere push attiva (staff skip) */
+  if (!openerIsStaff) {
+    try {
+      const { userHasActiveWebPush, isPushEnabled } = require("./siteWebPushService");
+      if (isPushEnabled()) {
+        const hasPush = await userHasActiveWebPush(actor.userId).catch(() => false);
+        if (!hasPush) {
+          return res.status(403).json({
+            ok: false,
+            error: "push_required",
+            message: "Attiva le notifiche push sul sito prima di aprire un ticket.",
+          });
+        }
+      }
+    } catch (err) {
+      global.logger?.warn?.("[WEBHOOK] site-web-tickets create push check:", err?.message || err);
+    }
+  }
   let content = sanitizeText(req.body?.content, MAX_CONTENT);
   {
     const pseudoTicket = { guildId, userId: actor.userId, addedUsers: [] };
@@ -4253,6 +4419,7 @@ async function handleSiteWebTicketsCreatePost(client, req, res) {
   const openCount = await SiteWebTicket.countDocuments({
     guildId,
     userId: actor.userId,
+    listHidden: { $ne: true },
     status: { $in: [WEB_TICKET_STATUS.OPEN, WEB_TICKET_STATUS.CLAIMED] },
   });
   if (openCount >= MAX_OPEN_PER_USER) {
@@ -6358,10 +6525,12 @@ async function countOpenWebTickets(guildId) {
     const [openTickets, unclaimedTickets] = await Promise.all([
       SiteWebTicket.countDocuments({
         guildId: gid,
+        listHidden: { $ne: true },
         status: { $in: [WEB_TICKET_STATUS.OPEN, WEB_TICKET_STATUS.CLAIMED] },
       }),
       SiteWebTicket.countDocuments({
         guildId: gid,
+        listHidden: { $ne: true },
         status: WEB_TICKET_STATUS.OPEN,
         claimedBy: null,
       }),
@@ -6381,16 +6550,10 @@ function invalidateOpenWebTicketsCache() {
   webTicketsListCache.clear();
 }
 
-/* notifUseful1: Ticket SLA — unclaimed / waiting-on-staff too long */
-const WEB_TICKET_SLA_DEFAULT_MINUTES = 45;
+/* ticketSlaOff1: SLA ticket disattivate (né “non preso” né “in attesa staff”).
+   Lo sweep resta solo per purgare residue in inbox. */
 const WEB_TICKET_SLA_SWEEP_MS = 5 * 60 * 1000;
 let webTicketSlaLoopHandle = null;
-
-function webTicketSlaThresholdMs() {
-  const raw = Number(process.env.WEB_TICKET_SLA_MINUTES || WEB_TICKET_SLA_DEFAULT_MINUTES);
-  const mins = Number.isFinite(raw) && raw > 0 ? Math.min(24 * 60, Math.max(10, raw)) : WEB_TICKET_SLA_DEFAULT_MINUTES;
-  return mins * 60_000;
-}
 
 async function clearTicketSlaNotifsForTicket(client, ticket, { onlyUserIds = null } = {}) {
   const sid = String(ticket?._id || ticket?.id || "").trim();
@@ -6419,93 +6582,25 @@ async function clearTicketSlaNotifsForTicket(client, ticket, { onlyUserIds = nul
 
 async function sweepWebTicketSlaNotifications(client) {
   const guildId = String(IDs.guilds?.main || "").trim();
-  if (!guildId || !client) return { checked: 0, notified: 0 };
-  const thresholdMs = webTicketSlaThresholdMs();
-  const cutoff = new Date(Date.now() - thresholdMs);
+  if (!guildId || !client) return { checked: 0, notified: 0, purged: 0 };
   const open = await SiteWebTicket.find({
     guildId,
     status: { $in: [WEB_TICKET_STATUS.OPEN, WEB_TICKET_STATUS.CLAIMED] },
   })
-    .select(
-      "_id guildId category subject authorName ticketNumber userId claimedBy claimedByName claimedAt createdAt lastMessageAt lastAuthorKind slaOsPushEpochMs",
-    )
-    .limit(80)
+    .select("_id guildId category userId claimedBy")
+    .limit(120)
     .lean()
     .catch(() => []);
-  if (!Array.isArray(open) || !open.length) return { checked: 0, notified: 0 };
+  if (!Array.isArray(open) || !open.length) return { checked: 0, notified: 0, purged: 0 };
 
-  let notified = 0;
+  let purged = 0;
   for (const ticket of open) {
-    const sid = String(ticket._id || "");
-    const claimer = String(ticket.claimedBy || "").trim();
-    const lastAt = ticket.lastMessageAt ? new Date(ticket.lastMessageAt) : ticket.createdAt ? new Date(ticket.createdAt) : null;
-    if (!sid || !lastAt || Number.isNaN(lastAt.getTime())) continue;
-
-    const unclaimedStale = !claimer && lastAt <= cutoff;
-    const waitingOnStaff =
-      Boolean(claimer) &&
-      String(ticket.lastAuthorKind || "").toLowerCase() === "user" &&
-      lastAt <= cutoff;
-    if (!unclaimedStale && !waitingOnStaff) {
-      continue;
-    }
-
-    const category = normalizeCategory(ticket.category) || "supporto";
-    const label = CATEGORY_LABELS[category] || category;
-    const subject = String(ticket.subject || "").trim() || label;
-    const author = String(ticket.authorName || "Un utente").trim() || "Un utente";
-    const mins = Math.round(thresholdMs / 60_000);
-    const title = unclaimedStale ? "Ticket non preso (SLA)" : "Ticket in attesa staff (SLA)";
-    const body = unclaimedStale
-      ? `${author} · ${subject} — senza claim da oltre ${mins} min`
-      : `${author} · ${subject} — in attesa di risposta staff da oltre ${mins} min`;
-
-    let recipients = [];
-    if (unclaimedStale) {
-      recipients = await listStaffRecipientsForCategory(client, guildId, category, [ticket.userId]);
-    } else if (claimer) {
-      recipients = [claimer];
-    }
-    if (!recipients.length) continue;
-
-    const epochMs = lastAt.getTime();
-    /* ticketSlaPushOnce2: una sola push OS per epoch lastMessageAt (anche se inbox trim/dismiss) */
-    const alreadyOsPushed = Number(ticket.slaOsPushEpochMs) === epochMs;
-    /* Deploy/grandfather: ticket già in SLA da >15min oltre soglia → non ripingere ora, solo lock */
-    const grandfatherSilent =
-      ticket.slaOsPushEpochMs == null && Date.now() - epochMs > thresholdMs + 15 * 60_000;
-    const allowOsPush = !alreadyOsPushed && !grandfatherSilent;
-
-    await Promise.all(
-      recipients.slice(0, 40).map((userId) =>
-        enqueueSiteInAppNotification({
-          guildId,
-          userId,
-          title,
-          body,
-          kind: "web_ticket_sla",
-          channel: "inbox",
-          openUrl: `/tickets/?view=staff&ticketId=${sid}#${sid}`,
-          ticketId: sid,
-          dedupeKey: `web_ticket:sla:${sid}`,
-          replaceDedupe: true,
-          /* ticketSlaPushOnce1+2: refresh inbox sì; OS push solo 1ª volta per epoch */
-          push: allowOsPush,
-          pushIfNew: true,
-          keepRead: true,
-        }).catch(() => null),
-      ),
-    ).catch(() => null);
-
-    if (allowOsPush || grandfatherSilent) {
-      await SiteWebTicket.updateOne(
-        { _id: sid, $or: [{ slaOsPushEpochMs: { $ne: epochMs } }, { slaOsPushEpochMs: { $exists: false } }, { slaOsPushEpochMs: null }] },
-        { $set: { slaOsPushEpochMs: epochMs } },
-      ).catch(() => null);
-    }
-    notified += 1;
+    try {
+      await clearTicketSlaNotifsForTicket(client, ticket);
+      purged += 1;
+    } catch (_) {}
   }
-  return { checked: open.length, notified };
+  return { checked: open.length, notified: 0, purged };
 }
 
 function startWebTicketSlaNotifLoop(client) {

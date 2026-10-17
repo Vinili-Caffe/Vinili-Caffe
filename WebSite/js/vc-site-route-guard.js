@@ -1,8 +1,21 @@
-/* routeGuard1: cache-bust friendly; aliases + path allowlist */
+/* routeGuard1 + langPrefixRoute1: cache-bust friendly; aliases + path allowlist */
+/* Strip /en|/it|… prima del check — altrimenti /en/faq → kick a / (loop lingua) */
 (function () {
   "use strict";
   var cfg = window.__VC_SITE_ROUTES;
   if (!cfg || typeof cfg !== "object") return;
+
+  var LANG_PREFIX_RE =
+    /^\/(it|en|es|fr|de|pt|ru|zh|ja|ko|ar|nl|pl|tr|hi|id|uk|vi|ro|sv)(?=\/|$)/i;
+
+  function stripLangPrefix(pathname) {
+    var p = String(pathname || "/");
+    var m = p.match(LANG_PREFIX_RE);
+    if (!m) return p;
+    var rest = p.slice(m[0].length) || "/";
+    if (rest.charAt(0) !== "/") rest = "/" + rest;
+    return rest;
+  }
 
   var DEFAULT_ALIASES = {
     "/richieste": "/staff/pause/",
@@ -104,7 +117,7 @@
     return "";
   }
 
-  var path = normPath(window.location.pathname);
+  var path = normPath(stripLangPrefix(window.location.pathname));
   if (isAssetPath(path)) return;
   if (path === normPath(cfg.home)) return;
 

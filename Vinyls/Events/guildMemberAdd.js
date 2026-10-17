@@ -1976,6 +1976,38 @@ module.exports = {
         return;
       }
 
+      /* test join → sync ruoli dal main subito */
+      try {
+        const { isTestMirrorGuild } = require("../Utils/Config/testGuildMirrorRemap");
+        if (isTestMirrorGuild(member.guild.id) && !member.user.bot) {
+          const { syncTestMemberRolesFromMain } = require("../Services/Partner/testGuildMirrorSyncService");
+          void syncTestMemberRolesFromMain(member)
+            .then((out) => {
+              if (out?.ok && out.changed) {
+                global.logger?.info?.(
+                  `[TEST MIRROR] join role sync ${member.id}: ${out.roles} roles`,
+                );
+              } else if (out && !out.ok && out.reason && out.reason !== "not_on_main" && out.reason !== "in_flight") {
+                global.logger?.warn?.(
+                  `[TEST MIRROR] join role sync skip ${member.id}: ${out.reason}`,
+                );
+              }
+            })
+            .catch((err) => {
+              global.logger?.warn?.(
+                "[guildMemberAdd] test mirror join roles:",
+                member.id,
+                err?.message || err,
+              );
+            });
+        }
+      } catch (eMirrorJoin) {
+        global.logger?.warn?.(
+          "[guildMemberAdd] test mirror join hook:",
+          eMirrorJoin?.message || eMirrorJoin,
+        );
+      }
+
       if (member.guild?.id && !isViniliFullFeatureGuild(member.guild.id)) {
         await handleTenantPartnerManagerRejoin(member, member.client).catch((err) => {
           global.logger?.warn?.("[guildMemberAdd] handleTenantPartnerManagerRejoin:", err?.message || err);

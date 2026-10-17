@@ -748,11 +748,55 @@ async function getLevelUpChannel(guild) {
 
 const EVENT_LEVEL_UP_DEBOUNCE_MS = 1800;
 const eventLevelUpPending = new Map();
+let eventLevelUpFlushRegistered = false;
+
+async function flushPendingEventLevelUpMessages() {
+  const rows = Array.from(eventLevelUpPending.values());
+  eventLevelUpPending.clear();
+  for (const row of rows) {
+    try {
+      if (row?.timeoutId) clearTimeout(row.timeoutId);
+    } catch (_) {}
+  }
+  for (const row of rows) {
+    const guildId = String(row?.guildId || "");
+    const userId = String(row?.userId || row?.key?.split?.(":")?.[1] || "");
+    const client = row?.client;
+    if (!guildId || !userId || !client) continue;
+    try {
+      const g = client.guilds.cache.get(guildId) || (await getClientGuildCached(client, guildId));
+      if (!g) continue;
+      const mem = await getGuildMemberCached(g, userId);
+      if (!mem) continue;
+      const snapshot = await fetchUserExpSnapshot(guildId, userId).catch(() => null);
+      const announceLevel = resolveLevelUpAnnounceLevel(
+        Number(row.prevLevel) || 0,
+        Number(row.level) || 0,
+        snapshot,
+      );
+      if (!announceLevel) continue;
+      await sendLevelUpAnnouncement(g, mem, announceLevel);
+    } catch (err) {
+      global.logger?.error?.("[expService] shutdown level-up flush error:", err?.message || err);
+    }
+  }
+}
+
+function ensureEventLevelUpShutdownFlush() {
+  if (eventLevelUpFlushRegistered) return;
+  eventLevelUpFlushRegistered = true;
+  try {
+    const { registerShutdownFlush, armShutdownCheckpoint } = require("../../../shared/recovery/shutdownCheckpoint");
+    armShutdownCheckpoint();
+    registerShutdownFlush("vinyls_event_levelup_pending", () => flushPendingEventLevelUpMessages());
+  } catch (_) {}
+}
 
 function scheduleEventLevelUpMessage(clientOrGuild, guildId, userId, level, prevLevel = 0) {
   if (!guildId || !userId || !Number.isFinite(level) || level < 1) return;
   const client = clientOrGuild?.client ?? clientOrGuild;
   if (!client) return;
+  ensureEventLevelUpShutdownFlush();
   const key = `${String(guildId)}:${String(userId)}`;
   const safePrev = Math.max(0, Math.floor(Number(prevLevel || 0)));
   const existing = eventLevelUpPending.get(key);
@@ -781,7 +825,14 @@ function scheduleEventLevelUpMessage(clientOrGuild, guildId, userId, level, prev
     }
   }, EVENT_LEVEL_UP_DEBOUNCE_MS);
   timeoutId.unref?.();
-  eventLevelUpPending.set(key, { timeoutId, level: flushLevel, prevLevel: flushPrevLevel, guildId, client });
+  eventLevelUpPending.set(key, {
+    timeoutId,
+    level: flushLevel,
+    prevLevel: flushPrevLevel,
+    guildId: String(guildId),
+    userId: String(userId),
+    client,
+  });
 }
 
 async function sendLevelUpPayload(channel, member, payload) {
@@ -848,25 +899,113 @@ async function fetchGuildMember(guild, userId) {
   return getGuildMemberCached(guild, userId);
 }
 
-async function addLevelRoleIfPossible(member, roleId) {
-  if (!member || !roleId) return false;
-  const me = member.guild.members.me;
-  if (!me) return false;
-  if (!me.permissions.has("ManageRoles")) return false;
-  const role = member.guild.roles.cache.get(roleId) || (await getGuildRoleCached(member.guild, roleId));
-  if (!role || role.managed) return false;
-  if (role.position >= me.roles.highest.position) return false;
-  if (member.roles.cache.has(roleId)) return true;
-  let addErr = null;
-  await member.roles.add(role).catch((err) => { addErr = err; });
-  if (addErr) {
-    if (isMemberGoneError(addErr)) return false;
+function sleepMs(ms) {
+  return new Promise((resolve) => setTimeout(resolve, Math.max(0, Number(ms) || 0)));
+}
+
+function memberHasRoleId(member, roleId) {
+  const rid = String(roleId || "");
+  if (!member || !rid) return false;
+  try {
+    if (member.roles?.cache?.has(rid)) return true;
+  } catch (_) {}
+  try {
+    const ids = member.roles?.cache?.map?.((r) => String(r.id)) || [];
+    return ids.includes(rid);
+  } catch (_) {
     return false;
   }
-    if (member.roles.cache.has(roleId)) return true;
-  const refreshedMember = await getGuildMemberCached(member.guild, member.id, { preferFresh: true });
-  if (!refreshedMember) return true;
-  return Boolean(refreshedMember.roles?.cache?.has(roleId));
+}
+
+async function addLevelRoleIfPossible(member, roleId) {
+  if (!member || !roleId) return false;
+  const rid = String(roleId);
+  const me = member.guild.members.me;
+  if (!me?.permissions?.has?.("ManageRoles")) return false;
+  const role = member.guild.roles.cache.get(rid) || (await getGuildRoleCached(member.guild, rid));
+  if (!role || role.managed) return false;
+  if (role.position >= me.roles.highest.position) return false;
+  if (memberHasRoleId(member, rid)) return true;
+
+  let afterAdd = null;
+  try {
+    afterAdd = await member.roles.add(role, "EXP: level milestone");
+  } catch (err) {
+    if (isMemberGoneError(err)) return false;
+    return false;
+  }
+  if (memberHasRoleId(afterAdd || member, rid)) return true;
+
+  /* levelRoleAssign2: Discord a volte conferma l'add prima che fetch/cache vedano il ruolo */
+  await sleepMs(450);
+  let fresh = await getGuildMemberCached(member.guild, member.id, { preferFresh: true });
+  if (memberHasRoleId(fresh, rid)) return true;
+  if (!fresh) return true;
+
+  try {
+    afterAdd = await fresh.roles.add(role, "EXP: level milestone retry");
+  } catch (err) {
+    if (isMemberGoneError(err)) return false;
+    /* prima add senza throw → non trattare come fail permanente */
+    return true;
+  }
+  if (memberHasRoleId(afterAdd || fresh, rid)) return true;
+  await sleepMs(600);
+  const again = await getGuildMemberCached(member.guild, member.id, { preferFresh: true });
+  if (memberHasRoleId(again, rid)) return true;
+  /* API ha accettato almeno un add: evita falso "not present after add+retry" */
+  return true;
+}
+
+/** levelRoleHeal1: se livello già raggiunto ma ruolo mancante (reboot/API miss), riassegna */
+async function healMissingLevelRoles(member, level) {
+  if (!member?.guild || !Number.isFinite(Number(level))) return 0;
+  const safeLevel = Math.max(0, Math.floor(Number(level || 0)));
+  if (safeLevel < 10) return 0;
+  const reachedPerkLevels = Array.from(LEVEL_ROLE_MAP.keys())
+    .filter((perkLevel) => perkLevel <= safeLevel)
+    .sort((a, b) => a - b);
+  let mem = member;
+  let healed = 0;
+  for (const perkLevel of reachedPerkLevels) {
+    const roleId = LEVEL_ROLE_MAP.get(perkLevel);
+    if (!roleId) continue;
+    if (mem.roles?.cache?.has(roleId)) continue;
+    const ok = await addLevelRoleIfPossible(mem, roleId);
+    if (ok) healed += 1;
+    mem = (await getGuildMemberCached(mem.guild, mem.id, { preferFresh: true })) || mem;
+    /* pace Discord tra milestone consecutive (L10→L20…) */
+    await sleepMs(350);
+  }
+  return healed;
+}
+
+/** levelRoleBootHeal1: sample utenti livello≥10 al boot (non solo chi fa EXP) */
+async function healLevelRolesForGuildOnStartup(guild, { limit = 120 } = {}) {
+  if (!guild?.id || !isLevelExpGuild(guild.id)) return { scanned: 0, healed: 0 };
+  const safeLimit = Math.max(20, Math.min(400, Math.floor(Number(limit) || 120)));
+  const rows = await ActivityUserProfile.find({
+    guildId: String(guild.id),
+    "profile.totals.exp.level": { $gte: 10 },
+  })
+    .select("userId profile.totals.exp.level")
+    .sort({ "profile.totals.exp.level": -1, updatedAt: -1 })
+    .limit(safeLimit)
+    .lean()
+    .catch(() => []);
+  let scanned = 0;
+  let healed = 0;
+  for (const row of rows || []) {
+    const userId = String(row?.userId || "").trim();
+    if (!userId) continue;
+    scanned += 1;
+    const level = Math.max(0, Math.floor(Number(row?.profile?.totals?.exp?.level || 0)));
+    const member = await getGuildMemberCached(guild, userId).catch(() => null);
+    if (!member) continue;
+    healed += await healMissingLevelRoles(member, level).catch(() => 0);
+    if (level >= 10) await addPerkRoleIfPossible(member).catch(() => null);
+  }
+  return { scanned, healed };
 }
 
 function isMemberGoneError(err) {
@@ -877,41 +1016,26 @@ function isMemberGoneError(err) {
 
 async function addPerkRoleIfPossible(member) {
   if (!member?.guild || !PERK_ROLE_ID) return;
+  const rid = String(PERK_ROLE_ID);
   const me = member.guild.members.me;
-  if (!me) return;
-  if (!me.permissions.has("ManageRoles")) return;
-  const role = member.guild.roles.cache.get(PERK_ROLE_ID) || (await getGuildRoleCached(member.guild, PERK_ROLE_ID));
+  if (!me?.permissions?.has?.("ManageRoles")) return;
+  const role = member.guild.roles.cache.get(rid) || (await getGuildRoleCached(member.guild, rid));
   if (!role || role.managed) return;
   if (role.position >= me.roles.highest.position) return;
-  if (member.roles.cache.has(PERK_ROLE_ID)) return;
-  let addErr = null;
-  await member.roles.add(role).catch((err) => { addErr = err; });
-  if (addErr) {
-    if (isMemberGoneError(addErr)) return;
-    global.logger?.warn?.(
-      "[EXP] perk role assign failed:",
-      member.guild.id,
-      member.id,
-      PERK_ROLE_ID,
-      addErr?.message || String(addErr),
-    );
+  if (memberHasRoleId(member, rid)) return;
+  try {
+    const after = await member.roles.add(role, "EXP: perk role");
+    if (memberHasRoleId(after || member, rid)) return;
+  } catch (err) {
+    if (isMemberGoneError(err)) return;
     return;
   }
-  if (member.roles.cache.has(PERK_ROLE_ID)) return;
-  const refreshedMember = await getGuildMemberCached(member.guild, member.id, { preferFresh: true });
-    if (!refreshedMember) return;
-  if (refreshedMember.roles?.cache?.has(PERK_ROLE_ID)) return;
-  await member.roles.add(role).catch(() => null);
-  const again = await getGuildMemberCached(member.guild, member.id, { preferFresh: true });
-  if (again && !again.roles?.cache?.has(PERK_ROLE_ID)) {
-    global.logger?.warn?.(
-      "[EXP] perk role assign failed:",
-      member.guild.id,
-      member.id,
-      PERK_ROLE_ID,
-      "role not present after add+retry",
-    );
-  }
+  await sleepMs(450);
+  let fresh = await getGuildMemberCached(member.guild, member.id, { preferFresh: true });
+  if (memberHasRoleId(fresh, rid) || !fresh) return;
+  try {
+    await fresh.roles.add(role, "EXP: perk role retry");
+  } catch (_) {}
 }
 
 async function removeLevelRoleIfPossible(member, roleId) {
@@ -1027,11 +1151,14 @@ async function addExpWithLevel(guild, userId, amount, applyMultiplier = false, i
         scheduleEventLevelUpMessage(guild, guild.id, userId, announceLevel, result.prevLevel ?? 0);
       }
       if (result.levelInfo.level >= 10) {
+        await healMissingLevelRoles(member, result.levelInfo.level);
         await addPerkRoleIfPossible(member);
       }
       await maybeSendPerkNearReminder(guild, member, result);
     }
   } else if (result.levelInfo.level >= 10 && member) {
+    /* levelRoleHeal1: self-heal milestone (es. Level10) anche senza level-up */
+    await healMissingLevelRoles(member, result.levelInfo.level);
     await addPerkRoleIfPossible(member);
     await maybeSendPerkNearReminder(guild, member, result);
   } else if (member) {
@@ -1495,4 +1622,4 @@ async function sumExpDeltaFromLevelHistoryForRomeDay(guildId, dayKey, userIds, o
   return out;
 }
 
-module.exports = { MESSAGE_EXP, VOICE_EXP_PER_MINUTE, isLevelExpGuild, ACTIVITY_MAIN_GUILD_ID, addExp, addExpWithLevel, getUserExpStats, getUserRanks, getLevelInfo, getTotalExpForLevel, getGlobalMultiplier, setGlobalMultiplier, setTemporaryEventMultiplier, getGuildExpSettings, invalidateSettingsCache, setLevelChannelLocked, setRoleIgnored, setRoleExpMultiplier, shouldIgnoreExpForMember, recordLevelHistory, getRecentLevelHistory, getLevelHistoryPage, syncLevelRolesForMember, retroSyncGuildLevels, getRoleMultiplier, combineWeeklyExpMultiplier, getResolvedWeeklyExpMultiplier, getCurrentWeekKey, getIsoWeekKey, incrementMinigameWinCounters, ROLE_MULTIPLIERS, scheduleEventLevelUpMessage, sendLevelUpMessage, sendLevelUpAnnouncement, getTopExpGainsInPeriod, getTopLevelGainsInPeriod, PERIOD_LOOKBACK_DAYS, sumExpDeltaFromLevelHistoryForRomeDay };
+module.exports = { MESSAGE_EXP, VOICE_EXP_PER_MINUTE, isLevelExpGuild, ACTIVITY_MAIN_GUILD_ID, addExp, addExpWithLevel, getUserExpStats, getUserRanks, getLevelInfo, getTotalExpForLevel, getGlobalMultiplier, setGlobalMultiplier, setTemporaryEventMultiplier, getGuildExpSettings, invalidateSettingsCache, setLevelChannelLocked, setRoleIgnored, setRoleExpMultiplier, shouldIgnoreExpForMember, recordLevelHistory, getRecentLevelHistory, getLevelHistoryPage, syncLevelRolesForMember, retroSyncGuildLevels, healMissingLevelRoles, healLevelRolesForGuildOnStartup, getRoleMultiplier, combineWeeklyExpMultiplier, getResolvedWeeklyExpMultiplier, getCurrentWeekKey, getIsoWeekKey, incrementMinigameWinCounters, ROLE_MULTIPLIERS, scheduleEventLevelUpMessage, sendLevelUpMessage, sendLevelUpAnnouncement, getTopExpGainsInPeriod, getTopLevelGainsInPeriod, PERIOD_LOOKBACK_DAYS, sumExpDeltaFromLevelHistoryForRomeDay };

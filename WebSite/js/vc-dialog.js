@@ -1,4 +1,4 @@
-/* 20261002compitiScrollUnlock2 — site custom dialogs (confirm/alert/prompt/choose) */
+/* 20261002compitiScrollUnlock2 + ticketsUiPack1 — site custom dialogs (confirm/alert/prompt/choose) */
 (function (global) {
   "use strict";
 
@@ -69,7 +69,7 @@
       '<div class="vc-dialog__field" id="vc-dialog-field" hidden>' +
       '<label class="vc-dialog__label" id="vc-dialog-label" for="vc-dialog-input"></label>' +
       '<input class="vc-dialog__input" id="vc-dialog-input" type="text" autocomplete="off" />' +
-      '<textarea class="vc-dialog__input vc-dialog__textarea" id="vc-dialog-textarea" hidden rows="6"></textarea>' +
+      '<textarea class="vc-dialog__input vc-dialog__textarea" id="vc-dialog-textarea" hidden rows="12"></textarea>' +
       "</div>" +
       '<div class="vc-dialog__actions" id="vc-dialog-actions"></div>' +
       "</div>";
@@ -220,6 +220,19 @@
             areaEl.value = defaultValue;
             areaEl.placeholder = placeholder;
             areaEl.maxLength = maxLength;
+            /* ticketsUiPack1: multiline alto (partnership desc non taglia) */
+            try {
+              if (multiline) {
+                areaEl.classList.add("vc-dialog__textarea--tall");
+                areaEl.rows = Math.max(12, Number(areaEl.rows) || 12);
+                areaEl.style.minHeight = "min(42vh, 16rem)";
+                areaEl.style.maxHeight = "min(58vh, 26rem)";
+              } else {
+                areaEl.classList.remove("vc-dialog__textarea--tall");
+                areaEl.style.minHeight = "";
+                areaEl.style.maxHeight = "";
+              }
+            } catch (eTall) {}
           }
           inputEl.value = multiline ? "" : defaultValue;
           inputEl.placeholder = placeholder;

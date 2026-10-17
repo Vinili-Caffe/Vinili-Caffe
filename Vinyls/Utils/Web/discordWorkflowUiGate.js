@@ -62,17 +62,18 @@ function siteAbsoluteUrl(pathOrUrl) {
 
 const WORKFLOW_SITE_PATHS = {
   pause: "/staff/pause/",
-  pauseInbox: "/staff/inbox/?tab=pause",
+  /* pauseResoNotifProfile1: pause/resoconti fuori inbox → profilo staff */
+  pauseInbox: "/user/?tab=staff&staffOpen=pause",
   candidature: "/candidature/",
   candidatureInbox: "/staff/inbox/?tab=candidature",
   appelli: "/appelli/",
   appelliInbox: "/staff/inbox/?tab=appelli",
-  resocontiInbox: "/staff/inbox/?tab=resoconti",
+  resocontiInbox: "/user/?tab=staff&staffOpen=resoconto",
   inbox: "/staff/inbox/",
   staff: "/staff/",
   organico: "/staff/organico/",
   gestione: "/staff/organico/",
-  puntiTolti: "/notifications/?view=staff&inbox=punti-tolti",
+  puntiTolti: "/user/?tab=staff&staffOpen=pm-punti-tolti",
   guida: "/staff/guida/",
   compiti: "/staff/compiti/",
   tickets: "/tickets/",

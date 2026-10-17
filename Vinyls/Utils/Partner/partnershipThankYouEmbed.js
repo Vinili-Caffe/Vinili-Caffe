@@ -3,7 +3,6 @@ const { guildIconUrl, guildMemberDisplayAvatarUrlDynamic } = require("../Discord
 const { getGuildMemberCached } = require("../Interaction/interactionEntityCache");
 const { buildThankYouTemplateVars, applyPartnershipEmbedTemplate, parseEmbedColorInput } = require("./partnershipEmbedTemplate");
 const { formatPartnershipManagerLine, stripTrailingManagerLine } = require("./partnershipMessageUtils");
-const { isViniliFullFeatureGuild } = require("../../MultiGuild/core/guildFeatureScope");
 const { embedHasMeaningfulContent } = require("../Embeds/embedMediaFallback");
 
 function resolveThankYouManagerOutsideEmbed(
@@ -24,19 +23,15 @@ function resolveThankYouManagerOutsideEmbed(
   };
 }
 
+/* thankYouSpendableOnly1: “Ora sei a X partner” = solo saldo spendibile
+   ({user.points}/{points} = earned − shop). Niente totale fatti / riga extra. */
 const DEFAULT_THANK_YOU_DESCRIPTION_BASE =
   `<a:ThankYou:1329504268369002507> Grazie per aver _effettuato_ una **partner** con \`{guild}\`
-<:mariolevelup:1443679595084910634> Ora sei a **\`{points}\`** partner!`;
-
-const DEFAULT_THANK_YOU_DESCRIPTION_MAIN_EXTRA =
-  `<:Money:1330544713463500970> Continua ad __effettuare__ partner per riscattare i **premi**.`;
+<:mariolevelup:1443679595084910634> Ora sei a **\`{user.points}\`** partner!
+<:Money:1330544713463500970> Continua ad __effettuare__ partner per riscattare i **premi**.`;
 
 function resolveDefaultThankYouDescription(guildId = null) {
-  const gid = String(guildId || "").trim();
-    if (gid && !isViniliFullFeatureGuild(gid)) {
-    return DEFAULT_THANK_YOU_DESCRIPTION_BASE;
-  }
-  return `${DEFAULT_THANK_YOU_DESCRIPTION_BASE}\n${DEFAULT_THANK_YOU_DESCRIPTION_MAIN_EXTRA}`;
+  return DEFAULT_THANK_YOU_DESCRIPTION_BASE;
 }
 
 const DEFAULT_THANK_YOU_EMBED_FIELDS = Object.freeze({
@@ -141,6 +136,7 @@ async function buildThankYouEmbed({
   serverName,
   serverIcon,
   shownPartnerPoints,
+  totalPartnerEarned = null,
   legacy = false,
   managerId = null,
   appendManagerToDescription = false,
@@ -188,6 +184,8 @@ async function buildThankYouEmbed({
     partnerServerName: serverName,
     partnerIcon: serverIcon,
     shownPartnerPoints,
+    totalPartnerEarned:
+      totalPartnerEarned != null ? totalPartnerEarned : shownPartnerPoints,
     staffPartnerActions,
     pingPlan,
   });

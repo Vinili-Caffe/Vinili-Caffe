@@ -17,7 +17,10 @@ server {
     location = /user/customize { return 301 /personalizza/?target=rank; }
     location = /user/customize/ { return 301 /personalizza/?target=rank; }
     location = /user/custom { return 301 /personalizza/?target=primary; }
-    location = /user/custom/ { return 301 /personalizza/?target=primary; }
+    location = /user/custom/ {
+        # Keep ?target= via client stub; nginx can't easily rewrite query here.
+        try_files /user/custom/index.html =404;
+    }
     location ~ "^/users?/(\d{17,20})/?$" {
         try_files /user/index.html =404;
     }
@@ -59,13 +62,21 @@ server {
     location = /richieste/stato { return 302 /staff/pause/; }
     location = /richieste/stato/ { return 302 /staff/pause/; }
 
-    # Alias path legacy → canonici (niente stub HTML in docroot).
-    # include /etc/nginx/snippets/vc-boards-redirect.conf;
-    # include /etc/nginx/snippets/vc-legacy-path-redirects.conf;
-    # Oppure copia da deploy/nginx-boards-redirect.conf + nginx-legacy-path-redirects.conf
+    location = /notifiche { return 301 /notifications/; }
+    location = /notifiche/ { return 301 /notifications/; }
+    location = /messaggi { return 301 /notifications/; }
+    location = /messaggi/ { return 301 /notifications/; }
+    location = /inbox { return 301 /notifications/?view=staff; }
+    location = /inbox/ { return 301 /notifications/?view=staff; }
+    location = /profilo { return 301 /user/; }
+    location = /profilo/ { return 301 /user/; }
+    location = /account { return 301 /user/; }
+    location = /account/ { return 301 /user/; }
+    location = /premium { return 301 /perks/; }
+    location = /premium/ { return 301 /perks/; }
 
-    # Dopo chiusura evento Hogwarts:
-    location ^~ /evento { return 302 /; }
+    # Dopo chiusura evento Hogwarts (attivare a fine stagione):
+    # location ^~ /evento { return 302 /; }
 
     location = /staff/directory { return 302 /staff/organico/; }
     location = /staff/directory/ { return 302 /staff/organico/; }
@@ -77,6 +88,8 @@ server {
     location = /staff/profilo/ { return 302 /staff/; }
     location = /staff/moderazione { return 302 /staff/gestione/; }
     location = /staff/moderazione/ { return 302 /staff/gestione/; }
+    location = /staff/tickets { return 301 /tickets/?view=staff; }
+    location = /staff/tickets/ { return 301 /tickets/?view=staff; }
 
     # HTML: mai in cache (i deploy aggiornano spesso ?v= negli asset).
     # Discord embed color: map User-Agent in conf.d + sub_filter theme-color
@@ -111,7 +124,8 @@ server {
     }
 
     location ^~ /images/ {
-        add_header Cache-Control "public, max-age=86400" always;
+        add_header Cache-Control "public, max-age=31536000, immutable" always;
+        add_header CDN-Cache-Control "public, max-age=31536000, immutable" always;
         try_files $uri =404;
     }
 }

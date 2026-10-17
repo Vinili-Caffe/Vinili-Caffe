@@ -3,9 +3,14 @@
 const fs = require("fs");
 const path = require("path");
 
-/** Hate / racist / homophobic slur filters shared by Discord automod + web tickets. */
+/**
+ * Hate / racist / homophobic slur filters shared by Discord automod + web tickets.
+ * obfuscCatch1: riconosce bypass con spazi, leet, omoglifi (es. lettere separate).
+ */
 const RACIST_WORD_PATTERNS = [
-  /\bn[\W_]*[i1l!|][\W_]*g[\W_]*g[\W_]*([e3][\W_]*)?r\b/iu,
+  /* slur family n*gg* with separators / leet */
+  /\bn[\W_]*[i1l!|][\W_]*g[\W_]*g[\W_]*(?:[e3a@][\W_]*)?r?\b/iu,
+  /\bn[\W_]*[i1l!|][\W_]*g[\W_]*[e3][\W_]*r\b/iu,
   /\bk[\W_]*i[\W_]*k[\W_]*e\b/iu,
   /\bc[\W_]*h[\W_]*i[\W_]*n[\W_]*k\b/iu,
   /\bw[\W_]*e[\W_]*t[\W_]*b[\W_]*a[\W_]*c[\W_]*k\b/iu,
@@ -33,12 +38,71 @@ const LEET_MAP = new Map([
   ["|", "i"],
 ]);
 
+/** Common lookalikes used to bypass keyword filters (Cyrillic / fullwidth / etc.). */
+const HOMOGLYPH_MAP = new Map([
+  ["а", "a"],
+  ["е", "e"],
+  ["о", "o"],
+  ["р", "p"],
+  ["с", "c"],
+  ["у", "y"],
+  ["х", "x"],
+  ["і", "i"],
+  ["ї", "i"],
+  ["ɡ", "g"],
+  ["ｎ", "n"],
+  ["ｉ", "i"],
+  ["ｅ", "e"],
+  ["ｒ", "r"],
+  ["ａ", "a"],
+  ["ｇ", "g"],
+  ["ⅰ", "i"],
+  ["ι", "i"],
+]);
+
 function toLeetNormalized(input) {
   let out = "";
   for (const ch of String(input || "")) {
     out += LEET_MAP.get(ch) || ch;
   }
   return out;
+}
+
+function foldHomoglyphs(input) {
+  let out = "";
+  for (const ch of String(input || "")) {
+    out += HOMOGLYPH_MAP.get(ch) || ch;
+  }
+  return out;
+}
+
+function compactAlnum(text) {
+  return String(text || "").replace(/[^\p{L}\p{N}]+/gu, "");
+}
+
+/**
+ * Collapse only obfuscation runs: 4+ single letters/digits separated by non-alnum
+ * (e.g. "n i g g e r", "f.a.g"). Leaves normal words intact.
+ */
+function collapseObfuscatedRuns(text) {
+  const raw = String(text || "");
+  if (!raw) return raw;
+  return raw.replace(
+    /(^|[^\p{L}\p{N}])((?:[\p{L}\p{N}])(?:[\s\W_]+[\p{L}\p{N}]){3,})(?=$|[^\p{L}\p{N}])/gu,
+    (full, prefix, run) => `${prefix}${compactAlnum(run)}`,
+  );
+}
+
+function normalizeForHateMatch(input) {
+  return toLeetNormalized(
+    foldHomoglyphs(
+      String(input || "")
+        .normalize("NFKD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[\u200b-\u200d\u2060\ufeff]/g, "")
+        .toLowerCase(),
+    ),
+  );
 }
 
 function parseWordArrayFile(filePath) {
@@ -80,41 +144,62 @@ function loadCustomHateWords() {
 
 const CUSTOM_HATE_WORDS = loadCustomHateWords();
 
+function normalizeTerm(term) {
+  return normalizeForHateMatch(String(term || "").trim());
+}
+
 function findHateSpeechMatch(content) {
   const text = String(content || "");
   if (!text.trim()) return null;
-  const normalizedBase = text.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-  const normalized = toLeetNormalized(normalizedBase);
-  const normalizedTokens = normalized
+
+  const normalized = normalizeForHateMatch(text);
+  const collapsed = collapseObfuscatedRuns(normalized);
+  const compactFromRuns = compactAlnum(collapsed);
+  const variants = [text, normalized, collapsed];
+
+  const tokens = collapsed
     .split(/[^\p{L}\p{N}]+/gu)
     .map((x) => String(x || "").trim())
     .filter(Boolean);
-  const tokenSet = new Set(normalizedTokens);
+  const tokenSet = new Set(tokens);
 
   for (let i = 0; i < RACIST_WORD_PATTERNS.length; i += 1) {
     const re = RACIST_WORD_PATTERNS[i];
-    if (re.test(text) || re.test(normalized)) {
-      return { source: "regex", term: `pattern#${i + 1}` };
+    for (const sample of variants) {
+      if (sample && re.test(sample)) {
+        return { source: "regex", term: `pattern#${i + 1}` };
+      }
     }
   }
 
   for (const term of CUSTOM_HATE_WORDS) {
-    const normalizedTerm = toLeetNormalized(
-      String(term || "")
-        .normalize("NFKD")
-        .replace(/[\u0300-\u036f]/g, "")
-        .toLowerCase()
-        .trim(),
-    );
+    const normalizedTerm = normalizeTerm(term);
     if (!normalizedTerm) continue;
     if (/\s/.test(normalizedTerm)) {
-      const padded = ` ${normalized} `;
       const needle = ` ${normalizedTerm} `;
-      if (padded.includes(needle)) {
-        return { source: "custom_phrase", term };
+      for (const sample of [normalized, collapsed]) {
+        if (` ${sample} `.includes(needle)) {
+          return { source: "custom_phrase", term };
+        }
       }
-    } else if (tokenSet.has(normalizedTerm)) {
+      continue;
+    }
+    if (tokenSet.has(normalizedTerm)) {
       return { source: "custom_token", term };
+    }
+    /* after collapsing spaced letters, term becomes a normal token/substring word */
+    if (
+      normalizedTerm.length >= 4 &&
+      (collapsed.includes(normalizedTerm) || compactFromRuns.includes(normalizedTerm))
+    ) {
+      /* avoid "snigger"-style: require word boundary in collapsed text */
+      const boundary = new RegExp(
+        `(?:^|[^\\p{L}\\p{N}])${normalizedTerm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?:$|[^\\p{L}\\p{N}])`,
+        "iu",
+      );
+      if (boundary.test(collapsed) || boundary.test(` ${compactFromRuns} `)) {
+        return { source: "custom_obfuscated", term };
+      }
     }
   }
 
@@ -127,4 +212,7 @@ module.exports = {
   CUSTOM_HATE_WORDS,
   RACIST_WORD_PATTERNS,
   toLeetNormalized,
+  normalizeForHateMatch,
+  collapseObfuscatedRuns,
+  compactAlnum,
 };

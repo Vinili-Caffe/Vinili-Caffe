@@ -10,8 +10,24 @@ const { sendJsonWithEtag, weakEtagFromParts } = require("./siteHttpEtag");
 const CACHE_TTL_MS = 25_000;
 const STALE_KEEP_MS = 12 * 60_000;
 const HELIX_UA = "ViniliECaffe-SiteTwitchLive/1.0";
+/* twitchTokenFailBackoff1: warm 22s non deve spammare warn su fail token */
+const WARN_LOG_COOLDOWN_MS = 10 * 60_000;
 
 let cache = { at: 0, payload: null };
+let lastWarnAt = 0;
+let lastWarnMsg = "";
+
+function warnTwitchLive(label, err) {
+  /* backoff silenzioso: failUntil non deve riempire i log ogni warm */
+  if (err?.code === "TWITCH_TOKEN_BACKOFF") return;
+  const msg = String(err?.message || err || "").trim();
+  const now = Date.now();
+  const same = msg === lastWarnMsg;
+  if (same && now - lastWarnAt < WARN_LOG_COOLDOWN_MS) return;
+  lastWarnAt = now;
+  lastWarnMsg = msg;
+  global.logger?.warn?.(`[site-twitch-live] ${label}:`, msg || err);
+}
 
 function parentHosts() {
   return ["www.viniliecaffe.it", "viniliecaffe.it", "localhost", "127.0.0.1"];
@@ -197,7 +213,7 @@ async function refreshLiveCache(client) {
   try {
     token = await getAppAccessToken(cfg.clientId, cfg.clientSecret);
   } catch (err) {
-    global.logger?.warn?.("[site-twitch-live] token:", err?.message || err);
+    warnTwitchLive("token", err);
     const stale = keepStale();
     if (stale) return stale;
     cache = {
@@ -217,7 +233,7 @@ async function refreshLiveCache(client) {
     );
   } catch (err) {
     liveFetchFailed = true;
-    global.logger?.warn?.("[site-twitch-live] live fetch:", err?.message || err);
+    warnTwitchLive("live fetch", err);
     /* Non bloccare sui VOD: se Helix live fallisce, prova comunque gli archive. */
   }
   const liveByLogin = new Map(
@@ -249,7 +265,7 @@ async function refreshLiveCache(client) {
       if (!vod?.id) continue;
       streams.push(publicStreamPayload(streamer, vod));
     } catch (err) {
-      global.logger?.warn?.("[site-twitch-live] vod:", login, err?.message || err);
+      warnTwitchLive(`vod ${login}`, err);
     }
   }
 
@@ -349,8 +365,17 @@ async function handleSiteTwitchLiveThumb(client, req, res) {
   }
 }
 
+/* apiWarmSwr2: Helix cold ~500ms — refresh periodico */
+function warmSiteTwitchLiveCache(client) {
+  return refreshLiveCache(client).catch((err) => {
+    global.logger?.warn?.("[site-twitch-live] warm:", err?.message || err);
+    return null;
+  });
+}
+
 module.exports = {
   handleSiteTwitchLiveGet,
   handleSiteTwitchLiveThumb,
   refreshLiveCache,
+  warmSiteTwitchLiveCache,
 };

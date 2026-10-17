@@ -143,7 +143,7 @@
     }, 1200);
     window.setTimeout(function () {
       try {
-        var soft = document.getElementById("vc-soft-fx-css") || document.querySelector('link[href*="vc-soft-fx.css"]');
+        var soft = document.getElementById("vc-soft-fx-css") || document.querySelector('link[href*="vc-soft-fx"]');
         if (!soft) {
           clearBootHoldWithCurtain();
           return;
@@ -182,6 +182,61 @@
   /* cpuPagesIdle1 marker */
   /* ulCountStick1 marker */
   /* cpuQuiet1 marker */
+  /* bgCpuHard1 marker — hidden: still GIF+filter kill; fg idle: cine still */
+  /* fgDecorCpu1 marker — fg idle: pause decorative infinite + GIF still + no cursor glow */
+  /* idleGifGlowFix1: settle hides cursor glow (beat soft-fx); still a_*.webp + logo/avatar GIF */
+  /* bgCpuSpike1 marker — hidden: marquee kill (chrome pin running!important) + still sync */
+  /* navUserMqFix1 marker — user marquee pause SOLO page-hidden (non ui-gif-paused) */
+  /* bgCpuHard2 marker — BG: pause inline marquee (batte CSS) + GIF freeze sync */
+  /* pwaStillHard1 marker — PWA: FORCE still sfondo (GIF = 100% CPU; home-cine remounta) */
+  /* pwaCpuKill2 marker — PWA: freeze TUTTE le GIF anche a focus; no thaw */
+  /* pwaCpuKill3 marker — GIF sfondo+logo OFF sempre; Brave app senza standalone */
+  /* pwaCpuKill4 marker — nuke CSS/anim SEMPRE (glow/vinyl/marquee = Browser 90%+) */
+  /* pwaCpuKill5 marker — togli body* filter thrash; soft-fx-off; selettori mirati */
+  /* fgRevertBgOnly1 marker — revert nuke in-app; quiet solo hidden */
+  /* touchFxLite1 marker */
+
+  /* fgRevertBgOnly1: niente FORCE/nuke in foreground — solo quiet a tab/app hidden */
+  try {
+    window.__VC_FORCE_PHOTO_STILL = 0;
+    window.__VC_PWA_FREEZE_ALL_GIF = 0;
+    window.__VC_PWA_CPU_NUKE = 0;
+    document.documentElement.classList.remove("vc-pwa-cpu-nuke", "vc-cpu-settle", "vc-soft-fx-off");
+  } catch (ePwaStillEarly) {}
+
+  /* touchFxLite1: mobile/coarse → meno filter/blur/marquee (anche in home) */
+  function armTouchFxLite() {
+    try {
+      var root = document.documentElement;
+      var ua = String((navigator && navigator.userAgent) || "");
+      var touch =
+        /Mobi|Android|iPhone|iPad|iPod/i.test(ua) ||
+        (window.matchMedia && window.matchMedia("(pointer: coarse)").matches) ||
+        (typeof navigator.maxTouchPoints === "number" && navigator.maxTouchPoints > 1);
+      if (!touch) return;
+      root.classList.add("vc-perf-touch", "vc-touch-fx-lite");
+      var id = "vc-touch-fx-lite-css";
+      if (document.getElementById(id)) return;
+      var css =
+        "html.vc-touch-fx-lite body.vc-body .vc-soft-vote-glow::before," +
+        "html.vc-touch-fx-lite body.vc-body .vc-soft-vote-glow::after," +
+        "html.vc-touch-fx-lite body.vc-body .vc-brand-glow{" +
+        "filter:none!important;-webkit-filter:none!important;animation:none!important}" +
+        "html.vc-touch-fx-lite body.vc-body .is-marquee:not(.vc-header-site-name):not([data-vc-nav-user-marquee])," +
+        "html.vc-touch-fx-lite body.vc-body .vc-marquee:not([data-vc-nav-user-marquee]) > .vc-marquee__track{" +
+        "animation:none!important;transform:none!important}" +
+        "html.vc-touch-fx-lite body.vc-body .vc-nav-shell," +
+        "html.vc-touch-fx-lite body.vc-body .vc-glass{" +
+        "backdrop-filter:none!important;-webkit-backdrop-filter:none!important}";
+      var s = document.createElement("style");
+      s.id = id;
+      s.textContent = css;
+      (document.head || document.documentElement).appendChild(s);
+    } catch (eTouchLite) {}
+  }
+  try {
+    armTouchFxLite();
+  } catch (eTouchBoot) {}
 
   function isHomePage() {
     try {
@@ -222,11 +277,67 @@
     } catch (eRm) {}
   }
 
-  function stillDiscordContentGifs() {
-    /* cpuQuiet1 + violKill1 + perfIdleReflow1: chunk corto (no long idle Violation) */
+  /* boardsAnimBannerClear1 + boardsAnimIconLive1: icone/banner bacheca restano GIF (no demote → webp statico) */
+  function isBoardsAnimMediaImg(img) {
+    if (!img) return false;
     try {
+      if (img.getAttribute("data-vc-anim-media") === "1") return true;
+      var cls = img.classList;
+      if (
+        cls &&
+        (cls.contains("vc-boards-detail__icon") ||
+          cls.contains("vc-boards-card__icon") ||
+          cls.contains("vc-boards-mine-card__icon") ||
+          cls.contains("vc-boards-form-hero__img") ||
+          cls.contains("vc-boards-vote__icon") ||
+          cls.contains("vc-boards-guild-tag__badge"))
+      ) {
+        return true;
+      }
+      if (cls && cls.contains("vc-boards-claim-card__ico-img")) return true;
+      var src = String(img.getAttribute("src") || img.getAttribute("data-vc-gif-live") || "");
+      if (/\/(?:icons|banners|app-icons)\/\d+\//i.test(src)) return true;
+    } catch (eSkip) {}
+    return false;
+  }
+
+  /* idleGifGlowFix1: still animated Discord CDN (gif + a_*.webp avatars) */
+  function stillDiscordAnimUrl(src) {
+    var s = String(src || "");
+    if (!s) return "";
+    if (/cdn\.discordapp\.com|media\.discordapp\.net/i.test(s)) {
+      if (/\.gif(\?|$)/i.test(s)) return s.replace(/\.gif(\?|$)/i, ".webp$1");
+      /* animated avatar/banner hash a_* → static png */
+      var m = s.match(/\/(avatars|banners|icons|role-icons)\/([^/]+)\/a_([a-f0-9]+)\.(webp|gif)(\?.*)?$/i);
+      if (m) {
+        return s.replace(
+          /\/(avatars|banners|icons|role-icons)\/([^/]+)\/a_([a-f0-9]+)\.(webp|gif)/i,
+          "/$1/$2/$3.png",
+        );
+      }
+    }
+    if (/og-server-icon\.gif/i.test(s)) return "/images/og-server-icon-still.png?v=20261014bgCpuHard1";
+    if (/discord\.gif/i.test(s) && !/discord\.com|cdn\.discord/i.test(s)) {
+      return "/images/discord-still.png?v=20260915footerLogoGif1";
+    }
+    /* idleGifGlowFix1: View As eye GIF → still frame */
+    if (/eyedarkmoving-trans\.gif/i.test(s)) {
+      return "/images/eyedarkmoving-trans-still.png?v=20261016idleGifGlowFix1";
+    }
+    return "";
+  }
+
+  function stillDiscordContentGifs() {
+    /* idleGifGlowFix1: in settle include avatar/logo GIF+anim webp (prima skippati) */
+    try {
+      var settle = false;
+      try {
+        settle = document.documentElement.classList.contains("vc-cpu-settle");
+      } catch (eS) {}
       var imgs = document.querySelectorAll(
-        'main img[src*=".gif"], #vc-page-content img[src*=".gif"], .vc-page-cine-body img[src*=".gif"], .vc-wiki-cmd-shell img[src*=".gif"], footer img[src*=".gif"]',
+        settle
+          ? 'img[src*=".gif"], img[src*="/a_"][src*=".webp"], img[src*="og-server-icon"], img.vcva-eye, header img, footer img, .discord-avatar-img, .vc-header-logo-img'
+          : 'main img[src*=".gif"], #vc-page-content img[src*=".gif"], .vc-page-cine-body img[src*=".gif"], .vc-wiki-cmd-shell img[src*=".gif"], footer img[src*=".gif"]',
       );
       var i = 0;
       var CHUNK = 10;
@@ -235,20 +346,24 @@
         for (; i < end; i++) {
           var img = imgs[i];
           if (!img) continue;
-          if (img.classList.contains("vc-header-logo-img") || img.classList.contains("vc-premium-footer__logo-img")) {
-            continue;
+          if (!settle) {
+            if (img.classList.contains("vc-header-logo-img") || img.classList.contains("vc-premium-footer__logo-img")) {
+              continue;
+            }
+            if (img.getAttribute("data-vc-brand-logo") === "1") continue;
+            if (img.classList.contains("vc-discord-login-emoji") || img.classList.contains("discord-avatar-img")) {
+              continue;
+            }
+            if (/og-server-icon/i.test(String(img.getAttribute("src") || ""))) continue;
           }
-          if (img.classList.contains("vc-discord-login-emoji") || img.classList.contains("discord-avatar-img")) {
-            continue;
-          }
+          if (isBoardsAnimMediaImg(img)) continue;
           var src = String(img.getAttribute("src") || "");
-          if (!/\.gif(\?|$)/i.test(src)) continue;
-          if (/cdn\.discordapp\.com|media\.discordapp\.net/i.test(src)) {
-            try {
-              if (!img.getAttribute("data-vc-gif-live")) img.setAttribute("data-vc-gif-live", src);
-              img.setAttribute("src", src.replace(/\.gif(\?|$)/i, ".webp$1"));
-            } catch (eWp) {}
-          }
+          var next = stillDiscordAnimUrl(src);
+          if (!next || next === src) continue;
+          try {
+            if (!img.getAttribute("data-vc-gif-live")) img.setAttribute("data-vc-gif-live", src);
+            img.setAttribute("src", next);
+          } catch (eWp) {}
         }
         if (i < imgs.length) {
           window.setTimeout(step, 0);
@@ -258,46 +373,181 @@
     } catch (eG) {}
   }
 
-  /* cpuQuiet1 + violKill1: tab hidden → congela solo gif note (niente querySelectorAll("img")) */
-  function freezeGifDecodeForBg(on) {
-    /* perfIdleReflow1: primo chunk deferred — niente sync storm in idle/rAF */
+  /* sitePerfAll1 + pageCpuIdle1 + wikiLightIco1:
+     - tab hidden / FG settle → pause marquee
+     - pause a currentTime=0 + transform identity (no “ITALIA…GAMING” a metà scroll)
+     - bustle → running di nuovo */
+  function resetMqTrackToStart(el) {
+    if (!el || !el.style) return;
     try {
-      var imgs = document.querySelectorAll(
-        on
-          ? 'img[src*=".gif"], img[src*="og-server-icon"], img[src*="discord.gif"]'
-          : "img[data-vc-gif-live]",
+      el.style.setProperty("animation-play-state", "paused", "important");
+      el.style.setProperty("-webkit-animation-play-state", "paused", "important");
+      el.style.setProperty("will-change", "auto", "important");
+      el.style.setProperty("transform", "translate3d(0,0,0)", "important");
+    } catch (eSt) {}
+    try {
+      if (el.__vcMqWaapi) {
+        if (typeof el.__vcMqWaapi.currentTime === "number") el.__vcMqWaapi.currentTime = 0;
+        if (typeof el.__vcMqWaapi.pause === "function") el.__vcMqWaapi.pause();
+      }
+    } catch (eWp) {}
+    try {
+      var list = el.getAnimations ? el.getAnimations() : [];
+      for (var ai = 0; ai < list.length; ai++) {
+        try {
+          list[ai].currentTime = 0;
+          list[ai].pause();
+        } catch (eA) {}
+      }
+    } catch (eGa) {}
+  }
+  function thawMqTrack(el) {
+    if (!el || !el.style) return;
+    /* wmResumeHover1: transform:0 !important da resetMqTrackToStart
+       bloccava i keyframes anche con play-state:running; play() su getAnimations
+       altrimenti pause() WAAPI restava stuck dopo BG. */
+    try {
+      el.style.removeProperty("transform");
+    } catch (eTx) {}
+    try {
+      el.style.setProperty("animation-play-state", "running", "important");
+      el.style.setProperty("-webkit-animation-play-state", "running", "important");
+      el.style.setProperty("will-change", "transform", "important");
+    } catch (ePs) {}
+    try {
+      if (el.__vcMqWaapi && typeof el.__vcMqWaapi.play === "function") el.__vcMqWaapi.play();
+    } catch (eWp) {}
+    try {
+      var list = el.getAnimations ? el.getAnimations() : [];
+      for (var ai = 0; ai < list.length; ai++) {
+        try {
+          if (typeof list[ai].play === "function") list[ai].play();
+        } catch (eA) {}
+      }
+    } catch (eGa) {}
+  }
+  function freezeInlineMarqueesForBg(on, keepUserRunning) {
+    try {
+      var pageHidden = false;
+      try {
+        pageHidden = Boolean(document.hidden) || document.visibilityState === "hidden";
+      } catch (eHid) {}
+      var pause = !!(on || pageHidden);
+      /* keepUserRunning = keep FG marquees (user + wordmark) */
+      var pauseFgMq = !!(pause && !keepUserRunning);
+      var userTracks = document.querySelectorAll(
+        "header .discord-profile-link__name[data-vc-nav-user-marquee] .vc-marquee__track," +
+          "#header-quick-actions .discord-profile-link__name[data-vc-nav-user-marquee] .vc-marquee__track," +
+          "#vc-mobile-nav-drawer .discord-profile-link__name[data-vc-nav-user-marquee] .vc-marquee__track," +
+          ".vc-mobile-nav-drawer .discord-profile-link__name[data-vc-nav-user-marquee] .vc-marquee__track",
       );
+      for (var u = 0; u < userTracks.length; u++) {
+        var ut = userTracks[u];
+        if (!ut || !ut.style) continue;
+        if (pauseFgMq) {
+          resetMqTrackToStart(ut);
+        } else {
+          thawMqTrack(ut);
+          ut.style.setProperty("animation-name", "vc-guild-name-marquee", "important");
+          ut.style.setProperty("animation-duration", "var(--vc-marquee-duration, 12s)", "important");
+          ut.style.setProperty("animation-timing-function", "linear", "important");
+          ut.style.setProperty("animation-iteration-count", "infinite", "important");
+          ut.style.setProperty("animation-play-state", "running", "important");
+          ut.style.setProperty("-webkit-animation-play-state", "running", "important");
+          ut.style.setProperty("will-change", "transform", "important");
+          try {
+            if (ut.__vcMqWaapi && typeof ut.__vcMqWaapi.play === "function") ut.__vcMqWaapi.play();
+          } catch (eWr) {}
+        }
+      }
+      var wmTracks = document.querySelectorAll(
+        "header a.vc-header-site-name.is-marquee .vc-header-site-name__track," +
+          ".vc-mobile-nav-drawer__brand a.vc-header-site-name.is-marquee .vc-header-site-name__track",
+      );
+      var settleNow = false;
+      try {
+        settleNow = document.documentElement.classList.contains("vc-cpu-settle");
+      } catch (eSt) {}
+      for (var w = 0; w < wmTracks.length; w++) {
+        var wt = wmTracks[w];
+        if (!wt || !wt.style) continue;
+        if (pauseFgMq) {
+          resetMqTrackToStart(wt);
+        } else if (settleNow) {
+          /* wmResumeHover1: FG ma idle → clear transform:0 (sblocca bustle), resta paused */
+          try {
+            wt.style.removeProperty("transform");
+          } catch (eTxS) {}
+          wt.style.setProperty("animation-play-state", "paused", "important");
+          wt.style.setProperty("-webkit-animation-play-state", "paused", "important");
+          wt.style.setProperty("will-change", "auto", "important");
+        } else {
+          /* thaw già play-state + play() */
+          thawMqTrack(wt);
+        }
+      }
+      var promoNodes = document.querySelectorAll(
+        "header .vc-header-promo-btn__track, header .vc-header-promo-btn__dot",
+      );
+      for (var i = 0; i < promoNodes.length; i++) {
+        var el = promoNodes[i];
+        if (!el || !el.style) continue;
+        if (pause) {
+          el.style.setProperty("animation-play-state", "paused", "important");
+          el.style.setProperty("will-change", "auto", "important");
+        } else {
+          el.style.setProperty("animation-play-state", "running", "important");
+          el.style.setProperty("will-change", "transform", "important");
+        }
+      }
+    } catch (eMq) {}
+  }
+
+  /* cpuQuiet1 + violKill1 + bgCpuHard2: tab hidden → freeze GIF subito (no 48ms GIF decode) */
+  function freezeGifDecodeForBg(on) {
+    try {
+      try {
+        if (!on && (document.hidden || document.visibilityState === "hidden")) on = true;
+      } catch (eHidFr) {}
+      var imgs = null;
       var i = 0;
-      var CHUNK = 8;
+      var CHUNK = on ? 8 : 4;
       function step() {
+        try {
+          if (!imgs) {
+            imgs = document.querySelectorAll(
+              on
+                ? 'img[src*=".gif"], img[src*="/a_"][src*=".webp"], img[src*="og-server-icon"], img[src*="discord.gif"], img.vcva-eye, .discord-avatar-img, .vc-header-logo-img'
+                : "img[data-vc-gif-live]",
+            );
+          }
+        } catch (eQ) {
+          return;
+        }
         var end = Math.min(i + CHUNK, imgs.length);
         for (; i < end; i++) {
           var img = imgs[i];
           if (!img) continue;
           var cur = String(img.getAttribute("src") || "");
           if (on) {
-            if (!/\.gif(\?|$)/i.test(cur)) continue;
+            if (isBoardsAnimMediaImg(img)) continue;
+            var nextFr = stillDiscordAnimUrl(cur);
+            if (!nextFr && !/\.gif(\?|$)/i.test(cur)) continue;
             if (!img.getAttribute("data-vc-gif-live")) img.setAttribute("data-vc-gif-live", cur);
-            if (/cdn\.discordapp\.com|media\.discordapp\.net/i.test(cur)) {
-              img.setAttribute("src", cur.replace(/\.gif(\?|$)/i, ".webp$1"));
-            } else if (/og-server-icon\.gif/i.test(cur)) {
-              img.setAttribute("src", "/images/og-server-icon-still.png?v=20260915footerLogoGif1");
-            } else if (/discord\.gif/i.test(cur) && !/discord\.com|cdn\.discord/i.test(cur)) {
-              img.setAttribute("src", "/images/discord-still.png?v=20260915footerLogoGif1");
-            }
+            if (nextFr) img.setAttribute("src", nextFr);
           } else {
             var live = img.getAttribute("data-vc-gif-live");
             if (!live) continue;
-            if (/og-server-icon-still|discord-still/i.test(cur) && /\.gif(\?|$)/i.test(live)) {
-              img.setAttribute("src", live);
-            }
+            if (live !== cur) img.setAttribute("src", live);
           }
         }
         if (i < imgs.length) {
-          window.setTimeout(step, 0);
+          window.setTimeout(step, on ? 0 : 24);
         }
       }
-      window.setTimeout(step, 0);
+      /* bgCpuHard2: freeze sync primo chunk; thaw resta defer */
+      if (on) step();
+      else window.setTimeout(step, 48);
     } catch (eFr) {}
   }
 
@@ -311,7 +561,7 @@
     cancelRunningCssAnimations();
   }
 
-  /* perfIdleReflow1: idle budget-aware; no timeout:1600 (forza run a caldo → Violation) */
+  /* violKillCue1/Cue2: solo setTimeout — rIC({timeout}) → Violation idle 140ms+ */
   function deferHeavy(fn) {
     var ran = false;
     function run() {
@@ -321,43 +571,163 @@
         fn();
       } catch (eF) {}
     }
-    try {
-      if (typeof window.requestIdleCallback === "function") {
-        window.requestIdleCallback(
-          function (deadline) {
-            try {
-              if (deadline && typeof deadline.timeRemaining === "function" && deadline.timeRemaining() < 6) {
-                window.setTimeout(run, 0);
-                return;
-              }
-            } catch (eDl) {}
-            run();
-          },
-          { timeout: 8000 },
-        );
-        return;
-      }
-    } catch (eRic) {}
     window.setTimeout(run, 48);
   }
 
-  /* cpuQuiet1: BG freeze per TUTTI (browser + PWA). Solo pause/freeze, zero tocchi a soft-fx/gradient. */
+  /* cssConsol1: un solo blocco late-wins — kill décor (animation:none), keep user+wordmark */
+  function remountPageHiddenCpuCssLast() {
+    try {
+      var s = document.getElementById("vc-page-hidden-cpu-css");
+      if (!s) return;
+      var mount = document.body || document.documentElement;
+      if (s.parentNode === mount && mount.lastChild === s) return;
+      mount.appendChild(s);
+    } catch (eRmCpu) {}
+  }
+  function ensurePageHiddenCpuCss() {
+    try {
+      var id = "vc-page-hidden-cpu-css";
+      var MARK = "skipGhost1";
+      var s = document.getElementById(id);
+      if (s && s.getAttribute("data-vc") === MARK) {
+        remountPageHiddenCpuCssLast();
+        return;
+      }
+      if (!s) {
+        s = document.createElement("style");
+        s.id = id;
+        (document.head || document.documentElement).appendChild(s);
+      }
+      s.setAttribute("data-vc", MARK);
+      /* pulse SEMPRE statici (anche pre-settle) — soft-fx/nav non devono riaccendere */
+      var pulseKill =
+        "html body.vc-body .vc-header-promo-btn__dot," +
+        "html.vc-site-polish body.vc-body .vc-header-promo-btn__dot," +
+        "html body.vc-body .vc-footer-sys-status__dot," +
+        "html.vc-site-polish body.vc-body .vc-footer-sys-status__dot{" +
+        "animation:none!important;-webkit-animation:none!important;" +
+        "animation-play-state:paused!important;will-change:auto!important}";
+      var settleKill =
+        "html.vc-cpu-settle:not(.vc-page-hidden) body.vc-body .vc-home-cine__grain," +
+        "html.vc-cpu-settle:not(.vc-page-hidden) body.vc-body .vc-home-cine__aura," +
+        "html.vc-cpu-settle:not(.vc-page-hidden) body.vc-body .vc-home-cine__canvas," +
+        "html.vc-cpu-settle:not(.vc-page-hidden) body.vc-body .vc-home-cine__photo," +
+        "html.vc-cpu-settle:not(.vc-page-hidden) body.vc-body .vc-page-cine-hero__grain," +
+        "html.vc-cpu-settle:not(.vc-page-hidden) body.vc-body .vc-page-cine-hero__aura," +
+        "html.vc-cpu-settle:not(.vc-page-hidden) body.vc-body .vc-forbidden-book," +
+        "html.vc-cpu-settle:not(.vc-page-hidden) body.vc-body .vc-forbidden-book--flying," +
+        "html.vc-cpu-settle:not(.vc-page-hidden) body.vc-body .vc-header-promo-btn__track," +
+        "html.vc-cpu-settle:not(.vc-page-hidden) body.vc-body .vc-header-promo-btn__dot," +
+        "html.vc-cpu-settle:not(.vc-page-hidden) body.vc-body .vc-soft-vote-glow," +
+        "html.vc-cpu-settle:not(.vc-page-hidden) body.vc-body .vc-soft-vote-glow::before," +
+        "html.vc-cpu-settle:not(.vc-page-hidden) body.vc-body .vc-soft-vote-glow::after," +
+        "html.vc-cpu-settle:not(.vc-page-hidden) body.vc-body [class*='vc-vote-progress']::before," +
+        "html.vc-cpu-settle:not(.vc-page-hidden) body.vc-body [class*='vc-vote-progress']::after," +
+        "html.vc-cpu-settle:not(.vc-page-hidden) body.vc-body [class*='vc-home-metal']," +
+        "html.vc-cpu-settle:not(.vc-page-hidden) body.vc-body .vc-fx-sheen," +
+        "html.vc-cpu-settle:not(.vc-page-hidden) body.vc-body [class*='__sheen']," +
+        "html.vc-cpu-settle:not(.vc-page-hidden) body.vc-body .vc-nav-shell::before," +
+        "html.vc-cpu-settle:not(.vc-page-hidden) body.vc-body .vc-nav-shell::after," +
+        "html.vc-cpu-settle:not(.vc-page-hidden) body.vc-body .vc-premium-footer__outer::after," +
+        "html.vc-cpu-settle:not(.vc-page-hidden) body.vc-body .vc-page-cine-card::before," +
+        "html.vc-cpu-settle:not(.vc-page-hidden) body.vc-body .vc-fx-card::before," +
+        "html.vc-cpu-settle:not(.vc-page-hidden) body.vc-body .vc-vote-live-statbox::before," +
+        "html.vc-cpu-settle:not(.vc-page-hidden) body.vc-body .vc-footer-sys-status__dot," +
+        "html.vc-cpu-settle:not(.vc-page-hidden) body.vc-body .vc-scroll-cue," +
+        "html.vc-cpu-settle:not(.vc-page-hidden) body.vc-body .vc-scroll-cue *{" +
+        "animation:none!important;-webkit-animation:none!important;" +
+        "animation-play-state:paused!important;" +
+        "transition:none!important;transition-duration:0s!important;" +
+        "will-change:auto!important}" +
+        "html.vc-cpu-settle:not(.vc-page-hidden) body.vc-body .vc-home-cine__canvas," +
+        "html.vc-cpu-settle:not(.vc-page-hidden) body.vc-body .vc-home-cine__grain," +
+        "html.vc-cpu-settle:not(.vc-page-hidden) body.vc-body .vc-home-cine__aura," +
+        "html.vc-cpu-settle:not(.vc-page-hidden) body.vc-body .vc-page-cine-hero__grain," +
+        "html.vc-cpu-settle:not(.vc-page-hidden) body.vc-body .vc-page-cine-hero__aura{" +
+        "display:none!important;visibility:hidden!important;opacity:0!important;" +
+        "pointer-events:none!important}";
+      s.textContent =
+        "html.vc-page-hidden body.vc-body," +
+        "html.vc-page-hidden body.vc-body *," +
+        "html.vc-page-hidden body.vc-body *::before," +
+        "html.vc-page-hidden body.vc-body *::after," +
+        "html.vc-ui-gif-paused body.vc-body," +
+        "html.vc-ui-gif-paused body.vc-body *," +
+        "html.vc-ui-gif-paused body.vc-body *::before," +
+        "html.vc-ui-gif-paused body.vc-body *::after{" +
+        "animation-play-state:paused!important;" +
+        "transition:none!important;" +
+        "filter:none!important;-webkit-filter:none!important;" +
+        "backdrop-filter:none!important;-webkit-backdrop-filter:none!important}" +
+        pulseKill +
+        settleKill +
+        "html.vc-cpu-settle:not(.vc-page-hidden) body.vc-body .vc-ui-spinner," +
+        "html.vc-cpu-settle:not(.vc-page-hidden) body.vc-body .vc-ui-spinner *{" +
+        "animation-play-state:running!important}" +
+        "html.vc-cpu-settle body.vc-body header .discord-profile-link__name[data-vc-nav-user-marquee].is-marquee .vc-marquee__track," +
+        "html.vc-cpu-settle body.vc-body #header-quick-actions .discord-profile-link__name[data-vc-nav-user-marquee].is-marquee .vc-marquee__track," +
+        "html.vc-cpu-settle.vc-site-polish body.vc-body header .discord-profile-link__name[data-vc-nav-user-marquee].is-marquee .vc-marquee__track," +
+        "html.vc-cpu-settle body.vc-body #vc-mobile-nav-drawer .discord-profile-link__name[data-vc-nav-user-marquee].is-marquee .vc-marquee__track," +
+        "html.vc-cpu-settle body.vc-body .vc-mobile-nav-drawer .discord-profile-link__name[data-vc-nav-user-marquee].is-marquee .vc-marquee__track," +
+        "html.vc-cpu-settle body.vc-body header a.vc-header-site-name.is-marquee .vc-header-site-name__track," +
+        "html.vc-cpu-settle.vc-site-polish body.vc-body header a.vc-header-site-name.is-marquee .vc-header-site-name__track{" +
+        "animation-play-state:paused!important;" +
+        "-webkit-animation-play-state:paused!important;" +
+        "will-change:auto!important}" +
+        "html.vc-cpu-settle #vc-site-cursor-light," +
+        "html.vc-cpu-settle.vc-site-cursor-on #vc-site-cursor-light," +
+        "html.vc-cpu-settle #vc-site-cursor-light::before," +
+        "html.vc-cpu-settle #vc-site-cursor-light::after{" +
+        "display:none!important;opacity:0!important;visibility:hidden!important;" +
+        "pointer-events:none!important;background:none!important}" +
+        "html.vc-cine-curtain-off.vc-site-polish body.vc-body .vc-ul-card," +
+        "html.vc-cine-curtain-off.vc-site-polish body.vc-body .vc-reviews-list>.vc-reviews-card," +
+        "html.vc-cine-curtain-off.vc-site-polish body.vc-body .vc-staff-inbox-item," +
+        "html.vc-cine-curtain-off.vc-site-polish body.vc-body .vc-wt-thread-row," +
+        "html.vc-cine-curtain-off.vc-site-polish body.vc-body .vc-notif-item," +
+        "html.vc-cine-curtain-off.vc-site-polish body.vc-body .vc-boards-card:not(.vc-boards-compose)," +
+        "html.vc-cine-curtain-off.vc-site-polish body.vc-faq-page main details," +
+        "html.vc-cine-curtain-off.vc-site-polish body.vc-regole-page main details," +
+        "html.vc-cine-curtain-off.vc-site-polish body.vc-body main .vc-regole-card details{" +
+        "content-visibility:auto;" +
+        "contain-intrinsic-size:auto 140px}";
+      remountPageHiddenCpuCssLast();
+    } catch (eCss) {}
+  }
+
   function armGlobalCpuQuiet() {
     if (window.__vcCpuQuietArmed) return;
     window.__vcCpuQuietArmed = 1;
+    ensurePageHiddenCpuCss();
     function sleep() {
-      /* violKill1: sync solo class — gif/anim deferred */
+      /* fgRevertBgOnly1 + bgCpuHard2: class + still + pause marquee inline subito */
       try {
         document.documentElement.classList.add("vc-page-hidden", "vc-ui-gif-paused");
       } catch (eCls) {}
       try {
+        applyCineGifStillSwap(true);
+      } catch (eCineSync) {}
+      try {
+        freezeInlineMarqueesForBg(true);
+      } catch (eMqSleep) {}
+      try {
+        freezeGifDecodeForBg(true);
+      } catch (eGifSync) {}
+      try {
         window.dispatchEvent(new CustomEvent("vc:cpu-sleep"));
       } catch (eEv) {}
       deferHeavy(function () {
+        try {
+          applyCineGifStillSwap(true);
+        } catch (eCine) {}
+        try {
+          freezeInlineMarqueesForBg(true);
+        } catch (eMq2) {}
         freezeGifDecodeForBg(true);
       });
     }
     function wake() {
+      /* foreground: ripristina tutto (GIF/logo) */
       try {
         document.documentElement.classList.remove(
           "vc-page-hidden",
@@ -368,10 +738,21 @@
         );
       } catch (eRm) {}
       try {
+        freezeInlineMarqueesForBg(false);
+      } catch (eMqWake) {}
+      try {
         window.dispatchEvent(new CustomEvent("vc:cpu-wake"));
       } catch (eEv2) {}
       deferHeavy(function () {
         freezeGifDecodeForBg(false);
+        try {
+          freezeInlineMarqueesForBg(false);
+        } catch (eMqW2) {}
+        try {
+          if (!document.documentElement.classList.contains("vc-cpu-settle")) {
+            applyCineGifStillSwap(false);
+          }
+        } catch (eThawGif) {}
       });
     }
     function sync() {
@@ -388,15 +769,40 @@
     try {
       document.addEventListener("visibilitychange", sync, false);
       window.addEventListener("pageshow", sync, false);
+      /* sitePerfAll1: Page Lifecycle freeze/resume (oltre visibility) */
+      document.addEventListener(
+        "freeze",
+        function () {
+          try {
+            sleep();
+          } catch (eFrz) {}
+        },
+        false,
+      );
+      document.addEventListener(
+        "resume",
+        function () {
+          try {
+            sync();
+          } catch (eRes) {}
+        },
+        false,
+      );
       window.addEventListener(
         "pagehide",
         function () {
           try {
             document.documentElement.classList.add("vc-page-hidden", "vc-ui-gif-paused");
           } catch (ePh) {}
-          deferHeavy(function () {
+          try {
+            freezeInlineMarqueesForBg(true);
+          } catch (ePhMq) {}
+          try {
+            applyCineGifStillSwap(true);
+          } catch (ePhStill) {}
+          try {
             freezeGifDecodeForBg(true);
-          });
+          } catch (ePhGif) {}
         },
         false,
       );
@@ -405,6 +811,35 @@
         deferHeavy(stillDiscordContentGifs);
       }, 1200);
     } catch (eArm) {}
+  }
+
+  /* focusCssShedRevert1: NON disabilitare landing-core — sfascia layout non-home.
+     Framelag: ridotto sotto con contain/hover-soft, non togliendo il CSS. */
+  function shedHeavyLandingCss() {
+    try {
+      /* safety: se un build precedente ha disabilitato landing-core, riattivalo */
+      document.querySelectorAll('link[rel="stylesheet"][data-vc-shed="landing-core"]').forEach(function (l) {
+        try {
+          l.disabled = false;
+          l.removeAttribute("data-vc-shed");
+        } catch (eOn) {}
+      });
+      document.querySelectorAll('link[rel="stylesheet"]').forEach(function (l) {
+        try {
+          var h = l.getAttribute("href") || "";
+          if (/vc-landing-core/i.test(h) && l.disabled) {
+            l.disabled = false;
+          }
+        } catch (eOn2) {}
+      });
+      window.__vcLandingCoreShed = 0;
+      var crit = document.getElementById("vc-pages-crit-css");
+      if (crit && crit.parentNode) {
+        try {
+          crit.parentNode.removeChild(crit);
+        } catch (eRm) {}
+      }
+    } catch (eShed) {}
   }
 
   /* cpuPagesIdle1: non-home — soft kill filter/GIF/anim (home resta piena) */
@@ -514,11 +949,12 @@
         ")::after{" +
         "filter:none!important;-webkit-filter:none!important;" +
         "animation:none!important;backdrop-filter:none!important}" +
-        "html.vc-site-cpu-soft body.vc-body .is-marquee:not(.vc-header-site-name)," +
-        "html.vc-site-cpu-soft body.vc-body .vc-marquee__track{" +
+        /* navUserNameMarqueeKeep1: non killare nome chip account (data-vc-nav-user-marquee) */
+        "html.vc-site-cpu-soft body.vc-body .is-marquee:not(.vc-header-site-name):not([data-vc-nav-user-marquee])," +
+        "html.vc-site-cpu-soft body.vc-body .vc-marquee:not([data-vc-nav-user-marquee]) > .vc-marquee__track{" +
         "animation:none!important;transform:none!important}" +
-        /* navMarqueeConfStaff1: brand wordmark track resta vivo anche in cpu-soft */
-        "html.vc-site-cpu-soft body.vc-body header a.vc-header-site-name.is-marquee .vc-header-site-name__track{" +
+        /* navMarqueeConfStaff1 + navUserMqFix1: brand vivo in cpu-soft (pause solo page-hidden) */
+        "html.vc-site-cpu-soft:not(.vc-page-hidden):not(.vc-cpu-settle) body.vc-body header a.vc-header-site-name.is-marquee .vc-header-site-name__track{" +
         "animation-name:vc-guild-name-marquee!important;" +
         "animation-duration:var(--vc-marquee-duration,12s)!important;" +
         "animation-timing-function:linear!important;" +
@@ -526,7 +962,39 @@
         "animation-delay:0.35s!important;" +
         "animation-fill-mode:none!important;" +
         "animation-play-state:running!important;" +
-        "will-change:transform!important}";
+        "will-change:transform!important}" +
+        /* userMqDistFix1: nome vivo in cpu-soft (keyframe con fallback 160px) */
+        "html.vc-site-cpu-soft:not(.vc-page-hidden):not(.vc-cpu-settle) body.vc-body header .discord-profile-link__name[data-vc-nav-user-marquee].is-marquee .vc-marquee__track," +
+        "html.vc-site-cpu-soft:not(.vc-page-hidden):not(.vc-cpu-settle) body.vc-body #header-quick-actions .discord-profile-link__name[data-vc-nav-user-marquee].is-marquee .vc-marquee__track{" +
+        "animation-name:vc-guild-name-marquee!important;" +
+        "animation-duration:var(--vc-marquee-duration,12s)!important;" +
+        "animation-timing-function:linear!important;" +
+        "animation-iteration-count:infinite!important;" +
+        "animation-delay:0s!important;" +
+        "animation-fill-mode:none!important;" +
+        "animation-play-state:running!important;" +
+        "will-change:transform!important}" +
+        /* focusCssShedRevert1: meno lavoro a focus — no cursor glow, no transition thrash */
+        "html.vc-site-cpu-soft #vc-site-cursor-light," +
+        "html.vc-site-cpu-soft #vc-site-cursor-light::before," +
+        "html.vc-site-cpu-soft #vc-site-cursor-light::after{" +
+        "display:none!important;opacity:0!important;visibility:hidden!important;" +
+        "pointer-events:none!important}" +
+        /* cursorMqStable1: vinyl su html/body; * inherit */
+        "html.vc-site-cpu-soft.vc-site-cursor-on," +
+        "html.vc-site-cpu-soft.vc-site-cursor-ok," +
+        "html.vc-site-cpu-soft.vc-site-cursor-ok body{" +
+        "cursor:url(/images/musicrecordspin-cursor-static.png) 12 12," +
+        "url(/images/musicrecordspin-cursor-static.png) 12 12, auto!important}" +
+        "html.vc-site-cpu-soft.vc-site-cursor-ok *{cursor:inherit!important}" +
+        "html.vc-site-cpu-soft body.vc-page-cine-layout main," +
+        "html.vc-site-cpu-soft body.vc-web-tickets-page .vc-wt-board," +
+        "html.vc-site-cpu-soft body.vc-web-tickets-page .vc-wt-app{" +
+        "contain:layout!important}" +
+        "html.vc-site-cpu-soft body.vc-page-cine-layout :is(a,button,.vc-header-pill,.vc-snav-row," +
+        ".vc-wt-card,.vc-reviews-card,.vc-faq-item,.vc-legal-card,.vc-role-card,.vc-ul-card):hover{" +
+        "filter:none!important;-webkit-filter:none!important;" +
+        "transform:none!important}";
       var mount = document.body || document.head || root;
       mount.appendChild(s);
       window.__vcSiteCpuSoftOneShot = 1;
@@ -542,7 +1010,8 @@
 
   /* pwaIdleCpu1: riporta nuke-css DOPO soft-fx pin (altrimenti glow/marquee vincono) */
   function remountNukeCssLast() {
-    if (!isStandalonePwa()) return;
+    /* pwaCpuKill4: remount anche fuori standalone */
+    if (!window.__VC_PWA_CPU_NUKE && !isStandalonePwa()) return;
     try {
       var s = document.getElementById("vc-pwa-cpu-nuke-css");
       if (!s) return;
@@ -553,30 +1022,64 @@
   }
 
   function cineStillUrlFor(photo) {
+    var ver = "20261011scrollPostSiparioYoyo1";
     try {
       var src = String((photo && (photo.getAttribute("src") || photo.src)) || "");
-      if (/sfondo-mobile/i.test(src)) return "/images/sfondo-mobile-still.webp?v=20260929bgIdealSize1";
+      if (/sfondo-mobile/i.test(src)) return "/images/sfondo-mobile-still.webp?v=" + ver;
       if (window.matchMedia && window.matchMedia("(max-width:639.98px)").matches) {
-        return "/images/sfondo-mobile-still.webp?v=20260929bgIdealSize1";
+        return "/images/sfondo-mobile-still.webp?v=" + ver;
       }
     } catch (eStill) {}
-    return "/images/sfondo-still.webp?v=20260929bgIdealSize1";
+    return "/images/sfondo-still.webp?v=" + ver;
   }
 
   function cineGifUrlFor(photo) {
-    /* bgIdealSize1: stesso still hi-res (niente GIF bassa res) */
-    return cineStillUrlFor(photo);
+    /* bgGifForceRm1 / pwaResumeLag1: GIF vera allineata a home-cine */
+    var ver = "20261011scrollPostSiparioYoyo1";
+    try {
+      var src = String((photo && (photo.getAttribute("src") || photo.src)) || "");
+      if (/sfondo-mobile/i.test(src)) return "/images/sfondo-mobile.gif?v=" + ver;
+      if (window.matchMedia && window.matchMedia("(max-width:639.98px)").matches) {
+        return "/images/sfondo-mobile.gif?v=" + ver;
+      }
+    } catch (eGif) {}
+    return "/images/sfondo.gif?v=" + ver;
   }
 
-  function applyCineGifStillSwap(on) {
-    /* bgIdealSize1: sempre still hi-res; on=true non cambia asset */
+  function applyCineGifStillSwap(freeze) {
+    /* bgGifAlways2: freeze→still; thaw→GIF (mai still su tab visibile)
+       confBgNoGifBlack1: mai toccare foto locked / confessionale (JPG → sfondo.gif = nero) */
     try {
+      var confRoute = false;
+      try {
+        confRoute =
+          document.documentElement.classList.contains("vc-confessionale-route") ||
+          (document.body && document.body.classList.contains("vc-confessionale-page"));
+      } catch (eConf) {
+        confRoute = false;
+      }
       var photos = document.querySelectorAll("img.vc-home-cine__photo, .vc-home-cine img[src*='sfondo']");
       for (var i = 0; i < photos.length; i++) {
         var photo = photos[i];
         if (!photo || !photo.tagName || photo.tagName.toLowerCase() !== "img") continue;
         if (photo.classList.contains("discord-avatar-img") || photo.classList.contains("vc-avatar")) continue;
-        var want = cineStillUrlFor(photo);
+        try {
+          if (
+            confRoute ||
+            photo.getAttribute("data-vc-cine-photo-lock") === "1" ||
+            (photo.dataset && photo.dataset.vcCinePhotoLock === "1") ||
+            /Confessionale-GF/i.test(String(photo.getAttribute("src") || ""))
+          ) {
+            continue;
+          }
+        } catch (eLock) {}
+        if (!freeze) {
+          /* prima che home-cine armi: non toccare (LCP still) */
+          try {
+            if (!window.__VC_SITE_PHOTO_GIF_ARMED) continue;
+          } catch (eArm) {}
+        }
+        var want = freeze ? cineStillUrlFor(photo) : cineGifUrlFor(photo);
         var cur = String(photo.getAttribute("src") || "");
         if (cur.indexOf(want.split("?")[0]) < 0) {
           photo.setAttribute("src", want);
@@ -611,12 +1114,21 @@
     return false;
   }
 
-  /* bgGifRestore1 + cpuQuiet1 + perfIdleReflow1: PWA — still tab hidden; quiet GIFs (idle budget) */
+  /* bgGifRestore1 + cpuQuiet1 + pwaResumeLag1: PWA — still solo dopo hide lunga (resume corto no swap) */
   function armPwaIdleGifFreeze() {
     if (!isStandalonePwa()) return;
     if (window.__vcPwaGifFreezeArmed) return;
     window.__vcPwaGifFreezeArmed = 1;
     var lastHidden = null;
+    var stillSwapTimer = 0;
+    var STILL_SWAP_AFTER_MS = 18000;
+    function clearStillSwapTimer() {
+      if (!stillSwapTimer) return;
+      try {
+        window.clearTimeout(stillSwapTimer);
+      } catch (eClr) {}
+      stillSwapTimer = 0;
+    }
     function syncVis() {
       var hidden = false;
       try {
@@ -639,13 +1151,38 @@
           );
         }
       } catch (eCls) {}
-      /* perfIdleReflow1: un solo job leggero; swap/freeze chunked fuori dall'idle */
+      if (hidden) {
+        /* pwaResumeLag1: non swap→still subito (riapertura da app switch = lag da re-decode) */
+        clearStillSwapTimer();
+        stillSwapTimer = window.setTimeout(function () {
+          stillSwapTimer = 0;
+          try {
+            if (!document.hidden) return;
+            applyCineGifStillSwap(true);
+            freezeGifDecodeForBg(true);
+          } catch (eLate) {}
+        }, STILL_SWAP_AFTER_MS);
+        deferHeavy(function () {
+          freezeGifDecodeForBg(true);
+        });
+        return;
+      }
+      clearStillSwapTimer();
       deferHeavy(function () {
+        /* pwaCpuKill2: focus PWA → restano still (no thaw logo/sfondo) */
+        if (window.__VC_PWA_FREEZE_ALL_GIF || window.__VC_FORCE_PHOTO_STILL) {
+          try {
+            document.documentElement.classList.add("vc-cpu-settle");
+            applyCineGifStillSwap(true);
+            freezeGifDecodeForBg(true);
+          } catch (eKeepStill) {}
+          return;
+        }
         try {
-          applyCineGifStillSwap(hidden);
+          applyCineGifStillSwap(false);
         } catch (eSw) {}
-        freezeGifDecodeForBg(hidden);
-        if (!hidden) stillDiscordContentGifs();
+        freezeGifDecodeForBg(false);
+        stillDiscordContentGifs();
       });
     }
     try {
@@ -665,7 +1202,7 @@
   /* pwaIdleCpu1: Niente walk su body * (getComputedStyle × N = picchi 50–60% al cambio pagina).
      Solo nodi noti con blur/drop-shadow. */
   function stripPwaComputedFilters() {
-    if (!isStandalonePwa()) return;
+    if (!window.__VC_PWA_CPU_NUKE && !isStandalonePwa()) return;
     try {
       var nodes = document.querySelectorAll(
         "header .vc-nav-shell, header .vc-nav-shell.vc-glass," +
@@ -690,24 +1227,35 @@
   }
 
   function armPwaCpuNuke() {
-    if (!isStandalonePwa()) return;
+    /* fgRevertBgOnly1: nuke in-app DISATTIVATO — resta solo armGlobalCpuQuiet (bg) */
+    try {
+      window.__VC_FORCE_PHOTO_STILL = 0;
+      window.__VC_PWA_FREEZE_ALL_GIF = 0;
+      window.__VC_PWA_CPU_NUKE = 0;
+      document.documentElement.classList.remove("vc-pwa-cpu-nuke", "vc-cpu-settle");
+      var oldNuke = document.getElementById("vc-pwa-cpu-nuke-css");
+      if (oldNuke && oldNuke.parentNode) oldNuke.parentNode.removeChild(oldNuke);
+      var oldEarly = document.getElementById("vc-cpu-kill5-early-css");
+      if (oldEarly && oldEarly.parentNode) oldEarly.parentNode.removeChild(oldEarly);
+    } catch (eOff) {}
+    return;
     try {
       var root = document.documentElement;
-      /* cpuThrashOff1: one-shot. Prima: delete/recreate style + MO remount/cancel
-         su ogni class change = picchi 15–50% (peggio delle GIF). */
       var id = "vc-pwa-cpu-nuke-css";
       if (window.__vcPwaNukeOneShot && document.getElementById(id)) {
         remountNukeCssLast();
         return;
       }
-      /* swStorageCpu2: ready subito + kill blur mirato; GIF resta attiva finché non idle. */
+      /* pwaStillHard1: kill blur + still; niente marquee running override */
       root.classList.add(
         "vc-pwa-cpu-nuke",
         "vc-soft-fx-ready",
         "vc-site-polish",
         "vc-cine-curtain-off",
         "vc-cursor-trail-off",
+        "vc-cpu-settle",
       );
+      /* lookCpuFix1: soft-fx ON di nuovo (look); CPU = still+anim kill mirato */
       root.classList.remove("vc-soft-fx-off", "vc-perf-lite", "vc-interaction-hold");
       window.__VC_PWA_CPU_NUKE = 1;
       try {
@@ -722,137 +1270,48 @@
       }
       var s = document.createElement("style");
       s.id = id;
-      s.setAttribute("data-vc", "bgGifRestore1");
-      /* bgGifRestore1: GIF sfondo ok; resta kill anim/blur pesanti. */
+      s.setAttribute("data-vc", "lookCpuFix1");
+      /* lookCpuFix1: solo kill ANIM infinite — look/glass/filter soft-fx restano */
       s.textContent =
         "html.vc-pwa-cpu-nuke body.vc-body .vc-forbidden-book," +
         "html.vc-pwa-cpu-nuke body.vc-body .vc-forbidden-book--flying{" +
         "display:none!important}" +
-        "html.vc-pwa-cpu-nuke{" +
-        "--vc-nav-glow-angle:0deg!important;" +
-        "--vc-cine-aura-op:0.78!important;" +
-        "--vc-cine-aura-b1:30px!important;--vc-cine-aura-s1:5px!important;" +
-        "--vc-cine-aura-b2:62px!important;--vc-cine-aura-s2:14px!important;" +
-        "--vc-cine-aura-b3:104px!important;--vc-cine-aura-s3:28px!important}" +
-        "html.vc-pwa-cpu-nuke.vc-site-polish:not(.vc-soft-fx-off) body.vc-body," +
-        "html.vc-pwa-cpu-nuke.vc-site-polish:not(.vc-soft-fx-off) body.vc-body *," +
-        "html.vc-pwa-cpu-nuke.vc-site-polish:not(.vc-soft-fx-off) body.vc-body *::before," +
-        "html.vc-pwa-cpu-nuke.vc-site-polish:not(.vc-soft-fx-off) body.vc-body *::after," +
-        "html.vc-pwa-cpu-nuke.vc-soft-fx-ready.vc-site-polish:not(.vc-soft-fx-off) body.vc-body *," +
-        "html.vc-pwa-cpu-nuke.vc-soft-fx-ready.vc-site-polish:not(.vc-soft-fx-off) body.vc-body *::before," +
-        "html.vc-pwa-cpu-nuke.vc-soft-fx-ready.vc-site-polish:not(.vc-soft-fx-off) body.vc-body *::after{" +
+        "html.vc-pwa-cpu-nuke body.vc-body .vc-home-cine__canvas{" +
+        "display:none!important;visibility:hidden!important;pointer-events:none!important}" +
+        /* mqCssCursor2: NON killare wordmark / nome utente (come cpu-soft keep) */
+        "html.vc-pwa-cpu-nuke body.vc-body .is-marquee:not(.vc-header-site-name):not([data-vc-nav-user-marquee]) .vc-marquee__track," +
+        "html.vc-pwa-cpu-nuke body.vc-body .vc-marquee:not([data-vc-nav-user-marquee]) > .vc-marquee__track," +
+        "html.vc-pwa-cpu-nuke body.vc-body--home .vc-home-deck__kicker," +
+        "html.vc-pwa-cpu-nuke body.vc-body--home .vc-home-index__kicker," +
+        "html.vc-pwa-cpu-nuke body.vc-body--home .vc-home-pulse-cta," +
+        "html.vc-pwa-cpu-nuke body.vc-body--home .vc-home-scrollcue__chev," +
+        "html.vc-pwa-cpu-nuke body.vc-body .vc-polish-vinyl{" +
         "animation:none!important;animation-name:none!important;" +
-        "animation-duration:0s!important;animation-iteration-count:1!important;" +
-        "animation-play-state:paused!important;" +
-        "transition:none!important;scroll-behavior:auto!important;" +
-        "filter:none!important;-webkit-filter:none!important;" +
-        "backdrop-filter:none!important;-webkit-backdrop-filter:none!important}" +
-        /* pwaFgCpu1b: batte soft-fx drop-shadow (logo/bell/stat) — stessa catena + * */
-        "html.vc-pwa-cpu-nuke.vc-pwa-cpu-nuke.vc-site-polish:not(.vc-soft-fx-off) body.vc-body header *," +
-        "html.vc-pwa-cpu-nuke.vc-pwa-cpu-nuke.vc-site-polish:not(.vc-soft-fx-off) body.vc-body main *," +
-        "html.vc-pwa-cpu-nuke.vc-pwa-cpu-nuke.vc-site-polish:not(.vc-soft-fx-off) body.vc-body footer *," +
-        "html.vc-pwa-cpu-nuke.vc-pwa-cpu-nuke.vc-site-polish:not(.vc-soft-fx-off) body.vc-body header *::before," +
-        "html.vc-pwa-cpu-nuke.vc-pwa-cpu-nuke.vc-site-polish:not(.vc-soft-fx-off) body.vc-body header *::after," +
-        "html.vc-pwa-cpu-nuke.vc-pwa-cpu-nuke.vc-site-polish:not(.vc-soft-fx-off) body.vc-body main *::before," +
-        "html.vc-pwa-cpu-nuke.vc-pwa-cpu-nuke.vc-site-polish:not(.vc-soft-fx-off) body.vc-body main *::after," +
-        "html.vc-pwa-cpu-nuke.vc-pwa-cpu-nuke.vc-site-polish body.vc-body header *," +
-        "html.vc-pwa-cpu-nuke.vc-pwa-cpu-nuke.vc-site-polish body.vc-body main *," +
-        "html.vc-pwa-cpu-nuke.vc-pwa-cpu-nuke.vc-site-polish body.vc-body footer *," +
-        "html.vc-pwa-cpu-nuke.vc-pwa-cpu-nuke body.vc-body header *," +
-        "html.vc-pwa-cpu-nuke.vc-pwa-cpu-nuke body.vc-body main *," +
-        "html.vc-pwa-cpu-nuke.vc-pwa-cpu-nuke body.vc-body footer *{" +
-        "filter:none!important;-webkit-filter:none!important;" +
-        "backdrop-filter:none!important;-webkit-backdrop-filter:none!important}" +
-        "html.vc-pwa-cpu-nuke.vc-site-polish:not(.vc-soft-fx-off) body.vc-body header .vc-nav-shell," +
-        "html.vc-pwa-cpu-nuke.vc-site-polish:not(.vc-soft-fx-off) body.vc-body header .vc-nav-shell.vc-glass," +
-        "html.vc-pwa-cpu-nuke.vc-site-polish:not(.vc-soft-fx-off) body.vc-body header .vc-nav-shell.vc-nav-shell--scrolled," +
-        "html.vc-pwa-cpu-nuke.vc-site-polish:not(.vc-soft-fx-off) body.vc-body header .vc-nav-shell::before," +
-        "html.vc-pwa-cpu-nuke.vc-site-polish:not(.vc-soft-fx-off) body.vc-body header .vc-nav-shell::after," +
-        "html.vc-pwa-cpu-nuke.vc-site-polish:not(.vc-soft-fx-off) body.vc-body > footer.vc-premium-footer .vc-premium-footer__outer," +
-        "html.vc-pwa-cpu-nuke.vc-site-polish:not(.vc-soft-fx-off) body.vc-body > footer.vc-premium-footer .vc-premium-footer__outer::after," +
-        "html.vc-pwa-cpu-nuke.vc-site-polish:not(.vc-soft-fx-off) body.vc-body footer.vc-premium-footer .vc-premium-footer__outer::after," +
-        "html.vc-pwa-cpu-nuke.vc-site-polish:not(.vc-soft-fx-off) body.vc-body--home > main :is(.vc-stat-num,.vc-stat-num-inner,.vc-stat-247,.vc-home-deck__title,.vc-brand-glow)," +
-        "html.vc-pwa-cpu-nuke.vc-site-polish:not(.vc-soft-fx-off) body.vc-body--home .vc-home-cine-hero :is(.vc-brand-glow,h1.vc-brand-glow,h1,span)," +
-        "html.vc-pwa-cpu-nuke.vc-site-polish:not(.vc-soft-fx-off) body.vc-body .vc-soft-vote-glow," +
-        "html.vc-pwa-cpu-nuke.vc-site-polish:not(.vc-soft-fx-off) body.vc-body .vc-soft-vote-glow::before," +
-        "html.vc-pwa-cpu-nuke.vc-site-polish:not(.vc-soft-fx-off) body.vc-body .vc-soft-vote-glow::after{" +
-        "animation:none!important;animation-name:none!important;" +
-        "animation-duration:0s!important;animation-play-state:paused!important;" +
-        "filter:none!important;-webkit-filter:none!important}" +
-        "html.vc-pwa-cpu-nuke body.vc-body .is-marquee:not(.vc-header-site-name)," +
-        "html.vc-pwa-cpu-nuke body.vc-body .vc-marquee__track{" +
-        "animation:none!important;transform:none!important}" +
-        "html.vc-pwa-cpu-nuke.vc-pwa-cpu-nuke body.vc-body header a.vc-header-site-name.is-marquee .vc-header-site-name__track," +
-        "html.vc-pwa-cpu-nuke.vc-site-polish body.vc-body header a.vc-header-site-name.is-marquee .vc-header-site-name__track{" +
+        "animation-play-state:paused!important;background-position:50% 50%!important;" +
+        "will-change:auto!important}" +
+        "html.vc-pwa-cpu-nuke:not(.vc-cpu-settle) body.vc-body header a.vc-header-site-name.is-marquee .vc-header-site-name__track{" +
         "animation-name:vc-guild-name-marquee!important;" +
         "animation-duration:var(--vc-marquee-duration,12s)!important;" +
         "animation-timing-function:linear!important;" +
         "animation-iteration-count:infinite!important;" +
-        "animation-delay:0.35s!important;" +
-        "animation-fill-mode:none!important;" +
-        "animation-play-state:running!important;" +
-        "will-change:transform!important}" +
-        "html.vc-pwa-cpu-nuke body.vc-body header .vc-nav-shell," +
-        "html.vc-pwa-cpu-nuke body.vc-body header .vc-nav-shell.vc-glass," +
-        "html.vc-pwa-cpu-nuke body.vc-body header .vc-nav-shell.vc-nav-shell--scrolled," +
-        "html.vc-pwa-cpu-nuke.vc-soft-fx-ready.vc-site-polish:not(.vc-soft-fx-off) body.vc-body header .vc-nav-shell," +
-        "html.vc-pwa-cpu-nuke.vc-soft-fx-ready.vc-site-polish:not(.vc-soft-fx-off) body.vc-body header .vc-nav-shell.vc-glass," +
-        "html.vc-pwa-cpu-nuke.vc-soft-fx-ready.vc-site-polish:not(.vc-soft-fx-off) body.vc-body header .vc-nav-shell.vc-nav-shell--scrolled{" +
-        "backdrop-filter:none!important;-webkit-backdrop-filter:none!important;" +
-        "filter:none!important;" +
-        "box-shadow:0 4px 18px rgba(0,0,0,.45)!important;" +
-        "background-color:rgba(20,15,12,.92)!important;" +
-        "background-image:linear-gradient(175deg,rgba(36,28,22,.95) 0%,rgba(20,15,12,.94) 52%,rgba(12,9,7,.96) 100%)!important}" +
-        "html.vc-pwa-cpu-nuke body.vc-body .vc-glass," +
-        "html.vc-pwa-cpu-nuke body.vc-body .vc-fx-card," +
-        "html.vc-pwa-cpu-nuke body.vc-body .vc-page-cine-card," +
-        "html.vc-pwa-cpu-nuke body.vc-body .vc-home-panel," +
-        "html.vc-pwa-cpu-nuke body.vc-body .vc-hero-head," +
-        "html.vc-pwa-cpu-nuke body.vc-body .vc-snav-panel," +
-        "html.vc-pwa-cpu-nuke body.vc-body .vc-notif-panel," +
-        "html.vc-pwa-cpu-nuke body.vc-body .discord-account-popover{" +
-        "backdrop-filter:none!important;-webkit-backdrop-filter:none!important;" +
-        "filter:none!important;-webkit-filter:none!important;" +
-        "box-shadow:0 6px 20px rgba(0,0,0,.4)!important}" +
-        "html.vc-pwa-cpu-nuke body.vc-notifications-page main > section," +
-        "html.vc-pwa-cpu-nuke body.vc-notifications-page #vc-staff-inbox," +
-        "html.vc-pwa-cpu-nuke body.vc-notifications-page #vc-staff-inbox-list," +
-        "html.vc-pwa-cpu-nuke body.vc-notifications-page .vc-notif-staff-inbox," +
-        "html.vc-pwa-cpu-nuke body.vc-notifications-page #vc-notif-pane-staff," +
-        "html.vc-pwa-cpu-nuke body.vc-notifications-page #vc-notif-pane-personal," +
-        "html.vc-pwa-cpu-nuke .vc-feedback-sheet," +
-        "html.vc-pwa-cpu-nuke .vc-staff-reso-sheet," +
-        "html.vc-pwa-cpu-nuke .vc-staff-stat-sheet," +
-        "html.vc-pwa-cpu-nuke .vc-staff-manage-sheet," +
-        "html.vc-pwa-cpu-nuke .vc-notif-panel{" +
-        "content-visibility:visible!important}" +
-        "html.vc-pwa-cpu-nuke.vc-notif-drawer-open body.vc-body .vc-notif-dropdown[open] .vc-notif-panel," +
-        "html.vc-pwa-cpu-nuke.vc-notif-sheet-open body.vc-body .vc-notif-dropdown[open] .vc-notif-panel{" +
-        "opacity:1!important;visibility:visible!important}" +
-        "html.vc-pwa-cpu-nuke:not(.vc-soft-fx-ready) body.vc-body>header," +
-        "html.vc-pwa-cpu-nuke:not(.vc-soft-fx-ready) body.vc-body>main," +
-        "html.vc-pwa-cpu-nuke:not(.vc-soft-fx-ready) body.vc-body>footer{" +
-        "opacity:1!important;visibility:visible!important;pointer-events:auto!important}" +
-        /* bgGifRestore1: niente content-visibility sul photo (congela/skip GIF frames) */
-        "html.vc-pwa-cpu-nuke body.vc-body .vc-home-cine__photo{" +
-        "filter:none!important;-webkit-filter:none!important;" +
-        "transform:none!important;will-change:auto!important;" +
-        "animation:none!important;content-visibility:visible!important;contain:none!important}" +
-        "html.vc-pwa-cpu-nuke body.vc-body .vc-home-cine__canvas{" +
-        "display:none!important;visibility:hidden!important;" +
-        "animation:none!important;pointer-events:none!important}";
+        "animation-play-state:running!important;will-change:transform!important}" +
+        "html.vc-pwa-cpu-nuke:not(.vc-cpu-settle) body.vc-body header .discord-profile-link__name[data-vc-nav-user-marquee].is-marquee .vc-marquee__track," +
+        "html.vc-pwa-cpu-nuke:not(.vc-cpu-settle) body.vc-body #header-quick-actions .discord-profile-link__name[data-vc-nav-user-marquee].is-marquee .vc-marquee__track{" +
+        "animation-name:vc-guild-name-marquee!important;" +
+        "animation-duration:var(--vc-marquee-duration,8s)!important;" +
+        "animation-timing-function:linear!important;" +
+        "animation-iteration-count:infinite!important;" +
+        "animation-play-state:running!important;will-change:transform!important}" +
+        "html.vc-pwa-cpu-nuke.vc-site-cursor-ok,html.vc-pwa-cpu-nuke.vc-site-cursor-ok body{" +
+        "cursor:url(/images/musicrecordspin-cursor-static.png) 12 12," +
+        "url(/images/musicrecordspin-cursor-static.png) 12 12, auto!important}" +
+        "html.vc-pwa-cpu-nuke.vc-site-cursor-ok *{cursor:inherit!important}";
       /* Append in coda a body così batte soft-fx.css in cascata (pari specificità). */
       var mount = document.body || document.head || root;
       mount.appendChild(s);
       window.__vcPwaNukeOneShot = 1;
-      /* perfIdleReflow1: no getAnimations; strip filter in idle (no sync Forced reflow) */
-      deferHeavy(function () {
-        stripPwaComputedFilters();
-      });
-      window.setTimeout(function () {
-        remountNukeCssLast();
-        deferHeavy(stripPwaComputedFilters);
-      }, 900);
+      /* pwaCpuKill5: no stripPwaComputedFilters walk (era CPU); no cancelAnims spam */
+      window.setTimeout(remountNukeCssLast, 900);
       armPwaIdleGifFreeze();
       /* swBackPwa1: SW push resta (ensureServiceWorkerRegistration → /sw-m1.js) */
       clearBootHoldWithCurtain();
@@ -862,38 +1321,130 @@
   }
 
   function clearPwaOrphanLocks() {
-    if (!isStandalonePwa()) return;
+    /* hangKill1: unlock orphan anche fuori PWA (freeze su tutte le pagine) */
+    /* scrollPostSiparioYoyo1: dopo unlock non richiamare forceUnlock (scrollTo 0 → yoyo) */
     try {
       var root = document.documentElement;
       if (!root.classList.contains("vc-page-cine-ready") && !root.classList.contains("vc-cine-curtain-off")) {
-        return;
+        if (!isStandalonePwa()) return;
       }
+      /* bootBarGate1c: non ammazzare barra/lock finché chrome-ui non ha chiuso (o età lunga) */
+      try {
+        var progGate = document.getElementById("vc-site-progress");
+        var barLive =
+          (progGate && progGate.classList.contains("is-loading")) ||
+          root.classList.contains("vc-chrome-bar-loading") ||
+          (window.__vcChromeUiBooted && window.__vcChromeLoadDone === false);
+        if (barLive) {
+          var bootAt = Number(window.__vcCineBootStartedAt || 0) || 0;
+          var age = bootAt ? Date.now() - bootAt : 0;
+          if (!bootAt || age < 4500) return;
+        }
+      } catch (eBarGate) {}
+      var alreadyUnlocked =
+        window.__vcChromeLoadDone === true &&
+        (window.__vcChromeScrollArmed || root.classList.contains("vc-chrome-scroll-armed"));
+      root.classList.add("vc-chrome-scroll-armed", "vc-soft-fx-ready");
       root.classList.remove(
         "vc-loading-scroll-lock",
         "vc-loader-blocking-live",
         "vc-interaction-hold",
+        "vc-chrome-bar-loading",
+        "vc-scroll-soft-lock",
+        "vc-notif-staff-loading",
+        "vc-notif-early-staff",
       );
       try {
-        if (typeof window.__vcUnpinPageScroll === "function") window.__vcUnpinPageScroll();
-      } catch (eUn) {}
+        var prog = document.getElementById("vc-site-progress");
+        if (prog) prog.classList.remove("is-loading");
+      } catch (eProg) {}
+      try {
+        var inboxLoad = document.getElementById("vc-staff-inbox-loading");
+        if (inboxLoad) {
+          inboxLoad.hidden = true;
+          inboxLoad.setAttribute("hidden", "");
+          inboxLoad.classList.add("vc-staff-loading--hidden");
+        }
+      } catch (eInbox) {}
+      try {
+        root.style.removeProperty("touch-action");
+        if (document.body) document.body.style.removeProperty("touch-action");
+      } catch (eTa) {}
+      if (!alreadyUnlocked) {
+        try {
+          if (typeof window.__vcForceUnlockChromeScroll === "function") {
+            window.__vcForceUnlockChromeScroll("pwaOrphan");
+          }
+        } catch (eForce) {}
+        try {
+          if (typeof window.__vcUnpinPageScroll === "function") window.__vcUnpinPageScroll();
+        } catch (eUn) {}
+      }
+      try {
+        if (typeof window.__vcReleaseInteractionHold === "function") window.__vcReleaseInteractionHold();
+      } catch (eRel) {}
     } catch (eClr) {}
   }
   try {
     armPwaCpuNuke();
-    window.setTimeout(clearPwaOrphanLocks, 1800);
-    window.setTimeout(clearPwaOrphanLocks, 4000);
+    window.setTimeout(clearPwaOrphanLocks, 700);
+    window.setTimeout(clearPwaOrphanLocks, 1600);
+    window.setTimeout(clearPwaOrphanLocks, 3200);
   } catch (eArmNuke) {}
 
   function clearBootHoldWithCurtain() {
     try {
       var root = document.documentElement;
-      root.classList.add("vc-soft-fx-ready", "vc-cine-curtain-off");
-      /* holdFreezeKill1: mai sipario giù lasciando vc-interaction-hold (cursore loading + click morti) */
-      root.classList.remove("vc-interaction-hold");
-      if (typeof window.__vcReleaseInteractionHold === "function") {
-        try {
-          window.__vcReleaseInteractionHold();
-        } catch (eRel) {}
+      root.classList.add("vc-soft-fx-ready");
+      /* bootOneShot3: soft/look ready ≠ aprire pagina — aspetta chrome (no 2° load) */
+      var lookOk =
+        root.classList.contains("vc-look-core-ready") || root.classList.contains("vc-soft-fx-off");
+      var notCineBoot =
+        !root.classList.contains("vc-page-cine-boot") || root.classList.contains("vc-page-cine-ready");
+      var chromeDone =
+        window.__vcChromeLoadDone === true || window.__vcChromeVisualReady === 1;
+      var bootAt = Number(window.__vcCineBootStartedAt || window.__vcSoftFxCssReadyAt || 0) || 0;
+      var age = bootAt ? Date.now() - bootAt : Number(performance.now && performance.now()) || 0;
+      var hardOk = age >= 2800;
+      if ((lookOk || notCineBoot) && (chromeDone || hardOk)) {
+        root.classList.add("vc-cine-curtain-off");
+      } else if ((lookOk || notCineBoot) && !chromeDone && !hardOk) {
+        if (!window.__vcPerfCurtainWait) {
+          window.__vcPerfCurtainWait = 1;
+          var waitN = 0;
+          (function waitChromeLift() {
+            waitN += 1;
+            try {
+              if (
+                window.__vcChromeLoadDone === true ||
+                window.__vcChromeVisualReady === 1 ||
+                waitN > 90
+              ) {
+                window.__vcPerfCurtainWait = 0;
+                try {
+                  if (
+                    window.__vcChromeLoadDone === true ||
+                    window.__vcChromeVisualReady === 1 ||
+                    waitN > 90
+                  ) {
+                    document.documentElement.classList.add("vc-cine-curtain-off");
+                  }
+                } catch (eLift) {}
+                return;
+              }
+            } catch (eW) {}
+            window.setTimeout(waitChromeLift, 40);
+          })();
+        }
+      }
+      /* holdFreezeKill1: togli hold solo a sipario davvero giù (altrimenti 1° release fantasma) */
+      if (root.classList.contains("vc-cine-curtain-off")) {
+        root.classList.remove("vc-interaction-hold");
+        if (typeof window.__vcReleaseInteractionHold === "function") {
+          try {
+            window.__vcReleaseInteractionHold();
+          } catch (eRel) {}
+        }
       }
     } catch (eClr) {}
   }
@@ -971,10 +1522,10 @@
     root.classList.remove("vc-perf-full", "vc-perf-mid", "vc-perf-lite");
     root.classList.add("vc-perf-" + t);
     root.setAttribute("data-vc-perf", t);
-    /* phoneFxRestore1: soft-fx/gradient SEMPRE on (telefono incluso) */
+    /* lookCpuFix1: soft-fx sempre on; trail off solo lite/phone/nuke */
     root.classList.remove("vc-soft-fx-off");
     root.classList.add("vc-soft-fx-ready", "vc-site-polish");
-    if (t === "lite" || isPhoneOrPwa()) root.classList.add("vc-cursor-trail-off");
+    if (t === "lite" || isPhoneOrPwa() || window.__VC_PWA_CPU_NUKE) root.classList.add("vc-cursor-trail-off");
     else root.classList.remove("vc-cursor-trail-off");
     /* vc-perf-touch resta per layout touch, ma NON spegne più glass/gradient */
     if (isPhoneOrPwa()) root.classList.add("vc-perf-touch");
@@ -1019,7 +1570,9 @@
         "html.vc-page-hidden body.vc-body *," +
         "html.vc-ui-gif-paused body.vc-body *," +
         "html.vc-pwa-bg-frozen body.vc-body *{" +
-        "animation-play-state:paused!important}" +
+        "animation-play-state:paused!important;" +
+        "filter:none!important;-webkit-filter:none!important;" +
+        "backdrop-filter:none!important;-webkit-backdrop-filter:none!important}" +
         /* gifNoIdleStill1: pause CSS solo tab nascosta; avatar sempre ok */
         "html.vc-ui-gif-paused body.vc-body header img.discord-avatar-img," +
         "html.vc-pwa-bg-frozen body.vc-body header img.discord-avatar-img," +
@@ -1133,8 +1686,10 @@
     armGlobalCpuQuiet: armGlobalCpuQuiet,
     stillDiscordContentGifs: stillDiscordContentGifs,
     armSiteCpuSoft: armSiteCpuSoft,
+    shedHeavyLandingCss: shedHeavyLandingCss,
     remountNukeCssLast: remountNukeCssLast,
     remountSiteCpuSoftCssLast: remountSiteCpuSoftCssLast,
+    remountPageHiddenCpuCssLast: remountPageHiddenCpuCssLast,
     clearPwaOrphanLocks: clearPwaOrphanLocks,
     apply: applyToDocument,
     fetchTimeouts: fetchTimeouts,
@@ -1150,6 +1705,246 @@
     forcedTier: FORCE_DESKTOP_TIER,
   };
 
+  /* bgCpuHard1 + pageCpuIdle1: idle FG → pause wordmark+nome+promo (no keepAlive). */
+  function armFgCpuSettle() {
+    if (window.__vcFgCpuSettleArmed) return;
+    window.__vcFgCpuSettleArmed = 1;
+    ensurePageHiddenCpuCss();
+    var idleTimer = 0;
+    /* settleLite1 + pageCpuIdle1: idle un po' più corto; scroll/wheel NON thaw
+       (sulle liste lunghe scongelavano continuamente → 100% CPU) */
+    var IDLE_MS = 4200;
+    var lastMoveWake = 0;
+    var MOVE_THAW_MS = 2800;
+    function settle() {
+      try {
+        if (document.hidden || document.visibilityState === "hidden") return;
+      } catch (eH) {}
+      try {
+        document.documentElement.classList.add("vc-cpu-settle");
+      } catch (eCls) {}
+      try {
+        ensurePageHiddenCpuCss();
+        remountPageHiddenCpuCssLast();
+      } catch (eCssSet) {}
+      try {
+        /* pageCpuIdle1: pause anche nome+wordmark in settle FG */
+        freezeInlineMarqueesForBg(true, false);
+      } catch (eMqSet) {}
+      try {
+        document.dispatchEvent(new CustomEvent("vc:cpu-settle"));
+      } catch (eEvS) {}
+      try {
+        window.dispatchEvent(new CustomEvent("vc:cpu-settle"));
+      } catch (eEvS2) {}
+      deferHeavy(function () {
+        try {
+          applyCineGifStillSwap(true);
+        } catch (eSw) {}
+        try {
+          freezeGifDecodeForBg(true);
+        } catch (eFr) {}
+        try {
+          stillDiscordContentGifs();
+        } catch (eStill) {}
+        try {
+          freezeInlineMarqueesForBg(true, false);
+        } catch (eMqSet2) {}
+        try {
+          remountPageHiddenCpuCssLast();
+        } catch (eRm2) {}
+      });
+    }
+    function bustle(ev) {
+      try {
+        if (document.hidden || document.visibilityState === "hidden") return;
+      } catch (eH2) {}
+      /* pointermove: throttle — evita thaw continuo per microjitter */
+      try {
+        if (ev && ev.type === "pointermove") {
+          var now = Date.now();
+          if (now - lastMoveWake < MOVE_THAW_MS) {
+            try {
+              window.clearTimeout(idleTimer);
+            } catch (eClrM) {}
+            idleTimer = window.setTimeout(settle, IDLE_MS);
+            return;
+          }
+          lastMoveWake = now;
+        }
+      } catch (eTh) {}
+      var was = false;
+      try {
+        was = document.documentElement.classList.contains("vc-cpu-settle");
+        document.documentElement.classList.remove("vc-cpu-settle");
+      } catch (eRm) {}
+      if (was) {
+        try {
+          freezeInlineMarqueesForBg(false);
+        } catch (eMqWake) {}
+        try {
+          document.dispatchEvent(new CustomEvent("vc:cpu-bustle"));
+        } catch (eEvB) {}
+        try {
+          window.dispatchEvent(new CustomEvent("vc:cpu-bustle"));
+        } catch (eEvB2) {}
+        deferHeavy(function () {
+          try {
+            if (!document.documentElement.classList.contains("vc-cpu-settle")) {
+              applyCineGifStillSwap(false);
+              freezeGifDecodeForBg(false);
+              freezeInlineMarqueesForBg(false);
+            }
+          } catch (eThaw) {}
+        });
+      }
+      try {
+        window.clearTimeout(idleTimer);
+      } catch (eClr) {}
+      idleTimer = window.setTimeout(settle, IDLE_MS);
+    }
+    try {
+      /* pageCpuIdle1: no scroll/wheel → bustle (liste lunghe tenevano settle spento) */
+      ["pointerdown", "pointermove", "keydown", "touchstart"].forEach(function (ev) {
+        window.addEventListener(ev, bustle, { passive: true, capture: true });
+      });
+    } catch (eEv) {}
+    function start() {
+      try {
+        window.clearTimeout(idleTimer);
+      } catch (eClr2) {}
+      idleTimer = window.setTimeout(settle, IDLE_MS);
+    }
+    try {
+      document.addEventListener("vc:page-cine-ready", start, { once: true });
+      document.addEventListener("vc:cpu-wake", function () {
+        start();
+      });
+    } catch (eReady) {}
+    window.setTimeout(start, 4200);
+  }
+
+  /* lazyEverywhere1: native lazy on below-fold / dynamic media (no LCP/hero/header) */
+  function shouldKeepMediaEager(el) {
+    try {
+      if (!el || el.nodeType !== 1) return true;
+      if (el.getAttribute("loading") === "eager") return true;
+      if (el.getAttribute("fetchpriority") === "high") return true;
+      if (el.getAttribute("data-vc-nolazy") === "1") return true;
+      var cls = String(el.className || "");
+      if (
+        /vc-home-cine__photo|vc-header-logo|vc-discord-login|vc-hero|vc-sipario|vc-pre-cine/i.test(
+          cls,
+        )
+      ) {
+        return true;
+      }
+      if (el.closest && el.closest("header, .vc-site-header, #vc-site-header, .vc-nav, .vc-hero-head")) {
+        return true;
+      }
+      return false;
+    } catch (eKeep) {
+      return true;
+    }
+  }
+
+  function markLazyMedia(root) {
+    try {
+      var scope = root && root.querySelectorAll ? root : document;
+      var imgs = scope.querySelectorAll ? scope.querySelectorAll("img") : [];
+      var vh = 0;
+      try {
+        vh = window.innerHeight || 800;
+      } catch (eVh) {
+        vh = 800;
+      }
+      for (var i = 0; i < imgs.length; i++) {
+        var img = imgs[i];
+        if (!img || shouldKeepMediaEager(img)) continue;
+        if (!img.getAttribute("loading")) {
+          var top = 0;
+          try {
+            top = img.getBoundingClientRect().top;
+          } catch (eR) {
+            top = vh + 1;
+          }
+          if (top > vh + 120) img.setAttribute("loading", "lazy");
+        }
+        if (!img.getAttribute("decoding")) img.setAttribute("decoding", "async");
+      }
+      var iframes = scope.querySelectorAll ? scope.querySelectorAll("iframe") : [];
+      for (var j = 0; j < iframes.length; j++) {
+        var fr = iframes[j];
+        if (!fr || shouldKeepMediaEager(fr)) continue;
+        if (!fr.getAttribute("loading")) fr.setAttribute("loading", "lazy");
+      }
+      /* sitePerfAll1: video sottofold — preload none + lazy attr dove supportato */
+      var vids = scope.querySelectorAll ? scope.querySelectorAll("video") : [];
+      for (var v = 0; v < vids.length; v++) {
+        var vid = vids[v];
+        if (!vid || shouldKeepMediaEager(vid)) continue;
+        try {
+          if (!vid.getAttribute("preload") || vid.getAttribute("preload") === "auto") {
+            vid.setAttribute("preload", "none");
+          }
+        } catch (ePre) {}
+        try {
+          if (!vid.getAttribute("loading")) {
+            var vTop = 0;
+            try {
+              vTop = vid.getBoundingClientRect().top;
+            } catch (eVt) {
+              vTop = vh + 1;
+            }
+            if (vTop > vh + 120) vid.setAttribute("loading", "lazy");
+          }
+        } catch (eVl) {}
+      }
+    } catch (eMark) {}
+  }
+
+  function armLazyMediaPass() {
+    if (window.__vcLazyMediaPassArmed) return;
+    window.__vcLazyMediaPassArmed = 1;
+    function run() {
+      markLazyMedia(document);
+    }
+    try {
+      if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", run, { once: true });
+      } else {
+        run();
+      }
+    } catch (eDom) {
+      run();
+    }
+    try {
+      document.addEventListener("vc:page-cine-ready", run, { once: true });
+      document.addEventListener("vc:post-curtain-lazy", run, { once: true });
+    } catch (eEv) {}
+    window.setTimeout(run, 900);
+    window.setTimeout(run, 2200);
+    try {
+      if (typeof MutationObserver === "function" && !window.__vcLazyMediaMo) {
+        window.__vcLazyMediaMo = new MutationObserver(function (muts) {
+          for (var i = 0; i < muts.length; i++) {
+            var nodes = muts[i].addedNodes;
+            for (var j = 0; j < nodes.length; j++) {
+              var n = nodes[j];
+              if (!n || n.nodeType !== 1) continue;
+              if (n.tagName === "IMG" || n.tagName === "IFRAME") markLazyMedia(n.parentNode || n);
+              else if (n.querySelector && n.querySelector("img,iframe")) markLazyMedia(n);
+            }
+          }
+        });
+        var moRoot = document.body || document.documentElement;
+        if (moRoot) {
+          window.__vcLazyMediaMo.observe(moRoot, { childList: true, subtree: true });
+        }
+      }
+    } catch (eMo) {}
+  }
+
   global.VcPerf = api;
   try {
     armGlobalCpuQuiet();
@@ -1158,19 +1953,38 @@
     injectTouchPerfCss();
     armPwaCpuNuke();
     armSiteCpuSoft();
+    armFgCpuSettle();
     deferHeavy(stillDiscordContentGifs);
+    armLazyMediaPass();
   } catch (eInit) {}
   try {
     document.addEventListener("vc:page-cine-ready", function () {
       try {
         armSiteCpuSoft();
+        shedHeavyLandingCss();
       } catch (eReady) {}
     });
     window.addEventListener("pageshow", function () {
       try {
         armSiteCpuSoft();
+        shedHeavyLandingCss();
       } catch (eShow) {}
     });
+    window.setTimeout(function () {
+      try {
+        shedHeavyLandingCss();
+      } catch (eShed0) {}
+    }, 0);
+    window.setTimeout(function () {
+      try {
+        shedHeavyLandingCss();
+      } catch (eShed1) {}
+    }, 600);
+    window.setTimeout(function () {
+      try {
+        shedHeavyLandingCss();
+      } catch (eShed2) {}
+    }, 1600);
   } catch (eArmSoftEv) {}
 
   /* siteApiW6: soft-fx può partire media=print (non-blocking); promote on load. Mai appendChild. */
@@ -1184,8 +1998,59 @@
       } catch (eOk) {}
       return false;
     }
+    function layoutCssOk() {
+      try {
+        var look =
+          document.getElementById("vc-look-core-css") ||
+          document.querySelector('link[href*="vc-look-core"]');
+        if (look && !softSheetOk(look)) return false;
+        var ext =
+          document.getElementById("vc-landing-ext-css") ||
+          document.querySelector('link[href*="vc-landing-ext"]');
+        if (!ext) return true;
+        try {
+          var med = String(ext.media || "all").toLowerCase();
+          if (med && med !== "all" && med.indexOf("all") === -1) return false;
+        } catch (eMed) {}
+        return softSheetOk(ext);
+      } catch (eLay) {
+        return true;
+      }
+    }
+    function armLayoutCssWait(link) {
+      try {
+        ["vc-look-core-css", "vc-landing-ext-css"].forEach(function (id) {
+          var el =
+            document.getElementById(id) ||
+            document.querySelector(
+              id === "vc-look-core-css" ? 'link[href*="vc-look-core"]' : 'link[href*="vc-landing-ext"]',
+            );
+          if (!el || el.__vcFoucGateBound) return;
+          el.__vcFoucGateBound = 1;
+          function kick() {
+            try {
+              el.setAttribute("data-vc-sheet-loaded", "1");
+              if (el.media && el.media !== "all") el.media = "all";
+              promoteSoft(link);
+            } catch (eK) {}
+          }
+          el.addEventListener("load", kick, { once: true });
+          el.addEventListener("error", kick, { once: true });
+        });
+        window.setTimeout(function () {
+          try {
+            promoteSoft(link);
+          } catch (eT) {}
+        }, 80);
+      } catch (eArm) {}
+    }
     function promoteSoft(link) {
       if (!link) return;
+      /* foucKillStruct1: non aprire sipario finché look-core + landing-ext non applicano */
+      if (!layoutCssOk()) {
+        armLayoutCssWait(link);
+        return;
+      }
       link.id = "vc-soft-fx-css";
       /* gifGradRestore1: attiva sempre soft-fx (gradient/bordi) */
       try {
@@ -1195,11 +2060,27 @@
       link.media = "all";
       link.setAttribute("data-vc-sheet-loaded", "1");
       link.removeAttribute("onload");
-      document.querySelectorAll('link[href*="vc-soft-fx.css"]').forEach(function (l) {
+      document.querySelectorAll('link[href*="vc-soft-fx"]').forEach(function (l) {
         if (l !== link && l.parentNode) l.parentNode.removeChild(l);
       });
+      try {
+        var lookR =
+          document.getElementById("vc-look-core-css") ||
+          document.querySelector('link[href*="vc-look-core"]');
+        if (lookR) lookR.setAttribute("data-vc-sheet-loaded", "1");
+        var extR =
+          document.getElementById("vc-landing-ext-css") ||
+          document.querySelector('link[href*="vc-landing-ext"]');
+        if (extR) extR.setAttribute("data-vc-sheet-loaded", "1");
+      } catch (eMark) {}
       document.documentElement.classList.remove("vc-soft-fx-off");
-      document.documentElement.classList.add("vc-soft-fx-ready");
+      document.documentElement.classList.add(
+        "vc-look-core-ready",
+        "vc-soft-fx-ready",
+        "vc-core-styles-ready",
+        "vc-home-styles-ready",
+        "vc-styles-ready",
+      );
       clearBootHoldWithCurtain();
       /* soft-fx arriva dopo: ri-append nuke CSS in coda + cancel WAAPI */
       try {
@@ -1208,11 +2089,14 @@
       try {
         armSiteCpuSoft();
       } catch (eReSoft) {}
+      try {
+        shedHeavyLandingCss();
+      } catch (eReShed) {}
     }
     function markReadyFromSoft() {
       try {
         var softPin = document.getElementById("vc-soft-fx-css");
-        if (!softPin) softPin = document.querySelector('link[href*="vc-soft-fx.css"]');
+        if (!softPin) softPin = document.querySelector('link[href*="vc-soft-fx"]');
         if (!softPin) return;
         softPin.id = "vc-soft-fx-css";
         if (softSheetOk(softPin) || softPin.getAttribute("data-vc-sheet-loaded") === "1") {
@@ -1232,9 +2116,10 @@
     }
     function ensureSoftFxLink() {
       try {
+        /* bootFast1SoftSel */
         var soft =
           document.getElementById("vc-soft-fx-css") ||
-          document.querySelector('link[href*="vc-soft-fx.css"]');
+          document.querySelector('link[href*="vc-soft-fx"]');
         if (soft) {
           promoteSoft(soft);
           return;
@@ -1242,7 +2127,7 @@
         var l = document.createElement("link");
         l.rel = "stylesheet";
         l.id = "vc-soft-fx-css";
-        l.href = "/css/vc-soft-fx.css?v=20260930voteCuePhoneStable1";
+        l.href = "/css/vc-soft-fx.20261006bootFast1.css?v=20261006bootFast1";
         l.media = "all";
         (document.head || document.documentElement).appendChild(l);
         l.addEventListener(
@@ -1269,7 +2154,71 @@
     window.setTimeout(ensureSoftFxLink, 200);
     window.setTimeout(markReadyFromSoft, 800);
   } catch (eSoftFx) {}
+  /* skipGhost1: skip-link visibile solo dopo Tab reale (no focus spurio) */
+  try {
+    if (!global.__vcSkipGhost1) {
+      global.__vcSkipGhost1 = 1;
+      var SKIP_KB = "vc-skip-link--kb";
+      function skipLinkEl() {
+        try {
+          return document.querySelector("a.vc-skip-link");
+        } catch (eQ) {
+          return null;
+        }
+      }
+      function armSkipKb() {
+        var s = skipLinkEl();
+        if (s) s.classList.add(SKIP_KB);
+      }
+      function disarmSkipKb() {
+        var s = skipLinkEl();
+        if (!s) return;
+        try {
+          s.classList.remove(SKIP_KB);
+        } catch (eRm) {}
+        try {
+          if (document.activeElement === s) s.blur();
+        } catch (eBl) {}
+      }
+      document.addEventListener(
+        "keydown",
+        function (e) {
+          try {
+            if (e.key === "Tab" || e.keyCode === 9) armSkipKb();
+          } catch (eKd) {}
+        },
+        true,
+      );
+      document.addEventListener(
+        "focusin",
+        function (e) {
+          try {
+            var t = e && e.target;
+            if (!t || !t.classList || !t.classList.contains("vc-skip-link")) return;
+            if (!t.classList.contains(SKIP_KB)) t.blur();
+          } catch (eFi) {}
+        },
+        true,
+      );
+      document.addEventListener("mousedown", disarmSkipKb, true);
+      document.addEventListener("pointerdown", disarmSkipKb, true);
+      document.addEventListener("touchstart", disarmSkipKb, { capture: true, passive: true });
+      window.addEventListener("pageshow", disarmSkipKb, false);
+      document.addEventListener(
+        "visibilitychange",
+        function () {
+          try {
+            if (document.hidden) disarmSkipKb();
+          } catch (eVis) {}
+        },
+        false,
+      );
+    }
+  } catch (eSkipGh) {}
 })(typeof window !== "undefined" ? window : this);
 /* violKill1 */
 /* extOnlyFix1 */
 /* perfIdleReflow1 */
+/* navUserNameMarqueeKeep1 */
+/* skipGhost1 */
+

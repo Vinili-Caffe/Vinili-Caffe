@@ -34,7 +34,7 @@ html.vc-site-polish body.vc-body :is(
   .vc-ul-card,
   .vc-role-card,
   .vc-notify-stat,
-  .vc-user-profile-block,
+  .vc-user-profile-block:not(.vc-user-profile-block--candy),
   .vc-user-profile-hero:not(.vc-page-cine-hero),
   .vc-page-cine-card,
   article.vc-vote-reveal
@@ -91,14 +91,15 @@ html body.vc-body header.fixed .vc-nav-shell {
 html.vc-site-polish body.vc-body > footer.vc-premium-footer .vc-premium-footer__outer,
 html.vc-site-polish body.vc-body--home > footer.vc-premium-footer .vc-premium-footer__outer {
   filter: none !important;
-  border-color: rgba(245, 214, 183, 0.26) !important;
-  box-shadow:
-    0 8px 22px rgba(0, 0, 0, 0.46),
-    0 0 14px rgba(212, 168, 136, 0.12),
-    inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
+  /* footerCardNavRing1: anello = ::after conic, no bordo/alone solido */
+  border: 0 !important;
+  border-width: 0 !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
 }
 
-/* chromeGlowSoft4: in scroll spegne alone (resta solo drop soft) */
+/* chromeGlowSoft4: in scroll spegne alone (resta solo drop soft)
+   progTopBlurKill2: NON ritoccare nav-shell — su telefono tornava sfocatura sotto la barra */
 html.vc-scroll-busy.vc-site-polish body.vc-body :is(
   .vc-home-panel,
   .vc-fx-card,
@@ -112,8 +113,6 @@ html.vc-scroll-busy.vc-site-polish body.vc-body :is(
   .vc-sponsor-card,
   .vc-staff-hub-card
 ),
-html.vc-scroll-busy body.vc-body > header .vc-nav-shell,
-html.vc-scroll-busy body.vc-body header.fixed .vc-nav-shell,
 html.vc-scroll-busy body.vc-body > footer.vc-premium-footer .vc-premium-footer__outer {
   box-shadow:
     0 8px 20px rgba(0, 0, 0, 0.42),

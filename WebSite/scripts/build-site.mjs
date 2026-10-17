@@ -603,38 +603,33 @@ function ensureDiscordShareMeta(html, map) {
       }
     }
   }
+  /* pwaManifestAllPages1: stesso block su tutte le pagine (install Chrome non solo home) */
+  const pwaManifestV = "20261006pwaIconClear2";
+  const pwaAppTitle = "🎃 Vinili &amp; Caffè 🍂 • Italia • Social • Gaming";
   const appleTouchIcon =
-    `<link rel="apple-touch-icon" sizes="180x180" href="/favicon.ico?v=iosfix6" />\n    <link rel="apple-touch-icon" href="/favicon.ico?v=iosfix6" />\n    <link rel="apple-touch-icon-precomposed" sizes="180x180" href="/favicon.ico?v=iosfix6" />\n    <link rel="icon" type="image/png" sizes="180x180" href="/favicon.ico?v=iosfix6" />\n    <link rel="shortcut icon" href="/favicon.ico?v=iosfix6" />`;
+    `<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon-v11.png?v=${pwaManifestV}" />\n    <link rel="apple-touch-icon" href="/apple-touch-icon-v11.png?v=${pwaManifestV}" />\n    <link rel="apple-touch-icon-precomposed" sizes="180x180" href="/apple-touch-icon-v11.png?v=${pwaManifestV}" />\n    <link rel="icon" type="image/png" sizes="180x180" href="/favicon.ico?v=iosFix6" />\n    <link rel="shortcut icon" href="/favicon.ico?v=iosFix6" />`;
+  const pwaHeadBlock =
+    `<link rel="manifest" href="/site.webmanifest?v=${pwaManifestV}" />\n    <meta name="apple-mobile-web-app-capable" content="yes" />\n    <meta name="mobile-web-app-capable" content="yes" />\n    <meta name="application-name" content="${pwaAppTitle}" />\n    <meta name="apple-mobile-web-app-title" content="${pwaAppTitle}" />\n    ${appleTouchIcon}`;
         out = out.replace(
     /<link[^>]+rel=["'](?:shortcut )?icon["'][^>]*cdn\.discordapp\.com[^>]*>\s*/gi,
     "",
   );
   if (!/rel=["']manifest["']/i.test(out)) {
-    out = out.replace(
-      /<\/head>/i,
-      `  <link rel="manifest" href="/site.webmanifest?v=20260831pwaNameFix1" />\n    <meta name="apple-mobile-web-app-capable" content="yes" />\n    <meta name="mobile-web-app-capable" content="yes" />\n    <meta name="apple-mobile-web-app-title" content="Vinili & Caffè" />\n    ${appleTouchIcon}\n  </head>`,
-    );
+    out = out.replace(/<\/head>/i, `  ${pwaHeadBlock}\n  </head>`);
   } else {
     out = out.replace(
       /<link[^>]+rel=["']apple-touch-icon(?:-precomposed)?["'][^>]*>\s*/gi,
       "",
     );
-    out = out.replace(/<head([^>]*)>/i, `<head$1>\n    ${appleTouchIcon}`);
-    if (!/name=["']apple-mobile-web-app-title["']/i.test(out)) {
-      out = out.replace(
-        /<\/head>/i,
-        `  <meta name="apple-mobile-web-app-title" content="Vinili & Caffè" />\n  </head>`,
-      );
-    } else {
-      out = out.replace(
-        /<meta[^>]+name=["']apple-mobile-web-app-title["'][^>]*>/gi,
-        `<meta name="apple-mobile-web-app-title" content="Vinili & Caffè" />`,
-      );
-    }
     out = out.replace(
-      /(href=["'])\/site\.webmanifest(?:\?[^"']*)?(["'])/i,
-      `$1/site.webmanifest?v=20260831pwaNameFix1$2`,
+      /<meta[^>]+name=["'](?:apple-mobile-web-app-capable|mobile-web-app-capable|application-name|apple-mobile-web-app-title)["'][^>]*>\s*/gi,
+      "",
     );
+    out = out.replace(
+      /<link[^>]+rel=["']manifest["'][^>]*>\s*/gi,
+      "",
+    );
+    out = out.replace(/<\/head>/i, `  ${pwaHeadBlock}\n  </head>`);
   }
   return out;
 }
@@ -2868,6 +2863,17 @@ async function mainLiveStatsExtraOnly() {
   const out = outRaw || path.join(DIST, "live-stats-extra.json");
   fs.mkdirSync(path.dirname(out), { recursive: true });
   fs.writeFileSync(out, JSON.stringify(payload), "utf8");
+  /* wsShell1: avvisa i client aperti via site-api realtime bus */
+  try {
+    const port = Number(process.env.SITE_API_PORT || 3020) || 3020;
+    const secret = String(process.env.SITE_REALTIME_NOTIFY_SECRET || "local").trim() || "local";
+    const body = JSON.stringify({ type: "live_stats_changed", at: new Date().toISOString() });
+    await fetch(`http://127.0.0.1:${port}/webhooks/site-realtime/notify`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Internal-Notify": secret },
+      body,
+    }).catch(() => null);
+  } catch (_) {}
   const memLog = guildLiveCounts?.memberCount != null ? ` guildMemberCount=${guildLiveCounts.memberCount}` : "";
   const boostN = Array.isArray(payload.boostHoverMembers) ? payload.boostHoverMembers.length : 0;
   const boostSlots = Array.isArray(payload.boostHoverMembers)
@@ -3178,7 +3184,7 @@ async function main() {
     ogImageWidth = String(Math.floor(w));
     ogImageHeight = String(Math.floor(h));
   }
-  const ogTitle = `${siteName} | Community Discord italiana · ${statMembers}+ membri`;
+  const ogTitle = `${siteName} | Community Discord Italiana · ${statMembers}+ membri`;
   const ogDesc = String(cfg.metaDescription || "").trim();
   const ogUrl = siteUrlTrim;
   const ogSiteName = String(cfg.openGraphSiteName || cfg.siteName || siteName).trim() || siteName;

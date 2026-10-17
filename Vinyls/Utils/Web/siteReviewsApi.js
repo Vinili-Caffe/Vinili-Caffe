@@ -21,6 +21,24 @@ const {
 } = require("./siteLiveAvatars");
 const { TENANT_EMBED_COLOR } = require("../../MultiGuild/utils/tenantEmbedBranding");
 
+/* boardsImportSiteServerReviews1: lazy require evita cicli con siteBoardsApi */
+function mirrorSiteServerReviewToBoard(doc) {
+  try {
+    const api = require("./siteBoardsApi");
+    return Promise.resolve(api.syncSiteServerReviewToMainBoardListing(doc)).catch(() => null);
+  } catch (_) {
+    return Promise.resolve(null);
+  }
+}
+function unmirrorSiteServerReviewFromBoard(userId) {
+  try {
+    const api = require("./siteBoardsApi");
+    return Promise.resolve(api.removeSiteServerReviewFromMainBoardListing(userId)).catch(() => null);
+  } catch (_) {
+    return Promise.resolve(null);
+  }
+}
+
 const STAFF_ROLE_ID = String(IDs?.roles?.Staff || "").trim();
 const ADMIN_ROLE_ID = String(IDs?.roles?.Admin || "").trim();
 const HIGH_STAFF_ROLE_ID = String(IDs?.roles?.HighStaff || "").trim();
@@ -761,6 +779,10 @@ async function submitSiteReview(client, payload = {}) {
 
   /* compitiReviewsManual1: review_self_4 / review_server_4 non auto-submit (prove manuali) */
 
+  if (reviewKind === "server") {
+    await mirrorSiteServerReviewToBoard(nextDoc);
+  }
+
   try {
     invalidatePublicReviewsListCache(resolved.guild.id);
     broadcastSiteReviewsChanged();
@@ -805,6 +827,7 @@ async function deleteSiteReview(client, payload = {}) {
   } catch (_) {}
 
   if (String(deleted.reviewKind || "") === "server") {
+    await unmirrorSiteServerReviewFromBoard(resolved.userId);
     const stillEligible = await SiteDocument.exists({
       docType: RV,
       guildId: resolved.guild.id,
@@ -892,6 +915,10 @@ async function toggleSiteReviewLike(client, payload = {}) {
       } catch (_) {}
     }
   }
+  if (String(updated.reviewKind || "") === "server") {
+    await mirrorSiteServerReviewToBoard(updated);
+  }
+
   try {
     invalidatePublicReviewsListCache(resolved.guild.id);
     broadcastSiteReviewsChanged();
@@ -989,6 +1016,10 @@ async function upsertServerReviewReply(client, payload = {}) {
     } catch (_) {}
   }
 
+  if (replyKind === "server") {
+    await mirrorSiteServerReviewToBoard(nextDoc);
+  }
+
   try {
     invalidatePublicReviewsListCache(resolved.guild.id);
     broadcastSiteReviewsChanged();
@@ -1002,10 +1033,24 @@ async function upsertServerReviewReply(client, payload = {}) {
   };
 }
 
+/* apiWarmSwr2: lista pubblica server/bot/staff senza token (viewer likes per-request) */
+async function warmSiteReviewsListCache(client) {
+  const kinds = ["server", "bot", "staff"];
+  for (const kind of kinds) {
+    try {
+      await getSiteReviews(client, { kind });
+    } catch (err) {
+      global.logger?.warn?.("[site-reviews] warm:", kind, err?.message || err);
+    }
+  }
+  return true;
+}
+
 module.exports = {
   getSiteReviews,
   submitSiteReview,
   deleteSiteReview,
   toggleSiteReviewLike,
   upsertServerReviewReply,
+  warmSiteReviewsListCache,
 };

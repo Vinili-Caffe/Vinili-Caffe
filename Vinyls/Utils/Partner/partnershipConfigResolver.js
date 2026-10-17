@@ -76,7 +76,7 @@ function emptyPartnerDesc() {
 
 function buildLegacyPartnershipConfig(guildId) {
   const gid = String(guildId || IDs.guilds?.main || "").trim();
-  return {
+  const cfg = {
     guildId: gid,
     partnershipsChannelId: IDs.channels?.partnerships || null,
     logsChannelId: IDs.channels?.partnerLogs || null,
@@ -98,6 +98,12 @@ function buildLegacyPartnershipConfig(guildId) {
     legacy: true,
     tenantPrefixToolkitEnabled: true,
   };
+  try {
+    const { remapDeepConfigForTestGuild } = require("../Config/testGuildMirrorRemap");
+    return remapDeepConfigForTestGuild(gid, cfg);
+  } catch (_) {
+    return cfg;
+  }
 }
 
 function enrichLegacyPartnershipConfigForSettings(legacy) {
@@ -172,7 +178,7 @@ function mergeMainPartnershipConfig(guildId) {
   const descriptionChannelId =
     partnerDesc?.mode === "channel" ? partnerDesc.channelId || legacy.descriptionChannelId : legacy.descriptionChannelId;
 
-  return {
+  const merged = {
     ...legacy,
     partnershipsChannelId: mongo.partnershipsChannelId || legacy.partnershipsChannelId,
     logsChannelId: mongo.logsChannelId ?? legacy.logsChannelId,
@@ -209,6 +215,12 @@ function mergeMainPartnershipConfig(guildId) {
     legacy: true,
     tenantPrefixToolkitEnabled: true,
   };
+  try {
+    const { remapDeepConfigForTestGuild } = require("../Config/testGuildMirrorRemap");
+    return remapDeepConfigForTestGuild(guildId, merged);
+  } catch (_) {
+    return merged;
+  }
 }
 
 function buildMainPartnershipMongoSeed(guildId) {

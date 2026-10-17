@@ -1,24 +1,53 @@
 /* wave2: thin public chrome entry (pages without vc-landing.js) */
+/* bootCoherentFast1: notif chunk = lazy come vc-landing (no 474KB durante barra) */
+/* bootGraph1: versions from __VC_ASSET_VERS; XOR with vc-landing on HTML */
 (function () {
-  var VER = "20260930chromeNotifBoot1";
+  var VER = "20261014bootGraph1";
   if (window.__VC_SITE_CHROME_JS === VER) return;
   window.__VC_SITE_CHROME_JS = VER;
 
-  /* chromeNotifBoot1: stesse pagine chrome-only (wiki/staff/faq/…) caricavano
-     vc-site-chrome ma NON vc-landing.js → niente chunk notif → badge/push morti.
-     Stesso loader di vc-landing.js (guard condivide __vcLandingNotif*). */
+  /* chromeNotifBoot1 + bootSpeedAll1: stesso lazy di vc-landing.js
+     (eager SOLO deep-link push / PWA+granted). */
   (function bootNotifChunkFromChrome() {
-    var NOTIF_CHUNK_VER = "20261003notifReadDismissOs1";
-    function loadNotifChunk() {
-      if (window.__vcLandingNotifLoading || window.__vcLandingNotifReady) return;
+    var NOTIF_CHUNK_VER = (function () {
+      try {
+        var m = window.__VC_ASSET_VERS;
+        if (m && m.LANDING_NOTIF_VER) return String(m.LANDING_NOTIF_VER);
+      } catch (eNv) {}
+      return "20261015classFlash2";
+    })();
+    function loadNotifChunk(opts) {
+      opts = opts || {};
+      if (opts.openAfter) {
+        try {
+          window.__vcNotifPendingOpen = 1;
+        } catch (eP) {}
+      }
+      /* notifBellOpen1: sync chrome ≠ full notif — carica chunk se BOOT assente */
+      if (typeof window.__vcEnsureNotifBellScopeUi === "function" || window.__VC_LANDING_NOTIF_BOOT) {
+        try {
+          window.__vcLandingNotifReady = 1;
+        } catch (eReady) {}
+        return;
+      }
+      if (window.__vcLandingNotifReady) return;
+      if (window.__vcLandingNotifLoading) return;
       window.__vcLandingNotifLoading = 1;
       var s = document.createElement("script");
-      s.src = "/js/vc-landing-notif." + NOTIF_CHUNK_VER + ".js";
+      s.src = "/js/vc-landing-notif." + NOTIF_CHUNK_VER + ".js?v=" + NOTIF_CHUNK_VER;
       s.async = true;
       s.onload = function () {
         try {
           window.__vcLandingNotifReady = 1;
         } catch (e0) {}
+        try {
+          document.dispatchEvent(new CustomEvent("vc:notif-chunk-ready"));
+        } catch (eEv) {}
+      };
+      s.onerror = function () {
+        try {
+          window.__vcLandingNotifLoading = 0;
+        } catch (eErr) {}
       };
       (document.body || document.documentElement).appendChild(s);
     }
@@ -30,26 +59,27 @@
         if (u.searchParams.get("vc_from_push")) return true;
         if (/^[a-f0-9]{24}$/i.test(String(u.hash || "").replace(/^#/, "").trim())) return true;
       } catch (e) {}
+      try {
+        var standalone =
+          (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) ||
+          Boolean(navigator.standalone);
+        if (
+          standalone &&
+          typeof Notification !== "undefined" &&
+          Notification.permission === "granted"
+        ) {
+          return true;
+        }
+      } catch (ePwa) {}
       return false;
     }
     function schedule() {
-      var run = function () {
-        loadNotifChunk();
-      };
-      if (wantsFastNotifBoot()) {
-        run();
-        return;
-      }
-      var delay = 160;
-      try {
-        if (localStorage.getItem("vc_discord_access_token")) delay = 100;
-      } catch (e1) {}
-      if (typeof window.requestIdleCallback === "function") {
-        window.requestIdleCallback(run, { timeout: Math.max(400, delay + 200) });
-      } else {
-        window.setTimeout(run, delay);
-      }
+      /* bootCoherentFast1: niente setTimeout eager — solo fast-path o tap campana */
+      if (wantsFastNotifBoot()) loadNotifChunk();
     }
+    try {
+      window.__vcLoadNotifChunk = loadNotifChunk;
+    } catch (eExpChunk) {}
     if (document.readyState === "loading") {
       document.addEventListener("DOMContentLoaded", schedule, { once: true });
     } else {
@@ -66,6 +96,27 @@
         } catch (e2) {}
       },
       true
+    );
+    document.addEventListener(
+      "click",
+      function (ev) {
+        try {
+          if (window.__vcLandingNotifReady) return;
+          var t = ev.target;
+          if (!t || !t.closest) return;
+          var sum = t.closest(
+            "#vc-notif-dropdown summary.vc-notif-summary, #vc-notif-dropdown summary, summary.vc-notif-summary",
+          );
+          if (!sum) return;
+          ev.preventDefault();
+          ev.stopPropagation();
+          try {
+            ev.stopImmediatePropagation();
+          } catch (eSip) {}
+          loadNotifChunk({ openAfter: true });
+        } catch (eClick) {}
+      },
+      true,
     );
   })();
 
@@ -337,6 +388,10 @@
       if (typeof window.gtag === "function") {
         window.gtag("consent", "update", {
           analytics_storage: granted ? "granted" : "denied",
+          /* boardsAdsense1 */
+          ad_storage: granted ? "granted" : "denied",
+          ad_user_data: granted ? "granted" : "denied",
+          ad_personalization: granted ? "granted" : "denied",
         });
       }
     } catch (eG) {}
@@ -505,6 +560,7 @@
     applyPendingCookieChoiceAfterLogin();
   });
 
+  /* notifSheetStayOpen1: outside close ignora sheet/drawer notif aperti */
   /* snavDropExclusive1: accordion snav (un solo dropdown) + close outside */
   function ensureSnavExclusiveAndOutsideClose() {
     if (window.__VC_SNAV_OUTSIDE_CLOSE === "20260922snavDropExclusive1") return;
@@ -550,8 +606,22 @@
         });
       } catch (eS) {}
       try {
-        if (Date.now() < Number(window.__vcNotifOpenGraceUntil || 0)) {
-          /* notifAutoCloseFix1: non chiudere la bell durante grace */
+        var skipNotifClose = false;
+        try {
+          if (Date.now() < Number(window.__vcNotifOpenGraceUntil || 0)) skipNotifClose = true;
+          if (Date.now() < Number(window.__vcNotifPortalGuardUntil || 0)) skipNotifClose = true;
+          var rootN = document.documentElement;
+          if (
+            rootN &&
+            (rootN.classList.contains("vc-notif-sheet-open") ||
+              rootN.classList.contains("vc-notif-drawer-open"))
+          ) {
+            /* notifSheetStayOpen1: sheet/drawer aperti → solo backdrop/X chiudono */
+            skipNotifClose = true;
+          }
+        } catch (eSkip) {}
+        if (skipNotifClose) {
+          /* notifAutoCloseFix1 / notifSheetStayOpen1 */
         } else if (window.VcNotifChrome && typeof window.VcNotifChrome.close === "function") {
           window.VcNotifChrome.close(document.getElementById("vc-notif-dropdown"));
         } else {
@@ -613,7 +683,7 @@
         try {
           if (
             t.closest(
-              "summary.vc-snav-summary, .vc-snav-panel, summary.vc-notif-summary, .vc-notif-panel, .vc-notif-summary, .discord-account-menu, .vc-lang-dropdown, #vc-mobile-nav-drawer, .vc-mobile-nav-drawer, #vc-mobile-nav-toggle, .vc-mobile-nav-toggle",
+              "#vc-notif-dropdown, .vc-notif-dropdown, .vc-notif-mobile-backdrop, summary.vc-snav-summary, .vc-snav-panel, summary.vc-notif-summary, .vc-notif-panel, .vc-notif-summary, .discord-account-menu, .vc-lang-dropdown, #vc-mobile-nav-drawer, .vc-mobile-nav-drawer, #vc-mobile-nav-toggle, .vc-mobile-nav-toggle",
             )
           ) {
             return;

@@ -13,7 +13,28 @@ const MYMEMORY_BASE = "https://api.mymemory.translated.net/get";
 const MYMEMORY_MAX = 450;
 const DEFAULT_POLL_MS = 20 * 60 * 1000;
 const DEFAULT_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
-const HTTP_TIMEOUT_MS = 12_000;
+const HTTP_TIMEOUT_MS = 20_000;
+const HTTP_RETRIES = 2;
+const SOURCE_FAIL_LOG_COOLDOWN_MS = 15 * 60 * 1000;
+const lastSourceFailLogAt = new Map();
+
+function isTransientHttpError(err) {
+  const code = String(err?.code || err?.cause?.code || err?.message || "");
+  return /ECONNABORTED|ETIMEDOUT|ECONNRESET|ECONNREFUSED|ENOTFOUND|EAI_AGAIN|UND_ERR|AbortError|TimeoutError|socket hang up|network/i.test(
+    code,
+  );
+}
+
+function warnSourceFailThrottled(source, detail, transient) {
+  const key = `${source?.type || "?"}|${source?.url || source?.appId || source?.query || ""}`;
+  const now = Date.now();
+  const last = Number(lastSourceFailLogAt.get(key) || 0);
+  if (now - last < SOURCE_FAIL_LOG_COOLDOWN_MS) return;
+  lastSourceFailLogAt.set(key, now);
+  const msg = `[GAME NEWS] source fail ${source.type}${source.url ? ` ${source.url}` : source.appId ? ` app:${source.appId}` : source.query ? ` q:${source.query}` : ""} → ${detail}`;
+  if (transient) global.logger?.warn?.(msg);
+  else global.logger?.error?.(msg);
+}
 const ARTICLE_SUMMARY_MAX = 1600;
 const ARTICLE_BRIEF_MAX = 1400;
 const ARTICLE_BRIEF_MIN = 180;
@@ -187,6 +208,33 @@ function defaultGamesCatalog() {
         {
           type: "google_news",
           query: "\"Brawl Stars\" (\"brawl talk\" OR update OR maintenance OR patch OR balance) when:7d",
+        },
+      ],
+    },
+    {
+      key: "brawlhalla",
+      label: "Brawlhalla",
+      emoji: "⚔️",
+      roleId: R.GameBrawlhalla,
+      color: 0xe74c3c,
+      sources: [
+        { type: "steam", appId: 291550 },
+        {
+          type: "google_news",
+          query: "\"Brawlhalla\" (patch OR update OR balance OR patchnotes) when:7d",
+        },
+      ],
+    },
+    {
+      key: "genshin",
+      label: "Genshin Impact",
+      emoji: "💠",
+      roleId: R.GameGenshinImpact,
+      color: 0x4fc3f7,
+      sources: [
+        {
+          type: "google_news",
+          query: "\"Genshin Impact\" (\"version update\" OR patch OR banner OR maintenance OR \"special program\") when:7d",
         },
       ],
     },
@@ -372,6 +420,8 @@ function hasDisallowedScript(text) {
 /**
  * Identità gioco: evita ping Fortnite su news Rocket League (e simili).
  * Host ufficiale vince; altrimenti nome gioco nel titolo/summary.
+ * gameNewsGenshinMismatch1: Genshin/Brawlhalla mancavano → Google trash
+ * (es. Forza Horizon) passava e pingava @Genshin.
  */
 const GAME_IDENTITY = {
   minecraft: {
@@ -426,6 +476,14 @@ const GAME_IDENTITY = {
     nameRe: /\bbrawl\s*stars\b/i,
     hostRe: /\b(supercell\.com|brawlstars\.com)\b/i,
   },
+  brawlhalla: {
+    nameRe: /\bbrawlhalla\b/i,
+    hostRe: /\bbrawlhalla\.com\b/i,
+  },
+  genshin: {
+    nameRe: /\bgenshin(\s*impact)?\b/i,
+    hostRe: /\b(genshin\.hoyoverse\.com|hoyoverse\.com|mihoyo\.com)\b/i,
+  },
 };
 
 function newsContentBlob(item) {
@@ -460,6 +518,28 @@ function inferGameKeyFromContent(item) {
   return null;
 }
 
+/** Nome del gioco dichiarato presente in titolo/summary/url (o host ufficiale). */
+function claimedGameNameMatches(item, claimed, id, gamesByKey) {
+  const blob = newsContentBlob(item);
+  const host = newsHost(item);
+  if (id?.nameRe && id.nameRe.test(blob)) return true;
+  if (id?.hostRe && host && id.hostRe.test(host)) return true;
+  const live = gamesByKey && gamesByKey.get(claimed);
+  const label = String(live?.label || item?.gameLabel || claimed || "").trim();
+  if (!label) return false;
+  const tokens = label
+    .toLowerCase()
+    .split(/[^a-z0-9!]+/i)
+    .map((t) => t.trim())
+    .filter((t) => t.length >= 4);
+  if (!tokens.length) {
+    const short = label.toLowerCase().replace(/[^a-z0-9]/gi, "");
+    return short.length >= 3 && new RegExp(`\\b${short}\\b`, "i").test(blob);
+  }
+  /* almeno un token significativo del label (es. "Genshin" da "Genshin Impact") */
+  return tokens.some((t) => new RegExp(`\\b${t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i").test(blob));
+}
+
 /**
  * Allinea emoji/roleId al gioco vero (contenuto/URL).
  * @returns {{ item: object, reject: boolean, reason?: string, reassigned?: boolean }}
@@ -492,23 +572,29 @@ function reconcileGameIdentity(item, gamesByKey) {
     return { item, reject: true, reason: `wrong-game:${claimed}->${inferred}` };
   }
 
-  /* Google senza match chiaro sul gioco dichiarato → skip (evita ping sbagliato) */
-  if (String(item.sourceType || "") === "google_news" && id) {
-    const nameOk = id.nameRe ? id.nameRe.test(blob) : true;
-    const hostOk = id.hostRe && host ? id.hostRe.test(host) : false;
+  /* Google (e fallback senza identity): nome gioco OBBLIGATORIO nel contenuto.
+     gameNewsGenshinMismatch1: senza identity, gnews Forza passava come Genshin. */
+  if (String(item.sourceType || "") === "google_news") {
+    const nameOk = claimedGameNameMatches(item, claimed, id, gamesByKey);
+    const hostOk = id?.hostRe && host ? id.hostRe.test(host) : false;
     const steamOk = /\bsteampowered\.com|steamcommunity\.com\b/i.test(host);
     if (!nameOk && !hostOk && !steamOk) {
       return { item, reject: true, reason: "gnews-game-mismatch" };
     }
+  } else if (!id) {
+    /* fonte non-google ma gioco senza identity → almeno label nel blob */
+    if (!claimedGameNameMatches(item, claimed, null, gamesByKey)) {
+      return { item, reject: true, reason: "game-name-missing" };
+    }
   }
 
   /* titolo/host chiaramente di un ALTRO gioco (anche senza inferenza unica) */
-  if (id) {
+  {
+    const selfName = claimedGameNameMatches(item, claimed, id, gamesByKey);
     for (const [otherKey, otherId] of Object.entries(GAME_IDENTITY)) {
       if (otherKey === claimed) continue;
       const otherName = otherId.nameRe && otherId.nameRe.test(blob);
       const otherHost = otherId.hostRe && host && otherId.hostRe.test(host);
-      const selfName = id.nameRe && id.nameRe.test(blob);
       if ((otherHost || (otherName && !selfName)) && otherKey !== inferred) {
         /* prova reassign se possibile */
         const target = gamesByKey.get(otherKey);
@@ -1331,17 +1417,27 @@ async function resolveArticleUrl(url) {
 }
 
 async function httpGet(url, opts = {}) {
-  const res = await axios.get(url, {
-    timeout: HTTP_TIMEOUT_MS,
-    headers: {
-      "User-Agent": "ViniliGameNews/1.0 (+https://viniliecaffe.it)",
-      Accept: "application/json, application/rss+xml, application/xml, text/xml, text/html;q=0.9, */*;q=0.8",
-      ...(opts.headers || {}),
-    },
-    validateStatus: (s) => s >= 200 && s < 400,
-    ...opts,
-  });
-  return res.data;
+  let lastErr = null;
+  for (let attempt = 0; attempt <= HTTP_RETRIES; attempt += 1) {
+    try {
+      const res = await axios.get(url, {
+        timeout: HTTP_TIMEOUT_MS,
+        headers: {
+          "User-Agent": "ViniliGameNews/1.0 (+https://viniliecaffe.it)",
+          Accept: "application/json, application/rss+xml, application/xml, text/xml, text/html;q=0.9, */*;q=0.8",
+          ...(opts.headers || {}),
+        },
+        validateStatus: (s) => s >= 200 && s < 400,
+        ...opts,
+      });
+      return res.data;
+    } catch (err) {
+      lastErr = err;
+      if (!isTransientHttpError(err) || attempt >= HTTP_RETRIES) break;
+      await new Promise((r) => setTimeout(r, 500 * (attempt + 1)));
+    }
+  }
+  throw lastErr;
 }
 
 function parseRssItems(xml, limit = 8) {
@@ -1448,8 +1544,20 @@ async function fetchGoogleNews(query) {
 }
 
 async function fetchFortniteApiNews() {
-  const data = await httpGet("https://fortnite-api.com/v2/news");
-  const br = data?.data?.br;
+  /* /v2/news a volte 404 intermittente; fallback BR-only */
+  let data = null;
+  try {
+    data = await httpGet("https://fortnite-api.com/v2/news");
+  } catch (err) {
+    const status = Number(err?.response?.status || 0);
+    if (status === 404 || isTransientHttpError(err)) {
+      data = await httpGet("https://fortnite-api.com/v2/news/br");
+    } else {
+      throw err;
+    }
+  }
+  const root = data?.data;
+  const br = root?.br || root;
   const list = Array.isArray(br?.motds) ? br.motds : Array.isArray(br) ? br : [];
   return list.slice(0, 8).map((m, i) => ({
     id: `fortnite-api:${m.id || m.title || i}`,
@@ -1542,14 +1650,15 @@ async function fetchFromSource(source) {
     return (items || []).map((item) => ({ ...item, sourceType: source.type }));
   } catch (err) {
     const status = Number(err?.response?.status || 0);
-    /* 429/403 tipici su feed terziari: non spammiamo i log */
-    if (status === 429 || status === 403) return [];
+    /* 429/403/404 tipici su feed terziari flaky: warn soft, no error spam */
+    if (status === 429 || status === 403 || status === 404) {
+      warnSourceFailThrottled(source, `HTTP ${status}`, true);
+      return [];
+    }
     const detail = status
       ? `HTTP ${status}`
       : err?.code || err?.message || String(err);
-    global.logger?.error?.(
-      `[GAME NEWS] source fail ${source.type}${source.url ? ` ${source.url}` : source.appId ? ` app:${source.appId}` : source.query ? ` q:${source.query}` : ""} → ${detail}`,
-    );
+    warnSourceFailThrottled(source, detail, isTransientHttpError(err) || !status);
   }
   return [];
 }

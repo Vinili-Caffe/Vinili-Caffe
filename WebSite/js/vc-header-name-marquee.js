@@ -1,80 +1,171 @@
 (function () {
   if (typeof window === "undefined") return;
-  if (window.__vcHeaderSiteNameMarqueeWired === "violPass6") return;
-  window.__vcHeaderSiteNameMarqueeWired = "violPass6";
+  var STAMP = "20261017wmResumeHover1";
+  if (window.__vcHeaderSiteNameMarqueeWired === STAMP) return;
+  window.__vcHeaderSiteNameMarqueeWired = STAMP;
 
   var timer = null;
   var syncing = false;
+  var pendingSync = false;
   var TEXT_CLASS = "vc-header-site-name__text";
   var TRACK_CLASS = "vc-header-site-name__track";
   var ROOT_CLASS = "vc-header-site-name";
 
-  /* navBrandMarqueeNoGhost1: inline !important — batte metalFace :is() (spec (0,5,5))
-     che lasciava clip-text sul __text originale → ghost iOS sopra il marquee */
-  function marqueeSolidPaint(el) {
-    if (!el || !el.style) return;
-    var light = false;
+  /* wmUlUnify2: dark+light con picco chiaro (luce marrone flat = lettere invisibili su dark) */
+  var METAL_DARK =
+    "linear-gradient(180deg,#6f4e37 0%,#8b6e4d 16%,#c4a07a 34%,#f4e9d8 50%,#c4a07a 66%,#8b6e4d 84%,#6f4e37 100%)";
+  var METAL_LIGHT =
+    "linear-gradient(180deg,#3a281c 0%,#6f4e37 16%,#a67c52 32%,#f0e0c8 50%,#a67c52 68%,#6f4e37 84%,#3a281c 100%)";
+
+  function isLightTheme() {
     try {
-      light = document.documentElement.getAttribute("data-vc-theme") === "light";
+      var html = document.documentElement;
+      if (html.getAttribute("data-vc-theme") === "light") return true;
+      if (html.getAttribute("data-vc-theme") === "dark") return false;
+      if (html.classList && html.classList.contains("vc-theme-light")) return true;
     } catch (eTh) {}
-    var fill = light ? "#2a1c14" : "#f5d6b7";
+    return false;
+  }
+
+  /* wmGradUl2: host/track senza metallo (niente ghost); __text = clip metallo inline */
+  function marqueeHostClearOne(el) {
+    if (!el || !el.style) return;
     try {
       el.style.setProperty("background", "none", "important");
       el.style.setProperty("background-image", "none", "important");
       el.style.setProperty("background-color", "transparent", "important");
       el.style.setProperty("-webkit-background-clip", "border-box", "important");
       el.style.setProperty("background-clip", "border-box", "important");
-      el.style.setProperty("color", fill, "important");
-      el.style.setProperty("-webkit-text-fill-color", fill, "important");
+      el.style.setProperty("color", "transparent", "important");
+      el.style.setProperty("-webkit-text-fill-color", "transparent", "important");
+      el.style.setProperty("text-shadow", "none", "important");
+      el.style.setProperty("filter", "none", "important");
+      el.style.setProperty("-webkit-filter", "none", "important");
+    } catch (eHost) {}
+  }
+
+  function marqueeMetalPaintOne(el) {
+    if (!el || !el.style) return;
+    var metal = isLightTheme() ? METAL_LIGHT : METAL_DARK;
+    try {
+      el.style.setProperty("background-image", metal, "important");
+      el.style.setProperty("background-color", "transparent", "important");
+      el.style.setProperty("background-size", "100% 100%", "important");
+      el.style.setProperty("-webkit-background-clip", "text", "important");
+      el.style.setProperty("background-clip", "text", "important");
+      el.style.setProperty("color", "transparent", "important");
+      el.style.setProperty("-webkit-text-fill-color", "transparent", "important");
       el.style.setProperty("text-shadow", "none", "important");
       el.style.setProperty("text-decoration", "none", "important");
       el.style.setProperty("border-bottom", "none", "important");
+      el.style.setProperty("box-shadow", "none", "important");
+      /* wmUlSingleBar1: no pad sotto metal — con clip:text vira seconda barra */
+      el.style.setProperty("padding-bottom", "0", "important");
       el.style.setProperty("filter", "none", "important");
       el.style.setProperty("-webkit-filter", "none", "important");
       el.style.setProperty("-webkit-backface-visibility", "hidden", "important");
       el.style.setProperty("backface-visibility", "hidden", "important");
+      /* wmUlUnify2: niente uppercase/tracking diversi dal non-marquee */
+      el.style.removeProperty("text-transform");
+      el.style.removeProperty("letter-spacing");
+      el.style.removeProperty("font-weight");
     } catch (ePaint) {}
+  }
+
+  /* wmDupKill1b: clear nested, poi metal solo sul leaf che ha i glyphs */
+  function marqueeClearNestedGhost(textEl) {
+    if (!textEl || !textEl.querySelectorAll) return;
+    try {
+      var nested = textEl.querySelectorAll("span, b, i, em, strong");
+      for (var i = 0; i < nested.length; i++) marqueeHostClearOne(nested[i]);
+    } catch (eNest) {}
+  }
+
+  function paintTextTree(textEl) {
+    if (!textEl) return;
+    ensureMetalTextSpans(textEl);
+  }
+
+  function repaintAllMarqueeMetal() {
+    try {
+      var hosts = document.querySelectorAll("header a.vc-header-site-name");
+      for (var h = 0; h < hosts.length; h++) {
+        var host = hosts[h];
+        var track = host.querySelector("." + TRACK_CLASS);
+        var texts = host.querySelectorAll("." + TEXT_CLASS);
+        marqueeHostClearOne(host);
+        marqueeHostClearOne(track);
+        for (var i = 0; i < texts.length; i++) paintTextTree(texts[i]);
+      }
+    } catch (eRep) {}
+  }
+
+  function marqueeSolidPaint(el) {
+    /* wmGradUl2: compat nome — host clear, __text metal (niente solid #f5d6b7) */
+    if (!el) return;
+    try {
+      if (el.classList && el.classList.contains(TEXT_CLASS)) {
+        marqueeMetalPaintOne(el);
+        return;
+      }
+      if (el.classList && (el.classList.contains(ROOT_CLASS) || el.classList.contains(TRACK_CLASS))) {
+        marqueeHostClearOne(el);
+        return;
+      }
+    } catch (eCls) {}
+    marqueeMetalPaintOne(el);
   }
 
   function clearMarqueeSolidPaint(el) {
     if (!el || !el.style) return;
+    function clr(node) {
+      if (!node || !node.style) return;
+      try {
+        node.style.removeProperty("background");
+        node.style.removeProperty("background-image");
+        node.style.removeProperty("background-color");
+        node.style.removeProperty("background-size");
+        node.style.removeProperty("-webkit-background-clip");
+        node.style.removeProperty("background-clip");
+        node.style.removeProperty("color");
+        node.style.removeProperty("-webkit-text-fill-color");
+        node.style.removeProperty("text-shadow");
+        node.style.removeProperty("text-decoration");
+        node.style.removeProperty("border-bottom");
+        node.style.removeProperty("box-shadow");
+        node.style.removeProperty("padding-bottom");
+        node.style.removeProperty("filter");
+        node.style.removeProperty("-webkit-filter");
+        node.style.removeProperty("-webkit-backface-visibility");
+        node.style.removeProperty("backface-visibility");
+      } catch (eClr) {}
+    }
+    clr(el);
     try {
-      el.style.removeProperty("background");
-      el.style.removeProperty("background-image");
-      el.style.removeProperty("background-color");
-      el.style.removeProperty("-webkit-background-clip");
-      el.style.removeProperty("background-clip");
-      el.style.removeProperty("color");
-      el.style.removeProperty("-webkit-text-fill-color");
-      el.style.removeProperty("text-shadow");
-      el.style.removeProperty("text-decoration");
-      el.style.removeProperty("border-bottom");
-      el.style.removeProperty("filter");
-      el.style.removeProperty("-webkit-filter");
-      el.style.removeProperty("-webkit-backface-visibility");
-      el.style.removeProperty("backface-visibility");
-    } catch (eClr) {}
+      var nodes = el.querySelectorAll("span, b, i, em, strong, a");
+      for (var i = 0; i < nodes.length; i++) clr(nodes[i]);
+    } catch (eDeepClr) {}
   }
 
-  function isMobileNavViewport() {
-    try {
-      if (window.matchMedia && window.matchMedia("(max-width: 1199.98px)").matches) return true;
-    } catch (e) {}
-    return false;
-  }
-
-    function wantsHeaderNavMarquee() {
-    try {
-      /* ticketsCpuHard2: niente marquee brand su /tickets/ (CPU continuo) */
-      if (document.body && document.body.classList.contains("vc-web-tickets-page")) return false;
-    } catch (eTk) {}
-    return isMobileNavViewport();
+  function wantsHeaderNavMarquee() {
+    /* wmMqAllPages1: marquee wordmark su TUTTE le pagine (anche /tickets/) */
+    return true;
   }
 
   function isDrawerBrandName(el) {
     try {
-      return Boolean(el && el.closest && el.closest(".vc-mobile-nav-drawer__brand, .vc-mobile-nav-drawer"));
+      return Boolean(el && el.closest && el.closest(".vc-mobile-nav-drawer__brand"));
     } catch (e) {
+      return false;
+    }
+  }
+
+  function isMobileNavOpen() {
+    try {
+      if (document.documentElement.classList.contains("vc-mobile-nav-open")) return true;
+      var d = document.getElementById("vc-mobile-nav-drawer");
+      return Boolean(d && d.classList.contains("vc-mobile-nav-drawer--open"));
+    } catch (eO) {
       return false;
     }
   }
@@ -87,6 +178,7 @@
     nameEl.removeAttribute("data-vc-marquee-dist");
     nameEl.removeAttribute("data-vc-marquee-cw");
     nameEl.removeAttribute("data-vc-marquee-text");
+    clearMarqueeSolidPaint(nameEl);
     if (trackEl) {
       var nodes = trackEl.querySelectorAll("." + TEXT_CLASS);
       for (var i = nodes.length - 1; i >= 1; i--) {
@@ -140,7 +232,7 @@
     var seen = typeof WeakSet === "function" ? new WeakSet() : null;
     function add(next) {
       if (!isBrandNameLink(next)) return;
-      if (isDrawerBrandName(next)) return;
+      /* drawerWmMarquee1: includi anche wordmark hamburger (prima escluso) */
       if (seen) {
         if (seen.has(next)) return;
         seen.add(next);
@@ -169,16 +261,183 @@
   }
 
   function brandFallbackText(nameEl) {
-    var fallback = "Vinili & Caffè";
+    /* wmUlHomeOnly1: stesso wordmark di homepage (non short "Vinili & Caffè") */
+    var fallback = "🎃 Vinili & Caffè 🍂 • Italia • Social • Gaming";
     try {
       if (window.VcI18n && typeof window.VcI18n.t === "function") {
         var branded = String(window.VcI18n.t("brand.name") || "").trim();
-        if (branded && branded !== "brand.name") return branded;
+        if (branded && branded !== "brand.name" && /Italia|Social|Gaming/i.test(branded)) {
+          return branded;
+        }
       }
     } catch (eBrand) {}
     var aria = String((nameEl && nameEl.getAttribute("aria-label")) || "").trim();
     if (!aria || /vai alla homepage|go to homepage|homepage/i.test(aria)) return fallback;
+    if (!/Italia|Social|Gaming/i.test(aria)) return fallback;
     return aria;
+  }
+
+  function normalizeBrandLabel(nameEl) {
+    if (!nameEl) return;
+    try {
+      if (nameEl.classList && (nameEl.classList.contains("vc-snav-item") || nameEl.classList.contains("vc-snav-row"))) {
+        return;
+      }
+      /* dashboard guild chip: non forzare brand home */
+      if (nameEl.classList && nameEl.classList.contains("vc-dashboard-header-guild-name")) return;
+      var full = brandFallbackText(nameEl);
+      var textEl =
+        nameEl.querySelector("." + TEXT_CLASS) ||
+        nameEl.querySelector(".text-emerald-300") ||
+        nameEl.querySelector("span:not(.vc-header-site-name__track)");
+      if (!textEl) return;
+      var cur = String(textEl.textContent || "").trim();
+      var looksBrand = /Vinili/i.test(cur) && /Italia|Social|Gaming/i.test(cur);
+      /* wmMqDashBrand1: Dashboard/i18n/short → stesso wordmark homepage */
+      if (!cur || !looksBrand) {
+        textEl.textContent = full;
+        try {
+          nameEl.removeAttribute("data-i18n");
+        } catch (eDi) {}
+      }
+    } catch (eNorm) {}
+  }
+
+  var METAL_CLASS = "vc-header-site-name__metal";
+
+  /* wmDupKill1c: unwrap emerald; metallo SOLO su span testo (img fuori = no ghost WebKit) */
+  function flattenTextEmerald(textEl) {
+    if (!textEl || !textEl.querySelector) return;
+    try {
+      var wraps = textEl.querySelectorAll(".text-emerald-300");
+      for (var i = 0; i < wraps.length; i++) {
+        var wrap = wraps[i];
+        if (!wrap || !wrap.parentNode) continue;
+        while (wrap.firstChild) wrap.parentNode.insertBefore(wrap.firstChild, wrap);
+        if (wrap.parentNode) wrap.parentNode.removeChild(wrap);
+      }
+    } catch (eFlat) {}
+  }
+
+  /* wmMqEmojiFree1: img/.vc-emoji MAI dentro .__metal (clip-text li appiattisce / nasconde) */
+  function isEmojiLeafNode(node) {
+    if (!node || node.nodeType !== 1) return false;
+    try {
+      if (node.tagName === "IMG") return true;
+      if (node.classList && (node.classList.contains("vc-emoji") || node.classList.contains("vc-twemoji"))) {
+        return true;
+      }
+      if (node.querySelector && node.querySelector("img.vc-emoji, img.vc-twemoji, img.emoji")) {
+        return true;
+      }
+    } catch (eLeaf) {}
+    return false;
+  }
+
+  function metalStructureOk(textEl) {
+    if (!textEl || !textEl.querySelector) return false;
+    try {
+      if (textEl.querySelector("." + METAL_CLASS + " img")) return false;
+      if (textEl.querySelector("." + METAL_CLASS + " .vc-emoji, ." + METAL_CLASS + " .vc-twemoji")) return false;
+      if (textEl.querySelector(".text-emerald-300")) return false;
+      var metals = textEl.querySelectorAll("." + METAL_CLASS);
+      if (!metals.length) return false;
+      return true;
+    } catch (eOk) {
+      return false;
+    }
+  }
+
+  function ensureMetalTextSpans(textEl) {
+    if (!textEl) return;
+    flattenTextEmerald(textEl);
+    try {
+      /* wmMqFast1: se già img+metal ok → solo repaint, niente rebuild (era reflow 300–400ms) */
+      if (metalStructureOk(textEl)) {
+        var keep = textEl.querySelectorAll("." + METAL_CLASS);
+        for (var k = 0; k < keep.length; k++) marqueeMetalPaintOne(keep[k]);
+        marqueeHostClearOne(textEl);
+        return;
+      }
+      var oldMetals = textEl.querySelectorAll("." + METAL_CLASS);
+      for (var um = 0; um < oldMetals.length; um++) {
+        var wrap = oldMetals[um];
+        if (!wrap || !wrap.parentNode) continue;
+        while (wrap.firstChild) wrap.parentNode.insertBefore(wrap.firstChild, wrap);
+        if (wrap.parentNode) wrap.parentNode.removeChild(wrap);
+      }
+      var nodes = [];
+      for (var i = 0; i < textEl.childNodes.length; i++) nodes.push(textEl.childNodes[i]);
+      while (textEl.firstChild) textEl.removeChild(textEl.firstChild);
+      var buf = null;
+      function flushBuf() {
+        if (!buf || !String(buf.textContent || "").length) {
+          buf = null;
+          return;
+        }
+        textEl.appendChild(buf);
+        marqueeMetalPaintOne(buf);
+        buf = null;
+      }
+      for (var n = 0; n < nodes.length; n++) {
+        var node = nodes[n];
+        if (!node) continue;
+        if (isEmojiLeafNode(node)) {
+          flushBuf();
+          textEl.appendChild(node);
+          continue;
+        }
+        if (!buf) {
+          buf = document.createElement("span");
+          buf.className = METAL_CLASS;
+        }
+        buf.appendChild(node);
+      }
+      flushBuf();
+      marqueeHostClearOne(textEl);
+    } catch (eMetal) {
+      try {
+        marqueeMetalPaintOne(textEl);
+      } catch (ePaint) {}
+    }
+  }
+
+  /* wmMqFast1: niente coda __vcLight (gap 320ms) per avvio marquee */
+  function mqSoon(fn, delayMs) {
+    var d = Math.max(0, Number(delayMs) || 0);
+    window.setTimeout(function () {
+      try {
+        fn();
+      } catch (eMq) {}
+    }, d);
+  }
+
+  /* wmDupKill1e: stesso split img/testo sul wordmark footer (ghost WebKit) */
+  var footerWmSyncing = false;
+  function syncFooterWordmark() {
+    if (footerWmSyncing) return;
+    footerWmSyncing = true;
+    try {
+      var nodes = document.querySelectorAll("footer .vc-premium-footer__wordmark");
+      for (var i = 0; i < nodes.length; i++) {
+        var el = nodes[i];
+        /* skip se già ok: img sibling di metal, zero img dentro metal */
+        try {
+          var bad = el.querySelector("." + METAL_CLASS + " img");
+          var hasMetal = el.querySelector("." + METAL_CLASS);
+          if (hasMetal && !bad) {
+            var metalsOk = el.querySelectorAll("." + METAL_CLASS);
+            for (var mo = 0; mo < metalsOk.length; mo++) marqueeMetalPaintOne(metalsOk[mo]);
+            marqueeHostClearOne(el);
+            continue;
+          }
+        } catch (eSkip) {}
+        ensureMetalTextSpans(el);
+      }
+    } catch (eFoot) {
+    } finally {
+      footerWmSyncing = false;
+    }
   }
 
   function ensureStructure(nameEl) {
@@ -203,6 +462,7 @@
       for (var sj = 0; sj < stray.length; sj++) {
         textEl.appendChild(stray[sj]);
       }
+      flattenTextEmerald(textEl);
       if (!String(textEl.textContent || "").trim()) {
         textEl.textContent = brandFallbackText(nameEl);
       }
@@ -213,6 +473,7 @@
     var text = document.createElement("span");
     text.className = TEXT_CLASS;
     while (nameEl.firstChild) text.appendChild(nameEl.firstChild);
+    flattenTextEmerald(text);
     if (!String(text.textContent || "").trim()) {
       text.textContent = brandFallbackText(nameEl);
     }
@@ -221,41 +482,56 @@
     return { track: track, text: text };
   }
 
+  /* wmDupKill1b: metallo SOLO sull'elemento che ha i text node (emerald o __text).
+     Clip sul parent + fill transparent sul child = ghost WebKit. */
+  function applySingleMetalLayer(nameEl, trackEl, textEl) {
+    marqueeHostClearOne(nameEl);
+    marqueeHostClearOne(trackEl);
+    paintTextTree(textEl);
+  }
+
   function syncOne(nameEl) {
+    normalizeBrandLabel(nameEl);
     var parts = ensureStructure(nameEl);
     if (!parts || !parts.track || !parts.text) return;
     var trackEl = parts.track;
     var textEl = parts.text;
+    normalizeBrandLabel(nameEl);
     var textNodes = trackEl.querySelectorAll("." + TEXT_CLASS);
     var nextText = String(textEl.textContent || "").trim();
 
-    // Menu hamburger aperto: brand statico, niente marquee.
-    if (isDrawerBrandName(nameEl)) {
-      clearMarquee(nameEl, trackEl, textEl);
-      return;
+    /* drawerWmMarquee2: wordmark hamburger SEMPRE marquee (come navbar);
+       con width ampia preMeasure “ci sta” → niente anim (bug live confessionale) */
+    var drawerBrand = isDrawerBrandName(nameEl);
+    if (drawerBrand) {
+      stripTruncateClass(nameEl);
+      try {
+        nameEl.style.maxWidth = "100%";
+        nameEl.style.minWidth = "0";
+        nameEl.style.overflow = "hidden";
+      } catch (eDw) {}
     }
 
-    /* handlerPerf2: desktop = solo struttura, zero measure/reflow */
     if (!wantsHeaderNavMarquee()) {
       if (nameEl.classList.contains("is-marquee")) clearMarquee(nameEl, trackEl, textEl);
+      applySingleMetalLayer(nameEl, trackEl, textEl);
       return;
     }
 
-    /* navBrandMarqueeAlways1: su telefono marquee sempre attivo (effetto brand),
-       non spegnere se il testo “ci sta”. */
+    /* mqNoRestart1: clone+dist ok → ZERO touch (metal/emoji/RO facevano ripartire l'anim)
+       drawerWmMarquee2: se drawer aperto senza is-marquee, non early-return da altri host */
     if (nameEl.classList.contains("is-marquee")) {
-      var prevText = String(nameEl.getAttribute("data-vc-marquee-text") || "");
       var hasClone = trackEl.querySelector("." + TEXT_CLASS + ".is-clone");
       var stored = Number(nameEl.getAttribute("data-vc-marquee-dist") || 0);
-      var prevCw = Number(nameEl.getAttribute("data-vc-marquee-cw") || 0);
-      /* handlerPerf2: solo clientWidth (no getBCR / getComputedStyle in hot path) */
-      var liveCw = nameEl.clientWidth || 0;
-      if (prevText === nextText && hasClone && Number.isFinite(stored) && stored > 0) {
-        if (liveCw <= 0 || Math.abs(liveCw - prevCw) <= 12) {
-          return;
-        }
+      /* wmMqEmojiFree1: dist < 120 = misura rotta (font-size:0) → rebuild */
+      if (hasClone && Number.isFinite(stored) && stored >= 120) {
+        if (nextText) nameEl.setAttribute("data-vc-marquee-text", nextText);
+        return;
       }
     }
+
+    /* metal solo se serve setup/rebuild */
+    applySingleMetalLayer(nameEl, trackEl, textEl);
 
     nameEl.classList.remove("is-marquee");
     nameEl.style.removeProperty("--vc-marquee-distance");
@@ -268,47 +544,99 @@
     textEl.style.paddingInlineEnd = "";
     trackEl.style.transform = "";
 
-    /* handlerPerf2 / violPass6: una sola lettura layout — niente getComputedStyle */
-    var containerW = nameEl.clientWidth || 0;
-    if (containerW <= 0) {
-      window.setTimeout(function () {
-        syncOne(nameEl);
-      }, 180);
-      return;
+    /* wmMqFast1: is-marquee SYNC con distanza approx — measure refine async (no __vcLight) */
+    try {
+      var containerW = 0;
+      try {
+        containerW = Math.floor(Number(nameEl.getAttribute("data-vc-mq-cw") || 0));
+      } catch (eCwA) {}
+      if (!(containerW > 8)) {
+        try {
+          containerW = nameEl.clientWidth || 0;
+          if (containerW > 8) nameEl.setAttribute("data-vc-mq-cw", String(containerW));
+        } catch (eCwB) {}
+      }
+      if (!(containerW > 8)) {
+        try {
+          var bar = nameEl.closest && nameEl.closest(".vc-header-bar, header");
+          if (bar) containerW = Math.floor((bar.clientWidth || 0) * 0.45) || 0;
+        } catch (eCwC) {}
+      }
+      if (!(containerW > 8)) containerW = 220;
+      var approxSeg = Math.max(180, Math.min(640, String(nextText || "").length * 10 + 40));
+      /* misura PRIMA di is-marquee (host font-size:0 falsava scrollWidth → 36px / lento) */
+      var preMeasure = 0;
+      try {
+        preMeasure = measureSegmentWidth(trackEl, textEl) || 0;
+      } catch (ePre) {}
+      if (preMeasure > 0 && preMeasure < approxSeg * 0.55) preMeasure = 0;
+      /* wmMqDashBrand1: se il testo ci sta, niente marquee (evita "Dashboard" lento)
+         drawerWmMarquee2: nel drawer forza sempre (testo brand lungo come navbar) */
+      if (!drawerBrand && preMeasure > 0 && preMeasure <= containerW - 6) {
+        applySingleMetalLayer(nameEl, trackEl, textEl);
+        return;
+      }
+      if (drawerBrand && !(containerW > 40)) {
+        try {
+          var brandRow = nameEl.closest && nameEl.closest(".vc-mobile-nav-drawer__brand");
+          if (brandRow) containerW = Math.max(120, Math.floor((brandRow.clientWidth || 0) * 0.72) || 0);
+        } catch (eDwCw) {}
+        if (!(containerW > 40)) containerW = 180;
+      }
+      var startSeg = Math.max(approxSeg, preMeasure || 0);
+      var clone = textEl.cloneNode(true);
+      clone.setAttribute("aria-hidden", "true");
+      clone.classList.add("is-clone");
+      textEl.style.paddingInlineEnd = "2rem";
+      paintTextTree(clone);
+      trackEl.appendChild(clone);
+      nameEl.classList.add("is-marquee");
+      nameEl.style.setProperty("--vc-marquee-distance", startSeg + "px", "important");
+      /* wmMqDashBrand1: ~26px/s come home (era 40px/s clamp 12s → loop corto/lento su label) */
+      var dur0 = Math.max(5, Math.min(18, startSeg / 26));
+      nameEl.style.setProperty("--vc-marquee-duration", dur0.toFixed(1) + "s", "important");
+      nameEl.setAttribute("data-vc-marquee-text", nextText);
+      nameEl.setAttribute("data-vc-marquee-dist", String(startSeg));
+      nameEl.setAttribute("data-vc-marquee-cw", String(containerW));
+      nameEl.setAttribute("data-vc-wm-mq", STAMP);
+      /* mqNoRestart1: niente refine --vc-marquee-* post-start (var change = CSS anim restart mid-spin) */
+      /* post-twemoji: metal/emoji SENZA toccare track/is-marquee (niente restart) */
+      mqSoon(function () {
+        try {
+          if (!nameEl.classList.contains("is-marquee")) return;
+          ensureMetalTextSpans(textEl);
+          if (clone && clone.isConnected) ensureMetalTextSpans(clone);
+          if (window.VcEmojiRender && typeof window.VcEmojiRender.enhance === "function") {
+            window.VcEmojiRender.enhance(textEl);
+            if (clone && clone.isConnected) window.VcEmojiRender.enhance(clone);
+          }
+        } catch (ePostEmoji) {}
+      }, 480);
+    } catch (eSync1) {}
+  }
+
+  function finishSyncing(root) {
+    syncing = false;
+    if (pendingSync) {
+      pendingSync = false;
+      schedule(root || document);
     }
-
-    /* Always-on su telefono: niente early-return se il testo ci sta. */
-    var clone = textEl.cloneNode(true);
-    clone.setAttribute("aria-hidden", "true");
-    clone.classList.add("is-clone");
-    textEl.style.paddingInlineEnd = "2rem";
-    /* navBrandMarqueeNoGhost1: solid paint PRIMA dell'anim — no metal clip-text ghost */
-    marqueeSolidPaint(textEl);
-    marqueeSolidPaint(clone);
-    trackEl.appendChild(clone);
-
-    // Misura con layout marquee attivo ma animazione spenta, così la distanza è stabile.
-    nameEl.classList.add("is-marquee");
-    trackEl.style.animation = "none";
-    var segmentW = measureSegmentWidth(trackEl, textEl);
-    trackEl.style.animation = "";
-    nameEl.style.setProperty("--vc-marquee-distance", segmentW + "px", "important");
-    var duration = Math.max(8, Math.min(30, segmentW / 26));
-    nameEl.style.setProperty("--vc-marquee-duration", duration.toFixed(1) + "s", "important");
-    nameEl.setAttribute("data-vc-marquee-text", nextText);
-    nameEl.setAttribute("data-vc-marquee-dist", String(segmentW));
-    nameEl.setAttribute("data-vc-marquee-cw", String(containerW));
-    /* re-assert dopo class/is-marquee (theme/css possono ripingere) */
-    marqueeSolidPaint(textEl);
-    marqueeSolidPaint(clone);
   }
 
   function syncAll(root) {
-    if (syncing) return;
+    if (syncing) {
+      pendingSync = true;
+      return;
+    }
     syncing = true;
     try {
       var links = collectBrandNameLinks(root);
-      for (var i = 0; i < links.length; i++) syncOne(links[i]);
+      /* wmMqFast1: tutti i brand sync (niente gap 24ms — ritardava is-marquee) */
+      for (var bi = 0; bi < links.length; bi++) {
+        try {
+          syncOne(links[bi]);
+        } catch (eOne) {}
+      }
       /* handlerPerf2: niente Mo/Ro refresh a ogni sync (era ~700ms+ Violation) */
       var n = links.length;
       if (window.__vcHeaderSiteNameLinkCount !== n) {
@@ -324,34 +652,58 @@
           } catch (eRefRo) {}
         }
       }
+    } catch (eSyncAll) {
     } finally {
-      syncing = false;
+      finishSyncing(root);
     }
   }
 
   function schedule(root) {
-    if (syncing) return;
+    if (syncing) {
+      pendingSync = true;
+      return;
+    }
     try {
-      if (document.hidden || document.visibilityState === "hidden") return;
+      if (document.hidden || document.visibilityState === "hidden") {
+        /* fxStable1: hidden defer — non droppare il kick (tab/boot race) */
+        if (!window.__vcWmMqHiddenKick) {
+          window.__vcWmMqHiddenKick = 1;
+          document.addEventListener(
+            "visibilitychange",
+            function onVis() {
+              if (document.hidden) return;
+              window.__vcWmMqHiddenKick = 0;
+              document.removeEventListener("visibilitychange", onVis);
+              schedule(root || document);
+            },
+            { passive: true }
+          );
+        }
+        return;
+      }
     } catch (eHid) {}
     if (timer) clearTimeout(timer);
+    /* violKillConsole1: mai 0ms — setTimeout(0)+syncAll veniva attribuito al visibility/DCL */
     timer = setTimeout(function () {
       timer = null;
       try {
         if (document.hidden || document.visibilityState === "hidden") return;
       } catch (eHid2) {}
-      function run() {
-        syncAll(root);
-      }
-      /* handlerPerf2: idle > rAF (niente Violation requestAnimationFrame handler) */
       try {
         if (typeof window.requestIdleCallback === "function") {
-          window.requestIdleCallback(run, { timeout: 700 });
+          window.requestIdleCallback(
+            function () {
+              try {
+                syncAll(root);
+              } catch (eIdle) {}
+            },
+            { timeout: 220 },
+          );
           return;
         }
-      } catch (eIdle) {}
-      window.setTimeout(run, 0);
-    }, 380);
+      } catch (eRic) {}
+      syncAll(root);
+    }, 64);
   }
 
   function observeBrandHosts() {
@@ -388,31 +740,227 @@
   }
 
   window.__vcSyncHeaderSiteNameMarquee = function (root) {
-    if (timer) {
-      clearTimeout(timer);
-      timer = null;
-    }
-    syncAll(root || document);
+    /* violKillVis1: mai syncAll sync entro visibility/callers (era Violation 2s+) */
+    schedule(root || document);
   };
 
+  function brandMarqueeAlreadyRunning() {
+    try {
+      return !!document.querySelector(
+        "a.vc-header-site-name.is-marquee .vc-header-site-name__text.is-clone",
+      );
+    } catch (eBr) {
+      return false;
+    }
+  }
+
   function wire() {
-    window.addEventListener("resize", function () {
-      schedule(document);
-    }, { passive: true });
-    if (window.visualViewport) {
-      window.visualViewport.addEventListener("resize", function () {
+    window.addEventListener(
+      "resize",
+      function () {
+        if (brandMarqueeAlreadyRunning()) return;
         schedule(document);
-      }, { passive: true });
+      },
+      { passive: true },
+    );
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener(
+        "resize",
+        function () {
+          if (brandMarqueeAlreadyRunning()) return;
+          schedule(document);
+        },
+        { passive: true },
+      );
     }
     document.addEventListener("visibilitychange", function () {
-      if (!document.hidden) schedule(document);
+      /* wmResumeHover1: al ritorno FG ri-arma play-state (anche se clone già lì);
+         schedule solo se marquee non montato — early-return prima lasciava pause stuck. */
+      if (document.hidden) return;
+      window.setTimeout(function () {
+        try {
+          resumeBrandTracksIfActive();
+          if (brandMarqueeAlreadyRunning()) return;
+          schedule(document);
+        } catch (eVis) {}
+      }, 120);
     });
     document.addEventListener("vc:page-cine-ready", function () {
+      if (brandMarqueeAlreadyRunning()) return;
       schedule(document);
     });
+    document.addEventListener("vc:soft-fx-ready", function () {
+      /* mqNoRestart1: soft-fx late non deve ripartire marquee già in moto */
+      if (brandMarqueeAlreadyRunning()) return;
+      schedule(document);
+    });
+    document.addEventListener("vc:chrome-ready", function () {
+      if (brandMarqueeAlreadyRunning()) return;
+      schedule(document);
+    });
+    /* drawerWmMarquee4: sync UNA volta all’apertura drawer —
+       niente observe su <html> (class thrash → 200+ restart → transform stuck) */
+    try {
+      if (typeof MutationObserver === "function") {
+        try {
+          if (window.__vcDrawerWmMqMo && window.__vcDrawerWmMqMo.disconnect) {
+            window.__vcDrawerWmMqMo.disconnect();
+          }
+        } catch (eDisc) {}
+        window.__vcDrawerWmMqMo = null;
+        var drawerWasOpen = isMobileNavOpen();
+        var drawerSyncTimer = 0;
+        function syncDrawerBrandOnce(forceRebuild) {
+          try {
+            var drawerNames = document.querySelectorAll(
+              ".vc-mobile-nav-drawer__brand a.vc-header-site-name",
+            );
+            for (var di = 0; di < drawerNames.length; di++) {
+              try {
+                var el = drawerNames[di];
+                if (!forceRebuild && el.classList.contains("is-marquee")) {
+                  var hasClone = el.querySelector("." + TEXT_CLASS + ".is-clone");
+                  var stored = Number(el.getAttribute("data-vc-marquee-dist") || 0);
+                  if (hasClone && Number.isFinite(stored) && stored >= 120) continue;
+                }
+                el.classList.remove("is-marquee");
+                el.removeAttribute("data-vc-marquee-dist");
+                syncOne(el);
+              } catch (eOneD) {}
+            }
+          } catch (eDs) {}
+        }
+        var drawerMo = new MutationObserver(function () {
+          var open = isMobileNavOpen();
+          if (open === drawerWasOpen) return;
+          drawerWasOpen = open;
+          if (!open) return;
+          if (drawerSyncTimer) {
+            try {
+              clearTimeout(drawerSyncTimer);
+            } catch (eClr) {}
+            drawerSyncTimer = 0;
+          }
+          drawerSyncTimer = window.setTimeout(function () {
+            drawerSyncTimer = 0;
+            if (!isMobileNavOpen()) return;
+            syncDrawerBrandOnce(true);
+          }, 120);
+        });
+        var drawerEl = document.getElementById("vc-mobile-nav-drawer");
+        if (drawerEl) {
+          drawerMo.observe(drawerEl, { attributes: true, attributeFilter: ["class"] });
+        }
+        window.__vcDrawerWmMqMo = drawerMo;
+        window.__vcDrawerWmMqSync = syncDrawerBrandOnce;
+      }
+    } catch (eDmo) {}
     document.addEventListener("vc:langchange", function () {
-      schedule(document);
+      window.setTimeout(function () {
+        try {
+          schedule(document);
+        } catch (eL) {}
+      }, 48);
     });
+    document.addEventListener("vc:themechange", function () {
+      window.setTimeout(function () {
+        try {
+          repaintAllMarqueeMetal();
+          schedule(document);
+        } catch (eTh) {}
+      }, 48);
+    });
+    /* mqSettlePause1 + wmResumeHover1: settle/BG → pause; bustle/FG → running.
+       Sempre clear transform:0 (freeze BG) + play() su getAnimations — altrimenti stuck. */
+    function setBrandTracksIdle(pause) {
+      try {
+        var tracks = document.querySelectorAll(
+          "header a.vc-header-site-name.is-marquee .vc-header-site-name__track, header .vc-header-promo-btn__track, .vc-mobile-nav-drawer__brand a.vc-header-site-name.is-marquee .vc-header-site-name__track",
+        );
+        for (var i = 0; i < tracks.length; i++) {
+          var tr = tracks[i];
+          if (!tr || !tr.style) continue;
+          if (pause) {
+            tr.style.setProperty("animation-play-state", "paused", "important");
+            tr.style.setProperty("-webkit-animation-play-state", "paused", "important");
+            tr.style.setProperty("will-change", "auto", "important");
+            try {
+              if (tr.__vcMqWaapi && typeof tr.__vcMqWaapi.pause === "function") tr.__vcMqWaapi.pause();
+            } catch (eWp) {}
+          } else {
+            try {
+              tr.style.removeProperty("transform");
+            } catch (eTx) {}
+            tr.style.setProperty("animation-play-state", "running", "important");
+            tr.style.setProperty("-webkit-animation-play-state", "running", "important");
+            tr.style.setProperty("will-change", "transform", "important");
+            try {
+              if (tr.__vcMqWaapi && typeof tr.__vcMqWaapi.play === "function") tr.__vcMqWaapi.play();
+            } catch (eWr) {}
+            try {
+              var list = tr.getAnimations ? tr.getAnimations() : [];
+              for (var ai = 0; ai < list.length; ai++) {
+                try {
+                  if (typeof list[ai].play === "function") list[ai].play();
+                } catch (eA) {}
+              }
+            } catch (eGa) {}
+          }
+        }
+      } catch (eIdle) {}
+    }
+    function resumeBrandTracksIfActive() {
+      try {
+        if (document.hidden || document.visibilityState === "hidden") return;
+      } catch (eH) {}
+      try {
+        if (document.documentElement.classList.contains("vc-cpu-settle")) return;
+      } catch (eS) {}
+      setBrandTracksIdle(false);
+    }
+    document.addEventListener(
+      "vc:cpu-settle",
+      function () {
+        setBrandTracksIdle(true);
+      },
+      false,
+    );
+    document.addEventListener(
+      "vc:cpu-sleep",
+      function () {
+        setBrandTracksIdle(true);
+      },
+      false,
+    );
+    document.addEventListener(
+      "vc:cpu-bustle",
+      function () {
+        try {
+          if (document.hidden) return;
+        } catch (eH) {}
+        setBrandTracksIdle(false);
+      },
+      false,
+    );
+    document.addEventListener(
+      "vc:cpu-wake",
+      function () {
+        resumeBrandTracksIfActive();
+      },
+      false,
+    );
+    try {
+      if (typeof MutationObserver === "function" && !window.__vcHeaderWmThemeMo) {
+        var themeMo = new MutationObserver(function () {
+          repaintAllMarqueeMetal();
+        });
+        themeMo.observe(document.documentElement, {
+          attributes: true,
+          attributeFilter: ["data-vc-theme", "class"],
+        });
+        window.__vcHeaderWmThemeMo = themeMo;
+      }
+    } catch (eThemeMo) {}
     try {
       if (document.fonts && document.fonts.ready && typeof document.fonts.ready.then === "function") {
         document.fonts.ready.then(function () {
@@ -423,6 +971,11 @@
     try {
       if (typeof ResizeObserver === "function") {
         var ro = new ResizeObserver(function () {
+          try {
+            if (document.querySelector("a.vc-header-site-name.is-marquee .vc-header-site-name__text.is-clone")) {
+              return;
+            }
+          } catch (eRoSkip) {}
           schedule(document);
         });
         function observeBars() {
@@ -457,16 +1010,62 @@
         window.__vcHeaderSiteNameMoRefresh = observeLinks;
       }
     } catch (eMo) {}
-    /* handlerPerf1: meno pass boot marquee + navBrandMarqueeAlways1: dopo soft-fx/css */
+    /* wmMqFast1: kick sync subito + retry brevi finché brand/coda ok */
+    syncAll(document);
+    var bootTry = 0;
+    function bootKick() {
+      schedule(document);
+      bootTry += 1;
+      var hasMq = false;
+      try {
+        hasMq = !!document.querySelector("a.vc-header-site-name.is-marquee");
+      } catch (eHas) {}
+      if (!hasMq && bootTry < 30) window.setTimeout(bootKick, 40);
+    }
+    window.setTimeout(bootKick, 0);
     setTimeout(function () {
       schedule(document);
-    }, 200);
+      syncFooterWordmark();
+    }, 120);
     setTimeout(function () {
       schedule(document);
+      syncFooterWordmark();
     }, 900);
     setTimeout(function () {
+      /* post-twemoji: ripulli img fuori da .__metal */
+      syncFooterWordmark();
+    }, 2800);
+    document.addEventListener("vc:langchange", function () {
+      syncFooterWordmark();
       schedule(document);
-    }, 2200);
+    });
+    document.addEventListener("vc:themechange", function () {
+      syncFooterWordmark();
+      repaintAllMarqueeMetal();
+    });
+    try {
+      if (typeof MutationObserver === "function" && !window.__vcFooterWmMo) {
+        var footTimer = 0;
+        var footMo = new MutationObserver(function () {
+          if (footTimer) return;
+          footTimer = window.setTimeout(function () {
+            footTimer = 0;
+            syncFooterWordmark();
+          }, 280);
+        });
+        function observeFoot() {
+          var foots = document.querySelectorAll("footer .vc-premium-footer__wordmark");
+          for (var fi = 0; fi < foots.length; fi++) {
+            try {
+              footMo.observe(foots[fi], { childList: true, subtree: true });
+            } catch (eFo) {}
+          }
+        }
+        observeFoot();
+        window.__vcFooterWmMo = footMo;
+        window.setTimeout(observeFoot, 1200);
+      }
+    } catch (eFootMo) {}
     try {
       var soft = document.getElementById("vc-soft-fx-css");
       if (soft) {
@@ -481,10 +1080,18 @@
     } catch (eSoft) {}
   }
 
+  function wireDeferred() {
+    /* violKillConsole1: wire fuori dal DCL sync (era Violation ~200ms) */
+    window.setTimeout(function () {
+      try {
+        wire();
+      } catch (eW) {}
+    }, 0);
+  }
   if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", wire);
+    document.addEventListener("DOMContentLoaded", wireDeferred, { once: true });
   } else {
-    wire();
+    wireDeferred();
   }
 })();
 
@@ -555,80 +1162,72 @@
     var trackEl = parts.track;
     var textEl = parts.text;
     var textNodes = trackEl.querySelectorAll("." + TEXT_CLASS);
+    var rawText = String(textEl.textContent || "")
+      .replace(/\s+/g, " ")
+      .trim();
+
+    /* mqNoRestart1: già in marquee con stesso testo → non smontare (resize/RO ripartivano) */
+    try {
+      if (
+        el.classList.contains("is-marquee") &&
+        trackEl.querySelector("." + TEXT_CLASS + ".is-clone")
+      ) {
+        var prevSig = String(el.getAttribute("data-vc-marquee-sig") || "");
+        var prevText = prevSig ? prevSig.split("|")[0] : "";
+        if (!prevText || prevText === rawText) {
+          if (!prevSig && rawText) el.setAttribute("data-vc-marquee-sig", rawText + "|ok");
+          return;
+        }
+      }
+    } catch (eStable) {}
 
     el.classList.remove("is-marquee");
     el.style.removeProperty("--vc-marquee-distance");
     el.style.removeProperty("--vc-marquee-duration");
+    el.removeAttribute("data-vc-marquee-sig");
     for (var i = textNodes.length - 1; i >= 1; i -= 1) {
       textNodes[i].parentNode.removeChild(textNodes[i]);
     }
     textEl.style.paddingInlineEnd = "";
     trackEl.style.transform = "";
 
+    /* violKillReflow1: niente getComputedStyle + offsetWidth children (Forced reflow) */
     var containerW = el.clientWidth || 0;
-    var person = el.closest && el.closest(".vc-home-staff-roster__person");
-    if (person) {
-      var pad = 0;
-      var gap = 0;
+    if (containerW <= 0) {
       try {
-        var pcs = window.getComputedStyle(person);
-        pad = (parseFloat(pcs.paddingLeft) || 0) + (parseFloat(pcs.paddingRight) || 0);
-        gap = parseFloat(pcs.columnGap || pcs.gap) || 0;
-      } catch (ePcs) {}
-      var used = 0;
-      var extra = 0;
-      for (var pi = 0; pi < person.children.length; pi += 1) {
-        var child = person.children[pi];
-        if (child === el) continue;
-        /* violPass2: offsetWidth invece di getBCR */
-        used += child.offsetWidth || 0;
-        extra += 1;
-      }
-      var avail = Math.floor(person.clientWidth - pad - used - gap * extra);
-      if (avail > 0) containerW = avail;
+        var person = el.closest && el.closest(".vc-home-staff-roster__person");
+        if (person) containerW = Math.floor((person.clientWidth || 0) * 0.55) || 0;
+      } catch (ePers) {}
     }
     if (containerW <= 0) return;
 
-    var probe = document.createElement("span");
-    probe.textContent = textEl.textContent || "";
-    probe.setAttribute("aria-hidden", "true");
-    try {
-      var cs = window.getComputedStyle(textEl);
-      probe.style.cssText =
-        "position:absolute;left:-99999px;top:0;visibility:hidden;white-space:nowrap;display:inline-block;pointer-events:none;" +
-        "font:" +
-        cs.font +
-        ";letter-spacing:" +
-        cs.letterSpacing +
-        ";text-transform:" +
-        cs.textTransform +
-        ";";
-    } catch (eProbe) {
-      probe.style.cssText =
-        "position:absolute;left:-99999px;top:0;visibility:hidden;white-space:nowrap;display:inline-block;";
-    }
-    document.body.appendChild(probe);
-    var textW = Math.ceil(probe.scrollWidth || probe.offsetWidth || 0);
-    probe.parentNode.removeChild(probe);
-
-    if (textW <= containerW + 2) return;
-    if (prefersReducedMotion()) {
-      el.style.textOverflow = "ellipsis";
-      return;
-    }
-
-    var clone = textEl.cloneNode(true);
-    clone.setAttribute("aria-hidden", "true");
-    clone.classList.add("is-clone");
-    trackEl.appendChild(clone);
-    textEl.style.paddingInlineEnd = "1.6rem";
-
-    var segmentW = Math.ceil(textEl.scrollWidth || textW);
-    if (segmentW <= 0) segmentW = textW + 26;
-    el.style.setProperty("--vc-marquee-distance", segmentW + "px");
-    var duration = Math.max(7, Math.min(22, segmentW / 28));
-    el.style.setProperty("--vc-marquee-duration", duration.toFixed(1) + "s");
-    el.classList.add("is-marquee");
+    /* violKillCue1: data-marquee senza rAF */
+    window.setTimeout(function () {
+      try {
+        if (!el.isConnected) return;
+        /* se un altro pass ha già armato, non rifare */
+        if (el.classList.contains("is-marquee") && trackEl.querySelector("." + TEXT_CLASS + ".is-clone")) {
+          return;
+        }
+        var textW = Math.ceil(textEl.scrollWidth || 0);
+        if (textW <= containerW + 2) return;
+        if (prefersReducedMotion()) {
+          el.style.textOverflow = "ellipsis";
+          return;
+        }
+        var clone = textEl.cloneNode(true);
+        clone.setAttribute("aria-hidden", "true");
+        clone.classList.add("is-clone");
+        trackEl.appendChild(clone);
+        textEl.style.paddingInlineEnd = "1.6rem";
+        var segmentW = Math.ceil(textW + 26);
+        el.style.setProperty("--vc-marquee-distance", segmentW + "px");
+        var duration = Math.max(6, Math.min(12, segmentW / 40));
+        el.style.setProperty("--vc-marquee-duration", duration.toFixed(1) + "s");
+        el.setAttribute("data-vc-marquee-sig", rawText + "|" + segmentW);
+        el.classList.add("is-marquee");
+      } catch (eDataMq) {}
+    }, 0);
   }
 
   function syncAll(root) {
@@ -646,19 +1245,13 @@
       try {
         if (document.hidden || document.visibilityState === "hidden") return;
       } catch (eHid2) {}
-      /* violPass2: idle invece di rAF (era ~153ms Violation requestAnimationFrame) */
+      /* violKillIdle1: setTimeout — rIC({timeout}) → Violation idle */
       function run() {
         try {
           syncAll(root);
         } catch (eSync) {}
       }
-      try {
-        if (typeof window.requestIdleCallback === "function") {
-          window.requestIdleCallback(run, { timeout: 900 });
-          return;
-        }
-      } catch (eIdle) {}
-      window.setTimeout(run, 0);
+      window.setTimeout(run, 48); /* violKillRest1 */
     }, 220);
   }
 
@@ -683,7 +1276,12 @@
       }, { passive: true });
     }
     document.addEventListener("visibilitychange", function () {
-      if (!document.hidden) schedule(document);
+      if (document.hidden) return;
+      window.setTimeout(function () {
+        try {
+          schedule(document);
+        } catch (eVis2) {}
+      }, 120);
     });
     try {
       if (typeof MutationObserver === "function") {
@@ -718,11 +1316,20 @@
     }, 220);
   }
 
+  function wireNameDeferred() {
+    window.setTimeout(function () {
+      try {
+        wire();
+      } catch (eWn) {}
+    }, 0);
+  }
   if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", wire);
+    document.addEventListener("DOMContentLoaded", wireNameDeferred, { once: true });
   } else {
-    wire();
+    wireNameDeferred();
   }
 })();
 /* handlerPerf1 marker */
 /* violPass2 */
+/* violKillConsole1 */
+/* mqNoRestart1 */

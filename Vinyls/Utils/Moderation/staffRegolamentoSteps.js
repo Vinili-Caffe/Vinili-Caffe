@@ -14,6 +14,12 @@ const STAFF_REGOLA_STEPS = {
   ],
   "1.4": [{ type: "ban" }],
   "1.5": [{ type: "ban" }],
+  "1.6": [
+    { type: "mute", duration: "12h" },
+    { type: "mute", duration: "24h" },
+    { type: "mute", duration: "48h" },
+    { type: "ban" },
+  ],
   "2.1": [{ type: "mute", duration: "24h" }, { type: "ban" }],
   "2.2": [{ type: "ban" }],
   "2.3": [

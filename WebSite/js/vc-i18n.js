@@ -1,4 +1,8 @@
 (function () {
+  var VC_I18N_VER = "20261014perksIcoNoFlash1";
+  try {
+    if (window.VcI18n && window.VcI18n.__vcVer === VC_I18N_VER) return;
+  } catch (eDup) {}
   var STORAGE_KEY = "vc_site_lang";
   /* allLangs1: IT + EN curated + auto-translated locales from i18n:sync */
   var SUPPORTED = [
@@ -105,7 +109,7 @@
       "nav.donations": "Donazioni",
       "nav.perks": "Perks",
       "nav.community": "Community",
-      "nav.users": "Users",
+      "nav.users": "Classifiche",
       "nav.roles": "Ruoli",
       "nav.bacheca": "Bacheca",
       "nav.rules": "Regole",
@@ -113,12 +117,31 @@
       "nav.requests": "Richieste",
       "nav.unban": "Unban",
       "nav.applications": "Candidature",
+      "nav.appeals": "Appelli",
       "nav.suggestions": "Feedback",
       "nav.confessionale": "Confessionale",
       "nav.tickets": "Tickets",
       "nav.status": "Status",
       "nav.premium": "Premium",
       "nav.staff": "Staff",
+      "nav.notifications": "Notifiche",
+      "nav.privacy": "Privacy",
+      "nav.terms": "Termini",
+      "nav.cookie": "Cookie",
+      "nav.copyright": "Copyright",
+      "nav.yourData": "I tuoi dati",
+      "nav.customize": "Personalizza",
+      "nav.profile": "Profilo",
+      "nav.dashboard": "Dashboard",
+      "nav.puzzle": "Puzzle",
+      "nav.movieNight": "Serata film",
+      "boards.joinOn": "Entra su ",
+      "boards.voteTitle": "Vota scheda",
+      /* askReviewI18n1: messaggio “Chiedi una recensione” in IT (non fallback EN) */
+      "boards.ownerAskReview": "Chiedi una recensione",
+      "boards.ownerAskReviewCopied": "Messaggio copiato.",
+      "boards.ownerAskReviewPending": "Disponibile dopo l’approvazione della scheda",
+      "boards.ownerAskReviewMsg": "Se ti piace {name}, lascia una recensione su Vinili & Caffè!\n{url}",
       "staff.guide": "Guida",
       "staff.confessionale": "Confessionale",
       "staff.compiti": "Compiti",
@@ -223,7 +246,7 @@
       "footer.legal": "Legale",
       "footer.legalLinks": "Link legali",
       "footer.home": "Home",
-      "footer.users": "Users",
+      "footer.users": "Classifiche",
       "footer.roles": "Ruoli",
       "footer.bacheca": "Bacheca",
       "footer.wiki": "Wiki",
@@ -245,10 +268,19 @@
       "footer.profile": "Profilo",
       "footer.premium": "Premium",
       "footer.status": "Status",
+      "footer.sysStatus.ok": "Sistemi OK",
+      "footer.sysStatus.partial": "Degrado parziale",
+      "footer.sysStatus.bad": "Servizi offline",
+      "footer.sysStatus.wait": "Controllo…",
+      "footer.sysStatus.okAria": "Stato sistemi: tutti operativi. Apri la pagina status.",
+      "footer.sysStatus.partialAria": "Stato sistemi: degrado parziale. Apri la pagina status.",
+      "footer.sysStatus.badAria": "Stato sistemi: alcuni servizi non rispondono. Apri la pagina status.",
+      "footer.sysStatus.waitAria": "Controllo stato sistemi in corso.",
       "footer.site": "Sito",
       "footer.terms": "Termini di Servizio",
       "footer.privacy": "Privacy Policy",
       "footer.cookies": "Cookie Policy",
+      "footer.reviewGuidelines": "Linee guida recensioni",
       "footer.yourData": "I tuoi dati",
       "footer.social": "Social",
       "home.welcome": "Benvenut* su",
@@ -288,7 +320,7 @@
       "cookie.rejectDeniedBody": "Per scegliere «Solo essenziali» serve VIP (o VIP+) oppure Double Booster.",
       "notif.dismiss": "Elimina notifica",
       "notif.delete": "Elimina",
-      "tickets.gateTitle": "Accedi per<br />il supporto",
+      "tickets.gateTitle": "Accedi per<br /> il supporto",
       "tickets.gateBody": "Collega Discord per aprire un ticket e chattare in tempo reale con lo staff.",
       "tickets.kicker": "Tickets",
       "tickets.heroTitle": "Assistenza live con lo <span class=\"text-[#f7ecdf]\">staff</span>",
@@ -300,14 +332,14 @@
       "tickets.noteKicker": "Nota",
       "tickets.noteBody": "Attiva le notifiche per essere avvisato su ogni aggiornamento del ticket.",
       "vote.kicker": "SOSTIENICI",
-      "reviews.gateTitle": "Accedi per<br />le recensioni",
+      "reviews.gateTitle": "Accedi per<br /> le recensioni",
       "reviews.gateBody": "Collega il tuo account Discord per leggere e scrivere le recensioni.",
       "reviews.loading": "Caricamento recensioni...",
-      "sugg.gateTitle": "Accedi per<br />il feedback",
+      "sugg.gateTitle": "Accedi per<br /> il feedback",
       "sugg.gateBody": "Collega il tuo account Discord per leggere, proporre idee, segnalare problemi e commentare.",
-      "cand.gateTitle": "Accedi per<br />le candidature",
+      "cand.gateTitle": "Accedi per<br /> le candidature",
       "cand.gateBody": "Collega Discord per candidarti allo staff e seguire lo stato della domanda.",
-      "appelli.gateTitle": "Accedi per<br />gli appelli",
+      "appelli.gateTitle": "Accedi per<br /> gli appelli",
       "appelli.gateBody": "Collega Discord per inviare una richiesta unban o unmute allo staff.",
       "user.kicker": "Classifica",
       "user.howKicker": "Come usarla",
@@ -332,10 +364,12 @@
       "home.sponsorStrong": "Sponsor",
       "home.sponsorSmall": "Tipologie, durate e prezzi",
       "home.community": "Community",
-      "home.usersStrong": "Users",
-      "home.usersSmall": "Membri della community",
+      "home.usersStrong": "Classifiche",
+      "home.usersSmall": "Livello e XP",
       "home.rolesStrong": "Ruoli",
       "home.rolesSmall": "Sistema dei ruoli",
+      "home.confessionaleStrong": "Confessionale",
+      "home.confessionaleSmall": "Messaggi anonimi",
       "home.support": "Supporta",
       "home.votesStrong": "Voti",
       "home.votesSmall": "Vota e ottieni ricompense",
@@ -750,20 +784,38 @@
       "nav.donations": "Donations",
       "nav.perks": "Perks",
       "nav.community": "Community",
-      "nav.users": "Users",
+      "nav.users": "Leaderboards",
       "nav.roles": "Roles",
-      "nav.bacheca": "Bacheca",
+      "nav.bacheca": "Board",
       "nav.rules": "Rules",
       "nav.faq": "FAQ",
       "nav.requests": "Requests",
       "nav.unban": "Unban",
       "nav.applications": "Applications",
+      "nav.appeals": "Appeals",
       "nav.suggestions": "Feedback",
       "nav.confessionale": "Confessional",
       "nav.tickets": "Tickets",
       "nav.status": "Status",
       "nav.premium": "Premium",
       "nav.staff": "Staff",
+      "nav.notifications": "Notifications",
+      "nav.privacy": "Privacy",
+      "nav.terms": "Terms",
+      "nav.cookie": "Cookies",
+      "nav.copyright": "Copyright",
+      "nav.yourData": "Your data",
+      "nav.customize": "Customize",
+      "nav.profile": "Profile",
+      "nav.dashboard": "Dashboard",
+      "nav.puzzle": "Puzzle",
+      "nav.movieNight": "Movie night",
+      "boards.joinOn": "Join ",
+      "boards.voteTitle": "Vote listing",
+      "boards.ownerAskReview": "Ask for a review",
+      "boards.ownerAskReviewCopied": "Message copied.",
+      "boards.ownerAskReviewPending": "Available after the listing is approved",
+      "boards.ownerAskReviewMsg": "If you're enjoying {name}, please leave a review on Vinili & Caffè!\n{url}",
       "staff.guide": "Guide",
       "staff.confessionale": "Confessional",
       "staff.compiti": "Tasks",
@@ -868,7 +920,7 @@
       "footer.legal": "Legal",
       "footer.legalLinks": "Legal links",
       "footer.home": "Home",
-      "footer.users": "Users",
+      "footer.users": "Leaderboards",
       "footer.roles": "Roles",
       "footer.bacheca": "Bacheca",
       "footer.wiki": "Wiki",
@@ -890,10 +942,19 @@
       "footer.profile": "Profile",
       "footer.premium": "Premium",
       "footer.status": "Status",
+      "footer.sysStatus.ok": "Systems OK",
+      "footer.sysStatus.partial": "Partial degradation",
+      "footer.sysStatus.bad": "Services offline",
+      "footer.sysStatus.wait": "Checking…",
+      "footer.sysStatus.okAria": "System status: all operational. Open the status page.",
+      "footer.sysStatus.partialAria": "System status: partial degradation. Open the status page.",
+      "footer.sysStatus.badAria": "System status: some services are down. Open the status page.",
+      "footer.sysStatus.waitAria": "Checking system status.",
       "footer.site": "Website",
       "footer.terms": "Terms of Service",
       "footer.privacy": "Privacy Policy",
       "footer.cookies": "Cookie Policy",
+      "footer.reviewGuidelines": "Review guidelines",
       "footer.yourData": "Your data",
       "footer.social": "Social",
       "home.welcome": "Welcome to",
@@ -933,7 +994,7 @@
       "cookie.rejectDeniedBody": "To choose “Essential only” you need VIP (or VIP+) or Double Booster.",
       "notif.dismiss": "Dismiss notification",
       "notif.delete": "Delete",
-      "tickets.gateTitle": "Sign in for<br />support",
+      "tickets.gateTitle": "Sign in for<br /> support",
       "tickets.gateBody": "Connect Discord to open a ticket and chat live with staff.",
       "tickets.kicker": "Tickets",
       "tickets.heroTitle": "Live support with the <span class=\"text-[#f7ecdf]\">staff</span>",
@@ -945,14 +1006,14 @@
       "tickets.noteKicker": "Note",
       "tickets.noteBody": "Enable notifications to be alerted on every ticket update.",
       "vote.kicker": "SUPPORT US",
-      "reviews.gateTitle": "Sign in for<br />reviews",
+      "reviews.gateTitle": "Sign in for<br /> reviews",
       "reviews.gateBody": "Connect your Discord account to read and write reviews.",
       "reviews.loading": "Loading reviews...",
-      "sugg.gateTitle": "Sign in for<br />feedback",
+      "sugg.gateTitle": "Sign in for<br /> feedback",
       "sugg.gateBody": "Connect your Discord account to read, suggest ideas, report issues, and comment.",
-      "cand.gateTitle": "Sign in for<br />applications",
+      "cand.gateTitle": "Sign in for<br /> applications",
       "cand.gateBody": "Connect Discord to apply for staff and follow your application status.",
-      "appelli.gateTitle": "Sign in for<br />appeals",
+      "appelli.gateTitle": "Sign in for<br /> appeals",
       "appelli.gateBody": "Connect Discord to submit an unban or unmute request to staff.",
       "user.kicker": "Leaderboard",
       "user.howKicker": "How to use it",
@@ -977,10 +1038,12 @@
       "home.sponsorStrong": "Sponsors",
       "home.sponsorSmall": "Types, duration, and pricing",
       "home.community": "Community",
-      "home.usersStrong": "Users",
+      "home.usersStrong": "Leaderboards",
       "home.usersSmall": "Community members",
       "home.rolesStrong": "Roles",
       "home.rolesSmall": "Role system",
+      "home.confessionaleStrong": "Confessional",
+      "home.confessionaleSmall": "Anonymous messages",
       "home.support": "Support",
       "home.votesStrong": "Votes",
       "home.votesSmall": "Vote and earn rewards",
@@ -1108,6 +1171,7 @@
       "dashPremium.perkBanner": "Banner",
       "dashPremium.perkName": "Name",
       "dashPremium.perkEmbed": "Custom messages",
+      "dashPremium.perkQuote": "Custom quotes",
       "dashPremium.soonCommunityName": "Community",
       "dashPremium.soonCommunityPerk1": "Everything in Customization",
       "dashPremium.soonCommunityPerk2": "Advanced moderation modules",
@@ -1411,7 +1475,77 @@
     return "";
   }
 
+  /* langPrefix1: /en/bacheca/ → lingua en (nginx serve lo stesso HTML senza prefisso) */
+  var LANG_PREFIX_RE = new RegExp(
+    "^/(" + SUPPORTED.join("|") + ")(?=/|$)",
+    "i",
+  );
+  var SKIP_LANG_PREFIX_RE =
+    /^\/(js|css|images|img|fonts|assets|media|webhooks|api|sw\.js|manifest\.webmanifest|ads\.txt|robots\.txt|favicon\.ico)(\/|$)/i;
+
+  function stripLangPrefix(pathname) {
+    var path = String(pathname || "/");
+    if (!path || path.charAt(0) !== "/") path = "/" + path;
+    var m = path.match(LANG_PREFIX_RE);
+    if (!m) return path;
+    var rest = path.slice(m[0].length) || "/";
+    if (rest.charAt(0) !== "/") rest = "/" + rest;
+    return rest;
+  }
+
+  function parseLangFromPath(pathname) {
+    var path = String(pathname || (typeof location !== "undefined" ? location.pathname : "/") || "/");
+    var m = path.match(LANG_PREFIX_RE);
+    if (!m) return "";
+    return normalizeLang(m[1]) || "";
+  }
+
+  function parseLangFromQuery() {
+    try {
+      var q = new URLSearchParams(location.search || "");
+      return normalizeLang(q.get("lang") || q.get("locale") || "") || "";
+    } catch (e) {
+      return "";
+    }
+  }
+
+  function buildLangPath(lang, pathname) {
+    var code = normalizeLang(lang) || "it";
+    if (SUPPORTED.indexOf(code) === -1) code = "it";
+    var rest = stripLangPrefix(pathname || "/");
+    if (SKIP_LANG_PREFIX_RE.test(rest)) return rest;
+    /* langLoopKill1: italiano = URL senza prefisso (evita /it/ ↔ /) */
+    if (code === "it") return rest === "/" ? "/" : rest;
+    if (rest === "/") return "/" + code + "/";
+    return "/" + code + rest;
+  }
+
+  function syncLangUrl(lang, opts) {
+    if (typeof history === "undefined" || !history.replaceState) return;
+    try {
+      var next = buildLangPath(lang, location.pathname || "/");
+      var cur = String(location.pathname || "/");
+      if (next === cur) return;
+      var url = next + (location.search || "") + (location.hash || "");
+      if (opts && opts.push) history.pushState(null, "", url);
+      else history.replaceState(null, "", url);
+    } catch (eSync) {}
+  }
+
+  function parseLangFromCookie() {
+    try {
+      var m = String(document.cookie || "").match(/(?:^|;\s*)vc_site_lang=([a-z]{2})/i);
+      return m ? normalizeLang(m[1]) : "";
+    } catch (e) {
+      return "";
+    }
+  }
+
   function detectLang() {
+    var fromPath = parseLangFromPath();
+    if (fromPath) return fromPath;
+    var fromQuery = parseLangFromQuery();
+    if (fromQuery) return fromQuery;
     try {
       var rawStored = String(localStorage.getItem(STORAGE_KEY) || "")
         .trim()
@@ -1420,6 +1554,8 @@
       var stored = normalizeLang(rawStored);
       if (stored) return stored;
     } catch (e) {}
+    var fromCookie = parseLangFromCookie();
+    if (fromCookie) return fromCookie;
     try {
       var nav = normalizeLang(navigator.language || (navigator.languages && navigator.languages[0]) || "");
       if (nav) return nav;
@@ -1459,7 +1595,8 @@
         if (metaName && !isUnexpandedPlaceholder(metaName)) siteName = metaName;
       }
     } catch (e2) {}
-    if (!siteName) siteName = "Vinili & Caffè";
+    /* guildWordmark1 */
+    if (!siteName) siteName = "🎃 Vinili & Caffè 🍂 • Italia • Social • Gaming";
     try {
       var mail = document.querySelector('a[href^="mailto:"]');
       if (mail) supportEmail = String(mail.getAttribute("href") || "").replace(/^mailto:/i, "").trim();
@@ -1545,7 +1682,58 @@
       rememberSrc(el, "data-i18n-html-src", el.innerHTML);
       var translatedH = lookupRaw(htmlKey);
       if (translatedH != null) {
-        el.innerHTML = t(htmlKey);
+        var nextHtml = t(htmlKey);
+        /* perksIcoNoFlash1: non riscrivere lo stesso HTML (wipe icone ruolo → flash) */
+        if (el.getAttribute("data-i18n-html-applied") === nextHtml) {
+          /* already applied */
+        } else if (
+          /vc-sponsor-mention/.test(nextHtml) &&
+          el.querySelector &&
+          el.querySelector("img.vc-perks-role-ico, [data-vc-perks-role]")
+        ) {
+          try {
+            var probe = document.createElement("div");
+            probe.innerHTML = nextHtml;
+            var want = probe.querySelectorAll(".vc-sponsor-mention");
+            var have = el.querySelectorAll(".vc-sponsor-mention");
+            var sameMentions = want.length === have.length;
+            if (sameMentions) {
+              for (var si = 0; si < want.length; si++) {
+                var a = String((want[si] && want[si].textContent) || "")
+                  .replace(/\s+/g, " ")
+                  .trim();
+                var b = String((have[si] && have[si].textContent) || "")
+                  .replace(/\s+/g, " ")
+                  .trim();
+                if (a !== b) {
+                  sameMentions = false;
+                  break;
+                }
+              }
+            }
+            if (sameMentions) {
+              el.setAttribute("data-i18n-html-applied", nextHtml);
+            } else {
+              el.innerHTML = nextHtml;
+              el.setAttribute("data-i18n-html-applied", nextHtml);
+              if (window.VcPerksRoles && typeof window.VcPerksRoles.apply === "function") {
+                window.VcPerksRoles.apply();
+              }
+            }
+          } catch (eKeepIco) {
+            el.innerHTML = nextHtml;
+            el.setAttribute("data-i18n-html-applied", nextHtml);
+          }
+        } else {
+          el.innerHTML = nextHtml;
+          el.setAttribute("data-i18n-html-applied", nextHtml);
+          try {
+            if (window.VcPerksRoles && typeof window.VcPerksRoles.apply === "function" &&
+                /vc-sponsor-mention/.test(el.innerHTML)) {
+              window.VcPerksRoles.apply();
+            }
+          } catch (eHtmlPerks) {}
+        }
       } else if (el.hasAttribute("data-i18n-html-src")) {
         el.innerHTML = el.getAttribute("data-i18n-html-src");
       }
@@ -1616,9 +1804,14 @@
     var panel = document.getElementById("vc-lang-panel");
     var on = Boolean(open);
     if (on) {
-      /* langMenuAll1: rebuild options every open (static HTML may only have it/en) */
+      /* uiOpenCold1: rebuild options solo se panel vuoto/stale (idle prewarm) */
       try {
-        ensureLangPanelOptions();
+        var needOpts = true;
+        if (panel) {
+          var n = panel.querySelectorAll("[data-vc-lang]").length;
+          if (n >= SUPPORTED.length) needOpts = false;
+        }
+        if (needOpts) ensureLangPanelOptions();
         syncSwitcher({ closeMenu: false });
       } catch (eOpts) {}
     }
@@ -1718,16 +1911,31 @@
     opts = opts || {};
     setHtmlLang(currentLang);
     applyDom(document);
+    try {
+      if (window.VcPerksRoles && typeof window.VcPerksRoles.apply === "function") {
+        window.VcPerksRoles.apply();
+      }
+    } catch (ePerks) {}
     syncSwitcher({ closeMenu: !!opts.closeLangMenu });
     try {
       document.dispatchEvent(
         new CustomEvent("vc:langchange", { detail: { lang: currentLang } }),
       );
     } catch (e) {}
-    /* langSwitchFix2: langchange handlers rebuild nav from IT source — re-apply after paint */
+    /* textSettlePre1: IT già baked — niente secondo applyDom post-paint (flash testi).
+       EN/altre lingue: un solo reapply dopo nav rebuild. */
+    if (opts.skipRafReapply) return;
+    var langNow = "it";
+    try {
+      langNow = normalizeLang(currentLang) || "it";
+    } catch (eLn) {}
+    if (langNow === "it") return;
     function reapplyAfterNavRebuild() {
       try {
         applyDom(document);
+        if (window.VcPerksRoles && typeof window.VcPerksRoles.apply === "function") {
+          window.VcPerksRoles.apply();
+        }
         syncSwitcher();
       } catch (eRe) {}
     }
@@ -1735,11 +1943,9 @@
       if (typeof window.requestAnimationFrame === "function") {
         window.requestAnimationFrame(function () {
           reapplyAfterNavRebuild();
-          window.setTimeout(reapplyAfterNavRebuild, 40);
         });
       } else {
         window.setTimeout(reapplyAfterNavRebuild, 0);
-        window.setTimeout(reapplyAfterNavRebuild, 40);
       }
     } catch (e2) {
       try {
@@ -1748,9 +1954,10 @@
     }
   }
 
-  /* navBootTrim1: IT è già in DICTS — il bundle 2.7MB solo se lingua ≠ it */
-  var LOCALES_BUNDLE_URL = "/js/vc-i18n-locales.js?v=20260929navBootTrim1b";
-  var localesLoadPromise = null;
+  /* navBootTrim1 + perfI18nJson1: IT in DICTS; altre lingue = JSON per-lang (~150KB) non mega-bundle 3MB */
+  var LOCALES_BUNDLE_URL = "/js/vc-i18n-locales.js?v=20261005langI18nFinish1b";
+  var LOCALES_JSON_VER = "20261009indiceConf1";
+  var localesLoadPromises = Object.create(null);
   var localesBundleReady = false;
 
   function langNeedsLocaleBundle(lang) {
@@ -1758,39 +1965,92 @@
     return l !== "it";
   }
 
+  function localePackLooksReady(lang) {
+    try {
+      var pack = DICTS[lang];
+      /* finish1b: serve un pack “pieno” (non solo stub), altrimenti resta fallback IT */
+      return pack && typeof pack === "object" && Object.keys(pack).length > 200;
+    } catch (e) {
+      return false;
+    }
+  }
+
   function ensureLocaleBundle(lang) {
     if (!langNeedsLocaleBundle(lang)) return Promise.resolve(false);
+    var want = normalizeLang(lang) || "en";
     try {
-      if (localesBundleReady) return Promise.resolve(true);
-      if (DICTS[lang] && typeof DICTS[lang] === "object" && Object.keys(DICTS[lang]).length > 40) {
+      if (localesBundleReady && localePackLooksReady(want)) return Promise.resolve(true);
+      if (localePackLooksReady(want)) {
         localesBundleReady = true;
         return Promise.resolve(true);
       }
     } catch (eReady) {}
-    if (localesLoadPromise) return localesLoadPromise;
-    localesLoadPromise = new Promise(function (resolve) {
-      try {
-        if (document.querySelector('script[data-vc-i18n-locales="1"],script[src*="vc-i18n-locales.js"]')) {
-          localesBundleReady = true;
-          resolve(true);
-          return;
+    if (localesLoadPromises[want]) return localesLoadPromises[want];
+
+    localesLoadPromises[want] = new Promise(function (resolve) {
+      var settled = false;
+      function done(ok) {
+        if (settled) return;
+        settled = true;
+        if (ok) localesBundleReady = true;
+        else delete localesLoadPromises[want];
+        resolve(Boolean(ok));
+      }
+
+      function injectMegaFallback() {
+        var s = document.createElement("script");
+        s.src = LOCALES_BUNDLE_URL;
+        s.async = true;
+        s.setAttribute("data-vc-i18n-locales", "1");
+        s.onload = function () {
+          done(localePackLooksReady(want));
+        };
+        s.onerror = function () {
+          done(false);
+        };
+        (document.head || document.documentElement).appendChild(s);
+      }
+
+      function loadJson() {
+        var url = "/js/i18n/locales/" + encodeURIComponent(want) + ".json?v=" + LOCALES_JSON_VER;
+        try {
+          if (typeof fetch !== "function") {
+            injectMegaFallback();
+            return;
+          }
+          fetch(url, { credentials: "same-origin", cache: "force-cache" })
+            .then(function (res) {
+              if (!res || !res.ok) throw new Error("locale_http_" + (res && res.status));
+              return res.text();
+            })
+            .then(function (raw) {
+              var text = String(raw || "").replace(/^\uFEFF/, "").trim();
+              /* strip trailing literal \n after } from broken exports */
+              if (text.charAt(text.length - 2) === "\\" && text.charAt(text.length - 1) === "n" && text.charAt(text.length - 3) === "}") {
+                text = text.slice(0, -2);
+              }
+              var pack = JSON.parse(text);
+              if (!pack || typeof pack !== "object") throw new Error("locale_bad_json");
+              var partial = {};
+              partial[want] = pack;
+              try {
+                window.VcI18n.extend(partial, { source: "json" });
+              } catch (eExt) {
+                throw eExt;
+              }
+              done(localePackLooksReady(want));
+            })
+            .catch(function () {
+              injectMegaFallback();
+            });
+        } catch (eFetch) {
+          injectMegaFallback();
         }
-      } catch (eQ) {}
-      var s = document.createElement("script");
-      s.src = LOCALES_BUNDLE_URL;
-      s.async = true;
-      s.setAttribute("data-vc-i18n-locales", "1");
-      s.onload = function () {
-        localesBundleReady = true;
-        resolve(true);
-      };
-      s.onerror = function () {
-        localesLoadPromise = null;
-        resolve(false);
-      };
-      (document.head || document.documentElement).appendChild(s);
+      }
+
+      loadJson();
     });
-    return localesLoadPromise;
+    return localesLoadPromises[want];
   }
 
   function setLang(lang, opts) {
@@ -1800,13 +2060,46 @@
     try {
       localStorage.setItem(STORAGE_KEY, next);
     } catch (e) {}
+    /* langPrefixRoute1: switcher aggiorna URL /en/… (route-guard ora strippa il prefisso) */
+    if (opts && opts.fromUser) {
+      try {
+        sessionStorage.removeItem("vc_lang_prefix_pending");
+      } catch (eFlag) {}
+      try {
+        document.cookie =
+          "vc_site_lang=" +
+          next +
+          "; Path=/; Max-Age=31536000; SameSite=Lax" +
+          (location.protocol === "https:" ? "; Secure" : "");
+      } catch (eCook) {}
+    }
     function finish() {
       currentLang = next;
+      if (!(opts && opts.skipUrl)) {
+        var hadPrefix = Boolean(parseLangFromPath());
+        var forceUrl = Boolean(opts && opts.syncUrl);
+        if (hadPrefix || forceUrl || (opts && opts.fromUser)) {
+          var nextPath = buildLangPath(next, location.pathname || "/");
+          var curPath = String(location.pathname || "/");
+          if (opts && opts.fromUser && nextPath !== curPath) {
+            try {
+              location.assign(nextPath + (location.search || "") + (location.hash || ""));
+              return next;
+            } catch (eAssign) {}
+          }
+          syncLangUrl(next, { push: Boolean(opts && opts.pushUrl) });
+        }
+      }
       /* Always apply on explicit user pick (even same code) so a wiped nav gets fixed. */
       if (!(opts && opts.skipApply)) applyAll({ closeLangMenu: true });
       else if (prev !== next) {
         /* no-op path kept for callers that only persist */
       }
+      try {
+        document.dispatchEvent(
+          new CustomEvent("vc:langchange", { detail: { lang: next, prev: prev } }),
+        );
+      } catch (eEv) {}
       return next;
     }
     if (langNeedsLocaleBundle(next)) {
@@ -1855,7 +2148,7 @@
       if (!btn || !root.contains(btn)) return;
       ev.preventDefault();
       ev.stopPropagation();
-      setLang(btn.getAttribute("data-vc-lang"));
+      setLang(btn.getAttribute("data-vc-lang"), { fromUser: true, syncUrl: true });
     });
     if (!window.__vcLangDocCloseBound) {
       window.__vcLangDocCloseBound = true;
@@ -1875,6 +2168,44 @@
         if (ev.key === "Escape" && isLangMenuOpen()) setLangMenuOpen(false);
       });
     }
+  }
+
+  function bindLangPrefixNavigation() {
+    if (window.__vcLangPrefixNavBound) return;
+    window.__vcLangPrefixNavBound = true;
+    document.addEventListener(
+      "click",
+      function (ev) {
+        if (ev.defaultPrevented) return;
+        if (typeof ev.button === "number" && ev.button !== 0) return;
+        if (ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.altKey) return;
+        var tEl = ev.target;
+        if (!tEl || !tEl.closest) return;
+        var a = tEl.closest("a[href]");
+        if (!a) return;
+        var href = a.getAttribute("href") || "";
+        if (!href || href.charAt(0) === "#" || href.indexOf("mailto:") === 0 || href.indexOf("tel:") === 0)
+          return;
+        if (a.target && a.target !== "" && a.target !== "_self") return;
+        var abs;
+        try {
+          abs = new URL(href, location.href);
+        } catch (eUrl) {
+          return;
+        }
+        if (abs.origin !== location.origin) return;
+        if (SKIP_LANG_PREFIX_RE.test(abs.pathname)) return;
+        var lang = currentLang || detectLang() || "it";
+        if (!parseLangFromPath(location.pathname) && !parseLangFromPath(abs.pathname)) {
+          return;
+        }
+        var nextPath = buildLangPath(lang, abs.pathname);
+        if (nextPath === abs.pathname) return;
+        ev.preventDefault();
+        location.href = nextPath + abs.search + abs.hash;
+      },
+      true,
+    );
   }
 
   var langHomeParent = null;
@@ -1955,11 +2286,34 @@
 
   currentLang = detectLang();
   setHtmlLang(currentLang);
+  try {
+    /* Persist explicit /en/ (or ?lang=) so next visit senza prefisso resta nella lingua scelta */
+    if (parseLangFromPath() || parseLangFromQuery()) {
+      localStorage.setItem(STORAGE_KEY, currentLang);
+    }
+  } catch (ePersistPath) {}
 
   function boot() {
     ensureSwitcherReady();
+    bindLangPrefixNavigation();
     function go() {
       applyAll();
+      /* uiOpenCold1: prebuild lang options in idle — open = toggle class */
+      function prewarmLang() {
+        try {
+          ensureLangPanelOptions();
+          syncSwitcher({ closeMenu: false });
+        } catch (ePw) {}
+      }
+      /* violKillIdle1: setTimeout — rIC({timeout}) → Violation idle */
+      try {
+        window.setTimeout(prewarmLang, 800);
+      } catch (eIdle) {
+        try {
+          window.setTimeout(prewarmLang, 800);
+        } catch (eT) {}
+      }
+      /* langLoopKill2: NON normalizzare ?lang=en → /en/ (replaceState /en/ ritocca / e loopa) */
     }
     if (langNeedsLocaleBundle(currentLang)) {
       ensureLocaleBundle(currentLang).then(go);
@@ -1984,6 +2338,7 @@
       });
 
   window.VcI18n = {
+    __vcVer: VC_I18N_VER,
     t: t,
     getLang: getLang,
     setLang: setLang,
@@ -1994,6 +2349,10 @@
     },
     supported: SUPPORTED.slice(),
     legacyAutoLangs: LEGACY_AUTO_LANGS.slice(),
+    parseLangFromPath: parseLangFromPath,
+    stripLangPrefix: stripLangPrefix,
+    buildLangPath: buildLangPath,
+    syncLangUrl: syncLangUrl,
     extend: function (partial, opts) {
       if (!partial || typeof partial !== "object") return;
       var source = opts && opts.source ? String(opts.source) : "";
@@ -2021,3 +2380,4 @@
     ensureLocaleBundle: ensureLocaleBundle,
   };
 })();
+/* langI18nOg1 */

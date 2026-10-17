@@ -25,6 +25,8 @@ const { remapKnownRoleSnowflake } = require("../Config/emergencyRoleIdRemap");
 const PM_ROLE_ID = String(IDs.roles?.PartnerManager || "").trim();
 const LADDER_IDS = staffLadderRoleIds();
 const ORGANICO_CACHE_TTL_MS = 120_000;
+/* apiWarmSwr1: serve stale while revalidate */
+const ORGANICO_STALE_KEEP_MS = 10 * 60 * 1000;
 const organicoCache = new Map();
 /* siteApiW3: singleflight on organico cache miss */
 const organicoInflight = new Map();
@@ -221,12 +223,14 @@ function organicoCacheKey(filterUserId) {
 }
 
 function readOrganicoCache(filterUserId) {
-  const entry = organicoCache.get(organicoCacheKey(filterUserId));
-  if (!entry || Date.now() > entry.exp) {
-    organicoCache.delete(organicoCacheKey(filterUserId));
-    return null;
-  }
-  return entry;
+  const key = organicoCacheKey(filterUserId);
+  const entry = organicoCache.get(key);
+  if (!entry) return null;
+  const now = Date.now();
+  if (now <= entry.exp) return { ...entry, fresh: true };
+  if (now <= entry.staleUntil) return { ...entry, fresh: false };
+  organicoCache.delete(key);
+  return null;
 }
 
 function writeOrganicoCache(filterUserId, payload) {
@@ -234,12 +238,43 @@ function writeOrganicoCache(filterUserId, payload) {
     const first = organicoCache.keys().next().value;
     if (first) organicoCache.delete(first);
   }
+  const now = Date.now();
   /* siteApiW6: store etag with organico cache */
   organicoCache.set(organicoCacheKey(filterUserId), {
-    exp: Date.now() + ORGANICO_CACHE_TTL_MS,
+    exp: now + ORGANICO_CACHE_TTL_MS,
+    staleUntil: now + ORGANICO_STALE_KEEP_MS,
     payload,
     etag: weakEtagFromJson(payload),
   });
+}
+
+async function warmSiteStaffOrganicoCache(client) {
+  const cacheKey = "roster:all";
+  const cached = readOrganicoCache(cacheKey);
+  if (cached?.fresh) return cached.payload;
+  try {
+    const roster = await buildRoster(client);
+    const guildId = String(IDs.guilds.main || "");
+    const guild =
+      client.guilds.cache.get(guildId) || (await client.guilds.fetch(guildId).catch(() => null));
+    const lightPayload = {
+      ok: true,
+      rosterOnly: true,
+      viewer: null,
+      counts: roster.counts,
+      sections: roster.sections,
+      staffDelMese: roster.staffDelMese || (guild ? buildStaffDelMeseBlock(guild) : null),
+      staffDelSettimana: roster.staffDelSettimana || (guild ? buildStaffDelSettimanaBlock(guild) : null),
+      pexHistory: [],
+      historyStats: null,
+      historyFilterUserId: null,
+    };
+    writeOrganicoCache(cacheKey, lightPayload);
+    return lightPayload;
+  } catch (err) {
+    global.logger?.warn?.("[WEBHOOK] site-staff-organico warm:", err?.message || err);
+    return null;
+  }
 }
 
 async function ensureGuildRolesCached(guild) {
@@ -939,7 +974,10 @@ async function handleSiteStaffOrganicoGet(client, req, res) {
 
     const cacheKey = rosterOnly ? `roster:${filterUserId || "all"}` : filterUserId || null;
     const cached = readOrganicoCache(cacheKey);
-    if (cached?.payload) {
+    const flightKey = organicoCacheKey(cacheKey);
+    let inflight = organicoInflight.get(flightKey);
+
+    if (cached?.payload && cached.fresh) {
       return sendJsonWithEtag(req, res, { ...cached.payload, cached: true }, {
         cacheControl: "private, no-cache",
         etag: cached.etag || weakEtagFromJson(cached.payload),
@@ -950,8 +988,9 @@ async function handleSiteStaffOrganicoGet(client, req, res) {
       });
     }
 
-    const flightKey = organicoCacheKey(cacheKey);
-    let inflight = organicoInflight.get(flightKey);
+    /* apiWarmSwr1: stale → rispondi subito e rinfresca in background */
+    const serveStale = Boolean(cached?.payload && !cached.fresh);
+
     if (!inflight) {
       inflight = (async () => {
         const guildId = String(IDs.guilds.main || "");
@@ -1057,6 +1096,17 @@ async function handleSiteStaffOrganicoGet(client, req, res) {
       organicoInflight.set(flightKey, inflight);
     }
 
+    if (serveStale) {
+      return sendJsonWithEtag(req, res, { ...cached.payload, cached: true, stale: true }, {
+        cacheControl: "private, no-cache",
+        etag: cached.etag || weakEtagFromJson(cached.payload),
+        extraHeaders: {
+          "X-VC-Organico-Ms": String(Date.now() - t0),
+          "X-VC-Organico-Mode": rosterOnly ? "roster-stale" : "stale",
+        },
+      });
+    }
+
     const built = await inflight;
     if (built?.__err) {
       return res.status(built.__err.status).json(built.__err.body);
@@ -1086,6 +1136,7 @@ async function handleSiteStaffOrganicoPost(_client, _req, res) {
 module.exports = {
   handleSiteStaffOrganicoGet,
   handleSiteStaffOrganicoPost,
+  warmSiteStaffOrganicoCache,
   buildStaffDelMeseBlock,
   buildPexDepexHistory,
   classifyPexDepexKind,

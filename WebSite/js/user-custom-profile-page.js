@@ -10,6 +10,8 @@
   var guildEmojisLoaded = false;
   var guildEmojisLoading = false;
   var emojiPickerToken = 0;
+  /* persTabSwitchLoad1: sequenza soft-nav — ignora boot/render stale dopo cambio tab */
+  var cpfNavSeq = 0;
     var colorDrafts = {
     solid: { hex: "", hex2: "" },
     gradient: { hex: "", hex2: "" },
@@ -93,16 +95,43 @@
     return "primary";
   }
 
-  function isCustomRoleTab() {
+  function isCustomRoleTab(tabHint) {
     try {
-      var q = new URLSearchParams(window.location.search || "");
-      var t = String(q.get("target") || q.get("slot") || "").trim().toLowerCase();
-      if (!t || t === "rank" || t === "wallpaper") return false;
-      if (t === "primary" || t === "secondary" || t === "voice" || t === "vocale") return true;
+      var t = String(tabHint || "").trim().toLowerCase();
+      if (!t) {
+        var q = new URLSearchParams(window.location.search || "");
+        t = String(q.get("target") || q.get("slot") || "").trim().toLowerCase();
+      }
+      if (t === "vocale") t = "voice";
+      if (!t || t === "rank" || t === "wallpaper") {
+        try {
+          if (window.__VC_PERS_HUB && window.__VC_PERS_HUB.isCustom === true) return true;
+        } catch (eHub) {}
+        return false;
+      }
+      if (t === "primary" || t === "secondary" || t === "voice") return true;
       return false;
     } catch (e) {
       return false;
     }
+  }
+
+  function showCustomTabBoot() {
+    var app = byId("vc-custom-profile-app");
+    if (!app) return;
+    try {
+      app.hidden = false;
+      app.removeAttribute("hidden");
+      app.innerHTML =
+        '<div class="vc-cpf" data-vc-pers-layout="persAllStack1" data-vc-cpf-tab-boot="1">' +
+        '<div class="vc-cpf-tab-boot" role="status" aria-live="polite">' +
+        '<span class="vc-user-profile-loader__spin" aria-hidden="true"></span>' +
+        "<p>Caricamento…</p></div></div>";
+    } catch (eBootUi) {}
+  }
+
+  function isCpfNavCurrent(seq) {
+    return Number(seq || 0) === Number(cpfNavSeq || 0);
   }
 
   function isLocalFrontendOrigin() {
@@ -185,10 +214,40 @@
     var token = (emojiPickerToken += 1);
     var unicodeOnly = opts.unicodeOnly === true;
     var preferCustom = opts.preferCustom === true;
+    var anchorSelector = opts.anchorSelector ? String(opts.anchorSelector) : "";
+    var anchorRect = null;
+    try {
+      if (anchor && anchor.getBoundingClientRect) {
+        var r0 = anchor.getBoundingClientRect();
+        if (r0 && (r0.width > 1 || r0.height > 1)) {
+          anchorRect = {
+            left: r0.left,
+            top: r0.top,
+            width: r0.width,
+            height: r0.height,
+            right: r0.right,
+            bottom: r0.bottom,
+          };
+        }
+      }
+    } catch (eRect0) {}
     var openWith = function (emojis) {
       if (token !== emojiPickerToken) return;
+      var live = anchor;
+      if (anchorSelector) {
+        try {
+          var found = document.querySelector(anchorSelector);
+          if (found) live = found;
+        } catch (eFind) {}
+      } else if (!live || !document.body.contains(live)) {
+        try {
+          live = document.querySelector("[data-cpf-emoji-pick]") || live;
+        } catch (eFind2) {}
+      }
       window.VcEmojiPicker.open({
-        anchor: anchor,
+        anchor: live,
+        anchorSelector: anchorSelector,
+        anchorRect: anchorRect,
         guildEmojis: unicodeOnly ? [] : emojis || [],
         unicodeOnly: unicodeOnly,
         preferCustom: !unicodeOnly && preferCustom && emojis && emojis.length > 0,
@@ -289,7 +348,11 @@
                 insertAtInput(input, value);
               }
             },
-            { unicodeOnly: unicodeOnly, preferCustom: mode === "icon" },
+            {
+              unicodeOnly: unicodeOnly,
+              preferCustom: mode === "icon",
+              anchorSelector: '[data-cpf-emoji-pick="' + mode + '"]',
+            },
           );
         });
       })(buttons[i]);
@@ -329,8 +392,29 @@
     } catch (e) {}
     try {
       if (document.body) {
-        document.body.classList.remove("vc-page-cine-layout");
-        delete document.body.dataset.vcPageCineLayout;
+        /* persCineLayout2: tieni cine layout su /personalizza (hero baked) */
+        var keepCine = false;
+        try {
+          keepCine =
+            document.body.getAttribute("data-vc-cine-baked") === "1" ||
+            Boolean(document.querySelector(".vc-page-cine-hero, #vc-page-intro"));
+        } catch (eKeep) {}
+        if (keepCine) {
+          document.body.classList.add("vc-page-cine-layout");
+          try {
+            document.body.dataset.vcPageCineLayout = "1";
+          } catch (eDsKeep) {}
+          try {
+            var mainKeep =
+              document.getElementById("vc-personalizza-root") || document.querySelector("main");
+            if (mainKeep) mainKeep.classList.add("vc-page-cine-main");
+          } catch (eMainKeep) {}
+        } else {
+          document.body.classList.remove("vc-page-cine-layout");
+          try {
+            delete document.body.dataset.vcPageCineLayout;
+          } catch (eDs) {}
+        }
         document.body.style.position = "";
         document.body.style.inset = "";
         document.body.style.width = "";
@@ -784,10 +868,7 @@
         "</div>"
       );
     }
-    var title =
-      target === "voice"
-        ? String(entity.name || "Vocale privata")
-        : (entity.emoji ? entity.emoji + " " : "") + String(entity.name || "Ruolo");
+    var titleHtml = formatDiscordEntityTitleHtml(target, entity);
     var hex = target === "voice" ? "" : normalizeHexClient(entity.color || "");
     var hex2 = target === "voice" ? "" : normalizeHexClient(entity.color2 || "");
     var mode = target === "voice" ? "solid" : inferColorMode(entity);
@@ -807,15 +888,31 @@
           : mode === "solid"
             ? hex.toUpperCase()
             : hex.toUpperCase() + (hex2 ? " → " + hex2.toUpperCase() : "");
+    /* discordRoleLook2: icona ruolo webp; animated se a_* */
+    var roleIconUrl = String((entity && entity.iconUrl) || "").trim();
+    var roleIconAnim =
+      Boolean(entity && entity.iconAnimated) ||
+      /[?&]animated=true\b/i.test(roleIconUrl) ||
+      /\/a_[a-f0-9]+\.(webp|gif|png)/i.test(roleIconUrl);
+    if (/cdn\.discordapp\.com\/role-icons\//i.test(roleIconUrl)) {
+      roleIconUrl = roleIconUrl.replace(/\.(png|jpe?g|gif)(\?|$)/i, ".webp$2");
+    } else if (roleIconAnim && /\.png(\?|$)/i.test(roleIconUrl)) {
+      roleIconUrl = roleIconUrl.replace(/\.png(\?|$)/i, ".webp$1");
+    }
+    if (roleIconAnim && !/[?&]animated=/i.test(roleIconUrl)) {
+      roleIconUrl += (roleIconUrl.indexOf("?") >= 0 ? "&" : "?") + "animated=true";
+    }
     var icon =
       target === "voice"
         ? '<i class="fa fa-microphone" aria-hidden="true"></i>'
-        : entity.iconUrl
-          ? '<img src="' +
-            esc(entity.iconUrl) +
+        : roleIconUrl
+          ? '<img class="vc-cpf-stage__mark-img' +
+            (roleIconAnim ? " is-animated" : "") +
+            '" src="' +
+            esc(roleIconUrl) +
             '" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" />'
           : entity.emoji
-            ? "<span>" + esc(entity.emoji) + "</span>"
+            ? '<span class="vc-cpf-stage__mark-emoji">' + esc(entity.emoji) + "</span>"
             : '<i class="fa fa-star" aria-hidden="true"></i>';
     var styleBits = [];
     if (accent) styleBits.push("--vc-cpf-accent:" + accent);
@@ -835,11 +932,13 @@
       (styleBits.length ? ' style="' + esc(styleBits.join(";")) + '"' : "") +
       ">" +
       swatch +
-      '<span class="vc-cpf-stage__mark">' +
+      '<span class="vc-cpf-stage__mark' +
+      (entity && entity.iconUrl ? " has-discord-icon" : "") +
+      '">' +
       icon +
       "</span>" +
-      '<p class="vc-cpf-stage__title" data-cpf-title>' +
-      esc(title) +
+      '<p class="vc-cpf-stage__title vc-discord-entity-name" data-cpf-title>' +
+      titleHtml +
       "</p>" +
       '<p class="vc-cpf-stage__meta" data-cpf-meta>' +
       esc(meta) +
@@ -884,6 +983,32 @@
     var hex = normalizeHexClient(value) || normalizeHexClient(placeholder) || "#d4a888";
     var chipHex = discordRoleDisplayHex(hex);
     var key = fieldKey ? ' data-cpf-color-field="' + esc(fieldKey) + '"' : "";
+    var CP = window.VcColorPicker;
+    var pickerHtml =
+      CP && typeof CP.markup === "function"
+        ? CP.markup({
+            id: pickId,
+            value: hex,
+            defaultHex: hex,
+            ariaLabel: label,
+            showHexInput: false,
+            showReset: false,
+            allowEmpty: false,
+            className: "vc-cp--swatch-only",
+            wrapAttrs: 'data-cpf-cp="' + esc(hexId) + '"',
+          })
+        : '<input type="color" id="' +
+          esc(pickId) +
+          '" class="vc-cpf-colorpick__native" value="' +
+          esc(hex) +
+          '" aria-label="' +
+          esc(label) +
+          '" />' +
+          '<span class="vc-cpf-colorpick__chip" data-cpf-chip="' +
+          esc(hexId) +
+          '" style="background:' +
+          esc(chipHex) +
+          '" aria-hidden="true"></span>';
     return (
       '<label class="vc-cpf-field"' +
       key +
@@ -892,18 +1017,7 @@
       esc(label) +
       "</span>" +
       '<div class="vc-cpf-colorpick">' +
-      '<input type="color" id="' +
-      esc(pickId) +
-      '" class="vc-cpf-colorpick__native" value="' +
-      esc(hex) +
-      '" aria-label="' +
-      esc(label) +
-      '" />' +
-      '<span class="vc-cpf-colorpick__chip" data-cpf-chip="' +
-      esc(hexId) +
-      '" style="background:' +
-      esc(chipHex) +
-      '" aria-hidden="true"></span>' +
+      pickerHtml +
       '<input type="text" id="' +
       esc(hexId) +
       '" value="' +
@@ -931,6 +1045,10 @@
     var chip2 = document.querySelector('[data-cpf-chip="vc-cpf-hex2"]');
     var pick1 = byId("vc-cpf-hex-pick");
     var pick2 = byId("vc-cpf-hex2-pick");
+    var face1 = document.querySelector('[data-cpf-cp="vc-cpf-hex"] .vc-cp__swatch-face');
+    var face2 = document.querySelector('[data-cpf-cp="vc-cpf-hex2"] .vc-cp__swatch-face');
+    var api1 = document.querySelector('[data-cpf-cp="vc-cpf-hex"]');
+    var api2 = document.querySelector('[data-cpf-cp="vc-cpf-hex2"]');
     if (hex && displayHex) {
       stage.classList.add("has-color");
       stage.classList.toggle("is-gradient", mode === "gradient");
@@ -940,7 +1058,13 @@
       var accent2 = mode === "solid" ? displayHex : displayHex2 || displayHex;
       stage.style.setProperty("--vc-cpf-accent2", accent2);
       if (chip1) chip1.style.background = displayHex;
-      if (pick1 && pick1.value.toLowerCase() !== hex) pick1.value = hex;
+      if (face1) face1.style.background = displayHex;
+      if (api1 && api1.__vcCp && typeof api1.__vcCp.setValue === "function") {
+        try {
+          if (api1.__vcCp.getValue() !== hex) api1.__vcCp.setValue(hex);
+        } catch (eCp1) {}
+      }
+      if (pick1 && pick1.type === "color" && pick1.value.toLowerCase() !== hex) pick1.value = hex;
       var meta = stage.querySelector("[data-cpf-meta]");
       if (meta) {
         if (isDiscordUnsetRoleHex(hex) && (mode === "solid" || !hex2 || isDiscordUnsetRoleHex(hex2))) {
@@ -966,7 +1090,13 @@
     }
     if (hex2) {
       if (chip2) chip2.style.background = displayHex2 || discordRoleDisplayHex(hex2);
-      if (pick2 && pick2.value.toLowerCase() !== hex2) pick2.value = hex2;
+      if (face2) face2.style.background = displayHex2 || discordRoleDisplayHex(hex2);
+      if (api2 && api2.__vcCp && typeof api2.__vcCp.setValue === "function") {
+        try {
+          if (api2.__vcCp.getValue() !== hex2) api2.__vcCp.setValue(hex2);
+        } catch (eCp2) {}
+      }
+      if (pick2 && pick2.type === "color" && pick2.value.toLowerCase() !== hex2) pick2.value = hex2;
     }
   }
 
@@ -1000,6 +1130,9 @@
       el.disabled = lock;
       el.readOnly = lock;
     });
+    Array.prototype.slice.call(document.querySelectorAll("[data-cpf-cp] .vc-cp__swatch")).forEach(function (btn) {
+      btn.disabled = lock;
+    });
     if (primaryWrap) primaryWrap.classList.toggle("is-locked", lock);
     if (secondaryWrap) secondaryWrap.classList.toggle("is-locked", lock);
   }
@@ -1026,12 +1159,24 @@
       hex2El.addEventListener("input", syncFromText);
       hex2El.addEventListener("change", syncFromText);
     }
-    if (pick1) {
+    if (window.VcColorPicker && typeof window.VcColorPicker.bind === "function") {
+      Array.prototype.slice.call(document.querySelectorAll("[data-cpf-cp]")).forEach(function (wrap) {
+        var hid = String(wrap.getAttribute("data-cpf-cp") || "");
+        var text = hid ? byId(hid) : null;
+        wrap.__vcCp = window.VcColorPicker.bind(wrap, {
+          hexInput: text || null,
+          onChange: function () {
+            applyLiveColorPreview();
+          },
+        });
+      });
+    }
+    if (pick1 && pick1.type === "color") {
       pick1.addEventListener("input", function () {
         syncFromPick(pick1, hexEl);
       });
     }
-    if (pick2 && hex2El) {
+    if (pick2 && pick2.type === "color" && hex2El) {
       pick2.addEventListener("input", function () {
         syncFromPick(pick2, hex2El);
       });
@@ -1135,11 +1280,12 @@
       target === "voice"
         ? voiceRequirementsHtml({ compact: true })
         : requirementsChips(labels) + '<p class="vc-cpf-empty">' + esc(note) + "</p>";
-    return (
-      '<div class="vc-cpf-layout is-single">' +
-      '<div class="vc-cpf-editor">' +
-      block("Non sbloccato", "Serve il perk giusto", extra) +
-      "</div></div>"
+    return stackLayout(
+      '<div class="vc-cpf-stage__card is-empty" data-cpf-stage data-cpf-mode="solid">' +
+        '<span class="vc-cpf-stage__mark"><i class="fa fa-lock" aria-hidden="true"></i></span>' +
+        '<p class="vc-cpf-stage__title">Non sbloccato</p>' +
+        '<p class="vc-cpf-stage__meta">Serve il perk giusto</p></div>',
+      block("Requisiti", "Attività / perk", extra),
     );
   }
 
@@ -1155,9 +1301,13 @@
   function stripVoiceEmojiPrefix(name) {
     var raw = String(name || "").trim();
     if (!raw) return "";
-    var parts = raw.split(/[\uFE32︲|│｜⠂•·—–]/);
+    var parts = raw.split(/[\u01C0\uFE32\u2758︲|│｜⠂•·—–\-]/);
     if (parts.length >= 2) {
-      return parts.slice(1).join(" ").trim();
+      var left = String(parts[0] || "")
+        .replace(/^\u0F04/u, "")
+        .replace(/^༄/u, "")
+        .trim();
+      if (left.length <= 8) return parts.slice(1).join(" ").trim();
     }
     return raw
       .replace(/^\u0F04/u, "")
@@ -1166,8 +1316,67 @@
       .trim();
   }
 
+  function formatDiscordEntityTitleHtml(target, entity) {
+    if (target === "voice") {
+      var rawName = String((entity && entity.name) || "Vocale privata").trim();
+      var emoji = String((entity && entity.emoji) || "").trim();
+      var base = stripVoiceEmojiPrefix(rawName) || rawName;
+      if (!emoji) {
+        var m = rawName.match(/^[\u0F04༄]?\s*([\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}](?:\uFE0F|\u200D[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]*)*)/u);
+        if (m) emoji = m[1];
+      }
+      if (!emoji) return esc(base);
+      return (
+        '<span class="vc-user-profile-voice-title">' +
+        '<span class="vc-user-profile-voice-title__emoji">' +
+        esc(emoji) +
+        "</span>" +
+        '<span class="vc-user-profile-voice-title__sep" aria-hidden="true">\u01C0</span>' +
+        '<span class="vc-user-profile-voice-title__name">' +
+        esc(base) +
+        "</span></span>"
+      );
+    }
+    return esc(String((entity && entity.name) || "Ruolo"));
+  }
+
   function shell(inner) {
-    return '<div class="vc-cpf">' + inner + "</div>";
+    return '<div class="vc-cpf" data-vc-pers-layout="persAllStack1">' + inner + "</div>";
+  }
+
+  function stackLayout(stageInner, editorInner, dockInner) {
+    return (
+      '<div class="vc-cpf-layout" data-vc-pers-layout="persAllStack1">' +
+      '<aside class="vc-cpf-stage" aria-label="Anteprima">' +
+      stageInner +
+      "</aside>" +
+      (dockInner
+        ? '<div class="vc-cpf-dock">' + dockInner + "</div>"
+        : "") +
+      '<div class="vc-cpf-editor">' +
+      editorInner +
+      "</div></div>"
+    );
+  }
+
+  function colorModeDockHtml(entity, gradientOk) {
+    var mode = inferColorMode(entity);
+    return (
+      '<nav class="vc-cpf-dock__modes" role="group" aria-label="Tipo colore">' +
+      '<button type="button" class="vc-cpf-btn vc-cpf-modebtn' +
+      (mode === "solid" ? " is-active" : "") +
+      '" data-mode="solid">Solido</button>' +
+      (gradientOk
+        ? '<button type="button" class="vc-cpf-btn vc-cpf-modebtn' +
+          (mode === "gradient" ? " is-active" : "") +
+          '" data-mode="gradient">Gradiente</button>' +
+          '<button type="button" class="vc-cpf-btn vc-cpf-modebtn' +
+          (mode === "holo" ? " is-active" : "") +
+          '" data-mode="holo">Olografico</button>'
+        : "") +
+      "</nav>" +
+      '<p class="vc-cpf-dock__hint">Anteprima live · salva per Discord</p>'
+    );
   }
 
   function editorBasePath() {
@@ -1198,40 +1407,82 @@
     return isCustomRoleTab();
   }
 
+  function persGateMarkup(opts) {
+    opts = opts || {};
+    var login = opts.login === true;
+    var kicker = opts.kicker || "Personalizza";
+    var title = opts.title || (login ? "Accedi per continuare" : "Impossibile caricare");
+    var body = opts.body || "";
+    var perks = login
+      ? '<ul class="vc-pers-gate__perks" aria-label="Cosa puoi personalizzare">' +
+        '<li><i class="fa fa-id-card-o" aria-hidden="true"></i><span>Rank card</span></li>' +
+        '<li><i class="fa fa-star" aria-hidden="true"></i><span>Ruoli</span></li>' +
+        '<li><i class="fa fa-sliders" aria-hidden="true"></i><span>Privacy &amp; altro</span></li>' +
+        "</ul>"
+      : "";
+    var actions = login
+      ? '<button type="button" class="vc-pers-gate__cta" data-vc-discord-login>' +
+        '<img class="vc-discord-login-emoji" src="/images/discord.gif?v=20260908loginGif1" width="20" height="20" alt="" decoding="async" aria-hidden="true" />' +
+        "<span>Accedi con Discord</span></button>" +
+        '<a class="vc-pers-gate__secondary" href="/"><i class="fa fa-chevron-left" aria-hidden="true"></i><span>Torna alla Home</span></a>'
+      : '<button type="button" class="vc-pers-gate__cta vc-pers-gate__cta--ghost" data-vc-pers-reload="1">' +
+        '<i class="fa fa-refresh" aria-hidden="true"></i><span>Ricarica la pagina</span></button>';
+    return (
+      '<div class="vc-pers-gate' +
+      (login ? " is-login" : " is-error") +
+      '" data-vc-pers-gate="persGateUi1">' +
+      '<section class="vc-pers-gate__card">' +
+      '<div class="vc-pers-gate__badge" aria-hidden="true"><i class="fa ' +
+      (login ? "fa-lock" : "fa-exclamation-circle") +
+      '"></i></div>' +
+      '<p class="vc-pers-gate__kicker">' +
+      esc(kicker) +
+      "</p>" +
+      '<h1 class="vc-pers-gate__title">' +
+      esc(title) +
+      "</h1>" +
+      '<p class="vc-pers-gate__lead">' +
+      esc(body) +
+      "</p>" +
+      perks +
+      '<div class="vc-pers-gate__actions">' +
+      actions +
+      "</div></section></div>"
+    );
+  }
+
   function topChrome(target, opts) {
     opts = opts || {};
-    var back =
-      '<a class="vc-cpf-back" href="' +
-      esc(opts.backHref || profileBackUrl()) +
-      '"><i class="fa fa-chevron-left" aria-hidden="true"></i><span>Profilo</span></a>';
+    var hubOn = isPersHub();
+    var back = hubOn
+      ? ""
+      : '<a class="vc-cpf-back" href="' +
+        esc(opts.backHref || profileBackUrl()) +
+        '"><i class="fa fa-chevron-left" aria-hidden="true"></i><span>Profilo</span></a>';
     if (opts.lockedLogin) {
       return (
         back +
-        '<header class="vc-cpf-top">' +
-        '<p class="vc-cpf-kicker">Personalizza</p>' +
-        "<h1>Login richiesto</h1>" +
-        '<p class="vc-cpf-lead">' +
-        esc(opts.errorBody || "Accedi con Discord per personalizzare ruolo e vocale.") +
-        "</p>" +
-        "</header>"
+        persGateMarkup({
+          login: true,
+          kicker: "Personalizza",
+          title: "Accedi per continuare",
+          body: opts.errorBody || "Collega Discord per personalizzare ruoli, colori e impostazioni del profilo.",
+        })
       );
     }
     if (opts.errorTitle) {
       return (
         back +
-        '<header class="vc-cpf-top">' +
-        '<p class="vc-cpf-kicker">Personalizza</p>' +
-        "<h1>" +
-        esc(opts.errorTitle) +
-        "</h1>" +
-        '<p class="vc-cpf-lead">' +
-        esc(opts.errorBody || "") +
-        "</p>" +
-        "</header>"
+        persGateMarkup({
+          login: false,
+          kicker: "Personalizza",
+          title: opts.errorTitle,
+          body: opts.errorBody || "",
+        })
       );
     }
     var tabs = "";
-    if (!isPersHub()) {
+    if (!hubOn) {
       tabs =
         '<nav class="vc-cpf-switch" aria-label="Sezioni">' +
         [
@@ -1258,7 +1509,7 @@
     return (
       back +
       '<header class="vc-cpf-top">' +
-      (isPersHub() ? "" : '<p class="vc-cpf-kicker">Personalizza</p>') +
+      (hubOn ? "" : '<p class="vc-cpf-kicker">Personalizza</p>') +
       "<h1>" +
       esc(targetLabel(target)) +
       "</h1>" +
@@ -1270,10 +1521,14 @@
   function render() {
     var app = byId("vc-custom-profile-app");
     if (!app) return;
+    /* persTabSwitchLoad1: non dipingere editor custom su tab extras/rank */
+    if (isPersHub() && !isCustomRoleTab()) return;
 
     if (!getToken()) {
       app.hidden = false;
+      app.removeAttribute("hidden");
       app.innerHTML = shell(topChrome("primary", { lockedLogin: true, backHref: "/user/" }));
+      wirePersGateOauth(app);
       clearPendingChrome();
       return;
     }
@@ -1287,77 +1542,80 @@
     if (!canAccess(target) && !entity) {
       editor = lockedRequirementsHtml(target);
     } else if (!entity) {
-      editor =
-        '<div class="vc-cpf-layout">' +
-        '<aside class="vc-cpf-stage" aria-label="Anteprima">' +
-        previewHtml(target, null) +
-        "</aside>" +
-        '<div class="vc-cpf-editor">' +
+      /* vocCreateCooldownGate1: niente Crea se cooldown post auto-delete */
+      var voiceCooldown =
+        target === "voice" &&
+        state &&
+        state.voiceActivity &&
+        state.voiceActivity.recreationBlocked;
+      var createBody = voiceCooldown
+        ? '<p class="vc-cpf-empty">Non puoi ricreare la vocale finché il cooldown è attivo' +
+          (state.voiceActivity.cooldownRemainingLabel
+            ? " (ancora <strong>" + esc(state.voiceActivity.cooldownRemainingLabel) + "</strong>)"
+            : "") +
+          ".</p>"
+        : '<p class="vc-cpf-empty">Non hai ancora ' +
+          esc(targetLabel(target).toLowerCase()) +
+          ".</p>" +
+          '<div class="vc-cpf-actions">' +
+          '<button type="button" class="vc-cpf-btn vc-cpf-btn--primary" data-action="create">Crea ' +
+          esc(targetLabel(target)) +
+          "</button></div>";
+      editor = stackLayout(
+        previewHtml(target, null),
         (target === "voice" ? voiceRequirementsHtml() : "") +
-        block(
-          "Crea",
-          "Parti da zero",
-          '<p class="vc-cpf-empty">Non hai ancora ' +
-            esc(targetLabel(target).toLowerCase()) +
-            ".</p>" +
-            '<div class="vc-cpf-actions">' +
-            '<button type="button" class="vc-cpf-btn vc-cpf-btn--primary" data-action="create">Crea ' +
-            esc(targetLabel(target)) +
-            "</button></div>",
-        ) +
-        "</div></div>";
+          block(
+            voiceCooldown ? "Bloccato" : "Crea",
+            voiceCooldown ? "Attendi la fine del cooldown" : "Parti da zero",
+            createBody,
+          ),
+      );
     } else if (target === "voice") {
-      editor =
-        '<div class="vc-cpf-layout">' +
-        '<aside class="vc-cpf-stage" aria-label="Anteprima">' +
-        previewHtml(target, entity) +
-        "</aside>" +
-        '<div class="vc-cpf-editor">' +
+      editor = stackLayout(
+        previewHtml(target, entity),
         voiceRequirementsHtml() +
-        block(
-          "Identità",
-          "Come appare il canale — solo emoji normali (niente custom del server)",
-          '<div class="vc-cpf-grid vc-cpf-grid--voice-id">' +
-            '<label class="vc-cpf-field">' +
-            "<span>Nome</span>" +
-            '<div class="vc-cpf-inputrow">' +
-            '<input type="text" id="vc-cpf-name" maxlength="80" value="' +
-            esc(stripVoiceEmojiPrefix(entity.name)) +
-            '" autocomplete="off" />' +
-            '<button type="button" class="vc-cpf-emojibtn" data-cpf-emoji-pick="name" title="Emoji nel nome" aria-label="Emoji nel nome">' +
-            '<i class="fa fa-smile-o" aria-hidden="true"></i></button></div>' +
-            '<div class="vc-cpf-actions vc-cpf-actions--field">' +
-            '<button type="button" class="vc-cpf-btn vc-cpf-btn--primary" data-action="rename">Salva nome</button></div></label>' +
-            '<label class="vc-cpf-field vc-cpf-field--emoji">' +
-            "<span>Emoji</span>" +
-            '<div class="vc-cpf-inputrow">' +
-            '<input type="text" id="vc-cpf-emoji" maxlength="8" value="' +
-            esc(entity.emoji || "") +
-            '" placeholder="🎧" autocomplete="off" />' +
-            '<button type="button" class="vc-cpf-emojibtn" data-cpf-emoji-pick="voc-emoji" title="Scegli emoji" aria-label="Scegli emoji">' +
-            '<i class="fa fa-smile-o" aria-hidden="true"></i></button></div>' +
-            '<div class="vc-cpf-actions vc-cpf-actions--field">' +
-            '<button type="button" class="vc-cpf-btn vc-cpf-btn--primary" data-action="emoji">Salva emoji</button></div></label>' +
-            "</div>",
-        ) +
-        block(
-          "Accesso",
-          "Chi può entrare",
-          memberListHtml(entity.sharedMembers) +
-            '<div class="vc-cpf-inline">' +
-            '<input type="text" id="vc-cpf-member" placeholder="ID Discord" inputmode="numeric" autocomplete="off" />' +
-            '<button type="button" class="vc-cpf-btn vc-cpf-btn--primary" data-action="members_add">Aggiungi</button></div>',
-        ) +
-        '<div class="vc-cpf-dangerzone">' +
-        '<button type="button" class="vc-cpf-btn vc-cpf-btn--danger" data-action="delete">Elimina vocale</button>' +
-        "</div></div></div>";
+          block(
+            "Identità",
+            "Come appare il canale — solo emoji normali (niente custom del server)",
+            '<div class="vc-cpf-grid vc-cpf-grid--voice-id">' +
+              '<label class="vc-cpf-field">' +
+              "<span>Nome</span>" +
+              '<div class="vc-cpf-inputrow">' +
+              '<input type="text" id="vc-cpf-name" maxlength="80" value="' +
+              esc(stripVoiceEmojiPrefix(entity.name)) +
+              '" autocomplete="off" />' +
+              '<button type="button" class="vc-cpf-emojibtn" data-cpf-emoji-pick="name" title="Emoji nel nome" aria-label="Emoji nel nome">' +
+              '<i class="fa fa-smile-o" aria-hidden="true"></i></button></div>' +
+              '<div class="vc-cpf-actions vc-cpf-actions--field">' +
+              '<button type="button" class="vc-cpf-btn vc-cpf-btn--primary" data-action="rename">Salva nome</button></div></label>' +
+              '<label class="vc-cpf-field vc-cpf-field--emoji">' +
+              "<span>Emoji</span>" +
+              '<div class="vc-cpf-inputrow">' +
+              '<input type="text" id="vc-cpf-emoji" maxlength="8" value="' +
+              esc(entity.emoji || "") +
+              '" placeholder="🎧" autocomplete="off" />' +
+              '<button type="button" class="vc-cpf-emojibtn" data-cpf-emoji-pick="voc-emoji" title="Scegli emoji" aria-label="Scegli emoji">' +
+              '<i class="fa fa-smile-o" aria-hidden="true"></i></button></div>' +
+              '<div class="vc-cpf-actions vc-cpf-actions--field">' +
+              '<button type="button" class="vc-cpf-btn vc-cpf-btn--primary" data-action="emoji">Salva emoji</button></div></label>' +
+              "</div>",
+          ) +
+          block(
+            "Accesso",
+            "Chi può entrare",
+            memberListHtml(entity.sharedMembers) +
+              '<div class="vc-cpf-inline">' +
+              '<input type="text" id="vc-cpf-member" placeholder="ID Discord" inputmode="numeric" autocomplete="off" />' +
+              '<button type="button" class="vc-cpf-btn vc-cpf-btn--primary" data-action="members_add">Aggiungi</button></div>',
+          ) +
+          '<div class="vc-cpf-dangerzone">' +
+          '<button type="button" class="vc-cpf-btn vc-cpf-btn--danger" data-action="delete">Elimina vocale</button>' +
+          "</div>",
+        '<p class="vc-cpf-dock__hint">Vocale privata</p>',
+      );
     } else {
-      editor =
-        '<div class="vc-cpf-layout">' +
-        '<aside class="vc-cpf-stage" aria-label="Anteprima">' +
-        previewHtml(target, entity) +
-        "</aside>" +
-        '<div class="vc-cpf-editor">' +
+      editor = stackLayout(
+        previewHtml(target, entity),
         block(
           "Nome",
           "Come appare in server — solo emoji normali nel nome (le custom vanno nell’icona)",
@@ -1370,56 +1628,45 @@
             '<i class="fa fa-smile-o" aria-hidden="true"></i></button></div></label>' +
             '<div class="vc-cpf-actions"><button type="button" class="vc-cpf-btn vc-cpf-btn--primary" data-action="rename">Salva nome</button></div>',
         ) +
-        block(
-          "Colore",
-          "Anteprima subito — su Discord solo dopo «Salva colore»",
-          '<div class="vc-cpf-grid">' +
-            colorFieldHtml("Primario", "vc-cpf-hex", "vc-cpf-hex-pick", entity.color || "#f4b6d7", "#ff66cc", "primary") +
-            (gradientOk
-              ? colorFieldHtml(
-                  "Secondario",
-                  "vc-cpf-hex2",
-                  "vc-cpf-hex2-pick",
-                  entity.color2 || "#6f4e37",
-                  "#6f4e37",
-                  "secondary",
-                )
-              : "") +
-            "</div>" +
-            '<div class="vc-cpf-actions vc-cpf-actions--modes" role="group" aria-label="Tipo colore">' +
-            '<button type="button" class="vc-cpf-btn vc-cpf-modebtn' +
-            (inferColorMode(entity) === "solid" ? " is-active" : "") +
-            '" data-mode="solid">Solido</button>' +
-            (gradientOk
-              ? '<button type="button" class="vc-cpf-btn vc-cpf-modebtn' +
-                (inferColorMode(entity) === "gradient" ? " is-active" : "") +
-                '" data-mode="gradient">Gradiente</button>' +
-                '<button type="button" class="vc-cpf-btn vc-cpf-modebtn' +
-                (inferColorMode(entity) === "holo" ? " is-active" : "") +
-                '" data-mode="holo">Olografico</button>'
-              : "") +
-            "</div>" +
-            '<div class="vc-cpf-actions"><button type="button" class="vc-cpf-btn vc-cpf-btn--primary" data-action="color" data-mode-from-ui="1">Salva colore</button></div>',
-        ) +
-        block(
-          "Icona",
-          "Emoji normali, custom del server o link immagine",
-          iconFieldHtml(entity) +
-            '<div class="vc-cpf-actions">' +
-            '<button type="button" class="vc-cpf-btn vc-cpf-btn--primary" data-action="icon">Salva icona</button>' +
-            '<button type="button" class="vc-cpf-btn vc-cpf-btn--ghost" data-action="icon" data-clear="1">Rimuovi</button></div>',
-        ) +
-        block(
-          "Condiviso con",
-          "Invia una richiesta in DM: il ruolo si assegna solo se accettano",
-          memberListHtml(entity.sharedMembers) +
-            '<div class="vc-cpf-inline">' +
-            '<input type="text" id="vc-cpf-member" placeholder="ID Discord" inputmode="numeric" autocomplete="off" />' +
-            '<button type="button" class="vc-cpf-btn vc-cpf-btn--primary" data-action="members_add">Invia richiesta</button></div>',
-        ) +
-        '<div class="vc-cpf-dangerzone">' +
-        '<button type="button" class="vc-cpf-btn vc-cpf-btn--danger" data-action="delete">Elimina ruolo</button>' +
-        "</div></div></div>";
+          block(
+            "Colore",
+            "Anteprima subito — su Discord solo dopo «Salva colore»",
+            '<div class="vc-cpf-grid">' +
+              colorFieldHtml("Primario", "vc-cpf-hex", "vc-cpf-hex-pick", entity.color || "#f4b6d7", "#ff66cc", "primary") +
+              (gradientOk
+                ? colorFieldHtml(
+                    "Secondario",
+                    "vc-cpf-hex2",
+                    "vc-cpf-hex2-pick",
+                    entity.color2 || "#6f4e37",
+                    "#6f4e37",
+                    "secondary",
+                  )
+                : "") +
+              "</div>" +
+              '<div class="vc-cpf-actions"><button type="button" class="vc-cpf-btn vc-cpf-btn--primary" data-action="color" data-mode-from-ui="1">Salva colore</button></div>',
+          ) +
+          block(
+            "Icona",
+            "Emoji normali, custom del server o link immagine",
+            iconFieldHtml(entity) +
+              '<div class="vc-cpf-actions">' +
+              '<button type="button" class="vc-cpf-btn vc-cpf-btn--primary" data-action="icon">Salva icona</button>' +
+              '<button type="button" class="vc-cpf-btn vc-cpf-btn--ghost" data-action="icon" data-clear="1">Rimuovi</button></div>',
+          ) +
+          block(
+            "Condiviso con",
+            "Invia una richiesta in DM: il ruolo si assegna solo se accettano",
+            memberListHtml(entity.sharedMembers) +
+              '<div class="vc-cpf-inline">' +
+              '<input type="text" id="vc-cpf-member" placeholder="ID Discord" inputmode="numeric" autocomplete="off" />' +
+              '<button type="button" class="vc-cpf-btn vc-cpf-btn--primary" data-action="members_add">Invia richiesta</button></div>',
+          ) +
+          '<div class="vc-cpf-dangerzone">' +
+          '<button type="button" class="vc-cpf-btn vc-cpf-btn--danger" data-action="delete">Elimina ruolo</button>' +
+          "</div>",
+        colorModeDockHtml(entity, gradientOk),
+      );
     }
 
     app.hidden = false;
@@ -1434,6 +1681,23 @@
 
   async function runAction(target, action, extra) {
     if (busy) return;
+    if (
+      target === "voice" &&
+      action === "create" &&
+      state &&
+      state.voiceActivity &&
+      state.voiceActivity.recreationBlocked
+    ) {
+      showToast(
+        "Ricreazione bloccata" +
+          (state.voiceActivity.cooldownRemainingLabel
+            ? " ancora per " + state.voiceActivity.cooldownRemainingLabel
+            : "") +
+          ".",
+        true,
+      );
+      return;
+    }
     busy = true;
     setBusyUi(true);
     try {
@@ -1577,22 +1841,28 @@
     };
   }
 
-  async function boot(attempt) {
-    if (!shouldBootCustom()) {
-            return;
+  async function boot(attempt, navSeq) {
+    if (!shouldBootCustom() && !isCustomRoleTab()) {
+      return;
     }
     attempt = Number(attempt) || 0;
-    var loading = byId("vc-custom-profile-loading");
+    var seq = navSeq != null ? Number(navSeq) : Number(cpfNavSeq || 0);
     var app = byId("vc-custom-profile-app");
     if (!app) return;
     if (!getToken()) {
+      if (!isCpfNavCurrent(seq)) return;
       render();
       return;
     }
     try {
+      if (!app.innerHTML || app.hidden || app.getAttribute("data-vc-cpf-tab-boot") || app.querySelector("[data-vc-cpf-tab-boot]")) {
+        showCustomTabBoot();
+      }
       var data = await apiGet();
+      if (!isCpfNavCurrent(seq) || !isCustomRoleTab()) return;
       if (!data || !data.ok) {
         app.hidden = false;
+        app.removeAttribute("hidden");
         app.innerHTML = shell(
           topChrome("primary", {
             errorTitle: "Errore",
@@ -1601,21 +1871,27 @@
             lockedLogin: data && (data.error === "missing_token" || data.error === "invalid_token" || data.status === 401),
           }),
         );
+        wirePersGateOauth(app);
         clearPendingChrome();
         return;
       }
       applyStatePayload(data);
+      if (!isCpfNavCurrent(seq) || !isCustomRoleTab()) return;
       if (window.VcPageTitle) window.VcPageTitle.set(targetLabel(parseTarget()));
-      else document.title = "Vinili & Caffè | " + targetLabel(parseTarget());
+      else document.title = "Vinili & Caffè \u01C0 " + targetLabel(parseTarget());
       render();
     } catch (e) {
+      if (!isCpfNavCurrent(seq)) return;
       if (attempt < 2) {
         await new Promise(function (resolve) {
           setTimeout(resolve, 1200);
         });
-        return boot(attempt + 1);
+        if (!isCpfNavCurrent(seq) || !isCustomRoleTab()) return;
+        return boot(attempt + 1, seq);
       }
+      if (!isCustomRoleTab()) return;
       app.hidden = false;
+      app.removeAttribute("hidden");
       app.innerHTML = shell(
         topChrome("primary", {
           errorTitle: "Errore di rete",
@@ -1626,6 +1902,104 @@
       clearPendingChrome();
     }
   }
+
+  if (!document.__vcPersGateReloadWired) {
+    document.__vcPersGateReloadWired = true;
+    document.addEventListener("click", function (ev) {
+      var t = ev.target && ev.target.closest ? ev.target.closest("[data-vc-pers-reload]") : null;
+      if (!t) return;
+      try {
+        ev.preventDefault();
+      } catch (e0) {}
+      try {
+        window.location.reload();
+      } catch (e1) {}
+    });
+  }
+
+  function wirePersGateOauth(root) {
+    var scope = root && root.querySelectorAll ? root : document;
+    Array.prototype.slice
+      .call(scope.querySelectorAll(".vc-pers-gate__cta[data-vc-discord-login]"))
+      .forEach(function (btn) {
+        if (btn.__vcPersGateOauth) return;
+        btn.__vcPersGateOauth = true;
+        btn.addEventListener("click", function (ev) {
+          try {
+            if (ev && ev.preventDefault) ev.preventDefault();
+          } catch (e0) {}
+          if (typeof window.__vcDiscordStartOAuthRedirect === "function") {
+            window.__vcDiscordStartOAuthRedirect(btn);
+            return;
+          }
+          if (typeof window.__vcDiscordStartOAuth === "function") {
+            window.__vcDiscordStartOAuth(btn);
+            return;
+          }
+          var hdr = byId("discord-login-btn");
+          if (hdr) hdr.click();
+        });
+      });
+  }
+
+  function forceLoginGateAfterLogout() {
+    try {
+      state = null;
+    } catch (eSt) {}
+    /* persTabSwitchLoad1: non sovrascrivere extras/rank con gate custom */
+    if (isPersHub() && !isCustomRoleTab()) return;
+    try {
+      render();
+    } catch (eRen) {
+      try {
+        boot(0, cpfNavSeq);
+      } catch (eBoot) {}
+    }
+  }
+  try {
+    window.__vcCpfForceLoginGate = forceLoginGateAfterLogout;
+  } catch (eExp) {}
+  window.addEventListener("vc:auth-logout", function () {
+    forceLoginGateAfterLogout();
+  });
+  window.addEventListener("pageshow", function () {
+    try {
+      if (!getToken()) forceLoginGateAfterLogout();
+    } catch (ePs) {}
+  });
+  function pingHubScroll() {
+    try {
+      var hub = window.__VC_PERS_HUB_API;
+      if (hub && typeof hub.afterPanelScrollToTabs === "function") hub.afterPanelScrollToTabs();
+      else if (hub && typeof hub.scheduleScrollToTabs === "function") hub.scheduleScrollToTabs();
+    } catch (ePing) {}
+  }
+
+  /* persTabScroll2 / persTabSwitchLoad1: hub soft-nav → ri-render immediato (detail.tab + hub) */
+  document.addEventListener("vc:pers-hub-navigate", function (ev) {
+    try {
+      var hint = String((ev && ev.detail && ev.detail.tab) || "").trim().toLowerCase();
+      if (!isCustomRoleTab(hint)) return;
+      cpfNavSeq += 1;
+      var seq = cpfNavSeq;
+      if (!getToken()) {
+        render();
+        pingHubScroll();
+        return;
+      }
+      if (state) {
+        render();
+        pingHubScroll();
+        return;
+      }
+      showCustomTabBoot();
+      Promise.resolve(boot(0, seq)).then(pingHubScroll).catch(pingHubScroll);
+    } catch (eNav) {
+      try {
+        console.warn("[vc-cpf] hub-nav", eNav);
+      } catch (eW) {}
+    }
+  });
 
   function scheduleBoot() {
     try {

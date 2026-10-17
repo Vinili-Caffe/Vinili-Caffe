@@ -46,6 +46,7 @@ const {
   mutateSiteNotifPrefs,
 } = require("./siteNotifPrefs");
 const { applyViewAsToResolvedMember } = require("./siteViewAsPreview");
+const { discordRoleIconUrl } = require("../Discord/discordRoleIconUrl");
 
 const ROLE_PANEL_LABELS = Object.freeze({
   pronouns: "Pronomi",
@@ -158,10 +159,22 @@ function extrasSkeleton(userId) {
   };
 }
 
-function roleOptionLabel(guild, roleId, fallback) {
-  const role = guild?.roles?.cache?.get?.(String(roleId));
-  const name = String(role?.name || fallback || roleId || "").trim();
-  return name.replace(/^༄\s*/, "") || String(roleId);
+/* rolesDiscordIcon1: nome Discord esatto (niente strip prefissi) + icona/emoji ruolo */
+function buildRoleOption(guild, roleId, extra = {}) {
+  const rid = String(roleId || "").trim();
+  const role = guild?.roles?.cache?.get?.(rid);
+  const label = String(role?.name || rid || "").trim() || rid;
+  const icon = discordRoleIconUrl(role, { size: 64 });
+  const emoji = String(role?.unicodeEmoji || "").trim();
+  return {
+    value: rid,
+    label,
+    iconUrl: String(icon.iconUrl || "").trim(),
+    iconAnimated: Boolean(icon.iconAnimated),
+    emoji,
+    unlocked: true,
+    ...extra,
+  };
 }
 
 function isColorCategory(cat) {
@@ -197,26 +210,26 @@ async function buildRolePanelCategory(guild, member, cat, prefetched = {}) {
     const unlocked = colorUnlocks.listUnlockedTierRoleIds(level);
     for (const rid of unlocked) {
       if (!guild.roles.cache.has(rid)) continue;
-      options.push({ value: rid, label: roleOptionLabel(guild, rid), unlocked: true });
+      options.push(buildRoleOption(guild, rid));
       if (member.roles.cache.has(rid)) selected = rid;
     }
   } else if (key === "colors_plus") {
     const unlocked = colorUnlocks.listUnlockedPlusRoleIds(guild, canPlus, level);
     for (const rid of unlocked) {
-      options.push({ value: rid, label: roleOptionLabel(guild, rid), unlocked: true });
+      options.push(buildRoleOption(guild, rid));
       if (member.roles.cache.has(rid)) selected = rid;
     }
   } else if (key === "colors1") {
     for (const rid of colorUnlocks.listUnlockedNaturalRoleIds()) {
       if (!guild.roles.cache.has(rid)) continue;
-      options.push({ value: rid, label: roleOptionLabel(guild, rid), unlocked: true });
+      options.push(buildRoleOption(guild, rid));
       if (member.roles.cache.has(rid)) selected = rid;
     }
   } else {
     const pool = PERSONALITY_CATEGORY_ROLE_IDS[key] || [];
     for (const rid of pool) {
       if (!guild.roles.cache.has(rid)) continue;
-      options.push({ value: rid, label: roleOptionLabel(guild, rid), unlocked: true });
+      options.push(buildRoleOption(guild, rid));
       if (member.roles.cache.has(rid)) {
         selectedIds.push(rid);
         selected = rid;

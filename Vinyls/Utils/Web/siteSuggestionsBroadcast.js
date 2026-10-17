@@ -95,8 +95,21 @@ function broadcastSiteSuggestionsChanged() {
   notifyExternalSiteRealtime(payload);
 }
 
-function broadcastSiteNotificationsChanged() {
-  const payload = { type: "notifications_changed", at: new Date().toISOString() };
+function broadcastSiteNotificationsChanged(extra = null) {
+  const payload = {
+    type: "notifications_changed",
+    at: new Date().toISOString(),
+  };
+  /* badgeCrossDevice1: unread + userId → altri device aggiornano badge senza aspettare full sync */
+  try {
+    if (extra && typeof extra === "object") {
+      const uid = String(extra.userId || "").trim();
+      if (/^\d{17,20}$/.test(uid)) payload.userId = uid;
+      if (Number.isFinite(Number(extra.unread))) {
+        payload.unread = Math.max(0, Math.min(99, Math.floor(Number(extra.unread))));
+      }
+    }
+  } catch (_) {}
   broadcastSiteRealtime(payload);
   notifyExternalSiteRealtime(payload);
 }
@@ -132,6 +145,79 @@ function broadcastSiteStaffWorkflowChanged(queue = "") {
   const payload = {
     type: "staff_workflow_changed",
     queue: String(queue || "").trim().toLowerCase(),
+    at: new Date().toISOString(),
+  };
+  broadcastSiteRealtime(payload);
+  notifyExternalSiteRealtime(payload);
+}
+
+/** Debounce fanout workflow (store/notifications burst). */
+const __workflowChangedDebounce = new Map();
+function broadcastSiteStaffWorkflowChangedDebounced(queue = "", ms = 280) {
+  const q = String(queue || "").trim().toLowerCase();
+  const key = q || "_";
+  const prev = __workflowChangedDebounce.get(key);
+  if (prev) clearTimeout(prev);
+  const t = setTimeout(() => {
+    __workflowChangedDebounce.delete(key);
+    broadcastSiteStaffWorkflowChanged(q);
+  }, Math.max(80, Number(ms) || 280));
+  __workflowChangedDebounce.set(key, t);
+}
+
+/** staffProfLiveAll1 — client already listens for staff_profile_changed */
+function broadcastSiteStaffProfileChanged(userId, extras = {}) {
+  const uid = String(userId || (extras && extras.userId) || "").trim();
+  const payload = {
+    type: "staff_profile_changed",
+    userId: uid || undefined,
+    action: String((extras && extras.action) || "").trim() || undefined,
+    at: new Date().toISOString(),
+  };
+  broadcastSiteRealtime(payload);
+  notifyExternalSiteRealtime(payload);
+}
+
+/** siteLiveAll1 — client already listens for staff_compiti_changed */
+function broadcastSiteStaffCompitiChanged(extras = {}) {
+  const payload = {
+    type: "staff_compiti_changed",
+    userId: String((extras && extras.userId) || "").trim() || undefined,
+    weekKey: String((extras && extras.weekKey) || "").trim() || undefined,
+    action: String((extras && extras.action) || "").trim() || undefined,
+    at: new Date().toISOString(),
+  };
+  broadcastSiteRealtime(payload);
+  notifyExternalSiteRealtime(payload);
+}
+
+function broadcastSiteBoardsChanged(action = "", extras = {}) {
+  const ex = extras && typeof extras === "object" ? extras : {};
+  const payload = {
+    type: "boards_changed",
+    action: String(action || ex.action || "changed").trim().toLowerCase() || "changed",
+    listingId: ex.listingId ? String(ex.listingId) : undefined,
+    slug: ex.slug ? String(ex.slug) : undefined,
+    kind: ex.kind ? String(ex.kind) : undefined,
+    at: new Date().toISOString(),
+  };
+  broadcastSiteRealtime(payload);
+  notifyExternalSiteRealtime(payload);
+}
+
+function broadcastSiteLiveStatsChanged() {
+  const payload = { type: "live_stats_changed", at: new Date().toISOString() };
+  broadcastSiteRealtime(payload);
+  notifyExternalSiteRealtime(payload);
+}
+
+function broadcastSiteUiChanged(scope = "", extras = {}) {
+  const ex = extras && typeof extras === "object" ? extras : {};
+  const payload = {
+    type: "site_ui_changed",
+    scope: String(scope || ex.scope || "").trim() || undefined,
+    action: String(ex.action || "").trim() || undefined,
+    userId: String(ex.userId || "").trim() || undefined,
     at: new Date().toISOString(),
   };
   broadcastSiteRealtime(payload);
@@ -201,10 +287,17 @@ module.exports = {
   broadcastSiteConfessionaleChanged,
   broadcastSiteStaffPausesChanged,
   broadcastSiteStaffWorkflowChanged,
+  broadcastSiteStaffWorkflowChangedDebounced,
+  broadcastSiteStaffProfileChanged,
+  broadcastSiteStaffCompitiChanged,
+  broadcastSiteBoardsChanged,
+  broadcastSiteLiveStatsChanged,
+  broadcastSiteUiChanged,
   broadcastSiteWebTicketsEvent,
   broadcastSiteMemberLeft,
   invalidateLeftMemberSiteCaches,
   broadcastSiteRealtime,
+  notifyExternalSiteRealtime,
   SUGGESTIONS_WS_PATH: LEGACY_SUGGESTIONS_WS_PATH,
   SITE_REALTIME_WS_PATH,
   WS_UPGRADE_PATHS,

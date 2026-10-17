@@ -155,6 +155,17 @@ module.exports = {
       if (ticketCategoryDeleted || shouldResyncAutomodForChannel(channel)) {
         scheduleDiscordAutomodRulesResync(client);
       }
+      try {
+        const { getMainGuildId } = require("../Utils/Config/testGuildMirrorRemap");
+        if (String(channel.guildId) === String(getMainGuildId() || "")) {
+          const { mirrorMainChannelDeleteToTest } = require("../Services/Partner/testGuildMirrorSyncService");
+          void mirrorMainChannelDeleteToTest(client, channel).catch((err) => {
+            global.logger?.warn?.("[channelDelete] test mirror:", err?.message || err);
+          });
+        }
+      } catch (eMirror) {
+        global.logger?.warn?.("[channelDelete] test mirror hook:", eMirror?.message || eMirror);
+      }
     }
   },
 };

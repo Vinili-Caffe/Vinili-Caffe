@@ -3,8 +3,9 @@
   var EXPIRES_KEY = "vc_discord_expires_at";
   var ME_SESSION_KEY = "vc_discord_me_cache_v1";
   var ME_LOCAL_KEY = "vc_discord_me_cache_local_v1";
-  var ME_SESSION_TTL_MS = 180000;
-  var ME_LOCAL_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+  /* emojiDiscordFast1: allinea TTL a discord-auth (session 15m, local 24h) */
+  var ME_SESSION_TTL_MS = 15 * 60 * 1000;
+  var ME_LOCAL_TTL_MS = 24 * 60 * 60 * 1000;
 
   function injectRankCustomizeFixes() {
     try {
@@ -140,6 +141,42 @@
     } catch (eCss) {}
   }
 
+  /* loadBarGateAuth1: lock scroll subito (prima di chrome-ui) — batte grad-bake overflow:auto */
+  function injectEarlyLoadScrollLock() {
+    try {
+      if (document.getElementById("vc-early-load-scroll-lock-css")) return;
+      var style = document.createElement("style");
+      style.id = "vc-early-load-scroll-lock-css";
+      style.setAttribute("data-vc", "loadBarGateAuth1");
+      style.textContent =
+        "html.vc-grad-baked:not(.vc-chrome-scroll-armed)," +
+        "html.vc-grad-baked:not(.vc-chrome-scroll-armed) body," +
+        "html.vc-chrome-bar-loading,html.vc-chrome-bar-loading body," +
+        "html.vc-loading-scroll-lock,html.vc-loading-scroll-lock body{" +
+        "overflow:hidden!important;overflow-y:hidden!important;" +
+        "height:100%!important;max-height:100dvh!important;" +
+        "scrollbar-width:none!important;touch-action:none!important}" +
+        "html.vc-grad-baked:not(.vc-chrome-scroll-armed)::-webkit-scrollbar," +
+        "html.vc-chrome-bar-loading::-webkit-scrollbar," +
+        "html.vc-loading-scroll-lock::-webkit-scrollbar{width:0!important;display:none!important}";
+      (document.head || document.documentElement).appendChild(style);
+      try {
+        document.documentElement.classList.add("vc-chrome-bar-loading", "vc-loading-scroll-lock");
+      } catch (eCls) {}
+      try {
+        window.setTimeout(function () {
+          try {
+            if (window.__vcChromeScrollArmed) return;
+            var root = document.documentElement;
+            root.classList.add("vc-chrome-scroll-armed");
+            root.classList.remove("vc-chrome-bar-loading", "vc-loading-scroll-lock");
+          } catch (eFs) {}
+        }, 6500);
+      } catch (eFsArm) {}
+    } catch (eLock) {}
+  }
+  injectEarlyLoadScrollLock();
+
   function pendingShellHtml() {
     var coffee = avatarUrl(null);
     return (
@@ -233,6 +270,14 @@
     try {
       window.__VC_DISCORD_PROFILE = user || window.__VC_DISCORD_PROFILE || null;
     } catch (eProf) {}
+    try {
+      window.__vcDiscordAuthPainted = 1;
+      document.dispatchEvent(
+        new CustomEvent("vc-discord-auth-boot", {
+          detail: { reason: user ? "auth-pending-profile" : "auth-pending-shell", early: true },
+        }),
+      );
+    } catch (ePaint) {}
     if (user && user.id) {
       try {
         window.dispatchEvent(
@@ -295,9 +340,40 @@
     } catch (eWarm) {}
   }
 
+  function injectDiscordCdnHints() {
+    try {
+      if (document.getElementById("vc-discord-preconnect-early")) return;
+      var head = document.head || document.documentElement;
+      var a = document.createElement("link");
+      a.id = "vc-discord-preconnect-early";
+      a.rel = "preconnect";
+      a.href = "https://cdn.discordapp.com";
+      a.crossOrigin = "anonymous";
+      head.appendChild(a);
+      var b = document.createElement("link");
+      b.rel = "dns-prefetch";
+      b.href = "https://cdn.discordapp.com";
+      head.appendChild(b);
+    } catch (eHint) {}
+  }
+
+  function prefetchAvatarEarly(user) {
+    try {
+      var url = avatarUrl(user);
+      if (!url || url.indexOf("data:") === 0) return;
+      var img = new Image();
+      img.decoding = "async";
+      try {
+        img.fetchPriority = "high";
+      } catch (eFp) {}
+      img.src = url;
+    } catch (ePref) {}
+  }
+
   function bootEarlyAuthHeader() {
     /* mobileNavProfileCache1: apply cached profile before session-boot so drawer can paint */
     injectEarlyAuthCss();
+    injectDiscordCdnHints();
     var token = "";
     try {
       token = String(localStorage.getItem(TOKEN_KEY) || "").trim();
@@ -314,6 +390,7 @@
     document.documentElement.classList.add("vc-auth-session-pending");
     warmDashboardMenuFromCache(token);
     var cached = readCachedMe(token);
+    if (cached) prefetchAvatarEarly(cached);
     function apply() {
       applyEarlyAuthShell(cached);
       try {

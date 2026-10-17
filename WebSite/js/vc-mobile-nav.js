@@ -3,11 +3,15 @@
   /* hamEsciFull1: Esci hamburger sempre full-width sotto il trio */
   /* bachecaHamGuestHide1: (superseded) */
   /* hamBachecaDashTiles1: (superseded by hamFootOnly1) */
+  /* boardsHamNav1: su /bacheca phone → snav nascosta, Esplora/Pubblica/Le mie in hamburger */
+  /* boardsHamPages1: hamburger bacheca = SOLO pagine boards (come PC), non categoria vuota */
   "use strict";
   /* mobileNavProfileCache1: first-paint profile from me-cache + prefer landing syncFooter */
   /* staffCompitiNavEverywhere1: always ensure Compiti tile next to Guida/Confessionale */
   /* staffNavFix1: always run — landing no longer exclusive-owns the hamburger */
   /* hamburgerOpenAll1: categorie aperte di default + persist chiusura in localStorage */
+  /* cpuIdleCut1: prewarm solo mobile, dopo visual-ready, idle vero (no timeout 2.5s in boot) */
+  /* consoleFixAll1: coalesce auth events → un solo rebuild (no 13–17s Violation storm) */
   window.__vcMobileNavStandalone = true;
   try {
     window.__vcLandingMobileNavActive = false;
@@ -18,10 +22,36 @@
   var BODY_OPEN_CLASS = "vc-mobile-nav-open";
   var mq = null;
   var drawer = null;
+  /* uiOpenCold1: skip rebuildGrid al click se già prewarmed */
+  var gridDirty = true;
   var toggle = null;
   var backdrop = null;
   var focusPrev = null;
   var onEscapeDrawer = null;
+  var authRebuildTimer = 0;
+  function scheduleAuthRebuild(opts) {
+    opts = opts || {};
+    gridDirty = true;
+    if (authRebuildTimer) return;
+    authRebuildTimer = window.setTimeout(function () {
+      authRebuildTimer = 0;
+      function run() {
+        try {
+          if (opts.ensure) ensure();
+          rebuildGrid();
+          gridDirty = false;
+          if (opts.removeDash !== false) removeHeaderDashboardBtn();
+          if (opts.footer) syncDrawerFooter();
+        } catch (eRun) {}
+      }
+      try {
+        if (typeof window.requestAnimationFrame === "function") window.requestAnimationFrame(run);
+        else run();
+      } catch (eRaf) {
+        run();
+      }
+    }, 48);
+  }
 
   function getMq() {
     if (!mq) {
@@ -92,12 +122,16 @@
     try {
       if (typeof window.__vcSyncLoaderScrollLock === "function") window.__vcSyncLoaderScrollLock();
     } catch (eSyncOpen) {}
-    window.requestAnimationFrame(function () {
-      try {
-        rebuildGrid();
-        syncDrawerFooter();
-      } catch (eRebuild) {}
-    });
+    /* uiOpenCold1: rebuild solo se dirty (prewarm idle); open = class + focus */
+    if (gridDirty) {
+      window.requestAnimationFrame(function () {
+        try {
+          rebuildGrid();
+          syncDrawerFooter();
+          gridDirty = false;
+        } catch (eRebuild) {}
+      });
+    }
     onEscapeDrawer = function (ev) {
       if (ev.key === "Escape") {
         ev.preventDefault();
@@ -304,6 +338,9 @@
       for (i = 0; i < nodes.length; i += 1) {
         var a = nodes[i];
         if (!a || !a.classList || !a.classList.contains("vc-mobile-nav-tile")) continue;
+        /* boardsHamPages1: non cancellare Esplora/Pubblica/Le mie */
+        if (a.getAttribute("data-vc-mobile-boards-nav")) continue;
+        if (a.closest && a.closest("[data-vc-mobile-boards-section]")) continue;
         /* non toccare footer */
         if (a.closest && a.closest(".vc-mobile-nav-footer")) continue;
         try {
@@ -365,6 +402,157 @@
   function ensureMobileBachecaTile(gridRoot) {
     /* hamFootOnly1: niente tile Bacheca in PRINCIPALE — solo footer */
     return;
+  }
+
+  function createBoardsMobileTile(item) {
+    if (!item || !item.href) return null;
+    var a = document.createElement("a");
+    a.className = "vc-mobile-nav-tile";
+    a.href = item.href;
+    a.setAttribute("data-vc-mobile-boards-nav", item.id || "1");
+    var ico = document.createElement("span");
+    ico.className = "vc-mobile-nav-tile-ico";
+    ico.setAttribute("aria-hidden", "true");
+    ico.innerHTML = '<i class="fa ' + String(item.icon || "fa-circle") + '"></i>';
+    var lab = document.createElement("span");
+    lab.className = "vc-mobile-nav-tile-label";
+    lab.textContent = i18nLabel(item.labelKey, item.label);
+    if (item.labelKey) lab.setAttribute("data-i18n", item.labelKey);
+    a.appendChild(ico);
+    a.appendChild(lab);
+    try {
+      var here = String(window.location.pathname || "/").replace(/\/+$/, "") || "/";
+      var target = String(item.href || "").replace(/\/+$/, "") || "/";
+      if (target !== "/" && (here === target || here.indexOf(target + "/") === 0)) {
+        a.classList.add("is-active");
+        a.setAttribute("aria-current", "page");
+      }
+    } catch (eAct) {}
+    a.addEventListener("click", function () {
+      closeDrawer();
+    });
+    return a;
+  }
+
+  function collectBoardsMobileTiles() {
+    /* boardsHamPages1: stesse voci della snav PC (Esplora/Pubblica/Le mie) */
+    var tiles = [];
+    var i;
+    try {
+      var snav =
+        document.querySelector("nav.vc-header-snav.vc-header-snav--boards") ||
+        document.querySelector("nav.vc-header-snav");
+      if (snav && snav.classList.contains("vc-header-snav--boards")) {
+        var links = snav.querySelectorAll(":scope > a.vc-snav-item[href]");
+        for (i = 0; i < links.length; i += 1) {
+          var row = links[i];
+          var href = String(row.getAttribute("href") || "");
+          if (!href) continue;
+          var id = String(row.getAttribute("data-vc-boards-nav") || "").trim();
+          if (!id) {
+            var h = href.toLowerCase();
+            if (h.indexOf("/bacheca/invia") >= 0) id = "submit";
+            else if (h.indexOf("/bacheca/le-mie") >= 0) id = "manage";
+            else id = "browse";
+          }
+          var lab = "";
+          try {
+            var sp = row.querySelector("span:not(.vc-nav-feat-badge)");
+            lab = String((sp && sp.textContent) || row.textContent || "")
+              .replace(/\s+/g, " ")
+              .trim();
+          } catch (eLab) {}
+          var ico = "fa-circle";
+          try {
+            var ic = row.querySelector("i.fa");
+            if (ic && ic.className) {
+              var m = String(ic.className).match(/\bfa-[a-z0-9-]+\b/i);
+              if (m) ico = m[0];
+            }
+          } catch (eIco) {}
+          var tile = createBoardsMobileTile({
+            href: href,
+            id: id,
+            label: lab || id,
+            labelKey: "",
+            icon: ico,
+          });
+          if (tile) tiles.push(tile);
+        }
+      }
+    } catch (eSnav) {}
+    if (tiles.length) return tiles;
+    var fallback = [
+      {
+        href: "/bacheca/",
+        id: "browse",
+        label: "Esplora",
+        labelKey: "boards.navExplore",
+        icon: "fa-compass",
+      },
+      {
+        href: "/bacheca/invia/",
+        id: "submit",
+        label: "Pubblica",
+        labelKey: "boards.navPublish",
+        icon: "fa-plus",
+      },
+      {
+        href: "/bacheca/le-mie/",
+        id: "manage",
+        label: "Le mie",
+        labelKey: "boards.navMine",
+        icon: "fa-folder-o",
+      },
+    ];
+    for (i = 0; i < fallback.length; i += 1) {
+      var t = createBoardsMobileTile(fallback[i]);
+      if (t) tiles.push(t);
+    }
+    return tiles;
+  }
+
+  function ensureBoardsMobileSection(gridRoot) {
+    /* boardsHamPages1: griglia flat Esplora/Pubblica/Le mie (come snav PC) */
+    if (!gridRoot || !isBoardsNoStaffNavPage()) return;
+    try {
+      var old = gridRoot.querySelector("[data-vc-mobile-boards-section]");
+      if (old && old.parentNode) old.parentNode.removeChild(old);
+    } catch (eOld) {}
+    var tiles = collectBoardsMobileTiles();
+    if (!tiles.length) return;
+    var beforeCount = gridRoot.children.length;
+    /* PRINCIPALE = pinned → pagine sempre visibili, non accordion vuoto */
+    appendMobileNavSection(gridRoot, "PRINCIPALE", tiles, 0);
+    var added = gridRoot.children[gridRoot.children.length - 1];
+    if (added && gridRoot.children.length > beforeCount) {
+      try {
+        added.setAttribute("data-vc-mobile-boards-section", "1");
+      } catch (eMark) {}
+      try {
+        if (gridRoot.firstChild && added !== gridRoot.firstChild) {
+          gridRoot.insertBefore(added, gridRoot.firstChild);
+        }
+      } catch (ePre) {}
+    }
+  }
+
+  function rebuildBoardsOnlyGrid(gridRoot) {
+    if (!gridRoot) return false;
+    if (!isBoardsNoStaffNavPage()) return false;
+    try {
+      gridRoot.innerHTML = "";
+    } catch (eClr) {}
+    ensureBoardsMobileSection(gridRoot);
+    finalizeMobileActiveTiles(gridRoot);
+    try {
+      if (window.VcNavBadges && typeof window.VcNavBadges.schedule === "function") {
+        window.VcNavBadges.schedule();
+      } else if (window.VcNavBadges && typeof window.VcNavBadges.apply === "function") {
+        window.VcNavBadges.apply(document);
+      }
+    } catch (eBadge) {}
+    return true;
   }
 
   function ensureMobileDashboardTile(gridRoot) {
@@ -675,9 +863,9 @@
         closeDrawer();
       });
       actions.appendChild(prof);
-      /* hamFootTrioLogout1: Profilo · Bacheca · Dashboard, logout sotto */
-      appendBachecaFooterAction(actions);
+      /* hamFootSwapDashBach1: Profilo · Dashboard · Bacheca, logout sotto */
       appendDashboardFooterAction(actions);
+      appendBachecaFooterAction(actions);
       applyFooterActionsLayout(actions);
       var toolbar = document.createElement("div");
       toolbar.className = "vc-mobile-nav-footer__toolbar";
@@ -761,6 +949,34 @@
       var label = snav ? String(snav.getAttribute("aria-label") || "").toLowerCase() : "";
       if (label.indexOf("evento") >= 0 || label.indexOf("hogwarts") >= 0) return true;
     } catch (eEv) {}
+    return false;
+  }
+
+  /* boardsNoStaffNav1 + boardsSchedaMissCine1: niente Staff su /bacheca anche con /en/… */
+  function isBoardsNoStaffNavPage() {
+    try {
+      var raw = String(location.pathname || "/").toLowerCase();
+      var p = raw;
+      try {
+        if (window.VcI18n && typeof window.VcI18n.stripLangPrefix === "function") {
+          p = String(window.VcI18n.stripLangPrefix(raw) || raw);
+        } else {
+          p = raw.replace(
+            /^\/(en|it|es|fr|de|pt|pl|nl|ro|cs|sk|hu|bg|el|tr|ru|uk|ar|ja|ko|zh|hi|sv|da|fi|no|nb|nn|hr|sr|sl|lt|lv|et|id|ms|th|vi|he|fa)(?=\/|$)/i,
+            "",
+          ) || "/";
+        }
+      } catch (eLang) {}
+      p = String(p || "/").replace(/\/+$/, "") || "/";
+      if (p.charAt(0) !== "/") p = "/" + p;
+      if (p === "/bacheca" || p.indexOf("/bacheca/") === 0) return true;
+      if (p === "/boards" || p.indexOf("/boards/") === 0) return true;
+      if (document.body) {
+        if (document.body.classList.contains("vc-boards-page")) return true;
+        if (document.body.getAttribute("data-vc-boards-page")) return true;
+      }
+      if (document.querySelector("nav.vc-header-snav.vc-header-snav--boards")) return true;
+    } catch (eBoards) {}
     return false;
   }
 
@@ -849,7 +1065,7 @@
   }
 
   function ensureMobileCompitiTile(gridRoot) {
-    if (!gridRoot || isEventDedicatedNavPage()) return;
+    if (!gridRoot || isEventDedicatedNavPage() || isBoardsNoStaffNavPage()) return;
     try {
       if (gridRoot.querySelector('a[href*="/staff/compiti"]')) return;
       var guideLink = gridRoot.querySelector('a[href*="/staff/guida"]');
@@ -894,7 +1110,18 @@
 
   function appendStaffGuideSection(gridRoot, sourceDetails) {
     if (!gridRoot) return;
-    if (isEventDedicatedNavPage()) return;
+    if (isEventDedicatedNavPage() || isBoardsNoStaffNavPage()) {
+      /* boardsNoStaffNav1: rimuovi eventuali sezioni Staff già montate */
+      try {
+        var kill = gridRoot.querySelectorAll(
+          ".vc-mobile-nav-section--staff-guide, .vc-mobile-nav-section--staff, [data-vc-staff-section]",
+        );
+        for (var ki = 0; ki < kill.length; ki += 1) {
+          if (kill[ki] && kill[ki].parentNode) kill[ki].parentNode.removeChild(kill[ki]);
+        }
+      } catch (eKill) {}
+      return;
+    }
     try {
       var existingStaffSec = gridRoot.querySelector(".vc-mobile-nav-section--staff-guide");
       /* staffNavFix1: upgrade legacy <section> STAFF → <details> */
@@ -1560,6 +1787,8 @@
   function rebuildGrid() {
     var gridRoot = document.getElementById("vc-mobile-nav-drawer-grid");
     if (!gridRoot) return;
+    /* boardsHamPages1: su /bacheca niente menu sito — solo Esplora/Pubblica/Le mie */
+    if (rebuildBoardsOnlyGrid(gridRoot)) return;
     var usedCanonical = false;
     try {
       if (window.__VC_MOBILE_NAV_CANONICAL && window.__VC_MOBILE_NAV_CANONICAL.shouldUse()) {
@@ -1903,6 +2132,7 @@
     try {
       cloneBrand(document.getElementById("vc-mobile-nav-drawer-brand"));
       rebuildGrid();
+      gridDirty = false;
     } catch (eBuild) {}
     var closeBtn = document.getElementById("vc-mobile-nav-close");
     if (closeBtn && closeBtn.getAttribute("data-vc-mobile-nav-bound") !== "1") {
@@ -1917,24 +2147,26 @@
     if (window.__vcMobileNavListenersBound !== true) {
       window.__vcMobileNavListenersBound = true;
       window.addEventListener("vc-discord-profile", function () {
-        syncDrawerFooter();
-        rebuildGrid();
-        removeHeaderDashboardBtn();
+        scheduleAuthRebuild({ footer: true });
       });
       window.addEventListener("vc-server-identity", function () {
         syncDrawerFooter();
       });
       window.addEventListener("vc-dashboard-access", function () {
-        rebuildGrid();
-        removeHeaderDashboardBtn();
+        scheduleAuthRebuild({});
       });
       window.addEventListener("vc-auth-session-boot", function () {
-        rebuildGrid();
-        removeHeaderDashboardBtn();
-        syncDrawerFooter();
+        scheduleAuthRebuild({ footer: true });
+      });
+      window.addEventListener("vc:staff-access-ok", function () {
+        scheduleAuthRebuild({ ensure: true, footer: true });
       });
       document.addEventListener("vc-hogwarts-staff-preview-unlock", function () {
-        if (drawer && drawer.classList.contains("vc-mobile-nav-drawer--open")) rebuildGrid();
+        if (drawer && drawer.classList.contains("vc-mobile-nav-drawer--open")) {
+          scheduleAuthRebuild({ removeDash: false });
+        } else {
+          gridDirty = true;
+        }
       });
     }
   }
@@ -1942,6 +2174,7 @@
   function refreshMobileNav() {
     ensure();
     rebuildGrid();
+    gridDirty = false;
     removeHeaderDashboardBtn();
     syncDrawerFooter();
     try {
@@ -1967,6 +2200,79 @@
     else if (m.addListener) m.addListener(onMqChange);
     removeHeaderDashboardBtn();
     syncDrawerFooter();
+    /* cpuIdleCut1: prewarm SOLO se mobile; dopo boot; idle senza timeout aggressivo
+       (timeout:2500 forzava rebuild mid-boot → idleCallback 800ms+ / CPU spike) */
+    function bootBusy() {
+      try {
+        var r = document.documentElement;
+        return !!(
+          r.classList.contains("vc-interaction-hold") ||
+          r.classList.contains("vc-chrome-bar-loading") ||
+          r.classList.contains("vc-loading-scroll-lock") ||
+          r.classList.contains("vc-page-cine-boot")
+        );
+      } catch (eB) {
+        return false;
+      }
+    }
+    function prewarmGrid(deadline) {
+      try {
+        if (!drawer || !gridDirty) return;
+        if (!isMobile()) return;
+        if (document.hidden) return;
+        if (bootBusy()) {
+          window.setTimeout(schedulePrewarm, 700);
+          return;
+        }
+        if (
+          deadline &&
+          typeof deadline.timeRemaining === "function" &&
+          deadline.timeRemaining() < 16 &&
+          !deadline.didTimeout
+        ) {
+          schedulePrewarm();
+          return;
+        }
+        rebuildGrid();
+        syncDrawerFooter();
+        gridDirty = false;
+      } catch (ePw) {}
+    }
+    function schedulePrewarm() {
+      try {
+        if (!isMobile() || !gridDirty) return;
+        if (typeof window.requestIdleCallback === "function") {
+          /* timeout alto: preferisci idle vero; al primo open hamburger rebuild in rAF resta */
+          window.requestIdleCallback(prewarmGrid, { timeout: 12000 });
+        } else {
+          window.setTimeout(function () {
+            prewarmGrid(null);
+          }, 1800);
+        }
+      } catch (eSch) {
+        try {
+          window.setTimeout(function () {
+            prewarmGrid(null);
+          }, 1800);
+        } catch (eT) {}
+      }
+    }
+    try {
+      if (window.__vcChromeVisualReady === 1 || document.documentElement.classList.contains("vc-cine-curtain-off")) {
+        window.setTimeout(schedulePrewarm, 500);
+      } else {
+        document.addEventListener(
+          "vc:chrome-visual-ready",
+          function () {
+            window.setTimeout(schedulePrewarm, 500);
+          },
+          { once: true, passive: true },
+        );
+        window.setTimeout(schedulePrewarm, 4500);
+      }
+    } catch (eIdle) {
+      window.setTimeout(schedulePrewarm, 4500);
+    }
   }
 
   window.__vcMobileNavRebuild = refreshMobileNav;

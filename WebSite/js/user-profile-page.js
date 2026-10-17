@@ -11,8 +11,11 @@
   var PROFILE_CACHE_LOCAL_PREFIX = "vc:profilecache-local:v3:";
   var PROFILE_FETCH_TIMEOUT_MS = 20000;
   var PROFILE_FETCH_MAX_RETRIES = 2;
-  var PROFILE_RANK_PREVIEW_CACHE_TTL_MS = 10 * 60 * 1000;
+  var PROFILE_RANK_PREVIEW_CACHE_TTL_MS = 15 * 60 * 1000;
   var PROFILE_RANK_PREVIEW_CACHE_PREFIX = "vc:profile-rank-preview:";
+  /* rankCardSpeed1: GIF ~800KB non entravano in sessionStorage (limite 380KB) → Cache API */
+  var PROFILE_RANK_BLOB_CACHE = "vc-profile-rank-preview-v1";
+  var PROFILE_RANK_SESSION_MAX_BYTES = 1400000;
   var profileMemoryCache = new Map();
   var lastProfileRenderSignature = "";
   var lastRankPreviewUserId = "";
@@ -31,8 +34,9 @@
   /* profileHangFix2: deadline hard sul gate Community — evita freeze “pagina non risponde” */
   /* profileRefreshGate1: su F5/reload hold molto più corto (il gate non serve al cold boot) */
   var communitySwitchHoldSince = 0;
-  var COMMUNITY_SWITCH_HOLD_MAX_MS = 12000;
-  var COMMUNITY_SWITCH_HOLD_RELOAD_MS = 2500;
+  /* bootBarScrollFast1: hold community più corto (era 12s / 2.5s) */
+  var COMMUNITY_SWITCH_HOLD_MAX_MS = 3500;
+  var COMMUNITY_SWITCH_HOLD_RELOAD_MS = 1200;
 
   function isProfileReloadNavigation() {
     try {
@@ -134,7 +138,24 @@
           clearProfilePending();
           return;
         }
-                        if (profileMainInFlight) {
+        if (profileMainInFlight) {
+          /* iosWinProfilePush1: incrementa tentativi anche in-flight (prima loop infinito) */
+          profilePendingWatchdogAttempts += 1;
+          if (profilePendingWatchdogAttempts > (isCoarseMobileProfile() ? 6 : 4)) {
+            profileMainInFlight = false;
+            profileBootGaveUp = true;
+            try {
+              window.__VC_PROFILE_GAVE_UP = true;
+            } catch (eGave2) {}
+            clearProfilePending();
+            clearProfileLoading();
+            unlockProfileChrome();
+            var stuckRoot2 = byId("vc-user-profile-view");
+            if (stuckRoot2) {
+              renderError(stuckRoot2, "Il caricamento del profilo non risponde. Premi Riprova.");
+            }
+            return;
+          }
           armProfilePendingWatchdog();
           return;
         }
@@ -166,7 +187,9 @@
         return;
       }
     } catch (eTitle) {}
-    document.title = siteName() + " | " + String(pageLabel || "Profilo");
+    var sep =
+      (window.VcPageTitle && window.VcPageTitle.SEP) || " \u01C0 ";
+    document.title = siteName() + sep + String(pageLabel || "Profilo");
   }
 
   function isStandalonePwa() {
@@ -233,11 +256,15 @@
 
   function readSessionCache(key, now) {
     try {
-      var raw = sessionStorage.getItem(key);
+      var raw =
+        window.VcStorage && typeof window.VcStorage.get === "function"
+          ? window.VcStorage.get(key, { scope: "ss" })
+          : sessionStorage.getItem(key);
       if (!raw) return null;
       var parsed = JSON.parse(raw);
       if (!parsed || !Number.isFinite(parsed.expireAt) || parsed.expireAt <= now) {
-        sessionStorage.removeItem(key);
+        if (window.VcStorage) window.VcStorage.remove(key, { scope: "ss", immediate: true });
+        else sessionStorage.removeItem(key);
         return null;
       }
       return parsed.value;
@@ -247,30 +274,65 @@
   }
 
   function writeSessionCache(key, value, ttlMs, now) {
+    var ssJson = JSON.stringify({
+      expireAt: now + Math.max(1, Number(ttlMs) || PROFILE_CACHE_TTL_MS),
+      value: value,
+    });
     try {
-      sessionStorage.setItem(
-        key,
-        JSON.stringify({ expireAt: now + Math.max(1, Number(ttlMs) || PROFILE_CACHE_TTL_MS), value: value })
-      );
+      if (window.VcStorage && typeof window.VcStorage.set === "function") {
+        window.VcStorage.set(key, ssJson, { scope: "ss", immediate: true, broadcast: false });
+      } else {
+        sessionStorage.setItem(key, ssJson);
+      }
     } catch (e) {}
+    /* pushIdb1: durable grande → IndexedDB (niente blob in LS) */
     try {
-      localStorage.setItem(
-        PROFILE_CACHE_LOCAL_PREFIX + key,
-        JSON.stringify({ expireAt: now + PROFILE_CACHE_LOCAL_TTL_MS, value: value })
-      );
-    } catch (eLocal) {}
+      var lk = PROFILE_CACHE_LOCAL_PREFIX + key;
+      if (window.VcIdb && typeof window.VcIdb.set === "function") {
+        window.VcIdb.set(lk, value, PROFILE_CACHE_LOCAL_TTL_MS);
+      }
+      if (window.VcStorage && typeof window.VcStorage.remove === "function") {
+        window.VcStorage.remove(lk, { scope: "ls", immediate: true, broadcast: false });
+      } else {
+        try {
+          localStorage.removeItem(lk);
+        } catch (eRm) {}
+      }
+    } catch (eIdb) {}
   }
 
   function readLocalProfileCache(key, now) {
     try {
-      var raw = localStorage.getItem(PROFILE_CACHE_LOCAL_PREFIX + key);
-      if (!raw) return null;
-      var parsed = JSON.parse(raw);
-      if (!parsed || !Number.isFinite(parsed.expireAt) || parsed.expireAt <= now) {
-        localStorage.removeItem(PROFILE_CACHE_LOCAL_PREFIX + key);
-        return null;
+      var lk = PROFILE_CACHE_LOCAL_PREFIX + key;
+      if (window.VcIdb && typeof window.VcIdb.getSync === "function") {
+        var syncV = window.VcIdb.getSync(lk);
+        if (syncV != null) return syncV;
       }
-      return parsed.value;
+      /* legacy LS (pre-idb) */
+      var raw =
+        window.VcStorage && typeof window.VcStorage.get === "function"
+          ? window.VcStorage.get(lk, { scope: "ls" })
+          : localStorage.getItem(lk);
+      if (raw) {
+        var parsed = JSON.parse(raw);
+        if (parsed && Number.isFinite(parsed.expireAt) && parsed.expireAt > now) {
+          return parsed.value;
+        }
+        if (window.VcStorage) window.VcStorage.remove(lk, { scope: "ls", immediate: true });
+        else localStorage.removeItem(lk);
+      }
+      if (window.VcIdb && typeof window.VcIdb.get === "function") {
+        window.VcIdb.get(lk).then(function (v) {
+          if (v == null) return;
+          try {
+            profileMemoryCache.set(key, {
+              expireAt: now + PROFILE_CACHE_TTL_MS,
+              value: v,
+            });
+          } catch (eMem) {}
+        });
+      }
+      return null;
     } catch (e) {
       return null;
     }
@@ -683,6 +745,69 @@
     } catch (e) {}
   }
 
+  function saveRankPreviewBlobCache(url, blob) {
+    if (!url || !blob || !blob.size) return;
+    try {
+      if (!window.caches || typeof caches.open !== "function") return;
+      caches
+        .open(PROFILE_RANK_BLOB_CACHE)
+        .then(function (cache) {
+          return cache.put(
+            url,
+            new Response(blob.slice(0), {
+              headers: {
+                "Content-Type": blob.type || "image/png",
+                "Cache-Control": "max-age=900",
+                "X-VC-Rank-Saved": String(Date.now()),
+              },
+            }),
+          );
+        })
+        .catch(function () {});
+    } catch (eCachePut) {}
+  }
+
+  function loadRankPreviewBlobCache(url) {
+    if (!url) return Promise.resolve(null);
+    try {
+      if (!window.caches || typeof caches.open !== "function") {
+        return Promise.resolve(null);
+      }
+      return caches
+        .open(PROFILE_RANK_BLOB_CACHE)
+        .then(function (cache) {
+          return cache.match(url);
+        })
+        .then(function (res) {
+          if (!res || !res.ok) return null;
+          var saved = 0;
+          try {
+            saved = Number(res.headers.get("X-VC-Rank-Saved") || 0) || 0;
+          } catch (eHdr) {
+            saved = 0;
+          }
+          if (saved && Date.now() - saved > PROFILE_RANK_PREVIEW_CACHE_TTL_MS) {
+            try {
+              caches.open(PROFILE_RANK_BLOB_CACHE).then(function (cache) {
+                cache.delete(url);
+              });
+            } catch (eDel) {}
+            return null;
+          }
+          return res.blob();
+        })
+        .then(function (blob) {
+          if (!blob || !blob.size) return null;
+          return blob;
+        })
+        .catch(function () {
+          return null;
+        });
+    } catch (eCacheGet) {
+      return Promise.resolve(null);
+    }
+  }
+
   function blobToDataUrl(blob) {
     return new Promise(function (resolve, reject) {
       try {
@@ -697,6 +822,74 @@
       } catch (e) {
         reject(e);
       }
+    });
+  }
+
+  function fetchProfileRankPreviewBlob(userId, url, force) {
+    var uid = String(userId || "").trim();
+    if (!uid || !url) return Promise.resolve(null);
+    if (rankPreviewInFlightByUid[uid]) return rankPreviewInFlightByUid[uid];
+    var p = fetch(url, {
+      cache: force ? "no-store" : "force-cache",
+      credentials: "omit",
+    })
+      .then(function (r) {
+        if (r && r.status === 429) {
+          var soft = false;
+          try {
+            soft = String(r.headers && r.headers.get("X-VC-Soft429") || "") === "1";
+          } catch (eSoft) {}
+          if (!soft) {
+            rankPreviewBlockedUntil = Date.now() + 45000;
+            try {
+              if (window.VcApiCache && typeof window.VcApiCache.noteWebhook429 === "function") {
+                window.VcApiCache.noteWebhook429(30, url);
+              }
+            } catch (e429) {}
+          }
+          throw new Error("http_429");
+        }
+        if (!r.ok) throw new Error("http_" + r.status);
+        return r.blob();
+      })
+      .then(function (blob) {
+        if (!blob || !blob.size) return null;
+        saveRankPreviewBlobCache(url, blob);
+        if (blob.size < PROFILE_RANK_SESSION_MAX_BYTES) {
+          blobToDataUrl(blob)
+            .then(function (dataUrl) {
+              if (dataUrl) saveCachedProfileRankPreview(uid, dataUrl);
+            })
+            .catch(function () {});
+        }
+        return blob;
+      })
+      .catch(function () {
+        return null;
+      })
+      .finally(function () {
+        delete rankPreviewInFlightByUid[uid];
+      });
+    rankPreviewInFlightByUid[uid] = p;
+    return p;
+  }
+
+  function prefetchProfileRankCard(userId) {
+    var uid = String(userId || "").trim();
+    if (!/^\d{17,20}$/.test(uid)) return;
+    if (loadCachedProfileRankPreview(uid)) return;
+    var url = resolvedPublicRankPreviewUrl(uid);
+    if (!url) return;
+    if (Date.now() < rankPreviewBlockedUntil) return;
+    try {
+      if (window.VcApiCache && typeof window.VcApiCache.isWebhookBlocked === "function") {
+        if (window.VcApiCache.isWebhookBlocked(url)) return;
+      }
+    } catch (eBlk) {}
+    if (rankPreviewInFlightByUid[uid]) return;
+    loadRankPreviewBlobCache(url).then(function (cachedBlob) {
+      if (cachedBlob) return;
+      fetchProfileRankPreviewBlob(uid, url, false);
     });
   }
 
@@ -1076,6 +1269,20 @@
     } catch (eScan) {}
   }
 
+  function enhanceProfileEmojis(root) {
+    try {
+      var scope = root || byId("vc-user-profile-view") || document;
+      if (window.VcEmojiColor && typeof window.VcEmojiColor.schedule === "function") {
+        window.VcEmojiColor.schedule(scope);
+      } else if (window.VcEmojiColor && typeof window.VcEmojiColor.wrap === "function") {
+        window.VcEmojiColor.wrap(scope);
+      }
+      if (window.VcEmojiRender && typeof window.VcEmojiRender.enhance === "function") {
+        window.VcEmojiRender.enhance(scope);
+      }
+    } catch (eEmoji) {}
+  }
+
   function hideLeaderOnlySections() {
     var nodes = document.querySelectorAll("[data-vc-leader-only]");
     for (var i = 0; i < nodes.length; i += 1) {
@@ -1302,6 +1509,13 @@
   }
 
   function clearProfilePending() {
+    /* profileNoCommunityFlash1: prima di togliere pending, nascondi forever
+       intro Classifica/Community (altrimenti flash al posto del loader). */
+    try {
+      if (parseProfileId() || document.documentElement.classList.contains("vc-user-profile-route")) {
+        hideLeaderOnlySections();
+      }
+    } catch (eHideLead) {}
     try {
       document.documentElement.classList.remove("vc-user-profile-pending");
       document.documentElement.classList.remove("vc-loading-scroll-lock");
@@ -1343,7 +1557,72 @@
   }
 
   function unlockProfileChrome() {
-    clearProfilePending();
+    /* profileUnlockNoYank2 + profileNoCommunityFlash1: scrollTo(0) SOLO al primo settle.
+       Ri-chiamate non yankano; pending/loader restano finché shell profilo ready. */
+    var liveY = 0;
+    try {
+      liveY = Math.max(
+        0,
+        Math.round(
+          Number(window.pageYOffset) ||
+            Number((document.documentElement && document.documentElement.scrollTop) || 0) ||
+            Number((document.body && document.body.scrollTop) || 0) ||
+            Number(window.__vcCachedScrollY) ||
+            0,
+        ),
+      );
+    } catch (eY) {
+      liveY = 0;
+    }
+    var alreadyReady = window.__vcProfileContentReady === 1;
+    var chromeArmed =
+      window.__vcChromeScrollArmed === true ||
+      document.documentElement.classList.contains("vc-chrome-scroll-armed") ||
+      document.documentElement.classList.contains("vc-page-cine-ready");
+    try {
+      window.__vcProfileContentReady = 1;
+      /* non yankare / discard se già aperti o utente ha scrollato */
+      if (!alreadyReady && liveY < 24) {
+        window.__vcDiscardScrollRestore = 1;
+        window.__vcDiscardNextUnpinScrollY = true;
+        window.__vcCachedScrollY = 0;
+        window.__vcWantUnlockY = 0;
+        if (typeof window.scrollTo === "function") window.scrollTo(0, 0);
+        if (document.documentElement) document.documentElement.scrollTop = 0;
+        if (document.body) document.body.scrollTop = 0;
+      } else if (liveY >= 24) {
+        try {
+          window.__vcDiscardScrollRestore = 0;
+          window.__vcDiscardNextUnpinScrollY = false;
+          window.__vcCachedScrollY = liveY;
+        } catch (eKeepY) {}
+      }
+    } catch (ePin) {}
+    try {
+      if (typeof window.__vcProfileSiparioTryLift === "function") {
+        var lifted = window.__vcProfileSiparioTryLift(false);
+        if (!lifted) {
+          if (!window.__vcProfileGateOpenHooked) {
+            window.__vcProfileGateOpenHooked = 1;
+            document.addEventListener(
+              "vc:profile-gate-open",
+              function onGate() {
+                try {
+                  clearProfilePending();
+                } catch (eClr) {}
+              },
+              { once: true },
+            );
+          }
+        } else {
+          clearProfilePending();
+        }
+      } else {
+        clearProfilePending();
+      }
+    } catch (eSip) {
+      clearProfilePending();
+    }
     try {
       document.documentElement.classList.remove("vc-page-cine-boot");
       document.documentElement.classList.add("vc-page-cine-ready", "vc-user-profile-route");
@@ -1353,6 +1632,35 @@
         document.body.classList.add("vc-user-profile-page", "vc-user-profile-route");
       }
     } catch (eBody) {}
+    /* profileUnlockNoYank2 + profileNoCommunityFlash1: soft-lock via subito,
+       ma pending/loader restano finché c’è shell profilo (no flash Community). */
+    try {
+      hideLeaderOnlySections();
+    } catch (eHide2) {}
+    if (chromeArmed || alreadyReady) {
+      try {
+        document.documentElement.classList.remove(
+          "vc-loading-scroll-lock",
+          "vc-loader-blocking-live",
+          "vc-scroll-soft-lock",
+          "vc-interaction-hold",
+          "vc-chrome-bar-loading",
+        );
+        var viewReadyNow = false;
+        try {
+          viewReadyNow =
+            profileInitialLoadDone ||
+            profileBootSettled ||
+            profileViewLooksReady(byId("vc-user-profile-view"));
+        } catch (eVr) {
+          viewReadyNow = Boolean(alreadyReady && profileInitialLoadDone);
+        }
+        if (viewReadyNow) {
+          clearProfilePending();
+          clearProfileLoading();
+        }
+      } catch (eClr2) {}
+    }
   }
 
   function profileViewLooksReady(root) {
@@ -1445,8 +1753,24 @@
 
   function ensureProfileLoadGate() {
     try {
-      document.documentElement.classList.add("vc-user-profile-pending", "vc-user-profile-route");
+      document.documentElement.classList.add("vc-user-profile-route");
       document.documentElement.classList.remove("vc-page-cine-boot");
+      /* profileRelockKill1: se chrome già sbloccato, spinner OK ma niente pending
+         (pending → overflow:hidden / secondo lock dopo la barra). */
+      var chromeOpen =
+        window.__vcChromeLoadDone === true ||
+        document.documentElement.classList.contains("vc-page-cine-ready") ||
+        document.documentElement.classList.contains("vc-cine-curtain-off") ||
+        document.documentElement.classList.contains("vc-chrome-scroll-armed");
+      if (chromeOpen) {
+        document.documentElement.classList.remove(
+          "vc-user-profile-pending",
+          "vc-loading-scroll-lock",
+          "vc-loader-blocking-live",
+        );
+      } else {
+        document.documentElement.classList.add("vc-user-profile-pending");
+      }
       hideLeaderOnlySections();
     } catch (eGate) {}
   }
@@ -1456,14 +1780,38 @@
     opts = opts || {};
     var force = Boolean(opts.force);
     root.hidden = false;
-    ensureProfileLoadGate();
+    /* profileUnlockNoYank2: dopo primo unlock/chrome → niente secondo overlay full-page
+       (freeze + rotellina). Solo se force switch community/staff.
+       Early-return PRIMA di ensureProfileLoadGate (evita pending flash). */
+    try {
+      var chromeOpenEarly =
+        window.__vcProfileContentReady === 1 ||
+        window.__vcChromeLoadDone === true ||
+        document.documentElement.classList.contains("vc-chrome-scroll-armed") ||
+        document.documentElement.classList.contains("vc-page-cine-ready") ||
+        document.documentElement.classList.contains("vc-cine-curtain-off");
+      if (chromeOpenEarly && profileViewLooksReady(root) && !force) {
+        clearProfilePending();
+        return;
+      }
+      if (
+        chromeOpenEarly &&
+        window.__vcProfileContentReady === 1 &&
+        !force &&
+        !communitySwitchGateActive()
+      ) {
+        clearProfilePending();
+        return;
+      }
+    } catch (eNo2nd) {}
     if (!force) {
       var bodyOverlay = byId("vc-user-profile-loading");
       if (bodyOverlay && !(bodyOverlay.hidden || bodyOverlay.hasAttribute("hidden"))) {
         return;
       }
     }
-        var overlay = byId("vc-user-profile-loading");
+    ensureProfileLoadGate();
+    var overlay = byId("vc-user-profile-loading");
     if (!overlay) {
       overlay = document.createElement("div");
       overlay.id = "vc-user-profile-loading";
@@ -1496,6 +1844,38 @@
         window.__vcSyncLoaderBlockingLiveClass();
       }
     } catch (eLock) {}
+    /* profileRelockKill2: spinner sì, soft-lock/hold no se chrome già aperto */
+    try {
+      var chromeOpenSpin =
+        window.__vcChromeLoadDone === true ||
+        document.documentElement.classList.contains("vc-chrome-scroll-armed") ||
+        document.documentElement.classList.contains("vc-cine-curtain-off");
+      if (chromeOpenSpin) {
+        document.documentElement.classList.remove(
+          "vc-user-profile-pending",
+          "vc-loading-scroll-lock",
+          "vc-loader-blocking-live",
+          "vc-scroll-soft-lock",
+          "vc-interaction-hold",
+        );
+        var htmlSpin = document.documentElement;
+        var bodySpin = document.body;
+        htmlSpin.style.removeProperty("overflow");
+        htmlSpin.style.removeProperty("overscroll-behavior");
+        htmlSpin.style.removeProperty("touch-action");
+        if (bodySpin) {
+          bodySpin.style.removeProperty("overflow");
+          bodySpin.style.removeProperty("overscroll-behavior");
+          bodySpin.style.removeProperty("touch-action");
+          bodySpin.style.removeProperty("position");
+          bodySpin.style.removeProperty("top");
+          bodySpin.style.removeProperty("left");
+          bodySpin.style.removeProperty("right");
+          bodySpin.style.removeProperty("width");
+        }
+        if (typeof window.__vcUnpinPageScroll === "function") window.__vcUnpinPageScroll();
+      }
+    } catch (eSpinUnlock) {}
   }
 
   function parseWantsStaffTab() {
@@ -1530,7 +1910,7 @@
       "</p>" +
       '<div class="vc-user-profile-empty__actions">' +
       '<button type="button" class="vc-user-profile-empty__cta" id="vc-user-profile-retry">Riprova</button>' +
-      '<a class="vc-user-profile-empty__cta vc-user-profile-empty__cta--ghost" href="/user">Torna alla Community</a>' +
+      '<a class="vc-user-profile-empty__cta vc-user-profile-empty__cta--ghost" href="/classifiche/">Torna alla Community</a>' +
       "</div></div></section>";
     clearProfilePending();
     var retryBtn = byId("vc-user-profile-retry");
@@ -1557,7 +1937,7 @@
       '<div class="vc-user-profile-notfound">' +
       '<div class="vc-user-profile-notfound__emoji" aria-hidden="true">&#128532;</div>' +
       '<h1 class="vc-user-profile-notfound__title">Utente non trovato</h1>' +
-      '<a class="vc-user-profile-notfound__cta" href="/user">Torna alla Community</a>' +
+      '<a class="vc-user-profile-notfound__cta" href="/classifiche/">Torna alla Community</a>' +
       "</div></section>";
     clearProfilePending();
   }
@@ -1624,7 +2004,23 @@
     );
   }
 
-  var CUSTOM_VOC_SEPARATORS = ["\uFE32", "︲", "|", "│", "｜", "⠂", "•", "·", "—", "–"];
+  /* discordNameEmoji1: ǀ (U+01C0); FE32/| venivano mostrati come "-" su Win */
+  var CUSTOM_VOC_SEP = "\u01C0";
+  var CUSTOM_VOC_SEPARATORS = [
+    CUSTOM_VOC_SEP,
+    "\uFE32",
+    "\u2758",
+    "︲",
+    "|",
+    "│",
+    "｜",
+    "⠂",
+    "•",
+    "·",
+    "—",
+    "–",
+    "-",
+  ];
 
   function parseCustomVocName(rawName) {
     var name = String(rawName || "").trim();
@@ -1639,6 +2035,7 @@
         .replace(/^༄/u, "")
         .trim();
       var right = parts.join(separator).trim();
+      if (separator === "-" && left.length > 8) continue;
       return { emoji: left, baseName: right || "privata" };
     }
     return {
@@ -1674,15 +2071,147 @@
     var parsed = parseCustomVocName(voice.name);
     var emoji = String(voice.emoji || parsed.emoji || "").trim();
     var baseName = String(parsed.baseName || voice.name || fallbackName || "Canale vocale privato").trim();
-    if (!emoji) return esc(baseName);
+    /* se il nome grezzo è ancora "emojiSEP nome", non duplicare emoji nel testo */
+    if (emoji && baseName.indexOf(emoji) === 0) {
+      baseName = baseName.slice(emoji.length).replace(/^[\s\uFE32\u01C0\u2758|│｜\-–—]+/, "").trim() || baseName;
+    }
+    if (!emoji) {
+      return (
+        '<span class="vc-user-profile-voice-title vc-discord-entity" data-vc-emoji-skip="1">' +
+        esc(baseName) +
+        "</span>"
+      );
+    }
     return (
-      '<span class="vc-user-profile-voice-title">' +
+      '<span class="vc-user-profile-voice-title vc-discord-entity" data-vc-emoji-skip="1">' +
       '<span class="vc-user-profile-voice-title__emoji">' +
       esc(emoji) +
       "</span>" +
-      '<span class="vc-user-profile-voice-title__sep" aria-hidden="true">\uFE32</span>' +
+      '<span class="vc-user-profile-voice-title__sep" aria-hidden="true">' +
+      CUSTOM_VOC_SEP +
+      "</span>" +
       '<span class="vc-user-profile-voice-title__name">' +
       esc(baseName) +
+      "</span></span>"
+    );
+  }
+
+  function discordRoleIconImgHtml(iconUrl, iconAnimated, className, px) {
+    var url = String(iconUrl || "").trim();
+    if (!/^https?:\/\//i.test(url)) return "";
+    var size = Math.max(12, Number(px) || 16);
+    var anim =
+      iconAnimated === true ||
+      /[?&]animated=true\b/i.test(url) ||
+      /\/a_[a-f0-9]+\.(webp|gif|png)/i.test(url);
+    /* discordRoleLook2: role-icons sempre webp; animated se a_* */
+    if (/cdn\.discordapp\.com\/role-icons\//i.test(url)) {
+      url = url.replace(/\.(png|jpe?g|gif)(\?|$)/i, ".webp$2");
+    } else if (anim && /\.png(\?|$)/i.test(url)) {
+      url = url.replace(/\.png(\?|$)/i, ".webp$1");
+    }
+    if (anim && !/[?&]animated=/i.test(url)) {
+      url += (url.indexOf("?") >= 0 ? "&" : "?") + "animated=true";
+    }
+    return (
+      '<img class="' +
+      esc(className || "vc-user-profile-role__icon") +
+      (anim ? " is-animated" : "") +
+      '" src="' +
+      esc(url) +
+      '" alt="" width="' +
+      size +
+      '" height="' +
+      size +
+      '" loading="lazy" decoding="async" referrerpolicy="no-referrer" draggable="false" />'
+    );
+  }
+
+  /* roleContrast1: ruoli Discord quasi neri → testo leggibile su dark UI */
+  function readableDiscordRoleColor(input) {
+    var raw = String(input || "").trim();
+    if (!raw || raw === "transparent") return raw;
+    var r;
+    var g;
+    var b;
+    var m = raw.match(/^#([0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i);
+    if (m) {
+      var h = m[1];
+      if (h.length === 3) h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
+      if (h.length === 8) h = h.slice(0, 6);
+      r = parseInt(h.slice(0, 2), 16);
+      g = parseInt(h.slice(2, 4), 16);
+      b = parseInt(h.slice(4, 6), 16);
+    } else {
+      var m2 = raw.match(/^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/i);
+      if (!m2) return raw;
+      r = Number(m2[1]);
+      g = Number(m2[2]);
+      b = Number(m2[3]);
+    }
+    function lin(c) {
+      c = c / 255;
+      return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+    }
+    function hex(rr, gg, bb) {
+      return (
+        "#" +
+        [rr, gg, bb]
+          .map(function (x) {
+            return ("0" + Math.max(0, Math.min(255, x)).toString(16)).slice(-2);
+          })
+          .join("")
+      );
+    }
+    var L = 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+    if (L >= 0.36) return hex(r, g, b);
+    var mix = 0;
+    var outR = r;
+    var outG = g;
+    var outB = b;
+    while (L < 0.52 && mix < 0.95) {
+      mix += 0.05;
+      outR = Math.round(r + (255 - r) * mix);
+      outG = Math.round(g + (255 - g) * mix);
+      outB = Math.round(b + (255 - b) * mix);
+      L = 0.2126 * lin(outR) + 0.7152 * lin(outG) + 0.0722 * lin(outB);
+    }
+    return hex(outR, outG, outB);
+  }
+
+  function formatDiscordRoleChipHtml(role) {
+    if (!role) return "";
+    var color = String(role.color || "").trim();
+    var textColor = color ? readableDiscordRoleColor(color) : "";
+    var chipInk = textColor || "#dbdee1";
+    /* roleContrast1d: ink solido inline (no clip:text look-core) */
+    var style =
+      " style=\"font-family:'gg sans',Inter,system-ui,sans-serif!important;font-weight:500!important;" +
+      (color ? "--vc-role-chip:" + esc(color) + ";" : "") +
+      (textColor ? "--vc-role-chip-text:" + esc(textColor) + ";" : "") +
+      "color:" +
+      esc(chipInk) +
+      "!important;-webkit-text-fill-color:" +
+      esc(chipInk) +
+      "!important;" +
+      '"';
+    var iconUrl = String(role.iconUrl || "").trim();
+    var emoji = String(role.emoji || "").trim();
+    var iconHtml = discordRoleIconImgHtml(iconUrl, role.iconAnimated, "vc-user-profile-role__icon", 16);
+    if (!iconHtml && emoji) {
+      iconHtml = '<span class="vc-user-profile-role__emoji" aria-hidden="true">' + esc(emoji) + "</span>";
+    }
+    if (!iconHtml) {
+      /* Discord: pallino colore se niente icona/emoji */
+      iconHtml = '<span class="vc-user-profile-role__dot" aria-hidden="true"></span>';
+    }
+    return (
+      '<span class="vc-user-profile-role vc-discord-entity" data-vc-emoji-skip="1"' +
+      style +
+      ">" +
+      iconHtml +
+      '<span class="vc-user-profile-role__name">' +
+      esc(role.name || "Ruolo") +
       "</span></span>"
     );
   }
@@ -2258,6 +2787,20 @@
     return "×" + n.toFixed(1);
   }
 
+  /* multiUi1: × in basso stile moltiplicatore (mark + numero) */
+  function formatMultiplierXHtml(value) {
+    var n = Number(value);
+    if (!Number.isFinite(n) || n <= 0) n = 1;
+    var t = n.toFixed(1);
+    return (
+      '<span class="vc-multi-x" title="×' +
+      esc(t) +
+      '"><span class="vc-multi-x__mark" aria-hidden="true">×</span><span class="vc-multi-x__num">' +
+      esc(t) +
+      "</span></span>"
+    );
+  }
+
   function cleanMultiplierLabel(label, type) {
     var s = String(label == null ? "" : label).trim();
     if (String(type || "") === "role") {
@@ -2292,6 +2835,11 @@
       multiplier: baseMult > 0 ? baseMult : 1,
       active: true,
     });
+    var boltIcon =
+      '<span class="vc-user-profile-multiplier__icon" aria-hidden="true">' +
+      '<svg viewBox="0 0 24 24" width="15" height="15" focusable="false">' +
+      '<path fill="currentColor" d="M13.05 2.2 5.1 13.55c-.32.45 0 1.1.55 1.1h5.2l-1.05 7.05c-.12.78.88 1.18 1.35.52l7.95-11.35c.32-.45 0-1.1-.55-1.1h-5.05l1-6.95c.12-.78-.88-1.18-1.45-.57Z"/>' +
+      "</svg></span>";
     var rows = list
       .map(function (src) {
         var type = String((src && src.type) || "");
@@ -2301,21 +2849,30 @@
         var color = String((src && src.color) || "").trim();
         var isRole = type === "role";
         var isActive = Boolean(src && (src.active || src.applied));
-        var accent = color || (isRole ? "#e8c49c" : "#94a3b8");
+        var accent = color || (isRole ? "#e8c49c" : "#c4b09a");
+        var labelHtml = isRole
+          ? '<span class="vc-user-profile-multisource__role" title="' +
+            esc(label) +
+            '"><span class="vc-user-profile-multisource__role-dot" aria-hidden="true"></span><span class="vc-user-profile-multisource__role-name">' +
+            esc(label) +
+            "</span></span>"
+          : '<span class="vc-user-profile-multisource__base"><span class="vc-user-profile-multisource__dot" aria-hidden="true"></span><span class="vc-user-profile-multisource__base-name">' +
+            esc(label) +
+            "</span></span>";
         return (
           '<div class="vc-user-profile-multisource' +
           (isActive && isRole ? " is-active" : "") +
+          (isRole ? " is-role" : "") +
           (type === "base" ? " is-base" : "") +
+          (!isActive && isRole ? " is-idle" : "") +
           '" style="--vc-multi-accent:' +
           esc(accent) +
           '">' +
           '<span class="vc-user-profile-multisource__label">' +
-          '<span class="vc-user-profile-multisource__dot" aria-hidden="true"></span>' +
-          "<span>" +
-          esc(label) +
-          "</span></span>" +
+          labelHtml +
+          "</span>" +
           '<span class="vc-user-profile-multisource__value">' +
-          esc(formatMultiplierX(mult)) +
+          formatMultiplierXHtml(mult) +
           "</span></div>"
         );
       })
@@ -2323,9 +2880,11 @@
     return (
       '<details class="vc-user-profile-multiplier">' +
       '<summary class="vc-user-profile-multiplier__summary">' +
-      '<span class="vc-user-profile-multiplier__left"><i class="fa fa-bolt" aria-hidden="true"></i> Moltiplicatore EXP</span>' +
+      '<span class="vc-user-profile-multiplier__left">' +
+      boltIcon +
+      " Moltiplicatore EXP</span>" +
       '<span class="vc-user-profile-multiplier__right"><strong class="vc-user-profile-multiplier__total">' +
-      esc(formatMultiplierX(totalMultiplier)) +
+      formatMultiplierXHtml(totalMultiplier) +
       '</strong><i class="fa fa-angle-down vc-user-profile-multiplier__chev" aria-hidden="true"></i></span>' +
       "</summary>" +
       '<div class="vc-user-profile-multiplier__body">' +
@@ -2408,13 +2967,10 @@
     var birthdayBadgeHtml = buildBirthdayBadgeHtml(profile.birthday || null);
     var customRoleCount = (customRole ? 1 : 0) + (customSecondaryRole ? 1 : 0);
     var customRoleIconHtml = customRole
-      ? customRole.iconUrl
-        ? '<img class="vc-user-profile-customicon__img" src="' +
-          esc(customRole.iconUrl) +
-          '" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" />'
-        : customRole.emoji
+      ? discordRoleIconImgHtml(customRole.iconUrl, customRole.iconAnimated, "vc-user-profile-customicon__img", 40) ||
+        (customRole.emoji
           ? '<span class="vc-user-profile-customicon__emoji">' + esc(customRole.emoji) + "</span>"
-          : '<i class="fa fa-star" aria-hidden="true"></i>'
+          : '<i class="fa fa-star" aria-hidden="true"></i>')
       : "";
     var customVoiceName = customVoice ? String(customVoice.name || "Canale vocale privato").trim() : "";
 
@@ -2511,12 +3067,7 @@
     }
 
     var rolesHtml = roles.length
-      ? roles
-          .map(function (role) {
-            var style = role.color ? ' style="--vc-role-chip:' + esc(role.color) + '"' : "";
-            return '<span class="vc-user-profile-role"' + style + ">" + esc(role.name) + "</span>";
-          })
-          .join("")
+      ? roles.map(formatDiscordRoleChipHtml).join("")
       : '<span class="vc-user-profile-role vc-user-profile-role--muted">Nessun ruolo mostrabile</span>';
 
     var customRolesSubParts = [];
@@ -2527,6 +3078,303 @@
     if (customVoice) customRolesSubParts.push("vocale privata");
     else if (viewerOwns && (customRole || customSecondaryRole)) customRolesSubParts.push("vocale");
     var customRolesSub = customRolesSubParts.length ? customRolesSubParts.join(" · ") : "Nessun custom";
+
+    var halloweenCandy = profile.halloweenCandy && typeof profile.halloweenCandy === "object" ? profile.halloweenCandy : null;
+    var halloweenCandyHtml = "";
+    var HALLOWEEN_CANDY_NAMES = [
+      "Zucchero d'osso",
+      "Morso di zucca",
+      "Caramella fantasma",
+      "Goccia di pozione",
+      "Teschio acidulo",
+      "Ragno candito",
+      "Occhio di gelatina",
+      "Pipistrello zuccherino",
+      "Strega acidula",
+      "Scheletro croccante",
+      "Luna di miele nera",
+      "Vampiro al lampone",
+      "Zanna di liquirizia",
+      "Calderone speziato",
+      "Ragnatela soffice",
+      "Gatto nero fondente",
+      "Lanterna di zucchero",
+      "Presagio al cacao",
+      "Nebbia alla menta",
+      "Corvo croccante",
+      "Tomba al caramello",
+      "Stella stregata",
+      "Bara candita",
+      "Miele stregato",
+      "Uva del grimorio",
+      "Menta di mezzanotte",
+      "Ululato al miele",
+      "Burro d'osso",
+      "Ciliegia della cripta",
+      "Cialda del will-o'-wisp",
+      "Gomma del ghoul",
+      "Vortice magico",
+      "Miele infestato",
+      "Marshmallow mummia",
+      "Lollipop pozione",
+      "Zucchero d'ombra",
+      "Bacca della banshee",
+      "Uva della tomba",
+      "Perla di zucca",
+    ];
+    var profileHasHighStaff =
+      hasRoleId(roles, PROFILE_ROLE_IDS.highStaff) ||
+      hasRoleId(roles, PROFILE_ROLE_IDS.founder) ||
+      hasRoleId(roles, PROFILE_ROLE_IDS.manager) ||
+      hasRoleId(roles, PROFILE_ROLE_IDS.director) ||
+      hasNormalizedRole(
+        Array.isArray(roles)
+          ? roles
+              .map(function (role) {
+                return normalizeRoleName(role && role.name);
+              })
+              .filter(Boolean)
+          : [],
+        function (name) {
+          return (
+            name === "high staff" ||
+            name.indexOf("high staff") !== -1 ||
+            name === "founder" ||
+            name === "fondatore" ||
+            name === "manager" ||
+            name === "admin" ||
+            name === "director"
+          );
+        },
+      );
+    /* Preview griglia per High Staff anche prima dell'evento / senza caramelle */
+    if (
+      (!halloweenCandy || !halloweenCandy.visible || !Array.isArray(halloweenCandy.items) || !halloweenCandy.items.length) &&
+      profileHasHighStaff
+    ) {
+      var previewItems = [];
+      var baseCandy = "https://www.viniliecaffe.it/images/caramelle_del_porco_dio/";
+      var candyAssetV = "20261012silBright2";
+      for (var ci = 1; ci <= HALLOWEEN_CANDY_NAMES.length; ci += 1) {
+        previewItems.push({
+          id: String(ci),
+          name: HALLOWEEN_CANDY_NAMES[ci - 1],
+          imageUrl: baseCandy + ci + ".png",
+          thumbUrl: baseCandy + "thumbs/" + ci + ".webp?v=" + candyAssetV,
+          silhouetteUrl: baseCandy + "sil2/" + ci + ".webp?v=" + candyAssetV,
+          owned: false,
+        });
+      }
+      halloweenCandy = {
+        visible: true,
+        preview: true,
+        ownedCount: 0,
+        total: HALLOWEEN_CANDY_NAMES.length,
+        items: previewItems,
+      };
+    }
+    if (halloweenCandy && halloweenCandy.visible && Array.isArray(halloweenCandy.items) && halloweenCandy.items.length) {
+      var candyOwned = Number(halloweenCandy.ownedCount || 0) || 0;
+      var candyTotal = Number(halloweenCandy.total || halloweenCandy.items.length) || halloweenCandy.items.length;
+      var candyAssetV = "20261012silBright2";
+      if (!window.__vcCandyBlurNameCache) window.__vcCandyBlurNameCache = {};
+      /* candyNameBlurIos1: Safari/iOS ignora ctx.filter=blur → testo nitido sul telefono.
+         Fallback: blur a campionamento (draw multiplo) + mai testo chiaro nel DOM. */
+      function candyCanvasFilterBlurOk(ctx) {
+        try {
+          if (!ctx || typeof ctx.filter !== "string") return false;
+          var prev = ctx.filter;
+          ctx.filter = "blur(2px)";
+          var ok = String(ctx.filter || "").indexOf("blur") !== -1;
+          ctx.filter = prev || "none";
+          return ok;
+        } catch (eFilt) {
+          return false;
+        }
+      }
+      function candySoftBlurDraw(ctx, src, radiusPx) {
+        var r = Math.max(2, Math.min(8, Math.round(Number(radiusPx) || 5)));
+        if (candyCanvasFilterBlurOk(ctx)) {
+          ctx.filter = "blur(" + r + "px)";
+          ctx.drawImage(src, 0, 0);
+          ctx.filter = "none";
+          return;
+        }
+        ctx.clearRect(0, 0, src.width, src.height);
+        var step = Math.max(1, Math.floor(r / 2));
+        var hits = 0;
+        for (var y = -r; y <= r; y += step) {
+          for (var x = -r; x <= r; x += step) {
+            if (x * x + y * y > r * r) continue;
+            hits += 1;
+          }
+        }
+        if (hits < 1) hits = 1;
+        ctx.globalAlpha = Math.min(0.22, 1.15 / hits);
+        for (var yy = -r; yy <= r; yy += step) {
+          for (var xx = -r; xx <= r; xx += step) {
+            if (xx * xx + yy * yy > r * r) continue;
+            ctx.drawImage(src, xx, yy);
+          }
+        }
+        ctx.globalAlpha = 0.42;
+        ctx.drawImage(src, 0, 0);
+        ctx.globalAlpha = 1;
+      }
+      function candyBlurredNameDataUrl(name) {
+        var key = String(name || "");
+        if (window.__vcCandyBlurNameCache[key]) return window.__vcCandyBlurNameCache[key];
+        try {
+          var W = 180;
+          var H = 56;
+          var dpr = 2;
+          var off = document.createElement("canvas");
+          off.width = W * dpr;
+          off.height = H * dpr;
+          var octx = off.getContext("2d");
+          if (!octx) return "";
+          octx.scale(dpr, dpr);
+          octx.clearRect(0, 0, W, H);
+          octx.font = '700 16px "Segoe UI", system-ui, sans-serif';
+          octx.fillStyle = "rgba(255,248,235,0.98)";
+          octx.textAlign = "center";
+          octx.textBaseline = "top";
+          var words = key.split(/\s+/).filter(Boolean);
+          var lines = [];
+          var line = "";
+          for (var wi = 0; wi < words.length; wi += 1) {
+            var test = line ? line + " " + words[wi] : words[wi];
+            if (octx.measureText(test).width > W - 12 && line) {
+              lines.push(line);
+              line = words[wi];
+            } else {
+              line = test;
+            }
+          }
+          if (line) lines.push(line);
+          if (!lines.length) lines = [key];
+          if (lines.length > 3) {
+            lines = lines.slice(0, 3);
+            lines[2] = lines[2].replace(/.{0,2}$/, "…");
+          }
+          var lh = 18;
+          var startY = Math.max(2, (H - lines.length * lh) / 2);
+          for (var li = 0; li < lines.length; li += 1) {
+            octx.fillText(lines[li], W / 2, startY + li * lh);
+          }
+          var out = document.createElement("canvas");
+          out.width = off.width;
+          out.height = off.height;
+          var ctx = out.getContext("2d");
+          if (!ctx) return "";
+          candySoftBlurDraw(ctx, off, 5 * dpr);
+          var url = out.toDataURL("image/png");
+          window.__vcCandyBlurNameCache[key] = url;
+          return url;
+        } catch (eCandyBlur) {
+          return "";
+        }
+      }
+      var candyCells = halloweenCandy.items
+        .map(function (item) {
+          var owned = Boolean(item && item.owned);
+          var idNum = Math.floor(Number(item && item.id)) || 0;
+          var name = String((item && item.name) || "").trim();
+          if (!name || /^caramella\s+\d+$/i.test(name)) {
+            name = (idNum >= 1 && idNum <= HALLOWEEN_CANDY_NAMES.length && HALLOWEEN_CANDY_NAMES[idNum - 1]) || name || "Caramella";
+          }
+          var thumb = String((item && item.thumbUrl) || "").trim();
+          var sil = String((item && item.silhouetteUrl) || "").trim();
+          var full = String((item && item.imageUrl) || "").trim();
+          if (!sil || /\/sil\/\d+\.webp/i.test(sil) || sil.indexOf("/sil/") !== -1) {
+            sil =
+              idNum >= 1
+                ? "https://www.viniliecaffe.it/images/caramelle_del_porco_dio/sil2/" + idNum + ".webp?v=" + candyAssetV
+                : sil;
+          } else if (sil.indexOf("sil2/") !== -1 && sil.indexOf("v=") === -1) {
+            sil += (sil.indexOf("?") >= 0 ? "&" : "?") + "v=" + candyAssetV;
+          }
+          if (!thumb && idNum >= 1) {
+            thumb =
+              "https://www.viniliecaffe.it/images/caramelle_del_porco_dio/thumbs/" + idNum + ".webp?v=" + candyAssetV;
+          }
+          var img = owned ? thumb || full : sil;
+          var label = owned ? name : "Non sbloccata";
+          var nameHtml;
+          if (owned) {
+            nameHtml = '<span class="vc-user-profile-candy__name">' + esc(name) + "</span>";
+          } else {
+            var blurUrl = candyBlurredNameDataUrl(name);
+            /* candyNameBlurIos1: mai testo chiaro in fallback (CSS blur fallisce su iOS) */
+            nameHtml = blurUrl
+              ? '<span class="vc-user-profile-candy__name vc-user-profile-candy__name--locked" aria-hidden="true">' +
+                '<img class="vc-user-profile-candy__nameimg" src="' +
+                blurUrl +
+                '" alt="" width="180" height="56" draggable="false" />' +
+                "</span>"
+              : '<span class="vc-user-profile-candy__name vc-user-profile-candy__name--locked vc-user-profile-candy__name--locked-ph" aria-hidden="true">••••••••</span>';
+          }
+          return (
+            '<li class="vc-user-profile-candy' +
+            (owned ? " vc-user-profile-candy--owned" : " vc-user-profile-candy--missing") +
+            '" title="' +
+            esc(label) +
+            '">' +
+            '<span class="vc-user-profile-candy__frame">' +
+            (img
+              ? '<img class="vc-user-profile-candy__img" src="' +
+                esc(img) +
+                '" alt="' +
+                esc(owned ? name : "Caramella bloccata") +
+                '" width="96" height="96" loading="lazy" decoding="async" />'
+              : '<span class="vc-user-profile-candy__ph" aria-hidden="true"></span>') +
+            "</span>" +
+            nameHtml +
+            "</li>"
+          );
+        })
+        .join("");
+      var candyPct = candyTotal > 0 ? Math.max(0, Math.min(100, Math.round((candyOwned / candyTotal) * 100))) : 0;
+      var candySub =
+        candyOwned >= candyTotal && candyTotal > 0
+          ? "Collezione completa"
+          : candyOwned === 1
+            ? "1 caramella sbloccata"
+            : esc(String(candyOwned)) + " caramelle sbloccate";
+      if (halloweenCandy.preview && candyOwned < 1) candySub = "Anteprima High Staff";
+      else if (halloweenCandy.preview) candySub += " · anteprima High Staff";
+      halloweenCandyHtml =
+        '<section class="vc-user-profile-block vc-user-profile-block--candy">' +
+        '<div class="vc-user-profile-candypanel">' +
+        '<div class="vc-user-profile-candypanel__head">' +
+        '<span class="vc-user-profile-candypanel__icon" aria-hidden="true">' +
+        '<img src="https://cdn.discordapp.com/emojis/1558964785113206824.webp?size=64&amp;quality=lossless" alt="" width="28" height="28" decoding="async" />' +
+        "</span>" +
+        '<span class="vc-user-profile-candypanel__copy">' +
+        '<span class="vc-user-profile-candypanel__title">Caramelle Halloween</span>' +
+        '<span class="vc-user-profile-candypanel__sub">' +
+        candySub +
+        "</span>" +
+        "</span>" +
+        '<span class="vc-user-profile-candypanel__badge">' +
+        esc(String(candyOwned)) +
+        "/" +
+        esc(String(candyTotal)) +
+        "</span>" +
+        "</div>" +
+        '<div class="vc-user-profile-candypanel__meter" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' +
+        esc(String(candyPct)) +
+        '" aria-label="Progresso collezione caramelle">' +
+        '<span class="vc-user-profile-candypanel__meterfill" style="width:' +
+        esc(String(candyPct)) +
+        '%"></span>' +
+        "</div>" +
+        '<ul class="vc-user-profile-candygrid" aria-label="Collezione caramelle Halloween">' +
+        candyCells +
+        "</ul>" +
+        "</div>" +
+        "</section>";
+    }
 
     var customBadgeCount = customRoleCount + (customVoice ? 1 : 0);
     var customEconomyHtml =
@@ -2563,7 +3411,8 @@
               "</span>" +
               '<div class="vc-user-profile-customcard__copy">' +
               '<strong class="vc-user-profile-customcard__title">' +
-              esc((customRole.emoji ? customRole.emoji + " " : "") + (customRole.name || "Ruolo personalizzato")) +
+              /* icona già nel dot: nome pulito come Discord (no emoji duplicata) */
+              esc(customRole.name || "Ruolo personalizzato") +
               "</strong>" +
               '<span class="vc-user-profile-customcard__meta">Ruolo Principale</span>' +
               "</div>" +
@@ -2586,20 +3435,19 @@
                 : '<article class="vc-user-profile-customcard vc-user-profile-customcard--secondary">') +
               '<div class="vc-user-profile-customcard__main">' +
               '<span class="vc-user-profile-customcard__dot vc-user-profile-customcard__dot--voice">' +
-              (customSecondaryRole.iconUrl
-                ? '<img class="vc-user-profile-customicon__img" src="' +
-                  esc(customSecondaryRole.iconUrl) +
-                  '" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" />'
-                : customSecondaryRole.emoji
+              (discordRoleIconImgHtml(
+                customSecondaryRole.iconUrl,
+                customSecondaryRole.iconAnimated,
+                "vc-user-profile-customicon__img",
+                40,
+              ) ||
+                (customSecondaryRole.emoji
                   ? '<span class="vc-user-profile-customicon__emoji">' + esc(customSecondaryRole.emoji) + "</span>"
-                  : '<i class="fa fa-star" aria-hidden="true"></i>') +
+                  : '<i class="fa fa-star" aria-hidden="true"></i>')) +
               "</span>" +
               '<div class="vc-user-profile-customcard__copy">' +
               '<strong class="vc-user-profile-customcard__title">' +
-              esc(
-                (customSecondaryRole.emoji ? customSecondaryRole.emoji + " " : "") +
-                  (customSecondaryRole.name || "Ruolo personalizzato secondario"),
-              ) +
+              esc(customSecondaryRole.name || "Ruolo personalizzato secondario") +
               "</strong>" +
               '<span class="vc-user-profile-customcard__meta">Ruolo Secondario</span>' +
               "</div>" +
@@ -2763,6 +3611,7 @@
       "</div>" +
       multiplierHtml +
       "</section>" +
+      halloweenCandyHtml +
       customEconomyHtml +
       '<section class="vc-user-profile-block vc-user-profile-block--roles">' +
       '<div class="vc-user-profile-block__head"><span class="vc-user-profile-block__title">Ruoli</span><span class="vc-user-profile-block__sub">' +
@@ -2800,6 +3649,7 @@
         }
       } catch (eChrome) {}
       scanProfileAvatars(root);
+      enhanceProfileEmojis(root);
       return;
     }
     try {
@@ -2808,6 +3658,7 @@
       }
     } catch (eStaffTab) {}
     scanProfileAvatars(root);
+    enhanceProfileEmojis(root);
   }
 
   function syncProfileStaffTab(userId, root) {
@@ -2944,6 +3795,7 @@
       }
       img.src = src;
     }
+    /* rankCardSpeed1: session → Cache API → fetch condiviso (anche GIF grandi). */
     var cachedDataUrl = loadCachedProfileRankPreview(userId);
     if (cachedDataUrl) {
       releaseProfileRankObjectUrl();
@@ -2957,68 +3809,51 @@
       img.classList.add("is-rendering");
     }
 
-    /* rankFastPaint1: URL stabile in img.src → bypass coda fetch/soft429 (API ~0.2s). */
-    if (!cachedDataUrl) {
+    function paintBlob(blob, fromCache) {
+      if (myToken !== profileRankRenderToken) return;
+      if (String(img.getAttribute("data-vc-rank-for") || "") !== uid) return;
+      if (!blob || !blob.size) return;
       releaseProfileRankObjectUrl();
-      showImage(url, false);
+      try {
+        profileRankObjectUrl = window.URL.createObjectURL(blob);
+        showImage(profileRankObjectUrl, fromCache);
+      } catch (eObj) {
+        if (!cachedDataUrl) showImage(url, false);
+      }
     }
 
-    /* Cache locale in background; non blocca il paint. Soft429 = ignore. */
-    if (Date.now() < rankPreviewBlockedUntil) return;
-    try {
-      if (window.VcApiCache && typeof window.VcApiCache.isWebhookBlocked === "function") {
-        if (window.VcApiCache.isWebhookBlocked(url)) return;
-      }
-    } catch (eBlk) {}
-    if (rankPreviewInFlightByUid[uid]) return;
-
-    rankPreviewInFlightByUid[uid] = fetch(url, {
-      cache: force ? "no-store" : "force-cache",
-      credentials: "omit",
-    })
-      .then(function (r) {
-        if (r && r.status === 429) {
-          var soft = false;
+    function runNetworkFetch() {
+      if (Date.now() < rankPreviewBlockedUntil) return;
+      try {
+        if (window.VcApiCache && typeof window.VcApiCache.isWebhookBlocked === "function") {
+          if (window.VcApiCache.isWebhookBlocked(url)) return;
+        }
+      } catch (eBlk) {}
+      fetchProfileRankPreviewBlob(uid, url, force).then(function (blob) {
+        if (blob) {
+          paintBlob(blob, false);
+          return;
+        }
+        if (!cachedDataUrl && myToken === profileRankRenderToken) {
           try {
-            soft = String(r.headers && r.headers.get("X-VC-Soft429") || "") === "1";
-          } catch (eSoft) {}
-          if (!soft) {
-            rankPreviewBlockedUntil = Date.now() + 45000;
-            try {
-              if (window.VcApiCache && typeof window.VcApiCache.noteWebhook429 === "function") {
-                window.VcApiCache.noteWebhook429(30, url);
-              }
-            } catch (e429) {}
-          }
-          throw new Error("http_429");
+            showImage(url, false);
+          } catch (eFb) {}
         }
-        if (!r.ok) throw new Error("http_" + r.status);
-        return r.blob();
-      })
-      .then(function (blob) {
-        if (myToken !== profileRankRenderToken) return;
-        if (String(img.getAttribute("data-vc-rank-for") || "") !== uid) return;
-        if (!blob || !blob.size) return;
-        if (blob.size < 380000) {
-          blobToDataUrl(blob)
-            .then(function (dataUrl) {
-              if (dataUrl) saveCachedProfileRankPreview(userId, dataUrl);
-            })
-            .catch(function () {});
-        }
-        /* Solo su force: sostituisci con blob fresco (bypass HTTP cache). */
-        if (force) {
-          releaseProfileRankObjectUrl();
-          try {
-            profileRankObjectUrl = window.URL.createObjectURL(blob);
-            showImage(profileRankObjectUrl, false);
-          } catch (eObj) {}
-        }
-      })
-      .catch(function () {})
-      .finally(function () {
-        delete rankPreviewInFlightByUid[uid];
       });
+    }
+
+    if (!force) {
+      loadRankPreviewBlobCache(url).then(function (cachedBlob) {
+        if (myToken !== profileRankRenderToken) return;
+        if (cachedBlob) {
+          paintBlob(cachedBlob, true);
+          return;
+        }
+        runNetworkFetch();
+      });
+      return;
+    }
+    runNetworkFetch();
   }
 
   var profileInitialLoadDone = false;
@@ -3177,7 +4012,7 @@
       if (rankMismatch || !rankImg.getAttribute("src")) {
         window.setTimeout(function () {
           try {
-            loadProfileRankCardPreview(uid, { force: true });
+            loadProfileRankCardPreview(uid, { force: false });
           } catch (eRk) {}
         }, 0);
       }
@@ -3233,7 +4068,7 @@
       });
       profileInitialLoadDone = true;
       profileBootSettled = true;
-      loadProfileRankCardPreview(uid, { force: true });
+      loadProfileRankCardPreview(uid, { force: false });
       try {
         finishCommunitySwitchPaint(uid);
       } catch (eGate) {
@@ -3371,6 +4206,11 @@
       if (!silent) clearProfilePending();
       return Promise.resolve();
     }
+
+    /* rankCardSpeed1: prefetch GIF in parallelo al JSON profilo */
+    try {
+      prefetchProfileRankCard(userId);
+    } catch (ePrefetchRank) {}
 
     if (!silent) {
       root.hidden = false;
@@ -3687,7 +4527,7 @@
         lastRenderedProfile.root = root;
         renderProfile(root, userId, lastRenderedProfile.payload);
         profileInitialLoadDone = true;
-        loadProfileRankCardPreview(userId, { force: true });
+        loadProfileRankCardPreview(userId, { force: false });
       } catch (eRepaint) {
         profileInitialLoadDone = false;
       }
@@ -3736,9 +4576,19 @@
       return;
     }
     lastProfileRenderSignature = sig;
-    renderProfile(lastRenderedProfile.root, lastRenderedProfile.userId, lastRenderedProfile.payload);
-    syncProfileStaffTab(lastRenderedProfile.userId, lastRenderedProfile.root);
-    loadProfileRankCardPreview(lastRenderedProfile.userId, { force: false });
+    var root = lastRenderedProfile.root;
+    var uid = lastRenderedProfile.userId;
+    var payload = lastRenderedProfile.payload;
+    /* staffPtPrefetchFix1: non bloccare il main thread sul handler sync (reflow ~1s) */
+    window.setTimeout(function () {
+      try {
+        if (!lastRenderedProfile || lastRenderedProfile.root !== root) return;
+        if (String(lastRenderedProfile.userId || "") !== String(uid || "")) return;
+        renderProfile(root, uid, payload);
+        syncProfileStaffTab(uid, root);
+        loadProfileRankCardPreview(uid, { force: false });
+      } catch (eProfDefer) {}
+    }, 0);
   });
 
     try {
@@ -4059,7 +4909,7 @@
         profileInitialLoadDone = true;
         profileBootSettled = true;
         renderProfile(root, id, bound, { skipStaffSync: true, communityOnly: true });
-        loadProfileRankCardPreview(id, { force: true });
+        loadProfileRankCardPreview(id, { force: false });
         try {
           finishCommunitySwitchPaint(id);
         } catch (eGate) {

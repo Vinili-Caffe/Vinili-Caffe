@@ -84,6 +84,10 @@
           if (!(at && Date.now() - at > 45 * 60 * 1000) && y >= 2) {
             window.__vcPtrRestoreY = y;
             window.__vcPtrRestoreTargetY = y;
+            try {
+              var mx = Math.max(0, Math.round(Number(data.max) || 0));
+              if (mx >= 2) window.__vcPtrRestoreMaxY = mx;
+            } catch (eMx) {}
             document.documentElement.setAttribute("data-vc-ptr-restore-y", String(y));
             try {
               sessionStorage.setItem(
@@ -107,7 +111,10 @@
     css.textContent =
       "html.vc-scroll-reload-top-lock,html.vc-scroll-reload-top-lock body{" +
       "overflow:hidden!important;overscroll-behavior:none!important;" +
-      "touch-action:none!important;height:100%!important;max-height:100dvh!important}" +
+      "touch-action:none!important;height:100%!important;max-height:100dvh!important;" +
+      "overflow-anchor:none!important}" +
+      "html.vc-ptr-scroll-restore-pending,html.vc-ptr-scroll-restore-pending body{" +
+      "overflow-anchor:none!important}" +
       "html.vc-scroll-reload-top-lock body{position:relative!important;top:0!important;" +
       "left:0!important;right:0!important;margin:0!important}";
     (document.head || document.documentElement).appendChild(css);
@@ -115,6 +122,71 @@
   forceTopNow();
   /* violPass12: macrotask leggero invece di rAF (era Violation rAF ~129ms) */
   window.setTimeout(forceTopNow, 0);
+  /* bootStayTop2: non togliere top-lock a 1.2s se restore ancora in coda + sipario */
+  function clearPtrTopLock(force) {
+    try {
+      var root = document.documentElement;
+      var wantY = Math.max(
+        0,
+        Number(window.__vcPtrRestoreY || 0) || 0,
+        Number(window.__vcPtrRestoreTargetY || 0) || 0,
+      );
+      var booting = root.classList.contains("vc-page-cine-boot") && !root.classList.contains("vc-page-cine-ready");
+      if (!force && wantY >= 2 && booting && !window.__vcPtrRestoreDone) {
+        forceTopNow();
+        return;
+      }
+      /* loadRestoreAfterBar1: top finché barra non unlocked */
+      if (
+        !force &&
+        wantY >= 2 &&
+        !window.__vcPtrRestoreDone &&
+        !window.__vcChromeVisualReady &&
+        (root.classList.contains("vc-chrome-bar-loading") ||
+          root.classList.contains("vc-site-polish"))
+      ) {
+        forceTopNow();
+        return;
+      }
+      root.classList.remove("vc-scroll-reload-top-lock");
+      var topCss = document.getElementById("vc-scroll-reload-top-lock-css");
+      if (topCss && topCss.parentNode) topCss.parentNode.removeChild(topCss);
+    } catch (eClr) {}
+  }
+  window.setTimeout(function () {
+    clearPtrTopLock(false);
+  }, 1200);
+  window.setTimeout(function () {
+    clearPtrTopLock(false);
+  }, 2800);
+  window.setTimeout(function () {
+    clearPtrTopLock(true);
+  }, 7000);
+  document.addEventListener(
+    "vc:page-cine-ready",
+    function () {
+      /* loadRestoreAfterBar1: cine-ready mid-bar NON sblocca top */
+      clearPtrTopLock(false);
+    },
+    { passive: true, once: true },
+  );
+  document.addEventListener(
+    "vc:cine-curtain-off",
+    function () {
+      clearPtrTopLock(false);
+    },
+    { passive: true, once: true },
+  );
+  document.addEventListener(
+    "vc:chrome-visual-ready",
+    function () {
+      clearPtrTopLock(true);
+    },
+    { passive: true, once: true },
+  );
 })();
 /* notifHashYoYo1 */
 /* violPass12 */
+/* scrollKill1 */
+/* bootStayTop2 */
+/* loadRestoreAfterBar1 */

@@ -89,10 +89,44 @@ const RANK_CARD_WALLPAPERS = Object.freeze({
   },
 });
 
+/* rankFont1: fontKey → family canvas (quote fonts + stack di sistema) */
+const RANK_FONT_CATALOG = Object.freeze({
+  arial: { label: "Arial", family: "Arial" },
+  sans: { label: "Noto Sans", family: "Noto Sans" },
+  serif: { label: "Georgia", family: "Georgia" },
+  mono: { label: "Mono", family: "DejaVu Sans Mono" },
+  display: { label: "Fraktur", family: "UnifrakturMaguntia" },
+  mplus: { label: "M PLUS Rounded", family: "M PLUS Rounded 1c" },
+  dela: { label: "Dela Gothic One", family: "Dela Gothic One" },
+  dot: { label: "DotGothic16", family: "DotGothic16" },
+  pop: { label: "Hachi Maru Pop", family: "Hachi Maru Pop" },
+  rampart: { label: "Rampart One", family: "Rampart One" },
+  reggae: { label: "Reggae One", family: "Reggae One" },
+  rocknroll: { label: "RocknRoll One", family: "RocknRoll One" },
+  yuji: { label: "Yuji Syuku", family: "Yuji Syuku" },
+  yusei: { label: "Yusei Magic", family: "Yusei Magic" },
+  jiyu: { label: "Jiyu no Tsubasa", family: "JiyunoTsubasa" },
+  shippori: { label: "Shippori Mincho", family: "Shippori Mincho" },
+  bruno: { label: "Bruno Ace SC", family: "Bruno Ace SC" },
+  castoro: { label: "Castoro Titling", family: "Castoro Titling" },
+  poltawski: { label: "Poltawski Nowy", family: "Poltawski Nowy" },
+  vina: { label: "Vina Sans", family: "Vina Sans" },
+  exo2: { label: "Exo 2", family: "Exo 2" },
+  inconsolata: { label: "Inconsolata", family: "Inconsolata" },
+  script: { label: "Dancing Script", family: "Dancing Script" },
+  verdana: { label: "Verdana", family: "Verdana" },
+  tahoma: { label: "Tahoma", family: "Tahoma" },
+  helvetica: { label: "Helvetica", family: "Helvetica" },
+  times: { label: "Times", family: "Times New Roman" },
+  impact: { label: "Impact", family: "Impact" },
+  comic: { label: "Comic", family: "Comic Sans MS" },
+});
+
 const DEFAULT_RANK_CARD_THEME = Object.freeze({
   overlayOpacity: 0.8,
   wallpaperKey: "default",
   wallpaperUrl: "",
+  fontKey: "arial",
   panelColor: "#202225",
   primaryTextColor: "#ffcb05",
   secondaryTextColor: "#d7d7d7",
@@ -147,6 +181,25 @@ function sanitizeWallpaperKey(value) {
   return RANK_CARD_WALLPAPERS[raw] ? raw : DEFAULT_RANK_CARD_THEME.wallpaperKey;
 }
 
+function sanitizeFontKey(value) {
+  const raw = String(value || "").trim().toLowerCase();
+  if (!raw) return DEFAULT_RANK_CARD_THEME.fontKey;
+  return RANK_FONT_CATALOG[raw] ? raw : DEFAULT_RANK_CARD_THEME.fontKey;
+}
+
+function resolveRankFontFamily(fontKey) {
+  const key = sanitizeFontKey(fontKey);
+  return RANK_FONT_CATALOG[key]?.family || RANK_FONT_CATALOG.arial.family;
+}
+
+function listRankCardFonts() {
+  return Object.keys(RANK_FONT_CATALOG).map((key) => ({
+    key,
+    label: RANK_FONT_CATALOG[key].label,
+    family: RANK_FONT_CATALOG[key].family,
+  }));
+}
+
 function resolveRankCardWallpaper(theme) {
   const src = theme && typeof theme === "object" ? theme : {};
   const custom = sanitizeWallpaperUrl(src.wallpaperUrl);
@@ -175,6 +228,7 @@ function mergeRankCardTheme(input) {
     overlayOpacity: clamp(src.overlayOpacity == null ? DEFAULT_RANK_CARD_THEME.overlayOpacity : src.overlayOpacity, 0, 1),
     wallpaperKey: sanitizeWallpaperKey(src.wallpaperKey),
     wallpaperUrl: sanitizeWallpaperUrl(src.wallpaperUrl),
+    fontKey: sanitizeFontKey(src.fontKey),
     panelColor,
     primaryTextColor,
     secondaryTextColor: normalizeHex(src.secondaryTextColor, labelColor),
@@ -195,12 +249,16 @@ function getRankCardThemeFromDoc(doc) {
 module.exports = {
   DEFAULT_RANK_CARD_THEME,
   RANK_CARD_WALLPAPERS,
+  RANK_FONT_CATALOG,
   clamp,
   mergeRankCardTheme,
   getRankCardThemeFromDoc,
   listRankCardWallpapers,
+  listRankCardFonts,
   normalizeHex,
   resolveRankCardWallpaper,
+  resolveRankFontFamily,
+  sanitizeFontKey,
   sanitizeWallpaperKey,
   sanitizeWallpaperUrl,
 };

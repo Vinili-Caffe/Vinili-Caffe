@@ -94,7 +94,19 @@
     "statsRefreshMinutes": 60,
     "maxTags": 12,
     "maxCategories": 12,
-    "maxMarkdownChars": 4000
+    "maxMarkdownChars": 4000,
+    "voteCountdownSeconds": 0,
+    "voteAdSeconds": 0,
+    "turnstile": {
+      "siteKey": "0x4AAAAAAFNGgQZhuRRvtetm",
+      "secretKey": "0x4AAAAAAFNGgRknZFfoORs3sYhTDK5aBkQ"
+    },
+    "ads": {
+      "provider": "adsense",
+      "adsenseClient": "ca-pub-9933035299522072",
+      "adsenseSlot": "8991160009",
+      "minWatchSeconds": 0
+    }
   },
   "discadiaVoteReminder": {
     "enabled": true,
@@ -321,6 +333,7 @@
   },
   "minigames": {
     "enabled": true,
+    "halloweenExclusiveDuringEvent": true,
     "hogwartsExclusiveDuringEvent": false,
     "hogwartsUnsortedHousePointsPerWin": 25,
     "hogwartsEventSpawn": {
@@ -468,6 +481,12 @@
       "durationMs": 180000,
       "rewardExp": 150,
       "apiUrl": "https://cdn.jsdelivr.net/npm/italian-words-dict@3.4.0/dist/words.json"
+    },
+    "wordle": {
+      "cacheTtlMs": 86400000,
+      "itApiUrl": "https://cdn.jsdelivr.net/npm/italian-words-dict@3.4.0/dist/words.json",
+      "enAnswersApiUrl": "https://cdn.jsdelivr.net/gh/charlesreid1/five-letter-words@master/sgb-words.txt",
+      "enGuessesApiUrl": "https://cdn.jsdelivr.net/gh/tabatkins/wordle-list@main/words"
     },
     "guessFlag": {
       "durationMs": 180000,
@@ -664,7 +683,49 @@
         { "weight": 1, "minMessages": 30, "maxMessages": 50, "minDurationMs": 90000,  "maxDurationMs": 180000, "rewardExp": 150 },
         { "weight": 1, "minMessages": 40, "maxMessages": 70, "minDurationMs": 120000, "maxDurationMs": 240000, "rewardExp": 200 }
       ]
+    },
+    "halloweenQuiz": {
+      "durationMs": 180000,
+      "rewardExp": 150
+    },
+    "halloweenFindGhost": {
+      "durationMs": 300000,
+      "rewardExp": 200
+    },
+    "halloweenMissingEmoji": {
+      "durationMs": 180000,
+      "rewardExp": 150
+    },
+    "halloweenCountBats": {
+      "durationMs": 180000,
+      "rewardExp": 150
+    },
+    "halloweenTrickOrTreat": {
+      "durationMs": 180000,
+      "rewardExp": 100,
+      "treatChancePercent": 55,
+      "candyOnTreat": 1
     }
+  },
+  "halloweenEvent": {
+    "enabled": true,
+    "eventKey": "halloween_2026",
+    "timezone": "Europe/Rome",
+    "startDate": "2026-10-24T12:00:00",
+    "endDate": "2026-11-01T12:00:00",
+    "testGuildForceLive": true
+  },
+  "halloweenEmojiHunt": {
+    "enabled": true,
+    "emoji": "<:VC_Halloween:1558964785113206824>",
+    "hourStart": 8,
+    "hourEnd": 24,
+    "slotMinutes": 30,
+    "activeDurationMs": 900000,
+    "rewardCandy": 1,
+    "messageHistoryLimit": 40,
+    "minCandidateAgeMs": 30000,
+    "maxCandidateAgeMs": 21600000
   },
   "hogwartsForbiddenBooks": {
     "enabled": false,
@@ -933,7 +994,11 @@
   "gameVoiceHubs": {
     "enabled": true,
     "categoryId": "1519315215102120147",
-    "spawnUserLimit": 0
+    "spawnUserLimit": 0,
+    "channelIds": [
+      "1555926853288460449",
+      "1555926668953133186"
+    ]
   },
   "sponsorVerifyPanelsEnabled": false,
   "sponsorGuildIds": [

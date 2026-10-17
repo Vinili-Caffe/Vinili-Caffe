@@ -1,12 +1,15 @@
-/* bakeEmoji1: Twemoji <img> + span fallback; boards step/title solid */
+/* bakeEmoji1 + emojiColorFast1: Twemoji/img + span — mai clip-text / fill del titolo */
 html.vc-site-polish body.vc-body img.vc-emoji,
 html.vc-site-polish body.vc-body img.vc-twemoji,
+html.vc-site-polish body.vc-body img.vc-discord-emoji,
 html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body img.vc-emoji,
 html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body img.vc-twemoji,
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body img.vc-emoji,
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body img.vc-twemoji,
 html.vc-site-photo-bg.vc-perf-mid.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top main img.vc-emoji,
-html.vc-site-photo-bg.vc-perf-mid.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top main img.vc-twemoji {
+html.vc-site-photo-bg.vc-perf-mid.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top main img.vc-twemoji,
+html body.vc-body :is(h1, h2, h3, h4, .vc-brand-glow, .vc-page-cine-title, a, p, li, span) img.vc-emoji,
+html body.vc-body :is(h1, h2, h3, h4, .vc-brand-glow, .vc-page-cine-title, a, p, li, span) img.vc-twemoji {
   display: inline-block !important;
   height: 1.2em !important;
   width: 1.2em !important;
@@ -23,11 +26,15 @@ html.vc-site-photo-bg.vc-perf-mid.vc-site-polish[data-vc-theme="light"]:not(.vc-
   background-image: none !important;
   -webkit-background-clip: border-box !important;
   background-clip: border-box !important;
+  color: initial !important;
+  -webkit-text-fill-color: initial !important;
+  fill: none !important;
   filter: none !important;
   -webkit-filter: none !important;
   opacity: 1 !important;
   visibility: visible !important;
   transform: none !important;
+  forced-color-adjust: none !important;
 }
 
 html.vc-site-polish body.vc-body span.vc-emoji,
@@ -37,15 +44,16 @@ html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top
 html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body#top main :is(h1, h2, h3, h4, p, li, span, a, strong, b, em) span.vc-emoji,
 html.vc-site-photo-bg.vc-perf-mid.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top main span.vc-emoji,
 html.vc-site-polish body.vc-body span.vc-sponsor-emoji,
-html.vc-site-polish[data-vc-theme="light"] body.vc-body span.vc-sponsor-emoji {
+html.vc-site-polish[data-vc-theme="light"] body.vc-body span.vc-sponsor-emoji,
+html body.vc-body :is(h1, h2, h3, h4, .vc-brand-glow, .vc-page-cine-title) span.vc-emoji {
   display: inline !important;
   background: none !important;
   background-color: transparent !important;
   background-image: none !important;
   -webkit-background-clip: border-box !important;
   background-clip: border-box !important;
-  color: inherit !important;
-  -webkit-text-fill-color: unset !important;
+  color: initial !important;
+  -webkit-text-fill-color: initial !important;
   filter: none !important;
   -webkit-filter: none !important;
   opacity: 1 !important;
@@ -57,6 +65,7 @@ html.vc-site-polish[data-vc-theme="light"] body.vc-body span.vc-sponsor-emoji {
   line-height: 1 !important;
   vertical-align: -0.08em !important;
   font-variant-emoji: emoji !important;
+  forced-color-adjust: none !important;
   font-family:
     "Apple Color Emoji",
     "Segoe UI Emoji",
@@ -64,6 +73,50 @@ html.vc-site-polish[data-vc-theme="light"] body.vc-body span.vc-sponsor-emoji {
     "Android Emoji",
     "Twemoji Mozilla",
     emoji !important;
+}
+
+/* emojiColorFast1: host marcato .vc-has-emoji → niente clip-text (batte paletteGrad) */
+html.vc-site-polish body.vc-body :is(h1, h2, h3, h4, .vc-brand-glow, .vc-page-cine-title, .vc-role-card-name, .vc-role-card__name, .vc-ul-card__name, .vc-user-profile-name).vc-has-emoji,
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body#top #vc-page-content :is(.vc-role-card-name, .vc-role-card__name, .vc-ul-card__name).vc-has-emoji,
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body#top main :is(.vc-role-card-name, .vc-role-card__name, .vc-ul-card__name).vc-has-emoji,
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body:not(.vc-web-tickets-page) :is(
+  main h1,
+  main h2,
+  main h3,
+  main h4,
+  main .vc-brand-glow,
+  main .vc-page-cine-title
+).vc-has-emoji,
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body main :is(h1, h2, h3, h4, .vc-brand-glow, .vc-page-cine-title):has(> .vc-emoji, .vc-emoji, img.vc-emoji, img.vc-twemoji),
+html.vc-site-photo-bg.vc-perf-mid.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top main :is(h1, h2, h3, h4, .vc-brand-glow).vc-has-emoji,
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top main :is(h1, h2, h3, h4, .vc-brand-glow).vc-has-emoji,
+html.vc-site-polish[data-vc-theme="light"] body.vc-body main :is(h1, h2, h3, h4, .vc-brand-glow).vc-has-emoji {
+  background: none !important;
+  background-color: transparent !important;
+  background-image: none !important;
+  -webkit-background-clip: border-box !important;
+  background-clip: border-box !important;
+  color: var(--vc-look-title-solid, #f5d6b7) !important;
+  -webkit-text-fill-color: var(--vc-look-title-solid, #f5d6b7) !important;
+  filter: none !important;
+  -webkit-filter: none !important;
+  text-shadow: none !important;
+}
+html.vc-site-polish[data-vc-theme="light"] body.vc-body main :is(h1, h2, h3, h4, .vc-brand-glow).vc-has-emoji,
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top main :is(h1, h2, h3, h4, .vc-brand-glow).vc-has-emoji {
+  color: var(--vc-look-title-solid-light, #2a1c14) !important;
+  -webkit-text-fill-color: var(--vc-look-title-solid-light, #2a1c14) !important;
+}
+
+/* bandiere / logo: mai filter tinta testo */
+html body.vc-body .vc-lang-flag,
+html body.vc-body header .vc-header-logo-img,
+html body.vc-body header .vc-header-logo-link img {
+  filter: none !important;
+  -webkit-filter: none !important;
+  -webkit-text-fill-color: initial !important;
+  color: initial !important;
+  forced-color-adjust: none !important;
 }
 
 html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body.vc-boards-page main h2.vc-boards-form-hero__title,
@@ -234,3 +287,6 @@ html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body.vc-boards-page .vc-boards-
 }
 
 /* boardsFormUi1 */
+
+/* emojiColorFast2 */
+

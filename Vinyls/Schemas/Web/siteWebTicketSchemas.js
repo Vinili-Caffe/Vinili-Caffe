@@ -77,6 +77,9 @@ const siteWebTicketSchema = new Schema(
     partnerManagerShopRedeemAckResult: { type: String, default: null, trim: true, maxlength: 32 },
     partnerManagerShopRedeemAckAt: { type: Date, default: null },
         discordImportKey: { type: String, default: null, trim: true, maxlength: 80, index: true },
+    /* ticketListDedupeSrv1: mirror import nascosto in lista (resta apribile via id diretto) */
+    listHidden: { type: Boolean, default: false, index: true },
+    duplicateOf: { type: Schema.Types.ObjectId, default: null, index: true, ref: "SiteWebTicket" },
   },
   { timestamps: true },
 );
@@ -86,6 +89,7 @@ siteWebTicketSchema.index({ guildId: 1, discordImportKey: 1 }, { unique: true, s
 siteWebTicketSchema.index({ guildId: 1, status: 1, lastMessageAt: -1 });
 siteWebTicketSchema.index({ guildId: 1, userId: 1, status: 1, updatedAt: -1 });
 siteWebTicketSchema.index({ guildId: 1, "addedUsers.id": 1, status: 1 });
+siteWebTicketSchema.index({ guildId: 1, listHidden: 1, lastMessageAt: -1 });
 
 const siteWebTicketMessageSchema = new Schema(
   {

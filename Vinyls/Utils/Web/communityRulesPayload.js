@@ -5,6 +5,7 @@ const MOD_RULE_TITLE_IT = {
   "1.3": "Rispetto verso utenti e staff",
   "1.4": "Spam nel server o in DM",
   "1.5": "Uscire e rientrare dal server",
+  "1.6": "Invio di immagini/link scam con account hackerato o grabbato",
   "2.1": "Doxing e contenuti NSFW o dati sensibili",
   "2.2": "Link, file eseguibili e materiale illecito",
   "2.3": "Flood e Wall of Text",
@@ -22,6 +23,7 @@ const ICON_BY_ID = {
   "1.3": "users",
   "1.4": "bullhorn",
   "1.5": "refresh",
+  "1.6": "lock",
   "2.1": "ban",
   "2.2": "link",
   "2.3": "align-left",
@@ -74,6 +76,11 @@ const SITE_RULE_OVERRIDES = {
       { label: "Termini di Servizio Discord", href: "https://discord.com/terms" },
       { label: "Linee Guida Community", href: "https://discord.com/guidelines" },
     ],
+  },
+  "1.6": {
+    title: "Invio di immagini/link scam con account hackerato o grabbato",
+    body:
+      "Invio di immagini/link scam con account hackerato o grabbato. Sanzioni progressive: 1° mute 12h; 2° mute 24h; 3° mute 48h; 4° ban.",
   },
 };
 

@@ -11,11 +11,47 @@
     // Brand logo navbar: never treat as Discord avatar (no static fallback).
     try {
       if (img.classList && img.classList.contains("vc-header-logo-img")) return false;
+      /* boardsIconRingAnim2: icone/banner bacheca restano GIF — no demote avatar hub */
+      if (
+        img.classList &&
+        (img.classList.contains("vc-boards-detail__icon") ||
+          img.classList.contains("vc-boards-card__icon") ||
+          img.classList.contains("vc-boards-mine-card__icon") ||
+          img.classList.contains("vc-boards-form-hero__img") ||
+          img.classList.contains("vc-boards-vote__icon") ||
+          img.classList.contains("vc-boards-guild-tag__badge"))
+      ) {
+        return false;
+      }
     } catch (eLogo) {}
-    if (img.hasAttribute("data-vc-avatar")) return true;
+    if (img.getAttribute("data-vc-anim-media") === "1") return false;
+    /* data-vc-avatar="0" non conta come avatar */
+    var avMark = String(img.getAttribute("data-vc-avatar") || "").trim();
+    if (avMark && avMark !== "0" && avMark !== "false") return true;
     var cls = String(img.className || "");
     var src = String(img.getAttribute("src") || "");
-    if (AVATAR_CLASS_RE.test(cls)) return true;
+    if (/\/(?:icons|banners|app-icons|guild-tag-badges|role-icons|emojis)\//i.test(src)) return false;
+    /* reactEmojiNoAvatar1: class/closest — allinea a vc-discord-avatar */
+    if (
+      /\b(?:vc-wt-reaction__emoji|vc-wfc-react__emoji|vc-wt-inline-emoji|vc-discord-emoji|vc-emoji|vc-twemoji|vc-wt-composer__emoji-token)\b/i.test(
+        cls,
+      )
+    ) {
+      return false;
+    }
+    try {
+      if (img.classList && img.classList.contains("vc-perks-role-ico")) return false;
+      if (img.closest && img.closest(".vc-sponsor-mention, .vc-perks-role-ico, [data-vc-role-id]")) return false;
+      if (
+        img.closest &&
+        img.closest(
+          ".vc-emoji-picker__opt, .vc-wt-reaction, .vc-wfc-react, .vc-wt-msg__reactions, .vc-wfc-reactions, .vc-wt-msg__text, .vc-wt-msg__bubble, .vc-wt-composer__input, .vc-wfc-msg__text",
+        )
+      ) {
+        return false;
+      }
+    } catch (eRoleIco) {}
+    if (AVATAR_CLASS_RE.test(cls) && !/\bvc-perks-role-ico\b/i.test(cls)) return true;
     if (/\brounded(-full)?\b/i.test(cls)) return true;
     if (
       img.closest &&
@@ -238,6 +274,91 @@
 
   window.VcWakeDeferredMedia = wakeDeferredMedia;
 
+  function avatarLooksFailed(img) {
+    try {
+      return Boolean(img && img.complete && Number(img.naturalWidth || 0) === 0);
+    } catch (eFail) {
+      return false;
+    }
+  }
+
+  function avatarInHiddenTree(img) {
+    if (!img || !img.closest) return false;
+    try {
+      if (img.closest("[hidden]")) return true;
+      if (img.closest('[aria-hidden="true"]')) return true;
+      var node = img;
+      for (var i = 0; i < 8 && node; i += 1) {
+        if (node.nodeType === 1) {
+          var st = window.getComputedStyle ? window.getComputedStyle(node) : null;
+          if (st && (st.display === "none" || st.visibility === "hidden")) return true;
+        }
+        node = node.parentElement;
+      }
+    } catch (eHid) {}
+    return false;
+  }
+
+  function isAnimatedDiscordSrc(src) {
+    var current = String(src || "");
+    return (
+      (/\/a_[^/?#]+\./i.test(current) || /\.gif(?:$|[?#])/i.test(current)) &&
+      /cdn\.discordapp\.com|media\.discordapp\.net/i.test(current)
+    );
+  }
+
+  function wantsKeepAnimMotion() {
+    try {
+      if (window.VcDiscordAvatar && typeof window.VcDiscordAvatar.wantsMotion === "function") {
+        return Boolean(window.VcDiscordAvatar.wantsMotion());
+      }
+    } catch (eMot) {}
+    return true;
+  }
+
+  /** gifFailPng1: se il GIF è morto/stuck, prova PNG prima del coffee (keepAnim solo mentre carica). */
+  function shouldKeepAnimatedSrc(img, src) {
+    if (!isAnimatedDiscordSrc(src) || !wantsKeepAnimMotion()) return false;
+    if (avatarLooksFailed(img)) return false;
+    return true;
+  }
+
+  function rebuildAvatarUrlFromAttrs(img, preferPng) {
+    if (!img) return "";
+    var uid = userIdFromImage(img);
+    var hash = String(img.getAttribute("data-avatar-hash") || "").trim();
+    if (!uid || !hash || /\/guilds\//i.test(hash)) return "";
+    var ext = preferPng ? "png" : /^a_/i.test(hash) ? "gif" : "png";
+    return "https://cdn.discordapp.com/avatars/" + uid + "/" + hash + "." + ext + "?size=256";
+  }
+
+  function recoverCoffeeAvatar(img) {
+    if (!img || img.tagName !== "IMG") return false;
+    if (!isAvatarImage(img)) return false;
+    var cur = String(img.getAttribute("src") || "").trim();
+    var isCoffee =
+      /^data:image\/svg\+xml/i.test(cur) ||
+      img.getAttribute("data-vc-avatar-fallback") === "1" ||
+      (img.dataset && img.dataset[FINAL_MARK] === "1" && /^data:/i.test(cur));
+    if (!isCoffee && Number(img.naturalWidth || 0) > 0) return false;
+    var rebuilt = rebuildAvatarUrlFromAttrs(img, true) || rebuildAvatarUrlFromAttrs(img, false);
+    var kept = String(img.getAttribute("data-vc-avatar-cdn-url") || "").trim();
+    var pngKeep = staticPngFromDiscordAvatar(kept);
+    var next = pngKeep || rebuilt || kept;
+    if (!next || /^data:/i.test(next)) return false;
+    try {
+      delete img.dataset[FINAL_MARK];
+      delete img.dataset[FALLBACK_MARK];
+      delete img.dataset.vcAvatarRetry;
+      delete img.dataset.vcAvatarPngRetry;
+      img.removeAttribute("data-vc-avatar-fallback");
+      img.classList.remove("vc-avatar-fallback-img");
+    } catch (eClr) {}
+    markPending(img);
+    setSrcOnce(img, next);
+    return true;
+  }
+
   function applyFallback(img) {
     if (!isAvatarImage(img)) return;
     if (img.dataset.vcWaking === "1") return;
@@ -247,6 +368,7 @@
 
     // avatarSilhouette1: empty / Discord embed → silhouette caffè subito (mai flash).
     if (!current || /\/embed\/avatars\//i.test(current)) {
+      if (recoverCoffeeAvatar(img)) return;
       img.dataset[FINAL_MARK] = "1";
       img.dataset[FALLBACK_MARK] = "3";
       paintCoffeeNow(img, false);
@@ -258,7 +380,8 @@
       if (img.naturalWidth > 0 && !/\/embed\/avatars\//i.test(current) && !/^data:/i.test(current)) {
         return;
       }
-      var restore = staticPngFromDiscordAvatar(current);
+      if (shouldKeepAnimatedSrc(img, current)) return;
+      var restore = staticPngFromDiscordAvatar(current) || rebuildAvatarUrlFromAttrs(img, true);
       if (restore && restore !== current) {
         img.dataset[FALLBACK_MARK] = "1";
         img.classList.add("vc-avatar-fallback-img");
@@ -287,19 +410,16 @@
       img.dataset.vcAvatarRetry !== "1"
     ) {
       /* avatarGlobalFirst1: se già fallito (error/complete+0) non aspettare soft timeout. */
-      var alreadyFailed = false;
-      try {
-        alreadyFailed = Boolean(img.complete && Number(img.naturalWidth || 0) === 0);
-      } catch (eFail) {
-        alreadyFailed = false;
-      }
+      var alreadyFailed = avatarLooksFailed(img);
       if (!alreadyFailed) {
-        /* avatarReal1: NON sostituire il CDN con silhouette mentre carica — aspetta. */
+        /* avatarReal1: NON sostituire il CDN con silhouette mentre carica — aspetta.
+           gifFailPng1: se è in tab/pane hidden, non demote — riprova dopo. */
         img.dataset.vcAvatarRetry = "1";
         var softMs = 2800;
         try {
           if (window.matchMedia && window.matchMedia("(pointer: coarse)").matches) softMs = 4500;
         } catch (eSoft) {}
+        if (avatarInHiddenTree(img)) softMs = Math.max(softMs, 5200);
         window.setTimeout(function () {
           if (!img || !img.isConnected) return;
           if (img.naturalWidth > 0) {
@@ -309,6 +429,16 @@
             } catch (eClr) {}
             markReady(img);
             return;
+          }
+          if (avatarInHiddenTree(img)) {
+            var hidN = Number(img.dataset.vcAvatarHiddenWait || "0") || 0;
+            if (hidN < 4) {
+              img.dataset.vcAvatarHiddenWait = String(hidN + 1);
+              try {
+                delete img.dataset.vcAvatarRetry;
+              } catch (eClr2) {}
+              return;
+            }
           }
           applyFallback(img);
         }, softMs);
@@ -321,11 +451,18 @@
 
     if (stage < 1) {
       if (!isGuildAvatar) {
-        var png = staticPngFromDiscordAvatar(current);
+        /* navGifKeepMotion1: tieni GIF solo se sta ancora caricando.
+           gifFailPng1: GIF fallita → PNG subito (prima del coffee). */
+        var keepAnim = shouldKeepAnimatedSrc(img, current);
+        var png = keepAnim ? "" : staticPngFromDiscordAvatar(current) || rebuildAvatarUrlFromAttrs(img, true);
         if (png && png !== current && !/^data:/i.test(current)) {
           img.dataset[FALLBACK_MARK] = "1";
           img.classList.add("vc-avatar-fallback-img");
           setSrcOnce(img, png);
+          return;
+        }
+        if (keepAnim) {
+          img.dataset[FALLBACK_MARK] = "1";
           return;
         }
       } else {
@@ -340,11 +477,16 @@
           } catch (eS) {}
         }
         if (uidGuild && userHash && !/\/guilds\//i.test(userHash)) {
-          var ext = /^a_/i.test(userHash) ? "gif" : "png";
           var userUrl =
-            "https://cdn.discordapp.com/avatars/" + uidGuild + "/" + userHash + "." + ext + "?size=256";
+            "https://cdn.discordapp.com/avatars/" +
+            uidGuild +
+            "/" +
+            userHash +
+            "." +
+            (avatarLooksFailed(img) || !/^a_/i.test(userHash) ? "png" : "gif") +
+            "?size=256";
           img.dataset[FALLBACK_MARK] = "1";
-          paintCoffeeNow(img, userUrl);
+          setSrcOnce(img, userUrl);
           return;
         }
       }
@@ -352,11 +494,16 @@
     }
 
     if (stage < 2) {
-      var png2 = staticPngFromDiscordAvatar(current);
+      var keepAnim2 = shouldKeepAnimatedSrc(img, current);
+      var png2 = keepAnim2 ? "" : staticPngFromDiscordAvatar(current) || rebuildAvatarUrlFromAttrs(img, true);
       if (png2 && png2 !== current && img.dataset.vcAvatarPngRetry !== "1" && !/^data:/i.test(current)) {
         img.dataset.vcAvatarPngRetry = "1";
-        img.dataset[FALLBACK_MARK] = "1";
+        img.dataset[FALLBACK_MARK] = "2";
         setSrcOnce(img, png2);
+        return;
+      }
+      if (keepAnim2) {
+        img.dataset[FALLBACK_MARK] = "2";
         return;
       }
       img.dataset[FALLBACK_MARK] = "2";
@@ -367,8 +514,9 @@
     paintCoffeeNow(img, false);
   }
 
-  function scanExisting() {
-    var imgs = document.querySelectorAll("img");
+  function scanExisting(root) {
+    var base = root && root.querySelectorAll ? root : document;
+    var imgs = base.querySelectorAll("img");
     imgs.forEach(function (img) {
       if (!isAvatarImage(img)) return;
       try {
@@ -407,6 +555,7 @@
   window.VcAvatarFallback = {
     scan: scanExisting,
     applyFallback: applyFallback,
+    recoverCoffee: recoverCoffeeAvatar,
     defaultDiscordAvatarUrl: defaultDiscordAvatarUrl,
     isAvatarImage: isAvatarImage,
     markPending: markPending,
@@ -448,14 +597,19 @@
   document.addEventListener(
     "click",
     function () {
-      var coarse = false;
-      try {
-        coarse = Boolean(window.matchMedia && window.matchMedia("(pointer: coarse)").matches);
-      } catch (eCoarse) {}
-      if (!coarse) return;
       window.setTimeout(function () {
         var nodes = document.querySelectorAll(
-          "details[open], .is-open, .vc-px-select__panel.is-portaled, .vc-px-select.is-open .vc-px-select__panel",
+          [
+            "details[open]",
+            ".is-open",
+            ".vc-px-select__panel.is-portaled",
+            ".vc-px-select.is-open .vc-px-select__panel",
+            /* ticketAvPalette1: modal ticket / mention menu — lazy restava blank */
+            ".vc-wt-user-pick:not([hidden])",
+            ".vc-wt-mention-menu:not([hidden])",
+            ".vc-wt-confirm:not([hidden])",
+            ".vc-wt-choice:not([hidden])",
+          ].join(", "),
         );
         for (var i = 0; i < nodes.length; i += 1) wakeDeferredMedia(nodes[i]);
       }, 60);

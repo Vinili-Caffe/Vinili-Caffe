@@ -196,9 +196,9 @@
       "minute": 0
     },
     "overrideIso": "",
-    "linkFilm": "/images/seratafilm/watch-obsession-web.mp4",
+    "linkFilm": "/images/seratafilm/watch-kung-fu-panda-web.mp4",
     "hogwartsThemeVideoUrl": "/images/evento-hogwarts/theme-bg.mp4",
-    "filmTitle": "Watch Obsession",
+    "filmTitle": "Kung Fu Panda",
     "creditsSkip": {
       "enabled": false,
       "startSeconds": 0,
@@ -206,7 +206,7 @@
     },
     "adBreak": {
       "enabled": false,
-      "videoUrl": "/seratafilm/ad.mp4",
+      "videoUrl": "",
       "atPercent": 50,
       "totalMs": 62000,
       "introMs": 5000,
@@ -288,6 +288,14 @@
       {
         "date": "2026-10-03",
         "title": "Watch Obsession"
+      },
+      {
+        "date": "2026-10-10",
+        "title": "Il mistero di Sleepy Hollow"
+      },
+      {
+        "date": "2026-10-17",
+        "title": "Kung Fu Panda"
       }
     ]
   },

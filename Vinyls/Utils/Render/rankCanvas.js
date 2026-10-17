@@ -6,6 +6,12 @@ const os = require("os");
 const { spawnSync } = require("child_process");
 const axios = require("axios");
 const ffmpegPath = require("ffmpeg-static");
+const {
+  drawLabelWithEmoji,
+  fitRichText,
+  measureRichTextWidth,
+} = require("./canvasEmojiRichText");
+const { tightEmojiAdjacentSpaces } = require("./canvasUtils");
 
 let path2dCtorMemo;
 function getPath2DConstructor() {
@@ -104,9 +110,13 @@ function drawStatIconGeometric(ctx, icon) {
   ctx.fillRect(14, 20, 4, 6);
   ctx.fillRect(8, 26, 16, 3.6);
 }
-const { registerCanvasFonts } = require("./canvasFonts");
+const { registerCanvasFonts, fontStackWithPrimary } = require("./canvasFonts");
 const { safeLoadImage } = require("./safeLoadImage");
-const { mergeRankCardTheme, resolveRankCardWallpaper } = require("./rankCardTheme");
+const {
+  mergeRankCardTheme,
+  resolveRankCardWallpaper,
+  resolveRankFontFamily,
+} = require("./rankCardTheme");
 
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, Number(value) || 0));
@@ -142,9 +152,10 @@ function formatInt(value) {
   return Math.max(0, Math.floor(number)).toLocaleString("it-IT");
 }
 
-function canvasFont(size, weight = 700) {
+/* rankFontRaceFix1: niente stato modulo — preview concorrenti si pestavano il font */
+function canvasFont(size, weight = 700, fontPrimary = "Arial") {
   const cssWeight = Number(weight) >= 700 ? "bold" : "normal";
-  return `${cssWeight} ${size}px Arial, sans-serif`;
+  return fontStackWithPrimary(fontPrimary || "Arial", size, cssWeight);
 }
 
 function ellipsize(ctx, text, maxWidth) {
@@ -171,9 +182,10 @@ function drawText(ctx, text, x, y, options = {}) {
     align = "left",
     baseline = "middle",
     shadow = false,
+    fontPrimary = "Arial",
   } = options;
 
-  ctx.font = canvasFont(size, weight);
+  ctx.font = canvasFont(size, weight, fontPrimary);
   ctx.textAlign = align;
   ctx.textBaseline = baseline;
   ctx.fillStyle = color;
@@ -263,8 +275,9 @@ async function drawAvatar(ctx, avatarUrl, x, y, size, palette, avatarImageOverri
   ctx.restore();
 }
 
-function drawProgressBar(ctx, x, y, width, height, progressPercent, currentExp, targetExp, palette) {
+function drawProgressBar(ctx, x, y, width, height, progressPercent, currentExp, targetExp, palette, fontPrimary) {
   const progress = clamp(progressPercent, 0, 100) / 100;
+  const font = fontPrimary || "Arial";
 
   roundedRect(ctx, x, y, width, height, height / 2);
   ctx.fillStyle = "rgba(0,0,0,0.28)";
@@ -291,6 +304,7 @@ function drawProgressBar(ctx, x, y, width, height, progressPercent, currentExp, 
     color: "#FFFFFF",
     align: "center",
     shadow: true,
+    fontPrimary: font,
   });
 }
 
@@ -323,8 +337,9 @@ function drawStatIcon(ctx, icon, x, y, color) {
   ctx.restore();
 }
 
-function drawStatPill(ctx, x, y, width, height, icon, label, value, palette, panelAlpha) {
+function drawStatPill(ctx, x, y, width, height, icon, label, value, palette, panelAlpha, fontPrimary) {
   const fillA = Math.min(1, Math.max(panelAlpha, 0.22) * 0.92 + 0.1);
+  const font = fontPrimary || "Arial";
   roundedRect(ctx, x, y, width, height, 14);
   ctx.fillStyle = hexToRgba(palette.panelColor, fillA);
   ctx.fill();
@@ -340,6 +355,7 @@ function drawStatPill(ctx, x, y, width, height, icon, label, value, palette, pan
     weight: 800,
     color: palette.labelColor,
     align: "left",
+    fontPrimary: font,
   });
   drawText(ctx, value, x + 48, y + 39, {
     size: 17,
@@ -347,6 +363,7 @@ function drawStatPill(ctx, x, y, width, height, icon, label, value, palette, pan
     color: palette.primaryTextColor,
     align: "left",
     shadow: true,
+    fontPrimary: font,
   });
 }
 
@@ -551,6 +568,7 @@ async function renderRankPngBuffer(data, avatarImageOverride = null, wallpaperIm
   registerCanvasFonts(canvasModule);
 
   const palette = mergeRankCardTheme(data.theme || {});
+  const rankFontPrimary = resolveRankFontFamily(palette.fontKey);
   const legacyYellow = String(palette.rankBoxBorderColor || "").toLowerCase() === "#ffcb05";
   const rankBoxColor = legacyYellow ? palette.valueColor : palette.rankBoxBorderColor;
   const width = 976;
@@ -616,23 +634,40 @@ async function renderRankPngBuffer(data, avatarImageOverride = null, wallpaperIm
   const topY = avatarY + Math.round(avatarSize * 0.3);
 
   const levelText = `Lv. ${formatInt(data.level)}`;
-  ctx.font = canvasFont(26, 850);
+  ctx.font = canvasFont(26, 850, rankFontPrimary);
   const levelWidth = ctx.measureText(levelText).width;
-  ctx.font = canvasFont(34, 900);
-  const username = ellipsize(ctx, data.username || "utente", Math.max(200, copyW - levelWidth - 88));
-  const usernameWidth = ctx.measureText(username).width;
+  /* rankEmojiTwemoji1 + rankNickTight1: Twemoji, nick senza spazi spurî intorno alle emoji */
+  const usernameMaxW = Math.max(200, copyW - levelWidth - 88);
+  const username = fitRichText(
+    ctx,
+    tightEmojiAdjacentSpaces(data.username || "utente"),
+    usernameMaxW,
+    34,
+    "900",
+    "utente",
+    rankFontPrimary,
+  );
+  const usernameWidth = measureRichTextWidth(ctx, username, 34, "900", rankFontPrimary);
 
-  drawText(ctx, username, copyX, topY, {
+  ctx.save();
+  ctx.shadowColor = "rgba(0,0,0,0.62)";
+  ctx.shadowBlur = 10;
+  ctx.shadowOffsetY = 1;
+  await drawLabelWithEmoji(ctx, username, copyX, topY, {
     size: 34,
-    weight: 900,
+    weight: "900",
     color: palette.primaryTextColor,
-    shadow: true,
+    align: "left",
+    baseline: "middle",
+    fontPrimary: rankFontPrimary,
   });
+  ctx.restore();
   drawText(ctx, levelText, copyX + usernameWidth + 14, topY + 1, {
     size: 24,
     weight: 800,
     color: palette.secondaryTextColor,
     shadow: true,
+    fontPrimary: rankFontPrimary,
   });
 
   const multiplierText = `x${Number(data.multiplier || 1).toFixed(1)}`;
@@ -648,13 +683,25 @@ async function renderRankPngBuffer(data, avatarImageOverride = null, wallpaperIm
     weight: 900,
     color: palette.multiplierColor,
     align: "center",
+    fontPrimary: rankFontPrimary,
   });
 
   const currentLevelExp = Math.max(0, Number(data.currentLevelExp || 0));
   const nextLevelExp = Math.max(currentLevelExp + 1, Number(data.nextLevelExp || currentLevelExp + 1));
   const currentProgressExp = Math.max(0, Number(data.totalExp || 0) - currentLevelExp);
   const targetProgressExp = Math.max(1, nextLevelExp - currentLevelExp);
-  drawProgressBar(ctx, copyX, avatarY + avatarSize - 26, copyW, 16, data.progressPercent, currentProgressExp, targetProgressExp, palette);
+  drawProgressBar(
+    ctx,
+    copyX,
+    avatarY + avatarSize - 26,
+    copyW,
+    16,
+    data.progressPercent,
+    currentProgressExp,
+    targetProgressExp,
+    palette,
+    rankFontPrimary,
+  );
 
   roundedRect(ctx, rankBoxX, rankBoxY, rankBoxW, rankBoxH, 14);
   ctx.fillStyle = hexToRgba(palette.panelColor, chromeAlpha);
@@ -670,12 +717,14 @@ async function renderRankPngBuffer(data, avatarImageOverride = null, wallpaperIm
     color: rankBoxColor,
     align: "center",
     shadow: true,
+    fontPrimary: rankFontPrimary,
   });
   drawText(ctx, "RANK", rankBoxX + rankBoxW / 2, rankBoxY + 52, {
     size: 11,
     weight: 800,
     color: palette.labelColor,
     align: "center",
+    fontPrimary: rankFontPrimary,
   });
 
   const statsTotalW = hero.w;
@@ -683,9 +732,9 @@ async function renderRankPngBuffer(data, avatarImageOverride = null, wallpaperIm
   const statW = Math.floor((statsTotalW - statGap * 2) / 3);
   const weeklyRankValue = data.hideLeaderboardRanks ? "-" : formatRankValue(data.weeklyRank);
 
-  drawStatPill(ctx, statsX, statsY, statW, statH, "trophy", "Weekly rank", weeklyRankValue, palette, chromeAlpha);
-  drawStatPill(ctx, statsX + statW + statGap, statsY, statW, statH, "bolt", "Weekly XP", formatInt(data.weeklyExp), palette, chromeAlpha);
-  drawStatPill(ctx, statsX + (statW + statGap) * 2, statsY, statW, statH, "star", "Multiplier", multiplierText, palette, chromeAlpha);
+  drawStatPill(ctx, statsX, statsY, statW, statH, "trophy", "Weekly rank", weeklyRankValue, palette, chromeAlpha, rankFontPrimary);
+  drawStatPill(ctx, statsX + statW + statGap, statsY, statW, statH, "bolt", "Weekly XP", formatInt(data.weeklyExp), palette, chromeAlpha, rankFontPrimary);
+  drawStatPill(ctx, statsX + (statW + statGap) * 2, statsY, statW, statH, "star", "Multiplier", multiplierText, palette, chromeAlpha, rankFontPrimary);
 
   ctx.save();
   roundedRect(ctx, card.x + 0.5, card.y + 0.5, card.w - 1, card.h - 1, card.r);

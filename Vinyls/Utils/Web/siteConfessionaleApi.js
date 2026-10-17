@@ -7,6 +7,7 @@ const { resolveWebsiteGuildMember } = require("./siteRoleRequestApi");
 const { broadcastSiteConfessionaleChanged } = require("./siteSuggestionsBroadcast");
 const { enqueueSiteInAppNotification, removeSiteInAppNotificationsMatching } = require("./siteInAppNotificationsService");
 const { STAFF_ROLE_IDS } = require("../Community/staffListUtils");
+const { sendJsonWithEtag, weakEtagFromJson } = require("./siteHttpEtag");
 
 const DOC = SITE_DOCUMENT_TYPE.CONFESSIONALE;
 const MAX_CONTENT_LEN = 1500;
@@ -423,7 +424,8 @@ async function handleSiteConfessionaleGet(client, req, res) {
 
     const items = (docs || []).map((d) => publicItem(d, viewerId));
 
-    return res.status(200).json({
+    /* pageTune1: ETag/304 sulla lista confessionale */
+    const payload = {
       ok: true,
       board,
       items,
@@ -440,6 +442,11 @@ async function handleSiteConfessionaleGet(client, req, res) {
         anyoneCanCommentAnonymous: true,
         ownerIdPublic: false,
       },
+    };
+    return sendJsonWithEtag(req, res, payload, {
+      status: 200,
+      cacheControl: accessToken ? "private, max-age=15" : "public, max-age=20",
+      etag: weakEtagFromJson(payload),
     });
   } catch (err) {
     global.logger?.error?.("[WEBHOOK] site-confessionale get:", err);

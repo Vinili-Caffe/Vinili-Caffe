@@ -130,21 +130,17 @@ function buildMentionsRow() {
       .setCustomId("personality_mentions")
       .setPlaceholder("🔔 Seleziona le notifiche da ricevere")
       .setMinValues(1)
-      .setMaxValues(12)
+      .setMaxValues(8)
       .addOptions(
         { label: "Rimuovi tutti i ping", value: "remove", emoji: "<:vegax:1443934876440068179>", description: "Rimuovi ruoli dal tuo profilo" },
-        { label: "༄ Revive Chat", value: IDs.roles.ReviveChat, emoji: "<a:pepedeadchat:1470541176284381226>", description: "Clicca qui per ottenere il ruolo" },
-        { label: "༄ Revive Vocale", value: IDs.roles.ReviveVoc, emoji: "<a:VC_MicUp:1448687353332760808>", description: "Clicca qui per ottenere il ruolo" },
-        { label: "༄ Serata Film", value: IDs.roles.SerataFilm, emoji: "<:VC_PandaPopCorn:1331591724367216672>", description: "Clicca qui per ottenere il ruolo" },
+        { label: "༄ Revive Server", value: IDs.roles.ReviveServer || IDs.roles.ReviveChat, emoji: "<a:pepedeadchat:1470541176284381226>", description: "Clicca qui per ottenere il ruolo" },
         { label: "༄ Partnership", value: IDs.roles.Partnership, emoji: "<:VC_Collab:1482534540089098260>", description: "Clicca qui per ottenere il ruolo" },
         { label: "༄ Events", value: IDs.roles.Events, emoji: "<a:announce:1470541173507751957>", description: "Clicca qui per ottenere il ruolo" },
         { label: "༄ News", value: IDs.roles.News, emoji: "<:newspaper:1470541170353377290>", description: "Clicca qui per ottenere il ruolo" },
-        { label: "༄ Polls", value: IDs.roles.Polls, emoji: "<:polls:1470541168860201072>", description: "Clicca qui per ottenere il ruolo" },
         { label: "༄ Bump", value: IDs.roles.Bump, emoji: "<:bumpstab:1470541167429947607>", description: "Clicca qui per ottenere il ruolo" },
         { label: "༄ Minigames", value: IDs.roles.Minigames, emoji: "<:health:1470541164363911313>", description: "Clicca qui per ottenere il ruolo" },
         { label: "༄ Notturno", value: IDs.roles.Notturno, emoji: "<:moon:1470064812615667827>", description: "Clicca qui per ottenere il ruolo" },
         { label: "༄ Live", value: IDs.roles.Live, emoji: "<a:VC_Ping:1482694298687246377>", description: "Clicca qui per ottenere il ruolo" },
-        { label: "༄ Updates", value: IDs.roles.Updates, emoji: "<:newspaper:1470541170353377290>", description: "Clicca qui per ottenere il ruolo" },
       ),
   );
 }
@@ -178,7 +174,7 @@ function buildGamingRow() {
       .setCustomId("personality_gaming")
       .setPlaceholder("🎮 Seleziona i tuoi giochi")
       .setMinValues(1)
-      .setMaxValues(13)
+      .setMaxValues(15)
       .addOptions(
         { label: "Rimuovi tutti i giochi", value: "remove", emoji: "<:vegax:1443934876440068179>", description: "Rimuovi ruoli dal tuo profilo" },
         { label: "༄ Minecraft", value: IDs.roles.GameMinecraft, emoji: "⛏️", description: "Clicca qui per ottenere il ruolo" },
@@ -194,6 +190,8 @@ function buildGamingRow() {
         { label: "༄ Valorant", value: IDs.roles.GameValorant, emoji: "🔫", description: "Clicca qui per ottenere il ruolo" },
         { label: "༄ FIFA", value: IDs.roles.GameFifa, emoji: "⚽", description: "Clicca qui per ottenere il ruolo" },
         { label: "༄ Brawl Stars", value: IDs.roles.GameBrawlStars, emoji: "⭐", description: "Clicca qui per ottenere il ruolo" },
+        { label: "༄ Brawlhalla", value: IDs.roles.GameBrawlhalla, emoji: "⚔️", description: "Clicca qui per ottenere il ruolo" },
+        { label: "༄ Genshin Impact", value: IDs.roles.GameGenshinImpact, emoji: "💠", description: "Clicca qui per ottenere il ruolo" },
       ),
   );
 }

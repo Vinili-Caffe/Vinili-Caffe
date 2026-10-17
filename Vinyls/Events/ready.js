@@ -59,7 +59,7 @@ const { startStaffAutoValutazioniLoop, syncAllStaffAutoValutazioni, restoreActiv
 const { reconcileResocontoReviewerRewardAutoValutazioni } = require("../Services/Staff/resocontoReviewerRewardService");
 const { purgeDuplicateCompitoSettimanaleValutazioni } = require("../Services/Staff/compitoSettimanaleDuplicatePurgeService");
 const { runScheduledEnds, syncActiveGiveawayButtons, scheduleActiveGiveawayEnds } = require("../Services/Giveaway/giveawayService");
-const { retroSyncGuildLevels } = require("../Services/Community/expService");
+const { retroSyncGuildLevels, healLevelRolesForGuildOnStartup } = require("../Services/Community/expService");
 const { runFullCleanupUsersNotInServer } = require("../Services/Community/cleanupUsersNotInServerService");
 const { startStaffGracePurgeLoop } = require("../Services/Community/userLeaveBackupService");
 const { startUserFullStatePersistenceLoop } = require("../Services/Community/userFullStatePersistenceService");
@@ -306,14 +306,21 @@ function buildDeferredStartupTasks(client, primaryScheduler, engagementTick) {
     {
       label: "process recent automation messages (vote, bump)",
       weight: 18,
-      enabled: primaryScheduler && fullSync,
-      run: () => processAllRecentAutomationMessages(client),
+      /* rebootDurability1: anche fast path (TTL) — altrimenti miss durante downtime */
+      enabled: primaryScheduler && (fullSync || shouldRunMediumStartup("automation-recheck", STARTUP_MEDIUM_TTL_MS)),
+      run: async () => {
+        await processAllRecentAutomationMessages(client);
+        markMediumStartup("automation-recheck");
+      },
     },
     {
       label: "recover missed Top.gg votes (API backfill)",
       weight: 18.5,
-      enabled: primaryScheduler && fullSync,
-      run: () => recoverMissedTopggVotesOnStartup(client),
+      enabled: primaryScheduler && (fullSync || shouldRunMediumStartup("topgg-vote-recover", STARTUP_MEDIUM_TTL_MS)),
+      run: async () => {
+        await recoverMissedTopggVotesOnStartup(client);
+        markMediumStartup("topgg-vote-recover");
+      },
     },
     {
       label: "sync staff pause message status (accepted)",
@@ -433,22 +440,27 @@ function buildDeferredStartupTasks(client, primaryScheduler, engagementTick) {
     {
       label: "recover missed donation package supporter announces",
       weight: 44,
-            enabled: primaryScheduler,
-      run: () =>
-        recoverDonationPackageAnnouncesOnStartup(client, {
-          limit: fullSync ? 20 : 12,
-                    lookbackMs: 24 * 60 * 60 * 1000,
-        }),
+      /* boostDedup3: solo fullSync — restart medi ri-mandavano announce già postati */
+      enabled: primaryScheduler && fullSync,
+      run: async () => {
+        await recoverDonationPackageAnnouncesOnStartup(client, {
+          limit: 20,
+          lookbackMs: 24 * 60 * 60 * 1000,
+        });
+        markMediumStartup("donation-announce");
+      },
     },
     {
       label: "recover missed social role supporter announces",
       weight: 45,
       enabled: primaryScheduler && fullSync,
-      run: () =>
-        recoverManualSocialRoleAnnouncesOnStartup(client, {
+      run: async () => {
+        await recoverManualSocialRoleAnnouncesOnStartup(client, {
           limit: 20,
           lookbackMs: 24 * 60 * 60 * 1000,
-        }),
+        });
+        markMediumStartup("social-role-announce");
+      },
     },
     {
       label: "revoke Discord Store Premium (migrated to credits)",
@@ -465,37 +477,46 @@ function buildDeferredStartupTasks(client, primaryScheduler, engagementTick) {
     {
       label: "reconcile patron roles from social prerequisites",
       weight: 45.2,
-      enabled: primaryScheduler && fullSync,
-      run: () => reconcilePatronRolesOnStartup(client, { limit: 300 }),
+      enabled: primaryScheduler && (fullSync || shouldRunMediumStartup("patron-reconcile", STARTUP_MEDIUM_TTL_MS)),
+      run: async () => {
+        await reconcilePatronRolesOnStartup(client, { limit: fullSync ? 300 : 120 });
+        markMediumStartup("patron-reconcile");
+      },
     },
     {
       label: "recover missed patron role announces",
       weight: 45.4,
       enabled: primaryScheduler && fullSync,
-      run: () =>
-        recoverPatronAnnouncesOnStartup(client, {
+      run: async () => {
+        await recoverPatronAnnouncesOnStartup(client, {
           limit: 15,
           lookbackMs: 24 * 60 * 60 * 1000,
-        }),
+        });
+        markMediumStartup("patron-announce");
+      },
     },
     {
       label: "recover missed level milestone supporter announces",
       weight: 46,
       enabled: primaryScheduler && fullSync,
-      run: () =>
-        recoverLevelMilestoneSupportersAnnouncesOnStartup(client, {
+      run: async () => {
+        await recoverLevelMilestoneSupportersAnnouncesOnStartup(client, {
           limit: 25,
           lookbackMs: 24 * 60 * 60 * 1000,
-        }),
+        });
+        markMediumStartup("level-milestone-announce");
+      },
     },
     {
       label: "recover missed supporter status embeds",
       weight: 47,
       enabled: primaryScheduler && fullSync,
-      run: () =>
-        recoverSupporterStatusAnnouncesOnStartup(client, {
+      run: async () => {
+        await recoverSupporterStatusAnnouncesOnStartup(client, {
           limit: 15,
-        }),
+        });
+        markMediumStartup("supporter-status-announce");
+      },
     },
     {
       label: "ensure Serata Film staff news communication",
@@ -509,8 +530,11 @@ function buildDeferredStartupTasks(client, primaryScheduler, engagementTick) {
     {
       label: "recover missed Serata Film cron announcements",
       weight: 48,
-      enabled: primaryScheduler && fullSync,
-      run: () => recoverMovieNightAnnouncementsOnStartup(client),
+      enabled: primaryScheduler && (fullSync || shouldRunMediumStartup("movie-night-announce", STARTUP_MEDIUM_TTL_MS)),
+      run: async () => {
+        await recoverMovieNightAnnouncementsOnStartup(client);
+        markMediumStartup("movie-night-announce");
+      },
     },
     {
       label: "restore active Serata Film staff tracking",
@@ -527,33 +551,39 @@ function buildDeferredStartupTasks(client, primaryScheduler, engagementTick) {
     {
       label: "recover unannounced boosters (member + native scan)",
       weight: 50.5,
-      /* boostMiss1: anche fast-path — altrimenti boost durante FULL_STARTUP_SYNC=0 restano senza embed */
-      enabled: primaryScheduler,
-      run: () =>
-        guildMemberUpdateExtras.recoverUnannouncedBoostersOnStartup(client, {
-          lookbackMs: fullSync ? 48 * 60 * 60 * 1000 : 6 * 60 * 60 * 1000,
-          maxRecover: fullSync ? 25 : 8,
-        }),
+      /* boostDedup3: SOLO fullSync — restart/pm2 ri-mandava boost dopo ~3min */
+      enabled: primaryScheduler && fullSync,
+      run: async () => {
+        await guildMemberUpdateExtras.recoverUnannouncedBoostersOnStartup(client, {
+          lookbackMs: 48 * 60 * 60 * 1000,
+          maxRecover: 25,
+        });
+        markMediumStartup("boost-unannounced");
+      },
     },
     {
       label: "recover missing second boost embeds (native vs supporters)",
       weight: 51,
-      enabled: primaryScheduler,
-      run: () =>
-        guildMemberUpdateExtras.recoverMissingSecondBoostEmbedsOnStartup(client, {
-          lookbackMs: fullSync ? 7 * 24 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000,
-          maxRecover: fullSync ? 10 : 5,
-        }),
+      enabled: primaryScheduler && fullSync,
+      run: async () => {
+        await guildMemberUpdateExtras.recoverMissingSecondBoostEmbedsOnStartup(client, {
+          lookbackMs: 7 * 24 * 60 * 60 * 1000,
+          maxRecover: 10,
+        });
+        markMediumStartup("boost-second");
+      },
     },
     {
       label: "recover last 2 native boost system messages (multi-channel scan)",
       weight: 51,
-      enabled: primaryScheduler,
-      run: () =>
-        guildMemberUpdateExtras.recoverLastGlobalNativeBoostEmbedsOnStartup(client, {
-          messageLimit: fullSync ? 5 : 3,
-          lookbackMs: fullSync ? 24 * 60 * 60 * 1000 : 6 * 60 * 60 * 1000,
-        }),
+      enabled: primaryScheduler && fullSync,
+      run: async () => {
+        await guildMemberUpdateExtras.recoverLastGlobalNativeBoostEmbedsOnStartup(client, {
+          messageLimit: 5,
+          lookbackMs: 24 * 60 * 60 * 1000,
+        });
+        markMediumStartup("boost-last-native");
+      },
     },
     {
       label: "custom role expiry sweep",
@@ -678,6 +708,20 @@ function buildDeferredStartupTasks(client, primaryScheduler, engagementTick) {
         const mainGuild = await resolveMainGuild();
         if (!mainGuild) return;
         return retroSyncGuildLevels(mainGuild, { syncRoles: false });
+      },
+    },
+    {
+      label: "heal missing level milestone roles",
+      weight: 91,
+      /* levelRoleBootHeal1 / rebootDurability1: anche fast path — Level10+ senza ruolo */
+      enabled: primaryScheduler && (fullSync || shouldRunMediumStartup("level-role-heal", STARTUP_MEDIUM_TTL_MS)),
+      run: async () => {
+        const mainGuild = await resolveMainGuild();
+        if (!mainGuild) return;
+        const out = await healLevelRolesForGuildOnStartup(mainGuild, {
+          limit: fullSync ? 200 : 100,
+        });
+        markMediumStartup("level-role-heal");
       },
     },
     {
@@ -1066,6 +1110,28 @@ async function restoreCoreStartupState(client) {
     if (!isViniliFullFeatureGuild(guild.id)) continue;
     rehydrateAntiNukePanicForGuild(guild);
   }
+  try {
+    const { restorePartnerManagerLeaveGraceOnStartup } = require("../Services/Partner/partnerManagerLeaveService");
+    restorePartnerManagerLeaveGraceOnStartup(client);
+  } catch (err) {
+    global.logger?.warn?.("[partnerManagerLeave] grace restore failed:", err?.message || err);
+  }
+  try {
+    const { restoreAntiNukeQuarantineTimersOnStartup } = require("../Services/Moderation/antiNukeService");
+    if (typeof restoreAntiNukeQuarantineTimersOnStartup === "function") {
+      restoreAntiNukeQuarantineTimersOnStartup(client);
+    }
+  } catch (err) {
+    global.logger?.warn?.("[antiNuke] quarantine restore failed:", err?.message || err);
+  }
+  try {
+    const { restoreChatDmFallbacksOnStartup } = require("../Utils/Web/siteChatDmFallback");
+    if (typeof restoreChatDmFallbacksOnStartup === "function") {
+      await restoreChatDmFallbacksOnStartup(client);
+    }
+  } catch (err) {
+    global.logger?.warn?.("[siteChatDmFallback] restore failed:", err?.message || err);
+  }
   printRecoveryHealthOnce("VINYLS_RECOVERY_HEALTH");
   const { applyBotPresence, schedulePresenceStabilization, installBotPresenceKeeper } = require("../../shared/discord/botPresenceActivity");
   await applyBotPresence(client);
@@ -1139,6 +1205,10 @@ function startPrimaryLoops(client, engagementTick) {
   const loopStarters = [
     ["[LIVE VOICE EXP] Failed to start loop", () => startLiveVoiceExpLoop(client)],
     ["[MINIGAMES] Failed to start loop", () => void bootstrapMinigameScheduler(client).catch((err) => global.logger?.error?.("[MINIGAMES] bootstrap failed:", err?.message || err))],
+    ["[HALLOWEEN EMOJI HUNT] Failed to start loop", () => {
+      const { startHalloweenEmojiHuntLoop } = require("../Services/Community/halloweenEmojiHuntService");
+      startHalloweenEmojiHuntLoop(client);
+    }],
     ["[HOGWARTS FINALE PRIZES] Failed to start completion loop", () => startHogwartsEventEndLoop(client)],
     ["[DAILY MEMBER STATS] Failed to start loop", () => startDailyMemberStatsLoop(client)],
     ["[DAILY ENGAGEMENT STATS] Failed to start loop", () => startDailyEngagementStatsLoop(client)],
@@ -1220,6 +1290,8 @@ function startPrimaryLoops(client, engagementTick) {
       },
     ],
     ["[DISCADIA VOTE QUEUE] Failed to start loop", () => startVoteQueueLoop(client)],
+    /* tenureVeteranoLoop1: sweep giornaliero NuovoUtente→Veterano→OG (era importato ma mai avviato) */
+    ["[VERIFY TENURE] Failed to start loop", () => startVerificationTenureLoop(client)],
     [
       "[BOT HTTP WEBHOOK] Failed to start",
       () => {
@@ -1395,6 +1467,12 @@ module.exports = {
         startAutoBackupLoop(client);
       } catch (err) {
         global.logger?.error?.("[AUTO BACKUP] Failed to start loop", err);
+      }
+      try {
+        const { startTestGuildMirrorSyncLoop } = require("../Services/Partner/testGuildMirrorSyncService");
+        startTestGuildMirrorSyncLoop(client);
+      } catch (err) {
+        global.logger?.error?.("[TEST MIRROR] Failed to start loop", err);
       }
     }
 

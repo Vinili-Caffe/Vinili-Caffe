@@ -50,9 +50,11 @@
     { re: /^\/dashboard\/transcript(?:\/|$)/i, require: "public" },
     { re: /^\/dashboard\/profilo(?:\/|$)/i, require: "public" },
     { re: /^\/staff\/gestione(?:\/|$)/i, require: "staff", loginUrl: "/staff/accesso-richiesto/", denyFallback: "/" },
+    /* boardsLoginGate1 + boardsSoftGateFix2: soft come tickets — mai hard staff/accesso */
     { re: /^\/(?:bacheca|boards)\/(?:invia|submit|le-mie|manage)(?:\/|$)/i, require: "login", mode: "soft", denyFallback: "/" },
-    { re: /^\/(?:bacheca|boards)\/mod(?:\/|$)/i, require: "staff", loginUrl: "/staff/accesso-richiesto/", denyFallback: "/" },
-    { re: /^\/(?:bacheca|boards)(?:\/|$)/i, require: "staff", loginUrl: "/staff/accesso-richiesto/", denyFallback: "/" },
+    /* boardsRevHsOnly1: moderazione bacheca solo High Staff (soft in-page) */
+    { re: /^\/(?:bacheca|boards)\/mod(?:\/|$)/i, require: "highStaff", mode: "soft", denyFallback: "/" },
+    { re: /^\/(?:bacheca|boards)(?:\/|$)/i, require: "login", mode: "soft", denyFallback: "/" },
     { re: /^\/staff\/punti-tolti(?:\/|$)/i, require: "pmOrHighStaff", loginUrl: "/staff/accesso-richiesto/", denyFallback: "/user/" },
     /* pmOpsNavHide1: deny → guida, mai /staff/ (redirecta al profilo) */
     { re: /^\/staff\/confessionale(?:\/|$)/i, require: "login", mode: "soft" },
@@ -89,9 +91,19 @@
     };
   }
 
+  var LANG_PREFIX_RE =
+    /^\/(it|en|es|fr|de|pt|ru|zh|ja|ko|ar|nl|pl|tr|hi|id|uk|vi|ro|sv)(?=\/|$)/i;
+
   function pathName() {
     try {
-      return String(window.location.pathname || "/");
+      var p = String(window.location.pathname || "/");
+      /* boardsSoftGateFix2: /en/bacheca/ deve matchare le route soft, non cadere su staff hard */
+      var m = p.match(LANG_PREFIX_RE);
+      if (m) {
+        p = p.slice(m[0].length) || "/";
+        if (p.charAt(0) !== "/") p = "/" + p;
+      }
+      return p;
     } catch (e) {
       return "/";
     }
@@ -109,6 +121,16 @@
     for (var i = 0; i < ROUTE_POLICY.length; i++) {
       var row = ROUTE_POLICY[i];
       if (!row.re.test(path)) continue;
+      var rowMode = String(row.mode || "").trim().toLowerCase();
+      /* soft rows: policy del row vince sempre (no override __VC_ACCESS/STAFF → staff hard) */
+      if (rowMode === "soft") {
+        return {
+          require: row.require || "public",
+          loginUrl: row.loginUrl || "",
+          denyFallback: row.denyFallback || "/",
+          mode: "soft",
+        };
+      }
       return {
         require: page.require || row.require || "public",
         loginUrl: page.loginUrl || row.loginUrl || "",

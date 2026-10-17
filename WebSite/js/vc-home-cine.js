@@ -1,22 +1,84 @@
 (function () {
   if (window.__vcHomeCine) return;
+  /* profileHangKill2: /user/?id=… — home-cine freeze main thread (DCL never fires). Bail ASAP.
+     pageHang3: /notifications + /staff/* stesso freeze (“La pagina non risponde”).
+     Layout cine staff/notif è già baked in HTML — skip init pesante (canvas/MO/sync). */
+  try {
+    var __p = String(location.pathname || "").replace(/\/+$/, "") || "/";
+    var __q = new URLSearchParams(location.search || "");
+    var __id = String(__q.get("id") || __q.get("userId") || __q.get("uid") || "").trim();
+    var __body = document.body;
+    var __isProf =
+      ((__p === "/user" || __p === "/users") && /^\d{17,20}$/.test(__id)) ||
+      /^\/users?\/\d{17,20}$/.test(__p) ||
+      (document.documentElement &&
+        (document.documentElement.classList.contains("vc-user-profile-route") ||
+          document.documentElement.classList.contains("vc-user-profile-pending")));
+    var __isNotif =
+      __p === "/notifications" ||
+      (__body && __body.classList.contains("vc-notifications-page"));
+    var __isStaff =
+      __p === "/staff" ||
+      __p.indexOf("/staff/") === 0 ||
+      (document.documentElement && document.documentElement.classList.contains("vc-staff-route")) ||
+      (__body && __body.classList.contains("vc-staff-area"));
+    if (__isProf || __isNotif || __isStaff) {
+      window.__vcHomeCine = true;
+      window.__vcHomeCineProfileSkip = 1;
+      window.__vcHomeCinePageHang3Skip = 1;
+      try {
+        var __root = document.documentElement;
+        if (__root) {
+          __root.classList.add(
+            "vc-page-cine-ready",
+            "vc-cine-curtain-off",
+            "vc-home-motion-ready",
+            "vc-home-cine-live",
+          );
+          __root.classList.remove("vc-page-cine-boot");
+        }
+      } catch (__eCls) {}
+      return;
+    }
+  } catch (__eProf) {}
   window.__vcHomeCine = true;
+  /* violRafWheel1: wheel/scroll = solo hide (no pinScrollCueLayout → no Forced reflow) */
+  /* violKillRest1: cine-ready → onResizePin deferred */
   /* scrollCueAwayHard1: hide allo scroll non viene più resettato da geometry-not-ready */
   /* scrollCueNoFollow1: html.vc-scrollcue-away batte display:flex critico nell'hero */
+  /* scrollCuePinHide2: fisso al margine; hide solo con Y>soglia; niente re-show mid-wheel */
+  /* scrollCueProfileKill2: profilo / skip → remove DOM (inline flex batteva CSS height:0) */
 
-  /* bgIdealSize1: still ad alta res 5:2 (PC 1920x768, phone 1200x480).
-     GIF restano disponibili ma default = still nitidi (no stretch, cover). */
+  /* bgGifForceRm1: first paint = still; arma GIF dopo ready.
+     Non più gated da prefers-reduced-motion (Win “Animazioni off” lasciava still forever).
+     Desktop sfondo.gif ~1.5MB · mobile sfondo-mobile.gif ~405KB. */
+  /* bgGifWakeRemount1: non-home restavano still — decode GIF congelato da
+     vc-page-hidden/display:none durante boot/wake senza remount.
+     pwaResumeLag1: al resume corto → soft thaw (no strip src / no re-decode 1.5MB).
+     Hard remount solo hide lunga, stuck still, o arm/sweep. */
   var SITE_PHOTO_BG =
     typeof window.__VC_SITE_PHOTO_BG === "boolean" ? window.__VC_SITE_PHOTO_BG : true;
   window.__VC_SITE_PHOTO_BG = SITE_PHOTO_BG;
-  var PHOTO_BG_VER = "20261001handlerPerf2";
+  var PHOTO_BG_VER = "20261012confBgNoGifBlack1";
+  var CONFESSIONALE_PHOTO_SRC = "/images/Confessionale-GF.jpg?v=20261012confBgNoGifBlack1";
   var SITE_PHOTO_BG_DESKTOP_STILL = "/images/sfondo-still.webp?v=" + PHOTO_BG_VER;
   var SITE_PHOTO_BG_MOBILE_STILL = "/images/sfondo-mobile-still.webp?v=" + PHOTO_BG_VER;
+  var SITE_PHOTO_BG_DESKTOP_GIF = "/images/sfondo.gif?v=" + PHOTO_BG_VER;
+  var SITE_PHOTO_BG_MOBILE_GIF = "/images/sfondo-mobile.gif?v=" + PHOTO_BG_VER;
+  /* boot = still; armPhotoGif() promuove a GIF */
   var SITE_PHOTO_BG_DESKTOP = SITE_PHOTO_BG_DESKTOP_STILL;
   var SITE_PHOTO_BG_MOBILE = SITE_PHOTO_BG_MOBILE_STILL;
+  var photoGifArmed = false;
   var gifIdleFrozen = false;
   var gifIdleTimer = 0;
   var lastPhotoInputAt = 0;
+  var photoGifArmStartedAt = 0;
+  var photoGifWakeRemountTimer = 0;
+  var photoHiddenSinceAt = 0;
+  var lastHardRemountAt = 0;
+  var lastWakeHandledAt = 0;
+  var WAKE_HARD_HIDE_MS = 22000;
+  var HARD_REMOUNT_MIN_GAP_MS = 10000;
 
   function isCoarsePointer() {
     try {
@@ -42,14 +104,301 @@
     return false;
   }
 
-  function isPerfPhotoStillMode() {
-    /* bgGifRestore1: reduced-motion → still */
+  function forcePhotoStillFlag() {
+    /* fgRevertBgOnly1: still solo se flag esplicito (no auto-PWA) */
     try {
-      if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return true;
-    } catch (eRm) {}
-    /* ticketsFrameLag1: asset default = still webp (DESKTOP/MOBILE === STILL).
-       Senza questo, syncOneGifPhoto marca still come "forbidden" e a ogni scroll
-       rifà setAttribute(src) → decode thrash / frame lag su /tickets/. */
+      if (window.__VC_FORCE_PHOTO_STILL === 1 || window.__VC_FORCE_PHOTO_STILL === true) return true;
+    } catch (eF) {}
+    return false;
+  }
+
+  function canArmPhotoGif() {
+    /* fgRevertBgOnly1: GIF ok in foreground; stop solo se hidden/save-data */
+    if (forcePhotoStillFlag()) return false;
+    try {
+      if (document.hidden) return false;
+    } catch (eH) {}
+    try {
+      if (navigator.connection && navigator.connection.saveData) return false;
+    } catch (eSd) {}
+    return true;
+  }
+
+  function clearStuckPhotoPauseClasses() {
+    try {
+      if (document.hidden) return;
+      var root = document.documentElement;
+      root.classList.remove(
+        "vc-page-hidden",
+        "vc-gif-paused",
+        "vc-ui-gif-paused",
+        "vc-pwa-bg-frozen",
+        "vc-photo-idle",
+      );
+    } catch (eClr) {}
+  }
+
+  function sitePhotoWantGif() {
+    return isCoarsePointer() ? SITE_PHOTO_BG_MOBILE_GIF : SITE_PHOTO_BG_DESKTOP_GIF;
+  }
+
+  function photoLooksStuckStill() {
+    try {
+      var photos = document.querySelectorAll(".vc-home-cine__photo");
+      if (!photos.length) return true;
+      for (var i = 0; i < photos.length; i += 1) {
+        var photo = photos[i];
+        if (!photo || isLockedCustomPhoto(photo)) continue;
+        var src = String(photo.getAttribute("src") || "");
+        if (!src || isForbiddenStillSrc(src) || src.indexOf(".gif") === -1) return true;
+        try {
+          var cs = window.getComputedStyle(photo);
+          if (cs && (cs.display === "none" || cs.visibility === "hidden" || Number(cs.opacity || "1") < 0.05)) {
+            return true;
+          }
+        } catch (eCs) {}
+      }
+      return false;
+    } catch (eStuck) {
+      return false;
+    }
+  }
+
+  function softThawSitePhotoGif(reason) {
+    if (forcePhotoStillFlag()) return;
+    try {
+      if (document.hidden) return;
+    } catch (eHid) {}
+    clearStuckPhotoPauseClasses();
+    if (!photoGifArmed) {
+      scheduleArmPhotoGif();
+      return;
+    }
+    SITE_PHOTO_BG_DESKTOP = SITE_PHOTO_BG_DESKTOP_GIF;
+    SITE_PHOTO_BG_MOBILE = SITE_PHOTO_BG_MOBILE_GIF;
+    var want = sitePhotoWantGif();
+    try {
+      var stages = document.querySelectorAll(".vc-home-cine");
+      for (var si = 0; si < stages.length; si += 1) ensureSitePhotoLayer(stages[si]);
+    } catch (eSt) {}
+    var photos = document.querySelectorAll(".vc-home-cine__photo");
+    for (var i = 0; i < photos.length; i += 1) {
+      var photo = photos[i];
+      if (!photo || isLockedCustomPhoto(photo)) continue;
+      try {
+        photo.style.removeProperty("display");
+        photo.style.removeProperty("visibility");
+        photo.style.removeProperty("opacity");
+        var cur = String(photo.getAttribute("src") || "");
+        if (!cur || isForbiddenStillSrc(cur) || cur.indexOf(".gif") === -1) {
+          photo.setAttribute("src", want);
+        }
+        photo.dataset.vcGifKick = "1";
+        photo.dataset.vcGifRemount = "soft:" + String(reason || "wake");
+      } catch (eSoft) {}
+    }
+    try {
+      window.__VC_SITE_PHOTO_GIF_ARMED = 1;
+      window.__VC_SITE_PHOTO_GIF_REMOUNT = "soft:" + String(reason || "wake");
+    } catch (eMeta) {}
+  }
+
+  function wakeNeedsHardRemount(reason) {
+    var r = String(reason || "");
+    if (r === "arm" || r === "arm-hidden" || r === "sweep") return true;
+    var hiddenFor = 0;
+    try {
+      if (photoHiddenSinceAt) hiddenFor = Math.max(0, Date.now() - photoHiddenSinceAt);
+    } catch (eHf) {}
+    if (hiddenFor >= WAKE_HARD_HIDE_MS) return true;
+    if (!photoGifArmed) return false;
+    return photoLooksStuckStill();
+  }
+
+  /* bgGifWakeRemount1 + pwaResumeLag1: hard remount solo se serve; preload → swap (no blank) */
+  function forceRemountSitePhotoGif(reason) {
+    if (forcePhotoStillFlag()) return;
+    try {
+      if (document.hidden) return;
+    } catch (eHid) {}
+    clearStuckPhotoPauseClasses();
+    if (!photoGifArmed) {
+      scheduleArmPhotoGif();
+      return;
+    }
+    var now = Date.now();
+    if (now - lastHardRemountAt < HARD_REMOUNT_MIN_GAP_MS && String(reason || "") !== "arm") {
+      softThawSitePhotoGif(reason || "wake-throttle");
+      return;
+    }
+    lastHardRemountAt = now;
+    SITE_PHOTO_BG_DESKTOP = SITE_PHOTO_BG_DESKTOP_GIF;
+    SITE_PHOTO_BG_MOBILE = SITE_PHOTO_BG_MOBILE_GIF;
+    var want = sitePhotoWantGif();
+    try {
+      var stages = document.querySelectorAll(".vc-home-cine");
+      for (var si = 0; si < stages.length; si += 1) ensureSitePhotoLayer(stages[si]);
+    } catch (eSt) {}
+    var photos = document.querySelectorAll(".vc-home-cine__photo");
+    function applySrc(photo) {
+      if (!photo || isLockedCustomPhoto(photo)) return;
+      try {
+        photo.dataset.vcGifKick = "";
+        photo.style.removeProperty("display");
+        photo.style.removeProperty("visibility");
+        photo.style.removeProperty("opacity");
+        /* pwaResumeLag1: niente removeAttribute — evita frame bianco + doppio decode */
+        photo.setAttribute("src", want);
+        photo.dataset.vcGifKick = "1";
+        photo.dataset.vcGifRemount = String(reason || "wake");
+      } catch (eRm) {}
+    }
+    try {
+      var pre = new Image();
+      pre.decoding = "async";
+      var done = false;
+      var finish = function () {
+        if (done) return;
+        done = true;
+        for (var i = 0; i < photos.length; i += 1) applySrc(photos[i]);
+      };
+      pre.onload = finish;
+      pre.onerror = finish;
+      pre.src = want;
+      window.setTimeout(finish, 900);
+    } catch (ePre) {
+      for (var j = 0; j < photos.length; j += 1) applySrc(photos[j]);
+    }
+    try {
+      window.__VC_SITE_PHOTO_GIF_ARMED = 1;
+      window.__VC_SITE_PHOTO_GIF_REMOUNT = String(reason || "wake");
+    } catch (eMeta) {}
+  }
+
+  function scheduleWakeRemount(reason) {
+    var r = String(reason || "wake");
+    try {
+      var now = Date.now();
+      /* coalescia visibility + cpu-wake + pwa-thaw nello stesso burst */
+      if (now - lastWakeHandledAt < 400 && photoGifWakeRemountTimer) return;
+    } catch (eCo) {}
+    if (photoGifWakeRemountTimer) {
+      try {
+        window.clearTimeout(photoGifWakeRemountTimer);
+      } catch (eClr) {}
+      photoGifWakeRemountTimer = 0;
+    }
+    photoGifWakeRemountTimer = window.setTimeout(function () {
+      photoGifWakeRemountTimer = 0;
+      try {
+        lastWakeHandledAt = Date.now();
+        if (wakeNeedsHardRemount(r)) forceRemountSitePhotoGif(r);
+        else softThawSitePhotoGif(r);
+      } catch (eForce) {}
+      try {
+        photoHiddenSinceAt = 0;
+      } catch (eClrH) {}
+    }, 80);
+  }
+
+  function armPhotoGif() {
+    if (photoGifArmed) return;
+    if (!canArmPhotoGif()) return;
+    photoGifArmed = true;
+    SITE_PHOTO_BG_DESKTOP = SITE_PHOTO_BG_DESKTOP_GIF;
+    SITE_PHOTO_BG_MOBILE = SITE_PHOTO_BG_MOBILE_GIF;
+    try {
+      window.__VC_SITE_PHOTO_GIF_ARMED = 1;
+    } catch (eArm) {}
+    try {
+      /* fxStable1: ri-assert layer + sync (arm spesso prima che .vc-home-cine esista) */
+      var stages = document.querySelectorAll(".vc-home-cine");
+      for (var si = 0; si < stages.length; si += 1) ensureSitePhotoLayer(stages[si]);
+      syncGifDecodeForVisibility();
+      /* bgGifWakeRemount1: se arm durante hide/pause, remount appena visibile */
+      if (!document.hidden) forceRemountSitePhotoGif("arm");
+      else scheduleWakeRemount("arm-hidden");
+    } catch (eSync) {}
+  }
+
+  function scheduleArmPhotoGif() {
+    if (photoGifArmed || forcePhotoStillFlag()) return;
+    if (!photoGifArmStartedAt) photoGifArmStartedAt = Date.now();
+    function run() {
+      if (photoGifArmed) return;
+      if (!canArmPhotoGif()) {
+        window.setTimeout(run, 280);
+        return;
+      }
+      var readyWaitMs = 0;
+      try {
+        readyWaitMs = Date.now() - (photoGifArmStartedAt || Date.now());
+      } catch (eRw) {}
+      try {
+        var root = document.documentElement;
+        var readyOk =
+          !root ||
+          root.classList.contains("vc-soft-fx-ready") ||
+          root.classList.contains("vc-home-styles-ready") ||
+          root.classList.contains("vc-look-core-ready") ||
+          root.classList.contains("vc-page-cine-ready");
+        /* bgGifWakeRemount1: max ~900ms (non-home soft-fx lento lasciava still troppo) */
+        if (!readyOk && readyWaitMs < 900) {
+          window.setTimeout(run, 80);
+          return;
+        }
+      } catch (eReady) {}
+      var want = isCoarsePointer() ? SITE_PHOTO_BG_MOBILE_GIF : SITE_PHOTO_BG_DESKTOP_GIF;
+      try {
+        var pre = new Image();
+        pre.decoding = "async";
+        var done = false;
+        var finish = function () {
+          if (done) return;
+          done = true;
+          armPhotoGif();
+        };
+        pre.onload = finish;
+        pre.onerror = finish;
+        pre.src = want;
+        window.setTimeout(finish, 1600);
+      } catch (ePre) {
+        armPhotoGif();
+      }
+    }
+    /* bootSpeedGate1: GIF 1.5MB SOLO dopo chrome-done (o 2.2s) — non in parallelo al sipario */
+    function kickArm() {
+      try {
+        window.setTimeout(run, 80);
+      } catch (eKick) {
+        run();
+      }
+    }
+    try {
+      if (window.__vcChromeLoadDone) {
+        window.setTimeout(kickArm, 400);
+      } else {
+        var armedOnce = false;
+        var onChrome = function () {
+          if (armedOnce) return;
+          armedOnce = true;
+          try {
+            document.removeEventListener("vc:chrome-load-done", onChrome);
+          } catch (eRm) {}
+          kickArm();
+        };
+        document.addEventListener("vc:chrome-load-done", onChrome);
+        window.setTimeout(onChrome, 2200);
+      }
+    } catch (eIdle) {
+      window.setTimeout(kickArm, 2200);
+    }
+  }
+
+  function isPerfPhotoStillMode() {
+    /* bgGifForceRm1: still solo force flag / non ancora armed / no GIF cfg */
+    if (forcePhotoStillFlag()) return true;
+    if (!photoGifArmed) return true;
     try {
       if (
         SITE_PHOTO_BG_DESKTOP === SITE_PHOTO_BG_DESKTOP_STILL &&
@@ -122,14 +471,28 @@
     );
   }
 
+  function isConfessionaleRoute() {
+    try {
+      if (document.documentElement && document.documentElement.classList.contains("vc-confessionale-route")) {
+        return true;
+      }
+    } catch (eR) {}
+    try {
+      if (document.body && document.body.classList.contains("vc-confessionale-page")) return true;
+    } catch (eB) {}
+    return false;
+  }
+
   function isLockedCustomPhoto(photo) {
     try {
       if (!photo) return false;
       if (photo.getAttribute("data-vc-cine-photo-lock") === "1") return true;
       if (photo.dataset && photo.dataset.vcCinePhotoLock === "1") return true;
-      if (document.body && document.body.classList.contains("vc-confessionale-page")) {
+      if (isConfessionaleRoute()) {
         var src = String(photo.getAttribute("src") || "");
         if (/Confessionale-GF/i.test(src)) return true;
+        /* confBgLockPersist1: su confessionale la foto stage è sempre custom */
+        return true;
       }
     } catch (eLock) {}
     return false;
@@ -139,6 +502,20 @@
     if (!photo) return;
     if (isLockedCustomPhoto(photo)) {
       try {
+        /* confBgNoGifBlack1: se vc-perf/altro ha messo sfondo.gif, ripristina JPG */
+        if (isConfessionaleRoute()) {
+          var lockSrc = String(photo.getAttribute("src") || "");
+          if (
+            !lockSrc ||
+            /sfondo/i.test(lockSrc) ||
+            /\.gif(\?|$)/i.test(lockSrc) ||
+            /\.webp(\?|$)/i.test(lockSrc) ||
+            !/Confessionale-GF/i.test(lockSrc)
+          ) {
+            photo.setAttribute("src", CONFESSIONALE_PHOTO_SRC);
+          }
+          photo.setAttribute("data-vc-cine-photo-lock", "1");
+        }
         photo.style.removeProperty("display");
         photo.style.removeProperty("visibility");
         photo.style.removeProperty("opacity");
@@ -149,14 +526,14 @@
     var hardHide = Boolean(document.hidden);
     var stillMode = isPerfPhotoStillMode();
     if (hardHide) {
+      /* bgGifWakeRemount1: NON strippare src (rimontare al wake basta; strip+freeze = still forever) */
       try {
-        photo.style.setProperty("display", "none", "important");
-        photo.removeAttribute("src");
         photo.dataset.vcGifKick = "";
       } catch (ePause) {}
       return;
     }
     try {
+      clearStuckPhotoPauseClasses();
       var prev = photo.getAttribute("src") || "";
       /* ticketsFrameLag1: se src già corretto non rimontare (scroll/input spam) */
       if (prev && prev === anim && (stillMode || prev.indexOf(".gif") === -1)) {
@@ -192,12 +569,30 @@
       var hardHide = Boolean(document.hidden);
       document.documentElement.classList.toggle("vc-page-hidden", hardHide);
       /* pwaStillCpu1: pause CSS solo tab nascosta — still mode NON usa vc-gif-paused
-         (quel class faceva display:none = “nasconde lo sfondo”) */
-      document.documentElement.classList.toggle("vc-gif-paused", hardHide);
-      document.documentElement.classList.remove("vc-ui-gif-paused", "vc-pwa-bg-frozen", "vc-photo-idle");
+         (quel class faceva display:none = “nasconde lo sfondo”)
+         confBgLockPersist1: confessionale = JPG locked → mai gif-paused (sfondo spariva) */
+      var pauseGif = hardHide && !isConfessionaleRoute();
+      document.documentElement.classList.toggle("vc-gif-paused", pauseGif);
+      if (!hardHide || isConfessionaleRoute()) {
+        document.documentElement.classList.remove("vc-ui-gif-paused", "vc-pwa-bg-frozen", "vc-photo-idle");
+      }
+      if (isConfessionaleRoute()) {
+        document.documentElement.classList.remove("vc-gif-paused");
+      }
     } catch (eHide) {}
+    /* violKillCue2: su hide solo class — no walk foto (era setTimeout Violation 100–160ms) */
+    if (document.hidden) return;
     var photos = document.querySelectorAll(".vc-home-cine__photo");
-    for (var i = 0; i < photos.length; i += 1) syncOneGifPhoto(photos[i]);
+    var i = 0;
+    function stepPhoto() {
+      if (i >= photos.length || document.hidden) return;
+      try {
+        syncOneGifPhoto(photos[i]);
+      } catch (eOne) {}
+      i += 1;
+      if (i < photos.length) window.setTimeout(stepPhoto, 16);
+    }
+    if (photos.length) window.setTimeout(stepPhoto, 0);
   }
 
   function schedulePhotoIdleFreeze() {
@@ -252,46 +647,103 @@
         } catch (eHideC) {}
       }
       syncGifDecodeForVisibility();
+      /* pwaCpuKill2: PWA/force-still → mai armare GIF */
+      if (!forcePhotoStillFlag()) scheduleArmPhotoGif();
     } catch (ePhoto) {}
   }
   ensureSitePhotoBg();
+  /* fxStable1: late .vc-home-cine (inject/boot) → layer + re-arm/sync */
+  try {
+    if (!window.__vcPhotoStageMo && typeof MutationObserver === "function") {
+      window.__vcPhotoStageMo = new MutationObserver(function (recs) {
+        var hit = false;
+        for (var i = 0; i < recs.length && !hit; i++) {
+          var adds = recs[i].addedNodes || [];
+          for (var j = 0; j < adds.length; j++) {
+            var n = adds[j];
+            if (!n || n.nodeType !== 1) continue;
+            if (
+              (n.classList && n.classList.contains("vc-home-cine")) ||
+              (n.querySelector && n.querySelector(".vc-home-cine"))
+            ) {
+              hit = true;
+              break;
+            }
+          }
+        }
+        if (!hit) return;
+        try {
+          ensureSitePhotoBg();
+          if (photoGifArmed) syncGifDecodeForVisibility();
+          else scheduleArmPhotoGif();
+        } catch (eMoBg) {}
+      });
+      window.__vcPhotoStageMo.observe(document.documentElement, { childList: true, subtree: true });
+    }
+  } catch (eMoInit) {}
   if (!window.__vcPhotoGifAlwaysWired) {
     window.__vcPhotoGifAlwaysWired = true;
     document.addEventListener("visibilitychange", function () {
-      /* handlerPerf2 / ticketsFrameLag1: still mode = solo class toggle, no decode */
-      if (isPerfPhotoStillMode()) {
-        try {
-          var hardHide = Boolean(document.hidden);
-          document.documentElement.classList.toggle("vc-page-hidden", hardHide);
-          document.documentElement.classList.toggle("vc-gif-paused", hardHide);
-        } catch (eStillVis) {}
-        return;
-      }
+      /* pwaResumeLag1: hide = class + stamp; show = soft thaw (hard remount solo se serve) */
+      try {
+        var hardHide = Boolean(document.hidden);
+        document.documentElement.classList.toggle("vc-page-hidden", hardHide);
+        /* confBgLockPersist1: no gif-paused su confessionale */
+        document.documentElement.classList.toggle(
+          "vc-gif-paused",
+          hardHide && !isConfessionaleRoute(),
+        );
+        if (isConfessionaleRoute()) {
+          document.documentElement.classList.remove("vc-gif-paused");
+        }
+        if (hardHide) {
+          if (!photoHiddenSinceAt) photoHiddenSinceAt = Date.now();
+        }
+      } catch (eStillVis) {}
+      if (document.hidden) return;
+      scheduleWakeRemount("visibility");
       window.setTimeout(function () {
         try {
           syncGifDecodeForVisibility();
-          if (!document.hidden) notePhotoBgInput();
+          notePhotoBgInput();
         } catch (eVisDefer) {}
-      }, 0);
+      }, 64);
     });
     window.addEventListener("pageshow", function () {
-      if (isPerfPhotoStillMode()) return;
+      if (document.hidden) return;
+      scheduleWakeRemount("pageshow");
       window.setTimeout(function () {
         try {
           syncGifDecodeForVisibility();
           notePhotoBgInput();
         } catch (ePs) {}
-      }, 0);
+      }, 64);
+    });
+    window.addEventListener("vc:cpu-wake", function () {
+      scheduleWakeRemount("cpu-wake");
+    });
+    window.addEventListener("vc:soft-fx-ready", function () {
+      /* soft-fx/cine-ready: solo soft (arm/sweep gestiscono stuck) */
+      scheduleWakeRemount("soft-fx");
+    });
+    document.addEventListener("vc:page-cine-ready", function () {
+      scheduleWakeRemount("cine-ready");
     });
     window.addEventListener("vc:pwa-bg-freeze", function () {
       /* gifNoIdleStill1: ignora freeze idle da vc-perf — solo tab hidden */
-      if (document.hidden) syncGifDecodeForVisibility();
+      if (document.hidden) {
+        try {
+          if (!photoHiddenSinceAt) photoHiddenSinceAt = Date.now();
+        } catch (eHf) {}
+        syncGifDecodeForVisibility();
+      }
     });
     window.addEventListener("vc:pwa-bg-thaw", function () {
       gifIdleFrozen = false;
       try {
         document.documentElement.classList.remove("vc-ui-gif-paused", "vc-pwa-bg-frozen", "vc-photo-idle");
       } catch (eTh) {}
+      scheduleWakeRemount("pwa-thaw");
       syncGifDecodeForVisibility();
     });
     window.addEventListener("scroll", onGifScrollPause, { passive: true, capture: true });
@@ -318,24 +770,42 @@
     if (!window.__vcGifNeverWebpWatch) {
       window.__vcGifNeverWebpWatch = 1;
       function gifSweep() {
-        if (document.hidden || isPerfPhotoStillMode()) return;
+        if (document.hidden) return;
         try {
-          document.documentElement.classList.remove("vc-ui-gif-paused", "vc-pwa-bg-frozen", "vc-photo-idle", "vc-gif-paused");
+          clearStuckPhotoPauseClasses();
         } catch (eClr) {}
+        if (isPerfPhotoStillMode()) {
+          /* pwaStillHard1: still forzato → NON armare GIF (prima remountava = 100% CPU) */
+          if (forcePhotoStillFlag()) return;
+          scheduleArmPhotoGif();
+          return;
+        }
         var photos = document.querySelectorAll(".vc-home-cine__photo");
+        var needRemount = !photos.length;
         for (var wi = 0; wi < photos.length; wi += 1) {
           if (isLockedCustomPhoto(photos[wi])) continue;
           var src = photos[wi].getAttribute("src") || "";
-          if (!src || src.indexOf(".gif") === -1 || src.indexOf("-still") !== -1) {
-            photos[wi].dataset.vcGifKick = "";
-            syncOneGifPhoto(photos[wi]);
+          var cs = null;
+          try {
+            cs = window.getComputedStyle(photos[wi]);
+          } catch (eCs) {}
+          if (
+            !src ||
+            src.indexOf(".gif") === -1 ||
+            src.indexOf("-still") !== -1 ||
+            (cs && (cs.display === "none" || cs.visibility === "hidden" || cs.opacity === "0"))
+          ) {
+            needRemount = true;
+            break;
           }
         }
+        if (needRemount) forceRemountSitePhotoGif("sweep");
       }
       gifSweep();
-      window.setTimeout(gifSweep, 800);
-      window.setTimeout(gifSweep, 2500);
-      window.setTimeout(gifSweep, 8000);
+      window.setTimeout(gifSweep, 400);
+      window.setTimeout(gifSweep, 1200);
+      window.setTimeout(gifSweep, 2800);
+      window.setTimeout(gifSweep, 6000);
     } else if (prefersReducedMotion()) {
       try {
         syncGifDecodeForVisibility();
@@ -373,10 +843,11 @@
     }
   }
 
-  function forceScrollTop() {
+  function forceScrollTop(hard) {
     try {
-      /* scrollStayAll1: non forzare top se già mid-page */
-      if (pageScrollY() > 8) return;
+      /* scrollStayAll1: soft — non forzare top se già mid-page */
+      if (!hard && pageScrollY() > 8) return;
+      /* bootNoFooter1: hard snap anche se già in fondo (footer clamp al reveal) */
       window.scrollTo(0, 0);
       if (document.documentElement) document.documentElement.scrollTop = 0;
       if (document.body) document.body.scrollTop = 0;
@@ -386,6 +857,19 @@
   function snapScrollTopIfPristine() {
     if (homeHasAnchor()) return;
     if (pageScrollY() > 8) return;
+    /* scrollYoYoKill1/Align2: non azzerare durante/dopo restore scroll */
+    try {
+      if (window.__vcPtrRestoreDone) return;
+      if (
+        Math.max(
+          0,
+          Number(window.__vcPtrRestoreTargetY || 0) || 0,
+          Number(window.__vcPtrRestoreY || 0) || 0,
+        ) >= 2
+      ) {
+        return;
+      }
+    } catch (eYo) {}
     /* scrollStayAll1: dopo curtain-off/ready non ri-azzerare su reflow (tab/lista/layout) */
     try {
       var root = document.documentElement;
@@ -513,7 +997,8 @@
       return (
         document.hidden ||
         root.classList.contains("vc-cine-idle") ||
-        root.classList.contains("vc-page-hidden")
+        root.classList.contains("vc-page-hidden") ||
+        root.classList.contains("vc-cpu-settle")
       );
     } catch (eGpuQ) {
       return false;
@@ -571,13 +1056,8 @@
   }
 
     function shouldSnappyBodyFx() {
-    if (isCoarse() || isStandalonePwa()) return true;
-    try {
-      if (window.VcPerf && typeof window.VcPerf.isMidOrLite === "function" && window.VcPerf.isMidOrLite()) {
-        return true;
-      }
-    } catch (eSnappy) {}
-    return false;
+    /* cueKeep1: niente rise ritardato post-load (micro-reflow card/hero) */
+    return true;
   }
 
   function primeMobileCineClasses() {
@@ -790,14 +1270,101 @@
     return isStaffCinePage();
   }
 
+  function isBoardsViewPage() {
+    try {
+      var root = document.documentElement;
+      /* boardsLoadHold1c: pending vale per tutta bacheca — NON trattarlo come scheda
+         (altrimenti skipScrollCue nasconde lo cue su esplora/server/bot) */
+      if (root && (root.classList.contains("vc-boards-scheda-ui") || root.classList.contains("vc-boards-detail-live"))) {
+        return true;
+      }
+      var body = document.body;
+      if (body) {
+        var boardsPage = String(body.getAttribute("data-vc-boards-page") || "")
+          .trim()
+          .toLowerCase();
+        if (boardsPage === "view") return true;
+        if (body.classList.contains("vc-boards-scheda-ui") || body.classList.contains("vc-boards-detail-live")) {
+          return true;
+        }
+      }
+      var p = String(location.pathname || "");
+      if (/\/(?:bacheca|boards)\/scheda(?:\/|$)/i.test(p)) return true;
+      if (/\/(?:bacheca|boards)\/view(?:\/|$)/i.test(p)) return true;
+      if (/\/(?:bacheca|boards)\/(?:server|servers|bot|bots)\/[^/]+/i.test(p)) return true;
+    } catch (eView) {}
+    return false;
+  }
+
+  function isUserProfileRoute() {
+    try {
+      var root = document.documentElement;
+      if (root && root.classList.contains("vc-user-profile-route")) return true;
+    } catch (eHtml) {}
+    try {
+      var body = document.body;
+      if (
+        body &&
+        (body.classList.contains("vc-user-profile-route") ||
+          body.classList.contains("vc-user-profile-page"))
+      ) {
+        return true;
+      }
+    } catch (eBody) {}
+    try {
+      var p = String((location && location.pathname) || "/")
+        .replace(/\/index\.html$/i, "")
+        .replace(/\/+$/, "") || "/";
+      if (/^\/users?\/\d{17,20}$/.test(p)) return true;
+      if (p === "/user" || p === "/users") {
+        var q = new URLSearchParams((location && location.search) || "");
+        var id = String(q.get("id") || q.get("userId") || q.get("uid") || "").trim();
+        if (/^\d{17,20}$/.test(id)) return true;
+      }
+    } catch (ePath) {}
+    try {
+      var view = document.getElementById("vc-user-profile-view");
+      if (view && view.getAttribute("hidden") == null && !view.hidden) return true;
+    } catch (eView) {}
+    return false;
+  }
+
+  function killScrollCueDom() {
+    try {
+      syncScrollCueAwayClass(true);
+    } catch (eAway) {}
+    var staleAll = document.querySelectorAll(".vc-home-scrollcue");
+    for (var si = 0; si < staleAll.length; si++) {
+      var el = staleAll[si];
+      try {
+        hardHideScrollCue(el);
+      } catch (eHid) {}
+      try {
+        el.remove();
+      } catch (eRm) {
+        try {
+          if (el.parentNode) el.parentNode.removeChild(el);
+        } catch (eRm2) {}
+      }
+    }
+  }
+
   function skipScrollCuePage() {
     if (isEventoPage()) return true;
-        if (isStaffCinePage()) return false;
+    if (isUserProfileRoute()) return true;
+    if (isStaffCinePage()) return false;
     if (isStaffRoute() && !isStaffCinePage()) return true;
     var body = document.body;
     if (!body) return false;
-        if (body.classList.contains("vc-notifications-page")) return true;
-        if (isStaffProfileHome() || body.classList.contains("vc-staff-profile-home")) return true;
+    /* boardsCineRestore1 + schedaBootCue1: no scroll-cue su scheda / senza cine */
+    try {
+      if (isBoardsViewPage()) return true;
+      if (!body.classList.contains("vc-page-cine-layout") && !body.classList.contains("vc-body--home")) {
+        return true;
+      }
+    } catch (eBoardsCue) {}
+    if (body.classList.contains("vc-notifications-page")) return true;
+    if (isStaffProfileHome() || body.classList.contains("vc-staff-profile-home")) return true;
     if (body.classList.contains("vc-user-profile-route") || body.classList.contains("vc-user-profile-page")) {
       return true;
     }
@@ -805,7 +1372,8 @@
     if (
       body.classList.contains("vc-users-page") &&
       body.classList.contains("vc-page-cine-layout") &&
-      !body.classList.contains("vc-user-profile-route")
+      !body.classList.contains("vc-user-profile-route") &&
+      !isUserProfileRoute()
     ) {
       return false;
     }
@@ -815,15 +1383,52 @@
     return false;
   }
 
+  function armScrollCueSkipWatch() {
+    if (window.__vcScrollCueSkipWatch) return;
+    window.__vcScrollCueSkipWatch = 1;
+    function tick() {
+      try {
+        if (skipScrollCuePage()) killScrollCueDom();
+      } catch (eTick) {}
+    }
+    tick();
+    try {
+      var mo = new MutationObserver(tick);
+      if (document.documentElement) {
+        mo.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
+      }
+      if (document.body) {
+        mo.observe(document.body, { attributes: true, attributeFilter: ["class"] });
+      } else {
+        document.addEventListener(
+          "DOMContentLoaded",
+          function () {
+            try {
+              if (document.body) mo.observe(document.body, { attributes: true, attributeFilter: ["class"] });
+              tick();
+            } catch (eBodyMo) {}
+          },
+          { once: true },
+        );
+      }
+    } catch (eMo) {}
+    /* jsWakeKill3: niente setInterval 200ms — MO + 3 setTimeout bastano */
+    try {
+      window.setTimeout(tick, 0);
+      window.setTimeout(tick, 400);
+      window.setTimeout(tick, 1600);
+    } catch (eTo) {}
+  }
+
   function pageLoadingOverlay() {
     var ids = ["vc-roles-loading", "vc-ul-loading"];
     for (var i = 0; i < ids.length; i++) {
       var el = document.getElementById(ids[i]);
       if (!el || el.hidden || el.getAttribute("hidden") != null) continue;
       try {
-        var cs = window.getComputedStyle(el);
-        if (cs.display === "none" || cs.visibility === "hidden") continue;
-      } catch (eCs) {}
+        if (el.classList && el.classList.contains("vc-staff-loading--hidden")) continue;
+      } catch (eCls) {}
+      /* violKillReflow2: niente getComputedStyle (Forced reflow) */
       return el;
     }
     return null;
@@ -831,7 +1436,7 @@
 
   var cueGeometryOkCached = false;
   function cueGeometryReady(hero) {
-    /* violPass12: cache after first ok — evita getComputedStyle/rect a ogni poke */
+    /* violKillReflow2: cache / no offsetWidth sync */
     if (cueGeometryOkCached) return true;
     if (pageLoadingOverlay()) return false;
     if (!hero) {
@@ -839,7 +1444,7 @@
       return true;
     }
     try {
-      if (hero.offsetWidth >= 8 && hero.offsetHeight >= 8) {
+      if (document.documentElement.classList.contains("vc-page-cine-ready")) {
         cueGeometryOkCached = true;
         return true;
       }
@@ -860,18 +1465,104 @@
     );
   }
 
-  var SCROLL_CUE_FADE_PX = 140;
+  /* scrollCueOwner1: allinea a boot HIDE_PX=1; show solo via boot sync */
+  var SCROLL_CUE_HIDE_PX = 1;
+  /* loadCueBakeFast1: niente cue se non c’è abbastanza contenuto sotto */
+  var SCROLL_CUE_MIN_OVERFLOW = 120;
+  function bootOwnsScrollCue() {
+    try {
+      return Boolean(window.__vcScrollCueAwayBoot);
+    } catch (eOwn) {
+      return false;
+    }
+  }
+  function deferCueToBoot() {
+    try {
+      if (typeof window.__vcScrollCueBootSync === "function") {
+        window.__vcScrollCueBootSync();
+        return;
+      }
+      if (typeof window.__vcSyncScrollCue === "function" && window.__vcSyncScrollCue !== syncScrollCueNow) {
+        window.__vcSyncScrollCue();
+      }
+    } catch (eDef) {}
+  }
 
   function scrollCueOpacityForY(y) {
     var yy = Number(y) || 0;
-    if (yy <= 1) return 1;
-    if (yy >= SCROLL_CUE_FADE_PX) return 0;
-    return Math.max(0, 1 - yy / SCROLL_CUE_FADE_PX);
+    return yy > SCROLL_CUE_HIDE_PX ? 0 : 1;
+  }
+
+  function pageHasScrollRoom() {
+    try {
+      var doc = document.documentElement;
+      var vh = Math.max(1, window.innerHeight || doc.clientHeight || 1);
+      var sh = Math.max(doc.scrollHeight || 0, (document.body && document.body.scrollHeight) || 0);
+      return sh - vh >= SCROLL_CUE_MIN_OVERFLOW;
+    } catch (eRoom) {
+      return true;
+    }
   }
 
   function scrollCueShouldHide(hero) {
-    /* scrollCueFade1: hide pieno solo a fine fade */
-    return scrollCueOpacityForY(scrollCuePageY()) <= 0.02;
+    if (!pageHasScrollRoom()) return true;
+    return scrollCuePageY() > SCROLL_CUE_HIDE_PX;
+  }
+
+  function scrollCueCineSettled() {
+    try {
+      var root = document.documentElement;
+      var body = document.body;
+      if (!root || !body) return false;
+      if (root.classList.contains("vc-boards-view-pending")) return false;
+      /* bootUiCueBar1: mai cue durante hold/loader/barra chrome */
+      if (
+        root.classList.contains("vc-interaction-hold") ||
+        root.classList.contains("vc-loading-scroll-lock") ||
+        root.classList.contains("vc-loader-blocking-live") ||
+        root.classList.contains("vc-chrome-bar-loading") ||
+        (root.classList.contains("vc-page-cine-boot") && !root.classList.contains("vc-page-cine-ready"))
+      ) {
+        return false;
+      }
+      /* soft-fx obbligatorio (motion-ready arriva troppo presto dal photo-bg prime) */
+      if (
+        root.classList.contains("vc-site-polish") &&
+        !root.classList.contains("vc-soft-fx-ready") &&
+        !root.classList.contains("vc-soft-fx-off")
+      ) {
+        return false;
+      }
+      if (
+        root.classList.contains("vc-site-polish") &&
+        !root.classList.contains("vc-cine-curtain-off") &&
+        !root.classList.contains("vc-page-cine-ready") &&
+        !body.classList.contains("vc-body--home")
+      ) {
+        return false;
+      }
+      if (body.classList.contains("vc-page-cine-layout")) {
+        /* bootExtMatch1: page-cine-ready can land before nav-guard lifts main */
+        if (!root.classList.contains("vc-page-cine-ready")) return false;
+        if (
+          !root.classList.contains("vc-core-styles-ready") &&
+          !root.classList.contains("vc-home-styles-ready")
+        ) {
+          return false;
+        }
+        if (!root.classList.contains("vc-cine-curtain-off")) return false;
+        return true;
+      }
+      if (body.classList.contains("vc-body--home")) {
+        return (
+          root.classList.contains("vc-soft-fx-ready") ||
+          root.classList.contains("vc-soft-fx-off")
+        );
+      }
+      return false;
+    } catch (eSettled) {
+      return false;
+    }
   }
 
   function syncScrollCueAwayClass(away) {
@@ -885,6 +1576,13 @@
 
   function hardHideScrollCue(cue) {
     if (!cue) return;
+    /* cueHideSnap2: hardShow lascia display/opacity !important inline — CSS is-away perde */
+    if (
+      cue.classList.contains("is-away") &&
+      cue.hidden &&
+      String(cue.style.display || "").indexOf("none") !== -1
+    )
+      return;
     syncScrollCueAwayClass(true);
     cue.classList.add("is-away");
     cue.classList.remove("is-fading");
@@ -895,45 +1593,49 @@
       cue.style.setProperty("opacity", "0", "important");
       cue.style.setProperty("visibility", "hidden", "important");
       cue.style.setProperty("pointer-events", "none", "important");
-      cue.style.setProperty("transition", "none", "important");
-    } catch (eAway) {}
+    } catch (eHid) {}
   }
 
   function applyScrollCueVisibility(cue, hero) {
     if (!cue) return;
     if (skipScrollCuePage()) {
-      hardHideScrollCue(cue);
+      killScrollCueDom();
       return;
     }
-    /* scrollCueNeverScroll1: niente show finché non è pinned fixed su body */
+    /* scrollCueNeverScroll1: pin su body PRIMA di qualunque show (fixed in hero trasformato = segue lo scroll) */
     if (cue.dataset.vcCuePinned !== "1" || (document.body && cue.parentElement !== document.body)) {
       try {
         pinScrollCueLayout(cue, hero);
       } catch (ePinVis) {}
     }
-    if (!cueGeometryReady(hero) || cue.dataset.vcCuePinned !== "1") {
-      /* in cima pagina: aspetta geometry+pin, tieni nascosto (no absolute flash) */
+    if (
+      !scrollCueCineSettled() ||
+      !cueGeometryReady(hero) ||
+      cue.dataset.vcCuePinned !== "1" ||
+      (document.body && cue.parentElement !== document.body)
+    ) {
       hardHideScrollCue(cue);
       return;
     }
-    var y = scrollCuePageY();
-    var op = scrollCueOpacityForY(y);
-    if (op <= 0.02) {
+    if (scrollCueShouldHide(hero) || !pageHasScrollRoom()) {
       hardHideScrollCue(cue);
       return;
     }
-    /* scrollCueFade1: resta fixed in viewport, opacity legata allo scroll (no “segue” + cut) */
+    /* scrollCueOwner1: boot è l’unico che può togliere vc-scrollcue-away / show */
+    if (bootOwnsScrollCue()) {
+      deferCueToBoot();
+      return;
+    }
+    /* legacy (no boot): show pieno solo a y≈0 */
     syncScrollCueAwayClass(false);
-    cue.classList.remove("is-away");
-    if (op < 0.999) cue.classList.add("is-fading");
-    else cue.classList.remove("is-fading");
+    cue.classList.remove("is-away", "is-fading");
     cue.hidden = false;
-    cue.setAttribute("aria-hidden", op < 0.2 ? "true" : "false");
+    cue.setAttribute("aria-hidden", "false");
     try {
       cue.style.setProperty("display", "flex", "important");
-      cue.style.setProperty("opacity", String(op), "important");
+      cue.style.setProperty("opacity", "1", "important");
       cue.style.setProperty("visibility", "visible", "important");
-      cue.style.setProperty("pointer-events", op < 0.55 ? "none" : "auto", "important");
+      cue.style.setProperty("pointer-events", "auto", "important");
       cue.style.setProperty("transition", "none", "important");
       cue.style.setProperty("position", "fixed", "important");
       cue.style.setProperty("transform", "none", "important");
@@ -941,44 +1643,102 @@
   }
 
   function refreshScrollCue(cue, hero, target) {
-    pinScrollCueLayout(cue, hero);
+    /* violKill6: se già pinned, solo visibility — niente restyle/layout */
+    try {
+      if (!(cue && cue.dataset && cue.dataset.vcCuePinned === "1")) {
+        pinScrollCueLayout(cue, hero);
+      }
+    } catch (ePin) {
+      pinScrollCueLayout(cue, hero);
+    }
     applyScrollCueVisibility(cue, hero);
   }
 
   function bindCueLayoutWatch(cue, hero, target) {
     if (!cue || cue.dataset.vcCueWatch === "1") return;
     cue.dataset.vcCueWatch = "1";
+    /* scrollCueOwner1: niente poke storm 0–2400ms / MO — boot syncHard è l’unico show */
+    if (bootOwnsScrollCue()) {
+      var bootPokeTimer = 0;
+      function bootPoke() {
+        /* violRafWheel1: fuori dal frame corrente (evita Violation rAF 90ms+) */
+        if (bootPokeTimer) return;
+        bootPokeTimer = window.setTimeout(function () {
+          bootPokeTimer = 0;
+          try {
+            pinScrollCueLayout(cue, hero);
+            deferCueToBoot();
+          } catch (eBp) {}
+        }, 0);
+      }
+      document.addEventListener("vc:chrome-visual-ready", bootPoke, { passive: true });
+      document.addEventListener("vc:page-cine-ready", bootPoke, { passive: true });
+      document.addEventListener("vc:soft-fx-ready", bootPoke, { passive: true });
+      return;
+    }
     var pokeTimer = 0;
     function poke() {
-      /* violPass12: coalesce + setTimeout — rAF + layout era Violation ~140ms */
+      /* violKillFinal1: un solo refresh via __vcLight — niente setTimeout(0) nest */
       if (pokeTimer) return;
-      pokeTimer = window.setTimeout(function () {
+      pokeTimer = 1;
+      var go = function () {
         pokeTimer = 0;
         try {
           refreshScrollCue(cue, hero, target);
         } catch (ePoke) {}
-      }, 48);
+      };
+      if (typeof window.__vcLight === "function") window.__vcLight(go, 220);
+      else window.setTimeout(go, 220);
     }
     var overlay = pageLoadingOverlay() || document.getElementById("vc-roles-loading") || document.getElementById("vc-ul-loading");
     if (overlay && typeof MutationObserver !== "undefined") {
       var mo = new MutationObserver(poke);
       mo.observe(overlay, { attributes: true, attributeFilter: ["hidden", "class", "style"] });
     }
-    window.addEventListener("pageshow", poke);
+    window.addEventListener("pageshow", function () {
+      if (typeof window.__vcLight === "function") window.__vcLight(poke, 240);
+      else window.setTimeout(poke, 240);
+    });
     document.addEventListener("vc:roles-ready", poke);
     document.addEventListener("vc:page-content-ready", poke);
+    document.addEventListener("vc:chrome-ready", poke);
+    document.addEventListener("vc:soft-fx-ready", poke);
+    document.addEventListener("vc:page-cine-ready", poke);
+    document.addEventListener(
+      "vc:chrome-visual-ready",
+      function () {
+        try {
+          refreshScrollCue(cue, hero, target);
+        } catch (eVisCue) {}
+      },
+      { passive: true },
+    );
+    try {
+      [0, 200, 500].forEach(function (ms) {
+        window.setTimeout(poke, ms);
+      });
+    } catch (eKick) {}
   }
 
   function pinScrollCueLayout(cue, hero) {
     if (!cue) return;
     try {
-      /* scrollCueNeverScroll1: always body + fixed — mai absolute nell'hero */
+      /* violRafWheel1: già pinned su body → no style storm / reflow */
+      if (
+        cue.dataset.vcCuePinned === "1" &&
+        document.body &&
+        cue.parentElement === document.body &&
+        cue.classList.contains("vc-home-scrollcue--vp")
+      ) {
+        return;
+      }
+      /* scrollCuePinHide2: SEMPRE body + fixed — mai hero (transform → segue lo scroll) */
       if (document.body && cue.parentElement !== document.body) {
         document.body.appendChild(cue);
       }
       cue.classList.add("vc-home-scrollcue--vp");
       cue.classList.remove("vc-home-scrollcue--dock");
-      var cueBottom = "calc(0.4rem + env(safe-area-inset-bottom, 0px))";
+      var cueBottom = "calc(0.2rem + env(safe-area-inset-bottom, 0px))";
       cue.style.setProperty("position", "fixed", "important");
       cue.style.setProperty("top", "auto", "important");
       cue.style.setProperty("left", "0", "important");
@@ -1006,13 +1766,9 @@
 
   function ensureScrollCueFor(hero, container) {
     if (!hero) return;
+    armScrollCueSkipWatch();
     if (skipScrollCuePage()) {
-      var staleAll = document.querySelectorAll(".vc-home-scrollcue");
-      for (var si = 0; si < staleAll.length; si++) {
-        try {
-          staleAll[si].remove();
-        } catch (eSt) {}
-      }
+      killScrollCueDom();
       return;
     }
     container = container || hero.closest("main") || document.querySelector("main");
@@ -1069,23 +1825,134 @@
       cue.addEventListener("click", scrollToPageContent);
     }
     startCueBounce(cue);
+    /* scrollCuePinHide2: hide su Y reale; wheel down = hide; MAI re-show mid-wheel */
+    var cueScrollRaf = 0;
+    var cueLastHideAt = 0;
+    function liveCueY() {
+      try {
+        var live = Math.max(0, Math.round(Number(window.pageYOffset) || scrollCuePageY() || 0));
+        try {
+          window.__vcCachedScrollY = live;
+        } catch (eCy) {}
+        return live;
+      } catch (eY) {
+        return scrollCuePageY();
+      }
+    }
     function onScrollVis() {
-      applyScrollCueVisibility(cue, hero);
+      if (cueScrollRaf) return;
+      cueScrollRaf = 1;
+      var go = function () {
+        cueScrollRaf = 0;
+        try {
+          if (skipScrollCuePage()) {
+            killScrollCueDom();
+            return;
+          }
+          var y = liveCueY();
+          if (y > SCROLL_CUE_HIDE_PX) {
+            cueLastHideAt = Date.now();
+            hardHideScrollCue(cue);
+            return;
+          }
+          if (bootOwnsScrollCue()) {
+            deferCueToBoot();
+            return;
+          }
+          /* grace: dopo hide mid-scroll non riapparire per ~280ms (evita flicker / follow) */
+          if (Date.now() - cueLastHideAt < 280) {
+            hardHideScrollCue(cue);
+            return;
+          }
+          applyScrollCueVisibility(cue, hero);
+        } catch (eVisRaf) {}
+      };
+      window.setTimeout(go, 0);
     }
     function onResizePin() {
+      cueScrollRaf = 0;
       pinScrollCueLayout(cue, hero);
+      if (bootOwnsScrollCue()) {
+        deferCueToBoot();
+        return;
+      }
       applyScrollCueVisibility(cue, hero);
     }
     bindCueLayoutWatch(cue, hero, target);
     if (cue.dataset.vcScrollCueScroll !== "1") {
       cue.dataset.vcScrollCueScroll = "1";
-      /* solo visibility sullo scroll — re-pin a ogni touchmove causava balzi phone */
-      /* scrollCueNoFollow1: capture — hide prima che il layout “segua” */
       window.addEventListener("scroll", onScrollVis, { passive: true, capture: true });
-      document.addEventListener("scroll", onScrollVis, { passive: true, capture: true });
+      window.addEventListener(
+        "wheel",
+        function (e) {
+          try {
+            /* violRafWheel1: zero layout su wheel — solo hide snappy */
+            if (
+              cue.classList.contains("is-away") &&
+              cue.hidden &&
+              String(cue.style.display || "").indexOf("none") !== -1
+            ) {
+              return;
+            }
+            var dy = Number(e && e.deltaY) || 0;
+            var y = 0;
+            try {
+              y = Math.max(0, Math.round(Number(window.__vcCachedScrollY) || Number(window.pageYOffset) || 0));
+            } catch (eY) {
+              y = 0;
+            }
+            /* solo verso il basso o già scrolled — rotella in alto a Y≈0 non spegne */
+            if (dy > 0 || y > SCROLL_CUE_HIDE_PX) {
+              cueLastHideAt = Date.now();
+              hardHideScrollCue(cue);
+            }
+          } catch (eWh) {}
+        },
+        { passive: true, capture: true },
+      );
+      window.addEventListener(
+        "touchmove",
+        function () {
+          try {
+            if (
+              cue.classList.contains("is-away") &&
+              cue.hidden &&
+              String(cue.style.display || "").indexOf("none") !== -1
+            ) {
+              return;
+            }
+            var y = 0;
+            try {
+              y = Math.max(0, Math.round(Number(window.__vcCachedScrollY) || Number(window.pageYOffset) || 0));
+            } catch (eY2) {
+              y = 0;
+            }
+            if (y > SCROLL_CUE_HIDE_PX) {
+              cueLastHideAt = Date.now();
+              hardHideScrollCue(cue);
+            }
+          } catch (eTm) {}
+        },
+        { passive: true, capture: true },
+      );
       window.addEventListener("resize", onResizePin, { passive: true });
       window.addEventListener("orientationchange", onResizePin, { passive: true });
-      onResizePin();
+      document.addEventListener(
+        "vc:page-cine-ready",
+        function () {
+          /* violKillRest1: onResizePin layout-heavy — fuori dallo stack event */
+          var go = function () {
+            try {
+              onResizePin();
+            } catch (ePin) {}
+          };
+          if (typeof window.__vcLight === "function") window.__vcLight(go, 120);
+          else window.setTimeout(go, 120);
+        },
+        { passive: true },
+      );
+      if (typeof window.__vcLight === "function") window.__vcLight(onResizePin, 80);
+      else window.setTimeout(onResizePin, 80);
     } else {
       onResizePin();
     }
@@ -1096,6 +1963,41 @@
 
   function ensureScrollCue() {
     ensureScrollCueFor(document.getElementById("intro"));
+  }
+
+  function syncScrollCueNow() {
+    try {
+      armScrollCueSkipWatch();
+      if (skipScrollCuePage()) {
+        killScrollCueDom();
+        return;
+      }
+      var hero =
+        document.querySelector(".vc-page-cine-hero") ||
+        document.querySelector(".vc-home-cine-hero") ||
+        document.getElementById("intro");
+      var cue =
+        (document.body && document.body.querySelector(":scope > .vc-home-scrollcue")) ||
+        document.querySelector(".vc-home-scrollcue");
+      if (!cue && hero) {
+        ensureScrollCueFor(hero);
+        cue =
+          (document.body && document.body.querySelector(":scope > .vc-home-scrollcue")) ||
+          document.querySelector(".vc-home-scrollcue");
+      }
+      if (cue) {
+        if (bootOwnsScrollCue()) {
+          pinScrollCueLayout(cue, hero);
+          deferCueToBoot();
+        } else {
+          refreshScrollCue(cue, hero, document.getElementById("vc-page-content"));
+        }
+      }
+    } catch (eSyncCue) {}
+  }
+  /* scrollCueOwner1: non sovrascrivere il sync del boot */
+  if (!bootOwnsScrollCue()) {
+    window.__vcSyncScrollCue = syncScrollCueNow;
   }
 
   function isSeratafilmRoute() {
@@ -1150,9 +2052,7 @@
     if (path === "/notifications") return true;
         if (isStaffRoute() && !isStaffCinePage()) return true;
     if (isUserProfileRoute()) return true;
-    var p = String(location.pathname || "").replace(/\/+$/, "");
-    if (/^\/personalizza(\/|$)/.test(p)) return true;
-    if (/^\/user\/(personalizza|customize|custom)(\/|$)/.test(p)) return true;
+    /* persCineLayout2: /personalizza ha hero cine baked — non spegnere layout */
     return false;
   }
 
@@ -1218,6 +2118,37 @@
      recognized hero (legal/status/cookie). Guard depth + skip-layout flag. */
   var markPageCineReadyDepth = 0;
   function markPageCineReady(immediate) {
+    /* schedaBootCue1: tieni sipario finché la scheda non ha contenuto reale */
+    try {
+      var rootHold = document.documentElement;
+      var boardsHold =
+        rootHold &&
+        rootHold.classList.contains("vc-boards-view-pending") &&
+        !window.__vcBoardsContentReady;
+      if (boardsHold) {
+        if (!window.__vcBoardsViewReadyBound) {
+          window.__vcBoardsViewReadyBound = 1;
+          document.addEventListener(
+            "vc:boards-content-ready",
+            function () {
+              try {
+                rootHold.classList.remove("vc-boards-view-pending");
+              } catch (eClr) {}
+              markPageCineReady(true);
+            },
+            { once: true },
+          );
+          window.setTimeout(function () {
+            if (window.__vcBoardsContentReady) return;
+            try {
+              rootHold.classList.remove("vc-boards-view-pending");
+            } catch (eFs) {}
+            markPageCineReady(true);
+          }, 2800);
+        }
+        return;
+      }
+    } catch (eBoardsHold) {}
             if (
       !immediate &&
       isStaffCinePage() &&
@@ -1293,6 +2224,17 @@
           bindInnerHeroScrollFx();
         }
       } catch (eHeroFx) {}
+      /* bootHeroNavLeak1: hero già layout → sblocca intro (niente kicker sotto navbar) */
+      try {
+        if (
+          isUsersCommunityPage() ||
+          (root &&
+            (root.classList.contains("vc-user-leader-route") ||
+              root.classList.contains("vc-user-leader-pending")))
+        ) {
+          root.classList.add("vc-cine-hero-placed");
+        }
+      } catch (ePlaced) {}
       try {
         document.dispatchEvent(new Event("vc:page-cine-ready"));
       } catch (eReadyEvt) {}
@@ -1633,57 +2575,47 @@
       if (!body) return;
 
       if (body.classList.contains("vc-web-tickets-page") || body.classList.contains("vc-tickets-page")) {
-        var content =
-          document.getElementById("vc-page-content") || document.querySelector(".vc-page-cine-body");
-        var aside = document.querySelector(".vc-page-cine-hero .vc-page-cine-aside-inline");
+        /* tipTicketsInHero1: tip sempre DENTRO hero (anche telefono), come faq/donazioni */
         var parked = document.getElementById("vc-tickets-aside-below");
-        var head = document.querySelector(".vc-page-cine-hero .vc-hero-head");
-        if (isPhone && aside && content) {
-          if (!parked) {
-            parked = document.createElement("div");
-            parked.id = "vc-tickets-aside-below";
-            parked.className = "vc-page-cine-aside-below";
+        var hero = document.querySelector(".vc-page-cine-hero");
+        var restoreHead = hero && hero.querySelector(".vc-hero-head");
+        if (parked && parked.childNodes.length && restoreHead) {
+          var inline = restoreHead.querySelector(".vc-page-cine-aside-inline");
+          if (!inline) {
+            inline = document.createElement("div");
+            inline.className = "vc-page-cine-aside-inline";
+            restoreHead.appendChild(inline);
           }
-          while (aside.firstChild) parked.appendChild(aside.firstChild);
-          if (aside.parentNode) aside.parentNode.removeChild(aside);
-          if (head) head.classList.remove("vc-hero-head--has-aside");
-          if (parked.childNodes.length && parked.parentNode !== content) {
-            content.insertBefore(parked, content.firstChild);
-          }
-        } else if (!isPhone && parked && parked.childNodes.length) {
-          var hero = document.querySelector(".vc-page-cine-hero");
-          var restoreHead = hero && hero.querySelector(".vc-hero-head");
-          if (restoreHead) {
-            var inline = restoreHead.querySelector(".vc-page-cine-aside-inline");
-            if (!inline) {
-              inline = document.createElement("div");
-              inline.className = "vc-page-cine-aside-inline";
-              restoreHead.appendChild(inline);
-            }
-            while (parked.firstChild) inline.appendChild(parked.firstChild);
-            restoreHead.classList.add("vc-hero-head--has-aside");
-          }
-          if (parked.parentNode) parked.parentNode.removeChild(parked);
+          while (parked.firstChild) inline.appendChild(parked.firstChild);
+          restoreHead.classList.add("vc-hero-head--has-aside");
         }
+        if (parked && parked.parentNode) parked.parentNode.removeChild(parked);
       }
 
       if (body.classList.contains("vc-candidature-page")) {
-        /* candTipsInHero1: tip sempre dentro hero card (niente park sotto) */
+        /* candTipsInHeroPhone1: tip SEMPRE dentro hero (anche telefono), come tickets */
         var belowHost = document.querySelector(".vc-candidature-pair-below");
-        var pairInBelow = belowHost && belowHost.querySelector(".vc-candidature-hero-pair");
-        var heroHost =
-          document.querySelector(".vc-page-cine-hero .vc-hero-head") ||
-          document.querySelector(".vc-page-cine-hero .vc-page-cine-hero__inner") ||
-          document.querySelector(".vc-page-cine-hero") ||
-          document.querySelector(".vc-support-page-hero .grid") ||
-          document.querySelector(".vc-support-page-hero");
-        if (pairInBelow && heroHost) {
-          heroHost.appendChild(pairInBelow);
+        var headCand = document.querySelector(".vc-page-cine-hero .vc-hero-head");
+        if (belowHost && belowHost.childNodes.length && headCand) {
+          var inlineCand = headCand.querySelector(".vc-page-cine-aside-inline");
+          if (!inlineCand) {
+            inlineCand = document.createElement("div");
+            inlineCand.className = "vc-page-cine-aside-inline";
+            headCand.appendChild(inlineCand);
+          }
+          while (belowHost.firstChild) inlineCand.appendChild(belowHost.firstChild);
+          headCand.classList.add("vc-hero-head--has-aside");
         }
         if (belowHost) {
           belowHost.hidden = true;
           belowHost.setAttribute("hidden", "");
+          if (belowHost.parentNode && !belowHost.childNodes.length) {
+            try {
+              belowHost.parentNode.removeChild(belowHost);
+            } catch (eRm) {}
+          }
         }
+        if (headCand) headCand.classList.add("vc-hero-head--has-aside");
       }
     } catch (ePark) {}
   }
@@ -1835,12 +2767,10 @@
     if (cue) {
       try {
         cue.classList.add("vc-home-scrollcue--vp");
-        document.body.appendChild(cue);
-      } catch (eCueBody) {
-        try {
-          hero.appendChild(cue);
-        } catch (eCueHero) {}
-      }
+        /* scrollCuePinHide2: mai rimettere nell'hero */
+        if (document.body) document.body.appendChild(cue);
+        pinScrollCueLayout(cue, hero);
+      } catch (eCueBody) {}
     }
 
     hero.dataset.vcHomeHeroBuilt = "1";
@@ -1987,12 +2917,17 @@
 
     var leads = copy.querySelectorAll("h1 + p, :scope > p");
     for (var l = 0; l < leads.length; l++) {
+      /* candDraftToastKill1: status-line nascosta ≠ lead (gap CTA fantasma) */
       if (
         leads[l].classList.contains("vc-hero-kicker") ||
         leads[l].classList.contains("vc-hero-about") ||
         leads[l].classList.contains("vc-support-donate-refund-note") ||
         leads[l].classList.contains("vc-regole-disclaimer") ||
-        leads[l].id === "vc-regole-disclaimer"
+        leads[l].classList.contains("vc-candidature-status-line") ||
+        leads[l].id === "vc-regole-disclaimer" ||
+        leads[l].id === "vc-candidature-status-line" ||
+        leads[l].hidden === true ||
+        leads[l].hasAttribute("hidden")
       ) {
         continue;
       }
@@ -2027,72 +2962,26 @@
   }
 
   function initPageHeroRise(hero) {
-    if (!hero || prefersReduced()) return;
-    try {
-      if (window.VcPerf && typeof window.VcPerf.isMidOrLite === "function" && window.VcPerf.isMidOrLite()) {
-        hero.classList.remove("vc-home-rise");
-        hero.classList.add("is-in");
-        var fastBits = hero.querySelectorAll(".vc-home-rise");
-        for (var fb = 0; fb < fastBits.length; fb++) fastBits[fb].classList.add("is-in");
-        return;
-      }
-    } catch (eFastRise) {}
+    /* cueKeep1: niente rise ritardato post-reveal (micro-reflow hero/card) — scrollcue resta */
+    if (!hero) return;
     hero.classList.remove("vc-home-rise");
     hero.classList.add("is-in");
-
-    if (hero.dataset.vcHeroRise === "1") return;
     hero.dataset.vcHeroRise = "1";
-
     var head = hero.querySelector(".vc-hero-head") || hero.querySelector(".vc-support-intro-shell");
     if (head) {
-            head.classList.remove("vc-home-rise");
+      head.classList.remove("vc-home-rise");
       head.classList.add("is-in");
     }
-
     var bits = hero.querySelectorAll(
-      ".vc-hero-kicker, .vc-brand-glow, .vc-hero-about, .vc-hero-head a.vc-header-pill, .vc-page-cine-aside-inline > [class*='rounded-'], .vc-page-cine-aside-inline .grid > [class*='rounded-']"
+      ".vc-home-rise, .vc-hero-kicker, .vc-brand-glow, .vc-hero-about, .vc-hero-head a.vc-header-pill, .vc-page-cine-aside-inline > [class*='rounded-'], .vc-page-cine-aside-inline .grid > [class*='rounded-'], .vc-sponsor-embed"
     );
-    var riseBits = [];
     for (var h = 0; h < bits.length; h++) {
-      if (!isVisibleEl(bits[h])) continue;
-      markRise(bits[h], 0);
-      riseBits.push(bits[h]);
+      try {
+        bits[h].classList.remove("vc-home-rise");
+        bits[h].classList.add("is-in");
+        bits[h].style.removeProperty("--vc-rise-delay");
+      } catch (eBit) {}
     }
-
-    var revealed = false;
-    function revealHeroBits() {
-      if (revealed) return;
-      revealed = true;
-      for (var i = 0; i < riseBits.length; i++) {
-        riseBits[i].classList.add("is-in");
-      }
-    }
-
-    if (typeof IntersectionObserver === "undefined") {
-      revealHeroBits();
-      return;
-    }
-
-    var watch = head || hero;
-    var heroIo = new IntersectionObserver(
-      function (entries) {
-        for (var e = 0; e < entries.length; e++) {
-          if (!entries[e].isIntersecting) continue;
-          watch.classList.add("is-in");
-          revealHeroBits();
-          heroIo.unobserve(watch);
-          break;
-        }
-      },
-      { root: null, rootMargin: "0px 0px -8% 0px", threshold: 0.12 }
-    );
-    heroIo.observe(watch);
-
-    try {
-      var r = hero.getBoundingClientRect();
-      var fold = window.innerHeight || 800;
-      if (r.top < fold * 0.85 && r.bottom > 40) revealHeroBits();
-    } catch (eHeroIn) {}
   }
 
   function initPageHeroLayout(opts) {
@@ -2212,25 +3101,39 @@
   }
 
   function ensureCommunityPageCineLayout() {
+    /* violKillEmoji1d: una sola passata — prima faceva force×3 + rAF = Violation 200–300ms */
+    var now = Date.now();
+    if (window.__vcCommunityLayoutAt && now - window.__vcCommunityLayoutAt < 1500) return;
+    window.__vcCommunityLayoutAt = now;
     if (!isUsersCommunityPage()) {
-      initPageHeroLayout({ force: true });
+      initPageHeroLayout({ force: false });
       return;
     }
-            initPageHeroLayout({ force: true });
+    initPageHeroLayout({ force: false });
     bindInnerHeroScrollFx();
     snapScrollTopIfPristine();
     whenCommunityLeaderReady(function () {
-      initPageHeroLayout({ force: true });
-      bindInnerHeroScrollFx();
-      snapScrollTopIfPristine();
-      requestAnimationFrame(function () {
-        initPageHeroLayout({ force: true });
-      });
+      if (Date.now() - window.__vcCommunityLayoutAt < 400) return;
+      window.__vcCommunityLayoutAt = Date.now();
+      if (typeof window.__vcLight === "function") {
+        window.__vcLight(function () {
+          initPageHeroLayout({ force: false });
+          bindInnerHeroScrollFx();
+          snapScrollTopIfPristine();
+        }, 180);
+      } else {
+        window.setTimeout(function () {
+          initPageHeroLayout({ force: false });
+          bindInnerHeroScrollFx();
+          snapScrollTopIfPristine();
+        }, 180);
+      }
     });
   }
 
   window.__vcPageHeroLayout = initPageHeroLayout;
   window.__vcEnsureCommunityPageCineLayout = ensureCommunityPageCineLayout;
+  window.__vcMarkPageCineReady = markPageCineReady;
 
   function startCueBounce(cue) {
     if (!cue) return;
@@ -2279,7 +3182,7 @@
       if (el.id === "vc-regole-tabs" || el.id === "vc-staff-guide-tabs" || el.id === "vc-regole-list" || el.id === "vc-staff-guide-list") {
         continue;
       }
-      if ((el.offsetHeight || 0) > 0 && (el.offsetHeight || 0) < 48) continue;
+      /* violKillFinal2: niente offsetHeight (Forced reflow) */
       var innerCards = el.querySelectorAll(
         ":scope > .vc-faq-group, :scope > .vc-faq-item, :scope > .vc-regole-card, :scope > .vc-role-card, :scope > .vc-reviews-card:not(.vc-reviews-stage__card), :scope > .vc-reviews-formcard, :scope > .vc-page-cine-card, :scope > .vc-perks-card, :scope > .vc-legal-card, :scope > .vc-staff-block, :scope > section, :scope > article"
       );
@@ -2288,7 +3191,6 @@
           var inner = innerCards[j];
           if (inner.closest && (inner.closest("#vc-regole-list") || inner.closest("#vc-staff-guide-list"))) continue;
           if (inner.hidden || inner.hasAttribute("hidden")) continue;
-          if ((inner.offsetHeight || 0) > 0 && (inner.offsetHeight || 0) < 48) continue;
           list.push(inner);
         }
       } else {
@@ -2299,8 +3201,8 @@
   }
 
   function bodyCascadeShouldTrigger() {
-    /* violPass10: solo pageYOffset — niente getBoundingClientRect (Forced reflow su scroll) */
-    var y = window.pageYOffset || document.documentElement.scrollTop || 0;
+    /* violKillFinal2: solo cache Y — niente pageYOffset in scroll/rAF */
+    var y = Math.max(0, Math.round(Number(window.__vcCachedScrollY) || 0));
     return y > 48;
   }
 
@@ -2310,23 +3212,21 @@
     if (!state.items || !state.items.length) return;
     state.played = true;
     window.__vcPageBodyCascadeDone = true;
-    var snappy = shouldSnappyBodyFx();
-    for (var i = 0; i < state.items.length; i++) {
-      if (snappy) {
-        try {
-          state.items[i].el.classList.add("is-in");
-        } catch (eInSnap) {}
-        continue;
+    /* violKillFinal2: 1 classList per turno — no storm sync su N nodi */
+    var i = 0;
+    function step() {
+      if (i >= state.items.length) return;
+      try {
+        state.items[i].el.classList.add("is-in");
+      } catch (eIn) {}
+      i += 1;
+      if (i < state.items.length) {
+        if (typeof window.__vcLight === "function") window.__vcLight(step, 40);
+        else window.setTimeout(step, 40);
       }
-      (function (item) {
-        var timer = window.setTimeout(function () {
-          try {
-            item.el.classList.add("is-in");
-          } catch (eIn) {}
-        }, item.delay);
-        state.timers.push(timer);
-      })(state.items[i]);
     }
+    if (typeof window.__vcLight === "function") window.__vcLight(step, 40);
+    else window.setTimeout(step, 40);
   }
 
   function initPageBodyCascade() {
@@ -2346,20 +3246,24 @@
 
     if (!window.__vcPageBodyCascade) {
       window.__vcPageBodyCascade = { played: false, items: [], timers: [] };
-      var cascadeScrollRaf = 0;
+      var cascadeScrollArmed = 0;
       window.addEventListener(
         "scroll",
         function () {
+          /* violKillFinal2: scroll = solo arm — play fuori (era rAF Violation 145ms) */
           if (window.__vcPageBodyCascade.played) return;
-          if (cascadeScrollRaf) return;
-          cascadeScrollRaf = window.requestAnimationFrame(function () {
-            cascadeScrollRaf = 0;
+          if (cascadeScrollArmed) return;
+          cascadeScrollArmed = 1;
+          var go = function () {
+            cascadeScrollArmed = 0;
             try {
               if (window.__vcPageBodyCascade.played) return;
               if (!bodyCascadeShouldTrigger()) return;
               playPageBodyCascade();
             } catch (eSc) {}
-          });
+          };
+          if (typeof window.__vcLight === "function") window.__vcLight(go, 120);
+          else window.setTimeout(go, 120);
         },
         { passive: true }
       );
@@ -2420,7 +3324,7 @@
 
   function initHomeFx() {
     var coarse = isCoarse();
-        var instant = false;
+        var instant = true; /* cueKeep1 */
 
     try {
       document.documentElement.classList.add("vc-home-motion-ready");
@@ -2833,20 +3737,34 @@
     if (primary) {
       primary.classList.add("vc-home-pulse-cta");
       primary.addEventListener("pointerdown", function (ev) {
+        /* violKillReflow1 + violKillVis1: niente void offsetWidth — double rAF */
         var rect = primary.getBoundingClientRect();
         var x = ((ev.clientX - rect.left) / Math.max(1, rect.width)) * 100;
         var y = ((ev.clientY - rect.top) / Math.max(1, rect.height)) * 100;
         primary.style.setProperty("--vc-ripple-x", x.toFixed(1) + "%");
         primary.style.setProperty("--vc-ripple-y", y.toFixed(1) + "%");
         primary.classList.remove("is-rippling");
-        void primary.offsetWidth;
-        primary.classList.add("is-rippling");
+        window.requestAnimationFrame(function () {
+          window.requestAnimationFrame(function () {
+            try {
+              primary.classList.add("is-rippling");
+            } catch (eRip) {}
+          });
+        });
       });
     }
 
       }
 
   function hasRealCineInterior(hero) {
+    try {
+      if (document.body && document.body.getAttribute("data-vc-cine-baked") === "1") {
+        return Boolean(
+          document.querySelector(".vc-page-cine-hero__inner .vc-hero-head") ||
+            (hero && hero.querySelector && hero.querySelector(".vc-page-cine-hero__inner .vc-hero-head")),
+        );
+      }
+    } catch (eBaked) {}
     if (!hero || !hero.querySelector) return false;
     try {
       return Boolean(
@@ -3035,6 +3953,10 @@
   }
 
   function boot() {
+    try {
+      armScrollCueSkipWatch();
+      if (skipScrollCuePage()) killScrollCueDom();
+    } catch (eCueBoot) {}
     wireGpuQuietPageHidden();
     primeMobileCineClasses();
     var body = document.body;
@@ -3053,7 +3975,14 @@
         if ("scrollRestoration" in history) history.scrollRestoration = "manual";
       } catch (eHomeScroll) {}
       resetHomeScroll();
-      window.addEventListener("pageshow", resetHomeScroll);
+      /* violKillCue2: resetHomeScroll fuori dallo storm setTimeout(0) */
+      window.addEventListener("pageshow", function (ev) {
+        window.setTimeout(function () {
+          try {
+            resetHomeScroll(ev);
+          } catch (eRs) {}
+        }, 64);
+      });
       var intro = document.getElementById("intro");
       if (intro && intro.className.indexOf("vc-home-cine-hero") < 0) {
         intro.className += " vc-home-cine-hero";
@@ -3321,11 +4250,26 @@
       if (window.VcPerf && window.VcPerf.isLite()) targetFps = 10;
       if (coarse) targetFps = Math.min(targetFps, 10);
             if (home && !coarse) targetFps = Math.min(targetFps, 14);
+      /* apiJankCut1: mid → fps più bassi + freeze più presto */
+      if (
+        document.documentElement.classList.contains("vc-perf-mid") ||
+        (window.VcPerf && typeof window.VcPerf.isMidOrLite === "function" && window.VcPerf.isMidOrLite())
+      ) {
+        targetFps = Math.min(targetFps, 18);
+      }
     } catch (eFps) {}
     var minFrameMs = 1000 / targetFps;
     var lastFrameAt = 0;
         var lastInputAt = 0;
     var IDLE_FREEZE_MS = coarse ? 700 : lite ? 1800 : home ? 900 : 2800;
+    try {
+      if (
+        document.documentElement.classList.contains("vc-perf-mid") ||
+        (window.VcPerf && typeof window.VcPerf.isMidOrLite === "function" && window.VcPerf.isMidOrLite())
+      ) {
+        IDLE_FREEZE_MS = Math.min(IDLE_FREEZE_MS, home ? 500 : 900);
+      }
+    } catch (eIdleMs) {}
     var PHONE_AUTO_IDLE_MS = 900;
     var HOME_AUTO_IDLE_MS = 700;
     var resumeTimer = 0;
@@ -3828,6 +4772,7 @@
     var DEFAULT_KEY = "home.welcome";
     var DEFAULT_IT = "Benvenut* su";
     var CACHE_KEY = "vc.welcomePronoun.v1";
+    var STICKY_KEY = "vc.welcomePronoun.sticky.v1";
     var inflight = 0;
     var lastUid = "";
     var appliedGendered = false;
@@ -3872,6 +4817,7 @@
     function readLocalCache() {
       try {
         var raw = sessionStorage.getItem(CACHE_KEY);
+        if (!raw) raw = localStorage.getItem(STICKY_KEY);
         if (!raw) return null;
         var obj = JSON.parse(raw);
         if (!obj || !obj.i18nKey || !obj.badge) return null;
@@ -3887,14 +4833,17 @@
         if (!payload || !payload.ok) return;
         var key = String(payload.i18nKey || "").trim();
         if (key !== "home.welcomeM" && key !== "home.welcomeF") return;
-        sessionStorage.setItem(
-          CACHE_KEY,
-          JSON.stringify({
-            userId: String(uid || payload.userId || lastUid || "").trim(),
-            i18nKey: key,
-            badge: String(payload.badge || "").trim(),
-            exp: Date.now() + 30 * 60 * 1000,
-          }),
+        var entry = {
+          userId: String(uid || payload.userId || lastUid || "").trim(),
+          i18nKey: key,
+          badge: String(payload.badge || "").trim(),
+          exp: Date.now() + 30 * 60 * 1000,
+        };
+        sessionStorage.setItem(CACHE_KEY, JSON.stringify(entry));
+        /* chromeStickyAll1: sticky 7g su localStorage — paint immediato al reload */
+        localStorage.setItem(
+          STICKY_KEY,
+          JSON.stringify(Object.assign({}, entry, { exp: Date.now() + 604800000 })),
         );
       } catch (eW) {}
     }
@@ -3903,6 +4852,9 @@
       try {
         sessionStorage.removeItem(CACHE_KEY);
       } catch (eC) {}
+      try {
+        localStorage.removeItem(STICKY_KEY);
+      } catch (eC2) {}
     }
 
     function clearTokenRetry() {
@@ -4118,9 +5070,11 @@
         var curKey = welcomeEl() && welcomeEl().getAttribute("data-vc-welcome-pronoun");
         wasInclusive = !curKey || curKey === DEFAULT_KEY || curKey === "home.welcome";
       } catch (eInc) {}
+      var provisional = opts.provisional === true || String(data.source || "").trim() === "fallback";
       setBadge(key, text, {
         fromApi: true,
-        resolved: true,
+        /* fallback inclusivo: mostra ma non lockare ready */
+        resolved: !provisional || key === "home.welcomeM" || key === "home.welcomeF",
         /* always animate when upgrading from Benvenut* → gendered */
         animate: opts.animate !== false && !opts.silent && (!same || wasInclusive),
       });
@@ -4172,12 +5126,27 @@
           if (data && data.ok && data.userId) {
             lastUid = String(data.userId);
           }
-          if (data && data.ok) welcomeFetchDoneOk = true;
+          /* authDiscordSticky1: source=fallback (ruoli Discord non arrivati) ≠ risolto —
+             altrimenti Benvenut* si “chiude” e non ritenta quando l’API riparte */
+          var provisionalFallback =
+            data &&
+            data.ok &&
+            String(data.source || "").trim() === "fallback" &&
+            String(data.i18nKey || "") === "home.welcome";
+          if (data && data.ok && !provisionalFallback) welcomeFetchDoneOk = true;
+          else if (provisionalFallback) welcomeFetchDoneOk = false;
           if (data && data.error === "rate_limited") {
             applyFromApi(null, { animate: false });
             return;
           }
-          applyFromApi(data, { animate: opts.animate !== false, silent: opts.silent === true });
+          applyFromApi(data, {
+            animate: opts.animate !== false,
+            silent: opts.silent === true,
+            provisional: provisionalFallback === true,
+          });
+          if (provisionalFallback && getToken()) {
+            scheduleRateLimitRetry(lastUid || uid || "pending");
+          }
           /* background revalidate once if we used cache */
           if (!opts.fresh && data && data.ok && data.cached) {
             window.setTimeout(function () {
@@ -4228,9 +5197,36 @@
       fetchWelcomePronouns(uid, { fresh: false, animate: true });
     }
 
+    function paintStickyWelcomeNow() {
+      try {
+        if (!getToken()) return false;
+        var cached = readLocalCache();
+        if (!cached || (cached.i18nKey !== "home.welcomeM" && cached.i18nKey !== "home.welcomeF"))
+          return false;
+        if (!welcomeEl()) return false;
+        if (cached.userId) lastUid = String(cached.userId);
+        applyFromApi(
+          {
+            ok: true,
+            userId: cached.userId || lastUid || "pending",
+            i18nKey: cached.i18nKey,
+            badge: cached.badge,
+            source: "sticky",
+          },
+          { animate: false, silent: true },
+        );
+        return true;
+      } catch (eSticky) {
+        return false;
+      }
+    }
+
     function bootFromExisting() {
-      /* violPass12: lavoro pesante fuori dal tick sync (era setTimeout ~150–350ms) */
-      window.setTimeout(function () {
+      /* violPass12 + violKill3: idle — evita setTimeout Violation ~150–350ms */
+      var runBoot = function () {
+        try {
+          paintStickyWelcomeNow();
+        } catch (ePaint) {}
         try {
           if (window.__VC_DISCORD_PROFILE && window.__VC_DISCORD_PROFILE.id) {
             onProfile(window.__VC_DISCORD_PROFILE);
@@ -4251,6 +5247,7 @@
               userId: cached.userId || lastUid || "pending",
               i18nKey: cached.i18nKey,
               badge: cached.badge,
+              source: "sticky",
             },
             { animate: !appliedGendered },
           );
@@ -4260,6 +5257,13 @@
             fetchWelcomePronouns(lastUid || "pending", { fresh: false, animate: !appliedGendered });
           } catch (eF) {}
         }, 0);
+      };
+      /* violKillIdle2: boot welcome spezzato */
+      window.setTimeout(function () {
+        try {
+          if (document.hidden) return;
+          runBoot();
+        } catch (eBoot) {}
       }, 0);
     }
 
@@ -4282,8 +5286,13 @@
           if (!appliedGendered) setBadge(DEFAULT_KEY, DEFAULT_IT, { fromApi: false });
         }
       };
-      /* violPass10: setTimeout — requestIdleCallback({timeout}) → Violation idle */
-      window.setTimeout(run, 0);
+      /* violKillIdle2: onProfile deferred + skip hidden */
+      window.setTimeout(function () {
+        try {
+          if (document.hidden) return;
+          run();
+        } catch (eProf) {}
+      }, 0);
     });
     window.addEventListener("vc:auth-logout", function () {
       resetBadge();
@@ -4305,6 +5314,9 @@
       }
     });
 
+    try {
+      paintStickyWelcomeNow();
+    } catch (eEarlySticky) {}
     if (document.readyState === "loading") {
       document.addEventListener("DOMContentLoaded", bootFromExisting);
     } else {
@@ -4319,11 +5331,22 @@
   })();
 })();
 /* welcomePronouns9 */
+/* chromeStickyAll1 */
 /* violKill1 */
+/* violKillCue2 */
+/* violKillReflow2 */
 /* extOnlyFix1 */
 /* violPass10 */
 /* violPass12 */
 /* scrollCueNoFollow1 */
-/* scrollCueFade1 */
+/* scrollCueInstantHide1 */
 /* scrollCueBoardsKeep1 */
+/* bootUiCueBar1 */
+/* boardsScrollCuePhone1 */
 
+/* boardsCineRestore2 */
+/* schedaBootCue1 */
+
+/* cueKeep1 */
+
+/* cueMarginBar1 */

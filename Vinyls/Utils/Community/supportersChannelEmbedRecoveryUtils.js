@@ -2,7 +2,15 @@ const { AuditLogEvent } = require("discord.js");
 
 const DEFAULT_RECOVERY_LOOKBACK_MS = 24 * 60 * 60 * 1000;
 const EMBED_DEDUPE_LOOKBACK_MS = 90 * 24 * 60 * 60 * 1000;
-const MAX_SUPPORTERS_CHANNEL_SCAN = 400;
+/* canale supporters traffico alto: 400 bastava a far fallire il dedupe e ri-mandare */
+const MAX_SUPPORTERS_CHANNEL_SCAN = 1500;
+
+function blobMentionsUser(blob, userId) {
+  const uid = String(userId || "").trim();
+  if (!uid) return false;
+  const text = String(blob || "");
+  return text.includes(`<@${uid}>`) || text.includes(`<@!${uid}>`) || text.includes(uid);
+}
 
 function recoverySleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -74,7 +82,6 @@ function messageTextBlob(message) {
 
 async function countBotSupportersEmbedsForUser(channel, userId, botId, sinceMs, predicate) {
   if (!channel?.messages?.fetch || !userId) return 0;
-  const needle = `<@${String(userId)}>`;
   const minTs = Math.max(0, Number(sinceMs || 0) - 5000);
   let count = 0;
   let before;
@@ -93,7 +100,7 @@ async function countBotSupportersEmbedsForUser(channel, userId, botId, sinceMs, 
       if (ts && ts < minTs) continue;
       if (botId && String(m.author?.id || "") !== botId) continue;
       const blob = messageTextBlob(m);
-      if (!blob.includes(needle)) continue;
+      if (!blobMentionsUser(blob, userId)) continue;
       if (typeof predicate === "function" && !predicate(blob, m)) continue;
       count += 1;
     }
@@ -113,10 +120,12 @@ async function botSupportersEmbedExistsForUser(channel, userId, botId, sinceMs, 
 module.exports = {
   DEFAULT_RECOVERY_LOOKBACK_MS,
   EMBED_DEDUPE_LOOKBACK_MS,
+  MAX_SUPPORTERS_CHANNEL_SCAN,
   recoverySleep,
   isRecoveryPrimaryShard,
   collectRecentRoleAddsFromAudit,
   countBotSupportersEmbedsForUser,
   botSupportersEmbedExistsForUser,
   messageTextBlob,
+  blobMentionsUser,
 };

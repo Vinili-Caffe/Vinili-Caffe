@@ -11,7 +11,7 @@ const { PermissionsBitField } = require("discord.js");
 const TIME_ZONE = "Europe/Rome";
 const CUSTOM_VOC_WEEKLY_MIN_SECONDS = 5 * 60 * 60;
 const CUSTOM_VOC_MAX_FAILED_WEEKS = 3;
-const CUSTOM_VOC_RECREATION_COOLDOWN_MS = 0;
+const CUSTOM_VOC_RECREATION_COOLDOWN_MS = 14 * 24 * 60 * 60 * 1000;
 const CUSTOM_VOC_RETROACTIVE_MAX_WEEKS = 104;
 
 const romeDateTimeFormatter = new Intl.DateTimeFormat("en-GB", {

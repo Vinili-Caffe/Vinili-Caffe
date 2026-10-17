@@ -11,7 +11,6 @@ const NUMBER_EMOJIS = ["<:1_:1444099163116535930>", "<:2_:1444099161673826368>",
 const POLL_VOTE_EMOJI_IDS = new Set(
   NUMBER_EMOJIS.map((entry) => String(entry.match(/:(\d+)>$/)?.[1] || "").trim()).filter(Boolean),
 );
-const POLL_ROLE_ID = "1544830663822147625";
 const NATIVE_POLL_QUESTION_MAX = 300;
 const NATIVE_POLL_ANSWER_MAX = 55;
 const DEFAULT_NATIVE_POLL_DURATION_HOURS = 24;
@@ -73,9 +72,7 @@ function buildNativePollMessageOptions(question, answers, durationHours = DEFAUL
 }
 
 function buildChatNativePollContent(pollNumber) {
-  return `<a:VC_Ping:1482694298687246377>︲<@&${POLL_ROLE_ID}>
-
-<:VC_id:1478517313618575419> **Poll #${pollNumber}**`;
+  return `<:VC_id:1478517313618575419> **Poll #${pollNumber}**`;
 }
 
 async function getPollChannelFromGuild(guild) {
@@ -176,7 +173,7 @@ function buildPollMessageContent(pollNumber, question, answersText) {
 
 ${answersText}
 
-<a:VC_Ping:1482694298687246377>︲<@&1544830663822147625>`;
+`;
 }
 
 async function applyPollReactions(pollMessage, reactionEmojis) {
@@ -360,7 +357,7 @@ async function createPollForGuild(guild, payload = {}) {
       .send({
         content: buildChatNativePollContent(pollNumber),
         ...nativeOptions,
-        allowedMentions: { roles: [POLL_ROLE_ID] },
+        allowedMentions: { parse: [] },
       })
       .catch((err) => {
         global.logger?.warn?.("[poll] native chat poll send failed:", {

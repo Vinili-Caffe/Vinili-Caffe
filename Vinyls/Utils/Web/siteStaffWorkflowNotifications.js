@@ -20,6 +20,7 @@ const QUEUE_TAB = Object.freeze({
   candidature: "candidature",
   appelli: "appelli",
   resoconti: "resoconti",
+  revisione: "revisione",
 });
 
 const DIGESTABLE_QUEUES = new Set(["resoconti"]);
@@ -27,15 +28,45 @@ const DIGEST_LABEL = Object.freeze({
   resoconti: "resoconti",
 });
 
+function profileStaffOpenUrl(staffOpen, subjectUserId = "", extra = {}) {
+  const open = String(staffOpen || "").trim();
+  if (!open) return "/user/?tab=staff";
+  const subject = String(subjectUserId || "").trim();
+  let url = /^\d{16,22}$/.test(subject)
+    ? `/user/?id=${encodeURIComponent(subject)}&tab=staff&staffOpen=${encodeURIComponent(open)}`
+    : `/user/?tab=staff&staffOpen=${encodeURIComponent(open)}`;
+  const pauseId = String(extra.pauseId || "").trim();
+  const resoId = String(extra.resoId || "").trim();
+  if (pauseId) url += `&pauseId=${encodeURIComponent(pauseId)}`;
+  if (resoId) url += `&resoId=${encodeURIComponent(resoId)}`;
+  return url;
+}
+
 function inboxOpenUrl(queue, itemHint = "", subjectUserId = "") {
   const q = String(queue || "").trim().toLowerCase();
   const hint = String(itemHint || "").trim();
   const subject = String(subjectUserId || "").trim();
-  /* pauseOutInbox1: Pause fuori inbox → profilo staff (card giorni). */
-  if (q === "pause" && /^\d{16,22}$/.test(subject)) {
-    let url = `/user/?id=${encodeURIComponent(subject)}&tab=staff&staffOpen=pause`;
-    if (hint) url += `&pauseId=${encodeURIComponent(hint)}`;
-    return url;
+  /* pauseOutInbox1 / pauseResoNotifProfile1: fuori inbox → card sul profilo staff */
+  if (q === "pause") {
+    return profileStaffOpenUrl("pause", subject, { pauseId: hint });
+  }
+  /* resoProfile1 / pauseResoNotifProfile1: fuori inbox → card resoconto sul profilo */
+  if (q === "resoconti") {
+    return profileStaffOpenUrl("resoconto", subject, { resoId: hint });
+  }
+  /* boardsRevPreview1: revisione → anteprima scheda (Approva/Rifiuta lì) */
+  if (q === "revisione") {
+    let lid = hint
+      .replace(/^boards:revisione:/i, "")
+      .replace(/^revisione:/i, "")
+      .trim();
+    if (!/^[a-f0-9]{24}$/i.test(lid)) {
+      const m = hint.match(/([a-f0-9]{24})/i);
+      lid = m ? m[1] : "";
+    }
+    /* boardsRevLangPath1: scheda?id= (no pretty path — evita miss con /en/…) */
+    if (lid) return `/bacheca/scheda/?id=${encodeURIComponent(lid)}&review=1`;
+    return `/notifications/?view=staff&inbox=revisione&scope=pending`;
   }
   const tab = QUEUE_TAB[q] || "candidature";
   let url = `/notifications/?view=staff&inbox=${encodeURIComponent(tab)}&scope=pending`;
@@ -94,6 +125,9 @@ async function getInboxRecipientUserIds(guild, queue, opts = {}) {
     ]);
     const ownerId = String(guild.ownerId || "").trim();
     if (/^\d{16,22}$/.test(ownerId)) ids.push(ownerId);
+  } else if (q === "revisione") {
+    /* boardsRevHsOnly1: solo High Staff (come pause), non tutto lo Staff */
+    ids = await collectIdsForRoleIds(guild, staffLadderRoleIds(STAFF_HIGH_STAFF_ELIGIBLE_KEYS));
   } else if (q === "resoconti") {
     const segment =
       kindHint === "p"
@@ -116,10 +150,13 @@ async function notifyInboxStaffNewItem(opts = {}) {
   if (!guild || !guildId || !QUEUE_TAB[queue]) return 0;
 
   const subjectUserId = String(opts.subjectUserId || "").trim();
+  /* boardsInboxSelfNotif1: in revisione bacheca il mittente è spesso staff
+     (es. scheda del server principale) → non escluderlo dalla notifica. */
+  const keepSubject = queue === "revisione" || opts.includeSubject === true;
   const recipients = (await getInboxRecipientUserIds(guild, queue, {
     roleId: opts.roleId,
     kind: opts.kind,
-  })).filter((id) => id && id !== subjectUserId);
+  })).filter((id) => id && (keepSubject || id !== subjectUserId));
   if (!recipients.length) return 0;
 
   const subjectName = String(opts.subjectName || "").trim() || "Un utente";
@@ -171,6 +208,16 @@ async function notifyInboxStaffNewItem(opts = {}) {
       }).catch(() => false);
     }),
   ).catch(() => null);
+  /* inboxBadgeLive1: bust summary cache subito — altrimenti campanella/categoria restano a 0 per TTL */
+  try {
+    const { invalidateWorkflowSummaryCache } = require("./siteStaffWorkflowApi");
+    invalidateWorkflowSummaryCache();
+  } catch (_) {}
+  /* siteLiveAll1: nuovo item inbox → refresh liste aperte subito (oltre alle notif) */
+  try {
+    const { broadcastSiteStaffWorkflowChangedDebounced } = require("./siteSuggestionsBroadcast");
+    broadcastSiteStaffWorkflowChangedDebounced(queue);
+  } catch (_) {}
   return recipients.length;
 }
 
@@ -228,6 +275,12 @@ function practiceLabel(queue, workflow) {
   const q = String(queue || "").trim().toLowerCase();
   if (q === "candidature") return "candidatura";
   if (q === "pause") return "richiesta pausa";
+  if (q === "revisione") {
+    const bk = String(workflow?.workflowKind || workflow?.workflowType || "")
+      .trim()
+      .toLowerCase();
+    return bk === "bot" ? "scheda bot" : "scheda server";
+  }
   const kind = String(workflow?.workflowKind || workflow?.workflowType || "")
     .trim()
     .toLowerCase();
@@ -244,6 +297,7 @@ function subjectChatOpenUrl(queue, dedupeKey) {
   } catch {
     const q = String(queue || "").trim().toLowerCase();
     const key = String(dedupeKey || "").trim();
+    if (q === "revisione") return "/bacheca/le-mie/";
     const base = q === "appelli" ? "/appelli/" : "/candidature/";
     return key ? `${base}?chat=${encodeURIComponent(key)}` : base;
   }
@@ -325,7 +379,7 @@ async function notifyWorkflowSubjectInvited(opts = {}) {
       title: "Richiedente in chat",
       body: `${actorName} ha aggiunto il richiedente alla discussione (${label}).`,
       kind: "info",
-      openUrl: inboxOpenUrl(queue, itemHintFromDedupe(dedupeKey)),
+      openUrl: inboxOpenUrl(queue, itemHintFromDedupe(dedupeKey), subjectUserId),
       dedupeKey: `wfc:invite:staff:${dedupeKey || subjectUserId}`,
       dedupeWindowMs: 3_600_000,
     },
@@ -369,7 +423,7 @@ async function notifyWorkflowSubjectRemoved(opts = {}) {
       title: "Richiedente rimosso dalla chat",
       body: `${actorName} ha rimosso il richiedente dalla discussione (${label}).`,
       kind: "info",
-      openUrl: inboxOpenUrl(queue, itemHintFromDedupe(dedupeKey)),
+      openUrl: inboxOpenUrl(queue, itemHintFromDedupe(dedupeKey), subjectUserId),
       dedupeKey: `wfc:remove:staff:${dedupeKey || subjectUserId}`,
       dedupeWindowMs: 3_600_000,
     },
@@ -406,7 +460,8 @@ async function notifyWorkflowChatNewMessage(opts = {}) {
   }
 
   const label = practiceLabel(queue, opts.workflow);
-  const inviteOnly = queue === "candidature" || queue === "appelli";
+  /* pauseInviteOnly1: pause gated come candidature/appelli */
+  const inviteOnly = queue === "candidature" || queue === "appelli" || queue === "pause";
   const dmTargets = [];
 
   if (authorKind === "staff" || (authorKind !== "user" && authorId && authorId !== subjectUserId)) {
@@ -451,7 +506,7 @@ async function notifyWorkflowChatNewMessage(opts = {}) {
       const peerBody = preview
         ? `${authorName}: ${preview}`
         : `${authorName} ha scritto nella discussione.`;
-      const peerOpen = inboxOpenUrl(queue, itemHintFromDedupe(dedupeKey));
+      const peerOpen = inboxOpenUrl(queue, itemHintFromDedupe(dedupeKey), subjectUserId);
       peerStaff = await notifyUsersList(
         guildId,
         peers,
@@ -499,7 +554,7 @@ async function notifyWorkflowChatNewMessage(opts = {}) {
     const staffBody = preview
       ? `${authorName}: ${preview}`
       : `${authorName} ha risposto nella chat.`;
-    const staffOpen = inboxOpenUrl(queue, itemHintFromDedupe(dedupeKey));
+    const staffOpen = inboxOpenUrl(queue, itemHintFromDedupe(dedupeKey), subjectUserId);
     const staff = await notifyUsersList(
       guildId,
       filtered,
@@ -590,7 +645,7 @@ async function notifyWorkflowMentions(opts = {}) {
       const isSubject = userId === subjectUserId;
       const openUrl = isSubject
         ? subjectChatOpenUrl(queue, dedupeKey)
-        : inboxOpenUrl(queue, itemHintFromDedupe(dedupeKey));
+        : inboxOpenUrl(queue, itemHintFromDedupe(dedupeKey), subjectUserId);
       return enqueueSiteInAppNotification({
         guildId,
         userId,
@@ -708,6 +763,19 @@ async function clearWorkflowLifecycleNotifs(doc) {
     try {
       if (queue && hint) openUrls.push(inboxOpenUrl(queue, hint, subjectUserId));
     } catch (_) {}
+    /* pushAutoDismiss1: alias URL così dismiss OS matcha anche digest / path vecchi.
+       Digest per-user viene tolto in removeSiteInAppNotificationsMatching (queuesHit),
+       NON con prefix globale (cancerebbe i digest di tutti). */
+    if (queue === "resoconti") {
+      openUrls.push("/user/?tab=staff&staffOpen=resoconto");
+      if (hint) openUrls.push(`/user/?tab=staff&staffOpen=resoconto&resoId=${encodeURIComponent(hint)}`);
+      openUrls.push("/notifications/?view=staff&inbox=resoconti");
+    } else if (queue === "pause") {
+      openUrls.push("/user/?tab=staff&staffOpen=pause");
+      openUrls.push("/staff/pause/");
+    } else if (queue === "candidature" || queue === "appelli" || queue === "revisione") {
+      openUrls.push(`/notifications/?view=staff&inbox=${encodeURIComponent(queue)}`);
+    }
     return await removeSiteInAppNotificationsMatching({
       exactKeys,
       prefixes,

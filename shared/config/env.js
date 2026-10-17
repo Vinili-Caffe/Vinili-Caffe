@@ -3,11 +3,16 @@ function getToken(config = {}, envKey = "DISCORD_TOKEN") {
 }
 
 function getMongoUrl(config = {}) {
+  /* mongoSingleSource1: stessa regola di Vinyls/Utils/Database/mongoConnect */
+  try {
+    const { buildMongoUrl } = require("../../Vinyls/Utils/Database/mongoConnect");
+    const url = buildMongoUrl({ config: { mongoURL: config?.mongoURL || config?.mongoUrl } });
+    if (url) return url;
+  } catch (_) {}
+  const local = String(process.env.MONGO_URL_LOCAL || process.env.MONGODB_URI_LOCAL || "").trim();
+  if (local) return local;
   return (
-    process.env.MONGO_URL_LOCAL ||
-    process.env.MONGODB_URI_LOCAL ||
-    process.env.MONGO_URL ||
-    process.env.MONGODB_URI ||
+    String(process.env.MONGO_URL || process.env.MONGODB_URI || "").trim() ||
     config?.mongoURL ||
     config?.mongoUrl ||
     null

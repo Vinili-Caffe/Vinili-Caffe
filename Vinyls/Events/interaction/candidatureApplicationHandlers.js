@@ -10,6 +10,7 @@ const { TENANT_EMBED_COLOR } = require("../../MultiGuild/utils/tenantEmbedBrandi
 const { accountUsername, guildMemberDisplayAvatarUrlDynamic } = require("../../Utils/Discord/guildDiscordIdentity");
 const { getBotState, setBotState } = require("../../Utils/BotState/botStateStore");
 const { sendPartnerManagerWelcome, sendHelperWelcome } = require("../../Utils/Staff/staffWelcomeMessages");
+const { registerShutdownFlush, armShutdownCheckpoint } = require("../../../shared/recovery/shutdownCheckpoint");
 const BOT_ROOT = path.resolve(__dirname, "..", "..");
 const APPLY_HELPER_BUTTON = "apply_helper";
 const APPLY_PM_BUTTON = "apply_partnermanager";
@@ -64,6 +65,8 @@ const cooldownByUserAndType = new Map();
 let cooldownLoaded = false;
 let countersLoaded = false;
 let draftsLoaded = false;
+/* rebootDurability1: sync pendingApplications → drafts on shutdown */
+let candidatureDraftShutdownFlushRegistered = false;
 const WEBSITE_AUTH_TIMEOUT_MS = 4500; // rolesPrefetchNoise1: UA + slightly longer; was bare abort@2800
 let lastDiscordMeWarnAt = 0;
 const {
@@ -363,6 +366,51 @@ async function persistDraftMap() {
   }
   await setBotState("applicationDrafts", out);
 }
+
+function inferDraftNextStep(stateKey, answers) {
+  const existing = draftByStateKey.get(stateKey);
+  const existingStep = Number(existing?.nextStep || 0);
+  if (Number.isFinite(existingStep) && existingStep >= 1) return Math.floor(existingStep);
+
+  const parts = String(stateKey || "").split(":");
+  const type = parts[parts.length - 1];
+  const cfg = APPLICATIONS[type];
+  if (!cfg?.questions?.length) return 1;
+  const chunks = splitQuestions(cfg.questions, 4);
+  for (let i = 0; i < chunks.length; i += 1) {
+    const incomplete = chunks[i].some((q) => !String(answers?.[q.id] || "").trim());
+    if (incomplete) return i + 1;
+  }
+  return Math.max(1, chunks.length);
+}
+
+async function syncPendingApplicationsToDraftsOnShutdown() {
+  const now = Date.now();
+  let changed = false;
+  for (const [stateKey, state] of pendingApplications.entries()) {
+    if (!stateKey || !state?.answers || typeof state.answers !== "object") continue;
+    const createdAt = Number(state.createdAt || 0);
+    if (Number.isFinite(createdAt) && createdAt > 0 && now - createdAt > STATE_TTL_MS) continue;
+    draftByStateKey.set(stateKey, {
+      answers: state.answers,
+      nextStep: inferDraftNextStep(stateKey, state.answers),
+      updatedAt: now,
+    });
+    changed = true;
+  }
+  if (changed) await persistDraftMap();
+}
+
+function ensureCandidatureDraftShutdownFlush() {
+  if (candidatureDraftShutdownFlushRegistered) return;
+  candidatureDraftShutdownFlushRegistered = true;
+  armShutdownCheckpoint();
+  registerShutdownFlush("vinyls_candidature_pending_drafts", () =>
+    syncPendingApplicationsToDraftsOnShutdown(),
+  );
+}
+
+ensureCandidatureDraftShutdownFlush();
 
 async function setDraftState(stateKey, answers, nextStep) {
   await loadDraftMap();

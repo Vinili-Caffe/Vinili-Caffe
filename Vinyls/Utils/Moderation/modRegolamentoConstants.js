@@ -6,6 +6,7 @@ const MOD_RULE_DETAIL = {
   "1.3": "Il **rispetto** è alla base di tutto. I comportamenti considerati **tossici** o **troll** saranno sanzionati (compresa la promozione di attività illecite o di raid/grief/nuke).",
   "1.4": "L'**autopromozione** è vietata (anche in **DM**). Se vuoi dare visibilità ai tuoi progetti, valuta le nostre offerte di **sponsor**.",
   "1.5": "Praticare **join-leave** per il solo scopo di **infastidire** è una pratica scorretta e non accettata.",
+  "1.6": "Invio di immagini/link **scam** con account **hackerato** o **grabbato**.",
   "2.1": "Il **doxing** è un reato e una violazione delle informazioni personali altrui. È vietato insieme all'invio di materiale **NSFW** di qualsiasi tipo.",
   "2.2": "Se possiedi i permessi per inviare **link**, non condividere materiale **esplicito** o **illecito**. File con estensioni eseguibili (`.exe`, `.jar`, `.bat`, `.sh` o altri) sono severamente vietati e verranno rimossi dallo staff. Vinili&Caffè non si assume responsabilità per eventuali danni derivati dall'uso di tali file.",
   "2.3": "Non intasare i canali con **flood** o **Wall Of Text**.",
@@ -17,9 +18,10 @@ const MOD_RULE_DETAIL = {
   "3.5": "Non restare in vocale se sei **AFK**. Se vuoi comunque rimanere nei canali **VC** con gli altri, silenzia il **microfono** e l'**audio**. Farmare **EXP** in questa maniera non è consentito. Nel caso, durante un controllo, ti trovassimo per più di **10 minuti** inattivo in un vocale o non risponderai in testuale o alle chiamate, sarai sanzionato.",
 };
 
-const BUCKET_PRIORITY = ["2_3", "2_1", "1_2", "1_4", "2_4"];
+const BUCKET_PRIORITY = ["1_6", "2_3", "2_1", "1_2", "1_4", "2_4"];
 
 const BUCKET_VIOLATION_KEYS = {
+  "1_6": new Set(["grabbed_scam_image"]),
   "2_3": new Set(["scam_pattern", "scam_image_bait", "panic_mode"]),
   "2_1": new Set(["nsfw_link"]),
   "1_2": new Set(["word_blacklist"]),
@@ -46,6 +48,12 @@ const AUTOMOD_REGOLA_STEPS = {
     { type: "timeout", ms: 24 * 60 * 60_000 },
   ],
   "1_4": [{ type: "ban" }],
+  "1_6": [
+    { type: "timeout", ms: 12 * 60 * 60_000 },
+    { type: "timeout", ms: 24 * 60 * 60_000 },
+    { type: "timeout", ms: 48 * 60 * 60_000 },
+    { type: "ban" },
+  ],
   "2_1": [{ type: "timeout", ms: 24 * 60 * 60_000 }, { type: "ban" }],
   "2_3": [{ type: "ban" }],
   "2_4": [{ type: "timeout", ms: 3 * 60 * 60_000 }, { type: "timeout", ms: 6 * 60 * 60_000 }],
@@ -54,6 +62,7 @@ const AUTOMOD_REGOLA_STEPS = {
 const BUCKET_TO_RULE_DOT = {
   "1_2": "1.2",
   "1_4": "1.4",
+  "1_6": "1.6",
   "2_1": "2.1",
   "2_3": "2.2",
   "2_4": "2.3",
@@ -70,6 +79,7 @@ const VIOLATION_KEY_LABEL_IT = {
   invite: "Invito Discord non autorizzato",
   scam_pattern: "Link malevoli / scam / file pericolosi (reg. 2.2)",
   scam_image_bait: "Immagine scam con testo esca (reg. 2.2)",
+  grabbed_scam_image: "Immagini/link scam con account hackerato o grabbato (reg. 1.6)",
   nsfw_link: "Contenuto NSFW o link non consentito (reg. 2.1)",
   word_blacklist: "Linguaggio discriminatorio / blacklist (reg. 1.2)",
   link_blacklist: "Link / dominio in blacklist / autopromozione (reg. 1.4)",

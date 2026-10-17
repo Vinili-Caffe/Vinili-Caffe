@@ -1,7 +1,7 @@
 (function (global) {
   "use strict";
 
-  var ASSET_VER = "20260928sheetUnlock1";
+  var ASSET_VER = "20261005depexPmOnlyFullFix1";
   var scriptsLoaded = false;
   var scriptsLoading = null;
 
@@ -56,6 +56,10 @@
     if (global.VCStaffManagePanel && typeof global.VCStaffManagePanel.closeModal === "function") {
       global.VCStaffManagePanel.closeModal();
     }
+    /* pexCloseSheet1: rimonta frecce peer nascoste da html.vc-staff-manage-sheet-open */
+    try {
+      global.document.dispatchEvent(new CustomEvent("vc:staff-manage-sheet-closed"));
+    } catch (eEv) {}
   }
 
   global.__vcCloseStaffManageSheet = closeManageSheet;

@@ -82,16 +82,40 @@ function runFfmpeg(args) {
   });
 }
 
+/* clipSpeechClarity1: downmix mono + EQ voce + denoise leggero + loudnorm (niente tanh squash) */
+function downmixStereoPcmToMono(pcmStereo) {
+  const frameBytes = PCM_CHANNELS * 2;
+  if (!pcmStereo?.length || PCM_CHANNELS < 2) return pcmStereo;
+  const frames = Math.floor(pcmStereo.length / frameBytes);
+  if (frames <= 0) return Buffer.alloc(0);
+  const out = Buffer.alloc(frames * 2);
+  for (let i = 0; i < frames; i += 1) {
+    const off = i * frameBytes;
+    const l = pcmStereo.readInt16LE(off);
+    const r = pcmStereo.readInt16LE(off + 2);
+    out.writeInt16LE(Math.max(-32768, Math.min(32767, Math.round((l + r) / 2))), i * 2);
+  }
+  return out;
+}
+
 async function pcmBufferToMp3(pcmBuffer, outPath) {
   const frameBytes = PCM_CHANNELS * 2;
   let pcm = pcmBuffer;
   if (!pcm?.length || pcm.length < frameBytes) throw new Error("silent");
   const remainder = pcm.length % frameBytes;
   if (remainder) pcm = pcm.subarray(0, pcm.length - remainder);
+  pcm = downmixStereoPcmToMono(pcm);
+  if (!pcm?.length || pcm.length < 2) throw new Error("silent");
 
   const tmpDir = path.dirname(outPath);
   const pcmPath = path.join(tmpDir, "slice.pcm");
   fs.writeFileSync(pcmPath, pcm);
+  /* Filtri leggeri: EQ voce + loudnorm. Niente afftdn/compressor aggressivi (mangiavano le consonanti). */
+  const speechAf = [
+    "highpass=f=80",
+    "lowpass=f=8000",
+    "loudnorm=I=-16:TP=-1.5:LRA=11",
+  ].join(",");
   await runFfmpeg([
     "-y",
     "-f",
@@ -99,11 +123,11 @@ async function pcmBufferToMp3(pcmBuffer, outPath) {
     "-ar",
     String(PCM_SAMPLE_RATE),
     "-ac",
-    String(PCM_CHANNELS),
+    "1",
     "-i",
     pcmPath,
     "-af",
-    "highpass=f=80",
+    speechAf,
     "-ac",
     "1",
     "-ar",
@@ -111,9 +135,9 @@ async function pcmBufferToMp3(pcmBuffer, outPath) {
     "-c:a",
     "libmp3lame",
     "-b:a",
-    "192k",
-    "-compression_level",
-    "0",
+    "256k",
+    "-q:a",
+    "2",
     outPath,
   ]);
   const size = fs.statSync(outPath).size;

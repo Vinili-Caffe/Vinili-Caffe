@@ -22,11 +22,14 @@ html.vc-compiti-perf .vc-home-cine {
   pointer-events: none !important;
 }
 
-/* compitiUx1: dopo reveal — scroll pagina + niente rotellina hold */
-html.vc-staff-compiti-route.vc-staff-app-revealed,
-html.vc-staff-compiti-route.vc-staff-app-revealed body.vc-staff-compiti-page,
-html.vc-compiti-perf.vc-staff-app-revealed,
-html.vc-compiti-perf.vc-staff-app-revealed body.vc-staff-compiti-page {
+/* compitiUx1 + compitiChromeSync1 + scrollBarAfterLoad1:
+   sblocca scroll dopo barra top (vc-chrome-scroll-armed). */
+html.vc-staff-compiti-route.vc-staff-app-revealed.vc-chrome-scroll-armed:not(.vc-chrome-bar-loading):not(.vc-interaction-hold),
+html.vc-staff-compiti-route.vc-staff-app-revealed.vc-chrome-scroll-armed:not(.vc-chrome-bar-loading):not(.vc-interaction-hold)
+  body.vc-staff-compiti-page,
+html.vc-compiti-perf.vc-staff-app-revealed.vc-chrome-scroll-armed:not(.vc-chrome-bar-loading):not(.vc-interaction-hold),
+html.vc-compiti-perf.vc-staff-app-revealed.vc-chrome-scroll-armed:not(.vc-chrome-bar-loading):not(.vc-interaction-hold)
+  body.vc-staff-compiti-page {
   overflow-x: hidden !important;
   overflow-y: auto !important;
   touch-action: pan-y !important;
@@ -34,22 +37,58 @@ html.vc-compiti-perf.vc-staff-app-revealed body.vc-staff-compiti-page {
   max-height: none !important;
   overscroll-behavior-y: auto !important;
 }
-/* compitiScrollUnlock2: soft-lock residuo dopo dialog/azione non deve mangiare la scrollbar */
-html.vc-staff-compiti-route.vc-staff-app-revealed:not(.vc-dialog-open):not(.vc-notif-sheet-open):not(.vc-notif-drawer-open):not(.vc-img-lb-open),
-html.vc-staff-compiti-route.vc-staff-app-revealed:not(.vc-dialog-open):not(.vc-notif-sheet-open):not(.vc-notif-drawer-open):not(.vc-img-lb-open)
+/* compitiScrollUnlock2 / scrollBarAfterLoad1 */
+html.vc-staff-compiti-route.vc-staff-app-revealed.vc-chrome-scroll-armed:not(.vc-chrome-bar-loading):not(.vc-interaction-hold):not(.vc-dialog-open):not(.vc-notif-sheet-open):not(.vc-notif-drawer-open):not(.vc-img-lb-open),
+html.vc-staff-compiti-route.vc-staff-app-revealed.vc-chrome-scroll-armed:not(.vc-chrome-bar-loading):not(.vc-interaction-hold):not(.vc-dialog-open):not(.vc-notif-sheet-open):not(.vc-notif-drawer-open):not(.vc-img-lb-open)
   body.vc-staff-compiti-page,
-html.vc-compiti-perf.vc-staff-app-revealed:not(.vc-dialog-open):not(.vc-notif-sheet-open):not(.vc-notif-drawer-open):not(.vc-img-lb-open),
-html.vc-compiti-perf.vc-staff-app-revealed:not(.vc-dialog-open):not(.vc-notif-sheet-open):not(.vc-notif-drawer-open):not(.vc-img-lb-open)
+html.vc-compiti-perf.vc-staff-app-revealed.vc-chrome-scroll-armed:not(.vc-chrome-bar-loading):not(.vc-interaction-hold):not(.vc-dialog-open):not(.vc-notif-sheet-open):not(.vc-notif-drawer-open):not(.vc-img-lb-open),
+html.vc-compiti-perf.vc-staff-app-revealed.vc-chrome-scroll-armed:not(.vc-chrome-bar-loading):not(.vc-interaction-hold):not(.vc-dialog-open):not(.vc-notif-sheet-open):not(.vc-notif-drawer-open):not(.vc-img-lb-open)
   body.vc-staff-compiti-page {
   overflow-x: hidden !important;
   overflow-y: auto !important;
   scrollbar-width: thin !important;
 }
-html.vc-staff-compiti-route.vc-staff-app-revealed:not(.vc-dialog-open):not(.vc-notif-sheet-open):not(.vc-notif-drawer-open):not(.vc-img-lb-open)::-webkit-scrollbar,
-html.vc-compiti-perf.vc-staff-app-revealed:not(.vc-dialog-open):not(.vc-notif-sheet-open):not(.vc-notif-drawer-open):not(.vc-img-lb-open)::-webkit-scrollbar {
+html.vc-staff-compiti-route.vc-staff-app-revealed.vc-chrome-scroll-armed:not(.vc-chrome-bar-loading):not(.vc-interaction-hold):not(.vc-dialog-open):not(.vc-notif-sheet-open):not(.vc-notif-drawer-open):not(.vc-img-lb-open)::-webkit-scrollbar,
+html.vc-compiti-perf.vc-staff-app-revealed.vc-chrome-scroll-armed:not(.vc-chrome-bar-loading):not(.vc-interaction-hold):not(.vc-dialog-open):not(.vc-notif-sheet-open):not(.vc-notif-drawer-open):not(.vc-img-lb-open)::-webkit-scrollbar {
   width: 10px !important;
   height: 10px !important;
   display: block !important;
+}
+/* compitiChromeSync1 / scrollBarAfterLoad1:
+   lock solo finché manca chrome-scroll-armed o c'è barra/hold reale.
+   Non usare loader-blocking-live da solo (poteva restare sticky e uccidere la scrollbar). */
+html.vc-staff-compiti-route.vc-chrome-bar-loading,
+html.vc-staff-compiti-route.vc-loading-scroll-lock:not(.vc-chrome-scroll-armed),
+html.vc-staff-compiti-route.vc-interaction-hold,
+html.vc-staff-compiti-route.vc-page-cine-ready:not(.vc-chrome-scroll-armed),
+html.vc-compiti-perf.vc-chrome-bar-loading,
+html.vc-compiti-perf.vc-loading-scroll-lock:not(.vc-chrome-scroll-armed),
+html.vc-compiti-perf.vc-interaction-hold,
+html.vc-compiti-perf.vc-page-cine-ready:not(.vc-chrome-scroll-armed),
+html.vc-staff-compiti-route.vc-chrome-bar-loading body,
+html.vc-staff-compiti-route.vc-loading-scroll-lock:not(.vc-chrome-scroll-armed) body,
+html.vc-staff-compiti-route.vc-interaction-hold body,
+html.vc-staff-compiti-route.vc-page-cine-ready:not(.vc-chrome-scroll-armed) body,
+html.vc-compiti-perf.vc-chrome-bar-loading body,
+html.vc-compiti-perf.vc-loading-scroll-lock:not(.vc-chrome-scroll-armed) body,
+html.vc-compiti-perf.vc-interaction-hold body,
+html.vc-compiti-perf.vc-page-cine-ready:not(.vc-chrome-scroll-armed) body {
+  overflow: hidden !important;
+  overflow-x: hidden !important;
+  overflow-y: hidden !important;
+  scrollbar-width: none !important;
+  touch-action: none !important;
+  overscroll-behavior: none !important;
+}
+html.vc-staff-compiti-route.vc-chrome-bar-loading::-webkit-scrollbar,
+html.vc-staff-compiti-route.vc-loading-scroll-lock::-webkit-scrollbar,
+html.vc-staff-compiti-route.vc-page-cine-ready:not(.vc-chrome-scroll-armed)::-webkit-scrollbar,
+html.vc-compiti-perf.vc-chrome-bar-loading::-webkit-scrollbar,
+html.vc-compiti-perf.vc-loading-scroll-lock::-webkit-scrollbar,
+html.vc-compiti-perf.vc-page-cine-ready:not(.vc-chrome-scroll-armed)::-webkit-scrollbar {
+  width: 0 !important;
+  height: 0 !important;
+  display: none !important;
 }
 html.vc-staff-compiti-route.vc-staff-app-revealed body.vc-staff-compiti-page,
 html.vc-compiti-perf.vc-staff-app-revealed body.vc-staff-compiti-page {
@@ -334,23 +373,54 @@ body.vc-compiti-hs .vc-staff-compiti-board.is-closed {
   -webkit-text-fill-color: #f3e6d6 !important;
   cursor: pointer;
   font-size: 1.25rem;
-  box-shadow: 0 0 0 1px rgba(255, 247, 236, 0.18), 0 6px 14px rgba(0, 0, 0, 0.22);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  box-shadow:
+    0 0 0 1px rgba(255, 247, 236, 0.18),
+    0 14px 36px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 236, 214, 0.14);
+  display: inline-grid;
+  place-items: center;
   -webkit-tap-highlight-color: transparent;
   z-index: 8;
   opacity: 1 !important;
   visibility: visible !important;
+  /* compitiSwitchHover1: stessa transizione del peer-dock profilo staff */
+  transition:
+    transform 0.12s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.18s ease !important;
 }
 .vc-compiti-hs-nav__btn .fa,
 .vc-compiti-hs-nav__btn i {
+  position: relative;
+  z-index: 2;
   color: #f3e6d6 !important;
   -webkit-text-fill-color: #f3e6d6 !important;
   background: none !important;
   background-image: none !important;
   opacity: 1 !important;
   visibility: visible !important;
+  transition: transform 0.22s ease;
+}
+.vc-compiti-hs-nav__glow {
+  position: absolute;
+  inset: -14%;
+  border-radius: inherit;
+  background: radial-gradient(circle, rgba(212, 168, 136, 0.32) 0%, transparent 70%);
+  opacity: 0.65;
+  pointer-events: none;
+  z-index: 0;
+}
+.vc-compiti-hs-nav__ring {
+  position: absolute;
+  inset: -3px;
+  border-radius: inherit;
+  border: 1px solid rgba(232, 201, 168, 0.28);
+  opacity: 0;
+  transform: scale(0.92);
+  pointer-events: none;
+  z-index: 1;
+  transition:
+    opacity 0.28s ease,
+    transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
 }
 .vc-compiti-hs-nav__btn--prev {
   left: 0.05rem;
@@ -360,32 +430,30 @@ body.vc-compiti-hs .vc-staff-compiti-board.is-closed {
   right: 0.05rem;
   left: auto;
 }
-.vc-compiti-hs-nav__btn:hover {
-  background-color: #16110d;
-  background-image:
-    linear-gradient(#16110d, #16110d),
-    conic-gradient(
-      from 0deg,
-      rgba(255, 247, 236, 0.98) 0deg,
-      rgba(236, 205, 176, 0.92) 70deg,
-      rgba(212, 168, 136, 0.82) 140deg,
-      rgba(180, 130, 90, 0.86) 200deg,
-      rgba(212, 168, 136, 0.82) 270deg,
-      rgba(255, 247, 236, 0.98) 360deg
-    );
-  background-origin: padding-box, border-box;
-  background-clip: padding-box, border-box;
-  -webkit-background-clip: padding-box, border-box;
-  color: #fff !important;
-  -webkit-text-fill-color: #fff !important;
+/* compitiBookHandHover1: frecce laterali — niente scale/glow/nudge all'hover */
+.vc-compiti-hs-nav__btn:hover:not(:disabled),
+.vc-compiti-hs-nav__btn:focus-visible:not(:disabled),
+.vc-compiti-hs-nav__btn:active:not(:disabled) {
+  transform: translateY(-50%) !important;
+  translate: none !important;
+  scale: none !important;
+  filter: none !important;
+  -webkit-filter: none !important;
 }
-.vc-compiti-hs-nav__btn:hover .fa,
-.vc-compiti-hs-nav__btn:hover i {
-  color: #fff !important;
-  -webkit-text-fill-color: #fff !important;
+.vc-compiti-hs-nav__btn:hover:not(:disabled) .fa,
+.vc-compiti-hs-nav__btn:hover:not(:disabled) i,
+.vc-compiti-hs-nav__btn:focus-visible:not(:disabled) .fa,
+.vc-compiti-hs-nav__btn:focus-visible:not(:disabled) i,
+.vc-compiti-hs-nav__btn--prev:hover:not(:disabled) .fa,
+.vc-compiti-hs-nav__btn--prev:focus-visible:not(:disabled) .fa,
+.vc-compiti-hs-nav__btn--next:hover:not(:disabled) .fa,
+.vc-compiti-hs-nav__btn--next:focus-visible:not(:disabled) .fa {
+  transform: none !important;
 }
-.vc-compiti-hs-nav__btn:active {
-  transform: translateY(-50%) scale(0.96) !important;
+.vc-compiti-hs-nav__btn:hover:not(:disabled) .vc-compiti-hs-nav__ring,
+.vc-compiti-hs-nav__btn:focus-visible:not(:disabled) .vc-compiti-hs-nav__ring {
+  opacity: 0 !important;
+  transform: scale(0.92) !important;
 }
 
 .vc-compiti-identity-row {
@@ -668,8 +736,9 @@ body.vc-compiti-hs-view .vc-compiti-review:not([hidden]) {
 .vc-compiti-list-title {
   margin: 0 0 0.9rem;
   font-size: 2.05rem;
-  font-weight: 700;
+  font-weight: 600;
   line-height: 1.15;
+  letter-spacing: 0.01em;
 }
 
 .vc-compiti-form { display: grid; gap: 0.85rem; }
@@ -915,6 +984,15 @@ body.vc-compiti-hs-view .vc-compiti-review:not([hidden]) {
   -webkit-background-clip: padding-box, border-box;
 }
 .vc-compiti-pager__btn:disabled { opacity: 0.4; cursor: not-allowed; }
+/* compitiBookHandHover1: niente lift/glow/flash su Indietro/Avanti */
+.vc-compiti-pager__btn:is(:hover, :focus-visible, :active):not(:disabled) {
+  transform: none !important;
+  translate: none !important;
+  scale: none !important;
+  filter: none !important;
+  -webkit-filter: none !important;
+  opacity: 1 !important;
+}
 
 /* compitiReviewUnlock1: batte vc-page-cine-boot :disabled → cursore loading PNG */
 html body.vc-staff-compiti-page :is(
@@ -1312,3 +1390,89 @@ html.vc-site-polish.vc-staff-compiti-route body.vc-staff-compiti-page
   opacity: 1 !important;
   visibility: visible !important;
 }
+
+/* compitiChromeSync1 */
+
+/* compitiBookHandHover1: Caveat ovunque nel libro + hover Indietro/Avanti invariato
+   (batte soft-fx box-shadow:none su button:hover e look-core scale sulle frecce). */
+html.vc-staff-compiti-route body.vc-staff-compiti-page #vc-staff-compiti-book,
+html.vc-staff-compiti-route body.vc-staff-compiti-page #vc-staff-compiti-book :is(
+  h1, h2, h3, h4, p, span, strong, b, em, label, a, button, textarea, input,
+  li, div, summary
+):not(.fa):not(i.fa):not([class^="fa-"]):not([class*=" fa-"]) {
+  font-family: "Caveat", "Segoe Print", "Comic Sans MS", cursive !important;
+  letter-spacing: 0.01em !important;
+}
+html.vc-staff-compiti-route body.vc-staff-compiti-page #vc-staff-compiti-book .vc-compiti-list-title,
+html.vc-staff-compiti-route body.vc-staff-compiti-page #vc-staff-compiti-book .vc-compiti-toc-title {
+  font-weight: 600 !important;
+}
+html.vc-site-polish.vc-staff-compiti-route body.vc-body.vc-staff-compiti-page
+  #vc-staff-compiti-book
+  .vc-compiti-pager__btn:is(:hover, :focus-visible, :active):not(:disabled),
+html.vc-staff-compiti-route body.vc-staff-compiti-page
+  #vc-staff-compiti-book
+  .vc-compiti-pager__btn:is(:hover, :focus-visible, :active):not(:disabled) {
+  transform: none !important;
+  translate: none !important;
+  scale: none !important;
+  filter: none !important;
+  -webkit-filter: none !important;
+  box-shadow: 0 0 0 1px rgba(111, 78, 55, 0.22) !important;
+  background-color: rgba(255, 252, 245, 0.72) !important;
+  background-image:
+    linear-gradient(rgba(255, 252, 245, 0.82), rgba(245, 236, 220, 0.78)),
+    conic-gradient(
+      from 0deg,
+      rgba(111, 78, 55, 0.95) 0deg,
+      rgba(180, 130, 90, 0.88) 70deg,
+      rgba(212, 168, 136, 0.92) 140deg,
+      rgba(139, 110, 77, 0.9) 200deg,
+      rgba(212, 168, 136, 0.92) 270deg,
+      rgba(111, 78, 55, 0.95) 360deg
+    ) !important;
+  background-origin: padding-box, border-box !important;
+  background-clip: padding-box, border-box !important;
+  -webkit-background-clip: padding-box, border-box !important;
+  border: 2px solid transparent !important;
+  color: var(--vc-compiti-ink) !important;
+  -webkit-text-fill-color: var(--vc-compiti-ink) !important;
+}
+html.vc-site-polish.vc-staff-compiti-route body.vc-body.vc-staff-compiti-page
+  #vc-staff-compiti-book
+  .vc-compiti-pager__btn--primary:is(:hover, :focus-visible, :active):not(:disabled),
+html.vc-staff-compiti-route body.vc-staff-compiti-page
+  #vc-staff-compiti-book
+  .vc-compiti-pager__btn--primary:is(:hover, :focus-visible, :active):not(:disabled) {
+  background-color: rgba(107, 68, 35, 0.16) !important;
+  background-image:
+    linear-gradient(rgba(107, 68, 35, 0.18), rgba(107, 68, 35, 0.12)),
+    conic-gradient(
+      from 0deg,
+      rgba(111, 78, 55, 0.95) 0deg,
+      rgba(180, 130, 90, 0.88) 70deg,
+      rgba(212, 168, 136, 0.92) 140deg,
+      rgba(139, 110, 77, 0.9) 200deg,
+      rgba(212, 168, 136, 0.92) 270deg,
+      rgba(111, 78, 55, 0.95) 360deg
+    ) !important;
+}
+html.vc-staff-compiti-route body.vc-body .vc-compiti-hs-nav__btn:is(:hover, :focus-visible, :active):not(:disabled),
+html body.vc-staff-compiti-page .vc-compiti-hs-nav__btn:is(:hover, :focus-visible, :active):not(:disabled),
+html.vc-site-polish body.vc-body .vc-compiti-hs-nav__btn:is(:hover, :focus-visible, :active):not(:disabled) {
+  transform: translateY(-50%) !important;
+  translate: none !important;
+  scale: none !important;
+  filter: none !important;
+  -webkit-filter: none !important;
+  box-shadow:
+    0 0 0 1px rgba(255, 247, 236, 0.18),
+    0 10px 28px rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 rgba(255, 244, 228, 0.12) !important;
+}
+html.vc-staff-compiti-route body.vc-body .vc-compiti-hs-nav__btn:is(:hover, :focus-visible):not(:disabled) .vc-compiti-hs-nav__ring,
+html body.vc-staff-compiti-page .vc-compiti-hs-nav__btn:is(:hover, :focus-visible):not(:disabled) .vc-compiti-hs-nav__ring {
+  opacity: 0 !important;
+  transform: scale(0.92) !important;
+}
+/* compitiBookHandHover1 */

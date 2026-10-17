@@ -1,8 +1,9 @@
-/* siteApiW7 */
+/* siteApiW7 + apiJankCut1 */
 (function () {
   "use strict";
   /* consoleErrors1 / console429Kill1: per-endpoint 429/502 cool-down also for /webhooks/site-* */
   /* multiDeviceApi1: 5xx cool-down corto + retry x3; health/status mai bloccati */
+  /* apiJankCut1: isCacheableBody — cache anche body senza ok:true (es. discord-me) */
 
   var PREFIX = "vc:apicache:";
   var LOCAL_PREFIX = "vc:apicache:local:";
@@ -36,6 +37,7 @@
       key === "/webhooks/site-rank-card-public" ||
       key === "/webhooks/site-notifications" ||
       key === "/webhooks/site-roles" ||
+      key === "/webhooks/site-boards" ||
       key === "/webhooks/site-vote" ||
       key === "/webhooks/site-wiki-help" ||
       key === "/webhooks/site-confessionale" ||
@@ -61,6 +63,7 @@
       key === "/webhooks/site-feedback" ||
       key === "/webhooks/site-vote" ||
       key === "/webhooks/site-roles" ||
+      key === "/webhooks/site-boards" ||
       key === "/webhooks/site-users" ||
       key === "/webhooks/site-wiki-help" ||
       key === "/webhooks/site-confessionale" ||
@@ -625,7 +628,13 @@
             var softStale = stalePayloadFromCache(key, ttlMs, staleMs, persistMs);
             if (softStale) return softStale;
           }
-          if (payload && payload.ok && payload.body && payload.body.ok === true) {
+          if (
+            payload &&
+            payload.ok &&
+            payload.body &&
+            (payload.body.ok === true ||
+              (typeof opts.isCacheableBody === "function" && opts.isCacheableBody(payload.body)))
+          ) {
             store(key, payload, ttlMs, persistMs);
           }
           return payload;
@@ -671,6 +680,24 @@
     return fetchWithCache(key, url, opts).catch(function () {
       return null;
     });
+  }
+
+  /* apiStaleFirst1: lettura sync da session/local senza aspettare fetch */
+  function peek(key, opts) {
+    opts = opts || {};
+    var ttlMs = Math.max(1000, Number(opts.ttlMs) || 60000);
+    var staleMs = Math.max(ttlMs, Number(opts.staleMs) || ttlMs * 10);
+    var persistMs = Math.max(0, Number(opts.persistMs) || 0);
+    return getFresh(key, ttlMs, staleMs, persistMs);
+  }
+
+  function peekBody(key, opts) {
+    var hit = peek(key, opts);
+    if (!hit || !hit.value) return null;
+    var v = hit.value;
+    if (v && v.body && typeof v.body === "object") return { body: v.body, stale: !!hit.stale, raw: v };
+    if (v && v.ok === true) return { body: v, stale: !!hit.stale, raw: v };
+    return null;
   }
 
   function prefetchIdle(key, url, opts) {
@@ -839,6 +866,8 @@
 
   window.VcApiCache = {
     keyFor: keyFor,
+    peek: peek,
+    peekBody: peekBody,
     fetchWithCache: fetchWithCache,
     fetchStaffJson: fetchStaffJson,
     fetchHttpOk: fetchHttpOk,
@@ -856,6 +885,76 @@
     __siteApiW4: true,
   };
 
+  /* apiStaleFirst2: warm boards+ruoli presto (non dopo 11–14s idle) */
+  function prefetchSoon(key, url, opts, delayMs) {
+    window.setTimeout(function () {
+      try {
+        if (isWebhookBlocked(url)) return;
+        prefetch(key, url, opts);
+      } catch (ePf) {}
+    }, Math.max(0, Number(delayMs) || 0));
+  }
+
+  function warmBoardsRolesPrefetch() {
+    try {
+      if (isTouchDevice() && document.visibilityState === "hidden") return;
+      var boardsBase = "/webhooks/site-boards";
+      try {
+        if (window.__VC_BOARDS && window.__VC_BOARDS.apiUrl) {
+          boardsBase = String(window.__VC_BOARDS.apiUrl).replace(/\/+$/, "") || boardsBase;
+        }
+      } catch (eB) {}
+      var listingsUrl = boardsBase + "/listings?kind=server&sort=new";
+      var configUrl = boardsBase + "/config";
+      var rolesUrl = "/webhooks/site-roles";
+      var listingsOpts = {
+        ttlMs: 45000,
+        staleMs: 600000,
+        persistMs: 45 * 60 * 1000,
+        timeoutMs: 12000,
+      };
+      var configOpts = {
+        ttlMs: 120000,
+        staleMs: 900000,
+        persistMs: 60 * 60 * 1000,
+        timeoutMs: 8000,
+      };
+      var rolesOpts = {
+        ttlMs: 90000,
+        staleMs: 600000,
+        persistMs: 20 * 60 * 1000,
+        timeoutMs: 15000,
+      };
+      prefetchSoon(keyFor(listingsUrl, { scope: "boards", v: "b2" }), listingsUrl, listingsOpts, 350);
+      prefetchSoon(keyFor(configUrl, { scope: "boards", v: "b2" }), configUrl, configOpts, 650);
+      prefetchSoon(keyFor(rolesUrl, { scope: "roles", v: "roles5" }), rolesUrl, rolesOpts, 950);
+    } catch (eWarm) {}
+  }
+
+  function armNavPrefetch() {
+    try {
+      if (window.__vcApiNavPrefetchArm) return;
+      window.__vcApiNavPrefetchArm = 1;
+      function kick(path) {
+        try {
+          if (/\/(?:bacheca|boards)(?:\/|$)/i.test(path)) warmBoardsRolesPrefetch();
+          else if (/\/ruoli(?:\/|$)/i.test(path)) warmBoardsRolesPrefetch();
+        } catch (eK) {}
+      }
+      document.addEventListener(
+        "pointerdown",
+        function (ev) {
+          try {
+            var a = ev.target && ev.target.closest && ev.target.closest("a[href]");
+            if (!a) return;
+            kick(String(a.getAttribute("href") || a.pathname || ""));
+          } catch (ePd) {}
+        },
+        { capture: true, passive: true },
+      );
+    } catch (eArm) {}
+  }
+
   try {
     window.addEventListener("pageshow", function (ev) {
       /* consoleStorm2: do NOT clear 429 cool-downs on every pageshow (CF 1015) */
@@ -866,7 +965,24 @@
       }
     });
   } catch (ePs) {}
+
+  try {
+    if (document.readyState === "complete") {
+      window.setTimeout(warmBoardsRolesPrefetch, 400);
+      armNavPrefetch();
+    } else {
+      window.addEventListener(
+        "load",
+        function () {
+          window.setTimeout(warmBoardsRolesPrefetch, 400);
+          armNavPrefetch();
+        },
+        { once: true },
+      );
+    }
+  } catch (eWarmArm) {}
 })();
+/* apiStaleFirst2 */
 
 /* consoleNoise2 */
 

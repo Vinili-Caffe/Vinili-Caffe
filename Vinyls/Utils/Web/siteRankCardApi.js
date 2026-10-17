@@ -5,6 +5,7 @@ const {
   mergeRankCardTheme,
   DEFAULT_RANK_CARD_THEME,
   listRankCardWallpapers,
+  listRankCardFonts,
   getRankCardThemeFromDoc,
 } = require("../Render/rankCardTheme");
 const { getUserRanks, getResolvedWeeklyExpMultiplier } = require("../../Services/Community/expService");
@@ -14,6 +15,49 @@ const { animatedDiscordCdnAvatarUrl } = require("./siteLiveAvatars");
 
 const VIP_PLUS_ROLE_ID = String(IDs?.roles?.["VIP+"] || "1544830868575625276").trim();
 const DOUBLE_BOOSTER_ROLE_ID = String(IDs?.roles?.DoubleBooster || "1544830850552823849").trim();
+
+/* rankCardSpeed1: GIF ffmpeg ~1s/req — cache memoria + singleflight sul pubblico */
+const PUBLIC_RANK_CACHE_TTL_MS = 120_000;
+const PUBLIC_RANK_CACHE_MAX = 100;
+const publicRankCardCache = new Map();
+const publicRankCardInFlight = new Map();
+
+function publicRankCacheKey(userId) {
+  return String(userId || "").trim();
+}
+
+function getCachedPublicRankCard(userId) {
+  const key = publicRankCacheKey(userId);
+  if (!key) return null;
+  const hit = publicRankCardCache.get(key);
+  if (!hit) return null;
+  if (Date.now() > Number(hit.expiresAt || 0)) {
+    publicRankCardCache.delete(key);
+    return null;
+  }
+  publicRankCardCache.delete(key);
+  publicRankCardCache.set(key, hit);
+  return hit;
+}
+
+function setCachedPublicRankCard(userId, image, mimeType) {
+  const key = publicRankCacheKey(userId);
+  if (!key || !image) return;
+  publicRankCardCache.set(key, {
+    expiresAt: Date.now() + PUBLIC_RANK_CACHE_TTL_MS,
+    image,
+    mimeType: String(mimeType || "image/png"),
+  });
+  while (publicRankCardCache.size > PUBLIC_RANK_CACHE_MAX) {
+    const oldest = publicRankCardCache.keys().next().value;
+    publicRankCardCache.delete(oldest);
+  }
+}
+
+function invalidatePublicRankCardCache(userId) {
+  const key = publicRankCacheKey(userId);
+  if (key) publicRankCardCache.delete(key);
+}
 
 function resolveGuildId(client) {
   return String(client?.config?.mainGuildId || IDs.guilds?.main || "").trim();
@@ -97,6 +141,7 @@ async function getRankCardCustomization(client, payload) {
     theme: compactRankCardThemeForApi(theme),
     defaults: DEFAULT_RANK_CARD_THEME,
     wallpapers: listRankCardWallpapers(),
+    fonts: listRankCardFonts(),
     permissions,
     stats: {
       level: Number(stats?.level || 0),
@@ -127,6 +172,7 @@ async function updateRankCardCustomization(client, payload) {
       },
       { upsert: true, new: true, setDefaultsOnInsert: true },
     ).catch(() => null);
+    invalidatePublicRankCardCache(resolved.userId);
     return {
       ok: true,
       status: 200,
@@ -148,6 +194,7 @@ async function updateRankCardCustomization(client, payload) {
     },
     { upsert: true, new: true, setDefaultsOnInsert: true },
   ).catch(() => null);
+  invalidatePublicRankCardCache(resolved.userId);
 
   return {
     ok: true,
@@ -205,11 +252,7 @@ async function getRankCardPreview(client, payload) {
   };
 }
 
-async function getPublicRankCardPreview(client, payload) {
-  const userId = String(payload?.userId || "").trim();
-  if (!/^\d{17,20}$/.test(userId)) {
-    return { ok: false, status: 400, error: "invalid_user_id", message: "Parametro userId non valido." };
-  }
+async function buildPublicRankCardPreview(client, userId) {
   const guildId = resolveGuildId(client);
   if (!guildId) {
     return { ok: false, status: 503, error: "guild_missing", message: "Guild principale non configurata." };
@@ -223,12 +266,17 @@ async function getPublicRankCardPreview(client, payload) {
     return { ok: false, status: 404, error: "member_not_found", message: "Utente non trovato nel server." };
   }
 
-  const { stats, weeklyRank, allTimeRank } = await getUserRanks(guildId, userId);
-  const multiplier = await getResolvedWeeklyExpMultiplier(guild, userId, null).catch(() => 1);
-  const doc = await ActivityUserProfile.findOne({ guildId, userId })
-    .select("profile.rankCard")
-    .lean()
-    .catch(() => null);
+  const [ranks, multiplier, doc] = await Promise.all([
+    getUserRanks(guildId, userId).catch(() => null),
+    getResolvedWeeklyExpMultiplier(guild, userId, null, member).catch(() => 1),
+    ActivityUserProfile.findOne({ guildId, userId })
+      .select("profile.rankCard")
+      .lean()
+      .catch(() => null),
+  ]);
+  const stats = ranks?.stats || {};
+  const weeklyRank = ranks?.weeklyRank ?? null;
+  const allTimeRank = ranks?.allTimeRank ?? null;
   const theme = getRankCardThemeFromDoc(doc);
   const avatarUrl = resolvePreferredAvatarUrl(member);
   const rendered = await renderRankCanvas({
@@ -249,12 +297,39 @@ async function getPublicRankCardPreview(client, payload) {
   if (!rendered?.buffer) {
     return { ok: false, status: 500, error: "preview_failed", message: "Impossibile generare rank card." };
   }
+  setCachedPublicRankCard(userId, rendered.buffer, rendered.mimeType);
   return {
     ok: true,
     status: 200,
     image: rendered.buffer,
     mimeType: String(rendered.mimeType || "image/png"),
+    cache: "MISS",
   };
+}
+
+async function getPublicRankCardPreview(client, payload) {
+  const userId = String(payload?.userId || "").trim();
+  if (!/^\d{17,20}$/.test(userId)) {
+    return { ok: false, status: 400, error: "invalid_user_id", message: "Parametro userId non valido." };
+  }
+  const cached = getCachedPublicRankCard(userId);
+  if (cached?.image) {
+    return {
+      ok: true,
+      status: 200,
+      image: cached.image,
+      mimeType: String(cached.mimeType || "image/png"),
+      cache: "HIT",
+    };
+  }
+  const inflight = publicRankCardInFlight.get(userId);
+  if (inflight) return inflight;
+
+  const work = buildPublicRankCardPreview(client, userId).finally(() => {
+    publicRankCardInFlight.delete(userId);
+  });
+  publicRankCardInFlight.set(userId, work);
+  return work;
 }
 
 module.exports = {
@@ -263,4 +338,5 @@ module.exports = {
   updateRankCardCustomization,
   getRankCardPreview,
   getPublicRankCardPreview,
+  invalidatePublicRankCardCache,
 };

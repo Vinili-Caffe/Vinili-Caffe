@@ -5,7 +5,7 @@
 (function (global) {
   "use strict";
 
-  var ASSET_V = "20260929smartNotifLife1";
+  var ASSET_V = "20261010pickerFloatFix1";
   var PAGE_QUEUE = detectPageQueue();
   var state = {
     loaded: false,
@@ -632,11 +632,7 @@
       })
       .then(function () {
         var chain = Promise.resolve();
-        if (!global.VcEmojiPicker) {
-          chain = chain.then(function () {
-            return loadScript("/js/vc-emoji-picker.js?v=" + ASSET_V).catch(function () {});
-          });
-        }
+        /* perfRoiPack2: emoji-picker solo al focus del bottone emoji (non al dock expand) */
         if (!global.VcChatTyping) {
           chain = chain.then(function () {
             return loadScript("/js/vc-chat-typing.js?v=" + ASSET_V).catch(function () {});
@@ -654,6 +650,25 @@
       })
       .then(function (Wfc) {
         if (!Wfc) throw new Error("wfc_missing");
+        try {
+          if (!document.documentElement.getAttribute("data-vc-emoji-picker-focus")) {
+            document.documentElement.setAttribute("data-vc-emoji-picker-focus", "1");
+            document.addEventListener(
+              "pointerdown",
+              function (ev) {
+                try {
+                  var t = ev.target && ev.target.closest
+                    ? ev.target.closest("[data-vc-emoji-picker], .vc-emoji-picker-btn, button[aria-label*=\"emoji\" i], button[title*=\"emoji\" i]")
+                    : null;
+                  if (!t) return;
+                  if (global.VcEmojiPicker) return;
+                  loadScript("/js/vc-emoji-picker.js?v=" + ASSET_V).catch(function () {});
+                } catch (ePick) {}
+              },
+              true,
+            );
+          }
+        } catch (eWire) {}
       });
   }
 

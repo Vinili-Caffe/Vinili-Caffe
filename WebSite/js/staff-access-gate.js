@@ -1,4 +1,4 @@
-﻿(function () {
+(function () {
   if (window.__VC_ACCESS_GATE_LOADED) return;
   if (!window.__VC_ACCESS_PENDING_BOOT) {
     var boot = document.createElement("script");
@@ -12,9 +12,13 @@
   (document.head || document.documentElement).appendChild(s);
   if (!window.__vcPtrBooted) {
     try {
-      if (!document.querySelector('script[src*="vc-ptr.js"]')) {
+      if (
+        !document.querySelector(
+          'script[src*="/vc-ptr.js"], script[src*="/vc-ptr."]',
+        )
+      ) {
         var ptr = document.createElement("script");
-        ptr.src = "/js/vc-ptr.js?v=20260826ptrHard1";
+        ptr.src = "/js/vc-ptr.20261017ptrScrollRestore2.js?v=20261017ptrScrollRestore2";
         ptr.defer = true;
         (document.head || document.documentElement).appendChild(ptr);
       }
