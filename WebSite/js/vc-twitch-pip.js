@@ -1,4 +1,4 @@
-/* 20261015pipPersistHydrate1 */
+/* 20261017twitchPipVodBadge1 */
 /**
  * Homepage Twitch live/VOD pill — same UX as Kick PIP, no link/sub buttons.
  * twitchPip5 — 400x300, no overlays on video, click-to-play (Twitch autoplay rules)
@@ -342,7 +342,8 @@
       '" title="' +
       t("twitchPip.play", "Riproduci anteprima") +
       '"><i class="fa fa-play" aria-hidden="true"></i></button>' +
-      '<span class="vc-kick-pip__live" id="vc-twitch-pip-badge"><span class="vc-kick-pip__live-dot" aria-hidden="true"></span> <span class="vc-kick-pip__live-text">LIVE</span></span>' +
+      /* twitchPipVodBadge1: niente LIVE hardcodato — syncKindUi decide; nascosto finché kind noto */
+      '<span class="vc-kick-pip__live" id="vc-twitch-pip-badge" hidden data-vc-kind=""><span class="vc-kick-pip__live-dot" aria-hidden="true"></span> <span class="vc-kick-pip__live-text"></span></span>' +
       "</div>" +
       '<div class="vc-kick-pip__footer">' +
       '<div class="vc-kick-pip__meta" id="vc-twitch-pip-meta">' +
@@ -401,7 +402,7 @@
     btn.setAttribute("aria-label", t("twitchPip.reopenAria", "Mostra anteprima Twitch"));
     btn.innerHTML =
       '<span class="vc-kick-pip-reopen__dot" aria-hidden="true"></span><span>' +
-      t("twitchPip.reopen", "Live Twitch") +
+      t("twitchPip.reopen", "Twitch") +
       "</span>";
     document.body.appendChild(btn);
     return btn;
@@ -440,31 +441,63 @@
       if (/[?&]video=/i.test(embed)) return true;
       var url = String((stream && stream.url) || "");
       if (/twitch\.tv\/videos\//i.test(url)) return true;
+      var thumb = String((stream && (stream.thumbnailUrl || stream.thumbnailUrlDirect)) || "");
+      if (/cf_vods|\/vods\//i.test(thumb)) return true;
+      var id = String((stream && stream.id) || "");
+      /* id numerico lungo tipico VOD (no live slug) */
+      if (/^\d{8,}$/.test(id) && kind !== "live") return true;
     } catch (eDet) {}
+    return false;
+  }
+
+  function kindKnown(stream) {
+    var kind = String((stream && stream.kind) || "").toLowerCase();
+    if (kind === "vod" || kind === "live") return true;
+    try {
+      var embed = String((stream && stream.embedUrl) || "");
+      if (/[?&]video=/i.test(embed) || /[?&]channel=/i.test(embed)) return true;
+      var url = String((stream && stream.url) || "");
+      if (/twitch\.tv\/videos\//i.test(url) || /twitch\.tv\/[^/]+\/?$/i.test(url)) return true;
+    } catch (eK) {}
     return false;
   }
 
   function syncKindUi(stream) {
     var vod = isVod(stream);
+    var known = kindKnown(stream);
     root.classList.toggle("vc-kick-pip--vod", vod);
-    root.classList.toggle("vc-kick-pip--live", !vod);
+    root.classList.toggle("vc-kick-pip--live", known && !vod);
     root.classList.toggle("vc-twitch-pip--vod", vod);
-    root.classList.toggle("vc-twitch-pip--live", !vod);
+    root.classList.toggle("vc-twitch-pip--live", known && !vod);
     reopenBtn.classList.toggle("vc-twitch-pip-reopen--vod", vod);
     reopenBtn.classList.toggle("vc-kick-pip-reopen--vod", vod);
     /* Re-query: i18n/DOM swap può staccare il nodo iniziale */
     var badgeText =
       (badgeEl && badgeEl.querySelector(".vc-kick-pip__live-text")) || badgeTextEl;
-    if (badgeText) badgeText.textContent = vod ? t("twitchPip.badgeVod", "VOD") : "LIVE";
-    if (badgeEl) badgeEl.setAttribute("data-vc-kind", vod ? "vod" : "live");
-    var reopenLabel = vod ? t("twitchPip.reopenVod", "VOD Twitch") : t("twitchPip.reopen", "Live Twitch");
+    if (badgeText) {
+      badgeText.textContent = !known ? "" : vod ? t("twitchPip.badgeVod", "VOD") : "LIVE";
+    }
+    if (badgeEl) {
+      badgeEl.setAttribute("data-vc-kind", !known ? "" : vod ? "vod" : "live");
+      /* twitchPipVodBadge1: niente flash LIVE su VOD — badge solo con kind noto */
+      badgeEl.hidden = !known;
+      if (!known) badgeEl.setAttribute("hidden", "");
+      else badgeEl.removeAttribute("hidden");
+    }
+    var reopenLabel = vod
+      ? t("twitchPip.reopenVod", "VOD Twitch")
+      : known
+        ? t("twitchPip.reopen", "Live Twitch")
+        : t("twitchPip.reopen", "Twitch");
     reopenBtn.setAttribute(
       "aria-label",
-      vod ? t("twitchPip.reopenVodAria", "Mostra ultimo VOD Twitch") : t("twitchPip.reopenAria", "Mostra anteprima live Twitch"),
+      vod
+        ? t("twitchPip.reopenVodAria", "Mostra ultimo VOD Twitch")
+        : t("twitchPip.reopenAria", "Mostra anteprima live Twitch"),
     );
     var reopenSpan = reopenBtn.querySelector("span:last-child");
     if (reopenSpan) reopenSpan.textContent = reopenLabel;
-    return { vod: vod };
+    return { vod: vod, known: known };
   }
 
   function formatViewers(v) {
@@ -758,7 +791,12 @@
 
     setThumb(stream);
     showPill();
-    if (badgeEl) badgeEl.hidden = false;
+    /* twitchPipVodBadge1: badge solo se kind noto (no LIVE flash su VOD) */
+    if (badgeEl) {
+      badgeEl.hidden = !kindUi.known;
+      if (!kindUi.known) badgeEl.setAttribute("hidden", "");
+      else badgeEl.removeAttribute("hidden");
+    }
 
     // Non auto-avviare l'embed: thumb + play (gesto utente). Se già in play sullo stesso id, resta.
     if (same && wasPlaying && root.classList.contains("vc-kick-pip--ready")) return;

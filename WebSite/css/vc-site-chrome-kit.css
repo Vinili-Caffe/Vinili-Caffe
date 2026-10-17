@@ -40,13 +40,20 @@ html.vc-site-polish body.vc-body header .vc-notif-summary > .vc-notif-badge {
   overflow: visible !important;
 }
 
-/* badge 0 / empty: mai visibile */
+/* badge 0 / empty: mai visibile (anche mid-load prima del kit completo) */
 html body.vc-body header .vc-notif-summary > .vc-notif-badge:empty,
 html body.vc-body header .vc-notif-summary > .vc-notif-badge[data-count="0"],
-html body.vc-body header .vc-notif-summary > .vc-notif-badge[hidden] {
+html body.vc-body header .vc-notif-summary > .vc-notif-badge[hidden],
+html body.vc-body #header-quick-actions .vc-notif-summary > .vc-notif-badge:empty,
+html body.vc-body #header-quick-actions .vc-notif-summary > .vc-notif-badge[data-count="0"],
+html body.vc-body #header-quick-actions .vc-notif-summary > .vc-notif-badge[hidden],
+html body.vc-body #vc-notif-badge.vc-notif-badge:empty,
+html body.vc-body #vc-notif-badge.vc-notif-badge[data-count="0"],
+html body.vc-body #vc-notif-badge.vc-notif-badge[hidden] {
   display: none !important;
   visibility: hidden !important;
   opacity: 0 !important;
+  pointer-events: none !important;
 }
 
 /* ——— Toast IG: pill sotto campana, ico FA ok, count testo (non badge rosso) ——— */
@@ -475,3 +482,5 @@ html body.vc-body header .discord-account-popover__head {
   margin-bottom: 0.3rem !important;
   border-bottom: 1px solid rgba(245, 214, 183, 0.12) !important;
 }
+
+/* ptrVinylCue1 */

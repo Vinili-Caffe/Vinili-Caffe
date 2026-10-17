@@ -9,19 +9,19 @@
   window.__vcPtrBooted = true;
   /* ptrScrollRestore1: non far sovrascrivere VER da uno stamp vecchio reiniettato dopo */
   try {
-    var __vcPtrIncoming = "20261017ptrScrollYoYoKill1";
+    var __vcPtrIncoming = "20261017ptrVinylCue1";
     var __vcPtrPrev = String(window.__VC_PTR_VER || "");
     if (
       !__vcPtrPrev ||
       __vcPtrPrev < __vcPtrIncoming ||
-      __vcPtrPrev.indexOf("ptrScrollRestore") >= 0 ||
+      __vcPtrPrev.indexOf("ptrScroll") >= 0 ||
       __vcPtrPrev.indexOf("ptrPcSpin1") >= 0 ||
       __vcPtrPrev.indexOf("ptrCardDesktop1") >= 0
     ) {
       window.__VC_PTR_VER = __vcPtrIncoming;
     }
   } catch (eVerKeep) {
-    window.__VC_PTR_VER = "20261017ptrScrollYoYoKill1";
+    window.__VC_PTR_VER = "20261017ptrVinylCue1";
   }
 
   var PTR_KEY = "vc_ptr_reload_v1";
@@ -237,7 +237,7 @@
   }
 
   function markRestoredStickyY(y) {
-    /* ptrScrollYoYoKill1: sticky Y sopravvive al cleanup — evita hard-top/pinFreeze → 0 */
+    /* ptrVinylCue1: sticky Y sopravvive al cleanup — evita hard-top/pinFreeze → 0 */
     y = Math.max(0, Math.round(Number(y) || 0));
     if (y < 2) return;
     try {
@@ -569,7 +569,7 @@
         window.__vcPtrRestoreDone = true;
         markRestoredStickyY(y);
       } catch (eMark) {}
-      /* ptrScrollYoYoKill1: cleanup più tardi — hard-top/pinFreeze post-Done non devono
+      /* ptrVinylCue1: cleanup più tardi — hard-top/pinFreeze post-Done non devono
          trovare target wipeati e yankare a 0 mentre sticky ancora fresco */
       window.setTimeout(function () {
         cleanupScrollRestore();
@@ -651,7 +651,7 @@
       (document.head || document.documentElement).appendChild(style);
     }
     try {
-      style.setAttribute("data-vc", "20261017ptrScrollYoYoKill1");
+      style.setAttribute("data-vc", "20261017ptrVinylCue1");
     } catch (eAttr) {}
     style.textContent =
       /* ptrCardDesktop1: none (non contain) — meno rubber-band sulle card iOS/Android */
@@ -1328,9 +1328,14 @@
     } catch (eRm) {}
     /* ptrCardDesktop1: anche reload PC (navigation.type === reload) */
     if (!flag && !isBrowserPageReload()) return;
+    /* ptrVinylCue1: evita doppio cue se già spinning */
+    if (ptrVinylCueActive()) return;
     ensureRoot();
     injectCss();
     clearPtrInlineHide();
+    try {
+      window.__vcPtrVinylCueUntil = Date.now() + 2200;
+    } catch (eUntil) {}
     root.classList.add("is-on", "is-refreshing");
     setHint("refresh");
     startRefreshSpin();
@@ -1339,6 +1344,9 @@
       stopRefreshSpin();
       root.classList.remove("is-on", "is-refreshing");
       root.classList.add("is-snap");
+      try {
+        window.__vcPtrVinylCueUntil = 0;
+      } catch (eClr) {}
       window.setTimeout(function () {
         if (root) root.classList.remove("is-snap");
       }, 320);
@@ -1381,8 +1389,17 @@
     } catch (eMo) {}
   }
 
+  function ptrVinylCueActive() {
+    try {
+      if (root && root.classList.contains("is-refreshing")) return true;
+      if (window.__vcPtrVinylCueUntil && Date.now() < Number(window.__vcPtrVinylCueUntil)) return true;
+    } catch (eCue) {}
+    return false;
+  }
+
   function repairPtrAfterNavigation() {
-    resetPtrUi();
+    /* ptrVinylCue1: pageshow/visibility NON devono killare il vinile mid-cue */
+    if (!ptrVinylCueActive()) resetPtrUi();
     if (hasActiveScrollRestoreTarget()) armScrollRestoreFinalize();
     try {
       var drawer = document.getElementById("vc-mobile-nav-drawer");
@@ -1571,10 +1588,13 @@
   }
 
   if (__vcPtrAlreadyBooted) {
-    /* confPtrAnim1: vecchio ptr già attivo — solo refresh CSS/overscroll, no doppi listener */
+    /* confPtrAnim1: vecchio ptr già attivo — refresh CSS + cue vinile se reload */
     try {
       window.__vcPtrReinjectCss();
     } catch (eRe) {}
+    try {
+      showJustReloaded();
+    } catch (eCueBoot) {}
   } else if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", function () {
       armScrollRestoreFinalize();
@@ -1594,4 +1614,4 @@
 /* extOnlyFix1 */
 /* violPass10 */
 
-/* ptrScrollYoYoKill1 */
+/* ptrVinylCue1 */

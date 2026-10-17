@@ -587,7 +587,7 @@
   function ensurePageHiddenCpuCss() {
     try {
       var id = "vc-page-hidden-cpu-css";
-      var MARK = "skipGhost1";
+      var MARK = "userMqSettleRun1";
       var s = document.getElementById(id);
       if (s && s.getAttribute("data-vc") === MARK) {
         remountPageHiddenCpuCssLast();
@@ -664,16 +664,28 @@
         "html.vc-cpu-settle:not(.vc-page-hidden) body.vc-body .vc-ui-spinner," +
         "html.vc-cpu-settle:not(.vc-page-hidden) body.vc-body .vc-ui-spinner *{" +
         "animation-play-state:running!important}" +
-        "html.vc-cpu-settle body.vc-body header .discord-profile-link__name[data-vc-nav-user-marquee].is-marquee .vc-marquee__track," +
-        "html.vc-cpu-settle body.vc-body #header-quick-actions .discord-profile-link__name[data-vc-nav-user-marquee].is-marquee .vc-marquee__track," +
-        "html.vc-cpu-settle.vc-site-polish body.vc-body header .discord-profile-link__name[data-vc-nav-user-marquee].is-marquee .vc-marquee__track," +
-        "html.vc-cpu-settle body.vc-body #vc-mobile-nav-drawer .discord-profile-link__name[data-vc-nav-user-marquee].is-marquee .vc-marquee__track," +
-        "html.vc-cpu-settle body.vc-body .vc-mobile-nav-drawer .discord-profile-link__name[data-vc-nav-user-marquee].is-marquee .vc-marquee__track," +
+        /* userMqSettleRun1: NOME sempre running in settle; pause SOLO wordmark (+ tab-hidden sotto) */
         "html.vc-cpu-settle body.vc-body header a.vc-header-site-name.is-marquee .vc-header-site-name__track," +
         "html.vc-cpu-settle.vc-site-polish body.vc-body header a.vc-header-site-name.is-marquee .vc-header-site-name__track{" +
         "animation-play-state:paused!important;" +
         "-webkit-animation-play-state:paused!important;" +
         "will-change:auto!important}" +
+        "html.vc-cpu-settle:not(.vc-page-hidden) body.vc-body header .discord-profile-link__name[data-vc-nav-user-marquee].is-marquee .vc-marquee__track," +
+        "html.vc-cpu-settle:not(.vc-page-hidden) body.vc-body #header-quick-actions .discord-profile-link__name[data-vc-nav-user-marquee].is-marquee .vc-marquee__track," +
+        "html.vc-cpu-settle:not(.vc-page-hidden).vc-site-polish body.vc-body header .discord-profile-link__name[data-vc-nav-user-marquee].is-marquee .vc-marquee__track," +
+        "html.vc-cpu-settle:not(.vc-page-hidden) body.vc-body #vc-mobile-nav-drawer .discord-profile-link__name[data-vc-nav-user-marquee].is-marquee .vc-marquee__track," +
+        "html.vc-cpu-settle:not(.vc-page-hidden) body.vc-body .vc-mobile-nav-drawer .discord-profile-link__name[data-vc-nav-user-marquee].is-marquee .vc-marquee__track{" +
+        "animation-name:vc-guild-name-marquee!important;" +
+        "-webkit-animation-name:vc-guild-name-marquee!important;" +
+        "animation-duration:var(--vc-marquee-duration,12s)!important;" +
+        "animation-timing-function:linear!important;" +
+        "animation-iteration-count:infinite!important;" +
+        "animation-delay:0s!important;" +
+        "animation-fill-mode:none!important;" +
+        "animation-play-state:running!important;" +
+        "-webkit-animation-play-state:running!important;" +
+        "will-change:transform!important;" +
+        "transform:none!important}" +
         "html.vc-cpu-settle #vc-site-cursor-light," +
         "html.vc-cpu-settle.vc-site-cursor-on #vc-site-cursor-light," +
         "html.vc-cpu-settle #vc-site-cursor-light::before," +
@@ -953,7 +965,7 @@
         "html.vc-site-cpu-soft body.vc-body .is-marquee:not(.vc-header-site-name):not([data-vc-nav-user-marquee])," +
         "html.vc-site-cpu-soft body.vc-body .vc-marquee:not([data-vc-nav-user-marquee]) > .vc-marquee__track{" +
         "animation:none!important;transform:none!important}" +
-        /* navMarqueeConfStaff1 + navUserMqFix1: brand vivo in cpu-soft (pause solo page-hidden) */
+        /* navMarqueeConfStaff1 + navUserMqFix1: brand vivo in cpu-soft (pause solo page-hidden / settle) */
         "html.vc-site-cpu-soft:not(.vc-page-hidden):not(.vc-cpu-settle) body.vc-body header a.vc-header-site-name.is-marquee .vc-header-site-name__track{" +
         "animation-name:vc-guild-name-marquee!important;" +
         "animation-duration:var(--vc-marquee-duration,12s)!important;" +
@@ -963,9 +975,11 @@
         "animation-fill-mode:none!important;" +
         "animation-play-state:running!important;" +
         "will-change:transform!important}" +
-        /* userMqDistFix1: nome vivo in cpu-soft (keyframe con fallback 160px) */
-        "html.vc-site-cpu-soft:not(.vc-page-hidden):not(.vc-cpu-settle) body.vc-body header .discord-profile-link__name[data-vc-nav-user-marquee].is-marquee .vc-marquee__track," +
-        "html.vc-site-cpu-soft:not(.vc-page-hidden):not(.vc-cpu-settle) body.vc-body #header-quick-actions .discord-profile-link__name[data-vc-nav-user-marquee].is-marquee .vc-marquee__track{" +
+        /* userMqSettleRun1: nome vivo anche in cpu-soft+settle (non solo :not(.vc-cpu-settle)) */
+        "html.vc-site-cpu-soft:not(.vc-page-hidden) body.vc-body header .discord-profile-link__name[data-vc-nav-user-marquee].is-marquee .vc-marquee__track," +
+        "html.vc-site-cpu-soft:not(.vc-page-hidden) body.vc-body #header-quick-actions .discord-profile-link__name[data-vc-nav-user-marquee].is-marquee .vc-marquee__track," +
+        "html.vc-site-cpu-soft:not(.vc-page-hidden).vc-cpu-settle body.vc-body header .discord-profile-link__name[data-vc-nav-user-marquee].is-marquee .vc-marquee__track," +
+        "html.vc-site-cpu-soft:not(.vc-page-hidden).vc-cpu-settle body.vc-body #header-quick-actions .discord-profile-link__name[data-vc-nav-user-marquee].is-marquee .vc-marquee__track{" +
         "animation-name:vc-guild-name-marquee!important;" +
         "animation-duration:var(--vc-marquee-duration,12s)!important;" +
         "animation-timing-function:linear!important;" +
@@ -1295,8 +1309,11 @@
         "animation-timing-function:linear!important;" +
         "animation-iteration-count:infinite!important;" +
         "animation-play-state:running!important;will-change:transform!important}" +
-        "html.vc-pwa-cpu-nuke:not(.vc-cpu-settle) body.vc-body header .discord-profile-link__name[data-vc-nav-user-marquee].is-marquee .vc-marquee__track," +
-        "html.vc-pwa-cpu-nuke:not(.vc-cpu-settle) body.vc-body #header-quick-actions .discord-profile-link__name[data-vc-nav-user-marquee].is-marquee .vc-marquee__track{" +
+        /* userMqSettleRun1: nome vivo anche con pwa-nuke+settle */
+        "html.vc-pwa-cpu-nuke:not(.vc-page-hidden) body.vc-body header .discord-profile-link__name[data-vc-nav-user-marquee].is-marquee .vc-marquee__track," +
+        "html.vc-pwa-cpu-nuke:not(.vc-page-hidden) body.vc-body #header-quick-actions .discord-profile-link__name[data-vc-nav-user-marquee].is-marquee .vc-marquee__track," +
+        "html.vc-pwa-cpu-nuke:not(.vc-page-hidden).vc-cpu-settle body.vc-body header .discord-profile-link__name[data-vc-nav-user-marquee].is-marquee .vc-marquee__track," +
+        "html.vc-pwa-cpu-nuke:not(.vc-page-hidden).vc-cpu-settle body.vc-body #header-quick-actions .discord-profile-link__name[data-vc-nav-user-marquee].is-marquee .vc-marquee__track{" +
         "animation-name:vc-guild-name-marquee!important;" +
         "animation-duration:var(--vc-marquee-duration,8s)!important;" +
         "animation-timing-function:linear!important;" +
@@ -2220,5 +2237,5 @@
 /* extOnlyFix1 */
 /* perfIdleReflow1 */
 /* navUserNameMarqueeKeep1 */
-/* skipGhost1 */
+/* userMqSettleRun1 */
 

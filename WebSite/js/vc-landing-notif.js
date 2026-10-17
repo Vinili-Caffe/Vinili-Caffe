@@ -4369,11 +4369,14 @@
     if (unread > 0) {
       badge.hidden = false;
       badge.removeAttribute("hidden");
+      badge.setAttribute("data-count", String(unread > 99 ? 99 : unread));
       badge.textContent = unread > 99 ? "99+" : String(unread);
     } else {
+      /* notifBadgeZeroFlash1: mai testo "0" (CSS assente → pip rosso in posizione sbagliata) */
       badge.hidden = true;
       badge.setAttribute("hidden", "");
-      badge.textContent = "0";
+      badge.setAttribute("data-count", "0");
+      badge.textContent = "";
     }
     try {
       syncBrowserTabNotifBadge(unread);
@@ -6647,7 +6650,7 @@
       '<details class="vc-notif-dropdown" id="vc-notif-dropdown">' +
       '<summary class="vc-icon-btn vc-notif-summary relative inline-flex" aria-label="' +
       tNotif("notif.aria", "Notifiche") +
-      '" data-i18n-attr="aria-label:notif.aria"><i class="fa fa-bell-o" aria-hidden="true"></i><span class="vc-notif-badge" id="vc-notif-badge" hidden aria-live="polite">0</span></summary>' +
+      '" data-i18n-attr="aria-label:notif.aria"><i class="fa fa-bell-o" aria-hidden="true"></i><span class="vc-notif-badge" id="vc-notif-badge" hidden data-count="0" aria-live="polite"></span></summary>' +
       '<div class="vc-notif-panel" role="region" aria-label="' +
       tNotif("notif.listAria", "Elenco notifiche") +
       '" data-i18n-attr="aria-label:notif.listAria">' +

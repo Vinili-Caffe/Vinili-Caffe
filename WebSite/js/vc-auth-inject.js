@@ -1152,7 +1152,7 @@ var PAGE_BUNDLE_HREF =
   "/css/pages/vc-page-bundle.5e2193f7f482.css?v=20261014tipMetalFix1";
 var LANDING_CORE_VER = vcAssetVer("LANDING_CORE_VER", "20261017statSepAlign2");
  /* siteChromeKit2: CSS+JS condivisi (badge/Esci/toast/cue/body#top) — last-wins unico */
-  var SITE_CHROME_KIT_VER = vcAssetVer("SITE_CHROME_KIT_VER", "20261017ptrCardDesktop1");
+  var SITE_CHROME_KIT_VER = vcAssetVer("SITE_CHROME_KIT_VER", "20261017ptrVinylCue1");
   /* homeCssAlign1: HTML con asset-versions stamp vecchio (sipario/wikiCore) forza
      chrome/soft sbagliati — rifiuta e usa canon = feedback. */
   (function refuseStaleChromeSoft() {
@@ -1181,7 +1181,7 @@ var LANDING_CORE_VER = vcAssetVer("LANDING_CORE_VER", "20261017statSepAlign2");
  var NOTIF_CHROME_VER = vcAssetVer("NOTIF_CHROME_VER", "20261011notifSheetCloseLayout1");
  /* notifBellOpen1: load vc-landing-notif.* (full bell), NOT thin vc-landing.*
     titleSepFix1: NON riusare stamp title come filename landing (rompe SEP/bell) */
- var LANDING_NOTIF_VER = vcAssetVer("LANDING_NOTIF_VER", "20261016chromeFlashKill2");
+ var LANDING_NOTIF_VER = vcAssetVer("LANDING_NOTIF_VER", "20261017ptrVinylCue1");
  /* toastUnstickHard1: toast EARLY only via auth — mai post-curtain */
  var SITE_TOAST_VER = vcAssetVer("SITE_TOAST_VER", "20261016bugListBoot1");
  try {
@@ -1570,7 +1570,7 @@ var HEADER_NAME_MARQUEE_VER = vcAssetVer("HEADER_NAME_MARQUEE_VER", "20261017wmR
  /* themeSwitchFix2: CSS switcher SEMPRE (anche dark senza theme-light) */
  var THEME_SWITCH_VER = vcAssetVer("THEME_SWITCH_VER", "20261006themeSwitchFix2");
  var WT_LAYOUT_VER = vcAssetVer("WT_LAYOUT_VER", "20261015ticketsMsgRailCpu1");
- var PERF_VER = vcAssetVer("PERF_VER", "20261017skipGhost1");
+ var PERF_VER = vcAssetVer("PERF_VER", "20261017userMqSettleRun1");
  var USER_LEADER_VER = vcAssetVer("USER_LEADER_VER", "20261016perfRoiPack2");
  var PAGE_CINE_BOOT_VER = vcAssetVer("PAGE_CINE_BOOT_VER", "20261017ptrScrollYoYoKill1");
  /* bootKitAccel1: sipario/lock → vc-site-boot-kit.css (no mega inject duplicato) */
