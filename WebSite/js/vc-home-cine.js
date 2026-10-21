@@ -2,7 +2,8 @@
   if (window.__vcHomeCine) return;
   /* profileHangKill2: /user/?id=… — home-cine freeze main thread (DCL never fires). Bail ASAP.
      pageHang3: /notifications + /staff/* stesso freeze (“La pagina non risponde”).
-     Layout cine staff/notif è già baked in HTML — skip init pesante (canvas/MO/sync). */
+     statusHangKill1: /status/ stesso hang (CDP Runtime.evaluate timeout 25s+; keys i18n raw).
+     Layout cine staff/notif/status è già baked in HTML — skip init pesante (canvas/MO/sync). */
   try {
     var __p = String(location.pathname || "").replace(/\/+$/, "") || "/";
     var __q = new URLSearchParams(location.search || "");
@@ -22,10 +23,14 @@
       __p.indexOf("/staff/") === 0 ||
       (document.documentElement && document.documentElement.classList.contains("vc-staff-route")) ||
       (__body && __body.classList.contains("vc-staff-area"));
-    if (__isProf || __isNotif || __isStaff) {
+    var __isStatus =
+      __p === "/status" ||
+      (__body && __body.classList.contains("vc-status-page"));
+    if (__isProf || __isNotif || __isStaff || __isStatus) {
       window.__vcHomeCine = true;
       window.__vcHomeCineProfileSkip = 1;
       window.__vcHomeCinePageHang3Skip = 1;
+      if (__isStatus) window.__vcHomeCineStatusSkip = 1;
       try {
         var __root = document.documentElement;
         if (__root) {
@@ -34,10 +39,32 @@
             "vc-cine-curtain-off",
             "vc-home-motion-ready",
             "vc-home-cine-live",
+            "vc-scrollcue-away",
           );
           __root.classList.remove("vc-page-cine-boot");
         }
       } catch (__eCls) {}
+      /* profileScrollCueKill1: bail senza lasciare cue a 1° paint */
+      try {
+        var __cues = document.querySelectorAll(".vc-home-scrollcue");
+        for (var __ci = 0; __ci < __cues.length; __ci++) {
+          var __c = __cues[__ci];
+          try {
+            if (__c.style) {
+              __c.style.setProperty("display", "none", "important");
+              __c.style.setProperty("visibility", "hidden", "important");
+              __c.style.setProperty("opacity", "0", "important");
+            }
+          } catch (__eH) {}
+          try {
+            __c.remove();
+          } catch (__eR) {
+            try {
+              if (__c.parentNode) __c.parentNode.removeChild(__c);
+            } catch (__eR2) {}
+          }
+        }
+      } catch (__eCue) {}
       return;
     }
   } catch (__eProf) {}
@@ -56,16 +83,17 @@
      vc-page-hidden/display:none durante boot/wake senza remount.
      pwaResumeLag1: al resume corto → soft thaw (no strip src / no re-decode 1.5MB).
      Hard remount solo hide lunga, stuck still, o arm/sweep. */
+  /* fase3NoCanvas1: photo-bg ON → static only (no canvas rAF); seratafilm early-return in boot */
   var SITE_PHOTO_BG =
     typeof window.__VC_SITE_PHOTO_BG === "boolean" ? window.__VC_SITE_PHOTO_BG : true;
   window.__VC_SITE_PHOTO_BG = SITE_PHOTO_BG;
-  var PHOTO_BG_VER = "20261012confBgNoGifBlack1";
+  /* homePerfIdle1: still webp (stessa foto del PNG, ~10× più leggero) — niente GIF */
+  var PHOTO_BG_VER = "20261020homeBootCut1";
   var CONFESSIONALE_PHOTO_SRC = "/images/Confessionale-GF.jpg?v=20261012confBgNoGifBlack1";
   var SITE_PHOTO_BG_DESKTOP_STILL = "/images/sfondo-still.webp?v=" + PHOTO_BG_VER;
   var SITE_PHOTO_BG_MOBILE_STILL = "/images/sfondo-mobile-still.webp?v=" + PHOTO_BG_VER;
-  var SITE_PHOTO_BG_DESKTOP_GIF = "/images/sfondo.gif?v=" + PHOTO_BG_VER;
-  var SITE_PHOTO_BG_MOBILE_GIF = "/images/sfondo-mobile.gif?v=" + PHOTO_BG_VER;
-  /* boot = still; armPhotoGif() promuove a GIF */
+  var SITE_PHOTO_BG_DESKTOP_GIF = SITE_PHOTO_BG_DESKTOP_STILL;
+  var SITE_PHOTO_BG_MOBILE_GIF = SITE_PHOTO_BG_MOBILE_STILL;
   var SITE_PHOTO_BG_DESKTOP = SITE_PHOTO_BG_DESKTOP_STILL;
   var SITE_PHOTO_BG_MOBILE = SITE_PHOTO_BG_MOBILE_STILL;
   var photoGifArmed = false;
@@ -105,11 +133,8 @@
   }
 
   function forcePhotoStillFlag() {
-    /* fgRevertBgOnly1: still solo se flag esplicito (no auto-PWA) */
-    try {
-      if (window.__VC_FORCE_PHOTO_STILL === 1 || window.__VC_FORCE_PHOTO_STILL === true) return true;
-    } catch (eF) {}
-    return false;
+    /* homePerfIdle1: always still webp */
+    return true;
   }
 
   function canArmPhotoGif() {
@@ -547,8 +572,12 @@
       if (!stillMode) {
         mustFix = mustFix || isForbiddenStillSrc(prev) || prev.indexOf(".gif") === -1;
       } else {
-        /* still: niente kick GIF (riavvio decode = spike CPU) */
-        mustFix = mustFix || prev.indexOf(".gif") !== -1;
+        /* still: niente kick GIF; homePerfIdle1: preferisci webp (no PNG 1.2MB) */
+        mustFix =
+          mustFix ||
+          prev.indexOf(".gif") !== -1 ||
+          /\.png(\?|$)/i.test(prev) ||
+          (prev.indexOf("sfondo") !== -1 && prev.indexOf(".webp") === -1);
       }
       if (mustFix) {
         photo.setAttribute("src", anim);
@@ -3454,6 +3483,12 @@
   }
 
   function initPanelTilt() {
+    /* fase3SkipTiltPhoto1 */
+    try {
+      if (SITE_PHOTO_BG || window.__VC_SITE_PHOTO_BG) return;
+      if (isSeratafilmRoute()) return;
+    } catch (eSkipTilt) {}
+
     try {
       /* cpuPagesIdle1: tilt pointermove = CPU su page-cine */
       if (document.documentElement.classList.contains("vc-site-cpu-soft")) return;
@@ -3528,6 +3563,16 @@
   function initCursorSpotlight() {
     var stage = document.querySelector(".vc-home-cine");
     if (!stage) return;
+    /* ticketsLagHard1: tickets = no spotlight pointermove (CPU su scroll/type) */
+    try {
+      var bSpot = document.body;
+      if (
+        bSpot &&
+        (bSpot.classList.contains("vc-web-tickets-page") || bSpot.classList.contains("vc-tickets-page"))
+      ) {
+        return;
+      }
+    } catch (eTkSpot) {}
     ensureSpotlightLayer(stage);
     stage.classList.add("vc-home-cine--spot");
 
@@ -3962,6 +4007,14 @@
     var body = document.body;
         if (isSeratafilmRoute()) {
       try {
+        /* fase3NoCanvas1: seratafilm = zero canvas/trail/tilt */
+        document.documentElement.classList.add("vc-cine-static-bg", "vc-home-motion-ready");
+        document.querySelectorAll(".vc-home-cine__canvas").forEach(function (c) {
+          try {
+            c.style.setProperty("display", "none", "important");
+            c.style.setProperty("visibility", "hidden", "important");
+          } catch (eHide) {}
+        });
         markPageCineReady(true);
       } catch (eSf) {}
       return;
@@ -4912,17 +4965,24 @@
     }
 
     function playHack(el, text) {
+      /* kickerNoHack1: niente scramble — reveal diretto */
       if (!el || !text) return;
       try {
         el.removeAttribute("data-vc-hack-seen");
         el.removeAttribute("data-vc-hack-done");
         el.removeAttribute("data-vc-hack-waiting");
+        el.removeAttribute("data-vc-welcome-hold");
         el.setAttribute("data-vc-hack-final", text);
-        el.setAttribute("data-vc-hack-pending", "1");
+        el.style.removeProperty("opacity");
+        el.style.removeProperty("visibility");
       } catch (eAttr) {}
       try {
+        if (window.VcKickerHack && typeof window.VcKickerHack.revealWelcome === "function") {
+          window.VcKickerHack.revealWelcome(el, text);
+          return;
+        }
         if (window.VcKickerHack && typeof window.VcKickerHack.play === "function") {
-          window.VcKickerHack.play(el, { text: text, force: true, delayMs: 0 });
+          window.VcKickerHack.play(el, { text: text, force: true, scramble: false, delayMs: 0 });
           return;
         }
       } catch (ePlay) {}
@@ -5006,27 +5066,29 @@
       if (opts.fromApi && (key === "home.welcomeM" || key === "home.welcomeF")) {
         appliedGendered = true;
       }
-      var shouldAnimate =
-        opts.animate === true ||
-        (opts.fromApi && opts.resolved && (key === "home.welcomeM" || key === "home.welcomeF"));
-      /* only authenticated API resolve marks ready — placeholder must NOT (PC early-lock) */
-      if (opts.fromApi && opts.resolved) {
-        if (shouldAnimate) {
-          /* do NOT set textContent here — play() owns the decode */
-          notifyReady(el, text, key);
-          playHack(el, text);
-        } else {
-          el.textContent = text;
-          notifyReady(el, text, key);
-        }
+      /* kickerNoHack1: no hacking; testo solo quando pronomi certi (M/F) o guest */
+      var genderedOk = key === "home.welcomeM" || key === "home.welcomeF";
+      if (opts.fromApi && opts.resolved && genderedOk) {
+        notifyReady(el, text, key);
+        playHack(el, text);
+      } else if (opts.guest === true) {
+        try {
+          el.setAttribute("data-vc-welcome-guest", "1");
+        } catch (eGuest) {}
+        notifyReady(el, text, key);
+        playHack(el, text);
       } else {
-        el.textContent = text;
-        if (!(appliedGendered && (key === "home.welcomeM" || key === "home.welcomeF"))) {
-          try {
+        /* in attesa API: nascondi, niente Benvenut* / scramble */
+        try {
+          el.textContent = "";
+          el.setAttribute("data-vc-welcome-hold", "1");
+          el.style.setProperty("opacity", "0", "important");
+          el.style.setProperty("visibility", "hidden", "important");
+          if (!(appliedGendered && genderedOk)) {
             el.removeAttribute("data-vc-welcome-pronoun-ready");
             el.removeAttribute("data-vc-welcome-from-api");
-          } catch (eClr) {}
-        }
+          }
+        } catch (eClr) {}
       }
     }
 
@@ -5040,14 +5102,14 @@
       clearTokenRetry();
       clearRateLimitRetry();
       clearLocalCache();
-      setBadge(DEFAULT_KEY, DEFAULT_IT, { fromApi: false });
+      setBadge(DEFAULT_KEY, DEFAULT_IT, { fromApi: false, guest: !getToken(), resolved: !getToken() });
     }
 
     function applyFromApi(data, opts) {
       opts = opts || {};
       if (!data || !data.ok) {
         if (appliedGendered) return;
-        /* welcomePronouns9: 429/fail → show inclusive but NEVER mark ready (kicker must stay open) */
+        /* kickerNoHack1: in attesa retry → hold nascosto (no Benvenut* / no hack) */
         setBadge(DEFAULT_KEY, DEFAULT_IT, {
           fromApi: false,
           resolved: false,
@@ -5234,7 +5296,7 @@
           }
         } catch (e0) {}
         if (!getToken()) {
-          if (!appliedGendered) setBadge(DEFAULT_KEY, DEFAULT_IT, { fromApi: false });
+          if (!appliedGendered) setBadge(DEFAULT_KEY, DEFAULT_IT, { fromApi: false, guest: true, resolved: true });
           return;
         }
         if (welcomeFetchDoneOk && appliedGendered) return;
@@ -5283,7 +5345,7 @@
         try {
           onProfile(detail);
         } catch (e) {
-          if (!appliedGendered) setBadge(DEFAULT_KEY, DEFAULT_IT, { fromApi: false });
+          if (!appliedGendered) setBadge(DEFAULT_KEY, DEFAULT_IT, { fromApi: false, guest: !getToken(), resolved: !getToken() });
         }
       };
       /* violKillIdle2: onProfile deferred + skip hidden */
@@ -5310,7 +5372,7 @@
         }
       } catch (eL) {}
       if (!getToken() && !appliedGendered) {
-        setBadge(DEFAULT_KEY, DEFAULT_IT, { fromApi: false });
+        setBadge(DEFAULT_KEY, DEFAULT_IT, { fromApi: false, guest: true, resolved: true });
       }
     });
 

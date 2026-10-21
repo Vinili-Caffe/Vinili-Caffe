@@ -268,14 +268,14 @@
       "footer.profile": "Profilo",
       "footer.premium": "Premium",
       "footer.status": "Status",
-      "footer.sysStatus.ok": "Sistemi OK",
-      "footer.sysStatus.partial": "Degrado parziale",
-      "footer.sysStatus.bad": "Servizi offline",
-      "footer.sysStatus.wait": "Controllo…",
-      "footer.sysStatus.okAria": "Stato sistemi: tutti operativi. Apri la pagina status.",
-      "footer.sysStatus.partialAria": "Stato sistemi: degrado parziale. Apri la pagina status.",
-      "footer.sysStatus.badAria": "Stato sistemi: alcuni servizi non rispondono. Apri la pagina status.",
-      "footer.sysStatus.waitAria": "Controllo stato sistemi in corso.",
+      "footer.sysStatus.ok": "Operativo",
+      "footer.sysStatus.partial": "Prestazioni ridotte",
+      "footer.sysStatus.bad": "Disservizio",
+      "footer.sysStatus.wait": "Verifica…",
+      "footer.sysStatus.okAria": "Stato dei sistemi: tutto operativo. Apri la pagina status.",
+      "footer.sysStatus.partialAria": "Stato dei sistemi: prestazioni ridotte. Apri la pagina status.",
+      "footer.sysStatus.badAria": "Stato dei sistemi: disservizio in corso. Apri la pagina status.",
+      "footer.sysStatus.waitAria": "Verifica dello stato dei sistemi in corso.",
       "footer.site": "Sito",
       "footer.terms": "Termini di Servizio",
       "footer.privacy": "Privacy Policy",
@@ -942,13 +942,13 @@
       "footer.profile": "Profile",
       "footer.premium": "Premium",
       "footer.status": "Status",
-      "footer.sysStatus.ok": "Systems OK",
-      "footer.sysStatus.partial": "Partial degradation",
-      "footer.sysStatus.bad": "Services offline",
+      "footer.sysStatus.ok": "Operational",
+      "footer.sysStatus.partial": "Degraded performance",
+      "footer.sysStatus.bad": "Service disruption",
       "footer.sysStatus.wait": "Checking…",
-      "footer.sysStatus.okAria": "System status: all operational. Open the status page.",
-      "footer.sysStatus.partialAria": "System status: partial degradation. Open the status page.",
-      "footer.sysStatus.badAria": "System status: some services are down. Open the status page.",
+      "footer.sysStatus.okAria": "System status: all systems operational. Open the status page.",
+      "footer.sysStatus.partialAria": "System status: degraded performance. Open the status page.",
+      "footer.sysStatus.badAria": "System status: service disruption. Open the status page.",
       "footer.sysStatus.waitAria": "Checking system status.",
       "footer.site": "Website",
       "footer.terms": "Terms of Service",
@@ -1596,7 +1596,7 @@
       }
     } catch (e2) {}
     /* guildWordmark1 */
-    if (!siteName) siteName = "🎃 Vinili & Caffè 🍂 • Italia • Social • Gaming";
+    if (!siteName) siteName = "Vinili & Caffè • Italia • Social • Gaming";
     try {
       var mail = document.querySelector('a[href^="mailto:"]');
       if (mail) supportEmail = String(mail.getAttribute("href") || "").replace(/^mailto:/i, "").trim();

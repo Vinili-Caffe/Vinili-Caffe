@@ -3,8 +3,8 @@
    Scroll-cue: allinea home-cine — staff cine (compiti) PUÒ avere cue; kill solo profilo/skip. */
 (function () {
   "use strict";
-  /* homeCssAlign2: VER = chromeGap1 (mai siteChromeKit5 — riscriveva CSS stamp vecchio) */
-  var VER = "20261016chromeGap1";
+  /* pendingBadgePos2: VER = Pos2 (mai chromeGap1 — translate(48%) sul ring) */
+  var VER = "20261017pendingBadgePos2";
   var TITLE_VER = "20261011titlePwaDingbat3"; /* titleSepFix1: keep dingbat ǀ */
   var CSS_ID = "vc-site-chrome-kit-css";
   if (window.__VC_SITE_CHROME_KIT === VER && window.VcSiteChromeKit) return;
@@ -58,7 +58,7 @@
 
   function forceBadgeCorner() {
     try {
-      window.__vcBadgeCornerForce4 = 1;
+      window.__vcBadgeCornerForce5 = 1;
       var badges = document.querySelectorAll(
         "header #vc-notif-dropdown > summary.vc-notif-summary > .vc-notif-badge, " +
           "header .vc-notif-summary > .vc-notif-badge, " +
@@ -68,20 +68,26 @@
         var bd = badges[i];
         if (!bd || !bd.style) continue;
         var txt = String(bd.textContent || "").trim();
-        if (!txt || txt === "0") {
+        var countAttr = String(bd.getAttribute("data-count") || "").trim();
+        /* badgeZeroLoad1: data-count=0 o testo 0 → mai inline-flex */
+        if (!txt || txt === "0" || countAttr === "0") {
           bd.setAttribute("hidden", "");
+          bd.setAttribute("data-count", "0");
+          if (txt === "0") bd.textContent = "";
           bd.style.setProperty("display", "none", "important");
           continue;
         }
         bd.removeAttribute("hidden");
+        /* pendingBadgePos2: angolo alto-dx fuori dal ring (no translate%) */
         bd.style.setProperty("position", "absolute", "important");
-        bd.style.setProperty("top", "0", "important");
-        bd.style.setProperty("right", "0", "important");
+        bd.style.setProperty("inset", "auto", "important");
+        bd.style.setProperty("top", "-0.22rem", "important");
+        bd.style.setProperty("right", "-0.22rem", "important");
         bd.style.setProperty("left", "auto", "important");
         bd.style.setProperty("bottom", "auto", "important");
-        bd.style.setProperty("transform", "translate(48%, -48%)", "important");
-        bd.style.setProperty("-webkit-transform", "translate(48%, -48%)", "important");
-        bd.style.setProperty("z-index", "30", "important");
+        bd.style.setProperty("transform", "none", "important");
+        bd.style.setProperty("-webkit-transform", "none", "important");
+        bd.style.setProperty("z-index", "50", "important");
         bd.style.setProperty("display", "inline-flex", "important");
       }
     } catch (eBadge) {}

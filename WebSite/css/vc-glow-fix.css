@@ -1,3 +1,4 @@
+/* lookStaticBorder1: no conic/mask rings — solid sand border */
 /* chromeGlowSoft3 / listRowFlat3 + inboxCardShell1 */
 /* listRowFlat3: cards keep shell for staff inbox; nested vote/notify stay flat */
 #vc-page-content #wiki-comandi-panel {
@@ -83,7 +84,7 @@ html.vc-site-polish body > header .vc-nav-shell,
 html body.vc-body > header .vc-nav-shell,
 html body.vc-body header.fixed .vc-nav-shell {
   filter: none !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   /* navChromeGradBorder1: niente alone sand — bordo = ::after gradiente */
   box-shadow: none !important;
 }
@@ -94,7 +95,7 @@ html.vc-site-polish body.vc-body--home > footer.vc-premium-footer .vc-premium-fo
   /* footerCardNavRing1: anello = ::after conic, no bordo/alone solido */
   border: 0 !important;
   border-width: 0 !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   box-shadow: none !important;
 }
 
@@ -169,7 +170,7 @@ html.vc-site-polish body.vc-page-cine-layout :is(
   background: transparent !important;
   background-color: transparent !important;
   background-image: none !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   border-width: 0 !important;
   box-shadow: none !important;
   filter: none !important;
@@ -419,41 +420,7 @@ html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body #header-quick-actions .dis
 html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body header .discord-profile-link::after,
 html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body #discord-login-state .discord-profile-link::after,
 html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body #header-quick-actions .discord-profile-link::after,
-html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body#top header .discord-profile-link::after {
-  content: "" !important;
-  display: block !important;
-  position: absolute !important;
-  inset: -1px !important;
-  border-radius: inherit !important;
-  box-sizing: border-box !important;
-  padding: 1.45px !important;
-  pointer-events: none !important;
-  z-index: 3 !important;
-  opacity: 1 !important;
-  border: 0 !important;
-  filter: none !important;
-  box-shadow: none !important;
-  background: conic-gradient(
-    from var(--vc-nav-glow-angle, 0deg),
-    rgba(255, 247, 236, 0.95) 0deg,
-    rgba(255, 247, 236, 0.58) 18deg,
-    rgba(212, 168, 136, 0.16) 48deg,
-    rgba(212, 168, 136, 0.05) 90deg,
-    rgba(212, 168, 136, 0.05) 270deg,
-    rgba(212, 168, 136, 0.16) 312deg,
-    rgba(255, 247, 236, 0.58) 342deg,
-    rgba(255, 247, 236, 0.95) 360deg
-  ) !important;
-  -webkit-mask:
-    linear-gradient(#000 0 0) content-box,
-    linear-gradient(#000 0 0) !important;
-  -webkit-mask-composite: xor !important;
-  mask:
-    linear-gradient(#000 0 0) content-box,
-    linear-gradient(#000 0 0) !important;
-  mask-composite: exclude !important;
-  animation: vc-nav-glow-spin 8s linear infinite !important;
-}
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body#top header .discord-profile-link::after { content: none !important; display: none !important; background: none !important; background-image: none !important; -webkit-mask: none !important; mask: none !important; opacity: 0 !important; }
 html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body header .discord-profile-link .discord-avatar-clip,
 html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body #discord-login-state .discord-profile-link .discord-avatar-clip {
   position: relative !important;

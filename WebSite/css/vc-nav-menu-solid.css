@@ -1,3 +1,4 @@
+/* lookStaticBorder1: no conic/mask rings — solid sand border */
 /* navSelectBar1 — pannelli solidi; selezione = barra sotto (hover + current) */
 :root {
   --vc-menu-solid-bg: #100c09;
@@ -40,20 +41,13 @@ html.vc-site-photo-bg.vc-site-polish body.vc-body .vc-snav-panel {
   background-image:
     radial-gradient(120% 90% at 0% 0%, rgba(236, 205, 176, 0.12), transparent 52%),
     radial-gradient(90% 70% at 100% 0%, rgba(111, 78, 55, 0.16), transparent 48%),
-    linear-gradient(175deg, #17130f 0%, #100c09 55%, #0b0807 100%),
-    conic-gradient(
-      from 0deg,
-      rgba(247, 236, 223, 0.82) 0deg,
-      rgba(212, 168, 136, 0.58) 90deg,
-      rgba(180, 130, 90, 0.62) 180deg,
-      rgba(212, 168, 136, 0.58) 270deg,
-      rgba(247, 236, 223, 0.82) 360deg
-    ) !important;
-  background-origin: padding-box, padding-box, padding-box, border-box !important;
-  background-clip: padding-box, padding-box, padding-box, border-box !important;
-  -webkit-background-clip: padding-box, padding-box, padding-box, border-box !important;
-  border: 1px solid transparent !important;
-  border-color: transparent !important;
+    linear-gradient(175deg, #17130f 0%, #100c09 55%, #0b0807 100%)
+     !important;
+  background-origin: padding-box !important;
+  background-clip: padding-box !important;
+  -webkit-background-clip: padding-box !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
   box-shadow:
@@ -86,7 +80,7 @@ html body.vc-body header .vc-header-snav .vc-snav-item,
 html body.vc-body header .vc-header-snav .vc-snav-summary,
 html body.vc-body header .vc-header-snav .vc-snav-row {
   position: relative !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
 }
 
 /* niente pill: sfondo trasparente idle / hover soft minimo */
@@ -117,7 +111,7 @@ html body.vc-body--home header .vc-header-snav .vc-snav-item:not(.vc-snav-item--
 html body.vc-body--home header .vc-header-snav .vc-snav-details:not([open]):not(.vc-snav-details--current) > .vc-snav-summary:hover,
 html body.vc-body--home header .vc-header-snav .vc-snav-details[open] > .vc-snav-summary {
   background-color: transparent !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   box-shadow: none !important;
 }
 
@@ -330,19 +324,12 @@ html body.vc-body .vc-mobile-nav-drawer details.vc-mobile-nav-section > summary 
     background-image:
       radial-gradient(120% 90% at 0% 0%, rgba(236, 205, 176, 0.12), transparent 52%),
       radial-gradient(90% 70% at 100% 0%, rgba(111, 78, 55, 0.16), transparent 48%),
-      linear-gradient(175deg, #17130f 0%, #100c09 55%, #0b0807 100%),
-      conic-gradient(
-        from 0deg,
-        rgba(247, 236, 223, 0.82) 0deg,
-        rgba(212, 168, 136, 0.58) 90deg,
-        rgba(180, 130, 90, 0.62) 180deg,
-        rgba(212, 168, 136, 0.58) 270deg,
-        rgba(247, 236, 223, 0.82) 360deg
-      ) !important;
-    background-origin: padding-box, padding-box, padding-box, border-box !important;
-    background-clip: padding-box, padding-box, padding-box, border-box !important;
-    -webkit-background-clip: padding-box, padding-box, padding-box, border-box !important;
-    border: 1px solid transparent !important;
+      linear-gradient(175deg, #17130f 0%, #100c09 55%, #0b0807 100%)
+       !important;
+    background-origin: padding-box !important;
+    background-clip: padding-box !important;
+    -webkit-background-clip: padding-box !important;
+    border: 1px solid rgba(245, 214, 183, 0.38) !important;
   }
   /* lightNavDrawerFix1: cream anche con #id (prima #100c09 in media vinceva sul light) */
   html.vc-site-polish[data-vc-theme="light"] body.vc-body .vc-mobile-nav-drawer__panel,
@@ -577,39 +564,7 @@ html.vc-site-polish body.vc-body > header .vc-nav-shell.vc-nav-shell--scrolled::
 html body.vc-body > header .vc-nav-shell::after,
 html body.vc-body header.fixed .vc-nav-shell::after,
 html body.vc-body--home > header .vc-nav-shell::after,
-html body.vc-dashboard-page > header .vc-nav-shell::after {
-  content: "" !important;
-  display: block !important;
-  position: absolute !important;
-  inset: 0 !important;
-  border-radius: inherit !important;
-  padding: 1px !important;
-  box-sizing: border-box !important;
-  pointer-events: none !important;
-  z-index: 0 !important;
-  opacity: 1 !important;
-  /* navChromeGradBorder1: anello statico come card (niente spin / alone soft) */
-  background: conic-gradient(
-    from 0deg,
-    rgba(247, 236, 223, 0.82) 0deg,
-    rgba(212, 168, 136, 0.58) 90deg,
-    rgba(180, 130, 90, 0.62) 180deg,
-    rgba(212, 168, 136, 0.58) 270deg,
-    rgba(247, 236, 223, 0.82) 360deg
-  ) !important;
-  -webkit-mask:
-    linear-gradient(#000 0 0) content-box,
-    linear-gradient(#000 0 0) !important;
-  -webkit-mask-composite: xor !important;
-  mask:
-    linear-gradient(#000 0 0) content-box,
-    linear-gradient(#000 0 0) !important;
-  mask-composite: exclude !important;
-  animation: none !important;
-  filter: none !important;
-  -webkit-filter: none !important;
-  box-shadow: none !important;
-}
+html body.vc-dashboard-page > header .vc-nav-shell::after { content: none !important; display: none !important; background: none !important; background-image: none !important; -webkit-mask: none !important; mask: none !important; opacity: 0 !important; }
 
 /* themeLightNavSolid1: in light i pannelli restano cream (batte #100c09 di questo file) */
 html.vc-site-polish[data-vc-theme="light"] body.vc-body .vc-snav-panel,
@@ -670,19 +625,12 @@ html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body #header-quick-actions #vc-
 html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body #vc-mobile-nav-toggle,
 html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body header #vc-view-as-launch,
 html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body #header-quick-actions #vc-view-as-launch {
-  border: 1px solid transparent !important;
-  border-color: transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   background-color: rgba(12, 9, 7, 0.55) !important;
   background-image:
-    linear-gradient(rgba(12, 9, 7, 0.78), rgba(12, 9, 7, 0.78)),
-    conic-gradient(
-      from 0deg,
-      rgba(247, 236, 223, 0.82) 0deg,
-      rgba(212, 168, 136, 0.58) 90deg,
-      rgba(180, 130, 90, 0.62) 180deg,
-      rgba(212, 168, 136, 0.58) 270deg,
-      rgba(247, 236, 223, 0.82) 360deg
-    ) !important;
+    linear-gradient(rgba(12, 9, 7, 0.78), rgba(12, 9, 7, 0.78))
+     !important;
   background-origin: padding-box, border-box !important;
   background-clip: padding-box, border-box !important;
   -webkit-background-clip: padding-box, border-box !important;
@@ -701,17 +649,10 @@ html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body #header-quick-actions #vc-
 html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body #header-quick-actions #vc-view-as-launch:focus-visible,
 html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body header #vc-view-as-launch:hover,
 html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body header #vc-view-as-launch:focus-visible {
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   background-image:
-    linear-gradient(rgba(16, 12, 9, 0.88), rgba(16, 12, 9, 0.88)),
-    conic-gradient(
-      from 0deg,
-      rgba(255, 247, 236, 0.92) 0deg,
-      rgba(236, 205, 176, 0.72) 90deg,
-      rgba(212, 168, 136, 0.7) 180deg,
-      rgba(236, 205, 176, 0.72) 270deg,
-      rgba(255, 247, 236, 0.92) 360deg
-    ) !important;
+    linear-gradient(rgba(16, 12, 9, 0.88), rgba(16, 12, 9, 0.88))
+     !important;
   background-origin: padding-box, border-box !important;
   background-clip: padding-box, border-box !important;
   -webkit-background-clip: padding-box, border-box !important;
@@ -736,19 +677,12 @@ html.vc-site-polish body.vc-body header .vc-header-logo-link,
 body.vc-body header .vc-header-logo-link {
   position: relative !important;
   overflow: visible !important;
-  border: 1px solid transparent !important;
-  border-color: transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   background-color: rgba(10, 9, 8, 0.55) !important;
   background-image:
-    linear-gradient(rgba(10, 9, 8, 0.92), rgba(10, 9, 8, 0.92)),
-    conic-gradient(
-      from 0deg,
-      rgba(247, 236, 223, 0.82) 0deg,
-      rgba(212, 168, 136, 0.58) 90deg,
-      rgba(180, 130, 90, 0.62) 180deg,
-      rgba(212, 168, 136, 0.58) 270deg,
-      rgba(247, 236, 223, 0.82) 360deg
-    ) !important;
+    linear-gradient(rgba(10, 9, 8, 0.92), rgba(10, 9, 8, 0.92))
+     !important;
   background-origin: padding-box, border-box !important;
   background-clip: padding-box, border-box !important;
   -webkit-background-clip: padding-box, border-box !important;
@@ -777,18 +711,11 @@ html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body header :is(
   .discord-account-menu summary
 ) {
   border-radius: 999px !important;
-  border: 1px solid transparent !important;
-  border-color: transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   background-image:
-    linear-gradient(rgba(10, 9, 8, 0.2), rgba(10, 9, 8, 0.2)),
-    conic-gradient(
-      from 0deg,
-      rgba(247, 236, 223, 0.82) 0deg,
-      rgba(212, 168, 136, 0.58) 90deg,
-      rgba(180, 130, 90, 0.62) 180deg,
-      rgba(212, 168, 136, 0.58) 270deg,
-      rgba(247, 236, 223, 0.82) 360deg
-    ) !important;
+    linear-gradient(rgba(10, 9, 8, 0.2), rgba(10, 9, 8, 0.2))
+     !important;
   background-origin: padding-box, border-box !important;
   background-clip: padding-box, border-box !important;
   -webkit-background-clip: padding-box, border-box !important;
@@ -821,5 +748,5 @@ html body.vc-body header.fixed .vc-nav-shell {
   box-shadow: none !important;
   filter: none !important;
   -webkit-filter: none !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
 }

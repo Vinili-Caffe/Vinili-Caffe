@@ -118,3 +118,6 @@ pnpm-lock.yaml
 
 # --- bundled mega CSS duplicate (edit core/ext instead) ---
 WebSite/css/vc-landing.css
+
+# VSCode
+.vscode/

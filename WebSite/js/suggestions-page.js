@@ -1,4 +1,4 @@
-﻿(function () {
+(function () {
   /* suggestionsKindPhoto1 + … + notifSheetFastOpen1 + notifSheetReadyOpen1
      (deep-link: scroll card → sheet con riga; no loading shell eterna) */
   var ACCESS_TOKEN_KEY = "vc_discord_access_token";
@@ -498,12 +498,32 @@
   function startDiscussionLiveBoost() {
     stopDiscussionLiveBoost();
     if (!state.openSuggestionId) return;
+    /* fbHangSoft1: missing sheet = no 3.5s poll thrash (Feedback non trovato) */
+    try {
+      if (
+        state.payload &&
+        payloadMatchesActiveBoard(state.payload) &&
+        !findSuggestionById(state.openSuggestionId)
+      ) {
+        return;
+      }
+    } catch (eMissBoost) {}
     state.discussionBoostTimer = setInterval(function () {
       if (!state.openSuggestionId) {
         stopDiscussionLiveBoost();
         return;
       }
       if (document.visibilityState === "hidden") return;
+      try {
+        if (
+          state.payload &&
+          payloadMatchesActiveBoard(state.payload) &&
+          !findSuggestionById(state.openSuggestionId)
+        ) {
+          stopDiscussionLiveBoost();
+          return;
+        }
+      } catch (eMissTick) {}
       void refreshPayloadQuiet();
     }, 3500);
   }
@@ -2113,7 +2133,7 @@
             esc(url) +
             '" target="_blank" rel="noopener noreferrer"><img src="' +
             esc(url) +
-            '" alt="Allegato" style="width:96px;height:96px;object-fit:cover;border-radius:.75rem;border:1px solid rgba(255,255,255,.12)" loading="lazy" decoding="async" /></a>'
+            '" alt="Allegato" width="96" height="96" style="width:96px;height:96px;object-fit:cover;border-radius:.75rem;border:1px solid rgba(255,255,255,.12)" loading="lazy" decoding="async" /></a>'
           );
         })
         .join("") +
@@ -2294,9 +2314,16 @@
     var root = ensureModalRoot();
     if (!state.editModalOpen) {
       state.draftImages = [];
+      var wasOpen =
+        !root.hidden ||
+        root.classList.contains("vc-reviews-modal--open") ||
+        document.documentElement.classList.contains("vc-reviews-modal-open");
       root.innerHTML = "";
       root.className = "vc-reviews-modal";
       root.hidden = true;
+      /* fbHangSoft1: release scroll lock solo se il modal era davvero aperto
+         (ogni render() lo richiamava → unpin/hold storm) */
+      if (!wasOpen) return;
       try {
         if (typeof window.__vcReleaseModalScrollLock === "function") {
           window.__vcReleaseModalScrollLock({

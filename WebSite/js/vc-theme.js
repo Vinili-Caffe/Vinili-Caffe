@@ -1,3 +1,4 @@
+/* lookStaticBorder1b */
 /**
  * themeSync1: light|dark|auto synced across devices via site-chrome-prefs.
  * emojiColorFix3: titleGrad skips boards hero + .vc-emoji
@@ -14,7 +15,7 @@
     "radial-gradient(120% 90% at 0% 0%, rgba(255, 248, 238, 0.85), transparent 52%)," +
     "radial-gradient(90% 70% at 100% 0%, rgba(212, 168, 136, 0.22), transparent 48%)," +
     "linear-gradient(175deg, #fffaf4 0%, #f7f1ea 55%, #efe6dc 100%)," +
-    "conic-gradient(from 0deg,rgba(111, 78, 55, 0.72) 0deg, rgba(180, 130, 90, 0.55) 90deg, rgba(139, 99, 70, 0.58) 180deg, rgba(180, 130, 90, 0.55) 270deg, rgba(111, 78, 55, 0.72) 360deg)";
+    "";
   var applyingRemoteTheme = false;
 
   function systemIsDark() {
@@ -205,13 +206,20 @@
   }
 
 
-  /* themeSwitchAlways1: layout switcher sempre (dark mode non ha theme-light) */
-  var THEME_SWITCH_VER = "20261006themeScrollFix1";
+  /* themeSwitchAlways1 + assetBloatKill1b: stesso ver di auth-inject; no 2ª GET */
+  var THEME_SWITCH_VER =
+    (window.__VC_ASSET_VERS && window.__VC_ASSET_VERS.THEME_SWITCH_VER) ||
+    "20261021moonKnobVis1";
+  try {
+    if (!/moonKnobVis1/i.test(String(THEME_SWITCH_VER || ""))) {
+      THEME_SWITCH_VER = "20261021moonKnobVis1";
+    }
+  } catch (eTsVer) {}
   function ensureThemeSwitchCss() {
     try {
       var id = "vc-theme-switch-css";
       var link = document.getElementById(id);
-      if (!link) link = document.querySelector('link[href*="vc-theme-switch.css"]');
+      if (!link) link = document.querySelector('link[href*="vc-theme-switch"]');
       if (!link) {
         link = document.createElement("link");
         link.rel = "stylesheet";
@@ -219,10 +227,14 @@
         link.href = "/css/vc-theme-switch.css?v=" + THEME_SWITCH_VER;
         (document.head || document.documentElement).appendChild(link);
       } else {
+        /* navFootSwitch1: bump href se stamp stale (icone stacked) */
         link.id = id;
-        if (String(link.href || "").indexOf(THEME_SWITCH_VER) === -1) {
-          link.href = "/css/vc-theme-switch.css?v=" + THEME_SWITCH_VER;
-        }
+        try {
+          var href = String(link.getAttribute("href") || link.href || "");
+          if (href.indexOf("moonKnobVis1") < 0) {
+            link.href = "/css/vc-theme-switch.css?v=" + THEME_SWITCH_VER;
+          }
+        } catch (eHref) {}
       }
       link.media = "all";
       try {
@@ -292,18 +304,7 @@
         pinThemeCssLast._done = 1;
         return;
       }
-      pinThemeCssLast._busy = true;
-      head.appendChild(theme);
-      if (runtime) head.appendChild(runtime);
-      try {
-        var emojiCss = document.getElementById("vc-emoji-color-css");
-        if (!emojiCss) emojiCss = document.querySelector('link[href*="vc-emoji-color.css"]');
-        if (emojiCss && !pinThemeCssLast._emojiPinned) {
-          pinThemeCssLast._emojiPinned = 1;
-          var mount = document.body || head;
-          mount.appendChild(emojiCss);
-        }
-      } catch (eEmojiPin) {}
+      /* assetBloatKill1b: no appendChild move su link già in DOM (2ª GET) */
       pinThemeCssLast._busy = false;
       pinThemeCssLast._done = 1;
     } catch (ePin) {
@@ -335,10 +336,10 @@
     var wash =
       "background-color:#faf6f0!important;background-image:" +
       LIGHT_WASH +
-      "!important;background-origin:padding-box,padding-box,padding-box,border-box!important;" +
-      "background-clip:padding-box,padding-box,padding-box,border-box!important;" +
-      "-webkit-background-clip:padding-box,padding-box,padding-box,border-box!important;" +
-      "border:1px solid transparent!important;border-color:transparent!important;" +
+      "!important;background-origin:padding-box!important;" +
+      "background-clip:padding-box!important;" +
+      "-webkit-background-clip:padding-box!important;" +
+      "border:1px solid transparent!important;border-color:rgba(245,214,183,.38)!important;" +
       "box-shadow:none!important;filter:none!important;color:#2a1c14!important;";
     var ink =
       "background:none!important;background-image:none!important;" +
@@ -406,7 +407,7 @@
       'html[data-vc-theme="light"] body.vc-vote-page .vc-vote-more-btn--primary{' +
       "background-color:#d4a888!important;" +
       "background-image:linear-gradient(180deg,#f0dcc8 0%,#d4a888 58%,#b88968 100%),linear-gradient(135deg,rgba(255,247,236,.98) 0%,rgba(236,205,176,.85) 45%,rgba(168,118,82,.95) 100%)!important;" +
-      "background-origin:padding-box,border-box!important;background-clip:padding-box,border-box!important;-webkit-background-clip:padding-box,border-box!important;" +
+      "background-origin:padding-box!important;background-clip:padding-box!important;-webkit-background-clip:padding-box!important;" +
       "border:1px solid transparent!important;color:#1a120e!important;-webkit-text-fill-color:#1a120e!important;" +
       "text-shadow:none!important;filter:none!important;opacity:1!important;}" +
       'html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body :is(' +
@@ -484,7 +485,7 @@
       'html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top main .vc-hero-kicker{' +
       "background-color:#ead9c6!important;" +
       "background-image:linear-gradient(180deg,#fff8f0 0%,#ead9c6 58%,#dcc4a8 100%),linear-gradient(135deg,rgba(212,168,136,.7),rgba(111,78,55,.45))!important;" +
-      "background-origin:padding-box,border-box!important;background-clip:padding-box,border-box!important;-webkit-background-clip:padding-box,border-box!important;" +
+      "background-origin:padding-box!important;background-clip:padding-box!important;-webkit-background-clip:padding-box!important;" +
       "border:1px solid transparent!important;color:#1a120e!important;-webkit-text-fill-color:#1a120e!important;" +
       "box-shadow:0 0 14px rgba(212,168,136,.35)!important;text-shadow:none!important;filter:none!important;}" +
       'html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body footer .vc-premium-footer__outer{' +
@@ -583,9 +584,9 @@
       'html[data-vc-theme="light"]:not(.vc-header-account-open) body.vc-body header .discord-account-menu:not(:hover):not(:focus-within) .discord-account-popover,' +
       'html[data-vc-theme="light"]:not(.vc-header-account-open) body.vc-body header .discord-account-menu:not(:hover):not(:focus-within) .discord-account-popover *{' +
       "opacity:0!important;visibility:hidden!important;pointer-events:none!important;}" +
-      'html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top header .discord-account-popover__item:not(.discord-account-popover__item--danger),' +
-      'html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body .discord-account-popover__item:not(.discord-account-popover__item--danger),' +
-      'html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body .discord-account-popover__item:not(.discord-account-popover__item--danger) :is(span,i,.fa){' +
+      'html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top header .discord-account-popover__item:not(.discord-account-popover__item--danger):not(.is-blacklisted):not(.is-soon),' +
+      'html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body .discord-account-popover__item:not(.discord-account-popover__item--danger):not(.is-blacklisted):not(.is-soon),' +
+      'html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body .discord-account-popover__item:not(.discord-account-popover__item--danger):not(.is-blacklisted):not(.is-soon) :is(span,i,.fa){' +
       "background:none!important;background-image:none!important;color:#2a1c14!important;-webkit-text-fill-color:#2a1c14!important;}" +
       'html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top header .discord-account-popover__name,' +
       'html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body .discord-account-popover__name{' +
@@ -621,7 +622,7 @@
       'html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top .vc-hero-head a.vc-header-pill:not(.vc-home-cine-cta){' +
       "background-color:#f0e4d6!important;" +
       "background-image:linear-gradient(180deg,#fff8f0 0%,#ead9c6 100%),linear-gradient(135deg,rgba(212,168,136,.55),rgba(111,78,55,.35))!important;" +
-      "background-origin:padding-box,border-box!important;background-clip:padding-box,border-box!important;-webkit-background-clip:padding-box,border-box!important;" +
+      "background-origin:padding-box!important;background-clip:padding-box!important;-webkit-background-clip:padding-box!important;" +
       "border:1px solid transparent!important;color:#1a120e!important;-webkit-text-fill-color:#1a120e!important;" +
       "text-shadow:none!important;filter:none!important;opacity:1!important;}" +
       'html.vc-site-photo-bg.vc-perf-mid.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top .vc-home-cine-hero a.vc-header-pill:not(.vc-home-cine-cta) :is(i,span,svg,.fa),' +
@@ -661,10 +662,10 @@
       "background-image:radial-gradient(120% 90% at 0% 0%,rgba(255,248,238,.92),transparent 52%)," +
       "radial-gradient(90% 70% at 100% 0%,rgba(212,168,136,.2),transparent 48%)," +
       "linear-gradient(175deg,#fffaf4 0%,#f7f1ea 48%,#efe6dc 100%),var(--vc-nav-ring-light)!important;" +
-      "background-origin:padding-box,padding-box,padding-box,border-box!important;" +
-      "background-clip:padding-box,padding-box,padding-box,border-box!important;" +
-      "-webkit-background-clip:padding-box,padding-box,padding-box,border-box!important;" +
-      "border:2px solid transparent!important;border-width:2px!important;border-color:transparent!important;" +
+      "background-origin:padding-box!important;" +
+      "background-clip:padding-box!important;" +
+      "-webkit-background-clip:padding-box!important;" +
+      "border:2px solid rgba(245,214,183,.38)!important;border-width:2px!important;border-color:rgba(245,214,183,.38)!important;" +
       "box-shadow:none!important;}" +
       'html.vc-site-photo-bg.vc-perf-mid.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body.vc-users-page.vc-user-profile-page#top main :is(' +
       ".vc-user-profile-name,.vc-user-profile-name__text,.vc-user-profile-block__title," +
@@ -741,12 +742,12 @@
       'html[data-vc-theme="light"] .vc-premium-footer__social{' +
       "background-color:var(--vc-nav-shell-fill-light,#f7f1ea)!important;" +
       "background-image:linear-gradient(var(--vc-nav-shell-fill-light,#f7f1ea),var(--vc-nav-shell-fill-light,#f7f1ea)),var(--vc-nav-ring-light)!important;" +
-      "background-origin:padding-box,border-box!important;background-clip:padding-box,border-box!important;-webkit-background-clip:padding-box,border-box!important;" +
-      "border:2px solid transparent!important;border-color:transparent!important;color:#3a281c!important;-webkit-text-fill-color:#3a281c!important;" +
+      "background-origin:padding-box!important;background-clip:padding-box!important;-webkit-background-clip:padding-box!important;" +
+      "border:2px solid rgba(245,214,183,.38)!important;border-color:rgba(245,214,183,.38)!important;color:#3a281c!important;-webkit-text-fill-color:#3a281c!important;" +
       "box-shadow:none!important;filter:none!important;}" +
       'html.vc-site-polish[data-vc-theme="light"] body.vc-body > footer.vc-premium-footer .vc-premium-footer__outer,' +
       'html[data-vc-theme="light"] body.vc-body > footer.vc-premium-footer .vc-premium-footer__outer{' +
-      "border:0!important;border-width:0!important;border-color:transparent!important;box-shadow:none!important;}" +
+      "border:0!important;border-width:0!important;border-color:rgba(245,214,183,.38)!important;box-shadow:none!important;}" +
       'html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body footer.vc-premium-footer .vc-premium-footer__social :is(i,svg,path,.fa,.vc-footer-tiktok-ico),' +
       'html[data-vc-theme="light"] .vc-premium-footer__social :is(i,svg,path,.fa,.vc-footer-tiktok-ico){' +
       "color:#3a281c!important;-webkit-text-fill-color:#3a281c!important;fill:#3a281c!important;opacity:1!important;filter:none!important;}" +
@@ -766,10 +767,10 @@
       'html[data-vc-theme="light"] .vc-wiki-cmd-shell{' +
       "background:#faf6f0!important;background-color:#faf6f0!important;" +
       "background-image:" + LIGHT_WASH + "!important;" +
-      "background-origin:padding-box,padding-box,padding-box,border-box!important;" +
-      "background-clip:padding-box,padding-box,padding-box,border-box!important;" +
-      "-webkit-background-clip:padding-box,padding-box,padding-box,border-box!important;" +
-      "border:1px solid transparent!important;border-color:transparent!important;color:#2a1c14!important;" +
+      "background-origin:padding-box!important;" +
+      "background-clip:padding-box!important;" +
+      "-webkit-background-clip:padding-box!important;" +
+      "border:1px solid transparent!important;border-color:rgba(245,214,183,.38)!important;color:#2a1c14!important;" +
       "box-shadow:none!important;filter:none!important;}" +
       'html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #wiki-comandi-panel .vc-cmd-heading,' +
       'html[data-vc-theme="light"] .vc-wiki-cmd-shell .vc-cmd-heading{' +
@@ -802,7 +803,7 @@
       "background-origin:padding-box,padding-box,border-box!important;" +
       "background-clip:padding-box,padding-box,border-box!important;" +
       "-webkit-background-clip:padding-box,padding-box,border-box!important;" +
-      "border:2px solid transparent!important;border-color:transparent!important;" +
+      "border:2px solid rgba(245,214,183,.38)!important;border-color:rgba(245,214,183,.38)!important;" +
       "color:#2a1c14!important;-webkit-text-fill-color:#2a1c14!important;filter:none!important;}" +
       /* themeLightCardsAll1 */
       'html.vc-site-photo-bg.vc-perf-mid.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-content :is(' +
@@ -819,10 +820,10 @@
       'html[data-vc-theme="light"] :is(.vc-sponsor-embed,.vc-sponsor-card,.vc-support-donate-role,.vc-perks-card,.vc-404-card){' +
       "background:#faf6f0!important;background-color:#faf6f0!important;" +
       "background-image:" + LIGHT_WASH + "!important;" +
-      "background-origin:padding-box,padding-box,padding-box,border-box!important;" +
-      "background-clip:padding-box,padding-box,padding-box,border-box!important;" +
-      "-webkit-background-clip:padding-box,padding-box,padding-box,border-box!important;" +
-      "border:1px solid transparent!important;border-color:transparent!important;" +
+      "background-origin:padding-box!important;" +
+      "background-clip:padding-box!important;" +
+      "-webkit-background-clip:padding-box!important;" +
+      "border:1px solid transparent!important;border-color:rgba(245,214,183,.38)!important;" +
       "color:#2a1c14!important;-webkit-text-fill-color:#2a1c14!important;box-shadow:none!important;filter:none!important;}" +
       'html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-sponsor-page.vc-body#top #vc-page-content .vc-sponsor-embed :is(p,li,h2,h3,.vc-sponsor-embed__kicker),' +
       'html[data-vc-theme="light"] .vc-sponsor-embed :is(p,li,h2,h3,.vc-sponsor-embed__kicker){' +
@@ -840,26 +841,22 @@
       "border:1px solid rgba(212,168,136,.28)!important;filter:none!important;opacity:1!important;}" +
       'html[data-vc-theme="light"] .vc-cmd-code--example{' +
       "color:rgba(232,201,168,.94)!important;-webkit-text-fill-color:rgba(232,201,168,.94)!important;}" +
-      /* backTopConic2: anello conic navbar, zero glow (era themeLightBackTop1 con shadow) */
+      /* lookStaticBorder1e: back-top solid (no conic) */
       'html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body #vc-site-back-top,' +
       'html.vc-site-photo-bg.vc-perf-mid.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-site-back-top,' +
       'html[data-vc-theme="light"] #vc-site-back-top{' +
-      "border:1.35px solid transparent!important;border-color:transparent!important;" +
+      "border:1.35px solid rgba(245,214,183,.38)!important;" +
       "background-color:#faf6f0!important;" +
-      "background-image:linear-gradient(180deg,#fffaf4,#f3ebe3)," +
-      "conic-gradient(from 0deg,rgba(111,78,55,.72) 0deg,rgba(180,130,90,.55) 90deg," +
-      "rgba(139,99,70,.58) 180deg,rgba(180,130,90,.55) 270deg,rgba(111,78,55,.72) 360deg)!important;" +
-      "background-origin:padding-box,border-box!important;" +
-      "background-clip:padding-box,border-box!important;-webkit-background-clip:padding-box,border-box!important;" +
+      "background-image:linear-gradient(180deg,#fffaf4,#f3ebe3)!important;" +
+      "background-origin:padding-box!important;" +
+      "background-clip:padding-box!important;-webkit-background-clip:padding-box!important;" +
       "color:#3a281c!important;-webkit-text-fill-color:#3a281c!important;" +
       "box-shadow:none!important;filter:none!important;}" +
       'html[data-vc-theme="light"] #vc-site-back-top:hover,html[data-vc-theme="light"] #vc-site-back-top:focus-visible{' +
       "background-color:#fffaf4!important;" +
-      "background-image:linear-gradient(180deg,#fffdf9,#efe6dc)," +
-      "conic-gradient(from 0deg,rgba(111,78,55,.85) 0deg,rgba(168,118,82,.65) 90deg," +
-      "rgba(139,99,70,.7) 180deg,rgba(168,118,82,.65) 270deg,rgba(111,78,55,.85) 360deg)!important;" +
-      "background-origin:padding-box,border-box!important;" +
-      "background-clip:padding-box,border-box!important;-webkit-background-clip:padding-box,border-box!important;" +
+      "background-image:linear-gradient(180deg,#fffdf9,#efe6dc)!important;" +
+      "background-origin:padding-box!important;" +
+      "background-clip:padding-box!important;-webkit-background-clip:padding-box!important;" +
       "color:#1a120e!important;-webkit-text-fill-color:#1a120e!important;box-shadow:none!important;}" +
       'html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body #vc-site-back-top .fa,' +
       'html[data-vc-theme="light"] #vc-site-back-top .fa,html[data-vc-theme="light"] #vc-site-back-top > i{' +
@@ -910,7 +907,7 @@
       'html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top main :is(a.vc-home-cine-cta,a.vc-header-pill.vc-home-cine-cta),' +
       'html[data-vc-theme="light"] a.vc-home-cine-cta{' +
       "background-color:#d4a888!important;background-image:linear-gradient(180deg,#f0dcc8 0%,#d4a888 58%,#b88968 100%),linear-gradient(135deg,rgba(255,247,236,.98) 0%,rgba(212,168,136,.7) 50%,rgba(111,78,55,.92) 100%)!important;" +
-      "background-origin:padding-box,border-box!important;background-clip:padding-box,border-box!important;-webkit-background-clip:padding-box,border-box!important;" +
+      "background-origin:padding-box!important;background-clip:padding-box!important;-webkit-background-clip:padding-box!important;" +
       "border:1px solid transparent!important;color:#1a120e!important;-webkit-text-fill-color:#1a120e!important;text-shadow:none!important;filter:none!important;opacity:1!important;}" +
       'html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-intro .vc-hero-head a.vc-header-pill:not(.vc-home-cine-cta),' +
       'html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top main a.vc-header-pill:not(.vc-home-cine-cta),' +
@@ -918,7 +915,7 @@
       'html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top main .vc-cmd-pill,' +
       'html[data-vc-theme="light"] :is(a.vc-header-pill:not(.vc-home-cine-cta),.vc-cmd-pill){' +
       "border:1px solid transparent!important;background-image:linear-gradient(rgba(250,246,240,.96),rgba(250,246,240,.96)),linear-gradient(135deg,rgba(111,78,55,.85) 0%,rgba(180,130,90,.7) 42%,rgba(212,168,136,.68) 68%,rgba(139,99,70,.88) 100%)!important;" +
-      "background-origin:padding-box,border-box!important;background-clip:padding-box,border-box!important;-webkit-background-clip:padding-box,border-box!important;" +
+      "background-origin:padding-box!important;background-clip:padding-box!important;-webkit-background-clip:padding-box!important;" +
       "color:#1a120e!important;-webkit-text-fill-color:#1a120e!important;box-shadow:none!important;filter:none!important;}" +
       /* scrollCueLightGrad1b: EOF runtime metal label */
       'html.vc-site-photo-bg.vc-perf-mid.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top main .vc-home-scrollcue:not(.is-away) .vc-home-scrollcue__label,' +
@@ -972,7 +969,7 @@
       'html.vc-site-polish[data-vc-theme="light"] body.vc-body#top #wiki-comandi-panel p.vc-cmd-pill:not(#discord-login-btn):not(#vc-regole-disclaimer),' +
       'html[data-vc-theme="light"] .vc-wiki-cmd-shell .vc-cmd-pill{' +
       "border:1px solid transparent!important;background-image:linear-gradient(rgba(250,246,240,.96),rgba(250,246,240,.96)),linear-gradient(135deg,rgba(111,78,55,.85) 0%,rgba(180,130,90,.7) 42%,rgba(212,168,136,.68) 68%,rgba(139,99,70,.88) 100%)!important;" +
-      "background-origin:padding-box,border-box!important;background-clip:padding-box,border-box!important;-webkit-background-clip:padding-box,border-box!important;" +
+      "background-origin:padding-box!important;background-clip:padding-box!important;-webkit-background-clip:padding-box!important;" +
       "color:#1a120e!important;-webkit-text-fill-color:#1a120e!important;box-shadow:none!important;filter:none!important;}" +
       /* reviewsStageCardDotsFix2: stage carousel cards — no multi-layer wash flash */
       'html.vc-site-photo-bg.vc-perf-mid.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-content #vc-reviews-stage .vc-reviews-stage__card,' +
@@ -993,7 +990,7 @@
       'html.vc-site-photo-bg.vc-perf-mid.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body.vc-boards-guidelines-page#top #vc-page-content .vc-legal-card:is(:hover,:focus-within),' +
       'html.vc-site-polish[data-vc-theme="light"] body.vc-boards-guidelines-page.vc-page-cine-layout .vc-legal-card:is(:hover,:focus-within){' +
       "background:transparent!important;background-color:transparent!important;background-image:none!important;" +
-      "border-color:transparent!important;border-width:0!important;box-shadow:none!important;filter:none!important;" +
+      "border-color:rgba(245,214,183,.38)!important;border-width:0!important;box-shadow:none!important;filter:none!important;" +
       "backdrop-filter:none!important;-webkit-backdrop-filter:none!important;}" +
       'html[data-vc-theme="light"] body.vc-boards-guidelines-page .vc-legal-card::before,' +
       'html[data-vc-theme="light"] body.vc-boards-guidelines-page .vc-legal-card::after,' +

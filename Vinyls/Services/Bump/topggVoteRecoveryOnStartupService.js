@@ -21,6 +21,18 @@ function resolveLookbackMs(client) {
   return hours * 60 * 60 * 1000;
 }
 
+async function topggGet(url, token) {
+  return axios.get(url.toString(), {
+    headers: { Authorization: `Bearer ${token}` },
+    timeout: 20_000,
+    validateStatus: () => true,
+  });
+}
+
+function sleep(ms) {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
 async function fetchRecentTopggVotes(token, lookbackMs) {
   const cutoff = Date.now() - lookbackMs;
   const startDate = new Date(cutoff).toISOString();
@@ -35,18 +47,23 @@ async function fetchRecentTopggVotes(token, lookbackMs) {
       url.searchParams.set("startDate", startDate);
     }
 
-    const res = await axios.get(url.toString(), {
-      headers: { Authorization: `Bearer ${token}` },
-      timeout: 20_000,
-      validateStatus: () => true,
-    });
+    let res = await topggGet(url, token);
+    // 5xx = outage Top.gg: un retry breve, poi soft-skip
+    if (res.status >= 500 && res.status < 600) {
+      await sleep(2500);
+      res = await topggGet(url, token);
+    }
 
     if (res.status !== 200) {
       const detail =
         res.data && typeof res.data === "object"
           ? JSON.stringify(res.data).slice(0, 240)
           : String(res.data || "").slice(0, 240);
-      return { votes: collected, error: `api_status_${res.status}${detail ? `:${detail}` : ""}` };
+      const kind = res.status >= 500 ? "upstream_5xx" : "api_error";
+      return {
+        votes: collected,
+        error: `${kind}_${res.status}${detail ? `:${detail}` : ""}`,
+      };
     }
 
     const rows = Array.isArray(res.data?.data) ? res.data.data : [];
@@ -94,7 +111,12 @@ async function recoverMissedTopggVotesOnStartup(client) {
   const lookbackMs = resolveLookbackMs(client);
   const { votes, error } = await fetchRecentTopggVotes(token, lookbackMs);
   if (error) {
-    global.logger?.warn?.("[TOPGG VOTE RECOVERY] API Top.gg non disponibile:", error);
+    const upstream = String(error).startsWith("upstream_5xx");
+    global.logger?.[upstream ? "info" : "warn"]?.(
+      upstream
+        ? `[TOPGG VOTE RECOVERY] Top.gg down (${error}) — recovery saltata, webhook resta attivo`
+        : `[TOPGG VOTE RECOVERY] API Top.gg non disponibile: ${error}`,
+    );
     return { skipped: true, reason: error };
   }
 

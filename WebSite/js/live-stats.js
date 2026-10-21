@@ -124,7 +124,7 @@
         return;
       }
     } catch (ePt) {}
-    var brand = "🎃 Vinili & Caffè 🍂 • Italia • Social • Gaming";
+    var brand = "Vinili & Caffè • Italia • Social • Gaming";
     try {
       if (window.VcPageTitle && typeof window.VcPageTitle.brand === "function") {
         brand = String(window.VcPageTitle.brand() || brand).trim() || brand;
@@ -1388,12 +1388,21 @@
   }
 
   var lastLiveStatsWsAt = 0;
+  var tickInflight = false;
+  var lastTickAt = 0;
 
-  function tick() {
+  function tick(force) {
     if (typeof document !== "undefined" && document.hidden) return;
+    /* homeLoadCpu1: no storm su WS/visibility — min 20s tra fetch extra */
+    var now = Date.now();
+    if (tickInflight) return;
+    if (!force && lastTickAt && now - lastTickAt < 20000) return;
+    tickInflight = true;
+    lastTickAt = now;
     Promise.all([fetchExtraStatsJson(), refreshInvite().catch(function () {
       return null;
     })]).then(function (pair) {
+      tickInflight = false;
       var extra = pair[0];
       var inv = pair[1];
       applyExtraStats(extra);
@@ -1428,12 +1437,14 @@
       } else if (guildBoost != null) {
         setText("boosts", guildBoost);
       }
+    }).catch(function () {
+      tickInflight = false;
     });
   }
 
   function tickFromWs() {
     lastLiveStatsWsAt = Date.now();
-    tick();
+    tick(false);
   }
 
   try {
@@ -1460,15 +1471,17 @@
       pending -= 1;
       if (pending <= 0) {
         setTimeout(reveal247, Math.min(520, maxDur * 0.45));
-        tick();
+        tick(true);
         /* liveStatsCalm1: default 120s (era 45s); WS resta primario */
         var ms = Math.max(60000, Number(cfg.pollIntervalMs) || 120000);
         if (!pollStarted && ms >= 5000 && !isLocalDevHost()) {
           pollStarted = true;
           /* wsShell1: poll resta fallback; se WS ha tickato di recente, skip */
           setInterval(function () {
+            /* cpuIdleAll1: skip poll while tab hidden */
+            if (typeof document !== "undefined" && document.hidden) return;
             if (lastLiveStatsWsAt && Date.now() - lastLiveStatsWsAt < Math.max(ms * 2, 180000)) return;
-            tick();
+            tick(true);
           }, ms);
         }
       }

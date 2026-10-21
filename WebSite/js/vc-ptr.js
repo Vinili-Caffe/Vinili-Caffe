@@ -9,19 +9,22 @@
   window.__vcPtrBooted = true;
   /* ptrScrollRestore1: non far sovrascrivere VER da uno stamp vecchio reiniettato dopo */
   try {
-    var __vcPtrIncoming = "20261017ptrVinylCue1";
+    var __vcPtrIncoming = "20261020ptrVinylSmooth1";
     var __vcPtrPrev = String(window.__VC_PTR_VER || "");
     if (
       !__vcPtrPrev ||
       __vcPtrPrev < __vcPtrIncoming ||
       __vcPtrPrev.indexOf("ptrScroll") >= 0 ||
       __vcPtrPrev.indexOf("ptrPcSpin1") >= 0 ||
-      __vcPtrPrev.indexOf("ptrCardDesktop1") >= 0
+      __vcPtrPrev.indexOf("ptrCardDesktop1") >= 0 ||
+      __vcPtrPrev.indexOf("ptrVinylCue1") >= 0 ||
+      __vcPtrPrev.indexOf("ptrSiparioVinyl") >= 0 ||
+      __vcPtrPrev.indexOf("ptrVinylSmooth") >= 0
     ) {
       window.__VC_PTR_VER = __vcPtrIncoming;
     }
   } catch (eVerKeep) {
-    window.__VC_PTR_VER = "20261017ptrVinylCue1";
+    window.__VC_PTR_VER = "20261020ptrVinylSmooth1";
   }
 
   var PTR_KEY = "vc_ptr_reload_v1";
@@ -43,7 +46,7 @@
   var suppressClickUntil = 0;
   /* ptrCardDesktop1: max pull visto nel gesto — serve a sopprimere click su card/link dopo tirata */
   var peakPullY = 0;
-  /* ptrPcSpin1: rAF spin durante is-refreshing — immune a animation-play-state:paused su * (boot PC) */
+  /* ptrVinylSmooth1: NO rAF spin — CSS spin !important basta; rAF+glow = frame lag al refresh */
   var refreshSpinRaf = 0;
   var refreshSpinAngle = 0;
 
@@ -651,7 +654,7 @@
       (document.head || document.documentElement).appendChild(style);
     }
     try {
-      style.setAttribute("data-vc", "20261017ptrVinylCue1");
+      style.setAttribute("data-vc", "20261017ptrSiparioVinyl2");
     } catch (eAttr) {}
     style.textContent =
       /* ptrCardDesktop1: none (non contain) — meno rubber-band sulle card iOS/Android */
@@ -669,34 +672,52 @@
       ".vc-ptr.is-on,.vc-ptr.is-armed{opacity:1!important;visibility:visible!important;z-index:110120!important;transform:translate3d(-50%,calc(-5.6rem + var(--vc-ptr-y,0px)),0);transition:none;}" +
       ".vc-ptr.is-snap{opacity:0;visibility:hidden;transform:translate3d(-50%,-5.6rem,0);}" +
       /* confPtrAnim1: sopra sipario boot (2147483000) così il disco si vede al reload */
-      ".vc-ptr.is-refreshing{opacity:1!important;visibility:visible!important;z-index:2147483010!important;transform:translate3d(-50%,.35rem,0);transition:transform .32s cubic-bezier(.22,1.15,.36,1),opacity .18s ease;}" +
+      /* ptrSiparioVinyl2: z sopra sipario/gate/progress — is-on+refreshing non deve restare a 110120 */
+      ".vc-ptr.is-refreshing,.vc-ptr.is-on.is-refreshing,.vc-ptr.is-armed.is-refreshing{" +
+      "opacity:1!important;visibility:visible!important;display:flex!important;" +
+      "z-index:2147483646!important;transform:translate3d(-50%,.35rem,0);" +
+      "transition:transform .32s cubic-bezier(.22,1.15,.36,1),opacity .18s ease;}" +
       ".vc-ptr:not(.is-on):not(.is-refreshing) .vc-ptr__disc,.vc-ptr.is-snap:not(.is-refreshing) .vc-ptr__disc{box-shadow:none!important;filter:none!important;opacity:0!important;visibility:hidden!important;}" +
-      /* ptrSpinReload1: shell disc = pop/scale; rotor = vinyl look + spin (no transform conflict su Safari) */
-      ".vc-ptr__disc{position:relative;width:3.45rem;height:3.45rem;border-radius:9999px;transform:rotate(var(--vc-ptr-rot,0deg)) scale(var(--vc-ptr-scale,.86));transform-origin:50% 50%;will-change:transform,opacity,filter;}" +
+      /* ptrVinylSmooth1: pop+spin CSS only; no glow box-shadow anim; no blur; will-change solo in refreshing */
+      ".vc-ptr__disc{position:relative;width:3.45rem;height:3.45rem;border-radius:9999px;transform:rotate(var(--vc-ptr-rot,0deg)) scale(var(--vc-ptr-scale,.86));transform-origin:50% 50%;will-change:auto;}" +
+      ".vc-ptr.is-on .vc-ptr__disc,.vc-ptr.is-refreshing .vc-ptr__disc{will-change:transform;}" +
       ".vc-ptr.is-on .vc-ptr__disc{transform:rotate(var(--vc-ptr-rot,0deg)) scale(var(--vc-ptr-scale,1));}" +
-      ".vc-ptr__rotor{position:absolute;inset:0;border-radius:9999px;background:radial-gradient(circle at 50% 50%,transparent 0 .46rem,#1a120e .46rem .64rem,transparent .65rem),repeating-radial-gradient(circle at 50% 50%,rgba(255,255,255,.06) 0 1px,transparent 1px 3px),radial-gradient(circle at 32% 28%,rgba(255,255,255,.16),transparent 42%),radial-gradient(circle at 50% 50%,#2a1c16 0 38%,#120c0a 62%,#070504 100%);box-shadow:0 10px 26px rgba(0,0,0,.46),0 0 0 1px rgba(212,168,136,.34),0 0 22px rgba(212,168,136,.2);transform-origin:50% 50%;will-change:transform,box-shadow;}" +
-      ".vc-ptr.is-armed .vc-ptr__rotor{box-shadow:0 12px 30px rgba(0,0,0,.5),0 0 0 1px rgba(212,168,136,.58),0 0 30px rgba(212,168,136,.46);}" +
+      ".vc-ptr__rotor{position:absolute;inset:0;border-radius:9999px;background:radial-gradient(circle at 50% 50%,transparent 0 .46rem,#1a120e .46rem .64rem,transparent .65rem),repeating-radial-gradient(circle at 50% 50%,rgba(255,255,255,.06) 0 1px,transparent 1px 3px),radial-gradient(circle at 32% 28%,rgba(255,255,255,.16),transparent 42%),radial-gradient(circle at 50% 50%,#2a1c16 0 38%,#120c0a 62%,#070504 100%);box-shadow:0 10px 26px rgba(0,0,0,.46),0 0 0 1px rgba(212,168,136,.34),0 0 18px rgba(212,168,136,.18);transform-origin:50% 50%;will-change:auto;}" +
+      ".vc-ptr.is-refreshing .vc-ptr__rotor{will-change:transform;}" +
+      ".vc-ptr.is-armed .vc-ptr__rotor{box-shadow:0 12px 28px rgba(0,0,0,.48),0 0 0 1px rgba(212,168,136,.5),0 0 22px rgba(212,168,136,.32);}" +
       ".vc-ptr__label{position:absolute;inset:28%;border-radius:9999px;background:radial-gradient(circle at 38% 32%,rgba(255,244,232,.55),transparent 46%),linear-gradient(160deg,#ead4c0 0%,#d4a888 48%,#6f4e37 100%);box-shadow:inset 0 0 0 1px rgba(80,48,28,.28);}" +
       ".vc-ptr__hole{position:absolute;left:50%;top:50%;width:.46rem;height:.46rem;margin:-.23rem 0 0 -.23rem;border-radius:9999px;background:#0b0705;box-shadow:inset 0 0 0 1px rgba(255,255,255,.12);}" +
       ".vc-ptr__hint{margin:0;max-width:10rem;color:rgba(247,239,230,.9);font-size:.7rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;text-align:center;text-shadow:0 1px 10px rgba(0,0,0,.7);opacity:.82;}" +
       ".vc-ptr.is-armed .vc-ptr__hint{opacity:1;color:#ead4c0;}" +
-      /* ptrSpinReload1 + ptrPcSpin1: pop sulla shell; spin continuo sul rotor (subito, no delay) */
-      ".vc-ptr.is-refreshing .vc-ptr__disc{animation:vc-ptr-pop .5s cubic-bezier(.22,1.25,.36,1) both;transform:none;}" +
-      ".vc-ptr.is-refreshing .vc-ptr__rotor{-webkit-animation:vc-ptr-spin .7s linear infinite,vc-ptr-glow 1.05s ease-in-out infinite;animation:vc-ptr-spin .7s linear infinite,vc-ptr-glow 1.05s ease-in-out infinite;}" +
-      /* ptrPcSpin1: batte html.vc-page-hidden/ui-gif-paused * {play-state:paused} al boot PC */
-      "html body.vc-body .vc-ptr.is-refreshing .vc-ptr__rotor," +
-      "html.vc-page-hidden body.vc-body .vc-ptr.is-refreshing .vc-ptr__rotor," +
-      "html.vc-ui-gif-paused body.vc-body .vc-ptr.is-refreshing .vc-ptr__rotor," +
-      "html.vc-pwa-bg-frozen body.vc-body .vc-ptr.is-refreshing .vc-ptr__rotor," +
-      "html.vc-cpu-settle body.vc-body .vc-ptr.is-refreshing .vc-ptr__rotor{" +
-      "-webkit-animation:vc-ptr-spin .7s linear infinite,vc-ptr-glow 1.05s ease-in-out infinite!important;" +
-      "animation:vc-ptr-spin .7s linear infinite,vc-ptr-glow 1.05s ease-in-out infinite!important;" +
-      "animation-play-state:running!important;-webkit-animation-play-state:running!important;}" +
-      ".vc-ptr.is-refreshing .vc-ptr__hint{animation:vc-ptr-hint-in .35s ease .12s both;}" +
-      "@keyframes vc-ptr-pop{0%{opacity:0;transform:translate3d(0,-2.1rem,0) scale(.42);filter:blur(2px)}58%{opacity:1;transform:translate3d(0,.18rem,0) scale(1.1);filter:blur(0)}78%{transform:translate3d(0,-.08rem,0) scale(.96)}100%{opacity:1;transform:translate3d(0,0,0) scale(1);filter:none}}" +
+      ".vc-ptr.is-refreshing .vc-ptr__disc{animation:vc-ptr-pop .42s cubic-bezier(.22,1.2,.36,1) both;transform:none;}" +
+      ".vc-ptr.is-refreshing .vc-ptr__rotor{-webkit-animation:vc-ptr-spin .85s linear infinite;animation:vc-ptr-spin .85s linear infinite;}" +
+      "html .vc-ptr.is-refreshing,html body .vc-ptr.is-refreshing," +
+      "html.vc-page-hidden .vc-ptr.is-refreshing,html.vc-ui-gif-paused .vc-ptr.is-refreshing," +
+      "html.vc-cpu-settle .vc-ptr.is-refreshing,html:not(.vc-cine-curtain-off) .vc-ptr.is-refreshing{" +
+      "opacity:1!important;visibility:visible!important;display:flex!important;" +
+      "z-index:2147483646!important;pointer-events:none!important}" +
+      "html .vc-ptr.is-refreshing .vc-ptr__disc,html body .vc-ptr.is-refreshing .vc-ptr__disc," +
+      "html.vc-page-hidden .vc-ptr.is-refreshing .vc-ptr__disc," +
+      "html.vc-ui-gif-paused .vc-ptr.is-refreshing .vc-ptr__disc," +
+      "html.vc-cpu-settle .vc-ptr.is-refreshing .vc-ptr__disc," +
+      "html:not(.vc-cine-curtain-off) .vc-ptr.is-refreshing .vc-ptr__disc{" +
+      "opacity:1!important;visibility:visible!important;display:block!important;" +
+      "animation:vc-ptr-pop .42s cubic-bezier(.22,1.2,.36,1) both!important;" +
+      "animation-play-state:running!important;-webkit-animation-play-state:running!important}" +
+      "html .vc-ptr.is-refreshing .vc-ptr__rotor,html body .vc-ptr.is-refreshing .vc-ptr__rotor," +
+      "html.vc-page-hidden .vc-ptr.is-refreshing .vc-ptr__rotor," +
+      "html.vc-ui-gif-paused .vc-ptr.is-refreshing .vc-ptr__rotor," +
+      "html.vc-pwa-bg-frozen .vc-ptr.is-refreshing .vc-ptr__rotor," +
+      "html.vc-cpu-settle .vc-ptr.is-refreshing .vc-ptr__rotor," +
+      "html:not(.vc-cine-curtain-off) .vc-ptr.is-refreshing .vc-ptr__rotor{" +
+      "-webkit-animation:vc-ptr-spin .85s linear infinite!important;" +
+      "animation:vc-ptr-spin .85s linear infinite!important;" +
+      "animation-play-state:running!important;-webkit-animation-play-state:running!important;" +
+      "opacity:1!important;visibility:visible!important}" +
+      ".vc-ptr.is-refreshing .vc-ptr__hint{animation:vc-ptr-hint-in .28s ease .08s both;}" +
+      "@keyframes vc-ptr-pop{0%{opacity:.4;transform:translate3d(0,-1.4rem,0) scale(.55)}70%{opacity:1;transform:translate3d(0,.1rem,0) scale(1.04)}100%{opacity:1;transform:translate3d(0,0,0) scale(1)}}" +
       "@keyframes vc-ptr-spin{from{-webkit-transform:rotate(0deg);transform:rotate(0deg)}to{-webkit-transform:rotate(360deg);transform:rotate(360deg)}}" +
-      "@keyframes vc-ptr-glow{0%,100%{box-shadow:0 10px 26px rgba(0,0,0,.46),0 0 0 1px rgba(212,168,136,.4),0 0 18px rgba(212,168,136,.28)}50%{box-shadow:0 12px 32px rgba(0,0,0,.5),0 0 0 1px rgba(236,205,176,.72),0 0 34px rgba(212,168,136,.55)}}" +
-      "@keyframes vc-ptr-hint-in{from{opacity:0;transform:translateY(.35rem)}to{opacity:1;transform:none}}" +
+      "@keyframes vc-ptr-hint-in{from{opacity:0;transform:translateY(.28rem)}to{opacity:1;transform:none}}" +
       "@media (prefers-reduced-motion:reduce){.vc-ptr,.vc-ptr.is-refreshing,.vc-ptr__disc,.vc-ptr.is-on .vc-ptr__disc,.vc-ptr.is-refreshing .vc-ptr__disc,.vc-ptr__rotor,.vc-ptr.is-refreshing .vc-ptr__rotor,.vc-ptr.is-refreshing .vc-ptr__hint,html body.vc-body .vc-ptr.is-refreshing .vc-ptr__rotor{animation:none!important;-webkit-animation:none!important;transition:opacity .16s ease;filter:none!important}}";
     /* ptrPcSpin1: last-wins vs soft-fx / perf inject */
     try {
@@ -720,34 +741,13 @@
   }
 
   function startRefreshSpin() {
+    /* ptrVinylSmooth1: solo CSS animation (già running !important) — niente rAF/transform fight */
     stopRefreshSpin();
     if (!root) return;
-    if (reducedMotion || prefersReduced()) return;
-    var disc = root.querySelector(".vc-ptr__disc");
-    var rotor = ensureRotor(disc);
-    if (!rotor) return;
-    refreshSpinAngle = 0;
-    var last = performance.now();
-    function tick(now) {
-      refreshSpinRaf = 0;
-      if (!root || !root.classList.contains("is-refreshing")) {
-        stopRefreshSpin();
-        return;
-      }
-      var dt = Math.min(48, Math.max(0, now - last));
-      last = now;
-      /* ~360deg / 0.7s — stesso ritmo del keyframe vc-ptr-spin */
-      refreshSpinAngle = (refreshSpinAngle + dt * (360 / 700)) % 360;
-      try {
-        rotor.style.setProperty("transform", "rotate(" + refreshSpinAngle + "deg)", "important");
-      } catch (eTx) {}
-      try {
-        refreshSpinRaf = requestAnimationFrame(tick);
-      } catch (eRaf) {}
-    }
     try {
-      refreshSpinRaf = requestAnimationFrame(tick);
-    } catch (eStart) {}
+      var disc = root.querySelector(".vc-ptr__disc");
+      ensureRotor(disc);
+    } catch (eEns) {}
   }
 
   function forcePtrOverscrollContain() {
@@ -1081,7 +1081,13 @@
       "</div></div>" +
       '<p class="vc-ptr__hint"></p>';
     hintEl = root.querySelector(".vc-ptr__hint");
-    document.body.appendChild(root);
+    /* ptrSiparioVinyl2: append su <html> — fuori stacking context di body/sipario */
+    var host = document.documentElement || document.body;
+    try {
+      host.appendChild(root);
+    } catch (eHost) {
+      if (document.body) document.body.appendChild(root);
+    }
     return root;
   }
 
@@ -1096,7 +1102,31 @@
       root.style.removeProperty("visibility");
       root.style.removeProperty("pointer-events");
       root.style.removeProperty("display");
+      root.style.removeProperty("z-index");
     } catch (eClr) {}
+  }
+
+  function forceVinylCueInline() {
+    /* ptrSiparioVinyl2: inline !important batte qualsiasi CSS sipario/kit */
+    if (!root) return;
+    try {
+      root.style.setProperty("opacity", "1", "important");
+      root.style.setProperty("visibility", "visible", "important");
+      root.style.setProperty("display", "flex", "important");
+      root.style.setProperty("z-index", "2147483646", "important");
+      root.style.setProperty("pointer-events", "none", "important");
+      var disc = root.querySelector(".vc-ptr__disc");
+      if (disc) {
+        disc.style.setProperty("opacity", "1", "important");
+        disc.style.setProperty("visibility", "visible", "important");
+        disc.style.setProperty("display", "block", "important");
+      }
+      var rotor = root.querySelector(".vc-ptr__rotor");
+      if (rotor) {
+        rotor.style.setProperty("opacity", "1", "important");
+        rotor.style.setProperty("visibility", "visible", "important");
+      }
+    } catch (eForce) {}
   }
 
   function paint(pull, isArmed) {
@@ -1139,6 +1169,7 @@
     clearPtrInlineHide();
     root.classList.remove("is-on", "is-armed", "is-snap");
     root.classList.add("is-refreshing");
+    forceVinylCueInline();
     setHint("refresh");
     startRefreshSpin();
 
@@ -1333,28 +1364,60 @@
     ensureRoot();
     injectCss();
     clearPtrInlineHide();
+    /* ptrVinylSmooth1: cue corto (min ~0.7s, max ~1.6s) — non tenere spin durante sipario 5s */
     try {
-      window.__vcPtrVinylCueUntil = Date.now() + 2200;
+      window.__vcPtrVinylCueUntil = Date.now() + 1800;
     } catch (eUntil) {}
-    root.classList.add("is-on", "is-refreshing");
+    /* solo is-refreshing (no is-on) — evita z-index 110120 del pull-gesture */
+    root.classList.remove("is-armed", "is-snap");
+    root.classList.add("is-refreshing");
+    forceVinylCueInline();
     setHint("refresh");
     startRefreshSpin();
-    window.setTimeout(function () {
+    var cueStartedAt = Date.now();
+    function endVinylCue() {
       if (!root) return;
+      if (!root.classList.contains("is-refreshing")) return;
       stopRefreshSpin();
       root.classList.remove("is-on", "is-refreshing");
       root.classList.add("is-snap");
+      clearPtrInlineHide();
       try {
         window.__vcPtrVinylCueUntil = 0;
       } catch (eClr) {}
       window.setTimeout(function () {
         if (root) root.classList.remove("is-snap");
-      }, 320);
-      /* dopo il cue vinile: ritenta restore (barra/sipario ormai spenti) */
+      }, 220);
       try {
         if (!window.__vcPtrRestoreDone) finalizeScrollRestore();
       } catch (eFin) {}
-    }, 1800);
+    }
+    function maybeEndVinylCue() {
+      try {
+        var elapsed = Date.now() - cueStartedAt;
+        var curtainUp = !document.documentElement.classList.contains("vc-cine-curtain-off");
+        if (elapsed < 700) {
+          window.setTimeout(maybeEndVinylCue, 700 - elapsed);
+          return;
+        }
+        /* se sipario ancora su: chiudi al primo curtain-off / hard cap 1.6s */
+        if (curtainUp && elapsed < 1600) {
+          window.setTimeout(maybeEndVinylCue, 120);
+          return;
+        }
+      } catch (eMaybe) {}
+      endVinylCue();
+    }
+    window.setTimeout(maybeEndVinylCue, 700);
+    try {
+      document.addEventListener(
+        "vc:cine-curtain-off",
+        function () {
+          window.setTimeout(maybeEndVinylCue, 40);
+        },
+        { once: true },
+      );
+    } catch (eCur) {}
   }
 
   function shouldDeferPtr() {
@@ -1491,7 +1554,16 @@
       initDesktopReloadCue();
       return;
     }
+    /* ptrSiparioVinyl1: anche in defer (sipario) → cue vinile subito;
+       deferisce solo i listener pull, non il disco di refresh */
     if (shouldDeferPtr()) {
+      try {
+        reducedMotion = prefersReduced();
+        injectCss();
+        document.documentElement.classList.add("vc-ptr-ready");
+        ensureRoot();
+        showJustReloaded();
+      } catch (eCueEarly) {}
       watchDeferClear();
       return;
     }
@@ -1565,6 +1637,14 @@
       return;
     }
     if (shouldDeferPtr()) {
+      /* ptrSiparioVinyl2: cue vinile SUBITO (non aspettare 400ms) — solo pull listener deferred */
+      try {
+        reducedMotion = prefersReduced();
+        injectCss();
+        document.documentElement.classList.add("vc-ptr-ready");
+        ensureRoot();
+        showJustReloaded();
+      } catch (eCueNow) {}
       watchDeferClear();
       window.addEventListener("vc:page-cine-ready", tryInitPtrIfNeeded, { once: true });
       window.addEventListener("vc:staff-access-ok", tryInitPtrIfNeeded, { once: true });
@@ -1614,4 +1694,4 @@
 /* extOnlyFix1 */
 /* violPass10 */
 
-/* ptrVinylCue1 */
+/* ptrSiparioVinyl2 */

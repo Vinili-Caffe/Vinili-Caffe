@@ -1,6 +1,6 @@
 (function () {
   if (typeof window === "undefined") return;
-  var STAMP = "20261017wmResumeHover1";
+  var STAMP = "20261020mqNoSnapSettle1b";
   if (window.__vcHeaderSiteNameMarqueeWired === STAMP) return;
   window.__vcHeaderSiteNameMarqueeWired = STAMP;
 
@@ -260,18 +260,29 @@
     } catch (e) {}
   }
 
+  /* cpuHoverIdle1: niente emoji nel wordmark (no twemoji/decode cost) */
+  function stripBrandEmoji(s) {
+    var t = String(s || "");
+    try {
+      t = t.replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}\u{200D}]/gu, "");
+    } catch (eRe) {
+      t = t.replace(/🎃|🍂|🎃|›/g, "").replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, "");
+    }
+    return t.replace(/\s{2,}/g, " ").replace(/\s+•/g, " •").replace(/•\s+/g, "• ").trim();
+  }
+
   function brandFallbackText(nameEl) {
-    /* wmUlHomeOnly1: stesso wordmark di homepage (non short "Vinili & Caffè") */
-    var fallback = "🎃 Vinili & Caffè 🍂 • Italia • Social • Gaming";
+    /* wmUlHomeOnly1 + cpuHoverIdle1: wordmark testo plain (no emoji) */
+    var fallback = "Vinili & Caffè • Italia • Social • Gaming";
     try {
       if (window.VcI18n && typeof window.VcI18n.t === "function") {
-        var branded = String(window.VcI18n.t("brand.name") || "").trim();
+        var branded = stripBrandEmoji(String(window.VcI18n.t("brand.name") || "").trim());
         if (branded && branded !== "brand.name" && /Italia|Social|Gaming/i.test(branded)) {
           return branded;
         }
       }
     } catch (eBrand) {}
-    var aria = String((nameEl && nameEl.getAttribute("aria-label")) || "").trim();
+    var aria = stripBrandEmoji(String((nameEl && nameEl.getAttribute("aria-label")) || "").trim());
     if (!aria || /vai alla homepage|go to homepage|homepage/i.test(aria)) return fallback;
     if (!/Italia|Social|Gaming/i.test(aria)) return fallback;
     return aria;
@@ -286,15 +297,26 @@
       /* dashboard guild chip: non forzare brand home */
       if (nameEl.classList && nameEl.classList.contains("vc-dashboard-header-guild-name")) return;
       var full = brandFallbackText(nameEl);
+      try {
+        nameEl.setAttribute("data-vc-emoji-skip", "1");
+      } catch (eSkip) {}
       var textEl =
         nameEl.querySelector("." + TEXT_CLASS) ||
         nameEl.querySelector(".text-emerald-300") ||
         nameEl.querySelector("span:not(.vc-header-site-name__track)");
       if (!textEl) return;
-      var cur = String(textEl.textContent || "").trim();
+      /* togli img emoji / twemoji dal wordmark */
+      try {
+        var emImgs = textEl.querySelectorAll("img.vc-emoji, img.vc-twemoji, img.emoji, .vc-emoji, .vc-twemoji");
+        for (var ei = 0; ei < emImgs.length; ei++) {
+          var em = emImgs[ei];
+          if (em && em.parentNode) em.parentNode.removeChild(em);
+        }
+      } catch (eEm) {}
+      var cur = stripBrandEmoji(String(textEl.textContent || "").trim());
       var looksBrand = /Vinili/i.test(cur) && /Italia|Social|Gaming/i.test(cur);
-      /* wmMqDashBrand1: Dashboard/i18n/short → stesso wordmark homepage */
-      if (!cur || !looksBrand) {
+      /* wmMqDashBrand1 + cpuHoverIdle1: plain wordmark sempre */
+      if (!cur || !looksBrand || cur !== full) {
         textEl.textContent = full;
         try {
           nameEl.removeAttribute("data-i18n");
@@ -412,26 +434,28 @@
     }, d);
   }
 
-  /* wmDupKill1e: stesso split img/testo sul wordmark footer (ghost WebKit) */
+  /* cpuHoverIdle1 + wmEmojiFree2: footer plain come header (no 🎃🍂 / twemoji) */
   var footerWmSyncing = false;
   function syncFooterWordmark() {
     if (footerWmSyncing) return;
     footerWmSyncing = true;
     try {
+      var plain = brandFallbackText(null);
       var nodes = document.querySelectorAll("footer .vc-premium-footer__wordmark");
       for (var i = 0; i < nodes.length; i++) {
         var el = nodes[i];
-        /* skip se già ok: img sibling di metal, zero img dentro metal */
         try {
-          var bad = el.querySelector("." + METAL_CLASS + " img");
-          var hasMetal = el.querySelector("." + METAL_CLASS);
-          if (hasMetal && !bad) {
-            var metalsOk = el.querySelectorAll("." + METAL_CLASS);
-            for (var mo = 0; mo < metalsOk.length; mo++) marqueeMetalPaintOne(metalsOk[mo]);
-            marqueeHostClearOne(el);
-            continue;
+          el.setAttribute("data-vc-emoji-skip", "1");
+          var emImgs = el.querySelectorAll("img.vc-emoji, img.vc-twemoji, img.emoji, .vc-emoji, .vc-twemoji");
+          for (var ei = 0; ei < emImgs.length; ei++) {
+            var em = emImgs[ei];
+            if (em && em.parentNode) em.parentNode.removeChild(em);
           }
-        } catch (eSkip) {}
+          var cur = stripBrandEmoji(String(el.textContent || "").trim());
+          if (!cur || cur !== plain || el.querySelector("img")) {
+            el.textContent = plain;
+          }
+        } catch (eStrip) {}
         ensureMetalTextSpans(el);
       }
     } catch (eFoot) {
@@ -518,14 +542,17 @@
       return;
     }
 
-    /* mqNoRestart1: clone+dist ok → ZERO touch (metal/emoji/RO facevano ripartire l'anim)
+    /* mqNoRestart1 + mqIdleResumeAll1: clone+dist ok → ZERO touch (emoji/MO non ripartono)
        drawerWmMarquee2: se drawer aperto senza is-marquee, non early-return da altri host */
     if (nameEl.classList.contains("is-marquee")) {
       var hasClone = trackEl.querySelector("." + TEXT_CLASS + ".is-clone");
       var stored = Number(nameEl.getAttribute("data-vc-marquee-dist") || 0);
-      /* wmMqEmojiFree1: dist < 120 = misura rotta (font-size:0) → rebuild */
-      if (hasClone && Number.isFinite(stored) && stored >= 120) {
-        if (nextText) nameEl.setAttribute("data-vc-marquee-text", nextText);
+      var prevText = String(nameEl.getAttribute("data-vc-marquee-text") || "");
+      /* soglia 80: emoji enhance non deve forzare rebuild mid-spin */
+      if (hasClone && Number.isFinite(stored) && stored >= 80) {
+        if (nextText && nextText !== prevText) {
+          nameEl.setAttribute("data-vc-marquee-text", nextText);
+        }
         return;
       }
     }
@@ -599,6 +626,12 @@
       nameEl.setAttribute("data-vc-marquee-dist", String(startSeg));
       nameEl.setAttribute("data-vc-marquee-cw", String(containerW));
       nameEl.setAttribute("data-vc-wm-mq", STAMP);
+      /* mqHoverOnly1: parte in pausa — gira solo hover */
+      try {
+        trackEl.style.setProperty("animation-play-state", "paused", "important");
+        trackEl.style.setProperty("-webkit-animation-play-state", "paused", "important");
+        trackEl.style.setProperty("transform", "translate3d(0,0,0)", "important");
+      } catch (ePause0) {}
       /* mqNoRestart1: niente refine --vc-marquee-* post-start (var change = CSS anim restart mid-spin) */
       /* post-twemoji: metal/emoji SENZA toccare track/is-marquee (niente restart) */
       mqSoon(function () {
@@ -870,53 +903,234 @@
         } catch (eTh) {}
       }, 48);
     });
-    /* mqSettlePause1 + wmResumeHover1: settle/BG → pause; bustle/FG → running.
-       Sempre clear transform:0 (freeze BG) + play() su getAnimations — altrimenti stuck. */
+    /* mqNoSnapSettle1: leave-hover / tab-hidden → reset@0.
+       settle FG → soft pause (tiene currentTime, no tx:0). */
+    function resetTrackToOrigin(tr) {
+      if (!tr || !tr.style) return;
+      try {
+        tr.removeAttribute("data-vc-mq-hover-run");
+      } catch (eAttr0) {}
+      try {
+        tr.style.setProperty("animation-play-state", "paused", "important");
+        tr.style.setProperty("-webkit-animation-play-state", "paused", "important");
+        tr.style.setProperty("will-change", "auto", "important");
+      } catch (ePs) {}
+      try {
+        if (tr.__vcMqWaapi) {
+          if (typeof tr.__vcMqWaapi.pause === "function") tr.__vcMqWaapi.pause();
+          try {
+            tr.__vcMqWaapi.currentTime = 0;
+          } catch (eCtW) {}
+        }
+      } catch (eWp) {}
+      try {
+        var plist = tr.getAnimations ? tr.getAnimations() : [];
+        for (var pi = 0; pi < plist.length; pi++) {
+          try {
+            if (typeof plist[pi].pause === "function") plist[pi].pause();
+            if ("currentTime" in plist[pi]) plist[pi].currentTime = 0;
+          } catch (eP) {}
+        }
+      } catch (eGaP) {}
+      try {
+        tr.style.setProperty("transform", "translate3d(0,0,0)", "important");
+      } catch (eTx0) {}
+    }
+    function softPauseTrackKeepPos(tr) {
+      if (!tr || !tr.style) return;
+      try {
+        tr.style.setProperty("animation-play-state", "paused", "important");
+        tr.style.setProperty("-webkit-animation-play-state", "paused", "important");
+        tr.style.setProperty("will-change", "auto", "important");
+      } catch (ePs) {}
+      try {
+        if (tr.__vcMqWaapi && typeof tr.__vcMqWaapi.pause === "function") tr.__vcMqWaapi.pause();
+      } catch (eWp) {}
+      try {
+        var plist = tr.getAnimations ? tr.getAnimations() : [];
+        for (var pi = 0; pi < plist.length; pi++) {
+          try {
+            if (typeof plist[pi].pause === "function") plist[pi].pause();
+          } catch (eP) {}
+        }
+      } catch (eGaP) {}
+    }
+    function trackHostIsHovered(tr) {
+      try {
+        var host = tr && tr.closest
+          ? tr.closest(
+              "a.vc-header-site-name.is-marquee, #vc-header-promo-btn, .vc-header-promo-btn",
+            )
+          : null;
+        if (!host) return false;
+        if (host.matches(":hover") || host.matches(":focus-visible")) return true;
+        if (host.matches(":focus-within")) return true;
+      } catch (eHov) {}
+      return false;
+    }
+    function pageIsHardHidden() {
+      try {
+        return Boolean(document.hidden) || document.visibilityState === "hidden";
+      } catch (eH) {
+        return false;
+      }
+    }
     function setBrandTracksIdle(pause) {
       try {
+        var hard = pageIsHardHidden();
         var tracks = document.querySelectorAll(
           "header a.vc-header-site-name.is-marquee .vc-header-site-name__track, header .vc-header-promo-btn__track, .vc-mobile-nav-drawer__brand a.vc-header-site-name.is-marquee .vc-header-site-name__track",
         );
         for (var i = 0; i < tracks.length; i++) {
-          var tr = tracks[i];
-          if (!tr || !tr.style) continue;
-          if (pause) {
-            tr.style.setProperty("animation-play-state", "paused", "important");
-            tr.style.setProperty("-webkit-animation-play-state", "paused", "important");
-            tr.style.setProperty("will-change", "auto", "important");
-            try {
-              if (tr.__vcMqWaapi && typeof tr.__vcMqWaapi.pause === "function") tr.__vcMqWaapi.pause();
-            } catch (eWp) {}
-          } else {
-            try {
-              tr.style.removeProperty("transform");
-            } catch (eTx) {}
-            tr.style.setProperty("animation-play-state", "running", "important");
-            tr.style.setProperty("-webkit-animation-play-state", "running", "important");
-            tr.style.setProperty("will-change", "transform", "important");
-            try {
-              if (tr.__vcMqWaapi && typeof tr.__vcMqWaapi.play === "function") tr.__vcMqWaapi.play();
-            } catch (eWr) {}
-            try {
-              var list = tr.getAnimations ? tr.getAnimations() : [];
-              for (var ai = 0; ai < list.length; ai++) {
-                try {
-                  if (typeof list[ai].play === "function") list[ai].play();
-                } catch (eA) {}
-              }
-            } catch (eGa) {}
-          }
+          /* mqHoverNoRestart1: non toccare track sotto hover attivo */
+          if (trackHostIsHovered(tracks[i])) continue;
+          if (hard) resetTrackToOrigin(tracks[i]);
+          else softPauseTrackKeepPos(tracks[i]);
         }
       } catch (eIdle) {}
+      void pause;
     }
-    function resumeBrandTracksIfActive() {
+    function setTrackRunning(tr, on) {
+      if (!tr || !tr.style) return;
+      if (!on) {
+        resetTrackToOrigin(tr);
+        return;
+      }
+      var keepGoing = false;
       try {
-        if (document.hidden || document.visibilityState === "hidden") return;
-      } catch (eH) {}
+        keepGoing = tr.getAttribute("data-vc-mq-hover-run") === "1";
+      } catch (eKeep) {}
+      if (!keepGoing) {
+        try {
+          var prev = tr.getAnimations ? tr.getAnimations() : [];
+          for (var pj = 0; pj < prev.length; pj++) {
+            if (
+              prev[pj].playState === "running" &&
+              (Number(prev[pj].currentTime) || 0) > 20
+            ) {
+              keepGoing = true;
+              break;
+            }
+          }
+        } catch (ePrev) {}
+      }
       try {
-        if (document.documentElement.classList.contains("vc-cpu-settle")) return;
-      } catch (eS) {}
-      setBrandTracksIdle(false);
+        tr.style.removeProperty("transform");
+      } catch (eTx) {}
+      tr.style.setProperty("animation-play-state", "running", "important");
+      tr.style.setProperty("-webkit-animation-play-state", "running", "important");
+      tr.style.setProperty("will-change", "transform", "important");
+      try {
+        tr.setAttribute("data-vc-mq-hover-run", "1");
+      } catch (eAttr1) {}
+      try {
+        if (tr.__vcMqWaapi) {
+          if (!keepGoing) {
+            try {
+              tr.__vcMqWaapi.currentTime = 0;
+            } catch (eCt) {}
+          }
+          if (typeof tr.__vcMqWaapi.play === "function") tr.__vcMqWaapi.play();
+        }
+      } catch (eWr) {}
+      try {
+        var list = tr.getAnimations ? tr.getAnimations() : [];
+        for (var ai = 0; ai < list.length; ai++) {
+          try {
+            if (!keepGoing && "currentTime" in list[ai]) list[ai].currentTime = 0;
+            if (typeof list[ai].play === "function") list[ai].play();
+          } catch (eA) {}
+        }
+      } catch (eGa) {}
+    }
+    window.__vcMqSetBrandTrackRunning = setTrackRunning;
+    function trackFromHoverTarget(t) {
+      try {
+        if (!t || !t.closest) return null;
+        var brand = t.closest("a.vc-header-site-name.is-marquee");
+        if (brand) {
+          return brand.querySelector(".vc-header-site-name__track");
+        }
+        var promo = t.closest("#vc-header-promo-btn, .vc-header-promo-btn");
+        if (promo) {
+          return promo.querySelector(".vc-header-promo-btn__track");
+        }
+      } catch (eT) {}
+      return null;
+    }
+    try {
+      if (!window.__vcMqHoverNoRestart1) {
+        window.__vcMqHoverNoRestart1 = 1;
+        document.addEventListener(
+          "pointerover",
+          function (ev) {
+            var tr = trackFromHoverTarget(ev && ev.target);
+            if (!tr) return;
+            var run = window.__vcMqSetBrandTrackRunning || setTrackRunning;
+            run(tr, true);
+          },
+          true,
+        );
+        document.addEventListener(
+          "pointerout",
+          function (ev) {
+            var related = ev && ev.relatedTarget;
+            var still = related ? trackFromHoverTarget(related) : null;
+            var tr = trackFromHoverTarget(ev && ev.target);
+            if (tr && still !== tr) {
+              var run = window.__vcMqSetBrandTrackRunning || setTrackRunning;
+              run(tr, false);
+            }
+          },
+          true,
+        );
+        document.addEventListener(
+          "focusin",
+          function (ev) {
+            var tr = trackFromHoverTarget(ev && ev.target);
+            if (!tr) return;
+            var run = window.__vcMqSetBrandTrackRunning || setTrackRunning;
+            run(tr, true);
+          },
+          true,
+        );
+        document.addEventListener(
+          "focusout",
+          function (ev) {
+            var tr = trackFromHoverTarget(ev && ev.target);
+            if (!tr) return;
+            var run = window.__vcMqSetBrandTrackRunning || setTrackRunning;
+            run(tr, false);
+          },
+          true,
+        );
+      }
+    } catch (eHover) {}
+    function pageIsSettled() {
+      try {
+        return document.documentElement.classList.contains("vc-cpu-settle");
+      } catch (eS) {
+        return false;
+      }
+    }
+    function resumeBrandTracksIfActive(force) {
+      /* hoverMqSocial1b: bustle NON reset@0 — pointerdown spegneva hover appena partito */
+      void force;
+      try {
+        var hov = document.querySelector(
+          "header a.vc-header-site-name.is-marquee:hover," +
+            ".vc-mobile-nav-drawer__brand a.vc-header-site-name.is-marquee:hover," +
+            "header .vc-header-promo-btn:hover," +
+            "#vc-header-promo-btn:hover," +
+            "header .vc-header-promo-btn:focus-visible," +
+            "#vc-header-promo-btn:focus-visible",
+        );
+        if (hov) {
+          var trH = trackFromHoverTarget(hov);
+          if (trH) setTrackRunning(trH, true);
+          return;
+        }
+      } catch (eHov) {}
     }
     document.addEventListener(
       "vc:cpu-settle",
@@ -935,17 +1149,46 @@
     document.addEventListener(
       "vc:cpu-bustle",
       function () {
-        try {
-          if (document.hidden) return;
-        } catch (eH) {}
-        setBrandTracksIdle(false);
+        resumeBrandTracksIfActive(false);
       },
       false,
     );
+    try {
+      if (!window.__vcWmIdleWatch4) {
+        window.__vcWmIdleWatch4 = 1;
+        document.addEventListener("vc:cpu-settle", function () {
+          try {
+            setBrandTracksIdle(true);
+          } catch (eW) {}
+        });
+        document.addEventListener("visibilitychange", function () {
+          try {
+            setBrandTracksIdle(true);
+          } catch (eV) {}
+        });
+        if (typeof MutationObserver === "function") {
+          var settleWas = pageIsSettled();
+          var settleMo = new MutationObserver(function () {
+            var now = pageIsSettled();
+            if (now === settleWas) return;
+            settleWas = now;
+            try {
+              /* mqNoSnapSettle1: settle ON → soft idle; settle OFF → resume hover se attivo */
+              if (now) setBrandTracksIdle(true);
+              else resumeBrandTracksIfActive(false);
+            } catch (eSm) {}
+          });
+          settleMo.observe(document.documentElement, {
+            attributes: true,
+            attributeFilter: ["class"],
+          });
+        }
+      }
+    } catch (eWatch) {}
     document.addEventListener(
       "vc:cpu-wake",
       function () {
-        resumeBrandTracksIfActive();
+        resumeBrandTracksIfActive(true);
       },
       false,
     );
@@ -995,6 +1238,8 @@
     try {
       if (typeof MutationObserver === "function") {
         var mo = new MutationObserver(function () {
+          /* mqIdleResumeAll1: emoji/subtree thrash non deve schedule→rebuild mid-spin */
+          if (brandMarqueeAlreadyRunning()) return;
           schedule(document);
         });
         function observeLinks() {

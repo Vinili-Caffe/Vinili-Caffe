@@ -5659,11 +5659,12 @@ a.vc-home-staff-roster__person:focus-visible {
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .vc-marquee.is-marquee {
+  .vc-marquee.is-marquee:not([data-vc-nav-user-marquee]) {
     -webkit-mask-image: none;
     mask-image: none;
   }
-  .vc-marquee.is-marquee .vc-marquee__track {
+  /* userMqRmKeep1: chip nome account resta animato (ignore OS reduce-motion) */
+  .vc-marquee.is-marquee:not([data-vc-nav-user-marquee]) .vc-marquee__track {
     animation: none !important;
     transform: none !important;
   }
@@ -73386,9 +73387,9 @@ html.vc-site-polish.vc-chrome-scroll-armed:not(.vc-soft-fx-off) body.vc-body,
 html.vc-site-polish.vc-page-cine-ready.vc-chrome-scroll-armed:not(.vc-chrome-bar-loading):not(.vc-loading-scroll-lock):not(.vc-loader-blocking-live):not(.vc-interaction-hold):not(.vc-scroll-soft-lock):not(.vc-dialog-open):not(.vc-notif-sheet-open):not(.vc-notif-drawer-open):not(.vc-img-lb-open),
 html.vc-cine-curtain-off:not(.vc-chrome-bar-loading):not(.vc-loading-scroll-lock):not(.vc-loader-blocking-live):not(.vc-interaction-hold):not(:has(#vc-site-progress.is-loading)),
 html.vc-page-cine-ready:not(.vc-chrome-bar-loading):not(.vc-loading-scroll-lock):not(.vc-loader-blocking-live):not(.vc-interaction-hold):not(:has(#vc-site-progress.is-loading)),
-html[data-vc-theme="light"],
-html[data-vc-theme="light"] body.vc-body,
-html.vc-site-polish[data-vc-theme="light"] body.vc-body {
+html[data-vc-theme="light"]:not(.vc-notif-sheet-open):not(.vc-notif-drawer-open):not(.vc-feedback-sheet-open):not(.vc-staff-stat-sheet-open):not(.vc-staff-manage-sheet-open):not(.vc-staff-reso-sheet-open):not(.vc-dialog-open),
+html[data-vc-theme="light"]:not(.vc-notif-sheet-open):not(.vc-notif-drawer-open):not(.vc-feedback-sheet-open):not(.vc-staff-stat-sheet-open):not(.vc-staff-manage-sheet-open):not(.vc-staff-reso-sheet-open):not(.vc-dialog-open) body.vc-body,
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-notif-sheet-open):not(.vc-notif-drawer-open):not(.vc-feedback-sheet-open):not(.vc-staff-stat-sheet-open):not(.vc-staff-manage-sheet-open):not(.vc-staff-reso-sheet-open):not(.vc-dialog-open) body.vc-body {
   overflow-x: hidden !important;
   overflow-y: auto !important;
   scrollbar-width: none !important;
@@ -111587,9 +111588,9 @@ html.vc-site-polish.vc-chrome-scroll-armed:not(.vc-soft-fx-off) body.vc-body,
 html.vc-site-polish.vc-page-cine-ready.vc-chrome-scroll-armed:not(.vc-chrome-bar-loading):not(.vc-loading-scroll-lock):not(.vc-loader-blocking-live):not(.vc-interaction-hold):not(.vc-scroll-soft-lock):not(.vc-dialog-open):not(.vc-notif-sheet-open):not(.vc-notif-drawer-open):not(.vc-img-lb-open),
 html.vc-cine-curtain-off:not(.vc-chrome-bar-loading):not(.vc-loading-scroll-lock):not(.vc-loader-blocking-live):not(.vc-interaction-hold):not(:has(#vc-site-progress.is-loading)),
 html.vc-page-cine-ready:not(.vc-chrome-bar-loading):not(.vc-loading-scroll-lock):not(.vc-loader-blocking-live):not(.vc-interaction-hold):not(:has(#vc-site-progress.is-loading)),
-html[data-vc-theme="light"],
-html[data-vc-theme="light"] body.vc-body,
-html.vc-site-polish[data-vc-theme="light"] body.vc-body {
+html[data-vc-theme="light"]:not(.vc-notif-sheet-open):not(.vc-notif-drawer-open):not(.vc-feedback-sheet-open):not(.vc-staff-stat-sheet-open):not(.vc-staff-manage-sheet-open):not(.vc-staff-reso-sheet-open):not(.vc-dialog-open),
+html[data-vc-theme="light"]:not(.vc-notif-sheet-open):not(.vc-notif-drawer-open):not(.vc-feedback-sheet-open):not(.vc-staff-stat-sheet-open):not(.vc-staff-manage-sheet-open):not(.vc-staff-reso-sheet-open):not(.vc-dialog-open) body.vc-body,
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-notif-sheet-open):not(.vc-notif-drawer-open):not(.vc-feedback-sheet-open):not(.vc-staff-stat-sheet-open):not(.vc-staff-manage-sheet-open):not(.vc-staff-reso-sheet-open):not(.vc-dialog-open) body.vc-body {
   overflow-x: hidden !important;
   overflow-y: auto !important;
   scrollbar-width: none !important;

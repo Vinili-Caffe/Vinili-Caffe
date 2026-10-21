@@ -15,7 +15,6 @@ const {
   upsertWebPushSubscription,
   removeWebPushSubscription,
   noteWebPushShown,
-  sendWebPushToUser,
 } = require("./siteWebPushService");
 const { isLitePerf, resolveSitePerfTier } = require("./sitePerfHints");
 const { fetchDiscordOAuthMe } = require("./discordOauthMe");
@@ -249,28 +248,8 @@ async function handleSiteNotificationsPushSubscribePost(client, req, res) {
           : "Sottoscrizione push non valida.",
       });
     }
-    /* pushAppleShownAck1: dopo forceFresh iOS → ping mobile per verificare banner */
-    const probeAfter = body.probeAfter === true || body.probe === true;
-    const endpoint = String(subscription?.endpoint || "").trim();
-    const isApple = /web\.push\.apple\.com|push\.apple\.com/i.test(endpoint);
-    if (probeAfter && isApple && saved.ok) {
-      const now = Date.now();
-      setTimeout(() => {
-        void sendWebPushToUser(
-          resolved.userId,
-          {
-            title: "Push telefono attiva",
-            body: "Se vedi questo, le notifiche sul telefono funzionano.",
-            openUrl: "https://www.viniliecaffe.it/",
-            kind: "info",
-            id: "apple-probe-" + now,
-            dedupeKey: "apple_probe_" + now,
-          },
-          { deviceFilter: "mobile" },
-        ).catch(() => null);
-      }, 1800);
-    }
-    return res.status(200).json({ ok: true, probeScheduled: Boolean(probeAfter && isApple) });
+    /* killAppleProbePush1: niente più ping "Se vedi questo…" dopo subscribe/wake */
+    return res.status(200).json({ ok: true, probeScheduled: false });
   } catch (err) {
     global.logger?.error?.("[WEBHOOK] site-notifications push subscribe:", err);
     return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });

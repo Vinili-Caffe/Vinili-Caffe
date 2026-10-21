@@ -1,0 +1,2507 @@
+/* vc-seratafilm-critical.css — pageCriticalAll1 / seratafilm
+ * Above-fold first paint (cine/hero/scrollcue/shell).
+ * Full seratafilm-page.css loads post-curtain.
+ */
+
+body.vc-seratafilm-page {
+    margin: 0;
+    min-height: 100vh;
+    overflow-x: hidden;
+    color: var(--text);
+    /* sfLookFix1: Inter come resto sito (niente Times/Cormorant fallback) */
+    font-family: "Inter", ui-sans-serif, system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    background: #100c09;
+}
+
+html.vc-site-polish body.vc-seratafilm-page,
+html.vc-site-polish body.vc-seratafilm-page :is(
+  h1, h2, h3, h4, h5, h6, p, span, a, button, label, div, strong, em, small, section, aside, main
+):not(.fa):not(i.fa):not([class^="fa-"]):not([class*=" fa-"]),
+html.vc-site-polish body.vc-seratafilm-page:not(.vc-seratafilm-hogwarts-event) .center-stage h1,
+html.vc-site-polish body.vc-seratafilm-page:not(.vc-seratafilm-hogwarts-event) .card h1,
+html.vc-site-polish body.vc-seratafilm-page:not(.vc-seratafilm-hogwarts-event) .sponsor-text,
+html.vc-site-polish body.vc-seratafilm-page:not(.vc-seratafilm-hogwarts-event) .sponsor-text strong {
+    font-family: "Inter", ui-sans-serif, system-ui, sans-serif !important;
+}
+
+html.vc-site-photo-bg body.vc-seratafilm-page,
+html.vc-site-polish.vc-site-photo-bg body.vc-seratafilm-page {
+    background-color: transparent !important;
+    background-image: none !important;
+}
+
+body.vc-seratafilm-page .vc-home-cine,
+body.vc-seratafilm-page .vc-home-cine.vc-seratafilm-photo-stage {
+    position: fixed !important;
+    inset: 0 !important;
+    z-index: 0 !important;
+    pointer-events: none !important;
+    overflow: hidden !important;
+    background-color: #100c09 !important;
+    width: auto !important;
+    height: auto !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+}
+
+body.vc-seratafilm-page .vc-home-cine .vc-home-cine__photo,
+body.vc-seratafilm-page .vc-home-cine.vc-seratafilm-photo-stage .vc-home-cine__photo {
+    position: absolute !important;
+    inset: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: cover !important;
+    display: block !important;
+}
+
+html body.vc-body.vc-seratafilm-page .vc-home-cine .vc-home-cine__veil,
+html.vc-site-polish body.vc-body.vc-seratafilm-page .vc-home-cine .vc-home-cine__veil,
+html.vc-site-photo-bg body.vc-body.vc-seratafilm-page .vc-home-cine .vc-home-cine__veil,
+html.vc-site-photo-bg.vc-site-polish body.vc-body.vc-seratafilm-page .vc-home-cine .vc-home-cine__veil,
+html.vc-site-polish.vc-site-photo-bg body.vc-body.vc-seratafilm-page .vc-home-cine.vc-seratafilm-photo-stage .vc-home-cine__veil,
+body.vc-seratafilm-page .vc-home-cine .vc-home-cine__veil,
+body.vc-seratafilm-page .vc-home-cine.vc-seratafilm-photo-stage .vc-home-cine__veil {
+    position: absolute !important;
+    inset: 0 !important;
+    opacity: 1 !important;
+    filter: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    background:
+      linear-gradient(
+        180deg,
+        rgba(10, 7, 5, 0.78) 0%,
+        rgba(10, 7, 5, 0.64) 28%,
+        rgba(10, 7, 5, 0.68) 58%,
+        rgba(10, 7, 5, 0.92) 100%
+      ),
+      radial-gradient(ellipse 78% 58% at 50% 42%, rgba(10, 7, 5, 0.42), transparent 74%) !important;
+    background-image:
+      linear-gradient(
+        180deg,
+        rgba(10, 7, 5, 0.78) 0%,
+        rgba(10, 7, 5, 0.64) 28%,
+        rgba(10, 7, 5, 0.68) 58%,
+        rgba(10, 7, 5, 0.92) 100%
+      ),
+      radial-gradient(ellipse 78% 58% at 50% 42%, rgba(10, 7, 5, 0.42), transparent 74%) !important;
+}
+
+@media (min-width: 1200px) {
+html body.vc-body.vc-seratafilm-page .vc-home-cine .vc-home-cine__veil,
+  html.vc-site-photo-bg.vc-site-polish body.vc-body.vc-seratafilm-page .vc-home-cine .vc-home-cine__veil {
+    background:
+      linear-gradient(
+        180deg,
+        rgba(10, 7, 5, 0.78) 0%,
+        rgba(10, 7, 5, 0.64) 28%,
+        rgba(10, 7, 5, 0.68) 58%,
+        rgba(10, 7, 5, 0.92) 100%
+      ),
+      radial-gradient(ellipse 78% 58% at 50% 42%, rgba(10, 7, 5, 0.42), transparent 74%) !important;
+    background-image:
+      linear-gradient(
+        180deg,
+        rgba(10, 7, 5, 0.78) 0%,
+        rgba(10, 7, 5, 0.64) 28%,
+        rgba(10, 7, 5, 0.68) 58%,
+        rgba(10, 7, 5, 0.92) 100%
+      ),
+      radial-gradient(ellipse 78% 58% at 50% 42%, rgba(10, 7, 5, 0.42), transparent 74%) !important;
+  }
+}
+
+body.vc-seratafilm-page .vc-home-cine .vc-home-cine__canvas,
+body.vc-seratafilm-page .vc-home-cine .vc-home-cine__spotlight,
+body.vc-seratafilm-page .vc-home-cine .vc-home-cine__grain,
+body.vc-seratafilm-page .vc-home-cine.vc-seratafilm-photo-stage .vc-home-cine__canvas,
+body.vc-seratafilm-page .vc-home-cine.vc-seratafilm-photo-stage .vc-home-cine__spotlight,
+body.vc-seratafilm-page .vc-home-cine.vc-seratafilm-photo-stage .vc-home-cine__grain {
+    display: none !important;
+}
+
+body.vc-seratafilm-app-revealed #vc-seratafilm-app {
+    display: flex;
+    flex-direction: column;
+    position: fixed !important;
+    inset: 0 !important;
+    z-index: 1 !important;
+    width: 100% !important;
+    height: 100% !important;
+    max-height: 100dvh !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+    box-sizing: border-box !important;
+}
+
+.row-main {
+    display: flex;
+    gap: 24px;
+    align-items: stretch;
+    flex-wrap: nowrap;
+    justify-content: stretch;
+    width: 100%;
+}
+
+.banner-vertical {
+    position: relative;
+    flex: 0 0 180px;
+    background: #100c09;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    border-radius: var(--banner-radius);
+    border: 1px solid rgba(245, 214, 183, 0.28);
+    box-shadow: var(--shadow);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    transition: all 0.2s ease;
+    padding: 20px 12px;
+    text-align: center;
+    overflow: hidden;
+    isolation: isolate;
+    background-clip: padding-box;
+}
+
+.banner-vertical:hover {
+    border-color: rgba(245, 214, 183, 0.4);
+    background: #140f0c;
+    transform: translateY(-3px);
+}
+
+.center-stage {
+    flex: 1 1 0;
+    min-width: 0;
+    max-width: none;
+    width: auto;
+}
+
+.card {
+    position: relative;
+    padding: 34px 28px 26px;
+    border-radius: var(--radius);
+    background: #100c09;
+    box-shadow: var(--shadow);
+    border: 1px solid rgba(245, 214, 183, 0.28);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    overflow: hidden;
+    isolation: isolate;
+    background-clip: padding-box;
+}
+
+.card::before {
+    content:"";
+    position:absolute;
+    inset:-1px;
+    border-radius: inherit;
+    background: none;
+    opacity:0;
+    pointer-events:none;
+    padding: 1px;
+    mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    mask-composite: exclude;
+    -webkit-mask-composite: xor;
+}
+
+#timer {
+    font-variant-numeric: tabular-nums;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+    margin-top: 18px;
+}
+
+body.vc-seratafilm-thanks-page #timer {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    align-items: stretch;
+}
+
+body.vc-seratafilm-thanks-page #timer .tile.vc-seratafilm-thanks-next {
+    grid-column: 1 / -1;
+    text-align: left;
+    padding: 14px 16px;
+}
+
+.vc-seratafilm-thanks-kicker {
+    display: block;
+    font-size: clamp(1.35rem, 4.2vw, 2.05rem);
+    font-weight: 800;
+    color: #b9ffcf;
+    line-height: 1.25;
+}
+
+body.vc-seratafilm-thanks-page #timer .tile.vc-seratafilm-thanks-next .lbl {
+    display: block;
+    margin-top: 0;
+    font-size: clamp(0.92rem, 2.1vw, 1.05rem);
+    line-height: 1.45;
+}
+
+body.vc-seratafilm-thanks-page #timer .tile.vc-seratafilm-thanks-next .lbl strong {
+    color: var(--text);
+    font-weight: 700;
+}
+
+body.vc-seratafilm-hogwarts-event .vc-seratafilm-thanks-kicker {
+    color: #d4a888;
+    text-shadow: 0 10px 30px rgba(212, 168, 136, 0.28);
+}
+
+body.vc-seratafilm-thanks-page .hint .btn.secondary {
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+body.vc-seratafilm-final10 #vc-seratafilm-app .card {
+    box-shadow: 0 30px 95px rgba(0,0,0,.62);
+}
+
+body.vc-seratafilm-final10 #vc-seratafilm-app .pill {
+    border-color: rgba(247,201,72,.35);
+    background: rgba(247,201,72,.08);
+    color: rgba(255,255,255,.85);
+}
+
+body.vc-seratafilm-final10 #vc-seratafilm-app .tile {
+    animation: none; /* pagePerfAll1: idle kill; was pulseGlow infinite */
+}
+
+body.vc-seratafilm-final10 #vc-seratafilm-app .tile[data-unit="seconds"] {
+    border-color: rgba(247,201,72,.45);
+    background: linear-gradient(180deg, rgba(247,201,72,.14), rgba(255,255,255,.06));
+    box-shadow: 0 18px 60px rgba(247,201,72,.18);
+    animation-duration: .55s;
+}
+
+body.vc-seratafilm-final10 #vc-seratafilm-app .tile[data-unit="seconds"] .num {
+    text-shadow: 0 12px 38px rgba(247,201,72,.35);
+    animation: vc-seratafilm-microShake .55s linear infinite;
+}
+
+.vc-seratafilm-fs-countdown {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 10050;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: radial-gradient(circle, var(--bg1) 0%, var(--bg0) 100%);
+}
+
+body.vc-seratafilm-final-fullscreen .vc-seratafilm-fs-countdown {
+    display: flex;
+}
+
+html.vc-seratafilm-final-fullscreen,
+html.vc-seratafilm-final-fullscreen body,
+body.vc-seratafilm-final-fullscreen {
+    overflow: hidden !important;
+    height: 100% !important;
+    overscroll-behavior: none !important;
+    touch-action: none;
+}
+
+body.vc-seratafilm-final-fullscreen .vc-seratafilm-fs-countdown {
+    touch-action: none;
+    overscroll-behavior: none;
+}
+
+body.vc-seratafilm-final-fullscreen #vc-seratafilm-app .seratafilm-canvas {
+    visibility: hidden;
+    pointer-events: none;
+}
+
+.vc-seratafilm-fs-number {
+    margin: 0;
+    font-size: min(40vw, 18rem);
+    font-weight: 800;
+    line-height: 1;
+    color: var(--accent);
+    text-shadow: 0 0 80px rgba(247,201,72,.6);
+    font-variant-numeric: tabular-nums;
+    animation: vc-seratafilm-fsPulse 1s ease-in-out infinite;
+}
+
+.vc-seratafilm-film {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 10100;
+    background: #000;
+    align-items: center;
+    justify-content: center;
+}
+
+.vc-seratafilm-film:not([hidden]) {
+    display: flex;
+}
+
+.vc-seratafilm-film.is-preloading {
+    display: block !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+    position: fixed !important;
+    inset: auto !important;
+    left: -9999px !important;
+    top: 0 !important;
+    width: 360px !important;
+    height: 200px !important;
+    max-width: none !important;
+    max-height: none !important;
+    opacity: 0.02 !important;
+    overflow: hidden !important;
+    z-index: -1 !important;
+    background: transparent !important;
+}
+
+.vc-seratafilm-film.is-preloading .vc-seratafilm-film__loading,
+.vc-seratafilm-film.is-preloading .vc-seratafilm-ad-break {
+    display: none !important;
+}
+
+.vc-seratafilm-film.is-preloading .vc-seratafilm-film__video {
+    width: 360px !important;
+    height: 200px !important;
+    max-width: none !important;
+    max-height: none !important;
+}
+
+body.vc-seratafilm-film-active #vc-seratafilm-app,
+body.vc-seratafilm-film-active .vc-seratafilm-bgm-hint {
+    visibility: hidden !important;
+    pointer-events: none !important;
+}
+
+.vc-seratafilm-film__video {
+    width: 100%;
+    height: 100%;
+    max-width: 100vw;
+    max-height: 100vh;
+    object-fit: contain;
+    background: #000;
+}
+
+.vc-seratafilm-film__loading {
+    position: absolute;
+    inset: 0;
+    z-index: 5;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: rgba(0, 0, 0, 0.82);
+    pointer-events: none;
+    transition: opacity 0.35s ease, visibility 0.35s ease;
+}
+
+.vc-seratafilm-film__loading-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+    max-width: min(92vw, 22rem);
+    padding: 1.35rem 1.5rem;
+    border-radius: 18px;
+    border: 1px solid rgba(247, 201, 72, 0.22);
+    background: linear-gradient(165deg, rgba(18, 16, 28, 0.92), rgba(6, 4, 12, 0.96));
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.55);
+}
+
+.vc-seratafilm-film__loading-spinner {
+    width: 2.75rem;
+    height: 2.75rem;
+    border-radius: 50%;
+    border: 3px solid rgba(247, 201, 72, 0.18);
+    border-top-color: #f7c948;
+    animation: vc-seratafilm-film-spin 0.85s linear infinite;
+}
+
+body.vc-seratafilm-hogwarts-event .vc-seratafilm-film__loading-card {
+    border-color: rgba(212, 168, 136, 0.28);
+    background: linear-gradient(165deg, rgba(28, 16, 10, 0.94), rgba(8, 5, 4, 0.98));
+}
+
+body.vc-seratafilm-hogwarts-event .vc-seratafilm-film__loading-spinner {
+    border-color: rgba(212, 168, 136, 0.2);
+    border-top-color: #d4a888;
+}
+
+body.vc-seratafilm-hogwarts-event .vc-seratafilm-film__loading-text {
+    color: #f7ecdf;
+}
+
+.vc-seratafilm-film__loading[hidden] {
+    display: none !important;
+}
+
+.vc-seratafilm-credits-skip {
+    position: absolute;
+    right: max(16px, env(safe-area-inset-right, 0px));
+    bottom: max(72px, calc(env(safe-area-inset-bottom, 0px) + 56px));
+    z-index: 40;
+    margin: 0;
+    padding: 12px 18px;
+    border: 1px solid rgba(247, 201, 72, 0.55);
+    border-radius: 999px;
+    background: linear-gradient(145deg, rgba(36, 28, 18, 0.92), rgba(14, 10, 8, 0.94));
+    color: #fff8f0;
+    font: 600 0.95rem/1.2 "Segoe UI", system-ui, sans-serif;
+    letter-spacing: 0.01em;
+    cursor: pointer;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    box-shadow:
+      0 12px 32px rgba(0, 0, 0, 0.45),
+      0 0 28px rgba(247, 201, 72, 0.28),
+      inset 0 1px 0 rgba(255, 247, 236, 0.18);
+    filter: drop-shadow(0 0 10px rgba(247, 201, 72, 0.22));
+    opacity: 0;
+    transform: translateY(8px);
+    pointer-events: none;
+    transition: opacity 0.28s ease, transform 0.28s ease, background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.vc-seratafilm-credits-skip:not([hidden]) {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+}
+
+.vc-seratafilm-credits-skip:hover,
+.vc-seratafilm-credits-skip:focus-visible {
+    background: rgba(28, 28, 32, 0.92);
+    border-color: rgba(255, 255, 255, 0.45);
+    outline: none;
+}
+
+.vc-seratafilm-credits-skip[hidden] {
+    display: none !important;
+}
+
+body.vc-seratafilm-ad-break-active .vc-seratafilm-credits-skip,
+.vc-seratafilm-film.is-preloading .vc-seratafilm-credits-skip {
+    display: none !important;
+}
+
+@media (max-width: 720px) {
+.vc-seratafilm-credits-skip {
+        left: 50%;
+        right: auto;
+        bottom: max(64px, calc(env(safe-area-inset-bottom, 0px) + 48px));
+        transform: translate(-50%, 8px);
+        white-space: nowrap;
+    }
+
+.vc-seratafilm-credits-skip:not([hidden]) {
+        transform: translate(-50%, 0);
+    }
+}
+
+.vc-seratafilm-ad-break {
+    position: absolute;
+    inset: 0;
+    z-index: 4;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+}
+
+.vc-seratafilm-ad-break:not([hidden]) {
+    display: flex;
+}
+
+.vc-seratafilm-ad-break.is-warming {
+    display: flex !important;
+    opacity: 0;
+    pointer-events: none;
+    z-index: 0;
+}
+
+body.vc-seratafilm-ad-break-active .vc-seratafilm-film__video {
+    visibility: hidden;
+}
+
+body.vc-seratafilm-ad-spot-playing .vc-seratafilm-ad-break__card,
+body.vc-seratafilm-ad-spot-playing .vc-seratafilm-ad-break__veil {
+    display: none !important;
+    opacity: 0 !important;
+    visibility: hidden !important;
+}
+
+body.vc-seratafilm-ad-spot-playing .vc-seratafilm-film__loading,
+body.vc-seratafilm-ad-break-active .vc-seratafilm-film__loading {
+    display: none !important;
+}
+
+body.vc-seratafilm-ad-spot-playing .vc-seratafilm-film__video {
+    opacity: 0 !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+}
+
+body.vc-seratafilm-ad-spot-playing .vc-seratafilm-ad-break {
+    display: flex !important;
+    opacity: 1 !important;
+    z-index: 20 !important;
+    position: absolute !important;
+    inset: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    pointer-events: auto !important;
+}
+
+body.vc-seratafilm-ad-spot-playing .vc-seratafilm-ad-break__video,
+.vc-seratafilm-ad-break__video.is-playing,
+#vc-seratafilm-ad-live.is-playing {
+    display: block !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    z-index: 21 !important;
+    position: absolute !important;
+    inset: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    max-width: none !important;
+    max-height: none !important;
+    object-fit: contain !important;
+    pointer-events: auto !important;
+    background: #000 !important;
+}
+
+.vc-seratafilm-ad-break__veil {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    background: radial-gradient(ellipse at center, rgba(8, 6, 14, 0.55) 0%, rgba(0, 0, 0, 0.96) 72%);
+}
+
+.vc-seratafilm-ad-break__card {
+    position: relative;
+    z-index: 2;
+    width: min(92vw, 520px);
+    padding: 28px 26px 24px;
+    border-radius: 22px;
+    border: 1px solid rgba(247, 201, 72, 0.28);
+    background: linear-gradient(165deg, rgba(22, 16, 10, 0.94) 0%, rgba(8, 6, 12, 0.98) 100%);
+    box-shadow: 0 24px 80px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    text-align: center;
+    animation: vc-seratafilm-adCardIn 0.55s ease-out both;
+}
+
+.vc-seratafilm-ad-break__kicker {
+    margin: 0 0 10px;
+    font-size: 0.72rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: rgba(247, 201, 72, 0.82);
+}
+
+.vc-seratafilm-ad-break__title {
+    margin: 0 0 12px;
+    font-size: clamp(1.35rem, 4vw, 1.85rem);
+    line-height: 1.15;
+    color: #fff7e8;
+}
+
+.vc-seratafilm-ad-break__text {
+    margin: 0 0 18px;
+    font-size: 0.98rem;
+    line-height: 1.55;
+    color: rgba(255, 245, 230, 0.82);
+}
+
+.vc-seratafilm-ad-break__countdown {
+    margin: 0;
+    font-size: 0.82rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.55);
+}
+
+.vc-seratafilm-ad-break__countdown span {
+    display: inline-block;
+    min-width: 2ch;
+    font-size: 1.65rem;
+    font-weight: 700;
+    letter-spacing: 0;
+    text-transform: none;
+    color: var(--accent, #f7c948);
+    font-variant-numeric: tabular-nums;
+}
+
+.vc-seratafilm-ad-break__video {
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    width: 100%;
+    height: 100%;
+    max-width: 100vw;
+    max-height: 100vh;
+    object-fit: contain;
+    background: #000;
+    display: none;
+}
+
+.vc-seratafilm-ad-break__video.is-preloading,
+.vc-seratafilm-ad-break__video.is-playing {
+    display: block !important;
+}
+
+.vc-seratafilm-ad-break__video.is-preloading {
+    opacity: 0;
+    z-index: 0;
+    pointer-events: none;
+}
+
+.vc-seratafilm-ad-break__video.is-playing {
+    opacity: 1;
+    z-index: 3;
+}
+
+.vc-seratafilm-ad-break:has(.vc-seratafilm-ad-break__video.is-playing) .vc-seratafilm-ad-break__veil {
+    opacity: 0;
+    visibility: hidden;
+}
+
+.vc-seratafilm-ad-break__video[hidden]:not(.is-preloading):not(.is-playing) {
+    display: none !important;
+}
+
+body.vc-seratafilm-hogwarts-event .vc-seratafilm-ad-break__card {
+    border-color: rgba(212, 175, 55, 0.34);
+    background: linear-gradient(165deg, rgba(18, 12, 8, 0.96) 0%, rgba(6, 4, 10, 0.99) 100%);
+}
+
+body.vc-seratafilm-hogwarts-event .vc-seratafilm-ad-break__title {
+    font-family: Cinzel, Georgia, "Times New Roman", serif;
+}
+
+.vc-seratafilm-film__loading-text {
+    margin: 0;
+    font-size: clamp(1rem, 2.4vw, 1.25rem);
+    font-weight: 600;
+    color: #fff5d0;
+    text-align: center;
+}
+
+.hint {
+    margin-top: 18px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    color: rgba(234,240,255,.68);
+    font-size: .95rem;
+}
+
+.hint .pill {
+    flex: 1 1 auto;
+    min-width: 0;
+    max-width: 100%;
+}
+
+.hint .btn {
+    flex: 0 0 auto;
+    white-space: nowrap;
+}
+
+body.vc-seratafilm-page #vc-live-event-home,
+body.vc-seratafilm-page #vc-live-event-reopen,
+body.vc-seratafilm-page .vc-live-event-reopen,
+body.vc-seratafilm-page #vc-site-sponsor-ad-home,
+body.vc-seratafilm-page #vc-site-sponsor-reopen,
+body.vc-seratafilm-page .vc-site-sponsor-reopen {
+    display: none !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+}
+
+html.vc-seratafilm-loading-done #vc-seratafilm-loading {
+    display: none !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+}
+
+body.vc-seratafilm-app-revealed #vc-seratafilm-loading {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+    clip: rect(0, 0, 0, 0) !important;
+    width: 1px !important;
+    height: 1px !important;
+    overflow: hidden !important;
+    z-index: -1 !important;
+}
+
+#vc-seratafilm-loading {
+    position: fixed;
+    inset: 0;
+    z-index: 8000;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    box-sizing: border-box;
+    background:
+        radial-gradient(1000px 700px at 50% 35%, rgba(138, 92, 255, 0.18), transparent 58%),
+        linear-gradient(160deg, rgba(7, 9, 19, 0.94), rgba(11, 20, 48, 0.96));
+    pointer-events: auto;
+}
+
+#vc-seratafilm-loading .vc-seratafilm-loading__card {
+    max-width: 22rem;
+    padding: 1.25rem 1.35rem;
+    border-radius: var(--radius);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(11, 18, 42, 0.82);
+    box-shadow: var(--shadow);
+    text-align: center;
+}
+
+#vc-seratafilm-loading .vc-seratafilm-loading__text {
+    margin: 0;
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--text);
+}
+
+#vc-seratafilm-loading .vc-seratafilm-loading__hint {
+    margin: 0.45rem 0 0;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--muted);
+}
+
+#vc-seratafilm-denied {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    box-sizing: border-box;
+    background:
+        radial-gradient(1000px 700px at 50% 35%, rgba(138, 92, 255, 0.22), transparent 58%),
+        radial-gradient(800px 520px at 80% 75%, rgba(247, 201, 72, 0.12), transparent 55%),
+        linear-gradient(160deg, var(--bg0), var(--bg1));
+}
+
+.vc-seratafilm-denied__card {
+    width: 100%;
+    max-width: 26rem;
+    border-radius: var(--radius);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: linear-gradient(165deg, rgba(20, 28, 52, 0.92), rgba(10, 14, 28, 0.94));
+    box-shadow: var(--shadow), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    padding: 1.75rem 1.5rem 1.5rem;
+    text-align: center;
+}
+
+.vc-seratafilm-denied__icon {
+    width: 3.25rem;
+    height: 3.25rem;
+    margin: 0 auto 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 9999px;
+    background: rgba(247, 201, 72, 0.12);
+    border: 1px solid rgba(247, 201, 72, 0.35);
+    color: var(--accent);
+}
+
+.vc-seratafilm-denied__icon svg {
+    width: 1.45rem;
+    height: 1.45rem;
+    display: block;
+}
+
+.vc-seratafilm-denied__btn svg.vc-sf-ico-inline {
+    width: 1em;
+    height: 1em;
+    flex-shrink: 0;
+}
+
+.vc-seratafilm-denied__title {
+    margin: 0;
+    font-size: 1.35rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: var(--text);
+}
+
+.vc-seratafilm-denied__lead {
+    margin: 0.35rem 0 0;
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: rgba(234, 240, 255, 0.45);
+}
+
+.vc-seratafilm-denied__msg {
+    margin: 1.1rem 0 0;
+    font-size: 0.95rem;
+    line-height: 1.55;
+    color: rgba(255, 200, 200, 0.92);
+}
+
+.vc-seratafilm-denied__actions {
+    margin-top: 1.35rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+}
+
+.vc-seratafilm-denied__btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    width: 100%;
+    padding: 0.72rem 1rem;
+    border-radius: 14px;
+    font-size: 0.9rem;
+    font-weight: 700;
+    text-decoration: none;
+    cursor: var(--vc-cursor-pointer);
+    border: none;
+    font-family: inherit;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+
+.vc-seratafilm-denied__btn:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
+.vc-seratafilm-denied__btn--primary {
+    background: linear-gradient(145deg, #f0c24d, #d4a020);
+    color: #1a1208;
+    box-shadow: 0 10px 28px rgba(247, 201, 72, 0.25);
+}
+
+.vc-seratafilm-denied__btn--primary:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 14px 34px rgba(247, 201, 72, 0.32);
+}
+
+.vc-seratafilm-denied__btn--secondary {
+    background: rgba(138, 92, 255, 0.22);
+    border: 1px solid rgba(138, 92, 255, 0.45);
+    color: #ede6ff;
+}
+
+.vc-seratafilm-denied__btn--secondary:hover {
+    background: rgba(138, 92, 255, 0.32);
+}
+
+.vc-seratafilm-denied__btn--ghost {
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    color: var(--muted);
+    font-weight: 600;
+}
+
+.vc-seratafilm-denied__btn--ghost:hover {
+    border-color: rgba(255, 255, 255, 0.28);
+    color: var(--text);
+}
+
+body.vc-seratafilm-page .vc-bgm-player.vc-bgm-player--seratafilm,
+body.vc-seratafilm-page #vc-sf-music-player.vc-bgm-player--seratafilm {
+    position: fixed !important;
+    right: max(1rem, env(safe-area-inset-right, 0px)) !important;
+    bottom: max(1rem, env(safe-area-inset-bottom, 0px)) !important;
+    /* sfLookFix1: sopra app fixed + sipario residui */
+    z-index: 2147483640 !important;
+    display: inline-flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+    max-width: none;
+    width: auto;
+    padding: 0;
+    border: none;
+    background: transparent;
+    box-shadow: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    color: #f7ecdf;
+}
+
+body.vc-seratafilm-page .vc-bgm-player.vc-bgm-player--seratafilm[hidden],
+body.vc-seratafilm-page #vc-sf-music-player[hidden] {
+    display: none !important;
+}
+
+body.vc-seratafilm-page #vc-sf-music-player:not([hidden]) {
+    display: inline-flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+}
+
+body.vc-seratafilm-page .vc-bgm-player.vc-bgm-player--seratafilm::after {
+    content: "";
+    position: absolute;
+    right: 0;
+    bottom: 100%;
+    width: 3.2rem;
+    height: 0.85rem;
+    pointer-events: auto;
+}
+
+body.vc-seratafilm-page .vc-bgm-player--seratafilm .vc-bgm-player__toggle {
+    width: 3.05rem;
+    height: 3.05rem;
+    border-radius: 9999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: 1px solid rgba(232, 201, 168, 0.42);
+    background: linear-gradient(155deg, rgba(42, 26, 16, 0.96), rgba(16, 10, 8, 0.94));
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    color: #f7ecdf;
+    cursor: var(--vc-cursor-pointer);
+}
+
+body.vc-seratafilm-page .vc-bgm-player--seratafilm .vc-bgm-player__toggle .fa { font-size: 1.05rem; }
+
+body.vc-seratafilm-page .vc-bgm-player--seratafilm .vc-bgm-player__meta {
+    position: absolute;
+    right: 0;
+    bottom: calc(100% + 0.6rem);
+    left: auto;
+    flex: none;
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+    width: min(16.75rem, calc(100vw - 1.5rem));
+    max-width: min(16.75rem, calc(100vw - 1.5rem));
+    margin: 0;
+    padding: 0.72rem 0.8rem 0.8rem;
+    opacity: 0;
+    overflow: visible;
+    pointer-events: none;
+    transform: translate3d(0, 0.45rem, 0) scale(0.96);
+    transform-origin: bottom right;
+    border-radius: 1.05rem;
+    border: 1px solid rgba(232, 201, 168, 0.38);
+    background: linear-gradient(155deg, rgba(42, 26, 16, 0.97), rgba(14, 9, 7, 0.96));
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.55);
+    backdrop-filter: blur(var(--vc-glass-blur));
+    -webkit-backdrop-filter: blur(var(--vc-glass-blur));
+    transition: opacity 0.18s ease, transform 0.18s ease;
+    color: #f7ecdf;
+}
+
+body.vc-seratafilm-page .vc-bgm-player--seratafilm .vc-bgm-player__meta::before {
+    content: "";
+    position: absolute;
+    left: 0; right: 0; bottom: -0.75rem; height: 0.75rem;
+    pointer-events: auto;
+}
+
+body.vc-seratafilm-page .vc-bgm-player--seratafilm.is-open .vc-bgm-player__meta {
+    opacity: 1; pointer-events: auto; transform: none;
+}
+
+body.vc-seratafilm-page .vc-bgm-player--seratafilm.is-open .vc-bgm-player__meta *,
+body.vc-seratafilm-page .vc-bgm-player--seratafilm.is-open .vc-bgm-player__range {
+    pointer-events: auto;
+}
+
+@media (hover: hover) and (pointer: fine) {
+body.vc-seratafilm-page .vc-bgm-player--seratafilm:hover .vc-bgm-player__meta,
+    body.vc-seratafilm-page .vc-bgm-player--seratafilm:focus-within .vc-bgm-player__meta {
+        opacity: 1; pointer-events: auto; transform: none;
+    }
+
+body.vc-seratafilm-page .vc-bgm-player--seratafilm:hover .vc-bgm-player__meta *,
+    body.vc-seratafilm-page .vc-bgm-player--seratafilm:focus-within .vc-bgm-player__meta *,
+    body.vc-seratafilm-page .vc-bgm-player--seratafilm:hover .vc-bgm-player__range,
+    body.vc-seratafilm-page .vc-bgm-player--seratafilm:focus-within .vc-bgm-player__range {
+        pointer-events: auto;
+    }
+}
+
+@media (hover: none), (pointer: coarse) {
+body.vc-seratafilm-page .vc-bgm-player--seratafilm:not(.is-open):hover .vc-bgm-player__meta,
+    body.vc-seratafilm-page .vc-bgm-player--seratafilm:not(.is-open):focus-within .vc-bgm-player__meta {
+        opacity: 0; pointer-events: none;
+        transform: translate3d(0, 0.45rem, 0) scale(0.96);
+    }
+
+body.vc-seratafilm-page .vc-bgm-player--seratafilm.is-open {
+        display: inline-flex !important;
+        flex-direction: column-reverse !important;
+        align-items: center !important;
+        justify-content: flex-end !important;
+        gap: 0.28rem !important;
+        padding: 0.42rem 0.3rem 0.3rem !important;
+        width: 2.95rem !important;
+        min-width: 2.95rem !important;
+        max-width: 2.95rem !important;
+        border-radius: 1.55rem !important;
+        border: 1px solid rgba(232, 201, 168, 0.48) !important;
+        background: linear-gradient(180deg, rgba(42, 26, 16, 0.97), rgba(14, 9, 7, 0.96)) !important;
+        box-shadow: 0 12px 28px rgba(0, 0, 0, 0.5) !important;
+    }
+
+body.vc-seratafilm-page .vc-bgm-player--seratafilm.is-open .vc-bgm-player__meta {
+        position: static !important;
+        right: auto !important;
+        bottom: auto !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+        max-height: 7.25rem !important;
+        opacity: 1 !important;
+        pointer-events: auto !important;
+        transform: none !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        border: none !important;
+        box-shadow: none !important;
+        background: transparent !important;
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        gap: 0 !important;
+    }
+
+body.vc-seratafilm-page .vc-bgm-player--seratafilm.is-open .vc-bgm-player__meta::before {
+        display: none !important;
+    }
+
+body.vc-seratafilm-page .vc-bgm-player--seratafilm.is-open .vc-bgm-player__label,
+    body.vc-seratafilm-page .vc-bgm-player--seratafilm.is-open .vc-bgm-player__seek-row {
+        display: none !important;
+    }
+
+body.vc-seratafilm-page .vc-bgm-player--seratafilm.is-open .vc-bgm-player__slider-row {
+        position: relative !important;
+        display: flex !important;
+        width: 1.7rem !important;
+        height: 6.6rem !important;
+        padding: 0 !important;
+        gap: 0 !important;
+        align-items: center !important;
+        justify-content: center !important;
+    }
+
+body.vc-seratafilm-page .vc-bgm-player--seratafilm.is-open .vc-bgm-player__slider-row > .fa {
+        display: none !important;
+    }
+
+body.vc-seratafilm-page .vc-bgm-player--seratafilm.is-open .vc-bgm-player__slider-row .vc-bgm-player__range {
+        position: absolute !important;
+        left: 50% !important;
+        top: 50% !important;
+        width: 6.2rem !important;
+        height: 1.15rem !important;
+        margin: 0 !important;
+        flex: none !important;
+        transform: translate(-50%, -50%) rotate(-90deg) !important;
+        transform-origin: center center !important;
+    }
+
+body.vc-seratafilm-page .vc-bgm-player--seratafilm.is-open .vc-bgm-player__toggle {
+        width: 2.35rem !important;
+        height: 2.35rem !important;
+    }
+}
+
+body.vc-seratafilm-page .vc-bgm-player--seratafilm .vc-bgm-player__label {
+    font-size: 0.68rem; font-weight: 650; letter-spacing: 0.06em; text-transform: uppercase;
+    color: rgba(247, 236, 223, 0.88); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+body.vc-seratafilm-page .vc-bgm-player--seratafilm .vc-bgm-player__slider-row,
+body.vc-seratafilm-page .vc-bgm-player--seratafilm .vc-bgm-player__seek-row {
+    display: flex; align-items: center; gap: 0.35rem;
+}
+
+body.vc-seratafilm-page .vc-bgm-player--seratafilm .vc-bgm-player__slider-row > .fa,
+body.vc-seratafilm-page .vc-bgm-player--seratafilm .vc-bgm-player__seek-row > .fa {
+    font-size: 0.68rem; opacity: 0.72;
+}
+
+body.vc-seratafilm-page .vc-bgm-player--seratafilm .vc-bgm-player__seek-btn {
+    appearance: none; border: 1px solid rgba(232, 201, 168, 0.32);
+    background: rgba(255, 255, 255, 0.06); color: #f7ecdf;
+    border-radius: 0.55rem; width: 1.85rem; height: 1.55rem; padding: 0;
+    display: inline-flex; align-items: center; justify-content: center;
+    cursor: var(--vc-cursor-pointer); flex: 0 0 auto;
+}
+
+body.vc-seratafilm-page .vc-bgm-player--seratafilm .vc-bgm-player__seek-btn:hover {
+    background: rgba(255, 255, 255, 0.12);
+}
+
+body.vc-seratafilm-page .vc-bgm-player--seratafilm .vc-bgm-player__range {
+    flex: 1 1 auto; min-width: 0; width: 100%; height: 1.1rem; margin: 0;
+    appearance: none; -webkit-appearance: none; background: transparent; cursor: var(--vc-cursor-pointer);
+}
+
+body.vc-seratafilm-page .vc-bgm-player--seratafilm .vc-bgm-player__range::-webkit-slider-runnable-track {
+    height: 0.28rem; border-radius: 999px; background: rgba(247, 236, 223, 0.22);
+}
+
+body.vc-seratafilm-page .vc-bgm-player--seratafilm .vc-bgm-player__range::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none; width: 0.85rem; height: 0.85rem; margin-top: -0.28rem;
+    border-radius: 999px; border: 1px solid rgba(20, 10, 6, 0.55);
+    background: linear-gradient(160deg, #f0d7b0, #d4a878); box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+
+body.vc-seratafilm-page .vc-bgm-player--seratafilm .vc-bgm-player__range::-moz-range-track {
+    height: 0.28rem; border-radius: 999px; background: rgba(247, 236, 223, 0.22);
+}
+
+body.vc-seratafilm-page .vc-bgm-player--seratafilm .vc-bgm-player__range::-moz-range-thumb {
+    width: 0.85rem; height: 0.85rem; border-radius: 999px; border: 1px solid rgba(20, 10, 6, 0.55);
+    background: linear-gradient(160deg, #f0d7b0, #d4a878); box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+
+body.vc-seratafilm-film-active .vc-bgm-player--seratafilm,
+body.vc-seratafilm-ad-break-active .vc-bgm-player--seratafilm,
+body.vc-seratafilm-ad-spot-playing .vc-bgm-player--seratafilm {
+    display: none !important;
+}
+
+.vc-seratafilm-bgm-hint {
+    position: fixed;
+    right: 1.1rem;
+    bottom: calc(1.1rem + 4.6rem + 0.55rem);
+    z-index: 10040;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    max-width: min(15.5rem, calc(100vw - 2.2rem));
+    margin: 0;
+    padding: 0.42rem 0.72rem 0.42rem 0.48rem;
+    border-radius: 999px;
+    border: 1px solid rgba(212, 168, 136, 0.32);
+    background: rgba(14, 10, 8, 0.92);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    color: rgba(247, 236, 223, 0.92);
+    font-size: 0.72rem;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+    line-height: 1.25;
+    box-shadow:
+        0 8px 22px rgba(0, 0, 0, 0.45),
+        inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    pointer-events: none;
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    transform-origin: bottom right;
+    transition: opacity 0.28s ease, transform 0.28s ease;
+    animation: vc-seratafilm-bgm-hint-in 0.38s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.vc-seratafilm-bgm-hint__ico {
+    flex: 0 0 auto;
+    width: 1.55rem;
+    height: 1.55rem;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(111, 78, 55, 0.45);
+    color: #ead4c0;
+    font-size: 0.72rem;
+    line-height: 1;
+}
+
+.vc-seratafilm-bgm-hint__txt {
+    min-width: 0;
+    flex: 1 1 auto;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.vc-seratafilm-bgm-hint.vc-seratafilm-bgm-hint--hide {
+    opacity: 0;
+    transform: translateY(6px) scale(0.96);
+    pointer-events: none;
+}
+
+@media (max-width: 1000px) {
+.banner-vertical {
+        flex: 0 0 140px;
+    }
+}
+
+@media (max-width: 780px) {
+.banner-vertical {
+        display: none;
+    }
+
+.row-main {
+        gap: 16px;
+        flex-wrap: wrap;
+    }
+
+.center-stage {
+        max-width: 100%;
+        flex: 1 1 100%;
+        width: 100%;
+    }
+
+.card {
+        padding: 26px 18px 18px;
+    }
+
+#timer {
+        gap: 10px;
+    }
+
+.hint {
+        justify-content: center;
+    }
+}
+
+.vc-seratafilm-hogwarts-bg {
+    display: none;
+    position: fixed;
+    inset: 0;
+    width: 100vw;
+    height: 100vh;
+    height: 100dvh;
+    z-index: 0;
+    overflow: hidden;
+    pointer-events: none;
+    background: #060403;
+}
+
+.vc-seratafilm-hogwarts-bg:not([hidden]) {
+    display: block;
+}
+
+.vc-seratafilm-hogwarts-bg__video {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    filter: brightness(0.78) saturate(0.96) contrast(1.03);
+    transform: scale(1.02);
+}
+
+.vc-seratafilm-hogwarts-bg__yt {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    overflow: hidden;
+    pointer-events: none;
+    opacity: 1;
+    visibility: visible;
+    transition: opacity 0.55s ease, visibility 0.55s ease;
+}
+
+.vc-seratafilm-hogwarts-bg__yt--booting,
+.vc-seratafilm-hogwarts-bg--yt-booting .vc-seratafilm-hogwarts-bg__yt {
+    opacity: 0 !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+}
+
+.vc-seratafilm-hogwarts-bg__yt #vc-seratafilm-hogwarts-bg-yt-player {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+}
+
+.vc-seratafilm-hogwarts-bg__yt iframe {
+    position: absolute !important;
+    top: 50% !important;
+    left: 50% !important;
+    width: 100vw !important;
+    height: 56.25vw !important;
+    min-width: 177.78vh !important;
+    min-height: 100vh !important;
+    max-width: none !important;
+    transform: translate(-50%, -50%) !important;
+    filter: brightness(0.78) saturate(0.96) contrast(1.03);
+    border: 0 !important;
+    pointer-events: none !important;
+}
+
+.vc-seratafilm-hogwarts-bg__yt::after {
+    content: "";
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    width: clamp(120px, 16vw, 180px);
+    height: clamp(40px, 6vh, 56px);
+    z-index: 2;
+    pointer-events: none;
+    background: linear-gradient(135deg, transparent 20%, rgba(6, 4, 3, 0.92) 55%, rgba(6, 4, 3, 1) 100%);
+}
+
+.vc-seratafilm-hogwarts-bg__veil {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    background:
+        radial-gradient(ellipse 90% 70% at 50% 20%, rgba(116, 0, 1, 0.18), transparent 55%),
+        linear-gradient(180deg, rgba(8, 5, 4, 0.42) 0%, rgba(6, 4, 3, 0.62) 55%, rgba(6, 4, 3, 0.78) 100%);
+    pointer-events: none;
+}
+
+.vc-seratafilm-hogwarts-bg__stars {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    opacity: 0.32;
+    background-image:
+        radial-gradient(1px 1px at 20px 30px, rgba(255, 255, 255, 0.45), transparent),
+        radial-gradient(1px 1px at 80px 120px, rgba(255, 255, 255, 0.25), transparent),
+        radial-gradient(1.5px 1.5px at 160px 60px, rgba(212, 168, 136, 0.35), transparent);
+    background-size: 200px 200px;
+}
+
+html.vc-seratafilm-hogwarts-event,
+body.vc-seratafilm-page.vc-seratafilm-hogwarts-event {
+    --bg0: #0a0706;
+    --bg1: #120d0a;
+    --card: rgba(18, 10, 6, 0.78);
+    --card2: rgba(28, 16, 10, 0.82);
+    --text: #f7ecdf;
+    --muted: rgba(247, 236, 223, 0.72);
+    --accent: #d4a888;
+    --accent2: #740001;
+    --shadow: 0 24px 80px rgba(0, 0, 0, 0.65);
+    background: #060403;
+    min-height: 100%;
+}
+
+body.vc-seratafilm-page.vc-seratafilm-hogwarts-event {
+    background: transparent;
+    min-height: 100vh;
+    min-height: 100dvh;
+}
+
+body.vc-seratafilm-hogwarts-event .seratafilm-canvas {
+    position: relative;
+    z-index: 2;
+    isolation: isolate;
+}
+
+body.vc-seratafilm-hogwarts-event #vc-seratafilm-app {
+    position: relative;
+    z-index: 2;
+    isolation: isolate;
+}
+
+body.vc-seratafilm-hogwarts-event .vc-seratafilm-hogwarts-bg {
+    z-index: 0 !important;
+}
+
+body.vc-seratafilm-hogwarts-event .vc-seratafilm-hogwarts-bg__yt,
+body.vc-seratafilm-hogwarts-event .vc-seratafilm-hogwarts-bg__video,
+body.vc-seratafilm-hogwarts-event .vc-seratafilm-hogwarts-bg__yt iframe {
+    z-index: 0 !important;
+    pointer-events: none !important;
+}
+
+#vc-seratafilm-yt-host {
+    position: fixed !important;
+    left: -9999px !important;
+    top: 0 !important;
+    width: 1px !important;
+    height: 1px !important;
+    opacity: 0 !important;
+    overflow: hidden !important;
+    pointer-events: none !important;
+    clip: rect(0, 0, 0, 0) !important;
+    clip-path: inset(50%) !important;
+    z-index: -1 !important;
+}
+
+body.vc-seratafilm-hogwarts-event #vc-seratafilm-loading,
+body.vc-seratafilm-hogwarts-event #vc-seratafilm-denied {
+    position: fixed;
+    inset: 0;
+    z-index: 8000;
+}
+
+body.vc-seratafilm-hogwarts-event h1 {
+    font-family: "Cinzel", "Cormorant Garamond", serif;
+    letter-spacing: 0.04em;
+    color: #f7ecdf;
+    text-shadow: 0 0 40px rgba(212, 168, 136, 0.28);
+}
+
+body.vc-seratafilm-hogwarts-event .card {
+    border-color: rgba(212, 168, 136, 0.28);
+    background: #100c09;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+}
+
+body.vc-seratafilm-hogwarts-event .card::before {
+    background: none;
+    opacity: 0;
+}
+
+body.vc-seratafilm-hogwarts-event .banner-vertical {
+    background: #100c09;
+    border-color: rgba(212, 168, 136, 0.28);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+}
+
+body.vc-seratafilm-hogwarts-event .banner-vertical:hover {
+    border-color: rgba(212, 168, 136, 0.48);
+    background: #140f0c;
+}
+
+body.vc-seratafilm-hogwarts-event .sponsor-text {
+    background: linear-gradient(135deg, #f7ecdf, rgba(212, 168, 136, 0.95));
+    background-clip: text;
+    -webkit-background-clip: text;
+}
+
+body.vc-seratafilm-hogwarts-event .banner-horizontal {
+    background: #100c09;
+    border-color: rgba(212, 168, 136, 0.28);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+}
+
+body.vc-seratafilm-hogwarts-event .banner-horizontal:hover {
+    border-color: rgba(116, 0, 1, 0.45);
+    background: #140f0c;
+}
+
+body.vc-seratafilm-hogwarts-event .horiz-text {
+    color: rgba(247, 236, 223, 0.92);
+}
+
+body.vc-seratafilm-hogwarts-event .horiz-cta {
+    background: linear-gradient(145deg, #8b6914, #740001);
+    box-shadow: 0 8px 20px rgba(116, 0, 1, 0.35);
+}
+
+body.vc-seratafilm-hogwarts-event .horiz-cta:hover {
+    background: linear-gradient(145deg, #a67c1a, #8b0000);
+    box-shadow: 0 12px 28px rgba(116, 0, 1, 0.45);
+}
+
+body.vc-seratafilm-hogwarts-event .btn {
+    background: linear-gradient(145deg, #b8860b, #740001);
+    border-color: rgba(212, 168, 136, 0.35);
+    box-shadow: 0 10px 28px rgba(116, 0, 1, 0.28);
+}
+
+body.vc-seratafilm-hogwarts-event .btn:hover {
+    background: linear-gradient(145deg, #d4a888, #8b0000);
+}
+
+body.vc-seratafilm-hogwarts-event .btn.secondary {
+    background: rgba(116, 0, 1, 0.18);
+    border-color: rgba(212, 168, 136, 0.24);
+    color: #f7ecdf;
+    box-shadow: none;
+}
+
+body.vc-seratafilm-hogwarts-event .pill {
+    border-color: rgba(212, 168, 136, 0.28);
+    background: rgba(116, 0, 1, 0.14);
+    color: rgba(247, 236, 223, 0.88);
+}
+
+body.vc-seratafilm-hogwarts-event .num {
+    color: #d4a888;
+    text-shadow: 0 10px 30px rgba(212, 168, 136, 0.28);
+}
+
+body.vc-seratafilm-hogwarts-event .tile {
+    border-color: rgba(212, 168, 136, 0.22);
+    background: #140f0c;
+}
+
+body.vc-seratafilm-hogwarts-event .vc-seratafilm-denied__card {
+    border-color: rgba(212, 168, 136, 0.22);
+    background: rgba(18, 10, 6, 0.88);
+}
+
+body.vc-seratafilm-hogwarts-event .vc-seratafilm-fs-countdown {
+    background: radial-gradient(circle, rgba(18, 10, 6, 0.92) 0%, rgba(6, 4, 3, 0.98) 100%);
+}
+
+body.vc-seratafilm-hogwarts-event .vc-seratafilm-bgm-hint {
+    border-color: rgba(212, 168, 136, 0.28);
+    background: rgba(18, 10, 6, 0.9);
+}
+
+body.vc-seratafilm-hogwarts-event .footer {
+    border-top-color: rgba(212, 168, 136, 0.12);
+    color: rgba(212, 168, 136, 0.42);
+}
+
+body.vc-seratafilm-hogwarts-event.vc-seratafilm-final10 #vc-seratafilm-app .tile[data-unit="seconds"] {
+    border-color: rgba(212, 168, 136, 0.45);
+    background: linear-gradient(180deg, rgba(116, 0, 1, 0.18), rgba(28, 16, 10, 0.62));
+    box-shadow: 0 18px 60px rgba(116, 0, 1, 0.22);
+}
+
+body.vc-seratafilm-hogwarts-event.vc-seratafilm-final10 #vc-seratafilm-app .tile[data-unit="seconds"] .num {
+    text-shadow: 0 12px 38px rgba(212, 168, 136, 0.35);
+}
+
+html.vc-seratafilm-hogwarts-event {
+    scrollbar-width: thin;
+    scrollbar-color: #7a5a45 #140f0c;
+}
+
+html.vc-seratafilm-hogwarts-event::-webkit-scrollbar {
+    width: 11px;
+    height: 11px;
+}
+
+html.vc-seratafilm-hogwarts-event::-webkit-scrollbar-track {
+    background: linear-gradient(180deg, #140f0c 0%, #0a0806 100%);
+    border-radius: 999px;
+}
+
+html.vc-seratafilm-hogwarts-event::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, #7a5a45 0%, #4a3428 55%, #3d2a1f 100%);
+    border-radius: 999px;
+    border: 2px solid #0f0b09;
+    box-shadow: inset 0 1px 0 rgba(212, 181, 152, 0.22);
+}
+
+html.vc-seratafilm-hogwarts-event::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg, #8f6b52 0%, #5c4033 100%);
+}
+
+.vc-seratafilm-ad-video--fs {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 30000 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  max-width: none !important;
+  max-height: none !important;
+  display: block !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  background: #000 !important;
+  object-fit: contain !important;
+  pointer-events: none !important;
+}
+
+.vc-seratafilm-ad-tap {
+  position: fixed;
+  left: 50%;
+  bottom: 12%;
+  transform: translateX(-50%);
+  z-index: 30001;
+  border: 0;
+  border-radius: 999px;
+  padding: 0.9rem 1.35rem;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #1a1208;
+  background: #f7c948;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+  cursor: var(--vc-cursor-pointer);
+}
+
+.vc-seratafilm-ad-tap[hidden] {
+  display: none !important;
+}
+
+#vc-seratafilm-loading,
+body.vc-seratafilm-hogwarts-event #vc-seratafilm-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  overflow: hidden;
+  background-color: #0b0806 !important;
+  background-image:
+    radial-gradient(ellipse 92% 74% at 50% 38%, rgba(232, 196, 156, 0.16) 0%, rgba(28, 20, 14, 0.94) 52%, #0a0706 100%) !important;
+}
+
+html.vc-seratafilm-loading-done #vc-seratafilm-loading,
+body.vc-seratafilm-app-revealed #vc-seratafilm-loading,
+body.vc-seratafilm-app-revealed.vc-seratafilm-hogwarts-event #vc-seratafilm-loading,
+html.vc-seratafilm-loading-done.vc-seratafilm-hogwarts-event #vc-seratafilm-loading {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  width: 1px !important;
+  height: 1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  clip-path: inset(50%) !important;
+  z-index: -1 !important;
+  background: transparent !important;
+  background-image: none !important;
+}
+
+#vc-seratafilm-loading .vc-seratafilm-loading__card,
+body.vc-seratafilm-hogwarts-event #vc-seratafilm-loading .vc-seratafilm-loading__card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.95rem;
+  max-width: 40rem;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  text-align: center;
+}
+
+#vc-seratafilm-loading .vc-seratafilm-loading__card::before {
+  content: "";
+  display: block;
+  width: 2.35rem;
+  height: 2.35rem;
+  border-radius: 50% !important;
+  border: 2px solid rgba(245, 232, 216, 0.16);
+  border-top-color: rgba(247, 236, 223, 0.96);
+  background: transparent !important;
+  box-shadow: none !important;
+  filter: none !important;
+  animation: vc-seratafilm-load-spin 0.9s linear infinite;
+  will-change: transform;
+}
+
+#vc-seratafilm-loading .vc-seratafilm-loading__text {
+  margin: 0.15rem 0 0;
+  font-family: Inter, "Segoe UI", sans-serif;
+  font-size: clamp(1.85rem, 4vw, 2.85rem);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.08;
+  color: #f6eadc !important;
+}
+
+#vc-seratafilm-loading .vc-seratafilm-loading__hint {
+  margin: 0.15rem 0 0;
+  font-size: 1.02rem;
+  font-weight: 500;
+  line-height: 1.55;
+  color: rgba(247, 236, 223, 0.78) !important;
+}
+
+html.vc-site-photo-bg body.vc-seratafilm-page #vc-seratafilm-loading .vc-seratafilm-loading__card,
+html.vc-site-photo-bg body.vc-body #vc-seratafilm-loading .vc-seratafilm-loading__card,
+body.vc-seratafilm-page #vc-seratafilm-loading .vc-seratafilm-loading__card,
+body.vc-seratafilm-page .vc-seratafilm-loading__card,
+#vc-seratafilm-loading .vc-seratafilm-loading__card {
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: none !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  filter: none !important;
+  overflow: visible !important;
+  isolation: auto !important;
+  padding: 0 !important;
+  max-width: 40rem !important;
+}
+
+body.vc-seratafilm-page .banner-vertical,
+body.vc-seratafilm-page .banner-horizontal,
+body.vc-seratafilm-page .banner-horizontal-2,
+body.vc-seratafilm-page .card,
+body.vc-seratafilm-page .vc-seratafilm-denied__card,
+body.vc-seratafilm-hogwarts-event .banner-vertical,
+body.vc-seratafilm-hogwarts-event .banner-horizontal,
+body.vc-seratafilm-hogwarts-event .banner-horizontal-2,
+body.vc-seratafilm-hogwarts-event .card {
+  background: #100c09 !important;
+  background-color: #100c09 !important;
+  background-image: none !important;
+  opacity: 1 !important;
+  border: 1px solid rgba(245, 214, 183, 0.28) !important;
+  border-radius: var(--radius) !important;
+  overflow: hidden !important;
+  isolation: isolate !important;
+  background-clip: padding-box !important;
+  box-shadow:
+    0 8px 28px rgba(0, 0, 0, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
+  filter: none !important;
+  -webkit-filter: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+body.vc-seratafilm-page .banner-horizontal,
+body.vc-seratafilm-page .banner-horizontal-2,
+body.vc-seratafilm-hogwarts-event .banner-horizontal,
+body.vc-seratafilm-hogwarts-event .banner-horizontal-2 {
+  border-radius: 32px !important;
+}
+
+body.vc-seratafilm-page .center-stage,
+body.vc-seratafilm-page .center-stage .wrap,
+body.vc-seratafilm-page .row-main,
+body.vc-seratafilm-page .dashboard {
+  background: transparent !important;
+  background-color: transparent !important;
+  box-shadow: none !important;
+  filter: none !important;
+  border: 0 !important;
+}
+
+body.vc-seratafilm-page .banner-vertical:hover,
+body.vc-seratafilm-page .banner-horizontal:hover,
+body.vc-seratafilm-hogwarts-event .banner-vertical:hover,
+body.vc-seratafilm-hogwarts-event .banner-horizontal:hover {
+  border-color: rgba(245, 214, 183, 0.4) !important;
+  background: #140f0c !important;
+  background-color: #140f0c !important;
+  background-image: none !important;
+  transform: translateY(-2px);
+}
+
+body.vc-seratafilm-page .card::before,
+body.vc-seratafilm-hogwarts-event .card::before,
+body.vc-seratafilm-page .banner-vertical::before,
+body.vc-seratafilm-hogwarts-event .banner-vertical::before {
+  content: none !important;
+  display: none !important;
+  opacity: 0 !important;
+  background: none !important;
+}
+
+body.vc-seratafilm-page .tile,
+body.vc-seratafilm-hogwarts-event .tile {
+  background: #140f0c !important;
+  background-image: none !important;
+  border: 1px solid rgba(245, 214, 183, 0.22) !important;
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.35) !important;
+  filter: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+body.vc-seratafilm-page .center-stage {
+  flex: 1 1 0 !important;
+  max-width: none !important;
+  width: auto !important;
+  min-width: 0 !important;
+}
+
+body.vc-seratafilm-page .row-main {
+  width: 100% !important;
+  max-width: 100% !important;
+  align-items: stretch;
+  flex-wrap: nowrap !important;
+  justify-content: stretch !important;
+}
+
+body.vc-seratafilm-page .banner-horizontal,
+body.vc-seratafilm-page .banner-horizontal-2 {
+  width: 100% !important;
+  max-width: 100% !important;
+}
+
+body.vc-seratafilm-page .dashboard {
+  max-width: min(1400px, 100%);
+}
+
+body.vc-seratafilm-page .card h1,
+body.vc-seratafilm-page .sponsor-text,
+body.vc-seratafilm-page .sponsor-text strong {
+  color: #ead4c0 !important;
+}
+
+body.vc-seratafilm-page .subtitle,
+body.vc-seratafilm-page .sponsor-vertical > p,
+body.vc-seratafilm-page .horiz-text {
+  color: rgba(248, 242, 234, 0.86) !important;
+}
+
+body.vc-seratafilm-page .tile .num,
+body.vc-seratafilm-page #timer .num {
+  color: #ead4c0 !important;
+  text-shadow: 0 2px 18px rgba(0, 0, 0, 0.45) !important;
+}
+
+body.vc-seratafilm-page .tile {
+  background: #140f0c !important;
+  border: 1px solid rgba(245, 214, 183, 0.22) !important;
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.35) !important;
+  filter: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+body.vc-seratafilm-page .pill {
+  background: rgba(111, 78, 55, 0.55) !important;
+  border: 1px solid rgba(212, 168, 136, 0.28) !important;
+  color: #f7eadb !important;
+}
+
+body.vc-seratafilm-page .btn.secondary:not(.sf-btn),
+body.vc-seratafilm-page .hint .btn.secondary:not(.sf-btn) {
+  background: #140f0c !important;
+  border: 1px solid rgba(212, 168, 136, 0.35) !important;
+  color: #f7eadb !important;
+  box-shadow: none !important;
+}
+
+body.vc-seratafilm-page .horiz-cta,
+body.vc-seratafilm-page .horiz-cta-2 {
+  background: linear-gradient(180deg, #f0dcc8 0%, #d4a888 58%, #b88968 100%) !important;
+  color: #1a120e !important;
+  border: 1px solid rgba(255, 244, 232, 0.28) !important;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.28) !important;
+  filter: none !important;
+}
+
+body.vc-seratafilm-page .horiz-cta:hover,
+body.vc-seratafilm-page .horiz-cta-2:hover {
+  background: linear-gradient(180deg, #f6e6d6 0%, #e0b992 58%, #c49a74 100%) !important;
+  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.32) !important;
+  filter: none !important;
+}
+
+body.vc-seratafilm-page .vc-seratafilm-denied__btn--primary {
+  background: linear-gradient(180deg, #f0dcc8 0%, #d4a888 58%, #b88968 100%) !important;
+  color: #1a120e !important;
+}
+
+html:has(body.vc-seratafilm-page) {
+  height: 100%;
+  height: 100dvh;
+  overflow: hidden !important;
+  scrollbar-width: thin;
+  scrollbar-color: #7a5a45 #140f0c;
+}
+
+html:has(body.vc-seratafilm-page)::-webkit-scrollbar {
+  width: 11px;
+  height: 11px;
+}
+
+html:has(body.vc-seratafilm-page)::-webkit-scrollbar-track {
+  background: linear-gradient(180deg, #140f0c 0%, #0a0806 100%);
+  border-radius: 999px;
+}
+
+html:has(body.vc-seratafilm-page)::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #7a5a45 0%, #4a3428 55%, #3d2a1f 100%);
+  border-radius: 999px;
+  border: 2px solid #0f0b09;
+  box-shadow: inset 0 1px 0 rgba(212, 181, 152, 0.22);
+}
+
+html:has(body.vc-seratafilm-page)::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #8f6b52 0%, #5c4033 100%);
+}
+
+body.vc-seratafilm-page {
+  height: 100%;
+  height: 100dvh;
+  max-height: 100dvh;
+  min-height: 0 !important;
+  overflow: hidden !important;
+}
+
+body.vc-seratafilm-page > .footer {
+  display: none !important;
+}
+
+body.vc-seratafilm-app-revealed #vc-seratafilm-app {
+  /* sizing owned by sfBlankFix2 (fixed inset) */
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+body.vc-seratafilm-page .seratafilm-canvas {
+  height: 100%;
+  min-height: 0 !important;
+  max-height: 100%;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 1.5rem 1rem !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: center !important;
+  align-items: center !important;
+  box-sizing: border-box;
+}
+
+@media (min-width: 640px) {
+body.vc-seratafilm-page .seratafilm-canvas {
+    padding: 2rem 1.5rem !important;
+  }
+}
+
+body.vc-seratafilm-page .dashboard {
+  flex: 0 0 auto !important;
+  width: 100%;
+  max-width: 1400px;
+  min-height: 0 !important;
+  height: auto !important;
+  max-height: none;
+  margin-block: auto !important;
+  gap: 28px;
+  justify-content: flex-start;
+  overflow: visible;
+}
+
+body.vc-seratafilm-page .row-main {
+  flex: 0 1 auto;
+  min-height: 0;
+  align-items: stretch;
+  gap: 24px;
+  justify-content: center;
+}
+
+body.vc-seratafilm-page .banner-vertical {
+  min-height: 0;
+  overflow: visible;
+  align-self: stretch;
+}
+
+body.vc-seratafilm-page .center-stage {
+  display: flex;
+  flex-direction: column;
+  align-self: stretch;
+  min-height: 0;
+}
+
+body.vc-seratafilm-page .center-stage .wrap {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  height: 100%;
+}
+
+body.vc-seratafilm-page .center-stage .card {
+  flex: 1 1 auto;
+  height: 100% !important;
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  box-sizing: border-box;
+  padding: 34px 28px 26px;
+}
+
+body.vc-seratafilm-page .banner-horizontal {
+  flex: 0 0 auto;
+  margin-top: 0;
+}
+
+body.vc-seratafilm-page .vc-seratafilm-bgm-hint {
+  border-color: rgba(212, 168, 136, 0.32) !important;
+  background: rgba(14, 10, 8, 0.92) !important;
+  color: rgba(247, 236, 223, 0.92) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+body.vc-seratafilm-page .vc-seratafilm-bgm-hint__ico {
+  background: rgba(111, 78, 55, 0.45) !important;
+  color: #ead4c0 !important;
+}
+
+@media (max-width: 780px) {
+body.vc-seratafilm-page .seratafilm-canvas {
+    padding: 1rem 0.85rem !important;
+    justify-content: center !important;
+  }
+
+body.vc-seratafilm-page .dashboard {
+    gap: 28px;
+    margin-block: auto !important;
+  }
+
+body.vc-seratafilm-page .center-stage .card {
+    height: auto !important;
+    min-height: 0;
+    display: block;
+  }
+
+body.vc-seratafilm-thanks-page #timer {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+body.vc-seratafilm-page h1 img.vc-emoji,
+body.vc-seratafilm-page h1 img.vc-twemoji,
+body.vc-seratafilm-page .pill img.vc-emoji,
+body.vc-seratafilm-page .pill img.vc-twemoji {
+  height: 1.15em !important;
+  width: 1.15em !important;
+  max-width: 1.35em !important;
+  max-height: 1.35em !important;
+  vertical-align: -0.18em !important;
+  filter: none !important;
+}
+
+body.vc-seratafilm-page .banner-horizontal {
+  position: relative;
+}
+
+body.vc-seratafilm-page .banner-horizontal::before,
+body.vc-seratafilm-hogwarts-event .banner-horizontal::before {
+  content: none !important;
+  display: none !important;
+  opacity: 0 !important;
+  background: none !important;
+}
+
+body.vc-seratafilm-page #vc-seratafilm-app {
+  width: 100% !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+  box-sizing: border-box !important;
+}
+
+body.vc-seratafilm-page.vc-seratafilm-app-revealed #vc-seratafilm-app {
+  display: flex !important;
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 1 !important;
+  height: 100% !important;
+  max-height: 100dvh !important;
+  min-height: 0 !important;
+}
+
+body.vc-seratafilm-page .seratafilm-canvas {
+  flex: 1 1 auto !important;
+  width: 100% !important;
+  min-height: 0 !important;
+  height: 100% !important;
+  max-height: 100% !important;
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) !important;
+  align-content: center !important;
+  justify-content: center !important;
+  align-items: center !important;
+  justify-items: center !important;
+  place-content: center !important;
+  place-items: center !important;
+  overflow: auto !important;
+  overscroll-behavior: contain !important;
+  padding: clamp(0.85rem, 2.8vh, 2.25rem) clamp(0.85rem, 2vw, 1.5rem) !important;
+  box-sizing: border-box !important;
+}
+
+body.vc-seratafilm-page .dashboard {
+  flex: 0 0 auto !important;
+  width: min(1400px, 100%) !important;
+  max-width: 1400px !important;
+  margin: 0 auto !important;
+  align-self: center !important;
+  justify-self: center !important;
+  min-height: 0 !important;
+  height: auto !important;
+}
+
+body.vc-seratafilm-page .hint .btn.secondary:not(.sf-btn),
+body.vc-seratafilm-thanks-page .hint .btn.secondary:not(.sf-btn),
+body.vc-seratafilm-page .vc-seratafilm-thanks-cta .btn.secondary:not(.sf-btn) {
+  appearance: none !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 0.35rem !important;
+  padding: 0.38rem 0.92rem !important;
+  min-height: 2rem !important;
+  border-radius: 999px !important;
+  font-size: 0.84rem !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.01em !important;
+  line-height: 1.2 !important;
+  color: #f0dfcc !important;
+  background: rgba(245, 214, 183, 0.08) !important;
+  border: 1px solid rgba(245, 214, 183, 0.2) !important;
+  box-shadow: none !important;
+  text-decoration: none !important;
+  transform: none !important;
+  filter: none !important;
+}
+
+body.vc-seratafilm-page .hint .btn.secondary:not(.sf-btn):hover,
+body.vc-seratafilm-thanks-page .hint .btn.secondary:not(.sf-btn):hover,
+body.vc-seratafilm-page .vc-seratafilm-thanks-cta .btn.secondary:not(.sf-btn):hover {
+  background: rgba(245, 214, 183, 0.16) !important;
+  border-color: rgba(245, 214, 183, 0.36) !important;
+  color: #fff6ea !important;
+  transform: translateY(-1px) !important;
+}
+
+@media (max-width: 780px) {
+body.vc-seratafilm-page .seratafilm-canvas {
+    place-content: center !important;
+    place-items: stretch !important;
+    justify-items: stretch !important;
+    padding: 1rem 0.85rem !important;
+  }
+
+body.vc-seratafilm-page .dashboard {
+    width: 100% !important;
+  }
+
+body.vc-seratafilm-page .hint {
+    justify-content: center !important;
+  }
+
+body.vc-seratafilm-page .hint .btn.secondary,
+  body.vc-seratafilm-thanks-page .hint .btn.secondary {
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+  }
+}
+
+body.vc-seratafilm-page .row-main {
+  display: grid !important;
+  grid-template-columns: minmax(160px, 200px) minmax(0, 1fr) minmax(160px, 200px) !important;
+  align-items: stretch !important;
+  gap: clamp(16px, 2vw, 24px) !important;
+  width: 100% !important;
+}
+
+body.vc-seratafilm-page .banner-vertical,
+body.vc-seratafilm-page .center-stage {
+  width: auto !important;
+  max-width: none !important;
+  min-width: 0 !important;
+  height: 100% !important;
+  min-height: 100% !important;
+  align-self: stretch !important;
+}
+
+body.vc-seratafilm-page .banner-vertical {
+  flex: unset !important;
+}
+
+body.vc-seratafilm-page .center-stage {
+  display: flex !important;
+  flex-direction: column !important;
+  flex: unset !important;
+  height: 100% !important;
+}
+
+body.vc-seratafilm-page .center-stage .wrap {
+  display: flex !important;
+  flex-direction: column !important;
+  flex: 1 1 auto !important;
+  height: 100% !important;
+  min-height: 100% !important;
+}
+
+body.vc-seratafilm-page .center-stage .card {
+  flex: 1 1 auto !important;
+  display: flex !important;
+  flex-direction: column !important;
+  /* sfLookFix3: pack top + hint auto — niente vuoto morto nel timer */
+  justify-content: flex-start !important;
+  height: 100% !important;
+  min-height: 100% !important;
+  padding: clamp(2rem, 3.2vh, 2.75rem) clamp(1.5rem, 2.4vw, 2.35rem) clamp(1.35rem, 2.2vh, 1.85rem) !important;
+  box-sizing: border-box !important;
+}
+
+body.vc-seratafilm-page .center-stage .card > h1 {
+  font-size: clamp(1.75rem, 2.6vw, 2.35rem) !important;
+  margin-bottom: 0.55rem !important;
+}
+
+body.vc-seratafilm-page .center-stage .card > .subtitle {
+  font-size: clamp(0.98rem, 1.35vw, 1.08rem) !important;
+  margin-bottom: 1.35rem !important;
+}
+
+body.vc-seratafilm-page .center-stage #timer {
+  flex: 0 0 auto !important;
+  align-content: center !important;
+  gap: clamp(10px, 1.4vw, 16px) !important;
+  margin-top: 0.35rem !important;
+  margin-bottom: 0.35rem !important;
+}
+
+body.vc-seratafilm-page .center-stage .tile {
+  padding: clamp(1rem, 2.2vh, 1.35rem) 0.85rem clamp(0.85rem, 1.8vh, 1.15rem) !important;
+  border-radius: 20px !important;
+}
+
+body.vc-seratafilm-page .center-stage .tile .num {
+  font-size: clamp(1.55rem, 3.2vw, 2.15rem) !important;
+}
+
+body.vc-seratafilm-page .center-stage .hint {
+  margin-top: auto !important;
+  gap: 0.85rem !important;
+  align-items: center !important;
+}
+
+body.vc-seratafilm-page .sf-actions,
+body.vc-seratafilm-thanks-page .sf-actions {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  flex-wrap: wrap !important;
+  gap: 0.55rem !important;
+  flex: 0 0 auto !important;
+}
+
+body.vc-seratafilm-page .sf-btn,
+body.vc-seratafilm-thanks-page .sf-btn,
+body.vc-seratafilm-page .hint .sf-btn.btn.secondary,
+body.vc-seratafilm-thanks-page .hint .sf-btn.btn.secondary,
+body.vc-seratafilm-page .vc-seratafilm-thanks-cta .sf-btn.btn.secondary {
+  appearance: none !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  min-height: 2.45rem !important;
+  padding: 0.55rem 1.2rem !important;
+  border-radius: 999px !important;
+  font-size: 0.9rem !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.02em !important;
+  line-height: 1.15 !important;
+  text-decoration: none !important;
+  white-space: nowrap !important;
+  box-shadow: none !important;
+  filter: none !important;
+  transform: none !important;
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease,
+    color 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.15s ease !important;
+}
+
+body.vc-seratafilm-page .sf-btn--primary,
+body.vc-seratafilm-thanks-page .sf-btn--primary,
+body.vc-seratafilm-page .hint .sf-btn--primary.btn.secondary,
+body.vc-seratafilm-thanks-page .hint .sf-btn--primary.btn.secondary,
+body.vc-seratafilm-page .sf-btn--ghost,
+body.vc-seratafilm-thanks-page .sf-btn--ghost,
+body.vc-seratafilm-page .hint .sf-btn--ghost.btn.secondary,
+body.vc-seratafilm-thanks-page .hint .sf-btn--ghost.btn.secondary,
+body.vc-seratafilm-page .hint .sf-btn.btn.secondary,
+body.vc-seratafilm-thanks-page .hint .sf-btn.btn.secondary {
+  color: #1a120e !important;
+  background: linear-gradient(180deg, #f0dcc8 0%, #d4a888 58%, #b88968 100%) !important;
+  border: 1px solid rgba(255, 244, 232, 0.28) !important;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.28) !important;
+}
+
+body.vc-seratafilm-page .sf-btn--primary:hover,
+body.vc-seratafilm-thanks-page .sf-btn--primary:hover,
+body.vc-seratafilm-page .hint .sf-btn--primary.btn.secondary:hover,
+body.vc-seratafilm-thanks-page .hint .sf-btn--primary.btn.secondary:hover,
+body.vc-seratafilm-page .sf-btn--ghost:hover,
+body.vc-seratafilm-thanks-page .sf-btn--ghost:hover,
+body.vc-seratafilm-page .hint .sf-btn--ghost.btn.secondary:hover,
+body.vc-seratafilm-thanks-page .hint .sf-btn--ghost.btn.secondary:hover,
+body.vc-seratafilm-page .hint .sf-btn.btn.secondary:hover,
+body.vc-seratafilm-thanks-page .hint .sf-btn.btn.secondary:hover {
+  color: #140f0c !important;
+  background: linear-gradient(180deg, #f6e6d6 0%, #e0b992 58%, #c49a74 100%) !important;
+  border-color: rgba(255, 244, 232, 0.4) !important;
+  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.32) !important;
+  transform: translateY(-1px) !important;
+  filter: none !important;
+}
+
+body.vc-seratafilm-page .sf-btn:active,
+body.vc-seratafilm-thanks-page .sf-btn:active {
+  transform: translateY(0) !important;
+}
+
+@media (max-width: 900px) {
+body.vc-seratafilm-page .row-main {
+    grid-template-columns: 1fr !important;
+  }
+
+body.vc-seratafilm-page .banner-vertical,
+  body.vc-seratafilm-page .center-stage {
+    min-height: 0 !important;
+  }
+
+body.vc-seratafilm-page .center-stage .card {
+    min-height: 0 !important;
+    justify-content: flex-start !important;
+  }
+
+body.vc-seratafilm-page .sf-actions,
+  body.vc-seratafilm-thanks-page .sf-actions {
+    width: 100% !important;
+    justify-content: stretch !important;
+  }
+
+body.vc-seratafilm-page .sf-btn,
+  body.vc-seratafilm-thanks-page .sf-btn {
+    flex: 1 1 auto !important;
+  }
+}
+
+html.vc-site-polish body.vc-body.vc-seratafilm-page,
+html.vc-site-polish body.vc-body.vc-seratafilm-page :is(
+  h1, h2, h3, h4, h5, h6, p, span, a, button, label, div, strong, em, small,
+  section, aside, main, li
+):not(.fa):not(i.fa):not([class^="fa-"]):not([class*=" fa-"]),
+html.vc-site-polish body.vc-body.vc-seratafilm-page .num,
+html.vc-site-polish body.vc-body.vc-seratafilm-page .lbl,
+html.vc-site-polish body.vc-body.vc-seratafilm-page .sponsor-text,
+html.vc-site-polish body.vc-body.vc-seratafilm-page .sponsor-text strong,
+html.vc-site-polish body.vc-body.vc-seratafilm-page .horiz-text,
+html.vc-site-polish body.vc-body.vc-seratafilm-page .horiz-cta,
+html.vc-site-polish body.vc-body.vc-seratafilm-page .pill,
+html.vc-site-polish body.vc-body.vc-seratafilm-page .sf-btn {
+  font-family: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif !important;
+}
+
+html body.vc-body.vc-seratafilm-page .row-main {
+  display: grid !important;
+  grid-template-columns: minmax(160px, 200px) minmax(0, 1fr) minmax(160px, 200px) !important;
+  align-items: stretch !important;
+}
+
+html body.vc-body.vc-seratafilm-page .banner-vertical,
+html body.vc-body.vc-seratafilm-page .center-stage {
+  align-self: stretch !important;
+  align-items: stretch !important;
+  height: auto !important;
+  min-height: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+html body.vc-body.vc-seratafilm-page .banner-vertical .sponsor-vertical,
+html body.vc-body.vc-seratafilm-page .center-stage > .wrap {
+  flex: 1 1 0% !important;
+  align-self: stretch !important;
+  display: flex !important;
+  flex-direction: column !important;
+  width: 100% !important;
+  min-height: 100% !important;
+  height: 100% !important;
+  max-height: none !important;
+  box-sizing: border-box !important;
+}
+
+html body.vc-body.vc-seratafilm-page .center-stage .card {
+  flex: 1 1 0% !important;
+  align-self: stretch !important;
+  display: flex !important;
+  flex-direction: column !important;
+  width: 100% !important;
+  min-height: 100% !important;
+  height: 100% !important;
+  max-height: none !important;
+  justify-content: flex-start !important;
+  box-sizing: border-box !important;
+}
+
+html body.vc-body.vc-seratafilm-page .center-stage #timer {
+  flex: 0 0 auto !important;
+}
+
+html body.vc-body.vc-seratafilm-page .center-stage .hint {
+  margin-top: auto !important;
+}
+
+html.vc-site-polish body.vc-body.vc-seratafilm-page .center-stage > .wrap,
+html.vc-site-polish body.vc-body.vc-seratafilm-page main.wrap {
+  display: flex !important;
+  flex-direction: column !important;
+  flex: 1 1 0% !important;
+  align-self: stretch !important;
+  width: 100% !important;
+  min-height: 100% !important;
+  height: 100% !important;
+  max-height: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+html body.vc-body.vc-seratafilm-page .hint .sf-btn.btn.secondary,
+html body.vc-body.vc-seratafilm-page .sf-btn--primary,
+html body.vc-body.vc-seratafilm-page .sf-btn--ghost,
+html body.vc-body.vc-seratafilm-thanks-page .hint .sf-btn.btn.secondary,
+html body.vc-body.vc-seratafilm-thanks-page .sf-btn--primary,
+html body.vc-body.vc-seratafilm-thanks-page .sf-btn--ghost {
+  color: #1a120e !important;
+  background: linear-gradient(180deg, #f0dcc8 0%, #d4a888 58%, #b88968 100%) !important;
+  border: 1px solid rgba(255, 244, 232, 0.28) !important;
+  border-radius: 999px !important;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.28) !important;
+  min-height: 2.55rem !important;
+  padding: 0.6rem 1.35rem !important;
+  font-weight: 700 !important;
+  font-family: "Inter", ui-sans-serif, system-ui, sans-serif !important;
+}
+
+@media (max-width: 900px) {
+html body.vc-body.vc-seratafilm-page .row-main {
+    grid-template-columns: 1fr !important;
+  }
+
+html body.vc-body.vc-seratafilm-page .banner-vertical,
+  html body.vc-body.vc-seratafilm-page .center-stage,
+  html body.vc-body.vc-seratafilm-page .center-stage .card {
+    min-height: 0 !important;
+    height: auto !important;
+  }
+
+html body.vc-body.vc-seratafilm-page .center-stage .hint {
+    margin-top: 1.25rem !important;
+  }
+}
+
+/* siparioBorderPin1: bordo card sand su nav+footer DAL CRITICAL (no FOUC pre soft-fx sotto/al lift sipario) */
+html.vc-site-polish body.vc-body > header .vc-nav-shell,
+html.vc-site-polish body.vc-body header .vc-nav-shell,
+html.vc-site-polish body.vc-body header .vc-nav-shell.vc-glass,
+html.vc-site-polish body.vc-body header .vc-nav-shell.vc-nav-shell--scrolled,
+html body.vc-body > header .vc-nav-shell,
+html body.vc-body header .vc-nav-shell,
+html.vc-site-polish body.vc-body > footer.vc-premium-footer .vc-premium-footer__outer,
+html.vc-site-polish body.vc-body footer.vc-premium-footer .vc-premium-footer__outer,
+html.vc-site-polish body.vc-body--home > footer.vc-premium-footer .vc-premium-footer__outer,
+html body.vc-body > footer.vc-premium-footer .vc-premium-footer__outer {
+  border: 2px solid rgba(245, 214, 183, 0.38) !important;
+  border-width: 2px !important;
+  border-style: solid !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
+}
+/* siparioBorderPin1 end */

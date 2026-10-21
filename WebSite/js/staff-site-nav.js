@@ -418,77 +418,35 @@
   }
 
     function enforceStaffMenuGuidaOnly(root) {
+    /* staffInProfileOnly3b: niente menu Staff in nav — rimuovi, non ricreare Guida/Compiti */
     try {
       var scope = root || document;
       var menus = scope.querySelectorAll(
-        "[data-vc-staff-tools-nav], .vc-snav-details--staff",
+        "[data-vc-staff-tools-nav], .vc-snav-details--staff, details.vc-snav-details[data-vc-staff-nav], #vc-staff-snav-details",
       );
       for (var m = 0; m < menus.length; m++) {
         var menu = menus[m];
         if (
           menu.closest &&
-          menu.closest(".vc-user-profile, #vc-user-profile-view, .vc-staff-pm-pt-btn")
+          menu.closest(".vc-user-profile, #vc-user-profile-view, .vc-staff-tools-block, .vc-staff-pm-pt-btn")
         ) {
           continue;
         }
-        var panel = menu.querySelector(".vc-snav-panel") || menu;
-        var links = panel.querySelectorAll("a.vc-snav-row, a.vc-snav-item, a");
-        var keptGuide = false;
-        var keptCompiti = false;
-        for (var i = 0; i < links.length; i++) {
-          var a = links[i];
-          var href = String(a.getAttribute("href") || "");
-          var lab = "";
-          try {
-            var spans = a.querySelectorAll("span");
-            for (var s = 0; s < spans.length; s++) {
-              if (spans[s].classList.contains("vc-snav-row-ico")) continue;
-              lab = String(spans[s].textContent || "").trim();
-              if (lab) break;
-            }
-          } catch (eLab) {}
-          if (!lab) lab = String(a.textContent || "").trim();
-          if (isStaffGuideNavHref(href) || isStaffGuideNavLabel(lab)) {
-            if (keptGuide) {
-              if (a.parentNode) a.parentNode.removeChild(a);
-            } else {
-              keptGuide = true;
-            }
-            continue;
-          }
-          if (isConfessionaleNavHref(href) || isConfessionaleNavLabel(lab)) {
-            if (a.parentNode) a.parentNode.removeChild(a);
-            continue;
-          }
-          if (isCompitiNavHref(href) || isCompitiNavLabel(lab)) {
-            if (!canShowCompitiNav()) {
-              if (a.parentNode) a.parentNode.removeChild(a);
-            } else if (keptCompiti) {
-              if (a.parentNode) a.parentNode.removeChild(a);
-            } else {
-              keptCompiti = true;
-              try {
-                a.setAttribute("href", "/staff/compiti/");
-              } catch (eHref2) {}
-            }
-            continue;
-          }
-          if (a.parentNode) a.parentNode.removeChild(a);
-        }
-        if (!keptGuide && panel) {
-          panel.insertAdjacentHTML(
-            "afterbegin",
-            row("/staff/guida/", "book", "Guida", true, "staff.guide"),
-          );
-          keptGuide = true;
-        }
-        if (!keptCompiti && panel && canShowCompitiNav()) {
-          panel.insertAdjacentHTML(
-            "beforeend",
-            row("/staff/compiti/", "check-square-o", "Compiti", true, "staff.compiti"),
-          );
+        if (menu && menu.parentNode) menu.parentNode.removeChild(menu);
+      }
+      /* anche details col solo titolo Staff */
+      var dets = scope.querySelectorAll("header details.vc-snav-details, .vc-header-snav details.vc-snav-details, footer details");
+      for (var d = 0; d < dets.length; d++) {
+        var det = dets[d];
+        if (!det || !det.parentNode) continue;
+        if (det.closest && det.closest(".vc-user-profile, #vc-user-profile-view")) continue;
+        var sum = det.querySelector(".vc-snav-summary span, .vc-snav-summary, summary");
+        var title = sum ? String(sum.textContent || "").replace(/\s+/g, " ").trim().toLowerCase() : "";
+        if (title === "staff" || title.indexOf("staff") === 0 || title === "strumenti staff") {
+          det.parentNode.removeChild(det);
         }
       }
+      removeStaffFooterColumns();
       stripConfessionaleFromStaffMenus(scope);
     } catch (eEnforce) {}
   }
@@ -538,116 +496,27 @@
   }
 
   function injectStaffFooterColumns() {
+    /* staffToolsInProfile1: niente colonna Staff in footer — strumenti nel profilo */
     try {
-      /* boardsSchedaMissCine1 / boardsFooterOnly1: mai colonna Staff sul footer bacheca */
-      if (!isStaffNavContext() || isBoardsSiteNav()) {
-        removeStaffFooterColumns();
-        return;
-      }
-      ensureStaffFooterColCss();
-      var footers = document.querySelectorAll("footer.vc-premium-footer");
-      if (!footers || !footers.length) return;
-      var links = staffFooterToolLinks();
-      var lis = "";
-      for (var i = 0; i < links.length; i++) {
-        var item = links[i];
-        var lab = item.key ? i18nT(item.key, item.label) : item.label;
-        lis +=
-          '<li><a href="' +
-          String(item.href) +
-          '"><span' +
-          (item.key ? ' data-i18n="' + item.key + '"' : "") +
-          ">" +
-          String(lab) +
-          "</span></a></li>";
-      }
-      var colHtml =
-        '<nav class="vc-premium-footer__col" data-vc-footer-staff="1" aria-label="Staff">' +
-        '<h2 class="vc-premium-footer__heading" data-i18n="nav.staff">Staff</h2>' +
-        "<ul>" +
-        lis +
-        "</ul></nav>";
-      for (var f = 0; f < footers.length; f++) {
-        var footer = footers[f];
-        if (!footer) continue;
-        var navcols = footer.querySelector(".vc-premium-footer__navcols");
-        if (!navcols) continue;
-        navcols.classList.add("vc-premium-footer__navcols--with-staff");
-        var existing = footer.querySelector('[data-vc-footer-staff="1"]');
-        if (existing) {
-          var wrap = document.createElement("div");
-          wrap.innerHTML = colHtml;
-          var nextCol = wrap.firstElementChild;
-          if (nextCol && existing.parentNode) existing.parentNode.replaceChild(nextCol, existing);
-        } else {
-          navcols.insertAdjacentHTML("beforeend", colHtml);
-        }
-        applyStaffI18n(footer.querySelector('[data-vc-footer-staff="1"]') || footer);
-      }
+      removeStaffFooterColumns();
     } catch (eFoot) {}
   }
 
   function stripLegacyStaffNavRows(root) {
     try {
       var scope = root || document;
+      /* staffInProfileOnly3b: togli TUTTI i link /staff/* da header/footer/drawer (non dal profilo) */
       var links = scope.querySelectorAll(
-        'a.vc-snav-row[href*="/staff/inbox"], a.vc-snav-row[href*="/staff/pause"], a.vc-snav-row[href*="/staff/punti-tolti"], a.vc-snav-row[href*="/staff/organico"], a.vc-snav-row[href*="/staff/gestione"], a.vc-snav-item[href*="/staff/gestione"], a[href*="/staff/inbox"], a[href*="/staff/pause"], a[href*="/staff/punti-tolti"], a[href*="/staff/organico"], a[href*="/staff/gestione"], a[href*="notifications/?view=staff"]',
+        'header a[href*="/staff/"], .vc-header-snav a[href*="/staff/"], footer.vc-premium-footer a[href*="/staff/"], #vc-mobile-nav-drawer a[href*="/staff/"], .vc-mobile-nav-drawer a[href*="/staff/"], a[href*="notifications/?view=staff"]',
       );
       for (var i = 0; i < links.length; i++) {
         var a = links[i];
-        if (a.closest && a.closest('[data-vc-footer-staff="1"], footer.vc-premium-footer')) continue;
-                var inStaffMenu = a.closest
-          ? a.closest(
-              "[data-vc-staff-tools-nav], .vc-snav-details--staff, .vc-header-snav, #vc-mobile-nav-drawer, .vc-mobile-nav-drawer, header",
-            )
-          : null;
-        if (!inStaffMenu) continue;
-        if (a.closest && a.closest(".vc-staff-pm-pt-btn, .vc-staff-pm-pt-link, .vc-user-profile, #vc-user-profile-view")) {
+        if (a.closest && a.closest(".vc-staff-pm-pt-btn, .vc-staff-pm-pt-link, .vc-user-profile, #vc-user-profile-view, .vc-staff-tools-block, .vc-staff-tools-card")) {
           continue;
         }
-                if (isStaffGuideNavHref(a.getAttribute("href"))) continue;
         if (a.parentNode) a.parentNode.removeChild(a);
       }
-            var rows = scope.querySelectorAll(
-        "[data-vc-staff-tools-nav] a.vc-snav-row, .vc-snav-details--staff a.vc-snav-row, .vc-header-snav a.vc-snav-item, #vc-mobile-nav-drawer a.vc-mobile-nav-tile",
-      );
-      for (var j = 0; j < rows.length; j++) {
-        var el = rows[j];
-        var lab = String(el.textContent || "")
-          .replace(/\s+/g, " ")
-          .trim()
-          .toLowerCase();
-        var href = String(el.getAttribute("href") || "").toLowerCase();
-        if (isStaffGuideNavHref(href) || isStaffGuideNavLabel(lab)) continue;
-        if (
-          lab === "gestione" ||
-          lab === "gestione staff" ||
-          lab === "organico" ||
-          lab === "organico staff" ||
-          lab === "pause" ||
-          lab === "calendario pause" ||
-          lab === "inbox" ||
-          lab === "inbox staff" ||
-          lab === "punti tolti" ||
-          href.indexOf("/staff/gestione") >= 0 ||
-          href.indexOf("/staff/organico") >= 0 ||
-          href.indexOf("/staff/pause") >= 0 ||
-          href.indexOf("/staff/inbox") >= 0 ||
-          href.indexOf("/staff/punti-tolti") >= 0
-        ) {
-          if (el.parentNode) el.parentNode.removeChild(el);
-        }
-      }
-            var details = scope.querySelectorAll("header details.vc-snav-details, .vc-header-snav details.vc-snav-details");
-      for (var d = 0; d < details.length; d++) {
-        var det = details[d];
-        var sum = det.querySelector(".vc-snav-summary span, .vc-snav-summary");
-        var title = sum ? String(sum.textContent || "").replace(/\s+/g, " ").trim().toLowerCase() : "";
-        if (title === "gestione" || title === "gestione staff") {
-          if (det.parentNode) det.parentNode.removeChild(det);
-          continue;
-        }
-      }
+      removeStaffFooterColumns();
       enforceStaffMenuGuidaOnly(scope);
     } catch (eStrip) {}
   }
@@ -692,68 +561,57 @@
   }
 
   function injectStaffMenu(header) {
+    /* staffInProfileOnly3b: niente Staff in navbar — strip ovunque + keep stripped */
     if (!header) return false;
-    var shell = header.querySelector(".vc-nav-shell");
-    if (!shell) return false;
-
-    var bar = shell.querySelector(".vc-header-bar") || shell;
-    var snav = bar.querySelector("nav.vc-header-snav");
-            if (isSpecializedSiteNav(snav) || isEventDedicatedNavPage()) {
+    try {
+      var snav = header.querySelector("nav.vc-header-snav");
       stripStaffMenuFromSnav(snav);
-      var stray = header.querySelectorAll("[data-vc-staff-tools-nav], .vc-snav-details--staff");
-      for (var s = 0; s < stray.length; s++) {
-        var node = stray[s];
-        if (node && node.parentNode) node.parentNode.removeChild(node);
-      }
       stripLegacyStaffNavRows(header);
+      stripLegacyStaffNavRows(document);
+      stripConfessionaleFromStaffMenus(header);
+      removeStaffFooterColumns();
       watchEventNavStaffStrip(header);
-      return false;
-    }
+      watchGlobalStaffNavStrip();
+    } catch (eStrip) {}
+    return false;
+  }
 
-    var p = perms();
-    var staffOk = Boolean(p.ok) || window.__VC_STAFF_MENU_ALLOWED === true;
-            var html =
-      '<details class="vc-snav-details vc-snav-details--staff" data-vc-staff-tools-nav>' +
-      '<summary class="vc-snav-summary"><i class="fa fa-shield" aria-hidden="true"></i><span data-i18n="nav.staff">Staff</span><i class="fa fa-chevron-down vc-snav-chev text-[0.65rem] opacity-80" aria-hidden="true"></i></summary>' +
-      '<div class="vc-snav-panel">' +
-      row("/staff/guida/", "book", "Guida", true, "staff.guide") +
-      (canShowCompitiNav()
-        ? row("/staff/compiti/", "check-square-o", "Compiti", true, "staff.compiti")
-        : "") +
-      "</div></details>";
-
-    var existing = header.querySelector("[data-vc-staff-tools-nav]");
-    if (existing) {
-      var wrap = document.createElement("div");
-      wrap.innerHTML = html;
-      var next = wrap.firstElementChild;
-      if (next && existing.parentNode) existing.parentNode.replaceChild(next, existing);
-      stripLegacyStaffNavRows(header);
-      stripConfessionaleFromStaffMenus(header);
-      return true;
-    }
-
-    if (snav) {
-      snav.insertAdjacentHTML("beforeend", html);
-      stripLegacyStaffNavRows(header);
-      stripConfessionaleFromStaffMenus(header);
-      return true;
-    }
-
-        var brandWrap = bar.querySelector(".flex.min-w-0") || bar.firstElementChild;
-    var nav = document.createElement("nav");
-    nav.className =
-      "vc-header-snav vc-glass flex max-w-full flex-wrap items-center justify-center gap-0.5 px-1.5 py-1 sm:gap-1 sm:px-2";
-    nav.setAttribute("aria-label", "Staff");
-    nav.innerHTML = html;
-    if (brandWrap && brandWrap.parentNode) {
-      brandWrap.parentNode.insertBefore(nav, brandWrap.nextSibling);
-    } else {
-      bar.appendChild(nav);
-    }
-    stripLegacyStaffNavRows(header);
-    stripConfessionaleFromStaffMenus(header);
-    return true;
+  function watchGlobalStaffNavStrip() {
+    /* loginFix1: niente MO su body intero (loop/thrash → login Discord non paintava) */
+    try {
+      if (window.__vcStaffNavStripWatch) return;
+      window.__vcStaffNavStripWatch = true;
+      var busy = false;
+      var t = 0;
+      var kill = function () {
+        if (busy) return;
+        busy = true;
+        try {
+          stripLegacyStaffNavRows(document);
+          removeStaffFooterColumns();
+          stripStaffMenuFromSnav(document.querySelector("nav.vc-header-snav"));
+        } catch (eK) {}
+        busy = false;
+      };
+      var schedule = function () {
+        if (t) return;
+        t = window.setTimeout(function () {
+          t = 0;
+          kill();
+        }, 120);
+      };
+      kill();
+      var header = document.querySelector("header");
+      var footer = document.querySelector("footer.vc-premium-footer, footer");
+      var mo = new MutationObserver(function () {
+        schedule();
+      });
+      if (header) mo.observe(header, { childList: true, subtree: true });
+      if (footer) mo.observe(footer, { childList: true, subtree: true });
+      window.setTimeout(kill, 0);
+      window.setTimeout(kill, 400);
+      window.setTimeout(kill, 1500);
+    } catch (eWatch) {}
   }
 
   function watchEventNavStaffStrip(header) {
@@ -1140,82 +998,7 @@
             (el.classList && el.classList.contains("vc-snav-details--staff")) ||
             el.hasAttribute("data-vc-staff-tools-nav");
           if (isStaffBlock) {
-            var guideItems = [];
-            var guideRows = el.querySelectorAll(".vc-snav-panel .vc-snav-row");
-            for (var gr = 0; gr < guideRows.length; gr += 1) {
-              var grow = guideRows[gr];
-              var ghref = grow.getAttribute("href");
-              if (!ghref) continue;
-              if (String(ghref).toLowerCase().indexOf("/staff/gestione") >= 0) continue;
-              var glabEl = grow.querySelector("span:not(.vc-snav-row-ico)");
-              var glab = glabEl ? String(glabEl.textContent || "").trim() : String(grow.textContent || "").trim();
-              var glabNorm = glab.replace(/\s+/g, " ").trim().toLowerCase();
-              if (glabNorm === "gestione" || glabNorm === "gestione staff" || glabNorm === "area staff") continue;
-              if (
-                String(ghref).toLowerCase().indexOf("/staff/guida") >= 0 ||
-                glabNorm === "guida" ||
-                glabNorm === "guida staff" ||
-                String(ghref).toLowerCase().indexOf("/staff/compiti") >= 0 ||
-                glabNorm === "compiti" ||
-                glabNorm === "compiti staff" ||
-                glabNorm === "compiti settimanali"
-              ) {
-                var isConfItem =
-                  String(ghref).toLowerCase().indexOf("/confessionale") >= 0 ||
-                  glabNorm === "confessionale" ||
-                  glabNorm === "il confessionale" ||
-                  isConfessionaleNavLabel(glabNorm);
-                if (isConfItem) continue;
-                var isCompitiItem =
-                  String(ghref).toLowerCase().indexOf("/staff/compiti") >= 0 ||
-                  glabNorm === "compiti" ||
-                  glabNorm === "compiti staff" ||
-                  glabNorm === "compiti settimanali";
-                if (isCompitiItem && !canShowCompitiNav()) continue;
-                var itemLabel = glab || i18nT("staff.guide", "Guida");
-                var itemKey = "staff.guide";
-                if (isCompitiItem) {
-                  itemLabel = glab || i18nT("staff.compiti", "Compiti");
-                  itemKey = "staff.compiti";
-                }
-                guideItems.push({
-                  href: ghref,
-                  label: itemLabel,
-                  i18nKey: itemKey,
-                  icon: iconFromEl(grow),
-                  active:
-                    grow.classList.contains("is-active") ||
-                    grow.classList.contains("vc-snav-row--active") ||
-                    grow.getAttribute("aria-current") === "page" ||
-                    isActive(ghref),
-                });
-              }
-            }
-            if (!guideItems.length) {
-              guideItems.push({
-                href: "/staff/guida/",
-                label: i18nT("staff.guide", "Guida"),
-                i18nKey: "staff.guide",
-                icon: "fa-book",
-                active: isActive("/staff/guida/"),
-              });
-            }
-            var hasCompiti = false;
-            for (var ci = 0; ci < guideItems.length; ci += 1) {
-              var giHref = String(guideItems[ci].href || "").toLowerCase();
-              if (giHref.indexOf("/staff/compiti") >= 0) hasCompiti = true;
-            }
-            if (!hasCompiti && canShowCompitiNav()) {
-              guideItems.push({
-                href: "/staff/compiti/",
-                label: i18nT("staff.compiti", "Compiti"),
-                i18nKey: "staff.compiti",
-                icon: "fa-check-square-o",
-                active: isActive("/staff/compiti/"),
-              });
-            }
-            addSection("Staff", guideItems);
-            filled += guideItems.length;
+            /* staffToolsInProfile1: skip menu Staff nel drawer */
             i += 1;
             continue;
           }
@@ -1271,58 +1054,22 @@
     }
 
     try {
-      /* boardsNoStaffNav1: niente sezione Staff nel drawer su bacheca/dashboard/evento */
-      if (!isEventDedicatedNavPage() && !isSpecializedSiteNav(null)) {
-        var staffOk =
-          window.__VC_STAFF_MENU_ALLOWED === true ||
-          Boolean(perms().ok) ||
-          Boolean(document.querySelector("[data-vc-staff-tools-nav], .vc-snav-details--staff"));
-        var hasGuide = Boolean(gridRoot.querySelector('a[href*="/staff/guida"]'));
-        var hasCompiti = Boolean(gridRoot.querySelector('a[href*="/staff/compiti"]'));
-        if (!hasGuide && staffOk) {
-          var staffTiles = [
-            {
-              href: "/staff/guida/",
-              label: i18nT("staff.guide", "Guida"),
-              i18nKey: "staff.guide",
-              icon: "fa-book",
-              active: isActive("/staff/guida/"),
-            },
-          ];
-          if (canShowCompitiNav()) {
-            staffTiles.push({
-              href: "/staff/compiti/",
-              label: i18nT("staff.compiti", "Compiti"),
-              i18nKey: "staff.compiti",
-              icon: "fa-check-square-o",
-              active: isActive("/staff/compiti/"),
-            });
-          }
-          addSection("Staff", staffTiles);
-        } else if (hasGuide && !hasCompiti && canShowCompitiNav()) {
-          var guideLink = gridRoot.querySelector('a[href*="/staff/guida"]');
-          var guideGrid = guideLink && guideLink.closest ? guideLink.closest(".vc-mobile-nav-grid") : null;
-          if (guideGrid) {
-            if (!hasCompiti && canShowCompitiNav()) {
-              var compitiA = document.createElement("a");
-              compitiA.className = "vc-mobile-nav-tile";
-              compitiA.href = "/staff/compiti/";
-              compitiA.innerHTML =
-                '<span class="vc-mobile-nav-tile-ico" aria-hidden="true"><i class="fa fa-check-square-o"></i></span>' +
-                '<span class="vc-mobile-nav-tile-label" data-i18n="staff.compiti">' +
-                i18nT("staff.compiti", "Compiti") +
-                "</span>";
-              if (isActive("/staff/compiti/")) {
-                compitiA.classList.add("is-active");
-                compitiA.setAttribute("aria-current", "page");
-              }
-              compitiA.addEventListener("click", function () {
-                setStaffDrawerOpen(false);
-              });
-              guideGrid.appendChild(compitiA);
-            }
-          }
-        }
+      /* staffToolsInProfile1: niente sezione Staff nel drawer — strumenti nel profilo */
+      var staffSecs = gridRoot.querySelectorAll(
+        '.vc-mobile-nav-section--staff-guide, [data-vc-staff-section="1"], .vc-mobile-nav-section[aria-label="Staff"]',
+      );
+      for (var ss = 0; ss < staffSecs.length; ss++) {
+        if (staffSecs[ss] && staffSecs[ss].parentNode) staffSecs[ss].parentNode.removeChild(staffSecs[ss]);
+      }
+      var staffTilesKill = gridRoot.querySelectorAll(
+        'a[href*="/staff/guida"], a[href*="/staff/compiti"]',
+      );
+      for (var sk = 0; sk < staffTilesKill.length; sk++) {
+        var t = staffTilesKill[sk];
+        if (!t) continue;
+        var sec = t.closest && t.closest(".vc-mobile-nav-section");
+        if (sec && sec.parentNode) sec.parentNode.removeChild(sec);
+        else if (t.parentNode) t.parentNode.removeChild(t);
       }
     } catch (eGuide) {}
 
@@ -1659,32 +1406,18 @@
         stripConfessionaleFromStaffMenus(document);
       } catch (eStripOpen) {}
       try {
+        /* staffToolsInProfile1: ripulisci tile Staff residue nel drawer */
         grid = document.getElementById("vc-mobile-nav-drawer-grid");
-        if (
-          grid &&
-          grid.querySelector('a[href*="/staff/guida"]')
-        ) {
-          var guideLink = grid.querySelector('a[href*="/staff/guida"]');
-          var guideGrid = guideLink && guideLink.closest ? guideLink.closest(".vc-mobile-nav-grid") : null;
-          if (guideGrid) {
-            if (!grid.querySelector('a[href*="/staff/compiti"]') && canShowCompitiNav()) {
-              var compitiA = document.createElement("a");
-              compitiA.className = "vc-mobile-nav-tile";
-              compitiA.href = "/staff/compiti/";
-              compitiA.innerHTML =
-                '<span class="vc-mobile-nav-tile-ico" aria-hidden="true"><i class="fa fa-check-square-o"></i></span>' +
-                '<span class="vc-mobile-nav-tile-label" data-i18n="staff.compiti">' +
-                i18nT("staff.compiti", "Compiti") +
-                "</span>";
-              if (isActive("/staff/compiti/")) {
-                compitiA.classList.add("is-active");
-                compitiA.setAttribute("aria-current", "page");
-              }
-              compitiA.addEventListener("click", function () {
-                setStaffDrawerOpen(false);
-              });
-              guideGrid.appendChild(compitiA);
-            }
+        if (grid) {
+          var kill = grid.querySelectorAll(
+            'a[href*="/staff/guida"], a[href*="/staff/compiti"], .vc-mobile-nav-section--staff-guide, [data-vc-staff-section="1"]',
+          );
+          for (var ki = 0; ki < kill.length; ki++) {
+            var kn = kill[ki];
+            if (!kn) continue;
+            var ksec = kn.closest && kn.closest(".vc-mobile-nav-section");
+            if (ksec && ksec.parentNode) ksec.parentNode.removeChild(ksec);
+            else if (kn.parentNode) kn.parentNode.removeChild(kn);
           }
         }
       } catch (eConfFix) {}
@@ -2074,6 +1807,19 @@
       }
     }
   } catch (eBootFoot) {}
+  /* staffInProfileOnly3b: strip SEMPRE (anche guest) — mai lasciare Staff in nav/footer */
+  try {
+    var stripAlways = function () {
+      try {
+        removeStaffFooterColumns();
+        stripStaffMenuFromSnav(document.querySelector("nav.vc-header-snav"));
+        stripLegacyStaffNavRows(document);
+        watchGlobalStaffNavStrip();
+      } catch (eSa) {}
+    };
+    if (document.body) stripAlways();
+    else document.addEventListener("DOMContentLoaded", stripAlways);
+  } catch (eStripBoot) {}
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", scheduleStaffNavBoot);
   } else {
@@ -2090,3 +1836,6 @@
 /* violPass12 */
 /* footerStaffFirstStamp1 */
 /* navStaffFirstStamp1 */
+/* staffInProfileOnly3b */
+/* loginFix1 */
+/* staffNavKill1 */

@@ -1,8 +1,9 @@
-/* footerSysPillAlways1 — badge stato sistemi a fianco del © (Kuma heartbeat) */
+/* 20261021apiPageFilter2: kuma/health dopo chrome-load-done (no compete boot) */
+/* footerSysPillBack1 — chip Look3 PC=phone; copy Operativo (no Sistemi operativi) */
 /* sitePerfAll1: refresh off in settle / tab hidden */
 (function () {
   if (typeof window === "undefined" || typeof document === "undefined") return;
-  var VER = "footerSysLook7";
+  var VER = "apiPageFilter2";
   if (window.__vcFooterSysStatusWired === VER) return;
   window.__vcFooterSysStatusWired = VER;
 
@@ -19,7 +20,13 @@
     try {
       if (window.VcI18n && typeof window.VcI18n.t === "function") {
         var v = window.VcI18n.t(key);
-        if (v && v !== key) return v;
+        if (v && v !== key) {
+          /* footerSysPillBack1: mai ripescare copy legacy “Sistemi operativi” */
+          if (/sistemi\s+operativ/i.test(String(v)) || /^all systems operational$/i.test(String(v))) {
+            return fallback;
+          }
+          return v;
+        }
       }
     } catch (eT) {}
     return fallback;
@@ -28,25 +35,31 @@
   function labels(mode) {
     if (mode === "is-ok") {
       return {
-        text: t("footer.sysStatus.ok", "Sistemi OK"),
-        aria: t("footer.sysStatus.okAria", "Stato sistemi: tutti operativi. Apri la pagina status."),
+        text: t("footer.sysStatus.ok", "Operativo"),
+        aria: t("footer.sysStatus.okAria", "Stato dei sistemi: tutto operativo. Apri la pagina status."),
       };
     }
     if (mode === "is-partial") {
       return {
-        text: t("footer.sysStatus.partial", "Degrado parziale"),
-        aria: t("footer.sysStatus.partialAria", "Stato sistemi: degrado parziale. Apri la pagina status."),
+        text: t("footer.sysStatus.partial", "Prestazioni ridotte"),
+        aria: t(
+          "footer.sysStatus.partialAria",
+          "Stato dei sistemi: prestazioni ridotte. Apri la pagina status.",
+        ),
       };
     }
     if (mode === "is-bad") {
       return {
-        text: t("footer.sysStatus.bad", "Servizi offline"),
-        aria: t("footer.sysStatus.badAria", "Stato sistemi: alcuni servizi non rispondono. Apri la pagina status."),
+        text: t("footer.sysStatus.bad", "Disservizio"),
+        aria: t(
+          "footer.sysStatus.badAria",
+          "Stato dei sistemi: disservizio in corso. Apri la pagina status.",
+        ),
       };
     }
     return {
-      text: t("footer.sysStatus.wait", "Controllo…"),
-      aria: t("footer.sysStatus.waitAria", "Controllo stato sistemi in corso."),
+      text: t("footer.sysStatus.wait", "Verifica…"),
+      aria: t("footer.sysStatus.waitAria", "Verifica dello stato dei sistemi in corso."),
     };
   }
 
@@ -206,15 +219,43 @@
     } catch (eObs) {}
   }
 
+  function refreshWhenIdle(reason) {
+    /* apiPageFilter2: kuma/health NON in parallelo a site-boot — dopo barra */
+    function go() {
+      try {
+        refresh();
+      } catch (eGo) {}
+    }
+    try {
+      if (window.__vcChromeLoadDone === true) {
+        window.setTimeout(go, 80);
+        return;
+      }
+    } catch (eDone) {}
+    function once() {
+      try {
+        document.removeEventListener("vc:chrome-load-done", once);
+        window.removeEventListener("vc:chrome-load-done", once);
+      } catch (eRm) {}
+      window.setTimeout(go, 120);
+    }
+    try {
+      document.addEventListener("vc:chrome-load-done", once, { once: true });
+      window.addEventListener("vc:chrome-load-done", once, { once: true });
+    } catch (eLis) {}
+    window.setTimeout(once, 2800);
+  }
+
   function boot() {
     var el = ensureBadge();
-    if (el) refresh();
+    if (el) refreshWhenIdle("boot");
     if (timer) clearInterval(timer);
     timer = setInterval(function () {
       try {
         if (document.hidden) return;
         if (document.documentElement.classList.contains("vc-cpu-settle")) return;
         if (document.documentElement.classList.contains("vc-page-hidden")) return;
+        if (window.__vcChromeLoadDone !== true) return;
       } catch (eHid) {}
       refresh();
     }, REFRESH_MS);
@@ -226,6 +267,7 @@
           try {
             if (document.hidden) return;
             if (document.documentElement.classList.contains("vc-cpu-settle")) return;
+            if (window.__vcChromeLoadDone !== true) return;
             refresh();
           } catch (eVis) {}
         },
@@ -256,7 +298,7 @@
     tries += 1;
     try {
       if (ensureBadge()) {
-        refresh();
+        refreshWhenIdle("retry");
         if (tries >= 8) {
           clearInterval(retryIv);
           retryIv = null;
@@ -272,7 +314,7 @@
     document.addEventListener("vc:i18n", onI18n);
     document.addEventListener("vc:chrome-ready", function () {
       ensureBadge();
-      refresh();
+      refreshWhenIdle("chrome-ready");
     });
     document.addEventListener("vc:chrome-visual-ready", function () {
       ensureBadge();

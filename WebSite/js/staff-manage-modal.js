@@ -1,7 +1,7 @@
 (function (global) {
   "use strict";
 
-  var ASSET_VER = "20261005depexPmOnlyFullFix1";
+  var ASSET_VER = "20261018staffActionLive1";
   var scriptsLoaded = false;
   var scriptsLoading = null;
 
@@ -102,9 +102,24 @@
         }
       })
       .then(function () {
-        if (!global.VCStaffManagePanel) {
-          return loadScript("/js/staff-manage-page.js?v=" + ASSET_VER, "data-vc-staff-manage-page");
+        /* staffActionLive1: se stamp vecchio già in pagina, forziamo reload stamped */
+        if (
+          global.VCStaffManagePanel &&
+          String(global.__VC_STAFF_MANAGE_PAGE_VER || "") === ASSET_VER
+        ) {
+          return;
         }
+        try {
+          var old = global.document.querySelector('script[data-vc-staff-manage-page="1"]');
+          if (old && old.parentNode) old.parentNode.removeChild(old);
+        } catch (eRm) {}
+        try {
+          global.VCStaffManagePanel = null;
+        } catch (eNull) {}
+        return loadScript(
+          "/js/staff-manage-page." + ASSET_VER + ".js?v=" + ASSET_VER,
+          "data-vc-staff-manage-page",
+        );
       })
       .then(function () {
         scriptsLoaded = true;

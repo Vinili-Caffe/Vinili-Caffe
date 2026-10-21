@@ -1,3 +1,4 @@
+/* lookStaticBorder1: no conic/mask rings — solid sand border */
 /* vc-avatar hub: circle ovunque + anti-flash (pending → ready) */
 img.vc-avatar,
 img[data-vc-avatar],
@@ -210,45 +211,7 @@ header img[data-vc-avatar].vc-avatar--pending,
 
 .vc-user-profile-avatarwrap::after,
 .vc-user-rankcard__avatarwrap::after,
-.vc-rank-editor-preview__avatarwrap::after {
-  content: "" !important;
-  position: absolute !important;
-  inset: -3px !important;
-  z-index: 3 !important;
-  border-radius: inherit !important;
-  border: 0 !important;
-  box-sizing: border-box !important;
-  padding: 2.5px !important;
-  pointer-events: none !important;
-  opacity: 1 !important;
-  filter: none !important;
-  box-shadow:
-    0 0 12px color-mix(in srgb, var(--vc-avatar-ring, #e8c49c) 45%, transparent),
-    0 0 26px color-mix(in srgb, var(--vc-avatar-ring, #e8c49c) 28%, transparent) !important;
-  background: conic-gradient(
-    from 200deg,
-    #fff7ec 0deg,
-    color-mix(in srgb, var(--vc-avatar-ring, #e8c49c) 88%, white) 22deg,
-    color-mix(in srgb, var(--vc-avatar-ring, #e8c49c) 35%, transparent) 70deg,
-    color-mix(in srgb, var(--vc-avatar-ring, #e8c49c) 10%, transparent) 140deg,
-    color-mix(in srgb, var(--vc-avatar-ring, #e8c49c) 10%, transparent) 220deg,
-    color-mix(in srgb, var(--vc-avatar-ring, #e8c49c) 35%, transparent) 290deg,
-    color-mix(in srgb, var(--vc-avatar-ring, #e8c49c) 88%, white) 338deg,
-    #fff7ec 360deg
-  ) !important;
-  -webkit-mask:
-    linear-gradient(#000 0 0) content-box,
-    linear-gradient(#000 0 0) !important;
-  -webkit-mask-composite: xor !important;
-  mask:
-    linear-gradient(#000 0 0) content-box,
-    linear-gradient(#000 0 0) !important;
-  mask-composite: exclude !important;
-  animation: none !important;
-  transform: rotate(0deg);
-  transform-origin: center center;
-  will-change: transform;
-}
+.vc-rank-editor-preview__avatarwrap::after { content: none !important; display: none !important; background: none !important; background-image: none !important; -webkit-mask: none !important; mask: none !important; opacity: 0 !important; }
 
 @media (hover: hover) and (pointer: fine) {
   .vc-user-profile-avatarwrap:hover::after,
@@ -272,16 +235,7 @@ header img[data-vc-avatar].vc-avatar--pending,
   .vc-user-profile-avatarwrap::after,
   .vc-user-rankcard__avatarwrap::after,
   .vc-rank-editor-preview__avatarwrap::after {
-    background: conic-gradient(
-      from 200deg,
-      #fff7ec 0deg,
-      #e8c49c 28deg,
-      rgba(232, 196, 156, 0.2) 90deg,
-      rgba(232, 196, 156, 0.08) 180deg,
-      rgba(232, 196, 156, 0.2) 270deg,
-      #e8c49c 332deg,
-      #fff7ec 360deg
-    ) !important;
+    background: none !important;
   }
 }
 

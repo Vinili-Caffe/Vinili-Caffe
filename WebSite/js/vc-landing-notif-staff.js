@@ -1,9 +1,11 @@
 /**
  * notifStaffLazy1: staff inbox queue fetch/expand (lazy).
  * Loaded by vc-landing-notif when staff expands a row (or preload).
+ * inboxCandKeep1: usa SOLO host bridge (niente free-var IIFE) — altrimenti
+ * shouldPreserve throw su bellNotifScope → wipe Candidature ~1s dopo open.
  */
 (function () {
-  var VER = "20261014notifStaffLazy1";
+  var VER = "20261018inboxCandKeep1";
   if (window.__VC_NOTIF_STAFF_CHUNK === VER) return;
   var H = window.__VC_NOTIF_STAFF_HOST;
   if (!H || typeof H !== "object") {
@@ -32,15 +34,53 @@
   var notificationsStaffPageUrl = H.notificationsStaffPageUrl;
   var readCachedBellStaffSummary = H.readCachedBellStaffSummary;
   var paintNotifBellBadgeFromStore = H.paintNotifBellBadgeFromStore;
-  var bellStaffQueueCache = H.getState("bellStaffQueueCache");
-  var bellStaffQueueInFlight = H.getState("bellStaffQueueInFlight");
-  var bellStaffPerms = H.getState("bellStaffPerms");
+  var patchBellStaffInboxCounts = H.patchBellStaffInboxCounts;
+  var inboxNotifsForBucket = H.inboxNotifsForBucket;
+  var syncNotifScopeSwitchPending = H.syncNotifScopeSwitchPending;
+  var resolveNotifDestUrl = H.resolveNotifDestUrl;
+  var timeAgoLocalized = H.timeAgoLocalized;
+  var markOneRead = H.markOneRead;
+
+  /* Live refs — mai snapshot: main può riassegnare cache su WS auto-dismiss */
+  function queueCache() {
+    var c = getState("bellStaffQueueCache");
+    if (!c || typeof c !== "object") {
+      c = Object.create(null);
+      setState("bellStaffQueueCache", c);
+    }
+    return c;
+  }
+  function queueInFlight() {
+    var c = getState("bellStaffQueueInFlight");
+    if (!c || typeof c !== "object") {
+      c = Object.create(null);
+      setState("bellStaffQueueInFlight", c);
+    }
+    return c;
+  }
+  function staffPerms() {
+    return getState("bellStaffPerms");
+  }
+  function collapsedCats() {
+    var c = getState("bellUserCollapsedCats");
+    return c && typeof c === "object" ? c : Object.create(null);
+  }
+  function expandLockUntil() {
+    return Number(getState("bellInboxExpandLockUntil") || 0) || 0;
+  }
+  function bumpExpandLock(ms) {
+    var next = Math.max(expandLockUntil(), Date.now() + (Number(ms) || 800));
+    setState("bellInboxExpandLockUntil", next);
+    return next;
+  }
 
   function fetchBellInboxQueueItems(row) {
     var id = row && row.id ? String(row.id) : "";
     if (!id) return Promise.resolve([]);
-    if (bellStaffQueueInFlight[id]) return bellStaffQueueInFlight[id];
-    var cached = bellStaffQueueCache[id];
+    var inFlight = queueInFlight();
+    if (inFlight[id]) return inFlight[id];
+    var cache = queueCache();
+    var cached = cache[id];
     if (cached && cached.ok !== false && Date.now() - Number(cached.at || 0) < 20000) {
       return Promise.resolve(cached.items || []);
     }
@@ -85,7 +125,7 @@
     };
     if (ctrl) fetchOpts.signal = ctrl.signal;
 
-    bellStaffQueueInFlight[id] = fetch(url, fetchOpts)
+    inFlight[id] = fetch(url, fetchOpts)
       .then(function (res) {
         return res
           .json()
@@ -101,9 +141,9 @@
         if (out && out.body && out.body.ok === true) {
           var itemsOk = Array.isArray(out.body.items) ? out.body.items : [];
           itemsOk = itemsOk.slice(0, BELL_INBOX_PAGE_SIZE);
-          bellStaffQueueCache[id] = { at: Date.now(), items: itemsOk, ok: true };
+          queueCache()[id] = { at: Date.now(), items: itemsOk, ok: true };
           if (out.body.permissions) {
-            bellStaffPerms = out.body.permissions; setState("bellStaffPerms", bellStaffPerms);
+            setState("bellStaffPerms", out.body.permissions);
           }
           return itemsOk;
         }
@@ -146,9 +186,11 @@
         try {
           window.clearTimeout(abortTimer);
         } catch (eClr) {}
-        bellStaffQueueInFlight[id] = null;
+        try {
+          queueInFlight()[id] = null;
+        } catch (eInf) {}
       });
-    return bellStaffQueueInFlight[id];
+    return inFlight[id];
   }
 
   function renderBellInboxItems(row, host, items) {
@@ -159,7 +201,8 @@
     var queueItems = Array.isArray(items) ? items.slice() : [];
     var ptExtra = [];
     if (row && row.id === "punti-tolti") {
-      ptExtra = inboxNotifsForBucket("punti-tolti");
+      ptExtra =
+        typeof inboxNotifsForBucket === "function" ? inboxNotifsForBucket("punti-tolti") : [];
       ptExtra.forEach(function (n) {
         var item = document.createElement("li");
         item.className =
@@ -167,9 +210,16 @@
         var a = document.createElement("a");
         a.className = "vc-notif-bell-inbox__item-link vc-notif-bell-inbox__item-link--rich";
         var dest = String(n.openUrl || "").trim();
-        a.href = dest ? resolveNotifDestUrl(dest) : notificationsStaffPageUrl("punti-tolti");
+        a.href = dest
+          ? typeof resolveNotifDestUrl === "function"
+            ? resolveNotifDestUrl(dest)
+            : dest
+          : notificationsStaffPageUrl("punti-tolti");
         var bodySnip = String(n.body || "").trim().slice(0, 110);
-        var whenTxt = timeAgoLocalized(n.at || Date.now());
+        var whenTxt =
+          typeof timeAgoLocalized === "function"
+            ? timeAgoLocalized(n.at || Date.now())
+            : "";
         a.innerHTML =
           '<span class="vc-notif-bell-inbox__item-dot" aria-hidden="true"></span>' +
           '<span class="vc-notif-bell-inbox__item-copy">' +
@@ -189,7 +239,7 @@
         a.addEventListener("click", function (ev) {
           ev.preventDefault();
           try {
-            markOneRead(n.id);
+            if (typeof markOneRead === "function") markOneRead(n.id);
           } catch (eMark) {}
           navigateBellInboxHref(a.href);
         });
@@ -305,8 +355,6 @@
     btn.addEventListener("click", function (ev) {
       ev.preventDefault();
       ev.stopPropagation();
-      host.removeAttribute("data-loaded");
-      host.removeAttribute("data-loading");
       host.innerHTML =
         '<li class="vc-notif-bell-inbox__item vc-notif-bell-inbox__item--empty">Caricamento…</li>';
       loadBellInboxSectionItems(row, host);
@@ -317,12 +365,14 @@
 
   function shouldPreserveBellInboxList() {
     try {
-      if (bellNotifScope !== "staff") return false;
-      if (Date.now() < Number(getState("bellInboxExpandLockUntil") || 0)) return true;
+      /* inboxCandKeep1: DOM open/loading prima — scope via host (no free-var throw) */
       var list = document.getElementById("vc-notif-bell-inbox-list");
-      if (!list) return false;
-      if (list.querySelector('[data-loading="1"]')) return true;
-      if (list.querySelector(".vc-notif-bell-inbox__row.is-open")) return true;
+      if (list) {
+        if (list.querySelector('[data-loading="1"]')) return true;
+        if (list.querySelector(".vc-notif-bell-inbox__row.is-open")) return true;
+      }
+      if (Date.now() < expandLockUntil()) return true;
+      if (String(getState("bellNotifScope") || "") !== "staff") return false;
     } catch (ePres) {}
     return false;
   }
@@ -355,7 +405,7 @@
             try {
               var cachePayload = {
                 summary: sumObj,
-                permissions: (cachedSum && cachedSum.permissions) || bellStaffPerms || null,
+                permissions: (cachedSum && cachedSum.permissions) || staffPerms() || null,
                 at: Date.now(),
               };
               sessionStorage.setItem("vc_inbox_summary_v1", JSON.stringify(cachePayload));
@@ -373,16 +423,18 @@
                 if (!r || !r.id) return;
                 sigPartsFix.push(r.id + ":" + String(Number(sumObj[r.id]) || 0));
               });
-              sigPartsFix.push("p:" + JSON.stringify(bellStaffPerms || {}));
-              bellStaffSummarySig = sigPartsFix.join("|");
+              sigPartsFix.push("p:" + JSON.stringify(staffPerms() || {}));
+              setState("bellStaffSummarySig", sigPartsFix.join("|"));
             } catch (eSigFix) {}
-            patchBellStaffInboxCounts(sumObj);
+            if (typeof patchBellStaffInboxCounts === "function") {
+              patchBellStaffInboxCounts(sumObj);
+            }
           }
-          paintNotifBellBadgeFromStore();
-          syncNotifScopeSwitchPending();
+          if (typeof paintNotifBellBadgeFromStore === "function") paintNotifBellBadgeFromStore();
+          if (typeof syncNotifScopeSwitchPending === "function") syncNotifScopeSwitchPending();
         } catch (eBadgeLive) {}
         try {
-          setState("bellInboxExpandLockUntil", Math.max(bellInboxExpandLockUntil, Date.now() + 800));
+          bumpExpandLock(1200);
         } catch (eLock) {}
       })
       .catch(function (err) {
@@ -391,7 +443,7 @@
         itemsHost.removeAttribute("data-loading");
         itemsHost.removeAttribute("data-loaded");
         try {
-          setState("bellInboxExpandLockUntil", Math.max(bellInboxExpandLockUntil, Date.now() + 600));
+          bumpExpandLock(600);
         } catch (eLock2) {}
         /* notifInboxGate1: never show "Solo High Staff — riprova"; hide gated queues. */
         if (isBellInboxForbiddenErr(err) || !canBellInboxRow(row)) {
@@ -435,9 +487,10 @@
     } catch (eBarOpen) {}
     try {
       var rid = row && row.id ? String(row.id) : "";
+      var cats = collapsedCats();
       if (rid) {
-        if (wantOpen) delete bellUserCollapsedCats["q:" + rid];
-        else bellUserCollapsedCats["q:" + rid] = 1;
+        if (wantOpen) delete cats["q:" + rid];
+        else cats["q:" + rid] = 1;
       }
     } catch (eCol) {}
     if (!wantOpen) {
@@ -445,8 +498,9 @@
       itemsHost.setAttribute("hidden", "");
       return;
     }
-    /* notifCatLoadFix1: lock più lungo — peer-sync non deve wipe a metà fetch */
-    setState("bellInboxExpandLockUntil", Date.now() + 2400);
+    /* notifCatLoadFix1: lock più lungo — peer-sync non deve wipe a metà fetch
+       inboxCandKeep1: 4s + preserve-on-open (shouldPreserve) */
+    setState("bellInboxExpandLockUntil", Date.now() + 4000);
     itemsHost.hidden = false;
     itemsHost.removeAttribute("hidden");
     var loaded = itemsHost.getAttribute("data-loaded") === "1";

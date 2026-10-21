@@ -1065,226 +1065,32 @@
   }
 
   function ensureMobileCompitiTile(gridRoot) {
-    if (!gridRoot || isEventDedicatedNavPage() || isBoardsNoStaffNavPage()) return;
+    /* staffInProfileOnly2: Compiti solo nel profilo, non nel drawer */
+    if (!gridRoot) return;
     try {
-      if (gridRoot.querySelector('a[href*="/staff/compiti"]')) return;
-      var guideLink = gridRoot.querySelector('a[href*="/staff/guida"]');
-      if (!guideLink && !isStaffNavAllowed()) return;
-      var guideGrid =
-        (guideLink && guideLink.closest && guideLink.closest(".vc-mobile-nav-grid")) ||
-        null;
-      if (!guideGrid) {
-        var staffSec =
-          gridRoot.querySelector(".vc-mobile-nav-section--staff-guide") ||
-          gridRoot.querySelector(".vc-mobile-nav-section--staff");
-        guideGrid = staffSec ? staffSec.querySelector(".vc-mobile-nav-grid") || staffSec : null;
+      var dead = gridRoot.querySelectorAll(
+        'a[href*="/staff/compiti"], a[data-vc-mobile-staff-compiti]',
+      );
+      for (var di = 0; di < dead.length; di += 1) {
+        if (dead[di] && dead[di].parentNode) dead[di].parentNode.removeChild(dead[di]);
       }
-      if (!guideGrid && guideLink && guideLink.parentNode) guideGrid = guideLink.parentNode;
-      if (!guideGrid) return;
-      /* confessionaleCommNav2b: mai appendere Compiti sulla griglia Community */
-      try {
-        var sec = guideGrid.closest
-          ? guideGrid.closest(".vc-mobile-nav-section, details")
-          : null;
-        var secTitle = sec
-          ? String(
-              (sec.querySelector("summary, .vc-mobile-nav-section-title") || {}).textContent || ""
-            ).toLowerCase()
-          : "";
-        if (secTitle.indexOf("community") >= 0) return;
-      } catch (eSec) {}
-      var a = document.createElement("a");
-      a.className = "vc-mobile-nav-tile";
-      a.href = "/staff/compiti/";
-      a.setAttribute("data-vc-mobile-staff-compiti", "1");
-      a.innerHTML =
-        '<span class="vc-mobile-nav-tile-ico" aria-hidden="true"><i class="fa fa-check-square-o"></i></span>' +
-        '<span class="vc-mobile-nav-tile-label">Compiti</span>';
-      markTileActive(a, null);
-      a.addEventListener("click", function () {
-        closeDrawer();
-      });
-      guideGrid.appendChild(a);
-    } catch (eComp) {}
+    } catch (eDead) {}
   }
 
   function appendStaffGuideSection(gridRoot, sourceDetails) {
     if (!gridRoot) return;
-    if (isEventDedicatedNavPage() || isBoardsNoStaffNavPage()) {
-      /* boardsNoStaffNav1: rimuovi eventuali sezioni Staff già montate */
-      try {
-        var kill = gridRoot.querySelectorAll(
-          ".vc-mobile-nav-section--staff-guide, .vc-mobile-nav-section--staff, [data-vc-staff-section]",
-        );
-        for (var ki = 0; ki < kill.length; ki += 1) {
-          if (kill[ki] && kill[ki].parentNode) kill[ki].parentNode.removeChild(kill[ki]);
-        }
-      } catch (eKill) {}
-      return;
-    }
+    /* staffInProfileOnly2: mai sezione Staff nel drawer — strumenti solo nel profilo */
     try {
-      var existingStaffSec = gridRoot.querySelector(".vc-mobile-nav-section--staff-guide");
-      /* staffNavFix1: upgrade legacy <section> STAFF → <details> */
-      if (existingStaffSec && existingStaffSec.tagName !== "DETAILS") {
-        try {
-          existingStaffSec.parentNode.removeChild(existingStaffSec);
-        } catch (eUp) {}
-        existingStaffSec = null;
+      var kill = gridRoot.querySelectorAll(
+        ".vc-mobile-nav-section--staff-guide, .vc-mobile-nav-section--staff, [data-vc-staff-section], a[data-vc-mobile-staff], a[data-vc-mobile-staff-compiti], a[data-vc-mobile-staff-guide], a[href*='/staff/guida'], a[href*='/staff/compiti']",
+      );
+      for (var ki = 0; ki < kill.length; ki += 1) {
+        if (kill[ki] && kill[ki].parentNode) kill[ki].parentNode.removeChild(kill[ki]);
       }
-      if (
-        existingStaffSec &&
-        gridRoot.querySelector('a[href*="/staff/guida"]') &&
-        gridRoot.querySelector('a[href*="/staff/compiti"]')
-      ) {
-        ensureMobileConfessionaleTile(gridRoot);
-        return;
-      }
-      if (existingStaffSec && gridRoot.querySelector('a[href*="/staff/guida"]')) {
-        ensureMobileConfessionaleTile(gridRoot);
-        ensureMobileCompitiTile(gridRoot);
-        return;
-      }
-    } catch (eDup) {}
-    var rows = sourceDetails
-      ? sourceDetails.querySelectorAll(".vc-snav-panel .vc-snav-row, a.vc-snav-row")
-      : [];
-    var guideRow = null;
-    var compitiRow = null;
-    var r;
-    for (r = 0; r < rows.length; r += 1) {
-      var row = rows[r];
-      var href = row.getAttribute("href") || "";
-      var lab = "";
-      try {
-        var spans = row.querySelectorAll("span");
-        var sj;
-        for (sj = 0; sj < spans.length; sj += 1) {
-          if (spans[sj].classList.contains("vc-snav-row-ico")) continue;
-          if (spans[sj].classList.contains("vc-nav-feat-badge")) continue;
-          lab = String(spans[sj].textContent || "").trim();
-          if (lab) break;
-        }
-      } catch (eLab) {}
-      if (!lab) lab = String(row.textContent || "").trim();
-      if (isStaffOnlyNavHref(href) || isStaffOnlyNavLabel(lab)) continue;
-      var labNorm = lab.replace(/\s+/g, " ").trim().toLowerCase();
-      /* confessionaleCommNav2: skip — Community only */
-      if (
-        String(href).toLowerCase().indexOf("/confessionale") >= 0 ||
-        labNorm === "confessionale" ||
-        labNorm === "il confessionale"
-      ) {
-        continue;
-      }
-      if (!guideRow && (isStaffGuideHref(href) || isStaffGuideLabel(lab))) {
-        guideRow = row;
-        continue;
-      }
-      if (
-        !compitiRow &&
-        (String(href).toLowerCase().indexOf("/staff/compiti") >= 0 ||
-          labNorm === "compiti" ||
-          labNorm === "compiti staff" ||
-          labNorm === "compiti settimanali")
-      ) {
-        compitiRow = row;
-      }
-    }
-    var tiles = [];
-    if (guideRow) {
-      var guideTile = createTileFromRow(guideRow);
-      if (guideTile) tiles.push(guideTile);
-    } else if (isStaffNavAllowed() && !gridRoot.querySelector('a[href*="/staff/guida"]')) {
-      var a = document.createElement("a");
-      a.className = "vc-mobile-nav-tile";
-      a.href = "/staff/guida/";
-      a.setAttribute("data-vc-mobile-staff-guide", "1");
-      a.innerHTML =
-        '<span class="vc-mobile-nav-tile-ico" aria-hidden="true"><i class="fa fa-book"></i></span>' +
-        '<span class="vc-mobile-nav-tile-label">Guida</span>';
-      a.addEventListener("click", function () {
-        closeDrawer();
-      });
-      tiles.push(a);
-    }
-    if (compitiRow) {
-      var compitiTile = createTileFromRow(compitiRow);
-      if (compitiTile) tiles.push(compitiTile);
-    } else if (isStaffNavAllowed() && !gridRoot.querySelector('a[href*="/staff/compiti"]')) {
-      var t = document.createElement("a");
-      t.className = "vc-mobile-nav-tile";
-      t.href = "/staff/compiti/";
-      t.setAttribute("data-vc-mobile-staff-compiti", "1");
-      t.innerHTML =
-        '<span class="vc-mobile-nav-tile-ico" aria-hidden="true"><i class="fa fa-check-square-o"></i></span>' +
-        '<span class="vc-mobile-nav-tile-label">Compiti</span>';
-      t.addEventListener("click", function () {
-        closeDrawer();
-      });
-      tiles.push(t);
-    }
-    if (!tiles.length) return;
-    /* staffCollapse1: sempre ricrea come <details> richiudibile (mai lasciare <section> legacy) */
-    var existingSec = gridRoot.querySelector(".vc-mobile-nav-section--staff-guide");
-    if (existingSec && existingSec.tagName === "DETAILS") {
-      var existingGrid = existingSec.querySelector(".vc-mobile-nav-grid") || existingSec;
-      for (var ti = 0; ti < tiles.length; ti += 1) {
-        var hrefT = String(tiles[ti].getAttribute("href") || "").toLowerCase();
-        if (hrefT.indexOf("/staff/guida") >= 0 && existingSec.querySelector('a[href*="/staff/guida"]')) {
-          continue;
-        }
-        if (hrefT.indexOf("/confessionale") >= 0) {
-          continue;
-        }
-        if (hrefT.indexOf("/staff/compiti") >= 0 && existingSec.querySelector('a[href*="/staff/compiti"]')) {
-          continue;
-        }
-        if (tiles[ti]) {
-          markTileActive(tiles[ti], null);
-          existingGrid.appendChild(tiles[ti]);
-        }
-      }
-      return;
-    }
-    if (existingSec && existingSec.parentNode) {
-      try {
-        existingSec.parentNode.removeChild(existingSec);
-      } catch (eRm) {}
-    }
-    var sec = document.createElement("details");
-    sec.className = "vc-mobile-nav-section vc-mobile-nav-section--staff-guide";
-    sec.setAttribute("data-vc-staff-section", "1");
-    if (sectionShouldOpen("STAFF", tiles, 99)) sec.setAttribute("open", "");
-    var h = document.createElement("summary");
-    h.className = "vc-mobile-nav-section-title";
-    var txt = document.createElement("span");
-    txt.className = "vc-mobile-nav-section-title__txt";
-    txt.textContent = "STAFF";
-    var chev = document.createElement("i");
-    chev.className = "fa fa-chevron-down vc-mobile-nav-section-chev";
-    chev.setAttribute("aria-hidden", "true");
-    h.appendChild(txt);
-    h.appendChild(chev);
-    var g = document.createElement("div");
-    g.className = "vc-mobile-nav-grid";
-    for (var i = 0; i < tiles.length; i += 1) {
-      if (tiles[i]) {
-        markTileActive(tiles[i], null);
-        g.appendChild(tiles[i]);
-      }
-    }
-    sec.appendChild(h);
-    sec.appendChild(g);
-    bindSectionToggle(sec, "STAFF");
-    h.addEventListener("click", function (ev) {
-      try {
-        if (ev && typeof ev.preventDefault === "function") ev.preventDefault();
-      } catch (ePrev) {}
-      try {
-        sec.open = !sec.open;
-      } catch (eOpen) {}
-    });
-    gridRoot.appendChild(sec);
+    } catch (eKill) {}
+    try {
+      ensureMobileConfessionaleTile(gridRoot);
+    } catch (eConf) {}
   }
 
   function isStaffOnlyNavHref(href) {

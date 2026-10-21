@@ -124,11 +124,15 @@
 })();
 (function () {
   try {
-    if (!window.VcApiCache) {
-      var s = document.createElement("script");
-      s.src = "/js/vc-api-cache.js?v=20261002violPass5";
-      (document.head || document.documentElement).appendChild(s);
-    }
+    /* assetBloatKill1b: auth-inject già carica api-cache — no 2ª GET (violPass5) */
+    if (window.VcApiCache) return;
+    if (document.querySelector('script[src*="vc-api-cache"]')) return;
+    var s = document.createElement("script");
+    s.src =
+      "/js/vc-api-cache.js?v=" +
+      ((window.__VC_ASSET_VERS && window.__VC_ASSET_VERS.API_CACHE_VER) ||
+        "20261009apiJankCut1");
+    (document.head || document.documentElement).appendChild(s);
   } catch (eApiBoot) {}
 })();
 (function () {
@@ -2403,25 +2407,33 @@
   function bindSocialPreview(anchor) {
     if (!anchor || anchor.__vcSocialPreviewBound) return;
     anchor.__vcSocialPreviewBound = true;
-    var showT = 0;
+    var showTid = 0;
+    var wantShow = false;
+    function clearShowTimer() {
+      if (!showTid) return;
+      try {
+        window.clearTimeout(showTid);
+      } catch (eClr) {}
+      showTid = 0;
+    }
     function scheduleShow() {
       if (window.matchMedia && window.matchMedia("(hover: none)").matches) return;
-      if (showT) return;
-      showT = 1;
-      var go = function () {
-        showT = 0;
-        try {
-          showPreview(anchor);
-        } catch (eSh) {}
-      };
-      /* violKillRest1: mouseenter/focus non fanno layout sync */
-      if (typeof window.__vcLight === "function") window.__vcLight(go, 48);
-      else window.setTimeout(go, 48);
+      wantShow = true;
+      clearShowTimer();
+      /* hoverMqSocial1c: sync show — niente setTimeout/__vcLight (timer 16ms → 300ms+ sotto carico). */
+      try {
+        showPreview(anchor);
+      } catch (eSh) {}
+    }
+    function scheduleHide() {
+      wantShow = false;
+      clearShowTimer();
+      hidePreview();
     }
     anchor.addEventListener("mouseenter", scheduleShow);
-    anchor.addEventListener("mouseleave", hidePreview);
+    anchor.addEventListener("mouseleave", scheduleHide);
     anchor.addEventListener("focus", scheduleShow);
-    anchor.addEventListener("blur", hidePreview);
+    anchor.addEventListener("blur", scheduleHide);
   }
 
   window.__vcBindSocialPreview = bindSocialPreview;
@@ -3799,16 +3811,29 @@
 
   function appendStaffGuideSection(gridRoot, sourceDetails) {
     if (!gridRoot) return;
+    /* staffInProfileOnly2: mai sezione Staff nel drawer — strumenti solo nel profilo */
+    try {
+      var kill = gridRoot.querySelectorAll(
+        ".vc-mobile-nav-section--staff-guide, .vc-mobile-nav-section--staff, [data-vc-staff-section], a[data-vc-mobile-staff], a[data-vc-mobile-staff-compiti], a[data-vc-mobile-staff-guide], a[href*='/staff/guida'], a[href*='/staff/compiti']",
+      );
+      for (var ki = 0; ki < kill.length; ki += 1) {
+        if (kill[ki] && kill[ki].parentNode) kill[ki].parentNode.removeChild(kill[ki]);
+      }
+    } catch (eKill) {}
+    try {
+      ensureMobileConfessionaleTile(gridRoot);
+    } catch (eConf) {}
+    return;
     if (isEventDedicatedNavPage() || isBoardsNoStaffNavPage()) {
       /* boardsNoStaffNav1: rimuovi eventuali sezioni Staff già montate */
       try {
-        var kill = gridRoot.querySelectorAll(
+        var killLegacy = gridRoot.querySelectorAll(
           ".vc-mobile-nav-section--staff-guide, .vc-mobile-nav-section--staff, [data-vc-staff-section]",
         );
-        for (var ki = 0; ki < kill.length; ki += 1) {
-          if (kill[ki] && kill[ki].parentNode) kill[ki].parentNode.removeChild(kill[ki]);
+        for (var kj = 0; kj < killLegacy.length; kj += 1) {
+          if (killLegacy[kj] && killLegacy[kj].parentNode) killLegacy[kj].parentNode.removeChild(killLegacy[kj]);
         }
-      } catch (eKill) {}
+      } catch (eKill2) {}
       return;
     }
     try {
@@ -6358,19 +6383,34 @@ function vcPageAssetVer() {
         coarseOrPwa = true;
       }
       if (coarseOrPwa) {
-        document.documentElement.style.removeProperty("touch-action");
-        document.documentElement.style.removeProperty("overflow");
-        document.documentElement.style.removeProperty("overflow-x");
-        document.documentElement.style.removeProperty("overflow-y");
-        document.documentElement.style.removeProperty("height");
-        document.documentElement.style.removeProperty("max-height");
-        if (document.body) {
-          document.body.style.removeProperty("touch-action");
-          document.body.style.removeProperty("overflow");
-          document.body.style.removeProperty("overflow-x");
-          document.body.style.removeProperty("overflow-y");
-          document.body.style.removeProperty("height");
-          document.body.style.removeProperty("max-height");
+        var rootPre = document.documentElement;
+        var ddPre = document.getElementById("vc-notif-dropdown");
+        var sheetLockKeep = Boolean(
+          (ddPre && (ddPre.open || ddPre.hasAttribute("open")) &&
+            (rootPre.classList.contains("vc-notif-sheet-open") ||
+              rootPre.classList.contains("vc-notif-drawer-open"))) ||
+            rootPre.classList.contains("vc-feedback-sheet-open") ||
+            rootPre.classList.contains("vc-staff-manage-sheet-open") ||
+            rootPre.classList.contains("vc-staff-stat-sheet-open") ||
+            rootPre.classList.contains("vc-staff-reso-sheet-open") ||
+            rootPre.classList.contains("vc-dialog-open"),
+        );
+        /* notifSheetLock3: non strippare overflow sotto sheet aperti */
+        if (!sheetLockKeep) {
+          document.documentElement.style.removeProperty("touch-action");
+          document.documentElement.style.removeProperty("overflow");
+          document.documentElement.style.removeProperty("overflow-x");
+          document.documentElement.style.removeProperty("overflow-y");
+          document.documentElement.style.removeProperty("height");
+          document.documentElement.style.removeProperty("max-height");
+          if (document.body) {
+            document.body.style.removeProperty("touch-action");
+            document.body.style.removeProperty("overflow");
+            document.body.style.removeProperty("overflow-x");
+            document.body.style.removeProperty("overflow-y");
+            document.body.style.removeProperty("height");
+            document.body.style.removeProperty("max-height");
+          }
         }
         try {
           if (typeof window.__vcUnpinPageScroll === "function") {
@@ -6432,10 +6472,16 @@ function vcPageAssetVer() {
           }
         } catch (ePinApi) {}
         try {
-          if (typeof window.__vcStripPhoneInlineScrollLocks === "function") {
+          if (!sheetLockKeep && typeof window.__vcStripPhoneInlineScrollLocks === "function") {
             window.__vcStripPhoneInlineScrollLocks();
           }
         } catch (eStripApi) {}
+        try {
+          if (sheetLockKeep && window.VcNotifChrome && typeof window.VcNotifChrome.sync === "function") {
+            /* re-pin bordo/overflow dopo unfreeze phone */
+            window.VcNotifChrome.sync();
+          }
+        } catch (eRePin) {}
       }
     } catch (eUnfreeze) {}
     try {

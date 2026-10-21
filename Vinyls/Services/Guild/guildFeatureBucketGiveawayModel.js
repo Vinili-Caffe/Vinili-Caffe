@@ -98,9 +98,26 @@ function buildAtomicGiveawayUpdate(filter, update) {
   if (!oid) return null;
 
   const arrayFilter = { "g._id": oid };
-  if (filter.ended !== undefined) arrayFilter["g.ended"] = Boolean(filter.ended);
-  if (filter.cancelled !== undefined) arrayFilter["g.cancelled"] = Boolean(filter.cancelled);
-  if (filter.messageId !== undefined) arrayFilter["g.messageId"] = String(filter.messageId);
+  // Query deve fallire se il subdoc non matcha (es. già ended): altrimenti
+  // mongoose timestamps bumpa updatedAt del parent → modifiedCount=1 anche a vuoto
+  // e bot+scheduler annunciano il vincitore due volte.
+  const elemMatch = { _id: oid };
+  if (filter.ended !== undefined) {
+    arrayFilter["g.ended"] = Boolean(filter.ended);
+    elemMatch.ended = Boolean(filter.ended);
+  }
+  if (filter.cancelled !== undefined) {
+    if (filter.cancelled && typeof filter.cancelled === "object" && filter.cancelled.$ne !== undefined) {
+      elemMatch.cancelled = { $ne: filter.cancelled.$ne };
+    } else {
+      arrayFilter["g.cancelled"] = Boolean(filter.cancelled);
+      elemMatch.cancelled = Boolean(filter.cancelled);
+    }
+  }
+  if (filter.messageId !== undefined) {
+    arrayFilter["g.messageId"] = String(filter.messageId);
+    elemMatch.messageId = String(filter.messageId);
+  }
 
   const mongoUpdate = {};
   const $set = update?.$set && typeof update.$set === "object" ? update.$set : null;
@@ -129,7 +146,7 @@ function buildAtomicGiveawayUpdate(filter, update) {
   if (!Object.keys(mongoUpdate).length) return null;
 
   return {
-    query: { "giveaways._id": oid },
+    query: { giveaways: { $elemMatch: elemMatch } },
     update: mongoUpdate,
     arrayFilters: [arrayFilter],
     oid,

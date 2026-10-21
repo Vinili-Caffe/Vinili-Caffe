@@ -101,6 +101,9 @@
    (wake PC: push WNS in coda → flash poi auto-close). Cache + query client. */
 /* 20261011badgeCrossOs1 — stamp SW allineato a landing-notif; badge unreadCount
    da dismiss/WS resta source of truth (no reinflate da store client). */
+/* 20261017badgeOsDismiss1 — dismiss push di nuovo: dismissSatisfyVisible
+   (userVisibleOnly, reuse titolo banner) + setAppBadge(unreadCount).
+   Close-only (KillBgSpam) starveva FCM/APNs content. Server: solo mobile. */
 /* 20261014pushShowFirstClosed1 — Apple/PWA chiusa: MAI await getNotifications
    prima di showNotification (hang → waitUntil scade → APNs 201 senza banner
    finché non apri la PWA). Show+ack subito; dedupe tag solo after con timeout. */
@@ -118,14 +121,23 @@
    Solo afterShowJobs ha budget corto; show ha safety ~8s. */
 /* 20261015pushIdb1 — force-upgrade SW stamp (PWA telefono prende showHold). */
 /* 20261016pushPhoneAlive4 — server stop dismiss webpush; force SW upgrade telefono. */
+/* 20261018pushShowAckOnlyOk1 — /push/shown SOLO se showNotification risolve.
+   Timeout 8s / reject → niente ack (altrimenti hedge stoppa senza banner iOS). */
+/* 20261020pushIosDeclarative1 — parse Declarative Web Push (web_push:8030) +
+   mutable event.notification; APNs banner anche se SW non riesce a show. */
+/* 20261021iosPushGzHeal1 — gzip_static serviva sw-m1.js.gz STALE (pushSwForceUp1
+   Oct15) senza declarative → iOS zero banner; heal .gz + force upgrade stamp. */
 
-/* wsShellKill1: SOLO sfondo still — MAI cache-first sui CSS giganti
+/* wsShellKill1: SOLO sfondo still — MAI cache-first sui CSS GIGANTI SENZA stamp
    (landing-core/ext/soft-fx). wsShell1 serviva CSS stale → freeze + layout rotto. */
+/* siteOptAll2: cache-first SOLO su path stampati (foo.20261021bar.css|js) —
+   stamp nuovo = URL nuovo = no stale look. */
 /* consoleClean1: NIENTE cache.add in install — Chrome SW default CSP
    connect-src 'none' (report-only) spamava warning su sfondo-still.webp. */
-var VC_SHELL_CACHE = "vc-shell-static-20261016pushPhoneAlive4";
+var VC_SHELL_CACHE = "vc-shell-static-20261021stamp404Heal2";
+var VC_STAMP_CACHE = "vc-stamp-static-20261021stamp404Heal2";
 var VC_SHELL_ASSETS = [];
-var VC_SW_STAMP = "20261016pushPhoneAlive4";
+var VC_SW_STAMP = "20261021stamp404Heal2";
 var DISMISSED_IDS_CACHE = "vc-dismissed-notif-ids-v1";
 var DISMISSED_IDS_URL = "/__vc/dismissed-notif-ids";
 var dismissedIdsMem = Object.create(null);
@@ -142,21 +154,29 @@ function isVcShellAssetUrl(url) {
   return false;
 }
 
+function isVcStampAssetUrl(url) {
+  try {
+    var u = new URL(url, self.location.origin);
+    if (u.origin !== self.location.origin) return false;
+    var path = String(u.pathname || "");
+    /* solo /css|/js con stamp nel filename — mai unstamped / css mega “vivi” */
+    if (!/^\/(css|js)\//i.test(path)) return false;
+    return /\.\d{8}[A-Za-z0-9._-]*\.(css|js)$/i.test(path);
+  } catch (eS) {}
+  return false;
+}
+
 function precacheVcShell() {
   /* consoleClean1: no-op (prefetch sfondo resta in pagina/shell-preload) */
   return Promise.resolve();
 }
 
 self.addEventListener("install", function (event) {
-  /* pushKillBgSpam1: NON skipWaiting su desktop Chrome
-     (“Il sito è stato aggiornato in background”).
-     pushAppleAckRace1: su Apple sì — altrimenti push restano sullo SW vecchio
-     finché non riapri/killi la PWA. */
-  if (isApplePushClient()) {
-    try {
-      self.skipWaiting();
-    } catch (eSkip) {}
-  }
+  /* stamp404Heal2: skipWaiting SEMPRE — SW vecchio con stamp-fetch
+     spamava CSP connect-src 'none' e restava stuck su desktop senza unregister. */
+  try {
+    self.skipWaiting();
+  } catch (eSkip) {}
   event.waitUntil(
     Promise.resolve()
       .then(function () {
@@ -170,7 +190,7 @@ self.addEventListener("activate", function (event) {
   event.waitUntil(
     Promise.resolve(self.clients.claim())
       .then(function () {
-        /* drop old shell caches */
+        /* drop old shell + stamp caches */
         if (!self.caches || typeof self.caches.keys !== "function") return null;
         return self.caches.keys().then(function (keys) {
           return Promise.all(
@@ -178,6 +198,9 @@ self.addEventListener("activate", function (event) {
               var name = String(k || "");
               /* wsShellKill1: drop TUTTE le shell cache vecchie (anche CSS stale) */
               if (name.indexOf("vc-shell-static-") === 0 && name !== VC_SHELL_CACHE) {
+                return self.caches.delete(k);
+              }
+              if (name.indexOf("vc-stamp-static-") === 0 && name !== VC_STAMP_CACHE) {
                 return self.caches.delete(k);
               }
               return null;
@@ -207,8 +230,13 @@ self.addEventListener("fetch", function (event) {
   try {
     var req = event.request;
     if (!req || req.method !== "GET") return;
-    if (!isVcShellAssetUrl(req.url)) return;
-    /* consoleClean1: non interceptare sfondo — evita fetch SW + CSP connect-src 'none' */
+    if (isVcShellAssetUrl(req.url)) {
+      /* consoleClean1: non interceptare sfondo — evita fetch SW + CSP connect-src 'none' */
+      return;
+    }
+    /* stamp404Heal1 / consoleClean1b: non interceptare stamp CSS/JS —
+       SW default CSP connect-src 'none' (report-only) spamava TUTTI i ?v= stamp. */
+    if (isVcStampAssetUrl(req.url)) return;
     return;
   } catch (eFetch) {}
 });
@@ -574,20 +602,9 @@ function emptyPushPayload(extra) {
   return base;
 }
 
-function parsePayload(event) {
-  /* pushNoGhostTitle1: niente fallback “Nuova notifica” — altrimenti push vuote
-     diventano banner fantasma che poi il dismiss chiude subito. */
-  if (!event || !event.data) return emptyPushPayload();
+function pushFieldsFromObject(data) {
+  if (!data || typeof data !== "object") return emptyPushPayload();
   try {
-    var rawText = "";
-    try {
-      rawText = String(event.data.text() || "");
-    } catch (eTxt) {
-      rawText = "";
-    }
-    if (!String(rawText || "").replace(/\s+/g, "").trim()) return emptyPushPayload();
-    var data = JSON.parse(rawText);
-    if (!data || typeof data !== "object") return emptyPushPayload();
     var id = String(data.id || "").trim().slice(0, 40);
     var ticketId = String(data.ticketId || "").trim().slice(0, 40);
     var ids = asIdList(data.ids, 80);
@@ -644,6 +661,133 @@ function parsePayload(event) {
       createdAt: Number(data.createdAt) || 0,
       blank: isGhostPushText(title) && isGhostPushText(body) && type !== "dismiss",
     };
+  } catch (e) {
+    return emptyPushPayload();
+  }
+}
+
+/* pushIosDeclarative1: web_push:8030 → campi flat per show/ack */
+function unwrapDeclarativeJson(data) {
+  if (!data || typeof data !== "object") return data;
+  if (Number(data.web_push) !== 8030) return data;
+  var n = data.notification;
+  if (!n || typeof n !== "object") return data;
+  var nested = n.data && typeof n.data === "object" ? n.data : {};
+  var unread =
+    Number.isFinite(Number(data.app_badge)) && Number(data.app_badge) >= 0
+      ? Math.max(0, Math.min(99, Math.floor(Number(data.app_badge))))
+      : Number.isFinite(Number(n.app_badge)) && Number(n.app_badge) >= 0
+        ? Math.max(0, Math.min(99, Math.floor(Number(n.app_badge))))
+        : Number.isFinite(Number(nested.unreadCount))
+          ? Number(nested.unreadCount)
+          : Number.isFinite(Number(data.unreadCount))
+            ? Number(data.unreadCount)
+            : -1;
+  var out = {};
+  var k;
+  for (k in data) {
+    if (Object.prototype.hasOwnProperty.call(data, k) && k !== "notification" && k !== "web_push" && k !== "mutable" && k !== "app_badge") {
+      out[k] = data[k];
+    }
+  }
+  for (k in nested) {
+    if (Object.prototype.hasOwnProperty.call(nested, k)) out[k] = nested[k];
+  }
+  out.title = String(n.title || out.title || "").trim();
+  out.body = String(n.body || out.body || "").trim();
+  out.openUrl = String(n.navigate || out.openUrl || nested.openUrl || nested.url || "/").trim();
+  if (n.icon) out.icon = String(n.icon).trim();
+  if (n.badge) out.badge = String(n.badge).trim();
+  if (n.image) out.image = String(n.image).trim();
+  out.unreadCount = unread;
+  return out;
+}
+
+function payloadFromProposedNotification(proposed) {
+  var dataObj = {};
+  try {
+    var raw = proposed && proposed.data;
+    if (raw && typeof raw === "object") dataObj = raw;
+    else if (typeof raw === "string" && raw.trim()) {
+      try {
+        dataObj = JSON.parse(raw) || {};
+      } catch (eParse) {
+        dataObj = {};
+      }
+    }
+  } catch (eData) {
+    dataObj = {};
+  }
+  var title = "";
+  var body = "";
+  var navigate = "";
+  var icon = "";
+  var badge = "";
+  try {
+    title = String((proposed && proposed.title) || dataObj.title || "").trim();
+  } catch (eT) {}
+  try {
+    body = String((proposed && proposed.body) || dataObj.body || "").trim();
+  } catch (eB) {}
+  try {
+    navigate = String(
+      (proposed && proposed.navigate) || dataObj.openUrl || dataObj.url || "/",
+    ).trim();
+  } catch (eN) {
+    navigate = String(dataObj.openUrl || "/").trim() || "/";
+  }
+  try {
+    icon = String((proposed && proposed.icon) || dataObj.icon || "").trim();
+  } catch (eI) {}
+  try {
+    badge = String((proposed && proposed.badge) || dataObj.badge || icon || "").trim();
+  } catch (eBd) {}
+  return pushFieldsFromObject(
+    Object.assign({}, dataObj, {
+      title: title,
+      body: body,
+      openUrl: navigate || "/",
+      icon: icon || undefined,
+      badge: badge || undefined,
+    }),
+  );
+}
+
+function parsePayload(event) {
+  /* pushNoGhostTitle1: niente fallback “Nuova notifica” — altrimenti push vuote
+     diventano banner fantasma che poi il dismiss chiude subito. */
+  /* pushIosDeclarative1: mutable → event.notification, event.data null */
+  try {
+    if (event && event.notification) {
+      var hasDataText = false;
+      try {
+        hasDataText = !!(
+          event.data &&
+          String(event.data.text() || "")
+            .replace(/\s+/g, "")
+            .trim()
+        );
+      } catch (eHas) {
+        hasDataText = false;
+      }
+      if (!hasDataText) {
+        return payloadFromProposedNotification(event.notification);
+      }
+    }
+  } catch (eDecl) {}
+  if (!event || !event.data) return emptyPushPayload();
+  try {
+    var rawText = "";
+    try {
+      rawText = String(event.data.text() || "");
+    } catch (eTxt) {
+      rawText = "";
+    }
+    if (!String(rawText || "").replace(/\s+/g, "").trim()) return emptyPushPayload();
+    var data = JSON.parse(rawText);
+    if (!data || typeof data !== "object") return emptyPushPayload();
+    data = unwrapDeclarativeJson(data);
+    return pushFieldsFromObject(data);
   } catch (e) {
     return emptyPushPayload();
   }
@@ -1463,11 +1607,12 @@ function fanoutPushReceived(list, payload, extra) {
 self.addEventListener("push", function (event) {
   var payload = parsePayload(event);
   if (payload.type === "dismiss") {
-    /* pushKillBgSpam1: solo close + badge — MAI silent show (ghost PC) */
+    /* badgeOsDismiss1: dismissSatisfyVisible (userVisibleOnly) + badge —
+       close-only starveva content FCM/APNs. Desktop skip lato server. */
     var dismissSpec = dismissSpecFromPayload(payload);
     event.waitUntil(
       Promise.all([
-        closeMatchingNotifications(dismissSpec),
+        dismissSatisfyVisible(dismissSpec, payload),
         sameOriginClients().then(function (list) {
           fanoutPushReceived(list, payload);
         }),
@@ -1652,25 +1797,52 @@ self.addEventListener("push", function (event) {
         return Promise.all([ackP, fanoutP, badgeP]);
       }
       function showNow() {
-        var showP = Promise.resolve(self.registration.showNotification(showTitle, opts)).catch(
-          function () {
+        var showOk = false;
+        var showP = Promise.resolve(self.registration.showNotification(showTitle, opts))
+          .then(function () {
+            showOk = true;
+          })
+          .catch(function () {
             return null;
-          },
-        );
+          });
         /* pushShowHold1: waitUntil DEVE includere showNotification.
            Race 500ms su show → SW kill su PWA chiusa → APNs 201 senza banner/ack.
-           Safety lunga solo se show hangua forever; afterShowJobs resta race 500ms. */
+           Safety lunga solo se show hangua forever; afterShowJobs resta race 500ms.
+           pushShowAckOnlyOk1: ack SOLO se show ha risolto — timeout/fail lascia
+           hedge vivo (APNs 201 ≠ banner). */
+        function afterShowNoAck() {
+          return Promise.race([
+            sameOriginClients()
+              .then(function (list) {
+                fanoutPushReceived(list, payload, { suppressOs: false });
+              })
+              .catch(function () {}),
+            new Promise(function (resolve) {
+              setTimeout(resolve, 500);
+            }),
+          ]);
+        }
         if (isApplePushClient()) {
           return Promise.race([
-            showP,
-            new Promise(function (resolve) {
-              setTimeout(resolve, 8000);
+            showP.then(function () {
+              return "ok";
             }),
-          ]).then(function () {
+            new Promise(function (resolve) {
+              setTimeout(function () {
+                resolve("timeout");
+              }, 8000);
+            }),
+          ]).then(function (status) {
+            if (status !== "ok" || !showOk) {
+              return afterShowNoAck();
+            }
             return afterShowJobs();
           });
         }
-        return showP.then(afterShowJobs);
+        return showP.then(function () {
+          if (!showOk) return afterShowNoAck();
+          return afterShowJobs();
+        });
       }
       /* Solo hedge mpr: se stesso tag già visibile, ack senza secondo banner.
          Timeout 80ms — se getNotifications non risponde, show comunque. */

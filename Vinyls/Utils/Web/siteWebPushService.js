@@ -27,6 +27,9 @@
    fireNotifDismissPush + badgeCross/KillBgSpam2 rimandavano type=dismiss al telefono;
    SW silent/close → APNs/FCM userVisibleOnly droppa i content (mobileSent:1 senza banner).
    Cross-device close = solo WS/in-page. */
+/* badgeOsDismiss1: dismiss mobile/Apple di nuovo (skip desktop/WNS).
+   SW: dismissSatisfyVisible (reuse banner title, no ZWSP) + setAppBadge(unreadCount).
+   Content push path invariato. */
 /* pushGoneResub1: Chrome/FCM riusa lo stesso endpoint dopo unsubscribe+subscribe.
    Denylist 7g che rifiuta il re-POST = push morte forever. Su upsert: clear gone
    e ri-accetta (il send successivo 410 ripulisce di nuovo). */
@@ -317,6 +320,72 @@ function absoluteOpenUrl(openUrl) {
     return u.slice(0, 2000);
   }
   return `${origin}${u.startsWith("/") ? u : `/${u}`}`.slice(0, 2000);
+}
+
+/* pushIosDeclarative1: APNs 201 ≠ banner se SW morto/PWA chiusa.
+   Declarative (web_push:8030) → iOS 18.4+ mostra il banner anche senza JS;
+   mutable:true lascia lo SW raffinare+ack /push/shown quando vivo. */
+function buildAppleDeclarativePush(fields) {
+  const title = String(fields?.title || "").trim().slice(0, 120);
+  const body = String(fields?.body || "").trim().slice(0, 500);
+  const navigate = absoluteOpenUrl(fields?.openUrl);
+  const icon = String(fields?.icon || "").trim().slice(0, 500);
+  const badgeIcon = String(fields?.badge || fields?.icon || "").trim().slice(0, 500);
+  const unreadRaw = Number(fields?.unreadCount);
+  const hasUnread = Number.isFinite(unreadRaw) && unreadRaw >= 0;
+  const appBadge = hasUnread ? Math.max(0, Math.min(99, Math.floor(unreadRaw))) : undefined;
+  const pid = String(fields?.id || "").trim().slice(0, 40);
+  const tag = pid ? `vc-site-${pid}` : undefined;
+  const notifData = {
+    openUrl: navigate,
+    id: pid,
+    ticketId: String(fields?.ticketId || "").trim().slice(0, 40),
+    messageId: String(fields?.messageId || "").trim().slice(0, 40),
+    kind: String(fields?.kind || "info").trim().slice(0, 24),
+    dedupeKey: String(fields?.dedupeKey || "").trim().slice(0, 180),
+    channel: String(fields?.channel || "").trim().slice(0, 16),
+    msgCount: Number(fields?.msgCount) > 0 ? Math.min(99, Math.floor(Number(fields.msgCount))) : 0,
+    createdAt: Number(fields?.createdAt || Date.now()) || Date.now(),
+    unreadCount: hasUnread ? appBadge : -1,
+  };
+  const displayTitle = title || body.slice(0, 120) || "Vinili & Caffè";
+  const displayBody = body && body !== displayTitle ? body : "";
+  return {
+    web_push: 8030,
+    notification: {
+      title: displayTitle,
+      ...(displayBody ? { body: displayBody } : {}),
+      navigate,
+      lang: "it",
+      dir: "ltr",
+      silent: false,
+      ...(icon ? { icon } : {}),
+      ...(badgeIcon ? { badge: badgeIcon } : {}),
+      ...(tag ? { tag } : {}),
+      data: notifData,
+      /* Safari 18.4–26.1 legge mutable qui */
+      mutable: true,
+      ...(appBadge !== undefined ? { app_badge: String(appBadge) } : {}),
+    },
+    /* Safari 26.2+ / spec: mutable top-level */
+    mutable: true,
+    ...(appBadge !== undefined ? { app_badge: appBadge } : {}),
+    /* Legacy top-level: iOS <18.4 / declarative rejected → SW classic parse */
+    title: displayTitle,
+    body: displayBody,
+    openUrl: navigate,
+    kind: notifData.kind,
+    id: notifData.id,
+    ticketId: notifData.ticketId,
+    messageId: notifData.messageId,
+    channel: notifData.channel,
+    dedupeKey: notifData.dedupeKey,
+    msgCount: notifData.msgCount,
+    createdAt: notifData.createdAt,
+    unreadCount: notifData.unreadCount,
+    ...(icon ? { icon } : {}),
+    ...(badgeIcon ? { badge: badgeIcon } : {}),
+  };
 }
 
 function getVapidKeys() {
@@ -797,21 +866,8 @@ async function sendWebPushToUser(userId, payload = {}, sendOpts = {}) {
   if (!uid) return { ok: false, skipped: true, reason: "invalid_user" };
 
   const isDismiss = String(payload.type || "").trim().toLowerCase() === "dismiss";
-  /* pushPhoneAlive4: MAI webpush dismiss (PC né telefono).
-     Prima: dismiss→mobile/Apple starveva content push (APNs 201 zombie / FCM delay). */
-  if (isDismiss) {
-    return {
-      ok: true,
-      sent: 0,
-      skipped: true,
-      reason: "dismiss_off_phone_alive4",
-      mobileSent: 0,
-      mobileFailed: 0,
-      mobileTargets: 0,
-      desktopSent: 0,
-      skippedGone: 0,
-    };
-  }
+  /* badgeOsDismiss1: dismiss consentito — sotto si filtra solo mobile/Apple
+     (no WNS/desktop → niente ghost “aggiornato in background” su PC). */
 
   const subs = await listSubscriptionsForUser(uid);
   if (!subs.length) return { ok: true, sent: 0, mobileSent: 0, mobileFailed: 0, mobileTargets: 0, desktopSent: 0, skippedGone: 0 };
@@ -851,60 +907,61 @@ async function sendWebPushToUser(userId, payload = {}, sendOpts = {}) {
   const kind = String(payload.kind || "info").trim().slice(0, 24);
   const origin = resolveSitePublicOrigin().replace("://viniliecaffe.it", "://www.viniliecaffe.it");
   const icon = `${origin}${PUSH_NOTIFICATION_ICON}`;
-  const data = JSON.stringify(
-    isDismiss
-      ? {
-          type: "dismiss",
-          ticketId,
-          id: String(payload.id || "").trim().slice(0, 40),
-          ids: Array.isArray(payload.ids)
-            ? payload.ids.map((x) => String(x || "").trim()).filter(Boolean).slice(0, 80)
-            : [],
-          ticketIds: Array.isArray(payload.ticketIds)
-            ? payload.ticketIds
-                .map((x) => String(x || "").trim().toLowerCase())
-                .filter((x) => /^[a-f0-9]{24}$/i.test(x))
-                .slice(0, 40)
-            : [],
-          openUrls: Array.isArray(payload.openUrls)
-            ? payload.openUrls.map((x) => String(x || "").trim()).filter(Boolean).slice(0, 40)
-            : [],
-          /* pushAutoDismiss1: lifecycle/digest match su SW */
-          dedupeKeys: Array.isArray(payload.dedupeKeys)
-            ? payload.dedupeKeys.map((x) => String(x || "").trim()).filter(Boolean).slice(0, 40)
-            : [],
-          pageUrl: String(payload.pageUrl || "").trim().slice(0, 500),
-          all: payload.all === true,
-          /* pushReadDismissBadge1: badge PWA = unread inbox, non solo banner OS */
-          unreadCount: Number.isFinite(Number(payload.unreadCount))
-            ? Math.max(0, Math.min(99, Math.floor(Number(payload.unreadCount))))
-            : -1,
-        }
-      : {
-          title,
-          body,
-          openUrl,
-          kind,
-          id: String(payload.id || "").trim().slice(0, 40),
-          ticketId,
-          messageId: /^[a-f0-9]{24}$/i.test(String(payload.messageId || "").trim())
-            ? String(payload.messageId).trim().toLowerCase()
-            : "",
-          channel: String(payload.channel || "").trim().slice(0, 16),
-          dedupeKey: String(payload.dedupeKey || "").trim().slice(0, 180),
-          /* notifDigestRace1 */
-          msgCount: Number(payload.msgCount) > 0 ? Math.min(99, Math.floor(Number(payload.msgCount))) : 0,
-          /* pushDismissAllFix1: createdAt per non far bloccare push nuove da allUntil */
-          createdAt: Number(payload.createdAt || Date.now()) || Date.now(),
-          /* pushBadgeSyncPhone1: unread inbox anche sul content → badge PWA allineato */
-          unreadCount: Number.isFinite(Number(payload.unreadCount))
-            ? Math.max(0, Math.min(99, Math.floor(Number(payload.unreadCount))))
-            : -1,
-          /* notifBellInboxBadge1 */
-          icon,
-          badge: icon,
-        },
-  );
+  const classicFields = isDismiss
+    ? {
+        type: "dismiss",
+        ticketId,
+        id: String(payload.id || "").trim().slice(0, 40),
+        ids: Array.isArray(payload.ids)
+          ? payload.ids.map((x) => String(x || "").trim()).filter(Boolean).slice(0, 80)
+          : [],
+        ticketIds: Array.isArray(payload.ticketIds)
+          ? payload.ticketIds
+              .map((x) => String(x || "").trim().toLowerCase())
+              .filter((x) => /^[a-f0-9]{24}$/i.test(x))
+              .slice(0, 40)
+          : [],
+        openUrls: Array.isArray(payload.openUrls)
+          ? payload.openUrls.map((x) => String(x || "").trim()).filter(Boolean).slice(0, 40)
+          : [],
+        /* pushAutoDismiss1: lifecycle/digest match su SW */
+        dedupeKeys: Array.isArray(payload.dedupeKeys)
+          ? payload.dedupeKeys.map((x) => String(x || "").trim()).filter(Boolean).slice(0, 40)
+          : [],
+        pageUrl: String(payload.pageUrl || "").trim().slice(0, 500),
+        all: payload.all === true,
+        /* pushReadDismissBadge1: badge PWA = unread inbox, non solo banner OS */
+        unreadCount: Number.isFinite(Number(payload.unreadCount))
+          ? Math.max(0, Math.min(99, Math.floor(Number(payload.unreadCount))))
+          : -1,
+      }
+    : {
+        title,
+        body,
+        openUrl,
+        kind,
+        id: String(payload.id || "").trim().slice(0, 40),
+        ticketId,
+        messageId: /^[a-f0-9]{24}$/i.test(String(payload.messageId || "").trim())
+          ? String(payload.messageId).trim().toLowerCase()
+          : "",
+        channel: String(payload.channel || "").trim().slice(0, 16),
+        dedupeKey: String(payload.dedupeKey || "").trim().slice(0, 180),
+        /* notifDigestRace1 */
+        msgCount: Number(payload.msgCount) > 0 ? Math.min(99, Math.floor(Number(payload.msgCount))) : 0,
+        /* pushDismissAllFix1: createdAt per non far bloccare push nuove da allUntil */
+        createdAt: Number(payload.createdAt || Date.now()) || Date.now(),
+        /* pushBadgeSyncPhone1: unread inbox anche sul content → badge PWA allineato */
+        unreadCount: Number.isFinite(Number(payload.unreadCount))
+          ? Math.max(0, Math.min(99, Math.floor(Number(payload.unreadCount))))
+          : -1,
+        /* notifBellInboxBadge1 */
+        icon,
+        badge: icon,
+      };
+  const data = JSON.stringify(classicFields);
+  /* pushIosDeclarative1: solo content Apple — dismiss resta classic (userVisibleOnly) */
+  const appleData = isDismiss ? data : JSON.stringify(buildAppleDeclarativePush(classicFields));
 
   /* notifPushSync1: content TTL 30m (5m droppava push se telefono offline breve).
      votePushTtl1: promemoria voto → TTL lungo (claim monouso: se drop FCM non ritenta).
@@ -1027,6 +1084,8 @@ async function sendWebPushToUser(userId, payload = {}, sendOpts = {}) {
     const baseOpts = appleEp
       ? { TTL: pushOpts.TTL, urgency: pushOpts.urgency }
       : pushOpts;
+    /* pushIosDeclarative1: Apple content → declarative JSON; FCM/dismiss → classic */
+    const bodyJson = appleEp ? appleData : data;
     /* votePushPairPhone2: Discadia dopo Top.gg */
     if (isVoteReminder && pushTopic.startsWith("vcvotedis") && target.mobile) {
       await new Promise((r) => setTimeout(r, 1800));
@@ -1034,7 +1093,7 @@ async function sendWebPushToUser(userId, payload = {}, sendOpts = {}) {
     try {
       await webpush.sendNotification(
         { endpoint, keys: { p256dh, auth } },
-        data,
+        bodyJson,
         baseOpts,
       );
       return { ok: true };
@@ -1048,7 +1107,7 @@ async function sendWebPushToUser(userId, payload = {}, sendOpts = {}) {
         try {
           await webpush.sendNotification(
             { endpoint, keys: { p256dh, auth } },
-            data,
+            bodyJson,
             { TTL: pushOpts.TTL, urgency: pushOpts.urgency },
           );
           return { ok: true };
@@ -1061,7 +1120,7 @@ async function sendWebPushToUser(userId, payload = {}, sendOpts = {}) {
           const altTopic = normalizeWebPushTopic(`x${pushTopic || "vcn"}`);
           await webpush.sendNotification(
             { endpoint, keys: { p256dh, auth } },
-            data,
+            bodyJson,
             { ...baseOpts, headers: { Topic: altTopic } },
           );
           return { ok: true };
@@ -1082,7 +1141,7 @@ async function sendWebPushToUser(userId, payload = {}, sendOpts = {}) {
           await new Promise((r) => setTimeout(r, 400));
           await webpush.sendNotification(
             { endpoint, keys: { p256dh, auth } },
-            data,
+            bodyJson,
             baseOpts,
           );
           return { ok: true };

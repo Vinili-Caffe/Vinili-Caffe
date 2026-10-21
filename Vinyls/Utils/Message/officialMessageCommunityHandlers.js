@@ -88,15 +88,29 @@ function applyWelcomeContext(guildId, joinTargetUserId, untilMs, channelIds) {
   }
 }
 
+function isMongoConnected() {
+  return mongoose.connection?.readyState === 1;
+}
+
+function isMongoNotConnectedError(err) {
+  return (
+    err?.name === "MongoNotConnectedError" ||
+    /Client must be connected before running operations/i.test(String(err?.message || err || ""))
+  );
+}
+
 function persistWelcomeSession(guildId, joinTargetUserId, untilMs) {
   const gid = String(guildId || "").trim();
   const targetId = normalizeWelcomeJoinTargetUserId(joinTargetUserId);
   if (!gid || !targetId) return;
+  /* In-memory context already applied; skip DB until mongoose is ready (boot race). */
+  if (!isMongoConnected()) return;
   SiteDocument.findOneAndUpdate(
     { docType: WELCOME_SESSION_DOC_TYPE, guildId: gid, dedupeKey: targetId },
     { $set: { status: "active", cooldownUntil: new Date(untilMs), userId: targetId } },
     { upsert: true },
   ).catch((err) => {
+    if (isMongoNotConnectedError(err)) return;
     global.logger?.warn?.("[welcome-context] persist session:", err?.message || err);
   });
 }
@@ -104,16 +118,20 @@ function persistWelcomeSession(guildId, joinTargetUserId, untilMs) {
 async function persistWelcomeSessionAwait(guildId, joinTargetUserId, untilMs) {
   const gid = String(guildId || "").trim();
   const targetId = normalizeWelcomeJoinTargetUserId(joinTargetUserId);
-  if (!gid || !targetId || mongoose.connection?.readyState !== 1) return false;
-  await SiteDocument.findOneAndUpdate(
-    { docType: WELCOME_SESSION_DOC_TYPE, guildId: gid, dedupeKey: targetId },
-    { $set: { status: "active", cooldownUntil: new Date(untilMs), userId: targetId } },
-    { upsert: true },
-  ).catch((err) => {
-    global.logger?.warn?.("[welcome-context] persist session:", err?.message || err);
-    return null;
-  });
-  return true;
+  if (!gid || !targetId || !isMongoConnected()) return false;
+  try {
+    await SiteDocument.findOneAndUpdate(
+      { docType: WELCOME_SESSION_DOC_TYPE, guildId: gid, dedupeKey: targetId },
+      { $set: { status: "active", cooldownUntil: new Date(untilMs), userId: targetId } },
+      { upsert: true },
+    );
+    return true;
+  } catch (err) {
+    if (!isMongoNotConnectedError(err)) {
+      global.logger?.warn?.("[welcome-context] persist session:", err?.message || err);
+    }
+    return false;
+  }
 }
 
 function setWelcomeContextForJoin(guildId, joinTargetUserId) {

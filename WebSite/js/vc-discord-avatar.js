@@ -424,10 +424,14 @@
 
   function prefersStaticAvatars() {
     try {
-      // navGifKeepMotion1: solo save-data → static (reduce-motion NON spegne a_*)
+      // cpuHoverIdle1: GIF solo durante hover (flag temporaneo)
+      if (window.__vcAvatarHoverAnim === 1) return false;
+    } catch (eHov) {}
+    try {
       if (navigator.connection && navigator.connection.saveData) return true;
     } catch (eStatic) {}
-    return false;
+    // cpuHoverIdle1: default static ovunque (CPU); animate on hover
+    return true;
   }
 
   function preferAnimatedUrl(url, size, avatarHash) {
@@ -844,8 +848,109 @@
     isGuildMemberAvatarPath: isGuildMemberAvatarPath,
   };
 
+  function avatarHoverTarget(node) {
+    if (!node || !node.closest) return null;
+    try {
+      var img = node.tagName === "IMG" ? node : node.closest("img");
+      if (!img) return null;
+      if (!(img.classList && (img.classList.contains("discord-avatar-img") || img.classList.contains("vc-avatar") || img.getAttribute("data-vc-avatar")))) {
+        if (!AVATAR_CLASS_RE.test(String(img.className || "")) && img.getAttribute("data-vc-avatar") !== "1") {
+          return null;
+        }
+      }
+      var src = String(img.getAttribute("src") || img.currentSrc || "");
+      var hash = String(img.getAttribute("data-avatar-hash") || "").trim();
+      var canAnim =
+        /^a_/i.test(hash) ||
+        /\/a_[^/?#]+\./i.test(src) ||
+        /\.gif(?:$|[?#])/i.test(src) ||
+        String(img.getAttribute("data-vc-avatar-gif") || "");
+      if (!canAnim && !hash) {
+        /* store still; may still have a_* in cdn attr */
+        var cdn = String(img.getAttribute("data-vc-avatar-cdn-url") || "");
+        if (!/\/a_[^/?#]+\./i.test(cdn) && !/^a_/i.test(hash)) return null;
+      }
+      return img;
+    } catch (eT) {
+      return null;
+    }
+  }
+
+  function setAvatarHoverAnim(img, on) {
+    if (!img) return;
+    try {
+      if (on) {
+        if (!img.getAttribute("data-vc-avatar-still")) {
+          img.setAttribute("data-vc-avatar-still", String(img.getAttribute("src") || ""));
+        }
+        window.__vcAvatarHoverAnim = 1;
+        try {
+          img.removeAttribute("data-vc-avatar-static");
+          if (img.dataset) img.dataset.vcAvatarStatic = "";
+        } catch (eSt) {}
+        applyToImage(img, { force: true, forceAnimRestart: true });
+        window.__vcAvatarHoverAnim = 0;
+      } else {
+        window.__vcAvatarHoverAnim = 0;
+        var still = String(img.getAttribute("data-vc-avatar-still") || "");
+        var cur = String(img.getAttribute("src") || "");
+        var next = preferStaticUrl(cur, readSize(img)) || still || cur;
+        if (still && /\.(png|webp|jpg)(?:$|[?#])/i.test(still)) next = still;
+        if (next && next !== cur) {
+          try {
+            img.setAttribute("data-vc-avatar-static", "1");
+          } catch (eMk) {}
+          img.src = next;
+        } else {
+          try {
+            img.setAttribute("data-vc-avatar-static", "1");
+          } catch (eMk2) {}
+          applyToImage(img, { force: true });
+        }
+      }
+    } catch (eHover) {
+      try {
+        window.__vcAvatarHoverAnim = 0;
+      } catch (eZ) {}
+    }
+  }
+
+  function armAvatarHoverOnly() {
+    if (window.__vcAvatarHoverArmed) return;
+    window.__vcAvatarHoverArmed = 1;
+    var curHover = null;
+    function onOver(ev) {
+      try {
+        if (document.hidden) return;
+        var img = avatarHoverTarget(ev.target);
+        if (!img || img === curHover) return;
+        if (curHover && curHover !== img) setAvatarHoverAnim(curHover, false);
+        curHover = img;
+        setAvatarHoverAnim(img, true);
+      } catch (eO) {}
+    }
+    function onOut(ev) {
+      try {
+        if (!curHover) return;
+        var to = ev.relatedTarget;
+        if (to && curHover.contains && curHover.contains(to)) return;
+        if (to && to.closest) {
+          var stillOn = avatarHoverTarget(to);
+          if (stillOn === curHover) return;
+        }
+        setAvatarHoverAnim(curHover, false);
+        curHover = null;
+      } catch (eX) {}
+    }
+    document.addEventListener("pointerover", onOver, true);
+    document.addEventListener("pointerout", onOut, true);
+  }
+
   function boot() {
     /* violPass5: niente scan(document) sync al boot — solo header/avatar noti */
+    try {
+      armAvatarHoverOnly();
+    } catch (eArmH) {}
     try {
       var early =
         document.querySelector("header") ||
@@ -920,6 +1025,10 @@
     }
 
     var obs = new MutationObserver(function (muts) {
+      /* cpuStormKill1b: tab hidden → ignore (era scan continuo anche in BG) */
+      try {
+        if (document.hidden || document.visibilityState === "hidden") return;
+      } catch (eHid) {}
       dirty = true;
       try {
         for (var i = 0; i < muts.length; i += 1) {
@@ -934,11 +1043,12 @@
       } catch (eM) {}
       scheduleFlush();
     });
+    /* cpuStormKill1b: NO "class" — classList.add in applyToImage riaccendeva MO forever */
     obs.observe(document.documentElement, {
       subtree: true,
       childList: true,
       attributes: true,
-      attributeFilter: ["src", "class", "data-vc-avatar-cdn-url", "data-vc-avatar"],
+      attributeFilter: ["src", "data-vc-avatar-cdn-url", "data-vc-avatar"],
     });
   }
 

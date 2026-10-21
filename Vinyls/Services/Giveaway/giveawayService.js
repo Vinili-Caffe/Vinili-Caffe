@@ -1,10 +1,17 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
 const Giveaway = require("../../Schemas/Giveaway/giveawaySchema");
 const { getClientChannelCached } = require("../../Utils/Interaction/interactionEntityCache");
+const {
+  isConfigured: isMorgamesVerifyConfigured,
+  verifyDiscordUserLinked,
+  filterLinkedDiscordUsers,
+  MORGAMES_SITE_URL,
+} = require("../Integrations/morgamesDiscordGiveawayVerify");
 const GIVEAWAY_ENTER_PREFIX = "giveaway_enter:";
 const GIVEAWAY_LEAVE_PREFIX = "giveaway_leave:";
 const GIVEAWAY_COUNT_PREFIX = "giveaway_count:";
 const GIVEAWAY_REROLL_PREFIX = "giveaway_reroll:";
+const GIVEAWAY_MORGAMES_RETRY_PREFIX = "giveaway_morgames_retry:";
 
 const MAX_TIMEOUT_MS = 2_147_483_647;
 const pendingEndTimers = new Map();
@@ -26,27 +33,48 @@ function discordRelativeEndTimestamp(endAt) {
 }
 
 function buildGiveawayEmbed(giveaway, options = {}) {
-  const { prize, endAt, winnerCount, hostId, hostTag, participants = [], ended, cancelled, winnerIds = [] } = giveaway;
+  const {
+    prize,
+    endAt,
+    winnerCount,
+    hostId,
+    hostTag,
+    participants = [],
+    ended,
+    cancelled,
+    winnerIds = [],
+    requireMorgames,
+  } = giveaway;
+  void participants;
   const endDate = new Date(endAt);
   const dateStr = endDate.toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit", year: "numeric" });
   const hostDisplay = hostId ? `<@${hostId}>` : (hostTag || "—");
   const isCancelled = Boolean(cancelled);
 
+  const fields = [
+    {
+      name: "<a:VC_Calendar:1482706208149475358> Tempo rimanente",
+      value: isCancelled ? "Annullato" : ended ? "Terminato" : discordRelativeEndTimestamp(endAt),
+      inline: true,
+    },
+    {
+      name: "<:VC_EXP:1482534670896730143> Hosted by",
+      value: hostTag || hostDisplay || "—",
+      inline: true,
+    },
+  ];
+  if (requireMorgames) {
+    fields.push({
+      name: "Requisito obbligatorio",
+      value: `Account [Morgames](${MORGAMES_SITE_URL}) collegato con Discord`,
+      inline: false,
+    });
+  }
+
   const embed = new EmbedBuilder()
     .setColor(isCancelled ? "#992d22" : "#5865F2")
     .setTitle(`<a:VC_Events:1482706144953897223> ${prize}`)
-    .addFields(
-      {
-        name: "<a:VC_Calendar:1482706208149475358> Tempo rimanente",
-        value: isCancelled ? "Annullato" : ended ? "Terminato" : discordRelativeEndTimestamp(endAt),
-        inline: true,
-      },
-      {
-        name: "<:VC_EXP:1482534670896730143> Hosted by",
-        value: hostTag || hostDisplay || "—",
-        inline: true,
-      }
-    )
+    .addFields(fields)
     .setFooter({
       text: isCancelled
         ? `Annullato il ${dateStr}`
@@ -95,7 +123,7 @@ function buildRerollButton(giveawayId) {
   );
 }
 
-async function createGiveaway({ guildId, channelId, hostId, hostTag, prize, durationMs, winnerCount }) {
+async function createGiveaway({ guildId, channelId, hostId, hostTag, prize, durationMs, winnerCount, requireMorgames }) {
   const endAt = new Date(Date.now() + durationMs);
   const doc = await Giveaway.create({
     guildId,
@@ -108,6 +136,7 @@ async function createGiveaway({ guildId, channelId, hostId, hostTag, prize, dura
     hostTag: hostTag || "",
     participants: [],
     ended: false,
+    requireMorgames: Boolean(requireMorgames),
   });
   return doc;
 }
@@ -124,52 +153,153 @@ async function getGiveawayById(id) {
   return Giveaway.findById(id).lean();
 }
 
-async function enterGiveaway(interaction, client) {
+function buildMorgamesTutorialPayload(giveawayId) {
+  const id = String(giveawayId || "").trim();
+  const embed = new EmbedBuilder()
+    .setColor("#f59e0b")
+    .setTitle("<:VC_Morgames:1562470559319719957> Serve un account Morgames")
+    .setDescription(
+      "Questo giveaway è riservato a chi ha **Discord collegato su Morgames**.\n" +
+        "Ci vuole un minuto — poi torna qui e verifica.",
+    )
+    .addFields(
+      {
+        name: "1 · Apri Morgames",
+        value: `Vai su [morgames.app](${MORGAMES_SITE_URL}) (anche dal telefono).`,
+        inline: false,
+      },
+      {
+        name: "2 · Accedi con Discord",
+        value: "Premi **Login** e autorizza Discord sul sito.",
+        inline: false,
+      },
+      {
+        name: "3 · Torna qui",
+        value: "Quando hai finito, premi **Ho collegato Discord** qui sotto (o di nuovo **Entra** sul giveaway).",
+        inline: false,
+      },
+    )
+
+  const row = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setStyle(ButtonStyle.Link)
+      .setEmoji("<:VC_Morgames:1562470559319719957>")
+      .setLabel("Apri Morgames")
+      .setURL(MORGAMES_SITE_URL),
+    new ButtonBuilder()
+      .setCustomId(`${GIVEAWAY_MORGAMES_RETRY_PREFIX}${id}`)
+      .setEmoji("<a:VC_Events:1482706144953897223>")
+      .setLabel("Ho collegato Discord")
+      .setStyle(ButtonStyle.Success),
+  );
+  return { embeds: [embed], components: [row] };
+}
+
+async function replyGiveawayEphemeral(interaction, payload) {
+  const ephemeral = { flags: 1 << 6 };
+  try {
+    if (typeof payload === "string") {
+      payload = { content: payload, embeds: [], components: [] };
+    } else {
+      payload = {
+        content: payload.content || "",
+        embeds: payload.embeds || [],
+        components: payload.components || [],
+      };
+    }
+    if (interaction.deferred || interaction.replied) {
+      await interaction.editReply(payload).catch(() => { });
+    } else {
+      await interaction.reply({ ...payload, ...ephemeral }).catch(() => { });
+    }
+  } catch (_) {}
+}
+
+async function enterGiveaway(interaction, client, opts) {
+  opts = opts || {};
   const customId = String(interaction?.customId || "");
-  if (!customId.startsWith(GIVEAWAY_ENTER_PREFIX)) return false;
-  const giveawayId = customId.slice(GIVEAWAY_ENTER_PREFIX.length).trim();
+  const fromRetry = Boolean(opts.fromMorgamesRetry) || customId.startsWith(GIVEAWAY_MORGAMES_RETRY_PREFIX);
+  let giveawayId = "";
+  if (fromRetry && customId.startsWith(GIVEAWAY_MORGAMES_RETRY_PREFIX)) {
+    giveawayId = customId.slice(GIVEAWAY_MORGAMES_RETRY_PREFIX.length).trim();
+  } else if (customId.startsWith(GIVEAWAY_ENTER_PREFIX)) {
+    giveawayId = customId.slice(GIVEAWAY_ENTER_PREFIX.length).trim();
+  } else if (opts.giveawayId) {
+    giveawayId = String(opts.giveawayId).trim();
+  }
+  if (!giveawayId && !fromRetry && !customId.startsWith(GIVEAWAY_ENTER_PREFIX)) return false;
   if (!giveawayId) return false;
+
+  const ephemeral = { flags: 1 << 6 };
+  if (!interaction.deferred && !interaction.replied) {
+    await interaction.deferReply(ephemeral).catch(() => { });
+  }
 
   const giveaway = await Giveaway.findOne({ _id: giveawayId }).lean();
   if (!giveaway) {
-    await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> Giveaway non trovato o già terminato.", flags: 1 << 6 }).catch(() => { });
+    await replyGiveawayEphemeral(interaction, "<a:VC_Alert:1482706673176150077> Giveaway non trovato o già terminato.");
     return true;
   }
   if (giveaway.cancelled) {
-    await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> Questo giveaway è stato annullato.", flags: 1 << 6 }).catch(() => { });
+    await replyGiveawayEphemeral(interaction, "<a:VC_Alert:1482706673176150077> Questo giveaway è stato annullato.");
     return true;
   }
   if (giveaway.ended) {
-    await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> Questo giveaway è già terminato.", flags: 1 << 6 }).catch(() => { });
+    await replyGiveawayEphemeral(interaction, "<a:VC_Alert:1482706673176150077> Questo giveaway è già terminato.");
     return true;
   }
   if (new Date(giveaway.endAt).getTime() <= Date.now()) {
     void endGiveaway(giveawayId, client).catch(() => null);
-    await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> Il tempo per partecipare è scaduto.", flags: 1 << 6 }).catch(() => { });
+    await replyGiveawayEphemeral(interaction, "<a:VC_Alert:1482706673176150077> Il tempo per partecipare è scaduto.");
     return true;
   }
 
   const userId = String(interaction.user?.id || "");
   const wasIn = giveaway.participants && giveaway.participants.includes(userId);
+
+  /* morgamesGw1 + morgamesTutorial1: check immediato; se non linked → mini-tutorial */
+  if (giveaway.requireMorgames && !wasIn) {
+    if (!isMorgamesVerifyConfigured()) {
+      global.logger?.warn?.("[GIVEAWAY] requireMorgames ma MORGAMES_DISCORD_GIVEAWAY_API_SECRET assente");
+      await replyGiveawayEphemeral(
+        interaction,
+        "<a:VC_Alert:1482706673176150077> Verifica Morgames non configurata. Riprova più tardi.",
+      );
+      return true;
+    }
+    const verified = await verifyDiscordUserLinked(userId, { force: fromRetry });
+    if (!verified.ok || verified.linked !== true) {
+      await replyGiveawayEphemeral(interaction, buildMorgamesTutorialPayload(giveawayId));
+      return true;
+    }
+  }
+
   const updated = await Giveaway.findOneAndUpdate(
     { _id: giveawayId, ended: false },
     { $addToSet: { participants: userId } },
     { new: true },
   );
   if (!updated) {
-    await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> Giveaway non trovato o già terminato.", flags: 1 << 6 }).catch(() => { });
+    await replyGiveawayEphemeral(interaction, "<a:VC_Alert:1482706673176150077> Giveaway non trovato o già terminato.");
     return true;
   }
 
-  const count = Array.isArray(updated.participants) ? updated.participants.length : 0;
-  await interaction.reply({
-    content: wasIn
-      ? "<a:VC_Alert:1482706673176150077> Sei già iscritto! "
-      : "<a:VC_Events:1482706144953897223> Sei entrato nel giveaway!",
-    flags: 1 << 6,
-  }).catch(() => { });
+  await replyGiveawayEphemeral(
+    interaction,
+    wasIn
+      ? "<a:VC_Alert:1482706673176150077> Sei già iscritto!"
+      : giveaway.requireMorgames
+        ? "<a:VC_Events:1482706144953897223> Sei entrato nel giveaway!"
+        : "<a:VC_Events:1482706144953897223> Sei entrato nel giveaway!",
+  );
 
   return true;
+}
+
+async function retryMorgamesGiveawayEnter(interaction, client) {
+  const customId = String(interaction?.customId || "");
+  if (!customId.startsWith(GIVEAWAY_MORGAMES_RETRY_PREFIX)) return false;
+  return enterGiveaway(interaction, client, { fromMorgamesRetry: true });
 }
 
 async function leaveGiveaway(interaction, client) {
@@ -261,7 +391,23 @@ const GIVEAWAY_READ_PROJECTION = {
   cancelled: 1,
   winnerIds: 1,
   guildId: 1,
+  requireMorgames: 1,
 };
+
+async function resolveEligibleParticipants(giveaway) {
+  const participants = Array.isArray(giveaway?.participants) ? giveaway.participants : [];
+  if (!giveaway?.requireMorgames) return participants;
+  if (!isMorgamesVerifyConfigured()) {
+    global.logger?.warn?.("[GIVEAWAY] end/reroll: requireMorgames senza secret → pool vuoto (fail-closed)");
+    return [];
+  }
+  try {
+    return await filterLinkedDiscordUsers(participants);
+  } catch (err) {
+    global.logger?.warn?.("[GIVEAWAY] morgames filter failed:", err?.message || err);
+    return [];
+  }
+}
 
 async function endGiveaway(giveawayId, client) {
   const id = String(giveawayId || "").trim();
@@ -270,7 +416,7 @@ async function endGiveaway(giveawayId, client) {
   const giveaway = await Giveaway.findOne({ _id: id, ended: false, cancelled: { $ne: true } }, GIVEAWAY_READ_PROJECTION).lean();
   if (!giveaway) return null;
 
-  const participants = Array.isArray(giveaway.participants) ? giveaway.participants : [];
+  const participants = await resolveEligibleParticipants(giveaway);
   const winnerIds = pickWinners(participants, giveaway.winnerCount);
 
   const claimed = await Giveaway.updateOne(
@@ -387,7 +533,10 @@ async function rerollGiveaway(interaction, client) {
     return true;
   }
 
-  const participants = Array.isArray(giveaway.participants) ? giveaway.participants : [];
+  if (!interaction.deferred && !interaction.replied) {
+    await interaction.deferReply({ flags: 1 << 6 }).catch(() => { });
+  }
+  const participants = await resolveEligibleParticipants(giveaway);
   const currentWinners = Array.isArray(giveaway.winnerIds) ? giveaway.winnerIds : [];
   const newWinnerId = pickOneExcluding(participants, currentWinners);
   const newWinnerIds = newWinnerId ? [newWinnerId] : null;
@@ -415,16 +564,13 @@ async function rerollGiveaway(interaction, client) {
     }
   }
 
-  if (newWinnerId) {
-    await interaction.reply({
-      content: "<a:VC_Alert:1482706673176150077> Reroll effettuato! Il messaggio con il nuovo vincitore è stato inviato nel canale.",
-      flags: 1 << 6,
-    }).catch(() => { });
+  const rerollMsg = newWinnerId
+    ? "<a:VC_Alert:1482706673176150077> Reroll effettuato! Il messaggio con il nuovo vincitore è stato inviato nel canale."
+    : "<a:VC_Alert:1482706673176150077> Nessun altro partecipante disponibile per il reroll.";
+  if (interaction.deferred || interaction.replied) {
+    await interaction.editReply({ content: rerollMsg }).catch(() => { });
   } else {
-    await interaction.reply({
-      content: "<a:VC_Alert:1482706673176150077> Nessun altro partecipante disponibile per il reroll.",
-      flags: 1 << 6,
-    }).catch(() => { });
+    await interaction.reply({ content: rerollMsg, flags: 1 << 6 }).catch(() => { });
   }
   return true;
 }
@@ -554,7 +700,7 @@ async function rerollGiveawayByMessageId(messageId, client) {
   if (giveaway.cancelled) return { ok: false, error: "<a:VC_Alert:1482706673176150077> Questo giveaway è stato annullato." };
   if (!giveaway.ended) return { ok: false, error: "<a:VC_Alert:1482706673176150077> Il giveaway non è ancora terminato." };
 
-  const participants = Array.isArray(giveaway.participants) ? giveaway.participants : [];
+  const participants = await resolveEligibleParticipants(giveaway);
   const currentWinners = Array.isArray(giveaway.winnerIds) ? giveaway.winnerIds : [];
   const newWinnerId = pickOneExcluding(participants, currentWinners);
   const newWinnerIds = newWinnerId ? [newWinnerId] : null;
@@ -634,15 +780,18 @@ module.exports = {
   GIVEAWAY_LEAVE_PREFIX,
   GIVEAWAY_COUNT_PREFIX,
   GIVEAWAY_REROLL_PREFIX,
+  GIVEAWAY_MORGAMES_RETRY_PREFIX,
   parseDuration,
   buildGiveawayEmbed,
   buildEnterButton,
   buildRerollButton,
+  buildMorgamesTutorialPayload,
   createGiveaway,
   setGiveawayMessageId,
   getGiveawayByMessageId,
   getGiveawayById,
   enterGiveaway,
+  retryMorgamesGiveawayEnter,
   leaveGiveaway,
   showGiveawayJoinCount,
   endGiveaway,

@@ -280,18 +280,14 @@ function reviewNotifOpenUrl(reviewId, kind, opts = {}) {
 async function notifyHighStaffNewReview(guild, review, authorName) {
   const rid = String(review?._id || "").trim();
   const kind = String(review?.reviewKind || "server");
+  /* staffReviewTargetOnly1: recensioni staff → solo lo staffer recensito
+     (notifyReviewedStafferNewReview), niente broadcast High Staff. */
+  if (kind === "staff") return;
   const isBot = kind === "bot";
-  const isStaff = kind === "staff";
-  const title = isBot
-    ? "Nuova recensione bot"
-    : isStaff
-      ? "Nuova recensione staff"
-      : "Nuova recensione community";
+  const title = isBot ? "Nuova recensione bot" : "Nuova recensione community";
   const body = isBot
     ? `${authorName || "Un utente"} ha pubblicato una recensione del bot.`
-    : isStaff
-      ? `${authorName || "Un utente"} ha recensito uno staffer.`
-      : `${authorName || "Un utente"} ha pubblicato una recensione della community.`;
+    : `${authorName || "Un utente"} ha pubblicato una recensione della community.`;
   const userIds = await getHighStaffUserIds(guild);
   for (const userId of userIds) {
     try {
@@ -773,7 +769,10 @@ async function submitSiteReview(client, payload = {}) {
     }
   }
   if (!existing) {
-    await notifyHighStaffNewReview(resolved.guild, nextDoc, displayNameForMember(resolved.member));
+    /* staffReviewTargetOnly1: staff → solo staffer target; server/bot → High Staff */
+    if (reviewKind !== "staff") {
+      await notifyHighStaffNewReview(resolved.guild, nextDoc, displayNameForMember(resolved.member));
+    }
     await notifyReviewedStafferNewReview(resolved.guild, nextDoc, displayNameForMember(resolved.member));
   }
 

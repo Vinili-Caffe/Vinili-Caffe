@@ -1,3 +1,4 @@
+/* lookStaticBorder1: no conic/mask rings — solid sand border */
 @import url("https://fonts.googleapis.com/css2?family=Caveat:wght@500;600;700&display=swap");
 
 /* Staff Compiti DualView1 — staff edit vs HS review + retry */
@@ -356,16 +357,8 @@ body.vc-compiti-hs .vc-staff-compiti-board.is-closed {
   border: 2px solid transparent;
   background-color: #100c09;
   background-image:
-    linear-gradient(#100c09, #100c09),
-    conic-gradient(
-      from 0deg,
-      rgba(255, 247, 236, 0.98) 0deg,
-      rgba(236, 205, 176, 0.9) 70deg,
-      rgba(212, 168, 136, 0.78) 140deg,
-      rgba(180, 130, 90, 0.82) 200deg,
-      rgba(212, 168, 136, 0.78) 270deg,
-      rgba(255, 247, 236, 0.98) 360deg
-    );
+    linear-gradient(#100c09, #100c09)
+    ;
   background-origin: padding-box, border-box;
   background-clip: padding-box, border-box;
   -webkit-background-clip: padding-box, border-box;
@@ -948,16 +941,8 @@ body.vc-compiti-hs-view .vc-compiti-review:not([hidden]) {
   border: 2px solid transparent;
   background-color: rgba(255, 252, 245, 0.72);
   background-image:
-    linear-gradient(rgba(255, 252, 245, 0.82), rgba(245, 236, 220, 0.78)),
-    conic-gradient(
-      from 0deg,
-      rgba(111, 78, 55, 0.95) 0deg,
-      rgba(180, 130, 90, 0.88) 70deg,
-      rgba(212, 168, 136, 0.92) 140deg,
-      rgba(139, 110, 77, 0.9) 200deg,
-      rgba(212, 168, 136, 0.92) 270deg,
-      rgba(111, 78, 55, 0.95) 360deg
-    );
+    linear-gradient(rgba(255, 252, 245, 0.82), rgba(245, 236, 220, 0.78))
+    ;
   background-origin: padding-box, border-box;
   background-clip: padding-box, border-box;
   -webkit-background-clip: padding-box, border-box;
@@ -969,16 +954,8 @@ body.vc-compiti-hs-view .vc-compiti-review:not([hidden]) {
 .vc-compiti-pager__btn--primary {
   background-color: rgba(107, 68, 35, 0.16);
   background-image:
-    linear-gradient(rgba(107, 68, 35, 0.18), rgba(107, 68, 35, 0.12)),
-    conic-gradient(
-      from 0deg,
-      rgba(111, 78, 55, 0.95) 0deg,
-      rgba(180, 130, 90, 0.88) 70deg,
-      rgba(212, 168, 136, 0.92) 140deg,
-      rgba(139, 110, 77, 0.9) 200deg,
-      rgba(212, 168, 136, 0.92) 270deg,
-      rgba(111, 78, 55, 0.95) 360deg
-    );
+    linear-gradient(rgba(107, 68, 35, 0.18), rgba(107, 68, 35, 0.12))
+    ;
   background-origin: padding-box, border-box;
   background-clip: padding-box, border-box;
   -webkit-background-clip: padding-box, border-box;
@@ -1421,20 +1398,12 @@ html.vc-staff-compiti-route body.vc-staff-compiti-page
   box-shadow: 0 0 0 1px rgba(111, 78, 55, 0.22) !important;
   background-color: rgba(255, 252, 245, 0.72) !important;
   background-image:
-    linear-gradient(rgba(255, 252, 245, 0.82), rgba(245, 236, 220, 0.78)),
-    conic-gradient(
-      from 0deg,
-      rgba(111, 78, 55, 0.95) 0deg,
-      rgba(180, 130, 90, 0.88) 70deg,
-      rgba(212, 168, 136, 0.92) 140deg,
-      rgba(139, 110, 77, 0.9) 200deg,
-      rgba(212, 168, 136, 0.92) 270deg,
-      rgba(111, 78, 55, 0.95) 360deg
-    ) !important;
+    linear-gradient(rgba(255, 252, 245, 0.82), rgba(245, 236, 220, 0.78))
+     !important;
   background-origin: padding-box, border-box !important;
   background-clip: padding-box, border-box !important;
   -webkit-background-clip: padding-box, border-box !important;
-  border: 2px solid transparent !important;
+  border: 2px solid rgba(245, 214, 183, 0.38) !important;
   color: var(--vc-compiti-ink) !important;
   -webkit-text-fill-color: var(--vc-compiti-ink) !important;
 }
@@ -1446,16 +1415,8 @@ html.vc-staff-compiti-route body.vc-staff-compiti-page
   .vc-compiti-pager__btn--primary:is(:hover, :focus-visible, :active):not(:disabled) {
   background-color: rgba(107, 68, 35, 0.16) !important;
   background-image:
-    linear-gradient(rgba(107, 68, 35, 0.18), rgba(107, 68, 35, 0.12)),
-    conic-gradient(
-      from 0deg,
-      rgba(111, 78, 55, 0.95) 0deg,
-      rgba(180, 130, 90, 0.88) 70deg,
-      rgba(212, 168, 136, 0.92) 140deg,
-      rgba(139, 110, 77, 0.9) 200deg,
-      rgba(212, 168, 136, 0.92) 270deg,
-      rgba(111, 78, 55, 0.95) 360deg
-    ) !important;
+    linear-gradient(rgba(107, 68, 35, 0.18), rgba(107, 68, 35, 0.12))
+     !important;
 }
 html.vc-staff-compiti-route body.vc-body .vc-compiti-hs-nav__btn:is(:hover, :focus-visible, :active):not(:disabled),
 html body.vc-staff-compiti-page .vc-compiti-hs-nav__btn:is(:hover, :focus-visible, :active):not(:disabled),
@@ -1465,10 +1426,11 @@ html.vc-site-polish body.vc-body .vc-compiti-hs-nav__btn:is(:hover, :focus-visib
   scale: none !important;
   filter: none !important;
   -webkit-filter: none !important;
+  /* stessi shadow del rest — niente “press down” all’hover */
   box-shadow:
     0 0 0 1px rgba(255, 247, 236, 0.18),
-    0 10px 28px rgba(0, 0, 0, 0.45),
-    inset 0 1px 0 rgba(255, 244, 228, 0.12) !important;
+    0 14px 36px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 236, 214, 0.14) !important;
 }
 html.vc-staff-compiti-route body.vc-body .vc-compiti-hs-nav__btn:is(:hover, :focus-visible):not(:disabled) .vc-compiti-hs-nav__ring,
 html body.vc-staff-compiti-page .vc-compiti-hs-nav__btn:is(:hover, :focus-visible):not(:disabled) .vc-compiti-hs-nav__ring {
@@ -1476,3 +1438,47 @@ html body.vc-staff-compiti-page .vc-compiti-hs-nav__btn:is(:hover, :focus-visibl
   transform: scale(0.92) !important;
 }
 /* compitiBookHandHover1 */
+
+/* ═══════════════════════════════════════════════════════════════
+   compitiSwitchNoDip1 — look-core compitiSwitchHover1 faceva
+   scale(1.08)/scale(0.94) + ombra diversa → frecce “abbassate”.
+   Prev + next: zero movimento / press all’hover.
+   ═══════════════════════════════════════════════════════════════ */
+html.vc-staff-compiti-route body.vc-body .vc-compiti-hs-nav__btn--prev:is(:hover, :focus-visible, :active):not(:disabled),
+html.vc-staff-compiti-route body.vc-body .vc-compiti-hs-nav__btn--next:is(:hover, :focus-visible, :active):not(:disabled),
+html body.vc-staff-compiti-page .vc-compiti-hs-nav__btn--prev:is(:hover, :focus-visible, :active):not(:disabled),
+html body.vc-staff-compiti-page .vc-compiti-hs-nav__btn--next:is(:hover, :focus-visible, :active):not(:disabled),
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-staff-compiti-page .vc-compiti-hs-nav__btn--prev:is(:hover, :focus-visible, :active):not(:disabled),
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-staff-compiti-page .vc-compiti-hs-nav__btn--next:is(:hover, :focus-visible, :active):not(:disabled),
+html.vc-site-polish body.vc-body .vc-compiti-hs-nav__btn--prev:is(:hover, :focus-visible, :active):not(:disabled),
+html.vc-site-polish body.vc-body .vc-compiti-hs-nav__btn--next:is(:hover, :focus-visible, :active):not(:disabled) {
+  transform: translateY(-50%) !important;
+  translate: none !important;
+  scale: none !important;
+  top: 50% !important;
+  filter: none !important;
+  -webkit-filter: none !important;
+  box-shadow:
+    0 0 0 1px rgba(255, 247, 236, 0.18),
+    0 14px 36px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 236, 214, 0.14) !important;
+}
+html.vc-staff-compiti-route body.vc-body .vc-compiti-hs-nav__btn--prev:is(:hover, :focus-visible, :active):not(:disabled) .fa,
+html.vc-staff-compiti-route body.vc-body .vc-compiti-hs-nav__btn--prev:is(:hover, :focus-visible, :active):not(:disabled) i,
+html.vc-staff-compiti-route body.vc-body .vc-compiti-hs-nav__btn--next:is(:hover, :focus-visible, :active):not(:disabled) .fa,
+html.vc-staff-compiti-route body.vc-body .vc-compiti-hs-nav__btn--next:is(:hover, :focus-visible, :active):not(:disabled) i,
+html body.vc-staff-compiti-page .vc-compiti-hs-nav__btn--prev:is(:hover, :focus-visible, :active):not(:disabled) .fa,
+html body.vc-staff-compiti-page .vc-compiti-hs-nav__btn--next:is(:hover, :focus-visible, :active):not(:disabled) .fa,
+html body.vc-staff-compiti-page .vc-compiti-hs-nav__btn--prev:is(:hover, :focus-visible, :active):not(:disabled) i,
+html body.vc-staff-compiti-page .vc-compiti-hs-nav__btn--next:is(:hover, :focus-visible, :active):not(:disabled) i {
+  transform: none !important;
+  translate: none !important;
+}
+html.vc-staff-compiti-route body.vc-body .vc-compiti-hs-nav__btn--prev:is(:hover, :focus-visible):not(:disabled) .vc-compiti-hs-nav__ring,
+html.vc-staff-compiti-route body.vc-body .vc-compiti-hs-nav__btn--next:is(:hover, :focus-visible):not(:disabled) .vc-compiti-hs-nav__ring,
+html body.vc-staff-compiti-page .vc-compiti-hs-nav__btn--prev:is(:hover, :focus-visible):not(:disabled) .vc-compiti-hs-nav__ring,
+html body.vc-staff-compiti-page .vc-compiti-hs-nav__btn--next:is(:hover, :focus-visible):not(:disabled) .vc-compiti-hs-nav__ring {
+  opacity: 0 !important;
+  transform: scale(0.92) !important;
+}
+/* compitiSwitchNoDip1 */

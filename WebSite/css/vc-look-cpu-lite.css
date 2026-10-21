@@ -1,0 +1,282 @@
+/* lookCpuLite1: look brand senza conic+mask / blur continuo (CPU).
+   Caricato ULTIMO dopo soft-fx / fx-flat / staff-pause. */
+
+html.vc-site-polish.vc-look-cpu-lite body.vc-body,
+html.vc-site-polish.vc-look-cpu-lite {
+  --vc-look-cpu-border: rgba(245, 214, 183, 0.3);
+  --vc-look-cpu-border-strong: rgba(245, 214, 183, 0.42);
+  --vc-look-cpu-fill: #100c09;
+  --vc-look-cpu-fill-lift: #16110e;
+  --vc-look-cpu-shadow: 0 10px 28px rgba(0, 0, 0, 0.42);
+}
+
+/* —— Kill decorative CPU layers (grain/aura/sheen/cursor glow) —— */
+html.vc-look-cpu-lite body.vc-body :is(
+  .vc-home-cine__grain,
+  .vc-home-cine__aura,
+  .vc-home-cine__spotlight,
+  .vc-page-cine-hero__grain,
+  .vc-page-cine-hero__aura,
+  .vc-soft-vote-glow,
+  .vc-soft-vote-glow::before,
+  .vc-soft-vote-glow::after,
+  .vc-fx-sheen,
+  [class*="__sheen"],
+  #vc-site-cursor-light,
+  #vc-site-cursor-light::before,
+  #vc-site-cursor-light::after,
+  .vc-brand-glow::before,
+  .vc-brand-glow::after,
+  .vc-brand-shimmer
+) {
+  display: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  animation: none !important;
+  filter: none !important;
+  background: none !important;
+  box-shadow: none !important;
+}
+
+/* —— Pseudo rings: no conic / no mask —— */
+html.vc-look-cpu-lite.vc-site-polish body.vc-body :is(
+  .vc-page-cine-card,
+  .vc-fx-card,
+  .vc-home-panel,
+  .vc-home-deck,
+  .vc-ul-card,
+  .vc-role-card,
+  .vc-perks-card,
+  .vc-sponsor-card,
+  .vc-reviews-card,
+  .vc-feedback-card,
+  .vc-faq-group,
+  .vc-regole-card,
+  .vc-legal-card,
+  .vc-wiki-cmd-shell,
+  .vc-candidature-card,
+  .vc-staff-hub-card,
+  .vc-staff-block,
+  .vc-auth-required-card,
+  .vc-vote-platform-card,
+  .vc-vote-live-shell,
+  .vc-vote-live-statbox,
+  .vc-cmd-acc,
+  .vc-staff-tool-card,
+  .vc-staff-compiti-card,
+  .vc-dash-card,
+  .vc-support-donate-role,
+  .vc-stat-strip,
+  .vc-hero-head,
+  .vc-user-profile-hero,
+  .vc-user-profile-block,
+  .vc-user-profile-disclosure,
+  .vc-user-profile-accordion,
+  .vc-user-profile-badges,
+  .vc-user-profile-stat,
+  .vc-user-profile-mini,
+  .vc-nav-shell,
+  .vc-premium-footer__outer,
+  .discord-profile-link--chip,
+  .discord-avatar-clip
+)::before,
+html.vc-look-cpu-lite.vc-site-polish body.vc-body :is(
+  .vc-page-cine-card,
+  .vc-fx-card,
+  .vc-home-panel,
+  .vc-home-deck,
+  .vc-ul-card,
+  .vc-role-card,
+  .vc-perks-card,
+  .vc-sponsor-card,
+  .vc-reviews-card,
+  .vc-feedback-card,
+  .vc-faq-group,
+  .vc-regole-card,
+  .vc-legal-card,
+  .vc-wiki-cmd-shell,
+  .vc-candidature-card,
+  .vc-staff-hub-card,
+  .vc-staff-block,
+  .vc-auth-required-card,
+  .vc-vote-platform-card,
+  .vc-vote-live-shell,
+  .vc-vote-live-statbox,
+  .vc-cmd-acc,
+  .vc-staff-tool-card,
+  .vc-staff-compiti-card,
+  .vc-dash-card,
+  .vc-support-donate-role,
+  .vc-stat-strip,
+  .vc-hero-head,
+  .vc-user-profile-hero,
+  .vc-user-profile-block,
+  .vc-user-profile-disclosure,
+  .vc-user-profile-accordion,
+  .vc-user-profile-badges,
+  .vc-user-profile-stat,
+  .vc-user-profile-mini,
+  .vc-nav-shell,
+  .vc-premium-footer__outer,
+  .discord-profile-link--chip,
+  .discord-avatar-clip
+)::after {
+  content: none !important;
+  display: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  background: none !important;
+  background-image: none !important;
+  -webkit-mask: none !important;
+  mask: none !important;
+  filter: none !important;
+  -webkit-filter: none !important;
+  animation: none !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+/* —— Cards / shells: fill + bordo sand 1px (niente conic border-box) —— */
+html.vc-look-cpu-lite.vc-site-polish body.vc-body :is(
+  .vc-page-cine-card,
+  .vc-fx-card,
+  .vc-home-panel,
+  .vc-home-deck,
+  .vc-ul-card,
+  .vc-role-card,
+  .vc-perks-card,
+  .vc-sponsor-card,
+  .vc-reviews-card:not(.vc-reviews-stage__card),
+  .vc-feedback-card:not(.vc-reviews-stage__card),
+  .vc-faq-group,
+  .vc-regole-card,
+  .vc-legal-card,
+  .vc-wiki-cmd-shell,
+  .vc-candidature-card,
+  .vc-staff-hub-card,
+  .vc-staff-block,
+  .vc-auth-required-card,
+  .vc-vote-platform-card,
+  .vc-vote-live-shell,
+  .vc-vote-live-statbox,
+  .vc-cmd-acc,
+  .vc-staff-tool-card,
+  .vc-staff-compiti-card,
+  .vc-dash-card,
+  .vc-support-donate-role,
+  .vc-user-profile-hero,
+  .vc-user-profile-block,
+  .vc-user-profile-disclosure,
+  .vc-user-profile-accordion,
+  .vc-user-profile-badges,
+  .vc-user-profile-stat,
+  .vc-user-profile-mini,
+  .vc-hero-head,
+  main .rounded-2xl:not(button):not(a)
+) {
+  background-color: var(--vc-look-cpu-fill) !important;
+  background-image: linear-gradient(
+    175deg,
+    var(--vc-look-cpu-fill-lift) 0%,
+    var(--vc-look-cpu-fill) 55%,
+    #0b0807 100%
+  ) !important;
+  background-origin: border-box !important;
+  background-clip: border-box !important;
+  -webkit-background-clip: border-box !important;
+  border: 1px solid var(--vc-look-cpu-border) !important;
+  border-color: var(--vc-look-cpu-border) !important;
+  box-shadow: var(--vc-look-cpu-shadow) !important;
+  filter: none !important;
+  -webkit-filter: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  text-shadow: none !important;
+}
+
+/* —— Nav shell / footer: bordo semplice —— */
+html.vc-look-cpu-lite.vc-site-polish body.vc-body header .vc-nav-shell,
+html.vc-look-cpu-lite.vc-site-polish body.vc-body .vc-nav-shell,
+html.vc-look-cpu-lite.vc-site-polish body.vc-body footer.vc-premium-footer .vc-premium-footer__outer,
+html.vc-look-cpu-lite.vc-site-polish body.vc-body > footer.vc-premium-footer .vc-premium-footer__outer {
+  background-image: none !important;
+  background-color: #14100c !important;
+  border: 1px solid var(--vc-look-cpu-border-strong) !important;
+  border-color: var(--vc-look-cpu-border-strong) !important;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4) !important;
+  filter: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* chip account / avatar: anello 1px —— */
+html.vc-look-cpu-lite.vc-site-polish body.vc-body header .discord-profile-link.discord-profile-link--chip,
+html.vc-look-cpu-lite.vc-site-polish body.vc-body #header-quick-actions .discord-profile-link.discord-profile-link--chip,
+html.vc-look-cpu-lite.vc-site-polish body.vc-body header .discord-profile-link--chip .discord-avatar-clip {
+  background-image: none !important;
+  background-color: #14100c !important;
+  border: 2px solid var(--vc-look-cpu-border-strong) !important;
+  border-color: var(--vc-look-cpu-border-strong) !important;
+  box-shadow: none !important;
+  filter: none !important;
+}
+
+/* —— Profile avatar glow blur off —— */
+html.vc-look-cpu-lite body.vc-body .vc-user-profile-avatarwrap::before {
+  filter: none !important;
+  -webkit-filter: none !important;
+  opacity: 0.55 !important;
+  background: radial-gradient(
+    circle,
+    rgba(212, 168, 136, 0.28) 0%,
+    transparent 70%
+  ) !important;
+}
+html.vc-look-cpu-lite body.vc-body .vc-user-profile-avatarwrap::after {
+  box-shadow: 0 0 0 1px rgba(245, 214, 183, 0.35) !important;
+  border-color: rgba(245, 214, 183, 0.45) !important;
+  filter: none !important;
+}
+
+/* —— Glass panels: no backdrop-filter —— */
+html.vc-look-cpu-lite.vc-site-polish body.vc-body :is(
+  .vc-glass,
+  .vc-glass-panel,
+  .backdrop-blur,
+  [class*="backdrop-blur"],
+  .vc-snav-panel,
+  .vc-notif-panel,
+  .vc-lang-panel,
+  .vc-mobile-nav-drawer__panel,
+  .vc-dialog__panel,
+  .vc-dialog__card,
+  .vc-dash-confirm__panel,
+  .vc-feedback-sheet,
+  .vc-staff-stat-sheet,
+  .vc-staff-manage-sheet,
+  .vc-staff-reso-sheet
+) {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  filter: none !important;
+}
+
+/* —— Marquee: pause a riposo (CPU); hover può riprendere via chrome-ui —— */
+html.vc-look-cpu-lite.vc-cpu-settle:not(.vc-page-hidden) body.vc-body header a.vc-header-site-name.is-marquee:not(:hover):not(:focus-visible) .vc-header-site-name__track,
+html.vc-look-cpu-lite.vc-cpu-settle:not(.vc-page-hidden) body.vc-body header .discord-profile-link:not(:hover):not(:focus-within) .discord-profile-link__name[data-vc-nav-user-marquee].is-marquee .vc-marquee__track,
+html.vc-look-cpu-lite.vc-cpu-settle:not(.vc-page-hidden) body.vc-body #header-quick-actions .discord-profile-link:not(:hover):not(:focus-within) .discord-profile-link__name[data-vc-nav-user-marquee].is-marquee .vc-marquee__track {
+  animation-play-state: paused !important;
+  -webkit-animation-play-state: paused !important;
+  will-change: auto !important;
+}
+
+/* —— Light theme —— */
+html.vc-look-cpu-lite.vc-site-polish[data-vc-theme="light"] {
+  --vc-look-cpu-border: rgba(92, 58, 34, 0.28);
+  --vc-look-cpu-border-strong: rgba(92, 58, 34, 0.4);
+  --vc-look-cpu-fill: #f7efe6;
+  --vc-look-cpu-fill-lift: #fffaf3;
+  --vc-look-cpu-shadow: 0 10px 28px rgba(60, 40, 20, 0.12);
+}

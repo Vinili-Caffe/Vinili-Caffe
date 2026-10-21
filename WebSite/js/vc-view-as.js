@@ -1,5 +1,8 @@
 /**
  * Founder-only "Vedi come…" — centered bar, auto-apply menu, icon exit.
+ * Marker: viewAsGateClear1 — launcher PE auto; bar z above load-click-gate; open despite orphan locks.
+ * Marker: viewAsLegalClick2b — open bar without mode keeps bar-on; z-index above legal sipario;
+ *   re-bind click on existing launcher (legal remounts header / lost listener).
  * Marker: vcViewAsBarToggle1 — bar off by default; X closes; launcher reopens
  * Marker: vcViewAsNoFlash2 — no stub/bar chrome unless preview active or bar open
  * Marker: authAnteprimaSticky2 — no Anteprima se token scaduto / UI Accedi senza preview
@@ -306,7 +309,10 @@
       root.classList.remove("vc-view-as-" + p.id);
     });
     if (!mode) {
-      root.classList.remove("vc-view-as-bar-on");
+      /* viewAsLegalClick1: bar aperta per scegliere ruolo → NON spegnere bar-on */
+      if (!isBarOpen()) {
+        root.classList.remove("vc-view-as-bar-on");
+      }
       return;
     }
     root.classList.add("vc-view-as-active", "vc-view-as-" + mode);
@@ -392,11 +398,11 @@
 
   function injectCss() {
     var existingCss = document.getElementById("vc-view-as-css");
-    if (existingCss && existingCss.getAttribute("data-vc") === "vcViewAsEyeGif2") return;
+    if (existingCss && existingCss.getAttribute("data-vc") === "viewAsGateClear1") return;
     if (existingCss && existingCss.parentNode) existingCss.parentNode.removeChild(existingCss);
     var css = document.createElement("style");
     css.id = "vc-view-as-css";
-    css.setAttribute("data-vc", "vcViewAsEyeGif2");
+    css.setAttribute("data-vc", "viewAsGateClear1");
     css.textContent =
       "html.vc-view-as-bar-on{--vc-view-as-bar-h:3.1rem}" +
       "html.vc-view-as-bar-on body," +
@@ -439,7 +445,7 @@
       "top:var(--vc-view-as-bar-h)!important}" +
       "#" +
       BAR_ID +
-      "{--vcva-sand:#e2c2a4;--vcva-ink:#f7efe4;position:fixed;top:0;left:0;right:0;z-index:2147483000;" +
+      "{--vcva-sand:#e2c2a4;--vcva-ink:#f7efe4;position:fixed;top:0;left:0;right:0;z-index:2147483501;" +
       "box-sizing:border-box;pointer-events:auto;" +
       "padding:0;padding-top:env(safe-area-inset-top,0px);" +
       "font-family:ui-sans-serif,system-ui,Segoe UI,sans-serif;" +
@@ -547,14 +553,18 @@
       "#header-quick-actions > .header-login-state{order:4!important}" +
       "#" +
       LAUNCH_ID +
-      "{position:relative;z-index:1;left:auto;right:auto;top:auto;bottom:auto;" +
+      "{position:relative;z-index:5;left:auto;right:auto;top:auto;bottom:auto;" +
       "appearance:none;cursor:pointer;flex:0 0 auto;" +
+      "pointer-events:auto!important;" +
       "display:inline-flex;align-items:center;gap:.38rem;border-radius:9999px;" +
       "padding:.32rem .55rem;font:700 .7rem/1 ui-sans-serif,system-ui,Segoe UI,sans-serif;" +
       "letter-spacing:.08em;text-transform:uppercase;color:#f6eadc;" +
       "background:rgba(16,11,8,.42);border:1px solid rgba(212,168,136,.34);" +
       "box-shadow:inset 0 1px 0 rgba(255,244,232,.08);" +
       "transition:border-color .2s ease,background .2s ease,box-shadow .2s ease,transform .2s ease}" +
+      "html.vc-chrome-scroll-armed.vc-cine-curtain-off #" +
+      LAUNCH_ID +
+      "{pointer-events:auto!important}" +
       "#" +
       LAUNCH_ID +
       " .fa{color:#e8c9a8;font-size:.78rem}" +
@@ -617,11 +627,15 @@
       "html.vc-view-as-guest .vc-auth-required-card{" +
       "visibility:visible!important;pointer-events:auto!important;opacity:1!important}" +
       "html.vc-view-as-guest #vc-session-verify-overlay{display:none!important;pointer-events:none!important}" +
+      /* viewAsLegalClick2: bar visibile anche solo bar-ready (scelta ruolo pre-mode);
+         z-index sopra sipario/legal overlays (era 10060 → sotto tutto) */
+      "html.vc-view-as-bar-ready #vc-view-as-bar:not([hidden])," +
       "html.vc-view-as-bar-ready.vc-view-as-active #vc-view-as-bar:not([hidden])," +
+      "html.vc-view-as-bar-ready.vc-view-as-bar-on #vc-view-as-bar:not([hidden])," +
       "html.vc-view-as-bar-ready.vc-view-as-active.vc-staff-denied-open #vc-view-as-bar:not([hidden])," +
       "html.vc-view-as-bar-ready.vc-view-as-active.vc-staff-access-pending #vc-view-as-bar:not([hidden])," +
       "html.vc-view-as-bar-ready.vc-view-as-active.vc-dash-access-pending #vc-view-as-bar:not([hidden]){" +
-      "display:flex!important;visibility:visible!important;pointer-events:auto!important;opacity:1!important;z-index:10060!important}" +
+      "display:flex!important;visibility:visible!important;pointer-events:auto!important;opacity:1!important;z-index:2147483501!important}" +
       "html.vc-view-as-active.vc-staff-denied-open," +
       "html.vc-view-as-active.vc-staff-denied-open body{" +
       "overflow:auto!important;position:static!important;inset:auto!important;height:auto!important;max-height:none!important}" +
@@ -803,15 +817,110 @@
     }
   }
 
-  /* Marker: vcEyeGifNav2 — eyedarkmoving GIF (transparent) on Anteprima pill */
+  /* viewAsEyeHover2: idle = PNG occhio aperto; GIF solo hover/focus (no auto-play tickets) */
   var EYE_GIF_SRC = "/images/eyedarkmoving-trans.gif?v=20260912eyeGifNav2";
+  var EYE_STILL_SRC = "/images/eyedarkmoving-trans-still.png?v=20261019viewAsEyeHover2";
 
   function eyeIconHtml() {
     return (
-      '<img class="vcva-eye" data-vc-eye="gif1" src="' +
+      '<img class="vcva-eye" data-vc-eye="gif1" data-vc-eye-gif="' +
       EYE_GIF_SRC +
+      '" src="' +
+      EYE_STILL_SRC +
       '" width="17" height="17" alt="" aria-hidden="true" decoding="async" draggable="false"/>'
     );
+  }
+
+  function setEyeHover(btn, on) {
+    if (!btn) return;
+    var img = btn.querySelector(".vcva-eye");
+    if (!img) return;
+    var gif = String(img.getAttribute("data-vc-eye-gif") || EYE_GIF_SRC);
+    var want = on ? gif : EYE_STILL_SRC;
+    try {
+      if (on) btn.setAttribute("data-vc-eye-hovering", "1");
+      else btn.removeAttribute("data-vc-eye-hovering");
+      img.removeAttribute("data-vc-gif-live");
+      if (String(img.getAttribute("src") || "") !== want) img.setAttribute("src", want);
+    } catch (eEye) {}
+  }
+
+  function forceEyeStill(btn) {
+    setEyeHover(btn, false);
+  }
+
+  function bindEyeHover(btn) {
+    if (!btn) return;
+    try {
+      /* re-bind ok se header rebuild clona senza listener */
+      btn.setAttribute("data-vc-eye-hover", "1");
+      btn.onpointerenter = function () {
+        try {
+          if (document.hidden) return;
+          setEyeHover(btn, true);
+        } catch (ePe) {}
+      };
+      btn.onpointerleave = function () {
+        try {
+          setEyeHover(btn, false);
+        } catch (ePl) {}
+      };
+      btn.onfocus = function () {
+        try {
+          setEyeHover(btn, true);
+        } catch (eF) {}
+      };
+      btn.onblur = function () {
+        try {
+          setEyeHover(btn, false);
+        } catch (eB) {}
+      };
+    } catch (eBindEye) {}
+    setEyeHover(btn, false);
+  }
+
+  function onLaunchClick(ev) {
+    try {
+      if (ev && typeof ev.preventDefault === "function") ev.preventDefault();
+      if (ev && typeof ev.stopPropagation === "function") ev.stopPropagation();
+    } catch (ePrev) {}
+    setBarOpen(true);
+    try {
+      document.documentElement.classList.add("vc-view-as-bar-on", "vc-view-as-bar-ready");
+    } catch (eCls) {}
+    removeLauncher();
+    mountBar();
+  }
+
+  function bindLaunchClick(btn) {
+    if (!btn) return;
+    try {
+      /* viewAsLegalClick2: onclick sovrascrive (header rebuild clona node senza listener) */
+      btn.onclick = onLaunchClick;
+      btn.setAttribute("data-vc-viewas-bound", "1");
+    } catch (eBind) {}
+  }
+
+  /* viewAsLegalClick2: delegation di scorta se il bottone viene ripristinato senza bind */
+  if (!global.__vcViewAsLaunchDeleg) {
+    global.__vcViewAsLaunchDeleg = true;
+    try {
+      document.addEventListener(
+        "click",
+        function (ev) {
+          var t = ev && ev.target;
+          var btn =
+            t && t.closest
+              ? t.closest("#" + LAUNCH_ID)
+              : t && t.id === LAUNCH_ID
+                ? t
+                : null;
+          if (!btn) return;
+          onLaunchClick(ev);
+        },
+        true,
+      );
+    } catch (eDel) {}
   }
 
   function mountLauncher() {
@@ -828,9 +937,23 @@
     if (existing) {
       existing.hidden = false;
       existing.removeAttribute("hidden");
-      if (!existing.querySelector('.vcva-eye[data-vc-eye="gif1"]')) {
+      if (!existing.querySelector(".vcva-eye")) {
         existing.innerHTML = eyeIconHtml() + "<span>Anteprima</span>";
+      } else {
+        try {
+          var eyeEx = existing.querySelector(".vcva-eye");
+          if (eyeEx && !eyeEx.getAttribute("data-vc-eye-gif")) {
+            eyeEx.setAttribute("data-vc-eye-gif", EYE_GIF_SRC);
+          }
+        } catch (eGifAttr) {}
+        forceEyeStill(existing);
       }
+      /* viewAsLegalClick1: re-bind se header ripristinato senza listener */
+      try {
+        existing.removeAttribute("data-vc-viewas-bound");
+      } catch (eRb) {}
+      bindLaunchClick(existing);
+      bindEyeHover(existing);
       placeLauncherInNav(existing);
       return existing;
     }
@@ -840,11 +963,8 @@
     btn.setAttribute("aria-label", "Apri anteprima ruoli");
     btn.title = "Anteprima";
     btn.innerHTML = eyeIconHtml() + "<span>Anteprima</span>";
-    btn.addEventListener("click", function () {
-      setBarOpen(true);
-      removeLauncher();
-      mountBar();
-    });
+    bindLaunchClick(btn);
+    bindEyeHover(btn);
     placeLauncherInNav(btn);
     return btn;
   }
@@ -878,6 +998,9 @@
     injectCss();
     removeBarStub();
     removeLauncher();
+    try {
+      document.documentElement.classList.add("vc-view-as-bar-on");
+    } catch (eOn) {}
     var existing = document.getElementById(BAR_ID);
     if (existing) {
       var stale =
@@ -1042,7 +1165,11 @@
     clearAllowed: clearAllowedChrome,
     openBar: function () {
       setBarOpen(true);
-      if (isAllowed() || readMode()) mountBar();
+      try {
+        document.documentElement.classList.add("vc-view-as-bar-on", "vc-view-as-bar-ready");
+      } catch (eOb) {}
+      /* viewAsLegalClick1: monta bar se allowed/mode OPPURE bar_open appena settato */
+      if (isAllowed() || readMode() || isBarOpen()) mountBar();
     },
     closeBar: closeBarUi,
     isBarOpen: isBarOpen,
@@ -1101,6 +1228,21 @@
       });
     } catch (eEv) {}
   });
+  /* viewAsEyeHover2: se src resta GIF senza hover (tickets thaw) → still */
+  try {
+    if (!global.__vcViewAsEyeIdleWatch) {
+      global.__vcViewAsEyeIdleWatch = global.setInterval(function () {
+        try {
+          var btn = document.getElementById(LAUNCH_ID);
+          if (!btn || btn.getAttribute("data-vc-eye-hovering") === "1") return;
+          var img = btn.querySelector(".vcva-eye");
+          if (!img) return;
+          var src = String(img.getAttribute("src") || "");
+          if (/\.gif(\?|$)/i.test(src)) setEyeHover(btn, false);
+        } catch (eEyeW) {}
+      }, 1200);
+    }
+  } catch (eEyeWatch) {}
   /* swLsStorm2: poll solo se preview/bar class attive — zero Storage a idle */
   try {
     if (!global.__vcViewAsEnforceInterval) {

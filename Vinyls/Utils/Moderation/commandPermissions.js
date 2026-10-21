@@ -326,7 +326,13 @@ function tryTenantPartnershipSetupBypass(guildId, customId, interaction = null) 
 }
 
 function isMainGuild(guildId) {
-  return Boolean(MAIN_GUILD_ID) && String(guildId || "") === String(MAIN_GUILD_ID);
+  if (!guildId) return false;
+  const s = String(guildId);
+  if (MAIN_GUILD_ID && s === String(MAIN_GUILD_ID)) return true;
+  // Server di test = stesso set comandi del main (niente gate "solo partnership")
+  const testId = IDs?.guilds?.test;
+  if (testId && s === String(testId)) return true;
+  return false;
 }
 
 const TICKET_INTERACTION_IDS = new Set([
@@ -1968,7 +1974,8 @@ async function checkButtonPermission(interaction) {
     const isGiveawayEnter =
       id.startsWith("giveaway_enter:") ||
       id.startsWith("giveaway_leave:") ||
-      id.startsWith("giveaway_count:");
+      id.startsWith("giveaway_count:") ||
+      id.startsWith("giveaway_morgames_retry:");
     const isGiveawayReroll = id.startsWith("giveaway_reroll:");
     if (isGiveawayEnter || isGiveawayReroll) {
       try {

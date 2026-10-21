@@ -1098,6 +1098,7 @@ async function dispatchVoteReminder(client, { guildId, userId, voteListing, last
       mobileSent: 0,
       mobileFailed: 0,
       mobileTargets: 0,
+      mobileAppleSent: 0,
       desktopSent: 0,
       skippedGone: 0,
       notifId: "",
@@ -1126,29 +1127,8 @@ async function dispatchVoteReminder(client, { guildId, userId, voteListing, last
       await releaseVoteReminderSlot(gid, uid, listing).catch(() => false);
       return { ok: false, delivered: false, skippedOptOut: false, pushAllFailed: true };
     }
-    const mobileTargets = Number(pushOut.mobileTargets) || 0;
-    const mobileCandidates = Number(pushOut.mobileCandidates) || mobileTargets;
-    const mobileSent = Number(pushOut.mobileSent) || 0;
-    const desktopSent = Number(pushOut.desktopSent) || 0;
-    /* votePushPhoneNoHedge4:
-       - miss reale (mobileSent=0) → retry lunghi, stop al primo ack
-       - Apple/FCM 201 (mobileSent>0) → niente secondo push (evita doppio banner)
-       - catchup PWA resta per eventuali token zombie */
-    let phoneRetryReason = "";
-    if (mobileCandidates > 0 && (desktopSent > 0 || Number(pushOut.sent) > 0)) {
-      if (mobileSent === 0) phoneRetryReason = "mobile_miss";
-    }
     /* pushPhoneAllSoftRetry1: soft-retry mobile ora in fireNotificationPush (tutte le kind).
        Evita doppio schedule vote-only qui. */
-    if (phoneRetryReason) {
-      global.logger?.info?.("[VOTE REMINDER] mobile miss — soft-retry via siteInApp:", uid, listing, {
-        mobileTargets: mobileCandidates,
-        mobileFailed: pushOut.mobileFailed,
-        mobileSent,
-        desktopSent,
-        reason: phoneRetryReason,
-      });
-    }
 
     if (skipDm) {
       return { ok: true, delivered: true, skippedOptOut: true, sitePushAttempted: true };
@@ -1408,10 +1388,9 @@ async function restorePendingVoteReminders(client) {
     return;
   }
 
-  if (!docs.length) return;
-
-  let restored = 0;
-  let skipped = 0;
+  if (!docs.length) {
+    return;
+  }
 
   for (const doc of docs) {
     const userId = String(doc.userId);
@@ -1431,24 +1410,20 @@ async function restorePendingVoteReminders(client) {
 
       if (lateBy <= 0) {
         scheduleDiscadiaVoteReminder(client, guildId, userId, lastVoteAt, listing);
-        restored++;
         continue;
       }
 
       if (lateBy > SKIP_IF_TOO_OLD_MS) {
-        skipped++;
         continue;
       }
 
       if (lateBy <= SEND_IMMEDIATELY_IF_LATE_MS) {
         scheduleDiscadiaVoteReminder(client, guildId, userId, lastVoteAt, listing);
-        restored++;
         continue;
       }
       const jitter = 5 * 60 * 1000 + Math.floor(Math.random() * 10 * 60 * 1000);
       const syntheticLastVote = new Date(Date.now() - cooldownMs + jitter);
       scheduleDiscadiaVoteReminder(client, guildId, userId, syntheticLastVote, listing);
-      restored++;
     }
   }
 }

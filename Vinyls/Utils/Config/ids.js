@@ -156,6 +156,8 @@ const ids = {
     streamerChat: "1539973769588908082",
     /** Palco Stage voice dello streamer (Twitch/Kick live rename+topic). */
     streamerStage: "1548393335557726272",
+    /** Extra canale escluso da automod bot + Discord nativo. */
+    automodExemptExtra: "1557691952840056882",
     /** Novità / patch note giochi (ruoli Game*). */
     gameNews: "1553533004591276122",
     stanzaLobbyVoice: "1499754530076626964",

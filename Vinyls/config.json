@@ -497,7 +497,7 @@
       "durationMs": 180000,
       "rewardExp": 150,
       "onlyFamous": true,
-      "apiUrl": "https://www.thesportsdb.com/api/v1/json/3/searchplayers.php?p="
+      "apiUrl": "https://www.thesportsdb.com/api/v1/json/123/searchplayers.php?p="
     },
     "hogwartsGuessCharacter": {
       "durationMs": 180000,
@@ -539,7 +539,7 @@
     "guessTeam": {
       "durationMs": 180000,
       "rewardExp": 150,
-      "apiUrl": "https://www.thesportsdb.com/api/v1/json/3/search_all_teams.php?l=",
+      "apiUrl": "https://www.thesportsdb.com/api/v1/json/123/search_all_teams.php?l=",
       "leagues": [
         "Italian Serie A",
         "English Premier League",

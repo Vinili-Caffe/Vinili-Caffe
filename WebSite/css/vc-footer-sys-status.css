@@ -1,291 +1,245 @@
-/* footerSysLook7 — segnale tipografico; kill look-core; stati con same-spec */
+/* footerSysPillBack1 — ripristino chip PC (Look3) anche su telefono; no mid-dot plain */
 html body.vc-body > footer.vc-premium-footer .vc-premium-footer__legal p.vc-footer-copy-row,
 html.vc-site-polish body.vc-body > footer.vc-premium-footer .vc-premium-footer__legal p.vc-footer-copy-row {
   display: inline-flex !important;
   flex-wrap: wrap !important;
   align-items: center !important;
-  gap: 0.55rem 1.1rem !important;
+  gap: 0.65rem 0.95rem !important;
   white-space: normal !important;
-  max-width: min(100%, 42rem) !important;
+  max-width: min(100%, 40rem) !important;
 }
 
-/* Shared layout (no color vars here — states own them) */
 html body.vc-body > footer.vc-premium-footer .vc-footer-sys-status,
 html.vc-site-polish body.vc-body > footer.vc-premium-footer .vc-footer-sys-status,
 html body footer .vc-footer-sys-status {
+  --vc-sys-dot: rgba(212, 168, 136, 0.72);
+  --vc-sys-ring: rgba(212, 168, 136, 0.22);
+  --vc-sys-wash: rgba(245, 214, 183, 0.06);
   position: relative !important;
   display: inline-flex !important;
   align-items: center !important;
-  gap: 0.62rem !important;
+  gap: 0.55rem !important;
   margin: 0 !important;
-  padding: 0.2rem 0.15rem 0.2rem 0.85rem !important;
-  border: 0 !important;
-  border-radius: 0 !important;
+  padding: 0.38rem 0.78rem 0.38rem 0.52rem !important;
+  border-radius: 999px !important;
+  border: 1px solid rgba(245, 214, 183, 0.2) !important;
+  background:
+    linear-gradient(165deg, rgba(255, 248, 238, 0.07) 0%, transparent 42%),
+    linear-gradient(180deg, rgba(36, 24, 18, 0.72), rgba(16, 11, 9, 0.55)) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 248, 238, 0.08),
+    0 6px 18px rgba(0, 0, 0, 0.22) !important;
+  color: rgba(247, 236, 223, 0.92) !important;
+  -webkit-text-fill-color: rgba(247, 236, 223, 0.92) !important;
   text-decoration: none !important;
-  font-size: 0.72rem !important;
-  font-weight: 560 !important;
-  letter-spacing: 0.085em !important;
-  text-transform: uppercase !important;
-  line-height: 1.2 !important;
+  font-size: 0.8rem !important;
+  font-weight: 650 !important;
+  letter-spacing: 0.02em !important;
+  line-height: 1.15 !important;
   white-space: nowrap !important;
-  transition: color 0.25s ease, opacity 0.25s ease !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+  transition:
+    border-color 0.22s ease,
+    background 0.22s ease,
+    box-shadow 0.22s ease,
+    color 0.22s ease,
+    transform 0.22s ease !important;
   visibility: visible !important;
   opacity: 1 !important;
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
-  box-shadow: none !important;
-  filter: none !important;
-  text-shadow: none !important;
-}
-
-/* Kill look-core gradient text — only anti-clip props at max specificity */
-html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body:not(.vc-web-tickets-page) footer.vc-premium-footer .vc-premium-footer__legal a.vc-footer-sys-status,
-html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body:not(.vc-web-tickets-page) footer.vc-premium-footer .vc-premium-footer__legal a.vc-footer-sys-status .vc-footer-sys-status__label,
-html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body:not(.vc-staff-compiti-page):not(.vc-web-tickets-page) footer.vc-premium-footer .vc-premium-footer__legal a.vc-footer-sys-status,
-html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body:not(.vc-staff-compiti-page):not(.vc-web-tickets-page) footer.vc-premium-footer .vc-premium-footer__legal a.vc-footer-sys-status .vc-footer-sys-status__label,
-html.vc-site-polish body.vc-body > footer.vc-premium-footer .vc-footer-sys-status,
-html.vc-site-polish body.vc-body > footer.vc-premium-footer .vc-footer-sys-status__label,
-html body.vc-body > footer.vc-premium-footer .vc-footer-sys-status,
-html body.vc-body > footer.vc-premium-footer .vc-footer-sys-status__label {
-  background: none !important;
-  background-color: transparent !important;
-  background-image: none !important;
-  -webkit-background-clip: border-box !important;
-  background-clip: border-box !important;
-  filter: none !important;
-  text-shadow: none !important;
-}
-
-/* Default ink (dark) */
-html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body:not(.vc-web-tickets-page) footer.vc-premium-footer .vc-premium-footer__legal a.vc-footer-sys-status,
-html body.vc-body > footer.vc-premium-footer .vc-footer-sys-status {
-  --vc-sys-dot: rgba(212, 168, 136, 0.75);
-  --vc-sys-glow: rgba(212, 168, 136, 0.28);
-  --vc-sys-ink: rgba(247, 236, 223, 0.86);
-  color: var(--vc-sys-ink) !important;
-  -webkit-text-fill-color: var(--vc-sys-ink) !important;
-}
-html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body:not(.vc-web-tickets-page) footer.vc-premium-footer .vc-premium-footer__legal a.vc-footer-sys-status .vc-footer-sys-status__label,
-html body.vc-body > footer.vc-premium-footer .vc-footer-sys-status__label {
-  display: inline !important;
-  padding: 0 !important;
-  gap: 0 !important;
-  letter-spacing: inherit !important;
-  text-transform: inherit !important;
-  font-size: inherit !important;
-  font-weight: inherit !important;
-  color: inherit !important;
-  -webkit-text-fill-color: inherit !important;
-  background: none !important;
-  background-image: none !important;
-}
-
-/* Soft hairline separator */
-html body.vc-body > footer.vc-premium-footer .vc-footer-sys-status::before,
-html.vc-site-polish body.vc-body > footer.vc-premium-footer .vc-footer-sys-status::before,
-html body footer .vc-footer-sys-status::before {
-  content: "" !important;
-  position: absolute !important;
-  left: 0 !important;
-  top: 18% !important;
-  bottom: 18% !important;
-  width: 1px !important;
-  background: linear-gradient(
-    180deg,
-    transparent 0%,
-    rgba(245, 214, 183, 0.38) 28%,
-    rgba(245, 214, 183, 0.38) 72%,
-    transparent 100%
-  ) !important;
-  opacity: 0.9 !important;
-  pointer-events: none !important;
 }
 
 html body.vc-body > footer.vc-premium-footer .vc-footer-sys-status:hover,
 html.vc-site-polish body.vc-body > footer.vc-premium-footer .vc-footer-sys-status:hover,
-html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body:not(.vc-web-tickets-page) footer.vc-premium-footer .vc-premium-footer__legal a.vc-footer-sys-status:hover {
+html body footer .vc-footer-sys-status:hover {
+  border-color: rgba(245, 214, 183, 0.38) !important;
+  background:
+    linear-gradient(165deg, rgba(255, 248, 238, 0.12) 0%, transparent 48%),
+    linear-gradient(180deg, rgba(48, 32, 24, 0.82), rgba(22, 15, 12, 0.62)) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 248, 238, 0.12),
+    0 10px 26px rgba(0, 0, 0, 0.28),
+    0 0 0 1px rgba(245, 214, 183, 0.08) !important;
   color: #fff8ee !important;
   -webkit-text-fill-color: #fff8ee !important;
-  background: none !important;
-  background-image: none !important;
-  transform: none !important;
-  box-shadow: none !important;
+  transform: translateY(-1px) !important;
 }
 
 html body.vc-body > footer.vc-premium-footer .vc-footer-sys-status:focus-visible,
 html.vc-site-polish body.vc-body > footer.vc-premium-footer .vc-footer-sys-status:focus-visible {
-  outline: 2px solid rgba(232, 201, 168, 0.65) !important;
-  outline-offset: 4px !important;
-  border-radius: 4px !important;
+  outline: 2px solid rgba(232, 201, 168, 0.7) !important;
+  outline-offset: 3px !important;
 }
 
-/* Living gem */
+/* Dot + soft halo ring */
 html body.vc-body > footer.vc-premium-footer .vc-footer-sys-status__dot,
 html.vc-site-polish body.vc-body > footer.vc-premium-footer .vc-footer-sys-status__dot,
 html body footer .vc-footer-sys-status__dot {
   position: relative !important;
   flex: 0 0 auto !important;
-  width: 0.42rem !important;
-  height: 0.42rem !important;
+  width: 0.58rem !important;
+  height: 0.58rem !important;
   border-radius: 999px !important;
   background: var(--vc-sys-dot) !important;
-  background-image: none !important;
   box-shadow:
-    0 0 0 0 transparent,
-    0 0 8px var(--vc-sys-glow) !important;
-  animation: vcSysGemBreath 2.8s ease-in-out infinite !important;
-  -webkit-animation: vcSysGemBreath 2.8s ease-in-out infinite !important;
-  will-change: box-shadow, opacity !important;
-  -webkit-text-fill-color: transparent !important;
-  color: transparent !important;
-}
-html body.vc-body > footer.vc-premium-footer .vc-footer-sys-status__dot::after,
-html.vc-site-polish body.vc-body > footer.vc-premium-footer .vc-footer-sys-status__dot::after,
-html body footer .vc-footer-sys-status__dot::after {
-  content: "" !important;
-  position: absolute !important;
-  inset: -3px !important;
-  border-radius: 999px !important;
-  border: 1px solid color-mix(in srgb, var(--vc-sys-dot) 42%, transparent) !important;
-  opacity: 0.55 !important;
-  pointer-events: none !important;
+    0 0 0 3px var(--vc-sys-ring),
+    0 0 10px color-mix(in srgb, var(--vc-sys-dot) 45%, transparent) !important;
+  animation: none !important;
+  -webkit-animation: none !important;
+  will-change: auto !important;
 }
 
-@keyframes vcSysGemBreath {
-  0%, 100% { opacity: 0.88; box-shadow: 0 0 6px var(--vc-sys-glow); }
-  50% { opacity: 1; box-shadow: 0 0 12px var(--vc-sys-glow); }
+/* Kill look-core gradient-text (altrimenti label trasparente) */
+html body.vc-body > footer.vc-premium-footer .vc-footer-sys-status,
+html.vc-site-polish body.vc-body > footer.vc-premium-footer .vc-footer-sys-status,
+html body footer .vc-footer-sys-status,
+html body.vc-body > footer.vc-premium-footer .vc-footer-sys-status__label,
+html.vc-site-polish body.vc-body > footer.vc-premium-footer .vc-footer-sys-status__label,
+html body footer .vc-footer-sys-status__label {
+  -webkit-text-fill-color: rgba(247, 236, 223, 0.94) !important;
+  color: rgba(247, 236, 223, 0.94) !important;
+  -webkit-background-clip: border-box !important;
+  background-clip: border-box !important;
+  filter: none !important;
+  text-shadow: none !important;
 }
-@-webkit-keyframes vcSysGemBreath {
-  0%, 100% { opacity: 0.88; box-shadow: 0 0 6px var(--vc-sys-glow); }
-  50% { opacity: 1; box-shadow: 0 0 12px var(--vc-sys-glow); }
+html body.vc-body > footer.vc-premium-footer .vc-footer-sys-status__label,
+html.vc-site-polish body.vc-body > footer.vc-premium-footer .vc-footer-sys-status__label,
+html body footer .vc-footer-sys-status__label {
+  display: inline !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  font-weight: 650 !important;
+  letter-spacing: 0.015em !important;
+  background: none !important;
+  background-image: none !important;
+  background-color: transparent !important;
+}
+html[data-vc-theme="light"] body.vc-body > footer.vc-premium-footer .vc-footer-sys-status,
+html.vc-site-polish[data-vc-theme="light"] body.vc-body > footer.vc-premium-footer .vc-footer-sys-status,
+html[data-vc-theme="light"] body.vc-body > footer.vc-premium-footer .vc-footer-sys-status__label,
+html.vc-site-polish[data-vc-theme="light"] body.vc-body > footer.vc-premium-footer .vc-footer-sys-status__label {
+  -webkit-text-fill-color: rgba(72, 48, 34, 0.92) !important;
+  color: rgba(72, 48, 34, 0.92) !important;
 }
 
-/* Chevron */
+/* Subtle chevron cue — link to /status/ */
 html body.vc-body > footer.vc-premium-footer .vc-footer-sys-status__chev,
 html.vc-site-polish body.vc-body > footer.vc-premium-footer .vc-footer-sys-status__chev,
 html body footer .vc-footer-sys-status__chev {
   display: inline-block !important;
-  width: 0.28rem !important;
-  height: 0.28rem !important;
-  margin-left: 0.12rem !important;
-  border-right: 1.35px solid currentColor !important;
-  border-bottom: 1.35px solid currentColor !important;
+  width: 0.34rem !important;
+  height: 0.34rem !important;
+  margin-left: 0.08rem !important;
+  border-right: 1.5px solid rgba(247, 236, 223, 0.45) !important;
+  border-bottom: 1.5px solid rgba(247, 236, 223, 0.45) !important;
   transform: rotate(-45deg) translateY(-0.5px) !important;
-  opacity: 0.42 !important;
+  opacity: 0.72 !important;
   flex: 0 0 auto !important;
-  transition: opacity 0.22s ease, transform 0.22s ease !important;
-  background: none !important;
+  transition: opacity 0.2s ease, border-color 0.2s ease !important;
 }
 html body.vc-body > footer.vc-premium-footer .vc-footer-sys-status:hover .vc-footer-sys-status__chev,
 html.vc-site-polish body.vc-body > footer.vc-premium-footer .vc-footer-sys-status:hover .vc-footer-sys-status__chev {
-  opacity: 0.85 !important;
-  transform: rotate(-45deg) translate(1px, -1.5px) !important;
+  opacity: 1 !important;
+  border-color: rgba(255, 248, 238, 0.7) !important;
 }
 
-/* States — same max specificity as default ink */
-html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body:not(.vc-web-tickets-page) footer.vc-premium-footer .vc-premium-footer__legal a.vc-footer-sys-status.is-ok,
-html body.vc-body > footer.vc-premium-footer .vc-footer-sys-status.is-ok {
-  --vc-sys-dot: #6ee7a8;
-  --vc-sys-glow: rgba(110, 231, 168, 0.42);
-  --vc-sys-ink: rgba(247, 236, 223, 0.88);
-  color: var(--vc-sys-ink) !important;
-  -webkit-text-fill-color: var(--vc-sys-ink) !important;
+/* States: color lives on the dot; label stays warm sand */
+html body.vc-body > footer.vc-premium-footer .vc-footer-sys-status.is-ok,
+html.vc-site-polish body.vc-body > footer.vc-premium-footer .vc-footer-sys-status.is-ok {
+  --vc-sys-dot: #4ade9a;
+  --vc-sys-ring: rgba(74, 222, 154, 0.2);
+  border-color: rgba(74, 222, 154, 0.22) !important;
+  color: rgba(247, 236, 223, 0.94) !important;
+  -webkit-text-fill-color: rgba(247, 236, 223, 0.94) !important;
 }
-html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body:not(.vc-web-tickets-page) footer.vc-premium-footer .vc-premium-footer__legal a.vc-footer-sys-status.is-partial,
-html body.vc-body > footer.vc-premium-footer .vc-footer-sys-status.is-partial {
+html body.vc-body > footer.vc-premium-footer .vc-footer-sys-status.is-ok .vc-footer-sys-status__label,
+html.vc-site-polish body.vc-body > footer.vc-premium-footer .vc-footer-sys-status.is-ok .vc-footer-sys-status__label {
+  color: rgba(247, 236, 223, 0.94) !important;
+  -webkit-text-fill-color: rgba(247, 236, 223, 0.94) !important;
+}
+html[data-vc-theme="light"] body.vc-body > footer.vc-premium-footer .vc-footer-sys-status.is-ok .vc-footer-sys-status__label,
+html.vc-site-polish[data-vc-theme="light"] body.vc-body > footer.vc-premium-footer .vc-footer-sys-status.is-ok .vc-footer-sys-status__label {
+  color: rgba(72, 48, 34, 0.92) !important;
+  -webkit-text-fill-color: rgba(72, 48, 34, 0.92) !important;
+}
+html body.vc-body > footer.vc-premium-footer .vc-footer-sys-status.is-ok .vc-footer-sys-status__dot,
+html.vc-site-polish body.vc-body > footer.vc-premium-footer .vc-footer-sys-status.is-ok .vc-footer-sys-status__dot {
+  background: var(--vc-sys-dot) !important;
+}
+
+html body.vc-body > footer.vc-premium-footer .vc-footer-sys-status.is-partial,
+html.vc-site-polish body.vc-body > footer.vc-premium-footer .vc-footer-sys-status.is-partial {
   --vc-sys-dot: #e8b45a;
-  --vc-sys-glow: rgba(232, 180, 90, 0.4);
-  --vc-sys-ink: rgba(247, 236, 223, 0.88);
-  color: var(--vc-sys-ink) !important;
-  -webkit-text-fill-color: var(--vc-sys-ink) !important;
+  --vc-sys-ring: rgba(232, 180, 90, 0.22);
+  border-color: rgba(232, 180, 90, 0.28) !important;
+  color: rgba(247, 236, 223, 0.94) !important;
+  -webkit-text-fill-color: rgba(247, 236, 223, 0.94) !important;
 }
-html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body:not(.vc-web-tickets-page) footer.vc-premium-footer .vc-premium-footer__legal a.vc-footer-sys-status.is-bad,
-html body.vc-body > footer.vc-premium-footer .vc-footer-sys-status.is-bad {
+html body.vc-body > footer.vc-premium-footer .vc-footer-sys-status.is-partial .vc-footer-sys-status__dot,
+html.vc-site-polish body.vc-body > footer.vc-premium-footer .vc-footer-sys-status.is-partial .vc-footer-sys-status__dot {
+  background: var(--vc-sys-dot) !important;
+}
+
+html body.vc-body > footer.vc-premium-footer .vc-footer-sys-status.is-bad,
+html.vc-site-polish body.vc-body > footer.vc-premium-footer .vc-footer-sys-status.is-bad {
   --vc-sys-dot: #f07178;
-  --vc-sys-glow: rgba(240, 113, 120, 0.45);
-  --vc-sys-ink: rgba(255, 228, 224, 0.92);
-  color: var(--vc-sys-ink) !important;
-  -webkit-text-fill-color: var(--vc-sys-ink) !important;
+  --vc-sys-ring: rgba(240, 113, 120, 0.24);
+  border-color: rgba(240, 113, 120, 0.3) !important;
+  color: rgba(255, 228, 224, 0.95) !important;
+  -webkit-text-fill-color: rgba(255, 228, 224, 0.95) !important;
 }
-html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body:not(.vc-web-tickets-page) footer.vc-premium-footer .vc-premium-footer__legal a.vc-footer-sys-status.is-wait,
-html body.vc-body > footer.vc-premium-footer .vc-footer-sys-status.is-wait {
-  --vc-sys-dot: rgba(212, 168, 136, 0.65);
-  --vc-sys-glow: rgba(212, 168, 136, 0.22);
-  --vc-sys-ink: rgba(232, 201, 168, 0.72);
-  color: var(--vc-sys-ink) !important;
-  -webkit-text-fill-color: var(--vc-sys-ink) !important;
+html body.vc-body > footer.vc-premium-footer .vc-footer-sys-status.is-bad .vc-footer-sys-status__dot,
+html.vc-site-polish body.vc-body > footer.vc-premium-footer .vc-footer-sys-status.is-bad .vc-footer-sys-status__dot {
+  background: var(--vc-sys-dot) !important;
+}
+
+html body.vc-body > footer.vc-premium-footer .vc-footer-sys-status.is-wait,
+html.vc-site-polish body.vc-body > footer.vc-premium-footer .vc-footer-sys-status.is-wait {
+  --vc-sys-dot: rgba(212, 168, 136, 0.7);
+  --vc-sys-ring: rgba(212, 168, 136, 0.16);
+  color: rgba(232, 201, 168, 0.82) !important;
+  -webkit-text-fill-color: rgba(232, 201, 168, 0.82) !important;
 }
 html body.vc-body > footer.vc-premium-footer .vc-footer-sys-status.is-wait .vc-footer-sys-status__dot,
 html.vc-site-polish body.vc-body > footer.vc-premium-footer .vc-footer-sys-status.is-wait .vc-footer-sys-status__dot {
-  animation: none !important;
-  -webkit-animation: none !important;
-  opacity: 0.7 !important;
+  background: var(--vc-sys-dot) !important;
+  opacity: 0.9 !important;
 }
 
 /* Light theme */
-html[data-vc-theme="light"].vc-site-polish:not(.vc-soft-fx-off) body.vc-body:not(.vc-web-tickets-page) footer.vc-premium-footer .vc-premium-footer__legal a.vc-footer-sys-status,
-html[data-vc-theme="light"].vc-site-polish:not(.vc-soft-fx-off) body.vc-body:not(.vc-web-tickets-page) footer.vc-premium-footer .vc-premium-footer__legal a.vc-footer-sys-status.is-ok,
-html[data-vc-theme="light"].vc-site-polish:not(.vc-soft-fx-off) body.vc-body:not(.vc-web-tickets-page) footer.vc-premium-footer .vc-premium-footer__legal a.vc-footer-sys-status.is-partial,
-html[data-vc-theme="light"].vc-site-polish:not(.vc-soft-fx-off) body.vc-body:not(.vc-web-tickets-page) footer.vc-premium-footer .vc-premium-footer__legal a.vc-footer-sys-status.is-bad,
-html[data-vc-theme="light"].vc-site-polish:not(.vc-soft-fx-off) body.vc-body:not(.vc-web-tickets-page) footer.vc-premium-footer .vc-premium-footer__legal a.vc-footer-sys-status.is-wait,
 html[data-vc-theme="light"] body.vc-body > footer.vc-premium-footer .vc-footer-sys-status,
-html[data-vc-theme="light"] body.vc-body > footer.vc-premium-footer .vc-footer-sys-status.is-ok,
-html[data-vc-theme="light"] body.vc-body > footer.vc-premium-footer .vc-footer-sys-status.is-partial,
-html[data-vc-theme="light"] body.vc-body > footer.vc-premium-footer .vc-footer-sys-status.is-bad,
-html[data-vc-theme="light"] body.vc-body > footer.vc-premium-footer .vc-footer-sys-status.is-wait {
-  --vc-sys-ink: rgba(62, 40, 28, 0.9);
-  color: var(--vc-sys-ink) !important;
-  -webkit-text-fill-color: var(--vc-sys-ink) !important;
-  background: none !important;
-  background-image: none !important;
-  -webkit-background-clip: border-box !important;
-  background-clip: border-box !important;
+html.vc-site-polish[data-vc-theme="light"] body.vc-body > footer.vc-premium-footer .vc-footer-sys-status {
+  border-color: rgba(90, 58, 40, 0.16) !important;
+  background:
+    linear-gradient(165deg, rgba(255, 255, 255, 0.65) 0%, transparent 50%),
+    linear-gradient(180deg, rgba(255, 248, 240, 0.92), rgba(248, 236, 220, 0.78)) !important;
+  color: rgba(72, 48, 34, 0.9) !important;
+  -webkit-text-fill-color: rgba(72, 48, 34, 0.9) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.7),
+    0 4px 14px rgba(90, 58, 40, 0.08) !important;
+  backdrop-filter: blur(6px) !important;
 }
-html[data-vc-theme="light"].vc-site-polish:not(.vc-soft-fx-off) body.vc-body:not(.vc-web-tickets-page) footer.vc-premium-footer .vc-premium-footer__legal a.vc-footer-sys-status .vc-footer-sys-status__label,
-html[data-vc-theme="light"] body.vc-body > footer.vc-premium-footer .vc-footer-sys-status__label {
-  color: rgba(62, 40, 28, 0.9) !important;
-  -webkit-text-fill-color: rgba(62, 40, 28, 0.9) !important;
-  background: none !important;
-  background-image: none !important;
+html[data-vc-theme="light"] body.vc-body > footer.vc-premium-footer .vc-footer-sys-status:hover,
+html.vc-site-polish[data-vc-theme="light"] body.vc-body > footer.vc-premium-footer .vc-footer-sys-status:hover {
+  border-color: rgba(90, 58, 40, 0.28) !important;
+  color: rgba(48, 32, 22, 0.96) !important;
+  -webkit-text-fill-color: rgba(48, 32, 22, 0.96) !important;
 }
-html[data-vc-theme="light"] body.vc-body > footer.vc-premium-footer .vc-footer-sys-status::before,
-html.vc-site-polish[data-vc-theme="light"] body.vc-body > footer.vc-premium-footer .vc-footer-sys-status::before {
-  background: linear-gradient(
-    180deg,
-    transparent 0%,
-    rgba(90, 58, 40, 0.28) 28%,
-    rgba(90, 58, 40, 0.28) 72%,
-    transparent 100%
-  ) !important;
-}
-html[data-vc-theme="light"].vc-site-polish:not(.vc-soft-fx-off) body.vc-body:not(.vc-web-tickets-page) footer.vc-premium-footer .vc-premium-footer__legal a.vc-footer-sys-status:hover,
-html[data-vc-theme="light"] body.vc-body > footer.vc-premium-footer .vc-footer-sys-status:hover {
-  --vc-sys-ink: rgba(40, 26, 18, 0.96);
-  color: var(--vc-sys-ink) !important;
-  -webkit-text-fill-color: var(--vc-sys-ink) !important;
-}
-html[data-vc-theme="light"].vc-site-polish:not(.vc-soft-fx-off) body.vc-body:not(.vc-web-tickets-page) footer.vc-premium-footer .vc-premium-footer__legal a.vc-footer-sys-status.is-ok,
-html[data-vc-theme="light"] body.vc-body > footer.vc-premium-footer .vc-footer-sys-status.is-ok {
-  --vc-sys-dot: #2f9e6a;
-  --vc-sys-glow: rgba(47, 158, 106, 0.35);
-}
-html[data-vc-theme="light"].vc-site-polish:not(.vc-soft-fx-off) body.vc-body:not(.vc-web-tickets-page) footer.vc-premium-footer .vc-premium-footer__legal a.vc-footer-sys-status.is-partial,
-html[data-vc-theme="light"] body.vc-body > footer.vc-premium-footer .vc-footer-sys-status.is-partial {
-  --vc-sys-dot: #c4892e;
-  --vc-sys-glow: rgba(196, 137, 46, 0.35);
-}
-html[data-vc-theme="light"].vc-site-polish:not(.vc-soft-fx-off) body.vc-body:not(.vc-web-tickets-page) footer.vc-premium-footer .vc-premium-footer__legal a.vc-footer-sys-status.is-bad,
-html[data-vc-theme="light"] body.vc-body > footer.vc-premium-footer .vc-footer-sys-status.is-bad {
-  --vc-sys-dot: #c4454c;
-  --vc-sys-glow: rgba(196, 69, 76, 0.35);
+html[data-vc-theme="light"] body.vc-body > footer.vc-premium-footer .vc-footer-sys-status__chev,
+html.vc-site-polish[data-vc-theme="light"] body.vc-body > footer.vc-premium-footer .vc-footer-sys-status__chev {
+  border-color: rgba(90, 58, 40, 0.4) !important;
 }
 
-/* CPU / reduced-motion */
+/* CPU / reduced-motion: keep static halo, never pulse */
 html.vc-cpu-settle body.vc-body > footer.vc-premium-footer .vc-footer-sys-status__dot,
 html.vc-page-hidden body.vc-body > footer.vc-premium-footer .vc-footer-sys-status__dot,
 html body.vc-body.vc-web-tickets-page footer .vc-footer-sys-status__dot,
 html.vc-site-cpu-soft body.vc-body footer .vc-footer-sys-status__dot,
-html.vc-pwa-cpu-nuke body.vc-body footer .vc-footer-sys-status__dot {
+html.vc-pwa-cpu-nuke body.vc-body footer .vc-footer-sys-status__dot,
+html.vc-cpu-settle body.vc-body footer .vc-footer-sys-status__dot,
+html.vc-page-hidden body.vc-body footer .vc-footer-sys-status__dot {
   animation: none !important;
   -webkit-animation: none !important;
   animation-play-state: paused !important;
@@ -293,40 +247,39 @@ html.vc-pwa-cpu-nuke body.vc-body footer .vc-footer-sys-status__dot {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  html body.vc-body > footer.vc-premium-footer .vc-footer-sys-status__dot,
-  html body footer .vc-footer-sys-status__dot {
-    animation: none !important;
-    -webkit-animation: none !important;
-    box-shadow: 0 0 6px var(--vc-sys-glow) !important;
+  html body.vc-body > footer.vc-premium-footer .vc-footer-sys-status,
+  html body.vc-body > footer.vc-premium-footer .vc-footer-sys-status:hover {
+    transform: none !important;
+    transition: border-color 0.15s ease, color 0.15s ease !important;
   }
-  html body.vc-body > footer.vc-premium-footer .vc-footer-sys-status:hover .vc-footer-sys-status__chev {
-    transform: rotate(-45deg) translateY(-0.5px) !important;
+  html body.vc-body > footer.vc-premium-footer .vc-footer-sys-status__dot {
+    box-shadow: 0 0 0 3px var(--vc-sys-ring) !important;
   }
 }
 
+/* footerSysPillBack1: telefono = stesso chip del PC (stesso padding/radius/ink) */
 @media (max-width: 719.98px) {
   html body.vc-body > footer.vc-premium-footer .vc-premium-footer__legal p.vc-footer-copy-row,
   html.vc-site-polish body.vc-body > footer.vc-premium-footer .vc-premium-footer__legal p.vc-footer-copy-row {
-    display: flex !important;
-    flex-direction: column !important;
-    flex-wrap: nowrap !important;
+    display: inline-flex !important;
+    flex-direction: row !important;
+    flex-wrap: wrap !important;
     align-items: center !important;
     justify-content: center !important;
-    gap: 0.7rem !important;
+    gap: 0.65rem 0.95rem !important;
     width: 100% !important;
     max-width: 100% !important;
     white-space: normal !important;
     text-align: center !important;
-    margin-left: auto !important;
-    margin-right: auto !important;
   }
   html body.vc-body > footer.vc-premium-footer .vc-footer-sys-status,
   html.vc-site-polish body.vc-body > footer.vc-premium-footer .vc-footer-sys-status {
     display: inline-flex !important;
-    margin-left: auto !important;
-    margin-right: auto !important;
-    align-self: center !important;
-    padding-left: 0.85rem !important;
+    margin: 0 !important;
+    padding: 0.38rem 0.78rem 0.38rem 0.52rem !important;
+    border-radius: 999px !important;
+    font-size: 0.8rem !important;
+    font-weight: 650 !important;
   }
 }
 
@@ -335,6 +288,6 @@ html body footer p.vc-footer-copy-row {
   flex-wrap: wrap !important;
   align-items: center !important;
   justify-content: center !important;
-  gap: 0.55rem 1.1rem !important;
+  gap: 0.65rem 0.95rem !important;
 }
-/* footerSysLook7 */
+/* footerSysPillBack1 */

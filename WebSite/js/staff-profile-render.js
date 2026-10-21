@@ -631,7 +631,7 @@
       );
     }
 
-    /* staffSwitchIdLock1: isSelf solo se esplicito (undefined ≠ self) */
+    /* staffSwitchIdLock1: isSelf solo se esplicito (undefined !== self) */
     var isSelf = payload.isSelf === true && opts.isSelf !== false;
     var pmOnly = String(role.kind || "").toLowerCase() === "pm_only";
     var isFounder = roleLooksFounder(role);
@@ -851,6 +851,38 @@
         try {
       payload.__vcStaffNeighbors = neighbors;
     } catch (eN) {}
+
+    /* staffToolsInProfile1 + peerStaffNavFix1: Strumenti su TUTTI i profili staff (non solo self / perms warm) */
+    try {
+      var showCompiti = false;
+      try {
+        if (Object.prototype.hasOwnProperty.call(perms, "canCompiti")) showCompiti = Boolean(perms.canCompiti);
+        else if (perms.permissions && Object.prototype.hasOwnProperty.call(perms.permissions, "canCompiti")) {
+          showCompiti = Boolean(perms.permissions.canCompiti);
+        } else if (Object.prototype.hasOwnProperty.call(perms, "canConfessionale")) {
+          showCompiti = Boolean(perms.canConfessionale);
+        } else if (Boolean(global.__VC_STAFF_MENU_ALLOWED) || Boolean(perms.ok) || Boolean(perms.isStaff)) {
+          showCompiti = true;
+        }
+      } catch (eCp) {}
+      html +=
+        '<section class="vc-user-profile-block vc-staff-tools-block" data-vc-staff-tools-card="1">' +
+        '<div class="vc-user-profile-block__head">' +
+        '<span class="vc-user-profile-block__title">Strumenti</span>' +
+        "</div>" +
+        '<div class="vc-staff-tools-card-grid">' +
+        '<a class="vc-staff-tools-card" href="/staff/guida/">' +
+        '<span class="vc-staff-tools-card__ico" aria-hidden="true"><i class="fa fa-book"></i></span>' +
+        '<span class="vc-staff-tools-card__label" data-i18n="staff.guide">Guida</span>' +
+        '<span class="vc-staff-tools-card__sub">Manualistica staff</span></a>' +
+        (showCompiti
+          ? '<a class="vc-staff-tools-card" href="/staff/compiti/">' +
+            '<span class="vc-staff-tools-card__ico" aria-hidden="true"><i class="fa fa-check-square-o"></i></span>' +
+            '<span class="vc-staff-tools-card__label" data-i18n="staff.compiti">Compiti</span>' +
+            '<span class="vc-staff-tools-card__sub">Compiti settimanali</span></a>'
+          : "") +
+        "</div></section>";
+    } catch (eTools) {}
 
     if (!isFounder) {
       html +=
@@ -2589,7 +2621,7 @@
           limits.label +
           ": " +
           limits.messages +
-          " messaggi. Scambio ammesso: 100 msg ↔ 1 ora vocale."
+          " messaggi. Scambio ammesso: 100 msg \u2194 1 ora vocale."
         : isPm
           ? "I Partner Manager non hanno limite messaggi settimanale."
           : "Nessun limite messaggi per questo ruolo.";
@@ -2599,7 +2631,7 @@
           limits.label +
           ": " +
           formatHoursLimit(limits.hours) +
-          " ore in vocale. Scambio ammesso: 100 msg ↔ 1 ora."
+          " ore in vocale. Scambio ammesso: 100 msg \u2194 1 ora."
         : isPm
           ? "I Partner Manager non hanno limite ore vocali settimanale."
           : "Nessun limite ore vocali per questo ruolo.";
@@ -2620,10 +2652,10 @@
           limits.messages +
           " msg / " +
           formatHoursLimit(limits.hours) +
-          "h, scambio 100↔1h): Sufficiente = 1×; Discreto = +150 msg/+1,5h; Buono = 2×; Ottimo = 2×+300/+2h; Eccellente = 3×."
+          "h, scambio 100\u21941h): Sufficiente = 1\u00d7; Discreto = +150 msg/+1,5h; Buono = 2\u00d7; Ottimo = 2\u00d7+300/+2h; Eccellente = 3\u00d7."
         : "Ruolo senza griglia messaggi/vocale: Attività = Nessun limite.";
     var conductTip =
-      "Condotta da valutazioni ±: Ottimo ≥3 positive e 0 negative; Discreto se positive > negative; Sufficiente se pari o nessuna; Insufficiente se negative > positive; Non classificato se solo negative.";
+      "Condotta da valutazioni \u00b1: Ottimo \u22653 positive e 0 negative; Discreto se positive > negative; Sufficiente se pari o nessuna; Insufficiente se negative > positive; Non classificato se solo negative.";
 
     var stats;
     var gradeCards;
@@ -4451,7 +4483,7 @@
             "</strong>" +
             '<span class="vc-staff-pm-shop-spend__meta">' +
             esc(formatShopRedeemWhen(row.createdAt)) +
-            " \u00B7 −" +
+            " \u00B7 âˆ’" +
             esc(String(row.pointCost != null ? row.pointCost : 0)) +
             " pt \u00B7 " +
             esc(shopRedeemSourceLabel(row.source)) +
@@ -4570,7 +4602,7 @@
           tradeHint =
             '<p class="vc-staff-stat-sheet__trade-hint">' +
             (isSelf
-              ? "Per togliere una val − da soli serve lo scambio obbligatorio di <b>3</b> val + (ora: "
+              ? "Per togliere una val âˆ’ da soli serve lo scambio obbligatorio di <b>3</b> val + (ora: "
               : "Compensa con scambio: servono almeno <b>3</b> val + (ora: ") +
             esc(String(pos)) +
             ").</p>";
@@ -5261,8 +5293,8 @@
               });
             }
             return dlgConfirm({
-              title: "Compensa val −",
-              message: "Scambiare 3 val + per rimuovere la val − #" + tradeId + "?",
+              title: "Compensa val âˆ’",
+              message: "Scambiare 3 val + per rimuovere la val âˆ’ #" + tradeId + "?",
               confirmLabel: "Compensa",
               cancelLabel: "Annulla",
               icon: "fa-exchange",
@@ -5406,7 +5438,7 @@
         message:
           action === "warn_rm"
             ? "Non puoi toglierti i warn da solo: serve High Staff."
-            : "Sul tuo profilo puoi togliere una val − solo con Compensa 3+ (scambio obbligatorio).",
+            : "Sul tuo profilo puoi togliere una val âˆ’ solo con Compensa 3+ (scambio obbligatorio).",
       });
       return;
     }
@@ -5631,6 +5663,13 @@
         var name = String((p && p.displayName) || id).trim() || id;
         var role = compactStaffListRoleLabel((p && p.roleLabel) || "");
         var avatar = String((p && p.avatarUrl) || "").trim();
+        var avHash = "";
+        try {
+          if (avatar && !/\/guilds\//i.test(avatar)) {
+            var hmList = avatar.match(/\/avatars\/\d+\/((?:a_)?[a-f0-9]+)/i);
+            if (hmList) avHash = String(hmList[1] || "").trim();
+          }
+        } catch (eHashL) {}
         try {
           if (avatar && global.VcDiscordAvatar && typeof global.VcDiscordAvatar.preferStaticUrl === "function") {
             avatar = global.VcDiscordAvatar.preferStaticUrl(avatar, 64) || avatar;
@@ -5654,13 +5693,26 @@
           chips +=
             '<span class="vc-staff-list-pop__chip vc-staff-list-pop__chip--week" title="Staffer della settimana">Week</span>';
         }
-        var avHtml = avatar
-          ? '<img src="' +
-            esc(avatar) +
-            '" alt="" width="22" height="22" loading="eager" decoding="async" referrerpolicy="no-referrer" data-vc-avatar="1" data-vc-avatar-static="1" data-user-id="' +
-            esc(id) +
-            '" onerror="this.onerror=null;this.remove()" />'
-          : '<i class="fa fa-user" aria-hidden="true"></i>';
+        /* bootMidAvatar1: niente onerror=remove (foto sparivano allo switch); avatarImgHtml + recover */
+        var avHtml =
+          global.VCStaffTools && typeof global.VCStaffTools.avatarImgHtml === "function"
+            ? global.VCStaffTools.avatarImgHtml(avatar, id, {
+                width: 22,
+                height: 22,
+                className: "vc-staff-list-pop__av-img",
+                loading: "eager",
+                staticAvatar: true,
+                avatarHash: avHash,
+              })
+            : avatar
+              ? '<img src="' +
+                esc(avatar) +
+                '" alt="" width="22" height="22" loading="eager" decoding="async" referrerpolicy="no-referrer" data-vc-avatar="1" data-vc-avatar-static="1" data-user-id="' +
+                esc(id) +
+                '"' +
+                (avHash ? ' data-avatar-hash="' + esc(avHash) + '"' : "") +
+                " />"
+              : '<i class="fa fa-user" aria-hidden="true"></i>';
         return (
           '<li class="vc-staff-list-pop__item' +
           (isCur ? " is-current" : "") +
@@ -5800,7 +5852,16 @@
         if (!/^\d{17,20}$/.test(uid)) return;
         setStaffListOpen(dock, false);
         var h = dock.__vcStaffListHooks || {};
-        if (typeof h.onPeerNavigate === "function") h.onPeerNavigate(uid);
+        /* peerStaffNavFix1: sempre tab=staff (mai community) */
+        if (typeof h.onPeerNavigate === "function") {
+          h.onPeerNavigate(uid);
+          return;
+        }
+        try {
+          global.location.assign("/user/?id=" + encodeURIComponent(uid) + "&tab=staff");
+        } catch (eGoList) {
+          global.location.href = "/user/?id=" + encodeURIComponent(uid) + "&tab=staff";
+        }
       });
 
       doc.addEventListener(
@@ -5903,20 +5964,26 @@
     } catch (e) {}
   }
 
-  /* peerArrowsMargin1: dock esteso fuori card; left/right solo CSS (no overlap stats) */
+  /* peerStaffNavFix1: sempre fixed ai bordi viewport (absolute+overhang = assenti su PC / morti su phone) */
   function pinPeerBtn(btn, side) {
     if (!btn) return;
-    btn.style.setProperty("position", "absolute", "important");
+    btn.style.setProperty("position", "fixed", "important");
     btn.style.setProperty("bottom", "auto", "important");
     btn.style.setProperty("margin", "0", "important");
     btn.style.setProperty("top", "50%", "important");
     btn.style.setProperty("transform", "translateY(-50%)", "important");
-    btn.style.setProperty("z-index", "28", "important");
-    /* left/right: CSS peerArrowsMargin1 (dock overhang) — no inline che batte !important */
-    try {
-      btn.style.removeProperty("left");
-      btn.style.removeProperty("right");
-    } catch (eClr) {}
+    btn.style.setProperty("z-index", "10090", "important");
+    btn.style.setProperty("pointer-events", "auto", "important");
+    btn.style.setProperty("touch-action", "manipulation", "important");
+    btn.style.setProperty("opacity", "1", "important");
+    btn.style.setProperty("visibility", "visible", "important");
+    if (side === "left") {
+      btn.style.setProperty("left", "max(0.65rem, env(safe-area-inset-left, 0px))", "important");
+      btn.style.setProperty("right", "auto", "important");
+    } else {
+      btn.style.setProperty("right", "max(0.65rem, env(safe-area-inset-right, 0px))", "important");
+      btn.style.setProperty("left", "auto", "important");
+    }
   }
 
   function mountStaffPeerDock(neighbors, hooks) {
@@ -6356,17 +6423,24 @@
 
   function finalizeStaffAvatars(root) {
     if (!root || !root.querySelectorAll) return;
-    var imgs = root.querySelectorAll("img[data-vc-avatar], img.vc-avatar, .vc-staff-profile-identity__avatar-wrap img");
+    var imgs = root.querySelectorAll(
+      "img[data-vc-avatar], img.vc-avatar, .vc-staff-profile-identity__avatar-wrap img, .vc-staff-list-pop__av img",
+    );
     for (var i = 0; i < imgs.length; i += 1) {
       var img = imgs[i];
       try {
         img.classList.add("vc-avatar");
       } catch (eCls) {}
-      /* gifFailPng1: coffee stuck (GIF demoted) → ricostruisci da data-avatar-hash */
+      /* bootMidAvatar1 / gifFailPng1: coffee stuck → recover; guild 404 → hash user */
       try {
         var src0 = String(img.getAttribute("src") || "");
+        var blankOrCoffee =
+          !src0 ||
+          /^data:image\/svg\+xml/i.test(src0) ||
+          img.getAttribute("data-vc-avatar-fallback") === "1" ||
+          (img.complete && Number(img.naturalWidth || 0) === 0);
         if (
-          (/^data:image\/svg\+xml/i.test(src0) || img.getAttribute("data-vc-avatar-fallback") === "1") &&
+          blankOrCoffee &&
           global.VcAvatarFallback &&
           typeof global.VcAvatarFallback.recoverCoffee === "function"
         ) {
@@ -6385,7 +6459,7 @@
       }
       if (global.VcDiscordAvatar && typeof global.VcDiscordAvatar.applyToImage === "function") {
         try {
-          global.VcDiscordAvatar.applyToImage(img);
+          global.VcDiscordAvatar.applyToImage(img, { force: true });
         } catch (eApply) {}
       }
       if (img.complete && img.naturalWidth > 0) {
@@ -6396,6 +6470,15 @@
         if (global.VcAvatarFallback && typeof global.VcAvatarFallback.markReady === "function") {
           global.VcAvatarFallback.markReady(img);
         }
+      } else if (
+        global.VcAvatarFallback &&
+        typeof global.VcAvatarFallback.applyFallback === "function" &&
+        img.complete &&
+        Number(img.naturalWidth || 0) === 0
+      ) {
+        try {
+          global.VcAvatarFallback.applyFallback(img);
+        } catch (eFb) {}
       }
     }
     if (global.VcAvatarFallback && typeof global.VcAvatarFallback.scan === "function") {
@@ -6405,8 +6488,31 @@
     }
   }
 
+  function ensureStaffToolsCardCss() {
+    try {
+      if (global.document.getElementById("vc-staff-tools-card-css")) return;
+      var s = global.document.createElement("style");
+      s.id = "vc-staff-tools-card-css";
+      s.setAttribute("data-vc", "staffInProfileOnly3b");
+      s.textContent =
+        ".vc-staff-tools-card-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(11.5rem,1fr));gap:.7rem;margin-top:.15rem}" +
+        ".vc-staff-tools-card{display:flex;flex-direction:column;gap:.28rem;padding:.85rem .95rem;border-radius:1rem;" +
+        "border:1px solid rgba(245,214,183,.22);background:rgba(20,14,10,.42);text-decoration:none;color:inherit;" +
+        "box-shadow:0 6px 18px rgba(0,0,0,.35);transition:border-color .18s ease,box-shadow .18s ease}" +
+        ".vc-staff-tools-card:hover,.vc-staff-tools-card:focus-visible{border-color:rgba(245,214,183,.4);" +
+        "box-shadow:0 8px 24px rgba(0,0,0,.48),0 0 22px rgba(212,168,136,.28);outline:none}" +
+        ".vc-staff-tools-card__ico{font-size:1.15rem;color:#e8c9a8;opacity:.95}" +
+        ".vc-staff-tools-card__label{font-weight:650;font-size:.98rem;letter-spacing:.01em}" +
+        ".vc-staff-tools-card__sub{font-size:.78rem;opacity:.72;line-height:1.25}";
+      (global.document.head || global.document.documentElement).appendChild(s);
+    } catch (eCss) {}
+  }
+
   function renderInto(root, payload, opts) {
     if (!root || !payload || !payload.ok) return false;
+    try {
+      ensureStaffToolsCardCss();
+    } catch (ePin) {}
     // staffPeerFix2: ensure panel is still in the live document (community render may detach panes).
     try {
       if (root.isConnected === false) {

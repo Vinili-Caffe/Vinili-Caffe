@@ -1,3 +1,4 @@
+/* lookStaticBorder1b */
 (function () {
   "use strict";
   /* reviewsStaffBoard1: Server|Staff switch + recensione staffer */
@@ -1604,7 +1605,7 @@
             "radial-gradient(120% 90% at 0% 0%, rgba(236, 205, 176, 0.12), transparent 52%)",
             "radial-gradient(90% 70% at 100% 0%, rgba(111, 78, 55, 0.16), transparent 48%)",
             "linear-gradient(175deg, #17130f 0%, #100c09 55%, #0b0807 100%)",
-            "conic-gradient(from 0deg, rgba(255, 247, 236, 0.98) 0deg, rgba(236, 205, 176, 0.9) 70deg, rgba(212, 168, 136, 0.78) 140deg, rgba(180, 130, 90, 0.82) 200deg, rgba(212, 168, 136, 0.78) 270deg, rgba(255, 247, 236, 0.98) 360deg)",
+            "",
           ].join(", ");
       var color = isLight ? "#f6efe6" : "#100c09";
       var origin = isLight

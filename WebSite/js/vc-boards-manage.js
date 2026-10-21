@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Bacheca — wizard Aggiungi (auth → claim → tutorial → form → bozza → review) + le mie.
  * boardsCineRestore2: niente kill cine globale su manage/submit/mod
  */
@@ -20,8 +20,8 @@
   /* boardsMinePreview1: card In revisione → anteprima scheda; Bozze in sezione dedicata */
   /* boardsMineList1: lista breve server sempre in apertura (no auto-editor se 1 sola);
      card stile claim; editor = stessi campi Pubblica; Genera invite cablato; Indietro sempre */
-  /* boardsLinkCheck1: ✓/✗ su social, sito, invite, banner (probe live) */
-  /* boardsLinkCheck2: soft ✓ se social anti-bot (IG 429) */
+  /* boardsLinkCheck1: âœ“/âœ— su social, sito, invite, banner (probe live) */
+  /* boardsLinkCheck2: soft âœ“ se social anti-bot (IG 429) */
   /* boardsDiscordMd1: stessa markdown chat Discord su breve/lunga + anteprima */
   /* boardsSocialSvgAll1: tutti i social con logo SVG ufficiale */
   /* boardsDraftBadge1: badge Bozza sand/bronzo */
@@ -322,70 +322,70 @@
     fr: "Français",
     de: "Deutsch",
     pt: "Português",
-    ru: "Русский",
-    zh: "中文",
-    ja: "日本語",
-    ko: "한국어",
-    ar: "العربية",
+    ru: "Ð ÑƒÑÑÐºÐ¸Ð¹",
+    zh: "ä¸­æ–‡",
+    ja: "æ—¥æœ¬èªž",
+    ko: "í•œêµ­ì–´",
+    ar: "Ø§Ù„Ø¹Ø±Ø¨ÙŠØ©",
     nl: "Nederlands",
     pl: "Polski",
     tr: "Türkçe",
-    hi: "हिन्दी",
+    hi: "à¤¹à¤¿à¤¨à¥à¤¦à¥€",
     id: "Indonesia",
-    uk: "Українська",
-    vi: "Tiếng Việt",
-    ro: "Română",
+    uk: "Ð£ÐºÑ€Ð°Ñ—Ð½ÑÑŒÐºÐ°",
+    vi: "Tiáº¿ng Viá»‡t",
+    ro: "RomÃ¢nÄƒ",
     sv: "Svenska",
-    cs: "Čeština",
+    cs: "ÄŒeÅ¡tina",
     da: "Dansk",
-    el: "Ελληνικά",
+    el: "Î•Î»Î»Î·Î½Î¹ÎºÎ¬",
     fi: "Suomi",
     hu: "Magyar",
     no: "Norsk",
-    th: "ไทย",
-    he: "עברית",
-    bn: "বাংলা",
+    th: "à¹„à¸—à¸¢",
+    he: "×¢×‘×¨×™×ª",
+    bn: "à¦¬à¦¾à¦‚à¦²à¦¾",
     ms: "Bahasa Melayu",
     fil: "Filipino",
     ca: "Català",
-    sk: "Slovenčina",
-    bg: "Български",
+    sk: "SlovenÄina",
+    bg: "Ð‘ÑŠÐ»Ð³Ð°Ñ€ÑÐºÐ¸",
     hr: "Hrvatski",
-    sr: "Српски",
-    sl: "Slovenščina",
+    sr: "Ð¡Ñ€Ð¿ÑÐºÐ¸",
+    sl: "SlovenÅ¡Äina",
     et: "Eesti",
-    lv: "Latviešu",
-    lt: "Lietuvių",
-    fa: "فارسی",
-    ur: "اردو",
+    lv: "LatvieÅ¡u",
+    lt: "LietuviÅ³",
+    fa: "ÙØ§Ø±Ø³ÛŒ",
+    ur: "Ø§Ø±Ø¯Ùˆ",
     sw: "Kiswahili",
     af: "Afrikaans",
     sq: "Shqip",
-    ka: "ქართული",
-    hy: "Հայերեն",
-    az: "Azərbaycan",
-    kk: "Қазақша",
-    uz: "Oʻzbekcha",
-    mn: "Монгол",
-    ne: "नेपाली",
-    si: "සිංහල",
-    my: "မြန်မာ",
-    km: "ខ្មែរ",
-    lo: "ລາວ",
-    am: "አማርኛ",
+    ka: "áƒ¥áƒáƒ áƒ—áƒ£áƒšáƒ˜",
+    hy: "Õ€Õ¡ÕµÕ¥Ö€Õ¥Õ¶",
+    az: "AzÉ™rbaycan",
+    kk: "ÒšÐ°Ð·Ð°Ò›ÑˆÐ°",
+    uz: "OÊ»zbekcha",
+    mn: "ÐœÐ¾Ð½Ð³Ð¾Ð»",
+    ne: "à¤¨à¥‡à¤ªà¤¾à¤²à¥€",
+    si: "à·ƒà·’à¶‚à·„à¶½",
+    my: "á€™á€¼á€”á€ºá€™á€¬",
+    km: "ážáŸ’áž˜áŸ‚ážš",
+    lo: "àº¥àº²àº§",
+    am: "áŠ áˆ›áˆ­áŠ›",
     ga: "Gaeilge",
     cy: "Cymraeg",
     eu: "Euskara",
     gl: "Galego",
-    is: "Íslenska",
+    is: "Ãslenska",
     mt: "Malti",
     lb: "Lëtzebuergesch",
-    be: "Беларуская",
-    mk: "Македонски",
+    be: "Ð‘ÐµÐ»Ð°Ñ€ÑƒÑÐºÐ°Ñ",
+    mk: "ÐœÐ°ÐºÐµÐ´Ð¾Ð½ÑÐºÐ¸",
     bs: "Bosanski",
-    ta: "தமிழ்",
-    te: "తెలుగు",
-    yo: "Yorùbá",
+    ta: "à®¤à®®à®¿à®´à¯",
+    te: "à°¤à±†à°²à±à°—à±",
+    yo: "YorùbÃ¡",
   };
   var LOCALE_ORDER = Object.keys(LOCALE_LABELS);
   function localeFlagHtml(code) {
@@ -1406,11 +1406,11 @@
             '<label class="vc-boards-banner-upload__empty vc-no-sfx" for="vc-boards-banner-file"' +
             (prefill.bannerUrl ? " hidden" : "") +
             ">" +
-            '<i class="fa fa-image" aria-hidden="true"></i>' +
+            '<i class="fa fa-picture-o" aria-hidden="true"></i>' +
             "<span>Aggiungi banner</span></label>" +
             '<div class="vc-boards-banner-upload__overlay">' +
             '<label class="vc-boards-banner-upload__act vc-no-sfx" for="vc-boards-banner-file" title="Cambia banner">' +
-            '<i class="fa fa-image" aria-hidden="true"></i><span>Modifica</span></label>' +
+            '<i class="fa fa-picture-o" aria-hidden="true"></i><span>Modifica</span></label>' +
             '<button type="button" class="vc-boards-banner-upload__act vc-boards-banner-upload__act--danger vc-no-sfx" id="vc-boards-banner-clear" title="Rimuovi banner"' +
             (prefill.bannerUrl ? "" : " hidden") +
             '><i class="fa fa-trash" aria-hidden="true"></i><span>Rimuovi</span></button>' +
@@ -2166,7 +2166,7 @@
       sync();
     }
 
-    /* boardsLinkCheck1: ✓ trovato / ✗ non valido su social, sito, invite, banner */
+    /* boardsLinkCheck1: âœ“ trovato / âœ— non valido su social, sito, invite, banner */
     function bindLinkChecks(rootEl) {
       var scope = rootEl || document;
       if (!scope || scope.__vcBoardsLinkChecksBound) return;
@@ -2484,7 +2484,7 @@
       });
     }
 
-    /* boardsSchemeToggle1: click su https:// ↔ http:// (sito) */
+    /* boardsSchemeToggle1: click su https:// â†” http:// (sito) */
     function bindSchemePrefixToggles(rootEl) {
       var scope = rootEl || document;
       scope.querySelectorAll("[data-vc-scheme-toggle]").forEach(function (btn) {

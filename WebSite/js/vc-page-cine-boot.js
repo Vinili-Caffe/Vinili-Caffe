@@ -1,3 +1,6 @@
+/* 20261020refreshRestoreEnd1: mid-boot pin a 0; restore Y solo a fine unlock (no Y→0→Y) */
+/* 20261020phoneBellTapFree1: post-sipario campanella sopra click-gate (z↑) + PE auto
+   anche con chrome-bar-loading/interaction-hold — prima restava morta finché load. */
 /* 20261015jsWakeIdle2: hold watchdog non eterno (500ms forever = 1k wake) */
 /* 20261014cursorMqStable1 */
 (function () {
@@ -19,21 +22,58 @@
       }
     } catch (eEarlyGate) {}
 
+    /* badgeZeroLoad1: nascondi campanella "0" prima che arrivi chrome-kit (flash mid-load) */
+    try {
+      var bz = document.getElementById("vc-badge-zero-boot-css");
+      if (!bz) {
+        bz = document.createElement("style");
+        bz.id = "vc-badge-zero-boot-css";
+        bz.setAttribute("data-vc", "badgeZeroLoad1");
+        bz.textContent =
+          "#vc-notif-badge.vc-notif-badge:empty," +
+          "#vc-notif-badge.vc-notif-badge[data-count=\"0\"]," +
+          "#vc-notif-badge.vc-notif-badge[hidden]," +
+          ".vc-notif-summary > .vc-notif-badge:empty," +
+          ".vc-notif-summary > .vc-notif-badge[data-count=\"0\"]," +
+          ".vc-notif-summary > .vc-notif-badge[hidden]{" +
+          "display:none!important;visibility:hidden!important;opacity:0!important;" +
+          "width:0!important;min-width:0!important;height:0!important;padding:0!important;" +
+          "overflow:hidden!important;pointer-events:none!important}";
+        (document.head || root).appendChild(bz);
+      }
+      var bootBadge = document.getElementById("vc-notif-badge");
+      if (bootBadge) {
+        var bt = String(bootBadge.textContent || "").trim();
+        if (!bt || bt === "0") {
+          bootBadge.textContent = "";
+          bootBadge.setAttribute("data-count", "0");
+          bootBadge.setAttribute("hidden", "");
+          bootBadge.hidden = true;
+        }
+      }
+    } catch (eBadgeZero) {}
+
     /* loadGateOnce1: sipario resta fino a curtain-off (no flash pagina → loader) */
     function ensureHardSipario() {
       try {
         var hsRules =
-          "#vc-pre-cine-hard-sipario{" +
+          /* legalBootFast3: base rule SOLO pre-curtain (prima display:block globale batteva hide) */
+          "html:not(.vc-cine-curtain-off) #vc-pre-cine-hard-sipario," +
+          "html.vc-boot-loader-gate:not(.vc-cine-curtain-off) #vc-pre-cine-hard-sipario," +
+          "html.vc-chrome-bar-loading:not(.vc-cine-curtain-off) #vc-pre-cine-hard-sipario{" +
           "position:fixed!important;inset:0!important;top:0!important;right:0!important;bottom:0!important;left:0!important;" +
           "width:100vw!important;height:100dvh!important;z-index:2147483000!important;margin:0!important;padding:0!important;" +
           "border:0!important;background:#100c09!important;opacity:1!important;visibility:visible!important;" +
           "pointer-events:auto!important;display:block!important}" +
-          "html:not(.vc-cine-curtain-off) #vc-pre-cine-hard-sipario," +
-          "html.vc-boot-loader-gate:not(.vc-cine-curtain-off) #vc-pre-cine-hard-sipario," +
-          "html.vc-chrome-bar-loading:not(.vc-cine-curtain-off) #vc-pre-cine-hard-sipario{" +
-          "display:block!important;opacity:1!important;visibility:visible!important;pointer-events:auto!important;" +
-          "position:fixed!important;inset:0!important;z-index:2147483000!important;background:#100c09!important}" +
-          "html.vc-cine-curtain-off #vc-pre-cine-hard-sipario{" +
+          "html:not(.vc-cine-curtain-off) #vc-boot-load-screen{" +
+          "display:flex!important;flex-direction:column!important;align-items:center!important;" +
+          "justify-content:center!important;position:fixed!important;inset:0!important;" +
+          "z-index:2147483100!important;opacity:1!important;visibility:visible!important;" +
+          "pointer-events:auto!important;gap:.95rem!important;padding:1.5rem!important;" +
+          "background-color:#0b0806!important;" +
+          "background-image:radial-gradient(ellipse 92% 74% at 50% 38%,rgba(232,196,156,.16) 0%,rgba(28,20,14,.94) 52%,#0a0706 100%)!important}" +
+          "html.vc-cine-curtain-off #vc-pre-cine-hard-sipario," +
+          "html.vc-cine-curtain-off #vc-boot-load-screen{" +
           "display:none!important;opacity:0!important;visibility:hidden!important;pointer-events:none!important}";
         var hs = document.getElementById("vc-pre-cine-hard-sipario-css");
         if (!hs) {
@@ -41,7 +81,7 @@
           hs.id = "vc-pre-cine-hard-sipario-css";
           (document.head || root).appendChild(hs);
         }
-        hs.setAttribute("data-vc", "20261011siparioCurtainHide1");
+        hs.setAttribute("data-vc", "legalPerfPack1");
         hs.textContent = hsRules;
         var el = document.getElementById("vc-pre-cine-hard-sipario");
         if (!el) {
@@ -52,7 +92,7 @@
           if (host.firstChild) host.insertBefore(el, host.firstChild);
           else host.appendChild(el);
         }
-        /* siparioLoadPage1: loader fullscreen (profilo); toast solo post-curtain via auth-inject */
+        /* siparioLoadPage1 + homeSiparioLoad1: loader fullscreen durante sipario */
         try {
           var scr = document.getElementById("vc-boot-load-screen");
           if (!scr) {
@@ -64,10 +104,29 @@
           scr.setAttribute("aria-live", "polite");
           scr.setAttribute("aria-label", "Caricamento…");
           scr.setAttribute("data-vc", "siparioLoadPage2");
-          scr.innerHTML =
-            '<span class="vc-boot-load-screen__spin" aria-hidden="true"></span>' +
-            '<p class="vc-boot-load-screen__title">Caricamento…</p>' +
-            '<p class="vc-boot-load-screen__sub">Un momento…</p>';
+          if (!scr.querySelector(".vc-boot-load-screen__title")) {
+            scr.innerHTML =
+              '<span class="vc-boot-load-screen__spin" aria-hidden="true"></span>' +
+              '<p class="vc-boot-load-screen__title">Caricamento…</p>' +
+              '<p class="vc-boot-load-screen__sub">Un momento…</p>';
+          }
+          /* homeSiparioLoad1: mentre sipario è su, MAI lasciare loader hidden/inline-none */
+          if (!root.classList.contains("vc-cine-curtain-off")) {
+            scr.hidden = false;
+            scr.removeAttribute("hidden");
+            try {
+              scr.style.removeProperty("display");
+              scr.style.removeProperty("opacity");
+              scr.style.removeProperty("visibility");
+            } catch (eClrScr) {}
+            el.hidden = false;
+            el.removeAttribute("hidden");
+            try {
+              el.style.removeProperty("display");
+              el.style.removeProperty("opacity");
+              el.style.removeProperty("visibility");
+            } catch (eClrEl) {}
+          }
         } catch (eScr) {}
       } catch (eHs) {}
     }
@@ -92,21 +151,19 @@
         cg.id = cgId;
         (document.head || root).appendChild(cg);
       }
-      cg.setAttribute("data-vc", "loadClickGate1");
+      cg.setAttribute("data-vc", "viewAsGateClear1");
       cg.textContent =
-        /* loadClickGate1: overlay invisibile cattura click finché chrome non armed
-           (anche dopo curtain / senza barCls — prima passavano nav/main) */
+        /* viewAsGateClear1: gate su pre-armed / bar-loading / hold / sipario.
+           Lock orfani (scroll-lock/loader senza barra) NON bloccano header. */
         "html:not(.vc-chrome-scroll-armed) #vc-load-click-gate," +
         "html.vc-chrome-bar-loading #vc-load-click-gate," +
         "html.vc-interaction-hold #vc-load-click-gate," +
-        "html.vc-loading-scroll-lock #vc-load-click-gate," +
-        "html.vc-loader-blocking-live #vc-load-click-gate," +
         "html:not(.vc-cine-curtain-off) #vc-load-click-gate{" +
         "display:block!important;opacity:0!important;visibility:visible!important;" +
         "pointer-events:auto!important;position:fixed!important;inset:0!important;" +
         "z-index:2147483400!important;background:transparent!important;border:0!important;" +
         "margin:0!important;padding:0!important;cursor:inherit!important}" +
-        "html.vc-chrome-scroll-armed.vc-cine-curtain-off:not(.vc-chrome-bar-loading):not(.vc-interaction-hold):not(.vc-loading-scroll-lock):not(.vc-loader-blocking-live) #vc-load-click-gate{" +
+        "html.vc-chrome-scroll-armed.vc-cine-curtain-off:not(.vc-chrome-bar-loading):not(.vc-interaction-hold) #vc-load-click-gate{" +
         "display:none!important;pointer-events:none!important}" +
         /* no curtain-off: blocca nav/footer finché sipario è su */
         "html:not(.vc-cine-curtain-off) header a," +
@@ -116,7 +173,7 @@
         "html:not(.vc-cine-curtain-off) footer a," +
         "html:not(.vc-cine-curtain-off) main a," +
         "html:not(.vc-cine-curtain-off) main button," +
-        /* chrome-bar-loading: anche post-sipario */
+        /* chrome-bar-loading / hold: anche post-sipario — BLOCCA click */
         "html.vc-chrome-bar-loading header a," +
         "html.vc-chrome-bar-loading header button," +
         "html.vc-chrome-bar-loading #header-quick-actions," +
@@ -128,7 +185,6 @@
         "html.vc-chrome-bar-loading button," +
         "html.vc-chrome-bar-loading [role=button]," +
         "html.vc-chrome-bar-loading summary," +
-        /* interaction-hold / scroll-lock */
         "html.vc-interaction-hold header a," +
         "html.vc-interaction-hold header button," +
         "html.vc-interaction-hold #header-quick-actions," +
@@ -137,16 +193,51 @@
         "html.vc-interaction-hold main a," +
         "html.vc-interaction-hold main button," +
         "html.vc-interaction-hold a," +
-        "html.vc-interaction-hold button," +
-        "html.vc-loading-scroll-lock header a," +
-        "html.vc-loading-scroll-lock header button," +
-        "html.vc-loading-scroll-lock #header-quick-actions," +
-        "html.vc-loading-scroll-lock .vc-mobile-nav-drawer," +
-        "html.vc-loading-scroll-lock footer a," +
-        "html.vc-loading-scroll-lock main a," +
-        "html.vc-loading-scroll-lock main button," +
-        "html.vc-loading-scroll-lock a," +
-        "html.vc-loading-scroll-lock button{pointer-events:none!important}" +
+        "html.vc-interaction-hold button{pointer-events:none!important}" +
+        /* post sipario+armed+!bar-loading: header cliccabile anche con lock orfani */
+        "html.vc-chrome-scroll-armed.vc-cine-curtain-off:not(.vc-chrome-bar-loading):not(.vc-interaction-hold) header," +
+        "html.vc-chrome-scroll-armed.vc-cine-curtain-off:not(.vc-chrome-bar-loading):not(.vc-interaction-hold) header a," +
+        "html.vc-chrome-scroll-armed.vc-cine-curtain-off:not(.vc-chrome-bar-loading):not(.vc-interaction-hold) header button," +
+        "html.vc-chrome-scroll-armed.vc-cine-curtain-off:not(.vc-chrome-bar-loading):not(.vc-interaction-hold) #header-quick-actions," +
+        "html.vc-chrome-scroll-armed.vc-cine-curtain-off:not(.vc-chrome-bar-loading):not(.vc-interaction-hold) #header-quick-actions button," +
+        "html.vc-chrome-scroll-armed.vc-cine-curtain-off:not(.vc-chrome-bar-loading):not(.vc-interaction-hold) #header-quick-actions summary," +
+        "html.vc-chrome-scroll-armed.vc-cine-curtain-off:not(.vc-chrome-bar-loading):not(.vc-interaction-hold) #vc-view-as-launch{" +
+        "pointer-events:auto!important}" +
+        /* phoneBellTapFree1: sipario off → campanella subito (sopra gate z=2147483400) */
+        "html.vc-cine-curtain-off #header-quick-actions," +
+        "html.vc-cine-curtain-off #header-quick-actions #vc-notif-dropdown," +
+        "html.vc-cine-curtain-off #header-quick-actions .vc-notif-dropdown," +
+        "html.vc-cine-curtain-off #header-quick-actions .vc-notif-summary," +
+        "html.vc-cine-curtain-off #header-quick-actions summary.vc-notif-summary," +
+        "html.vc-cine-curtain-off #vc-notif-dropdown," +
+        "html.vc-cine-curtain-off .vc-notif-dropdown," +
+        "html.vc-cine-curtain-off.vc-chrome-bar-loading #header-quick-actions," +
+        "html.vc-cine-curtain-off.vc-chrome-bar-loading #vc-notif-dropdown," +
+        "html.vc-cine-curtain-off.vc-chrome-bar-loading .vc-notif-summary," +
+        "html.vc-cine-curtain-off.vc-interaction-hold #header-quick-actions," +
+        "html.vc-cine-curtain-off.vc-interaction-hold #vc-notif-dropdown," +
+        "html.vc-cine-curtain-off.vc-interaction-hold .vc-notif-summary," +
+        "html.vc-cine-curtain-off.vc-chrome-bar-loading #header-quick-actions summary," +
+        "html.vc-cine-curtain-off.vc-interaction-hold #header-quick-actions summary{" +
+        "pointer-events:auto!important;position:relative!important;" +
+        "z-index:2147483501!important}" +
+        "html.vc-cine-curtain-off #header-quick-actions .vc-notif-summary," +
+        "html.vc-cine-curtain-off #header-quick-actions summary.vc-notif-summary," +
+        "html.vc-cine-curtain-off #vc-notif-dropdown > summary{" +
+        "pointer-events:auto!important;z-index:2147483502!important}" +
+        /* phoneTopBlurBell1: telefono — niente shadow/blur nera sotto barra/nav post-sipario */
+        "@media (max-width:1199.98px),(pointer:coarse){" +
+        "html.vc-cine-curtain-off body.vc-body > header .vc-nav-shell," +
+        "html.vc-cine-curtain-off body.vc-body header .vc-nav-shell," +
+        "html.vc-cine-curtain-off body.vc-body header .vc-nav-shell.vc-glass," +
+        "html.vc-cine-curtain-off.vc-chrome-bar-loading body.vc-body header .vc-nav-shell," +
+        "html.vc-cine-curtain-off #vc-site-progress," +
+        "html.vc-cine-curtain-off #vc-site-progress__bar," +
+        "html.vc-cine-curtain-off #vc-site-progress::before," +
+        "html.vc-cine-curtain-off #vc-site-progress::after{" +
+        "backdrop-filter:none!important;-webkit-backdrop-filter:none!important;" +
+        "filter:none!important;-webkit-filter:none!important;box-shadow:none!important;" +
+        "text-shadow:none!important}}" +
         /* sipario e ::before devono catturare i click durante load */
         "html:not(.vc-cine-curtain-off)::before{pointer-events:auto!important}" +
         "#vc-pre-cine-hard-sipario{pointer-events:auto!important}";
@@ -232,7 +323,7 @@
 
     /* Photo-bg: niente blank lungo su DCL. */
     /* Marker: bootOneShot2 — un solo gate (CSS≠release; release=chrome done) */
-    var BOOT_VER = "ptrScrollYoYoKill1";
+    var BOOT_VER = "legalPerfPack1";
 
     function isCineBaked() {
       try {
@@ -301,6 +392,19 @@
         /* toastSyncAll2: solo LoadDone (VisualReady può arrivare prima → early curtain) */
         if (window.__vcChromeLoadDone === true) return false;
         var age = Date.now() - Number(window.__vcCineBootStartedAt || Date.now());
+        /* legalBootFast1: soft+look ready → alza sipario (barra/toast continuano sotto).
+           Prima: HARD 6.5s + wait chrome-ui = policy a 13s + FOUC yoyo. */
+        var cssPaintReady = false;
+        try {
+          cssPaintReady =
+            (root.classList.contains("vc-soft-fx-ready") ||
+              root.classList.contains("vc-soft-fx-off")) &&
+            (root.classList.contains("vc-look-core-ready") ||
+              root.classList.contains("vc-soft-fx-off")) &&
+            !window.__vcSiparioCssGateHold;
+        } catch (eCssR) {}
+        /* subito: soft+look ready = barra non blocca sipario (toast continua) */
+        if (cssPaintReady) return false;
         /* toastSyncAll2: failsafe solo ~6.5s — NON alzare sipario a 2.8s (2° load) */
         var HARD_MS = 6500;
         if (age >= HARD_MS) return false;
@@ -318,15 +422,47 @@
         if (boardsViewStillPending()) return false;
       } catch (eBd) {}
       try {
+        /* legalBootFast1: soft+look ready → lift anche con boot-loader-gate sticky
+           (gate aspettava un loader pagina che su policy non esiste → sipario 6–13s) */
+        var cssOkLift =
+          (root.classList.contains("vc-soft-fx-ready") ||
+            root.classList.contains("vc-soft-fx-off")) &&
+          (root.classList.contains("vc-look-core-ready") ||
+            root.classList.contains("vc-soft-fx-off")) &&
+          !window.__vcSiparioCssGateHold;
+        if (cssOkLift) {
+          /* legalSiparioCpu2: min ~800ms loader (no wait chrome = 9s neri) */
+          try {
+            if (isLegalBootPage()) {
+              var ageLift =
+                Date.now() - Number(window.__vcCineBootStartedAt || Date.now());
+              if (ageLift < 800) return false;
+            }
+          } catch (eLegLift) {}
+          return true;
+        }
+      } catch (eCssLift) {}
+      try {
         /* aspetta che il loader pagina esista (gate) — poi alza: si vede loader, non il contenuto */
         if (bootLoaderGateActive()) return false;
       } catch (eGate) {}
       try {
-        /* toastSyncAll2: anche force=true rispetta chrome (no bypass → early curtain) */
         if (chromeBarStillLoading()) return false;
       } catch (eBar) {}
-      if (force) return true;
       return true;
+    }
+
+    function isLegalBootPage() {
+      try {
+        if (document.body && document.body.classList.contains("vc-legal-page")) return true;
+        if (document.getElementById("vc-page-legal-css")) return true;
+        if (document.querySelector('link[href*="vc-page-legal"]')) return true;
+        return /\/(privacy|terms|cookie|copyright|dati|regole)(\/|$)/i.test(
+          String(location.pathname || "/"),
+        );
+      } catch (eLeg) {
+        return false;
+      }
     }
 
     function boardsViewStillPending() {
@@ -477,6 +613,20 @@
           themeSheetsReady() &&
           canLiftCurtainNow(false)
         ) {
+          /* siparioCssWait2: cine-boot non alza se CSS gate ancora hold */
+          try {
+            if (window.__vcSiparioCssGateHold) {
+              if (
+                typeof window.__vcReclaimSiparioCssGate === "function" &&
+                !window.__vcReclaimSiparioCssGate()
+              ) {
+                return;
+              }
+              if (window.__vcSiparioCssGateHold) return;
+            }
+          } catch (eCssHold) {
+            return;
+          }
           try {
             root.classList.add("vc-theme-light-ready");
           } catch (eTh) {}
@@ -492,8 +642,28 @@
             loaderBlocking = false;
           }
         }
-        /* scrollKill1: top-lock always off; cine-boot resta se ancora in attesa del loader */
-        root.classList.remove("vc-scroll-soft-lock", "vc-scroll-reload-top-lock", "vc-ptr-scroll-restore-pending");
+        /* scrollKill1 + bootScrollTopUntilEnd1: non togliere top-lock se restore ancora
+           in coda e chrome non unlocked — altrimenti viewport salta a Y mid-boot. */
+        root.classList.remove("vc-scroll-soft-lock");
+        try {
+          var keepTopLock =
+            window.__vcChromeVisualReady !== 1 &&
+            !window.__vcPtrRestoreDone &&
+            (Math.max(
+              0,
+              Number(window.__vcPtrRestoreTargetY || 0) || 0,
+              Number(window.__vcPtrRestoreY || 0) || 0,
+              Number(window.__vcViewStateRestoreY || 0) || 0,
+            ) >= 2 ||
+              root.classList.contains("vc-chrome-bar-loading") ||
+              (root.classList.contains("vc-page-cine-boot") &&
+                !root.classList.contains("vc-cine-curtain-off")));
+          if (!keepTopLock) {
+            root.classList.remove("vc-scroll-reload-top-lock", "vc-ptr-scroll-restore-pending");
+          }
+        } catch (eKeepLock) {
+          root.classList.remove("vc-scroll-reload-top-lock", "vc-ptr-scroll-restore-pending");
+        }
         if (
           awaitingBootLoader &&
           !root.classList.contains("vc-page-cine-ready") &&
@@ -939,9 +1109,15 @@
       "html.vc-interaction-hold body>footer," +
       "html.vc-interaction-hold #vc-mobile-nav-drawer," +
       "html.vc-interaction-hold #vc-lang-dropdown," +
-      "html.vc-interaction-hold #header-quick-actions," +
-      "html.vc-interaction-hold .vc-notif-dropdown{" +
+      "html.vc-interaction-hold:not(.vc-cine-curtain-off) #header-quick-actions," +
+      "html.vc-interaction-hold:not(.vc-cine-curtain-off) .vc-notif-dropdown{" +
       "pointer-events:none!important}" +
+      /* phoneBellTapFree1: post-sipario override hold PE none sulla campanella */
+      "html.vc-cine-curtain-off.vc-interaction-hold #header-quick-actions," +
+      "html.vc-cine-curtain-off.vc-interaction-hold #vc-notif-dropdown," +
+      "html.vc-cine-curtain-off.vc-interaction-hold .vc-notif-dropdown," +
+      "html.vc-cine-curtain-off.vc-interaction-hold .vc-notif-summary{" +
+      "pointer-events:auto!important;z-index:2147483501!important}" +
       /* inbox: cliccabile, ma cursore resta VC_Loading durante hold */
       "html.vc-interaction-hold body.vc-notifications-page," +
       "html.vc-interaction-hold body.vc-notifications-page #vc-staff-inbox," +
@@ -1092,20 +1268,26 @@
           try {
             /* classFlash4: su classifiche ignora SEMPRE restoreY stale (ex personalizza) —
                anche con ptr-pending spoof — yank mid continuo altrimenti */
+            /* legalBootTop1: policy = sempre top a fine boot (no mid da session/F5) */
             var pathNow = String((location && location.pathname) || "").replace(/\/+$/, "") || "/";
             var isLeader =
               pathNow === "/classifiche" ||
               document.documentElement.classList.contains("vc-user-leader-route") ||
               document.documentElement.classList.contains("vc-user-leader-pending");
+            var isLegalLand =
+              /^\/(privacy|terms|cookie|copyright|dati|regole)$/i.test(pathNow) ||
+              (document.body && document.body.classList.contains("vc-legal-page")) ||
+              !!document.getElementById("vc-page-legal-css");
             var ptrPending = document.documentElement.classList.contains("vc-ptr-scroll-restore-pending");
             var ptrReload = false;
             try {
               ptrReload = sessionStorage.getItem("vc_ptr_reload_v1") === "1";
             } catch (ePtrR) {}
-            if (isLeader && !(ptrPending && ptrReload)) {
+            if (isLegalLand || (isLeader && !(ptrPending && ptrReload))) {
               window.__vcPtrRestoreTargetY = 0;
               window.__vcPtrRestoreY = 0;
               window.__vcViewStateRestoreY = 0;
+              window.__vcRestoredScrollStickyY = 0;
               window.__vcDiscardScrollRestore = 1;
               document.documentElement.removeAttribute("data-vc-ptr-restore-y");
               restoreY = 0;
@@ -1136,24 +1318,39 @@
               }
             }
           } catch (eRy) {}
-          /* scrollReloadNoYank1: se c'è restore, NON scrollare qui.
-             I boot-guard (pinY=0) riportavano su → yo-yo ~1s. Finalize fa UN salto. */
+          /* refreshRestoreEnd1: restoreY resta nei window vars; mid-boot pin SEMPRE 0.
+             Finalize/unlock chrome fa l'unico scrollTo(wantY) a fine load. */
           var keepUserScroll = restoreY > 24;
           if (keepUserScroll) {
             try {
-              if (typeof window.__vcResetPinnedPageScrollY === "function") {
-                window.__vcResetPinnedPageScrollY(restoreY);
-              }
               window.__vcDiscardNextUnpinScrollY = false;
+              window.__vcDiscardScrollRestore = 0;
+              if (typeof window.__vcResetPinnedPageScrollY === "function") {
+                window.__vcResetPinnedPageScrollY(0);
+              }
             } catch (eKeep) {}
-            bootScrollPinY = restoreY;
+            bootScrollPinY = 0;
             try {
               if (typeof window.__vcPtrFinalizeScroll === "function") {
-                /* bootViolSnap1: un solo finalize (era 60+450+1200 → Violation) */
-                window.setTimeout(function () {
+                var tryFinalize = function (attempt) {
                   try {
+                    var ready =
+                      window.__vcChromeVisualReady === 1 &&
+                      window.__vcChromeLoadDone === true &&
+                      !document.documentElement.classList.contains("vc-chrome-bar-loading");
+                    if (!ready && attempt < 40) {
+                      window.setTimeout(function () {
+                        tryFinalize(attempt + 1);
+                      }, 80);
+                      return;
+                    }
+                    /* solo dopo unlock chrome — evita 2° jump se unlock ha già fatto Done */
+                    if (window.__vcScrollUnlockOnce === 1 || window.__vcPtrRestoreDone === 1) return;
                     window.__vcPtrFinalizeScroll();
                   } catch (eF2) {}
+                };
+                window.setTimeout(function () {
+                  tryFinalize(0);
                 }, 80);
               }
             } catch (eFin) {}
@@ -1459,6 +1656,26 @@
               root.removeAttribute("data-vc-boot-loader");
             } catch (eGateLift) {}
             try {
+              /* legalBootFast2/homeSiparioLoad1: hide SOLO dopo curtain-off (entrambi i nodi) */
+              ["vc-pre-cine-hard-sipario", "vc-boot-load-screen"].forEach(function (id) {
+                var sipLift = document.getElementById(id);
+                if (!sipLift) return;
+                try {
+                  sipLift.removeAttribute("style");
+                } catch (eRmSt0) {}
+                sipLift.hidden = true;
+                sipLift.setAttribute("hidden", "");
+                try {
+                  sipLift.style.setProperty("display", "none", "important");
+                  sipLift.style.setProperty("opacity", "0", "important");
+                  sipLift.style.setProperty("visibility", "hidden", "important");
+                } catch (eSipSt) {}
+              });
+            } catch (eSipHide) {}
+            try {
+              window.__vcCurtainOffAt = Date.now();
+            } catch (eAt) {}
+            try {
               clearChromeBarGate();
             } catch (eBar3) {}
             try {
@@ -1528,7 +1745,7 @@
           /* progGlowUnify1: stessa sand-glow chrome-ui */
           "#vc-site-progress{position:fixed!important;top:0!important;left:0!important;right:0!important;" +
           "width:auto!important;z-index:2147483500!important;pointer-events:none!important;" +
-          "background:transparent!important;overflow:visible!important;contain:none!important;" +
+          "background:transparent!important;overflow:hidden!important;contain:none!important;" +
           "backdrop-filter:none!important;-webkit-backdrop-filter:none!important;" +
           "filter:none!important;box-shadow:none!important}" +
           "#vc-site-progress.is-loading{height:3px!important;opacity:1!important;visibility:visible!important;display:block!important}" +
@@ -1536,8 +1753,12 @@
           "#vc-site-progress__bar{display:block!important;height:100%!important;width:100%!important;" +
           "transform-origin:left center!important;background:#d4a888!important;" +
           "background-image:linear-gradient(90deg,#8f6b3f,#c49a72,#e8c9a8,#fffaf3,#e8c9a8,#d4a888,#b88968)!important;" +
-          "box-shadow:0 0 4px rgba(255,250,243,.65),0 0 10px rgba(212,168,136,.8),0 0 18px rgba(184,137,104,.4)!important;" +
-          "filter:none!important;backdrop-filter:none!important}";
+          "box-shadow:none!important;" +
+          "filter:none!important;backdrop-filter:none!important;will-change:auto!important}" +
+          /* phoneBarBlurKill2 */
+          "@media (max-width:1199.98px),(pointer:coarse){" +
+          "#vc-site-progress__bar{background-image:linear-gradient(90deg,#9a7349,#d4a888,#b88968)!important;" +
+          "box-shadow:none!important;filter:none!important;will-change:auto!important}}";
         if (created) (document.head || root).appendChild(css);
         function mountStub() {
           var wrap = document.getElementById("vc-site-progress");
@@ -1619,19 +1840,39 @@
         if (isHashDeepLinkNav()) return;
         var stillBooting =
           root.classList.contains("vc-page-cine-boot") && !root.classList.contains("vc-page-cine-ready");
+        var barBusy = false;
+        try {
+          barBusy =
+            window.__vcChromeVisualReady !== 1 ||
+            window.__vcChromeLoadDone !== true ||
+            root.classList.contains("vc-chrome-bar-loading") ||
+            root.classList.contains("vc-loading-scroll-lock") ||
+            root.classList.contains("vc-loader-blocking-live") ||
+            (root.classList.contains("vc-page-cine-boot") &&
+              !root.classList.contains("vc-cine-curtain-off"));
+        } catch (eBarB) {
+          barBusy = stillBooting;
+        }
         /*
-         * bootStayTop2: PRIMA il restoreY>8 faceva early-return durante il sipario →
-         * niente snap top → scroll-anchoring/clampa in FONDO. Durante boot SEMPRE top;
-         * il restore Y parte solo dopo ready (ptr/view-state con max REALE).
+         * bootScrollTopUntilEnd1: restore Y in coda NON deve skippare lo snap a 0.
+         * Prima wantRestore early-return → mid-page visibile a metà sipario/barra.
+         * Durante boot/barra: SEMPRE top; restore solo post visual-ready.
          */
-        /* scrollBarTrack3c: mai hard-top se restore Y in coda (unpin azzerava dopo visual-ready) */
-        /* classFlash4: classifiche ignora restore stale — altrimenti early-return → resta mid */
+        if (stillBooting || hard || barBusy) {
+          /* bootViolSnap1: un solo scrollTo — no scrollTop×2 (Forced reflow) */
+          bootScrollToY(0);
+          return;
+        }
+        /* scrollBarTrack3c / classFlash4: post-boot — non yankare se restore già atterrato */
         try {
           var pathForce = String((location && location.pathname) || "").replace(/\/+$/, "") || "/";
           var leaderForce =
             pathForce === "/classifiche" ||
             root.classList.contains("vc-user-leader-route") ||
             root.classList.contains("vc-user-leader-pending");
+          var legalForce =
+            /^\/(privacy|terms|cookie|copyright|dati|regole)$/i.test(pathForce) ||
+            (document.body && document.body.classList.contains("vc-legal-page"));
           var wantRestore = Math.max(
             0,
             Number(window.__vcPtrRestoreTargetY || 0) || 0,
@@ -1639,10 +1880,13 @@
             Number(window.__vcViewStateRestoreY || 0) || 0,
             Number(window.__vcRestoredScrollStickyY || 0) || 0,
           );
+          if (legalForce) {
+            wantRestore = 0;
+            window.__vcDiscardScrollRestore = 1;
+          }
           if (leaderForce && window.__vcDiscardScrollRestore) {
             wantRestore = 0;
           }
-          /* ptrScrollYoYoKill1: se già mid / sticky restore → MAI yank a 0 (era: Done spoof → hard top) */
           var liveForce = Math.max(0, Math.round(Number(bootScrollY()) || 0));
           var stickyAt = Number(window.__vcRestoredScrollStickyAt || 0) || 0;
           var stickyFresh = stickyAt && Date.now() - stickyAt < 4000;
@@ -1660,11 +1904,6 @@
             return;
           }
         } catch (eWant) {}
-        if (stillBooting || hard) {
-          /* bootViolSnap1: un solo scrollTo — no scrollTop×2 (Forced reflow) */
-          bootScrollToY(0);
-          return;
-        }
         /* scrollReloadKillYoYo2: post-ready — non azzerare se restore in unpin */
         if (document.documentElement.classList.contains("vc-ptr-scroll-restore-pending")) return;
         if (window.__vcPtrRestoreUnpinStarted && !window.__vcPtrRestoreDone) return;
@@ -1758,10 +1997,9 @@
               Number(window.__vcPtrRestoreY || 0) || 0,
               Number(window.__vcViewStateRestoreY || 0) || 0,
             );
-            if (ryGuard > 8 && !window.__vcPtrRestoreDone) return;
-            /* ptrScrollRestore1: Done spoof + Y target → non yank a pin 0 */
-            if (ryGuard > 8 && Math.abs(bootScrollY() - ryGuard) > 80) {
-              restoreBootScrollY(ryGuard);
+            /* refreshRestoreEnd1: pending restore → resta a 0 (no mid-load jump a ryGuard) */
+            if (ryGuard > 8 && !window.__vcPtrRestoreDone) {
+              restoreBootScrollY(0);
               return;
             }
           } catch (eRyG) {}
@@ -1772,7 +2010,7 @@
             } catch (ePin) {}
             return;
           }
-          restoreBootScrollY(bootScrollPinY);
+          restoreBootScrollY(bootScrollPinY <= 8 ? 0 : bootScrollPinY);
           return;
         }
         if (e && e.cancelable) e.preventDefault();
@@ -2145,6 +2383,27 @@
       else if (L.mono) baseOk = sheetHasRules(L.mono);
       else if (L.core) baseOk = sheetHasRules(L.core);
       else if (L.ext) baseOk = sheetHasRules(L.ext);
+      /* legalBootFast1: policy/tickets/scoped = look(+soft) bastano.
+         Senza landing-core landingCssReady restava false → hold/sipario ~8–13s. */
+      if (!baseOk && L.look && sheetAppliesToScreen(L.look) && sheetHasRules(L.look)) {
+        try {
+          var scoped =
+            document.getElementById("vc-page-legal-css") ||
+            document.querySelector(
+              'link[href*="vc-page-legal"],link[href*="vc-page-tickets"],link[href*="vc-page-bacheca"],link[href*="vc-page-staff"],link[href*="vc-page-dashboard"],link[href*="vc-page-misc"],link[href*="vc-page-cine-public"],link[href*="page-bundle"]',
+            );
+          if (scoped) {
+            if (
+              softFxIntentionallyOff() ||
+              !L.soft ||
+              (sheetAppliesToScreen(L.soft) && sheetHasRules(L.soft)) ||
+              root.classList.contains("vc-soft-fx-ready")
+            ) {
+              baseOk = true;
+            }
+          }
+        } catch (eScopedBase) {}
+      }
       if (!baseOk) return false;
       /* holdFreezeKill1: con soft-fx-off (perf mid/lite) soft NON è requisito reveal/hold */
       if (softFxIntentionallyOff()) return true;
@@ -2846,6 +3105,139 @@
         bootPolishPage();
       }
     } catch (eBootNow) {}
+    /* legalSiparioCpu2: poll lift; legal = soft+look + min 800ms loader (no wait chrome) */
+    try {
+      if (!alreadyOpen && !window.__vcLegalBootFastLiftPoll) {
+        window.__vcLegalBootFastLiftPoll = 1;
+        var liftN = 0;
+        var legalBoot = false;
+        try {
+          legalBoot = isLegalBootPage();
+        } catch (eLB) {}
+        function hideSiparioNodes() {
+          ["vc-pre-cine-hard-sipario", "vc-boot-load-screen"].forEach(function (id) {
+            var el = document.getElementById(id);
+            if (!el) return;
+            try {
+              el.removeAttribute("style");
+            } catch (eRmSt) {}
+            el.hidden = true;
+            el.setAttribute("hidden", "");
+            el.style.setProperty("display", "none", "important");
+            el.style.setProperty("opacity", "0", "important");
+            el.style.setProperty("visibility", "hidden", "important");
+            el.style.setProperty("pointer-events", "none", "important");
+          });
+        }
+        function showBootLoadDuringSipario() {
+          try {
+            if (root.classList.contains("vc-cine-curtain-off")) return;
+            ensureHardSipario();
+            var sip = document.getElementById("vc-pre-cine-hard-sipario");
+            var boot = document.getElementById("vc-boot-load-screen");
+            if (sip) {
+              sip.hidden = false;
+              sip.removeAttribute("hidden");
+              try {
+                sip.style.removeProperty("display");
+                sip.style.removeProperty("opacity");
+                sip.style.removeProperty("visibility");
+              } catch (eS1) {}
+            }
+            if (boot) {
+              boot.hidden = false;
+              boot.removeAttribute("hidden");
+              try {
+                boot.style.removeProperty("display");
+                boot.style.removeProperty("opacity");
+                boot.style.removeProperty("visibility");
+              } catch (eS2) {}
+            }
+          } catch (eShow) {}
+        }
+        showBootLoadDuringSipario();
+        /* legalPerfPack1: rAF + throttle (no setInterval 50–100ms forever) */
+        var lastTick = 0;
+        var liftDone = false;
+        function liftTick(now) {
+          if (liftDone) return;
+          liftN += 1;
+          try {
+            if (root.classList.contains("vc-cine-curtain-off")) {
+              hideSiparioNodes();
+              liftDone = true;
+              return;
+            }
+            var t = typeof now === "number" ? now : Date.now();
+            if (t - lastTick < (legalBoot ? 90 : 50)) {
+              window.requestAnimationFrame(liftTick);
+              return;
+            }
+            lastTick = t;
+            showBootLoadDuringSipario();
+            var cssOk =
+              (root.classList.contains("vc-soft-fx-ready") ||
+                root.classList.contains("vc-soft-fx-off")) &&
+              (root.classList.contains("vc-look-core-ready") ||
+                root.classList.contains("vc-soft-fx-off")) &&
+              !window.__vcSiparioCssGateHold;
+            var age =
+              Date.now() - Number(window.__vcCineBootStartedAt || Date.now());
+            var minMs = legalBoot ? 800 : 350;
+            if (!cssOk || age < minMs) {
+              if (liftN > 120) {
+                liftDone = true;
+                return;
+              }
+              window.requestAnimationFrame(liftTick);
+              return;
+            }
+            try {
+              scheduleReleaseInteractionHold();
+            } catch (eKickHold) {}
+            try {
+              root.classList.remove("vc-interaction-hold");
+              releaseHoldDone = true;
+            } catch (eHoldKick) {}
+            try {
+              liftBootCurtain(true);
+            } catch (eKickLift) {}
+            try {
+              if (!root.classList.contains("vc-cine-curtain-off")) {
+                root.classList.add("vc-cine-curtain-off", "vc-page-cine-ready");
+                root.classList.remove("vc-page-cine-boot", "vc-boot-loader-gate");
+                window.__vcCurtainOffAt = Date.now();
+              }
+            } catch (eForceCurt) {}
+            if (root.classList.contains("vc-cine-curtain-off")) {
+              hideSiparioNodes();
+              liftDone = true;
+              return;
+            }
+            if (liftN > 120) {
+              liftDone = true;
+              return;
+            }
+          } catch (eLiftPoll) {
+            if (liftN > 120) {
+              liftDone = true;
+              return;
+            }
+          }
+          try {
+            document.addEventListener(
+              "vc:soft-fx-ready",
+              function () {
+                if (!liftDone) window.requestAnimationFrame(liftTick);
+              },
+              { once: true },
+            );
+          } catch (eEv) {}
+          window.requestAnimationFrame(liftTick);
+        }
+        window.requestAnimationFrame(liftTick);
+      }
+    } catch (eFastLift) {}
     if (document.readyState === "loading") {
       document.addEventListener("DOMContentLoaded", function () {
         if (root.classList.contains("vc-user-leader-pending") || root.classList.contains("vc-user-leader-route")) return;

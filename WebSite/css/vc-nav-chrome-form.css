@@ -1,3 +1,4 @@
+/* lookStaticBorder1: no conic/mask rings — solid sand border */
 /* navChromeFix19: conic footer palette ESTESO su tutto il perimetro (no spot 36°) */
 :root {
   --vc-nav-shell-fill: #140f0c;
@@ -8,58 +9,14 @@
   /* navInnerScaleEqual1: 2.75rem (=44px) — snav/brand/chip/cerchi stessa riga GRANDE */
   --vc-nav-chrome-size: 2.75rem;
   /* cerchi chrome = STESSO anello dello shell esterno (navChromeShellMatch1) */
-  --vc-nav-ring: conic-gradient(
-    from 0deg,
-    rgba(255, 247, 236, 0.88) 0deg,
-    rgba(212, 168, 136, 0.45) 45deg,
-    rgba(255, 247, 236, 0.72) 90deg,
-    rgba(212, 168, 136, 0.38) 135deg,
-    rgba(255, 247, 236, 0.82) 180deg,
-    rgba(212, 168, 136, 0.42) 225deg,
-    rgba(255, 247, 236, 0.7) 270deg,
-    rgba(212, 168, 136, 0.4) 315deg,
-    rgba(255, 247, 236, 0.88) 360deg
-  );
-  --vc-nav-ring-light: conic-gradient(
-    from 0deg,
-    rgba(92, 58, 34, 0.9) 0deg,
-    rgba(168, 110, 66, 0.55) 45deg,
-    rgba(92, 58, 34, 0.75) 90deg,
-    rgba(168, 110, 66, 0.5) 135deg,
-    rgba(92, 58, 34, 0.85) 180deg,
-    rgba(168, 110, 66, 0.52) 225deg,
-    rgba(92, 58, 34, 0.72) 270deg,
-    rgba(168, 110, 66, 0.5) 315deg,
-    rgba(92, 58, 34, 0.9) 360deg
-  );
+  --vc-nav-ring: ;
+  --vc-nav-ring-light: ;
   /*
     Palette footer (crema / sabbia) ma 4 highlight attorno — non un solo fascio.
     Min opacity ~0.35 così basso/sinistra restano leggibili.
   */
-  --vc-nav-shell-ring: conic-gradient(
-    from 0deg,
-    rgba(255, 247, 236, 0.88) 0deg,
-    rgba(212, 168, 136, 0.45) 45deg,
-    rgba(255, 247, 236, 0.72) 90deg,
-    rgba(212, 168, 136, 0.38) 135deg,
-    rgba(255, 247, 236, 0.82) 180deg,
-    rgba(212, 168, 136, 0.42) 225deg,
-    rgba(255, 247, 236, 0.7) 270deg,
-    rgba(212, 168, 136, 0.4) 315deg,
-    rgba(255, 247, 236, 0.88) 360deg
-  );
-  --vc-nav-shell-ring-light: conic-gradient(
-    from 0deg,
-    rgba(92, 58, 34, 0.9) 0deg,
-    rgba(168, 110, 66, 0.55) 45deg,
-    rgba(92, 58, 34, 0.75) 90deg,
-    rgba(168, 110, 66, 0.5) 135deg,
-    rgba(92, 58, 34, 0.85) 180deg,
-    rgba(168, 110, 66, 0.52) 225deg,
-    rgba(92, 58, 34, 0.72) 270deg,
-    rgba(168, 110, 66, 0.5) 315deg,
-    rgba(92, 58, 34, 0.9) 360deg
-  );
+  --vc-nav-shell-ring: ;
+  --vc-nav-shell-ring-light: ;
 }
 
 /* shared chrome ring (view-as / notif / lang / logo / avatar) */
@@ -92,7 +49,7 @@ body.vc-body header .vc-header-logo-link {
   border: var(--vc-nav-chrome-ring-w, 2px) solid transparent !important;
   border-width: var(--vc-nav-chrome-ring-w, 2px) !important;
   border-style: solid !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   outline: none !important;
   border-radius: 999px !important;
   background-color: var(--vc-nav-shell-fill) !important;
@@ -129,7 +86,7 @@ html.vc-site-polish:not(.vc-soft-fx-off):not([data-vc-theme="light"]) body.vc-bo
   border: 0 !important;
   border-width: 0 !important;
   border-style: none !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   box-shadow: none !important;
   filter: none !important;
   -webkit-filter: none !important;
@@ -147,31 +104,7 @@ html.vc-site-polish:not(.vc-soft-fx-off):not([data-vc-theme="light"]) body.vc-bo
 html.vc-site-polish:not(.vc-soft-fx-off):not([data-vc-theme="light"]) body.vc-body#top header .vc-nav-shell::after,
 html.vc-site-polish:not(.vc-soft-fx-off):not([data-vc-theme="light"]) body.vc-body--home > header .vc-nav-shell::after,
 html.vc-site-polish:not(.vc-soft-fx-off):not([data-vc-theme="light"]) body.vc-dashboard-page > header .vc-nav-shell::after,
-html.vc-site-polish:not(.vc-soft-fx-off):not([data-vc-theme="light"]) body.vc-staff-area > header .vc-nav-shell::after {
-  content: "" !important;
-  display: block !important;
-  position: absolute !important;
-  inset: calc(var(--vc-nav-shell-ring-w, 4px) * -1) !important;
-  border-radius: inherit !important;
-  box-sizing: border-box !important;
-  padding: var(--vc-nav-shell-ring-w, 4px) !important;
-  pointer-events: none !important;
-  z-index: 0 !important;
-  opacity: 1 !important;
-  visibility: visible !important;
-  border: 0 !important;
-  outline: none !important;
-  box-shadow: none !important;
-  filter: none !important;
-  -webkit-filter: none !important;
-  animation: none !important;
-  background: var(--vc-nav-shell-ring) !important;
-  background-image: var(--vc-nav-shell-ring) !important;
-  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0) !important;
-  -webkit-mask-composite: xor !important;
-  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0) !important;
-  mask-composite: exclude !important;
-}
+html.vc-site-polish:not(.vc-soft-fx-off):not([data-vc-theme="light"]) body.vc-staff-area > header .vc-nav-shell::after { content: none !important; display: none !important; background: none !important; background-image: none !important; -webkit-mask: none !important; mask: none !important; opacity: 0 !important; }
 /* header non taglia l'anello esterno */
 html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body > header,
 html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body header.fixed,
@@ -188,7 +121,7 @@ html[data-vc-theme="light"] body.vc-body header .vc-nav-shell {
   border: 0 !important;
   border-width: 0 !important;
   border-style: none !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   box-shadow: none !important;
   filter: none !important;
   background-color: var(--vc-nav-shell-fill-light) !important;
@@ -196,28 +129,7 @@ html[data-vc-theme="light"] body.vc-body header .vc-nav-shell {
 }
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body header .vc-nav-shell::after,
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body > header .vc-nav-shell::after,
-html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top header .vc-nav-shell::after {
-  content: "" !important;
-  display: block !important;
-  position: absolute !important;
-  inset: calc(var(--vc-nav-shell-ring-w, 4px) * -1) !important;
-  border-radius: inherit !important;
-  box-sizing: border-box !important;
-  padding: var(--vc-nav-shell-ring-w, 4px) !important;
-  pointer-events: none !important;
-  z-index: 0 !important;
-  opacity: 1 !important;
-  visibility: visible !important;
-  background: var(--vc-nav-shell-ring-light) !important;
-  background-image: var(--vc-nav-shell-ring-light) !important;
-  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0) !important;
-  -webkit-mask-composite: xor !important;
-  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0) !important;
-  mask-composite: exclude !important;
-  box-shadow: none !important;
-  filter: none !important;
-  animation: none !important;
-}
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top header .vc-nav-shell::after { content: none !important; display: none !important; background: none !important; background-image: none !important; -webkit-mask: none !important; mask: none !important; opacity: 0 !important; }
 
 /* logo img: nessuno shadow/filter sopra l'anello */
 html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body header .vc-header-logo-link .vc-header-logo-img,
@@ -274,7 +186,7 @@ html body.vc-body header .vc-notif-summary.vc-icon-btn:hover {
   -webkit-background-clip: padding-box, border-box !important;
   box-shadow: none !important;
   filter: none !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
 }
 
 html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body header .vc-notif-summary > i,
@@ -354,7 +266,7 @@ html body.vc-body #discord-login-state :is(
   border: 0 !important;
   border-width: 0 !important;
   border-style: none !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   padding: 0 !important;
   outline: none !important;
   border-radius: 999px !important;
@@ -494,31 +406,7 @@ html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body footer.vc-premium-footer .
 html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body--home > footer.vc-premium-footer .vc-premium-footer__outer::after,
 html.vc-site-polish:not(.vc-soft-fx-off) body.vc-dashboard-page > footer.vc-premium-footer .vc-premium-footer__outer::after,
 html.vc-site-polish:not(.vc-soft-fx-off) body.vc-page-cine-layout > footer.vc-premium-footer .vc-premium-footer__outer::after,
-html.vc-site-polish:not(.vc-soft-fx-off) body.vc-staff-area > footer.vc-premium-footer .vc-premium-footer__outer::after {
-  content: "" !important;
-  display: block !important;
-  position: absolute !important;
-  inset: -1px !important;
-  border-radius: inherit !important;
-  box-sizing: border-box !important;
-  padding: 1.6px !important;
-  pointer-events: none !important;
-  z-index: 0 !important;
-  opacity: 0.95 !important;
-  visibility: visible !important;
-  border: 0 !important;
-  outline: none !important;
-  box-shadow: none !important;
-  filter: none !important;
-  -webkit-filter: none !important;
-  animation: none !important;
-  background: var(--vc-nav-shell-ring) !important;
-  background-image: var(--vc-nav-shell-ring) !important;
-  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0) !important;
-  -webkit-mask-composite: xor !important;
-  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0) !important;
-  mask-composite: exclude !important;
-}
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-staff-area > footer.vc-premium-footer .vc-premium-footer__outer::after { content: none !important; display: none !important; background: none !important; background-image: none !important; -webkit-mask: none !important; mask: none !important; opacity: 0 !important; }
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body > footer.vc-premium-footer .vc-premium-footer__outer::after,
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body footer.vc-premium-footer .vc-premium-footer__outer::after {
   background: var(--vc-nav-shell-ring-light) !important;
@@ -642,7 +530,7 @@ html body.vc-body header :is(
   border: var(--vc-nav-chrome-ring-w, 2px) solid transparent !important;
   border-width: var(--vc-nav-chrome-ring-w, 2px) !important;
   border-style: solid !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   padding: 0 !important;
   overflow: hidden !important;
   background-color: #1a120d !important;
@@ -715,24 +603,17 @@ html.vc-site-polish:not(.vc-soft-fx-off):not([data-vc-theme="light"]) body.vc-bo
   .discord-account-popover
 ),
 html.vc-site-polish:not(.vc-soft-fx-off):not([data-vc-theme="light"]) body.vc-body header .vc-snav-details[open] .vc-snav-panel {
-  border: 1px solid transparent !important;
-  border-color: transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   background-color: #100c09 !important;
   background-image:
     radial-gradient(120% 90% at 0% 0%, rgba(236, 205, 176, 0.12), transparent 52%),
     radial-gradient(90% 70% at 100% 0%, rgba(111, 78, 55, 0.16), transparent 48%),
-    linear-gradient(175deg, #17130f 0%, #100c09 55%, #0b0807 100%),
-    conic-gradient(
-      from 0deg,
-      rgba(247, 236, 223, 0.82) 0deg,
-      rgba(212, 168, 136, 0.58) 90deg,
-      rgba(180, 130, 90, 0.62) 180deg,
-      rgba(212, 168, 136, 0.58) 270deg,
-      rgba(247, 236, 223, 0.82) 360deg
-    ) !important;
-  background-origin: padding-box, padding-box, padding-box, border-box !important;
-  background-clip: padding-box, padding-box, padding-box, border-box !important;
-  -webkit-background-clip: padding-box, padding-box, padding-box, border-box !important;
+    linear-gradient(175deg, #17130f 0%, #100c09 55%, #0b0807 100%)
+     !important;
+  background-origin: padding-box !important;
+  background-clip: padding-box !important;
+  -webkit-background-clip: padding-box !important;
   box-shadow:
     0 14px 36px rgba(0, 0, 0, 0.48),
     0 0 14px rgba(212, 168, 136, 0.12) !important;
@@ -960,7 +841,7 @@ html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body#top header .discord-accoun
   border: none !important;
   border-width: 0 !important;
   border-style: none !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   border-radius: 2px !important;
   background: #14100c !important;
   background-color: #14100c !important;
@@ -1104,7 +985,7 @@ html body.vc-body #header-quick-actions :is(
   margin-bottom: 0 !important;
   border-radius: 999px !important;
   border-style: solid !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   border-width: var(--vc-nav-chrome-ring-w, 2px) !important;
   box-shadow: none !important;
   filter: none !important;
@@ -1261,7 +1142,7 @@ html.vc-site-polish body.vc-body #header-quick-actions :is(
   aspect-ratio: 1 / 1 !important;
   border-radius: 999px !important;
   border-style: solid !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   border-width: var(--vc-nav-chrome-ring-w, 2px) !important;
   outline: none !important;
   box-shadow: none !important;
@@ -1306,7 +1187,7 @@ html.vc-site-polish body.vc-body #header-quick-actions .vc-notif-summary.vc-icon
   aspect-ratio: 1 / 1 !important;
   border-radius: 999px !important;
   border-style: solid !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   border-width: var(--vc-nav-chrome-ring-w, 2px) !important;
   outline: none !important;
   box-shadow: none !important;
@@ -1472,7 +1353,7 @@ html body.vc-body header .discord-profile-link.discord-profile-link--chip {
   margin: 0 !important;
   border-radius: 999px !important;
   border-style: solid !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   border-width: var(--vc-nav-chrome-ring-w, 2px) !important;
   overflow: visible !important;
   box-shadow: none !important;
@@ -1507,9 +1388,16 @@ html body.vc-body header .discord-profile-link.discord-profile-link--chip .disco
   max-height: calc(var(--vc-nav-chrome-size, 2.35rem) - 2 * var(--vc-nav-chrome-ring-w, 2px)) !important;
   flex: 0 0 auto !important;
   margin: 0 !important;
-  border-width: 0 !important;
-  background: transparent !important;
-  background-image: none !important;
+  /* navAvatarRing1 */
+  border: 2px solid rgba(245, 214, 183, 0.38) !important;
+  border-width: 2px !important;
+  background-color: var(--vc-nav-shell-fill, #140f0c) !important;
+  background-image:
+    linear-gradient(var(--vc-nav-shell-fill, #140f0c), var(--vc-nav-shell-fill, #140f0c)),
+    var(--vc-nav-shell-ring) !important;
+  background-origin: padding-box, border-box !important;
+  background-clip: padding-box, border-box !important;
+  -webkit-background-clip: padding-box, border-box !important;
   box-shadow: none !important;
   overflow: hidden !important;
 }
@@ -1602,10 +1490,10 @@ html.vc-soft-fx-ready.vc-site-polish:not(.vc-soft-fx-off) body.vc-body #header-q
   flex: 0 0 2.35rem !important;
   aspect-ratio: 1 / 1 !important;
   border-radius: 999px !important;
-  border: 2px solid transparent !important;
+  border: 2px solid rgba(245, 214, 183, 0.38) !important;
   border-width: 2px !important;
   border-style: solid !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   outline: none !important;
   box-shadow: none !important;
   filter: none !important;
@@ -1650,10 +1538,10 @@ html.vc-soft-fx-ready.vc-site-polish:not(.vc-soft-fx-off) body.vc-body #header-q
   flex: 0 0 var(--vc-nav-chrome-size, 2.75rem) !important;
   aspect-ratio: 1 / 1 !important;
   border-radius: 999px !important;
-  border: 2px solid transparent !important;
+  border: 2px solid rgba(245, 214, 183, 0.38) !important;
   border-width: 2px !important;
   border-style: solid !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   outline: none !important;
   box-shadow: none !important;
   filter: none !important;
@@ -1689,10 +1577,10 @@ html.vc-soft-fx-ready.vc-site-polish:not(.vc-soft-fx-off) body.vc-body #header-q
   padding: 0 0.7rem 0 0 !important;
   margin: 0 !important;
   border-radius: 999px !important;
-  border: 2px solid transparent !important;
+  border: 2px solid rgba(245, 214, 183, 0.38) !important;
   border-width: 2px !important;
   border-style: solid !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   overflow: hidden !important;
   box-shadow: none !important;
   filter: none !important;
@@ -1719,14 +1607,20 @@ html.vc-soft-fx-ready.vc-site-polish:not(.vc-soft-fx-off) body.vc-body #header-q
   flex: 0 0 auto !important;
   margin: 0 !important;
   padding: 0 !important;
-  border: 0 !important;
-  border-width: 0 !important;
+  /* navAvatarRing1 */
+  border: 2px solid rgba(245, 214, 183, 0.38) !important;
+  border-width: 2px !important;
   border-radius: 999px !important;
   overflow: hidden !important;
   box-shadow: none !important;
   filter: none !important;
-  background: transparent !important;
-  background-image: none !important;
+  background-color: var(--vc-nav-shell-fill, #140f0c) !important;
+  background-image:
+    linear-gradient(var(--vc-nav-shell-fill, #140f0c), var(--vc-nav-shell-fill, #140f0c)),
+    var(--vc-nav-shell-ring) !important;
+  background-origin: padding-box, border-box !important;
+  background-clip: padding-box, border-box !important;
+  -webkit-background-clip: padding-box, border-box !important;
 }
 html.vc-soft-fx-ready.vc-site-polish:not(.vc-soft-fx-off) body.vc-body#top header .vc-header-logo-link .vc-header-logo-img,
 html.vc-soft-fx-ready.vc-site-polish:not(.vc-soft-fx-off) body.vc-body header .vc-header-logo-link .vc-header-logo-img {
@@ -1763,7 +1657,7 @@ html.vc-soft-fx-ready.vc-site-polish:not(.vc-soft-fx-off) body.vc-body header .v
     max-width: 2.35rem !important;
     max-height: 2.35rem !important;
     flex: 0 0 2.35rem !important;
-    border: 2px solid transparent !important;
+    border: 2px solid rgba(245, 214, 183, 0.38) !important;
     border-width: 2px !important;
     box-shadow: none !important;
     filter: none !important;
@@ -1858,36 +1752,33 @@ html.vc-soft-fx-ready.vc-site-polish body.vc-body header .discord-account-popove
 html.vc-site-polish body.vc-body header .discord-account-popover::before,
 html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body#top header .discord-account-popover::before,
 html body.vc-body header .discord-account-popover::before {
-  top: -8px !important;
-  width: 15px !important;
-  height: 15px !important;
-  border-radius: 2.5px !important;
-  border: 1.6px solid transparent !important;
-  background-color: #14100c !important;
-  background-image:
-    linear-gradient(#14100c, #14100c),
-    var(--vc-nav-shell-ring) !important;
-  background-origin: padding-box, border-box !important;
-  background-clip: padding-box, border-box !important;
-  -webkit-background-clip: padding-box, border-box !important;
-  box-shadow:
-    0 0 10px rgba(212, 168, 136, 0.28),
-    inset 0 0 0 0.5px rgba(255, 247, 236, 0.18) !important;
+  top: -7px !important;
+  width: 12px !important;
+  height: 12px !important;
+  border-radius: 1px !important;
+  border-style: solid !important;
+  border-width: 2px 0 0 2px !important;
+  border-color: rgba(245, 214, 183, 0.38) transparent transparent rgba(245, 214, 183, 0.38) !important;
+  background: #100c09 !important;
+  background-color: #100c09 !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  filter: none !important;
   transform: translateX(-50%) rotate(45deg) !important;
-  z-index: 4 !important;
+  z-index: 6 !important;
 }
 html.vc-soft-fx-ready.vc-site-polish body.vc-body header .discord-account-popover::after,
 html.vc-site-polish body.vc-body header .discord-account-popover::after,
 html body.vc-body header .discord-account-popover::after {
-  /* stem più alto: collega diamante al bordo pannello senza gap */
   top: -2px !important;
   width: 16px !important;
-  height: 12px !important;
-  background: #14100c !important;
+  height: 10px !important;
+  background: #100c09 !important;
   background-image: none !important;
-  z-index: 3 !important;
+  z-index: 5 !important;
 }
-/* esciGradientDiamond1 */
+/* esciGradientDiamond1 -> chromeBorderOwner1 */
+
 
 /* ═══════════════════════════════════════════════════════════════
    esciSolidText1 — testo/icona Esci sempre leggibili (no metal clip).
@@ -2256,7 +2147,7 @@ html body.vc-body:not([data-vc-theme]) > footer.vc-premium-footer .vc-premium-fo
   border: var(--vc-nav-chrome-ring-w, 2px) solid transparent !important;
   border-width: var(--vc-nav-chrome-ring-w, 2px) !important;
   border-style: solid !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   outline: none !important;
   background-color: var(--vc-nav-shell-fill, #140f0c) !important;
   background-image:
@@ -2308,7 +2199,7 @@ html.vc-soft-fx-ready.vc-site-polish:not(.vc-soft-fx-off):not([data-vc-theme="li
 html.vc-soft-fx-ready.vc-site-polish:not(.vc-soft-fx-off):not([data-vc-theme="light"]) body.vc-body footer.vc-premium-footer .vc-premium-footer__social:is(:hover, :focus-visible),
 html.vc-site-polish:not(.vc-soft-fx-off):not([data-vc-theme="light"]) body.vc-body > footer.vc-premium-footer .vc-premium-footer__social:is(:hover, :focus-visible),
 html:not([data-vc-theme="light"]) body.vc-body > footer.vc-premium-footer .vc-premium-footer__social:is(:hover, :focus-visible) {
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   background-color: #1a1410 !important;
   background-image:
     linear-gradient(#1a1410, #1a1410),
@@ -2428,23 +2319,42 @@ html.vc-site-polish body.vc-body main :is(.vc-cmd-acc-sum, .vc-cmd-item-sum):hov
 /* wikiCatNoAvatar1 */
 
 /* ═══════════════════════════════════════════════════════════════
-   navMarqueeConfStaff1 — brand wordmark marquee batte cpuFreeze/nuke
+   navMarqueeConfStaff1 + mqFgIdleFix1 — wordmark keyframes ok;
+   running SOLO fuori settle/hidden (idle+BG = paused)
    ═══════════════════════════════════════════════════════════════ */
-@media (max-width: 1199.98px) {
-  html.vc-site-polish body.vc-body header a.vc-header-site-name.is-marquee .vc-header-site-name__track,
-  html.vc-pwa-cpu-nuke body.vc-body header a.vc-header-site-name.is-marquee .vc-header-site-name__track,
-  html.vc-site-cpu-soft body.vc-body header a.vc-header-site-name.is-marquee .vc-header-site-name__track {
-    animation-name: vc-guild-name-marquee !important;
-    animation-duration: var(--vc-marquee-duration, 12s) !important;
-    animation-timing-function: linear !important;
-    animation-iteration-count: infinite !important;
-    animation-delay: 0.35s !important;
-    animation-fill-mode: none !important;
-    animation-play-state: running !important;
-    will-change: transform !important;
-  }
+html.vc-site-polish body.vc-body header a.vc-header-site-name.is-marquee .vc-header-site-name__track,
+html.vc-pwa-cpu-nuke body.vc-body header a.vc-header-site-name.is-marquee .vc-header-site-name__track,
+html.vc-site-cpu-soft body.vc-body header a.vc-header-site-name.is-marquee .vc-header-site-name__track,
+html body.vc-body header a.vc-header-site-name.is-marquee .vc-header-site-name__track,
+html body.vc-body .vc-mobile-nav-drawer__brand a.vc-header-site-name.is-marquee .vc-header-site-name__track {
+  animation-name: vc-guild-name-marquee !important;
+  animation-duration: var(--vc-marquee-duration, 12s) !important;
+  animation-timing-function: linear !important;
+  animation-iteration-count: infinite !important;
+  animation-delay: 0.35s !important;
+  animation-fill-mode: none !important;
 }
-/* navMarqueeConfStaff1 */
+/* mqResetIdle1: wordmark paused@0 solo fuori hover (tx=0 non deve restare in :hover) */
+html:not(.vc-page-hidden) body.vc-body header a.vc-header-site-name.is-marquee:not(:hover):not(:focus-visible) .vc-header-site-name__track,
+html:not(.vc-page-hidden).vc-site-polish body.vc-body header a.vc-header-site-name.is-marquee:not(:hover):not(:focus-visible) .vc-header-site-name__track,
+html:not(.vc-page-hidden) body.vc-body .vc-mobile-nav-drawer__brand a.vc-header-site-name.is-marquee:not(:hover) .vc-header-site-name__track,
+html.vc-cpu-settle body.vc-body header a.vc-header-site-name.is-marquee .vc-header-site-name__track,
+html.vc-page-hidden body.vc-body header a.vc-header-site-name.is-marquee .vc-header-site-name__track {
+  animation-play-state: paused !important;
+  -webkit-animation-play-state: paused !important;
+  will-change: auto !important;
+  transform: translate3d(0, 0, 0) !important;
+}
+html:not(.vc-page-hidden) body.vc-body header a.vc-header-site-name.is-marquee:hover .vc-header-site-name__track,
+html:not(.vc-page-hidden) body.vc-body header a.vc-header-site-name.is-marquee:focus-visible .vc-header-site-name__track,
+html:not(.vc-page-hidden).vc-site-polish body.vc-body header a.vc-header-site-name.is-marquee:hover .vc-header-site-name__track,
+html:not(.vc-page-hidden).vc-site-polish body.vc-body header a.vc-header-site-name.is-marquee:focus-visible .vc-header-site-name__track,
+html:not(.vc-page-hidden) body.vc-body .vc-mobile-nav-drawer__brand a.vc-header-site-name.is-marquee:hover .vc-header-site-name__track {
+  animation-play-state: running !important;
+  -webkit-animation-play-state: running !important;
+  will-change: transform !important;
+}
+/* navMarqueeConfStaff1 + mqFgIdleFix1 */
 
 /* ═══════════════════════════════════════════════════════════════
    candPillMarqueeLive1 — marquee Candidature APERTE (pin last batte soft-fx kill)
@@ -2470,6 +2380,18 @@ html body #header-quick-actions #vc-header-promo-btn.vc-header-promo-btn--candid
   height: 0.38rem !important;
   background: #f0d4b4 !important;
   box-shadow: 0 0 0 1px rgba(212, 168, 136, 0.35), 0 0 8px rgba(232, 201, 168, 0.75) !important;
+  /* hoverToastAnim1: pulse solo hover/focus */
+  animation-name: vc-header-promo-dot-pulse !important;
+  animation-duration: 1.6s !important;
+  animation-timing-function: ease-in-out !important;
+  animation-iteration-count: infinite !important;
+  animation-play-state: paused !important;
+}
+html.vc-site-polish body.vc-body #header-quick-actions #vc-header-promo-btn.vc-header-promo-btn--candidature:hover .vc-header-promo-btn__dot,
+html body #header-quick-actions #vc-header-promo-btn.vc-header-promo-btn--candidature:hover .vc-header-promo-btn__dot,
+html.vc-site-polish body.vc-body #header-quick-actions #vc-header-promo-btn.vc-header-promo-btn--candidature:focus-visible .vc-header-promo-btn__dot,
+html body #header-quick-actions #vc-header-promo-btn.vc-header-promo-btn--candidature:focus-visible .vc-header-promo-btn__dot {
+  animation-play-state: running !important;
 }
 html.vc-site-polish body.vc-body #header-quick-actions #vc-header-promo-btn.vc-header-promo-btn--candidature .vc-header-promo-btn__badge,
 html body #header-quick-actions #vc-header-promo-btn.vc-header-promo-btn--candidature .vc-header-promo-btn__badge {
@@ -2499,9 +2421,16 @@ html body #header-quick-actions #vc-header-promo-btn.vc-header-promo-btn--candid
   animation-iteration-count: infinite !important;
   animation-delay: 0s !important;
   animation-fill-mode: none !important;
+  /* cpuHoverIdle1b: promo static finché hover */
+  animation-play-state: paused !important;
+  will-change: auto !important;
+  transform: none; /* intentionally NOT !important — keyframes must move it */
+}
+html.vc-site-polish body.vc-body #header-quick-actions #vc-header-promo-btn.vc-header-promo-btn--candidature.is-marquee:hover .vc-header-promo-btn__track,
+html body #header-quick-actions #vc-header-promo-btn.vc-header-promo-btn--candidature.is-marquee:hover .vc-header-promo-btn__track,
+html.vc-site-polish body.vc-body #header-quick-actions #vc-header-promo-btn.vc-header-promo-btn--candidature.is-marquee:focus-visible .vc-header-promo-btn__track {
   animation-play-state: running !important;
   will-change: transform !important;
-  transform: none; /* intentionally NOT !important — keyframes must move it */
 }
 html.vc-site-polish body.vc-body #header-quick-actions #vc-header-promo-btn.vc-header-promo-btn--candidature.is-marquee .vc-header-promo-btn__unit,
 html.vc-site-polish body.vc-body #header-quick-actions #vc-header-promo-btn.vc-header-promo-btn--candidature.is-marquee .vc-header-promo-btn__unit.is-clone,
@@ -2611,16 +2540,35 @@ html.vc-pwa-cpu-nuke.vc-site-polish body.vc-body header .discord-profile-link__n
   width: max-content !important;
   max-width: none !important;
   overflow: visible !important;
-  will-change: transform;
-  animation: vc-nav-user-name-marquee var(--vc-marquee-duration, 12s) linear infinite !important;
-  animation-name: vc-nav-user-name-marquee !important;
+  /* mqFgIdleFix1: stessa keyframe del wordmark; mai transform base (blocca keyframes) */
+  animation-name: vc-guild-name-marquee !important;
   animation-duration: var(--vc-marquee-duration, 12s) !important;
   animation-timing-function: linear !important;
   animation-iteration-count: infinite !important;
-  animation-play-state: running !important;
+  animation-delay: 0s !important;
   pointer-events: none;
-  /* navUserNameMarqueeKeep1: mai transform:!important — blocca i keyframes */
-  transform: translateX(0);
+}
+/* mqResetIdle1: nome paused@0 solo fuori hover del chip */
+html:not(.vc-page-hidden) body.vc-body header .discord-profile-link:not(:hover):not(:focus-within) .discord-profile-link__name[data-vc-nav-user-marquee].is-marquee .vc-marquee__track,
+html:not(.vc-page-hidden) body.vc-body #header-quick-actions .discord-profile-link:not(:hover):not(:focus-within) .discord-profile-link__name[data-vc-nav-user-marquee].is-marquee .vc-marquee__track,
+html:not(.vc-page-hidden).vc-site-polish body.vc-body header .discord-profile-link:not(:hover):not(:focus-within) .discord-profile-link__name[data-vc-nav-user-marquee].is-marquee .vc-marquee__track,
+html.vc-cpu-settle body.vc-body header .discord-profile-link__name[data-vc-nav-user-marquee].is-marquee .vc-marquee__track,
+html.vc-page-hidden body.vc-body header .discord-profile-link__name[data-vc-nav-user-marquee].is-marquee .vc-marquee__track,
+html.vc-page-hidden body.vc-body #header-quick-actions .discord-profile-link__name[data-vc-nav-user-marquee].is-marquee .vc-marquee__track {
+  animation-play-state: paused !important;
+  -webkit-animation-play-state: paused !important;
+  will-change: auto !important;
+  transform: translate3d(0, 0, 0) !important;
+}
+html:not(.vc-page-hidden) body.vc-body header .discord-profile-link:hover .discord-profile-link__name[data-vc-nav-user-marquee].is-marquee .vc-marquee__track,
+html:not(.vc-page-hidden) body.vc-body header .discord-profile-link:focus-within .discord-profile-link__name[data-vc-nav-user-marquee].is-marquee .vc-marquee__track,
+html:not(.vc-page-hidden) body.vc-body #header-quick-actions .discord-profile-link:hover .discord-profile-link__name[data-vc-nav-user-marquee].is-marquee .vc-marquee__track,
+html:not(.vc-page-hidden) body.vc-body #header-quick-actions .discord-profile-link:focus-within .discord-profile-link__name[data-vc-nav-user-marquee].is-marquee .vc-marquee__track,
+html:not(.vc-page-hidden).vc-site-polish body.vc-body header .discord-profile-link:hover .discord-profile-link__name[data-vc-nav-user-marquee].is-marquee .vc-marquee__track,
+html:not(.vc-page-hidden).vc-site-polish body.vc-body header .discord-profile-link:focus-within .discord-profile-link__name[data-vc-nav-user-marquee].is-marquee .vc-marquee__track {
+  animation-play-state: running !important;
+  -webkit-animation-play-state: running !important;
+  will-change: transform !important;
 }
 html.vc-site-polish body.vc-body header .discord-profile-link__name[data-vc-nav-user-marquee].is-marquee .vc-marquee__text,
 html body.vc-body header .discord-profile-link__name[data-vc-nav-user-marquee].is-marquee .vc-marquee__text {
@@ -2651,14 +2599,10 @@ html body.vc-body header .discord-profile-link__name[data-vc-nav-user-marquee].i
     width: max-content !important;
     max-width: none !important;
     overflow: visible !important;
-    animation: vc-nav-user-name-marquee var(--vc-marquee-duration, 8s) linear infinite !important;
-    animation-name: vc-nav-user-name-marquee !important;
+    animation-name: vc-guild-name-marquee !important;
     animation-duration: var(--vc-marquee-duration, 8s) !important;
     animation-timing-function: linear !important;
     animation-iteration-count: infinite !important;
-    animation-play-state: running !important;
-    will-change: transform !important;
-    transform: translate3d(0, 0, 0);
   }
   html.vc-site-polish body.vc-body header .discord-profile-link__name[data-vc-nav-user-marquee].is-marquee .vc-marquee__text.is-clone,
   html body.vc-body header .discord-profile-link__name[data-vc-nav-user-marquee].is-marquee .vc-marquee__text.is-clone {
@@ -2692,14 +2636,10 @@ html body.vc-body #header-quick-actions .discord-profile-link__name[data-vc-nav-
   width: max-content !important;
   max-width: none !important;
   overflow: visible !important;
-  animation: vc-nav-user-name-marquee var(--vc-marquee-duration, 8s) linear infinite !important;
-  animation-name: vc-nav-user-name-marquee !important;
+  animation-name: vc-guild-name-marquee !important;
   animation-duration: var(--vc-marquee-duration, 8s) !important;
   animation-timing-function: linear !important;
   animation-iteration-count: infinite !important;
-  animation-play-state: running !important;
-  will-change: transform !important;
-  transform: translate3d(0, 0, 0);
 }
 html body.vc-body header .discord-profile-link__name[data-vc-nav-user-marquee].is-marquee .vc-marquee__text.is-clone,
 html body.vc-body #header-quick-actions .discord-profile-link__name[data-vc-nav-user-marquee].is-marquee .vc-marquee__text.is-clone {
@@ -2832,3 +2772,41 @@ html body.vc-body #header-quick-actions .vc-notif-badge {
 }
 /* notifBadgeSocial3 */
 /* sitewideChromeFlat5 */
+
+/* ═══════════════════════════════════════════════════════════════
+   hamDesktopHide1 — navChromeUniform / logoSizeLock forzavano
+   display:inline-flex su #vc-mobile-nav-toggle anche ≥1200px
+   (snav già visibile → hamburger “a caso” in navbar PC).
+   Hide desktop; phone/coarse resta gestito da boot-kit ≤1199.98.
+   ═══════════════════════════════════════════════════════════════ */
+@media (min-width: 1200px) {
+  html.vc-site-polish.vc-soft-fx-ready body.vc-body header #vc-mobile-nav-toggle,
+  html.vc-site-polish.vc-soft-fx-ready body.vc-body #header-quick-actions #vc-mobile-nav-toggle,
+  html.vc-site-polish body.vc-body header #vc-mobile-nav-toggle,
+  html.vc-site-polish body.vc-body #header-quick-actions #vc-mobile-nav-toggle,
+  html.vc-soft-fx-ready.vc-site-polish:not(.vc-soft-fx-off) body.vc-body#top header #vc-mobile-nav-toggle,
+  html.vc-soft-fx-ready.vc-site-polish:not(.vc-soft-fx-off) body.vc-body#top #header-quick-actions #vc-mobile-nav-toggle,
+  html.vc-soft-fx-ready.vc-site-polish:not(.vc-soft-fx-off) body.vc-body header #vc-mobile-nav-toggle,
+  html.vc-soft-fx-ready.vc-site-polish:not(.vc-soft-fx-off) body.vc-body #header-quick-actions #vc-mobile-nav-toggle,
+  html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body header #vc-mobile-nav-toggle,
+  html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body #header-quick-actions #vc-mobile-nav-toggle,
+  html body.vc-body header #vc-mobile-nav-toggle,
+  html body.vc-body #header-quick-actions #vc-mobile-nav-toggle,
+  html body #vc-mobile-nav-toggle {
+    display: none !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+    width: 0 !important;
+    min-width: 0 !important;
+    max-width: 0 !important;
+    height: 0 !important;
+    min-height: 0 !important;
+    max-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+    border: 0 !important;
+    flex: 0 0 0 !important;
+  }
+}
+/* hamDesktopHide1 */

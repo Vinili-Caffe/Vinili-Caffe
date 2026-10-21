@@ -13,10 +13,30 @@
  * pwaAppQueryHide1: togli ?app= dalla barra URL (start_url PWA) dopo averlo letto
  * pwaAppLoopKill1c: mai location.assign(/?app=…) dopo strip — loop infinito /
  * pwaHomeResume1: home reale (nav/back/chiusura) salva "/" anche se prima era /wiki/
+ * oauthHashResumeKill1: MAI location.assign durante ritorno Discord (#access_token/#error)
+ *   — pwa sync gira PRIMA di discord-auth defer e cancellava il login
  */
 (function () {
   if (window.__vcPwaResumeBoot) return;
   window.__vcPwaResumeBoot = 1;
+
+  /* oauthHashResumeKill1: cattura hash OAuth subito + blocca resume/launch navigate */
+  function isOauthCallbackHash(raw) {
+    var h = String(raw || "");
+    return h.indexOf("access_token=") !== -1 || h.indexOf("error=") !== -1;
+  }
+  try {
+    var __oaHash = String(window.location.hash || "");
+    if (isOauthCallbackHash(__oaHash)) {
+      try {
+        if (!window.__vcOauthHashCapture) window.__vcOauthHashCapture = __oaHash;
+      } catch (eCap) {}
+      try {
+        sessionStorage.setItem("vc_oauth_hash_capture_v1", __oaHash);
+      } catch (eSs) {}
+      window.__vcOauthCallbackPending = 1;
+    }
+  } catch (eOauthEarly) {}
 
   /* pwaAppQueryHide1: ?app=vinili-… solo marker cold-start — non deve restare visibile */
   (function stripAppQueryFromBar() {
@@ -421,7 +441,29 @@
     }
   }
 
+  function isOauthFlowActive() {
+    try {
+      if (window.__vcOauthCallbackPending) return true;
+      if (isOauthCallbackHash(window.location.hash)) return true;
+      if (isOauthCallbackHash(window.__vcOauthHashCapture)) return true;
+    } catch (e0) {}
+    try {
+      if (sessionStorage.getItem("vc_oauth_hash_capture_v1")) return true;
+      if (sessionStorage.getItem("vc_oauth_fresh_after_bounce_v1") === "1") return true;
+      if (sessionStorage.getItem("vc_oauth_bfcache_bust_v1") === "1") return true;
+    } catch (e1) {}
+    try {
+      var q = String(window.location.search || "");
+      if (/(?:^|[?&])_vc_oa=/.test(q)) return true;
+    } catch (e2) {}
+    return false;
+  }
+
   function applyLaunchPath(next, opts) {
+    /* oauthHashResumeKill1: non rubare ritorno Discord né bounce ?_vc_oa= */
+    try {
+      if (isOauthFlowActive()) return false;
+    } catch (eOauthNav) {}
     var path = normalizeLaunchPath(next) || safeResumePath(next);
     if (!path) return false;
     var force = Boolean(opts && opts.force);
@@ -453,6 +495,9 @@
   }
 
   function consumeStoredLaunch() {
+    try {
+      if (isOauthFlowActive()) return;
+    } catch (eOauthCons) {}
     try {
       var raw = sessionStorage.getItem(LAUNCH_PENDING_KEY);
       if (!raw) return;
@@ -533,7 +578,7 @@
   try {
     if ("serviceWorker" in navigator && !window.__vcSwEarlyBoot) {
       window.__vcSwEarlyBoot = 1;
-      var earlySw = "/sw-m1.js?v=20261016pushPhoneAlive4";
+      var earlySw = "/sw-m1.js?v=20261017badgeOsDismiss1";
       try {
         if (typeof window.__vcTrustedScriptURL === "function") {
           earlySw = window.__vcTrustedScriptURL(earlySw);

@@ -1558,7 +1558,15 @@
 
   function unlockProfileChrome() {
     /* profileUnlockNoYank2 + profileNoCommunityFlash1: scrollTo(0) SOLO al primo settle.
-       Ri-chiamate non yankano; pending/loader restano finché shell profilo ready. */
+       Ri-chiamate non yankano; pending/loader restano finché shell profilo ready.
+       bootMidAvatar1: __vcProfileForceTop (peer switch) → sempre top + wake avatar. */
+    var forceTop = false;
+    try {
+      forceTop = window.__vcProfileForceTop === 1;
+      if (forceTop) window.__vcProfileForceTop = 0;
+    } catch (eFt) {
+      forceTop = false;
+    }
     var liveY = 0;
     try {
       liveY = Math.max(
@@ -1580,16 +1588,23 @@
       document.documentElement.classList.contains("vc-chrome-scroll-armed") ||
       document.documentElement.classList.contains("vc-page-cine-ready");
     try {
-      window.__vcProfileContentReady = 1;
-      /* non yankare / discard se già aperti o utente ha scrollato */
-      if (!alreadyReady && liveY < 24) {
+      /* profileSipContent1: contentReady solo con shell DOM (sipario non si alza a vuoto) */
+      if (profileViewLooksReady(byId("vc-user-profile-view"))) {
+        window.__vcProfileContentReady = 1;
+      }
+      /* non yankare / discard se già aperti o utente ha scrollato — salvo forceTop peer */
+      if (forceTop || (!alreadyReady && liveY < 24)) {
         window.__vcDiscardScrollRestore = 1;
         window.__vcDiscardNextUnpinScrollY = true;
         window.__vcCachedScrollY = 0;
         window.__vcWantUnlockY = 0;
+        try {
+          window.__vcUserScrolledAway = 0;
+        } catch (eAwayClr) {}
         if (typeof window.scrollTo === "function") window.scrollTo(0, 0);
         if (document.documentElement) document.documentElement.scrollTop = 0;
         if (document.body) document.body.scrollTop = 0;
+        liveY = 0;
       } else if (liveY >= 24) {
         try {
           window.__vcDiscardScrollRestore = 0;
@@ -1743,6 +1758,12 @@
         boots[i].remove();
       }
     } catch (eBoot) {}
+    /* profileToastKill1: togli Caricamento… orfano post-sipario */
+    try {
+      if (window.VcSiteToast && typeof window.VcSiteToast.hide === "function") window.VcSiteToast.hide();
+      var th = byId("vc-site-toast-host");
+      if (th && th.querySelector("[data-vc-boot-load-toast],.is-pending")) th.innerHTML = "";
+    } catch (eToast) {}
     try {
       if (typeof window.__vcSyncLoaderScrollLock === "function") window.__vcSyncLoaderScrollLock();
       if (typeof window.__vcSyncLoaderBlockingLiveClass === "function") {
@@ -1828,7 +1849,33 @@
       '<span class="vc-user-profile-loader__spin" aria-hidden="true"></span>' +
       '<p class="vc-user-profile-loader__title">Caricamento…</p>' +
       '<p class="vc-user-profile-loader__sub">Un momento…</p>';
-        if (force || !profileViewLooksReady(root)) {
+    /* profileToastKill1: dopo curtain, MAI wipe shell/hero/notfound già paintati
+       (force+retry lasciava solo footer + toast Caricamento) */
+    var curtainOff = false;
+    try {
+      curtainOff = document.documentElement.classList.contains("vc-cine-curtain-off");
+    } catch (eCurt) {}
+    var hasPaintedShell = false;
+    try {
+      hasPaintedShell = Boolean(
+        root.querySelector(
+          ":scope > .vc-user-profile-shell, .vc-user-profile-hero, .vc-user-profile-notfound, .vc-user-profile-empty, .vc-staff-profile-panel, .vc-staff-prof-miss",
+        ),
+      );
+    } catch (ePainted) {}
+    if (curtainOff && hasPaintedShell) {
+      try {
+        clearProfilePending();
+        if (overlay && overlay.parentNode) {
+          overlay.hidden = true;
+          overlay.setAttribute("hidden", "");
+          overlay.remove();
+        }
+      } catch (eNoWipe) {}
+      return;
+    }
+    var mayWipe = !hasPaintedShell && (force || !curtainOff);
+    if (mayWipe) {
       if (opts.preserveStaffPane) {
         try {
           var shells = root.querySelectorAll(":scope > .vc-user-profile-shell");
@@ -3001,6 +3048,13 @@
             var href = profilePublicUrl(member.id);
             var uid = String(member.id || "").trim();
             var avatarUrl = menuListAvatarSrc(String(member.avatarUrl || "").trim(), uid, 64);
+            var sharedHash = "";
+            try {
+              if (avatarUrl && !/\/guilds\//i.test(avatarUrl)) {
+                var hmSh = avatarUrl.match(/\/avatars\/\d+\/((?:a_)?[a-f0-9]+)/i);
+                if (hmSh) sharedHash = String(hmSh[1] || "").trim();
+              }
+            } catch (eSh) {}
             return (
               '<a class="vc-user-profile-shared__user" href="' +
               esc(href) +
@@ -3010,7 +3064,9 @@
                   esc(avatarUrl) +
                   '" alt="" width="40" height="40" loading="eager" decoding="async" referrerpolicy="no-referrer" data-vc-avatar="1" data-vc-avatar-static="1" data-user-id="' +
                   esc(uid) +
-                  '" />'
+                  '"' +
+                  (sharedHash ? ' data-avatar-hash="' + esc(sharedHash) + '"' : "") +
+                  " />"
                 : '<span class="vc-user-profile-shared__avatar vc-user-profile-shared__avatar--fallback"><i class="fa fa-user" aria-hidden="true"></i></span>') +
               '<span class="vc-user-profile-shared__name">' +
               esc(name) +
@@ -3658,6 +3714,12 @@
       }
     } catch (eStaffTab) {}
     scanProfileAvatars(root);
+    try {
+      if (typeof window.VcWakeDeferredMedia === "function") window.VcWakeDeferredMedia(root);
+      if (window.VcAvatarFallback && typeof window.VcAvatarFallback.scan === "function") {
+        window.VcAvatarFallback.scan(root);
+      }
+    } catch (eWakeProf) {}
     enhanceProfileEmojis(root);
   }
 
@@ -3977,9 +4039,15 @@
     var onStaffTab = Boolean(
       document.body && document.body.classList.contains("vc-user-profile-staff-tab"),
     );
+    var wantsStaffTabNow = false;
+    try {
+      wantsStaffTabNow = parseWantsStaffTab();
+    } catch (eWantStaff) {
+      wantsStaffTabNow = false;
+    }
     // Tab staff: non toccare lastRenderedProfile/DOM community (evita flash del proprio profilo
-    // quando si torna su Community).
-    if (onStaffTab && silent) {
+    // quando si torna su Community). peerStaffNavFix1: anche ?tab=staff (lista peer).
+    if ((onStaffTab || wantsStaffTabNow) && silent) {
       profileInitialLoadDone = true;
       profileBootSettled = true;
       return true;
@@ -4365,6 +4433,19 @@
         }
         if (shouldHoldCommunitySwitchLoader(root, userId)) {
           try {
+            /* profileEmptyFix1: se c'è già shell/notfound non riarmare wipe+loader */
+            var holdHasShell = Boolean(
+              root &&
+                root.querySelector(
+                  ":scope > .vc-user-profile-shell .vc-user-profile-hero, :scope > .vc-user-profile-shell .vc-user-profile-notfound, :scope > .vc-user-profile-shell .vc-user-profile-empty",
+                ),
+            );
+            if (holdHasShell) {
+              document.documentElement.classList.remove("vc-user-profile-comm-switch");
+              clearProfilePending();
+              clearProfileLoading();
+              return;
+            }
             if (!byId("vc-user-profile-loading") || (byId("vc-user-profile-loading") && byId("vc-user-profile-loading").hidden)) {
               renderLoading(root, { force: true, preserveStaffPane: true });
             }
@@ -4789,7 +4870,15 @@
     var id = ev && ev.detail && ev.detail.userId ? String(ev.detail.userId) : "";
     if (!/^\d{17,20}$/.test(id)) return;
     if (!parseProfileId()) return;
-    // profileDataLock1: cambio peer → wipe stato precedente, fetch solo target URL.
+    // profileDataLock1 + bootMidAvatar1: cambio peer → top + wipe stato precedente.
+    try {
+      window.__vcProfileForceTop = 1;
+      window.__vcDiscardScrollRestore = 1;
+      window.__vcDiscardNextUnpinScrollY = true;
+      window.__vcCachedScrollY = 0;
+      window.__vcUserScrolledAway = 0;
+      if (typeof window.scrollTo === "function") window.scrollTo(0, 0);
+    } catch (eTopId) {}
     lockProfileTarget(id);
     if (
       !lastRenderedProfile ||

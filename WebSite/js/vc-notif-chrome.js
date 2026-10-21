@@ -15,13 +15,283 @@
  * Document-capture sync sempre attivo (anche se landing "possiede" la bell).
  */
 (function () {
-  var VER = "20261011notifSheetCloseLayout1";
+  var VER = "20261021notifBellLiveFix1";
+  /* notifBellLiveFix1: primo open non mangiare da gesture-lock */
   /* notifSheetUnifyAll1 */
   /* notifSheetStayOpen1: grace=portalGuard; outside close non combatte reclaim */
   /* notifSheetUnifyGuard1: sync portalGuard chrome↔landing + switcher unificato */
   /* notifSheetScopeActive6: paint Personali|Inbox + VER allineata a discord-auth */
+  /* notifSheetLock3: inline overflow+bordo (batte hideScrollGutter / wash transparent) */
+  /* notifSheetLock4: keepAlive + style pin (hideScrollGutter/profileRelockKill battevano) */
+  /* notifSheetLock4b: pin in coda al DOM + keepAlive 120ms + wheel/touch guard */
+  /* notifSheetLock4d: trap removeProperty overflow mentre sheet aperto */
   if (window.VcNotifChrome && window.VcNotifChrome.ver === VER) return;
   window.VcNotifChrome = { ver: VER };
+  var sheetLockKeepTimer = 0;
+  var sheetWheelGuardBound = false;
+  var overflowTrapArmed = false;
+  var overflowTrapOrig = null;
+  var overflowTrapBodyOrig = null;
+
+  function sheetChromeOpenNow() {
+    try {
+      var root = document.documentElement;
+      var dd = document.getElementById("vc-notif-dropdown");
+      return Boolean(
+        dd &&
+          dd.open &&
+          (root.classList.contains("vc-notif-sheet-open") ||
+            root.classList.contains("vc-notif-drawer-open")),
+      );
+    } catch (eOpen) {
+      return false;
+    }
+  }
+
+  function armOverflowTrap() {
+    if (overflowTrapArmed) return;
+    try {
+      var root = document.documentElement;
+      var body = document.body;
+      if (!root || !root.style || typeof root.style.removeProperty !== "function") return;
+      overflowTrapOrig = root.style.removeProperty.bind(root.style);
+      root.style.removeProperty = function (prop) {
+        try {
+          if (
+            sheetChromeOpenNow() &&
+            prop &&
+            /^(overflow|overflow-x|overflow-y|overscroll-behavior|overscroll-behavior-y)$/i.test(
+              String(prop),
+            )
+          ) {
+            return "";
+          }
+        } catch (eSkip) {}
+        return overflowTrapOrig(prop);
+      };
+      if (body && body.style && typeof body.style.removeProperty === "function") {
+        overflowTrapBodyOrig = body.style.removeProperty.bind(body.style);
+        body.style.removeProperty = function (prop) {
+          try {
+            if (
+              sheetChromeOpenNow() &&
+              prop &&
+              /^(overflow|overflow-x|overflow-y|overscroll-behavior)$/i.test(String(prop))
+            ) {
+              return "";
+            }
+          } catch (eSkipB) {}
+          return overflowTrapBodyOrig(prop);
+        };
+      }
+      overflowTrapArmed = true;
+    } catch (eArm) {}
+  }
+
+  function disarmOverflowTrap() {
+    if (!overflowTrapArmed) return;
+    try {
+      var root = document.documentElement;
+      if (root && overflowTrapOrig) root.style.removeProperty = overflowTrapOrig;
+      var body = document.body;
+      if (body && overflowTrapBodyOrig) body.style.removeProperty = overflowTrapBodyOrig;
+    } catch (eDis) {}
+    overflowTrapOrig = null;
+    overflowTrapBodyOrig = null;
+    overflowTrapArmed = false;
+  }
+
+  function sheetWheelGuard(e) {
+    try {
+      var root = document.documentElement;
+      if (
+        !root.classList.contains("vc-notif-sheet-open") &&
+        !root.classList.contains("vc-notif-drawer-open")
+      ) {
+        return;
+      }
+      var t = e.target;
+      if (t && t.closest) {
+        var scrollable = t.closest(
+          ".vc-notif-panel-body, .vc-notif-list, .vc-notif-list-wrap, .vc-notif-bell-pane, .vc-notif-bell-inbox",
+        );
+        if (scrollable) {
+          if (e.type === "touchmove") return;
+          var dy = Number(e.deltaY) || 0;
+          var canY =
+            scrollable.scrollHeight > scrollable.clientHeight + 1 &&
+            ((dy < 0 && scrollable.scrollTop > 0) ||
+              (dy > 0 &&
+                scrollable.scrollTop + scrollable.clientHeight < scrollable.scrollHeight - 1) ||
+              dy === 0);
+          if (canY || dy === 0) return;
+        }
+      }
+      e.preventDefault();
+    } catch (eGuard) {}
+  }
+
+  function bindSheetWheelGuard(on) {
+    var want = Boolean(on);
+    if (want === sheetWheelGuardBound) return;
+    try {
+      if (want) {
+        document.addEventListener("wheel", sheetWheelGuard, { capture: true, passive: false });
+        document.addEventListener("touchmove", sheetWheelGuard, { capture: true, passive: false });
+        sheetWheelGuardBound = true;
+      } else {
+        document.removeEventListener("wheel", sheetWheelGuard, { capture: true, passive: false });
+        document.removeEventListener("touchmove", sheetWheelGuard, {
+          capture: true,
+          passive: false,
+        });
+        sheetWheelGuardBound = false;
+      }
+    } catch (eBind) {
+      sheetWheelGuardBound = want;
+    }
+  }
+
+  function ensureSheetLockStylePin() {
+    var id = "vc-notif-sheet-lock-pin";
+    var el = document.getElementById(id);
+    if (!el) {
+      el = document.createElement("style");
+      el.id = id;
+    }
+    el.setAttribute("data-vc", VER);
+    el.textContent =
+      "html.vc-notif-sheet-open,html.vc-notif-sheet-open body," +
+      "html.vc-notif-drawer-open,html.vc-notif-drawer-open body," +
+      "html.vc-site-polish.vc-page-cine-ready.vc-chrome-scroll-armed.vc-notif-sheet-open," +
+      "html.vc-site-polish.vc-page-cine-ready.vc-chrome-scroll-armed.vc-notif-sheet-open body," +
+      "html.vc-site-polish.vc-page-cine-ready.vc-cine-curtain-off.vc-chrome-scroll-armed.vc-notif-sheet-open," +
+      "html.vc-site-polish.vc-page-cine-ready.vc-cine-curtain-off.vc-chrome-scroll-armed.vc-notif-sheet-open body," +
+      "html[data-vc-theme=\"light\"].vc-notif-sheet-open," +
+      "html[data-vc-theme=\"light\"].vc-notif-sheet-open body," +
+      "html[data-vc-theme=\"light\"].vc-page-cine-ready.vc-notif-sheet-open," +
+      "html[data-vc-theme=\"light\"].vc-page-cine-ready.vc-notif-sheet-open body{" +
+      "overflow:hidden!important;overflow-x:hidden!important;overflow-y:hidden!important;" +
+      "overscroll-behavior:none!important;overscroll-behavior-y:none!important}";
+    /* sempre in coda al documentElement → batte stylesheet late */
+    try {
+      document.documentElement.appendChild(el);
+    } catch (eApp) {
+      try {
+        (document.head || document.documentElement).appendChild(el);
+      } catch (eApp2) {}
+    }
+  }
+
+  function stopSheetLockKeepAlive() {
+    if (sheetLockKeepTimer) {
+      try {
+        window.clearInterval(sheetLockKeepTimer);
+      } catch (eClr) {}
+      sheetLockKeepTimer = 0;
+    }
+    bindSheetWheelGuard(false);
+    disarmOverflowTrap();
+  }
+
+  function startSheetLockKeepAlive() {
+    ensureSheetLockStylePin();
+    armOverflowTrap();
+    bindSheetWheelGuard(true);
+    if (sheetLockKeepTimer) return;
+    sheetLockKeepTimer = window.setInterval(function () {
+      try {
+        if (!sheetChromeOpenNow()) {
+          stopSheetLockKeepAlive();
+          applySheetInlineLock(false);
+          return;
+        }
+        /* non chiamare __vcSyncLoaderScrollLock qui: può re-strip overflow */
+        applySheetInlineLock(true);
+        bindSheetWheelGuard(true);
+      } catch (eKeep) {}
+    }, 120);
+  }
+
+  function applySheetInlineLock(on) {
+    var root = document.documentElement;
+    var body = document.body;
+    var want = Boolean(on);
+    try {
+      if (want) {
+        ensureSheetLockStylePin();
+        armOverflowTrap();
+        root.style.setProperty("overflow", "hidden", "important");
+        root.style.setProperty("overflow-x", "hidden", "important");
+        root.style.setProperty("overflow-y", "hidden", "important");
+        root.style.setProperty("overscroll-behavior", "none", "important");
+        root.style.setProperty("overscroll-behavior-y", "none", "important");
+        if (body) {
+          body.style.setProperty("overflow", "hidden", "important");
+          body.style.setProperty("overflow-y", "hidden", "important");
+          body.style.setProperty("overscroll-behavior", "none", "important");
+        }
+      } else {
+        var rootRm = overflowTrapOrig;
+        var bodyRm = overflowTrapBodyOrig;
+        if (sheetLockKeepTimer) {
+          try {
+            window.clearInterval(sheetLockKeepTimer);
+          } catch (eClrOff) {}
+          sheetLockKeepTimer = 0;
+        }
+        bindSheetWheelGuard(false);
+        disarmOverflowTrap();
+        try {
+          if (rootRm) {
+            rootRm("overflow");
+            rootRm("overflow-x");
+            rootRm("overflow-y");
+            rootRm("overscroll-behavior");
+            rootRm("overscroll-behavior-y");
+          } else {
+            root.style.removeProperty("overflow");
+            root.style.removeProperty("overflow-x");
+            root.style.removeProperty("overflow-y");
+            root.style.removeProperty("overscroll-behavior");
+            root.style.removeProperty("overscroll-behavior-y");
+          }
+        } catch (eRmRoot) {}
+        if (body) {
+          try {
+            if (bodyRm) {
+              bodyRm("overflow");
+              bodyRm("overflow-y");
+              bodyRm("overscroll-behavior");
+            } else {
+              body.style.removeProperty("overflow");
+              body.style.removeProperty("overflow-y");
+              body.style.removeProperty("overscroll-behavior");
+            }
+          } catch (eRmBody) {}
+        }
+      }
+    } catch (eOv) {}
+    try {
+      var panel = document.querySelector(
+        "#vc-notif-dropdown .vc-notif-panel, body > .vc-notif-dropdown .vc-notif-panel",
+      );
+      if (!panel) return;
+      if (want) {
+        var light = String(root.getAttribute("data-vc-theme") || "") === "light";
+        var c = light ? "rgba(111, 78, 55, 0.45)" : "rgba(232, 196, 156, 0.45)";
+        panel.style.setProperty("border", "1px solid " + c, "important");
+        panel.style.setProperty("border-color", c, "important");
+        panel.style.setProperty("background-clip", "border-box", "important");
+        panel.style.setProperty("-webkit-background-clip", "border-box", "important");
+      } else {
+        panel.style.removeProperty("border");
+        panel.style.removeProperty("border-color");
+        panel.style.removeProperty("background-clip");
+        panel.style.removeProperty("-webkit-background-clip");
+      }
+    } catch (ePanel) {}
+  }
 
   function dismissFlyToasts() {
     try {
@@ -1061,6 +1331,10 @@
           if (typeof window.__vcSyncLoaderScrollLock === "function") window.__vcSyncLoaderScrollLock();
         } catch (eLock) {}
         try {
+          applySheetInlineLock(true);
+          startSheetLockKeepAlive();
+        } catch (eInlineOn) {}
+        try {
           /* bellScopeNoReset1 / notifSheetSmooth1: ensure UI una volta; sync leggero dopo */
           if (!dd.__vcBellScopeUiReady) {
             ensureBellScopeUi();
@@ -1127,6 +1401,9 @@
             syncBellScopeChrome();
             ensureDrawerChromeParity(dd);
           } catch (eScopeRe) {}
+          try {
+            applySheetInlineLock(true);
+          } catch (eInlineRe) {}
           armPortalGuard(1800);
           return;
         }
@@ -1134,6 +1411,10 @@
         try {
           dd.__vcBellScopeResetDone = false;
         } catch (eFlag) {}
+        try {
+          stopSheetLockKeepAlive();
+          applySheetInlineLock(false);
+        } catch (eInlineOff) {}
         try {
           root.classList.remove("vc-notif-sheet-open", "vc-notif-drawer-open", "vc-notif-dropdown-open");
         } catch (e1) {}
@@ -1147,6 +1428,19 @@
       }
     } finally {
       portalSyncing = false;
+      try {
+        var ddFin = document.getElementById("vc-notif-dropdown");
+        var rootFin = document.documentElement;
+        var lockFin = Boolean(
+          ddFin &&
+            ddFin.open &&
+            (rootFin.classList.contains("vc-notif-sheet-open") ||
+              rootFin.classList.contains("vc-notif-drawer-open")),
+        );
+        applySheetInlineLock(lockFin);
+        if (lockFin) startSheetLockKeepAlive();
+        else stopSheetLockKeepAlive();
+      } catch (eFinLock) {}
     }
   }
 
@@ -1221,14 +1515,25 @@
         var live = document.getElementById("vc-notif-dropdown") || dd;
         if (!live) return;
         var nowMs = Date.now();
-        if (nowMs < gestureLockUntil) return;
+        var isOpen = false;
+        try {
+          isOpen = Boolean(live.open || live.hasAttribute("open"));
+        } catch (eIs) {
+          isOpen = false;
+        }
+        /* notifBellLiveFix1: lock solo su close — primo open non deve essere mangato */
+        if (isOpen && nowMs < gestureLockUntil) return;
         gestureLockUntil = nowMs + 420;
-        if (live.open) {
+        if (isOpen) {
           clearPortalGuard();
           requestClose(live);
           scheduleSync(0);
           return;
         }
+        try {
+          window.__vcNotifCloseLockUntil = 0;
+          openAnimUntil = 0;
+        } catch (eClrO) {}
         if (openSheetSmooth(live)) return;
         primeDesktopDrawer(live);
         try {
@@ -1397,6 +1702,7 @@
   }
 
   window.VcNotifChrome.sync = syncChrome;
+  window.VcNotifChrome.applySheetInlineLock = applySheetInlineLock;
   window.VcNotifChrome.schedule = scheduleSync;
   window.VcNotifChrome.close = requestClose;
   window.VcNotifChrome.openSmooth = openSheetSmooth;

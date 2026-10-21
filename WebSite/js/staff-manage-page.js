@@ -1,6 +1,8 @@
 (function () {
   var T = window.VCStaffTools;
   if (!T) return;
+  /* staffActionLive1: version gate so modal can hot-reload after depex/action fixes */
+  window.__VC_STAFF_MANAGE_PAGE_VER = "20261018staffActionLive1";
 
   var state = {
     sections: [],
@@ -1025,15 +1027,27 @@
     meta = meta || {};
     var act = String(action || "").trim().toLowerCase();
     var beforeMember = meta.beforeMember || null;
-    var leftStaff = act.indexOf("depex") === 0 && !memberStillOnStaff(state.member);
-    var hardRefresh = shouldHardRefreshAfterCareer(act, beforeMember, state.member);
+    /* staffActionLive1: depex_full → leftStaff subito (no wait Discord / memberStillOnStaff lag).
+       depex ladder / depex_pm → hard refresh profilo. */
+    var leftStaff =
+      act === "depex_full" ||
+      (act.indexOf("depex") === 0 && !memberStillOnStaff(state.member));
+    var hardRefresh =
+      shouldHardRefreshAfterCareer(act, beforeMember, state.member) ||
+      act === "depex" ||
+      act === "depex_pm" ||
+      act.indexOf("pex_") === 0 ||
+      act === "pex";
     if (leftStaff) {
       if (state.member && typeof state.member === "object") {
         state.member = Object.assign({}, state.member, {
           leftStaff: true,
           ladderRoleId: null,
+          isPm: false,
+          isPmOnly: false,
           canDepexFull: false,
           canDepexLadder: false,
+          canDepexPm: false,
           canPex: false,
         });
       }
@@ -1049,7 +1063,7 @@
       finishCareerActionUi({
         leftStaff: false,
         hardRefresh: true,
-        joinedLadder: true,
+        joinedLadder: act.indexOf("pex") === 0,
         action: act,
         member: state.member,
       });

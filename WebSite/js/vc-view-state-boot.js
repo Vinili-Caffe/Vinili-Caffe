@@ -20,12 +20,45 @@
  * + consoleFixAll1: topPinIv 50→160ms (meno setInterval Violation 90–150ms)
  * + scrollCueBootShow1: wheel/touch a Y≈0 = hide-intent temporaneo (no lock forever);
  *   ignora intent in boot gate; dopo unlock ri-mostra cue subito a Y≈0
+ * + bootMidFlashKill1: navigate fresco → mid da session restore NON = user scroll;
+ *   forza top; gesture reale (wheel/touch/keys) setta __vcUserGestureScroll
  */
 (function () {
+  /* oauthHashResumeKill1: cattura #access_token/#error prima di qualsiasi replaceState/resume */
+  try {
+    var __oaH = String(window.location.hash || "");
+    if (__oaH && (__oaH.indexOf("access_token=") !== -1 || __oaH.indexOf("error=") !== -1)) {
+      try {
+        if (!window.__vcOauthHashCapture) window.__vcOauthHashCapture = __oaH;
+      } catch (eCap0) {}
+      try {
+        sessionStorage.setItem("vc_oauth_hash_capture_v1", __oaH);
+      } catch (eSs0) {}
+      window.__vcOauthCallbackPending = 1;
+    }
+  } catch (eOauthBoot) {}
+
   try {
     if ("scrollRestoration" in history) history.scrollRestoration = "manual";
   } catch (e0) {}
 
+  function bootNavType() {
+    try {
+      var list = performance.getEntriesByType && performance.getEntriesByType("navigation");
+      if (list && list[0] && list[0].type) return String(list[0].type || "");
+    } catch (eN) {}
+    try {
+      var legacy = performance.navigation && Number(performance.navigation.type);
+      if (legacy === 1) return "reload";
+      if (legacy === 2) return "back_forward";
+      if (legacy === 0) return "navigate";
+    } catch (eL) {}
+    return "";
+  }
+  function isFreshNavigate() {
+    var t = bootNavType();
+    return t !== "reload" && t !== "back_forward";
+  }
   function bootLiveY() {
     try {
       return Math.max(
@@ -44,7 +77,10 @@
   }
   function userScrolledAway() {
     try {
+      if (window.__vcUserGestureScroll === 1) return true;
       if (window.__vcUserScrolledAway === 1) return true;
+      /* bootMidFlashKill1: pre-unlock su navigate → mid browser ≠ intent */
+      if (isFreshNavigate() && window.__vcScrollUnlockOnce !== 1) return false;
       if (window.__vcScrollUnlockOnce === 1 && bootLiveY() >= 8) return true;
       if (window.__vcChromeVisualReady === 1 && bootLiveY() >= 8) return true;
       if (window.__vcChromeScrollArmed && bootLiveY() >= 8) return true;
@@ -56,8 +92,30 @@
   function markUserScrolled(y) {
     try {
       var n = Math.max(0, Math.round(Number(y) || 0));
-      if (n >= 24) window.__vcUserScrolledAway = 1;
+      /* bootMidFlashKill1: durante boot navigate non cacheare/promuovere mid spurio */
+      if (
+        isFreshNavigate() &&
+        window.__vcScrollUnlockOnce !== 1 &&
+        window.__vcUserGestureScroll !== 1
+      ) {
+        if (n >= 8) {
+          try {
+            window.scrollTo(0, 0);
+            if (document.documentElement) document.documentElement.scrollTop = 0;
+            if (document.body) document.body.scrollTop = 0;
+          } catch (eZ) {}
+          window.__vcCachedScrollY = 0;
+          return;
+        }
+      }
       window.__vcCachedScrollY = n;
+      if (n >= 24) {
+        if (window.__vcUserGestureScroll === 1 || window.__vcScrollUnlockOnce === 1) {
+          window.__vcUserScrolledAway = 1;
+        } else if (!isFreshNavigate()) {
+          window.__vcUserScrolledAway = 1;
+        }
+      }
     } catch (eM) {}
   }
   try {
@@ -69,13 +127,31 @@
       { passive: true, capture: true },
     );
   } catch (eScr) {}
+  /* bootMidFlashKill1: gesture reale → permesso tenere mid anche pre-unlock */
+  try {
+    function markGestureScroll() {
+      try {
+        window.__vcUserGestureScroll = 1;
+      } catch (eG) {}
+    }
+    ["wheel", "touchmove", "keydown"].forEach(function (ev) {
+      window.addEventListener(ev, markGestureScroll, { passive: true, capture: true });
+    });
+  } catch (eGest) {}
 
-  /* scrollBarTrack2: forza top PRIMA di qualsiasi paint (anche senza restore) —
-     midScrollYankKill1: skip se già mid-page (bfcache / soft nav) */
-  if (!userScrolledAway()) {
+  /* scrollBarTrack2 + bootMidFlashKill1: navigate fresco → SEMPRE top (no mid session) */
+  if (isFreshNavigate() || !userScrolledAway()) {
     try {
+      if (isFreshNavigate()) {
+        window.__vcDiscardScrollRestore = 1;
+        window.__vcDiscardNextUnpinScrollY = true;
+        window.__vcCachedScrollY = 0;
+        window.__vcUserScrolledAway = 0;
+        window.__vcWantUnlockY = 0;
+      }
       window.scrollTo(0, 0);
       if (document.documentElement) document.documentElement.scrollTop = 0;
+      if (document.body) document.body.scrollTop = 0;
     } catch (eTop0) {}
   }
 
@@ -341,21 +417,35 @@
     reloadNav || isPtrExplicit() || backFwd || Boolean(pwaPending);
   var shouldPinTop = reloadNav || shouldRestoreScroll;
   /* homeBootFix2: homepage MAI restore Y (F5/session → clampa footer) */
+  /* legalBootTop1: policy pages MAI mid da session/F5 (lunghe → fine boot a metà) */
   try {
     var homePath = String(window.location.pathname || "").replace(/\/+$/, "") || "/";
     var isHomeBoot =
       homePath === "/" ||
       (document.body && document.body.classList.contains("vc-body--home"));
-    if (isHomeBoot) {
+    var isLegalBoot =
+      /^\/(privacy|terms|cookie|copyright|dati|regole)(\/|$)/i.test(homePath + "/") ||
+      (document.body && document.body.classList.contains("vc-legal-page")) ||
+      !!document.getElementById("vc-page-legal-css") ||
+      !!document.querySelector('link[href*="vc-page-legal"]');
+    if (isHomeBoot || isLegalBoot) {
       shouldRestoreScroll = false;
       shouldPinTop = true;
       window.__vcDiscardScrollRestore = 1;
       window.__vcPtrRestoreY = 0;
       window.__vcViewStateRestoreY = 0;
       window.__vcPtrRestoreTargetY = 0;
+      window.__vcRestoredScrollStickyY = 0;
       try {
         document.documentElement.removeAttribute("data-vc-ptr-restore-y");
       } catch (eHomeAttr) {}
+      if (isLegalBoot) {
+        try {
+          sessionStorage.removeItem("vc_scroll_restore_anchor_v1");
+          sessionStorage.removeItem("vc_ptr_scroll_v1");
+          sessionStorage.removeItem("vc_view_state_v1");
+        } catch (eLegSs) {}
+      }
     }
   } catch (eHomeBoot) {}
   if (isDeepLinkHash()) {

@@ -1,6 +1,6 @@
-/**
+﻿/**
  * vcLoginRequired1: modal "Login richiesto" (stesso look di Richiedi Ruolo).
- * Uso: VcLoginRequired.require({ title, sub, body }) → true se loggato, altrimenti apre modal.
+ * Uso: VcLoginRequired.require({ title, sub, body }) â†’ true se loggato, altrimenti apre modal.
  */
 (function () {
   var VER = "20260923roleModalScrollStay1";
@@ -58,7 +58,7 @@
       '<p class="vc-role-request-auth-title" id="vc-login-required-auth-title">Login richiesto</p>' +
       '<p class="vc-role-request-auth-sub" id="vc-login-required-auth-sub"></p>' +
       '<button type="button" class="vc-role-request-login" id="vc-login-required-login">' +
-      '<i class="fa fa-discord-alt" aria-hidden="true"></i> ' +
+      '<i class="fa fa-sign-in" aria-hidden="true"></i> ' +
       (langEn() ? "Sign in with Discord" : "Accedi con Discord") +
       "</button></div></div></section>";
     (document.body || document.documentElement).appendChild(wrap);

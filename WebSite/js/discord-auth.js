@@ -1,10 +1,24 @@
 /* postCurtainLazy1 */
+/* 20261021siteOptAll1: yield soft su refresh access post-chrome (INP; look invariato) */
+/* 20261021apiPageFilter2: per-path — staff API solo staff/tickets/notif;
+   dash API solo dashboard/bacheca; altre pagine = sticky + refresh al menu */
+/* 20261021apiPageFilter1: staff/dash access net solo su path che li usano;
+   home/legal/cine → sticky subito, refresh dopo chrome-load-done */
 (function () {
- /* oauthHashKill1: cattura subito #access_token prima che view-state/altri script lo sovrascrivano */
+ /* oauthHashKill1 + oauthHashResumeKill1: cattura subito #access_token
+    (anche da session se pwa-resume/view-state l'hanno salvato prima) */
  try {
   var __h0 = String(window.location.hash || "");
+  if (!__h0 || (__h0.indexOf("access_token=") === -1 && __h0.indexOf("error=") === -1)) {
+   try {
+    __h0 = String(sessionStorage.getItem("vc_oauth_hash_capture_v1") || "");
+   } catch (eSsCap0) {
+    __h0 = "";
+   }
+  }
   if (__h0 && (__h0.indexOf("access_token=") !== -1 || __h0.indexOf("error=") !== -1)) {
    window.__vcOauthHashCapture = __h0;
+   window.__vcOauthCallbackPending = 1;
   }
  } catch (eOauthCap0) {}
  /* oauthPhoneBfcache1: strip cache-bust + se Safari ripristina bfcache post-login → hard reload */
@@ -661,7 +675,11 @@
  function (ev) {
  var t = ev.target;
  if (!t || !t.closest) return;
- var menu = t.closest(".discord-account-menu");
+ /* acctTriggerOnly1: apri SOLO dal chip — non da hitbox ghost popover/voci */
+ if (t.closest(".discord-account-popover")) return;
+ var chip = t.closest(".discord-profile-link");
+ if (!chip) return;
+ var menu = chip.closest(".discord-account-menu");
  if (!menu) return;
  var related = ev.relatedTarget;
  if (related && menu.contains(related)) return;
@@ -965,7 +983,9 @@
  }
  closed = true;
  }
- if (closed) closeVcAccountMenu();
+ /* ticketUiPack2: fuori dal menu account → chiudi sempre (prima solo se snav/notif).
+    vc-header-account-open sticky faceva apparire il popover “fantasma” lontano dal nome. */
+ closeVcAccountMenu();
  },
  true,
  );
@@ -1294,6 +1314,13 @@
  h = String(window.location.hash || "");
  }
  if (!h || h.indexOf("access_token=") === -1) {
+ try {
+ h = String(sessionStorage.getItem("vc_oauth_hash_capture_v1") || "");
+ } catch (eSsH) {
+ h = "";
+ }
+ }
+ if (!h || h.indexOf("access_token=") === -1) {
  return { token: "", freshLogin: false, returnPath: "" };
  }
  var p = new URLSearchParams(h.charAt(0) === "#" ? h.slice(1) : h);
@@ -1342,11 +1369,17 @@
  /* chromeUiOauthFix1: login reale azzera anteprima View As logout + force-gate */
  sessionStorage.removeItem("vc_view_as");
  sessionStorage.removeItem("vc_force_logged_out_v1");
+ /* oauthHashResumeKill1: annulla launch PWA pendente (altrimenti ruba bounce → altra pagina) */
+ sessionStorage.removeItem("vc-pwa-launch-pending");
  if (typeof window.__vcInvalidateViewAsMem === "function") window.__vcInvalidateViewAsMem();
  } catch (eR) {}
  try {
  window.__vcOauthHashCapture = "";
+ window.__vcOauthCallbackPending = 0;
  } catch (eCapClr) {}
+ try {
+ sessionStorage.removeItem("vc_oauth_hash_capture_v1");
+ } catch (eSsClr) {}
  var expiresInSec = Number(p.get("expires_in") || "0");
  var exp =
  expiresInSec > 0
@@ -1624,6 +1657,11 @@
  h = String(window.__vcOauthHashCapture || window.location.hash || "");
  } catch (eH) {
  h = String(window.location.hash || "");
+ }
+ if (!h || h.indexOf("error=") === -1) {
+ try {
+ h = String(sessionStorage.getItem("vc_oauth_hash_capture_v1") || "");
+ } catch (eSsErr) {}
  }
  var search = String(window.location.search || "");
  var raw = "";
@@ -2305,6 +2343,8 @@
  function refreshDashInBackground(token) {
  var t = String(token || "").trim();
  if (!t) return;
+ /* apiPageFilter2: refresh dash solo path dash/bacheca (o tap menu) */
+ if (!pathNeedsDashAccessNet() && !window.__vcMenuAccessForceNet) return;
  if (window.__vcDashPermsRefreshing) return;
  window.__vcDashPermsRefreshing = true;
  var dashUrl = dashboardApiBase() + "/access";
@@ -2536,6 +2576,8 @@
  } catch (eRole) {}
  }
  function refreshPermsInBackground() {
+ /* apiPageFilter2: refresh staff solo path staff/tickets/notif (o tap menu) */
+ if (!pathNeedsStaffAccessNet() && !window.__vcMenuAccessForceNet) return;
  var refreshNow = Date.now();
  if (window.__vcStaffPermsBlockedUntil && refreshNow < window.__vcStaffPermsBlockedUntil) return;
  if (
@@ -2781,11 +2823,19 @@
  }
  }
  function ensureStaffSiteNavScript() {
+ /* staffNavKill1: mai caricare stamp vecchi che reiniettano Staff in nav/footer */
+ var STAFF_NAV_VER = "20261017staffNavKill1";
+ var STAFF_NAV_SRC = "/js/staff-site-nav." + STAFF_NAV_VER + ".js?v=" + STAFF_NAV_VER;
  try {
- if (
+ var existing =
  document.querySelector('script[data-vc-staff-site-nav="1"]') ||
- document.querySelector('script[src*="staff-site-nav.js"]')
- ) {
+ document.querySelector('script[src*="staff-site-nav.js"]');
+ if (existing) {
+ var src = String(existing.getAttribute("src") || "");
+ var stale =
+ src.indexOf(STAFF_NAV_VER) < 0 ||
+ /footerStaffPhoneGap|navStaffFirstStamp|staffStickyFast/i.test(src);
+ if (!stale) {
  window.__vcStaffSiteNavRequested = true;
  if (window.__VC_STAFF_MENU_ALLOWED && !window.__vcStaffNavWarmEvented) {
  window.__vcStaffNavWarmEvented = true;
@@ -2797,14 +2847,20 @@
  }
  return;
  }
+ try {
+ if (existing.parentNode) existing.parentNode.removeChild(existing);
+ } catch (eRmOld) {}
+ window.__vcStaffSiteNavRequested = false;
+ }
  } catch (eQ) {}
  if (window.__vcStaffSiteNavRequested) return;
  window.__vcStaffSiteNavRequested = true;
  try {
  var s = document.createElement("script");
-      s.src = "/js/staff-site-nav.20261013footerStaffPhoneGap1.js?v=20261013footerStaffPhoneGap1";
+ s.src = STAFF_NAV_SRC;
  s.async = false;
  s.setAttribute("data-vc-staff-site-nav", "1");
+ s.setAttribute("data-vc", "staffNavKill1");
  (document.head || document.documentElement).appendChild(s);
  } catch (eNav) {}
  }
@@ -3016,6 +3072,133 @@
  return false;
  }
  }
+ /* apiPageFilter2: famiglie path → API dedicate (ogni pagina solo le sue). */
+ function pathNeedsStaffAccessNet() {
+ try {
+ var p = String(window.location.pathname || "").toLowerCase().replace(/\/+$/, "") || "/";
+ if (p === "/staff" || p.indexOf("/staff/") === 0) return true;
+ if (p === "/tickets" || p.indexOf("/tickets/") === 0) return true;
+ if (p === "/notifications") return true;
+ if (p === "/candidature" || p.indexOf("/candidature/") === 0) return true;
+ if (p === "/appelli" || p.indexOf("/appelli/") === 0) return true;
+ return false;
+ } catch (eSt) {
+ return false;
+ }
+ }
+ function pathNeedsDashAccessNet() {
+ try {
+ var p = String(window.location.pathname || "").toLowerCase().replace(/\/+$/, "") || "/";
+ if (p === "/dashboard" || p.indexOf("/dashboard/") === 0) return true;
+ if (p === "/bacheca" || p.indexOf("/bacheca/") === 0) return true;
+ return false;
+ } catch (eDa) {
+ return false;
+ }
+ }
+ function runDashAccessNet(token) {
+ var t = String(token || "").trim();
+ if (!t) return;
+ fetchDashboardMenuAccess(t).then(function (allowed) {
+ /* chromeStickyAll1: rete ko ? non togliere Dashboard se sticky */
+ if (allowed && allowed.unchecked && !allowed.allowed && !readDashMenuSticky()) {
+ return;
+ }
+ if ((!allowed || !allowed.allowed) && readDashMenuSticky() && allowed && allowed.unchecked) {
+ revealDashboardMenuItem({ allowed: true, blacklisted: false, unchecked: true });
+ return;
+ }
+ if (allowed && allowed.allowed === false && allowed.unchecked === false) {
+ writeDashMenuSticky(false);
+ }
+ revealDashboardMenuItem(allowed);
+ });
+ }
+ function runStaffAccessNet(token) {
+ var t = String(token || "").trim();
+ if (!t) return;
+ fetchStaffMenuAccess(t).then(function (allowed) {
+ /* staffStickyFast1: rete ko / transient ? non smontare se sticky ancora valida */
+ if (allowed || readStaffMenuSticky()) {
+ revealStaffMenuItem(true);
+ try {
+ ensureStaffSiteNavScript();
+ } catch (eEns) {}
+ } else {
+ revealStaffMenuItem(false);
+ }
+ });
+ }
+ function runMenuAccessNet(token) {
+ runDashAccessNet(token);
+ runStaffAccessNet(token);
+ }
+ function armMenuAccessNetOnAccountOpen(token) {
+ var t = String(token || "").trim();
+ if (!t || window.__vcMenuAccessOpenArmed) return;
+ window.__vcMenuAccessOpenArmed = 1;
+ function kick() {
+ if (window.__vcMenuAccessOpenDone) return;
+ window.__vcMenuAccessOpenDone = 1;
+ try {
+ window.__vcMenuAccessForceNet = 1;
+ /* refresh entrambe: voci menu devono essere vere al tap */
+ runMenuAccessNet(t);
+ } catch (eKick) {}
+ }
+ try {
+ document.addEventListener(
+ "pointerover",
+ function (ev) {
+ try {
+ var el = ev && ev.target;
+ if (!el || !el.closest) return;
+ if (el.closest(".discord-profile-link")) kick();
+ } catch (ePo) {}
+ },
+ true,
+ );
+ document.addEventListener(
+ "focusin",
+ function (ev) {
+ try {
+ var el = ev && ev.target;
+ if (!el || !el.closest) return;
+ if (el.closest(".discord-account-menu")) kick();
+ } catch (eFi) {}
+ },
+ true,
+ );
+ document.addEventListener(
+ "click",
+ function (ev) {
+ try {
+ var el = ev && ev.target;
+ if (!el || !el.closest) return;
+ if (el.closest(".discord-profile-link")) kick();
+ } catch (eCl) {}
+ },
+ true,
+ );
+ } catch (eArm) {}
+ }
+ function scheduleMenuAccessNet(token) {
+ var t = String(token || "").trim();
+ if (!t) return;
+ /* sticky già via warm* — rete solo se QUESTA pagina la usa */
+ function goNet() {
+  if (pathNeedsStaffAccessNet()) runStaffAccessNet(t);
+  if (pathNeedsDashAccessNet()) runDashAccessNet(t);
+ }
+ try {
+  if (typeof window.__vcYield === "function") window.__vcYield(goNet);
+  else goNet();
+ } catch (eY) {
+  goNet();
+ }
+ /* wiki/home/legal/vote/…: niente staff/dash net a boot; al menu sì */
+ armMenuAccessNetOnAccountOpen(t);
+ }
  function isProfileContextPath() {
  try {
  var p = String(window.location.pathname || "").toLowerCase().replace(/\/+$/, "") || "/";
@@ -3161,34 +3344,30 @@
  }
  function revealStaffMenuItem(allowed) {
  window.__VC_STAFF_MENU_ALLOWED = Boolean(allowed);
- var link = byId("discord-staff-link");
- if (link) {
- try {
- if (link.parentNode) link.parentNode.removeChild(link);
- } catch (eRm) {
- link.setAttribute("hidden", "");
- }
- }
+ /* staffInProfileOnly2: NESSUNA voce Staff nel menu account — solo card/strumenti nel profilo */
  try {
  var nav = document.querySelector(".discord-account-popover__nav");
  if (nav) {
  var stale = nav.querySelectorAll(
- '#discord-staff-link, a[href="/staff/"], a[href="/staff"], a[href*="tab=staff"]',
+ '#discord-staff-link, a[href="/staff/"], a[href="/staff"], a[href*="tab=staff"], a[data-i18n="auth.staffArea"]',
  );
  for (var i = 0; i < stale.length; i += 1) {
- var a = stale[i];
- var label = String((a.textContent || "")).replace(/\s+/g, " ").trim().toLowerCase();
- if (
- a.id === "discord-staff-link" ||
- label.indexOf("area staff") >= 0 ||
- label === "staff"
- ) {
  try {
- a.parentNode && a.parentNode.removeChild(a);
+ stale[i].parentNode && stale[i].parentNode.removeChild(stale[i]);
  } catch (e2) {}
  }
  }
+ /* strip anche fuori popover (drawer/footer residui) */
+ try {
+ var extra = document.querySelectorAll(
+ '#discord-staff-link, a[data-vc-mobile-staff], a.discord-account-popover__item[data-i18n="auth.staffArea"]',
+ );
+ for (var j = 0; j < extra.length; j += 1) {
+ try {
+ extra[j].parentNode && extra[j].parentNode.removeChild(extra[j]);
+ } catch (e3) {}
  }
+ } catch (eEx) {}
  } catch (eClean) {}
  if (allowed) ensureStaffSiteNavScript();
  try {
@@ -3203,6 +3382,8 @@
  function startDiscordOAuthFromUserGesture(visualBtn, url) {
  try {
  sessionStorage.removeItem(OAUTH_FORCE_CONSENT_KEY);
+ /* staffOauthLoop1: nuovo login = nuovo token, azzera il flag 401 staff */
+ sessionStorage.removeItem("vc_staff_oauth_invalid");
  } catch (eClrLogin) {}
  var u = url || authUrl({ prompt: "none" });
  if (!u) {
@@ -3774,10 +3955,13 @@ function isUserInitiatedLogout(reason) {
  }
  if (p.endsWith("/staff/accesso-richiesto")) {
  try {
- if (sessionStorage.getItem("vc_staff_oauth_invalid") === "1") return "";
  var qsStaff = new URLSearchParams(window.location.search || "");
  if (qsStaff.get("reason") === "denied" || qsStaff.get("stay") === "1") return "";
  } catch (eGuardStaff) {}
+ /* staffOauthLoop1: flag stale 401 non blocca il salto post-login (token nuovo) */
+ try {
+ sessionStorage.removeItem("vc_staff_oauth_invalid");
+ } catch (eClrStaffInv) {}
  try {
  var fromStaff = String(new URLSearchParams(window.location.search || "").get("from") || "").trim();
  if (
@@ -3808,12 +3992,10 @@ function isUserInitiatedLogout(reason) {
  document.documentElement.classList.remove("vc-auth-logged-out");
  document.documentElement.classList.remove("vc-view-as-guest");
  } catch (eCls) {}
+ /* staffOauthLoop1: dopo OAuth ok il token è nuovo — NON fare logout sul flag 401 vecchio
+    (altrimenti loop: accesso-richiesto → login → logout → stessa card). */
  try {
- if (sessionStorage.getItem("vc_staff_oauth_invalid") === "1") {
  sessionStorage.removeItem("vc_staff_oauth_invalid");
- completeLogout({ reason: "staff-oauth-invalid" });
- return;
- }
  } catch (eInv) {}
  var jump = postOAuthAccessoRedirectPath();
  if (jump) {
@@ -3969,31 +4151,7 @@ function isUserInitiatedLogout(reason) {
  var token = getToken();
  warmStaffNavEarly();
  warmDashboardNavEarly();
- fetchDashboardMenuAccess(token).then(function (allowed) {
- /* chromeStickyAll1: rete ko ? non togliere Dashboard se sticky */
- if (allowed && allowed.unchecked && !allowed.allowed && !readDashMenuSticky()) {
- return;
- }
- if ((!allowed || !allowed.allowed) && readDashMenuSticky() && allowed && allowed.unchecked) {
- revealDashboardMenuItem({ allowed: true, blacklisted: false, unchecked: true });
- return;
- }
- if (allowed && allowed.allowed === false && allowed.unchecked === false) {
- writeDashMenuSticky(false);
- }
- revealDashboardMenuItem(allowed);
- });
- fetchStaffMenuAccess(token).then(function (allowed) {
- /* staffStickyFast1: rete ko / transient ? non smontare se sticky ancora valida */
- if (allowed || readStaffMenuSticky()) {
- revealStaffMenuItem(true);
- try {
- ensureStaffSiteNavScript();
- } catch (eEns) {}
- } else {
- revealStaffMenuItem(false);
- }
- });
+ scheduleMenuAccessNet(token);
  var applyServerIdentity = function (identity) {
  if (!identity) return;
  var serverName = String(identity.displayName || "").trim();
@@ -4150,14 +4308,13 @@ function isUserInitiatedLogout(reason) {
  }
  } catch (eStickyId) {}
  var runAvatar = function () {
- /* accountAvatarFresh2: bypass cache identity ? foto guild aggiornata */
- /* avatarHubIdle1: non fare lavoro DOM pesante dentro idle … solo kick della fetch */
- window.setTimeout(function () {
- fetchServerIdentity(token, { force: true }).then(applyServerIdentity);
- }, 0);
+ /* barApiNoWaste1: identity/avatar guild DOPO barra (no compete con site-boot) */
+ whenChromeLoadIdle(function () {
+  fetchServerIdentity(token, { force: true }).then(applyServerIdentity);
+ }, 900);
  };
- /* violKillIdle1 */
- window.setTimeout(runAvatar, 600);
+ /* violKillIdle1 + barApiNoWaste1 */
+ whenChromeLoadIdle(runAvatar, 700);
  try {
  document.documentElement.classList.remove("vc-auth-session-pending");
  } catch (eClsDone) {}
@@ -4375,7 +4532,7 @@ function isUserInitiatedLogout(reason) {
  fetchInit: {
  headers: { Authorization: "Bearer " + t },
  credentials: "same-origin",
- cache: "default",
+ cache: "no-store",
  },
  }).then(function (payload) {
  if (!payload || !payload.ok || !payload.body) {
@@ -4401,7 +4558,7 @@ function isUserInitiatedLogout(reason) {
  headers: { Authorization: "Bearer " + t },
  signal: ac.signal,
  credentials: "same-origin",
- cache: "default",
+ cache: "no-store",
  })
  .then(function (r) {
  try {
@@ -4426,25 +4583,47 @@ function isUserInitiatedLogout(reason) {
  throw e;
  });
  }
- /* siteBoot1: prova /webhooks/site-boot (me+unread+theme); fallback me dedicato */
+ /* siteBoot1 + fase2Api1: site-boot con soft timeout → fallback me; no hang */
+ /* oauthHashResumeKill1: cache no-store — evita 401 guest stale dopo authorize */
  return track(
- fetch("/webhooks/site-boot", {
- headers: { Authorization: "Bearer " + t },
- credentials: "same-origin",
- cache: "default",
- })
- .then(function (r) {
- if (!r || !r.ok) throw new Error("boot_" + String(r && r.status));
- return r.json();
- })
- .then(function (data) {
- if (!data || data.ok === false || !data.me || !data.me.id) throw new Error("boot_no_me");
- applySiteBootPayload(data);
- return data.me;
- })
- .catch(function () {
- return fetchMeLegacy();
- })
+ (function () {
+  var acBoot = null;
+  var tidBoot = null;
+  try {
+   acBoot = new AbortController();
+   tidBoot = setTimeout(function () {
+    try {
+     acBoot.abort();
+    } catch (eAbBoot) {}
+   }, Math.min(1800, Math.max(700, Math.floor(ms * 0.35))));
+  } catch (eAc) {
+   acBoot = null;
+  }
+  return fetch("/webhooks/site-boot", {
+   headers: { Authorization: "Bearer " + t },
+   credentials: "same-origin",
+   cache: "no-store",
+   signal: acBoot ? acBoot.signal : undefined,
+  })
+   .then(function (r) {
+    try {
+     if (tidBoot) clearTimeout(tidBoot);
+    } catch (eClBoot) {}
+    if (!r || !r.ok) throw new Error("boot_" + String(r && r.status));
+    return r.json();
+   })
+   .then(function (data) {
+    if (!data || data.ok === false || !data.me || !data.me.id) throw new Error("boot_no_me");
+    applySiteBootPayload(data);
+    return data.me;
+   })
+   .catch(function () {
+    try {
+     if (tidBoot) clearTimeout(tidBoot);
+    } catch (eClBoot2) {}
+    return fetchMeLegacy();
+   });
+ })()
  );
  }
  var SITE_VERIFY_DONE_PREFIX = "vc_site_verify_done_v1_";
@@ -4568,9 +4747,85 @@ function isUserInitiatedLogout(reason) {
  });
  }
  function afterAuthSideEffects(token) {
- return maybeCompleteSiteVerify(token).then(function () {
- return maybeJoinMainGuild(token);
- });
+ /* fase2Api1: verify + guild-join in parallelo (soft-fail ciascuno) */
+ return Promise.all([
+  Promise.resolve()
+   .then(function () {
+    return maybeCompleteSiteVerify(token);
+   })
+   .catch(function () {
+    return null;
+   }),
+  Promise.resolve()
+   .then(function () {
+    return maybeJoinMainGuild(token);
+   })
+   .catch(function () {
+    return null;
+   }),
+ ]);
+ }
+ /* barApiNoWaste1: guild-join/verify NON sulla critical path della barra —
+    partono dopo chrome-load-done (o failsafe). Stesso lavoro, zero wait UI. */
+ function afterAuthSideEffectsWhenIdle(token) {
+  try {
+   var t = String(token || "").trim();
+   if (!t) return;
+   function run() {
+    try {
+     afterAuthSideEffects(t).catch(function () {});
+    } catch (eRun) {}
+   }
+   if (window.__vcChromeLoadDone === true) {
+    window.setTimeout(run, 0);
+    return;
+   }
+   var done = false;
+   function once() {
+    if (done) return;
+    done = true;
+    try {
+     document.removeEventListener("vc:chrome-load-done", once);
+     window.removeEventListener("vc:chrome-load-done", once);
+    } catch (eRm) {}
+    window.setTimeout(run, 40);
+   }
+   try {
+    document.addEventListener("vc:chrome-load-done", once, { once: true });
+    window.addEventListener("vc:chrome-load-done", once, { once: true });
+   } catch (eLis) {}
+   window.setTimeout(once, 2400);
+  } catch (eIdle) {}
+ }
+ function whenChromeLoadIdle(fn, fallbackMs) {
+  try {
+   if (typeof fn !== "function") return;
+   if (window.__vcChromeLoadDone === true) {
+    window.setTimeout(fn, 0);
+    return;
+   }
+   var done = false;
+   function once() {
+    if (done) return;
+    done = true;
+    try {
+     document.removeEventListener("vc:chrome-load-done", once);
+     window.removeEventListener("vc:chrome-load-done", once);
+    } catch (eRm2) {}
+    try {
+     fn();
+    } catch (eFn) {}
+   }
+   try {
+    document.addEventListener("vc:chrome-load-done", once, { once: true });
+    window.addEventListener("vc:chrome-load-done", once, { once: true });
+   } catch (eLis2) {}
+   window.setTimeout(once, Math.max(400, Number(fallbackMs) || 2400));
+  } catch (eW) {
+   try {
+    fn();
+   } catch (eFn2) {}
+  }
  }
  function main() {
  if (maybeFallbackOAuthConsentFromError()) return;
@@ -4594,6 +4849,8 @@ function isUserInitiatedLogout(reason) {
  }
  /* oauthPhoneBfcache1: marca + URL unico — evita restore bfcache pre-login su telefono */
  sessionStorage.setItem(OAUTH_BFCACHE_BUST_KEY, "1");
+ /* oauthHashResumeKill1: niente PWA launch/resume che ruba il bounce post-login */
+ sessionStorage.removeItem("vc-pwa-launch-pending");
  } catch (e0) {}
  var bounceDest = window.location.origin + parsed.returnPath;
  try {
@@ -4717,15 +4974,17 @@ function isUserInitiatedLogout(reason) {
  /* emojiDiscordFast1: se me-cache fresca (<90s) skip fetchMe rete … solo side-effects leggeri */
  if (cachedMeAgeMs(t) <= ME_FRESH_SKIP_FETCH_MS) {
  try {
- afterAuthSideEffects(t).catch(function () {});
+ afterAuthSideEffectsWhenIdle(t);
  } catch (eSideFresh) {}
  return;
  }
+ /* barApiNoWaste1: fetchMe → paint subito; guild-join/verify idle (non await) */
  fetchMe(t)
  .then(function (user) {
- return afterAuthSideEffects(t).then(function () {
+ try {
+  afterAuthSideEffectsWhenIdle(t);
+ } catch (eSideStale) {}
  return user;
- });
  })
  .then(function (user) {
  writeCachedDiscordMe(t, user);
@@ -4785,13 +5044,15 @@ function isUserInitiatedLogout(reason) {
  renderLoggedIn(user);
  }
  if (freshLogin) queueLoginWelcomeNotification(user);
- return afterAuthSideEffects(t).then(function () {
+ try {
+  afterAuthSideEffectsWhenIdle(t);
+ } catch (eSideCold) {}
  return user;
- });
  })
  .catch(function (err) {
  var st = err && err.status;
- if (st === 401) {
+ /* oauthHashResumeKill1: post-authorize — 1 retry prima di buttare il token fresco */
+ if (st === 401 && !freshLogin) {
  completeLogout({ reason: "fetchMe-401" });
  return;
  }
@@ -4803,15 +5064,16 @@ function isUserInitiatedLogout(reason) {
  .then(function (user) {
  writeCachedDiscordMe(t, user);
  renderLoggedIn(user);
+ if (freshLogin) queueLoginWelcomeNotification(user);
  })
  .catch(function (err2) {
  if (err2 && err2.status === 401) {
- completeLogout({ reason: "fetchMe-401-retry" });
+ completeLogout({ reason: freshLogin ? "fetchMe-401-fresh-retry" : "fetchMe-401-retry" });
  return;
  }
  forceUnlockSessionVerifyUi();
  });
- }, 400);
+ }, freshLogin ? 650 : 400);
  });
  }
  document.addEventListener("visibilitychange", function () {
@@ -4875,6 +5137,8 @@ function isUserInitiatedLogout(reason) {
 })();/* violKill1 */
 /* violPass7 */
 /* snavDropUnify1 */
+/* staffOauthLoop1 */
+/* mojibake7 */
 
 
 

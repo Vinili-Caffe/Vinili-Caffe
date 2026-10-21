@@ -1,3 +1,4 @@
+/* lookStaticBorder1: no conic/mask rings — solid sand border */
 /* 20260913cursorStatic1: animated GIF cursors (vinyl default / coffee pointer) */
 :root {
   --vc-cursor-default: url("/images/musicrecordspin-cursor-static.png") 12 12, auto;
@@ -2964,15 +2965,8 @@ body.vc-user-profile-bday-open {
   background-color: #100c09;
   background-image:
     radial-gradient(ellipse 115% 85% at 15% 0%, rgba(236, 205, 176, 0.1), transparent 54%),
-    linear-gradient(145deg, rgba(28, 20, 15, 0.92), rgba(14, 10, 8, 0.94)),
-    conic-gradient(
-      from 0deg,
-      rgba(247, 236, 223, 0.88) 0deg,
-      rgba(212, 168, 136, 0.62) 90deg,
-      rgba(180, 130, 90, 0.68) 180deg,
-      rgba(212, 168, 136, 0.62) 270deg,
-      rgba(247, 236, 223, 0.88) 360deg
-    );
+    linear-gradient(145deg, rgba(28, 20, 15, 0.92), rgba(14, 10, 8, 0.94))
+    ;
   background-origin: padding-box, padding-box, border-box;
   background-clip: padding-box, padding-box, border-box;
   -webkit-background-clip: padding-box, padding-box, border-box;
@@ -4133,7 +4127,7 @@ body.vc-body.vc-roles-page .vc-ul-loading-sub {
 .vc-user-profile-customstack > a.vc-user-profile-customcard--link,
 .vc-user-profile-customstack > .vc-user-profile-shared,
 .vc-user-profile-customstack > .vc-user-profile-shared--foot {
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   background: transparent !important;
   background-image: none !important;
 }
@@ -4604,24 +4598,16 @@ body.vc-body.vc-users-page .vc-ul-card,
 body.vc-body.vc-users-page .vc-ul-statbox,
 body.vc-body.vc-users-page .vc-roles-info,
 body.vc-body.vc-users-page .vc-roles-search {
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   background-color: #100c09 !important;
   background-image:
     radial-gradient(ellipse 115% 85% at 15% 0%, rgba(236, 205, 176, 0.12), transparent 54%),
-    linear-gradient(175deg, #17130f 0%, #100c09 55%, #0b0807 100%),
-    conic-gradient(
-      from 0deg,
-      rgba(255, 247, 236, 0.92) 0deg,
-      rgba(236, 205, 176, 0.82) 70deg,
-      rgba(212, 168, 136, 0.72) 140deg,
-      rgba(180, 130, 90, 0.78) 200deg,
-      rgba(212, 168, 136, 0.72) 270deg,
-      rgba(255, 247, 236, 0.92) 360deg
-    ) !important;
+    linear-gradient(175deg, #17130f 0%, #100c09 55%, #0b0807 100%)
+     !important;
   background-origin: padding-box, padding-box, border-box !important;
   background-clip: padding-box, padding-box, border-box !important;
   -webkit-background-clip: padding-box, padding-box, border-box !important;
-  border: 1px solid transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
 }
@@ -4884,21 +4870,13 @@ body.vc-body.vc-users-page.vc-user-profile-page :is(.vc-user-profile-hero, .vc-u
   background-image:
     radial-gradient(120% 90% at 0% 0%, rgba(236, 205, 176, 0.12), transparent 52%),
     radial-gradient(90% 70% at 100% 0%, rgba(111, 78, 55, 0.16), transparent 48%),
-    linear-gradient(175deg, #17130f 0%, #100c09 55%, #0b0807 100%),
-    conic-gradient(
-      from 0deg,
-      rgba(255, 247, 236, 0.98) 0deg,
-      rgba(236, 205, 176, 0.9) 70deg,
-      rgba(212, 168, 136, 0.78) 140deg,
-      rgba(180, 130, 90, 0.82) 200deg,
-      rgba(212, 168, 136, 0.78) 270deg,
-      rgba(255, 247, 236, 0.98) 360deg
-    ) !important;
-  background-origin: padding-box, padding-box, padding-box, border-box !important;
-  background-clip: padding-box, padding-box, padding-box, border-box !important;
-  -webkit-background-clip: padding-box, padding-box, padding-box, border-box !important;
-  border: 2px solid transparent !important;
-  border-color: transparent !important;
+    linear-gradient(175deg, #17130f 0%, #100c09 55%, #0b0807 100%)
+     !important;
+  background-origin: padding-box !important;
+  background-clip: padding-box !important;
+  -webkit-background-clip: padding-box !important;
+  border: 2px solid rgba(245, 214, 183, 0.38) !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
   box-shadow: 0 0 0 1px rgba(255, 247, 236, 0.16) !important;
@@ -4963,20 +4941,13 @@ body.vc-body.vc-users-page.vc-user-profile-page .vc-user-profile-badges {
   background-color: #100c09 !important;
   background-image:
     radial-gradient(120% 90% at 0% 0%, rgba(236, 205, 176, 0.1), transparent 50%),
-    linear-gradient(175deg, #17130f 0%, #100c09 55%, #0b0807 100%),
-    conic-gradient(
-      from 0deg,
-      rgba(247, 236, 223, 0.88) 0deg,
-      rgba(212, 168, 136, 0.62) 90deg,
-      rgba(180, 130, 90, 0.68) 180deg,
-      rgba(212, 168, 136, 0.62) 270deg,
-      rgba(247, 236, 223, 0.88) 360deg
-    ) !important;
+    linear-gradient(175deg, #17130f 0%, #100c09 55%, #0b0807 100%)
+     !important;
   background-origin: padding-box, padding-box, border-box !important;
   background-clip: padding-box, padding-box, border-box !important;
   -webkit-background-clip: padding-box, padding-box, border-box !important;
-  border: 1px solid transparent !important;
-  border-color: transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
   box-shadow: none !important;
@@ -5001,20 +4972,13 @@ body.vc-body.vc-users-page.vc-user-profile-page .vc-user-profile-levelbar__fill 
 }
 body.vc-body.vc-users-page.vc-user-profile-page .vc-user-profile-multiplier {
   /* multiGradBorder1 */
-  border: 1px solid transparent !important;
-  border-color: transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   background-color: #100c09 !important;
   background-image:
     radial-gradient(ellipse 115% 85% at 15% 0%, rgba(236, 205, 176, 0.12), transparent 54%),
-    linear-gradient(145deg, rgba(28, 20, 15, 0.92), rgba(14, 10, 8, 0.94)),
-    conic-gradient(
-      from 0deg,
-      rgba(247, 236, 223, 0.88) 0deg,
-      rgba(212, 168, 136, 0.62) 90deg,
-      rgba(180, 130, 90, 0.68) 180deg,
-      rgba(212, 168, 136, 0.62) 270deg,
-      rgba(247, 236, 223, 0.88) 360deg
-    ) !important;
+    linear-gradient(145deg, rgba(28, 20, 15, 0.92), rgba(14, 10, 8, 0.94))
+     !important;
   background-origin: padding-box, padding-box, border-box !important;
   background-clip: padding-box, padding-box, border-box !important;
   -webkit-background-clip: padding-box, padding-box, border-box !important;
@@ -5073,20 +5037,13 @@ body.vc-body.vc-users-page.vc-user-profile-page :is(.vc-user-profile-stat, .vc-u
   background-color: #100c09 !important;
   background-image:
     radial-gradient(120% 90% at 0% 0%, rgba(236, 205, 176, 0.1), transparent 50%),
-    linear-gradient(175deg, #17130f 0%, #100c09 55%, #0b0807 100%),
-    conic-gradient(
-      from 0deg,
-      rgba(247, 236, 223, 0.88) 0deg,
-      rgba(212, 168, 136, 0.62) 90deg,
-      rgba(180, 130, 90, 0.68) 180deg,
-      rgba(212, 168, 136, 0.62) 270deg,
-      rgba(247, 236, 223, 0.88) 360deg
-    ) !important;
+    linear-gradient(175deg, #17130f 0%, #100c09 55%, #0b0807 100%)
+     !important;
   background-origin: padding-box, padding-box, border-box !important;
   background-clip: padding-box, padding-box, border-box !important;
   -webkit-background-clip: padding-box, padding-box, border-box !important;
-  border: 1px solid transparent !important;
-  border-color: transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
   box-shadow: none !important;
@@ -5098,7 +5055,7 @@ body.vc-body.vc-users-page.vc-user-profile-page .vc-user-profile-customstack > .
 body.vc-body.vc-users-page.vc-user-profile-page .vc-user-profile-customstack > .vc-user-profile-shared--foot,
 body.vc-body.vc-users-page.vc-user-profile-page .vc-user-profile-customstack .vc-user-profile-customgrid__row,
 body.vc-body.vc-users-page.vc-user-profile-page .vc-user-profile-customstack .vc-user-profile-shared__user {
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   background: transparent !important;
   background-image: none !important;
   box-shadow: none !important;
@@ -5132,7 +5089,7 @@ body.vc-body.vc-users-page.vc-user-profile-page .vc-user-profile-accordion__badg
 body.vc-body.vc-users-page.vc-user-profile-page :is(.vc-user-profile-backbtn, .vc-user-profile-customize, .vc-user-profile-customize--pill) {
   /* profilePillGlow1: bordo glow gradient (fill + stroke) — no switcher tabs */
   border: 1.5px solid transparent !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   background-color: transparent !important;
   background-image:
     linear-gradient(145deg, rgba(var(--vc-mocha-rgb), 0.78), rgba(22, 16, 12, 0.92)),
@@ -5154,7 +5111,7 @@ body.vc-body.vc-users-page.vc-user-profile-page :is(.vc-user-profile-backbtn, .v
 }
 body.vc-body.vc-users-page.vc-user-profile-page :is(.vc-user-profile-backbtn, .vc-user-profile-customize, .vc-user-profile-customize--pill):hover,
 body.vc-body.vc-users-page.vc-user-profile-page :is(.vc-user-profile-backbtn, .vc-user-profile-customize, .vc-user-profile-customize--pill):focus-visible {
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   background-image:
     linear-gradient(145deg, rgba(var(--vc-mocha-rgb), 0.9), rgba(28, 20, 15, 0.96)),
     linear-gradient(
@@ -5186,7 +5143,7 @@ body.vc-body.vc-users-page.vc-user-profile-page .vc-user-profile-tabs__btn:not(.
 }
 body.vc-body.vc-users-page.vc-user-profile-page .vc-user-profile-tabs__btn.is-active {
   border: 1.5px solid transparent !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   background-color: transparent !important;
   background-image:
     linear-gradient(145deg, rgba(var(--vc-mocha-rgb), 0.92), rgba(28, 20, 15, 0.98)),
@@ -5333,24 +5290,16 @@ body.vc-body.vc-users-page .vc-roles-info-callout,
 body.vc-body.vc-users-page .vc-role-card,
 body.vc-body.vc-users-page .vc-role-modal-sheet,
 body.vc-body.vc-users-page .vc-role-request-sheet {
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   background-color: #100c09 !important;
   background-image:
     radial-gradient(ellipse 115% 85% at 15% 0%, rgba(236, 205, 176, 0.12), transparent 54%),
-    linear-gradient(175deg, #17130f 0%, #100c09 55%, #0b0807 100%),
-    conic-gradient(
-      from 0deg,
-      rgba(255, 247, 236, 0.92) 0deg,
-      rgba(236, 205, 176, 0.82) 70deg,
-      rgba(212, 168, 136, 0.72) 140deg,
-      rgba(180, 130, 90, 0.78) 200deg,
-      rgba(212, 168, 136, 0.72) 270deg,
-      rgba(255, 247, 236, 0.92) 360deg
-    ) !important;
+    linear-gradient(175deg, #17130f 0%, #100c09 55%, #0b0807 100%)
+     !important;
   background-origin: padding-box, padding-box, border-box !important;
   background-clip: padding-box, padding-box, border-box !important;
   -webkit-background-clip: padding-box, padding-box, border-box !important;
-  border: 1px solid transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
 }
@@ -5379,7 +5328,7 @@ body.vc-body.vc-roles-page .vc-notify-hero,
 body.vc-body.vc-users-page .vc-roles-head,
 body.vc-body.vc-users-page .vc-users-head {
   background: transparent !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   box-shadow: none !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
@@ -5388,20 +5337,13 @@ body.vc-body.vc-users-page .vc-ul-board-tabs .vc-notify-filter-btn,
 body.vc-body.vc-users-page .vc-ul-board-tabs .vc-ul-filter-tab {
   background-color: #100c09 !important;
   background-image:
-    linear-gradient(175deg, #17130f 0%, #100c09 100%),
-    conic-gradient(
-      from 0deg,
-      rgba(255, 247, 236, 0.75) 0deg,
-      rgba(212, 168, 136, 0.55) 90deg,
-      rgba(180, 130, 90, 0.58) 180deg,
-      rgba(212, 168, 136, 0.55) 270deg,
-      rgba(255, 247, 236, 0.75) 360deg
-    ) !important;
+    linear-gradient(175deg, #17130f 0%, #100c09 100%)
+     !important;
   background-origin: padding-box, border-box !important;
   background-clip: padding-box, border-box !important;
   -webkit-background-clip: padding-box, border-box !important;
-  border: 1px solid transparent !important;
-  border-color: transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   color: rgba(247, 236, 223, 0.9) !important;
   box-shadow: none !important;
   backdrop-filter: none !important;
@@ -5412,21 +5354,13 @@ body.vc-body.vc-users-page .vc-ul-board-tabs .vc-ul-filter-tab--open,
 body.vc-body.vc-users-page .vc-ul-board-tabs .vc-ul-filter-tab[aria-expanded="true"] {
   background-color: #17130f !important;
   background-image:
-    linear-gradient(175deg, #1c1611 0%, #140f0c 100%),
-    conic-gradient(
-      from 0deg,
-      rgba(255, 247, 236, 0.95) 0deg,
-      rgba(236, 205, 176, 0.85) 70deg,
-      rgba(212, 168, 136, 0.75) 140deg,
-      rgba(180, 130, 90, 0.8) 200deg,
-      rgba(212, 168, 136, 0.75) 270deg,
-      rgba(255, 247, 236, 0.95) 360deg
-    ) !important;
+    linear-gradient(175deg, #1c1611 0%, #140f0c 100%)
+     !important;
   background-origin: padding-box, border-box !important;
   background-clip: padding-box, border-box !important;
   -webkit-background-clip: padding-box, border-box !important;
-  border: 1px solid transparent !important;
-  border-color: transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   color: rgba(255, 255, 255, 0.98) !important;
 }
 body.vc-body.vc-roles-page {
@@ -5456,7 +5390,7 @@ body.vc-body.vc-roles-page :where(
     0 10px 28px rgba(0, 0, 0, 0.2) !important;
 }
 body.vc-body.vc-roles-page .vc-notify-hero {
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   background: transparent !important;
   box-shadow: none !important;
   backdrop-filter: none !important;
@@ -5681,7 +5615,7 @@ body.vc-body.vc-users-page.vc-user-profile-page .vc-user-profile-accordion--voic
   margin-top: 0.85rem !important;
 }
 body.vc-body.vc-rank-customize-page .vc-rank-editor-tabs {
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   background: transparent !important;
   box-shadow: none !important;
 }
@@ -21540,24 +21474,16 @@ body.vc-body.vc-users-page .vc-ul-card,
 body.vc-body.vc-users-page .vc-ul-statbox,
 body.vc-body.vc-users-page .vc-roles-info,
 body.vc-body.vc-users-page .vc-roles-search {
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   background-color: #100c09 !important;
   background-image:
     radial-gradient(ellipse 115% 85% at 15% 0%, rgba(236, 205, 176, 0.12), transparent 54%),
-    linear-gradient(175deg, #17130f 0%, #100c09 55%, #0b0807 100%),
-    conic-gradient(
-      from 0deg,
-      rgba(255, 247, 236, 0.92) 0deg,
-      rgba(236, 205, 176, 0.82) 70deg,
-      rgba(212, 168, 136, 0.72) 140deg,
-      rgba(180, 130, 90, 0.78) 200deg,
-      rgba(212, 168, 136, 0.72) 270deg,
-      rgba(255, 247, 236, 0.92) 360deg
-    ) !important;
+    linear-gradient(175deg, #17130f 0%, #100c09 55%, #0b0807 100%)
+     !important;
   background-origin: padding-box, padding-box, border-box !important;
   background-clip: padding-box, padding-box, border-box !important;
   -webkit-background-clip: padding-box, padding-box, border-box !important;
-  border: 1px solid transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
 }
@@ -22094,7 +22020,7 @@ html body.vc-body--home header .vc-nav-shell:not(.vc-nav-shell--scrolled),
 html body.vc-dashboard-page header .vc-nav-shell:not(.vc-nav-shell--scrolled),
 html.vc-site-polish body.vc-body header .vc-nav-shell:not(.vc-nav-shell--scrolled),
 html.vc-site-polish--pwa body.vc-body header .vc-nav-shell:not(.vc-nav-shell--scrolled) {
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   box-shadow: 0 10px 28px rgba(0, 0, 0, 0.28) !important;
 }
 html body.vc-body header .vc-nav-shell.vc-nav-shell--scrolled,
@@ -22896,7 +22822,7 @@ html.vc-site-polish body.vc-body header #discord-login-btn:hover,
   background: #4752c4 !important;
   background-color: #4752c4 !important;
   color: #fff !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   box-shadow: 0 6px 18px rgba(88, 101, 242, 0.45) !important;
   opacity: 1 !important;
   transform: none !important;
@@ -23086,7 +23012,7 @@ html body.vc-page-cine-layout .vc-page-cine-aside-inline .grid > [class*="rounde
   background-color: transparent !important;
   background-image: none !important;
   border: none !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   box-shadow: none !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
@@ -23272,7 +23198,7 @@ body.vc-page-cine-layout .vc-page-cine-hero .vc-page-cine-aside-inline .grid > [
   padding: 0.35rem 0 0.55rem !important;
   border-radius: 0 !important;
   border: none !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   background: transparent !important;
   background-color: transparent !important;
   background-image: none !important;
@@ -23656,24 +23582,16 @@ html.vc-site-polish body.vc-body :is(
 ):not(.vc-page-cine-hero):not(.vc-home-cine) {
   border-radius: 1.75rem !important;
   /* cardStatsBorderAll1c: stesso bordo live stats (no bg:none) */
-  border: 2px solid transparent !important;
+  border: 2px solid rgba(245, 214, 183, 0.38) !important;
   background-color: #100c09 !important;
   background-image:
     radial-gradient(120% 90% at 0% 0%, rgba(236, 205, 176, 0.12), transparent 52%),
     radial-gradient(90% 70% at 100% 0%, rgba(111, 78, 55, 0.16), transparent 48%),
-    linear-gradient(175deg, #17130f 0%, #100c09 55%, #0b0807 100%),
-    conic-gradient(
-      from 0deg,
-      rgba(255, 247, 236, 0.98) 0deg,
-      rgba(236, 205, 176, 0.9) 70deg,
-      rgba(212, 168, 136, 0.78) 140deg,
-      rgba(180, 130, 90, 0.82) 200deg,
-      rgba(212, 168, 136, 0.78) 270deg,
-      rgba(255, 247, 236, 0.98) 360deg
-    ) !important;
-  background-origin: padding-box, padding-box, padding-box, border-box !important;
-  background-clip: padding-box, padding-box, padding-box, border-box !important;
-  -webkit-background-clip: padding-box, padding-box, padding-box, border-box !important;
+    linear-gradient(175deg, #17130f 0%, #100c09 55%, #0b0807 100%)
+     !important;
+  background-origin: padding-box !important;
+  background-clip: padding-box !important;
+  -webkit-background-clip: padding-box !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
   box-shadow: 0 0 0 1px rgba(255, 247, 236, 0.16) !important;
@@ -23686,24 +23604,16 @@ html.vc-site-polish body.vc-reviews-page .vc-reviews-grid.vc-reviews-palette > .
   padding: 1.2rem 1.25rem !important;
   border-radius: 1.75rem !important;
   /* cardStatsBorderAll1c: stesso bordo live stats */
-  border: 2px solid transparent !important;
+  border: 2px solid rgba(245, 214, 183, 0.38) !important;
   background-color: #100c09 !important;
   background-image:
     radial-gradient(120% 90% at 0% 0%, rgba(236, 205, 176, 0.12), transparent 52%),
     radial-gradient(90% 70% at 100% 0%, rgba(111, 78, 55, 0.16), transparent 48%),
-    linear-gradient(175deg, #17130f 0%, #100c09 55%, #0b0807 100%),
-    conic-gradient(
-      from 0deg,
-      rgba(255, 247, 236, 0.98) 0deg,
-      rgba(236, 205, 176, 0.9) 70deg,
-      rgba(212, 168, 136, 0.78) 140deg,
-      rgba(180, 130, 90, 0.82) 200deg,
-      rgba(212, 168, 136, 0.78) 270deg,
-      rgba(255, 247, 236, 0.98) 360deg
-    ) !important;
-  background-origin: padding-box, padding-box, padding-box, border-box !important;
-  background-clip: padding-box, padding-box, padding-box, border-box !important;
-  -webkit-background-clip: padding-box, padding-box, padding-box, border-box !important;
+    linear-gradient(175deg, #17130f 0%, #100c09 55%, #0b0807 100%)
+     !important;
+  background-origin: padding-box !important;
+  background-clip: padding-box !important;
+  -webkit-background-clip: padding-box !important;
   box-shadow: 0 0 0 1px rgba(255, 247, 236, 0.16) !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
@@ -23715,20 +23625,12 @@ html.vc-site-polish:not([data-vc-theme="light"]) body.vc-reviews-page .vc-review
   background-image:
     radial-gradient(120% 90% at 0% 0%, rgba(236, 205, 176, 0.14), transparent 52%),
     radial-gradient(90% 70% at 100% 0%, rgba(111, 78, 55, 0.18), transparent 48%),
-    linear-gradient(175deg, #17130f 0%, #100c09 55%, #0b0807 100%),
-    conic-gradient(
-      from 0deg,
-      rgba(255, 247, 236, 0.98) 0deg,
-      rgba(236, 205, 176, 0.92) 70deg,
-      rgba(212, 168, 136, 0.82) 140deg,
-      rgba(180, 130, 90, 0.86) 200deg,
-      rgba(212, 168, 136, 0.82) 270deg,
-      rgba(255, 247, 236, 0.98) 360deg
-    ) !important;
-  background-origin: padding-box, padding-box, padding-box, border-box !important;
-  background-clip: padding-box, padding-box, padding-box, border-box !important;
-  -webkit-background-clip: padding-box, padding-box, padding-box, border-box !important;
-  border-color: transparent !important;
+    linear-gradient(175deg, #17130f 0%, #100c09 55%, #0b0807 100%)
+     !important;
+  background-origin: padding-box !important;
+  background-clip: padding-box !important;
+  -webkit-background-clip: padding-box !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
 }
 
 html.vc-site-polish body.vc-reviews-page .vc-reviews-section__title {
@@ -23995,7 +23897,7 @@ html.vc-site-polish body.vc-page-cine-layout :is(
   background: transparent !important;
   background-color: transparent !important;
   background-image: none !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   box-shadow: none !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
@@ -24021,7 +23923,7 @@ html.vc-site-polish body.vc-page-cine-layout :is(
   background: transparent !important;
   background-color: transparent !important;
   background-image: none !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   box-shadow: none !important;
 }
 
@@ -25548,7 +25450,7 @@ body.vc-wiki-page .vc-wiki-bot-switch__btn.vc-cmd-tab {
   gap: 0.45rem !important;
   padding: 0.42rem 0.85rem !important;
   border-radius: 999px !important;
-  border: 1px solid transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
   background: transparent !important;
   box-shadow: none !important;
   font-size: 0.82rem !important;
@@ -25639,7 +25541,7 @@ body.vc-appelli-page .vc-role-seg-switch .vc-appelli-mode__opt {
   margin: 0 !important;
   padding: 0.42rem 0.85rem !important;
   border-radius: 999px !important;
-  border: 1px solid transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
   background: transparent !important;
   box-shadow: none !important;
   font-size: 0.82rem !important;
@@ -26771,7 +26673,7 @@ body.vc-dashboard-page .vc-regole-tab {
   margin: 0 !important;
   padding: 0.36rem 0.72rem !important;
   border-radius: 999px !important;
-  border: 1px solid transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
   background: transparent !important;
   background-image: none !important;
   box-shadow: none !important;
@@ -26800,7 +26702,7 @@ body.vc-regole-page .vc-regole-tab:hover,
 body.vc-faq-page .vc-regole-tab:hover,
 body.vc-staff-guide-page .vc-regole-tab:hover {
   background: rgba(212, 168, 136, 0.1) !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   color: rgba(247, 236, 223, 0.95) !important;
   box-shadow: none !important;
 }
@@ -27030,7 +26932,7 @@ body.vc-staff-guide-page #vc-staff-guide-tabs.vc-regole-tabs .vc-regole-tab {
   height: auto !important;
   padding: 0.55rem 1rem !important;
   border-radius: 9999px !important;
-  border: 1px solid transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
   background: transparent !important;
   background-image: none !important;
   box-shadow: none !important;
@@ -27090,7 +26992,7 @@ body.vc-staff-guide-page .vc-regole-tabs--sub .vc-regole-tab {
   height: auto !important;
   padding: 0.55rem 1rem !important;
   border-radius: 9999px !important;
-  border: 1px solid transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
   background: transparent !important;
   background-image: none !important;
   background-color: transparent !important;
@@ -27151,7 +27053,7 @@ body.vc-staff-guide-page .vc-regole-tabs--sub .vc-regole-tab--on {
   color: #fff !important;
   background: linear-gradient(135deg, rgba(212, 168, 136, 0.32), rgba(111, 78, 55, 0.42)) !important;
   background-image: linear-gradient(135deg, rgba(212, 168, 136, 0.32), rgba(111, 78, 55, 0.42)) !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12) !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
@@ -27389,7 +27291,7 @@ body.vc-dashboard-page .vc-regole-tabs--sub .vc-regole-tab {
   height: auto !important;
   padding: 0.55rem 1rem !important;
   border-radius: 9999px !important;
-  border: 1px solid transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
   background: transparent !important;
   background-image: none !important;
   background-color: transparent !important;
@@ -27419,7 +27321,7 @@ body.vc-dashboard-page .vc-regole-tabs--sub .vc-regole-tab--on {
   color: #fff !important;
   background: linear-gradient(135deg, rgba(212, 168, 136, 0.32), rgba(111, 78, 55, 0.42)) !important;
   background-image: linear-gradient(135deg, rgba(212, 168, 136, 0.32), rgba(111, 78, 55, 0.42)) !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12) !important;
 }
 
@@ -27509,7 +27411,7 @@ body.vc-faq-page #vc-regole-tabs.vc-regole-tabs .vc-regole-tab--on {
   background: linear-gradient(135deg, rgba(212, 168, 136, 0.32), rgba(111, 78, 55, 0.42)) !important;
   background-image: linear-gradient(135deg, rgba(212, 168, 136, 0.32), rgba(111, 78, 55, 0.42)) !important;
   background-color: transparent !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12) !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
@@ -29730,20 +29632,12 @@ html.vc-site-polish:not([data-vc-theme="light"]) body.vc-reviews-page .vc-review
   background-image:
     radial-gradient(120% 90% at 0% 0%, rgba(236, 205, 176, 0.14), transparent 52%),
     radial-gradient(90% 70% at 100% 0%, rgba(111, 78, 55, 0.18), transparent 48%),
-    linear-gradient(175deg, #17130f 0%, #100c09 55%, #0b0807 100%),
-    conic-gradient(
-      from 0deg,
-      rgba(255, 247, 236, 0.98) 0deg,
-      rgba(236, 205, 176, 0.92) 70deg,
-      rgba(212, 168, 136, 0.82) 140deg,
-      rgba(180, 130, 90, 0.86) 200deg,
-      rgba(212, 168, 136, 0.82) 270deg,
-      rgba(255, 247, 236, 0.98) 360deg
-    ) !important;
-  background-origin: padding-box, padding-box, padding-box, border-box !important;
-  background-clip: padding-box, padding-box, padding-box, border-box !important;
-  -webkit-background-clip: padding-box, padding-box, padding-box, border-box !important;
-  border-color: transparent !important;
+    linear-gradient(175deg, #17130f 0%, #100c09 55%, #0b0807 100%)
+     !important;
+  background-origin: padding-box !important;
+  background-clip: padding-box !important;
+  -webkit-background-clip: padding-box !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
 }
 html.vc-site-polish body.vc-page-cine-layout.vc-reviews-page .vc-reviews-stage .vc-reviews-stage__card.is-center.vc-reviews-card:hover,
 html.vc-site-polish body.vc-page-cine-layout.vc-reviews-page .vc-reviews-stage .vc-reviews-stage__card.is-center.vc-reviews-card:active,
@@ -29947,7 +29841,7 @@ body.vc-body.vc-users-page #vc-ul-board-tabs .vc-ul-filter-tab {
   height: auto !important;
   padding: 0.55rem 1rem !important;
   border-radius: 9999px !important;
-  border: 1px solid transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
   background: transparent !important;
   background-image: none !important;
   background-color: transparent !important;
@@ -29993,7 +29887,7 @@ body.vc-body.vc-users-page #vc-ul-board-tabs .vc-ul-filter-tab:hover {
   color: #fff !important;
   background: rgba(255, 255, 255, 0.06) !important;
   background-image: none !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   box-shadow: none !important;
   transform: none !important;
 }
@@ -30007,7 +29901,7 @@ body.vc-body.vc-users-page #vc-ul-board-tabs .vc-ul-filter-tab[aria-expanded="tr
   color: #fff !important;
   background: linear-gradient(135deg, rgba(212, 168, 136, 0.32), rgba(111, 78, 55, 0.42)) !important;
   background-image: linear-gradient(135deg, rgba(212, 168, 136, 0.32), rgba(111, 78, 55, 0.42)) !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12) !important;
   transform: none !important;
 }
@@ -30021,7 +29915,7 @@ body.vc-body.vc-users-page #vc-ul-board-tabs .vc-ul-filter-tab[aria-expanded="tr
   color: #fff !important;
   background: linear-gradient(135deg, rgba(212, 168, 136, 0.42), rgba(111, 78, 55, 0.52)) !important;
   background-image: linear-gradient(135deg, rgba(212, 168, 136, 0.42), rgba(111, 78, 55, 0.52)) !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12) !important;
   transform: none !important;
 }
@@ -31072,7 +30966,7 @@ html body #stats .vc-stat-cell--hours-open .vc-stat-staff-chev {
 @media (hover: none), (pointer: coarse) {
   html body #stats .vc-stat-cell:hover:not([class*="-open"]),
   html body.vc-body--home #stats .vc-stat-cell:hover:not([class*="-open"]) {
-    border-color: transparent !important;
+    border-color: rgba(245, 214, 183, 0.38) !important;
     background: transparent !important;
     box-shadow: none !important;
     transform: none !important;
@@ -31631,7 +31525,7 @@ body.vc-body .vc-legal-hero.vc-home-panel {
   background-color: transparent !important;
   background-image: none !important;
   border: 0 !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   box-shadow: none !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
@@ -32374,7 +32268,7 @@ html.vc-site-polish body.vc-page-cine-layout .vc-page-cine-hero .vc-support-intr
 body.vc-body--home .vc-home-cine-hero .vc-support-intro-shell,
 body.vc-page-cine-layout .vc-page-cine-hero .vc-support-intro-shell {
   border: 0 !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   background: transparent !important;
   background-color: transparent !important;
   background-image: none !important;
@@ -32618,7 +32512,7 @@ html body.vc-staff-area header .vc-notif-summary.vc-icon-btn.vc-notif-summary--p
 html body.vc-body header .vc-notif-dropdown:not([open]) .vc-notif-summary.vc-icon-btn:has(#vc-notif-badge:not([hidden])) > i.fa,
 html body.vc-body--home header .vc-notif-dropdown:not([open]) .vc-notif-summary.vc-icon-btn:has(#vc-notif-badge:not([hidden])) > i.fa,
 #header-quick-actions .vc-notif-dropdown:not([open]) .vc-notif-summary.vc-icon-btn:has(#vc-notif-badge:not([hidden])) > i.fa {
-  animation: vc-notif-bell-attention 2.6s ease-in-out infinite !important;
+  animation: none !important; /* hoverToastAnim1 */
 }
 html body.vc-body header .vc-notif-dropdown:not([open]) .vc-notif-summary.vc-icon-btn:has(#vc-notif-badge:not([hidden])):hover > i.fa,
 #header-quick-actions .vc-notif-dropdown:not([open]) .vc-notif-summary.vc-icon-btn:has(#vc-notif-badge:not([hidden])):hover > i.fa {
@@ -33013,7 +32907,7 @@ html.vc-site-polish body.vc-wiki-page #wiki-comandi-panel {
   background-color: transparent !important;
   background-image: none !important;
   border: 0 !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   box-shadow: none !important;
   filter: none !important;
   -webkit-filter: none !important;
@@ -33315,7 +33209,7 @@ html.vc-perf-mid.vc-site-polish body.vc-body > header .vc-nav-shell,
 html body.vc-body header .vc-nav-shell {
   filter: none !important;
   -webkit-filter: none !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   box-shadow: none !important;
 }
 html.vc-site-polish body.vc-body > footer.vc-premium-footer .vc-premium-footer__outer,
@@ -33344,7 +33238,7 @@ html body.vc-body--home > footer.vc-premium-footer .vc-premium-footer__outer {
     box-shadow: none !important;
     filter: none !important;
     -webkit-filter: none !important;
-    border-color: transparent !important;
+    border-color: rgba(245, 214, 183, 0.38) !important;
   }
 }
 
@@ -34191,24 +34085,17 @@ html.vc-site-polish:not([data-vc-theme="light"]) body.vc-body .vc-support-page-h
 html.vc-site-polish:not([data-vc-theme="light"]) body.vc-body .vc-support-page-hero .grid.gap-4 > [class*="rounded"] {
   position: relative !important;
   overflow: hidden !important;
-  border: 1px solid transparent !important;
-  border-color: transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   background-color: #100c09 !important;
   background-image:
     radial-gradient(120% 90% at 0% 0%, rgba(236, 205, 176, 0.12), transparent 52%),
     radial-gradient(90% 70% at 100% 0%, rgba(111, 78, 55, 0.16), transparent 48%),
-    linear-gradient(175deg, #17130f 0%, #100c09 55%, #0b0807 100%),
-    conic-gradient(
-      from 0deg,
-      rgba(247, 236, 223, 0.82) 0deg,
-      rgba(212, 168, 136, 0.58) 90deg,
-      rgba(180, 130, 90, 0.62) 180deg,
-      rgba(212, 168, 136, 0.58) 270deg,
-      rgba(247, 236, 223, 0.82) 360deg
-    ) !important;
-  background-origin: padding-box, padding-box, padding-box, border-box !important;
-  background-clip: padding-box, padding-box, padding-box, border-box !important;
-  -webkit-background-clip: padding-box, padding-box, padding-box, border-box !important;
+    linear-gradient(175deg, #17130f 0%, #100c09 55%, #0b0807 100%)
+     !important;
+  background-origin: padding-box !important;
+  background-clip: padding-box !important;
+  -webkit-background-clip: padding-box !important;
   box-shadow: none !important;
 }
 
@@ -34802,7 +34689,7 @@ html body .fa-spin.fa-spinner {
   border: 0 !important;
   border-width: 0 !important;
   border-style: none !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   border-top-color: transparent !important;
   border-right-color: transparent !important;
   border-bottom-color: transparent !important;
@@ -35090,7 +34977,7 @@ html.vc-site-polish body.vc-vote-page .vc-vote-platform-cta {
   background-origin: padding-box, border-box !important;
   background-clip: padding-box, border-box !important;
   -webkit-background-clip: padding-box, border-box !important;
-  border: 1px solid transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
   color: #1a120e !important;
   -webkit-text-fill-color: #1a120e !important;
   text-shadow: none !important;
@@ -35572,18 +35459,11 @@ html:not([data-vc-theme="light"]) #vc-site-back-top > i {
 /* backTopConic1: shell = fill + conic border (come navbar), no glow */
 html.vc-site-polish:not([data-vc-theme="light"]):not(.vc-soft-fx-off) body.vc-body #vc-site-back-top {
   border: 1.35px solid transparent !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   background-color: #100c09 !important;
   background-image:
-    linear-gradient(180deg, rgba(26, 20, 15, 0.96), rgba(16, 12, 9, 0.98)),
-    conic-gradient(
-      from 0deg,
-      rgba(247, 236, 223, 0.88) 0deg,
-      rgba(212, 168, 136, 0.62) 90deg,
-      rgba(180, 130, 90, 0.68) 180deg,
-      rgba(212, 168, 136, 0.62) 270deg,
-      rgba(247, 236, 223, 0.88) 360deg
-    ) !important;
+    linear-gradient(180deg, rgba(26, 20, 15, 0.96), rgba(16, 12, 9, 0.98))
+     !important;
   background-origin: padding-box, border-box !important;
   background-clip: padding-box, border-box !important;
   -webkit-background-clip: padding-box, border-box !important;
@@ -36387,21 +36267,13 @@ body.vc-reviews-page .vc-reviews-stage .vc-reviews-stage__card {
   background-image:
     radial-gradient(120% 90% at 0% 0%, rgba(236, 205, 176, 0.12), transparent 52%),
     radial-gradient(90% 70% at 100% 0%, rgba(111, 78, 55, 0.16), transparent 48%),
-    linear-gradient(175deg, #17130f 0%, #100c09 55%, #0b0807 100%),
-    conic-gradient(
-      from 0deg,
-      rgba(255, 247, 236, 0.98) 0deg,
-      rgba(236, 205, 176, 0.9) 70deg,
-      rgba(212, 168, 136, 0.78) 140deg,
-      rgba(180, 130, 90, 0.82) 200deg,
-      rgba(212, 168, 136, 0.78) 270deg,
-      rgba(255, 247, 236, 0.98) 360deg
-    ) !important;
-  background-origin: padding-box, padding-box, padding-box, border-box !important;
-  background-clip: padding-box, padding-box, padding-box, border-box !important;
-  -webkit-background-clip: padding-box, padding-box, padding-box, border-box !important;
-  border: 2px solid transparent !important;
-  border-color: transparent !important;
+    linear-gradient(175deg, #17130f 0%, #100c09 55%, #0b0807 100%)
+     !important;
+  background-origin: padding-box !important;
+  background-clip: padding-box !important;
+  -webkit-background-clip: padding-box !important;
+  border: 2px solid rgba(245, 214, 183, 0.38) !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   animation: none !important;
   filter: none !important;
   -webkit-filter: none !important;
@@ -36415,7 +36287,7 @@ html.vc-site-polish:not([data-vc-theme="light"]) body.vc-reviews-page .vc-review
 html.vc-site-polish:not([data-vc-theme="light"]) body.vc-reviews-page .vc-reviews-stage .vc-reviews-stage__card.vc-reviews-card:active {
   /* keep conic border on hover — no bg:none */
   background-color: #100c09 !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
 }
 html[data-vc-theme="light"] body.vc-reviews-page .vc-reviews-stage .vc-reviews-stage__card,
 html.vc-site-polish[data-vc-theme="light"] body.vc-reviews-page .vc-reviews-stage .vc-reviews-stage__card {
@@ -37180,22 +37052,14 @@ html.vc-site-polish:not(.vc-soft-fx-off):not([data-vc-theme="light"]) body.vc-bo
   background-image:
     radial-gradient(120% 90% at 0% 0%, rgba(236, 205, 176, 0.12), transparent 52%),
     radial-gradient(90% 70% at 100% 0%, rgba(111, 78, 55, 0.16), transparent 48%),
-    linear-gradient(175deg, #17130f 0%, #100c09 55%, #0b0807 100%),
-    conic-gradient(
-      from 0deg,
-      rgba(255, 247, 236, 0.98) 0deg,
-      rgba(236, 205, 176, 0.9) 70deg,
-      rgba(212, 168, 136, 0.78) 140deg,
-      rgba(180, 130, 90, 0.82) 200deg,
-      rgba(212, 168, 136, 0.78) 270deg,
-      rgba(255, 247, 236, 0.98) 360deg
-    ) !important;
-  background-origin: padding-box, padding-box, padding-box, border-box !important;
-  background-clip: padding-box, padding-box, padding-box, border-box !important;
-  -webkit-background-clip: padding-box, padding-box, padding-box, border-box !important;
-  border: 2px solid transparent !important;
+    linear-gradient(175deg, #17130f 0%, #100c09 55%, #0b0807 100%)
+     !important;
+  background-origin: padding-box !important;
+  background-clip: padding-box !important;
+  -webkit-background-clip: padding-box !important;
+  border: 2px solid rgba(245, 214, 183, 0.38) !important;
   border-width: 2px !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   box-shadow: 0 0 0 1px rgba(255, 247, 236, 0.16) !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
@@ -37215,7 +37079,7 @@ html.vc-site-polish body.vc-body.vc-users-page.vc-user-profile-page#top main :is
   .vc-user-profile-disclosure,
   .vc-user-profile-accordion
 ) {
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   border-width: 2px !important;
   border-style: solid !important;
 }
@@ -37225,7 +37089,7 @@ html.vc-site-polish body.vc-body.vc-users-page#top main :is(
   .vc-ul-card.vc-home-panel,
   .vc-home-panel.vc-fx-card
 ) {
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   border-width: 2px !important;
 }
 /* profileOuterThick3 */
@@ -37292,8 +37156,8 @@ html.vc-site-polish body.vc-body.vc-users-page :is(
   .vc-user-profile-accordion,
   .vc-user-profile-badges
 ) {
-  border: 2px solid transparent !important;
-  border-color: transparent !important;
+  border: 2px solid rgba(245, 214, 183, 0.38) !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   border-width: 2px !important;
   border-style: solid !important;
   box-shadow: 0 0 0 1px rgba(255, 247, 236, 0.16) !important;

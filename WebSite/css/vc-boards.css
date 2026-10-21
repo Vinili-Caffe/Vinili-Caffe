@@ -1,3 +1,4 @@
+/* lookStaticBorder1: no conic/mask rings — solid sand border */
 /* boardsCineRestore2: no-cine solo scheda server (view) */
 /* Bacheca — boardsTagsPick1: tag picker menu-up + create */
 :root {
@@ -206,7 +207,7 @@ html.vc-site-polish body.vc-boards-page .vc-boards-wizard,
 html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body.vc-boards-page .vc-boards-wizard,
 .vc-boards-wizard {
   border-radius: 1.35rem !important;
-  border: 1px solid transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
   background-color: #100c09 !important;
   background-image:
     var(--bc-shell-fill),
@@ -331,7 +332,7 @@ html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body.vc-boards-page .vc-boards-
   min-height: 2.91rem;
   padding: 0 1.15rem !important;
   border-radius: 999px !important;
-  border: 1px solid transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
   background-color: #100c09 !important;
   background-image:
     linear-gradient(165deg, #17130f, #100c09),
@@ -375,7 +376,7 @@ html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body.vc-boards-page main .vc-bo
   width: 100% !important;
   border: 0 !important;
   border-width: 0 !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   border-radius: 0 !important;
   background: transparent !important;
   background-color: transparent !important;
@@ -430,7 +431,7 @@ html.vc-site-polish body.vc-boards-page .vc-boards-sortmenu__btn,
   gap: 0.65rem;
   padding: 0.55rem 0.95rem 0.55rem 1.05rem !important;
   border-radius: 0.85rem !important;
-  border: 2px solid transparent !important;
+  border: 2px solid rgba(245, 214, 183, 0.38) !important;
   background-color: #241810 !important;
   background-image:
     linear-gradient(180deg, rgba(48, 34, 24, 0.98), rgba(22, 15, 11, 0.99)),
@@ -785,7 +786,7 @@ html body.vc-body.vc-boards-page .vc-boards-card,
   border-radius: 1.2rem !important;
   border: 0 !important;
   border-width: 0 !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   outline: none !important;
   background-color: #16110e !important;
   background-image: none !important;
@@ -840,7 +841,7 @@ html.vc-site-polish body.vc-boards-page .vc-boards-card:hover,
 html body.vc-body.vc-boards-page .vc-boards-card:hover,
 .vc-boards-card:hover {
   border: 0 !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   background-image: none !important;
   box-shadow: 0 16px 36px rgba(0, 0, 0, 0.4) !important;
 }
@@ -2721,38 +2722,7 @@ html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body.vc-boards-page .vc-boards-
 .vc-boards-detail--scheda .vc-boards-detail__icon-ring::after,
 .vc-boards-detail--solid .vc-boards-detail__icon-ring::after,
 html.vc-site-polish body.vc-boards-page .vc-boards-detail__icon-ring::after,
-html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body.vc-boards-page .vc-boards-detail__icon-ring::after {
-  content: "" !important;
-  position: absolute !important;
-  inset: -3px !important;
-  z-index: 3 !important;
-  border-radius: inherit !important;
-  box-sizing: border-box !important;
-  padding: 3px !important;
-  pointer-events: none !important;
-  background: conic-gradient(
-    from 200deg,
-    #fff7ec 0deg,
-    color-mix(in srgb, var(--vc-boards-icon-ring, #e8c49c) 88%, white) 28deg,
-    color-mix(in srgb, var(--vc-boards-icon-ring, #e8c49c) 30%, transparent) 90deg,
-    color-mix(in srgb, var(--vc-boards-icon-ring, #e8c49c) 8%, transparent) 180deg,
-    color-mix(in srgb, var(--vc-boards-icon-ring, #e8c49c) 30%, transparent) 270deg,
-    color-mix(in srgb, var(--vc-boards-icon-ring, #e8c49c) 88%, white) 332deg,
-    #fff7ec 360deg
-  ) !important;
-  -webkit-mask:
-    linear-gradient(#000 0 0) content-box,
-    linear-gradient(#000 0 0) !important;
-  -webkit-mask-composite: xor !important;
-  mask:
-    linear-gradient(#000 0 0) content-box,
-    linear-gradient(#000 0 0) !important;
-  mask-composite: exclude !important;
-  transform-origin: center center !important;
-  will-change: transform;
-  animation: vc-boards-icon-ring-spin 2.8s linear infinite !important;
-  -webkit-animation: vc-boards-icon-ring-spin 2.8s linear infinite !important;
-}
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body.vc-boards-page .vc-boards-detail__icon-ring::after { content: none !important; display: none !important; background: none !important; background-image: none !important; -webkit-mask: none !important; mask: none !important; opacity: 0 !important; }
 .vc-boards-detail--scheda .vc-boards-detail__icon-ring--empty::after,
 .vc-boards-detail--solid .vc-boards-detail__icon-ring--empty::after {
   animation: none !important;
@@ -3448,7 +3418,7 @@ html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body.vc-boards-page .vc-boards-
   margin: 0 0 1.15rem !important;
   padding: 0.35rem !important;
   border-radius: 999px !important;
-  border: 1px solid transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
   background:
     linear-gradient(165deg, #17130f, #100c09) padding-box,
     var(--bc-edge) border-box !important;
@@ -3464,7 +3434,7 @@ html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body.vc-boards-page .vc-boards-
   min-height: 2.35rem !important;
   padding: 0.35rem 0.55rem !important;
   border-radius: 999px !important;
-  border: 1px solid transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
   color: #9a8470 !important;
   font-size: 0.8rem !important;
   font-weight: 700 !important;
@@ -4768,7 +4738,7 @@ html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body.vc-boards-page main .vc-bo
   padding: 0.45rem 0 !important;
   border: 0 !important;
   border-width: 0 !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   border-bottom: 0 !important;
   border-radius: 0 !important;
   outline: none !important;
@@ -4806,7 +4776,7 @@ html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body.vc-boards-page main .vc-bo
 #vc-boards-float-q:focus,
 #vc-boards-float-q:focus-visible {
   border: 0 !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   outline: none !important;
   box-shadow: none !important;
   background: transparent !important;
@@ -6313,7 +6283,7 @@ textarea.vc-boards-tagline,
   margin: 0 !important;
   padding: 0.55rem 0.7rem !important;
   border-radius: 0.75rem !important;
-  border: 1px solid transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
   background: #16110e !important;
   background-image: none !important;
   color: #ecd6bc !important;
@@ -6558,7 +6528,7 @@ html.vc-site-polish body.vc-boards-page .vc-boards-form textarea:focus,
   margin: 0 !important;
   padding: 0.55rem 0.7rem !important;
   border-radius: 0.75rem !important;
-  border: 1px solid transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
   background: #16110e !important;
   background-image: none !important;
   color: #ecd6bc !important;
@@ -6979,7 +6949,7 @@ html.vc-site-polish.vc-boards-has-accent:not(.vc-soft-fx-off) body.vc-body.vc-bo
   background: transparent !important;
   background-color: transparent !important;
   background-image: none !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   box-shadow: none !important;
 }
 html.vc-boards-has-accent body.vc-boards-page .vc-boards-listing--scheda .vc-boards-detail__side.vc-boards-side > .vc-boards-side__sec + .vc-boards-side__sec {

@@ -1540,6 +1540,36 @@ function isMusicPlayingNow(player, session) {
   return Boolean(enc && label);
 }
 
+/** queueRaceKeep1: durante resolve/mirror due ,play vedevano idle e il 2° rimpiazzava il 1° */
+function shouldEnqueueInsteadOfStart(player, session) {
+  if (!session) return false;
+  if (session._mirrorProbing || session._playAdvanceLock || session._playStartLock) return true;
+  if (String(session.nowPlaying || "").trim()) return true;
+  if (String(session.playingEncoded || "").trim()) return true;
+  if (encodedFromPlayerTrack(player?.track)) return true;
+  return false;
+}
+
+function runPlayCmdExclusive(session, fn) {
+  const prev = session._playCmdTail || Promise.resolve();
+  let unlock = () => {};
+  const gate = new Promise((resolve) => {
+    unlock = resolve;
+  });
+  session._playCmdTail = prev.then(
+    () => gate,
+    () => gate,
+  );
+  return prev
+    .catch(() => {})
+    .then(() => fn())
+    .finally(() => {
+      try {
+        unlock();
+      } catch (_) {}
+    });
+}
+
 function buildRepeatQueueSnapshot(session, player) {
   const enc = encodedFromPlayerTrack(player.track);
   if (!enc) return [];
@@ -3210,137 +3240,216 @@ async function playMusicRequest(ctx, query) {
     };
   }
 
-  const playing = isMusicPlayingNow(player, session);
-  if (playing) {
-    const beforeLen = session.tracks.length;
-    let remainingCurrent = 0;
-    const encoded = player.track;
-    if (encoded && typeof node.rest.decode === "function") {
-      try {
-        const cur = await node.rest.decode(encoded);
-        const len = Number(cur?.info?.length);
-        if (Number.isFinite(len) && len > 0) {
-          const pos = Number(player.position) || 0;
-          remainingCurrent = Math.max(0, len - pos);
-        }
-      } catch (err) {
-        logMusic("decode current:", err?.message || err);
-      }
-    }
-    let queuedBeforeMs = 0;
-    for (let i = 0; i < beforeLen; i += 1) {
-      queuedBeforeMs += Number(session.tracks[i]?.info?.length || 0);
-    }
-    const estimatedMs = remainingCurrent + queuedBeforeMs;
-    session.tracks.push(...tagTracksWithRequester(tracks, requesterUser));
-    if (session.repeatQueue && Array.isArray(session.repeatQueueSnapshot)) {
-      for (const t of tracks) {
-        if (t?.encoded) {
-          session.repeatQueueSnapshot.push({
-            encoded: t.encoded,
-            label: describeTrack(t),
-          });
+  /* queueRaceKeep1: serializza claim start vs enqueue — due ,play paralleli non si mangiano */
+  return runPlayCmdExclusive(session, async () => {
+    const buildEnqueueResult = async () => {
+      const beforeLen = session.tracks.length;
+      let remainingCurrent = 0;
+      const encoded = player.track;
+      if (encoded && typeof node.rest.decode === "function") {
+        try {
+          const cur = await node.rest.decode(encoded);
+          const len = Number(cur?.info?.length);
+          if (Number.isFinite(len) && len > 0) {
+            const pos = Number(player.position) || 0;
+            remainingCurrent = Math.max(0, len - pos);
+          }
+        } catch (err) {
+          logMusic("decode current:", err?.message || err);
         }
       }
+      let queuedBeforeMs = 0;
+      for (let i = 0; i < beforeLen; i += 1) {
+        queuedBeforeMs += Number(session.tracks[i]?.info?.length || 0);
+      }
+      const estimatedMs = remainingCurrent + queuedBeforeMs;
+      session.tracks.push(...tagTracksWithRequester(tracks, requesterUser));
+      if (session.repeatQueue && Array.isArray(session.repeatQueueSnapshot)) {
+        for (const t of tracks) {
+          if (t?.encoded) {
+            session.repeatQueueSnapshot.push({
+              encoded: t.encoded,
+              label: describeTrack(t),
+            });
+          }
+        }
+      }
+      persistMusicQueueSnapshotNow(client);
+
+      const t0 = tracks[0];
+      const label0 = describeTrack(t0);
+      const url0 = await resolveSpotifyWebUrl(node, t0);
+      const safeLabel = safeDiscordLinkLabel(label0);
+      const trackFieldValue = (url0 ? `[${safeLabel}](${url0})` : `**${safeLabel}**`).slice(0, 1024);
+
+      const queueStart = beforeLen + 1;
+      const queueEnd = session.tracks.length;
+      const posInQueue = tracks.length > 1 ? `${queueStart}–${queueEnd}` : String(queueStart);
+      const upcomingLabel = beforeLen === 0 ? "Prossimo" : `Dopo ${beforeLen} brani`;
+
+      const embed = new EmbedBuilder()
+        .setColor(0x6f4e37)
+        .setTitle("<a:VC_Verified:1482532479637127188> Brano aggiunto")
+        .addFields(
+          { name: "Brano 🎵", value: trackFieldValue, inline: false },
+          {
+            name: "Tempo stimato prima della riproduzione",
+            value: formatEstimatedUntilPlayMs(estimatedMs),
+            inline: true,
+          },
+          { name: "Durata del brano", value: formatTrackDurationMs(t0?.info?.length), inline: true },
+          { name: "Tra i prossimi brani", value: upcomingLabel, inline: true },
+          { name: "Posizione nella coda", value: posInQueue, inline: true },
+        );
+
+      const art = String(t0?.info?.artworkUrl || "").trim();
+      if (art.startsWith("http://") || art.startsWith("https://")) embed.setThumbnail(art);
+
+      if (tracks.length > 1) {
+        embed.setDescription(`*+ ${tracks.length - 1} altre tracce nella coda.*`);
+      }
+
+      if (requesterUser && typeof requesterUser.displayAvatarURL === "function") {
+        const nome = memberDisplayName(member || requesterUser) || "Utente";
+        embed.setFooter({
+          text: `Richiesto da ${nome}`.slice(0, 2048),
+          iconURL: userAvatarUrlDynamic(member || requesterUser, { size: 64 }),
+        });
+      }
+
+      return {
+        ok: true,
+        message: `Aggiunte **${tracks.length}** traccia/e nella coda — ${label0}`,
+        embeds: [embed],
+      };
+    };
+
+    if (shouldEnqueueInsteadOfStart(player, session) || isMusicPlayingNow(player, session)) {
+      return buildEnqueueResult();
     }
 
-    const t0 = tracks[0];
-    const label0 = describeTrack(t0);
-    const url0 = await resolveSpotifyWebUrl(node, t0);
-    const safeLabel = safeDiscordLinkLabel(label0);
-    const trackFieldValue = (url0 ? `[${safeLabel}](${url0})` : `**${safeLabel}**`).slice(0, 1024);
-
-    const queueStart = beforeLen + 1;
-    const queueEnd = session.tracks.length;
-    const posInQueue = tracks.length > 1 ? `${queueStart}–${queueEnd}` : String(queueStart);
-    const upcomingLabel = beforeLen === 0 ? "Prossimo" : `Dopo ${beforeLen} brani`;
-
-    const embed = new EmbedBuilder()
-      .setColor(0x6f4e37)
-      .setTitle("<a:VC_Verified:1482532479637127188> Brano aggiunto")
-      .addFields(
-        { name: "Brano 🎵", value: trackFieldValue, inline: false },
-        {
-          name: "Tempo stimato prima della riproduzione",
-          value: formatEstimatedUntilPlayMs(estimatedMs),
-          inline: true,
-        },
-        { name: "Durata del brano", value: formatTrackDurationMs(t0?.info?.length), inline: true },
-        { name: "Tra i prossimi brani", value: upcomingLabel, inline: true },
-        { name: "Posizione nella coda", value: posInQueue, inline: true },
-      );
-
-    const art = String(t0?.info?.artworkUrl || "").trim();
-    if (art.startsWith("http://") || art.startsWith("https://")) embed.setThumbnail(art);
-
-    if (tracks.length > 1) {
-      embed.setDescription(`*+ ${tracks.length - 1} altre tracce nella coda.*`);
+    const normalized = tagTracksWithRequester(tracks, requesterUser);
+    if (!normalized.length) {
+      return { ok: false, message: "<a:VC_Cross:1482532424570376253> Nessun brano valido da riprodurre." };
     }
-
-    if (requesterUser && typeof requesterUser.displayAvatarURL === "function") {
-      const nome = memberDisplayName(member || requesterUser) || "Utente";
-      embed.setFooter({
-        text: `Richiesto da ${nome}`.slice(0, 2048),
-        iconURL: userAvatarUrlDynamic(member || requesterUser, { size: 64 }),
+    const preexistingTracks = Array.isArray(session.tracks) ? session.tracks.slice() : [];
+    const [first, ...rest] = normalized;
+    session._playStartLock = true;
+    session.tracks.push(...rest);
+    session.nowPlaying = describeTrack(first);
+    setSessionCurrentRequesterFromUser(session, requesterUser);
+    session.repeatOne = false;
+    session.repeatEncoded = null;
+    session.repeatQueue = false;
+    session.repeatQueueSnapshot = null;
+    session.history = [];
+    cancelPendingQueueEndedEmbed(guildId);
+    let started;
+    try {
+      started = await playWithMirrorFallbacks(player, session, node, first);
+    } finally {
+      session._playStartLock = false;
+    }
+    if (started.interrupted) {
+      /* queueRaceKeep1: non perdere il brano — resta in coda (niente wipe) */
+      session.tracks = [...preexistingTracks, ...normalized];
+      persistMusicQueueSnapshotNow(client);
+      logMusic("queueRaceKeep1 interrupted → enqueued", {
+        guildId,
+        label: describeTrack(first),
+        left: session.tracks.length,
       });
+      return buildEnqueueResultFromAlreadyQueued(normalized, preexistingTracks.length);
     }
-
+    if (!started.ok || !started.track) {
+      /* non wipe intera coda: ripristina preesistente + metti questo request in coda */
+      session.tracks = [...preexistingTracks, ...normalized];
+      session.nowPlaying = null;
+      session.playingEncoded = null;
+      if (!preexistingTracks.length && !encodedFromPlayerTrack(player?.track)) {
+        clearSessionCurrentRequester(session);
+        session.musicSessionOwnerId = null;
+      }
+      persistMusicQueueSnapshotNow(client);
+      /* se c'è già qualcosa in play altrove, ok in coda; altrimenti prova a far partire il primo in coda */
+      if (!shouldEnqueueInsteadOfStart(player, session) && session.tracks.length) {
+        const retryFirst = session.tracks.shift();
+        session._playStartLock = true;
+        session.nowPlaying = describeTrack(retryFirst);
+        setSessionCurrentRequesterFromUser(session, requesterUser);
+        try {
+          const again = await playWithMirrorFallbacks(player, session, node, retryFirst);
+          if (again.ok && again.track) {
+            session.suppressQueueEndUntil = Date.now() + 2500;
+            persistMusicQueueSnapshotNow(client);
+            session.musicSessionOwnerId = requesterUser?.id ? String(requesterUser.id) : null;
+            const label = describeTrack(again.track);
+            const spotifyUrl = await resolveSpotifyWebUrl(node, again.track);
+            const linkMd = formatTrackTitleMarkdownLink(label, spotifyUrl);
+            const left = session.tracks.length;
+            const tail = left ? ` (+${left} in coda)` : "";
+            const embedDescription = `${linkMd}${tail}`;
+            return {
+              ok: true,
+              message: `${NOW_PLAYING_VERIFIED} **${NOW_PLAYING_EMBED_TITLE}:** **${label}**${tail}`,
+              embedTitle: NOW_PLAYING_EMBED_TITLE,
+              embedDescription,
+              embedBody: `${NOW_PLAYING_VERIFIED} **${NOW_PLAYING_EMBED_TITLE}:** ${embedDescription}`,
+            };
+          }
+          if (retryFirst) session.tracks.unshift(retryFirst);
+        } finally {
+          session._playStartLock = false;
+        }
+      }
+      return {
+        ok: false,
+        message:
+          "<a:VC_Cross:1482532424570376253> Lo stream non è partito. Il brano resta in coda se possibile — riprova con **titolo + artista** o un link Spotify.",
+      };
+    }
+    const playingTrack = started.track;
+    session.suppressQueueEndUntil = Date.now() + 2500;
+    persistMusicQueueSnapshotNow(client);
+    session.musicSessionOwnerId = requesterUser?.id ? String(requesterUser.id) : null;
+    const label = describeTrack(playingTrack);
+    const spotifyUrl = await resolveSpotifyWebUrl(node, playingTrack);
+    const linkMd = formatTrackTitleMarkdownLink(label, spotifyUrl);
+    const tail = rest.length ? ` (+${rest.length} in coda)` : "";
+    const embedDescription = `${linkMd}${tail}`;
+    const embedBody = `${NOW_PLAYING_VERIFIED} **${NOW_PLAYING_EMBED_TITLE}:** ${embedDescription}`;
     return {
       ok: true,
-      message: `Aggiunte **${tracks.length}** traccia/e nella coda — ${label0}`,
-      embeds: [embed],
+      message: `${NOW_PLAYING_VERIFIED} **${NOW_PLAYING_EMBED_TITLE}:** **${label}**${tail}`,
+      embedTitle: NOW_PLAYING_EMBED_TITLE,
+      embedDescription,
+      embedBody,
     };
-  }
+  });
+}
 
-  const normalized = tagTracksWithRequester(tracks, requesterUser);
-  if (!normalized.length) {
-    return { ok: false, message: "<a:VC_Cross:1482532424570376253> Nessun brano valido da riprodurre." };
+async function buildEnqueueResultFromAlreadyQueued(tracks, beforeLen) {
+  const t0 = tracks[0];
+  const label0 = describeTrack(t0);
+  const queueStart = beforeLen + 1;
+  const queueEnd = beforeLen + tracks.length;
+  const posInQueue = tracks.length > 1 ? `${queueStart}–${queueEnd}` : String(queueStart);
+  const upcomingLabel = beforeLen === 0 ? "Prossimo" : `Dopo ${beforeLen} brani`;
+  const embed = new EmbedBuilder()
+    .setColor(0x6f4e37)
+    .setTitle("<a:VC_Verified:1482532479637127188> Brano aggiunto")
+    .addFields(
+      { name: "Brano 🎵", value: `**${safeDiscordLinkLabel(label0)}**`.slice(0, 1024), inline: false },
+      { name: "Posizione nella coda", value: posInQueue, inline: true },
+      { name: "Tra i prossimi brani", value: upcomingLabel, inline: true },
+    );
+  if (tracks.length > 1) {
+    embed.setDescription(`*+ ${tracks.length - 1} altre tracce nella coda.*`);
   }
-  const [first, ...rest] = normalized;
-  session.tracks.push(...rest);
-  session.nowPlaying = describeTrack(first);
-  setSessionCurrentRequesterFromUser(session, requesterUser);
-  session.repeatOne = false;
-  session.repeatEncoded = null;
-  session.repeatQueue = false;
-  session.repeatQueueSnapshot = null;
-  session.history = [];
-  cancelPendingQueueEndedEmbed(guildId);
-  const started = await playWithMirrorFallbacks(player, session, node, first);
-  if (started.interrupted) {
-    return {
-      ok: false,
-      message: "<a:VC_Cross:1482532424570376253> Riproduzione interrotta da un altro comando.",
-    };
-  }
-  if (!started.ok || !started.track) {
-    session.tracks.length = 0;
-    session.nowPlaying = null;
-    session.playingEncoded = null;
-    session.musicSessionOwnerId = null;
-    clearSessionCurrentRequester(session);
-    return {
-      ok: false,
-      message:
-        "<a:VC_Cross:1482532424570376253> Lo stream non è partito. Riprova con **titolo + artista** o un link Spotify (metadati → mirror YouTube).",
-    };
-  }
-  const playingTrack = started.track;
-  session.suppressQueueEndUntil = Date.now() + 2500;
-  persistMusicQueueSnapshotNow(client);
-  session.musicSessionOwnerId = requesterUser?.id ? String(requesterUser.id) : null;
-  const label = describeTrack(playingTrack);
-  const spotifyUrl = await resolveSpotifyWebUrl(node, playingTrack);
-  const linkMd = formatTrackTitleMarkdownLink(label, spotifyUrl);
-  const tail = rest.length ? ` (+${rest.length} in coda)` : "";
-  const embedDescription = `${linkMd}${tail}`;
-  const embedBody = `${NOW_PLAYING_VERIFIED} **${NOW_PLAYING_EMBED_TITLE}:** ${embedDescription}`;
   return {
     ok: true,
-    message: `${NOW_PLAYING_VERIFIED} **${NOW_PLAYING_EMBED_TITLE}:** **${label}**${tail}`,
-    embedTitle: NOW_PLAYING_EMBED_TITLE,
-    embedDescription,
-    embedBody,
+    message: `Aggiunte **${tracks.length}** traccia/e nella coda — ${label0}`,
+    embeds: [embed],
   };
 }
 

@@ -1,14 +1,13 @@
+/* lookStaticBorder1: no conic/mask rings — solid sand border */
 /* vcSiteChromeUi18 — progress bar transform diretto + spring; cursore cheap */
-/* progGlowUnify1: UNA sola barra sand-glow (load + scroll); track trasparente; glow = box-shadow */
+/* phoneBarBlurKill1: barra sand senza bloom (su telefono il glow sembrava blur) */
+/* phoneBarBlurKill2: su telefono niente picco #fffaf3 (alone/blur intermittente load+scroll) */
 /* scrollPaintHoles1 — durante scroll spegne backdrop-filter (buchi GPU) */
 :root {
   --vc-chrome-progress-h: 3px;
   --vc-chrome-sand: var(--vc-sand, #d4a888);
   --vc-chrome-sand-rgb: 212, 168, 136;
-  --vc-prog-glow:
-    0 0 4px rgba(255, 250, 243, 0.65),
-    0 0 10px rgba(212, 168, 136, 0.8),
-    0 0 18px rgba(184, 137, 104, 0.4);
+  --vc-prog-glow: none;
   --vc-prog-fill: linear-gradient(
     90deg,
     #8f6b3f 0%,
@@ -17,6 +16,13 @@
     #fffaf3 50%,
     #e8c9a8 58%,
     #d4a888 78%,
+    #b88968 100%
+  );
+  /* phoneBarBlurKill2: fill piatto — no highlight bianco */
+  --vc-prog-fill-phone: linear-gradient(
+    90deg,
+    #9a7349 0%,
+    #d4a888 48%,
     #b88968 100%
   );
 }
@@ -33,8 +39,7 @@
   z-index: 2147483500;
   pointer-events: none;
   background: transparent;
-  /* glow deve poter uscire dal track */
-  overflow: visible !important;
+  overflow: hidden !important;
 }
 #vc-site-progress.is-loading {
   height: 3px !important;
@@ -62,7 +67,7 @@ html.vc-view-as-bar-on #vc-site-progress {
   backface-visibility: hidden;
   background-color: #d4a888;
   background-image: var(--vc-prog-fill);
-  box-shadow: var(--vc-prog-glow);
+  box-shadow: none;
   filter: none;
   transition: none !important;
 }
@@ -82,7 +87,7 @@ html.vc-site-polish body.vc-body #vc-site-progress {
   -webkit-filter: none !important;
   outline: none !important;
   border: 0 !important;
-  overflow: visible !important;
+  overflow: hidden !important;
   isolation: isolate !important;
   contain: none !important;
   right: 0 !important;
@@ -108,20 +113,38 @@ html.vc-site-polish body.vc-body #vc-site-progress.is-loading #vc-site-progress_
 html.vc-site-polish body.vc-body #vc-site-progress:not(.is-loading) #vc-site-progress__bar {
   background-color: #d4a888 !important;
   background-image: var(--vc-prog-fill) !important;
-  box-shadow: var(--vc-prog-glow) !important;
+  box-shadow: none !important;
   filter: none !important;
   -webkit-filter: none !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
 }
 @media (max-width: 1199.98px), (pointer: coarse) {
-  /* stesso glow anche telefono — niente seconda barra flat */
+  /* phoneBarBlurKill2: fill piatto + no will-change (alone GPU su scaleX) */
+  #vc-site-progress,
+  html body #vc-site-progress,
+  html body.vc-body #vc-site-progress,
+  html.vc-site-polish body.vc-body #vc-site-progress {
+    overflow: hidden !important;
+    filter: none !important;
+    -webkit-filter: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
   #vc-site-progress__bar,
   html body #vc-site-progress__bar,
   html body.vc-body #vc-site-progress__bar,
-  html.vc-site-polish body.vc-body #vc-site-progress__bar {
-    background-image: var(--vc-prog-fill) !important;
-    box-shadow: var(--vc-prog-glow) !important;
+  html.vc-site-polish body.vc-body #vc-site-progress__bar,
+  html.vc-site-polish body.vc-body #vc-site-progress.is-loading #vc-site-progress__bar,
+  html.vc-site-polish body.vc-body #vc-site-progress:not(.is-loading) #vc-site-progress__bar {
+    background-color: #d4a888 !important;
+    background-image: var(--vc-prog-fill-phone) !important;
+    box-shadow: none !important;
+    filter: none !important;
+    -webkit-filter: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    will-change: auto !important;
   }
 }
 
@@ -131,12 +154,13 @@ html.vc-site-polish body.vc-body #vc-site-progress:not(.is-loading) #vc-site-pro
  * - niente var(--vc-cursor-*) su :root (invalidano tutto il documento)
  * - posizione solo via transform inline sul nodo
  */
+/* cursorLagFix2: 120px, zero transition (no trail delay), no html.cursor-on thrash */
 #vc-site-cursor-light {
   position: fixed !important;
   top: 0 !important;
   left: 0 !important;
-  width: 240px !important;
-  height: 240px !important;
+  width: 120px !important;
+  height: 120px !important;
   margin: 0 !important;
   border-radius: 50% !important;
   z-index: 2147480500;
@@ -147,17 +171,15 @@ html.vc-site-polish body.vc-body #vc-site-progress:not(.is-loading) #vc-site-pro
   mix-blend-mode: normal !important;
   background: radial-gradient(
     circle at 50% 50%,
-    rgba(236, 205, 176, 0.42) 0%,
-    rgba(212, 168, 136, 0.22) 38%,
-    rgba(168, 118, 82, 0.08) 58%,
-    transparent 72%
+    rgba(236, 205, 176, 0.28) 0%,
+    rgba(212, 168, 136, 0.12) 42%,
+    transparent 70%
   ) !important;
   box-shadow: none !important;
-  /* cursorSync1: solo opacity — MAI transition su transform (alone in ritardo) */
-  transition: opacity 0.1s ease !important;
-  transition-property: opacity !important;
+  transition: none !important;
+  transition-property: none !important;
   will-change: transform;
-  contain: layout style paint size;
+  contain: strict;
   isolation: isolate;
 }
 html.vc-site-cursor-on #vc-site-cursor-light,
@@ -196,15 +218,8 @@ html.vc-site-polish body.vc-body #vc-site-back-top,
   border-color: transparent;
   background-color: #100c09;
   background-image:
-    linear-gradient(180deg, rgba(26, 20, 15, 0.96), rgba(16, 12, 9, 0.98)),
-    conic-gradient(
-      from 0deg,
-      rgba(247, 236, 223, 0.88) 0deg,
-      rgba(212, 168, 136, 0.62) 90deg,
-      rgba(180, 130, 90, 0.68) 180deg,
-      rgba(212, 168, 136, 0.62) 270deg,
-      rgba(247, 236, 223, 0.88) 360deg
-    );
+    linear-gradient(180deg, rgba(26, 20, 15, 0.96), rgba(16, 12, 9, 0.98))
+    ;
   background-origin: padding-box, border-box;
   background-clip: padding-box, border-box;
   -webkit-background-clip: padding-box, border-box;
@@ -237,18 +252,25 @@ html.vc-site-polish body.vc-body #vc-site-back-top.is-on,
   transform: none !important;
   pointer-events: auto !important;
 }
+/* backTopSheetHide1: freccia sotto sheet/drawer notifiche non ha senso */
+html.vc-notif-sheet-open #vc-site-back-top,
+html.vc-notif-sheet-open #vc-site-back-top.is-on,
+html.vc-notif-drawer-open #vc-site-back-top,
+html.vc-notif-drawer-open #vc-site-back-top.is-on,
+html.vc-notif-sheet-open body.vc-body #vc-site-back-top,
+html.vc-notif-sheet-open body.vc-body #vc-site-back-top.is-on,
+html.vc-notif-drawer-open body.vc-body #vc-site-back-top,
+html.vc-notif-drawer-open body.vc-body #vc-site-back-top.is-on {
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  transform: translateY(0.55rem) scale(0.94) !important;
+}
 #vc-site-back-top:hover,
 #vc-site-back-top:focus-visible {
   background-image:
-    linear-gradient(180deg, rgba(32, 24, 18, 0.98), rgba(18, 14, 10, 0.99)),
-    conic-gradient(
-      from 0deg,
-      rgba(255, 247, 236, 0.95) 0deg,
-      rgba(236, 205, 176, 0.72) 90deg,
-      rgba(212, 168, 136, 0.78) 180deg,
-      rgba(236, 205, 176, 0.72) 270deg,
-      rgba(255, 247, 236, 0.95) 360deg
-    );
+    linear-gradient(180deg, rgba(32, 24, 18, 0.98), rgba(18, 14, 10, 0.99))
+    ;
   background-origin: padding-box, border-box;
   background-clip: padding-box, border-box;
   -webkit-background-clip: padding-box, border-box;
@@ -452,21 +474,121 @@ html body.vc-body--home .vc-header-bar a.vc-header-site-name.is-marquee .vc-head
 /* wmUlHostGrad1b */
 /* wmUlSingleBar2 */
 
-/* bootKitAccel1: badge corner owned by vc-site-chrome-kit (avoid fight) */
-/* badgeInBellLive1: badge notifiche dentro il bottone campanella (non fuori) — DEPRECATED */
-html body .vc-notif-summary {
+/* tripleRegress1: pin last chrome-ui — home host 1 barra; testo/clone morti anche :hover */
+html.vc-site-polish body.vc-body--home header a.vc-header-site-name.is-marquee .vc-header-site-name__text::after,
+html.vc-site-polish body.vc-body--home header a.vc-header-site-name.is-marquee .vc-header-site-name__text.is-clone::after,
+html.vc-site-polish body.vc-body--home header a.vc-header-site-name.is-marquee:hover .vc-header-site-name__text::after,
+html.vc-site-polish body.vc-body--home header a.vc-header-site-name.is-marquee:hover .vc-header-site-name__text.is-clone::after,
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body--home header a.vc-header-site-name.is-marquee:not(.vc-snav-item):hover .vc-header-site-name__text::after,
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body--home header a.vc-header-site-name.is-marquee:not(.vc-snav-item):hover .vc-header-site-name__text.is-clone::after {
+  content: none !important;
+  display: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  background: none !important;
+  background-image: none !important;
+}
+html.vc-site-polish body.vc-body--home header a.vc-header-site-name.is-marquee::after,
+html.vc-site-polish body.vc-body--home header a.vc-header-site-name.is-marquee:hover::after,
+html.vc-site-polish body.vc-body--home header a.vc-header-site-name.is-marquee:focus-visible::after,
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body--home header a.vc-header-site-name.is-marquee:not(.vc-snav-item)::after {
+  opacity: 1 !important;
+  visibility: visible !important;
+  height: 1.5px !important;
+  border-radius: 0 !important;
+  transition: none !important;
+  box-shadow: none !important;
+}
+/* tripleRegress1 END chrome-ui */
+
+/* pendingBadgeFloor1 + pendingBadgeVis2: badge angolo campana sempre visibile se data-count>0 */
+html body .vc-notif-summary,
+html body #vc-notif-dropdown > summary.vc-notif-summary,
+html body #header-quick-actions .vc-notif-summary {
   position: relative !important;
   overflow: visible !important;
+  clip: auto !important;
+  clip-path: none !important;
 }
 html body .vc-notif-summary .vc-notif-badge,
-html body #vc-notif-badge.vc-notif-badge {
+html body #vc-notif-badge.vc-notif-badge,
+html body #header-quick-actions #vc-notif-badge {
   position: absolute !important;
-  top: 0.14rem !important;
-  right: 0.12rem !important;
+  /* pendingBadgePos1: angolo alto-dx fisso (no translate% che finiva sul ring) */
+  inset: auto !important;
+  top: -0.2rem !important;
+  right: -0.2rem !important;
   left: auto !important;
   bottom: auto !important;
-  z-index: 5 !important;
+  z-index: 40 !important;
   transform: none !important;
+  -webkit-transform: none !important;
+  margin: 0 !important;
+  min-width: 1.05rem !important;
+  min-height: 1.05rem !important;
+  padding: 0 0.28rem !important;
+  border-radius: 999px !important;
+  background: #e11d48 !important;
+  color: #fff !important;
+  font: 800 0.62rem/1.05 system-ui, Segoe UI, sans-serif !important;
+  box-shadow: 0 0 0 2px rgba(16, 12, 9, 0.92) !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  pointer-events: none !important;
+}
+html body .vc-notif-summary .vc-notif-badge[hidden],
+html body #vc-notif-badge.vc-notif-badge[hidden],
+html body #header-quick-actions #vc-notif-badge[hidden],
+html body .vc-notif-summary .vc-notif-badge[data-count="0"],
+html body #vc-notif-badge.vc-notif-badge[data-count="0"] {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+}
+
+/* pendingBadgeFix3: forza badge pending anche se nav-chrome-fix pin fallisce */
+html body #header-quick-actions #vc-notif-dropdown,
+html body #header-quick-actions .vc-notif-dropdown,
+html body header #vc-notif-dropdown {
+  overflow: visible !important;
+}
+html body .vc-notif-summary .vc-notif-badge[data-count]:not([data-count="0"]):not([hidden]),
+html body #vc-notif-badge.vc-notif-badge[data-count]:not([data-count="0"]):not([hidden]),
+html body #header-quick-actions #vc-notif-badge[data-count]:not([data-count="0"]):not([hidden]) {
+  display: inline-flex !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  width: auto !important;
+  min-width: 1.05rem !important;
+  height: 1.05rem !important;
+  padding: 0 0.28rem !important;
+  clip: auto !important;
+  overflow: visible !important;
+  inset: auto !important;
+  top: -0.2rem !important;
+  right: -0.2rem !important;
+  transform: none !important;
+}
+
+/* pendingBadgePos1 NUCLEAR — batte kit chromeGap1 / soft-fx translate(48%) */
+html.vc-soft-fx-ready.vc-site-polish:not(.vc-soft-fx-off) body.vc-body#top #header-quick-actions #vc-notif-dropdown > summary.vc-notif-summary > #vc-notif-badge.vc-notif-badge,
+html.vc-soft-fx-ready.vc-site-polish:not(.vc-soft-fx-off) body.vc-body #header-quick-actions #vc-notif-dropdown > summary.vc-notif-summary > #vc-notif-badge.vc-notif-badge,
+html.vc-site-polish body.vc-body#top header #vc-notif-dropdown > summary.vc-notif-summary > #vc-notif-badge.vc-notif-badge,
+html body.vc-body #header-quick-actions #vc-notif-dropdown > summary.vc-notif-summary > #vc-notif-badge.vc-notif-badge,
+html body.vc-body header .vc-notif-summary > #vc-notif-badge.vc-notif-badge {
+  position: absolute !important;
+  inset: auto !important;
+  top: -0.22rem !important;
+  right: -0.22rem !important;
+  left: auto !important;
+  bottom: auto !important;
+  transform: none !important;
+  -webkit-transform: none !important;
+  margin: 0 !important;
+  z-index: 50 !important;
 }
 
 /* sbFreezeKill1: blocco hideScrollbar rimosso (freeze); hide via soft-fx html only */

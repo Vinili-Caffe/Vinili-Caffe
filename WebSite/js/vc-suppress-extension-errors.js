@@ -859,7 +859,16 @@
         /reading ['"]?fonts['"]?/i.test(msg) ||
         /contentmanager/i.test(msg) ||
         /\bcontent\.js\b/i.test(msg) ||
-        /\bcontent_script\.js\b/i.test(msg)
+        /\bcontent_script\.js\b/i.test(msg) ||
+        /* adtrafficFrameCsp1: Google sodar / Funding Choices postMessage noise */
+        /failed to execute ['"]?postmessage['"]? on ['"]?domwindow['"]?/i.test(msg) ||
+        (/target origin provided/i.test(msg) && /adtrafficquality\.google/i.test(msg)) ||
+        (/recipient window's origin/i.test(msg) && /['"]?null['"]?/i.test(msg)) ||
+        /\bsodar2?\.js\b/i.test(msg) ||
+        /ep[12]\.adtrafficquality\.google/i.test(msg) ||
+        /* Google ads iframe Quirks Mode (loro doctype — non nostro) */
+        (/quirks mode/i.test(msg) && /googlesyndication|pagead2|doubleclick/i.test(msg)) ||
+        /page layout may be unexpected due to quirks mode/i.test(msg)
       );
     } catch (eNoise) {
       return false;
@@ -1188,98 +1197,176 @@
     }, 4000);
   } catch (eKeepAlive) {}
 
-  /* issuesCspLazy1 + issuesLazyZero1: dims + no loading=lazy su img 0×0/hidden/senza src */
+  /* issuesCspLazy1 + issuesLazyZero1 + lazyImgDims1 + lazyImgDims2:
+     dims su TUTTI i lazy (anche 1 attr mancante) + hook setAttribute(loading) */
   try {
-    function stampLazyImgDims(root) {
-      var scope = root && root.querySelectorAll ? root : document;
-      var list = scope.querySelectorAll ? scope.querySelectorAll('img[loading="lazy"]') : [];
-      for (var i = 0; i < list.length; i++) {
-        var img = list[i];
-        if (!img) continue;
-        var src = "";
+    function guessLazyDims(img) {
+      var cls = String((img && img.className) || "");
+      var dw = 64;
+      var dh = 64;
+      if (/\bvc-(?:emoji|twemoji|discord-emoji|staff-guide-emoji|role-seg-switch__roleico|wt-inline-emoji|tprof-emoji)\b/i.test(cls) || /emoji/i.test(cls)) {
+        dw = 20;
+        dh = 20;
+      } else if (/\bvc-kick-pip__thumb\b/i.test(cls) || (img && img.hasAttribute("data-vc-anim-media"))) {
+        dw = 320;
+        dh = 180;
+      } else if (/\bvc-premium-footer__logo-img\b/i.test(cls) || /\bvc-header-logo-img\b/i.test(cls)) {
+        dw = 32;
+        dh = 32;
+      } else if (/\bvc-avatar\b|\bdiscord-avatar\b|avatar/i.test(cls) || (img && img.getAttribute("data-vc-avatar") === "1")) {
+        dw = 40;
+        dh = 40;
+      } else if (/\bvc-wt-msg-embed__img\b|\bembed__img\b/i.test(cls)) {
+        dw = 320;
+        dh = 180;
+      } else if (/\brole__icon\b|\brole-icon\b/i.test(cls)) {
+        dw = 22;
+        dh = 22;
+      }
+      var nw = Number((img && img.naturalWidth) || 0);
+      var nh = Number((img && img.naturalHeight) || 0);
+      if (nw > 0 && nh > 0) {
+        dw = nw;
+        dh = nh;
+      }
+      return { w: dw, h: dh };
+    }
+    function stampOneLazyImg(img) {
+      if (!img || img.tagName !== "IMG") return;
+      var loading = "";
+      try {
+        loading = String(img.getAttribute("loading") || "").toLowerCase();
+      } catch (eL) {
+        loading = "";
+      }
+      if (loading !== "lazy") return;
+      var src = "";
+      try {
+        src = String(img.getAttribute("src") || img.getAttribute("data-src") || img.currentSrc || "").trim();
+      } catch (eSrc) {}
+      /* LazyLoadImageIssue::ZeroSize — lazy + display:none/no-src = Issues panel */
+      if (
+        !src ||
+        img.hidden ||
+        img.hasAttribute("hidden") ||
+        (img.classList && img.classList.contains("vc-kick-pip__thumb") && !src)
+      ) {
         try {
-          src = String(img.getAttribute("src") || img.currentSrc || "").trim();
-        } catch (eSrc) {}
-        /* LazyLoadImageIssue::ZeroSize — lazy + display:none/no-src = Issues panel */
-        if (
-          !src ||
-          img.hidden ||
-          img.hasAttribute("hidden") ||
-          (img.classList && img.classList.contains("vc-kick-pip__thumb") && !src)
-        ) {
-          try {
-            img.removeAttribute("loading");
-          } catch (eRm) {}
-          continue;
-        }
-        if (img.getAttribute("width") && img.getAttribute("height")) continue;
-        var cls = String(img.className || "");
-        if (/\bvc-(?:emoji|twemoji|discord-emoji|staff-guide-emoji)\b/i.test(cls)) {
-          if (!img.getAttribute("width")) img.setAttribute("width", "20");
-          if (!img.getAttribute("height")) img.setAttribute("height", "20");
-          continue;
-        }
-        if (/\bvc-kick-pip__thumb\b/i.test(cls)) {
-          if (!img.getAttribute("width")) img.setAttribute("width", "320");
-          if (!img.getAttribute("height")) img.setAttribute("height", "180");
-          continue;
-        }
-        if (/\bvc-premium-footer__logo-img\b/i.test(cls) || /\bvc-header-logo-img\b/i.test(cls)) {
-          if (!img.getAttribute("width")) img.setAttribute("width", "32");
-          if (!img.getAttribute("height")) img.setAttribute("height", "32");
-          continue;
-        }
-        var nw = Number(img.naturalWidth || 0);
-        var nh = Number(img.naturalHeight || 0);
-        if (nw > 0 && nh > 0) {
-          if (!img.getAttribute("width")) img.setAttribute("width", String(nw));
-          if (!img.getAttribute("height")) img.setAttribute("height", String(nh));
-        } else {
-          if (!img.getAttribute("width")) img.setAttribute("width", "64");
-          if (!img.getAttribute("height")) img.setAttribute("height", "64");
-          img.addEventListener(
-            "load",
-            function () {
-              try {
-                if (this.naturalWidth > 0) this.setAttribute("width", String(this.naturalWidth));
-                if (this.naturalHeight > 0) this.setAttribute("height", String(this.naturalHeight));
-              } catch (eLoad) {}
-            },
-            { once: true },
-          );
-        }
+          img.removeAttribute("loading");
+        } catch (eRm) {}
+        return;
+      }
+      var hasW = !!img.getAttribute("width");
+      var hasH = !!img.getAttribute("height");
+      if (hasW && hasH) return;
+      var dims = guessLazyDims(img);
+      try {
+        if (!hasW) img.setAttribute("width", String(dims.w));
+        if (!hasH) img.setAttribute("height", String(dims.h));
+      } catch (eSet) {}
+      if (!(Number(img.naturalWidth || 0) > 0 && Number(img.naturalHeight || 0) > 0)) {
+        img.addEventListener(
+          "load",
+          function () {
+            try {
+              if (this.naturalWidth > 0) this.setAttribute("width", String(this.naturalWidth));
+              if (this.naturalHeight > 0) this.setAttribute("height", String(this.naturalHeight));
+            } catch (eLoad) {}
+          },
+          { once: true },
+        );
       }
     }
+    function stampLazyImgDims(root) {
+      var scope = root && root.querySelectorAll ? root : document;
+      var list = [];
+      try {
+        if (scope.tagName === "IMG") list = [scope];
+        else if (scope.querySelectorAll) list = scope.querySelectorAll('img[loading="lazy"], img[loading=lazy]');
+      } catch (eQ) {
+        list = [];
+      }
+      for (var i = 0; i < list.length; i++) stampOneLazyImg(list[i]);
+    }
     window.__vcStampLazyImgDims = stampLazyImgDims;
+    /* lazyImgDims2: appena qualcosa setta loading=lazy → dims subito (anche prima del MO) */
+    try {
+      if (!window.__vcLazyDimAttrHook) {
+        window.__vcLazyDimAttrHook = 1;
+        var proto = Element.prototype;
+        var rawSet = proto.setAttribute;
+        if (typeof rawSet === "function") {
+          proto.setAttribute = function (name, value) {
+            var out = rawSet.apply(this, arguments);
+            try {
+              if (
+                this &&
+                this.tagName === "IMG" &&
+                String(name || "").toLowerCase() === "loading" &&
+                String(value || "").toLowerCase() === "lazy"
+              ) {
+                stampOneLazyImg(this);
+              }
+            } catch (eHook) {}
+            return out;
+          };
+        }
+        try {
+          var imgProto = window.HTMLImageElement && window.HTMLImageElement.prototype;
+          if (imgProto) {
+            var desc = Object.getOwnPropertyDescriptor(imgProto, "loading") ||
+              Object.getOwnPropertyDescriptor(HTMLElement.prototype, "loading");
+            if (desc && desc.set) {
+              var rawLoadingSet = desc.set;
+              Object.defineProperty(imgProto, "loading", {
+                configurable: true,
+                enumerable: desc.enumerable,
+                get: desc.get,
+                set: function (v) {
+                  rawLoadingSet.call(this, v);
+                  try {
+                    if (String(v || "").toLowerCase() === "lazy") stampOneLazyImg(this);
+                  } catch (eProp) {}
+                },
+              });
+            }
+          }
+        } catch (ePropHook) {}
+      }
+    } catch (eAttrHook) {}
+    try {
+      stampLazyImgDims(document);
+    } catch (eNow) {}
     if (document.readyState === "loading") {
       document.addEventListener("DOMContentLoaded", function () {
         stampLazyImgDims(document);
       });
-    } else {
-      stampLazyImgDims(document);
     }
     try {
+      var lazyMoT = 0;
       var lazyMo = new MutationObserver(function (muts) {
-        for (var m = 0; m < muts.length; m++) {
-          var nodes = muts[m].addedNodes;
-          for (var n = 0; n < nodes.length; n++) {
-            var node = nodes[n];
-            if (!node || node.nodeType !== 1) continue;
-            if (node.tagName === "IMG" && String(node.getAttribute("loading") || "") === "lazy") {
-              stampLazyImgDims(node.parentNode || document);
-            } else if (node.querySelectorAll) {
-              stampLazyImgDims(node);
-            }
-          }
-        }
+        if (lazyMoT) return;
+        lazyMoT = window.setTimeout(function () {
+          lazyMoT = 0;
+          try {
+            stampLazyImgDims(document);
+          } catch (eSt) {}
+        }, 24);
       });
-      lazyMo.observe(document.documentElement, { childList: true, subtree: true });
-      setTimeout(function () {
-        try {
-          lazyMo.disconnect();
-        } catch (eD) {}
-      }, 120000);
+      lazyMo.observe(document.documentElement, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+        attributeFilter: ["loading", "src", "width", "height"],
+      });
     } catch (eMo) {}
+    try {
+      window.setInterval(function () {
+        try {
+          stampLazyImgDims(document);
+        } catch (eInt) {}
+      }, 2500);
+    } catch (eIntArm) {}
   } catch (eLazy) {}
 })();
 
@@ -1314,6 +1401,9 @@
 /* violKillAll1 */
 /* issuesCspLazy1 */
 /* issuesLazyZero1 */
+/* lazyImgDims1 */
+/* lazyImgDims2 */
+/* ticketsSlowToastFix1 */
 /* violKill1 */
 /* extOnly1 */
 /* extOnlyFix1 */

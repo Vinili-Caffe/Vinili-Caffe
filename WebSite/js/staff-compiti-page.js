@@ -1,5 +1,5 @@
 (function () {
-  var VER = "20261003compitiDraftAuto1";
+  var VER = "20261018compitiReviewAfterSwitch1";
   window.__vcStaffCompitiVer = VER;
 
   var TASKS = [];
@@ -706,7 +706,7 @@
         (url || "#") +
         '" target="_blank" rel="noopener" data-vc-lightbox="1">' +
         (isImg && url
-          ? '<img src="' + url + '" alt="' + String(p.name || "prova").replace(/"/g, "") + '" loading="lazy" />'
+          ? '<img src="' + url + '" alt="' + String(p.name || "prova").replace(/"/g, "") + '" width="160" height="160" loading="lazy" />'
           : '<span class="vc-compiti-proof__file">' + String(p.name || "file") + "</span>") +
         "</a>";
     });
@@ -1548,7 +1548,8 @@
       .then(function (result) {
         if (!result || result.superseded) return;
         if (result.ok) {
-          renderReviewBar();
+          /* applyPayload già ha renderAll; Conferma/Rifiuta si riaprono in finally
+             (qui busy è ancora true → renderReviewBar le nasconderebbe). */
           return;
         }
         /* compitiFfLoad1: niente contenuto fantasma dalla scheda precedente */
@@ -1563,12 +1564,19 @@
             : "Impossibile caricare questo profilo. Riprova con le frecce o ricarica.",
         );
         document.body.classList.add("vc-compiti-hs-empty-week");
-        renderReviewBar();
       })
       .finally(function () {
+        /* compitiReviewAfterSwitch1: applyPayload/renderAll girano con busy=true
+           → renderReviewBar nascondeva Conferma/Rifiuta e lo finally non le
+           ripristinava. Sblocca busy PRIMA, poi ridisegna review. */
         state.busy = false;
         state.flipping = false;
         renderHsNav();
+        renderReviewBar();
+        renderDeadlineHint();
+        try {
+          ensureCompitiScrollUnlocked();
+        } catch (eUnlockSwitch) {}
       });
   }
 

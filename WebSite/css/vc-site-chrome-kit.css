@@ -1,7 +1,7 @@
 /* siteChromeKit5: kit4 + drawer flex foot + close clickable (no pe:none host).
    Compiti/staff-cine: NON hide scrollcue (home-cine owner). */
 
-/* ——— Notif badge campana: angolo sociale (48%) ——— */
+/* ——— Notif badge campana: angolo alto-dx fisso (pendingBadgePos2) ——— */
 html body.vc-body header #vc-notif-dropdown > summary.vc-notif-summary > .vc-notif-badge,
 html body.vc-body header .vc-notif-summary > .vc-notif-badge,
 html body.vc-body #header-quick-actions #vc-notif-dropdown > summary.vc-notif-summary > .vc-notif-badge,
@@ -9,15 +9,15 @@ html body.vc-body #header-quick-actions .vc-notif-summary > .vc-notif-badge,
 html.vc-soft-fx-ready.vc-site-polish:not(.vc-soft-fx-off) body.vc-body header .vc-notif-summary > .vc-notif-badge,
 html.vc-site-polish body.vc-body header .vc-notif-summary > .vc-notif-badge {
   position: absolute !important;
-  inset: 0 0 auto auto !important;
-  top: 0 !important;
-  right: 0 !important;
+  inset: auto !important;
+  top: -0.2rem !important;
+  right: -0.2rem !important;
   left: auto !important;
   bottom: auto !important;
-  transform: translate(48%, -48%) !important;
-  -webkit-transform: translate(48%, -48%) !important;
+  transform: none !important;
+  -webkit-transform: none !important;
   margin: 0 !important;
-  z-index: 30 !important;
+  z-index: 40 !important;
   display: inline-flex !important;
   align-items: center !important;
   justify-content: center !important;
@@ -40,7 +40,7 @@ html.vc-site-polish body.vc-body header .vc-notif-summary > .vc-notif-badge {
   overflow: visible !important;
 }
 
-/* badge 0 / empty: mai visibile (anche mid-load prima del kit completo) */
+/* badgeZeroLoad1: 0 / empty / hidden — mai flash rosso in loading (batte display:inline-flex sopra) */
 html body.vc-body header .vc-notif-summary > .vc-notif-badge:empty,
 html body.vc-body header .vc-notif-summary > .vc-notif-badge[data-count="0"],
 html body.vc-body header .vc-notif-summary > .vc-notif-badge[hidden],
@@ -49,11 +49,52 @@ html body.vc-body #header-quick-actions .vc-notif-summary > .vc-notif-badge[data
 html body.vc-body #header-quick-actions .vc-notif-summary > .vc-notif-badge[hidden],
 html body.vc-body #vc-notif-badge.vc-notif-badge:empty,
 html body.vc-body #vc-notif-badge.vc-notif-badge[data-count="0"],
-html body.vc-body #vc-notif-badge.vc-notif-badge[hidden] {
+html body.vc-body #vc-notif-badge.vc-notif-badge[hidden],
+html body.vc-body header #vc-notif-dropdown > summary.vc-notif-summary > .vc-notif-badge:empty,
+html body.vc-body header #vc-notif-dropdown > summary.vc-notif-summary > .vc-notif-badge[data-count="0"],
+html body.vc-body header #vc-notif-dropdown > summary.vc-notif-summary > .vc-notif-badge[hidden],
+html.vc-site-polish body.vc-body header .vc-notif-summary > .vc-notif-badge:empty,
+html.vc-site-polish body.vc-body header .vc-notif-summary > .vc-notif-badge[data-count="0"],
+html.vc-site-polish body.vc-body header .vc-notif-summary > .vc-notif-badge[hidden],
+html.vc-soft-fx-ready.vc-site-polish:not(.vc-soft-fx-off) body.vc-body header .vc-notif-summary > .vc-notif-badge:empty,
+html.vc-soft-fx-ready.vc-site-polish:not(.vc-soft-fx-off) body.vc-body header .vc-notif-summary > .vc-notif-badge[data-count="0"],
+html.vc-soft-fx-ready.vc-site-polish:not(.vc-soft-fx-off) body.vc-body header .vc-notif-summary > .vc-notif-badge[hidden] {
   display: none !important;
   visibility: hidden !important;
   opacity: 0 !important;
   pointer-events: none !important;
+  width: 0 !important;
+  min-width: 0 !important;
+  height: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+}
+
+/* pendingBadgeFix3: summary/dropdown non clip; badge count>0 sempre on */
+html body.vc-body #header-quick-actions #vc-notif-dropdown,
+html body.vc-body header #vc-notif-dropdown,
+html body.vc-body header .vc-notif-summary,
+html body.vc-body #header-quick-actions .vc-notif-summary {
+  overflow: visible !important;
+  position: relative !important;
+}
+html body.vc-body header .vc-notif-summary > .vc-notif-badge[data-count]:not([data-count="0"]):not([hidden]),
+html body.vc-body #header-quick-actions .vc-notif-summary > .vc-notif-badge[data-count]:not([data-count="0"]):not([hidden]),
+html body.vc-body #vc-notif-badge.vc-notif-badge[data-count]:not([data-count="0"]):not([hidden]) {
+  display: inline-flex !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  width: auto !important;
+  min-width: 1.02rem !important;
+  height: 1.02rem !important;
+  padding: 0 0.26rem !important;
+  clip: auto !important;
+  overflow: visible !important;
+  inset: auto !important;
+  top: -0.2rem !important;
+  right: -0.2rem !important;
+  transform: none !important;
 }
 
 /* ——— Toast IG: pill sotto campana, ico FA ok, count testo (non badge rosso) ——— */

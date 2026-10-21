@@ -1,3 +1,4 @@
+/* lookStaticBorder1: no conic/mask rings — solid sand border */
 /* chromeGlowSoft3 / listRowFlat3 + inboxCardShell1 */
 /* listRowFlat3: cards keep shell for staff inbox; nested vote/notify stay flat */
 #vc-page-content #wiki-comandi-panel {
@@ -90,10 +91,10 @@ html body.vc-body header.fixed .vc-nav-shell {
 html.vc-site-polish body.vc-body > footer.vc-premium-footer .vc-premium-footer__outer,
 html.vc-site-polish body.vc-body--home > footer.vc-premium-footer .vc-premium-footer__outer {
   filter: none !important;
-  /* footerCardNavRing1: anello = ::after conic, no bordo/alone solido */
-  border: 0 !important;
+  /* navFootSwitch1c: bordo card sand */
+  border: 2px solid rgba(245, 214, 183, 0.38) !important;
   border-width: 0 !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   box-shadow: none !important;
 }
 
@@ -168,7 +169,7 @@ html.vc-site-polish body.vc-page-cine-layout :is(
   background: transparent !important;
   background-color: transparent !important;
   background-image: none !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   border-width: 0 !important;
   box-shadow: none !important;
   filter: none !important;
@@ -203,8 +204,8 @@ html.vc-site-polish body.vc-staff-inbox-page :is(
   visibility: visible !important;
   opacity: 1 !important;
   border-radius: 1.05rem !important;
-  border: 1px solid transparent !important;
-  border-color: transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   border-width: 1px !important;
   background-color: #12100c !important;
   border: 2px solid rgba(236, 205, 176, 0.82) !important;
@@ -311,41 +312,7 @@ html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body #header-quick-actions .dis
 html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body header .discord-profile-link::after,
 html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body #discord-login-state .discord-profile-link::after,
 html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body #header-quick-actions .discord-profile-link::after,
-html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body#top header .discord-profile-link::after {
-  content: "" !important;
-  display: block !important;
-  position: absolute !important;
-  inset: -1px !important;
-  border-radius: inherit !important;
-  box-sizing: border-box !important;
-  padding: 1.45px !important;
-  pointer-events: none !important;
-  z-index: 3 !important;
-  opacity: 1 !important;
-  border: 0 !important;
-  filter: none !important;
-  box-shadow: none !important;
-  background: conic-gradient(
-    from var(--vc-nav-glow-angle, 0deg),
-    rgba(255, 247, 236, 0.95) 0deg,
-    rgba(255, 247, 236, 0.58) 18deg,
-    rgba(212, 168, 136, 0.16) 48deg,
-    rgba(212, 168, 136, 0.05) 90deg,
-    rgba(212, 168, 136, 0.05) 270deg,
-    rgba(212, 168, 136, 0.16) 312deg,
-    rgba(255, 247, 236, 0.58) 342deg,
-    rgba(255, 247, 236, 0.95) 360deg
-  ) !important;
-  -webkit-mask:
-    linear-gradient(#000 0 0) content-box,
-    linear-gradient(#000 0 0) !important;
-  -webkit-mask-composite: xor !important;
-  mask:
-    linear-gradient(#000 0 0) content-box,
-    linear-gradient(#000 0 0) !important;
-  mask-composite: exclude !important;
-  animation: vc-nav-glow-spin 8s linear infinite !important;
-}
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body#top header .discord-profile-link::after { content: none !important; display: none !important; background: none !important; background-image: none !important; -webkit-mask: none !important; mask: none !important; opacity: 0 !important; }
 html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body header .discord-profile-link .discord-avatar-clip,
 html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body #discord-login-state .discord-profile-link .discord-avatar-clip {
   position: relative !important;
@@ -375,7 +342,7 @@ html.vc-site-polish body.vc-body.vc-users-page#top main :is(
   .vc-ul-card.vc-fx-card,
   .vc-home-panel.vc-fx-card
 ) {
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   border-width: 2px !important;
   border-style: solid !important;
   filter: none !important;
@@ -406,7 +373,7 @@ html.vc-site-polish body.vc-body.vc-users-page#top main :is(
   .vc-home-panel.vc-fx-card,
   .vc-ul-card
 ):not(:has(#vc-roles-grid)):not(:has(#vc-ul-grid)):not(:has(#vc-glow-kill-a)):not(:has(#vc-glow-kill-b)) {
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   border-width: 2px !important;
   border-style: solid !important;
   /* profileOuterThick6: hairline bronzo come card /ruoli */
@@ -428,7 +395,7 @@ html.vc-site-polish body.vc-body.vc-users-page.vc-user-profile-page#top main :is
   .vc-user-profile-disclosure,
   .vc-user-profile-accordion
 ):not(:has(#vc-roles-grid)):not(:has(#vc-ul-grid)):not(:has(#vc-glow-kill-a)):not(:has(#vc-glow-kill-b)) {
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   border-width: 2px !important;
   border-style: solid !important;
   box-shadow: 0 0 0 1px rgba(111, 78, 55, 0.18) !important;
@@ -494,7 +461,7 @@ html.vc-site-polish body.vc-body.vc-users-page#top main :is(
   .vc-user-profile-accordion,
   .vc-user-profile-badges
 ) {
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   border-width: 2px !important;
   border-style: solid !important;
   box-shadow: 0 0 0 1px rgba(255, 247, 236, 0.16) !important;
@@ -502,3 +469,266 @@ html.vc-site-polish body.vc-body.vc-users-page#top main :is(
   -webkit-filter: none !important;
 }
 /* profileHeroBorderMatch4 */
+
+
+/* === glowFormSandRestore2 (BEGIN) === */
+/* batte heroStatsBorder1 (#top + :not(#discord-login-btn)) — sand alone last */
+html.vc-site-polish:not(.vc-soft-fx-off):not([data-vc-theme="light"]) body.vc-body--home#top .vc-home-cine-hero .vc-hero-head:not(#discord-login-btn),
+html.vc-site-polish:not(.vc-soft-fx-off):not([data-vc-theme="light"]) body.vc-body--home#top section#intro.vc-home-cine-hero .vc-hero-head:not(#discord-login-btn),
+html.vc-site-polish:not(.vc-soft-fx-off):not([data-vc-theme="light"]) body.vc-body--home#top .vc-home-cine-hero .vc-support-intro-shell .vc-hero-head:not(#discord-login-btn),
+html.vc-site-polish:not(.vc-soft-fx-off):not([data-vc-theme="light"]) body.vc-body#top #vc-page-intro .vc-hero-head:not(#discord-login-btn),
+html.vc-site-polish:not(.vc-soft-fx-off):not([data-vc-theme="light"]) body.vc-body#top #vc-page-content .vc-hero-head:not(#discord-login-btn),
+html.vc-site-polish:not(.vc-soft-fx-off):not([data-vc-theme="light"]) body.vc-page-cine-layout#top .vc-page-cine-hero .vc-hero-head:not(#discord-login-btn),
+html.vc-site-polish:not(.vc-soft-fx-off):not([data-vc-theme="light"]) body.vc-body#top .vc-support-page-hero .vc-hero-head:not(#discord-login-btn),
+html.vc-site-photo-bg.vc-perf-mid.vc-site-polish:not(.vc-soft-fx-off):not([data-vc-theme="light"]) body.vc-body--home#top .vc-home-cine-hero .vc-hero-head:not(#discord-login-btn),
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body--home#top .vc-home-cine-hero .vc-hero-head:not(#discord-login-btn),
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-page-cine-layout#top .vc-page-cine-hero .vc-hero-head:not(#discord-login-btn),
+html.vc-site-polish:not(.vc-soft-fx-off):not([data-vc-theme="light"]) body.vc-body .vc-hero-head:not(#discord-login-btn),
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body--home .vc-home-cine-hero .vc-hero-head:not(#discord-login-btn),
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-page-cine-layout .vc-page-cine-hero .vc-hero-head:not(#discord-login-btn) {
+  filter: none !important;
+  -webkit-filter: none !important;
+  box-shadow:
+    0 8px 22px rgba(0, 0, 0, 0.48),
+    0 0 28px rgba(212, 168, 136, 0.18),
+    0 0 56px rgba(212, 168, 136, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
+}
+html.vc-site-polish:not(.vc-soft-fx-off):not([data-vc-theme="light"]) body.vc-body#top :is(
+  .vc-home-deck,
+  .vc-home-index,
+  .vc-home-feature,
+  .vc-fx-card,
+  .vc-page-cine-card,
+  .vc-home-panel:not(.vc-stat-strip):not(.vc-vote-live-stats),
+  .vc-snav-panel,
+  .vc-faq-group,
+  .vc-legal-card,
+  .vc-regole-card,
+  .vc-wiki-cmd-shell,
+  .vc-sponsor-card,
+  .vc-perks-card
+),
+html.vc-site-photo-bg.vc-perf-mid.vc-site-polish:not(.vc-soft-fx-off):not([data-vc-theme="light"]) body.vc-body :is(
+  .vc-home-deck,
+  .vc-home-index,
+  .vc-home-feature,
+  .vc-fx-card,
+  .vc-page-cine-card,
+  .vc-snav-panel
+) {
+  filter: none !important;
+  -webkit-filter: none !important;
+  box-shadow:
+    0 8px 22px rgba(0, 0, 0, 0.48),
+    0 0 14px rgba(212, 168, 136, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
+}
+/* === glowFormSandRestore2 (END) === */
+
+
+
+/* === footerRingBoost1 (BEGIN) === */
+/* ring footer = stesso trick nav, ma z-index alto + padding 2px + conic più acceso.
+   sand alone resta sul glow delle card, NON sull'outer (sennò sembra bordo piatto). */
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body > footer.vc-premium-footer .vc-premium-footer__outer,
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body footer.vc-premium-footer .vc-premium-footer__outer,
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body--home > footer.vc-premium-footer .vc-premium-footer__outer,
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-page-cine-layout > footer.vc-premium-footer .vc-premium-footer__outer,
+html.vc-site-polish body.vc-body > footer.vc-premium-footer .vc-premium-footer__outer {
+  position: relative !important;
+  isolation: isolate !important;
+  overflow: visible !important;
+  /* navFootSwitch1c: bordo card sand */
+  border: 2px solid rgba(245, 214, 183, 0.38) !important;
+  border-width: 2px !important;
+  border-style: solid !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
+  box-shadow: none !important;
+  filter: none !important;
+  -webkit-filter: none !important;
+}
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body > footer.vc-premium-footer .vc-premium-footer__outer > :is(.vc-premium-footer__card, .vc-premium-footer__inner),
+html.vc-site-polish body.vc-body > footer.vc-premium-footer .vc-premium-footer__outer > :is(.vc-premium-footer__card, .vc-premium-footer__inner) {
+  position: relative !important;
+  z-index: 1 !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
+  box-shadow: none !important;
+}
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body > footer.vc-premium-footer .vc-premium-footer__outer::after,
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body footer.vc-premium-footer .vc-premium-footer__outer::after,
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body#top > footer.vc-premium-footer .vc-premium-footer__outer::after,
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body#top footer.vc-premium-footer .vc-premium-footer__outer::after,
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body--home > footer.vc-premium-footer .vc-premium-footer__outer::after,
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-page-cine-layout > footer.vc-premium-footer .vc-premium-footer__outer::after,
+html.vc-site-polish body.vc-body > footer.vc-premium-footer .vc-premium-footer__outer::after,
+html.vc-site-polish body.vc-body footer.vc-premium-footer .vc-premium-footer__outer::after { content: none !important; display: none !important; background: none !important; background-image: none !important; -webkit-mask: none !important; mask: none !important; opacity: 0 !important; }
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body > footer.vc-premium-footer .vc-premium-footer__outer::after,
+html.vc-site-polish[data-vc-theme="light"] body.vc-body footer.vc-premium-footer .vc-premium-footer__outer::after,
+html[data-vc-theme="light"] body.vc-body footer.vc-premium-footer .vc-premium-footer__outer::after {
+  padding: 2px !important;
+  z-index: 6 !important;
+  opacity: 1 !important;
+  background: none !important;
+  background-image: none !important;
+}
+/* togli footer dall'alone sand restore (resta solo ring) */
+html.vc-site-polish:not(.vc-soft-fx-off):not([data-vc-theme="light"]) body.vc-body#top .vc-premium-footer__outer,
+html.vc-site-photo-bg.vc-perf-mid.vc-site-polish:not(.vc-soft-fx-off):not([data-vc-theme="light"]) body.vc-body .vc-premium-footer__outer {
+  box-shadow: none !important;
+}
+/* === footerRingBoost1 (END) === */
+
+/* === footerRingBoost1LightPin (BEGIN) === */
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top > footer.vc-premium-footer .vc-premium-footer__outer::after,
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top footer.vc-premium-footer .vc-premium-footer__outer::after,
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body--home#top > footer.vc-premium-footer .vc-premium-footer__outer::after,
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-page-cine-layout#top > footer.vc-premium-footer .vc-premium-footer__outer::after,
+html[data-vc-theme="light"].vc-site-polish body.vc-body#top footer.vc-premium-footer .vc-premium-footer__outer::after { content: none !important; display: none !important; background: none !important; background-image: none !important; -webkit-mask: none !important; mask: none !important; opacity: 0 !important; }
+/* === footerRingBoost1LightPin (END) === */
+
+
+/* === ticketsGateHero1 (BEGIN) === */
+/* gate login tickets = stessa shell delle hero cine (sand alone + conic), non hairline piatta */
+html.vc-site-polish:not(.vc-soft-fx-off):not([data-vc-theme="light"]) body.vc-body .vc-reviews-gate:not([hidden]):not(.vc-reviews-gate--dismissed) .vc-reviews-gate__card,
+html.vc-site-polish:not(.vc-soft-fx-off):not([data-vc-theme="light"]) body.vc-body .vc-reviews-gate:not([hidden]):not(.vc-reviews-gate--dismissed) .vc-auth-required-card,
+html.vc-site-polish:not(.vc-soft-fx-off):not([data-vc-theme="light"]) body.vc-web-tickets-page .vc-reviews-gate__card,
+html.vc-site-polish:not(.vc-soft-fx-off):not([data-vc-theme="light"]) body.vc-web-tickets-page .vc-auth-required-card,
+html.vc-site-polish:not(.vc-soft-fx-off):not([data-vc-theme="light"]) body.vc-reviews-page .vc-reviews-gate__card,
+html.vc-site-polish:not(.vc-soft-fx-off):not([data-vc-theme="light"]) body.vc-reviews-page .vc-auth-required-card {
+  position: relative !important;
+  isolation: isolate !important;
+  overflow: visible !important;
+  border: 2px solid rgba(245, 214, 183, 0.38) !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
+  background-color: #100c09 !important;
+  background-image:
+    radial-gradient(120% 90% at 0% 0%, rgba(236, 205, 176, 0.12), transparent 52%),
+    radial-gradient(90% 70% at 100% 0%, rgba(111, 78, 55, 0.16), transparent 48%),
+    linear-gradient(175deg, #17130f 0%, #100c09 55%, #0b0807 100%)
+     !important;
+  background-origin: padding-box !important;
+  background-clip: padding-box !important;
+  -webkit-background-clip: padding-box !important;
+  filter: none !important;
+  -webkit-filter: none !important;
+  box-shadow:
+    0 8px 22px rgba(0, 0, 0, 0.48),
+    0 0 28px rgba(212, 168, 136, 0.18),
+    0 0 56px rgba(212, 168, 136, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
+}
+html.vc-site-polish:not(.vc-soft-fx-off):not([data-vc-theme="light"]) body.vc-body .vc-reviews-gate:not([hidden]):not(.vc-reviews-gate--dismissed) .vc-reviews-gate__card::before,
+html.vc-site-polish:not(.vc-soft-fx-off):not([data-vc-theme="light"]) body.vc-body .vc-reviews-gate:not([hidden]):not(.vc-reviews-gate--dismissed) .vc-auth-required-card::before,
+html.vc-site-polish:not(.vc-soft-fx-off):not([data-vc-theme="light"]) body.vc-web-tickets-page .vc-reviews-gate__card::before,
+html.vc-site-polish:not(.vc-soft-fx-off):not([data-vc-theme="light"]) body.vc-web-tickets-page .vc-auth-required-card::before { content: none !important; display: none !important; background: none !important; background-image: none !important; -webkit-mask: none !important; mask: none !important; opacity: 0 !important; }
+html.vc-site-polish body.vc-body .vc-reviews-gate__card > *,
+html.vc-site-polish body.vc-body .vc-auth-required-card > * {
+  position: relative !important;
+  z-index: 1 !important;
+}
+/* kicker centrato sotto icona (niente pill top-left) */
+html.vc-site-polish body.vc-body .vc-reviews-gate__card .vc-hero-kicker,
+html.vc-site-polish body.vc-body .vc-auth-required-card .vc-hero-kicker {
+  position: static !important;
+  display: inline-flex !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+  text-align: center !important;
+  float: none !important;
+  inset: auto !important;
+  left: auto !important;
+  top: auto !important;
+  transform: none !important;
+}
+html.vc-site-polish body.vc-body .vc-reviews-gate__card .vc-auth-required-icon,
+html.vc-site-polish body.vc-body .vc-auth-required-card .vc-auth-required-icon {
+  display: flex !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+}
+/* titolo gate = brand glow come hero */
+html.vc-site-polish:not(.vc-soft-fx-off):not([data-vc-theme="light"]) body.vc-body .vc-reviews-gate__card :is(h1, h2).vc-brand-glow,
+html.vc-site-polish:not(.vc-soft-fx-off):not([data-vc-theme="light"]) body.vc-body .vc-auth-required-card :is(h1, h2).vc-brand-glow,
+html.vc-site-polish:not(.vc-soft-fx-off):not([data-vc-theme="light"]) body.vc-web-tickets-page #vc-wt-gate-title.vc-brand-glow {
+  background-image: linear-gradient(
+    90deg,
+    rgb(111, 78, 55) 0%,
+    rgb(139, 110, 77) 16%,
+    rgb(196, 160, 122) 34%,
+    rgb(244, 214, 170) 52%,
+    rgb(196, 160, 122) 70%,
+    rgb(139, 110, 77) 86%,
+    rgb(111, 78, 55) 100%
+  ) !important;
+  -webkit-background-clip: text !important;
+  background-clip: text !important;
+  color: transparent !important;
+  -webkit-text-fill-color: transparent !important;
+}
+/* === ticketsGateHero1 (END) === */
+
+/* === notifSheetLockBorderEof1 (START) === */
+html.vc-notif-sheet-open,
+html.vc-notif-sheet-open body,
+html.vc-notif-drawer-open,
+html.vc-notif-drawer-open body,
+html.vc-feedback-sheet-open,
+html.vc-feedback-sheet-open body,
+html.vc-staff-stat-sheet-open,
+html.vc-staff-stat-sheet-open body,
+html.vc-staff-manage-sheet-open,
+html.vc-staff-manage-sheet-open body,
+html.vc-staff-reso-sheet-open,
+html.vc-staff-reso-sheet-open body,
+html.vc-dialog-open,
+html.vc-dialog-open body,
+html.vc-site-polish.vc-page-cine-ready.vc-cine-curtain-off.vc-chrome-scroll-armed.vc-notif-sheet-open,
+html.vc-site-polish.vc-page-cine-ready.vc-cine-curtain-off.vc-chrome-scroll-armed.vc-notif-sheet-open body,
+html.vc-site-polish.vc-page-cine-ready.vc-cine-curtain-off.vc-chrome-scroll-armed.vc-notif-drawer-open,
+html.vc-site-polish.vc-page-cine-ready.vc-cine-curtain-off.vc-chrome-scroll-armed.vc-notif-drawer-open body,
+html[data-vc-theme="light"].vc-page-cine-ready.vc-notif-sheet-open,
+html[data-vc-theme="light"].vc-page-cine-ready.vc-notif-sheet-open body {
+  overflow: hidden !important;
+  overflow-x: hidden !important;
+  overflow-y: hidden !important;
+  overscroll-behavior: none !important;
+  overscroll-behavior-y: none !important;
+}
+html.vc-notif-sheet-open body.vc-body .vc-notif-dropdown[open] .vc-notif-panel,
+html.vc-notif-sheet-open body.vc-body > .vc-notif-dropdown[open] .vc-notif-panel,
+html.vc-notif-drawer-open body.vc-body .vc-notif-dropdown[open] .vc-notif-panel,
+html.vc-notif-drawer-open body.vc-body > .vc-notif-dropdown[open] .vc-notif-panel,
+html.vc-site-polish body.vc-body > .vc-notif-dropdown .vc-notif-panel,
+html.vc-site-polish body.vc-body .vc-notif-panel {
+  border: 1px solid rgba(232, 196, 156, 0.42) !important;
+  border-color: rgba(232, 196, 156, 0.42) !important;
+  background-clip: border-box !important;
+  -webkit-background-clip: border-box !important;
+  background-origin: padding-box !important;
+}
+html.vc-site-polish[data-vc-theme="light"] body.vc-body > .vc-notif-dropdown .vc-notif-panel,
+html.vc-site-polish[data-vc-theme="light"] body.vc-body .vc-notif-panel,
+html[data-vc-theme="light"].vc-notif-sheet-open body.vc-body .vc-notif-dropdown[open] .vc-notif-panel,
+html[data-vc-theme="light"].vc-notif-drawer-open body.vc-body .vc-notif-dropdown[open] .vc-notif-panel {
+  border: 1px solid rgba(111, 78, 55, 0.42) !important;
+  border-color: rgba(111, 78, 55, 0.42) !important;
+  background-clip: border-box !important;
+  -webkit-background-clip: border-box !important;
+  box-shadow:
+    0 -16px 52px rgba(60, 40, 24, 0.18),
+    0 0 0 1px rgba(111, 78, 55, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.55) !important;
+}
+/* === notifSheetLockBorderEof1 (END) === */
+
+
+/* navFootSwitch1c */
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body > footer.vc-premium-footer .vc-premium-footer__outer,
+html.vc-site-polish body.vc-body > footer.vc-premium-footer .vc-premium-footer__outer,
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body > header .vc-nav-shell {
+  border: 2px solid rgba(245, 214, 183, 0.38) !important;
+  border-width: 2px !important;
+  border-style: solid !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
+}

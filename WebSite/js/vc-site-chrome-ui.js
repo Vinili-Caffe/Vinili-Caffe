@@ -1,9 +1,28 @@
+/* lookStaticBorder1b */
+/* 20261018backTopSheetHide1: hide #vc-site-back-top while notif sheet/drawer open */
+/* 20261017siparioAlignAll2: curtain-off ≠ scroll open; unlock/toast solo post-barra 100% */
+/* 20261017chromeArmStuck1: PtrRestoreDone ≠ scroll armed — no early-return con gate click sticky */
+/* 20261019userMqIdlePause1: nome pause in settle (arm non thaw; reduced-motion no force-run) */
+/* 20261019mqIdleResumeAll3b: NAV/SOFT/LOOK allineati (auth non downgrade soft-fx) */
+/* 20261019mqIdleResumeAll2: NAV_CHROME_VER= soft-pause (viewAsGateClear1 caricava ancora tx=0) */
+/* 20261019mqIdleResumeAll1: pause soft (no reset@0); nome+wordmark idle/bg; resume su wake/settle-drop */
+/* 20261017chromeUiIdle3: settle soft-pause non strippa tx=0; bustle non thaw wordmark in idle */
+/* 20261017chromeUiIdle2: wordmark idle = reset@0 (no testo spezzato); nome vivo FG; toast wall */
+/* 20261017mqIdleWmUser1: wordmark pause in idle/settle; nome SEMPRE running in FG (solo tab-hidden) */
+/* 20261017bootNoJumpNav1: unlock → TOP su navigate fresco (no Y sessionStorage mid-page) */
 /* 20261017floatCoverFix1: freccia in hide-list; hide solo overlap reale (no band/card “vicina”) */
 /* 20261017wmResumeHover1: wordmark resume BG/bustle (no armNav su track brand); hover anche clone */
 /* 20261017userMqLikeWm1: nome = marquee vivo come wordmark (no pause settle + no transform:0 freeze) */
 /* 20261017floatContentHide1: PIP + musica/tastiera/freccia auto-hide su footer/contenuto */
 /* 20261017barOneShot1: stub→chrome continuo (no reset 0.14); toast/scroll solo dopo 100% */
 /* 20261017progGlowUnify1: una sola barra sand-glow; load→100% visibile; scroll riparte da 0 stesso glow */
+/* 20261020mqNoSnapSettle1: settle = soft pause (no reset@0 / no tx:0) */
+/* 20261021barApiFastAll1: seconda barra (API) wall ~2s ovunque (era 5.5–6s); no wait CSS */
+/* 20261020refreshRestoreEnd1: durante load pin SOLO a 0; restore Y una volta a fine unlock (no Y→0→Y) */
+/* 20261020userMqHoverKeep1: arm/kick non reset@0 sotto hover (nome ripartiva; wordmark ok) */
+/* 20261020mqHoverNoRestart1: hover marquee non reset@0 su pointerover figli */
+/* 20261020phoneBellTapFree1: post-sipario tap campanella passa il loadClickGate
+   (prima preventDefault su document catturava tutto finché chrome load). */
 /* 20261017phoneBarBlur1: stub/gutter 12px + bloom bianco = blur telefono; right:0 + flat + kill stub */
 /* 20261017barPostSip1: dopo sipario barra resta + avanza fino API; no arm-skip su curtain-off */
 /* 20261016mqAnimKeep2: home usava still vc-perf.userMqIdlePause1 (anim:none settle) + soft-fx orphan */
@@ -47,6 +66,7 @@
 /* loadScrollAllStages1: is-loading/barra lockano scroll anche post-sipario (multi load) */
 /* scrollLoadYoYoKill4: top-lock resta fino a UN scrollTo; no clearTopLock/snapBar 2° yoyo */
 /* refreshScrollRestore1: F5 unlock ripristina Y (o lascia pending se doc corto) */
+/* refreshRestoreEnd1: mid-load mai pin a Y session — solo unlock fa scrollTo(wantY) */
 /* profileUnlockNoYank2: discard ≠ yank — se profilo/chrome già ready e liveY≥24, tieni Y */
 /* mqNoRestart1: nav user marquee — no remount/t0 reset mid-spin */
 /* loadBarFullReset1: load → scaleX(1) poi reset; scroll bar riparte da Y reale (no resto ~0.7) */
@@ -57,21 +77,60 @@
 /* loadBarFullReset6: maxScroll force post-load (niente ratio ~0 con Y=500); pageOpen→full */
 /* loadBarFullReset7: mai __vcChromeLoadDone durante completing / senza fullPainted */
 /* backTopPhoneShow2: soglie phone + is-on !important (cache-bust Show1) */
+/* backTopPcLate1: PC — freccia solo pagine lunghe + dopo scroll reale */
 /* midScrollYankKill1: unlock/finishLoad/freeze non riportano a 0 se utente mid-scroll */
 /* pageHang1: bundle bump con hang kill sitewide (theme MO + loader MO) */
 /* refreshNoFooterJump1: no clamp footer mid-load; freeze non adotta Y session/bottom */
+/* bootMidFlashKill1: navigate fresco + discard → top; mid solo con gesture reale */
+/* loadBgContinue1: tab in background → load/barra/finish continuano (no rAF freeze) */
 (function () {
-  var VER = "20261017floatCoverFix1";
+  var VER = "20261021loadBgContinue1";
   if (window.__VC_SITE_CHROME_UI_BUNDLE === VER) return;
   window.__VC_SITE_CHROME_UI_BUNDLE = VER;
+  /* legalLookCore1: PNG cursor ON; niente remount style body (recalc hang).
+   * legalUnfreeze1: PNG cursor ON; niente remount style body.
+   * cursorBackSip1: PNG cursor ON ovunque (alone glow resta off).
+   * cursorGlowOff1b: alone + PNG cursor OFF (url() hover = hang feedback). */
+
+  function vcIsFreshNavigate() {
+    try {
+      var list = performance.getEntriesByType && performance.getEntriesByType("navigation");
+      if (list && list[0] && list[0].type) {
+        var t = String(list[0].type || "");
+        return t !== "reload" && t !== "back_forward";
+      }
+    } catch (eN) {}
+    try {
+      var legacy = performance.navigation && Number(performance.navigation.type);
+      if (legacy === 1 || legacy === 2) return false;
+    } catch (eL) {}
+    return true;
+  }
+  function vcHasRealScrollGesture() {
+    try {
+      return window.__vcUserGestureScroll === 1;
+    } catch (eG) {
+      return false;
+    }
+  }
+  /* toastHoldAll1: finish/unlock solo a gate idle (CSS+API+loader) */
+  /* pendingBadgeVis2: CSS stamp allineato a NAV_CHROME (no 404 badge) */
   /* fgDecorCpu1 + cursorMqStable1: cursor inherit; glow off in cpu-settle */
   try {
-    var btPin = document.getElementById("vc-back-top-conic-pin");
+    var btPin =
+      document.getElementById("vc-back-top-solid-pin") ||
+      document.getElementById("vc-back-top-conic-pin");
     if (!btPin) {
       btPin = document.createElement("style");
-      btPin.id = "vc-back-top-conic-pin";
     }
-    btPin.setAttribute("data-vc", "backTopConic1");
+    try {
+      var staleConic = document.getElementById("vc-back-top-conic-pin");
+      if (staleConic && staleConic !== btPin && staleConic.parentNode) {
+        staleConic.parentNode.removeChild(staleConic);
+      }
+    } catch (eStaleBt) {}
+    btPin.id = "vc-back-top-solid-pin";
+    btPin.setAttribute("data-vc", "lookStaticBorder1e");
     btPin.textContent =
       "html body.vc-body #vc-site-back-top,html.vc-site-polish body.vc-body #vc-site-back-top," +
       "html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body #vc-site-back-top," +
@@ -79,26 +138,23 @@
       "html.vc-site-polish[data-vc-theme=light]:not(.vc-soft-fx-off) body.vc-body #vc-site-back-top," +
       "html.vc-site-photo-bg.vc-perf-mid.vc-site-polish[data-vc-theme=light]:not(.vc-soft-fx-off) body.vc-body#top #vc-site-back-top," +
       "html[data-vc-theme=light] #vc-site-back-top,#vc-site-back-top{" +
-      "border:1.35px solid transparent!important;border-color:transparent!important;" +
-      "box-shadow:none!important;filter:none!important;-webkit-filter:none!important}" +
+      "border:1.35px solid rgba(245,214,183,.38)!important;" +
+      "box-shadow:none!important;filter:none!important;-webkit-filter:none!important;" +
+      "background-image:none!important}" +
       "html body.vc-body #vc-site-back-top,html.vc-site-polish body.vc-body #vc-site-back-top," +
       "html.vc-site-polish:not([data-vc-theme=light]):not(.vc-soft-fx-off) body.vc-body #vc-site-back-top," +
       "html:not([data-vc-theme=light]) #vc-site-back-top,#vc-site-back-top{" +
       "background-color:#100c09!important;" +
-      "background-image:linear-gradient(180deg,rgba(26,20,15,.96),rgba(16,12,9,.98))," +
-      "conic-gradient(from 0deg,rgba(247,236,223,.88) 0deg,rgba(212,168,136,.62) 90deg," +
-      "rgba(180,130,90,.68) 180deg,rgba(212,168,136,.62) 270deg,rgba(247,236,223,.88) 360deg)!important;" +
-      "background-origin:padding-box,border-box!important;" +
-      "background-clip:padding-box,border-box!important;-webkit-background-clip:padding-box,border-box!important}" +
+      "background-image:linear-gradient(180deg,rgba(26,20,15,.96),rgba(16,12,9,.98))!important;" +
+      "background-origin:padding-box!important;" +
+      "background-clip:padding-box!important;-webkit-background-clip:padding-box!important}" +
       "html.vc-site-polish[data-vc-theme=light]:not(.vc-soft-fx-off) body.vc-body #vc-site-back-top," +
       "html.vc-site-photo-bg.vc-perf-mid.vc-site-polish[data-vc-theme=light]:not(.vc-soft-fx-off) body.vc-body#top #vc-site-back-top," +
       "html[data-vc-theme=light] #vc-site-back-top{" +
       "background-color:#faf6f0!important;" +
-      "background-image:linear-gradient(180deg,#fffaf4,#f3ebe3)," +
-      "conic-gradient(from 0deg,rgba(111,78,55,.72) 0deg,rgba(180,130,90,.55) 90deg," +
-      "rgba(139,99,70,.58) 180deg,rgba(180,130,90,.55) 270deg,rgba(111,78,55,.72) 360deg)!important;" +
-      "background-origin:padding-box,border-box!important;" +
-      "background-clip:padding-box,border-box!important;-webkit-background-clip:padding-box,border-box!important;" +
+      "background-image:linear-gradient(180deg,#fffaf4,#f3ebe3)!important;" +
+      "background-origin:padding-box!important;" +
+      "background-clip:padding-box!important;-webkit-background-clip:padding-box!important;" +
       "box-shadow:none!important;filter:none!important}" +
       "html body.vc-body #vc-site-back-top:hover,html body.vc-body #vc-site-back-top:focus-visible," +
       "#vc-site-back-top:hover,#vc-site-back-top:focus-visible," +
@@ -128,8 +184,8 @@
       mqPin = document.createElement("style");
       mqPin.id = "vc-snav-user-marquee-pin";
     }
-    /* userMqLikeWm1: NOME sempre running in FG (anche settle); pause SOLO tab-hidden — come intent userMqAlwaysRun */
-    mqPin.setAttribute("data-vc", "userMqLikeWm1");
+    /* mqHeroMetal1c: settle pause SOLO fuori hover (transform:!important uccideva i keyframes) */
+    mqPin.setAttribute("data-vc", "mqUlUserNoSnap1");
     mqPin.textContent =
       '@keyframes vc-guild-name-marquee{from{transform:translate3d(0,0,0)}' +
       'to{transform:translate3d(calc(-1 * var(--vc-marquee-distance,160px)),0,0)}}' +
@@ -153,13 +209,11 @@
       'html.vc-site-cpu-soft:not(.vc-page-hidden) body.vc-body header .discord-profile-link__name[data-vc-nav-user-marquee].is-marquee .vc-marquee__track,' +
       'html.vc-pwa-cpu-nuke:not(.vc-page-hidden) body.vc-body header .discord-profile-link__name[data-vc-nav-user-marquee].is-marquee .vc-marquee__track,' +
       'html.vc-perf-mid:not(.vc-page-hidden) body.vc-body header .discord-profile-link__name[data-vc-nav-user-marquee].is-marquee .vc-marquee__track,' +
-      'html.vc-cpu-settle body.vc-body header .discord-profile-link__name[data-vc-nav-user-marquee].is-marquee .vc-marquee__track,' +
-      'html.vc-cpu-settle body.vc-body #header-quick-actions .discord-profile-link__name[data-vc-nav-user-marquee].is-marquee .vc-marquee__track,' +
-      'html.vc-cpu-settle.vc-site-polish body.vc-body header .discord-profile-link__name[data-vc-nav-user-marquee].is-marquee .vc-marquee__track,' +
-      'html:not(.vc-page-hidden) body.vc-body header a.vc-header-site-name.is-marquee .vc-header-site-name__track,' +
-      'html.vc-site-polish:not(.vc-page-hidden) body.vc-body header a.vc-header-site-name.is-marquee .vc-header-site-name__track,' +
-      'html.vc-site-cpu-soft:not(.vc-page-hidden) body.vc-body header a.vc-header-site-name.is-marquee .vc-header-site-name__track,' +
-      'html.vc-pwa-cpu-nuke:not(.vc-page-hidden) body.vc-body header a.vc-header-site-name.is-marquee .vc-header-site-name__track{' +
+      /* mqHoverOnly1: keyframes ok; play SOLO hover (tutte le pagine) */
+      'html:not(.vc-page-hidden):not(.vc-cpu-settle) body.vc-body header a.vc-header-site-name.is-marquee .vc-header-site-name__track,' +
+      'html.vc-site-polish:not(.vc-page-hidden):not(.vc-cpu-settle) body.vc-body header a.vc-header-site-name.is-marquee .vc-header-site-name__track,' +
+      'html.vc-site-cpu-soft:not(.vc-page-hidden):not(.vc-cpu-settle) body.vc-body header a.vc-header-site-name.is-marquee .vc-header-site-name__track,' +
+      'html.vc-pwa-cpu-nuke:not(.vc-page-hidden):not(.vc-cpu-settle) body.vc-body header a.vc-header-site-name.is-marquee .vc-header-site-name__track{' +
       'display:flex!important;flex-wrap:nowrap!important;align-items:center!important;' +
       'width:max-content!important;max-width:none!important;min-width:0!important;overflow:visible!important;' +
       'animation-name:vc-guild-name-marquee!important;' +
@@ -173,29 +227,48 @@
       '-webkit-animation-timing-function:linear!important;' +
       '-webkit-animation-iteration-count:infinite!important;' +
       '-webkit-animation-delay:0s!important}' +
-      /* NOME: running anche in settle (come wordmark che l’utente vede vivo) */
-      'html:not(.vc-page-hidden) body.vc-body header .discord-profile-link__name[data-vc-nav-user-marquee].is-marquee .vc-marquee__track,' +
-      'html:not(.vc-page-hidden) body.vc-body #header-quick-actions .discord-profile-link__name[data-vc-nav-user-marquee].is-marquee .vc-marquee__track,' +
-      'html:not(.vc-page-hidden) body.vc-body #vc-mobile-nav-drawer .discord-profile-link__name[data-vc-nav-user-marquee].is-marquee .vc-marquee__track,' +
-      'html:not(.vc-page-hidden) body.vc-body .vc-mobile-nav-drawer .discord-profile-link__name[data-vc-nav-user-marquee].is-marquee .vc-marquee__track,' +
-      'html:not(.vc-page-hidden).vc-cpu-settle body.vc-body header .discord-profile-link__name[data-vc-nav-user-marquee].is-marquee .vc-marquee__track,' +
-      'html:not(.vc-page-hidden).vc-cpu-settle body.vc-body #header-quick-actions .discord-profile-link__name[data-vc-nav-user-marquee].is-marquee .vc-marquee__track,' +
-      'html:not(.vc-page-hidden):not(.vc-cpu-settle) body.vc-body header a.vc-header-site-name.is-marquee .vc-header-site-name__track,' +
-      'html:not(.vc-page-hidden):not(.vc-cpu-settle).vc-site-polish body.vc-body header a.vc-header-site-name.is-marquee .vc-header-site-name__track{' +
+      /* idle/settle: paused (NO tx:0); snap solo tab-hidden */
+      'html:not(.vc-page-hidden) body.vc-body header a.vc-header-site-name.is-marquee:not(:hover):not(:focus-visible) .vc-header-site-name__track,' +
+      'html:not(.vc-page-hidden) body.vc-body header .discord-profile-link:not(:hover):not(:focus-within) .discord-profile-link__name[data-vc-nav-user-marquee].is-marquee .vc-marquee__track,' +
+      'html:not(.vc-page-hidden) body.vc-body #header-quick-actions .discord-profile-link:not(:hover):not(:focus-within) .discord-profile-link__name[data-vc-nav-user-marquee].is-marquee .vc-marquee__track,' +
+      'html.vc-cpu-settle body.vc-body header a.vc-header-site-name.is-marquee:not(:hover):not(:focus-visible) .vc-header-site-name__track,' +
+      'html.vc-cpu-settle body.vc-body header .discord-profile-link:not(:hover):not(:focus-within) .discord-profile-link__name[data-vc-nav-user-marquee].is-marquee .vc-marquee__track,' +
+      'html.vc-cpu-settle body.vc-body #header-quick-actions .discord-profile-link:not(:hover):not(:focus-within) .discord-profile-link__name[data-vc-nav-user-marquee].is-marquee .vc-marquee__track{' +
+      'animation-play-state:paused!important;will-change:auto!important;' +
+      '-webkit-animation-play-state:paused!important}' +
+      'html.vc-page-hidden body.vc-body header a.vc-header-site-name.is-marquee .vc-header-site-name__track,' +
+      'html.vc-page-hidden body.vc-body header .discord-profile-link__name[data-vc-nav-user-marquee].is-marquee .vc-marquee__track{' +
+      'animation-play-state:paused!important;will-change:auto!important;' +
+      '-webkit-animation-play-state:paused!important;' +
+      'transform:translate3d(0,0,0)!important}' +
+      /* mqNoSnapSettle1: hover = solo play-state (no animation-name → no restart al settle) */
+      'html:not(.vc-page-hidden) body.vc-body header a.vc-header-site-name.is-marquee:hover .vc-header-site-name__track,' +
+      'html:not(.vc-page-hidden) body.vc-body header a.vc-header-site-name.is-marquee:focus-visible .vc-header-site-name__track,' +
+      'html.vc-cpu-settle body.vc-body header a.vc-header-site-name.is-marquee:hover .vc-header-site-name__track,' +
+      'html.vc-cpu-settle body.vc-body header a.vc-header-site-name.is-marquee:focus-visible .vc-header-site-name__track,' +
+      'html:not(.vc-page-hidden) body.vc-body header .discord-profile-link:hover .discord-profile-link__name[data-vc-nav-user-marquee].is-marquee .vc-marquee__track,' +
+      'html:not(.vc-page-hidden) body.vc-body header .discord-profile-link:focus-within .discord-profile-link__name[data-vc-nav-user-marquee].is-marquee .vc-marquee__track,' +
+      'html:not(.vc-page-hidden) body.vc-body #header-quick-actions .discord-profile-link:hover .discord-profile-link__name[data-vc-nav-user-marquee].is-marquee .vc-marquee__track,' +
+      'html:not(.vc-page-hidden) body.vc-body #header-quick-actions .discord-profile-link:focus-within .discord-profile-link__name[data-vc-nav-user-marquee].is-marquee .vc-marquee__track,' +
+      'html.vc-cpu-settle body.vc-body header .discord-profile-link:hover .discord-profile-link__name[data-vc-nav-user-marquee].is-marquee .vc-marquee__track,' +
+      'html.vc-cpu-settle body.vc-body #header-quick-actions .discord-profile-link:hover .discord-profile-link__name[data-vc-nav-user-marquee].is-marquee .vc-marquee__track{' +
       'animation-play-state:running!important;will-change:transform!important;' +
+      'animation-delay:0s!important;' +
       '-webkit-animation-play-state:running!important}' +
-      /* tab-hidden: FERMO (nome+wordmark) */
-      'html.vc-page-hidden body.vc-body header .discord-profile-link__name[data-vc-nav-user-marquee].is-marquee .vc-marquee__track,' +
-      'html.vc-page-hidden body.vc-body #header-quick-actions .discord-profile-link__name[data-vc-nav-user-marquee].is-marquee .vc-marquee__track,' +
-      'html.vc-page-hidden body.vc-body #vc-mobile-nav-drawer .discord-profile-link__name[data-vc-nav-user-marquee].is-marquee .vc-marquee__track,' +
-      'html.vc-page-hidden body.vc-body header a.vc-header-site-name.is-marquee .vc-header-site-name__track{' +
-      'animation-play-state:paused!important;will-change:auto!important;' +
-      '-webkit-animation-play-state:paused!important}' +
-      /* settle: wordmark può restare paused via soft-fx; NOME resta running (sopra) */
-      'html.vc-cpu-settle:not(.vc-page-hidden) body.vc-body header a.vc-header-site-name.is-marquee .vc-header-site-name__track,' +
-      'html.vc-cpu-settle.vc-site-polish:not(.vc-page-hidden) body.vc-body header a.vc-header-site-name.is-marquee .vc-header-site-name__track{' +
-      'animation-play-state:paused!important;will-change:auto!important;' +
-      '-webkit-animation-play-state:paused!important}' +
+      /* userMqRmKeep1 + userMqIdlePause1: reduced-motion FG solo fuori settle */
+      '@media (prefers-reduced-motion:reduce){' +
+      'html:not(.vc-page-hidden):not(.vc-cpu-settle) body.vc-body header .discord-profile-link__name[data-vc-nav-user-marquee].is-marquee .vc-marquee__track,' +
+      'html:not(.vc-page-hidden):not(.vc-cpu-settle) body.vc-body #header-quick-actions .discord-profile-link__name[data-vc-nav-user-marquee].is-marquee .vc-marquee__track,' +
+      'html:not(.vc-page-hidden):not(.vc-cpu-settle).vc-site-polish body.vc-body header .discord-profile-link__name[data-vc-nav-user-marquee].is-marquee .vc-marquee__track,' +
+      'html:not(.vc-page-hidden):not(.vc-cpu-settle).vc-site-polish body.vc-body #header-quick-actions .discord-profile-link__name[data-vc-nav-user-marquee].is-marquee .vc-marquee__track{' +
+      'animation-name:vc-guild-name-marquee!important;' +
+      'animation-duration:var(--vc-marquee-duration,12s)!important;' +
+      'animation-timing-function:linear!important;' +
+      'animation-iteration-count:infinite!important;' +
+      'animation-play-state:paused!important;' +
+      '-webkit-animation-name:vc-guild-name-marquee!important;' +
+      '-webkit-animation-play-state:paused!important;' +
+      'will-change:auto!important}}' +
       '@media (max-width:639.98px){' +
       'html body.vc-body header .discord-profile-link__name[data-vc-nav-user-marquee],' +
       'html body.vc-body #header-quick-actions .discord-profile-link__name[data-vc-nav-user-marquee],' +
@@ -283,20 +356,7 @@
       "html.vc-site-cursor-ok a *,html.vc-site-cursor-ok button *,html.vc-site-cursor-ok [role=button] *," +
       "html.vc-site-cursor-ok .vc-snav-item *,html.vc-site-cursor-ok summary *{" +
       "cursor:inherit!important}}";
-    try {
-      var mount = document.body || document.documentElement;
-      if (unlockBarCss.parentNode !== mount) mount.appendChild(unlockBarCss);
-      else if (mount.lastChild !== unlockBarCss) mount.appendChild(unlockBarCss);
-    } catch (ePinLast) {}
-    /* un solo remount tardivo — niente storm 600/1800/4000 (flash cursore) */
-    try {
-      window.setTimeout(function () {
-        try {
-          var m = document.body || document.documentElement;
-          if (unlockBarCss && m) m.appendChild(unlockBarCss);
-        } catch (eRm1) {}
-      }, 1200);
-    } catch (eRem) {}
+    /* legalUnfreeze1: lascia lo style in head — remount body = style recalc hang */
   } catch (eUnlockBarCss) {}
   /* loadBarGateAuth1: batte vc-grad-baked{overflow:auto} — scrollbar OFF durante barra */
   try {
@@ -386,11 +446,20 @@
   var COARSE =
     window.matchMedia &&
     window.matchMedia("(hover: none) and (pointer: coarse)").matches;
-  /* pwaGifGlow1: cursor glow di nuovo (anche desktop PWA) */
-  var NO_CURSOR = COARSE && !FINE;
+  /* cursorBackSip1: PNG cursor ON; alone glow resta off (no #vc-site-cursor-light) */
+  var NO_CURSOR = true; /* solo alone glow — PNG via vc-site-cursor-ok */
   try {
-    if (!NO_CURSOR) document.documentElement.classList.add("vc-site-cursor-ok");
-    else document.documentElement.classList.remove("vc-site-cursor-ok", "vc-site-cursor-on");
+    var coarseCur =
+      window.matchMedia &&
+      window.matchMedia("(hover: none) and (pointer: coarse)").matches &&
+      !(window.matchMedia("(pointer: fine)").matches);
+    if (!coarseCur) {
+      document.documentElement.classList.add("vc-site-cursor-ok");
+      document.documentElement.classList.remove("vc-site-cursor-glow-off");
+    } else {
+      document.documentElement.classList.remove("vc-site-cursor-ok", "vc-site-cursor-on");
+      document.documentElement.classList.add("vc-site-cursor-glow-off");
+    }
   } catch (eOk) {}
 
   var barTarget = 0;
@@ -399,6 +468,7 @@
   var loadingBar = true;
   var smoothMaxScroll = 0;
   var loadRaf = 0;
+  var loadTickIsTimeout = false;
   var loadStart = 0;
   var lastLoopTs = 0;
   var barRaf = 0;
@@ -406,6 +476,53 @@
   var scrollIdleUntil = 0;
   var loadFreezePinY = 0;
   var loadFreezeOn = false;
+
+  function pageIsBg() {
+    try {
+      return Boolean(document.hidden) || document.visibilityState === "hidden";
+    } catch (eBg) {
+      return false;
+    }
+  }
+
+  function clearLoadTick() {
+    if (!loadRaf) return;
+    try {
+      if (loadTickIsTimeout) window.clearTimeout(loadRaf);
+      else window.cancelAnimationFrame(loadRaf);
+    } catch (eClr) {}
+    loadRaf = 0;
+    loadTickIsTimeout = false;
+  }
+
+  /* loadBgContinue1: in BG rAF è pausato → setTimeout così tick/finish avanzano */
+  function scheduleLoadTick(fn) {
+    clearLoadTick();
+    if (pageIsBg()) {
+      loadTickIsTimeout = true;
+      loadRaf = window.setTimeout(fn, 120);
+      return;
+    }
+    loadTickIsTimeout = false;
+    try {
+      loadRaf = window.requestAnimationFrame(fn);
+    } catch (eRaf) {
+      loadTickIsTimeout = true;
+      loadRaf = window.setTimeout(fn, 16);
+    }
+  }
+
+  function scheduleUnlockPoll(fn) {
+    if (pageIsBg()) {
+      window.setTimeout(fn, 200);
+      return;
+    }
+    try {
+      window.requestAnimationFrame(fn);
+    } catch (eRaf) {
+      window.setTimeout(fn, 32);
+    }
+  }
 
   function setChromeBarLoadingClass(on) {
     try {
@@ -445,21 +562,25 @@
 
   function pageScrollAlreadyOpen() {
     try {
-      if (
-        window.__vcChromeLoadDone ||
-        window.__vcChromeScrollArmed ||
-        window.__vcChromeVisualReady === 1 ||
-        window.__vcBootRevealLanded
-      ) {
-        return true;
-      }
       var root = document.documentElement;
+      /* siparioAlignAll2: sipario/footerFlash/profile lift aprono curtain PRIMA
+         della barra — NON trattare curtain-off come scroll già libero. */
+      if (root) {
+        if (
+          root.classList.contains("vc-chrome-bar-loading") ||
+          root.classList.contains("vc-loading-scroll-lock") ||
+          root.classList.contains("vc-loader-blocking-live")
+        ) {
+          return false;
+        }
+      }
+      if (window.__vcLoadBarCompleting) return false;
+      if (!window.__vcLoadBarFullPainted && window.__vcChromeScrollArmed !== true) return false;
+      if (window.__vcChromeScrollArmed === true && window.__vcChromeLoadDone === true) return true;
+      if (window.__vcChromeScrollArmed === true && window.__vcChromeVisualReady === 1) return true;
+      if (window.__vcBootRevealLanded && window.__vcChromeScrollArmed === true) return true;
       if (!root) return false;
-      return (
-        root.classList.contains("vc-page-cine-ready") ||
-        root.classList.contains("vc-cine-curtain-off") ||
-        root.classList.contains("vc-chrome-scroll-armed")
-      );
+      return root.classList.contains("vc-chrome-scroll-armed");
     } catch (eOpen) {
       return false;
     }
@@ -488,38 +609,24 @@
         (document.documentElement && document.documentElement.scrollTop) ||
         Number(window.__vcCachedScrollY) ||
         0;
-      /* ptrScrollYoYoKill1: restore/sticky mid → non yankare a pin 0 */
-      var wantPin = 0;
-      try {
-        wantPin = Math.max(
-          0,
-          Number(window.__vcPtrRestoreTargetY || 0) || 0,
-          Number(window.__vcPtrRestoreY || 0) || 0,
-          Number(window.__vcRestoredScrollStickyY || 0) || 0,
-        );
-      } catch (eWp) {
-        wantPin = 0;
-      }
-      if (wantPin >= 2 && (y >= 8 || !window.__vcPtrRestoreDone)) {
-        loadFreezePinY = wantPin;
-        if (window.__vcPtrRestoreDone || Math.abs(y - wantPin) <= 96) {
+      /* refreshRestoreEnd1: finché lock/load → pin SEMPRE 0.
+         Adottare PtrRestoreTargetY mid-load = Y visibile fino a fine, poi 0→Y (yoyo). */
+      if (stillLocked || loadFreezeOn) {
+        loadFreezePinY = 0;
+        if (window.__vcPtrRestoreDone === 1 && window.__vcScrollUnlockOnce === 1) {
+          disarmLoadFreeze();
+          return;
+        }
+      } else if (y > 8 && loadFreezePinY < 8) {
+        /* bootMidFlashKill1: mid pre-unlock ≠ userAway (session flash) */
+        if (vcHasRealScrollGesture() || window.__vcScrollUnlockOnce === 1) {
+          loadFreezePinY = y;
           try {
             window.__vcUserScrolledAway = 1;
-          } catch (eAway0) {}
-          if (window.__vcPtrRestoreDone) {
-            disarmLoadFreeze();
-            return;
-          }
+          } catch (eAway) {}
+          return;
         }
-      }
-      /* durante lock: se Y è scappato, riporta al pin (non promuovere a “user scrolled”) */
-      if (stillLocked && y > 8 && loadFreezePinY < 8) {
-        if (wantPin >= 2) loadFreezePinY = wantPin;
-        else loadFreezePinY = 0;
-      } else if (!stillLocked && y > 8 && loadFreezePinY < 8) {
-        loadFreezePinY = y;
-        try { window.__vcUserScrolledAway = 1; } catch (eAway) {}
-        return;
+        loadFreezePinY = 0;
       }
       if (Math.abs(y - loadFreezePinY) > 0.5) {
         if (typeof window.scrollTo === "function") {
@@ -577,19 +684,25 @@
     try {
       var r = document.documentElement;
       if (!r) return true;
-      if (window.__vcChromeLoadDone === true && window.__vcChromeScrollArmed === true) {
-        if (
-          !r.classList.contains("vc-chrome-bar-loading") &&
-          !r.classList.contains("vc-interaction-hold") &&
-          !r.classList.contains("vc-loading-scroll-lock") &&
-          !r.classList.contains("vc-loader-blocking-live")
-        ) {
-          var progDone = document.getElementById("vc-site-progress");
-          if (!(progDone && progDone.classList.contains("is-loading"))) return false;
-        }
+      /* viewAsGateClear1: post armed+done ignora solo lock orfani
+         (scroll-lock/loader senza barra). bar-loading / hold restano BLOCCANTI. */
+      var armed =
+        window.__vcChromeScrollArmed === true ||
+        r.classList.contains("vc-chrome-scroll-armed");
+      var done = window.__vcChromeLoadDone === true;
+      if (done && armed) {
+        if (r.classList.contains("vc-chrome-bar-loading")) return true;
+        if (r.classList.contains("vc-interaction-hold")) return true;
+        if (r.classList.contains("vc-user-leader-pending")) return true;
+        if (r.classList.contains("vc-user-profile-pending")) return true;
+        if (r.classList.contains("vc-rank-customize-pending")) return true;
+        if (r.classList.contains("vc-custom-profile-pending")) return true;
+        if (r.classList.contains("vc-session-verify-pending")) return true;
+        if (r.classList.contains("vc-notif-staff-loading")) return true;
+        return false;
       }
-      if (window.__vcChromeLoadDone !== true) return true;
-      if (!r.classList.contains("vc-chrome-scroll-armed")) return true;
+      if (!done) return true;
+      if (!armed) return true;
       if (r.classList.contains("vc-chrome-bar-loading")) return true;
       if (r.classList.contains("vc-interaction-hold")) return true;
       if (r.classList.contains("vc-loading-scroll-lock")) return true;
@@ -599,6 +712,27 @@
       return false;
     } catch (eG) {
       return window.__vcChromeLoadDone !== true;
+    }
+  }
+
+  /* phoneBellTapFree1: campanella usabile subito dopo sipario (gate resta per resto pagina) */
+  function isNotifBellTapTarget(e) {
+    try {
+      var r = document.documentElement;
+      if (!r || !r.classList.contains("vc-cine-curtain-off")) return false;
+      var t = e && e.target;
+      if (!t) return false;
+      if (typeof t.closest === "function") {
+        if (t.closest("#vc-notif-dropdown")) return true;
+        if (t.closest("summary.vc-notif-summary")) return true;
+        if (t.closest(".vc-notif-summary")) return true;
+        if (t.closest("#vc-notif-badge")) return true;
+      }
+      var id = String(t.id || "");
+      if (id === "vc-notif-dropdown" || id === "vc-notif-badge") return true;
+      return false;
+    } catch (eBell) {
+      return false;
     }
   }
 
@@ -622,6 +756,19 @@
       } else {
         gate.style.setProperty("display", "none", "important");
         gate.style.setProperty("pointer-events", "none", "important");
+        /* viewAsGateClear1: togli lock orfani che lasciano header con PE none */
+        try {
+          var rootClr = document.documentElement;
+          if (
+            window.__vcChromeLoadDone === true &&
+            (window.__vcChromeScrollArmed === true ||
+              rootClr.classList.contains("vc-chrome-scroll-armed")) &&
+            !rootClr.classList.contains("vc-chrome-bar-loading") &&
+            !rootClr.classList.contains("vc-interaction-hold")
+          ) {
+            rootClr.classList.remove("vc-loading-scroll-lock", "vc-loader-blocking-live");
+          }
+        } catch (eOrphan) {}
       }
     } catch (eEnsG) {}
   }
@@ -629,6 +776,8 @@
   function onLoadClickGate(e) {
     try {
       if (!loadClickGateActive()) return;
+      /* phoneBellTapFree1 */
+      if (isNotifBellTapTarget(e)) return;
       ensureLoadClickGate();
       if (e && e.cancelable) e.preventDefault();
       if (e && typeof e.stopPropagation === "function") e.stopPropagation();
@@ -644,6 +793,7 @@
         (et === "click" || et === "auxclick" || et === "pointerdown" || et === "mousedown") &&
         loadClickGateActive()
       ) {
+        if (isNotifBellTapTarget(e)) return;
         onLoadClickGate(e);
         return;
       }
@@ -739,23 +889,31 @@
       if (document.body) document.body.style.setProperty("touch-action", "none", "important");
     } catch (eTa) {}
     bindLoadFreezeListeners();
-    /* bootFastSipario1: failsafe barra più corti */
+    /* barApiFastAll1: failsafe finish più rapidi (era 1.6/2 → 4/5 → 16s) */
     var t1 = isCineBakedPage() ? 900 : 1100;
-    var t2 = isCineBakedPage() ? 1400 : 1700;
+    var t2 = isCineBakedPage() ? 1800 : 2200;
+    var t3 = 7000;
     try {
       window.setTimeout(function () {
         try {
-          if (!window.__vcChromeLoadDone && chromePayloadReady()) finishLoad();
+          if (!window.__vcChromeLoadDone && chromePayloadReady() && !pageGateBusyLocal()) finishLoad();
         } catch (eFs) {}
       }, t1);
     } catch (eTo) {}
     try {
       window.setTimeout(function () {
         try {
-          if (!window.__vcChromeLoadDone) finishLoad();
+          if (!window.__vcChromeLoadDone && chromePayloadReady() && !pageGateBusyLocal()) finishLoad();
         } catch (eNuc) {}
       }, t2);
     } catch (eTo2) {}
+    try {
+      window.setTimeout(function () {
+        try {
+          if (!window.__vcChromeLoadDone) finishLoad();
+        } catch (eHardFin) {}
+      }, t3);
+    } catch (eTo3) {}
   }
 
   function bindLoadFreezeListeners() {
@@ -834,10 +992,7 @@
       window.__vcLoadBarCompleting = 1;
       window.__vcLoadBarAfterFull = thenFn;
       try {
-        if (loadRaf) {
-          window.cancelAnimationFrame(loadRaf);
-          loadRaf = 0;
-        }
+        clearLoadTick();
       } catch (eStop) {}
       try {
         loadingBar = true;
@@ -983,8 +1138,9 @@
   }
 
   function loadAgeMs() {
+    /* homeLoadCpu1d: età da navigationStart — loadStart (inject tardivo) spostava i wall a 12s+ */
     try {
-      return Math.max(0, performance.now() - (loadStart || 0));
+      return Math.max(0, performance.now());
     } catch (eAge) {
       return 0;
     }
@@ -1013,8 +1169,8 @@
           return true;
         }
       } catch (eDom) {}
-      /* bootFastSipario1: non tenere la barra su auth lenta — profilo arriva dopo */
-      return loadAgeMs() >= 350;
+      /* barApiFastAll1: auth lenta non tiene la barra (profilo dopo) */
+      return loadAgeMs() >= 180;
     } catch (eAuth) {
       return true;
     }
@@ -1044,12 +1200,36 @@
     }
   }
 
+  /* profileSipFast1: shell profilo già paintata → non tenere barra su pending */
+  function profileShellPainted() {
+    try {
+      if (window.__vcProfileContentReady) return true;
+      var view = document.getElementById("vc-user-profile-view");
+      if (!view) return false;
+      return Boolean(
+        view.querySelector(
+          ".vc-user-profile-shell .vc-user-profile-hero, .vc-user-profile-shell .vc-user-profile-empty, .vc-user-profile-shell .vc-user-profile-notfound, .vc-user-profile-staff-pane .vc-user-profile-hero, .vc-user-profile-staff-pane .vc-staff-profile-panel, .vc-staff-prof-miss",
+        ),
+      );
+    } catch (eProf) {
+      return false;
+    }
+  }
+
   /* siparioCssBarApi1: barra = solo API / loader / auth session (CSS = sipario) */
   function bootApisPending() {
     try {
       var root = document.documentElement;
       if (root.classList.contains("vc-user-leader-pending")) return true;
-      if (root.classList.contains("vc-user-profile-pending")) return true;
+      if (root.classList.contains("vc-user-profile-pending")) {
+        if (profileShellPainted()) {
+          try {
+            window.__vcProfileContentReady = 1;
+          } catch (eReady) {}
+        } else {
+          return true;
+        }
+      }
       if (root.classList.contains("vc-rank-customize-pending")) return true;
       if (root.classList.contains("vc-custom-profile-pending")) return true;
       if (root.classList.contains("vc-session-verify-pending")) return true;
@@ -1063,6 +1243,7 @@
       if (root.classList.contains("vc-boards-view-pending")) return true;
       if (root.classList.contains("vc-notif-staff-loading")) return true;
       if (Number(window.__vcBootApiHold || 0) > 0) return true;
+      if (Number(window.__vcApiBusyCount || 0) > 0) return true;
       if (!discordAuthReady()) return true;
       var ids = [
         "vc-shared-boot-overlay",
@@ -1102,10 +1283,42 @@
     }
   }
 
+  function pageGateBusyLocal() {
+    try {
+      /* barApiFastAll1: mai busy forever — dopo 7s rilascia (era 10s) */
+      if (loadAgeMs() > 7000) return false;
+    } catch (eAge) {}
+    try {
+      if (typeof window.__vcPageLoadGateBusy === "function") return !!window.__vcPageLoadGateBusy();
+    } catch (eG) {}
+    try {
+      if (bootApisPending()) return true;
+      /* siparioWaitAllCss2: CSS = sipario, NON la barra — niente wait soft-fx qui */
+      if (window.__vcLoadBarCompleting) return true;
+      if (!window.__vcLoadBarFullPainted && window.__vcChromeLoadDone !== true) return true;
+    } catch (eL) {
+      return false;
+    }
+    return false;
+  }
+
   function chromePayloadReady() {
     try {
-      /* bootBarScrollFast1: se API ancora pending failsafe ~6s (loadSyncPack1: era 2.8s) */
-      if (bootApisPending()) return loadAgeMs() >= 6000;
+      /* barApiFastAll1: wall API ~2s (era 5.5s) — overlay lenti non tengono la barra forever */
+      /* profileSipFast1: su profilo wall più basso (shell già gated dal sipario) */
+      if (bootApisPending()) {
+        var wall = 2000;
+        try {
+          if (
+            document.documentElement.classList.contains("vc-user-profile-route") ||
+            document.documentElement.classList.contains("vc-user-profile-pending") ||
+            window.__vcProfileContentReady
+          ) {
+            wall = 900;
+          }
+        } catch (eWall) {}
+        return loadAgeMs() >= wall;
+      }
       return true;
     } catch (ePay) {
       return true;
@@ -1115,7 +1328,8 @@
   function canUnlockScroll() {
     try {
       if (!chromePayloadReady()) return false;
-      if (!cssBootReadyForUnlock() && loadAgeMs() < 2800) return false;
+      /* CSS sipario: unlock scroll non aspetta soft-fx oltre un soffio */
+      if (!cssBootReadyForUnlock() && loadAgeMs() < 600) return false;
       return true;
     } catch (eCan) {
       return true;
@@ -1138,11 +1352,13 @@
               window.__vcChromePayloadWait = 0;
               return;
             }
-            if (chromePayloadReady() || performance.now() - start > 2800) {
+            if (chromePayloadReady() || performance.now() - start > 2000) {
               window.__vcChromePayloadWait = 0;
               window.setTimeout(function () {
                 try {
-                  if (!window.__vcChromeLoadDone) finishLoad();
+                  if (!window.__vcChromeLoadDone && (chromePayloadReady() || !pageGateBusyLocal())) {
+                    finishLoad();
+                  }
                 } catch (eFinPoll) {}
               }, 0);
               return;
@@ -1151,12 +1367,12 @@
               setBar(0.92, true);
               applyBar();
             } catch (eBar) {}
-            window.requestAnimationFrame(poll);
+            scheduleUnlockPoll(poll);
           } catch (ePoll) {
             window.__vcChromePayloadWait = 0;
           }
         }
-        window.requestAnimationFrame(poll);
+        scheduleUnlockPoll(poll);
       }
     } catch (eReq) {
       try {
@@ -1192,34 +1408,54 @@
         });
         return;
       }
-      /* scrollLoadYoYoKill4: unlock già fatto → solo cleanup classi, ZERO scrollTo */
+      /* scrollLoadYoYoKill4 + chromeArmStuck1:
+         PtrRestoreDone/unlockOnce ≠ scroll armed. Su /user e profili view-state setta
+         restoreDone PRIMA → early-return lasciava gate click + overflow hidden forever. */
       if (window.__vcScrollUnlockOnce === 1 || window.__vcPtrRestoreDone === 1) {
+        var alreadyArmed = false;
         try {
-          var rootOnce = document.documentElement;
-          rootOnce.classList.remove(
-            "vc-chrome-bar-loading",
-            "vc-loading-scroll-lock",
-            "vc-boot-scroll-lock",
-            "vc-loader-blocking-live",
-            "vc-interaction-hold",
-            "vc-scroll-soft-lock",
-            "vc-scroll-reload-top-lock",
-            "vc-page-cine-boot",
-          );
-          var cssOnce = document.getElementById("vc-scroll-reload-top-lock-css");
-          if (cssOnce && cssOnce.parentNode) cssOnce.parentNode.removeChild(cssOnce);
-          if (document.body) {
-            document.body.style.removeProperty("position");
-            document.body.style.removeProperty("top");
-            document.body.style.removeProperty("inset");
-          }
-        } catch (eOnce) {}
-        /* loadBarFullReset1: early-return non deve lasciare scaleX del load */
-        try {
-          snapProgressBarToScroll("forceUnlockOnce");
-        } catch (eSnapOnce) {}
-        /* loadGateHold1: toast chiuso da auth-inject (linger), non qui */
-        return;
+          alreadyArmed =
+            window.__vcChromeScrollArmed === true &&
+            document.documentElement.classList.contains("vc-chrome-scroll-armed") &&
+            !document.documentElement.classList.contains("vc-chrome-bar-loading");
+        } catch (eArmChk) {
+          alreadyArmed = false;
+        }
+        if (alreadyArmed) {
+          try {
+            var rootOnce = document.documentElement;
+            rootOnce.classList.remove(
+              "vc-chrome-bar-loading",
+              "vc-loading-scroll-lock",
+              "vc-boot-scroll-lock",
+              "vc-loader-blocking-live",
+              "vc-interaction-hold",
+              "vc-scroll-soft-lock",
+              "vc-scroll-reload-top-lock",
+              "vc-page-cine-boot",
+            );
+            var cssOnce = document.getElementById("vc-scroll-reload-top-lock-css");
+            if (cssOnce && cssOnce.parentNode) cssOnce.parentNode.removeChild(cssOnce);
+            if (document.body) {
+              document.body.style.removeProperty("position");
+              document.body.style.removeProperty("top");
+              document.body.style.removeProperty("inset");
+              document.body.style.removeProperty("touch-action");
+              document.body.style.removeProperty("overflow");
+              document.body.style.removeProperty("overflow-y");
+            }
+            rootOnce.style.removeProperty("overflow");
+            rootOnce.style.removeProperty("overflow-y");
+          } catch (eOnce) {}
+          try {
+            snapProgressBarToScroll("forceUnlockOnce");
+          } catch (eSnapOnce) {}
+          try {
+            ensureLoadClickGate();
+          } catch (eGateOnce) {}
+          return;
+        }
+        /* non armato: fall through al path completo (arma scroll + spegne gate) */
       }
       if (
         why0 === "pwaOrphan" ||
@@ -1253,12 +1489,12 @@
         why0.indexOf("failsafeHard") === 0 ||
         why0.indexOf("failsafe4500") === 0 ||
         why0.indexOf("+ready") !== -1;
-      /* barPostSip1: failsafeHard non chiude barra se API ancora pending (<6s) */
+      /* barApiFastAll1: failsafeHard aspetta API solo ~2.2s (era 6s) */
       if (
         hard &&
         why0.indexOf("failsafeHard") === 0 &&
         bootApisPending() &&
-        loadAgeMs() < 6000
+        loadAgeMs() < 2200
       ) {
         hard = false;
       }
@@ -1271,20 +1507,20 @@
         } catch (eDisWait) {}
         if (pageScrollAlreadyOpen()) {
           /* loadSyncPack1: sipario già aperto ma API ancora pending → tieni lock, aspetta */
-          if (bootApisPending() && loadAgeMs() < 6000) {
+          if (bootApisPending() && loadAgeMs() < 2200) {
             if (!window.__vcChromeUnlockWait) {
               window.__vcChromeUnlockWait = 1;
               var waitStartOpen = performance.now();
               (function waitPendingClear() {
                 try {
-                  if (!bootApisPending() || performance.now() - waitStartOpen > 6000) {
+                  if (!bootApisPending() || performance.now() - waitStartOpen > 2200) {
                     window.__vcChromeUnlockWait = 0;
                     forceUnlockChromeScroll(
                       !bootApisPending() ? (why0 + "+pendingCleared") : (why0 + "+readyTimeout")
                     );
                     return;
                   }
-                  window.requestAnimationFrame(waitPendingClear);
+                  scheduleUnlockPoll(waitPendingClear);
                 } catch (eWaitOpen) {
                   window.__vcChromeUnlockWait = 0;
                 }
@@ -1341,8 +1577,8 @@
                 forceUnlockChromeScroll(why0 + "+siparioOpen");
                 return;
               }
-              /* loadSyncPack1: extend soft-wait to match chromePayloadReady 6s cap */
-              if (canUnlockScroll() || performance.now() - waitStart > 6000) {
+              /* barApiFastAll1: soft-wait allineato al wall API ~2s */
+              if (canUnlockScroll() || performance.now() - waitStart > 2200) {
                 window.__vcChromeUnlockWait = 0;
                 forceUnlockChromeScroll(why0 + (canUnlockScroll() ? "+ready" : "+readyTimeout"));
                 return;
@@ -1361,12 +1597,12 @@
                   applyBar();
                 }
               } catch (eBarWait) {}
-              window.requestAnimationFrame(waitSheets);
+              scheduleUnlockPoll(waitSheets);
             } catch (eWait) {
               window.__vcChromeUnlockWait = 0;
             }
           }
-          window.requestAnimationFrame(waitSheets);
+          scheduleUnlockPoll(waitSheets);
         }
         return;
       }
@@ -1473,14 +1709,39 @@
       var restorePendingShort = false;
       try {
         /* homeBootFix2: homepage sempre TOP a unlock */
+        /* legalBootTop1: policy pages mai mid da session a fine boot */
+        var unlockPath =
+          String(window.location.pathname || "").replace(/\/+$/, "") || "/";
         var unlockHome =
-          (String(window.location.pathname || "").replace(/\/+$/, "") || "/") === "/" ||
+          unlockPath === "/" ||
           (document.body && document.body.classList.contains("vc-body--home"));
-        if (unlockHome) {
+        var unlockLegal =
+          /^\/(privacy|terms|cookie|copyright|dati|regole)$/i.test(unlockPath) ||
+          (document.body && document.body.classList.contains("vc-legal-page"));
+        /* bootNoJumpNav1: link/navigate fresco → TOP (no Y da visita precedente in sessionStorage) */
+        var unlockReloadOrBf = false;
+        try {
+          var navU =
+            performance.getEntriesByType && performance.getEntriesByType("navigation");
+          if (navU && navU[0] && navU[0].type) {
+            unlockReloadOrBf =
+              navU[0].type === "reload" || navU[0].type === "back_forward";
+          } else if (performance.navigation) {
+            var ntU = Number(performance.navigation.type);
+            unlockReloadOrBf = ntU === 1 || ntU === 2;
+          }
+        } catch (eNavU) {
+          unlockReloadOrBf = false;
+        }
+        try {
+          if (sessionStorage.getItem("vc_ptr_reload_v1") === "1") unlockReloadOrBf = true;
+        } catch (ePtrU) {}
+        if (unlockHome || unlockLegal || !unlockReloadOrBf) {
           window.__vcDiscardScrollRestore = 1;
           window.__vcPtrRestoreY = 0;
           window.__vcViewStateRestoreY = 0;
           window.__vcPtrRestoreTargetY = 0;
+          window.__vcRestoredScrollStickyY = 0;
           wantUnlockY = 0;
         } else if (window.__vcDiscardScrollRestore === 1) {
           wantUnlockY = 0;
@@ -1556,13 +1817,7 @@
       } catch (eWant) {
         wantUnlockY = 0;
       }
-      try {
-        window.__vcTopPinActive = 0;
-        root.classList.remove("vc-scroll-reload-top-lock");
-        var topCss = document.getElementById("vc-scroll-reload-top-lock-css");
-        if (topCss && topCss.parentNode) topCss.parentNode.removeChild(topCss);
-      } catch (eTopLock) {}
-      /* bootNoJumpLoad2: Y=0 PRIMA e DOPO rimozione body:fixed (altrimenti jump sessione) */
+      /* refreshRestoreEnd1: tieni top-lock fino al scrollTo unico (no flash Y→0→Y) */
       window.__vcChromeVisualReady = 1;
       try {
         var ySnap = wantUnlockY >= 2 ? wantUnlockY : 0;
@@ -1621,8 +1876,9 @@
             window.__vcBootScrollGuardsKilled === true ||
             (root && root.classList && root.classList.contains("vc-chrome-scroll-armed")) ||
             (root && root.classList && root.classList.contains("vc-page-cine-ready"));
-          /* midScrollYankKill1 + refreshNoFooterJump1:
-             live mid vince su discard SOLO se non è flash fondo (session/unfixed). */
+          /* bootMidFlashKill1 + midScrollYankKill1 + refreshNoFooterJump1:
+             live mid vince su discard SOLO con gesture reale / reload restore —
+             mai session flash su navigate fresco. */
           var unlockMaxY = 0;
           try {
             var deU = document.documentElement;
@@ -1645,17 +1901,28 @@
             }
             return false;
           }
-          if (liveY >= 8 && !looksLikeBottomFlash(liveY)) {
+          var allowLiveMid =
+            vcHasRealScrollGesture() ||
+            (!discardY && !vcIsFreshNavigate()) ||
+            (!discardY && pageAlreadyOpen && window.__vcUserScrolledAway === 1);
+          if (allowLiveMid && liveY >= 8 && !looksLikeBottomFlash(liveY)) {
             ySnap = liveY;
             try {
               window.__vcUserScrolledAway = 1;
             } catch (eMark2) {}
-          } else if (!discardY && pageAlreadyOpen && liveBeforePin >= 8 && !looksLikeBottomFlash(liveBeforePin)) {
+          } else if (
+            allowLiveMid &&
+            !discardY &&
+            pageAlreadyOpen &&
+            liveBeforePin >= 8 &&
+            !looksLikeBottomFlash(liveBeforePin)
+          ) {
             ySnap = liveBeforePin;
+          } else if (discardY || (vcIsFreshNavigate() && !vcHasRealScrollGesture())) {
+            ySnap = 0;
           }
         }
-        /* midScrollYankKill1: mai forzare 0 se live già mid (salvo flash footer).
-           bootNoJumpFooter1: niente __vcCachedScrollY qui (stale → fondo). */
+        /* bootMidFlashKill1: su discard/navigate fresco resta 0; mid solo gesture/reload. */
         if (ySnap < 2) {
           var keepMid = Math.max(0, liveBeforePin);
           var keepMaxY = 0;
@@ -1673,12 +1940,18 @@
             keepMaxY >= 80 &&
             keepMid >= keepMaxY - 48 &&
             (window.__vcDiscardScrollRestore === 1 || wantUnlockY < 2);
-          if (!keepIsFlash && (keepMid >= 8 || window.__vcUserScrolledAway === 1)) {
+          var keepAllowed =
+            !keepIsFlash &&
+            (vcHasRealScrollGesture() ||
+              (!vcIsFreshNavigate() && !window.__vcDiscardScrollRestore) ||
+              (window.__vcUserScrolledAway === 1 && window.__vcScrollUnlockOnce === 1));
+          if (keepAllowed && (keepMid >= 8 || window.__vcUserScrolledAway === 1)) {
             ySnap = keepMid >= 8 ? keepMid : Math.max(liveBeforePin, 0);
           }
         }
-        /* scrollLoadYoYoKill4 + refreshScrollRestore1:
-           UN scrollTo con top-lock; se restore ancora pending (doc corto) NON segnare Done. */
+        /* refreshRestoreEnd1 + scrollLoadYoYoKill4:
+           UN scrollTo, poi togli top-lock; se restore pending (doc corto) NON Done. */
+        window.__vcTopPinActive = 0;
         window.scrollTo(0, ySnap);
         if (document.documentElement) document.documentElement.scrollTop = ySnap;
         if (document.body) document.body.scrollTop = ySnap;
@@ -1825,6 +2098,36 @@
     } catch (eForce) {}
   }
   window.__vcForceUnlockChromeScroll = forceUnlockChromeScroll;
+  /* siparioBarSync1: arm stuck solo DOPO barra full — no failsafeHard a metà */
+  try {
+    if (!window.__vcChromeArmStuckUiWatch) {
+      window.__vcChromeArmStuckUiWatch = 1;
+      var armUiN = 0;
+      var armUiIv = window.setInterval(function () {
+        armUiN += 1;
+        try {
+          if (window.__vcChromeScrollArmed === true) {
+            window.clearInterval(armUiIv);
+            return;
+          }
+          if (
+            window.__vcChromeLoadDone === true &&
+            window.__vcLoadBarFullPainted &&
+            !window.__vcLoadBarCompleting
+          ) {
+            forceUnlockChromeScroll(
+              armUiN >= 30 ? "failsafeHard+armStuckUi" : "armStuck+afterFull"
+            );
+          }
+        } catch (eArmUi) {}
+        if (armUiN >= 60) {
+          try {
+            window.clearInterval(armUiIv);
+          } catch (eClrUi) {}
+        }
+      }, 400);
+    }
+  } catch (eArmUiArm) {}
 
   function el(tag, id) {
     var n = document.createElement(tag);
@@ -1903,21 +2206,50 @@
   }
 
   function mountCursorLight() {
-    if (NO_CURSOR) return null;
-    var light = document.getElementById("vc-site-cursor-light");
-    if (!light) {
-      light = el("div", "vc-site-cursor-light");
-      light.setAttribute("aria-hidden", "true");
-      (document.body || document.documentElement).appendChild(light);
-    }
+    /* cursorBackSip1: kill alone glow; PNG cursor resta via vc-site-cursor-ok */
     try {
-      var legacy = document.getElementById("vc-site-cursor-light-critical");
-      if (legacy && legacy.parentNode) legacy.parentNode.removeChild(legacy);
-    } catch (eLeg) {}
-    try {
-      light.style.cssText = "";
-    } catch (eClr) {}
-    return light;
+      var killIds = ["vc-site-cursor-light", "vc-site-cursor-light-critical", "vc-cursor-lag-pin"];
+      for (var ki = 0; ki < killIds.length; ki += 1) {
+        var node = document.getElementById(killIds[ki]);
+        if (node && node.parentNode) node.parentNode.removeChild(node);
+      }
+      var pinOff = document.getElementById("vc-cursor-glow-off-css");
+      if (!pinOff) {
+        pinOff = document.createElement("style");
+        pinOff.id = "vc-cursor-glow-off-css";
+        pinOff.setAttribute("data-vc", "cursorBackSip1");
+        pinOff.textContent =
+          "#vc-site-cursor-light,#vc-site-cursor-light-critical," +
+          "html.vc-site-cursor-on #vc-site-cursor-light," +
+          "html body.vc-body #vc-site-cursor-light{" +
+          "display:none!important;opacity:0!important;visibility:hidden!important;" +
+          "pointer-events:none!important;transform:translate3d(-9999px,-9999px,0)!important}" +
+          /* glow-off solo se NON c'è PNG cursor-ok */
+          "html.vc-site-cursor-glow-off:not(.vc-site-cursor-ok)," +
+          "html.vc-site-cursor-glow-off:not(.vc-site-cursor-ok) body," +
+          "html.vc-site-cursor-glow-off:not(.vc-site-cursor-ok) *{" +
+          "cursor:auto!important}" +
+          "html.vc-site-cursor-glow-off:not(.vc-site-cursor-ok) a," +
+          "html.vc-site-cursor-glow-off:not(.vc-site-cursor-ok) button," +
+          "html.vc-site-cursor-glow-off:not(.vc-site-cursor-ok) [role=button]," +
+          "html.vc-site-cursor-glow-off:not(.vc-site-cursor-ok) summary," +
+          "html.vc-site-cursor-glow-off:not(.vc-site-cursor-ok) label[for]," +
+          "html.vc-site-cursor-glow-off:not(.vc-site-cursor-ok) select{" +
+          "cursor:pointer!important}";
+        (document.head || document.documentElement).appendChild(pinOff);
+      }
+      try {
+        var coarseMount =
+          window.matchMedia &&
+          window.matchMedia("(hover: none) and (pointer: coarse)").matches &&
+          !(window.matchMedia("(pointer: fine)").matches);
+        if (!coarseMount) {
+          document.documentElement.classList.add("vc-site-cursor-ok");
+          document.documentElement.classList.remove("vc-site-cursor-glow-off");
+        }
+      } catch (eCurOk) {}
+    } catch (eKillGlow) {}
+    return null;
   }
 
   var sampleMaxScrollTimer = 0;
@@ -2223,6 +2555,7 @@
         scheduleSampleMaxScroll(false);
       }
       /* backTopPhoneShow1: soglia 2.75×vh uccideva il fab su phone (pagine ~1.5×vh) */
+      /* backTopPcLate1: desktop — solo pagine davvero lunghe; appare dopo ~1.5–2 vh scroll */
       var phoneUi = false;
       try {
         phoneUi =
@@ -2231,12 +2564,22 @@
       } catch (ePh) {}
       var pageTallEnough = phoneUi
         ? maxScroll >= Math.max(160, vh * 0.35)
-        : maxScroll >= Math.max(420, vh * 1.15);
+        : maxScroll >= Math.max(1600, vh * 2.75);
       var scrolledFar = phoneUi
         ? y > Math.max(140, Math.min(320, vh * 0.42))
-        : y > Math.max(360, vh * 0.7);
+        : y > Math.max(1100, vh * 1.65);
       var btn = document.getElementById("vc-site-back-top");
-      if (btn) btn.classList.toggle("is-on", pageTallEnough && scrolledFar);
+      if (btn) {
+        var sheetOpen = false;
+        try {
+          var root = document.documentElement;
+          sheetOpen =
+            root.classList.contains("vc-notif-sheet-open") ||
+            root.classList.contains("vc-notif-drawer-open");
+        } catch (eSh) {}
+        /* backTopSheetHide1: no freccia sopra lo sheet notifiche */
+        btn.classList.toggle("is-on", !sheetOpen && pageTallEnough && scrolledFar);
+      }
     } catch (eS) {}
   }
 
@@ -2250,8 +2593,12 @@
   function barLoop() {
     barRaf = 0;
     try {
-      if (document.hidden) {
+      if (pageIsBg()) {
         applyBar();
+        /* loadBgContinue1: durante load non spegnere il loop in background */
+        if (loadingBar || !window.__vcChromeLoadDone || window.__vcLoadBarCompleting) {
+          barRaf = window.setTimeout(barLoop, 200);
+        }
         return;
       }
       var ts = performance.now();
@@ -2318,7 +2665,7 @@
         barRaf = window.setTimeout(barLoop, 16);
       }
     } catch (eL) {
-      if (!document.hidden) barRaf = window.setTimeout(barLoop, 16);
+      barRaf = window.setTimeout(barLoop, pageIsBg() ? 200 : 16);
     }
   }
 
@@ -2342,11 +2689,8 @@
       );
       window.__vcCachedScrollY = liveY;
       pendingScrollTop = liveY;
-      /* refreshNoFooterJump1: pre-unlock Y alto = session flash, non gesture */
-      if (
-        liveY >= 24 &&
-        (window.__vcChromeVisualReady === 1 || window.__vcScrollUnlockOnce === 1)
-      ) {
+      /* bootMidFlashKill1: mid = userAway solo DOPO unlock (pre-unlock mid = session flash) */
+      if (liveY >= 24 && window.__vcScrollUnlockOnce === 1) {
         try {
           window.__vcUserScrolledAway = 1;
         } catch (eAway) {}
@@ -2416,7 +2760,7 @@
         function pollSheets() {
           try {
             if (window.__vcChromeLoadDone) return;
-            if (chromePayloadReady() || performance.now() - finStart > 2800) {
+            if (chromePayloadReady() || performance.now() - finStart > 2000) {
               window.__vcChromeFinishWait = 0;
               finishLoad();
               return;
@@ -2425,12 +2769,12 @@
               setBar(0.96, true);
               applyBar();
             } catch (eKeep) {}
-            window.requestAnimationFrame(pollSheets);
+            scheduleUnlockPoll(pollSheets);
           } catch (ePoll) {
             window.__vcChromeFinishWait = 0;
           }
         }
-        window.requestAnimationFrame(pollSheets);
+        scheduleUnlockPoll(pollSheets);
       }
       return;
     }
@@ -2444,13 +2788,13 @@
       return;
     }
     window.__vcChromeLoadDone = true;
+    try {
+      if (!window.__vcChromeLoadDoneAt) window.__vcChromeLoadDoneAt = Date.now();
+    } catch (eDoneAt) {}
     window.__vcChromeFinishWait = 0;
     window.__vcLoadBarCompleting = 0;
     try {
-      if (loadRaf) {
-        window.cancelAnimationFrame(loadRaf);
-        loadRaf = 0;
-      }
+      clearLoadTick();
     } catch (eT) {}
     /* bootCoherentFast1: segnale per presence/API post-barra */
     try {
@@ -2479,8 +2823,24 @@
         if (sweep >= 8) window.clearInterval(sweepId);
       }, 250);
     } catch (eFin) {}
+    /* toastHoldAll1: unlock scroll solo a gate idle (API/loader possono continuare post-barra) */
     try {
-      forceUnlockChromeScroll("finishLoad+ready");
+      var unlockTries = 0;
+      var unlockWhenIdle = function () {
+        unlockTries += 1;
+        try {
+          if (pageGateBusyLocal() && unlockTries < 80) {
+            window.setTimeout(unlockWhenIdle, 200);
+            return;
+          }
+          forceUnlockChromeScroll("finishLoad+gateIdle");
+        } catch (eUnlockIdle) {
+          try {
+            forceUnlockChromeScroll("finishLoad+ready");
+          } catch (eForceFin2) {}
+        }
+      };
+      unlockWhenIdle();
     } catch (eForceFin) {
       window.__vcChromeScrollArmed = true;
       try {
@@ -2553,8 +2913,8 @@
                 Number((document.documentElement && document.documentElement.scrollTop) || 0),
               ),
             );
-            /* loadGateOnce1 + midScrollYankKill1: se utente mid, non yank a 0 */
-            if (liveKeep >= 8 || window.__vcUserScrolledAway === 1) {
+            /* bootMidFlashKill1: discard → top salvo gesture reale */
+            if (vcHasRealScrollGesture() && (liveKeep >= 8 || window.__vcUserScrolledAway === 1)) {
               /* keep */
             } else {
               window.scrollTo(0, 0);
@@ -2689,9 +3049,10 @@
       document.documentElement.classList.contains("vc-look-core-ready");
     /* barOneShot1: min da stubPct→hold (niente jump indietro / finish istantaneo) */
     var startPct = Math.max(0.14, Math.min(0.9, stubPct));
-    var baseMin = sheetsGo ? (baked ? 280 : 400) : baked ? 360 : 520;
+    /* barApiFastAll1: anim barra più corta (era *1100 / base 280–520) */
+    var baseMin = sheetsGo ? (baked ? 160 : 240) : baked ? 220 : 320;
     var remainFrac = Math.max(0.12, 0.92 - startPct);
-    var MIN_BAR_MS = Math.max(baseMin, Math.round(remainFrac * 1100));
+    var MIN_BAR_MS = Math.max(baseMin, Math.round(remainFrac * 700));
     armLoadFreeze();
     setBar(startPct, true);
     try {
@@ -2726,9 +3087,22 @@
         };
       }
     } catch (eHold) {}
+    /* profileSipFast1: sipario lift può chiedere finish immediato della barra */
+    try {
+      window.__vcRequestChromeFinish = function (why) {
+        try {
+          requestFinishWhenReady(String(why || "ext"));
+        } catch (eReqFin) {
+          try {
+            if (!window.__vcChromeLoadDone) finishLoad();
+          } catch (eFin) {}
+        }
+      };
+    } catch (eExpFin) {}
 
     function tickLoad(now) {
       loadRaf = 0;
+      loadTickIsTimeout = false;
       if (window.__vcChromeLoadDone) return;
       /* loadBarFullReset3: stop tick mentre/dopo paint full */
       if (window.__vcLoadBarCompleting || window.__vcLoadBarFullPainted) return;
@@ -2753,21 +3127,21 @@
       try {
         applyBar();
       } catch (eApply) {}
-      loadRaf = window.requestAnimationFrame(tickLoad);
+      scheduleLoadTick(tickLoad);
     }
-    loadRaf = window.requestAnimationFrame(tickLoad);
+    scheduleLoadTick(tickLoad);
 
     function finishAfterMin() {
       var need = Math.max(0, MIN_BAR_MS - (performance.now() - loadStart));
       var at = performance.now() + need;
       function waitMin(now) {
         if ((now || performance.now()) < at) {
-          window.requestAnimationFrame(waitMin);
+          scheduleLoadTick(waitMin);
           return;
         }
         requestFinishWhenReady("afterMin");
       }
-      window.requestAnimationFrame(waitMin);
+      scheduleLoadTick(waitMin);
     }
     window.setTimeout(function () {
       try {
@@ -2786,8 +3160,8 @@
           return !window.__vcChromeScrollArmed;
         }
       }
-      var fs1 = baked ? 1100 : 1400;
-      var fs2 = baked ? 1700 : 2000;
+      var fs1 = baked ? 700 : 900;
+      var fs2 = baked ? 1100 : 1300;
       window.setTimeout(function () {
         try {
           if (stillBarLocked() && !window.__vcChromeLoadDone) requestFinishWhenReady("fs1");
@@ -2801,10 +3175,10 @@
       window.setTimeout(function () {
         try {
           if (stillBarLocked() || !window.__vcChromeVisualReady) {
-            forceUnlockChromeScroll("failsafeHard2800");
+            forceUnlockChromeScroll("failsafeHard1800");
           }
         } catch (e3) {}
-      }, 2800);
+      }, 1800);
     } catch (eArmFs) {}
 
     try {
@@ -2818,86 +3192,165 @@
           requestFinishWhenReady("emoji-boot");
         } catch (eEv2) {}
       });
+      /* loadBgContinue1: torna in FG → riprendi barra + finish se load ancora aperto */
+      document.addEventListener(
+        "visibilitychange",
+        function () {
+          try {
+            if (pageIsBg()) return;
+            ensureBarLoop();
+            if (!window.__vcChromeLoadDone) {
+              scheduleLoadTick(function () {
+                try {
+                  requestFinishWhenReady("visResume");
+                } catch (eRes) {}
+              });
+            }
+          } catch (eVisLoad) {}
+        },
+        false,
+      );
     } catch (eLisAuth) {}
   }
 
   function armCursor(light) {
     if (!light || NO_CURSOR) return;
+    if (light.__vcCursorLagArmed2) return;
+    light.__vcCursorLagArmed2 = 1;
     var root = document.documentElement;
-    var HALF = 120; /* cursorGlowRestore1: match 240px glow */
+    /* cursorLagFix2: 120px — meno paint/composite vs 180/240 */
+    var HALF = 60;
     var on = false;
     var lastX = -99999;
     var lastY = -99999;
+    var pendingX = 0;
+    var pendingY = 0;
+    var raf = 0;
 
-    /* cursorSync1: zero transition su transform (evita alone che “insegue” il cursore) */
     try {
-      light.style.setProperty("transition", "opacity 0.1s ease", "important");
-      light.style.setProperty("transition-property", "opacity", "important");
-      light.style.setProperty("will-change", "transform", "important");
+      /* pin last-wins vs shell 240px / soft-fx */
+      var pin = document.getElementById("vc-cursor-lag-pin");
+      if (!pin) {
+        pin = document.createElement("style");
+        pin.id = "vc-cursor-lag-pin";
+        (document.body || document.documentElement).appendChild(pin);
+      }
+      pin.setAttribute("data-vc", "cursorLagFix2");
+      pin.textContent =
+        "html body.vc-body #vc-site-cursor-light," +
+        "html.vc-site-polish body.vc-body #vc-site-cursor-light," +
+        "#vc-site-cursor-light{" +
+        "width:120px!important;height:120px!important;" +
+        "transition:none!important;transition-property:none!important;" +
+        "filter:none!important;-webkit-filter:none!important;" +
+        "mix-blend-mode:normal!important;box-shadow:none!important;" +
+        "will-change:transform!important;contain:strict!important;" +
+        "background:radial-gradient(circle at 50% 50%," +
+        "rgba(236,205,176,.28) 0%,rgba(212,168,136,.12) 42%,transparent 70%)!important}";
+      try {
+        (document.body || document.documentElement).appendChild(pin);
+      } catch (ePinMount) {}
+    } catch (ePin) {}
+
+    try {
+      light.style.cssText =
+        "position:fixed!important;top:0!important;left:0!important;" +
+        "width:120px!important;height:120px!important;margin:0!important;" +
+        "border-radius:50%!important;pointer-events:none!important;" +
+        "z-index:2147480500!important;opacity:0!important;visibility:hidden!important;" +
+        "display:block!important;transition:none!important;" +
+        "filter:none!important;mix-blend-mode:normal!important;box-shadow:none!important;" +
+        "will-change:transform!important;contain:strict!important;" +
+        "transform:translate3d(-9999px,-9999px,0);" +
+        "background:radial-gradient(circle at 50% 50%," +
+        "rgba(236,205,176,.28) 0%,rgba(212,168,136,.12) 42%,transparent 70%)!important";
     } catch (eTr) {}
 
     function place(px, py) {
       try {
         light.style.transform =
-          "translate3d(" + (px - HALF).toFixed(2) + "px," + (py - HALF).toFixed(2) + "px,0)";
+          "translate3d(" + ((px - HALF) | 0) + "px," + ((py - HALF) | 0) + "px,0)";
       } catch (eV) {}
     }
 
-    function wake(cx, cy) {
-      if (typeof cx !== "number" || typeof cy !== "number") return;
-      if (!Number.isFinite(cx) || !Number.isFinite(cy)) return;
-      /* cursorSync1: apply IMMEDIATO — niente rAF (1+ frame di ritardo) */
-      if (Math.abs(cx - lastX) < 0.15 && Math.abs(cy - lastY) < 0.15 && on) return;
-      lastX = cx;
-      lastY = cy;
-      place(cx, cy);
+    function flush() {
+      raf = 0;
       if (!on) {
         on = true;
-        root.classList.add("vc-site-cursor-on");
         try {
-          light.style.removeProperty("opacity");
-          light.style.removeProperty("visibility");
-          light.style.removeProperty("display");
+          root.classList.remove("vc-site-cursor-on");
+        } catch (eRm) {}
+        try {
+          light.style.opacity = "1";
+          light.style.visibility = "visible";
         } catch (eOn) {}
       }
+      place(pendingX, pendingY);
     }
 
     function sleepLight() {
       on = false;
       lastX = -99999;
       lastY = -99999;
-      root.classList.remove("vc-site-cursor-on");
+      if (raf) {
+        try {
+          window.cancelAnimationFrame(raf);
+        } catch (eC) {}
+        raf = 0;
+      }
+      try {
+        root.classList.remove("vc-site-cursor-on");
+      } catch (eRm2) {}
       try {
         light.style.transform = "translate3d(-9999px,-9999px,0)";
-        /* idleGifGlowFix1: force hide — soft-fx opacity:1!important può vincere se class resta */
-        light.style.setProperty("opacity", "0", "important");
-        light.style.setProperty("visibility", "hidden", "important");
-        light.style.setProperty("display", "none", "important");
+        light.style.opacity = "0";
+        light.style.visibility = "hidden";
       } catch (eOff) {}
     }
 
     function onMove(e) {
       try {
         if (document.hidden || document.visibilityState === "hidden") return;
-        if (document.documentElement.classList.contains("vc-page-hidden")) return;
+        if (root.classList.contains("vc-page-hidden")) return;
+        if (root.classList.contains("vc-cpu-settle")) return;
+        if (root.classList.contains("vc-site-cpu-soft")) {
+          if (on) sleepLight();
+          return;
+        }
       } catch (eIdle) {}
       try {
-        if (e.pointerType && e.pointerType !== "mouse" && e.pointerType !== "pen" && e.pointerType !== "") {
+        if (
+          e.pointerType &&
+          e.pointerType !== "mouse" &&
+          e.pointerType !== "pen" &&
+          e.pointerType !== ""
+        ) {
           return;
         }
       } catch (ePt) {}
-      /* idleGifGlowFix1: in cpu-settle ignora move — glow spento finché bustle */
-      try {
-        if (document.documentElement.classList.contains("vc-cpu-settle")) return;
-      } catch (eSetIgn) {}
-      wake(e.clientX, e.clientY);
+      var cx = e.clientX;
+      var cy = e.clientY;
+      if (typeof cx !== "number" || typeof cy !== "number") return;
+      if (!Number.isFinite(cx) || !Number.isFinite(cy)) return;
+      if (on && Math.abs(cx - lastX) < 1.5 && Math.abs(cy - lastY) < 1.5) return;
+      lastX = cx;
+      lastY = cy;
+      pendingX = cx;
+      pendingY = cy;
+      /* cursorLagFix2: 1 apply/frame — sotto carico non accoda N style.write */
+      if (!raf) {
+        try {
+          raf = window.requestAnimationFrame(flush);
+        } catch (eRaf) {
+          flush();
+        }
+      }
     }
 
     function onVis() {
       if (document.hidden) sleepLight();
     }
 
-    /* idleGifGlowFix1: idle settle → spegni glow (cursorSync1 lo teneva acceso) */
     try {
       document.addEventListener("vc:cpu-sleep", sleepLight, false);
       document.addEventListener("vc:cpu-settle", sleepLight, false);
@@ -2996,23 +3449,55 @@
     } catch (eHideSb) {}
   }
 
+  function isLegalChromeLite() {
+    try {
+      if (window.__vcLegalLiteChrome) return true;
+      return /\/(privacy|terms|cookie|copyright|dati|regole)(\/|$)/i.test(
+        String(location.pathname || "/"),
+      );
+    } catch (eL) {
+      return false;
+    }
+  }
+
+  function bootLegalLiteBrandStill() {
+    /* legalPerfPack1: solo still logo — no IO/MO/GIF storm */
+    try {
+      var STILL = "/images/og-server-icon-still.png?v=20261006perfLogoStill1";
+      var imgs = document.querySelectorAll(
+        "img.vc-premium-footer__logo-img, header img.vc-brand-logo, .vc-header-logo img, img[src*='og-server-icon']",
+      );
+      for (var i = 0; i < imgs.length; i++) {
+        try {
+          var im = imgs[i];
+          if (!im || /still/i.test(String(im.getAttribute("src") || ""))) continue;
+          im.setAttribute("src", STILL);
+        } catch (eImg) {}
+      }
+    } catch (eStill) {}
+  }
+
   function boot() {
     if (!document.body) {
       document.addEventListener("DOMContentLoaded", boot, { once: true });
       return;
     }
     ensureFooterSocialMetal();
+    var legalLite = isLegalChromeLite();
     if (window.__vcChromeUiBooted) {
       try {
         if (window.__VC_SITE_CHROME_UI_VER !== VER) {
-          /* userMqLive2: re-arm marquee/MO dopo bump VER (stesso file stampato) */
           window.__vcUiGpuSoftArmed = 0;
           window.__vcNavUserMqMo = 0;
           window.__vcNavUserMqWatch = 0;
           window.__vcNavUserMqBgArm = 0;
-          armUiGpuSoft();
+          if (!legalLite) armUiGpuSoft();
+          else bootLegalLiteBrandStill();
         }
       } catch (eRe) {}
+      try {
+        armPromoDotHoverThaw();
+      } catch (ePromoRe) {}
       window.__VC_SITE_CHROME_UI_VER = VER;
       try {
         injectHideScrollbarCss();
@@ -3033,13 +3518,21 @@
       };
       document.addEventListener("vc:soft-fx-ready", pinOnce, { once: true });
       document.addEventListener("vc:chrome-load-done", pinOnce, { once: true });
-      setTimeout(pinOnce, 1200);
+      setTimeout(pinOnce, legalLite ? 400 : 1200);
     } catch (ePinSb) {}
     mountProgress();
     mountBackTop();
-    armCursor(mountCursorLight());
+    /* legalPerfPack1: no cursor glow/PNG + no GPU soft storm su policy */
+    if (!legalLite) {
+      armCursor(mountCursorLight());
+      armUiGpuSoft();
+    } else {
+      bootLegalLiteBrandStill();
+    }
     armLoadProgress();
-    armUiGpuSoft();
+    try {
+      armPromoDotHoverThaw();
+    } catch (ePromoArm) {}
     window.addEventListener("scroll", onScroll, { passive: true });
     window.addEventListener("resize", onScroll, { passive: true });
     try {
@@ -3048,6 +3541,53 @@
     window.__VC_SITE_CHROME_UI_VER = VER;
   }
 
+  /* marquee404Fix1c: fuori da __vcUiGpuSoftArmed — altrimenti stamp nuovi non legano hover */
+  function armPromoDotHoverThaw() {
+    var ARM = "marquee404Fix1c";
+    if (window.__vcPromoDotHoverThaw === ARM) return;
+    window.__vcPromoDotHoverThaw = ARM;
+    document.addEventListener(
+      "pointerover",
+      function (ev) {
+        try {
+          if (document.hidden) return;
+          var promo = ev.target && ev.target.closest && ev.target.closest("#vc-header-promo-btn");
+          if (!promo) return;
+          var dot = promo.querySelector(".vc-header-promo-btn__dot");
+          if (!dot || !dot.style) return;
+          dot.style.removeProperty("animation-play-state");
+          dot.style.removeProperty("-webkit-animation-play-state");
+          dot.style.setProperty("animation-name", "vc-header-promo-dot-pulse", "important");
+          dot.style.setProperty("animation-duration", "1.6s", "important");
+          dot.style.setProperty("animation-iteration-count", "infinite", "important");
+          dot.style.setProperty("animation-play-state", "running", "important");
+          dot.style.setProperty("-webkit-animation-play-state", "running", "important");
+        } catch (eH) {}
+      },
+      true,
+    );
+    document.addEventListener(
+      "pointerout",
+      function (ev) {
+        try {
+          var promo = ev.target && ev.target.closest && ev.target.closest("#vc-header-promo-btn");
+          if (!promo) return;
+          var rel = ev.relatedTarget;
+          if (rel && promo.contains && promo.contains(rel)) return;
+          var dot = promo.querySelector(".vc-header-promo-btn__dot");
+          if (!dot || !dot.style) return;
+          dot.style.removeProperty("animation-play-state");
+          dot.style.removeProperty("-webkit-animation-play-state");
+          dot.style.removeProperty("animation-name");
+          dot.style.removeProperty("animation-duration");
+          dot.style.removeProperty("animation-iteration-count");
+        } catch (eO) {}
+      },
+      true,
+    );
+  }
+
+  /* brandLogoStillAlways1: brand logo always still (GIF = CPU/wake storm). */
   /* cpuThrashOff1 + cpuAnimSoft1: GIF restano dove si vedono.
      Offscreen (footer) ? still; tab hidden ? still; niente MO/kick.
      Nav blur morto tolto in vc-perf injectTouchPerfCss. */
@@ -3093,7 +3633,7 @@
       return /og-server-icon\.(gif|png|webp)/i.test(s);
     }
 
-    /* brandLogoGifEverywhere1: logo server GIF ovunque (header/footer/drawer) — mai still per cpu-soft */
+    /* brandLogoStillAlways1: logo server SEMPRE still (GIF 1.4MB = ~100% CPU + wake storms) */
     function isBrandLogo(img) {
       return isLogo(img);
     }
@@ -3107,9 +3647,22 @@
     }
 
     function wantStill(img) {
-      /* fgRevertBgOnly1: brand GIF dopo arm; still solo hidden/offscreen */
-      if (isBrandLogo(img) && !brandGifArmed) return true;
-      if (isBrandLogo(img)) return false;
+      /* cpuHoverIdle1 + homeHoverMq1b: brand/discord still di default; GIF su hover
+         (hover batte anche prefers-reduced-motion — altrimenti effetto “morto”) */
+      if (isBrandLogo(img) || isDiscord(img)) {
+        if (document.hidden) return true;
+        if (inClosedDrawer(img)) return true;
+        try {
+          if (img.__vcBrandHover) return false;
+          if (img.getAttribute && img.getAttribute("data-vc-brand-hover") === "1") return false;
+        } catch (eHov) {}
+        try {
+          if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+            return true;
+          }
+        } catch (eRmB) {}
+        return true;
+      }
       if (document.hidden) return true;
       try {
         if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
@@ -3118,7 +3671,6 @@
       } catch (eRm) {}
       if (inClosedDrawer(img)) return true;
       try {
-        /* emoji Discord login: still su soft / tickets / PWA nuke */
         if (document.body && document.body.classList.contains("vc-web-tickets-page")) return true;
         if (document.documentElement.classList.contains("vc-site-cpu-soft")) return true;
       } catch (eSoft) {}
@@ -3159,27 +3711,35 @@
     }
 
     function kickNavUserAvatars() {
+      /* cpuHoverIdle1b: forza PNG static in navbar (GIF solo hover da discord-avatar) */
       if (document.hidden) return;
       var avs;
       try {
         avs = document.querySelectorAll(
-          "header img.discord-avatar-img, #header-quick-actions img.discord-avatar-img, .discord-account-menu img.discord-avatar-img",
+          "header img.discord-avatar-img, #header-quick-actions img.discord-avatar-img, header img[data-vc-avatar], #header-quick-actions img[data-vc-avatar], .discord-account-menu img.discord-avatar-img",
         );
       } catch (eSel) {
         return;
       }
       for (var a = 0; a < avs.length; a += 1) {
         var av = avs[a];
-        if (!av) continue;
+        if (!av || av.__vcBrandHover) continue;
         try {
-          av.removeAttribute("data-vc-avatar-static");
-          if (av.dataset) av.dataset.vcAvatarStatic = "";
+          av.setAttribute("data-vc-avatar-static", "1");
+          if (av.dataset) av.dataset.vcAvatarStatic = "1";
         } catch (eSt) {}
         try {
-          if (window.VcDiscordAvatar && typeof window.VcDiscordAvatar.applyToImage === "function") {
-            window.VcDiscordAvatar.applyToImage(av, { force: true, forceAnimRestart: true });
+          var src = String(av.getAttribute("src") || av.currentSrc || "");
+          if (
+            window.VcDiscordAvatar &&
+            typeof window.VcDiscordAvatar.preferStaticUrl === "function"
+          ) {
+            var still = window.VcDiscordAvatar.preferStaticUrl(src, 64) || src;
+            if (still && still !== src) av.setAttribute("src", still);
+          } else if (/\.gif(?:$|[?#])/i.test(src)) {
+            av.setAttribute("src", src.replace(/\.gif(?=$|[?#])/i, ".png"));
           }
-        } catch (eAp) {}
+        } catch (eStill) {}
       }
     }
 
@@ -3203,35 +3763,83 @@
         return false;
       }
     }
+    function resetMqTrackToOrigin(tr) {
+      /* mqResetIdle1: leave-hover / tab-hidden → torna a inizio */
+      if (!tr || !tr.style) return;
+      try {
+        tr.removeAttribute("data-vc-mq-hover-run");
+      } catch (eAttr0) {}
+      try {
+        tr.style.setProperty("animation-play-state", "paused", "important");
+        tr.style.setProperty("-webkit-animation-play-state", "paused", "important");
+        tr.style.setProperty("will-change", "auto", "important");
+      } catch (ePs) {}
+      try {
+        if (tr.__vcMqWaapi) {
+          if (typeof tr.__vcMqWaapi.pause === "function") tr.__vcMqWaapi.pause();
+          try {
+            tr.__vcMqWaapi.currentTime = 0;
+          } catch (eCtW) {}
+        }
+      } catch (eWp) {}
+      try {
+        var alist0 = tr.getAnimations ? tr.getAnimations() : [];
+        for (var aj0 = 0; aj0 < alist0.length; aj0++) {
+          try {
+            if (typeof alist0[aj0].pause === "function") alist0[aj0].pause();
+            if ("currentTime" in alist0[aj0]) alist0[aj0].currentTime = 0;
+          } catch (eAj0) {}
+        }
+      } catch (eGa0) {}
+      try {
+        tr.style.setProperty("transform", "translate3d(0,0,0)", "important");
+      } catch (eTx0) {}
+    }
+    function softPauseMqTrackKeepPos(tr) {
+      /* mqNoSnapSettle1: settle FG — pause senza snap (tiene currentTime) */
+      if (!tr || !tr.style) return;
+      try {
+        tr.style.setProperty("animation-play-state", "paused", "important");
+        tr.style.setProperty("-webkit-animation-play-state", "paused", "important");
+        tr.style.setProperty("will-change", "auto", "important");
+      } catch (ePs) {}
+      try {
+        if (tr.__vcMqWaapi && typeof tr.__vcMqWaapi.pause === "function") tr.__vcMqWaapi.pause();
+      } catch (eWp) {}
+      try {
+        var alist0 = tr.getAnimations ? tr.getAnimations() : [];
+        for (var aj0 = 0; aj0 < alist0.length; aj0++) {
+          try {
+            if (typeof alist0[aj0].pause === "function") alist0[aj0].pause();
+          } catch (eAj0) {}
+        }
+      } catch (eGa0) {}
+    }
     function pauseNavUserMarqueeSoft() {
-      /* userMqLikeWm1: pause soft = solo wordmark (+ nome se tab hidden) */
       try {
         var hard = pageIsHardBgForMq();
-        var tracks = document.querySelectorAll(
-          "header .discord-profile-link__name[data-vc-nav-user-marquee] .vc-marquee__track, #header-quick-actions .discord-profile-link__name[data-vc-nav-user-marquee] .vc-marquee__track, header a.vc-header-site-name.is-marquee .vc-header-site-name__track, #vc-mobile-nav-drawer .discord-profile-link__name[data-vc-nav-user-marquee] .vc-marquee__track",
-        );
+        var sel =
+          "header .discord-profile-link__name[data-vc-nav-user-marquee] .vc-marquee__track, #header-quick-actions .discord-profile-link__name[data-vc-nav-user-marquee] .vc-marquee__track, header a.vc-header-site-name.is-marquee .vc-header-site-name__track, #vc-mobile-nav-drawer .discord-profile-link__name[data-vc-nav-user-marquee] .vc-marquee__track, .vc-mobile-nav-drawer__brand a.vc-header-site-name.is-marquee .vc-header-site-name__track";
+        var tracks = document.querySelectorAll(sel);
         for (var fi = 0; fi < tracks.length; fi += 1) {
-          var isUser = false;
+          /* mqHoverNoRestart1: non toccare sotto hover attivo */
           try {
-            isUser = !!(
+            var host =
               tracks[fi].closest &&
-              tracks[fi].closest(".discord-profile-link__name[data-vc-nav-user-marquee]")
-            );
-          } catch (eIs) {}
-          try {
-            tracks[fi].style.removeProperty("transform");
-          } catch (eTx) {}
-          if (isUser && !hard) {
-            armNavUserMarqueeCss(tracks[fi]);
-            continue;
-          }
-          tracks[fi].style.setProperty("animation-play-state", "paused", "important");
-          tracks[fi].style.setProperty("will-change", "auto", "important");
-          try {
-            if (tracks[fi].__vcMqWaapi && typeof tracks[fi].__vcMqWaapi.pause === "function") {
-              tracks[fi].__vcMqWaapi.pause();
+              tracks[fi].closest(
+                ".discord-profile-link, a.vc-header-site-name.is-marquee, #vc-header-promo-btn, .vc-header-promo-btn",
+              );
+            if (
+              host &&
+              (host.matches(":hover") ||
+                host.matches(":focus-visible") ||
+                host.matches(":focus-within"))
+            ) {
+              continue;
             }
-          } catch (eWp) {}
+          } catch (eSkip) {}
+          if (hard) resetMqTrackToOrigin(tracks[fi]);
+          else softPauseMqTrackKeepPos(tracks[fi]);
         }
       } catch (ePs) {}
     }
@@ -3242,16 +3850,32 @@
     function ensureNavUserMarqueeRaf() {
       /* no-op: moto = CSS keyframes */
     }
+    function userMqTrackIsHovered(trackEl) {
+      /* userMqHoverKeep1: come wordmark trackHostIsHovered — no reset mid-hover */
+      try {
+        if (trackEl && trackEl.getAttribute("data-vc-mq-hover-run") === "1") return true;
+      } catch (eFlag) {}
+      try {
+        var link =
+          trackEl &&
+          trackEl.closest &&
+          trackEl.closest(".discord-profile-link");
+        if (!link) return false;
+        if (link.matches(":hover") || link.matches(":focus-within") || link.matches(":focus-visible")) {
+          return true;
+        }
+      } catch (eHov) {}
+      return false;
+    }
     function armNavUserMarqueeCss(trackEl) {
       if (!trackEl || !trackEl.style) return;
       try {
+        var hovered = userMqTrackIsHovered(trackEl);
         trackEl.style.setProperty("display", "inline-flex", "important");
         trackEl.style.setProperty("flex-wrap", "nowrap", "important");
         trackEl.style.setProperty("width", "max-content", "important");
         trackEl.style.setProperty("max-width", "none", "important");
         trackEl.style.setProperty("overflow", "visible", "important");
-        /* navUserMqFix1: mai transform inline — blocca i keyframes */
-        trackEl.style.removeProperty("transform");
         var host = trackEl.parentElement;
         var dist = 0;
         try {
@@ -3280,36 +3904,158 @@
             host.__vcMqDur = dur;
           }
         } catch (eDistForce) {}
-        /* userMqCssAlive1: kill WAAPI legacy — animation-name:none lasciava il nome fermo */
-        try {
-          if (trackEl.__vcMqWaapi && typeof trackEl.__vcMqWaapi.cancel === "function") {
-            trackEl.__vcMqWaapi.cancel();
-          }
-        } catch (eCancel) {}
-        trackEl.__vcMqWaapi = null;
-        /* userMqFgRun1: SEMPRE ri-arma name/duration (alreadyArmed skip → nome morto in FG) */
-        trackEl.style.setProperty("animation-name", "vc-guild-name-marquee", "important");
-        trackEl.style.setProperty("animation-duration", dur + "s", "important");
-        trackEl.style.setProperty("animation-timing-function", "linear", "important");
-        trackEl.style.setProperty("animation-iteration-count", "infinite", "important");
-        trackEl.style.setProperty("animation-delay", "0s", "important");
-        trackEl.style.setProperty("-webkit-animation-name", "vc-guild-name-marquee", "important");
-        trackEl.style.setProperty("-webkit-animation-duration", dur + "s", "important");
-        /* userMqLikeWm1: pause SOLO tab-hidden; settle non ferma il nome */
-        try {
-          trackEl.style.removeProperty("transform");
-        } catch (eTx) {}
-        if (pageIsHardBgForMq()) {
-          trackEl.style.setProperty("animation-play-state", "paused", "important");
-          trackEl.style.setProperty("-webkit-animation-play-state", "paused", "important");
-          trackEl.style.setProperty("will-change", "auto", "important");
-        } else {
-          trackEl.style.setProperty("animation-play-state", "running", "important");
-          trackEl.style.setProperty("-webkit-animation-play-state", "running", "important");
-          trackEl.style.setProperty("will-change", "transform", "important");
+        /* userMqHoverKeep1: sotto hover NON cancel/rebind — ri-bind = restart@0 */
+        if (!hovered) {
+          try {
+            if (trackEl.__vcMqWaapi && typeof trackEl.__vcMqWaapi.cancel === "function") {
+              trackEl.__vcMqWaapi.cancel();
+            }
+          } catch (eCancel) {}
+          trackEl.__vcMqWaapi = null;
         }
+        /* mqNoScatti1: ri-set name/duration/delay SOLO al primo arm — altrimenti scatti a loop */
+        var needBind = trackEl.getAttribute("data-vc-mq-armed") !== "1";
+        if (!needBind && !hovered) {
+          try {
+            var prevDur = String(trackEl.style.animationDuration || "");
+            if (prevDur && prevDur !== dur + "s") needBind = true;
+          } catch (ePd) {}
+        }
+        if (needBind && !hovered) {
+          trackEl.style.setProperty("animation-name", "vc-guild-name-marquee", "important");
+          trackEl.style.setProperty("animation-duration", dur + "s", "important");
+          trackEl.style.setProperty("animation-timing-function", "linear", "important");
+          trackEl.style.setProperty("animation-iteration-count", "infinite", "important");
+          trackEl.style.setProperty("animation-delay", "0s", "important");
+          trackEl.style.setProperty("-webkit-animation-name", "vc-guild-name-marquee", "important");
+          trackEl.style.setProperty("-webkit-animation-duration", dur + "s", "important");
+          try {
+            trackEl.setAttribute("data-vc-mq-armed", "1");
+          } catch (eArmAttr) {}
+          try {
+            trackEl.style.removeProperty("transform");
+          } catch (eTx0) {}
+        }
+        if (hovered) {
+          /* userMqHoverKeep1: kick/arm mid-hover → tienila running, niente reset@0 */
+          try {
+            trackEl.style.removeProperty("transform");
+          } catch (eTxH) {}
+          try {
+            trackEl.style.setProperty("animation-play-state", "running", "important");
+            trackEl.style.setProperty("-webkit-animation-play-state", "running", "important");
+            trackEl.style.setProperty("will-change", "transform", "important");
+            trackEl.setAttribute("data-vc-mq-hover-run", "1");
+          } catch (eRunH) {}
+          return;
+        }
+        /* mqResetIdle1: arm idle = paused@0; hover JS fa running */
+        resetMqTrackToOrigin(trackEl);
       } catch (eArm) {}
     }
+
+    try {
+      if (!window.__vcMqUserHoverKeep1) {
+        window.__vcMqUserHoverKeep1 = 1;
+        function userTrackFromTarget(t) {
+          try {
+            if (!t || !t.closest) return null;
+            var link = t.closest(".discord-profile-link");
+            if (!link) return null;
+            var name = link.querySelector(
+              ".discord-profile-link__name[data-vc-nav-user-marquee].is-marquee .vc-marquee__track",
+            );
+            return name || null;
+          } catch (eT) {
+            return null;
+          }
+        }
+        function runUserTrack(tr, on) {
+          if (!tr || !tr.style) return;
+          if (!on) {
+            try {
+              tr.removeAttribute("data-vc-mq-hover-run");
+            } catch (eOff) {}
+            resetMqTrackToOrigin(tr);
+            return;
+          }
+          /* mqHoverNoRestart1 + userMqHoverKeep1: figli/kick non azzerano currentTime */
+          var keepGoing = false;
+          try {
+            keepGoing = tr.getAttribute("data-vc-mq-hover-run") === "1";
+          } catch (eKeep) {}
+          if (!keepGoing) {
+            try {
+              var prev = tr.getAnimations ? tr.getAnimations() : [];
+              for (var pj = 0; pj < prev.length; pj++) {
+                if (
+                  (prev[pj].playState === "running" || prev[pj].playState === "paused") &&
+                  (Number(prev[pj].currentTime) || 0) > 20
+                ) {
+                  keepGoing = true;
+                  break;
+                }
+              }
+            } catch (ePrev) {}
+          }
+          try {
+            tr.style.removeProperty("transform");
+          } catch (eTx) {}
+          tr.style.setProperty("animation-play-state", "running", "important");
+          tr.style.setProperty("-webkit-animation-play-state", "running", "important");
+          tr.style.setProperty("will-change", "transform", "important");
+          try {
+            tr.setAttribute("data-vc-mq-hover-run", "1");
+          } catch (eOn) {}
+          try {
+            var list = tr.getAnimations ? tr.getAnimations() : [];
+            for (var ai = 0; ai < list.length; ai++) {
+              try {
+                if (!keepGoing && "currentTime" in list[ai]) list[ai].currentTime = 0;
+                if (typeof list[ai].play === "function") list[ai].play();
+              } catch (eA) {}
+            }
+          } catch (eGa) {}
+        }
+        window.__vcMqRunUserTrack = runUserTrack;
+        document.addEventListener(
+          "pointerover",
+          function (ev) {
+            var tr = userTrackFromTarget(ev && ev.target);
+            if (!tr) return;
+            var run = window.__vcMqRunUserTrack || runUserTrack;
+            run(tr, true);
+          },
+          true,
+        );
+        document.addEventListener(
+          "pointerout",
+          function (ev) {
+            var tr = userTrackFromTarget(ev && ev.target);
+            var still = userTrackFromTarget(ev && ev.relatedTarget);
+            if (tr && still !== tr) runUserTrack(tr, false);
+          },
+          true,
+        );
+        document.addEventListener(
+          "focusin",
+          function (ev) {
+            var tr = userTrackFromTarget(ev && ev.target);
+            if (tr) runUserTrack(tr, true);
+          },
+          true,
+        );
+        document.addEventListener(
+          "focusout",
+          function (ev) {
+            var tr = userTrackFromTarget(ev && ev.target);
+            var still = userTrackFromTarget(ev && ev.relatedTarget);
+            if (tr && still !== tr) runUserTrack(tr, false);
+          },
+          true,
+        );
+      }
+    } catch (eUserHover) {}
 
     /* navUserNameMarquee1 + navAnimMarqueeKeep2 + navUserMarqueeMeasure1:
        nome chip — marquee se overflow (PC+phone). Misura con !important
@@ -3344,6 +4090,7 @@
       nameEl.removeAttribute("data-vc-marquee-t0");
       if (trackEl) {
         try {
+          trackEl.removeAttribute("data-vc-mq-armed");
           trackEl.style.removeProperty("transform");
           trackEl.style.removeProperty("animation");
         } catch (eClrT) {}
@@ -3561,12 +4308,7 @@
       } catch (eSel2) {
         return;
       }
-      /* re-pin CSS last (perf/cpu-soft può rimontare sheet dopo) */
-      try {
-        var pin = document.getElementById("vc-snav-user-marquee-pin");
-        var mount = document.body || document.documentElement;
-        if (pin && mount && pin.parentNode) mount.appendChild(pin);
-      } catch (ePinLast) {}
+      /* cpuStormKill1b: niente remount pin su ogni kick (era MO storm) */
       var seen = [];
       for (var i = 0; i < nodes.length; i += 1) {
         var n = nodes[i];
@@ -3600,30 +4342,21 @@
           try {
             if (document.hidden || document.visibilityState === "hidden") return;
             if (document.documentElement.classList.contains("vc-page-hidden")) return;
-            /* mqCpuIdle1: in settle non kick — paused è voluto (meno wake) */
+            /* fase3Cpu1: in settle non re-arm (evita wake storm) */
             if (document.documentElement.classList.contains("vc-cpu-settle")) return;
+            /* cpuStormKill1 + cpuHoverIdle1b: paused = OK (hover-idle).
+               Non re-arm solo perché play-state≠running — era wake storm. */
             var alive = document.querySelector(
               "header .discord-profile-link__name.is-marquee[data-vc-nav-user-marquee], #header-quick-actions .discord-profile-link__name.is-marquee[data-vc-nav-user-marquee], #vc-mobile-nav-drawer .discord-profile-link__name.is-marquee[data-vc-nav-user-marquee]",
             );
             if (alive && alive.querySelector(".vc-marquee__text.is-clone")) {
               var aliveTrack = alive.querySelector(".vc-marquee__track");
               if (aliveTrack) {
-                /* re-arm solo se CSS morto (name:none / paused fuori settle) */
-                var needArm = true;
+                var needArm = false;
                 try {
                   var csA = window.getComputedStyle(aliveTrack);
                   var an = String(csA.animationName || "");
-                  var ap = String(csA.animationPlayState || "");
-                  if (
-                    an &&
-                    an !== "none" &&
-                    (an.indexOf("vc-guild-name-marquee") !== -1 ||
-                      an.indexOf("vc-nav-user-name-marquee") !== -1) &&
-                    ap === "running" &&
-                    !pageIsHardBgForMq()
-                  ) {
-                    needArm = false;
-                  }
+                  if (!an || an === "none") needArm = true;
                 } catch (eCsA) {}
                 if (needArm) armNavUserMarqueeCss(aliveTrack);
               }
@@ -3641,60 +4374,36 @@
       if (!window.__vcNavUserMqBgArm) {
         window.__vcNavUserMqBgArm = 1;
         var syncMqBg = function (pause) {
+          /* cpuStormKill1: NON remount pin su ogni settle/bg — battaglia con fx-flat */
           try {
-            var pinLast = document.getElementById("vc-snav-user-marquee-pin");
-            var mountLast = document.body || document.documentElement;
-            if (pinLast && mountLast) mountLast.appendChild(pinLast);
+            void pause;
           } catch (ePinRm) {}
           try {
+            var hardBg = pageIsHardBgForMq();
+            var settleOnly = !hardBg && !!(pause || pageIsSettleForMq());
             var tracks = document.querySelectorAll(
               "header .discord-profile-link__name[data-vc-nav-user-marquee] .vc-marquee__track, #header-quick-actions .discord-profile-link__name[data-vc-nav-user-marquee] .vc-marquee__track, #vc-mobile-nav-drawer .discord-profile-link__name[data-vc-nav-user-marquee] .vc-marquee__track, header a.vc-header-site-name.is-marquee .vc-header-site-name__track",
             );
             for (var ti = 0; ti < tracks.length; ti++) {
-              var isUserTrack = false;
+              /* mqNoSnapSettle1: hardBg → reset@0; settle FG → soft pause (tiene pos) */
               try {
-                isUserTrack = !!(
+                var host =
                   tracks[ti].closest &&
-                  tracks[ti].closest(".discord-profile-link__name[data-vc-nav-user-marquee]")
-                );
-              } catch (eIsU) {}
-              /* userMqLikeWm1 + wmResumeHover1: NOME vivo in FG; wordmark pause settle/BG.
-                 Mai armNavUserMarqueeCss sul brand (display/dur sbagliati + cancel WAAPI).
-                 Mai transform:0 !important (bloccava i keyframes). */
-              try {
-                tracks[ti].style.removeProperty("transform");
-              } catch (eTxClr) {}
-              if (isUserTrack && !pageIsHardBgForMq()) {
-                armNavUserMarqueeCss(tracks[ti]);
-                continue;
-              }
-              if (pause || pageIsSettleForMq() || pageIsHardBgForMq()) {
-                tracks[ti].style.setProperty("animation-play-state", "paused", "important");
-                tracks[ti].style.setProperty("-webkit-animation-play-state", "paused", "important");
-                tracks[ti].style.setProperty("will-change", "auto", "important");
-                try {
-                  if (tracks[ti].__vcMqWaapi && typeof tracks[ti].__vcMqWaapi.pause === "function") {
-                    tracks[ti].__vcMqWaapi.pause();
-                  }
-                } catch (eWp) {}
-              } else {
-                tracks[ti].style.setProperty("animation-play-state", "running", "important");
-                tracks[ti].style.setProperty("-webkit-animation-play-state", "running", "important");
-                tracks[ti].style.setProperty("will-change", "transform", "important");
-                try {
-                  if (tracks[ti].__vcMqWaapi && typeof tracks[ti].__vcMqWaapi.play === "function") {
-                    tracks[ti].__vcMqWaapi.play();
-                  }
-                } catch (eWr) {}
-                try {
-                  var alist = tracks[ti].getAnimations ? tracks[ti].getAnimations() : [];
-                  for (var aj = 0; aj < alist.length; aj++) {
-                    try {
-                      if (typeof alist[aj].play === "function") alist[aj].play();
-                    } catch (eAj) {}
-                  }
-                } catch (eGa) {}
-              }
+                  tracks[ti].closest(
+                    ".discord-profile-link, a.vc-header-site-name.is-marquee",
+                  );
+                if (
+                  host &&
+                  (host.matches(":hover") ||
+                    host.matches(":focus-visible") ||
+                    host.matches(":focus-within"))
+                ) {
+                  continue;
+                }
+              } catch (eSkipH) {}
+              if (hardBg) resetMqTrackToOrigin(tracks[ti]);
+              else if (settleOnly) softPauseMqTrackKeepPos(tracks[ti]);
+              else softPauseMqTrackKeepPos(tracks[ti]);
             }
           } catch (eSyncMq) {}
         };
@@ -3724,7 +4433,8 @@
         document.addEventListener(
           "vc:cpu-bustle",
           function () {
-            syncMqBg(false);
+            /* mqIdleResumeAll1: bustle riparte se settle già caduto */
+            syncMqBg(!!pageIsSettleForMq() || pageIsHardBgForMq());
           },
           false,
         );
@@ -3734,12 +4444,12 @@
           var forceFgMq = function () {
             try {
               if (pageIsHardBgForMq()) return;
-              /* userMqLikeWm1: anche in settle ri-arma il NOME (wordmark può restare paused) */
+              /* mqIdleResumeAll1: input FG ri-arma solo se non settle */
+              if (pageIsSettleForMq()) return;
               var nowFg = Date.now();
               if (nowFg - lastFgMq < 900) return;
               lastFgMq = nowFg;
               syncMqBg(false);
-              kickNavUserNameMarquee();
             } catch (eFg) {}
           };
           document.addEventListener("pointerdown", forceFgMq, { passive: true });
@@ -3760,19 +4470,14 @@
           false,
         );
         var remountUserMqPin = function (pause) {
+          /* cpuStormKill1b: no appendChild pin — solo sync pause state */
           try {
-            var pin = document.getElementById("vc-snav-user-marquee-pin");
-            var mount = document.body || document.documentElement;
-            if (pin && mount) mount.appendChild(pin);
-          } catch (ePin) {}
-          try {
-            /* mai pause da settle: pause solo se tab hard-bg */
-            syncMqBg(!!pause && pageIsHardBgForMq());
+            syncMqBg(!!pause || pageIsSettleForMq() || pageIsHardBgForMq());
           } catch (eArm) {}
         };
-        document.addEventListener("vc:cpu-settle", function () { remountUserMqPin(false); }, false);
+        document.addEventListener("vc:cpu-settle", function () { remountUserMqPin(true); }, false);
         document.addEventListener("vc:cpu-bustle", function () { remountUserMqPin(false); }, false);
-        window.addEventListener("vc:cpu-settle", function () { remountUserMqPin(false); }, false);
+        window.addEventListener("vc:cpu-settle", function () { remountUserMqPin(true); }, false);
         window.addEventListener("vc:cpu-bustle", function () { remountUserMqPin(false); }, false);
       }
     } catch (eBgArm) {}
@@ -3791,19 +4496,15 @@
             if (mqMoT) return;
             mqMoT = window.setTimeout(function () {
               mqMoT = 0;
-              /* userMqCss1: MO solo se manca struttura marquee */
+              /* cpuStormKill1b: se marquee già montata, stop — niente arm/kick continuo */
               try {
                 var st = document.querySelector(
                   "header .discord-profile-link__name.is-marquee[data-vc-marquee-sig], #header-quick-actions .discord-profile-link__name.is-marquee[data-vc-marquee-sig]",
                 );
-                if (st && st.querySelector(".vc-marquee__text.is-clone")) {
-                  var stTr = st.querySelector(".vc-marquee__track");
-                  if (stTr) armNavUserMarqueeCss(stTr);
-                  return;
-                }
+                if (st && st.querySelector(".vc-marquee__text.is-clone")) return;
               } catch (eStMo) {}
               kickNavUserNameMarquee();
-            }, 120);
+            }, 400);
           });
           mo.observe(moRoot, { childList: true, subtree: true });
         }
@@ -3852,7 +4553,8 @@
         window.__vcChromeVisSyncArm = 0;
         try {
           if (document.hidden) return;
-          if (!brandGifArmed) brandGifArmed = true;
+          /* brandLogoStillAlways1: non armare mai brand GIF */
+          brandGifArmed = false;
           syncAll();
         } catch (eSyncVis) {}
       }, 280);
@@ -3874,6 +4576,133 @@
     } catch (eObs) {
       io = null;
     }
+
+    /* cpuHoverIdle1: logo server / discord emoji → GIF solo hover */
+    function brandHoverHost(node) {
+      if (!node || !node.closest) return null;
+      return node.closest(
+        "a.vc-header-logo-link, .vc-header-logo-link, a.vc-premium-footer__logo-row, .vc-premium-footer__logo, .vc-mobile-nav-drawer__brand, .vc-discord-login-emoji, img.vc-header-logo-img, img.vc-premium-footer__logo-img, img.vc-discord-login-emoji",
+      );
+    }
+    function setBrandHover(host, on) {
+      if (!host) return;
+      var imgs = [];
+      try {
+        if (host.tagName === "IMG") imgs = [host];
+        else imgs = host.querySelectorAll("img.vc-header-logo-img, img.vc-premium-footer__logo-img, img.vc-discord-login-emoji, img[src*='og-server-icon'], img[src*='discord']");
+      } catch (eIm) {}
+      for (var i = 0; i < imgs.length; i++) {
+        try {
+          imgs[i].__vcBrandHover = on ? 1 : 0;
+          /* logoHoverGif1: attr leggibile da vc-perf (skip force-still durante hover) */
+          try {
+            if (on) imgs[i].setAttribute("data-vc-brand-hover", "1");
+            else imgs[i].removeAttribute("data-vc-brand-hover");
+          } catch (eAttr) {}
+          syncOne(imgs[i]);
+        } catch (eSy) {}
+      }
+    }
+    document.addEventListener(
+      "pointerover",
+      function (ev) {
+        try {
+          if (document.hidden) return;
+          var host = brandHoverHost(ev.target);
+          if (host) setBrandHover(host, true);
+        } catch (ePo) {}
+        /* marquee404Fix1b: sblocca inline pause stuck sul dot candidature */
+        try {
+          var promo = ev.target && ev.target.closest && ev.target.closest("#vc-header-promo-btn");
+          if (promo) {
+            var dot = promo.querySelector(".vc-header-promo-btn__dot");
+            if (dot && dot.style) {
+              dot.style.removeProperty("animation-play-state");
+              dot.style.removeProperty("-webkit-animation-play-state");
+              dot.style.setProperty("animation-name", "vc-header-promo-dot-pulse", "important");
+              dot.style.setProperty("animation-duration", "1.6s", "important");
+              dot.style.setProperty("animation-iteration-count", "infinite", "important");
+              dot.style.setProperty("animation-play-state", "running", "important");
+              dot.style.setProperty("-webkit-animation-play-state", "running", "important");
+            }
+          }
+        } catch (ePromoHov) {}
+      },
+      true,
+    );
+    document.addEventListener(
+      "pointerout",
+      function (ev) {
+        try {
+          var host = brandHoverHost(ev.target);
+          if (!host) return;
+          var rel = ev.relatedTarget;
+          if (rel && host.contains && host.contains(rel)) return;
+          if (rel && brandHoverHost(rel) === host) return;
+          setBrandHover(host, false);
+        } catch (ePx) {}
+        try {
+          var promo = ev.target && ev.target.closest && ev.target.closest("#vc-header-promo-btn");
+          var relP = ev.relatedTarget;
+          if (promo && (!relP || !promo.contains(relP))) {
+            var dot = promo.querySelector(".vc-header-promo-btn__dot");
+            if (dot && dot.style) {
+              dot.style.removeProperty("animation-play-state");
+              dot.style.removeProperty("-webkit-animation-play-state");
+            }
+          }
+        } catch (ePromoOut) {}
+      },
+      true,
+    );
+
+    /* cpuHoverIdle1 + marquee404Fix1: wordmark/user/promo — marquee+dot solo :hover */
+    try {
+      var mqHov = document.getElementById("vc-mq-hover-only-css");
+      if (!mqHov || mqHov.getAttribute("data-vc") !== "mqHeroMetal1c") {
+        if (!mqHov) {
+          mqHov = document.createElement("style");
+          mqHov.id = "vc-mq-hover-only-css";
+        }
+        mqHov.setAttribute("data-vc", "mqHeroMetal1c");
+        mqHov.textContent =
+          "html body.vc-body header a.vc-header-site-name.is-marquee .vc-header-site-name__track," +
+          "html body.vc-body .vc-mobile-nav-drawer__brand a.vc-header-site-name.is-marquee .vc-header-site-name__track," +
+          "html body.vc-body header .discord-profile-link__name[data-vc-nav-user-marquee].is-marquee .vc-marquee__track," +
+          "html body.vc-body #header-quick-actions .discord-profile-link__name[data-vc-nav-user-marquee].is-marquee .vc-marquee__track," +
+          "html body.vc-body #vc-mobile-nav-drawer .discord-profile-link__name[data-vc-nav-user-marquee].is-marquee .vc-marquee__track," +
+          "html body.vc-body #header-quick-actions #vc-header-promo-btn.is-marquee .vc-header-promo-btn__track," +
+          "html body.vc-body header #vc-header-promo-btn.is-marquee .vc-header-promo-btn__track," +
+          "html body.vc-body #header-quick-actions #vc-header-promo-btn .vc-header-promo-btn__dot," +
+          "html body.vc-body header #vc-header-promo-btn .vc-header-promo-btn__dot," +
+          "html.vc-perf-mid body.vc-body #header-quick-actions #vc-header-promo-btn.vc-header-promo-btn--candidature .vc-header-promo-btn__dot{" +
+          "animation-play-state:paused!important;-webkit-animation-play-state:paused!important;will-change:auto!important}" +
+          /* mqHeroMetal1c: hover play running — MAI transform:!important (uccide keyframes) */
+          "html body.vc-body header a.vc-header-site-name.is-marquee:hover .vc-header-site-name__track," +
+          "html body.vc-body header a.vc-header-site-name.is-marquee:focus-visible .vc-header-site-name__track," +
+          "html body.vc-body .vc-mobile-nav-drawer__brand a.vc-header-site-name.is-marquee:hover .vc-header-site-name__track," +
+          "html body.vc-body header .discord-profile-link:hover .discord-profile-link__name[data-vc-nav-user-marquee].is-marquee .vc-marquee__track," +
+          "html body.vc-body header .discord-profile-link:focus-within .discord-profile-link__name[data-vc-nav-user-marquee].is-marquee .vc-marquee__track," +
+          "html body.vc-body #header-quick-actions .discord-profile-link:hover .discord-profile-link__name[data-vc-nav-user-marquee].is-marquee .vc-marquee__track," +
+          "html body.vc-body #header-quick-actions .discord-profile-link:focus-within .discord-profile-link__name[data-vc-nav-user-marquee].is-marquee .vc-marquee__track," +
+          "html body.vc-body #vc-mobile-nav-drawer .discord-profile-link:hover .discord-profile-link__name[data-vc-nav-user-marquee].is-marquee .vc-marquee__track," +
+          "html body.vc-body #header-quick-actions #vc-header-promo-btn.is-marquee:hover .vc-header-promo-btn__track," +
+          "html body.vc-body #header-quick-actions #vc-header-promo-btn.is-marquee:focus-visible .vc-header-promo-btn__track," +
+          "html body.vc-body header #vc-header-promo-btn.is-marquee:hover .vc-header-promo-btn__track{" +
+          "animation-name:vc-guild-name-marquee!important;" +
+          "animation-play-state:running!important;-webkit-animation-play-state:running!important;" +
+          "will-change:transform!important}" +
+          "html body.vc-body #header-quick-actions #vc-header-promo-btn.vc-header-promo-btn--candidature:hover .vc-header-promo-btn__dot," +
+          "html body.vc-body #header-quick-actions #vc-header-promo-btn.vc-header-promo-btn--candidature:focus-visible .vc-header-promo-btn__dot," +
+          "html body.vc-body header #vc-header-promo-btn.vc-header-promo-btn--candidature:hover .vc-header-promo-btn__dot{" +
+          "animation-name:vc-header-promo-dot-pulse!important;" +
+          "animation-duration:1.6s!important;animation-timing-function:ease-in-out!important;" +
+          "animation-iteration-count:infinite!important;" +
+          "animation-play-state:running!important;-webkit-animation-play-state:running!important;" +
+          "will-change:transform,opacity!important}";
+        (document.head || document.documentElement).appendChild(mqHov);
+      }
+    } catch (eMqCss) {}
 
     document.addEventListener("visibilitychange", function () {
       if (document.hidden) {

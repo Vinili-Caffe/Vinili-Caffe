@@ -1991,6 +1991,8 @@
   }
 
   function poll() {
+    /* cpuIdleAll1: no fetch while tab hidden */
+    if (typeof document !== "undefined" && document.hidden) return;
     var u = resolvedApiUrl();
     if (!u) return;
     pollJson(u)
@@ -2043,6 +2045,9 @@
     }
     if (lastStreamId && !root.hidden) resumeWatchSession(lastStreamId);
     refreshSubStatus();
+    try {
+      poll();
+    } catch (eVisKick) {}
   });
 
   if (document.readyState === "loading") {

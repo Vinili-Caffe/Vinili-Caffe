@@ -28,10 +28,26 @@ const SLASH_EXECUTION_TIMEOUT_MS=Math.max(15_000,Number(process.env.SLASH_EXECUT
 const getCommandKey = (name, type) => `${name}:${type || 1}`;
 const OBSOLETE_SLASH_NAMES = new Set((Array.isArray(DEFAULT_OBSOLETE_SLASH_NAMES) ? DEFAULT_OBSOLETE_SLASH_NAMES : []).map((s) => String(s || "").toLowerCase()).filter(Boolean),);
 
+function isAckExpiredInteractionError(error) {
+  const code = error?.code ?? error?.rawError?.code;
+  return (
+    code === 10062 ||
+    code === 40060 ||
+    code === "InteractionAlreadyReplied" ||
+    /Unknown interaction/i.test(String(error?.message || ""))
+  );
+}
+
 function logCommandRuntimeError(interaction, error) {
   const commandName = String(interaction?.commandName || "unknown");
   const userId = String(interaction?.user?.id || "unknown");
   const guildId = String(interaction?.guildId || "dm");
+  if (isAckExpiredInteractionError(error)) {
+    global.logger?.warn?.(
+      `[SLASH COMMAND WARN] interaction scaduta/usata command=${commandName} guild=${guildId} user=${userId}`,
+    );
+    return;
+  }
   global.logger?.error?.(
     `[SLASH COMMAND ERROR] command=${commandName} guild=${guildId} user=${userId}`,
     error?.stack || error?.message || error,
@@ -94,33 +110,34 @@ async function handleSlashCommand(interaction, client) {
     }
     return;
   }
+  const expectsModal = command?.expectsModal === true;
   const isAntiNukeRecoveryCommand=["antinuke","security"].includes(String(command?.name||"").toLowerCase(),);
-  const securityLockState = await getSecurityLockState(interaction.guild);
-  if (
-    !isAntiNukeRecoveryCommand &&
-    securityLockState.commandLockActive
-  ) {
+  const isModerationSlashCommand=["staff","admin"].includes(String(command?.category||"").toLowerCase(),);
+  const isContextMenu = Boolean(
+    interaction.isUserContextMenuCommand?.() || interaction.isMessageContextMenuCommand?.(),
+  );
+  // Modal: parallelizzare lock+permessi e saltare check canale chat (latency → 10062)
+  const [securityLockState, slashPermissionEarly, modBlocked] = await Promise.all([
+    getSecurityLockState(interaction.guild),
+    checkSlashPermission(interaction, { returnDetails: true }),
+    isModerationSlashCommand && !isAntiNukeRecoveryCommand
+      ? shouldBlockModerationCommands(interaction.guild, String(interaction.user?.id || ""))
+      : Promise.resolve(false),
+  ]);
+  if (!isAntiNukeRecoveryCommand && securityLockState.commandLockActive) {
     return interaction.reply({ content: `<a:VC_Lock:1482526739044368476> Server in lockdown di sicurezza: comandi temporaneamente bloccati.`, flags: 1 << 6 });
   }
-  const isModerationSlashCommand=["staff","admin"].includes(String(command?.category||"").toLowerCase(),);
-  if (
-    isModerationSlashCommand &&
-    !isAntiNukeRecoveryCommand &&
-    (await shouldBlockModerationCommands(
-      interaction.guild,
-      String(interaction.user?.id || ""),
-    ))
-  ) {
+  if (modBlocked) {
     return interaction.reply({ content: "<a:VC_Lock:1482526739044368476> Comandi di moderazione temporaneamente bloccati.", flags: 1 << 6 });
   }
-  if (isModerationSlashCommand && interaction.channel) {
+  if (isModerationSlashCommand && interaction.channel && !(expectsModal && isContextMenu)) {
     const { staffChatCommandsDeniedReplyContent } = require("../../Utils/Staff/staffChatChannelUtils");
     const deniedStaffChat = await staffChatCommandsDeniedReplyContent(interaction.channel).catch(() => null);
     if (deniedStaffChat) {
       return interaction.reply({ content: deniedStaffChat, flags: 1 << 6 });
     }
   }
-  if (interaction.channel) {
+  if (interaction.channel && !(expectsModal && isContextMenu)) {
     const { partnershipPublishChannelCommandsDeniedReplyContent } = require("../../Utils/Partner/partnersChatChannelUtils");
     const deniedPublishChannel = partnershipPublishChannelCommandsDeniedReplyContent(interaction.channel, {
       commandName: interaction.commandName,
@@ -129,7 +146,6 @@ async function handleSlashCommand(interaction, client) {
       return interaction.reply({ content: deniedPublishChannel, flags: 1 << 6 });
     }
   }
-  const expectsModal = command?.expectsModal === true;
   const isAdminCommand=String(command?.category||"").toLowerCase()==="admin";
     let forceEphemeralDefer = !isAdminCommand && command?.publicReply !== true;
   if (command?.publicReply === true) {
@@ -142,7 +158,7 @@ async function handleSlashCommand(interaction, client) {
   }
   if (!client.interactionCommandLocks) client.interactionCommandLocks = new Set();
   const interactionLockId = `${interaction.guildId || "dm"}:${interaction.user.id}`;
-  const slashPermission=await checkSlashPermission(interaction,{returnDetails:true,});
+  const slashPermission = slashPermissionEarly;
   if (!slashPermission?.allowed) {
     if (
       slashPermission?.silent === true ||
@@ -321,30 +337,34 @@ async function handleSlashCommand(interaction, client) {
   } catch (error) {
     commandFailed = true;
     logCommandRuntimeError(interaction, error);
-    const errorChannelId=IDs.channels.errorLogChannel||IDs.channels.serverBotLogs;
-    const errorChannel=errorChannelId?await getCentralChannel(client,errorChannelId):null;
-    const staffEmbed=buildErrorLogEmbed({contextLabel:"Comando",contextValue:interaction.commandName||"unknown",userTag:interaction.user?.tag||interaction.user?.id||"-",error,serverName:interaction.guild?`${interaction.guild.name}[${interaction.guild.id}]`
-        : null,
-    });
-    const errorText=(error?.stack||error?.message||String(error))?.slice(0,1000)||"<:vegax:1443934876440068179> Errore sconosciuto";
-    const row=new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId("error_pending").setEmoji("<:VC_InactiveStatus:1482526984234860574>").setStyle(ButtonStyle.Primary),new ButtonBuilder().setCustomId("error_solved").setEmoji("<:VC_OnlineStatus:1482527088912240650>").setStyle(ButtonStyle.Success),new ButtonBuilder().setCustomId("error_unsolved").setEmoji("<:VC_OfflineStatus:1482527117051957380>").setStyle(ButtonStyle.Danger),);
-    let msg;
-    if (errorChannel) {
-      try {
-        msg = await errorChannel.send({
-          embeds: [staffEmbed],
-          components: [row],
-        });
-      } catch (sendErr) {
-        global.logger?.error?.(
-          "[commandHandlers] failed to send error embed",
-          sendErr,
-        );
+    // Token già morto: niente embed errori / safeReply (peggiora solo i log)
+    if (isAckExpiredInteractionError(error)) {
+      userErrorResponseSent = true;
+    } else {
+      const errorChannelId=IDs.channels.errorLogChannel||IDs.channels.serverBotLogs;
+      const errorChannel=errorChannelId?await getCentralChannel(client,errorChannelId):null;
+      const staffEmbed=buildErrorLogEmbed({contextLabel:"Comando",contextValue:interaction.commandName||"unknown",userTag:interaction.user?.tag||interaction.user?.id||"-",error,serverName:interaction.guild?`${interaction.guild.name}[${interaction.guild.id}]`
+          : null,
+      });
+      const errorText=(error?.stack||error?.message||String(error))?.slice(0,1000)||"<:vegax:1443934876440068179> Errore sconosciuto";
+      const row=new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId("error_pending").setEmoji("<:VC_InactiveStatus:1482526984234860574>").setStyle(ButtonStyle.Primary),new ButtonBuilder().setCustomId("error_solved").setEmoji("<:VC_OnlineStatus:1482527088912240650>").setStyle(ButtonStyle.Success),new ButtonBuilder().setCustomId("error_unsolved").setEmoji("<:VC_OfflineStatus:1482527117051957380>").setStyle(ButtonStyle.Danger),);
+      if (errorChannel) {
+        try {
+          await errorChannel.send({
+            embeds: [staffEmbed],
+            components: [row],
+          });
+        } catch (sendErr) {
+          global.logger?.error?.(
+            "[commandHandlers] failed to send error embed",
+            sendErr,
+          );
+        }
       }
+      const userEmbed = buildInternalCommandErrorEmbed(errorText);
+      await safeReply({ embeds: [userEmbed], flags: 1 << 6 });
+      userErrorResponseSent = true;
     }
-        const userEmbed = buildInternalCommandErrorEmbed(errorText);
-    await safeReply({ embeds: [userEmbed], flags: 1 << 6 });
-    userErrorResponseSent = true;
   } finally {
     if (!expectsModal && interaction.deferred && !interaction.replied) {
       if (commandFailed && !userErrorResponseSent) await interaction.editReply({ content: "<:vegax:1443934876440068179> Comando terminato con errore." }).catch(() => {});

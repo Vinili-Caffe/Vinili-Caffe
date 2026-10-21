@@ -331,7 +331,7 @@
                       nextPrev =
                         '<img class="vc-cpf-iconprev" src="' +
                         esc(url) +
-                        '" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" />';
+                        '" alt="" width="64" height="64" loading="lazy" decoding="async" referrerpolicy="no-referrer" />';
                     } else {
                       nextPrev =
                         '<span class="vc-cpf-iconprev is-emoji" aria-hidden="true">' + esc(value) + "</span>";
@@ -910,7 +910,7 @@
             (roleIconAnim ? " is-animated" : "") +
             '" src="' +
             esc(roleIconUrl) +
-            '" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" />'
+            '" alt="" width="48" height="48" loading="lazy" decoding="async" referrerpolicy="no-referrer" />'
           : entity.emoji
             ? '<span class="vc-cpf-stage__mark-emoji">' + esc(entity.emoji) + "</span>"
             : '<i class="fa fa-star" aria-hidden="true"></i>';
@@ -960,7 +960,7 @@
       entity && entity.iconUrl
         ? '<img class="vc-cpf-iconprev" src="' +
           esc(entity.iconUrl) +
-          '" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" />'
+          '" alt="" width="64" height="64" loading="lazy" decoding="async" referrerpolicy="no-referrer" />'
         : entity && entity.emoji
           ? '<span class="vc-cpf-iconprev is-emoji" aria-hidden="true">' + esc(entity.emoji) + "</span>"
           : '<span class="vc-cpf-iconprev is-empty" aria-hidden="true"><i class="fa fa-smile-o"></i></span>';

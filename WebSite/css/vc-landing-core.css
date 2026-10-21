@@ -1,3 +1,4 @@
+/* lookStaticBorder1: no conic/mask rings — solid sand border */
 /* vc-landing-core v=20260831cssSplitFix1 */
 .vc-reviews-pager {
   display: flex;
@@ -16680,7 +16681,7 @@ body.vc-body .vc-vote-pager {
 }
 body.vc-body .vc-vote-morelist {
   border: 0 !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   background: transparent !important;
   background-image: none !important;
   box-shadow: none !important;
@@ -16688,7 +16689,7 @@ body.vc-body .vc-vote-morelist {
 }
 body.vc-body .vc-vote-podium-row,
 body.vc-body .vc-vote-list-row {
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   background: transparent !important;
   background-image: none !important;
   box-shadow: none !important;
@@ -17127,23 +17128,24 @@ body.vc-body .cky-consent-container .cky-btn-accept {
 .vc-notif-summary--pulse > i.fa-bell {
   animation: vc-notif-bell-ring 0.55s ease-in-out 3;
 }
+/* hoverToastAnim1: no hover/attention idle — solo --pulse da toast */
 .vc-notif-summary:hover > i.fa,
 .vc-notif-summary:hover > i.fa-bell-o,
 .vc-notif-summary:hover > i.fa-bell,
 .vc-notif-summary:focus-visible > i.fa,
 .vc-notif-summary:focus-visible > i.fa-bell-o,
 .vc-notif-summary:focus-visible > i.fa-bell {
-  animation: vc-notif-bell-ring 0.7s ease-in-out 1;
+  animation: none;
 }
 .vc-notif-dropdown:not([open]) .vc-notif-summary:has(#vc-notif-badge:not([hidden])) > i.fa,
 .vc-notif-dropdown:not([open]) .vc-notif-summary:has(#vc-notif-badge:not([hidden])) > i.fa-bell-o,
 .vc-notif-dropdown:not([open]) .vc-notif-summary:has(#vc-notif-badge:not([hidden])) > i.fa-bell {
-  animation: vc-notif-bell-attention 2.6s ease-in-out infinite;
+  animation: none;
 }
 .vc-notif-dropdown:not([open]) .vc-notif-summary:has(#vc-notif-badge:not([hidden])):hover > i.fa,
 .vc-notif-dropdown:not([open]) .vc-notif-summary:has(#vc-notif-badge:not([hidden])):hover > i.fa-bell-o,
 .vc-notif-dropdown:not([open]) .vc-notif-summary:has(#vc-notif-badge:not([hidden])):hover > i.fa-bell {
-  animation: vc-notif-bell-ring 0.7s ease-in-out 1;
+  animation: none;
 }
 .vc-notif-dropdown:not([open]) .vc-notif-summary:has(#vc-notif-badge:not([hidden])).vc-notif-summary--pulse > i.fa,
 .vc-notif-dropdown:not([open]) .vc-notif-summary:has(#vc-notif-badge:not([hidden])).vc-notif-summary--pulse > i.fa-bell-o,
@@ -17468,7 +17470,7 @@ header .vc-header-snav .vc-snav-details.vc-snav-details--current > .vc-snav-summ
 }
 header .vc-header-snav .vc-snav-details[open] > .vc-snav-summary {
   background: transparent !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   color: rgba(247, 236, 223, 0.98) !important;
   box-shadow: none !important;
 }
@@ -17529,7 +17531,7 @@ header .discord-profile-link::after {
 body.vc-body header .vc-nav-shell,
 body.vc-body header .vc-nav-shell.vc-glass {
   background: #140f0c !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   box-shadow: 0 8px 40px rgba(0, 0, 0, 0.48) !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
@@ -17546,7 +17548,7 @@ body.vc-body header .vc-nav-shell.vc-glass.vc-nav-shell--scrolled {
 body.vc-body header .vc-header-snav .vc-snav-item:not(.vc-snav-item--active):not([aria-current="page"]),
 body.vc-body header .vc-header-snav .vc-snav-details:not(.vc-snav-details--current):not([open]) > .vc-snav-summary {
   background: transparent !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   color: rgba(247, 236, 223, 0.9) !important;
   box-shadow: none !important;
 }
@@ -19631,16 +19633,7 @@ body.vc-site-sponsor-ad-visible #vc-live-event-reopen:not([hidden]) {
 .vc-hw-cinema__mist {
   position: absolute;
   inset: -30%;
-  background: conic-gradient(
-    from 0deg at 50% 50%,
-    transparent 0deg,
-    rgba(211, 166, 37, 0.22) 40deg,
-    transparent 80deg,
-    rgba(116, 0, 1, 0.28) 140deg,
-    transparent 200deg,
-    rgba(255, 230, 180, 0.2) 280deg,
-    transparent 360deg
-  );
+  background: ;
   opacity: 0;
   animation: vc-hw-cinema-mist 2s ease-in-out 0.2s forwards;
 }
@@ -23533,7 +23526,7 @@ body.vc-web-tickets-page .vc-wt-dd * {
   -webkit-text-fill-color: transparent !important;
   text-shadow: none !important;
   text-decoration: none !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   background-image: none !important;
   -webkit-background-clip: border-box !important;
   background-clip: border-box !important;
@@ -24021,19 +24014,17 @@ img.vc-wt-reaction__emoji.vc-avatar,
 .vc-wt-composer__md-live .vc-wt-md-h3,
 .vc-wt-composer__md-live .vc-wt-md-sub,
 .vc-wt-composer__md-live .vc-wt-md-quote {
-  display: inline;
-  margin: 0;
-  padding: 0;
-  border: 0;
-}
-/* composerMdPlain1: heading stile colore/peso leggero, stessa metrica del testo (caret). */
-.vc-wt-composer__md-live .vc-wt-md-h1,
-.vc-wt-composer__md-live .vc-wt-md-h2,
-.vc-wt-composer__md-live .vc-wt-md-h3,
-.vc-wt-composer__md-live .vc-wt-md-sub {
-  font-size: inherit;
-  font-weight: 700;
-  line-height: inherit;
+  /* composerMdCaret2 */
+  display: inline !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-left: 0 !important;
+  font-size: inherit !important;
+  font-weight: 700 !important;
+  line-height: inherit !important;
+  opacity: 1 !important;
+  vertical-align: baseline !important;
 }
 .vc-wt-composer__md-live .vc-wt-msg-mention {
   /* safety: se mai riappaiono, niente chip larghezza diversa dal testo */
@@ -26719,7 +26710,7 @@ html body.vc-body--home header .vc-header-snav .vc-snav-item--active,
 html body.vc-body--home header .vc-header-snav .vc-snav-item[aria-current="page"],
 html body.vc-body--home header .vc-header-snav .vc-snav-details.vc-snav-details--current > .vc-snav-summary {
   background: transparent !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   color: #f7eadb !important;
   box-shadow: none !important;
 }
@@ -26729,20 +26720,20 @@ html body.vc-body--home header .vc-header-snav .vc-snav-details[open] > .vc-snav
   background: transparent !important;
   background-color: transparent !important;
   background-image: none !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   color: #fff8f0 !important;
   box-shadow: none !important;
 }
 html body.vc-body header .vc-header-snav .vc-snav-item--active:hover,
 html body.vc-body header .vc-header-snav .vc-snav-details.vc-snav-details--current > .vc-snav-summary:hover {
   background: transparent !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   color: #fff6ea !important;
   box-shadow: none !important;
 }
 html body.vc-body header .vc-header-snav .vc-snav-details[open] > .vc-snav-summary:hover {
   background: transparent !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   color: #fff6ea !important;
   box-shadow: none !important;
 }
@@ -26781,7 +26772,7 @@ html body.vc-body header .vc-header-snav .vc-snav-summary,
 html.vc-site-polish body.vc-body header .vc-header-snav .vc-snav-item,
 html.vc-site-polish body.vc-body header .vc-header-snav .vc-snav-summary {
   position: relative;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   box-shadow: none !important;
 }
 html body.vc-body header .vc-header-snav .vc-snav-item--active,
@@ -26794,7 +26785,7 @@ html.vc-site-polish body.vc-body header .vc-header-snav .vc-snav-item--active,
 html.vc-site-polish body.vc-body header .vc-header-snav .vc-snav-item[aria-current="page"],
 html.vc-site-polish body.vc-body header .vc-header-snav .vc-snav-details.vc-snav-details--current > .vc-snav-summary {
   background: transparent !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   color: #fff8f0 !important;
   box-shadow: none !important;
 }
@@ -26823,7 +26814,7 @@ html.vc-site-polish body.vc-body header .vc-header-snav .vc-snav-details[open] >
   background: transparent !important;
   background-color: transparent !important;
   background-image: none !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   color: #fff8f0 !important;
   box-shadow: none !important;
 }
@@ -26835,7 +26826,7 @@ html.vc-site-polish body.vc-body header .vc-header-snav .vc-snav-item--active:ho
 html.vc-site-polish body.vc-body header .vc-header-snav .vc-snav-details[open] > .vc-snav-summary:hover {
   background: transparent !important;
   background-color: transparent !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   color: #fffaf3 !important;
   box-shadow: none !important;
 }
@@ -26846,7 +26837,7 @@ html body.vc-body--home header .vc-header-snav .vc-snav-details:not([open]):not(
 html.vc-site-polish body.vc-body header .vc-header-snav .vc-snav-item:not(.vc-snav-item--active):not([aria-current="page"]):hover,
 html.vc-site-polish body.vc-body header .vc-header-snav .vc-snav-summary:hover {
   background: rgba(255, 255, 255, 0.05) !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   color: #fff6ea !important;
   box-shadow: none !important;
 }
@@ -26855,13 +26846,13 @@ html body.vc-body header .vc-header-snav .vc-snav-row:hover,
 html.vc-site-polish body.vc-body header .vc-header-snav .vc-snav-row.vc-snav-row--active,
 html.vc-site-polish body.vc-body header .vc-header-snav .vc-snav-row:hover {
   background: rgba(255, 244, 232, 0.08) !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   color: #fff6ea !important;
   box-shadow: none !important;
 }
 .vc-mobile-nav-tile.is-active,
 .vc-mobile-nav-tile[aria-current="page"] {
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   background: rgba(255, 255, 255, 0.07) !important;
   color: #fff6ea !important;
   box-shadow: inset 0 -2px 0 rgba(245, 214, 183, 0.7) !important;
@@ -26876,7 +26867,7 @@ html.vc-site-polish body.vc-body header .vc-header-snav .vc-snav-item:not(.vc-sn
 html.vc-site-polish body.vc-body header .vc-header-snav .vc-snav-details:not([open]):not(.vc-snav-details--current) > .vc-snav-summary:hover,
 html.vc-site-polish body.vc-body header .vc-header-snav .vc-snav-summary:hover {
   background: transparent !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   color: #fff8f0 !important;
   box-shadow: none !important;
 }
@@ -26903,7 +26894,7 @@ html.vc-site-polish body.vc-body header .vc-header-snav .vc-snav-item--active:ho
 html.vc-site-polish body.vc-body header .vc-header-snav .vc-snav-item[aria-current="page"]:hover,
 html.vc-site-polish body.vc-body header .vc-header-snav .vc-snav-details.vc-snav-details--current > .vc-snav-summary:hover {
   background: transparent !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   color: #fffaf3 !important;
   box-shadow: none !important;
 }
@@ -26918,7 +26909,7 @@ html.vc-site-polish body.vc-body header .vc-header-snav .vc-snav-details.vc-snav
 html.vc-site-polish body.vc-body header .vc-header-snav .vc-snav-item:hover,
 html.vc-site-polish body.vc-body header .vc-header-snav .vc-snav-summary:hover,
 html.vc-site-polish body.vc-body header .vc-header-snav .vc-snav-details[open] > .vc-snav-summary {
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
 }
 html body.vc-body--home > header .vc-nav-shell,
 html.vc-site-polish body.vc-body > header .vc-nav-shell {
@@ -27936,7 +27927,7 @@ body.vc-page-cine-layout .vc-page-cine-hero a.vc-vote-platform-card {
   font-size: 0.92rem !important;
   border-radius: 1.25rem !important;
   /* innerCardConic2: niente background-image:none — conic/nav-ring da look-core pin */
-  border: 2px solid transparent !important;
+  border: 2px solid rgba(245, 214, 183, 0.38) !important;
   box-shadow: none !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
@@ -31889,7 +31880,7 @@ html.vc-site-polish body.vc-body.vc-notifications-page .vc-notify-row.vc-home-ri
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
   filter: none !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   border-width: 0 !important;
   border-radius: 0 !important;
   background: transparent !important;
@@ -31902,7 +31893,7 @@ html.vc-site-polish body.vc-body.vc-notifications-page .vc-notify-row:not(.vc-st
 html.vc-site-polish body.vc-body.vc-notifications-page .vc-notify-row.vc-home-panel:not(.vc-staff-inbox-item):hover,
 html.vc-site-polish body.vc-body.vc-notifications-page .vc-notify-row.vc-fx-card:not(.vc-staff-inbox-item):hover {
   transform: none !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   background: transparent !important;
   box-shadow: none !important;
 }
@@ -31935,7 +31926,7 @@ body.vc-body .vc-vote-pager {
 }
 body.vc-body .vc-vote-morelist {
   border: 0 !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   background: transparent !important;
   background-image: none !important;
   box-shadow: none !important;
@@ -31943,7 +31934,7 @@ body.vc-body .vc-vote-morelist {
 }
 body.vc-body .vc-vote-podium-row,
 body.vc-body .vc-vote-list-row {
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   background: transparent !important;
   background-image: none !important;
   box-shadow: none !important;

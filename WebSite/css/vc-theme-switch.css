@@ -137,38 +137,44 @@
 }
 
 .vc-theme-switch__sun.vc-theme-switch__icon--knob {
-  opacity: 1;
+  opacity: 1 !important;
   color: #c9852e !important;
-  transform: scale(1);
+  transform: scale(1) !important;
 }
 
 .vc-theme-switch__moon.vc-theme-switch__icon--knob {
-  opacity: 0;
+  opacity: 0 !important;
   color: #3a2a20 !important;
-  transform: scale(0.4);
+  transform: scale(0.4) !important;
 }
 
-.vc-theme-switch[data-mode="dark"] .vc-theme-switch__sun.vc-theme-switch__icon--knob {
-  opacity: 0;
-  transform: scale(0.4);
+/* moonKnobVis1: dark = luna sul knob (prima opacity restava 0 per cascade) */
+.vc-theme-switch[data-mode="dark"] .vc-theme-switch__sun.vc-theme-switch__icon--knob,
+html[data-vc-theme="dark"] .vc-theme-switch .vc-theme-switch__sun.vc-theme-switch__icon--knob {
+  opacity: 0 !important;
+  transform: scale(0.4) !important;
 }
 
-.vc-theme-switch[data-mode="dark"] .vc-theme-switch__moon.vc-theme-switch__icon--knob {
-  opacity: 1;
-  transform: scale(1);
+.vc-theme-switch[data-mode="dark"] .vc-theme-switch__moon.vc-theme-switch__icon--knob,
+html[data-vc-theme="dark"] .vc-theme-switch .vc-theme-switch__moon.vc-theme-switch__icon--knob {
+  opacity: 1 !important;
+  color: #2a1c14 !important;
+  transform: scale(1) !important;
 }
 
 .vc-theme-switch[data-mode="light"] .vc-theme-switch__sun.vc-theme-switch__icon--knob,
-.vc-theme-switch:not([data-mode="dark"]) .vc-theme-switch__sun.vc-theme-switch__icon--knob {
-  opacity: 1;
+.vc-theme-switch:not([data-mode="dark"]) .vc-theme-switch__sun.vc-theme-switch__icon--knob,
+html[data-vc-theme="light"] .vc-theme-switch .vc-theme-switch__sun.vc-theme-switch__icon--knob {
+  opacity: 1 !important;
   color: #a86a1a !important;
-  transform: scale(1);
+  transform: scale(1) !important;
 }
 
 .vc-theme-switch[data-mode="light"] .vc-theme-switch__moon.vc-theme-switch__icon--knob,
-.vc-theme-switch:not([data-mode="dark"]) .vc-theme-switch__moon.vc-theme-switch__icon--knob {
-  opacity: 0;
-  transform: scale(0.4);
+.vc-theme-switch:not([data-mode="dark"]) .vc-theme-switch__moon.vc-theme-switch__icon--knob,
+html[data-vc-theme="light"] .vc-theme-switch .vc-theme-switch__moon.vc-theme-switch__icon--knob {
+  opacity: 0 !important;
+  transform: scale(0.4) !important;
 }
 
 .vc-theme-switch[data-mode="light"] .vc-theme-switch__track,
@@ -202,4 +208,43 @@ html body.vc-body > footer.vc-premium-footer .vc-premium-footer__legal > .vc-the
   width: var(--vc-ts-w, 74px) !important;
   min-width: var(--vc-ts-w, 74px) !important;
   max-width: var(--vc-ts-w, 74px) !important;
+}
+
+/* navFootSwitch1: bake HTML legacy senza icon--track (prima dell'upgrade JS) */
+.vc-theme-switch__track > .vc-theme-switch__sun:not(.vc-theme-switch__icon--knob),
+.vc-theme-switch__track > .vc-theme-switch__moon:not(.vc-theme-switch__icon--knob) {
+  position: absolute !important;
+  top: 50%;
+  z-index: 1;
+  display: block !important;
+  width: 1.05rem;
+  height: 1.05rem;
+  margin-top: -0.525rem;
+  pointer-events: none;
+}
+.vc-theme-switch__track > .vc-theme-switch__sun:not(.vc-theme-switch__icon--knob) {
+  left: 0.55rem;
+  color: #ffffff !important;
+  opacity: 1 !important;
+}
+.vc-theme-switch__track > .vc-theme-switch__moon:not(.vc-theme-switch__icon--knob) {
+  right: 0.55rem;
+  color: #1e140e !important;
+  opacity: 0 !important;
+}
+.vc-theme-switch[data-mode="dark"] .vc-theme-switch__track > .vc-theme-switch__sun:not(.vc-theme-switch__icon--knob) {
+  opacity: 1 !important;
+  color: #ffffff !important;
+}
+.vc-theme-switch[data-mode="dark"] .vc-theme-switch__track > .vc-theme-switch__moon:not(.vc-theme-switch__icon--knob) {
+  opacity: 0 !important;
+}
+.vc-theme-switch[data-mode="light"] .vc-theme-switch__track > .vc-theme-switch__sun:not(.vc-theme-switch__icon--knob),
+.vc-theme-switch:not([data-mode="dark"]) .vc-theme-switch__track > .vc-theme-switch__sun:not(.vc-theme-switch__icon--knob) {
+  opacity: 0 !important;
+}
+.vc-theme-switch[data-mode="light"] .vc-theme-switch__track > .vc-theme-switch__moon:not(.vc-theme-switch__icon--knob),
+.vc-theme-switch:not([data-mode="dark"]) .vc-theme-switch__track > .vc-theme-switch__moon:not(.vc-theme-switch__icon--knob) {
+  opacity: 1 !important;
+  color: #1e140e !important;
 }

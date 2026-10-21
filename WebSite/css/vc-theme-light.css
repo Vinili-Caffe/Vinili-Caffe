@@ -1,3 +1,4 @@
+/* lookStaticBorder1: no conic/mask rings — solid sand border */
 /* vcThemeLightFull1: tema chiaro completo — batte soft-fx (token + wash + fill) */
 
 /* ------------------------------------------------------------------ */
@@ -53,15 +54,8 @@ html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) {
   --vc-look-wash:
     radial-gradient(120% 90% at 0% 0%, rgba(255, 248, 238, 0.85), transparent 52%),
     radial-gradient(90% 70% at 100% 0%, rgba(212, 168, 136, 0.22), transparent 48%),
-    linear-gradient(175deg, #fffaf4 0%, #f7f1ea 55%, #efe6dc 100%),
-    conic-gradient(
-      from 0deg,
-      rgba(111, 78, 55, 0.72) 0deg,
-      rgba(180, 130, 90, 0.55) 90deg,
-      rgba(139, 99, 70, 0.58) 180deg,
-      rgba(180, 130, 90, 0.55) 270deg,
-      rgba(111, 78, 55, 0.72) 360deg
-    );
+    linear-gradient(175deg, #fffaf4 0%, #f7f1ea 55%, #efe6dc 100%)
+    ;
   --vc-support-card-bg: rgba(111, 78, 55, 0.06);
   --vc-support-card-border: rgba(111, 78, 55, 0.16);
 }
@@ -188,13 +182,13 @@ html[data-vc-theme="light"] :is(
 ) {
   background-color: #faf6f0 !important;
   background-image: var(--vc-look-wash) !important;
-  background-origin: padding-box, padding-box, padding-box, border-box !important;
-  background-clip: padding-box, padding-box, padding-box, border-box !important;
-  -webkit-background-clip: padding-box, padding-box, padding-box, border-box !important;
+  background-origin: padding-box !important;
+  background-clip: padding-box !important;
+  -webkit-background-clip: padding-box !important;
   background-repeat: no-repeat !important;
   background-size: auto !important;
-  border: 1px solid transparent !important;
-  border-color: transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   color: var(--vc-look-text) !important;
   box-shadow: none !important;
   filter: none !important;
@@ -428,13 +422,17 @@ html[data-vc-theme="light"] footer.vc-premium-footer .vc-premium-footer__inner {
 }
 
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body > footer.vc-premium-footer .vc-premium-footer__outer::after,
-html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body footer.vc-premium-footer .vc-premium-footer__outer::after {
-  /* 20261014footerNavRing1: light = stesso anello navbar light */
-  opacity: 1 !important;
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body footer.vc-premium-footer .vc-premium-footer__outer::after,
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top > footer.vc-premium-footer .vc-premium-footer__outer::after,
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top footer.vc-premium-footer .vc-premium-footer__outer::after {
+  /* footerNavRing1c: hardcoded — var() senza shell = bg none */
+  opacity: 0.88 !important;
   filter: none !important;
   -webkit-filter: none !important;
-  background: var(--vc-nav-shell-ring-light, var(--vc-nav-ring-light)) !important;
-  background-image: var(--vc-nav-shell-ring-light, var(--vc-nav-ring-light)) !important;
+  visibility: visible !important;
+  display: block !important;
+  background: none !important;
+  background-image: none !important;
 }
 
 html[data-vc-theme="light"] .vc-premium-footer__social {
@@ -497,7 +495,7 @@ html[data-vc-theme="light"] .vc-staff-pt-seg,
 html[data-vc-theme="light"] .vc-mini-pager.vc-pill-pager .vc-staff-pt-seg,
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) .vc-staff-pt-seg {
   background: rgba(255, 255, 255, 0.78) !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
 }
 
 html[data-vc-theme="light"] .vc-staff-pt-seg__btn.is-active,
@@ -519,7 +517,7 @@ html[data-vc-theme="light"] .vc-staff-inbox-pagination .vc-staff-pt-seg__btn {
 html[data-vc-theme="light"] :is(input, textarea, select):not([type="checkbox"]):not([type="radio"]),
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body :is(input, textarea, select):not([type="checkbox"]):not([type="radio"]) {
   background: #fffaf4 !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   color: #2a1c14 !important;
   -webkit-text-fill-color: #2a1c14 !important;
 }
@@ -852,7 +850,7 @@ html[data-vc-theme="light"] ::selection {
 
 /* themeLightFull7: card/hero davvero chiari + titoli leggibili + navbar senza box inutili */
 
-html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-content :is(
+html.vc-site-polish:not(.vc-fx-flat)[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-content :is(
   .vc-hero-head,
   .vc-page-cine-card,
   .vc-page-cine-hero .vc-hero-head,
@@ -864,22 +862,22 @@ html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top
   .vc-staff-manage-detail,
   .vc-fx-card
 ),
-html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-page-cine-layout .vc-page-cine-hero .vc-hero-head,
-html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-page-cine-layout .vc-page-cine-hero .vc-support-intro-shell .vc-hero-head,
-html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-staff-organico-page .vc-hero-head,
-html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-staff-organico-page .vc-page-cine-card,
-html.vc-site-photo-bg.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body .vc-hero-head,
-html.vc-perf-mid.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-page-cine-layout .vc-page-cine-hero .vc-hero-head,
-html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body main :is(.vc-hero-head, .vc-page-cine-card, .vc-staff-organico-history, .vc-staff-organico-board) {
+html.vc-site-polish:not(.vc-fx-flat)[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-page-cine-layout .vc-page-cine-hero .vc-hero-head,
+html.vc-site-polish:not(.vc-fx-flat)[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-page-cine-layout .vc-page-cine-hero .vc-support-intro-shell .vc-hero-head,
+html.vc-site-polish:not(.vc-fx-flat)[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-staff-organico-page .vc-hero-head,
+html.vc-site-polish:not(.vc-fx-flat)[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-staff-organico-page .vc-page-cine-card,
+html.vc-site-photo-bg.vc-site-polish:not(.vc-fx-flat)[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body .vc-hero-head,
+html.vc-perf-mid.vc-site-polish:not(.vc-fx-flat)[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-page-cine-layout .vc-page-cine-hero .vc-hero-head,
+html.vc-site-polish:not(.vc-fx-flat)[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body main :is(.vc-hero-head, .vc-page-cine-card, .vc-staff-organico-history, .vc-staff-organico-board) {
   background-color: #faf6f0 !important;
   background-image:
     radial-gradient(120% 90% at 0% 0%, rgba(255, 248, 238, 0.92), transparent 52%),
     radial-gradient(90% 70% at 100% 0%, rgba(212, 168, 136, 0.2), transparent 48%),
-    linear-gradient(175deg, #fffaf4 0%, #f7f1ea 48%, #efe6dc 100%),
-    conic-gradient(from 0deg, rgba(111, 78, 55, 0.72) 0deg, rgba(180, 130, 90, 0.55) 90deg, rgba(139, 99, 70, 0.58) 180deg, rgba(180, 130, 90, 0.55) 270deg, rgba(111, 78, 55, 0.72) 360deg) !important;
-    background-origin: padding-box, padding-box, padding-box, border-box !important;
-    background-clip: padding-box, padding-box, padding-box, border-box !important;
-    -webkit-background-clip: padding-box, padding-box, padding-box, border-box !important;
+    linear-gradient(175deg, #fffaf4 0%, #f7f1ea 48%, #efe6dc 100%)
+     !important;
+    background-origin: padding-box !important;
+    background-clip: padding-box !important;
+    -webkit-background-clip: padding-box !important;
   border-color: rgba(111, 78, 55, 0.18) !important;
   color: #2a1c14 !important;
   box-shadow: 0 14px 36px rgba(60, 40, 24, 0.12), 0 0 20px rgba(212, 168, 136, 0.1) !important;
@@ -1003,7 +1001,7 @@ html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body hea
 html[data-vc-theme="light"] body.vc-body header :is(.vc-icon-btn, .vc-notif-summary, #vc-view-as-launch) {
   background: #f3ebe3 !important;
   background-image: none !important;
-  border: 1px solid transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
   box-shadow: none !important;
   color: #3a281c !important;
   -webkit-text-fill-color: #3a281c !important;
@@ -1160,12 +1158,12 @@ html[data-vc-theme="light"] body.vc-body :is(
   background-image:
     radial-gradient(120% 90% at 0% 0%, rgba(255, 248, 238, 0.92), transparent 52%),
     radial-gradient(90% 70% at 100% 0%, rgba(212, 168, 136, 0.2), transparent 48%),
-    linear-gradient(175deg, #fffaf4 0%, #f7f1ea 48%, #efe6dc 100%),
-    conic-gradient(from 0deg, rgba(111, 78, 55, 0.72) 0deg, rgba(180, 130, 90, 0.55) 90deg, rgba(139, 99, 70, 0.58) 180deg, rgba(180, 130, 90, 0.55) 270deg, rgba(111, 78, 55, 0.72) 360deg) !important;
-    background-origin: padding-box, padding-box, padding-box, border-box !important;
-    background-clip: padding-box, padding-box, padding-box, border-box !important;
-    -webkit-background-clip: padding-box, padding-box, padding-box, border-box !important;
-  border-color: transparent !important;
+    linear-gradient(175deg, #fffaf4 0%, #f7f1ea 48%, #efe6dc 100%)
+     !important;
+    background-origin: padding-box !important;
+    background-clip: padding-box !important;
+    -webkit-background-clip: padding-box !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   color: #2a1c14 !important;
   box-shadow: 0 14px 36px rgba(60, 40, 24, 0.12), 0 0 20px rgba(212, 168, 136, 0.1) !important;
   filter: none !important;
@@ -1228,7 +1226,7 @@ html[data-vc-theme="light"] .vc-home-scrollcue__label {
   -webkit-text-fill-color: #2a1c14 !important;
   padding: 0.28rem 0.85rem !important;
   border-radius: 999px !important;
-  border: 1px solid transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18) !important;
   filter: none !important;
   -webkit-filter: none !important;
@@ -1278,37 +1276,38 @@ html.vc-site-polish[data-vc-theme="light"] body.vc-vote-page .vc-vote-more-btn--
   background-origin: padding-box, border-box !important;
   background-clip: padding-box, border-box !important;
   -webkit-background-clip: padding-box, border-box !important;
-  border: 1px solid transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
   color: #1a120e !important;
   -webkit-text-fill-color: #1a120e !important;
   text-shadow: none !important;
   filter: none !important;
 }
 
-/* themeLightFull9b: batte soft-fx body#top #vc-page-intro .vc-hero-head (3 ID) */
-html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-intro .vc-hero-head:not(#discord-login-btn),
-html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-intro .vc-hero-head.vc-glass:not(#discord-login-btn),
-html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-intro .vc-support-intro-shell .vc-hero-head:not(#discord-login-btn),
-html.vc-site-photo-bg.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-intro .vc-hero-head:not(#discord-login-btn),
-html.vc-perf-mid.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-intro .vc-hero-head:not(#discord-login-btn),
-html.vc-site-photo-bg.vc-perf-mid.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-intro .vc-hero-head:not(#discord-login-btn),
-html.vc-site-photo-bg.vc-perf-mid.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-intro .vc-hero-head.vc-glass:not(#discord-login-btn),
-html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-content .vc-hero-head:not(#discord-login-btn),
-html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-content .vc-page-cine-hero .vc-hero-head:not(#discord-login-btn),
-html.vc-site-photo-bg.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-content .vc-hero-head:not(#discord-login-btn),
-html.vc-site-polish[data-vc-theme="light"] body.vc-body#top #vc-page-intro .vc-hero-head:not(#discord-login-btn),
-html.vc-site-polish[data-vc-theme="light"] body.vc-body#top #vc-page-intro .vc-hero-head.vc-glass:not(#discord-login-btn) {
+/* themeLightFull9b: batte soft-fx body#top #vc-page-intro .vc-hero-head (3 ID)
+   fxFlatKill1h: skip when html.vc-fx-flat (CPU glow kill) */
+html.vc-site-polish:not(.vc-fx-flat)[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-intro .vc-hero-head:not(#discord-login-btn),
+html.vc-site-polish:not(.vc-fx-flat)[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-intro .vc-hero-head.vc-glass:not(#discord-login-btn),
+html.vc-site-polish:not(.vc-fx-flat)[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-intro .vc-support-intro-shell .vc-hero-head:not(#discord-login-btn),
+html.vc-site-photo-bg.vc-site-polish:not(.vc-fx-flat)[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-intro .vc-hero-head:not(#discord-login-btn),
+html.vc-perf-mid.vc-site-polish:not(.vc-fx-flat)[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-intro .vc-hero-head:not(#discord-login-btn),
+html.vc-site-photo-bg.vc-perf-mid.vc-site-polish:not(.vc-fx-flat)[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-intro .vc-hero-head:not(#discord-login-btn),
+html.vc-site-photo-bg.vc-perf-mid.vc-site-polish:not(.vc-fx-flat)[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-intro .vc-hero-head.vc-glass:not(#discord-login-btn),
+html.vc-site-polish:not(.vc-fx-flat)[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-content .vc-hero-head:not(#discord-login-btn),
+html.vc-site-polish:not(.vc-fx-flat)[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-content .vc-page-cine-hero .vc-hero-head:not(#discord-login-btn),
+html.vc-site-photo-bg.vc-site-polish:not(.vc-fx-flat)[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-content .vc-hero-head:not(#discord-login-btn),
+html.vc-site-polish:not(.vc-fx-flat)[data-vc-theme="light"] body.vc-body#top #vc-page-intro .vc-hero-head:not(#discord-login-btn),
+html.vc-site-polish:not(.vc-fx-flat)[data-vc-theme="light"] body.vc-body#top #vc-page-intro .vc-hero-head.vc-glass:not(#discord-login-btn) {
   background: #faf6f0 !important;
   background-color: #faf6f0 !important;
   background-image:
     radial-gradient(120% 90% at 0% 0%, rgba(255, 248, 238, 0.92), transparent 52%),
     radial-gradient(90% 70% at 100% 0%, rgba(212, 168, 136, 0.2), transparent 48%),
-    linear-gradient(175deg, #fffaf4 0%, #f7f1ea 48%, #efe6dc 100%),
-    conic-gradient(from 0deg, rgba(111, 78, 55, 0.72) 0deg, rgba(180, 130, 90, 0.55) 90deg, rgba(139, 99, 70, 0.58) 180deg, rgba(180, 130, 90, 0.55) 270deg, rgba(111, 78, 55, 0.72) 360deg) !important;
-    background-origin: padding-box, padding-box, padding-box, border-box !important;
-    background-clip: padding-box, padding-box, padding-box, border-box !important;
-    -webkit-background-clip: padding-box, padding-box, padding-box, border-box !important;
-  border-color: transparent !important;
+    linear-gradient(175deg, #fffaf4 0%, #f7f1ea 48%, #efe6dc 100%)
+     !important;
+    background-origin: padding-box !important;
+    background-clip: padding-box !important;
+    -webkit-background-clip: padding-box !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   color: #2a1c14 !important;
   box-shadow: 0 14px 36px rgba(60, 40, 24, 0.12), 0 0 20px rgba(212, 168, 136, 0.1) !important;
   filter: none !important;
@@ -1333,7 +1332,7 @@ html.vc-site-polish[data-vc-theme="light"] body.vc-body#top #vc-page-intro .vc-h
   background: rgba(255, 250, 244, 0.95) !important;
   background-color: rgba(255, 250, 244, 0.95) !important;
   background-image: none !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   color: #2a1c14 !important;
 }
 
@@ -1341,7 +1340,7 @@ html.vc-site-polish[data-vc-theme="light"] body.vc-body .vc-necessity-banner__pi
 html[data-vc-theme="light"] body.vc-body .vc-necessity-banner__pill {
   background: rgba(250, 246, 240, 0.96) !important;
   background-image: none !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   color: #2a1c14 !important;
   box-shadow: 0 8px 22px rgba(60, 40, 24, 0.16) !important;
 }
@@ -1367,8 +1366,8 @@ html.vc-site-photo-bg.vc-perf-mid.vc-site-polish[data-vc-theme="light"]:not(.vc-
   background: #ffffff !important;
   background-color: #ffffff !important;
   background-image: linear-gradient(175deg, #fffaf4 0%, #f7f1ea 55%, #efe6dc 100%) !important;
-  border: 1px solid transparent !important;
-  border-color: transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   color: #2a1c14 !important;
   box-shadow: 0 10px 28px rgba(60, 40, 24, 0.1) !important;
   filter: none !important;
@@ -1392,8 +1391,8 @@ html[data-vc-theme="light"] body.vc-body .vc-necessity-banner__pill {
   background: #faf6f0 !important;
   background-color: #faf6f0 !important;
   background-image: none !important;
-  border: 1px solid transparent !important;
-  border-color: transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   color: #2a1c14 !important;
   box-shadow: 0 8px 22px rgba(60, 40, 24, 0.16) !important;
   filter: none !important;
@@ -1421,8 +1420,8 @@ html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) #vc-necessity-ba
   background: #faf6f0 !important;
   background-color: #faf6f0 !important;
   background-image: none !important;
-  border: 1px solid transparent !important;
-  border-color: transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   color: #2a1c14 !important;
   box-shadow: 0 8px 22px rgba(60, 40, 24, 0.16) !important;
   filter: none !important;
@@ -1458,7 +1457,7 @@ html.vc-site-polish[data-vc-theme="light"] body.vc-body .vc-home-scrollcue__labe
   background-image: none !important;
   color: #2a1c14 !important;
   -webkit-text-fill-color: #2a1c14 !important;
-  border: 1px solid transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
 }
 html[data-vc-theme="light"] .vc-home-scrollcue,
 html.vc-site-polish[data-vc-theme="light"] .vc-home-scrollcue {
@@ -1525,7 +1524,7 @@ html body.vc-vote-page .vc-vote-platform-cta {
   background-origin: padding-box, border-box !important;
   background-clip: padding-box, border-box !important;
   -webkit-background-clip: padding-box, border-box !important;
-  border: 1px solid transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
   color: #1a120e !important;
   -webkit-text-fill-color: #1a120e !important;
   text-shadow: none !important;
@@ -1566,7 +1565,7 @@ html[data-vc-theme="light"] a.vc-header-pill:not(.vc-home-cine-cta):not(#discord
   background-origin: padding-box, border-box !important;
   background-clip: padding-box, border-box !important;
   -webkit-background-clip: padding-box, border-box !important;
-  border: 1px solid transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
   color: #1a120e !important;
   -webkit-text-fill-color: #1a120e !important;
   text-shadow: none !important;
@@ -1614,13 +1613,13 @@ html[data-vc-theme="light"] :is(.vc-auth-required-card, .vc-reviews-gate__card) 
   background-image:
     radial-gradient(120% 90% at 0% 0%, rgba(255, 248, 238, 0.92), transparent 52%),
     radial-gradient(90% 70% at 100% 0%, rgba(212, 168, 136, 0.2), transparent 48%),
-    linear-gradient(175deg, #fffaf4 0%, #f7f1ea 48%, #efe6dc 100%),
-    conic-gradient(from 0deg, rgba(111, 78, 55, 0.72) 0deg, rgba(180, 130, 90, 0.55) 90deg, rgba(139, 99, 70, 0.58) 180deg, rgba(180, 130, 90, 0.55) 270deg, rgba(111, 78, 55, 0.72) 360deg) !important;
-    background-origin: padding-box, padding-box, padding-box, border-box !important;
-    background-clip: padding-box, padding-box, padding-box, border-box !important;
-    -webkit-background-clip: padding-box, padding-box, padding-box, border-box !important;
-  border: 1px solid transparent !important;
-  border-color: transparent !important;
+    linear-gradient(175deg, #fffaf4 0%, #f7f1ea 48%, #efe6dc 100%)
+     !important;
+    background-origin: padding-box !important;
+    background-clip: padding-box !important;
+    -webkit-background-clip: padding-box !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   color: #2a1c14 !important;
   box-shadow: 0 18px 40px rgba(60, 40, 24, 0.14) !important;
   filter: none !important;
@@ -1655,7 +1654,7 @@ html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body .vc
 html[data-vc-theme="light"] .vc-auth-required-login {
   background: linear-gradient(180deg, #f0dcc8 0%, #d4a888 58%, #b88968 100%) !important;
   background-image: linear-gradient(180deg, #f0dcc8 0%, #d4a888 58%, #b88968 100%) !important;
-  border: 1px solid transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
   color: #1a120e !important;
   -webkit-text-fill-color: #1a120e !important;
   box-shadow: 0 10px 24px rgba(111, 78, 55, 0.22) !important;
@@ -1665,7 +1664,7 @@ html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top
 html[data-vc-theme="light"] .vc-auth-required-secondary {
   background: rgba(255, 250, 244, 0.95) !important;
   background-image: none !important;
-  border: 1px solid transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
   color: #2a1c14 !important;
   -webkit-text-fill-color: #2a1c14 !important;
   opacity: 1 !important;
@@ -1761,7 +1760,7 @@ html[data-vc-theme="light"] :is(.vc-notify-row, .vc-wt-item, .vc-dash-card) :is(
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body :is(
   .vc-mobile-nav-tile,
   .vc-snav-row,
-  .discord-account-popover__item:not(.discord-account-popover__item--danger)
+  .discord-account-popover__item:not(.discord-account-popover__item--danger):not(.is-blacklisted):not(.is-soon)
 ),
 html[data-vc-theme="light"] :is(.vc-mobile-nav-tile, .vc-snav-row) {
   color: #2a1c14 !important;
@@ -1791,8 +1790,8 @@ html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top
   background-origin: padding-box, border-box !important;
   background-clip: padding-box, border-box !important;
   -webkit-background-clip: padding-box, border-box !important;
-  border: 1px solid transparent !important;
-  border-color: transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   color: #1a120e !important;
   -webkit-text-fill-color: #1a120e !important;
   box-shadow: none !important;
@@ -1811,7 +1810,7 @@ html[data-vc-theme="light"] #vc-necessity-banner .vc-necessity-banner__accept {
   background: linear-gradient(180deg, #f0dcc8 0%, #d4a888 60%, #b88968 100%) !important;
   color: #1a120e !important;
   -webkit-text-fill-color: #1a120e !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
 }
 
 html[data-vc-theme="light"] .vc-necessity-banner__reject,
@@ -1864,7 +1863,7 @@ html[data-vc-theme="light"] :is(
   background-origin: padding-box, border-box !important;
   background-clip: padding-box, border-box !important;
   -webkit-background-clip: padding-box, border-box !important;
-  border: 1px solid transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
   color: #2a1c14 !important;
   -webkit-text-fill-color: #2a1c14 !important;
 }
@@ -1884,12 +1883,12 @@ html.vc-perf-mid.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body
   background-image:
     radial-gradient(120% 90% at 0% 0%, rgba(255, 248, 238, 0.92), transparent 52%),
     radial-gradient(90% 70% at 100% 0%, rgba(212, 168, 136, 0.2), transparent 48%),
-    linear-gradient(175deg, #fffaf4 0%, #f7f1ea 48%, #efe6dc 100%),
-    conic-gradient(from 0deg, rgba(111, 78, 55, 0.72) 0deg, rgba(180, 130, 90, 0.55) 90deg, rgba(139, 99, 70, 0.58) 180deg, rgba(180, 130, 90, 0.55) 270deg, rgba(111, 78, 55, 0.72) 360deg) !important;
-    background-origin: padding-box, padding-box, padding-box, border-box !important;
-    background-clip: padding-box, padding-box, padding-box, border-box !important;
-    -webkit-background-clip: padding-box, padding-box, padding-box, border-box !important;
-  border: 1px solid transparent !important;
+    linear-gradient(175deg, #fffaf4 0%, #f7f1ea 48%, #efe6dc 100%)
+     !important;
+    background-origin: padding-box !important;
+    background-clip: padding-box !important;
+    -webkit-background-clip: padding-box !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
   color: #2a1c14 !important;
   box-shadow: 0 18px 40px rgba(60, 40, 24, 0.14) !important;
   filter: none !important;
@@ -1916,7 +1915,7 @@ html.vc-site-photo-bg.vc-perf-mid.vc-site-polish[data-vc-theme="light"]:not(.vc-
 html.vc-site-photo-bg.vc-perf-mid.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top .vc-reviews-gate .vc-auth-required-secondary {
   background: #fffaf4 !important;
   background-image: none !important;
-  border: 1px solid transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
   color: #2a1c14 !important;
   -webkit-text-fill-color: #2a1c14 !important;
 }
@@ -1977,12 +1976,12 @@ html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body--ho
   background-image:
     radial-gradient(120% 90% at 0% 0%, rgba(255, 248, 238, 0.92), transparent 52%),
     radial-gradient(90% 70% at 100% 0%, rgba(212, 168, 136, 0.2), transparent 48%),
-    linear-gradient(175deg, #fffaf4 0%, #f7f1ea 48%, #efe6dc 100%),
-    conic-gradient(from 0deg, rgba(111, 78, 55, 0.72) 0deg, rgba(180, 130, 90, 0.55) 90deg, rgba(139, 99, 70, 0.58) 180deg, rgba(180, 130, 90, 0.55) 270deg, rgba(111, 78, 55, 0.72) 360deg) !important;
-    background-origin: padding-box, padding-box, padding-box, border-box !important;
-    background-clip: padding-box, padding-box, padding-box, border-box !important;
-    -webkit-background-clip: padding-box, padding-box, padding-box, border-box !important;
-  border-color: transparent !important;
+    linear-gradient(175deg, #fffaf4 0%, #f7f1ea 48%, #efe6dc 100%)
+     !important;
+    background-origin: padding-box !important;
+    background-clip: padding-box !important;
+    -webkit-background-clip: padding-box !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   color: #2a1c14 !important;
   box-shadow: 0 14px 36px rgba(60, 40, 24, 0.12), 0 0 20px rgba(212, 168, 136, 0.1) !important;
   filter: none !important;
@@ -2053,7 +2052,7 @@ html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top
   background-origin: padding-box, border-box !important;
   background-clip: padding-box, border-box !important;
   -webkit-background-clip: padding-box, border-box !important;
-  border: 1px solid transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
   color: #1a120e !important;
   -webkit-text-fill-color: #1a120e !important;
   text-shadow: none !important;
@@ -2138,13 +2137,13 @@ html[data-vc-theme="light"] body.vc-body header .vc-header-snav .vc-snav-panel {
   background-color: #faf6f0 !important;
   background-image:
     radial-gradient(120% 90% at 0% 0%, rgba(255, 248, 238, 0.9), transparent 52%),
-    linear-gradient(175deg, #fffaf4 0%, #f7f1ea 55%, #efe6dc 100%),
-    conic-gradient(from 0deg, rgba(111, 78, 55, 0.72) 0deg, rgba(180, 130, 90, 0.55) 90deg, rgba(139, 99, 70, 0.58) 180deg, rgba(180, 130, 90, 0.55) 270deg, rgba(111, 78, 55, 0.72) 360deg) !important;
+    linear-gradient(175deg, #fffaf4 0%, #f7f1ea 55%, #efe6dc 100%)
+     !important;
   background-origin: padding-box, padding-box, border-box !important;
   background-clip: padding-box, padding-box, border-box !important;
   -webkit-background-clip: padding-box, padding-box, border-box !important;
-  border: 1px solid transparent !important;
-  border-color: transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   color: #2a1c14 !important;
   box-shadow: 0 14px 36px rgba(60, 40, 24, 0.14) !important;
 }
@@ -2272,12 +2271,12 @@ html.vc-site-photo-bg.vc-perf-mid.vc-site-polish[data-vc-theme="light"]:not(.vc-
   background-image:
     radial-gradient(120% 90% at 0% 0%, rgba(255, 248, 238, 0.92), transparent 52%),
     radial-gradient(90% 70% at 100% 0%, rgba(212, 168, 136, 0.2), transparent 48%),
-    linear-gradient(175deg, #fffaf4 0%, #f7f1ea 48%, #efe6dc 100%),
-    conic-gradient(from 0deg, rgba(111, 78, 55, 0.72) 0deg, rgba(180, 130, 90, 0.55) 90deg, rgba(139, 99, 70, 0.58) 180deg, rgba(180, 130, 90, 0.55) 270deg, rgba(111, 78, 55, 0.72) 360deg) !important;
-    background-origin: padding-box, padding-box, padding-box, border-box !important;
-    background-clip: padding-box, padding-box, padding-box, border-box !important;
-    -webkit-background-clip: padding-box, padding-box, padding-box, border-box !important;
-  border-color: transparent !important;
+    linear-gradient(175deg, #fffaf4 0%, #f7f1ea 48%, #efe6dc 100%)
+     !important;
+    background-origin: padding-box !important;
+    background-clip: padding-box !important;
+    -webkit-background-clip: padding-box !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   color: #2a1c14 !important;
   box-shadow: 0 14px 36px rgba(60, 40, 24, 0.12), 0 0 20px rgba(212, 168, 136, 0.1) !important;
   filter: none !important;
@@ -2325,7 +2324,7 @@ html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top
   background-origin: padding-box, border-box !important;
   background-clip: padding-box, border-box !important;
   -webkit-background-clip: padding-box, border-box !important;
-  border: 1px solid transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
   color: #1a120e !important;
   -webkit-text-fill-color: #1a120e !important;
   text-shadow: none !important;
@@ -2340,12 +2339,12 @@ html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top
   background-color: #faf6f0 !important;
   background-image:
     radial-gradient(120% 90% at 0% 0%, rgba(255, 248, 238, 0.9), transparent 52%),
-    linear-gradient(175deg, #fffaf4 0%, #f7f1ea 55%, #efe6dc 100%),
-    conic-gradient(from 0deg, rgba(111, 78, 55, 0.72) 0deg, rgba(180, 130, 90, 0.55) 90deg, rgba(139, 99, 70, 0.58) 180deg, rgba(180, 130, 90, 0.55) 270deg, rgba(111, 78, 55, 0.72) 360deg) !important;
+    linear-gradient(175deg, #fffaf4 0%, #f7f1ea 55%, #efe6dc 100%)
+     !important;
   background-origin: padding-box, padding-box, border-box !important;
   background-clip: padding-box, padding-box, border-box !important;
   -webkit-background-clip: padding-box, padding-box, border-box !important;
-  border: 1px solid transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
   color: #2a1c14 !important;
   box-shadow: 0 14px 36px rgba(60, 40, 24, 0.14) !important;
 }
@@ -2392,13 +2391,13 @@ html.vc-site-polish[data-vc-theme="light"] body.vc-body#top header .vc-notif-pan
   background-color: #faf6f0 !important;
   background-image:
     radial-gradient(120% 90% at 0% 0%, rgba(255, 248, 238, 0.9), transparent 52%),
-    linear-gradient(175deg, #fffaf4 0%, #f7f1ea 55%, #efe6dc 100%),
-    conic-gradient(from 0deg, rgba(111, 78, 55, 0.72) 0deg, rgba(180, 130, 90, 0.55) 90deg, rgba(139, 99, 70, 0.58) 180deg, rgba(180, 130, 90, 0.55) 270deg, rgba(111, 78, 55, 0.72) 360deg) !important;
+    linear-gradient(175deg, #fffaf4 0%, #f7f1ea 55%, #efe6dc 100%)
+     !important;
   background-origin: padding-box, padding-box, border-box !important;
   background-clip: padding-box, padding-box, border-box !important;
   -webkit-background-clip: padding-box, padding-box, border-box !important;
-  border: 1px solid transparent !important;
-  border-color: transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   color: #2a1c14 !important;
   box-shadow: 0 14px 36px rgba(60, 40, 24, 0.14) !important;
 }
@@ -2412,16 +2411,15 @@ html.vc-site-polish[data-vc-theme="light"] body.vc-body#top header .vc-snav-pane
   -webkit-background-clip: border-box !important;
   background-clip: border-box !important;
 }
-/* themeLightSnavIsBoost1: cream snav with same :is(#stats:not(:has())) specificity as dark wash */
+/* themeLightSnavIsBoost1: cream snav with same :is(#stats:not(:has())) specificity as dark wash
+   notifSheetBorder1: .vc-notif-panel escluso — transparent+conic spariva sul sheet portale */
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body :is(
   .vc-snav-panel,
-  .vc-notif-panel,
   .vc-lang-panel:not(.vc-lang-panel--seg),
   #stats .vc-stat-strip:not(:has(.vc-notify-stat)):not(:has(.vc-vote-live-statbox))
 ),
 html.vc-site-photo-bg.vc-perf-mid.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top header :is(
   .vc-snav-panel,
-  .vc-notif-panel,
   .vc-lang-panel:not(.vc-lang-panel--seg),
   #stats .vc-stat-strip:not(:has(.vc-notify-stat)):not(:has(.vc-vote-live-statbox))
 ) {
@@ -2429,13 +2427,13 @@ html.vc-site-photo-bg.vc-perf-mid.vc-site-polish[data-vc-theme="light"]:not(.vc-
   background-color: #faf6f0 !important;
   background-image:
     radial-gradient(120% 90% at 0% 0%, rgba(255, 248, 238, 0.9), transparent 52%),
-    linear-gradient(175deg, #fffaf4 0%, #f7f1ea 55%, #efe6dc 100%),
-    conic-gradient(from 0deg, rgba(111, 78, 55, 0.72) 0deg, rgba(180, 130, 90, 0.55) 90deg, rgba(139, 99, 70, 0.58) 180deg, rgba(180, 130, 90, 0.55) 270deg, rgba(111, 78, 55, 0.72) 360deg) !important;
+    linear-gradient(175deg, #fffaf4 0%, #f7f1ea 55%, #efe6dc 100%)
+     !important;
   background-origin: padding-box, padding-box, border-box !important;
   background-clip: padding-box, padding-box, border-box !important;
   -webkit-background-clip: padding-box, padding-box, border-box !important;
-  border: 1px solid transparent !important;
-  border-color: transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   color: #2a1c14 !important;
   box-shadow: 0 14px 36px rgba(60, 40, 24, 0.14) !important;
 }
@@ -2450,7 +2448,7 @@ html[data-vc-theme="light"] body.vc-body header .vc-header-snav.vc-glass {
   background-color: transparent !important;
   background-image: none !important;
   border: 0 !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   box-shadow: none !important;
   filter: none !important;
   backdrop-filter: none !important;
@@ -2519,15 +2517,8 @@ html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top
 html[data-vc-theme="light"] body.vc-body header #vc-view-as-launch {
   background: #efe6dc !important;
   background-image:
-    linear-gradient(#efe6dc, #efe6dc),
-    conic-gradient(
-      from 0deg,
-      rgba(180, 130, 90, 0.75) 0deg,
-      rgba(212, 168, 136, 0.55) 90deg,
-      rgba(168, 118, 82, 0.65) 180deg,
-      rgba(212, 168, 136, 0.55) 270deg,
-      rgba(180, 130, 90, 0.75) 360deg
-    ) !important;
+    linear-gradient(#efe6dc, #efe6dc)
+     !important;
   background-origin: padding-box, border-box !important;
   background-clip: padding-box, border-box !important;
   -webkit-background-clip: padding-box, border-box !important;
@@ -2708,7 +2699,6 @@ html[data-vc-theme="light"] body.vc-body--home .vc-home-scrollcue__label {
 }
 
 
-
 /* themeLightNuke1: cue arrow, view-as, gradients, deck idx, seps, account popover, snav boxes */
 
 /* ——— Scroll cue freccia: cream/gold su foto scura (NON mocha) ——— */
@@ -2851,7 +2841,7 @@ html[data-vc-theme="light"] body.vc-body header .vc-header-snav .vc-snav-summary
   color: transparent !important;
   -webkit-text-fill-color: transparent !important;
   box-shadow: none !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   filter: none !important;
   opacity: 1 !important;
 }
@@ -2959,30 +2949,26 @@ html[data-vc-theme="light"] footer.vc-premium-footer .vc-premium-footer__legal n
   height: 1.35rem !important;
 }
 
-/* ——— Account popover: cream + ink (batte soft-fx #12100c) — NO opacity/visibility force (chiude fantasma) ——— */
+/* ——— Account popover: cream + ink — acctSolidBorder1b: 2px solid sabbia (come nav/footer) ——— */
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top header .discord-account-popover,
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body header .discord-account-popover,
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body .discord-account-popover,
 html.vc-site-photo-bg.vc-perf-mid.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top header .discord-account-popover,
 html[data-vc-theme="light"] body.vc-body header .discord-account-popover {
-  background-color: #faf6f0 !important;
-  background: #faf6f0 !important;
+  background-color: #f7f1ea !important;
   background-image:
-    radial-gradient(120% 90% at 0% 0%, rgba(255, 248, 238, 0.95), transparent 52%),
-    linear-gradient(175deg, #fffaf4 0%, #f7f1ea 52%, #efe6dc 100%),
-    conic-gradient(from 0deg, rgba(111, 78, 55, 0.72) 0deg, rgba(180, 130, 90, 0.55) 90deg, rgba(139, 99, 70, 0.58) 180deg, rgba(180, 130, 90, 0.55) 270deg, rgba(111, 78, 55, 0.72) 360deg) !important;
-  background-origin: padding-box, padding-box, border-box !important;
-  background-clip: padding-box, padding-box, border-box !important;
-  -webkit-background-clip: padding-box, padding-box, border-box !important;
-  background-origin: padding-box, padding-box !important;
-  background-clip: padding-box, padding-box !important;
-  -webkit-background-clip: padding-box, padding-box !important;
-  border: 1px solid transparent !important;
-  border-color: transparent !important;
-  box-shadow:
-    0 0 0 1px rgba(255, 255, 255, 0.55),
-    0 14px 36px rgba(60, 40, 24, 0.16),
-    0 0 20px rgba(212, 168, 136, 0.18) !important;
+    radial-gradient(120% 90% at 0% 0%, rgba(255, 248, 238, 0.75), transparent 52%),
+    radial-gradient(90% 70% at 100% 0%, rgba(212, 168, 136, 0.16), transparent 48%),
+    linear-gradient(175deg, #fffaf4 0%, #f7f1ea 55%, #efe6dc 100%) !important;
+  background-origin: padding-box !important;
+  background-clip: padding-box !important;
+  -webkit-background-clip: padding-box !important;
+  border: 2px solid rgba(111, 78, 55, 0.28) !important;
+  border-width: 2px !important;
+  border-style: solid !important;
+  border-color: rgba(111, 78, 55, 0.28) !important;
+  box-shadow: none !important;
+  filter: none !important;
   color: #2a1c14 !important;
   overflow: visible !important;
 }
@@ -3006,13 +2992,13 @@ html[data-vc-theme="light"] .discord-account-popover__name {
   color: transparent !important;
   -webkit-text-fill-color: transparent !important;
 }
-html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top header .discord-account-popover__item:not(.discord-account-popover__item--danger),
-html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body header .discord-account-popover__item:not(.discord-account-popover__item--danger),
-html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body .discord-account-popover__item:not(.discord-account-popover__item--danger),
-html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top header .discord-account-popover__item:not(.discord-account-popover__item--danger) :is(span, i, .fa),
-html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body .discord-account-popover__item:not(.discord-account-popover__item--danger) :is(span, i, .fa),
-html[data-vc-theme="light"] .discord-account-popover__item:not(.discord-account-popover__item--danger),
-html[data-vc-theme="light"] .discord-account-popover__item:not(.discord-account-popover__item--danger) :is(span, i, .fa) {
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top header .discord-account-popover__item:not(.discord-account-popover__item--danger):not(.is-blacklisted):not(.is-soon),
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body header .discord-account-popover__item:not(.discord-account-popover__item--danger):not(.is-blacklisted):not(.is-soon),
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body .discord-account-popover__item:not(.discord-account-popover__item--danger):not(.is-blacklisted):not(.is-soon),
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top header .discord-account-popover__item:not(.discord-account-popover__item--danger):not(.is-blacklisted):not(.is-soon) :is(span, i, .fa),
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body .discord-account-popover__item:not(.discord-account-popover__item--danger):not(.is-blacklisted):not(.is-soon) :is(span, i, .fa),
+html[data-vc-theme="light"] .discord-account-popover__item:not(.discord-account-popover__item--danger):not(.is-blacklisted):not(.is-soon),
+html[data-vc-theme="light"] .discord-account-popover__item:not(.discord-account-popover__item--danger):not(.is-blacklisted):not(.is-soon) :is(span, i, .fa) {
   background-image: none !important;
   background-color: transparent !important;
   -webkit-background-clip: border-box !important;
@@ -3021,9 +3007,9 @@ html[data-vc-theme="light"] .discord-account-popover__item:not(.discord-account-
   -webkit-text-fill-color: #2a1c14 !important;
   text-shadow: none !important;
 }
-html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top header .discord-account-popover__item:not(.discord-account-popover__item--danger):hover,
-html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body .discord-account-popover__item:not(.discord-account-popover__item--danger):hover,
-html[data-vc-theme="light"] .discord-account-popover__item:not(.discord-account-popover__item--danger):hover {
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top header .discord-account-popover__item:not(.discord-account-popover__item--danger):not(.is-blacklisted):not(.is-soon):hover,
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body .discord-account-popover__item:not(.discord-account-popover__item--danger):not(.is-blacklisted):not(.is-soon):hover,
+html[data-vc-theme="light"] .discord-account-popover__item:not(.discord-account-popover__item--danger):not(.is-blacklisted):not(.is-soon):hover {
   background: rgba(111, 78, 55, 0.08) !important;
   background-image: none !important;
   color: #1a120e !important;
@@ -3035,11 +3021,31 @@ html[data-vc-theme="light"] .discord-account-popover__head {
   border-color: rgba(111, 78, 55, 0.16) !important;
   color: #2a1c14 !important;
 }
-/* caret / glow ring light */
+/* caret solid sand light (acctSolidBorder1b) */
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top header .discord-account-popover::before,
-html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body header .discord-account-popover::before {
-  border-bottom-color: #faf6f0 !important;
-  background: #faf6f0 !important;
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body header .discord-account-popover::before,
+html[data-vc-theme="light"] body.vc-body header .discord-account-popover::before {
+  content: "" !important;
+  display: block !important;
+  width: 12px !important;
+  height: 12px !important;
+  border-style: solid !important;
+  border-width: 2px 0 0 2px !important;
+  border-color: rgba(111, 78, 55, 0.28) transparent transparent rgba(111, 78, 55, 0.28) !important;
+  border-radius: 1px !important;
+  background: #f7f1ea !important;
+  background-color: #f7f1ea !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  filter: none !important;
+  transform: translateX(-50%) rotate(45deg) !important;
+}
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top header .discord-account-popover::after,
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body header .discord-account-popover::after,
+html[data-vc-theme="light"] body.vc-body header .discord-account-popover::after {
+  background: #f7f1ea !important;
+  background-color: #f7f1ea !important;
+  box-shadow: none !important;
 }
 
 /* ——— CTA / pills: border gradient + soft glow (non flat) ——— */
@@ -3050,7 +3056,7 @@ html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top
     0 0 0 1px rgba(212, 168, 136, 0.4),
     0 0 14px rgba(212, 168, 136, 0.32),
     0 8px 22px rgba(60, 40, 24, 0.12) !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
 }
 html.vc-site-photo-bg.vc-perf-mid.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-content :is(
   .vc-hero-head, .vc-home-deck, .vc-home-index, .vc-home-feature, .vc-nav-shell
@@ -3185,7 +3191,7 @@ html[data-vc-theme="light"] body.vc-body header #vc-view-as-launch {
   background: transparent !important;
   background-color: transparent !important;
   background-image: none !important;
-  border: 1px solid transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
   box-shadow:
     0 0 0 1.5px rgba(111, 78, 55, 0.42),
     0 0 10px rgba(168, 118, 82, 0.28),
@@ -3316,7 +3322,7 @@ html[data-vc-theme="light"] .vc-notif-panel .vc-notif-panel-head-ico > i {
 }
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top header .vc-notif-panel .vc-notif-panel-head-ico {
   background: #efe6dc !important;
-  border: 1px solid transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
   box-shadow: 0 0 8px rgba(212, 168, 136, 0.25) !important;
 }
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top header .vc-notif-panel :is(
@@ -3325,7 +3331,7 @@ html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top
 html[data-vc-theme="light"] .vc-notif-panel :is(.vc-notif-action, #vc-notif-clear-all) {
   background: #efe6dc !important;
   background-image: none !important;
-  border: 1px solid transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
   color: #3a281c !important;
   -webkit-text-fill-color: #3a281c !important;
   box-shadow: 0 0 8px rgba(212, 168, 136, 0.2) !important;
@@ -3347,7 +3353,7 @@ html[data-vc-theme="light"] .vc-notif-panel :is(.vc-notif-scope-bar, .vc-notif-s
   background: #efe6dc !important;
   background-color: #efe6dc !important;
   background-image: none !important;
-  border: 1px solid transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55) !important;
 }
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top header .vc-notif-panel .vc-notif-scope-switch__btn,
@@ -3412,7 +3418,7 @@ html[data-vc-theme="light"] .vc-notif-panel :is(.vc-notif-cat-count, .vc-notif-b
   background: #ead9c6 !important;
   color: #1a120e !important;
   -webkit-text-fill-color: #1a120e !important;
-  border: 1px solid transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
 }
 /* notifPendingPhoneVis1: pending/new restano rossi anche in light */
 html[data-vc-theme="light"] .vc-notif-panel .vc-notif-bell-inbox__count--new,
@@ -3435,7 +3441,7 @@ html[data-vc-theme="light"] .vc-notif-panel .vc-notif-see-all {
   background-image: linear-gradient(180deg, #fff8f0 0%, #ead9c6 100%) !important;
   color: #1a120e !important;
   -webkit-text-fill-color: #1a120e !important;
-  border: 1px solid transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
   box-shadow: 0 0 12px rgba(212, 168, 136, 0.28) !important;
 }
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top header .vc-notif-panel .vc-notif-see-all :is(span, i),
@@ -3458,8 +3464,8 @@ html[data-vc-theme="light"] .vc-notif-scope-switch__seg {
   background: #efe6dc !important;
   background-color: #efe6dc !important;
   background-image: none !important;
-  border: 1px solid transparent !important;
-  border-color: transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55) !important;
 }
 html.vc-site-photo-bg.vc-perf-mid.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top header .vc-notif-panel :is(
@@ -3532,8 +3538,8 @@ html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body.vc-
   background: #faf6f0 !important;
   background-color: #faf6f0 !important;
   background-image: none !important;
-  border: 1px solid transparent !important;
-  border-color: transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   box-shadow: 0 8px 20px rgba(60, 40, 24, 0.08) !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
@@ -3566,13 +3572,13 @@ html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body.vc-
     radial-gradient(90% 70% at 100% 0%, rgba(212, 168, 136, 0.2), transparent 48%),
     linear-gradient(175deg, #fffaf4 0%, #f7f1ea 48%, #efe6dc 100%),
     var(--vc-nav-ring-light) !important;
-  background-origin: padding-box, padding-box, padding-box, border-box !important;
-  background-clip: padding-box, padding-box, padding-box, border-box !important;
-  -webkit-background-clip: padding-box, padding-box, padding-box, border-box !important;
-  border: 2px solid transparent !important;
+  background-origin: padding-box !important;
+  background-clip: padding-box !important;
+  -webkit-background-clip: padding-box !important;
+  border: 2px solid rgba(245, 214, 183, 0.38) !important;
   border-width: 2px !important;
   border-style: solid !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   box-shadow: none !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
@@ -3718,8 +3724,8 @@ html[data-vc-theme="light"] :is(
   background: #efe6dc !important;
   background-color: #efe6dc !important;
   background-image: none !important;
-  border: 1px solid transparent !important;
-  border-color: transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   border-width: 1px !important;
   border-style: solid !important;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55) !important;
@@ -3797,7 +3803,7 @@ html[data-vc-theme="light"] :is(
   background-color: transparent !important;
   background-image: none !important;
   border: 0 !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   box-shadow: none !important;
   color: #3a281c !important;
   -webkit-text-fill-color: #3a281c !important;
@@ -3926,8 +3932,8 @@ html[data-vc-theme="light"] :is(
   background: #faf6f0 !important;
   background-color: #faf6f0 !important;
   background-image: linear-gradient(180deg, #fffaf4 0%, #f3ebe3 100%) !important;
-  border: 1px solid transparent !important;
-  border-color: transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   box-shadow: 0 0 0 1px rgba(111, 78, 55, 0.18), 0 0 10px rgba(212, 168, 136, 0.22) !important;
   color: #1a120e !important;
   -webkit-text-fill-color: #1a120e !important;
@@ -3971,7 +3977,7 @@ html[data-vc-theme="light"] .vc-theme-switch {
   background: #efe6dc !important;
   background-color: #efe6dc !important;
   background-image: none !important;
-  border: 1px solid transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5) !important;
 }
 
@@ -4072,14 +4078,7 @@ html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body foo
 html[data-vc-theme="light"] .vc-premium-footer__social::after,
 html[data-vc-theme="light"] .vc-footer-social-ico::after {
   opacity: 0.55 !important;
-  background: conic-gradient(
-    from 0deg,
-    rgba(111, 78, 55, 0.55) 0deg,
-    rgba(168, 118, 82, 0.35) 90deg,
-    rgba(212, 168, 136, 0.45) 180deg,
-    rgba(168, 118, 82, 0.35) 270deg,
-    rgba(111, 78, 55, 0.55) 360deg
-  ) !important;
+  background: none !important;
 }
 
 /* themeLightTipIcons1: tip/aside FA = mocha come lista COSA TROVI */
@@ -4157,13 +4156,13 @@ html[data-vc-theme="light"] .vc-wiki-cmd-shell {
   background-image:
     radial-gradient(120% 90% at 0% 0%, rgba(255, 248, 238, 0.92), transparent 52%),
     radial-gradient(90% 70% at 100% 0%, rgba(212, 168, 136, 0.2), transparent 48%),
-    linear-gradient(175deg, #fffaf4 0%, #f7f1ea 48%, #efe6dc 100%),
-    conic-gradient(from 0deg, rgba(111, 78, 55, 0.72) 0deg, rgba(180, 130, 90, 0.55) 90deg, rgba(139, 99, 70, 0.58) 180deg, rgba(180, 130, 90, 0.55) 270deg, rgba(111, 78, 55, 0.72) 360deg) !important;
-    background-origin: padding-box, padding-box, padding-box, border-box !important;
-    background-clip: padding-box, padding-box, padding-box, border-box !important;
-    -webkit-background-clip: padding-box, padding-box, padding-box, border-box !important;
-  border: 1px solid transparent !important;
-  border-color: transparent !important;
+    linear-gradient(175deg, #fffaf4 0%, #f7f1ea 48%, #efe6dc 100%)
+     !important;
+    background-origin: padding-box !important;
+    background-clip: padding-box !important;
+    -webkit-background-clip: padding-box !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   color: #2a1c14 !important;
   box-shadow: 0 18px 40px rgba(60, 40, 24, 0.12), 0 0 22px rgba(212, 168, 136, 0.14) !important;
   filter: none !important;
@@ -4207,7 +4206,7 @@ html[data-vc-theme="light"] .vc-cmd-search {
   background-clip: border-box !important;
   color: #1a120e !important;
   -webkit-text-fill-color: #1a120e !important;
-  border: 1px solid transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55) !important;
 }
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #wiki-comandi-panel .vc-cmd-search input,
@@ -4260,8 +4259,8 @@ html[data-vc-theme="light"] .vc-wiki-cmd-shell :is(
   /* innerCardConic3: NON forzare clip border-box (nascondeva il conic) */
   background-clip: padding-box, padding-box, border-box !important;
   -webkit-background-clip: padding-box, padding-box, border-box !important;
-  border: 2px solid transparent !important;
-  border-color: transparent !important;
+  border: 2px solid rgba(245, 214, 183, 0.38) !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   color: #2a1c14 !important;
   -webkit-text-fill-color: #2a1c14 !important;
   box-shadow: none !important;
@@ -4383,14 +4382,14 @@ html[data-vc-theme="light"] :is(
   background-image:
     radial-gradient(120% 90% at 0% 0%, rgba(255, 248, 238, 0.92), transparent 52%),
     radial-gradient(90% 70% at 100% 0%, rgba(212, 168, 136, 0.2), transparent 48%),
-    linear-gradient(175deg, #fffaf4 0%, #f7f1ea 48%, #efe6dc 100%),
-    conic-gradient(from 0deg, rgba(111, 78, 55, 0.72) 0deg, rgba(180, 130, 90, 0.55) 90deg, rgba(139, 99, 70, 0.58) 180deg, rgba(180, 130, 90, 0.55) 270deg, rgba(111, 78, 55, 0.72) 360deg) !important;
-    background-origin: padding-box, padding-box, padding-box, border-box !important;
-    background-clip: padding-box, padding-box, padding-box, border-box !important;
-    -webkit-background-clip: padding-box, padding-box, padding-box, border-box !important;
+    linear-gradient(175deg, #fffaf4 0%, #f7f1ea 48%, #efe6dc 100%)
+     !important;
+    background-origin: padding-box !important;
+    background-clip: padding-box !important;
+    -webkit-background-clip: padding-box !important;
   -webkit-background-clip: border-box !important;
   background-clip: border-box !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   color: #2a1c14 !important;
   -webkit-text-fill-color: #2a1c14 !important;
   box-shadow: 0 14px 36px rgba(60, 40, 24, 0.12), 0 0 20px rgba(212, 168, 136, 0.1) !important;
@@ -4454,18 +4453,11 @@ html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body #vc
 html.vc-site-photo-bg.vc-perf-mid.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-site-back-top,
 html[data-vc-theme="light"] #vc-site-back-top {
   border: 1.35px solid transparent !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   background-color: #faf6f0 !important;
   background-image:
-    linear-gradient(180deg, #fffaf4 0%, #f3ebe3 100%),
-    conic-gradient(
-      from 0deg,
-      rgba(111, 78, 55, 0.72) 0deg,
-      rgba(180, 130, 90, 0.55) 90deg,
-      rgba(139, 99, 70, 0.58) 180deg,
-      rgba(180, 130, 90, 0.55) 270deg,
-      rgba(111, 78, 55, 0.72) 360deg
-    ) !important;
+    linear-gradient(180deg, #fffaf4 0%, #f3ebe3 100%)
+     !important;
   background-origin: padding-box, border-box !important;
   background-clip: padding-box, border-box !important;
   -webkit-background-clip: padding-box, border-box !important;
@@ -4480,15 +4472,8 @@ html[data-vc-theme="light"] #vc-site-back-top:hover,
 html[data-vc-theme="light"] #vc-site-back-top:focus-visible {
   background-color: #fffaf4 !important;
   background-image:
-    linear-gradient(180deg, #fffdf9 0%, #efe6dc 100%),
-    conic-gradient(
-      from 0deg,
-      rgba(111, 78, 55, 0.85) 0deg,
-      rgba(168, 118, 82, 0.65) 90deg,
-      rgba(139, 99, 70, 0.7) 180deg,
-      rgba(168, 118, 82, 0.65) 270deg,
-      rgba(111, 78, 55, 0.85) 360deg
-    ) !important;
+    linear-gradient(180deg, #fffdf9 0%, #efe6dc 100%)
+     !important;
   background-origin: padding-box, border-box !important;
   background-clip: padding-box, border-box !important;
   -webkit-background-clip: padding-box, border-box !important;
@@ -4624,18 +4609,18 @@ html[data-vc-theme="light"] body.vc-body :is(
   background:
     radial-gradient(120% 90% at 0% 0%, rgba(255, 248, 238, 0.28), transparent 52%),
     radial-gradient(90% 70% at 100% 0%, rgba(212, 168, 136, 0.12), transparent 48%),
-    linear-gradient(168deg, rgba(255, 250, 244, 0.52) 0%, rgba(247, 241, 234, 0.4) 100%),
-    conic-gradient(from 0deg, rgba(111, 78, 55, 0.72) 0deg, rgba(180, 130, 90, 0.55) 90deg, rgba(139, 99, 70, 0.58) 180deg, rgba(180, 130, 90, 0.55) 270deg, rgba(111, 78, 55, 0.72) 360deg) !important;
+    linear-gradient(168deg, rgba(255, 250, 244, 0.52) 0%, rgba(247, 241, 234, 0.4) 100%)
+     !important;
   background-image:
     radial-gradient(120% 90% at 0% 0%, rgba(255, 248, 238, 0.28), transparent 52%),
     radial-gradient(90% 70% at 100% 0%, rgba(212, 168, 136, 0.12), transparent 48%),
-    linear-gradient(168deg, rgba(255, 250, 244, 0.52) 0%, rgba(247, 241, 234, 0.4) 100%),
-    conic-gradient(from 0deg, rgba(111, 78, 55, 0.72) 0deg, rgba(180, 130, 90, 0.55) 90deg, rgba(139, 99, 70, 0.58) 180deg, rgba(180, 130, 90, 0.55) 270deg, rgba(111, 78, 55, 0.72) 360deg) !important;
-  background-origin: padding-box, padding-box, padding-box, border-box !important;
-  background-clip: padding-box, padding-box, padding-box, border-box !important;
-  -webkit-background-clip: padding-box, padding-box, padding-box, border-box !important;
-  border: 1px solid transparent !important;
-  border-color: transparent !important;
+    linear-gradient(168deg, rgba(255, 250, 244, 0.52) 0%, rgba(247, 241, 234, 0.4) 100%)
+     !important;
+  background-origin: padding-box !important;
+  background-clip: padding-box !important;
+  -webkit-background-clip: padding-box !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.45),
     0 16px 40px rgba(60, 40, 24, 0.1),
@@ -4665,8 +4650,8 @@ html[data-vc-theme="light"] body.vc-body .vc-support-page-hero .grid.gap-4 > div
   background: #ffffff !important;
   background-color: #ffffff !important;
   background-image: linear-gradient(175deg, #fffaf4 0%, #f7f1ea 55%, #efe6dc 100%) !important;
-  border: 1px solid transparent !important;
-  border-color: transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   box-shadow: 0 10px 28px rgba(60, 40, 24, 0.1) !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
@@ -4678,7 +4663,7 @@ html[data-vc-theme="light"] body.vc-body .vc-support-page-hero .grid.gap-4 > div
 html[data-vc-theme="light"] #vc-type-sfx-player .vc-bgm-player__toggle,
 html[data-vc-theme="light"] .vc-type-sfx-player .vc-bgm-player__toggle {
   background: rgba(255, 250, 244, 0.94) !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   color: #2a1c14 !important;
   box-shadow: 0 8px 22px rgba(60, 40, 24, 0.14) !important;
 }
@@ -4690,7 +4675,7 @@ html[data-vc-theme="light"] .vc-type-sfx-player.vc-bgm-player:focus-within,
 html[data-vc-theme="light"] .vc-type-sfx-player.vc-bgm-player.is-open {
   background: linear-gradient(155deg, #fffaf4, #f3ebe3) !important;
   background-color: #faf6f0 !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   box-shadow: 0 14px 36px rgba(60, 40, 24, 0.16) !important;
 }
 html[data-vc-theme="light"] #vc-type-sfx-player .vc-bgm-player__label,
@@ -5041,14 +5026,14 @@ html[data-vc-theme="light"] body.vc-body :is(.vc-vote-live-statbox, .vc-vote-pro
   background-color: #faf6f0 !important;
   background-image:
     radial-gradient(120% 90% at 0% 0%, rgba(255, 248, 238, 0.95), transparent 52%),
-    linear-gradient(175deg, #fffaf4 0%, #f3ebe2 55%, #ebe1d6 100%),
-    conic-gradient(from 0deg, rgba(111, 78, 55, 0.72) 0deg, rgba(180, 130, 90, 0.55) 90deg, rgba(139, 99, 70, 0.58) 180deg, rgba(180, 130, 90, 0.55) 270deg, rgba(111, 78, 55, 0.72) 360deg) !important;
+    linear-gradient(175deg, #fffaf4 0%, #f3ebe2 55%, #ebe1d6 100%)
+     !important;
   background-origin: padding-box, padding-box, border-box !important;
   background-clip: padding-box, padding-box, border-box !important;
   -webkit-background-clip: padding-box, padding-box, border-box !important;
   -webkit-background-clip: border-box !important;
   background-clip: border-box !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   color: #2a1c14 !important;
   -webkit-text-fill-color: #2a1c14 !important;
   box-shadow: 0 10px 28px rgba(60, 40, 24, 0.1) !important;
@@ -5188,7 +5173,7 @@ html[data-vc-theme="light"] .vc-support-donate-new {
   background-color: #e8c4a0 !important;
   color: #1a120e !important;
   -webkit-text-fill-color: #1a120e !important;
-  border: 1px solid transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
   text-shadow: none !important;
   opacity: 1 !important;
 }
@@ -5206,13 +5191,13 @@ html[data-vc-theme="light"] :is(.vc-perks-verify-box, .vc-perks-verify-guide__in
   background-color: #faf6f0 !important;
   background-image:
     radial-gradient(120% 90% at 0% 0%, rgba(255, 248, 238, 0.95), transparent 52%),
-    linear-gradient(175deg, #fffaf4 0%, #f7f1ea 48%, #efe6dc 100%),
-    conic-gradient(from 0deg, rgba(111, 78, 55, 0.72) 0deg, rgba(180, 130, 90, 0.55) 90deg, rgba(139, 99, 70, 0.58) 180deg, rgba(180, 130, 90, 0.55) 270deg, rgba(111, 78, 55, 0.72) 360deg) !important;
+    linear-gradient(175deg, #fffaf4 0%, #f7f1ea 48%, #efe6dc 100%)
+     !important;
   background-origin: padding-box, padding-box, border-box !important;
   background-clip: padding-box, padding-box, border-box !important;
   -webkit-background-clip: padding-box, padding-box, border-box !important;
-  border: 1px solid transparent !important;
-  border-color: transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   color: #2a1c14 !important;
   -webkit-text-fill-color: #2a1c14 !important;
   box-shadow: 0 10px 28px rgba(60, 40, 24, 0.1) !important;
@@ -5258,7 +5243,7 @@ html[data-vc-theme="light"] .vc-perks-pane--verify .vc-support-donate-perk__ico 
   -webkit-text-fill-color: #6f4e37 !important;
   background: rgba(255, 250, 244, 0.95) !important;
   background-image: none !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
 }
 /* perk rows sotto verify (icone + testo) */
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top .vc-perks-pane--verify :is(
@@ -5281,12 +5266,12 @@ html[data-vc-theme="light"] :is(.vc-ul-filters-panel, .vc-ul-filters-hint) {
   background-color: #faf6f0 !important;
   background-image:
     radial-gradient(120% 90% at 0% 0%, rgba(255, 248, 238, 0.9), transparent 52%),
-    linear-gradient(175deg, #fffaf4 0%, #f3ebe3 100%),
-    conic-gradient(from 0deg, rgba(111, 78, 55, 0.72) 0deg, rgba(180, 130, 90, 0.55) 90deg, rgba(139, 99, 70, 0.58) 180deg, rgba(180, 130, 90, 0.55) 270deg, rgba(111, 78, 55, 0.72) 360deg) !important;
+    linear-gradient(175deg, #fffaf4 0%, #f3ebe3 100%)
+     !important;
   background-origin: padding-box, padding-box, border-box !important;
   background-clip: padding-box, padding-box, border-box !important;
   -webkit-background-clip: padding-box, padding-box, border-box !important;
-  border: 1px solid transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
   color: #2a1c14 !important;
   -webkit-text-fill-color: #2a1c14 !important;
   box-shadow: 0 10px 28px rgba(60, 40, 24, 0.1) !important;
@@ -5317,7 +5302,7 @@ html[data-vc-theme="light"] .vc-ul-filters-input,
 html.vc-site-polish[data-vc-theme="light"] .vc-ul-filters-input {
   background: #fffaf4 !important;
   background-color: #fffaf4 !important;
-  border: 1px solid transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
   color: #2a1c14 !important;
   -webkit-text-fill-color: #2a1c14 !important;
 }
@@ -5337,12 +5322,12 @@ html[data-vc-theme="light"] :is(.vc-role-request-sheet, .vc-role-modal-sheet) {
   background-color: #faf6f0 !important;
   background-image:
     radial-gradient(120% 90% at 0% 0%, rgba(255, 248, 238, 0.95), transparent 52%),
-    linear-gradient(175deg, #fffaf4 0%, #f7f1ea 48%, #efe6dc 100%),
-    conic-gradient(from 0deg, rgba(111, 78, 55, 0.72) 0deg, rgba(180, 130, 90, 0.55) 90deg, rgba(139, 99, 70, 0.58) 180deg, rgba(180, 130, 90, 0.55) 270deg, rgba(111, 78, 55, 0.72) 360deg) !important;
+    linear-gradient(175deg, #fffaf4 0%, #f7f1ea 48%, #efe6dc 100%)
+     !important;
   background-origin: padding-box, padding-box, border-box !important;
   background-clip: padding-box, padding-box, border-box !important;
   -webkit-background-clip: padding-box, padding-box, border-box !important;
-  border: 1px solid transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
   color: #2a1c14 !important;
   box-shadow: 0 22px 48px rgba(60, 40, 24, 0.18) !important;
   filter: none !important;
@@ -5389,7 +5374,7 @@ html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body :is
 ),
 html[data-vc-theme="light"] :is(.vc-role-request-login, .vc-role-request-submit) {
   background: linear-gradient(180deg, #f0dcc8 0%, #d4a888 58%, #b88968 100%) !important;
-  border: 1px solid transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
   color: #1a120e !important;
   -webkit-text-fill-color: #1a120e !important;
   box-shadow: 0 10px 24px rgba(111, 78, 55, 0.22) !important;
@@ -5397,14 +5382,14 @@ html[data-vc-theme="light"] :is(.vc-role-request-login, .vc-role-request-submit)
 html[data-vc-theme="light"] :is(.vc-role-request-cancel, .vc-role-request-close),
 html.vc-site-polish[data-vc-theme="light"] .vc-role-request-cancel {
   background: rgba(255, 250, 244, 0.95) !important;
-  border: 1px solid transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
   color: #2a1c14 !important;
   -webkit-text-fill-color: #2a1c14 !important;
 }
 html[data-vc-theme="light"] .vc-role-request-textarea,
 html.vc-site-polish[data-vc-theme="light"] .vc-role-request-textarea {
   background: #fffaf4 !important;
-  border: 1px solid transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
   color: #2a1c14 !important;
   -webkit-text-fill-color: #2a1c14 !important;
 }
@@ -5668,11 +5653,11 @@ html.vc-site-polish[data-vc-theme="light"] body.vc-page-cine-layout :is(
   background-image:
     radial-gradient(120% 90% at 0% 0%, rgba(255, 248, 238, 0.92), transparent 52%),
     radial-gradient(90% 70% at 100% 0%, rgba(212, 168, 136, 0.2), transparent 48%),
-    linear-gradient(175deg, #fffaf4 0%, #f7f1ea 48%, #efe6dc 100%),
-    conic-gradient(from 0deg, rgba(111, 78, 55, 0.72) 0deg, rgba(180, 130, 90, 0.55) 90deg, rgba(139, 99, 70, 0.58) 180deg, rgba(180, 130, 90, 0.55) 270deg, rgba(111, 78, 55, 0.72) 360deg) !important;
-    background-origin: padding-box, padding-box, padding-box, border-box !important;
-    background-clip: padding-box, padding-box, padding-box, border-box !important;
-    -webkit-background-clip: padding-box, padding-box, padding-box, border-box !important;
+    linear-gradient(175deg, #fffaf4 0%, #f7f1ea 48%, #efe6dc 100%)
+     !important;
+    background-origin: padding-box !important;
+    background-clip: padding-box !important;
+    -webkit-background-clip: padding-box !important;
   border-color: rgba(111, 78, 55, 0.34) !important;
   box-shadow:
     0 14px 36px rgba(60, 40, 24, 0.14),
@@ -5685,8 +5670,8 @@ html.vc-site-polish[data-vc-theme="light"] body.vc-reviews-page .vc-reviews-stag
   background-color: #faf6f0 !important;
   background-image:
     radial-gradient(120% 90% at 0% 0%, rgba(255, 248, 238, 0.92), transparent 52%),
-    linear-gradient(175deg, #fffaf4 0%, #f7f1ea 55%, #efe6dc 100%),
-    conic-gradient(from 0deg, rgba(111, 78, 55, 0.72) 0deg, rgba(180, 130, 90, 0.55) 90deg, rgba(139, 99, 70, 0.58) 180deg, rgba(180, 130, 90, 0.55) 270deg, rgba(111, 78, 55, 0.72) 360deg) !important;
+    linear-gradient(175deg, #fffaf4 0%, #f7f1ea 55%, #efe6dc 100%)
+     !important;
   background-origin: padding-box, padding-box, border-box !important;
   background-clip: padding-box, padding-box, border-box !important;
   -webkit-background-clip: padding-box, padding-box, border-box !important;
@@ -5705,7 +5690,7 @@ html[data-vc-theme="light"] .vc-discord-login-btn {
   background-color: #5865f2 !important;
   background-image: none !important;
   border: none !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   color: #ffffff !important;
   -webkit-text-fill-color: #ffffff !important;
   -webkit-background-clip: border-box !important;
@@ -5724,7 +5709,7 @@ html[data-vc-theme="light"] .vc-discord-login-btn:hover {
   background-image: none !important;
   color: #ffffff !important;
   -webkit-text-fill-color: #ffffff !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   box-shadow: 0 6px 18px rgba(88, 101, 242, 0.45) !important;
   opacity: 1 !important;
   filter: none !important;
@@ -5761,8 +5746,8 @@ html[data-vc-theme="light"] body.vc-body .vc-page-cine-aside-inline [class*="rou
   background: #ffffff !important;
   background-color: #ffffff !important;
   background-image: linear-gradient(175deg, #fffaf4 0%, #f7f1ea 55%, #efe6dc 100%) !important;
-  border: 1px solid transparent !important;
-  border-color: transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   box-shadow: 0 10px 28px rgba(60, 40, 24, 0.1) !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
@@ -5921,12 +5906,12 @@ html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-vote-pag
   background-color: #faf6f0 !important;
   background-image:
     radial-gradient(120% 90% at 0% 0%, rgba(255, 248, 238, 0.95), transparent 52%),
-    linear-gradient(175deg, #fffaf4 0%, #f3ebe2 55%, #ebe1d6 100%),
-    conic-gradient(from 0deg, rgba(111, 78, 55, 0.72) 0deg, rgba(180, 130, 90, 0.55) 90deg, rgba(139, 99, 70, 0.58) 180deg, rgba(180, 130, 90, 0.55) 270deg, rgba(111, 78, 55, 0.72) 360deg) !important;
+    linear-gradient(175deg, #fffaf4 0%, #f3ebe2 55%, #ebe1d6 100%)
+     !important;
   background-origin: padding-box, padding-box, border-box !important;
   background-clip: padding-box, padding-box, border-box !important;
   -webkit-background-clip: padding-box, padding-box, border-box !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   color: #2a1c14 !important;
   -webkit-text-fill-color: #2a1c14 !important;
   box-shadow: 0 10px 28px rgba(60, 40, 24, 0.1) !important;
@@ -5942,7 +5927,7 @@ html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-vote-pag
   background-image:
     radial-gradient(110% 80% at 0% 0%, rgba(255, 250, 244, 0.9), transparent 55%),
     linear-gradient(168deg, #f7f1ea 0%, #efe6dc 100%) !important;
-  border: 1px solid transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
 }
 html[data-vc-theme="light"] body.vc-vote-page :is(
   .vc-vote-section-title,
@@ -6025,7 +6010,7 @@ html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-vote-pag
   background: rgba(111, 78, 55, 0.14) !important;
   background-color: rgba(111, 78, 55, 0.14) !important;
   background-image: none !important;
-  border: 1px solid transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
   box-shadow: inset 0 1px 2px rgba(60, 40, 24, 0.06) !important;
 }
 html[data-vc-theme="light"] body.vc-vote-page .vc-vote-live-chip,
@@ -6065,7 +6050,7 @@ html.vc-site-polish[data-vc-theme="light"] body.vc-body .vc-wiki-hero-card .vc-p
   background-color: transparent !important;
   background-image: none !important;
   border: none !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   box-shadow: none !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
@@ -6160,8 +6145,8 @@ html.vc-site-photo-bg.vc-perf-mid.vc-site-polish[data-vc-theme="light"]:not(.vc-
   background: #ffffff !important;
   background-color: #ffffff !important;
   background-image: linear-gradient(175deg, #fffaf4 0%, #f7f1ea 55%, #efe6dc 100%) !important;
-  border: 1px solid transparent !important;
-  border-color: transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   box-shadow: 0 10px 28px rgba(60, 40, 24, 0.1) !important;
   color: #2a1c14 !important;
   -webkit-text-fill-color: #2a1c14 !important;
@@ -6213,24 +6198,17 @@ html[data-vc-theme="light"] body.vc-body .vc-regole-disclaimer {
   word-break: break-word !important;
   overflow-x: clip !important;
   border-radius: 0.85rem !important;
-  border: 1px solid transparent !important;
-  border-color: transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   background-color: #fff8e8 !important;
   background-image:
     radial-gradient(120% 90% at 0% 0%, rgba(251, 191, 36, 0.14), transparent 55%),
     radial-gradient(90% 70% at 100% 0%, rgba(212, 168, 136, 0.16), transparent 48%),
-    linear-gradient(175deg, #fffaf0 0%, #fff8e8 55%, #f7efd8 100%),
-    conic-gradient(
-      from 0deg,
-      rgba(180, 130, 90, 0.88) 0deg,
-      rgba(212, 168, 136, 0.7) 90deg,
-      rgba(168, 118, 82, 0.78) 180deg,
-      rgba(212, 168, 136, 0.7) 270deg,
-      rgba(180, 130, 90, 0.88) 360deg
-    ) !important;
-  background-origin: padding-box, padding-box, padding-box, border-box !important;
-  background-clip: padding-box, padding-box, padding-box, border-box !important;
-  -webkit-background-clip: padding-box, padding-box, padding-box, border-box !important;
+    linear-gradient(175deg, #fffaf0 0%, #fff8e8 55%, #f7efd8 100%)
+     !important;
+  background-origin: padding-box !important;
+  background-clip: padding-box !important;
+  -webkit-background-clip: padding-box !important;
   color: #2a1c14 !important;
   -webkit-text-fill-color: #2a1c14 !important;
   box-shadow: none !important;
@@ -6268,18 +6246,18 @@ html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-intro .vc-hero-head .grid.gap-4 > div:not(#discord-login-btn),
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-intro.vc-support-page-hero .grid.gap-4 > div:not(#discord-login-btn),
 html.vc-site-photo-bg.vc-perf-mid.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-intro .vc-page-cine-aside-inline .grid > [class*="rounded-"]:not(button):not(a):not(img):not(svg):not(input):not(#discord-login-btn) {
-  border: 1px solid transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
   border-left: 1px solid transparent !important;
   box-shadow: 0 12px 28px rgba(60, 40, 24, 0.14), 0 1px 0 rgba(255, 255, 255, 0.7) inset !important;
   background-color: #faf6f0 !important;
   background-image:
     radial-gradient(120% 90% at 0% 0%, rgba(255, 248, 238, 0.92), transparent 52%),
     radial-gradient(90% 70% at 100% 0%, rgba(212, 168, 136, 0.2), transparent 48%),
-    linear-gradient(175deg, #fffaf4 0%, #f7f1ea 48%, #efe6dc 100%),
-    conic-gradient(from 0deg, rgba(111, 78, 55, 0.72) 0deg, rgba(180, 130, 90, 0.55) 90deg, rgba(139, 99, 70, 0.58) 180deg, rgba(180, 130, 90, 0.55) 270deg, rgba(111, 78, 55, 0.72) 360deg) !important;
-  background-origin: padding-box, padding-box, padding-box, border-box !important;
-  background-clip: padding-box, padding-box, padding-box, border-box !important;
-  -webkit-background-clip: padding-box, padding-box, padding-box, border-box !important;
+    linear-gradient(175deg, #fffaf4 0%, #f7f1ea 48%, #efe6dc 100%)
+     !important;
+  background-origin: padding-box !important;
+  background-clip: padding-box !important;
+  -webkit-background-clip: padding-box !important;
 }
 
 /* fbRvLight1: feedback+recensioni light — no nested filter shells, reply leggibile, chips/CTA */
@@ -6310,7 +6288,7 @@ html[data-vc-theme="light"] body.vc-body :is(
   background-color: transparent !important;
   background-image: none !important;
   border: none !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   box-shadow: none !important;
   filter: none !important;
   backdrop-filter: none !important;
@@ -6344,11 +6322,11 @@ html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top
   background-image:
     radial-gradient(120% 90% at 0% 0%, rgba(255, 248, 238, 0.92), transparent 52%),
     radial-gradient(90% 70% at 100% 0%, rgba(212, 168, 136, 0.2), transparent 48%),
-    linear-gradient(175deg, #fffaf4 0%, #f7f1ea 48%, #efe6dc 100%),
-    conic-gradient(from 0deg, rgba(111, 78, 55, 0.72) 0deg, rgba(180, 130, 90, 0.55) 90deg, rgba(139, 99, 70, 0.58) 180deg, rgba(180, 130, 90, 0.55) 270deg, rgba(111, 78, 55, 0.72) 360deg) !important;
-    background-origin: padding-box, padding-box, padding-box, border-box !important;
-    background-clip: padding-box, padding-box, padding-box, border-box !important;
-    -webkit-background-clip: padding-box, padding-box, padding-box, border-box !important;
+    linear-gradient(175deg, #fffaf4 0%, #f7f1ea 48%, #efe6dc 100%)
+     !important;
+    background-origin: padding-box !important;
+    background-clip: padding-box !important;
+    -webkit-background-clip: padding-box !important;
   border: 1px solid rgba(111, 78, 55, 0.18) !important;
   box-shadow: 0 10px 28px rgba(60, 40, 24, 0.08) !important;
   -webkit-background-clip: border-box !important;
@@ -6471,7 +6449,7 @@ html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top
 ) {
   background: #faf6f0 !important;
   background-image: linear-gradient(175deg, #fffaf4 0%, #f3ebe3 100%) !important;
-  border: 1px solid transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
   box-shadow: 0 8px 20px rgba(60, 40, 24, 0.1) !important;
 }
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top :is(
@@ -6574,7 +6552,7 @@ html[data-vc-theme="light"] body.vc-body .vc-stat-strip:has(.vc-vote-live-statbo
   background-color: transparent !important;
   background-image: none !important;
   border: none !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   box-shadow: none !important;
   filter: none !important;
   -webkit-filter: none !important;
@@ -6600,7 +6578,7 @@ html[data-vc-theme="light"] body.vc-body .vc-stat-strip > .vc-notify-stat {
   background: #faf6f0 !important;
   background-color: #faf6f0 !important;
   background-image: linear-gradient(175deg, #ffffff 0%, #faf6f0 55%, #f3ebe3 100%) !important;
-  border: 1px solid transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
   box-shadow: 0 8px 20px rgba(60, 40, 24, 0.1), 0 1px 0 rgba(255, 255, 255, 0.7) inset !important;
   color: #2a1c14 !important;
   filter: none !important;
@@ -6632,7 +6610,7 @@ html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top
   background-color: transparent !important;
   background-image: none !important;
   border: none !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   box-shadow: none !important;
   filter: none !important;
   backdrop-filter: none !important;
@@ -6689,7 +6667,7 @@ html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top
 html[data-vc-theme="light"] body.vc-body .vc-mini-pager.vc-pill-pager .vc-staff-pt-seg {
   background: #faf6f0 !important;
   background-image: linear-gradient(175deg, #fffaf4 0%, #f3ebe3 100%) !important;
-  border: 1px solid transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
   box-shadow: 0 8px 20px rgba(60, 40, 24, 0.1) !important;
 }
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top .vc-mini-pager.vc-pill-pager .vc-staff-pt-seg__btn:not(.is-active),
@@ -6725,8 +6703,8 @@ html[data-vc-theme="light"] .vc-roles-search {
   background-image: linear-gradient(180deg, #fffaf4 0%, #efe6dc 100%) !important;
   -webkit-background-clip: border-box !important;
   background-clip: border-box !important;
-  border: 1px solid transparent !important;
-  border-color: transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   color: #1a120e !important;
   -webkit-text-fill-color: #1a120e !important;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55) !important;
@@ -6755,7 +6733,7 @@ html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top
   background: #f3ebe3 !important;
   background-color: #f3ebe3 !important;
   background-image: linear-gradient(180deg, #fffaf4 0%, #efe6dc 100%) !important;
-  border: 1px solid transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55) !important;
 }
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top :is(
@@ -6899,7 +6877,7 @@ html[data-vc-theme="light"] body.vc-body :is(
   background: #fffaf4 !important;
   background-color: #fffaf4 !important;
   background-image: none !important;
-  border: 1px solid transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
   color: #1a120e !important;
   -webkit-text-fill-color: #1a120e !important;
   box-shadow: 0 4px 12px rgba(60, 40, 24, 0.08) !important;
@@ -6921,8 +6899,8 @@ html[data-vc-theme="light"] body.vc-body a.vc-role-member {
   background: #fffaf4 !important;
   background-color: #fffaf4 !important;
   background-image: none !important;
-  border: 1px solid transparent !important;
-  border-color: transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   box-shadow: 0 6px 16px rgba(60, 40, 24, 0.07) !important;
   color: #1a120e !important;
   filter: none !important;
@@ -6978,7 +6956,7 @@ html[data-vc-theme="light"] body.vc-body :is(
   background: #fffaf4 !important;
   background-color: #fffaf4 !important;
   background-image: linear-gradient(180deg, #fffaf4 0%, #f3ebe3 100%) !important;
-  border: 1px solid transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
   color: #1a120e !important;
   -webkit-text-fill-color: #1a120e !important;
   caret-color: #1a120e !important;
@@ -7013,7 +6991,7 @@ html[data-vc-theme="light"] body.vc-body :is(.vc-unban-rules, .vc-unmute-rules) 
   background: #faf6f0 !important;
   background-color: #faf6f0 !important;
   background-image: linear-gradient(175deg, #fffaf4 0%, #faf6f0 55%, #f3ebe3 100%) !important;
-  border: 1px solid transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
   box-shadow: 0 8px 20px rgba(60, 40, 24, 0.1) !important;
   color: #2a1c14 !important;
   -webkit-text-fill-color: #2a1c14 !important;
@@ -7144,12 +7122,12 @@ html[data-vc-theme="light"] body.vc-web-tickets-page .vc-wt-layout {
   background-color: #faf6f0 !important;
   background-image:
     radial-gradient(120% 90% at 0% 0%, rgba(255, 248, 238, 0.95), transparent 52%),
-    linear-gradient(175deg, #fffaf4 0%, #f7f1ea 48%, #efe6dc 100%),
-    conic-gradient(from 0deg, rgba(111, 78, 55, 0.72) 0deg, rgba(180, 130, 90, 0.55) 90deg, rgba(139, 99, 70, 0.58) 180deg, rgba(180, 130, 90, 0.55) 270deg, rgba(111, 78, 55, 0.72) 360deg) !important;
+    linear-gradient(175deg, #fffaf4 0%, #f7f1ea 48%, #efe6dc 100%)
+     !important;
     background-origin: padding-box, padding-box, border-box !important;
     background-clip: padding-box, padding-box, border-box !important;
     -webkit-background-clip: padding-box, padding-box, border-box !important;
-  border: 1px solid transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
   border-top: 0 !important;
   border-radius: 0 0 1.6rem 1.6rem !important;
   box-shadow: 0 16px 36px rgba(60, 40, 24, 0.12) !important;
@@ -7165,15 +7143,15 @@ html[data-vc-theme="light"] body.vc-web-tickets-page .vc-wt-filter-menu {
   background-color: #faf6f0 !important;
   background-image:
     radial-gradient(120% 90% at 0% 0%, rgba(255, 248, 238, 0.95), transparent 52%),
-    linear-gradient(175deg, #fffaf4 0%, #f7f1ea 48%, #efe6dc 100%),
-    conic-gradient(from 0deg, rgba(111, 78, 55, 0.72) 0deg, rgba(180, 130, 90, 0.55) 90deg, rgba(139, 99, 70, 0.58) 180deg, rgba(180, 130, 90, 0.55) 270deg, rgba(111, 78, 55, 0.72) 360deg) !important;
+    linear-gradient(175deg, #fffaf4 0%, #f7f1ea 48%, #efe6dc 100%)
+     !important;
     background-origin: padding-box, padding-box, border-box !important;
     background-clip: padding-box, padding-box, border-box !important;
     -webkit-background-clip: padding-box, padding-box, border-box !important;
   background-origin: border-box !important;
   background-clip: border-box !important;
   -webkit-background-clip: border-box !important;
-  border: 1px solid transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
   border-bottom: 1px solid rgba(111, 78, 55, 0.14) !important;
   border-radius: 1.6rem 1.6rem 0 0 !important;
   box-shadow: none !important;
@@ -7208,7 +7186,7 @@ html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body.vc-
 html[data-vc-theme="light"] body.vc-web-tickets-page .vc-wt-scope-bar {
   background: #f3ebe3 !important;
   background-image: none !important;
-  border: 1px solid transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
   box-shadow: 0 8px 20px rgba(60, 40, 24, 0.1) !important;
 }
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body.vc-web-tickets-page#top :is(
@@ -7230,7 +7208,7 @@ html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body.vc-
 html[data-vc-theme="light"] body.vc-web-tickets-page .vc-wt-chip:not(.is-active) {
   background: transparent !important;
   background-image: none !important;
-  border: 1px solid transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
   color: #2a1c14 !important;
   -webkit-text-fill-color: #2a1c14 !important;
 }
@@ -7245,7 +7223,7 @@ html[data-vc-theme="light"] body.vc-web-tickets-page .vc-wt-chip.is-active {
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body.vc-web-tickets-page#top .vc-wt-chat-empty__icon,
 html[data-vc-theme="light"] body.vc-web-tickets-page .vc-wt-chat-empty__icon {
   background: rgba(212, 168, 136, 0.22) !important;
-  border: 1px solid transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
   color: #6f4e37 !important;
   -webkit-text-fill-color: #6f4e37 !important;
   box-shadow: none !important;
@@ -7266,18 +7244,18 @@ html[data-vc-theme="light"] body.vc-page-cine-layout .vc-page-cine-aside-inline 
   overflow-x: clip !important;
   overflow-y: clip !important;
   touch-action: pan-y !important;
-  border: 1px solid transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
   border-left-width: 1px !important;
   border-left-color: transparent !important;
   background-color: #faf6f0 !important;
   background-image:
     radial-gradient(120% 90% at 0% 0%, rgba(255, 248, 238, 0.92), transparent 52%),
     radial-gradient(90% 70% at 100% 0%, rgba(212, 168, 136, 0.2), transparent 48%),
-    linear-gradient(175deg, #fffaf4 0%, #f7f1ea 48%, #efe6dc 100%),
-    conic-gradient(from 0deg, rgba(111, 78, 55, 0.72) 0deg, rgba(180, 130, 90, 0.55) 90deg, rgba(139, 99, 70, 0.58) 180deg, rgba(180, 130, 90, 0.55) 270deg, rgba(111, 78, 55, 0.72) 360deg) !important;
-  background-origin: padding-box, padding-box, padding-box, border-box !important;
-  background-clip: padding-box, padding-box, padding-box, border-box !important;
-  -webkit-background-clip: padding-box, padding-box, padding-box, border-box !important;
+    linear-gradient(175deg, #fffaf4 0%, #f7f1ea 48%, #efe6dc 100%)
+     !important;
+  background-origin: padding-box !important;
+  background-clip: padding-box !important;
+  -webkit-background-clip: padding-box !important;
   box-shadow: 0 12px 28px rgba(60, 40, 24, 0.14), 0 1px 0 rgba(255, 255, 255, 0.7) inset !important;
 }
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-intro .vc-page-cine-aside-inline .grid > [class*="rounded-"]:not(button):not(a):not(img):not(svg):not(input):not(#discord-login-btn)::before,
@@ -7334,12 +7312,12 @@ html[data-vc-theme="light"] body.vc-body :is(.vc-reviews-empty, article.vc-revie
   background-color: #faf6f0 !important;
   background-image:
     radial-gradient(120% 90% at 0% 0%, rgba(255, 248, 238, 0.95), transparent 52%),
-    linear-gradient(175deg, #fffaf4 0%, #f7f1ea 48%, #efe6dc 100%),
-    conic-gradient(from 0deg, rgba(111, 78, 55, 0.72) 0deg, rgba(180, 130, 90, 0.55) 90deg, rgba(139, 99, 70, 0.58) 180deg, rgba(180, 130, 90, 0.55) 270deg, rgba(111, 78, 55, 0.72) 360deg) !important;
+    linear-gradient(175deg, #fffaf4 0%, #f7f1ea 48%, #efe6dc 100%)
+     !important;
     background-origin: padding-box, padding-box, border-box !important;
     background-clip: padding-box, padding-box, border-box !important;
     -webkit-background-clip: padding-box, padding-box, border-box !important;
-  border: 1px solid transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
   color: #1a120e !important;
   -webkit-text-fill-color: #1a120e !important;
 }
@@ -7356,7 +7334,7 @@ html[data-vc-theme="light"] body.vc-body :is(
 html[data-vc-theme="light"] body.vc-body .vc-dash-save-toast.is-error {
   background: linear-gradient(175deg, #fffaf4 0%, #f3ebe3 55%, #efe6dc 100%) !important;
   background-color: #faf6f0 !important;
-  border: 1px solid transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
   color: #1a120e !important;
   -webkit-text-fill-color: #1a120e !important;
 }
@@ -7427,15 +7405,8 @@ html[data-vc-theme="light"] body.vc-body :is(
   background-image:
     radial-gradient(120% 90% at 0% 0%, rgba(251, 191, 36, 0.14), transparent 55%),
     radial-gradient(90% 70% at 100% 0%, rgba(212, 168, 136, 0.16), transparent 48%),
-    linear-gradient(175deg, #fffaf0 0%, #fff8e8 55%, #f7efd8 100%),
-    conic-gradient(
-      from 0deg,
-      rgba(180, 130, 90, 0.88) 0deg,
-      rgba(212, 168, 136, 0.7) 90deg,
-      rgba(168, 118, 82, 0.78) 180deg,
-      rgba(212, 168, 136, 0.7) 270deg,
-      rgba(180, 130, 90, 0.88) 360deg
-    ) !important;
+    linear-gradient(175deg, #fffaf0 0%, #fff8e8 55%, #f7efd8 100%)
+     !important;
   background-origin: border-box !important;
   background-clip: padding-box !important;
   -webkit-background-clip: padding-box !important;
@@ -7513,12 +7484,12 @@ html[data-vc-theme="light"] body.vc-body :is(
   background-color: #faf6f0 !important;
   background-image:
     radial-gradient(120% 90% at 0% 0%, rgba(255, 248, 238, 0.9), transparent 52%),
-    linear-gradient(175deg, #fffaf4 0%, #f7f1ea 55%, #efe6dc 100%),
-    conic-gradient(from 0deg, rgba(111, 78, 55, 0.72) 0deg, rgba(180, 130, 90, 0.55) 90deg, rgba(139, 99, 70, 0.58) 180deg, rgba(180, 130, 90, 0.55) 270deg, rgba(111, 78, 55, 0.72) 360deg) !important;
+    linear-gradient(175deg, #fffaf4 0%, #f7f1ea 55%, #efe6dc 100%)
+     !important;
   background-origin: padding-box, padding-box, border-box !important;
   background-clip: padding-box, padding-box, border-box !important;
   -webkit-background-clip: padding-box, padding-box, border-box !important;
-  border: 1px solid transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
   color: #1a120e !important;
 }
 /* reviewsLightSwitcher1: dock wrapper trasparente (niente box esterno) */
@@ -7544,7 +7515,7 @@ html[data-vc-theme="light"] body.vc-body :is(
   -webkit-text-fill-color: #1a120e !important;
   background: rgba(255, 255, 255, 0.72) !important;
   background-image: none !important;
-  border: 1px solid transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
 }
 html[data-vc-theme="light"] body.vc-body :is(
   .vc-notif-scope-bar__btn.is-active,
@@ -7583,21 +7554,13 @@ html[data-vc-theme="light"] body.vc-body .vc-reviews-stage__nav--prev,
 html[data-vc-theme="light"] body.vc-body .vc-reviews-stage__nav--next {
   background-color: #f7f1ea !important;
   background-image:
-    linear-gradient(180deg, #fffaf4 0%, #f0e6da 100%),
-    conic-gradient(
-      from 0deg,
-      rgba(111, 78, 55, 0.92) 0deg,
-      rgba(180, 130, 90, 0.78) 70deg,
-      rgba(212, 168, 136, 0.88) 140deg,
-      rgba(111, 78, 55, 0.7) 200deg,
-      rgba(180, 130, 90, 0.82) 270deg,
-      rgba(111, 78, 55, 0.92) 360deg
-    ) !important;
+    linear-gradient(180deg, #fffaf4 0%, #f0e6da 100%)
+     !important;
   background-origin: padding-box, border-box !important;
   background-clip: padding-box, border-box !important;
   -webkit-background-clip: padding-box, border-box !important;
-  border: 2px solid transparent !important;
-  border-color: transparent !important;
+  border: 2px solid rgba(245, 214, 183, 0.38) !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   color: #1a120e !important;
   -webkit-text-fill-color: #1a120e !important;
   box-shadow: 0 8px 20px rgba(60, 40, 24, 0.12) !important;
@@ -7651,7 +7614,7 @@ html[data-vc-theme="light"] body.vc-body .vc-header-promo-btn--candidature {
   background-origin: padding-box, border-box !important;
   background-clip: padding-box, border-box !important;
   -webkit-background-clip: padding-box, border-box !important;
-  border: 1px solid transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
   color: #1a120e !important;
   -webkit-text-fill-color: #1a120e !important;
 }
@@ -8006,8 +7969,8 @@ html[data-vc-theme="light"] body.vc-body#top #vc-page-content .vc-notify-stat {
   background: #faf6f0 !important;
   background-color: #faf6f0 !important;
   background-image: linear-gradient(175deg, #ffffff 0%, #faf6f0 55%, #f3ebe3 100%) !important;
-  border: 1px solid transparent !important;
-  border-color: transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   box-shadow: 0 8px 20px rgba(60, 40, 24, 0.1), 0 1px 0 rgba(255, 255, 255, 0.7) inset !important;
   filter: none !important;
   -webkit-filter: none !important;
@@ -8020,53 +7983,7 @@ html.vc-site-photo-bg.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off)
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-content .vc-notify-stat:not(:has(#vc-roles-grid)):not(:has(#vc-ul-grid))::before,
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-content .vc-stat-strip .vc-notify-stat::before,
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top article.vc-notify-stat::before,
-html[data-vc-theme="light"] body.vc-body .vc-notify-stat::before {
-  content: "" !important;
-  display: block !important;
-  position: absolute !important;
-  inset: 0 !important;
-  width: auto !important;
-  height: auto !important;
-  border-radius: inherit !important;
-  padding: 2px !important;
-  box-sizing: border-box !important;
-  pointer-events: none !important;
-  z-index: 3 !important;
-  opacity: 1 !important;
-  clip-path: none !important;
-  -webkit-clip-path: none !important;
-  background: conic-gradient(
-    from 0deg,
-    rgba(255, 247, 236, 0.95) 0deg,
-    rgba(236, 205, 176, 0.88) 60deg,
-    rgba(212, 168, 136, 0.82) 120deg,
-    rgba(180, 130, 90, 0.78) 180deg,
-    rgba(212, 168, 136, 0.82) 240deg,
-    rgba(236, 205, 176, 0.88) 300deg,
-    rgba(255, 247, 236, 0.95) 360deg
-  ) !important;
-  background-image: conic-gradient(
-    from 0deg,
-    rgba(255, 247, 236, 0.95) 0deg,
-    rgba(236, 205, 176, 0.88) 60deg,
-    rgba(212, 168, 136, 0.82) 120deg,
-    rgba(180, 130, 90, 0.78) 180deg,
-    rgba(212, 168, 136, 0.82) 240deg,
-    rgba(236, 205, 176, 0.88) 300deg,
-    rgba(255, 247, 236, 0.95) 360deg
-  ) !important;
-  -webkit-mask:
-    linear-gradient(#000 0 0) content-box,
-    linear-gradient(#000 0 0) !important;
-  -webkit-mask-composite: xor !important;
-  mask:
-    linear-gradient(#000 0 0) content-box,
-    linear-gradient(#000 0 0) !important;
-  mask-composite: exclude !important;
-  transform: none !important;
-  filter: none !important;
-  box-shadow: none !important;
-}
+html[data-vc-theme="light"] body.vc-body .vc-notify-stat::before { content: none !important; display: none !important; background: none !important; background-image: none !important; -webkit-mask: none !important; mask: none !important; opacity: 0 !important; }
 html.vc-site-photo-bg.vc-perf-mid.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-content .vc-notify-stat:not(:has(#vc-roles-grid)):not(:has(#vc-ul-grid))::after,
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-content .vc-notify-stat:not(:has(#vc-roles-grid)):not(:has(#vc-ul-grid))::after,
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-content .vc-stat-strip .vc-notify-stat::after,
@@ -8091,7 +8008,7 @@ html[data-vc-theme="light"] body.vc-body#top #vc-page-content .vc-notify-stat:is
   background: #faf6f0 !important;
   background-color: #faf6f0 !important;
   background-image: linear-gradient(175deg, #ffffff 0%, #faf6f0 55%, #f3ebe3 100%) !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   box-shadow: 0 10px 24px rgba(60, 40, 24, 0.12), 0 1px 0 rgba(255, 255, 255, 0.75) inset !important;
 }
 /* loaderLightAll1: TUTTI i fullscreen loader = cream + mocha (batte loadFullScreen1 / soft-fx / inline) */
@@ -8378,14 +8295,14 @@ html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top
   margin-bottom: 0.35rem !important;
   padding: 1.35rem 1.35rem 1.45rem !important;
   border-radius: 1.5rem !important;
-  border: 1px solid transparent !important;
-  border-color: transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   background: #faf6f0 !important;
   background-color: #faf6f0 !important;
   background-image:
     radial-gradient(120% 90% at 0% 0%, rgba(255, 248, 238, 0.95), transparent 52%),
-    linear-gradient(175deg, #fffaf4 0%, #f7f1ea 48%, #efe6dc 100%),
-    conic-gradient(from 0deg, rgba(111, 78, 55, 0.72) 0deg, rgba(180, 130, 90, 0.55) 90deg, rgba(139, 99, 70, 0.58) 180deg, rgba(180, 130, 90, 0.55) 270deg, rgba(111, 78, 55, 0.72) 360deg) !important;
+    linear-gradient(175deg, #fffaf4 0%, #f7f1ea 48%, #efe6dc 100%)
+     !important;
     background-origin: padding-box, padding-box, border-box !important;
     background-clip: padding-box, padding-box, border-box !important;
     -webkit-background-clip: padding-box, padding-box, border-box !important;
@@ -8431,7 +8348,7 @@ html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top
 ),
 html[data-vc-theme="light"] body.vc-body :is(.vc-reviews-empty__icon, .vc-ul-empty-ico) {
   background: rgba(212, 168, 136, 0.22) !important;
-  border: 1px solid transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
   color: #1a120e !important;
   -webkit-text-fill-color: #1a120e !important;
 }
@@ -8553,8 +8470,8 @@ html[data-vc-theme="light"] body.vc-web-tickets-page .vc-wt-filter-menu {
   background: #faf6f0 !important;
   background-image:
     radial-gradient(120% 90% at 0% 0%, rgba(255, 248, 238, 0.95), transparent 52%),
-    linear-gradient(175deg, #fffaf4 0%, #f7f1ea 48%, #efe6dc 100%),
-    conic-gradient(from 0deg, rgba(111, 78, 55, 0.72) 0deg, rgba(180, 130, 90, 0.55) 90deg, rgba(139, 99, 70, 0.58) 180deg, rgba(180, 130, 90, 0.55) 270deg, rgba(111, 78, 55, 0.72) 360deg) !important;
+    linear-gradient(175deg, #fffaf4 0%, #f7f1ea 48%, #efe6dc 100%)
+     !important;
     background-origin: padding-box, padding-box, border-box !important;
     background-clip: padding-box, padding-box, border-box !important;
     -webkit-background-clip: padding-box, padding-box, border-box !important;
@@ -8700,49 +8617,7 @@ html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top
 html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body#top #vc-page-content .vc-notify-stat::before,
 html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body#top .vc-stat-strip > .vc-notify-stat::before,
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-content .vc-notify-stat::before,
-html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top article.vc-notify-stat::before {
-  content: "" !important;
-  display: block !important;
-  position: absolute !important;
-  inset: 0 !important;
-  width: auto !important;
-  height: auto !important;
-  border-radius: inherit !important;
-  padding: 2px !important;
-  box-sizing: border-box !important;
-  pointer-events: none !important;
-  z-index: 3 !important;
-  opacity: 1 !important;
-  clip-path: none !important;
-  -webkit-clip-path: none !important;
-  background: conic-gradient(
-    from 0deg,
-    rgba(255, 247, 236, 0.95) 0deg,
-    rgba(236, 205, 176, 0.88) 60deg,
-    rgba(212, 168, 136, 0.82) 120deg,
-    rgba(180, 130, 90, 0.78) 180deg,
-    rgba(212, 168, 136, 0.82) 240deg,
-    rgba(236, 205, 176, 0.88) 300deg,
-    rgba(255, 247, 236, 0.95) 360deg
-  ) !important;
-  background-image: conic-gradient(
-    from 0deg,
-    rgba(255, 247, 236, 0.95) 0deg,
-    rgba(236, 205, 176, 0.88) 60deg,
-    rgba(212, 168, 136, 0.82) 120deg,
-    rgba(180, 130, 90, 0.78) 180deg,
-    rgba(212, 168, 136, 0.82) 240deg,
-    rgba(236, 205, 176, 0.88) 300deg,
-    rgba(255, 247, 236, 0.95) 360deg
-  ) !important;
-  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0) !important;
-  -webkit-mask-composite: xor !important;
-  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0) !important;
-  mask-composite: exclude !important;
-  transform: none !important;
-  filter: none !important;
-  box-shadow: none !important;
-}
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top article.vc-notify-stat::before { content: none !important; display: none !important; background: none !important; background-image: none !important; -webkit-mask: none !important; mask: none !important; opacity: 0 !important; }
 
 /* skelLightVisible2: skeleton mocha visibili su cream (no white-on-cream) */
 html[data-vc-theme="light"] body.vc-body .vc-list-skel__avatar,
@@ -9054,7 +8929,7 @@ html.vc-site-polish body.vc-body:not(.vc-body--home) :is(.vc-unban-rules-wrap, .
   background-image: none !important;
   border: 0 !important;
   border-width: 0 !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   border-radius: 0 !important;
   box-shadow: none !important;
   filter: none !important;
@@ -9513,18 +9388,11 @@ html:not([data-vc-theme="light"]) #vc-site-back-top > i {
 /* backTopConic1: shell conic, no glow */
 html.vc-site-polish:not([data-vc-theme="light"]):not(.vc-soft-fx-off) body.vc-body #vc-site-back-top {
   border: 1.35px solid transparent !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   background-color: #100c09 !important;
   background-image:
-    linear-gradient(180deg, rgba(26, 20, 15, 0.96), rgba(16, 12, 9, 0.98)),
-    conic-gradient(
-      from 0deg,
-      rgba(247, 236, 223, 0.88) 0deg,
-      rgba(212, 168, 136, 0.62) 90deg,
-      rgba(180, 130, 90, 0.68) 180deg,
-      rgba(212, 168, 136, 0.62) 270deg,
-      rgba(247, 236, 223, 0.88) 360deg
-    ) !important;
+    linear-gradient(180deg, rgba(26, 20, 15, 0.96), rgba(16, 12, 9, 0.98))
+     !important;
   background-origin: padding-box, border-box !important;
   background-clip: padding-box, border-box !important;
   -webkit-background-clip: padding-box, border-box !important;
@@ -10293,7 +10161,7 @@ html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body :is
   .vc-vote-live-card,
   .vc-vote-live-statbox,
   .vc-snav-panel,
-  .vc-notif-panel,
+  /* notifSheetBorder1: .vc-notif-panel escluso */
   .vc-lang-panel:not(.vc-lang-panel--seg),
   .vc-mobile-nav-drawer,
   .vc-glass:not(.vc-header-snav):not(.vc-nav-shell),
@@ -10335,7 +10203,6 @@ html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top
   .vc-user-profile-block,
   .vc-snav-panel,
   .vc-lang-panel,
-  .vc-notif-panel,
   .vc-stat-strip:not(:has(.vc-notify-stat)):not(:has(.vc-vote-live-statbox))
 ),
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body header .vc-nav-shell,
@@ -10356,20 +10223,13 @@ html.vc-perf-mid.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body
   background-image:
     radial-gradient(120% 90% at 0% 0%, rgba(255, 248, 238, 0.85), transparent 52%),
     radial-gradient(90% 70% at 100% 0%, rgba(212, 168, 136, 0.22), transparent 48%),
-    linear-gradient(175deg, #fffaf4 0%, #f7f1ea 55%, #efe6dc 100%),
-    conic-gradient(
-      from 0deg,
-      rgba(111, 78, 55, 0.72) 0deg,
-      rgba(180, 130, 90, 0.55) 90deg,
-      rgba(139, 99, 70, 0.58) 180deg,
-      rgba(180, 130, 90, 0.55) 270deg,
-      rgba(111, 78, 55, 0.72) 360deg
-    ) !important;
-  background-origin: padding-box, padding-box, padding-box, border-box !important;
-  background-clip: padding-box, padding-box, padding-box, border-box !important;
-  -webkit-background-clip: padding-box, padding-box, padding-box, border-box !important;
-  border: 1px solid transparent !important;
-  border-color: transparent !important;
+    linear-gradient(175deg, #fffaf4 0%, #f7f1ea 55%, #efe6dc 100%)
+     !important;
+  background-origin: padding-box !important;
+  background-clip: padding-box !important;
+  -webkit-background-clip: padding-box !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   box-shadow: none !important;
   filter: none !important;
   -webkit-filter: none !important;
@@ -10409,8 +10269,8 @@ html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top
   a.vc-header-pill:not(.vc-home-cine-cta),
   .vc-header-promo-btn
 ) {
-  border: 1px solid transparent !important;
-  border-color: transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   background-color: transparent !important;
   background-image:
     linear-gradient(rgba(250, 246, 240, 0.96), rgba(250, 246, 240, 0.96)),
@@ -10435,8 +10295,8 @@ html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-content .vc-wt-filter-menu,
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body.vc-web-tickets-page#top .vc-wt-scope-bar.vc-notif-scope-bar,
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top.vc-web-tickets-page .vc-wt-scope-bar.vc-notif-scope-bar {
-  border: 1px solid transparent !important;
-  border-color: transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   background-image:
     radial-gradient(120% 140% at 0% 0%, rgba(212, 168, 136, 0.18), transparent 52%),
     linear-gradient(165deg, #fffaf4 0%, #f3ebe3 55%, #efe6dc 100%),
@@ -10450,10 +10310,8 @@ html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top
   background-origin: padding-box, padding-box, border-box !important;
   background-clip: padding-box, padding-box, border-box !important;
   -webkit-background-clip: padding-box, padding-box, border-box !important;
-  box-shadow:
-    0 0 12px rgba(111, 78, 55, 0.12),
-    0 0 24px rgba(180, 130, 90, 0.1),
-    inset 0 1px 0 rgba(255, 255, 255, 0.55) !important;
+  /* ticketsGlowFilterKill1: bordo metal ok, niente aura esterna */
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55) !important;
 }
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body.vc-web-tickets-page#top .vc-wt-layout,
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-content .vc-wt-layout {
@@ -10467,17 +10325,17 @@ html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top
       rgba(180, 130, 90, 0.58) 40%,
       rgba(212, 168, 136, 0.55) 70%,
       rgba(139, 99, 70, 0.78) 100%
-    ),
-    conic-gradient(from 0deg, rgba(111, 78, 55, 0.72) 0deg, rgba(180, 130, 90, 0.55) 90deg, rgba(139, 99, 70, 0.58) 180deg, rgba(180, 130, 90, 0.55) 270deg, rgba(111, 78, 55, 0.72) 360deg) !important;
-  background-origin: padding-box, padding-box, padding-box, border-box !important;
-  background-clip: padding-box, padding-box, padding-box, border-box !important;
-  -webkit-background-clip: padding-box, padding-box, padding-box, border-box !important;
+    )
+     !important;
+  background-origin: padding-box !important;
+  background-clip: padding-box !important;
+  -webkit-background-clip: padding-box !important;
   background-origin: padding-box, padding-box, border-box !important;
   background-clip: padding-box, padding-box, border-box !important;
   -webkit-background-clip: padding-box, padding-box, border-box !important;
-  border: 1px solid transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
   border-top: 0 !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
 }
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body.vc-web-tickets-page :is(
   .vc-wt-chip:not(.is-active),
@@ -10491,8 +10349,8 @@ html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top
   .vc-wt-pill,
   .vc-wt-item__badge
 ) {
-  border: 1px solid transparent !important;
-  border-color: transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   background-image:
     linear-gradient(rgba(250, 246, 240, 0.96), rgba(250, 246, 240, 0.96)),
     linear-gradient(
@@ -10547,7 +10405,7 @@ html[data-vc-theme="light"] a.vc-home-cine-cta {
   background-origin: padding-box, border-box !important;
   background-clip: padding-box, border-box !important;
   -webkit-background-clip: padding-box, border-box !important;
-  border: 1px solid transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
   color: #1a120e !important;
   -webkit-text-fill-color: #1a120e !important;
   text-shadow: none !important;
@@ -10560,8 +10418,8 @@ html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-intro .vc-hero-head .vc-cmd-pill,
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top main .vc-cmd-pill,
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body :is(a.vc-header-pill:not(.vc-home-cine-cta), .vc-cmd-pill, .vc-necessity-banner__pill) {
-  border: 1px solid transparent !important;
-  border-color: transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   background-color: transparent !important;
   background-image:
     linear-gradient(rgba(250, 246, 240, 0.96), rgba(250, 246, 240, 0.96)),
@@ -10630,8 +10488,8 @@ html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #wiki-comandi-panel .vc-cmd-pill,
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top main .vc-wiki-cmd-shell .vc-cmd-pill,
 html[data-vc-theme="light"] .vc-wiki-cmd-shell .vc-cmd-pill {
-  border: 1px solid transparent !important;
-  border-color: transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   background-color: transparent !important;
   background-image:
     linear-gradient(rgba(250, 246, 240, 0.96), rgba(250, 246, 240, 0.96)),
@@ -10651,7 +10509,7 @@ html.vc-site-photo-bg.vc-perf-mid.vc-site-polish[data-vc-theme="light"]:not(.vc-
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #wiki-comandi-panel .vc-wiki-cmd-shell .vc-cmd-pill:not(#discord-login-btn):not(#vc-regole-disclaimer),
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #wiki-comandi-panel .vc-cmd-pill:not(#discord-login-btn):not(#vc-regole-disclaimer),
 html.vc-site-polish[data-vc-theme="light"] body.vc-body#top #wiki-comandi-panel p.vc-cmd-pill:not(#discord-login-btn):not(#vc-regole-disclaimer) {
-  border: 1px solid transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
   background-image:
     linear-gradient(rgba(250, 246, 240, 0.96), rgba(250, 246, 240, 0.96)),
     linear-gradient(135deg, rgba(111, 78, 55, 0.85) 0%, rgba(180, 130, 90, 0.7) 42%, rgba(212, 168, 136, 0.68) 68%, rgba(139, 99, 70, 0.88) 100%) !important;
@@ -10767,7 +10625,7 @@ html[data-vc-theme="light"] a.vc-header-pill:not(.vc-home-cine-cta):not(#discord
   background-origin: padding-box, border-box !important;
   background-clip: padding-box, border-box !important;
   -webkit-background-clip: padding-box, border-box !important;
-  border: 1px solid transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
   color: #1a120e !important;
   -webkit-text-fill-color: #1a120e !important;
   box-shadow: none !important;
@@ -10852,14 +10710,7 @@ html[data-vc-theme="light"] {
     radial-gradient(90% 70% at 100% 0%, rgba(212, 168, 136, 0.18), transparent 48%),
     radial-gradient(80% 60% at 50% 100%, rgba(139, 99, 70, 0.08), transparent 55%),
     linear-gradient(175deg, #fffaf4 0%, #f7f1ea 55%, #efe6dc 100%);
-  --vc-look-conic: conic-gradient(
-    from 0deg,
-    rgba(111, 78, 55, 0.72) 0deg,
-    rgba(180, 130, 90, 0.55) 90deg,
-    rgba(139, 99, 70, 0.58) 180deg,
-    rgba(180, 130, 90, 0.55) 270deg,
-    rgba(111, 78, 55, 0.72) 360deg
-  );
+  --vc-look-conic: ;
 }
 
 /* EOF pin lightDarkParity1: body + card wash = mirror dark (solo colori) */
@@ -10878,7 +10729,8 @@ html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body :is
   .vc-reviews-formcard, .vc-feedback-card:not(.vc-list-skel), .vc-candidature-card, .vc-auth-required-card,
   .vc-staff-hub-card, .vc-staff-block, .vc-staff-manage-detail, .vc-staff-organico-history,
   .vc-vote-platform-card, .vc-vote-live-shell, .vc-wiki-cmd-shell, .vc-cmd-acc, .vc-wt-sidebar,
-  .vc-support-donate-role, .vc-user-profile-block, .vc-snav-panel, .vc-notif-panel,
+  /* notifSheetBorder1: notif panel fuori — bordo solid sullo sheet */
+  .vc-support-donate-role, .vc-user-profile-block, .vc-snav-panel,
   .vc-lang-panel:not(.vc-lang-panel--seg), .vc-mobile-nav-drawer,
   .vc-glass:not(.vc-header-snav):not(.vc-nav-shell),
   .vc-stat-strip:not(:has(.vc-notify-stat)):not(:has(.vc-vote-live-statbox)),
@@ -10892,7 +10744,7 @@ html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body foo
   background-origin: padding-box, padding-box, padding-box, padding-box, border-box !important;
   background-clip: padding-box, padding-box, padding-box, padding-box, border-box !important;
   -webkit-background-clip: padding-box, padding-box, padding-box, padding-box, border-box !important;
-  border: 1px solid transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
   box-shadow: var(--vc-look-inset), var(--vc-look-shadow) !important;
   color: var(--vc-look-text) !important;
 }
@@ -10937,7 +10789,7 @@ html[data-vc-theme="light"] a.vc-header-pill:not(.vc-home-cine-cta):not(#discord
   background-origin: padding-box, border-box !important;
   background-clip: padding-box, border-box !important;
   -webkit-background-clip: padding-box, border-box !important;
-  border: 1px solid transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
   color: #1a120e !important;
   -webkit-text-fill-color: #1a120e !important;
   box-shadow: none !important;
@@ -11241,23 +11093,12 @@ html[data-vc-theme="light"] .vc-notif-panel :is(
   .vc-notif-scope-switch__seg
 ) {
   border: 1.5px solid transparent !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   border-width: 1.5px !important;
   background-color: #efe6dc !important;
   background-image:
-    linear-gradient(#efe6dc, #efe6dc),
-    conic-gradient(
-      from 0deg,
-      rgba(111, 78, 55, 0.78),
-      rgba(180, 130, 90, 0.62),
-      rgba(139, 99, 70, 0.68),
-      rgba(180, 130, 90, 0.62),
-      rgba(111, 78, 55, 0.78),
-      rgba(180, 130, 90, 0.62),
-      rgba(139, 99, 70, 0.68),
-      rgba(180, 130, 90, 0.62),
-      rgba(111, 78, 55, 0.78)
-    ) !important;
+    linear-gradient(#efe6dc, #efe6dc)
+     !important;
   background-origin: padding-box, border-box !important;
   background-clip: padding-box, border-box !important;
   -webkit-background-clip: padding-box, border-box !important;
@@ -11354,7 +11195,7 @@ html[data-vc-theme="light"] .vc-user-profile-tabs,
 html[data-vc-theme="light"] .vc-user-profile-switcher {
   border: 0 !important;
   border-width: 0 !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   background: transparent !important;
   background-color: transparent !important;
   background-image: none !important;
@@ -11364,22 +11205,11 @@ html[data-vc-theme="light"] .vc-user-profile-switcher {
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body .vc-user-profile-tabs__inner,
 html[data-vc-theme="light"] .vc-user-profile-tabs__inner {
   border: 1.5px solid transparent !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   background-color: #efe6dc !important;
   background-image:
-    linear-gradient(#efe6dc, #efe6dc),
-    conic-gradient(
-      from 0deg,
-      rgba(111, 78, 55, 0.78),
-      rgba(180, 130, 90, 0.62),
-      rgba(139, 99, 70, 0.68),
-      rgba(180, 130, 90, 0.62),
-      rgba(111, 78, 55, 0.78),
-      rgba(180, 130, 90, 0.62),
-      rgba(139, 99, 70, 0.68),
-      rgba(180, 130, 90, 0.62),
-      rgba(111, 78, 55, 0.78)
-    ) !important;
+    linear-gradient(#efe6dc, #efe6dc)
+     !important;
   background-origin: padding-box, border-box !important;
   background-clip: padding-box, border-box !important;
   -webkit-background-clip: padding-box, border-box !important;
@@ -11427,15 +11257,8 @@ html[data-vc-theme="light"] body.vc-body header .vc-nav-shell {
   background-color: #f7f1ea !important;
   background-image:
     radial-gradient(120% 90% at 0% 0%, rgba(255, 248, 238, 0.9), transparent 52%),
-    linear-gradient(175deg, #fffaf4 0%, #f7f1ea 55%, #efe6dc 100%),
-    conic-gradient(
-      from 0deg,
-      rgba(180, 130, 90, 0.78) 0deg,
-      rgba(212, 168, 136, 0.55) 90deg,
-      rgba(168, 118, 82, 0.65) 180deg,
-      rgba(212, 168, 136, 0.55) 270deg,
-      rgba(180, 130, 90, 0.78) 360deg
-    ) !important;
+    linear-gradient(175deg, #fffaf4 0%, #f7f1ea 55%, #efe6dc 100%)
+     !important;
   background-origin: padding-box, padding-box, border-box !important;
   background-clip: padding-box, padding-box, border-box !important;
   -webkit-background-clip: padding-box, padding-box, border-box !important;
@@ -11456,22 +11279,15 @@ html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body > header .vc-nav-shell,
 html.vc-site-photo-bg.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top header .vc-nav-shell,
 html[data-vc-theme="light"] body.vc-body header .vc-nav-shell {
-  border: 1px solid transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
   box-shadow: none !important;
   filter: none !important;
   -webkit-filter: none !important;
   background-color: #f7f1ea !important;
   background-image:
     radial-gradient(120% 90% at 0% 0%, rgba(255, 248, 238, 0.9), transparent 52%),
-    linear-gradient(175deg, #fffaf4 0%, #f7f1ea 55%, #efe6dc 100%),
-    conic-gradient(
-      from 0deg,
-      rgba(180, 130, 90, 0.78) 0deg,
-      rgba(212, 168, 136, 0.55) 90deg,
-      rgba(168, 118, 82, 0.65) 180deg,
-      rgba(212, 168, 136, 0.55) 270deg,
-      rgba(180, 130, 90, 0.78) 360deg
-    ) !important;
+    linear-gradient(175deg, #fffaf4 0%, #f7f1ea 55%, #efe6dc 100%)
+     !important;
   background-origin: padding-box, padding-box, border-box !important;
   background-clip: padding-box, padding-box, border-box !important;
   -webkit-background-clip: padding-box, padding-box, border-box !important;
@@ -11491,19 +11307,12 @@ html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body hea
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body header .vc-header-snav .vc-snav-item,
 html[data-vc-theme="light"] body.vc-body header #vc-view-as-launch,
 html[data-vc-theme="light"] #vc-view-as-launch {
-  border: 1px solid transparent !important;
-  border-color: transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   background-color: transparent !important;
   background-image:
-    linear-gradient(rgba(250, 246, 240, 0.55), rgba(250, 246, 240, 0.55)),
-    conic-gradient(
-      from 0deg,
-      rgba(180, 130, 90, 0.75) 0deg,
-      rgba(212, 168, 136, 0.55) 90deg,
-      rgba(168, 118, 82, 0.65) 180deg,
-      rgba(212, 168, 136, 0.55) 270deg,
-      rgba(180, 130, 90, 0.75) 360deg
-    ) !important;
+    linear-gradient(rgba(250, 246, 240, 0.55), rgba(250, 246, 240, 0.55))
+     !important;
   background-origin: padding-box, border-box !important;
   background-clip: padding-box, border-box !important;
   -webkit-background-clip: padding-box, border-box !important;
@@ -11519,15 +11328,8 @@ html[data-vc-theme="light"] #vc-view-as-launch:focus-visible {
   box-shadow: none !important;
   filter: none !important;
   background-image:
-    linear-gradient(rgba(250, 246, 240, 0.72), rgba(250, 246, 240, 0.72)),
-    conic-gradient(
-      from 0deg,
-      rgba(180, 130, 90, 0.88) 0deg,
-      rgba(212, 168, 136, 0.7) 90deg,
-      rgba(168, 118, 82, 0.78) 180deg,
-      rgba(212, 168, 136, 0.7) 270deg,
-      rgba(180, 130, 90, 0.88) 360deg
-    ) !important;
+    linear-gradient(rgba(250, 246, 240, 0.72), rgba(250, 246, 240, 0.72))
+     !important;
   background-origin: padding-box, border-box !important;
   background-clip: padding-box, border-box !important;
   -webkit-background-clip: padding-box, border-box !important;
@@ -11568,24 +11370,17 @@ html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top
   .vc-support-hero-pillar-row,
   li.vc-support-hero-pillar-row
 ) {
-  border: 1px solid transparent !important;
-  border-color: transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   background-color: #faf6f0 !important;
   background-image:
     radial-gradient(120% 90% at 0% 0%, rgba(255, 248, 238, 0.92), transparent 52%),
     radial-gradient(90% 70% at 100% 0%, rgba(212, 168, 136, 0.2), transparent 48%),
-    linear-gradient(175deg, #fffaf4 0%, #f7f1ea 48%, #efe6dc 100%),
-    conic-gradient(
-      from 0deg,
-      rgba(180, 130, 90, 0.88) 0deg,
-      rgba(212, 168, 136, 0.7) 90deg,
-      rgba(168, 118, 82, 0.78) 180deg,
-      rgba(212, 168, 136, 0.7) 270deg,
-      rgba(180, 130, 90, 0.88) 360deg
-    ) !important;
-  background-origin: padding-box, padding-box, padding-box, border-box !important;
-  background-clip: padding-box, padding-box, padding-box, border-box !important;
-  -webkit-background-clip: padding-box, padding-box, padding-box, border-box !important;
+    linear-gradient(175deg, #fffaf4 0%, #f7f1ea 48%, #efe6dc 100%)
+     !important;
+  background-origin: padding-box !important;
+  background-clip: padding-box !important;
+  -webkit-background-clip: padding-box !important;
   box-shadow: none !important;
 }
 html[data-vc-theme="light"] body.vc-body :is(
@@ -11608,24 +11403,17 @@ html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top
   .vc-support-donate-refund-note,
   p.vc-support-donate-refund-note
 ) {
-  border: 1px solid transparent !important;
-  border-color: transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   background-color: #fff8e8 !important;
   background-image:
     radial-gradient(120% 90% at 0% 0%, rgba(251, 191, 36, 0.14), transparent 55%),
     radial-gradient(90% 70% at 100% 0%, rgba(212, 168, 136, 0.16), transparent 48%),
-    linear-gradient(175deg, #fffaf0 0%, #fff8e8 55%, #f7efd8 100%),
-    conic-gradient(
-      from 0deg,
-      rgba(180, 130, 90, 0.88) 0deg,
-      rgba(212, 168, 136, 0.7) 90deg,
-      rgba(168, 118, 82, 0.78) 180deg,
-      rgba(212, 168, 136, 0.7) 270deg,
-      rgba(180, 130, 90, 0.88) 360deg
-    ) !important;
-  background-origin: padding-box, padding-box, padding-box, border-box !important;
-  background-clip: padding-box, padding-box, padding-box, border-box !important;
-  -webkit-background-clip: padding-box, padding-box, padding-box, border-box !important;
+    linear-gradient(175deg, #fffaf0 0%, #fff8e8 55%, #f7efd8 100%)
+     !important;
+  background-origin: padding-box !important;
+  background-clip: padding-box !important;
+  -webkit-background-clip: padding-box !important;
 }
 /* notePillGradBorder3 */
 
@@ -11661,20 +11449,13 @@ html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top
   background-image:
     radial-gradient(120% 90% at 0% 0%, rgba(255, 248, 238, 0.92), transparent 52%),
     radial-gradient(90% 70% at 100% 0%, rgba(212, 168, 136, 0.2), transparent 48%),
-    linear-gradient(175deg, #fffaf4 0%, #f7f1ea 48%, #efe6dc 100%),
-    conic-gradient(
-      from 0deg,
-      rgba(180, 130, 90, 0.88) 0deg,
-      rgba(212, 168, 136, 0.7) 90deg,
-      rgba(168, 118, 82, 0.78) 180deg,
-      rgba(212, 168, 136, 0.7) 270deg,
-      rgba(180, 130, 90, 0.88) 360deg
-    ) !important;
-  background-origin: padding-box, padding-box, padding-box, border-box !important;
-  background-clip: padding-box, padding-box, padding-box, border-box !important;
-  -webkit-background-clip: padding-box, padding-box, padding-box, border-box !important;
-  border: 1px solid transparent !important;
-  border-color: transparent !important;
+    linear-gradient(175deg, #fffaf4 0%, #f7f1ea 48%, #efe6dc 100%)
+     !important;
+  background-origin: padding-box !important;
+  background-clip: padding-box !important;
+  -webkit-background-clip: padding-box !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
   box-shadow: none !important;
@@ -11703,7 +11484,7 @@ html[data-vc-theme="light"] body.vc-notifications-page .vc-notif-cat-bar :is(
   background-color: transparent !important;
   background-image: none !important;
   border: 0 !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   box-shadow: none !important;
   filter: none !important;
   backdrop-filter: none !important;
@@ -11798,22 +11579,15 @@ html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body.vc-
   background-image:
     radial-gradient(120% 90% at 0% 0%, rgba(255, 248, 238, 0.85), transparent 52%),
     radial-gradient(90% 70% at 100% 0%, rgba(212, 168, 136, 0.22), transparent 48%),
-    linear-gradient(175deg, #fffaf4 0%, #f7f1ea 55%, #efe6dc 100%),
-    conic-gradient(
-      from 0deg,
-      rgba(111, 78, 55, 0.88) 0deg,
-      rgba(180, 130, 90, 0.72) 90deg,
-      rgba(139, 99, 70, 0.78) 180deg,
-      rgba(180, 130, 90, 0.72) 270deg,
-      rgba(111, 78, 55, 0.88) 360deg
-    ) !important;
-  background-origin: padding-box, padding-box, padding-box, border-box !important;
-  background-clip: padding-box, padding-box, padding-box, border-box !important;
-  -webkit-background-clip: padding-box, padding-box, padding-box, border-box !important;
-  border: 2px solid transparent !important;
+    linear-gradient(175deg, #fffaf4 0%, #f7f1ea 55%, #efe6dc 100%)
+     !important;
+  background-origin: padding-box !important;
+  background-clip: padding-box !important;
+  -webkit-background-clip: padding-box !important;
+  border: 2px solid rgba(245, 214, 183, 0.38) !important;
   border-width: 2px !important;
   border-style: solid !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   box-shadow: 0 0 0 1px rgba(111, 78, 55, 0.18) !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
@@ -11846,10 +11620,10 @@ html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body.vc-
   .vc-user-profile-badges
 ) {
   /* cardInnerNavRing2: non ridipingere a 1px — bordo 2px + nav-ring sopra */
-  border: 2px solid transparent !important;
+  border: 2px solid rgba(245, 214, 183, 0.38) !important;
   border-width: 2px !important;
   border-style: solid !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
 }
 /* profileOuterThick2 */
 
@@ -11902,22 +11676,15 @@ html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body.vc-
   background-image:
     radial-gradient(120% 90% at 0% 0%, rgba(255, 248, 238, 0.85), transparent 52%),
     radial-gradient(90% 70% at 100% 0%, rgba(212, 168, 136, 0.22), transparent 48%),
-    linear-gradient(175deg, #fffaf4 0%, #f7f1ea 55%, #efe6dc 100%),
-    conic-gradient(
-      from 0deg,
-      rgba(111, 78, 55, 0.88) 0deg,
-      rgba(180, 130, 90, 0.72) 90deg,
-      rgba(139, 99, 70, 0.78) 180deg,
-      rgba(180, 130, 90, 0.72) 270deg,
-      rgba(111, 78, 55, 0.88) 360deg
-    ) !important;
-  background-origin: padding-box, padding-box, padding-box, border-box !important;
-  background-clip: padding-box, padding-box, padding-box, border-box !important;
-  -webkit-background-clip: padding-box, padding-box, padding-box, border-box !important;
-  border: 2px solid transparent !important;
+    linear-gradient(175deg, #fffaf4 0%, #f7f1ea 55%, #efe6dc 100%)
+     !important;
+  background-origin: padding-box !important;
+  background-clip: padding-box !important;
+  -webkit-background-clip: padding-box !important;
+  border: 2px solid rgba(245, 214, 183, 0.38) !important;
   border-width: 2px !important;
   border-style: solid !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   box-shadow: 0 0 0 1px rgba(111, 78, 55, 0.18) !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
@@ -11940,9 +11707,9 @@ html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body.vc-
   .vc-user-profile-badges
 ) {
   /* cardInnerNavRing: thick3 light non torna a 1px sugli interni */
-  border: 2px solid transparent !important;
+  border: 2px solid rgba(245, 214, 183, 0.38) !important;
   border-width: 2px !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
 }
 
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body.vc-users-page#top main :is(
@@ -11956,9 +11723,9 @@ html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top
   .vc-staff-block,
   .vc-staff-hub-card
 ) {
-  border: 2px solid transparent !important;
+  border: 2px solid rgba(245, 214, 183, 0.38) !important;
   border-width: 2px !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   box-shadow: 0 0 0 1px rgba(111, 78, 55, 0.18) !important;
 }
 /* profileOuterThick3 */
@@ -12020,9 +11787,9 @@ html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top
   .vc-staff-hub-card,
   .vc-ul-card
 ):not(:has(#vc-roles-grid)):not(:has(#vc-ul-grid)):not(:has(#vc-glow-kill-a)):not(:has(#vc-glow-kill-b)) {
-  border: 2px solid transparent !important;
+  border: 2px solid rgba(245, 214, 183, 0.38) !important;
   border-width: 2px !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   box-shadow: 0 0 0 1px rgba(111, 78, 55, 0.18) !important;
   filter: none !important;
 }
@@ -12123,23 +11890,15 @@ html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body.vc-
   background-image:
     radial-gradient(120% 90% at 0% 0%, rgba(255, 248, 238, 0.85), transparent 52%),
     radial-gradient(90% 70% at 100% 0%, rgba(212, 168, 136, 0.22), transparent 48%),
-    linear-gradient(175deg, #fffaf4 0%, #f7f1ea 55%, #efe6dc 100%),
-    conic-gradient(
-      from 0deg,
-      rgba(111, 78, 55, 0.55) 0deg,
-      rgba(180, 130, 90, 0.42) 70deg,
-      rgba(212, 168, 136, 0.5) 140deg,
-      rgba(139, 99, 70, 0.48) 200deg,
-      rgba(212, 168, 136, 0.5) 270deg,
-      rgba(111, 78, 55, 0.55) 360deg
-    ) !important;
-  background-origin: padding-box, padding-box, padding-box, border-box !important;
-  background-clip: padding-box, padding-box, padding-box, border-box !important;
-  -webkit-background-clip: padding-box, padding-box, padding-box, border-box !important;
-  border: 2px solid transparent !important;
+    linear-gradient(175deg, #fffaf4 0%, #f7f1ea 55%, #efe6dc 100%)
+     !important;
+  background-origin: padding-box !important;
+  background-clip: padding-box !important;
+  -webkit-background-clip: padding-box !important;
+  border: 2px solid rgba(245, 214, 183, 0.38) !important;
   border-width: 2px !important;
   border-style: solid !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   box-shadow: 0 0 0 1px rgba(111, 78, 55, 0.22) !important;
   filter: none !important;
   -webkit-filter: none !important;
@@ -12174,52 +11933,7 @@ html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body.vc-
   .vc-user-profile-disclosure,
   .vc-user-profile-accordion,
   .vc-user-profile-badges
-)::before {
-  content: "" !important;
-  display: block !important;
-  position: absolute !important;
-  inset: 0 !important;
-  width: auto !important;
-  height: auto !important;
-  border-radius: inherit !important;
-  padding: 2px !important;
-  box-sizing: border-box !important;
-  pointer-events: none !important;
-  z-index: 0 !important;
-  opacity: 1 !important;
-  border: 0 !important;
-  background: conic-gradient(
-    from 0deg,
-    rgba(111, 78, 55, 0.62) 0deg,
-    rgba(180, 130, 90, 0.48) 60deg,
-    rgba(212, 168, 136, 0.55) 120deg,
-    rgba(139, 99, 70, 0.5) 180deg,
-    rgba(212, 168, 136, 0.55) 240deg,
-    rgba(180, 130, 90, 0.48) 300deg,
-    rgba(111, 78, 55, 0.62) 360deg
-  ) !important;
-  background-image: conic-gradient(
-    from 0deg,
-    rgba(111, 78, 55, 0.62) 0deg,
-    rgba(180, 130, 90, 0.48) 60deg,
-    rgba(212, 168, 136, 0.55) 120deg,
-    rgba(139, 99, 70, 0.5) 180deg,
-    rgba(212, 168, 136, 0.55) 240deg,
-    rgba(180, 130, 90, 0.48) 300deg,
-    rgba(111, 78, 55, 0.62) 360deg
-  ) !important;
-  -webkit-mask:
-    linear-gradient(#000 0 0) content-box,
-    linear-gradient(#000 0 0) !important;
-  -webkit-mask-composite: xor !important;
-  mask:
-    linear-gradient(#000 0 0) content-box,
-    linear-gradient(#000 0 0) !important;
-  mask-composite: exclude !important;
-  animation: none !important;
-  filter: none !important;
-  box-shadow: none !important;
-}
+)::before { content: none !important; display: none !important; background: none !important; background-image: none !important; -webkit-mask: none !important; mask: none !important; opacity: 0 !important; }
 
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body.vc-user-profile-page#top main :is(
   .vc-user-profile-hero,
@@ -12632,7 +12346,7 @@ html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body foo
 html[data-vc-theme="light"] body.vc-body > footer.vc-premium-footer .vc-premium-footer__outer {
   border: 0 !important;
   border-width: 0 !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   box-shadow: none !important;
 }
 html.vc-site-photo-bg.vc-perf-mid.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top > footer.vc-premium-footer .vc-premium-footer__social,
@@ -12644,22 +12358,11 @@ html[data-vc-theme="light"] .vc-footer-social-ico {
   border: var(--vc-nav-chrome-ring-w, 2px) solid transparent !important;
   border-width: var(--vc-nav-chrome-ring-w, 2px) !important;
   border-style: solid !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   background-color: var(--vc-nav-shell-fill-light, #f7f1ea) !important;
   background-image:
     linear-gradient(var(--vc-nav-shell-fill-light, #f7f1ea), var(--vc-nav-shell-fill-light, #f7f1ea)),
-    var(--vc-nav-ring-light, conic-gradient(
-      from 0deg,
-      rgba(92, 58, 34, 0.9) 0deg,
-      rgba(168, 110, 66, 0.55) 45deg,
-      rgba(92, 58, 34, 0.75) 90deg,
-      rgba(168, 110, 66, 0.5) 135deg,
-      rgba(92, 58, 34, 0.85) 180deg,
-      rgba(168, 110, 66, 0.52) 225deg,
-      rgba(92, 58, 34, 0.72) 270deg,
-      rgba(168, 110, 66, 0.5) 315deg,
-      rgba(92, 58, 34, 0.9) 360deg
-    )) !important;
+    var(--vc-nav-ring-light, ) !important;
   background-origin: padding-box, border-box !important;
   background-clip: padding-box, border-box !important;
   -webkit-background-clip: padding-box, border-box !important;
@@ -12668,7 +12371,7 @@ html[data-vc-theme="light"] .vc-footer-social-ico {
 }
 html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body footer.vc-premium-footer .vc-premium-footer__social:is(:hover, :focus-visible),
 html[data-vc-theme="light"] .vc-premium-footer__social:is(:hover, :focus-visible) {
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   background-color: #efe6db !important;
   background-image:
     linear-gradient(#efe6db, #efe6db),
@@ -12718,13 +12421,13 @@ html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body.vc-
     radial-gradient(90% 70% at 100% 0%, rgba(212, 168, 136, 0.2), transparent 48%),
     linear-gradient(175deg, #fffaf4 0%, #f7f1ea 48%, #efe6dc 100%),
     var(--vc-nav-ring-light) !important;
-  background-origin: padding-box, padding-box, padding-box, border-box !important;
-  background-clip: padding-box, padding-box, padding-box, border-box !important;
-  -webkit-background-clip: padding-box, padding-box, padding-box, border-box !important;
-  border: 2px solid transparent !important;
+  background-origin: padding-box !important;
+  background-clip: padding-box !important;
+  -webkit-background-clip: padding-box !important;
+  border: 2px solid rgba(245, 214, 183, 0.38) !important;
   border-width: 2px !important;
   border-style: solid !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   box-shadow: none !important;
   filter: none !important;
   backdrop-filter: none !important;
@@ -12746,19 +12449,19 @@ html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top
 html.vc-site-photo-bg.vc-perf-mid.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-vote-page #vote-platforms > a.vc-vote-platform-card,
 html.vc-site-photo-bg.vc-perf-mid.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body .vc-support-donate-role .vc-perks-tier-acc,
 html.vc-site-photo-bg.vc-perf-mid.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body .vc-wiki-cmd-shell .vc-cmd-acc-body {
-  border: 2px solid transparent !important;
+  border: 2px solid rgba(245, 214, 183, 0.38) !important;
   border-width: 2px !important;
   border-style: solid !important;
-  border-color: transparent !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
   background-color: #faf6f0 !important;
   background-image:
     radial-gradient(120% 90% at 0% 0%, rgba(255, 248, 238, 0.92), transparent 52%),
     radial-gradient(90% 70% at 100% 0%, rgba(212, 168, 136, 0.2), transparent 48%),
     linear-gradient(175deg, #fffaf4 0%, #f7f1ea 48%, #efe6dc 100%),
     var(--vc-nav-ring-light) !important;
-  background-origin: padding-box, padding-box, padding-box, border-box !important;
-  background-clip: padding-box, padding-box, padding-box, border-box !important;
-  -webkit-background-clip: padding-box, padding-box, padding-box, border-box !important;
+  background-origin: padding-box !important;
+  background-clip: padding-box !important;
+  -webkit-background-clip: padding-box !important;
   box-shadow: none !important;
   filter: none !important;
   -webkit-filter: none !important;
@@ -12816,7 +12519,7 @@ html.vc-site-polish[data-vc-theme="light"] body.vc-body #header-quick-actions #v
   background-origin: padding-box, border-box !important;
   background-clip: padding-box, border-box !important;
   -webkit-background-clip: padding-box, border-box !important;
-  border: 1px solid transparent !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
   color: #1a120e !important;
   -webkit-text-fill-color: #1a120e !important;
   opacity: 1 !important;
@@ -12839,3 +12542,278 @@ html[data-vc-theme="light"] body.vc-body #header-quick-actions #vc-header-promo-
   background-image: none !important;
 }
 /* navPromoGhost1 */
+
+
+/* === footerRingBoost1 (BEGIN) === */
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body > footer.vc-premium-footer .vc-premium-footer__outer,
+html[data-vc-theme="light"] footer.vc-premium-footer .vc-premium-footer__outer {
+  box-shadow: none !important;
+  border: 0 !important;
+  overflow: visible !important;
+}
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body > footer.vc-premium-footer .vc-premium-footer__outer::after,
+html.vc-site-polish[data-vc-theme="light"] body.vc-body footer.vc-premium-footer .vc-premium-footer__outer::after,
+html[data-vc-theme="light"] body.vc-body footer.vc-premium-footer .vc-premium-footer__outer::after {
+  padding: 2px !important;
+  z-index: 6 !important;
+  opacity: 1 !important;
+}
+/* === footerRingBoost1 (END) === */
+
+/* === footerRingBoost1LightPin (BEGIN) === */
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top > footer.vc-premium-footer .vc-premium-footer__outer::after,
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top footer.vc-premium-footer .vc-premium-footer__outer::after,
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body--home#top > footer.vc-premium-footer .vc-premium-footer__outer::after,
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-page-cine-layout#top > footer.vc-premium-footer .vc-premium-footer__outer::after,
+html[data-vc-theme="light"].vc-site-polish body.vc-body#top footer.vc-premium-footer .vc-premium-footer__outer::after { content: none !important; display: none !important; background: none !important; background-image: none !important; -webkit-mask: none !important; mask: none !important; opacity: 0 !important; }
+/* === footerRingBoost1LightPin (END) === */
+
+/* === notifSheetBorder1 (START) === */
+/* Bordo esterno solido su sheet/drawer (portale body) — batte wash transparent. */
+html.vc-site-polish[data-vc-theme="light"] body.vc-body .vc-notif-panel,
+html.vc-site-polish[data-vc-theme="light"] body.vc-body > .vc-notif-dropdown .vc-notif-panel,
+html[data-vc-theme="light"] body.vc-body .vc-notif-panel,
+html.vc-site-polish[data-vc-theme="light"].vc-notif-sheet-open body.vc-body .vc-notif-dropdown[open] .vc-notif-panel,
+html.vc-site-polish[data-vc-theme="light"].vc-notif-sheet-open body.vc-body > .vc-notif-dropdown[open] .vc-notif-panel,
+html.vc-site-polish[data-vc-theme="light"].vc-notif-drawer-open body.vc-body .vc-notif-dropdown[open] .vc-notif-panel,
+html.vc-site-polish[data-vc-theme="light"].vc-notif-drawer-open body.vc-body > .vc-notif-dropdown[open] .vc-notif-panel {
+  border: 1px solid rgba(111, 78, 55, 0.4) !important;
+  border-color: rgba(111, 78, 55, 0.4) !important;
+  background-clip: border-box !important;
+  -webkit-background-clip: border-box !important;
+  background-origin: padding-box !important;
+  box-shadow:
+    0 -16px 52px rgba(60, 40, 24, 0.18),
+    0 0 0 1px rgba(111, 78, 55, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.55) !important;
+}
+/* === notifSheetBorder1 (END) === */
+
+/* === ticketsGlowFilterKill1 (START) === */
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body.vc-web-tickets-page#top .vc-wt-filter-menu,
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-content .vc-wt-filter-menu,
+html[data-vc-theme="light"] body.vc-web-tickets-page .vc-wt-filter-menu {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55) !important;
+  filter: none !important;
+}
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body.vc-web-tickets-page#top .vc-wt-layout,
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-content .vc-wt-layout,
+html[data-vc-theme="light"] body.vc-web-tickets-page .vc-wt-layout {
+  /* kill1b: solo drop — vietato 0 0 20px sand */
+  box-shadow: 0 10px 22px rgba(60, 40, 24, 0.08) !important;
+  filter: none !important;
+}
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body.vc-web-tickets-page#top .vc-wt-sidebar,
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-content .vc-wt-sidebar,
+html[data-vc-theme="light"] body.vc-web-tickets-page .vc-wt-sidebar {
+  box-shadow: none !important;
+  background-image: none !important;
+  filter: none !important;
+}
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body.vc-web-tickets-page#top .vc-wt-filter-menu .vc-wt-chip:not(.is-active),
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-content .vc-wt-chip:not(.is-active),
+html[data-vc-theme="light"] body.vc-web-tickets-page .vc-wt-filter-menu .vc-wt-chip:not(.is-active) {
+  background: rgba(111, 78, 55, 0.06) !important;
+  background-color: rgba(111, 78, 55, 0.06) !important;
+  background-image: none !important;
+  border: 1px solid rgba(111, 78, 55, 0.22) !important;
+  border-color: rgba(111, 78, 55, 0.22) !important;
+  color: rgba(74, 52, 37, 0.72) !important;
+  -webkit-text-fill-color: rgba(74, 52, 37, 0.72) !important;
+  box-shadow: none !important;
+  font-weight: 600 !important;
+}
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body.vc-web-tickets-page#top .vc-wt-filter-menu .vc-wt-chip.is-active,
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body.vc-web-tickets-page#top .vc-wt-filter-menu .vc-wt-chip[aria-selected="true"],
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-content .vc-wt-chip.is-active,
+html[data-vc-theme="light"] body.vc-web-tickets-page .vc-wt-filter-menu .vc-wt-chip.is-active {
+  background: linear-gradient(180deg, #f0dcc8 0%, #d4a888 58%, #b88968 100%) !important;
+  background-color: #d4a888 !important;
+  background-image: linear-gradient(180deg, #f0dcc8 0%, #d4a888 58%, #b88968 100%) !important;
+  border: 2px solid rgba(111, 78, 55, 0.55) !important;
+  border-color: rgba(111, 78, 55, 0.55) !important;
+  color: #1a120e !important;
+  -webkit-text-fill-color: #1a120e !important;
+  box-shadow: inset 0 0 0 1px rgba(255, 247, 236, 0.35) !important;
+  font-weight: 800 !important;
+  filter: none !important;
+}
+/* ticketsGlowFilterKill1b: ID beats soft-fx/shell card polish still on gateKicker stamp */
+html.vc-site-polish[data-vc-theme="light"] body.vc-body.vc-web-tickets-page#top #vc-wt-sidebar,
+html.vc-site-polish[data-vc-theme="light"] body.vc-body#top #vc-page-content #vc-wt-sidebar,
+html[data-vc-theme="light"] body.vc-web-tickets-page #vc-wt-sidebar,
+html.vc-site-polish[data-vc-theme="light"] body.vc-body.vc-web-tickets-page#top aside.vc-wt-sidebar {
+  box-shadow: none !important;
+  filter: none !important;
+  -webkit-filter: none !important;
+  background-image: none !important;
+  background: transparent !important;
+  background-color: transparent !important;
+}
+/* === ticketsGlowFilterKill1 (END) === */
+
+/* siparioBorderPin1b: batte theme-light 1px (#top) su nav */
+html.vc-site-polish body.vc-body#top header .vc-nav-shell,
+html.vc-site-polish[data-vc-theme="light"] body.vc-body#top header .vc-nav-shell,
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top header .vc-nav-shell,
+html.vc-site-polish[data-vc-theme="dark"] body.vc-body#top header .vc-nav-shell,
+html.vc-soft-fx-ready.vc-site-polish:not(.vc-soft-fx-off) body.vc-body#top header .vc-nav-shell,
+html.vc-site-polish body.vc-body#top > footer.vc-premium-footer .vc-premium-footer__outer,
+html.vc-site-polish[data-vc-theme="light"] body.vc-body#top > footer.vc-premium-footer .vc-premium-footer__outer {
+  border: 2px solid rgba(245, 214, 183, 0.38) !important;
+  border-width: 2px !important;
+  border-style: solid !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
+}
+/* siparioBorderPin1b end */
+
+/* cpuIdleAll1b: stop metal-sheen loop (same file, after sheen pins) */
+html.vc-fx-flat.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body--home .vc-home-cine-hero h1.vc-brand-glow,
+html.vc-fx-flat.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body--home .vc-home-cine-hero h1.vc-brand-glow :is(
+  .vc-hero-brand-pre, .vc-hero-brand-caffe, .text-emerald-300, span
+):not(.vc-forbidden-book),
+html.vc-cpu-settle.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body--home .vc-home-cine-hero h1.vc-brand-glow,
+html.vc-cpu-settle.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body--home .vc-home-cine-hero h1.vc-brand-glow :is(
+  .vc-hero-brand-pre, .vc-hero-brand-caffe, .text-emerald-300, span
+):not(.vc-forbidden-book),
+html.vc-fx-flat.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top.vc-body--home .vc-home-cine-hero h1.vc-brand-glow :is(
+  .vc-hero-brand-pre, .vc-hero-brand-caffe, .text-emerald-300, span
+):not(.vc-forbidden-book),
+html.vc-cpu-settle.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top.vc-body--home .vc-home-cine-hero h1.vc-brand-glow :is(
+  .vc-hero-brand-pre, .vc-hero-brand-caffe, .text-emerald-300, span
+):not(.vc-forbidden-book),
+html.vc-cpu-settle.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top.vc-body--home .vc-home-cine-hero .vc-support-intro-shell .vc-hero-head h1.vc-brand-glow :is(
+  .text-emerald-300, .vc-hero-brand-pre, .vc-hero-brand-caffe, span
+):not(.vc-forbidden-book),
+html.vc-cpu-settle.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body--home .vc-home-cine-hero .vc-support-intro-shell h1.vc-brand-glow :is(
+  .text-emerald-300, .vc-hero-brand-pre, .vc-hero-brand-caffe, span
+):not(.vc-forbidden-book),
+html.vc-cpu-settle.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body--home section#intro.vc-home-cine-hero h1.vc-brand-glow :is(
+  .text-emerald-300, .vc-hero-brand-pre, .vc-hero-brand-caffe, span
+):not(.vc-forbidden-book),
+html.vc-site-photo-bg.vc-cpu-settle.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top.vc-body--home .vc-home-cine-hero h1.vc-brand-glow :is(
+  .text-emerald-300, .vc-hero-brand-pre, .vc-hero-brand-caffe, span
+):not(.vc-forbidden-book),
+html.vc-page-hidden.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body--home .vc-home-cine-hero h1.vc-brand-glow,
+html.vc-page-hidden.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body--home .vc-home-cine-hero h1.vc-brand-glow * {
+  animation: none !important;
+  -webkit-animation: none !important;
+  animation-name: none !important;
+  will-change: auto !important;
+}
+/* cpuIdleAll1b end */
+
+/* === acctSolidBorder1b (END) — account menu light = 2px solid, caret diamond no glow === */
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top header .discord-account-popover,
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body header .discord-account-popover,
+html.vc-site-photo-bg.vc-perf-mid.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top header .discord-account-popover,
+html[data-vc-theme="light"] body.vc-body header .discord-account-popover {
+  border: 2px solid rgba(111, 78, 55, 0.28) !important;
+  border-width: 2px !important;
+  border-style: solid !important;
+  border-color: rgba(111, 78, 55, 0.28) !important;
+  box-shadow: none !important;
+  filter: none !important;
+}
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top header .discord-account-popover::before,
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body header .discord-account-popover::before,
+html.vc-soft-fx-ready.vc-site-polish[data-vc-theme="light"] body.vc-body header .discord-account-popover::before,
+html[data-vc-theme="light"] body.vc-body header .discord-account-popover::before {
+  width: 12px !important;
+  height: 12px !important;
+  border-style: solid !important;
+  border-width: 2px 0 0 2px !important;
+  border-color: rgba(111, 78, 55, 0.28) transparent transparent rgba(111, 78, 55, 0.28) !important;
+  background: #f7f1ea !important;
+  background-color: #f7f1ea !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  filter: none !important;
+}
+html.vc-site-polish[data-vc-theme="light"] body.vc-body header .discord-profile-link.discord-profile-link--chip,
+html[data-vc-theme="light"] body.vc-body header .discord-profile-link.discord-profile-link--chip {
+  border: 2px solid rgba(111, 78, 55, 0.28) !important;
+  box-shadow: none !important;
+}
+/* === acctSolidBorder1b (END) === */
+/* === sitewideSolid1d light (BEGIN) — ultra-spec light brown solid sitewide === */
+html.vc-soft-fx-ready.vc-site-polish.vc-fx-flat.vc-site-photo-bg.vc-perf-mid[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top > header .vc-nav-shell,
+html.vc-soft-fx-ready.vc-site-polish.vc-fx-flat.vc-site-photo-bg[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body > header .vc-nav-shell,
+html.vc-soft-fx-ready.vc-site-polish.vc-fx-flat[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body header .vc-nav-shell,
+html.vc-fx-flat.vc-site-polish[data-vc-theme="light"] body.vc-body header .vc-nav-shell,
+html[data-vc-theme="light"] body.vc-body header .vc-nav-shell,
+html.vc-soft-fx-ready.vc-site-polish.vc-fx-flat.vc-site-photo-bg.vc-perf-mid[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top > footer.vc-premium-footer .vc-premium-footer__outer,
+html.vc-soft-fx-ready.vc-site-polish.vc-fx-flat.vc-site-photo-bg[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body > footer.vc-premium-footer .vc-premium-footer__outer,
+html.vc-soft-fx-ready.vc-site-polish.vc-perf-mid[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body > footer.vc-premium-footer .vc-premium-footer__outer,
+html.vc-site-polish[data-vc-theme="light"] body.vc-body#top > footer.vc-premium-footer .vc-premium-footer__outer,
+html.vc-site-polish[data-vc-theme="light"] body.vc-body footer.vc-premium-footer .vc-premium-footer__outer,
+html[data-vc-theme="light"] body.vc-body footer.vc-premium-footer .vc-premium-footer__outer {
+  border: 2px solid rgba(111, 78, 55, 0.28) !important;
+  border-width: 2px !important;
+  border-style: solid !important;
+  border-color: rgba(111, 78, 55, 0.28) !important;
+  box-shadow: none !important;
+  filter: none !important;
+  background-image: none !important;
+  background-clip: padding-box !important;
+  -webkit-background-clip: padding-box !important;
+  background-origin: padding-box !important;
+}
+html.vc-soft-fx-ready.vc-fx-flat.vc-site-polish.vc-perf-mid[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top :is(.vc-fx-card,.vc-home-panel,.vc-page-cine-card,.vc-hero-head,.vc-faq-group,
+  .vc-regole-card,.vc-wiki-cmd-shell,.vc-legal-card,.vc-reviews-card,
+  .vc-reviews-formcard,.vc-reviews-stage__card,.vc-perks-card,.vc-role-card,
+  .vc-ul-card,.vc-stat-card,.vc-stat-strip,.vc-stat-strip.vc-glass,
+  .vc-boards-card,.vc-boards-mine-card,.vc-candidature-card,.vc-sponsor-card,
+  .vc-premium-card,.vc-home-deck,.vc-home-feature,.vc-home-index,
+  .vc-wt-sidebar,.vc-wt-board,.vc-vote-live-card,.vc-vote-live-statbox,
+  .vc-vote-platform-card,.vc-staff-hub-card,.vc-notify-stat,.vc-auth-required-card),
+html.vc-fx-flat.vc-site-polish[data-vc-theme="light"] body.vc-body#top :is(.vc-fx-card,.vc-home-panel,.vc-page-cine-card,.vc-hero-head,.vc-faq-group,
+  .vc-regole-card,.vc-wiki-cmd-shell,.vc-legal-card,.vc-reviews-card,
+  .vc-reviews-formcard,.vc-reviews-stage__card,.vc-perks-card,.vc-role-card,
+  .vc-ul-card,.vc-stat-card,.vc-stat-strip,.vc-stat-strip.vc-glass,
+  .vc-boards-card,.vc-boards-mine-card,.vc-candidature-card,.vc-sponsor-card,
+  .vc-premium-card,.vc-home-deck,.vc-home-feature,.vc-home-index,
+  .vc-wt-sidebar,.vc-wt-board,.vc-vote-live-card,.vc-vote-live-statbox,
+  .vc-vote-platform-card,.vc-staff-hub-card,.vc-notify-stat,.vc-auth-required-card),
+html.vc-fx-flat.vc-site-polish[data-vc-theme="light"] body.vc-web-tickets-page#top :is(.vc-fx-card,.vc-home-panel,.vc-page-cine-card,.vc-hero-head,.vc-faq-group,
+  .vc-regole-card,.vc-wiki-cmd-shell,.vc-legal-card,.vc-reviews-card,
+  .vc-reviews-formcard,.vc-reviews-stage__card,.vc-perks-card,.vc-role-card,
+  .vc-ul-card,.vc-stat-card,.vc-stat-strip,.vc-stat-strip.vc-glass,
+  .vc-boards-card,.vc-boards-mine-card,.vc-candidature-card,.vc-sponsor-card,
+  .vc-premium-card,.vc-home-deck,.vc-home-feature,.vc-home-index,
+  .vc-wt-sidebar,.vc-wt-board,.vc-vote-live-card,.vc-vote-live-statbox,
+  .vc-vote-platform-card,.vc-staff-hub-card,.vc-notify-stat,.vc-auth-required-card),
+html.vc-fx-flat.vc-site-polish[data-vc-theme="light"] body.vc-page-cine-layout#top :is(.vc-fx-card,.vc-home-panel,.vc-page-cine-card,.vc-hero-head,.vc-faq-group,
+  .vc-regole-card,.vc-wiki-cmd-shell,.vc-legal-card,.vc-reviews-card,
+  .vc-reviews-formcard,.vc-reviews-stage__card,.vc-perks-card,.vc-role-card,
+  .vc-ul-card,.vc-stat-card,.vc-stat-strip,.vc-stat-strip.vc-glass,
+  .vc-boards-card,.vc-boards-mine-card,.vc-candidature-card,.vc-sponsor-card,
+  .vc-premium-card,.vc-home-deck,.vc-home-feature,.vc-home-index,
+  .vc-wt-sidebar,.vc-wt-board,.vc-vote-live-card,.vc-vote-live-statbox,
+  .vc-vote-platform-card,.vc-staff-hub-card,.vc-notify-stat,.vc-auth-required-card),
+html[data-vc-theme="light"] body.vc-body :is(.vc-fx-card,.vc-home-panel,.vc-page-cine-card,.vc-hero-head,.vc-faq-group,
+  .vc-regole-card,.vc-wiki-cmd-shell,.vc-legal-card,.vc-reviews-card,
+  .vc-reviews-formcard,.vc-reviews-stage__card,.vc-perks-card,.vc-role-card,
+  .vc-ul-card,.vc-stat-card,.vc-stat-strip,.vc-stat-strip.vc-glass,
+  .vc-boards-card,.vc-boards-mine-card,.vc-candidature-card,.vc-sponsor-card,
+  .vc-premium-card,.vc-home-deck,.vc-home-feature,.vc-home-index,
+  .vc-wt-sidebar,.vc-wt-board,.vc-vote-live-card,.vc-vote-live-statbox,
+  .vc-vote-platform-card,.vc-staff-hub-card,.vc-notify-stat,.vc-auth-required-card) {
+  border: 2px solid rgba(111, 78, 55, 0.28) !important;
+  border-width: 2px !important;
+  border-style: solid !important;
+  border-color: rgba(111, 78, 55, 0.28) !important;
+  box-shadow: none !important;
+  filter: none !important;
+  background-clip: padding-box !important;
+  -webkit-background-clip: padding-box !important;
+  background-origin: padding-box !important;
+}
+html.vc-site-polish[data-vc-theme="light"] body.vc-body header .discord-account-popover,
+html[data-vc-theme="light"] body.vc-body header .discord-account-popover {
+  border: 2px solid rgba(111, 78, 55, 0.28) !important;
+  border-color: rgba(111, 78, 55, 0.28) !important;
+  box-shadow: none !important;
+  background-clip: padding-box !important;
+}
+/* === sitewideSolid1d light (END) === */

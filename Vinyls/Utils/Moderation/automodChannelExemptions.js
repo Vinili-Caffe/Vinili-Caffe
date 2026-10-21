@@ -21,6 +21,8 @@ function getStaticAutomodExemptChannelIds(client = null) {
   if (/^\d{16,22}$/.test(streamerChat)) ids.add(streamerChat);
   const streamerStage = String(IDs.channels?.streamerStage || "").trim();
   if (/^\d{16,22}$/.test(streamerStage)) ids.add(streamerStage);
+  const automodExemptExtra = String(IDs.channels?.automodExemptExtra || "").trim();
+  if (/^\d{16,22}$/.test(automodExemptExtra)) ids.add(automodExemptExtra);
   for (const id of readStreamVoiceChannelIdsFromClient(client)) ids.add(id);
   return ids;
 }

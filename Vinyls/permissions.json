@@ -1343,6 +1343,9 @@
         "giveaway_enter:*": [
             "roles.Member"
         ],
+        "giveaway_morgames_retry:*": [
+            "roles.Member"
+        ],
         "giveaway_reroll:*": [
             "roles.HighStaff"
         ],

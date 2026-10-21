@@ -100,7 +100,20 @@ function recentBoostEmbedsSentCount(boostKey) {
   return Math.max(0, Math.min(2, Number(row.count || 0)));
 }
 
-function noteNativeBoostSeen(guildId, userId, slotCount = 1, messageId = "") {
+function nativeBoostSystemKind(message) {
+  const t = Number(message?.type);
+  if (t === 9 || t === 10 || t === 11) return "tier";
+  if (t === 8) return "boost";
+  const text = String(message?.content || "")
+    .replace(/\*/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (/\b(due\s+volte|twice|\d{1,2}\s+volte|\d{1,2}\s+times?)\b/i.test(text)) return "multi";
+  if (/(livello|level|tier)\s*\d/i.test(text) && /(potenziato|boosted)/i.test(text)) return "tier";
+  return "boost";
+}
+
+function noteNativeBoostSeen(guildId, userId, slotCount = 1, messageId = "", kind = "boost") {
   const gid = String(guildId || "").trim();
   const uid = String(userId || "").trim();
   if (!gid || !uid) return;
@@ -108,31 +121,50 @@ function noteNativeBoostSeen(guildId, userId, slotCount = 1, messageId = "") {
   const at = Date.now();
   const slots = Math.max(1, Math.min(2, Number(slotCount || 1)));
   const mid = String(messageId || "").trim();
+  const msgKind = String(kind || "boost");
   const prev = nativeBoostSeenByKey.get(key);
   const ids = new Set(Array.isArray(prev?.ids) ? prev.ids : []);
+  const kinds = new Set(Array.isArray(prev?.kinds) ? prev.kinds : []);
   let nextSlots = slots;
   let slotsIncreased = false;
   if (mid && ids.has(mid)) {
     nextSlots = Math.max(Number(prev?.slots || 0), slots);
   } else if (prev && at - Number(prev.at || 0) < NATIVE_BOOST_ACCUMULATE_MS) {
-    /* boostDoubleBurst1: messaggi system con id diversi = boost distinti anche se <5s
-       (prima dt<5000 faceva max→1 e perdeva il 2° grazie / Double Booster). */
+    /* boostFalseDouble3: boost+tier (id diversi <5s) = STESSO boost → max, non somma.
+       Due boost reali = due msg "boost"/"multi" (o testo "2 volte"). */
     const wasNewId = Boolean(mid && !ids.has(mid));
     if (mid) ids.add(mid);
     const dt = at - Number(prev.at || 0);
-    if (slots >= 2) nextSlots = 2;
+    const prevKinds = kinds;
+    const sameBoostPair =
+      wasNewId &&
+      dt < 5000 &&
+      slots < 2 &&
+      Number(prev.slots || 0) < 2 &&
+      ((prevKinds.has("boost") && msgKind === "tier") ||
+        (prevKinds.has("tier") && msgKind === "boost") ||
+        (prevKinds.has("tier") && msgKind === "tier"));
+    if (slots >= 2 || msgKind === "multi") nextSlots = 2;
+    else if (sameBoostPair) nextSlots = Math.max(Number(prev.slots || 0), slots);
     else if (wasNewId) nextSlots = Math.min(2, Number(prev.slots || 0) + slots);
     else if (dt < 5000) nextSlots = Math.max(Number(prev.slots || 0), slots);
     else nextSlots = Math.min(2, Number(prev.slots || 0) + slots);
     slotsIncreased = nextSlots > Number(prev?.slots || 0);
   } else {
     ids.clear();
+    kinds.clear();
     if (mid) ids.add(mid);
-    nextSlots = slots;
+    nextSlots = slots >= 2 || msgKind === "multi" ? Math.min(2, slots) : slots;
     slotsIncreased = true;
   }
   if (mid) ids.add(mid);
-  nativeBoostSeenByKey.set(key, { at, slots: nextSlots, ids: [...ids].slice(-8) });
+  kinds.add(msgKind);
+  nativeBoostSeenByKey.set(key, {
+    at,
+    slots: nextSlots,
+    ids: [...ids].slice(-8),
+    kinds: [...kinds].slice(-8),
+  });
   /* boostDedup1: clear handled solo se i slot nativi sono aumentati (nuovo boost), non ad ogni messaggio */
   if (slotsIncreased) clearBoostAnnounceHandled(key);
 }
@@ -232,9 +264,16 @@ function handleNativeBoostSystemMessage(message) {
   const userId = resolveNativeBoostMessageUserId(message, message?.guild || null);
   if (!userId) return null;
   const slots = parseNativeBoostSlotCount(message);
-  noteNativeBoostSeen(guildId, userId, slots, message?.id);
+  const kind = nativeBoostSystemKind(message);
+  noteNativeBoostSeen(guildId, userId, slots, message?.id, kind);
   const accumulated = nativeBoostSeenSince(guildId, userId, Date.now() - NATIVE_BOOST_ACCUMULATE_MS);
-  return { guildId, userId, slots: Math.max(slots, accumulated) };
+  return {
+    guildId,
+    userId,
+    slots: Math.max(slots, accumulated),
+    kind,
+    messageSlots: slots,
+  };
 }
 
 function markBoostAnnounceHandled(boostKey) {
@@ -558,12 +597,16 @@ function resolveBoostSlotTarget(member, announcedSlots, nativeBoostEvents, force
       target = Math.min(2, Math.max(target, nativeHint, eventSlots, announced));
     }
   }
-  /* boostDedup1: bump a 2 solo con segnale nativo/conferma 2° boost — allowSecondRecovery da solo non basta */
-  const wantSecond =
+  /* boostFalseDouble3: 2° slot SOLO con conferma dura (2° boost / testo multi / scan ≥2 dopo merge). */
+  const hardDouble =
     Boolean(opts.secondBoostConfirmed) ||
-    (Boolean(opts.allowSecondRecovery) && nativeHint >= 2);
-  if (wantSecond && announced >= 1 && Number(member?.premiumSinceTimestamp || 0) > 0) {
-    target = Math.min(2, Math.max(target, 2));
+    Boolean(opts.confirmedDoubleBurst) ||
+    (Boolean(opts.allowSecondRecovery) && nativeHint >= 2 && Boolean(opts.nativeScanVerified));
+  if (hardDouble && Number(member?.premiumSinceTimestamp || 0) > 0) {
+    target = Math.min(2, Math.max(target, announced >= 1 ? 2 : Math.max(nativeHint, 2)));
+  } else if (target >= 2 && !hardDouble && announced < 1) {
+    /* niente DOPPIO al primo announce senza prova */
+    target = 1;
   }
   return target;
 }
@@ -958,14 +1001,17 @@ async function removePlusColorsIfNotEligible(member) {
   }
 }
 
-async function sendBoostEmbeds(channel, member, times, boostCount, priorAnnouncedSlots = 0) {
+async function sendBoostEmbeds(channel, member, times, boostCount, priorAnnouncedSlots = 0, opts = {}) {
   if (!channel?.isTextBased?.()) return 0;
   const safeTimes = Math.max(0, Number(times || 0));
   const start = Math.max(0, Math.floor(Number(priorAnnouncedSlots || 0)));
   if (safeTimes <= 0) return 0;
 
   const endExclusive = start + safeTimes;
-      if (start < 2 && endExclusive >= 2) {
+  /* boostFalseDouble3: collapse a un solo DOPPIO SOLO se il nativo è davvero "2 volte"
+     (altrimenti start=0+times=2 mandava DOPPIO e bloccava il 2° boost reale). */
+  const confirmedDoubleBurst = Boolean(opts.confirmedDoubleBurst);
+  if (confirmedDoubleBurst && start < 2 && endExclusive >= 2) {
     const embed = buildBoostEmbedSecond(member, Math.max(1, Number(boostCount || 0)));
     const sent = await channel
       .send({
@@ -1361,22 +1407,26 @@ function mergeNativeBoostSlotEvents(events) {
     }
     const slots = Math.max(0, Math.min(2, Number(ev?.slots || 0)));
     const ts = Number(ev?.ts || 0);
+    const kind = String(ev?.kind || "boost");
     if (slots <= 0) continue;
     const last = merged[merged.length - 1];
-    /* boostDoubleBurst1: collassa solo eventi senza id distinti (debounce).
-       Due system msg Discord con id diversi entro 5s restano 2 slot. */
-    if (
-      last &&
-      ts &&
-      last.ts &&
-      Math.abs(ts - last.ts) <= 5000 &&
-      !(id && last.id && id !== last.id)
-    ) {
-      last.slots = Math.max(last.slots, slots);
-      last.ts = Math.max(last.ts, ts);
-      continue;
+    /* boostFalseDouble3: boost+tier entro 5s = stesso boost (max).
+       Due boost reali = due "boost"/"multi" distinti → somma. */
+    if (last && ts && last.ts && Math.abs(ts - last.ts) <= 5000) {
+      const sameId = Boolean(id && last.id && id === last.id);
+      const boostTierPair =
+        (last.kind === "boost" && kind === "tier") ||
+        (last.kind === "tier" && kind === "boost") ||
+        (last.kind === "tier" && kind === "tier");
+      if (sameId || boostTierPair || !(id && last.id && id !== last.id)) {
+        last.slots = Math.max(last.slots, slots);
+        last.ts = Math.max(last.ts, ts);
+        if (kind === "multi" || slots >= 2) last.slots = 2;
+        if (kind === "boost" && last.kind === "tier") last.kind = "boost";
+        continue;
+      }
     }
-    merged.push({ id, ts, slots });
+    merged.push({ id, ts, slots: kind === "multi" ? Math.max(slots, 2) : slots, kind });
   }
   return Math.min(2, merged.reduce((sum, row) => sum + Number(row.slots || 0), 0));
 }
@@ -1396,7 +1446,14 @@ async function collectNativeBoostSlotEventsForUser(guild, primaryChannel, userId
       const ts = Number(m.createdTimestamp || 0);
       if (minTs > 0 && ts && ts < minTs) continue;
       const slots = parseNativeBoostSlotCount(m);
-      if (slots > 0) events.push({ id: String(m.id || ""), ts, slots });
+      if (slots > 0) {
+        events.push({
+          id: String(m.id || ""),
+          ts,
+          slots,
+          kind: nativeBoostSystemKind(m),
+        });
+      }
     }
   }
   return events;
@@ -1855,7 +1912,12 @@ async function collectRecentNativeBoosterCandidates(guild, primaryChannel, opts 
       const uid = resolveNativeBoostMessageUserId(message, guild);
       if (!uid) continue;
       const list = eventsByUser.get(uid) || [];
-      list.push({ id: String(message.id || ""), ts, slots });
+      list.push({
+        id: String(message.id || ""),
+        ts,
+        slots,
+        kind: nativeBoostSystemKind(message),
+      });
       eventsByUser.set(uid, list);
     }
   }
@@ -2036,6 +2098,14 @@ async function recoverMissingBoostEmbedsForUser(guild, userId, opts = {}) {
       return { ok: true, sent: 0, reason: "no_native_signals" };
     }
   }
+  const confirmedDoubleBurst = Boolean(
+    opts.confirmedDoubleBurst ||
+      (Number(opts.messageSlots || 0) >= 2) ||
+      (Number(opts.nativeEventSlots || 0) >= 2 && Boolean(opts.skipNativeScan)),
+  );
+  const nativeScanVerified = Boolean(
+    opts.nativeScanVerified || (!opts.skipNativeScan && Number(sync?.nativeBoostEvents || 0) >= 2),
+  );
   const slotTarget = resolveBoostSlotTarget(member, announcedSlots, nativeBoostEvents, forcedSlots, {
     startedAt: opts.startedAt,
     nativeLookbackMs,
@@ -2045,6 +2115,8 @@ async function recoverMissingBoostEmbedsForUser(guild, userId, opts = {}) {
     allowSecondRecovery: Boolean(opts.allowSecondRecovery),
     incrementalNativeEvent: Boolean(opts.nativeEventIncrement),
     nativeEventSlots: Number(opts.nativeEventSlots || opts.knownNativeSlots || 0),
+    confirmedDoubleBurst,
+    nativeScanVerified,
   });
   if (slotTarget <= 0) return { ok: true, sent: 0, reason: "not_boosting" };
   const periodSinceMs = boostAnnouncePeriodSinceMs(member, opts, nativeLookbackMs);
@@ -2122,7 +2194,14 @@ async function recoverMissingBoostEmbedsForUser(guild, userId, opts = {}) {
     const toSend = maxSend > 0 ? Math.min(extraMissing, maxSend) : extraMissing;
     /* boostDedup1: template 2° boost se prior (canale/mem/DB) dice già ≥1 */
     const embedPriorSlots = Math.max(priorSlots, announcedSlots, channelEmbedsInPeriod, recentMemSent);
-    const sentNow = await sendBoostEmbeds(boostAnnounceChannel, member, toSend, latestCount, embedPriorSlots);
+    const sentNow = await sendBoostEmbeds(
+      boostAnnounceChannel,
+      member,
+      toSend,
+      latestCount,
+      embedPriorSlots,
+      { confirmedDoubleBurst: confirmedDoubleBurst && embedPriorSlots < 1 && toSend >= 2 },
+    );
     if (sentNow <= 0) {
       return { ok: true, sent: 0, reason: "send_failed" };
     }
@@ -2974,6 +3053,8 @@ module.exports = {
     resolveBoosterUserIdFromBoostContent,
     parseNativeBoostSlotCount,
     computeBoostDelta,
+    mergeNativeBoostSlotEvents,
+    nativeBoostSystemKind,
   },
   async execute(oldMember, newMember, client) {
     try {

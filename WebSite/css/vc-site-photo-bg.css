@@ -84,10 +84,23 @@ html.vc-site-photo-bg .vc-home-cine__spotlight {
   opacity: 0 !important;
 }
 
-/* Readable overlay — phone flat (no fascia sotto nav); PC = classico sotto */
+/* bgVeilFill1: layout del veil (era solo page-home/legal) —
+   senza absolute+inset l’altezza resta 0 → foto senza sfumatura nera */
 html.vc-site-photo-bg .vc-home-cine__veil,
+html.vc-site-polish .vc-home-cine__veil,
 html.vc-site-polish.vc-site-photo-bg .vc-home-cine__veil,
+html.vc-site-photo-bg body.vc-body .vc-home-cine__veil,
 html.vc-site-photo-bg body.vc-body--home .vc-home-cine__veil {
+  position: absolute !important;
+  inset: 0 !important;
+  z-index: 3 !important;
+  display: block !important;
+  width: auto !important;
+  height: auto !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  pointer-events: none !important;
+  box-sizing: border-box !important;
   opacity: 1 !important;
   filter: none !important;
   backdrop-filter: none !important;
@@ -476,3 +489,33 @@ html.vc-pwa-cpu-nuke body.vc-body .vc-home-cine__photo {
   backface-visibility: visible !important;
   -webkit-backface-visibility: visible !important;
 }
+
+
+/* === chromeSharedFill2 photo-bg (BEGIN) === */
+/* gifBgAlways1 */
+html.vc-site-photo-bg.vc-page-hidden:not(.vc-confessionale-route) .vc-home-cine__photo,
+html.vc-site-polish.vc-site-photo-bg.vc-page-hidden:not(.vc-confessionale-route) .vc-home-cine__photo,
+html.vc-site-photo-bg.vc-gif-paused:not(.vc-confessionale-route) .vc-home-cine__photo,
+html.vc-site-polish.vc-site-photo-bg.vc-gif-paused:not(.vc-confessionale-route) .vc-home-cine__photo {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+}
+html.vc-site-photo-bg.vc-page-hidden:not(.vc-confessionale-route) .vc-home-cine,
+html.vc-site-polish.vc-site-photo-bg.vc-page-hidden:not(.vc-confessionale-route) .vc-home-cine,
+html.vc-site-photo-bg.vc-gif-paused:not(.vc-confessionale-route) .vc-home-cine,
+html.vc-site-polish.vc-site-photo-bg.vc-gif-paused:not(.vc-confessionale-route) .vc-home-cine {
+  background-color: #100c09 !important;
+  background-image: none !important;
+}
+html.vc-site-photo-bg .vc-home-cine,
+html.vc-site-polish.vc-site-photo-bg .vc-home-cine {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  overflow: hidden !important;
+  pointer-events: none !important;
+}
+/* === chromeSharedFill2 photo-bg (END) === */

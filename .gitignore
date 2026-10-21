@@ -2,11 +2,19 @@
 logs
 *.log
 
-# One-shot deploy/probe scripts
+# One-shot deploy/probe scripts + local stage junk
 deploy/_tmp_*
+WebSite/_tmp_*
+WebSite/_tmp_*/
+WebSite/_bak_*
 WebSite/scripts/_tmp_*
 WebSite/scripts/_tmp_*/
 WebSite/scripts/_stage_*/
+WebSite/scripts/_archive/oneshot/
+
+# Dead CSS archaeology (splitBundle1 done — do not reintroduce)
+WebSite/css/_split_bundle/
+WebSite/css/pages/vc-page-bundle*.css
 
 # Live HTML dumps / hold snips (never ship)
 WebSite/_live_*
@@ -187,8 +195,14 @@ Lavalink/Lavalink.jar
 Lavalink/plugins/
 
 # Deploy
-.deploy/tools/
-deploy/tools/
+.deploy/**
+deploy/**
+
+# VSCode
+.vscode/**
+
+# Scripts
+scripts/**
 
 # Bot runtime state (rigenerato a ogni avvio / sul VPS)
 **/Data/*Snapshot*.json
@@ -203,4 +217,3 @@ Vinyls/Data/Hogwarts/*.jsonl
 Vinyls/Data/noDmList.json*
 Vinyls/Data/ticketReopenOutsideSessions.json*
 shared/discord/chatHubPacing.snapshot.json
-WebSite/scripts/_archive/oneshot/

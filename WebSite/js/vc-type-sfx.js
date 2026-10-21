@@ -1,6 +1,16 @@
 (function () {
   "use strict";
 
+  /* assetGate1: off su pagine light (privacy/faq/…) */
+  try {
+    if (
+      document.documentElement &&
+      document.documentElement.classList.contains("vc-type-sfx-off")
+    ) {
+      return;
+    }
+  } catch (eGate) {}
+
   var STORAGE_KEY = "vc_type_sfx";
   var VOL_KEY = "vc_type_sfx_vol";
   /* inputLagKill1: meno tick/sec — createBufferSource ogni ~28ms strozzava il main thread */

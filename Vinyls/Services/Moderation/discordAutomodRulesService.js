@@ -211,12 +211,14 @@ function collectExemptEntityIds(collectionOrArray) {
   return out;
 }
 
-/* Discord AutoMod: solo text/announcement/category — voice/stage/forum → CHANNEL_TYPE_INVALID */
+/* Discord AutoMod: text/announcement/category/forum — voice/stage restano invalidi */
 const AUTOMOD_EXEMPTABLE_CHANNEL_TYPES = new Set(
   [
     ChannelType.GuildText,
     ChannelType.GuildCategory,
     ChannelType.GuildAnnouncement,
+    ChannelType.GuildForum,
+    ChannelType.GuildMedia,
   ].filter((t) => t != null),
 );
 

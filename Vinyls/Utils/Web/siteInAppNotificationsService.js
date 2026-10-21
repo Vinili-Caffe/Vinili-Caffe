@@ -123,6 +123,9 @@ function inboxQueueIdFromOpenUrl(openUrl) {
 /**
  * notifCats2: staff alerts that already live in a dedicated Inbox queue section.
  * These must not appear as flat Avvisi (or Personali) — only as queue threads.
+ *
+ * resoBellFlat1: Resoconti NON hanno più riga coda in campanella (resoProfile1) —
+ * se restano “dedicated” spariscono ovunque. Li trattiamo come item Inbox normali.
  */
 function isDedicatedInboxQueueAlert({ openUrl, dedupeKey, channel, title, body } = {}) {
   const ch = String(channel || "").trim().toLowerCase();
@@ -138,19 +141,23 @@ function isDedicatedInboxQueueAlert({ openUrl, dedupeKey, channel, title, body }
   ) {
     return false;
   }
-  if (/^inbox:(pause|candidature|appelli|resoconti|revisione)(?::|$)/.test(key)) return true;
+  /* resoBellFlat1: flat list in campanella Inbox (openUrl → profilo staff) */
+  if (/^inbox:resoconti(?::|$)/.test(key)) return false;
+  if (/^inbox:(pause|candidature|appelli|revisione)(?::|$)/.test(key)) return true;
   if (/^pt-pending:/.test(key)) return true;
   if (/^wfc:(invite|remove|msg):staff:/.test(key)) return true;
   const queue = inboxQueueIdFromOpenUrl(openUrl);
+  if (queue === "resoconti") return false;
   if (!queue) return false;
   const hay = `${String(title || "")} ${String(body || "")}`.toLowerCase();
   if (
-    /nuovo resoconto|nuovo appello|nuova candidatur|nuova richiesta pausa|punti tolti\s*[—\-–]?\s*segnalazione in attesa|richiedente in chat/.test(
+    /nuovo appello|nuova candidatur|nuova richiesta pausa|punti tolti\s*[—\-–]?\s*segnalazione in attesa|richiedente in chat/.test(
       hay,
     )
   ) {
     return true;
   }
+  /* "nuovo resoconto" without queue id → still flat (not dedicated) */
   return false;
 }
 
@@ -444,14 +451,42 @@ function fireNotifDismissPush(userId, spec = {}) {
         if (now - Number(at || 0) > 120000) lastDismissPushAt.delete(k);
       }
     }
-    /* pushPhoneAlive4: niente webpush dismiss (starve telefono). Solo cache unread + WS. */
+    /* badgeOsDismiss1: dismiss webpush di nuovo SOLO per chiudere banner OS + badge
+       su telefono (sendWebPushToUser già skip desktop/WNS). WS con unread per device aperti.
+       Non tocca content push / soft-retry / shown-ack. */
     try {
       invalidateUnreadCountCache(uid);
     } catch (_) {}
-    try {
-      const { broadcastSiteNotificationsChanged } = require("./siteSuggestionsBroadcast");
-      broadcastSiteNotificationsChanged({ userId: uid });
-    } catch (_) {}
+    void (async () => {
+      let unreadCount = -1;
+      try {
+        const counted = await countSiteInAppUnreadForUser(uid);
+        unreadCount = Math.max(0, Math.min(99, Number(counted?.unread) || 0));
+      } catch (_) {
+        unreadCount = -1;
+      }
+      try {
+        const { broadcastSiteNotificationsChanged } = require("./siteSuggestionsBroadcast");
+        const extra = { userId: uid };
+        if (unreadCount >= 0) extra.unread = unreadCount;
+        broadcastSiteNotificationsChanged(extra);
+      } catch (_) {}
+      try {
+        const { sendWebPushToUser } = require("./siteWebPushService");
+        await sendWebPushToUser(uid, {
+          type: "dismiss",
+          ticketId: singleTicket,
+          id: singleId,
+          ids,
+          ticketIds,
+          openUrls,
+          dedupeKeys,
+          pageUrl,
+          all: spec.all === true,
+          unreadCount,
+        });
+      } catch (_) {}
+    })();
   } catch (_) {}
 }
 
@@ -710,13 +745,22 @@ const MOBILE_PUSH_SOFT_RETRY_DELAYS_MS = Object.freeze([
   15 * 60_000,
   45 * 60_000,
 ]);
-/* pushAppleHedgeLight1: APNs 201 ≠ banner iPhone (PWA kill/SW morto).
-   Hedge CORTO (4 ping) finché /push/shown — niente rotate/denylist (pushClosedPwaNoRotate1).
-   Prima pushAppleNoZombieHedge1=stop totale → telefono muto se 201 fantasma. */
-/* pushAppleWaitUntil1: primo rewake prima (8s) con Topic/mpr distinto — non aspettare 20s. */
-/* bugListBoot1: one hedge ping max after APNs 201; stop spam after first delivery attempt */
-const APPLE_ZOMBIE_HEDGE_DELAYS_MS = Object.freeze([8_000]);
+/* pushAppleHedgeUntilShown1: APNs 201 ≠ banner iPhone (PWA kill/SW morto).
+   Ripeti finché /push/shown (o max rounds) — niente rotate/denylist (pushClosedPwaNoRotate1).
+   Prima bugListBoot1=1 ping → hedge “exhausted” subito senza banner. */
+/* pushAppleWaitUntil1: primo rewake a 8s con Topic/mpr distinto. */
+const APPLE_ZOMBIE_HEDGE_DELAYS_MS = Object.freeze([
+  8_000,
+  25_000,
+  90_000,
+  3 * 60_000,
+  15 * 60_000,
+  45 * 60_000,
+]);
+/* 3 round × ~64min ≈ ~3h di ritentativi finché shown-ack */
+const APPLE_ZOMBIE_HEDGE_MAX_ROUNDS = 3;
 const appleZombieHedgeBases = new Set();
+const appleZombieHedgeRounds = new Map();
 
 function mobilePushSoftRetryKeyBase(userId, dedupeKey, id) {
   const uid = normalizeUserId(userId);
@@ -735,6 +779,7 @@ function clearMobilePushSoftRetries(userId, dedupeKey, id, { includeAppleHedge =
     mobilePushSoftRetryTimers.delete(key);
   }
   appleZombieHedgeBases.delete(base);
+  appleZombieHedgeRounds.delete(base);
 }
 
 /* pushSkipRead1: non ri-mandare push se già letta / dismessa.
@@ -807,9 +852,28 @@ function scheduleMobilePushSoftRetries(userId, payload, pushOut) {
   }
 
   const baseKey = mobilePushSoftRetryKeyBase(uid, payload.dedupeKey, payload.id);
+  const prevRound =
+    reason === "apple_zombie_hedge" ? Number(appleZombieHedgeRounds.get(baseKey) || 0) : 0;
   clearMobilePushSoftRetries(uid, payload.dedupeKey, payload.id);
-  if (reason === "apple_zombie_hedge") appleZombieHedgeBases.add(baseKey);
-  else appleZombieHedgeBases.delete(baseKey);
+  if (reason === "apple_zombie_hedge") {
+    appleZombieHedgeBases.add(baseKey);
+    const nextRound = Math.max(1, prevRound || 1);
+    if (nextRound > APPLE_ZOMBIE_HEDGE_MAX_ROUNDS) {
+      appleZombieHedgeBases.delete(baseKey);
+      appleZombieHedgeRounds.delete(baseKey);
+      global.logger?.info?.(
+        "[siteInAppNotifications] apple hedge max rounds stop:",
+        uid,
+        String(payload?.kind || ""),
+        APPLE_ZOMBIE_HEDGE_MAX_ROUNDS,
+      );
+      return;
+    }
+    appleZombieHedgeRounds.set(baseKey, nextRound);
+  } else {
+    appleZombieHedgeBases.delete(baseKey);
+    appleZombieHedgeRounds.delete(baseKey);
+  }
 
   const base = {
     title: String(payload.title || "").trim(),
@@ -839,7 +903,6 @@ function scheduleMobilePushSoftRetries(userId, payload, pushOut) {
             });
             if (!stillUnread) {
               clearMobilePushSoftRetries(uid, payload.dedupeKey, payload.id);
-              global.logger?.info?.("[siteInAppNotifications] mobile soft-retry skip (read):", uid, base.kind, idx + 1);
               return;
             }
           }
@@ -848,7 +911,6 @@ function scheduleMobilePushSoftRetries(userId, payload, pushOut) {
             const { wasWebPushShown } = require("./siteWebPushService");
             if (await wasWebPushShown(base.id, base.dedupeKey)) {
               clearMobilePushSoftRetries(uid, payload.dedupeKey, payload.id);
-              global.logger?.info?.("[siteInAppNotifications] mobile soft-retry stop (shown ack):", uid, base.kind, idx + 1);
               return;
             }
           } catch (_) {}
@@ -870,7 +932,6 @@ function scheduleMobilePushSoftRetries(userId, payload, pushOut) {
               (await wasWebPushShown(base.id, String(base.dedupeKey || "") + ":mpr" + String(idx + 1)))
             ) {
               clearMobilePushSoftRetries(uid, payload.dedupeKey, payload.id);
-              global.logger?.info?.("[siteInAppNotifications] mobile soft-retry stop (shown ack):", uid, base.kind, idx + 1);
               return;
             }
           } catch (_) {}
@@ -879,13 +940,9 @@ function scheduleMobilePushSoftRetries(userId, payload, pushOut) {
           /* miss path: stop al primo ack. apple hedge: continua finché shown-ack o fine tentativi. */
           if (got > 0 && !(reason === "apple_zombie_hedge" && gotApple >= got)) {
             clearMobilePushSoftRetries(uid, payload.dedupeKey, payload.id);
-            global.logger?.info?.("[siteInAppNotifications] mobile soft-retry delivered:", uid, base.kind, idx + 1);
             return;
           }
           if (got > 0 && reason === "apple_zombie_hedge") {
-            global.logger?.info?.("[siteInAppNotifications] apple zombie hedge ping:", uid, base.kind, idx + 1, {
-              mobileAppleSent: gotApple,
-            });
             /* pushClosedPwaNoRotate1: esaurito hedge SENZA shown-ack ≠ token morto.
                PWA kill/chiusa: APNs 201 ok ma SW non gira → no /push/shown.
                rotate+denylist spegneva le push fino al reopen. Solo nudge WS soft. */
@@ -893,32 +950,34 @@ function scheduleMobilePushSoftRetries(userId, payload, pushOut) {
               try {
                 const { wasWebPushShown } = require("./siteWebPushService");
                 await new Promise((r) => setTimeout(r, 2500));
-                if (!(await wasWebPushShown(base.id, base.dedupeKey))) {
-                  global.logger?.info?.(
-                    "[siteInAppNotifications] apple hedge exhausted keep sub (no rotate):",
-                    uid,
-                    base.kind,
-                  );
-                  try {
-                    const { broadcastSiteRealtime, notifyExternalSiteRealtime } = require("./siteSuggestionsBroadcast");
-                    const payload = {
-                      type: "vc:push-resubscribe",
-                      userId: uid,
-                      reason: "apple_hedge_exhausted_soft",
-                      at: new Date().toISOString(),
-                    };
-                    broadcastSiteRealtime(payload);
-                    notifyExternalSiteRealtime(payload);
-                  } catch (_) {}
-                } else {
-                  global.logger?.info?.(
-                    "[siteInAppNotifications] apple hedge skip nudge (shown ack late):",
-                    uid,
-                    base.kind,
-                  );
+                if (await wasWebPushShown(base.id, base.dedupeKey)) {
+                  clearMobilePushSoftRetries(uid, payload.dedupeKey, payload.id);
+                  return;
                 }
+                const round = Number(appleZombieHedgeRounds.get(baseKey) || 1);
+                if (round < APPLE_ZOMBIE_HEDGE_MAX_ROUNDS) {
+                  appleZombieHedgeRounds.set(baseKey, round + 1);
+                  scheduleMobilePushSoftRetries(uid, base, {
+                    mobileCandidates: Math.max(1, Number(pushOut?.mobileCandidates) || 1),
+                    mobileSent: 1,
+                    mobileAppleSent: 1,
+                  });
+                  return;
+                }
+                try {
+                  const { broadcastSiteRealtime, notifyExternalSiteRealtime } = require("./siteSuggestionsBroadcast");
+                  const nudge = {
+                    type: "vc:push-resubscribe",
+                    userId: uid,
+                    reason: "apple_hedge_exhausted_soft",
+                    at: new Date().toISOString(),
+                  };
+                  broadcastSiteRealtime(nudge);
+                  notifyExternalSiteRealtime(nudge);
+                } catch (_) {}
               } catch (_) {}
               appleZombieHedgeBases.delete(baseKey);
+              appleZombieHedgeRounds.delete(baseKey);
             }
             return;
           }
@@ -939,15 +998,100 @@ function scheduleMobilePushSoftRetries(userId, payload, pushOut) {
     if (typeof timer.unref === "function") timer.unref();
     mobilePushSoftRetryTimers.set(key, timer);
   });
-  global.logger?.info?.("[siteInAppNotifications] mobile soft-retries armed:", uid, base.kind, {
-    mobileCandidates,
-    mobileSent,
-    mobileAppleSent,
-    desktopSent: Number(pushOut?.desktopSent) || 0,
-    sent: Number(pushOut?.sent) || 0,
-    reason,
-    attempts: delays.length,
-  });
+}
+
+/* pushHedgeBootRecover1: soft-retry/hedge sono in RAM → SIGINT/restart li cancella.
+   Claim vote già scritto → restore non ri-manda. Catch-up: unread recenti senza
+   /push/shown → re-push mobile + ri-arma apple_zombie_hedge. */
+async function recoverUnreadApplePushHedges(opts = {}) {
+  const maxAgeMs = Math.max(
+    30 * 60 * 1000,
+    Math.min(12 * 60 * 60 * 1000, Number(opts.maxAgeMs) || 6 * 60 * 60 * 1000),
+  );
+  const limitUsers = Math.max(1, Math.min(80, Number(opts.limitUsers) || 40));
+  const since = new Date(Date.now() - maxAgeMs);
+  let scanned = 0;
+  let recovered = 0;
+  let skippedShown = 0;
+  let skippedNoMobile = 0;
+  try {
+    const { sendWebPushToUser, wasWebPushShown } = require("./siteWebPushService");
+    const inboxes = await SiteDocument.find({
+      docType: NOTIF,
+      inAppNotifAggregate: true,
+      "inAppNotifItems.0": { $exists: true },
+      updatedAt: { $gte: since },
+    })
+      .select("userId inAppNotifItems")
+      .limit(limitUsers)
+      .lean()
+      .catch(() => []);
+    for (const inbox of inboxes || []) {
+      const uid = normalizeUserId(inbox?.userId);
+      if (!uid) continue;
+      const items = Array.isArray(inbox.inAppNotifItems) ? inbox.inAppNotifItems : [];
+      for (const it of items) {
+        if (it?.readAt) continue;
+        const createdAt = it?.createdAt ? new Date(it.createdAt).getTime() : 0;
+        if (!Number.isFinite(createdAt) || createdAt < since.getTime()) continue;
+        const kind = normalizeKind(it.notifKind || it.kind);
+        const title = String(it.title || "").trim();
+        const body = String(it.body || "").trim();
+        if (!title && !body) continue;
+        const id = String(it._id || it.id || "").trim();
+        const dedupeKey = String(it.dedupeKey || "").trim();
+        if (!id && !dedupeKey) continue;
+        scanned += 1;
+        try {
+          if (await wasWebPushShown(id, dedupeKey)) {
+            skippedShown += 1;
+            continue;
+          }
+        } catch (_) {}
+        const payload = {
+          title,
+          body,
+          openUrl: String(it.openUrl || "").trim(),
+          kind,
+          id,
+          ticketId: String(it.ticketId || "").trim(),
+          messageId: String(it.messageId || "").trim(),
+          channel: String(it.notifChannel || it.channel || "").trim().slice(0, 16),
+          dedupeKey,
+          ttlSeconds: 60 * 60 * 12,
+        };
+        let out = null;
+        try {
+          out = await sendWebPushToUser(uid, payload, { deviceFilter: "mobile" });
+        } catch (err) {
+          global.logger?.warn?.(
+            "[siteInAppNotifications] hedge boot recover send failed:",
+            uid,
+            kind,
+            err?.message || err,
+          );
+          continue;
+        }
+        const mobileCandidates =
+          Number(out?.mobileCandidates) || Number(out?.mobileTargets) || 0;
+        if (mobileCandidates <= 0) {
+          skippedNoMobile += 1;
+          continue;
+        }
+        try {
+          scheduleMobilePushSoftRetries(uid, payload, out);
+          recovered += 1;
+        } catch (_) {}
+      }
+    }
+  } catch (err) {
+    global.logger?.warn?.(
+      "[siteInAppNotifications] hedge boot recover failed:",
+      err?.message || err,
+    );
+    return { ok: false, scanned, recovered, skippedShown, skippedNoMobile };
+  }
+  return { ok: true, scanned, recovered, skippedShown, skippedNoMobile };
 }
 
 function fireNotificationPush(
@@ -2610,5 +2754,6 @@ module.exports = {
   isSiteInAppNotificationStillUnread,
   clearMobilePushSoftRetries,
   scheduleMobilePushSoftRetries,
+  recoverUnreadApplePushHedges,
 };
 /* notifUseful1 marker */

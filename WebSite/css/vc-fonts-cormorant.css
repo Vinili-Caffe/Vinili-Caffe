@@ -1,0 +1,15 @@
+/* midRiskPerf1: Cormorant post-curtain (font-display:optional). */
+@font-face {
+  font-family: "Cormorant Garamond";
+  font-style: normal;
+  font-weight: 600;
+  font-display: optional;
+  src: url("/fonts/cormorant/cormorant-garamond-latin.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Cormorant Garamond";
+  font-style: normal;
+  font-weight: 700;
+  font-display: optional;
+  src: url("/fonts/cormorant/cormorant-garamond-latin.woff2") format("woff2");
+}

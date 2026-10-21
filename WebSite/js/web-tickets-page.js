@@ -1,4 +1,6 @@
 (function () {
+  /* ticketsLagHard1: scroll chat contain; no full shell su load-older; MO debounce; less scroll fight */
+  /* ticketActBridge1: postAction via composer chunk (no ReferenceError + clear aria-busy) */
   /* perfRoiPack2: window messaggi lunghi (ultimi N + load older) — no look change */
   /* lazyEverywhere1: composer+emoji-picker solo su focus/interact (no warm a boot) */
   /* ticketsCpu45_1: #4 reactions fingerprint (no JSON.stringify); #5 md-live solo tab focus; #6 WS skip */
@@ -17,6 +19,8 @@
   /* ticketsPerfPack1: md-live off mobile/lunghi; autosize grow senza height:0; presence/poll WS */
   /* ticketsChatLag2: typing debounce draft; md-live solo con markup; no remount chat su resolve nomi */
   /* ticketPushGate1: push obbligatorie prima di aprire un ticket (no silent ignore) */
+  /* chatOpenBottom1: pin ultimo msg all'open — no race con auto load-older a scrollTop=0 */
+  /* ticketSkelNoYoYo1: no remount skeleton 2–3× se lista/empty già pronti (auth/retry/empty) */
   var ACCESS_TOKEN_KEY = "vc_discord_access_token";
 
   /* ticketsMsgRailCpu1: pin CSS last-wins (rail piena + tools cliccabili + placeholder abs) */
@@ -29,8 +33,25 @@
       } catch (eRmCpu) {}
       var uiPin = document.createElement("style");
       uiPin.id = "vc-tickets-msg-rail-cpu1";
-      uiPin.setAttribute("data-vc", "ticketsMsgRailCpu1b");
+      uiPin.setAttribute("data-vc", "ticketsLagHard1");
       uiPin.textContent =
+        /* ticketsLagHard1: pin last vs soft-fx remount — chat scroll isolato + cine morto */
+        "html body.vc-body.vc-web-tickets-page .vc-home-cine," +
+        "html.vc-site-polish body.vc-body.vc-web-tickets-page .vc-home-cine{" +
+        "pointer-events:none!important;filter:none!important;will-change:auto!important}" +
+        "html body.vc-body.vc-web-tickets-page .vc-home-cine__canvas," +
+        "html body.vc-body.vc-web-tickets-page .vc-home-cine__grain," +
+        "html body.vc-body.vc-web-tickets-page .vc-home-cine__spotlight{" +
+        "display:none!important;visibility:hidden!important;pointer-events:none!important}" +
+        "html.vc-site-polish body.vc-body.vc-web-tickets-page .vc-wt-chat__log," +
+        "html.vc-site-polish body.vc-body.vc-web-tickets-page #vc-wt-chat-log," +
+        "html body.vc-body.vc-web-tickets-page .vc-wt-chat__log," +
+        "html body.vc-body.vc-web-tickets-page #vc-wt-chat-log{" +
+        "overflow-x:hidden!important;overflow-y:scroll!important;" +
+        "overscroll-behavior:contain!important;-webkit-overflow-scrolling:touch!important}" +
+        "html body.vc-body.vc-web-tickets-page .vc-wt-item," +
+        "html.vc-site-polish body.vc-body.vc-web-tickets-page .vc-wt-item{" +
+        "content-visibility:auto;contain-intrinsic-size:auto 76px}" +
         "@media (min-width:901px){" +
         "body.vc-web-tickets-page .vc-wt-layout," +
         "html.vc-site-polish body.vc-web-tickets-page .vc-wt-layout," +
@@ -104,6 +125,32 @@
       } catch (eOldPin) {}
     }
   } catch (eUiPin) {}
+  /* ticketsLagHard1: spegni layer cine (pointer/layout thrash) sulla pagina tickets */
+  try {
+    if (!window.__vcTicketsCineKill1) {
+      window.__vcTicketsCineKill1 = 1;
+      var cineKill = function () {
+        try {
+          var stage = document.querySelector(".vc-home-cine");
+          if (!stage) return;
+          stage.setAttribute("aria-hidden", "true");
+          stage.style.setProperty("pointer-events", "none", "important");
+          stage.style.setProperty("will-change", "auto", "important");
+          var dead = stage.querySelectorAll(".vc-home-cine__canvas, .vc-home-cine__grain, .vc-home-cine__spotlight");
+          for (var di = 0; di < dead.length; di += 1) {
+            dead[di].style.setProperty("display", "none", "important");
+            dead[di].style.setProperty("pointer-events", "none", "important");
+          }
+        } catch (eCk) {}
+      };
+      cineKill();
+      if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", cineKill, { once: true });
+      }
+      window.setTimeout(cineKill, 0);
+      window.setTimeout(cineKill, 800);
+    }
+  } catch (eCineKill) {}
   var ACCESS_EXPIRES_KEY = "vc_discord_expires_at";
   var cfg = (typeof window !== "undefined" && window.__VC_WEB_TICKETS) || {};
   var isStaffMode = false;
@@ -463,14 +510,24 @@
   }
 
   function showGate() {
-    /* loginRequiredModal1: niente overlay fullscreen — shell guest + login sui CTA */
-    hideGate();
+    /* marquee404Fix1: showGate NON deve più chiamare hideGate
+       (loginRequiredModal1 aveva spezzato Accedi → solo dismiss overlay) */
+    var g = byId("vc-wt-gate");
+    if (g) {
+      try {
+        g.removeAttribute("hidden");
+        g.classList.remove("vc-reviews-gate--dismissed");
+      } catch (eShow) {}
+      try {
+        document.body.classList.add("vc-wt-gate-open");
+      } catch (eOpen) {}
+    }
     try {
       clearTicketsBusyState();
     } catch (eBusy) {}
     try {
-      renderShell();
-    } catch (eShell) {}
+      wireGate();
+    } catch (eWire) {}
   }
 
   function formatTime(iso) {
@@ -729,6 +786,28 @@
     return Math.max(0, Number(y) || 0);
   }
 
+  function pageScrollLockedByChrome() {
+    /* ticketLoadYoYo1: mid-load chrome pinna a 0 — non restaurare Y (yoyo 0↔Y) */
+    try {
+      var root = document.documentElement;
+      if (!root) return false;
+      if (root.classList.contains("vc-loading-scroll-lock")) return true;
+      if (root.classList.contains("vc-chrome-bar-loading")) return true;
+      if (root.classList.contains("vc-scroll-reload-top-lock")) return true;
+      if (root.classList.contains("vc-loader-blocking-live")) return true;
+      if (window.__vcTopPinActive === 1) return true;
+      if (
+        window.__vcScrollUnlockOnce !== 1 &&
+        window.__vcChromeLoadDone !== true &&
+        (root.classList.contains("vc-chrome-scroll-armed") ||
+          root.classList.contains("vc-interaction-hold"))
+      ) {
+        return true;
+      }
+    } catch (eLock) {}
+    return false;
+  }
+
   function restorePageScroll(y) {
     /* ticketDialogScrollFight1: mai scrollare mentre dialog/sheet tiene il pin (salta su/giù col modal) */
     try {
@@ -737,6 +816,7 @@
       if (root && root.classList.contains("vc-dash-confirm-open")) return;
       if (typeof window.__vcIsPageScrollFrozen === "function" && window.__vcIsPageScrollFrozen()) return;
       if (document.querySelector(".vc-dialog.is-open, #vc-site-dialog.is-open:not([hidden])")) return;
+      if (pageScrollLockedByChrome()) return;
     } catch (eFreeze) {}
     var n = Math.max(0, Number(y) || 0);
     try {
@@ -753,23 +833,42 @@
     var y = pageScrollY();
     var list = byId("vc-wt-list");
     var listY = list ? Number(list.scrollTop) || 0 : 0;
+    var locked = pageScrollLockedByChrome();
     var out;
     try {
       out = typeof fn === "function" ? fn() : undefined;
     } finally {
-      restorePageScroll(y);
+      /* ticketsLagHard1 / ticketLoadYoYo1: no restore mid chrome-lock */
+      if (locked || pageScrollLockedByChrome()) {
+        try {
+          var listKeep = byId("vc-wt-list");
+          if (listKeep && Math.abs((Number(listKeep.scrollTop) || 0) - listY) > 1) {
+            listKeep.scrollTop = listY;
+          }
+        } catch (eListL) {}
+        return out;
+      }
+      /* ticketsLagHard1: un solo restore sync; rAF solo se Y è scesa (meno scroll fight/jank) */
+      var yNow = pageScrollY();
+      if (Math.abs(yNow - y) > 1) restorePageScroll(y);
       try {
         var listNow = byId("vc-wt-list");
-        if (listNow) listNow.scrollTop = listY;
+        if (listNow && Math.abs((Number(listNow.scrollTop) || 0) - listY) > 1) {
+          listNow.scrollTop = listY;
+        }
       } catch (eList) {}
       try {
-        requestAnimationFrame(function () {
-          restorePageScroll(y);
-          var list2 = byId("vc-wt-list");
-          if (list2) list2.scrollTop = listY;
-        });
+        if (Math.abs(pageScrollY() - y) > 1) {
+          requestAnimationFrame(function () {
+            if (Math.abs(pageScrollY() - y) > 1) restorePageScroll(y);
+            var list2 = byId("vc-wt-list");
+            if (list2 && Math.abs((Number(list2.scrollTop) || 0) - listY) > 1) {
+              list2.scrollTop = listY;
+            }
+          });
+        }
       } catch (eRaf) {
-        restorePageScroll(y);
+        if (Math.abs(pageScrollY() - y) > 1) restorePageScroll(y);
       }
     }
     return out;
@@ -982,7 +1081,8 @@
     window.setTimeout(function () {
       if (!getToken() || wantsStaffInbox() || ticketsRateLimitedNow()) return;
       if (Array.isArray(state.tickets) && state.tickets.length) return;
-      void loadList({ soft: false, forceShell: true, skipOpen: true });
+      /* ticketSkelNoYoYo1: empty phone retry senza remount skel */
+      void loadList({ soft: true, forceShell: false, skipOpen: true });
     }, 2200);
   }
 
@@ -1098,6 +1198,9 @@
 
   var _composerDraftTimer = 0;
   var _chatScrollOlderT = 0; /* loadSyncPack1: debounce auto load-older on scroll near top */
+  var _chatPinBottomUntil = 0; /* chatOpenBottom1: blocca auto load-older durante pin open */
+  var _chatPinBottomObs = null;
+  var _chatPinBottomTimers = [];
   function scheduleSaveTicketComposerDraft() {
     /* ticketsChatLag2: localStorage sync a ogni key = jank; debounce */
     if (_composerDraftTimer) clearTimeout(_composerDraftTimer);
@@ -1157,12 +1260,13 @@
     state.composerImages = [];
     state.replyTo = null;
     if (opts.keepHash !== true) setHashTicket("");
+    persistOpenTicketId("");
     sendTicketPresence({ force: true });
   }
 
   function restoreTicketUiSelection() {
+    /* ticketUiPack2: al refresh riapri il ticket da #hash / ?ticketId= (non azzerare più l’hash) */
     if (state.selectedId) return;
-    /* ticketNoAutoOpen1: apri solo con ?ticketId= (notif/deeplink), non da #hash/draft */
     var fromQuery = "";
     try {
       fromQuery = String(new URLSearchParams(location.search || "").get("ticketId") || "").trim();
@@ -1173,20 +1277,39 @@
       state.selectedId = fromQuery;
       return;
     }
+    var fromHash = "";
     try {
-      var h = String(location.hash || "").replace(/^#/, "").trim();
-      if (h && /^[a-f0-9]{24}$/i.test(h) && h.indexOf("access_token=") < 0) {
-        setHashTicket("");
-      }
-    } catch (eH) {}
-    var D = draftsApi();
-    if (D) {
-      var ui = D.load("web_ticket_ui") || {};
-      D.save("web_ticket_ui", {
-        selectedId: "",
-        viewMode: state.viewMode === "staff" ? "staff" : ui.viewMode === "staff" ? "staff" : "user",
-      });
+      fromHash = resolveHashTicketId();
+    } catch (eH) {
+      fromHash = "";
     }
+    if (fromHash) {
+      state.selectedId = fromHash;
+      return;
+    }
+    /* backup solo su reload vero (non al click menu → /tickets/) */
+    var isReload = false;
+    try {
+      var nav =
+        performance.getEntriesByType && performance.getEntriesByType("navigation")
+          ? performance.getEntriesByType("navigation")[0]
+          : null;
+      if (nav && nav.type === "reload") isReload = true;
+      else if (performance.navigation && performance.navigation.type === 1) isReload = true;
+    } catch (eNav) {}
+    if (!isReload) return;
+    try {
+      var raw = sessionStorage.getItem("vc_wt_open_ticket_v1") || "";
+      if (/^[a-f0-9]{24}$/i.test(raw)) state.selectedId = raw;
+    } catch (eSs) {}
+  }
+
+  function persistOpenTicketId(id) {
+    id = String(id || "").trim();
+    try {
+      if (/^[a-f0-9]{24}$/i.test(id)) sessionStorage.setItem("vc_wt_open_ticket_v1", id);
+      else sessionStorage.removeItem("vc_wt_open_ticket_v1");
+    } catch (eP) {}
   }
 
   function ticketsListSkelHtml(count) {
@@ -1204,6 +1327,62 @@
       );
     }
     return out.join("");
+  }
+
+  function ticketsDomHasSkeleton() {
+    try {
+      var app = byId("vc-wt-app");
+      return Boolean(app && app.querySelector(".vc-wt-skel-row, .vc-wt-skel-chat, .vc-wt-list.is-loading"));
+    } catch (eSk) {
+      return false;
+    }
+  }
+
+  function ticketsDomLooksReady() {
+    /* ticketSkelNoYoYo1: chrome già paintato (item/empty) senza skeleton.
+       Non usare solo listEverPainted: su switch scope serve poter rimontare se DOM è skel. */
+    try {
+      var app = byId("vc-wt-app");
+      if (!app || app.hidden) return false;
+      if (ticketsDomHasSkeleton()) return false;
+      return Boolean(
+        app.querySelector(
+          ".vc-wt-item[data-ticket-id], .vc-wt-empty, .vc-wt-chat:not(.vc-wt-skel-chat)",
+        ),
+      );
+    } catch (eReady) {
+      return false;
+    }
+  }
+
+  function markTicketsListPainted() {
+    try {
+      state.listEverPainted = true;
+    } catch (eMk) {}
+  }
+
+  function paintTicketsListResult(softPrefer) {
+    /* Preferisci refresh pane se lo shell c’è già — evita flash full remount */
+    try {
+      var list = byId("vc-wt-list");
+      var app = byId("vc-wt-app");
+      var canSoft =
+        softPrefer &&
+        list &&
+        app &&
+        !ticketsDomHasSkeleton() &&
+        app.querySelector(".vc-wt-layout");
+      if (canSoft) {
+        refreshListPane();
+        markTicketsListPainted();
+        try {
+          syncTicketsChrome();
+        } catch (eChrome) {}
+        return;
+      }
+    } catch (eSoft) {}
+    renderShell();
+    markTicketsListPainted();
   }
 
   function clearTicketsBusyState() {
@@ -1392,8 +1571,9 @@
 
   function armTicketsBusyWatchdog(timeoutMs) {
     /* ticketSkelStuck1 + ticketStaffSwitch1 + ticketSkelOrphan2: sblocca UI se lo skeleton resta appeso */
+    /* ticketsSlowToastFix1: watchdog >= fetch timeout — prima a 10s abortiva GET ancora vivi → toast falso */
     clearTicketsBusyWatchdog();
-    var ms = Math.max(8000, Math.min(22000, Number(timeoutMs) || 12000));
+    var ms = Math.max(20000, Math.min(32000, Number(timeoutMs) || 24000));
     state.listBusyWatchTimer = window.setTimeout(function () {
       state.listBusyWatchTimer = null;
       var app = byId("vc-wt-app");
@@ -1402,6 +1582,14 @@
         app.getAttribute("aria-busy") === "true" ||
         Boolean(app.querySelector(".vc-wt-skel-row, .vc-wt-skel-chat, .vc-wt-list.is-loading, .vc-wt-filter-menu--loading"));
       if (!stillBusy) return;
+      var started = Number(state.listHardStartedAt) || 0;
+      var age = started ? Date.now() - started : 0;
+      var inflight = Boolean(state.listHardPromise) && age > 0 && age < 28000;
+      if (inflight) {
+        /* GET ancora in corso: non invalidare listLoadGen / no toast errore */
+        armTicketsBusyWatchdog(10000);
+        return;
+      }
       state.listLoadGen = (Number(state.listLoadGen) || 0) + 1;
       state.listHardPromise = null;
       state.listHardKey = "";
@@ -1409,8 +1597,8 @@
       state.tickets = Array.isArray(state.tickets) ? state.tickets : [];
       clearTicketsBusyState();
       var hasList = Array.isArray(state.tickets) && state.tickets.length > 0;
-      /* ticketsUiFix1: se già dipinto, no toast “lento” + no skel remount */
-      if (!hasList) setStatus("Caricamento ticket troppo lento. Riprovo.", true);
+      /* ticketsSlowToastFix1: retry soft (no banner rosso) se lista già vuota al primo hang reale */
+      if (!hasList) setStatus("Caricamento ticket in corso…", false);
       try {
         renderShell();
       } catch (ePaint) {}
@@ -1430,12 +1618,36 @@
     var app = byId("vc-wt-app");
     if (!app) return;
     app.hidden = false;
-    /* ticketViewPersist1: force remount su switch tab (evita lista/chat stale) */
-    if (
-      !opts.force &&
-      app.querySelector(".vc-wt-skel-row, .vc-wt-skel-chat") &&
-      app.getAttribute("aria-busy") === "true"
-    ) {
+    /* ticketSkelNoYoYo1: UI già pronta → mai wipe a skeleton (auth/retry/empty) */
+    if (ticketsDomLooksReady() && (Array.isArray(state.tickets) || state.listEverPainted)) {
+      try {
+        var listKeep = byId("vc-wt-list");
+        if (listKeep) {
+          listKeep.classList.add("is-refreshing");
+          listKeep.removeAttribute("data-inbox-loading");
+        }
+      } catch (eKeepSk) {}
+      armTicketsBusyWatchdog(opts.watchdogMs);
+      syncTicketsChrome();
+      wireViewModeSwitcher();
+      wireFilterDelegation();
+      return;
+    }
+    /* ticketViewPersist1 + ticketSkelNoYoYo1: skel già su → riusa (anche senza aria-busy) */
+    if (!opts.force && app.querySelector(".vc-wt-skel-row, .vc-wt-skel-chat")) {
+      app.setAttribute("aria-busy", "true");
+      armTicketsBusyWatchdog(opts.watchdogMs);
+      syncTicketsChrome();
+      wireViewModeSwitcher();
+      wireFilterDelegation();
+      return;
+    }
+    /* force chiesto ma contenuto vivo → soft refresh, no remount */
+    if (opts.force && ticketsDomLooksReady()) {
+      try {
+        var listSoft = byId("vc-wt-list");
+        if (listSoft) listSoft.classList.add("is-refreshing");
+      } catch (eSoftF) {}
       armTicketsBusyWatchdog(opts.watchdogMs);
       syncTicketsChrome();
       wireViewModeSwitcher();
@@ -1515,11 +1727,17 @@
       var curCat = String(state.categoryFilter || "");
       app.querySelectorAll("[data-filter]").forEach(function (btn) {
         var id = String(btn.getAttribute("data-filter") || "all");
-        btn.classList.toggle("is-active", id === curFilter);
+        var on = id === curFilter;
+        btn.classList.toggle("is-active", on);
+        btn.setAttribute("aria-selected", on ? "true" : "false");
+        btn.setAttribute("aria-pressed", on ? "true" : "false");
       });
       app.querySelectorAll("[data-cat-filter]").forEach(function (btn) {
         var id = String(btn.getAttribute("data-cat-filter") || "");
-        btn.classList.toggle("is-active", id === curCat);
+        var on = id === curCat;
+        btn.classList.toggle("is-active", on);
+        btn.setAttribute("aria-selected", on ? "true" : "false");
+        btn.setAttribute("aria-pressed", on ? "true" : "false");
       });
     } catch (eChip) {}
     /* loginRequiredModal2: outerHTML filtri ricrea Nuovo ticket → rewire CTA */
@@ -1713,7 +1931,8 @@
         window.setTimeout(function () {
           state._emptyListRetry = false;
           if (!Array.isArray(state.tickets) || state.tickets.length) return;
-          void loadList({ soft: false, forceShell: true, skipOpen: true });
+          /* ticketSkelNoYoYo1: retry soft — no secondo skeleton */
+          void loadList({ soft: true, forceShell: false, skipOpen: true });
         }, 450);
       }
     }
@@ -1735,12 +1954,17 @@
       window.setTimeout(function () {
         state._staffRolesRetry = false;
         if (!wantsStaffInbox() || hasStaffInboxAccess()) return;
-        void loadList({ soft: false, forceShell: true, skipOpen: false });
+        /* ticketSkelNoYoYo1: ruoli lenti → soft retry, skel resta se già su */
+        void loadList({
+          soft: ticketsDomLooksReady() || ticketsDomHasSkeleton(),
+          forceShell: false,
+          skipOpen: false,
+        });
       }, isCoarseMobile() ? 1100 : 650);
       snapshotScopeCache();
       ensureTicketsPageVisible();
       try {
-        armTicketsBusyWatchdog(isCoarseMobile() ? 14000 : 11000);
+        armTicketsBusyWatchdog(isCoarseMobile() ? 26000 : 22000);
       } catch (eArm) {}
       return true;
     }
@@ -1759,26 +1983,26 @@
   function loadList(opts) {
     opts = opts || {};
     if (!getToken()) {
-      /* loginRequiredModal1: shell vuota senza gate; CTA apre modal */
-      hideGate();
+      /* marquee404Fix1: senza token tieni gate login (non dismiss silenzioso) */
+      showGate();
       if (!opts.silentNoToken && !state.tokenWaitTimer) {
         /* no toast spam on boot */
       }
       clearTicketsBusyState();
-      try {
-        renderShell();
-      } catch (eShell) {}
       return Promise.resolve(false);
     }
     /* ticketScopeClick1: anche in vista Staff togli il gate (prima restava sopra e mangiava i click) */
     hideGate();
-    var soft = opts.soft === true && Array.isArray(state.tickets) && state.tickets.length > 0;
+    var haveTickets = Array.isArray(state.tickets) && state.tickets.length > 0;
+    var uiReady = ticketsDomLooksReady();
+    /* ticketSkelNoYoYo1: soft se lista/empty già pronti; skel dedupe in showTicketsLoadingShell */
+    var soft =
+      opts.soft === true && (haveTickets || uiReady || state.listEverPainted);
     var attempt = Math.max(0, Number(opts.attempt) || 0);
     var isRetry = opts._retry === true && Number(opts._loadGen) > 0;
-    var forceShell = opts.forceShell === true;
+    var forceShell = opts.forceShell === true && !uiReady;
     var viewSnap = state.viewMode === "staff" ? "staff" : "user";
     var reqKey = apiBase() + listQuery();
-    var haveTickets = Array.isArray(state.tickets) && state.tickets.length > 0;
     /* ticketSwitchFreeze2: dedupe solo se stesso key E promise viva; forceShell sempre fresh */
     if (
       !soft &&
@@ -1795,10 +2019,11 @@
     if (!soft) {
       state.listHardStartedAt = Date.now();
       var loadMsg = wantsStaffInbox() ? "Caricamento inbox staff…" : "Caricamento ticket…";
-      var wdMs = forceShell ? 10000 : 16000;
-      /* ticketsUiFix1: no remount skel su retry / se lista già piena (flash loop) */
-      if (isRetry || (haveTickets && !forceShell)) {
-        if (!haveTickets) {
+      /* ticketsSlowToastFix1: watchdog dopo il timeout fetch (mobile 22s / desk 18s) */
+      var wdMs = isCoarseMobile() ? 26000 : 22000;
+      /* ticketsUiFix1 + ticketSkelNoYoYo1: no remount skel su retry / UI già pronta */
+      if (isRetry || haveTickets || uiReady) {
+        if (!haveTickets && !uiReady) {
           showTicketsLoadingShell(loadMsg, { force: false, watchdogMs: wdMs });
         } else {
           try {
@@ -1812,7 +2037,7 @@
         }
       } else {
         showTicketsLoadingShell(loadMsg, {
-          force: forceShell && !haveTickets,
+          force: forceShell && !haveTickets && !uiReady,
           watchdogMs: wdMs,
         });
       }
@@ -1964,7 +2189,7 @@
         } else {
           queueMissingAvatarsFromMessages([]);
         }
-        renderShell();
+        paintTicketsListResult(soft || state.listEverPainted);
         schedulePrefetchOppositeScope();
         if (!opts.skipOpen && state.selectedId) {
           return openTicket(state.selectedId, true).then(function () {
@@ -2109,6 +2334,7 @@
     if (state.selectedId === id && state.detail && state.messages && state.messages.length) {
       refreshListActiveState();
       restorePageScroll(yHold);
+      scrollChatBottom(true);
       return Promise.resolve();
     }
     if (state.selectedId && state.selectedId !== id) {
@@ -2123,7 +2349,12 @@
     state.replyTo = null;
     state.rateDraftTicket = 0;
     state.rateDraftStaffer = 0;
+    /* ticketsLagHard1: preload composer chunk all'apertura (type/claim senza cold load) */
+    try {
+      ensureWtComposerChunk().catch(function () {});
+    } catch (eWarm) {}
     setHashTicket(id);
+    persistOpenTicketId(id);
     saveTicketComposerDraft();
     /* ticketPhoneOpenWait1: su telefono defer mark-read (POST notif) così non arma 429
        mentre stiamo ancora aprendo il dettaglio ticket. */
@@ -2327,10 +2558,73 @@
     var log = byId("vc-wt-chat-log");
     if (!log) return;
     var nearBottom = log.scrollHeight - log.scrollTop - log.clientHeight < 120;
-    if (force || nearBottom) {
-      requestAnimationFrame(function () {
-        log.scrollTop = log.scrollHeight;
+    if (!(force || nearBottom)) return;
+    function pin() {
+      var el = byId("vc-wt-chat-log");
+      if (!el) return;
+      /* ticketLoadYoYo1: solo scrollTop del log — mai scrollIntoView (muove la pagina = yoyo) */
+      var pageY = pageScrollY();
+      try {
+        el.scrollTop = el.scrollHeight + 64;
+      } catch (eScr1) {}
+      try {
+        el.scrollTop = el.scrollHeight;
+      } catch (eScr3) {}
+      if (!pageScrollLockedByChrome() && Math.abs(pageScrollY() - pageY) > 1) {
+        restorePageScroll(pageY);
+      }
+    }
+    /* chatOpenBottom1: pin duro + ResizeObserver (layout/img dopo paint) */
+    pin();
+    requestAnimationFrame(function () {
+      pin();
+      requestAnimationFrame(pin);
+    });
+    if (force) {
+      _chatPinBottomUntil = Date.now() + 1800;
+      if (_chatScrollOlderT) {
+        try {
+          window.clearTimeout(_chatScrollOlderT);
+        } catch (eClr) {}
+        _chatScrollOlderT = 0;
+      }
+      _chatPinBottomTimers.forEach(function (t) {
+        try {
+          window.clearTimeout(t);
+        } catch (eT) {}
       });
+      _chatPinBottomTimers = [];
+      [0, 16, 50, 120, 220, 400, 700, 1100, 1600].forEach(function (ms) {
+        _chatPinBottomTimers.push(window.setTimeout(pin, ms));
+      });
+      try {
+        if (_chatPinBottomObs) {
+          _chatPinBottomObs.disconnect();
+          _chatPinBottomObs = null;
+        }
+      } catch (eObs0) {}
+      try {
+        if (typeof ResizeObserver === "function") {
+          var roLeft = 12;
+          _chatPinBottomObs = new ResizeObserver(function () {
+            pin();
+            roLeft -= 1;
+            if (roLeft <= 0 || Date.now() > _chatPinBottomUntil) {
+              try {
+                _chatPinBottomObs.disconnect();
+              } catch (eObs1) {}
+              _chatPinBottomObs = null;
+            }
+          });
+          _chatPinBottomObs.observe(log);
+          window.setTimeout(function () {
+            try {
+              if (_chatPinBottomObs) _chatPinBottomObs.disconnect();
+            } catch (eObs2) {}
+            _chatPinBottomObs = null;
+          }, 1900);
+        }
+      } catch (eObs) {}
     }
   }
 
@@ -2370,7 +2664,22 @@
     if (msg.authorId && msg.authorRoleName) {
       rememberStaffRole(msg.authorId, msg.authorRoleId, msg.authorRoleName, msg.authorRoleKey);
     }
-    if (ticket) state.detail = mergeTicketDetail(ticket);
+    if (ticket) {
+      var prevCat = state.detail ? String(state.detail.category || "") : "";
+      var prevClaim = state.detail ? String(state.detail.claimedBy || "") : "";
+      var prevLabel = state.detail ? String(state.detail.categoryLabel || "") : "";
+      state.detail = mergeTicketDetail(ticket, { trustPermissions: true });
+      var nextCat = String((state.detail && state.detail.category) || "");
+      var nextClaim = String((state.detail && state.detail.claimedBy) || "");
+      var nextLabel = String((state.detail && state.detail.categoryLabel) || "");
+      /* ticketHeadUi1: system msg / WS con ticket → aggiorna header (cat/claim) */
+      if (prevCat !== nextCat || prevClaim !== nextClaim || prevLabel !== nextLabel) {
+        try {
+          state._chatChromeSig = "";
+          refreshChatChrome();
+        } catch (eChromeMsg) {}
+      }
+    }
     var log = byId("vc-wt-chat-log");
     if (log) {
       log.insertAdjacentHTML("beforeend", messageHtml(msg));
@@ -2395,27 +2704,33 @@
     opts = opts || {};
     if (!ticket) return ticket;
     var prev = state.detail || {};
-    if (prev.id && ticket.id && prev.id !== ticket.id) return ticket;
+    if (prev.id && ticket.id && String(prev.id) !== String(ticket.id)) return ticket;
+
+    /* ticketHeadUi1: ticket WS/API spesso parziale — non perdere category/claim/subject */
+    var base =
+      prev.id && ticket.id && String(prev.id) === String(ticket.id)
+        ? Object.assign({}, prev, ticket)
+        : Object.assign({}, ticket);
 
     var perms = null;
     if (opts.trustPermissions && ticket.permissions) {
       perms = Object.assign({}, ticket.permissions);
+    } else if (base.permissions) {
+      perms = Object.assign({}, base.permissions);
     } else if (prev.permissions) {
-            perms = Object.assign({}, prev.permissions);
-    } else if (ticket.permissions) {
-      perms = Object.assign({}, ticket.permissions);
+      perms = Object.assign({}, prev.permissions);
     }
 
     if (perms) {
-      var closed = String(ticket.status || "") === "closed";
-      var claimer = String(ticket.claimedBy || "").trim();
+      var closed = String(base.status || "") === "closed";
+      var claimer = String(base.claimedBy || "").trim();
       var viewer = String(state.viewerId || "");
-      var isOwner = String(ticket.userId || "") === viewer;
-      var alreadyRated = Boolean(ticket.ratingAt) || ticket.ratingStafferScore != null;
+      var isOwner = String(base.userId || "") === viewer;
+      var alreadyRated = Boolean(base.ratingAt) || base.ratingStafferScore != null;
       var rateableId =
-        String(ticket.rateableStafferId || ticket.ratedStafferId || ticket.claimedBy || "").trim() ||
+        String(base.rateableStafferId || base.ratedStafferId || base.claimedBy || "").trim() ||
         "";
-      var closeRequested = Boolean(ticket.closeRequestedAt);
+      var closeRequested = Boolean(base.closeRequestedAt);
       var isStaffViewer = Boolean(perms.isStaffViewer) && !isOwner;
       var isHighStaff = perms.isHighStaff === true || perms.canSwitchCategory === true;
       var bypassWrite = perms.canBypassClaimWrite === true;
@@ -2453,7 +2768,7 @@
         perms.canSwitchCategory = Boolean(staffPanel && isHighStaff);
         perms.canRename = Boolean(staffPanel && isHighStaff);
         perms.canReply = Boolean(staffPanel && ((claimer && claimer === viewer) || bypassWrite));
-        perms.canUseCommands = Boolean(perms.canReply && String(ticket.category || "") === "partnership");
+        perms.canUseCommands = Boolean(perms.canReply && String(base.category || "") === "partnership");
         perms.isStaffViewer = true;
         perms.isHighStaff = Boolean(isHighStaff);
         perms.canBypassClaimWrite = Boolean(bypassWrite);
@@ -2464,7 +2779,7 @@
       }
     }
 
-    return Object.assign({}, ticket, perms ? { permissions: perms } : {});
+    return Object.assign({}, base, perms ? { permissions: perms } : {});
   }
 
   function effectivePermissions() {
@@ -2914,22 +3229,22 @@
     }
     var name = String((m && m.authorRoleName) || "").trim();
     var key = String((m && m.authorRoleKey) || "").trim();
-        if (kind === "user" || isTicketCustomerMessage(m)) {
-      if (!name) {
-        name = resolveStaffRoleName(m.authorId);
-        if (!key) key = resolveStaffRoleKey(m.authorId);
-      }
+    /* ticketStaffOpenTag1: anche opener/customer staff → tag da staffRoles (non solo claimer) */
+    if (!name) {
+      name = resolveStaffRoleName(m && m.authorId);
+      if (!key) key = resolveStaffRoleKey(m && m.authorId);
+    }
+    if (kind === "user" || isTicketCustomerMessage(m)) {
       if (!name || /^staff$/i.test(name)) return "";
       var cCls = "vc-wt-msg__role";
       if (key) cCls += " vc-wt-msg__role--" + key;
       else if (/^member$/i.test(name)) cCls += " vc-wt-msg__role--member";
+      else if (hasStaffRoleSignals(m) || resolveStaffRoleName(m && m.authorId)) {
+        cCls += " vc-wt-msg__role--staff";
+      }
       return '<span class="' + cCls + '" title="Ruolo">' + esc(name) + "</span>";
     }
-    if (!name) {
-      name = resolveStaffRoleName(m.authorId);
-      if (!key) key = resolveStaffRoleKey(m.authorId);
-    }
-        if (!name || /^staff$/i.test(name)) return "";
+    if (!name || /^staff$/i.test(name)) return "";
     var cls = "vc-wt-msg__role";
     if (key) cls += " vc-wt-msg__role--" + key;
     else if (kind === "staff") cls += " vc-wt-msg__role--staff";
@@ -3040,7 +3355,7 @@
         esc(url) +
         '" target="_blank" rel="noopener noreferrer"><img src="' +
         esc(url) +
-        '" alt="" loading="lazy" decoding="async" /></a>'
+        '" alt="" width="320" height="180" loading="lazy" decoding="async" /></a>'
       );
     }
     if (cached && cached.kind === "message") return renderDiscordMessageEmbed(cached);
@@ -3059,7 +3374,7 @@
         esc(url) +
         '" target="_blank" rel="noopener noreferrer"><img src="' +
         esc(url) +
-        '" alt="" loading="lazy" decoding="async" /></a>'
+        '" alt="" width="320" height="180" loading="lazy" decoding="async" /></a>'
       );
     }
     if (!cached && parseDiscordContentUrl(url)) queueContentResolve({ urls: [url] });
@@ -3264,6 +3579,10 @@
       esc(label) +
       '" title="' +
       esc(label) +
+      '" width="' +
+      sz +
+      '" height="' +
+      sz +
       '" loading="lazy" decoding="async" />'
     );
   }
@@ -3807,36 +4126,37 @@
 
   function formatComposerLineKeepMarks(line) {
     var raw = String(line || "");
+    /* composerMdCaret2: span non div — i div heading creavano line-box extra vs caret */
     if (/^[ \t]{0,3}###\s+/.test(raw)) {
       return (
-        '<div class="vc-wt-md-h3">' +
+        '<span class="vc-wt-md-h3">' +
         mdMark(raw.match(/^[ \t]{0,3}###\s+/)[0]) +
         formatDiscordInlineKeepMarks(raw.replace(/^[ \t]{0,3}###\s+/, "")) +
-        "</div>"
+        "</span>"
       );
     }
     if (/^[ \t]{0,3}##\s+/.test(raw)) {
       return (
-        '<div class="vc-wt-md-h2">' +
+        '<span class="vc-wt-md-h2">' +
         mdMark(raw.match(/^[ \t]{0,3}##\s+/)[0]) +
         formatDiscordInlineKeepMarks(raw.replace(/^[ \t]{0,3}##\s+/, "")) +
-        "</div>"
+        "</span>"
       );
     }
     if (/^[ \t]{0,3}#\s+/.test(raw)) {
       return (
-        '<div class="vc-wt-md-h1">' +
+        '<span class="vc-wt-md-h1">' +
         mdMark(raw.match(/^[ \t]{0,3}#\s+/)[0]) +
         formatDiscordInlineKeepMarks(raw.replace(/^[ \t]{0,3}#\s+/, "")) +
-        "</div>"
+        "</span>"
       );
     }
     if (/^[ \t]{0,3}-#\s+/.test(raw)) {
       return (
-        '<div class="vc-wt-md-sub">' +
+        '<span class="vc-wt-md-sub">' +
         mdMark(raw.match(/^[ \t]{0,3}-#\s+/)[0]) +
         formatDiscordInlineKeepMarks(raw.replace(/^[ \t]{0,3}-#\s+/, "")) +
-        "</div>"
+        "</span>"
       );
     }
     if (/^[ \t]{0,3}>\s?/.test(raw)) {
@@ -3845,34 +4165,36 @@
       var quoteBody = "";
       if (/^[ \t]{0,3}###\s+/.test(quotedKeep)) {
         quoteBody =
-          '<div class="vc-wt-md-h3">' +
+          '<span class="vc-wt-md-h3">' +
           mdMark(quotedKeep.match(/^[ \t]{0,3}###\s+/)[0]) +
           formatDiscordInlineKeepMarks(quotedKeep.replace(/^[ \t]{0,3}###\s+/, "")) +
-          "</div>";
+          "</span>";
       } else if (/^[ \t]{0,3}##\s+/.test(quotedKeep)) {
         quoteBody =
-          '<div class="vc-wt-md-h2">' +
+          '<span class="vc-wt-md-h2">' +
           mdMark(quotedKeep.match(/^[ \t]{0,3}##\s+/)[0]) +
           formatDiscordInlineKeepMarks(quotedKeep.replace(/^[ \t]{0,3}##\s+/, "")) +
-          "</div>";
+          "</span>";
       } else if (/^[ \t]{0,3}#\s+/.test(quotedKeep)) {
         quoteBody =
-          '<div class="vc-wt-md-h1">' +
+          '<span class="vc-wt-md-h1">' +
           mdMark(quotedKeep.match(/^[ \t]{0,3}#\s+/)[0]) +
           formatDiscordInlineKeepMarks(quotedKeep.replace(/^[ \t]{0,3}#\s+/, "")) +
-          "</div>";
+          "</span>";
       } else if (/^[ \t]{0,3}-#\s+/.test(quotedKeep)) {
         quoteBody =
-          '<div class="vc-wt-md-sub">' +
+          '<span class="vc-wt-md-sub">' +
           mdMark(quotedKeep.match(/^[ \t]{0,3}-#\s+/)[0]) +
           formatDiscordInlineKeepMarks(quotedKeep.replace(/^[ \t]{0,3}-#\s+/, "")) +
-          "</div>";
+          "</span>";
       } else {
         quoteBody = formatDiscordInlineKeepMarks(quotedKeep);
       }
-      return '<blockquote class="vc-wt-md-quote">' + quotePrefix + quoteBody + "</blockquote>";
+      return '<span class="vc-wt-md-quote">' + quotePrefix + quoteBody + "</span>";
     }
-    return formatDiscordInlineKeepMarks(raw) || "<br>";
+    /* composerMdCaret2: riga vuota = "" (il <br> tra righe lo mette pushText).
+       Prima: || "<br>" → doppio break → cursore sopra il testo. */
+    return formatDiscordInlineKeepMarks(raw) || "";
   }
 
   function buildComposerLiveHtml(text) {
@@ -3972,6 +4294,16 @@
       }
     }
     return false;
+  }
+
+  /* ticketRichTok1: helper locale — composer chunk lazy non espone richInputHasVisualTokens */
+  function richInputHasVisualTokens(el) {
+    try {
+      if (typeof window.__vcRichInputHasVisualTokens === "function") {
+        return window.__vcRichInputHasVisualTokens(el);
+      }
+    } catch (eTok) {}
+    return Boolean(el && el.querySelector && el.querySelector("img, .vc-wt-mention"));
   }
 
   function syncComposerLivePreview(el, opts) {
@@ -4190,7 +4522,7 @@
       (imageUrl
         ? '<img class="vc-wt-discord-embed__img" src="' +
           esc(imageUrl) +
-          '" alt="" loading="lazy" decoding="async" />'
+          '" alt="" width="320" height="180" loading="lazy" decoding="async" />'
         : "") +
       "</div>"
     );
@@ -4269,7 +4601,7 @@
       ? formatMessageContent(item.content, { still: true })
       : "<em>Messaggio Discord</em>";
     var img = item.imageUrl
-      ? '<img class="vc-wt-msg-embed__img" src="' + esc(item.imageUrl) + '" alt="" loading="lazy" decoding="async" />'
+      ? '<img class="vc-wt-msg-embed__img" src="' + esc(item.imageUrl) + '" alt="" width="320" height="180" loading="lazy" decoding="async" />'
       : "";
     var channelId = String(item.channelId || "").trim();
     if (channelId && /^\d{5,32}$/.test(channelId)) {
@@ -4751,7 +5083,11 @@
           esc(name) +
           ':" title=":' +
           esc(name) +
-          ':" loading="lazy" decoding="async" />',
+          ':" width="' +
+          size +
+          '" height="' +
+          size +
+          '" loading="lazy" decoding="async" />',
       );
     });
     s = replaceEmojiShortcodes(s, stash, still, still ? 20 : 32);
@@ -5172,9 +5508,7 @@
         Math.max(0, (log.clientHeight - nodeRect.height) / 2);
       log.scrollTop = Math.max(0, nextTop);
     } catch (eJump) {
-      try {
-        node.scrollIntoView({ block: "nearest", inline: "nearest" });
-      } catch (e2) {}
+      /* ticketLoadYoYo1: no scrollIntoView fallback (page jump) */
     }
     node.classList.remove("vc-wt-msg--flash");
     void node.offsetWidth;
@@ -5311,36 +5645,42 @@
           esc(url) +
           '" target="_blank" rel="noopener noreferrer"><img src="' +
           esc(url) +
-          '" alt="" loading="lazy" decoding="async" /></a>'
+          '" alt="" width="320" height="180" loading="lazy" decoding="async" /></a>'
         );
       })
       .join("");
     var canCopy = Boolean(String(m.content || "").trim());
     var tools = "";
     if (canCopy || canEdit || canDelete || canReply) {
-      tools =
-        '<div class="vc-wt-msg__tools">' +
+      /* ticketUiPack2: azioni messaggio → menu a tendina (come Azioni header) */
+      var opts =
         (canReply
-          ? '<button type="button" class="vc-wt-msg__tool" data-msg-reply="' +
+          ? '<button type="button" class="vc-wt-msg-menu__opt" role="menuitem" data-msg-reply="' +
             esc(m.id) +
-            '" title="Rispondi" aria-label="Rispondi"><i class="fa fa-reply" aria-hidden="true"></i></button>'
+            '"><i class="fa fa-reply" aria-hidden="true"></i><span>Rispondi</span></button>'
           : "") +
         (canCopy
-          ? '<button type="button" class="vc-wt-msg__tool" data-msg-copy="' +
+          ? '<button type="button" class="vc-wt-msg-menu__opt" role="menuitem" data-msg-copy="' +
             esc(m.id) +
-            '" title="Copia testo" aria-label="Copia testo"><i class="fa fa-clipboard" aria-hidden="true"></i></button>'
+            '"><i class="fa fa-clipboard" aria-hidden="true"></i><span>Copia testo</span></button>'
           : "") +
         (canEdit
-          ? '<button type="button" class="vc-wt-msg__tool" data-msg-edit="' +
+          ? '<button type="button" class="vc-wt-msg-menu__opt" role="menuitem" data-msg-edit="' +
             esc(m.id) +
-            '" title="Modifica" aria-label="Modifica"><i class="fa fa-pencil" aria-hidden="true"></i></button>'
+            '"><i class="fa fa-pencil" aria-hidden="true"></i><span>Modifica</span></button>'
           : "") +
         (canDelete
-          ? '<button type="button" class="vc-wt-msg__tool vc-wt-msg__tool--danger" data-msg-del="' +
+          ? '<button type="button" class="vc-wt-msg-menu__opt vc-wt-msg-menu__opt--danger" role="menuitem" data-msg-del="' +
             esc(m.id) +
-            '" title="Elimina" aria-label="Elimina"><i class="fa fa-trash-o" aria-hidden="true"></i></button>'
-          : "") +
-        "</div>";
+            '"><i class="fa fa-trash-o" aria-hidden="true"></i><span>Elimina</span></button>'
+          : "");
+      tools =
+        '<div class="vc-wt-msg__tools vc-wt-msg-menu" data-wt-msg-menu>' +
+        '<button type="button" class="vc-wt-msg-menu__btn" data-wt-msg-menu-toggle aria-expanded="false" aria-haspopup="menu" title="Azioni messaggio" aria-label="Azioni messaggio">' +
+        '<i class="fa fa-ellipsis-v" aria-hidden="true"></i></button>' +
+        '<div class="vc-wt-msg-menu__panel" role="menu" hidden>' +
+        opts +
+        "</div></div>";
     }
     var when = pending
       ? { label: "Invio…", title: "", datetime: "" }
@@ -5493,47 +5833,178 @@
     );
   }
 
+  /* chatHeadTool1: chip soft + icone; gruppi manage/core (no pill ghost densità) */
+  function wtActionBtn(act, label, cls, icon) {
+    return (
+      '<button type="button" class="vc-wt-action' +
+      (cls ? " " + cls : "") +
+      '" data-act="' +
+      esc(act) +
+      '"' +
+      (label ? ' title="' + esc(label) + '"' : "") +
+      ">" +
+      (icon ? '<i class="fa ' + icon + '" aria-hidden="true"></i>' : "") +
+      "<span>" +
+      esc(label) +
+      "</span></button>"
+    );
+  }
+
+  /* ticketHeadMenu1: voce menu azioni (stesso data-act del wireChatActions) */
+  function wtHeadMenuOpt(act, label, tone, icon) {
+    return (
+      '<button type="button" class="vc-wt-head-menu__opt' +
+      (tone ? " vc-wt-head-menu__opt--" + tone : "") +
+      '" role="menuitem" data-act="' +
+      esc(act) +
+      '">' +
+      (icon ? '<i class="fa ' + icon + '" aria-hidden="true"></i>' : "") +
+      "<span>" +
+      esc(label) +
+      "</span></button>"
+    );
+  }
+
   function ticketPanelButtonsHtml(t) {
+    /* ticketHeadMenu1: opzioni menu (non bottoni flat) */
     if (!t || t.status === "closed") return "";
     var perms = (t.permissions && typeof t.permissions === "object" ? t.permissions : {}) || {};
-    var btns = "";
+    var manage = "";
     if (perms.canAddUsers) {
-      btns += '<button type="button" class="vc-wt-action vc-wt-action--ok" data-act="add-user">Aggiungi utenti</button>';
+      manage += wtHeadMenuOpt("add-user", "Aggiungi utente", "ok", "fa-user-plus");
     }
     if (perms.canRemoveUsers) {
-      btns +=
-        '<button type="button" class="vc-wt-action vc-wt-action--danger" data-act="remove-user">Rimuovi utenti</button>';
+      manage += wtHeadMenuOpt("remove-user", "Rimuovi utente", "danger", "fa-user-times");
     }
     if (perms.canSwitchCategory) {
-      btns += '<button type="button" class="vc-wt-action" data-act="switch-cat">Cambia categoria</button>';
+      manage += wtHeadMenuOpt("switch-cat", "Cambia categoria", "", "fa-exchange");
     }
     if (perms.canRename) {
-      btns += '<button type="button" class="vc-wt-action" data-act="rename">Rinomina</button>';
+      manage += wtHeadMenuOpt("rename", "Rinomina", "", "fa-pencil");
     }
     if (perms.canCloseRequest) {
-      btns +=
-        '<button type="button" class="vc-wt-action vc-wt-action--ghost" data-act="close-request">Richiedi chiusura</button>';
+      manage += wtHeadMenuOpt("close-request", "Richiedi chiusura", "", "fa-hand-paper-o");
     }
     if (perms.canTransfer) {
-      btns += '<button type="button" class="vc-wt-action" data-act="transfer">Trasferisci</button>';
+      manage += wtHeadMenuOpt("transfer", "Trasferisci", "", "fa-share");
     }
-    return btns;
+    return manage;
+  }
+
+  /* ticketHeadUi1: chrome header sul host (prima solo nel chunk → ReferenceError / header stale) */
+  function refreshChatChrome() {
+    if (!state.detail) return;
+    var top = byId("vc-wt-chat-top");
+    if (!top) return;
+    try {
+      var wrap = document.createElement("div");
+      wrap.innerHTML = chatHeadHtml(state.detail);
+      var next = wrap.firstElementChild;
+      if (next) top.replaceWith(next);
+    } catch (eHead) {
+      return;
+    }
+    try {
+      wireChatActions();
+    } catch (eWire) {}
+    try {
+      var api = window.__vcWtComposerApi;
+      if (api && typeof api.patchComposerHtml === "function") api.patchComposerHtml();
+    } catch (ePatch) {}
+    try {
+      var t = state.detail || {};
+      state._chatChromeSig = [
+        t.id || "",
+        t.status || "",
+        t.claimedBy || t.assigneeId || "",
+        t.category || "",
+        t.categoryLabel || "",
+        t.closeRequestedAt || "",
+        t.updatedAt || t.updated_at || "",
+        (t.subject || t.title || "").slice(0, 80),
+      ].join("|");
+    } catch (eSig) {}
   }
 
   function chatHeadHtml(t) {
     if (!t) return "";
     var perms = (t.permissions && typeof t.permissions === "object" ? t.permissions : {}) || {};
-    var actions = ticketPanelButtonsHtml(t);
+    var opts = ticketPanelButtonsHtml(t);
     if (t.status !== "closed") {
       if (perms.canClaim) {
-        actions += '<button type="button" class="vc-wt-action" data-act="claim">Claim</button>';
+        opts += wtHeadMenuOpt("claim", "Claim", "primary", "fa-hand-rock-o");
       } else if (perms.canUnclaim) {
-        actions += '<button type="button" class="vc-wt-action vc-wt-action--ghost" data-act="unclaim">Rilascia</button>';
+        opts += wtHeadMenuOpt("unclaim", "Rilascia", "", "fa-unlock");
       }
       if (perms.canClose) {
-        actions += '<button type="button" class="vc-wt-action vc-wt-action--danger" data-act="close">Chiudi</button>';
+        opts += wtHeadMenuOpt("close", "Chiudi ticket", "danger", "fa-times");
       }
     }
+    var actionsHtml = opts
+      ? '<div class="vc-wt-chat__actions">' +
+        '<div class="vc-wt-head-menu" data-wt-head-menu>' +
+        '<button type="button" class="vc-wt-head-menu__btn" data-wt-head-menu-toggle aria-expanded="false" aria-haspopup="menu">' +
+        '<i class="fa fa-cog" aria-hidden="true"></i>' +
+        "<span>Azioni</span>" +
+        '<i class="fa fa-caret-down vc-wt-head-menu__caret" aria-hidden="true"></i>' +
+        "</button>" +
+        '<div class="vc-wt-head-menu__panel" role="menu" hidden>' +
+        opts +
+        "</div></div></div>"
+      : '<div class="vc-wt-chat__actions"></div>';
+    /* ticketHeadMenu1: chip soft (id / categoria / claim) — niente riga grezza con · */
+    var chips = [];
+    if (t.ticketNumber != null && t.ticketNumber !== "") {
+      chips.push(
+        '<span class="vc-wt-chat__chip vc-wt-chat__chip--id" title="Numero ticket">' +
+          '<i class="fa fa-ticket" aria-hidden="true"></i>' +
+          "<span>#" +
+          esc(t.ticketNumber) +
+          "</span></span>",
+      );
+    }
+    var cat = String(t.categoryLabel || "").trim();
+    if (cat) {
+      chips.push(
+        '<span class="vc-wt-chat__chip vc-wt-chat__chip--cat" title="Categoria">' +
+          '<i class="fa fa-folder-o" aria-hidden="true"></i>' +
+          "<span>" +
+          esc(cat) +
+          "</span></span>",
+      );
+    }
+    if (t.status === "closed") {
+      chips.push(
+        '<span class="vc-wt-chat__chip vc-wt-chat__chip--state" title="Stato">' +
+          '<i class="fa fa-lock" aria-hidden="true"></i>' +
+          "<span>Chiuso</span></span>",
+      );
+    } else if (t.claimedByName) {
+      var claimRole = resolveStaffRoleName(t.claimedBy);
+      chips.push(
+        '<span class="vc-wt-chat__chip vc-wt-chat__chip--claim" title="In carico a">' +
+          '<i class="fa fa-hand-rock-o" aria-hidden="true"></i>' +
+          "<span>" +
+          esc(t.claimedByName) +
+          (claimRole && !/^staff$/i.test(claimRole) ? " · " + esc(claimRole) : "") +
+          "</span></span>",
+      );
+    } else if (t.userId && resolveStaffRoleName(t.userId)) {
+      /* ticketStaffOpenTag1: opener staff senza claim → chip ruolo */
+      var openRole = resolveStaffRoleName(t.userId);
+      if (openRole && !/^staff$/i.test(openRole)) {
+        chips.push(
+          '<span class="vc-wt-chat__chip vc-wt-chat__chip--claim" title="Ruolo opener">' +
+            '<i class="fa fa-id-badge" aria-hidden="true"></i>' +
+            "<span>" +
+            esc(openRole) +
+            "</span></span>",
+        );
+      }
+    }
+    var metaHtml = chips.length
+      ? '<div class="vc-wt-chat__meta" role="list">' + chips.join("") + "</div>"
+      : "";
     return (
       '<div id="vc-wt-chat-top" class="vc-wt-chat__top">' +
       '<header id="vc-wt-chat-head" class="vc-wt-chat__head">' +
@@ -5541,19 +6012,10 @@
       "<h2>" +
       esc(ticketDisplayName(t)) +
       "</h2>" +
-      '<p><span class="vc-wt-pill ' +
-      statusClass(t) +
-      '">' +
-      esc(statusLabel(t)) +
-      "</span> #" +
-      esc(t.ticketNumber) +
-      " · " +
-      esc(t.categoryLabel || "") +
-      (t.claimedByName ? " · " + esc(t.claimedByName) : "") +
-      "</p></div>" +
-      '<div class="vc-wt-chat__actions">' +
-      actions +
-      "</div></header>" +
+      metaHtml +
+      "</div>" +
+      actionsHtml +
+      "</header>" +
       ticketPanelExtrasHtml(t) +
       "</div>"
     );
@@ -6070,6 +6532,12 @@
 
   function dismissFloatingUi() {
     closeAllCatDd();
+    try {
+      closeTicketHeadMenus();
+    } catch (eHm) {}
+    try {
+      closeTicketMsgMenus();
+    } catch (eMm) {}
     hideMentionMenu();
     hideCommandMenu();
     hideReactionTipPortal();
@@ -6115,6 +6583,7 @@
       main.innerHTML = chatPaneHtml();
       wireChatPaneOnly();
       refreshListActiveState();
+      if (state.selectedId) scrollChatBottom(true);
     });
   }
 
@@ -6161,6 +6630,8 @@
           }
         } catch (eScan2) {}
       }, 120);
+      if (state.selectedId) scrollChatBottom(true);
+      markTicketsListPainted();
     });
   }
 
@@ -6278,39 +6749,68 @@
 
   function wireListClicks() {
     /* ticketFilterOpenPhone1: delegation (remount lista/filtri non perde i click su telefono) */
+    /* ticketHeadUi1: arma subito (anche al primo boot prima di renderShell) */
+    /* ticketUiPack2: pointerup + closest .vc-wt-item (click intermittenti su figli/overlay) */
     if (state.listClickDelegated) return;
     state.listClickDelegated = true;
-    document.addEventListener(
-      "click",
-      function (ev) {
-        var btn =
-          ev.target && ev.target.closest ? ev.target.closest("[data-ticket-id]") : null;
-        if (!btn) return;
-        var list = byId("vc-wt-list");
-        if (!list || !list.contains(btn)) return;
-        try {
-          ev.preventDefault();
-          ev.stopPropagation();
-        } catch (eStop) {}
-        var y = pageScrollY();
-        var listY = Number(list.scrollTop) || 0;
-        /* ticketSwitchToastRace2: quiet — toast solo se fallisce dopo i retry */
-        openTicket(btn.getAttribute("data-ticket-id"), true);
+    function onListPick(ev) {
+      if (typeof ev.button === "number" && ev.button !== 0) return;
+      var t = ev.target;
+      if (!t || !t.closest) return;
+      var btn = t.closest(".vc-wt-item[data-ticket-id]");
+      if (!btn) return;
+      var list = byId("vc-wt-list") || document.querySelector(".vc-wt-list");
+      if (!list || !list.contains(btn)) return;
+      var id = String(btn.getAttribute("data-ticket-id") || "").trim();
+      if (!id) return;
+      try {
+        ev.preventDefault();
+        ev.stopPropagation();
+      } catch (eStop) {}
+      try {
+        document.documentElement.classList.remove("vc-header-account-open");
+      } catch (eAcc) {}
+      var y = pageScrollY();
+      var listY = Number(list.scrollTop) || 0;
+      var now = Date.now();
+      if (
+        state._listPickId === id &&
+        now - (Number(state._listPickAt) || 0) < 280
+      ) {
+        return;
+      }
+      state._listPickId = id;
+      state._listPickAt = now;
+      /* ticketUiPack2: se stesso id ma chat ancora pending/vuota → forza reopen */
+      if (
+        state.selectedId === id &&
+        state.detail &&
+        !(state.detail._openPending) &&
+        state.messages &&
+        state.messages.length
+      ) {
+        refreshListActiveState();
+        restorePageScroll(y);
+        return;
+      }
+      openTicket(id, true);
+      restorePageScroll(y);
+      try {
+        list.scrollTop = listY;
+      } catch (eListClick) {}
+      requestAnimationFrame(function () {
         restorePageScroll(y);
         try {
-          list.scrollTop = listY;
-        } catch (eListClick) {}
-        requestAnimationFrame(function () {
-          restorePageScroll(y);
-          try {
-            var list2 = byId("vc-wt-list");
-            if (list2) list2.scrollTop = listY;
-          } catch (eList2) {}
-        });
-      },
-      true,
-    );
+          var list2 = byId("vc-wt-list");
+          if (list2) list2.scrollTop = listY;
+        } catch (eList2) {}
+      });
+    }
+    document.addEventListener("click", onListPick, true);
   }
+  try {
+    wireListClicks();
+  } catch (eWireListEarly) {}
 
   function wireListPager() {
     var wrap = byId("vc-wt-pager-wrap");
@@ -6360,18 +6860,177 @@
     }
   }
 
+  function clearChatActionsBusyLocal() {
+    try {
+      document
+        .querySelectorAll(".vc-wt-action[data-act], .vc-wt-head-menu__opt[data-act]")
+        .forEach(function (b) {
+          try {
+            b.removeAttribute("aria-busy");
+            b.disabled = false;
+          } catch (eClr) {}
+        });
+    } catch (eAll) {}
+  }
+
+  function closeTicketHeadMenus(except) {
+    try {
+      document.querySelectorAll("[data-wt-head-menu].is-open").forEach(function (menu) {
+        if (except && menu === except) return;
+        menu.classList.remove("is-open");
+        var btn = menu.querySelector("[data-wt-head-menu-toggle]");
+        var panel = menu.querySelector(".vc-wt-head-menu__panel");
+        if (btn) btn.setAttribute("aria-expanded", "false");
+        if (panel) panel.hidden = true;
+      });
+    } catch (eClose) {}
+  }
+
+  function closeTicketMsgMenus(except) {
+    try {
+      document.querySelectorAll("[data-wt-msg-menu].is-open").forEach(function (menu) {
+        if (except && menu === except) return;
+        menu.classList.remove("is-open");
+        var btn = menu.querySelector("[data-wt-msg-menu-toggle]");
+        var panel = menu.querySelector(".vc-wt-msg-menu__panel");
+        if (btn) btn.setAttribute("aria-expanded", "false");
+        if (panel) panel.hidden = true;
+      });
+    } catch (eClose) {}
+  }
+
+  function wireTicketHeadMenu() {
+    /* ticketHeadMenu1 + ticketUiPack2: tendina Azioni header + messaggi */
+    if (window.__vcWtHeadMenuWired) return;
+    window.__vcWtHeadMenuWired = 1;
+    document.addEventListener(
+      "click",
+      function (ev) {
+        var t = ev.target;
+        if (!t || !t.closest) return;
+        var msgToggle = t.closest("[data-wt-msg-menu-toggle]");
+        if (msgToggle) {
+          var msgMenu = msgToggle.closest("[data-wt-msg-menu]");
+          if (!msgMenu) return;
+          try {
+            ev.preventDefault();
+            ev.stopPropagation();
+          } catch (eStopM) {}
+          var msgOpen = !msgMenu.classList.contains("is-open");
+          closeTicketMsgMenus(msgOpen ? msgMenu : null);
+          closeTicketHeadMenus();
+          var msgPanel = msgMenu.querySelector(".vc-wt-msg-menu__panel");
+          if (msgOpen) {
+            msgMenu.classList.add("is-open");
+            msgToggle.setAttribute("aria-expanded", "true");
+            if (msgPanel) msgPanel.hidden = false;
+          } else {
+            msgMenu.classList.remove("is-open");
+            msgToggle.setAttribute("aria-expanded", "false");
+            if (msgPanel) msgPanel.hidden = true;
+          }
+          return;
+        }
+        if (t.closest(".vc-wt-msg-menu__opt")) {
+          closeTicketMsgMenus();
+          return;
+        }
+        var toggle = t.closest("[data-wt-head-menu-toggle]");
+        if (toggle) {
+          var menu = toggle.closest("[data-wt-head-menu]");
+          if (!menu) return;
+          try {
+            ev.preventDefault();
+            ev.stopPropagation();
+          } catch (eStop) {}
+          var open = !menu.classList.contains("is-open");
+          closeTicketHeadMenus(open ? menu : null);
+          closeTicketMsgMenus();
+          var panel = menu.querySelector(".vc-wt-head-menu__panel");
+          if (open) {
+            menu.classList.add("is-open");
+            toggle.setAttribute("aria-expanded", "true");
+            if (panel) panel.hidden = false;
+          } else {
+            menu.classList.remove("is-open");
+            toggle.setAttribute("aria-expanded", "false");
+            if (panel) panel.hidden = true;
+          }
+          return;
+        }
+        if (t.closest(".vc-wt-head-menu__opt[data-act]")) {
+          closeTicketHeadMenus();
+          return;
+        }
+        if (!t.closest("[data-wt-head-menu]")) closeTicketHeadMenus();
+        if (!t.closest("[data-wt-msg-menu]")) closeTicketMsgMenus();
+      },
+      true,
+    );
+  }
+  try {
+    wireTicketHeadMenu();
+  } catch (eHeadMenu) {}
+
+  /* ticketActBridge1: postAction/rate vivono nel chunk composer — bridge + clear busy se manca */
+  function postAction(suffix, body, preservedScrollY) {
+    return ensureWtComposerChunk()
+      .then(function () {
+        var api = wtComposerApi();
+        if (api && typeof api.postAction === "function") {
+          return api.postAction(suffix, body, preservedScrollY);
+        }
+        clearChatActionsBusyLocal();
+        state.busy = false;
+        setStatus("Modulo azioni non pronto. Ricarica la pagina.", true);
+      })
+      .catch(function () {
+        clearChatActionsBusyLocal();
+        state.busy = false;
+        setStatus("Modulo azioni non pronto. Ricarica la pagina.", true);
+      });
+  }
+  function submitTicketRating() {
+    return ensureWtComposerChunk()
+      .then(function () {
+        var api = wtComposerApi();
+        if (api && typeof api.submitTicketRating === "function") {
+          return api.submitTicketRating();
+        }
+        clearChatActionsBusyLocal();
+        state.busy = false;
+        setStatus("Modulo valutazione non pronto. Ricarica la pagina.", true);
+      })
+      .catch(function () {
+        clearChatActionsBusyLocal();
+        state.busy = false;
+        setStatus("Modulo valutazione non pronto. Ricarica la pagina.", true);
+      });
+  }
+
   function wireChatActions() {
-    /* ticketActionFail1 + ticketPhoneBtnFix1 */
+    /* ticketActionFail1 + ticketPhoneBtnFix1 + ticketActBridge1 */
     document.querySelectorAll("[data-act]").forEach(function (btn) {
       if (btn._vcWired) return;
       btn._vcWired = true;
-      /* ticketPhoneBtnFix1: su touch lock immediato anti double-tap */
+      /* ticketPhoneBtnFix1: su touch lock immediato anti double-tap — SOLO azioni immediate
+         (overlay/dialog: pointerdown busy lasciava rotella forever se cancel/errore) */
       btn.addEventListener(
         "pointerdown",
         function () {
           var act = btn.getAttribute("data-act");
-          if (!act || act === "compose" || act === "cancel-compose") return;
+          if (!act || act === "compose" || act === "cancel-compose" || act === "load-older-msgs") return;
           if (state.busy) return;
+          var opensOverlay =
+            act === "close" ||
+            act === "close-request" ||
+            act === "add-user" ||
+            act === "remove-user" ||
+            act === "switch-cat" ||
+            act === "rename" ||
+            act === "transfer" ||
+            act === "rate-ticket";
+          if (opensOverlay) return;
           try {
             btn.setAttribute("aria-busy", "true");
           } catch (eBusy) {}
@@ -6392,8 +7051,11 @@
           act === "rename" ||
           act === "transfer" ||
           act === "rate-ticket";
+        /* ticketActBridge1: overlay → togli busy subito (dialog/cancel non passa da postAction.finally) */
+        if (opensOverlay) clearChatActionsBusyLocal();
         var run = function () {
         if (act === "compose") {
+          clearChatActionsBusyLocal();
           if (!getToken()) {
             if (window.VcLoginRequired && typeof window.VcLoginRequired.require === "function") {
               window.VcLoginRequired.require({
@@ -6428,12 +7090,14 @@
           return;
         }
         if (act === "cancel-compose") {
+          clearChatActionsBusyLocal();
           state.composeOpen = false;
           renderShell();
           return;
         }
         /* perfRoiPack2: espandi window messaggi (load older) */
         if (act === "load-older-msgs") {
+          clearChatActionsBusyLocal();
           try {
             var logEl = byId("vc-wt-chat-log");
             var prevH = logEl ? Number(logEl.scrollHeight) || 0 : 0;
@@ -6461,7 +7125,10 @@
             askCloseReason().then(function (reason) {
               /* ticketModalScrollStay2: ripristina Y salvato prima del modal */
               restorePageScroll(y);
-              if (reason === null) return;
+              if (reason === null) {
+                clearChatActionsBusyLocal();
+                return;
+              }
               return postAction("/close", { reason: reason }, y);
             });
             return;
@@ -6469,6 +7136,7 @@
           askCloseConfirm().then(function (ok) {
             restorePageScroll(y);
             if (ok) return postAction("/close", null, y);
+            clearChatActionsBusyLocal();
           });
           return;
         }
@@ -6480,6 +7148,7 @@
           }).then(function (userId) {
             restorePageScroll(y);
             if (userId) postAction("/members", { userId: userId }, y);
+            else clearChatActionsBusyLocal();
           });
           return;
         }
@@ -6487,6 +7156,7 @@
           pickAddedUser().then(function (userId) {
             restorePageScroll(y);
             if (userId) postAction("/members/remove", { userId: userId }, y);
+            else clearChatActionsBusyLocal();
           });
           return;
         }
@@ -6494,6 +7164,7 @@
           pickTicketCategory().then(function (category) {
             restorePageScroll(y);
             if (category) postAction("/category", { category: category }, y);
+            else clearChatActionsBusyLocal();
           });
           return;
         }
@@ -6501,13 +7172,17 @@
           askRenameSubject().then(function (subject) {
             restorePageScroll(y);
             if (subject) postAction("/rename", { subject: subject }, y);
+            else clearChatActionsBusyLocal();
           });
           return;
         }
         if (act === "close-request") {
           askCloseRequestReason().then(function (reason) {
             restorePageScroll(y);
-            if (reason === null) return;
+            if (reason === null) {
+              clearChatActionsBusyLocal();
+              return;
+            }
             return postAction("/close-request", { reason: reason }, y);
           });
           return;
@@ -6520,18 +7195,26 @@
           }).then(function (userId) {
             restorePageScroll(y);
             if (userId) postAction("/transfer", { userId: userId }, y);
+            else clearChatActionsBusyLocal();
           });
           return;
         }
         if (act === "close-accept") return postAction("/close-request/accept", null, y);
         if (act === "close-reject") return postAction("/close-request/reject", null, y);
+        clearChatActionsBusyLocal();
         };
         /* ticketDialogScrollFight1: overlay/dialog → no restore immediato (combatte col pin) */
-        if (opensOverlay) {
-          run();
-        } else {
-          withPageScrollPreserved(run);
-          restorePageScroll(y);
+        try {
+          if (opensOverlay) {
+            run();
+          } else {
+            withPageScrollPreserved(run);
+            restorePageScroll(y);
+          }
+        } catch (eRun) {
+          clearChatActionsBusyLocal();
+          state.busy = false;
+          setStatus("Azione non riuscita. Riprova.", true);
         }
       });
     });
@@ -6925,6 +7608,7 @@
       byId: byId,
       capturePageScrollY: capturePageScrollY,
       chatHeadHtml: chatHeadHtml,
+      refreshChatChrome: refreshChatChrome,
       clearReplyTarget: clearReplyTarget,
       composerHtml: composerHtml,
       composerLockedReason: composerLockedReason,
@@ -7023,30 +7707,67 @@
   }
 
   function ensureWtComposerChunk() {
-    if (window.__VC_WT_COMPOSER_CHUNK) {
+    if (
+      window.__VC_WT_COMPOSER_CHUNK === "20261020ticketStaffOpenTag1" ||
+      window.__VC_WT_COMPOSER_CHUNK === "20261020ticketUiPack2" ||
+      window.__VC_WT_COMPOSER_CHUNK === "20261020ticketHeadMenu1" ||
+      window.__VC_WT_COMPOSER_CHUNK === "20261020ticketHeadUi1" ||
+      window.__VC_WT_COMPOSER_CHUNK === "20261020ticketNetFalseToast1" ||
+      window.__VC_WT_COMPOSER_CHUNK === "20261019ticketActBridge1"
+    ) {
       return Promise.resolve(window.__vcWtComposerApi || null);
+    }
+    if (window.__vcWtComposerApi) {
+      return Promise.resolve(window.__vcWtComposerApi);
     }
     if (window.__vcWtComposerLoading) return window.__vcWtComposerLoading;
     ensureWtComposerHost();
     window.__vcWtComposerLoading = new Promise(function (resolve, reject) {
-      var ver = "20261016lazyEverywhere1";
+      var ver = "20261020ticketStaffOpenTag1";
       try {
         var m = window.__VC_ASSET_VERS;
         if (m && m.WT_COMPOSER_VER) ver = String(m.WT_COMPOSER_VER);
       } catch (eV) {}
-      var s = document.createElement("script");
-      s.src = "/js/web-tickets-page-composer." + ver + ".js?v=" + ver;
-      s.async = true;
-      s.onload = function () {
-        window.__vcWtComposerLoading = null;
-        resolve(window.__vcWtComposerApi || null);
-      };
-      s.onerror = function () {
-        window.__vcWtComposerLoading = null;
-        try { console.warn("[vc] wt-composer chunk failed"); } catch (eW) {}
-        reject(new Error("wt-composer"));
-      };
-      (document.body || document.documentElement).appendChild(s);
+      var tried = {};
+      function loadOne(v, fallbacks) {
+        if (tried[v]) {
+          if (fallbacks && fallbacks.length) return loadOne(fallbacks[0], fallbacks.slice(1));
+          window.__vcWtComposerLoading = null;
+          try {
+            console.warn("[vc] wt-composer chunk failed");
+          } catch (eW) {}
+          reject(new Error("wt-composer"));
+          return;
+        }
+        tried[v] = 1;
+        var s = document.createElement("script");
+        s.src = "/js/web-tickets-page-composer." + v + ".js?v=" + v;
+        s.async = true;
+        s.onload = function () {
+          window.__vcWtComposerLoading = null;
+          resolve(window.__vcWtComposerApi || null);
+        };
+        s.onerror = function () {
+          try {
+            if (s.parentNode) s.parentNode.removeChild(s);
+          } catch (eRm) {}
+          var next = fallbacks && fallbacks.length ? fallbacks.slice() : [];
+          if (next.length) loadOne(next[0], next.slice(1));
+          else {
+            window.__vcWtComposerLoading = null;
+            try {
+              console.warn("[vc] wt-composer chunk failed");
+            } catch (eW2) {}
+            reject(new Error("wt-composer"));
+          }
+        };
+        (document.body || document.documentElement).appendChild(s);
+      }
+      loadOne(ver, [
+        "20261020ticketUiPack2",
+        "20261020ticketHeadMenu1",
+        "20261020ticketHeadUi1",
+      ]);
     });
     return window.__vcWtComposerLoading;
   }
@@ -7157,6 +7878,15 @@
           var t = ev.target;
           if (!t || !t.closest) return;
           if (!t.closest("#vc-wt-app, .vc-wt-chat, #vc-wt-chat-log")) return;
+          /* ticketsChatSpoiler1: toggle spoiler sync (non aspetta chunk composer) */
+          var spoiler = t.closest("[data-wt-spoiler], .vc-wt-md-spoiler");
+          if (spoiler && spoiler.closest("#vc-wt-chat-log, .vc-wt-chat__log")) {
+            if (t.closest("a") && spoiler.classList.contains("is-open")) return;
+            ev.preventDefault();
+            ev.stopPropagation();
+            spoiler.classList.toggle("is-open");
+            return;
+          }
           var reply = t.closest("[data-msg-reply]");
           if (reply) {
             ev.preventDefault();
@@ -7707,20 +8437,25 @@
       var logEl = byId("vc-wt-chat-log");
       if (!logEl) return;
       logEl.addEventListener("scroll", function onChatLogScroll() {
+        /* chatOpenBottom1: durante pin open scrollTop parte da 0 → non espandere window */
+        if (Date.now() < _chatPinBottomUntil) return;
         if (Number(logEl.scrollTop) >= 80) return;
         var curStart = Number.isFinite(state._msgWinStart) ? state._msgWinStart : 0;
         if (curStart <= 0) return;
         if (_chatScrollOlderT) return;
         _chatScrollOlderT = window.setTimeout(function () {
           _chatScrollOlderT = 0;
+          if (Date.now() < _chatPinBottomUntil) return;
           var logNow = byId("vc-wt-chat-log");
           if (!logNow) return;
+          if (Number(logNow.scrollTop) >= 80) return;
           var prevH = Number(logNow.scrollHeight) || 0;
           var prevTop = Number(logNow.scrollTop) || 0;
           var cs = Number.isFinite(state._msgWinStart) ? state._msgWinStart : 0;
           if (cs <= 0) return;
           state._msgWinStart = Math.max(0, cs - 80);
-          renderShell();
+          /* ticketsLagHard1: solo chat pane — renderShell rimontava lista+filtri a ogni load-older */
+          refreshChatPane();
           window.requestAnimationFrame(function () {
             try {
               var log2 = byId("vc-wt-chat-log");
@@ -7729,7 +8464,7 @@
               log2.scrollTop = Math.max(0, prevTop + (nextH - prevH));
             } catch (eScr) {}
           });
-        }, 250);
+        }, 320);
       }, { passive: true });
     })();
   }
@@ -8442,6 +9177,9 @@
             t.id || "",
             t.status || "",
             t.claimedBy || t.assigneeId || "",
+            t.category || "",
+            t.categoryLabel || "",
+            t.closeRequestedAt || "",
             t.updatedAt || t.updated_at || "",
             (t.subject || t.title || "").slice(0, 80),
           ].join("|");
@@ -8460,12 +9198,34 @@
     var gateBtn = byId("vc-wt-gate-login-cta");
     var headerBtn = byId("discord-login-btn");
     if (!gateBtn) return;
-    gateBtn.addEventListener("click", function () {
+    try {
+      gateBtn.setAttribute("data-vc-discord-login", "");
+    } catch (eAttr) {}
+    if (gateBtn.getAttribute("data-vc-wt-gate-bound") === "1") return;
+    try {
+      gateBtn.setAttribute("data-vc-wt-gate-bound", "1");
+    } catch (eBound) {}
+    gateBtn.addEventListener("click", function (ev) {
+      try {
+        if (ev && typeof ev.preventDefault === "function") ev.preventDefault();
+        if (ev && typeof ev.stopPropagation === "function") ev.stopPropagation();
+      } catch (ePrev) {}
+      /* marquee404Fix1: preferisci OAuth diretto; fallback header Accedi */
       if (typeof window.__vcDiscordStartOAuthRedirect === "function") {
         window.__vcDiscordStartOAuthRedirect(gateBtn);
         return;
       }
-      if (headerBtn) headerBtn.click();
+      if (typeof window.__vcDiscordStartOAuth === "function") {
+        try {
+          window.__vcDiscordStartOAuth(gateBtn);
+          return;
+        } catch (eOa) {}
+      }
+      if (headerBtn) {
+        try {
+          headerBtn.click();
+        } catch (eHdr) {}
+      }
     });
   }
 
@@ -8687,17 +9447,33 @@
       var stillRoot = byId("vc-wt-app") || document;
       freezeTicketsAnimatedMedia(stillRoot);
       if (!window.__vcTicketsStillMo && typeof MutationObserver === "function") {
+        var stillMoT = 0;
+        var stillMoPending = null;
         window.__vcTicketsStillMo = new MutationObserver(function (muts) {
-          for (var i = 0; i < muts.length; i += 1) {
-            var nodes = muts[i].addedNodes;
-            for (var j = 0; j < nodes.length; j += 1) {
-              var n = nodes[j];
-              if (!n || n.nodeType !== 1) continue;
-              if (n.tagName === "IMG" || (n.querySelector && n.querySelector("img"))) {
-                freezeTicketsAnimatedMedia(n.tagName === "IMG" ? n.parentNode || stillRoot : n);
+          /* ticketsLagHard1: debounce freeze GIF — subtree MO a ogni msg = main-thread jank */
+          stillMoPending = muts;
+          if (stillMoT) return;
+          stillMoT = window.setTimeout(function () {
+            stillMoT = 0;
+            var batch = stillMoPending || [];
+            stillMoPending = null;
+            var roots = [];
+            for (var i = 0; i < batch.length; i += 1) {
+              var nodes = batch[i].addedNodes;
+              for (var j = 0; j < nodes.length; j += 1) {
+                var n = nodes[j];
+                if (!n || n.nodeType !== 1) continue;
+                if (n.tagName === "IMG" || (n.querySelector && n.querySelector("img"))) {
+                  roots.push(n.tagName === "IMG" ? n.parentNode || stillRoot : n);
+                }
               }
             }
-          }
+            for (var r = 0; r < roots.length; r += 1) {
+              try {
+                freezeTicketsAnimatedMedia(roots[r]);
+              } catch (eFr) {}
+            }
+          }, 180);
         });
         /* ticketsMsgRailCpu1 #3: observer solo su #vc-wt-app (no storm documentElement) */
         var moRoot = byId("vc-wt-app") || document.documentElement;
@@ -8714,12 +9490,16 @@
       var rebootReply = consumeReplyToFromUrl();
       if (rebootReply) pendingReplyToId = rebootReply;
       // Soft refresh on late auth events so deeplink openTicket isn't wiped mid-flight.
-      var softReboot = Array.isArray(state.tickets) && state.tickets.length > 0;
-      /* ticketSwitchFreeze2: riusa hard solo se davvero in volo (aria-busy); mai promise zombie */
+      var softReboot =
+        (Array.isArray(state.tickets) && state.tickets.length > 0) ||
+        ticketsDomLooksReady() ||
+        state.listEverPainted ||
+        ticketsDomHasSkeleton();
+      /* ticketSwitchFreeze2 + ticketSkelNoYoYo1: late auth → soft/reuse, mai force skel */
       var listP =
         !softReboot && state.listHardPromise && isTicketsListHardLoading()
           ? state.listHardPromise
-          : loadList({ soft: softReboot, forceShell: !softReboot && !state.listHardPromise });
+          : loadList({ soft: softReboot, forceShell: false });
       try {
         ensureGuildEmojis();
       } catch (eEm2) {}
@@ -8828,6 +9608,13 @@
     hideGate();
     showTicketsLoadingShell("Caricamento ticket…");
     ensureTicketsPageVisible();
+    try {
+      wireListClicks();
+    } catch (eListBoot) {}
+    /* ticketHeadUi1: preload composer subito → claim/input meno lag al primo click */
+    try {
+      ensureWtComposerChunk().catch(function () {});
+    } catch (eCompBoot) {}
     var bootReply = consumeReplyToFromUrl();
     if (bootReply) pendingReplyToId = bootReply;
     /* siteApiW5: list + emoji catalog in parallel; WS/presence after list */
@@ -8850,4 +9637,5 @@
   }
 
   /* cursorTrailOff1: scia rimossa */
+  /* ticketsSlowToastFix1 */
 })();

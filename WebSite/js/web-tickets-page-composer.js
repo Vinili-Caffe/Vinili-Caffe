@@ -3,7 +3,7 @@
  * Loaded by web-tickets-page.js after list/openTicket — public list first paint unchanged.
  */
 (function () {
-  var VER = "20261015ticketsMsgRailCpu1";
+  var VER = "20261020ticketStaffOpenTag1";
   if (window.__VC_WT_COMPOSER_CHUNK === VER) return;
   var H = window.__VC_WT_COMPOSER_HOST;
   if (!H || typeof H !== "object") {
@@ -22,6 +22,10 @@
   var byId = H.byId;
   var capturePageScrollY = H.capturePageScrollY;
   var chatHeadHtml = H.chatHeadHtml;
+  var refreshChatChrome =
+    typeof H.refreshChatChrome === "function"
+      ? H.refreshChatChrome
+      : function () {};
   var clearReplyTarget = H.clearReplyTarget;
   var composerHtml = H.composerHtml;
   var composerLockedReason = H.composerLockedReason;
@@ -213,10 +217,54 @@
       }
       var kids = node.childNodes;
       for (var i = 0; i < kids.length; i += 1) walk(kids[i]);
-      if ((tag === "DIV" || tag === "P") && node !== root) out += "\n";
+      /* composerMdCaret2: newline solo se il blocco ha un sibling dopo (no \n fantasma
+         sul wrapper Chrome <div>unico</div> che poi creava riga vuota + caret sopra). */
+      if ((tag === "DIV" || tag === "P") && node !== root) {
+        var sib = node.nextSibling;
+        while (sib && sib.nodeType === 3 && !String(sib.nodeValue || "").replace(/\u00a0/g, " ").trim()) {
+          sib = sib.nextSibling;
+        }
+        if (sib) out += "\n";
+      }
     }
     walk(root);
-    return out.replace(/\u00a0/g, " ").replace(/\n{3,}/g, "\n\n").replace(/\s+$/g, "").slice(0, 2000);
+    return out
+      .replace(/\u00a0/g, " ")
+      .replace(/\n{3,}/g, "\n\n")
+      .replace(/^\n+/, "")
+      .replace(/\s+$/g, "")
+      .slice(0, 2000);
+  }
+
+  function normalizeRichComposerDom(el) {
+    /* composerMdCaret2: togli blocchi vuoti leading (<div><br></div>) che lasciano caret sopra */
+    if (!el || !isRichInput(el)) return false;
+    var changed = false;
+    try {
+      while (el.firstChild) {
+        var n = el.firstChild;
+        if (n.nodeType === 3 && !String(n.nodeValue || "").replace(/\u00a0/g, " ").trim()) {
+          el.removeChild(n);
+          changed = true;
+          continue;
+        }
+        if (n.nodeType !== 1) break;
+        var tag = String(n.tagName || "").toUpperCase();
+        if (tag !== "DIV" && tag !== "P") break;
+        var onlyBr =
+          n.childNodes.length === 1 &&
+          n.firstChild &&
+          String(n.firstChild.tagName || "").toUpperCase() === "BR";
+        var empty =
+          onlyBr ||
+          (!String(n.textContent || "").replace(/\u00a0/g, " ").trim() && !n.querySelector("img, .vc-wt-mention"));
+        if (!empty) break;
+        if (!n.nextSibling) break;
+        el.removeChild(n);
+        changed = true;
+      }
+    } catch (eNorm) {}
+    return changed;
   }
 
   function getRichCaretSerializeOffset(el) {
@@ -281,7 +329,17 @@
         }
         var kids = n.childNodes;
         for (var i = 0; i < kids.length && !placed; i += 1) visit(kids[i]);
-        if (!placed && (tag === "DIV" || tag === "P") && n !== el) seen += 1;
+        if (!placed && (tag === "DIV" || tag === "P") && n !== el) {
+          var sib2 = n.nextSibling;
+          while (
+            sib2 &&
+            sib2.nodeType === 3 &&
+            !String(sib2.nodeValue || "").replace(/\u00a0/g, " ").trim()
+          ) {
+            sib2 = sib2.nextSibling;
+          }
+          if (sib2) seen += 1;
+        }
       }
       visit(el);
       if (!placed) {
@@ -394,6 +452,9 @@
   function richInputHasVisualTokens(el) {
     return Boolean(el && el.querySelector && el.querySelector("img, .vc-wt-mention"));
   }
+  try {
+    window.__vcRichInputHasVisualTokens = richInputHasVisualTokens;
+  } catch (eExpTok) {}
 
   function syncRichInputEmptyState(el, knownText) {
     if (!el || !isRichInput(el)) return;
@@ -2187,7 +2248,23 @@
         }
         withPageScrollPreserved(function () {
           if (out.data.ticket) {
-            state.detail = mergeTicketDetail(out.data.ticket, { trustPermissions: true });
+            var ticketOut = out.data.ticket;
+            /* ticketHeadUi1: claim senza claimedBy in payload → ottimistico */
+            if (suffix === "/claim" && !String(ticketOut.claimedBy || "").trim() && state.viewerId) {
+              ticketOut = Object.assign({}, ticketOut, {
+                claimedBy: String(state.viewerId),
+                claimedByName: ticketOut.claimedByName || "Tu",
+                status: ticketOut.status === "closed" ? ticketOut.status : "claimed",
+              });
+            }
+            if (suffix === "/unclaim") {
+              ticketOut = Object.assign({}, ticketOut, {
+                claimedBy: null,
+                claimedByName: null,
+                status: ticketOut.status === "closed" ? ticketOut.status : "open",
+              });
+            }
+            state.detail = mergeTicketDetail(ticketOut, { trustPermissions: true });
             refreshTicketInList(state.detail);
             refreshChatChrome();
           }
@@ -2204,18 +2281,13 @@
       })
       .catch(function (err) {
         var aborted = err && (err.name === "AbortError" || err.code === 20);
-        var shouldReconcile =
-          aborted &&
-          actionId &&
-          (suffix === "/close" ||
-            suffix === "/claim" ||
-            suffix === "/unclaim" ||
-            suffix.indexOf("/close-request") === 0);
-        if (!shouldReconcile) {
-          setStatus(aborted ? "Timeout: riprova (rete lenta)." : "Errore di rete. Riprova.", true);
+        var failMsg = aborted ? "Timeout: riprova (rete lenta)." : "Errore di rete. Riprova.";
+        if (!actionId) {
+          setStatus(failMsg, true);
           return;
         }
-        /* ticketCloseTimeout1: server spesso ha già chiuso/claimato mentre il client abortiva */
+        /* ticketNetFalseToast1: POST spesso ok sul server mentre client vede rete/abort —
+           riconcilia SEMPRE prima del toast errore (claim/close/rename/categoria/…). */
         setStatus("Verifico stato ticket…", false);
         return fetchJson(apiBase() + "/" + encodeURIComponent(actionId), {
           method: "GET",
@@ -2225,7 +2297,7 @@
         })
           .then(function (out) {
             if (!(out.res && out.res.ok && out.data && out.data.ok && out.data.ticket)) {
-              setStatus("Timeout: riprova (rete lenta).", true);
+              setStatus(failMsg, true);
               return;
             }
             if (state.selectedId !== actionId) return;
@@ -2244,33 +2316,32 @@
               scrollChatBottom(true);
             });
             var st = String((state.detail && state.detail.status) || "");
-            if (suffix === "/close" && st === "closed") {
-              setStatus("Operazione completata.", false);
+            var claimed = String((state.detail && state.detail.claimedBy) || "").trim();
+            if (suffix === "/close") {
+              setStatus(st === "closed" ? "Operazione completata." : failMsg, st !== "closed");
               return;
             }
-            if (suffix === "/claim" && String((state.detail && state.detail.claimedBy) || "").trim()) {
-              setStatus("Ticket claimato.", false);
+            if (suffix === "/claim") {
+              setStatus(claimed ? "Ticket claimato." : failMsg, !claimed);
               return;
             }
-            if (suffix === "/unclaim" && !String((state.detail && state.detail.claimedBy) || "").trim()) {
-              setStatus("Ticket rilasciato.", false);
+            if (suffix === "/unclaim") {
+              setStatus(!claimed ? "Ticket rilasciato." : failMsg, !!claimed);
               return;
             }
-            if (suffix === "/close-request" && state.detail && state.detail.closeRequestedAt) {
-              setStatus("Operazione completata.", false);
+            if (suffix.indexOf("/close-request") === 0) {
+              var crOk =
+                (suffix === "/close-request" && state.detail && state.detail.closeRequestedAt) ||
+                (suffix === "/close-request/accept" && st === "closed") ||
+                (suffix === "/close-request/reject" && state.detail && !state.detail.closeRequestedAt);
+              setStatus(crOk ? "Operazione completata." : failMsg, !crOk);
               return;
             }
-            if (
-              (suffix === "/close-request/accept" && st === "closed") ||
-              (suffix === "/close-request/reject" && state.detail && !state.detail.closeRequestedAt)
-            ) {
-              setStatus("Operazione completata.", false);
-              return;
-            }
-            setStatus("Timeout: riprova (rete lenta).", true);
+            /* rename/categoria/add-user/…: GET dettaglio ok → niente toast rete falso */
+            setStatus("Operazione completata.", false);
           })
           .catch(function () {
-            setStatus("Timeout: riprova (rete lenta).", true);
+            setStatus(failMsg, true);
           });
       })
       .finally(function () {
@@ -2290,24 +2361,14 @@
 
   function setChatActionsBusy(on) {
     try {
-      document.querySelectorAll(".vc-wt-action[data-act]").forEach(function (btn) {
+      document
+        .querySelectorAll(".vc-wt-action[data-act], .vc-wt-head-menu__opt[data-act], .vc-wt-head-menu__btn")
+        .forEach(function (btn) {
         if (on) btn.setAttribute("aria-busy", "true");
         else btn.removeAttribute("aria-busy");
         btn.disabled = Boolean(on);
       });
     } catch (eBusyUi) {}
-  }
-
-  function refreshChatChrome() {
-    if (!state.detail) return;
-    var top = byId("vc-wt-chat-top");
-    if (!top) return;
-    var wrap = document.createElement("div");
-    wrap.innerHTML = chatHeadHtml(state.detail);
-    var next = wrap.firstElementChild;
-    if (next) top.replaceWith(next);
-    wireChatActions();
-    patchComposerHtml();
   }
 
   function wireComposer() {
@@ -2333,6 +2394,7 @@
       fillRichInput(ta, state.composerText || "");
       syncComposerAutosize(ta);
       ta.addEventListener("input", function () {
+        normalizeRichComposerDom(ta);
         unwrapComposerAutolinks(ta);
         var nextText = serializeRichInput(ta);
         syncRichInputEmptyState(ta, nextText);
@@ -2616,6 +2678,12 @@
     onRichInputMaybeMention: onRichInputMaybeMention,
     textBeforeCaret: textBeforeCaret,
     scheduleComposerSuggest: scheduleComposerSuggest,
+    /* ticketActBridge1: host chiama postAction/rate (prima ReferenceError → rotella stuck) */
+    postAction: postAction,
+    setChatActionsBusy: setChatActionsBusy,
+    submitTicketRating: submitTicketRating,
+    patchComposerHtml: patchComposerHtml,
+    refreshChatChrome: refreshChatChrome,
     /* ticketsMsgRailCpu1: API per delegation host */
     copyMessageText: copyMessageText,
     startEditMessage: startEditMessage,

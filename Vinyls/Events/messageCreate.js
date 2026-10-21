@@ -316,27 +316,31 @@ module.exports = {
       try {
         const nativeBoost = guildMemberUpdateExtras.handleNativeBoostSystemMessage?.(message);
         if (nativeBoost?.userId) {
+          const messageSlots = Math.max(1, Number(nativeBoost.messageSlots || nativeBoost.slots || 1));
           const nativeSlots = Math.max(1, Number(nativeBoost.slots || 1));
-          const combinedBurst = nativeSlots >= 2;
+          /* boostFalseDouble3: "2 volte" sul singolo msg = burst; accumulo boost+tier ≠ 2 */
+          const combinedBurst = messageSlots >= 2;
+          const secondConfirmed = combinedBurst || nativeSlots >= 2;
           const nativeTs = Number(message.createdTimestamp || Date.now());
           void guildMemberUpdateExtras
             .recoverMissingBoostEmbedsForUser(message.guild, nativeBoost.userId, {
-              knownNativeSlots: nativeSlots,
-              expectedSlots: nativeSlots,
-              nativeEventSlots: nativeSlots,
+              knownNativeSlots: combinedBurst ? 2 : secondConfirmed ? Math.min(2, nativeSlots) : 1,
+              expectedSlots: combinedBurst ? 2 : secondConfirmed ? Math.min(2, nativeSlots) : 1,
+              nativeEventSlots: combinedBurst ? 2 : secondConfirmed ? Math.min(2, nativeSlots) : 1,
+              messageSlots,
+              confirmedDoubleBurst: combinedBurst,
               /* boostFalseDouble2: MAI incremental sul messageCreate —
                  il 1° system msg arrivava dopo memberUpdate (announced=1) e faceva announced+1=2. */
               nativeEventIncrement: false,
-              /* boostDoubleBurst1: 2 system msg accumulati → conferma 2° embed */
-              allowSecondRecovery: combinedBurst,
-              secondBoostConfirmed: combinedBurst,
+              allowSecondRecovery: secondConfirmed,
+              secondBoostConfirmed: secondConfirmed,
               startedAt: Math.max(0, nativeTs - 30_000),
               skipNativeScan: combinedBurst,
               nativeLookbackMs: 6 * 60 * 60 * 1000,
-              maxSend: nativeSlots,
+              maxSend: combinedBurst || secondConfirmed ? 2 : 1,
             })
             .catch(() => null);
-          /* boostDoubleBurst1: se il 2° system msg arriva subito dopo, ritenta con scan nativi */
+          /* boostFalseDouble3: ritenta solo con scan verificato (niente allowSecond a vuoto) */
           if (!combinedBurst) {
             setTimeout(() => {
               void guildMemberUpdateExtras
@@ -347,6 +351,7 @@ module.exports = {
                   nativeLookbackMs: 10 * 60 * 1000,
                   skipNativeScan: false,
                   allowSecondRecovery: true,
+                  nativeScanVerified: true,
                   maxSend: 2,
                 })
                 .catch(() => null);

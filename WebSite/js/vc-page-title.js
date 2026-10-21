@@ -3,7 +3,7 @@
 
   /* titlePwaDingbat3: SEMPRE brand ǀ pagina (tab + PWA).
      Page-only in PWA → Win "name - page" col trattino. SEP U+01C0. */
-  var DEFAULT_BRAND = "🎃 Vinili & Caffè 🍂 • Italia • Social • Gaming";
+  var DEFAULT_BRAND = "Vinili & Caffè • Italia • Social • Gaming";
   var SHORT_BRAND = "Vinili & Caffè";
   /* SEP = U+01C0 ǀ — Win converte |/│/｜/❘ → "-" */
   var SEP = " \u01C0 ";

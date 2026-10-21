@@ -1482,10 +1482,12 @@ function serializeMessage(doc, nameMap, staffRatings, staffRoles, ticket = null,
   }
   if (authorKind === "staff" || authorKind === "user") {
     const bucket = staffRoles && staffRoles[authorId] ? staffRoles[authorId] : null;
+    /* ticketStaffOpenTag1: staff che apre il ticket (customer/opener) tiene la tag ruolo —
+       prima solo community; staffish veniva strippato se non claimer/staff-kind. */
     const live =
       authorKind === "staff"
         ? bucket?.staff || (bucket?.id ? bucket : null)
-        : bucket?.community || null;
+        : bucket?.community || bucket?.staff || (bucket?.id ? bucket : null);
             let roleId = String(live?.id || "").trim() || null;
     let roleKey = String(live?.key || "").trim() || null;
     let roleName = String(live?.name || "").trim();
@@ -1501,16 +1503,24 @@ function serializeMessage(doc, nameMap, staffRatings, staffRoles, ticket = null,
       if (!roleId) roleId = String(doc.authorRoleId || "").trim() || null;
       const storedKey = String(roleKey || "").toLowerCase();
       const staffish =
-        /^(founder|manager|admin|director|high-staff|highstaff|senior-mod|mod|trial|pm)$/i.test(storedKey) ||
-        /^(founder|director|manager|admin|high.?staff)$/i.test(roleName);
+        /^(founder|manager|admin|director|high-staff|highstaff|senior-mod|mod|trial|pm|helper|partner-manager|community-manager|staff)$/i.test(
+          storedKey,
+        ) ||
+        /^(founder|director|manager|admin|high.?staff|senior.?mod|moderator|^mod$|helper|partner.?manager)$/i.test(
+          roleName,
+        );
       if (staffish && !live) {
+        /* niente bucket live → non inventare tag staff fantasma */
         roleId = null;
         roleKey = "";
         roleName = "";
-      } else if (/^staff$/i.test(roleName)) {
-        roleName = live?.name && !/^staff$/i.test(String(live.name)) ? String(live.name).trim().slice(0, 48) : "";
       } else if (live?.name) {
-        roleName = String(live.name).trim().slice(0, 48);
+        roleName = cleanStaffRoleDisplayName(String(live.name).trim()).slice(0, 48);
+        if (!roleKey) roleKey = String(live.key || "").trim() || roleKey;
+        if (!roleId) roleId = String(live.id || "").trim() || roleId;
+        if (/^staff$/i.test(roleName) && !live?.key) roleName = "";
+      } else if (/^staff$/i.test(roleName)) {
+        roleName = "";
       } else {
         roleName = roleName.slice(0, 48);
       }

@@ -62,6 +62,11 @@ function buildSanzionaModal(interaction, targetUser) {
   return modal;
 }
 
+function isUnknownOrUsedInteraction(err) {
+  const code = err?.code ?? err?.rawError?.code;
+  return code === 10062 || code === 40060 || code === "InteractionAlreadyReplied";
+}
+
 async function executeSanzionaContextMenu(interaction, targetUser) {
   if (!interaction.guild) {
     await interaction.reply({
@@ -75,7 +80,18 @@ async function executeSanzionaContextMenu(interaction, targetUser) {
     await interaction.reply({ content: check.content, flags: EPHEMERAL });
     return;
   }
-  await interaction.showModal(buildSanzionaModal(interaction, check.targetUser));
+  try {
+    await interaction.showModal(buildSanzionaModal(interaction, check.targetUser));
+  } catch (err) {
+    // 10062: token scaduto (>3s) — tipico sotto carico; niente retry possibile
+    if (isUnknownOrUsedInteraction(err)) {
+      global.logger?.warn?.(
+        `[Sanziona] interaction scaduta prima del modal user=${interaction.user?.id}`,
+      );
+      return;
+    }
+    throw err;
+  }
 }
 
 module.exports = { executeSanzionaContextMenu };

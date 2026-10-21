@@ -1090,12 +1090,16 @@ async function applyStanzaMemberServerMute(member, voiceChannelId, muted, reason
 
 async function clearStanzaServerMuteAnywhere(member, reason) {
   if (!member?.voice) return false;
+  // Uscita vocale: Discord non accetta setMute se channelId è null (race voiceStateUpdate).
+  if (!member.voice.channelId) return true;
   if (!member.voice.serverMute) return true;
   try {
     await member.voice.setMute(false, reason);
     return true;
   } catch (err) {
-    global.logger?.warn?.("[stanza] clear server mute failed:", err?.message || err);
+    const msg = String(err?.message || err || "");
+    if (/not connected to voice/i.test(msg)) return true;
+    global.logger?.warn?.("[stanza] clear server mute failed:", msg);
     return false;
   }
 }
@@ -1157,6 +1161,49 @@ async function clearLegacyStanzaSilenceChannelOverwrites(voiceChannel, textChann
   if (isLegacyStanzaSilenceTextOverwrite(tow)) {
     await textChannel.permissionOverwrites.delete(id, why).catch(() => {});
   }
+}
+
+/** Solo Speak-deny legacy sul vocale (il deny chat è gestito a parte). */
+async function clearLegacyStanzaSilenceVoiceOverwrite(voiceChannel, userId, reason) {
+  const id = String(userId || "").trim();
+  if (!id || !voiceChannel) return;
+  const vow = voiceChannel.permissionOverwrites?.cache?.get?.(id);
+  if (isLegacyStanzaSilenceVoiceOverwrite(vow)) {
+    await voiceChannel.permissionOverwrites.delete(id, reason || "Stanza: rimuovi Speak-deny legacy").catch(() => {});
+  }
+}
+
+/**
+ * Silenzio chat stanza: deny SendMessages sul canale testo (o voice-chat se è lo stesso id).
+ * Allo smuta ripristina scrittura se l'utente non è escluso.
+ */
+async function applyStanzaSilencedTextChat(guild, voiceChannelId, userId, silenced, reason) {
+  const id = String(userId || "").trim();
+  if (!id || !guild) return false;
+  const tch = await stanzaCompanionTextChannel(guild, voiceChannelId).catch(() => null);
+  if (!tch) return true;
+  if (silenced) {
+    return applyStanzaMemberTextPerms(
+      tch,
+      id,
+      STANZA_TEXT_MEMBER_SILENCE,
+      reason || "Stanza: silenzia chat",
+    );
+  }
+  const ow = tch.permissionOverwrites.cache.get(id);
+  if (ow?.deny?.has?.(PermissionsBitField.Flags.ViewChannel)) return true;
+  return applyStanzaMemberTextPerms(
+    tch,
+    id,
+    {
+      SendMessages: true,
+      EmbedLinks: true,
+      AttachFiles: true,
+      AddReactions: true,
+      ReadMessageHistory: true,
+    },
+    reason || "Stanza: smuta chat",
+  );
 }
 
 async function removeStanzaMemberVoiceOverwrite(voiceChannel, userId) {
@@ -1886,11 +1933,11 @@ async function handleStanzaVoiceOccupied(oldState, newState) {
 }
 
 /**
- * Silenzio stanza = solo Discord server mute, scoped al canale:
- * - uscita → smutia (lista resta)
- * - rientro nella stessa stanza → rimuta finché non smutato dal pannello
+ * Silenzio stanza = server mute + deny chat sul canale testo della stanza:
+ * - uscita → toglie solo server mute (lista + deny chat restano)
+ * - rientro → rimuta + riapplica deny chat finché non smutato dal pannello
  */
-async function handleStanzaVoiceSilenceSync(oldState, newState) { // stanzaSilenceServerMuteOnly1
+async function handleStanzaVoiceSilenceSync(oldState, newState) {
   const guild = newState?.guild || oldState?.guild;
   if (!guild || !isStanzaGuildAllowed(guild.id)) return;
   const member = newState?.member || oldState?.member;
@@ -1910,6 +1957,7 @@ async function handleStanzaVoiceSilenceSync(oldState, newState) { // stanzaSilen
     const joinedMeta = await getStanzaMetaOrRehydrate(guild, joinedId);
     if (joinedMeta && isStanzaUserSilenced(joinedMeta, member.id)) {
       await applyStanzaMemberServerMute(member, joinedId, true, "Stanza: rientro silenziato").catch(() => {});
+      await applyStanzaSilencedTextChat(guild, joinedId, member.id, true, "Stanza: rientro silenziato chat").catch(() => {});
     }
   }
 }
@@ -2224,6 +2272,7 @@ async function tryRehydrateStanzaRoomFromSnapshotRecord(guild, channelId, rec) {
     for (const m of humans.values()) {
       if (isStanzaUserSilenced(meta, m.id)) {
         await applyStanzaMemberServerMute(m, id, true, "Stanza: ripristino silenzio").catch(() => {});
+        await applyStanzaSilencedTextChat(guild, id, m.id, true, "Stanza: ripristino silenzio chat").catch(() => {});
       }
     }
   }
@@ -3143,45 +3192,66 @@ async function handleStanzaUsersMemberMessageCreate(message) {
   } else if (action === "silenzia") {
     const botId = String(message.client?.user?.id || "");
     if (botId) await ensureStanzaBotVoiceOverwrite(voiceCh, botId).catch(() => {});
-    await clearLegacyStanzaSilenceChannelOverwrites(
+    await clearLegacyStanzaSilenceVoiceOverwrite(
       voiceCh,
-      tchUsers,
       targetId,
-      "Stanza: silenzio solo server mute Discord",
+      "Stanza: silenzio via server mute (no Speak-deny)",
     );
     addStanzaSilencedUser(meta, targetId);
     persistStanzaSnapshotNow();
+    const chatOk = await applyStanzaSilencedTextChat(
+      message.guild,
+      voiceCh.id,
+      targetId,
+      true,
+      "Stanza: silenzia chat",
+    ).catch(() => false);
     if (String(targetMember.voice?.channelId || "") === String(voiceCh.id)) {
       ok = await applyStanzaMemberServerMute(targetMember, voiceCh.id, true, "Stanza: silenzia utente");
       doneLine = ok
-        ? `<a:VC_Verified:1482532479637127188> ${targetMember} è stato silenziato.`
+        ? `<a:VC_Verified:1482532479637127188> ${targetMember} è stato silenziato (microfono + chat).`
         : failPerm;
     } else {
       ok = true;
-      doneLine = `<a:VC_Verified:1482532479637127188> ${targetMember} è silenziato in questa stanza (mute al prossimo ingresso).`;
+      doneLine = `<a:VC_Verified:1482532479637127188> ${targetMember} è silenziato in questa stanza (mute al prossimo ingresso; chat già bloccata).`;
+    }
+    if (ok && chatOk === false && tchUsers) {
+      doneLine += "\n<a:VC_Attention:1482534443632558151> Mute ok, ma non sono riuscito a bloccare la chat.";
     }
   } else if (action === "smuta") {
     const legacyOw = voiceCh.permissionOverwrites.cache.get(targetId);
-    const wasSilenced = isStanzaUserSilenced(meta, targetId) || isLegacyStanzaSilenceVoiceOverwrite(legacyOw);
+    const textOw = tchUsers?.permissionOverwrites?.cache?.get?.(targetId);
+    const wasSilenced =
+      isStanzaUserSilenced(meta, targetId) ||
+      isLegacyStanzaSilenceVoiceOverwrite(legacyOw) ||
+      isLegacyStanzaSilenceTextOverwrite(textOw);
     if (!wasSilenced) {
       doneLine = `<a:VC_Cross:1482532424570376253> ${targetMember} non risulta silenziato in questa stanza.`;
     } else {
       const botId = String(message.client?.user?.id || "");
       if (botId) await ensureStanzaBotVoiceOverwrite(voiceCh, botId).catch(() => {});
-      await clearLegacyStanzaSilenceChannelOverwrites(
+      await clearLegacyStanzaSilenceVoiceOverwrite(
         voiceCh,
-        tchUsers,
         targetId,
-        "Stanza: smuta (rimuovi overwrite legacy)",
+        "Stanza: smuta (rimuovi Speak-deny legacy)",
       );
       removeStanzaSilencedUser(meta, targetId);
       persistStanzaSnapshotNow();
+      await applyStanzaSilencedTextChat(
+        message.guild,
+        voiceCh.id,
+        targetId,
+        false,
+        "Stanza: smuta chat",
+      ).catch(() => {});
       if (String(targetMember.voice?.channelId || "") === String(voiceCh.id)) {
         ok = await applyStanzaMemberServerMute(targetMember, voiceCh.id, false, "Stanza: smuta utente");
       } else {
         ok = true;
       }
-      doneLine = ok ? `<a:VC_Verified:1482532479637127188> ${targetMember} è stato smutato.` : failPerm;
+      doneLine = ok
+        ? `<a:VC_Verified:1482532479637127188> ${targetMember} è stato smutato (microfono + chat).`
+        : failPerm;
     }
   }
 

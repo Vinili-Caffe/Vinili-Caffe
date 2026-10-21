@@ -93,6 +93,8 @@ const giveawayEntrySchema = new Schema(
     ended: { type: Boolean, default: false },
     cancelled: { type: Boolean, default: false },
     winnerIds: { type: [String], default: [] },
+    /* morgamesGw1: obbligatorio account Morgames collegato a Discord */
+    requireMorgames: { type: Boolean, default: false },
   },
   { timestamps: true },
 );

@@ -6,7 +6,7 @@
  * emojiNo404Local1: local solo per PNG presenti su /emoji/72x72 — resto CDN (no 404 console)
  */
 (function () {
-  var STAMP = "20261011inputLagKill1";
+  var STAMP = "20261019wmEmojiFree2";
   if (window.__vcEmojiRender === STAMP) return;
   window.__vcEmojiRender = STAMP;
 
@@ -292,13 +292,24 @@
   }
 
   /* discordRoleLook2: non parse-are sotto [data-vc-emoji-skip] (chip/canali Discord native) */
+  /* wmEmojiFree2: wordmark brand (header/footer) mai twemoji — plain text */
   function withEmojiSkipShelved(root, fn) {
     var held = [];
     try {
-      var nodes = root && root.querySelectorAll ? root.querySelectorAll('[data-vc-emoji-skip="1"]') : [];
+      var nodes = root && root.querySelectorAll
+        ? root.querySelectorAll(
+            '[data-vc-emoji-skip="1"], a.vc-header-site-name, .vc-header-site-name, .vc-premium-footer__wordmark',
+          )
+        : [];
+      var seen = [];
       for (var i = 0; i < nodes.length; i++) {
         var el = nodes[i];
         if (!el || !el.parentNode) continue;
+        if (seen.indexOf(el) !== -1) continue;
+        seen.push(el);
+        try {
+          el.setAttribute("data-vc-emoji-skip", "1");
+        } catch (eAttr) {}
         var ph = document.createComment("vc-emoji-skip");
         el.parentNode.replaceChild(ph, el);
         held.push({ el: el, ph: ph });
@@ -395,7 +406,9 @@
     ensureEmojiSizeCss();
     try {
       var copies = root.querySelectorAll
-        ? root.querySelectorAll(".vc-footer-copy-link, .vc-premium-footer__legal")
+        ? root.querySelectorAll(
+            ".vc-footer-copy-link, .vc-premium-footer__legal, a.vc-header-site-name, .vc-header-site-name, .vc-premium-footer__wordmark",
+          )
         : [];
       for (var ci = 0; ci < copies.length; ci++) {
         copies[ci].setAttribute("data-vc-emoji-skip", "1");
@@ -455,6 +468,17 @@
     } catch (eMark) {}
   }
 
+  function isLegalEmojiScope() {
+    try {
+      if (window.__vcEmojiLegalScope) return true;
+      return /\/(privacy|terms|cookie|copyright|dati|regole)(\/|$)/i.test(
+        String(location.pathname || "/"),
+      );
+    } catch (eSc) {
+      return false;
+    }
+  }
+
   function enhanceCritical() {
     try {
       if (window.VcEmojiColor && typeof window.VcEmojiColor.flushCritical === "function") {
@@ -463,21 +487,30 @@
         window.VcEmojiColor.wrap(document.querySelector("header") || document.body);
       }
     } catch (eWrap) {}
-    /* violRafWheel1: header/brand subito; resto a chunk fuori rAF */
-    var urgent = ["header", "a.vc-header-site-name", ".vc-premium-footer__wordmark"];
-    var rest = [
-      "footer .vc-premium-footer__brand",
-      ".vc-page-cine-hero",
-      ".vc-home-cine-hero",
-      "#vc-page-intro",
-      "main h1",
-      "main h2",
-      "main h3",
-      "main h4",
-      ".vc-brand-glow",
-      ".vc-role-card",
-      ".vc-user-profile-name",
-    ];
+    /* wmEmojiFree2: niente parse sul brand wordmark (🎃🍂 restano fuori) */
+    var urgent = ["header"];
+    var rest = isLegalEmojiScope()
+      ? []
+      : [
+          ".vc-page-cine-hero",
+          ".vc-home-cine-hero",
+          "#vc-page-intro",
+          "main h1",
+          "main h2",
+          "main h3",
+          "main h4",
+          ".vc-brand-glow",
+          ".vc-role-card",
+          ".vc-user-profile-name",
+        ];
+    try {
+      var brands = document.querySelectorAll(
+        "a.vc-header-site-name, .vc-header-site-name, .vc-premium-footer__wordmark",
+      );
+      for (var bi = 0; bi < brands.length; bi++) {
+        brands[bi].setAttribute("data-vc-emoji-skip", "1");
+      }
+    } catch (eBrandSkip) {}
     function runSels(sels) {
       for (var i = 0; i < sels.length; i++) {
         try {
@@ -507,7 +540,11 @@
       try {
         document.documentElement.classList.add("vc-emoji-boot-done");
       } catch (eCls) {}
-      /* violRafWheel1: body enhance idle — non blocca paint/scroll */
+      /* legalPerfPack1: no full-body enhance su policy */
+      if (isLegalEmojiScope()) {
+        markEmojiBootDone();
+        return;
+      }
       var bodyGo = function () {
         try {
           enhance(document.body);
@@ -612,10 +649,11 @@
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", function () {
       boot();
-      observe();
+      /* legalPerfPack1: no MutationObserver full-DOM su policy */
+      if (!isLegalEmojiScope()) observe();
     });
   } else {
     boot();
-    observe();
+    if (!isLegalEmojiScope()) observe();
   }
 })();

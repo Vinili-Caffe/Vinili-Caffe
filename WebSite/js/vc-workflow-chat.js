@@ -263,7 +263,7 @@
             '" target="_blank" rel="noopener noreferrer">' +
             '<img src="' +
             src +
-            '" alt="" loading="lazy" decoding="async" />' +
+            '" alt="" width="320" height="180" loading="lazy" decoding="async" />' +
             "</a>"
           );
         })

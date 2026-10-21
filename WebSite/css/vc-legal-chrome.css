@@ -1,0 +1,578 @@
+/* lookStaticBorder1: no conic/mask rings — solid sand border */
+/* vc-legal-chrome — legalChromeImport1
+ * Slice IMPORTATA dal page-bundle (solo lang/flags chrome mancanti in page-legal).
+ * NON caricare il mega-bundle intero su /privacy|/terms|/cookie|/copyright|/dati|/regole.
+ */
+.vc-lang-dropdown {
+  position: relative;
+  flex-shrink: 0;
+  z-index: 2;
+  pointer-events: auto;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.vc-lang-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  margin: 0;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.03);
+  color: inherit;
+  cursor: var(--vc-cursor-pointer);
+  position: relative;
+  z-index: 1;
+  pointer-events: auto;
+  transition:
+    border-color 0.18s ease,
+    background 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.15s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.vc-lang-toggle:hover {
+  border-color: rgba(245, 214, 183, 0.34);
+  background: rgba(255, 255, 255, 0.05);
+  box-shadow: 0 0 0 3px rgba(245, 214, 183, 0.08);
+}
+
+.vc-lang-toggle:focus {
+  outline: none;
+}
+
+.vc-lang-toggle:focus-visible {
+  outline: 2px solid rgba(var(--vc-sand-rgb), 0.55);
+  outline-offset: 2px;
+}
+
+.vc-lang-flag {
+  display: block;
+  width: 1.25rem;
+  height: 0.94rem;
+  border-radius: 0.18rem;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.28);
+  background-color: #1e293b;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+/* flagPngFix1 + flagNavAll1: real country flags (ISO), not CSS approximations */
+.vc-lang-flag--it { background-image: url("/images/flags/it.png?v=20260919flagNavAll1"); }
+
+.vc-lang-flag--en { background-image: url("/images/flags/en.png?v=20260919flagNavAll1"); }
+
+.vc-lang-flag--es { background-image: url("/images/flags/es.png?v=20260919flagNavAll1"); }
+
+.vc-lang-flag--fr { background-image: url("/images/flags/fr.png?v=20260919flagNavAll1"); }
+
+.vc-lang-flag--de { background-image: url("/images/flags/de.png?v=20260919flagNavAll1"); }
+
+.vc-lang-flag--pt { background-image: url("/images/flags/pt.png?v=20260919flagNavAll1"); }
+
+.vc-lang-flag--ru { background-image: url("/images/flags/ru.png?v=20260919flagNavAll1"); }
+
+.vc-lang-flag--zh { background-image: url("/images/flags/zh.png?v=20260919flagNavAll1"); }
+
+.vc-lang-flag--ja { background-image: url("/images/flags/ja.png?v=20260919flagNavAll1"); }
+
+.vc-lang-flag--ko { background-image: url("/images/flags/ko.png?v=20260919flagNavAll1"); }
+
+.vc-lang-flag--ar { background-image: url("/images/flags/ar.png?v=20260919flagNavAll1"); }
+
+.vc-lang-flag--nl { background-image: url("/images/flags/nl.png?v=20260919flagNavAll1"); }
+
+.vc-lang-flag--pl { background-image: url("/images/flags/pl.png?v=20260919flagNavAll1"); }
+
+.vc-lang-flag--tr { background-image: url("/images/flags/tr.png?v=20260919flagNavAll1"); }
+
+.vc-lang-flag--hi { background-image: url("/images/flags/hi.png?v=20260919flagNavAll1"); }
+
+.vc-lang-flag--id { background-image: url("/images/flags/id.png?v=20260919flagNavAll1"); }
+
+.vc-lang-flag--uk { background-image: url("/images/flags/uk.png?v=20260919flagNavAll1"); }
+
+.vc-lang-flag--vi { background-image: url("/images/flags/vi.png?v=20260919flagNavAll1"); }
+
+.vc-lang-flag--ro { background-image: url("/images/flags/ro.png?v=20260919flagNavAll1"); }
+
+.vc-lang-flag--sv { background-image: url("/images/flags/sv.png?v=20260919flagNavAll1"); }
+
+.vc-lang-dropdown.is-open {
+  z-index: 260;
+}
+
+.vc-lang-dropdown.is-open .vc-lang-toggle {
+  border-color: rgba(245, 214, 183, 0.42);
+  background: rgba(255, 255, 255, 0.06);
+  box-shadow: 0 0 0 3px rgba(245, 214, 183, 0.1);
+}
+
+/* langSelectUi1: compact language selection */
+.vc-lang-panel {
+  position: absolute;
+  top: calc(100% + 0.4rem);
+  left: 50%;
+  right: auto;
+  z-index: 130;
+  min-width: 10.75rem;
+  max-height: min(22rem, 70vh);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0.28rem;
+  border-radius: 0.8rem;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  background: rgba(16, 12, 10, 0.94);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow:
+    0 12px 30px rgba(0, 0, 0, 0.42),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  display: flex;
+  flex-direction: column;
+  gap: 0.12rem;
+  transform: translateX(-50%);
+}
+
+.vc-lang-panel.vc-lang-panel--seg {
+  /* langDropOutside1: legacy class kept but forced to vertical dropdown */
+  min-width: 10.75rem;
+  max-height: min(22rem, 70vh);
+  overflow-y: auto;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.12rem;
+  padding: 0.28rem;
+  border-radius: 0.8rem;
+  background: rgba(16, 12, 10, 0.94);
+}
+
+.vc-lang-panel[hidden],
+.vc-lang-dropdown:not(.is-open) .vc-lang-panel {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+.vc-lang-option {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  margin: 0;
+  padding: 0.42rem 0.58rem;
+  border: 0;
+  border-radius: 0.55rem;
+  background: transparent;
+  color: rgba(245, 236, 226, 0.78);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  text-align: left;
+  cursor: var(--vc-cursor-pointer);
+  transition:
+    background 0.14s ease,
+    color 0.14s ease,
+    box-shadow 0.14s ease;
+}
+
+.vc-lang-option--seg {
+  width: auto;
+  min-width: 2.85rem;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: 0.34rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.vc-lang-option--seg .vc-lang-flag {
+  width: 0.95rem;
+  height: 0.7rem;
+  border-radius: 0.1rem;
+}
+
+.vc-lang-option__name {
+  line-height: 1;
+}
+
+.vc-lang-option:hover,
+.vc-lang-option:focus-visible {
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 248, 240, 0.95);
+  outline: none;
+}
+
+.vc-lang-option.is-active {
+  background: rgba(255, 244, 232, 0.09);
+  color: #fff8f0;
+  box-shadow: inset 0 0 0 1px rgba(245, 214, 183, 0.3);
+}
+
+.vc-lang-option--seg.is-active {
+  background: rgba(245, 214, 183, 0.16);
+  color: #fff6ea;
+  box-shadow:
+    inset 0 0 0 1px rgba(245, 214, 183, 0.38),
+    0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.vc-lang-option__flag {
+  display: none;
+}
+
+html.vc-lang-dropdown-open body.vc-body > header,
+html.vc-lang-dropdown-open body.vc-body header.fixed {
+  z-index: 90;
+  overflow: visible !important;
+}
+
+html.vc-lang-dropdown-open header .vc-nav-shell,
+html.vc-lang-dropdown-open .vc-header-bar,
+html.vc-lang-dropdown-open .vc-header-bar > div:first-child {
+  overflow: visible !important;
+}
+
+html.vc-lang-dropdown-open .vc-header-bar > div:first-child .vc-lang-dropdown,
+html.vc-lang-dropdown-open .vc-lang-dropdown.is-open {
+  z-index: 260;
+}
+
+html[dir="rtl"] .vc-lang-panel {
+  left: 50%;
+  right: auto;
+  transform: translateX(-50%);
+}
+
+.vc-header-bar > div:first-child .vc-lang-dropdown,
+.vc-mobile-nav-drawer__brand .vc-lang-dropdown {
+  flex: 0 0 auto;
+  margin-inline-start: 0.15rem;
+}
+
+header .vc-lang-toggle,
+.vc-lang-toggle {
+  width: 2.15rem;
+  height: 2.15rem;
+  min-width: 2.15rem;
+  min-height: 2.15rem;
+}
+
+@media (max-width: 639.98px) {
+  .vc-header-bar > div:first-child {
+    flex: 1 1 0 !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    overflow: hidden !important;
+  }
+  /* langDropOutside1: non clippare il dropdown lingua nella brand row */
+  html.vc-lang-dropdown-open .vc-header-bar > div:first-child,
+  html.vc-lang-dropdown-open .vc-header-bar,
+  html.vc-lang-dropdown-open header .vc-nav-shell {
+    overflow: visible !important;
+  }
+
+  header .vc-lang-dropdown,
+  .vc-header-bar .vc-lang-dropdown {
+    display: flex !important;
+    visibility: visible !important;
+    pointer-events: auto !important;
+    flex: 0 0 auto !important;
+  }
+
+  .vc-mobile-nav-drawer__brand .vc-lang-dropdown {
+    display: none !important;
+  }
+
+  .vc-header-bar > div:first-child > a.vc-header-logo-link {
+    flex: 0 0 auto !important;
+  }
+
+  .vc-header-bar > div:first-child > a.vc-header-logo-link + a,
+  .vc-header-bar > div:first-child a.vc-header-site-name,
+  .vc-mobile-nav-drawer__brand a.vc-header-logo-link + a,
+  .vc-mobile-nav-drawer__brand a.vc-header-site-name {
+    flex: 1 1 0 !important;
+    min-width: 3.25rem !important;
+    max-width: 100% !important;
+    width: auto !important;
+    overflow: hidden !important;
+  }
+}
+
+body.vc-dashboard-page .vc-header-bar > div:first-child .vc-lang-dropdown {
+  flex-shrink: 0;
+  position: relative;
+  z-index: 80;
+  pointer-events: auto !important;
+}
+
+body.vc-dashboard-page .vc-lang-toggle {
+  width: 2.15rem;
+  height: 2.15rem;
+  border-color: rgba(var(--vc-sand-rgb), 0.38);
+  background: rgba(var(--vc-mocha-rgb), 0.42);
+  position: relative;
+  z-index: 81;
+  pointer-events: auto !important;
+}
+
+/* snavStdWidth1: snav/lingua restano 12.5rem */
+html body.vc-body .vc-snav-panel,
+html body.vc-body header .vc-header-snav .vc-snav-panel,
+html body.vc-body header .vc-snav-details[open] .vc-snav-panel,
+html.vc-site-polish body.vc-body .vc-snav-panel,
+html.vc-site-photo-bg.vc-site-polish body.vc-body .vc-snav-panel,
+html body.vc-body .vc-lang-panel:not(.vc-lang-panel--seg),
+html.vc-site-polish body.vc-body .vc-lang-panel:not(.vc-lang-panel--seg) {
+  width: 12.5rem !important;
+  min-width: 12.5rem !important;
+  max-width: min(92vw, 12.5rem) !important;
+}
+
+html body.vc-body .vc-snav-panel > .vc-snav-row,
+html body.vc-body header .vc-header-snav .vc-snav-panel .vc-snav-row,
+html.vc-site-polish body.vc-body .vc-snav-panel a.vc-snav-row,
+html body.vc-body .discord-account-popover__item,
+html.vc-site-polish body.vc-body .discord-account-popover__item,
+html body.vc-body .vc-lang-panel:not(.vc-lang-panel--seg) .vc-lang-option,
+html body.vc-body .vc-lang-panel:not(.vc-lang-panel--seg) button {
+  width: 100% !important;
+  min-width: 0 !important;
+  box-sizing: border-box !important;
+  white-space: nowrap !important;
+}
+
+/* langDropOutside1: dropdown verticale fuori navbar (no pill cis / no clip overflow) */
+html.vc-lang-dropdown-open body.vc-body > header,
+html.vc-lang-dropdown-open body.vc-body header.fixed,
+html.vc-lang-dropdown-open header .vc-nav-shell,
+html.vc-lang-dropdown-open .vc-header-bar,
+html.vc-lang-dropdown-open .vc-header-bar > div:first-child,
+html.vc-lang-dropdown-open .vc-header-bar > div:first-child > * {
+  overflow: visible !important;
+}
+
+html.vc-lang-dropdown-open body.vc-body > header,
+html.vc-lang-dropdown-open body.vc-body header.fixed {
+  z-index: 120 !important;
+}
+
+.vc-lang-dropdown,
+.vc-lang-dropdown.is-open,
+html.vc-lang-dropdown-open .vc-lang-dropdown.is-open {
+  position: relative !important;
+  overflow: visible !important;
+  z-index: 10280 !important;
+}
+
+.vc-lang-panel,
+.vc-lang-panel.vc-lang-panel--seg,
+.vc-lang-dropdown.is-open .vc-lang-panel,
+.vc-lang-dropdown.is-open .vc-lang-panel.vc-lang-panel--seg {
+  position: absolute !important;
+  top: calc(100% + 0.45rem) !important;
+  left: 50% !important;
+  right: auto !important;
+  bottom: auto !important;
+  transform: translateX(-50%) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: stretch !important;
+  gap: 0.12rem !important;
+  min-width: 10.75rem !important;
+  width: max-content !important;
+  max-width: min(16rem, calc(100vw - 1.25rem)) !important;
+  max-height: min(22rem, 70vh) !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  /* langPanelScrollFix1: isolation so option bars don't paint outside the frame */
+  isolation: isolate !important;
+  padding: 0.28rem !important;
+  border-radius: 0.8rem !important;
+  z-index: 10290 !important;
+}
+
+.vc-lang-panel .vc-lang-option,
+.vc-lang-panel .vc-lang-option--seg {
+  width: 100% !important;
+  min-width: 0 !important;
+  justify-content: flex-start !important;
+  border-radius: 0.55rem !important;
+  text-transform: none !important;
+  letter-spacing: 0.01em !important;
+  font-size: 0.78rem !important;
+  font-weight: 600 !important;
+  padding: 0.42rem 0.58rem !important;
+}
+
+.vc-lang-dropdown:not(.is-open) .vc-lang-panel,
+.vc-lang-panel[hidden] {
+  display: none !important;
+}
+
+/* ——— Panel = wash+bordo card (navChromeShellMatch1; no flat #100c09) ——— */
+html.vc-site-polish body.vc-body .vc-snav-panel,
+html.vc-site-polish body.vc-body .vc-lang-panel,
+html.vc-site-polish body.vc-body .vc-notif-panel,
+html.vc-site-polish body.vc-body .vc-mobile-nav-drawer__panel,
+html.vc-site-polish body.vc-body #vc-mobile-nav-drawer .vc-mobile-nav-drawer__panel,
+html.vc-site-polish.vc-mobile-nav-open body.vc-body .vc-mobile-nav-drawer__panel,
+html body.vc-body header .vc-header-snav .vc-snav-panel,
+html body.vc-body header .vc-snav-details[open] .vc-snav-panel,
+html body.vc-body--home header .vc-header-snav .vc-snav-panel,
+html.vc-site-photo-bg.vc-site-polish body.vc-body .vc-snav-panel {
+  background-color: #100c09 !important;
+  background-image:
+    radial-gradient(120% 90% at 0% 0%, rgba(236, 205, 176, 0.12), transparent 52%),
+    radial-gradient(90% 70% at 100% 0%, rgba(111, 78, 55, 0.16), transparent 48%),
+    linear-gradient(175deg, #17130f 0%, #100c09 55%, #0b0807 100%)
+     !important;
+  background-origin: padding-box !important;
+  background-clip: padding-box !important;
+  -webkit-background-clip: padding-box !important;
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  box-shadow:
+    0 14px 36px rgba(0, 0, 0, 0.48),
+    0 0 14px rgba(212, 168, 136, 0.12) !important;
+}
+
+/* ——— Base: relative per la barra ——— */
+html.vc-site-polish body.vc-body header .vc-header-snav .vc-snav-item,
+html.vc-site-polish body.vc-body header .vc-header-snav .vc-snav-summary,
+html.vc-site-polish body.vc-body header .vc-header-snav .vc-snav-row,
+html.vc-site-polish body.vc-body header .discord-account-popover__item,
+html.vc-site-polish body.vc-body .vc-lang-option,
+html body.vc-body header .vc-header-snav .vc-snav-item,
+html body.vc-body header .vc-header-snav .vc-snav-summary,
+html body.vc-body header .vc-header-snav .vc-snav-row {
+  position: relative !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
+}
+
+/* staffNavFix1 */
+
+/* snavStdWidth1: snav/lingua restano 12.5rem */
+html body.vc-body .vc-snav-panel,
+html body.vc-body header .vc-header-snav .vc-snav-panel,
+html body.vc-body header .vc-snav-details[open] .vc-snav-panel,
+html.vc-site-polish body.vc-body .vc-snav-panel,
+html.vc-site-photo-bg.vc-site-polish body.vc-body .vc-snav-panel,
+html body.vc-body .vc-lang-panel:not(.vc-lang-panel--seg),
+html.vc-site-polish body.vc-body .vc-lang-panel:not(.vc-lang-panel--seg) {
+  width: 12.5rem !important;
+  min-width: 12.5rem !important;
+  max-width: min(92vw, 12.5rem) !important;
+}
+
+html body.vc-body .vc-snav-panel > .vc-snav-row,
+html body.vc-body header .vc-header-snav .vc-snav-panel .vc-snav-row,
+html.vc-site-polish body.vc-body .vc-snav-panel a.vc-snav-row,
+html body.vc-body .vc-lang-panel:not(.vc-lang-panel--seg) .vc-lang-option,
+html body.vc-body .vc-lang-panel:not(.vc-lang-panel--seg) button {
+  /* dropdownBarHug1: snav/lang = fit-content (barra hover solo testo) */
+  width: fit-content !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  box-sizing: border-box !important;
+  white-space: nowrap !important;
+}
+
+/* themeLightNavSolid1: in light i pannelli restano cream (batte #100c09 di questo file) */
+html.vc-site-polish[data-vc-theme="light"] body.vc-body .vc-snav-panel,
+html.vc-site-polish[data-vc-theme="light"] body.vc-body .vc-lang-panel,
+html.vc-site-polish[data-vc-theme="light"] body.vc-body .vc-notif-panel,
+html.vc-site-polish[data-vc-theme="light"] body.vc-body .vc-mobile-nav-drawer__panel,
+html.vc-site-polish[data-vc-theme="light"] body.vc-body#top header .vc-header-snav .vc-snav-panel,
+html.vc-site-polish[data-vc-theme="light"] body.vc-body#top header .vc-snav-details[open] .vc-snav-panel,
+html.vc-site-photo-bg.vc-site-polish[data-vc-theme="light"] body.vc-body .vc-snav-panel,
+html.vc-site-photo-bg.vc-perf-mid.vc-site-polish[data-vc-theme="light"] body.vc-body#top header .vc-header-snav .vc-snav-panel,
+html[data-vc-theme="light"] body.vc-body header .vc-header-snav .vc-snav-panel {
+  background: #faf6f0 !important;
+  background-color: #faf6f0 !important;
+  background-image:
+    radial-gradient(120% 90% at 0% 0%, rgba(255, 248, 238, 0.9), transparent 52%),
+    linear-gradient(175deg, #fffaf4 0%, #f7f1ea 55%, #efe6dc 100%) !important;
+  border: 1px solid rgba(111, 78, 55, 0.2) !important;
+  border-color: rgba(111, 78, 55, 0.2) !important;
+  color: #2a1c14 !important;
+  box-shadow: 0 14px 36px rgba(60, 40, 24, 0.14) !important;
+}
+
+/* fxAlignPhonePc1: telefono usa stesso ::after glow del PC (niente kill phone-only) */
+
+/* navChromeGradBorder1: bottoni chrome = bordo gradiente card, zero alone soft */
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body header .vc-lang-toggle,
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body .vc-header-bar .vc-lang-toggle,
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body #header-quick-actions .vc-lang-toggle,
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body .vc-mobile-nav-drawer .vc-lang-toggle,
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body .vc-lang-dropdown .vc-lang-toggle,
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body header .vc-notif-summary.vc-icon-btn,
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body header .vc-notif-summary,
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body #header-quick-actions .vc-notif-summary.vc-icon-btn,
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body #header-quick-actions .vc-notif-summary,
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body #header-quick-actions #vc-mobile-nav-toggle,
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body #vc-mobile-nav-toggle,
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body header #vc-view-as-launch,
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body #header-quick-actions #vc-view-as-launch {
+  border: 1px solid rgba(245, 214, 183, 0.38) !important;
+  border-color: rgba(245, 214, 183, 0.38) !important;
+  background-color: rgba(12, 9, 7, 0.55) !important;
+  background-image:
+    linear-gradient(rgba(12, 9, 7, 0.78), rgba(12, 9, 7, 0.78))
+     !important;
+  background-origin: padding-box, border-box !important;
+  background-clip: padding-box, border-box !important;
+  -webkit-background-clip: padding-box, border-box !important;
+  box-shadow: none !important;
+  filter: none !important;
+  -webkit-filter: none !important;
+}
+
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body header .vc-lang-toggle:hover,
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body header .vc-lang-toggle:focus-visible,
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body .vc-lang-dropdown.is-open .vc-lang-toggle,
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body header .vc-notif-summary.vc-icon-btn:hover,
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body header .vc-notif-summary.vc-icon-btn:focus-visible,
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body header .vc-notif-summary:hover,
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body header .vc-notif-summary:focus-visible,
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body #header-quick-actions #vc-view-as-launch:hover,
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body #header-quick-actions #vc-view-as-launch:focus-visible,
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body header #vc-view-as-launch:hover,
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body header #vc-view-as-launch:focus-visible {
+  border-color: rgba(245, 214, 183, 0.38) !important;
+  background-image:
+    linear-gradient(rgba(16, 12, 9, 0.88), rgba(16, 12, 9, 0.88))
+     !important;
+  background-origin: padding-box, border-box !important;
+  background-clip: padding-box, border-box !important;
+  -webkit-background-clip: padding-box, border-box !important;
+  box-shadow: none !important;
+  filter: none !important;
+  -webkit-filter: none !important;
+}
+
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body header .vc-lang-toggle::after,
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body .vc-header-bar .vc-lang-toggle::after,
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body #header-quick-actions .vc-lang-toggle::after,
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body .vc-mobile-nav-drawer .vc-lang-toggle::after,
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body .vc-lang-dropdown .vc-lang-toggle::after {
+  content: none !important;
+  display: none !important;
+  animation: none !important;
+  background: none !important;
+}

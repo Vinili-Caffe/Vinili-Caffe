@@ -1,9 +1,9 @@
-/* kickerPcShort1 + textSettlePre1: primo paint = testo finale subito (no scramble post-reveal).
-   Scramble solo su langchange (opts.scramble). */
+/* kickerNoHang1: no scramble; welcome hold senza MO loop (freeze page). */
 (function () {
   "use strict";
 
   var GLYPHS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789#@$%&<>/\\|";
+  var STAMP = "20261019kickerNoHang1";
   /* tutte le pill hero / confessionale — niente deck/aside/FAQ tip */
   var KICKER_SEL = ".vc-hero-kicker, .vc-confessionale-kicker";
   var NO_HACK_SEL =
@@ -399,7 +399,9 @@
     }
     opts = opts || {};
     var force = opts.force === true;
-    var wantScramble = opts.scramble === true;
+    /* kickerNoHack1: scramble disabilitato ovunque */
+    var wantScramble = false;
+    void opts.scramble;
     var target = resolveText(el, opts.text);
     if (!target || looksLikeNoise(target, target.length) || looksLikeI18nKey(target)) {
       target = el.getAttribute("data-vc-hack-final") || target;
@@ -579,35 +581,94 @@
     return list;
   }
 
+  var moPaused = 0;
+  function withMoPaused(fn) {
+    moPaused += 1;
+    try {
+      fn();
+    } finally {
+      moPaused -= 1;
+    }
+  }
+
+  function holdWelcomeHidden(el) {
+    if (!el) return;
+    /* kickerNoHang1: no-op se già in hold — evita MO ↔ hold loop */
+    if (el.getAttribute("data-vc-welcome-hold") === "1" && !String(el.textContent || "").trim()) {
+      return;
+    }
+    withMoPaused(function () {
+      try {
+        el.setAttribute("data-vc-welcome-hold", "1");
+        el.classList.remove("is-hacking", "vc-kicker-hack");
+        el.textContent = "";
+        el.style.setProperty("opacity", "0", "important");
+        el.style.setProperty("visibility", "hidden", "important");
+      } catch (eHold) {}
+    });
+  }
+
+  function revealWelcome(el, text) {
+    if (!el) return;
+    var t = String(text || "").replace(/\s+/g, " ").trim();
+    if (!t) return;
+    /* kickerNoHang1: già rivelato con stesso testo → stop (rompe freeze page) */
+    if (
+      el.getAttribute("data-vc-welcome-hold") !== "1" &&
+      el.getAttribute("data-vc-hack-done") === "1" &&
+      !el.classList.contains("is-hacking") &&
+      String(el.textContent || "").replace(/\s+/g, " ").trim() === t
+    ) {
+      return;
+    }
+    withMoPaused(function () {
+      try {
+        el.removeAttribute("data-vc-welcome-hold");
+        el.style.removeProperty("opacity");
+        el.style.removeProperty("visibility");
+      } catch (eRev) {}
+      settleInstant(el, t);
+    });
+  }
+
   function waitForPronounThenPlay(el) {
     if (!el) return;
     if (el.getAttribute("data-vc-hack-waiting") === "1") return;
     el.setAttribute("data-vc-hack-waiting", "1");
-    var targetHint = rememberFinal(el) || resolveText(el) || "Benvenuto su";
 
     function go(forcedText) {
       el.removeAttribute("data-vc-hack-waiting");
-      var txt = forcedText || resolveText(el) || el.textContent || targetHint;
-      settleInstant(el, txt);
+      var txt = forcedText || resolveText(el) || "";
+      if (!txt || looksLikeI18nKey(txt) || isInclusiveWelcome(txt)) {
+        /* kickerNoHack1: niente Benvenut* fantasma — resta nascosto */
+        holdWelcomeHidden(el);
+        return;
+      }
+      revealWelcome(el, txt);
     }
 
     if (el.getAttribute("data-vc-welcome-pronoun-ready") === "1") {
-      go(resolveText(el));
-      return;
+      var readyTxt = resolveText(el);
+      if (readyTxt && !isInclusiveWelcome(readyTxt)) {
+        go(readyTxt);
+        return;
+      }
     }
 
-    /* textSettlePre1: testo subito; upgrade silenzioso quando arriva il pronoun */
-    settleInstant(el, targetHint);
-    el.removeAttribute("data-vc-hack-waiting");
+    /* kickerNoHack1: non mostrare testo finché i pronomi non sono certi */
+    holdWelcomeHidden(el);
 
     document.addEventListener("vc:welcome-pronoun-ready", function onReady(ev) {
       try {
         if (ev && ev.detail && ev.detail.el && ev.detail.el !== el) return;
       } catch (e) {}
+      var key = "";
       var txt = "";
       try {
+        key = String((ev && ev.detail && ev.detail.key) || "");
         txt = (ev && ev.detail && ev.detail.text) || "";
       } catch (eT) {}
+      if (key !== "home.welcomeM" && key !== "home.welcomeF") return;
       go(txt || resolveText(el));
     });
   }
@@ -654,6 +715,54 @@
     }
     opts = opts || {};
     var force = opts.force === true;
+    /* kickerNoHang1: welcome home → hold finché M/F certi (guest = inclusivo ok) */
+    if (isHomeWelcome(el)) {
+      /* già settled → mai ritoccare DOM (rompe freeze / Caricamento infinito) */
+      if (
+        el.getAttribute("data-vc-hack-done") === "1" &&
+        el.getAttribute("data-vc-welcome-hold") !== "1" &&
+        String(el.textContent || "").trim() &&
+        !el.classList.contains("is-hacking")
+      ) {
+        return;
+      }
+      if (el.getAttribute("data-vc-hack-waiting") === "1" && el.getAttribute("data-vc-welcome-hold") === "1") {
+        return;
+      }
+      if (el.getAttribute("data-vc-welcome-pronoun-ready") === "1") {
+        var ready = resolveText(el) || el.getAttribute("data-vc-hack-final") || "";
+        var key = String(el.getAttribute("data-vc-welcome-pronoun") || el.getAttribute("data-i18n") || "");
+        if (ready && (key === "home.welcomeM" || key === "home.welcomeF") && !isInclusiveWelcome(ready)) {
+          revealWelcome(el, ready);
+          return;
+        }
+        /* guest / inclusive locked */
+        if (ready && key === "home.welcome" && el.getAttribute("data-vc-welcome-guest") === "1") {
+          revealWelcome(el, ready);
+          return;
+        }
+      }
+      var hasTok = false;
+      try {
+        hasTok = !!(
+          (window.VcDiscordAuth && typeof window.VcDiscordAuth.getAccessToken === "function" && window.VcDiscordAuth.getAccessToken()) ||
+          localStorage.getItem("vc_discord_access_token") ||
+          localStorage.getItem("discord_access_token")
+        );
+      } catch (eTok) {}
+      if (!hasTok) {
+        var guestTxt = resolveText(el) || String(el.getAttribute("data-i18n-src") || el.textContent || "").trim() || "Benvenut* su";
+        try {
+          el.setAttribute("data-vc-welcome-guest", "1");
+          el.setAttribute("data-vc-welcome-pronoun-ready", "1");
+          el.setAttribute("data-vc-welcome-pronoun", "home.welcome");
+        } catch (eG) {}
+        revealWelcome(el, guestTxt);
+        return;
+      }
+      waitForPronounThenPlay(el);
+      return;
+    }
     if (el.classList.contains("is-hacking") && !force) return;
     if (el.classList.contains("is-hacking") && running && running.get(el)) return;
     if (!force && el.getAttribute("data-vc-hack-played-visible") === "1") return;
@@ -760,7 +869,7 @@
         el.removeAttribute("data-vc-hack-played-visible");
         el.removeAttribute("data-vc-hack-settled-pre");
         rememberFinal(el, resolveText(el) || el.textContent);
-        play(el, { force: true, scramble: true, delayMs: 0 });
+        play(el, { force: true, scramble: false, delayMs: 0 });
       } catch (eLc) {}
       if (i < kickers.length) window.setTimeout(slice, 48);
     }
@@ -788,9 +897,19 @@
     /* welcome pronoun: gestito dal listener dedicato in boot() — niente reset doppio */
     try {
       var mo = new MutationObserver(function (muts) {
+        if (moPaused > 0) return;
         var needReplay = false;
         for (var i = 0; i < muts.length; i += 1) {
           var m = muts[i];
+          /* kickerNoHang1: ignora mutazioni welcome (style/hold/text) — le gestiamo noi */
+          if (
+            m.target &&
+            m.target.classList &&
+            m.target.classList.contains("vc-hero-kicker") &&
+            isHomeWelcome(m.target)
+          ) {
+            continue;
+          }
           if (m.type === "attributes" && m.attributeName === "class" && m.target === document.documentElement) {
             /* solo passaggio a ready — non ogni class thrash (auth/perf/fx) */
             var prev = String(m.oldValue || "");
@@ -925,13 +1044,15 @@
   }
 
   window.VcKickerHack = {
-    ver: "20261009cueTextSettle2",
+    ver: STAMP,
     play: play,
     boot: boot,
     bootAll: function (root) {
       bootAll(root, { force: true });
     },
     rememberFinal: rememberFinal,
+    holdWelcomeHidden: holdWelcomeHidden,
+    revealWelcome: revealWelcome,
     replayPending: replayPending,
   };
 
