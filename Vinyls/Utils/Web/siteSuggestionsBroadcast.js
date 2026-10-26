@@ -53,12 +53,40 @@ function isTruthyEnv(name) {
   return ["1", "true", "yes", "on"].includes(String(process.env[name] || "").trim().toLowerCase());
 }
 
+/* wsTicketScrub1: il WS non ha autenticazione e arriva a chiunque si colleghi.
+   Gli eventi dei ticket escono solo come "segnale": tipo + id ticket (+ stop per il typing),
+   mai messaggi, ticket serializzati, nomi o id utente. Il client ricarica i dati via API con token. */
+function scrubRealtimePayload(payload) {
+  const type = String(payload.type || "");
+  /* wsWorkflowScrub1: stessa regola per la chat staff dei workflow — solo tipo + id conversazione
+     (+ id del messaggio eliminato, + stop del typing); il client ricarica i messaggi via API. */
+  if (type.startsWith("workflow_chat")) {
+    const out = { type, at: payload.at || new Date().toISOString() };
+    const dedupeKey = String(payload.dedupeKey || "").trim();
+    if (dedupeKey) out.dedupeKey = dedupeKey;
+    if (type === "workflow_chat_message_deleted" && payload.messageId) out.messageId = String(payload.messageId);
+    if (payload.stop === true) out.stop = true;
+    return out;
+  }
+  /* wsStaffActionScrub1: il WS è pubblico — "staffer X ha preso warn/depex" non deve uscire; il sito ricarica via API. */
+  if (type === "staff_profile_changed" || type === "staff_compiti_changed") {
+    const { action: _action, ...rest } = payload;
+    return rest;
+  }
+  if (!type.startsWith("web_ticket")) return payload;
+  const ticketId = String(payload.ticketId || payload.ticket?.id || "").trim();
+  const out = { type, at: payload.at || new Date().toISOString() };
+  if (ticketId) out.ticketId = ticketId;
+  if (payload.stop === true) out.stop = true;
+  return out;
+}
+
 function broadcastSiteRealtime(payload) {
   if (!wssSingleton || !payload || typeof payload !== "object") return;
   const OPEN = 1;
   let json;
   try {
-    json = JSON.stringify(payload);
+    json = JSON.stringify(scrubRealtimePayload(payload));
   } catch {
     return;
   }
@@ -73,12 +101,13 @@ function broadcastSiteRealtime(payload) {
 }
 
 function notifyExternalSiteRealtime(payload) {
-  if (!isTruthyEnv("SITE_API_EXTERNAL")) return;
   if (isTruthyEnv("SITE_API_PROCESS")) return;
   if (!payload || typeof payload !== "object") return;
+  /* notifWsWakeFast1: sempre ping loopback verso site-api (anche senza SITE_API_EXTERNAL).
+     I client WS stanno sul processo site-api; senza questo il fanout bots è un no-op. */
   const port = Number(process.env.SITE_API_PORT || 3020) || 3020;
   const secret = String(process.env.SITE_REALTIME_NOTIFY_SECRET || "local").trim() || "local";
-  const body = JSON.stringify(payload);
+  const body = JSON.stringify(scrubRealtimePayload(payload));
   void fetch(`http://127.0.0.1:${port}/webhooks/site-realtime/notify`, {
     method: "POST",
     headers: {
@@ -91,6 +120,24 @@ function notifyExternalSiteRealtime(payload) {
 
 function broadcastSiteSuggestionsChanged() {
   const payload = { type: "suggestions_changed", at: new Date().toISOString() };
+  broadcastSiteRealtime(payload);
+  notifyExternalSiteRealtime(payload);
+}
+
+/** Voto Top.gg / Discadia registrato → client su /vote/ ricarica subito (niente attesa cache/poll). */
+function broadcastSiteVotesChanged(extra = null) {
+  const payload = {
+    type: "votes_changed",
+    at: new Date().toISOString(),
+  };
+  try {
+    if (extra && typeof extra === "object") {
+      const uid = String(extra.userId || "").trim();
+      if (/^\d{17,20}$/.test(uid)) payload.userId = uid;
+      const platform = String(extra.platform || "").trim().toLowerCase();
+      if (platform === "topgg" || platform === "discadia") payload.platform = platform;
+    }
+  } catch (_) {}
   broadcastSiteRealtime(payload);
   notifyExternalSiteRealtime(payload);
 }
@@ -211,6 +258,65 @@ function broadcastSiteLiveStatsChanged() {
   notifyExternalSiteRealtime(payload);
 }
 
+/** Debounce join/leave burst → un solo ping stats homepage. */
+let __liveStatsDebounce = null;
+function broadcastSiteLiveStatsChangedDebounced(ms = 900) {
+  if (__liveStatsDebounce) clearTimeout(__liveStatsDebounce);
+  __liveStatsDebounce = setTimeout(() => {
+    __liveStatsDebounce = null;
+    broadcastSiteLiveStatsChanged();
+  }, Math.max(120, Number(ms) || 900));
+}
+
+function broadcastSiteLiveStreamChanged(extras = {}) {
+  const ex = extras && typeof extras === "object" ? extras : {};
+  const payload = {
+    type: "live_stream_changed",
+    platform: String(ex.platform || "").trim().toLowerCase() || undefined,
+    login: String(ex.login || ex.slug || "").trim() || undefined,
+    live: typeof ex.live === "boolean" ? ex.live : undefined,
+    at: new Date().toISOString(),
+  };
+  broadcastSiteRealtime(payload);
+  notifyExternalSiteRealtime(payload);
+}
+
+function broadcastSitePartnershipChanged(extras = {}) {
+  const ex = extras && typeof extras === "object" ? extras : {};
+  const payload = {
+    type: "partnership_changed",
+    guildId: String(ex.guildId || "").trim() || undefined,
+    action: String(ex.action || "").trim() || undefined,
+    at: new Date().toISOString(),
+  };
+  broadcastSiteRealtime(payload);
+  notifyExternalSiteRealtime(payload);
+}
+
+function broadcastSiteRankCardChanged(userId, extras = {}) {
+  const uid = String(userId || (extras && extras.userId) || "").trim();
+  const payload = {
+    type: "rank_card_changed",
+    userId: /^\d{17,20}$/.test(uid) ? uid : undefined,
+    action: String((extras && extras.action) || "").trim() || undefined,
+    at: new Date().toISOString(),
+  };
+  broadcastSiteRealtime(payload);
+  notifyExternalSiteRealtime(payload);
+}
+
+function broadcastSiteSerataChanged(extras = {}) {
+  const ex = extras && typeof extras === "object" ? extras : {};
+  const payload = {
+    type: "serata_changed",
+    action: String(ex.action || "").trim() || undefined,
+    userId: String(ex.userId || "").trim() || undefined,
+    at: new Date().toISOString(),
+  };
+  broadcastSiteRealtime(payload);
+  notifyExternalSiteRealtime(payload);
+}
+
 function broadcastSiteUiChanged(scope = "", extras = {}) {
   const ex = extras && typeof extras === "object" ? extras : {};
   const payload = {
@@ -282,6 +388,7 @@ function broadcastSiteMemberLeft(userId, guildId = "") {
 module.exports = {
   attachSiteSuggestionsWsServer,
   broadcastSiteSuggestionsChanged,
+  broadcastSiteVotesChanged,
   broadcastSiteNotificationsChanged,
   broadcastSiteReviewsChanged,
   broadcastSiteConfessionaleChanged,
@@ -292,6 +399,11 @@ module.exports = {
   broadcastSiteStaffCompitiChanged,
   broadcastSiteBoardsChanged,
   broadcastSiteLiveStatsChanged,
+  broadcastSiteLiveStatsChangedDebounced,
+  broadcastSiteLiveStreamChanged,
+  broadcastSitePartnershipChanged,
+  broadcastSiteRankCardChanged,
+  broadcastSiteSerataChanged,
   broadcastSiteUiChanged,
   broadcastSiteWebTicketsEvent,
   broadcastSiteMemberLeft,

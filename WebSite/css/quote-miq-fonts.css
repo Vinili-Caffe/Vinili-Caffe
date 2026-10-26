@@ -1,8 +1,0 @@
-@font-face {
-  font-family: "JiyunoTsubasa";
-  src: url("../fonts/quote/jiyu.woff2") format("woff2"),
-    url("../fonts/quote/jiyu.ttf") format("truetype");
-  font-weight: 400 700;
-  font-style: normal;
-  font-display: swap;
-}

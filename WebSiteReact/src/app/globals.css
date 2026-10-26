@@ -1,0 +1,333 @@
+@import "tailwindcss";
+
+/* Solo i token del tema: tutto lo stile vive nei componenti (classi Tailwind) */
+@theme {
+  --color-espresso: #0e0906;
+  --color-roast: #1a110c;
+  --color-mocha: #2a1c14;
+  --color-crema: #f4e9d8;
+  --color-sand: #c4a07a;
+  --color-caramel: #d99a5b;
+  --color-ember: #f0b46e;
+  /* carta e inchiostro: oggetti "fisici" (biglietti, lettere, scontrini, tracklist) uguali in entrambi i temi */
+  --color-paper: #f4e9d8;
+  --color-ink: #0e0906;
+
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-cormorant), ui-serif, Georgia, serif;
+  --font-script: var(--font-great-vibes), cursive;
+
+  /* Marquee (Magic UI): scorre di mezza striscia, il contenuto è duplicato */
+  --animate-marquee: marquee var(--marquee-duration, 60s) linear infinite;
+  /* Shiny Text: riflesso che attraversa il bollino ogni ~4s */
+  --animate-shine: shine 4s ease-in-out infinite;
+  @keyframes shine {
+    0%,
+    70% {
+      transform: translateX(0) skewX(-12deg);
+    }
+    100% {
+      transform: translateX(400%) skewX(-12deg);
+    }
+  }
+  @keyframes marquee {
+    to {
+      transform: translateX(calc(-50% - var(--marquee-gap, 1rem) / 2));
+    }
+  }
+}
+
+/* `light:` = solo col tema chiaro attivo (es. light:bg-roast/70) */
+@custom-variant light (&:where([data-vc-theme="light"] *, [data-vc-theme="light"]));
+
+/* Isola scura: testi sopra la foto scura (testate) restano col tema scuro anche in chiaro. */
+@utility scheme-dark {
+  color-scheme: dark;
+  --color-espresso: #0e0906;
+  --color-roast: #1a110c;
+  --color-mocha: #2a1c14;
+  --color-crema: #f4e9d8;
+  --color-sand: #c4a07a;
+  --color-caramel: #d99a5b;
+  --color-ember: #f0b46e;
+  color: var(--color-crema);
+}
+
+html {
+  color-scheme: dark;
+  scroll-behavior: smooth;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+/* Boot gate: niente flash footer-only prima del contenuto */
+html.vc-boot-hold {
+  overflow: hidden !important;
+}
+html.vc-boot-hold body {
+  overflow: hidden !important;
+}
+html.vc-boot-hold::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 2147483000;
+  pointer-events: none;
+  background: #0e0906;
+}
+html.vc-boot-hold footer {
+  visibility: hidden !important;
+}
+html[data-vc-theme="light"].vc-boot-hold::before,
+html[data-theme="light"].vc-boot-hold::before {
+  background: #efe6dc;
+}
+
+/* Sfondo semplice: niente attachment:fixed né multi-radial (costano GPU/CPU). */
+body {
+  background-color: #0e0906;
+  background-image: linear-gradient(180deg, #120c08 0%, #0e0906 45%, #120d09 100%);
+}
+
+/* Aria sotto PageHero: evita contenuto attaccato / tagliato (ombre, hover, decorazioni). */
+.vc-page-hero + * {
+  padding-top: 2.75rem;
+}
+@media (min-width: 640px) {
+  .vc-page-hero + * {
+    padding-top: 3.75rem;
+  }
+}
+
+html::-webkit-scrollbar,
+body::-webkit-scrollbar,
+*::-webkit-scrollbar {
+  width: 0 !important;
+  height: 0 !important;
+  display: none !important;
+}
+
+/* Range custom: track + thumb brand (niente look OS). */
+.vc-range {
+  background-image: linear-gradient(to right, var(--color-caramel, #d49150) 0 var(--vc-range, 0%), rgba(244, 233, 216, 0.1) var(--vc-range, 0%) 100%);
+}
+.vc-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 1rem;
+  height: 1rem;
+  margin-top: -0.25rem;
+  border-radius: 9999px;
+  background: var(--color-caramel, #d49150);
+  box-shadow: 0 0 0 2px rgba(14, 9, 6, 0.85);
+  cursor: pointer;
+}
+.vc-range::-webkit-slider-runnable-track {
+  height: 0.5rem;
+  border-radius: 9999px;
+  background: transparent;
+}
+.vc-range::-moz-range-thumb {
+  width: 1rem;
+  height: 1rem;
+  border: none;
+  border-radius: 9999px;
+  background: var(--color-caramel, #d49150);
+  box-shadow: 0 0 0 2px rgba(14, 9, 6, 0.85);
+  cursor: pointer;
+}
+.vc-range::-moz-range-track {
+  height: 0.5rem;
+  border-radius: 9999px;
+  background: transparent;
+}
+
+/* Cursori custom (come sito legacy): vinile = default, caffè = click, loading = busy */
+:root {
+  --vc-cursor-default: url("/images/musicrecordspin-cursor-static.png") 12 12, auto;
+  --vc-cursor-pointer: url("/images/coffe-cursor-static.png") 9 11, pointer;
+  --vc-cursor-wait: url("/images/vc-loading-cursor.png") 16 16, auto;
+}
+
+html.vc-site-cursor-ok,
+html.vc-site-cursor-ok body {
+  cursor: var(--vc-cursor-default);
+}
+html.vc-site-cursor-ok :where(
+  a,
+  button,
+  [role="button"],
+  summary,
+  label[for],
+  select,
+  input[type="button"],
+  input[type="submit"],
+  input[type="reset"],
+  input[type="checkbox"],
+  input[type="radio"],
+  .cursor-pointer
+) {
+  cursor: var(--vc-cursor-pointer) !important;
+}
+html.vc-site-cursor-ok :where(input:not([type="button"]):not([type="submit"]):not([type="reset"]):not([type="checkbox"]):not([type="radio"]), textarea, [contenteditable="true"]) {
+  cursor: text !important;
+}
+/* Grab / scrub sul giradischi: stesso caffè dei click (niente manina di sistema). */
+html.vc-site-cursor-ok :where(
+  .cursor-grab,
+  .cursor-grabbing,
+  .active\:cursor-grabbing:active,
+  .cursor-ew-resize
+) {
+  cursor: var(--vc-cursor-pointer) !important;
+}
+html.vc-site-cursor-ok :where(.cursor-crosshair) {
+  cursor: crosshair !important;
+}
+html.vc-site-cursor-ok :where(.cursor-not-allowed, :disabled, [aria-disabled="true"]) {
+  cursor: not-allowed !important;
+}
+html.vc-site-cursor-ok.vc-interaction-hold,
+html.vc-site-cursor-ok.vc-interaction-hold *,
+html.vc-site-cursor-ok :where(.is-loading, .is-saving, .is-refreshing, [aria-busy="true"]) {
+  cursor: var(--vc-cursor-wait) !important;
+}
+
+/*
+ * E12 — Motif espresso→cream inversion (allinea a WebSite/css/vc-theme-light.css).
+ * Remappa i token Tailwind: le classi bg-espresso / text-crema ecc. seguono il tema
+ * senza file CSS nuovi. Accenti caramel/ember restano caldi su entrambi i temi.
+ */
+html[data-vc-theme="light"],
+html[data-theme="light"] {
+  color-scheme: light;
+  --color-espresso: #efe6dc;
+  --color-roast: #faf6f0;
+  --color-mocha: #f3ebe3;
+  --color-crema: #2a1c14;
+  --color-sand: #8b6346;
+  /* caramello ed ember più scuri: testi e link leggibili sul fondo chiaro (contrasto ~4) */
+  --color-caramel: #9c5f2c;
+  --color-ember: #a8692f;
+}
+
+html[data-vc-theme="light"] body,
+html[data-theme="light"] body {
+  /* anche il colore di fondo: senza, oltre la fine della pagina (e nel rimbalzo dello scroll) restava nero */
+  background-color: #efe6dc;
+  background-image: linear-gradient(180deg, #f7f1ea 0%, #efe6dc 50%, #e8ddd0 100%);
+}
+
+/* Magic UI theme toggler — View Transitions */
+html[data-magicui-theme-vt="active"]::view-transition-old(root),
+html[data-magicui-theme-vt="active"]::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+html[data-magicui-theme-vt="active"]::view-transition-new(root) {
+  clip-path: var(--magicui-theme-vt-clip-from, circle(0% at 50% 50%));
+}
+
+/* Anteprima sito nell’iPhone: nasconde chrome e overlay */
+html.vc-phone-preview header,
+html.vc-phone-preview footer,
+html.vc-phone-preview [data-vc-chrome],
+html.vc-phone-preview .fixed {
+  display: none !important;
+}
+html.vc-phone-preview body {
+  overflow: auto !important;
+}
+
+/* ── Halloween FX (tutte le pagine, stagione 15 ott → 2 nov) ── */
+.vc-hw-fog {
+  background: linear-gradient(
+    to top,
+    rgba(255, 200, 150, 0.14) 0%,
+    rgba(180, 100, 40, 0.06) 40%,
+    transparent 100%
+  );
+  filter: blur(18px);
+  animation: vc-hw-fog-drift 18s ease-in-out infinite alternate;
+}
+.vc-hw-fog--slow {
+  animation-duration: 28s;
+  animation-direction: alternate-reverse;
+  filter: blur(28px);
+}
+@keyframes vc-hw-fog-drift {
+  from {
+    transform: translateX(-3%) scaleX(1.05);
+  }
+  to {
+    transform: translateX(4%) scaleX(1.12);
+  }
+}
+.vc-hw-eyes {
+  width: 52px;
+  height: 22px;
+  background:
+    radial-gradient(circle at 30% 50%, rgba(255, 160, 40, 0.85) 0 4px, transparent 5px),
+    radial-gradient(circle at 70% 50%, rgba(255, 160, 40, 0.85) 0 4px, transparent 5px);
+  filter: blur(0.4px);
+  opacity: 0.35;
+  animation: vc-hw-blink 7s ease-in-out infinite;
+}
+.vc-hw-eyes--right {
+  animation-delay: 2.4s;
+  opacity: 0.28;
+  transform: scale(0.85);
+}
+@keyframes vc-hw-blink {
+  0%,
+  42%,
+  48%,
+  100% {
+    opacity: 0.32;
+    transform: scaleY(1);
+  }
+  45% {
+    opacity: 0.05;
+    transform: scaleY(0.15);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .vc-hw-fog,
+  .vc-hw-eyes {
+    animation: none !important;
+  }
+}
+/* Capability gates — non citare utility Tailwind (.backdrop-blur, .blur-2xl…):
+   LightningCSS/TW le mangia. Usare substring [class*="…"] + classi vc-fx-*. */
+html[data-vc-cap-fog="0"] .vc-hw-fog {
+  filter: none !important;
+  animation: none !important;
+}
+html[data-vc-cap-blur="0"] .vc-ui-blur,
+html[data-vc-cap-blur="0"] [class*="backdrop-blur"] {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+html[data-vc-cap-blur="0"] [class*="blur-3xl"] {
+  filter: none !important;
+  opacity: 0.12 !important;
+}
+html[data-vc-cap-orbs="0"] .vc-fx-orb,
+html[data-vc-cap-orbs="0"] [class*="blur-2xl"] {
+  filter: none !important;
+  opacity: 0.14 !important;
+}
+html[data-vc-cap-ping="0"] .vc-fx-ping,
+html[data-vc-cap-ping="0"] [class*="animate-ping"] {
+  animation: none !important;
+  opacity: 0.85;
+}
+html[data-vc-fx-motion="0"] .vc-hw-fog,
+html[data-vc-fx-motion="0"] .vc-hw-eyes {
+  animation: none !important;
+}
+
+/* PiP Twitch/Kick in basso a sinistra: non coprire con le zucche */
+html[data-vc-live-pip] .vc-hw-pumpkins {
+  display: none !important;
+}

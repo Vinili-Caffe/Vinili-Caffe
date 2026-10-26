@@ -15,17 +15,34 @@ function getSanzioniChannelId() {
   return String(IDs.channels?.sanzioniUtenti || "1442569245878648924").trim();
 }
 
+function walkComponents(node, out) {
+  if (!node) return;
+  out.push(node);
+  const children = node?.components || node?.data?.components || [];
+  for (const child of children) walkComponents(child, out);
+}
+
 function iterMessageComponents(message) {
-  const rows = message?.components || [];
   const out = [];
-  for (const row of rows) {
-    for (const c of row?.components || []) out.push(c);
-  }
+  for (const row of message?.components || []) walkComponents(row, out);
   return out;
 }
 
 function componentCustomId(c) {
   return String(c?.customId || c?.custom_id || "");
+}
+
+function collectMessagePlainText(message) {
+  const parts = [];
+  const embedDesc = String(
+    message?.embeds?.[0]?.description || message?.embeds?.[0]?.data?.description || "",
+  );
+  if (embedDesc) parts.push(embedDesc);
+  for (const c of iterMessageComponents(message)) {
+    const content = String(c?.content || c?.data?.content || "").trim();
+    if (content) parts.push(content);
+  }
+  return parts.join("\n").toLowerCase();
 }
 
 function isModerationStickyPanelMessage(message) {
@@ -34,10 +51,8 @@ function isModerationStickyPanelMessage(message) {
   for (const c of iterMessageComponents(message)) {
     if (ids.has(componentCustomId(c))) return true;
   }
-  const desc = String(
-    message?.embeds?.[0]?.description || message?.embeds?.[0]?.data?.description || "",
-  ).toLowerCase();
-  return desc.includes("applicare") && desc.includes("sanzioni") && desc.includes("prove");
+  const text = collectMessagePlainText(message);
+  return text.includes("applicare") && text.includes("sanzioni") && text.includes("prove");
 }
 
 async function getSanzioniPanelRow(channelId) {
@@ -113,10 +128,18 @@ async function ensureModerationStickyPanel(client, channelRef) {
 
     // Already sticky at bottom → edit in place (no delete/recreate race).
     if (last && isModerationStickyPanelMessage(last)) {
-      await last.edit(payload).catch(() => null);
-      await saveSanzioniPanelMessageId(channel.id, last.id);
-      await deleteRecentModerationStickies(channel, last.id);
-      return last;
+      const { isComponentsV2Message } = require("../../../shared/discord/panelUpsertRuntime");
+      const { isComponentsV2Payload } = require("../Embeds/vcPageEmbedV2");
+      if (isComponentsV2Payload(payload) && !isComponentsV2Message(last)) {
+        await last.delete().catch(() => null);
+      } else {
+        const edited = await last.edit(payload).catch(() => null);
+        if (edited) {
+          await saveSanzioniPanelMessageId(channel.id, edited.id);
+          await deleteRecentModerationStickies(channel, edited.id);
+          return edited;
+        }
+      }
     }
 
     const panelRow = await getSanzioniPanelRow(channel.id);

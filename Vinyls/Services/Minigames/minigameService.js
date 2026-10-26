@@ -29,6 +29,7 @@ const {
   isHalloweenMinigameType,
   shouldUseHalloweenTheme,
   getHalloweenExclusiveAvailableTypes,
+  isWithinHalloweenCandyHours,
   getHalloweenQuizBank,
   getHalloweenMemoryEmojiBank,
   getHalloweenHangmanWords,
@@ -37,7 +38,20 @@ const {
   buildHalloweenMissingEmojiRound,
   buildHalloweenCountBatsRound,
 } = require("../../Utils/Minigames/halloweenMinigameHooks");
-const { addHalloweenCandy, resolveEventKey: resolveHalloweenCandyEventKey } = require("../Community/halloweenCandyService");
+const {
+  addHalloweenCandyWithPassAlong,
+  buildHalloweenCandyUnlockPayload,
+  resolveEventKey: resolveHalloweenCandyEventKey,
+} = require("../Community/halloweenCandyService");
+const {
+  buildTrickOrTreatRoundEmbed,
+  buildTrickOrTreatEndedEmbed,
+  buildTrickReplyEmbed,
+  buildAlreadyKnockedEmbed,
+  buildTrickOrTreatJumpUrl,
+  buildTrickOrTreatHintMessage,
+} = require("../../Utils/Minigames/halloweenTrickOrTreatUi");
+const { buildHalloweenFindGhostFoundEmbed } = require("../../Utils/Minigames/halloweenFindGhostUi");
 const { resolveHogwartsEventConfig, isEventWindowOpen } = require("../../Utils/Web/hogwartsSortingConfig");
 const { findSortingDoc, resolveSortedHouseId, resolveHouseIdFromMemberRoles, normalizeHogwartsHouseId: normalizeSortedHouseId } = require("../../Utils/Web/hogwartsSortingResolve");
 const { getHouseMeta } = require("../../Utils/Web/hogwartsSortingBank");
@@ -1535,30 +1549,33 @@ async function assessHogwartsScheduledSpawnReadyDetailed(cfg, client) {
     housePresence = await assessHogwartsHouseSpawnPresence(cfg, client);
     if (!housePresence.ok) blockers.push({ code: "house_gate", ...housePresence });
   }
-  const readyByActivity = isReadyByActivity(cfg, client);
-  const failsafeDue = isFailsafeDue(cfg);
-  if (!readyByActivity && !failsafeDue) {
-    const key = getActivityScopeKey(cfg);
-    const w = getActivityWindowMs(cfg);
-    const stats = getRecentActivityStats(key, w);
-    blockers.push({
-      code: "activity",
-      count: stats.count,
-      uniqueUsers: stats.uniqueUsers,
-      minMessagesEffective: computeAdaptiveMinMessages(cfg, client, stats),
-      minMessagesAnchor: getMinMessages(cfg),
-      failsafeDue: false,
-    });
-  }
-  const freshActivity = assessFreshSpawnChatActivity(cfg);
-  if (!freshActivity.ok && !freshActivity.skipped) {
-    blockers.push({
-      code: "fresh_chat_activity",
-      count: freshActivity.count,
-      uniqueUsers: freshActivity.uniqueUsers,
-      minMessages: freshActivity.minMessages,
-      windowMs: freshActivity.windowMs,
-    });
+  // Halloween: spawn senza gate attività (come richiesto per l’evento)
+  if (!cfg?.halloweenEventLive) {
+    const readyByActivity = isReadyByActivity(cfg, client);
+    const failsafeDue = isFailsafeDue(cfg);
+    if (!readyByActivity && !failsafeDue) {
+      const key = getActivityScopeKey(cfg);
+      const w = getActivityWindowMs(cfg);
+      const stats = getRecentActivityStats(key, w);
+      blockers.push({
+        code: "activity",
+        count: stats.count,
+        uniqueUsers: stats.uniqueUsers,
+        minMessagesEffective: computeAdaptiveMinMessages(cfg, client, stats),
+        minMessagesAnchor: getMinMessages(cfg),
+        failsafeDue: false,
+      });
+    }
+    const freshActivity = assessFreshSpawnChatActivity(cfg);
+    if (!freshActivity.ok && !freshActivity.skipped) {
+      blockers.push({
+        code: "fresh_chat_activity",
+        count: freshActivity.count,
+        uniqueUsers: freshActivity.uniqueUsers,
+        minMessages: freshActivity.minMessages,
+        windowMs: freshActivity.windowMs,
+      });
+    }
   }
   const available = getAvailableGameTypes(cfg);
   if (!available.length) blockers.push("no_game_types");
@@ -2174,7 +2191,11 @@ function hasAnyHouseChannelMinigameBusy() {
 }
 
 function hasAnyActiveMinigame() {
-  return activeGames.size > 0 || startingChannels.size > 0 || channelWinClosing.size > 0 || pendingGames.size > 0;
+  for (const [key, game] of activeGames.entries()) {
+    if (isTrickOrTreatMapKey(key) || game?.type === "halloweenTrickOrTreat") continue;
+    return true;
+  }
+  return startingChannels.size > 0 || channelWinClosing.size > 0 || pendingGames.size > 0;
 }
 
 function clearStaleMinigameChannelGame(channelId, client, cfg) {
@@ -2255,6 +2276,206 @@ async function closeStaleActiveMinigameChannel(client, cfg, channelId, game, cha
   return true;
 }
 
+/** ToT ≠ slot minigioco: chiave RAM + doc Mongo dedicati, così Impiccato/ecc. non li sovrascrivono. */
+const TOT_MAP_SUFFIX = "::halloweenTrickOrTreat";
+const TOT_STATE_SUFFIX = ":halloweenTrickOrTreat";
+
+function trickOrTreatMapKey(channelId) {
+  return `${String(channelId || "").trim()}${TOT_MAP_SUFFIX}`;
+}
+
+function trickOrTreatStateChannelId(channelId) {
+  return `${String(channelId || "").trim()}${TOT_STATE_SUFFIX}`;
+}
+
+function isTrickOrTreatMapKey(key) {
+  return String(key || "").endsWith(TOT_MAP_SUFFIX);
+}
+
+function realChannelIdFromTotMapKey(key) {
+  const k = String(key || "");
+  if (k.endsWith(TOT_MAP_SUFFIX)) return k.slice(0, -TOT_MAP_SUFFIX.length);
+  return k;
+}
+
+function getTrickOrTreatGame(channelId) {
+  const ch = String(channelId || "").trim();
+  if (!ch) return null;
+  const side = activeGames.get(trickOrTreatMapKey(ch));
+  if (side?.type === "halloweenTrickOrTreat") return side;
+  const legacy = activeGames.get(ch);
+  if (legacy?.type === "halloweenTrickOrTreat") return legacy;
+  return null;
+}
+
+async function saveTrickOrTreatGame(client, cfg, payload) {
+  const channelId = String(cfg?.channelId || "").trim();
+  if (!channelId) return;
+  await saveActiveGame(client, { ...cfg, channelId: trickOrTreatStateChannelId(channelId) }, payload);
+}
+
+async function clearTrickOrTreatGame(client, cfg, gameHint = null) {
+  const channelId = String(cfg?.channelId || "").trim();
+  if (!channelId) return;
+  const mapKey = trickOrTreatMapKey(channelId);
+  const game = gameHint || activeGames.get(mapKey) || null;
+  clearMinigameRoundTimers(game);
+  activeGames.delete(mapKey);
+  const legacy = activeGames.get(channelId);
+  if (legacy?.type === "halloweenTrickOrTreat") {
+    clearMinigameRoundTimers(legacy);
+    activeGames.delete(channelId);
+  }
+  let guildId = String(cfg?.guildId || "").trim();
+  if (!guildId) {
+    const channel = await getChannelCached(client, channelId);
+    guildId = String(channel?.guild?.id || "").trim();
+  }
+  if (!guildId) return;
+  await minigameStateDeleteOne({ guildId, channelId: trickOrTreatStateChannelId(channelId) }).catch(() => {});
+  // Migrazione legacy: ToT era sullo stesso doc del minigioco normale
+  const main = await minigameStateFindOneLean({ guildId, channelId }).catch(() => null);
+  if (main?.type === "halloweenTrickOrTreat") {
+    await minigameStateDeleteOne({ guildId, channelId }).catch(() => {});
+  }
+}
+
+function buildTrickOrTreatGameFromCustomId(wantId, cfg, messageId = null, messageCreatedTs = null) {
+  const rawTs = String(wantId || "").split(":")[1] || "";
+  let startedAt = Number(rawTs);
+  if (!Number.isFinite(startedAt) || startedAt <= 0) {
+    startedAt = Number(messageCreatedTs) || 0;
+  }
+  if (!Number.isFinite(startedAt) || startedAt <= 0) return null;
+  const durationMs = Math.max(60_000, Number(cfg?.halloweenTrickOrTreat?.durationMs || 900_000));
+  let endsAt = startedAt + durationMs;
+  const ageMs = Date.now() - startedAt;
+  // Troppo vecchio: messaggio orfano abbandonato
+  if (ageMs > durationMs + 45 * 60_000) return null;
+  // Bottone ancora lì ma timer scaduto (slot rubato da Impiccato): riapri 10 min
+  if (endsAt <= Date.now()) {
+    endsAt = Date.now() + Math.min(durationMs, 10 * 60_000);
+  }
+  return {
+    type: "halloweenTrickOrTreat",
+    rewardExp: normalizeRewardExp(cfg?.halloweenTrickOrTreat?.rewardExp ?? 100),
+    treatChancePercent: Math.max(0, Math.min(100, Number(cfg?.halloweenTrickOrTreat?.treatChancePercent ?? 80))),
+    candyOnTreat: Math.max(0, Math.floor(Number(cfg?.halloweenTrickOrTreat?.candyOnTreat ?? 1))),
+    claimedBy: {},
+    customId: String(wantId),
+    startedAt,
+    endsAt,
+    timeout: null,
+    hintTimeout: null,
+    hintSent: true,
+    gameMessageId: messageId || null,
+    multiClaim: true,
+    recovered: true,
+  };
+}
+
+function scheduleTrickOrTreatRoundTimers(client, cfg, channel, game) {
+  const channelId = String(cfg?.channelId || channel?.id || "").trim();
+  if (!channelId || !game || game.type !== "halloweenTrickOrTreat") return game;
+  const mapKey = trickOrTreatMapKey(channelId);
+  const guildId = String(cfg?.guildId || channel?.guild?.id || "").trim();
+  const remainingMs = Math.max(0, Number(game.endsAt || 0) - Date.now());
+  clearMinigameRoundTimers(game);
+  if (remainingMs <= 0) return game;
+  const timeout = setTimeout(async () => {
+    const live = activeGames.get(mapKey);
+    if (!live || live.type !== "halloweenTrickOrTreat" || live.customId !== game.customId) return;
+    clearMinigameRoundTimers(live);
+    activeGames.delete(mapKey);
+    await clearTrickOrTreatGame(client, { ...cfg, channelId, guildId }, live).catch(() => {});
+    const claimed = Object.keys(live.claimedBy || {}).length;
+    if (channel) {
+      await sendMinigameMessage(channel, {
+        embeds: [buildTrickOrTreatEndedEmbed(claimed)],
+      }).catch(() => {});
+    }
+    setTimeout(() => {
+      void maybeStartRandomGame(client, false).catch((err) => warnMinigame(err));
+    }, 1500).unref?.();
+  }, remainingMs);
+  timeout.unref?.();
+  game.timeout = timeout;
+  return game;
+}
+
+async function mountRestoredTrickOrTreat(client, cfg, channel, state) {
+  const channelId = String(cfg?.channelId || "").trim();
+  const guildId = String(cfg?.guildId || channel?.guild?.id || "").trim();
+  if (!channelId || !state || state.type !== "halloweenTrickOrTreat") return null;
+  const mapKey = trickOrTreatMapKey(channelId);
+  const parsed = parseStateTarget(state.target);
+  const customId = state.customId || parsed?.customId || `minigame_trickortreat:restored:${Date.now()}`;
+  const existing = activeGames.get(mapKey);
+  if (existing?.type === "halloweenTrickOrTreat" && String(existing.customId || "") === String(customId)) {
+    return existing;
+  }
+  const endsAt = new Date(state.endsAt).getTime();
+  if (!Number.isFinite(endsAt) || endsAt <= Date.now()) {
+    await clearTrickOrTreatGame(client, { ...cfg, channelId, guildId });
+    return null;
+  }
+  const startedAt = new Date(state.startedAt).getTime();
+  const game = {
+    type: "halloweenTrickOrTreat",
+    rewardExp: Number(state.rewardExp || 0),
+    treatChancePercent: Number(parsed?.treatChancePercent ?? 80),
+    candyOnTreat: Number(parsed?.candyOnTreat ?? 1),
+    claimedBy: parsed?.claimedBy && typeof parsed.claimedBy === "object" ? { ...parsed.claimedBy } : {},
+    customId,
+    startedAt,
+    endsAt,
+    timeout: null,
+    hintTimeout: null,
+    hintSent: true,
+    gameMessageId: state.gameMessageId || null,
+    multiClaim: true,
+  };
+  scheduleTrickOrTreatRoundTimers(client, { ...cfg, channelId, guildId }, channel, game);
+  activeGames.set(mapKey, game);
+  if (activeGames.get(channelId)?.type === "halloweenTrickOrTreat") {
+    activeGames.delete(channelId);
+  }
+  await saveTrickOrTreatGame(client, { ...cfg, channelId, guildId }, {
+    type: "halloweenTrickOrTreat",
+    target: JSON.stringify({
+      treatChancePercent: game.treatChancePercent,
+      candyOnTreat: game.candyOnTreat,
+      claimedBy: game.claimedBy,
+      customId,
+    }),
+    rewardExp: game.rewardExp,
+    startedAt: new Date(startedAt),
+    endsAt: new Date(endsAt),
+    gameMessageId: game.gameMessageId,
+    customId,
+  });
+  if (guildId) {
+    const main = await minigameStateFindOneLean({ guildId, channelId }).catch(() => null);
+    if (main?.type === "halloweenTrickOrTreat") {
+      await minigameStateDeleteOne({ guildId, channelId }).catch(() => {});
+    }
+  }
+  return game;
+}
+
+async function restoreTrickOrTreatSideSlot(client, cfg, channel) {
+  const channelId = String(cfg?.channelId || "").trim();
+  const guildId = String(cfg?.guildId || "").trim();
+  if (!channelId || !guildId || !channel) return;
+  if (getTrickOrTreatGame(channelId)) return;
+  const state = await minigameStateFindOneLean({
+    guildId,
+    channelId: trickOrTreatStateChannelId(channelId),
+  }).catch(() => null);
+  if (!state || state.type !== "halloweenTrickOrTreat") return;
+  await mountRestoredTrickOrTreat(client, { ...cfg, channelId, guildId }, channel, state);
+}
+
 async function saveActiveGame(client, cfg, payload) {
   const channelId = cfg?.channelId;
   if (!channelId) return;
@@ -2280,7 +2501,11 @@ async function saveActiveGame(client, cfg, payload) {
   if (Number.isFinite(endsAt) && endsAt > Date.now()) {
     try {
       const { extendChatHubQuietUntil } = require("../../../shared/discord/chatHubBotPacing");
-      extendChatHubQuietUntil(channelId, endsAt + 90_000);
+      // Quiet sul canale reale anche se lo state è sul doc ToT sintetico
+      const quietCh = String(channelId).endsWith(TOT_STATE_SUFFIX)
+        ? String(channelId).slice(0, -TOT_STATE_SUFFIX.length)
+        : channelId;
+      extendChatHubQuietUntil(quietCh, endsAt + 90_000);
     } catch (_) {}
   }
 }
@@ -8099,11 +8324,10 @@ function buildMinigameTimeoutEmbedForGame(game) {
         .setColor(MINIGAME_EMBED_COLOR)
         .setTitle("Tempo scaduto 🦇")
         .setDescription(`I pipistrelli erano **${game.displayAnswer || game.count || "?"}**.`);
-    case "halloweenTrickOrTreat":
-      return new EmbedBuilder()
-        .setColor(MINIGAME_EMBED_COLOR)
-        .setTitle("Trick or Treat terminato 🎃")
-        .setDescription("Il round è scaduto.");
+    case "halloweenTrickOrTreat": {
+      const claimed = Object.keys(game?.claimedBy || {}).length;
+      return buildTrickOrTreatEndedEmbed(claimed);
+    }
     default:
       return null;
   }
@@ -8172,6 +8396,7 @@ function buildGameSnapshotFromPersistedState(state) {
     case "halloweenMissingEmoji":
       game.display = parsed?.display || "";
       game.missing = parsed?.missing || "";
+      game.choices = Array.isArray(parsed?.choices) ? parsed.choices : [];
       game.displayAnswer = parsed?.missing || parsed?.answers?.[0] || "?";
       game.answers = parsed?.answers || [];
       return game;
@@ -8182,7 +8407,7 @@ function buildGameSnapshotFromPersistedState(state) {
       game.answers = parsed?.answers || [];
       return game;
     case "halloweenTrickOrTreat":
-      game.treatChancePercent = Number(parsed?.treatChancePercent ?? 55);
+      game.treatChancePercent = Number(parsed?.treatChancePercent ?? 80);
       game.candyOnTreat = Number(parsed?.candyOnTreat ?? 1);
       game.claimedBy = parsed?.claimedBy && typeof parsed.claimedBy === "object" ? parsed.claimedBy : {};
       game.customId = parsed?.customId || state.customId || "";
@@ -14160,7 +14385,7 @@ async function startHalloweenFindGhostGame(client, cfg) {
       .setStyle(ButtonStyle.Primary),
   );
   const gameMessage = await sendMinigameMessage(targetChannel, {
-    embeds: [buildFindBotButtonEmbed(rewardExp, durationMs).setTitle("👻 Fantasma trovato?")],
+    embeds: [buildHalloweenFindGhostFoundEmbed(rewardExp, durationMs)],
     components: [row],
   }).catch(() => null);
   if (!gameMessage) return false;
@@ -14206,13 +14431,19 @@ async function startHalloweenMissingEmojiGame(client, cfg) {
   if (!channel) return false;
   await sendMinigameRolePing(channel, cfg);
   const minutes = Math.max(1, Math.round(durationMs / 60000));
+  const choices = Array.isArray(pick.choices) && pick.choices.length ? pick.choices : [pick.missing];
+  const choicesLine = choices.map((e, i) => `**${i + 1}.** ${e}`).join("   ");
   const embed = new EmbedBuilder()
     .setColor(MINIGAME_EMBED_COLOR)
     .setTitle("Quale emoji manca? 🎃")
     .setDescription(
       [
         `<:VC_Halloween:1558964785113206824> Sequenza: **${pick.display}**`,
-        `Scrivi l'emoji mancante per vincere **${rewardExp} exp**.`,
+        "",
+        `Scegli tra queste (scrivi l'emoji):`,
+        choicesLine,
+        "",
+        `Chi indovina vince **${rewardExp} exp**.`,
         `> <a:VC_pixeltime:1482535344103620771> Hai ${formatItalianMinutesBold(minutes)}.`,
       ].join("\n"),
     );
@@ -14222,6 +14453,7 @@ async function startHalloweenMissingEmojiGame(client, cfg) {
     type: "halloweenMissingEmoji",
     display: pick.display,
     missing: pick.missing,
+    choices,
     answers: pick.answers,
     displayAnswer: pick.missing,
     rewardExp,
@@ -14233,7 +14465,7 @@ async function startHalloweenMissingEmojiGame(client, cfg) {
   });
   await saveActiveGame(client, cfg, {
     type: "halloweenMissingEmoji",
-    target: JSON.stringify({ display: pick.display, missing: pick.missing, answers: pick.answers }),
+    target: JSON.stringify({ display: pick.display, missing: pick.missing, answers: pick.answers, choices }),
     rewardExp,
     startedAt: new Date(),
     endsAt: new Date(Date.now() + durationMs),
@@ -14293,28 +14525,54 @@ async function startHalloweenCountBatsGame(client, cfg) {
   return true;
 }
 
-async function startHalloweenTrickOrTreatGame(client, cfg) {
+async function startHalloweenTrickOrTreatGame(client, cfg, options = {}) {
   const channelId = cfg.channelId;
-  if (!channelId || activeGames.has(channelId)) return false;
-  const rewardExp = normalizeRewardExp(cfg?.halloweenTrickOrTreat?.rewardExp ?? 100);
-  const durationMs = Math.max(60000, Number(cfg?.halloweenTrickOrTreat?.durationMs || 180000));
-  const treatChancePercent = Math.max(0, Math.min(100, Number(cfg?.halloweenTrickOrTreat?.treatChancePercent ?? 55)));
-  const candyOnTreat = Math.max(0, Math.floor(Number(cfg?.halloweenTrickOrTreat?.candyOnTreat ?? 1)));
+  const mapKey = trickOrTreatMapKey(channelId);
+  // Solo un ToT per canale; Impiccato/altri minigiochi possono restare attivi in parallelo.
+  if (!channelId || activeGames.has(mapKey) || getTrickOrTreatGame(channelId)) return false;
   const channel = await getChannelCached(client, channelId);
   if (!channel) return false;
-  await sendMinigameRolePing(channel, cfg);
+  const guildId = String(cfg.guildId || channel.guild?.id || "").trim();
+  const skipAlternate = Boolean(options.skipAlternate);
+  if (!options.skipHourGate && !isWithinHalloweenCandyHours(Date.now())) {
+    logMinigameDebug("skip: trick-or-treat outside candy hours 08-24", { channelId });
+    return false;
+  }
+
+  // Alternanza con caccia emoji: se tocca hunt, spawn hunt al posto del TOT
+  if (!skipAlternate && guildId) {
+    try {
+      const {
+        peekNextCandyKind,
+        KIND_HUNT,
+      } = require("../../Utils/Minigames/halloweenCandyAlternate");
+      const next = await peekNextCandyKind(guildId);
+      if (next === KIND_HUNT) {
+        const hunt = require("../Community/halloweenEmojiHuntService");
+        const huntCfg = hunt.getHalloweenEmojiHuntConfig(client);
+        const result = await hunt.spawnHunt(
+          client,
+          huntCfg,
+          guildId,
+          `tot-slot:${Date.now()}`,
+          channelId,
+          { skipAlternate: true },
+        );
+        return Boolean(result?.ok);
+      }
+    } catch (err) {
+      warnMinigame(err);
+    }
+  }
+
+  const rewardExp = normalizeRewardExp(cfg?.halloweenTrickOrTreat?.rewardExp ?? 100);
+  const durationMs = Math.max(60000, Number(cfg?.halloweenTrickOrTreat?.durationMs || 900000));
+  const treatChancePercent = Math.max(0, Math.min(100, Number(cfg?.halloweenTrickOrTreat?.treatChancePercent ?? 80)));
+  const candyOnTreat = Math.max(0, Math.floor(Number(cfg?.halloweenTrickOrTreat?.candyOnTreat ?? 1)));
+  await sendMinigameRolePing(channel, { ...cfg, guildId: guildId || cfg.guildId });
   const minutes = Math.max(1, Math.round(durationMs / 60000));
   const customId = `minigame_trickortreat:${Date.now()}`;
-  const embed = new EmbedBuilder()
-    .setColor(MINIGAME_EMBED_COLOR)
-    .setTitle("Trick or Treat! 🍬")
-    .setDescription(
-      [
-        `<:VC_Halloween:1558964785113206824> Premi il pulsante: **dolcetto** = caramella (+${candyOnTreat}) e **${rewardExp} exp**, **scherzetto** = nulla.`,
-        `Ognuno può giocare **una sola volta** in questo round.`,
-        `> <a:VC_pixeltime:1482535344103620771> Round aperto per ${formatItalianMinutesBold(minutes)}.`,
-      ].join("\n"),
-    );
+  const embed = buildTrickOrTreatRoundEmbed({ minutes });
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId(customId)
@@ -14324,48 +14582,71 @@ async function startHalloweenTrickOrTreatGame(client, cfg) {
   );
   const gameMessage = await sendMinigameMessage(channel, { embeds: [embed], components: [row] }).catch(() => null);
   if (!gameMessage) return false;
-  const timeout = setTimeout(async () => {
-    const game = activeGames.get(channelId);
-    if (!game || game.type !== "halloweenTrickOrTreat") return;
-    clearMinigameRoundTimers(game);
-    activeGames.delete(channelId);
-    await clearActiveGame(client, cfg).catch(() => {});
-    const claimed = Object.keys(game.claimedBy || {}).length;
-    await sendMinigameMessage(channel, {
-      embeds: [
-        new EmbedBuilder()
-          .setColor(MINIGAME_EMBED_COLOR)
-          .setTitle("Trick or Treat terminato 🎃")
-          .setDescription(`Round chiuso. Partecipanti: **${claimed}**.`),
-      ],
-    }).catch(() => {});
-  }, durationMs);
-  timeout.unref?.();
-  activeGames.set(channelId, {
+  const startedAt = Date.now();
+  const endsAt = startedAt + durationMs;
+  const game = {
     type: "halloweenTrickOrTreat",
     rewardExp,
     treatChancePercent,
     candyOnTreat,
     claimedBy: {},
     customId,
-    startedAt: Date.now(),
-    endsAt: Date.now() + durationMs,
-    timeout,
+    startedAt,
+    endsAt,
+    timeout: null,
     hintTimeout: null,
+    hintSent: false,
     gameMessageId: gameMessage.id,
     multiClaim: true,
-  });
-  await saveActiveGame(client, cfg, {
+  };
+  scheduleTrickOrTreatRoundTimers(client, { ...cfg, guildId: guildId || cfg.guildId, channelId }, channel, game);
+  const midDelay = Math.max(5_000, Math.floor(durationMs / 2));
+  const hintTimeout = setTimeout(async () => {
+    const live = activeGames.get(mapKey);
+    if (!live || live.type !== "halloweenTrickOrTreat" || live.hintSent) return;
+    live.hintSent = true;
+    const remainingMs = Math.max(0, Number(live.endsAt || 0) - Date.now());
+    const claimed = Object.keys(live.claimedBy || {}).length;
+    const roleId = String(cfg?.roleId || IDs.roles?.Minigames || "").trim();
+    const jumpUrl = buildTrickOrTreatJumpUrl(guildId, channelId, live.gameMessageId || gameMessage.id);
+    const hint = buildTrickOrTreatHintMessage({ remainingMs, claimedCount: claimed, jumpUrl });
+    await channel
+      .send({
+        content: roleId ? `<@&${roleId}>` : undefined,
+        ...hint,
+        allowedMentions: roleId ? { roles: [roleId] } : { parse: [] },
+      })
+      .catch(() => {});
+  }, midDelay);
+  hintTimeout.unref?.();
+  game.hintTimeout = hintTimeout;
+  activeGames.set(mapKey, game);
+  // Pulisci eventuale ToT legacy sullo slot minigioco (non toccare hangman/altro).
+  const legacy = activeGames.get(channelId);
+  if (legacy?.type === "halloweenTrickOrTreat") activeGames.delete(channelId);
+  await saveTrickOrTreatGame(client, { ...cfg, guildId: guildId || cfg.guildId, channelId }, {
     type: "halloweenTrickOrTreat",
     target: JSON.stringify({ treatChancePercent, candyOnTreat, claimedBy: {}, customId }),
     rewardExp,
-    startedAt: new Date(),
-    endsAt: new Date(Date.now() + durationMs),
+    startedAt: new Date(startedAt),
+    endsAt: new Date(endsAt),
     gameMessageId: gameMessage.id,
     customId,
   });
-  markSent(channelId);
+  if (guildId) {
+    try {
+      const { commitCandyKind, KIND_TOT } = require("../../Utils/Minigames/halloweenCandyAlternate");
+      await commitCandyKind(guildId, KIND_TOT);
+    } catch (_) {}
+  }
+  // Dal loop caramelle: non resettare il cooldown minigames (ToT ≠ slot minigioco).
+  if (!options.skipMarkSent) markSent(channelId);
   return true;
+}
+
+/** Usato dalla caccia emoji quando l’alternanza riserva un round TOT. */
+async function startHalloweenTrickOrTreatGameForAlternate(client, cfg) {
+  return startHalloweenTrickOrTreatGame(client, cfg, { skipAlternate: true, skipMarkSent: true });
 }
 
 async function handleHalloweenTrickOrTreatButton(interaction, game, cfg) {
@@ -14373,21 +14654,47 @@ async function handleHalloweenTrickOrTreatButton(interaction, game, cfg) {
   if (!userId) return true;
   if (!game.claimedBy || typeof game.claimedBy !== "object") game.claimedBy = {};
   if (game.claimedBy[userId]) {
-    await interaction.reply({ content: "🎃 Hai già bussato in questo round!", flags: 1 << 6 }).catch(() => {});
+    await interaction
+      .reply({ embeds: [buildAlreadyKnockedEmbed()], flags: 1 << 6 })
+      .catch(() => {});
     return true;
   }
   game.claimedBy[userId] = true;
+  // Persisti claimedBy sul doc ToT dedicato (non sovrascrivere Impiccato/slot minigioco)
+  try {
+    const chId = String(interaction.channelId || cfg?.channelId || "").trim();
+    if (chId) {
+      await saveTrickOrTreatGame(interaction.client, { ...cfg, channelId: chId, guildId: interaction.guildId || cfg?.guildId }, {
+        type: "halloweenTrickOrTreat",
+        target: JSON.stringify({
+          treatChancePercent: game.treatChancePercent,
+          candyOnTreat: game.candyOnTreat,
+          claimedBy: game.claimedBy,
+          customId: game.customId,
+        }),
+        rewardExp: game.rewardExp,
+        startedAt: new Date(game.startedAt || Date.now()),
+        endsAt: new Date(game.endsAt || Date.now()),
+        gameMessageId: game.gameMessageId || null,
+        customId: game.customId,
+      });
+    }
+  } catch (_) {}
   const roll = Math.random() * 100;
-  const treat = roll < Number(game.treatChancePercent ?? 55);
+  const treat = roll < Number(game.treatChancePercent ?? 80);
   if (!treat) {
-    await interaction.reply({ content: "👻 **Scherzetto!** Questa volta niente…", flags: 1 << 6 }).catch(() => {});
+    await interaction
+      .reply({ embeds: [buildTrickReplyEmbed()], flags: 1 << 6 })
+      .catch(() => {});
     return true;
   }
-  let candyLine = "";
-  let candyThumb = "";
+  let candyUnlock = null;
+  let candyCompleteLine = "";
+  let passAlongPublic = null;
   const candyAmt = Math.max(0, Math.floor(Number(game.candyOnTreat ?? 1)));
+  let candyResult = null;
   if (candyAmt > 0) {
-    const candy = await addHalloweenCandy({
+    candyResult = await addHalloweenCandyWithPassAlong({
       guildId: interaction.guild.id,
       userId,
       amount: candyAmt,
@@ -14396,17 +14703,21 @@ async function handleHalloweenTrickOrTreatButton(interaction, game, cfg) {
       source: "halloweenTrickOrTreat",
       client: interaction.client,
     });
-    if (candy?.ok) {
-      const first = candy.firstAward;
-      const nameBit = first?.name ? ` **${first.name}**` : " caramella";
-      const collBit =
-        Number(candy.ownedCount) > 0
-          ? ` · collezione **${candy.ownedCount}/${candy.total}**`
-          : "";
-      candyLine = ` <:VC_Halloween:1558964785113206824>${nameBit}${collBit}`;
-      candyThumb = String(first?.imageUrl || "").trim();
-    } else if (candy?.code === "collection_complete") {
-      candyLine = ` · collezione completa **${candy.ownedCount}/${candy.total}** 🎃`;
+    if (candyResult?.code === "passed_along" && candyResult?.passedToUserId) {
+      candyCompleteLine = `🎃 Sacchetto pieno — la caramella vola a <@${candyResult.passedToUserId}>!`;
+      candyUnlock = buildHalloweenCandyUnlockPayload({
+        candyResult,
+        userId: candyResult.passedToUserId,
+        expGained: 0,
+      });
+      passAlongPublic = {
+        content: `🍬 <@${userId}> ha il sacchetto pieno — la caramella passa a <@${candyResult.passedToUserId}>!`,
+        embeds: candyUnlock?.embeds,
+        components: candyUnlock?.components,
+        allowedMentions: { users: [userId, candyResult.passedToUserId] },
+      };
+    } else if (candyResult?.code === "collection_complete") {
+      candyCompleteLine = `🎃 Sacchetto pieno — collezione **${candyResult.ownedCount}/${candyResult.total}**!`;
     }
   }
   const baseExp = normalizeRewardExp(game.rewardExp || 0);
@@ -14434,20 +14745,50 @@ async function handleHalloweenTrickOrTreatButton(interaction, game, cfg) {
   } catch (err) {
     warnMinigame(err);
   }
-  const expBit = effectiveExp > 0 ? ` +**${effectiveExp}** exp` : "";
-  const replyPayload = {
-    content: `🍬 **Dolcetto!**${expBit}${candyLine}`,
-    flags: 1 << 6,
-  };
-  if (candyThumb) {
+  if (candyResult?.ok && candyResult?.code !== "passed_along") {
+    candyUnlock = buildHalloweenCandyUnlockPayload({
+      candyResult,
+      userId,
+      expGained: effectiveExp,
+    });
+  }
+  const replyPayload = { flags: 1 << 6 };
+  if (candyResult?.code === "passed_along") {
     replyPayload.embeds = [
       new EmbedBuilder()
-        .setColor(MINIGAME_EMBED_COLOR)
-        .setThumbnail(candyThumb)
-        .setDescription("Nuova caramella nel profilo!"),
+        .setColor(0xff7a18)
+        .setTitle("Dolcetto!")
+        .setDescription(
+          [
+            candyCompleteLine,
+            effectiveExp > 0 ? `✨ +**${effectiveExp}** exp` : "",
+          ]
+            .filter(Boolean)
+            .join("\n"),
+        ),
+    ];
+  } else if (candyUnlock) {
+    replyPayload.embeds = candyUnlock.embeds;
+    replyPayload.components = candyUnlock.components;
+  } else {
+    replyPayload.embeds = [
+      new EmbedBuilder()
+        .setColor(0xff7a18)
+        .setTitle("Dolcetto!")
+        .setDescription(
+          [
+            candyCompleteLine || "🍬 La porta si apre… e trovi un premio!",
+            effectiveExp > 0 ? `✨ +**${effectiveExp}** exp` : "",
+          ]
+            .filter(Boolean)
+            .join("\n"),
+        ),
     ];
   }
   await interaction.reply(replyPayload).catch(() => {});
+  if (passAlongPublic) {
+    await interaction.channel?.send?.(passAlongPublic).catch(() => {});
+  }
   return true;
 }
 
@@ -14509,15 +14850,17 @@ async function safeStartGameByType(client, cfg, gameType) {
 
 async function maybeStartRandomGame(client, force = false) {
   const cfg = getConfig(client);
+  let keepPending = false;
+  let startedOk = false;
   if (!cfg?.enabled) {
     logMinigameDebug("skip: disabled");
     logMaybeStartSkip(cfg, client, "disabled");
-    return;
+    return false;
   }
   if (!cfg.channelId) {
     logMinigameDebug("skip: missing channelId");
     logMaybeStartSkip(cfg, client, "missing_channel_id");
-    return;
+    return false;
   }
   if (!cfg.guildId) {
     const cachedCh = getChannelSafe(client, cfg.channelId);
@@ -14530,7 +14873,7 @@ async function maybeStartRandomGame(client, force = false) {
   if (startingChannels.has(cfg.channelId)) {
     logMinigameDebug("skip: already-starting", { channelId: cfg.channelId });
     logMaybeStartSkip(cfg, client, "already_starting");
-    return;
+    return false;
   }
   startingChannels.add(cfg.channelId);
   clearRolePingSentThisStart(cfg.channelId);
@@ -14541,9 +14884,11 @@ async function maybeStartRandomGame(client, force = false) {
         await closeStaleActiveMinigameChannel(client, cfg, cfg.channelId, game);
         logMinigameDebug("cleanup: stale active game", { channelId: cfg.channelId, type: game?.type || null });
       } else {
+        // ToT (caramelle) o altro round ancora vivo: non bruciare lo slot — ritenta dopo.
+        keepPending = true;
         logMinigameDebug("skip: active game still running", { channelId: cfg.channelId, type: game?.type || null, endsAt: game?.endsAt || null });
         logMaybeStartSkip(cfg, client, "active_game_running", { type: game?.type || null, endsAt: game?.endsAt || null });
-        return;
+        return false;
       }
     }
 
@@ -14554,25 +14899,28 @@ async function maybeStartRandomGame(client, force = false) {
       String(cfg.channelId || "") === resolveMainChatMinigameChannelId() &&
       hasAnyHouseChannelMinigameBusy()
     ) {
+      keepPending = true;
       logMinigameDebug("skip: house channel minigame active", { channelId: cfg.channelId });
       logMaybeStartSkip(cfg, client, "house_channel_busy");
-      return;
+      return false;
     }
 
     const now = new Date();
     if (!force) {
       const windowStart = cfg?.timeWindow?.start;
       const windowEnd = cfg?.timeWindow?.end;
-      if (!cfg.hogwartsEventLive && !isWithinAllowedWindow(now, windowStart, windowEnd)) {
+      // Halloween: minigiochi sempre (no finestra globale); ToT/react hanno gate ore a parte
+      if (!cfg.hogwartsEventLive && !cfg.halloweenEventLive && !isWithinAllowedWindow(now, windowStart, windowEnd)) {
         logMinigameDebug("skip: outside time window", { channelId: cfg.channelId });
         logMaybeStartSkip(cfg, client, "outside_time_window");
-        return;
+        return false;
       }
       if (!canStartByInterval(cfg, client)) {
         const lastSent = lastSentAtByChannel.get(cfg.channelId) || 0;
+        keepPending = true;
         logMinigameDebug("skip: cooldown not elapsed", { channelId: cfg.channelId });
         logMaybeStartSkip(cfg, client, "interval_cooldown", { lastSentAt: lastSent, msSinceLastSent: Date.now() - lastSent });
-        return;
+        return false;
       }
       if (cfg.hogwartsEventLive && isHogwartsExclusiveMinigamesEnabled(client, cfg)) {
         const housePresence = await assessHogwartsHouseSpawnPresence(cfg, client);
@@ -14584,48 +14932,54 @@ async function maybeStartRandomGame(client, force = false) {
             unsortedActiveUsers: housePresence.unsortedActiveUsers,
           });
           logMaybeStartSkip(cfg, client, "house_gate", housePresence);
-          return;
+          keepPending = true;
+          return false;
         }
       }
-      const readyByActivity = isReadyByActivity(cfg, client);
-      const failsafeDue = isFailsafeDue(cfg);
-      if (!readyByActivity && !failsafeDue) {
-        standbyChannels.add(cfg.channelId);
-        const w = getActivityWindowMs(cfg);
-        const key = getActivityScopeKey(cfg);
-        const stats = getRecentActivityStats(key, w);
-        const effectiveMin = computeAdaptiveMinMessages(cfg, client, stats);
-        logMinigameDebug("skip: insufficient activity", {
-          channelId: cfg.channelId,
-          count: stats.count,
-          uniqueUsers: stats.uniqueUsers,
-          minMessagesEffective: effectiveMin,
-          minMessagesAnchor: getMinMessages(cfg),
-        });
-        logMaybeStartSkip(cfg, client, "insufficient_activity", {
-          count: stats.count,
-          uniqueUsers: stats.uniqueUsers,
-          minMessagesEffective: effectiveMin,
-        });
-        return;
-      }
-      const freshActivity = assessFreshSpawnChatActivity(cfg);
-      if (!freshActivity.ok && !freshActivity.skipped) {
-        standbyChannels.add(cfg.channelId);
-        logMinigameDebug("skip: insufficient fresh chat activity", {
-          channelId: cfg.channelId,
-          count: freshActivity.count,
-          uniqueUsers: freshActivity.uniqueUsers,
-          minMessages: freshActivity.minMessages,
-          windowMs: freshActivity.windowMs,
-        });
-        logMaybeStartSkip(cfg, client, "fresh_chat_activity", {
-          count: freshActivity.count,
-          uniqueUsers: freshActivity.uniqueUsers,
-          minMessages: freshActivity.minMessages,
-          windowMs: freshActivity.windowMs,
-        });
-        return;
+      // Durante Halloween: niente requisiti attività / fresh chat (spawn sempre allo slot)
+      if (!cfg.halloweenEventLive) {
+        const readyByActivity = isReadyByActivity(cfg, client);
+        const failsafeDue = isFailsafeDue(cfg);
+        if (!readyByActivity && !failsafeDue) {
+          standbyChannels.add(cfg.channelId);
+          const w = getActivityWindowMs(cfg);
+          const key = getActivityScopeKey(cfg);
+          const stats = getRecentActivityStats(key, w);
+          const effectiveMin = computeAdaptiveMinMessages(cfg, client, stats);
+          logMinigameDebug("skip: insufficient activity", {
+            channelId: cfg.channelId,
+            count: stats.count,
+            uniqueUsers: stats.uniqueUsers,
+            minMessagesEffective: effectiveMin,
+            minMessagesAnchor: getMinMessages(cfg),
+          });
+          logMaybeStartSkip(cfg, client, "insufficient_activity", {
+            count: stats.count,
+            uniqueUsers: stats.uniqueUsers,
+            minMessagesEffective: effectiveMin,
+          });
+          keepPending = true;
+          return false;
+        }
+        const freshActivity = assessFreshSpawnChatActivity(cfg);
+        if (!freshActivity.ok && !freshActivity.skipped) {
+          standbyChannels.add(cfg.channelId);
+          logMinigameDebug("skip: insufficient fresh chat activity", {
+            channelId: cfg.channelId,
+            count: freshActivity.count,
+            uniqueUsers: freshActivity.uniqueUsers,
+            minMessages: freshActivity.minMessages,
+            windowMs: freshActivity.windowMs,
+          });
+          logMaybeStartSkip(cfg, client, "fresh_chat_activity", {
+            count: freshActivity.count,
+            uniqueUsers: freshActivity.uniqueUsers,
+            minMessages: freshActivity.minMessages,
+            windowMs: freshActivity.windowMs,
+          });
+          keepPending = true;
+          return false;
+        }
       }
     }
 
@@ -14633,7 +14987,7 @@ async function maybeStartRandomGame(client, force = false) {
     if (!channel) {
       logMinigameDebug("skip: target channel not found", { channelId: cfg.channelId });
       logMaybeStartSkip(cfg, client, "channel_not_found");
-      return;
+      return false;
     }
     cfg.guildId = String(channel?.guild?.id || cfg.guildId || "");
     if (cfg.hogwartsEventLive && isHogwartsExclusiveMinigamesEnabled(client, cfg)) {
@@ -14644,14 +14998,14 @@ async function maybeStartRandomGame(client, force = false) {
     if (!available.length) {
       logMinigameDebug("skip: no available game types", { channelId: cfg.channelId });
       logMaybeStartSkip(cfg, client, "no_available_game_types");
-      return;
+      return false;
     }
     const tried = new Set();
     let pending = pendingGames.get(cfg.channelId);
 
     while (tried.size < available.length) {
       const gameType = pending?.type || (await getNextGameType(client, cfg));
-      if (!gameType) return;
+      if (!gameType) return false;
       if (tried.has(gameType)) {
         pending = null;
         continue;
@@ -14688,7 +15042,8 @@ async function maybeStartRandomGame(client, force = false) {
         }
         logMinigameDebug("start: game started", { channelId: cfg.channelId, gameType, force });
         logMinigameSpawn("maybeStart: game started", { channelId: cfg.channelId, gameType, force });
-        return;
+        startedOk = true;
+        return true;
       }
       if (result && result.skipToNext) {
         logMinigameDebug("retry: game skipped to next type", { channelId: cfg.channelId, gameType });
@@ -14703,10 +15058,11 @@ async function maybeStartRandomGame(client, force = false) {
     }
     logMinigameDebug("skip: all game types exhausted", { channelId: cfg.channelId, tried: Array.from(tried.values()) });
     logMaybeStartSkip(cfg, client, "all_game_types_exhausted", { tried: Array.from(tried.values()) });
+    return false;
   } finally {
     startingChannels.delete(cfg.channelId);
     clearRolePingSentThisStart(cfg.channelId);
-    if (cfg?.channelId) pendingGames.delete(cfg.channelId);
+    if (cfg?.channelId && !keepPending && !startedOk) pendingGames.delete(cfg.channelId);
   }
 }
 
@@ -14751,8 +15107,27 @@ function getActiveGameForChannel(channelId) {
 async function sweepExpiredMinigames(client) {
   const cfg = getConfig(client);
   if (!cfg?.enabled) return;
-  for (const [channelId, game] of [...activeGames.entries()]) {
+  for (const [mapKey, game] of [...activeGames.entries()]) {
     if (!isStaleOrInvalidActiveGame(game)) continue;
+    if (game?.type === "halloweenTrickOrTreat" || isTrickOrTreatMapKey(mapKey)) {
+      const realCh = isTrickOrTreatMapKey(mapKey)
+        ? realChannelIdFromTotMapKey(mapKey)
+        : String(mapKey || "").trim();
+      const closeCfg = { ...cfg, channelId: realCh };
+      if (!closeCfg.guildId && game?.guildId) closeCfg.guildId = String(game.guildId);
+      const channel = await getChannelCached(client, realCh);
+      clearMinigameRoundTimers(game);
+      activeGames.delete(mapKey);
+      await clearTrickOrTreatGame(client, closeCfg, game).catch((err) => warnMinigame(err));
+      const claimed = Object.keys(game?.claimedBy || {}).length;
+      if (channel) {
+        await sendMinigameMessage(channel, {
+          embeds: [buildTrickOrTreatEndedEmbed(claimed)],
+        }).catch(() => {});
+      }
+      continue;
+    }
+    const channelId = String(mapKey || "").trim();
     const closeCfg = { ...cfg, channelId };
     if (!closeCfg.guildId && game?.guildId) closeCfg.guildId = String(game.guildId);
     await closeStaleActiveMinigameChannel(client, closeCfg, channelId, game).catch((err) => warnMinigame(err));
@@ -14897,9 +15272,11 @@ function scheduleMinigameLoopTick(client) {
           if (!type) return;
           pendingGames.set(cfgTick.channelId, { type, createdAt: Date.now() });
         }
-        await maybeStartRandomGame(client, false);
-      } finally {
-        lastMinigameSlotKey = slotKey;
+        const started = await maybeStartRandomGame(client, false);
+        // Se il canale è occupato (es. ToT caramelle), non bruciare lo slot: ritenta al prossimo tick.
+        if (started) lastMinigameSlotKey = slotKey;
+      } catch (slotErr) {
+        global.logger?.error?.("[MINIGAMES] slot start failed", slotErr);
       }
     } catch (err) {
       global.logger?.error?.("[MINIGAMES] minigame loop tick", err);
@@ -14908,6 +15285,170 @@ function scheduleMinigameLoopTick(client) {
   }, ms);
   if (typeof timer.unref === "function") timer.unref();
   loopIntervals.set(client, timer);
+}
+
+const HALLOWEEN_SHOWCASE_DEDUPE = "halloween_minigames_showcase_force_v1";
+const halloweenShowcaseRunning = new WeakSet();
+
+async function processHalloweenMinigamesShowcaseForce(client) {
+  if (!client || halloweenShowcaseRunning.has(client)) return;
+  let doc = null;
+  try {
+    const { SiteDocument, SITE_DOCUMENT_TYPE } = require("../../Schemas/Community/communitySchemas");
+    doc = await SiteDocument.findOne({
+      docType: SITE_DOCUMENT_TYPE.HOGWARTS_REACT_PRESS,
+      dedupeKey: HALLOWEEN_SHOWCASE_DEDUPE,
+      "rawWebhook.pending": true,
+    })
+      .lean()
+      .catch(() => null);
+  } catch (_) {
+    return;
+  }
+  if (!doc?.rawWebhook?.pending) return;
+  halloweenShowcaseRunning.add(client);
+
+  const raw = doc.rawWebhook || {};
+  const guildId = String(raw.guildId || "").trim();
+  const channelId = String(raw.channelId || "").trim();
+  const types = Array.isArray(raw.types) ? raw.types.map((t) => String(t || "").trim()).filter(Boolean) : [];
+  const holdMs = Math.max(2500, Math.min(15000, Number(raw.holdMs || 4000)));
+  const includeHunt = raw.includeHunt !== false;
+
+  try {
+    const { SiteDocument, SITE_DOCUMENT_TYPE } = require("../../Schemas/Community/communitySchemas");
+    await SiteDocument.findOneAndUpdate(
+      { guildId: doc.guildId, docType: SITE_DOCUMENT_TYPE.HOGWARTS_REACT_PRESS, dedupeKey: HALLOWEEN_SHOWCASE_DEDUPE },
+      { $set: { "rawWebhook.pending": false, "rawWebhook.startedAtMs": Date.now(), updatedAt: new Date() } },
+    ).catch(() => null);
+
+    if (!guildId || !channelId || !types.length) {
+      global.logger?.warn?.("[MINIGAMES] halloween showcase: missing guild/channel/types");
+      return;
+    }
+
+    const baseCfg = getConfig(client);
+    const showcaseCfg = {
+      ...baseCfg,
+      channelId,
+      guildId,
+      halloweenEventLive: true,
+      halloweenExclusiveDuringEvent: true,
+      halloweenQuiz: { ...(baseCfg.halloweenQuiz || {}), durationMs: 120000 },
+      halloweenMissingEmoji: { ...(baseCfg.halloweenMissingEmoji || {}), durationMs: 120000 },
+      halloweenCountBats: { ...(baseCfg.halloweenCountBats || {}), durationMs: 120000 },
+      halloweenFindGhost: { ...(baseCfg.halloweenFindGhost || {}), durationMs: 120000 },
+      halloweenTrickOrTreat: { ...(baseCfg.halloweenTrickOrTreat || {}), durationMs: 120000 },
+      hangman: { ...(baseCfg.hangman || {}), durationMs: 120000 },
+      guessYear: { ...(baseCfg.guessYear || {}), durationMs: 120000 },
+      completeVerse: { ...(baseCfg.completeVerse || {}), durationMs: 120000 },
+      memoryEmoji: { ...(baseCfg.memoryEmoji || {}), durationMs: 120000, displayMs: 5000 },
+    };
+
+    const results = [];
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+    for (const type of types) {
+      try {
+        clearGameForChannel(channelId, client, guildId);
+        await clearActiveGame(client, showcaseCfg).catch(() => {});
+        await sleep(600);
+        let started = false;
+        let note = null;
+        if (type === "halloweenTrickOrTreat") {
+          started = Boolean(await startHalloweenTrickOrTreatGame(client, showcaseCfg, { skipAlternate: true }));
+        } else {
+          const out = await safeStartGameByType(client, showcaseCfg, type);
+          started = out === true || out?.started === true;
+        }
+        // Showcase test: se "trova fantasma" non trova canali mirror, posta comunque annuncio + preview bottone
+        if (!started && type === "halloweenFindGhost") {
+          try {
+            const ch = await getChannelCached(client, channelId);
+            if (ch?.send) {
+              const rewardExp = normalizeRewardExp(showcaseCfg?.halloweenFindGhost?.rewardExp ?? 200);
+              const durationMs = Math.max(60000, Number(showcaseCfg?.halloweenFindGhost?.durationMs || 120000));
+              const findBotAttachment = buildPromptImageAttachment(
+                "Trova il fantasma",
+                ["Cerca il messaggio nascosto in un canale del server.", "Clicca il pulsante quando lo trovi!"],
+                "halloween_find_ghost",
+                "",
+                client,
+                false,
+              );
+              const embed = buildFindBotEmbed(rewardExp, durationMs)
+                .setTitle("Trova il fantasma 👻")
+                .setDescription(
+                  [
+                    `<:VC_Halloween:1558964785113206824> Un fantasma si è nascosto in un canale del server!`,
+                    `<:VC_EXP:1482534670896730143> Chi lo trova vince **${rewardExp} exp**.`,
+                    `> <a:VC_pixeltime:1482535344103620771> Hai ${formatItalianMinutesBold(Math.max(1, Math.round(durationMs / 60000)))} per cercarlo.`,
+                  ].join("\n"),
+                );
+              if (findBotAttachment) embed.setImage(`attachment://${findBotAttachment.name}`);
+              await sendMinigameRolePing(ch, showcaseCfg);
+              await sendMinigameMessage(ch, {
+                embeds: [embed],
+                files: findBotAttachment ? [findBotAttachment] : [],
+              }).catch(() => null);
+              // Preview del messaggio nascosto (sul test non c’è canale hide)
+              const previewRow = new ActionRowBuilder().addComponents(
+                new ButtonBuilder()
+                  .setCustomId(`minigame_findghost:preview:${Date.now()}`)
+                  .setEmoji("<:VC_Halloween:1558964785113206824>")
+                  .setLabel("Ho trovato il fantasma!")
+                  .setStyle(ButtonStyle.Primary)
+                  .setDisabled(true),
+              );
+              await sendMinigameMessage(ch, {
+                content: "_Preview messaggio nascosto (sul test non c’è canale hide)_",
+                embeds: [buildHalloweenFindGhostFoundEmbed(rewardExp, durationMs)],
+                components: [previewRow],
+              }).catch(() => null);
+              started = true;
+              note = "announce_only_no_hide_channel";
+            }
+          } catch (err) {
+            warnMinigame(err);
+          }
+        }
+        results.push({ type, ok: Boolean(started), ...(note ? { note } : {}) });
+        global.logger?.info?.("[MINIGAMES] halloween showcase", { type, ok: Boolean(started), channelId, note });
+        await sleep(holdMs);
+        clearGameForChannel(channelId, client, guildId);
+        await clearActiveGame(client, showcaseCfg).catch(() => {});
+      } catch (err) {
+        results.push({ type, ok: false, err: err?.message || String(err) });
+        warnMinigame(err);
+      }
+    }
+
+    if (includeHunt) {
+      try {
+        const hunt = require("../Community/halloweenEmojiHuntService");
+        const huntCfg = hunt.getHalloweenEmojiHuntConfig(client);
+        const huntOut = await hunt.spawnHunt(
+          client,
+          { ...huntCfg, activeDurationMs: Math.min(Number(huntCfg.activeDurationMs || 900000), 180000) },
+          guildId,
+          `showcase:${Date.now()}`,
+          channelId,
+          { skipAlternate: true },
+        );
+        results.push({ type: "halloweenEmojiHunt", ok: Boolean(huntOut?.ok) });
+      } catch (err) {
+        results.push({ type: "halloweenEmojiHunt", ok: false, err: err?.message || String(err) });
+        warnMinigame(err);
+      }
+    }
+
+    await SiteDocument.findOneAndUpdate(
+      { guildId: doc.guildId, docType: SITE_DOCUMENT_TYPE.HOGWARTS_REACT_PRESS, dedupeKey: HALLOWEEN_SHOWCASE_DEDUPE },
+      { $set: { "rawWebhook.results": results, "rawWebhook.finishedAtMs": Date.now(), updatedAt: new Date() } },
+    ).catch(() => null);
+  } finally {
+    halloweenShowcaseRunning.delete(client);
+  }
 }
 
 function startMinigameLoop(client) {
@@ -14922,6 +15463,14 @@ function startMinigameLoop(client) {
     hogwartsExclusive: isHogwartsExclusiveMinigamesEnabled(client, cfg),
   });
   scheduleMinigameLoopTick(client);
+  const showcaseTimer = setInterval(() => {
+    void processHalloweenMinigamesShowcaseForce(client).catch((err) => warnMinigame(err));
+  }, 8_000);
+  showcaseTimer.unref?.();
+  client._halloweenShowcaseTimer = showcaseTimer;
+  setTimeout(() => {
+    void processHalloweenMinigamesShowcaseForce(client).catch((err) => warnMinigame(err));
+  }, 4_000).unref?.();
 }
 
 async function forceStartMinigame(client) {
@@ -14933,6 +15482,94 @@ async function forceStartMinigame(client) {
   if (!type) return;
   pendingGames.set(cfg.channelId, { type, createdAt: Date.now() });
   await maybeStartRandomGame(client, true);
+}
+
+/**
+ * Piccola chance di caramella su vittoria minigame (non TOT/caccia).
+ * Stesso meccanismo unica + pass-along se collezione completa.
+ */
+async function maybeRollHalloweenCandyDrop({ client, guild, userId, cfg, game }) {
+  const gid = String(guild?.id || "").trim();
+  const uid = String(userId || "").trim();
+  if (!client || !gid || !uid) return null;
+  const gameType = String(game?.type || "").trim();
+  if (gameType === "halloweenTrickOrTreat") return null;
+  if (!isHalloweenEventLiveForMinigames(client, Date.now(), gid)) return null;
+
+  const dropCfg =
+    (cfg?.halloweenCandyDrop && typeof cfg.halloweenCandyDrop === "object" ? cfg.halloweenCandyDrop : null) ||
+    (client?.config?.minigames?.halloweenCandyDrop && typeof client.config.minigames.halloweenCandyDrop === "object"
+      ? client.config.minigames.halloweenCandyDrop
+      : null) ||
+    {};
+  if (dropCfg.enabled === false) return null;
+  const chance = Math.max(0, Math.min(100, Number(dropCfg.chancePercent ?? 6)));
+  if (!(chance > 0) || Math.random() * 100 >= chance) return null;
+  const amount = Math.max(1, Math.floor(Number(dropCfg.amount ?? 1)));
+
+  try {
+    const candyResult = await addHalloweenCandyWithPassAlong({
+      guildId: gid,
+      userId: uid,
+      amount,
+      eventKey: resolveHalloweenCandyEventKey(client),
+      reason: "minigame_win_drop",
+      source: `minigame:${gameType || "unknown"}`,
+      client,
+    });
+    if (!candyResult) return null;
+    if (candyResult.code === "passed_along" && candyResult.passedToUserId) {
+      const unlock = buildHalloweenCandyUnlockPayload({
+        candyResult,
+        userId: candyResult.passedToUserId,
+        expGained: 0,
+      });
+      return {
+        code: "passed_along",
+        candyResult,
+        unlock,
+        passedFromUserId: uid,
+        passedToUserId: String(candyResult.passedToUserId),
+      };
+    }
+    if (candyResult.ok) {
+      const unlock = buildHalloweenCandyUnlockPayload({
+        candyResult,
+        userId: uid,
+        expGained: 0,
+      });
+      return { code: "ok", candyResult, unlock, passedToUserId: null };
+    }
+    if (candyResult.code === "collection_complete") {
+      return { code: "collection_complete", candyResult, unlock: null, passedToUserId: null };
+    }
+  } catch (err) {
+    warnMinigame(err);
+  }
+  return null;
+}
+
+function mergeHalloweenCandyDropIntoMessage(basePayload, award, winnerUserId) {
+  const drop = award?.halloweenCandyDrop;
+  if (!drop) return basePayload || {};
+  const out = { ...(basePayload || {}) };
+  const embeds = Array.isArray(out.embeds) ? out.embeds.slice() : [];
+  const components = Array.isArray(out.components) ? out.components.slice() : [];
+  if (drop.unlock?.embeds?.length) embeds.push(...drop.unlock.embeds);
+  if (drop.unlock?.components?.length) components.push(...drop.unlock.components);
+  out.embeds = embeds;
+  if (components.length) out.components = components;
+  if (drop.code === "passed_along" && drop.passedToUserId) {
+    const line = `🍬 <@${winnerUserId}> ha il sacchetto pieno — la caramella passa a <@${drop.passedToUserId}>!`;
+    out.content = out.content ? `${out.content}\n${line}` : line;
+    const users = new Set([
+      ...(out.allowedMentions?.users || []),
+      String(winnerUserId || "").trim(),
+      String(drop.passedToUserId),
+    ].filter(Boolean));
+    out.allowedMentions = { ...(out.allowedMentions || {}), users: [...users] };
+  }
+  return out;
 }
 
 async function awardMinigameWinToUser({
@@ -15022,7 +15659,14 @@ async function awardMinigameWinToUser({
       houseId: podiumMeta?.houseId || houseAward?.houseId || "",
     }
     : null;
-  return { effectiveExp, nextTotal, details, member };
+  const halloweenCandyDrop = await maybeRollHalloweenCandyDrop({
+    client,
+    guild,
+    userId,
+    cfg,
+    game,
+  });
+  return { effectiveExp, nextTotal, details, member, halloweenCandyDrop };
 }
 
 async function finishMinigameRoundClose(client, cfg, game, options = {}) {
@@ -15051,7 +15695,15 @@ async function acknowledgeHogwartsPodiumButtonWin(interaction, award = null) {
     award.nextTotal,
     award.details,
   );
-  await interaction.followUp({ embeds: [embed], flags: 1 << 6 }).catch(() => { });
+  await interaction
+    .followUp(
+      mergeHalloweenCandyDropIntoMessage(
+        { embeds: [embed], flags: 1 << 6 },
+        award,
+        interaction.user.id,
+      ),
+    )
+    .catch(() => { });
 }
 
 function buildHogwartsPodiumRejectContent(reg) {
@@ -15190,9 +15842,17 @@ async function handleMinigameWin(message, game, cfg) {
         channelId: message.channel?.id || message.channelId || null,
       });
       await reactMinigameWin(message);
-      await message.reply({
-        embeds: [buildWinEmbed(message.author.id, award.effectiveExp, award.nextTotal, award.details)],
-      }).catch(() => { });
+      await message
+        .reply(
+          mergeHalloweenCandyDropIntoMessage(
+            {
+              embeds: [buildWinEmbed(message.author.id, award.effectiveExp, award.nextTotal, award.details)],
+            },
+            award,
+            message.author.id,
+          ),
+        )
+        .catch(() => { });
       if (award.member) {
         await handleExpReward(client, award.member, award.nextTotal);
       }
@@ -15506,7 +16166,10 @@ async function handleMinigameButtonWin(interaction, game, cfg) {
     const winEmbed = buildWinEmbed(interaction.user.id, award.effectiveExp, award.nextTotal, award.details);
     const mainChannel = await getChannelCached(client, cfg.channelId);
     if (mainChannel) {
-      await sendMinigameMessage(mainChannel, { embeds: [winEmbed] }).catch(() => { });
+      await sendMinigameMessage(
+        mainChannel,
+        mergeHalloweenCandyDropIntoMessage({ embeds: [winEmbed] }, award, interaction.user.id),
+      ).catch(() => { });
     }
     await interaction.reply({
       content: "<a:VC_Events:1482706144953897223> Hai vinto!",
@@ -15971,7 +16634,14 @@ async function handleMinigameMessage(message, client) {
 
   if (game.type === "halloweenMissingEmoji") {
     const guess = String(content || "").trim();
-    if (guess && game.answers?.some((a) => String(a) === guess || guess.includes(String(a)))) {
+    const choices = Array.isArray(game.choices) ? game.choices : [];
+    const asIndex = Number.parseInt(guess, 10);
+    const fromNumber =
+      Number.isFinite(asIndex) && asIndex >= 1 && asIndex <= choices.length ? choices[asIndex - 1] : null;
+    const matched =
+      (guess && game.answers?.some((a) => String(a) === guess || guess.includes(String(a)))) ||
+      (fromNumber && game.answers?.some((a) => String(a) === String(fromNumber)));
+    if (matched) {
       await handleMinigameWin(message, game, cfg);
       return true;
     }
@@ -16433,7 +17103,125 @@ ${game.previewUrl}`,
   }
 
   if (String(interaction.customId || "").startsWith("minigame_trickortreat:")) {
-    const totGame = activeGames.get(cfg.channelId);
+    const wantId = String(interaction.customId || "");
+    const chId = String(interaction.channelId || cfg.channelId || "").trim();
+    const mapKey = trickOrTreatMapKey(chId);
+    let totGame = getTrickOrTreatGame(chId);
+    if (!totGame || totGame.customId !== wantId) {
+      totGame = null;
+      for (const g of activeGames.values()) {
+        if (g && g.type === "halloweenTrickOrTreat" && String(g.customId || "") === wantId) {
+          totGame = g;
+          break;
+        }
+      }
+    }
+    const mountTot = (game) => {
+      if (!game || !chId) return null;
+      scheduleTrickOrTreatRoundTimers(
+        interaction.client,
+        { ...cfg, channelId: chId, guildId: interaction.guildId || cfg.guildId },
+        interaction.channel,
+        game,
+      );
+      activeGames.set(mapKey, game);
+      const legacy = activeGames.get(chId);
+      if (legacy?.type === "halloweenTrickOrTreat") activeGames.delete(chId);
+      return game;
+    };
+    // Rehydrate da doc ToT dedicato (o legacy sullo slot minigioco se ancora ToT)
+    if (!totGame && chId) {
+      try {
+        const guildId = String(interaction.guildId || "").trim();
+        if (guildId) {
+          let state = await minigameStateFindOneLean({
+            guildId,
+            channelId: trickOrTreatStateChannelId(chId),
+          }).catch(() => null);
+          if (!state || state.type !== "halloweenTrickOrTreat") {
+            const main = await minigameStateFindOneLean({ guildId, channelId: chId }).catch(() => null);
+            if (main?.type === "halloweenTrickOrTreat") state = main;
+          }
+          if (state?.type === "halloweenTrickOrTreat") {
+            const parsed = parseStateTarget(state.target);
+            const customId = state.customId || parsed?.customId || wantId;
+            if (customId === wantId) {
+              const endsAt = new Date(state.endsAt).getTime();
+              if (endsAt > Date.now()) {
+                totGame = mountTot({
+                  type: "halloweenTrickOrTreat",
+                  rewardExp: Number(state.rewardExp || 0),
+                  treatChancePercent: Number(parsed?.treatChancePercent ?? 80),
+                  candyOnTreat: Number(parsed?.candyOnTreat ?? 1),
+                  claimedBy: parsed?.claimedBy && typeof parsed.claimedBy === "object" ? { ...parsed.claimedBy } : {},
+                  customId,
+                  startedAt: new Date(state.startedAt).getTime(),
+                  endsAt,
+                  timeout: null,
+                  gameMessageId: state.gameMessageId || interaction.message?.id || null,
+                  multiClaim: true,
+                });
+                await saveTrickOrTreatGame(
+                  interaction.client,
+                  { ...cfg, channelId: chId, guildId },
+                  {
+                    type: "halloweenTrickOrTreat",
+                    target: JSON.stringify({
+                      treatChancePercent: totGame.treatChancePercent,
+                      candyOnTreat: totGame.candyOnTreat,
+                      claimedBy: totGame.claimedBy,
+                      customId,
+                    }),
+                    rewardExp: totGame.rewardExp,
+                    startedAt: new Date(totGame.startedAt),
+                    endsAt: new Date(totGame.endsAt),
+                    gameMessageId: totGame.gameMessageId,
+                    customId,
+                  },
+                ).catch(() => {});
+              }
+            }
+          }
+        }
+      } catch (err) {
+        warnMinigame(err);
+      }
+    }
+    // Recovery immediato: Impiccato ha rubato lo slot — riattiva dal customId / timestamp messaggio
+    if (!totGame && chId) {
+      const recovered = buildTrickOrTreatGameFromCustomId(
+        wantId,
+        cfg,
+        interaction.message?.id || null,
+        interaction.message?.createdTimestamp || null,
+      );
+      if (recovered) {
+        totGame = mountTot(recovered);
+        await saveTrickOrTreatGame(
+          interaction.client,
+          { ...cfg, channelId: chId, guildId: interaction.guildId || cfg.guildId },
+          {
+            type: "halloweenTrickOrTreat",
+            target: JSON.stringify({
+              treatChancePercent: recovered.treatChancePercent,
+              candyOnTreat: recovered.candyOnTreat,
+              claimedBy: {},
+              customId: wantId,
+            }),
+            rewardExp: recovered.rewardExp,
+            startedAt: new Date(recovered.startedAt),
+            endsAt: new Date(recovered.endsAt),
+            gameMessageId: recovered.gameMessageId,
+            customId: wantId,
+          },
+        ).catch(() => {});
+        global.logger?.info?.("[MINIGAMES] ToT recovered from button customId (slot was stolen)", {
+          channelId: chId,
+          customId: wantId,
+          endsAt: recovered.endsAt,
+        });
+      }
+    }
     if (!totGame || totGame.type !== "halloweenTrickOrTreat" || interaction.customId !== totGame.customId) {
       await interaction
         .reply({
@@ -16443,7 +17231,8 @@ ${game.previewUrl}`,
         .catch(() => {});
       return true;
     }
-    await handleHalloweenTrickOrTreatButton(interaction, totGame, cfg);
+    const totCfg = { ...cfg, channelId: chId || cfg.channelId, guildId: interaction.guildId || cfg.guildId };
+    await handleHalloweenTrickOrTreatButton(interaction, totGame, totCfg);
     return true;
   }
 
@@ -16681,9 +17470,13 @@ async function restoreActiveGames(client) {
   if (!guildId) return;
   if (!channel) channel = await getChannelCached(client, cfg.channelId);
   await loadRotationState(client, { ...cfg, guildId }, guildId);
+  const restoreCfg = { ...cfg, guildId };
+  // ToT su slot dedicato: resta attivo anche se Impiccato occupa lo slot minigioco.
+  if (channel?.guild) {
+    await restoreTrickOrTreatSideSlot(client, restoreCfg, channel).catch((err) => warnMinigame(err));
+  }
   const state = await minigameStateFindOneLean({ guildId, channelId: cfg.channelId, }).catch(() => null);
   if (!state) return;
-  const restoreCfg = { ...cfg, guildId };
   if (restoreCfg.hogwartsEventLive && isHogwartsExclusiveMinigamesEnabled(client, restoreCfg) && !isHogwartsEventMinigameType(state.type, restoreCfg)) {
     await clearActiveGame(client, restoreCfg);
     return;
@@ -17024,35 +17817,15 @@ async function restoreActiveGames(client) {
       missing: parsed?.missing,
       count: parsed?.count,
       display: parsed?.display,
+      choices: Array.isArray(parsed?.choices) ? parsed.choices : snapshot.choices || [],
       answers: parsed?.answers || snapshot.answers,
       displayAnswer: snapshot.displayAnswer,
     });
     return;
   }
   if (state.type === "halloweenTrickOrTreat") {
-    const parsed = parseStateTarget(state.target);
-    const customId = state.customId || parsed?.customId || `minigame_trickortreat:restored:${Date.now()}`;
-    const timeout = setTimeout(async () => {
-      const game = activeGames.get(cfg.channelId);
-      if (!game || game.type !== "halloweenTrickOrTreat") return;
-      clearMinigameRoundTimers(game);
-      activeGames.delete(cfg.channelId);
-      await clearActiveGame(client, cfg).catch(() => {});
-    }, remainingMs);
-    timeout.unref?.();
-    activeGames.set(cfg.channelId, {
-      type: "halloweenTrickOrTreat",
-      rewardExp: Number(state.rewardExp || 0),
-      treatChancePercent: Number(parsed?.treatChancePercent ?? 55),
-      candyOnTreat: Number(parsed?.candyOnTreat ?? 1),
-      claimedBy: parsed?.claimedBy && typeof parsed.claimedBy === "object" ? parsed.claimedBy : {},
-      customId,
-      startedAt: new Date(state.startedAt).getTime(),
-      endsAt,
-      timeout,
-      gameMessageId: state.gameMessageId || null,
-      multiClaim: true,
-    });
+    // Legacy: ToT era sullo slot minigioco → migra sul side slot
+    await mountRestoredTrickOrTreat(client, restoreCfg, channel, state);
     return;
   }
   if (state.type === "hogwartsQuiz") {
@@ -17612,10 +18385,17 @@ async function handleFindBotVoiceWin(client, guild, member, game, cfg) {
     const winEmbed = buildWinEmbed(member.id, award.effectiveExp, award.nextTotal, award.details);
     const mainChannel = await getChannelCached(client, channelId);
     if (mainChannel) {
-      await sendMinigameMessage(mainChannel, {
-        content: `${member}`,
-        embeds: [winEmbed],
-      }).catch(() => {});
+      await sendMinigameMessage(
+        mainChannel,
+        mergeHalloweenCandyDropIntoMessage(
+          {
+            content: `${member}`,
+            embeds: [winEmbed],
+          },
+          award,
+          member.id,
+        ),
+      ).catch(() => {});
     }
     if (award.member) {
       await handleExpReward(client, award.member, award.nextTotal);
@@ -17665,4 +18445,4 @@ async function handleMinigameVoiceState(oldState, newState, client) {
   return handleFindBotVoiceWin(client, guild, member, active.game, active.cfg);
 }
 
-module.exports = { startMinigameLoop, forceStartMinigame, restoreActiveGames, bootstrapMinigameScheduler, handleMinigameMessage, handleMinigameButton, handleMinigameReaction, handleMinigameVoiceState, shouldDeferTtsLeaveForFindBotVoiceMinigame, hasFindBotVoiceSession, clearGameForChannel, isMinigameFloodExemptChannel, isMinigameChannelBusy, isMainChatMinigameChannelBusy, hasAnyHouseChannelMinigameBusy, hasAnyActiveMinigame, spawnHouseChannelMinigame, getActiveGameForChannel, getConfig, pickObservationTowerTier, isMinigameSnipeSuppressed, pickSnipeEntryForChannel, redactSnipeContentForMinigame, suppressMinigameSnipe, shouldSkipStoringSnipe, startFinaleChaosFindScroll, tickFinaleChaosFindScrollHints };
+module.exports = { startMinigameLoop, forceStartMinigame, restoreActiveGames, bootstrapMinigameScheduler, handleMinigameMessage, handleMinigameButton, handleMinigameReaction, handleMinigameVoiceState, shouldDeferTtsLeaveForFindBotVoiceMinigame, hasFindBotVoiceSession, clearGameForChannel, isMinigameFloodExemptChannel, isMinigameChannelBusy, isMainChatMinigameChannelBusy, hasAnyHouseChannelMinigameBusy, hasAnyActiveMinigame, spawnHouseChannelMinigame, getActiveGameForChannel, getConfig, pickObservationTowerTier, isMinigameSnipeSuppressed, pickSnipeEntryForChannel, redactSnipeContentForMinigame, suppressMinigameSnipe, shouldSkipStoringSnipe, startFinaleChaosFindScroll, tickFinaleChaosFindScrollHints, startHalloweenTrickOrTreatGameForAlternate, processHalloweenMinigamesShowcaseForce };

@@ -7,7 +7,7 @@ function requireDotenv() {
     return require("dotenv");
   } catch {
     const candidates = [
-      path.join(__dirname, "..", "..", "WebSite", "node_modules", "dotenv"),
+      path.join(__dirname, "..", "..", "Vinyls", "node_modules", "dotenv"),
       path.join(__dirname, "..", "..", "node_modules", "dotenv"),
     ];
     for (const modPath of candidates) {
@@ -16,7 +16,7 @@ function requireDotenv() {
       } catch {
               }
     }
-    throw new Error("Modulo dotenv mancante: esegui npm install in WebSite/");
+    throw new Error("Modulo dotenv mancante: esegui npm install in Vinyls/");
   }
 }
 

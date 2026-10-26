@@ -331,17 +331,31 @@ function normalizeTicketId(raw) {
   return TICKET_ID_RE.test(tid) ? tid : "";
 }
 
+function entityIdFromHashToken(rawHash) {
+  const h = String(rawHash || "")
+    .replace(/^#/, "")
+    .trim();
+  if (!h) return "";
+  if (TICKET_ID_RE.test(h)) return h.toLowerCase();
+  const m = /^(?:vc-suggestion-|vc-conf-card-|vc-review-|vc-bot-feedback-)?([a-f0-9]{24})$/i.exec(h);
+  return m ? String(m[1] || "").toLowerCase() : "";
+}
+
 function ticketIdFromOpenUrl(openUrl) {
   const raw = String(openUrl || "").trim();
   if (!raw) return "";
   try {
     const u = new URL(raw, "https://www.viniliecaffe.it");
-    const hash = String(u.hash || "").replace(/^#/, "").trim().toLowerCase();
-    if (TICKET_ID_RE.test(hash)) return hash;
-    const q = String(u.searchParams.get("ticketId") || "").trim().toLowerCase();
-    if (TICKET_ID_RE.test(q)) return q;
+    const fromHash = entityIdFromHashToken(u.hash);
+    if (fromHash) return fromHash;
+    for (const key of ["ticketId", "ticket", "id", "suggestion"]) {
+      const q = String(u.searchParams.get(key) || "")
+        .trim()
+        .toLowerCase();
+      if (TICKET_ID_RE.test(q)) return q;
+    }
   } catch (_) {
-    const m = raw.match(/#([a-f0-9]{24})\b/i);
+    const m = raw.match(/#(?:vc-suggestion-|vc-conf-card-|vc-review-|vc-bot-feedback-)?([a-f0-9]{24})\b/i);
     if (m) return String(m[1]).toLowerCase();
   }
   return "";
@@ -711,22 +725,25 @@ function broadcastInboxChanged(userId = "") {
       broadcastSiteNotificationsChanged();
       return;
     }
-    /* badgeCrossDevice1: fanout con unread fresco per badge OS/in-app altri device */
+    /* notifWsWakeFast1: ping WS subito (come la push), senza aspettare il count.
+       Poi secondo fanout con unread fresco per badge cross-device. */
+    try {
+      invalidateUnreadCountCache(uid);
+    } catch (_) {}
+    try {
+      broadcastSiteNotificationsChanged({ userId: uid });
+    } catch (_) {}
     void (async () => {
       let unread;
       try {
-        invalidateUnreadCountCache(uid);
         const counted = await countSiteInAppUnreadForUser(uid);
         unread = Math.max(0, Math.min(99, Number(counted?.unread) || 0));
       } catch (_) {
         unread = undefined;
       }
+      if (unread == null) return;
       broadcastSiteNotificationsChanged({ userId: uid, unread });
-    })().catch(() => {
-      try {
-        broadcastSiteNotificationsChanged({ userId: uid });
-      } catch (_) {}
-    });
+    })().catch(() => {});
   } catch (_) {}
 }
 
@@ -737,6 +754,9 @@ function broadcastInboxChanged(userId = "") {
 /* pushDesktopMissRetry1 + pushShownAckVisible1: retry PC se desktopSent=0; SW ack su visible. */
 /* pushClosedPwaNoRotate1: PWA chiusa/kill → SW spesso NON fa /push/shown anche se APNs 201.
    rotate+denylist uccideva la sub Apple → push morte finché non riapri. Hedge lungo, MAI rotate. */
+/* pushIosDeclarativeNoHedge1: web_push:8030 = iOS mostra il banner SENZA SW.
+   Hedge che aspetta /push/shown → re-push :mprN all’infinito (banner a raffica).
+   Se mobileAppleSent>0 = consegnato: STOP hedge. Soft-retry solo se mobileSent===0. */
 const mobilePushSoftRetryTimers = new Map();
 const MOBILE_PUSH_SOFT_RETRY_DELAYS_MS = Object.freeze([
   25_000,
@@ -837,19 +857,25 @@ function scheduleMobilePushSoftRetries(userId, payload, pushOut) {
   const mobileSent = Number(pushOut?.mobileSent) || 0;
   const mobileAppleSent = Number(pushOut?.mobileAppleSent) || 0;
   if (mobileCandidates <= 0) return;
-  /* FCM/Android ack → stop. Apple APNs 201 → hedge corto (pushAppleHedgeLight1). */
-  const appleOnlyAck = mobileSent > 0 && mobileAppleSent > 0 && mobileAppleSent >= mobileSent;
-  let delays = MOBILE_PUSH_SOFT_RETRY_DELAYS_MS;
-  let reason = "mobile_miss";
+  /* pushIosDeclarativeNoHedge1: APNs/declarative già consegnato → niente hedge
+     (altrimenti :mprN = banner iOS all’infinito). Soft-retry SOLO miss totale. */
   if (mobileSent > 0) {
-    if (appleOnlyAck && APPLE_ZOMBIE_HEDGE_DELAYS_MS.length > 0) {
-      delays = APPLE_ZOMBIE_HEDGE_DELAYS_MS;
-      reason = "apple_zombie_hedge";
-    } else {
+    if (mobileAppleSent > 0) {
       clearMobilePushSoftRetries(uid, payload.dedupeKey, payload.id);
+      global.logger?.info?.(
+        "[siteInAppNotifications] apple declarative delivered — no hedge:",
+        uid,
+        String(payload?.kind || ""),
+        { mobileSent, mobileAppleSent },
+      );
       return;
     }
+    /* Android/FCM ha ricevuto almeno un send → stop */
+    clearMobilePushSoftRetries(uid, payload.dedupeKey, payload.id);
+    return;
   }
+  let delays = MOBILE_PUSH_SOFT_RETRY_DELAYS_MS;
+  let reason = "mobile_miss";
 
   const baseKey = mobilePushSoftRetryKeyBase(uid, payload.dedupeKey, payload.id);
   const prevRound =
@@ -1004,6 +1030,12 @@ function scheduleMobilePushSoftRetries(userId, payload, pushOut) {
    Claim vote già scritto → restore non ri-manda. Catch-up: unread recenti senza
    /push/shown → re-push mobile + ri-arma apple_zombie_hedge. */
 async function recoverUnreadApplePushHedges(opts = {}) {
+  /* pushNoBootResend1: Apple declarative (web_push 8030) mostra il banner senza SW → mai
+     /push/shown → a ogni restart ri-mandava le unread delle ultime 6h (banner doppi).
+     FCM/Android fa sempre ack → qui veniva saltato comunque. Disattivato. */
+  if (opts.force !== true) {
+    return { ok: true, skipped: true, reason: "declarative_no_ack" };
+  }
   const maxAgeMs = Math.max(
     30 * 60 * 1000,
     Math.min(12 * 60 * 60 * 1000, Number(opts.maxAgeMs) || 6 * 60 * 60 * 1000),
@@ -1142,26 +1174,45 @@ function fireNotificationPush(
         /* pushPhoneAllSoftRetry1 */
         scheduleMobilePushSoftRetries(userId, payload, out);
       } catch (_) {}
-      /* pushDesktopMissRetry1: se Apple/mobile ok ma desktopSent=0 → 1 retry solo PC
-         (sub Chrome a volte miss al primo colpo / race prune). */
+      /* pushDesktopClosedPwa1: PWA PC chiusa = solo FCM/WNS. Più retry desktop
+         (3.5s / 20s / 90s) se desktopSent=0 — prima un solo tentativo spesso miss. */
       try {
         if ((Number(out?.desktopSent) || 0) === 0 && out?.skipped !== true) {
-          const deskTimer = setTimeout(() => {
-            void sendWebPushToUser(
-              userId,
-              {
-                ...payload,
-                dedupeKey: String(payload.dedupeKey || payload.id || "") + ":dpr1",
-                topicAttempt: 1,
-              },
-              { deviceFilter: "desktop" },
-            ).then((deskOut) => {
-              if ((Number(deskOut?.desktopSent) || 0) > 0) {
-                global.logger?.info?.("[siteInAppNotifications] desktop miss retry ok:", userId, payload.kind);
-              }
-            }).catch(() => null);
-          }, 3500);
-          if (typeof deskTimer.unref === "function") deskTimer.unref();
+          const deskDelays = [3_500, 20_000, 90_000];
+          deskDelays.forEach((delayMs, idx) => {
+            const deskTimer = setTimeout(() => {
+              void (async () => {
+                try {
+                  const stillUnread = await isSiteInAppNotificationStillUnread(
+                    userId,
+                    payload.id,
+                    payload.dedupeKey,
+                    { missingMeansUnread: false },
+                  );
+                  if (!stillUnread) return;
+                  const deskOut = await sendWebPushToUser(
+                    userId,
+                    {
+                      ...payload,
+                      dedupeKey: String(payload.dedupeKey || payload.id || "") + ":dpr" + String(idx + 1),
+                      topicAttempt: idx + 1,
+                      ttlSeconds: Math.max(Number(payload.ttlSeconds) || 0, 60 * 60 * 12),
+                    },
+                    { deviceFilter: "desktop" },
+                  );
+                  if ((Number(deskOut?.desktopSent) || 0) > 0) {
+                    global.logger?.info?.(
+                      "[siteInAppNotifications] desktop miss retry ok:",
+                      userId,
+                      payload.kind,
+                      idx + 1,
+                    );
+                  }
+                } catch (_) {}
+              })();
+            }, delayMs);
+            if (typeof deskTimer.unref === "function") deskTimer.unref();
+          });
         }
       } catch (_) {}
       return out;
@@ -2032,12 +2083,20 @@ async function markSiteInAppNotificationRead(userId, notificationId) {
     { arrayFilters: [{ "i._id": oid }] },
   ).catch(() => null);
   const modified = Number(out?.modifiedCount ?? out?.nModified ?? 0) > 0;
-  /* pushBadgeVisitFix1: dismiss OS anche se già letta (modified=0) — badge altri device */
+  /* pushBadgeVisitFix1 + iosDismissTag1: dismiss OS anche se già letta — badge/banner altri device */
   if (item || modified) {
     try {
       clearPushRetriesForInboxItem(uid, item || { _id: nid, id: nid });
     } catch (_) {}
-    fireNotifDismissPush(uid, { id: nid, ticketId, force: true });
+    const openUrl = String(item?.openUrl || "").trim();
+    const dedupeKey = String(item?.dedupeKey || "").trim();
+    fireNotifDismissPush(uid, {
+      id: nid,
+      ticketId,
+      openUrls: openUrl ? [openUrl] : [],
+      dedupeKeys: dedupeKey ? [dedupeKey] : [],
+      force: true,
+    });
   }
   if (modified || item) {
     try {
@@ -2085,11 +2144,19 @@ async function markSiteInAppNotificationsReadMany(userId, notificationIds) {
       if (iid && idSet.has(iid)) clearPushRetriesForInboxItem(uid, it);
     }
   } catch (_) {}
-  /* notifReadDismissOs1: dismiss OS anche se già lette (modified=0) */
+  const dedupeKeys = [];
+  for (const it of items) {
+    const nid = String(it?._id || "").trim();
+    if (!nid || !idSet.has(nid)) continue;
+    const dk = String(it?.dedupeKey || "").trim();
+    if (dk && !dedupeKeys.includes(dk) && dedupeKeys.length < 40) dedupeKeys.push(dk);
+  }
+  /* notifReadDismissOs1 + iosDismissTag1: dismiss OS anche se già lette */
   fireNotifDismissPush(uid, {
     ids,
     ticketIds,
     openUrls,
+    dedupeKeys,
     all: ids.length > 40,
     force: true,
   });
@@ -2129,8 +2196,30 @@ async function markAllSiteInAppNotificationsRead(userId) {
       if (it) clearPushRetriesForInboxItem(uid, it);
     }
   } catch (_) {}
-  /* notifReadDismissOs1: dismiss OS anche se già tutte lette */
-  fireNotifDismissPush(uid, { all: true, force: true });
+  /* iosDismissTag1: passa gli id → SW iOS fa tag-replace (declarative 8030) */
+  const allIds = [];
+  const openUrls = [];
+  const ticketIds = [];
+  const dedupeKeys = [];
+  for (const it of doc.inAppNotifItems || []) {
+    const iid = String(it?._id || "").trim();
+    if (iid && allIds.length < 80) allIds.push(iid);
+    const ou = String(it?.openUrl || "").trim();
+    if (ou && !openUrls.includes(ou) && openUrls.length < 40) openUrls.push(ou);
+    const tid = normalizeTicketId(it?.ticketId) || ticketIdFromOpenUrl(it?.openUrl) || "";
+    if (tid && !ticketIds.includes(tid) && ticketIds.length < 40) ticketIds.push(tid);
+    const dk = String(it?.dedupeKey || "").trim();
+    if (dk && !dedupeKeys.includes(dk) && dedupeKeys.length < 40) dedupeKeys.push(dk);
+  }
+  /* notifReadDismissOs1 + iosDismissTag1: dismiss OS anche se già tutte lette */
+  fireNotifDismissPush(uid, {
+    all: true,
+    ids: allIds,
+    ticketIds,
+    openUrls,
+    dedupeKeys,
+    force: true,
+  });
   return n;
 }
 
@@ -2198,11 +2287,17 @@ function pageContextFromUrlServer(pageUrl) {
       String(u.searchParams.get("ticketId") || "")
         .trim()
         .toLowerCase() ||
-      String(u.hash || "")
-        .replace(/^#/, "")
+      String(u.searchParams.get("ticket") || "")
         .trim()
-        .toLowerCase();
-    if (!/^[a-f0-9]{24}$/i.test(ticket)) ticket = "";
+        .toLowerCase() ||
+      (/\/tickets$/i.test(path) || /\/feedback$/i.test(path) || /\/confessionale$/i.test(path) || /\/recensioni$/i.test(path)
+        ? String(u.searchParams.get("id") || u.searchParams.get("suggestion") || "")
+            .trim()
+            .toLowerCase()
+        : "");
+    if (!TICKET_ID_RE.test(ticket)) ticket = "";
+    // hash tipo #vc-suggestion-<id> / #ticketId → stessa discussione aperta
+    if (!ticket) ticket = entityIdFromHashToken(u.hash);
     const staffOpen = String(u.searchParams.get("staffOpen") || "")
       .trim()
       .toLowerCase();
@@ -2255,11 +2350,17 @@ function openUrlMatchesPageContextServer(openUrl, ticketId, ctx) {
         String(u.searchParams.get("ticketId") || "")
           .trim()
           .toLowerCase() ||
-        String(u.hash || "")
-          .replace(/^#/, "")
+        String(u.searchParams.get("ticket") || "")
           .trim()
-          .toLowerCase();
-      if (!/^[a-f0-9]{24}$/i.test(destTid)) destTid = "";
+          .toLowerCase() ||
+        String(u.searchParams.get("id") || "")
+          .trim()
+          .toLowerCase() ||
+        String(u.searchParams.get("suggestion") || "")
+          .trim()
+          .toLowerCase() ||
+        entityIdFromHashToken(u.hash);
+      if (!TICKET_ID_RE.test(destTid)) destTid = "";
     }
   } catch (_) {
     destPath = normalizeNotifPathnameServer(raw);
@@ -2345,12 +2446,18 @@ function openUrlMatchesPageContextServer(openUrl, ticketId, ctx) {
     } catch (_) {}
   }
   if (!destPath || destPath === "/") return false;
+  /* notifVisitExact1: se openUrl punta a un ticket/feedback/discussione specifica,
+     matcha SOLO se quella discussione è aperta — non basta essere sulla lista /feedback o /tickets. */
+  if (/\/tickets$/i.test(destPath) && destTid) {
+    return Boolean(ctx.ticket && ctx.ticket === destTid && /\/tickets$/i.test(ctx.path));
+  }
   if (destPath === ctx.path) {
-    if (destTid && ctx.ticket && destTid !== ctx.ticket) return false;
+    if (destTid) return Boolean(ctx.ticket && ctx.ticket === destTid);
     if (destInbox && ctx.inbox && destInbox !== ctx.inbox) return false;
     return true;
   }
-  if (ctx.path.indexOf(`${destPath}/`) === 0) return true;
+  /* Prefisso path solo per notif “di pagina” senza entity id (mai per ticket/feedback puntati). */
+  if (!destTid && ctx.path.indexOf(`${destPath}/`) === 0) return true;
   return false;
 }
 
@@ -2421,6 +2528,8 @@ async function markSiteInAppNotificationsReadForPage(userId, pageUrl, extra = {}
   }
 
   /* Solo se abbiamo match o hint espliciti — evita push dismiss a ogni pagina random */
+  /* notifVisitExact1: lista /tickets|/feedback da sola NON basta per dismiss —
+     serve match reale (markedIds) o discussione aperta (ctx.ticket) / coda inbox. */
   const hasHints =
     markedIds.length > 0 ||
     extraIds.length > 0 ||
@@ -2429,7 +2538,7 @@ async function markSiteInAppNotificationsReadForPage(userId, pageUrl, extra = {}
     Boolean(ctx.inbox) ||
     Boolean(ctx.ticket) ||
     /\/staff\/(pause|inbox|resoconti)$/i.test(ctx.path) ||
-    /\/(appelli|candidature|tickets)$/i.test(ctx.path);
+    /\/(appelli|candidature)$/i.test(ctx.path);
   if (hasHints) {
     fireNotifDismissPush(uid, {
       ids: markedIds.length ? markedIds : extraIds,
@@ -2750,6 +2859,8 @@ module.exports = {
   markAllSiteInAppNotificationsRead,
   markSiteInAppNotificationsReadForTicket,
   markSiteInAppNotificationsReadForPage,
+  pageContextFromUrlServer,
+  openUrlMatchesPageContextServer,
   migrateLegacyInAppNotificationsForUser,
   isSiteInAppNotificationStillUnread,
   clearMobilePushSoftRetries,

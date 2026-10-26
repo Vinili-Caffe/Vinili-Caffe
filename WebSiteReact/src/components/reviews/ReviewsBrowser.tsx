@@ -1,0 +1,215 @@
+"use client";
+
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { AnimatePresence, LayoutGroup, motion } from "motion/react";
+import { ArrowUpRight, Loader2, Store, Users, type LucideIcon } from "lucide-react";
+import { KINDS, loadReviews, type ReviewKind, type ReviewsData } from "@/lib/reviews";
+import { useAuth } from "@/lib/auth";
+import { cn } from "@/lib/cn";
+import { readDeepLink } from "@/lib/deeplink";
+import { Pagination, pageSlice } from "@/components/ui/Pagination";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { useLiveRefresh } from "@/lib/use-live-refresh";
+import { Composer } from "./Composer";
+import { ReviewCard } from "./ReviewCard";
+import { Stars } from "./Stars";
+
+const PAGE_SIZE = 12;
+
+const KIND_ICONS: Record<ReviewKind, LucideIcon> = { server: Store, staff: Users };
+type Sort = "recent" | "liked" | "high" | "low";
+const SORTS: { id: Sort; label: string }[] = [
+  { id: "recent", label: "Più recenti" },
+  { id: "liked", label: "Più apprezzate" },
+  { id: "high", label: "Voto più alto" },
+  { id: "low", label: "Voto più basso" },
+];
+
+export function ReviewsBrowser({ initial }: { initial: ReviewsData | null }) {
+  const { ready, token, login } = useAuth();
+  const [kind, setKind] = useState<ReviewKind>("server");
+  const [data, setData] = useState<ReviewsData | null>(initial);
+  const [loading, setLoading] = useState(false);
+  const [sort, setSort] = useState<Sort>("recent");
+  const [pageNum, setPageNum] = useState(1);
+  const [round, setRound] = useState(0);
+
+  const reload = useCallback(() => setRound((n) => n + 1), []);
+
+  useLiveRefresh(reload, { intervalMs: 90_000, enabled: ready, boot: false, topics: ["reviews"] });
+
+  // da notifica: /recensioni?board=staff#vc-review-<id> → scheda giusta e pagina che contiene la recensione
+  const [focusId, setFocusId] = useState(() => readDeepLink().reviewId || "");
+  useEffect(() => {
+    const read = () => {
+      const d = readDeepLink();
+      if (d.boardStaff) setKind("staff");
+      if (d.reviewId) setFocusId(d.reviewId);
+    };
+    read();
+    window.addEventListener("hashchange", read);
+    return () => window.removeEventListener("hashchange", read);
+  }, []);
+
+  useEffect(() => {
+    if (!ready) return;
+    let alive = true;
+    setLoading(true);
+    loadReviews(kind, token).then((d) => {
+      if (!alive) return;
+      if (d) setData(d);
+      setLoading(false);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [kind, token, ready, round]);
+
+  // staff: nascondi recensioni verso chi non è più nella lista staffers (ex staff)
+  const reviews = useMemo(() => {
+    const list = data?.reviews ?? [];
+    if (kind !== "staff") return list;
+    const ids = new Set((data?.staffers ?? []).map((s) => String(s.id || "").trim()).filter(Boolean));
+    if (!ids.size) return list;
+    return list.filter((r) => ids.has(String(r.staffUserId || "").trim()));
+  }, [data?.reviews, data?.staffers, kind]);
+  const sorted = useMemo(() => {
+    const list = [...reviews];
+    if (sort === "liked") list.sort((a, b) => b.likeCount - a.likeCount);
+    else if (sort === "high") list.sort((a, b) => b.rating - a.rating);
+    else if (sort === "low") list.sort((a, b) => a.rating - b.rating);
+    return list;
+  }, [reviews, sort]);
+
+  const avg = reviews.length ? reviews.reduce((s, r) => s + r.rating, 0) / reviews.length : 0;
+  const dist = [5, 4, 3, 2, 1].map((n) => ({ n, count: reviews.filter((r) => r.rating === n).length }));
+  const viewer = data?.viewer ?? null;
+  const { page: pageSafe, totalPages, slice } = pageSlice(sorted, pageNum, PAGE_SIZE);
+  useEffect(() => {
+    if (!focusId) return;
+    const idx = sorted.findIndex((r) => r.id === focusId);
+    if (idx < 0) return;
+    setPageNum(Math.floor(idx / PAGE_SIZE) + 1);
+    setFocusId("");
+  }, [focusId, sorted]);
+
+  return (
+    <div className="mx-auto max-w-5xl px-6 pb-16">
+      {/* tipo di recensione */}
+      <LayoutGroup id="review-kinds">
+        <div className="grid gap-2 sm:grid-cols-2" role="tablist" aria-label="Tipo di recensioni">
+          {KINDS.map((k) => {
+            const active = kind === k.id;
+            const Icon = KIND_ICONS[k.id];
+            return (
+              <button
+                key={k.id}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                onClick={() => {
+                  setKind(k.id);
+                  setPageNum(1);
+                }}
+                className={cn("relative isolate flex items-center gap-3 rounded-2xl p-4 text-left transition-colors", active ? "text-espresso" : "text-crema/70 hover:text-crema")}
+              >
+                {active && (
+                  <motion.span layoutId="review-kind" className="absolute inset-0 -z-10 rounded-2xl bg-gradient-to-br from-crema to-sand" transition={{ type: "spring", stiffness: 380, damping: 32 }} />
+                )}
+                {!active && <span className="absolute inset-0 -z-10 rounded-2xl bg-roast/70 ring-1 ring-sand/12" />}
+                <Icon className="size-5 shrink-0" />
+                <span>
+                  <span className="block font-semibold">{k.label}</span>
+                  <span className={cn("block text-xs", active ? "text-espresso/60" : "text-crema/45")}>{k.hint}</span>
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </LayoutGroup>
+
+      {/* media + composer */}
+      <div className="mt-8 grid gap-4 lg:grid-cols-[18rem_1fr]">
+        <div className="rounded-3xl bg-roast/70 p-6 ring-1 ring-sand/12">
+          <AnimatePresence mode="wait">
+            <motion.div key={`${kind}-${reviews.length}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+              <p className="font-display text-6xl font-semibold lining-nums">{reviews.length ? avg.toFixed(1).replace(".", ",") : "—"}</p>
+              <Stars value={avg} size="size-5" className="mt-2" />
+              <p className="mt-2 text-sm text-crema/50">
+                {reviews.length} {reviews.length === 1 ? "recensione" : "recensioni"}
+              </p>
+              <div className="mt-5 space-y-1.5">
+                {dist.map((d) => (
+                  <div key={d.n} className="flex items-center gap-2 text-xs text-crema/50">
+                    <span className="w-3 tabular-nums">{d.n}</span>
+                    <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-crema/8">
+                      <motion.span
+                        className="block h-full rounded-full bg-ember"
+                        initial={{ width: 0 }}
+                        animate={{ width: `${reviews.length ? (d.count / reviews.length) * 100 : 0}%` }}
+                        transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
+                      />
+                    </span>
+                    <span className="w-6 text-right tabular-nums">{d.count}</span>
+                  </div>
+                ))}
+              </div>
+              {data?.externalUrl && kind === "server" && (
+                <a href={data.externalUrl} target="_blank" rel="noopener" className="mt-5 inline-flex items-center gap-1 text-xs text-caramel hover:underline">
+                  Recensiscici anche su Disboard <ArrowUpRight className="size-3.5" />
+                </a>
+              )}
+            </motion.div>
+          </AnimatePresence>
+        </div>
+        <Composer kind={kind} token={token} viewer={viewer} staffers={data?.staffers ?? []} onLogin={login} onSaved={reload} />
+      </div>
+
+      {/* elenco */}
+      <div className="mt-10 flex flex-wrap items-center justify-between gap-3">
+        <h2 className="font-display text-3xl font-semibold">Dalle recensioni</h2>
+        <div className="flex flex-wrap gap-1.5">
+          {SORTS.map((s) => (
+            <button
+              key={s.id}
+              type="button"
+              onClick={() => {
+                setSort(s.id);
+                setPageNum(1);
+              }}
+              className={cn("rounded-full px-3 py-1.5 text-xs font-medium ring-1 transition-colors", sort === s.id ? "bg-crema/12 text-crema ring-sand/30" : "text-crema/55 ring-sand/12 hover:text-crema")}
+            >
+              {s.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div id="reviews-list" className="relative mt-5 scroll-mt-28">
+        {loading && (
+          <div className="absolute inset-x-0 top-0 z-10 flex justify-center">
+            <Loader2 className="size-5 animate-spin text-crema/50" />
+          </div>
+        )}
+        {sorted.length === 0 && !loading ? (
+          <EmptyState icon={Store} title="Ancora nessuna recensione" text="Scrivi la prima recensione per questo tipo." />
+        ) : (
+          <div className={cn("columns-1 gap-4 transition-opacity md:columns-2 [&>*]:mb-4 [&>*]:break-inside-avoid", loading && "opacity-50")}>
+            {slice.map((r, i) => (
+              <ReviewCard
+                key={r.id}
+                r={r}
+                i={i}
+                token={token}
+                viewerId={viewer?.id}
+                canReply={!!viewer && (kind === "staff" ? viewer.id === r.staffUserId : viewer.canReplyAsServer)}
+                onChanged={reload}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+      <Pagination page={pageSafe} totalPages={totalPages} onChange={setPageNum} scrollToId="reviews-list" />
+    </div>
+  );
+}

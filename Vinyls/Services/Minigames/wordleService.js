@@ -1,35 +1,26 @@
 /**
- * Wordle (+wordle): daily puzzle IT/EN, 6 attempts, Discord-colored grid.
- * Dictionaries loaded from public APIs (bank only as offline fallback).
+ * Wordle (+wordle): daily puzzle by site language, 6 attempts, Discord-colored grid.
+ * Guess dictionaries: bundled FrequencyWords banks (~5k/lang). Answers: curated IT/EN + freq top-500 for ES/FR/DE/PT.
  */
 "use strict";
 
-const axios = require("axios");
 const {
   getWordleAnswers: fallbackAnswers,
   getWordleGuesses: fallbackGuesses,
+  normalizeWordleLang,
+  WORDLE_LANGS,
 } = require("../../Data/Minigames/wordleBanks");
 
 const MAX_ATTEMPTS = 6;
 const WORD_LEN = 5;
-const DEFAULT_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
-
-const DEFAULT_IT_API =
-  "https://cdn.jsdelivr.net/npm/italian-words-dict@3.4.0/dist/words.json";
-const DEFAULT_EN_ANSWERS_API =
-  "https://cdn.jsdelivr.net/gh/charlesreid1/five-letter-words@master/sgb-words.txt";
-const DEFAULT_EN_GUESSES_API =
-  "https://cdn.jsdelivr.net/gh/tabatkins/wordle-list@main/words";
 
 /** @type {Map<string, object>} */
 const sessions = new Map();
 /** @type {Map<string, string>} userId -> last lang */
 const preferredLang = new Map();
 
-/** @type {{ itAnswers: string[], enAnswers: string[], guessSet: Set<string>, loadedAt: number } | null} */
+/** @type {{ guesses: Record<string, Set<string>>, loadedAt: number, meta: object } | null} */
 let dictCache = null;
-/** @type {Promise<void> | null} */
-let loadPromise = null;
 
 function normalizeWord(raw) {
   return String(raw || "")
@@ -70,155 +61,71 @@ function parseLang(raw) {
   const v = String(raw || "")
     .trim()
     .toLowerCase();
-  if (v === "en" || v === "eng" || v === "english" || v === "inglese") return "en";
-  if (v === "it" || v === "ita" || v === "italian" || v === "italiano") return "it";
-  return null;
+  if (!v) return null;
+  if (v === "eng" || v === "english" || v === "inglese") return "en";
+  if (v === "ita" || v === "italian" || v === "italiano") return "it";
+  if (v === "spa" || v === "spanish" || v === "espanol" || v === "español") return "es";
+  if (v === "fra" || v === "french" || v === "francais" || v === "français") return "fr";
+  if (v === "deu" || v === "ger" || v === "german" || v === "deutsch") return "de";
+  if (v === "por" || v === "portuguese" || v === "portugues" || v === "português") return "pt";
+  const base = v.slice(0, 2);
+  return normalizeWordleLang(base);
 }
 
 function sessionKey(userId, lang, day) {
   return `${userId}:${lang}:${day}`;
 }
 
-function extractWordsFromPayload(payload) {
-  if (typeof payload === "string") {
-    return payload
-      .split(/\r?\n|,|\s+/)
-      .map((w) => w.trim())
-      .filter(Boolean);
+function buildDictCache() {
+  /** @type {Record<string, Set<string>>} */
+  const guesses = {};
+  /** @type {Record<string, number>} */
+  const sizes = {};
+  for (const lang of WORDLE_LANGS) {
+    guesses[lang] = new Set(fallbackGuesses(lang));
+    sizes[lang] = guesses[lang].size;
   }
-  if (Array.isArray(payload)) return payload;
-  if (Array.isArray(payload?.words)) return payload.words;
-  if (Array.isArray(payload?.data)) return payload.data;
-  if (typeof payload?.word === "string") return [payload.word];
-  if (payload && typeof payload === "object" && !Array.isArray(payload)) {
-    return Object.keys(payload).filter((k) => typeof k === "string");
-  }
-  return [];
-}
-
-function toFiveLetterList(rawList) {
-  const out = [];
-  const seen = new Set();
-  for (const item of rawList || []) {
-    const w = normalizeWord(item);
-    if (w.length !== WORD_LEN) continue;
-    if (seen.has(w)) continue;
-    seen.add(w);
-    out.push(w);
-  }
-  return out;
-}
-
-async function fetchWordList(url) {
-  if (!url) return [];
-  const res = await axios.get(url, {
-    timeout: 20000,
-    responseType: "text",
-    transformResponse: [(data) => data],
-    validateStatus: (s) => s >= 200 && s < 300,
-  });
-  let payload = res.data;
-  if (typeof payload === "string") {
-    const trimmed = payload.trim();
-    if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
-      try {
-        payload = JSON.parse(trimmed);
-      } catch (e) {
-        payload = trimmed;
-      }
-    }
-  }
-  return toFiveLetterList(extractWordsFromPayload(payload));
-}
-
-function buildFallbackCache() {
-  const itAnswers = [...fallbackAnswers("it")];
-  const enAnswers = [...fallbackAnswers("en")];
-  const guessSet = new Set(fallbackGuesses("it"));
-  return { itAnswers, enAnswers, guessSet, loadedAt: Date.now() };
-}
-
-async function loadDictionaries(cfg) {
-  const itUrl = cfg?.itApiUrl || cfg?.apiUrlIt || DEFAULT_IT_API;
-  const enAnswersUrl =
-    cfg?.enAnswersApiUrl || cfg?.apiUrlEnAnswers || DEFAULT_EN_ANSWERS_API;
-  const enGuessesUrl =
-    cfg?.enGuessesApiUrl || cfg?.apiUrlEnGuesses || DEFAULT_EN_GUESSES_API;
-
-  const [itRes, enAnsRes, enGuessRes] = await Promise.allSettled([
-    fetchWordList(itUrl),
-    fetchWordList(enAnswersUrl),
-    fetchWordList(enGuessesUrl),
-  ]);
-
-  const itAnswers =
-    itRes.status === "fulfilled" && itRes.value.length
-      ? itRes.value
-      : [...fallbackAnswers("it")];
-  const enAnswers =
-    enAnsRes.status === "fulfilled" && enAnsRes.value.length
-      ? enAnsRes.value
-      : [...fallbackAnswers("en")];
-  const enGuesses =
-    enGuessRes.status === "fulfilled" && enGuessRes.value.length
-      ? enGuessRes.value
-      : [...fallbackAnswers("en")];
-
-  const guessSet = new Set([...itAnswers, ...enAnswers, ...enGuesses]);
-  for (const w of fallbackGuesses("it")) guessSet.add(w);
-
   return {
-    itAnswers,
-    enAnswers,
-    guessSet,
+    guesses,
     loadedAt: Date.now(),
-    meta: {
-      it: itAnswers.length,
-      enAnswers: enAnswers.length,
-      guesses: guessSet.size,
-      itSource: itRes.status === "fulfilled" && itRes.value.length ? "api" : "fallback",
-      enAnswersSource:
-        enAnsRes.status === "fulfilled" && enAnsRes.value.length ? "api" : "fallback",
-      enGuessesSource:
-        enGuessRes.status === "fulfilled" && enGuessRes.value.length ? "api" : "fallback",
-    },
+    meta: { source: "bundled", guesses: sizes },
   };
 }
 
-async function ensureReady(cfg) {
-  const ttl = Number(cfg?.cacheTtlMs) > 0 ? Number(cfg.cacheTtlMs) : DEFAULT_CACHE_TTL_MS;
-  if (dictCache && Date.now() - dictCache.loadedAt < ttl) return dictCache;
-
-  if (!loadPromise) {
-    loadPromise = (async () => {
-      try {
-        dictCache = await loadDictionaries(cfg || {});
-      } catch (err) {
-        console.warn("[wordle] dictionary load failed, using fallback bank:", err?.message || err);
-        dictCache = buildFallbackCache();
-      } finally {
-        loadPromise = null;
-      }
-    })();
-  }
-  await loadPromise;
+async function ensureReady(_cfg) {
+  if (!dictCache) dictCache = buildDictCache();
   return dictCache;
 }
 
 function getAnswers(lang) {
-  /* itAnswersApiPollute1: italian-words-dict include prestiti EN (es. dance) →
-     le risposte giornaliere restano sul bank curato; l'API allarga solo i guess. */
-  return [...fallbackAnswers(lang === "en" ? "en" : "it")];
+  return [...fallbackAnswers(normalizeWordleLang(lang))];
 }
 
 function pickDailyAnswer(lang, day) {
-  const bank = getAnswers(lang);
-  if (!bank.length) return lang === "en" ? "crane" : "cuore";
-  return bank[hashPick(`vc-wordle:${lang}:${day}`, bank.length)];
+  const k = normalizeWordleLang(lang);
+  const bank = getAnswers(k);
+  if (!bank.length) return k === "en" ? "crane" : "cuore";
+  return bank[hashPick(`vc-wordle:${k}:${day}`, bank.length)];
+}
+
+function findStartedSessionToday(userId) {
+  const day = todayKey();
+  const uid = String(userId);
+  for (const s of sessions.values()) {
+    if (!s || String(s.userId) !== uid || s.day !== day) continue;
+    if ((Array.isArray(s.guesses) && s.guesses.length > 0) || s.won || s.lost) return s;
+  }
+  return null;
 }
 
 function getOrCreateSession(userId, lang) {
   const day = todayKey();
+  /* wordleOnePerDay1: Discord — una sola partita/giorno cross-lingua */
+  const locked = findStartedSessionToday(userId);
+  if (locked) {
+    preferredLang.set(String(userId), locked.lang);
+    return locked;
+  }
   const key = sessionKey(userId, lang, day);
   let s = sessions.get(key);
   if (!s) {
@@ -284,7 +191,6 @@ function scoreGuess(answer, guess) {
 
 function tilesForRow(answer, guess) {
   const marks = scoreGuess(answer, guess);
-  // spaced so Discord doesn't glue them into a dark blob
   return marks
     .map((m) => (m === "g" ? "🟩" : m === "y" ? "🟨" : "⬛"))
     .join(" ");
@@ -317,10 +223,12 @@ function buildBoardText(session) {
 function isValidGuess(lang, raw) {
   const w = normalizeWord(raw);
   if (w.length !== WORD_LEN) return { ok: false, reason: "len" };
-  const set = dictCache?.guessSet;
+  const k = normalizeWordleLang(lang);
+  if (!dictCache) dictCache = buildDictCache();
+  const set = dictCache.guesses?.[k];
   if (set) {
     if (!set.has(w)) return { ok: false, reason: "dict" };
-  } else if (!fallbackGuesses(lang).includes(w)) {
+  } else if (!fallbackGuesses(k).includes(w)) {
     return { ok: false, reason: "dict" };
   }
   return { ok: true, word: w };
@@ -351,7 +259,7 @@ function statusLabel(session) {
 }
 
 function langLabel(lang) {
-  return lang === "en" ? "EN" : "IT";
+  return String(normalizeWordleLang(lang) || "it").toUpperCase();
 }
 
 function getDictMeta() {
@@ -375,6 +283,7 @@ function parseWordleCustomId(customId) {
 module.exports = {
   MAX_ATTEMPTS,
   WORD_LEN,
+  WORDLE_LANGS,
   normalizeWord,
   todayKey,
   parseLang,

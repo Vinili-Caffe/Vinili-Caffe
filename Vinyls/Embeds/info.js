@@ -1,12 +1,12 @@
 const path = require("path");
-const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, AttachmentBuilder } = require("discord.js");
+const { ActionRowBuilder, ButtonBuilder, ButtonStyle, AttachmentBuilder } = require("discord.js");
 const { personalityPanelFindOneAndUpdate, personalityPanelUpdateOne } = require("../Utils/Global/globalSettingsGuildStores");
 const IDs = require("../Utils/Config/ids");
 const INFO_CHANNEL_ID = IDs.channels.info;
 const { getClientChannelCached } = require("../Utils/Interaction/interactionEntityCache");
 const { upsertPanelMessage } = require("../../shared/discord/panelUpsertRuntime");
 const { siteTicketsPageDiscordRef, siteUserProfilePageDiscordRef } = require("../../shared/web/siteTicketsPageRef");
-const { TENANT_EMBED_COLOR } = require("../MultiGuild/utils/tenantEmbedBranding");
+const { buildVcPagePayload } = require("../Utils/Embeds/vcPageEmbedV2");
 const INFO_MEDIA_NAME = "info.gif";
 const INFO_MEDIA_PATH = path.join(__dirname, "..", "Photos", INFO_MEDIA_NAME);
 
@@ -84,19 +84,7 @@ async function run(client) {
       .setURL("https://viniliecaffe.it/tickets"),
   );
 
-  const infoFooterText = "Usa i bottoni sottostanti per accedere ad altre categorie del server.";
   const gifAttachment = new AttachmentBuilder(INFO_MEDIA_PATH, { name: INFO_MEDIA_NAME });
-    const infoEmbedPrimary = new EmbedBuilder()
-    .setColor(TENANT_EMBED_COLOR)
-    .setTitle("Ti diamo il benvenuto nella nostra community!")
-    .setDescription(infoIntroText)
-    .addFields(
-      { name: "<:VC_Firework:1470796227913322658> LE NOSTRE GUILD TAGS", value: infoGuildTagsText, inline: false },
-      { name: "<:VC_Link:1482460590894088222> Links", value: infoLinksText, inline: true },
-      { name: "<:VC_Info:1482526956703580372> Informazioni", value: infoMetaText, inline: true },
-    )
-    .setFooter({ text: infoFooterText });
-
   const guildId = channel.guild?.id;
   if (!guildId) return;
 
@@ -111,7 +99,7 @@ async function run(client) {
     global.logger?.warn?.("[embeds] info panel findOneAndUpdate error:", err?.message || err);
   }
 
-    const primaryId = String(panel?.infoMessageId1 || "").trim();
+  const primaryId = String(panel?.infoMessageId1 || "").trim();
   const orphanIds = [
     ...new Set(
       [panel?.infoGifMessageId, panel?.infoMessageId2]
@@ -123,15 +111,24 @@ async function run(client) {
     await deleteMessageIfPresent(channel, mid);
   }
 
-  const panelMessage = await upsertPanelMessage(channel, client, {
+  const payload = buildVcPagePayload({
     messageId: primaryId || null,
-    content: "",
-    embeds: [infoEmbedPrimary],
-    components: [row1, row2],
+    guildId,
+    title: "Ti diamo il benvenuto nella nostra community!",
+    body: infoIntroText,
+    sections: [
+      { heading: "<:VC_Firework:1470796227913322658> LE NOSTRE GUILD TAGS", body: infoGuildTagsText },
+      { heading: "<:VC_Link:1482460590894088222> Links", body: infoLinksText },
+      { heading: "<:VC_Info:1482526956703580372> Informazioni", body: infoMetaText },
+    ],
+    footer: "Usa i bottoni sottostanti per accedere ad altre categorie del server.",
+    mediaName: INFO_MEDIA_NAME,
     files: [gifAttachment],
-    attachmentName: INFO_MEDIA_NAME,
+    rows: [row1, row2],
     includeBanner: false,
   });
+
+  const panelMessage = await upsertPanelMessage(channel, client, payload);
 
   if (!panelMessage?.id) {
     global.logger?.error?.("[embeds] info: upsert failed");

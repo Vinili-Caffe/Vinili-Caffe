@@ -296,6 +296,11 @@ async function handleSiteStaffSerataFilmPost(client, req, res) {
       const { clearStaffProfileCacheForUser } = require("./siteStaffProfileApi");
       clearStaffProfileCacheForUser(userId);
     } catch (eCache) {}
+    try {
+      const { broadcastSiteSerataChanged, broadcastSiteStaffProfileChanged } = require("./siteSuggestionsBroadcast");
+      broadcastSiteSerataChanged({ action: willAttend ? "attend" : "absent", userId });
+      broadcastSiteStaffProfileChanged(userId, { action: "seratafilm" });
+    } catch (_) {}
     const doc = await ActivityUserProfile.findOne({ guildId, userId })
       .select("staff")
       .lean()

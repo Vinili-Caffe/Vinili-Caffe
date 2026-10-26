@@ -1,0 +1,156 @@
+"use client";
+
+import { usePathname } from "next/navigation";
+import { COPYRIGHT_HREF, LEGAL, NAV_GROUPS, SOCIAL_LINKS } from "@/lib/site";
+import { useI18n } from "@/lib/i18n";
+import { cn } from "@/lib/cn";
+import { NavIcon } from "@/lib/nav-icons";
+import { DiscordButton } from "./DiscordButton";
+import { SmartLink } from "./SmartLink";
+import { Reveal } from "./Reveal";
+import { BrandMark } from "./BrandMark";
+import { FooterStatusLink } from "./FooterStatusLink";
+import { footerUnderlineClass } from "./NavUnderline";
+
+function pathActive(pathname: string, href: string) {
+  const p = pathname.endsWith("/") ? pathname : `${pathname}/`;
+  const h = href.endsWith("/") ? href : `${href}/`;
+  if (h === "/") return p === "/";
+  return p === h || p.startsWith(h);
+}
+
+function SocialIcon({ id }: { id: (typeof SOCIAL_LINKS)[number]["id"] }) {
+  if (id === "instagram") {
+    return (
+      <svg viewBox="0 0 24 24" className="size-5" aria-hidden fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="2" y="2" width="20" height="20" rx="5" />
+        <circle cx="12" cy="12" r="4" />
+        <circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none" />
+      </svg>
+    );
+  }
+  if (id === "tiktok") {
+    return (
+      <svg viewBox="0 0 24 24" className="size-[1.15rem]" aria-hidden fill="currentColor">
+        <path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.15 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z" />
+      </svg>
+    );
+  }
+  return (
+    <svg viewBox="0 0 24 24" className="size-5" aria-hidden fill="currentColor">
+      <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z" />
+    </svg>
+  );
+}
+
+export function Footer() {
+  const { t } = useI18n();
+  const pathname = usePathname() || "/";
+  const year = new Date().getFullYear();
+  return (
+    <footer
+      data-vc-float-cover="footer"
+      className="relative mt-10 overflow-hidden border-t border-sand/10 bg-gradient-to-b from-roast/40 via-roast/70 to-mocha"
+      aria-label={t("footer.aria")}
+    >
+      <div
+        className="pointer-events-none absolute inset-0 opacity-60"
+        aria-hidden
+        style={{
+          background:
+            "radial-gradient(ellipse 70% 50% at 50% 0%, rgba(212,145,80,0.12), transparent 60%)",
+        }}
+      />
+      <div className="relative mx-auto max-w-6xl px-5 py-12 text-center sm:px-6 sm:py-16">
+        <Reveal>
+          <h2 className="font-display text-3xl font-semibold sm:text-5xl lg:text-6xl">
+            {t("footer.tagline")}
+            <span className="block italic text-sand">{t("footer.taglineSub")}</span>
+          </h2>
+          <div className="mt-7 flex justify-center sm:mt-9">
+            <DiscordButton label={t("footer.joinCta")} />
+          </div>
+        </Reveal>
+      </div>
+
+      {/* Phone: brand + griglia 2×2. PC: brand + 4 gruppi su una riga. */}
+      <div className="relative mx-auto max-w-6xl border-t border-sand/10 px-5 py-8 sm:px-6 sm:py-10">
+        <div className="flex flex-col gap-8 lg:flex-row lg:items-start lg:gap-10">
+          <div className="mx-auto max-w-sm text-center lg:mx-0 lg:w-[13rem] lg:shrink-0 lg:text-left">
+            <div className="inline-flex lg:block">
+              <BrandMark />
+            </div>
+            <p className="mt-3 text-sm leading-relaxed text-crema/55">{t("footer.desc")}</p>
+            <ul className="mt-4 flex flex-wrap items-center justify-center gap-2.5 lg:justify-start" aria-label={t("footer.social")}>
+              {SOCIAL_LINKS.map((s) => (
+                <li key={s.id}>
+                  <a
+                    href={s.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={s.label}
+                    className={cn(
+                      "inline-flex size-10 items-center justify-center rounded-xl sm:size-11",
+                      "border border-sand/20 bg-gradient-to-br from-white/10 to-white/[0.03] text-crema/90",
+                      "shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_10px_24px_rgba(0,0,0,0.18)]",
+                      "transition hover:border-caramel/45 hover:bg-caramel/20 hover:text-sand active:scale-95",
+                    )}
+                  >
+                    <SocialIcon id={s.id} />
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div className="grid flex-1 grid-cols-2 gap-x-4 gap-y-7 sm:gap-x-8 lg:grid-cols-4 lg:gap-6">
+            {NAV_GROUPS.map((g) => (
+              <div key={g.labelKey} className="flex flex-col items-center text-center">
+                <h3 className="flex items-center justify-center gap-1.5 text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-sand/80 sm:text-xs sm:tracking-[0.25em]">
+                  <NavIcon labelKey={g.labelKey} className="size-3 shrink-0 opacity-80 sm:size-3.5" />
+                  <span className="truncate">{t(g.labelKey)}</span>
+                </h3>
+                <ul className="mt-3 flex flex-col items-center space-y-2 sm:mt-4 sm:space-y-2.5">
+                  {g.links.map((l) => (
+                    <li key={l.href}>
+                      <SmartLink
+                        href={l.href}
+                        className={cn(footerUnderlineClass(pathActive(pathname, l.href)), "text-[0.8rem] sm:text-sm")}
+                      >
+                        {t(l.labelKey)}
+                      </SmartLink>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="relative mx-auto flex max-w-6xl flex-col items-center justify-center gap-3 border-t border-sand/10 px-5 py-5 text-center text-xs text-crema/45 sm:gap-4 sm:px-6 sm:py-6">
+        <SmartLink href={COPYRIGHT_HREF} className={footerUnderlineClass(pathActive(pathname, COPYRIGHT_HREF))}>
+          {t("footer.copy", { year })}
+        </SmartLink>
+        <ul className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 sm:gap-x-5">
+          {LEGAL.map((l) => {
+            if (l.href.includes("/status")) {
+              return (
+                <li key={l.href}>
+                  <FooterStatusLink active={pathActive(pathname, l.href)} />
+                </li>
+              );
+            }
+            return (
+              <li key={l.href}>
+                <SmartLink href={l.href} className={footerUnderlineClass(pathActive(pathname, l.href))}>
+                  {t(l.labelKey)}
+                </SmartLink>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+    </footer>
+  );
+}

@@ -23,7 +23,7 @@ async function run(client) {
   const bucket = seeded?.bucket || (await getGuildPanels(mainGuildId).catch(() => null));
   const multi = (bucket?.multis || []).find((m) => m.seedKey === MAIN_MULTI_SEED) || (bucket?.multis || [])[0];
   if (!multi?.id) return;
-  await publishMultiPanel(client, mainGuildId, multi.id, { attachTicketGif: true }).catch((err) => {
+  await publishMultiPanel(client, mainGuildId, multi.id, { attachTicketGif: false }).catch((err) => {
     global.logger?.warn?.("[embeds/ticket] publish failed:", err?.message || err);
   });
 }

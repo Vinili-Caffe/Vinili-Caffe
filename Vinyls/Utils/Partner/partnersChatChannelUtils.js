@@ -150,13 +150,26 @@ const PARTNERSHIP_PUBLISH_CHANNEL_ALLOWED_COMMANDS = new Set([
 
 function partnershipPublishChannelCommandsDeniedReplyContent(channel, options = {}) {
   if (!isPartnershipPublishChannel(channel)) return null;
+  const guildId = String(channel?.guild?.id || channel?.guildId || "").trim();
+  // Tenant senza zona PM = illimitato (nessun canale "preso" in automatico, incluso il publish).
+  // Se la zona PM include il canale partnership, i comandi lì sono ammessi.
+  if (guildId && !isViniliFullFeatureGuild(guildId)) {
+    if (!tenantPmCommandsZoneConfigured(guildId)) return null;
+    if (isChannelAllowedInTenantPmZone(channel, guildId)) return null;
+  }
   const cmd = String(options.commandName || options.command || "")
     .trim()
     .toLowerCase();
   if (cmd && PARTNERSHIP_PUBLISH_CHANNEL_ALLOWED_COMMANDS.has(cmd)) return null;
+  const hint = guildId && !isViniliFullFeatureGuild(guildId)
+    ? formatTenantPmCommandsZoneHint(guildId, channel?.guild)
+    : "";
+  const where = hint
+    ? `usa i comandi in ${hint}`
+    : "usa i comandi nel **canale Partner Manager** configurato";
   return (
     "<:vegax:1443934876440068179> Nel **canale partnership** non puoi usare **comandi**. " +
-    "Pubblica qui solo la **descrizione** della partner (con **link d'invito Discord**) oppure usa i comandi nel **canale Partner Manager** configurato."
+    `Pubblica qui solo la **descrizione** della partner (con **link d'invito Discord**) oppure ${where}.`
   );
 }
 

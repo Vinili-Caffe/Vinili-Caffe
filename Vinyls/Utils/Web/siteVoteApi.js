@@ -4,7 +4,10 @@ const { userAvatarUrlDynamic, sitePreferredAvatarUrl } = require("../Discord/gui
 const { voteCountMonthKeyRome, romeMonthStartMs } = require("../romeVoteMonthKey");
 const { sendJsonWithEtag, weakEtagFromJson } = require("./siteHttpEtag");
 
-const CACHE_TTL_MS = 90_000;
+/* voteFastConfirm1: chi ha appena votato deve vedersi subito il voto. Classifica pubblica 20 s,
+   dati personali (contatori e "puoi votare") quasi in tempo reale e mai in cache nel browser. */
+const CACHE_TTL_MS = 20_000;
+const PERSONAL_TTL_MS = 3_000;
 const cache = new Map();
 
 function cacheGet(key) {
@@ -13,8 +16,28 @@ function cacheGet(key) {
   return null;
 }
 
-function cacheSet(key, payload) {
-  cache.set(key, { payload, expiresAt: Date.now() + CACHE_TTL_MS });
+function cacheSet(key, payload, ttlMs = CACHE_TTL_MS) {
+  cache.set(key, { payload, expiresAt: Date.now() + ttlMs });
+  if (cache.size > 500) {
+    const now = Date.now();
+    for (const [k, row] of cache) if (row.expiresAt <= now) cache.delete(k);
+  }
+}
+
+/** Dopo un voto: sparisce cache board + personale così /vote/ vede subito i contatori. */
+function invalidateSiteVoteCache(guildId, userId = "") {
+  const gid = String(guildId || "").trim();
+  const uid = String(userId || "").replace(/\D/g, "");
+  if (gid) {
+    cache.delete(`vote:v3:${gid}:-`);
+    if (/^\d{17,20}$/.test(uid)) cache.delete(`vote:v3:${gid}:${uid}`);
+  }
+  // sicurezza: se guild sconosciuta, pulisci chiavi personali dell’utente
+  if (/^\d{17,20}$/.test(uid)) {
+    for (const k of cache.keys()) {
+      if (k.endsWith(`:${uid}`)) cache.delete(k);
+    }
+  }
 }
 
 function resolveGuildId(client) {
@@ -282,19 +305,20 @@ async function handleSiteVoteGet(client, req, res) {
     const q = req.query || {};
     const searchUserId = parseSearchUserId(q.userId ?? q.id ?? q.uid);
     const cacheKey = `vote:v3:${guildId}:${searchUserId || "-"}`;
+    const cacheControl = searchUserId ? "private, no-cache" : "public, max-age=10";
     const cached = cacheGet(cacheKey);
     if (cached) {
       /* siteApiW6: ETag/304 on vote poll */
       return sendJsonWithEtag(req, res, cached, {
-        cacheControl: "public, max-age=30",
+        cacheControl,
         etag: weakEtagFromJson(cached),
       });
     }
 
     const payload = await buildVoteBoardPayload(client, { searchUserId });
-    cacheSet(cacheKey, payload);
+    cacheSet(cacheKey, payload, searchUserId ? PERSONAL_TTL_MS : CACHE_TTL_MS);
     return sendJsonWithEtag(req, res, payload, {
-      cacheControl: "public, max-age=30",
+      cacheControl,
       etag: weakEtagFromJson(payload),
     });
   } catch (err) {
@@ -328,4 +352,4 @@ async function warmSiteVoteBoardCache(client) {
   }
 }
 
-module.exports = { handleSiteVoteGet, warmSiteVoteBoardCache };
+module.exports = { handleSiteVoteGet, warmSiteVoteBoardCache, invalidateSiteVoteCache };

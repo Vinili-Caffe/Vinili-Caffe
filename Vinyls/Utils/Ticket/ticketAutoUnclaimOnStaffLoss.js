@@ -1,4 +1,6 @@
-const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
+const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
+const { buildTicketFlowRich } = require("./ticketUxMessages");
+const { isComponentsV2Message } = require("../Embeds/vcPageEmbedV2");
 const Ticket = require("../../Schemas/Ticket/ticketSchema");
 const IDs = require("../Config/ids");
 const { PERKS_STAFF_ROLE_IDS } = require("./ticketPerksStaffRoles");
@@ -70,10 +72,11 @@ async function refreshTicketPanelMessageUnclaimed(channel, ticketDoc) {
   const panelMid = ticketDoc?.messageId != null ? String(ticketDoc.messageId).trim() : "";
   const guildId = String(ticketDoc?.guildId || channel?.guild?.id || "").trim();
   const ticketButtonsOriginal = buildTicketPanelUnclaimedButtonRow(guildId, ticketDoc);
-  const fallbackEmbed = new EmbedBuilder()
-    .setTitle("<:VC_Ticket:1482535175283019888> • **__TICKET APERTO__**")
-    .setDescription("<:VC_claim:1478517202016669887> Ticket non claimato")
-    .setColor("#6f4e37");
+  const fallbackPayload = buildTicketFlowRich({
+    title: "<:VC_Ticket:1482535175283019888> • **__TICKET APERTO__**",
+    description: "<:VC_claim:1478517202016669887> Ticket non claimato",
+    rows: [ticketButtonsOriginal],
+  });
   if (!channel?.messages?.fetch) return;
   let msg = null;
   if (panelMid) {
@@ -81,24 +84,25 @@ async function refreshTicketPanelMessageUnclaimed(channel, ticketDoc) {
   }
   if (!msg) {
     const sent = await channel
-      .send({
-        embeds: [fallbackEmbed],
-        components: [ticketButtonsOriginal],
-      })
+      .send(fallbackPayload)
       .catch(() => null);
     if (sent?.id && ticketDoc?._id) {
       await Ticket.updateOne({ _id: ticketDoc._id }, { $set: { messageId: sent.id } }).catch(() => {});
     }
     return;
   }
-  const embedUsato = msg.embeds && msg.embeds[0] ? EmbedBuilder.from(msg.embeds[0]) : new EmbedBuilder();
-  embedUsato
-    .setTitle("<:VC_Ticket:1482535175283019888> • **__TICKET APERTO__**")
-    .setDescription("<:VC_claim:1478517202016669887> Ticket non claimato")
-    .setColor("#6f4e37");
+  const editPayload = buildTicketFlowRich({
+    title: "<:VC_Ticket:1482535175283019888> • **__TICKET APERTO__**",
+    description: "<:VC_claim:1478517202016669887> Ticket non claimato",
+    rows: [ticketButtonsOriginal],
+  });
+  if (isComponentsV2Message(msg)) {
+    await msg.edit(editPayload).catch(() => {});
+    return;
+  }
   await msg
     .edit({
-      embeds: [embedUsato],
+      embeds: [],
       components: [ticketButtonsOriginal],
     })
     .catch(() => {});
@@ -134,14 +138,16 @@ async function autoUnclaimOpenTicketsClaimedByUser(guild, formerClaimantUserId, 
     await channel.permissionOverwrites.delete(uid).catch(() => {});
     await applyChannelPermissionOverwritesAfterUnclaim(channel, unclaimedTicket.ticketType);
     await refreshTicketPanelMessageUnclaimed(channel, unclaimedTicket);
-    const notice = new EmbedBuilder()
-      .setTitle("<:VC_Ticket:1482535175283019888> • **__CLAIM RIMOSSO__**")
-      .setDescription(
-        `<:VC_claim:1478517202016669887> Il ticket non è più in carico a <@${uid}> ${reasonText}.\n\n` +
-          "È di nuovo disponibile il pulsante **Claim**.",
+    await channel
+      .send(
+        buildTicketFlowRich({
+          title: "<:VC_Ticket:1482535175283019888> • **__CLAIM RIMOSSO__**",
+          description:
+            `<:VC_claim:1478517202016669887> Il ticket non è più in carico a <@${uid}> ${reasonText}.\n\n` +
+            "È di nuovo disponibile il pulsante **Claim**.",
+        }),
       )
-      .setColor("#6f4e37");
-    await channel.send({ embeds: [notice] }).catch(() => {});
+      .catch(() => {});
   }
 }
 

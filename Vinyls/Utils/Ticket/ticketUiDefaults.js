@@ -6,9 +6,9 @@ const {
 } = require("../Partner/tenantPartnershipI18n/languages");
 
 const DEFAULT_TICKET_PANEL_TITLE = "Apri un ticket";
-const DEFAULT_TICKET_PANEL_COLOR = "#6f4e37";
+const DEFAULT_TICKET_PANEL_COLOR = "#6F4E37";
 const DEFAULT_TICKET_BUTTON_EMOJI = Object.freeze({ name: "📩" });
-const DEFAULT_TICKET_WELCOME_COLOR = "#6f4e37";
+const DEFAULT_TICKET_WELCOME_COLOR = "#6F4E37";
 const FALLBACK_TICKET_PANEL_FOOTER = "© 2026 Vinili & Caffè. Tutti i diritti riservati.";
 
 const DEFAULT_TICKET_PANEL_TITLE_BY_LANG = Object.freeze({

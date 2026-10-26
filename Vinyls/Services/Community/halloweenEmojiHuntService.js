@@ -5,7 +5,23 @@ const {
   resolveHalloweenEventConfig,
   createUtcFromRomeLocal,
 } = require("../../Utils/Web/halloweenEventConfig");
-const { addHalloweenCandy, resolveEventKey } = require("./halloweenCandyService");
+const {
+  addHalloweenCandyWithPassAlong,
+  buildHalloweenCandyUnlockPayload,
+  resolveEventKey,
+} = require("./halloweenCandyService");
+const {
+  peekNextCandyKind,
+  commitCandyKind,
+  KIND_HUNT,
+  KIND_TOT,
+} = require("../../Utils/Minigames/halloweenCandyAlternate");
+const {
+  buildHuntSpawnEmbed,
+  buildHuntHintEmbed,
+  buildHuntEndedEmbed,
+  buildHuntFoundAnnounceEmbed,
+} = require("../../Utils/Minigames/halloweenEmojiHuntUi");
 
 const DOC_TYPE = SITE_DOCUMENT_TYPE.HOGWARTS_REACT_PRESS;
 const DOC_OWNER = "__halloween_emoji_hunt__";
@@ -75,6 +91,7 @@ function listHuntTargets(client, cfg) {
   if (mainId && isHalloweenEventLive(client, Date.now(), mainId) && baseChannelId) {
     targets.push({ guildId: mainId, channelId: baseChannelId });
   }
+  // Test solo con HALLOWEEN_TEST_FORCE_LIVE / testGuildForceLive (staging), non durante l'evento main.
   if (testId && isHalloweenEventLive(client, Date.now(), testId)) {
     const mapped = resolveHuntChannelIdForGuild(testId, baseChannelId);
     if (mapped) targets.push({ guildId: testId, channelId: mapped });
@@ -171,8 +188,38 @@ function readState(doc) {
     activeMessageId: normalizeId(raw.activeMessageId),
     activeChannelId: normalizeId(raw.activeChannelId),
     activeEndsAtMs: Number(raw.activeEndsAtMs) || 0,
+    activeStartedAtMs: Number(raw.activeStartedAtMs) || 0,
+    hintSent: Boolean(raw.hintSent),
     winnerUserId: normalizeId(raw.winnerUserId),
   };
+}
+
+function minigamesPingRoleId() {
+  return normalizeId(IDs.roles?.Minigames);
+}
+
+function jumpUrlFor(guildId, channelId, messageId) {
+  const g = normalizeId(guildId);
+  const c = normalizeId(channelId);
+  const m = normalizeId(messageId);
+  if (!g || !c || !m) return "";
+  return `https://discord.com/channels/${g}/${c}/${m}`;
+}
+
+async function sendHuntAnnounce(channel, embed, { withPing = false } = {}) {
+  if (!channel?.send || !embed) return null;
+  const roleId = minigamesPingRoleId();
+  const payload = { embeds: [embed] };
+  if (withPing && roleId) {
+    payload.content = `<@&${roleId}>`;
+    payload.allowedMentions = { roles: [roleId] };
+  } else {
+    payload.allowedMentions = { parse: [] };
+  }
+  return channel.send(payload).catch((err) => {
+    global.logger?.warn?.("[HALLOWEEN-HUNT] announce failed:", err?.message || err);
+    return null;
+  });
 }
 
 function pickNextSpawnAtMs(nowMs, cfg) {
@@ -245,40 +292,109 @@ async function pickRandomChatMessage(channel, cfg) {
   return candidates[Math.floor(Math.random() * candidates.length)];
 }
 
-async function spawnHunt(client, cfg, guildId, slotKey, channelIdOverride = null) {
+async function spawnHunt(client, cfg, guildId, slotKey, channelIdOverride = null, options = {}) {
+  const skipAlternate = Boolean(options.skipAlternate);
+  if (!skipAlternate) {
+    const next = await peekNextCandyKind(guildId);
+    if (next !== KIND_HUNT) return { ok: false, reason: "alternate_tot" };
+  }
   const channelId = normalizeId(channelIdOverride || cfg.channelId);
   const channel = await client.channels.fetch(channelId).catch(() => null);
-  if (!channel?.isTextBased?.()) return false;
+  if (!channel?.isTextBased?.()) return { ok: false, reason: "no_channel" };
   const message = await pickRandomChatMessage(channel, cfg);
-  if (!message) return false;
+  if (!message) return { ok: false, reason: "no_candidate" };
   const emoji = parseEmojiTarget(cfg.emoji);
   const reactArg = emoji.id ? { id: emoji.id, name: emoji.name } : emoji.raw;
   await message.react(reactArg).catch((err) => {
     global.logger?.warn?.("[HALLOWEEN-HUNT] react failed:", err?.message || err);
   });
-  const endsAt = Date.now() + cfg.activeDurationMs;
+  const startedAt = Date.now();
+  const endsAt = startedAt + cfg.activeDurationMs;
   await saveState(guildId, {
     lastSlotKey: slotKey,
     scheduledSlotKey: slotKey,
-    scheduledAtMs: Date.now(),
+    scheduledAtMs: startedAt,
     activeMessageId: message.id,
     activeChannelId: channel.id,
     activeEndsAtMs: endsAt,
+    activeStartedAtMs: startedAt,
+    hintSent: false,
     winnerUserId: "",
   });
-  return true;
+  await commitCandyKind(guildId, KIND_HUNT);
+  const jump = jumpUrlFor(guildId, channel.id, message.id);
+  await sendHuntAnnounce(
+    channel,
+    buildHuntSpawnEmbed({ jumpUrl: jump, durationMs: cfg.activeDurationMs }),
+    { withPing: true },
+  );
+  return { ok: true, messageId: message.id, channelId: channel.id, jumpUrl: jump };
 }
 
-async function expireActiveIfNeeded(guildId, state) {
+async function maybeSendHuntMidHint(client, cfg, guildId, state) {
+  if (!state?.activeMessageId || state.winnerUserId || state.hintSent) return state;
+  if (!state.activeEndsAtMs || Date.now() >= state.activeEndsAtMs) return state;
+  const started =
+    Number(state.activeStartedAtMs) ||
+    Number(state.activeEndsAtMs) - Number(cfg.activeDurationMs || 0);
+  if (!Number.isFinite(started) || started <= 0) return state;
+  const midAt = started + (Number(state.activeEndsAtMs) - started) / 2;
+  if (Date.now() < midAt) return state;
+
+  const channelId = normalizeId(state.activeChannelId) || resolveHuntChannelIdForGuild(guildId, cfg.channelId);
+  const channel = await client.channels.fetch(channelId).catch(() => null);
+  const remainingMs = Math.max(0, Number(state.activeEndsAtMs) - Date.now());
+  const jump = jumpUrlFor(guildId, channelId, state.activeMessageId);
+  await sendHuntAnnounce(channel, buildHuntHintEmbed({ jumpUrl: jump, remainingMs }), { withPing: true });
+  await saveState(guildId, { hintSent: true });
+  return { ...state, hintSent: true };
+}
+
+async function expireActiveIfNeeded(client, cfg, guildId, state) {
   if (!state?.activeMessageId) return state;
   if (state.winnerUserId) return state;
   if (state.activeEndsAtMs && Date.now() < state.activeEndsAtMs) return state;
+
+  const channelId = normalizeId(state.activeChannelId) || resolveHuntChannelIdForGuild(guildId, cfg.channelId);
+  const channel = await client.channels.fetch(channelId).catch(() => null);
+  await sendHuntAnnounce(channel, buildHuntEndedEmbed(), { withPing: false });
+
   await saveState(guildId, {
     activeMessageId: "",
     activeChannelId: "",
     activeEndsAtMs: 0,
+    activeStartedAtMs: 0,
+    hintSent: false,
   });
-  return { ...state, activeMessageId: "", activeChannelId: "", activeEndsAtMs: 0 };
+  return {
+    ...state,
+    activeMessageId: "",
+    activeChannelId: "",
+    activeEndsAtMs: 0,
+    activeStartedAtMs: 0,
+    hintSent: false,
+  };
+}
+
+async function trySpawnTotInstead(client, guildId, channelId) {
+  try {
+    const minigameService = require("../Minigames/minigameService");
+    const cfg = typeof minigameService.getConfig === "function" ? minigameService.getConfig(client) : null;
+    if (!cfg) return false;
+    const totCfg = {
+      ...cfg,
+      channelId: normalizeId(channelId) || cfg.channelId,
+      guildId: normalizeId(guildId) || cfg.guildId,
+    };
+    // bypass alternate: già riservato tot dal peek
+    const { startHalloweenTrickOrTreatGameForAlternate } = minigameService;
+    if (typeof startHalloweenTrickOrTreatGameForAlternate === "function") {
+      return Boolean(await startHalloweenTrickOrTreatGameForAlternate(client, totCfg));
+    }
+  } catch (err) {
+    global.logger?.warn?.("[HALLOWEEN-HUNT] tot alternate spawn failed:", err?.message || err);
+  }
+  return false;
 }
 
 async function runHalloweenEmojiHuntTickForTarget(client, cfg, target) {
@@ -288,10 +404,13 @@ async function runHalloweenEmojiHuntTickForTarget(client, cfg, target) {
   if (!isHalloweenEventLive(client, Date.now(), guildId)) return;
 
   let state = readState(await loadState(guildId));
-  state = await expireActiveIfNeeded(guildId, state);
+  state = await expireActiveIfNeeded(client, cfg, guildId, state);
 
   const now = Date.now();
-  if (state.activeMessageId && state.activeEndsAtMs > now && !state.winnerUserId) return;
+  if (state.activeMessageId && state.activeEndsAtMs > now && !state.winnerUserId) {
+    await maybeSendHuntMidHint(client, cfg, guildId, state);
+    return;
+  }
 
   const parts = getRomeParts(now);
   if (!isWithinHuntHours(parts, cfg)) return;
@@ -322,6 +441,15 @@ async function runHalloweenEmojiHuntTickForTarget(client, cfg, target) {
   }
 
   if (state.scheduledAtMs && state.scheduledAtMs > now + 2_000 && state.scheduledSlotKey === currentKey) {
+    return;
+  }
+
+  const nextKind = await peekNextCandyKind(guildId);
+  if (nextKind === KIND_TOT) {
+    const started = await trySpawnTotInstead(client, guildId, channelId);
+    if (started) {
+      await saveState(guildId, { lastSlotKey: currentKey, scheduledSlotKey: currentKey, scheduledAtMs: Date.now() });
+    }
     return;
   }
 
@@ -363,7 +491,7 @@ async function handleHalloweenEmojiHuntReaction(client, reaction, user) {
     if (fresh.winnerUserId || fresh.activeMessageId !== normalizeId(message.id)) return true;
     const eventKey = resolveEventKey(client);
     const candy = cfg.rewardCandy > 0
-      ? await addHalloweenCandy({
+      ? await addHalloweenCandyWithPassAlong({
           guildId,
           userId: user.id,
           amount: cfg.rewardCandy,
@@ -378,32 +506,50 @@ async function handleHalloweenEmojiHuntReaction(client, reaction, user) {
       activeMessageId: "",
       activeChannelId: "",
       activeEndsAtMs: 0,
+      activeStartedAtMs: 0,
+      hintSent: false,
     });
+    try {
+      const { recordHalloweenReactWin } = require("./halloweenReactLeaderboardService");
+      // Classifica sul main: le vittorie test contano se mirrorate, altrimenti main only
+      const mainId = normalizeId(IDs.guilds?.main) || guildId;
+      await recordHalloweenReactWin({
+        guildId: mainId,
+        userId: user.id,
+        eventKey,
+        amount: 1,
+      });
+    } catch (lbErr) {
+      global.logger?.warn?.("[HALLOWEEN-HUNT] leaderboard record failed:", lbErr?.message || lbErr);
+    }
     const chatId = resolveHuntChannelIdForGuild(guildId, cfg.channelId);
     const chat = await client.channels.fetch(chatId).catch(() => null);
     if (chat?.send) {
-      const first = candy?.firstAward;
-      let candyBit = "";
-      if (cfg.rewardCandy > 0) {
-        if (candy?.ok && first?.name) {
-          candyBit = ` +<:VC_Halloween:1558964785113206824> **${first.name}** · **${candy.ownedCount}/${candy.total}**`;
-        } else if (candy?.code === "collection_complete") {
-          candyBit = ` · collezione completa **${candy.ownedCount}/${candy.total}**`;
-        }
+      const embeds = [buildHuntFoundAnnounceEmbed({ userId: user.id })];
+      const components = [];
+      const unlockFor =
+        candy?.code === "passed_along" && candy?.passedToUserId
+          ? candy.passedToUserId
+          : user.id;
+      const unlock = candy?.ok
+        ? buildHalloweenCandyUnlockPayload({ candyResult: candy, userId: unlockFor })
+        : null;
+      if (unlock?.embeds?.length) embeds.push(...unlock.embeds);
+      if (unlock?.components?.length) components.push(...unlock.components);
+      let content;
+      const mentionUsers = [normalizeId(user.id)];
+      if (candy?.code === "passed_along" && candy?.passedToUserId) {
+        content = `<:VC_Halloween:1558964785113206824> <@${user.id}> ha il sacchetto pieno — la caramella passa a <@${candy.passedToUserId}>!`;
+        mentionUsers.push(normalizeId(candy.passedToUserId));
+      } else if (candy?.code === "collection_complete") {
+        content = `<:VC_Halloween:1558964785113206824> <@${user.id}> · collezione completa **${candy.ownedCount}/${candy.total}**!`;
       }
       const payload = {
-        content: `🎃 <@${user.id}> ha trovato l'emoji Halloween${candyBit}!`,
-        allowedMentions: { users: [user.id] },
+        content,
+        embeds,
+        components: components.length ? components : undefined,
+        allowedMentions: { users: mentionUsers.filter(Boolean), parse: [] },
       };
-      if (first?.imageUrl) {
-        const { EmbedBuilder } = require("discord.js");
-        payload.embeds = [
-          new EmbedBuilder()
-            .setColor(0xf97316)
-            .setThumbnail(String(first.imageUrl))
-            .setDescription("Nuova caramella nella collezione profilo."),
-        ];
-      }
       await chat.send(payload).catch(() => {});
     }
     return true;

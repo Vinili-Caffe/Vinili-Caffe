@@ -2,6 +2,44 @@ const fs = require("fs");
 const crypto = require("crypto");
 const axios = require("axios");
 const CDN_ATTACHMENT_PATTERN = /(cdn\.discordapp\.com|media\.discordapp\.net)\/attachments\//i;
+/** Components V2: Container = 17 (discord-api-types / discord.js ComponentType.Container). */
+const COMPONENT_TYPE_CONTAINER = 17;
+const IS_COMPONENTS_V2_FLAG = 1 << 15;
+
+function messageFlagsBitfield(messageOrPayload) {
+  const raw = messageOrPayload?.flags;
+  if (raw == null) return 0;
+  if (typeof raw === "number") return raw;
+  if (typeof raw?.bitfield === "bigint") return Number(raw.bitfield);
+  if (typeof raw?.bitfield === "number") return Number(raw.bitfield);
+  if (typeof raw?.valueOf === "function") {
+    const v = raw.valueOf();
+    if (typeof v === "number") return v;
+  }
+  return Number(raw) || 0;
+}
+
+function hasComponentsV2Flag(messageOrPayload) {
+  return (messageFlagsBitfield(messageOrPayload) & IS_COMPONENTS_V2_FLAG) === IS_COMPONENTS_V2_FLAG;
+}
+
+function componentRootType(component) {
+  const raw = typeof component?.toJSON === "function" ? component.toJSON() : component;
+  return Number(raw?.type ?? raw?.data?.type ?? 0) || 0;
+}
+
+function isComponentsV2Tree(components = []) {
+  const rows = Array.isArray(components) ? components : [];
+  return rows.some((c) => componentRootType(c) === COMPONENT_TYPE_CONTAINER);
+}
+
+function isComponentsV2Message(message) {
+  return hasComponentsV2Flag(message) || isComponentsV2Tree(message?.components);
+}
+
+function isComponentsV2Payload(payload) {
+  return hasComponentsV2Flag(payload) || isComponentsV2Tree(payload?.components);
+}
 
 function normalizeDiscordAttachmentUrl(value) {
   if (typeof value !== "string") return value;
@@ -68,13 +106,52 @@ function simplifyEmbed(embed) {
   return { title: normalizeText(raw.title), description: normalizeText(raw.description), color: Number.isFinite(raw.color) ? raw.color : null, url: raw.url ? String(raw.url) : null, image: img, thumbnail: thumb, author, footer, fields };
 }
 
+function simplifyComponentNode(node) {
+  const r = typeof node?.toJSON === "function" ? node.toJSON() : node;
+  if (!r || typeof r !== "object") return null;
+  const type = r.type ?? null;
+  const children = Array.isArray(r.components) ? r.components.map(simplifyComponentNode).filter(Boolean) : undefined;
+  const items = Array.isArray(r.items)
+    ? r.items.map((item) => ({
+        media: item?.media?.url ? normalizeDiscordAttachmentUrl(item.media.url) : null,
+      }))
+    : undefined;
+  return {
+    type,
+    style: r.style ?? null,
+    custom_id: r.custom_id || r.customId || null,
+    label: normalizeText(r.label),
+    url: r.url ? String(r.url) : null,
+    disabled: Boolean(r.disabled),
+    content: normalizeText(r.content),
+    accent_color: Number.isFinite(r.accent_color) ? r.accent_color : Number.isFinite(r.accentColor) ? r.accentColor : null,
+    divider: r.divider == null ? null : Boolean(r.divider),
+    spacing: r.spacing ?? null,
+    emoji: r.emoji
+      ? {
+          id: r.emoji.id ? String(r.emoji.id) : null,
+          name: r.emoji.name ? String(r.emoji.name) : null,
+          animated: Boolean(r.emoji.animated),
+        }
+      : null,
+    ...(items ? { items } : {}),
+    ...(children ? { components: children } : {}),
+  };
+}
+
 function simplifyComponents(components = []) {
   const rows = Array.isArray(components) ? components : [];
-  return rows.map((row) => {
-    const r = typeof row?.toJSON === "function" ? row.toJSON() : row;
-    const children = Array.isArray(r?.components) ? r.components : [];
-    return children.map((c) => ({ type: c?.type ?? null, style: c?.style ?? null, custom_id: c?.custom_id || c?.customId || null, label: normalizeText(c?.label), url: c?.url ? String(c.url) : null, disabled: Boolean(c?.disabled), emoji: c?.emoji ? { id: c.emoji.id ? String(c.emoji.id) : null, name: c.emoji.name ? String(c.emoji.name) : null, animated: Boolean(c.emoji.animated) } : null }));
-  });
+  return rows.map(simplifyComponentNode).filter(Boolean);
+}
+
+function extractTextFromComponents(components = [], out = []) {
+  for (const node of Array.isArray(components) ? components : []) {
+    const r = typeof node?.toJSON === "function" ? node.toJSON() : node;
+    if (!r || typeof r !== "object") continue;
+    if (r.content) out.push(normalizeText(r.content));
+    if (Array.isArray(r.components)) extractTextFromComponents(r.components, out);
+  }
+  return out;
 }
 
 function toComparableEmbeds(embeds = []) {
@@ -98,6 +175,14 @@ function messageHasAttachmentName(message, expectedName) {
   return false;
 }
 
+function isBotPanelCandidateMessage(msg, client) {
+  if (msg?.author?.id !== client.user?.id) return false;
+  if (Array.isArray(msg?.embeds) && msg.embeds.length) return true;
+  if (isComponentsV2Message(msg)) return true;
+  if (Array.isArray(msg?.components) && msg.components.length) return true;
+  return false;
+}
+
 async function fetchBotPanelMessages(channel, client, limit = 200) {
   const out = [];
   let before = null;
@@ -106,8 +191,7 @@ async function fetchBotPanelMessages(channel, client, limit = 200) {
     if (!batch?.size) break;
     const values = [...batch.values()];
     for (const msg of values) {
-      if (msg?.author?.id !== client.user?.id) continue;
-      if (!Array.isArray(msg?.embeds) || !msg.embeds.length) continue;
+      if (!isBotPanelCandidateMessage(msg, client)) continue;
       out.push(msg);
       if (out.length >= limit) break;
     }
@@ -183,17 +267,34 @@ function scoreEmbedSimilarity(message, payload) {
   return score;
 }
 
+function walkCollectCustomIds(node, ids) {
+  const raw = typeof node?.toJSON === "function" ? node.toJSON() : node;
+  if (!raw || typeof raw !== "object") return;
+  const id = raw.custom_id || raw.customId || null;
+  if (id) ids.add(String(id));
+  if (Array.isArray(raw.components)) {
+    for (const child of raw.components) walkCollectCustomIds(child, ids);
+  }
+}
+
 function extractCustomIdsFromComponents(components = []) {
   const ids = new Set();
-  for (const row of components || []) {
-    const rowJson = typeof row?.toJSON === "function" ? row.toJSON() : row;
-    const children = Array.isArray(rowJson?.components) ? rowJson.components : [];
-    for (const component of children) {
-      const id = component?.custom_id || component?.customId || null;
-      if (id) ids.add(String(id));
-    }
-  }
+  for (const row of components || []) walkCollectCustomIds(row, ids);
   return ids;
+}
+
+function scoreV2TextSimilarity(message, payload) {
+  const msgText = extractTextFromComponents(message?.components || []).join("\n").toLowerCase();
+  const nextText = extractTextFromComponents(payload?.components || []).join("\n").toLowerCase();
+  if (!msgText || !nextText) return 0;
+  let score = 0;
+  const msgHead = msgText.slice(0, 120);
+  const nextHead = nextText.slice(0, 120);
+  if (msgHead && nextHead && (msgHead === nextHead || msgHead.includes(nextHead.slice(0, 40)) || nextHead.includes(msgHead.slice(0, 40)))) {
+    score += 5;
+  }
+  if (msgText.includes(nextText.slice(0, 60)) || nextText.includes(msgText.slice(0, 60))) score += 3;
+  return score;
 }
 
 function buildStableEmbedIdentity(rawEmbed) {
@@ -226,10 +327,18 @@ function preparePanelDiscordPayload(payload) {
   delete p.messageId;
   delete p.attachmentName;
   delete p.forceNew;
-      if (!("content" in p) || p.content === undefined) {
+  delete p.editOnly;
+  delete p.includeBanner;
+  delete p.__staleMessageId;
+  if (!("content" in p) || p.content === undefined) {
     p.content = "";
   }
-          if (Array.isArray(p.files) && p.files.length > 0) {
+  if (isComponentsV2Payload(p)) {
+    p.flags = messageFlagsBitfield(p) | IS_COMPONENTS_V2_FLAG;
+    // V2: nessun classic embed nello stesso messaggio
+    p.embeds = [];
+  }
+  if (Array.isArray(p.files) && p.files.length > 0) {
     p.attachments = [];
   }
   return p;
@@ -287,12 +396,18 @@ async function editPanelMessageSafe(message, editPayload) {
 
 async function shouldEditMessage(message, payload) {
   if (!message) return true;
+  const msgV2 = isComponentsV2Message(message);
+  const payloadV2 = isComponentsV2Payload(payload);
+  if (msgV2 !== payloadV2) return true;
+  if ((messageFlagsBitfield(message) & IS_COMPONENTS_V2_FLAG) !== (messageFlagsBitfield(payload) & IS_COMPONENTS_V2_FLAG)) {
+    return true;
+  }
   if (String(message.content ?? "") !== String(payload?.content ?? "")) return true;
-  if (toComparableEmbeds(message?.embeds || []) !== toComparableEmbeds(payload?.embeds || [])) return true;
+  if (!payloadV2 && toComparableEmbeds(message?.embeds || []) !== toComparableEmbeds(payload?.embeds || [])) return true;
   if (toComparableComponents(message?.components || []) !== toComparableComponents(payload?.components || [])) return true;
   const expectedFiles = Array.isArray(payload?.files) ? payload.files.length : 0;
   const actualAttachments = Number(message?.attachments?.size || 0);
-    if (expectedFiles > 0 && actualAttachments !== expectedFiles) return true;
+  if (expectedFiles > 0 && actualAttachments !== expectedFiles) return true;
   return false;
 }
 
@@ -303,6 +418,11 @@ async function upsertPanelMessage(channel, client, payload) {
   const editOnly = payload?.editOnly === true;
 
   async function editExisting(existing) {
+    // Classic → V2: rimpiazza il messaggio (edit raramente accetta il cambio di layout).
+    if (isComponentsV2Payload(payload) && !isComponentsV2Message(existing) && !editOnly) {
+      await existing.delete().catch(() => null);
+      return sendNew();
+    }
     const editPayload = preparePanelDiscordPayload(omitPanelFilesIfAttachmentPresent(existing, payload));
     const needsEdit = await shouldEditMessage(existing, editPayload);
     if (!needsEdit) return { ok: true, message: existing };
@@ -311,11 +431,19 @@ async function upsertPanelMessage(channel, client, payload) {
       upsertCachedBotPanelMessage(channel, client, edited.message);
       return { ok: true, message: edited.message };
     }
-        if (Number(edited.code) === 10008) {
+    if (Number(edited.code) === 10008) {
       global.logger?.warn?.(
         `[panelUpsert] stale message ${existing.id} in #${channel?.id} (10008); clearing.`,
       );
       return { ok: false, staleMessageId: String(existing.id) };
+    }
+    // Edit V2 fallito: prova resend se non editOnly
+    if (isComponentsV2Payload(payload) && !editOnly) {
+      global.logger?.warn?.(
+        `[panelUpsert] V2 edit failed for ${existing.id} in #${channel?.id}; resending.`,
+      );
+      await existing.delete().catch(() => null);
+      return sendNew();
     }
     global.logger?.warn?.(
       `[panelUpsert] edit failed for ${existing.id} in #${channel?.id}; no resend.`,
@@ -417,14 +545,29 @@ async function upsertPanelMessage(channel, client, payload) {
   }
 
   if (!existing && botMessages.length) {
+    const payloadIsV2 = isComponentsV2Payload(payload);
     const ranked = botMessages
-      .map((msg) => ({ msg, score: scoreEmbedSimilarity(msg, payload) }))
+      .map((msg) => {
+        const embedScore = scoreEmbedSimilarity(msg, payload);
+        const v2Score = payloadIsV2 || isComponentsV2Message(msg) ? scoreV2TextSimilarity(msg, payload) : 0;
+        return { msg, score: Math.max(embedScore, v2Score) };
+      })
       .sort((a, b) =>
         b.score !== a.score
           ? b.score - a.score
           : Number(b.msg?.createdTimestamp || 0) - Number(a.msg?.createdTimestamp || 0),
       );
     if (ranked[0]?.score >= 3) existing = ranked[0].msg;
+  }
+
+  // Classic → V2: meglio un messaggio nuovo (edit spesso rifiuta il cambio di layout).
+  if (existing && isComponentsV2Payload(payload) && !isComponentsV2Message(existing) && !editOnly) {
+    try {
+      await existing.delete().catch(() => null);
+    } catch {
+      /* ignore */
+    }
+    existing = null;
   }
 
   if (existing) {
@@ -437,4 +580,13 @@ async function upsertPanelMessage(channel, client, payload) {
   return finalize(await sendNew());
 }
 
-module.exports = { shouldEditMessage, upsertPanelMessage, normalizeDiscordAttachmentUrl, resolvePayloadFileName, readPayloadFileBuffer, fetchAttachmentHash };
+module.exports = {
+  shouldEditMessage,
+  upsertPanelMessage,
+  normalizeDiscordAttachmentUrl,
+  resolvePayloadFileName,
+  readPayloadFileBuffer,
+  fetchAttachmentHash,
+  isComponentsV2Message,
+  isComponentsV2Payload,
+};

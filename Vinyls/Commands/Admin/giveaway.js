@@ -181,7 +181,7 @@ module.exports = {
         return safeEditReply(interaction, {
           content:
             `<a:VC_Events:1482706144953897223> Giveaway creato in ${channel}. Termina tra ${durationStr}.` +
-            (requireMorgames ? "<:VC_Morgames:1562470559319719957> Requisito obbligatorio: account Morgames collegato a Discord." : ""),
+            (requireMorgames ? " Requisito: account Morgames collegato a Discord." : ""),
           flags: EPHEMERAL_FLAG,
         });
       } catch (err) {

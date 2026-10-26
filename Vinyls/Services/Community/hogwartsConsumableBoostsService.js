@@ -20,7 +20,7 @@ const SORTED_HOUSE_IDS = ["gryffindor", "hufflepuff", "ravenclaw", "slytherin"];
 const BOOST_TYPES_LIST = [CONSUMABLE_BOOST_TYPES.HOUSE_POINTS, CONSUMABLE_BOOST_TYPES.EXP];
 const EXPIRY_ANNOUNCE_MAX_AGE_MS = 3 * 60 * 60 * 1000;
 const DEFAULT_SHOP_URL = "https://viniliecaffe.it/evento/shop";
-const HOGWARTS_IMG_DIR = path.resolve(__dirname, "../../../WebSite/images/evento-hogwarts");
+const HOGWARTS_IMG_DIR = path.resolve(__dirname, "../../Assets/evento-hogwarts");
 const HOUSE_BOOST_ANNOUNCE_CHANNEL_BY_ID = {
   gryffindor: () => IDs.channels?.hogwartsHouseGryffindor,
   hufflepuff: () => IDs.channels?.hogwartsHouseHufflepuff,
@@ -397,9 +397,10 @@ function findHogwartsImagePath(relativePath) {
   const rel = String(relativePath || "").replace(/^[/\\]+/, "");
   const candidates = [
     path.join(HOGWARTS_IMG_DIR, rel),
-    path.resolve(process.cwd(), "WebSite/images/evento-hogwarts", rel),
-    path.resolve("/opt/bot/WebSite/images/evento-hogwarts", rel),
+    path.resolve(process.cwd(), "Vinyls/Assets/evento-hogwarts", rel),
+    path.resolve("/opt/bot/Vinyls/Assets/evento-hogwarts", rel),
     path.resolve("/var/www/viniliecaffe/images/evento-hogwarts", rel),
+    path.resolve("/var/www/viniliecaffe-react/images/evento-hogwarts", rel),
   ];
   for (const filePath of candidates) {
     try {

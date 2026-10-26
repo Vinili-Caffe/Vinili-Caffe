@@ -102,9 +102,9 @@
       "secretKey": "0x4AAAAAAFNGgRknZFfoORs3sYhTDK5aBkQ"
     },
     "ads": {
-      "provider": "adsense",
-      "adsenseClient": "ca-pub-9933035299522072",
-      "adsenseSlot": "8991160009",
+      "provider": "none",
+      "adsenseClient": "",
+      "adsenseSlot": "",
       "minWatchSeconds": 0
     }
   },
@@ -701,10 +701,15 @@
       "rewardExp": 150
     },
     "halloweenTrickOrTreat": {
-      "durationMs": 180000,
+      "durationMs": 900000,
       "rewardExp": 100,
-      "treatChancePercent": 55,
+      "treatChancePercent": 80,
       "candyOnTreat": 1
+    },
+    "halloweenCandyDrop": {
+      "enabled": true,
+      "chancePercent": 6,
+      "amount": 1
     }
   },
   "halloweenEvent": {
@@ -713,7 +718,8 @@
     "timezone": "Europe/Rome",
     "startDate": "2026-10-24T12:00:00",
     "endDate": "2026-11-01T12:00:00",
-    "testGuildForceLive": true
+    "testGuildForceLive": false,
+    "reactLeaderboardChannelId": "1562454089801928764"
   },
   "halloweenEmojiHunt": {
     "enabled": true,

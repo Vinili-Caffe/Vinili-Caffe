@@ -4,7 +4,7 @@
 - **Uptime Kuma** su Docker (`--network host`, porta `3001`)
 - Nginx + HTTPS su **https://status.viniliecaffe.it**
 - Status pubblica: **https://status.viniliecaffe.it/status/vinili**
-- Pagina leggera sul sito: **https://www.viniliecaffe.it/status/** (`/stato/` reindirizza qui)
+- Pagina leggera sul sito: **https://www.viniliecaffe.it/stato/**
 - Endpoint stack: `GET /webhooks/health` → `{ ok, checks: { bot, mongo, lavalink } }`
 
 ## Setup sul VPS
@@ -40,12 +40,9 @@ Admin e password: `/root/.uptime-kuma-admin`
 |------|--------|
 | Sito web | HTTPS origin `127.0.0.1` + Host header |
 | Bot Discord | `http://127.0.0.1:3000/webhooks/status` |
-| Bot Caffè | `http://127.0.0.1:3000/webhooks/coffee/health` |
 | Stack health | `http://127.0.0.1:3000/webhooks/health` |
 | Site API | `http://127.0.0.1:3020/webhooks/site-api/health` |
 | Discadia | `http://127.0.0.1:3010/webhooks/discadia/health` |
-
-Nota nginx: usare `location ^~ /webhooks/discadia` (prefisso), non `location =`, altrimenti `/webhooks/discadia/health` finisce sul processo sbagliato (404 in console su `/status/`).
 | MongoDB | TCP `127.0.0.1:27017` |
 | Lavalink | TCP `127.0.0.1:2333` |
 

@@ -432,17 +432,26 @@ async function addBotRoles(member) {
 
 function buildWelcomeChannelContent(member) {
   const { word } = buildMemberWelcomePhrase(member);
-  return `Ciao ${member.user}, ${word}! <@&${IDs.roles.Staff}> <a:VC_heartfinger:1504513546782769332>`;
+  const staffId = String(IDs.roles?.Staff || "").trim();
+  const staffPing = staffId ? ` <@&${staffId}>` : "";
+  return `Ciao <@${member.id}>, ${word}!${staffPing} <a:VC_heartfinger:1504513546782769332>`;
 }
 
 async function sendWelcomeChannelAnnouncement(channel, member) {
   if (!channel?.send || !member) return null;
+  const staffId = String(IDs.roles?.Staff || "").trim();
   const sent = await channel
     .send(
       applyDefaultFooterToEmbeds(
         {
           content: buildWelcomeChannelContent(member),
           embeds: [buildWelcomeEmbed(member)],
+          // Ping nuovo membro + Staff (content fuori dall’embed via split V2)
+          allowedMentions: {
+            users: [String(member.id)],
+            roles: staffId ? [staffId] : [],
+            parse: [],
+          },
         },
         member.guild,
       ),
@@ -2020,6 +2029,10 @@ module.exports = {
       await trackMemberJoin(member).catch((err) => {
         global.logger?.warn?.("[guildMemberAdd] daily member stats:", err?.message || err);
       });
+      try {
+        const { broadcastSiteLiveStatsChangedDebounced } = require("../Utils/Web/siteSuggestionsBroadcast");
+        broadcastSiteLiveStatsChangedDebounced();
+      } catch (_) {}
       const joinGateConfig = getJoinGateConfigSnapshot();
       const isCoreExempt = await resolveJoinGateConfiguredExempt(member?.guild, member?.id, member);
       const sponsorNoJoinGate = isSponsorJoinGateGuildId(member.guild.id);

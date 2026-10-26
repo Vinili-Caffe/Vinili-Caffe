@@ -30,7 +30,14 @@ function warnTwitchLive(label, err) {
 }
 
 function parentHosts() {
-  return ["www.viniliecaffe.it", "viniliecaffe.it", "localhost", "127.0.0.1"];
+  // Twitch embed: parent = hostname della pagina (www, beta, apex, locale).
+  return [
+    "www.viniliecaffe.it",
+    "viniliecaffe.it",
+    "beta.viniliecaffe.it",
+    "localhost",
+    "127.0.0.1",
+  ];
 }
 
 function twitchEmbedUrl({ login, videoId, kind }) {

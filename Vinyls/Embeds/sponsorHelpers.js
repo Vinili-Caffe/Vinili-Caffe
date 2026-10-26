@@ -27,34 +27,26 @@ function sponsorDividerLine() {
   return "<a:xdivisore:1471892113426874531><a:xdivisore:1471892113426874531><a:xdivisore:1471892113426874531><a:xdivisore:1471892113426874531><a:xdivisore:1471892113426874531><a:xdivisore:1471892113426874531><a:xdivisore:1471892113426874531>";
 }
 
-function buildSponsorTagEmbed(config, boosterRoleMention) {
-  const { EmbedBuilder } = require("discord.js");
-  return new EmbedBuilder()
-    .setColor(SPONSOR_PANEL_COLOR)
-    .setDescription(
-      [
-        `## <:VC_New:1471891729471770819> ── .✦ <a:VC_RightWing:1448672889845973214> ₊⋆˚｡ ${config.tagName}'s Guild-TAG`,
-        sponsorDividerLine(),
-        "",
-        "",
-        "**<a:VC_Arrow:1482706699365257397> Come mantenere la Guild-TAG <:VC_PinkQuestionMark:1471892611026391306>**",
-        "────────୨ৎ────────",
-        "<a:VC_Exclamation:1482534702077444217> Ti basta essere parte di https://discord.gg/viniliecaffe oppure",
-        `boostare questo server (<a:flyingnitroboost:1443652205705170986> ${boosterRoleMention})`,
-        "",
-        "",
-        "**<a:VC_Arrow:1482706699365257397> How to keep the Guild-TAG <:VC_PinkQuestionMark:1471892611026391306>**",
-        "────────୨ৎ────────",
-        "<a:VC_Exclamation:1482534702077444217> You just need to be in https://discord.gg/viniliecaffe or boost",
-        `this server (<a:flyingnitroboost:1443652205705170986> ${boosterRoleMention})`,
-        "",
-        "",
-        "<:VC_PepeComfy:1331591439599272004> Keep up! Nuovi aggiornamenti in arrivo...",
-      ].join("\n"),
-    )
-    .setFooter({
-      text: `.gg/viniliecaffe • ${new Date().toLocaleString("it-IT", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}`,
-    });
+function buildSponsorTagBody(config, boosterRoleMention) {
+  return [
+    `## <:VC_New:1471891729471770819> ── .✦ <a:VC_RightWing:1448672889845973214> ₊⋆˚｡ ${config.tagName}'s Guild-TAG`,
+    sponsorDividerLine(),
+    "",
+    "",
+    "**<a:VC_Arrow:1482706699365257397> Come mantenere la Guild-TAG <:VC_PinkQuestionMark:1471892611026391306>**",
+    "────────୨ৎ────────",
+    "<a:VC_Exclamation:1482534702077444217> Ti basta essere parte di https://discord.gg/viniliecaffe oppure",
+    `boostare questo server (<a:flyingnitroboost:1443652205705170986> ${boosterRoleMention})`,
+    "",
+    "",
+    "**<a:VC_Arrow:1482706699365257397> How to keep the Guild-TAG <:VC_PinkQuestionMark:1471892611026391306>**",
+    "────────୨ৎ────────",
+    "<a:VC_Exclamation:1482534702077444217> You just need to be in https://discord.gg/viniliecaffe or boost",
+    `this server (<a:flyingnitroboost:1443652205705170986> ${boosterRoleMention})`,
+    "",
+    "",
+    "<:VC_PepeComfy:1331591439599272004> Keep up! Nuovi aggiornamenti in arrivo...",
+  ].join("\n");
 }
 
 async function sponsorFetchGuild(client, guildId) {
@@ -112,9 +104,8 @@ async function processOneGuildTagPanel(client, guildId, config) {
     const role = guild.roles.cache.get(config.boosterRoleId) || (await getGuildRoleCached(guild, config.boosterRoleId));
     if (role) boosterRoleMention = `<@&${role.id}>`;
   }
-  const embed = buildSponsorTagEmbed(config, boosterRoleMention);
+  const { buildVcPagePayload } = require("../Utils/Embeds/vcPageEmbedV2");
   const attachment = sponsorMaybeAttachment(TAG_IMAGE_PATH, TAG_IMAGE_NAME, "SPONSOR GUILD TAG");
-  if (attachment) embed.setImage(`attachment://${TAG_IMAGE_NAME}`);
 
   const panelDoc = await sponsorGetOrCreatePanelDoc(guildId, config.channelId).catch((err) => {
     global.logger.error("[SPONSOR GUILD TAG] Panel doc:", err);
@@ -122,7 +113,14 @@ async function processOneGuildTagPanel(client, guildId, config) {
   });
   if (!panelDoc) return;
 
-  const messagePayload = { messageId: panelDoc.infoMessageId1 || null, embeds: [embed], components: [], ...(attachment ? { files: [attachment], attachmentName: TAG_IMAGE_NAME } : {}) };
+  const messagePayload = buildVcPagePayload({
+    messageId: panelDoc.infoMessageId1 || null,
+    guildId,
+    accentColor: SPONSOR_PANEL_COLOR,
+    body: buildSponsorTagBody(config, boosterRoleMention),
+    footer: `.gg/viniliecaffe • ${new Date().toLocaleString("it-IT", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}`,
+    ...(attachment ? { mediaName: TAG_IMAGE_NAME, files: [attachment] } : {}),
+  });
   const sentMessage = await upsertPanelMessage(channel, client, messagePayload);
   if (sentMessage?.id) {
     await personalityPanelUpdateOne({ guildId, channelId: config.channelId }, { $set: { infoMessageId1: sentMessage.id } }).catch(() => {});
@@ -155,8 +153,9 @@ async function runSponsorPanel(client) {
 }
 
 async function processOneVerifyPanel(client, guildId, verifyChannelIds) {
-  const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
+  const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
   const { upsertPanelMessage } = require("../../shared/discord/panelUpsertRuntime");
+  const { buildVcPagePayload } = require("../Utils/Embeds/vcPageEmbedV2");
   const guild = await sponsorFetchGuild(client, guildId);
   if (!guild) {
     if (sponsorVerifyPanelVerbose()) global.logger.warn("[SPONSOR] Verify panel: guild non trovata:", guildId);
@@ -171,16 +170,6 @@ async function processOneVerifyPanel(client, guildId, verifyChannelIds) {
   }
 
   const color = client.config?.embedVerify || SPONSOR_PANEL_COLOR;
-  const verifyEmbed = new EmbedBuilder()
-    .setColor(color)
-    .setTitle("<:verification:1461725843125571758> **`Verification Required!`**")
-    .setDescription(
-      "<:VC_Space:1482459974667075685> <:alarm:1461725841451909183> **Per accedere a `" +
-        (guild.name || "this server") +
-        "` devi prima verificarti.**\n" +
-        "<:VC_Space:1482459974667075685><:VC_Space:1482459974667075685> <:rightSort:1461726104422453298> Clicca il pulsante **Verify** qui sotto per iniziare.\n" +
-        "<:VC_Space:1482459974667075685><:VC_Space:1482459974667075685> <:VC_Reply:1482532158080942191> Gli unici dati a cui avremo accesso saranno, come indicato direttamente da Discord, nome utente, avatar e banner del tuo profilo.",
-    );
   const verifyAttachment = sponsorMaybeAttachment(
     VERIFY_OAUTH_IMAGE_PATH,
     VERIFY_OAUTH_IMAGE_NAME,
@@ -190,7 +179,6 @@ async function processOneVerifyPanel(client, guildId, verifyChannelIds) {
     VERIFY_FALLBACK_IMAGE_NAME,
     "SPONSOR VERIFY",
   );
-  if (verifyAttachment) verifyEmbed.setImage(`attachment://${verifyAttachment.name}`);
   const { buildSiteVerifyOAuthStartUrl } = require("../Utils/Web/verifyOauthPublicUrl");
   const verifyUrl = buildSiteVerifyOAuthStartUrl(guildId);
   const verifyRow = new ActionRowBuilder().addComponents(
@@ -204,12 +192,21 @@ async function processOneVerifyPanel(client, guildId, verifyChannelIds) {
   const panelDoc = await sponsorGetOrCreatePanelDoc(guildId, channel.id).catch(() => null);
   if (!panelDoc) return 0;
 
-  const verifyPayload = {
+  const verifyPayload = buildVcPagePayload({
     messageId: panelDoc.verifyPanelMessageId || null,
-    embeds: [verifyEmbed],
-    ...(verifyAttachment ? { files: [verifyAttachment], attachmentName: verifyAttachment.name } : {}),
-    components: [verifyRow],
-  };
+    guildId,
+    accentColor: color,
+    title: "<:verification:1461725843125571758> **`Verification Required!`**",
+    body: [
+      "<:VC_Space:1482459974667075685> <:alarm:1461725841451909183> **Per accedere a `" +
+        (guild.name || "this server") +
+        "` devi prima verificarti.**",
+      "<:VC_Space:1482459974667075685><:VC_Space:1482459974667075685> <:rightSort:1461726104422453298> Clicca il pulsante **Verify** qui sotto per iniziare.",
+      "<:VC_Space:1482459974667075685><:VC_Space:1482459974667075685> <:VC_Reply:1482532158080942191> Gli unici dati a cui avremo accesso saranno, come indicato direttamente da Discord, nome utente, avatar e banner del tuo profilo.",
+    ].join("\n"),
+    rows: [verifyRow],
+    ...(verifyAttachment ? { mediaName: verifyAttachment.name, files: [verifyAttachment] } : {}),
+  });
   const panelMessage = await upsertPanelMessage(channel, client, verifyPayload);
   if (panelMessage?.id) {
     await personalityPanelUpdateOne({ guildId, channelId: channel.id }, { $set: { verifyPanelMessageId: panelMessage.id } }).catch(() => {});

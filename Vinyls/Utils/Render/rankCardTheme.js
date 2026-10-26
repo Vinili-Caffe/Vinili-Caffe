@@ -216,6 +216,15 @@ function listRankCardWallpapers() {
   }));
 }
 
+/** Schiarisce un #rrggbb verso il bianco (amount 0..1). */
+function lightenHex(hex, amount) {
+  const m = /^#?([0-9a-f]{6})$/i.exec(String(hex || ""));
+  if (!m) return hex;
+  const n = parseInt(m[1], 16);
+  const ch = (v) => Math.round(v + (255 - v) * amount).toString(16).padStart(2, "0");
+  return `#${ch((n >> 16) & 255)}${ch((n >> 8) & 255)}${ch(n & 255)}`;
+}
+
 function mergeRankCardTheme(input) {
   const src = input && typeof input === "object" ? input : {};
   const panelColor = normalizeHex(src.panelColor, DEFAULT_RANK_CARD_THEME.panelColor);
@@ -231,14 +240,16 @@ function mergeRankCardTheme(input) {
     fontKey: sanitizeFontKey(src.fontKey),
     panelColor,
     primaryTextColor,
-    secondaryTextColor: normalizeHex(src.secondaryTextColor, labelColor),
+    /* rankPrimaryDrives1: "Testo principale" sul sito = nick, "Lv.", barra e anello. I vecchi valori
+       salvati (barra gialla, Lv grigio) non si possono più cambiare da nessuna parte: si ignorano. */
+    secondaryTextColor: primaryTextColor,
     multiplierColor,
     valueColor,
     labelColor,
-    progressStartColor: normalizeHex(src.progressStartColor, primaryTextColor),
-    progressEndColor: normalizeHex(src.progressEndColor, primaryTextColor),
-    ringColor: normalizeHex(src.ringColor, primaryTextColor),
-    rankBoxBorderColor: normalizeHex(src.rankBoxBorderColor, valueColor),
+    progressStartColor: primaryTextColor,
+    progressEndColor: lightenHex(primaryTextColor, 0.35),
+    ringColor: primaryTextColor,
+    rankBoxBorderColor: valueColor,
   };
 }
 

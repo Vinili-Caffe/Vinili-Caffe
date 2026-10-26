@@ -96,8 +96,9 @@ function resolveSeratafilmFilmPath() {
   const envPath = String(process.env.VC_SERATAFILM_FILM_FILE || "").trim();
   if (envPath && fs.existsSync(envPath)) return envPath;
   const cfgPaths = [
-    "/opt/bot/WebSite/site.config.json",
-    path.join(__dirname, "../../../WebSite/site.config.json"),
+    "/opt/bot/Vinyls/Config/site.config.json",
+    path.join(__dirname, "../../Config/site.config.json"),
+    path.join(__dirname, "../../../Vinyls/Config/site.config.json"),
   ];
   const wwwRoot = String(process.env.VC_WWW_ROOT || "/var/www/viniliecaffe").trim() || "/var/www/viniliecaffe";
   for (const cfgPath of cfgPaths) {

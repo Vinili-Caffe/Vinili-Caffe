@@ -11,7 +11,6 @@ const {
   fitRichText,
   measureRichTextWidth,
 } = require("./canvasEmojiRichText");
-const { tightEmojiAdjacentSpaces } = require("./canvasUtils");
 
 let path2dCtorMemo;
 function getPath2DConstructor() {
@@ -133,18 +132,41 @@ function roundedRect(ctx, x, y, width, height, radius) {
   ctx.closePath();
 }
 
-function hexToRgba(hex, alpha = 1) {
+function hexToRgb(hex) {
   const fallback = [22, 27, 38];
   const normalized = String(hex || "").replace("#", "").trim();
   const full = normalized.length === 3
     ? normalized.split("").map((char) => `${char}${char}`).join("")
     : normalized;
-  const value = /^[0-9a-f]{6}$/i.test(full) ? full : null;
-  const rgb = value
-    ? [parseInt(value.slice(0, 2), 16), parseInt(value.slice(2, 4), 16), parseInt(value.slice(4, 6), 16)]
-    : fallback;
+  if (!/^[0-9a-f]{6}$/i.test(full)) return fallback;
+  return [
+    parseInt(full.slice(0, 2), 16),
+    parseInt(full.slice(2, 4), 16),
+    parseInt(full.slice(4, 6), 16),
+  ];
+}
 
+function hexToRgba(hex, alpha = 1) {
+  const rgb = hexToRgb(hex);
   return `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${clamp(alpha, 0, 1)})`;
+}
+
+/** Luminanza relativa WCAG → inchiostro scuro o chiaro, sempre leggibile sullo sfondo. */
+function contrastInkForHex(hex) {
+  const [r, g, b] = hexToRgb(hex).map((c) => {
+    const s = c / 255;
+    return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+  });
+  const L = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  return L > 0.45 ? "#12141A" : "#FFFFFF";
+}
+
+function mixHex(a, b, t = 0.5) {
+  const amount = clamp(t, 0, 1);
+  const A = hexToRgb(a);
+  const B = hexToRgb(b);
+  const ch = (i) => Math.round(A[i] + (B[i] - A[i]) * amount).toString(16).padStart(2, "0");
+  return `#${ch(0)}${ch(1)}${ch(2)}`;
 }
 
 function formatInt(value) {
@@ -278,6 +300,14 @@ async function drawAvatar(ctx, avatarUrl, x, y, size, palette, avatarImageOverri
 function drawProgressBar(ctx, x, y, width, height, progressPercent, currentExp, targetExp, palette, fontPrimary) {
   const progress = clamp(progressPercent, 0, 100) / 100;
   const font = fontPrimary || "Arial";
+  const fillW = progress > 0 ? Math.max(height, width * progress) : 0;
+  const label = `${formatInt(currentExp)} / ${formatInt(targetExp)} XP`;
+  const textX = x + width / 2;
+  const textY = y + height / 2 + 1;
+  const fillMid = mixHex(palette.progressStartColor, palette.progressEndColor, 0.5);
+  const fillInk = contrastInkForHex(fillMid);
+  /* Traccia vuota scura → testo chiaro */
+  const emptyInk = "#FFFFFF";
 
   roundedRect(ctx, x, y, width, height, height / 2);
   ctx.fillStyle = "rgba(0,0,0,0.28)";
@@ -286,7 +316,7 @@ function drawProgressBar(ctx, x, y, width, height, progressPercent, currentExp, 
   ctx.lineWidth = 1;
   ctx.stroke();
 
-  if (progress > 0) {
+  if (fillW > 0) {
     ctx.save();
     roundedRect(ctx, x, y, width, height, height / 2);
     ctx.clip();
@@ -294,18 +324,39 @@ function drawProgressBar(ctx, x, y, width, height, progressPercent, currentExp, 
     gradient.addColorStop(0, palette.progressStartColor);
     gradient.addColorStop(1, palette.progressEndColor);
     ctx.fillStyle = gradient;
-    ctx.fillRect(x, y, Math.max(height, width * progress), height);
+    ctx.fillRect(x, y, fillW, height);
     ctx.restore();
   }
 
-  drawText(ctx, `${formatInt(currentExp)} / ${formatInt(targetExp)} XP`, x + width / 2, y + height / 2 + 1, {
-    size: 15,
-    weight: 800,
-    color: "#FFFFFF",
-    align: "center",
-    shadow: true,
-    fontPrimary: font,
-  });
+  /* Testo bipartito: colore a contrasto sulla fill e sulla parte vuota */
+  const drawXpLabel = (color, useShadow) => {
+    drawText(ctx, label, textX, textY, {
+      size: 15,
+      weight: 800,
+      color,
+      align: "center",
+      shadow: useShadow,
+      fontPrimary: font,
+    });
+  };
+  if (fillW <= 0) {
+    drawXpLabel(emptyInk, true);
+  } else if (fillW >= width) {
+    drawXpLabel(fillInk, fillInk === "#FFFFFF");
+  } else {
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(x, y, fillW, height);
+    ctx.clip();
+    drawXpLabel(fillInk, fillInk === "#FFFFFF");
+    ctx.restore();
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(x + fillW, y, Math.max(0, width - fillW), height);
+    ctx.clip();
+    drawXpLabel(emptyInk, true);
+    ctx.restore();
+  }
 }
 
 function drawStatIcon(ctx, icon, x, y, color) {
@@ -636,11 +687,13 @@ async function renderRankPngBuffer(data, avatarImageOverride = null, wallpaperIm
   const levelText = `Lv. ${formatInt(data.level)}`;
   ctx.font = canvasFont(26, 850, rankFontPrimary);
   const levelWidth = ctx.measureText(levelText).width;
-  /* rankEmojiTwemoji1 + rankNickTight1: Twemoji, nick senza spazi spurî intorno alle emoji */
-  const usernameMaxW = Math.max(200, copyW - levelWidth - 88);
+  /* rankEmojiTwemoji1: Twemoji. rankNickExact1: il nick resta com'è su Discord (spazi intorno alle emoji
+     compresi), si comprimono solo gli spazi doppi. rankNickSep1: barretta tra nick e livello. */
+  const sepGap = 13;
+  const usernameMaxW = Math.max(200, copyW - levelWidth - 88 - sepGap * 2);
   const username = fitRichText(
     ctx,
-    tightEmojiAdjacentSpaces(data.username || "utente"),
+    String(data.username || "utente").replace(/s{2,}/g, " ").trim(),
     usernameMaxW,
     34,
     "900",
@@ -662,7 +715,20 @@ async function renderRankPngBuffer(data, avatarImageOverride = null, wallpaperIm
     fontPrimary: rankFontPrimary,
   });
   ctx.restore();
-  drawText(ctx, levelText, copyX + usernameWidth + 14, topY + 1, {
+  const sepX = copyX + usernameWidth + sepGap;
+  /* Separatore nick|livello: segue "Etichette" (labelColor), non il primario forzato. */
+  const sepColor =
+    palette.labelColor || palette.secondaryTextColor || palette.primaryTextColor || "#a8acb8";
+  ctx.save();
+  ctx.strokeStyle = hexToRgba(sepColor, 0.92);
+  ctx.lineWidth = 2.4;
+  ctx.lineCap = "round";
+  ctx.beginPath();
+  ctx.moveTo(sepX, topY - 12);
+  ctx.lineTo(sepX, topY + 12);
+  ctx.stroke();
+  ctx.restore();
+  drawText(ctx, levelText, sepX + sepGap, topY + 1, {
     size: 24,
     weight: 800,
     color: palette.secondaryTextColor,
@@ -671,7 +737,7 @@ async function renderRankPngBuffer(data, avatarImageOverride = null, wallpaperIm
   });
 
   const multiplierText = `x${Number(data.multiplier || 1).toFixed(1)}`;
-  const multiplierX = Math.min(copyX + usernameWidth + levelWidth + 28, copyX + copyW - 70);
+  const multiplierX = Math.min(sepX + sepGap + levelWidth + 14, copyX + copyW - 70);
   roundedRect(ctx, multiplierX, topY - 15, 58, 26, 13);
   ctx.fillStyle = "rgba(0,0,0,0.22)";
   ctx.fill();

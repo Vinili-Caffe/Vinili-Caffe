@@ -1,7 +1,7 @@
-const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
+const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
 const IDs = require("../Config/ids");
 const { buildStaffGuideSectionMarkdown } = require("../Staff/staffGuideContent");
-const { resolveEmbedColorForGuild } = require("../../MultiGuild/utils/tenantEmbedBranding");
+const { buildVcPagePayload } = require("../Embeds/vcPageEmbedV2");
 
 const MOD_GUIDE_BUTTON_IDS = Object.freeze([
   "generalimoderazione",
@@ -33,13 +33,8 @@ function buildModerationGuideDescription() {
 }
 
 function moderationGuideEmbedColor() {
+  const { resolveEmbedColorForGuild } = require("../../MultiGuild/utils/tenantEmbedBranding");
   return resolveEmbedColorForGuild(String(IDs.guilds?.main || "")) || "#826bc2";
-}
-
-function buildModerationGuideEmbed() {
-  return new EmbedBuilder()
-    .setColor(moderationGuideEmbedColor())
-    .setDescription(buildModerationGuideDescription());
 }
 
 function buildModerationGuideButtonRow() {
@@ -63,10 +58,22 @@ function buildModerationGuideButtonRow() {
 }
 
 function buildModerationGuideStickyPayload() {
-  return {
-    embeds: [buildModerationGuideEmbed()],
-    components: [buildModerationGuideButtonRow()],
-  };
+  return buildVcPagePayload({
+    guildId: String(IDs.guilds?.main || ""),
+    accentColor: moderationGuideEmbedColor(),
+    title: "Guida sanzioni",
+    body: buildModerationGuideDescription(),
+    footer: "Clicca un bottone per aprire la sezione.",
+    rows: [buildModerationGuideButtonRow()],
+  });
+}
+
+/** @deprecated classic embed — prefer buildModerationGuideStickyPayload (V2) */
+function buildModerationGuideEmbed() {
+  const { EmbedBuilder } = require("discord.js");
+  return new EmbedBuilder()
+    .setColor(moderationGuideEmbedColor())
+    .setDescription(buildModerationGuideDescription());
 }
 
 module.exports = {

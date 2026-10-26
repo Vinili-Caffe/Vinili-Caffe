@@ -2,7 +2,7 @@ const fs = require("fs");
 const path = require("path");
 const { AttachmentBuilder } = require("discord.js");
 const { HOUSE_META } = require("./hogwartsSortingBank");
-const HOGWARTS_IMG_DIR = path.resolve(__dirname, "../../../WebSite/images/evento-hogwarts");
+const HOGWARTS_IMG_DIR = path.resolve(__dirname, "../../Assets/evento-hogwarts");
 const DEFAULT_SITE_URL = "https://www.viniliecaffe.it";
 
 function hogwartsImageDirs() {
@@ -11,14 +11,13 @@ function hogwartsImageDirs() {
   if (envDir) dirs.push(path.resolve(envDir));
   dirs.push(HOGWARTS_IMG_DIR);
   const vinylsRoot = path.resolve(__dirname, "../..");
+  dirs.push(path.join(vinylsRoot, "Assets", "evento-hogwarts"));
   dirs.push(path.join(vinylsRoot, "assets", "evento-hogwarts"));
   const cwd = path.resolve(process.cwd());
-  dirs.push(path.join(cwd, "WebSite", "images", "evento-hogwarts"));
+  dirs.push(path.join(cwd, "Vinyls", "Assets", "evento-hogwarts"));
   dirs.push(path.join(cwd, "Vinyls", "assets", "evento-hogwarts"));
-  const repoRoot = path.resolve(__dirname, "../../..");
-  dirs.push(path.join(repoRoot, "WebSite", "images", "evento-hogwarts"));
-  const parent = path.resolve(cwd, "..");
-  dirs.push(path.join(parent, "WebSite", "images", "evento-hogwarts"));
+  dirs.push("/var/www/viniliecaffe/images/evento-hogwarts");
+  dirs.push("/var/www/viniliecaffe-react/images/evento-hogwarts");
   return [...new Set(dirs.map((d) => path.resolve(d)))];
 }
 

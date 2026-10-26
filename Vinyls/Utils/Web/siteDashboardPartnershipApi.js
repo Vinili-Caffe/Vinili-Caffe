@@ -774,6 +774,10 @@ async function patchDashboardPartnership(client, accessToken, guildId, body) {
     if (patch.includePickers === true) {
     out.pickers = await listGuildPickerData(client, gid);
   }
+  try {
+    const { broadcastSitePartnershipChanged } = require("./siteSuggestionsBroadcast");
+    broadcastSitePartnershipChanged({ guildId: gid, action: "save" });
+  } catch (_) {}
   return out;
 }
 

@@ -498,7 +498,15 @@ async function updateStreamVoiceChannel(client, streamer, mode) {
   return { ok: true, channelId, mode: isOn ? "on" : "off" };
 }
 
+function emitSiteLiveStreamChanged(login, live) {
+  try {
+    const { broadcastSiteLiveStreamChanged } = require("../../Utils/Web/siteSuggestionsBroadcast");
+    broadcastSiteLiveStreamChanged({ platform: "twitch", login: String(login || ""), live: Boolean(live) });
+  } catch (_) {}
+}
+
 async function applyStreamerOfflineState(client, streamer, prev) {
+  const wasLive = Boolean(prev?.isLive);
   const patch = {
     isLive: false,
     voiceChannelMode: "off",
@@ -515,6 +523,7 @@ async function applyStreamerOfflineState(client, streamer, prev) {
   if (streamer.streamVoiceChannelId && prev?.voiceChannelMode !== "off") {
     await updateStreamVoiceChannel(client, streamer, "off");
   }
+  if (wasLive) emitSiteLiveStreamChanged(streamer.login, false);
 }
 
 async function applyStreamerOnlineVoiceState(client, streamer, prev) {
@@ -558,6 +567,7 @@ async function runTwitchLiveAlertPoll(client) {
           isLive: true,
           lastStreamId: streamId,
         });
+        emitSiteLiveStreamChanged(streamer.login, true);
       }
 
       const decision = evaluateLiveAnnouncementDecision(prev, streamId, cfg.reannounceCooldownSec);

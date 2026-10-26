@@ -620,6 +620,16 @@ const activityUserProfileSchema = new Schema(
         type: Schema.Types.Mixed,
         default: () => ({}),
       },
+      /** wordleStatsSync1: statistiche Wordle del sito per lingua { it: {...}, en: {...} } */
+      siteWordleStats: {
+        type: Schema.Types.Mixed,
+        default: () => ({}),
+      },
+      /** wordleDailySync1: partita del giorno per lingua { it: SavedGame, en: SavedGame } */
+      siteWordleDaily: {
+        type: Schema.Types.Mixed,
+        default: () => ({}),
+      },
       /** Piano mensile compiti: { "YYYY-MM": { assignedAt, byWeek: { "YYYY-Www": taskId } } } */
       siteStaffCompitiPlan: {
         type: Schema.Types.Mixed,
@@ -845,7 +855,9 @@ const siteSuggestionCommentSchema = new Schema(
     userId: { type: String, required: true, index: true },
     authorName: { type: String, default: "" },
     authorAvatarUrl: { type: String, default: "" },
-    content: { type: String, required: true, trim: true, maxlength: 1200 },
+    /* discussionImages1: un commento può essere solo foto → testo non più obbligatorio */
+    content: { type: String, default: "", trim: true, maxlength: 1200 },
+    imageUrls: { type: [String], default: [] },
     parentCommentId: { type: Schema.Types.ObjectId, default: null },
     upvoterUserIds: { type: [String], default: [] },
     downvoterUserIds: { type: [String], default: [] },

@@ -38,7 +38,11 @@ const { maybeAnnounceDonationPackageInSupporters } = require("../Utils/Community
 const { maybeAnnounceManualSocialRolesAndGrantPicPermsBundle } = require("../Utils/Community/manualSocialRoleAnnounceAndPicPerms");
 const { maybeSyncPatronRoleForMember } = require("../Utils/Community/patronRoleService");
 const { upsertVerifiedMember, applyTenureForMember } = require("../Services/Community/communityOpsService");
-const { buildBoostEmbed, buildBoostEmbedSecond, buildBoostAnnounceContent } = require("../Utils/Community/boostAnnounceEmbeds");
+const {
+  buildBoostPayload,
+  buildBoostPayloadSecond,
+  buildBoostAnnounceContent,
+} = require("../Utils/Community/boostAnnounceEmbeds");
 const { isViniliFullFeatureGuild } = require("../MultiGuild/core/guildFeatureScope");
 const AUDIT_FETCH_LIMIT = 20;
 const AUDIT_LOOKBACK_MS = 120 * 1000;
@@ -1012,11 +1016,11 @@ async function sendBoostEmbeds(channel, member, times, boostCount, priorAnnounce
      (altrimenti start=0+times=2 mandava DOPPIO e bloccava il 2° boost reale). */
   const confirmedDoubleBurst = Boolean(opts.confirmedDoubleBurst);
   if (confirmedDoubleBurst && start < 2 && endExclusive >= 2) {
-    const embed = buildBoostEmbedSecond(member, Math.max(1, Number(boostCount || 0)));
+    const boostPayload = buildBoostPayloadSecond(member, Math.max(1, Number(boostCount || 0)));
     const sent = await channel
       .send({
+        ...boostPayload,
         content: buildBoostAnnounceContent(member.user),
-        embeds: [embed],
       })
       .catch((err) => {
         global.logger?.warn?.(
@@ -1035,14 +1039,14 @@ async function sendBoostEmbeds(channel, member, times, boostCount, priorAnnounce
     const slotIndex = start + i;
     const remainingInBatch = safeTimes - i - 1;
     const countForEmbed = Math.max(1, Number(boostCount || 0) - remainingInBatch);
-    const embed =
+    const boostPayload =
       slotIndex >= 1
-        ? buildBoostEmbedSecond(member, countForEmbed)
-        : buildBoostEmbed(member, countForEmbed);
+        ? buildBoostPayloadSecond(member, countForEmbed)
+        : buildBoostPayload(member, countForEmbed);
     const sent = await channel
       .send({
+        ...boostPayload,
         content: buildBoostAnnounceContent(member.user),
-        embeds: [embed],
       })
       .catch((err) => {
         global.logger?.warn?.(
@@ -3218,6 +3222,9 @@ module.exports = {
               await autoUnclaimOpenTicketsClaimedByUser(newMember.guild, newMember.id).catch((err) => {
                 global.logger?.warn?.("[guildMemberUpdate] ticket auto-unclaim on depex:", newMember.id, err?.message || err);
               });
+              try {
+                require("../Utils/Web/siteReviewsApi").scheduleExStaffReviewsPurge(botClient);
+              } catch (_) {}
             }
           }
           if (memberHasPartnerManagerRole(oldMember) && !memberHasPartnerManagerRole(newMember)) {

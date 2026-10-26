@@ -108,6 +108,18 @@ function compactRankCardThemeForApi(theme) {
   return next;
 }
 
+/* rankWpOmitted1: la GET omette gli sfondi custom grandi (wallpaperUrlOmitted). Se il sito rimanda il tema
+   senza sfondo ma con il flag, anteprima e salvataggio usano quello già salvato invece di cancellarlo. */
+async function restoreOmittedWallpaper(resolved, rawTheme, theme) {
+  if (theme.wallpaperUrl || !rawTheme || rawTheme.wallpaperUrlOmitted !== true) return;
+  const doc = await ActivityUserProfile.findOne({ guildId: resolved.guild.id, userId: resolved.userId })
+    .select("profile.rankCard.wallpaperUrl")
+    .lean()
+    .catch(() => null);
+  const stored = mergeRankCardTheme(doc?.profile?.rankCard || {}).wallpaperUrl;
+  if (stored) theme.wallpaperUrl = stored;
+}
+
 async function getRankCardCustomization(client, payload) {
   const accessToken = String(payload?.accessToken || "").trim();
   const resolved = await resolveWebsiteGuildMember(client, accessToken);
@@ -173,6 +185,10 @@ async function updateRankCardCustomization(client, payload) {
       { upsert: true, new: true, setDefaultsOnInsert: true },
     ).catch(() => null);
     invalidatePublicRankCardCache(resolved.userId);
+    try {
+      const { broadcastSiteRankCardChanged } = require("./siteSuggestionsBroadcast");
+      broadcastSiteRankCardChanged(resolved.userId, { action: "reset" });
+    } catch (_) {}
     return {
       ok: true,
       status: 200,
@@ -185,6 +201,8 @@ async function updateRankCardCustomization(client, payload) {
   const permissions = getRankCardPermissions(resolved.member);
   if (!permissions.canUseCustomWallpaper) {
     theme.wallpaperUrl = "";
+  } else {
+    await restoreOmittedWallpaper(resolved, payload?.theme, theme);
   }
   await ActivityUserProfile.findOneAndUpdate(
     { guildId: resolved.guild.id, userId: resolved.userId },
@@ -195,11 +213,15 @@ async function updateRankCardCustomization(client, payload) {
     { upsert: true, new: true, setDefaultsOnInsert: true },
   ).catch(() => null);
   invalidatePublicRankCardCache(resolved.userId);
+  try {
+    const { broadcastSiteRankCardChanged } = require("./siteSuggestionsBroadcast");
+    broadcastSiteRankCardChanged(resolved.userId, { action: "save" });
+  } catch (_) {}
 
   return {
     ok: true,
     status: 200,
-    theme,
+    theme: compactRankCardThemeForApi(theme),
     message: "Personalizzazione rank card salvata.",
   };
 }
@@ -220,6 +242,8 @@ async function getRankCardPreview(client, payload) {
   const theme = mergeRankCardTheme(payload?.theme || {});
   if (!permissions.canUseCustomWallpaper) {
     theme.wallpaperUrl = "";
+  } else {
+    await restoreOmittedWallpaper(resolved, payload?.theme, theme);
   }
 
   const avatarUrl = resolvePreferredAvatarUrl(resolved.member);

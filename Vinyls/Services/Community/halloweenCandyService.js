@@ -1,3 +1,4 @@
+const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
 const { isValidGuildUserId } = require("../../Utils/DB/validateWriteIds");
 const { resolveHalloweenEventConfig, isHalloweenEventLive } = require("../../Utils/Web/halloweenEventConfig");
@@ -9,6 +10,27 @@ const {
 } = require("../../Utils/Web/halloweenCandyCatalog");
 
 const CANDY_PATH = "profile.events.halloween.candy";
+const SITE_ORIGIN = "https://www.viniliecaffe.it";
+const UNLOCK_EMBED_COLOR = 0xff7a18;
+const UNLOCK_AUTHOR_ICON = `${SITE_ORIGIN}/images/halloween/tot-knock.gif`;
+const HALLOWEEN_EMOJI_MARK = "<:VC_Halloween:1558964785113206824>";
+
+function candyProgressBar(owned, total, width = 12) {
+  const t = Math.max(1, Math.floor(Number(total) || 1));
+  const o = Math.max(0, Math.min(t, Math.floor(Number(owned) || 0)));
+  const filled = Math.round((o / t) * width);
+  return `${"█".repeat(filled)}${"░".repeat(Math.max(0, width - filled))}`;
+}
+
+function candyFlavorLine(name) {
+  const n = String(name || "").trim();
+  const lines = [
+    n ? `Un pezzo raro di **${n}** finisce nel tuo sacchetto.` : "Una caramella nuova finisce nel tuo sacchetto.",
+    n ? `La notte ti lascia **${n}**. Gustala piano.` : "La notte ti lascia un dolce. Gustalo piano.",
+    n ? `Ecco **${n}** — brillante sotto la luna.` : "Ecco una caramella — brillante sotto la luna.",
+  ];
+  return lines[Math.floor(Math.random() * lines.length)];
+}
 
 function normalizeId(value) {
   return String(value || "").trim();
@@ -344,11 +366,201 @@ async function addHalloweenCandy({
   };
 }
 
+/**
+ * Embed + pulsante profilo quando sblocchi una caramella (hunt / dolcetto).
+ * @returns {{ embeds: import("discord.js").EmbedBuilder[], components: import("discord.js").ActionRowBuilder[] } | null}
+ */
+function buildHalloweenCandyUnlockPayload({ candyResult, userId, expGained = 0 } = {}) {
+  const first = candyResult?.firstAward;
+  const name = String(first?.name || "").trim();
+  if (!name) return null;
+
+  const owned = Math.max(0, Math.floor(Number(candyResult?.ownedCount) || 0));
+  const total = Math.max(owned, Math.floor(Number(candyResult?.total) || halloweenCandyTotal() || 0));
+  const imageUrl = String(first?.imageUrl || "").trim();
+  const uid = normalizeId(userId);
+  const exp = Math.max(0, Math.floor(Number(expGained) || 0));
+  const bar = total > 0 ? candyProgressBar(owned, total) : "";
+  const complete = total > 0 && owned >= total;
+
+  const desc = [
+    candyFlavorLine(name),
+    "",
+    total > 0
+      ? `${HALLOWEEN_EMOJI_MARK} Collezione  **${owned}/${total}**\n\`${bar}\``
+      : `${HALLOWEEN_EMOJI_MARK} Nuova caramella nella collezione profilo.`,
+  ];
+  if (exp > 0) desc.push("", `✨ +**${exp}** exp`);
+  if (complete) desc.push("", "🎃 Collezione completa — che notte!");
+
+  const embed = new EmbedBuilder()
+    .setColor(UNLOCK_EMBED_COLOR)
+    .setAuthor({ name: "Dolcetto!", iconURL: UNLOCK_AUTHOR_ICON })
+    .setTitle(`Hai sbloccato ${name}!`)
+    .setDescription(desc.join("\n"))
+    .setFooter({ text: "Halloween · Vinili & Caffè" });
+  if (imageUrl) embed.setThumbnail(imageUrl);
+
+  const components = [];
+  if (uid) {
+    components.push(
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setStyle(ButtonStyle.Link)
+          .setLabel("Vedi collezione")
+          .setURL(`${SITE_ORIGIN}/user/?id=${encodeURIComponent(uid)}`),
+      ),
+    );
+  }
+
+  return { embeds: [embed], components };
+}
+
+/** Preferisci chi ha già ≥1 caramella incompleta; altrimenti un attivo (weekly/total exp). */
+async function pickPassAlongTargetUserId(guildId, excludeUserId, eventKey, total) {
+  const g = normalizeId(guildId);
+  const exclude = normalizeId(excludeUserId);
+  const ek = normalizeId(eventKey) || "halloween_2026";
+  const tot = Math.max(1, Math.floor(Number(total) || halloweenCandyTotal()));
+
+  const collectorDocs = await ActivityUserProfile.find({
+    guildId: g,
+    [`${CANDY_PATH}.eventKey`]: ek,
+    [`${CANDY_PATH}.owned.0`]: { $exists: true },
+  })
+    .select(`userId ${CANDY_PATH}`)
+    .lean()
+    .limit(300)
+    .catch(() => []);
+
+  const collectors = [];
+  for (const doc of Array.isArray(collectorDocs) ? collectorDocs : []) {
+    const uid = normalizeId(doc?.userId);
+    if (!uid || uid === exclude) continue;
+    const owned = normalizeOwnedIds(readCandyRaw(doc)?.owned);
+    if (owned.length < 1 || owned.length >= tot) continue;
+    collectors.push(uid);
+  }
+  if (collectors.length) {
+    return {
+      userId: collectors[Math.floor(Math.random() * collectors.length)],
+      mode: "collector",
+    };
+  }
+
+  // Nessun collezionista incompleto → tra i più attivi (weekly, poi total), random nel top
+  const activeDocs = await ActivityUserProfile.find({
+    guildId: g,
+    userId: { $ne: exclude },
+    $or: [
+      { "profile.totals.exp.weeklyExp": { $gt: 0 } },
+      { "profile.totals.exp.totalExp": { $gt: 0 } },
+      { "profile.totals.messagesTotal": { $gt: 0 } },
+    ],
+  })
+    .select(
+      `userId ${CANDY_PATH} profile.totals.exp.weeklyExp profile.totals.exp.totalExp profile.totals.messagesTotal`,
+    )
+    .sort({
+      "profile.totals.exp.weeklyExp": -1,
+      "profile.totals.exp.totalExp": -1,
+      "profile.totals.messagesTotal": -1,
+    })
+    .limit(100)
+    .lean()
+    .catch(() => []);
+
+  const actives = [];
+  for (const doc of Array.isArray(activeDocs) ? activeDocs : []) {
+    const uid = normalizeId(doc?.userId);
+    if (!uid || uid === exclude) continue;
+    const raw = readCandyRaw(doc);
+    const sameEvent = !raw?.eventKey || normalizeId(raw.eventKey) === ek;
+    const owned = sameEvent ? normalizeOwnedIds(raw?.owned) : [];
+    if (owned.length >= tot) continue;
+    actives.push(uid);
+  }
+  if (!actives.length) return null;
+
+  const poolSize = Math.min(25, actives.length);
+  const pool = actives.slice(0, poolSize);
+  return {
+    userId: pool[Math.floor(Math.random() * pool.length)],
+    mode: "active_random",
+  };
+}
+
+/**
+ * Se il vincitore ha già la collezione completa, passa la caramella
+ * a un altro utente: prima chi ha ≥1 caramella e non è completo,
+ * altrimenti una persona attiva a caso (top weekly/total exp).
+ */
+async function passAlongHalloweenCandy({
+  guildId,
+  excludeUserId,
+  amount = 1,
+  eventKey = "",
+  reason = "pass_along",
+  source = "pass_along",
+  client = null,
+} = {}) {
+  const g = normalizeId(guildId);
+  const exclude = normalizeId(excludeUserId);
+  const ek = normalizeId(eventKey) || "halloween_2026";
+  const amt = Math.max(1, Math.floor(Number(amount) || 1));
+  const total = halloweenCandyTotal();
+  if (!g || !exclude) return { ok: false, code: "bad_input", total };
+
+  const pick = await pickPassAlongTargetUserId(g, exclude, ek, total);
+  if (!pick?.userId) return { ok: false, code: "no_pass_target", total };
+
+  const targetUserId = pick.userId;
+  const result = await addHalloweenCandy({
+    guildId: g,
+    userId: targetUserId,
+    amount: amt,
+    eventKey: ek,
+    reason: reason || "pass_along",
+    source: source || "pass_along",
+    client,
+  });
+  if (!result?.ok) return result || { ok: false, code: "pass_failed", total };
+  return {
+    ...result,
+    code: "passed_along",
+    passedFromUserId: exclude,
+    passedToUserId: targetUserId,
+    passAlongMode: pick.mode || "collector",
+    winnerComplete: true,
+  };
+}
+
+/** Premia; se collezione completa, redistribuisce a un altro collezionista incompleto. */
+async function addHalloweenCandyWithPassAlong(opts = {}) {
+  const result = await addHalloweenCandy(opts);
+  if (result?.ok) return result;
+  if (result?.code !== "collection_complete") return result;
+  const passed = await passAlongHalloweenCandy({
+    guildId: opts.guildId,
+    excludeUserId: opts.userId,
+    amount: opts.amount || 1,
+    eventKey: opts.eventKey,
+    reason: opts.reason,
+    source: opts.source,
+    client: opts.client,
+  });
+  if (passed?.ok) return passed;
+  return result;
+}
+
 module.exports = {
   getHalloweenCandy,
   addHalloweenCandy,
+  addHalloweenCandyWithPassAlong,
+  passAlongHalloweenCandy,
   resolveEventKey,
   buildHalloweenCandyProfileSection,
+  buildHalloweenCandyUnlockPayload,
   normalizeOwnedIds,
   getHalloweenCandyById,
 };

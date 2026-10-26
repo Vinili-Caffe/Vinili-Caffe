@@ -1,4 +1,4 @@
-/**
+﻿/**
  * siteApiW6 + siteApiDeviceEverywhere1: shared ETag / 304 helpers for site webhooks.
  */
 const crypto = require("node:crypto");

@@ -569,7 +569,15 @@ async function updateStreamVoiceChannel(client, streamer, mode) {
   return updateStreamVoiceChannelById(client, streamer?.streamVoiceChannelId, streamer, mode);
 }
 
+function emitSiteLiveStreamChanged(slug, live) {
+  try {
+    const { broadcastSiteLiveStreamChanged } = require("../../Utils/Web/siteSuggestionsBroadcast");
+    broadcastSiteLiveStreamChanged({ platform: "kick", login: String(slug || ""), live: Boolean(live) });
+  } catch (_) {}
+}
+
 async function applyStreamerOfflineState(client, streamer, prev) {
+  const wasLive = Boolean(prev?.isLive);
   const patch = {
     isLive: false,
     voiceChannelMode: "off",
@@ -590,6 +598,7 @@ async function applyStreamerOfflineState(client, streamer, prev) {
       await updateStreamVoiceChannelById(client, offChannelId, streamer, "off");
     }
   }
+  if (wasLive) emitSiteLiveStreamChanged(streamer.slug, false);
 }
 
 async function applyStreamerOnlineVoiceState(client, streamer, prev) {
@@ -636,6 +645,7 @@ async function runKickLiveAlertPoll(client) {
       }
 
       const streamId = String(stream.id);
+      if (!prev?.isLive) emitSiteLiveStreamChanged(streamer.slug, true);
             const prevAnnounced = Boolean(prev?.announcedAt && prev?.messageId);
       const decisionPrev = prevAnnounced
         ? prev

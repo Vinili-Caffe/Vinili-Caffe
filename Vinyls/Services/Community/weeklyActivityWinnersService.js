@@ -1580,6 +1580,9 @@ async function publishMonthlyActivityWinners(client, options = {}) {
     `<a:VC_HeartsPink:1468685897389052008> • **Classifica mensile EXP totale:**`,
     ...combinedRows,
     "",
+    `<a:VC_Winner:1482535294757507255> • **Premi Top Monthly:**`,
+    ...monthlyRewardRows,
+    "",
     `<:VC_Leaderboard:1482534806314287387> • **Top Voters:**`,
     ...voterRows,
   ];
@@ -1607,7 +1610,7 @@ async function publishMonthlyActivityWinners(client, options = {}) {
   );
   if (!options.skipDiscordSends && channel) {
     const introLine = `<a:VC_Winner:1482535294757507255> Ciao a tutti! Annunciamo i vincitori del mese.`;
-    const votersRoleTextByIndex = ["<@&1555127259436679240>", "<@&1544830866616754257>", "<@&1544830864565735515>"];
+    const votersRoleTextByIndex = ["<@&1521787468201066666>", "<@&1544830866616754257>", "<@&1544830864565735515>"];
     const voter1 = monthlyVotersTop[0];
     const voter2 = monthlyVotersTop[1];
     const voter3 = monthlyVotersTop[2];

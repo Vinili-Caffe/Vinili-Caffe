@@ -1,4 +1,5 @@
 const { EmbedBuilder } = require("discord.js");
+const { buildVcRichFromClassicFields } = require("../Embeds/vcPageEmbedV2");
 const {
   DEFAULT_TICKET_WELCOME_COLOR,
   getDefaultWelcomeDescription,
@@ -327,6 +328,68 @@ function memberPassesAccessRules(member, rules) {
   return false;
 }
 
+function resolveWelcomeClassicFieldsFromPanel(welcome, fallbackEmbed, lang = DEFAULT_LANGUAGE, guildId = null) {
+  const defaultDesc = getDefaultWelcomeDescription(lang);
+  const w = welcome && typeof welcome === "object" ? welcome : null;
+  const hasCustom =
+    w &&
+    (w.title ||
+      w.description ||
+      w.authorName ||
+      w.largeImageUrl ||
+      w.smallImageUrl ||
+      w.footerText ||
+      (Array.isArray(w.fields) && w.fields.length));
+  if (!hasCustom) {
+    const fromFallback = fallbackEmbed ? embedBuilderToWelcome(fallbackEmbed) : null;
+    if (fromFallback) {
+      return {
+        accentColor: fromFallback.color || DEFAULT_TICKET_WELCOME_COLOR,
+        title: fromFallback.title || "",
+        titleUrl: fromFallback.titleUrl || "",
+        description: fromFallback.description || defaultDesc,
+        authorName: fromFallback.authorName || "",
+        authorIconUrl: fromFallback.authorIconUrl || "",
+        thumbnailUrl: fromFallback.smallImageUrl || "",
+        imageUrl: fromFallback.largeImageUrl || "",
+        footerText: fromFallback.footerText || "",
+        footerTimestamp: fromFallback.footerTimestamp,
+        fields: fromFallback.fields || [],
+        guildId,
+      };
+    }
+    return {
+      accentColor: DEFAULT_TICKET_WELCOME_COLOR,
+      description: defaultDesc,
+      guildId,
+    };
+  }
+  const description = isDefaultWelcomeDescription(w.description)
+    ? defaultDesc
+    : String(w.description || "").trim();
+  return {
+    accentColor: normalizeEmbedColor(w.color, DEFAULT_TICKET_WELCOME_COLOR),
+    title: w.title || "",
+    titleUrl: w.titleUrl || "",
+    description: description || defaultDesc,
+    authorName: w.authorName || "",
+    authorIconUrl: w.authorIconUrl || "",
+    thumbnailUrl: w.smallImageUrl || "",
+    imageUrl: w.largeImageUrl || "",
+    footerText: w.footerText || "",
+    footerTimestamp: w.footerTimestamp,
+    fields: Array.isArray(w.fields) ? w.fields.slice(0, 25) : [],
+    guildId,
+  };
+}
+
+function buildWelcomePayloadFromPanel(welcome, fallbackEmbed, lang = DEFAULT_LANGUAGE, opts = {}) {
+  const guildId = opts.guildId || null;
+  const fields = resolveWelcomeClassicFieldsFromPanel(welcome, fallbackEmbed, lang, guildId);
+  const rows = opts.rows || [];
+  return buildVcRichFromClassicFields({ ...fields, rows });
+}
+
 function buildWelcomeEmbedFromPanel(welcome, fallbackEmbed, lang = DEFAULT_LANGUAGE) {
   const defaultDesc = getDefaultWelcomeDescription(lang);
   const w = welcome && typeof welcome === "object" ? welcome : null;
@@ -508,6 +571,8 @@ module.exports = {
   isWithinSupportHours,
   memberPassesAccessRules,
   buildWelcomeEmbedFromPanel,
+  resolveWelcomeClassicFieldsFromPanel,
+  buildWelcomePayloadFromPanel,
   buildOpenMentions,
   collectDiscordMentionIds,
   rewriteRoleNamesToMentions,

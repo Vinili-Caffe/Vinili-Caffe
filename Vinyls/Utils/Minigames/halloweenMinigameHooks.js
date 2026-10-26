@@ -7,7 +7,7 @@ const {
   buildHalloweenMissingEmojiRound,
   buildHalloweenCountBatsRound,
 } = require("../../Data/Minigames/halloweenMinigameBanks");
-const { isHalloweenEventLive } = require("../Web/halloweenEventConfig");
+const { isHalloweenEventLive, isWithinHalloweenCandyHours } = require("../Web/halloweenEventConfig");
 
 const HALLOWEEN_EXCLUSIVE_GAME_TYPES = Object.freeze([
   "halloweenQuiz",
@@ -52,7 +52,7 @@ function shouldUseHalloweenTheme(cfg) {
   return Boolean(cfg?.halloweenEventLive) && isHalloweenExclusiveMinigamesEnabled(null, cfg);
 }
 
-function getHalloweenExclusiveAvailableTypes(cfg) {
+function getHalloweenExclusiveAvailableTypes(cfg, nowMs = Date.now()) {
   const types = [];
   if (cfg?.halloweenQuiz !== false && getHalloweenQuizBank().length) types.push("halloweenQuiz");
   if (cfg?.memoryEmoji !== false && getHalloweenMemoryEmojiBank().length) types.push("memoryEmoji");
@@ -62,7 +62,8 @@ function getHalloweenExclusiveAvailableTypes(cfg) {
   if (cfg?.completeVerse !== false && getHalloweenCompleteVerseBank().length) types.push("completeVerse");
   if (cfg?.halloweenMissingEmoji !== false) types.push("halloweenMissingEmoji");
   if (cfg?.halloweenCountBats !== false) types.push("halloweenCountBats");
-  if (cfg?.halloweenTrickOrTreat !== false) types.push("halloweenTrickOrTreat");
+  // ToT NON è in rotazione minigames: lo spawna solo il loop caramelle (alternanza React ↔ ToT, 08–24).
+  // Altrimenti ogni ToT occupa il canale ~15m e “mangia” gli slot quiz/pipistrelli/ecc.
   return types;
 }
 
@@ -75,6 +76,7 @@ module.exports = {
   isHalloweenCustomMinigameType,
   shouldUseHalloweenTheme,
   getHalloweenExclusiveAvailableTypes,
+  isWithinHalloweenCandyHours,
   getHalloweenQuizBank,
   getHalloweenMemoryEmojiBank,
   getHalloweenHangmanWords,

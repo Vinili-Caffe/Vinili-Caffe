@@ -161,6 +161,16 @@ function getNameColor(member) {
   return null;
 }
 
+/* skullNameGradient1: colori del ruolo che colora il nome (gradiente/olografico inclusi) */
+function getNameColors(member) {
+  const role = member?.roles?.color;
+  if (!role) return null;
+  const hex = (n) => (Number(n) > 0 ? `#${Number(n).toString(16).padStart(6, "0")}` : "");
+  const c = role.colors || {};
+  const list = [hex(c.primaryColor ?? role.color), hex(c.secondaryColor), hex(c.tertiaryColor)].filter(Boolean);
+  return list.length > 1 ? list : null;
+}
+
 async function getRoleIcon(member) {
   if (!member?.roles) return null;
   const hoistedRole=member.roles.cache.find((role) => role.hoist&&role.iconURL(),);
@@ -230,6 +240,10 @@ async function renderSkullCanvas(
     username: sanitizeUsername(member, message.author),
     message: content || "",
     nameColor: getNameColor(member),
+    nameColors: getNameColors(member),
+    /* skullCard1: riga ruolo e intestazione canale, come l'anteprima del sito */
+    roleName: String(member?.roles?.color?.name || ""),
+    channelName: String(message.channel?.name || ""),
     createdAt: message.createdAt,
     reply: replyData,
     roleIconUrl: await getRoleIcon(member),

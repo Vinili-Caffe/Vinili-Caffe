@@ -401,6 +401,12 @@ function mountSiteWebhookRoutes(app, client, deps) {
   });
   app.get("/webhooks/site-wordle/today", (req, res) => handleSiteWordleTodayGet(client, req, res));
   app.post("/webhooks/site-wordle/guess", (req, res) => handleSiteWordleGuessPost(client, req, res));
+  /* wordleStatsSync1: statistiche Wordle sul profilo (stesse su telefono e PC) */
+  app.get("/webhooks/site-wordle/stats", (req, res) => require("../../Utils/Web/siteWordleStatsApi").handleSiteWordleStatsGet(client, req, res));
+  app.post("/webhooks/site-wordle/stats", (req, res) => require("../../Utils/Web/siteWordleStatsApi").handleSiteWordleStatsPost(client, req, res));
+  /* wordleDailySync1: partita del giorno sul profilo (no rifarla da altro device) */
+  app.get("/webhooks/site-wordle/daily", (req, res) => require("../../Utils/Web/siteWordleDailyApi").handleSiteWordleDailyGet(client, req, res));
+  app.post("/webhooks/site-wordle/daily", (req, res) => require("../../Utils/Web/siteWordleDailyApi").handleSiteWordleDailyPost(client, req, res));
   app.get("/webhooks/site-notifications", (req, res) => {
     return handleSiteNotificationsGet(client, req, res);
   });
@@ -429,6 +435,15 @@ function mountSiteWebhookRoutes(app, client, deps) {
   app.get("/webhooks/site-seratafilm-film", (req, res) => handleSiteSeratafilmFilmGet(client, req, res));
   app.get("/webhooks/site-chrome-prefs", (req, res) => handleSiteChromePrefsGet(client, req, res));
   app.post("/webhooks/site-chrome-prefs", (req, res) => handleSiteChromePrefsPost(client, req, res));
+  /* siteClientErrors1: errori JavaScript dei visitatori → logs/site-client-errors.log */
+  app.post("/webhooks/site-client-error", (req, res) => {
+    const { handleSiteClientErrorPost } = require("../../Utils/Web/siteClientErrorsApi");
+    return handleSiteClientErrorPost(req, res);
+  });
+  app.get("/webhooks/site-client-error/recent", (req, res) => {
+    const { handleSiteClientErrorRecent } = require("../../Utils/Web/siteClientErrorsApi");
+    return handleSiteClientErrorRecent(req, res);
+  });
   app.get("/webhooks/site-cookie-consent", (req, res) => handleSiteCookieConsentGet(client, req, res));
   /* siteBoot1: me skim + unread + theme/prefs in un round-trip */
   try {
@@ -2089,6 +2104,15 @@ function mountSiteWebhookRoutes(app, client, deps) {
     }
   });
 
+  app.get("/webhooks/site-discussion-images/:scope/:docId/:fileName", (req, res) => {
+    try {
+      require("../../Utils/Web/siteDiscussionImages").serveDiscussionImage(req, res);
+    } catch (err) {
+      global.logger?.error?.("[WEBHOOK] site-discussion image:", err);
+      if (!res.headersSent) res.status(500).end();
+    }
+  });
+
   app.get("/webhooks/site-suggestions/files/:suggestionId/:fileName", async (req, res) => {
     try {
       await serveSiteSuggestionFile(client, req, res);
@@ -2218,6 +2242,7 @@ function mountSiteWebhookRoutes(app, client, deps) {
         suggestionId: req.params?.suggestionId,
         content: body.content,
         parentCommentId: body.parentCommentId,
+        images: Array.isArray(body.images) ? body.images : [],
       });
       return res.status(Number(out.status) || 500).json(out);
     } catch (err) {

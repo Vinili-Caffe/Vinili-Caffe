@@ -1222,6 +1222,10 @@ function startPrimaryLoops(client, engagementTick) {
       const { startHalloweenEmojiHuntLoop } = require("../Services/Community/halloweenEmojiHuntService");
       startHalloweenEmojiHuntLoop(client);
     }],
+    ["[HALLOWEEN REACT LB] Failed to start end loop", () => {
+      const { startHalloweenReactLeaderboardLoop } = require("../Services/Community/halloweenReactLeaderboardService");
+      startHalloweenReactLeaderboardLoop(client);
+    }],
     ["[HOGWARTS FINALE PRIZES] Failed to start completion loop", () => startHogwartsEventEndLoop(client)],
     ["[DAILY MEMBER STATS] Failed to start loop", () => startDailyMemberStatsLoop(client)],
     ["[DAILY ENGAGEMENT STATS] Failed to start loop", () => startDailyEngagementStatsLoop(client)],

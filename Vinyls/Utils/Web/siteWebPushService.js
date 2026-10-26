@@ -30,6 +30,9 @@
 /* badgeOsDismiss1: dismiss mobile/Apple di nuovo (skip desktop/WNS).
    SW: dismissSatisfyVisible (reuse banner title, no ZWSP) + setAppBadge(unreadCount).
    Content push path invariato. */
+/* pushIosNoEmptyDismiss1: STOP dismiss webpush verso Apple (iPhone/iPad).
+   type=dismiss + SW tag-replace = banner vuoti a raffica + APNs starve
+   (content solo all’apertura PWA / doppi). Android FCM dismiss resta. */
 /* pushGoneResub1: Chrome/FCM riusa lo stesso endpoint dopo unsubscribe+subscribe.
    Denylist 7g che rifiuta il re-POST = push morte forever. Su upsert: clear gone
    e ri-accetta (il send successivo 410 ripulisce di nuovo). */
@@ -52,7 +55,10 @@ const DOC = SITE_DOCUMENT_TYPE.WEB_PUSH_SUBSCRIPTION;
 const GONE_DOC = SITE_DOCUMENT_TYPE.WEB_PUSH_GONE_ENDPOINT;
 const SHOWN_DOC = SITE_DOCUMENT_TYPE.WEB_PUSH_SHOWN_ACK;
 const DEFAULT_SITE_ORIGIN = "https://www.viniliecaffe.it";
-const PUSH_NOTIFICATION_ICON = "/images/og-server-icon.gif?v=20260904brandGif1";
+/* pushPcBannerFix1: PNG anche su FCM/Chrome PC — GIF in icon a volte fa fallire showNotification. */
+const PUSH_NOTIFICATION_ICON = "/images/og-server-icon-still.png";
+/** Apple declarative: PNG statico (GIF a volte invalida icon URL → fallback SW silenzioso). */
+const PUSH_NOTIFICATION_ICON_APPLE = "/images/og-server-icon-still.png";
 
 let vapidConfigured = false;
 
@@ -323,17 +329,26 @@ function absoluteOpenUrl(openUrl) {
 }
 
 /* pushIosDeclarative1: APNs 201 ≠ banner se SW morto/PWA chiusa.
-   Declarative (web_push:8030) → iOS 18.4+ mostra il banner anche senza JS;
-   mutable:true lascia lo SW raffinare+ack /push/shown quando vivo. */
+   Declarative (web_push:8030) → iOS 18.4+ mostra il banner anche senza JS.
+   pushIosBannerFix1: app_badge SEMPRE stringa di sole cifre (WebKit rifiuta number);
+   icon PNG assoluto (GIF relative/assolute a volte invalide → parse fail → SW);
+   mutable:true → se lo SW fallisce resta il proposed notification (no silent). */
 function buildAppleDeclarativePush(fields) {
   const title = String(fields?.title || "").trim().slice(0, 120);
   const body = String(fields?.body || "").trim().slice(0, 500);
   const navigate = absoluteOpenUrl(fields?.openUrl);
-  const icon = String(fields?.icon || "").trim().slice(0, 500);
-  const badgeIcon = String(fields?.badge || fields?.icon || "").trim().slice(0, 500);
+  const origin = resolveSitePublicOrigin().replace("://viniliecaffe.it", "://www.viniliecaffe.it");
+  const appleIcon = `${origin}${PUSH_NOTIFICATION_ICON_APPLE}`;
+  const iconRaw = String(fields?.icon || "").trim();
+  const icon =
+    !iconRaw || /\.gif(?:\?|$)/i.test(iconRaw) || iconRaw.startsWith("/")
+      ? appleIcon
+      : iconRaw.slice(0, 500);
+  const badgeIcon = appleIcon;
   const unreadRaw = Number(fields?.unreadCount);
   const hasUnread = Number.isFinite(unreadRaw) && unreadRaw >= 0;
   const appBadge = hasUnread ? Math.max(0, Math.min(99, Math.floor(unreadRaw))) : undefined;
+  const appBadgeStr = appBadge !== undefined ? String(appBadge) : undefined;
   const pid = String(fields?.id || "").trim().slice(0, 40);
   const tag = pid ? `vc-site-${pid}` : undefined;
   const notifData = {
@@ -349,27 +364,30 @@ function buildAppleDeclarativePush(fields) {
     unreadCount: hasUnread ? appBadge : -1,
   };
   const displayTitle = title || body.slice(0, 120) || "Vinili & Caffè";
-  const displayBody = body && body !== displayTitle ? body : "";
+  /* Body sempre non vuoto: title-only + looksGhost SW = silent push iOS. */
+  const displayBody =
+    body && body !== displayTitle
+      ? body
+      : body || title || "Nuova notifica da Vinili & Caffè";
   return {
     web_push: 8030,
     notification: {
       title: displayTitle,
-      ...(displayBody ? { body: displayBody } : {}),
+      body: displayBody,
       navigate,
       lang: "it",
       dir: "ltr",
       silent: false,
-      ...(icon ? { icon } : {}),
-      ...(badgeIcon ? { badge: badgeIcon } : {}),
+      icon,
+      badge: badgeIcon,
       ...(tag ? { tag } : {}),
       data: notifData,
-      /* Safari 18.4–26.1 legge mutable qui */
+      /* mutable true: proposed notif se SW non completa in tempo */
       mutable: true,
-      ...(appBadge !== undefined ? { app_badge: String(appBadge) } : {}),
+      ...(appBadgeStr !== undefined ? { app_badge: appBadgeStr } : {}),
     },
-    /* Safari 26.2+ / spec: mutable top-level */
     mutable: true,
-    ...(appBadge !== undefined ? { app_badge: appBadge } : {}),
+    ...(appBadgeStr !== undefined ? { app_badge: appBadgeStr } : {}),
     /* Legacy top-level: iOS <18.4 / declarative rejected → SW classic parse */
     title: displayTitle,
     body: displayBody,
@@ -383,8 +401,8 @@ function buildAppleDeclarativePush(fields) {
     msgCount: notifData.msgCount,
     createdAt: notifData.createdAt,
     unreadCount: notifData.unreadCount,
-    ...(icon ? { icon } : {}),
-    ...(badgeIcon ? { badge: badgeIcon } : {}),
+    icon,
+    badge: badgeIcon,
   };
 }
 
@@ -934,6 +952,10 @@ async function sendWebPushToUser(userId, payload = {}, sendOpts = {}) {
         unreadCount: Number.isFinite(Number(payload.unreadCount))
           ? Math.max(0, Math.min(99, Math.floor(Number(payload.unreadCount))))
           : -1,
+        /* reactSwBadge1: top-level app_badge per SW classic (Android/FCM) */
+        ...(Number.isFinite(Number(payload.unreadCount)) && Number(payload.unreadCount) >= 0
+          ? { app_badge: Math.max(0, Math.min(99, Math.floor(Number(payload.unreadCount)))) }
+          : {}),
       }
     : {
         title,
@@ -955,6 +977,9 @@ async function sendWebPushToUser(userId, payload = {}, sendOpts = {}) {
         unreadCount: Number.isFinite(Number(payload.unreadCount))
           ? Math.max(0, Math.min(99, Math.floor(Number(payload.unreadCount))))
           : -1,
+        ...(Number.isFinite(Number(payload.unreadCount)) && Number(payload.unreadCount) >= 0
+          ? { app_badge: Math.max(0, Math.min(99, Math.floor(Number(payload.unreadCount)))) }
+          : {}),
         /* notifBellInboxBadge1 */
         icon,
         badge: icon,
@@ -1050,6 +1075,13 @@ async function sendWebPushToUser(userId, payload = {}, sendOpts = {}) {
     const mobileLike = isMobilePushSubscription(sub);
     if (isDismiss && !mobileLike) continue;
     if (isDismiss && isWnsDesktopSubscription(sub)) continue;
+    /* pushIosNoEmptyDismiss1: mai dismiss APNs — banner vuoti + starve content */
+    if (
+      isDismiss &&
+      (isApplePushEndpoint(sub?.pushEndpoint) || isApplePushSubscription(sub))
+    ) {
+      continue;
+    }
     if (deviceFilter === "mobile" && !mobileLike) continue;
     if (deviceFilter === "desktop" && mobileLike) continue;
     const endpoint = normalizeEndpoint(sub.pushEndpoint);

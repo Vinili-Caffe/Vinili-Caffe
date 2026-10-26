@@ -1,12 +1,12 @@
 const path = require("path");
 const {
-  EmbedBuilder,
   AttachmentBuilder,
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
   StringSelectMenuBuilder,
 } = require("discord.js");
+const { buildVcRichFromClassicFields } = require("../Embeds/vcPageEmbedV2");
 const { upsertPanelMessage } = require("../../../shared/discord/panelUpsertRuntime");
 const { getClientChannelCached } = require("../Interaction/interactionEntityCache");
 const {
@@ -82,7 +82,7 @@ function applyEmoji(builder, emoji) {
   return builder;
 }
 
-function buildSingleEmbed(panel, options = {}) {
+function buildSinglePanelClassicFields(panel, options = {}) {
   const lang = options.lang;
   const useDefault = isDefaultishSinglePanelEmbed(panel);
   const color = useDefault
@@ -91,63 +91,81 @@ function buildSingleEmbed(panel, options = {}) {
   const title = useDefault
     ? getDefaultTicketPanelTitle(lang)
     : String(panel.title || DEFAULT_TICKET_PANEL_TITLE).slice(0, 256);
-  const embed = new EmbedBuilder().setColor(colorToInt(color)).setTitle(title);
-  if (useDefault) {
-    embed.setDescription(getDefaultTicketPanelDescription(lang));
-  } else if (panel.content) {
-    embed.setDescription(String(panel.content).slice(0, 4096));
-  }
-  if (panel.largeImageUrl) embed.setImage(panel.largeImageUrl);
-  if (panel.smallImageUrl) embed.setThumbnail(panel.smallImageUrl);
-  if (useDefault) {
-    embed.setFooter({ text: getDefaultTicketPanelFooter(lang) });
-  }
-  return embed;
+  const description = useDefault
+    ? getDefaultTicketPanelDescription(lang)
+    : panel.content
+      ? String(panel.content).slice(0, 4096)
+      : "";
+  return {
+    accentColor: colorToInt(color),
+    guildId: options.guildId,
+    title,
+    description,
+    thumbnailUrl: panel.smallImageUrl || "",
+    imageUrl: panel.largeImageUrl || "",
+    footerText: useDefault ? getDefaultTicketPanelFooter(lang) : "",
+  };
 }
 
-function buildMultiEmbed(multi, options = {}) {
+function buildMultiPanelClassicFields(multi, options = {}) {
   const lang = options.lang;
   if (isDefaultishMultiPanelEmbed(multi)) {
-    return new EmbedBuilder()
-      .setColor(colorToInt(DEFAULT_TICKET_PANEL_COLOR))
-      .setTitle(getDefaultTicketPanelTitle(lang))
-      .setDescription(getDefaultTicketPanelDescription(lang))
-      .setFooter({ text: getDefaultTicketPanelFooter(lang) });
+    return {
+      accentColor: colorToInt(DEFAULT_TICKET_PANEL_COLOR),
+      guildId: options.guildId,
+      title: getDefaultTicketPanelTitle(lang),
+      description: getDefaultTicketPanelDescription(lang),
+      footerText: getDefaultTicketPanelFooter(lang),
+    };
   }
-  const embed = new EmbedBuilder().setColor(colorToInt(multi.color || DEFAULT_TICKET_PANEL_COLOR));
-  const title = String(multi.title || "").trim();
-  if (title) {
-    embed.setTitle(title.slice(0, 256));
-    if (multi.titleUrl) embed.setURL(multi.titleUrl);
+  const fields = {
+    accentColor: colorToInt(multi.color || DEFAULT_TICKET_PANEL_COLOR),
+    guildId: options.guildId,
+    title: String(multi.title || "").trim().slice(0, 256),
+    titleUrl: multi.titleUrl || "",
+    description: multi.description ? String(multi.description).slice(0, 4096) : "",
+    authorName: multi.authorName ? multi.authorName.slice(0, 256) : "",
+    authorIconUrl: multi.authorIconUrl || "",
+    thumbnailUrl: multi.smallImageUrl || "",
+    imageUrl: multi.largeImageUrl || "",
+    footerText: multi.footerText ? String(multi.footerText).slice(0, 2048) : "",
+    footerIconUrl: multi.footerIconUrl || "",
+    timestampEnabled: Boolean(multi.footerTimestamp),
+    fields: (Array.isArray(multi.fields) ? multi.fields : []).slice(0, 25).map((f) => ({
+      name: String(f?.name || "\u200b").slice(0, 256),
+      value: String(f?.value || "\u200b").slice(0, 1024),
+      inline: Boolean(f?.inline),
+    })),
+  };
+  return fields;
+}
+
+function buildSinglePanelRichPayload(panel, options = {}) {
+  const rows = options.rows || [];
+  const classic = buildSinglePanelClassicFields(panel, options);
+  if (options.attachTicketGif && !classic.imageUrl) {
+    classic.imageUrl = `attachment://${TICKET_MEDIA_NAME}`;
   }
-  if (multi.description) embed.setDescription(String(multi.description).slice(0, 4096));
-  if (multi.authorName) {
-    embed.setAuthor({
-      name: multi.authorName.slice(0, 256),
-      iconURL: multi.authorIconUrl || undefined,
-      url: multi.authorUrl || undefined,
-    });
+  return buildVcRichFromClassicFields({ ...classic, rows });
+}
+
+function buildMultiPanelRichPayload(multi, options = {}) {
+  const rows = options.rows || [];
+  const classic = buildMultiPanelClassicFields(multi, options);
+  if (options.attachTicketGif !== false && !classic.imageUrl) {
+    classic.imageUrl = `attachment://${TICKET_MEDIA_NAME}`;
   }
-  if (multi.largeImageUrl) embed.setImage(multi.largeImageUrl);
-  if (multi.smallImageUrl) embed.setThumbnail(multi.smallImageUrl);
-  if (multi.footerText || multi.footerIconUrl) {
-    embed.setFooter({
-      text: String(multi.footerText || "\u200b").slice(0, 2048),
-      iconURL: multi.footerIconUrl || undefined,
-    });
-  }
-  if (multi.footerTimestamp) embed.setTimestamp(new Date());
-  const fields = Array.isArray(multi.fields) ? multi.fields : [];
-  if (fields.length) {
-    embed.addFields(
-      fields.slice(0, 25).map((f) => ({
-        name: String(f?.name || "\u200b").slice(0, 256),
-        value: String(f?.value || "\u200b").slice(0, 1024),
-        inline: Boolean(f?.inline),
-      })),
-    );
-  }
-  return embed;
+  return buildVcRichFromClassicFields({ ...classic, rows });
+}
+
+/** @deprecated — returns V2 payload; prefer buildSinglePanelRichPayload */
+function buildSingleEmbed(panel, options = {}) {
+  return buildSinglePanelRichPayload(panel, options);
+}
+
+/** @deprecated — returns V2 payload; prefer buildMultiPanelRichPayload */
+function buildMultiEmbed(multi, options = {}) {
+  return buildMultiPanelRichPayload(multi, options);
 }
 
 function resolveLinkedSingles(multi, bucket) {
@@ -265,12 +283,17 @@ async function publishSinglePanel(client, guildId, panelId, options = {}) {
   const guild = client?.guilds?.cache?.get?.(String(guildId)) || null;
   const lang = resolveTicketBotLanguage(guildId, guild);
   const editOnly = options.editOnly === true;
+  const rich = buildSinglePanelRichPayload(panel, {
+    lang,
+    guildId,
+    rows: components,
+    attachTicketGif: options.attachTicketGif === true,
+  });
   const payload = {
     messageId: options.forceNew === true ? null : panel.messageId || null,
     forceNew: options.forceNew === true,
     editOnly,
-    embeds: [buildSingleEmbed(panel, { lang })],
-    components,
+    ...rich,
   };
   if (options.attachTicketGif === true) {
     payload.files = [new AttachmentBuilder(TICKET_MEDIA_PATH, { name: TICKET_MEDIA_NAME })];
@@ -325,14 +348,20 @@ async function publishMultiPanel(client, guildId, multiId, options = {}) {
   const guild = client?.guilds?.cache?.get?.(String(guildId)) || null;
   const lang = resolveTicketBotLanguage(guildId, guild);
   const editOnly = options.editOnly === true;
+  const attachGif = options.attachTicketGif !== false;
+  const rich = buildMultiPanelRichPayload(multi, {
+    lang,
+    guildId,
+    rows: components,
+    attachTicketGif: attachGif,
+  });
   const payload = {
     messageId: options.forceNew === true ? null : multi.messageId || null,
     forceNew: options.forceNew === true,
     editOnly,
-    embeds: [buildMultiEmbed(multi, { lang })],
-    components,
+    ...rich,
   };
-  if (options.attachTicketGif !== false) {
+  if (attachGif) {
     payload.files = [new AttachmentBuilder(TICKET_MEDIA_PATH, { name: TICKET_MEDIA_NAME })];
     payload.attachmentName = TICKET_MEDIA_NAME;
   }
@@ -383,6 +412,10 @@ async function publishMultiPanel(client, guildId, multiId, options = {}) {
 module.exports = {
   buildSingleEmbed,
   buildMultiEmbed,
+  buildSinglePanelClassicFields,
+  buildMultiPanelClassicFields,
+  buildSinglePanelRichPayload,
+  buildMultiPanelRichPayload,
   buildSingleComponents,
   buildMultiComponents,
   publishSinglePanel,

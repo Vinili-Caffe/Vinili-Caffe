@@ -94,8 +94,31 @@ function isHalloweenEventWindowOpen(cfg, nowMs = Date.now()) {
 function isHalloweenEventLive(client, nowMs = Date.now(), guildId = null) {
   const cfg = resolveHalloweenEventConfig(client);
   if (!cfg.enabled) return false;
-  if (isHalloweenForceLiveOnTestGuild(client, guildId)) return true;
+  const testId = getTestGuildIdSafe();
+  const gid = String(guildId || "").trim();
+  // Server test: solo staging esplicito (testGuildForceLive). Mai mirror automatico della finestra main.
+  if (testId && gid && gid === testId) {
+    return isHalloweenForceLiveOnTestGuild(client, guildId);
+  }
   return Boolean(isHalloweenEventWindowOpen(cfg, nowMs)?.open);
+}
+
+/** Ore candy (react hunt + trick-or-treat): 08:00–24:00 Europe/Rome. */
+function isWithinHalloweenCandyHours(nowMs = Date.now(), hourStart = 8, hourEnd = 24) {
+  const startH = Math.max(0, Math.min(23, Math.floor(Number(hourStart) || 8)));
+  const endH = Math.max(1, Math.min(24, Math.floor(Number(hourEnd) || 24)));
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Europe/Rome",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(new Date(nowMs));
+  const map = Object.fromEntries(parts.filter((p) => p.type !== "literal").map((p) => [p.type, p.value]));
+  const minutes = Number(map.hour) * 60 + Number(map.minute);
+  const start = startH * 60;
+  const end = endH * 60;
+  if (end <= start) return minutes >= start || minutes < end;
+  return minutes >= start && minutes < end;
 }
 
 module.exports = {
@@ -104,5 +127,6 @@ module.exports = {
   isHalloweenEventWindowOpen,
   isHalloweenEventLive,
   isHalloweenForceLiveOnTestGuild,
+  isWithinHalloweenCandyHours,
   createUtcFromRomeLocal,
 };

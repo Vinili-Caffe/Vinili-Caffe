@@ -1,5 +1,6 @@
 const crypto = require("crypto");
 const mongoose = require("mongoose");
+const { saveDiscussionImages, signDiscussionImageUrls } = require("./siteDiscussionImages");
 const IDs = require("../Config/ids");
 const { SiteDocument, SITE_DOCUMENT_TYPE } = require("../../Schemas/Community/communitySchemas");
 const { assertWebsiteStaffAccess, normalizeHeaderSecret, memberCanUseOpsStaffPages } = require("./siteStaffAccessApi");
@@ -206,7 +207,8 @@ function isAnonymousComment(c) {
 function publicComment(c) {
   if (!c) return null;
   const content = String(c.content || "").trim();
-  if (!content) return null;
+  const imageUrls = signDiscussionImageUrls(c.imageUrls);
+  if (!content && !imageUrls.length) return null;
   const anon = isAnonymousComment(c);
   return {
     id: String(c._id || ""),
@@ -214,6 +216,7 @@ function publicComment(c) {
     authorAvatarUrl: anon ? "" : String(c.authorAvatarUrl || "").trim(),
     anonymous: anon,
     content,
+    imageUrls,
     createdAt: c.createdAt ? new Date(c.createdAt).toISOString() : null,
   };
 }
@@ -538,7 +541,8 @@ async function handleSiteConfessionaleCommentPost(client, req, res) {
     }
 
     const content = sanitizeContent(req.body?.content ?? req.body?.text ?? req.body?.message, MAX_COMMENT_LEN);
-    if (content.length < MIN_COMMENT_LEN) {
+    const wantImages = Array.isArray(req.body?.images) && req.body.images.length > 0;
+    if (content.length < MIN_COMMENT_LEN && !wantImages) {
       return res.status(400).json({
         ok: false,
         error: "content_too_short",
@@ -583,12 +587,17 @@ async function handleSiteConfessionaleCommentPost(client, req, res) {
     const displayName = anonymous ? ANON_LABEL : memberDisplayName(auth.member);
     const displayAvatar = anonymous ? "" : memberAvatarUrl(auth.member);
 
+    const imageUrls = wantImages ? saveDiscussionImages("confessionale", id, req.body.images) : [];
+    if (wantImages && !imageUrls.length && content.length < MIN_COMMENT_LEN) {
+      return res.status(400).json({ ok: false, error: "bad_image", message: "Immagine non valida o troppo grande (max 2,5 MB)." });
+    }
     comments.push({
       userId,
       authorName: displayName,
       authorAvatarUrl: displayAvatar,
       anonymous,
       content,
+      imageUrls,
       parentCommentId: null,
       upvoterUserIds: [],
       downvoterUserIds: [],
@@ -601,7 +610,7 @@ async function handleSiteConfessionaleCommentPost(client, req, res) {
     void notifyConfessionDiscussion(client, doc, {
       actorUserId: userId,
       actorLabel: displayName,
-      content,
+      content: content || "📷 Foto",
       anonymous,
     });
 

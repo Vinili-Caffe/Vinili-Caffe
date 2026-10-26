@@ -191,7 +191,7 @@ async function ensureMainTicketPanelsSeeded(options = {}) {
     const multi = (result.bucket.multis || []).find((m) => m.seedKey === MAIN_MULTI_SEED);
     if (multi?.id && multi.channelId) {
       published = await publishMultiPanel(options.client, mainGuildId, multi.id, {
-        attachTicketGif: true,
+        attachTicketGif: false,
       });
     }
   }

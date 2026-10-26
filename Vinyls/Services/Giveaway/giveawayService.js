@@ -170,7 +170,7 @@ function buildMorgamesTutorialPayload(giveawayId) {
       },
       {
         name: "2 · Accedi con Discord",
-        value: "Premi **Login** e autorizza Discord sul sito.",
+        value: "Premi **Login** / **Get Started** e autorizza Discord sul sito.",
         inline: false,
       },
       {
@@ -179,16 +179,15 @@ function buildMorgamesTutorialPayload(giveawayId) {
         inline: false,
       },
     )
+    .setFooter({ text: "Collaborazione Vinili & Caffè × Morgames" });
 
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setStyle(ButtonStyle.Link)
-      .setEmoji("<:VC_Morgames:1562470559319719957>")
       .setLabel("Apri Morgames")
       .setURL(MORGAMES_SITE_URL),
     new ButtonBuilder()
       .setCustomId(`${GIVEAWAY_MORGAMES_RETRY_PREFIX}${id}`)
-      .setEmoji("<a:VC_Events:1482706144953897223>")
       .setLabel("Ho collegato Discord")
       .setStyle(ButtonStyle.Success),
   );
@@ -289,7 +288,7 @@ async function enterGiveaway(interaction, client, opts) {
     wasIn
       ? "<a:VC_Alert:1482706673176150077> Sei già iscritto!"
       : giveaway.requireMorgames
-        ? "<a:VC_Events:1482706144953897223> Sei entrato nel giveaway!"
+        ? "<a:VC_Events:1482706144953897223> Account Morgames ok — sei entrato nel giveaway!"
         : "<a:VC_Events:1482706144953897223> Sei entrato nel giveaway!",
   );
 
@@ -416,14 +415,18 @@ async function endGiveaway(giveawayId, client) {
   const giveaway = await Giveaway.findOne({ _id: id, ended: false, cancelled: { $ne: true } }, GIVEAWAY_READ_PROJECTION).lean();
   if (!giveaway) return null;
 
-  const participants = await resolveEligibleParticipants(giveaway);
-  const winnerIds = pickWinners(participants, giveaway.winnerCount);
-
+  // Claim subito (prima del filtro async): solo un processo tra bot/scheduler prosegue.
   const claimed = await Giveaway.updateOne(
     { _id: id, ended: false },
-    { $set: { ended: true, winnerIds } },
+    { $set: { ended: true } },
   );
   if (!claimed?.modifiedCount) return null;
+
+  const participants = await resolveEligibleParticipants({ ...giveaway, ended: true });
+  const winnerIds = pickWinners(participants, giveaway.winnerCount);
+  if (winnerIds.length) {
+    await Giveaway.updateOne({ _id: id }, { $set: { winnerIds } });
+  }
 
   const channel = await getClientChannelCached(client, giveaway.channelId);
   if (channel?.isTextBased?.()) {
@@ -443,7 +446,7 @@ async function endGiveaway(giveawayId, client) {
     if (winnerIds.length === 1) {
       await channel.send({ content: `<a:VC_Events:1482706144953897223> <@${winnerIds[0]}> ha vinto il giveaway! <a:VC_Winner:1482535294757507255>` }).catch(() => { });
     } else if (winnerIds.length > 1) {
-      const mention = winnerIds.map((id) => `<@${id}>`).join(", ");
+      const mention = winnerIds.map((wid) => `<@${wid}>`).join(", ");
       await channel.send({ content: `<a:VC_Events:1482706144953897223>${mention} hanno vinto il giveaway! <a:VC_Winner:1482535294757507255>` }).catch(() => { });
     }
   }

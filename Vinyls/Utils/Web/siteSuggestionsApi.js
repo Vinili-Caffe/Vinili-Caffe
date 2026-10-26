@@ -1,5 +1,6 @@
 const mongoose = require("mongoose");
 const fs = require("node:fs");
+const { saveDiscussionImages, signDiscussionImageUrls } = require("./siteDiscussionImages");
 const path = require("node:path");
 const crypto = require("node:crypto");
 const IDs = require("../Config/ids");
@@ -391,6 +392,17 @@ async function deleteSuggestionNotifications(guildId, suggestionId) {
   }).catch(() => null);
 }
 
+/** feedbackNotifDedupe1 — stesso testo nella stessa discussione → una sola notifica (anche top-level poi reply). */
+function suggestionCommentContentFingerprint(content) {
+  const norm = String(content || "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase()
+    .slice(0, 160);
+  if (!norm) return "empty";
+  return crypto.createHash("sha1").update(norm).digest("hex").slice(0, 16);
+}
+
 async function notifySuggestionAuthor(guildId, authorUserId, payload) {
   const gid = String(guildId || "").trim();
   const aid = String(authorUserId || "").trim();
@@ -408,6 +420,7 @@ async function notifySuggestionAuthor(guildId, authorUserId, payload) {
     opts.dedupeKey = String(payload.dedupeKey).trim().slice(0, 120);
     opts.dedupeWindowMs = Number(payload.dedupeWindowMs) || 60_000;
   }
+  if (payload.replaceDedupe === true) opts.replaceDedupe = true;
   try {
     await enqueueSiteInAppNotification(opts);
   } catch (e) {
@@ -448,6 +461,7 @@ function serializeComment(c, viewerUserId) {
     authorAvatarUrl: scrubDiscordDefaultAvatarUrl(String(c.authorAvatarUrl || "")),
     authorAvatarHash: avatarHashFromDiscordUrl(c.authorAvatarUrl),
     content: String(c.content || ""),
+    imageUrls: signDiscussionImageUrls(c.imageUrls),
     parentCommentId: pid && mongoose.isValidObjectId(pid) ? pid : null,
     createdAt: c.createdAt ? new Date(c.createdAt).toISOString() : null,
     updatedAt: c.updatedAt ? new Date(c.updatedAt).toISOString() : null,
@@ -737,7 +751,8 @@ async function addSiteSuggestionComment(client, payload = {}) {
   }
 
   const content = sanitizeBody(payload.content, MAX_COMMENT_LEN);
-  if (content.length < 2) {
+  const wantImages = Array.isArray(payload.images) && payload.images.length > 0;
+  if (content.length < 2 && !wantImages) {
     return { ok: false, status: 400, error: "content_too_short", message: "Il commento è troppo breve." };
   }
 
@@ -780,15 +795,12 @@ async function addSiteSuggestionComment(client, payload = {}) {
     if (!parent) {
       return { ok: false, status: 404, error: "parent_not_found", message: "Il commento a cui rispondi non esiste." };
     }
-    if (parent.parentCommentId) {
-      return {
-        ok: false,
-        status: 400,
-        error: "reply_depth",
-        message: "Puoi rispondere solo ai commenti principali, non alle risposte.",
-      };
+    /* replyToReply1: risposta a una risposta → stesso thread (root), niente 3° livello */
+    const rootParentId = parent.parentCommentId ? String(parent.parentCommentId) : rawParent;
+    if (!mongoose.isValidObjectId(rootParentId)) {
+      return { ok: false, status: 400, error: "invalid_parent", message: "ID commento padre non valido." };
     }
-    parentOid = new mongoose.Types.ObjectId(rawParent);
+    parentOid = new mongoose.Types.ObjectId(rootParentId);
   }
 
   const comment = {
@@ -801,6 +813,12 @@ async function addSiteSuggestionComment(client, payload = {}) {
     content,
     ...(parentOid ? { parentCommentId: parentOid } : {}),
   };
+  if (wantImages) {
+    comment.imageUrls = saveDiscussionImages("feedback", suggestionId, payload.images);
+    if (!comment.imageUrls.length && content.length < 2) {
+      return { ok: false, status: 400, error: "bad_image", message: "Immagine non valida o troppo grande (max 2,5 MB)." };
+    }
+  }
 
   const updated = await SiteDocument.findOneAndUpdate(
     { docType: SG, _id: suggestionId, guildId: resolved.guild.id, status: "pending" },
@@ -827,17 +845,20 @@ async function addSiteSuggestionComment(client, payload = {}) {
   }
   // discussionParticipantsFanOut1 — notify every prior participant (owner + comment authors), not only parent/owner.
   // staffFeedbackCommentInbox1: staff-board comments always channel=inbox (Inbox tab).
+  // feedbackNotifDedupe1: replaceDedupe su fingerprint testo → niente doppione se stesso contenuto
+  // ripubblicato (es. top-level poi reply / delete+repost entro pochi minuti).
   const participantIds = collectSuggestionDiscussionParticipantIds(existing, { excludeUserId: actorId });
+  const contentFp = suggestionCommentContentFingerprint(content || (wantImages ? "photo" : ""));
   await Promise.all(
     participantIds.map((uid) => {
       let title;
       let body;
       if (parentOid && uid === parentAuthor) {
         title = "Risposta al tuo commento";
-        body = `${who} ha risposto al tuo commento: ${clipNotifBody(content, 320)}`;
+        body = `${who} ha risposto al tuo commento: ${clipNotifBody(content || "📷 una foto", 320)}`;
       } else if (!parentOid && uid === ownerId) {
         title = "Nuovo commento al suggerimento";
-        body = `${who} ha commentato: ${clipNotifBody(content, 360)}`;
+        body = `${who} ha commentato: ${clipNotifBody(content || "📷 una foto", 360)}`;
       } else if (parentOid && uid === ownerId) {
         title = "Nuova risposta in discussione";
         body = `${who} ha risposto a un commento sul tuo suggerimento.`;
@@ -846,7 +867,7 @@ async function addSiteSuggestionComment(client, payload = {}) {
         body = `${who} ha risposto in una discussione a cui partecipi.`;
       } else {
         title = "Nuovo messaggio in discussione";
-        body = `${who} ha commentato in una discussione a cui partecipi: ${clipNotifBody(content, 280)}`;
+        body = `${who} ha commentato in una discussione a cui partecipi: ${clipNotifBody(content || "📷 una foto", 280)}`;
       }
       return notifySuggestionAuthor(resolved.guild.id, uid, {
         title,
@@ -854,6 +875,10 @@ async function addSiteSuggestionComment(client, payload = {}) {
         kind: "suggestion",
         channel: notifChannel,
         openUrl,
+        // chiave: sid + fingerprint testo + uid → replace stesso testo; delete per prefisso sid:fp:
+        dedupeKey: `suggestion:discuss:${suggestionId}:${contentFp}:${uid}`,
+        dedupeWindowMs: 5 * 60_000,
+        replaceDedupe: true,
       });
     }),
   );
@@ -1461,12 +1486,32 @@ async function deleteSiteSuggestionComment(client, payload = {}) {
   arr.forEach((c) => {
     if (String(c.parentCommentId || "") === commentId) removeIds.add(String(c._id));
   });
+  const removedContents = arr
+    .filter((c) => removeIds.has(String(c._id)))
+    .map((c) => String(c.content || "").trim())
+    .filter(Boolean);
   doc.comments = arr.filter((c) => !removeIds.has(String(c._id)));
   doc.updatedAt = new Date();
   doc.markModified("comments");
   const saved = await doc.save().catch(() => null);
   if (!saved) {
     return { ok: false, status: 500, error: "save_failed", message: "Impossibile eliminare il commento." };
+  }
+
+  // feedbackNotifDedupe1: purge solo notif del testo eliminato (prefisso sid:fp:).
+  try {
+    const fps = [
+      ...new Set(removedContents.map((txt) => suggestionCommentContentFingerprint(txt)).filter((x) => x && x !== "empty")),
+    ];
+    if (fps.length) {
+      await removeSiteInAppNotificationsMatching({
+        prefixes: fps.map((fp) => `suggestion:discuss:${suggestionId}:${fp}:`),
+        kinds: ["suggestion"],
+        forceDismiss: true,
+      }).catch(() => null);
+    }
+  } catch (_) {
+    /* ignore */
   }
 
   broadcastSiteSuggestionsChanged();

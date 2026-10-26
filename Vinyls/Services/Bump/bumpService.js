@@ -1299,6 +1299,16 @@ async function recordDiscadiaVote(client, guildId, userId, options = {}) {
     voteAtMs: now.getTime(),
   });
 
+  /* voteWsLive1: invalida cache /vote/ + ping WS subito (anche se ancora sulla pagina o in PWA). */
+  try {
+    const { invalidateSiteVoteCache } = require("../../Utils/Web/siteVoteApi");
+    invalidateSiteVoteCache(mainGuildId, userId);
+  } catch (_) {}
+  try {
+    const { broadcastSiteVotesChanged } = require("../../Utils/Web/siteSuggestionsBroadcast");
+    broadcastSiteVotesChanged({ userId: String(userId || "").trim(), platform: voteListing });
+  } catch (_) {}
+
   /* smartNotifLifecycle1: al voto → via reminder inbox+OS di quella piattaforma */
   try {
     clearVoteReminderPhoneRetries(userId, voteListing);

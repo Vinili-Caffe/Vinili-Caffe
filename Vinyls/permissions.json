@@ -903,30 +903,6 @@
                 "channels.commands"
             ]
         },
-        "wordle": {
-            "roles": [
-                "roles.Member"
-            ],
-            "channels": [
-                "channels.commands"
-            ]
-        },
-        "wdl": {
-            "roles": [
-                "roles.Member"
-            ],
-            "channels": [
-                "channels.commands"
-            ]
-        },
-        "parola": {
-            "roles": [
-                "roles.Member"
-            ],
-            "channels": [
-                "channels.commands"
-            ]
-        },
         "bal": {
             "roles": [
                 "roles.Member"

@@ -5111,7 +5111,8 @@ async function handleSiteWebTicketsMessageDelete(client, req, res) {
     return res.status(400).json({ ok: false, error: "system_message", message: "Non puoi eliminare i messaggi di sistema." });
   }
   const isOwner = String(msg.authorId) === String(actor.userId);
-  if (!isOwner && !actor.isStaff) {
+  // proprio messaggio → chiunque; altrui → solo High Staff (come UI React)
+  if (!isOwner && !memberIsHighStaff(actor.member) && !memberIsHighStaffEligible(actor.member)) {
     return res.status(403).json({ ok: false, error: "forbidden", message: "Non puoi eliminare questo messaggio." });
   }
 

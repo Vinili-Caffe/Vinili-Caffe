@@ -10,7 +10,7 @@ const { normalizeTextForCanvas, sanitizeCanvasDisplayName } = require("./canvasU
 const { safeLoadImage, fetchHttpImageBuffer } = require("./safeLoadImage");
 const { getShopItemById } = require("../Web/hogwartsShopCatalog");
 const DUEL_CANVAS_USE_PNG = String(process.env.VC_DUEL_CANVAS_PNG ?? "0").trim() === "1";
-const HOGWARTS_IMG = path.join(__dirname, "..", "..", "..", "WebSite", "images", "evento-hogwarts");
+const HOGWARTS_IMG = path.join(__dirname, "..", "..", "Assets", "evento-hogwarts");
 const HOGWARTS_IMG_REMOTE_BASE = String(process.env.VC_HOGWARTS_IMG_BASE_URL || "https://www.viniliecaffe.it/images/evento-hogwarts").replace(/\/$/, "");
 const LOANER_WAND_ID = "willow-spark-wand";
 const BOT_WAND_ID = "elder-ember-wand";
@@ -209,13 +209,15 @@ function hogwartsImageDirs() {
   const envDir = String(process.env.VC_HOGWARTS_IMG_DIR || "").trim();
   if (envDir) dirs.push(path.resolve(envDir));
   const vinylsRoot = path.resolve(path.join(__dirname, "..", ".."));
+  dirs.push(path.join(vinylsRoot, "Assets", "evento-hogwarts"));
   dirs.push(path.join(vinylsRoot, "assets", "evento-hogwarts"));
   dirs.push(path.resolve(HOGWARTS_IMG));
   for (const root of hogwartsDeployRoots()) {
     if (root === vinylsRoot) continue;
-    dirs.push(path.join(root, "WebSite", "images", "evento-hogwarts"));
+    dirs.push(path.join(root, "Vinyls", "Assets", "evento-hogwarts"));
     dirs.push(path.join(root, "Vinyls", "assets", "evento-hogwarts"));
   }
+  dirs.push("/var/www/viniliecaffe/images/evento-hogwarts");
   return [...new Set(dirs)];
 }
 

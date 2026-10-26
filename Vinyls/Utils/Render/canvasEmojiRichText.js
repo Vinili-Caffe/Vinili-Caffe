@@ -472,10 +472,19 @@ async function drawLabelWithEmoji(
       if (token.value) {
         /* rankNickTight1d: testo dopo emoji — pull lieve (no overlap) */
         const textPull =
-          prevKind === "emoji" ? Math.max(0, Math.round(size * 0.04)) : 0;
-        drawLabel(ctx, token.value, cursorX - textPull, y, { ...labelOpts, align: "left" });
-        cursorX += textWidth(ctx, token.value, size, weight, fontPrimary) - textPull;
-        prevKind = "text";
+          prevKind === "emoji" && !/^\s/.test(token.value) ? Math.max(0, Math.round(size * 0.04)) : 0;
+        /* richLeadSpace1: drawLabel toglie gli spazi in testa (normalizeTextForCanvas fa trim) ma la larghezza
+           li conta: senza questo lo spazio dopo un'emoji "scivola" in fondo alla parola. */
+        // la misura del server ignora gli spazi in coda: spazi in testa e in coda si misurano a parte
+        const spaceW = (sp) =>
+          sp ? textWidth(ctx, `x${sp}x`, size, weight, fontPrimary) - textWidth(ctx, "xx", size, weight, fontPrimary) : 0;
+        const lead = (token.value.match(/^\s+/) || [""])[0];
+        const trail = token.value.trim() ? (token.value.match(/\s+$/) || [""])[0] : "";
+        const core = token.value.trim();
+        const leadW = spaceW(lead);
+        drawLabel(ctx, token.value, cursorX - textPull + leadW, y, { ...labelOpts, align: "left" });
+        cursorX += leadW + (core ? textWidth(ctx, core, size, weight, fontPrimary) : 0) + spaceW(trail) - textPull;
+        prevKind = /\s$/.test(token.value) ? "space" : "text";
       }
       continue;
     }

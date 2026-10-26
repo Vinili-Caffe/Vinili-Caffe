@@ -472,6 +472,15 @@ async function main() {
         } catch {
                   }
       }
+      /* voteWsLive1: cache /vote/ vive nel processo site-api — invalida qui al ping dai bots */
+      if (type === "votes_changed") {
+        try {
+          const { invalidateSiteVoteCache } = require("../../Utils/Web/siteVoteApi");
+          const gid = String(client?.config?.mainGuildId || "").trim();
+          invalidateSiteVoteCache(gid, body.userId);
+        } catch {
+                  }
+      }
       const { broadcastSiteRealtime } = require("../../Utils/Web/siteSuggestionsBroadcast");
       broadcastSiteRealtime({ ...body, at: body.at || new Date().toISOString() });
     } catch (err) {
@@ -635,7 +644,7 @@ async function main() {
         });
       };
       setTimeout(warmVote, 2500);
-      setInterval(warmVote, 80_000).unref?.();
+      setInterval(warmVote, 18_000).unref?.();
     } catch (err) {
       console.warn("[SITE-API] site-vote warm init:", err?.message || err);
     }
@@ -648,6 +657,13 @@ async function main() {
       };
       setTimeout(warmReviews, 3000);
       setInterval(warmReviews, 25_000).unref?.();
+      // recensioni di chi non è più staff: pulizia all'avvio e ogni 6 ore
+      const { purgeExStaffReviews } = require("../../Utils/Web/siteReviewsApi");
+      const purgeExStaff = () => {
+        purgeExStaffReviews(client).catch((e) => console.warn("[SITE-API] purge ex staff reviews:", e?.message || e));
+      };
+      setTimeout(purgeExStaff, 60_000).unref?.();
+      setInterval(purgeExStaff, 6 * 60 * 60_000).unref?.();
     } catch (err) {
       console.warn("[SITE-API] site-reviews warm init:", err?.message || err);
     }

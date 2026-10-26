@@ -36,13 +36,15 @@ async function resolveUserIdFromToken(accessToken) {
 
 function emitPresenceChanged(userId, status) {
   try {
-    const { broadcastSiteRealtime } = require("./siteSuggestionsBroadcast");
-    broadcastSiteRealtime({
+    const { broadcastSiteRealtime, notifyExternalSiteRealtime } = require("./siteSuggestionsBroadcast");
+    const payload = {
       type: "site_presence_changed",
       userId: String(userId),
       status: String(status),
       at: new Date().toISOString(),
-    });
+    };
+    broadcastSiteRealtime(payload);
+    notifyExternalSiteRealtime(payload);
   } catch (_) {}
 }
 

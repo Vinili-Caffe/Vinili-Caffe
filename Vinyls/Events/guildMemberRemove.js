@@ -931,6 +931,9 @@ module.exports = {
       }).catch((err) => {
         global.logger?.warn?.("[guildMemberRemove] ticket auto-unclaim on leave:", member.id, err?.message || err);
       });
+      try {
+        require("../Utils/Web/siteReviewsApi").scheduleExStaffReviewsPurge(client || member.client);
+      } catch (_) {}
       await handlePmStaffPartnershipWipeOnLeave(member, activeClient).catch((err) => {
         global.logger?.warn?.(
           "[guildMemberRemove] PM partnership wipe:",
@@ -969,8 +972,12 @@ module.exports = {
       await cleanupUserData(guild.id, member.id, activeClient);
       /* leaveProfileLive1: drop site profile caches + WS so open community/staff tabs clear now */
       try {
-        const { broadcastSiteMemberLeft } = require("../Utils/Web/siteSuggestionsBroadcast");
+        const {
+          broadcastSiteMemberLeft,
+          broadcastSiteLiveStatsChangedDebounced,
+        } = require("../Utils/Web/siteSuggestionsBroadcast");
         broadcastSiteMemberLeft(member.id, guild.id);
+        broadcastSiteLiveStatsChangedDebounced();
       } catch (err) {
         global.logger?.warn?.("[guildMemberRemove] site profile leave broadcast:", member.id, err?.message || err);
       }
