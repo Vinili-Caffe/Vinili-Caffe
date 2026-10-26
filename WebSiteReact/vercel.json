@@ -30,15 +30,15 @@
   "rewrites": [
     {
       "source": "/live-stats-extra.json",
-      "destination": "https://www.viniliecaffe.it/live-stats-extra.json"
+      "destination": "https://api.viniliecaffe.it/live-stats-extra.json"
     },
     {
       "source": "/discord-invite.json",
-      "destination": "https://www.viniliecaffe.it/discord-invite.json"
+      "destination": "https://api.viniliecaffe.it/discord-invite.json"
     },
     {
       "source": "/js/i18n/locales/:path*",
-      "destination": "https://www.viniliecaffe.it/js/i18n/locales/:path*"
+      "destination": "https://api.viniliecaffe.it/js/i18n/locales/:path*"
     }
   ]
 }
