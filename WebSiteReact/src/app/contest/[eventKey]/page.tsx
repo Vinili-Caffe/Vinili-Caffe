@@ -14,7 +14,7 @@ const ContestBoard = dynamic(
 const KNOWN = {
   "sfondi-halloween": {
     title: "Contest sfondi Halloween",
-    text: "Invia uno sfondo a tema e vota gli altri in stile swipe. Pagina non in menu — solo link diretto.",
+    text: "Invia uno sfondo PC e/o telefono e vota gli altri in stile swipe. Pagina non in menu — solo link diretto.",
   },
   "outfit-halloween": {
     title: "Contest outfit Halloween",

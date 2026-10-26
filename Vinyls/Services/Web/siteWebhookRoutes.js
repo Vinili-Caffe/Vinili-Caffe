@@ -1982,6 +1982,7 @@ function mountSiteWebhookRoutes(app, client, deps) {
       const out = await getSiteContestSwipeFeed(client, {
         eventKey: req.params.eventKey,
         accessToken,
+        category: req.query?.category,
         limit: req.query?.limit,
       });
       return res.status(Number(out.status) || 500).json(out);
@@ -2015,6 +2016,7 @@ function mountSiteWebhookRoutes(app, client, deps) {
       const out = await getSiteContestLeaderboard(client, {
         eventKey: req.params.eventKey,
         accessToken,
+        category: req.query?.category,
         limit: req.query?.limit,
       });
       return res.status(Number(out.status) || 500).json(out);

@@ -2,6 +2,8 @@ import { apiUrl } from "./api";
 
 export type ContestPhase = "before" | "open" | "after" | "hidden" | "unknown";
 
+export type ContestCategory = { id: string; label: string };
+
 export type ContestStatus = {
   ok: boolean;
   eventKey: string;
@@ -16,6 +18,9 @@ export type ContestStatus = {
   submissionCount?: number;
   mySubmissions?: ContestSubmission[];
   myVoteCount?: number;
+  categories?: ContestCategory[];
+  maxPerCategory?: number;
+  canSubmitByCategory?: Record<string, { count: number; canSubmit: boolean }>;
   canSubmit?: boolean;
   canVote?: boolean;
   message?: string;
@@ -31,6 +36,7 @@ export type ContestSubmission = {
   displayName?: string | null;
   avatarUrl?: string | null;
   userId?: string | null;
+  rank?: number;
 };
 
 function mediaUrl(path: string) {
@@ -50,7 +56,7 @@ export async function fetchContestStatus(eventKey: string, token?: string | null
       headers: token ? { Authorization: `Bearer ${token}`, Accept: "application/json" } : { Accept: "application/json" },
     });
     const j = (await r.json()) as ContestStatus;
-    return j?.ok ? j : { ...(j || {}), ok: false, phase: (j?.phase as ContestPhase) || "unknown" } as ContestStatus;
+    return j?.ok ? j : ({ ...(j || {}), ok: false, phase: (j?.phase as ContestPhase) || "unknown" } as ContestStatus);
   } catch {
     return null;
   }
@@ -60,6 +66,7 @@ export async function submitContestImage(
   eventKey: string,
   token: string,
   dataUrl: string,
+  category: string,
 ): Promise<{ ok: boolean; message?: string; submission?: ContestSubmission; error?: string }> {
   const r = await fetch(apiUrl(`/webhooks/site-contest/${encodeURIComponent(eventKey)}/submit`), {
     method: "POST",
@@ -68,7 +75,7 @@ export async function submitContestImage(
       Accept: "application/json",
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ image: dataUrl }),
+    body: JSON.stringify({ image: dataUrl, category }),
   });
   return r.json();
 }
@@ -76,8 +83,10 @@ export async function submitContestImage(
 export async function fetchContestFeed(
   eventKey: string,
   token: string,
-): Promise<{ ok: boolean; items: ContestSubmission[]; remaining?: number; message?: string }> {
-  const r = await fetch(apiUrl(`/webhooks/site-contest/${encodeURIComponent(eventKey)}/feed`), {
+  category: string,
+): Promise<{ ok: boolean; items: ContestSubmission[]; remaining?: number; category?: string; message?: string }> {
+  const q = new URLSearchParams({ category, limit: "20" });
+  const r = await fetch(apiUrl(`/webhooks/site-contest/${encodeURIComponent(eventKey)}/feed?${q}`), {
     cache: "no-store",
     headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
   });
@@ -98,6 +107,28 @@ export async function swipeContest(
       "Content-Type": "application/json",
     },
     body: JSON.stringify({ submissionId, action }),
+  });
+  return r.json();
+}
+
+export async function fetchContestLeaderboard(
+  eventKey: string,
+  token: string | null | undefined,
+  category: string,
+): Promise<{
+  ok: boolean;
+  items: ContestSubmission[];
+  preview?: boolean;
+  phase?: ContestPhase;
+  category?: string;
+  message?: string;
+}> {
+  const q = new URLSearchParams({ category, limit: "20" });
+  const r = await fetch(apiUrl(`/webhooks/site-contest/${encodeURIComponent(eventKey)}/leaderboard?${q}`), {
+    cache: "no-store",
+    headers: token
+      ? { Authorization: `Bearer ${token}`, Accept: "application/json" }
+      : { Accept: "application/json" },
   });
   return r.json();
 }

@@ -1,24 +1,26 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Heart, SkipForward, Upload, Loader2, Ghost } from "lucide-react";
+import { Heart, SkipForward, Upload, Loader2, Ghost, Trophy, Monitor, Smartphone } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import {
   clearContestDemo,
   contestImageUrl,
   fetchContestFeed,
+  fetchContestLeaderboard,
   fetchContestStatus,
   formatRomeRange,
   seedContestDemo,
   submitContestImage,
   swipeContest,
+  type ContestCategory,
   type ContestStatus,
   type ContestSubmission,
 } from "@/lib/contest";
 import { DiscordButton } from "@/components/DiscordButton";
 import { cn } from "@/lib/cn";
 
-type Tab = "submit" | "vote";
+type Tab = "submit" | "vote" | "board";
 
 function fileToDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -29,6 +31,44 @@ function fileToDataUrl(file: File): Promise<string> {
   });
 }
 
+function CategoryIcon({ id }: { id: string }) {
+  if (id === "pc") return <Monitor className="size-4" />;
+  if (id === "mobile") return <Smartphone className="size-4" />;
+  return null;
+}
+
+function CategoryPills({
+  cats,
+  value,
+  onChange,
+}: {
+  cats: ContestCategory[];
+  value: string;
+  onChange: (id: string) => void;
+}) {
+  if (cats.length <= 1) return null;
+  return (
+    <div className="flex flex-wrap gap-2">
+      {cats.map((c) => (
+        <button
+          key={c.id}
+          type="button"
+          onClick={() => onChange(c.id)}
+          className={cn(
+            "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium ring-1 transition",
+            value === c.id
+              ? "bg-caramel text-ink ring-caramel"
+              : "bg-crema/5 text-crema/75 ring-crema/15 hover:bg-crema/10",
+          )}
+        >
+          <CategoryIcon id={c.id} />
+          {c.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export function ContestBoard({ eventKey }: { eventKey: string }) {
   const { ready, token } = useAuth();
   const [status, setStatus] = useState<ContestStatus | null>(null);
@@ -36,21 +76,50 @@ export function ContestBoard({ eventKey }: { eventKey: string }) {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
   const [deck, setDeck] = useState<ContestSubmission[]>([]);
+  const [board, setBoard] = useState<ContestSubmission[]>([]);
+  const [boardPreview, setBoardPreview] = useState(true);
   const [dragX, setDragX] = useState(0);
   const [dragging, setDragging] = useState(false);
   const startX = useRef(0);
 
+  const cats = useMemo<ContestCategory[]>(
+    () => status?.categories?.length ? status.categories : [{ id: "main", label: "Main" }],
+    [status?.categories],
+  );
+  const [catSubmit, setCatSubmit] = useState("pc");
+  const [catVote, setCatVote] = useState("pc");
+  const [catBoard, setCatBoard] = useState("pc");
+  const catsReady = useRef(false);
+
+  useEffect(() => {
+    if (!cats.length || catsReady.current) return;
+    catsReady.current = true;
+    const first = cats[0].id;
+    setCatSubmit(first);
+    setCatVote(first);
+    setCatBoard(first);
+  }, [cats]);
+
   const reload = useCallback(async () => {
     const s = await fetchContestStatus(eventKey, token);
     setStatus(s);
-    if (s?.canSubmit && !(s.mySubmissions?.length)) setTab("submit");
+    if (s?.phase === "after") setTab("board");
+    else if (s?.canSubmit && !(s.mySubmissions?.length)) setTab("submit");
   }, [eventKey, token]);
 
   const loadFeed = useCallback(async () => {
     if (!token) return;
-    const f = await fetchContestFeed(eventKey, token);
+    const f = await fetchContestFeed(eventKey, token, catVote);
     if (f?.ok) setDeck(f.items || []);
-  }, [eventKey, token]);
+  }, [eventKey, token, catVote]);
+
+  const loadBoard = useCallback(async () => {
+    const out = await fetchContestLeaderboard(eventKey, token, catBoard);
+    if (out?.ok) {
+      setBoard(out.items || []);
+      setBoardPreview(Boolean(out.preview));
+    }
+  }, [eventKey, token, catBoard]);
 
   useEffect(() => {
     if (!ready) return;
@@ -62,15 +131,30 @@ export function ContestBoard({ eventKey }: { eventKey: string }) {
     void loadFeed();
   }, [ready, token, tab, loadFeed]);
 
+  useEffect(() => {
+    if (!ready || tab !== "board") return;
+    void loadBoard();
+  }, [ready, tab, loadBoard]);
+
   const top = deck[0] || null;
   const phaseLabel = useMemo(() => {
     if (!status) return "…";
     if (status.phase === "before") return "Non ancora aperto";
-    if (status.phase === "after") return "Chiuso";
+    if (status.phase === "after") return "Chiuso — classifica";
     if (status.phase === "hidden") return "Non disponibile";
     if (status.staffPreview) return "Aperto (preview staff)";
     return "In corso";
   }, [status]);
+
+  const mineByCat = useMemo(() => {
+    const map: Record<string, ContestSubmission | undefined> = {};
+    for (const s of status?.mySubmissions || []) {
+      map[String(s.category || "main")] = s;
+    }
+    return map;
+  }, [status?.mySubmissions]);
+
+  const canSubmitCat = status?.canSubmitByCategory?.[catSubmit]?.canSubmit ?? false;
 
   async function onPickFile(file: File | null) {
     if (!file || !token) return;
@@ -78,11 +162,12 @@ export function ContestBoard({ eventKey }: { eventKey: string }) {
     setMsg("");
     try {
       const dataUrl = await fileToDataUrl(file);
-      const out = await submitContestImage(eventKey, token, dataUrl);
+      const out = await submitContestImage(eventKey, token, dataUrl, catSubmit);
       setMsg(out.message || (out.ok ? "Inviato." : "Errore."));
       if (out.ok) {
         await reload();
         setTab("vote");
+        setCatVote(catSubmit);
       }
     } catch {
       setMsg("Upload non riuscito.");
@@ -121,6 +206,9 @@ export function ContestBoard({ eventKey }: { eventKey: string }) {
     else if (dragX < -110) void onSwipe("pass");
     else setDragX(0);
   }
+
+  const showMain =
+    status?.phase === "open" || status?.phase === "after" || Boolean(status?.staffPreview);
 
   if (!ready) {
     return (
@@ -161,20 +249,19 @@ export function ContestBoard({ eventKey }: { eventKey: string }) {
           <p className="mt-2 text-xs text-crema/45">{formatRomeRange(status.startAt, status.endAt)}</p>
         ) : null}
         <p className="mt-1 text-xs text-crema/40">
-          {status?.submissionCount ?? 0} partecipanti · tuoi voti {status?.myVoteCount ?? 0}
+          {status?.submissionCount ?? 0} invii · tuoi voti {status?.myVoteCount ?? 0}
         </p>
       </div>
 
       {status?.phase === "before" && !status.staffPreview ? (
         <p className="mt-8 text-center text-crema/65">
-          Apre alle 19:00 (Roma). Dopo vedrai le tab <strong className="text-crema">Invia</strong> e{" "}
-          <strong className="text-crema">Vota</strong>.
+          Apre alle 19:00 (Roma). Dopo vedrai Invia, Vota e Classifica.
         </p>
       ) : null}
 
-      {(status?.phase === "open" || status?.staffPreview) && (
+      {showMain ? (
         <>
-          {status.staffPreview ? (
+          {status?.staffPreview && status.phase !== "after" ? (
             <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
               <button
                 type="button"
@@ -219,70 +306,100 @@ export function ContestBoard({ eventKey }: { eventKey: string }) {
               </button>
             </div>
           ) : null}
-          <div className="mt-6 flex gap-2 rounded-full bg-espresso p-1 ring-1 ring-crema/10">
-            <button
-              type="button"
-              className={cn(
-                "flex-1 rounded-full py-2 text-sm font-medium",
-                tab === "submit" ? "bg-caramel text-ink" : "text-crema/70 hover:text-crema",
-              )}
-              onClick={() => setTab("submit")}
-            >
-              Invia
-            </button>
-            <button
-              type="button"
-              className={cn(
-                "flex-1 rounded-full py-2 text-sm font-medium",
-                tab === "vote" ? "bg-caramel text-ink" : "text-crema/70 hover:text-crema",
-              )}
-              onClick={() => setTab("vote")}
-            >
-              Vota
-            </button>
+
+          <div className="mt-6 flex gap-1 rounded-full bg-espresso p-1 ring-1 ring-crema/10">
+            {(status?.phase === "after"
+              ? ([["board", "Classifica"]] as const)
+              : ([
+                  ["submit", "Invia"],
+                  ["vote", "Vota"],
+                  ["board", "Classifica"],
+                ] as const)
+            ).map(([id, label]) => (
+              <button
+                key={id}
+                type="button"
+                className={cn(
+                  "flex-1 rounded-full py-2 text-sm font-medium",
+                  tab === id ? "bg-caramel text-ink" : "text-crema/70 hover:text-crema",
+                )}
+                onClick={() => setTab(id)}
+              >
+                {label}
+              </button>
+            ))}
           </div>
 
-          {tab === "submit" ? (
+          {tab === "submit" && status?.phase !== "after" ? (
             <div className="mt-8 space-y-4">
-              {status.mySubmissions?.length ? (
+              <CategoryPills cats={cats} value={catSubmit} onChange={setCatSubmit} />
+              {mineByCat[catSubmit] ? (
                 <div>
-                  <p className="text-sm text-crema/70">Hai già inviato:</p>
+                  <p className="text-sm text-crema/70">
+                    Hai già inviato per «{cats.find((c) => c.id === catSubmit)?.label || catSubmit}»:
+                  </p>
                   <div className="mt-3 overflow-hidden rounded-2xl ring-1 ring-crema/15">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
-                      src={contestImageUrl(status.mySubmissions[0].imageUrl)}
+                      src={contestImageUrl(mineByCat[catSubmit]!.imageUrl)}
                       alt=""
-                      className="aspect-[3/4] w-full object-cover"
+                      className={cn(
+                        "w-full object-cover",
+                        catSubmit === "pc" ? "aspect-video" : "aspect-[3/4]",
+                      )}
                     />
                   </div>
                 </div>
               ) : (
                 <label className="flex cursor-pointer flex-col items-center gap-3 rounded-2xl border border-dashed border-crema/25 bg-crema/[0.03] px-6 py-12 text-center hover:border-caramel/50">
                   <Upload className="size-8 text-caramel" />
-                  <span className="font-medium">Carica la tua foto</span>
-                  <span className="text-xs text-crema/50">PNG / JPG / WEBP · max 4 MB</span>
+                  <span className="font-medium">
+                    Carica sfondo {cats.find((c) => c.id === catSubmit)?.label || ""}
+                  </span>
+                  <span className="text-xs text-crema/50">
+                    {catSubmit === "pc" ? "Consigliato 16:9" : "Consigliato verticale"} · PNG / JPG / WEBP · max 4 MB
+                  </span>
                   <input
                     type="file"
                     accept="image/png,image/jpeg,image/webp"
                     className="hidden"
-                    disabled={busy || !status.canSubmit}
+                    disabled={busy || !canSubmitCat}
                     onChange={(e) => void onPickFile(e.target.files?.[0] || null)}
                   />
                 </label>
               )}
+              {cats.length > 1 ? (
+                <p className="text-center text-xs text-crema/45">
+                  Puoi inviare fino a 1 foto per sezione (PC e telefono).
+                </p>
+              ) : null}
               {msg ? <p className="text-center text-sm text-sand">{msg}</p> : null}
               {busy ? <Loader2 className="mx-auto size-5 animate-spin text-crema/50" /> : null}
             </div>
-          ) : (
-            <div className="mt-8">
+          ) : null}
+
+          {tab === "vote" && status?.phase !== "after" ? (
+            <div className="mt-8 space-y-4">
+              <CategoryPills
+                cats={cats}
+                value={catVote}
+                onChange={(id) => {
+                  setCatVote(id);
+                  setDeck([]);
+                }}
+              />
+              <p className="text-center text-xs text-crema/40">Le tue foto non compaiono nel mazzo.</p>
               {!top ? (
                 <p className="py-16 text-center text-crema/60">
-                  {status.canVote ? "Hai visto tutto per ora. Torna più tardi!" : "Voto non disponibile."}
+                  {status?.canVote ? "Hai visto tutto in questa sezione. Torna più tardi!" : "Voto non disponibile."}
                 </p>
               ) : (
                 <>
                   <div
-                    className="relative mx-auto aspect-[3/4] w-full max-w-sm touch-none select-none overflow-hidden rounded-3xl bg-roast shadow-2xl ring-1 ring-crema/15"
+                    className={cn(
+                      "relative mx-auto w-full max-w-sm touch-none select-none overflow-hidden rounded-3xl bg-roast shadow-2xl ring-1 ring-crema/15",
+                      catVote === "pc" ? "aspect-video" : "aspect-[3/4]",
+                    )}
                     style={{
                       transform: `translateX(${dragX}px) rotate(${dragX / 28}deg)`,
                       transition: dragging ? "none" : "transform 180ms ease",
@@ -335,12 +452,54 @@ export function ContestBoard({ eventKey }: { eventKey: string }) {
                 </>
               )}
             </div>
-          )}
-        </>
-      )}
+          ) : null}
 
-      {status?.phase === "after" ? (
-        <p className="mt-10 text-center text-sm text-crema/60">Contest terminato. Classifica in arrivo.</p>
+          {tab === "board" ? (
+            <div className="mt-8 space-y-4">
+              <div className="flex items-center gap-2 text-sm text-crema/80">
+                <Trophy className="size-4 text-caramel" />
+                {boardPreview ? "Preview classifica" : "Classifica finale"}
+              </div>
+              {boardPreview ? (
+                <p className="text-xs text-crema/45">
+                  Anteprima live: i nomi restano nascosti fino alla fine dell&apos;evento.
+                </p>
+              ) : null}
+              <CategoryPills cats={cats} value={catBoard} onChange={setCatBoard} />
+              {!board.length ? (
+                <p className="py-12 text-center text-crema/55">Ancora nessun invio in questa sezione.</p>
+              ) : (
+                <ol className="space-y-3">
+                  {board.map((row) => (
+                    <li
+                      key={row.id}
+                      className="flex items-center gap-3 overflow-hidden rounded-2xl bg-crema/[0.04] p-2 ring-1 ring-crema/10"
+                    >
+                      <span className="w-8 shrink-0 text-center font-display text-lg font-semibold text-caramel">
+                        {row.rank ?? "–"}
+                      </span>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={contestImageUrl(row.imageUrl)}
+                        alt=""
+                        className={cn(
+                          "shrink-0 rounded-lg object-cover",
+                          catBoard === "pc" ? "h-14 w-24" : "size-14",
+                        )}
+                      />
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium text-crema">
+                          {row.displayName || (boardPreview ? "Anonimo" : "—")}
+                        </p>
+                        <p className="text-xs text-crema/45">{Number(row.likes) || 0} like</p>
+                      </div>
+                    </li>
+                  ))}
+                </ol>
+              )}
+            </div>
+          ) : null}
+        </>
       ) : null}
     </div>
   );

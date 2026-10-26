@@ -21,12 +21,15 @@ const EVENTS = {
     key: "sfondi-halloween",
     kind: "sfondi",
     title: "Contest sfondi Halloween",
-    blurb: "Invia uno sfondo a tema Halloween e vota gli altri in stile swipe.",
+    blurb: "Invia uno sfondo PC e/o mobile e vota gli altri in stile swipe.",
     /* Aperto subito per test (link-only). Annuncio pubblico: dalle 19:00. Fine: ven 21:00. */
     startMs: Date.parse("2026-10-26T16:00:00+01:00"),
     endMs: Date.parse("2026-10-30T21:00:00+01:00"),
-    maxSubmissionsPerUser: 1,
-    /** true = chi ha il link può entrare in finestra; false = solo staff. Mai in nav. */
+    maxPerCategory: 1,
+    categories: [
+      { id: "pc", label: "PC" },
+      { id: "mobile", label: "Telefono / tablet" },
+    ],
     publicOpen: true,
   },
   "outfit-halloween": {
@@ -36,7 +39,8 @@ const EVENTS = {
     blurb: "Mostra il tuo outfit Halloween e vota gli altri con uno swipe.",
     startMs: Date.parse("2026-10-31T12:00:00+01:00"),
     endMs: Date.parse("2026-11-01T21:00:00+01:00"),
-    maxSubmissionsPerUser: 1,
+    maxPerCategory: 1,
+    categories: [{ id: "main", label: "Outfit" }],
     publicOpen: true,
   },
 };
@@ -62,6 +66,18 @@ function phaseFor(event, now = Date.now(), { staffPreview = false } = {}) {
   return "open";
 }
 
+function eventCategories(event) {
+  const list = Array.isArray(event?.categories) ? event.categories : [];
+  return list.length ? list : [{ id: "main", label: "Main" }];
+}
+
+function normalizeCategory(event, raw) {
+  const cats = eventCategories(event);
+  const id = String(raw || "").trim().toLowerCase();
+  if (cats.some((c) => c.id === id)) return id;
+  return cats[0].id;
+}
+
 function publicEventPayload(event, phase, extras = {}) {
   return {
     ok: true,
@@ -73,7 +89,8 @@ function publicEventPayload(event, phase, extras = {}) {
     endAt: new Date(event.endMs).toISOString(),
     phase,
     publicOpen: Boolean(event.publicOpen),
-    maxSubmissionsPerUser: event.maxSubmissionsPerUser,
+    categories: eventCategories(event),
+    maxPerCategory: Math.max(1, Number(event.maxPerCategory) || 1),
     ...extras,
   };
 }
@@ -185,8 +202,19 @@ async function getContestStatus(client, { eventKey, accessToken } = {}) {
 
   const phase = phaseFor(event, Date.now(), { staffPreview });
   const doc = await getOrCreateDoc(event.key);
+  const cats = eventCategories(event);
   const mine = userId ? (doc.submissions || []).filter((s) => s.userId === userId) : [];
   const myVotes = userId && doc.votes?.[userId] ? doc.votes[userId] : {};
+  const maxPer = Math.max(1, Number(event.maxPerCategory) || 1);
+  const byCat = {};
+  for (const c of cats) {
+    const n = mine.filter((s) => String(s.category || "main") === c.id).length;
+    byCat[c.id] = {
+      count: n,
+      canSubmit: phase === "open" && n < maxPer,
+    };
+  }
+  const canSubmitAny = phase === "open" && cats.some((c) => byCat[c.id]?.canSubmit);
 
   return publicEventPayload(event, phase, {
     status: 200,
@@ -194,7 +222,8 @@ async function getContestStatus(client, { eventKey, accessToken } = {}) {
     submissionCount: (doc.submissions || []).length,
     mySubmissions: mine.map((s) => submissionPublic(s)),
     myVoteCount: Object.keys(myVotes).length,
-    canSubmit: phase === "open" && mine.length < event.maxSubmissionsPerUser,
+    canSubmitByCategory: byCat,
+    canSubmit: canSubmitAny,
     canVote: phase === "open",
   });
 }
@@ -249,20 +278,24 @@ async function submitEntry(client, { eventKey, accessToken, image, category } = 
     };
   }
 
+  const cat = normalizeCategory(event, category);
+  const maxPer = Math.max(1, Number(event.maxPerCategory) || 1);
   const doc = await getOrCreateDoc(event.key);
-  const mine = (doc.submissions || []).filter((s) => s.userId === auth.userId);
-  if (mine.length >= event.maxSubmissionsPerUser) {
+  const mineInCat = (doc.submissions || []).filter(
+    (s) => s.userId === auth.userId && String(s.category || "main") === cat,
+  );
+  if (mineInCat.length >= maxPer) {
     return {
       ok: false,
       status: 409,
       error: "already_submitted",
-      message: "Hai già inviato la tua partecipazione per questo contest.",
+      message: `Hai già inviato uno sfondo per «${cat}».`,
     };
   }
 
   const dir = path.join(UPLOAD_ROOT, event.key, auth.userId);
   fs.mkdirSync(dir, { recursive: true });
-  const name = `${Date.now().toString(36)}-${crypto.randomBytes(4).toString("hex")}.${extForMime(parsed.mime)}`;
+  const name = `${cat}-${Date.now().toString(36)}-${crypto.randomBytes(4).toString("hex")}.${extForMime(parsed.mime)}`;
   fs.writeFileSync(path.join(dir, name), parsed.buffer);
   const imageUrl = `/webhooks/site-contest/files/${encodeURIComponent(event.key)}/${encodeURIComponent(auth.userId)}/${encodeURIComponent(name)}`;
 
@@ -272,7 +305,7 @@ async function submitEntry(client, { eventKey, accessToken, image, category } = 
     displayName: auth.displayName,
     avatarUrl: auth.avatarUrl,
     imageUrl,
-    category: String(category || "main").slice(0, 32),
+    category: cat,
     likes: 0,
     createdAt: new Date(),
   };
@@ -287,7 +320,7 @@ async function submitEntry(client, { eventKey, accessToken, image, category } = 
   };
 }
 
-async function getSwipeFeed(client, { eventKey, accessToken, limit = 20 } = {}) {
+async function getSwipeFeed(client, { eventKey, accessToken, category, limit = 20 } = {}) {
   const event = getEvent(eventKey);
   if (!event) return { ok: false, status: 404, error: "unknown_event", message: "Contest non trovato." };
 
@@ -308,10 +341,12 @@ async function getSwipeFeed(client, { eventKey, accessToken, limit = 20 } = {}) 
     };
   }
 
+  const cat = normalizeCategory(event, category);
   const doc = await getOrCreateDoc(event.key);
   const voted = doc.votes?.[auth.userId] || {};
+  /* Mai la propria foto nel deck + solo categoria scelta. */
   const pool = (doc.submissions || []).filter(
-    (s) => s.userId !== auth.userId && !voted[s.id],
+    (s) => String(s.category || "main") === cat && s.userId !== auth.userId && !voted[s.id],
   );
   for (let i = pool.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
@@ -322,8 +357,10 @@ async function getSwipeFeed(client, { eventKey, accessToken, limit = 20 } = {}) 
     ok: true,
     status: 200,
     phase,
+    category: cat,
     remaining: pool.length,
-    items: pool.slice(0, n).map((s) => submissionPublic(s, { hideAuthor: phase === "open" })),
+    /* Autore sempre nascosto in voto. */
+    items: pool.slice(0, n).map((s) => submissionPublic(s, { hideAuthor: true })),
   };
 }
 
@@ -372,7 +409,7 @@ async function castSwipe(client, { eventKey, accessToken, submissionId, action }
   return { ok: true, status: 200, action: act, likes: Number(sub.likes) || 0 };
 }
 
-async function getLeaderboard(client, { eventKey, accessToken, limit = 20 } = {}) {
+async function getLeaderboard(client, { eventKey, accessToken, category, limit = 20 } = {}) {
   const event = getEvent(eventKey);
   if (!event) return { ok: false, status: 404, error: "unknown_event", message: "Contest non trovato." };
 
@@ -383,14 +420,21 @@ async function getLeaderboard(client, { eventKey, accessToken, limit = 20 } = {}
     return { ok: false, status: 404, error: "hidden", message: "Contest non disponibile." };
   }
 
+  const cat = normalizeCategory(event, category);
+  /* Preview durante l’evento: nomi nascosti. A fine evento (o staff): nomi visibili. */
   const showAuthors = phase === "after" || staffPreview;
+  const isPreview = phase !== "after";
   const doc = await getOrCreateDoc(event.key);
-  const ranked = [...(doc.submissions || [])].sort((a, b) => (Number(b.likes) || 0) - (Number(a.likes) || 0));
+  const ranked = (doc.submissions || [])
+    .filter((s) => String(s.category || "main") === cat)
+    .sort((a, b) => (Number(b.likes) || 0) - (Number(a.likes) || 0));
   const n = Math.min(50, Math.max(1, Number(limit) || 20));
   return {
     ok: true,
     status: 200,
     phase,
+    category: cat,
+    preview: isPreview,
     items: ranked.slice(0, n).map((s, i) => ({
       rank: i + 1,
       ...submissionPublic(s, { hideAuthor: !showAuthors }),
@@ -450,6 +494,7 @@ async function seedDemo(client, { eventKey, accessToken, count = 8 } = {}) {
   const staff = await isStaffPreview(client, accessToken);
   if (!staff) return { ok: false, status: 403, error: "forbidden", message: "Solo staff." };
 
+  const cats = eventCategories(event);
   const n = Math.min(24, Math.max(1, Number(count) || 8));
   const doc = await getOrCreateDoc(event.key);
   const existingFake = new Set(
@@ -460,15 +505,19 @@ async function seedDemo(client, { eventKey, accessToken, count = 8 } = {}) {
     const userId = `demo${String(i).padStart(4, "0")}`;
     if (existingFake.has(userId)) continue;
     if ((doc.submissions || []).some((s) => s.userId === userId)) continue;
-    const seed = `${event.key}-${i}-${Date.now().toString(36)}`;
+    const cat = cats[(i - 1) % cats.length].id;
+    const landscape = cat === "pc";
+    const seed = `${event.key}-${cat}-${i}-${Date.now().toString(36)}`;
+    const w = landscape ? 1280 : 720;
+    const h = landscape ? 720 : 1280;
     doc.submissions.push({
       id: crypto.randomBytes(8).toString("hex"),
       userId,
       displayName: `Demo ${i}`,
       avatarUrl: "",
-      imageUrl: `https://picsum.photos/seed/${encodeURIComponent(seed)}/720/960`,
-      category: "demo",
-      likes: 0,
+      imageUrl: `https://picsum.photos/seed/${encodeURIComponent(seed)}/${w}/${h}`,
+      category: cat,
+      likes: Math.floor(Math.random() * 12),
       createdAt: new Date(),
     });
     added++;
@@ -479,7 +528,7 @@ async function seedDemo(client, { eventKey, accessToken, count = 8 } = {}) {
     status: 200,
     added,
     submissionCount: (doc.submissions || []).length,
-    message: added ? `Aggiunte ${added} foto demo.` : "Le foto demo c’erano già.",
+    message: added ? `Aggiunte ${added} foto demo (${cats.map((c) => c.label).join(" + ")}).` : "Le foto demo c’erano già.",
   };
 }
 
