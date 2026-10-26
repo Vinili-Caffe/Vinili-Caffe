@@ -36,6 +36,7 @@ import { navUnderlineClass } from "./NavUnderline";
 import { ThemePrefRow } from "./ThemeToggle";
 import { ViewAsLaunch, useViewAsChrome } from "./view-as/ViewAsChrome";
 import { useDeviceFx } from "./effects/DeviceFxProvider";
+import { ContestNavPill } from "./contest/ContestNavPill";
 
 function canHoverNav() {
   try {
@@ -481,6 +482,7 @@ export function Navbar() {
           </ul>
 
           <div className="flex shrink-0 items-center justify-self-end gap-1.5">
+            <ContestNavPill />
             <ViewAsLaunch />
             <NavNotifBell />
             <div className="hidden lg:block">

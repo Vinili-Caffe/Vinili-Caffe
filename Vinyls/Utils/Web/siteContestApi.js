@@ -58,6 +58,8 @@ function getEvent(eventKey) {
   return EVENTS[String(eventKey || "").trim()] || null;
 }
 
+const PROMO_AFTER_MS = 24 * 60 * 60 * 1000;
+
 function phaseFor(event, now = Date.now(), { staffPreview = false } = {}) {
   if (!event) return "unknown";
   if (!event.publicOpen && !staffPreview) return "hidden";
@@ -66,6 +68,23 @@ function phaseFor(event, now = Date.now(), { staffPreview = false } = {}) {
   if (now < event.startMs) return "before";
   if (now >= event.endMs) return "after";
   return "open";
+}
+
+/** Promo home/nav: open + after (max 24h). Staff: anche before, come le pagine contest. */
+function promoVisible(event, now = Date.now(), { staffPreview = false } = {}) {
+  if (!event) return false;
+  if (!event.publicOpen && !staffPreview) return false;
+  if (staffPreview && now < event.startMs) return true;
+  if (now < event.startMs) return false;
+  if (now < event.endMs) return true;
+  return now < event.endMs + PROMO_AFTER_MS;
+}
+
+function promoRank(phase) {
+  if (phase === "open") return 3;
+  if (phase === "after") return 2;
+  if (phase === "before") return 1;
+  return 0;
 }
 
 function eventCategories(event) {
@@ -276,17 +295,62 @@ async function getContestStatus(client, { eventKey, accessToken } = {}) {
 async function listEvents(client, { accessToken } = {}) {
   let staffPreview = false;
   if (accessToken) staffPreview = await isStaffPreview(client, accessToken);
+  const now = Date.now();
   const items = [];
   for (const event of Object.values(EVENTS)) {
-    const phase = phaseFor(event, Date.now(), { staffPreview });
+    const phase = phaseFor(event, now, { staffPreview });
     if (phase === "hidden" && !staffPreview) continue;
     items.push(
       publicEventPayload(event, phase, {
         href: `/contest/${event.key}/`,
+        promo: promoVisible(event, now, { staffPreview }),
+        promoUntil:
+          now >= event.endMs ? new Date(event.endMs + PROMO_AFTER_MS).toISOString() : null,
       }),
     );
   }
-  return { ok: true, status: 200, events, staffPreview };
+  return { ok: true, status: 200, items, staffPreview };
+}
+
+/** Singolo contest da mettere in risalto (home card + pill nav). */
+async function getHighlight(client, { accessToken } = {}) {
+  let staffPreview = false;
+  if (accessToken) staffPreview = await isStaffPreview(client, accessToken);
+  const now = Date.now();
+  const candidates = [];
+  for (const event of Object.values(EVENTS)) {
+    if (!promoVisible(event, now, { staffPreview })) continue;
+    const phase = phaseFor(event, now, { staffPreview });
+    candidates.push({ event, phase });
+  }
+  candidates.sort((a, b) => {
+    const d = promoRank(b.phase) - promoRank(a.phase);
+    if (d) return d;
+    return b.event.startMs - a.event.startMs;
+  });
+  const top = candidates[0];
+  if (!top) {
+    return { ok: true, status: 200, item: null, staffPreview };
+  }
+  const { event, phase } = top;
+  const cta =
+    phase === "after" ? "Vedi classifica" : phase === "before" ? "Anteprima" : "Partecipa";
+  const pill =
+    event.kind === "sfondi" ? "Sfondi" : event.kind === "outfit" ? "Outfit" : "Contest";
+  return {
+    ok: true,
+    status: 200,
+    staffPreview,
+    item: publicEventPayload(event, phase, {
+      href: `/contest/${event.key}/`,
+      promo: true,
+      promoUntil:
+        now >= event.endMs ? new Date(event.endMs + PROMO_AFTER_MS).toISOString() : null,
+      cta,
+      pillLabel: pill,
+      preview: Boolean(staffPreview && now < event.startMs),
+    }),
+  };
 }
 
 async function submitEntry(client, { eventKey, accessToken, image, category } = {}) {
@@ -790,6 +854,7 @@ module.exports = {
   normalizeHeaderSecret,
   getContestStatus,
   listEvents,
+  getHighlight,
   submitEntry,
   getSwipeFeed,
   castSwipe,

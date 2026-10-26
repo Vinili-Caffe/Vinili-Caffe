@@ -284,6 +284,7 @@ function mountSiteWebhookRoutes(app, client, deps) {
   const {
     getContestStatus,
     listEvents: listSiteContestEvents,
+    getHighlight: getSiteContestHighlight,
     submitEntry: submitSiteContestEntry,
     getSwipeFeed: getSiteContestSwipeFeed,
     castSwipe: castSiteContestSwipe,
@@ -1943,6 +1944,16 @@ function mountSiteWebhookRoutes(app, client, deps) {
       return res.status(Number(out.status) || 500).json(out);
     } catch (err) {
       global.logger?.error?.("[WEBHOOK] site-contest events:", err);
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+    }
+  });
+  app.get("/webhooks/site-contest/highlight", async (req, res) => {
+    try {
+      const accessToken = normalizeHeaderSecret(req.headers.authorization);
+      const out = await getSiteContestHighlight(client, { accessToken });
+      return res.status(Number(out.status) || 500).json(out);
+    } catch (err) {
+      global.logger?.error?.("[WEBHOOK] site-contest highlight:", err);
       return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
     }
   });

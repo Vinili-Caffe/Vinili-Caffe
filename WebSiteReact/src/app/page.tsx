@@ -7,6 +7,7 @@ import { ReviewsMarquee } from "@/components/ReviewsMarquee";
 import { Why } from "@/components/Why";
 import { loadBuildStats } from "@/lib/stats";
 import { HomeLoop } from "@/components/HomeLoop";
+import { ContestHomeCard } from "@/components/contest/ContestHomeCard";
 
 export default async function Home() {
   const stats = await loadBuildStats();
@@ -28,6 +29,7 @@ export default async function Home() {
       <ReviewsMarquee />
       <Explore />
       <LiveCorner />
+      <ContestHomeCard />
     </SiteShell>
   );
 }

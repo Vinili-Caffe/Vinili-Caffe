@@ -56,6 +56,25 @@ export type ContestLeaderboard = {
   message?: string;
 };
 
+/** Contest in risalto (home card + pill nav). */
+export type ContestHighlight = {
+  ok: boolean;
+  eventKey: string;
+  kind: string;
+  title: string;
+  blurb: string;
+  startAt: string;
+  endAt: string;
+  phase: ContestPhase;
+  href: string;
+  cta?: string;
+  pillLabel?: string;
+  promo?: boolean;
+  promoUntil?: string | null;
+  preview?: boolean;
+  staffPreview?: boolean;
+};
+
 function mediaUrl(path: string) {
   if (!path) return "";
   if (/^https?:\/\//i.test(path)) return path;
@@ -74,6 +93,20 @@ export async function fetchContestStatus(eventKey: string, token?: string | null
     });
     const j = (await r.json()) as ContestStatus;
     return j?.ok ? j : ({ ...(j || {}), ok: false, phase: (j?.phase as ContestPhase) || "unknown" } as ContestStatus);
+  } catch {
+    return null;
+  }
+}
+
+export async function fetchContestHighlight(token?: string | null): Promise<ContestHighlight | null> {
+  try {
+    const r = await fetch(apiUrl("/webhooks/site-contest/highlight"), {
+      cache: "no-store",
+      headers: token ? { Authorization: `Bearer ${token}`, Accept: "application/json" } : { Accept: "application/json" },
+    });
+    const j = (await r.json()) as { ok?: boolean; item?: ContestHighlight | null; staffPreview?: boolean };
+    if (!j?.ok || !j.item) return null;
+    return { ...j.item, staffPreview: Boolean(j.staffPreview || j.item.staffPreview) };
   } catch {
     return null;
   }
