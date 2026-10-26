@@ -1,16 +1,18 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { COPYRIGHT_HREF, LEGAL, NAV_GROUPS, SOCIAL_LINKS } from "@/lib/site";
+import { COPYRIGHT_HREF, LEGAL, NAV_GROUPS, SOCIAL_LINKS, page } from "@/lib/site";
 import { useI18n } from "@/lib/i18n";
 import { cn } from "@/lib/cn";
 import { NavIcon } from "@/lib/nav-icons";
+import { EVENTO_BRAND, EVENTO_NAV } from "@/lib/evento-starwars";
 import { DiscordButton } from "./DiscordButton";
 import { SmartLink } from "./SmartLink";
 import { Reveal } from "./Reveal";
 import { BrandMark } from "./BrandMark";
 import { FooterStatusLink } from "./FooterStatusLink";
 import { footerUnderlineClass } from "./NavUnderline";
+import { useEventoChrome } from "./evento/EventoChrome";
 
 function pathActive(pathname: string, href: string) {
   const p = pathname.endsWith("/") ? pathname : `${pathname}/`;
@@ -47,6 +49,11 @@ export function Footer() {
   const { t } = useI18n();
   const pathname = usePathname() || "/";
   const year = new Date().getFullYear();
+  const eventoChrome = useEventoChrome();
+  const eventoCols = [
+    { title: EVENTO_BRAND, links: EVENTO_NAV.slice(0, 4) },
+    { title: "Attività", links: EVENTO_NAV.slice(4) },
+  ];
   return (
     <footer
       data-vc-float-cover="footer"
@@ -63,24 +70,43 @@ export function Footer() {
       />
       <div className="relative mx-auto max-w-6xl px-5 py-12 text-center sm:px-6 sm:py-16">
         <Reveal>
-          <h2 className="font-display text-3xl font-semibold sm:text-5xl lg:text-6xl">
-            {t("footer.tagline")}
-            <span className="block italic text-sand">{t("footer.taglineSub")}</span>
+          <h2 className="font-display text-3xl font-semibold text-crema sm:text-5xl lg:text-6xl">
+            {eventoChrome ? (
+              <>
+                Evento
+                <span className="block italic text-sand">{EVENTO_BRAND}</span>
+              </>
+            ) : (
+              <>
+                {t("footer.tagline")}
+                <span className="block italic text-sand">{t("footer.taglineSub")}</span>
+              </>
+            )}
           </h2>
           <div className="mt-7 flex justify-center sm:mt-9">
-            <DiscordButton label={t("footer.joinCta")} />
+            {eventoChrome ? (
+              <SmartLink
+                href={page("/")}
+                className="inline-flex rounded-full bg-gradient-to-r from-caramel to-ember px-6 py-2.5 text-sm font-semibold text-ink"
+              >
+                Torna al sito
+              </SmartLink>
+            ) : (
+              <DiscordButton label={t("footer.joinCta")} />
+            )}
           </div>
         </Reveal>
       </div>
 
-      {/* Phone: brand + griglia 2×2. PC: brand + 4 gruppi su una riga. */}
       <div className="relative mx-auto max-w-6xl border-t border-sand/10 px-5 py-8 sm:px-6 sm:py-10">
         <div className="flex flex-col gap-8 lg:flex-row lg:items-start lg:gap-10">
           <div className="mx-auto max-w-sm text-center lg:mx-0 lg:w-[13rem] lg:shrink-0 lg:text-left">
             <div className="inline-flex lg:block">
               <BrandMark />
             </div>
-            <p className="mt-3 text-sm leading-relaxed text-crema/55">{t("footer.desc")}</p>
+            <p className="mt-3 text-sm leading-relaxed text-crema/65">
+              {eventoChrome ? "Hub, minigiochi e shop dell’evento stagionale." : t("footer.desc")}
+            </p>
             <ul className="mt-4 flex flex-wrap items-center justify-center gap-2.5 lg:justify-start" aria-label={t("footer.social")}>
               {SOCIAL_LINKS.map((s) => (
                 <li key={s.id}>
@@ -103,27 +129,52 @@ export function Footer() {
             </ul>
           </div>
 
-          <div className="grid flex-1 grid-cols-2 gap-x-4 gap-y-7 sm:gap-x-8 lg:grid-cols-4 lg:gap-6">
-            {NAV_GROUPS.map((g) => (
-              <div key={g.labelKey} className="flex flex-col items-center text-center">
-                <h3 className="flex items-center justify-center gap-1.5 text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-sand/80 sm:text-xs sm:tracking-[0.25em]">
-                  <NavIcon labelKey={g.labelKey} className="size-3 shrink-0 opacity-80 sm:size-3.5" />
-                  <span className="truncate">{t(g.labelKey)}</span>
-                </h3>
-                <ul className="mt-3 flex flex-col items-center space-y-2 sm:mt-4 sm:space-y-2.5">
-                  {g.links.map((l) => (
-                    <li key={l.href}>
-                      <SmartLink
-                        href={l.href}
-                        className={cn(footerUnderlineClass(pathActive(pathname, l.href)), "text-[0.8rem] sm:text-sm")}
-                      >
-                        {t(l.labelKey)}
-                      </SmartLink>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
+          <div
+            className={cn(
+              "grid flex-1 gap-x-4 gap-y-7 sm:gap-x-8 lg:gap-6",
+              eventoChrome ? "grid-cols-2 lg:grid-cols-2" : "grid-cols-2 lg:grid-cols-4",
+            )}
+          >
+            {eventoChrome
+              ? eventoCols.map((g) => (
+                  <div key={g.title} className="flex flex-col items-center text-center">
+                    <h3 className="text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-sand sm:text-xs sm:tracking-[0.25em]">
+                      {g.title}
+                    </h3>
+                    <ul className="mt-3 flex flex-col items-center space-y-2 sm:mt-4 sm:space-y-2.5">
+                      {g.links.map((l) => (
+                        <li key={l.href}>
+                          <SmartLink
+                            href={l.href}
+                            className={cn(footerUnderlineClass(pathActive(pathname, l.href)), "text-[0.8rem] text-crema/80 sm:text-sm")}
+                          >
+                            {l.label}
+                          </SmartLink>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))
+              : NAV_GROUPS.map((g) => (
+                  <div key={g.labelKey} className="flex flex-col items-center text-center">
+                    <h3 className="flex items-center justify-center gap-1.5 text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-sand/80 sm:text-xs sm:tracking-[0.25em]">
+                      <NavIcon labelKey={g.labelKey} className="size-3 shrink-0 opacity-80 sm:size-3.5" />
+                      <span className="truncate">{t(g.labelKey)}</span>
+                    </h3>
+                    <ul className="mt-3 flex flex-col items-center space-y-2 sm:mt-4 sm:space-y-2.5">
+                      {g.links.map((l) => (
+                        <li key={l.href}>
+                          <SmartLink
+                            href={l.href}
+                            className={cn(footerUnderlineClass(pathActive(pathname, l.href)), "text-[0.8rem] sm:text-sm")}
+                          >
+                            {t(l.labelKey)}
+                          </SmartLink>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
           </div>
         </div>
       </div>

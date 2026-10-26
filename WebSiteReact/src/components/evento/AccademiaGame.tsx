@@ -92,16 +92,16 @@ export function AccademiaGame() {
   }
 
   if (loading) return <EventoSkeleton className="mx-auto max-w-2xl px-6" />;
-  if (!token) return <div className="mx-auto max-w-lg px-6"><EventoLoginGate label="Accedi per le prove a tempo dell’Accademia Jedi." onLogin={login} /></div>;
+  if (!token) return <div className="mx-auto max-w-lg px-6"><EventoLoginGate label="Accedi per le prove a tempo dell'Accademia Jedi." onLogin={login} /></div>;
 
   if (played) {
     return (
       <div className="mx-auto max-w-lg px-6">
         <EventoPanel className="text-center" glow="gold">
-          <Trophy className="mx-auto size-10 text-[#e4c76b]" aria-hidden />
+          <Trophy className="mx-auto size-10 text-sand" aria-hidden />
           <EventoKicker>Prova completata</EventoKicker>
           <EventoTitle>{score ?? 0} punti</EventoTitle>
-          <p className="mt-3 text-sm text-[#f0e6c8]/65">Prossimo slot tra circa 4 ore. La Forza è con te.</p>
+          <p className="mt-3 text-sm text-crema/65">Prossimo slot tra circa 4 ore. La Forza è con te.</p>
         </EventoPanel>
       </div>
     );
@@ -109,8 +109,8 @@ export function AccademiaGame() {
 
   if (!playable && !targets.length) {
     return (
-      <p className="mx-auto max-w-lg px-6 text-center text-sm text-[#f0e6c8]/55">
-        Accademia fuori calendario — in anteprima HS resta giocabile quando il backend la espone.
+      <p className="mx-auto max-w-lg px-6 text-center text-sm text-crema/55">
+        Accademia fuori calendario ? in anteprima HS resta giocabile quando il backend la espone.
       </p>
     );
   }
@@ -118,13 +118,13 @@ export function AccademiaGame() {
   return (
     <div className="mx-auto max-w-2xl px-6">
       <EventoPanel glow="blue" className="!p-0 overflow-hidden">
-        <div className="flex items-center justify-between gap-3 border-b border-[#f0e6c8]/10 px-4 py-3 sm:px-5">
-          <div className="flex items-center gap-2 text-sm text-[#f0e6c8]/75">
+        <div className="flex items-center justify-between gap-3 border-b border-sand/15 px-4 py-3 sm:px-5">
+          <div className="flex items-center gap-2 text-sm text-crema/75">
             <Timer className="size-4 text-[#2ea8ff]" aria-hidden />
-            <span className="font-display text-xl tabular-nums text-[#f0e6c8]">{running ? `${left}s` : "30s"}</span>
+            <span className="font-display text-xl tabular-nums text-crema">{running ? `${left}s` : "30s"}</span>
           </div>
-          <div className="flex items-center gap-2 text-sm text-[#f0e6c8]/75">
-            <Zap className="size-4 text-[#c9a227]" aria-hidden />
+          <div className="flex items-center gap-2 text-sm text-crema/75">
+            <Zap className="size-4 text-caramel" aria-hidden />
             <span className="tabular-nums">{hits.length} colpi</span>
           </div>
         </div>
@@ -133,8 +133,8 @@ export function AccademiaGame() {
           <div className="px-4 py-4 sm:px-5">
             <div className="mb-4 flex items-start gap-3">
               <Crosshair className="mt-0.5 size-5 shrink-0 text-[#2ea8ff]" aria-hidden />
-              <p className="text-sm leading-relaxed text-[#f0e6c8]/7">
-                Colpisci i bersagli luminosi prima che scada il tempo. Ogni hit vale punti — svuota l’arena.
+              <p className="text-sm leading-relaxed text-crema/70">
+                Colpisci i bersagli luminosi prima che scada il tempo. Ogni hit vale punti ? svuota l&apos;arena.
               </p>
             </div>
             <EventoBtn className="w-full" onClick={start} disabled={!targets.length}>
@@ -163,7 +163,7 @@ export function AccademiaGame() {
               aria-label={`Bersaglio ${t.points}`}
               disabled={!running}
               onClick={() => hit(t.id)}
-              className="absolute rounded-full bg-gradient-to-br from-[#e4c76b] to-[#c9a227] shadow-[0_0_22px_rgba(201,162,39,0.75)] ring-2 ring-[#f0e6c8]/40 transition hover:scale-110 disabled:opacity-40"
+              className="absolute rounded-full bg-gradient-to-br from-[#e4c76b] to-[#c9a227] shadow-[0_0_22px_rgba(201,162,39,0.75)] ring-2 ring-sand/40 transition hover:scale-110 disabled:opacity-40"
               style={{
                 left: `${t.x}%`,
                 top: `${t.y}%`,

@@ -37,7 +37,8 @@ import { navUnderlineClass } from "./NavUnderline";
 import { ThemePrefRow } from "./ThemeToggle";
 import { ViewAsLaunch, useViewAsChrome } from "./view-as/ViewAsChrome";
 import { useDeviceFx } from "./effects/DeviceFxProvider";
-import { isEventoHighStaff, isEventoPublicWindowOpen } from "@/lib/evento-starwars";
+import { eventoNavForViewer, isEventoHighStaff, isEventoPublicWindowOpen } from "@/lib/evento-starwars";
+import { useEventoChrome } from "./evento/EventoChrome";
 import { ContestNavPill } from "./contest/ContestNavPill";
 
 function canHoverNav() {
@@ -414,7 +415,11 @@ export function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
   const [highStaff, setHighStaff] = useState(false);
+  const eventoChrome = useEventoChrome();
   const eventoNavOpen = isEventoPublicWindowOpen();
+  const eventoLinks = eventoChrome
+    ? eventoNavForViewer({ isHighStaff: highStaff, canManage: highStaff })
+    : [];
   const soon = t("auth.comingSoon");
   const headerRef = useRef<HTMLElement>(null);
   const navHidden = useAutoHideNav(headerRef, open);
@@ -479,24 +484,45 @@ export function Navbar() {
           </div>
 
           <ul className="hidden items-center justify-self-center gap-0.5 lg:flex">
-            {NAV_DIRECT.map((l) => (
-              <li key={l.href}>
-                <SmartLink href={l.href} className={navUnderlineClass(pathActive(pathname, l.href))}>
-                  <NavIcon labelKey={l.labelKey} className="size-3.5 shrink-0 opacity-75" />
-                  {t(l.labelKey)}
-                </SmartLink>
-              </li>
-            ))}
-            <li aria-hidden className="mx-1.5 h-4 w-px shrink-0 bg-crema/20" />
-            {NAV_GROUPS.map((g) => (
-              <li key={g.labelKey}>
-                <NavDrop labelKey={g.labelKey} links={g.links} highStaff={highStaff} eventoNavOpen={eventoNavOpen} />
-              </li>
-            ))}
+            {eventoChrome ? (
+              <>
+                {eventoLinks.map((l) => (
+                  <li key={l.href}>
+                    <SmartLink href={l.href} className={navUnderlineClass(pathActive(pathname, l.href))}>
+                      <Sparkles className="size-3.5 shrink-0 opacity-75" aria-hidden />
+                      {l.label}
+                    </SmartLink>
+                  </li>
+                ))}
+                <li aria-hidden className="mx-1.5 h-4 w-px shrink-0 bg-crema/20" />
+                <li>
+                  <SmartLink href={page("/")} className={navUnderlineClass(pathActive(pathname, page("/")))}>
+                    Sito
+                  </SmartLink>
+                </li>
+              </>
+            ) : (
+              <>
+                {NAV_DIRECT.map((l) => (
+                  <li key={l.href}>
+                    <SmartLink href={l.href} className={navUnderlineClass(pathActive(pathname, l.href))}>
+                      <NavIcon labelKey={l.labelKey} className="size-3.5 shrink-0 opacity-75" />
+                      {t(l.labelKey)}
+                    </SmartLink>
+                  </li>
+                ))}
+                <li aria-hidden className="mx-1.5 h-4 w-px shrink-0 bg-crema/20" />
+                {NAV_GROUPS.map((g) => (
+                  <li key={g.labelKey}>
+                    <NavDrop labelKey={g.labelKey} links={g.links} highStaff={highStaff} eventoNavOpen={eventoNavOpen} />
+                  </li>
+                ))}
+              </>
+            )}
           </ul>
 
           <div className="flex shrink-0 items-center justify-self-end gap-1.5">
-            <ContestNavPill />
+            {!eventoChrome ? <ContestNavPill /> : null}
             <ViewAsLaunch />
             <NavNotifBell />
             <div className="hidden lg:block">
@@ -558,7 +584,54 @@ export function Navbar() {
             </div>
 
             <div className="mx-auto max-w-6xl space-y-7 px-5 pb-10 pt-7 sm:px-6">
-              {NAV_MOBILE_SECTIONS.map((g, gi) => (
+              {eventoChrome ? (
+                <motion.section
+                  initial={{ opacity: 0, y: 16 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+                >
+                  <h3 className="mb-2 flex items-center gap-1.5 text-[0.65rem] font-semibold uppercase tracking-[0.22em] text-caramel">
+                    <Sparkles className="size-3 opacity-90" aria-hidden />
+                    Evento
+                  </h3>
+                  <ul className="grid grid-cols-2 gap-2">
+                    {eventoLinks.map((l) => {
+                      const on = pathActive(pathname, l.href);
+                      return (
+                        <li key={l.href}>
+                          <SmartLink
+                            href={l.href}
+                            onClick={() => {
+                              window.setTimeout(() => setOpen(false), 0);
+                            }}
+                            className={cn(
+                              "flex min-h-[3.1rem] flex-col items-center justify-center gap-1 rounded-2xl px-2.5 py-2.5 text-center text-sm font-semibold leading-snug ring-1 transition-colors",
+                              on
+                                ? "bg-caramel/15 text-ember ring-caramel/35"
+                                : "bg-crema/[0.05] text-crema/90 ring-sand/12 hover:bg-crema/10",
+                            )}
+                          >
+                            <Sparkles className="size-3.5 shrink-0 opacity-75" aria-hidden />
+                            {l.label}
+                          </SmartLink>
+                        </li>
+                      );
+                    })}
+                    <li>
+                      <SmartLink
+                        href={page("/")}
+                        onClick={() => {
+                          window.setTimeout(() => setOpen(false), 0);
+                        }}
+                        className="flex min-h-[3.1rem] flex-col items-center justify-center gap-1 rounded-2xl bg-crema/[0.05] px-2.5 py-2.5 text-center text-sm font-semibold leading-snug text-crema/90 ring-1 ring-sand/12 hover:bg-crema/10"
+                      >
+                        Sito
+                      </SmartLink>
+                    </li>
+                  </ul>
+                </motion.section>
+              ) : (
+                NAV_MOBILE_SECTIONS.map((g, gi) => (
                 <motion.section
                   key={g.labelKey}
                   initial={{ opacity: 0, y: 16 }}
@@ -569,7 +642,6 @@ export function Navbar() {
                     <NavIcon labelKey={g.labelKey} className="size-3 opacity-90" />
                     {t(g.labelKey)}
                   </h3>
-                  {/* Griglia 2 colonne come il drawer del sito vecchio */}
                   <ul className="grid grid-cols-2 gap-2">
                     {g.links.map((l) => {
                       const on = pathActive(pathname, l.href);
@@ -588,8 +660,6 @@ export function Navbar() {
                         <SmartLink
                           href={l.href}
                           onClick={() => {
-                            // Non smontare il drawer nello stesso tick del click: altrimenti
-                            // Next perde il Link e la Soft nav non parte.
                             window.setTimeout(() => setOpen(false), 0);
                           }}
                               className={cn(
@@ -608,7 +678,8 @@ export function Navbar() {
                     })}
                   </ul>
                 </motion.section>
-              ))}
+              ))
+              )}
 
               <motion.div
                 initial={{ opacity: 0, y: 16 }}

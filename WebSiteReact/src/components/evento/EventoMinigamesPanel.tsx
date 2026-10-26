@@ -45,17 +45,17 @@ export function EventoMinigamesPanel() {
                 "rounded-xl px-3.5 py-3 ring-1",
                 it.active
                   ? "bg-[#c9a227]/12 ring-[#c9a227]/4"
-                  : "bg-black/25 ring-[#f0e6c8]/1 opacity-75",
+                  : "bg-black/25 ring-sand/15 opacity-75",
               )}
             >
-              <p className="text-sm font-semibold text-[#f0e6c8]">
+              <p className="text-sm font-semibold text-crema">
                 {it.label}
-                <span className="ml-2 text-[0.6rem] uppercase tracking-[0.18em] text-[#f0e6c8]/4">
+                <span className="ml-2 text-[0.6rem] uppercase tracking-[0.18em] text-crema/45">
                   {it.kind}
                 </span>
               </p>
-              <p className="mt-1 text-xs leading-relaxed text-[#f0e6c8]/55">{it.teaser}</p>
-              <p className="mt-2 text-[0.6rem] uppercase tracking-[0.16em] text-[#f0e6c8]/35">
+              <p className="mt-1 text-xs leading-relaxed text-crema/55">{it.teaser}</p>
+              <p className="mt-2 text-[0.6rem] uppercase tracking-[0.16em] text-crema/35">
                 {it.active ? "calendario on" : "calendario off"}
                 {" · "}
                 {it.implemented ? "play ok" : "scaffold"}

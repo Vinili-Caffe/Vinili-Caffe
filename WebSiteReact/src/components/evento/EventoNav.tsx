@@ -34,7 +34,7 @@ export function EventoNav({ className }: { className?: string }) {
             className={cn(
               "rounded-full px-3 py-1.5 text-xs font-semibold tracking-wide ring-1 transition-colors sm:text-[0.8rem]",
               active
-                ? "bg-[#f0e6c8]/15 text-[#f0e6c8] ring-[#f0e6c8]/45"
+                ? "bg-crema/15 text-crema ring-sand/45"
                 : "bg-black/25 text-crema/70 ring-sand/15 hover:bg-black/40 hover:text-crema",
             )}
           >

@@ -6,7 +6,7 @@ import { EventoAccessGate } from "@/components/evento/EventoAccessGate";
 import { EventoHero } from "@/components/evento/EventoHero";
 import { EVENTO_BRAND, type EventoPageId } from "@/lib/evento-starwars";
 
-/** Shell comune `/evento/*`: bypass chrome sito → tema Star Wars. */
+/** Shell `/evento/*`: navbar/footer sito con link evento + hero galassia. */
 export function EventoPage({
   pageId,
   path,
@@ -26,10 +26,10 @@ export function EventoPage({
 }) {
   return (
     <SiteShell chrome="evento">
-      <DiscordComponentEmbed path={path} title={title} description={text} pageLabel="Apri l’evento" />
+      <DiscordComponentEmbed path={path} title={title} description={text} pageLabel="Apri l'evento" />
       <EventoAccessGate pageId={pageId}>
         <EventoHero icon={icon ?? <Sparkles />} title={title} accent={accent} text={text} />
-        <div className="pb-16">{children}</div>
+        <div className="-mt-6 pb-16 sm:-mt-10">{children}</div>
       </EventoAccessGate>
     </SiteShell>
   );

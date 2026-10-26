@@ -13,7 +13,7 @@ import {
 import { loadStaffAccess, type StaffAccess } from "@/lib/staff";
 
 /** Gate: HS sempre; pubblico dal 1° dic solo su pagine `publicFromOpen`.
- *  Non accessibile → redirect home (niente card anteprima). */
+ *  Non accessibile ? redirect home (niente card anteprima). */
 export function EventoAccessGate({
   pageId,
   children,

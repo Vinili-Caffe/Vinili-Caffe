@@ -59,7 +59,7 @@ export function EventoShopPanel() {
   if (!token) {
     return (
       <div className="mx-auto mb-10 max-w-4xl px-6 text-center">
-        <button type="button" onClick={login} className="text-sm text-[#c9a227] underline underline-offset-2">
+        <button type="button" onClick={login} className="text-sm text-caramel underline underline-offset-2">
           Accedi per lo shop fazioni
         </button>
       </div>
@@ -72,9 +72,9 @@ export function EventoShopPanel() {
         <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
           <div>
             <EventoKicker>Arsenale fazioni</EventoKicker>
-            <p className="mt-1 font-display text-2xl text-[#f0e6c8]">
+            <p className="mt-1 font-display text-2xl text-crema">
               {credits.toLocaleString("it-IT")}{" "}
-              <span className="text-base text-[#f0e6c8]/5">crediti</span>
+              <span className="text-base text-crema/55">crediti</span>
             </p>
           </div>
           <div className="flex gap-2">
@@ -91,11 +91,11 @@ export function EventoShopPanel() {
           {units.map((u) => (
             <li
               key={u.id}
-              className="flex items-center justify-between gap-3 rounded-xl bg-black/35 px-3.5 py-3 ring-1 ring-[#f0e6c8]/1"
+              className="flex items-center justify-between gap-3 rounded-xl bg-black/35 px-3.5 py-3 ring-1 ring-sand/15"
             >
               <div className="min-w-0">
-                <p className="truncate font-semibold text-[#f0e6c8]">{u.label}</p>
-                <p className="text-xs text-[#f0e6c8]/45">
+                <p className="truncate font-semibold text-crema">{u.label}</p>
+                <p className="text-xs text-crema/45">
                   Tier {u.tier} · potenza {u.power} · {u.cost.toLocaleString("it-IT")} cr
                 </p>
               </div>
@@ -110,7 +110,7 @@ export function EventoShopPanel() {
           ))}
         </ul>
         {!buyEnabled ? (
-          <p className="mt-3 text-xs text-[#f0e6c8]/4">Acquisti in anteprima HS o quando l’economia è ON.</p>
+          <p className="mt-3 text-xs text-crema/45">Acquisti in anteprima HS o quando l'economia è ON.</p>
         ) : null}
       </EventoPanel>
     </div>

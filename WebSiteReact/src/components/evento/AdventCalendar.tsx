@@ -59,7 +59,7 @@ export function AdventCalendar() {
   if (loading) return <EventoSkeleton className="mx-auto max-w-4xl px-6" />;
 
   if (gateMsg && !days) {
-    return <div className="mx-auto max-w-lg px-6 pb-8 text-center text-sm text-[#f0e6c8]/55">{gateMsg}</div>;
+    return <div className="mx-auto max-w-lg px-6 pb-8 text-center text-sm text-crema/55">{gateMsg}</div>;
   }
 
   const rows =
@@ -78,15 +78,15 @@ export function AdventCalendar() {
   return (
     <div className="mx-auto max-w-4xl px-6">
       <EventoPanel className="mb-5 text-center" glow="gold">
-        <Gift className="mx-auto size-8 text-[#e4c76b]" aria-hidden />
+        <Gift className="mx-auto size-8 text-sand" aria-hidden />
         <EventoKicker>Calendario galattico</EventoKicker>
-        <p className="mt-2 text-sm text-[#f0e6c8]/7">
+        <p className="mt-2 text-sm text-crema/70">
           {todayAdvent
             ? `Oggi è il giorno ${todayAdvent} — tocca una casella sbloccata per ritirare.`
             : "25 casse di crediti e premi · ritiro dal 1° dicembre (HS in anteprima)."}
         </p>
         {!token ? (
-          <p className="mt-2 text-xs text-[#c9a227]">Accedi con Discord per ritirare i premi.</p>
+          <p className="mt-2 text-xs text-caramel">Accedi con Discord per ritirare i premi.</p>
         ) : null}
       </EventoPanel>
 
@@ -109,8 +109,8 @@ export function AdventCalendar() {
                     : isToday
                       ? "bg-gradient-to-br from-[#2ea8ff]/25 to-[#c9a227]/15 ring-[#2ea8ff]/55 shadow-[0_0_24px_-8px_rgba(46,168,255,0.55)]"
                       : past || slot.unlocked
-                        ? "bg-[rgba(10,16,32,0.7)] ring-[#f0e6c8]/12 opacity-85"
-                        : "bg-black/40 ring-[#f0e6c8]/1 opacity-55",
+                        ? "bg-[rgba(10,16,32,0.7)] ring-sand/12 opacity-85"
+                        : "bg-black/40 ring-sand/15 opacity-55",
                   slot.canClaim && "cursor-pointer hover:ring-[#e4c76b]/80",
                   !slot.canClaim && "cursor-default",
                 )}
@@ -118,13 +118,13 @@ export function AdventCalendar() {
                 <span
                   className={cn(
                     "font-display text-xl font-semibold tabular-nums leading-none sm:text-2xl",
-                    isToday || slot.claimed ? "text-[#f0e6c8]" : "text-[#f0e6c8]/7",
+                    isToday || slot.claimed ? "text-crema" : "text-crema/70",
                   )}
                 >
                   {slot.day}
                 </span>
-                <span className="mt-1 line-clamp-3 text-[0.62rem] font-medium leading-snug text-[#f0e6c8]/6 sm:text-[0.68rem]">
-                  {slot.claimed ? `✓ ${slot.label}` : busy ? "…" : slot.label}
+                <span className="mt-1 line-clamp-3 text-[0.62rem] font-medium leading-snug text-crema/65 sm:text-[0.68rem]">
+                  {slot.claimed ? `? ${slot.label}` : busy ? "…" : slot.label}
                 </span>
               </button>
             </li>

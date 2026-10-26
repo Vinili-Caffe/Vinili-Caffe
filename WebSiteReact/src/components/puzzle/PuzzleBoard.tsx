@@ -10,7 +10,7 @@ import { useAuth } from "@/lib/auth";
 import { canAccessPuzzle } from "@/lib/puzzle";
 import { loadStaffAccess, type StaffAccess } from "@/lib/staff";
 
-/** Gate High Staff — non autorizzati → redirect home. Shell SW via SiteShell chrome=evento. */
+/** Gate High Staff — shell SW via SiteShell chrome=evento. */
 export function PuzzleBoard() {
   const { ready, token } = useAuth();
   const [access, setAccess] = useState<StaffAccess | null>(null);
@@ -39,9 +39,9 @@ export function PuzzleBoard() {
     return (
       <section className="mx-auto max-w-5xl px-6 pb-20 pt-8" aria-busy="true" aria-label="Caricamento">
         <div className="space-y-3">
-          <div className="h-10 animate-pulse rounded-2xl bg-[#f0e6c8]/8" />
-          <div className="aspect-[1600/816] animate-pulse rounded-3xl bg-[#f0e6c8]/6" />
-          <div className="h-24 animate-pulse rounded-3xl bg-[#f0e6c8]/6" />
+          <div className="h-10 animate-pulse rounded-2xl bg-crema/8" />
+          <div className="aspect-[1600/816] animate-pulse rounded-3xl bg-crema/6" />
+          <div className="h-24 animate-pulse rounded-3xl bg-crema/6" />
         </div>
       </section>
     );
@@ -59,7 +59,7 @@ export function PuzzleBoard() {
         accent="galassia"
         text="Pezzi coperti da pescare: ricomponi la mappa stellare sul quadro."
       />
-      <Reveal className="mx-auto max-w-5xl px-4 pb-24 sm:px-6">
+      <Reveal className="-mt-6 mx-auto max-w-5xl px-4 pb-24 sm:-mt-10 sm:px-6">
         <PuzzleGame />
       </Reveal>
     </>

@@ -77,7 +77,7 @@ export function SmistamentoQuiz() {
   }
 
   if (loading) return <EventoSkeleton className="mx-auto max-w-xl px-6" />;
-  if (gate) return <p className="mx-auto max-w-lg px-6 text-center text-sm text-[#f0e6c8]/55">{gate}</p>;
+  if (gate) return <p className="mx-auto max-w-lg px-6 text-center text-sm text-crema/55">{gate}</p>;
 
   if (done) {
     const sith = /separat/i.test(done.label || "") || /separat/i.test(done.id || "");
@@ -87,7 +87,7 @@ export function SmistamentoQuiz() {
           <Shield className={cn("mx-auto size-10", sith ? "text-rose-400" : "text-sky-400")} aria-hidden />
           <EventoKicker>La tua fazione</EventoKicker>
           <EventoTitle>{done.label}</EventoTitle>
-          <p className="mt-3 text-sm leading-relaxed text-[#f0e6c8]/7">{done.motto}</p>
+          <p className="mt-3 text-sm leading-relaxed text-crema/70">{done.motto}</p>
         </EventoPanel>
       </div>
     );
@@ -110,8 +110,8 @@ export function SmistamentoQuiz() {
             <li key={f.id}>
               <EventoPanel glow={sith ? "red" : "blue"}>
                 <EventoKicker>{sith ? "CSI" : "Repubblica"}</EventoKicker>
-                <p className="mt-1 font-display text-2xl text-[#f0e6c8]">{f.label}</p>
-                <p className="mt-2 text-sm text-[#f0e6c8]/65">{f.motto}</p>
+                <p className="mt-1 font-display text-2xl text-crema">{f.label}</p>
+                <p className="mt-2 text-sm text-crema/65">{f.motto}</p>
               </EventoPanel>
             </li>
           );
@@ -128,7 +128,7 @@ export function SmistamentoQuiz() {
   return (
     <div className="mx-auto max-w-xl px-6">
       <div className="mb-4">
-        <div className="mb-2 flex items-center justify-between text-[0.7rem] uppercase tracking-[0.22em] text-[#f0e6c8]/45">
+        <div className="mb-2 flex items-center justify-between text-[0.7rem] uppercase tracking-[0.22em] text-crema/45">
           <span>
             Domanda {idx + 1} / {questions.length}
           </span>
@@ -143,7 +143,7 @@ export function SmistamentoQuiz() {
       </div>
 
       <EventoPanel glow="gold">
-        <h2 className="font-display text-xl font-semibold leading-snug text-[#f0e6c8] sm:text-2xl">{q.text}</h2>
+        <h2 className="font-display text-xl font-semibold leading-snug text-crema sm:text-2xl">{q.text}</h2>
         <ul className="mt-5 space-y-2.5">
           {q.choices.map((c) => (
             <li key={c.id}>
@@ -153,8 +153,8 @@ export function SmistamentoQuiz() {
                 className={cn(
                   "w-full rounded-xl px-4 py-3.5 text-left text-sm ring-1 transition",
                   picked === c.id
-                    ? "bg-[#c9a227]/20 text-[#f0e6c8] ring-[#c9a227]/55"
-                    : "bg-black/30 text-[#f0e6c8]/8 ring-[#f0e6c8]/12 hover:ring-[#2ea8ff]/35",
+                    ? "bg-[#c9a227]/20 text-crema ring-[#c9a227]/55"
+                    : "bg-black/30 text-crema/80 ring-sand/12 hover:ring-[#2ea8ff]/35",
                 )}
               >
                 {c.text}

@@ -42,16 +42,16 @@ export function EventoHubStatus() {
               {st.publicOpen ? "Live pubblico" : st.canPreview ? "Anteprima High Staff" : "Chiuso"}
               {st.romeDate ? ` · ${st.romeDate}` : ""}
             </EventoKicker>
-            <p className="mt-2 text-sm text-[#f0e6c8]/7">
+            <p className="mt-2 text-sm text-crema/70">
               {chips.length ? chips.join(" · ") : "Stato evento"}
             </p>
           </div>
           {w ? (
             <div className="text-right">
-              <p className="font-display text-2xl text-[#e4c76b] tabular-nums">
+              <p className="font-display text-2xl text-sand tabular-nums">
                 {w.credits.toLocaleString("it-IT")}
               </p>
-              <p className="text-[0.65rem] uppercase tracking-[0.22em] text-[#f0e6c8]/45">
+              <p className="text-[0.65rem] uppercase tracking-[0.22em] text-crema/45">
                 crediti · {w.exp.toLocaleString("it-IT")} exp
               </p>
             </div>

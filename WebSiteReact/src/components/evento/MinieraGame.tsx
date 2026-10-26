@@ -80,10 +80,10 @@ export function MinieraGame() {
   return (
     <div className="mx-auto max-w-lg space-y-5 px-6">
       <EventoPanel className="text-center" glow="gold">
-        <Pickaxe className="mx-auto size-9 text-[#e4c76b]" aria-hidden />
+        <Pickaxe className="mx-auto size-9 text-sand" aria-hidden />
         <EventoKicker>Estrazioni oggi</EventoKicker>
         <EventoTitle>{remaining}</EventoTitle>
-        <p className="mt-1 text-sm text-[#f0e6c8]/6">rimaste · cristalli Kyber</p>
+        <p className="mt-1 text-sm text-crema/65">rimaste · cristalli Kyber</p>
 
         {last ? (
           <div
@@ -92,12 +92,12 @@ export function MinieraGame() {
               glowFor(last.color),
             )}
           >
-            <Gem className="mx-auto size-7 text-[#f0e6c8]" aria-hidden />
-            <p className="mt-2 font-display text-xl text-[#f0e6c8]">
+            <Gem className="mx-auto size-7 text-crema" aria-hidden />
+            <p className="mt-2 font-display text-xl text-crema">
               {last.color}
               {last.rare ? " · raro" : ""}
             </p>
-            <p className="text-[0.65rem] uppercase tracking-[0.25em] text-[#f0e6c8]/5">Ultimo ritrovamento</p>
+            <p className="text-[0.65rem] uppercase tracking-[0.25em] text-crema/55">Ultimo ritrovamento</p>
           </div>
         ) : null}
 
@@ -118,8 +118,8 @@ export function MinieraGame() {
                   glowFor(f.color),
                 )}
               >
-                <span className="font-medium text-[#f0e6c8]">{f.color}</span>
-                {f.rare ? <span className="mt-0.5 block text-[0.6rem] uppercase tracking-wider text-[#e4c76b]">raro</span> : null}
+                <span className="font-medium text-crema">{f.color}</span>
+                {f.rare ? <span className="mt-0.5 block text-[0.6rem] uppercase tracking-wider text-sand">raro</span> : null}
               </li>
             ))}
           </ul>

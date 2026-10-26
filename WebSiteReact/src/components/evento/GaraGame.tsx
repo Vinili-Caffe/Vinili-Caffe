@@ -64,11 +64,11 @@ export function GaraGame() {
     <div className="mx-auto max-w-xl px-6 space-y-5">
       {result ? (
         <EventoPanel className="text-center" glow={result.won ? "gold" : "blue"}>
-          <Flag className="mx-auto size-9 text-[#e4c76b]" aria-hidden />
+          <Flag className="mx-auto size-9 text-sand" aria-hidden />
           <EventoKicker>Esito slot</EventoKicker>
           <EventoTitle>{result.won ? "Vittoria!" : `${result.place}° posto`}</EventoTitle>
           {pick ? (
-            <p className="mt-2 text-sm text-[#f0e6c8]/65">
+            <p className="mt-2 text-sm text-crema/65">
               Sguscio: {pods.find((p) => p.id === pick)?.label || pick}
             </p>
           ) : null}
@@ -77,7 +77,7 @@ export function GaraGame() {
         <EventoPanel glow="none" className="text-center">
           <Rocket className="mx-auto size-8 text-[#2ea8ff]" aria-hidden />
           <EventoKicker>Podracing Championship</EventoKicker>
-          <p className="mt-2 text-sm text-[#f0e6c8]/65">Scegli lo sguscio. Un solo pick per slot.</p>
+          <p className="mt-2 text-sm text-crema/65">Scegli lo sguscio. Un solo pick per slot.</p>
         </EventoPanel>
       )}
 
@@ -94,7 +94,7 @@ export function GaraGame() {
                   "group relative flex w-full items-center gap-4 overflow-hidden rounded-2xl px-4 py-4 text-left ring-1 transition",
                   selected
                     ? "bg-gradient-to-r from-[#c9a227]/25 to-[#2ea8ff]/15 ring-[#c9a227]/55"
-                    : "bg-[rgba(10,16,32,0.75)] ring-[#f0e6c8]/12 hover:ring-[#2ea8ff]/40",
+                    : "bg-roast/80 ring-sand/15 hover:ring-sky-400/40",
                   "disabled:opacity-45",
                 )}
               >
@@ -102,8 +102,8 @@ export function GaraGame() {
                   {i + 1}
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block font-display text-xl text-[#f0e6c8]">{p.label}</span>
-                  <span className="text-xs uppercase tracking-[0.2em] text-[#f0e6c8]/4">
+                  <span className="block font-display text-xl text-crema">{p.label}</span>
+                  <span className="text-xs uppercase tracking-[0.2em] text-crema/45">
                     {selected ? "Selezionato" : canPick ? "Tocca per gareggiare" : "Bloccato"}
                   </span>
                 </span>
@@ -114,10 +114,10 @@ export function GaraGame() {
       </ul>
 
       {!canPick && !result ? (
-        <p className="text-center text-sm text-[#f0e6c8]/5">Gara non selezionabile in questo slot.</p>
+        <p className="text-center text-sm text-crema/55">Gara non selezionabile in questo slot.</p>
       ) : null}
       {canPick ? (
-        <p className="text-center text-xs text-[#f0e6c8]/4">La scelta è definitiva per lo slot corrente.</p>
+        <p className="text-center text-xs text-crema/45">La scelta è definitiva per lo slot corrente.</p>
       ) : null}
       {result && !canPick ? (
         <div className="text-center">

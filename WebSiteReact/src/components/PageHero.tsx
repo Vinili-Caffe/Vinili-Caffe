@@ -4,13 +4,15 @@ import { motion } from "motion/react";
 
 const ease = [0.22, 1, 0.36, 1] as const;
 
-/** Testata delle pagine interne: foto del locale sfumata + titolo. */
+/** Testata delle pagine interne: foto sfumata + titolo (override image per eventi). */
 export function PageHero({
   kicker,
   title,
   accent,
   text,
   icon,
+  imageSrc = "/images/sfondo-still.webp",
+  imageSrcMobile = "/images/sfondo-mobile-still.webp",
 }: {
   kicker: string;
   title: string;
@@ -18,13 +20,16 @@ export function PageHero({
   text?: string;
   /** elemento già creato (es. <BookOpen />): da un Server Component non si può passare il componente */
   icon?: React.ReactNode;
+  /** Sfondo hero (default: locale). */
+  imageSrc?: string;
+  imageSrcMobile?: string;
 }) {
   return (
     /* overflow-x only: evita tagli a titolo/italic; pb + gap CSS verso il blocco sotto */
     <section className="vc-page-hero relative isolate overflow-x-hidden pb-20 pt-36 sm:pb-28 sm:pt-44">
       <picture>
-        <source media="(max-width: 640px)" srcSet="/images/sfondo-mobile-still.webp" />
-        <img src="/images/sfondo-still.webp" alt="" className="absolute inset-0 -z-20 size-full object-cover opacity-60" />
+        <source media="(max-width: 640px)" srcSet={imageSrcMobile} />
+        <img src={imageSrc} alt="" className="absolute inset-0 -z-20 size-full object-cover opacity-60" />
       </picture>
       <div className="absolute inset-0 -z-10 bg-[linear-gradient(to_bottom,rgba(14,9,6,0.55),rgba(14,9,6,0.85)_55%,rgba(14,9,6,0.92)_82%,var(--color-espresso))]" />
 
@@ -41,7 +46,7 @@ export function PageHero({
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.08, duration: 0.8, ease }}
-          className="mx-auto mt-6 max-w-4xl text-balance font-display text-5xl font-semibold leading-[1.15] sm:text-7xl"
+          className="mx-auto mt-6 max-w-4xl text-balance font-display text-5xl font-semibold leading-[1.15] text-crema sm:text-7xl"
         >
           {title}
           {accent ? (
@@ -56,7 +61,7 @@ export function PageHero({
             initial={{ opacity: 0, y: 14 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.18, duration: 0.7, ease }}
-            className="mx-auto mt-5 max-w-2xl text-lg leading-relaxed text-crema/70"
+            className="mx-auto mt-5 max-w-2xl text-lg leading-relaxed text-crema/75"
           >
             {text}
           </motion.p>
