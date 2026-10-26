@@ -217,15 +217,26 @@ export async function clearContestDemo(
   return r.json();
 }
 
+function romeParts(iso: string) {
+  const d = new Date(iso);
+  const weekday = d.toLocaleDateString("it-IT", { timeZone: "Europe/Rome", weekday: "long" });
+  const day = d.toLocaleDateString("it-IT", { timeZone: "Europe/Rome", day: "numeric" });
+  const month = d.toLocaleDateString("it-IT", { timeZone: "Europe/Rome", month: "long" });
+  const time = d.toLocaleTimeString("it-IT", {
+    timeZone: "Europe/Rome",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+  return { weekday, day, month, time };
+}
+
+/** Testo compatto (legacy). */
 export function formatRomeRange(startAt: string, endAt: string) {
-  const fmt = (iso: string) =>
-    new Date(iso).toLocaleString("it-IT", {
-      timeZone: "Europe/Rome",
-      weekday: "short",
-      day: "numeric",
-      month: "short",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  return `${fmt(startAt)} → ${fmt(endAt)}`;
+  const a = romeParts(startAt);
+  const b = romeParts(endAt);
+  return `Dal ${a.day} ${a.month} ore ${a.time} al ${b.day} ${b.month} ore ${b.time}`;
+}
+
+export function contestWindowParts(startAt: string, endAt: string) {
+  return { start: romeParts(startAt), end: romeParts(endAt) };
 }

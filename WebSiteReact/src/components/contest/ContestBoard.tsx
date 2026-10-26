@@ -14,16 +14,17 @@ import {
   ChevronLeft,
   ChevronRight,
   ImagePlus,
+  CalendarDays,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import {
   clearContestDemo,
   contestImageUrl,
+  contestWindowParts,
   deleteContestImage,
   fetchContestFeed,
   fetchContestLeaderboard,
   fetchContestStatus,
-  formatRomeRange,
   replaceContestImage,
   seedContestDemo,
   submitContestImage,
@@ -448,7 +449,39 @@ export function ContestBoard({ eventKey }: { eventKey: string }) {
         </h2>
         {status?.blurb ? <p className="relative mt-2 text-sm leading-relaxed text-crema/65">{status.blurb}</p> : null}
         {status?.startAt && status?.endAt ? (
-          <p className="relative mt-3 text-xs text-crema/40">{formatRomeRange(status.startAt, status.endAt)}</p>
+          <div className="relative mt-4 grid grid-cols-2 gap-2">
+            {(() => {
+              const w = contestWindowParts(status.startAt, status.endAt);
+              return (
+                <>
+                  <div className="rounded-2xl bg-ink/35 px-3 py-2.5 ring-1 ring-crema/10">
+                    <p className="flex items-center gap-1 text-[0.65rem] font-semibold uppercase tracking-[0.14em] text-crema/40">
+                      <CalendarDays className="size-3" />
+                      Apre
+                    </p>
+                    <p className="mt-1 font-display text-sm font-semibold capitalize text-crema">
+                      {w.start.weekday} {w.start.day}
+                    </p>
+                    <p className="text-xs capitalize text-crema/55">
+                      {w.start.month} · {w.start.time}
+                    </p>
+                  </div>
+                  <div className="rounded-2xl bg-ink/35 px-3 py-2.5 ring-1 ring-crema/10">
+                    <p className="flex items-center gap-1 text-[0.65rem] font-semibold uppercase tracking-[0.14em] text-crema/40">
+                      <CalendarDays className="size-3" />
+                      Chiude
+                    </p>
+                    <p className="mt-1 font-display text-sm font-semibold capitalize text-crema">
+                      {w.end.weekday} {w.end.day}
+                    </p>
+                    <p className="text-xs capitalize text-crema/55">
+                      {w.end.month} · {w.end.time}
+                    </p>
+                  </div>
+                </>
+              );
+            })()}
+          </div>
         ) : null}
       </Panel>
 
