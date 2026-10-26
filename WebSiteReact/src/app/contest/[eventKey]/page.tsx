@@ -59,7 +59,7 @@ export default async function ContestPage({
   }
   return (
     <SiteShell>
-      <PageHero icon={<Ghost />} kicker="Halloween" title={meta.title} accent="contest" text={meta.text} />
+      <PageHero icon={<Ghost />} kicker="Halloween" title={meta.title} text={meta.text} />
       <ContestBoard eventKey={eventKey} />
     </SiteShell>
   );

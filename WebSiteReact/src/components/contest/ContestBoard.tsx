@@ -4,10 +4,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Heart, SkipForward, Upload, Loader2, Ghost } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import {
+  clearContestDemo,
   contestImageUrl,
   fetchContestFeed,
   fetchContestStatus,
   formatRomeRange,
+  seedContestDemo,
   submitContestImage,
   swipeContest,
   type ContestStatus,
@@ -164,11 +166,59 @@ export function ContestBoard({ eventKey }: { eventKey: string }) {
       </div>
 
       {status?.phase === "before" && !status.staffPreview ? (
-        <p className="mt-8 text-center text-crema/65">Torna all’orario di apertura.</p>
+        <p className="mt-8 text-center text-crema/65">
+          Apre alle 19:00 (Roma). Dopo vedrai le tab <strong className="text-crema">Invia</strong> e{" "}
+          <strong className="text-crema">Vota</strong>.
+        </p>
       ) : null}
 
       {(status?.phase === "open" || status?.staffPreview) && (
         <>
+          {status.staffPreview ? (
+            <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+              <button
+                type="button"
+                disabled={busy}
+                className="rounded-full bg-crema/10 px-4 py-2 text-xs font-medium text-crema ring-1 ring-crema/20 hover:bg-crema/15"
+                onClick={async () => {
+                  if (!token) return;
+                  setBusy(true);
+                  setMsg("");
+                  try {
+                    const out = await seedContestDemo(eventKey, token, 8);
+                    setMsg(out.message || "");
+                    await reload();
+                    setTab("vote");
+                    await loadFeed();
+                  } finally {
+                    setBusy(false);
+                  }
+                }}
+              >
+                Carica 8 foto demo
+              </button>
+              <button
+                type="button"
+                disabled={busy}
+                className="rounded-full bg-crema/5 px-4 py-2 text-xs text-crema/70 ring-1 ring-crema/15 hover:bg-crema/10"
+                onClick={async () => {
+                  if (!token) return;
+                  setBusy(true);
+                  setMsg("");
+                  try {
+                    const out = await clearContestDemo(eventKey, token);
+                    setMsg(out.message || "");
+                    await reload();
+                    await loadFeed();
+                  } finally {
+                    setBusy(false);
+                  }
+                }}
+              >
+                Pulisci demo
+              </button>
+            </div>
+          ) : null}
           <div className="mt-6 flex gap-2 rounded-full bg-espresso p-1 ring-1 ring-crema/10">
             <button
               type="button"

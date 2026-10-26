@@ -290,6 +290,8 @@ function mountSiteWebhookRoutes(app, client, deps) {
     getLeaderboard: getSiteContestLeaderboard,
     serveContestFile: serveSiteContestFile,
     setPublicOpen: setSiteContestPublicOpen,
+    seedDemo: seedSiteContestDemo,
+    clearDemo: clearSiteContestDemo,
   } = require("../../Utils/Web/siteContestApi");
   const {
     handleSiteNotificationsGet,
@@ -2036,6 +2038,40 @@ function mountSiteWebhookRoutes(app, client, deps) {
       return res.status(Number(out.status) || 500).json(out);
     } catch (err) {
       global.logger?.error?.("[WEBHOOK] site-contest public-open:", err);
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+    }
+  });
+  app.post("/webhooks/site-contest/:eventKey/seed-demo", async (req, res) => {
+    try {
+      const accessToken = normalizeHeaderSecret(req.headers.authorization);
+      if (!accessToken) {
+        return res.status(401).json({ ok: false, error: "missing_token", message: "Accedi con Discord." });
+      }
+      const body = req.body && typeof req.body === "object" ? req.body : {};
+      const out = await seedSiteContestDemo(client, {
+        eventKey: req.params.eventKey,
+        accessToken,
+        count: body.count,
+      });
+      return res.status(Number(out.status) || 500).json(out);
+    } catch (err) {
+      global.logger?.error?.("[WEBHOOK] site-contest seed-demo:", err);
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+    }
+  });
+  app.post("/webhooks/site-contest/:eventKey/clear-demo", async (req, res) => {
+    try {
+      const accessToken = normalizeHeaderSecret(req.headers.authorization);
+      if (!accessToken) {
+        return res.status(401).json({ ok: false, error: "missing_token", message: "Accedi con Discord." });
+      }
+      const out = await clearSiteContestDemo(client, {
+        eventKey: req.params.eventKey,
+        accessToken,
+      });
+      return res.status(Number(out.status) || 500).json(out);
+    } catch (err) {
+      global.logger?.error?.("[WEBHOOK] site-contest clear-demo:", err);
       return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
     }
   });

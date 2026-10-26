@@ -102,6 +102,39 @@ export async function swipeContest(
   return r.json();
 }
 
+export async function seedContestDemo(
+  eventKey: string,
+  token: string,
+  count = 8,
+): Promise<{ ok: boolean; message?: string; added?: number }> {
+  const r = await fetch(apiUrl(`/webhooks/site-contest/${encodeURIComponent(eventKey)}/seed-demo`), {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ count }),
+  });
+  return r.json();
+}
+
+export async function clearContestDemo(
+  eventKey: string,
+  token: string,
+): Promise<{ ok: boolean; message?: string }> {
+  const r = await fetch(apiUrl(`/webhooks/site-contest/${encodeURIComponent(eventKey)}/clear-demo`), {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: "{}",
+  });
+  return r.json();
+}
+
 export function formatRomeRange(startAt: string, endAt: string) {
   const fmt = (iso: string) =>
     new Date(iso).toLocaleString("it-IT", {

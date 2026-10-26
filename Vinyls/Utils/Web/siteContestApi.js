@@ -53,10 +53,9 @@ function getEvent(eventKey) {
 
 function phaseFor(event, now = Date.now(), { staffPreview = false } = {}) {
   if (!event) return "unknown";
-  if (staffPreview && !event.publicOpen) {
-    if (now < event.endMs) return "open";
-  }
   if (!event.publicOpen && !staffPreview) return "hidden";
+  /* Staff/Founder: possono provare prima dell’apertura (fino alla fine evento). */
+  if (staffPreview && now < event.endMs) return "open";
   if (now < event.startMs) return "before";
   if (now >= event.endMs) return "after";
   return "open";
@@ -442,6 +441,77 @@ async function setPublicOpen(client, { eventKey, accessToken, publicOpen } = {})
   });
 }
 
+/** Staff: riempie il deck con foto placeholder (picsum) per provare lo swipe. */
+async function seedDemo(client, { eventKey, accessToken, count = 8 } = {}) {
+  const event = getEvent(eventKey);
+  if (!event) return { ok: false, status: 404, error: "unknown_event", message: "Contest non trovato." };
+  const staff = await isStaffPreview(client, accessToken);
+  if (!staff) return { ok: false, status: 403, error: "forbidden", message: "Solo staff." };
+
+  const n = Math.min(24, Math.max(1, Number(count) || 8));
+  const doc = await getOrCreateDoc(event.key);
+  const existingFake = new Set(
+    (doc.submissions || []).filter((s) => String(s.userId || "").startsWith("demo")).map((s) => s.userId),
+  );
+  let added = 0;
+  for (let i = 1; i <= n; i++) {
+    const userId = `demo${String(i).padStart(4, "0")}`;
+    if (existingFake.has(userId)) continue;
+    if ((doc.submissions || []).some((s) => s.userId === userId)) continue;
+    const seed = `${event.key}-${i}-${Date.now().toString(36)}`;
+    doc.submissions.push({
+      id: crypto.randomBytes(8).toString("hex"),
+      userId,
+      displayName: `Demo ${i}`,
+      avatarUrl: "",
+      imageUrl: `https://picsum.photos/seed/${encodeURIComponent(seed)}/720/960`,
+      category: "demo",
+      likes: 0,
+      createdAt: new Date(),
+    });
+    added++;
+  }
+  await doc.save();
+  return {
+    ok: true,
+    status: 200,
+    added,
+    submissionCount: (doc.submissions || []).length,
+    message: added ? `Aggiunte ${added} foto demo.` : "Le foto demo c’erano già.",
+  };
+}
+
+/** Staff: rimuove solo le submission demo*. */
+async function clearDemo(client, { eventKey, accessToken } = {}) {
+  const event = getEvent(eventKey);
+  if (!event) return { ok: false, status: 404, error: "unknown_event", message: "Contest non trovato." };
+  const staff = await isStaffPreview(client, accessToken);
+  if (!staff) return { ok: false, status: 403, error: "forbidden", message: "Solo staff." };
+  const doc = await getOrCreateDoc(event.key);
+  const before = (doc.submissions || []).length;
+  doc.submissions = (doc.submissions || []).filter((s) => !String(s.userId || "").startsWith("demo"));
+  /* pulisci voti verso id rimossi */
+  const keep = new Set(doc.submissions.map((s) => s.id));
+  if (doc.votes && typeof doc.votes === "object") {
+    for (const vid of Object.keys(doc.votes)) {
+      const leaf = doc.votes[vid];
+      if (!leaf || typeof leaf !== "object") continue;
+      for (const sid of Object.keys(leaf)) {
+        if (!keep.has(sid)) delete leaf[sid];
+      }
+    }
+    doc.markModified("votes");
+  }
+  await doc.save();
+  return {
+    ok: true,
+    status: 200,
+    removed: before - doc.submissions.length,
+    submissionCount: doc.submissions.length,
+    message: "Demo rimosse.",
+  };
+}
+
 module.exports = {
   EVENTS,
   normalizeHeaderSecret,
@@ -453,4 +523,6 @@ module.exports = {
   getLeaderboard,
   serveContestFile,
   setPublicOpen,
+  seedDemo,
+  clearDemo,
 };
