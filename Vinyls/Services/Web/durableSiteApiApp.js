@@ -296,6 +296,7 @@ async function main() {
     const isSiteDashboard = pathStr.startsWith("/webhooks/site-dashboard");
     const isSiteWelcomePronouns = pathStr.startsWith("/webhooks/site-welcome-pronouns");
     const isSiteGuildJoin = pathStr.startsWith("/webhooks/site-guild-join");
+    const isSiteContest = pathStr.startsWith("/webhooks/site-contest");
     // appelliApi1: subject live chat on /appelli uses these user workflow endpoints
     const isSiteUserWorkflow =
       pathStr.startsWith("/webhooks/site-user-workflows") ||
@@ -339,6 +340,7 @@ async function main() {
       !isSiteDashboard &&
       !isSiteWelcomePronouns &&
       !isSiteGuildJoin &&
+      !isSiteContest &&
       !isSiteUserWorkflow &&
       !isSiteStaffWorkflow
     ) {
@@ -381,7 +383,8 @@ async function main() {
       isSitePayments ||
       isSiteSeratafilmAccess ||
       isSiteStaffAccess ||
-      isSiteHogwartsSorting
+      isSiteHogwartsSorting ||
+      isSiteContest
     ) {
       res.setHeader("Access-Control-Allow-Origin", "*");
     }

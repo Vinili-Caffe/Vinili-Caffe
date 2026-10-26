@@ -22,7 +22,8 @@ const EVENTS = {
     kind: "sfondi",
     title: "Contest sfondi Halloween",
     blurb: "Invia uno sfondo a tema Halloween e vota gli altri in stile swipe.",
-    startMs: Date.parse("2026-10-26T19:00:00+01:00"),
+    /* Aperto subito per test (link-only). Annuncio pubblico: dalle 19:00. Fine: ven 21:00. */
+    startMs: Date.parse("2026-10-26T16:00:00+01:00"),
     endMs: Date.parse("2026-10-30T21:00:00+01:00"),
     maxSubmissionsPerUser: 1,
     /** true = chi ha il link può entrare in finestra; false = solo staff. Mai in nav. */
@@ -103,7 +104,8 @@ async function resolveUser(accessToken) {
 async function isStaffPreview(client, accessToken) {
   try {
     const out = await assertWebsiteStaffAccess(client, accessToken);
-    if (out?.ok && (out.isHighStaff || out.isFounder || out.flags?.highStaff)) return true;
+    /* Qualsiasi accesso staff sito (Founder incluso) → preview tools / apre prima. */
+    if (out?.ok) return true;
   } catch (_) {}
   return false;
 }
