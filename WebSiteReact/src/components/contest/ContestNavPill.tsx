@@ -8,7 +8,7 @@ import { fetchContestHighlight, type ContestHighlight } from "@/lib/contest";
 import { SmartLink } from "@/components/SmartLink";
 import { cn } from "@/lib/cn";
 
-/** Pill contest in navbar: link diretto su tutte le pagine (nascosta sulla pagina del contest attivo). */
+/** Pill contest fissa: tutte le pagine SiteShell (anche con navbar auto-hide). */
 export function ContestNavPill({ className }: { className?: string }) {
   const { token } = useAuth();
   const pathname = usePathname() || "/";
@@ -22,11 +22,16 @@ export function ContestNavPill({ className }: { className?: string }) {
     return () => {
       alive = false;
     };
-  }, [token]);
+  }, [token, pathname]);
 
   if (!item) return null;
   const href = item.href || `/contest/${item.eventKey}/`;
-  if (pathname === href || pathname === `/contest/${item.eventKey}` || pathname.startsWith(`/contest/${item.eventKey}/`)) {
+  /* Nascondi solo sulla pagina del contest evidenziato (sei già lì). */
+  if (
+    pathname === href ||
+    pathname === `/contest/${item.eventKey}` ||
+    pathname.startsWith(`/contest/${item.eventKey}/`)
+  ) {
     return null;
   }
 
@@ -36,13 +41,27 @@ export function ContestNavPill({ className }: { className?: string }) {
     <SmartLink
       href={href}
       className={cn(
-        "inline-flex max-w-[9.5rem] items-center gap-1 rounded-full bg-caramel/90 px-2.5 py-1 text-[11px] font-semibold tracking-wide text-ink ring-1 ring-sand/40 transition-colors hover:bg-sand sm:max-w-none sm:gap-1.5 sm:px-3 sm:py-1.5 sm:text-xs",
+        "inline-flex max-w-[10rem] items-center gap-1.5 rounded-full bg-caramel/95 px-3 py-1.5 text-xs font-semibold tracking-wide text-ink shadow-[0_8px_24px_-10px_rgba(0,0,0,0.75)] ring-1 ring-sand/45 transition-colors hover:bg-sand",
         className,
       )}
       title={item.title}
     >
-      <Ghost className="size-3.5 shrink-0 sm:size-3.5" strokeWidth={2.25} />
+      <Ghost className="size-3.5 shrink-0" strokeWidth={2.25} />
       <span className="truncate">{label}</span>
     </SmartLink>
+  );
+}
+
+/** Slot fisso sotto la top bar (sopravvive ad auto-hide navbar). */
+export function ContestNavPillFixed() {
+  return (
+    <div
+      className="pointer-events-none fixed right-3 z-[55] sm:right-5"
+      style={{ top: "calc(var(--vc-view-as-h, 0px) + 0.7rem)" }}
+    >
+      <div className="pointer-events-auto">
+        <ContestNavPill />
+      </div>
+    </div>
   );
 }

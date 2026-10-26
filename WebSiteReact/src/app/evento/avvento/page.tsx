@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { EventoComingSoon } from "@/components/evento/EventoComingSoon";
+import { AdventCalendar } from "@/components/evento/AdventCalendar";
 import { EventoPage } from "@/components/evento/EventoPage";
 import { eventoPageMeta } from "@/lib/evento-starwars";
 import { pageSocialMeta } from "@/lib/og";
@@ -13,11 +13,13 @@ export const metadata: Metadata = {
 
 export default function EventoAvventoPage() {
   return (
-    <EventoPage pageId="avvento" path={meta.path} title="Avvento" text={meta.description}>
-      <EventoComingSoon
-        title="Calendario dell’avvento"
-        text="Ogni giorno una casella e una ricompensa diversa. Le ricompense le definiamo insieme più avanti."
-      />
+    <EventoPage
+      pageId="avvento"
+      path={meta.path}
+      title="Avvento"
+      text="25 giorni, 25 caselle: ogni giorno una ricompensa diversa (casse e crediti)."
+    >
+      <AdventCalendar />
     </EventoPage>
   );
 }

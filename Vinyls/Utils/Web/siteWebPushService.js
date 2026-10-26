@@ -30,9 +30,9 @@
 /* badgeOsDismiss1: dismiss mobile/Apple di nuovo (skip desktop/WNS).
    SW: dismissSatisfyVisible (reuse banner title, no ZWSP) + setAppBadge(unreadCount).
    Content push path invariato. */
-/* pushIosNoEmptyDismiss1: STOP dismiss webpush verso Apple (iPhone/iPad).
-   type=dismiss + SW tag-replace = banner vuoti a raffica + APNs starve
-   (content solo all’apertura PWA / doppi). Android FCM dismiss resta. */
+/* pushIosNoEmptyDismiss1: STOP dismiss Apple (banner vuoti + APNs starve). */
+/* badgeOsCrossApple1: riabilita dismiss APNs. SW ora chiude solo (no showNotification
+   su type=dismiss) + setAppBadge(unreadCount) → badge/banner sync tra device. */
 /* pushGoneResub1: Chrome/FCM riusa lo stesso endpoint dopo unsubscribe+subscribe.
    Denylist 7g che rifiuta il re-POST = push morte forever. Su upsert: clear gone
    e ri-accetta (il send successivo 410 ripulisce di nuovo). */
@@ -1073,13 +1073,10 @@ async function sendWebPushToUser(userId, payload = {}, sendOpts = {}) {
   for (const sub of subs) {
     /* pushKillBgSpam2 + pushApplePhonePrefer1: solo mobile reale (Mac Apple ≠ mobile). */
     const mobileLike = isMobilePushSubscription(sub);
-    if (isDismiss && !mobileLike) continue;
+    /* badgeOsCrossApple1: dismiss → mobile + Apple (SW silent close + badge).
+       Skip solo WNS/desktop non-mobile (Action Center ghost). */
     if (isDismiss && isWnsDesktopSubscription(sub)) continue;
-    /* pushIosNoEmptyDismiss1: mai dismiss APNs — banner vuoti + starve content */
-    if (
-      isDismiss &&
-      (isApplePushEndpoint(sub?.pushEndpoint) || isApplePushSubscription(sub))
-    ) {
+    if (isDismiss && !mobileLike && !(isApplePushEndpoint(sub?.pushEndpoint) || isApplePushSubscription(sub))) {
       continue;
     }
     if (deviceFilter === "mobile" && !mobileLike) continue;

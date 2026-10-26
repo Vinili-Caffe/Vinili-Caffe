@@ -21,6 +21,7 @@ import { PresenceRoot } from "./presence/PresenceRoot";
 import { ViewAsProvider } from "./view-as/ViewAsChrome";
 import { UiProviders } from "./ui/providers";
 import { ScrollProgress } from "./magicui/scroll-progress";
+import { ContestNavPillFixed } from "./contest/ContestNavPill";
 
 function RichScrollProgress() {
   const { caps } = useDeviceFx();
@@ -73,6 +74,7 @@ export function SiteShell({ children }: { children: React.ReactNode }) {
             <ApiOutageBanner />
             <SponsorAd />
             <Navbar />
+            <ContestNavPillFixed />
             <main className="min-h-[70dvh]">{children}</main>
             <Footer />
             <CookieConsent />

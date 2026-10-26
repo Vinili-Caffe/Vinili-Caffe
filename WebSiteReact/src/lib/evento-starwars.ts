@@ -65,8 +65,7 @@ export const EVENTO_NAV: EventoNavItem[] = [
     id: "avvento",
     href: page("/evento/avvento/"),
     label: "Avvento",
-    teaser: "Calendario dell’avvento: ogni giorno una ricompensa diversa.",
-    soon: true,
+    teaser: "Calendario dell’avvento: 25 giorni di casse e crediti.",
     publicFromOpen: true,
   },
   {
