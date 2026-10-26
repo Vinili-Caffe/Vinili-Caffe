@@ -348,12 +348,41 @@ html[data-vc-live-pip] .vc-hw-pumpkins {
   display: none !important;
 }
 
-/* Evento Star Wars: niente atmosfera Halloween, void navy */
+/* Evento Star Wars: remappa token → navbar/footer/UI tutto in palette galassia */
+html[data-vc-evento="1"] {
+  color-scheme: dark;
+  --color-espresso: #05070f;
+  --color-roast: #0a1020;
+  --color-mocha: #121a32;
+  --color-crema: #f0e6c8;
+  --color-sand: #e4c76b;
+  --color-caramel: #c9a227;
+  --color-ember: #f0d78c;
+  --color-paper: #f0e6c8;
+  --color-ink: #05070f;
+}
 html[data-vc-evento="1"] body {
   background-color: #05070f;
+  background-image:
+    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(46, 168, 255, 0.12), transparent 55%),
+    radial-gradient(ellipse 60% 40% at 100% 80%, rgba(201, 162, 39, 0.08), transparent 50%);
 }
 html[data-vc-evento="1"] .vc-hw-fog,
 html[data-vc-evento="1"] .vc-hw-eyes,
 html[data-vc-evento="1"] .vc-hw-pumpkins {
   display: none !important;
+}
+/* Boot gate / light theme: resta void SW (niente cream Halloween) */
+html[data-vc-evento="1"].vc-boot-hold::before {
+  background: #05070f;
+}
+html[data-vc-evento="1"][data-vc-theme="light"],
+html[data-vc-evento="1"][data-vc-theme="light"] .scheme-dark {
+  --color-espresso: #05070f;
+  --color-roast: #0a1020;
+  --color-mocha: #121a32;
+  --color-crema: #f0e6c8;
+  --color-sand: #e4c76b;
+  --color-caramel: #c9a227;
+  --color-ember: #f0d78c;
 }

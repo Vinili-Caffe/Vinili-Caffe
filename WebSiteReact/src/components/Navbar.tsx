@@ -479,8 +479,13 @@ export function Navbar() {
             ? cn(
                 "border-b border-sand/15 shadow-[0_12px_40px_-18px_rgba(0,0,0,0.85)]",
                 softBlur ? "bg-roast/80 backdrop-blur-xl vc-ui-blur" : "bg-roast/95",
+                eventoChrome && "border-[#c9a227]/20 shadow-[0_12px_40px_-18px_rgba(5,7,15,0.9)]",
               )
-            : cn("border-b border-transparent bg-transparent", softBlur ? "light:bg-roast/80 light:backdrop-blur-xl light:vc-ui-blur" : "light:bg-roast/95"),
+            : cn(
+                "border-b border-transparent bg-transparent",
+                softBlur ? "light:bg-roast/80 light:backdrop-blur-xl light:vc-ui-blur" : "light:bg-roast/95",
+                eventoChrome && softBlur && "bg-[#0a1020]/70 backdrop-blur-xl",
+              ),
         )}
       >
         {/*

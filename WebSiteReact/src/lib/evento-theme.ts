@@ -15,12 +15,29 @@ export const SW = {
   republic: "#38bdf8",
 } as const;
 
-/** Main Title (John Williams Topic) — VOD embeddabile; id precedente 404. */
-export const EVENTO_YT = {
-  id: "e9lapdvLSGw",
-  url: "https://www.youtube.com/watch?v=e9lapdvLSGw",
-  title: "Star Wars · Main Title",
-} as const;
+/**
+ * BGM SW: catena fallback (Topic channel spesso error 150 in embed).
+ * Primario = DisneyMusicVEVO audio-only (embed ok).
+ */
+export const EVENTO_YT_FALLBACKS = [
+  {
+    id: "y8ac1Qg-r-8",
+    url: "https://www.youtube.com/watch?v=y8ac1Qg-r-8",
+    title: "Star Wars · Main Title",
+  },
+  {
+    id: "u_OO9taOvG8",
+    url: "https://www.youtube.com/watch?v=u_OO9taOvG8",
+    title: "Star Wars · Main Title",
+  },
+  {
+    id: "e9lapdvLSGw",
+    url: "https://www.youtube.com/watch?v=e9lapdvLSGw",
+    title: "Star Wars · Main Title",
+  },
+] as const;
+
+export const EVENTO_YT = EVENTO_YT_FALLBACKS[0]!;
 
 export const EVENTO_BGM_VOL_KEY = "vc_evento_sw_bgm_vol_v1";
 export const EVENTO_BGM_ON_KEY = "vc_evento_sw_bgm_on_v1";
