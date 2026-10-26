@@ -4,8 +4,9 @@ import { useEffect, useState } from "react";
 import { fetchEventoMinigames } from "@/lib/evento-api";
 import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/cn";
+import { EventoKicker, EventoPanel } from "@/components/evento/EventoUi";
 
-/** Registry minigames (HS): stato calendario + “implemented” flag. */
+/** Registry minigames: calendario + implemented. */
 export function EventoMinigamesPanel() {
   const { token, ready } = useAuth();
   const [items, setItems] = useState<
@@ -29,34 +30,40 @@ export function EventoMinigamesPanel() {
   if (!items.length) return null;
 
   return (
-    <div className="mx-auto max-w-3xl px-6 pb-16">
-      <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.2em] text-[#f0e6c8]/70">
-        Attività · registry
-        {meta.epoch ? ` · ${meta.epoch}` : ""}
-        {meta.economyOn ? " · economia on" : " · economia off"}
-      </p>
-      <ul className="grid gap-2 sm:grid-cols-2">
-        {items.map((it) => (
-          <li
-            key={it.id}
-            className={cn(
-              "rounded-xl px-3 py-2.5 ring-1",
-              it.active ? "bg-[#f0e6c8]/10 ring-[#f0e6c8]/35" : "bg-black/25 ring-sand/10 opacity-70",
-            )}
-          >
-            <p className="text-sm font-medium text-crema">
-              {it.label}
-              <span className="ml-2 text-[10px] uppercase tracking-wider text-crema/45">{it.kind}</span>
-            </p>
-            <p className="mt-0.5 text-xs text-crema/55">{it.teaser}</p>
-            <p className="mt-1 text-[10px] uppercase tracking-wider text-crema/40">
-              {it.active ? "calendario: on" : "calendario: off"}
-              {" · "}
-              {it.implemented ? "play ok" : "scaffold"}
-            </p>
-          </li>
-        ))}
-      </ul>
+    <div className="mx-auto max-w-4xl px-6 pb-16">
+      <EventoPanel glow="none">
+        <EventoKicker>
+          Registry attività
+          {meta.epoch ? ` · ${meta.epoch}` : ""}
+          {meta.economyOn ? " · economia on" : " · economia off"}
+        </EventoKicker>
+        <ul className="mt-4 grid gap-2.5 sm:grid-cols-2">
+          {items.map((it) => (
+            <li
+              key={it.id}
+              className={cn(
+                "rounded-xl px-3.5 py-3 ring-1",
+                it.active
+                  ? "bg-[#c9a227]/12 ring-[#c9a227]/4"
+                  : "bg-black/25 ring-[#f0e6c8]/1 opacity-75",
+              )}
+            >
+              <p className="text-sm font-semibold text-[#f0e6c8]">
+                {it.label}
+                <span className="ml-2 text-[0.6rem] uppercase tracking-[0.18em] text-[#f0e6c8]/4">
+                  {it.kind}
+                </span>
+              </p>
+              <p className="mt-1 text-xs leading-relaxed text-[#f0e6c8]/55">{it.teaser}</p>
+              <p className="mt-2 text-[0.6rem] uppercase tracking-[0.16em] text-[#f0e6c8]/35">
+                {it.active ? "calendario on" : "calendario off"}
+                {" · "}
+                {it.implemented ? "play ok" : "scaffold"}
+              </p>
+            </li>
+          ))}
+        </ul>
+      </EventoPanel>
     </div>
   );
 }

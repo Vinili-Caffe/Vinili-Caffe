@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { Shield } from "lucide-react";
 import {
   fetchEventoSmistamento,
   submitEventoSmistamento,
@@ -10,8 +11,16 @@ import {
 import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/cn";
 import { showToast } from "@/components/ui/toast";
+import {
+  EventoBtn,
+  EventoKicker,
+  EventoLoginGate,
+  EventoPanel,
+  EventoSkeleton,
+  EventoTitle,
+} from "@/components/evento/EventoUi";
 
-/** Quiz smistamento Repubblica / Separatisti (HS / pubblico quando sbloccato). */
+/** Quiz smistamento Repubblica / Separatisti. */
 export function SmistamentoQuiz() {
   const { token, ready, login } = useAuth();
   const [loading, setLoading] = useState(true);
@@ -67,48 +76,46 @@ export function SmistamentoQuiz() {
     showToast(`Sei stato smistato in ${out.factionMeta?.label || out.factionId}.`);
   }
 
-  if (loading) {
-    return <div className="mx-auto h-40 max-w-lg animate-pulse rounded-2xl bg-crema/8 px-6" aria-busy="true" />;
-  }
-
-  if (gate) {
-    return <p className="mx-auto max-w-lg px-6 pb-16 text-center text-sm text-crema/65">{gate}</p>;
-  }
+  if (loading) return <EventoSkeleton className="mx-auto max-w-xl px-6" />;
+  if (gate) return <p className="mx-auto max-w-lg px-6 text-center text-sm text-[#f0e6c8]/55">{gate}</p>;
 
   if (done) {
+    const sith = /separat/i.test(done.label || "") || /separat/i.test(done.id || "");
     return (
-      <div className="mx-auto max-w-lg px-6 pb-20 text-center">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[#f0e6c8]/70">Fazione</p>
-        <h2 className="mt-2 font-display text-3xl font-semibold text-[#f0e6c8]">{done.label}</h2>
-        <p className="mt-3 text-sm text-crema/70">{done.motto}</p>
+      <div className="mx-auto max-w-lg px-6">
+        <EventoPanel className="text-center" glow={sith ? "red" : "blue"}>
+          <Shield className={cn("mx-auto size-10", sith ? "text-rose-400" : "text-sky-400")} aria-hidden />
+          <EventoKicker>La tua fazione</EventoKicker>
+          <EventoTitle>{done.label}</EventoTitle>
+          <p className="mt-3 text-sm leading-relaxed text-[#f0e6c8]/7">{done.motto}</p>
+        </EventoPanel>
       </div>
     );
   }
 
   if (!token) {
     return (
-      <div className="mx-auto max-w-lg px-6 pb-20 text-center">
-        <p className="mb-4 text-sm text-crema/70">Accedi con Discord per fare il quiz di smistamento.</p>
-        <button
-          type="button"
-          onClick={login}
-          className="inline-flex rounded-full bg-[#5865f2] px-5 py-2.5 text-sm font-semibold text-white"
-        >
-          Accedi
-        </button>
+      <div className="mx-auto max-w-lg px-6">
+        <EventoLoginGate label="Accedi per il quiz di smistamento: Repubblica o Separatisti." onLogin={login} />
       </div>
     );
   }
 
   if (!questions.length) {
     return (
-      <ul className="mx-auto mb-10 grid max-w-lg gap-3 px-6 sm:grid-cols-2">
-        {factions.map((f) => (
-          <li key={f.id} className="rounded-2xl bg-black/30 p-4 ring-1 ring-[#f0e6c8]/15">
-            <p className="font-display text-xl font-semibold text-[#f0e6c8]">{f.label}</p>
-            <p className="mt-1.5 text-sm text-crema/65">{f.motto}</p>
-          </li>
-        ))}
+      <ul className="mx-auto grid max-w-2xl gap-4 px-6 sm:grid-cols-2">
+        {factions.map((f) => {
+          const sith = /separat/i.test(f.label || "") || /separat/i.test(f.id || "");
+          return (
+            <li key={f.id}>
+              <EventoPanel glow={sith ? "red" : "blue"}>
+                <EventoKicker>{sith ? "CSI" : "Repubblica"}</EventoKicker>
+                <p className="mt-1 font-display text-2xl text-[#f0e6c8]">{f.label}</p>
+                <p className="mt-2 text-sm text-[#f0e6c8]/65">{f.motto}</p>
+              </EventoPanel>
+            </li>
+          );
+        })}
       </ul>
     );
   }
@@ -116,25 +123,38 @@ export function SmistamentoQuiz() {
   const q = questions[idx]!;
   const picked = answers[q.id];
   const last = idx >= questions.length - 1;
+  const progress = ((idx + (picked ? 0.35 : 0)) / questions.length) * 100;
 
   return (
-    <div className="mx-auto max-w-xl px-6 pb-24">
-      <p className="mb-3 text-center text-xs text-crema/50">
-        Domanda {idx + 1} / {questions.length}
-      </p>
-      <div className="rounded-2xl bg-gradient-to-br from-[#0b1220]/95 to-[#1a140c]/95 p-5 ring-1 ring-[#f0e6c8]/20">
-        <h2 className="font-display text-xl font-semibold text-crema sm:text-2xl">{q.text}</h2>
-        <ul className="mt-5 space-y-2">
+    <div className="mx-auto max-w-xl px-6">
+      <div className="mb-4">
+        <div className="mb-2 flex items-center justify-between text-[0.7rem] uppercase tracking-[0.22em] text-[#f0e6c8]/45">
+          <span>
+            Domanda {idx + 1} / {questions.length}
+          </span>
+          <span>{Math.round((idx / questions.length) * 100)}%</span>
+        </div>
+        <div className="h-1.5 overflow-hidden rounded-full bg-white/10">
+          <div
+            className="h-full rounded-full bg-gradient-to-r from-[#c9a227] to-[#2ea8ff] transition-[width] duration-300"
+            style={{ width: `${Math.min(100, progress)}%` }}
+          />
+        </div>
+      </div>
+
+      <EventoPanel glow="gold">
+        <h2 className="font-display text-xl font-semibold leading-snug text-[#f0e6c8] sm:text-2xl">{q.text}</h2>
+        <ul className="mt-5 space-y-2.5">
           {q.choices.map((c) => (
             <li key={c.id}>
               <button
                 type="button"
                 onClick={() => setAnswers((a) => ({ ...a, [q.id]: c.id }))}
                 className={cn(
-                  "w-full rounded-xl px-4 py-3 text-left text-sm ring-1 transition",
+                  "w-full rounded-xl px-4 py-3.5 text-left text-sm ring-1 transition",
                   picked === c.id
-                    ? "bg-[#f0e6c8]/15 text-[#f0e6c8] ring-[#f0e6c8]/50"
-                    : "bg-black/25 text-crema/80 ring-sand/15 hover:ring-[#f0e6c8]/30",
+                    ? "bg-[#c9a227]/20 text-[#f0e6c8] ring-[#c9a227]/55"
+                    : "bg-black/30 text-[#f0e6c8]/8 ring-[#f0e6c8]/12 hover:ring-[#2ea8ff]/35",
                 )}
               >
                 {c.text}
@@ -142,36 +162,21 @@ export function SmistamentoQuiz() {
             </li>
           ))}
         </ul>
-        <div className="mt-5 flex items-center justify-between gap-3">
-          <button
-            type="button"
-            disabled={idx === 0}
-            onClick={() => setIdx((i) => Math.max(0, i - 1))}
-            className="rounded-full px-4 py-2 text-sm text-crema/70 ring-1 ring-sand/20 disabled:opacity-30"
-          >
+        <div className="mt-6 flex items-center justify-between gap-3">
+          <EventoBtn variant="ghost" disabled={idx === 0} onClick={() => setIdx((i) => Math.max(0, i - 1))}>
             Indietro
-          </button>
+          </EventoBtn>
           {last ? (
-            <button
-              type="button"
-              disabled={!picked || submitting}
-              onClick={() => void finish()}
-              className="rounded-full bg-caramel/95 px-5 py-2 text-sm font-semibold text-ink disabled:opacity-40"
-            >
+            <EventoBtn disabled={!picked || submitting} onClick={() => void finish()}>
               {submitting ? "…" : "Scopri la fazione"}
-            </button>
+            </EventoBtn>
           ) : (
-            <button
-              type="button"
-              disabled={!picked}
-              onClick={() => setIdx((i) => Math.min(questions.length - 1, i + 1))}
-              className="rounded-full bg-caramel/95 px-5 py-2 text-sm font-semibold text-ink disabled:opacity-40"
-            >
+            <EventoBtn disabled={!picked} onClick={() => setIdx((i) => Math.min(questions.length - 1, i + 1))}>
               Avanti
-            </button>
+            </EventoBtn>
           )}
         </div>
-      </div>
+      </EventoPanel>
     </div>
   );
 }

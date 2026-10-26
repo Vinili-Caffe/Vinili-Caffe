@@ -1,9 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { Flag, Rocket } from "lucide-react";
 import { fetchEventoGara, pickEventoGara } from "@/lib/evento-api";
 import { useAuth } from "@/lib/auth";
 import { showToast } from "@/components/ui/toast";
+import { cn } from "@/lib/cn";
+import { EventoBtn, EventoKicker, EventoLoginGate, EventoPanel, EventoSkeleton, EventoTitle } from "@/components/evento/EventoUi";
 
 export function GaraGame() {
   const { token, ready, login } = useAuth();
@@ -48,47 +51,80 @@ export function GaraGame() {
     showToast(out.result?.won ? "Hai vinto la gara!" : `Arrivo ${out.result?.place}°`);
   }
 
-  if (loading) {
-    return <div className="mx-auto h-40 max-w-lg animate-pulse rounded-2xl bg-crema/8" aria-busy="true" />;
-  }
-
+  if (loading) return <EventoSkeleton className="mx-auto max-w-xl px-6" />;
   if (!token) {
     return (
-      <div className="mx-auto max-w-lg px-6 pb-16 text-center">
-        <p className="mb-4 text-sm text-crema/70">Accedi per scegliere lo sguscio.</p>
-        <button type="button" onClick={login} className="rounded-full bg-[#5865f2] px-5 py-2.5 text-sm font-semibold text-white">
-          Accedi
-        </button>
+      <div className="mx-auto max-w-lg px-6">
+        <EventoLoginGate label="Accedi per scegliere lo sguscio e lanciare la gara su Tatooine." onLogin={login} />
       </div>
     );
   }
 
   return (
-    <div className="mx-auto max-w-lg px-6 pb-20">
+    <div className="mx-auto max-w-xl px-6 space-y-5">
       {result ? (
-        <div className="mb-6 rounded-2xl bg-[#0b1220]/80 px-4 py-3 text-center ring-1 ring-[#f0e6c8]/15">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#f0e6c8]/70">Esito slot</p>
-          <p className="mt-1 font-display text-2xl text-[#f0e6c8]">
-            {result.won ? "Vittoria" : `${result.place}° posto`}
-          </p>
-          {pick ? <p className="mt-1 text-sm text-crema/65">Sguscio: {pods.find((p) => p.id === pick)?.label || pick}</p> : null}
-        </div>
-      ) : null}
-      <div className="grid gap-2">
-        {pods.map((p) => (
-          <button
-            key={p.id}
-            type="button"
-            disabled={!canPick || busy}
-            onClick={() => void choose(p.id)}
-            className="rounded-xl bg-gradient-to-r from-[#1a140c] to-[#0b1220] px-4 py-3 text-left text-sm font-semibold text-[#f0e6c8] ring-1 ring-[#f0e6c8]/15 transition hover:ring-[#c9a227]/50 disabled:opacity-40"
-          >
-            {p.label}
-          </button>
-        ))}
-      </div>
+        <EventoPanel className="text-center" glow={result.won ? "gold" : "blue"}>
+          <Flag className="mx-auto size-9 text-[#e4c76b]" aria-hidden />
+          <EventoKicker>Esito slot</EventoKicker>
+          <EventoTitle>{result.won ? "Vittoria!" : `${result.place}° posto`}</EventoTitle>
+          {pick ? (
+            <p className="mt-2 text-sm text-[#f0e6c8]/65">
+              Sguscio: {pods.find((p) => p.id === pick)?.label || pick}
+            </p>
+          ) : null}
+        </EventoPanel>
+      ) : (
+        <EventoPanel glow="none" className="text-center">
+          <Rocket className="mx-auto size-8 text-[#2ea8ff]" aria-hidden />
+          <EventoKicker>Podracing Championship</EventoKicker>
+          <p className="mt-2 text-sm text-[#f0e6c8]/65">Scegli lo sguscio. Un solo pick per slot.</p>
+        </EventoPanel>
+      )}
+
+      <ul className="grid gap-3">
+        {pods.map((p, i) => {
+          const selected = pick === p.id;
+          return (
+            <li key={p.id}>
+              <button
+                type="button"
+                disabled={!canPick || busy}
+                onClick={() => void choose(p.id)}
+                className={cn(
+                  "group relative flex w-full items-center gap-4 overflow-hidden rounded-2xl px-4 py-4 text-left ring-1 transition",
+                  selected
+                    ? "bg-gradient-to-r from-[#c9a227]/25 to-[#2ea8ff]/15 ring-[#c9a227]/55"
+                    : "bg-[rgba(10,16,32,0.75)] ring-[#f0e6c8]/12 hover:ring-[#2ea8ff]/40",
+                  "disabled:opacity-45",
+                )}
+              >
+                <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-[#2ea8ff]/15 font-display text-lg text-[#2ea8ff] ring-1 ring-[#2ea8ff]/30">
+                  {i + 1}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block font-display text-xl text-[#f0e6c8]">{p.label}</span>
+                  <span className="text-xs uppercase tracking-[0.2em] text-[#f0e6c8]/4">
+                    {selected ? "Selezionato" : canPick ? "Tocca per gareggiare" : "Bloccato"}
+                  </span>
+                </span>
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+
       {!canPick && !result ? (
-        <p className="mt-4 text-center text-sm text-crema/60">Gara non selezionabile in questo slot.</p>
+        <p className="text-center text-sm text-[#f0e6c8]/5">Gara non selezionabile in questo slot.</p>
+      ) : null}
+      {canPick ? (
+        <p className="text-center text-xs text-[#f0e6c8]/4">La scelta è definitiva per lo slot corrente.</p>
+      ) : null}
+      {result && !canPick ? (
+        <div className="text-center">
+          <EventoBtn variant="ghost" onClick={() => void reload()}>
+            Aggiorna
+          </EventoBtn>
+        </div>
       ) : null}
     </div>
   );

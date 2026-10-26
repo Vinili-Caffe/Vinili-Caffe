@@ -297,6 +297,22 @@ html.vc-phone-preview body {
     animation: none !important;
   }
 }
+
+/* Star Wars evento: twinkle stelle */
+@keyframes vcSwTwinkle {
+  from {
+    opacity: 0.55;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-\[vcSwTwinkle_8s_ease-in-out_infinite_alternate\],
+  .animate-\[vcSwTwinkle_12s_ease-in-out_infinite_alternate-reverse\] {
+    animation: none !important;
+  }
+}
 /* Capability gates — non citare utility Tailwind (.backdrop-blur, .blur-2xl…):
    LightningCSS/TW le mangia. Usare substring [class*="…"] + classi vc-fx-*. */
 html[data-vc-cap-fog="0"] .vc-hw-fog {

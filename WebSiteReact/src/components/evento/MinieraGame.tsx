@@ -1,9 +1,29 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { Gem, Pickaxe } from "lucide-react";
 import { digEventoMiniera, fetchEventoMiniera } from "@/lib/evento-api";
 import { useAuth } from "@/lib/auth";
 import { showToast } from "@/components/ui/toast";
+import { cn } from "@/lib/cn";
+import { EventoBtn, EventoKicker, EventoLoginGate, EventoPanel, EventoSkeleton, EventoTitle } from "@/components/evento/EventoUi";
+
+const COLOR_GLOW: Record<string, string> = {
+  rosso: "from-rose-500/40 to-rose-900/20 ring-rose-400/40",
+  blu: "from-sky-400/40 to-blue-900/20 ring-sky-400/40",
+  verde: "from-emerald-400/40 to-emerald-900/20 ring-emerald-400/40",
+  viola: "from-violet-400/40 to-violet-900/20 ring-violet-400/40",
+  giallo: "from-amber-300/40 to-amber-900/20 ring-amber-300/40",
+  bianco: "from-white/30 to-slate-700/20 ring-white/40",
+};
+
+function glowFor(color: string) {
+  const key = String(color || "").toLowerCase();
+  for (const [k, v] of Object.entries(COLOR_GLOW)) {
+    if (key.includes(k)) return v;
+  }
+  return "from-[#c9a227]/30 to-[#2ea8ff]/10 ring-[#c9a227]/35";
+}
 
 export function MinieraGame() {
   const { token, ready, login } = useAuth();
@@ -48,48 +68,62 @@ export function MinieraGame() {
     showToast(out.find?.rare ? `Kyber ${out.find.color} RARO!` : `Kyber ${out.find?.color || "?"}`);
   }
 
-  if (loading) {
-    return <div className="mx-auto h-40 max-w-lg animate-pulse rounded-2xl bg-crema/8" aria-busy="true" />;
-  }
-
+  if (loading) return <EventoSkeleton className="mx-auto max-w-lg px-6" />;
   if (!token) {
     return (
-      <div className="mx-auto max-w-lg px-6 pb-16 text-center">
-        <p className="mb-4 text-sm text-crema/70">Accedi per scavare nella miniera.</p>
-        <button type="button" onClick={login} className="rounded-full bg-[#5865f2] px-5 py-2.5 text-sm font-semibold text-white">
-          Accedi
-        </button>
+      <div className="mx-auto max-w-lg px-6">
+        <EventoLoginGate label="Accedi per scavare cristalli Kyber nella miniera di Ilum." onLogin={login} />
       </div>
     );
   }
 
   return (
-    <div className="mx-auto max-w-lg px-6 pb-20 text-center">
-      <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#f0e6c8]/70">Estrazioni oggi</p>
-      <p className="mt-1 font-display text-3xl text-[#f0e6c8]">{remaining} rimaste</p>
-      {last ? (
-        <p className="mt-3 text-sm text-crema/75">
-          Ultimo: <span className="text-[#c9a227]">{last.color}</span>
-          {last.rare ? " · raro" : ""}
-        </p>
-      ) : null}
-      <button
-        type="button"
-        disabled={!canDig || busy}
-        onClick={() => void dig()}
-        className="mt-6 rounded-full bg-[#c9a227] px-6 py-2.5 text-sm font-semibold text-[#1a140c] disabled:opacity-40"
-      >
-        Scava
-      </button>
+    <div className="mx-auto max-w-lg space-y-5 px-6">
+      <EventoPanel className="text-center" glow="gold">
+        <Pickaxe className="mx-auto size-9 text-[#e4c76b]" aria-hidden />
+        <EventoKicker>Estrazioni oggi</EventoKicker>
+        <EventoTitle>{remaining}</EventoTitle>
+        <p className="mt-1 text-sm text-[#f0e6c8]/6">rimaste · cristalli Kyber</p>
+
+        {last ? (
+          <div
+            className={cn(
+              "mx-auto mt-5 max-w-xs rounded-2xl bg-gradient-to-br p-4 ring-1",
+              glowFor(last.color),
+            )}
+          >
+            <Gem className="mx-auto size-7 text-[#f0e6c8]" aria-hidden />
+            <p className="mt-2 font-display text-xl text-[#f0e6c8]">
+              {last.color}
+              {last.rare ? " · raro" : ""}
+            </p>
+            <p className="text-[0.65rem] uppercase tracking-[0.25em] text-[#f0e6c8]/5">Ultimo ritrovamento</p>
+          </div>
+        ) : null}
+
+        <EventoBtn className="mt-6 w-full sm:w-auto" disabled={!canDig || busy} onClick={() => void dig()}>
+          {busy ? "Scavo…" : "Scava"}
+        </EventoBtn>
+      </EventoPanel>
+
       {finds.length ? (
-        <ul className="mt-8 space-y-1 text-left text-sm text-crema/65">
-          {finds.map((f, i) => (
-            <li key={`${f.color}-${i}`}>
-              Kyber {f.color}
-              {f.rare ? " ★" : ""}
-            </li>
-          ))}
-        </ul>
+        <EventoPanel glow="none">
+          <EventoKicker>Bottino di oggi</EventoKicker>
+          <ul className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
+            {finds.map((f, i) => (
+              <li
+                key={`${f.color}-${i}`}
+                className={cn(
+                  "rounded-xl bg-gradient-to-br px-3 py-2.5 text-center text-sm ring-1",
+                  glowFor(f.color),
+                )}
+              >
+                <span className="font-medium text-[#f0e6c8]">{f.color}</span>
+                {f.rare ? <span className="mt-0.5 block text-[0.6rem] uppercase tracking-wider text-[#e4c76b]">raro</span> : null}
+              </li>
+            ))}
+          </ul>
+        </EventoPanel>
       ) : null}
     </div>
   );

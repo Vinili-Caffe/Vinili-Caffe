@@ -1,9 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Crosshair, Timer, Trophy, Zap } from "lucide-react";
 import { fetchEventoAccademia, submitEventoAccademia } from "@/lib/evento-api";
 import { useAuth } from "@/lib/auth";
 import { showToast } from "@/components/ui/toast";
+import { EventoBtn, EventoKicker, EventoLoginGate, EventoPanel, EventoSkeleton, EventoTitle } from "@/components/evento/EventoUi";
 
 type Target = { id: string; x: number; y: number; r: number; points: number };
 
@@ -89,73 +91,90 @@ export function AccademiaGame() {
     });
   }
 
-  if (loading) {
-    return <div className="mx-auto h-48 max-w-lg animate-pulse rounded-2xl bg-crema/8" aria-busy="true" />;
-  }
-
-  if (!token) {
-    return (
-      <div className="mx-auto max-w-lg px-6 pb-16 text-center">
-        <p className="mb-4 text-sm text-crema/70">Accedi per le prove all&apos;Accademia.</p>
-        <button type="button" onClick={login} className="rounded-full bg-[#5865f2] px-5 py-2.5 text-sm font-semibold text-white">
-          Accedi
-        </button>
-      </div>
-    );
-  }
+  if (loading) return <EventoSkeleton className="mx-auto max-w-2xl px-6" />;
+  if (!token) return <div className="mx-auto max-w-lg px-6"><EventoLoginGate label="Accedi per le prove a tempo dell’Accademia Jedi." onLogin={login} /></div>;
 
   if (played) {
     return (
-      <div className="mx-auto max-w-lg px-6 pb-16 text-center">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#f0e6c8]/70">Prova completata</p>
-        <p className="mt-2 font-display text-3xl text-[#f0e6c8]">{score ?? 0} punti</p>
-        <p className="mt-2 text-sm text-crema/65">Torna allo slot successivo (ogni 4 ore).</p>
+      <div className="mx-auto max-w-lg px-6">
+        <EventoPanel className="text-center" glow="gold">
+          <Trophy className="mx-auto size-10 text-[#e4c76b]" aria-hidden />
+          <EventoKicker>Prova completata</EventoKicker>
+          <EventoTitle>{score ?? 0} punti</EventoTitle>
+          <p className="mt-3 text-sm text-[#f0e6c8]/65">Prossimo slot tra circa 4 ore. La Forza è con te.</p>
+        </EventoPanel>
       </div>
     );
   }
 
   if (!playable && !targets.length) {
-    return <p className="mx-auto max-w-lg px-6 pb-16 text-center text-sm text-crema/65">Accademia non in calendario — in anteprima HS è comunque giocabile quando il backend la espone.</p>;
+    return (
+      <p className="mx-auto max-w-lg px-6 text-center text-sm text-[#f0e6c8]/55">
+        Accademia fuori calendario — in anteprima HS resta giocabile quando il backend la espone.
+      </p>
+    );
   }
 
   return (
-    <div className="mx-auto max-w-xl px-6 pb-20">
-      <div className="mb-3 flex items-center justify-between text-sm text-crema/70">
-        <span>{running ? `${left}s` : "Pronto"}</span>
-        <span>{hits.length} colpi</span>
-      </div>
-      {!running ? (
-        <button
-          type="button"
-          onClick={start}
-          disabled={!targets.length}
-          className="mb-4 w-full rounded-full bg-[#c9a227] px-5 py-2.5 text-sm font-semibold text-[#1a140c] disabled:opacity-40"
+    <div className="mx-auto max-w-2xl px-6">
+      <EventoPanel glow="blue" className="!p-0 overflow-hidden">
+        <div className="flex items-center justify-between gap-3 border-b border-[#f0e6c8]/10 px-4 py-3 sm:px-5">
+          <div className="flex items-center gap-2 text-sm text-[#f0e6c8]/75">
+            <Timer className="size-4 text-[#2ea8ff]" aria-hidden />
+            <span className="font-display text-xl tabular-nums text-[#f0e6c8]">{running ? `${left}s` : "30s"}</span>
+          </div>
+          <div className="flex items-center gap-2 text-sm text-[#f0e6c8]/75">
+            <Zap className="size-4 text-[#c9a227]" aria-hidden />
+            <span className="tabular-nums">{hits.length} colpi</span>
+          </div>
+        </div>
+
+        {!running ? (
+          <div className="px-4 py-4 sm:px-5">
+            <div className="mb-4 flex items-start gap-3">
+              <Crosshair className="mt-0.5 size-5 shrink-0 text-[#2ea8ff]" aria-hidden />
+              <p className="text-sm leading-relaxed text-[#f0e6c8]/7">
+                Colpisci i bersagli luminosi prima che scada il tempo. Ogni hit vale punti — svuota l’arena.
+              </p>
+            </div>
+            <EventoBtn className="w-full" onClick={start} disabled={!targets.length}>
+              Inizia la prova
+            </EventoBtn>
+          </div>
+        ) : null}
+
+        <div
+          className="relative aspect-[4/3] bg-[radial-gradient(ellipse_at_center,rgba(18,32,64,0.9),rgba(5,7,15,0.95))]"
+          onClick={(e) => e.preventDefault()}
         >
-          Inizia prova (30s)
-        </button>
-      ) : null}
-      <div
-        className="relative aspect-[4/3] overflow-hidden rounded-2xl bg-gradient-to-br from-[#0b1220] to-[#1a140c] ring-1 ring-[#f0e6c8]/15"
-        onClick={(e) => e.preventDefault()}
-      >
-        {targets.map((t) => (
-          <button
-            key={t.id}
-            type="button"
-            aria-label={`Bersaglio ${t.points}`}
-            disabled={!running}
-            onClick={() => hit(t.id)}
-            className="absolute rounded-full bg-[#c9a227]/90 shadow-[0_0_12px_rgba(201,162,39,0.5)] transition hover:scale-110 disabled:opacity-50"
+          <div
+            className="pointer-events-none absolute inset-0 opacity-30"
             style={{
-              left: `${t.x}%`,
-              top: `${t.y}%`,
-              width: `${t.r * 2}%`,
-              height: `${t.r * 2}%`,
-              transform: "translate(-50%, -50%)",
+              backgroundImage:
+                "linear-gradient(rgba(46,168,255,0.12) 1px, transparent 1px), linear-gradient(90deg, rgba(46,168,255,0.12) 1px, transparent 1px)",
+              backgroundSize: "28px 28px",
             }}
+            aria-hidden
           />
-        ))}
-      </div>
+          {targets.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              aria-label={`Bersaglio ${t.points}`}
+              disabled={!running}
+              onClick={() => hit(t.id)}
+              className="absolute rounded-full bg-gradient-to-br from-[#e4c76b] to-[#c9a227] shadow-[0_0_22px_rgba(201,162,39,0.75)] ring-2 ring-[#f0e6c8]/40 transition hover:scale-110 disabled:opacity-40"
+              style={{
+                left: `${t.x}%`,
+                top: `${t.y}%`,
+                width: `${Math.max(t.r * 2, 6)}%`,
+                height: `${Math.max(t.r * 2, 6)}%`,
+                transform: "translate(-50%, -50%)",
+              }}
+            />
+          ))}
+        </div>
+      </EventoPanel>
     </div>
   );
 }

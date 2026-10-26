@@ -10,13 +10,17 @@ const PuzzleBoard = dynamic(() => import("@/components/puzzle/PuzzleBoard").then
 });
 
 export const metadata: Metadata = {
-  ...pageSocialMeta({ path: "/puzzle/", title: "Puzzle", description: "Puzzle galassia riservato all’High Staff — pezzi da ricomporre." }),
+  ...pageSocialMeta({
+    path: "/puzzle/",
+    title: "Puzzle",
+    description: "Puzzle galassia riservato all’High Staff — pezzi da ricomporre.",
+  }),
   robots: { index: false },
 };
 
 export default function PuzzlePage() {
   return (
-    <SiteShell>
+    <SiteShell chrome="evento">
       <DiscordComponentEmbed
         path="/puzzle/"
         title="Puzzle"

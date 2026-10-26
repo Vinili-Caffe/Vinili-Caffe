@@ -1,13 +1,12 @@
 import type { ReactNode } from "react";
 import { Sparkles } from "lucide-react";
 import { DiscordComponentEmbed } from "@/components/DiscordComponentEmbed";
-import { PageHero } from "@/components/PageHero";
 import { SiteShell } from "@/components/SiteShell";
 import { EventoAccessGate } from "@/components/evento/EventoAccessGate";
-import { EventoNav } from "@/components/evento/EventoNav";
-import { EVENTO_BRAND, EVENTO_KICKER, type EventoPageId } from "@/lib/evento-starwars";
+import { EventoHero } from "@/components/evento/EventoHero";
+import { EVENTO_BRAND, type EventoPageId } from "@/lib/evento-starwars";
 
-/** Shell comune pagine `/evento/*` (+ gate: non pubblici → redirect home). */
+/** Shell comune `/evento/*`: bypass chrome sito → tema Star Wars. */
 export function EventoPage({
   pageId,
   path,
@@ -15,6 +14,7 @@ export function EventoPage({
   accent = EVENTO_BRAND,
   text,
   children,
+  icon,
 }: {
   pageId: EventoPageId;
   path: string;
@@ -22,16 +22,14 @@ export function EventoPage({
   accent?: string;
   text: string;
   children: ReactNode;
+  icon?: ReactNode;
 }) {
   return (
-    <SiteShell>
+    <SiteShell chrome="evento">
       <DiscordComponentEmbed path={path} title={title} description={text} pageLabel="Apri l’evento" />
       <EventoAccessGate pageId={pageId}>
-        <PageHero icon={<Sparkles />} kicker={EVENTO_KICKER} title={title} accent={accent} text={text} />
-        <div className="-mt-10 mb-10 sm:-mt-14">
-          <EventoNav />
-        </div>
-        {children}
+        <EventoHero icon={icon ?? <Sparkles />} title={title} accent={accent} text={text} />
+        <div className="pb-16">{children}</div>
       </EventoAccessGate>
     </SiteShell>
   );

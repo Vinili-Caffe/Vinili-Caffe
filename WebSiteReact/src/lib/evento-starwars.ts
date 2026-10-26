@@ -6,8 +6,14 @@
 import { page } from "@/lib/site";
 import type { StaffAccess } from "@/lib/staff";
 
-export const EVENTO_KICKER = "Evento stagionale";
+export const EVENTO_KICKER = "Una galassia lontana lontana";
 export const EVENTO_BRAND = "Star Wars";
+
+/**
+ * Bypass chrome sito su /evento e /puzzle: navbar VC → nav evento + tema SW.
+ * (Accesso pagine resta HS / finestra pubblica — questo è solo immersione UI.)
+ */
+export const EVENTO_CHROME_BYPASS = true;
 
 /**
  * Master switch sito: false = NESSUN accesso pubblico (né menu, né gate pagine).

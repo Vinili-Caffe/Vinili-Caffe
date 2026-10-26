@@ -24,6 +24,9 @@ function pathSuppressesSiteMusic(pathname: string) {
   const p = String(pathname || "").replace(/\/+$/, "") || "/";
   if (p === "/confessionale") return true;
   if (p === "/seratafilm" || p.startsWith("/seratafilm/")) return true;
+  /* Evento Star Wars: BGM dedicato (EventoMusic). */
+  if (p === "/evento" || p.startsWith("/evento/")) return true;
+  if (p === "/puzzle" || p.startsWith("/puzzle/")) return true;
   return false;
 }
 

@@ -20,7 +20,13 @@ export const metadata: Metadata = {
 
 export default function EventoHubPage() {
   return (
-    <EventoPage pageId="hub" path={meta.path} title="Evento" accent={EVENTO_BRAND} text={meta.description}>
+    <EventoPage
+      pageId="hub"
+      path={meta.path}
+      title="Centro comando"
+      accent={EVENTO_BRAND}
+      text="Calendario, fazioni, shop e attività sparse nella galassia. Naviga dalla barra in alto."
+    >
       <EventoHubStatus />
       <EventoHubLinks />
       <EventoShopPanel />

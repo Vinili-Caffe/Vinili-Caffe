@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { attackEventoFaction, buyEventoUnit, fetchEventoShop } from "@/lib/evento-api";
 import { useAuth } from "@/lib/auth";
 import { showToast } from "@/components/ui/toast";
+import { EventoBtn, EventoKicker, EventoPanel } from "@/components/evento/EventoUi";
 
 type Unit = { id: string; label: string; cost: number; power: number; tier: number };
 
@@ -57,8 +58,8 @@ export function EventoShopPanel() {
   if (loading) return null;
   if (!token) {
     return (
-      <div className="mx-auto mb-10 max-w-3xl px-6 text-center">
-        <button type="button" onClick={login} className="text-sm text-[#c9a227] underline">
+      <div className="mx-auto mb-10 max-w-4xl px-6 text-center">
+        <button type="button" onClick={login} className="text-sm text-[#c9a227] underline underline-offset-2">
           Accedi per lo shop fazioni
         </button>
       </div>
@@ -66,52 +67,52 @@ export function EventoShopPanel() {
   }
 
   return (
-    <div className="mx-auto mb-14 max-w-3xl px-6">
-      <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
-        <div>
-          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#f0e6c8]/70">Shop truppe</p>
-          <p className="text-sm text-crema/70">{credits.toLocaleString("it-IT")} crediti</p>
+    <div className="mx-auto mb-12 max-w-4xl px-6">
+      <EventoPanel glow="gold">
+        <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <EventoKicker>Arsenale fazioni</EventoKicker>
+            <p className="mt-1 font-display text-2xl text-[#f0e6c8]">
+              {credits.toLocaleString("it-IT")}{" "}
+              <span className="text-base text-[#f0e6c8]/5">crediti</span>
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <EventoBtn variant="danger" disabled={!attackEnabled || busy} onClick={() => void attack(false)}>
+              Attacca
+            </EventoBtn>
+            <EventoBtn variant="blue" disabled={!attackEnabled || busy} onClick={() => void attack(true)}>
+              Difendi
+            </EventoBtn>
+          </div>
         </div>
-        <div className="flex gap-2">
-          <button
-            type="button"
-            disabled={!attackEnabled || busy}
-            onClick={() => void attack(false)}
-            className="rounded-full bg-[#8b1a1a] px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-40"
-          >
-            Attacca
-          </button>
-          <button
-            type="button"
-            disabled={!attackEnabled || busy}
-            onClick={() => void attack(true)}
-            className="rounded-full bg-[#2f6fed] px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-40"
-          >
-            Difendi
-          </button>
-        </div>
-      </div>
-      <ul className="grid gap-2 sm:grid-cols-2">
-        {units.map((u) => (
-          <li key={u.id} className="flex items-center justify-between gap-2 rounded-xl bg-[#0b1220]/70 px-3 py-2 ring-1 ring-[#f0e6c8]/12">
-            <div>
-              <p className="text-sm font-semibold text-[#f0e6c8]">{u.label}</p>
-              <p className="text-xs text-crema/55">
-                T{u.tier} · pot {u.power} · {u.cost.toLocaleString("it-IT")}
-              </p>
-            </div>
-            <button
-              type="button"
-              disabled={!buyEnabled || busy || credits < u.cost}
-              onClick={() => void buy(u.id)}
-              className="rounded-full bg-[#c9a227] px-3 py-1 text-xs font-semibold text-[#1a140c] disabled:opacity-40"
+
+        <ul className="grid gap-2.5 sm:grid-cols-2">
+          {units.map((u) => (
+            <li
+              key={u.id}
+              className="flex items-center justify-between gap-3 rounded-xl bg-black/35 px-3.5 py-3 ring-1 ring-[#f0e6c8]/1"
             >
-              Compra
-            </button>
-          </li>
-        ))}
-      </ul>
-      {!buyEnabled ? <p className="mt-2 text-xs text-crema/50">Acquisti in anteprima HS o quando economia ON.</p> : null}
+              <div className="min-w-0">
+                <p className="truncate font-semibold text-[#f0e6c8]">{u.label}</p>
+                <p className="text-xs text-[#f0e6c8]/45">
+                  Tier {u.tier} · potenza {u.power} · {u.cost.toLocaleString("it-IT")} cr
+                </p>
+              </div>
+              <EventoBtn
+                className="!px-3 !py-1.5 !text-xs"
+                disabled={!buyEnabled || busy || credits < u.cost}
+                onClick={() => void buy(u.id)}
+              >
+                Compra
+              </EventoBtn>
+            </li>
+          ))}
+        </ul>
+        {!buyEnabled ? (
+          <p className="mt-3 text-xs text-[#f0e6c8]/4">Acquisti in anteprima HS o quando l’economia è ON.</p>
+        ) : null}
+      </EventoPanel>
     </div>
   );
 }

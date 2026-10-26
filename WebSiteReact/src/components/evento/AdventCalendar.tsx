@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { Gift } from "lucide-react";
 import { ADVENT_DAYS, adventSlotForRomeDate } from "@/lib/evento-avvento";
 import {
   claimEventoAvventoDay,
@@ -10,6 +11,7 @@ import {
 import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/cn";
 import { showToast } from "@/components/ui/toast";
+import { EventoKicker, EventoPanel, EventoSkeleton } from "@/components/evento/EventoUi";
 
 /** Griglia 25 caselle — stato reale da API (claim HS / da 1 dic). */
 export function AdventCalendar() {
@@ -54,18 +56,10 @@ export function AdventCalendar() {
     await reload();
   }
 
-  if (loading) {
-    return (
-      <div className="mx-auto max-w-4xl px-6 pb-24" aria-busy="true">
-        <div className="h-48 animate-pulse rounded-2xl bg-crema/8" />
-      </div>
-    );
-  }
+  if (loading) return <EventoSkeleton className="mx-auto max-w-4xl px-6" />;
 
   if (gateMsg && !days) {
-    return (
-      <div className="mx-auto max-w-lg px-6 pb-24 text-center text-sm text-crema/65">{gateMsg}</div>
-    );
+    return <div className="mx-auto max-w-lg px-6 pb-8 text-center text-sm text-[#f0e6c8]/55">{gateMsg}</div>;
   }
 
   const rows =
@@ -82,16 +76,21 @@ export function AdventCalendar() {
         }));
 
   return (
-    <div className="mx-auto max-w-4xl px-6 pb-24">
-      <p className="mb-4 text-center text-xs text-crema/50">
-        {todayAdvent
-          ? `Oggi: giorno ${todayAdvent} · tocca una casella sbloccata per ritirare`
-          : "Catalogo premi · ritiro dal 1° dicembre (HS in anteprima)"}
-      </p>
-      {!token ? (
-        <p className="mb-4 text-center text-xs text-caramel/90">Accedi con Discord per ritirare i premi.</p>
-      ) : null}
-      <ol className="grid grid-cols-5 gap-2 sm:grid-cols-5 md:gap-2.5">
+    <div className="mx-auto max-w-4xl px-6">
+      <EventoPanel className="mb-5 text-center" glow="gold">
+        <Gift className="mx-auto size-8 text-[#e4c76b]" aria-hidden />
+        <EventoKicker>Calendario galattico</EventoKicker>
+        <p className="mt-2 text-sm text-[#f0e6c8]/7">
+          {todayAdvent
+            ? `Oggi è il giorno ${todayAdvent} — tocca una casella sbloccata per ritirare.`
+            : "25 casse di crediti e premi · ritiro dal 1° dicembre (HS in anteprima)."}
+        </p>
+        {!token ? (
+          <p className="mt-2 text-xs text-[#c9a227]">Accedi con Discord per ritirare i premi.</p>
+        ) : null}
+      </EventoPanel>
+
+      <ol className="grid grid-cols-5 gap-2 md:gap-2.5">
         {rows.map((slot) => {
           const isToday = todayAdvent === slot.day;
           const past = todayAdvent != null && slot.day < todayAdvent;
@@ -104,27 +103,27 @@ export function AdventCalendar() {
                 onClick={() => void onClaim(slot.day)}
                 title={slot.label}
                 className={cn(
-                  "flex min-h-[4.75rem] w-full flex-col items-stretch justify-between rounded-xl p-2 text-left ring-1 transition sm:min-h-[5.5rem] sm:p-2.5",
+                  "relative flex min-h-[5rem] w-full flex-col items-stretch justify-between overflow-hidden rounded-2xl p-2 text-left ring-1 transition sm:min-h-[5.75rem] sm:p-2.5",
                   slot.claimed
-                    ? "bg-[#f0e6c8]/20 ring-[#f0e6c8]/45"
+                    ? "bg-gradient-to-br from-[#c9a227]/35 to-[#2ea8ff]/15 ring-[#c9a227]/55"
                     : isToday
-                      ? "bg-[#f0e6c8]/15 ring-[#f0e6c8]/50"
+                      ? "bg-gradient-to-br from-[#2ea8ff]/25 to-[#c9a227]/15 ring-[#2ea8ff]/55 shadow-[0_0_24px_-8px_rgba(46,168,255,0.55)]"
                       : past || slot.unlocked
-                        ? "bg-black/25 ring-sand/10 opacity-80"
-                        : "bg-black/35 ring-[#f0e6c8]/18 opacity-60",
-                  slot.canClaim && "cursor-pointer hover:ring-[#f0e6c8]/70",
+                        ? "bg-[rgba(10,16,32,0.7)] ring-[#f0e6c8]/12 opacity-85"
+                        : "bg-black/40 ring-[#f0e6c8]/1 opacity-55",
+                  slot.canClaim && "cursor-pointer hover:ring-[#e4c76b]/80",
                   !slot.canClaim && "cursor-default",
                 )}
               >
                 <span
                   className={cn(
-                    "font-display text-lg font-semibold tabular-nums leading-none sm:text-xl",
-                    isToday || slot.claimed ? "text-[#f0e6c8]" : "text-crema/80",
+                    "font-display text-xl font-semibold tabular-nums leading-none sm:text-2xl",
+                    isToday || slot.claimed ? "text-[#f0e6c8]" : "text-[#f0e6c8]/7",
                   )}
                 >
                   {slot.day}
                 </span>
-                <span className="mt-1 line-clamp-3 text-[0.62rem] font-medium leading-snug text-crema/65 sm:text-[0.68rem]">
+                <span className="mt-1 line-clamp-3 text-[0.62rem] font-medium leading-snug text-[#f0e6c8]/6 sm:text-[0.68rem]">
                   {slot.claimed ? `✓ ${slot.label}` : busy ? "…" : slot.label}
                 </span>
               </button>

@@ -21,6 +21,11 @@ import { PresenceRoot } from "./presence/PresenceRoot";
 import { ViewAsProvider } from "./view-as/ViewAsChrome";
 import { UiProviders } from "./ui/providers";
 import { ScrollProgress } from "./magicui/scroll-progress";
+import { EventoFooter } from "./evento/EventoFooter";
+import { EventoMusic } from "./evento/EventoMusic";
+import { EventoStarfield } from "./evento/EventoStarfield";
+import { EventoTopNav } from "./evento/EventoTopNav";
+import { EVENTO_CHROME_BYPASS } from "@/lib/evento-starwars";
 function RichScrollProgress() {
   const { caps } = useDeviceFx();
   if (!caps.scrollChrome) return null;
@@ -45,8 +50,17 @@ function ShellMotion({ children }: { children: React.ReactNode }) {
   return <MotionConfig reducedMotion={reducedMotion}>{children}</MotionConfig>;
 }
 
-/** Navbar + footer comuni a tutte le pagine. */
-export function SiteShell({ children }: { children: React.ReactNode }) {
+type SiteShellChrome = "site" | "evento";
+
+/** Navbar + footer comuni. `chrome="evento"` = bypass UI Star Wars (nav/tema/musica). */
+export function SiteShell({
+  children,
+  chrome = "site",
+}: {
+  children: React.ReactNode;
+  chrome?: SiteShellChrome;
+}) {
+  const evento = chrome === "evento" && EVENTO_CHROME_BYPASS;
   return (
     <DeviceFxProvider>
       <ShellMotion>
@@ -59,7 +73,7 @@ export function SiteShell({ children }: { children: React.ReactNode }) {
             <OfflineQueueBoot />
             <StorageGc />
             <SourceGuard />
-            <RichScrollProgress />
+            {!evento ? <RichScrollProgress /> : null}
             <ViewState />
             <Suspense fallback={null}>
               <ScrollToTop />
@@ -70,15 +84,18 @@ export function SiteShell({ children }: { children: React.ReactNode }) {
             </Suspense>
             <PresenceRoot />
             <ApiOutageBanner />
-            <SponsorAd />
-            <Navbar />
-            <main className="min-h-[70dvh]">{children}</main>
-            <Footer />
+            {!evento ? <SponsorAd /> : null}
+            {evento ? <EventoStarfield /> : null}
+            {evento ? <EventoTopNav /> : <Navbar />}
+            <main className={evento ? "relative min-h-[70dvh] text-[#f0e6c8]" : "min-h-[70dvh]"}>
+              {children}
+            </main>
+            {evento ? <EventoFooter /> : <Footer />}
             <CookieConsent />
             <NotifLiveToasts />
             <BackToTopFab />
-            <VinylMusicRoot />
-            <SiteEffects />
+            {evento ? <EventoMusic /> : <VinylMusicRoot />}
+            {!evento ? <SiteEffects /> : null}
           </ViewAsProvider>
         </UiProviders>
       </ShellMotion>

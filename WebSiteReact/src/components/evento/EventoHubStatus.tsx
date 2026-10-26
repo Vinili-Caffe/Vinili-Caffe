@@ -3,8 +3,9 @@
 import { useEffect, useState } from "react";
 import { fetchEventoStatus, type EventoStatus } from "@/lib/evento-api";
 import { useAuth } from "@/lib/auth";
+import { EventoKicker, EventoPanel } from "@/components/evento/EventoUi";
 
-/** Stato live hub: epoca / economia / wallet (Fase 0). */
+/** Stato live hub: epoca / economia / wallet. */
 export function EventoHubStatus() {
   const { token, ready } = useAuth();
   const [st, setSt] = useState<EventoStatus | null>(null);
@@ -24,24 +25,39 @@ export function EventoHubStatus() {
 
   const feat = st.features;
   const w = st.wallet;
-  const lines: string[] = [];
-  if (!(st as { publicEnabled?: boolean }).publicEnabled) lines.push("NON pubblico");
-  if (feat?.epoch) lines.push(`Epoca: ${feat.epoch.replace(/_/g, " ")}`);
-  if (feat?.economyOn) lines.push(`Economia fase ${feat.economyPhase ?? "?"}`);
-  else if (st.canParticipate) lines.push("Economia: off");
-  if (st.todayAdvent) lines.push(`Avvento giorno ${st.todayAdvent}`);
-  if (w?.factionId) lines.push(`Fazione: ${w.factionId}`);
-  if (w) lines.push(`${w.credits.toLocaleString("it-IT")} crediti · ${w.exp.toLocaleString("it-IT")} exp`);
+  const chips: string[] = [];
+  if (!(st as { publicEnabled?: boolean }).publicEnabled) chips.push("Chiuso al pubblico");
+  if (feat?.epoch) chips.push(feat.epoch.replace(/_/g, " "));
+  if (feat?.economyOn) chips.push(`Economia fase ${feat.economyPhase ?? "?"}`);
+  else if (st.canParticipate) chips.push("Economia off");
+  if (st.todayAdvent) chips.push(`Avvento giorno ${st.todayAdvent}`);
+  if (w?.factionId) chips.push(`Fazione ${w.factionId}`);
 
   return (
-    <div className="mx-auto mb-6 max-w-3xl px-6">
-      <div className="rounded-2xl bg-gradient-to-br from-[#0b1220]/90 to-[#1a140c]/90 px-4 py-3 ring-1 ring-[#f0e6c8]/18">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#f0e6c8]/70">
-          {st.publicOpen ? "Live pubblico" : st.canPreview ? "Anteprima HS · chiuso al pubblico" : "Chiuso"}
-          {st.romeDate ? ` · ${st.romeDate}` : ""}
-        </p>
-        <p className="mt-1.5 text-sm text-crema/75">{lines.join(" · ") || "—"}</p>
-      </div>
+    <div className="mx-auto mb-6 max-w-4xl px-6">
+      <EventoPanel glow="blue">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <EventoKicker>
+              {st.publicOpen ? "Live pubblico" : st.canPreview ? "Anteprima High Staff" : "Chiuso"}
+              {st.romeDate ? ` · ${st.romeDate}` : ""}
+            </EventoKicker>
+            <p className="mt-2 text-sm text-[#f0e6c8]/7">
+              {chips.length ? chips.join(" · ") : "Stato evento"}
+            </p>
+          </div>
+          {w ? (
+            <div className="text-right">
+              <p className="font-display text-2xl text-[#e4c76b] tabular-nums">
+                {w.credits.toLocaleString("it-IT")}
+              </p>
+              <p className="text-[0.65rem] uppercase tracking-[0.22em] text-[#f0e6c8]/45">
+                crediti · {w.exp.toLocaleString("it-IT")} exp
+              </p>
+            </div>
+          ) : null}
+        </div>
+      </EventoPanel>
     </div>
   );
 }
