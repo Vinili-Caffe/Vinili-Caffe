@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import {
   Bell,
   CheckCircle2,
+  Heart,
   MessageSquare,
   Shield,
   Sparkles,
@@ -38,6 +39,7 @@ const BELL_SYNC = "vc:notif-bell-sync";
 function kindIcon(kind: string) {
   if (kind === "vote" || kind === "vote_reminder") return Star;
   if (kind === "success") return CheckCircle2;
+  if (kind === "contest") return Heart;
   if (kind === "review" || kind === "suggestion") return MessageSquare;
   if (kind === "mod" || kind === "staff") return Shield;
   if (kind === "web_ticket" || kind === "web_ticket_mention" || kind === "web_ticket_sla") return Ticket;
@@ -47,6 +49,7 @@ function kindIcon(kind: string) {
 
 function kindTone(kind: string) {
   if (kind === "vote" || kind === "vote_reminder" || kind === "success") return "text-ember bg-caramel/20 ring-caramel/30";
+  if (kind === "contest") return "text-rose-200 bg-rose-500/20 ring-rose-400/30";
   if (kind === "review") return "text-amber-200 bg-amber-500/20 ring-amber-400/30";
   if (kind === "mod" || kind === "staff") return "text-sky-200 bg-sky-500/20 ring-sky-400/30";
   if (kind === "suggestion") return "text-violet-200 bg-violet-500/20 ring-violet-400/30";

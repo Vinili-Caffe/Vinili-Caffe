@@ -51,6 +51,7 @@ function normalizeKind(kind) {
       "staff",
       "confessionale",
       "suggestion",
+      "contest",
       "web_ticket",
       "web_ticket_mention",
       "web_ticket_sla",

@@ -65,7 +65,7 @@ const SITE_NOTIF_GROUPS = Object.freeze([
     key: "general",
     label: "Altri avvisi sito",
     hint: "",
-    kinds: Object.freeze(["info", "success", "suggestion", "mod"]),
+    kinds: Object.freeze(["info", "success", "suggestion", "mod", "contest"]),
   },
 ]);
 

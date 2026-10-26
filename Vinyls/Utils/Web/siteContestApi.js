@@ -10,6 +10,8 @@ const { fetchDiscordOAuthMe } = require("./discordOauthMe");
 const { assertWebsiteStaffAccess } = require("./siteStaffAccessApi");
 const { SiteContest } = require("../../Schemas/Web/siteContestSchemas");
 const { fetchWebsiteGuildMember } = require("./websiteGuildMemberFetch");
+const { enqueueSiteInAppNotification } = require("./siteInAppNotificationsService");
+const IDsGuild = () => String(IDs?.guilds?.main || "").trim();
 
 const UPLOAD_ROOT = path.resolve(__dirname, "../../../Data/uploads/site-contests");
 const MAX_BYTES = 4 * 1024 * 1024;
@@ -449,7 +451,41 @@ async function castSwipe(client, { eventKey, accessToken, submissionId, action }
     sub.likes = (Number(sub.likes) || 0) + 1;
   }
   await doc.save();
+
+  if (act === "like") {
+    void notifyOwnerLike(client, event, sub).catch(() => null);
+  }
+
   return { ok: true, status: 200, action: act, likes: Number(sub.likes) || 0 };
+}
+
+/** Like → notifica owner, stackabile (replaceDedupe + collapseDigest) finché non letta. */
+async function notifyOwnerLike(client, event, sub) {
+  const ownerId = String(sub?.userId || "").trim();
+  if (!ownerId || !/^\d{5,32}$/.test(ownerId)) return;
+  if (String(ownerId).startsWith("demo")) return;
+
+  const cats = eventCategories(event);
+  const catId = String(sub.category || "main");
+  const catLabel = cats.find((c) => c.id === catId)?.label || catId;
+  const guildId = IDsGuild() || "global";
+  const likes = Math.max(1, Number(sub.likes) || 1);
+  const openUrl = `/contest/${encodeURIComponent(event.key)}/`;
+  const section = event.kind === "sfondi" ? `sfondo ${catLabel}` : catLabel;
+
+  await enqueueSiteInAppNotification({
+    guildId,
+    userId: ownerId,
+    title: "Nuovo like al contest",
+    body: `Hai ricevuto un like sul tuo ${section} (totale ${likes}).`,
+    kind: "contest",
+    channel: "inbox",
+    openUrl,
+    dedupeKey: `contest:like:${event.key}:${sub.id}`,
+    replaceDedupe: true,
+    collapseDigest: true,
+    digestLabel: `like al tuo ${section}`,
+  });
 }
 
 async function getLeaderboard(client, { eventKey, accessToken, category, page = 1, pageSize = 10 } = {}) {

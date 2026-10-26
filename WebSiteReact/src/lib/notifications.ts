@@ -267,6 +267,7 @@ export const KIND_LABEL: Record<string, string> = {
   staff: "Eventi staff",
   confessionale: "Confessioni",
   suggestion: "Feedback",
+  contest: "Contest",
   web_ticket: "Ticket",
   info: "Info",
 };

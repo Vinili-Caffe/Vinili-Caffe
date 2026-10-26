@@ -64,6 +64,7 @@ function Pill({ on, onClick, children, className }: { on: boolean; onClick: () =
 
 function kindIconTone(kind: string) {
   if (kind === "vote" || kind === "vote_reminder" || kind === "success") return "text-ember bg-caramel/15 ring-caramel/25";
+  if (kind === "contest") return "text-rose-200 bg-rose-500/15 ring-rose-400/25";
   if (kind === "review") return "text-amber-200 bg-amber-500/15 ring-amber-400/25";
   if (kind === "mod" || kind === "staff") return "text-sky-200 bg-sky-500/15 ring-sky-400/25";
   if (kind === "suggestion") return "text-violet-200 bg-violet-500/15 ring-violet-400/25";
