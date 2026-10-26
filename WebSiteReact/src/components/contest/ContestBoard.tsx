@@ -166,7 +166,7 @@ function Panel({ children, className }: { children: React.ReactNode; className?:
 export function ContestBoard({ eventKey }: { eventKey: string }) {
   const { ready, token, login } = useAuth();
   const [status, setStatus] = useState<ContestStatus | null>(null);
-  const [tab, setTab] = useState<Tab>("board");
+  const [tab, setTab] = useState<Tab>("submit");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
   const [deck, setDeck] = useState<ContestSubmission[]>([]);
@@ -183,6 +183,7 @@ export function ContestBoard({ eventKey }: { eventKey: string }) {
   const draggingRef = useRef(false);
   const startXRef = useRef(0);
   const rafRef = useRef(0);
+  const autoTabDone = useRef(false);
 
   const cats = useMemo<ContestCategory[]>(
     () => (status?.categories?.length ? status.categories : [{ id: "main", label: "Main" }]),
@@ -205,7 +206,10 @@ export function ContestBoard({ eventKey }: { eventKey: string }) {
   const reload = useCallback(async () => {
     const s = await fetchContestStatus(eventKey, token);
     setStatus(s);
-    if (s?.phase === "after") setTab("board");
+    if (s?.phase === "after") {
+      setTab("board");
+      autoTabDone.current = true;
+    }
   }, [eventKey, token]);
 
   const loadFeed = useCallback(async () => {
@@ -226,9 +230,68 @@ export function ContestBoard({ eventKey }: { eventKey: string }) {
   }, [eventKey, token, catBoard, boardPage]);
 
   useEffect(() => {
+    autoTabDone.current = false;
+  }, [eventKey, token]);
+
+  useEffect(() => {
     if (!ready) return;
     void reload();
   }, [ready, reload]);
+
+  /* Tab iniziale: Invia se non hai mandato; se sì → Vota se ci sono nuovi, altrimenti Classifica. */
+  useEffect(() => {
+    if (!ready || !status || autoTabDone.current) return;
+    if (status.phase === "after") {
+      setTab("board");
+      autoTabDone.current = true;
+      return;
+    }
+    if (status.phase === "before" && !status.staffPreview) {
+      setTab("board");
+      autoTabDone.current = true;
+      return;
+    }
+
+    let alive = true;
+    (async () => {
+      if (!token) {
+        if (alive) {
+          setTab("submit");
+          autoTabDone.current = true;
+        }
+        return;
+      }
+      const mine = status.mySubmissions || [];
+      if (!mine.length) {
+        if (alive) {
+          setTab("submit");
+          autoTabDone.current = true;
+        }
+        return;
+      }
+      const catList =
+        status.categories?.length ? status.categories : ([{ id: "main", label: "Main" }] as ContestCategory[]);
+      for (const cat of catList) {
+        const f = await fetchContestFeed(eventKey, token, cat.id);
+        if (!alive) return;
+        if (f?.ok && (f.items?.length || 0) > 0) {
+          setDeck(f.items || []);
+          setCatVote(cat.id);
+          setTab("vote");
+          autoTabDone.current = true;
+          return;
+        }
+      }
+      if (alive) {
+        setTab("board");
+        autoTabDone.current = true;
+      }
+    })();
+
+    return () => {
+      alive = false;
+    };
+  }, [ready, status, token, eventKey]);
 
   useEffect(() => {
     if (!ready || !token || tab !== "vote") return;
