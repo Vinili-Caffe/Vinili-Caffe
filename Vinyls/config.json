@@ -721,6 +721,15 @@
     "testGuildForceLive": false,
     "reactLeaderboardChannelId": "1562454089801928764"
   },
+  "starWarsEvent": {
+    "enabled": true,
+    "publicEnabled": false,
+    "eventKey": "starwars_2026",
+    "timezone": "Europe/Rome",
+    "startDate": "2026-12-01T00:00:00",
+    "endDate": "2027-02-28T23:59:59",
+    "publicOpenDate": "2026-12-01T00:00:00"
+  },
   "halloweenEmojiHunt": {
     "enabled": true,
     "emoji": "<:VC_Halloween:1558964785113206824>",

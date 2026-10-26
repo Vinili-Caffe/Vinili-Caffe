@@ -1,6 +1,6 @@
 /** Evento stagionale Star Wars — hub `/evento/` + sottopagine.
- *  Accesso: High Staff sempre (anteprima).
- *  Pubblico dal 1° dicembre 00:00 Europe/Rome: solo avvento + smistamento (+ hub landing).
+ *  Accesso: SOLO High Staff finché `EVENTO_PUBLIC_ENABLED` è false.
+ *  Quando si aprirà al pubblico: avvento + smistamento (+ hub) dal 1° dic Rome.
  */
 
 import { page } from "@/lib/site";
@@ -9,7 +9,13 @@ import type { StaffAccess } from "@/lib/staff";
 export const EVENTO_KICKER = "Evento stagionale";
 export const EVENTO_BRAND = "Star Wars";
 
-/** Apertura pubblica (Rome): 1 dicembre 2026 00:00. */
+/**
+ * Master switch sito: false = NESSUN accesso pubblico (né menu, né gate pagine).
+ * Allineato a `starWarsEvent.publicEnabled` sul bot (default false).
+ */
+export const EVENTO_PUBLIC_ENABLED = false;
+
+/** Apertura pubblica (Rome): 1 dicembre 2026 00:00 — attiva solo se EVENTO_PUBLIC_ENABLED. */
 export const EVENTO_PUBLIC_OPEN = {
   timeZone: "Europe/Rome",
   year: 2026,
@@ -52,7 +58,7 @@ export type EventoNavItem = {
   publicFromOpen?: boolean;
 };
 
-/** Nav evento (puzzle resta su `/puzzle/`, già HS). */
+/** Nav hub evento (puzzle solo da qui → `/puzzle/`, non in menu Giochi). */
 export const EVENTO_NAV: EventoNavItem[] = [
   {
     id: "hub",
@@ -73,7 +79,6 @@ export const EVENTO_NAV: EventoNavItem[] = [
     href: page("/evento/smistamento/"),
     label: "Smistamento",
     teaser: "Scegli la tua fazione: Repubblica o Separatisti.",
-    soon: true,
     publicFromOpen: true,
   },
   {
@@ -81,21 +86,18 @@ export const EVENTO_NAV: EventoNavItem[] = [
     href: page("/evento/accademia/"),
     label: "Accademia",
     teaser: "Prove a tempo: mira e colpisci i bersagli sul sito.",
-    soon: true,
   },
   {
     id: "gara",
     href: page("/evento/gara/"),
     label: "Gara",
-    teaser: "Competizione di fazione — dettagli in arrivo.",
-    soon: true,
+    teaser: "Podracing Championship — scelta sguscio e gare.",
   },
   {
     id: "miniera",
     href: page("/evento/miniera/"),
     label: "Miniera",
-    teaser: "Attività economica dell’evento — dettagli in arrivo.",
-    soon: true,
+    teaser: "Estrazione Kyber — cristalli giornalieri.",
   },
   {
     id: "puzzle",
@@ -123,8 +125,9 @@ export function isEventoHighStaff(
   return Boolean(access.isHighStaff || access.canManage || access.highStaff);
 }
 
-/** 1° dicembre 00:00 Europe/Rome (anno evento). */
+/** Pubblico solo se master switch ON + dopo il 1° dic Rome. */
 export function isEventoPublicWindowOpen(now = new Date()): boolean {
+  if (!EVENTO_PUBLIC_ENABLED) return false;
   const parts = Object.fromEntries(
     new Intl.DateTimeFormat("en-GB", {
       timeZone: EVENTO_PUBLIC_OPEN.timeZone,

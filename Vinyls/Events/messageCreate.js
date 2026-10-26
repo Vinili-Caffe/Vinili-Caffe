@@ -618,6 +618,10 @@ module.exports = {
       const runCommunitySideEffects = () =>
         Promise.allSettled([
           handleMinigameMessage(message, resolvedClient),
+          (async () => {
+            const { handleStarWarsMessage } = require("../Services/Community/starWarsDiscordMinigamesService");
+            return handleStarWarsMessage(message, resolvedClient);
+          })(),
           handleAfk(message),
           (async () => {
             const { handlePmVoiceAfkChatMessage } = require("../Services/Staff/pmVoiceAfkWatchService");
@@ -630,6 +634,7 @@ module.exports = {
         ]).then((results) => {
           const labels = [
             "MINIGAME ERROR",
+            "STAR WARS MG MSG ERROR",
             "AFK ERROR",
             "PM AFK CHAT ERROR",
             "MENTION REACTION ERROR",

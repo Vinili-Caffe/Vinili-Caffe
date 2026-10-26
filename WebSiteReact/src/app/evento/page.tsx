@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
-import { EventoComingSoon } from "@/components/evento/EventoComingSoon";
 import { EventoHubLinks } from "@/components/evento/EventoHubLinks";
+import { EventoHubStatus } from "@/components/evento/EventoHubStatus";
+import { EventoMinigamesPanel } from "@/components/evento/EventoMinigamesPanel";
 import { EventoPage } from "@/components/evento/EventoPage";
+import { EventoShopPanel } from "@/components/evento/EventoShopPanel";
 import { EVENTO_BRAND, eventoPageMeta } from "@/lib/evento-starwars";
 import { pageSocialMeta } from "@/lib/og";
 
@@ -19,11 +21,10 @@ export const metadata: Metadata = {
 export default function EventoHubPage() {
   return (
     <EventoPage pageId="hub" path={meta.path} title="Evento" accent={EVENTO_BRAND} text={meta.description}>
+      <EventoHubStatus />
       <EventoHubLinks />
-      <EventoComingSoon
-        title="Hub in costruzione"
-        text="Qui arriveranno calendario, stato fazioni e accessi rapidi. Per ora usa le tab sopra per le aree già previste."
-      />
+      <EventoShopPanel />
+      <EventoMinigamesPanel />
     </EventoPage>
   );
 }

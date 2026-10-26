@@ -848,6 +848,8 @@ const SITE_DOCUMENT_TYPE = Object.freeze({
     BOARD_REPORT: "board_report",
     /* boardsListingReviews1 */
     BOARD_REVIEW: "board_review",
+    /* starWarsEvent1 */
+    STARWARS_EVENT_STATE: "starwars_event_state",
 });
 
 const siteSuggestionCommentSchema = new Schema(

@@ -1600,6 +1600,16 @@ async function awardBumpVoteExp(client, guild, userId, source, previousLastAt, c
   if (!ignoreExp) {
     await addExpWithLevel(guild, userId, effectiveExp, false, true).catch(() => {});
   }
+  /* Star Wars evento: 1 voto = 2500 crediti + 10 exp + 0.2 PEI (solo se evento enabled; gate pubblico non blocca reward HS/preview) */
+  if (String(source || "").includes("vote") || String(source || "") === "topgg") {
+    try {
+      const { addStarWarsVoteReward } = require("../Community/starWarsRewardsService");
+      const { resolveStarWarsEventConfig } = require("../../Utils/Web/starWarsEventConfig");
+      if (resolveStarWarsEventConfig(client)?.enabled) {
+        await addStarWarsVoteReward(client, { guildId, userId }).catch(() => null);
+      }
+    } catch (_) {}
+  }
   return { baseExp, fastBonus, streakBonus, effectiveExp, newStreak, bestStreak, isFast };
 }
 

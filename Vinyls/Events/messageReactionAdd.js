@@ -308,6 +308,11 @@ module.exports = {
         if (reactPressHandled) return;
         const halloweenHuntHandled = await handleHalloweenEmojiHuntReaction(client, reaction, user);
         if (halloweenHuntHandled) return;
+        try {
+          const { handleStarWarsReaction } = require("../Services/Community/starWarsDiscordMinigamesService");
+          const swHandled = await handleStarWarsReaction(client, reaction, user);
+          if (swHandled) return;
+        } catch (_) {}
         const handled = await handleMinigameReaction(client, reaction, user);
         if (handled) return;
         const ideaBugHandled = await handleIdeaBugReaction(reaction, user);

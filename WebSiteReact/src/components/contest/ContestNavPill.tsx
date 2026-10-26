@@ -8,7 +8,7 @@ import { fetchContestHighlight, type ContestHighlight } from "@/lib/contest";
 import { SmartLink } from "@/components/SmartLink";
 import { cn } from "@/lib/cn";
 
-/** Pill contest fissa: tutte le pagine SiteShell (anche con navbar auto-hide). */
+/** Pill contest: dentro la navbar; clone fixed solo se la nav è nascosta. */
 export function ContestNavPill({ className }: { className?: string }) {
   const { token } = useAuth();
   const pathname = usePathname() || "/";
@@ -49,19 +49,5 @@ export function ContestNavPill({ className }: { className?: string }) {
       <Ghost className="size-3.5 shrink-0" strokeWidth={2.25} />
       <span className="truncate">{label}</span>
     </SmartLink>
-  );
-}
-
-/** Slot fisso sotto la top bar (sopravvive ad auto-hide navbar). */
-export function ContestNavPillFixed() {
-  return (
-    <div
-      className="pointer-events-none fixed right-3 z-[55] sm:right-5"
-      style={{ top: "calc(var(--vc-view-as-h, 0px) + 0.7rem)" }}
-    >
-      <div className="pointer-events-auto">
-        <ContestNavPill />
-      </div>
-    </div>
   );
 }

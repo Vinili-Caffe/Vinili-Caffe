@@ -150,8 +150,6 @@ export const NAV_GROUPS: NavGroup[] = [
     links: [
       { labelKey: "nav.confessionale", href: page("/confessionale/"), hintKey: "nav.hint.confessionale" },
       { labelKey: "nav.wordle", href: page("/wordle/"), hintKey: "nav.hint.wordle" },
-      { labelKey: "nav.evento", href: page("/evento/"), hintKey: "nav.hint.evento", gate: "evento" },
-      { labelKey: "nav.puzzle", href: page("/puzzle/"), hintKey: "nav.hint.puzzle", gate: "highStaff" },
     ],
   },
   {

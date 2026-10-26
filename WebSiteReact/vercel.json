@@ -4,6 +4,13 @@
   "installCommand": "env -u npm_config_cache_dir -u NPM_CONFIG_CACHE_DIR npm ci --omit=dev",
   "buildCommand": "env -u npm_config_cache_dir -u NPM_CONFIG_CACHE_DIR npm run build",
   "trailingSlash": true,
+  "redirects": [
+    {
+      "source": "/offline.html",
+      "destination": "/offline/",
+      "permanent": true
+    }
+  ],
   "headers": [
     {
       "source": "/(.*)",

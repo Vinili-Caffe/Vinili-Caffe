@@ -13,6 +13,7 @@ import {
   LogOut,
   Menu,
   MessageSquareText,
+  Sparkles,
   UserRound,
   X,
 } from "lucide-react";
@@ -36,7 +37,8 @@ import { navUnderlineClass } from "./NavUnderline";
 import { ThemePrefRow } from "./ThemeToggle";
 import { ViewAsLaunch, useViewAsChrome } from "./view-as/ViewAsChrome";
 import { useDeviceFx } from "./effects/DeviceFxProvider";
-import { isEventoPublicWindowOpen } from "@/lib/evento-starwars";
+import { isEventoHighStaff, isEventoPublicWindowOpen } from "@/lib/evento-starwars";
+import { ContestNavPill } from "./contest/ContestNavPill";
 
 function canHoverNav() {
   try {
@@ -291,8 +293,15 @@ function MobileDrawerAccount({ onClose }: { onClose: () => void }) {
   const profileHref = page(`/user/${user ? `?id=${user.id}` : ""}`);
   const dashOpen = canOpenDashBacheca(staff, stickyOk);
   const soon = t("auth.comingSoon");
+  const eventoOpen = isEventoHighStaff(staff) || isEventoPublicWindowOpen();
   const links = [
     { href: profileHref, label: t("auth.profile"), icon: <UserRound className="size-4" />, locked: false },
+    {
+      href: page("/evento/"),
+      label: t("nav.evento"),
+      icon: <Sparkles className="size-4" />,
+      locked: !eventoOpen,
+    },
     {
       href: page("/dashboard/"),
       label: t("auth.dashboard"),
@@ -487,6 +496,7 @@ export function Navbar() {
           </ul>
 
           <div className="flex shrink-0 items-center justify-self-end gap-1.5">
+            <ContestNavPill />
             <ViewAsLaunch />
             <NavNotifBell />
             <div className="hidden lg:block">
@@ -505,6 +515,18 @@ export function Navbar() {
           </div>
         </nav>
       </motion.header>
+
+      {/* Se la nav auto-hide sale via, la pill resta raggiungibile in alto a dx (senza sovrapporsi al brand). */}
+      {navHidden && (
+        <div
+          className="pointer-events-none fixed right-3 z-[55] sm:right-5"
+          style={{ top: "calc(var(--vc-view-as-h, 0px) + 0.7rem)" }}
+        >
+          <div className="pointer-events-auto">
+            <ContestNavPill />
+          </div>
+        </div>
+      )}
 
       <AnimatePresence>
         {open && (

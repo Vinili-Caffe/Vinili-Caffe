@@ -6,8 +6,9 @@
    iosDismissTag1: iOS declarative (8030) non compare in getNotifications →
    replace stesso tag + close (anche su telefono quando letta da altro device). */
 
-const OFFLINE_CACHE = "vc-offline-v2";
-const OFFLINE_URL = "/offline.html";
+/* offlineSlash1: su Vercel (trailingSlash) la pagina è /offline/, non /offline.html */
+const OFFLINE_CACHE = "vc-offline-v3";
+const OFFLINE_URL = "/offline/";
 const OFFLINE_ASSETS = [OFFLINE_URL, "/favicon.ico"];
 /** Stesso host di WebSiteReact/src/lib/site.ts → API_ORIGIN (USE_API_ORIGIN). */
 const API_ORIGIN = "https://api.viniliecaffe.it";
@@ -18,7 +19,14 @@ self.addEventListener("install", (event) => {
       try {
         const c = await caches.open(OFFLINE_CACHE);
         await Promise.all(
-          OFFLINE_ASSETS.map((u) => c.add(new Request(u, { cache: "reload" })).catch(() => null)),
+          OFFLINE_ASSETS.map(async (u) => {
+            try {
+              const res = await fetch(u, { cache: "reload" });
+              if (res && res.ok) await c.put(u, res);
+            } catch (_) {
+              /* senza rete / 404: riprova al prossimo update, niente Cache.add noise */
+            }
+          }),
         );
       } catch (e) {
         /* senza rete all'installazione: si riprova al prossimo aggiornamento */

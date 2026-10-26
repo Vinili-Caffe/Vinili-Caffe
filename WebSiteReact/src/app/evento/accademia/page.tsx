@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { EventoComingSoon } from "@/components/evento/EventoComingSoon";
+import { AccademiaGame } from "@/components/evento/AccademiaGame";
 import { EventoPage } from "@/components/evento/EventoPage";
 import { eventoPageMeta } from "@/lib/evento-starwars";
 import { pageSocialMeta } from "@/lib/og";
@@ -14,10 +14,7 @@ export const metadata: Metadata = {
 export default function EventoAccademiaPage() {
   return (
     <EventoPage pageId="accademia" path={meta.path} title="Accademia" text={meta.description}>
-      <EventoComingSoon
-        title="Prove all’Accademia"
-        text="Ogni tot dovrai tornare qui e superare un test mirato: colpire bersagli col cursore. Meccaniche e cooldown le definiamo dopo."
-      />
+      <AccademiaGame />
     </EventoPage>
   );
 }

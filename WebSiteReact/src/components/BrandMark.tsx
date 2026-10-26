@@ -50,7 +50,7 @@ export function BrandMark({ className, navUnderline }: { className?: string; nav
   return (
     <SmartLink
       href="/"
-      className={cn("group flex h-10 min-w-0 items-center gap-2", className)}
+      className={cn("group relative z-[1] flex h-10 min-w-0 items-center gap-2", className)}
       aria-current={isHome ? "page" : undefined}
     >
       <motion.img
@@ -62,15 +62,15 @@ export function BrandMark({ className, navUnderline }: { className?: string; nav
         transition={{ duration: 12, repeat: Infinity, ease: "linear" }}
         onError={() => setIcon(FALLBACK)}
       />
-      {/* nome intero senza tagli: wordmark maiuscolo sopra, tagline sotto in piccolo */}
-      <span className="flex min-w-0 flex-col gap-1 lg:max-xl:hidden">
+      {/* Mobile: solo wordmark (la tagline usciva dall’header e finiva sotto pill/contenuto). */}
+      <span className="flex min-w-0 max-w-[9.5rem] flex-col justify-center gap-0.5 overflow-hidden sm:max-w-[14rem] lg:max-xl:hidden">
         <HeaderNameMarquee
           text={main}
           underline={underline}
-          className="min-w-0 max-w-[10rem] font-sans text-sm font-medium uppercase leading-none tracking-[0.04em] text-crema sm:max-w-[14rem]"
+          className="min-w-0 font-sans text-sm font-medium uppercase leading-none tracking-[0.04em] text-crema"
         />
         {tagline ? (
-          <span className="whitespace-nowrap font-sans text-[0.62rem] font-medium uppercase leading-none tracking-[0.12em] text-crema/50">
+          <span className="mt-0.5 hidden truncate font-sans text-[0.62rem] font-medium uppercase leading-none tracking-[0.12em] text-crema/50 sm:block">
             {tagline}
           </span>
         ) : null}

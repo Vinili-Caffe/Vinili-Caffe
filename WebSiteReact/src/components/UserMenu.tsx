@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { BookOpen, CalendarDays, LayoutDashboard, ListChecks, LogIn, LogOut, MessageSquareText, UserRound } from "lucide-react";
+import { BookOpen, CalendarDays, LayoutDashboard, ListChecks, LogIn, LogOut, MessageSquareText, Sparkles, UserRound } from "lucide-react";
 import { loadStaffAccess, type StaffAccess } from "@/lib/staff";
 import { avatarUrl, displayName, useAuth } from "@/lib/auth";
 import { useI18n } from "@/lib/i18n";
@@ -11,6 +11,7 @@ import { cn } from "@/lib/cn";
 import { setChromeOpen } from "@/lib/chrome-open";
 import { useCloseOnScroll } from "@/lib/use-close-on-scroll";
 import { viewAsAllowedSticky } from "@/lib/view-as";
+import { isEventoHighStaff, isEventoPublicWindowOpen } from "@/lib/evento-starwars";
 import { Avatar } from "@/components/Avatar";
 import { HeaderNameMarquee } from "./effects/HeaderNameMarquee";
 import { ThemePrefRow } from "./ThemeToggle";
@@ -117,6 +118,7 @@ export function UserMenu({ className }: { className?: string }) {
   const profileHref = page(`/user/${user ? `?id=${user.id}` : ""}`);
   const dashOpen = canOpenDashBacheca(staff, stickyOk);
   const soon = t("auth.comingSoon");
+  const eventoOpen = isEventoHighStaff(staff) || isEventoPublicWindowOpen();
 
   return (
     <div ref={box} className={cn("relative", className)}>
@@ -165,6 +167,17 @@ export function UserMenu({ className }: { className?: string }) {
             >
               <UserRound className="size-4" /> {t("auth.profile")}
             </SmartLink>
+            {eventoOpen ? (
+              <SmartLink
+                href={page("/evento/")}
+                onClick={() => window.setTimeout(() => setOpen(false), 0)}
+                className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm text-crema/80 transition-colors hover:bg-crema/8 hover:text-crema"
+              >
+                <Sparkles className="size-4" /> {t("nav.evento")}
+              </SmartLink>
+            ) : (
+              <SoonRow icon={<Sparkles className="size-4" />} label={t("nav.evento")} soon={soon} />
+            )}
             {dashOpen ? (
               <>
                 <SmartLink

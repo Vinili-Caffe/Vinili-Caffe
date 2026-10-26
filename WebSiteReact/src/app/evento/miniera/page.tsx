@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { EventoComingSoon } from "@/components/evento/EventoComingSoon";
+import { MinieraGame } from "@/components/evento/MinieraGame";
 import { EventoPage } from "@/components/evento/EventoPage";
 import { eventoPageMeta } from "@/lib/evento-starwars";
 import { pageSocialMeta } from "@/lib/og";
@@ -14,10 +14,7 @@ export const metadata: Metadata = {
 export default function EventoMinieraPage() {
   return (
     <EventoPage pageId="miniera" path={meta.path} title="Miniera" text={meta.description}>
-      <EventoComingSoon
-        title="Miniera"
-        text="Attività / economia dell’evento (come shop o pozioni Hogwarts, ma a tema Star Wars). Dettagli dopo."
-      />
+      <MinieraGame />
     </EventoPage>
   );
 }
