@@ -42,9 +42,14 @@ export type StaffNavItem = {
 /** Nav area staff (senza duplicati: profilo / notifiche / confessionale restano sulle loro pagine). */
 export const STAFF_NAV: StaffNavItem[] = [
   { href: "/staff/guida/", label: "Guida", hint: "Manualistica staff" },
+  { href: "/staff/gestione/", label: "Gestione", hint: "Pex / depex staff", needAny: ["canManage", "canManagePm"] },
   { href: "/staff/compiti/", label: "Compiti", hint: "Compiti settimanali", need: "canCompiti" },
   { href: "/staff/pause/", label: "Pause", hint: "Calendario pause" },
 ];
+
+export function canAccessGestione(access: StaffAccess): boolean {
+  return Boolean(access.canManage || access.canManagePm);
+}
 
 export function canAccessPmShop(access: StaffAccess): boolean {
   return Boolean(access.isPm || access.isHighStaff);

@@ -8,6 +8,7 @@ import { SmartLink } from "@/components/SmartLink";
 import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/cn";
 import {
+  canAccessGestione,
   canAccessInbox,
   canAccessPmShop,
   canAccessPuntiTolti,
@@ -59,6 +60,8 @@ type Props = {
   requirePuntiTolti?: boolean;
   /** Inbox workflow (code review). */
   requireInbox?: boolean;
+  /** Gestione pex/depex (High Staff / gestore PM). */
+  requireGestione?: boolean;
   children: React.ReactNode;
 };
 
@@ -72,6 +75,7 @@ export function StaffShell({
   requirePmShop,
   requirePuntiTolti,
   requireInbox,
+  requireGestione,
   children,
 }: Props) {
   const { ready, token, login, user } = useAuth();
@@ -200,6 +204,11 @@ export function StaffShell({
     body = gateDenied(
       "Inbox non disponibile",
       "Nessuna coda di revisione è abilitata per il tuo ruolo.",
+    );
+  } else if (requireGestione && !canAccessGestione(access)) {
+    body = gateDenied(
+      "Gestione non disponibile",
+      "Pex e depex sono riservati all’High Staff (e ai gestori PM sui Partner Manager).",
     );
   } else {
     body = <Ctx.Provider value={{ token, access, reload: () => setTick((n) => n + 1) }}>{children}</Ctx.Provider>;

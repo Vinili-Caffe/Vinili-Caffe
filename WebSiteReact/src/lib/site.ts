@@ -91,6 +91,7 @@ export const REACT_PAGES = new Set([
   "/dashboard/profilo/abbonamento/",
   "/staff/",
   "/staff/compiti/",
+  "/staff/gestione/",
   "/staff/guida/",
   "/staff/pause/",
   "/staff/pm/",
