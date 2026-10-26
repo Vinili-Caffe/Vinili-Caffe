@@ -64,23 +64,28 @@ function CategoryPills({
 }) {
   if (cats.length <= 1) return null;
   return (
-    <div className="flex flex-wrap gap-2">
-      {cats.map((c) => (
-        <button
-          key={c.id}
-          type="button"
-          onClick={() => onChange(c.id)}
-          className={cn(
-            "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium ring-1 transition",
-            value === c.id
-              ? "bg-caramel text-ink ring-caramel"
-              : "bg-crema/5 text-crema/75 ring-crema/15 hover:bg-crema/10",
-          )}
-        >
-          <CategoryIcon id={c.id} />
-          {c.label}
-        </button>
-      ))}
+    <div className="flex flex-wrap gap-2" role="tablist" aria-label="Sezione">
+      {cats.map((c) => {
+        const active = value === c.id;
+        return (
+          <button
+            key={c.id}
+            type="button"
+            role="tab"
+            aria-selected={active}
+            onClick={() => onChange(c.id)}
+            className={cn(
+              "inline-flex items-center gap-1.5 rounded-full px-3.5 py-2 text-xs font-semibold transition",
+              active
+                ? "bg-caramel text-ink shadow-md shadow-caramel/25 ring-2 ring-caramel"
+                : "bg-crema/[0.06] text-crema/65 ring-1 ring-crema/20 hover:bg-crema/10 hover:text-crema",
+            )}
+          >
+            <CategoryIcon id={c.id} />
+            {c.label}
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -167,18 +172,18 @@ export function ContestBoard({ eventKey }: { eventKey: string }) {
     () => (status?.categories?.length ? status.categories : [{ id: "main", label: "Main" }]),
     [status?.categories],
   );
-  const [catSubmit, setCatSubmit] = useState("pc");
-  const [catVote, setCatVote] = useState("pc");
-  const [catBoard, setCatBoard] = useState("pc");
-  const catsReady = useRef(false);
+  const [catSubmit, setCatSubmit] = useState("");
+  const [catVote, setCatVote] = useState("");
+  const [catBoard, setCatBoard] = useState("");
 
+  /* Sync quando arrivano le categorie API (prima del load era "main" → nessuna pill attiva). */
   useEffect(() => {
-    if (!cats.length || catsReady.current) return;
-    catsReady.current = true;
+    if (!cats.length) return;
+    const ids = new Set(cats.map((c) => c.id));
     const first = cats[0].id;
-    setCatSubmit(first);
-    setCatVote(first);
-    setCatBoard(first);
+    setCatSubmit((prev) => (ids.has(prev) ? prev : first));
+    setCatVote((prev) => (ids.has(prev) ? prev : first));
+    setCatBoard((prev) => (ids.has(prev) ? prev : first));
   }, [cats]);
 
   const reload = useCallback(async () => {
