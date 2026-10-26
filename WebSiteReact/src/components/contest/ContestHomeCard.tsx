@@ -53,7 +53,7 @@ export function ContestHomeCard() {
             <div className="relative pr-8">
               <p className="mb-1.5 inline-flex items-center gap-1.5 text-[11px] font-semibold tracking-wide text-caramel uppercase">
                 <Ghost className="size-3.5" />
-                {item.preview ? "Anteprima staff" : item.phase === "after" ? "Classifica" : "In corso"}
+                {item.phase === "after" ? "Classifica" : "In corso"}
               </p>
               <h2 className="font-display text-lg leading-snug text-crema">{item.title}</h2>
               <p className="mt-1.5 text-sm leading-relaxed text-crema/65">{item.blurb}</p>

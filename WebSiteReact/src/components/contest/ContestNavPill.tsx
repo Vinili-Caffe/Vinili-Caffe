@@ -42,7 +42,7 @@ export function ContestNavPill({ className }: { className?: string }) {
       title={item.title}
     >
       <Ghost className="size-3.5 shrink-0 sm:size-3.5" strokeWidth={2.25} />
-      <span className="truncate">{item.preview ? `Preview · ${label}` : label}</span>
+      <span className="truncate">{label}</span>
     </SmartLink>
   );
 }

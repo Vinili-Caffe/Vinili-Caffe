@@ -87,6 +87,15 @@ function promoRank(phase) {
   return 0;
 }
 
+/** Fase calendario reale (senza override staff) — per scegliere quale contest mettere in risalto. */
+function calendarPhase(event, now = Date.now()) {
+  if (!event) return "unknown";
+  if (now < event.startMs) return "before";
+  if (now >= event.endMs) return "after";
+  return "open";
+}
+
+
 function eventCategories(event) {
   const list = Array.isArray(event?.categories) ? event.categories : [];
   return list.length ? list : [{ id: "main", label: "Main" }];
@@ -321,20 +330,21 @@ async function getHighlight(client, { accessToken } = {}) {
   for (const event of Object.values(EVENTS)) {
     if (!promoVisible(event, now, { staffPreview })) continue;
     const phase = phaseFor(event, now, { staffPreview });
-    candidates.push({ event, phase });
+    const cal = calendarPhase(event, now);
+    candidates.push({ event, phase, cal });
   }
   candidates.sort((a, b) => {
-    const d = promoRank(b.phase) - promoRank(a.phase);
+    const d = promoRank(b.cal) - promoRank(a.cal);
     if (d) return d;
-    return b.event.startMs - a.event.startMs;
+    /* Stessa fase calendario: ordine di schedule (sfondi prima di outfit). */
+    return a.event.startMs - b.event.startMs;
   });
   const top = candidates[0];
   if (!top) {
     return { ok: true, status: 200, item: null, staffPreview };
   }
-  const { event, phase } = top;
-  const cta =
-    phase === "after" ? "Vedi classifica" : phase === "before" ? "Anteprima" : "Partecipa";
+  const { event, phase, cal } = top;
+  const cta = cal === "after" ? "Vedi classifica" : "Partecipa";
   const pill =
     event.kind === "sfondi" ? "Sfondi" : event.kind === "outfit" ? "Outfit" : "Contest";
   return {
@@ -348,7 +358,7 @@ async function getHighlight(client, { accessToken } = {}) {
         now >= event.endMs ? new Date(event.endMs + PROMO_AFTER_MS).toISOString() : null,
       cta,
       pillLabel: pill,
-      preview: Boolean(staffPreview && now < event.startMs),
+      calendarPhase: cal,
     }),
   };
 }
