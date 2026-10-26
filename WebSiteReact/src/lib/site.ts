@@ -19,7 +19,13 @@ export const SOCIAL_LINKS = [
 ] as const;
 
 /** labelKey / hintKey → `t()` da `@/lib/i18n` (shell chrome). */
-export type NavLink = { labelKey: string; href: string; hintKey?: string; /** SOON blur finché non hai il gate */ gate?: "highStaff" };
+export type NavLink = {
+  labelKey: string;
+  href: string;
+  hintKey?: string;
+  /** SOON blur: highStaff | evento (HS oppure dal 1° dic pubblico) */
+  gate?: "highStaff" | "evento";
+};
 export type NavGroup = { labelKey: string; links: NavLink[] };
 
 /** Catalogo percorsi (sitemap e smart 404). Non è un gate: `page()` è sempre un link interno. */
@@ -46,6 +52,12 @@ export const REACT_PAGES = new Set([
   "/tickets/",
   "/wordle/",
   "/puzzle/",
+  "/evento/",
+  "/evento/avvento/",
+  "/evento/smistamento/",
+  "/evento/accademia/",
+  "/evento/gara/",
+  "/evento/miniera/",
   "/contest/sfondi-halloween/",
   "/contest/outfit-halloween/",
   "/privacy/",
@@ -138,6 +150,7 @@ export const NAV_GROUPS: NavGroup[] = [
     links: [
       { labelKey: "nav.confessionale", href: page("/confessionale/"), hintKey: "nav.hint.confessionale" },
       { labelKey: "nav.wordle", href: page("/wordle/"), hintKey: "nav.hint.wordle" },
+      { labelKey: "nav.evento", href: page("/evento/"), hintKey: "nav.hint.evento", gate: "evento" },
       { labelKey: "nav.puzzle", href: page("/puzzle/"), hintKey: "nav.hint.puzzle", gate: "highStaff" },
     ],
   },

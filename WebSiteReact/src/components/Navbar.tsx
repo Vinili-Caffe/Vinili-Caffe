@@ -37,6 +37,7 @@ import { ThemePrefRow } from "./ThemeToggle";
 import { ViewAsLaunch, useViewAsChrome } from "./view-as/ViewAsChrome";
 import { useDeviceFx } from "./effects/DeviceFxProvider";
 import { ContestNavPill } from "./contest/ContestNavPill";
+import { isEventoPublicWindowOpen } from "@/lib/evento-starwars";
 
 function canHoverNav() {
   try {
@@ -73,8 +74,10 @@ function canOpenDashBacheca(staff: StaffAccess | null, stickyOk: boolean) {
   return Boolean(staff?.isFounder || staff?.viewAsAllowed);
 }
 
-function linkLocked(l: NavLink, highStaff: boolean) {
-  return l.gate === "highStaff" && !highStaff;
+function linkLocked(l: NavLink, highStaff: boolean, eventoNavOpen = false) {
+  if (l.gate === "highStaff") return !highStaff;
+  if (l.gate === "evento") return !(highStaff || eventoNavOpen);
+  return false;
 }
 
 function SoonNavItem({
@@ -119,10 +122,12 @@ function NavDrop({
   labelKey,
   links,
   highStaff,
+  eventoNavOpen,
 }: {
   labelKey: string;
   links: NavLink[];
   highStaff: boolean;
+  eventoNavOpen: boolean;
 }) {
   const { t } = useI18n();
   const pathname = usePathname() || "/";
@@ -133,7 +138,7 @@ function NavDrop({
   const soon = t("auth.comingSoon");
   const label = t(labelKey);
   const open = hover || pinned;
-  const groupActive = links.some((l) => !linkLocked(l, highStaff) && pathActive(pathname, l.href));
+  const groupActive = links.some((l) => !linkLocked(l, highStaff, eventoNavOpen) && pathActive(pathname, l.href));
 
   const collapse = useCallback(() => {
     setHover(false);
@@ -207,7 +212,7 @@ function NavDrop({
             <ul className="py-0.5">
               {links.map((l) => {
                 const on = pathActive(pathname, l.href);
-                const locked = linkLocked(l, highStaff);
+                const locked = linkLocked(l, highStaff, eventoNavOpen);
                 const ico = <NavIcon labelKey={l.labelKey} className="size-3.5 shrink-0 opacity-70" />;
                 return (
                   <li key={l.href}>
@@ -401,6 +406,7 @@ export function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
   const [highStaff, setHighStaff] = useState(false);
+  const eventoNavOpen = isEventoPublicWindowOpen();
   const soon = t("auth.comingSoon");
   const headerRef = useRef<HTMLElement>(null);
   const navHidden = useAutoHideNav(headerRef, open);
@@ -476,7 +482,7 @@ export function Navbar() {
             <li aria-hidden className="mx-1.5 h-4 w-px shrink-0 bg-crema/20" />
             {NAV_GROUPS.map((g) => (
               <li key={g.labelKey}>
-                <NavDrop labelKey={g.labelKey} links={g.links} highStaff={highStaff} />
+                <NavDrop labelKey={g.labelKey} links={g.links} highStaff={highStaff} eventoNavOpen={eventoNavOpen} />
               </li>
             ))}
           </ul>
@@ -547,7 +553,7 @@ export function Navbar() {
                   <ul className="grid grid-cols-2 gap-2">
                     {g.links.map((l) => {
                       const on = pathActive(pathname, l.href);
-                      const locked = linkLocked(l, highStaff);
+                      const locked = linkLocked(l, highStaff, eventoNavOpen);
                       const ico = <NavIcon labelKey={l.labelKey} className="size-3.5 shrink-0 opacity-75" />;
                       return (
                       <li key={l.href}>

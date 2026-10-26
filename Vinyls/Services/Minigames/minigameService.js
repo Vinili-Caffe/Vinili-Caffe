@@ -3490,28 +3490,8 @@ function isSongGuessCorrect(rawGuess, rawAnswers) {
 }
 
 function isSingerGuessCorrect(rawGuess, rawAnswers) {
-  const guess = normalizeCountryName(rawGuess);
-  if (!guess) return false;
-
-  const answers = Array.isArray(rawAnswers) ? rawAnswers.map((a) => normalizeCountryName(a)).filter(Boolean) : [normalizeCountryName(rawAnswers)].filter(Boolean);
-  if (!answers.length) return false;
-
-  if (isStrictAliasGuessCorrect(guess, answers, (v) => String(v || "")))
-    return true;
-
-  const guessTokens = toMeaningfulTokens(guess, 3);
-  if (guessTokens.length !== 1) return false;
-  const token = guessTokens[0];
-  if (token.length < 5) return false;
-
-  for (const answer of answers) {
-    const answerTokens = toMeaningfulTokens(answer, 3);
-    if (answerTokens.length < 2) continue;
-    const surname = answerTokens[answerTokens.length - 1];
-    if (token === surname) return true;
-  }
-
-  return false;
+  // Solo match completo (niente solo cognome).
+  return isStrictAliasGuessCorrect(rawGuess, rawAnswers, normalizeCountryName);
 }
 
 function normalizeTruthValue(raw) {
@@ -3552,42 +3532,9 @@ function getExplicitBankSourceAnswers(rawAnswers) {
     .filter(Boolean);
 }
 
-function isExplicitBankAnswerCorrect(rawGuess, rawAnswers, normalizer = normalizeCountryName, minTokenLength = 1) {
-  const guess = normalizer(rawGuess);
-  const guessCompact = compactNoSpaces(guess);
-  if (!guess && !guessCompact) return false;
-
-  const sources = getExplicitBankSourceAnswers(rawAnswers);
-  if (!sources.length) return false;
-
-  for (const raw of sources) {
-    const ans = normalizer(raw);
-    if (!ans) continue;
-    if (guess === ans) return true;
-    if (guessCompact && guessCompact === compactNoSpaces(ans)) return true;
-  }
-
-  const guessTokens = toMeaningfulTokens(guess, minTokenLength);
-  if (guessTokens.length >= 2) {
-    for (const raw of sources) {
-      if (hogwartsQuizAnswerTokenCount(raw, minTokenLength) < 2) continue;
-      if (isCompleteHogwartsTokenSetMatch(rawGuess, raw, minTokenLength)) return true;
-    }
-    return false;
-  }
-
-  if (guessTokens.length === 1) {
-    const token = guessTokens[0];
-    for (const raw of sources) {
-      const ans = normalizer(raw);
-      const ansTokens = toMeaningfulTokens(ans, minTokenLength);
-      if (ansTokens.length !== 1) continue;
-      if (token === ansTokens[0]) return true;
-      if (guessCompact && guessCompact === compactNoSpaces(ans)) return true;
-    }
-  }
-
-  return false;
+function isExplicitBankAnswerCorrect(rawGuess, rawAnswers, normalizer = normalizeCountryName, _minTokenLength = 1) {
+  // Risposta intera: niente token-set / pezzi della frase.
+  return isStrictAliasGuessCorrect(rawGuess, rawAnswers, normalizer);
 }
 
 function normalizeQuizQuestionKey(questionText) {
@@ -4904,69 +4851,23 @@ function isStrictAliasGuessCorrect(
   if (!answers.length) return false;
 
   const uniqueAnswers = Array.from(new Set(answers));
-  const paddedGuess = ` ${guess} `;
   const compactGuess = compactNoSpaces(guess);
 
   for (const answer of uniqueAnswers) {
     if (guess === answer) return true;
     if (compactGuess && compactGuess === compactNoSpaces(answer)) return true;
-    if (paddedGuess.includes(` ${answer} `)) return true;
   }
   return false;
 }
 
+/** Win solo se la risposta è intera (alias normalizzato / senza spazi). Niente substring né token. */
 function isLooseAliasGuessCorrect(
   rawGuess,
   rawAnswers,
   normalizer = normalizeCountryName,
-  options = {},
+  _options = {},
 ) {
-  const guess = normalizer(rawGuess);
-  if (!guess) return false;
-
-  const answers = Array.isArray(rawAnswers) ? rawAnswers.map((a) => normalizer(a)).filter(Boolean) : [normalizer(rawAnswers)].filter(Boolean);
-  if (!answers.length) return false;
-
-  if (isStrictAliasGuessCorrect(guess, answers, (v) => String(v || "")))
-    return true;
-
-  const uniqueAnswers = Array.from(new Set(answers));
-  const minGuessLength = Number(options?.minGuessLength || 4);
-  const minTokenLength = Number(options?.minTokenLength || 3);
-  const singleTokenMinLength = Number(options?.singleTokenMinLength || 5);
-  const paddedGuess = ` ${guess} `;
-  const compactGuess = compactNoSpaces(guess);
-
-  if (guess.length >= minGuessLength) {
-    for (const answer of uniqueAnswers) {
-      const paddedAnswer = ` ${answer} `;
-      if (paddedAnswer.includes(paddedGuess)) return true;
-      if (compactGuess && compactGuess === compactNoSpaces(answer)) return true;
-    }
-  }
-
-  const guessTokens = toMeaningfulTokens(guess, minTokenLength);
-  if (!guessTokens.length) return false;
-
-  for (const answer of uniqueAnswers) {
-    const answerTokens = new Set(toMeaningfulTokens(answer, minTokenLength));
-    if (!answerTokens.size) continue;
-
-    let matched = 0;
-    for (const token of guessTokens) {
-      if (answerTokens.has(token)) matched += 1;
-    }
-
-    if (guessTokens.length === 1) {
-      if (guessTokens[0].length >= singleTokenMinLength && matched === 1)
-        return true;
-      continue;
-    }
-
-    if (matched === guessTokens.length) return true;
-  }
-
-  return false;
+  return isStrictAliasGuessCorrect(rawGuess, rawAnswers, normalizer);
 }
 
 function extractWordGuessCandidates(raw) {
@@ -4981,7 +4882,12 @@ function extractWordGuessCandidates(raw) {
 
 function buildPlayerAnswerAliases(name, aliases = []) {
   const out = new Set();
-  const add = (value) => { const normalized = normalizePlayerGuess(value); if (normalized) out.add(normalized); const compact = buildCompactAlias(value); if (compact) out.add(compact); const tokens = normalized ? normalized.split(/\s+/).filter(Boolean) : []; if (tokens.length > 0) { for (const token of tokens) { if (token.length >= 3) out.add(token); } } if (tokens.length > 1) { const surname = tokens[tokens.length - 1]; if (surname && surname.length >= 3) out.add(surname); const knownName = tokens[0]; if (knownName && knownName.length >= 3) out.add(knownName); const compoundSurname = tokens.slice(-2).join(" ").trim(); if (compoundSurname.length >= 5) out.add(compoundSurname); } };
+  const add = (value) => {
+    const normalized = normalizePlayerGuess(value);
+    if (normalized) out.add(normalized);
+    const compact = buildCompactAlias(value);
+    if (compact) out.add(compact);
+  };
   add(name);
   const extra = Array.isArray(aliases) ? aliases : [];
   for (const alias of extra) add(alias);
@@ -16639,7 +16545,7 @@ async function handleMinigameMessage(message, client) {
     const fromNumber =
       Number.isFinite(asIndex) && asIndex >= 1 && asIndex <= choices.length ? choices[asIndex - 1] : null;
     const matched =
-      (guess && game.answers?.some((a) => String(a) === guess || guess.includes(String(a)))) ||
+      (guess && game.answers?.some((a) => String(a) === guess)) ||
       (fromNumber && game.answers?.some((a) => String(a) === String(fromNumber)));
     if (matched) {
       await handleMinigameWin(message, game, cfg);

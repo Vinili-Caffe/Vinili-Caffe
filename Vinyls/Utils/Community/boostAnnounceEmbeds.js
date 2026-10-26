@@ -67,8 +67,19 @@ function buildBoostAnnounceContent(user) {
   return `<a:VC_Boost:1482706171386269830> \`|\`  ${user} \`|\` <@&${BOOST_ANNOUNCE_STAFF_PING_ROLE_ID}>`;
 }
 
+/** Payload per `channel.send` (Components V2 / embed classico). */
+function buildBoostPayload(member, boostCount) {
+  return { embeds: [buildBoostEmbed(member, boostCount)] };
+}
+
+function buildBoostPayloadSecond(member, boostCount) {
+  return { embeds: [buildBoostEmbedSecond(member, boostCount)] };
+}
+
 module.exports = {
   buildBoostEmbed,
   buildBoostEmbedSecond,
+  buildBoostPayload,
+  buildBoostPayloadSecond,
   buildBoostAnnounceContent,
 };

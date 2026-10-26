@@ -1,0 +1,23 @@
+import type { Metadata } from "next";
+import { EventoComingSoon } from "@/components/evento/EventoComingSoon";
+import { EventoPage } from "@/components/evento/EventoPage";
+import { eventoPageMeta } from "@/lib/evento-starwars";
+import { pageSocialMeta } from "@/lib/og";
+
+const meta = eventoPageMeta("accademia");
+
+export const metadata: Metadata = {
+  ...pageSocialMeta({ path: meta.path, title: meta.title, description: meta.description }),
+  robots: { index: false, follow: false },
+};
+
+export default function EventoAccademiaPage() {
+  return (
+    <EventoPage pageId="accademia" path={meta.path} title="Accademia" text={meta.description}>
+      <EventoComingSoon
+        title="Prove all’Accademia"
+        text="Ogni tot dovrai tornare qui e superare un test mirato: colpire bersagli col cursore. Meccaniche e cooldown le definiamo dopo."
+      />
+    </EventoPage>
+  );
+}
