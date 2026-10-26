@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { DiscordComponentEmbed } from "@/components/DiscordComponentEmbed";
 import { pageSocialMeta } from "@/lib/og";
 import { LogIn } from "lucide-react";
 import { PageHero } from "@/components/PageHero";
@@ -12,6 +13,11 @@ export const metadata: Metadata = {
 export default function Page() {
   return (
     <SiteShell>
+      <DiscordComponentEmbed
+        path="/seratafilm/accesso-richiesto/"
+        title="Accesso richiesto ǀ Serata Film"
+        description="Accedi per entrare nella serata film."
+      />
       <PageHero
         icon={<LogIn />}
         kicker="Serata film"

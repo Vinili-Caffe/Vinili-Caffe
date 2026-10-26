@@ -170,3 +170,7 @@ for (const file of await walkHtml(OUT)) {
 }
 
 console.log(`inject-discord-component-embeds: ${injected} pagine, ${skipped} skip`);
+if (injected < 1) {
+  console.error("inject-discord-component-embeds: nessuna pagina iniettata — abort build");
+  process.exit(1);
+}

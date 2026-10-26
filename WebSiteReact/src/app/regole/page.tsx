@@ -4,6 +4,7 @@ import { PageHero } from "@/components/PageHero";
 import { RulesBrowser } from "@/components/rules/RulesBrowser";
 import { SiteShell } from "@/components/SiteShell";
 import { loadBuildRules } from "@/lib/rules";
+import { DiscordComponentEmbed } from "@/components/DiscordComponentEmbed";
 import { pageSocialMeta } from "@/lib/og";
 
 export const metadata: Metadata = {
@@ -14,6 +15,11 @@ export default async function RegolePage() {
   const rules = await loadBuildRules();
   return (
     <SiteShell>
+      <DiscordComponentEmbed
+        path="/regole/"
+        title="Regole"
+        description="Il regolamento di Vinili & Caffè: regole generali, chat testuali e vocali, sanzioni."
+      />
       <PageHero
         icon={<ScrollText />}
         kicker="Community & moderazione"

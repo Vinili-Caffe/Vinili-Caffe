@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { DiscordComponentEmbed } from "@/components/DiscordComponentEmbed";
 import { pageSocialMeta } from "@/lib/og";
 import { Heart } from "lucide-react";
 import { DonateBoard } from "@/components/donate/DonateBoard";
@@ -12,6 +13,11 @@ export const metadata: Metadata = {
 export default function DonazioniPage() {
   return (
     <SiteShell>
+      <DiscordComponentEmbed
+        path="/donazioni/"
+        title="Donazioni"
+        description="Supporta Vinili & Caffè: ogni donazione va a VPS, bot ed eventi. Ruoli Donator, VIP e VIP+ con PayPal."
+      />
       <PageHero
         icon={<Heart />}
         kicker="Donazioni"

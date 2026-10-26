@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { DiscordComponentEmbed } from "@/components/DiscordComponentEmbed";
 import { pageSocialMeta } from "@/lib/og";
 import { Scale } from "lucide-react";
 import { AppelliBoard } from "@/components/appelli/AppelliBoard";
@@ -12,6 +13,11 @@ export const metadata: Metadata = {
 export default function AppelliPage() {
   return (
     <SiteShell>
+      <DiscordComponentEmbed
+        path="/appelli/"
+        title="Appelli"
+        description="Richiedi l"
+      />
       <PageHero
         icon={<Scale />}
         kicker="Richieste allo staff"

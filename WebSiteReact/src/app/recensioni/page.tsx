@@ -4,6 +4,7 @@ import { NotebookPen } from "lucide-react";
 import { PageHero } from "@/components/PageHero";
 import { SiteShell } from "@/components/SiteShell";
 import { loadReviews } from "@/lib/reviews";
+import { DiscordComponentEmbed } from "@/components/DiscordComponentEmbed";
 import { pageSocialMeta } from "@/lib/og";
 import { SITE_ORIGIN } from "@/lib/site";
 
@@ -20,6 +21,11 @@ export default async function RecensioniPage() {
   const initial = await loadReviews("server", null, SITE_ORIGIN);
   return (
     <SiteShell>
+      <DiscordComponentEmbed
+        path="/recensioni/"
+        title="Recensioni"
+        description="Cosa dicono di Vinili & Caffè: recensioni del server e dello staff."
+      />
       <PageHero
         icon={<NotebookPen />}
         kicker="Recensioni"

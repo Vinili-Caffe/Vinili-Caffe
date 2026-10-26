@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import dynamic from "next/dynamic";
+import { DiscordComponentEmbed } from "@/components/DiscordComponentEmbed";
 import { pageSocialMeta } from "@/lib/og";
 import { Ticket } from "lucide-react";
 import { PageHero } from "@/components/PageHero";
@@ -17,6 +18,11 @@ export const metadata: Metadata = {
 export default function TicketsPage() {
   return (
     <SiteShell>
+      <DiscordComponentEmbed
+        path="/tickets/"
+        title="Tickets"
+        description="Assistenza live con lo staff di Vinili & Caffè: apri un ticket con un click e parla in tempo reale."
+      />
       <PageHero
         kicker="Assistenza"
         title="Tickets"

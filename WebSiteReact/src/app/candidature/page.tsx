@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { DiscordComponentEmbed } from "@/components/DiscordComponentEmbed";
 import { pageSocialMeta } from "@/lib/og";
 import { Coffee } from "lucide-react";
 import { CandidatureBoard } from "@/components/candidature/CandidatureBoard";
@@ -12,6 +13,11 @@ export const metadata: Metadata = {
 export default function CandidaturePage() {
   return (
     <SiteShell>
+      <DiscordComponentEmbed
+        path="/candidature/"
+        title="Candidature"
+        description="Candidati allo staff di Vinili & Caffè come Helper o Partner Manager."
+      />
       <PageHero
         icon={<Coffee />}
         kicker="Candidature"

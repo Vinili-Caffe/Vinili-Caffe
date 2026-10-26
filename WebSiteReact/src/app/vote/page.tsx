@@ -4,6 +4,7 @@ import { Heart } from "lucide-react";
 import { PageHero } from "@/components/PageHero";
 import { SiteShell } from "@/components/SiteShell";
 import { loadBuildVote } from "@/lib/vote";
+import { DiscordComponentEmbed } from "@/components/DiscordComponentEmbed";
 import { pageSocialMeta } from "@/lib/og";
 
 const VoteBoard = dynamic(() => import("@/components/vote/VoteBoard").then((m) => m.VoteBoard), { loading: () => null,
@@ -17,6 +18,11 @@ export default async function VotePage() {
   const initial = await loadBuildVote();
   return (
     <SiteShell>
+      <DiscordComponentEmbed
+        path="/vote/"
+        title="Vota"
+        description="Vota Vinili & Caffè su Discadia e Top.gg: bonus EXP, ruolo Voter e più visibilità per la community."
+      />
       <PageHero
         icon={<Heart />}
         kicker="Sostienici"

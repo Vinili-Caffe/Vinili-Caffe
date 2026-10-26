@@ -4,6 +4,7 @@ import { LeaderboardBrowser } from "@/components/leaderboard/LeaderboardBrowser"
 import { PageHero } from "@/components/PageHero";
 import { SiteShell } from "@/components/SiteShell";
 import { loadBuildBoard } from "@/lib/leaderboard";
+import { DiscordComponentEmbed } from "@/components/DiscordComponentEmbed";
 import { pageSocialMeta } from "@/lib/og";
 
 export const metadata: Metadata = {
@@ -14,6 +15,11 @@ export default async function ClassifichePage() {
   const initial = await loadBuildBoard();
   return (
     <SiteShell>
+      <DiscordComponentEmbed
+        path="/classifiche/"
+        title="Classifiche"
+        description="I membri più attivi di Vinili & Caffè: livello, EXP settimanale, messaggi, vocale e minigames."
+      />
       <PageHero
         icon={<Trophy />}
         kicker="Classifiche"

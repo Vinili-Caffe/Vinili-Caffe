@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import dynamic from "next/dynamic";
+import { DiscordComponentEmbed } from "@/components/DiscordComponentEmbed";
 import { pageSocialMeta } from "@/lib/og";
 import { Bell } from "lucide-react";
 import { PageHero } from "@/components/PageHero";
@@ -17,6 +18,11 @@ export const metadata: Metadata = {
 export default function NotificationsPage() {
   return (
     <SiteShell>
+      <DiscordComponentEmbed
+        path="/notifications/"
+        title="Notifiche"
+        description="Le tue notifiche del sito Vinili & Caffè: ticket, voti, esiti e aggiornamenti della community."
+      />
       <PageHero
         icon={<Bell />}
         kicker="Notifiche"

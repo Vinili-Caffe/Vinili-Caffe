@@ -4,6 +4,7 @@ import { PageHero } from "@/components/PageHero";
 import { SiteShell } from "@/components/SiteShell";
 import { StatusBoard } from "@/components/status/StatusBoard";
 import { loadBuildStatus } from "@/lib/status";
+import { DiscordComponentEmbed } from "@/components/DiscordComponentEmbed";
 import { pageSocialMeta } from "@/lib/og";
 
 export const metadata: Metadata = {
@@ -14,6 +15,11 @@ export default async function StatusPage() {
   const initial = await loadBuildStatus();
   return (
     <SiteShell>
+      <DiscordComponentEmbed
+        path="/status/"
+        title="Stato"
+        description="Stato in tempo reale del sito, dei bot Discord, del database, della musica e dei voti."
+      />
       <PageHero
         icon={<Activity />}
         kicker="Sistema"

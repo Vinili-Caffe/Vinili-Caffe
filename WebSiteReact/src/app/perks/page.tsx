@@ -8,6 +8,7 @@ import { RichText } from "@/components/RichText";
 import { SiteShell } from "@/components/SiteShell";
 import { BorderBeam } from "@/components/ui/border-beam";
 import { BADGES, BOOST, SELFIE } from "@/lib/perks";
+import { DiscordComponentEmbed } from "@/components/DiscordComponentEmbed";
 import { pageSocialMeta } from "@/lib/og";
 
 export const metadata: Metadata = {
@@ -29,6 +30,11 @@ function SectionTitle({ icon, kicker, title, text }: { icon: React.ReactNode; ki
 export default function PerksPage() {
   return (
     <SiteShell>
+      <DiscordComponentEmbed
+        path="/perks/"
+        title="Perks"
+        description="Tutti i ruoli ottenibili su Vinili & Caffè e i loro vantaggi: Nitro Boost, livelli, verifica e badge."
+      />
       <PageHero
         icon={<Gem />}
         kicker="Vantaggi"

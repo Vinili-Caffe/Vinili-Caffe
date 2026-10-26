@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import dynamic from "next/dynamic";
+import { DiscordComponentEmbed } from "@/components/DiscordComponentEmbed";
 import { pageSocialMeta } from "@/lib/og";
 import { Sparkles } from "lucide-react";
 import { PageHero } from "@/components/PageHero";
@@ -17,6 +18,11 @@ export const metadata: Metadata = {
 export default function PuzzlePage() {
   return (
     <SiteShell>
+      <DiscordComponentEmbed
+        path="/puzzle/"
+        title="Puzzle"
+        description="Puzzle galassia riservato all’High Staff — pezzi da ricomporre."
+      />
       <PageHero
         icon={<Sparkles />}
         kicker="High Staff"

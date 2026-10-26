@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import dynamic from "next/dynamic";
+import { DiscordComponentEmbed } from "@/components/DiscordComponentEmbed";
 import { pageSocialMeta } from "@/lib/og";
 import { Shield } from "lucide-react";
 import { PageHero } from "@/components/PageHero";
@@ -17,6 +18,11 @@ export const metadata: Metadata = {
 export default function Page() {
   return (
     <SiteShell>
+      <DiscordComponentEmbed
+        path="/bacheca/mod/"
+        title="Mod Bacheca"
+        description="Coda moderazione Bacheca."
+      />
       <PageHero
         icon={<Shield />}
         kicker="Staff"

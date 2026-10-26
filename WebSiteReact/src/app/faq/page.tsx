@@ -7,6 +7,7 @@ import { Reveal } from "@/components/Reveal";
 import { SiteShell } from "@/components/SiteShell";
 import { SmartLink } from "@/components/SmartLink";
 import { page } from "@/lib/site";
+import { DiscordComponentEmbed } from "@/components/DiscordComponentEmbed";
 import { pageSocialMeta } from "@/lib/og";
 
 export const metadata: Metadata = {
@@ -16,6 +17,11 @@ export const metadata: Metadata = {
 export default function FaqPage() {
   return (
     <SiteShell>
+      <DiscordComponentEmbed
+        path="/faq/"
+        title="FAQ"
+        description="Risposte rapide su livelli, musica, giochi, eventi e staff di Vinili & Caffè."
+      />
       <PageHero
         icon={<BookOpen />}
         kicker="Supporto"

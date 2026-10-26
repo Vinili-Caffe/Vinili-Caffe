@@ -8,11 +8,17 @@ import { Why } from "@/components/Why";
 import { loadBuildStats } from "@/lib/stats";
 import { HomeLoop } from "@/components/HomeLoop";
 import { ContestHomeCard } from "@/components/contest/ContestHomeCard";
+import { DiscordComponentEmbed } from "@/components/DiscordComponentEmbed";
 
 export default async function Home() {
   const stats = await loadBuildStats();
   return (
     <SiteShell>
+      <DiscordComponentEmbed
+        path="/"
+        title="Vinili & Caffè"
+        description="Community Discord Italiana chill dove parlare di tutto. Ruoli, eventi, giveaway, bot esclusivi."
+      />
       {/* LCP: preload sfondo hero (hoisted in <head>) */}
       <link
         rel="preload"

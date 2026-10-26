@@ -18,7 +18,7 @@ export const SITE_DISCORD_INVITE = "https://discord.gg/viniliecaffe";
 export const SITE_ORIGIN = "https://www.viniliecaffe.it";
 
 /** Screenshot reali pagina 1200×630 (`/og/{slug}.png`) — card grande / fallback. */
-const OG_CARD_VERSION = "20261026contestOg1";
+const OG_CARD_VERSION = "20261026embedFix1";
 /** Logo GIF — thumb accessorio Component Embed. */
 const LOGO_VERSION = "20261025ogGif2";
 /** Limite Discord per il JSON component-embed (byte). */

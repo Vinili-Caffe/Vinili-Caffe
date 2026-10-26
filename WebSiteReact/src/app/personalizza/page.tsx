@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { DiscordComponentEmbed } from "@/components/DiscordComponentEmbed";
 import { pageSocialMeta } from "@/lib/og";
 import { Suspense } from "react";
 import { Disc3 } from "lucide-react";
@@ -13,6 +14,11 @@ export const metadata: Metadata = {
 export default function PersonalizzaPage() {
   return (
     <SiteShell>
+      <DiscordComponentEmbed
+        path="/personalizza/"
+        title="Personalizza"
+        description="Personalizza rank card, ruoli custom, vocale privata, colori PLUS e reazioni dal pannello web Vinili & Caffè."
+      />
       <PageHero
         icon={<Disc3 />}
         kicker="Profilo"

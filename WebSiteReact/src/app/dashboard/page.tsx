@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import dynamic from "next/dynamic";
+import { DiscordComponentEmbed } from "@/components/DiscordComponentEmbed";
 import { pageSocialMeta } from "@/lib/og";
 
 const ServerPicker = dynamic(
@@ -13,5 +14,14 @@ export const metadata: Metadata = {
 };
 
 export default function DashboardPage() {
-  return <ServerPicker />;
+  return (
+    <>
+      <DiscordComponentEmbed
+        path="/dashboard/"
+        title="Dashboard"
+        description="Dashboard bot Vinili & Caffè: scegli il server e gestisci configurazione e moduli."
+      />
+      <ServerPicker />
+    </>
+  );
 }

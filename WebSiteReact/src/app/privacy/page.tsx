@@ -4,6 +4,7 @@ import { LegalPage } from "@/components/legal/LegalPage";
 import { PageHero } from "@/components/PageHero";
 import { SiteShell } from "@/components/SiteShell";
 import { LEGAL_PRIVACY } from "@/lib/legal-docs";
+import { DiscordComponentEmbed } from "@/components/DiscordComponentEmbed";
 import { pageSocialMeta } from "@/lib/og";
 
 export const metadata: Metadata = {
@@ -14,6 +15,11 @@ export default function PrivacyPage() {
   const doc = LEGAL_PRIVACY;
   return (
     <SiteShell>
+      <DiscordComponentEmbed
+        path="/privacy/"
+        title="Privacy Policy"
+        description="Come Vinili & Caffè raccoglie, utilizza e protegge i dati personali di sito, bot e community Discord."
+      />
       <PageHero
         icon={<Shield />}
         kicker="Legale"

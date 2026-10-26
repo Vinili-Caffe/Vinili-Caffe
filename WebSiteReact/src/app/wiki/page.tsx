@@ -4,6 +4,7 @@ import { PageHero } from "@/components/PageHero";
 import { SiteShell } from "@/components/SiteShell";
 import { WikiBrowser } from "@/components/wiki/WikiBrowser";
 import { loadBuildWiki } from "@/lib/wiki";
+import { DiscordComponentEmbed } from "@/components/DiscordComponentEmbed";
 import { pageSocialMeta } from "@/lib/og";
 
 export const metadata: Metadata = {
@@ -14,6 +15,11 @@ export default async function WikiPage() {
   const wiki = await loadBuildWiki();
   return (
     <SiteShell>
+      <DiscordComponentEmbed
+        path="/wiki/"
+        title="Wiki"
+        description="Tutti i comandi dei bot Vinili e Caffè: musica, livelli, statistiche, TTS e minigames."
+      />
       <PageHero
         icon={<BookOpen />}
         kicker="Wiki dei bot"

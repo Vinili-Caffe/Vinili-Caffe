@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { DiscordComponentEmbed } from "@/components/DiscordComponentEmbed";
 import { pageSocialMeta } from "@/lib/og";
 import { Clapperboard } from "lucide-react";
 import { PageHero } from "@/components/PageHero";
@@ -12,6 +13,11 @@ export const metadata: Metadata = {
 export default function Page() {
   return (
     <SiteShell>
+      <DiscordComponentEmbed
+        path="/seratafilm/"
+        title="Serata Film"
+        description="Serata film di Vinili & Caffè su Discord: countdown e streaming."
+      />
       <PageHero
         icon={<Clapperboard />}
         kicker="Eventi"

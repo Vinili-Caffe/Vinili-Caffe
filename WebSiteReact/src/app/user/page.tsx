@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { DiscordComponentEmbed } from "@/components/DiscordComponentEmbed";
 import { pageSocialMeta } from "@/lib/og";
 import { Suspense } from "react";
 import { ProfileView } from "@/components/profile/ProfileView";
@@ -11,6 +12,11 @@ export const metadata: Metadata = {
 export default function UserPage() {
   return (
     <SiteShell>
+      <DiscordComponentEmbed
+        path="/user/"
+        title="Profilo"
+        description="Il profilo di un membro di Vinili & Caffè: livello, classifiche, rank card e ruoli."
+      />
       {/* l'id arriva da ?id=…: la pagina è statica, il profilo si carica nel browser */}
       <Suspense>
         <ProfileView />

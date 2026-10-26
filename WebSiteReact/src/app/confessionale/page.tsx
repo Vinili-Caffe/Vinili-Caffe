@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import dynamic from "next/dynamic";
+import { DiscordComponentEmbed } from "@/components/DiscordComponentEmbed";
 import { pageSocialMeta } from "@/lib/og";
 import { Feather } from "lucide-react";
 import { PageHero } from "@/components/PageHero";
@@ -17,6 +18,11 @@ export const metadata: Metadata = {
 export default function ConfessionalePage() {
   return (
     <SiteShell>
+      <DiscordComponentEmbed
+        path="/confessionale/"
+        title="Confessionale"
+        description="Spazio aperto alla community: sfoga o segnala in totale anonimato."
+      />
       <PageHero
         icon={<Feather />}
         kicker="Community"

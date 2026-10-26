@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import dynamic from "next/dynamic";
+import { DiscordComponentEmbed } from "@/components/DiscordComponentEmbed";
 import { pageSocialMeta } from "@/lib/og";
 import { ScrollText } from "lucide-react";
 import { PageHero } from "@/components/PageHero";
@@ -17,6 +18,11 @@ export const metadata: Metadata = {
 export default function Page() {
   return (
     <SiteShell>
+      <DiscordComponentEmbed
+        path="/bacheca/linee-guida-recensioni/"
+        title="Bacheca · Linee guida recensioni"
+        description="Linee guida per le recensioni in Bacheca."
+      />
       <PageHero
         icon={<ScrollText />}
         kicker="Bacheca"
