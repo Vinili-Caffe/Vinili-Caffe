@@ -17,6 +17,7 @@ import {
   CalendarDays,
   Images,
   ThumbsUp,
+  LogIn,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import {
@@ -35,7 +36,6 @@ import {
   type ContestStatus,
   type ContestSubmission,
 } from "@/lib/contest";
-import { DiscordButton } from "@/components/DiscordButton";
 import { confirmDialog, showToast } from "@/components/ui";
 import { cn } from "@/lib/cn";
 
@@ -164,7 +164,7 @@ function Panel({ children, className }: { children: React.ReactNode; className?:
 }
 
 export function ContestBoard({ eventKey }: { eventKey: string }) {
-  const { ready, token } = useAuth();
+  const { ready, token, login } = useAuth();
   const [status, setStatus] = useState<ContestStatus | null>(null);
   const [tab, setTab] = useState<Tab>("board");
   const [busy, setBusy] = useState(false);
@@ -589,12 +589,17 @@ export function ContestBoard({ eventKey }: { eventKey: string }) {
           {needLoginForTab ? (
             <Panel className="mt-6 text-center">
               <Ghost className="mx-auto size-9 text-caramel" />
-              <p className="mt-3 font-display text-xl font-semibold">Entra nel server</p>
-              <p className="mt-2 text-sm text-crema/60">
-                La classifica è pubblica. Per inviare o votare serve essere nel Discord Vinili &amp; Caffè.
-              </p>
+              <p className="mt-3 font-display text-xl font-semibold">Accedi per partecipare</p>
+              <p className="mt-2 text-sm text-crema/60">La classifica è pubblica. Per inviare o votare serve Discord.</p>
               <div className="mt-5 flex justify-center">
-                <DiscordButton label="Entra sul server" />
+                <button
+                  type="button"
+                  onClick={login}
+                  className="inline-flex items-center gap-3 rounded-full bg-[#5865f2] px-6 py-3.5 font-semibold text-white shadow-[0_10px_30px_-10px_rgba(88,101,242,0.8)] ring-1 ring-white/15 transition-transform hover:-translate-y-0.5"
+                >
+                  <LogIn className="size-5" aria-hidden />
+                  Accedi con Discord
+                </button>
               </div>
             </Panel>
           ) : null}
