@@ -37,6 +37,10 @@
       "destination": "https://api.viniliecaffe.it/discord-invite.json"
     },
     {
+      "source": "/site-analytics.json",
+      "destination": "https://api.viniliecaffe.it/site-analytics.json"
+    },
+    {
       "source": "/js/i18n/locales/:path*",
       "destination": "https://api.viniliecaffe.it/js/i18n/locales/:path*"
     },

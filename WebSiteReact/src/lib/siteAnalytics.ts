@@ -1,4 +1,5 @@
-/** Analytics sito pubblico: /site-analytics.json (GA4 se configurato, altrimenti log nginx). */
+/** Analytics sito pubblico via api. (non www — evita 404 Vercel). */
+import { apiUrl } from "./api";
 
 export type SiteAnalytics = {
   ok: true;
@@ -14,9 +15,9 @@ export type SiteAnalytics = {
   updatedAt?: string;
 };
 
-export async function loadSiteAnalytics(origin = ""): Promise<SiteAnalytics | null> {
+export async function loadSiteAnalytics(_origin = ""): Promise<SiteAnalytics | null> {
   try {
-    const r = await fetch(`${origin}/site-analytics.json`, { cache: "no-store" });
+    const r = await fetch(apiUrl("/site-analytics.json"), { cache: "no-store" });
     if (!r.ok) return null;
     const j = (await r.json()) as Partial<SiteAnalytics>;
     if (!j || j.ok !== true) return null;
