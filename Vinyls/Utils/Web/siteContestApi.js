@@ -684,7 +684,7 @@ async function setPublicOpen(client, { eventKey, accessToken, publicOpen } = {})
 }
 
 /** Staff: riempie il deck con foto placeholder (picsum) per provare lo swipe. */
-async function seedDemo(client, { eventKey, accessToken, count = 8 } = {}) {
+async function seedDemo(client, { eventKey, accessToken, count = 8, replace = true } = {}) {
   const event = getEvent(eventKey);
   if (!event) return { ok: false, status: 404, error: "unknown_event", message: "Contest non trovato." };
   const staff = await isStaffPreview(client, accessToken);
@@ -693,17 +693,38 @@ async function seedDemo(client, { eventKey, accessToken, count = 8 } = {}) {
   const cats = eventCategories(event);
   const n = Math.min(24, Math.max(1, Number(count) || 8));
   const doc = await getOrCreateDoc(event.key);
-  const existingFake = new Set(
-    (doc.submissions || []).filter((s) => String(s.userId || "").startsWith("demo")).map((s) => s.userId),
-  );
+
+  /* Default: sostituisci le demo esistenti (altrimenti il 2° click non faceva nulla). */
+  let removed = 0;
+  if (replace !== false) {
+    const before = (doc.submissions || []).length;
+    const keepIds = new Set();
+    doc.submissions = (doc.submissions || []).filter((s) => {
+      const keep = !String(s.userId || "").startsWith("demo");
+      if (keep) keepIds.add(s.id);
+      return keep;
+    });
+    removed = before - doc.submissions.length;
+    if (removed && doc.votes && typeof doc.votes === "object") {
+      for (const vid of Object.keys(doc.votes)) {
+        const leaf = doc.votes[vid];
+        if (!leaf || typeof leaf !== "object") continue;
+        for (const sid of Object.keys(leaf)) {
+          if (!keepIds.has(sid)) delete leaf[sid];
+        }
+      }
+      doc.markModified("votes");
+    }
+  }
+
+  const stamp = Date.now().toString(36);
   let added = 0;
   for (let i = 1; i <= n; i++) {
-    const userId = `demo${String(i).padStart(4, "0")}`;
-    if (existingFake.has(userId)) continue;
+    const userId = `demo${stamp}${String(i).padStart(3, "0")}`;
     if ((doc.submissions || []).some((s) => s.userId === userId)) continue;
     const cat = cats[(i - 1) % cats.length].id;
     const landscape = cat === "pc";
-    const seed = `${event.key}-${cat}-${i}-${Date.now().toString(36)}`;
+    const seed = `${event.key}-${cat}-${i}-${stamp}`;
     const w = landscape ? 1280 : 720;
     const h = landscape ? 720 : 1280;
     doc.submissions.push({
@@ -723,8 +744,11 @@ async function seedDemo(client, { eventKey, accessToken, count = 8 } = {}) {
     ok: true,
     status: 200,
     added,
+    removed,
     submissionCount: (doc.submissions || []).length,
-    message: added ? `Aggiunte ${added} foto demo (${cats.map((c) => c.label).join(" + ")}).` : "Le foto demo c’erano già.",
+    message: added
+      ? `Caricate ${added} foto demo${removed ? ` (rimosse ${removed} vecchie)` : ""} · ${cats.map((c) => c.label).join(" + ")}.`
+      : "Nessuna demo aggiunta.",
   };
 }
 
@@ -749,13 +773,15 @@ async function clearDemo(client, { eventKey, accessToken } = {}) {
     }
     doc.markModified("votes");
   }
+  const removed = before - doc.submissions.length;
+  if (removed) doc.markModified("submissions");
   await doc.save();
   return {
     ok: true,
     status: 200,
-    removed: before - doc.submissions.length,
+    removed,
     submissionCount: doc.submissions.length,
-    message: "Demo rimosse.",
+    message: removed ? `Rimosse ${removed} foto demo.` : "Nessuna demo da rimuovere.",
   };
 }
 

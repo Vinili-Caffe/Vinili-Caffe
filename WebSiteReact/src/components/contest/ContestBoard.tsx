@@ -33,7 +33,7 @@ import {
   type ContestSubmission,
 } from "@/lib/contest";
 import { DiscordButton } from "@/components/DiscordButton";
-import { confirmDialog } from "@/components/ui";
+import { confirmDialog, showToast } from "@/components/ui";
 import { cn } from "@/lib/cn";
 
 type Tab = "submit" | "vote" | "board";
@@ -467,34 +467,45 @@ export function ContestBoard({ eventKey }: { eventKey: string }) {
                 <button
                   type="button"
                   disabled={busy}
-                  className="rounded-full bg-crema/10 px-3 py-1.5 text-crema ring-1 ring-crema/15 hover:bg-crema/15"
-                  onClick={async () => {
+                  className="rounded-full bg-crema/10 px-3 py-1.5 text-crema ring-1 ring-crema/15 hover:bg-crema/15 disabled:opacity-40"
+                  onClick={async (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
                     setBusy(true);
-                    setMsg("");
                     try {
                       const out = await seedContestDemo(eventKey, token, 8);
-                      setMsg(out.message || "");
+                      showToast(out.message || (out.ok ? "Demo caricate." : "Errore demo."), !out.ok);
                       await reload();
+                      setTab("board");
+                      setBoardPage(1);
                       await loadBoard();
+                      if (tab === "vote") await loadFeed();
+                    } catch {
+                      showToast("Seed demo fallito.", true);
                     } finally {
                       setBusy(false);
                     }
                   }}
                 >
-                  +8 demo
+                  {busy ? "…" : "+8 demo"}
                 </button>
                 <button
                   type="button"
                   disabled={busy}
-                  className="rounded-full bg-crema/5 px-3 py-1.5 text-crema/70 ring-1 ring-crema/10 hover:bg-crema/10"
-                  onClick={async () => {
+                  className="rounded-full bg-crema/5 px-3 py-1.5 text-crema/70 ring-1 ring-crema/10 hover:bg-crema/10 disabled:opacity-40"
+                  onClick={async (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
                     setBusy(true);
-                    setMsg("");
                     try {
                       const out = await clearContestDemo(eventKey, token);
-                      setMsg(out.message || "");
+                      showToast(out.message || (out.ok ? "Demo rimosse." : "Errore."), !out.ok);
                       await reload();
+                      setTab("board");
                       await loadBoard();
+                      await loadFeed();
+                    } catch {
+                      showToast("Pulizia demo fallita.", true);
                     } finally {
                       setBusy(false);
                     }
