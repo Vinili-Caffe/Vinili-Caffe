@@ -96,6 +96,18 @@
     "title": "Confessionale"
   },
   {
+    "path": "/contest/sfondi-halloween/",
+    "slug": "contest-sfondi-halloween",
+    "file": "contest-sfondi-halloween.png",
+    "title": "Contest sfondi Halloween"
+  },
+  {
+    "path": "/contest/outfit-halloween/",
+    "slug": "contest-outfit-halloween",
+    "file": "contest-outfit-halloween.png",
+    "title": "Contest outfit Halloween"
+  },
+  {
     "path": "/cookie/",
     "slug": "cookie",
     "file": "cookie.png",

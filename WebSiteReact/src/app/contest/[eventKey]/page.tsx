@@ -4,6 +4,7 @@ import { Ghost } from "lucide-react";
 import { PageHero } from "@/components/PageHero";
 import { SiteShell } from "@/components/SiteShell";
 import { BoardSkeleton } from "@/components/ui/EmptyState";
+import { DiscordComponentEmbed } from "@/components/DiscordComponentEmbed";
 import { pageSocialMeta } from "@/lib/og";
 
 const ContestBoard = dynamic(
@@ -59,6 +60,12 @@ export default async function ContestPage({
   }
   return (
     <SiteShell>
+      <DiscordComponentEmbed
+        path={`/contest/${eventKey}/`}
+        title={meta.title}
+        description={meta.text}
+        pageLabel="Apri il contest"
+      />
       <PageHero icon={<Ghost />} kicker="Halloween" title={meta.title} text={meta.text} />
       <ContestBoard eventKey={eventKey} />
     </SiteShell>
