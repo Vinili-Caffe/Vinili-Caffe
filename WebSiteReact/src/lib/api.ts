@@ -52,5 +52,5 @@ export function apiUrl(path: string): string {
 
 /** Inline boot: patch `fetch` verso API_ORIGIN (solo se flag on). */
 export const API_FETCH_BOOT = USE_API_ORIGIN
-  ? `(function(){try{var O=${JSON.stringify(API_ORIGIN)};var f=window.fetch.bind(window);function rewrite(u){try{if(!u)return u;if(u.charAt(0)==="/"&&(u.indexOf("/webhooks/")===0||u.indexOf("/v1/")===0))return O+u;var m=u.match(/^https:\\/\\/(www\\.)?viniliecaffe\\.it(\\/(?:webhooks|v1)\\/.*)$/i);if(m)return O+m[2];}catch(e){}return u;}window.fetch=function(i,n){try{if(typeof i==="string"){i=rewrite(i);}else if(typeof Request!=="undefined"&&i instanceof Request){var nu=rewrite(i.url);if(nu!==i.url)i=new Request(nu,i);}}catch(e){}return f(i,n);};}catch(e){}})();`
+  ? `(function(){try{var O=${JSON.stringify(API_ORIGIN)};var f=window.fetch.bind(window);function rewrite(u){try{if(!u)return u;if(u.charAt(0)==="/"&&(u.indexOf("/webhooks/")===0||u.indexOf("/v1/")===0||u.indexOf("/status-kuma/")===0))return O+u;var m=u.match(/^https:\\/\\/(www\\.)?viniliecaffe\\.it(\\/(?:webhooks|v1|status-kuma)\\/.*)$/i);if(m)return O+m[2];}catch(e){}return u;}window.fetch=function(i,n){try{if(typeof i==="string"){i=rewrite(i);}else if(typeof Request!=="undefined"&&i instanceof Request){var nu=rewrite(i.url);if(nu!==i.url)i=new Request(nu,i);}}catch(e){}return f(i,n);};}catch(e){}})();`
   : "";
