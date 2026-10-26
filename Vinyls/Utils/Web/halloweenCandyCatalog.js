@@ -1,5 +1,6 @@
 const CANDY_IMAGE_BASE = "/images/caramelle_del_porco_dio";
-const CANDY_PUBLIC_ORIGIN = "https://www.viniliecaffe.it";
+/** Media su VPS; api nginx espone /images/ (www Vercel non ha thumbs/sil). */
+const CANDY_PUBLIC_ORIGIN = "https://api.viniliecaffe.it";
 
 const CANDY_NAMES = Object.freeze([
   "Zucchero d'osso",

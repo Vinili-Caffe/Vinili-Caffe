@@ -2,6 +2,8 @@
 // La card +rank è una GIF generata da /webhooks/site-rank-card-public?userId=…
 // Le impostazioni (compleanno, privacy, reazioni…) stanno in Personalizza, non qui.
 
+import { apiUrl } from "./api";
+
 export type DiscordRole = { id: string; name: string; color?: string; emoji?: string; iconUrl?: string };
 export type SharedMember = { id: string; username?: string; displayName?: string; avatarUrl?: string; isOwner?: boolean };
 export type CustomRole = DiscordRole & { color2?: string; colorMode?: "solid" | "gradient"; createdAt?: string; memberCount?: number; sharedMembers?: SharedMember[] };
@@ -77,7 +79,9 @@ export async function loadProfile(userId: string, origin = ""): Promise<ProfileR
   }
 }
 
-export const rankCardUrl = (userId: string) => `/webhooks/site-rank-card-public?userId=${encodeURIComponent(userId)}`;
+/** Img src → api (non www): trailingSlash su Vercel loopa /webhooks/* senza slash. */
+export const rankCardUrl = (userId: string) =>
+  apiUrl(`/webhooks/site-rank-card-public?userId=${encodeURIComponent(userId)}`);
 
 /** Badge principali, in ordine, dai ruoli (stessi id del sito attuale). */
 const BADGE_ROLES: [string, string][] = [
