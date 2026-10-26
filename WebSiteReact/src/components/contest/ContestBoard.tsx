@@ -78,9 +78,13 @@ export function ContestBoard({ eventKey }: { eventKey: string }) {
   const [deck, setDeck] = useState<ContestSubmission[]>([]);
   const [board, setBoard] = useState<ContestSubmission[]>([]);
   const [boardPreview, setBoardPreview] = useState(true);
-  const [dragX, setDragX] = useState(0);
-  const [dragging, setDragging] = useState(false);
-  const startX = useRef(0);
+  const cardRef = useRef<HTMLDivElement | null>(null);
+  const likeBadgeRef = useRef<HTMLDivElement | null>(null);
+  const passBadgeRef = useRef<HTMLDivElement | null>(null);
+  const dragXRef = useRef(0);
+  const draggingRef = useRef(false);
+  const startXRef = useRef(0);
+  const rafRef = useRef(0);
 
   const cats = useMemo<ContestCategory[]>(
     () => status?.categories?.length ? status.categories : [{ id: "main", label: "Main" }],
@@ -176,13 +180,35 @@ export function ContestBoard({ eventKey }: { eventKey: string }) {
     }
   }
 
+  function paintCard(x: number, withTransition: boolean) {
+    const el = cardRef.current;
+    if (!el) return;
+    /* translate3d + will-change: layer GPU, niente re-render React. */
+    el.style.transition = withTransition ? "transform 180ms ease" : "none";
+    el.style.transform = `translate3d(${x}px,0,0) rotate(${x / 28}deg)`;
+    const like = likeBadgeRef.current;
+    const pass = passBadgeRef.current;
+    if (like) like.style.opacity = x > 40 ? "1" : "0";
+    if (pass) pass.style.opacity = x < -40 ? "1" : "0";
+  }
+
+  function resetCard() {
+    dragXRef.current = 0;
+    paintCard(0, true);
+  }
+
   async function onSwipe(action: "like" | "pass") {
     if (!token || !top || busy) return;
     setBusy(true);
     try {
+      /* Fly-off senza setState per frame. */
+      const fly = action === "like" ? window.innerWidth : -window.innerWidth;
+      paintCard(fly, true);
       await swipeContest(eventKey, token, top.id, action);
       setDeck((d) => d.slice(1));
-      setDragX(0);
+      dragXRef.current = 0;
+      /* next card: reset dopo swap */
+      requestAnimationFrame(() => paintCard(0, false));
       if (deck.length <= 2) void loadFeed();
     } finally {
       setBusy(false);
@@ -190,21 +216,39 @@ export function ContestBoard({ eventKey }: { eventKey: string }) {
   }
 
   function onPointerDown(e: React.PointerEvent) {
-    if (!top) return;
-    startX.current = e.clientX;
-    setDragging(true);
-    (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
+    if (!top || busy) return;
+    e.preventDefault();
+    startXRef.current = e.clientX;
+    draggingRef.current = true;
+    paintCard(dragXRef.current, false);
+    cardRef.current?.setPointerCapture?.(e.pointerId);
   }
+
   function onPointerMove(e: React.PointerEvent) {
-    if (!dragging) return;
-    setDragX(e.clientX - startX.current);
+    if (!draggingRef.current) return;
+    const raw = e.clientX - startXRef.current;
+    /* Clamp soft: oltre ~40% viewport frena (evita paint enorme al bordo pagina). */
+    const max = Math.min(220, window.innerWidth * 0.42);
+    const x = Math.max(-max, Math.min(max, raw));
+    dragXRef.current = x;
+    if (rafRef.current) return;
+    rafRef.current = requestAnimationFrame(() => {
+      rafRef.current = 0;
+      paintCard(dragXRef.current, false);
+    });
   }
+
   function onPointerUp() {
-    if (!dragging) return;
-    setDragging(false);
-    if (dragX > 110) void onSwipe("like");
-    else if (dragX < -110) void onSwipe("pass");
-    else setDragX(0);
+    if (!draggingRef.current) return;
+    draggingRef.current = false;
+    if (rafRef.current) {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = 0;
+    }
+    const x = dragXRef.current;
+    if (x > 110) void onSwipe("like");
+    else if (x < -110) void onSwipe("pass");
+    else resetCard();
   }
 
   const showMain =
@@ -379,7 +423,7 @@ export function ContestBoard({ eventKey }: { eventKey: string }) {
           ) : null}
 
           {tab === "vote" && status?.phase !== "after" ? (
-            <div className="mt-8 space-y-4">
+            <div className="mt-8 space-y-4 overflow-x-clip">
               <CategoryPills
                 cats={cats}
                 value={catVote}
@@ -396,34 +440,33 @@ export function ContestBoard({ eventKey }: { eventKey: string }) {
               ) : (
                 <>
                   <div
+                    ref={cardRef}
                     className={cn(
-                      "relative mx-auto w-full max-w-sm touch-none select-none overflow-hidden rounded-3xl bg-roast shadow-2xl ring-1 ring-crema/15",
+                      "relative mx-auto w-full max-w-sm touch-none select-none overflow-hidden rounded-3xl bg-roast shadow-2xl ring-1 ring-crema/15 will-change-transform",
                       catVote === "pc" ? "aspect-video" : "aspect-[3/4]",
                     )}
-                    style={{
-                      transform: `translateX(${dragX}px) rotate(${dragX / 28}deg)`,
-                      transition: dragging ? "none" : "transform 180ms ease",
-                    }}
+                    style={{ transform: "translate3d(0,0,0)", touchAction: "none" }}
                     onPointerDown={onPointerDown}
                     onPointerMove={onPointerMove}
                     onPointerUp={onPointerUp}
                     onPointerCancel={onPointerUp}
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={contestImageUrl(top.imageUrl)} alt="" className="size-full object-cover" draggable={false} />
+                    <img
+                      src={contestImageUrl(top.imageUrl)}
+                      alt=""
+                      className="pointer-events-none size-full object-cover"
+                      draggable={false}
+                    />
                     <div
-                      className={cn(
-                        "pointer-events-none absolute left-4 top-4 rounded-lg border-2 border-emerald-400 px-3 py-1 text-sm font-bold uppercase tracking-widest text-emerald-300",
-                        dragX > 40 ? "opacity-100" : "opacity-0",
-                      )}
+                      ref={likeBadgeRef}
+                      className="pointer-events-none absolute left-4 top-4 rounded-lg border-2 border-emerald-400 px-3 py-1 text-sm font-bold uppercase tracking-widest text-emerald-300 opacity-0 transition-opacity duration-75"
                     >
                       Like
                     </div>
                     <div
-                      className={cn(
-                        "pointer-events-none absolute right-4 top-4 rounded-lg border-2 border-red-400 px-3 py-1 text-sm font-bold uppercase tracking-widest text-red-300",
-                        dragX < -40 ? "opacity-100" : "opacity-0",
-                      )}
+                      ref={passBadgeRef}
+                      className="pointer-events-none absolute right-4 top-4 rounded-lg border-2 border-red-400 px-3 py-1 text-sm font-bold uppercase tracking-widest text-red-300 opacity-0 transition-opacity duration-75"
                     >
                       Pass
                     </div>
