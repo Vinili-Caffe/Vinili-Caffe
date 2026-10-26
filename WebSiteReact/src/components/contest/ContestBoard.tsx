@@ -446,7 +446,7 @@ export function ContestBoard({ eventKey }: { eventKey: string }) {
           {status?.title || "Contest"}
         </h2>
         {status?.blurb ? <p className="relative mt-2 text-sm leading-relaxed text-crema/65">{status.blurb}</p> : null}
-        <div className={cn("relative mt-4 grid gap-2", status?.startAt && status?.endAt ? "grid-cols-2" : "grid-cols-2")}>
+        <div className="relative mt-4 grid grid-cols-2 gap-2">
           <div className="rounded-2xl bg-ink/35 px-3 py-2.5 ring-1 ring-crema/10">
             <p className="flex items-center gap-1 text-[0.65rem] font-semibold uppercase tracking-[0.14em] text-crema/40">
               <Images className="size-3" />
