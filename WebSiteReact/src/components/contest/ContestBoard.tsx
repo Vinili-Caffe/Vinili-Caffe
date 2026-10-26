@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Heart,
   SkipForward,
-  Upload,
   Loader2,
   Ghost,
   Trophy,
@@ -14,6 +13,7 @@ import {
   Trash2,
   ChevronLeft,
   ChevronRight,
+  ImagePlus,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import {
@@ -48,8 +48,8 @@ function fileToDataUrl(file: File): Promise<string> {
 }
 
 function CategoryIcon({ id }: { id: string }) {
-  if (id === "pc") return <Monitor className="size-4" />;
-  if (id === "mobile") return <Smartphone className="size-4" />;
+  if (id === "pc") return <Monitor className="size-3.5" />;
+  if (id === "mobile") return <Smartphone className="size-3.5" />;
   return null;
 }
 
@@ -64,7 +64,7 @@ function CategoryPills({
 }) {
   if (cats.length <= 1) return null;
   return (
-    <div className="flex flex-wrap gap-2" role="tablist" aria-label="Sezione">
+    <div className="flex gap-1 rounded-2xl bg-ink/40 p-1 ring-1 ring-crema/10" role="tablist" aria-label="Sezione">
       {cats.map((c) => {
         const active = value === c.id;
         return (
@@ -75,10 +75,8 @@ function CategoryPills({
             aria-selected={active}
             onClick={() => onChange(c.id)}
             className={cn(
-              "inline-flex items-center gap-1.5 rounded-full px-3.5 py-2 text-xs font-semibold transition",
-              active
-                ? "bg-caramel text-ink shadow-md shadow-caramel/25 ring-2 ring-caramel"
-                : "bg-crema/[0.06] text-crema/65 ring-1 ring-crema/20 hover:bg-crema/10 hover:text-crema",
+              "inline-flex flex-1 items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-xs font-semibold transition",
+              active ? "bg-caramel text-ink shadow-sm" : "text-crema/55 hover:bg-crema/[0.06] hover:text-crema/85",
             )}
           >
             <CategoryIcon id={c.id} />
@@ -91,59 +89,74 @@ function CategoryPills({
 }
 
 function BlurName({ name, blurred }: { name?: string | null; blurred?: boolean }) {
-  const label = name || "—";
+  const label = name || "Partecipante";
   return (
     <span
-      className={cn(
-        "inline-block max-w-full truncate align-middle",
-        blurred && "select-none blur-[5px] saturate-50",
-      )}
-      title={blurred ? "Nome rivelato a fine evento" : undefined}
+      className={cn("inline-block max-w-full truncate align-middle", blurred && "select-none blur-[6px]")}
+      title={blurred ? "Nome in chiaro a fine evento" : undefined}
       aria-label={blurred ? "Nome nascosto" : label}
     >
-      {blurred ? label || "Partecipante" : label}
+      {label}
     </span>
   );
 }
 
-function Podium({
-  podium,
-  cat,
-}: {
-  podium: ContestSubmission[];
-  cat: string;
-}) {
+function Podium({ podium, cat }: { podium: ContestSubmission[]; cat: string }) {
   if (!podium.length) return null;
-  const order = [podium[1], podium[0], podium[2]].filter(Boolean) as ContestSubmission[];
-  const heights = ["mt-6", "mt-0", "mt-10"];
-  const medals = ["text-crema/70", "text-caramel", "text-sand/80"];
-  const places = [2, 1, 3];
+  const slots = [
+    { row: podium[1], place: 2, pedestal: "h-10", size: "size-[4.5rem] sm:size-20", pc: "h-12 w-[4.5rem] sm:h-14 sm:w-24" },
+    { row: podium[0], place: 1, pedestal: "h-16", size: "size-[5.5rem] sm:size-28", pc: "h-16 w-28 sm:h-[5.5rem] sm:w-36" },
+    { row: podium[2], place: 3, pedestal: "h-7", size: "size-16 sm:size-[4.5rem]", pc: "h-11 w-20 sm:h-12 sm:w-[5.5rem]" },
+  ].filter((s) => s.row);
+
   return (
-    <div className="grid grid-cols-3 items-end gap-2 sm:gap-3">
-      {order.map((row, i) => {
-        const place = places[i] ?? row.rank ?? i + 1;
-        return (
-          <div key={row.id} className={cn("flex flex-col items-center text-center", heights[i])}>
-            <span className={cn("font-display text-2xl font-semibold", medals[i])}>{place}°</span>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={contestImageUrl(row.imageUrl)}
-              alt=""
-              className={cn(
-                "mt-2 rounded-xl object-cover ring-1 ring-crema/15",
-                place === 1 ? "size-24 sm:size-28" : "size-16 sm:size-20",
-                cat === "pc" && (place === 1 ? "h-16 w-28 sm:h-20 sm:w-36" : "h-12 w-20 sm:h-14 sm:w-24"),
-                place === 1 && "ring-2 ring-caramel/60",
-              )}
-            />
-            <p className="mt-2 w-full truncate px-1 text-xs font-medium text-crema">
-              <BlurName name={row.displayName} blurred={row.nameBlurred} />
-            </p>
-            <p className="text-[11px] text-crema/45">{Number(row.likes) || 0} like</p>
-          </div>
-        );
-      })}
+    <div className="rounded-3xl bg-gradient-to-b from-crema/[0.06] to-transparent px-2 pb-1 pt-5 ring-1 ring-crema/10 sm:px-4">
+      <div className="grid grid-cols-3 items-end gap-2 sm:gap-3">
+        {slots.map(({ row, place, pedestal, size, pc }) => {
+          if (!row) return null;
+          const gold = place === 1;
+          return (
+            <div key={row.id} className="flex flex-col items-center text-center">
+              <span
+                className={cn(
+                  "mb-2 inline-flex size-7 items-center justify-center rounded-full font-display text-sm font-semibold",
+                  gold ? "bg-caramel text-ink" : "bg-crema/10 text-crema/70",
+                )}
+              >
+                {place}
+              </span>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={contestImageUrl(row.imageUrl)}
+                alt=""
+                className={cn(
+                  "rounded-2xl object-cover shadow-lg shadow-black/40 ring-1 ring-crema/15",
+                  cat === "pc" ? pc : size,
+                  gold && "ring-2 ring-caramel/70",
+                )}
+              />
+              <p className="mt-2.5 w-full truncate px-0.5 text-xs font-medium text-crema sm:text-sm">
+                <BlurName name={row.displayName} blurred={row.nameBlurred} />
+              </p>
+              <p className="mt-0.5 text-[11px] tabular-nums text-crema/45">{Number(row.likes) || 0} like</p>
+              <div
+                className={cn(
+                  "mt-3 w-full rounded-t-lg bg-crema/[0.07] ring-1 ring-inset ring-crema/10",
+                  pedestal,
+                  gold && "bg-caramel/15 ring-caramel/25",
+                )}
+              />
+            </div>
+          );
+        })}
+      </div>
     </div>
+  );
+}
+
+function Panel({ children, className }: { children: React.ReactNode; className?: string }) {
+  return (
+    <div className={cn("rounded-3xl bg-crema/[0.035] p-4 ring-1 ring-crema/10 sm:p-5", className)}>{children}</div>
   );
 }
 
@@ -175,8 +188,8 @@ export function ContestBoard({ eventKey }: { eventKey: string }) {
   const [catSubmit, setCatSubmit] = useState("");
   const [catVote, setCatVote] = useState("");
   const [catBoard, setCatBoard] = useState("");
+  const isSfondi = status?.kind === "sfondi";
 
-  /* Sync quando arrivano le categorie API (prima del load era "main" → nessuna pill attiva). */
   useEffect(() => {
     if (!cats.length) return;
     const ids = new Set(cats.map((c) => c.id));
@@ -231,10 +244,9 @@ export function ContestBoard({ eventKey }: { eventKey: string }) {
   const top = deck[0] || null;
   const phaseLabel = useMemo(() => {
     if (!status) return "…";
-    if (status.phase === "before") return "Non ancora aperto";
-    if (status.phase === "after") return "Chiuso — classifica";
+    if (status.phase === "before") return "In arrivo";
+    if (status.phase === "after") return "Terminato";
     if (status.phase === "hidden") return "Non disponibile";
-    if (status.staffPreview) return "Aperto (preview staff)";
     return "In corso";
   }, [status]);
 
@@ -247,6 +259,7 @@ export function ContestBoard({ eventKey }: { eventKey: string }) {
   }, [status?.mySubmissions]);
 
   const canSubmitCat = status?.canSubmitByCategory?.[catSubmit]?.canSubmit ?? false;
+  const catSubmitLabel = cats.find((c) => c.id === catSubmit)?.label || "";
 
   async function onPickFile(file: File | null) {
     if (!file || !token) return;
@@ -272,9 +285,9 @@ export function ContestBoard({ eventKey }: { eventKey: string }) {
     if (!file || !token) return;
     const ok = await confirmDialog({
       title: "Sostituire la foto?",
-      message: "Perderai tutti i like ricevuti su questa foto. L’azione non si può annullare.",
+      message: "Perderai tutti i like ricevuti su questa foto.",
       danger: true,
-      confirmLabel: "Sostituisci e azzera voti",
+      confirmLabel: "Sostituisci",
     });
     if (!ok) return;
     setBusy(true);
@@ -299,9 +312,9 @@ export function ContestBoard({ eventKey }: { eventKey: string }) {
     if (!token) return;
     const ok = await confirmDialog({
       title: "Cancellare la foto?",
-      message: "La foto verrà rimossa e tutti i like ricevuti andranno persi.",
+      message: "La foto verrà rimossa e tutti i like andranno persi.",
       danger: true,
-      confirmLabel: "Cancella e azzera voti",
+      confirmLabel: "Cancella",
     });
     if (!ok) return;
     setBusy(true);
@@ -400,94 +413,107 @@ export function ContestBoard({ eventKey }: { eventKey: string }) {
 
   if (!status?.ok && status?.phase === "hidden") {
     return (
-      <div className="mx-auto max-w-lg px-6 py-16 text-center text-crema/70">
-        Contest non disponibile.
-      </div>
+      <div className="mx-auto max-w-lg px-6 py-16 text-center text-crema/70">Contest non disponibile.</div>
     );
   }
 
   const needLoginForTab = (tab === "submit" || tab === "vote") && !token;
+  const tabs =
+    status?.phase === "after"
+      ? ([["board", "Classifica"]] as const)
+      : ([
+          ["submit", "Invia"],
+          ["vote", "Vota"],
+          ["board", "Classifica"],
+        ] as const);
 
   return (
-    <div className="mx-auto max-w-lg px-6 pb-20">
-      <div className="rounded-2xl bg-crema/[0.04] p-4 ring-1 ring-crema/10">
-        <p className="text-xs uppercase tracking-[0.2em] text-sand/80">{phaseLabel}</p>
-        <h2 className="mt-1 font-display text-3xl font-semibold">{status?.title || "Contest"}</h2>
-        <p className="mt-2 text-sm text-crema/70">{status?.blurb}</p>
+    <div className="mx-auto max-w-lg px-6 pb-24">
+      <Panel className="relative overflow-hidden">
+        <div
+          className="pointer-events-none absolute -right-8 -top-10 size-36 rounded-full bg-caramel/10 blur-3xl"
+          aria-hidden
+        />
+        <div className="relative flex flex-wrap items-center gap-2">
+          <span className="inline-flex items-center rounded-full bg-caramel/15 px-2.5 py-1 text-[0.65rem] font-semibold uppercase tracking-[0.18em] text-caramel">
+            {phaseLabel}
+          </span>
+          <span className="text-[0.7rem] tabular-nums text-crema/40">
+            {status?.submissionCount ?? 0} invii
+            {token ? ` · ${status?.myVoteCount ?? 0} tuoi voti` : null}
+          </span>
+        </div>
+        <h2 className="relative mt-3 font-display text-2xl font-semibold tracking-tight sm:text-3xl">
+          {status?.title || "Contest"}
+        </h2>
+        {status?.blurb ? <p className="relative mt-2 text-sm leading-relaxed text-crema/65">{status.blurb}</p> : null}
         {status?.startAt && status?.endAt ? (
-          <p className="mt-2 text-xs text-crema/45">{formatRomeRange(status.startAt, status.endAt)}</p>
+          <p className="relative mt-3 text-xs text-crema/40">{formatRomeRange(status.startAt, status.endAt)}</p>
         ) : null}
-        <p className="mt-1 text-xs text-crema/40">
-          {status?.submissionCount ?? 0} invii · tuoi voti {status?.myVoteCount ?? 0}
-        </p>
-      </div>
+      </Panel>
 
       {status?.phase === "before" && !status.staffPreview ? (
-        <p className="mt-8 text-center text-crema/65">
-          Apre alle 19:00 (Roma). Dopo vedrai Invia, Vota e Classifica.
-        </p>
+        <Panel className="mt-5 text-center text-sm text-crema/65">
+          Apre alle 19:00 (ora di Roma). Torna qui per inviare, votare e seguire la classifica.
+        </Panel>
       ) : null}
 
       {showMain ? (
         <>
           {status?.staffPreview && status.phase !== "after" && token ? (
-            <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
-              <button
-                type="button"
-                disabled={busy}
-                className="rounded-full bg-crema/10 px-4 py-2 text-xs font-medium text-crema ring-1 ring-crema/20 hover:bg-crema/15"
-                onClick={async () => {
-                  setBusy(true);
-                  setMsg("");
-                  try {
-                    const out = await seedContestDemo(eventKey, token, 8);
-                    setMsg(out.message || "");
-                    await reload();
-                    await loadBoard();
-                  } finally {
-                    setBusy(false);
-                  }
-                }}
-              >
-                Carica 8 foto demo
-              </button>
-              <button
-                type="button"
-                disabled={busy}
-                className="rounded-full bg-crema/5 px-4 py-2 text-xs text-crema/70 ring-1 ring-crema/15 hover:bg-crema/10"
-                onClick={async () => {
-                  setBusy(true);
-                  setMsg("");
-                  try {
-                    const out = await clearContestDemo(eventKey, token);
-                    setMsg(out.message || "");
-                    await reload();
-                    await loadBoard();
-                  } finally {
-                    setBusy(false);
-                  }
-                }}
-              >
-                Pulisci demo
-              </button>
-            </div>
+            <details className="mt-4 rounded-2xl bg-ink/30 px-3 py-2 text-xs text-crema/45 ring-1 ring-crema/10">
+              <summary className="cursor-pointer select-none py-1 text-crema/55 hover:text-crema/75">Strumenti test</summary>
+              <div className="flex flex-wrap gap-2 pb-1 pt-2">
+                <button
+                  type="button"
+                  disabled={busy}
+                  className="rounded-full bg-crema/10 px-3 py-1.5 text-crema ring-1 ring-crema/15 hover:bg-crema/15"
+                  onClick={async () => {
+                    setBusy(true);
+                    setMsg("");
+                    try {
+                      const out = await seedContestDemo(eventKey, token, 8);
+                      setMsg(out.message || "");
+                      await reload();
+                      await loadBoard();
+                    } finally {
+                      setBusy(false);
+                    }
+                  }}
+                >
+                  +8 demo
+                </button>
+                <button
+                  type="button"
+                  disabled={busy}
+                  className="rounded-full bg-crema/5 px-3 py-1.5 text-crema/70 ring-1 ring-crema/10 hover:bg-crema/10"
+                  onClick={async () => {
+                    setBusy(true);
+                    setMsg("");
+                    try {
+                      const out = await clearContestDemo(eventKey, token);
+                      setMsg(out.message || "");
+                      await reload();
+                      await loadBoard();
+                    } finally {
+                      setBusy(false);
+                    }
+                  }}
+                >
+                  Pulisci demo
+                </button>
+              </div>
+            </details>
           ) : null}
 
-          <div className="mt-6 flex gap-1 rounded-full bg-espresso p-1 ring-1 ring-crema/10">
-            {(status?.phase === "after"
-              ? ([["board", "Classifica"]] as const)
-              : ([
-                  ["submit", "Invia"],
-                  ["vote", "Vota"],
-                  ["board", "Classifica"],
-                ] as const)
-            ).map(([id, label]) => (
+          <div className="mt-5 flex gap-1 rounded-2xl bg-espresso p-1 ring-1 ring-crema/10">
+            {tabs.map(([id, label]) => (
               <button
                 key={id}
                 type="button"
                 className={cn(
-                  "flex-1 rounded-full py-2 text-sm font-medium",
-                  tab === id ? "bg-caramel text-ink" : "text-crema/70 hover:text-crema",
+                  "flex-1 rounded-xl py-2.5 text-sm font-semibold transition",
+                  tab === id ? "bg-caramel text-ink shadow-sm" : "text-crema/55 hover:text-crema",
                 )}
                 onClick={() => setTab(id)}
               >
@@ -497,70 +523,75 @@ export function ContestBoard({ eventKey }: { eventKey: string }) {
           </div>
 
           {needLoginForTab ? (
-            <div className="mt-10 text-center">
-              <Ghost className="mx-auto size-10 text-caramel" />
-              <p className="mt-4 font-display text-2xl font-semibold">Accedi per partecipare</p>
-              <p className="mt-2 text-sm text-crema/65">La classifica è pubblica; per inviare o votare serve Discord.</p>
-              <div className="mt-6 flex justify-center">
+            <Panel className="mt-6 text-center">
+              <Ghost className="mx-auto size-9 text-caramel" />
+              <p className="mt-3 font-display text-xl font-semibold">Accedi per partecipare</p>
+              <p className="mt-2 text-sm text-crema/60">La classifica è pubblica. Per inviare o votare serve Discord.</p>
+              <div className="mt-5 flex justify-center">
                 <DiscordButton label="Accedi con Discord" />
               </div>
-            </div>
+            </Panel>
           ) : null}
 
           {tab === "submit" && status?.phase !== "after" && token ? (
-            <div className="mt-8 space-y-4">
+            <div className="mt-6 space-y-4">
               <CategoryPills cats={cats} value={catSubmit} onChange={setCatSubmit} />
               {mineByCat[catSubmit] ? (
-                <div>
-                  <p className="text-sm text-crema/70">
-                    Hai già inviato per «{cats.find((c) => c.id === catSubmit)?.label || catSubmit}»:
-                  </p>
-                  <div className="mt-3 overflow-hidden rounded-2xl ring-1 ring-crema/15">
+                <Panel className="space-y-4 !p-3 sm:!p-4">
+                  <div className="overflow-hidden rounded-2xl ring-1 ring-crema/12">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={contestImageUrl(mineByCat[catSubmit]!.imageUrl)}
                       alt=""
-                      className={cn(
-                        "w-full object-cover",
-                        catSubmit === "pc" ? "aspect-video" : "aspect-[3/4]",
-                      )}
+                      className={cn("w-full object-cover", catSubmit === "pc" ? "aspect-video" : "aspect-[3/4]")}
                     />
                   </div>
-                  <p className="mt-2 text-center text-xs text-crema/45">
-                    {Number(mineByCat[catSubmit]?.likes) || 0} like · modifica/cancella azzera i voti
-                  </p>
-                  <div className="mt-3 flex flex-wrap justify-center gap-2">
-                    <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-full bg-crema/10 px-4 py-2 text-xs font-medium text-crema ring-1 ring-crema/20 hover:bg-crema/15">
-                      <Pencil className="size-3.5" />
-                      Modifica
-                      <input
-                        ref={replaceInputRef}
-                        type="file"
-                        accept="image/png,image/jpeg,image/webp"
-                        className="hidden"
+                  <div className="flex items-center justify-between gap-3 px-1">
+                    <div>
+                      <p className="text-sm font-medium text-crema">
+                        {isSfondi ? `Sfondo ${catSubmitLabel}` : catSubmitLabel || "La tua foto"}
+                      </p>
+                      <p className="text-xs text-crema/45">{Number(mineByCat[catSubmit]?.likes) || 0} like</p>
+                    </div>
+                    <div className="flex gap-2">
+                      <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-full bg-crema/10 px-3.5 py-2 text-xs font-medium text-crema ring-1 ring-crema/15 hover:bg-crema/15">
+                        <Pencil className="size-3.5" />
+                        Cambia
+                        <input
+                          ref={replaceInputRef}
+                          type="file"
+                          accept="image/png,image/jpeg,image/webp"
+                          className="hidden"
+                          disabled={busy}
+                          onChange={(e) => void onReplaceFile(e.target.files?.[0] || null)}
+                        />
+                      </label>
+                      <button
+                        type="button"
                         disabled={busy}
-                        onChange={(e) => void onReplaceFile(e.target.files?.[0] || null)}
-                      />
-                    </label>
-                    <button
-                      type="button"
-                      disabled={busy}
-                      onClick={() => void onDeleteMine()}
-                      className="inline-flex items-center gap-1.5 rounded-full bg-red-500/15 px-4 py-2 text-xs font-medium text-red-300 ring-1 ring-red-400/30 hover:bg-red-500/25"
-                    >
-                      <Trash2 className="size-3.5" />
-                      Cancella
-                    </button>
+                        onClick={() => void onDeleteMine()}
+                        className="inline-flex items-center gap-1.5 rounded-full bg-red-500/10 px-3.5 py-2 text-xs font-medium text-red-300 ring-1 ring-red-400/25 hover:bg-red-500/20"
+                      >
+                        <Trash2 className="size-3.5" />
+                        Elimina
+                      </button>
+                    </div>
                   </div>
-                </div>
+                  <p className="px-1 text-[11px] leading-relaxed text-crema/40">
+                    Se cambi o elimini la foto, i like già ricevuti vengono azzerati.
+                  </p>
+                </Panel>
               ) : (
-                <label className="flex cursor-pointer flex-col items-center gap-3 rounded-2xl border border-dashed border-crema/25 bg-crema/[0.03] px-6 py-12 text-center hover:border-caramel/50">
-                  <Upload className="size-8 text-caramel" />
-                  <span className="font-medium">
-                    Carica sfondo {cats.find((c) => c.id === catSubmit)?.label || ""}
+                <label className="group flex cursor-pointer flex-col items-center gap-3 rounded-3xl border border-dashed border-crema/20 bg-gradient-to-b from-crema/[0.05] to-transparent px-6 py-14 text-center transition hover:border-caramel/40 hover:from-caramel/[0.07]">
+                  <span className="flex size-14 items-center justify-center rounded-2xl bg-caramel/15 text-caramel ring-1 ring-caramel/25 transition group-hover:scale-105">
+                    <ImagePlus className="size-7" />
                   </span>
-                  <span className="text-xs text-crema/50">
-                    {catSubmit === "pc" ? "Consigliato 16:9" : "Consigliato verticale"} · PNG / JPG / WEBP · max 4 MB
+                  <span className="font-display text-lg font-semibold">
+                    {isSfondi ? `Carica sfondo ${catSubmitLabel}` : `Carica ${catSubmitLabel || "foto"}`}
+                  </span>
+                  <span className="max-w-xs text-xs leading-relaxed text-crema/45">
+                    {catSubmit === "pc" ? "Formato orizzontale consigliato" : catSubmit === "mobile" ? "Formato verticale consigliato" : "Una foto"}
+                    {" · "}PNG, JPG o WEBP · max 4 MB
                   </span>
                   <input
                     type="file"
@@ -571,10 +602,8 @@ export function ContestBoard({ eventKey }: { eventKey: string }) {
                   />
                 </label>
               )}
-              {cats.length > 1 ? (
-                <p className="text-center text-xs text-crema/45">
-                  Puoi inviare fino a 1 foto per sezione (PC e telefono).
-                </p>
+              {cats.length > 1 && !mineByCat[catSubmit] ? (
+                <p className="text-center text-xs text-crema/40">Una foto per sezione: puoi mandarne una per PC e una per telefono.</p>
               ) : null}
               {msg ? <p className="text-center text-sm text-sand">{msg}</p> : null}
               {busy ? <Loader2 className="mx-auto size-5 animate-spin text-crema/50" /> : null}
@@ -582,7 +611,7 @@ export function ContestBoard({ eventKey }: { eventKey: string }) {
           ) : null}
 
           {tab === "vote" && status?.phase !== "after" && token ? (
-            <div className="mt-8 space-y-4 overflow-x-clip">
+            <div className="mt-6 space-y-4 overflow-x-clip">
               <CategoryPills
                 cats={cats}
                 value={catVote}
@@ -591,17 +620,19 @@ export function ContestBoard({ eventKey }: { eventKey: string }) {
                   setDeck([]);
                 }}
               />
-              <p className="text-center text-xs text-crema/40">Le tue foto non compaiono nel mazzo.</p>
               {!top ? (
-                <p className="py-16 text-center text-crema/60">
-                  {status?.canVote ? "Hai visto tutto in questa sezione. Torna più tardi!" : "Voto non disponibile."}
-                </p>
+                <Panel className="py-14 text-center">
+                  <Heart className="mx-auto size-8 text-crema/25" />
+                  <p className="mt-3 text-sm text-crema/60">
+                    {status?.canVote ? "Hai visto tutto qui. Torna più tardi per nuove foto." : "Il voto non è disponibile."}
+                  </p>
+                </Panel>
               ) : (
                 <>
                   <div
                     ref={cardRef}
                     className={cn(
-                      "relative mx-auto w-full max-w-sm touch-none select-none overflow-hidden rounded-3xl bg-roast shadow-2xl ring-1 ring-crema/15 will-change-transform",
+                      "relative mx-auto w-full max-w-sm touch-none select-none overflow-hidden rounded-[1.75rem] bg-roast shadow-[0_24px_60px_-28px_rgba(0,0,0,0.85)] ring-1 ring-crema/12 will-change-transform",
                       catVote === "pc" ? "aspect-video" : "aspect-[3/4]",
                     )}
                     style={{ transform: "translate3d(0,0,0)", touchAction: "none" }}
@@ -619,23 +650,23 @@ export function ContestBoard({ eventKey }: { eventKey: string }) {
                     />
                     <div
                       ref={likeBadgeRef}
-                      className="pointer-events-none absolute left-4 top-4 rounded-lg border-2 border-emerald-400 px-3 py-1 text-sm font-bold uppercase tracking-widest text-emerald-300 opacity-0 transition-opacity duration-75"
+                      className="pointer-events-none absolute left-4 top-4 rounded-lg border-2 border-emerald-400/90 bg-ink/40 px-3 py-1 text-sm font-bold uppercase tracking-widest text-emerald-300 opacity-0 backdrop-blur-sm transition-opacity duration-75"
                     >
                       Like
                     </div>
                     <div
                       ref={passBadgeRef}
-                      className="pointer-events-none absolute right-4 top-4 rounded-lg border-2 border-red-400 px-3 py-1 text-sm font-bold uppercase tracking-widest text-red-300 opacity-0 transition-opacity duration-75"
+                      className="pointer-events-none absolute right-4 top-4 rounded-lg border-2 border-red-400/90 bg-ink/40 px-3 py-1 text-sm font-bold uppercase tracking-widest text-red-300 opacity-0 backdrop-blur-sm transition-opacity duration-75"
                     >
                       Pass
                     </div>
                   </div>
-                  <div className="mt-6 flex items-center justify-center gap-6">
+                  <div className="flex items-center justify-center gap-5 pt-1">
                     <button
                       type="button"
                       disabled={busy}
                       onClick={() => void onSwipe("pass")}
-                      className="flex size-14 items-center justify-center rounded-full bg-crema/10 text-crema ring-1 ring-crema/20 hover:bg-crema/15"
+                      className="flex size-14 items-center justify-center rounded-full bg-crema/[0.07] text-crema ring-1 ring-crema/15 transition hover:bg-crema/12"
                       aria-label="Passa"
                     >
                       <SkipForward className="size-6" />
@@ -644,29 +675,34 @@ export function ContestBoard({ eventKey }: { eventKey: string }) {
                       type="button"
                       disabled={busy}
                       onClick={() => void onSwipe("like")}
-                      className="flex size-16 items-center justify-center rounded-full bg-caramel text-ink shadow-lg shadow-caramel/30 hover:brightness-110"
+                      className="flex size-[4.25rem] items-center justify-center rounded-full bg-caramel text-ink shadow-lg shadow-caramel/35 transition hover:brightness-110"
                       aria-label="Mi piace"
                     >
                       <Heart className="size-7 fill-current" />
                     </button>
                   </div>
-                  <p className="mt-4 text-center text-xs text-crema/40">Swipe destra = like · sinistra = passa</p>
+                  <p className="text-center text-[11px] text-crema/40">
+                    Swipe destra = like · sinistra = passa · le tue foto non compaiono
+                  </p>
                 </>
               )}
             </div>
           ) : null}
 
           {tab === "board" ? (
-            <div className="mt-8 space-y-5">
-              <div className="flex items-center gap-2 text-sm text-crema/80">
-                <Trophy className="size-4 text-caramel" />
-                {boardPreview ? "Classifica live" : "Classifica finale"}
+            <div className="mt-6 space-y-5">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <div className="flex items-center gap-2 text-sm font-medium text-crema">
+                    <Trophy className="size-4 text-caramel" />
+                    {boardPreview ? "Classifica live" : "Classifica finale"}
+                  </div>
+                  {boardPreview ? (
+                    <p className="mt-1 text-xs text-crema/45">Nomi sfocati fino alla fine dell&apos;evento.</p>
+                  ) : null}
+                </div>
               </div>
-              {boardPreview ? (
-                <p className="text-xs text-crema/45">
-                  Nomi sfocati fino a fine evento. Chiunque può vedere la classifica.
-                </p>
-              ) : null}
+
               <CategoryPills
                 cats={cats}
                 value={catBoard}
@@ -677,19 +713,19 @@ export function ContestBoard({ eventKey }: { eventKey: string }) {
               />
 
               {!podium.length && !board.length ? (
-                <p className="py-12 text-center text-crema/55">Ancora nessun invio in questa sezione.</p>
+                <Panel className="py-12 text-center text-sm text-crema/55">Ancora nessun invio in questa sezione.</Panel>
               ) : (
                 <>
                   <Podium podium={podium} cat={catBoard} />
 
                   {board.length ? (
-                    <ol className="space-y-3">
+                    <ol className="space-y-2">
                       {board.map((row) => (
                         <li
                           key={row.id}
-                          className="flex items-center gap-3 overflow-hidden rounded-2xl bg-crema/[0.04] p-2 ring-1 ring-crema/10"
+                          className="flex items-center gap-3 rounded-2xl bg-crema/[0.035] p-2.5 ring-1 ring-crema/10"
                         >
-                          <span className="w-8 shrink-0 text-center font-display text-lg font-semibold text-caramel">
+                          <span className="w-8 shrink-0 text-center font-display text-lg font-semibold tabular-nums text-caramel/90">
                             {row.rank ?? "–"}
                           </span>
                           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -697,42 +733,40 @@ export function ContestBoard({ eventKey }: { eventKey: string }) {
                             src={contestImageUrl(row.imageUrl)}
                             alt=""
                             className={cn(
-                              "shrink-0 rounded-lg object-cover",
-                              catBoard === "pc" ? "h-14 w-24" : "size-14",
+                              "shrink-0 rounded-xl object-cover ring-1 ring-crema/10",
+                              catBoard === "pc" ? "h-12 w-20" : "size-12",
                             )}
                           />
                           <div className="min-w-0 flex-1">
                             <p className="truncate text-sm font-medium text-crema">
                               <BlurName name={row.displayName} blurred={row.nameBlurred} />
                             </p>
-                            <p className="text-xs text-crema/45">{Number(row.likes) || 0} like</p>
+                            <p className="text-xs tabular-nums text-crema/45">{Number(row.likes) || 0} like</p>
                           </div>
                         </li>
                       ))}
                     </ol>
-                  ) : podium.length > 0 && boardPages <= 1 ? (
-                    <p className="text-center text-xs text-crema/40">Solo il podio per ora.</p>
                   ) : null}
 
                   {boardPages > 1 ? (
-                    <div className="flex items-center justify-center gap-3 pt-2">
+                    <div className="flex items-center justify-center gap-3 pt-1">
                       <button
                         type="button"
                         disabled={busy || boardPage <= 1}
                         onClick={() => setBoardPage((p) => Math.max(1, p - 1))}
-                        className="inline-flex size-9 items-center justify-center rounded-full bg-crema/10 text-crema ring-1 ring-crema/15 disabled:opacity-40"
+                        className="inline-flex size-9 items-center justify-center rounded-full bg-crema/[0.06] text-crema ring-1 ring-crema/12 disabled:opacity-35"
                         aria-label="Pagina precedente"
                       >
                         <ChevronLeft className="size-4" />
                       </button>
-                      <span className="text-xs text-crema/55">
+                      <span className="min-w-[3.5rem] text-center text-xs tabular-nums text-crema/50">
                         {boardPage} / {boardPages}
                       </span>
                       <button
                         type="button"
                         disabled={busy || boardPage >= boardPages}
                         onClick={() => setBoardPage((p) => Math.min(boardPages, p + 1))}
-                        className="inline-flex size-9 items-center justify-center rounded-full bg-crema/10 text-crema ring-1 ring-crema/15 disabled:opacity-40"
+                        className="inline-flex size-9 items-center justify-center rounded-full bg-crema/[0.06] text-crema ring-1 ring-crema/12 disabled:opacity-35"
                         aria-label="Pagina successiva"
                       >
                         <ChevronRight className="size-4" />
