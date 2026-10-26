@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import dynamic from "next/dynamic";
+import { DiscordComponentEmbed } from "@/components/DiscordComponentEmbed";
 import { SiteShell } from "@/components/SiteShell";
+import { pageSocialMeta } from "@/lib/og";
 
 const StaffShell = dynamic(
   () => import("@/components/staff/StaffShell").then((m) => m.StaffShell),
@@ -11,13 +13,18 @@ const StaffProfileRedirect = dynamic(
   { loading: () => null },
 );
 
-// sul sito vecchio era un pannello del profilo staff: si apre lì
-export const metadata: Metadata = { title: "Punti tolti · Staff", robots: { index: false } };
+const DESC = "Cronologia e revisione punti tolti.";
+
+export const metadata: Metadata = {
+  ...pageSocialMeta({ path: "/staff/punti-tolti/", title: "Punti tolti · Staff", description: DESC }),
+  robots: { index: false },
+};
 
 export default function Page() {
   return (
     <SiteShell>
-      <StaffShell title="Punti" accent="tolti" text="Cronologia e revisione punti tolti." requirePuntiTolti>
+      <DiscordComponentEmbed path="/staff/punti-tolti/" title="Punti tolti · Staff" description={DESC} pageLabel="Apri punti tolti" />
+      <StaffShell title="Punti" accent="tolti" text={DESC} requirePuntiTolti>
         <StaffProfileRedirect embedded staffOpen="punti-tolti" />
       </StaffShell>
     </SiteShell>

@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import dynamic from "next/dynamic";
+import { DiscordComponentEmbed } from "@/components/DiscordComponentEmbed";
 import { SiteShell } from "@/components/SiteShell";
+import { pageSocialMeta } from "@/lib/og";
 
 const StaffShell = dynamic(
   () => import("@/components/staff/StaffShell").then((m) => m.StaffShell),
@@ -11,13 +13,18 @@ const StaffProfileRedirect = dynamic(
   { loading: () => null },
 );
 
-// sul sito vecchio era un pannello del profilo staff: si apre lì
-export const metadata: Metadata = { title: "Shop premi · Staff", robots: { index: false } };
+const DESC = "Riscatti e gestione premi Partner Manager.";
+
+export const metadata: Metadata = {
+  ...pageSocialMeta({ path: "/staff/pm/", title: "Shop premi · Staff", description: DESC }),
+  robots: { index: false },
+};
 
 export default function Page() {
   return (
     <SiteShell>
-      <StaffShell title="Shop" accent="premi" text="Riscatti e gestione premi Partner Manager." requirePmShop>
+      <DiscordComponentEmbed path="/staff/pm/" title="Shop premi · Staff" description={DESC} pageLabel="Apri shop PM" />
+      <StaffShell title="Shop" accent="premi" text={DESC} requirePmShop>
         <StaffProfileRedirect embedded staffOpen="pm" />
       </StaffShell>
     </SiteShell>

@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import dynamic from "next/dynamic";
+import { DiscordComponentEmbed } from "@/components/DiscordComponentEmbed";
 import { SiteShell } from "@/components/SiteShell";
+import { pageSocialMeta } from "@/lib/og";
 
 const StaffShell = dynamic(
   () => import("@/components/staff/StaffShell").then((m) => m.StaffShell),
@@ -11,17 +13,18 @@ const GestioneBoard = dynamic(
   { loading: () => null },
 );
 
-export const metadata: Metadata = { title: "Gestione · Staff", robots: { index: false } };
+const DESC = "Organico, pex e depex — come sul sito classico.";
+
+export const metadata: Metadata = {
+  ...pageSocialMeta({ path: "/staff/gestione/", title: "Gestione · Staff", description: DESC }),
+  robots: { index: false },
+};
 
 export default function Page() {
   return (
     <SiteShell>
-      <StaffShell
-        title="Gestione"
-        accent="staff"
-        text="Organico, pex e depex — come sul sito classico."
-        requireGestione
-      >
+      <DiscordComponentEmbed path="/staff/gestione/" title="Gestione · Staff" description={DESC} pageLabel="Apri gestione" />
+      <StaffShell title="Gestione" accent="staff" text={DESC} requireGestione>
         <GestioneBoard />
       </StaffShell>
     </SiteShell>

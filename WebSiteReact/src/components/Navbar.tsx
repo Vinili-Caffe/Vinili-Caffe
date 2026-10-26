@@ -37,7 +37,7 @@ import { navUnderlineClass } from "./NavUnderline";
 import { ThemePrefRow } from "./ThemeToggle";
 import { ViewAsLaunch, useViewAsChrome } from "./view-as/ViewAsChrome";
 import { useDeviceFx } from "./effects/DeviceFxProvider";
-import { eventoNavForViewer, isEventoHighStaff, isEventoPublicWindowOpen } from "@/lib/evento-starwars";
+import { EVENTO_NAV, isEventoHighStaff, isEventoPublicWindowOpen } from "@/lib/evento-starwars";
 import { useEventoChrome } from "./evento/EventoChrome";
 import { ContestNavPill } from "./contest/ContestNavPill";
 
@@ -417,8 +417,9 @@ export function Navbar() {
   const [highStaff, setHighStaff] = useState(false);
   const eventoChrome = useEventoChrome();
   const eventoNavOpen = isEventoPublicWindowOpen();
+  /* Dentro lo shell evento: voci sempre in nav (il gate pagina resta HS/pubblico). */
   const eventoLinks = eventoChrome
-    ? eventoNavForViewer({ isHighStaff: highStaff, canManage: highStaff })
+    ? EVENTO_NAV.filter((n) => n.id !== "puzzle" || highStaff)
     : [];
   const soon = t("auth.comingSoon");
   const headerRef = useRef<HTMLElement>(null);

@@ -15,7 +15,7 @@ import { STORAGE_GC_BOOT } from "@/lib/storage-gc-boot";
 import { EXT_CONSOLE_BOOT } from "@/lib/ext-console-boot";
 import { API_FETCH_BOOT } from "@/lib/api";
 import { SITE_TITLE_BRAND, SITE_TITLE_TEMPLATE } from "@/lib/page-title";
-import { ogCardForPath, SITE_THEME_COLOR } from "@/lib/og";
+import { SITE_EMBED_COLOR, SITE_THEME_COLOR, siteLogoOgImage } from "@/lib/og";
 import "./globals.css";
 
 const inter = Inter({ variable: "--font-inter", subsets: ["latin"] });
@@ -45,15 +45,16 @@ export const metadata: Metadata = {
     siteName: "Vinili & Caffè",
     locale: "it_IT",
     type: "website",
-    images: [ogCardForPath("/")],
+    images: [siteLogoOgImage()],
   },
   twitter: {
-    card: "summary_large_image",
+    card: "summary",
     description: "Community Discord Italiana chill: ruoli, eventi, giveaway, bot esclusivi.",
-    images: [ogCardForPath("/").url],
+    images: [siteLogoOgImage().url],
   },
   other: {
-    "theme-color": SITE_THEME_COLOR,
+    // Unfurl Discord classico: accent caffè (PWA chrome = viewport.themeColor).
+    "theme-color": SITE_EMBED_COLOR,
   },
   robots: { index: true, follow: true },
   icons: {

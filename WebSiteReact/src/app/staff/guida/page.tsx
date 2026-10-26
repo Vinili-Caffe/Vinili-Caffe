@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import dynamic from "next/dynamic";
+import { DiscordComponentEmbed } from "@/components/DiscordComponentEmbed";
 import { SiteShell } from "@/components/SiteShell";
+import { pageSocialMeta } from "@/lib/og";
 
 const StaffShell = dynamic(
   () => import("@/components/staff/StaffShell").then((m) => m.StaffShell),
@@ -11,12 +13,18 @@ const GuideBrowser = dynamic(
   { loading: () => null },
 );
 
-export const metadata: Metadata = { title: "Guida · Staff", robots: { index: false } };
+const DESC = "Manuale del barista: procedure, ruoli e regole del server.";
+
+export const metadata: Metadata = {
+  ...pageSocialMeta({ path: "/staff/guida/", title: "Guida · Staff", description: DESC }),
+  robots: { index: false },
+};
 
 export default function Page() {
   return (
     <SiteShell>
-      <StaffShell title="Guida" accent="operativa" text="Manuale del barista: procedure, ruoli e regole del server.">
+      <DiscordComponentEmbed path="/staff/guida/" title="Guida · Staff" description={DESC} pageLabel="Apri guida staff" />
+      <StaffShell title="Guida" accent="operativa" text={DESC}>
         <GuideBrowser />
       </StaffShell>
     </SiteShell>

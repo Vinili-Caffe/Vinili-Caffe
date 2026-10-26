@@ -12,11 +12,13 @@ const SITE_ORIGIN = "https://www.viniliecaffe.it";
 const SITE_INVITE = "https://discord.gg/viniliecaffe";
 const ACCENT = 0x6f4e37;
 const ACCENT_404 = 0xe07a5f;
-const LOGO_VER = "20261025ogGif2";
+const LOGO_VER = "20261027ogLogo1";
 const LOGO_THUMB = `${SITE_ORIGIN}/images/og-server-icon.gif?v=${LOGO_VER}`;
 const MAX_BYTES = 3000;
 const SCRIPT_RE =
-  /<script\s+id=["']discord:component-embed["'][^>]*>[\s\S]*?<\/script>/i;
+  /<script\s+id=["']discord:component-embed["'][^>]*>[\s\S]*?<\/script>/gi;
+const LINK_CE_RE =
+  /<link\s+[^>]*rel=["']discord:component-embed["'][^>]*>/gi;
 
 function meta(html, prop) {
   const re = new RegExp(
@@ -155,9 +157,10 @@ for (const file of await walkHtml(OUT)) {
     continue;
   }
   const tag = `<script id="discord:component-embed" type="application/json">${json}</script>`;
-  if (SCRIPT_RE.test(html)) {
-    html = html.replace(SCRIPT_RE, tag);
-  } else if (/<\/head>/i.test(html)) {
+  // Sempre in <head>: se il React aveva già messo lo script nel body, rimuovilo e reinstalla in head
+  // (prima il replace in-place lasciava il payload nel body → Discord lo ignorava).
+  html = html.replace(SCRIPT_RE, "").replace(LINK_CE_RE, "");
+  if (/<\/head>/i.test(html)) {
     html = html.replace(/<\/head>/i, `${tag}</head>`);
   } else if (/<body[^>]*>/i.test(html)) {
     html = html.replace(/<body[^>]*>/i, (m) => `${m}${tag}`);

@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import dynamic from "next/dynamic";
+import { DiscordComponentEmbed } from "@/components/DiscordComponentEmbed";
 import { SiteShell } from "@/components/SiteShell";
+import { pageSocialMeta } from "@/lib/og";
 
 const StaffShell = dynamic(
   () => import("@/components/staff/StaffShell").then((m) => m.StaffShell),
@@ -11,12 +13,18 @@ const CompitiBoard = dynamic(
   { loading: () => null },
 );
 
-export const metadata: Metadata = { title: "Compiti · Staff", robots: { index: false } };
+const DESC = "Libro dei compiti: scegli, consegna e revisione High Staff.";
+
+export const metadata: Metadata = {
+  ...pageSocialMeta({ path: "/staff/compiti/", title: "Compiti · Staff", description: DESC }),
+  robots: { index: false },
+};
 
 export default function Page() {
   return (
     <SiteShell>
-      <StaffShell title="Compiti" accent="settimanali" text="Libro dei compiti: scegli, consegna e revisione High Staff." requireCompiti>
+      <DiscordComponentEmbed path="/staff/compiti/" title="Compiti · Staff" description={DESC} pageLabel="Apri compiti" />
+      <StaffShell title="Compiti" accent="settimanali" text={DESC} requireCompiti>
         <CompitiBoard />
       </StaffShell>
     </SiteShell>

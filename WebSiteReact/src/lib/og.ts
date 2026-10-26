@@ -17,10 +17,10 @@ export const SITE_404_ACCENT_INT = 0xe07a5f;
 export const SITE_DISCORD_INVITE = "https://discord.gg/viniliecaffe";
 export const SITE_ORIGIN = "https://www.viniliecaffe.it";
 
-/** Screenshot reali pagina 1200×630 (`/og/{slug}.png`) — card grande / fallback. */
+/** Screenshot reali pagina 1200×630 (`/og/{slug}.png`) — solo fallback legacy / debug. */
 const OG_CARD_VERSION = "20261026embedFix1";
-/** Logo GIF — thumb accessorio Component Embed. */
-const LOGO_VERSION = "20261025ogGif2";
+/** Logo GIF — thumb OG + accessory Component Embed (niente screenshot pagina). */
+const LOGO_VERSION = "20261027ogLogo1";
 /** Limite Discord per il JSON component-embed (byte). */
 export const DISCORD_COMPONENT_EMBED_MAX_BYTES = 3000;
 
@@ -185,7 +185,7 @@ export function discordComponentEmbedScriptTag(
   return `<script id="discord:component-embed" type="application/json">${json}</script>`;
 }
 
-/** Metadata Open Graph + Twitter (card grande per pagina). */
+/** Metadata Open Graph + Twitter — thumb = logo (non screenshot `/og/*.png`). */
 export function pageSocialMeta(opts: {
   path: string;
   title?: string;
@@ -195,7 +195,7 @@ export function pageSocialMeta(opts: {
 }) {
   const notFound = opts.notFound === true;
   const path = normalizePagePath(opts.path || (notFound ? "/404/" : "/"));
-  const image = ogCardForPath(notFound ? "/404/" : path, opts.version);
+  const image = siteLogoOgImage(opts.version);
   const description = notFound
     ? "Questo link non porta a nessuna pagina del sito Vinili & Caffè."
     : opts.description ||
@@ -205,7 +205,8 @@ export function pageSocialMeta(opts: {
     ...(title ? { title } : {}),
     description,
     other: {
-      "theme-color": notFound ? "#e07a5f" : SITE_THEME_COLOR,
+      // Accent caffè nell’unfurl classico; PWA resta su viewport.themeColor roast.
+      "theme-color": notFound ? "#e07a5f" : SITE_EMBED_COLOR,
     },
     openGraph: {
       ...(title ? { title } : {}),
@@ -217,7 +218,6 @@ export function pageSocialMeta(opts: {
       images: [image],
     },
     twitter: {
-      // summary = thumb a lato (non banner grande)
       card: "summary" as const,
       ...(title ? { title } : {}),
       description,
