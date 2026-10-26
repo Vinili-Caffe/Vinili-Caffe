@@ -24,8 +24,8 @@ const EVENTS = {
     kind: "sfondi",
     title: "Contest sfondi Halloween",
     blurb: "Invia uno sfondo PC e/o mobile e vota gli altri in stile swipe.",
-    /* Aperto subito per test (link-only). Annuncio pubblico: dalle 19:00. Fine: ven 21:00. */
-    startMs: Date.parse("2026-10-26T16:00:00+01:00"),
+    /* Annuncio pubblico: lun 19:00. Fine: ven 21:00. */
+    startMs: Date.parse("2026-10-26T19:00:00+01:00"),
     endMs: Date.parse("2026-10-30T21:00:00+01:00"),
     maxPerCategory: 1,
     categories: [

@@ -589,10 +589,12 @@ export function ContestBoard({ eventKey }: { eventKey: string }) {
           {needLoginForTab ? (
             <Panel className="mt-6 text-center">
               <Ghost className="mx-auto size-9 text-caramel" />
-              <p className="mt-3 font-display text-xl font-semibold">Accedi per partecipare</p>
-              <p className="mt-2 text-sm text-crema/60">La classifica è pubblica. Per inviare o votare serve Discord.</p>
+              <p className="mt-3 font-display text-xl font-semibold">Entra nel server</p>
+              <p className="mt-2 text-sm text-crema/60">
+                La classifica è pubblica. Per inviare o votare serve essere nel Discord Vinili &amp; Caffè.
+              </p>
               <div className="mt-5 flex justify-center">
-                <DiscordButton label="Accedi con Discord" />
+                <DiscordButton label="Entra sul server" />
               </div>
             </Panel>
           ) : null}
