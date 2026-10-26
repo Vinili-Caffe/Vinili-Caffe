@@ -288,6 +288,8 @@ function mountSiteWebhookRoutes(app, client, deps) {
     getSwipeFeed: getSiteContestSwipeFeed,
     castSwipe: castSiteContestSwipe,
     getLeaderboard: getSiteContestLeaderboard,
+    deleteEntry: deleteSiteContestEntry,
+    replaceEntry: replaceSiteContestEntry,
     serveContestFile: serveSiteContestFile,
     setPublicOpen: setSiteContestPublicOpen,
     seedDemo: seedSiteContestDemo,
@@ -2017,11 +2019,49 @@ function mountSiteWebhookRoutes(app, client, deps) {
         eventKey: req.params.eventKey,
         accessToken,
         category: req.query?.category,
-        limit: req.query?.limit,
+        page: req.query?.page,
+        pageSize: req.query?.pageSize || req.query?.limit,
       });
       return res.status(Number(out.status) || 500).json(out);
     } catch (err) {
       global.logger?.error?.("[WEBHOOK] site-contest leaderboard:", err);
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+    }
+  });
+  app.post("/webhooks/site-contest/:eventKey/delete", async (req, res) => {
+    try {
+      const accessToken = normalizeHeaderSecret(req.headers.authorization);
+      if (!accessToken) {
+        return res.status(401).json({ ok: false, error: "missing_token", message: "Accedi con Discord." });
+      }
+      const body = req.body && typeof req.body === "object" ? req.body : {};
+      const out = await deleteSiteContestEntry(client, {
+        eventKey: req.params.eventKey,
+        accessToken,
+        category: body.category,
+      });
+      return res.status(Number(out.status) || 500).json(out);
+    } catch (err) {
+      global.logger?.error?.("[WEBHOOK] site-contest delete:", err);
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+    }
+  });
+  app.post("/webhooks/site-contest/:eventKey/replace", async (req, res) => {
+    try {
+      const accessToken = normalizeHeaderSecret(req.headers.authorization);
+      if (!accessToken) {
+        return res.status(401).json({ ok: false, error: "missing_token", message: "Accedi con Discord." });
+      }
+      const body = req.body && typeof req.body === "object" ? req.body : {};
+      const out = await replaceSiteContestEntry(client, {
+        eventKey: req.params.eventKey,
+        accessToken,
+        image: body.image || body.dataUrl,
+        category: body.category,
+      });
+      return res.status(Number(out.status) || 500).json(out);
+    } catch (err) {
+      global.logger?.error?.("[WEBHOOK] site-contest replace:", err);
       return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
     }
   });

@@ -1,15 +1,30 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Heart, SkipForward, Upload, Loader2, Ghost, Trophy, Monitor, Smartphone } from "lucide-react";
+import {
+  Heart,
+  SkipForward,
+  Upload,
+  Loader2,
+  Ghost,
+  Trophy,
+  Monitor,
+  Smartphone,
+  Pencil,
+  Trash2,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import {
   clearContestDemo,
   contestImageUrl,
+  deleteContestImage,
   fetchContestFeed,
   fetchContestLeaderboard,
   fetchContestStatus,
   formatRomeRange,
+  replaceContestImage,
   seedContestDemo,
   submitContestImage,
   swipeContest,
@@ -18,6 +33,7 @@ import {
   type ContestSubmission,
 } from "@/lib/contest";
 import { DiscordButton } from "@/components/DiscordButton";
+import { confirmDialog } from "@/components/ui";
 import { cn } from "@/lib/cn";
 
 type Tab = "submit" | "vote" | "board";
@@ -69,15 +85,76 @@ function CategoryPills({
   );
 }
 
+function BlurName({ name, blurred }: { name?: string | null; blurred?: boolean }) {
+  const label = name || "—";
+  return (
+    <span
+      className={cn(
+        "inline-block max-w-full truncate align-middle",
+        blurred && "select-none blur-[5px] saturate-50",
+      )}
+      title={blurred ? "Nome rivelato a fine evento" : undefined}
+      aria-label={blurred ? "Nome nascosto" : label}
+    >
+      {blurred ? label || "Partecipante" : label}
+    </span>
+  );
+}
+
+function Podium({
+  podium,
+  cat,
+}: {
+  podium: ContestSubmission[];
+  cat: string;
+}) {
+  if (!podium.length) return null;
+  const order = [podium[1], podium[0], podium[2]].filter(Boolean) as ContestSubmission[];
+  const heights = ["mt-6", "mt-0", "mt-10"];
+  const medals = ["text-crema/70", "text-caramel", "text-sand/80"];
+  const places = [2, 1, 3];
+  return (
+    <div className="grid grid-cols-3 items-end gap-2 sm:gap-3">
+      {order.map((row, i) => {
+        const place = places[i] ?? row.rank ?? i + 1;
+        return (
+          <div key={row.id} className={cn("flex flex-col items-center text-center", heights[i])}>
+            <span className={cn("font-display text-2xl font-semibold", medals[i])}>{place}°</span>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={contestImageUrl(row.imageUrl)}
+              alt=""
+              className={cn(
+                "mt-2 rounded-xl object-cover ring-1 ring-crema/15",
+                place === 1 ? "size-24 sm:size-28" : "size-16 sm:size-20",
+                cat === "pc" && (place === 1 ? "h-16 w-28 sm:h-20 sm:w-36" : "h-12 w-20 sm:h-14 sm:w-24"),
+                place === 1 && "ring-2 ring-caramel/60",
+              )}
+            />
+            <p className="mt-2 w-full truncate px-1 text-xs font-medium text-crema">
+              <BlurName name={row.displayName} blurred={row.nameBlurred} />
+            </p>
+            <p className="text-[11px] text-crema/45">{Number(row.likes) || 0} like</p>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export function ContestBoard({ eventKey }: { eventKey: string }) {
   const { ready, token } = useAuth();
   const [status, setStatus] = useState<ContestStatus | null>(null);
-  const [tab, setTab] = useState<Tab>("vote");
+  const [tab, setTab] = useState<Tab>("board");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
   const [deck, setDeck] = useState<ContestSubmission[]>([]);
   const [board, setBoard] = useState<ContestSubmission[]>([]);
+  const [podium, setPodium] = useState<ContestSubmission[]>([]);
   const [boardPreview, setBoardPreview] = useState(true);
+  const [boardPage, setBoardPage] = useState(1);
+  const [boardPages, setBoardPages] = useState(1);
+  const replaceInputRef = useRef<HTMLInputElement | null>(null);
   const cardRef = useRef<HTMLDivElement | null>(null);
   const likeBadgeRef = useRef<HTMLDivElement | null>(null);
   const passBadgeRef = useRef<HTMLDivElement | null>(null);
@@ -87,7 +164,7 @@ export function ContestBoard({ eventKey }: { eventKey: string }) {
   const rafRef = useRef(0);
 
   const cats = useMemo<ContestCategory[]>(
-    () => status?.categories?.length ? status.categories : [{ id: "main", label: "Main" }],
+    () => (status?.categories?.length ? status.categories : [{ id: "main", label: "Main" }]),
     [status?.categories],
   );
   const [catSubmit, setCatSubmit] = useState("pc");
@@ -108,7 +185,6 @@ export function ContestBoard({ eventKey }: { eventKey: string }) {
     const s = await fetchContestStatus(eventKey, token);
     setStatus(s);
     if (s?.phase === "after") setTab("board");
-    else if (s?.canSubmit && !(s.mySubmissions?.length)) setTab("submit");
   }, [eventKey, token]);
 
   const loadFeed = useCallback(async () => {
@@ -118,12 +194,15 @@ export function ContestBoard({ eventKey }: { eventKey: string }) {
   }, [eventKey, token, catVote]);
 
   const loadBoard = useCallback(async () => {
-    const out = await fetchContestLeaderboard(eventKey, token, catBoard);
+    const out = await fetchContestLeaderboard(eventKey, token, catBoard, boardPage, 10);
     if (out?.ok) {
+      setPodium(out.podium || []);
       setBoard(out.items || []);
       setBoardPreview(Boolean(out.preview));
+      setBoardPages(Math.max(1, Number(out.totalPages) || 1));
+      if (out.page && out.page !== boardPage) setBoardPage(out.page);
     }
-  }, [eventKey, token, catBoard]);
+  }, [eventKey, token, catBoard, boardPage]);
 
   useEffect(() => {
     if (!ready) return;
@@ -139,6 +218,10 @@ export function ContestBoard({ eventKey }: { eventKey: string }) {
     if (!ready || tab !== "board") return;
     void loadBoard();
   }, [ready, tab, loadBoard]);
+
+  useEffect(() => {
+    setBoardPage(1);
+  }, [catBoard]);
 
   const top = deck[0] || null;
   const phaseLabel = useMemo(() => {
@@ -180,10 +263,61 @@ export function ContestBoard({ eventKey }: { eventKey: string }) {
     }
   }
 
+  async function onReplaceFile(file: File | null) {
+    if (!file || !token) return;
+    const ok = await confirmDialog({
+      title: "Sostituire la foto?",
+      message: "Perderai tutti i like ricevuti su questa foto. L’azione non si può annullare.",
+      danger: true,
+      confirmLabel: "Sostituisci e azzera voti",
+    });
+    if (!ok) return;
+    setBusy(true);
+    setMsg("");
+    try {
+      const dataUrl = await fileToDataUrl(file);
+      const out = await replaceContestImage(eventKey, token, dataUrl, catSubmit);
+      setMsg(out.message || (out.ok ? "Aggiornata." : "Errore."));
+      if (out.ok) {
+        await reload();
+        if (tab === "board") await loadBoard();
+      }
+    } catch {
+      setMsg("Sostituzione non riuscita.");
+    } finally {
+      setBusy(false);
+      if (replaceInputRef.current) replaceInputRef.current.value = "";
+    }
+  }
+
+  async function onDeleteMine() {
+    if (!token) return;
+    const ok = await confirmDialog({
+      title: "Cancellare la foto?",
+      message: "La foto verrà rimossa e tutti i like ricevuti andranno persi.",
+      danger: true,
+      confirmLabel: "Cancella e azzera voti",
+    });
+    if (!ok) return;
+    setBusy(true);
+    setMsg("");
+    try {
+      const out = await deleteContestImage(eventKey, token, catSubmit);
+      setMsg(out.message || (out.ok ? "Cancellata." : "Errore."));
+      if (out.ok) {
+        await reload();
+        if (tab === "board") await loadBoard();
+      }
+    } catch {
+      setMsg("Cancellazione non riuscita.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   function paintCard(x: number, withTransition: boolean) {
     const el = cardRef.current;
     if (!el) return;
-    /* translate3d + will-change: layer GPU, niente re-render React. */
     el.style.transition = withTransition ? "transform 180ms ease" : "none";
     el.style.transform = `translate3d(${x}px,0,0) rotate(${x / 28}deg)`;
     const like = likeBadgeRef.current;
@@ -201,13 +335,11 @@ export function ContestBoard({ eventKey }: { eventKey: string }) {
     if (!token || !top || busy) return;
     setBusy(true);
     try {
-      /* Fly-off senza setState per frame. */
       const fly = action === "like" ? window.innerWidth : -window.innerWidth;
       paintCard(fly, true);
       await swipeContest(eventKey, token, top.id, action);
       setDeck((d) => d.slice(1));
       dragXRef.current = 0;
-      /* next card: reset dopo swap */
       requestAnimationFrame(() => paintCard(0, false));
       if (deck.length <= 2) void loadFeed();
     } finally {
@@ -227,7 +359,6 @@ export function ContestBoard({ eventKey }: { eventKey: string }) {
   function onPointerMove(e: React.PointerEvent) {
     if (!draggingRef.current) return;
     const raw = e.clientX - startXRef.current;
-    /* Clamp soft: oltre ~40% viewport frena (evita paint enorme al bordo pagina). */
     const max = Math.min(220, window.innerWidth * 0.42);
     const x = Math.max(-max, Math.min(max, raw));
     dragXRef.current = x;
@@ -262,19 +393,6 @@ export function ContestBoard({ eventKey }: { eventKey: string }) {
     );
   }
 
-  if (!token) {
-    return (
-      <div className="mx-auto max-w-lg px-6 py-16 text-center">
-        <Ghost className="mx-auto size-10 text-caramel" />
-        <p className="mt-4 font-display text-2xl font-semibold">Accedi per partecipare</p>
-        <p className="mt-2 text-sm text-crema/65">Serve il login Discord del server.</p>
-        <div className="mt-6 flex justify-center">
-          <DiscordButton label="Accedi con Discord" />
-        </div>
-      </div>
-    );
-  }
-
   if (!status?.ok && status?.phase === "hidden") {
     return (
       <div className="mx-auto max-w-lg px-6 py-16 text-center text-crema/70">
@@ -282,6 +400,8 @@ export function ContestBoard({ eventKey }: { eventKey: string }) {
       </div>
     );
   }
+
+  const needLoginForTab = (tab === "submit" || tab === "vote") && !token;
 
   return (
     <div className="mx-auto max-w-lg px-6 pb-20">
@@ -305,22 +425,20 @@ export function ContestBoard({ eventKey }: { eventKey: string }) {
 
       {showMain ? (
         <>
-          {status?.staffPreview && status.phase !== "after" ? (
+          {status?.staffPreview && status.phase !== "after" && token ? (
             <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
               <button
                 type="button"
                 disabled={busy}
                 className="rounded-full bg-crema/10 px-4 py-2 text-xs font-medium text-crema ring-1 ring-crema/20 hover:bg-crema/15"
                 onClick={async () => {
-                  if (!token) return;
                   setBusy(true);
                   setMsg("");
                   try {
                     const out = await seedContestDemo(eventKey, token, 8);
                     setMsg(out.message || "");
                     await reload();
-                    setTab("vote");
-                    await loadFeed();
+                    await loadBoard();
                   } finally {
                     setBusy(false);
                   }
@@ -333,14 +451,13 @@ export function ContestBoard({ eventKey }: { eventKey: string }) {
                 disabled={busy}
                 className="rounded-full bg-crema/5 px-4 py-2 text-xs text-crema/70 ring-1 ring-crema/15 hover:bg-crema/10"
                 onClick={async () => {
-                  if (!token) return;
                   setBusy(true);
                   setMsg("");
                   try {
                     const out = await clearContestDemo(eventKey, token);
                     setMsg(out.message || "");
                     await reload();
-                    await loadFeed();
+                    await loadBoard();
                   } finally {
                     setBusy(false);
                   }
@@ -374,7 +491,18 @@ export function ContestBoard({ eventKey }: { eventKey: string }) {
             ))}
           </div>
 
-          {tab === "submit" && status?.phase !== "after" ? (
+          {needLoginForTab ? (
+            <div className="mt-10 text-center">
+              <Ghost className="mx-auto size-10 text-caramel" />
+              <p className="mt-4 font-display text-2xl font-semibold">Accedi per partecipare</p>
+              <p className="mt-2 text-sm text-crema/65">La classifica è pubblica; per inviare o votare serve Discord.</p>
+              <div className="mt-6 flex justify-center">
+                <DiscordButton label="Accedi con Discord" />
+              </div>
+            </div>
+          ) : null}
+
+          {tab === "submit" && status?.phase !== "after" && token ? (
             <div className="mt-8 space-y-4">
               <CategoryPills cats={cats} value={catSubmit} onChange={setCatSubmit} />
               {mineByCat[catSubmit] ? (
@@ -392,6 +520,32 @@ export function ContestBoard({ eventKey }: { eventKey: string }) {
                         catSubmit === "pc" ? "aspect-video" : "aspect-[3/4]",
                       )}
                     />
+                  </div>
+                  <p className="mt-2 text-center text-xs text-crema/45">
+                    {Number(mineByCat[catSubmit]?.likes) || 0} like · modifica/cancella azzera i voti
+                  </p>
+                  <div className="mt-3 flex flex-wrap justify-center gap-2">
+                    <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-full bg-crema/10 px-4 py-2 text-xs font-medium text-crema ring-1 ring-crema/20 hover:bg-crema/15">
+                      <Pencil className="size-3.5" />
+                      Modifica
+                      <input
+                        ref={replaceInputRef}
+                        type="file"
+                        accept="image/png,image/jpeg,image/webp"
+                        className="hidden"
+                        disabled={busy}
+                        onChange={(e) => void onReplaceFile(e.target.files?.[0] || null)}
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => void onDeleteMine()}
+                      className="inline-flex items-center gap-1.5 rounded-full bg-red-500/15 px-4 py-2 text-xs font-medium text-red-300 ring-1 ring-red-400/30 hover:bg-red-500/25"
+                    >
+                      <Trash2 className="size-3.5" />
+                      Cancella
+                    </button>
                   </div>
                 </div>
               ) : (
@@ -422,7 +576,7 @@ export function ContestBoard({ eventKey }: { eventKey: string }) {
             </div>
           ) : null}
 
-          {tab === "vote" && status?.phase !== "after" ? (
+          {tab === "vote" && status?.phase !== "after" && token ? (
             <div className="mt-8 space-y-4 overflow-x-clip">
               <CategoryPills
                 cats={cats}
@@ -498,47 +652,89 @@ export function ContestBoard({ eventKey }: { eventKey: string }) {
           ) : null}
 
           {tab === "board" ? (
-            <div className="mt-8 space-y-4">
+            <div className="mt-8 space-y-5">
               <div className="flex items-center gap-2 text-sm text-crema/80">
                 <Trophy className="size-4 text-caramel" />
-                {boardPreview ? "Preview classifica" : "Classifica finale"}
+                {boardPreview ? "Classifica live" : "Classifica finale"}
               </div>
               {boardPreview ? (
                 <p className="text-xs text-crema/45">
-                  Anteprima live: i nomi restano nascosti fino alla fine dell&apos;evento.
+                  Nomi sfocati fino a fine evento. Chiunque può vedere la classifica.
                 </p>
               ) : null}
-              <CategoryPills cats={cats} value={catBoard} onChange={setCatBoard} />
-              {!board.length ? (
+              <CategoryPills
+                cats={cats}
+                value={catBoard}
+                onChange={(id) => {
+                  setCatBoard(id);
+                  setBoardPage(1);
+                }}
+              />
+
+              {!podium.length && !board.length ? (
                 <p className="py-12 text-center text-crema/55">Ancora nessun invio in questa sezione.</p>
               ) : (
-                <ol className="space-y-3">
-                  {board.map((row) => (
-                    <li
-                      key={row.id}
-                      className="flex items-center gap-3 overflow-hidden rounded-2xl bg-crema/[0.04] p-2 ring-1 ring-crema/10"
-                    >
-                      <span className="w-8 shrink-0 text-center font-display text-lg font-semibold text-caramel">
-                        {row.rank ?? "–"}
+                <>
+                  <Podium podium={podium} cat={catBoard} />
+
+                  {board.length ? (
+                    <ol className="space-y-3">
+                      {board.map((row) => (
+                        <li
+                          key={row.id}
+                          className="flex items-center gap-3 overflow-hidden rounded-2xl bg-crema/[0.04] p-2 ring-1 ring-crema/10"
+                        >
+                          <span className="w-8 shrink-0 text-center font-display text-lg font-semibold text-caramel">
+                            {row.rank ?? "–"}
+                          </span>
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={contestImageUrl(row.imageUrl)}
+                            alt=""
+                            className={cn(
+                              "shrink-0 rounded-lg object-cover",
+                              catBoard === "pc" ? "h-14 w-24" : "size-14",
+                            )}
+                          />
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-medium text-crema">
+                              <BlurName name={row.displayName} blurred={row.nameBlurred} />
+                            </p>
+                            <p className="text-xs text-crema/45">{Number(row.likes) || 0} like</p>
+                          </div>
+                        </li>
+                      ))}
+                    </ol>
+                  ) : podium.length > 0 && boardPages <= 1 ? (
+                    <p className="text-center text-xs text-crema/40">Solo il podio per ora.</p>
+                  ) : null}
+
+                  {boardPages > 1 ? (
+                    <div className="flex items-center justify-center gap-3 pt-2">
+                      <button
+                        type="button"
+                        disabled={busy || boardPage <= 1}
+                        onClick={() => setBoardPage((p) => Math.max(1, p - 1))}
+                        className="inline-flex size-9 items-center justify-center rounded-full bg-crema/10 text-crema ring-1 ring-crema/15 disabled:opacity-40"
+                        aria-label="Pagina precedente"
+                      >
+                        <ChevronLeft className="size-4" />
+                      </button>
+                      <span className="text-xs text-crema/55">
+                        {boardPage} / {boardPages}
                       </span>
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={contestImageUrl(row.imageUrl)}
-                        alt=""
-                        className={cn(
-                          "shrink-0 rounded-lg object-cover",
-                          catBoard === "pc" ? "h-14 w-24" : "size-14",
-                        )}
-                      />
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium text-crema">
-                          {row.displayName || (boardPreview ? "Anonimo" : "—")}
-                        </p>
-                        <p className="text-xs text-crema/45">{Number(row.likes) || 0} like</p>
-                      </div>
-                    </li>
-                  ))}
-                </ol>
+                      <button
+                        type="button"
+                        disabled={busy || boardPage >= boardPages}
+                        onClick={() => setBoardPage((p) => Math.min(boardPages, p + 1))}
+                        className="inline-flex size-9 items-center justify-center rounded-full bg-crema/10 text-crema ring-1 ring-crema/15 disabled:opacity-40"
+                        aria-label="Pagina successiva"
+                      >
+                        <ChevronRight className="size-4" />
+                      </button>
+                    </div>
+                  ) : null}
+                </>
               )}
             </div>
           ) : null}

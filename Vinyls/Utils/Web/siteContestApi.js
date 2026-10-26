@@ -173,17 +173,60 @@ function extForMime(mime) {
   return "jpg";
 }
 
-function submissionPublic(sub, { hideAuthor = false } = {}) {
+function submissionPublic(sub, { hideAuthor = false, blurAuthor = false } = {}) {
+  if (hideAuthor) {
+    return {
+      id: sub.id,
+      imageUrl: sub.imageUrl,
+      category: sub.category || "main",
+      likes: Number(sub.likes) || 0,
+      createdAt: sub.createdAt ? new Date(sub.createdAt).toISOString() : null,
+      displayName: null,
+      avatarUrl: null,
+      userId: null,
+      nameBlurred: false,
+    };
+  }
   return {
     id: sub.id,
     imageUrl: sub.imageUrl,
     category: sub.category || "main",
     likes: Number(sub.likes) || 0,
     createdAt: sub.createdAt ? new Date(sub.createdAt).toISOString() : null,
-    displayName: hideAuthor ? null : sub.displayName || null,
-    avatarUrl: hideAuthor ? null : sub.avatarUrl || null,
-    userId: hideAuthor ? null : sub.userId || null,
+    /* Nome sempre presente in classifica; blurAuthor = sfocato in UI fino a fine evento. */
+    displayName: sub.displayName || null,
+    avatarUrl: blurAuthor ? null : sub.avatarUrl || null,
+    userId: blurAuthor ? null : sub.userId || null,
+    nameBlurred: Boolean(blurAuthor),
   };
+}
+
+function wipeVotesForSubmission(doc, submissionId) {
+  const sid = String(submissionId || "");
+  if (!sid || !doc.votes || typeof doc.votes !== "object") return 0;
+  let n = 0;
+  for (const vid of Object.keys(doc.votes)) {
+    const leaf = doc.votes[vid];
+    if (!leaf || typeof leaf !== "object") continue;
+    if (leaf[sid]) {
+      delete leaf[sid];
+      n++;
+    }
+  }
+  if (n) doc.markModified("votes");
+  return n;
+}
+
+function tryUnlinkStoredImage(imageUrl) {
+  const s = String(imageUrl || "");
+  const m = s.match(/\/webhooks\/site-contest\/files\/([^/]+)\/([^/]+)\/([^/?#]+)/i);
+  if (!m) return;
+  const full = resolveStoredFile(decodeURIComponent(m[1]), decodeURIComponent(m[2]), decodeURIComponent(m[3]));
+  if (full) {
+    try {
+      fs.unlinkSync(full);
+    } catch (_) {}
+  }
 }
 
 async function getContestStatus(client, { eventKey, accessToken } = {}) {
@@ -409,7 +452,7 @@ async function castSwipe(client, { eventKey, accessToken, submissionId, action }
   return { ok: true, status: 200, action: act, likes: Number(sub.likes) || 0 };
 }
 
-async function getLeaderboard(client, { eventKey, accessToken, category, limit = 20 } = {}) {
+async function getLeaderboard(client, { eventKey, accessToken, category, page = 1, pageSize = 10 } = {}) {
   const event = getEvent(eventKey);
   if (!event) return { ok: false, status: 404, error: "unknown_event", message: "Contest non trovato." };
 
@@ -421,24 +464,141 @@ async function getLeaderboard(client, { eventKey, accessToken, category, limit =
   }
 
   const cat = normalizeCategory(event, category);
-  /* Preview durante l’evento: nomi nascosti. A fine evento (o staff): nomi visibili. */
-  const showAuthors = phase === "after" || staffPreview;
+  /* Durante l’evento: nomi presenti ma sfocati. Fine evento / staff: nitidi. */
+  const blurAuthor = phase !== "after" && !staffPreview;
   const isPreview = phase !== "after";
   const doc = await getOrCreateDoc(event.key);
   const ranked = (doc.submissions || [])
     .filter((s) => String(s.category || "main") === cat)
     .sort((a, b) => (Number(b.likes) || 0) - (Number(a.likes) || 0));
-  const n = Math.min(50, Math.max(1, Number(limit) || 20));
+
+  const podium = ranked.slice(0, 3).map((s, i) => ({
+    rank: i + 1,
+    ...submissionPublic(s, { blurAuthor }),
+  }));
+
+  const rest = ranked.slice(3);
+  const size = Math.min(30, Math.max(5, Number(pageSize) || 10));
+  const totalRest = rest.length;
+  const totalPages = Math.max(1, Math.ceil(totalRest / size) || 1);
+  const pageNum = Math.min(totalPages, Math.max(1, Number(page) || 1));
+  const start = (pageNum - 1) * size;
+  const items = rest.slice(start, start + size).map((s, i) => ({
+    rank: 4 + start + i,
+    ...submissionPublic(s, { blurAuthor }),
+  }));
+
   return {
     ok: true,
     status: 200,
     phase,
     category: cat,
     preview: isPreview,
-    items: ranked.slice(0, n).map((s, i) => ({
-      rank: i + 1,
-      ...submissionPublic(s, { hideAuthor: !showAuthors }),
-    })),
+    nameBlurred: blurAuthor,
+    podium,
+    items,
+    page: pageNum,
+    pageSize: size,
+    total: ranked.length,
+    totalRest,
+    totalPages,
+  };
+}
+
+async function deleteEntry(client, { eventKey, accessToken, category } = {}) {
+  const event = getEvent(eventKey);
+  if (!event) return { ok: false, status: 404, error: "unknown_event", message: "Contest non trovato." };
+
+  const auth = await resolveUser(accessToken);
+  if (!auth.ok) return auth;
+
+  const staffPreview = await isStaffPreview(client, accessToken);
+  const phase = phaseFor(event, Date.now(), { staffPreview });
+  if (phase === "hidden") {
+    return { ok: false, status: 404, error: "hidden", message: "Contest non disponibile." };
+  }
+  if (phase !== "open") {
+    return { ok: false, status: 403, error: "closed", message: "Puoi cancellare solo a contest aperto." };
+  }
+
+  const cat = normalizeCategory(event, category);
+  const doc = await getOrCreateDoc(event.key);
+  const idx = (doc.submissions || []).findIndex(
+    (s) => s.userId === auth.userId && String(s.category || "main") === cat,
+  );
+  if (idx < 0) {
+    return { ok: false, status: 404, error: "not_found", message: "Nessuna foto da cancellare in questa sezione." };
+  }
+  const removed = doc.submissions[idx];
+  wipeVotesForSubmission(doc, removed.id);
+  tryUnlinkStoredImage(removed.imageUrl);
+  doc.submissions.splice(idx, 1);
+  await doc.save();
+  return {
+    ok: true,
+    status: 200,
+    category: cat,
+    message: "Foto cancellata. I voti ricevuti sono stati azzerati.",
+  };
+}
+
+async function replaceEntry(client, { eventKey, accessToken, image, category } = {}) {
+  const event = getEvent(eventKey);
+  if (!event) return { ok: false, status: 404, error: "unknown_event", message: "Contest non trovato." };
+
+  const auth = await resolveUser(accessToken);
+  if (!auth.ok) return auth;
+
+  const staffPreview = await isStaffPreview(client, accessToken);
+  const phase = phaseFor(event, Date.now(), { staffPreview });
+  if (phase === "hidden") {
+    return { ok: false, status: 404, error: "hidden", message: "Contest non disponibile." };
+  }
+  if (phase !== "open") {
+    return { ok: false, status: 403, error: "closed", message: "Puoi modificare solo a contest aperto." };
+  }
+
+  const memberOk = await ensureMember(client, auth.userId);
+  if (!memberOk.ok) return memberOk;
+
+  const parsed = parseDataUrl(image);
+  if (!parsed) {
+    return {
+      ok: false,
+      status: 400,
+      error: "invalid_image",
+      message: "Carica un’immagine PNG, JPG o WEBP (max 4 MB).",
+    };
+  }
+
+  const cat = normalizeCategory(event, category);
+  const doc = await getOrCreateDoc(event.key);
+  const sub = (doc.submissions || []).find(
+    (s) => s.userId === auth.userId && String(s.category || "main") === cat,
+  );
+  if (!sub) {
+    return { ok: false, status: 404, error: "not_found", message: "Nessuna foto da sostituire in questa sezione." };
+  }
+
+  wipeVotesForSubmission(doc, sub.id);
+  tryUnlinkStoredImage(sub.imageUrl);
+
+  const dir = path.join(UPLOAD_ROOT, event.key, auth.userId);
+  fs.mkdirSync(dir, { recursive: true });
+  const name = `${cat}-${Date.now().toString(36)}-${crypto.randomBytes(4).toString("hex")}.${extForMime(parsed.mime)}`;
+  fs.writeFileSync(path.join(dir, name), parsed.buffer);
+  sub.imageUrl = `/webhooks/site-contest/files/${encodeURIComponent(event.key)}/${encodeURIComponent(auth.userId)}/${encodeURIComponent(name)}`;
+  sub.likes = 0;
+  sub.displayName = auth.displayName;
+  sub.avatarUrl = auth.avatarUrl;
+  sub.createdAt = new Date();
+  await doc.save();
+
+  return {
+    ok: true,
+    status: 200,
+    submission: submissionPublic(sub),
+    message: "Foto aggiornata. I voti precedenti sono stati azzerati.",
   };
 }
 
@@ -572,6 +732,8 @@ module.exports = {
   getSwipeFeed,
   castSwipe,
   getLeaderboard,
+  deleteEntry,
+  replaceEntry,
   serveContestFile,
   setPublicOpen,
   seedDemo,

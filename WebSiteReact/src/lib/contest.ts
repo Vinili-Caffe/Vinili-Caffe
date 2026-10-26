@@ -37,6 +37,23 @@ export type ContestSubmission = {
   avatarUrl?: string | null;
   userId?: string | null;
   rank?: number;
+  nameBlurred?: boolean;
+};
+
+export type ContestLeaderboard = {
+  ok: boolean;
+  items: ContestSubmission[];
+  podium?: ContestSubmission[];
+  preview?: boolean;
+  nameBlurred?: boolean;
+  phase?: ContestPhase;
+  category?: string;
+  page?: number;
+  pageSize?: number;
+  total?: number;
+  totalRest?: number;
+  totalPages?: number;
+  message?: string;
 };
 
 function mediaUrl(path: string) {
@@ -80,6 +97,41 @@ export async function submitContestImage(
   return r.json();
 }
 
+export async function replaceContestImage(
+  eventKey: string,
+  token: string,
+  dataUrl: string,
+  category: string,
+): Promise<{ ok: boolean; message?: string; submission?: ContestSubmission; error?: string }> {
+  const r = await fetch(apiUrl(`/webhooks/site-contest/${encodeURIComponent(eventKey)}/replace`), {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ image: dataUrl, category }),
+  });
+  return r.json();
+}
+
+export async function deleteContestImage(
+  eventKey: string,
+  token: string,
+  category: string,
+): Promise<{ ok: boolean; message?: string; error?: string }> {
+  const r = await fetch(apiUrl(`/webhooks/site-contest/${encodeURIComponent(eventKey)}/delete`), {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ category }),
+  });
+  return r.json();
+}
+
 export async function fetchContestFeed(
   eventKey: string,
   token: string,
@@ -115,15 +167,14 @@ export async function fetchContestLeaderboard(
   eventKey: string,
   token: string | null | undefined,
   category: string,
-): Promise<{
-  ok: boolean;
-  items: ContestSubmission[];
-  preview?: boolean;
-  phase?: ContestPhase;
-  category?: string;
-  message?: string;
-}> {
-  const q = new URLSearchParams({ category, limit: "20" });
+  page = 1,
+  pageSize = 10,
+): Promise<ContestLeaderboard> {
+  const q = new URLSearchParams({
+    category,
+    page: String(page),
+    pageSize: String(pageSize),
+  });
   const r = await fetch(apiUrl(`/webhooks/site-contest/${encodeURIComponent(eventKey)}/leaderboard?${q}`), {
     cache: "no-store",
     headers: token
