@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type { Metadata, Viewport } from "next";
 import { Cormorant_Garamond, Great_Vibes, Inter } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
@@ -34,12 +35,12 @@ export const metadata: Metadata = {
     template: SITE_TITLE_TEMPLATE,
   },
   description:
-    "Vinili & Caffè: community Discord italiana chill dove parlare di tutto. Ruoli, eventi, giveaway, bot esclusivi.",
+    "Vinili & Caffè: Community Discord Italiana chill dove parlare di tutto. Ruoli, eventi, giveaway, bot esclusivi.",
   metadataBase: new URL("https://www.viniliecaffe.it"),
   alternates: { canonical: "/" },
   openGraph: {
     // niente title qui: eredita il <title> risolto (template brand ǀ pagina), come il sito vecchio
-    description: "Community Discord italiana chill: ruoli, eventi, giveaway, bot esclusivi.",
+    description: "Community Discord Italiana chill dove parlare di tutto. Ruoli, eventi, giveaway, bot esclusivi.",
     url: "https://www.viniliecaffe.it/",
     siteName: "Vinili & Caffè",
     locale: "it_IT",
@@ -48,7 +49,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    description: "Community Discord italiana chill: ruoli, eventi, giveaway, bot esclusivi.",
+    description: "Community Discord Italiana chill: ruoli, eventi, giveaway, bot esclusivi.",
     images: [ogCardForPath("/").url],
   },
   other: {
@@ -73,7 +74,9 @@ export const viewport: Viewport = {
   ],
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default function RootLayout({
+  children,
+}: Readonly<{ children: ReactNode }>) {
   return (
     <html
       lang="it"

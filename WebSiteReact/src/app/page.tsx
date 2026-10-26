@@ -12,6 +12,15 @@ export default async function Home() {
   const stats = await loadBuildStats();
   return (
     <SiteShell>
+      {/* LCP: preload sfondo hero (hoisted in <head>) */}
+      <link
+        rel="preload"
+        as="image"
+        href="/images/sfondo-still.webp"
+        type="image/webp"
+        imageSrcSet="/images/sfondo-mobile-still.webp 640w, /images/sfondo-still.webp 1920w"
+        imageSizes="100vw"
+      />
       <Hero />
       <LiveStats initial={stats} />
       <Why />

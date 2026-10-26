@@ -79,8 +79,16 @@ export function Hero() {
     <section ref={ref} className="relative isolate flex min-h-dvh items-center overflow-hidden pt-24">
       <motion.div style={reduce ? undefined : { y: bgY }} className="absolute inset-0 -z-20">
         <picture>
-          <source media="(max-width: 640px)" srcSet="/images/sfondo-mobile-still.webp" />
-          <img src="/images/sfondo-still.webp" alt="" className="size-full scale-110 object-cover" />
+          <source media="(max-width: 640px)" srcSet="/images/sfondo-mobile-still.webp" type="image/webp" />
+          <img
+            src="/images/sfondo-still.webp"
+            alt=""
+            width={1920}
+            height={1080}
+            decoding="async"
+            fetchPriority="high"
+            className="size-full scale-110 object-cover"
+          />
         </picture>
       </motion.div>
       <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top,rgba(14,9,6,0.35),rgba(14,9,6,0.85)_60%,var(--color-espresso))]" />
