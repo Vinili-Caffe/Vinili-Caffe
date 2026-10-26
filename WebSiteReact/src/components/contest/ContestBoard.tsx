@@ -15,6 +15,8 @@ import {
   ChevronRight,
   ImagePlus,
   CalendarDays,
+  Images,
+  ThumbsUp,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import {
@@ -435,21 +437,39 @@ export function ContestBoard({ eventKey }: { eventKey: string }) {
           className="pointer-events-none absolute -right-8 -top-10 size-36 rounded-full bg-caramel/10 blur-3xl"
           aria-hidden
         />
-        <div className="relative flex flex-wrap items-center gap-2">
+        <div className="relative">
           <span className="inline-flex items-center rounded-full bg-caramel/15 px-2.5 py-1 text-[0.65rem] font-semibold uppercase tracking-[0.18em] text-caramel">
             {phaseLabel}
-          </span>
-          <span className="text-[0.7rem] tabular-nums text-crema/40">
-            {status?.submissionCount ?? 0} invii
-            {token ? ` · ${status?.myVoteCount ?? 0} tuoi voti` : null}
           </span>
         </div>
         <h2 className="relative mt-3 font-display text-2xl font-semibold tracking-tight sm:text-3xl">
           {status?.title || "Contest"}
         </h2>
         {status?.blurb ? <p className="relative mt-2 text-sm leading-relaxed text-crema/65">{status.blurb}</p> : null}
+        <div className={cn("relative mt-4 grid gap-2", status?.startAt && status?.endAt ? "grid-cols-2" : "grid-cols-2")}>
+          <div className="rounded-2xl bg-ink/35 px-3 py-2.5 ring-1 ring-crema/10">
+            <p className="flex items-center gap-1 text-[0.65rem] font-semibold uppercase tracking-[0.14em] text-crema/40">
+              <Images className="size-3" />
+              Invii
+            </p>
+            <p className="mt-1 font-display text-xl font-semibold tabular-nums text-crema">
+              {status?.submissionCount ?? 0}
+            </p>
+            <p className="text-[11px] text-crema/45">foto nel contest</p>
+          </div>
+          <div className="rounded-2xl bg-ink/35 px-3 py-2.5 ring-1 ring-crema/10">
+            <p className="flex items-center gap-1 text-[0.65rem] font-semibold uppercase tracking-[0.14em] text-crema/40">
+              <ThumbsUp className="size-3" />
+              I tuoi voti
+            </p>
+            <p className="mt-1 font-display text-xl font-semibold tabular-nums text-crema">
+              {token ? status?.myVoteCount ?? 0 : "—"}
+            </p>
+            <p className="text-[11px] text-crema/45">{token ? "like + pass" : "accedi per votare"}</p>
+          </div>
+        </div>
         {status?.startAt && status?.endAt ? (
-          <div className="relative mt-4 grid grid-cols-2 gap-2">
+          <div className="relative mt-2 grid grid-cols-2 gap-2">
             {(() => {
               const w = contestWindowParts(status.startAt, status.endAt);
               return (
