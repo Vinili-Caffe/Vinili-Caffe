@@ -1,5 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Cormorant_Garamond, Great_Vibes, Inter } from "next/font/google";
+import { Analytics } from "@vercel/analytics/next";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import { AuthProvider } from "@/lib/auth";
 import { I18nFromAuth } from "@/lib/i18n";
 import { ThemeProvider, THEME_BOOT_SCRIPT } from "@/lib/theme";
@@ -99,6 +101,8 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             <ThemeProvider>
               <SwRegister />
               {children}
+              <Analytics />
+              <SpeedInsights />
             </ThemeProvider>
           </I18nFromAuth>
         </AuthProvider>
