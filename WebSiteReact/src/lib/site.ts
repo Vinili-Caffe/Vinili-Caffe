@@ -46,6 +46,8 @@ export const REACT_PAGES = new Set([
   "/tickets/",
   "/wordle/",
   "/puzzle/",
+  "/contest/sfondi-halloween/",
+  "/contest/outfit-halloween/",
   "/privacy/",
   "/cookie/",
   "/terms/",

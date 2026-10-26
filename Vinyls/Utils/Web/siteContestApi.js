@@ -1,0 +1,456 @@
+/**
+ * Contest sito (sfondi / outfit) — unlisted, swipe like Tinder.
+ * Storage: Mongo sitecontests + file in Data/uploads/site-contests.
+ */
+const crypto = require("crypto");
+const fs = require("node:fs");
+const path = require("node:path");
+const IDs = require("../Config/ids");
+const { fetchDiscordOAuthMe } = require("./discordOauthMe");
+const { assertWebsiteStaffAccess } = require("./siteStaffAccessApi");
+const { SiteContest } = require("../../Schemas/Web/siteContestSchemas");
+const { fetchWebsiteGuildMember } = require("./websiteGuildMemberFetch");
+
+const UPLOAD_ROOT = path.resolve(__dirname, "../../../Data/uploads/site-contests");
+const MAX_BYTES = 4 * 1024 * 1024;
+const ALLOWED_MIME = new Set(["image/png", "image/jpeg", "image/jpg", "image/webp"]);
+
+/** Europe/Rome wall times as ISO with offset (CET after 2026-10-25). */
+const EVENTS = {
+  "sfondi-halloween": {
+    key: "sfondi-halloween",
+    kind: "sfondi",
+    title: "Contest sfondi Halloween",
+    blurb: "Invia uno sfondo a tema Halloween e vota gli altri in stile swipe.",
+    startMs: Date.parse("2026-10-26T19:00:00+01:00"),
+    endMs: Date.parse("2026-10-30T21:00:00+01:00"),
+    maxSubmissionsPerUser: 1,
+    /** true = chi ha il link può entrare in finestra; false = solo staff. Mai in nav. */
+    publicOpen: true,
+  },
+  "outfit-halloween": {
+    key: "outfit-halloween",
+    kind: "outfit",
+    title: "Contest outfit Halloween",
+    blurb: "Mostra il tuo outfit Halloween e vota gli altri con uno swipe.",
+    startMs: Date.parse("2026-10-31T12:00:00+01:00"),
+    endMs: Date.parse("2026-11-01T21:00:00+01:00"),
+    maxSubmissionsPerUser: 1,
+    publicOpen: true,
+  },
+};
+
+function normalizeHeaderSecret(raw) {
+  const s = String(raw || "").trim();
+  if (!s) return "";
+  const m = s.match(/^Bearer\s+(.+)$/i);
+  return String(m ? m[1] : s).trim();
+}
+
+function getEvent(eventKey) {
+  return EVENTS[String(eventKey || "").trim()] || null;
+}
+
+function phaseFor(event, now = Date.now(), { staffPreview = false } = {}) {
+  if (!event) return "unknown";
+  if (staffPreview && !event.publicOpen) {
+    if (now < event.endMs) return "open";
+  }
+  if (!event.publicOpen && !staffPreview) return "hidden";
+  if (now < event.startMs) return "before";
+  if (now >= event.endMs) return "after";
+  return "open";
+}
+
+function publicEventPayload(event, phase, extras = {}) {
+  return {
+    ok: true,
+    eventKey: event.key,
+    kind: event.kind,
+    title: event.title,
+    blurb: event.blurb,
+    startAt: new Date(event.startMs).toISOString(),
+    endAt: new Date(event.endMs).toISOString(),
+    phase,
+    publicOpen: Boolean(event.publicOpen),
+    maxSubmissionsPerUser: event.maxSubmissionsPerUser,
+    ...extras,
+  };
+}
+
+async function resolveUser(accessToken) {
+  const token = String(accessToken || "").trim();
+  if (!token) {
+    return { ok: false, status: 401, error: "missing_token", message: "Accedi con Discord." };
+  }
+  const me = await fetchDiscordOAuthMe(token).catch(() => null);
+  if (!me?.ok || !me?.me?.id) {
+    return {
+      ok: false,
+      status: Number(me?.status) || 401,
+      error: me?.error || "unauthorized",
+      message: me?.message || "Sessione Discord non valida.",
+    };
+  }
+  const userId = String(me.me.id).trim();
+  const displayName = String(me.me.global_name || me.me.username || "Utente").trim();
+  const avatarHash = me.me.avatar ? String(me.me.avatar) : "";
+  const avatarUrl = avatarHash
+    ? `https://cdn.discordapp.com/avatars/${userId}/${avatarHash}.png?size=128`
+    : "";
+  return { ok: true, userId, displayName, avatarUrl, accessToken: token };
+}
+
+async function isStaffPreview(client, accessToken) {
+  try {
+    const out = await assertWebsiteStaffAccess(client, accessToken);
+    if (out?.ok && (out.isHighStaff || out.isFounder || out.flags?.highStaff)) return true;
+  } catch (_) {}
+  return false;
+}
+
+async function ensureMember(client, userId) {
+  const guildId = String(IDs?.guilds?.main || "").trim();
+  if (!guildId || !client) return { ok: true };
+  try {
+    const guild = client.guilds?.cache?.get(guildId) || (await client.guilds?.fetch?.(guildId).catch(() => null));
+    if (!guild) return { ok: true };
+    const member = await fetchWebsiteGuildMember(guild, userId, { soft: true });
+    if (!member) {
+      return {
+        ok: false,
+        status: 403,
+        error: "not_in_guild",
+        message: "Devi essere nel server Discord Vinili & Caffè per partecipare.",
+      };
+    }
+  } catch (_) {
+    /* soft-fail: non bloccare se Discord è down */
+  }
+  return { ok: true };
+}
+
+async function getOrCreateDoc(eventKey) {
+  let doc = await SiteContest.findOne({ eventKey });
+  if (!doc) {
+    doc = await SiteContest.create({ eventKey, submissions: [], votes: {} });
+  }
+  return doc;
+}
+
+function parseDataUrl(raw) {
+  const s = String(raw || "");
+  const m = s.match(/^data:(image\/(?:png|jpeg|jpg|webp));base64,([A-Za-z0-9+/=\s]+)$/i);
+  if (!m) return null;
+  const mime = m[1].toLowerCase() === "image/jpg" ? "image/jpeg" : m[1].toLowerCase();
+  if (!ALLOWED_MIME.has(mime)) return null;
+  const buffer = Buffer.from(m[2].replace(/\s+/g, ""), "base64");
+  if (!buffer.length || buffer.length > MAX_BYTES) return null;
+  return { mime, buffer };
+}
+
+function extForMime(mime) {
+  if (mime === "image/png") return "png";
+  if (mime === "image/webp") return "webp";
+  return "jpg";
+}
+
+function submissionPublic(sub, { hideAuthor = false } = {}) {
+  return {
+    id: sub.id,
+    imageUrl: sub.imageUrl,
+    category: sub.category || "main",
+    likes: Number(sub.likes) || 0,
+    createdAt: sub.createdAt ? new Date(sub.createdAt).toISOString() : null,
+    displayName: hideAuthor ? null : sub.displayName || null,
+    avatarUrl: hideAuthor ? null : sub.avatarUrl || null,
+    userId: hideAuthor ? null : sub.userId || null,
+  };
+}
+
+async function getContestStatus(client, { eventKey, accessToken } = {}) {
+  const event = getEvent(eventKey);
+  if (!event) return { ok: false, status: 404, error: "unknown_event", message: "Contest non trovato." };
+
+  let staffPreview = false;
+  let userId = "";
+  if (accessToken) {
+    const auth = await resolveUser(accessToken);
+    if (auth.ok) {
+      userId = auth.userId;
+      staffPreview = await isStaffPreview(client, accessToken);
+    }
+  }
+
+  const phase = phaseFor(event, Date.now(), { staffPreview });
+  const doc = await getOrCreateDoc(event.key);
+  const mine = userId ? (doc.submissions || []).filter((s) => s.userId === userId) : [];
+  const myVotes = userId && doc.votes?.[userId] ? doc.votes[userId] : {};
+
+  return publicEventPayload(event, phase, {
+    status: 200,
+    staffPreview,
+    submissionCount: (doc.submissions || []).length,
+    mySubmissions: mine.map((s) => submissionPublic(s)),
+    myVoteCount: Object.keys(myVotes).length,
+    canSubmit: phase === "open" && mine.length < event.maxSubmissionsPerUser,
+    canVote: phase === "open",
+  });
+}
+
+async function listEvents(client, { accessToken } = {}) {
+  let staffPreview = false;
+  if (accessToken) staffPreview = await isStaffPreview(client, accessToken);
+  const items = [];
+  for (const event of Object.values(EVENTS)) {
+    const phase = phaseFor(event, Date.now(), { staffPreview });
+    if (phase === "hidden" && !staffPreview) continue;
+    items.push(
+      publicEventPayload(event, phase, {
+        href: `/contest/${event.key}/`,
+      }),
+    );
+  }
+  return { ok: true, status: 200, events, staffPreview };
+}
+
+async function submitEntry(client, { eventKey, accessToken, image, category } = {}) {
+  const event = getEvent(eventKey);
+  if (!event) return { ok: false, status: 404, error: "unknown_event", message: "Contest non trovato." };
+
+  const auth = await resolveUser(accessToken);
+  if (!auth.ok) return auth;
+
+  const staffPreview = await isStaffPreview(client, accessToken);
+  const phase = phaseFor(event, Date.now(), { staffPreview });
+  if (phase === "hidden") {
+    return { ok: false, status: 404, error: "hidden", message: "Contest non disponibile." };
+  }
+  if (phase !== "open") {
+    return {
+      ok: false,
+      status: 403,
+      error: "closed",
+      message: phase === "before" ? "Il contest non è ancora aperto." : "Il contest è chiuso.",
+    };
+  }
+
+  const memberOk = await ensureMember(client, auth.userId);
+  if (!memberOk.ok) return memberOk;
+
+  const parsed = parseDataUrl(image);
+  if (!parsed) {
+    return {
+      ok: false,
+      status: 400,
+      error: "invalid_image",
+      message: "Carica un’immagine PNG, JPG o WEBP (max 4 MB).",
+    };
+  }
+
+  const doc = await getOrCreateDoc(event.key);
+  const mine = (doc.submissions || []).filter((s) => s.userId === auth.userId);
+  if (mine.length >= event.maxSubmissionsPerUser) {
+    return {
+      ok: false,
+      status: 409,
+      error: "already_submitted",
+      message: "Hai già inviato la tua partecipazione per questo contest.",
+    };
+  }
+
+  const dir = path.join(UPLOAD_ROOT, event.key, auth.userId);
+  fs.mkdirSync(dir, { recursive: true });
+  const name = `${Date.now().toString(36)}-${crypto.randomBytes(4).toString("hex")}.${extForMime(parsed.mime)}`;
+  fs.writeFileSync(path.join(dir, name), parsed.buffer);
+  const imageUrl = `/webhooks/site-contest/files/${encodeURIComponent(event.key)}/${encodeURIComponent(auth.userId)}/${encodeURIComponent(name)}`;
+
+  const sub = {
+    id: crypto.randomBytes(8).toString("hex"),
+    userId: auth.userId,
+    displayName: auth.displayName,
+    avatarUrl: auth.avatarUrl,
+    imageUrl,
+    category: String(category || "main").slice(0, 32),
+    likes: 0,
+    createdAt: new Date(),
+  };
+  doc.submissions.push(sub);
+  await doc.save();
+
+  return {
+    ok: true,
+    status: 200,
+    submission: submissionPublic(sub),
+    message: "Partecipazione inviata.",
+  };
+}
+
+async function getSwipeFeed(client, { eventKey, accessToken, limit = 20 } = {}) {
+  const event = getEvent(eventKey);
+  if (!event) return { ok: false, status: 404, error: "unknown_event", message: "Contest non trovato." };
+
+  const auth = await resolveUser(accessToken);
+  if (!auth.ok) return auth;
+
+  const staffPreview = await isStaffPreview(client, accessToken);
+  const phase = phaseFor(event, Date.now(), { staffPreview });
+  if (phase === "hidden") {
+    return { ok: false, status: 404, error: "hidden", message: "Contest non disponibile." };
+  }
+  if (phase !== "open" && phase !== "after") {
+    return {
+      ok: false,
+      status: 403,
+      error: "closed",
+      message: "Il voto non è ancora aperto.",
+    };
+  }
+
+  const doc = await getOrCreateDoc(event.key);
+  const voted = doc.votes?.[auth.userId] || {};
+  const pool = (doc.submissions || []).filter(
+    (s) => s.userId !== auth.userId && !voted[s.id],
+  );
+  for (let i = pool.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [pool[i], pool[j]] = [pool[j], pool[i]];
+  }
+  const n = Math.min(40, Math.max(1, Number(limit) || 20));
+  return {
+    ok: true,
+    status: 200,
+    phase,
+    remaining: pool.length,
+    items: pool.slice(0, n).map((s) => submissionPublic(s, { hideAuthor: phase === "open" })),
+  };
+}
+
+async function castSwipe(client, { eventKey, accessToken, submissionId, action } = {}) {
+  const event = getEvent(eventKey);
+  if (!event) return { ok: false, status: 404, error: "unknown_event", message: "Contest non trovato." };
+
+  const auth = await resolveUser(accessToken);
+  if (!auth.ok) return auth;
+
+  const staffPreview = await isStaffPreview(client, accessToken);
+  const phase = phaseFor(event, Date.now(), { staffPreview });
+  if (phase !== "open") {
+    return { ok: false, status: 403, error: "closed", message: "Il voto è chiuso." };
+  }
+
+  const act = String(action || "").toLowerCase();
+  if (act !== "like" && act !== "pass") {
+    return { ok: false, status: 400, error: "bad_action", message: "Azione non valida (like|pass)." };
+  }
+  const sid = String(submissionId || "").trim();
+  if (!sid) return { ok: false, status: 400, error: "missing_id", message: "Submission mancante." };
+
+  const doc = await getOrCreateDoc(event.key);
+  const sub = (doc.submissions || []).find((s) => s.id === sid);
+  if (!sub) return { ok: false, status: 404, error: "not_found", message: "Partecipazione non trovata." };
+  if (sub.userId === auth.userId) {
+    return { ok: false, status: 403, error: "own", message: "Non puoi votare la tua foto." };
+  }
+
+  if (!doc.votes || typeof doc.votes !== "object") doc.votes = {};
+  if (!doc.votes[auth.userId] || typeof doc.votes[auth.userId] !== "object") {
+    doc.votes[auth.userId] = {};
+  }
+  const prev = doc.votes[auth.userId][sid];
+  if (prev) {
+    return { ok: true, status: 200, already: true, action: prev, message: "Già votato." };
+  }
+
+  doc.votes[auth.userId][sid] = act;
+  doc.markModified("votes");
+  if (act === "like") {
+    sub.likes = (Number(sub.likes) || 0) + 1;
+  }
+  await doc.save();
+  return { ok: true, status: 200, action: act, likes: Number(sub.likes) || 0 };
+}
+
+async function getLeaderboard(client, { eventKey, accessToken, limit = 20 } = {}) {
+  const event = getEvent(eventKey);
+  if (!event) return { ok: false, status: 404, error: "unknown_event", message: "Contest non trovato." };
+
+  let staffPreview = false;
+  if (accessToken) staffPreview = await isStaffPreview(client, accessToken);
+  const phase = phaseFor(event, Date.now(), { staffPreview });
+  if (phase === "hidden") {
+    return { ok: false, status: 404, error: "hidden", message: "Contest non disponibile." };
+  }
+
+  const showAuthors = phase === "after" || staffPreview;
+  const doc = await getOrCreateDoc(event.key);
+  const ranked = [...(doc.submissions || [])].sort((a, b) => (Number(b.likes) || 0) - (Number(a.likes) || 0));
+  const n = Math.min(50, Math.max(1, Number(limit) || 20));
+  return {
+    ok: true,
+    status: 200,
+    phase,
+    items: ranked.slice(0, n).map((s, i) => ({
+      rank: i + 1,
+      ...submissionPublic(s, { hideAuthor: !showAuthors }),
+    })),
+  };
+}
+
+function resolveStoredFile(eventKey, userId, fileName) {
+  const ek = String(eventKey || "").trim();
+  const uid = String(userId || "").trim();
+  const name = String(fileName || "").trim();
+  if (!/^[a-z0-9-]{3,64}$/i.test(ek) || !/^\d{5,32}$/.test(uid) || !/^[a-z0-9._-]+$/i.test(name)) {
+    return null;
+  }
+  const full = path.join(UPLOAD_ROOT, ek, uid, name);
+  const root = path.join(UPLOAD_ROOT, ek, uid);
+  if (!full.startsWith(root)) return null;
+  if (!fs.existsSync(full) || !fs.statSync(full).isFile()) return null;
+  return full;
+}
+
+function mimeFromName(fileName) {
+  const ext = path.extname(String(fileName || "")).toLowerCase();
+  if (ext === ".png") return "image/png";
+  if (ext === ".webp") return "image/webp";
+  return "image/jpeg";
+}
+
+async function serveContestFile(req, res) {
+  const full = resolveStoredFile(req.params.eventKey, req.params.userId, req.params.fileName);
+  if (!full) {
+    res.status(404).type("application/json").send(JSON.stringify({ ok: false, error: "not_found" }));
+    return;
+  }
+  res.setHeader("Cache-Control", "public, max-age=86400");
+  res.setHeader("Content-Type", mimeFromName(req.params.fileName));
+  fs.createReadStream(full).pipe(res);
+}
+
+/** Staff: apri/chiudi visibilità pubblica (env override non persistito — flag in-memory + persist su doc meta). */
+async function setPublicOpen(client, { eventKey, accessToken, publicOpen } = {}) {
+  const event = getEvent(eventKey);
+  if (!event) return { ok: false, status: 404, error: "unknown_event", message: "Contest non trovato." };
+  const staff = await isStaffPreview(client, accessToken);
+  if (!staff) return { ok: false, status: 403, error: "forbidden", message: "Solo staff." };
+  event.publicOpen = Boolean(publicOpen);
+  return publicEventPayload(event, phaseFor(event, Date.now(), { staffPreview: true }), {
+    status: 200,
+    message: event.publicOpen ? "Contest visibile a chi ha il link." : "Contest nascosto (solo staff).",
+  });
+}
+
+module.exports = {
+  EVENTS,
+  normalizeHeaderSecret,
+  getContestStatus,
+  listEvents,
+  submitEntry,
+  getSwipeFeed,
+  castSwipe,
+  getLeaderboard,
+  serveContestFile,
+  setPublicOpen,
+};

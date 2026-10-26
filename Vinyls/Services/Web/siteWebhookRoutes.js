@@ -282,6 +282,16 @@ function mountSiteWebhookRoutes(app, client, deps) {
     serveBotFeedbackFile,
   } = require("../../Utils/Web/siteBotFeedbackApi");
   const {
+    getContestStatus,
+    listEvents: listSiteContestEvents,
+    submitEntry: submitSiteContestEntry,
+    getSwipeFeed: getSiteContestSwipeFeed,
+    castSwipe: castSiteContestSwipe,
+    getLeaderboard: getSiteContestLeaderboard,
+    serveContestFile: serveSiteContestFile,
+    setPublicOpen: setSiteContestPublicOpen,
+  } = require("../../Utils/Web/siteContestApi");
+  const {
     handleSiteNotificationsGet,
     handleSiteNotificationsMarkReadPost,
     handleSiteNotificationsClearPost,
@@ -1920,6 +1930,126 @@ function mountSiteWebhookRoutes(app, client, deps) {
       }
     }
   });
+
+  /* siteContestHalloween1 — unlisted contest swipe + submit */
+  app.get("/webhooks/site-contest/events", async (req, res) => {
+    try {
+      const accessToken = normalizeHeaderSecret(req.headers.authorization);
+      const out = await listSiteContestEvents(client, { accessToken });
+      return res.status(Number(out.status) || 500).json(out);
+    } catch (err) {
+      global.logger?.error?.("[WEBHOOK] site-contest events:", err);
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+    }
+  });
+  app.get("/webhooks/site-contest/:eventKey/status", async (req, res) => {
+    try {
+      const accessToken = normalizeHeaderSecret(req.headers.authorization);
+      const out = await getContestStatus(client, { eventKey: req.params.eventKey, accessToken });
+      return res.status(Number(out.status) || 500).json(out);
+    } catch (err) {
+      global.logger?.error?.("[WEBHOOK] site-contest status:", err);
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+    }
+  });
+  app.post("/webhooks/site-contest/:eventKey/submit", async (req, res) => {
+    try {
+      const accessToken = normalizeHeaderSecret(req.headers.authorization);
+      if (!accessToken) {
+        return res.status(401).json({ ok: false, error: "missing_token", message: "Accedi con Discord." });
+      }
+      const body = req.body && typeof req.body === "object" ? req.body : {};
+      const out = await submitSiteContestEntry(client, {
+        eventKey: req.params.eventKey,
+        accessToken,
+        image: body.image || body.dataUrl,
+        category: body.category,
+      });
+      return res.status(Number(out.status) || 500).json(out);
+    } catch (err) {
+      global.logger?.error?.("[WEBHOOK] site-contest submit:", err);
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+    }
+  });
+  app.get("/webhooks/site-contest/:eventKey/feed", async (req, res) => {
+    try {
+      const accessToken = normalizeHeaderSecret(req.headers.authorization);
+      if (!accessToken) {
+        return res.status(401).json({ ok: false, error: "missing_token", message: "Accedi con Discord." });
+      }
+      const out = await getSiteContestSwipeFeed(client, {
+        eventKey: req.params.eventKey,
+        accessToken,
+        limit: req.query?.limit,
+      });
+      return res.status(Number(out.status) || 500).json(out);
+    } catch (err) {
+      global.logger?.error?.("[WEBHOOK] site-contest feed:", err);
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+    }
+  });
+  app.post("/webhooks/site-contest/:eventKey/swipe", async (req, res) => {
+    try {
+      const accessToken = normalizeHeaderSecret(req.headers.authorization);
+      if (!accessToken) {
+        return res.status(401).json({ ok: false, error: "missing_token", message: "Accedi con Discord." });
+      }
+      const body = req.body && typeof req.body === "object" ? req.body : {};
+      const out = await castSiteContestSwipe(client, {
+        eventKey: req.params.eventKey,
+        accessToken,
+        submissionId: body.submissionId || body.id,
+        action: body.action,
+      });
+      return res.status(Number(out.status) || 500).json(out);
+    } catch (err) {
+      global.logger?.error?.("[WEBHOOK] site-contest swipe:", err);
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+    }
+  });
+  app.get("/webhooks/site-contest/:eventKey/leaderboard", async (req, res) => {
+    try {
+      const accessToken = normalizeHeaderSecret(req.headers.authorization);
+      const out = await getSiteContestLeaderboard(client, {
+        eventKey: req.params.eventKey,
+        accessToken,
+        limit: req.query?.limit,
+      });
+      return res.status(Number(out.status) || 500).json(out);
+    } catch (err) {
+      global.logger?.error?.("[WEBHOOK] site-contest leaderboard:", err);
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+    }
+  });
+  app.post("/webhooks/site-contest/:eventKey/public-open", async (req, res) => {
+    try {
+      const accessToken = normalizeHeaderSecret(req.headers.authorization);
+      if (!accessToken) {
+        return res.status(401).json({ ok: false, error: "missing_token", message: "Accedi con Discord." });
+      }
+      const body = req.body && typeof req.body === "object" ? req.body : {};
+      const out = await setSiteContestPublicOpen(client, {
+        eventKey: req.params.eventKey,
+        accessToken,
+        publicOpen: body.publicOpen !== false && body.open !== false,
+      });
+      return res.status(Number(out.status) || 500).json(out);
+    } catch (err) {
+      global.logger?.error?.("[WEBHOOK] site-contest public-open:", err);
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+    }
+  });
+  app.get("/webhooks/site-contest/files/:eventKey/:userId/:fileName", async (req, res) => {
+    try {
+      await serveSiteContestFile(req, res);
+    } catch (err) {
+      global.logger?.error?.("[WEBHOOK] site-contest file:", err);
+      if (!res.headersSent) {
+        return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+      }
+    }
+  });
+
   app.post("/webhooks/site-boards/me/banner-upload", async (req, res) => {
     try {
       const accessToken = normalizeHeaderSecret(req.headers.authorization);
