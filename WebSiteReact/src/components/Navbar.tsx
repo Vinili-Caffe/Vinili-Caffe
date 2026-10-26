@@ -23,7 +23,7 @@ import { loadStaffAccess, type StaffAccess } from "@/lib/staff";
 import { useI18n } from "@/lib/i18n";
 import { cn } from "@/lib/cn";
 import { setChromeOpen } from "@/lib/chrome-open";
-import { NavIcon } from "@/lib/nav-icons";
+import { EventoNavIcon, NavIcon } from "@/lib/nav-icons";
 import { useCloseOnScroll } from "@/lib/use-close-on-scroll";
 import { useAutoHideNav } from "@/lib/use-auto-hide-nav";
 import { viewAsAllowedSticky } from "@/lib/view-as";
@@ -118,6 +118,15 @@ function pathActive(pathname: string, href: string) {
   const h = href.endsWith("/") ? href : `${href}/`;
   if (h === "/") return p === "/";
   return p === h || p.startsWith(h);
+}
+
+/** Su /evento/* Hub resta attivo (sei “nell’hub evento”); le sottopagine evidenziano anche sé. */
+function eventoLinkActive(pathname: string, href: string, id: string) {
+  if (id === "hub") {
+    const p = pathname.replace(/\/+$/, "") || "/";
+    return p === "/evento" || p.startsWith("/evento/") || p === "/puzzle" || p.startsWith("/puzzle/");
+  }
+  return pathActive(pathname, href);
 }
 
 function NavDrop({
@@ -489,8 +498,8 @@ export function Navbar() {
               <>
                 {eventoLinks.map((l) => (
                   <li key={l.href}>
-                    <SmartLink href={l.href} className={navUnderlineClass(pathActive(pathname, l.href))}>
-                      <Sparkles className="size-3.5 shrink-0 opacity-75" aria-hidden />
+                    <SmartLink href={l.href} className={navUnderlineClass(eventoLinkActive(pathname, l.href, l.id))}>
+                      <EventoNavIcon id={l.id} />
                       {l.label}
                     </SmartLink>
                   </li>
@@ -498,6 +507,7 @@ export function Navbar() {
                 <li aria-hidden className="mx-1.5 h-4 w-px shrink-0 bg-crema/20" />
                 <li>
                   <SmartLink href={page("/")} className={navUnderlineClass(pathActive(pathname, page("/")))}>
+                    <EventoNavIcon id="sito" />
                     Sito
                   </SmartLink>
                 </li>
@@ -592,12 +602,12 @@ export function Navbar() {
                   transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
                 >
                   <h3 className="mb-2 flex items-center gap-1.5 text-[0.65rem] font-semibold uppercase tracking-[0.22em] text-caramel">
-                    <Sparkles className="size-3 opacity-90" aria-hidden />
+                    <EventoNavIcon id="hub" className="size-3 opacity-90" />
                     Evento
                   </h3>
                   <ul className="grid grid-cols-2 gap-2">
                     {eventoLinks.map((l) => {
-                      const on = pathActive(pathname, l.href);
+                      const on = eventoLinkActive(pathname, l.href, l.id);
                       return (
                         <li key={l.href}>
                           <SmartLink
@@ -612,7 +622,7 @@ export function Navbar() {
                                 : "bg-crema/[0.05] text-crema/90 ring-sand/12 hover:bg-crema/10",
                             )}
                           >
-                            <Sparkles className="size-3.5 shrink-0 opacity-75" aria-hidden />
+                            <EventoNavIcon id={l.id} />
                             {l.label}
                           </SmartLink>
                         </li>
@@ -626,6 +636,7 @@ export function Navbar() {
                         }}
                         className="flex min-h-[3.1rem] flex-col items-center justify-center gap-1 rounded-2xl bg-crema/[0.05] px-2.5 py-2.5 text-center text-sm font-semibold leading-snug text-crema/90 ring-1 ring-sand/12 hover:bg-crema/10"
                       >
+                        <EventoNavIcon id="sito" />
                         Sito
                       </SmartLink>
                     </li>

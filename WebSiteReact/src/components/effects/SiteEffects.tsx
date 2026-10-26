@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { useEventoChrome } from "@/components/evento/EventoChrome";
 import { SiteCursor } from "./SiteCursor";
 import { NavBusyCursor } from "./NavBusyCursor";
 import { TypingPause } from "./TypingPause";
@@ -9,6 +10,7 @@ import { PhonePreviewMode } from "./PhonePreviewMode";
 // Effetti "extra": all'apertura non disegnano niente, quindi si caricano dopo in un file a parte
 // (alleggerisce il codice comune a tutte le pagine).
 const HalloweenFx = dynamic(() => import("./HalloweenFx").then((m) => m.HalloweenFx), { ssr: false });
+const StarWarsFx = dynamic(() => import("./StarWarsFx").then((m) => m.StarWarsFx), { ssr: false });
 const CursorLight = dynamic(() => import("./CursorLight").then((m) => m.CursorLight), { ssr: false });
 const CursorTrail = dynamic(() => import("./CursorTrail").then((m) => m.CursorTrail), { ssr: false });
 const ClickSpark = dynamic(() => import("./ClickSpark").then((m) => m.ClickSpark), { ssr: false });
@@ -17,13 +19,14 @@ const PullToRefresh = dynamic(() => import("./PullToRefresh").then((m) => m.Pull
 const InstallPrompt = dynamic(() => import("./InstallPrompt").then((m) => m.InstallPrompt), { ssr: false });
 const SocialPhonePromo = dynamic(() => import("./SocialPhonePromo").then((m) => m.SocialPhonePromo), { ssr: false });
 
-/** Effetti globali montati da SiteShell. */
+/** Effetti globali montati da SiteShell. Su /evento: SW al posto di Halloween. */
 export function SiteEffects() {
+  const evento = useEventoChrome();
   return (
     <>
       <PhonePreviewMode />
       <TypingPause />
-      <HalloweenFx />
+      {evento ? <StarWarsFx /> : <HalloweenFx />}
       <SiteCursor />
       <NavBusyCursor />
       <CursorLight />

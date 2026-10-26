@@ -347,3 +347,13 @@ html[data-vc-fx-motion="0"] .vc-hw-eyes {
 html[data-vc-live-pip] .vc-hw-pumpkins {
   display: none !important;
 }
+
+/* Evento Star Wars: niente atmosfera Halloween, void navy */
+html[data-vc-evento="1"] body {
+  background-color: #05070f;
+}
+html[data-vc-evento="1"] .vc-hw-fog,
+html[data-vc-evento="1"] .vc-hw-eyes,
+html[data-vc-evento="1"] .vc-hw-pumpkins {
+  display: none !important;
+}

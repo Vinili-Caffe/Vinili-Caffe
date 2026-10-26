@@ -13,6 +13,7 @@ export function PageHero({
   icon,
   imageSrc = "/images/sfondo-still.webp",
   imageSrcMobile = "/images/sfondo-mobile-still.webp",
+  tone = "site",
 }: {
   kicker: string;
   title: string;
@@ -23,7 +24,13 @@ export function PageHero({
   /** Sfondo hero (default: locale). */
   imageSrc?: string;
   imageSrcMobile?: string;
+  /** `evento` = overlay navy/galassia (no roast Halloween). */
+  tone?: "site" | "evento";
 }) {
+  const overlay =
+    tone === "evento"
+      ? "bg-[linear-gradient(to_bottom,rgba(5,7,15,0.45),rgba(10,16,32,0.78)_50%,rgba(5,7,15,0.94)_82%,#05070f)]"
+      : "bg-[linear-gradient(to_bottom,rgba(14,9,6,0.55),rgba(14,9,6,0.85)_55%,rgba(14,9,6,0.92)_82%,var(--color-espresso))]";
   return (
     /* overflow-x only: evita tagli a titolo/italic; pb + gap CSS verso il blocco sotto */
     <section className="vc-page-hero relative isolate overflow-x-hidden pb-20 pt-36 sm:pb-28 sm:pt-44">
@@ -31,7 +38,7 @@ export function PageHero({
         <source media="(max-width: 640px)" srcSet={imageSrcMobile} />
         <img src={imageSrc} alt="" className="absolute inset-0 -z-20 size-full object-cover opacity-60" />
       </picture>
-      <div className="absolute inset-0 -z-10 bg-[linear-gradient(to_bottom,rgba(14,9,6,0.55),rgba(14,9,6,0.85)_55%,rgba(14,9,6,0.92)_82%,var(--color-espresso))]" />
+      <div className={`absolute inset-0 -z-10 ${overlay}`} />
 
       <div className="scheme-dark mx-auto max-w-4xl px-6 text-center">
         <motion.p

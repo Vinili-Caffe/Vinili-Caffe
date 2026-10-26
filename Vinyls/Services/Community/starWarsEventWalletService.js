@@ -190,20 +190,27 @@ async function claimAdventDay(client, { guildId, userId, day, staffPreview = fal
   };
   if (Object.keys(inc).length) update.$inc = inc;
 
-  const updated = await ActivityUserProfile.findOneAndUpdate(
-    {
-      guildId: g,
-      userId: u,
-      [claimedPath]: { $exists: false },
-      [`${ROOT}.rewardKeys`]: { $ne: rewardKey },
-    },
-    update,
-    { upsert: true, new: true },
-  ).catch((err) => {
-    /* duplicate race → treat as already claimed below */
-    if (err && (err.code === 11000 || String(err.message || "").includes("E11000"))) return null;
-    throw err;
-  });
+  /* Mixed starwars: non castare `rewardKeys: { $ne }` in query (CastError path rewardKeys).
+     Idempotenza = claimed.<day> assente. Update via collection: no cast Mongoose su $addToSet Mixed. */
+  let updated = null;
+  try {
+    const raw = await ActivityUserProfile.collection.findOneAndUpdate(
+      {
+        guildId: g,
+        userId: u,
+        [claimedPath]: { $exists: false },
+      },
+      update,
+      { upsert: true, returnDocument: "after" },
+    );
+    updated = raw && typeof raw === "object" && "value" in raw ? raw.value : raw;
+  } catch (err) {
+    if (err && (err.code === 11000 || String(err.message || "").includes("E11000"))) {
+      updated = null;
+    } else {
+      throw err;
+    }
+  }
 
   if (!updated) {
     const current = await getStarWarsWallet(g, u, eventKey);

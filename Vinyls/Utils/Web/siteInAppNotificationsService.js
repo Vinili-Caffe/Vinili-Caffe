@@ -855,9 +855,13 @@ function scheduleMobilePushSoftRetries(userId, payload, pushOut) {
   if (pushOut?.skipped === true) return;
   const mobileCandidates =
     Number(pushOut?.mobileCandidates) || Number(pushOut?.mobileTargets) || 0;
+  const mobileTargets = Number(pushOut?.mobileTargets) || 0;
   const mobileSent = Number(pushOut?.mobileSent) || 0;
   const mobileAppleSent = Number(pushOut?.mobileAppleSent) || 0;
+  /* pushNoMobileSoftRetrySpam1: candidates include denylist/gone — senza target vivi
+     i :mprN loggano miss forever (mobileTargets:0). Soft-retry solo se c’è da mandare. */
   if (mobileCandidates <= 0) return;
+  if (mobileSent <= 0 && mobileTargets <= 0) return;
   /* pushIosDeclarativeNoHedge1: APNs/declarative già consegnato → niente hedge
      (altrimenti :mprN = banner iOS all’infinito). Soft-retry SOLO miss totale. */
   if (mobileSent > 0) {
@@ -964,6 +968,12 @@ function scheduleMobilePushSoftRetries(userId, payload, pushOut) {
           } catch (_) {}
           const got = Number(out?.mobileSent) || 0;
           const gotApple = Number(out?.mobileAppleSent) || 0;
+          const aliveTargets = Number(out?.mobileTargets) || 0;
+          /* nessun endpoint mobile vivo (tutti gone / no sub) → stop coda, niente warn spam */
+          if (got <= 0 && aliveTargets <= 0) {
+            clearMobilePushSoftRetries(uid, payload.dedupeKey, payload.id);
+            return;
+          }
           /* miss path: stop al primo ack. apple hedge: continua finché shown-ack o fine tentativi. */
           if (got > 0 && !(reason === "apple_zombie_hedge" && gotApple >= got)) {
             clearMobilePushSoftRetries(uid, payload.dedupeKey, payload.id);

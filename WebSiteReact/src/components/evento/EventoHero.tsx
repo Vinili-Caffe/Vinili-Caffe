@@ -24,6 +24,7 @@ export function EventoHero({
       title={title}
       accent={accent}
       text={text}
+      tone="evento"
       imageSrc={PUZZLE_IMG.split("?")[0]}
       imageSrcMobile={PUZZLE_IMG.split("?")[0]}
     />

@@ -15,11 +15,11 @@ export const SW = {
   republic: "#38bdf8",
 } as const;
 
-/** Track cinematic lungo (VOD → loop ok). Main Title / score mix. */
+/** Main Title (John Williams Topic) — VOD embeddabile; id precedente 404. */
 export const EVENTO_YT = {
-  id: "XNSyigUmK9g",
-  url: "https://www.youtube.com/watch?v=XNSyigUmK9g",
-  title: "Star Wars · score",
+  id: "e9lapdvLSGw",
+  url: "https://www.youtube.com/watch?v=e9lapdvLSGw",
+  title: "Star Wars · Main Title",
 } as const;
 
 export const EVENTO_BGM_VOL_KEY = "vc_evento_sw_bgm_vol_v1";

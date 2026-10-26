@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { COPYRIGHT_HREF, LEGAL, NAV_GROUPS, SOCIAL_LINKS, page } from "@/lib/site";
+import { COPYRIGHT_HREF, LEGAL, NAV_GROUPS, SOCIAL_LINKS } from "@/lib/site";
 import { useI18n } from "@/lib/i18n";
 import { cn } from "@/lib/cn";
 import { NavIcon } from "@/lib/nav-icons";
@@ -71,29 +71,11 @@ export function Footer() {
       <div className="relative mx-auto max-w-6xl px-5 py-12 text-center sm:px-6 sm:py-16">
         <Reveal>
           <h2 className="font-display text-3xl font-semibold text-crema sm:text-5xl lg:text-6xl">
-            {eventoChrome ? (
-              <>
-                Evento
-                <span className="block italic text-sand">{EVENTO_BRAND}</span>
-              </>
-            ) : (
-              <>
-                {t("footer.tagline")}
-                <span className="block italic text-sand">{t("footer.taglineSub")}</span>
-              </>
-            )}
+            {t("footer.tagline")}
+            <span className="block italic text-sand">{t("footer.taglineSub")}</span>
           </h2>
           <div className="mt-7 flex justify-center sm:mt-9">
-            {eventoChrome ? (
-              <SmartLink
-                href={page("/")}
-                className="inline-flex rounded-full bg-gradient-to-r from-caramel to-ember px-6 py-2.5 text-sm font-semibold text-ink"
-              >
-                Torna al sito
-              </SmartLink>
-            ) : (
-              <DiscordButton label={t("footer.joinCta")} />
-            )}
+            <DiscordButton label={t("footer.joinCta")} />
           </div>
         </Reveal>
       </div>
@@ -104,9 +86,7 @@ export function Footer() {
             <div className="inline-flex lg:block">
               <BrandMark />
             </div>
-            <p className="mt-3 text-sm leading-relaxed text-crema/65">
-              {eventoChrome ? "Hub, minigiochi e shop dell’evento stagionale." : t("footer.desc")}
-            </p>
+            <p className="mt-3 text-sm leading-relaxed text-crema/65">{t("footer.desc")}</p>
             <ul className="mt-4 flex flex-wrap items-center justify-center gap-2.5 lg:justify-start" aria-label={t("footer.social")}>
               {SOCIAL_LINKS.map((s) => (
                 <li key={s.id}>
