@@ -39,6 +39,10 @@
     {
       "source": "/js/i18n/locales/:path*",
       "destination": "https://api.viniliecaffe.it/js/i18n/locales/:path*"
+    },
+    {
+      "source": "/status-kuma/:path*",
+      "destination": "https://api.viniliecaffe.it/status-kuma/:path*"
     }
   ]
 }
