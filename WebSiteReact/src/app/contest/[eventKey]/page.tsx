@@ -1,7 +1,5 @@
 import type { Metadata } from "next";
 import dynamic from "next/dynamic";
-import { Ghost } from "lucide-react";
-import { PageHero } from "@/components/PageHero";
 import { SiteShell } from "@/components/SiteShell";
 import { BoardSkeleton } from "@/components/ui/EmptyState";
 import { DiscordComponentEmbed } from "@/components/DiscordComponentEmbed";
@@ -66,8 +64,7 @@ export default async function ContestPage({
         description={meta.text}
         pageLabel="Apri il contest"
       />
-      <PageHero icon={<Ghost />} kicker="Halloween" title={meta.title} text={meta.text} />
-      <ContestBoard eventKey={eventKey} />
+      <ContestBoard eventKey={eventKey} heroTitle={meta.title} heroText={meta.text} />
     </SiteShell>
   );
 }

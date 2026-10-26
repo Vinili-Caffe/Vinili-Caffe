@@ -183,7 +183,7 @@ export async function swipeContest(
   token: string,
   submissionId: string,
   action: "like" | "pass",
-): Promise<{ ok: boolean; message?: string }> {
+): Promise<{ ok: boolean; skipped?: boolean; already?: boolean; message?: string; error?: string }> {
   const r = await fetch(apiUrl(`/webhooks/site-contest/${encodeURIComponent(eventKey)}/swipe`), {
     method: "POST",
     headers: {

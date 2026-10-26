@@ -469,9 +469,10 @@ async function getSwipeFeed(client, { eventKey, accessToken, category, limit = 2
   const doc = await getOrCreateDoc(event.key);
   const voted = doc.votes?.[auth.userId] || {};
   /* Mai la propria foto nel deck + solo categoria scelta. */
-  const pool = (doc.submissions || []).filter(
-    (s) => String(s.category || "main") === cat && s.userId !== auth.userId && !voted[s.id],
-  );
+  const pool = (doc.submissions || []).filter((s) => {
+    const sid = String(s.id || "");
+    return String(s.category || "main") === cat && s.userId !== auth.userId && sid && !voted[sid];
+  });
   for (let i = pool.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [pool[i], pool[j]] = [pool[j], pool[i]];
@@ -509,8 +510,12 @@ async function castSwipe(client, { eventKey, accessToken, submissionId, action }
   if (!sid) return { ok: false, status: 400, error: "missing_id", message: "Submission mancante." };
 
   const doc = await getOrCreateDoc(event.key);
-  const sub = (doc.submissions || []).find((s) => s.id === sid);
-  if (!sub) return { ok: false, status: 404, error: "not_found", message: "Partecipazione non trovata." };
+  const sub = (doc.submissions || []).find((s) => String(s.id) === sid);
+  /* Foto rimossa (delete/replace) mentre era ancora nel deck di qualcuno: soft-skip 200
+   * così il client avanza senza 404 in console. */
+  if (!sub) {
+    return { ok: true, status: 200, skipped: true, reason: "gone", message: "Foto non più disponibile." };
+  }
   if (sub.userId === auth.userId) {
     return { ok: false, status: 403, error: "own", message: "Non puoi votare la tua foto." };
   }

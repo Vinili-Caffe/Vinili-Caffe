@@ -731,6 +731,11 @@ const activityUserProfileSchema = new Schema(
             updatedAt: { type: Date, default: null },
           },
         },
+        /* starWarsEvent1: wallet Mixed (casse/avvento/fazione/PEI/army) — strict schema altrimenti claim 500 */
+        starwars: {
+          type: Schema.Types.Mixed,
+          default: () => ({}),
+        },
       },
     },
     staff: { type: staffEmbeddedSchema },

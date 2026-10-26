@@ -245,107 +245,9 @@ async function main() {
       pathStr === "/webhooks/status" ||
       pathStr === "/webhooks/health" ||
       pathStr === "/webhooks/site-api/health";
-    const isCandidature = pathStr.startsWith("/webhooks/site-candidature");
-    const isUnban = pathStr.startsWith("/webhooks/site-unban");
-    const isUnmute = pathStr.startsWith("/webhooks/site-unmute");
-    const isSiteRules = pathStr.startsWith("/webhooks/site-rules");
-    const isSiteUsers = pathStr.startsWith("/webhooks/site-users");
-    const isSiteVote = pathStr.startsWith("/webhooks/site-vote");
-    const isSiteLiveEvent = pathStr.startsWith("/webhooks/site-live-event");
-    const isSiteKickLive = pathStr.startsWith("/webhooks/site-kick-live");
-    const isSiteTwitchLive = pathStr.startsWith("/webhooks/site-twitch-live");
-    const isSiteKickSub = pathStr.startsWith("/webhooks/site-kick-sub");
-    const isSiteRoles = pathStr.startsWith("/webhooks/site-roles");
-    const isSiteRankCard = pathStr.startsWith("/webhooks/site-rank-card");
-    const isSiteWikiHelp = pathStr.startsWith("/webhooks/site-wiki-help");
-    const isSiteReviews = pathStr.startsWith("/webhooks/site-reviews");
-    const isSiteBoards = pathStr.startsWith("/webhooks/site-boards");
-    const isSiteUserPresence = pathStr.startsWith("/webhooks/site-user-presence");
-    const isSiteSuggestions = pathStr.startsWith("/webhooks/site-suggestions");
-    const isSiteBotFeedback = pathStr.startsWith("/webhooks/site-bot-feedback");
-    const isSiteWebTickets = pathStr.startsWith("/webhooks/site-web-tickets");
-    const isSiteNotifications = pathStr.startsWith("/webhooks/site-notifications");
-    const isSiteVerify = pathStr.startsWith("/webhooks/site-verify");
-    const isSitePayments = pathStr.startsWith("/webhooks/site-payments");
-    const isSiteSeratafilmAccess =
-      pathStr.startsWith("/webhooks/site-seratafilm-access") ||
-      pathStr.startsWith("/webhooks/site-seratafilm-film");
-    const isSiteStaffAccess =
-      pathStr.startsWith("/webhooks/site-staff-access") ||
-      pathStr.startsWith("/webhooks/site-staff-dashboard") ||
-      pathStr.startsWith("/webhooks/site-staff-manage") ||
-      pathStr.startsWith("/webhooks/site-staff-organico") ||
-      pathStr.startsWith("/webhooks/site-staff-pause") ||
-      pathStr.startsWith("/webhooks/site-staff-compiti") ||
-      pathStr.startsWith("/webhooks/site-staff-profile") ||
-      pathStr.startsWith("/webhooks/site-staff-pm-hub") ||
-      pathStr.startsWith("/webhooks/site-staff-pm-points-removed") ||
-      pathStr.startsWith("/webhooks/site-staff-pm-shop") ||
-      pathStr.startsWith("/webhooks/site-staff-pm-actions") ||
-      pathStr.startsWith("/webhooks/site-staff-tickets") ||
-      pathStr.startsWith("/webhooks/site-staff-seratafilm") ||
-      pathStr.startsWith("/webhooks/site-staff-guide");
-    const isSiteHogwartsSorting = pathStr.startsWith("/webhooks/site-hogwarts-sorting");
-    const isSiteCustomProfile = pathStr.startsWith("/webhooks/site-custom-profile");
-    const isSiteProfileExtras = pathStr.startsWith("/webhooks/site-profile-extras");
-    /* siteApiDeviceEverywhere1: chrome-prefs / discord-me / cookie / dashboard anche in CORS */
-    const isSiteChromePrefs = pathStr === "/webhooks/site-chrome-prefs";
-    const isSiteDiscordMe = pathStr === "/webhooks/site-discord-me";
-    const isSiteBoot = pathStr === "/webhooks/site-boot";
-    const isSiteCookieConsent = pathStr === "/webhooks/site-cookie-consent";
-    const isSiteDashboard = pathStr.startsWith("/webhooks/site-dashboard");
-    const isSiteWelcomePronouns = pathStr.startsWith("/webhooks/site-welcome-pronouns");
-    const isSiteGuildJoin = pathStr.startsWith("/webhooks/site-guild-join");
-    const isSiteContest = pathStr.startsWith("/webhooks/site-contest");
-    const isSiteEvento = pathStr.startsWith("/webhooks/site-evento");
-    // appelliApi1: subject live chat on /appelli uses these user workflow endpoints
-    const isSiteUserWorkflow =
-      pathStr.startsWith("/webhooks/site-user-workflows") ||
-      pathStr.startsWith("/webhooks/site-user-workflow-chat");
-    const isSiteStaffWorkflow =
-      pathStr.startsWith("/webhooks/site-staff-workflows") ||
-      pathStr.startsWith("/webhooks/site-staff-workflow-chat");
-    if (
-      !isStatus &&
-      !isCandidature &&
-      !isUnban &&
-      !isUnmute &&
-      !isSiteRules &&
-      !isSiteUsers &&
-      !isSiteVote &&
-      !isSiteLiveEvent &&
-      !isSiteKickLive &&
-      !isSiteTwitchLive &&
-      !isSiteKickSub &&
-      !isSiteRoles &&
-      !isSiteRankCard &&
-      !isSiteWikiHelp &&
-      !isSiteReviews &&
-      !isSiteBoards &&
-      !isSiteUserPresence &&
-      !isSiteSuggestions &&
-      !isSiteBotFeedback &&
-      !isSiteWebTickets &&
-      !isSiteNotifications &&
-      !isSiteVerify &&
-      !isSitePayments &&
-      !isSiteSeratafilmAccess &&
-      !isSiteStaffAccess &&
-      !isSiteHogwartsSorting &&
-      !isSiteCustomProfile &&
-      !isSiteProfileExtras &&
-      !isSiteChromePrefs &&
-      !isSiteDiscordMe &&
-      !isSiteBoot &&
-      !isSiteCookieConsent &&
-      !isSiteDashboard &&
-      !isSiteWelcomePronouns &&
-      !isSiteGuildJoin &&
-      !isSiteContest &&
-      !isSiteEvento &&
-      !isSiteUserWorkflow &&
-      !isSiteStaffWorkflow
-    ) {
+    /* siteCorsAll1: tutti i /webhooks/site-* (confessionale/wordle/…) — evita preflight senza ACAO */
+    const isSiteApi = pathStr.startsWith("/webhooks/site-");
+    if (!isStatus && !isSiteApi) {
       return next();
     }
     const originRaw = String(req.headers.origin || "").trim();
@@ -366,29 +268,7 @@ async function main() {
     if (allowOrigin) {
       res.setHeader("Access-Control-Allow-Origin", allowOrigin);
       res.append("Vary", "Origin");
-    } else if (
-      isStatus ||
-      isSiteRules ||
-      isSiteUsers ||
-      isSiteVote ||
-      isSiteLiveEvent ||
-      isSiteKickLive ||
-      isSiteKickSub ||
-      isSiteRoles ||
-      isSiteRankCard ||
-      isSiteReviews ||
-      isSiteBoards ||
-      isSiteUserPresence ||
-      isSiteSuggestions ||
-      isSiteBotFeedback ||
-      isSiteNotifications ||
-      isSitePayments ||
-      isSiteSeratafilmAccess ||
-      isSiteStaffAccess ||
-      isSiteHogwartsSorting ||
-      isSiteContest ||
-      isSiteEvento
-    ) {
+    } else if (isStatus || isSiteApi) {
       res.setHeader("Access-Control-Allow-Origin", "*");
     }
     res.setHeader("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS");

@@ -7,7 +7,7 @@ import { EventoAccessGate } from "@/components/evento/EventoAccessGate";
 import { EventoNav } from "@/components/evento/EventoNav";
 import { EVENTO_BRAND, EVENTO_KICKER, type EventoPageId } from "@/lib/evento-starwars";
 
-/** Shell comune pagine `/evento/*` (+ gate accesso). */
+/** Shell comune pagine `/evento/*` (+ gate: non pubblici → redirect home). */
 export function EventoPage({
   pageId,
   path,
@@ -26,8 +26,8 @@ export function EventoPage({
   return (
     <SiteShell>
       <DiscordComponentEmbed path={path} title={title} description={text} pageLabel="Apri l’evento" />
-      <PageHero icon={<Sparkles />} kicker={EVENTO_KICKER} title={title} accent={accent} text={text} />
       <EventoAccessGate pageId={pageId}>
+        <PageHero icon={<Sparkles />} kicker={EVENTO_KICKER} title={title} accent={accent} text={text} />
         <div className="-mt-10 mb-10 sm:-mt-14">
           <EventoNav />
         </div>

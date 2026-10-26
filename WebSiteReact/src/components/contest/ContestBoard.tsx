@@ -36,6 +36,8 @@ import {
   type ContestStatus,
   type ContestSubmission,
 } from "@/lib/contest";
+import { AccessHomeRedirect } from "@/components/AccessHomeRedirect";
+import { PageHero } from "@/components/PageHero";
 import { confirmDialog, showToast } from "@/components/ui";
 import { cn } from "@/lib/cn";
 
@@ -163,7 +165,15 @@ function Panel({ children, className }: { children: React.ReactNode; className?:
   );
 }
 
-export function ContestBoard({ eventKey }: { eventKey: string }) {
+export function ContestBoard({
+  eventKey,
+  heroTitle,
+  heroText,
+}: {
+  eventKey: string;
+  heroTitle?: string;
+  heroText?: string;
+}) {
   const { ready, token, login } = useAuth();
   const [status, setStatus] = useState<ContestStatus | null>(null);
   const [tab, setTab] = useState<Tab>("submit");
@@ -184,6 +194,7 @@ export function ContestBoard({ eventKey }: { eventKey: string }) {
   const startXRef = useRef(0);
   const rafRef = useRef(0);
   const autoTabDone = useRef(false);
+  const swipeBusyRef = useRef(false);
 
   const cats = useMemo<ContestCategory[]>(
     () => (status?.categories?.length ? status.categories : [{ id: "main", label: "Main" }]),
@@ -416,17 +427,32 @@ export function ContestBoard({ eventKey }: { eventKey: string }) {
   }
 
   async function onSwipe(action: "like" | "pass") {
-    if (!token || !top || busy) return;
+    if (!token || !top || swipeBusyRef.current) return;
+    swipeBusyRef.current = true;
     setBusy(true);
+    const sid = top.id;
     try {
       const fly = action === "like" ? window.innerWidth : -window.innerWidth;
       paintCard(fly, true);
-      await swipeContest(eventKey, token, top.id, action);
-      setDeck((d) => d.slice(1));
-      dragXRef.current = 0;
-      requestAnimationFrame(() => paintCard(0, false));
-      if (deck.length <= 2) void loadFeed();
+      const out = await swipeContest(eventKey, token, sid, action);
+      /* ok / already / skipped(gone): togli la carta. Solo errori veri → reset. */
+      if (out?.ok || out?.skipped || out?.already) {
+        setDeck((d) => {
+          const next = d.filter((x) => x.id !== sid);
+          if (next.length <= 2) void loadFeed();
+          return next;
+        });
+        dragXRef.current = 0;
+        requestAnimationFrame(() => paintCard(0, false));
+      } else {
+        resetCard();
+        setMsg(out?.message || "Voto non riuscito.");
+      }
+    } catch {
+      resetCard();
+      setMsg("Voto non riuscito.");
     } finally {
+      swipeBusyRef.current = false;
       setBusy(false);
     }
   }
@@ -478,10 +504,13 @@ export function ContestBoard({ eventKey }: { eventKey: string }) {
   }
 
   if (!status?.ok && status?.phase === "hidden") {
-    return (
-      <div className="mx-auto max-w-lg px-6 py-16 text-center text-crema/70">Contest non disponibile.</div>
-    );
+    return <AccessHomeRedirect active />;
   }
+
+  const hero =
+    heroTitle ? (
+      <PageHero icon={<Ghost />} kicker="Halloween" title={heroTitle} text={heroText || ""} />
+    ) : null;
 
   const needLoginForTab = (tab === "submit" || tab === "vote") && !token;
   const tabs =
@@ -494,6 +523,8 @@ export function ContestBoard({ eventKey }: { eventKey: string }) {
         ] as const);
 
   return (
+    <>
+      {hero}
     <div className="mx-auto max-w-lg px-6 pb-24">
       <Panel className="relative overflow-hidden">
         <div
@@ -914,5 +945,6 @@ export function ContestBoard({ eventKey }: { eventKey: string }) {
         </>
       ) : null}
     </div>
+    </>
   );
 }
