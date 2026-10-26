@@ -148,10 +148,15 @@ async function resolveUser(accessToken) {
   return { ok: true, userId, displayName, avatarUrl, accessToken: token };
 }
 
-async function isStaffPreview(client, accessToken) {
+/** Preview early-open high staff: disattivata (tutti seguono il calendario pubblico). */
+async function isStaffPreview(_client, _accessToken) {
+  return false;
+}
+
+/** Solo strumenti staff (seed/clear/toggle), non apre il contest in anticipo. */
+async function isContestStaff(client, accessToken) {
   try {
     const out = await assertWebsiteStaffAccess(client, accessToken);
-    /* Qualsiasi accesso staff sito (Founder incluso) → preview tools / apre prima. */
     if (out?.ok) return true;
   } catch (_) {}
   return false;
@@ -748,10 +753,10 @@ async function serveContestFile(req, res) {
 async function setPublicOpen(client, { eventKey, accessToken, publicOpen } = {}) {
   const event = getEvent(eventKey);
   if (!event) return { ok: false, status: 404, error: "unknown_event", message: "Contest non trovato." };
-  const staff = await isStaffPreview(client, accessToken);
+  const staff = await isContestStaff(client, accessToken);
   if (!staff) return { ok: false, status: 403, error: "forbidden", message: "Solo staff." };
   event.publicOpen = Boolean(publicOpen);
-  return publicEventPayload(event, phaseFor(event, Date.now(), { staffPreview: true }), {
+  return publicEventPayload(event, phaseFor(event, Date.now()), {
     status: 200,
     message: event.publicOpen ? "Contest visibile a chi ha il link." : "Contest nascosto (solo staff).",
   });
@@ -761,7 +766,7 @@ async function setPublicOpen(client, { eventKey, accessToken, publicOpen } = {})
 async function seedDemo(client, { eventKey, accessToken, count = 8, replace = true } = {}) {
   const event = getEvent(eventKey);
   if (!event) return { ok: false, status: 404, error: "unknown_event", message: "Contest non trovato." };
-  const staff = await isStaffPreview(client, accessToken);
+  const staff = await isContestStaff(client, accessToken);
   if (!staff) return { ok: false, status: 403, error: "forbidden", message: "Solo staff." };
 
   const cats = eventCategories(event);
@@ -830,7 +835,7 @@ async function seedDemo(client, { eventKey, accessToken, count = 8, replace = tr
 async function clearDemo(client, { eventKey, accessToken } = {}) {
   const event = getEvent(eventKey);
   if (!event) return { ok: false, status: 404, error: "unknown_event", message: "Contest non trovato." };
-  const staff = await isStaffPreview(client, accessToken);
+  const staff = await isContestStaff(client, accessToken);
   if (!staff) return { ok: false, status: 403, error: "forbidden", message: "Solo staff." };
   const doc = await getOrCreateDoc(event.key);
   const before = (doc.submissions || []).length;
