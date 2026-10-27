@@ -229,16 +229,28 @@ export function StaffInbox({ token }: { token: string }) {
       if (!ok) return;
     }
 
+    /* candidatureSiteAccept1: messageId può essere id sito (non snowflake); fallback da dedupeKey. */
+    const fromDedupe = String(item.dedupeKey || "").includes(":")
+      ? String(item.dedupeKey || "").split(":").slice(1).join(":")
+      : "";
+    const messageId = String(item.messageId || fromDedupe || item.id || item.recordId || "").trim();
+    const type = String(item.type || item.kind || "").trim();
+    const userId = String(item.userId || "").trim();
+    if (queue === "candidature" && (!messageId || !type || !userId)) {
+      showToast("Dati candidatura incompleti (messageId/type/userId). Ricarica e riprova.", true);
+      return;
+    }
+
     setBusy(true);
     const r = await decideWorkflow(token, {
       queue,
       action,
-      messageId: item.messageId,
-      userId: item.userId,
-      type: item.type,
-      kind: item.kind,
+      messageId,
+      userId,
+      type,
+      kind: item.kind || type,
       pauseId: item.pauseId,
-      id: item.id || item.recordId || item.listingId,
+      id: item.id || item.recordId || item.listingId || messageId,
       roleId: item.roleId,
       channelId: item.channelId,
       actionKey: item.actionKey,

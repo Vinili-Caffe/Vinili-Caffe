@@ -2115,13 +2115,18 @@ async function webRejectCandidateApplication(guild, actorMember, messageId, type
   const decidedByName = String(
     actorMember?.displayName || actorMember?.user?.globalName || actorMember?.user?.username || "",
   );
-  const channel = await resolveSubmissionChannel(guild);
-  const msg = channel ? await channel.messages.fetch(String(messageId)).catch(() => null) : null;
+  /* candidatureSiteAccept1: candidature dal sito hanno messageId non-snowflake (channelId=site). */
+  const mid = String(messageId || "").trim();
+  const isDiscordMsgId = /^\d{16,22}$/.test(mid);
+  const channel = isDiscordMsgId ? await resolveSubmissionChannel(guild) : null;
+  const msg = channel ? await channel.messages.fetch(mid).catch(() => null) : null;
   const bound = msg ? parseCandidateTypeFromMessage(msg) : null;
-  const boundType = String(bound?.type || type || "").trim();
-  const boundUserId = String(bound?.userId || "").trim();
+  const boundType = String(bound?.type || type || "")
+    .trim()
+    .toLowerCase();
+  const boundUserId = String(bound?.userId || userId || "").trim();
   if (!boundUserId || !["helper", "partnermanager"].includes(boundType)) {
-    return { ok: false, status: 400, message: "Candidatura non trovata o non più valida sul messaggio." };
+    return { ok: false, status: 400, message: "Candidatura non trovata o dati incompleti (type/userId)." };
   }
   if (msg) {
     await setApplicationMessageStatusColor(msg, APPLICATION_REJECTED_COLOR, decidedBy, decidedByName);
@@ -2192,15 +2197,20 @@ async function webAcceptCandidateApplication(guild, actorMember, messageId, type
   const decidedByName = String(
     actorMember?.displayName || actorMember?.user?.globalName || actorMember?.user?.username || "",
   );
-  const channel = await resolveSubmissionChannel(guild);
-  const msg = channel ? await channel.messages.fetch(String(messageId)).catch(() => null) : null;
+  /* candidatureSiteAccept1: candidature dal sito → niente messaggio Discord; usa type/userId body. */
+  const mid = String(messageId || "").trim();
+  const isDiscordMsgId = /^\d{16,22}$/.test(mid);
+  const channel = isDiscordMsgId ? await resolveSubmissionChannel(guild) : null;
+  const msg = channel ? await channel.messages.fetch(mid).catch(() => null) : null;
   const bound = msg ? parseCandidateTypeFromMessage(msg) : null;
-  const boundType = String(bound?.type || "").trim();
-  const boundUserId = String(bound?.userId || "").trim();
-  if (!msg || !boundUserId || !["helper", "partnermanager"].includes(boundType)) {
-    return { ok: false, status: 400, message: "Candidatura non trovata o non più valida sul messaggio." };
+  const boundType = String(bound?.type || type || "")
+    .trim()
+    .toLowerCase();
+  const boundUserId = String(bound?.userId || userId || "").trim();
+  if (!boundUserId || !["helper", "partnermanager"].includes(boundType)) {
+    return { ok: false, status: 400, message: "Candidatura non trovata o dati incompleti (type/userId)." };
   }
-  // non fidarsi di type/userId dal body — solo quelli sul messaggio Discord
+  /* Se c’è messaggio Discord, preferisci i dati parsati; altrimenti body (sito). */
   const status = await applyCandidatePex(guild, actorMember, boundType, boundUserId, trimmedReason, msg);
   const ok = !String(status || "").toLowerCase().includes("impossibile") && !String(status || "").toLowerCase().includes("non trovato");
   if (ok) {
