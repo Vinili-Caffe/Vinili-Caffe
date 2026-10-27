@@ -20,6 +20,8 @@ const USER_KEY = "vc_beta_discord_user";
 const STATE_KEY = "vc_beta_oauth_state";
 const PENDING_RETURN_KEY = "vc_oauth_pending_return_v1";
 const ATTEMPTED_NONE_KEY = "vc_oauth_attempted_none_v1";
+/** Boot head (pwa-resume) salva l’hash OAuth qui: su iOS a volte sparisce prima dell’hydrate. */
+const OAUTH_HASH_CAPTURE_KEY = "vc_oauth_hash_capture_v1";
 const STATE_MAX_AGE_MS = 30 * 60 * 1000;
 /** Sessione sito in localStorage: fino a 180 giorni (policy cookie/privacy). */
 const SESSION_MAX_MS = 180 * 24 * 60 * 60 * 1000;
@@ -257,7 +259,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // ritorno da Discord: #access_token=…&expires_in=…&state=…  (oppure #error=…)
   useEffect(() => {
-    const hash = new URLSearchParams(location.hash.slice(1));
+    /* oauthHashCapture1: preferisci location.hash; fallback capture del boot (iOS/PWA). */
+    let rawHash = "";
+    try {
+      rawHash = String(location.hash || "").replace(/^#/, "");
+    } catch {
+      rawHash = "";
+    }
+    const hashLooksOauth = /(?:^|&)(access_token|error)=/.test(rawHash);
+    if (!hashLooksOauth) {
+      try {
+        const cap = String(ssGet(OAUTH_HASH_CAPTURE_KEY) || "").replace(/^#/, "");
+        if (/(?:^|&)(access_token|error)=/.test(cap)) rawHash = cap;
+      } catch {
+        /* ignore */
+      }
+    }
+    try {
+      ssSet(OAUTH_HASH_CAPTURE_KEY, null);
+    } catch {
+      /* ignore */
+    }
+    const hash = new URLSearchParams(rawHash);
     let returnTo: string | null = null;
     if (hash.has("access_token") || hash.has("error")) {
       let expected: Partial<OAuthStatePayload> | null = null;
@@ -292,6 +315,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         /* Sessione locale fino a 180gg (policy); Discord può invalidare prima → 401 → logout. */
         authSet(TOKEN_KEY, t);
         authSet(EXPIRES_KEY, String(Date.now() + SESSION_MAX_MS));
+        setToken(t);
         returnTo = resolveReturnPath(got, expected);
         clearOAuthTransient();
         // via il token dall'indirizzo (non deve restare in cronologia)

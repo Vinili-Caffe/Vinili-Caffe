@@ -30,7 +30,13 @@ import { AnimatedList } from "./magicui/animated-list";
 import { EmojiText } from "@/components/discord/EmojiText";
 
 function useNarrowNav() {
-  const [narrow, setNarrow] = useState(false);
+  const [narrow, setNarrow] = useState(() => {
+    try {
+      return window.matchMedia("(max-width: 1023px)").matches;
+    } catch {
+      return true;
+    }
+  });
   useEffect(() => {
     const mq = window.matchMedia("(max-width: 1023px)");
     const sync = () => setNarrow(mq.matches);

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from 
 import { usePathname } from "next/navigation";
 import { AnimatePresence, motion, useMotionValueEvent, useScroll } from "motion/react";
 import {
+  Bell,
   BookOpen,
   CalendarDays,
   ChevronDown,
@@ -308,6 +309,12 @@ function MobileDrawerAccount({ onClose }: { onClose: () => void }) {
   const links = [
     { href: profileHref, label: t("auth.profile"), icon: <UserRound className="size-4" />, locked: false },
     {
+      href: page("/notifications/"),
+      label: t("notif.title"),
+      icon: <Bell className="size-4" />,
+      locked: false,
+    },
+    {
       href: page("/evento/"),
       label: t("nav.evento"),
       icon: <Sparkles className="size-4" />,
@@ -539,9 +546,8 @@ export function Navbar() {
             {!eventoChrome ? <ContestNavPill /> : null}
             <ViewAsLaunch />
             <NavNotifBell />
-            <div className="hidden lg:block">
-              <UserMenu />
-            </div>
+            {/* Sempre visibile: su telefono prima era solo nel menu → dopo login sembrava “non loggato”. */}
+            <UserMenu />
           <button
             type="button"
             onClick={() => setOpen(true)}
