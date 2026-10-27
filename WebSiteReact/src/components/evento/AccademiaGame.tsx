@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { Crosshair, Timer, Trophy, Zap } from "lucide-react";
 import { fetchEventoAccademia, submitEventoAccademia } from "@/lib/evento-api";
 import { useAuth } from "@/lib/auth";
@@ -56,6 +56,8 @@ export function AccademiaGame() {
   const runningRef = useRef(false);
   const finishingRef = useRef(false);
   const spawnIndexRef = useRef(0);
+  const arenaRef = useRef<HTMLDivElement>(null);
+  const hitLockRef = useRef<Set<string>>(new Set());
 
   const clearMissTimers = useCallback(() => {
     for (const t of missTimersRef.current.values()) clearTimeout(t);
@@ -197,6 +199,7 @@ export function AccademiaGame() {
     setLive([]);
     setHits([]);
     hitsRef.current = [];
+    hitLockRef.current = new Set();
     runningRef.current = true;
     setRunning(true);
     setLeft(30);
@@ -220,7 +223,8 @@ export function AccademiaGame() {
   }
 
   function hit(id: string) {
-    if (!runningRef.current || hitsRef.current.includes(id)) return;
+    if (!runningRef.current || hitsRef.current.includes(id) || hitLockRef.current.has(id)) return;
+    hitLockRef.current.add(id);
     clearMiss(id);
     const next = [...hitsRef.current, id];
     hitsRef.current = next;
@@ -233,6 +237,32 @@ export function AccademiaGame() {
     }
     if (queueRef.current.length > 0 && liveRef.current.length < LIVE_MAX) {
       scheduleSpawn(180 + Math.random() * 220);
+    }
+  }
+
+  /** Hit-test geometrico sull'arena: piu' affidabile di click su bersaglio in movimento. */
+  function onArenaPointerDown(e: ReactPointerEvent<HTMLDivElement>) {
+    if (!runningRef.current) return;
+    const arena = arenaRef.current;
+    if (!arena) return;
+    const rect = arena.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return;
+    const px = ((e.clientX - rect.left) / rect.width) * 100;
+    const py = ((e.clientY - rect.top) / rect.height) * 100;
+    let best: { id: string; d: number } | null = null;
+    for (const t of liveRef.current) {
+      const cx = xFor(t);
+      const cy = t.laneY;
+      /* raggio hit almeno ~7% della larghezza (dito) */
+      const r = Math.max(t.sizePct / 2, 7);
+      const dx = px - cx;
+      const dy = ((py - cy) * rect.height) / rect.width; /* normalizza asse Y vs X */
+      const d = Math.hypot(dx, dy);
+      if (d <= r && (!best || d < best.d)) best = { id: t.id, d };
+    }
+    if (best) {
+      e.preventDefault();
+      hit(best.id);
     }
   }
 
@@ -318,7 +348,11 @@ export function AccademiaGame() {
           </div>
         ) : null}
 
-        <div className="relative aspect-[4/3] overflow-hidden bg-[radial-gradient(ellipse_at_center,rgba(18,32,64,0.9),rgba(5,7,15,0.95))]">
+        <div
+          ref={arenaRef}
+          className="relative aspect-[4/3] touch-manipulation overflow-hidden bg-[radial-gradient(ellipse_at_center,rgba(18,32,64,0.9),rgba(5,7,15,0.95))]"
+          onPointerDown={onArenaPointerDown}
+        >
           <div
             className="pointer-events-none absolute inset-0 opacity-30"
             style={{
@@ -333,23 +367,34 @@ export function AccademiaGame() {
               Arena pronta - premi Inizia
             </p>
           ) : null}
-          {live.map((t) => (
-            <button
-              key={t.id}
-              type="button"
-              aria-label={`Bersaglio ${t.points}`}
-              disabled={!running}
-              onClick={() => hit(t.id)}
-              className="absolute -translate-x-1/2 -translate-y-1/2 rounded-full bg-gradient-to-br from-[#e4c76b] to-[#c9a227] shadow-[0_0_28px_rgba(201,162,39,0.85)] ring-2 ring-sand/50 hover:brightness-110 active:scale-90"
-              style={{
-                left: `${xFor(t)}%`,
-                top: `${t.laneY}%`,
-                width: `${t.sizePct}%`,
-                height: `${t.sizePct}%`,
-                aspectRatio: "1",
-              }}
-            />
-          ))}
+          {live.map((t) => {
+            const size = Math.max(t.sizePct, 10);
+            return (
+              <button
+                key={t.id}
+                type="button"
+                aria-label={`Bersaglio ${t.points}`}
+                disabled={!running}
+                /* pointerdown qui + hit-test arena: click su bersaglio mobile e' inaffidabile */
+                onPointerDown={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  hit(t.id);
+                }}
+                className="pointer-events-auto absolute -translate-x-1/2 -translate-y-1/2 rounded-full bg-gradient-to-br from-[#e4c76b] to-[#c9a227] shadow-[0_0_28px_rgba(201,162,39,0.85)] ring-2 ring-sand/50"
+                style={{
+                  left: `${xFor(t)}%`,
+                  top: `${t.laneY}%`,
+                  width: `${size}%`,
+                  height: `${size}%`,
+                  minWidth: 44,
+                  minHeight: 44,
+                  aspectRatio: "1",
+                  touchAction: "manipulation",
+                }}
+              />
+            );
+          })}
         </div>
       </EventoPanel>
     </div>

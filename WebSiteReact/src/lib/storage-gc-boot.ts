@@ -3,7 +3,8 @@
  * Gira al boot (inline) + da StorageGc dopo hydrate.
  */
 
-export const STORAGE_GC_FLAG = "vc_storage_gc_v3";
+/** v4: non cancellare più `vc_evento_*` (BGM mute/seek vivevano lì e venivano spazzati). */
+export const STORAGE_GC_FLAG = "vc_storage_gc_v4";
 
 /** Exact keys da cancellare. */
 export const DEAD_KEYS_EXACT = [
@@ -44,8 +45,7 @@ export const DEAD_KEY_PREFIXES = [
   "vc_notif_toasted",
   "vc_staff_prof_cache",
   "vc.mobileNav.",
-  "vc:evento",
-  "vc_evento",
+  /* NON includere vc_evento / vc:evento — keys live BGM SW (mute/vol/seek). */
 ] as const;
 
 export function scrubChromePrefsMirror(): boolean {

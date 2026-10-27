@@ -122,6 +122,20 @@ function sanitizeChromePrefs(raw) {
     const theme = String(src.theme || "").trim().toLowerCase();
     if (theme === "light" || theme === "dark" || theme === "auto") out.theme = theme;
   }
+  /* eventoSwBgm1: mute/vol/seek BGM Star Wars cross-device */
+  if (src.eventoBgm && typeof src.eventoBgm === "object") {
+    const bgm = {};
+    if (typeof src.eventoBgm.enabled === "boolean") bgm.enabled = src.eventoBgm.enabled;
+    const vol = Number(src.eventoBgm.volume);
+    if (Number.isFinite(vol)) bgm.volume = Math.min(1, Math.max(0, vol));
+    const seek = Number(src.eventoBgm.seek);
+    if (Number.isFinite(seek) && seek >= 0) bgm.seek = Math.min(seek, 86400);
+    const trackIdx = Number(src.eventoBgm.trackIdx);
+    if (Number.isFinite(trackIdx) && trackIdx >= 0) bgm.trackIdx = Math.min(Math.floor(trackIdx), 20);
+    const at = Number(src.eventoBgm.at);
+    if (Number.isFinite(at) && at > 0) bgm.at = at;
+    if (Object.keys(bgm).length) out.eventoBgm = bgm;
+  }
   out.updatedAt = Number(src.updatedAt) || Date.now();
   return out;
 }
@@ -133,6 +147,14 @@ function deepMergeChrome(base, patch) {
   const out = { ...a, ...b, updatedAt: Math.max(Number(a.updatedAt) || 0, Number(b.updatedAt) || 0, Date.now()) };
   if (a.hogwartsBgm || b.hogwartsBgm) out.hogwartsBgm = { ...(a.hogwartsBgm || {}), ...(b.hogwartsBgm || {}) };
   if (a.seratafilmBgm || b.seratafilmBgm) out.seratafilmBgm = { ...(a.seratafilmBgm || {}), ...(b.seratafilmBgm || {}) };
+  if (a.eventoBgm || b.eventoBgm) {
+    const ea = a.eventoBgm || {};
+    const eb = b.eventoBgm || {};
+    /* remote più recente vince su seek/enabled se ha `at` maggiore */
+    const aAt = Number(ea.at) || 0;
+    const bAt = Number(eb.at) || 0;
+    out.eventoBgm = bAt >= aAt ? { ...ea, ...eb } : { ...eb, ...ea };
+  }
   if (a.typeSfx || b.typeSfx) out.typeSfx = { ...(a.typeSfx || {}), ...(b.typeSfx || {}) };
   if (a.kickPip || b.kickPip || rawPatch.kickPip) {
     out.kickPip = { ...(a.kickPip || {}), ...(b.kickPip || {}) };

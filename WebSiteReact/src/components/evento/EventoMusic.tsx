@@ -1,12 +1,12 @@
 "use client";
 
 /**
- * BGM evento Star Wars — mute/volume/posizione in localStorage + BroadcastChannel
- * così al cambio pagina SiteShell remount riprende lo stesso punto.
+ * BGM evento Star Wars — mute/vol/seek in localStorage + chrome-prefs (cross-device se loggato).
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { MusicDock } from "@/components/MusicDock";
+import { useAuth } from "@/lib/auth";
 import {
   EVENTO_BGM_ON_KEY,
   EVENTO_BGM_TIME_KEY,
@@ -17,16 +17,38 @@ import {
 } from "@/lib/evento-theme";
 import { loadYtApi, type YtNamespace, type YtPlayer } from "@/lib/youtube-player";
 
-const BC = "vc-evento-bgm-v1";
+const BC = "vc-evento-bgm-v2";
+const CHROME_PREFS = "/webhooks/site-chrome-prefs";
+const COOKIE = "vc_sw_bgm_on";
+
+function readCookieOn(): boolean | null {
+  try {
+    const m = document.cookie.match(/(?:^|;\s*)vc_sw_bgm_on=(1|0)/);
+    if (!m) return null;
+    return m[1] === "1";
+  } catch {
+    return null;
+  }
+}
+
+function writeCookieOn(on: boolean) {
+  try {
+    document.cookie = `${COOKIE}=${on ? "1" : "0"};path=/;max-age=31536000;SameSite=Lax`;
+  } catch {
+    /* ignore */
+  }
+}
 
 function readOn(): boolean {
   try {
     const v = localStorage.getItem(EVENTO_BGM_ON_KEY);
-    if (v == null) return true;
-    return v === "1" || v === "true";
+    if (v != null) return v === "1" || v === "true";
   } catch {
-    return true;
+    /* ignore */
   }
+  const c = typeof document !== "undefined" ? readCookieOn() : null;
+  if (c != null) return c;
+  return true;
 }
 
 function readVol(): number {
@@ -59,9 +81,15 @@ function readTrackIdx(): number {
   return 0;
 }
 
-function persistTime(t: number) {
+function persistLocal(partial: { on?: boolean; volume?: number; time?: number; trackIdx?: number }) {
   try {
-    localStorage.setItem(EVENTO_BGM_TIME_KEY, String(Math.max(0, t)));
+    if (typeof partial.on === "boolean") {
+      localStorage.setItem(EVENTO_BGM_ON_KEY, partial.on ? "1" : "0");
+      writeCookieOn(partial.on);
+    }
+    if (typeof partial.volume === "number") localStorage.setItem(EVENTO_BGM_VOL_KEY, String(partial.volume));
+    if (typeof partial.time === "number") localStorage.setItem(EVENTO_BGM_TIME_KEY, String(Math.max(0, partial.time)));
+    if (typeof partial.trackIdx === "number") localStorage.setItem(EVENTO_BGM_TRACK_KEY, String(partial.trackIdx));
   } catch {
     /* ignore */
   }
@@ -76,16 +104,19 @@ function broadcast(msg: Record<string, unknown>) {
 }
 
 export function EventoMusic() {
+  const { token } = useAuth();
   const host = useRef<HTMLDivElement>(null);
   const yt = useRef<YtPlayer | null>(null);
   const readyRef = useRef(false);
   const booting = useRef(false);
-  /* sync subito (prima di YT ready) cosi' mute sopravvive al remount pagina */
   const volumeRef = useRef(readVol());
   const wantOn = useRef(readOn());
   const trackIdx = useRef(readTrackIdx());
   const YTref = useRef<YtNamespace | null>(null);
   const saveTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pushTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const tokenRef = useRef(token);
+  tokenRef.current = token;
 
   const [ready, setReady] = useState(false);
   const [on, setOn] = useState(() => readOn());
@@ -100,6 +131,127 @@ export function EventoMusic() {
     volumeRef.current = volume;
   }, [volume]);
 
+  const schedulePush = useCallback(() => {
+    if (pushTimer.current) clearTimeout(pushTimer.current);
+    pushTimer.current = setTimeout(() => {
+      const tok = tokenRef.current;
+      if (!tok) return;
+      let t = 0;
+      try {
+        t = Number(yt.current?.getCurrentTime?.()) || readTime();
+      } catch {
+        t = readTime();
+      }
+      void fetch(CHROME_PREFS, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${tok}`,
+          "Content-Type": "application/json",
+        },
+        credentials: "same-origin",
+        body: JSON.stringify({
+          prefs: {
+            eventoBgm: {
+              enabled: wantOn.current,
+              volume: volumeRef.current,
+              seek: t,
+              trackIdx: trackIdx.current,
+              at: Date.now(),
+            },
+          },
+        }),
+      }).catch(() => null);
+    }, 400);
+  }, []);
+
+  const applyOn = useCallback(
+    (next: boolean, opts?: { skipPush?: boolean }) => {
+      wantOn.current = next;
+      setOn(next);
+      persistLocal({ on: next });
+      broadcast({ type: "state", on: next, volume: volumeRef.current });
+      try {
+        const p = yt.current;
+        if (p && readyRef.current) {
+          if (next) {
+            p.unMute?.();
+            p.playVideo();
+          } else {
+            p.pauseVideo();
+            p.mute?.();
+          }
+        }
+      } catch {
+        /* ignore */
+      }
+      if (!opts?.skipPush) schedulePush();
+    },
+    [schedulePush],
+  );
+
+  /* pull remote (cross-device) quando c'e' token */
+  useEffect(() => {
+    if (!token) return;
+    let alive = true;
+    fetch(CHROME_PREFS, {
+      headers: { Authorization: `Bearer ${token}` },
+      credentials: "same-origin",
+      cache: "no-store",
+    })
+      .then((r) => r.json().catch(() => null))
+      .then((j) => {
+        if (!alive || !j?.ok || !j.prefs?.eventoBgm) return;
+        const bgm = j.prefs.eventoBgm as {
+          enabled?: boolean;
+          volume?: number;
+          seek?: number;
+          trackIdx?: number;
+          at?: number;
+        };
+        if (typeof bgm.enabled === "boolean") {
+          wantOn.current = bgm.enabled;
+          setOn(bgm.enabled);
+          persistLocal({ on: bgm.enabled });
+        }
+        if (typeof bgm.volume === "number" && Number.isFinite(bgm.volume)) {
+          const v = Math.min(1, Math.max(0, bgm.volume));
+          volumeRef.current = v;
+          setVolume(v);
+          persistLocal({ volume: v });
+        }
+        if (typeof bgm.seek === "number" && bgm.seek >= 0) {
+          persistLocal({ time: bgm.seek });
+          try {
+            yt.current?.seekTo?.(bgm.seek, true);
+          } catch {
+            /* ignore */
+          }
+        }
+        if (typeof bgm.trackIdx === "number" && bgm.trackIdx >= 0) {
+          trackIdx.current = bgm.trackIdx;
+          persistLocal({ trackIdx: bgm.trackIdx });
+        }
+        try {
+          const p = yt.current;
+          if (p && readyRef.current) {
+            if (wantOn.current) {
+              p.unMute?.();
+              p.playVideo();
+            } else {
+              p.pauseVideo();
+              p.mute?.();
+            }
+          }
+        } catch {
+          /* ignore */
+        }
+      })
+      .catch(() => null);
+    return () => {
+      alive = false;
+    };
+  }, [token]);
+
   useEffect(() => {
     const onStorage = (e: StorageEvent) => {
       if (e.key === EVENTO_BGM_ON_KEY && e.newValue != null) {
@@ -109,7 +261,10 @@ export function EventoMusic() {
       }
       if (e.key === EVENTO_BGM_VOL_KEY && e.newValue != null) {
         const n = Number(e.newValue);
-        if (Number.isFinite(n)) setVolume(Math.min(1, Math.max(0, n)));
+        if (Number.isFinite(n)) {
+          volumeRef.current = Math.min(1, Math.max(0, n));
+          setVolume(volumeRef.current);
+        }
       }
       if (e.key === EVENTO_BGM_TIME_KEY && e.newValue != null && yt.current) {
         const t = Number(e.newValue);
@@ -132,7 +287,7 @@ export function EventoMusic() {
     try {
       const t = Number(p.getCurrentTime?.()) || 0;
       const d = Number(p.getDuration?.()) || 0;
-      if (t > 0) persistTime(t);
+      if (t > 0) persistLocal({ time: t });
       if (d > 0) {
         setDuration(d);
         setSeek(Math.min(1, t / d));
@@ -147,11 +302,7 @@ export function EventoMusic() {
       if (!host.current) return;
       const track = EVENTO_YT_FALLBACKS[idx] || EVENTO_YT_FALLBACKS[0]!;
       trackIdx.current = idx;
-      try {
-        localStorage.setItem(EVENTO_BGM_TRACK_KEY, String(idx));
-      } catch {
-        /* ignore */
-      }
+      persistLocal({ trackIdx: idx });
       setLabel(track.title);
       setFailed(false);
 
@@ -171,6 +322,8 @@ export function EventoMusic() {
       host.current.appendChild(slot);
 
       const resumeAt = readTime();
+      /* rileggi mute fresco (dopo pull prefs / GC fix) */
+      wantOn.current = readOn();
 
       new YT.Player(slot, {
         videoId: track.id,
@@ -198,6 +351,7 @@ export function EventoMusic() {
             booting.current = false;
             setReady(true);
             setFailed(false);
+            setOn(wantOn.current);
             try {
               e.target.setVolume(Math.round(volumeRef.current * 100));
               if (resumeAt > 1) e.target.seekTo(resumeAt, true);
@@ -210,6 +364,7 @@ export function EventoMusic() {
                 e.target.unMute?.();
                 e.target.playVideo();
               } else {
+                e.target.mute?.();
                 e.target.pauseVideo();
               }
             } catch {
@@ -228,9 +383,18 @@ export function EventoMusic() {
           onStateChange: (e) => {
             if (e.data === 0) {
               try {
-                persistTime(0);
+                persistLocal({ time: 0 });
                 e.target.seekTo(0, true);
                 if (wantOn.current) e.target.playVideo();
+              } catch {
+                /* ignore */
+              }
+            }
+            /* se mutato, non lasciare che YT riparta da solo */
+            if (!wantOn.current && (e.data === 1 || e.data === 3)) {
+              try {
+                e.target.pauseVideo();
+                e.target.mute?.();
               } catch {
                 /* ignore */
               }
@@ -296,16 +460,21 @@ export function EventoMusic() {
       if (on) {
         p.unMute?.();
         p.playVideo();
-      } else p.pauseVideo();
+      } else {
+        p.pauseVideo();
+        p.mute?.();
+      }
     } catch {
       /* ignore */
     }
     broadcast({ type: "state", on, volume });
   }, [on, volume, ready]);
 
+  /* autoplay unlock SOLO se musica voluta ON — altrimenti riattivava il mute */
   useEffect(() => {
     if (!ready || !on) return;
     const kick = () => {
+      if (!wantOn.current) return;
       try {
         yt.current?.playVideo?.();
       } catch {
@@ -320,7 +489,6 @@ export function EventoMusic() {
     };
   }, [ready, on]);
 
-  /* sync da altre tab */
   useEffect(() => {
     let bc: BroadcastChannel | null = null;
     try {
@@ -332,13 +500,17 @@ export function EventoMusic() {
           if (typeof m.on === "boolean") {
             wantOn.current = m.on;
             setOn(m.on);
+            persistLocal({ on: m.on });
           }
-          if (typeof m.volume === "number") setVolume(m.volume);
+          if (typeof m.volume === "number") {
+            volumeRef.current = m.volume;
+            setVolume(m.volume);
+          }
         }
         if (m.type === "seek" && typeof m.t === "number" && yt.current) {
           try {
             yt.current.seekTo(m.t, true);
-            persistTime(m.t);
+            persistLocal({ time: m.t });
           } catch {
             /* ignore */
           }
@@ -357,44 +529,22 @@ export function EventoMusic() {
   }, []);
 
   const toggle = useCallback(() => {
-    setOn((v) => {
-      const next = !v;
-      wantOn.current = next;
-      try {
-        localStorage.setItem(EVENTO_BGM_ON_KEY, next ? "1" : "0");
-      } catch {
-        /* ignore */
-      }
-      broadcast({ type: "state", on: next, volume: volumeRef.current });
-      try {
-        const p = yt.current;
-        if (p && readyRef.current) {
-          if (next) {
-            p.unMute?.();
-            p.playVideo();
-          } else {
-            p.pauseVideo();
-            p.mute?.();
-          }
-        }
-      } catch {
-        /* ignore */
-      }
-      if (!ready) setHint(true);
-      savePos();
-      return next;
-    });
-  }, [ready, savePos]);
+    const next = !wantOn.current;
+    applyOn(next);
+    if (!ready) setHint(true);
+    savePos();
+  }, [applyOn, ready, savePos]);
 
-  const onVolume = useCallback((v: number) => {
-    const n = Math.min(1, Math.max(0, v));
-    setVolume(n);
-    try {
-      localStorage.setItem(EVENTO_BGM_VOL_KEY, String(n));
-    } catch {
-      /* ignore */
-    }
-  }, []);
+  const onVolume = useCallback(
+    (v: number) => {
+      const n = Math.min(1, Math.max(0, v));
+      volumeRef.current = n;
+      setVolume(n);
+      persistLocal({ volume: n });
+      schedulePush();
+    },
+    [schedulePush],
+  );
 
   const onSeek = useCallback(
     (v: number) => {
@@ -403,15 +553,23 @@ export function EventoMusic() {
       const t = Math.max(0, Math.min(1, v)) * duration;
       try {
         p.seekTo(t, true);
-        persistTime(t);
+        persistLocal({ time: t });
         setSeek(v);
         broadcast({ type: "seek", t });
         if (wantOn.current) p.playVideo();
+        schedulePush();
       } catch {
         /* ignore */
       }
     },
-    [duration],
+    [duration, schedulePush],
+  );
+
+  useEffect(
+    () => () => {
+      if (pushTimer.current) clearTimeout(pushTimer.current);
+    },
+    [],
   );
 
   return (
