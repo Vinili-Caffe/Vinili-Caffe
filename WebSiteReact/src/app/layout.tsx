@@ -82,7 +82,7 @@ export default function RootLayout({
     <html
       lang="it"
       suppressHydrationWarning
-      className={`${inter.variable} ${cormorant.variable} ${greatVibes.variable} antialiased`}
+      className={`${inter.variable} ${cormorant.variable} ${greatVibes.variable} antialiased vc-boot-hold`}
     >
       <head>
         {/* prima di tutto: spegne rumore estensioni / lastError in console */}

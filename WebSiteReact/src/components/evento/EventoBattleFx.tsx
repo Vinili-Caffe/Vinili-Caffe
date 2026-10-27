@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect } from "react";
 import { motion } from "motion/react";
 import { Shield, Swords } from "lucide-react";
 import { EventoBtn } from "@/components/evento/EventoUi";
+import { useBodyScrollLock } from "@/lib/use-body-scroll-lock";
 
 export type BattleFxData = {
   defend: boolean;
@@ -16,13 +16,7 @@ export type BattleFxData = {
 
 /** Overlay scontro attacco/difesa. */
 export function EventoBattleFx({ data, onClose }: { data: BattleFxData; onClose: () => void }) {
-  useEffect(() => {
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = prev;
-    };
-  }, []);
+  useBodyScrollLock(true);
 
   const won =
     data.ok &&

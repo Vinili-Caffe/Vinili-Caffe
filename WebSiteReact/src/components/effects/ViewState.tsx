@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useLayoutEffect } from "react";
 import { usePathname } from "next/navigation";
 import {
   clearPwaUiRestorePending,
@@ -116,8 +116,8 @@ export function ViewState() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- solo al primo mount documento
   }, []);
 
-  // Navigazione SPA / cambio path: sempre top (no mid da LS) — salvo resume PWA in corso
-  useEffect(() => {
+  // Navigazione SPA / cambio path: sempre top prima del paint (no mid da LS) — salvo resume PWA
+  useLayoutEffect(() => {
     const path = normalizePath(pathname);
     if (!DOC.lastPath) {
       DOC.lastPath = path;

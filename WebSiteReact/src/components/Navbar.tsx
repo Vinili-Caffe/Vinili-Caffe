@@ -23,6 +23,7 @@ import { loadStaffAccess, type StaffAccess } from "@/lib/staff";
 import { useI18n } from "@/lib/i18n";
 import { cn } from "@/lib/cn";
 import { setChromeOpen } from "@/lib/chrome-open";
+import { useBodyScrollLock } from "@/lib/use-body-scroll-lock";
 import { EventoNavIcon, NavIcon } from "@/lib/nav-icons";
 import { useCloseOnScroll } from "@/lib/use-close-on-scroll";
 import { useAutoHideNav } from "@/lib/use-auto-hide-nav";
@@ -448,6 +449,8 @@ export function Navbar() {
     };
   }, [token]);
 
+  useBodyScrollLock(open);
+
   useEffect(() => {
     setChromeOpen("mobile-nav", open);
     return () => setChromeOpen("mobile-nav", false);
@@ -455,14 +458,9 @@ export function Navbar() {
 
   useEffect(() => {
     if (!open) return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
     window.addEventListener("keydown", onKey);
-    return () => {
-      document.body.style.overflow = prev;
-      window.removeEventListener("keydown", onKey);
-    };
+    return () => window.removeEventListener("keydown", onKey);
   }, [open]);
 
   return (

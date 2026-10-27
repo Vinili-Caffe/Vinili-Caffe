@@ -16,11 +16,11 @@ function ensureCurtain(){
     var light=root.getAttribute("data-vc-theme")==="light"||root.getAttribute("data-theme")==="light";
     if(light)c.style.background="#efe6dc";
   }catch(eL){}
-  (document.body||root).appendChild(c);
+  /* su <html>, non body: l’hydrate di React non lo cancella */
+  root.appendChild(c);
   return c;
 }
-if(document.body)ensureCurtain();
-else document.addEventListener("DOMContentLoaded",ensureCurtain,{once:true});
+ensureCurtain();
 function pin(){try{if(root.classList.contains("vc-boot-hold")||document.getElementById("vc-boot-curtain"))window.scrollTo(0,0);}catch(e3){}}
 window.addEventListener("scroll",pin,{passive:true,capture:true});
 window.__vcBootUnlock=function(){
@@ -30,5 +30,5 @@ root.classList.add("vc-boot-ready");
 var c=document.getElementById("vc-boot-curtain");
 if(c&&c.parentNode)c.parentNode.removeChild(c);
 };
-window.setTimeout(function(){try{if(document.getElementById("vc-boot-curtain")||root.classList.contains("vc-boot-hold"))window.__vcBootUnlock();}catch(e5){}},1600);
+window.setTimeout(function(){try{if(document.getElementById("vc-boot-curtain")||root.classList.contains("vc-boot-hold"))window.__vcBootUnlock();}catch(e5){}},2200);
 }catch(e){}})();`;

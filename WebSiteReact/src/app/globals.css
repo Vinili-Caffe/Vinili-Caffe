@@ -60,14 +60,17 @@ html {
   -ms-overflow-style: none;
 }
 
-/* Boot gate: niente flash footer-only prima del contenuto */
-html.vc-boot-hold {
+/* Boot / route gate: niente flash footer+navbar senza contenuto */
+html.vc-boot-hold,
+html.vc-route-hold {
   overflow: hidden !important;
 }
-html.vc-boot-hold body {
+html.vc-boot-hold body,
+html.vc-route-hold body {
   overflow: hidden !important;
 }
-html.vc-boot-hold::before {
+html.vc-boot-hold::before,
+html.vc-route-hold::before {
   content: "";
   position: fixed;
   inset: 0;
@@ -75,11 +78,14 @@ html.vc-boot-hold::before {
   pointer-events: none;
   background: #0e0906;
 }
-html.vc-boot-hold footer {
+html.vc-boot-hold footer,
+html.vc-route-hold footer {
   visibility: hidden !important;
 }
 html[data-vc-theme="light"].vc-boot-hold::before,
-html[data-theme="light"].vc-boot-hold::before {
+html[data-theme="light"].vc-boot-hold::before,
+html[data-vc-theme="light"].vc-route-hold::before,
+html[data-theme="light"].vc-route-hold::before {
   background: #efe6dc;
 }
 
@@ -372,8 +378,9 @@ html[data-vc-evento="1"] .vc-hw-eyes,
 html[data-vc-evento="1"] .vc-hw-pumpkins {
   display: none !important;
 }
-/* Boot gate / light theme: resta void SW (niente cream Halloween) */
-html[data-vc-evento="1"].vc-boot-hold::before {
+/* Boot / route gate: resta void SW (niente cream Halloween) */
+html[data-vc-evento="1"].vc-boot-hold::before,
+html[data-vc-evento="1"].vc-route-hold::before {
   background: #05070f;
 }
 html[data-vc-evento="1"][data-vc-theme="light"],

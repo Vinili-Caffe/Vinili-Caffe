@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { Sparkles, X } from "lucide-react";
 import { ADVENT_CRATE_LABELS, type AdventCrateId } from "@/lib/evento-avvento";
 import { cn } from "@/lib/cn";
+import { useBodyScrollLock } from "@/lib/use-body-scroll-lock";
 
 export type AdventGranted =
   | { type: "crate"; crateId: string; qty?: number; label?: string }
@@ -109,6 +110,7 @@ export function AdventReveal({
 
   const [phase, setPhase] = useState<"door" | "crates" | "open" | "done">("door");
   const [openIdx, setOpenIdx] = useState(-1);
+  useBodyScrollLock(true);
 
   useEffect(() => {
     const t1 = window.setTimeout(() => setPhase("crates"), 700);
@@ -142,20 +144,8 @@ export function AdventReveal({
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     window.addEventListener("keydown", onKey);
-    const prevOverflow = document.body.style.overflow;
-    const prevPad = document.body.style.paddingRight;
-    const sb = window.innerWidth - document.documentElement.clientWidth;
-    document.body.style.overflow = "hidden";
-    if (sb > 0) document.body.style.paddingRight = `${sb}px`;
-    try {
-      window.scrollTo({ top: window.scrollY, behavior: "instant" as ScrollBehavior });
-    } catch {
-      /* ignore */
-    }
     return () => {
       window.removeEventListener("keydown", onKey);
-      document.body.style.overflow = prevOverflow;
-      document.body.style.paddingRight = prevPad;
     };
   }, [onClose]);
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useLayoutEffect } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { forceScrollTop, isPwaUiRestorePending } from "@/lib/view-state";
 
@@ -9,7 +9,7 @@ export function ScrollToTop() {
   const pathname = usePathname();
   const search = useSearchParams();
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (typeof window === "undefined") return;
     // hash interni (es. /ruoli/#id) lasciano il browser gestire lo scroll
     if (window.location.hash) return;

@@ -271,11 +271,20 @@ export function chaseScroll(y: number, done?: () => void, maxMs = 6000) {
   for (const ev of ["wheel", "touchstart", "keydown", "pointerdown"]) window.addEventListener(ev, stop, { capture: true, passive: true });
   const step = () => {
     if (stopped) return;
-    if (document.documentElement.classList.contains("vc-boot-hold")) {
+    if (
+      document.documentElement.classList.contains("vc-boot-hold") ||
+      document.documentElement.classList.contains("vc-route-hold")
+    ) {
       window.setTimeout(step, 40);
       return;
     }
-    const target = Math.min(y, maxScrollY());
+    const max = maxScrollY();
+    // Anti flash footer: se la pagina è ancora corta (solo chrome), aspetta il contenuto
+    if (y > 80 && max < Math.min(y, 160) && performance.now() - start < maxMs) {
+      window.setTimeout(step, 80);
+      return;
+    }
+    const target = Math.min(y, max);
     if (Math.abs(window.scrollY - target) > 2) window.scrollTo({ top: target, behavior: "instant" as ScrollBehavior });
     if (maxScrollY() >= y || performance.now() - start > maxMs) {
       // ultimo assestamento dopo un frame (immagini/font)

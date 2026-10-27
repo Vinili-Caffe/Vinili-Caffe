@@ -10,20 +10,61 @@ export type BodyScrollLockOpts = {
 };
 
 let lockCount = 0;
+let lockedY = 0;
+
+function scrollbarGap(): number {
+  try {
+    return Math.max(0, window.innerWidth - document.documentElement.clientWidth);
+  } catch {
+    return 0;
+  }
+}
 
 function applyLock() {
-  document.documentElement.style.overflow = "hidden";
-  document.body.style.overflow = "hidden";
+  if (lockCount === 1) {
+    lockedY = Math.max(0, Math.floor(window.scrollY || window.pageYOffset || 0));
+    const gap = scrollbarGap();
+    const root = document.documentElement;
+    root.style.overflow = "hidden";
+    root.style.overscrollBehavior = "none";
+    // position:fixed sul body: evita jump/footer flash quando sparisce lo scroll
+    document.body.style.position = "fixed";
+    document.body.style.top = `-${lockedY}px`;
+    document.body.style.left = "0";
+    document.body.style.right = "0";
+    document.body.style.width = "100%";
+    document.body.style.overflow = "hidden";
+    if (gap > 0) {
+      root.style.paddingRight = `${gap}px`;
+      document.body.style.paddingRight = `${gap}px`;
+    }
+  }
 }
 
 function clearLock() {
-  document.documentElement.style.removeProperty("overflow");
+  const root = document.documentElement;
+  const y = lockedY;
+  root.style.removeProperty("overflow");
+  root.style.removeProperty("overscroll-behavior");
+  root.style.removeProperty("padding-right");
+  document.body.style.removeProperty("position");
+  document.body.style.removeProperty("top");
+  document.body.style.removeProperty("left");
+  document.body.style.removeProperty("right");
+  document.body.style.removeProperty("width");
   document.body.style.removeProperty("overflow");
+  document.body.style.removeProperty("padding-right");
+  try {
+    window.scrollTo(0, y);
+  } catch {
+    /* ignore */
+  }
+  lockedY = 0;
 }
 
 /**
  * Lock scroll body con ref-count (dialog + sheet + ticket overlay non si pestano).
- * Cleanup sempre con removeProperty (niente restore di "hidden" stale).
+ * Usa position:fixed + restore Y (niente flash footer / salto altezza).
  */
 export function useBodyScrollLock(active: boolean, opts: BodyScrollLockOpts = {}) {
   const mobileOnly = opts.mobileOnly === true;
