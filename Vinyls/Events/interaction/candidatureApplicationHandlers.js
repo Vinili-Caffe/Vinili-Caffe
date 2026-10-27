@@ -2107,6 +2107,37 @@ async function getCandidatureApplicationDetail(guild, messageId) {
   };
 }
 
+async function resolveCandidatureBoundFromStore(guildId, messageId, type, userId) {
+  let boundType = String(type || "")
+    .trim()
+    .toLowerCase();
+  let boundUserId = String(userId || "").trim();
+  if (boundUserId && ["helper", "partnermanager"].includes(boundType)) {
+    return { boundType, boundUserId };
+  }
+  try {
+    const { SiteDocument, SITE_DOCUMENT_TYPE } = require("../../Schemas/Community/communitySchemas");
+    const mid = String(messageId || "").trim();
+    if (!mid || !guildId) return { boundType, boundUserId };
+    const bare = mid.includes(":") ? mid.split(":").slice(1).join(":") : mid;
+    const dedupeKey = mid.startsWith("candidature:") ? mid : `candidature:${bare}`;
+    const doc = await SiteDocument.findOne({
+      docType: SITE_DOCUMENT_TYPE.STAFF_WORKFLOW,
+      guildId: String(guildId),
+      workflowQueue: "candidature",
+      $or: [{ dedupeKey }, { workflowMessageId: bare }, { workflowMessageId: mid }],
+    })
+      .select({ workflowType: 1, userId: 1 })
+      .lean()
+      .catch(() => null);
+    if (doc) {
+      if (!boundType) boundType = String(doc.workflowType || "").trim().toLowerCase();
+      if (!boundUserId) boundUserId = String(doc.userId || "").trim();
+    }
+  } catch (_) {}
+  return { boundType, boundUserId };
+}
+
 async function webRejectCandidateApplication(guild, actorMember, messageId, type, userId) {
   if (!memberHasCandidatureReviewAccess(actorMember, guild)) {
     return { ok: false, status: 403, message: "Non hai i permessi per rifiutare candidature." };
@@ -2121,10 +2152,15 @@ async function webRejectCandidateApplication(guild, actorMember, messageId, type
   const channel = isDiscordMsgId ? await resolveSubmissionChannel(guild) : null;
   const msg = channel ? await channel.messages.fetch(mid).catch(() => null) : null;
   const bound = msg ? parseCandidateTypeFromMessage(msg) : null;
-  const boundType = String(bound?.type || type || "")
+  let boundType = String(bound?.type || type || "")
     .trim()
     .toLowerCase();
-  const boundUserId = String(bound?.userId || userId || "").trim();
+  let boundUserId = String(bound?.userId || userId || "").trim();
+  if (!boundUserId || !["helper", "partnermanager"].includes(boundType)) {
+    const fromStore = await resolveCandidatureBoundFromStore(guild.id, mid, boundType, boundUserId);
+    boundType = fromStore.boundType;
+    boundUserId = fromStore.boundUserId;
+  }
   if (!boundUserId || !["helper", "partnermanager"].includes(boundType)) {
     return { ok: false, status: 400, message: "Candidatura non trovata o dati incompleti (type/userId)." };
   }
@@ -2197,20 +2233,25 @@ async function webAcceptCandidateApplication(guild, actorMember, messageId, type
   const decidedByName = String(
     actorMember?.displayName || actorMember?.user?.globalName || actorMember?.user?.username || "",
   );
-  /* candidatureSiteAccept1: candidature dal sito → niente messaggio Discord; usa type/userId body. */
+  /* candidatureSiteAccept1: candidature dal sito → niente messaggio Discord; usa type/userId body (+ store). */
   const mid = String(messageId || "").trim();
   const isDiscordMsgId = /^\d{16,22}$/.test(mid);
   const channel = isDiscordMsgId ? await resolveSubmissionChannel(guild) : null;
   const msg = channel ? await channel.messages.fetch(mid).catch(() => null) : null;
   const bound = msg ? parseCandidateTypeFromMessage(msg) : null;
-  const boundType = String(bound?.type || type || "")
+  let boundType = String(bound?.type || type || "")
     .trim()
     .toLowerCase();
-  const boundUserId = String(bound?.userId || userId || "").trim();
+  let boundUserId = String(bound?.userId || userId || "").trim();
+  if (!boundUserId || !["helper", "partnermanager"].includes(boundType)) {
+    const fromStore = await resolveCandidatureBoundFromStore(guild.id, mid, boundType, boundUserId);
+    boundType = fromStore.boundType;
+    boundUserId = fromStore.boundUserId;
+  }
   if (!boundUserId || !["helper", "partnermanager"].includes(boundType)) {
     return { ok: false, status: 400, message: "Candidatura non trovata o dati incompleti (type/userId)." };
   }
-  /* Se c’è messaggio Discord, preferisci i dati parsati; altrimenti body (sito). */
+  /* Se c’è messaggio Discord, preferisci i dati parsati; altrimenti body/store (sito). */
   const status = await applyCandidatePex(guild, actorMember, boundType, boundUserId, trimmedReason, msg);
   const ok = !String(status || "").toLowerCase().includes("impossibile") && !String(status || "").toLowerCase().includes("non trovato");
   if (ok) {

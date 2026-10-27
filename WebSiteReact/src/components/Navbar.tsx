@@ -3,10 +3,24 @@
 import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import { AnimatePresence, motion, useMotionValueEvent, useScroll } from "motion/react";
-import { ChevronDown, Menu, X } from "lucide-react";
+import {
+  Bell,
+  BookOpen,
+  CalendarDays,
+  ChevronDown,
+  LayoutDashboard,
+  ListChecks,
+  LogIn,
+  LogOut,
+  Menu,
+  MessageSquareText,
+  Sparkles,
+  UserRound,
+  X,
+} from "lucide-react";
 import { NAV_DIRECT, NAV_GROUPS, NAV_MOBILE_SECTIONS, page, type NavLink } from "@/lib/site";
-import { useAuth } from "@/lib/auth";
-import { loadStaffAccess } from "@/lib/staff";
+import { avatarUrl, displayName, useAuth } from "@/lib/auth";
+import { loadStaffAccess, type StaffAccess } from "@/lib/staff";
 import { useI18n } from "@/lib/i18n";
 import { cn } from "@/lib/cn";
 import { setChromeOpen } from "@/lib/chrome-open";
@@ -14,15 +28,18 @@ import { useBodyScrollLock } from "@/lib/use-body-scroll-lock";
 import { EventoNavIcon, NavIcon } from "@/lib/nav-icons";
 import { useCloseOnScroll } from "@/lib/use-close-on-scroll";
 import { useAutoHideNav } from "@/lib/use-auto-hide-nav";
+import { viewAsAllowedSticky } from "@/lib/view-as";
+import { Avatar } from "@/components/Avatar";
 import { SmartLink } from "./SmartLink";
 import { UserMenu } from "./UserMenu";
 import { NavNotifBell } from "./NavNotifBell";
 import { LangMenu } from "./LangMenu";
 import { BrandMark } from "./BrandMark";
 import { navUnderlineClass } from "./NavUnderline";
+import { ThemePrefRow } from "./ThemeToggle";
 import { ViewAsLaunch, useViewAsChrome } from "./view-as/ViewAsChrome";
 import { useDeviceFx } from "./effects/DeviceFxProvider";
-import { EVENTO_NAV, isEventoPublicWindowOpen } from "@/lib/evento-starwars";
+import { EVENTO_NAV, isEventoHighStaff, isEventoPublicWindowOpen } from "@/lib/evento-starwars";
 import { useEventoChrome } from "./evento/EventoChrome";
 import { ContestNavPill } from "./contest/ContestNavPill";
 
@@ -238,6 +255,172 @@ function NavDrop({
   );
 }
 
+function canOpenDashBacheca(staff: StaffAccess | null, stickyOk: boolean) {
+  if (stickyOk) return true;
+  return Boolean(staff?.isFounder || staff?.viewAsAllowed);
+}
+
+/** Account solo nel drawer mobile: login / profilo / notif / staff / tema. */
+function MobileDrawerAccount({ onClose }: { onClose: () => void }) {
+  const { t } = useI18n();
+  const { ready, user, token, login, logout } = useAuth();
+  const [staff, setStaff] = useState<StaffAccess | null>(null);
+  const [stickyOk, setStickyOk] = useState(false);
+
+  useEffect(() => {
+    if (!token) {
+      setStaff(null);
+      return;
+    }
+    let alive = true;
+    loadStaffAccess(token).then((r) => alive && setStaff(r.ok ? r.data : null));
+    return () => {
+      alive = false;
+    };
+  }, [token]);
+
+  useEffect(() => {
+    setStickyOk(viewAsAllowedSticky());
+  }, []);
+
+  if (!ready && !user) {
+    return <div className="h-14 animate-pulse rounded-2xl bg-crema/8" aria-hidden />;
+  }
+
+  if (!token) {
+    return (
+      <button
+        type="button"
+        onClick={() => {
+          onClose();
+          login();
+        }}
+        className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#5865f2] px-5 py-3.5 text-sm font-semibold text-white shadow-[0_10px_28px_-12px_rgba(88,101,242,0.85)]"
+      >
+        <LogIn className="size-4" /> {t("auth.loginDiscord")}
+      </button>
+    );
+  }
+
+  const profileHref = page(`/user/${user ? `?id=${user.id}` : ""}`);
+  const dashOpen = canOpenDashBacheca(staff, stickyOk);
+  const soon = t("auth.comingSoon");
+  const eventoOpen = isEventoHighStaff(staff) || isEventoPublicWindowOpen();
+  const links = [
+    { href: profileHref, label: t("auth.profile"), icon: <UserRound className="size-4" />, locked: false },
+    {
+      href: page("/notifications/"),
+      label: t("notif.title"),
+      icon: <Bell className="size-4" />,
+      locked: false,
+    },
+    {
+      href: page("/evento/"),
+      label: t("nav.evento"),
+      icon: <Sparkles className="size-4" />,
+      locked: !eventoOpen,
+    },
+    {
+      href: page("/dashboard/"),
+      label: t("auth.dashboard"),
+      icon: <LayoutDashboard className="size-4" />,
+      locked: !dashOpen,
+    },
+    {
+      href: page("/bacheca/"),
+      label: t("auth.bacheca"),
+      icon: <MessageSquareText className="size-4" />,
+      locked: !dashOpen,
+    },
+  ];
+  const staffLinks =
+    staff && user
+      ? [
+          { href: "/staff/guida/", label: "Guida", icon: <BookOpen className="size-4" />, show: true },
+          { href: "/staff/compiti/", label: "Compiti", icon: <ListChecks className="size-4" />, show: staff.canCompiti },
+          { href: "/staff/pause/", label: "Pause", icon: <CalendarDays className="size-4" />, show: true },
+        ].filter((x) => x.show)
+      : [];
+
+  return (
+    <div className="rounded-2xl bg-roast/80 p-3 ring-1 ring-sand/15">
+      {user ? (
+        <div className="mb-3 flex items-center gap-3 px-1">
+          <Avatar userId={user.id} src={avatarUrl(user, 96)} name={displayName(user)} className="size-11" />
+          <div className="min-w-0">
+            <p className="truncate font-medium text-crema">{displayName(user)}</p>
+            <p className="truncate text-xs text-crema/50">@{user.username}</p>
+          </div>
+        </div>
+      ) : null}
+      <div className="grid grid-cols-2 gap-1.5">
+        {links.map((l) =>
+          l.locked ? (
+            <span
+              key={l.href}
+              title={soon}
+              aria-disabled="true"
+              className="relative inline-flex cursor-not-allowed items-center gap-2 overflow-hidden rounded-xl bg-crema/5 px-3 py-2.5 text-sm font-medium text-crema/45 ring-1 ring-sand/10"
+            >
+              <span className="flex min-w-0 flex-1 items-center gap-2 blur-[2.5px] select-none" aria-hidden>
+                {l.icon}
+                <span className="truncate">{l.label}</span>
+              </span>
+              <span className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                <span className="rounded-full bg-espresso/90 px-2 py-0.5 text-[0.62rem] font-bold uppercase tracking-[0.18em] text-sand ring-1 ring-sand/30">
+                  {soon}
+                </span>
+              </span>
+            </span>
+          ) : (
+            <SmartLink
+              key={l.href}
+              href={l.href}
+              onClick={() => window.setTimeout(onClose, 0)}
+              className="inline-flex items-center gap-2 rounded-xl bg-crema/5 px-3 py-2.5 text-sm font-medium text-crema/85 ring-1 ring-sand/10 transition-colors hover:bg-crema/10"
+            >
+              {l.icon}
+              <span className="truncate">{l.label}</span>
+            </SmartLink>
+          ),
+        )}
+      </div>
+      {staffLinks.length ? (
+        <>
+          <p className="mb-1.5 mt-3 px-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-caramel">Area staff</p>
+          <div className="grid grid-cols-2 gap-1.5">
+            {staffLinks.map((l) => (
+              <SmartLink
+                key={l.href}
+                href={l.href}
+                onClick={() => window.setTimeout(onClose, 0)}
+                className="inline-flex items-center gap-2 rounded-xl bg-crema/5 px-3 py-2.5 text-sm font-medium text-crema/85 ring-1 ring-sand/10 transition-colors hover:bg-crema/10"
+              >
+                {l.icon}
+                <span className="truncate">{l.label}</span>
+              </SmartLink>
+            ))}
+          </div>
+        </>
+      ) : null}
+      <div className="mt-3 border-t border-sand/10 pt-3">
+        <p className="mb-1.5 px-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-crema/40">{t("auth.theme")}</p>
+        <ThemePrefRow />
+      </div>
+      <button
+        type="button"
+        onClick={() => {
+          onClose();
+          logout();
+        }}
+        className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium text-crema/75 ring-1 ring-sand/15 transition-colors hover:bg-crema/8 hover:text-red-300"
+      >
+        <LogOut className="size-4" /> {t("auth.logout")}
+      </button>
+    </div>
+  );
+}
+
 export function Navbar() {
   const { caps } = useDeviceFx();
   const softBlur = caps.blur;
@@ -363,18 +546,18 @@ export function Navbar() {
             {!eventoChrome ? <ContestNavPill /> : null}
             <ViewAsLaunch />
             <NavNotifBell />
-            {/* Sempre visibile: su telefono prima era solo nel menu → dopo login sembrava “non loggato”. */}
-            <UserMenu />
-          <button
-            type="button"
-            onClick={() => setOpen(true)}
+            {/* Desktop: account in navbar. Mobile: solo nel menu hamburger. */}
+            <UserMenu className="hidden lg:flex" />
+            <button
+              type="button"
+              onClick={() => setOpen(true)}
               className="inline-flex size-10 shrink-0 items-center justify-center rounded-full bg-crema/8 text-crema ring-1 ring-crema/15 transition-colors hover:bg-crema/15 lg:hidden"
-            aria-expanded={open}
-            aria-controls="vc-menu"
+              aria-expanded={open}
+              aria-controls="vc-menu"
               aria-label={t("nav.openMenu")}
-          >
+            >
               <Menu className="size-[1.15rem]" strokeWidth={2.25} />
-          </button>
+            </button>
           </div>
         </nav>
       </motion.header>
@@ -518,6 +701,17 @@ export function Navbar() {
                 </motion.section>
               ))
               )}
+
+              <motion.div
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.22, duration: 0.4 }}
+              >
+                <h3 className="mb-2 text-[0.65rem] font-semibold uppercase tracking-[0.22em] text-caramel">
+                  {t("auth.account")}
+                </h3>
+                <MobileDrawerAccount onClose={() => setOpen(false)} />
+              </motion.div>
             </div>
           </motion.div>
         )}

@@ -569,11 +569,12 @@ async function handleSiteStaffWorkflowPost(client, req, res) {
       if (!memberHasCandidatureReviewAccess(access.member, guild)) {
         return res.status(403).json({ ok: false, error: "forbidden", message: "Non autorizzato." });
       }
-      const messageId = String(body.messageId || "").trim();
-      const type = String(body.type || "").trim();
+      /* candidatureSiteAccept1: type/userId possono mancare sul client; i handler li risolvono dallo store. */
+      const messageId = String(body.messageId || body.id || "").trim();
+      const type = String(body.type || body.kind || "").trim();
       const userId = String(body.userId || "").trim();
-      if (!messageId || !type || !userId) {
-        return res.status(400).json({ ok: false, error: "missing_fields", message: "messageId, type e userId richiesti." });
+      if (!messageId) {
+        return res.status(400).json({ ok: false, error: "missing_fields", message: "messageId richiesto." });
       }
       if (action === "accept") {
         result = await webAcceptCandidateApplication(
