@@ -132,20 +132,23 @@ export function AdventCalendar() {
   } | null>(null);
   const [openingDoor, setOpeningDoor] = useState<number | null>(null);
 
-  const reload = useCallback(async () => {
+  const reload = useCallback(async (opts?: { soft?: boolean }) => {
     if (!ready) return;
-    setLoading(true);
+    // soft: non smontare griglia/overlay (altrimenti flash footer + salto scroll)
+    if (!opts?.soft) setLoading(true);
     const st = await fetchEventoAvvento(token);
     if (!st.ok) {
-      setGateMsg(st.message || "Avvento non disponibile.");
-      setDays(null);
-      setLoading(false);
+      if (!opts?.soft) {
+        setGateMsg(st.message || "Avvento non disponibile.");
+        setDays(null);
+        setLoading(false);
+      }
       return;
     }
     setGateMsg("");
     setTodayAdvent(st.todayAdvent ?? localToday);
     setDays(st.days || []);
-    setLoading(false);
+    if (!opts?.soft) setLoading(false);
   }, [ready, token, localToday]);
 
   useEffect(() => {
@@ -176,15 +179,23 @@ export function AdventCalendar() {
           },
     );
 
+    // marca ritirato subito così la griglia non “salta” sotto l’overlay
+    setDays((prev) =>
+      (prev || []).map((d) =>
+        d.day === slot.day
+          ? { ...d, claimed: true, canClaim: false, claimedAt: d.claimedAt || new Date().toISOString() }
+          : d,
+      ),
+    );
     setReveal({
       day: slot.day,
       label: out.label || slot.label,
       granted: granted.length ? granted : fallback,
     });
-    await reload();
+    void reload({ soft: true });
   }
 
-  if (loading) return <EventoSkeleton className="mx-auto max-w-4xl px-6" />;
+  if (loading && !reveal) return <EventoSkeleton className="mx-auto max-w-4xl px-6" />;
 
   if (gateMsg && !days) {
     return <div className="mx-auto max-w-lg px-6 pb-8 text-center text-sm text-crema/55">{gateMsg}</div>;

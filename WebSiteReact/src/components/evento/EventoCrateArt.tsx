@@ -125,8 +125,63 @@ export type CrateLootPayload = {
 
 type LootCard = { id: string; title: string; value: string; tone: "gold" | "blue" | "sand" };
 
+function lootCardStyle(tone: LootCard["tone"], glow?: boolean) {
+  const bg =
+    tone === "gold"
+      ? "linear-gradient(160deg,#3a2a0c,#12100a 70%)"
+      : tone === "blue"
+        ? "linear-gradient(160deg,#0c243a,#0a1018 70%)"
+        : "linear-gradient(160deg,#1a1620,#0a0c12 70%)";
+  const border =
+    tone === "gold"
+      ? "rgba(228,199,107,0.45)"
+      : tone === "blue"
+        ? "rgba(125,211,252,0.4)"
+        : "rgba(244,233,216,0.2)";
+  const color = tone === "gold" ? "#f0d78c" : tone === "blue" ? "#7dd3fc" : "#f4e9d8";
+  const boxShadow = glow
+    ? `0 0 32px -4px ${
+        tone === "gold"
+          ? "rgba(201,162,39,0.7)"
+          : tone === "blue"
+            ? "rgba(46,168,255,0.55)"
+            : "rgba(244,233,216,0.25)"
+      }`
+    : "0 20px 50px -20px rgba(0,0,0,0.8)";
+  return { background: bg, borderColor: border, color, boxShadow };
+}
+
+function LootRewardCard({
+  card,
+  glow,
+  large,
+}: {
+  card: LootCard;
+  glow?: boolean;
+  large?: boolean;
+}) {
+  const s = lootCardStyle(card.tone, glow);
+  return (
+    <div
+      className={`rounded-2xl text-center ring-1 ${large ? "w-[10.5rem] p-5" : "w-[9.5rem] p-4"}`}
+      style={{ background: s.background, borderColor: s.borderColor, boxShadow: s.boxShadow }}
+    >
+      <p className="text-[0.6rem] font-bold uppercase tracking-[0.22em] text-crema/50">{card.title}</p>
+      <p
+        className={`mt-2 font-display font-semibold leading-tight ${large ? "text-2xl" : "text-xl"}`}
+        style={{ color: s.color }}
+      >
+        {card.value}
+      </p>
+    </div>
+  );
+}
+
 /**
- * Overlay stile gioco: tap per aprire la cassa, poi tap per rivelare ogni premio.
+ * Overlay stile gioco:
+ * 1) tap cassa → si apre
+ * 2) premi spuntano SOPRA (tap uno a uno)
+ * 3) fine: niente cassa, solo riepilogo ricompense
  */
 export function EventoCrateOpenOverlay({
   loot,
@@ -136,7 +191,6 @@ export function EventoCrateOpenOverlay({
   onClose: () => void;
 }) {
   useBodyScrollLock(true);
-  /** closed → tap apre; revealing → tap rivela la prossima card; done → continua */
   const [phase, setPhase] = useState<"closed" | "opened" | "revealing" | "done">("closed");
   const [revealed, setRevealed] = useState(0);
 
@@ -169,6 +223,7 @@ export function EventoCrateOpenOverlay({
 
   const remaining = Math.max(0, cards.length - revealed);
   const t = crateTint(loot.crateId);
+  const showChest = phase !== "done";
 
   function advance() {
     if (phase === "closed") {
@@ -187,7 +242,9 @@ export function EventoCrateOpenOverlay({
       }
       const next = revealed + 1;
       setRevealed(next);
-      if (next >= cards.length) setPhase("done");
+      if (next >= cards.length) {
+        window.setTimeout(() => setPhase("done"), 380);
+      }
       return;
     }
     if (phase === "done") onClose();
@@ -200,11 +257,9 @@ export function EventoCrateOpenOverlay({
         ? "Si apre…"
         : phase === "revealing"
           ? remaining > 0
-            ? remaining === cards.length
-              ? "Tocca per scoprire il premio"
-              : `Tocca · ancora ${remaining} premi`
+            ? `${cards.length} ${cards.length === 1 ? "ricompensa" : "ricompense"} · tocca per scoprire (${revealed + 1}/${cards.length})`
             : ""
-          : "Tocca Continua";
+          : "";
 
   return (
     <motion.div
@@ -223,111 +278,110 @@ export function EventoCrateOpenOverlay({
       />
 
       <div className="relative z-10 flex w-full max-w-lg flex-col items-center">
-        <p className="mb-1 text-[0.65rem] font-semibold uppercase tracking-[0.32em]" style={{ color: t.accent }}>
-          {loot.label}
+        <p className="mb-3 text-[0.65rem] font-semibold uppercase tracking-[0.32em]" style={{ color: t.accent }}>
+          {phase === "done" ? "Ricompense ottenute" : loot.label}
         </p>
 
-        <button
-          type="button"
-          className="relative touch-manipulation rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-[#c9a227]/50"
-          onClick={advance}
-          aria-label={hint || "Continua"}
-          disabled={phase === "opened"}
-        >
-          <EventoCrateArt
-            crateId={loot.crateId}
-            size="lg"
-            open={phase !== "closed"}
-            shake={phase === "closed"}
-          />
-        </button>
-
-        {/* slot premi: coperte finché non le tocchi */}
-        <div className="relative mt-6 flex min-h-[10rem] w-full flex-wrap items-center justify-center gap-3">
+        {/* Premi SOPRA la cassa (o solo riepilogo a fine) */}
+        <div className="relative mb-4 flex min-h-[8.5rem] w-full flex-wrap items-end justify-center gap-3">
           <AnimatePresence mode="popLayout">
-            {cards.map((c, i) => {
-              const isShown = i < revealed;
-              if (!isShown && phase !== "revealing" && phase !== "done") return null;
-              if (!isShown && i > revealed) return null;
-              // prossima da scoprire: card coperto cliccabile
-              if (!isShown && i === revealed && phase === "revealing") {
-                return (
-                  <motion.button
-                    key={`sealed-${c.id}`}
-                    type="button"
+            {phase === "done"
+              ? cards.map((c) => (
+                  <motion.div
+                    key={`sum-${c.id}`}
                     layout
-                    initial={{ opacity: 0, scale: 0.7, y: 24 }}
-                    animate={{ opacity: 1, scale: 1, y: 0 }}
-                    exit={{ opacity: 0, scale: 0.8 }}
-                    transition={{ type: "spring", stiffness: 280, damping: 18 }}
-                    onClick={advance}
-                    className="flex h-[7.5rem] w-[9.5rem] flex-col items-center justify-center rounded-2xl bg-gradient-to-br from-[#1a2238] to-[#0a0e18] ring-1 ring-[#c9a227]/35"
-                    style={{ boxShadow: `0 0 28px -6px ${t.glow}` }}
+                    initial={{ opacity: 0, y: 16, scale: 0.9 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    transition={{ type: "spring", stiffness: 240, damping: 16 }}
                   >
-                    <span className="text-3xl text-[#e4c76b]/80" aria-hidden>
-                      ?
-                    </span>
-                    <span className="mt-2 text-[0.6rem] font-bold uppercase tracking-[0.2em] text-crema/45">
-                      Tocca
-                    </span>
-                  </motion.button>
-                );
-              }
-              if (!isShown) return null;
-              return (
-                <motion.div
-                  key={c.id}
-                  layout
-                  initial={{ opacity: 0, rotateY: 90, scale: 0.7 }}
-                  animate={{ opacity: 1, rotateY: 0, scale: 1 }}
-                  transition={{ type: "spring", stiffness: 260, damping: 16 }}
-                  className="w-[9.5rem] rounded-2xl p-4 text-center shadow-[0_20px_50px_-20px_rgba(0,0,0,0.8)] ring-1"
-                  style={{
-                    background:
-                      c.tone === "gold"
-                        ? "linear-gradient(160deg,#3a2a0c,#12100a 70%)"
-                        : c.tone === "blue"
-                          ? "linear-gradient(160deg,#0c243a,#0a1018 70%)"
-                          : "linear-gradient(160deg,#1a1620,#0a0c12 70%)",
-                    borderColor:
-                      c.tone === "gold"
-                        ? "rgba(228,199,107,0.45)"
-                        : c.tone === "blue"
-                          ? "rgba(125,211,252,0.4)"
-                          : "rgba(244,233,216,0.2)",
-                    boxShadow:
-                      i === revealed - 1
-                        ? `0 0 32px -4px ${
-                            c.tone === "gold"
-                              ? "rgba(201,162,39,0.7)"
-                              : c.tone === "blue"
-                                ? "rgba(46,168,255,0.55)"
-                                : "rgba(244,233,216,0.25)"
-                          }`
-                        : undefined,
-                  }}
-                >
-                  <p className="text-[0.6rem] font-bold uppercase tracking-[0.22em] text-crema/50">{c.title}</p>
-                  <p
-                    className="mt-2 font-display text-xl font-semibold leading-tight"
-                    style={{
-                      color: c.tone === "gold" ? "#f0d78c" : c.tone === "blue" ? "#7dd3fc" : "#f4e9d8",
-                    }}
-                  >
-                    {c.value}
-                  </p>
-                </motion.div>
-              );
-            })}
+                    <LootRewardCard card={c} large glow />
+                  </motion.div>
+                ))
+              : null}
+
+            {phase === "revealing" || phase === "opened"
+              ? cards.map((c, i) => {
+                  const isShown = i < revealed;
+                  if (isShown) {
+                    return (
+                      <motion.div
+                        key={c.id}
+                        layout
+                        initial={{ opacity: 0, y: 28, scale: 0.7, rotateY: 90 }}
+                        animate={{ opacity: 1, y: 0, scale: 1, rotateY: 0 }}
+                        transition={{ type: "spring", stiffness: 260, damping: 16 }}
+                      >
+                        <LootRewardCard card={c} glow={i === revealed - 1} />
+                      </motion.div>
+                    );
+                  }
+                  if (i === revealed && phase === "revealing") {
+                    return (
+                      <motion.button
+                        key={`sealed-${c.id}`}
+                        type="button"
+                        layout
+                        initial={{ opacity: 0, y: 20, scale: 0.8 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.85 }}
+                        transition={{ type: "spring", stiffness: 280, damping: 18 }}
+                        onClick={advance}
+                        className="flex h-[7.5rem] w-[9.5rem] flex-col items-center justify-center rounded-2xl bg-gradient-to-br from-[#1a2238] to-[#0a0e18] ring-1 ring-[#c9a227]/35"
+                        style={{ boxShadow: `0 0 28px -6px ${t.glow}` }}
+                      >
+                        <span className="text-3xl text-[#e4c76b]/80" aria-hidden>
+                          ?
+                        </span>
+                        <span className="mt-2 text-[0.6rem] font-bold uppercase tracking-[0.2em] text-crema/45">
+                          Tocca
+                        </span>
+                      </motion.button>
+                    );
+                  }
+                  // slot ancora chiusi (conteggio visibile)
+                  if (i > revealed && phase === "revealing") {
+                    return (
+                      <motion.div
+                        key={`pending-${c.id}`}
+                        layout
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 0.45 }}
+                        className="flex h-[7.5rem] w-[9.5rem] flex-col items-center justify-center rounded-2xl bg-black/40 ring-1 ring-sand/15"
+                        aria-hidden
+                      >
+                        <span className="text-xl text-crema/30">?</span>
+                      </motion.div>
+                    );
+                  }
+                  return null;
+                })
+              : null}
           </AnimatePresence>
         </div>
+
+        {showChest ? (
+          <button
+            type="button"
+            className="relative touch-manipulation rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-[#c9a227]/50"
+            onClick={advance}
+            aria-label={hint || "Apri"}
+            disabled={phase === "opened"}
+          >
+            <EventoCrateArt
+              crateId={loot.crateId}
+              size="lg"
+              open={phase !== "closed"}
+              shake={phase === "closed"}
+            />
+          </button>
+        ) : null}
 
         {phase === "done" ? (
           <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="mt-8">
             <EventoBtn onClick={onClose}>Continua</EventoBtn>
           </motion.div>
         ) : (
-          <p className="mt-8 text-center text-xs text-crema/45">{hint}</p>
+          <p className="mt-6 text-center text-xs text-crema/45">{hint}</p>
         )}
       </div>
     </motion.div>

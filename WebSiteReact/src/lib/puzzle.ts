@@ -135,16 +135,33 @@ export function piecePath(
     ctx.lineTo(x, y + h);
   }
 
+  // sinistra: dal basso verso l’alto (specchio del lato destro)
   if (!e.left) ctx.lineTo(x, y);
   else {
     ctx.lineTo(x, midY + neck);
-    ctx.bezierCurveTo(x - e.left * bulge * 0.2, midY + neck, x - e.left * bulge, midY - bulge * 0.95, x - e.left * bulge, midY);
-    ctx.bezierCurveTo(x - e.left * bulge, midY - bulge * 0.95, x - e.left * bulge * 0.2, midY - neck, x, midY - neck);
+    ctx.bezierCurveTo(
+      x - e.left * bulge * 0.2,
+      midY + neck,
+      x - e.left * bulge,
+      midY + bulge * 0.95,
+      x - e.left * bulge,
+      midY,
+    );
+    ctx.bezierCurveTo(
+      x - e.left * bulge,
+      midY - bulge * 0.95,
+      x - e.left * bulge * 0.2,
+      midY - neck,
+      x,
+      midY - neck,
+    );
     ctx.lineTo(x, y);
   }
 
   ctx.closePath();
 }
+
+export type PiecePaintStatus = "ok" | "wrong" | "locked" | null;
 
 export function renderPieceCanvas(
   canvas: HTMLCanvasElement,
@@ -155,8 +172,9 @@ export function renderPieceCanvas(
   tab: number,
   cols = PUZZLE_COLS,
   rows = PUZZLE_ROWS,
+  status: PiecePaintStatus = null,
 ): { outerW: number; outerH: number } {
-  const pad = tab + 2;
+  const pad = tab + 4;
   const dpr = Math.min(typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1, 2);
   const outerW = displayW + pad * 2;
   const outerH = displayH + pad * 2;
@@ -170,6 +188,8 @@ export function renderPieceCanvas(
   if (!img.naturalWidth || !img.naturalHeight) return { outerW, outerH };
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, outerW, outerH);
+  ctx.lineJoin = "round";
+  ctx.lineCap = "round";
 
   const ox = pad;
   const oy = pad;
@@ -183,17 +203,42 @@ export function renderPieceCanvas(
   const sh = img.naturalHeight / rows;
   const expandX = (tab / displayW) * sw;
   const expandY = (tab / displayH) * sh;
-  ctx.drawImage(img, sx - expandX, sy - expandY, sw + expandX * 2, sh + expandY * 2, ox - tab, oy - tab, displayW + tab * 2, displayH + tab * 2);
+  ctx.drawImage(
+    img,
+    sx - expandX,
+    sy - expandY,
+    sw + expandX * 2,
+    sh + expandY * 2,
+    ox - tab,
+    oy - tab,
+    displayW + tab * 2,
+    displayH + tab * 2,
+  );
   ctx.restore();
 
+  // contorno pezzo
   piecePath(ctx, ox, oy, displayW, displayH, piece.edges, tab);
-  ctx.strokeStyle = "rgba(201, 162, 39, 0.55)";
-  ctx.lineWidth = 1.25;
+  ctx.strokeStyle = "rgba(201, 162, 39, 0.65)";
+  ctx.lineWidth = 1.4;
   ctx.stroke();
   piecePath(ctx, ox, oy, displayW, displayH, piece.edges, tab);
-  ctx.strokeStyle = "rgba(228, 199, 107, 0.35)";
-  ctx.lineWidth = 0.75;
+  ctx.strokeStyle = "rgba(228, 199, 107, 0.4)";
+  ctx.lineWidth = 0.8;
   ctx.stroke();
+
+  // cornice stato: segue il path jigsaw (non un rettangolo)
+  if (status === "wrong" || status === "ok" || status === "locked") {
+    const stroke =
+      status === "wrong" ? "rgba(224, 122, 106, 0.95)" : status === "ok" ? "rgba(109, 207, 138, 0.95)" : "rgba(109, 207, 138, 0.75)";
+    piecePath(ctx, ox, oy, displayW, displayH, piece.edges, tab);
+    ctx.strokeStyle = stroke;
+    ctx.lineWidth = 3.2;
+    ctx.stroke();
+    piecePath(ctx, ox, oy, displayW, displayH, piece.edges, tab);
+    ctx.strokeStyle = status === "wrong" ? "rgba(255, 180, 170, 0.35)" : "rgba(180, 255, 200, 0.35)";
+    ctx.lineWidth = 5.5;
+    ctx.stroke();
+  }
 
   return { outerW, outerH };
 }
