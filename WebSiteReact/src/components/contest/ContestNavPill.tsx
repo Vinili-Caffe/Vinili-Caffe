@@ -42,17 +42,18 @@ export function ContestNavPill({ className }: { className?: string }) {
 
   const label = item.pillLabel || "Contest";
 
+  /* Solo logo: su telefono la label rubava posto alla campanella notifiche. */
   return (
     <SmartLink
       href={href}
       className={cn(
-        "inline-flex max-w-[10rem] items-center gap-1.5 rounded-full bg-caramel/95 px-3 py-1.5 text-xs font-semibold tracking-wide text-ink shadow-[0_8px_24px_-10px_rgba(0,0,0,0.75)] ring-1 ring-sand/45 transition-colors hover:bg-sand",
+        "inline-flex size-10 shrink-0 items-center justify-center rounded-full bg-caramel/95 text-ink shadow-[0_8px_24px_-10px_rgba(0,0,0,0.75)] ring-1 ring-sand/45 transition-colors hover:bg-sand",
         className,
       )}
-      title={item.title}
+      title={item.title || label}
+      aria-label={item.title || label}
     >
-      <Ghost className="size-3.5 shrink-0" strokeWidth={2.25} />
-      <span className="truncate">{label}</span>
+      <Ghost className="size-[1.15rem] shrink-0" strokeWidth={2.25} />
     </SmartLink>
   );
 }

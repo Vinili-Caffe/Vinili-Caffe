@@ -535,7 +535,7 @@ export function Navbar() {
             )}
           </ul>
 
-          <div className="flex shrink-0 items-center justify-self-end gap-1.5">
+          <div className="flex shrink-0 items-center justify-self-end gap-1 sm:gap-1.5">
             {!eventoChrome ? <ContestNavPill /> : null}
             <ViewAsLaunch />
             <NavNotifBell />
@@ -545,7 +545,7 @@ export function Navbar() {
           <button
             type="button"
             onClick={() => setOpen(true)}
-              className="inline-flex size-10 items-center justify-center rounded-full bg-crema/8 text-crema ring-1 ring-crema/15 transition-colors hover:bg-crema/15 lg:hidden"
+              className="inline-flex size-10 shrink-0 items-center justify-center rounded-full bg-crema/8 text-crema ring-1 ring-crema/15 transition-colors hover:bg-crema/15 lg:hidden"
             aria-expanded={open}
             aria-controls="vc-menu"
               aria-label={t("nav.openMenu")}

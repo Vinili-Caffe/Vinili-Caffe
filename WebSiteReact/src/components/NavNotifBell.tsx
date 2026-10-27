@@ -9,6 +9,7 @@ import { page } from "@/lib/site";
 import { cn } from "@/lib/cn";
 import { setChromeOpen } from "@/lib/chrome-open";
 import { useCloseOnScroll } from "@/lib/use-close-on-scroll";
+import { useBodyScrollLock } from "@/lib/use-body-scroll-lock";
 import {
   deleteNotif,
   filterBell,
@@ -28,15 +29,27 @@ import { SmartLink } from "./SmartLink";
 import { AnimatedList } from "./magicui/animated-list";
 import { EmojiText } from "@/components/discord/EmojiText";
 
-/** Campanella + dropdown anteprima (come il vecchio sito, UI Motif). */
+function useNarrowNav() {
+  const [narrow, setNarrow] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 1023px)");
+    const sync = () => setNarrow(mq.matches);
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
+  return narrow;
+}
+
+/** Campanella + dropdown (desktop) / schermata full (telefono). */
 export function NavNotifBell() {
   const { ready, token, user } = useAuth();
   const { t } = useI18n();
+  const narrow = useNarrowNav();
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<SiteNotification[]>([]);
   const [unread, setUnread] = useState(0);
   const reduceMotion = useReducedMotion();
-  // a ogni notifica in più la campanella riparte subito (key nuova), senza aspettare il giro
   const [ring, setRing] = useState(0);
   const prevUnread = useRef(0);
   useEffect(() => {
@@ -52,16 +65,15 @@ export function NavNotifBell() {
     return () => setChromeOpen(`notif-${uid}`, false);
   }, [open, uid]);
 
+  useBodyScrollLock(open && narrow);
+
   const load = useCallback(() => {
     if (!token) return;
     loadNotifications(token, 50).then((res) => {
       if (!res.ok) return;
-      // campanella = tutte comprese le staff; fuori solo conferme voto e tipi silenziati. Già sorted newest-first
       const raw = res.data.items || [];
       const list = filterBell(raw);
       const fromList = list.filter((x) => !x.read).length;
-      // il server conta con le stesse regole della campanella (già senza conferme voto e silenziate):
-      // oltre le 50 in lista vale il suo totale. Stesso numero sul badge di telefono e PC.
       const fromApi = Number(res.data.unread);
       const n = Number.isFinite(fromApi) ? Math.max(fromList, fromApi) : fromList;
       setItems(list);
@@ -83,7 +95,6 @@ export function NavNotifBell() {
     }
   }, [ready, token]);
 
-  // poll + focus/pageshow + WS — pace da DeviceFx.pollMult via useLiveRefresh
   useLiveRefresh(load, {
     intervalMs: 60_000,
     enabled: ready && Boolean(token),
@@ -91,7 +102,6 @@ export function NavNotifBell() {
     topics: ["notifications"],
   });
 
-  /* badgeCrossDevice1: unread dal payload WS → badge subito, poi full sync */
   useEffect(() => {
     if (!ready || !token) return;
     const me = String(user?.id || "").trim();
@@ -107,7 +117,6 @@ export function NavNotifBell() {
     });
   }, [ready, token, user?.id, load]);
 
-  // ricarica anche all’apertura della campanella
   useEffect(() => {
     if (open && ready && token) load();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- solo all’open
@@ -121,7 +130,7 @@ export function NavNotifBell() {
   const closeMenu = useCallback(() => setOpen(false), []);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open || narrow) return;
     const onDown = (e: MouseEvent) => !box.current?.contains(e.target as Node) && closeMenu();
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && closeMenu();
     document.addEventListener("mousedown", onDown);
@@ -130,14 +139,20 @@ export function NavNotifBell() {
       document.removeEventListener("mousedown", onDown);
       window.removeEventListener("keydown", onKey);
     };
-  }, [open, closeMenu]);
+  }, [open, narrow, closeMenu]);
 
-  // Solo click: chiude automaticamente allo scroll
-  useCloseOnScroll(open, closeMenu);
+  useEffect(() => {
+    if (!open || !narrow) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && closeMenu();
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, narrow, closeMenu]);
+
+  useCloseOnScroll(open && !narrow, closeMenu);
 
   if (!ready || !token) return null;
 
-  const preview = items.slice(0, 8);
+  const preview = items.slice(0, narrow ? 24 : 8);
 
   async function onOpenItem(n: SiteNotification) {
     if (!token) return;
@@ -180,8 +195,98 @@ export function NavNotifBell() {
     setBusy(false);
   }
 
+  const listBody = (
+    <>
+      {preview.length === 0 ? (
+        <p className={cn("text-center text-crema/50", narrow ? "px-4 py-16 text-base" : "px-3 py-8 text-sm")}>
+          {t("notif.empty")}
+        </p>
+      ) : (
+        <AnimatedList key={open ? `open-${preview.map((n) => n.id).join(",")}` : "closed"} delay={narrow ? 40 : 60} showAll>
+          {preview.map((n) => {
+            const cat = PERSONAL_CATS.find((c) => c.id === personalCategory(n))?.label || "";
+            const href = resolveDestUrl(n.openUrl) || page("/notifications/");
+            return (
+              <div
+                key={n.id}
+                className={cn(
+                  "group flex items-stretch gap-0.5 rounded-xl transition-colors hover:bg-crema/8",
+                  !n.read && "bg-caramel/8",
+                  narrow && "rounded-2xl",
+                )}
+              >
+                <a
+                  href={href}
+                  onClick={() => void onOpenItem(n)}
+                  className={cn("flex min-w-0 flex-1 gap-2.5", narrow ? "px-3.5 py-3.5" : "px-2.5 py-2.5")}
+                >
+                  <span
+                    className={cn(
+                      "mt-1.5 size-2 shrink-0 rounded-full",
+                      narrow && "mt-2 size-2.5",
+                      n.read ? "bg-crema/20" : "bg-ember shadow-[0_0_6px_rgba(240,180,110,0.7)]",
+                    )}
+                    aria-hidden
+                  />
+                  <span className="min-w-0 flex-1">
+                    <span className="flex items-baseline justify-between gap-2">
+                      <span className={cn("truncate font-medium text-crema", narrow ? "text-[0.95rem]" : "text-sm")}>
+                        <EmojiText text={n.title} />
+                      </span>
+                      <span className="shrink-0 text-[0.65rem] text-crema/40">{timeAgoNotif(n.at)}</span>
+                    </span>
+                    {n.body ? (
+                      <span
+                        className={cn(
+                          "mt-0.5 leading-relaxed text-crema/55",
+                          narrow ? "line-clamp-3 text-sm" : "line-clamp-2 text-xs",
+                        )}
+                      >
+                        <EmojiText text={n.body} />
+                      </span>
+                    ) : null}
+                    {cat ? (
+                      <span className="mt-1 inline-block text-[0.65rem] font-semibold uppercase tracking-wider text-caramel/80">
+                        {cat}
+                      </span>
+                    ) : null}
+                  </span>
+                </a>
+                <button
+                  type="button"
+                  aria-label={t("notif.delete")}
+                  title={t("notif.delete")}
+                  onClick={(e) => void onDeleteItem(n, e)}
+                  className={cn(
+                    "m-1.5 flex shrink-0 items-center justify-center self-center rounded-full text-crema/35 transition-colors hover:bg-crema/10 hover:text-crema",
+                    narrow ? "size-10 opacity-90" : "size-8 opacity-80 group-hover:opacity-100 sm:opacity-60",
+                  )}
+                >
+                  <X className={narrow ? "size-4" : "size-3.5"} />
+                </button>
+              </div>
+            );
+          })}
+        </AnimatedList>
+      )}
+    </>
+  );
+
+  const footer = (
+    <SmartLink
+      href={page("/notifications/")}
+      onClick={() => setOpen(false)}
+      className={cn(
+        "flex items-center justify-center gap-1.5 font-medium text-ember hover:bg-caramel/10",
+        narrow ? "rounded-2xl px-4 py-3.5 text-base" : "rounded-xl px-3 py-2.5 text-sm",
+      )}
+    >
+      {t("notif.seeAll")} <ExternalLink className="size-3.5" />
+    </SmartLink>
+  );
+
   return (
-    <div ref={box} className="relative">
+    <div ref={box} className="relative shrink-0">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
@@ -189,7 +294,6 @@ export function NavNotifBell() {
         aria-expanded={open}
         aria-label={unread ? t("notif.unreadAria", { n: unread }) : t("notif.title")}
       >
-        {/* da non lette la campanella suona ogni qualche secondo; a ogni nuova arrivata suona subito */}
         <motion.span
           key={ring}
           className="inline-flex origin-[50%_12%]"
@@ -223,8 +327,53 @@ export function NavNotifBell() {
       </button>
 
       <AnimatePresence>
-        {open && (
+        {open && narrow ? (
           <motion.div
+            key="notif-sheet"
+            role="dialog"
+            aria-modal="true"
+            aria-label={t("notif.title")}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 z-[80] flex flex-col bg-espresso/98"
+          >
+            <div className="flex shrink-0 items-center justify-between gap-3 border-b border-sand/10 px-4 pb-3 pt-[max(0.85rem,env(safe-area-inset-top))]">
+              <p className="font-display text-xl font-semibold text-crema">{t("notif.title")}</p>
+              <div className="flex items-center gap-1.5">
+                {unread > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => void markAll()}
+                    disabled={busy}
+                    className="inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-sm font-medium text-crema/70 hover:bg-crema/8 hover:text-crema disabled:opacity-50"
+                  >
+                    <CheckCheck className="size-4" /> {t("notif.markAll")}
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={closeMenu}
+                  className="inline-flex size-11 items-center justify-center rounded-full bg-crema/8 text-crema ring-1 ring-crema/15"
+                  aria-label={t("nav.closeMenu")}
+                >
+                  <X className="size-5" />
+                </button>
+              </div>
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 py-2">{listBody}</div>
+            <div className="shrink-0 border-t border-sand/10 p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
+              {footer}
+            </div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {open && !narrow ? (
+          <motion.div
+            key="notif-drop"
             initial={{ opacity: 0, y: -6, scale: 0.97 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -6, scale: 0.97 }}
@@ -246,77 +395,10 @@ export function NavNotifBell() {
                 )}
               </div>
             </div>
-
-            <div className="max-h-[min(22rem,50vh)] overflow-y-auto p-1.5">
-              {preview.length === 0 ? (
-                <p className="px-3 py-8 text-center text-sm text-crema/50">{t("notif.empty")}</p>
-              ) : (
-                <AnimatedList key={open ? `open-${preview.map((n) => n.id).join(",")}` : "closed"} delay={60} showAll>
-                  {preview.map((n) => {
-                    const cat = PERSONAL_CATS.find((c) => c.id === personalCategory(n))?.label || "";
-                    const href = resolveDestUrl(n.openUrl) || page("/notifications/");
-                    return (
-                      <div
-                        key={n.id}
-                        className={cn(
-                          "group flex items-stretch gap-0.5 rounded-xl transition-colors hover:bg-crema/8",
-                          !n.read && "bg-caramel/8",
-                        )}
-                      >
-                        <a
-                          href={href}
-                          onClick={() => void onOpenItem(n)}
-                          className="flex min-w-0 flex-1 gap-2.5 px-2.5 py-2.5"
-                        >
-                          <span
-                            className={cn(
-                              "mt-1.5 size-2 shrink-0 rounded-full",
-                              n.read ? "bg-crema/20" : "bg-ember shadow-[0_0_6px_rgba(240,180,110,0.7)]",
-                            )}
-                            aria-hidden
-                          />
-                          <span className="min-w-0 flex-1">
-                            <span className="flex items-baseline justify-between gap-2">
-                              <span className="truncate text-sm font-medium text-crema"><EmojiText text={n.title} /></span>
-                              <span className="shrink-0 text-[0.65rem] text-crema/40">{timeAgoNotif(n.at)}</span>
-                            </span>
-                            {n.body ? (
-                              <span className="mt-0.5 line-clamp-2 text-xs leading-relaxed text-crema/55"><EmojiText text={n.body} /></span>
-                            ) : null}
-                            {cat ? (
-                              <span className="mt-1 inline-block text-[0.65rem] font-semibold uppercase tracking-wider text-caramel/80">
-                                {cat}
-                              </span>
-                            ) : null}
-                          </span>
-                        </a>
-                        <button
-                          type="button"
-                          aria-label={t("notif.delete")}
-                          title={t("notif.delete")}
-                          onClick={(e) => void onDeleteItem(n, e)}
-                          className="m-1.5 flex size-8 shrink-0 items-center justify-center self-center rounded-full text-crema/35 opacity-80 transition-colors hover:bg-crema/10 hover:text-crema group-hover:opacity-100 sm:opacity-60"
-                        >
-                          <X className="size-3.5" />
-                        </button>
-                      </div>
-                    );
-                  })}
-                </AnimatedList>
-              )}
-            </div>
-
-            <div className="border-t border-sand/10 p-1.5">
-              <SmartLink
-                href={page("/notifications/")}
-                onClick={() => setOpen(false)}
-                className="flex items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-sm font-medium text-ember hover:bg-caramel/10"
-              >
-                {t("notif.seeAll")} <ExternalLink className="size-3.5" />
-              </SmartLink>
-            </div>
+            <div className="max-h-[min(22rem,50vh)] overflow-y-auto p-1.5">{listBody}</div>
+            <div className="border-t border-sand/10 p-1.5">{footer}</div>
           </motion.div>
-        )}
+        ) : null}
       </AnimatePresence>
     </div>
   );

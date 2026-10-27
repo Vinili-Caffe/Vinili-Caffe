@@ -472,18 +472,47 @@ self.addEventListener("push", (event) => {
   );
 });
 
+/* pushClickNavFix1: iOS Client.navigate → spesso start_url/home; stash cache +
+   postMessage + location.assign lato pagina. openWindow se nessun client. */
+async function stashNotifNav(absUrl) {
+  try {
+    const cache = await caches.open("vc-notif-pending-v1");
+    await cache.put(
+      "/__vc_notif_pending",
+      new Response(JSON.stringify({ url: String(absUrl || ""), t: Date.now() }), {
+        headers: { "content-type": "application/json" },
+      }),
+    );
+  } catch {
+    /* ignore */
+  }
+}
+
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
   const nd = (event.notification.data && typeof event.notification.data === "object" && event.notification.data) || {};
-  let rawUrl = String(nd.url || nd.openUrl || nd.navigate || "").trim();
+  /* Declarative iOS: openUrl in data; navigate può stare anche top-level options. */
+  let rawUrl = String(
+    nd.url || nd.openUrl || nd.navigate || event.notification?.data?.url || "",
+  ).trim();
+  try {
+    const navOpt = event.notification && event.notification.navigate;
+    if ((!rawUrl || rawUrl === "/") && navOpt) rawUrl = String(navOpt).trim();
+  } catch {
+    /* ignore */
+  }
   if (!rawUrl || rawUrl === "/" || rawUrl === self.location.origin || rawUrl === `${self.location.origin}/`) {
     rawUrl = "/notifications/";
   }
   let target = "/notifications/";
   try {
     const u = new URL(rawUrl, self.location.origin);
-    if (u.origin === self.location.origin) target = u.pathname + u.search + u.hash || "/notifications/";
-    else target = u.href;
+    if (u.origin === self.location.origin) {
+      const path = `${u.pathname || "/"}${u.search || ""}${u.hash || ""}`;
+      target = path || "/notifications/";
+    } else {
+      target = u.href;
+    }
   } catch {
     target = "/notifications/";
   }
@@ -491,6 +520,7 @@ self.addEventListener("notificationclick", (event) => {
     /^https?:\/\//i.test(target) ? target : new URL(target, self.location.origin).href;
   event.waitUntil(
     (async () => {
+      await stashNotifNav(abs);
       const list = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
       const same = list.find((c) => String(c.url || "").startsWith(self.location.origin));
       if (same) {
@@ -500,12 +530,12 @@ self.addEventListener("notificationclick", (event) => {
         } catch {
           /* ignore */
         }
-        /* iOS: client.navigate spesso fallisce o apre start_url → home */
-        if ("navigate" in same) {
+        /* Solo desktop Chromium: navigate. Su iOS manda spesso alla home. */
+        if (!isIosClient() && "navigate" in same && typeof same.navigate === "function") {
           try {
             await same.navigate(abs);
           } catch {
-            /* ignore */
+            /* ignore — NotifNavigate fa location.assign */
           }
         }
         return;

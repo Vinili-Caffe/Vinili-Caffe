@@ -256,11 +256,24 @@ export function NotificationsBoard() {
     return () => window.removeEventListener("vc:notif-changed", onChanged);
   }, [token, refresh]);
 
-  // ?view=staff | ?tab=staff
+  // ?view=staff | ?tab=staff (anche dopo click push / soft nav)
   useEffect(() => {
-    const sp = new URLSearchParams(location.search);
-    const view = String(sp.get("view") || sp.get("tab") || "").toLowerCase();
-    if (view === "staff") setScope("staff");
+    const apply = () => {
+      try {
+        const sp = new URLSearchParams(location.search);
+        const view = String(sp.get("view") || sp.get("tab") || "").toLowerCase();
+        if (view === "staff") setScope("staff");
+      } catch {
+        /* ignore */
+      }
+    };
+    apply();
+    window.addEventListener("popstate", apply);
+    window.addEventListener("pageshow", apply);
+    return () => {
+      window.removeEventListener("popstate", apply);
+      window.removeEventListener("pageshow", apply);
+    };
   }, []);
 
   useEffect(() => {
