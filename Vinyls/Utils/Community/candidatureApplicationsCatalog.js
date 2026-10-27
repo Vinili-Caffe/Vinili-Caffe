@@ -1,5 +1,5 @@
 const HELPER_QUESTIONS = [
-  { id: "id_discord", text: "1. ID Discord", modalLabel: "1. ID", placeholder: "Copia e incolla il tuo ID di Discord", kind: "short" },
+  { id: "id_discord", text: "1. ID Discord", modalLabel: "1. ID Discord", placeholder: "Copia e incolla il tuo ID di Discord", kind: "short" },
   { id: "eta", text: "2. Età", modalLabel: "2. Età", placeholder: "Scrivi la tua età", kind: "short" },
   { id: "tos_linee_guida", text: "3. Cosa sono i ToS e le Linee Guida di Discord?", modalLabel: "3. ToS e Linee Guida di Discord", placeholder: "", kind: "paragraph" },
   {
@@ -78,7 +78,7 @@ const HELPER_QUESTIONS = [
 ];
 
 const PARTNER_MANAGER_QUESTIONS = [
-  { id: "id_discord", text: "1. ID Discord", modalLabel: "1. ID", placeholder: "Dal profilo OAuth", kind: "short" },
+  { id: "id_discord", text: "1. ID Discord", modalLabel: "1. ID Discord", placeholder: "Dal profilo OAuth", kind: "short" },
   {
     id: "partnership_tra_server",
     text: "2. Descrivi brevemente come si effettua una partnership tra server",

@@ -124,10 +124,12 @@ export function parseNumberedQa(text: string): WorkflowField[] {
     if (m && Number.isFinite(num) && num === expected) {
       flush();
       const rest = String(m[2] || "").trim();
-      const idLine = rest.match(/^(ID(?:\s+Discord)?)\s+(.+)$/i);
-      const ageLine = rest.match(/^(Et[aà])\s+(.+)$/i);
-      if (idLine) current = { name: `${num}. ${idLine[1]}`, value: idLine[2]!.trim() };
-      else if (ageLine) current = { name: `${num}. ${ageLine[1]}`, value: ageLine[2]!.trim() };
+      /* idDiscordLabelFix1: "ID Discord" non deve matchare come name=ID value=Discord. */
+      const idLine =
+        rest.match(/^(ID\s+Discord)(?:\s+(.+))?$/i) || rest.match(/^(ID)(?:\s+(.+))?$/i);
+      const ageLine = rest.match(/^(Et[aà])(?:\s+(.+))?$/i);
+      if (idLine) current = { name: `${num}. ${idLine[1]}`, value: String(idLine[2] || "").trim() };
+      else if (ageLine) current = { name: `${num}. ${ageLine[1]}`, value: String(ageLine[2] || "").trim() };
       else current = { name: `${num}. ${rest}`.trim(), value: "" };
       expected += 1;
       continue;
@@ -179,7 +181,28 @@ export function resolveWorkflowDetailFields(
     const parsed = parseNumberedQa(source);
     if (parsed.length >= 2) fields = parsed;
     else if (!fieldsUseful(fields) && source) fields = parseNumberedQa(source);
-    fields = fields.filter((f) => !/^(utente|user)$/i.test(String(f.name || "").trim()));
+    fields = fields
+      .filter((f) => !/^(utente|user)$/i.test(String(f.name || "").trim()))
+      .map((field) => {
+        const fname = String(field.name || "").trim();
+        if (/^(?:\d{1,2}\.\s*)?id(?:\s+discord)?$/i.test(fname)) {
+          const rawVal = cleanText(field.value, true);
+          const lines = rawVal
+            .split("\n")
+            .map((l) => l.trim())
+            .filter(Boolean);
+          /* Vecchi parse: value = "Discord\\n<id>" → ripara label + snowflake. */
+          let id = "";
+          if (lines.length >= 2 && /^discord$/i.test(lines[0]!)) {
+            id = lines[1]!.replace(/\D/g, "").slice(0, 22);
+          } else {
+            id = rawVal.replace(/\D/g, "").slice(0, 22);
+          }
+          if (!id) id = String(item.userId || "").trim();
+          return { name: "1. ID Discord", value: id || field.value || "—" };
+        }
+        return field;
+      });
   } else if (!fieldsUseful(fields) && source) {
     fields = parseNumberedQa(source);
   }

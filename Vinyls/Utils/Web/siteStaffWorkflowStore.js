@@ -975,12 +975,14 @@ function parseNumberedQaBlocks(text) {
     if (m && Number.isFinite(num) && num === expected) {
       flush();
       const rest = String(m[2] || "").trim();
-      const idLine = rest.match(/^(ID(?:\s+Discord)?)\s+(.+)$/i);
-      const ageLine = rest.match(/^(Et[aà])\s+(.+)$/i);
+      /* idDiscordLabelFix1: "ID Discord" non deve diventare name=ID value=Discord. */
+      const idLine =
+        rest.match(/^(ID\s+Discord)(?:\s+(.+))?$/i) || rest.match(/^(ID)(?:\s+(.+))?$/i);
+      const ageLine = rest.match(/^(Et[aà])(?:\s+(.+))?$/i);
       if (idLine) {
-        current = { name: `${num}. ${idLine[1]}`, value: idLine[2].trim() };
+        current = { name: `${num}. ${idLine[1]}`, value: String(idLine[2] || "").trim() };
       } else if (ageLine) {
-        current = { name: `${num}. ${ageLine[1]}`, value: ageLine[2].trim() };
+        current = { name: `${num}. ${ageLine[1]}`, value: String(ageLine[2] || "").trim() };
       } else {
         current = { name: `${num}. ${rest}`.trim(), value: "" };
       }
