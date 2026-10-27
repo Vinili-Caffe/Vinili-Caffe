@@ -131,7 +131,7 @@ export const LEGAL_PRIVACY: LegalDoc = {
       blocks: [
         { type: "p", text: "Usiamo cookie e tecnologie simili (incluso *localStorage*, *sessionStorage* e, se attivo, service worker per le push) principalmente per:" },
         { type: "ul", items: [
-            "Mantenere la sessione di login Discord (fino a 90 giorni o fino al logout).",
+            "Mantenere la sessione di login Discord (fino a 180 giorni o fino al logout).",
             "Ricordare lingua, preferenze UI, stato push e conferma del banner cookie.",
             "Proteggere il sito con controlli anti-abuso e token tecnici.",
             "Misurare l’audience sulle pagine dove Google Analytics è attivo.",
@@ -170,7 +170,7 @@ export const LEGAL_PRIVACY: LegalDoc = {
       blocks: [
         { type: "p", text: "Conserviamo i dati per il tempo necessario alle finalità per cui sono trattati. I periodi sotto sono **obiettivi tipici** (salvo obbligo legale o dispute in corso): non tutti i dataset hanno un timer di cancellazione automatica; la rimozione avviene anche tramite strumenti “I tuoi dati”, richieste e operazioni di manutenzione dove tecnicamente fattibile." },
         { type: "ul", items: [
-            "**Sessione sito**: fino a 90 giorni, oppure fino a logout / scadenza token.",
+            "**Sessione sito**: fino a 180 giorni, oppure fino a logout / scadenza token.",
             "**Profilo community / punti / progressi**: finché resti membro o usi i servizi; dopo uscita o richiesta di cancellazione, di norma fino a 12 mesi per chiusura tecnica e prevenzione abusi, salvo anonimizzazione prima.",
             "**Ticket web e allegati**: di norma fino a 24 mesi dalla chiusura, poi cancellazione o anonimizzazione.",
             "**Suggerimenti, recensioni, feedback, candidature**: di norma fino a 36 mesi, o prima su richiesta/moderazione.",
@@ -242,12 +242,12 @@ export const LEGAL_COOKIE: LegalDoc = {
       blocks: [
         { type: "h3", text: "Necessari al funzionamento" },
         { type: "p", text: "Utilizziamo cookie tecnici e storage locale strettamente necessari. Senza di essi login e aree riservate possono non funzionare." },
-        { type: "p", text: "**Sessione OAuth Discord** — token e scadenza nel localStorage (fino a 90 giorni / logout / scadenza token). OAuth = “Accedi con Discord”.\n\n**Scope e cache profilo** — ricordano i permessi di login e dati minimi del profilo per ridurre chiamate a Discord.\n\n**Preferenza lingua** — salva la lingua del sito.\n\n**Preferenza banner cookie** — ricorda la conferma del banner (fino a 180 giorni).\n\n**Notifiche push (opzionale)** — se le attivi: chiavi locali di permesso/stato e service worker del browser.\n\n**Stato UI tecnico** — chiavi locali per notifiche in-app, accessi eventi o anteprime, senza pubblicità personalizzata." },
+        { type: "p", text: "**Sessione OAuth Discord** — token e scadenza nel localStorage (fino a 180 giorni / logout / scadenza token). OAuth = “Accedi con Discord”.\n\n**Scope e cache profilo** — ricordano i permessi di login e dati minimi del profilo per ridurre chiamate a Discord.\n\n**Preferenza lingua** — salva la lingua del sito.\n\n**Preferenza banner cookie** — ricorda la conferma del banner (fino a 180 giorni).\n\n**Notifiche push (opzionale)** — se le attivi: chiavi locali di permesso/stato e service worker del browser.\n\n**Stato UI tecnico** — chiavi locali per notifiche in-app, accessi eventi o anteprime, senza pubblicità personalizzata." },
         { type: "h3", text: "Misurazione (analytics)" },
         { type: "p", text: "Usiamo **Google Analytics** (ID `G-KPF6425N60`) per capire traffico e stabilità del sito. Lo script è presente su tutte le pagine. Non usiamo cookie di profilazione pubblicitaria, remarketing o social tracking a fini ads (salvo cookie di Discord durante OAuth)." },
         { type: "fact", title: "Sessione OAuth Discord", badge: "Essenziale", items: [
             { k: "Scopo", v: "mantiene il login attivo e gestisce autenticazione OAuth." },
-            { k: "Durata", v: "fino a 90 giorni come sessione locale del sito, oppure fino al logout o alla scadenza/invalida del token Discord." },
+            { k: "Durata", v: "fino a 180 giorni come sessione locale del sito, oppure fino al logout o alla scadenza/invalida del token Discord." },
             { k: "Tipo", v: "dati tecnici locali del browser (non cookie di marketing)." }
           ] },
         { type: "fact", title: "Cookie di sicurezza", badge: "Essenziale", items: [
@@ -282,7 +282,7 @@ export const LEGAL_COOKIE: LegalDoc = {
         { type: "ul", items: [
             "**HTTPS/TLS** — comunicazioni cifrate con i servizi API.",
             "**State OAuth anti-CSRF** — verifica dello stato nelle callback di login.",
-            "**Scadenza sessione** — la sessione locale termina dopo massimo 90 giorni, logout o invalida/scadenza del token Discord.",
+            "**Scadenza sessione** — la sessione locale termina dopo massimo 180 giorni, logout o invalida/scadenza del token Discord.",
             "**Dati minimizzati** — solo dati tecnici strettamente necessari al funzionamento."
           ] },
       ],
@@ -335,7 +335,7 @@ export const LEGAL_COOKIE: LegalDoc = {
       title: "Durata dei cookie",
       blocks: [
         { type: "table", headers: ["Tipo", "Durata"], rows: [
-            ["Sessione autenticazione sito (localStorage)", "Fino a 90 giorni, logout o scadenza token Discord"],
+            ["Sessione autenticazione sito (localStorage)", "Fino a 180 giorni, logout o scadenza token Discord"],
             ["Preferenza lingua / UI tecnica / stato push", "Fino a cancellazione manuale, revoca permesso o logout dove previsto"],
             ["Preferenza banner cookie", "180 giorni"],
             ["Google Analytics", "Secondo impostazioni Google"],

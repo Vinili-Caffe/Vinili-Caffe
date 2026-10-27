@@ -393,6 +393,7 @@ const ids = {
     PokeName: "874910942490677270",
     ViniliCaffeBot: "1329118940110127204",
     ViniliCaffeBotTest: "1466495522474037463",
+    ViniliTest: "1564724685554589746",
     Discadia: "1222548162741538938",
     Dyno: "155149108183695360",
     VoteManager: "959699003010871307",

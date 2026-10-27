@@ -3,13 +3,14 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { isGuestPreview, subscribeViewAs } from "./view-as";
 
-// Login Discord: OAuth implicit (response_type=token). Token in sessionStorage (non localStorage).
+// Login Discord: OAuth implicit (response_type=token). Token in localStorage (fino a 180 giorni).
 // Le API del sito lo ricevono come "Authorization: Bearer …".
-// Return path OAuth resta in localStorage (serve al round-trip Discord / ITP).
+// State/return OAuth anche in sessionStorage (round-trip Discord / ITP).
 //
-// Parità oauthPromptNone1 / logoutToOAuth1 / oauthHashKill1:
+// Parità oauthPromptNone1 / logoutToOAuth1 / oauthHashKill1 / oauthSession180d1:
 // - click login → prompt=none; soft error → consent
 // - logout utente → Discord authorize (consent)
+// - sessione locale max 180 giorni; Discord può invalidare prima → 401 → logout
 
 const CLIENT_ID = "1329118940110127204";
 const SCOPES = "identify guilds";
@@ -20,6 +21,8 @@ const STATE_KEY = "vc_beta_oauth_state";
 const PENDING_RETURN_KEY = "vc_oauth_pending_return_v1";
 const ATTEMPTED_NONE_KEY = "vc_oauth_attempted_none_v1";
 const STATE_MAX_AGE_MS = 30 * 60 * 1000;
+/** Sessione sito in localStorage: fino a 180 giorni (policy cookie/privacy). */
+const SESSION_MAX_MS = 180 * 24 * 60 * 60 * 1000;
 
 export type DiscordUser = { id: string; username: string; global_name?: string | null; avatar?: string | null };
 
@@ -74,19 +77,19 @@ const ssSet = (k: string, v: string | null) => {
   } catch {}
 };
 
-/** Token/user in sessionStorage (non localStorage): riduce persistenza post-XSS / tab chiuse. */
-const SESSION_AUTH_KEYS = new Set([TOKEN_KEY, EXPIRES_KEY, USER_KEY]);
+/** Token/user in localStorage (persistono tra tab/chiusure, max SESSION_MAX_MS). */
+const AUTH_PERSIST_KEYS = new Set([TOKEN_KEY, EXPIRES_KEY, USER_KEY]);
 
 function authGet(k: string): string | null {
-  if (SESSION_AUTH_KEYS.has(k)) {
-    const ss = ssGet(k);
-    if (ss != null) return ss;
-    // migrazione one-shot da localStorage legacy
+  if (AUTH_PERSIST_KEYS.has(k)) {
     const ls = read(k);
-    if (ls != null) {
-      ssSet(k, ls);
-      write(k, null);
-      return ls;
+    if (ls != null) return ls;
+    // migrazione one-shot da sessionStorage (periodo oauthSessionStorage1)
+    const ss = ssGet(k);
+    if (ss != null) {
+      write(k, ss);
+      ssSet(k, null);
+      return ss;
     }
     return null;
   }
@@ -94,9 +97,9 @@ function authGet(k: string): string | null {
 }
 
 function authSet(k: string, v: string | null) {
-  if (SESSION_AUTH_KEYS.has(k)) {
-    ssSet(k, v);
-    write(k, null); // non lasciare copie in localStorage
+  if (AUTH_PERSIST_KEYS.has(k)) {
+    write(k, v);
+    ssSet(k, null); // niente doppio storage
     return;
   }
   write(k, v);
@@ -113,9 +116,9 @@ function clearLocalSession() {
   authSet(TOKEN_KEY, null);
   authSet(EXPIRES_KEY, null);
   authSet(USER_KEY, null);
-  write(TOKEN_KEY, null);
-  write(EXPIRES_KEY, null);
-  write(USER_KEY, null);
+  ssSet(TOKEN_KEY, null);
+  ssSet(EXPIRES_KEY, null);
+  ssSet(USER_KEY, null);
 }
 
 function normalizeReturnPath(raw?: string | null): string {
@@ -286,9 +289,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         history.replaceState(null, "", location.pathname + location.search);
       } else {
         const t = hash.get("access_token")!;
-        const ttl = Number(hash.get("expires_in") || 604800) * 1000;
+        /* Sessione locale fino a 180gg (policy); Discord può invalidare prima → 401 → logout. */
         authSet(TOKEN_KEY, t);
-        authSet(EXPIRES_KEY, String(Date.now() + ttl));
+        authSet(EXPIRES_KEY, String(Date.now() + SESSION_MAX_MS));
         returnTo = resolveReturnPath(got, expected);
         clearOAuthTransient();
         // via il token dall'indirizzo (non deve restare in cronologia)

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { BookOpen, Check, CheckCircle2, Clock, Info, Loader2, MicOff, Send, ShieldBan } from "lucide-react";
 import { AuthGateCard } from "@/components/AuthGateCard";
+import { SubjectWorkflowChats } from "@/components/staff/SubjectWorkflowChats";
 import { useFormDraft } from "@/components/ui/form-drafts";
 import { useAuth } from "@/lib/auth";
 import { APPEAL_MAX, dateTimeIt, loadAppealState, submitAppeal, type AppealState, type AppealType } from "@/lib/applications";
@@ -189,11 +190,14 @@ export function AppelliBoard() {
       ) : !token ? (
         <AuthGateCard title="Accedi per continuare" text="Accedi con Discord per inviare la richiesta." />
       ) : (
-        <AnimatePresence mode="wait">
-          <motion.div key={type} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }}>
-            <AppealForm type={type} token={token} />
-          </motion.div>
-        </AnimatePresence>
+        <div className="space-y-8">
+          <SubjectWorkflowChats token={token} queue="appelli" />
+          <AnimatePresence mode="wait">
+            <motion.div key={type} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }}>
+              <AppealForm type={type} token={token} />
+            </motion.div>
+          </AnimatePresence>
+        </div>
       )}
 
       <div className="space-y-4">

@@ -6,6 +6,7 @@ import { AlertTriangle, ArrowLeft, ArrowRight, Check, CheckCircle2, Clock, Coffe
 import { AuthGateCard } from "@/components/AuthGateCard";
 import { Reveal } from "@/components/Reveal";
 import { RichText } from "@/components/RichText";
+import { SubjectWorkflowChats } from "@/components/staff/SubjectWorkflowChats";
 import { Radio } from "@/components/ui";
 import { clearDraft, loadDraft, saveDraft, useFormDraft } from "@/components/ui/form-drafts";
 import { useAuth } from "@/lib/auth";
@@ -237,6 +238,8 @@ export function CandidatureBoard() {
 
   return (
     <div className="mx-auto max-w-5xl space-y-16 px-6 pb-20">
+      {token ? <SubjectWorkflowChats token={token} queue="candidature" /> : null}
+
       {/* requisiti ed esito */}
       <Reveal>
         <div className="grid gap-4 md:grid-cols-[1.2fr_1fr]">

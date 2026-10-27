@@ -24,7 +24,7 @@
     "action": "ban",
     "punishAdder": true,
     "punishAdderAction": "ban",
-    "extraBotIds": []
+    "extraBotIds": ["1564724685554589746"]
   },
   "untrustedBotMessages": {
     "enabled": true

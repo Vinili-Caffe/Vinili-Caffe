@@ -536,7 +536,7 @@ export function StaffInbox({ token }: { token: string }) {
                 <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-caramel">Chat pratica</p>
                 <p className="mb-3 text-xs text-crema/40">
                   {sheetItem.canAct
-                    ? "Messaggi visibili a te e a chi gestisce le richieste."
+                    ? "Puoi aggiungere il richiedente alla discussione: riceve notifica e può rispondere dal sito."
                     : "Chat in sola lettura: la pratica è conclusa."}
                 </p>
                 <WorkflowChatPanel token={token} dedupeKey={chatKey} />
