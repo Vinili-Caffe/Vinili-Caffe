@@ -120,13 +120,13 @@ function pathActive(pathname: string, href: string) {
   return p === h || p.startsWith(h);
 }
 
-/** Su /evento/* Hub resta attivo (sei “nell’hub evento”); le sottopagine evidenziano anche sé. */
+/** Hub solo su `/evento/` esatto — non su avvento/gara/… (prefix match spegneva le altre). */
 function eventoLinkActive(pathname: string, href: string, id: string) {
-  if (id === "hub") {
-    const p = pathname.replace(/\/+$/, "") || "/";
-    return p === "/evento" || p.startsWith("/evento/") || p === "/puzzle" || p.startsWith("/puzzle/");
-  }
-  return pathActive(pathname, href);
+  const p = pathname.endsWith("/") ? pathname : `${pathname}/`;
+  const h = href.endsWith("/") ? href : `${href}/`;
+  if (id === "hub" || h === "/evento/") return p === "/evento/";
+  if (h === "/puzzle/") return p === "/puzzle/" || p.startsWith("/puzzle/");
+  return p === h || p.startsWith(h);
 }
 
 function NavDrop({

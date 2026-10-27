@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { EventoHubLinks } from "@/components/evento/EventoHubLinks";
 import { EventoHubStatus } from "@/components/evento/EventoHubStatus";
 import { EventoMinigamesPanel } from "@/components/evento/EventoMinigamesPanel";
 import { EventoPage } from "@/components/evento/EventoPage";
@@ -25,12 +24,11 @@ export default function EventoHubPage() {
       path={meta.path}
       title="Centro comando"
       accent={EVENTO_BRAND}
-      text="Calendario, fazioni, shop e attività sparse nella galassia. Naviga dalla barra in alto."
+      text="Calendario attività, shop e missioni che si sbloccano giorno per giorno."
     >
       <EventoHubStatus />
-      <EventoHubLinks />
-      <EventoShopPanel />
       <EventoMinigamesPanel />
+      <EventoShopPanel />
     </EventoPage>
   );
 }

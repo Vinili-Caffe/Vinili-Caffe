@@ -41,6 +41,9 @@ export const EVENTO_YT = EVENTO_YT_FALLBACKS[0]!;
 
 export const EVENTO_BGM_VOL_KEY = "vc_evento_sw_bgm_vol_v1";
 export const EVENTO_BGM_ON_KEY = "vc_evento_sw_bgm_on_v1";
+/** Secondi nel track — sopravvive ai remount di SiteShell tra pagine evento. */
+export const EVENTO_BGM_TIME_KEY = "vc_evento_sw_bgm_t_v1";
+export const EVENTO_BGM_TRACK_KEY = "vc_evento_sw_bgm_track_v1";
 
 export function isEventoChromePath(pathname: string): boolean {
   const p = String(pathname || "").replace(/\/+$/, "") || "/";

@@ -18,6 +18,8 @@ function pathActive(pathname: string, href: string) {
   const p = pathname.endsWith("/") ? pathname : `${pathname}/`;
   const h = href.endsWith("/") ? href : `${href}/`;
   if (h === "/") return p === "/";
+  /* Hub `/evento/` non deve restare attivo su `/evento/avvento/` ecc. */
+  if (h === "/evento/") return p === "/evento/";
   return p === h || p.startsWith(h);
 }
 
