@@ -1,23 +1,25 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { PackageOpen } from "lucide-react";
-import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence } from "motion/react";
 import { fetchEventoStatus, openEventoCrate, type EventoWallet } from "@/lib/evento-api";
 import { ADVENT_CRATE_LABELS, type AdventCrateId } from "@/lib/evento-avvento";
 import { useAuth } from "@/lib/auth";
 import { showToast } from "@/components/ui/toast";
-import { EventoBtn, EventoKicker, EventoPanel } from "@/components/evento/EventoUi";
+import { EventoKicker, EventoPanel } from "@/components/evento/EventoUi";
+import {
+  EventoCrateArt,
+  EventoCrateOpenOverlay,
+  type CrateLootPayload,
+} from "@/components/evento/EventoCrateArt";
 
-type LootShow = { crateId: string; credits: number; exp: number; note?: string | null };
-
-/** Inventario casse + apri 1 a 1. */
+/** Inventario casse: chest vere + apertura con card premio. */
 export function EventoCratesPanel() {
   const { token, ready, login } = useAuth();
   const [wallet, setWallet] = useState<EventoWallet | null>(null);
   const [labels, setLabels] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState<string | null>(null);
-  const [loot, setLoot] = useState<LootShow | null>(null);
+  const [loot, setLoot] = useState<CrateLootPayload | null>(null);
 
   const reload = useCallback(async () => {
     if (!ready) return;
@@ -41,7 +43,7 @@ export function EventoCratesPanel() {
   }, [wallet]);
 
   async function openOne(crateId: string) {
-    if (!token || busy) return;
+    if (!token || busy || loot) return;
     setBusy(crateId);
     const out = await openEventoCrate(token, crateId);
     setBusy(null);
@@ -49,15 +51,16 @@ export function EventoCratesPanel() {
       showToast(out?.message || "Apertura fallita.", true);
       return;
     }
+    const name = labels[crateId] || ADVENT_CRATE_LABELS[crateId as AdventCrateId] || crateId;
     setLoot({
       crateId,
+      label: name,
       credits: out.loot?.credits || 0,
       exp: out.loot?.exp || 0,
       note: out.loot?.note,
     });
     if (out.wallet) setWallet(out.wallet);
     else void reload();
-    showToast("Cassa aperta!");
   }
 
   if (!token) {
@@ -75,33 +78,36 @@ export function EventoCratesPanel() {
   return (
     <div className="mx-auto mb-10 max-w-4xl px-6">
       <EventoPanel glow="gold">
-        <div className="mb-4 flex items-center gap-3">
-          <PackageOpen className="size-6 text-[#e4c76b]" aria-hidden />
-          <div>
-            <EventoKicker>Inventario casse</EventoKicker>
-            <p className="text-sm text-crema/60">Tocca Apri per estrarre crediti / exp.</p>
-          </div>
+        <div className="mb-5 text-center sm:text-left">
+          <EventoKicker>Inventario casse</EventoKicker>
+          <p className="mt-1 text-sm text-crema/60">Tocca una cassa per aprirla e rivelare i premi.</p>
         </div>
-        <ul className="grid gap-2 sm:grid-cols-2">
+        <ul className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
           {rows.map((r) => {
-            const name =
-              labels[r.id] || ADVENT_CRATE_LABELS[r.id as AdventCrateId] || r.id;
+            const name = labels[r.id] || ADVENT_CRATE_LABELS[r.id as AdventCrateId] || r.id;
+            const loading = busy === r.id;
             return (
-              <li
-                key={r.id}
-                className="flex items-center justify-between gap-3 rounded-xl bg-black/35 px-3.5 py-3 ring-1 ring-sand/15"
-              >
-                <div className="min-w-0">
-                  <p className="truncate font-semibold text-crema">{name}</p>
-                  <p className="text-xs text-crema/45">x{r.qty}</p>
-                </div>
-                <EventoBtn
-                  className="!px-3 !py-1.5 !text-xs"
-                  disabled={Boolean(busy)}
+              <li key={r.id}>
+                <button
+                  type="button"
+                  disabled={Boolean(busy) || Boolean(loot)}
                   onClick={() => void openOne(r.id)}
+                  className="group flex w-full flex-col items-center rounded-2xl bg-black/40 px-2 pb-3 pt-4 ring-1 ring-sand/15 transition hover:bg-black/55 hover:ring-[#c9a227]/35 disabled:opacity-60"
                 >
-                  {busy === r.id ? "..." : "Apri"}
-                </EventoBtn>
+                  <EventoCrateArt
+                    crateId={r.id}
+                    size="md"
+                    qty={r.qty}
+                    shake={loading}
+                    open={false}
+                  />
+                  <p className="mt-2 line-clamp-2 px-1 text-center text-xs font-semibold text-crema group-hover:text-[#f0d78c]">
+                    {name}
+                  </p>
+                  <p className="mt-0.5 text-[0.65rem] uppercase tracking-wider text-crema/40">
+                    {loading ? "Apertura…" : "Apri"}
+                  </p>
+                </button>
               </li>
             );
           })}
@@ -109,39 +115,7 @@ export function EventoCratesPanel() {
       </EventoPanel>
 
       <AnimatePresence>
-        {loot ? (
-          <motion.div
-            className="fixed inset-0 z-[80] flex items-center justify-center p-4"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-          >
-            <button
-              type="button"
-              className="absolute inset-0 bg-[#05070f]/80 backdrop-blur-sm"
-              aria-label="Chiudi"
-              onClick={() => setLoot(null)}
-            />
-            <motion.div
-              className="relative z-10 w-full max-w-sm rounded-3xl bg-gradient-to-b from-[#121a32] to-[#05070f] p-6 text-center ring-1 ring-[#c9a227]/40"
-              initial={{ scale: 0.9, y: 16 }}
-              animate={{ scale: 1, y: 0 }}
-            >
-              <p className="text-[0.65rem] font-semibold uppercase tracking-[0.28em] text-[#e4c76b]">Loot</p>
-              <p className="mt-2 font-display text-2xl text-crema">
-                {labels[loot.crateId] || loot.crateId}
-              </p>
-              <p className="mt-4 text-lg text-sand">
-                +{loot.credits.toLocaleString("it-IT")} crediti
-                {loot.exp ? ` · +${loot.exp.toLocaleString("it-IT")} exp` : ""}
-              </p>
-              {loot.note ? <p className="mt-2 text-xs text-crema/55">{loot.note}</p> : null}
-              <EventoBtn className="mt-5" onClick={() => setLoot(null)}>
-                Ok
-              </EventoBtn>
-            </motion.div>
-          </motion.div>
-        ) : null}
+        {loot ? <EventoCrateOpenOverlay loot={loot} onClose={() => setLoot(null)} /> : null}
       </AnimatePresence>
     </div>
   );

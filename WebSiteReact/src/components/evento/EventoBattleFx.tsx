@@ -1,7 +1,7 @@
 "use client";
 
-import { motion } from "motion/react";
-import { Shield, Swords } from "lucide-react";
+import { useEffect, useState } from "react";
+import { motion, AnimatePresence } from "motion/react";
 import { EventoBtn } from "@/components/evento/EventoUi";
 import { useBodyScrollLock } from "@/lib/use-body-scroll-lock";
 
@@ -14,81 +14,238 @@ export type BattleFxData = {
   defendPower?: number;
 };
 
-/** Overlay scontro attacco/difesa. */
+function Lightsaber({
+  color,
+  side,
+  clash,
+}: {
+  color: "red" | "blue" | "green";
+  side: "left" | "right";
+  clash: boolean;
+}) {
+  const blade =
+    color === "red"
+      ? { core: "#fff5f5", glow: "#ff2a2a", mid: "#ff4d4d" }
+      : color === "blue"
+        ? { core: "#f0f9ff", glow: "#2ea8ff", mid: "#38bdf8" }
+        : { core: "#f0fdf4", glow: "#22c55e", mid: "#4ade80" };
+
+  const left = side === "left";
+
+  return (
+    <motion.div
+      className="absolute bottom-[18%] origin-bottom"
+      style={{
+        left: left ? "18%" : undefined,
+        right: left ? undefined : "18%",
+        width: 28,
+        height: "58%",
+        rotate: left ? -28 : 28,
+      }}
+      animate={
+        clash
+          ? {
+              rotate: left ? [-28, -8, -42, -18, -28] : [28, 8, 42, 18, 28],
+              x: left ? [0, 36, -8, 22, 0] : [0, -36, 8, -22, 0],
+              y: [0, -18, 6, -10, 0],
+            }
+          : { rotate: left ? -28 : 28, x: 0, y: 0 }
+      }
+      transition={{ duration: 1.15, ease: [0.22, 1, 0.36, 1], repeat: clash ? 1 : 0 }}
+    >
+      {/* lama */}
+      <div className="absolute inset-x-[32%] bottom-[18%] top-0 overflow-visible rounded-full">
+        <div
+          className="absolute inset-0 rounded-full"
+          style={{
+            background: `linear-gradient(180deg, ${blade.core} 0%, ${blade.mid} 35%, ${blade.glow} 100%)`,
+            boxShadow: `0 0 18px 4px ${blade.glow}, 0 0 42px 10px ${blade.glow}99, 0 0 80px 18px ${blade.glow}55`,
+          }}
+        />
+        <div
+          className="absolute inset-x-[28%] inset-y-[4%] rounded-full opacity-90"
+          style={{ background: blade.core, filter: "blur(0.5px)" }}
+        />
+      </div>
+      {/* elsa */}
+      <div
+        className="absolute bottom-0 left-1/2 h-[18%] w-[150%] -translate-x-1/2 rounded-md"
+        style={{
+          background: "linear-gradient(180deg,#d4d4d8,#52525b 40%,#18181b)",
+          boxShadow: "0 4px 12px rgba(0,0,0,0.5)",
+        }}
+      >
+        <div className="absolute inset-x-[10%] top-[18%] h-[12%] rounded-sm bg-[#a1a1aa]/80" />
+        <div
+          className="absolute left-1/2 top-0 size-2 -translate-x-1/2 -translate-y-1/2 rounded-full"
+          style={{ background: blade.glow, boxShadow: `0 0 10px ${blade.glow}` }}
+        />
+      </div>
+    </motion.div>
+  );
+}
+
+/** Overlay scontro: duello spade laser a tema Star Wars. */
 export function EventoBattleFx({ data, onClose }: { data: BattleFxData; onClose: () => void }) {
   useBodyScrollLock(true);
+  const [phase, setPhase] = useState<"ignite" | "clash" | "result">("ignite");
 
   const won =
     data.ok &&
     (data.winner === "attacker" || data.winner === "you" || /vitt|win|ok/i.test(data.message || ""));
 
+  const atkColor: "red" | "blue" = data.defend ? "blue" : "red";
+  const defColor: "blue" | "green" = data.defend ? "green" : "blue";
+
+  useEffect(() => {
+    const t1 = window.setTimeout(() => setPhase("clash"), 700);
+    const t2 = window.setTimeout(() => setPhase("result"), 2200);
+    return () => {
+      window.clearTimeout(t1);
+      window.clearTimeout(t2);
+    };
+  }, []);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && phase === "result") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose, phase]);
+
   return (
     <motion.div
-      className="fixed inset-0 z-[85] flex items-center justify-center p-4"
+      className="fixed inset-0 z-[85] flex items-center justify-center overflow-hidden p-4"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
     >
-      <button type="button" className="absolute inset-0 bg-[#05070f]/88 backdrop-blur-md" aria-label="Chiudi" onClick={onClose} />
-      <motion.div
-        className="relative z-10 w-full max-w-md overflow-hidden rounded-3xl bg-gradient-to-b from-[#1a1020] to-[#05070f] p-6 ring-1 ring-[#c9a227]/35"
-        initial={{ scale: 0.88, y: 20 }}
-        animate={{ scale: 1, y: 0 }}
-        transition={{ type: "spring", stiffness: 260, damping: 20 }}
-      >
-        <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden>
-          {Array.from({ length: 14 }).map((_, i) => (
-            <motion.span
-              key={i}
-              className="absolute size-1 rounded-full bg-[#e4c76b]"
-              style={{ left: `${8 + (i * 7) % 90}%`, top: `${10 + (i * 11) % 70}%` }}
-              animate={{ opacity: [0.15, 0.9, 0.2], scale: [0.6, 1.4, 0.7] }}
-              transition={{ duration: 1.2 + (i % 5) * 0.15, repeat: Infinity, delay: i * 0.05 }}
+      <button
+        type="button"
+        className="absolute inset-0 bg-[#02040a]/94"
+        aria-label={phase === "result" ? "Chiudi" : "Duello in corso"}
+        onClick={() => phase === "result" && onClose()}
+      />
+
+      {/* stelle */}
+      <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden>
+        {Array.from({ length: 40 }).map((_, i) => (
+          <span
+            key={i}
+            className="absolute size-0.5 rounded-full bg-white"
+            style={{
+              left: `${(i * 17) % 100}%`,
+              top: `${(i * 29) % 100}%`,
+              opacity: 0.15 + (i % 5) * 0.12,
+            }}
+          />
+        ))}
+        <div
+          className="absolute inset-x-0 bottom-0 h-[45%]"
+          style={{
+            background:
+              "radial-gradient(ellipse 70% 55% at 50% 100%, rgba(201,162,39,0.18), transparent 70%)",
+          }}
+        />
+      </div>
+
+      {/* arena duello */}
+      <div className="pointer-events-none relative z-[1] h-[min(62vh,420px)] w-full max-w-xl">
+        <Lightsaber color={atkColor} side="left" clash={phase !== "ignite"} />
+        <Lightsaber color={defColor} side="right" clash={phase !== "ignite"} />
+
+        {/* flash clash al centro */}
+        <AnimatePresence>
+          {phase === "clash" ? (
+            <motion.div
+              className="absolute left-1/2 top-[38%] size-28 -translate-x-1/2 -translate-y-1/2 rounded-full"
+              style={{
+                background:
+                  "radial-gradient(circle, rgba(255,255,255,0.95) 0%, rgba(228,199,107,0.55) 35%, transparent 70%)",
+              }}
+              initial={{ opacity: 0, scale: 0.2 }}
+              animate={{ opacity: [0, 1, 0.4, 1, 0], scale: [0.2, 1.6, 1.1, 1.8, 2.2] }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 1.1 }}
+              aria-hidden
             />
-          ))}
-        </div>
+          ) : null}
+        </AnimatePresence>
 
-        <div className="relative flex items-center justify-center gap-6 py-4">
-          <motion.div
-            className="flex size-16 items-center justify-center rounded-2xl bg-rose-500/20 ring-1 ring-rose-400/40"
-            animate={{ x: [0, 18, 0], rotate: [0, -8, 0] }}
-            transition={{ duration: 0.9, repeat: 2 }}
-          >
-            <Swords className="size-8 text-rose-300" />
-          </motion.div>
-          <motion.span
-            className="font-display text-3xl text-[#e4c76b]"
-            initial={{ scale: 0 }}
-            animate={{ scale: [0, 1.3, 1] }}
-            transition={{ delay: 0.35, duration: 0.45 }}
-          >
-            VS
-          </motion.span>
-          <motion.div
-            className="flex size-16 items-center justify-center rounded-2xl bg-sky-500/20 ring-1 ring-sky-400/40"
-            animate={{ x: [0, -18, 0], rotate: [0, 8, 0] }}
-            transition={{ duration: 0.9, repeat: 2 }}
-          >
-            <Shield className="size-8 text-sky-300" />
-          </motion.div>
-        </div>
+        {/* scintille */}
+        {phase === "clash"
+          ? Array.from({ length: 12 }).map((_, i) => (
+              <motion.span
+                key={i}
+                className="absolute left-1/2 top-[38%] size-1.5 rounded-full bg-[#f0d78c]"
+                initial={{ opacity: 1, x: 0, y: 0, scale: 1 }}
+                animate={{
+                  opacity: 0,
+                  x: (i % 2 === 0 ? 1 : -1) * (40 + (i % 5) * 18),
+                  y: -30 - (i % 4) * 22,
+                  scale: 0.2,
+                }}
+                transition={{ duration: 0.7, delay: 0.15 + i * 0.04 }}
+                aria-hidden
+              />
+            ))
+          : null}
 
-        <p className="relative mt-2 text-center text-[0.65rem] font-semibold uppercase tracking-[0.28em] text-crema/50">
-          {data.defend ? "Difesa" : "Attacco"}
-        </p>
-        <p className="relative mt-2 text-center font-display text-2xl text-crema">
-          {!data.ok ? "Scontro fallito" : won ? "Vittoria!" : data.winner ? `Esito: ${data.winner}` : "Scontro concluso"}
-        </p>
-        {data.message ? <p className="relative mt-2 text-center text-sm text-crema/65">{data.message}</p> : null}
-        {(data.attackPower != null || data.defendPower != null) && (
-          <p className="relative mt-3 text-center text-xs tabular-nums text-crema/45">
-            Potenza ATK {data.attackPower ?? "—"} · DEF {data.defendPower ?? "—"}
-          </p>
+        <motion.p
+          className="absolute inset-x-0 top-2 text-center text-[0.65rem] font-semibold uppercase tracking-[0.35em] text-[#e4c76b]/80"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+        >
+          {data.defend ? "Difesa · Forza" : "Attacco · Duello"}
+        </motion.p>
+      </div>
+
+      {/* risultato */}
+      <AnimatePresence>
+        {phase === "result" ? (
+          <motion.div
+            className="absolute inset-x-4 bottom-[8%] z-10 mx-auto w-full max-w-md rounded-3xl bg-gradient-to-b from-[#121a32]/95 to-[#05070f] p-6 text-center ring-1 ring-[#c9a227]/40 backdrop-blur-md sm:inset-x-auto"
+            initial={{ opacity: 0, y: 28, scale: 0.94 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 12 }}
+            transition={{ type: "spring", stiffness: 240, damping: 20 }}
+          >
+            <motion.p
+              className="font-display text-3xl font-semibold"
+              style={{ color: !data.ok ? "#fb7185" : won ? "#86efac" : "#f0d78c" }}
+              initial={{ scale: 0.6, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ type: "spring", stiffness: 200, damping: 12 }}
+            >
+              {!data.ok ? "Scontro fallito" : won ? "Vittoria!" : data.winner ? `Esito: ${data.winner}` : "Scontro concluso"}
+            </motion.p>
+            {data.message ? <p className="mt-2 text-sm leading-relaxed text-crema/65">{data.message}</p> : null}
+            {(data.attackPower != null || data.defendPower != null) && (
+              <div className="mt-4 flex items-center justify-center gap-4 text-xs tabular-nums text-crema/50">
+                <span className="rounded-full bg-rose-500/15 px-3 py-1 ring-1 ring-rose-400/30">
+                  ATK {data.attackPower ?? "—"}
+                </span>
+                <span className="font-display text-sm text-[#e4c76b]">VS</span>
+                <span className="rounded-full bg-sky-500/15 px-3 py-1 ring-1 ring-sky-400/30">
+                  DEF {data.defendPower ?? "—"}
+                </span>
+              </div>
+            )}
+            <div className="mt-6">
+              <EventoBtn onClick={onClose}>Chiudi</EventoBtn>
+            </div>
+          </motion.div>
+        ) : (
+          <motion.p
+            className="absolute bottom-[12%] z-10 text-center text-sm text-crema/45"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+          >
+            {phase === "ignite" ? "Le spade si accendono…" : "Scontro in corso…"}
+          </motion.p>
         )}
-        <div className="relative mt-6 text-center">
-          <EventoBtn onClick={onClose}>Chiudi</EventoBtn>
-        </div>
-      </motion.div>
+      </AnimatePresence>
     </motion.div>
   );
 }
