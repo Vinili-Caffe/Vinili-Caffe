@@ -13,7 +13,7 @@ import {
   type CrateLootPayload,
 } from "@/components/evento/EventoCrateArt";
 
-/** Inventario casse: chest vere + apertura con card premio. */
+/** Inventario casse: chest vere + apertura interattiva (tap per premio). */
 export function EventoCratesPanel() {
   const { token, ready, login } = useAuth();
   const [wallet, setWallet] = useState<EventoWallet | null>(null);
@@ -41,6 +41,8 @@ export function EventoCratesPanel() {
       .filter((r) => r.qty > 0)
       .sort((a, b) => a.id.localeCompare(b.id));
   }, [wallet]);
+
+  const totalQty = useMemo(() => rows.reduce((s, r) => s + r.qty, 0), [rows]);
 
   async function openOne(crateId: string) {
     if (!token || busy || loot) return;
@@ -78,9 +80,14 @@ export function EventoCratesPanel() {
   return (
     <div className="mx-auto mb-10 max-w-4xl px-6">
       <EventoPanel glow="gold">
-        <div className="mb-5 text-center sm:text-left">
-          <EventoKicker>Inventario casse</EventoKicker>
-          <p className="mt-1 text-sm text-crema/60">Tocca una cassa per aprirla e rivelare i premi.</p>
+        <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
+          <div className="min-w-0 text-center sm:text-left">
+            <EventoKicker>Inventario casse</EventoKicker>
+            <p className="mt-1 text-sm text-crema/60">Tocca una cassa, poi scopri i premi uno alla volta.</p>
+          </div>
+          <p className="mx-auto rounded-full bg-[#c9a227]/15 px-3 py-1 text-sm font-semibold tabular-nums text-[#f0d78c] ring-1 ring-[#c9a227]/35 sm:mx-0">
+            {totalQty} {totalQty === 1 ? "cassa" : "casse"}
+          </p>
         </div>
         <ul className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
           {rows.map((r) => {
@@ -104,6 +111,7 @@ export function EventoCratesPanel() {
                   <p className="mt-2 line-clamp-2 px-1 text-center text-xs font-semibold text-crema group-hover:text-[#f0d78c]">
                     {name}
                   </p>
+                  <p className="mt-1 font-display text-lg font-bold tabular-nums text-[#e4c76b]">×{r.qty}</p>
                   <p className="mt-0.5 text-[0.65rem] uppercase tracking-wider text-crema/40">
                     {loading ? "Apertura…" : "Apri"}
                   </p>

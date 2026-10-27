@@ -20,11 +20,12 @@ export function EventoShopPanel() {
   const [busy, setBusy] = useState(false);
   const [battle, setBattle] = useState<BattleFxData | null>(null);
 
-  const reload = useCallback(async () => {
+  const reload = useCallback(async (opts?: { soft?: boolean }) => {
     if (!ready) return;
-    setLoading(true);
+    // soft: non smontare il pannello (altrimenti l’overlay attacco/difesa salta scroll)
+    if (!opts?.soft) setLoading(true);
     const st = await fetchEventoShop(token);
-    setLoading(false);
+    if (!opts?.soft) setLoading(false);
     if (!st?.ok) return;
     setUnits(st.shop?.units || []);
     setBuyEnabled(Boolean(st.buyEnabled));
@@ -46,7 +47,7 @@ export function EventoShopPanel() {
       return;
     }
     showToast("Unita acquistata.");
-    void reload();
+    void reload({ soft: true });
   }
 
   async function attack(defend: boolean) {
@@ -62,10 +63,10 @@ export function EventoShopPanel() {
       attackPower: out?.attackPower,
       defendPower: out?.defendPower,
     });
-    void reload();
+    void reload({ soft: true });
   }
 
-  if (loading) return null;
+  if (loading && !battle) return null;
   if (!token) {
     return (
       <div className="mx-auto mb-10 max-w-4xl px-6 text-center">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useLayoutEffect } from "react";
 
 export type BodyScrollLockOpts = {
   /** Se true, lock solo sotto breakpoint lg (1023px) — overlay mobile. */
@@ -21,23 +21,22 @@ function scrollbarGap(): number {
 }
 
 function applyLock() {
-  if (lockCount === 1) {
-    lockedY = Math.max(0, Math.floor(window.scrollY || window.pageYOffset || 0));
-    const gap = scrollbarGap();
-    const root = document.documentElement;
-    root.style.overflow = "hidden";
-    root.style.overscrollBehavior = "none";
-    // position:fixed sul body: evita jump/footer flash quando sparisce lo scroll
-    document.body.style.position = "fixed";
-    document.body.style.top = `-${lockedY}px`;
-    document.body.style.left = "0";
-    document.body.style.right = "0";
-    document.body.style.width = "100%";
-    document.body.style.overflow = "hidden";
-    if (gap > 0) {
-      root.style.paddingRight = `${gap}px`;
-      document.body.style.paddingRight = `${gap}px`;
-    }
+  if (lockCount !== 1) return;
+  lockedY = Math.max(0, Math.floor(window.scrollY || window.pageYOffset || 0));
+  const gap = scrollbarGap();
+  const root = document.documentElement;
+  root.style.setProperty("overflow", "hidden");
+  root.style.setProperty("overscroll-behavior", "none");
+  // position:fixed + top: evita jump “va in basso poi torna su” all’apertura overlay
+  document.body.style.setProperty("position", "fixed");
+  document.body.style.setProperty("top", `-${lockedY}px`);
+  document.body.style.setProperty("left", "0");
+  document.body.style.setProperty("right", "0");
+  document.body.style.setProperty("width", "100%");
+  document.body.style.setProperty("overflow", "hidden");
+  if (gap > 0) {
+    root.style.setProperty("padding-right", `${gap}px`);
+    document.body.style.setProperty("padding-right", `${gap}px`);
   }
 }
 
@@ -54,23 +53,29 @@ function clearLock() {
   document.body.style.removeProperty("width");
   document.body.style.removeProperty("overflow");
   document.body.style.removeProperty("padding-right");
-  try {
-    window.scrollTo(0, y);
-  } catch {
-    /* ignore */
-  }
   lockedY = 0;
+  try {
+    window.scrollTo({ top: y, left: 0, behavior: "instant" as ScrollBehavior });
+    document.documentElement.scrollTop = y;
+    document.body.scrollTop = y;
+  } catch {
+    try {
+      window.scrollTo(0, y);
+    } catch {
+      /* ignore */
+    }
+  }
 }
 
 /**
- * Lock scroll body con ref-count (dialog + sheet + ticket overlay non si pestano).
- * Usa position:fixed + restore Y (niente flash footer / salto altezza).
+ * Lock scroll body con ref-count.
+ * useLayoutEffect: applica PRIMA del paint (niente flash scroll/footer).
  */
 export function useBodyScrollLock(active: boolean, opts: BodyScrollLockOpts = {}) {
   const mobileOnly = opts.mobileOnly === true;
   const mq = opts.mediaQuery || "(max-width: 1023px)";
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!active) return;
 
     let held = false;
