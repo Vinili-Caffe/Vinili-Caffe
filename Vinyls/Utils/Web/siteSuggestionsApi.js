@@ -167,13 +167,7 @@ function normalizeSuggestionKind(value) {
 }
 
 function suggestionFileAccessSecret() {
-  return String(
-    process.env.VC_SITE_UPLOAD_FILE_SECRET ||
-      process.env.VC_SERATAFILM_FILM_SECRET ||
-      process.env.SITE_WEBHOOK_SECRET ||
-      process.env.DISCORD_TOKEN ||
-      "vinili-site-upload-file",
-  ).trim();
+  return String(process.env.VC_SITE_UPLOAD_FILE_SECRET || process.env.SITE_WEBHOOK_SECRET || "").trim();
 }
 
 function createSuggestionFileAccessToken(suggestionId, fileName) {

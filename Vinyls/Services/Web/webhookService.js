@@ -297,16 +297,41 @@ function resolveDiscadiaWebhookBody(req) {
   return fromRaw || {};
 }
 
+function extractDiscadiaProvidedSecret(req) {
+  const fromHeader = normalizeHeaderSecret(
+    req.headers["authorization"] || req.headers["x-discadia-secret"],
+  );
+  if (fromHeader) return fromHeader;
+  const q = req.query || {};
+  const fromQuery = String(q.secret || q.key || q.token || "").trim();
+  if (fromQuery) return fromQuery;
+  const pathOnly = normalizeWebhookPath(req.originalUrl || req.url || req.path || "");
+  const m = pathOnly.match(/^\/webhooks\/discadia\/([^/]+)\/?$/i);
+  if (m && m[1] && m[1].toLowerCase() !== "health") return decodeURIComponent(m[1]);
+  return "";
+}
+
+function discadiaSecretsEqual(a, b) {
+  const left = Buffer.from(String(a || ""), "utf8");
+  const right = Buffer.from(String(b || ""), "utf8");
+  if (!left.length || left.length !== right.length) return false;
+  try {
+    return require("node:crypto").timingSafeEqual(left, right);
+  } catch {
+    return false;
+  }
+}
+
 async function handleDiscadiaVoteWebhook(req, res, client, secret) {
   try {
-    if (secret) {
-      const receivedSecret = normalizeHeaderSecret(
-        req.headers["authorization"] || req.headers["x-discadia-secret"],
-      );
-      if (receivedSecret !== secret) {
-        global.logger?.warn?.("[WEBHOOK] Discadia: Unauthorized request (secret mismatch)");
-        return res.status(401).send("Unauthorized");
-      }
+    if (!secret) {
+      global.logger?.error?.("[WEBHOOK] Discadia: DISCADIA_WEBHOOK_SECRET missing — refuse");
+      return res.status(503).send("Misconfigured");
+    }
+    const receivedSecret = extractDiscadiaProvidedSecret(req);
+    if (!receivedSecret || !discadiaSecretsEqual(receivedSecret, secret)) {
+      global.logger?.warn?.("[WEBHOOK] Discadia: Unauthorized request (secret mismatch)");
+      return res.status(401).send("Unauthorized");
     }
 
     const body = resolveDiscadiaWebhookBody(req);
@@ -503,7 +528,6 @@ async function startWebhookServer(client) {
     const isSiteWebTickets = pathStr.startsWith("/webhooks/site-web-tickets");
     const isSiteNotifications = pathStr.startsWith("/webhooks/site-notifications");
     const isSiteVerify = pathStr.startsWith("/webhooks/site-verify");
-    const isSitePayments = pathStr.startsWith("/webhooks/site-payments");
     const isSiteSeratafilmAccess =
       pathStr.startsWith("/webhooks/site-seratafilm-access") ||
       pathStr.startsWith("/webhooks/site-seratafilm-film");
@@ -553,7 +577,6 @@ async function startWebhookServer(client) {
       !isSiteWebTickets &&
       !isSiteNotifications &&
       !isSiteVerify &&
-      !isSitePayments &&
       !isSiteSeratafilmAccess &&
       !isSiteStaffAccess &&
       !isSiteHogwartsSorting &&
@@ -582,7 +605,7 @@ async function startWebhookServer(client) {
     if (allowOrigin) {
       res.setHeader("Access-Control-Allow-Origin", allowOrigin);
       res.append("Vary", "Origin");
-    } else if (isStatus || isSiteRules || isSiteUsers || isSiteVote || isSiteLiveEvent || isSiteKickLive || isSiteKickSub || isSiteRoles || isSiteRankCard || isSiteWikiHelp || isSiteReviews || isSiteBoards || isSiteSuggestions || isSiteBotFeedback || isSiteNotifications || isSitePayments || isSiteSeratafilmAccess || isSiteStaffAccess || isSiteHogwartsSorting) {
+    } else if (isStatus || isSiteRules || isSiteUsers || isSiteVote || isSiteLiveEvent || isSiteKickLive || isSiteKickSub || isSiteRoles || isSiteRankCard || isSiteWikiHelp || isSiteReviews || isSiteBoards || isSiteSuggestions || isSiteBotFeedback || isSiteNotifications || isSiteSeratafilmAccess || isSiteStaffAccess || isSiteHogwartsSorting) {
       res.setHeader("Access-Control-Allow-Origin", "*");
     }
     res.setHeader("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS");
@@ -599,20 +622,10 @@ async function startWebhookServer(client) {
     String(process.env.SITE_API_EXTERNAL || "").trim().toLowerCase(),
   );
   if (!skipSiteRoutesOnBots) {
-    const {
-      listSitePaymentPlans,
-      createSitePaymentOrder,
-      captureSitePaymentOrder,
-      handleSitePayPalWebhook,
-    } = require("../../Utils/Web/sitePaymentsApi");
     const { mountSiteWebhookRoutes } = require("./siteWebhookRoutes");
     mountSiteWebhookRoutes(app, client, {
       normalizeHeaderSecret,
       siteCorsMiddleware: siteCandidatureCorsMiddleware,
-      listSitePaymentPlans,
-      createSitePaymentOrder,
-      captureSitePaymentOrder,
-      handleSitePayPalWebhook,
     });
   }
 
@@ -663,9 +676,18 @@ async function startWebhookServer(client) {
   }
 
   if (shouldStartDiscadiaVoteHttpWebhook(client)) {
-    app.post("/webhooks/discadia", (req, res) => {
-      handleDiscadiaVoteWebhook(req, res, client, secret);
-    });
+    if (!secret) {
+      global.logger?.error?.(
+        "[WEBHOOK] Discadia HTTP abilitato ma DISCADIA_WEBHOOK_SECRET vuoto — route non montata",
+      );
+    } else {
+      app.post("/webhooks/discadia", (req, res) => {
+        handleDiscadiaVoteWebhook(req, res, client, secret);
+      });
+      app.post("/webhooks/discadia/:token", (req, res) => {
+        handleDiscadiaVoteWebhook(req, res, client, secret);
+      });
+    }
   }
 
   app.get("/webhooks/status", (req, res) => {

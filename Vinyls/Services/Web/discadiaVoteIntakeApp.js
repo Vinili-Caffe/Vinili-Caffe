@@ -1,6 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 const http = require("node:http");
+const crypto = require("node:crypto");
 
 const ROOT = path.resolve(__dirname, "../../..");
 const envPath = path.join(ROOT, ".env");
@@ -98,8 +99,43 @@ function extractUserId(body, rawText) {
   return null;
 }
 
+function normalizeHeaderSecret(raw) {
+  const s = String(raw || "").trim();
+  if (!s) return "";
+  const lower = s.toLowerCase();
+  if (lower.startsWith("bearer ")) return s.slice(7).trim();
+  return s;
+}
+
+function secretsEqual(a, b) {
+  const left = Buffer.from(String(a || ""), "utf8");
+  const right = Buffer.from(String(b || ""), "utf8");
+  if (!left.length || left.length !== right.length) return false;
+  return crypto.timingSafeEqual(left, right);
+}
+
+/** Discadia UI ha solo l'URL (niente Authorization): secret in path/query, oppure header se presente. */
+function extractDiscadiaProvidedSecret(req) {
+  const fromHeader = normalizeHeaderSecret(
+    req.headers["authorization"] || req.headers["x-discadia-secret"],
+  );
+  if (fromHeader) return fromHeader;
+  const q = req.query || {};
+  const fromQuery = String(q.secret || q.key || q.token || "").trim();
+  if (fromQuery) return fromQuery;
+  const pathToken = String(req.params?.token || "").trim();
+  if (pathToken && pathToken !== "health") return pathToken;
+  return "";
+}
+
 async function main() {
   const port = Number(process.env.DISCADIA_VOTE_INTAKE_PORT || 3010) || 3010;
+  const bindHost = String(process.env.DISCADIA_VOTE_INTAKE_BIND || "127.0.0.1").trim() || "127.0.0.1";
+  const secret = String(process.env.DISCADIA_WEBHOOK_SECRET || "").trim();
+  if (!secret) {
+    console.error("[DISCADIA INTAKE] Missing DISCADIA_WEBHOOK_SECRET — refuse to start");
+    process.exit(1);
+  }
   /* mongoSingleSource1 */
   const mongo = require("../../Utils/Database/mongoConnect").buildMongoUrl();
   if (!mongo) {
@@ -129,8 +165,12 @@ async function main() {
     res.status(200).json({ ok: true, service: "discadia-vote-intake" });
   });
 
-  app.post("/webhooks/discadia", async (req, res) => {
+  async function handleDiscadiaPost(req, res) {
     try {
+      const got = extractDiscadiaProvidedSecret(req);
+      if (!got || !secretsEqual(got, secret)) {
+        return res.status(401).send("Unauthorized");
+      }
       const rawBuf = Buffer.isBuffer(req.body) ? req.body : Buffer.alloc(0);
       const rawText = rawBuf.toString("utf8");
       const body = parseBody(rawBuf, req.headers["content-type"]);
@@ -152,11 +192,14 @@ async function main() {
       console.error("[DISCADIA INTAKE]", err?.message || err);
       return res.status(500).send("Internal Server Error");
     }
-  });
+  }
+
+  app.post("/webhooks/discadia", handleDiscadiaPost);
+  app.post("/webhooks/discadia/:token", handleDiscadiaPost);
 
   const server = http.createServer(app);
-  server.listen(port, "0.0.0.0", () => {
-    console.log(`[DISCADIA INTAKE] listening on 0.0.0.0:${port}`);
+  server.listen(port, bindHost, () => {
+    console.log(`[DISCADIA INTAKE] listening on ${bindHost}:${port}`);
   });
 }
 

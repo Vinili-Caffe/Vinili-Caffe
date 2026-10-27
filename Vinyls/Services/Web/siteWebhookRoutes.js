@@ -12,10 +12,6 @@ function isCandidatureWebsiteApiEnabled() {
 function mountSiteWebhookRoutes(app, client, deps) {
   const normalizeHeaderSecret = deps.normalizeHeaderSecret;
   const siteCandidatureCorsMiddleware = deps.siteCorsMiddleware;
-  const listSitePaymentPlans = deps.listSitePaymentPlans;
-  const createSitePaymentOrder = deps.createSitePaymentOrder;
-  const captureSitePaymentOrder = deps.captureSitePaymentOrder;
-  const handleSitePayPalWebhook = deps.handleSitePayPalWebhook;
   /* pageTune1: ETag/304 su GET pubblici boards/wiki/reviews/suggestions */
   const { sendJsonWithEtag, weakEtagFromJson } = require("../../Utils/Web/siteHttpEtag");
   function replyJsonEtag(req, res, out, opts = {}) {
@@ -845,59 +841,6 @@ function mountSiteWebhookRoutes(app, client, deps) {
     }
   });
 
-  app.get("/webhooks/site-payments/plans", (req, res) => {
-    try {
-      return res.status(200).json({ ok: true, items: listSitePaymentPlans() });
-    } catch (err) {
-      global.logger?.error?.("[WEBHOOK] site-payments plans:", err);
-      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
-    }
-  });
-  app.post("/webhooks/site-payments/create-order", async (req, res) => {
-    try {
-      const accessToken = normalizeHeaderSecret(req.headers.authorization);
-      if (!accessToken) {
-        return res.status(401).json({
-          ok: false,
-          error: "missing_token",
-          message: "Header Authorization: Bearer <token> richiesto.",
-        });
-      }
-      const body = req.body && typeof req.body === "object" ? req.body : {};
-      const out = await createSitePaymentOrder(client, {
-        accessToken,
-        planKey: body.planKey,
-      });
-      return res.status(Number(out.status) || 500).json(out);
-    } catch (err) {
-      global.logger?.error?.("[WEBHOOK] site-payments create-order:", err);
-      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
-    }
-  });
-  app.post("/webhooks/site-payments/capture-order", async (req, res) => {
-    try {
-      const accessToken = normalizeHeaderSecret(req.headers.authorization);
-      if (!accessToken) {
-        return res.status(401).json({
-          ok: false,
-          error: "missing_token",
-          message: "Header Authorization: Bearer <token> richiesto.",
-        });
-      }
-      const body = req.body && typeof req.body === "object" ? req.body : {};
-      const out = await captureSitePaymentOrder(client, {
-        accessToken,
-        orderId: body.orderId,
-      });
-      return res.status(Number(out.status) || 500).json(out);
-    } catch (err) {
-      global.logger?.error?.("[WEBHOOK] site-payments capture-order:", err);
-      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
-    }
-  });
-  app.post("/webhooks/site-payments/paypal-webhook", async (req, res) => {
-    return handleSitePayPalWebhook(client, req, res);
-  });
   app.post("/webhooks/site-verify/complete", async (req, res) => {
     try {
       const accessToken = normalizeHeaderSecret(req.headers.authorization);

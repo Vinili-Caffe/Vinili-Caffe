@@ -35,12 +35,6 @@ installEmbedFooterPatch();
 installOutgoingMessageEmbedPatch(discord);
 const { createSiteApiRestClient } = require("./siteApiRestClient");
 const { mountSiteWebhookRoutes } = require("./siteWebhookRoutes");
-const {
-  listSitePaymentPlans,
-  createSitePaymentOrder,
-  captureSitePaymentOrder,
-  handleSitePayPalWebhook,
-} = require("../../Utils/Web/sitePaymentsApi");
 const { mountSiteApiRateLimit } = require("../../Utils/Web/siteApiRateLimit");
 
 function normalizeHeaderSecret(raw) {
@@ -316,10 +310,6 @@ async function main() {
   mountSiteWebhookRoutes(app, client, {
     normalizeHeaderSecret,
     siteCorsMiddleware,
-    listSitePaymentPlans,
-    createSitePaymentOrder,
-    captureSitePaymentOrder,
-    handleSitePayPalWebhook,
   });
 
   app.post("/webhooks/site-realtime/notify", (req, res) => {
@@ -332,7 +322,10 @@ async function main() {
     if (!isLoopback) {
       return res.status(403).json({ ok: false, error: "forbidden" });
     }
-    const expected = String(process.env.SITE_REALTIME_NOTIFY_SECRET || "local").trim() || "local";
+    const expected = String(process.env.SITE_REALTIME_NOTIFY_SECRET || "").trim();
+    if (!expected || expected === "local") {
+      return res.status(503).json({ ok: false, error: "misconfigured" });
+    }
     const got = String(req.headers["x-internal-notify"] || "").trim();
     if (got !== expected) {
       return res.status(401).json({ ok: false, error: "unauthorized" });

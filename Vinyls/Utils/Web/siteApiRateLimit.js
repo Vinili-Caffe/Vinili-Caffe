@@ -36,6 +36,8 @@ function clientIpKey(req) {
 function isReadOnlySiteGet(req) {
   if (String(req.method || "").toUpperCase() !== "GET") return false;
   const path = webhookPath(req);
+  // Kick media proxy: NON in skip — altrimenti open-proxy abuse senza tetto
+  if (path.startsWith("/webhooks/site-kick-live/proxy")) return false;
   if (path.includes("/push/vapid-public-key")) return true;
   if (path === "/webhooks/site-chrome-prefs") return true;
   if (path === "/webhooks/site-discord-me") return true;
@@ -48,7 +50,6 @@ function isReadOnlySiteGet(req) {
   if (path.startsWith("/webhooks/site-users")) return true;
   if (path.startsWith("/webhooks/site-roles")) return true;
   if (path.startsWith("/webhooks/site-vote")) return true;
-  // mobileApisFast2: ticket/candidature GET must not burn strict rate limit on CGNAT phones
   if (path.startsWith("/webhooks/site-web-tickets")) return true;
   if (path.startsWith("/webhooks/site-candidature")) return true;
   if (path.startsWith("/webhooks/site-unban")) return true;
@@ -62,10 +63,10 @@ function isReadOnlySiteGet(req) {
   if (path.startsWith("/webhooks/site-kick-live")) return true;
   if (path.startsWith("/webhooks/site-kick-sub/status")) return true;
   if (path.startsWith("/webhooks/site-kick-sub/oauth-start")) return true;
-  // dashGuilds429Fix1: GET dashboard (guilds/credits/…) non deve bruciare il global limit
   if (path.startsWith("/webhooks/site-dashboard")) return true;
   if (path.startsWith("/webhooks/site-twitch-live")) return true;
   if (path.startsWith("/webhooks/site-wiki-help")) return true;
+  if (path.startsWith("/webhooks/site-staff-") && String(req.method || "").toUpperCase() === "GET") return true;
   return false;
 }
 
@@ -78,25 +79,29 @@ function shouldSkipRateLimit(req) {
     path === "/webhooks/health" ||
     path === "/webhooks/status" ||
     path === "/webhooks/site-kick-sub/events" ||
-    // consoleErrFix1: chrome-prefs GET+POST (sync theme/nav) — no express 429
     path === "/webhooks/site-chrome-prefs" ||
-    // console429Everywhere1: boot identity — no express 429 (CGNAT / multi-tab)
     path === "/webhooks/site-discord-me" ||
     path === "/webhooks/site-staff-access" ||
     (method === "POST" &&
       path.startsWith("/webhooks/site-notifications") &&
       (path.includes("/push/subscribe") ||
         path.includes("/push/unsubscribe") ||
-        /* siteApiDeviceEverywhere1: read/clear/delete su CGNAT+multi-tab */
         path.endsWith("/read") ||
         path.endsWith("/clear") ||
         path.endsWith("/delete"))) ||
-    isReadOnlySiteGet(req) ||
-    // ticketClaimHard1: claim/unclaim/presence su CGNAT non devono finire in 429
-    path.startsWith("/webhooks/site-web-tickets") ||
-    // Staff inbox/workflows/chat: no rate limit (GET+POST) — detail+chat open together.
-    path.startsWith("/webhooks/site-staff-")
+    isReadOnlySiteGet(req)
+    // staff mutating + tickets mutating: NON skip — usano privilegedLimiter
   );
+}
+
+function isPrivilegedMutatingPath(req) {
+  if (String(req.method || "").toUpperCase() === "GET") return false;
+  const path = webhookPath(req);
+  return path.startsWith("/webhooks/site-staff-") || path.startsWith("/webhooks/site-web-tickets");
+}
+
+function isKickProxyPath(req) {
+  return webhookPath(req).startsWith("/webhooks/site-kick-live/proxy");
 }
 
 function rateLimitedJson(_req, res) {
@@ -111,7 +116,6 @@ function clientAuthKey(req) {
   try {
     const auth = String(req.headers.authorization || "").trim();
     if (!auth) return "";
-    /* siteApiDeviceEverywhere1: bucket per token (hash corto) — 2 device stessa IP non si cannibalizzano */
     let h = 2166136261;
     for (let i = 0; i < auth.length; i += 1) {
       h ^= auth.charCodeAt(i);
@@ -135,32 +139,46 @@ function createSiteApiRateLimiters() {
   const shared = {
     standardHeaders: true,
     legacyHeaders: false,
-    skip: shouldSkipRateLimit,
     handler: rateLimitedJson,
-    /* rateLimitIpKey1 + siteApiDeviceEverywhere1: IP+token dietro nginx */
     keyGenerator: (req) => rateLimitKey(req),
     validate: { trustProxy: false },
   };
 
   const globalMax = parsePositiveInt(process.env.SITE_API_RATE_GLOBAL_MAX, 1200);
   const strictMax = parsePositiveInt(process.env.SITE_API_RATE_STRICT_MAX, 400);
+  const privilegedMax = parsePositiveInt(process.env.SITE_API_RATE_PRIVILEGED_MAX, 240);
+  const proxyMax = parsePositiveInt(process.env.SITE_API_RATE_KICK_PROXY_MAX, 180);
 
   return {
     global: rateLimit({
       ...shared,
       windowMs: 60_000,
       max: globalMax,
+      skip: shouldSkipRateLimit,
     }),
     strict: rateLimit({
       ...shared,
       windowMs: 60_000,
       max: strictMax,
+      skip: shouldSkipRateLimit,
+    }),
+    privileged: rateLimit({
+      ...shared,
+      windowMs: 60_000,
+      max: privilegedMax,
+      skip: (req) => String(req.method || "").toUpperCase() === "OPTIONS",
+    }),
+    kickProxy: rateLimit({
+      ...shared,
+      windowMs: 60_000,
+      max: proxyMax,
+      keyGenerator: (req) => clientIpKey(req),
+      skip: (req) => String(req.method || "").toUpperCase() === "OPTIONS",
     }),
   };
 }
 
 const STRICT_WEBHOOK_PREFIXES = [
-  // ticketManageSoft429Fix1: tickets già in shouldSkipRateLimit — non passare dallo strict
   "/webhooks/site-candidature",
   "/webhooks/site-verify",
   "/webhooks/site-vote",
@@ -171,11 +189,13 @@ const STRICT_WEBHOOK_PREFIXES = [
 ];
 
 function mountSiteApiRateLimit(app) {
-  const { global, strict } = createSiteApiRateLimiters();
+  const { global, strict, privileged, kickProxy } = createSiteApiRateLimiters();
 
   app.use((req, res, next) => {
     const path = webhookPath(req);
     if (!path.startsWith("/webhooks/")) return next();
+    if (isKickProxyPath(req)) return kickProxy(req, res, next);
+    if (isPrivilegedMutatingPath(req)) return privileged(req, res, next);
     const method = String(req.method || "").toUpperCase();
     const useStrict =
       method !== "GET" &&
@@ -189,6 +209,7 @@ module.exports = {
   mountSiteApiRateLimit,
   shouldSkipRateLimit,
   isReadOnlySiteGet,
+  isPrivilegedMutatingPath,
   clientIpKey,
   rateLimitKey,
 };

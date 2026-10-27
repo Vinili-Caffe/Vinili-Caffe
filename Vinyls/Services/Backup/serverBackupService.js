@@ -312,19 +312,52 @@ function getBackupsRootFolder() {
   return path.join(__dirname, "..", "..", "Data", "Backups");
 }
 
-function getBackupFilePath(guildId, backupId) {
+function assertSafeBackupId(backupId) {
   const normalizedId = String(backupId || "").trim().toUpperCase();
-  return path.join(getBackupFolder(guildId), `${normalizedId}.json.gz`);
+  if (!/^[A-Z0-9_-]{1,64}$/.test(normalizedId)) {
+    const err = new Error("backup_id non valido.");
+    err.code = "EINVAL";
+    throw err;
+  }
+  return normalizedId;
+}
+
+function assertSafeGuildId(guildId) {
+  const gid = String(guildId || "").trim();
+  if (!/^\d{16,22}$/.test(gid)) {
+    const err = new Error("guild_id non valido.");
+    err.code = "EINVAL";
+    throw err;
+  }
+  return gid;
+}
+
+function resolveUnderBackupRoot(guildId, fileName) {
+  const gid = assertSafeGuildId(guildId);
+  const root = path.resolve(getBackupFolder(gid));
+  const full = path.resolve(root, fileName);
+  const rootWithSep = root.endsWith(path.sep) ? root : root + path.sep;
+  if (full !== root && !full.startsWith(rootWithSep)) {
+    const err = new Error("backup path fuori dalla cartella consentita.");
+    err.code = "EINVAL";
+    throw err;
+  }
+  return full;
+}
+
+function getBackupFilePath(guildId, backupId) {
+  const normalizedId = assertSafeBackupId(backupId);
+  return resolveUnderBackupRoot(guildId, `${normalizedId}.json.gz`);
 }
 
 function getBackupBakPath(guildId, backupId) {
-  const normalizedId = String(backupId || "").trim().toUpperCase();
-  return path.join(getBackupFolder(guildId), `${normalizedId}.json.gz.bak`);
+  const normalizedId = assertSafeBackupId(backupId);
+  return resolveUnderBackupRoot(guildId, `${normalizedId}.json.gz.bak`);
 }
 
 function getBackupMetaPath(guildId, backupId) {
-  const normalizedId = String(backupId || "").trim().toUpperCase();
-  return path.join(getBackupFolder(guildId), `${normalizedId}.meta.json`);
+  const normalizedId = assertSafeBackupId(backupId);
+  return resolveUnderBackupRoot(guildId, `${normalizedId}.meta.json`);
 }
 
 async function readBackupMetaFile(guildId, backupId) {

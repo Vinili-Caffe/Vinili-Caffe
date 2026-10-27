@@ -2117,6 +2117,12 @@ async function webRejectCandidateApplication(guild, actorMember, messageId, type
   );
   const channel = await resolveSubmissionChannel(guild);
   const msg = channel ? await channel.messages.fetch(String(messageId)).catch(() => null) : null;
+  const bound = msg ? parseCandidateTypeFromMessage(msg) : null;
+  const boundType = String(bound?.type || type || "").trim();
+  const boundUserId = String(bound?.userId || "").trim();
+  if (!boundUserId || !["helper", "partnermanager"].includes(boundType)) {
+    return { ok: false, status: 400, message: "Candidatura non trovata o non più valida sul messaggio." };
+  }
   if (msg) {
     await setApplicationMessageStatusColor(msg, APPLICATION_REJECTED_COLOR, decidedBy, decidedByName);
     await deleteThreadForMessage(guild, msg);
@@ -2140,7 +2146,7 @@ async function webRejectCandidateApplication(guild, actorMember, messageId, type
     await clearWorkflowLifecycleNotifs({
       workflowQueue: "candidature",
       dedupeKey: mid,
-      userId: String(userId || ""),
+      userId: boundUserId,
     }).catch(() => null);
     if (mid) {
       await removeSiteInAppNotificationsMatching({
@@ -2150,8 +2156,8 @@ async function webRejectCandidateApplication(guild, actorMember, messageId, type
       }).catch(() => null);
     }
   } catch (_) {}
-  const rejType = String(type || "").trim();
-  const rejUid = String(userId || "").trim();
+  const rejType = boundType;
+  const rejUid = boundUserId;
   if (rejUid && ["helper", "partnermanager"].includes(rejType)) {
     try {
       const { enqueueSiteInAppNotification } = require("../../Utils/Web/siteInAppNotificationsService");
@@ -2188,7 +2194,14 @@ async function webAcceptCandidateApplication(guild, actorMember, messageId, type
   );
   const channel = await resolveSubmissionChannel(guild);
   const msg = channel ? await channel.messages.fetch(String(messageId)).catch(() => null) : null;
-  const status = await applyCandidatePex(guild, actorMember, type, userId, trimmedReason, msg || null);
+  const bound = msg ? parseCandidateTypeFromMessage(msg) : null;
+  const boundType = String(bound?.type || "").trim();
+  const boundUserId = String(bound?.userId || "").trim();
+  if (!msg || !boundUserId || !["helper", "partnermanager"].includes(boundType)) {
+    return { ok: false, status: 400, message: "Candidatura non trovata o non più valida sul messaggio." };
+  }
+  // non fidarsi di type/userId dal body — solo quelli sul messaggio Discord
+  const status = await applyCandidatePex(guild, actorMember, boundType, boundUserId, trimmedReason, msg);
   const ok = !String(status || "").toLowerCase().includes("impossibile") && !String(status || "").toLowerCase().includes("non trovato");
   if (ok) {
     try {

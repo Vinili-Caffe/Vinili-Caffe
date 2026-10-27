@@ -57,7 +57,11 @@ async function resolveTargetGuild(client, sourceGuild, guildId) {
 async function buildTenantServerInfoPayload(client, sourceGuild, options = {}) {
   const lang = options.lang || "it";
   const lookupContext = { guild: sourceGuild, client, lang };
-  const explicitLookup = Boolean(options.guildId);
+  const IDs = require("../Config/ids");
+  const mainId = String(IDs.guilds?.main || "").trim();
+  const sourceId = String(sourceGuild?.id || "").trim();
+  const allowCross = Boolean(mainId && sourceId === mainId);
+  const explicitLookup = Boolean(options.guildId) && allowCross;
 
   if (options.invalidId) {
     return buildTenantLookupNotFoundPayload("server", lookupContext);
@@ -65,7 +69,7 @@ async function buildTenantServerInfoPayload(client, sourceGuild, options = {}) {
 
   const requestedGuildId = explicitLookup
     ? String(options.guildId).trim()
-    : String(sourceGuild?.id || "").trim();
+    : sourceId;
 
   if (!isKnownPartnershipGuild(requestedGuildId)) {
     return buildTenantLookupNotFoundPayload("server", lookupContext);

@@ -64,6 +64,8 @@ module.exports = {
   async execute(interaction) {
     const parsed = parseProfileCustomId(interaction.customId);
     if (!parsed || !interaction.guild) return false;
+    // Bind tenant al guild dell'interazione (customId non deve spostare le prefs altrove)
+    parsed.guildId = String(interaction.guild.id);
 
     if (String(interaction.user?.id || "") !== parsed.ownerId) {
       const lang = await resolveTenantLanguageForInteraction(interaction);

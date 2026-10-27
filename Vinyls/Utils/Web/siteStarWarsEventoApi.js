@@ -489,6 +489,8 @@ async function handleSiteEventoAccademiaPost(client, req, res) {
       guildId: mainGuildId(client),
       userId: auth.userId,
       hits: body.hits,
+      playToken: body.playToken,
+      startedAt: body.startedAt,
     });
     return res.status(Number(out.status) || (out.ok ? 200 : 500)).json(out);
   } catch (err) {

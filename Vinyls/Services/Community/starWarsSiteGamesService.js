@@ -97,10 +97,25 @@ async function getAccademiaState(client, { guildId, userId }) {
   const targets = buildTargets(seed);
   let played = false;
   let lastScore = null;
+  let playToken = null;
   if (userId) {
-    const doc = await getDoc(`accademia_${slot}_${userId}`);
+    const dedupe = `accademia_${slot}_${userId}`;
+    const doc = await getDoc(dedupe);
     played = Boolean(doc?.payload?.done);
     lastScore = doc?.payload?.score ?? null;
+    if (!played && playable) {
+      playToken = cryptoRandomToken();
+      await setDoc(
+        dedupe,
+        {
+          done: false,
+          playToken,
+          issuedAt: Date.now(),
+          at: new Date().toISOString(),
+        },
+        normalizeId(guildId),
+      );
+    }
   }
   return {
     ok: true,
@@ -109,12 +124,21 @@ async function getAccademiaState(client, { guildId, userId }) {
     targets: played ? [] : targets,
     played,
     lastScore,
+    playToken,
     durationSec: 30,
     rewardHint: "cassa militare + exp in base al punteggio",
   };
 }
 
-async function submitAccademia(client, { guildId, userId, hits = [] }) {
+function cryptoRandomToken() {
+  try {
+    return require("node:crypto").randomBytes(16).toString("hex");
+  } catch {
+    return `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 12)}`;
+  }
+}
+
+async function submitAccademia(client, { guildId, userId, hits = [], playToken = null, startedAt = null }) {
   const g = normalizeId(guildId);
   const u = normalizeId(userId);
   if (!isValidGuildUserId(g, u)) return { ok: false, status: 400, error: "bad_ids" };
@@ -127,18 +151,33 @@ async function submitAccademia(client, { guildId, userId, hits = [] }) {
   if (existing?.payload?.done) {
     return { ok: false, status: 409, error: "already_played", message: "Hai già fatto questa prova." };
   }
+  const sessionToken = String(existing?.payload?.playToken || "").trim();
+  const clientToken = String(playToken || "").trim();
+  if (!sessionToken || !clientToken || sessionToken !== clientToken) {
+    return { ok: false, status: 403, error: "bad_session", message: "Sessione prova non valida. Ricarica." };
+  }
+  const issuedAt = Number(existing?.payload?.issuedAt) || 0;
+  const clientStart = Number(startedAt) || 0;
+  const startMs = issuedAt > 0 ? issuedAt : clientStart;
+  const elapsedMs = Math.max(0, Date.now() - startMs);
+  // Anti-cheat: niente max score istantaneo; cap hit credibili ~1 ogni 400ms
+  if (elapsedMs < 2500) {
+    return { ok: false, status: 429, error: "too_fast", message: "Troppo veloce — riprova giocando la prova." };
+  }
   const seed = Number(slot.replace(/\D/g, "").slice(-8)) || 1;
   const targets = buildTargets(seed);
   const byId = new Map(targets.map((t) => [t.id, t]));
   let score = 0;
   const seen = new Set();
+  const maxCredibleHits = Math.min(targets.length, Math.max(1, Math.floor(elapsedMs / 400)));
   for (const h of Array.isArray(hits) ? hits : []) {
+    if (seen.size >= maxCredibleHits) break;
     const id = normalizeId(h?.id || h);
     if (!id || seen.has(id) || !byId.has(id)) continue;
     seen.add(id);
     score += byId.get(id).points;
   }
-  await setDoc(dedupe, { done: true, score, at: new Date().toISOString() }, g);
+  await setDoc(dedupe, { done: true, score, hits: seen.size, elapsedMs, at: new Date().toISOString() }, g);
   const crateId = score >= 80 ? "militare_op" : score >= 40 ? "militare_plus" : "militare";
   const exp = Math.min(500, 50 + score * 2);
   const grant = await grantStarWarsReward(client, {

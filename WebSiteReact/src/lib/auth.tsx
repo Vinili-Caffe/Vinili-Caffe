@@ -3,15 +3,13 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { isGuestPreview, subscribeViewAs } from "./view-as";
 
-// Login Discord come sul sito vero: OAuth "implicit" (response_type=token), stessa app Discord.
-// Il token torna nell'hash (#access_token=…) sull'indirizzo di ritorno = origine + "/"
-// (sulla beta: https://beta.viniliecaffe.it/ → va registrato tra i Redirects dell'app su Discord).
+// Login Discord: OAuth implicit (response_type=token). Token in sessionStorage (non localStorage).
 // Le API del sito lo ricevono come "Authorization: Bearer …".
+// Return path OAuth resta in localStorage (serve al round-trip Discord / ITP).
 //
 // Parità oauthPromptNone1 / logoutToOAuth1 / oauthHashKill1:
 // - click login → prompt=none; soft error → consent
 // - logout utente → Discord authorize (consent)
-// - return path nel `state` OAuth + localStorage (sopravvive all'app Discord / ITP)
 
 const CLIENT_ID = "1329118940110127204";
 const SCOPES = "identify guilds";
@@ -76,14 +74,45 @@ const ssSet = (k: string, v: string | null) => {
   } catch {}
 };
 
+/** Token/user in sessionStorage (non localStorage): riduce persistenza post-XSS / tab chiuse. */
+const SESSION_AUTH_KEYS = new Set([TOKEN_KEY, EXPIRES_KEY, USER_KEY]);
+
+function authGet(k: string): string | null {
+  if (SESSION_AUTH_KEYS.has(k)) {
+    const ss = ssGet(k);
+    if (ss != null) return ss;
+    // migrazione one-shot da localStorage legacy
+    const ls = read(k);
+    if (ls != null) {
+      ssSet(k, ls);
+      write(k, null);
+      return ls;
+    }
+    return null;
+  }
+  return read(k);
+}
+
+function authSet(k: string, v: string | null) {
+  if (SESSION_AUTH_KEYS.has(k)) {
+    ssSet(k, v);
+    write(k, null); // non lasciare copie in localStorage
+    return;
+  }
+  write(k, v);
+}
+
 function storedToken(): string | null {
-  const t = read(TOKEN_KEY);
-  const exp = Number(read(EXPIRES_KEY) || 0);
+  const t = authGet(TOKEN_KEY);
+  const exp = Number(authGet(EXPIRES_KEY) || 0);
   if (!t || (exp && exp < Date.now() + 60_000)) return null;
   return t;
 }
 
 function clearLocalSession() {
+  authSet(TOKEN_KEY, null);
+  authSet(EXPIRES_KEY, null);
+  authSet(USER_KEY, null);
   write(TOKEN_KEY, null);
   write(EXPIRES_KEY, null);
   write(USER_KEY, null);
@@ -258,8 +287,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } else {
         const t = hash.get("access_token")!;
         const ttl = Number(hash.get("expires_in") || 604800) * 1000;
-        write(TOKEN_KEY, t);
-        write(EXPIRES_KEY, String(Date.now() + ttl));
+        authSet(TOKEN_KEY, t);
+        authSet(EXPIRES_KEY, String(Date.now() + ttl));
         returnTo = resolveReturnPath(got, expected);
         clearOAuthTransient();
         // via il token dall'indirizzo (non deve restare in cronologia)
@@ -276,12 +305,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const t = storedToken();
     setToken(t);
     if (!t) {
-      write(USER_KEY, null);
+      authSet(USER_KEY, null);
       setReady(true);
       return;
     }
     try {
-      const cached = JSON.parse(read(USER_KEY) || "null");
+      const cached = JSON.parse(authGet(USER_KEY) || "null");
       if (cached?.id) setUser(cached);
     } catch {}
     fetch("/webhooks/site-discord-me", { headers: { Authorization: `Bearer ${t}` }, cache: "no-store" })
@@ -291,7 +320,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const me = (await r.json()) as DiscordUser;
         if (me?.id) {
           setUser(me);
-          write(USER_KEY, JSON.stringify(me));
+          authSet(USER_KEY, JSON.stringify(me));
         }
       })
       .catch(() => {})

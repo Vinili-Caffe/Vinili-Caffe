@@ -106,7 +106,8 @@ function notifyExternalSiteRealtime(payload) {
   /* notifWsWakeFast1: sempre ping loopback verso site-api (anche senza SITE_API_EXTERNAL).
      I client WS stanno sul processo site-api; senza questo il fanout bots è un no-op. */
   const port = Number(process.env.SITE_API_PORT || 3020) || 3020;
-  const secret = String(process.env.SITE_REALTIME_NOTIFY_SECRET || "local").trim() || "local";
+  const secret = String(process.env.SITE_REALTIME_NOTIFY_SECRET || "").trim();
+  if (!secret || secret === "local") return;
   const body = JSON.stringify(scrubRealtimePayload(payload));
   void fetch(`http://127.0.0.1:${port}/webhooks/site-realtime/notify`, {
     method: "POST",
@@ -373,7 +374,8 @@ function broadcastSiteMemberLeft(userId, guildId = "") {
   /* leaveProfileLive1: bots process often lacks SITE_API_EXTERNAL — always ping site-api loopback */
   if (!isTruthyEnv("SITE_API_PROCESS")) {
     const port = Number(process.env.SITE_API_PORT || 3020) || 3020;
-    const secret = String(process.env.SITE_REALTIME_NOTIFY_SECRET || "local").trim() || "local";
+    const secret = String(process.env.SITE_REALTIME_NOTIFY_SECRET || "").trim();
+    if (!secret || secret === "local") return;
     void fetch(`http://127.0.0.1:${port}/webhooks/site-realtime/notify`, {
       method: "POST",
       headers: {

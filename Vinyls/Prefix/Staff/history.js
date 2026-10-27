@@ -159,7 +159,13 @@ module.exports = {
       );
     }
 
-    const targetGuildId = parsed.guildId || String(message.guild.id);
+    // Tenant isolation: cross-guild history solo dal main Vinili
+    const IDs = require("../../Utils/Config/ids");
+    const mainId = String(IDs.guilds?.main || "").trim();
+    const here = String(message.guild.id);
+    const allowCross = Boolean(mainId && here === mainId);
+    const requested = String(parsed.guildId || "").trim();
+    const targetGuildId = allowCross && requested ? requested : here;
     if (!isKnownPartnershipGuild(targetGuildId)) {
       return safeMessageReply(
         message,
@@ -171,7 +177,12 @@ module.exports = {
       );
     }
 
-    const target = await resolveHistoryTargetGuild(message.client, message.guild, parsed.guildId, lang);
+    const target = await resolveHistoryTargetGuild(
+      message.client,
+      message.guild,
+      allowCross ? parsed.guildId : null,
+      lang,
+    );
     const displayName = target.displayName || target.guild?.name || message.guild.name;
     const { ids } = await listRecentPartnerGuildIds(targetGuildId, parsed.days);
     const embeds = buildHistoryEmbeds(displayName, ids, parsed.days, lang);

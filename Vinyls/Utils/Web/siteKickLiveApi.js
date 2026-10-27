@@ -15,9 +15,39 @@ const UA =
 
 let cache = { at: 0, payload: null, bySlug: new Map() };
 
+/** URL mintati dalle playlist Kick — il proxy accetta solo questi (anti open-proxy). */
+const mintedProxyUrls = new Map();
+const MINTED_TTL_MS = 15 * 60_000;
+const MINTED_MAX = 4000;
+
+function rememberMintedProxyUrl(absUrl) {
+  const u = String(absUrl || "").trim();
+  if (!u) return;
+  mintedProxyUrls.set(u, Date.now() + MINTED_TTL_MS);
+  if (mintedProxyUrls.size > MINTED_MAX) {
+    const now = Date.now();
+    for (const [k, exp] of mintedProxyUrls) {
+      if (exp < now) mintedProxyUrls.delete(k);
+      if (mintedProxyUrls.size <= MINTED_MAX * 0.8) break;
+    }
+  }
+}
+
+function isMintedProxyUrl(absUrl) {
+  const u = String(absUrl || "").trim();
+  const exp = mintedProxyUrls.get(u);
+  if (!exp) return false;
+  if (exp < Date.now()) {
+    mintedProxyUrls.delete(u);
+    return false;
+  }
+  return true;
+}
+
 function isAllowedKickMediaHost(hostname) {
   const h = String(hostname || "").toLowerCase();
   if (!h) return false;
+  // CloudFront serve i segmenti Kick; i redirect sono ri-validati in fetchBinary (no SSRF off-allowlist).
   return (
     h === "live-video.net" ||
     h.endsWith(".live-video.net") ||
@@ -74,17 +104,44 @@ async function fetchBinary(url, timeoutMs = PLAYBACK_RESOLVE_TIMEOUT_MS) {
     } catch (_) {}
   }, timeoutMs);
   try {
-    const res = await fetch(url, {
-      signal: ctrl.signal,
-      headers: {
-        Accept: "*/*",
-        "User-Agent": UA,
-        Referer: "https://kick.com/",
-        Origin: "https://kick.com",
-      },
-      redirect: "follow",
-    });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    let current = String(url || "").trim();
+    let res = null;
+    for (let hop = 0; hop < 5; hop++) {
+      let parsed;
+      try {
+        parsed = new URL(current);
+      } catch {
+        throw new Error("bad_url");
+      }
+      if (parsed.protocol !== "https:" || !isAllowedKickMediaHost(parsed.hostname)) {
+        throw new Error("host_denied");
+      }
+      res = await fetch(current, {
+        signal: ctrl.signal,
+        headers: {
+          Accept: "*/*",
+          "User-Agent": UA,
+          Referer: "https://kick.com/",
+          Origin: "https://kick.com",
+        },
+        redirect: "manual",
+      });
+      if (res.status >= 300 && res.status < 400) {
+        const loc = String(res.headers.get("location") || "").trim();
+        if (!loc) throw new Error(`HTTP ${res.status}`);
+        current = new URL(loc, current).toString();
+        continue;
+      }
+      break;
+    }
+    if (!res || !res.ok) throw new Error(`HTTP ${res?.status || 0}`);
+    let finalHost = "";
+    try {
+      finalHost = new URL(current).hostname;
+    } catch {
+      finalHost = "";
+    }
+    if (!isAllowedKickMediaHost(finalHost)) throw new Error("host_denied");
     const buf = Buffer.from(await res.arrayBuffer());
     const contentType = String(res.headers.get("content-type") || "application/octet-stream");
     return { buf, contentType };
@@ -206,6 +263,7 @@ function rewritePlaylistUrls(playlistText, playlistUrl) {
           line.replace(/URI="([^"]+)"/g, (_m, uri) => {
             try {
               const abs = new URL(uri, playlistUrl).toString();
+              rememberMintedProxyUrl(abs);
               return `URI="/webhooks/site-kick-live/proxy?u=${encodeURIComponent(abs)}"`;
             } catch (_) {
               return `URI="${uri}"`;
@@ -219,6 +277,7 @@ function rewritePlaylistUrls(playlistText, playlistUrl) {
     }
     try {
       const abs = new URL(trimmed, playlistUrl).toString();
+      rememberMintedProxyUrl(abs);
       out.push(`/webhooks/site-kick-live/proxy?u=${encodeURIComponent(abs)}`);
     } catch (_) {
       out.push(trimmed);
@@ -449,7 +508,11 @@ async function handleSiteKickLiveProxy(client, req, res) {
     if (parsed.protocol !== "https:" || !isAllowedKickMediaHost(parsed.hostname)) {
       return res.status(403).type("text/plain").send("host_denied");
     }
-    const { buf, contentType } = await fetchBinary(parsed.toString(), 12_000);
+    const abs = parsed.toString();
+    if (!isMintedProxyUrl(abs)) {
+      return res.status(403).type("text/plain").send("url_not_minted");
+    }
+    const { buf, contentType } = await fetchBinary(abs, 12_000);
     let body = buf;
     let type = contentType;
     if (/mpegurl|m3u8|application\/vnd\.apple/i.test(type) || parsed.pathname.endsWith(".m3u8")) {
@@ -459,10 +522,13 @@ async function handleSiteKickLiveProxy(client, req, res) {
     }
     res.setHeader("Content-Type", type || "application/octet-stream");
     res.setHeader("Cache-Control", "no-store");
-    res.setHeader("Access-Control-Allow-Origin", "*");
     return res.status(200).send(body);
   } catch (err) {
-    global.logger?.warn?.("[WEBHOOK] site-kick-live proxy:", err?.message || err);
+    const msg = String(err?.message || err);
+    if (msg === "host_denied" || msg === "bad_url") {
+      return res.status(403).type("text/plain").send(msg);
+    }
+    global.logger?.warn?.("[WEBHOOK] site-kick-live proxy:", msg);
     return res.status(502).type("text/plain").send("upstream_error");
   }
 }

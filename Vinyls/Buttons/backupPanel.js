@@ -79,6 +79,12 @@ async function execute(interaction) {
     if (parsed.scope === "info") {
       try {
         const result = await readBackupByIdGlobal(rawRef);
+        if (String(result.guildId || "") !== String(guild.id)) {
+          await interaction.editReply({
+            content: "<a:VC_Alert:1482706673176150077> Quel backup appartiene a un altro server.",
+          }).catch(() => {});
+          return true;
+        }
         const backupId = String(result?.payload?.backupId || "").toUpperCase();
         const nav = buildBackupPanelNavRow(parsed.ownerId, "info");
         await safeMessageEdit(
@@ -112,12 +118,18 @@ async function execute(interaction) {
       }
       try {
         const globalRef = await readBackupByIdGlobal(rawRef);
+        if (String(globalRef.guildId || "") !== String(guild.id)) {
+          await interaction.editReply({
+            content: "<a:VC_Alert:1482706673176150077> Non puoi caricare backup di un altro server.",
+          }).catch(() => {});
+          return true;
+        }
         const backupId = String(globalRef?.payload?.backupId || "").toUpperCase();
         const sessionId = createLoadSession({
           guildId: guild.id,
           userId: parsed.ownerId,
           backupId,
-          sourceGuildId: globalRef.guildId,
+          sourceGuildId: guild.id,
           messagesLimit,
         });
         await safeMessageEdit(
@@ -143,13 +155,19 @@ async function execute(interaction) {
     if (parsed.scope === "delete") {
       try {
         const globalRef = await readBackupByIdGlobal(rawRef);
+        if (String(globalRef.guildId || "") !== String(guild.id)) {
+          await interaction.editReply({
+            content: "<a:VC_Alert:1482706673176150077> Non puoi eliminare backup di un altro server.",
+          }).catch(() => {});
+          return true;
+        }
         const backupId = String(globalRef?.payload?.backupId || "").toUpperCase();
         const nav = buildBackupPanelNavRow(parsed.ownerId, "delete");
         await safeMessageEdit(
           interaction.message,
           {
             embeds: [buildDeleteWarningEmbed()],
-            components: [nav, buildDeleteConfirmButtons(backupId, parsed.ownerId, globalRef.guildId)],
+            components: [nav, buildDeleteConfirmButtons(backupId, parsed.ownerId, guild.id)],
           },
           interaction,
         ).catch(() => {});

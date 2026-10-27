@@ -69,7 +69,8 @@ function handleSiteClientErrorPost(req, res) {
 }
 
 function handleSiteClientErrorRecent(req, res) {
-  const secret = String(process.env.SITE_REALTIME_NOTIFY_SECRET || "local").trim() || "local";
+  const secret = String(process.env.SITE_REALTIME_NOTIFY_SECRET || "").trim();
+  if (!secret || secret === "local") return res.status(503).json({ ok: false, error: "misconfigured" });
   if (String(req.headers["x-internal-notify"] || "") !== secret) return res.status(403).json({ ok: false });
   const limit = Math.max(1, Math.min(500, Number(req.query?.limit) || 50));
   let rows = [];

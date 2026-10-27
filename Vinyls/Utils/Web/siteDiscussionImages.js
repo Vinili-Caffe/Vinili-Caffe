@@ -14,12 +14,7 @@ const SCOPES = new Set(["feedback", "confessionale"]);
 const URL_PREFIX = "/webhooks/site-discussion-images";
 
 function secret() {
-  return String(
-    process.env.VC_SITE_UPLOAD_FILE_SECRET ||
-      process.env.SITE_WEBHOOK_SECRET ||
-      process.env.DISCORD_TOKEN ||
-      "vinili-site-discussion-file",
-  ).trim();
+  return String(process.env.VC_SITE_UPLOAD_FILE_SECRET || process.env.SITE_WEBHOOK_SECRET || "").trim();
 }
 
 function parseDataUrlImage(raw) {

@@ -43,6 +43,7 @@ export function AccademiaGame() {
   const [playable, setPlayable] = useState(false);
   const [running, setRunning] = useState(false);
   const [left, setLeft] = useState(30);
+  const [playToken, setPlayToken] = useState<string | null>(null);
   /** tick per ripaintare left% senza Motion (funziona anche con animazioni off) */
   const [, setTick] = useState(0);
 
@@ -58,6 +59,8 @@ export function AccademiaGame() {
   const spawnIndexRef = useRef(0);
   const arenaRef = useRef<HTMLDivElement>(null);
   const hitLockRef = useRef<Set<string>>(new Set());
+  const playTokenRef = useRef<string | null>(null);
+  const startedAtRef = useRef<number>(0);
 
   const clearMissTimers = useCallback(() => {
     for (const t of missTimersRef.current.values()) clearTimeout(t);
@@ -86,6 +89,9 @@ export function AccademiaGame() {
     setPlayable(Boolean(st.playable));
     setPlayed(Boolean(st.played));
     setScore(st.lastScore ?? null);
+    const tok = st.playToken ? String(st.playToken) : null;
+    setPlayToken(tok);
+    playTokenRef.current = tok;
     const t = st.targets || [];
     setPool(t);
     setLive([]);
@@ -125,6 +131,7 @@ export function AccademiaGame() {
     const out = await submitEventoAccademia(
       token,
       finalHits.map((id) => ({ id })),
+      { playToken: playTokenRef.current, startedAt: startedAtRef.current || Date.now() },
     );
     if (!out?.ok) {
       showToast(out?.message || "Invio fallito.", true);
@@ -189,7 +196,7 @@ export function AccademiaGame() {
   }
 
   function start() {
-    if (!token || played || !pool.length) return;
+    if (!token || played || !pool.length || !playTokenRef.current) return;
     finishingRef.current = false;
     clearTimers();
     const shuffled = [...pool].sort(() => Math.random() - 0.5);
@@ -200,6 +207,7 @@ export function AccademiaGame() {
     setHits([]);
     hitsRef.current = [];
     hitLockRef.current = new Set();
+    startedAtRef.current = Date.now();
     runningRef.current = true;
     setRunning(true);
     setLeft(30);

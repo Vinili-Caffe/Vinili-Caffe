@@ -18,12 +18,7 @@ function normalizeHeaderSecret(raw) {
 }
 
 function filmStreamSecret() {
-  return String(
-    process.env.VC_SERATAFILM_FILM_SECRET ||
-      process.env.SITE_WEBHOOK_SECRET ||
-      process.env.DISCORD_TOKEN ||
-      "vinili-seratafilm-film",
-  ).trim();
+  return String(process.env.VC_SERATAFILM_FILM_SECRET || process.env.SITE_WEBHOOK_SECRET || "").trim();
 }
 
 function accessCacheKey(token) {

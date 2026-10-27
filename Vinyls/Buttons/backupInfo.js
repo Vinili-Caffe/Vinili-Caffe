@@ -92,7 +92,15 @@ async function execute(interaction) {
       return true;
     }
     try {
-      const backupRef = guildId ? `${guildId}:${backupId}` : backupId;
+      const currentGuildId = String(interaction.guild?.id || "").trim();
+      if (guildId && String(guildId).trim() !== currentGuildId) {
+        await interaction.reply({
+          content: "<a:VC_Alert:1482706673176150077> Puoi eliminare solo backup di questo server.",
+          flags: EPHEMERAL,
+        }).catch(() => {});
+        return true;
+      }
+      const backupRef = currentGuildId ? `${currentGuildId}:${backupId}` : backupId;
       await deleteBackupByIdGlobal(backupRef);
       await safeEditReply(interaction, {
         embeds: [

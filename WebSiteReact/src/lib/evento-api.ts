@@ -301,6 +301,7 @@ export async function fetchEventoAccademia(token?: string | null) {
       targets?: Array<{ id: string; x: number; y: number; r: number; points: number }>;
       played?: boolean;
       lastScore?: number | null;
+      playToken?: string | null;
       durationSec?: number;
       message?: string;
     } | null;
@@ -309,12 +310,20 @@ export async function fetchEventoAccademia(token?: string | null) {
   }
 }
 
-export async function submitEventoAccademia(token: string, hits: Array<{ id: string }>) {
+export async function submitEventoAccademia(
+  token: string,
+  hits: Array<{ id: string }>,
+  opts?: { playToken?: string | null; startedAt?: number | null },
+) {
   try {
     const r = await fetch(apiUrl("/webhooks/site-evento/accademia"), {
       method: "POST",
       headers: { ...authHeaders(token), "Content-Type": "application/json" },
-      body: JSON.stringify({ hits }),
+      body: JSON.stringify({
+        hits,
+        playToken: opts?.playToken || undefined,
+        startedAt: opts?.startedAt || undefined,
+      }),
       cache: "no-store",
     });
     return (await r.json().catch(() => null)) as { ok: boolean; score?: number; message?: string } | null;

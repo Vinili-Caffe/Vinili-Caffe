@@ -154,9 +154,7 @@ async function handleKickSubEventsWebhook(client, req, res) {
         "sig=",
         signature ? "set" : "missing",
       );
-      if (String(process.env.KICK_WEBHOOK_SKIP_VERIFY || "").trim() !== "1") {
-        return res.status(401).json({ ok: false, error: "invalid_signature" });
-      }
+      return res.status(401).json({ ok: false, error: "invalid_signature" });
     } else if (eventType) {
       global.logger?.info?.("[KICK SUB] webhook ok", eventType, "msg=", messageId.slice(0, 12));
     }

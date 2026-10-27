@@ -1144,13 +1144,7 @@ function ensureUploadDir(ticketId) {
 const TICKET_FILE_TOKEN_TTL_MS = 4 * 60 * 60 * 1000;
 
 function ticketFileAccessSecret() {
-  return String(
-    process.env.VC_SITE_UPLOAD_FILE_SECRET ||
-      process.env.VC_SERATAFILM_FILM_SECRET ||
-      process.env.SITE_WEBHOOK_SECRET ||
-      process.env.DISCORD_TOKEN ||
-      "vinili-site-upload-file",
-  ).trim();
+  return String(process.env.VC_SITE_UPLOAD_FILE_SECRET || process.env.SITE_WEBHOOK_SECRET || "").trim();
 }
 
 function createTicketFileAccessToken(ticketId, fileName) {
