@@ -901,7 +901,7 @@
     "graceHours": 48,
     "moderatorGraceHours": 336,
     "reconcileIntervalMs": 900000,
-    "redirectUri": "https://www.viniliecaffe.it/webhooks/site-kick-sub/oauth-callback"
+    "redirectUri": "https://api.viniliecaffe.it/webhooks/site-kick-sub/oauth-callback"
   },
   "counting": {
     "enabled": false

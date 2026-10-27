@@ -8,7 +8,8 @@ const nextConfig: NextConfig = {
   trailingSlash: true,
   images: { unoptimized: true },
   async rewrites() {
-    const origin = "https://www.viniliecaffe.it";
+    // Solo `next dev`: in prod i webhook esterni devono battere api (www Vercel + trailingSlash li rompeva).
+    const origin = "https://api.viniliecaffe.it";
     return [
       { source: "/webhooks/:path*", destination: `${origin}/webhooks/:path*` },
       { source: "/ticket-transcript/:path*", destination: `${origin}/ticket-transcript/:path*` },
