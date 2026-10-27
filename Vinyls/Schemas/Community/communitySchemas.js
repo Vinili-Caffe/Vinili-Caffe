@@ -4,8 +4,9 @@ const IDs = require("../../Utils/Config/ids");
 
 const ACTIVITY_MAIN_GUILD_ID = String(process.env.ACTIVITY_MAIN_GUILD_ID || IDs.guilds?.main || "").trim();
 
-const ACTIVITY_DAILY_STORAGE_MODE = String(process.env.ACTIVITY_DAILY_STORAGE_MODE || "dual").trim().toLowerCase();
-const ACTIVITY_HOURLY_STORAGE_MODE = String(process.env.ACTIVITY_HOURLY_STORAGE_MODE || "dual").trim().toLowerCase();
+/* perfResiduo1: default compact = niente nested daily/hourly sul profilo (guild hourly + counter flat). dual = legacy. */
+const ACTIVITY_DAILY_STORAGE_MODE = String(process.env.ACTIVITY_DAILY_STORAGE_MODE || "compact").trim().toLowerCase();
+const ACTIVITY_HOURLY_STORAGE_MODE = String(process.env.ACTIVITY_HOURLY_STORAGE_MODE || "compact").trim().toLowerCase();
 const ACTIVITY_LEGACY_DAILY_DISABLED = ACTIVITY_DAILY_STORAGE_MODE === "compact";
 const ACTIVITY_LEGACY_HOURLY_DISABLED = ACTIVITY_HOURLY_STORAGE_MODE === "compact";
 
@@ -995,8 +996,9 @@ const siteDocumentSchema = new Schema(
 
     /* Vinili Boards */
     boardKind: { type: String, default: null, trim: true, maxlength: 16 },
-    boardDiscordId: { type: String, default: "", trim: true, maxlength: 32, index: true },
-    boardSlug: { type: String, default: "", trim: true, maxlength: 80, index: true },
+    /* indici single-field rimossi: coperto da board_listing_* (limite 64 indici Mongo) */
+    boardDiscordId: { type: String, default: "", trim: true, maxlength: 32 },
+    boardSlug: { type: String, default: "", trim: true, maxlength: 80 },
     /* boardsTagline500: descrizione breve max 500 */
     boardTagline: { type: String, default: "", trim: true, maxlength: 500 },
     boardInviteUrl: { type: String, default: "", trim: true, maxlength: 500 },
@@ -1005,24 +1007,24 @@ const siteDocumentSchema = new Schema(
     boardIconUrl: { type: String, default: "", trim: true, maxlength: 500 },
     boardLocale: { type: String, default: "", trim: true, maxlength: 16 },
     boardNsfw: { type: Boolean, default: false },
-    boardScore: { type: Number, default: 0, index: true },
+    boardScore: { type: Number, default: 0 },
     boardVotes30d: { type: Number, default: 0 },
     /* boardsVoteFlow1: contatore voti mese corrente (Europe/Rome) */
     boardVotesMonth: { type: Number, default: 0 },
     boardVotesMonthKey: { type: String, default: "", trim: true, maxlength: 16 },
     boardBumps7d: { type: Number, default: 0 },
-    boardBumpedAt: { type: Date, default: null, index: true },
+    boardBumpedAt: { type: Date, default: null },
     /* boardsListingReviews1 */
     boardRatingAvg: { type: Number, default: 0 },
     boardReviewsCount: { type: Number, default: 0 },
     /* boardsVoteFlow1: reminder voto bacheca (su BOARD_VOTE) */
-    boardRemindAt: { type: Date, default: null, index: true },
+    boardRemindAt: { type: Date, default: null },
     boardRemindSentAt: { type: Date, default: null },
     boardAccent: { type: String, default: "", trim: true, maxlength: 32 },
     boardMarkdown: { type: String, default: "", trim: true, maxlength: 4000 },
     boardStats: { type: Schema.Types.Mixed, default: null },
     boardModeration: { type: Schema.Types.Mixed, default: null },
-    boardListingId: { type: String, default: "", trim: true, maxlength: 32, index: true },
+    boardListingId: { type: String, default: "", trim: true, maxlength: 32 },
     boardClientIpHash: { type: String, default: "", trim: true, maxlength: 80 },
     /* boardsWizard1 */
     boardCategories: { type: [String], default: undefined },
@@ -1801,6 +1803,10 @@ const ModCase = USE_LEGACY_MOD_CASE_MODEL ? (models.mod_case || model("mod_case"
 
 module.exports = {
   ACTIVITY_MAIN_GUILD_ID,
+  ACTIVITY_DAILY_STORAGE_MODE,
+  ACTIVITY_HOURLY_STORAGE_MODE,
+  ACTIVITY_LEGACY_DAILY_DISABLED,
+  ACTIVITY_LEGACY_HOURLY_DISABLED,
   LEVEL_HISTORY_MAX_ENTRIES,
   GlobalSettings,
   VerificationTenure,

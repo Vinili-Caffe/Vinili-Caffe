@@ -359,7 +359,7 @@ function drawArena(ctx, params) {
 }
 
 function spinFrameTiming() {
-  const totalFrames = Math.max(18, Math.min(36, Math.floor(Number(process.env.VC_COINFLIP_GIF_FRAMES ?? 22))));
+  const totalFrames = Math.max(12, Math.min(36, Math.floor(Number(process.env.VC_COINFLIP_GIF_FRAMES ?? 14))));
   const delay = Math.max(70, Math.min(160, Math.floor(Number(process.env.VC_COINFLIP_GIF_DELAY_MS ?? 95))));
   const gifFrames = totalFrames + HOLD_RESULT_FRAMES;
   return { totalFrames, delay, gifFrames, durationMs: gifFrames * delay + 80 };

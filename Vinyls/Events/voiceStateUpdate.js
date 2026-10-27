@@ -16,8 +16,11 @@ function isViniliFullFeatureGuild(guildId) {
   }
 }
 
-const AUDIT_FETCH_LIMIT = 20;
-const AUDIT_LOOKBACK_MS = 120 * 1000;
+/* perfP1: meno fetch audit (erano 3× + sleep 700ms a evento) */
+const AUDIT_FETCH_LIMIT = 10;
+const AUDIT_LOOKBACK_MS = 90 * 1000;
+const AUDIT_MAX_ATTEMPTS = Math.max(1, Math.min(3, Number(process.env.VC_VOICE_AUDIT_ATTEMPTS || 1) || 1));
+const AUDIT_RETRY_MS = Math.max(0, Number(process.env.VC_VOICE_AUDIT_RETRY_MS || 250) || 250);
 
 function sleep(ms) {
   return new Promise((resolve) => {
@@ -76,7 +79,7 @@ async function resolveMemberUpdateAuditInfo(guild, targetUserId) {
     return { executor: null, reason: null };
   }
 
-  for (let attempt = 0; attempt < 3; attempt += 1) {
+  for (let attempt = 0; attempt < AUDIT_MAX_ATTEMPTS; attempt += 1) {
     const logs = await guild.fetchAuditLogs({ type: AuditLogEvent.MemberUpdate, limit: AUDIT_FETCH_LIMIT, }).catch(() => null);
     if (logs?.entries?.size) {
       const nowMs = Date.now();
@@ -88,7 +91,7 @@ async function resolveMemberUpdateAuditInfo(guild, targetUserId) {
         };
       }
     }
-    if (attempt < 2) await sleep(700);
+    if (attempt < AUDIT_MAX_ATTEMPTS - 1 && AUDIT_RETRY_MS > 0) await sleep(AUDIT_RETRY_MS);
   }
 
   return { executor: null, reason: null };
@@ -103,7 +106,7 @@ async function resolveMemberMoveAuditInfo(guild, targetUserId) {
     return { executor: null, count: 1 };
   }
 
-  for (let attempt = 0; attempt < 3; attempt += 1) {
+  for (let attempt = 0; attempt < AUDIT_MAX_ATTEMPTS; attempt += 1) {
     const logs = await guild.fetchAuditLogs({ type: AuditLogEvent.MemberMove, limit: AUDIT_FETCH_LIMIT, }).catch(() => null);
     if (logs?.entries?.size) {
       const nowMs = Date.now();
@@ -115,7 +118,7 @@ async function resolveMemberMoveAuditInfo(guild, targetUserId) {
         };
       }
     }
-    if (attempt < 2) await sleep(700);
+    if (attempt < AUDIT_MAX_ATTEMPTS - 1 && AUDIT_RETRY_MS > 0) await sleep(AUDIT_RETRY_MS);
   }
 
   return { executor: null, count: 1 };
@@ -135,7 +138,7 @@ async function resolveMemberDisconnectAuditInfo(guild, targetUserId) {
     return { executor: null, count: 1 };
   }
 
-  for (let attempt = 0; attempt < 3; attempt += 1) {
+  for (let attempt = 0; attempt < AUDIT_MAX_ATTEMPTS; attempt += 1) {
     const logs = await guild.fetchAuditLogs({ type: actionType, limit: AUDIT_FETCH_LIMIT, }).catch(() => null);
     if (logs?.entries?.size) {
       const nowMs = Date.now();
@@ -147,7 +150,7 @@ async function resolveMemberDisconnectAuditInfo(guild, targetUserId) {
         };
       }
     }
-    if (attempt < 2) await sleep(700);
+    if (attempt < AUDIT_MAX_ATTEMPTS - 1 && AUDIT_RETRY_MS > 0) await sleep(AUDIT_RETRY_MS);
   }
 
   return { executor: null, count: 1 };
@@ -305,26 +308,19 @@ module.exports = {
     const guildId = String(newState?.guild?.id || oldState?.guild?.id || "").trim();
     if (guildId && !isViniliFullFeatureGuild(guildId)) return;
 
-    try {
-      await sendMemberMoveLog(oldState, newState);
-    } catch (error) {
+    /* perfP1: log audit fuori dal critical path (non bloccano activity/hub) */
+    void sendMemberMoveLog(oldState, newState).catch((error) => {
       global.logger?.error?.("[voiceStateUpdate] move log failed:", error);
-    }
-    try {
-      await sendMemberVoiceFlagsUpdateLog(oldState, newState);
-    } catch (error) {
+    });
+    void sendMemberVoiceFlagsUpdateLog(oldState, newState).catch((error) => {
       global.logger?.error?.("[voiceStateUpdate] flags log failed:", error);
-    }
-    try {
-      await sendMemberDisconnectLog(oldState, newState);
-    } catch (error) {
+    });
+    void sendMemberDisconnectLog(oldState, newState).catch((error) => {
       global.logger?.error?.("[voiceStateUpdate] disconnect log failed:", error);
-    }
-    try {
-      await sendMemberJoinLog(oldState, newState);
-    } catch (error) {
+    });
+    void sendMemberJoinLog(oldState, newState).catch((error) => {
       global.logger?.error?.("[voiceStateUpdate] join log failed:", error);
-    }
+    });
 
     try {
       await handleSerataFilmVoiceState(oldState, newState);

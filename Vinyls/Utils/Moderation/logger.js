@@ -2,14 +2,20 @@
 const config = require("../../config.json");
 const levels = { debug: 0, info: 1, success: 1, logging: 1, warn: 2, error: 3, };
 
+function resolveConfiguredLogLevel() {
+  const fromEnv = String(process.env.LOG_LEVEL || process.env.VC_LOG_LEVEL || "").trim().toLowerCase();
+  if (fromEnv) return fromEnv;
+  return String(config.logLevel || "info").toLowerCase();
+}
+
 function getMinLevel() {
-  const configured = (config.logLevel || "info").toLowerCase();
+  const configured = resolveConfiguredLogLevel();
   if (configured === "silent") return Infinity;
   return levels[configured] ?? levels.info;
 }
 
 function shouldLog(level) {
-  if ((config.logLevel || "").toLowerCase() === "silent") {
+  if (resolveConfiguredLogLevel() === "silent") {
     return level === "error";
   }
   return (levels[level] ?? levels.info) >= getMinLevel();

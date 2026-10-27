@@ -534,7 +534,11 @@ async function refreshMember(guild, userId) {
   return getGuildMemberCached(guild, userId);
 }
 
-async function persistStatus(guildId, userId, payload) {
+/* perfP0: coalesce presence→Mongo (presence è alto volume) */
+const PERSIST_DEBOUNCE_MS = Math.max(500, Number(process.env.VC_PRESENCE_PERSIST_DEBOUNCE_MS || 2500) || 2500);
+const pendingPersistByKey = new Map();
+
+async function flushPersistStatus(guildId, userId, payload) {
   if (!isDbReady()) return;
   const $set = {
     "profile.supporterStatus.hasLink": Boolean(payload?.hasLink),
@@ -575,8 +579,39 @@ async function persistStatus(guildId, userId, payload) {
   }
 }
 
+async function persistStatus(guildId, userId, payload, { immediate = false } = {}) {
+  if (!guildId || !userId) return;
+  const key = makeStateKey(guildId, userId);
+  const prev = pendingPersistByKey.get(key);
+  const merged = {
+    ...(prev?.payload || {}),
+    ...(payload || {}),
+  };
+  const urgent =
+    immediate ||
+    Boolean(payload?.lastSentAt) ||
+    (typeof payload?.lastMessageId === "string" && payload.lastMessageId.length > 0);
+  if (urgent) {
+    if (prev?.timer) clearTimeout(prev.timer);
+    pendingPersistByKey.delete(key);
+    await flushPersistStatus(guildId, userId, merged);
+    return;
+  }
+  if (prev?.timer) clearTimeout(prev.timer);
+  const timer = setTimeout(() => {
+    pendingPersistByKey.delete(key);
+    void flushPersistStatus(guildId, userId, merged);
+  }, PERSIST_DEBOUNCE_MS);
+  timer.unref?.();
+  pendingPersistByKey.set(key, { payload: merged, timer });
+}
+
 async function clearPersistedStatus(guildId, userId) {
   if (!isDbReady()) return;
+  const key = makeStateKey(guildId, userId);
+  const pending = pendingPersistByKey.get(key);
+  if (pending?.timer) clearTimeout(pending.timer);
+  pendingPersistByKey.delete(key);
   const update = () => ActivityUserProfile.updateOne(
     { guildId, userId },
     {

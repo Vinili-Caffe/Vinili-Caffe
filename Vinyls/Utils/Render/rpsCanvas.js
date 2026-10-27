@@ -362,7 +362,7 @@ function normalizeParams(params = {}) {
 }
 
 function spinFrameTiming() {
-  const totalFrames = Math.max(22, Math.min(44, Math.floor(Number(process.env.VC_RPS_GIF_FRAMES ?? 28))));
+  const totalFrames = Math.max(14, Math.min(44, Math.floor(Number(process.env.VC_RPS_GIF_FRAMES ?? 16))));
   const delay = Math.max(80, Math.min(180, Math.floor(Number(process.env.VC_RPS_GIF_DELAY_MS ?? 110))));
   const gifFrames = totalFrames + HOLD_RESULT_FRAMES;
   return { totalFrames, delay, gifFrames, durationMs: gifFrames * delay + 80 };

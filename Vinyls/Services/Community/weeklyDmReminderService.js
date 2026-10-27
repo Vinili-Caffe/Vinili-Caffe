@@ -413,7 +413,12 @@ async function refreshGuildMembersIfNeeded(guild, ttlMs = MEMBER_LIST_REFRESH_TT
   const now = Date.now();
   const last = Number(memberListRefreshedAt.get(guildId) || 0);
   if (now - last < ttlMs) return;
-  await guild.members.fetch().catch(() => { });
+  /* perfP1: full fetch solo se cache incompleta */
+  const memberCount = Math.max(0, Number(guild.memberCount) || 0);
+  const cacheRatio = memberCount > 0 ? guild.members.cache.size / memberCount : 1;
+  if (cacheRatio < 0.85) {
+    await guild.members.fetch().catch(() => { });
+  }
   memberListRefreshedAt.set(guildId, Date.now());
 }
 
@@ -1385,6 +1390,9 @@ async function weeklyTick(client) {
 }
 
 function startWeeklyDmReminderLoop(client) {
+  const dedicated = String(process.env.COMMUNITY_POLL_WORKER || "").trim() === "1";
+  const external = String(process.env.COMMUNITY_POLL_EXTERNAL || "").trim() === "1";
+  if (external && !dedicated) return;
   if (loopHandle) return;
   const runTick = () => { if (tickInFlight) return tickInFlight; tickInFlight = weeklyTick(client).finally(() => { tickInFlight = null; }); return tickInFlight; };
 

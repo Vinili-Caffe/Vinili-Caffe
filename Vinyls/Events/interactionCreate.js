@@ -116,14 +116,34 @@ module.exports = {
       const allowedByGate = await runPermissionGate(interaction);
       if (!allowedByGate) return;
 
-      if (await handleSanzionaModal(interaction, resolvedClient)) return;
-      if (await handlePartnerPointContextModal(interaction)) return;
-      if (await handlePartnerModal(interaction)) return;
-      if (await handleCustomRoleInteraction(interaction)) {
-        await refreshProfilePanelIfPresent(interaction, resolvedClient);
+      /* perfP2: non passare i modal handler su ogni click bottone */
+      const isModal = Boolean(interaction.isModalSubmit?.());
+      const isComponent =
+        Boolean(interaction.isButton?.()) ||
+        Boolean(interaction.isStringSelectMenu?.()) ||
+        Boolean(interaction.isUserSelectMenu?.()) ||
+        Boolean(interaction.isChannelSelectMenu?.()) ||
+        Boolean(interaction.isRoleSelectMenu?.());
+
+      if (isModal) {
+        if (await handleSanzionaModal(interaction, resolvedClient)) return;
+        if (await handlePartnerPointContextModal(interaction)) return;
+        if (await handlePartnerModal(interaction)) return;
+        if (await handleCustomRoleInteraction(interaction)) {
+          await refreshProfilePanelIfPresent(interaction, resolvedClient);
+          return;
+        }
+        if (await handleButtonInteraction(interaction, resolvedClient)) return;
         return;
       }
-      if (await handleButtonInteraction(interaction, resolvedClient)) return;
+
+      if (isComponent) {
+        if (await handleCustomRoleInteraction(interaction)) {
+          await refreshProfilePanelIfPresent(interaction, resolvedClient);
+          return;
+        }
+        if (await handleButtonInteraction(interaction, resolvedClient)) return;
+      }
     } catch (err) {
       await logInteractionError(interaction, resolvedClient, err);
     } finally {

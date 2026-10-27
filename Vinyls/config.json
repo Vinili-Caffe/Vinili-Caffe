@@ -13,7 +13,7 @@
       "bookEmoji": "📖"
     }
   },
-  "logLevel": "debug",
+  "logLevel": "info",
   "eventListeners": 50,
   "globalExpEvents": [
     {

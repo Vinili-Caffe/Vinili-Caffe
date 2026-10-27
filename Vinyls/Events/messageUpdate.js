@@ -358,8 +358,11 @@ module.exports = {
         global.logger?.error?.("[messageUpdate] reazioni parola failed:", wordResult.reason);
       }
 
-      const looksLikePrefix = after.startsWith("+");
+      /* perfP1: ripassa pipeline solo se l'edit diventa un comando prefix */
+      const pfx = String(resolvedClient?.config?.prefix || "+");
+      const looksLikePrefix = after.startsWith(pfx);
       if (!looksLikePrefix) return;
+      if (before.startsWith(pfx) && before === after) return;
 
       updated.__fromMessageUpdatePrefix = true;
       resolvedClient?.emit?.("messageCreate", updated);

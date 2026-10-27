@@ -543,7 +543,12 @@ async function fetchProfilePanelState(guild, userId, client) {
     ? reactionDoc.reactions.slice(0, customReactionMax)
     : [];
 
-  const customVocActivity = buildCustomVocWeeklyActivityPanelState(mergedCustomDoc, contestPrizeLean);
+  let customVocProfileLean = contestPrizeLean;
+  try {
+    const { hydrateProfileActivityBucketsFromGuild } = require("../Services/Community/activityService");
+    customVocProfileLean = await hydrateProfileActivityBucketsFromGuild(guildId, userId, contestPrizeLean);
+  } catch (_) {}
+  const customVocActivity = buildCustomVocWeeklyActivityPanelState(mergedCustomDoc, customVocProfileLean);
 
   return {
     birthday: birthday || null,

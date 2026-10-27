@@ -95,7 +95,11 @@ function runLoader() {
   loaderChild = spawn(node, ["--disable-warning=ExperimentalWarning", loader], {
     cwd: __dirname,
     stdio: ["inherit", "pipe", "pipe"],
-    env: process.env,
+    env: {
+      ...process.env,
+      /* perfP1: Shoukaku non riattende 90s se il wrapper ha già visto Lavalink up */
+      LAVALINK_ALREADY_WAITED: lavalinkReady ? "1" : String(process.env.LAVALINK_ALREADY_WAITED || "0"),
+    },
   });
   loaderChild.stdout.pipe(process.stdout);
   loaderChild.stderr.pipe(process.stderr);

@@ -2170,6 +2170,9 @@ async function runGameNewsPoll(client) {
 }
 
 function startGameNewsAlertLoop(client) {
+  const dedicated = String(process.env.COMMUNITY_POLL_WORKER || "").trim() === "1";
+  const external = String(process.env.COMMUNITY_POLL_EXTERNAL || "").trim() === "1";
+  if (external && !dedicated) return;
   if (!client || loopStarted.has(client)) return;
   loopStarted.add(client);
   const cfg = resolveConfig(client);

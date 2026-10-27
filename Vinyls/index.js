@@ -20,6 +20,14 @@ try {
   require("../shared/scheduling/nodeCronMissFilter").installNodeCronMissFilter();
 } catch (_) {}
 global.logger = require("./Utils/Moderation/logger");
+try {
+  const { setMusicBotHooks } = require("../shared/music/musicBotHooks");
+  setMusicBotHooks({
+    profile: "vinyls",
+    nowPlayingTitle: "In riproduzione",
+    enableVoiceCapture: true,
+  });
+} catch (_) {}
 if (process.env.RUN_UNDER_LOADER !== "1") {
   acquireSingleInstanceLock("vinili-caffe-official-bot");
 }
@@ -28,7 +36,11 @@ const { installEmbedFooterPatch, installOutgoingMessageEmbedPatch, applyDefaultF
 const { setDefaultFooterApplier, installOutgoingEditBrandingPatch } = require("../shared/discord/replyRuntime");
 const { buildInitialClientPresenceOptions, installBotPresenceHooks, patchClientPresenceGuard } = require("../shared/discord/botPresenceActivity");
 const { installGatewayShardListenerCeiling } = require("../shared/discord/gatewayListenerCeiling");
-const { buildDiscordClientMemoryOptions } = require("../shared/discord/clientMemoryOptions");
+const {
+  buildDiscordClientMemoryOptions,
+  resolveGatewayIntents,
+  resolveGatewayPartials,
+} = require("../shared/discord/clientMemoryOptions");
 
 const pcommandFolders = listFoldersIfExists(path.join(APP_ROOT, "Prefix"));
 const commandFolders = listFoldersIfExists(path.join(APP_ROOT, "Commands"));
@@ -65,19 +77,9 @@ try {
   try {
     require("./Utils/Config/emergencyRoleIdRemap").applyEmergencyRoleRemapToConfig(vinylsConfig);
   } catch (_) {}
-  const baseIntents = [
-    ...new Set(
-      Object.values(GatewayIntentBits).filter(
-        (x) => typeof x === "number" && x > 0,
-      ),
-    ),
-  ];
-  if (baseIntents.length === 0) baseIntents.push(1);
-  const basePartials = [
-    ...new Set(
-      Object.values(Partials).filter((x) => typeof x === "number"),
-    ),
-  ];
+  /* perfP0: intents curati (niente Object.values di tutto il gateway) */
+  const baseIntents = resolveGatewayIntents(discord, { includePresences: true });
+  const basePartials = resolveGatewayPartials(discord);
 
   client = new Client({
     intents: baseIntents,

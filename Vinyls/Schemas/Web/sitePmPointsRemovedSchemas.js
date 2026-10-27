@@ -47,7 +47,9 @@ sitePmPointsRemovedSchema.index(
   { guildId: 1, discordMessageId: 1 },
   {
     unique: true,
-    partialFilterExpression: { discordMessageId: { $type: "string", $ne: "" } },
+    name: "guildId_1_discordMessageId_1_partial",
+    /* Mongo partial: niente $ne; usare $gt "" (come board listing) */
+    partialFilterExpression: { discordMessageId: { $type: "string", $gt: "" } },
   },
 );
 

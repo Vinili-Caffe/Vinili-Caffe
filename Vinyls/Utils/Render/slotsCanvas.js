@@ -351,7 +351,7 @@ function normalizeParams(params = {}) {
 }
 
 function spinFrameTiming() {
-  const totalFrames = Math.max(16, Math.min(48, Math.floor(Number(process.env.VC_SLOTS_GIF_FRAMES ?? 22))));
+  const totalFrames = Math.max(12, Math.min(48, Math.floor(Number(process.env.VC_SLOTS_GIF_FRAMES ?? 14))));
   const delay = Math.max(60, Math.min(150, Math.floor(Number(process.env.VC_SLOTS_GIF_DELAY_MS ?? 80))));
   return { totalFrames, delay, durationMs: totalFrames * delay + 120 };
 }

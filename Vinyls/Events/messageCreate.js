@@ -20,7 +20,7 @@ const { handleProfileMentionResponsePromptMessage } = require("../Buttons/profil
 const IDs = require("../Utils/Config/ids");
 const { EPHEMERAL_TTL_SHORT_MS, scheduleMessageDeletion } = require("../Utils/Config/ephemeralMessageTtl");
 const { isCoffeePrefixCommandToken } = require("../../shared/discord/coffeePrefixCommandTokens");
-const guildMemberUpdateExtras = require("./guildMemberUpdate");
+const guildMemberUpdateExtras = require("../Services/Community/boostAnnounceRecoveryService");
 const { handlePartnerDescriptionMessageUpsert, isPartnerDescriptionChannel } = require("../Services/Partner/partnerDescriptionSyncService");
 const {
   handleTenantPartnerDescriptionMessageUpsert,
@@ -297,10 +297,17 @@ module.exports = {
     let defaultPrefix = configPrefix;
     if (message.guild?.id) {
       try {
+        /* perfP1: sync sul hot path; fresh solo tenant con cache scaduta (main = fallback config). */
         const {
-          resolveCommandPrefixForGuildFresh,
+          resolveCommandPrefixForGuild,
+          ensureTenantGuildSettingsCacheFresh,
+          isTenantGuildSettingsCacheFresh,
         } = require("../MultiGuild/core/tenantGuildSettings");
-        defaultPrefix = await resolveCommandPrefixForGuildFresh(message.guild.id, resolvedClient);
+        const gid = message.guild.id;
+        if (!isViniliFullFeatureGuild(gid) && !isTenantGuildSettingsCacheFresh()) {
+          await ensureTenantGuildSettingsCacheFresh().catch(() => null);
+        }
+        defaultPrefix = resolveCommandPrefixForGuild(gid, resolvedClient);
       } catch {
         defaultPrefix = configPrefix;
       }
@@ -340,8 +347,8 @@ module.exports = {
               maxSend: combinedBurst || secondConfirmed ? 2 : 1,
             })
             .catch(() => null);
-          /* boostFalseDouble3: ritenta solo con scan verificato (niente allowSecond a vuoto) */
-          if (!combinedBurst) {
+          /* perfP2: un solo ritento (5s) se non burst; concurrent meno frequente */
+          if (!combinedBurst && !secondConfirmed) {
             setTimeout(() => {
               void guildMemberUpdateExtras
                 .recoverMissingBoostEmbedsForUser(message.guild, nativeBoost.userId, {
@@ -355,21 +362,23 @@ module.exports = {
                   maxSend: 2,
                 })
                 .catch(() => null);
-            }, 3500).unref?.();
+            }, 5000).unref?.();
           }
           const boostChannelId = require("../Utils/Config/ids").channels?.supporters;
           const boostChannel =
             (boostChannelId && message.guild.channels.cache.get(boostChannelId)) ||
             message.channel;
-          /* boostDedup1: concurrent recover solo per altri booster nella finestra, skip dello stesso user appena gestito */
-          setTimeout(() => {
-            guildMemberUpdateExtras
-              .recoverConcurrentNativeBoosts(message.guild, boostChannel, {
-                windowMs: 3 * 60 * 1000,
-                skipUserId: nativeBoost.userId,
-              })
-              .catch(() => null);
-          }, 2500).unref?.();
+          /* boostDedup1: concurrent recover solo per altri booster nella finestra */
+          if (combinedBurst || secondConfirmed) {
+            setTimeout(() => {
+              guildMemberUpdateExtras
+                .recoverConcurrentNativeBoosts(message.guild, boostChannel, {
+                  windowMs: 3 * 60 * 1000,
+                  skipUserId: nativeBoost.userId,
+                })
+                .catch(() => null);
+            }, 4000).unref?.();
+          }
         }
         if (message.author?.bot || message.webhookId || message.applicationId) {
           try {
@@ -649,36 +658,38 @@ module.exports = {
           }
         });
 
-            const isPrefixLike = String(message.content || "").trim().startsWith(String(defaultPrefix || "+"));
-      if (isPrefixLike) {
-        setImmediate(() => {
-          runCommunitySideEffects().catch(() => null);
-        });
-      } else {
-        await runCommunitySideEffects();
-      }
+      /* perfP0: community + TTS fuori dal critical path (anche non-prefix).
+         Counting resta nel Promise.allSettled ma non blocca più il handler principale. */
+      setImmediate(() => {
+        runCommunitySideEffects().catch(() => null);
+      });
     }
 
     let overrideCommand = null;
     if (!isEditedPrefixExecution) {
       const isPrefixLike = String(message.content || "").trim().startsWith(String(defaultPrefix || "+"));
       if (!isPrefixLike) {
-        try {
-          await handleTtsMessage(message, resolvedClient, defaultPrefix);
-        } catch (error) {
-          logEventError(resolvedClient, "TTS ERROR", error);
-        }
+        setImmediate(() => {
+          handleTtsMessage(message, resolvedClient, defaultPrefix).catch((error) =>
+            logEventError(resolvedClient, "TTS ERROR", error),
+          );
+        });
       }
     }
 
+    /* perfP2: partner description fuori dal hot path sync */
     if (message.guild && isPartnerDescriptionChannel(message.channelId)) {
-      void handlePartnerDescriptionMessageUpsert(resolvedClient, message).catch(() => null);
+      setImmediate(() => {
+        void handlePartnerDescriptionMessageUpsert(resolvedClient, message).catch(() => null);
+      });
     }
     if (
       message.guild?.id &&
       isTenantPartnerDescriptionChannel(message.guild.id, message.channelId)
     ) {
-      void handleTenantPartnerDescriptionMessageUpsert(resolvedClient, message).catch(() => null);
+      setImmediate(() => {
+        void handleTenantPartnerDescriptionMessageUpsert(resolvedClient, message).catch(() => null);
+      });
     }
 
     await handleOfficialPrefixMessage({ message, resolvedClient, defaultPrefix, overrideCommand, maybeSendWrongPrefixHint, getCachedOrFetchMember, hasAnyStaffBypassPermission });

@@ -76,7 +76,8 @@ const siteWebTicketSchema = new Schema(
         partnerManagerShopRedeemTier: { type: Number, default: null },
     partnerManagerShopRedeemAckResult: { type: String, default: null, trim: true, maxlength: 32 },
     partnerManagerShopRedeemAckAt: { type: Date, default: null },
-        discordImportKey: { type: String, default: null, trim: true, maxlength: 80, index: true },
+        /* sparse+null → E11000 su multi null; partial solo stringhe non vuote */
+        discordImportKey: { type: String, default: null, trim: true, maxlength: 80 },
     /* ticketListDedupeSrv1: mirror import nascosto in lista (resta apribile via id diretto) */
     listHidden: { type: Boolean, default: false, index: true },
     duplicateOf: { type: Schema.Types.ObjectId, default: null, index: true, ref: "SiteWebTicket" },
@@ -85,7 +86,14 @@ const siteWebTicketSchema = new Schema(
 );
 
 siteWebTicketSchema.index({ guildId: 1, ticketNumber: 1 }, { unique: true });
-siteWebTicketSchema.index({ guildId: 1, discordImportKey: 1 }, { unique: true, sparse: true });
+siteWebTicketSchema.index(
+  { guildId: 1, discordImportKey: 1 },
+  {
+    unique: true,
+    name: "guildId_1_discordImportKey_1_partial",
+    partialFilterExpression: { discordImportKey: { $type: "string", $gt: "" } },
+  },
+);
 siteWebTicketSchema.index({ guildId: 1, status: 1, lastMessageAt: -1 });
 siteWebTicketSchema.index({ guildId: 1, userId: 1, status: 1, updatedAt: -1 });
 siteWebTicketSchema.index({ guildId: 1, "addedUsers.id": 1, status: 1 });

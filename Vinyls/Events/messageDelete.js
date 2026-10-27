@@ -238,7 +238,12 @@ module.exports = {
       } catch (_) {}
       const existing = resolvedClient.snipes.get(channelId);
       const history = Array.isArray(existing) ? existing.slice(0, 9) : existing ? [existing] : [];
-      history.unshift(payload);
+      const row = {
+        ...payload,
+        createdTimestamp: Number(payload?.createdTimestamp || resolved?.createdTimestamp || Date.now()),
+        at: Date.now(),
+      };
+      history.unshift(row);
       resolvedClient.snipes.set(channelId, history.slice(0, 10));
     } catch (error) {
       const chId = String(resolved?.channel?.id || resolved?.channelId || message?.channelId || "");

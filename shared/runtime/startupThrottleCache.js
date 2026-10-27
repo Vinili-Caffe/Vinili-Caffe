@@ -8,11 +8,15 @@ function ensureCacheDir() {
   try {
     fs.mkdirSync(CACHE_DIR, { recursive: true });
   } catch {
-      }
+  }
 }
 
 function getStatePath(namespace) {
   return path.join(CACHE_DIR, `${String(namespace || "default")}.json`);
+}
+
+function getLockPath(namespace) {
+  return path.join(CACHE_DIR, `${String(namespace || "default")}.lock`);
 }
 
 function safeReadJson(filePath) {
@@ -30,13 +34,62 @@ function readState(namespace) {
   return parsed && typeof parsed === "object" ? parsed : {};
 }
 
+/** Atomic write: tmp + rename (riduce race multi-restart). */
 function writeState(namespace, state) {
   try {
     ensureCacheDir();
-    fs.writeFileSync(getStatePath(namespace), JSON.stringify(state, null, 2), "utf8");
+    const target = getStatePath(namespace);
+    const tmp = `${target}.${process.pid}.${Date.now()}.tmp`;
+    fs.writeFileSync(tmp, JSON.stringify(state, null, 2), "utf8");
+    try {
+      fs.renameSync(tmp, target);
+    } catch {
+      fs.copyFileSync(tmp, target);
+      try {
+        fs.unlinkSync(tmp);
+      } catch (_) {}
+    }
     return true;
   } catch {
     return false;
+  }
+}
+
+function withNamespaceLock(namespace, fn) {
+  ensureCacheDir();
+  const lockPath = getLockPath(namespace);
+  let fd = null;
+  const started = Date.now();
+  while (Date.now() - started < 1500) {
+    try {
+      fd = fs.openSync(lockPath, "wx");
+      break;
+    } catch (err) {
+      if (err?.code !== "EEXIST") break;
+      try {
+        const st = fs.statSync(lockPath);
+        if (Date.now() - Number(st.mtimeMs || 0) > 10_000) {
+          try {
+            fs.unlinkSync(lockPath);
+          } catch (_) {}
+          continue;
+        }
+      } catch (_) {}
+      const end = Date.now() + 20;
+      while (Date.now() < end) {}
+    }
+  }
+  try {
+    return fn();
+  } finally {
+    if (fd != null) {
+      try {
+        fs.closeSync(fd);
+      } catch (_) {}
+      try {
+        fs.unlinkSync(lockPath);
+      } catch (_) {}
+    }
   }
 }
 
@@ -53,24 +106,44 @@ function isStartupThrottleDue(namespace, key, ttlMs) {
 }
 
 function markStartupThrottle(namespace, key, at = Date.now()) {
-  const state = readState(namespace);
-  state[String(key)] = Number(at) || Date.now();
-  return writeState(namespace, state);
+  return withNamespaceLock(namespace, () => {
+    const state = readState(namespace);
+    state[String(key)] = Number(at) || Date.now();
+    return writeState(namespace, state);
+  });
+}
+
+/**
+ * Claim atomico: true solo se questo processo “prende” il lavoro (due+restart non lo ripetono).
+ */
+function tryClaimStartupWork(namespace, key, ttlMs) {
+  return withNamespaceLock(namespace, () => {
+    const check = isStartupThrottleDue(namespace, key, ttlMs);
+    if (!check.due) {
+      return { claimed: false, reason: "throttled", ...check };
+    }
+    const state = readState(namespace);
+    state[String(key)] = Date.now();
+    writeState(namespace, state);
+    return { claimed: true, reason: check.lastAt ? "ttl_expired" : "first_run", ...check };
+  });
 }
 
 function clearStartupThrottle(namespace, key = null) {
-  if (!key) {
-    const filePath = getStatePath(namespace);
-    try {
-      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-      return true;
-    } catch {
-      return false;
+  return withNamespaceLock(namespace, () => {
+    if (!key) {
+      const filePath = getStatePath(namespace);
+      try {
+        if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+        return true;
+      } catch {
+        return false;
+      }
     }
-  }
-  const state = readState(namespace);
-  delete state[String(key)];
-  return writeState(namespace, state);
+    const state = readState(namespace);
+    delete state[String(key)];
+    return writeState(namespace, state);
+  });
 }
 
 function envFlagEnabled(name) {
@@ -99,6 +172,7 @@ function shouldRunStartupWork(namespace, key, { ttlMs, forceEnv } = {}) {
 module.exports = {
   isStartupThrottleDue,
   markStartupThrottle,
+  tryClaimStartupWork,
   clearStartupThrottle,
   shouldRunStartupWork,
   isFullStartupSyncEnabled,

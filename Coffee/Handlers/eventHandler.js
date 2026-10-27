@@ -13,12 +13,38 @@ module.exports = (client) => {
     const statusMap = new Map();
     let loaded = 0;
 
+    const RARE_EVENT_DEFAULTS = [
+      "emojiCreate",
+      "emojiDelete",
+      "emojiUpdate",
+      "stickerCreate",
+      "stickerDelete",
+      "stickerUpdate",
+      "stageInstanceDelete",
+      "webhookUpdate",
+      "channelPinsUpdate",
+      "threadMembersUpdate",
+      "guildScheduledEventCreate",
+      "guildScheduledEventUpdate",
+      "guildScheduledEventDelete",
+    ];
+    const skipRare = String(process.env.VC_SKIP_RARE_EVENTS || "").trim() === "1";
+    const skipEvents = new Set([
+      ...(skipRare ? RARE_EVENT_DEFAULTS : []),
+      ...String(process.env.VC_SKIP_EVENTS || "")
+        .split(/[,+\s]+/)
+        .map((s) => s.trim())
+        .filter(Boolean),
+    ]);
+
     for (const file of listJsFilesRecursive(absBase)) {
       const rel = path.relative(absBase, file).replace(/\\/g, "/");
       try {
+        if (skipEvents.has(rel) || skipEvents.has(path.basename(rel, ".js"))) continue;
         delete require.cache[require.resolve(file)];
         const event = require(file);
         if (!event?.name || typeof event.execute !== "function") continue;
+        if (skipEvents.has(String(event.name))) continue;
 
         const eventName = normalizeLifecycleEventName(event.name);
         const handler = async (...args) => {

@@ -1,6 +1,6 @@
 const MAX_ACTIVE = Math.max(
   1,
-  Math.min(4, Math.floor(Number(process.env.VC_ECONOMY_RENDER_CONCURRENCY) || 2)),
+  Math.min(2, Math.floor(Number(process.env.VC_ECONOMY_RENDER_CONCURRENCY) || 1)),
 );
 
 let active = 0;

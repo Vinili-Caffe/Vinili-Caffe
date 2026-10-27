@@ -29,20 +29,17 @@ module.exports = {
       global.logger?.error?.("[STANZA PANEL MESSAGE ERROR]", error);
     }
     const isEditedPrefixExecution = Boolean(message?.__fromMessageUpdatePrefix);
-    try {
-      if (!isEditedPrefixExecution) {
-        const safePrefix = String(client?.config?.prefix || "-").trim() || "-";
-        await handleTtsMessage(message, client, safePrefix);
-      }
-    } catch (error) {
-      global.logger?.error?.("[TTS ERROR]", error);
-    }
-    try {
-      if (!isEditedPrefixExecution) {
-        await handleVoiceTranscriptionMessage(message, client);
-      }
-    } catch (error) {
-      global.logger?.error?.("[VOICE TRANSCRIBE ERROR]", error);
+    /* perfP2: TTS + transcribe fuori dal critical path (come Vinyls) */
+    if (!isEditedPrefixExecution) {
+      const safePrefix = String(client?.config?.prefix || "-").trim() || "-";
+      setImmediate(() => {
+        handleTtsMessage(message, client, safePrefix).catch((error) => {
+          global.logger?.error?.("[TTS ERROR]", error);
+        });
+        handleVoiceTranscriptionMessage(message, client).catch((error) => {
+          global.logger?.error?.("[VOICE TRANSCRIBE ERROR]", error);
+        });
+      });
     }
     if (!message.author?.bot && message.guild) {
       void ingestMarkovMessageCreate(message, client).then(async () => {

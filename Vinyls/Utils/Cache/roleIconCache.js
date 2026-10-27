@@ -42,12 +42,14 @@ async function cacheRoleIcon(iconUrl) {
     const filename = `${hash}${ext}`;
     const filepath = path.join(CACHE_DIR, filename);
 
-    if (fs.existsSync(filepath)) {
+    try {
+      await fs.promises.access(filepath);
       return filepath;
-    }
+    } catch (_) {}
 
     const imageBuffer = await downloadImage(iconUrl);
-    fs.writeFileSync(filepath, imageBuffer);
+    /* perfP2: write async — non blocca l'event loop su I/O disco */
+    await fs.promises.writeFile(filepath, imageBuffer);
 
     return filepath;
   } catch (error) {
@@ -56,18 +58,19 @@ async function cacheRoleIcon(iconUrl) {
   }
 }
 
-function cleanOldIcons(maxAgeMs = 30 * 24 * 60 * 60 * 1000) {
+async function cleanOldIcons(maxAgeMs = 30 * 24 * 60 * 60 * 1000) {
   try {
-    const files = fs.readdirSync(CACHE_DIR);
+    const files = await fs.promises.readdir(CACHE_DIR);
     const now = Date.now();
 
     for (const file of files) {
       const filepath = path.join(CACHE_DIR, file);
-      const stats = fs.statSync(filepath);
-
-      if (now - stats.mtimeMs > maxAgeMs) {
-        fs.unlinkSync(filepath);
-      }
+      try {
+        const stats = await fs.promises.stat(filepath);
+        if (now - stats.mtimeMs > maxAgeMs) {
+          await fs.promises.unlink(filepath);
+        }
+      } catch (_) {}
     }
   } catch (error) {
     global.logger?.error?.(
@@ -79,7 +82,9 @@ function cleanOldIcons(maxAgeMs = 30 * 24 * 60 * 60 * 1000) {
 
 if (!global.__vcRoleIconCacheCleanupInterval) {
   global.__vcRoleIconCacheCleanupInterval = setInterval(
-    () => cleanOldIcons(),
+    () => {
+      void cleanOldIcons();
+    },
     24 * 60 * 60 * 1000,
   );
   if (typeof global.__vcRoleIconCacheCleanupInterval.unref === "function") {

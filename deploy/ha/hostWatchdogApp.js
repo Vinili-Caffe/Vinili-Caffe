@@ -15,8 +15,11 @@ const COOLDOWN_MS = Math.max(120_000, Number(process.env.HOST_WATCHDOG_COOLDOWN_
 const HOST_ROLE = String(process.env.HOST_ROLE || "primary").trim().toLowerCase();
 
 /** Grace dopo start/restart: non riavviare mentre il processo sta ancora boottando. */
+const BOTS_GRACE = Math.max(120_000, Number(process.env.HOST_WATCHDOG_BOTS_GRACE_MS || 240_000) || 240_000);
 const BOOT_GRACE_MS = {
-  bots: Math.max(120_000, Number(process.env.HOST_WATCHDOG_BOTS_GRACE_MS || 240_000) || 240_000),
+  bots: BOTS_GRACE,
+  "bots-vinyls": BOTS_GRACE,
+  "bots-coffee": BOTS_GRACE,
   "site-api": Math.max(60_000, Number(process.env.HOST_WATCHDOG_SITE_API_GRACE_MS || 90_000) || 90_000),
   lavalink: Math.max(45_000, Number(process.env.HOST_WATCHDOG_LAVALINK_GRACE_MS || 90_000) || 90_000),
   default: Math.max(45_000, Number(process.env.HOST_WATCHDOG_DEFAULT_GRACE_MS || 60_000) || 60_000),
@@ -26,7 +29,8 @@ const LAVALINK_PASSWORD = String(process.env.LAVALINK_PASSWORD || "youshallnotpa
 
 /** @type {{ name: string, kind: 'http'|'tcp', url?: string, host?: string, port?: number, headers?: Record<string,string> }} */
 const CHECKS = [
-  { name: "bots", kind: "http", url: "http://127.0.0.1:3000/webhooks/health" },
+  /* perfP0: health webhook è sul processo Vinyls (LOADER_BOTS=vinyls) */
+  { name: "bots-vinyls", kind: "http", url: "http://127.0.0.1:3000/webhooks/health" },
   { name: "site-api", kind: "http", url: "http://127.0.0.1:3020/webhooks/site-api/health" },
   { name: "discadia-votes", kind: "http", url: "http://127.0.0.1:3010/webhooks/discadia/health" },
   { name: "topgg-votes", kind: "http", url: "http://127.0.0.1:3014/webhooks/topgg/health" },
@@ -42,6 +46,8 @@ const CHECKS = [
 
 const PM2_RESTARTABLE = new Set([
   "bots",
+  "bots-vinyls",
+  "bots-coffee",
   "site-api",
   "discadia-votes",
   "topgg-votes",

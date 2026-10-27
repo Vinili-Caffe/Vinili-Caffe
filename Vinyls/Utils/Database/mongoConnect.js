@@ -1,14 +1,16 @@
 const net = require("node:net");
 const mongoose = require("mongoose");
 
+/* perfP2: pool bot più stretto (multi-process verso stesso Mongo) */
+const MONGO_POOL = Math.max(2, Math.min(16, Number(process.env.VC_MONGO_POOL_SIZE || 6) || 6));
 const MONGO_CONNECT_OPTIONS = {
   serverSelectionTimeoutMS: 8_000,
   connectTimeoutMS: 8_000,
   socketTimeoutMS: 20_000,
-    maxPoolSize: 8,
+  maxPoolSize: MONGO_POOL,
   minPoolSize: 0,
   maxIdleTimeMS: 30_000,
-    autoIndex: false,
+  autoIndex: false,
   autoCreate: false,
   family: 4,
 };
@@ -17,7 +19,7 @@ const MONGO_LOCAL_CONNECT_OPTIONS = {
   connectTimeoutMS: 5_000,
   socketTimeoutMS: 30_000,
   heartbeatFrequencyMS: 8_000,
-  maxPoolSize: 8,
+  maxPoolSize: MONGO_POOL,
   minPoolSize: 0,
   maxIdleTimeMS: 30_000,
   autoIndex: false,
@@ -367,28 +369,48 @@ async function closeMongoGraceful(reason = "shutdown") {
   }
 }
 
+function isBenignIndexError(err) {
+  const msg = String(err?.message || err || "");
+  return (
+    /too many indexes/i.test(msg) ||
+    /same name as the requested index/i.test(msg) ||
+    /IndexOptionsConflict|IndexKeySpecsConflict|already exists/i.test(msg) ||
+    /Expression not supported in partial index/i.test(msg) ||
+    /E11000 duplicate key/i.test(msg)
+  );
+}
+
 async function ensureMongoIndexes({ reason = "manual" } = {}) {
   if (!isMongoReady()) return { ok: false, reason: "not_ready" };
   const models = Object.values(mongoose.models || {});
   let ok = 0;
   let failed = 0;
+  let skipped = 0;
   const startedAt = Date.now();
   for (const model of models) {
     try {
       await model.createIndexes();
       ok += 1;
     } catch (err) {
-      failed += 1;
-      global.logger?.warn?.(
-        `[DATABASE] createIndexes ${model?.modelName || "?"}:`,
-        err?.message || err,
-      );
+      if (isBenignIndexError(err)) {
+        skipped += 1;
+        global.logger?.debug?.(
+          `[DATABASE] createIndexes skip ${model?.modelName || "?"}:`,
+          err?.message || err,
+        );
+      } else {
+        failed += 1;
+        global.logger?.warn?.(
+          `[DATABASE] createIndexes ${model?.modelName || "?"}:`,
+          err?.message || err,
+        );
+      }
     }
   }
   global.logger?.info?.(
-    `[DATABASE] ensureIndexes (${reason}): models=${models.length} ok=${ok} failed=${failed} in ${Date.now() - startedAt}ms.`,
+    `[DATABASE] ensureIndexes (${reason}): models=${models.length} ok=${ok} skipped=${skipped} failed=${failed} in ${Date.now() - startedAt}ms.`,
   );
-  return { ok: failed === 0, models: models.length, createdOk: ok, failed };
+  return { ok: failed === 0, models: models.length, createdOk: ok, skipped, failed };
 }
 
 module.exports = {

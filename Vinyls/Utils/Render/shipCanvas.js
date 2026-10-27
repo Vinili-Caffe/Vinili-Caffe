@@ -734,7 +734,7 @@ module.exports = async function renderShipCanvas(params) {
     return { buffer: buf, format: "png" };
   }
 
-  const FRAME_COUNT = Math.max(12, Math.min(36, Math.floor(Number(process.env.VC_SHIP_GIF_FRAMES ?? 28))));
+  const FRAME_COUNT = Math.max(12, Math.min(36, Math.floor(Number(process.env.VC_SHIP_GIF_FRAMES ?? 18))));
   const FRAMERATE = Math.max(8, Math.min(18, Math.floor(Number(process.env.VC_SHIP_GIF_FPS ?? 12))));
   let tmpDir = "";
   try {

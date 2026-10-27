@@ -15,7 +15,7 @@ const {
 const { bootstrapSupporter, recoverSupporterStatusAnnouncesOnStartup } = require("./presenceUpdate");
 const { restoreTtsConnections } = require("../Services/TTS/ttsService");
 const { runDueOneTimeReminders, } = require("../Services/Reminders/oneTimeReminderService");
-const { bootstrapMinigameScheduler } = require("../Services/Minigames/minigameService");
+const { bootstrapMinigameScheduler } = require("../Services/Minigames/minigameSchedulerService");
 const { startVerificationTenureLoop, backfillVerificationTenure, startVoteRoleCleanupLoop, runAllGuilds: renumberAllCategories, startCategoryNumberingLoop, startSponsorKickLoop, startSponsorGuildNicknameSweepLoop, } = require("../Services/Community/communityOpsService");
 const { startBirthdayLoop } = require("../Services/Community/birthdayService");
 const { startDailyMemberStatsLoop } = require("../Services/Community/dailyMemberStatsService");
@@ -72,7 +72,7 @@ const { startMovieNightAnnouncementLoop, recoverMovieNightAnnouncementsOnStartup
 const { startGlobalExpEventAnnouncementLoop } = require("../Services/Community/globalExpEventAnnouncementService");
 const { printRecoveryHealthOnce } = require("../../shared/recovery/recoveryHealth");
 const IDs = require("../Utils/Config/ids");
-const guildMemberUpdateExtras = require("./guildMemberUpdate");
+const guildMemberUpdateExtras = require("../Services/Community/boostAnnounceRecoveryService");
 const guildMemberAddExtras = require("./guildMemberAdd");
 const { recoverDonationPackageAnnouncesOnStartup } = require("../Utils/Community/donationPackageSupportersAnnounce");
 const { recoverManualSocialRoleAnnouncesOnStartup } = require("../Utils/Community/manualSocialRoleAnnounceAndPicPerms");
@@ -111,7 +111,7 @@ const STARTUP_MEDIUM_TTL_MS = Math.max(
   Number(process.env.STARTUP_MEDIUM_TTL_MS) || 60 * 60 * 1000,
 );
 const STARTUP_PANELS_RETRY_MS = 15000;
-const LOOP_STAGGER_MS = Math.max(0, Number(process.env.LOOP_STAGGER_MS) || 250);
+const LOOP_STAGGER_MS = Math.max(0, Number(process.env.LOOP_STAGGER_MS) || 400);
 const ENGAGEMENT_INTERVAL_MS = Number(process.env.ENGAGEMENT_INTERVAL_MS) || 60 * 1000;
 const JOIN_RAID_RESTORE_INTERVAL_MS = Number(process.env.JOIN_RAID_RESTORE_INTERVAL_MS) || 10 * 60 * 1000;
 const CLEANUP_USERS_NOT_IN_SERVER_DELAY_MS = Number(process.env.CLEANUP_USERS_NOT_IN_SERVER_DELAY_MS) || 3 * 60 * 1000;
@@ -622,16 +622,17 @@ function buildDeferredStartupTasks(client, primaryScheduler, engagementTick) {
       },
     },
     {
+      /* perfP2: indici anche senza FULL_STARTUP_SYNC (claim atomico settimanale) */
       label: "ensure MongoDB indexes (weekly / full sync)",
       weight: 76,
-            enabled:
-        primaryScheduler &&
-        fullSync &&
-        isStartupThrottleDue(STARTUP_THROTTLE_NS, "mongo-indexes", 7 * 24 * 60 * 60 * 1000).due,
+      enabled: primaryScheduler && (fullSync || isStartupThrottleDue(STARTUP_THROTTLE_NS, "mongo-indexes", 7 * 24 * 60 * 60 * 1000).due),
       run: async () => {
+        const { tryClaimStartupWork } = require("../../shared/runtime/startupThrottleCache");
+        const claim = tryClaimStartupWork(STARTUP_THROTTLE_NS, "mongo-indexes", 7 * 24 * 60 * 60 * 1000);
+        if (!fullSync && !claim.claimed) return;
         const { ensureMongoIndexes } = require("../Utils/Database/mongoConnect");
-        await ensureMongoIndexes({ reason: "full_startup_sync" });
-        markMediumStartup("mongo-indexes");
+        await ensureMongoIndexes({ reason: fullSync ? "full_startup_sync" : "weekly_throttle" });
+        if (fullSync) markMediumStartup("mongo-indexes");
       },
     },
             {
@@ -1250,6 +1251,7 @@ function startPrimaryLoops(client, engagementTick) {
     ["[PREMIUM EXPIRY REMINDER] Failed to start loop", () => startPremiumExpiryReminderLoop(client)],
     ["[MOVIE NIGHT ANNOUNCE] Failed to start loop", () => startMovieNightAnnouncementLoop(client)],
     ["[EXP EVENT ANNOUNCE] Failed to start loop", () => startGlobalExpEventAnnouncementLoop(client)],
+    /* perfP1: se COMMUNITY_POLL_EXTERNAL=1 i start* no-op qui (gira community-poll) */
     ["[TWITCH LIVE] Failed to start loop", () => startTwitchLiveAlertLoop(client)],
     ["[KICK LIVE] Failed to start loop", () => startKickLiveAlertLoop(client)],
     ["[GAME NEWS] Failed to start loop", () => startGameNewsAlertLoop(client)],

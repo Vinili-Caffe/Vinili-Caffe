@@ -5,7 +5,11 @@ const { isViniliProtectedGuild, normalizeGuildId } = require("./viniliProtectedG
 const BOT_STATE_KEY = "multiGuildTenantSettings.v1";
 const DEFAULT_PREFIX = "+";
 const PREFIX_MAX_LEN = 5;
-const SETTINGS_CACHE_TTL_MS = 4_000;
+/* perfP1: TTL più alto — meno refresh DB sul path messaggi tenant */
+const SETTINGS_CACHE_TTL_MS = Math.max(
+  4_000,
+  Math.min(120_000, Number(process.env.VC_TENANT_SETTINGS_CACHE_TTL_MS || 30_000) || 30_000),
+);
 
 let settingsCache = Object.freeze({});
 let settingsCacheAt = 0;
@@ -993,6 +997,7 @@ module.exports = {
   patchTenantCommandAclMap,
   listTenantGuildIdsWithDashboardRoleSync,
   refreshTenantGuildSettingsCache,
+  isTenantGuildSettingsCacheFresh,
   ensureTenantGuildSettingsCacheFresh,
   guildAllowsCustomQuoteStyleSync,
   setTenantChannelField,

@@ -524,7 +524,13 @@ async function runFullGuildMemberBackfill(client) {
   const guild = await getClientGuildCached(client, gid);
   if (!guild) return { scanned: 0, ok: 0 };
 
-  await guild.members.fetch().catch(() => null);
+  /* perfP1: full fetch solo se cache incompleta (evita spike RAM/API ogni backfill) */
+  const memberCount = Math.max(0, Number(guild.memberCount) || 0);
+  const cacheSize = guild.members.cache.size;
+  const cacheRatio = memberCount > 0 ? cacheSize / memberCount : 1;
+  if (cacheRatio < 0.85) {
+    await guild.members.fetch().catch(() => null);
+  }
   const humans = [...guild.members.cache.values()].filter((m) => !m.user?.bot);
   let ok = 0;
   await mapPool(humans, CONCURRENCY, async (member) => {
@@ -593,7 +599,10 @@ async function runUserFullStateSweep(client, options = {}) {
 }
 
 function startUserFullStatePersistenceLoop(client) {
-  // Deve girare sul bot gateway (serve GuildMembers), non sul bot-scheduler REST.
+  /* perfP1: su COMMUNITY_POLL_EXTERNAL gira sul worker REST (members.fetch via API). */
+  const dedicated = String(process.env.COMMUNITY_POLL_WORKER || "").trim() === "1";
+  const external = String(process.env.COMMUNITY_POLL_EXTERNAL || "").trim() === "1";
+  if (external && !dedicated) return null;
   if (!client) return null;
   if (loopHandle) return loopHandle;
   ensureUserFullStateShutdownFlush();

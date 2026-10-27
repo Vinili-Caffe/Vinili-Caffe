@@ -36,12 +36,16 @@ if (process.env.RUN_UNDER_LOADER !== "1") {
 const installProcessHandlers = require("./Handlers/processHandler");
 const { buildInitialClientPresenceOptions, installBotPresenceHooks, patchClientPresenceGuard } = require("../shared/discord/botPresenceActivity");
 const { installGatewayShardListenerCeiling } = require("../shared/discord/gatewayListenerCeiling");
-const { buildDiscordClientMemoryOptions } = require("../shared/discord/clientMemoryOptions");
+const {
+  buildDiscordClientMemoryOptions,
+  resolveGatewayIntents,
+  resolveGatewayPartials,
+} = require("../shared/discord/clientMemoryOptions");
 installProcessHandlers();
 
-const intentList = [...new Set(Object.values(GatewayIntentBits).filter((x) => typeof x === "number" && x > 0))];
-if (intentList.length === 0) intentList.push(1);
-const partialList = [...new Set(Object.values(Partials).filter((x) => typeof x === "number"))];
+/* perfP0: Coffee non usa supporter vanity → niente GuildPresences */
+const intentList = resolveGatewayIntents(discord, { includePresences: false });
+const partialList = resolveGatewayPartials(discord);
 const coffeeConfig = require("./config.json");
 const client = new Client({
   intents: intentList,

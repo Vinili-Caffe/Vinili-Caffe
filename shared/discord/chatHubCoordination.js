@@ -1,14 +1,37 @@
 const path = require("path");
 const { readSnapshotWithMeta, writeSnapshotWithMeta } = require("../recovery/snapshotStore");
+const { pruneMapByAge, pruneMapByMaxSize, ensureMapPruneInterval } = require("../runtime/mapPrune");
 
 const CHAT_HUB_SOURCES = Object.freeze({ VINILI: "vinili", COFFEE: "coffee" });
 const SNAPSHOT_PATH = path.join(__dirname, "chatHubPacing.snapshot.json");
 const DEFAULT_CROSS_BOT_GAP_MS = 4 * 60 * 1000;
 const DEFAULT_SAME_BOT_GAP_MS = 3 * 60 * 1000;
 const RELOAD_MS = 1500;
+const CHAT_HUB_MAX_AGE_MS = Math.max(
+  10 * 60 * 1000,
+  Number(process.env.VC_CHAT_HUB_MAP_MAX_AGE_MS || 6 * 60 * 60 * 1000) || 6 * 60 * 60 * 1000,
+);
+const CHAT_HUB_MAX_CHANNELS = Math.max(
+  50,
+  Number(process.env.VC_CHAT_HUB_MAP_MAX || 500) || 500,
+);
 
 const memoryByChannel = new Map();
 let lastSnapshotLoadAt = 0;
+
+ensureMapPruneInterval("__vcChatHubPruneInterval", () => {
+  const now = Date.now();
+  pruneMapByAge(memoryByChannel, {
+    maxAgeMs: CHAT_HUB_MAX_AGE_MS,
+    now,
+    getTs: (_key, row) =>
+      Math.max(Number(row?.vinili) || 0, Number(row?.coffee) || 0, Number(row?.quietUntil) || 0),
+  });
+  pruneMapByMaxSize(memoryByChannel, CHAT_HUB_MAX_CHANNELS);
+  try {
+    persistSnapshot();
+  } catch (_) {}
+}, 10 * 60 * 1000);
 
 function channelKey(channelId) {
   return String(channelId || "").trim();

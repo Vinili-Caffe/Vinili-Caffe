@@ -3,7 +3,8 @@ const IDs = require("../../Utils/Config/ids");
 const { getBotState, setBotState } = require("../../Utils/BotState/botStateStore");
 const { getClientGuildCached, getGuildChannelCached } = require("../../Utils/Interaction/interactionEntityCache");
 const STATE_KEY = "twitchLiveAlert.v1";
-const DEFAULT_POLL_INTERVAL_SEC = 90;
+/* perfP1: poll meno frequente a idle */
+const DEFAULT_POLL_INTERVAL_SEC = 120;
 const DEFAULT_REANNOUNCE_COOLDOWN_SEC = 45 * 60;
 const TOKEN_REFRESH_BUFFER_MS = 120_000;
 /* twitchTokenFailBackoff2: ENFILE/23 a boot saturato — backoff + msg net chiari, no spam HTTP ? */
@@ -611,6 +612,9 @@ async function runTwitchLiveAlertPoll(client) {
 }
 
 function startTwitchLiveAlertLoop(client) {
+  const dedicated = String(process.env.COMMUNITY_POLL_WORKER || "").trim() === "1";
+  const external = String(process.env.COMMUNITY_POLL_EXTERNAL || "").trim() === "1";
+  if (external && !dedicated) return;
   if (!client || loopStarted.has(client)) return;
   const cfg = resolveConfig(client);
   if (!cfg.enabled) return;

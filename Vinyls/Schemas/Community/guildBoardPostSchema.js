@@ -43,10 +43,12 @@ const quoteDiscriminatorSchema = new Schema(
 );
 
 quoteDiscriminatorSchema.index({ guildId: 1, creatorUserId: 1, createdAt: -1 });
+/* unique board msg: stesso key del base index → nome dedicato (niente auto-name clash) */
 quoteDiscriminatorSchema.index(
   { guildId: 1, boardChannelId: 1, boardMessageId: 1 },
   {
     unique: true,
+    name: "quote_guild_channel_message_unique",
     partialFilterExpression: { [DISCRIMINATOR_KEY]: BOARD_POST_TYPE.QUOTE },
   },
 );
@@ -74,7 +76,7 @@ const repostDiscriminatorSchema = new Schema(
 );
 
 repostDiscriminatorSchema.index({ guildId: 1, reposterUserId: 1, createdAt: -1 });
-repostDiscriminatorSchema.index({ guildId: 1, createdAt: -1 });
+/* guildId+createdAt già sul base schema — niente secondo index omonimo */
 
 const GuildRepost =
   models.GuildRepost ||

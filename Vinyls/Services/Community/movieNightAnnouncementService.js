@@ -3250,6 +3250,9 @@ async function runMovieNightEventStartCheck(client, opts = {}) {
 }
 
 function startMovieNightAnnouncementLoop(client) {
+  const dedicated = String(process.env.COMMUNITY_POLL_WORKER || "").trim() === "1";
+  const external = String(process.env.COMMUNITY_POLL_EXTERNAL || "").trim() === "1";
+  if (external && !dedicated) return null;
   if (!client || movieNightAnnouncementTasks) return movieNightAnnouncementTasks;
   ensureMovieNightReviewThreadTracking(client).catch((err) => {
     global.logger?.warn?.("[MOVIE NIGHT ANNOUNCE] review thread tracking on loop start failed:", err?.message || err);

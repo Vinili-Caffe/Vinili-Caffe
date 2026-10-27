@@ -445,7 +445,7 @@ function drawArena(ctx, params) {
 }
 
 function spinFrameTiming() {
-  const totalFrames = Math.max(18, Math.min(32, Math.floor(Number(process.env.VC_ROB_GIF_FRAMES ?? 22))));
+  const totalFrames = Math.max(12, Math.min(32, Math.floor(Number(process.env.VC_ROB_GIF_FRAMES ?? 14))));
   const delay = Math.max(75, Math.min(140, Math.floor(Number(process.env.VC_ROB_GIF_DELAY_MS ?? 95))));
   const gifFrames = totalFrames + HOLD_FRAMES;
   return { totalFrames, delay, gifFrames, durationMs: gifFrames * delay + 80 };

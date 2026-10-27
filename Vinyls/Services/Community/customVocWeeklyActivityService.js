@@ -22,10 +22,16 @@ async function ensureGuildVoiceChannelsHydrated(guild) {
 }
 
 async function loadTargetActivityProfile(guildId, userId) {
-  return ActivityUserProfile.findOne({ guildId: String(guildId), userId: String(userId) })
+  const lean = await ActivityUserProfile.findOne({ guildId: String(guildId), userId: String(userId) })
     .select("userId profile.customRole profile.totals.hourly profile.totals.daily profile.totals.sessionChannelId profile.totals.sessionStartedAt")
     .lean()
     .catch(() => null);
+  try {
+    const { hydrateProfileActivityBucketsFromGuild } = require("./activityService");
+    return await hydrateProfileActivityBucketsFromGuild(guildId, userId, lean);
+  } catch (_) {
+    return lean;
+  }
 }
 
 async function loadCustomVocEnforcementTargets(guild) {

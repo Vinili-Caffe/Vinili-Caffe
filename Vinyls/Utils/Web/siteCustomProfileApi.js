@@ -81,7 +81,12 @@ async function loadVoiceWeeklyActivity(guildId, userId) {
         merged = { guildId: gid, userId: uid, ...cr };
       }
     }
-    return buildCustomVocWeeklyActivityPanelState(merged, profileLean);
+    let hydrated = profileLean;
+    try {
+      const { hydrateProfileActivityBucketsFromGuild } = require("../../Services/Community/activityService");
+      hydrated = await hydrateProfileActivityBucketsFromGuild(gid, uid, profileLean);
+    } catch (_) {}
+    return buildCustomVocWeeklyActivityPanelState(merged, hydrated);
   } catch (err) {
     global.logger?.warn?.("[siteCustomProfileApi] voiceActivity:", err?.message || err);
     return null;

@@ -999,7 +999,7 @@ async function renderSinglePngBuffer(params) {
 }
 
 function duelGifTiming() {
-  const FRAME_COUNT = Math.max(28, Math.min(48, Math.floor(Number(process.env.VC_DUEL_GIF_FRAMES ?? 42))));
+  const FRAME_COUNT = Math.max(20, Math.min(48, Math.floor(Number(process.env.VC_DUEL_GIF_FRAMES ?? 22))));
   const FRAMERATE = Math.max(6, Math.min(10, Math.floor(Number(process.env.VC_DUEL_GIF_FPS ?? 8))));
   return {
     FRAME_COUNT,

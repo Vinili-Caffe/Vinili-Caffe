@@ -425,7 +425,8 @@ async function main() {
       };
       setTimeout(warmRoles, 2500);
       /* siteUsersSwr1: tieni cache calda — evita cold Discord su /ruoli */
-      setInterval(warmRoles, 60_000).unref?.();
+      /* perfP2: warm meno aggressivi (piano audit site-api) */
+      setInterval(warmRoles, Math.max(60_000, Number(process.env.VC_SITE_WARM_ROLES_MS || 90_000) || 90_000)).unref?.();
     } catch (err) {
       console.warn("[SITE-API] site-roles warm:", err?.message || err);
     }
@@ -439,7 +440,7 @@ async function main() {
       };
       setTimeout(warmUsers, 4500);
       /* siteUsersSwr1: refresh periodico classifiche (TTL 90s) */
-      setInterval(warmUsers, 55_000).unref?.();
+      setInterval(warmUsers, Math.max(55_000, Number(process.env.VC_SITE_WARM_USERS_MS || 90_000) || 90_000)).unref?.();
     } catch (err) {
       console.warn("[SITE-API] site-users warm init:", err?.message || err);
     }
@@ -511,7 +512,7 @@ async function main() {
       };
       /* twitchTokenFailBackoff2: warm dopo boot (CPU/FD saturi a 2.5s → ENFILE/23) */
       setTimeout(warmLivePip, 20_000);
-      setInterval(warmLivePip, 55_000).unref?.();
+      setInterval(warmLivePip, Math.max(55_000, Number(process.env.VC_SITE_WARM_LIVE_MS || 90_000) || 90_000)).unref?.();
     } catch (err) {
       console.warn("[SITE-API] live-pip warm init:", err?.message || err);
     }
@@ -523,7 +524,12 @@ async function main() {
         });
       };
       setTimeout(warmVote, 2500);
-      setInterval(warmVote, 18_000).unref?.();
+      /* perfP1: warm vote meno aggressivo (era 18s) */
+      const voteWarmMs = Math.max(
+        30_000,
+        Math.min(300_000, Number(process.env.VC_SITE_VOTE_WARM_MS || 60_000) || 60_000),
+      );
+      setInterval(warmVote, voteWarmMs).unref?.();
     } catch (err) {
       console.warn("[SITE-API] site-vote warm init:", err?.message || err);
     }
@@ -535,7 +541,7 @@ async function main() {
         });
       };
       setTimeout(warmReviews, 3000);
-      setInterval(warmReviews, 25_000).unref?.();
+      setInterval(warmReviews, Math.max(25_000, Number(process.env.VC_SITE_WARM_REVIEWS_MS || 60_000) || 60_000)).unref?.();
       // recensioni di chi non è più staff: pulizia all'avvio e ogni 6 ore
       const { purgeExStaffReviews } = require("../../Utils/Web/siteReviewsApi");
       const purgeExStaff = () => {

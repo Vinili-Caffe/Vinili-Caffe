@@ -19,8 +19,8 @@ for f in $FILES; do
 done
 for f in $FILES; do install -m 644 "/tmp/$(basename "$f")" "/opt/bot/Vinyls/$f"; done
 pm2 restart site-api >/dev/null
-pm2 restart bots >/dev/null
+pm2 restart bots-vinyls bots-coffee >/dev/null 2>&1 || pm2 restart bots >/dev/null
 sleep 20
-pm2 ls | grep -E " bots | site-api "
+pm2 ls | grep -E " bots| site-api "
 echo "backup in $B"
 REMOTE

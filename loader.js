@@ -13,7 +13,20 @@ const ENABLE_LOADER_GIT_PULL =
   ["1", "true", "yes", "on"].includes(String(process.env.ENABLE_LOADER_GIT_PULL || "").trim().toLowerCase());
 const ENABLE_LOADER_NPM_INSTALL =
   ["1", "true", "yes", "on"].includes(String(process.env.ENABLE_LOADER_NPM_INSTALL || "").trim().toLowerCase());
-const BOTS=[{key:'vinyls',label:'Vinyls',folderSuffix:'Vinyls',startupDelayMs:0},{key:'Coffee',label:'Coffee',folderSuffix:'Coffee',startupDelayMs:0}];
+const ALL_BOTS=[{key:'vinyls',label:'Vinyls',folderSuffix:'Vinyls',startupDelayMs:0},{key:'Coffee',label:'Coffee',folderSuffix:'Coffee',startupDelayMs:0}];
+/** perfP0: LOADER_BOTS=vinyls|coffee|all — permette PM2 split heap. */
+function resolveBotsToStart() {
+    const raw = String(process.env.LOADER_BOTS || process.env.BOTS_ONLY || 'all').trim().toLowerCase();
+    if (!raw || raw === 'all' || raw === '*') return ALL_BOTS;
+    const wanted = new Set(raw.split(/[,+\s]+/).map((s) => s.trim()).filter(Boolean));
+    const picked = ALL_BOTS.filter((b) =>
+        wanted.has(String(b.key).toLowerCase()) ||
+        wanted.has(String(b.label).toLowerCase()) ||
+        wanted.has(String(b.folderSuffix).toLowerCase())
+    );
+    return picked.length ? picked : ALL_BOTS;
+}
+const BOTS = resolveBotsToStart();
 const NPM_CACHE_DIR = path.join(os.tmpdir(), '.npm-global');
 const processRefs = {};
 const npmInstallInProgressByDir = {};
@@ -63,7 +76,9 @@ function splitStartPath(bot) {
     const workingDir = resolveBotWorkingDir(bot);
     const shardingFlag = String(process.env.ENABLE_SHARDING || process.env.SHARDING || '').trim().toLowerCase();
     const shardingEnabled = ['1', 'true', 'yes', 'on'].includes(shardingFlag);
-    const useSharded = false;
+    /* perfP1: sharding solo se esplicitamente on + file presente (default off = 1 guild) */
+    const shardEntry = path.join(workingDir, 'run-sharded.js');
+    const useSharded = shardingEnabled && fs.existsSync(shardEntry);
     console.log(
         `[Loader] ${bot.label} ENABLE_SHARDING=${String(process.env.ENABLE_SHARDING || process.env.SHARDING || '')} -> ${useSharded ? 'run-sharded.js' : 'index.js'}`
     );

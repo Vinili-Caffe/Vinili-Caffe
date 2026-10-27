@@ -8,7 +8,8 @@ const { getClientGuildCached, getGuildChannelCached } = require("../../Utils/Int
 
 const execFileAsync = promisify(execFile);
 const STATE_KEY = "kickLiveAlert.v1";
-const DEFAULT_POLL_INTERVAL_SEC = 90;
+/* perfP1: poll meno frequente a idle */
+const DEFAULT_POLL_INTERVAL_SEC = 120;
 const DEFAULT_REANNOUNCE_COOLDOWN_SEC = 45 * 60;
 const TOKEN_REFRESH_BUFFER_MS = 120_000;
 const KICK_TOKEN_URL = "https://id.kick.com/oauth/token";
@@ -688,6 +689,9 @@ async function runKickLiveAlertPoll(client) {
 }
 
 function startKickLiveAlertLoop(client) {
+  const dedicated = String(process.env.COMMUNITY_POLL_WORKER || "").trim() === "1";
+  const external = String(process.env.COMMUNITY_POLL_EXTERNAL || "").trim() === "1";
+  if (external && !dedicated) return;
   if (!client || loopStarted.has(client)) return;
   const cfg = resolveConfig(client);
   if (!cfg.enabled) return;

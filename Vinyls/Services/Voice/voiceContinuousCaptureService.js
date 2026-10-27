@@ -10,7 +10,11 @@ const PCM_SAMPLE_RATE = 48000;
 const DECODE_CHANNELS = 2;
 const PCM_CHANNELS = 1;
 const PCM_BYTES_PER_SEC = PCM_SAMPLE_RATE * PCM_CHANNELS * 2;
-const CAPTURE_MAX_SEC = 30;
+/* perfP2: ring PCM più corto (default 20s, env override) */
+const CAPTURE_MAX_SEC = Math.max(
+  10,
+  Math.min(30, Math.floor(Number(process.env.VC_VOICE_PCM_RING_SEC || 20) || 20)),
+);
 const PAD_TICK_MS = 200;
 
 function downmixStereoChunkToMono(pcmStereo) {

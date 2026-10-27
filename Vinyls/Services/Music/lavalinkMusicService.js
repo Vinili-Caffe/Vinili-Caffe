@@ -35,8 +35,71 @@ const MUSIC_INACTIVITY_MS = Math.max(
   Number.isFinite(_musicIdleRawMs) && _musicIdleRawMs > 0 ? _musicIdleRawMs : 180_000,
 );
 
-/* nameSearchOrig1: testo embed originale IT (EN “Now playing” era per fmbot) */
-const NOW_PLAYING_EMBED_TITLE = "In riproduzione";
+const { getMusicBotHooks } = require("../../../shared/music/musicBotHooks");
+
+function musicHooks() {
+  return getMusicBotHooks();
+}
+
+/* nameSearchOrig1: IT default; Coffee override via setMusicBotHooks */
+function getNowPlayingEmbedTitle() {
+  return String(musicHooks().nowPlayingTitle || "In riproduzione");
+}
+function formatNowPlayingLead(label) {
+  const title = getNowPlayingEmbedTitle();
+  const verified = String(musicHooks().nowPlayingVerifiedPrefix || "").trim();
+  const prefix = verified ? `${verified} ` : "";
+  return label == null ? `${prefix}**${title}:**` : `${prefix}**${title}:** **${label}**`;
+}
+/* snapshot a load (Coffee setta hook prima del require) */
+const NOW_PLAYING_EMBED_TITLE = getNowPlayingEmbedTitle();
+
+
+async function musicPurgeTts(guildId, client) {
+  const h = musicHooks();
+  if (typeof h.purgeTtsVoicePersistence === "function") {
+    return h.purgeTtsVoicePersistence(guildId, client);
+  }
+  const { purgeTtsVoicePersistence } = require("../TTS/ttsService");
+  return purgeTtsVoicePersistence(guildId, client);
+}
+async function musicLeaveTts(guildId, client) {
+  const h = musicHooks();
+  if (typeof h.leaveTtsGuild === "function") {
+    return h.leaveTtsGuild(guildId, client);
+  }
+  const { leaveTtsGuild } = require("../TTS/ttsService");
+  return leaveTtsGuild(guildId, client);
+}
+async function musicStartCapture(opts) {
+  const h = musicHooks();
+  if (!h.enableVoiceCapture) return;
+  if (typeof h.startVoiceContinuousCapture === "function") {
+    return h.startVoiceContinuousCapture(opts);
+  }
+  const { startVoiceContinuousCapture } = require("../Voice/voiceContinuousCaptureService");
+  return startVoiceContinuousCapture(opts);
+}
+async function musicStopCapture(guildId) {
+  const h = musicHooks();
+  if (typeof h.stopVoiceContinuousCapture === "function") {
+    return h.stopVoiceContinuousCapture(guildId);
+  }
+  try {
+    const { stopVoiceContinuousCapture } = require("../Voice/voiceContinuousCaptureService");
+    return stopVoiceContinuousCapture(guildId);
+  } catch (_) {}
+}
+function musicIsCaptureActive(guildId) {
+  const h = musicHooks();
+  if (typeof h.isVoiceCaptureActive === "function") return h.isVoiceCaptureActive(guildId);
+  try {
+    const { isVoiceCaptureActive } = require("../Voice/voiceContinuousCaptureService");
+    return isVoiceCaptureActive(guildId);
+  } catch (_) {
+    return false;
+  }
+}
 
 function getMusicSearchMode() {
   const m = String(process.env.MUSIC_SEARCH_MODE || "").trim().toLowerCase();
@@ -60,9 +123,15 @@ const endListeners = new Set();
 const lastMusicEndHandledByGuild = new Map();
 const pendingQueueEndedTimers = new Map();
 const musicIdleSince = new Map();
-const MUSIC_QUEUE_SNAPSHOT_PATH = path.join(__dirname, "..", "..", "Data", "musicQueueSnapshot.json");
+const MUSIC_QUEUE_SNAPSHOT_PATH = process.env.MUSIC_QUEUE_SNAPSHOT_PATH
+  ? path.resolve(String(process.env.MUSIC_QUEUE_SNAPSHOT_PATH))
+  : path.join(__dirname, "..", "..", "Data", "musicQueueSnapshot.json");
 /* posResume1: 5s → posizione più fedele al riavvio (prima 15s = fino a 15s di rewind) */
-const MUSIC_QUEUE_SNAPSHOT_INTERVAL_MS = 5000;
+/* perfP2: snapshot coda meno frequente (era 5s) */
+const MUSIC_QUEUE_SNAPSHOT_INTERVAL_MS = Math.max(
+  5_000,
+  Math.min(120_000, Number(process.env.VC_MUSIC_QUEUE_SNAPSHOT_MS || 30_000) || 30_000),
+);
 
 function logMusic(...args) {
   if (!MUSIC_LOGS) return;
@@ -381,8 +450,7 @@ async function resumeRestoredMusicSessions(client, opts = {}) {
     }
 
     try {
-      const { purgeTtsVoicePersistence } = require("../TTS/ttsService");
-      await purgeTtsVoicePersistence(gid, client).catch(() => {});
+      await musicPurgeTts(gid, client).catch(() => {});
       let player = sh.players.get(gid);
       if (!player) {
         player = await sh.joinVoiceChannel({
@@ -393,8 +461,7 @@ async function resumeRestoredMusicSessions(client, opts = {}) {
           deaf: false,
         });
         notifyBotPresenceVoiceActivity(client);
-        const { startVoiceContinuousCapture } = require("../Voice/voiceContinuousCaptureService");
-        await startVoiceContinuousCapture({
+        await musicStartCapture({
           guildId: gid,
           voiceChannel,
           client,
@@ -512,11 +579,8 @@ async function playEncodedFromStart(player, encoded, options = {}) {
 }
 
 function parseLavalinkHost() {
-  const raw = (process.env.LAVALINK_HOST || "127.0.0.1:2333").trim().replace(/^https?:\/\//i, "");
-  const lastColon = raw.lastIndexOf(":");
-  const host = lastColon > 0 ? raw.slice(0, lastColon) : raw;
-  const port = lastColon > 0 ? raw.slice(lastColon + 1) : "2333";
-  return { host, port, url: `${host}:${port}` };
+  /* perfP2: shared probe */
+  return require("../../../shared/music/lavalinkProbe").parseLavalinkHost();
 }
 
 function getShardIdForGuild(guild) {
@@ -556,15 +620,13 @@ async function clearBlockingNativeVoiceForMusic(guildId, client) {
   if (!gid || !guildHasBlockingNativeVoiceConnection(gid)) return false;
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
-      const tts = require("../TTS/ttsService");
-      await tts.purgeTtsVoicePersistence(gid, client).catch(() => {});
+      await musicPurgeTts(gid, client).catch(() => {});
       if (typeof tts.leaveTtsGuild === "function") {
         await tts.leaveTtsGuild(gid, client).catch(() => {});
       }
     } catch (_) {}
     try {
-      const { stopVoiceContinuousCapture } = require("../Voice/voiceContinuousCaptureService");
-      await stopVoiceContinuousCapture(gid, client).catch(() => {});
+      await musicStopCapture(gid, client).catch(() => {});
     } catch (_) {}
     try {
       const { clearVoiceSession } = require("../Voice/voiceSessionService");
@@ -726,23 +788,25 @@ function buildResolveAttempts(userQuery) {
       ? `${hint.title} ${hint.author} topic`.replace(/\s+/g, " ").trim()
       : `${base} topic`;
     if (hint.author && hint.title) {
+      /* perfP1: meno cascata (era 5+ytm+sc); quality-first */
       attempts.push(
         `ytsearch:${hint.author} - ${hint.title} official audio`,
         `ytsearch:${hint.author} - ${hint.title}`,
-        `ytsearch:${hint.title} ${hint.author} official audio`,
-        `ytsearch:${hint.title} ${hint.author} topic`,
         `ytsearch:${hint.title} ${hint.author}`,
       );
     }
     /* nameSearchOrig1: senza artista NON cercare "… topic" — picka cover Topic sbagliate
        (es. Hey Soul Sister → Skye - Topic invece di Train). */
-    attempts.push(
-      `ytsearch:${officialQ}`,
-      `ytsearch:${base}`,
-      `ytmsearch:${base}`,
-      `scsearch:${base}`,
-    );
-    if (hint.author) attempts.push(`ytsearch:${topicQ}`);
+    attempts.push(`ytsearch:${officialQ}`, `ytsearch:${base}`);
+    if (String(process.env.VC_MUSIC_SEARCH_YTM || "1").trim() !== "0") {
+      attempts.push(`ytmsearch:${base}`);
+    }
+    if (String(process.env.VC_MUSIC_SEARCH_SC || "").trim() === "1") {
+      attempts.push(`scsearch:${base}`);
+    }
+    if (hint.author && String(process.env.VC_MUSIC_SEARCH_TOPIC || "").trim() === "1") {
+      attempts.push(`ytsearch:${topicQ}`);
+    }
     if (mode === "spotify" || mode === "spotify_first") {
       /* spsearchFix1: non appendere spsearch (LavaSrc SocketTimeout); yt* già in attempts */
     }
@@ -780,10 +844,16 @@ function buildStableRemirrorAttempts(title, author, isrc) {
   const isrcClean = String(isrc || "").trim().replace(/\s+/g, "");
   const q = [t, a].filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
   /* isrcFirst1: ISRC prima (metadata Spotify), poi titolo — altrimenti cover/remix vincono */
-  if (isrcClean) attempts.push(`ytsearch:${isrcClean}`, `ytmsearch:${isrcClean}`);
+  /* perfP1: remirror più corto */
+  if (isrcClean) attempts.push(`ytsearch:${isrcClean}`);
   if (q) attempts.push(`ytsearch:${q} official audio`, `ytsearch:${q}`);
-  if (t && a) attempts.push(`ytsearch:${a} - ${t}`, `ytmsearch:${t} ${a}`);
-  if (t) attempts.push(`ytsearch:${t} official audio`, `ytmsearch:${t}`);
+  if (t && a) attempts.push(`ytsearch:${a} - ${t}`);
+  if (t) attempts.push(`ytsearch:${t} official audio`);
+  if (String(process.env.VC_MUSIC_SEARCH_YTM || "1").trim() !== "0") {
+    if (isrcClean) attempts.push(`ytmsearch:${isrcClean}`);
+    if (t && a) attempts.push(`ytmsearch:${t} ${a}`);
+    else if (t) attempts.push(`ytmsearch:${t}`);
+  }
   return [...new Set(attempts.filter(Boolean))];
 }
 
@@ -2556,8 +2626,7 @@ async function tickMusicInactivity(client) {
     if (textChannelId) {
       await sendMusicInactivityLeaveEmbed(client, textChannelId, gid);
     }
-    const { leaveTtsGuild } = require("../TTS/ttsService");
-    await leaveTtsGuild(gid, client).catch(() => {});
+    await musicLeaveTts(gid, client).catch(() => {});
   }
 }
 
@@ -2585,8 +2654,7 @@ function markMusicVoiceLeaveIntentional(client, guildId) {
 async function leaveMusicVoiceChannelMarked(client, guildId) {
   const gid = String(guildId || "").trim();
   if (!gid || !client) return;
-  const { stopVoiceContinuousCapture } = require("../Voice/voiceContinuousCaptureService");
-  await stopVoiceContinuousCapture(gid, client).catch(() => null);
+  await musicStopCapture(gid, client).catch(() => null);
   musicIdleSince.delete(gid);
   lastMusicEndHandledByGuild.delete(gid);
   markMusicVoiceLeaveIntentional(client, gid);
@@ -2648,8 +2716,7 @@ async function handleMusicBotVoiceDisconnect(client, guild) {
   }
   persistMusicQueueSnapshotNow(client);
   if (!intentional && !keepForResume) {
-    const { purgeTtsVoicePersistence } = require("../TTS/ttsService");
-    await purgeTtsVoicePersistence(gid, client).catch(() => {});
+    await musicPurgeTts(gid, client).catch(() => {});
     try {
       const { clearVoiceSession } = require("../Voice/voiceSessionService");
       clearVoiceSession(gid);
@@ -3016,79 +3083,33 @@ function initLavalinkMusicIfEnabled(client) {
 }
 
 function probeLavalinkTcp(host, port, timeoutMs = 1500) {
-  const net = require("net");
-  return new Promise((resolve) => {
-    const socket = net.connect({ host, port, family: 4 });
-    let settled = false;
-    const done = (ok) => {
-      if (settled) return;
-      settled = true;
-      try {
-        socket.destroy();
-      } catch (_) {}
-      resolve(ok);
-    };
-    socket.setTimeout(timeoutMs);
-    socket.on("connect", () => done(true));
-    socket.on("error", () => done(false));
-    socket.on("timeout", () => done(false));
-  });
+  return require("../../../shared/music/lavalinkProbe").probeLavalinkTcp(host, port, timeoutMs);
 }
 
 function isTransientLavalinkConnectError(err) {
-  const msg = String(err?.message || err || "");
-  const code = String(err?.code || "");
-  return (
-    code === "ECONNREFUSED" ||
-    code === "ETIMEDOUT" ||
-    code === "ECONNRESET" ||
-    /ECONNREFUSED|ETIMEDOUT|ECONNRESET|connect ECONNREFUSED/i.test(msg) ||
-    /websocket closed before a connection was established/i.test(msg) ||
-    /fetch failed/i.test(msg) ||
-    /socket hang up/i.test(msg) ||
-    /EPIPE/i.test(msg)
-  );
+  return require("../../../shared/music/lavalinkProbe").isTransientLavalinkConnectError(err);
 }
 
 async function probeLavalinkHttpReady(host, port, timeoutMs = 2500) {
-  const password = process.env.LAVALINK_PASSWORD || "youshallnotpass";
-  const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
-  try {
-    const res = await fetch(`http://${host}:${port}/version`, {
-      headers: { Authorization: password },
-      signal: ctrl.signal,
-    });
-    return Boolean(res?.ok);
-  } catch (_) {
-    return false;
-  } finally {
-    clearTimeout(timer);
-  }
+  return require("../../../shared/music/lavalinkProbe").probeLavalinkHttpReady(host, port, timeoutMs);
 }
 
 async function waitForLavalinkTcpThenInitShoukaku(client) {
-  const { host, port, url } = parseLavalinkHost();
-  const portNum = Number(port) || 2333;
-  const maxWaitMs = Math.max(5_000, Number(process.env.LAVALINK_MUSIC_WAIT_MS || 90_000) || 90_000);
-  const started = Date.now();
-  let warnedOffline = false;
-
-  while (Date.now() - started < maxWaitMs) {
-        if ((await probeLavalinkTcp(host, portNum)) && (await probeLavalinkHttpReady(host, portNum))) break;
-    if (!warnedOffline) {
-      warnedOffline = true;
+  const { waitUntilLavalinkReady } = require("../../../shared/music/lavalinkProbe");
+  const ready = await waitUntilLavalinkReady({
+    onWaiting: ({ host, port }) => {
       logMusic(
-        `Lavalink non ancora pronto su ${host}:${portNum}, attendo prima di collegare Shoukaku...`,
+        `Lavalink non ancora pronto su ${host}:${port}, attendo prima di collegare Shoukaku...`,
       );
-    }
-    await new Promise((r) => setTimeout(r, 2000));
-  }
+    },
+  });
+  const { host, port, url } = ready;
+  const portNum = Number(port) || 2333;
 
-  if (!(await probeLavalinkHttpReady(host, portNum))) {
+  if (!ready.ok) {
     client._shoukakuInitPending = false;
     global.logger?.warn?.(
-      `[MUSIC] Lavalink non raggiungibile entro ${Math.round(maxWaitMs / 1000)}s su ${host}:${portNum}. Riprovo al prossimo comando musica.`,
+      `[MUSIC] Lavalink non raggiungibile entro ${Math.round((ready.waitedMs || 0) / 1000)}s su ${host}:${portNum}. Riprovo al prossimo comando musica.`,
     );
     return;
   }
@@ -3314,8 +3335,7 @@ async function playMusicRequest(ctx, query) {
   const session = getSession(guildId);
   session.textChannelId = textChannelId;
   session.voiceChannelId = voiceChannel.id;
-  const { purgeTtsVoicePersistence } = require("../TTS/ttsService");
-  await purgeTtsVoicePersistence(guildId, client).catch(() => {});
+  await musicPurgeTts(guildId, client).catch(() => {});
 
   let player = shoukaku.players.get(guildId);
   if (!player) {
@@ -3328,8 +3348,7 @@ async function playMusicRequest(ctx, query) {
         deaf: false,
       });
       notifyBotPresenceVoiceActivity(client);
-      const { startVoiceContinuousCapture } = require("../Voice/voiceContinuousCaptureService");
-      await startVoiceContinuousCapture({
+      await musicStartCapture({
         guildId,
         voiceChannel,
         client,
@@ -3349,7 +3368,7 @@ async function playMusicRequest(ctx, query) {
     const volume = resolveDefaultJoinGlobalVolume();
     await player.setGlobalVolume(volume).catch(() => {});
     if (player.paused) await player.setPaused(false).catch(() => {});
-    const { isVoiceCaptureActive, startVoiceContinuousCapture } = require("../Voice/voiceContinuousCaptureService");
+    const isVoiceCaptureActive = musicIsCaptureActive;
     if (!isVoiceCaptureActive(guildId)) {
       await startVoiceContinuousCapture({
         guildId,
@@ -3486,11 +3505,11 @@ async function playMusicRequest(ctx, query) {
   const linkMd = formatTrackTitleMarkdownLink(label, spotifyUrl);
   const tail = rest.length ? ` (+${rest.length} in coda)` : "";
   const embedDescription = `${linkMd}${tail}`;
-  const embedBody = `**${NOW_PLAYING_EMBED_TITLE}:** ${embedDescription}`;
+  const embedBody = `${formatNowPlayingLead()} ${embedDescription}`;
   return {
     ok: true,
-    message: `**${NOW_PLAYING_EMBED_TITLE}:** **${label}**${tail}`,
-    embedTitle: NOW_PLAYING_EMBED_TITLE,
+    message: `${formatNowPlayingLead(label)}${tail}`,
+    embedTitle: getNowPlayingEmbedTitle(),
     embedDescription,
     embedBody,
   };
@@ -3612,8 +3631,7 @@ async function stopGuild(interaction) {
   }
   await leaveMusicVoiceChannelMarked(client, guildId);
   persistMusicQueueSnapshotNow(client);
-  const { purgeTtsVoicePersistence } = require("../TTS/ttsService");
-  await purgeTtsVoicePersistence(guildId, client).catch(() => {});
+  await musicPurgeTts(guildId, client).catch(() => {});
   try {
     const { clearVoiceSession } = require("../Voice/voiceSessionService");
     clearVoiceSession(guildId);
@@ -3888,11 +3906,11 @@ async function previousGuildTrack(interaction) {
       embedDescription = formatTrackTitleMarkdownLink(label, url);
     } catch (_) {}
   }
-  const embedBody = `**${NOW_PLAYING_EMBED_TITLE}:** ${embedDescription}`;
+  const embedBody = `${formatNowPlayingLead()} ${embedDescription}`;
   return {
     ok: true,
-    message: `**${NOW_PLAYING_EMBED_TITLE}:** ${session.nowPlaying}`,
-    embedTitle: NOW_PLAYING_EMBED_TITLE,
+    message: `${formatNowPlayingLead()} ${session.nowPlaying}`,
+    embedTitle: getNowPlayingEmbedTitle(),
     embedDescription,
     embedBody,
   };
@@ -4062,8 +4080,7 @@ async function resumeMusicVoiceAfterAfkProbe(client, guildId) {
   if (!voiceChannel.permissionsFor?.(me)?.has?.(["Connect", "Speak", "ViewChannel"])) return false;
 
   try {
-    const { purgeTtsVoicePersistence } = require("../TTS/ttsService");
-    await purgeTtsVoicePersistence(gid, client).catch(() => {});
+    await musicPurgeTts(gid, client).catch(() => {});
     let player = sh.players.get(gid);
     if (!player) {
       player = await sh.joinVoiceChannel({
@@ -4073,8 +4090,7 @@ async function resumeMusicVoiceAfterAfkProbe(client, guildId) {
         deaf: false,
       });
       notifyBotPresenceVoiceActivity(client);
-      const { startVoiceContinuousCapture } = require("../Voice/voiceContinuousCaptureService");
-      await startVoiceContinuousCapture({
+      await musicStartCapture({
         guildId: gid,
         voiceChannel,
         client,
@@ -4088,8 +4104,7 @@ async function resumeMusicVoiceAfterAfkProbe(client, guildId) {
         deaf: false,
       });
       notifyBotPresenceVoiceActivity(client);
-      const { startVoiceContinuousCapture } = require("../Voice/voiceContinuousCaptureService");
-      await startVoiceContinuousCapture({
+      await musicStartCapture({
         guildId: gid,
         voiceChannel,
         client,

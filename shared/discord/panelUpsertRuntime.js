@@ -201,6 +201,12 @@ async function fetchBotPanelMessages(channel, client, limit = 200) {
   return out;
 }
 
+const PANEL_CACHE_TTL_MS = Math.max(
+  60_000,
+  Number(process.env.VC_PANEL_CACHE_TTL_MS || 30 * 60 * 1000) || 30 * 60 * 1000,
+);
+const PANEL_CACHE_MAX = Math.max(20, Number(process.env.VC_PANEL_CACHE_MAX || 200) || 200);
+
 function getPanelMessageCacheStore(client) {
   if (!client) return null;
   if (!(client._panelUpsertMessageCache instanceof Map)) {
@@ -209,11 +215,34 @@ function getPanelMessageCacheStore(client) {
   return client._panelUpsertMessageCache;
 }
 
+function prunePanelMessageCache(store, now = Date.now()) {
+  if (!(store instanceof Map)) return;
+  for (const [key, entry] of store.entries()) {
+    const at = Number(entry?.at || 0);
+    if (at > 0 && now - at > PANEL_CACHE_TTL_MS) store.delete(key);
+  }
+  if (store.size > PANEL_CACHE_MAX) {
+    const overflow = store.size - PANEL_CACHE_MAX;
+    let removed = 0;
+    for (const key of store.keys()) {
+      if (removed >= overflow) break;
+      store.delete(key);
+      removed += 1;
+    }
+  }
+}
+
 function readCachedBotPanelMessages(channel, client, limit) {
   const store = getPanelMessageCacheStore(client);
   if (!store || !channel?.id) return null;
+  prunePanelMessageCache(store);
   const entry = store.get(channel.id);
   if (!entry) return null;
+  const at = Number(entry.at || 0);
+  if (at > 0 && Date.now() - at > PANEL_CACHE_TTL_MS) {
+    store.delete(channel.id);
+    return null;
+  }
   const messages = Array.isArray(entry.messages) ? entry.messages : [];
   if (Number(entry.limit || 0) < Number(limit || 0)) return null;
   return messages;
@@ -223,7 +252,8 @@ function writeCachedBotPanelMessages(channel, client, limit, messages) {
   const store = getPanelMessageCacheStore(client);
   if (!store || !channel?.id) return;
   const nextMessages = Array.isArray(messages) ? messages.filter(Boolean) : [];
-  store.set(channel.id, { limit, messages: nextMessages });
+  store.set(channel.id, { limit, messages: nextMessages, at: Date.now() });
+  prunePanelMessageCache(store);
 }
 
 function upsertCachedBotPanelMessage(channel, client, message) {
@@ -235,6 +265,7 @@ function upsertCachedBotPanelMessage(channel, client, message) {
   const filtered = current.filter((item) => item?.id !== message.id);
   filtered.unshift(message);
   entry.messages = filtered;
+  entry.at = Date.now();
   store.set(channel.id, entry);
 }
 

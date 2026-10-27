@@ -895,6 +895,9 @@ async function runAutoPoll(client, pollOpts = {}) {
 }
 
 function startAutoPollLoop(client) {
+  const dedicated = String(process.env.COMMUNITY_POLL_WORKER || "").trim() === "1";
+  const external = String(process.env.COMMUNITY_POLL_EXTERNAL || "").trim() === "1";
+  if (external && !dedicated) return null;
   if (Array.isArray(client._autoPollTasks)) {
     for (const task of client._autoPollTasks) {
       try {
