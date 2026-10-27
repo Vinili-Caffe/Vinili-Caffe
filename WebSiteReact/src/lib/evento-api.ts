@@ -257,7 +257,33 @@ export async function attackEventoFaction(token: string, defend = false) {
       body: JSON.stringify({ defend }),
       cache: "no-store",
     });
-    return (await r.json().catch(() => null)) as { ok: boolean; message?: string; winner?: string } | null;
+    return (await r.json().catch(() => null)) as {
+      ok: boolean;
+      message?: string;
+      winner?: string;
+      attackPower?: number;
+      defendPower?: number;
+    } | null;
+  } catch {
+    return null;
+  }
+}
+
+export async function openEventoCrate(token: string, crateId: string) {
+  try {
+    const r = await fetch(apiUrl("/webhooks/site-evento/crate/open"), {
+      method: "POST",
+      headers: { ...authHeaders(token), "Content-Type": "application/json" },
+      body: JSON.stringify({ crateId }),
+      cache: "no-store",
+    });
+    return (await r.json().catch(() => null)) as {
+      ok: boolean;
+      message?: string;
+      crateId?: string;
+      loot?: { credits?: number; exp?: number; troops?: Record<string, number> | null; note?: string | null };
+      wallet?: EventoWallet;
+    } | null;
   } catch {
     return null;
   }

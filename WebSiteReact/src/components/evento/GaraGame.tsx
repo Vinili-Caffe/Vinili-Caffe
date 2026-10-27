@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { Flag, Rocket } from "lucide-react";
 import { fetchEventoGara, pickEventoGara } from "@/lib/evento-api";
@@ -16,56 +16,111 @@ import {
   EventoTitle,
 } from "@/components/evento/EventoUi";
 
-type RaceLane = { id: string; label: string; progress: number; place?: number };
+const POD_COLORS: Record<string, string> = {
+  sebulba: "#ef4444",
+  anakin: "#eab308",
+  gasgano: "#22c55e",
+  teemto: "#3b82f6",
+  ben: "#a855f7",
+};
 
-function RaceTrack({
-  lanes,
-  youId,
-}: {
-  lanes: RaceLane[];
-  youId: string | null;
-}) {
+type RaceLane = { id: string; label: string; progress: number; place?: number; color: string };
+
+/** Punto su ellisse (vista dall'alto del circuito). t 0..1 */
+function ovalPoint(t: number, cx: number, cy: number, rx: number, ry: number) {
+  const a = t * Math.PI * 2 - Math.PI / 2;
+  return { x: cx + Math.cos(a) * rx, y: cy + Math.sin(a) * ry };
+}
+
+function CircuitRace({ lanes, youId }: { lanes: RaceLane[]; youId: string | null }) {
+  const W = 640;
+  const H = 360;
+  const cx = W / 2;
+  const cy = H / 2;
+  const rx = 250;
+  const ry = 118;
+
+  const trackD = useMemo(() => {
+    const pts: string[] = [];
+    for (let i = 0; i <= 64; i++) {
+      const p = ovalPoint(i / 64, cx, cy, rx, ry);
+      pts.push(`${i === 0 ? "M" : "L"}${p.x.toFixed(1)},${p.y.toFixed(1)}`);
+    }
+    return `${pts.join(" ")} Z`;
+  }, []);
+
+  const innerD = useMemo(() => {
+    const pts: string[] = [];
+    for (let i = 0; i <= 64; i++) {
+      const p = ovalPoint(i / 64, cx, cy, rx * 0.62, ry * 0.55);
+      pts.push(`${i === 0 ? "M" : "L"}${p.x.toFixed(1)},${p.y.toFixed(1)}`);
+    }
+    return `${pts.join(" ")} Z`;
+  }, []);
+
   return (
-    <div className="relative overflow-hidden rounded-2xl bg-[#05070f] p-3 ring-1 ring-[#2ea8ff]/25 sm:p-4">
-      {/* circuito desertico */}
-      <div
-        className="pointer-events-none absolute inset-0 opacity-40"
-        style={{
-          backgroundImage:
-            "repeating-linear-gradient(90deg, transparent, transparent 18px, rgba(201,162,39,0.08) 18px, rgba(201,162,39,0.08) 19px)",
-        }}
-        aria-hidden
-      />
-      <div className="pointer-events-none absolute inset-y-0 right-8 w-1 bg-gradient-to-b from-[#e4c76b]/80 via-[#e4c76b]/20 to-[#e4c76b]/80" aria-hidden />
-      <p className="relative mb-3 text-center text-[0.6rem] font-semibold uppercase tracking-[0.28em] text-[#e4c76b]/80">
-        Circuito · Tatooine
-      </p>
-      <ul className="relative space-y-3">
-        {lanes.map((lane, i) => (
-          <li key={lane.id} className="relative">
-            <div className="mb-1 flex items-center justify-between text-[0.65rem]">
-              <span className={cn("font-semibold", lane.id === youId ? "text-[#e4c76b]" : "text-crema/60")}>
-                {i + 1}. {lane.label}
-                {lane.id === youId ? " · tu" : ""}
-              </span>
-              {lane.place ? <span className="tabular-nums text-crema/45">{lane.place}°</span> : null}
-            </div>
-            <div className="relative h-8 overflow-hidden rounded-full bg-white/5 ring-1 ring-white/10">
-              <div className="absolute inset-y-0 left-0 w-full bg-gradient-to-r from-[#1a2744]/80 to-transparent" />
-              <motion.div
-                className={cn(
-                  "absolute top-1/2 flex size-7 -translate-y-1/2 items-center justify-center rounded-md text-[0.65rem] font-bold shadow-lg ring-1",
-                  lane.id === youId
-                    ? "bg-gradient-to-br from-[#e4c76b] to-[#c9a227] text-ink ring-white/40"
-                    : "bg-[#2ea8ff]/90 text-ink ring-[#7dd3fc]/50",
-                )}
-                initial={{ left: "2%" }}
-                animate={{ left: `${Math.min(92, 4 + lane.progress * 88)}%` }}
-                transition={{ type: "tween", ease: "easeInOut", duration: 0.35 }}
-              >
-                ✦
-              </motion.div>
-            </div>
+    <div className="relative overflow-hidden rounded-2xl bg-[#0a0c14] ring-1 ring-[#c9a227]/25">
+      <svg viewBox={`0 0 ${W} ${H}`} className="h-auto w-full" role="img" aria-label="Circuito podracing">
+        <defs>
+          <radialGradient id="sandGlow" cx="50%" cy="50%" r="60%">
+            <stop offset="0%" stopColor="#3d2a12" stopOpacity="0.9" />
+            <stop offset="100%" stopColor="#05070f" stopOpacity="1" />
+          </radialGradient>
+        </defs>
+        <rect width={W} height={H} fill="url(#sandGlow)" />
+        {/* dune */}
+        <ellipse cx={120} cy={300} rx={90} ry={18} fill="#2a1c0c" opacity={0.5} />
+        <ellipse cx={520} cy={70} rx={70} ry={14} fill="#2a1c0c" opacity={0.45} />
+        {/* pista */}
+        <path d={trackD} fill="none" stroke="#5c4a2a" strokeWidth={38} />
+        <path d={trackD} fill="none" stroke="#c9a227" strokeWidth={2} strokeDasharray="10 8" opacity={0.55} />
+        <path d={innerD} fill="none" stroke="#3a2f1a" strokeWidth={2} opacity={0.7} />
+        {/* linea partenza */}
+        {(() => {
+          const a = ovalPoint(0, cx, cy, rx, ry);
+          return <rect x={a.x - 6} y={a.y - 16} width={12} height={32} fill="#e4c76b" opacity={0.85} rx={2} />;
+        })()}
+        {lanes.map((lane, i) => {
+          /* offset di corsia per non sovrapporsi */
+          const laneRx = rx - 6 + i * 3;
+          const laneRy = ry - 4 + i * 2;
+          const p = ovalPoint(Math.min(0.98, lane.progress), cx, cy, laneRx, laneRy);
+          return (
+            <g key={lane.id}>
+              <motion.circle
+                cx={p.x}
+                cy={p.y}
+                r={lane.id === youId ? 11 : 9}
+                fill={lane.color}
+                stroke="#fff"
+                strokeWidth={lane.id === youId ? 2.5 : 1.5}
+                initial={false}
+                animate={{ cx: p.x, cy: p.y }}
+                transition={{ type: "tween", ease: "linear", duration: 0.28 }}
+                filter="url(#none)"
+                style={{ filter: `drop-shadow(0 0 6px ${lane.color})` }}
+              />
+              {lane.id === youId ? (
+                <text x={p.x} y={p.y - 16} textAnchor="middle" fill="#e4c76b" fontSize={11} fontWeight={700}>
+                  TU
+                </text>
+              ) : null}
+            </g>
+          );
+        })}
+      </svg>
+      <ul className="absolute bottom-2 left-2 right-2 flex flex-wrap justify-center gap-2">
+        {lanes.map((l) => (
+          <li
+            key={l.id}
+            className={cn(
+              "inline-flex items-center gap-1.5 rounded-full bg-black/55 px-2 py-0.5 text-[0.65rem] text-crema ring-1 ring-white/10",
+              l.id === youId && "ring-[#e4c76b]/50",
+            )}
+          >
+            <span className="size-2.5 rounded-full" style={{ background: l.color }} />
+            {l.label}
+            {l.place ? ` · ${l.place}°` : ""}
           </li>
         ))}
       </ul>
@@ -104,28 +159,23 @@ export function GaraGame() {
   }, [reload]);
 
   async function runRaceAnimation(podId: string, place: number) {
-    const field = pods.map((p) => ({
+    const field: RaceLane[] = pods.map((p, i) => ({
       id: p.id,
       label: p.label,
-      progress: 0,
-      place: undefined as number | undefined,
+      progress: 0.02 * i,
+      color: POD_COLORS[p.id] || `hsl(${(i * 55) % 360} 80% 55%)`,
     }));
     setLanes(field);
     setRacing(true);
 
-    const steps = 18;
+    const steps = 22;
     for (let s = 1; s <= steps; s++) {
-      await new Promise((r) => setTimeout(r, 110 + Math.random() * 40));
+      await new Promise((r) => setTimeout(r, 100 + Math.random() * 35));
       setLanes((prev) =>
         prev.map((lane) => {
           const isYou = lane.id === podId;
-          /* target: tuo posto determina progresso finale; altri sparpagliati */
-          const target =
-            isYou
-              ? 1 - (place - 1) * 0.12
-              : 0.35 + Math.random() * 0.55;
-          const jitter = (Math.random() - 0.45) * 0.08;
-          const next = Math.min(0.98, lane.progress + (target - lane.progress) * (0.18 + s * 0.02) + jitter);
+          const target = isYou ? Math.max(0.72, 1 - (place - 1) * 0.11) : 0.4 + Math.random() * 0.52;
+          const next = Math.min(0.99, lane.progress + (target - lane.progress) * (0.16 + s * 0.015) + (Math.random() - 0.4) * 0.04);
           return { ...lane, progress: Math.max(lane.progress, next) };
         }),
       );
@@ -135,11 +185,10 @@ export function GaraGame() {
       const sorted = [...prev].sort((a, b) => b.progress - a.progress);
       return prev.map((lane) => ({
         ...lane,
-        progress: Math.min(0.98, lane.progress),
         place: sorted.findIndex((x) => x.id === lane.id) + 1,
       }));
     });
-    await new Promise((r) => setTimeout(r, 700));
+    await new Promise((r) => setTimeout(r, 800));
     setRacing(false);
   }
 
@@ -175,16 +224,11 @@ export function GaraGame() {
     <div className="mx-auto max-w-xl space-y-5 px-6">
       <AnimatePresence mode="wait">
         {racing ? (
-          <motion.div
-            key="race"
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0 }}
-          >
+          <motion.div key="race" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
             <EventoPanel glow="blue" className="!p-3 sm:!p-4">
               <EventoKicker>Gara in corso</EventoKicker>
-              <p className="mb-3 mt-1 text-center text-sm text-crema/65">I pod sfrecciano sul circuito…</p>
-              <RaceTrack lanes={lanes} youId={pick} />
+              <p className="mb-3 mt-1 text-center text-sm text-crema/65">I pod sul circuito di Mos Espa…</p>
+              <CircuitRace lanes={lanes} youId={pick} />
             </EventoPanel>
           </motion.div>
         ) : result ? (
@@ -201,7 +245,7 @@ export function GaraGame() {
             </EventoPanel>
             {lanes.length ? (
               <div className="mt-4">
-                <RaceTrack lanes={lanes} youId={pick} />
+                <CircuitRace lanes={lanes} youId={pick} />
               </div>
             ) : null}
           </motion.div>
@@ -210,7 +254,7 @@ export function GaraGame() {
             <EventoPanel glow="none" className="text-center">
               <Rocket className="mx-auto size-8 text-[#2ea8ff]" aria-hidden />
               <EventoKicker>Podracing Championship</EventoKicker>
-              <p className="mt-2 text-sm text-crema/65">Scegli lo sguscio — poi vedi la gara sul circuito.</p>
+              <p className="mt-2 text-sm text-crema/65">Scegli lo sguscio — poi vedi i piloti sul tracciato.</p>
             </EventoPanel>
           </motion.div>
         )}
@@ -220,6 +264,7 @@ export function GaraGame() {
         <ul className="grid gap-3">
           {pods.map((p, i) => {
             const selected = pick === p.id;
+            const color = POD_COLORS[p.id] || "#e4c76b";
             return (
               <li key={p.id}>
                 <button
@@ -234,7 +279,10 @@ export function GaraGame() {
                     "disabled:opacity-45",
                   )}
                 >
-                  <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-[#2ea8ff]/15 font-display text-lg text-[#2ea8ff] ring-1 ring-[#2ea8ff]/30">
+                  <span
+                    className="flex size-11 shrink-0 items-center justify-center rounded-full font-display text-lg text-ink ring-2 ring-white/30"
+                    style={{ background: color }}
+                  >
                     {i + 1}
                   </span>
                   <span className="min-w-0 flex-1">
@@ -254,7 +302,7 @@ export function GaraGame() {
         <p className="text-center text-sm text-crema/55">Gara non selezionabile in questo slot.</p>
       ) : null}
       {canPick && !racing ? (
-        <p className="text-center text-xs text-crema/45">La scelta è definitiva per lo slot corrente.</p>
+        <p className="text-center text-xs text-crema/45">La scelta e definitiva per lo slot corrente.</p>
       ) : null}
       {result && !canPick && !racing ? (
         <div className="text-center">

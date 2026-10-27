@@ -3,6 +3,7 @@ import dynamic from "next/dynamic";
 import { DiscordComponentEmbed } from "@/components/DiscordComponentEmbed";
 import { pageSocialMeta } from "@/lib/og";
 import { SiteShell } from "@/components/SiteShell";
+import { EventoBootScroll } from "@/components/evento/EventoBootScroll";
 import { BoardSkeleton } from "@/components/ui/EmptyState";
 
 const PuzzleBoard = dynamic(() => import("@/components/puzzle/PuzzleBoard").then((m) => m.PuzzleBoard), {
@@ -13,7 +14,7 @@ export const metadata: Metadata = {
   ...pageSocialMeta({
     path: "/puzzle/",
     title: "Puzzle",
-    description: "Puzzle galassia riservato all’High Staff — pezzi da ricomporre.",
+    description: "Puzzle galassia riservato all'High Staff - pezzi da ricomporre.",
   }),
   robots: { index: false },
 };
@@ -21,10 +22,11 @@ export const metadata: Metadata = {
 export default function PuzzlePage() {
   return (
     <SiteShell chrome="evento">
+      <EventoBootScroll />
       <DiscordComponentEmbed
         path="/puzzle/"
         title="Puzzle"
-        description="Puzzle galassia riservato all’High Staff — pezzi da ricomporre."
+        description="Puzzle galassia riservato all'High Staff - pezzi da ricomporre."
       />
       <PuzzleBoard />
     </SiteShell>

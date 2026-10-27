@@ -237,16 +237,11 @@ export function AdventCalendar() {
                   disabled={!slot.canClaim || busy}
                   onClick={() => void onClaim(slot)}
                   title={slot.label}
-                  whileHover={slot.canClaim ? { y: -2, scale: 1.02 } : undefined}
-                  whileTap={slot.canClaim ? { scale: 0.97 } : undefined}
-                  animate={
-                    flipping
-                      ? { rotateY: -75, scale: 0.95 }
-                      : { rotateY: 0, scale: 1 }
-                  }
-                  transition={{ type: "spring", stiffness: 260, damping: 22 }}
+                  whileTap={slot.canClaim && !flipping ? { scale: 0.98 } : undefined}
+                  animate={flipping ? { rotateY: -55, scale: 0.98 } : { rotateY: 0, scale: 1 }}
+                  transition={{ type: "tween", duration: 0.28, ease: "easeOut" }}
                   className={cn(
-                    "relative w-full overflow-hidden rounded-2xl text-left ring-1 transition",
+                    "relative w-full overflow-hidden rounded-2xl text-left ring-1 transition will-change-transform",
                     slot.claimed
                       ? "ring-[#c9a227]/55 shadow-[0_0_20px_-8px_rgba(201,162,39,0.55)]"
                       : isToday

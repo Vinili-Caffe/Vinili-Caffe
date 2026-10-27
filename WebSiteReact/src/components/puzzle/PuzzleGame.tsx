@@ -117,15 +117,26 @@ export function PuzzleGame() {
 
   useEffect(() => {
     layout();
+    const raf = requestAnimationFrame(() => layout());
     let t = 0;
     const onResize = () => {
       window.clearTimeout(t);
-      t = window.setTimeout(layout, 100);
+      t = window.setTimeout(layout, 80);
     };
     window.addEventListener("resize", onResize);
+    const ro =
+      typeof ResizeObserver !== "undefined" && wrapRef.current
+        ? new ResizeObserver(() => {
+            window.clearTimeout(t);
+            t = window.setTimeout(layout, 40);
+          })
+        : null;
+    if (ro && wrapRef.current) ro.observe(wrapRef.current);
     return () => {
+      cancelAnimationFrame(raf);
       window.clearTimeout(t);
       window.removeEventListener("resize", onResize);
+      ro?.disconnect();
     };
   }, [layout, img]);
 
@@ -336,8 +347,8 @@ export function PuzzleGame() {
     <div className={cn("relative mx-auto flex w-full max-w-5xl flex-col gap-3", handId && "select-none")}>
       <div className="flex flex-wrap items-center justify-between gap-3 px-0.5">
         <div className="min-w-0">
-          <p className="text-xs font-semibold uppercase tracking-[0.28em] text-caramel">Staff</p>
-          <h2 className="font-display text-2xl font-semibold sm:text-3xl">Puzzle galassia</h2>
+          <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[#e4c76b]">High Staff</p>
+          <h2 className="font-display text-2xl font-semibold text-crema sm:text-3xl">Puzzle galassia</h2>
           <p className="mt-1 text-sm text-crema/55">
             Pesca un pezzo: si svela e ti segue. Clicca lo slot. Esc per rimettere.
           </p>
@@ -358,11 +369,16 @@ export function PuzzleGame() {
 
       <div
         ref={wrapRef}
-        className="flex min-h-[220px] flex-1 items-center justify-center rounded-3xl bg-roast/70 p-2 ring-1 ring-sand/12 sm:min-h-[280px] sm:p-3"
+        className="flex min-h-[220px] flex-1 items-center justify-center rounded-3xl bg-gradient-to-b from-[#121a32]/90 to-[#05070f] p-3 ring-1 ring-[#c9a227]/30 sm:min-h-[280px] sm:p-4"
       >
         <div
-          className="relative overflow-hidden rounded-2xl bg-espresso/80 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.05)]"
-          style={{ width: board.w || "100%", height: board.h || undefined, aspectRatio: board.w ? undefined : "1600/816" }}
+          className="relative overflow-visible rounded-2xl bg-[#0a1020]/90 shadow-[inset_0_0_0_1px_rgba(201,162,39,0.2)]"
+          style={{
+            width: board.w || "100%",
+            height: board.h || undefined,
+            aspectRatio: board.w ? undefined : "1600/816",
+            padding: board.w ? Math.max(10, (board.w / PUZZLE_COLS) * PUZZLE_TAB_RATIO) : 12,
+          }}
           aria-label="Quadro da completare"
         >
           {/* griglia guida */}

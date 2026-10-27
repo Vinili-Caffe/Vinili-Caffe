@@ -167,6 +167,7 @@ export function renderPieceCanvas(
 
   const ctx = canvas.getContext("2d");
   if (!ctx) return { outerW, outerH };
+  if (!img.naturalWidth || !img.naturalHeight) return { outerW, outerH };
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, outerW, outerH);
 
@@ -186,11 +187,11 @@ export function renderPieceCanvas(
   ctx.restore();
 
   piecePath(ctx, ox, oy, displayW, displayH, piece.edges, tab);
-  ctx.strokeStyle = "rgba(20, 12, 8, 0.55)";
+  ctx.strokeStyle = "rgba(201, 162, 39, 0.55)";
   ctx.lineWidth = 1.25;
   ctx.stroke();
   piecePath(ctx, ox, oy, displayW, displayH, piece.edges, tab);
-  ctx.strokeStyle = "rgba(255, 240, 220, 0.28)";
+  ctx.strokeStyle = "rgba(228, 199, 107, 0.35)";
   ctx.lineWidth = 0.75;
   ctx.stroke();
 
@@ -237,7 +238,20 @@ export function loadPuzzleImage(src = PUZZLE_IMG): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.decoding = "async";
-    img.onload = () => resolve(img);
+    img.onload = () => {
+      const done = () => {
+        if (!img.naturalWidth) {
+          reject(new Error("Immagine puzzle vuota"));
+          return;
+        }
+        resolve(img);
+      };
+      if (typeof img.decode === "function") {
+        img.decode().then(done).catch(done);
+      } else {
+        done();
+      }
+    };
     img.onerror = () => reject(new Error("Immagine puzzle non caricata"));
     img.src = src;
   });

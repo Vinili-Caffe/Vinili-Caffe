@@ -80,15 +80,16 @@ export function EventoMusic() {
   const yt = useRef<YtPlayer | null>(null);
   const readyRef = useRef(false);
   const booting = useRef(false);
-  const volumeRef = useRef(0.45);
-  const wantOn = useRef(false);
-  const trackIdx = useRef(0);
+  /* sync subito (prima di YT ready) cosi' mute sopravvive al remount pagina */
+  const volumeRef = useRef(readVol());
+  const wantOn = useRef(readOn());
+  const trackIdx = useRef(readTrackIdx());
   const YTref = useRef<YtNamespace | null>(null);
   const saveTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const [ready, setReady] = useState(false);
-  const [on, setOn] = useState(false);
-  const [volume, setVolume] = useState(0.45);
+  const [on, setOn] = useState(() => readOn());
+  const [volume, setVolume] = useState(() => readVol());
   const [failed, setFailed] = useState(false);
   const [hint, setHint] = useState(false);
   const [label, setLabel] = useState(EVENTO_YT.title);
@@ -100,10 +101,29 @@ export function EventoMusic() {
   }, [volume]);
 
   useEffect(() => {
-    const initial = readOn();
-    wantOn.current = initial;
-    setOn(initial);
-    setVolume(readVol());
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === EVENTO_BGM_ON_KEY && e.newValue != null) {
+        const next = e.newValue === "1" || e.newValue === "true";
+        wantOn.current = next;
+        setOn(next);
+      }
+      if (e.key === EVENTO_BGM_VOL_KEY && e.newValue != null) {
+        const n = Number(e.newValue);
+        if (Number.isFinite(n)) setVolume(Math.min(1, Math.max(0, n)));
+      }
+      if (e.key === EVENTO_BGM_TIME_KEY && e.newValue != null && yt.current) {
+        const t = Number(e.newValue);
+        if (Number.isFinite(t) && t >= 0) {
+          try {
+            yt.current.seekTo(t, true);
+          } catch {
+            /* ignore */
+          }
+        }
+      }
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
   }, []);
 
   const savePos = useCallback(() => {
@@ -342,6 +362,21 @@ export function EventoMusic() {
       wantOn.current = next;
       try {
         localStorage.setItem(EVENTO_BGM_ON_KEY, next ? "1" : "0");
+      } catch {
+        /* ignore */
+      }
+      broadcast({ type: "state", on: next, volume: volumeRef.current });
+      try {
+        const p = yt.current;
+        if (p && readyRef.current) {
+          if (next) {
+            p.unMute?.();
+            p.playVideo();
+          } else {
+            p.pauseVideo();
+            p.mute?.();
+          }
+        }
       } catch {
         /* ignore */
       }

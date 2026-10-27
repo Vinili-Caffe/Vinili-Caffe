@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { EventoCratesPanel } from "@/components/evento/EventoCratesPanel";
 import { EventoHubStatus } from "@/components/evento/EventoHubStatus";
 import { EventoMinigamesPanel } from "@/components/evento/EventoMinigamesPanel";
 import { EventoPage } from "@/components/evento/EventoPage";
@@ -24,9 +25,10 @@ export default function EventoHubPage() {
       path={meta.path}
       title="Centro comando"
       accent={EVENTO_BRAND}
-      text="Calendario attività, shop e missioni che si sbloccano giorno per giorno."
+      text="Calendario attivita, shop e missioni che si sbloccano giorno per giorno."
     >
       <EventoHubStatus />
+      <EventoCratesPanel />
       <EventoMinigamesPanel />
       <EventoShopPanel />
     </EventoPage>

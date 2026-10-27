@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { AnimatePresence, motion } from "motion/react";
 import { Crosshair, Timer, Trophy, Zap } from "lucide-react";
 import { fetchEventoAccademia, submitEventoAccademia } from "@/lib/evento-api";
 import { useAuth } from "@/lib/auth";
@@ -20,16 +19,18 @@ type PoolTarget = { id: string; x: number; y: number; r: number; points: number 
 type LiveTarget = {
   id: string;
   points: number;
-  /** % verticale (centro) */
   laneY: number;
-  /** diametro in % larghezza arena */
   sizePct: number;
-  /** secondi per attraversare da destra a sinistra */
   durationSec: number;
+  /** performance.now() allo spawn */
+  bornAt: number;
 };
 
-/** Max bersagli in volo insieme (overlap = difficolta). */
+/** Max bersagli in volo insieme. */
 const LIVE_MAX = 2;
+/** left %: da destra (108) a sinistra (-18) */
+const FROM_X = 108;
+const TO_X = -18;
 
 export function AccademiaGame() {
   const { token, ready, login } = useAuth();
@@ -42,9 +43,12 @@ export function AccademiaGame() {
   const [playable, setPlayable] = useState(false);
   const [running, setRunning] = useState(false);
   const [left, setLeft] = useState(30);
+  /** tick per ripaintare left% senza Motion (funziona anche con animazioni off) */
+  const [, setTick] = useState(0);
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const spawnRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const rafRef = useRef<number | null>(null);
   const missTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   const hitsRef = useRef<string[]>([]);
   const queueRef = useRef<PoolTarget[]>([]);
@@ -61,8 +65,10 @@ export function AccademiaGame() {
   const clearTimers = useCallback(() => {
     if (timerRef.current) clearInterval(timerRef.current);
     if (spawnRef.current) clearTimeout(spawnRef.current);
+    if (rafRef.current != null) cancelAnimationFrame(rafRef.current);
     timerRef.current = null;
     spawnRef.current = null;
+    rafRef.current = null;
     clearMissTimers();
   }, [clearMissTimers]);
 
@@ -91,6 +97,19 @@ export function AccademiaGame() {
     void reload();
     return () => clearTimers();
   }, [reload, clearTimers]);
+
+  function startRaf() {
+    if (rafRef.current != null) return;
+    const loop = () => {
+      if (!runningRef.current) {
+        rafRef.current = null;
+        return;
+      }
+      setTick((n) => (n + 1) % 1_000_000);
+      rafRef.current = requestAnimationFrame(loop);
+    };
+    rafRef.current = requestAnimationFrame(loop);
+  }
 
   async function finish(finalHits: string[]) {
     if (finishingRef.current) return;
@@ -133,7 +152,6 @@ export function AccademiaGame() {
   function spawnOne() {
     if (!runningRef.current) return;
     if (liveRef.current.length >= LIVE_MAX) {
-      /* riprova appena c'e' slot */
       scheduleSpawn(280);
       return;
     }
@@ -145,9 +163,7 @@ export function AccademiaGame() {
 
     const i = spawnIndexRef.current++;
     const sizePct = Math.max(next.r * 1.6, 8);
-    /* corsie verticali diverse cosi' non si sovrappongono troppo */
     const laneY = 18 + ((next.y || 40) % 64);
-    /* piu' avanti = piu' veloci */
     const durationSec = Math.max(2.2, 4.6 - i * 0.18 - sizePct * 0.04);
 
     const liveT: LiveTarget = {
@@ -156,15 +172,14 @@ export function AccademiaGame() {
       laneY: Math.min(82, Math.max(14, laneY)),
       sizePct,
       durationSec,
+      bornAt: performance.now(),
     };
     liveRef.current = [...liveRef.current, liveT];
     setLive([...liveRef.current]);
 
-    /* se arriva a sinistra senza hit -> miss */
     const missT = setTimeout(() => missExit(liveT.id), liveT.durationSec * 1000 + 40);
     missTimersRef.current.set(liveT.id, missT);
 
-    /* prossimo da destra anche se questo e' ancora in volo */
     if (queueRef.current.length > 0) {
       const gap = liveRef.current.length >= LIVE_MAX ? 900 : 550 + Math.random() * 500;
       scheduleSpawn(gap);
@@ -185,6 +200,7 @@ export function AccademiaGame() {
     runningRef.current = true;
     setRunning(true);
     setLeft(30);
+    startRaf();
     spawnOne();
     timerRef.current = setInterval(() => {
       setLeft((s) => {
@@ -215,13 +231,11 @@ export function AccademiaGame() {
       void finish(next);
       return;
     }
-    /* se c'era coda in attesa di slot, rilancia subito */
     if (queueRef.current.length > 0 && liveRef.current.length < LIVE_MAX) {
       scheduleSpawn(180 + Math.random() * 220);
     }
   }
 
-  /** Uscito a sinistra senza colpo = miss, continua lo spawn. */
   function missExit(id: string) {
     clearMiss(id);
     if (!runningRef.current) return;
@@ -235,6 +249,12 @@ export function AccademiaGame() {
     if (queueRef.current.length > 0 && liveRef.current.length < LIVE_MAX) {
       scheduleSpawn(120);
     }
+  }
+
+  function xFor(t: LiveTarget) {
+    const elapsed = (performance.now() - t.bornAt) / 1000;
+    const p = Math.min(1, Math.max(0, elapsed / t.durationSec));
+    return FROM_X + (TO_X - FROM_X) * p;
   }
 
   if (loading) return <EventoSkeleton className="mx-auto max-w-2xl px-6" />;
@@ -253,7 +273,7 @@ export function AccademiaGame() {
           <Trophy className="mx-auto size-10 text-sand" aria-hidden />
           <EventoKicker>Prova completata</EventoKicker>
           <EventoTitle>{score ?? 0} punti</EventoTitle>
-          <p className="mt-3 text-sm text-crema/65">Prossimo slot tra circa 4 ore. La Forza e' con te.</p>
+          <p className="mt-3 text-sm text-crema/65">Prossimo slot tra circa 4 ore. La Forza e con te.</p>
         </EventoPanel>
       </div>
     );
@@ -313,31 +333,23 @@ export function AccademiaGame() {
               Arena pronta - premi Inizia
             </p>
           ) : null}
-          <AnimatePresence>
-            {live.map((t) => (
-              <motion.button
-                key={t.id}
-                type="button"
-                aria-label={`Bersaglio ${t.points}`}
-                disabled={!running}
-                onClick={() => hit(t.id)}
-                initial={{ left: "108%", opacity: 0.9 }}
-                animate={{ left: "-18%", opacity: 1 }}
-                exit={{ scale: 0.35, opacity: 0, transition: { duration: 0.15 } }}
-                transition={{
-                  left: { duration: t.durationSec, ease: "linear" },
-                  opacity: { duration: 0.15 },
-                }}
-                className="absolute top-0 -translate-x-1/2 -translate-y-1/2 rounded-full bg-gradient-to-br from-[#e4c76b] to-[#c9a227] shadow-[0_0_28px_rgba(201,162,39,0.85)] ring-2 ring-sand/50 hover:brightness-110 active:scale-90"
-                style={{
-                  top: `${t.laneY}%`,
-                  width: `${t.sizePct}%`,
-                  height: `${t.sizePct}%`,
-                  aspectRatio: "1",
-                }}
-              />
-            ))}
-          </AnimatePresence>
+          {live.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              aria-label={`Bersaglio ${t.points}`}
+              disabled={!running}
+              onClick={() => hit(t.id)}
+              className="absolute -translate-x-1/2 -translate-y-1/2 rounded-full bg-gradient-to-br from-[#e4c76b] to-[#c9a227] shadow-[0_0_28px_rgba(201,162,39,0.85)] ring-2 ring-sand/50 hover:brightness-110 active:scale-90"
+              style={{
+                left: `${xFor(t)}%`,
+                top: `${t.laneY}%`,
+                width: `${t.sizePct}%`,
+                height: `${t.sizePct}%`,
+                aspectRatio: "1",
+              }}
+            />
+          ))}
         </div>
       </EventoPanel>
     </div>

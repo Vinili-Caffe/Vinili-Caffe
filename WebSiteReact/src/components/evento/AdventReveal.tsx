@@ -142,7 +142,21 @@ export function AdventReveal({
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    const prevOverflow = document.body.style.overflow;
+    const prevPad = document.body.style.paddingRight;
+    const sb = window.innerWidth - document.documentElement.clientWidth;
+    document.body.style.overflow = "hidden";
+    if (sb > 0) document.body.style.paddingRight = `${sb}px`;
+    try {
+      window.scrollTo({ top: window.scrollY, behavior: "instant" as ScrollBehavior });
+    } catch {
+      /* ignore */
+    }
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prevOverflow;
+      document.body.style.paddingRight = prevPad;
+    };
   }, [onClose]);
 
   const current = openIdx >= 0 ? items[openIdx] : null;

@@ -3,6 +3,7 @@ import { Sparkles } from "lucide-react";
 import { DiscordComponentEmbed } from "@/components/DiscordComponentEmbed";
 import { SiteShell } from "@/components/SiteShell";
 import { EventoAccessGate } from "@/components/evento/EventoAccessGate";
+import { EventoBootScroll } from "@/components/evento/EventoBootScroll";
 import { EventoHero } from "@/components/evento/EventoHero";
 import { EVENTO_BRAND, type EventoPageId } from "@/lib/evento-starwars";
 
@@ -26,6 +27,7 @@ export function EventoPage({
 }) {
   return (
     <SiteShell chrome="evento">
+      <EventoBootScroll />
       <DiscordComponentEmbed path={path} title={title} description={text} pageLabel="Apri l'evento" />
       <EventoAccessGate pageId={pageId}>
         <EventoHero icon={icon ?? <Sparkles />} title={title} accent={accent} text={text} />

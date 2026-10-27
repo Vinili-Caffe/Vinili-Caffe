@@ -1,10 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { AnimatePresence } from "motion/react";
 import { attackEventoFaction, buyEventoUnit, fetchEventoShop } from "@/lib/evento-api";
 import { useAuth } from "@/lib/auth";
 import { showToast } from "@/components/ui/toast";
 import { EventoBtn, EventoKicker, EventoPanel } from "@/components/evento/EventoUi";
+import { EventoBattleFx, type BattleFxData } from "@/components/evento/EventoBattleFx";
 
 type Unit = { id: string; label: string; cost: number; power: number; tier: number };
 
@@ -16,6 +18,7 @@ export function EventoShopPanel() {
   const [credits, setCredits] = useState(0);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [battle, setBattle] = useState<BattleFxData | null>(null);
 
   const reload = useCallback(async () => {
     if (!ready) return;
@@ -42,7 +45,7 @@ export function EventoShopPanel() {
       showToast(out?.message || "Acquisto fallito.", true);
       return;
     }
-    showToast("Unità acquistata.");
+    showToast("Unita acquistata.");
     void reload();
   }
 
@@ -51,7 +54,14 @@ export function EventoShopPanel() {
     setBusy(true);
     const out = await attackEventoFaction(token, defend);
     setBusy(false);
-    showToast(out?.message || (out?.ok ? "Ok" : "Fallito"), !out?.ok);
+    setBattle({
+      defend,
+      ok: Boolean(out?.ok),
+      message: out?.message,
+      winner: out?.winner,
+      attackPower: out?.attackPower,
+      defendPower: out?.defendPower,
+    });
     void reload();
   }
 
@@ -110,9 +120,13 @@ export function EventoShopPanel() {
           ))}
         </ul>
         {!buyEnabled ? (
-          <p className="mt-3 text-xs text-crema/45">Acquisti in anteprima HS o quando l'economia è ON.</p>
+          <p className="mt-3 text-xs text-crema/45">Acquisti in anteprima HS o quando l&apos;economia e attiva.</p>
         ) : null}
       </EventoPanel>
+
+      <AnimatePresence>
+        {battle ? <EventoBattleFx data={battle} onClose={() => setBattle(null)} /> : null}
+      </AnimatePresence>
     </div>
   );
 }
