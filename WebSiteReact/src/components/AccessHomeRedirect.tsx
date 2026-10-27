@@ -1,32 +1,57 @@
 "use client";
 
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useRef } from "react";
+import { usePathname, useRouter } from "next/navigation";
 
 /**
  * Redirect a home quando una pagina gated non è accessibile.
- * Soft replace (niente hard reload); fallback assign solo se la SPA non muove.
+ * Aspetta un tick (anti race gate/auth) e preferisce soft replace.
  */
 export function AccessHomeRedirect({ active }: { active: boolean }) {
   const router = useRouter();
+  const pathname = usePathname() || "/";
+  const fired = useRef(false);
 
   useEffect(() => {
-    if (!active) return;
-    try {
-      router.replace("/");
-    } catch {
-      /* ignore */
+    if (!active) {
+      fired.current = false;
+      return;
     }
-    const t = window.setTimeout(() => {
+    // Non buttare via subito: lascia finire hydrate/auth (bounce → home)
+    const soft = window.setTimeout(() => {
+      if (fired.current) return;
+      if (!active) return;
+      fired.current = true;
+      try {
+        router.replace("/");
+      } catch {
+        /* ignore */
+      }
+    }, 350);
+
+    const hard = window.setTimeout(() => {
       if (location.pathname === "/" || location.pathname === "") return;
+      // solo se siamo ancora sulla pagina gated
+      const still =
+        pathname.startsWith("/evento") ||
+        pathname.startsWith("/puzzle") ||
+        pathname.startsWith("/contest") ||
+        pathname.startsWith("/seratafilm");
+      if (!still && !location.pathname.startsWith("/evento") && !location.pathname.startsWith("/puzzle")) {
+        return;
+      }
       try {
         window.location.replace("/");
       } catch {
         window.location.href = "/";
       }
-    }, 2000);
-    return () => window.clearTimeout(t);
-  }, [active, router]);
+    }, 2800);
+
+    return () => {
+      window.clearTimeout(soft);
+      window.clearTimeout(hard);
+    };
+  }, [active, router, pathname]);
 
   if (!active) return null;
 

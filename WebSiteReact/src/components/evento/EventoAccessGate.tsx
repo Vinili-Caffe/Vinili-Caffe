@@ -12,19 +12,22 @@ import {
 } from "@/lib/evento-starwars";
 import { loadStaffAccess, type StaffAccess } from "@/lib/staff";
 
-/** Cache breve: tra pagine /evento/* non rifare loading skeleton (flash chrome). */
-let accessCache: { token: string; access: StaffAccess | null; at: number } | null = null;
+/** Cache solo esiti “sicuri”: accesso HS o 403 esplicito. Mai cache di errori rete. */
+let accessCache: { token: string; access: StaffAccess | null; denied: boolean; at: number } | null = null;
 const ACCESS_TTL_MS = 60_000;
 
-function readCachedAccess(token: string | null | undefined): StaffAccess | null | undefined {
+function readCachedAccess(token: string | null | undefined): {
+  access: StaffAccess | null;
+  denied: boolean;
+} | undefined {
   if (!token || !accessCache) return undefined;
   if (accessCache.token !== token) return undefined;
   if (Date.now() - accessCache.at > ACCESS_TTL_MS) return undefined;
-  return accessCache.access;
+  return { access: accessCache.access, denied: accessCache.denied };
 }
 
-function writeCachedAccess(token: string, access: StaffAccess | null) {
-  accessCache = { token, access, at: Date.now() };
+function writeCachedAccess(token: string, access: StaffAccess | null, denied: boolean) {
+  accessCache = { token, access, denied, at: Date.now() };
 }
 
 function setEventoHold(on: boolean) {
@@ -35,8 +38,10 @@ function setEventoHold(on: boolean) {
   }
 }
 
+type GateVerdict = "loading" | "allow" | "deny";
+
 /** Gate: HS sempre; pubblico dal 1° dic solo su pagine `publicFromOpen`.
- *  Non accessibile → redirect home (niente card anteprima). */
+ *  Non decide “deny” finché auth + staff non sono pronti (anti bounce → home). */
 export function EventoAccessGate({
   pageId,
   children,
@@ -46,76 +51,141 @@ export function EventoAccessGate({
 }) {
   const { ready, token } = useAuth();
   const publicOk = isEventoPublicWindowOpen() && isEventoPagePublic(pageId);
-  const cached = token ? readCachedAccess(token) : undefined;
 
-  const [access, setAccess] = useState<StaffAccess | null>(() =>
-    publicOk ? null : cached === undefined ? null : cached,
-  );
-  const [loading, setLoading] = useState(() => {
-    if (publicOk) return false;
-    if (!token) return false;
-    return cached === undefined;
-  });
+  const [verdict, setVerdict] = useState<GateVerdict>("loading");
+  const [access, setAccess] = useState<StaffAccess | null>(null);
+  const [netError, setNetError] = useState(false);
+  const [retryTick, setRetryTick] = useState(0);
 
   useEffect(() => {
-    if (!ready) {
-      setEventoHold(true);
-      return;
-    }
-    if (publicOk) {
-      setLoading(false);
-      if (!token) setAccess(null);
+    let alive = true;
+    let retries = 0;
+
+    const finishAllow = (acc: StaffAccess | null) => {
+      if (!alive) return;
+      setNetError(false);
+      setAccess(acc);
+      setVerdict("allow");
       setEventoHold(false);
-      return;
-    }
-    if (!token) {
+    };
+    const finishDeny = () => {
+      if (!alive) return;
+      setNetError(false);
       setAccess(null);
-      setLoading(false);
+      setVerdict("deny");
       setEventoHold(false);
-      return;
+    };
+    const stayLoading = () => {
+      if (!alive) return;
+      setVerdict("loading");
+      setEventoHold(true);
+    };
+
+    if (!ready) {
+      stayLoading();
+      return () => {
+        alive = false;
+      };
+    }
+
+    // Finestra pubblica aperta: passa senza staff
+    if (publicOk) {
+      finishAllow(null);
+      return () => {
+        alive = false;
+      };
+    }
+
+    // Evento ancora HS-only: senza login → deny (dopo auth ready)
+    if (!token) {
+      finishDeny();
+      return () => {
+        alive = false;
+      };
     }
 
     const hit = readCachedAccess(token);
-    if (hit !== undefined) {
-      setAccess(hit);
-      setLoading(false);
-      setEventoHold(false);
-      return;
+    if (hit) {
+      if (hit.denied) finishDeny();
+      else if (canAccessEventoPage(pageId, hit.access)) finishAllow(hit.access);
+      else finishDeny();
+      return () => {
+        alive = false;
+      };
     }
 
-    let alive = true;
-    setLoading(true);
-    setEventoHold(true);
-    loadStaffAccess(token).then((r) => {
-      if (!alive) return;
-      const next = r.ok ? r.data : null;
-      writeCachedAccess(token, next);
-      setAccess(next);
-      setLoading(false);
-      setEventoHold(false);
-    });
+    stayLoading();
+    setNetError(false);
+
+    const run = () => {
+      loadStaffAccess(token).then((r) => {
+        if (!alive) return;
+        if (r.ok) {
+          writeCachedAccess(token, r.data, false);
+          if (canAccessEventoPage(pageId, r.data)) finishAllow(r.data);
+          else {
+            writeCachedAccess(token, r.data, true);
+            finishDeny();
+          }
+          return;
+        }
+        // 401/403 = davvero non autorizzato. Altri errori = retry, MAI bounce a home.
+        const status = Number(r.status || 0);
+        if (status === 401 || status === 403) {
+          writeCachedAccess(token, null, true);
+          finishDeny();
+          return;
+        }
+        if (retries < 3) {
+          retries += 1;
+          window.setTimeout(run, 500 * retries);
+          return;
+        }
+        setNetError(true);
+        setVerdict("loading");
+        setEventoHold(false);
+      });
+    };
+    run();
+
     return () => {
       alive = false;
     };
-  }, [ready, token, publicOk]);
+  }, [ready, token, publicOk, pageId, retryTick]);
 
   useEffect(() => {
     return () => setEventoHold(false);
   }, []);
 
-  if (!ready || loading) {
+  if (verdict === "loading") {
     return (
       <section
-        className="mx-auto flex min-h-[70dvh] max-w-lg flex-col justify-center px-6 pb-20"
-        aria-busy="true"
-        aria-label="Caricamento"
+        className="mx-auto flex min-h-[70dvh] max-w-lg flex-col items-center justify-center gap-4 px-6 pb-20 text-center"
+        aria-busy={!netError}
+        aria-label={netError ? "Errore di rete" : "Caricamento"}
       >
-        <div className="h-40 animate-pulse rounded-3xl bg-crema/8" />
+        {netError ? (
+          <>
+            <p className="text-sm text-crema/70">Non riesco a verificare l&apos;accesso. Riprova.</p>
+            <button
+              type="button"
+              className="rounded-full bg-[#c9a227]/20 px-4 py-2 text-sm font-semibold text-[#f0d78c] ring-1 ring-[#c9a227]/40"
+              onClick={() => {
+                setNetError(false);
+                setRetryTick((n) => n + 1);
+              }}
+            >
+              Riprova
+            </button>
+          </>
+        ) : (
+          <div className="h-40 w-full max-w-sm animate-pulse rounded-3xl bg-crema/8" />
+        )}
       </section>
     );
   }
 
-  if (canAccessEventoPage(pageId, access)) {
+  if (verdict === "allow" || canAccessEventoPage(pageId, access)) {
     return <>{children}</>;
   }
 
@@ -129,7 +199,7 @@ export function useEventoStaffAccess(): {
 } {
   const { ready, token } = useAuth();
   const cached = token ? readCachedAccess(token) : undefined;
-  const [access, setAccess] = useState<StaffAccess | null>(() => (cached === undefined ? null : cached));
+  const [access, setAccess] = useState<StaffAccess | null>(() => cached?.access ?? null);
   const [loaded, setLoaded] = useState(() => !token || cached !== undefined);
 
   useEffect(() => {
@@ -140,17 +210,23 @@ export function useEventoStaffAccess(): {
       return;
     }
     const hit = readCachedAccess(token);
-    if (hit !== undefined) {
-      setAccess(hit);
+    if (hit) {
+      setAccess(hit.access);
       setLoaded(true);
       return;
     }
     let alive = true;
     loadStaffAccess(token).then((r) => {
       if (!alive) return;
-      const next = r.ok ? r.data : null;
-      writeCachedAccess(token, next);
-      setAccess(next);
+      if (r.ok) {
+        writeCachedAccess(token, r.data, false);
+        setAccess(r.data);
+      } else if (r.status === 401 || r.status === 403) {
+        writeCachedAccess(token, null, true);
+        setAccess(null);
+      } else {
+        setAccess(null);
+      }
       setLoaded(true);
     });
     return () => {
