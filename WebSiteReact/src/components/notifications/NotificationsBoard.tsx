@@ -199,11 +199,26 @@ function CategoryBlock({
   );
 }
 
+function readScopeFromUrl(): Scope {
+  try {
+    const view = String(
+      new URLSearchParams(location.search).get("view") ||
+        new URLSearchParams(location.search).get("tab") ||
+        "",
+    ).toLowerCase();
+    if (view === "staff" || view === "inbox") return "staff";
+  } catch {
+    /* ignore */
+  }
+  return "personal";
+}
+
 /** La cassetta delle lettere del bar: personali + inbox staff (se l’API lo consente). */
 export function NotificationsBoard() {
   const { ready, token, login } = useAuth();
-  const [scope, setScope] = useState<Scope>("personal");
-  const [isStaff, setIsStaff] = useState(false);
+  const [scope, setScope] = useState<Scope>(readScopeFromUrl);
+  /* null = check staff in corso: non resettare ?view=staff al boot. */
+  const [isStaff, setIsStaff] = useState<boolean | null>(null);
   const [items, setItems] = useState<SiteNotification[] | null>(null);
   const [error, setError] = useState("");
   const [filter, setFilter] = useState<NotifFilter>("all");
@@ -238,7 +253,14 @@ export function NotificationsBoard() {
       return;
     }
     void refresh();
-    checkStaffAccess(token).then(setIsStaff);
+    let alive = true;
+    setIsStaff(null);
+    checkStaffAccess(token).then((ok) => {
+      if (alive) setIsStaff(ok);
+    });
+    return () => {
+      alive = false;
+    };
   }, [ready, token, refresh]);
 
   useLiveRefresh(refresh, {
@@ -256,13 +278,14 @@ export function NotificationsBoard() {
     return () => window.removeEventListener("vc:notif-changed", onChanged);
   }, [token, refresh]);
 
-  // ?view=staff | ?tab=staff (anche dopo click push / soft nav)
+  // ?view=staff|inbox | ?tab=staff (anche dopo click push / soft nav)
   useEffect(() => {
     const apply = () => {
       try {
         const sp = new URLSearchParams(location.search);
         const view = String(sp.get("view") || sp.get("tab") || "").toLowerCase();
-        if (view === "staff") setScope("staff");
+        if (view === "staff" || view === "inbox") setScope("staff");
+        else if (!view) setScope("personal");
       } catch {
         /* ignore */
       }
@@ -277,7 +300,9 @@ export function NotificationsBoard() {
   }, []);
 
   useEffect(() => {
+    if (isStaff === null) return;
     if (!isStaff && scope === "staff") setScope("personal");
+    if (isStaff && readScopeFromUrl() === "staff") setScope("staff");
   }, [isStaff, scope]);
 
   useEffect(() => {
@@ -308,6 +333,8 @@ export function NotificationsBoard() {
       /* ignore */
     }
   };
+
+  const staffKnown = isStaff === true;
 
   const shown = useMemo(() => filterPersonal(items ?? [], filter), [items, filter]);
 
@@ -437,7 +464,7 @@ export function NotificationsBoard() {
         </div>
       </Reveal>
 
-      {isStaff ? (
+      {staffKnown ? (
         <div className="mt-6 flex flex-wrap gap-2" role="tablist" aria-label="Ambito notifiche">
           <Pill
             on={scope === "personal"}
@@ -462,7 +489,7 @@ export function NotificationsBoard() {
         </div>
       ) : null}
 
-      {scope === "staff" && isStaff ? (
+      {scope === "staff" && staffKnown ? (
         <div className="mt-6">
           <StaffInbox token={token} />
         </div>
@@ -500,7 +527,7 @@ export function NotificationsBoard() {
                 {stats.filtered ? <span className="lining-nums">({stats.filtered})</span> : null}
               </Pill>
             </div>
-            <NotifPrefs token={token} isStaff={isStaff} open={prefsOpen} onOpenChange={setPrefsOpen} />
+            <NotifPrefs token={token} isStaff={staffKnown} open={prefsOpen} onOpenChange={setPrefsOpen} />
             <button
               type="button"
               disabled={busy || !(items && items.length)}
