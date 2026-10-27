@@ -9,8 +9,7 @@ type Props = Omit<ComponentProps<"a">, "href"> & { href: string };
 
 /**
  * Percorsi interni (`/…`) → navigazione client (Link); URL esterni → `<a>`.
- * Se Soft nav non parte (drawer che smonta il Link, static export stallato) → hard assign.
- * Prefetch off se cap prefetch=false (saveData / rete lenta).
+ * Hard assign solo se dopo ~2.5s la SPA non ha mosso l’URL (niente reload aggressivo a 450ms).
  */
 export function SmartLink({ href, onClick, ...rest }: Props) {
   const prefetch = useFxCap("prefetch");
@@ -26,7 +25,19 @@ export function SmartLink({ href, onClick, ...rest }: Props) {
 
     const dest = href;
     const from = `${location.pathname}${location.search}${location.hash}`;
-    window.setTimeout(() => {
+    let done = false;
+    const clear = () => {
+      done = true;
+      window.clearInterval(tick);
+      window.clearTimeout(fail);
+    };
+    const tick = window.setInterval(() => {
+      const now = `${location.pathname}${location.search}${location.hash}`;
+      if (now !== from) clear();
+    }, 80);
+    const fail = window.setTimeout(() => {
+      if (done) return;
+      clear();
       const now = `${location.pathname}${location.search}${location.hash}`;
       if (now !== from) return;
       try {
@@ -34,7 +45,7 @@ export function SmartLink({ href, onClick, ...rest }: Props) {
       } catch {
         /* ignore */
       }
-    }, 450);
+    }, 2500);
   };
 
   return <Link href={href} prefetch={prefetch} onClick={handleClick} {...rest} />;

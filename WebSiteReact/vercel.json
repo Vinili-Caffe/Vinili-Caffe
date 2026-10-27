@@ -61,6 +61,22 @@
       "destination": "https://api.viniliecaffe.it/status-kuma/:path*"
     },
     {
+      "source": "/webhooks/discadia",
+      "destination": "https://api.viniliecaffe.it/webhooks/discadia"
+    },
+    {
+      "source": "/webhooks/discadia/",
+      "destination": "https://api.viniliecaffe.it/webhooks/discadia"
+    },
+    {
+      "source": "/webhooks/topgg",
+      "destination": "https://api.viniliecaffe.it/webhooks/topgg"
+    },
+    {
+      "source": "/webhooks/topgg/",
+      "destination": "https://api.viniliecaffe.it/webhooks/topgg"
+    },
+    {
       "source": "/webhooks/:path*",
       "destination": "https://api.viniliecaffe.it/webhooks/:path*"
     },

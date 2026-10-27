@@ -68,7 +68,9 @@ export function BootGate() {
       }
       const main = document.querySelector("main");
       const mainH = main ? (main as HTMLElement).offsetHeight : 0;
-      const readyLayout = mainH > 120 || tries > 36;
+      const busy =
+        root.classList.contains("vc-evento-hold") || Boolean(main?.querySelector('[aria-busy="true"]'));
+      const readyLayout = (mainH > 200 && !busy) || tries > 48;
       if (frames >= 2 && readyLayout) {
         window.setTimeout(unlock, 40);
         return;
@@ -76,7 +78,7 @@ export function BootGate() {
       window.requestAnimationFrame(tick);
     };
     const id = window.requestAnimationFrame(tick);
-    const failsafe = window.setTimeout(unlock, 2000);
+    const failsafe = window.setTimeout(unlock, 2800);
     return () => {
       window.cancelAnimationFrame(id);
       window.clearTimeout(failsafe);
