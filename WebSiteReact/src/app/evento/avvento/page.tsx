@@ -1,8 +1,14 @@
 import type { Metadata } from "next";
-import { AdventCalendar } from "@/components/evento/AdventCalendar";
+import dynamic from "next/dynamic";
 import { EventoPage } from "@/components/evento/EventoPage";
 import { eventoPageMeta } from "@/lib/evento-starwars";
 import { pageSocialMeta } from "@/lib/og";
+import { BoardSkeleton } from "@/components/ui/EmptyState";
+
+const AdventCalendar = dynamic(
+  () => import("@/components/evento/AdventCalendar").then((m) => m.AdventCalendar),
+  { loading: () => <BoardSkeleton className="mx-auto max-w-3xl px-6" /> },
+);
 
 const meta = eventoPageMeta("avvento");
 

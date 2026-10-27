@@ -1,8 +1,14 @@
 import type { Metadata } from "next";
-import { MinieraGame } from "@/components/evento/MinieraGame";
+import dynamic from "next/dynamic";
 import { EventoPage } from "@/components/evento/EventoPage";
 import { eventoPageMeta } from "@/lib/evento-starwars";
 import { pageSocialMeta } from "@/lib/og";
+import { BoardSkeleton } from "@/components/ui/EmptyState";
+
+const MinieraGame = dynamic(
+  () => import("@/components/evento/MinieraGame").then((m) => m.MinieraGame),
+  { loading: () => <BoardSkeleton className="mx-auto max-w-3xl px-6" /> },
+);
 
 const meta = eventoPageMeta("miniera");
 

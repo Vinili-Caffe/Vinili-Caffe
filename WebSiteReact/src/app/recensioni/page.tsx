@@ -7,10 +7,11 @@ import { loadReviews } from "@/lib/reviews";
 import { DiscordComponentEmbed } from "@/components/DiscordComponentEmbed";
 import { pageSocialMeta } from "@/lib/og";
 import { SITE_ORIGIN } from "@/lib/site";
+import { BoardSkeleton } from "@/components/ui/EmptyState";
 
 const ReviewsBrowser = dynamic(
   () => import("@/components/reviews/ReviewsBrowser").then((m) => m.ReviewsBrowser),
-  { loading: () => null },
+  { loading: () => <BoardSkeleton className="mx-auto max-w-5xl px-6" /> },
 );
 
 export const metadata: Metadata = {

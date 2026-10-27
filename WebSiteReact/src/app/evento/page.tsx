@@ -1,11 +1,23 @@
 import type { Metadata } from "next";
-import { EventoCratesPanel } from "@/components/evento/EventoCratesPanel";
-import { EventoHubStatus } from "@/components/evento/EventoHubStatus";
-import { EventoMinigamesPanel } from "@/components/evento/EventoMinigamesPanel";
+import dynamic from "next/dynamic";
 import { EventoPage } from "@/components/evento/EventoPage";
-import { EventoShopPanel } from "@/components/evento/EventoShopPanel";
 import { EVENTO_BRAND, eventoPageMeta } from "@/lib/evento-starwars";
 import { pageSocialMeta } from "@/lib/og";
+import { BoardSkeleton } from "@/components/ui/EmptyState";
+
+const EventoHubStatus = dynamic(
+  () => import("@/components/evento/EventoHubStatus").then((m) => m.EventoHubStatus),
+  { loading: () => <BoardSkeleton className="mx-auto max-w-5xl px-6" /> },
+);
+const EventoCratesPanel = dynamic(
+  () => import("@/components/evento/EventoCratesPanel").then((m) => m.EventoCratesPanel),
+);
+const EventoMinigamesPanel = dynamic(
+  () => import("@/components/evento/EventoMinigamesPanel").then((m) => m.EventoMinigamesPanel),
+);
+const EventoShopPanel = dynamic(
+  () => import("@/components/evento/EventoShopPanel").then((m) => m.EventoShopPanel),
+);
 
 const meta = eventoPageMeta("hub");
 

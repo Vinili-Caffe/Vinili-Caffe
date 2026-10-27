@@ -1,10 +1,16 @@
 import type { Metadata } from "next";
+import dynamic from "next/dynamic";
 import { DiscordComponentEmbed } from "@/components/DiscordComponentEmbed";
 import { pageSocialMeta } from "@/lib/og";
 import { Coffee } from "lucide-react";
-import { CandidatureBoard } from "@/components/candidature/CandidatureBoard";
 import { PageHero } from "@/components/PageHero";
 import { SiteShell } from "@/components/SiteShell";
+import { BoardSkeleton } from "@/components/ui/EmptyState";
+
+const CandidatureBoard = dynamic(
+  () => import("@/components/candidature/CandidatureBoard").then((m) => m.CandidatureBoard),
+  { loading: () => <BoardSkeleton className="mx-auto max-w-5xl px-6" /> },
+);
 
 export const metadata: Metadata = {
   ...pageSocialMeta({ path: "/candidature/", title: "Candidature", description: "Candidati allo staff di Vinili & Caffè come Helper o Partner Manager." }),

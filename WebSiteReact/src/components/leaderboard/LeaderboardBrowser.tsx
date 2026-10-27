@@ -147,9 +147,13 @@ export function LeaderboardBrowser({ initial }: { initial: LeaderPage | null }) 
   }, [pageNum]);
 
   useEffect(() => {
+    /* Boot con `initial`: niente secondo round-trip (Speed Insights /classifiche). */
+    if (first.current && initial && board === "level") {
+      setBoardBoot(false);
+      return;
+    }
     let alive = true;
-    const boot = first.current && initial && board === "level";
-    if (!boot) setBoardBoot(true);
+    setBoardBoot(true);
     loadBoard(board, 1).then((d) => {
       if (!alive) return;
       if (d) setPodium(d.rows.slice(0, 3));
@@ -163,12 +167,7 @@ export function LeaderboardBrowser({ initial }: { initial: LeaderPage | null }) 
   useEffect(() => {
     if (first.current && initial && board === "level" && pageNum === 1) {
       first.current = false;
-      loadBoard("level", 1).then((d) => {
-        if (!d) return;
-        setData(d);
-        setPodium(d.rows.slice(0, 3));
-        setListLoading(false);
-      });
+      setListLoading(false);
       return;
     }
     first.current = false;

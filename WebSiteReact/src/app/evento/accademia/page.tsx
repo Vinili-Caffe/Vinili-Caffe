@@ -1,8 +1,14 @@
 import type { Metadata } from "next";
-import { AccademiaGame } from "@/components/evento/AccademiaGame";
+import dynamic from "next/dynamic";
 import { EventoPage } from "@/components/evento/EventoPage";
 import { eventoPageMeta } from "@/lib/evento-starwars";
 import { pageSocialMeta } from "@/lib/og";
+import { BoardSkeleton } from "@/components/ui/EmptyState";
+
+const AccademiaGame = dynamic(
+  () => import("@/components/evento/AccademiaGame").then((m) => m.AccademiaGame),
+  { loading: () => <BoardSkeleton className="mx-auto max-w-3xl px-6" /> },
+);
 
 const meta = eventoPageMeta("accademia");
 
