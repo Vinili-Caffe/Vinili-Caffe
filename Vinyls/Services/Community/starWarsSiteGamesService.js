@@ -215,7 +215,8 @@ async function pickGaraPod(client, { guildId, userId, podId }) {
 }
 
 /* ——— Miniera Kyber ——— */
-const KYBER_COLORS = ["blu", "verde", "viola", "rosso", "giallo", "bianco"];
+/** Solo blu/verde — Kyber naturali Jedi (canon). */
+const KYBER_COLORS = Object.freeze(["blu", "verde"]);
 
 async function getMinieraState(client, { guildId, userId }) {
   const playable = featurePlayable(client, FEATURES.EVENT_KYBER);
@@ -235,6 +236,7 @@ async function getMinieraState(client, { guildId, userId }) {
     maxDigs: 3,
     remaining: Math.max(0, 3 - digs),
     finds,
+    colors: KYBER_COLORS.slice(),
     canDig: playable && digs < 3,
   };
 }

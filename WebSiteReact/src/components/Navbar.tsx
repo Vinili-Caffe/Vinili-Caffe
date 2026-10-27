@@ -559,7 +559,7 @@ export function Navbar() {
       </motion.header>
 
       {/* Se la nav auto-hide sale via, la pill resta raggiungibile in alto a dx (senza sovrapporsi al brand). */}
-      {navHidden && (
+      {navHidden && !eventoChrome ? (
         <div
           className="pointer-events-none fixed right-3 z-[55] sm:right-5"
           style={{ top: "calc(var(--vc-view-as-h, 0px) + 0.7rem)" }}
@@ -568,7 +568,7 @@ export function Navbar() {
             <ContestNavPill />
           </div>
         </div>
-      )}
+      ) : null}
 
       <AnimatePresence>
         {open && (

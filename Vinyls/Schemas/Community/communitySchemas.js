@@ -1032,6 +1032,9 @@ const siteDocumentSchema = new Schema(
     boardSocials: { type: Schema.Types.Mixed, default: null },
     /* boardsFeatures1: Free/Paid + partnership/verify */
     boardFeatures: { type: Schema.Types.Mixed, default: null },
+
+    /* starWarsSiteGames1: stato giochi evento (accademia/gara/miniera/…) */
+    payload: { type: Schema.Types.Mixed, default: null },
   },
   { timestamps: true },
 );

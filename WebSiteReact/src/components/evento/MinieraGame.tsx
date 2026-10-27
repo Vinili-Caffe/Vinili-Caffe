@@ -6,23 +6,44 @@ import { digEventoMiniera, fetchEventoMiniera } from "@/lib/evento-api";
 import { useAuth } from "@/lib/auth";
 import { showToast } from "@/components/ui/toast";
 import { cn } from "@/lib/cn";
-import { EventoBtn, EventoKicker, EventoLoginGate, EventoPanel, EventoSkeleton, EventoTitle } from "@/components/evento/EventoUi";
+import {
+  EventoBtn,
+  EventoKicker,
+  EventoLoginGate,
+  EventoPanel,
+  EventoSkeleton,
+  EventoTitle,
+} from "@/components/evento/EventoUi";
 
-const COLOR_GLOW: Record<string, string> = {
-  rosso: "from-rose-500/40 to-rose-900/20 ring-rose-400/40",
-  blu: "from-sky-400/40 to-blue-900/20 ring-sky-400/40",
-  verde: "from-emerald-400/40 to-emerald-900/20 ring-emerald-400/40",
-  viola: "from-violet-400/40 to-violet-900/20 ring-violet-400/40",
-  giallo: "from-amber-300/40 to-amber-900/20 ring-amber-300/40",
-  bianco: "from-white/30 to-slate-700/20 ring-white/40",
+/** Solo blu/verde — Kyber naturali Jedi. */
+const KYBER_HEX: Record<string, { glow: string; core: string; label: string }> = {
+  blu: { glow: "#1d8fff", core: "#5eb6ff", label: "Blu" },
+  verde: { glow: "#12c26b", core: "#4dff9a", label: "Verde" },
 };
 
-function glowFor(color: string) {
+function styleFor(color: string) {
   const key = String(color || "").toLowerCase();
-  for (const [k, v] of Object.entries(COLOR_GLOW)) {
-    if (key.includes(k)) return v;
-  }
-  return "from-[#c9a227]/30 to-[#2ea8ff]/10 ring-[#c9a227]/35";
+  if (key.includes("verd") || key.includes("green")) return KYBER_HEX.verde!;
+  if (key.includes("blu") || key.includes("blue")) return KYBER_HEX.blu!;
+  return KYBER_HEX[key] || KYBER_HEX.blu!;
+}
+
+function CrystalFace({ color, rare, size = "md" }: { color: string; rare?: boolean; size?: "sm" | "md" | "lg" }) {
+  const s = styleFor(color);
+  const dim = size === "lg" ? "size-14" : size === "sm" ? "size-7" : "size-10";
+  return (
+    <span
+      className={cn("relative inline-flex items-center justify-center", dim)}
+      style={{ filter: `drop-shadow(0 0 10px ${s.glow})` }}
+      aria-hidden
+    >
+      <Gem
+        className={cn(dim, rare && "animate-pulse")}
+        strokeWidth={1.75}
+        style={{ color: s.core, fill: `${s.glow}55` }}
+      />
+    </span>
+  );
 }
 
 export function MinieraGame() {
@@ -65,7 +86,8 @@ export function MinieraGame() {
     setRemaining(out.remaining ?? 0);
     setCanDig((out.remaining ?? 0) > 0);
     if (out.find) setFinds((f) => [...f, out.find!]);
-    showToast(out.find?.rare ? `Kyber ${out.find.color} RARO!` : `Kyber ${out.find?.color || "?"}`);
+    const label = styleFor(out.find?.color || "").label;
+    showToast(out.find?.rare ? `Kyber ${label} RARO!` : `Kyber ${label}`);
   }
 
   if (loading) return <EventoSkeleton className="mx-auto max-w-lg px-6" />;
@@ -83,18 +105,20 @@ export function MinieraGame() {
         <Pickaxe className="mx-auto size-9 text-sand" aria-hidden />
         <EventoKicker>Estrazioni oggi</EventoKicker>
         <EventoTitle>{remaining}</EventoTitle>
-        <p className="mt-1 text-sm text-crema/65">rimaste · cristalli Kyber</p>
+        <p className="mt-1 text-sm text-crema/65">rimaste · Kyber blu o verde</p>
 
         {last ? (
           <div
-            className={cn(
-              "mx-auto mt-5 max-w-xs rounded-2xl bg-gradient-to-br p-4 ring-1",
-              glowFor(last.color),
-            )}
+            className="mx-auto mt-5 max-w-xs rounded-2xl p-4 ring-1"
+            style={{
+              background: `linear-gradient(145deg, ${styleFor(last.color).glow}44, rgba(5,7,15,0.85))`,
+              boxShadow: `0 0 28px ${styleFor(last.color).glow}55`,
+              borderColor: `${styleFor(last.color).glow}88`,
+            }}
           >
-            <Gem className="mx-auto size-7 text-crema" aria-hidden />
+            <CrystalFace color={last.color} rare={last.rare} size="lg" />
             <p className="mt-2 font-display text-xl text-crema">
-              {last.color}
+              {styleFor(last.color).label}
               {last.rare ? " · raro" : ""}
             </p>
             <p className="text-[0.65rem] uppercase tracking-[0.25em] text-crema/55">Ultimo ritrovamento</p>
@@ -110,18 +134,25 @@ export function MinieraGame() {
         <EventoPanel glow="none">
           <EventoKicker>Bottino di oggi</EventoKicker>
           <ul className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
-            {finds.map((f, i) => (
-              <li
-                key={`${f.color}-${i}`}
-                className={cn(
-                  "rounded-xl bg-gradient-to-br px-3 py-2.5 text-center text-sm ring-1",
-                  glowFor(f.color),
-                )}
-              >
-                <span className="font-medium text-crema">{f.color}</span>
-                {f.rare ? <span className="mt-0.5 block text-[0.6rem] uppercase tracking-wider text-sand">raro</span> : null}
-              </li>
-            ))}
+            {finds.map((f, i) => {
+              const s = styleFor(f.color);
+              return (
+                <li
+                  key={`${f.color}-${i}`}
+                  className="flex flex-col items-center gap-1 rounded-xl px-3 py-2.5 text-center text-sm ring-1"
+                  style={{
+                    background: `linear-gradient(160deg, ${s.glow}33, rgba(5,7,15,0.9))`,
+                    boxShadow: `inset 0 0 0 1px ${s.glow}66`,
+                  }}
+                >
+                  <CrystalFace color={f.color} rare={f.rare} size="sm" />
+                  <span className="font-medium text-crema">{s.label}</span>
+                  {f.rare ? (
+                    <span className="text-[0.6rem] uppercase tracking-wider text-sand">raro</span>
+                  ) : null}
+                </li>
+              );
+            })}
           </ul>
         </EventoPanel>
       ) : null}

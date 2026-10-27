@@ -26,6 +26,11 @@ export function ContestNavPill({ className }: { className?: string }) {
 
   if (!item) return null;
   const href = item.href || `/contest/${item.eventKey}/`;
+  const p = pathname.endsWith("/") ? pathname : `${pathname}/`;
+  /* Niente pill contest sull’immersione evento / puzzle. */
+  if (p === "/evento/" || p.startsWith("/evento/") || p === "/puzzle/" || p.startsWith("/puzzle/")) {
+    return null;
+  }
   /* Nascondi solo sulla pagina del contest evidenziato (sei già lì). */
   if (
     pathname === href ||

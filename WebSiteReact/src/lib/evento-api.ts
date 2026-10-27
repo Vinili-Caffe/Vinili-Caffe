@@ -347,6 +347,7 @@ export async function fetchEventoMiniera(token?: string | null) {
       remaining?: number;
       canDig?: boolean;
       finds?: Array<{ color: string; rare: boolean }>;
+      colors?: string[];
       message?: string;
     } | null;
   } catch {
