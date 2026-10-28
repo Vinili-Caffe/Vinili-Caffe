@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { Download, Share, X } from "lucide-react";
 import { useChromeOpenListener } from "@/lib/chrome-open";
+import { useAuth } from "@/lib/auth";
 import { SmartLink } from "@/components/SmartLink";
 import { page } from "@/lib/site";
 import {
@@ -36,11 +37,11 @@ function snooze() {
 }
 
 /**
- * Invito discreto a installare il sito come app.
- * Android/Chrome: pulsante BIP. iPhone Safari: passaggi Share.
- * Non compare se già installata (standalone / related apps / flag locale).
+ * Invito discreto a installare. Su iOS Safari non compare se già marcata
+ * (locale / account): Safari non può sapere da solo se l’icona Home esiste.
  */
 export function InstallPrompt() {
+  const { token, ready } = useAuth();
   const [evt, setEvt] = useState<BIPEvent | null>(null);
   const [ios, setIos] = useState(false);
   const [show, setShow] = useState(false);
@@ -50,19 +51,19 @@ export function InstallPrompt() {
   useEffect(() => useChromeOpenListener(setChromeOpen), []);
 
   useEffect(() => {
-    ensurePwaInstallCapture();
+    if (!ready) return;
+    ensurePwaInstallCapture(token);
     let alive = true;
     let timer = 0;
 
-    void detectPwaAlreadyInstalled().then((installed) => {
+    void detectPwaAlreadyInstalled(token).then((installed) => {
       if (!alive) return;
       if (installed || snoozed()) {
         setBlocked(true);
         return;
       }
       const surface = detectInstallSurface();
-      const isIos = surface === "ios-safari" || surface === "ios-other";
-      setIos(isIos && surface === "ios-safari");
+      setIos(surface === "ios-safari");
       timer = window.setTimeout(() => {
         if (alive) setShow(true);
       }, SHOW_AFTER_MS);
@@ -81,7 +82,7 @@ export function InstallPrompt() {
       unsub();
       window.removeEventListener("appinstalled", onInstalled);
     };
-  }, []);
+  }, [ready, token]);
 
   const visible = !blocked && show && !chromeOpen && (Boolean(evt) || ios);
   const close = () => {
@@ -131,7 +132,7 @@ export function InstallPrompt() {
               <button
                 type="button"
                 onClick={async () => {
-                  await promptHeldBip();
+                  await promptHeldBip(token);
                   close();
                 }}
                 className="inline-flex flex-1 items-center justify-center gap-2 rounded-full bg-gradient-to-r from-caramel to-ember px-4 py-2.5 text-sm font-semibold text-ink"

@@ -122,6 +122,10 @@ function sanitizeChromePrefs(raw) {
     const theme = String(src.theme || "").trim().toLowerCase();
     if (theme === "light" || theme === "dark" || theme === "auto") out.theme = theme;
   }
+  /* pwaInstalledSync1: Safari/PWA iOS hanno storage separati — sync via account */
+  if (typeof src.pwaInstalled === "boolean") out.pwaInstalled = src.pwaInstalled;
+  const pwaAt = Number(src.pwaInstalledAt);
+  if (Number.isFinite(pwaAt) && pwaAt > 0) out.pwaInstalledAt = Math.floor(pwaAt);
   /* eventoSwBgm1: mute/vol/seek BGM Star Wars cross-device */
   if (src.eventoBgm && typeof src.eventoBgm === "object") {
     const bgm = {};

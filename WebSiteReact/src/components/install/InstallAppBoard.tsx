@@ -10,9 +10,11 @@ import {
   Smartphone,
 } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
+import { useAuth } from "@/lib/auth";
 import { BTN_GHOST, BTN_PRIMARY_LG, PANEL } from "@/lib/ui";
 import { cn } from "@/lib/cn";
 import {
+  confirmPwaInstalledByUser,
   detectInstallSurface,
   detectPwaAlreadyInstalled,
   ensurePwaInstallCapture,
@@ -37,6 +39,7 @@ function Step({ n, children }: { n: number; children: React.ReactNode }) {
 
 export function InstallAppBoard() {
   const { t } = useI18n();
+  const { token, ready } = useAuth();
   const [surface, setSurface] = useState<InstallSurface | null>(null);
   const [already, setAlready] = useState(false);
   const [bip, setBip] = useState<BIPEvent | null>(null);
@@ -44,11 +47,12 @@ export function InstallAppBoard() {
   const [done, setDone] = useState(false);
 
   useEffect(() => {
-    ensurePwaInstallCapture();
+    if (!ready) return;
+    ensurePwaInstallCapture(token);
     const s = detectInstallSurface();
     setSurface(s);
     let alive = true;
-    void detectPwaAlreadyInstalled().then((ok) => {
+    void detectPwaAlreadyInstalled(token).then((ok) => {
       if (!alive) return;
       if (ok) {
         setAlready(true);
@@ -67,13 +71,13 @@ export function InstallAppBoard() {
       unsub();
       window.removeEventListener("appinstalled", onInstalled);
     };
-  }, []);
+  }, [ready, token]);
 
   const install = async () => {
     if (busy) return;
     setBusy(true);
     try {
-      const outcome = await promptHeldBip();
+      const outcome = await promptHeldBip(token);
       if (outcome === "accepted") {
         setDone(true);
         setAlready(true);
@@ -82,6 +86,11 @@ export function InstallAppBoard() {
     } finally {
       setBusy(false);
     }
+  };
+
+  const confirmAlready = async () => {
+    await confirmPwaInstalledByUser(token);
+    setAlready(true);
   };
 
   if (!surface) {
@@ -144,7 +153,12 @@ export function InstallAppBoard() {
         {!showInstalled && surface === "ios-safari" ? (
           <div className="mt-8 space-y-5">
             <p className="text-sm leading-relaxed text-crema/70">{t("install.iosLead")}</p>
-            <ol className="space-y-3.5">
+            <button type="button" onClick={() => void confirmAlready()} className={cn(BTN_PRIMARY_LG, "w-full sm:w-auto")}>
+              <CheckCircle2 className="size-4" aria-hidden />
+              {t("install.alreadyCta")}
+            </button>
+            <p className="text-xs leading-relaxed text-crema/50">{t("install.alreadyCtaHint")}</p>
+            <ol className="space-y-3.5 border-t border-sand/10 pt-5">
               <Step n={1}>
                 {t("install.iosStep1Before")}{" "}
                 <Share className="inline size-4 -translate-y-0.5 text-caramel" aria-hidden />{" "}
@@ -165,6 +179,10 @@ export function InstallAppBoard() {
           <div className="mt-8 space-y-4">
             <p className="text-sm leading-relaxed text-crema/70">{t("install.iosOtherLead")}</p>
             <p className="rounded-2xl bg-crema/5 px-4 py-3 text-sm text-crema/75 ring-1 ring-sand/15">{t("install.iosOtherHint")}</p>
+            <button type="button" onClick={() => void confirmAlready()} className={cn(BTN_GHOST, "w-full sm:w-auto")}>
+              <CheckCircle2 className="size-4" aria-hidden />
+              {t("install.alreadyCta")}
+            </button>
           </div>
         ) : null}
 
@@ -197,6 +215,10 @@ export function InstallAppBoard() {
                 <p className="text-sm leading-relaxed text-crema/70">
                   {surface === "android" ? t("install.androidManualLead") : t("install.desktopManualLead")}
                 </p>
+                <button type="button" onClick={() => void confirmAlready()} className={cn(BTN_GHOST, "w-full sm:w-auto")}>
+                  <CheckCircle2 className="size-4" aria-hidden />
+                  {t("install.alreadyCta")}
+                </button>
                 <ol className="space-y-3.5">
                   <Step n={1}>
                     {t("install.menuStep1Before")}{" "}
