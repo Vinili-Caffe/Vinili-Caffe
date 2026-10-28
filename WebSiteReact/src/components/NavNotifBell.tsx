@@ -29,6 +29,7 @@ import { useLiveRefresh } from "@/lib/use-live-refresh";
 import { SmartLink } from "./SmartLink";
 import { AnimatedList } from "./magicui/animated-list";
 import { EmojiText } from "@/components/discord/EmojiText";
+import { PushCard } from "@/components/notifications/PushCard";
 
 function useNarrowNav() {
   const [narrow, setNarrow] = useState(() => {
@@ -372,6 +373,11 @@ export function NavNotifBell() {
                       </button>
                     </div>
                   </div>
+                  {token ? (
+                    <div className="shrink-0 border-b border-sand/10 px-3 py-2.5">
+                      <PushCard token={token} compact />
+                    </div>
+                  ) : null}
                   <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 py-2">{listBody}</div>
                   <div className="shrink-0 border-t border-sand/10 p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
                     {footer}
@@ -408,6 +414,11 @@ export function NavNotifBell() {
                 )}
               </div>
             </div>
+            {token ? (
+              <div className="border-b border-sand/10 px-2.5 py-2">
+                <PushCard token={token} compact />
+              </div>
+            ) : null}
             <div className="max-h-[min(22rem,50vh)] overflow-y-auto p-1.5">{listBody}</div>
             <div className="border-t border-sand/10 p-1.5">{footer}</div>
           </motion.div>
