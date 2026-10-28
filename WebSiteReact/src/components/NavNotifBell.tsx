@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useId, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
+import { createPortal } from "react-dom";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { Bell, CheckCheck, ExternalLink, X } from "lucide-react";
 import { useAuth } from "@/lib/auth";
@@ -296,7 +297,7 @@ export function NavNotifBell() {
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="relative inline-flex size-10 items-center justify-center rounded-full bg-crema/8 text-crema ring-1 ring-crema/15 transition-colors hover:bg-crema/15"
+        className="relative inline-flex size-10 items-center justify-center rounded-full bg-crema/8 text-crema ring-1 ring-crema/15 transition-[transform,background-color,box-shadow] duration-200 ease-out hover:bg-crema/15 active:scale-[0.96]"
         aria-expanded={open}
         aria-label={unread ? t("notif.unreadAria", { n: unread }) : t("notif.title")}
       >
@@ -332,49 +333,55 @@ export function NavNotifBell() {
         )}
       </button>
 
-      <AnimatePresence>
-        {open && narrow ? (
-          <motion.div
-            key="notif-sheet"
-            role="dialog"
-            aria-modal="true"
-            aria-label={t("notif.title")}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            className="fixed inset-0 z-[80] flex flex-col bg-espresso/98"
-          >
-            <div className="flex shrink-0 items-center justify-between gap-3 border-b border-sand/10 px-4 pb-3 pt-[max(0.85rem,env(safe-area-inset-top))]">
-              <p className="font-display text-xl font-semibold text-crema">{t("notif.title")}</p>
-              <div className="flex items-center gap-1.5">
-                {unread > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => void markAll()}
-                    disabled={busy}
-                    className="inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-sm font-medium text-crema/70 hover:bg-crema/8 hover:text-crema disabled:opacity-50"
-                  >
-                    <CheckCheck className="size-4" /> {t("notif.markAll")}
-                  </button>
-                )}
-                <button
-                  type="button"
-                  onClick={closeMenu}
-                  className="inline-flex size-11 items-center justify-center rounded-full bg-crema/8 text-crema ring-1 ring-crema/15"
-                  aria-label={t("nav.closeMenu")}
+      {/* Portal: fuori dallo stacking context della navbar (z-50), altrimenti il contest home (z-56) resta sopra. */}
+      {typeof document !== "undefined"
+        ? createPortal(
+            <AnimatePresence>
+              {open && narrow ? (
+                <motion.div
+                  key="notif-sheet"
+                  role="dialog"
+                  aria-modal="true"
+                  aria-label={t("notif.title")}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="fixed inset-0 z-[100] flex flex-col bg-espresso/98"
                 >
-                  <X className="size-5" />
-                </button>
-              </div>
-            </div>
-            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 py-2">{listBody}</div>
-            <div className="shrink-0 border-t border-sand/10 p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
-              {footer}
-            </div>
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
+                  <div className="flex shrink-0 items-center justify-between gap-3 border-b border-sand/10 px-4 pb-3 pt-[max(0.85rem,env(safe-area-inset-top))]">
+                    <p className="font-display text-xl font-semibold text-crema">{t("notif.title")}</p>
+                    <div className="flex items-center gap-1.5">
+                      {unread > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => void markAll()}
+                          disabled={busy}
+                          className="inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-sm font-medium text-crema/70 hover:bg-crema/8 hover:text-crema disabled:opacity-50"
+                        >
+                          <CheckCheck className="size-4" /> {t("notif.markAll")}
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={closeMenu}
+                        className="inline-flex size-11 items-center justify-center rounded-full bg-crema/8 text-crema ring-1 ring-crema/15"
+                        aria-label={t("nav.closeMenu")}
+                      >
+                        <X className="size-5" />
+                      </button>
+                    </div>
+                  </div>
+                  <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 py-2">{listBody}</div>
+                  <div className="shrink-0 border-t border-sand/10 p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
+                    {footer}
+                  </div>
+                </motion.div>
+              ) : null}
+            </AnimatePresence>,
+            document.body,
+          )
+        : null}
 
       <AnimatePresence>
         {open && !narrow ? (

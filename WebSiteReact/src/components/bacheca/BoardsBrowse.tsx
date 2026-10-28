@@ -144,7 +144,7 @@ export function BoardsBrowse({ initialKind = "", initialConfig = null, initialLi
             value={draftQ}
             onChange={(e) => setDraftQ(e.target.value)}
             placeholder="Cerca un bot, un server, un tag…"
-            className="w-full rounded-2xl bg-roast/80 py-3.5 pl-11 pr-11 text-crema outline-none ring-1 ring-sand/15 placeholder:text-crema/35 focus:ring-caramel/40"
+            className="w-full rounded-2xl bg-gradient-to-b from-caramel/[0.08] via-roast/85 to-roast py-3.5 pl-11 pr-11 text-crema outline-none ring-1 ring-sand/15 placeholder:text-crema/35 focus:ring-caramel/40"
           />
           {draftQ && (
             <button type="button" aria-label="Pulisci" className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1 text-crema/45 hover:text-crema" onClick={() => { setDraftQ(""); setQ(""); }}>

@@ -151,7 +151,7 @@ export function PauseBoard() {
 
       {/* Calendario + form affiancati, senza stretch verticale */}
       <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1.35fr)_minmax(17rem,0.9fr)]">
-        <section className="rounded-3xl bg-roast/70 p-4 ring-1 ring-sand/12 sm:p-5">
+        <section className="rounded-3xl bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast p-4 ring-1 ring-sand/12 sm:p-5">
           <div className="mb-3 flex items-center justify-between gap-2">
             <button
               type="button"
@@ -259,7 +259,7 @@ export function PauseBoard() {
 
         <div className="space-y-4">
           {pending || pendingKey ? (
-            <section className="space-y-2 rounded-3xl bg-roast/70 p-4 ring-1 ring-sand/12 sm:p-5">
+            <section className="space-y-2 rounded-3xl bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast p-4 ring-1 ring-sand/12 sm:p-5">
               <h3 className="font-display text-xl font-semibold">Richiesta in attesa</h3>
               <p className="text-sm text-crema/55">
                 {pending?.statusLabel || "In attesa"}
@@ -273,7 +273,7 @@ export function PauseBoard() {
           ) : null}
 
           {cal?.me?.canRequest ? (
-            <form onSubmit={onRequest} className="space-y-3 rounded-3xl bg-roast/70 p-4 ring-1 ring-sand/12 sm:p-5">
+            <form onSubmit={onRequest} className="space-y-3 rounded-3xl bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast p-4 ring-1 ring-sand/12 sm:p-5">
               <h3 className="font-display text-xl font-semibold">Richiedi una pausa</h3>
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
                 <label className="block text-sm">
@@ -354,7 +354,7 @@ export function PauseBoard() {
       </div>
 
       {/* Elenco mese: solo se ci sono pause, altrimenti una riga compatta */}
-      <section className="rounded-3xl bg-roast/70 p-4 ring-1 ring-sand/12 sm:p-5">
+      <section className="rounded-3xl bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast p-4 ring-1 ring-sand/12 sm:p-5">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <h3 className="font-display text-xl font-semibold">Pause del mese</h3>
           <p className="text-xs text-crema/45 lining-nums">{cal?.count ?? 0} nel calendario</p>

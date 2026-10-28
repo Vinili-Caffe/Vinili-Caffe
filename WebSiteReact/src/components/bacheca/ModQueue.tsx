@@ -88,7 +88,7 @@ export function ModQueue() {
 
       <ul className="space-y-4">
         {list?.map((item) => (
-          <li key={item.id} className="rounded-3xl bg-roast/70 p-5 ring-1 ring-sand/12">
+          <li key={item.id} className="rounded-3xl bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast p-5 ring-1 ring-sand/12">
             <div className="flex flex-wrap items-start gap-4">
               {item.iconUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element

@@ -19,6 +19,8 @@ const { markJoinGateSuspiciousAccount, } = require("../Services/Moderation/joinG
 const {
   enforceUntrustedBotMember,
   punishMemberForBotAbuse,
+  buildTrustedBotIdSet,
+  isDiscordOfficialActor,
 } = require("../Services/Moderation/trustedBotGuardService");
 const { hasEventWeekWinnerGrant } = require("../Services/Community/weekWinnerGrantsService");
 const { hasExtraCustomPerksUnlock } = require("../Utils/Community/customPerksUnlock");
@@ -586,7 +588,11 @@ async function handleBotJoin(member, joinGateConfig) {
     botAddEntry?.executor && !noAuditPerm && !auditNotFound
       ? formatActor(botAddEntry.executor)
       : "sconosciuto";
-  const verifiedBot = await isVerifiedBot(member.user);
+  /* allowlistedBotSkipUnverified1: IDs.bots + trustedBotOnly.extraBotIds contano come autorizzati anche senza VerifiedBot. */
+  const allowlistedBot =
+    isDiscordOfficialActor(member.user) ||
+    buildTrustedBotIdSet(member.client).has(String(member.user.id || ""));
+  const verifiedBot = allowlistedBot || (await isVerifiedBot(member.user));
 
   if ( joinGateConfig?.enabled && joinGateConfig?.unverifiedBotAdditions?.enabled && !verifiedBot) {
     const result = await kickForJoinGate(member, "Aggiunta di bot non verificato.", [

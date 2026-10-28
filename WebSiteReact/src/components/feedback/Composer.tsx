@@ -227,7 +227,7 @@ export function Composer({
           type="button"
           onClick={submit}
           disabled={busy}
-          className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-full bg-ink px-6 py-3.5 font-semibold text-paper transition-all hover:-translate-y-0.5 disabled:opacity-60"
+          className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-full bg-ink px-6 py-3.5 font-semibold text-paper transition-[transform,filter,box-shadow] duration-200 ease-out hover:-translate-y-0.5 active:scale-[0.97] disabled:opacity-60"
         >
           {busy ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />} {editing ? "Salva modifiche" : "Pubblica feedback"}
         </button>

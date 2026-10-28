@@ -388,7 +388,7 @@ export function StaffInbox({ token }: { token: string }) {
                     type="button"
                     onClick={() => setSelected(it)}
                     className={cn(
-                      "flex w-full gap-3 rounded-3xl bg-roast/70 p-4 text-left ring-1 transition",
+                      "flex w-full gap-3 rounded-3xl bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast p-4 text-left ring-1 transition",
                       on ? "ring-caramel/40 bg-caramel/10" : "ring-sand/12 hover:ring-sand/30",
                     )}
                   >

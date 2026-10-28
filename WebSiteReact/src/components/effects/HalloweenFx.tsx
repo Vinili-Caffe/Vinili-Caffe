@@ -283,24 +283,24 @@ export function HalloweenFx() {
 
   return (
     <div className="pointer-events-none fixed inset-0 z-[40] overflow-hidden" aria-hidden>
-      {/* vignette calda */}
+      {/* vignette calda (soft, senza bordo a metà viewport) */}
       <div
         className={cn(
           "absolute inset-0 light:opacity-[0.35]",
           cssOnly ? "opacity-[0.4]" : "opacity-[0.55]",
-          "bg-[radial-gradient(ellipse_at_center,transparent_45%,rgba(40,12,4,0.45)_100%)]",
+          "bg-[radial-gradient(ellipse_at_center,transparent_55%,rgba(40,12,4,0.38)_100%)]",
         )}
       />
-      {/* bagliore zucca basso */}
-      <div className="absolute inset-x-0 bottom-0 h-[42%] bg-[radial-gradient(ellipse_at_50%_100%,rgba(255,120,30,0.16),transparent_65%)] light:bg-[radial-gradient(ellipse_at_50%_100%,rgba(255,140,50,0.1),transparent_65%)]" />
+      {/* bagliore zucca: full-bleed, sfuma verso l'alto (niente h% che taglia) */}
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_95%_85%_at_50%_100%,rgba(255,120,30,0.14),transparent_72%)] light:bg-[radial-gradient(ellipse_95%_85%_at_50%_100%,rgba(255,140,50,0.09),transparent_72%)]" />
       {/* nebbia blur solo se cap fog */}
       {showFog ? (
         <>
-          <div className="vc-hw-fog absolute inset-x-[-10%] bottom-[-8%] h-[38%] opacity-70 light:opacity-40" />
-          <div className="vc-hw-fog vc-hw-fog--slow absolute inset-x-[-15%] bottom-[-12%] h-[28%] opacity-50 light:opacity-30" />
+          <div className="vc-hw-fog absolute inset-x-[-10%] bottom-[-8%] h-[55%] opacity-55 light:opacity-35" style={{ maskImage: "linear-gradient(to top, #000 0%, #000 40%, transparent 100%)", WebkitMaskImage: "linear-gradient(to top, #000 0%, #000 40%, transparent 100%)" }} />
+          <div className="vc-hw-fog vc-hw-fog--slow absolute inset-x-[-15%] bottom-[-12%] h-[42%] opacity-40 light:opacity-25" style={{ maskImage: "linear-gradient(to top, #000 0%, #000 35%, transparent 100%)", WebkitMaskImage: "linear-gradient(to top, #000 0%, #000 35%, transparent 100%)" }} />
         </>
       ) : (
-        <div className="absolute inset-x-0 bottom-0 h-[28%] bg-[linear-gradient(to_top,rgba(255,200,150,0.08),transparent)] opacity-60" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_90%_60%_at_50%_100%,rgba(255,200,150,0.07),transparent_70%)] opacity-70" />
       )}
 
       {/* ragnatele d'angolo */}

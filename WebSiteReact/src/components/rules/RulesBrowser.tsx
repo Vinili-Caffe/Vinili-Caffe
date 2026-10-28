@@ -270,7 +270,7 @@ export function RulesBrowser({ initial }: { initial: RulesData }) {
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Cerca nel regolamento…"
               aria-label="Cerca nel regolamento"
-              className="w-full rounded-2xl bg-roast/80 py-4 pl-14 pr-12 text-base text-crema ring-1 ring-sand/15 transition-shadow placeholder:text-crema/35 focus:outline-none focus:ring-2 focus:ring-caramel/60 [&::-webkit-search-cancel-button]:appearance-none"
+              className="w-full rounded-2xl bg-gradient-to-b from-caramel/[0.08] via-roast/85 to-roast py-4 pl-14 pr-12 text-base text-crema ring-1 ring-sand/15 transition-shadow placeholder:text-crema/35 focus:outline-none focus:ring-2 focus:ring-caramel/60 [&::-webkit-search-cancel-button]:appearance-none"
             />
             {query && (
               <button
@@ -323,7 +323,7 @@ export function RulesBrowser({ initial }: { initial: RulesData }) {
           </LayoutGroup>
 
           {/* tracklist */}
-          <div className="mt-6 overflow-hidden rounded-3xl bg-roast/70 ring-1 ring-sand/12">
+          <div className="mt-6 overflow-hidden rounded-3xl bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast ring-1 ring-sand/12">
             <div className="flex items-center gap-4 border-b border-sand/10 px-4 py-3 text-xs uppercase tracking-[0.2em] text-crema/35 sm:px-6">
               <span className="w-10">N°</span>
               <span>Regola</span>

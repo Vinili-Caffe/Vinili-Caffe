@@ -102,7 +102,7 @@ export function UserMenu({ className }: { className?: string }) {
           type="button"
           onClick={login}
           aria-label={t("auth.loginDiscord")}
-          className="inline-flex h-10 items-center gap-2 rounded-full bg-[#5865f2] px-4 text-sm font-semibold text-white shadow-[0_8px_20px_-10px_rgba(88,101,242,0.9)] transition-transform hover:-translate-y-0.5"
+          className="inline-flex h-10 items-center gap-2 rounded-full bg-[#5865f2] px-4 text-sm font-semibold text-white shadow-[0_8px_20px_-10px_rgba(88,101,242,0.9)] transition-[transform,filter] duration-200 ease-out hover:-translate-y-0.5 active:scale-[0.97]"
         >
           <LogIn className="size-[1.15rem]" strokeWidth={2.25} /> <span className="hidden sm:inline">{t("auth.login")}</span>
         </button>
@@ -127,7 +127,7 @@ export function UserMenu({ className }: { className?: string }) {
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
         aria-label={t("auth.accountMenu")}
-        className="flex h-10 items-center gap-2 rounded-full bg-crema/8 p-1 pr-3 ring-1 ring-crema/15 transition-colors hover:bg-crema/15"
+        className="flex h-10 items-center gap-2 rounded-full bg-crema/8 p-1 pr-3 ring-1 ring-crema/15 transition-[transform,background-color] duration-200 ease-out hover:bg-crema/15 active:scale-[0.97]"
       >
         {user ? (
           <Avatar userId={user.id} src={avatarUrl(user)} name={displayName(user)} className="size-8" />
@@ -163,7 +163,7 @@ export function UserMenu({ className }: { className?: string }) {
             <SmartLink
               href={profileHref}
               onClick={() => window.setTimeout(() => setOpen(false), 0)}
-              className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm text-crema/80 transition-colors hover:bg-crema/8 hover:text-crema"
+              className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm text-crema/80 transition-[transform,background-color,color] duration-150 ease-out hover:bg-crema/8 hover:text-crema active:scale-[0.98]"
             >
               <UserRound className="size-4" /> {t("auth.profile")}
             </SmartLink>
@@ -171,7 +171,7 @@ export function UserMenu({ className }: { className?: string }) {
               <SmartLink
                 href={page("/evento/")}
                 onClick={() => window.setTimeout(() => setOpen(false), 0)}
-                className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm text-crema/80 transition-colors hover:bg-crema/8 hover:text-crema"
+                className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm text-crema/80 transition-[transform,background-color,color] duration-150 ease-out hover:bg-crema/8 hover:text-crema active:scale-[0.98]"
               >
                 <Sparkles className="size-4" /> {t("nav.evento")}
               </SmartLink>
@@ -183,14 +183,14 @@ export function UserMenu({ className }: { className?: string }) {
                 <SmartLink
                   href={page("/dashboard/")}
                   onClick={() => window.setTimeout(() => setOpen(false), 0)}
-                  className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm text-crema/80 transition-colors hover:bg-crema/8 hover:text-crema"
+                  className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm text-crema/80 transition-[transform,background-color,color] duration-150 ease-out hover:bg-crema/8 hover:text-crema active:scale-[0.98]"
                 >
                   <LayoutDashboard className="size-4" /> {t("auth.dashboard")}
                 </SmartLink>
                 <SmartLink
                   href={page("/bacheca/")}
                   onClick={() => window.setTimeout(() => setOpen(false), 0)}
-                  className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm text-crema/80 transition-colors hover:bg-crema/8 hover:text-crema"
+                  className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm text-crema/80 transition-[transform,background-color,color] duration-150 ease-out hover:bg-crema/8 hover:text-crema active:scale-[0.98]"
                 >
                   <MessageSquareText className="size-4" /> {t("auth.bacheca")}
                 </SmartLink>
@@ -216,7 +216,7 @@ export function UserMenu({ className }: { className?: string }) {
                       key={x.href}
                       href={x.href}
                       onClick={() => window.setTimeout(() => setOpen(false), 0)}
-                      className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm text-crema/80 transition-colors hover:bg-crema/8 hover:text-crema"
+                      className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm text-crema/80 transition-[transform,background-color,color] duration-150 ease-out hover:bg-crema/8 hover:text-crema active:scale-[0.98]"
                     >
                       {x.icon} {x.label}
                     </SmartLink>
@@ -239,7 +239,7 @@ export function UserMenu({ className }: { className?: string }) {
                 setOpen(false);
                 logout();
               }}
-              className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm text-crema/80 transition-colors hover:bg-crema/8 hover:text-red-300"
+              className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm text-crema/80 transition-[transform,background-color,color] duration-150 ease-out hover:bg-crema/8 hover:text-red-300 active:scale-[0.98]"
             >
               <LogOut className="size-4" /> {t("auth.logout")}
             </button>

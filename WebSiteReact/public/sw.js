@@ -36,11 +36,14 @@ self.addEventListener("install", (event) => {
   );
 });
 
+/* pushClickNavIos2: NON cancellare vc-notif-pending — altrimenti il click iOS
+   perde la URL destinazione quando l’activate ripulisce le cache. */
+const KEEP_CACHES = new Set([OFFLINE_CACHE, "vc-notif-pending-v1"]);
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     (async () => {
       const keys = await caches.keys();
-      await Promise.all(keys.filter((k) => k !== OFFLINE_CACHE).map((k) => caches.delete(k)));
+      await Promise.all(keys.filter((k) => !KEEP_CACHES.has(k)).map((k) => caches.delete(k)));
       await self.clients.claim();
     })(),
   );
@@ -472,8 +475,8 @@ self.addEventListener("push", (event) => {
   );
 });
 
-/* pushClickNavFix1: iOS Client.navigate → spesso start_url/home; stash cache +
-   postMessage + location.assign lato pagina. openWindow se nessun client. */
+/* pushClickNavIos2: iOS apre spesso start_url; stash cache (sopravvive ad activate) +
+   openWindow SEMPRE su iOS (postMessage/hydrate arrivano troppo tardi). */
 async function stashNotifNav(absUrl) {
   try {
     const cache = await caches.open("vc-notif-pending-v1");
@@ -488,26 +491,60 @@ async function stashNotifNav(absUrl) {
   }
 }
 
+function pathKeyFromHref(href) {
+  try {
+    const u = new URL(String(href || ""), self.location.origin);
+    if (u.origin !== self.location.origin) return "";
+    let p = u.pathname || "/";
+    if (p !== "/" && !p.endsWith("/")) p += "/";
+    return `${p}${u.search || ""}${u.hash || ""}`;
+  } catch {
+    return "";
+  }
+}
+
+function resolveNotifClickRawUrl(event) {
+  const n = event?.notification;
+  const nd = (n?.data && typeof n.data === "object" && n.data) || {};
+  const nested =
+    nd.notification && typeof nd.notification === "object" ? nd.notification : null;
+  const candidates = [
+    n && n.navigate,
+    nd.navigate,
+    nd.openUrl,
+    nd.url,
+    nested && nested.navigate,
+    nested && nested.openUrl,
+    nd.default_action_url,
+  ];
+  for (const c of candidates) {
+    const s = String(c || "").trim();
+    if (s) return s;
+  }
+  return "";
+}
+
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const nd = (event.notification.data && typeof event.notification.data === "object" && event.notification.data) || {};
-  /* Declarative iOS: openUrl in data; navigate può stare anche top-level options. */
-  let rawUrl = String(
-    nd.url || nd.openUrl || nd.navigate || event.notification?.data?.url || "",
-  ).trim();
-  try {
-    const navOpt = event.notification && event.notification.navigate;
-    if ((!rawUrl || rawUrl === "/") && navOpt) rawUrl = String(navOpt).trim();
-  } catch {
-    /* ignore */
-  }
-  if (!rawUrl || rawUrl === "/" || rawUrl === self.location.origin || rawUrl === `${self.location.origin}/`) {
+  let rawUrl = resolveNotifClickRawUrl(event);
+  if (
+    !rawUrl ||
+    rawUrl === "/" ||
+    rawUrl === self.location.origin ||
+    rawUrl === `${self.location.origin}/` ||
+    /\/\?app=/i.test(rawUrl)
+  ) {
     rawUrl = "/notifications/";
   }
   let target = "/notifications/";
   try {
     const u = new URL(rawUrl, self.location.origin);
-    if (u.origin === self.location.origin) {
+    /* Apex → www (stesso host del SW / PWA). */
+    if (/^(?:www\.)?viniliecaffe\.it$/i.test(u.hostname)) {
+      u.protocol = "https:";
+      u.hostname = "www.viniliecaffe.it";
+    }
+    if (u.origin === self.location.origin || /^(?:www\.)?viniliecaffe\.it$/i.test(u.hostname)) {
       const path = `${u.pathname || "/"}${u.search || ""}${u.hash || ""}`;
       target = path || "/notifications/";
     } else {
@@ -518,6 +555,7 @@ self.addEventListener("notificationclick", (event) => {
   }
   const abs =
     /^https?:\/\//i.test(target) ? target : new URL(target, self.location.origin).href;
+  const wantKey = pathKeyFromHref(abs);
   event.waitUntil(
     (async () => {
       await stashNotifNav(abs);
@@ -530,17 +568,24 @@ self.addEventListener("notificationclick", (event) => {
         } catch {
           /* ignore */
         }
-        /* Solo desktop Chromium: navigate. Su iOS manda spesso alla home. */
         if (!isIosClient() && "navigate" in same && typeof same.navigate === "function") {
           try {
             await same.navigate(abs);
           } catch {
             /* ignore — NotifNavigate fa location.assign */
           }
+          return;
+        }
+        /* iOS: anche con client già aperto, forza openWindow se non sei già lì.
+           Altrimenti resti sulla pagina precedente / home (start_url). */
+        if (isIosClient()) {
+          const hereKey = pathKeyFromHref(same.url);
+          if (wantKey && hereKey && wantKey === hereKey) return;
+          if (self.clients.openWindow) await self.clients.openWindow(abs).catch(() => null);
         }
         return;
       }
-      if (self.clients.openWindow) await self.clients.openWindow(abs);
+      if (self.clients.openWindow) await self.clients.openWindow(abs).catch(() => null);
     })(),
   );
 });

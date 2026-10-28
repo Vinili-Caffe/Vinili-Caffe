@@ -3368,9 +3368,8 @@ async function playMusicRequest(ctx, query) {
     const volume = resolveDefaultJoinGlobalVolume();
     await player.setGlobalVolume(volume).catch(() => {});
     if (player.paused) await player.setPaused(false).catch(() => {});
-    const isVoiceCaptureActive = musicIsCaptureActive;
-    if (!isVoiceCaptureActive(guildId)) {
-      await startVoiceContinuousCapture({
+    if (!musicIsCaptureActive(guildId)) {
+      await musicStartCapture({
         guildId,
         voiceChannel,
         client,

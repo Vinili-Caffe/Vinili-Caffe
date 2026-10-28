@@ -38,7 +38,7 @@ export function RankCard({ p, owns }: { p: ProfileData; owns: boolean }) {
   return (
     <Reveal>
       <Title kicker="Rank card" title="La card di +rank" icon={<Sparkles />} action={owns ? <EditLink href="/personalizza/" /> : undefined} />
-      <div className="overflow-hidden rounded-3xl bg-roast/70 ring-1 ring-sand/12">
+      <div className="overflow-hidden rounded-3xl bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast ring-1 ring-sand/12">
         <div className="relative p-3 sm:p-4">
           {/* l'immagine resta nel layout (invisibile) finché carica: con display:none il lazy-load non partirebbe */}
           {state !== "ok" && (
@@ -117,7 +117,7 @@ function RoleCard({ role, label }: { role: CustomRole; label: string }) {
   const c1 = role.color || "#c4a07a";
   const bg = role.colorMode === "gradient" && role.color2 ? `linear-gradient(135deg, ${c1}, ${role.color2})` : c1;
   return (
-    <article className="overflow-hidden rounded-3xl bg-roast/70 ring-1 ring-sand/12">
+    <article className="overflow-hidden rounded-3xl bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast ring-1 ring-sand/12">
       <div className="flex items-center gap-4 p-5">
         <span className="flex size-12 shrink-0 items-center justify-center rounded-2xl shadow-inner ring-1 ring-white/15" style={{ background: bg }}>
           {role.iconUrl ? <img src={role.iconUrl} alt="" className="size-8 drop-shadow" /> : role.emoji ? <span className="text-2xl"><EmojiText text={role.emoji} /></span> : null}
@@ -137,7 +137,7 @@ function RoleCard({ role, label }: { role: CustomRole; label: string }) {
 
 function VoiceCard({ voice }: { voice: CustomVoice }) {
   return (
-    <article className="overflow-hidden rounded-3xl bg-roast/70 ring-1 ring-sand/12">
+    <article className="overflow-hidden rounded-3xl bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast ring-1 ring-sand/12">
       <div className="flex items-center gap-4 p-5">
         <span className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-caramel/15 text-ember ring-1 ring-caramel/25">{voice.emoji ? <span className="text-2xl"><EmojiText text={voice.emoji} /></span> : <Mic className="size-6" />}</span>
         <div className="min-w-0 flex-1">

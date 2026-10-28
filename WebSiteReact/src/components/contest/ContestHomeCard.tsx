@@ -84,7 +84,7 @@ export function ContestHomeCard() {
             <button
               type="button"
               onClick={() => setClosed(true)}
-              className="absolute top-2.5 right-2.5 z-10 inline-flex size-8 items-center justify-center rounded-full bg-crema/8 text-crema/70 ring-1 ring-crema/15 transition-colors hover:bg-crema/15 hover:text-crema"
+              className="absolute top-2.5 right-2.5 z-10 inline-flex size-8 items-center justify-center rounded-full bg-crema/8 text-crema/70 ring-1 ring-crema/15 transition-[transform,background-color,color] duration-200 ease-out hover:bg-crema/15 hover:text-crema active:scale-[0.96]"
               aria-label="Chiudi"
             >
               <X className="size-4" strokeWidth={2.25} />
@@ -98,7 +98,7 @@ export function ContestHomeCard() {
               <p className="mt-1.5 text-sm leading-relaxed text-crema/65">{item.blurb}</p>
               <SmartLink
                 href={item.href || `/contest/${item.eventKey}/`}
-                className="mt-3.5 flex w-full items-center justify-center rounded-full bg-caramel px-4 py-2.5 text-sm font-semibold text-ink transition-colors hover:bg-sand"
+                className="mt-3.5 flex w-full items-center justify-center rounded-full bg-caramel px-4 py-2.5 text-sm font-semibold text-ink transition-[transform,background-color] duration-200 ease-out hover:bg-sand active:scale-[0.97]"
               >
                 {item.cta || (item.phase === "after" ? "Vedi classifica" : "Partecipa")}
               </SmartLink>

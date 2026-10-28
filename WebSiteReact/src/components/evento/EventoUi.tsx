@@ -24,7 +24,7 @@ export function EventoPanel({
   return (
     <div
       className={cn(
-        "relative overflow-hidden rounded-3xl bg-roast/80 p-5 ring-1 backdrop-blur-sm sm:p-6",
+        "relative overflow-hidden rounded-3xl bg-gradient-to-b from-caramel/[0.12] via-roast/90 to-roast p-5 ring-1 backdrop-blur-sm sm:p-6",
         ring,
         className,
       )}

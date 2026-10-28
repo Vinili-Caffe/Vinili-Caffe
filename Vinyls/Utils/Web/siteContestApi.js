@@ -17,6 +17,25 @@ const UPLOAD_ROOT = path.resolve(__dirname, "../../../Data/uploads/site-contests
 const MAX_BYTES = 4 * 1024 * 1024;
 const ALLOWED_MIME = new Set(["image/png", "image/jpeg", "image/jpg", "image/webp"]);
 
+/**
+ * Ban invio immagini (può ancora entrare e votare).
+ * key = Discord userId → messaggio esplicito in UI / API.
+ */
+const SUBMIT_BANNED = new Map([
+  [
+    "1395491596266639533",
+    "Sei stato escluso dall’invio di immagini per questo contest. Puoi entrare e votare, ma non puoi caricare né sostituire sfondi.",
+  ],
+]);
+
+function submitBanFor(userId) {
+  const id = String(userId || "").trim();
+  if (!id) return null;
+  const message = SUBMIT_BANNED.get(id);
+  if (!message) return null;
+  return { userId: id, message };
+}
+
 /** Europe/Rome wall times as ISO with offset (CET after 2026-10-25). */
 const EVENTS = {
   "sfondi-halloween": {
@@ -284,15 +303,16 @@ async function getContestStatus(client, { eventKey, accessToken } = {}) {
   const mine = userId ? (doc.submissions || []).filter((s) => s.userId === userId) : [];
   const myVotes = userId && doc.votes?.[userId] ? doc.votes[userId] : {};
   const maxPer = Math.max(1, Number(event.maxPerCategory) || 1);
+  const ban = userId ? submitBanFor(userId) : null;
   const byCat = {};
   for (const c of cats) {
     const n = mine.filter((s) => String(s.category || "main") === c.id).length;
     byCat[c.id] = {
       count: n,
-      canSubmit: phase === "open" && n < maxPer,
+      canSubmit: !ban && phase === "open" && n < maxPer,
     };
   }
-  const canSubmitAny = phase === "open" && cats.some((c) => byCat[c.id]?.canSubmit);
+  const canSubmitAny = !ban && phase === "open" && cats.some((c) => byCat[c.id]?.canSubmit);
 
   return publicEventPayload(event, phase, {
     status: 200,
@@ -303,6 +323,8 @@ async function getContestStatus(client, { eventKey, accessToken } = {}) {
     canSubmitByCategory: byCat,
     canSubmit: canSubmitAny,
     canVote: phase === "open",
+    submitBanned: Boolean(ban),
+    submitBannedMessage: ban?.message || null,
   });
 }
 
@@ -391,6 +413,17 @@ async function submitEntry(client, { eventKey, accessToken, image, category } = 
 
   const memberOk = await ensureMember(client, auth.userId);
   if (!memberOk.ok) return memberOk;
+
+  const ban = submitBanFor(auth.userId);
+  if (ban) {
+    return {
+      ok: false,
+      status: 403,
+      error: "submit_banned",
+      message: ban.message,
+      submitBanned: true,
+    };
+  }
 
   const parsed = parseDataUrl(image);
   if (!parsed) {
@@ -680,6 +713,17 @@ async function replaceEntry(client, { eventKey, accessToken, image, category } =
 
   const memberOk = await ensureMember(client, auth.userId);
   if (!memberOk.ok) return memberOk;
+
+  const ban = submitBanFor(auth.userId);
+  if (ban) {
+    return {
+      ok: false,
+      status: 403,
+      error: "submit_banned",
+      message: ban.message,
+      submitBanned: true,
+    };
+  }
 
   const parsed = parseDataUrl(image);
   if (!parsed) {

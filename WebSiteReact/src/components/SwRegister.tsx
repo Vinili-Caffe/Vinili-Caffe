@@ -8,7 +8,7 @@ export function SwRegister() {
     if (!("serviceWorker" in navigator)) return;
     // query bust: forza update SW dopo fix dismiss/badge
     navigator.serviceWorker
-      .register("/sw.js?v=20261026badgeOsCrossApple1")
+      .register("/sw.js?v=20261028pushClickNavIos2")
       .then((reg) => {
         try {
           void reg.update();

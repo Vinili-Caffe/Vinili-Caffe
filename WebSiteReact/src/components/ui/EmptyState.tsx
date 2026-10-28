@@ -20,7 +20,9 @@ export function EmptyState({ icon: Icon = Inbox, title, text, action, className,
       role={tone === "error" ? "alert" : "status"}
       className={cn(
         "flex flex-col items-center justify-center rounded-3xl px-6 py-12 text-center ring-1",
-        tone === "error" ? "bg-red-500/10 ring-red-400/25" : "bg-roast/50 ring-sand/12",
+        tone === "error"
+          ? "bg-red-500/10 ring-red-400/25"
+          : "bg-gradient-to-b from-caramel/[0.08] via-roast/60 to-roast/50 ring-sand/15",
         className,
       )}
     >
@@ -30,10 +32,10 @@ export function EmptyState({ icon: Icon = Inbox, title, text, action, className,
           tone === "error" ? "bg-red-500/15 text-red-200 ring-red-400/30" : "bg-crema/8 text-caramel ring-sand/15",
         )}
       >
-        <Icon className="size-5" aria-hidden />
+        <Icon className="size-5" strokeWidth={1.75} aria-hidden />
       </span>
-      <p className="font-display text-xl font-semibold text-crema">{title}</p>
-      {text ? <p className="mt-2 max-w-sm text-sm text-crema/55">{text}</p> : null}
+      <p className="font-display text-xl font-semibold text-balance text-crema">{title}</p>
+      {text ? <p className="mt-2 max-w-sm text-pretty text-sm leading-relaxed text-crema/55">{text}</p> : null}
       {action ? <div className="mt-5">{action}</div> : null}
     </div>
   );

@@ -343,7 +343,7 @@ function MobileDrawerAccount({ onClose }: { onClose: () => void }) {
       : [];
 
   return (
-    <div className="rounded-2xl bg-roast/80 p-3 ring-1 ring-sand/15">
+    <div className="rounded-2xl bg-gradient-to-b from-caramel/[0.08] via-roast/85 to-roast p-3 ring-1 ring-sand/15">
       {user ? (
         <div className="mb-3 flex items-center gap-3 px-1">
           <Avatar userId={user.id} src={avatarUrl(user, 96)} name={displayName(user)} className="size-11" />
@@ -551,7 +551,7 @@ export function Navbar() {
             <button
               type="button"
               onClick={() => setOpen(true)}
-              className="inline-flex size-10 shrink-0 items-center justify-center rounded-full bg-crema/8 text-crema ring-1 ring-crema/15 transition-colors hover:bg-crema/15 lg:hidden"
+              className="inline-flex size-10 shrink-0 items-center justify-center rounded-full bg-crema/8 text-crema ring-1 ring-crema/15 transition-[transform,background-color,box-shadow] duration-200 ease-out hover:bg-crema/15 active:scale-[0.96] lg:hidden"
               aria-expanded={open}
               aria-controls="vc-menu"
               aria-label={t("nav.openMenu")}
@@ -596,7 +596,7 @@ export function Navbar() {
               <button
                 type="button"
                 onClick={() => setOpen(false)}
-                className="inline-flex size-11 items-center justify-center rounded-full bg-crema/8 ring-1 ring-crema/15 transition-colors hover:bg-crema/15"
+                className="inline-flex size-11 items-center justify-center rounded-full bg-crema/8 ring-1 ring-crema/15 transition-[transform,background-color,box-shadow] duration-200 ease-out hover:bg-crema/15 active:scale-[0.96]"
                 aria-label={t("nav.closeMenu")}
               >
                 <X className="size-5" />
@@ -625,7 +625,7 @@ export function Navbar() {
                               window.setTimeout(() => setOpen(false), 0);
                             }}
                             className={cn(
-                              "flex min-h-[3.1rem] flex-col items-center justify-center gap-1 rounded-2xl px-2.5 py-2.5 text-center text-sm font-semibold leading-snug ring-1 transition-colors",
+                              "flex min-h-[3.1rem] flex-col items-center justify-center gap-1 rounded-2xl px-2.5 py-2.5 text-center text-sm font-semibold leading-snug ring-1 transition-[transform,background-color,color] duration-200 ease-out active:scale-[0.98]",
                               on
                                 ? "bg-caramel/15 text-ember ring-caramel/35"
                                 : "bg-crema/[0.05] text-crema/90 ring-sand/12 hover:bg-crema/10",
@@ -643,7 +643,7 @@ export function Navbar() {
                         onClick={() => {
                           window.setTimeout(() => setOpen(false), 0);
                         }}
-                        className="flex min-h-[3.1rem] flex-col items-center justify-center gap-1 rounded-2xl bg-crema/[0.05] px-2.5 py-2.5 text-center text-sm font-semibold leading-snug text-crema/90 ring-1 ring-sand/12 hover:bg-crema/10"
+                        className="flex min-h-[3.1rem] flex-col items-center justify-center gap-1 rounded-2xl bg-crema/[0.05] px-2.5 py-2.5 text-center text-sm font-semibold leading-snug text-crema/90 ring-1 ring-sand/12 transition-[transform,background-color] duration-200 ease-out hover:bg-crema/10 active:scale-[0.98]"
                       >
                         <EventoNavIcon id="sito" />
                         Sito
@@ -684,7 +684,7 @@ export function Navbar() {
                             window.setTimeout(() => setOpen(false), 0);
                           }}
                               className={cn(
-                                "flex min-h-[3.1rem] flex-col items-center justify-center gap-1 rounded-2xl px-2.5 py-2.5 text-center text-sm font-semibold leading-snug ring-1 transition-colors",
+                                "flex min-h-[3.1rem] flex-col items-center justify-center gap-1 rounded-2xl px-2.5 py-2.5 text-center text-sm font-semibold leading-snug ring-1 transition-[transform,background-color,color] duration-200 ease-out active:scale-[0.98]",
                                 on
                                   ? "bg-caramel/15 text-ember ring-caramel/35"
                                   : "bg-crema/[0.05] text-crema/90 ring-sand/12 hover:bg-crema/10",

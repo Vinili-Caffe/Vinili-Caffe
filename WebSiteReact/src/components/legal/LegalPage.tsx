@@ -204,7 +204,7 @@ function Block({ block }: { block: LegalBlock }) {
         <p className="pt-2">
           <SmartLink
             href={page(block.href)}
-            className="inline-flex items-center rounded-full bg-gradient-to-r from-caramel to-ember px-5 py-2.5 text-sm font-semibold text-ink transition-transform hover:-translate-y-0.5"
+            className="inline-flex items-center rounded-full bg-gradient-to-r from-caramel to-ember px-5 py-2.5 text-sm font-semibold text-ink transition-[transform,filter] duration-200 ease-out hover:-translate-y-0.5 active:scale-[0.97]"
           >
             {block.label}
           </SmartLink>

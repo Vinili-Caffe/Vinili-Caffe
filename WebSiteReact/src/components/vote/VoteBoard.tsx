@@ -323,7 +323,7 @@ export function VoteBoard({ initial }: { initial: VoteData | null }) {
               { icon: Trophy, t: "Più visibilità", d: "Il server sale in classifica e arrivano nuovi membri." },
             ].map((x, i) => (
               <Reveal key={x.t} delay={i * 0.08}>
-                <div className="h-full rounded-2xl bg-roast/70 p-4 ring-1 ring-sand/12">
+                <div className="h-full rounded-2xl bg-gradient-to-b from-caramel/[0.08] via-roast/80 to-roast p-4 ring-1 ring-sand/12">
                   <x.icon className="size-5 text-caramel" />
                   <p className="mt-2 font-semibold">{x.t}</p>
                   <p className="mt-1 text-sm text-crema/55">{x.d}</p>
@@ -356,7 +356,7 @@ export function VoteBoard({ initial }: { initial: VoteData | null }) {
             ))}
           </div>
         </Reveal>
-        <div className="overflow-hidden rounded-3xl bg-roast/70 ring-1 ring-sand/12">
+        <div className="overflow-hidden rounded-3xl bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast ring-1 ring-sand/12">
           {rows.length === 0 && <p className="px-6 py-10 text-center text-crema/55">{t("vote.emptyLeaderboard")}</p>}
           <ul>
             {slice.map((r, i) => {

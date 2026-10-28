@@ -111,7 +111,7 @@ export function NewTicket({ token, categories, isStaff, onCreated, onCancel }: {
               role="radio"
               aria-checked={on}
               onClick={() => setCat(c.id)}
-              className={cn("flex gap-3 rounded-2xl p-4 text-left ring-1 transition-all", on ? "bg-gradient-to-b from-caramel/15 to-roast ring-caramel/60" : "bg-roast/70 ring-sand/12 hover:ring-sand/30")}
+              className={cn("flex gap-3 rounded-2xl p-4 text-left ring-1 transition-[transform,background-color,box-shadow,opacity] duration-200 ease-out", on ? "bg-gradient-to-b from-caramel/15 to-roast ring-caramel/60" : "bg-gradient-to-b from-caramel/[0.08] via-roast/80 to-roast ring-sand/15 hover:ring-sand/30")}
             >
               <span className={cn("flex size-10 shrink-0 items-center justify-center rounded-xl ring-1", on ? "bg-caramel text-ink ring-caramel" : "bg-crema/6 text-sand ring-sand/20")}>{ICONS[c.id] ?? <LifeBuoy className="size-5" />}</span>
               <span className="min-w-0">
@@ -173,7 +173,7 @@ export function NewTicket({ token, categories, isStaff, onCreated, onCancel }: {
         type="button"
         onClick={submit}
         disabled={busy || push === false}
-        className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-full bg-gradient-to-r from-caramel to-ember px-6 py-3.5 font-semibold text-ink shadow-[0_12px_30px_-10px_rgba(232,160,90,0.7)] transition-all hover:-translate-y-0.5 disabled:opacity-50"
+        className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-full bg-gradient-to-r from-caramel to-ember px-6 py-3.5 font-semibold text-ink shadow-[0_12px_30px_-10px_rgba(232,160,90,0.7)] transition-[transform,filter,box-shadow] duration-200 ease-out hover:-translate-y-0.5 active:scale-[0.97] disabled:opacity-50"
       >
         {busy ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />} Apri il ticket
       </button>

@@ -163,7 +163,7 @@ export function ListingDetail() {
                 href={invite}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-caramel to-ember px-5 py-2.5 text-sm font-semibold text-ink hover:-translate-y-0.5"
+                className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-caramel to-ember px-5 py-2.5 text-sm font-semibold text-ink transition-[transform,filter] duration-200 ease-out hover:-translate-y-0.5 active:scale-[0.97]"
               >
                 {listing.kind === "bot" ? "Invita il bot" : "Entra nel server"} <ArrowUpRight className="size-4" />
               </a>

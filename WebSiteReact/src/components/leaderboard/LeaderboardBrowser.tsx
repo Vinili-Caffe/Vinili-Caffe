@@ -295,7 +295,7 @@ export function LeaderboardBrowser({ initial }: { initial: LeaderPage | null }) 
             onChange={(e) => setQuery(e.target.value.replace(/[^\d]/g, ""))}
             placeholder="Cerca un utente per ID Discord…"
             aria-label="ID Discord da cercare"
-            className="w-full rounded-2xl bg-roast/80 py-4 pl-14 pr-24 text-base text-crema ring-1 ring-sand/15 placeholder:text-crema/35 focus:outline-none focus:ring-2 focus:ring-caramel/60"
+            className="w-full rounded-2xl bg-gradient-to-b from-caramel/[0.08] via-roast/85 to-roast py-4 pl-14 pr-24 text-base text-crema ring-1 ring-sand/15 placeholder:text-crema/35 focus:outline-none focus:ring-2 focus:ring-caramel/60"
           />
           <button
             type="submit"
@@ -327,7 +327,7 @@ export function LeaderboardBrowser({ initial }: { initial: LeaderPage | null }) 
             exit={{ opacity: 0, height: 0 }}
             className="overflow-hidden"
           >
-            <div className="mt-3 overflow-hidden rounded-2xl bg-roast/80 ring-1 ring-caramel/30">
+            <div className="mt-3 overflow-hidden rounded-2xl bg-gradient-to-b from-caramel/[0.08] via-roast/85 to-roast ring-1 ring-caramel/30">
               <div className="flex items-center justify-between px-4 pt-3 text-xs uppercase tracking-[0.2em] text-crema/40 sm:px-6">
                 <span>Risultato · {boardInfo.label}</span>
                 <button type="button" onClick={() => setFound(null)} aria-label="Chiudi risultato" className="rounded-full p-1 hover:bg-crema/10">
@@ -357,7 +357,7 @@ export function LeaderboardBrowser({ initial }: { initial: LeaderPage | null }) 
             <Loader2 className="size-5 animate-spin" />
           </div>
         ) : rest.length > 0 ? (
-          <div className="mt-6 overflow-hidden rounded-3xl bg-roast/70 ring-1 ring-sand/12">
+          <div className="mt-6 overflow-hidden rounded-3xl bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast ring-1 ring-sand/12">
             <div className="flex items-center gap-2 border-b border-sand/10 px-4 py-3 text-xs uppercase tracking-[0.2em] text-crema/40 sm:px-6">
               <Trophy className="size-3.5" /> {page === 1 ? "Classifica" : `Pagina ${page}`}
             </div>

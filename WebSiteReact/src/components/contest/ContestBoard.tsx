@@ -18,6 +18,7 @@ import {
   Images,
   ThumbsUp,
   LogIn,
+  Ban,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import {
@@ -614,7 +615,7 @@ export function ContestBoard({
                 <button
                   type="button"
                   disabled={busy}
-                  className="rounded-full bg-crema/10 px-3 py-1.5 text-crema ring-1 ring-crema/15 hover:bg-crema/15 disabled:opacity-40"
+                  className="rounded-full bg-crema/10 px-3 py-1.5 text-crema ring-1 ring-crema/15 transition-[transform,background-color] duration-200 ease-out hover:bg-crema/15 active:scale-[0.97] disabled:opacity-40"
                   onClick={async (e) => {
                     e.preventDefault();
                     e.stopPropagation();
@@ -639,7 +640,7 @@ export function ContestBoard({
                 <button
                   type="button"
                   disabled={busy}
-                  className="rounded-full bg-crema/5 px-3 py-1.5 text-crema/70 ring-1 ring-crema/10 hover:bg-crema/10 disabled:opacity-40"
+                  className="rounded-full bg-crema/5 px-3 py-1.5 text-crema/70 ring-1 ring-crema/10 transition-[transform,background-color] duration-200 ease-out hover:bg-crema/10 active:scale-[0.97] disabled:opacity-40"
                   onClick={async (e) => {
                     e.preventDefault();
                     e.stopPropagation();
@@ -689,7 +690,7 @@ export function ContestBoard({
                 <button
                   type="button"
                   onClick={login}
-                  className="inline-flex items-center gap-3 rounded-full bg-[#5865f2] px-6 py-3.5 font-semibold text-white shadow-[0_10px_30px_-10px_rgba(88,101,242,0.8)] ring-1 ring-white/15 transition-transform hover:-translate-y-0.5"
+                  className="inline-flex items-center gap-3 rounded-full bg-[#5865f2] px-6 py-3.5 font-semibold text-white shadow-[0_10px_30px_-10px_rgba(88,101,242,0.8)] ring-1 ring-white/15 transition-[transform,filter] duration-200 ease-out hover:-translate-y-0.5 active:scale-[0.97]"
                 >
                   <LogIn className="size-5" aria-hidden />
                   Accedi con Discord
@@ -700,8 +701,19 @@ export function ContestBoard({
 
           {tab === "submit" && status?.phase !== "after" && token ? (
             <div className="mt-6 space-y-4">
-              <CategoryPills cats={cats} value={catSubmit} onChange={setCatSubmit} />
-              {mineByCat[catSubmit] ? (
+              {status?.submitBanned ? (
+                <Panel className="border border-red-400/25 bg-red-500/[0.08] text-center !p-5 sm:!p-6">
+                  <Ban className="mx-auto size-9 text-red-300" aria-hidden />
+                  <p className="mt-3 font-display text-xl font-semibold text-crema">Invio immagini bloccato</p>
+                  <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-red-100/85">
+                    {status?.submitBannedMessage ||
+                      "Sei stato escluso dall’invio di immagini per questo contest. Puoi entrare e votare, ma non puoi caricare sfondi."}
+                  </p>
+                  <p className="mt-4 text-xs text-crema/45">Puoi comunque usare le schede Vota e Classifica.</p>
+                </Panel>
+              ) : null}
+              {!status?.submitBanned ? <CategoryPills cats={cats} value={catSubmit} onChange={setCatSubmit} /> : null}
+              {!status?.submitBanned && mineByCat[catSubmit] ? (
                 <Panel className="space-y-4 !p-3 sm:!p-4">
                   <div className="overflow-hidden rounded-2xl ring-1 ring-crema/12">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -746,7 +758,8 @@ export function ContestBoard({
                     Se cambi o elimini la foto, i like già ricevuti vengono azzerati.
                   </p>
                 </Panel>
-              ) : (
+              ) : null}
+              {!status?.submitBanned && !mineByCat[catSubmit] ? (
                 <label className="group flex cursor-pointer flex-col items-center gap-3 rounded-3xl border border-dashed border-crema/20 bg-gradient-to-b from-crema/[0.05] to-transparent px-6 py-14 text-center transition hover:border-caramel/40 hover:from-caramel/[0.07]">
                   <span className="flex size-14 items-center justify-center rounded-2xl bg-caramel/15 text-caramel ring-1 ring-caramel/25 transition group-hover:scale-105">
                     <ImagePlus className="size-7" />
@@ -766,8 +779,8 @@ export function ContestBoard({
                     onChange={(e) => void onPickFile(e.target.files?.[0] || null)}
                   />
                 </label>
-              )}
-              {cats.length > 1 && !mineByCat[catSubmit] ? (
+              ) : null}
+              {!status?.submitBanned && cats.length > 1 && !mineByCat[catSubmit] ? (
                 <p className="text-center text-xs text-crema/40">Una foto per sezione: puoi mandarne una per PC e una per telefono.</p>
               ) : null}
               {msg ? <p className="text-center text-sm text-sand">{msg}</p> : null}
@@ -831,7 +844,7 @@ export function ContestBoard({
                       type="button"
                       disabled={busy}
                       onClick={() => void onSwipe("pass")}
-                      className="flex size-14 items-center justify-center rounded-full bg-crema/[0.07] text-crema ring-1 ring-crema/15 transition hover:bg-crema/12"
+                      className="flex size-14 items-center justify-center rounded-full bg-crema/[0.07] text-crema ring-1 ring-crema/15 transition-[transform,background-color] duration-200 ease-out hover:bg-crema/12 active:scale-[0.96]"
                       aria-label="Passa"
                     >
                       <SkipForward className="size-6" />
@@ -840,7 +853,7 @@ export function ContestBoard({
                       type="button"
                       disabled={busy}
                       onClick={() => void onSwipe("like")}
-                      className="flex size-[4.25rem] items-center justify-center rounded-full bg-caramel text-ink shadow-lg shadow-caramel/35 transition hover:brightness-110"
+                      className="flex size-[4.25rem] items-center justify-center rounded-full bg-caramel text-ink shadow-lg shadow-caramel/35 transition-[transform,filter] duration-200 ease-out hover:brightness-110 active:scale-[0.96]"
                       aria-label="Mi piace"
                     >
                       <Heart className="size-7 fill-current" />

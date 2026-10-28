@@ -62,7 +62,7 @@ export function Composer({
 
   if (!token) {
     return (
-      <div className="flex flex-col items-center gap-4 rounded-3xl bg-roast/70 p-8 text-center ring-1 ring-sand/12">
+      <div className="flex flex-col items-center gap-4 rounded-3xl bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast p-8 text-center ring-1 ring-sand/12">
         <Feather className="size-7 text-caramel" />
         <p className="font-display text-2xl">Vuoi lasciare la tua firma?</p>
         <p className="max-w-sm text-sm text-crema/60">Accedi con Discord per scrivere una recensione e mettere mi piace a quelle degli altri.</p>
@@ -75,7 +75,7 @@ export function Composer({
 
   if (kind === "staff" && viewer && !viewer.canWriteStaffReview) {
     return (
-      <div className="rounded-3xl bg-roast/70 p-6 text-center text-sm text-crema/60 ring-1 ring-sand/12">
+      <div className="rounded-3xl bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast p-6 text-center text-sm text-crema/60 ring-1 ring-sand/12">
         Fai parte dello staff: le recensioni allo staff le lasciano i membri. 🙂
       </div>
     );

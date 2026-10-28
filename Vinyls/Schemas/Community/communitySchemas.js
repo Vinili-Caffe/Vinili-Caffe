@@ -438,6 +438,14 @@ const activityUserProfileSchema = new Schema(
         voiceDisconnectCount: { type: Number, default: 0 },
         lastEmbedDailyKey: { type: String, default: "" },
         lastEmbedHourlyKey: { type: String, default: "" },
+        /* wrappedExtras1: contatori Wrapped (solo forward — niente backfill storico) */
+        gifsTotal: { type: Number, default: 0 },
+        imagesTotal: { type: Number, default: 0 },
+        mentionsMade: { type: Number, default: 0 },
+        mentionsReceived: { type: Number, default: 0 },
+        rolePings: { type: Number, default: 0 },
+        commandsTotal: { type: Number, default: 0 },
+        emojiUses: { type: Schema.Types.Mixed, default: {} },
         daily: { type: Schema.Types.Mixed, default: {} },
         hourly: { type: Schema.Types.Mixed, default: {} },
         exp: {

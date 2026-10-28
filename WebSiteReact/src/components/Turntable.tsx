@@ -384,7 +384,7 @@ export function Turntable() {
             {playing ? "Stop" : "Start"}
             <span
               className={cn(
-                "absolute -top-2.5 right-1 size-1.5 rounded-full transition-all duration-500",
+                "absolute -top-2.5 right-1 size-1.5 rounded-full transition-[transform,opacity,background-color] duration-500",
                 playing ? "bg-emerald-400 shadow-[0_0_8px_2px_rgba(52,211,153,0.8)]" : "bg-red-900",
               )}
             />

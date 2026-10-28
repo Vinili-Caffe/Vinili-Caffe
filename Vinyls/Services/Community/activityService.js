@@ -1015,6 +1015,41 @@ async function getOrCreateActivityUser(guildId, userId) {
   return null;
 }
 
+function countMessageMedia(message) {
+  let gifs = 0;
+  let images = 0;
+  const atts = message.attachments;
+  if (atts && typeof atts.forEach === "function") {
+    atts.forEach((att) => {
+      const name = String(att?.name || att?.url || "").toLowerCase();
+      const ctype = String(att?.contentType || "").toLowerCase();
+      if (ctype.includes("gif") || name.endsWith(".gif")) gifs += 1;
+      else if (ctype.startsWith("image/") || /\.(png|jpe?g|webp|bmp)$/i.test(name)) images += 1;
+    });
+  }
+  const content = String(message.content || "");
+  if (/tenor\.com|giphy\.com|\.gif(?:\?|$)/i.test(content)) gifs += 1;
+  return { gifs, images };
+}
+
+function collectCustomEmojiUses(content) {
+  const out = {};
+  const re = /<a?:([a-zA-Z0-9_]+):(\d+)>/g;
+  let m;
+  while ((m = re.exec(String(content || "")))) {
+    const key = `${m[1]}:${m[2]}`;
+    out[key] = (out[key] || 0) + 1;
+  }
+  return out;
+}
+
+function looksLikePrefixCommand(message) {
+  const content = String(message.content || "").trim();
+  if (!content) return false;
+  const prefix = String(message.client?.config?.prefix || message.guild?.client?.config?.prefix || "+").trim() || "+";
+  return content.startsWith(prefix) && content.length > prefix.length;
+}
+
 async function recordMessageActivity(message) {
   if (!isViniliFullFeatureGuild(message?.guild?.id)) return;
   const mongoOk = await ensureMongoReady({ maxWaitMs: 4000 });
@@ -1042,6 +1077,22 @@ async function recordMessageActivity(message) {
   }
   try {
     const weekKey = getWeekKey(now);
+    const media = countMessageMedia(message);
+    const mentionedUsers = [];
+    try {
+      if (message.mentions?.users?.forEach) {
+        message.mentions.users.forEach((u) => {
+          const id = String(u?.id || "").trim();
+          if (id && id !== uid) mentionedUsers.push(id);
+        });
+      }
+    } catch {
+      /* ignore */
+    }
+    const rolePingInc =
+      Math.max(0, Number(message.mentions?.roles?.size || 0)) + (message.mentions?.everyone ? 1 : 0);
+    const emojiUses = collectCustomEmojiUses(message.content);
+    const cmdInc = looksLikePrefixCommand(message) ? 1 : 0;
     /* pipeline: reset daily/weekly flat counters al cambio chiave (compatibile compact) */
     const pipelineSet = {
       guildId: gid,
@@ -1066,6 +1117,37 @@ async function recordMessageActivity(message) {
       },
       "profile.totals.messagesWeeklyKey": weekKey,
     };
+    if (media.gifs > 0) {
+      pipelineSet["profile.totals.gifsTotal"] = {
+        $add: [{ $ifNull: ["$profile.totals.gifsTotal", 0] }, media.gifs],
+      };
+    }
+    if (media.images > 0) {
+      pipelineSet["profile.totals.imagesTotal"] = {
+        $add: [{ $ifNull: ["$profile.totals.imagesTotal", 0] }, media.images],
+      };
+    }
+    if (mentionedUsers.length > 0) {
+      pipelineSet["profile.totals.mentionsMade"] = {
+        $add: [{ $ifNull: ["$profile.totals.mentionsMade", 0] }, mentionedUsers.length],
+      };
+    }
+    if (rolePingInc > 0) {
+      pipelineSet["profile.totals.rolePings"] = {
+        $add: [{ $ifNull: ["$profile.totals.rolePings", 0] }, rolePingInc],
+      };
+    }
+    if (cmdInc > 0) {
+      pipelineSet["profile.totals.commandsTotal"] = {
+        $add: [{ $ifNull: ["$profile.totals.commandsTotal", 0] }, cmdInc],
+      };
+    }
+    for (const [ek, n] of Object.entries(emojiUses)) {
+      if (!n) continue;
+      pipelineSet[`profile.totals.emojiUses.${ek}`] = {
+        $add: [{ $ifNull: [`$profile.totals.emojiUses.${ek}`, 0] }, n],
+      };
+    }
     if (!ACTIVITY_LEGACY_DAILY_DISABLED && /^\d{4}-\d{2}-\d{2}$/.test(dateKey)) {
       pipelineSet[`profile.totals.daily.${dateKey}.textCount`] = {
         $add: [{ $ifNull: [`$profile.totals.daily.${dateKey}.textCount`, 0] }, 1],
@@ -1079,6 +1161,30 @@ async function recordMessageActivity(message) {
       pipelineSet["profile.totals.lastEmbedHourlyKey"] = hourKey;
     }
     await col.updateOne({ guildId: gid, userId: uid }, [{ $set: pipelineSet }], { upsert: true });
+    if (mentionedUsers.length > 0) {
+      const uniq = [...new Set(mentionedUsers)].slice(0, 15);
+      await Promise.all(
+        uniq.map((mid) =>
+          col
+            .updateOne(
+              { guildId: gid, userId: mid },
+              [
+                {
+                  $set: {
+                    guildId: gid,
+                    userId: mid,
+                    "profile.totals.mentionsReceived": {
+                      $add: [{ $ifNull: ["$profile.totals.mentionsReceived", 0] }, 1],
+                    },
+                  },
+                },
+              ],
+              { upsert: true },
+            )
+            .catch(() => null),
+        ),
+      );
+    }
     if (/^\d{4}-\d{2}-\d{2}T\d{2}$/.test(hourKey)) {
       await bumpGuildHourlyText(gid, uid, channelIdResolved, hourKey, 1);
     }

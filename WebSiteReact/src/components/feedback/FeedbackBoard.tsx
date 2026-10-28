@@ -167,7 +167,7 @@ export function FeedbackBoard() {
           <button
             type="button"
             onClick={newNote}
-            className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-caramel to-ember px-5 py-2.5 font-semibold text-ink shadow-[0_12px_30px_-10px_rgba(232,160,90,0.7)] transition-all hover:-translate-y-0.5"
+            className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-caramel to-ember px-5 py-2.5 font-semibold text-ink shadow-[0_12px_30px_-10px_rgba(232,160,90,0.7)] transition-[transform,filter,box-shadow] duration-200 ease-out hover:-translate-y-0.5 active:scale-[0.97]"
           >
             {token ? <PenLine className="size-4" /> : <LogIn className="size-4" />} {token ? t("feedback.newNote") : t("feedback.loginToWrite")}
           </button>

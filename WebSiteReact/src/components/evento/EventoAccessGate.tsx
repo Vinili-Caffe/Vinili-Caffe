@@ -30,12 +30,8 @@ function writeCachedAccess(token: string, access: StaffAccess | null, denied: bo
   accessCache = { token, access, denied, at: Date.now() };
 }
 
-function setEventoHold(on: boolean) {
-  try {
-    document.documentElement.classList.toggle("vc-evento-hold", on);
-  } catch {
-    /* ignore */
-  }
+function setEventoHold(_on: boolean) {
+  /* speedRes1: non settare più vc-evento-hold — bloccava BootGate/LCP per secondi. */
 }
 
 type GateVerdict = "loading" | "allow" | "deny";
@@ -160,8 +156,7 @@ export function EventoAccessGate({
   if (verdict === "loading") {
     return (
       <section
-        className="mx-auto flex min-h-[70dvh] max-w-lg flex-col items-center justify-center gap-4 px-6 pb-20 text-center"
-        aria-busy={!netError}
+        className="mx-auto flex min-h-[40dvh] max-w-lg flex-col items-center justify-center gap-4 px-6 pb-20 text-center"
         aria-label={netError ? "Errore di rete" : "Caricamento"}
       >
         {netError ? (

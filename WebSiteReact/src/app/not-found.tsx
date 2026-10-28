@@ -23,7 +23,7 @@ export default function NotFound() {
   return (
     <SiteShell>
       <section className="relative mx-auto max-w-lg px-6 pb-24 pt-32 sm:pt-40" aria-labelledby="vc-404-title">
-        <div className="rounded-3xl bg-roast/70 p-6 ring-1 ring-sand/12 sm:p-8">
+        <div className="rounded-3xl bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast p-6 ring-1 ring-sand/12 sm:p-8">
           <SkippingVinyl className="mb-6" />
 
           <p
@@ -45,7 +45,7 @@ export default function NotFound() {
 
             <SmartLink
               href="/"
-              className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-full bg-gradient-to-r from-caramel to-ember px-4 py-3 text-sm font-semibold text-ink shadow-[0_18px_40px_-20px_rgba(212,145,80,0.55)] transition hover:-translate-y-0.5"
+              className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-full bg-gradient-to-r from-caramel to-ember px-4 py-3 text-sm font-semibold text-ink shadow-[0_18px_40px_-20px_rgba(212,145,80,0.55)] transition-[transform,filter] duration-200 ease-out hover:-translate-y-0.5 active:scale-[0.97]"
             >
               <Home className="size-4" aria-hidden />
               Homepage

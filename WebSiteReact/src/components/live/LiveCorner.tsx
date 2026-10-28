@@ -229,7 +229,7 @@ function LivePill({
     <button
       type="button"
       onClick={onOpen}
-      className="pointer-events-auto inline-flex max-w-full items-center gap-1.5 rounded-full bg-roast/90 py-1 pr-2.5 pl-2 text-left shadow-[0_12px_32px_-16px_rgba(212,145,80,0.55)] ring-1 ring-caramel/35 backdrop-blur-md transition hover:-translate-y-0.5 hover:ring-caramel/60"
+      className="pointer-events-auto inline-flex max-w-full items-center gap-1.5 rounded-full bg-roast/90 py-1 pr-2.5 pl-2 text-left shadow-[0_12px_32px_-16px_rgba(212,145,80,0.55)] ring-1 ring-caramel/35 backdrop-blur-md transition-[transform,filter] duration-200 ease-out hover:-translate-y-0.5 active:scale-[0.97] hover:ring-caramel/60"
       aria-label={t("live.pillAria", { name: stream.displayName, platform: brand })}
     >
       <span className="relative flex size-2 shrink-0" aria-hidden>
@@ -315,7 +315,7 @@ function LiveStage({
               href={href}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-caramel to-ember px-2.5 py-1 text-xs font-semibold text-ink transition hover:-translate-y-0.5"
+              className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-caramel to-ember px-2.5 py-1 text-xs font-semibold text-ink transition-[transform,filter] duration-200 ease-out hover:-translate-y-0.5 active:scale-[0.97]"
             >
               {platform === "twitch" ? t("live.openTwitch") : t("live.openKick")}
               <ExternalLink className="size-3.5" aria-hidden />
@@ -613,7 +613,7 @@ function KickSubButton({ fallbackUrl }: { fallbackUrl: string | null }) {
         type="button"
         onClick={() => void onClick()}
         disabled={busy}
-        className="inline-flex items-center rounded-full bg-crema/8 px-3.5 py-1.5 text-sm font-semibold text-crema ring-1 ring-sand/25 transition hover:-translate-y-0.5 hover:ring-sand/40 disabled:opacity-60"
+        className="inline-flex items-center rounded-full bg-crema/8 px-3.5 py-1.5 text-sm font-semibold text-crema ring-1 ring-sand/25 transition-[transform,filter] duration-200 ease-out hover:-translate-y-0.5 active:scale-[0.97] hover:ring-sand/40 disabled:opacity-60"
       >
         {busy ? t("common.loading") : label}
       </button>

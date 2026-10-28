@@ -352,7 +352,10 @@ function buildAppleDeclarativePush(fields) {
   const pid = String(fields?.id || "").trim().slice(0, 40);
   const tag = pid ? `vc-site-${pid}` : undefined;
   const notifData = {
+    /* pushClickNavIos2: url + openUrl + navigate in data — click iOS legge dove può */
+    url: navigate,
     openUrl: navigate,
+    navigate,
     id: pid,
     ticketId: String(fields?.ticketId || "").trim().slice(0, 40),
     messageId: String(fields?.messageId || "").trim().slice(0, 40),

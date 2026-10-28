@@ -47,7 +47,7 @@ export function Guidelines() {
       <div className="mt-10 space-y-5">
         {SECTIONS.map((s, i) => (
           <Reveal key={s.title} delay={Math.min(i, 8) * 0.04}>
-            <article className="rounded-3xl bg-roast/70 p-6 ring-1 ring-sand/12">
+            <article className="rounded-3xl bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast p-6 ring-1 ring-sand/12">
               <h2 className="font-display text-2xl font-semibold text-crema">{s.title}</h2>
               <p className="mt-3 text-sm leading-relaxed text-crema/70 sm:text-base">{s.body}</p>
             </article>

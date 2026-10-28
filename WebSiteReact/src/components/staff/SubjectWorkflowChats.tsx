@@ -67,7 +67,7 @@ export function SubjectWorkflowChats({
   if (!items && !openKey) return null;
 
   return (
-    <section className="rounded-3xl bg-roast/70 p-4 ring-1 ring-sand/12 sm:p-5">
+    <section className="rounded-3xl bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast p-4 ring-1 ring-sand/12 sm:p-5">
       <div className="mb-3 flex items-start gap-2.5">
         <span className="mt-0.5 inline-flex size-9 shrink-0 items-center justify-center rounded-full bg-caramel/15 text-ember ring-1 ring-caramel/30">
           <MessageSquareText className="size-4" />

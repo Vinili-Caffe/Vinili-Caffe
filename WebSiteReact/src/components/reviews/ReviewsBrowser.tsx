@@ -116,7 +116,7 @@ export function ReviewsBrowser({ initial }: { initial: ReviewsData | null }) {
                 {active && (
                   <motion.span layoutId="review-kind" className="absolute inset-0 -z-10 rounded-2xl bg-gradient-to-br from-crema to-sand" transition={{ type: "spring", stiffness: 380, damping: 32 }} />
                 )}
-                {!active && <span className="absolute inset-0 -z-10 rounded-2xl bg-roast/70 ring-1 ring-sand/12" />}
+                {!active && <span className="absolute inset-0 -z-10 rounded-2xl bg-gradient-to-b from-caramel/[0.08] via-roast/80 to-roast ring-1 ring-sand/12" />}
                 <Icon className="size-5 shrink-0" />
                 <span>
                   <span className="block font-semibold">{k.label}</span>
@@ -130,7 +130,7 @@ export function ReviewsBrowser({ initial }: { initial: ReviewsData | null }) {
 
       {/* media + composer */}
       <div className="mt-8 grid gap-4 lg:grid-cols-[18rem_1fr]">
-        <div className="rounded-3xl bg-roast/70 p-6 ring-1 ring-sand/12">
+        <div className="rounded-3xl bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast p-6 ring-1 ring-sand/12">
           <AnimatePresence mode="wait">
             <motion.div key={`${kind}-${reviews.length}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
               <p className="font-display text-6xl font-semibold lining-nums">{reviews.length ? avg.toFixed(1).replace(".", ",") : "—"}</p>

@@ -44,6 +44,7 @@ function isReadOnlySiteGet(req) {
   if (path === "/webhooks/site-staff-access") return true;
   if (path === "/webhooks/site-cookie-consent") return true;
   if (path.startsWith("/webhooks/site-rank-card")) return true;
+  if (path.startsWith("/webhooks/site-wrapped")) return true;
   if (path.startsWith("/webhooks/site-custom-profile")) return true;
   if (path.startsWith("/webhooks/site-profile-extras")) return true;
   if (path.startsWith("/webhooks/site-welcome-pronouns")) return true;

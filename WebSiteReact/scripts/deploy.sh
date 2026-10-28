@@ -1,24 +1,22 @@
 #!/bin/bash
-# Pubblica out/ (dopo `npm run build`) su www.
-#   bash scripts/deploy.sh www
-#   SKIP_CHECK=1 bash scripts/deploy.sh www   # emergenza
+# Pubblica out/ (dopo `npm run build`).
+#   bash scripts/deploy.sh beta          # staging (Cloudflare Access) — default di lavoro
+#   bash scripts/deploy.sh www           # SOLO con ok esplicito del proprietario
+#   SKIP_CHECK=1 bash scripts/deploy.sh www
 # Swap atomico con backup in /root/vc_www_bak/ (ultimi 5).
-# Rollback: ssh vinili, rimetti l'ultima cartella di backup al posto di DEST.
 set -euo pipefail
 
 TARGET="${1:-}"
 case "$TARGET" in
   www) DEST=/var/www/viniliecaffe-react; HOST=www.viniliecaffe.it; BAK_PREFIX=viniliecaffe-react ;;
-  beta)
-    echo "beta dismessa: usa solo www (beta.viniliecaffe.it → redirect a www)" >&2
-    exit 1
-    ;;
-  *) echo "uso: bash scripts/deploy.sh www" >&2; exit 1 ;;
+  beta) DEST=/var/www/viniliecaffe-beta; HOST=beta.viniliecaffe.it; BAK_PREFIX=viniliecaffe-beta ;;
+  *) echo "uso: bash scripts/deploy.sh beta|www" >&2; exit 1 ;;
 esac
 
 [ -f out/index.html ] || { echo "manca out/: lancia prima npm run build" >&2; exit 1; }
 
-if [ "${SKIP_CHECK:-0}" != 1 ]; then
+# check-site apre un browser: su beta c'è Cloudflare Access → solo per www (e non SKIP_CHECK).
+if [ "$TARGET" = "www" ] && [ "${SKIP_CHECK:-0}" != 1 ]; then
   MSYS_NO_PATHCONV=1 node scripts/check-site.mjs || { echo "controllo fallito: www non aggiornato" >&2; exit 1; }
 fi
 
@@ -42,7 +40,7 @@ done
 REMOTE
 echo "pubblicato su $TARGET"
 
-if [ "${SKIP_CHECK:-0}" != 1 ]; then
+if [ "$TARGET" = "www" ] && [ "${SKIP_CHECK:-0}" != 1 ]; then
   sleep 3
   if ! CHECK_ORIGIN="https://$HOST" MSYS_NO_PATHCONV=1 node scripts/check-site.mjs / /regole/ /wiki/ /vote/ /perks/ /wordle/ /classifiche/; then
     echo "controllo dal vivo fallito: rimetto la versione precedente" >&2

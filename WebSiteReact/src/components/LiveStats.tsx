@@ -86,7 +86,7 @@ function TinyPerson({
   );
   if (profileUrl) {
     return (
-      <a href={profileUrl} className="transition hover:-translate-y-0.5" title={tip || name}>
+      <a href={profileUrl} className="transition-[transform,filter] duration-200 ease-out hover:-translate-y-0.5 active:scale-[0.97]" title={tip || name}>
         {inner}
       </a>
     );
@@ -107,6 +107,9 @@ const STAFF_ROSTER_SLOTS: { id: string; label: string }[] = [
 ];
 
 const PARTNER_MANAGER_ROLE_ID = "1544831242510270464";
+const BLOGGER_ROLE_ID = "1557507157899878533";
+/** Ruoli nel roster dettaglio ma fuori dal conteggio grande `staffNoPm` (e dalle facce anteprima). */
+const STAFF_COUNT_EXCLUDED = new Set([PARTNER_MANAGER_ROLE_ID, BLOGGER_ROLE_ID]);
 
 function normRoleLabel(label: string) {
   return String(label || "")
@@ -180,7 +183,12 @@ function RosterBody({
 }) {
   if (kind === "staff") {
     const groups = buildStaffRoster((extra?.staffHoverGroups || []) as StaffGroup[]);
-    const people = new Set(groups.flatMap((g) => g.members.map((m) => m.profileUrl || m.name))).size;
+    // Stesso perimetro del numero grande: escludi PM + Blogger dal conteggio (restano nelle colonne sotto).
+    const people = new Set(
+      groups
+        .filter((g) => !STAFF_COUNT_EXCLUDED.has(String(g.roleId || "")))
+        .flatMap((g) => g.members.map((m) => m.profileUrl || m.name)),
+    ).size;
     return (
       <div>
         <div className="mb-3 flex items-end justify-between gap-3 px-1">
@@ -193,7 +201,7 @@ function RosterBody({
           {groups.map((g) => (
             <section
               key={g.roleId || g.role}
-              className="rounded-2xl bg-roast/80 px-3 py-2.5 ring-1 ring-sand/10"
+              className="rounded-2xl bg-gradient-to-b from-caramel/[0.08] via-roast/85 to-roast px-3 py-2.5 ring-1 ring-sand/10"
             >
               <p className="text-[0.62rem] font-semibold uppercase tracking-[0.14em] text-caramel/90">{g.role}</p>
               {g.members.length ? (
@@ -468,9 +476,10 @@ export function LiveStats({ initial }: { initial: Stats }) {
   const boosters = (extra?.boostHoverMembers || []).map((m) => ({ name: m.name, avatarUrl: m.avatarUrl }));
   // stessa persona in più ruoli (e nei ruoli generici Staff/High Staff) = una faccia sola
   const staffSeen = new Set<string>();
-  // il numero grande non conta i Partner Manager: fuori anche dalle facce (chi è anche staff resta dagli altri ruoli)
+  // Allinea alle facce il numero grande (`staffNoPm`): niente Partner Manager né Blogger in anteprima
+  // (chi ha anche un ruolo staff resta dagli altri gruppi).
   const staffPeople = buildStaffRoster((extra?.staffHoverGroups || []) as StaffGroup[])
-    .filter((g) => g.roleId !== PARTNER_MANAGER_ROLE_ID)
+    .filter((g) => !STAFF_COUNT_EXCLUDED.has(String(g.roleId || "")))
     .flatMap((g) => g.members)
     .filter((m) => {
       const k = m.profileUrl || m.name;
@@ -510,10 +519,17 @@ export function LiveStats({ initial }: { initial: Stats }) {
   const hours = extra?.communityHours;
 
   return (
-    <section id="numeri" className="mx-auto max-w-6xl scroll-mt-28 px-6 py-20">
+    <section id="numeri" className="relative scroll-mt-28 py-20">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 top-0 h-48 bg-[radial-gradient(ellipse_60%_80%_at_50%_0%,rgba(217,154,91,0.12),transparent)]"
+      />
+      <div className="relative mx-auto max-w-6xl px-6">
       <Reveal className="mb-10 text-center">
         <p className="text-xs font-semibold uppercase tracking-[0.3em] text-caramel">{t("stats.kicker")}</p>
-        <h2 className="mt-3 font-display text-4xl font-semibold sm:text-5xl">{t("stats.title")}</h2>
+        <h2 className="mt-3 font-display text-4xl font-semibold text-balance sm:text-5xl">
+          {t("stats.title")}
+        </h2>
         {fetchedAt ? <StatsUpdatedAgo atMs={fetchedAt} /> : null}
       </Reveal>
 
@@ -527,12 +543,12 @@ export function LiveStats({ initial }: { initial: Stats }) {
               whileHover={{ y: -4 }}
               transition={{ type: "spring", stiffness: 300, damping: 20 }}
               className={cn(
-                "relative w-full overflow-hidden rounded-3xl bg-gradient-to-b from-mocha/80 to-roast/80 p-5 text-left ring-1 transition-shadow sm:p-7",
-                open === it.id ? "ring-caramel/50 shadow-[0_16px_40px_-24px_rgba(212,145,80,0.7)]" : "ring-sand/15",
+                "relative w-full overflow-hidden rounded-3xl bg-gradient-to-b from-caramel/[0.12] via-mocha/80 to-roast p-5 text-left ring-1 transition-[box-shadow,ring-color] duration-200 sm:p-7",
+                open === it.id ? "ring-caramel/55 shadow-[0_20px_48px_-24px_rgba(212,145,80,0.75)]" : "ring-sand/18 hover:ring-sand/30",
               )}
             >
-              <div className="absolute -right-6 -top-6 size-24 rounded-full bg-caramel/10 blur-2xl" />
-              <div className="flex items-center gap-2 text-sm text-crema/60">
+              <div className="absolute -right-6 -top-6 size-28 rounded-full bg-ember/15 blur-2xl" />
+              <div className="flex items-center gap-2 text-sm text-crema/70">
                 <it.icon className="size-4 text-caramel" />
                 {it.label}
                 {it.live && (
@@ -566,7 +582,7 @@ export function LiveStats({ initial }: { initial: Stats }) {
                   />
                 );
               })()}
-              <p className="mt-2 text-[0.7rem] text-crema/40">{open === it.id ? t("stats.hideDetail") : t("stats.showDetail")}</p>
+              <p className="mt-2 text-[0.7rem] text-crema/45">{open === it.id ? t("stats.hideDetail") : t("stats.showDetail")}</p>
             </motion.button>
           </Reveal>
         ))}
@@ -580,7 +596,7 @@ export function LiveStats({ initial }: { initial: Stats }) {
             animate={{ opacity: 1, y: 0, height: "auto" }}
             exit={{ opacity: 0, y: 8, height: 0 }}
             transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
-            className="mt-4 overflow-hidden rounded-3xl bg-gradient-to-b from-mocha/70 to-roast/80 p-4 ring-1 ring-sand/15 sm:p-5"
+            className="mt-4 overflow-hidden rounded-3xl bg-gradient-to-b from-caramel/[0.08] via-mocha/70 to-roast/90 p-4 ring-1 ring-sand/18 sm:p-5"
           >
             {open === "members" ? (
               extra?.memberPulse ? (
@@ -602,6 +618,7 @@ export function LiveStats({ initial }: { initial: Stats }) {
           </motion.div>
         )}
       </AnimatePresence>
+      </div>
     </section>
   );
 }

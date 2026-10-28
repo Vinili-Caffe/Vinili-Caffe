@@ -545,7 +545,7 @@ export function TicketsApp() {
     <>
       {/* Mobile: lista con altezza max così overflow-y sulla lista funziona (prima overflow-hidden senza max-h tagliava senza scroll) */}
       <div className="mx-auto max-w-7xl lg:hidden">
-        <div className="flex max-h-[min(36rem,calc(100dvh-12rem))] min-h-[22rem] flex-col overflow-hidden rounded-[1.5rem] bg-roast/70 ring-1 ring-sand/12">
+        <div className="flex max-h-[min(36rem,calc(100dvh-12rem))] min-h-[22rem] flex-col overflow-hidden rounded-[1.5rem] bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast ring-1 ring-sand/15">
           <ListChrome {...listProps} />
         </div>
       </div>

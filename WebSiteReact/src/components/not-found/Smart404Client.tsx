@@ -56,7 +56,7 @@ export function BackButton() {
         }
         window.location.href = "/";
       }}
-      className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-full bg-crema/8 px-4 py-3 text-sm font-semibold text-crema ring-1 ring-sand/25 transition hover:-translate-y-0.5 hover:ring-sand/40"
+      className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-full bg-crema/8 px-4 py-3 text-sm font-semibold text-crema ring-1 ring-sand/25 transition-[transform,filter] duration-200 ease-out hover:-translate-y-0.5 active:scale-[0.97] hover:ring-sand/40"
     >
       {/* icona inline per non forzare lucide nel server parent */}
       <svg className="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>

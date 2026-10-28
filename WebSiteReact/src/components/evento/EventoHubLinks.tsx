@@ -38,7 +38,7 @@ export function EventoHubLinks() {
             key={item.id}
             href={item.href}
             className={cn(
-              "group relative overflow-hidden rounded-3xl bg-roast/80 p-5 ring-1 ring-sand/15 transition hover:ring-caramel/45",
+              "group relative overflow-hidden rounded-3xl bg-gradient-to-b from-caramel/[0.12] via-roast/90 to-roast p-5 ring-1 ring-sand/15 transition hover:ring-caramel/45",
             )}
           >
             <div

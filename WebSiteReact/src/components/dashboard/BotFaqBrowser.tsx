@@ -73,7 +73,7 @@ export function BotFaqBrowser() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -4 }}
             transition={{ duration: 0.2 }}
-            className="rounded-2xl bg-roast/80 p-4 ring-1 ring-sand/12 sm:p-5"
+            className="rounded-2xl bg-gradient-to-b from-caramel/[0.08] via-roast/85 to-roast p-4 ring-1 ring-sand/12 sm:p-5"
           >
             <h2 className="font-display text-xl font-semibold leading-snug text-crema sm:text-2xl">{item.title}</h2>
             <p className="mt-3 text-[0.65rem] font-semibold uppercase tracking-[0.22em] text-caramel">Risposta</p>

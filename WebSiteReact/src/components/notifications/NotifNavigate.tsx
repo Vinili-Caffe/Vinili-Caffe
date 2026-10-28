@@ -8,8 +8,7 @@ const PENDING_REQ = "/__vc_notif_pending";
 /**
  * SW notificationclick → postMessage { type:"vc:notif-navigate", url }
  * + cache pending (se il messaggio arriva prima dell’hydrate).
- * Su iOS client.navigate() è inaffidabile (finisce sulla home/start_url):
- * qui facciamo sempre location.assign sulla URL della notifica.
+ * Su iOS client.navigate() / start_url sono inaffidabili: location.assign + poll cache.
  */
 export function NotifNavigate() {
   useEffect(() => {
@@ -18,7 +17,6 @@ export function NotifNavigate() {
       if (!raw) return;
       try {
         const u = new URL(raw, location.origin);
-        /* Solo stesso origin in-app; esterni (top.gg ecc.) in nuova navigazione. */
         if (u.origin !== location.origin) {
           location.assign(u.href);
           return;
@@ -30,6 +28,8 @@ export function NotifNavigate() {
           sessionStorage.setItem("vc-pwa-left-start", "1");
           sessionStorage.removeItem("vc-pwa-want-home");
           sessionStorage.setItem("vc-notif-pending-nav", next);
+          (window as unknown as { __vcNotifNavDone?: number }).__vcNotifNavDone = 1;
+          (window as unknown as { __vcPwaResumeSkip?: number }).__vcPwaResumeSkip = 1;
         } catch {
           /* ignore */
         }
@@ -41,18 +41,19 @@ export function NotifNavigate() {
 
     const drainCache = async () => {
       try {
-        if (!("caches" in window)) return;
+        if (!("caches" in window)) return false;
         const cache = await caches.open(PENDING_CACHE);
         const res = await cache.match(PENDING_REQ);
-        if (!res) return;
+        if (!res) return false;
         const data = (await res.json().catch(() => null)) as { url?: string; t?: number } | null;
         await cache.delete(PENDING_REQ);
         const url = String(data?.url || "").trim();
         const at = Number(data?.t || 0);
-        if (!url || (at > 0 && Date.now() - at > 90_000)) return;
+        if (!url || (at > 0 && Date.now() - at > 120_000)) return false;
         go(url);
+        return true;
       } catch {
-        /* ignore */
+        return false;
       }
     };
 
@@ -70,8 +71,18 @@ export function NotifNavigate() {
 
     drainSession();
     void drainCache();
+    /* iOS: click → start_url → hydrate tardi; ripeti drain un paio di volte. */
+    const t1 = window.setTimeout(() => void drainCache(), 400);
+    const t2 = window.setTimeout(() => void drainCache(), 1200);
+    const t3 = window.setTimeout(() => void drainCache(), 2800);
 
-    if (!("serviceWorker" in navigator)) return;
+    if (!("serviceWorker" in navigator)) {
+      return () => {
+        window.clearTimeout(t1);
+        window.clearTimeout(t2);
+        window.clearTimeout(t3);
+      };
+    }
 
     const onMsg = (ev: MessageEvent) => {
       const d = ev?.data;
@@ -81,7 +92,12 @@ export function NotifNavigate() {
     };
 
     navigator.serviceWorker.addEventListener("message", onMsg);
-    return () => navigator.serviceWorker.removeEventListener("message", onMsg);
+    return () => {
+      navigator.serviceWorker.removeEventListener("message", onMsg);
+      window.clearTimeout(t1);
+      window.clearTimeout(t2);
+      window.clearTimeout(t3);
+    };
   }, []);
 
   return null;

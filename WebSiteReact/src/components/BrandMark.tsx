@@ -33,8 +33,8 @@ export function BrandMark({ className, navUnderline }: { className?: string; nav
         const gName = String(guild?.name || "").trim();
         if (gName) setName(gName);
         if (!id || !hash) return;
-        const ext = hash.startsWith("a_") ? "gif" : "png";
-        setIcon(`https://cdn.discordapp.com/icons/${id}/${hash}.${ext}?size=128`);
+        /* speedRes1: sempre PNG still — GIF Discord in nav = LCP/CPU su pagine senza hero. */
+        setIcon(`https://cdn.discordapp.com/icons/${id}/${hash}.png?size=128`);
       })
       .catch(() => {});
     return () => {

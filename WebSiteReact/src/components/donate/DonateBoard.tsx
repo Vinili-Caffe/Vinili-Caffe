@@ -48,7 +48,7 @@ export function DonateBoard() {
                     "relative flex h-full flex-col overflow-hidden rounded-[2rem] p-7 ring-1",
                     star
                       ? "bg-gradient-to-b from-caramel/15 via-roast to-roast shadow-[0_30px_80px_-30px_rgba(212,145,80,0.45)] ring-caramel/50 lg:-translate-y-4"
-                      : "bg-roast/80 ring-sand/15",
+                      : "bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast ring-sand/15",
                   )}
                 >
                   {star && <div className="absolute -top-24 left-1/2 size-56 -translate-x-1/2 rounded-full bg-caramel/20 blur-3xl" />}
@@ -75,7 +75,7 @@ export function DonateBoard() {
                     target="_blank"
                     rel="noopener"
                     className={cn(
-                      "relative mt-8 inline-flex items-center justify-center gap-2 rounded-full px-6 py-3.5 font-semibold transition-all hover:-translate-y-0.5",
+                      "relative mt-8 inline-flex items-center justify-center gap-2 rounded-full px-6 py-3.5 font-semibold transition-[transform,filter,box-shadow] duration-200 ease-out hover:-translate-y-0.5 active:scale-[0.97]",
                       star
                         ? "bg-gradient-to-r from-caramel to-ember text-ink shadow-[0_12px_30px_-10px_rgba(232,160,90,0.7)] hover:brightness-110"
                         : "bg-crema/8 text-crema ring-1 ring-sand/25 hover:bg-crema/12",

@@ -10,6 +10,13 @@ const VERIFIED_BOT_USER_CACHE = new Map();
 const AUTOMATION_CHANNEL_IDS = new Set(
   [IDs.channels?.supporters, IDs.channels?.commands].filter(Boolean).map((id) => String(id)),
 );
+/* discordOfficialBotAllow1: bot ufficiali Discord (spesso SENZA VerifiedBot) — mai ban/kick. */
+const DISCORD_OFFICIAL_BOT_IDS = new Set([
+  "669627189624307712", // Community Updates
+  "643945264868098049", // Discord (system integrations / activities related)
+  "1100902258482212974", // Discord Activities
+  "1220730115658817546", // Discord Developer
+]);
 
 function isTrustedAutomationChannelMessage(message) {
   const channelId = String(message?.channelId || "");
@@ -18,7 +25,7 @@ function isTrustedAutomationChannelMessage(message) {
 }
 
 function buildTrustedBotIdSet(client) {
-  const ids = new Set();
+  const ids = new Set(DISCORD_OFFICIAL_BOT_IDS);
   for (const value of Object.values(IDs?.bots || {})) {
     const id = String(value || "").trim();
     if (/^\d{5,30}$/.test(id)) ids.add(id);
@@ -33,10 +40,22 @@ function buildTrustedBotIdSet(client) {
   return ids;
 }
 
+function isDiscordOfficialActor(userOrId) {
+  if (!userOrId) return false;
+  if (typeof userOrId === "object") {
+    if (userOrId.system) return true;
+    const id = String(userOrId.id || "").trim();
+    return Boolean(id && DISCORD_OFFICIAL_BOT_IDS.has(id));
+  }
+  const id = String(userOrId || "").trim();
+  return Boolean(id && DISCORD_OFFICIAL_BOT_IDS.has(id));
+}
+
 async function isDiscordVerifiedBotUser(user) {
   if (!user?.bot) return false;
   const id = String(user.id || "").trim();
   if (!id) return false;
+  if (isDiscordOfficialActor(user)) return true;
   if (VERIFIED_BOT_USER_CACHE.has(id)) return VERIFIED_BOT_USER_CACHE.get(id);
   let verified = false;
   try {
@@ -53,6 +72,7 @@ async function isDiscordVerifiedBotUser(user) {
 
 async function isTrustedBotMember(member, client) {
   if (!member?.user?.bot) return false;
+  if (isDiscordOfficialActor(member.user)) return true;
   const trusted = buildTrustedBotIdSet(client);
   const userId = String(member.user.id || "");
   const appId = String(member.user.id || "");
@@ -62,10 +82,12 @@ async function isTrustedBotMember(member, client) {
 
 async function isTrustedBotMessage(message, client) {
   if (!message?.author?.bot) return false;
+  if (message.system || isDiscordOfficialActor(message.author)) return true;
   const trusted = buildTrustedBotIdSet(client || message.client);
   const authorId = String(message.author?.id || "");
   const applicationId = String(message.applicationId || "");
   if (trusted.has(authorId) || (applicationId && trusted.has(applicationId))) return true;
+  if (applicationId && DISCORD_OFFICIAL_BOT_IDS.has(applicationId)) return true;
   return isDiscordVerifiedBotUser(message.author);
 }
 
@@ -92,6 +114,7 @@ async function punishMemberForBotAbuse(guild, userId, reason, action = "ban") {
   const id = String(userId || "").trim();
   if (!guild || !/^\d{5,30}$/.test(id)) return { ok: false, reason: "invalid_target" };
   if (id === String(guild.client?.user?.id || "")) return { ok: false, reason: "self" };
+  if (isDiscordOfficialActor(id)) return { ok: false, reason: "discord_official" };
 
   const member = await getGuildMemberCached(guild, id);
   const normalized = ["ban", "kick", "timeout"].includes(String(action || "").toLowerCase())
@@ -142,6 +165,7 @@ async function enforceUntrustedBotMember(member, options = {}) {
   const guild = member?.guild;
   const client = guild?.client || member?.client;
   if (!guild || !member?.user?.bot) return { blocked: false, reason: "not_bot" };
+  if (isDiscordOfficialActor(member.user)) return { blocked: false, reason: "discord_official" };
   if (await isTrustedBotMember(member, client)) return { blocked: false, reason: "trusted" };
 
   const cfg = getJoinGateConfigSnapshot();
@@ -226,6 +250,7 @@ async function handleUntrustedApplicationMessage(message) {
   const appId = String(message?.applicationId || "").trim();
   if (!guild || !appId) return false;
   if (MAIN_GUILD_ID && String(guild.id) !== MAIN_GUILD_ID) return false;
+  if (DISCORD_OFFICIAL_BOT_IDS.has(appId) || isDiscordOfficialActor(message?.author)) return false;
   if (isTrustedAutomationChannelMessage(message)) return false;
   if (await isTrustedApplicationMessage(message)) return false;
 
@@ -270,6 +295,7 @@ async function handleUntrustedBotMessage(message) {
   const guild = message?.guild;
   if (!guild || !message?.author?.bot) return false;
   if (MAIN_GUILD_ID && String(guild.id) !== MAIN_GUILD_ID) return false;
+  if (message.system || isDiscordOfficialActor(message.author)) return false;
   if (isTrustedAutomationChannelMessage(message)) return false;
   if (await isTrustedBotMessage(message)) return false;
 
@@ -285,7 +311,10 @@ async function handleUntrustedBotMessage(message) {
       reason: "Spam/azione da bot/app non autorizzato.",
       executorId: await fetchRecentBotAddExecutorId(guild, message.author.id),
     });
-  } else if (guild.members.me?.permissions?.has(PermissionsBitField.Flags.BanMembers)) {
+  } else if (
+    !isDiscordOfficialActor(message.author) &&
+    guild.members.me?.permissions?.has(PermissionsBitField.Flags.BanMembers)
+  ) {
     await guild.members
       .ban(message.author.id, {
         deleteMessageSeconds: 604800,
@@ -325,6 +354,7 @@ module.exports = {
   isTrustedBotMember,
   isTrustedBotMessage,
   isTrustedApplicationMessage,
+  isDiscordOfficialActor,
   resolveApplicationMessageActorId,
   enforceUntrustedBotMember,
   handleUntrustedBotMessage,

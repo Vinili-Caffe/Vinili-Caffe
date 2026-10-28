@@ -95,7 +95,7 @@ export function SponsorBoard() {
             <p className="font-display text-2xl font-semibold leading-snug">Le sponsor sono collaborazioni a pagamento per mettere in mostra il tuo server davanti alla nostra community.</p>
             <p className="mt-3 text-crema/60">Tre vetrine: un canale tutto tuo, il sito e gli eventi dal vivo.</p>
           </div>
-          <div className="rounded-3xl bg-roast/80 p-7 ring-1 ring-sand/15">
+          <div className="rounded-3xl bg-gradient-to-b from-caramel/[0.12] via-roast/90 to-roast p-7 ring-1 ring-sand/15">
             <p className="text-xs font-semibold uppercase tracking-[0.3em] text-caramel">Requisiti</p>
             <ul className="mt-4 space-y-3">
               {REQUIREMENTS.map((r) => (
@@ -131,7 +131,7 @@ export function SponsorBoard() {
                     aria-checked={on}
                     onClick={() => (setKind(k.id), setExtra(0))}
                     className={cn(
-                      "relative flex flex-col rounded-2xl p-3 text-left ring-1 transition-all sm:rounded-3xl sm:p-5",
+                      "relative flex flex-col rounded-2xl p-3 text-left ring-1 transition-[transform,background-color,box-shadow,opacity] duration-200 ease-out sm:rounded-3xl sm:p-5",
                       on ? "bg-gradient-to-b from-caramel/15 to-roast shadow-[0_20px_50px_-25px_rgba(212,145,80,0.6)] ring-caramel/60" : "bg-roast/70 ring-sand/12 hover:ring-sand/30",
                     )}
                   >
@@ -156,7 +156,7 @@ export function SponsorBoard() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
                 transition={{ duration: 0.25 }}
-                className="space-y-5 rounded-3xl bg-roast/70 p-6 ring-1 ring-sand/12"
+                className="space-y-5 rounded-3xl bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast p-6 ring-1 ring-sand/12"
               >
                 <p className="text-sm leading-relaxed text-crema/60 sm:hidden">{KINDS.find((k) => k.id === kind)!.text}</p>
                 {kind !== "events" ? (
@@ -295,7 +295,7 @@ export function SponsorBoard() {
             <div className="mt-6 grid gap-3">
               <SmartLink
                 href={page("/tickets/")}
-                className="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-caramel to-ember px-6 py-3.5 font-semibold text-ink shadow-[0_12px_30px_-10px_rgba(232,160,90,0.7)] transition-all hover:-translate-y-0.5 hover:brightness-110"
+                className="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-caramel to-ember px-6 py-3.5 font-semibold text-ink shadow-[0_12px_30px_-10px_rgba(232,160,90,0.7)] transition-[transform,filter,box-shadow] duration-200 ease-out hover:-translate-y-0.5 hover:brightness-110 active:scale-[0.97]"
               >
                 <Ticket className="size-4" /> Apri un ticket High Staff
               </SmartLink>
@@ -316,7 +316,7 @@ export function SponsorBoard() {
         <div className="grid gap-4 sm:grid-cols-3">
           {audience.map((s, i) => (
             <Reveal key={s.label} delay={i * 0.08}>
-              <div className="rounded-3xl bg-roast/70 p-6 ring-1 ring-sand/12">
+              <div className="rounded-3xl bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast p-6 ring-1 ring-sand/12">
                 <span className="flex size-10 items-center justify-center rounded-xl bg-caramel/15 text-ember ring-1 ring-caramel/25 [&>svg]:size-5">{s.icon}</span>
                 <p className="mt-4 font-display text-5xl font-semibold lining-nums">{s.value}</p>
                 <p className="mt-1 text-sm text-crema/55">{s.label}</p>

@@ -14,6 +14,14 @@ export default function manifest(): MetadataRoute.Manifest {
     background_color: "#0e0906",
     theme_color: "#0e0906",
     lang: "it",
+    // Chromium: getInstalledRelatedApps() su /app/
+    related_applications: [
+      {
+        platform: "webapp",
+        url: "https://www.viniliecaffe.it/manifest.webmanifest",
+      },
+    ],
+    prefer_related_applications: false,
     icons: [
       {
         src: "/images/pwa-icon-192.png",

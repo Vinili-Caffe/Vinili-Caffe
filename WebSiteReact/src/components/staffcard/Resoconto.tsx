@@ -151,7 +151,7 @@ export function Resoconto({ token, userId, canDecide, onChanged }: { token: stri
   };
 
   return (
-    <section data-deeplink="staffOpen:resoconto" className="scroll-mt-28 rounded-3xl bg-roast/70 p-5 ring-1 ring-sand/12 sm:p-6">
+    <section data-deeplink="staffOpen:resoconto" className="scroll-mt-28 rounded-3xl bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast p-5 ring-1 ring-sand/12 sm:p-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="flex items-center gap-2 font-display text-2xl font-semibold">
           <ClipboardList className="size-5 text-caramel" /> Resoconto

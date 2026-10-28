@@ -430,7 +430,7 @@ export function NotificationsBoard() {
     return (
       <div className="mx-auto max-w-lg px-6 pb-20">
         <Reveal>
-          <div className="rounded-3xl bg-roast/70 p-8 text-center ring-1 ring-sand/12">
+          <div className="rounded-3xl bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast p-8 text-center ring-1 ring-sand/12">
             <span className="mx-auto flex size-12 items-center justify-center rounded-2xl bg-caramel/15 text-ember ring-1 ring-caramel/25">
               <Bell className="size-5" />
             </span>
@@ -441,7 +441,7 @@ export function NotificationsBoard() {
             <button
               type="button"
               onClick={login}
-              className="mt-6 inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-caramel to-ember px-6 py-3 font-semibold text-ink transition hover:-translate-y-0.5"
+              className="mt-6 inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-caramel to-ember px-6 py-3 font-semibold text-ink transition-[transform,filter] duration-200 ease-out hover:-translate-y-0.5 active:scale-[0.97]"
             >
               <LogIn className="size-4" />
               Accedi con Discord

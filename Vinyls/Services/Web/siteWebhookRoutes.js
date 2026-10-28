@@ -221,6 +221,7 @@ function mountSiteWebhookRoutes(app, client, deps) {
   const { handleSiteRolesGet } = require("../../Utils/Web/siteRolesApi");
   const { submitSiteRoleRequest, leaveSiteRole, getSiteRoleRequestStates } = require("../../Utils/Web/siteRoleRequestApi");
   const { getRankCardCustomization, getServerAvatarOnly, updateRankCardCustomization, getRankCardPreview, getPublicRankCardPreview } = require("../../Utils/Web/siteRankCardApi");
+  const { getSiteWrapped } = require("../../Utils/Web/siteWrappedApi");
   const { getCustomProfileCustomization, getCustomProfileGuildEmojis, mutateCustomProfile } = require("../../Utils/Web/siteCustomProfileApi");
   const { getProfileExtras, mutateProfileExtras } = require("../../Utils/Web/siteProfileExtrasApi");
   const { getWelcomePronouns } = require("../../Utils/Web/siteWelcomePronounsApi");
@@ -1075,6 +1076,18 @@ function mountSiteWebhookRoutes(app, client, deps) {
       return res.status(Number(out.status) || 500).json(out);
     } catch (err) {
       global.logger?.error?.("[WEBHOOK] site-rank-card get:", err);
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+    }
+  });
+  app.get("/webhooks/site-wrapped", async (req, res) => {
+    try {
+      const accessToken = normalizeHeaderSecret(req.headers.authorization);
+      const out = await getSiteWrapped(client, { accessToken });
+      if (out?.ok) res.setHeader("Cache-Control", "private, max-age=60");
+      else res.setHeader("Cache-Control", "no-store");
+      return res.status(Number(out.status) || 500).json(out);
+    } catch (err) {
+      global.logger?.error?.("[WEBHOOK] site-wrapped get:", err);
       return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
     }
   });

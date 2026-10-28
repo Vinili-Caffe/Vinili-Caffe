@@ -59,15 +59,15 @@ export function Footer() {
   return (
     <footer
       data-vc-float-cover="footer"
-      className="relative mt-10 overflow-hidden border-t border-sand/10 bg-gradient-to-b from-roast/40 via-roast/70 to-mocha"
+      className="relative mt-10 overflow-hidden border-t border-sand/10 bg-gradient-to-b from-caramel/[0.06] via-roast/70 to-mocha"
       aria-label={t("footer.aria")}
     >
       <div
-        className="pointer-events-none absolute inset-0 opacity-60"
+        className="pointer-events-none absolute inset-0 opacity-70"
         aria-hidden
         style={{
           background:
-            "radial-gradient(ellipse 70% 50% at 50% 0%, rgba(212,145,80,0.12), transparent 60%)",
+            "radial-gradient(ellipse 70% 50% at 50% 0%, rgba(217,154,91,0.18), transparent 60%)",
         }}
       />
       <div className="relative mx-auto max-w-6xl px-5 py-12 text-center sm:px-6 sm:py-16">
@@ -101,7 +101,7 @@ export function Footer() {
                       "inline-flex size-10 items-center justify-center rounded-xl sm:size-11",
                       "border border-sand/20 bg-gradient-to-br from-white/10 to-white/[0.03] text-crema/90",
                       "shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_10px_24px_rgba(0,0,0,0.18)]",
-                      "transition hover:border-caramel/45 hover:bg-caramel/20 hover:text-sand active:scale-95",
+                      "transition-[transform,background-color,border-color,color] duration-200 ease-out hover:border-caramel/45 hover:bg-caramel/20 hover:text-sand active:scale-[0.96]",
                     )}
                   >
                     <SocialIcon id={s.id} />

@@ -61,7 +61,7 @@ export function Pagination({
         disabled={p <= 1}
         onClick={() => go(p - 1)}
         aria-label="Pagina precedente"
-        className="inline-flex size-10 items-center justify-center rounded-full bg-crema/6 text-crema ring-1 ring-sand/15 transition disabled:opacity-30 hover:bg-crema/10"
+        className="inline-flex size-10 items-center justify-center rounded-full bg-crema/6 text-crema ring-1 ring-sand/15 transition-[transform,background-color] duration-200 ease-out hover:bg-crema/10 active:scale-[0.96] disabled:opacity-30"
       >
         <ChevronLeft className="size-4" />
       </button>
@@ -85,7 +85,7 @@ export function Pagination({
         disabled={p >= totalPages}
         onClick={() => go(p + 1)}
         aria-label="Pagina successiva"
-        className="inline-flex size-10 items-center justify-center rounded-full bg-crema/6 text-crema ring-1 ring-sand/15 transition disabled:opacity-30 hover:bg-crema/10"
+        className="inline-flex size-10 items-center justify-center rounded-full bg-crema/6 text-crema ring-1 ring-sand/15 transition-[transform,background-color] duration-200 ease-out hover:bg-crema/10 active:scale-[0.96] disabled:opacity-30"
       >
         <ChevronRight className="size-4" />
       </button>
@@ -100,7 +100,7 @@ function PageBtn({ n, active, onClick }: { n: number; active: boolean; onClick: 
       onClick={onClick}
       aria-current={active ? "page" : undefined}
       className={cn(
-        "inline-flex size-10 items-center justify-center rounded-full text-sm font-semibold lining-nums ring-1 transition",
+        "inline-flex size-10 items-center justify-center rounded-full text-sm font-semibold lining-nums ring-1 transition-[transform,background-color,color,box-shadow] duration-200 ease-out active:scale-[0.96]",
         active ? "bg-caramel text-ink ring-caramel" : "bg-crema/6 text-crema/70 ring-sand/15 hover:bg-crema/10 hover:text-crema",
       )}
     >
@@ -127,7 +127,7 @@ function EllipsisJump({ totalPages, onGo }: { totalPages: number; onGo: (p: numb
         onClick={() => setOpen(true)}
         aria-label="Vai a una pagina precisa"
         title="Vai a pagina…"
-        className="inline-flex size-10 items-center justify-center rounded-full bg-crema/6 text-crema/45 ring-1 ring-sand/15 transition hover:bg-crema/10 hover:text-crema"
+        className="inline-flex size-10 items-center justify-center rounded-full bg-crema/6 text-crema/45 ring-1 ring-sand/15 transition-[transform,background-color,color] duration-200 ease-out hover:bg-crema/10 hover:text-crema active:scale-[0.96]"
       >
         …
       </button>

@@ -137,7 +137,7 @@ export function RolesBrowser({ initial }: { initial: RolesData | null }) {
           { n: s?.totalRoles ?? rows.length, l: "ruoli creati" },
           { n: s?.totalAssignments ?? 0, l: "assegnazioni" },
         ].map((x) => (
-          <div key={x.l} className="rounded-2xl bg-roast/70 p-4 text-center ring-1 ring-sand/12 sm:p-5">
+          <div key={x.l} className="rounded-2xl bg-gradient-to-b from-caramel/[0.08] via-roast/80 to-roast p-4 text-center ring-1 ring-sand/12 sm:p-5">
             <p className="font-display text-3xl font-semibold lining-nums sm:text-4xl">{x.n}</p>
             <p className="mt-1 text-xs text-crema/50 sm:text-sm">{x.l}</p>
           </div>
@@ -157,7 +157,7 @@ export function RolesBrowser({ initial }: { initial: RolesData | null }) {
             }}
             placeholder="Cerca un ruolo o un utente…"
             aria-label="Cerca un ruolo o un utente"
-            className="w-full rounded-2xl bg-roast/80 py-3.5 pl-14 pr-12 text-crema ring-1 ring-sand/15 placeholder:text-crema/35 focus:outline-none focus:ring-2 focus:ring-caramel/60 [&::-webkit-search-cancel-button]:appearance-none"
+            className="w-full rounded-2xl bg-gradient-to-b from-caramel/[0.08] via-roast/85 to-roast py-3.5 pl-14 pr-12 text-crema ring-1 ring-sand/15 placeholder:text-crema/35 focus:outline-none focus:ring-2 focus:ring-caramel/60 [&::-webkit-search-cancel-button]:appearance-none"
           />
           {query && (
             <button
@@ -198,7 +198,7 @@ export function RolesBrowser({ initial }: { initial: RolesData | null }) {
         })}
       </div>
       {list.length === 0 && (
-        <p className="mt-6 rounded-3xl bg-roast/70 px-6 py-12 text-center text-crema/55 ring-1 ring-sand/12">
+        <p className="mt-6 rounded-3xl bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast px-6 py-12 text-center text-crema/55 ring-1 ring-sand/12">
           {rows.length ? `Nessun ruolo trovato per “${query}”.` : "Ancora nessun ruolo personalizzato."}
         </p>
       )}

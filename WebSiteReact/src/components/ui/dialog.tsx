@@ -387,6 +387,8 @@ function DialogActions({
 }
 
 const primaryBtn =
-  "rounded-full bg-gradient-to-r from-caramel to-ember px-4 py-2 text-sm font-semibold text-ink transition hover:-translate-y-0.5";
-const secondaryBtn = "rounded-full bg-crema/8 px-4 py-2 text-sm font-semibold text-crema ring-1 ring-sand/25 transition hover:bg-crema/12";
-const dangerBtn = "rounded-full bg-[#e2836f] px-4 py-2 text-sm font-semibold text-ink transition hover:-translate-y-0.5";
+  "rounded-full bg-gradient-to-r from-caramel to-ember px-4 py-2 text-sm font-semibold text-ink transition-[transform,filter] duration-200 ease-out hover:-translate-y-0.5 active:scale-[0.97]";
+const secondaryBtn =
+  "rounded-full bg-crema/8 px-4 py-2 text-sm font-semibold text-crema ring-1 ring-sand/25 transition-[transform,background-color,box-shadow] duration-200 ease-out hover:bg-crema/12 active:scale-[0.97]";
+const dangerBtn =
+  "rounded-full bg-[#e2836f] px-4 py-2 text-sm font-semibold text-ink transition-[transform,filter] duration-200 ease-out hover:-translate-y-0.5 active:scale-[0.97]";

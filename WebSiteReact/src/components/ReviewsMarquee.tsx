@@ -17,9 +17,9 @@ import { page } from "@/lib/site";
 
 function ReviewCard({ r }: { r: Review }) {
   return (
-    <figure className="group/spot relative flex w-[280px] shrink-0 snap-start flex-col overflow-hidden rounded-3xl bg-roast p-5 ring-1 ring-sand/12 sm:w-[340px]">
+    <figure className="group/spot relative flex w-[280px] shrink-0 snap-start flex-col overflow-hidden rounded-3xl bg-gradient-to-b from-caramel/[0.1] via-roast to-espresso p-5 ring-1 ring-sand/15 sm:w-[340px]">
       <Spotlight size={240} />
-      <Quote className="absolute right-4 top-4 size-8 text-caramel/15" aria-hidden />
+      <Quote className="absolute right-4 top-4 size-8 text-caramel/25" aria-hidden />
       <div className="relative flex gap-0.5 text-ember" aria-label={`${r.rating} su 5`}>
         {Array.from({ length: 5 }, (_, i) => (
           <Star key={i} className="size-4" fill={i < r.rating ? "currentColor" : "none"} strokeWidth={i < r.rating ? 0 : 1.5} />

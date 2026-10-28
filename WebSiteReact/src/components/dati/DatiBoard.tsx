@@ -87,7 +87,7 @@ function Card({
         "rounded-3xl p-6 ring-1 sm:p-7",
         tone === "danger" && "bg-roast/70 ring-[#a83a2c]/35",
         tone === "info" && "bg-gradient-to-b from-caramel/15 to-roast ring-caramel/40 shadow-[0_30px_80px_-30px_rgba(212,145,80,0.35)]",
-        tone === "default" && "bg-roast/70 ring-sand/12",
+        tone === "default" && "bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast ring-sand/15",
       )}
     >
       <div className="flex items-center gap-3">
@@ -251,7 +251,7 @@ export function DatiBoard() {
           <div className="flex flex-wrap gap-3">
             <SmartLink
               href="/tickets/"
-              className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-caramel to-ember px-5 py-2.5 text-sm font-semibold text-ink transition hover:-translate-y-0.5"
+              className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-caramel to-ember px-5 py-2.5 text-sm font-semibold text-ink transition-[transform,filter] duration-200 ease-out hover:-translate-y-0.5 active:scale-[0.97]"
             >
               <Ticket className="size-4" /> Apri un ticket
             </SmartLink>
@@ -287,7 +287,7 @@ export function DatiBoard() {
                 type="button"
                 disabled={!!busy}
                 onClick={onExport}
-                className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-caramel to-ember px-5 py-2.5 text-sm font-semibold text-ink transition hover:-translate-y-0.5 disabled:opacity-60"
+                className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-caramel to-ember px-5 py-2.5 text-sm font-semibold text-ink transition-[transform,filter] duration-200 ease-out hover:-translate-y-0.5 active:scale-[0.97] disabled:opacity-60"
               >
                 {busy === "export" ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />}
                 Scarica i miei dati
@@ -368,7 +368,7 @@ export function DatiBoard() {
                 type="button"
                 disabled={!!busy}
                 onClick={onEraseClick}
-                className="inline-flex items-center gap-2 rounded-full bg-[#a83a2c] px-5 py-2.5 text-sm font-semibold text-crema transition hover:-translate-y-0.5 disabled:opacity-60"
+                className="inline-flex items-center gap-2 rounded-full bg-[#a83a2c] px-5 py-2.5 text-sm font-semibold text-crema transition-[transform,filter] duration-200 ease-out hover:-translate-y-0.5 active:scale-[0.97] disabled:opacity-60"
               >
                 {busy === "erase" ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-4" />}
                 Cancella i miei dati

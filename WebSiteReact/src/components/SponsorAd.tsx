@@ -99,7 +99,7 @@ export function SponsorAd() {
                   target="_blank"
                   rel="noopener noreferrer sponsored"
                   aria-label={`${label} (link esterno)`}
-                  className="mt-3 inline-flex rounded-full bg-gradient-to-r from-caramel to-ember px-4 py-2 text-sm font-semibold text-ink transition hover:-translate-y-0.5"
+                  className="mt-3 inline-flex rounded-full bg-gradient-to-r from-caramel to-ember px-4 py-2 text-sm font-semibold text-ink transition-[transform,filter] duration-200 ease-out hover:-translate-y-0.5 active:scale-[0.97]"
                 >
                   {label}
                 </a>

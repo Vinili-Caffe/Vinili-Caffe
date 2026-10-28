@@ -4,8 +4,16 @@ import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { Download, Share, X } from "lucide-react";
 import { useChromeOpenListener } from "@/lib/chrome-open";
-
-type BIPEvent = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: string }> };
+import { SmartLink } from "@/components/SmartLink";
+import { page } from "@/lib/site";
+import {
+  detectInstallSurface,
+  detectPwaAlreadyInstalled,
+  ensurePwaInstallCapture,
+  promptHeldBip,
+  subscribeBip,
+  type BIPEvent,
+} from "@/lib/pwa-install";
 
 const LS_KEY = "vc_install_prompt_v1";
 const SNOOZE_MS = 30 * 24 * 60 * 60 * 1000;
@@ -26,53 +34,56 @@ function snooze() {
     /* ignore */
   }
 }
-function standalone() {
-  try {
-    return window.matchMedia("(display-mode: standalone)").matches || (navigator as Navigator & { standalone?: boolean }).standalone === true;
-  } catch {
-    return false;
-  }
-}
-function iosSafari() {
-  const ua = navigator.userAgent;
-  return /iPhone|iPad|iPod/i.test(ua) && /Safari/i.test(ua) && !/CriOS|FxiOS|EdgiOS|Instagram|FBAN|FBAV/i.test(ua);
-}
 
 /**
- * Invito discreto a installare il sito come app (notifiche più affidabili, soprattutto su iPhone).
- * Android/Chrome: pulsante che apre l'installazione del browser. iPhone (Safari): due passaggi da fare a mano.
- * Compare dopo ~25 s, mai se già installata; "non ora" lo nasconde per 30 giorni.
+ * Invito discreto a installare il sito come app.
+ * Android/Chrome: pulsante BIP. iPhone Safari: passaggi Share.
+ * Non compare se già installata (standalone / related apps / flag locale).
  */
 export function InstallPrompt() {
   const [evt, setEvt] = useState<BIPEvent | null>(null);
   const [ios, setIos] = useState(false);
   const [show, setShow] = useState(false);
   const [chromeOpen, setChromeOpen] = useState(false);
+  const [blocked, setBlocked] = useState(false);
 
   useEffect(() => useChromeOpenListener(setChromeOpen), []);
 
   useEffect(() => {
-    if (standalone() || snoozed()) return;
-    const onBip = (e: Event) => {
-      e.preventDefault();
-      setEvt(e as BIPEvent);
-    };
-    window.addEventListener("beforeinstallprompt", onBip);
-    if (iosSafari()) setIos(true);
-    const t = window.setTimeout(() => setShow(true), SHOW_AFTER_MS);
+    ensurePwaInstallCapture();
+    let alive = true;
+    let timer = 0;
+
+    void detectPwaAlreadyInstalled().then((installed) => {
+      if (!alive) return;
+      if (installed || snoozed()) {
+        setBlocked(true);
+        return;
+      }
+      const surface = detectInstallSurface();
+      const isIos = surface === "ios-safari" || surface === "ios-other";
+      setIos(isIos && surface === "ios-safari");
+      timer = window.setTimeout(() => {
+        if (alive) setShow(true);
+      }, SHOW_AFTER_MS);
+    });
+
+    const unsub = subscribeBip(setEvt);
     const onInstalled = () => {
       snooze();
       setShow(false);
+      setBlocked(true);
     };
     window.addEventListener("appinstalled", onInstalled);
     return () => {
-      window.clearTimeout(t);
-      window.removeEventListener("beforeinstallprompt", onBip);
+      alive = false;
+      if (timer) window.clearTimeout(timer);
+      unsub();
       window.removeEventListener("appinstalled", onInstalled);
     };
   }, []);
 
-  const visible = show && !chromeOpen && (Boolean(evt) || ios);
+  const visible = !blocked && show && !chromeOpen && (Boolean(evt) || ios);
   const close = () => {
     snooze();
     setShow(false);
@@ -104,8 +115,15 @@ export function InstallPrompt() {
                   <strong className="text-crema">Aggiungi a schermata Home</strong>: notifiche più affidabili e apertura con un tocco.
                 </p>
               ) : (
-                <p className="mt-1 text-sm leading-relaxed text-crema/65">Si apre come un'app, con le notifiche più affidabili.</p>
+                <p className="mt-1 text-sm leading-relaxed text-crema/65">Si apre come un&apos;app, con le notifiche più affidabili.</p>
               )}
+              <SmartLink
+                href={page("/app/")}
+                onClick={close}
+                className="mt-1.5 inline-block text-xs font-semibold text-caramel underline-offset-2 hover:underline"
+              >
+                Guida completa
+              </SmartLink>
             </div>
           </div>
           {!ios && evt ? (
@@ -113,13 +131,7 @@ export function InstallPrompt() {
               <button
                 type="button"
                 onClick={async () => {
-                  try {
-                    await evt.prompt();
-                    await evt.userChoice;
-                  } catch {
-                    /* ignore */
-                  }
-                  setEvt(null);
+                  await promptHeldBip();
                   close();
                 }}
                 className="inline-flex flex-1 items-center justify-center gap-2 rounded-full bg-gradient-to-r from-caramel to-ember px-4 py-2.5 text-sm font-semibold text-ink"

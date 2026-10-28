@@ -30,5 +30,5 @@ root.classList.add("vc-boot-ready");
 var c=document.getElementById("vc-boot-curtain");
 if(c&&c.parentNode)c.parentNode.removeChild(c);
 };
-window.setTimeout(function(){try{if(document.getElementById("vc-boot-curtain")||root.classList.contains("vc-boot-hold"))window.__vcBootUnlock();}catch(e5){}},2200);
+window.setTimeout(function(){try{if(document.getElementById("vc-boot-curtain")||root.classList.contains("vc-boot-hold"))window.__vcBootUnlock();}catch(e5){}},900);
 }catch(e){}})();`;

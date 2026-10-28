@@ -58,6 +58,64 @@ html {
   scroll-behavior: smooth;
   scrollbar-width: none;
   -ms-overflow-style: none;
+  /* Mobile-native + craft-floor browser surfaces */
+  -webkit-tap-highlight-color: transparent;
+  text-underline-offset: 0.18em;
+  caret-color: var(--color-caramel);
+  scroll-padding-top: calc(5.25rem + env(safe-area-inset-top, 0px));
+}
+
+::selection {
+  background: color-mix(in srgb, var(--color-caramel) 42%, transparent);
+  color: var(--color-crema);
+}
+
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--color-caramel) 75%, #fff);
+  outline-offset: 3px;
+}
+
+/* Input/textarea tengono il ring di componente; niente outline doppio. */
+:where(input, textarea, select, [contenteditable="true"]):focus-visible {
+  outline: none;
+}
+
+:where(a, button, [role="button"], summary, label[for]) {
+  touch-action: manipulation;
+}
+
+:where(button, [role="button"], summary) {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/*
+ * CTA caramel site-wide (Emil craft-floor).
+ * `.from-caramel` è la classe Tailwind del gradient primaria usata ovunque.
+ */
+:where(a, button, [role="button"]).from-caramel {
+  transition-property: transform, filter, box-shadow, opacity, background-color;
+  transition-duration: 200ms;
+  transition-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+:where(a, button, [role="button"]).from-caramel:hover {
+  filter: brightness(1.05);
+}
+:where(a, button, [role="button"]).from-caramel:active:not(:disabled) {
+  transform: scale(0.97);
+}
+@media (prefers-reduced-motion: reduce) {
+  :where(a, button, [role="button"]).from-caramel,
+  :where(a, button, [role="button"]).from-caramel:hover,
+  :where(a, button, [role="button"]).from-caramel:active:not(:disabled) {
+    transition: none;
+    transform: none;
+    filter: none;
+  }
 }
 
 /* Boot / route / evento gate: niente flash footer+navbar senza contenuto */

@@ -23,6 +23,9 @@ export type ContestStatus = {
   canSubmitByCategory?: Record<string, { count: number; canSubmit: boolean }>;
   canSubmit?: boolean;
   canVote?: boolean;
+  /** Ban solo sull’invio immagini: può ancora entrare e votare. */
+  submitBanned?: boolean;
+  submitBannedMessage?: string | null;
   message?: string;
   error?: string;
 };

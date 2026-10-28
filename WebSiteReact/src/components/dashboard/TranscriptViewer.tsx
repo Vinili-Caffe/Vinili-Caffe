@@ -100,7 +100,7 @@ export function TranscriptViewer() {
 
   if (gate) {
     return (
-      <div className="mx-auto max-w-md rounded-2xl bg-roast/80 p-6 text-center ring-1 ring-sand/15 sm:p-8">
+      <div className="mx-auto max-w-md rounded-2xl bg-gradient-to-b from-caramel/[0.08] via-roast/85 to-roast p-6 text-center ring-1 ring-sand/15 sm:p-8">
         <span className="mx-auto flex size-12 items-center justify-center rounded-xl bg-caramel/15 text-ember ring-1 ring-caramel/25">
           <FileText className="size-6" />
         </span>
@@ -138,7 +138,7 @@ export function TranscriptViewer() {
     .join(" · ");
 
   return (
-    <section className="overflow-hidden rounded-2xl bg-roast/70 ring-1 ring-sand/12">
+    <section className="overflow-hidden rounded-2xl bg-gradient-to-b from-caramel/[0.08] via-roast/80 to-roast ring-1 ring-sand/12">
       <header className="flex flex-wrap items-baseline justify-between gap-2 border-b border-sand/10 px-4 py-3 sm:px-5">
         <h1 className="font-display text-xl font-semibold text-crema">{title}</h1>
         {metaLine && <p className="text-xs text-crema/50">{metaLine}</p>}

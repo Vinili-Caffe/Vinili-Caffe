@@ -209,7 +209,7 @@ export function FaqBrowser() {
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Cerca: EXP, staff, eventi…"
           aria-label="Cerca nelle FAQ"
-          className="w-full rounded-2xl bg-roast/80 py-4 pl-14 pr-12 text-base text-crema ring-1 ring-sand/15 backdrop-blur transition-shadow placeholder:text-crema/35 focus:outline-none focus:ring-2 focus:ring-caramel/60 [&::-webkit-search-cancel-button]:appearance-none"
+          className="w-full rounded-2xl bg-gradient-to-b from-caramel/[0.08] via-roast/85 to-roast py-4 pl-14 pr-12 text-base text-crema ring-1 ring-sand/15 backdrop-blur transition-shadow placeholder:text-crema/35 focus:outline-none focus:ring-2 focus:ring-caramel/60 [&::-webkit-search-cancel-button]:appearance-none"
         />
         <AnimatePresence>
           {query && (
@@ -286,7 +286,7 @@ export function FaqBrowser() {
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}
-            className="mt-8 rounded-2xl bg-roast/70 p-8 text-center ring-1 ring-sand/12"
+            className="mt-8 rounded-2xl bg-gradient-to-b from-caramel/[0.08] via-roast/80 to-roast p-8 text-center ring-1 ring-sand/12"
           >
             <p className="font-display text-2xl">Nessuna domanda trovata per “{query}”</p>
             <p className="mt-2 text-crema/60">Prova con un'altra parola, oppure chiedi direttamente a noi qui sotto.</p>

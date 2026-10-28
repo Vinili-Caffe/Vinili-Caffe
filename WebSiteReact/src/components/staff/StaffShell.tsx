@@ -33,7 +33,7 @@ export function useStaff(): StaffCtx {
 
 function gateDenied(title: string, text: string) {
   return (
-    <div className="rounded-2xl bg-roast/70 p-6 ring-1 ring-sand/15 sm:p-8">
+    <div className="rounded-2xl bg-gradient-to-b from-caramel/[0.08] via-roast/80 to-roast p-6 ring-1 ring-sand/15 sm:p-8">
       <div className="flex items-start gap-3">
         <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-caramel/15 text-ember ring-1 ring-caramel/25">
           <ShieldAlert className="size-5" />
@@ -124,14 +124,14 @@ export function StaffShell({
   let body: React.ReactNode;
   if (!ready || loading) {
     body = (
-      <div className="space-y-3" aria-busy="true" aria-label="Caricamento">
+      <div className="space-y-3" aria-label="Caricamento">
         <div className="h-10 animate-pulse rounded-2xl bg-crema/8" />
         <div className="h-40 animate-pulse rounded-2xl bg-crema/6" />
       </div>
     );
   } else if (!token) {
     body = (
-      <div className="rounded-2xl bg-roast/70 p-6 ring-1 ring-sand/15 sm:p-8">
+      <div className="rounded-2xl bg-gradient-to-b from-caramel/[0.08] via-roast/80 to-roast p-6 ring-1 ring-sand/15 sm:p-8">
         <div className="flex items-start gap-3">
           <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-caramel/15 text-ember ring-1 ring-caramel/25">
             <LogIn className="size-5" />
@@ -144,7 +144,7 @@ export function StaffShell({
             <button
               type="button"
               onClick={login}
-              className="mt-4 inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-caramel to-ember px-5 py-2.5 text-sm font-semibold text-ink transition hover:-translate-y-0.5"
+              className="mt-4 inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-caramel to-ember px-5 py-2.5 text-sm font-semibold text-ink transition-[transform,filter] duration-200 ease-out hover:-translate-y-0.5 active:scale-[0.97]"
             >
               <LogIn className="size-4" /> Accedi con Discord
             </button>
@@ -154,7 +154,7 @@ export function StaffShell({
     );
   } else if (!access) {
     body = (
-      <div className="rounded-2xl bg-roast/70 p-6 ring-1 ring-[#a83a2c]/35 sm:p-8">
+      <div className="rounded-2xl bg-gradient-to-b from-caramel/[0.08] via-roast/80 to-roast p-6 ring-1 ring-[#a83a2c]/35 sm:p-8">
         <div className="flex items-start gap-3">
           <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-[#a83a2c]/20 text-[#f0a493] light:text-[#a83a2c] ring-1 ring-[#a83a2c]/35">
             <ShieldAlert className="size-5" />
@@ -175,7 +175,7 @@ export function StaffShell({
     );
   } else if (requireCompiti && !access.canCompiti) {
     body = (
-      <div className="rounded-2xl bg-roast/70 p-6 ring-1 ring-sand/15 sm:p-8">
+      <div className="rounded-2xl bg-gradient-to-b from-caramel/[0.08] via-roast/80 to-roast p-6 ring-1 ring-sand/15 sm:p-8">
         <div className="flex items-start gap-3">
           <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-caramel/15 text-ember ring-1 ring-caramel/25">
             <ClipboardList className="size-5" />

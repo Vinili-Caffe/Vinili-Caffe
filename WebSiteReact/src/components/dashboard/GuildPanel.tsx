@@ -82,7 +82,7 @@ function GuildHeader({
 }) {
   const initial = (guild.name.trim().charAt(0) || "?").toUpperCase();
   return (
-    <div className="flex flex-wrap items-center gap-3 rounded-2xl bg-roast/70 p-3.5 ring-1 ring-sand/12 sm:p-4">
+    <div className="flex flex-wrap items-center gap-3 rounded-2xl bg-gradient-to-b from-caramel/[0.08] via-roast/80 to-roast p-3.5 ring-1 ring-sand/12 sm:p-4">
       {guild.iconUrl ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
@@ -644,7 +644,7 @@ export function GuildPanel() {
   }, [ready, token]);
 
   const primaryBtn =
-    "inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-caramel to-ember px-5 py-2.5 text-sm font-semibold text-ink transition hover:-translate-y-0.5";
+    "inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-caramel to-ember px-5 py-2.5 text-sm font-semibold text-ink transition-[transform,filter] duration-200 ease-out hover:-translate-y-0.5 active:scale-[0.97]";
   const secondaryBtn =
     "inline-flex items-center justify-center gap-2 rounded-full bg-crema/8 px-5 py-2.5 text-sm font-semibold text-crema ring-1 ring-sand/25 transition hover:ring-sand/40";
 
@@ -676,7 +676,7 @@ export function GuildPanel() {
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}
-            className="rounded-2xl bg-roast/70 p-8 text-center ring-1 ring-sand/12"
+            className="rounded-2xl bg-gradient-to-b from-caramel/[0.08] via-roast/80 to-roast p-8 text-center ring-1 ring-sand/12"
           >
             <span className="mx-auto flex size-11 items-center justify-center rounded-xl bg-caramel/15 text-ember ring-1 ring-caramel/25">
               <Server className="size-5" />
@@ -699,7 +699,7 @@ export function GuildPanel() {
             key="locked"
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
-            className="rounded-2xl bg-roast/70 p-8 text-center ring-1 ring-sand/12"
+            className="rounded-2xl bg-gradient-to-b from-caramel/[0.08] via-roast/80 to-roast p-8 text-center ring-1 ring-sand/12"
           >
             <h2 className="font-display text-2xl font-semibold">Accesso non disponibile</h2>
             <p className="mt-2 text-sm text-crema/60">
@@ -716,7 +716,7 @@ export function GuildPanel() {
             key="noid"
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
-            className="rounded-2xl bg-roast/70 p-8 text-center ring-1 ring-sand/12"
+            className="rounded-2xl bg-gradient-to-b from-caramel/[0.08] via-roast/80 to-roast p-8 text-center ring-1 ring-sand/12"
           >
             <h2 className="font-display text-2xl font-semibold">Nessun server selezionato</h2>
             <p className="mt-2 text-sm text-crema/60">
@@ -744,7 +744,7 @@ export function GuildPanel() {
             <GuildHeader guild={overview} premiumActive={premiumActive} />
 
             {!overview.botPresent ? (
-              <div className="rounded-2xl bg-roast/70 p-5 ring-1 ring-sand/12">
+              <div className="rounded-2xl bg-gradient-to-b from-caramel/[0.08] via-roast/80 to-roast p-5 ring-1 ring-sand/12">
                 <p className="text-sm text-crema/70">
                   {settingsError || "Il bot non è presente in questo server."}
                 </p>
@@ -807,7 +807,7 @@ export function GuildPanel() {
                   })}
                 </div>
 
-                <div className="rounded-2xl bg-roast/70 p-4 ring-1 ring-sand/12 sm:p-5">
+                <div className="rounded-2xl bg-gradient-to-b from-caramel/[0.08] via-roast/80 to-roast p-4 ring-1 ring-sand/12 sm:p-5">
                   <AnimatePresence mode="wait">
                     <motion.div
                       key={section}
@@ -875,7 +875,7 @@ export function GuildPanel() {
             key="err"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="rounded-2xl bg-roast/70 p-6 text-center ring-1 ring-sand/12"
+            className="rounded-2xl bg-gradient-to-b from-caramel/[0.08] via-roast/80 to-roast p-6 text-center ring-1 ring-sand/12"
           >
             <p className="text-sm text-crema/70">{error}</p>
             <SmartLink href={dashHref("/dashboard/")} className={cn(secondaryBtn, "mt-4")}>

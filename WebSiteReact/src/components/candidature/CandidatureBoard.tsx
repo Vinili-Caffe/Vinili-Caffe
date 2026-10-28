@@ -243,7 +243,7 @@ export function CandidatureBoard() {
       {/* requisiti ed esito */}
       <Reveal>
         <div className="grid gap-4 md:grid-cols-[1.2fr_1fr]">
-          <div className="rounded-3xl bg-roast/70 p-7 ring-1 ring-sand/12">
+          <div className="rounded-3xl bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast p-7 ring-1 ring-sand/12">
             <p className="text-xs font-semibold uppercase tracking-[0.3em] text-caramel">Requisiti</p>
             <p className="mt-3 text-crema/70">Per candidarti è necessario soddisfare i seguenti requisiti:</p>
             <ul className="mt-4 space-y-2.5">
@@ -293,7 +293,7 @@ export function CandidatureBoard() {
                 aria-checked={on}
                 onClick={() => (setType(r.id), setDone(null))}
                 className={cn(
-                  "relative overflow-hidden rounded-3xl p-6 text-left ring-1 transition-all",
+                  "relative overflow-hidden rounded-3xl p-6 text-left ring-1 transition-[transform,background-color,box-shadow,opacity] duration-200 ease-out",
                   on ? "bg-gradient-to-b from-caramel/15 to-roast ring-caramel/60 shadow-[0_24px_60px_-30px_rgba(212,145,80,0.6)]" : "bg-roast/70 ring-sand/12 hover:ring-sand/30",
                 )}
               >
@@ -322,7 +322,7 @@ export function CandidatureBoard() {
         ) : !token ? (
           <AuthGateCard title="Accedi per candidarti" text="Accedi con Discord per compilare il modulo." />
         ) : eligErr ? (
-          <div className="rounded-3xl bg-roast/70 p-10 text-center ring-1 ring-sand/12">
+          <div className="rounded-3xl bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast p-10 text-center ring-1 ring-sand/12">
             <p className="font-display text-3xl font-semibold">{eligErr.disabled ? "Candidature chiuse" : "Non riesco a verificare il tuo account"}</p>
             <p className="mt-2 text-crema/60">{eligErr.text}</p>
           </div>
@@ -339,13 +339,13 @@ export function CandidatureBoard() {
             </p>
           </motion.div>
         ) : !me?.eligible ? (
-          <div className="rounded-3xl bg-roast/70 p-10 text-center ring-1 ring-sand/12">
+          <div className="rounded-3xl bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast p-10 text-center ring-1 ring-sand/12">
             <p className="font-display text-3xl font-semibold">Per ora non puoi candidarti come {role.label}</p>
             <p className="mt-2 text-crema/60">{me?.code === "cooldown" && me.cooldown_until_ms ? `Hai già inviato una candidatura: potrai riprovare dal ${dateTimeIt(me.cooldown_until_ms)}.` : me?.message}</p>
           </div>
         ) : (
           <form
-            className="rounded-3xl bg-roast/70 p-5 ring-1 ring-sand/12 sm:p-8"
+            className="rounded-3xl bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast p-5 ring-1 ring-sand/12 sm:p-8"
             onSubmit={(e) => {
               e.preventDefault();
               if (review) void submit();
@@ -410,14 +410,14 @@ export function CandidatureBoard() {
                 <button
                   type="submit"
                   disabled={busy}
-                  className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-caramel to-ember px-6 py-3 font-semibold text-ink shadow-[0_12px_30px_-10px_rgba(232,160,90,0.7)] transition-all hover:-translate-y-0.5 disabled:opacity-60"
+                  className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-caramel to-ember px-6 py-3 font-semibold text-ink shadow-[0_12px_30px_-10px_rgba(232,160,90,0.7)] transition-[transform,filter,box-shadow] duration-200 ease-out hover:-translate-y-0.5 active:scale-[0.97] disabled:opacity-60"
                 >
                   {busy ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />} {busy ? "Invio in corso…" : "Invia candidatura"}
                 </button>
               ) : (
                 <button
                   type="submit"
-                  className="inline-flex items-center gap-2 rounded-full bg-crema px-6 py-3 font-semibold text-espresso transition-all hover:-translate-y-0.5"
+                  className="inline-flex items-center gap-2 rounded-full bg-crema px-6 py-3 font-semibold text-espresso transition-[transform,filter,box-shadow] duration-200 ease-out hover:-translate-y-0.5 active:scale-[0.97]"
                 >
                   {step === steps - 1 ? "Rileggi" : "Avanti"} <ArrowRight className="size-4" />
                 </button>

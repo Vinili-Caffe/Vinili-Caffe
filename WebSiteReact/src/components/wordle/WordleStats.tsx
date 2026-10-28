@@ -27,7 +27,7 @@ export function WordleStats({ stats, shareText, onShare, shareLabel = "Condividi
   ];
 
   return (
-    <div className="rounded-3xl bg-roast/70 p-5 ring-1 ring-sand/12 sm:p-6">
+    <div className="rounded-3xl bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast p-5 ring-1 ring-sand/12 sm:p-6">
       <div className="flex items-center justify-between gap-3">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.3em] text-caramel">Statistiche</p>
@@ -49,7 +49,7 @@ export function WordleStats({ stats, shareText, onShare, shareLabel = "Condividi
               <button
                 type="button"
                 onClick={onShare}
-                className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-caramel to-ember px-4 py-2 text-sm font-semibold text-ink transition hover:-translate-y-0.5"
+                className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-caramel to-ember px-4 py-2 text-sm font-semibold text-ink transition-[transform,filter] duration-200 ease-out hover:-translate-y-0.5 active:scale-[0.97]"
               >
                 <Share2 className="size-4" />
                 <span className="hidden sm:inline">{shareLabel}</span>

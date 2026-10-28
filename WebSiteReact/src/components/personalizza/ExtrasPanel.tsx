@@ -188,7 +188,7 @@ export function ExtrasPanel({
     const panel = extras.rolePanel?.byKey?.[roleCat];
     return (
       <div className="space-y-4">
-        <div className="rounded-3xl bg-roast/70 p-5 ring-1 ring-sand/12 sm:p-6">
+        <div className="rounded-3xl bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast p-5 ring-1 ring-sand/12 sm:p-6">
           <div className="flex items-start gap-3">
             <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-caramel/15 text-ember ring-1 ring-caramel/25">
               <Palette className="size-4" />
@@ -219,7 +219,7 @@ export function ExtrasPanel({
         </div>
 
         {panel && (
-          <div className="rounded-3xl bg-roast/70 p-5 ring-1 ring-sand/12 sm:p-6">
+          <div className="rounded-3xl bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast p-5 ring-1 ring-sand/12 sm:p-6">
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
               <h4 className="font-display text-xl font-semibold"><EmojiText text={panel.label} /></h4>
               {panel.key === "colors_plus" && panel.canPickPlus === false && (
@@ -273,7 +273,7 @@ export function ExtrasPanel({
   if (tab === "birthday") {
     const b = extras.birthday;
     return (
-      <div className="rounded-3xl bg-roast/70 p-5 ring-1 ring-sand/12 sm:p-6">
+      <div className="rounded-3xl bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast p-5 ring-1 ring-sand/12 sm:p-6">
         <div className="flex items-start gap-3">
           <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-caramel/15 text-ember ring-1 ring-caramel/25">
             <Cake className="size-4" />
@@ -362,7 +362,7 @@ export function ExtrasPanel({
     const closed = kinds.filter((k) => k.blocked).length;
     const level = kinds.length ? closed / kinds.length : 0;
     return (
-      <div className="overflow-hidden rounded-3xl bg-roast/70 ring-1 ring-sand/12">
+      <div className="overflow-hidden rounded-3xl bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast ring-1 ring-sand/12">
         {/* testata: lucchetto che si chiude man mano che proteggi le voci */}
         <div className="relative flex flex-col gap-5 bg-gradient-to-br from-caramel/15 via-roast/40 to-transparent p-5 sm:flex-row sm:items-center sm:p-6">
           <div className="relative flex size-20 shrink-0 items-center justify-center self-start rounded-[1.4rem] bg-espresso/70 ring-1 ring-caramel/30 sm:self-auto">
@@ -406,7 +406,7 @@ export function ExtrasPanel({
               type="button"
               disabled={busy || closed === kinds.length}
               onClick={() => run("privacy", { action: "all_off" })}
-              className="inline-flex items-center justify-center gap-1.5 rounded-full bg-gradient-to-r from-caramel to-ember px-4 py-2 text-xs font-semibold text-ink transition-all hover:-translate-y-0.5 disabled:opacity-40 disabled:hover:translate-y-0"
+              className="inline-flex items-center justify-center gap-1.5 rounded-full bg-gradient-to-r from-caramel to-ember px-4 py-2 text-xs font-semibold text-ink transition-[transform,filter,box-shadow] duration-200 ease-out hover:-translate-y-0.5 active:scale-[0.97] disabled:opacity-40 disabled:hover:translate-y-0"
             >
               <Lock className="size-3.5" /> Proteggi tutto
             </button>
@@ -434,7 +434,7 @@ export function ExtrasPanel({
                   disabled={busy}
                   onClick={() => run("privacy", { action: "toggle", key: k.key })}
                   className={cn(
-                    "group flex h-full w-full items-start gap-3 rounded-2xl p-4 text-left ring-1 transition-all disabled:opacity-60",
+                    "group flex h-full w-full items-start gap-3 rounded-2xl p-4 text-left ring-1 transition-[transform,background-color,box-shadow,opacity] duration-200 ease-out disabled:opacity-60",
                     k.blocked
                       ? "bg-caramel/12 ring-caramel/40 shadow-[0_18px_40px_-28px_rgba(217,154,91,0.9)]"
                       : "bg-espresso/40 ring-sand/12 hover:-translate-y-0.5 hover:ring-sand/30",
@@ -501,7 +501,7 @@ export function ExtrasPanel({
     const slots = Math.max(mr.max, mr.reactions.length);
     const tokens = mr.reactions || [];
     return (
-      <div className="rounded-3xl bg-roast/70 p-5 ring-1 ring-sand/12 sm:p-6">
+      <div className="rounded-3xl bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast p-5 ring-1 ring-sand/12 sm:p-6">
         <div className="flex items-start gap-3">
           <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-caramel/15 text-ember ring-1 ring-caramel/25">
             <Smile className="size-4" />
@@ -581,7 +581,7 @@ export function ExtrasPanel({
     return <LockPlate title="Mention Response" note={resp.accessHint || "Funzione riservata. Controlla i requisiti sul server."} />;
   }
   return (
-    <div className="rounded-3xl bg-roast/70 p-5 ring-1 ring-sand/12 sm:p-6">
+    <div className="rounded-3xl bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast p-5 ring-1 ring-sand/12 sm:p-6">
       <div className="flex items-start gap-3">
         <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-caramel/15 text-ember ring-1 ring-caramel/25">
           <MessageSquare className="size-4" />

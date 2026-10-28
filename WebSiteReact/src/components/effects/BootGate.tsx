@@ -26,6 +26,12 @@ export function BootGate() {
         root.classList.remove("vc-boot-hold");
         root.classList.add("vc-boot-ready");
       }
+      root.classList.add("vc-boot-ready");
+      try {
+        window.dispatchEvent(new Event("vc-boot-ready"));
+      } catch {
+        /* ignore */
+      }
       const c = document.getElementById("vc-boot-curtain");
       if (c?.parentNode) c.parentNode.removeChild(c);
     };
@@ -68,9 +74,9 @@ export function BootGate() {
       }
       const main = document.querySelector("main");
       const mainH = main ? (main as HTMLElement).offsetHeight : 0;
-      const busy =
-        root.classList.contains("vc-evento-hold") || Boolean(main?.querySelector('[aria-busy="true"]'));
-      const readyLayout = (mainH > 200 && !busy) || tries > 48;
+      /* speedRes1: NON aspettare aria-busy / vc-evento-hold — tenevano LCP a 5–7s
+         su staff/evento mentre auth+API giravano sotto il sipario. */
+      const readyLayout = mainH > 160 || tries > 24;
       if (frames >= 2 && readyLayout) {
         window.setTimeout(unlock, 40);
         return;
@@ -78,7 +84,7 @@ export function BootGate() {
       window.requestAnimationFrame(tick);
     };
     const id = window.requestAnimationFrame(tick);
-    const failsafe = window.setTimeout(unlock, 2800);
+    const failsafe = window.setTimeout(unlock, 900);
     return () => {
       window.cancelAnimationFrame(id);
       window.clearTimeout(failsafe);

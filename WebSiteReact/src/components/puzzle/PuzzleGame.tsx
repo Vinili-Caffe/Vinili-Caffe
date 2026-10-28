@@ -454,7 +454,7 @@ export function PuzzleGame() {
           drawRandom(ev.clientX, ev.clientY);
         }}
         className={cn(
-          "rounded-3xl bg-roast/70 px-3 py-2.5 ring-1 ring-sand/12 transition hover:ring-caramel/40",
+          "rounded-3xl bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast px-3 py-2.5 ring-1 ring-sand/12 transition hover:ring-caramel/40",
           trayPieces.length === 0 && !handId && "cursor-default opacity-70",
           trayPieces.length > 0 && "cursor-pointer",
         )}
@@ -480,7 +480,7 @@ export function PuzzleGame() {
                   drawPiece(p, ev.clientX, ev.clientY);
                 }}
                 className={cn(
-                  "size-[clamp(2.1rem,4.2vw,2.85rem)] shrink-0 rounded-md shadow-[0_2px_4px_rgba(0,0,0,0.4)] ring-1 ring-caramel/35 transition hover:-translate-y-0.5 hover:scale-105",
+                  "size-[clamp(2.1rem,4.2vw,2.85rem)] shrink-0 rounded-md shadow-[0_2px_4px_rgba(0,0,0,0.4)] ring-1 ring-caramel/35 transition-[transform,filter] duration-200 ease-out hover:-translate-y-0.5 active:scale-[0.97] hover:scale-105",
                   p.seen && tokenFaces[p.id]
                     ? "bg-cover bg-center"
                     : "bg-gradient-to-br from-[#5a3a24]/95 to-[#2a1a10]/98",
@@ -540,7 +540,7 @@ export function PuzzleGame() {
               <button
                 type="button"
                 onClick={reshuffle}
-                className="mt-6 rounded-full bg-gradient-to-r from-caramel to-ember px-6 py-2.5 font-semibold text-ink transition hover:-translate-y-0.5"
+                className="mt-6 rounded-full bg-gradient-to-r from-caramel to-ember px-6 py-2.5 font-semibold text-ink transition-[transform,filter] duration-200 ease-out hover:-translate-y-0.5 active:scale-[0.97]"
               >
                 Ricomincia
               </button>

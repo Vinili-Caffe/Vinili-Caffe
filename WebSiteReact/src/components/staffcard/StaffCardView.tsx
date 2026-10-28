@@ -112,7 +112,7 @@ function Tile({ value, label, icon, tone, onClick, badge }: { value: number | st
     <Comp
       {...(onClick ? { type: "button" as const, onClick } : {})}
       className={cn(
-        "relative flex flex-col items-start rounded-2xl bg-roast/70 p-4 text-left ring-1 ring-sand/12 transition-all",
+        "relative flex flex-col items-start rounded-2xl bg-gradient-to-b from-caramel/[0.08] via-roast/80 to-roast p-4 text-left ring-1 ring-sand/12 transition-[transform,background-color,box-shadow,opacity] duration-200 ease-out",
         onClick && "hover:-translate-y-0.5 hover:ring-caramel/40",
       )}
     >
@@ -133,7 +133,7 @@ function Tile({ value, label, icon, tone, onClick, badge }: { value: number | st
 
 function Block({ title, icon, link, children }: { title: string; icon: React.ReactNode; link?: { href: string; label: string }; children: React.ReactNode }) {
   return (
-    <section className="rounded-3xl bg-roast/70 p-5 ring-1 ring-sand/12 sm:p-6">
+    <section className="rounded-3xl bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast p-5 ring-1 ring-sand/12 sm:p-6">
       <div className="mb-4 flex items-center justify-between gap-3">
         <p className="flex items-center gap-2 font-display text-2xl font-semibold [&>svg]:size-5 [&>svg]:text-caramel">
           {icon} {title}
@@ -185,7 +185,7 @@ export function StaffCardView({ token, userId, access, onNavigate }: { token: st
   const roster = useMemo(() => (mng?.sections ?? []).map((s) => ({ label: s.roleLabel, members: s.members })), [mng]);
   const me = mng?.sections.flatMap((s) => s.members).find((m) => m.userId === userId);
 
-  if (err) return <p className="mx-auto max-w-xl rounded-3xl bg-roast/70 p-8 text-center text-crema/70 ring-1 ring-sand/12">{err}</p>;
+  if (err) return <p className="mx-auto max-w-xl rounded-3xl bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast p-8 text-center text-crema/70 ring-1 ring-sand/12">{err}</p>;
   if (!card)
     return (
       <div className="flex h-64 items-center justify-center gap-2 text-crema/55">

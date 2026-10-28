@@ -35,6 +35,7 @@ export const REACT_PAGES = new Set([
   "/regole/",
   "/wiki/",
   "/classifiche/",
+  "/wrapped/",
   "/status/",
   "/perks/",
   "/vote/",
@@ -78,6 +79,7 @@ export const REACT_PAGES = new Set([
   "/seratafilm/grazie/",
   "/seratafilm/accesso-richiesto/",
   "/notifications/",
+  "/app/",
   "/personalizza/",
   "/dashboard/",
   "/dashboard/guild/",
@@ -185,6 +187,7 @@ export const WHY = [
 /** Link legali + status in footer (copyright sta sul testo ©). */
 export const LEGAL: NavLink[] = [
   { labelKey: "footer.status", href: page("/status/") },
+  { labelKey: "footer.installApp", href: page("/app/") },
   { labelKey: "footer.terms", href: page("/terms/") },
   { labelKey: "footer.privacy", href: page("/privacy/") },
   { labelKey: "footer.cookies", href: page("/cookie/") },

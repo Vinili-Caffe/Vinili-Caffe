@@ -499,7 +499,7 @@ export function CompitiBoard() {
   return (
     <div className="space-y-3">
       {hs && staffList.length > 1 ? (
-        <div className="flex flex-wrap items-center gap-1 rounded-3xl bg-roast/70 p-2 ring-1 ring-sand/12">
+        <div className="flex flex-wrap items-center gap-1 rounded-3xl bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast p-2 ring-1 ring-sand/12">
           <button
             type="button"
             aria-label="Staff precedente"

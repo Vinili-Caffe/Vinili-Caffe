@@ -29,8 +29,9 @@ export function EventoPage({
     <SiteShell chrome="evento">
       <EventoBootScroll />
       <DiscordComponentEmbed path={path} title={title} description={text} pageLabel="Apri l'evento" />
+      {/* Hero fuori dal gate: LCP non aspetta auth/staff (speedRes1). */}
+      <EventoHero icon={icon ?? <Sparkles />} title={title} accent={accent} text={text} />
       <EventoAccessGate pageId={pageId}>
-        <EventoHero icon={icon ?? <Sparkles />} title={title} accent={accent} text={text} />
         <div className="-mt-6 pb-16 sm:-mt-10">{children}</div>
       </EventoAccessGate>
     </SiteShell>

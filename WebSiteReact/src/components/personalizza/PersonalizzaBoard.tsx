@@ -159,7 +159,7 @@ export function PersonalizzaBoard() {
             <button
               type="button"
               onClick={login}
-              className="mt-7 inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-caramel to-ember px-6 py-3 font-semibold text-ink transition-all hover:-translate-y-0.5"
+              className="mt-7 inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-caramel to-ember px-6 py-3 font-semibold text-ink transition-[transform,filter,box-shadow] duration-200 ease-out hover:-translate-y-0.5 active:scale-[0.97]"
             >
               <LogIn className="size-4" /> Accedi con Discord
             </button>

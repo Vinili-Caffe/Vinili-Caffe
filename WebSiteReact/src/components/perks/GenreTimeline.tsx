@@ -124,7 +124,7 @@ export function GenreTimeline() {
               >
                 <span
                   className={cn(
-                    "block rounded-full ring-2 transition-all",
+                    "block rounded-full ring-2 transition-[box-shadow,background-color,transform] duration-200 ease-out",
                     active ? "size-5 bg-ember ring-ember/40" : reached ? "size-3.5 bg-caramel ring-espresso" : "size-3.5 bg-mocha ring-sand/30 group-hover:bg-sand/60",
                   )}
                 />

@@ -136,7 +136,7 @@ export function SubmitListing() {
         </p>
       </div>
 
-      <form onSubmit={onSubmit} className="space-y-6 rounded-[2rem] bg-roast/70 p-6 ring-1 ring-sand/12 sm:p-8">
+      <form onSubmit={onSubmit} className="space-y-6 rounded-[2rem] bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast p-6 ring-1 ring-sand/12 sm:p-8">
         <div className="flex gap-2">
           {(["server", "bot"] as BoardKind[]).map((k) => (
             <button

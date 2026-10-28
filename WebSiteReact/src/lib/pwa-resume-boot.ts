@@ -51,7 +51,16 @@ var data=null;
 try{data=JSON.parse(localStorage.getItem(RESUME_KEY)||"null")}catch(eJ){}
 var dest=safePath(data&&data.p);
 if(!dest||pathOnly(dest)==="/")return;
-try{sessionStorage.setItem(UI_RESTORE_KEY,"1");window.__vcPwaResumePending=1}catch(eF){}
+/* pushClickNavIos2: aspetta il boot notif (cache SW) — altrimenti resume vince su start_url. */
+try{sessionStorage.setItem(UI_RESTORE_KEY,"1");window.__vcPwaResumePending=1;window.__vcPwaResumeCandidate=dest}catch(eF){}
 try{document.documentElement.style.background="#0e0906"}catch(eBg){}
-try{location.replace(dest)}catch(eNav){try{location.href=dest}catch(e2){}}
+setTimeout(function(){
+  try{
+    if(window.__vcPwaResumeSkip||window.__vcNotifNavDone)return;
+    if(sessionStorage.getItem("vc-notif-pending-nav"))return;
+  }catch(eSkip){}
+  var hereNow=pathOnly(location.pathname||"/");
+  if(hereNow!=="/")return;
+  try{location.replace(dest)}catch(eNav){try{location.href=dest}catch(e2){}}
+},180);
 }catch(eAll){}})();`;

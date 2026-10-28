@@ -117,7 +117,7 @@ function PanelCard({
   actions?: React.ReactNode;
 }) {
   return (
-    <div className="rounded-2xl bg-roast/70 p-6 text-center ring-1 ring-sand/12 sm:p-8">
+    <div className="rounded-2xl bg-gradient-to-b from-caramel/[0.08] via-roast/80 to-roast p-6 text-center ring-1 ring-sand/12 sm:p-8">
       <span className="mx-auto flex size-11 items-center justify-center rounded-xl bg-caramel/15 text-ember ring-1 ring-caramel/25 [&>svg]:size-5">
         {icon}
       </span>
@@ -226,7 +226,7 @@ export function ServerPicker() {
   const resumeGuild = lastGuildId ? guilds.find((g) => g.id === lastGuildId) : undefined;
 
   const primaryBtn =
-    "inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-caramel to-ember px-5 py-2.5 text-sm font-semibold text-ink transition hover:-translate-y-0.5";
+    "inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-caramel to-ember px-5 py-2.5 text-sm font-semibold text-ink transition-[transform,filter] duration-200 ease-out hover:-translate-y-0.5 active:scale-[0.97]";
   const secondaryBtn =
     "inline-flex items-center justify-center gap-2 rounded-full bg-crema/8 px-5 py-2.5 text-sm font-semibold text-crema ring-1 ring-sand/25 transition hover:ring-sand/40";
 
