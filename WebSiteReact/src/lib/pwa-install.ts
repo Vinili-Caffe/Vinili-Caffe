@@ -14,6 +14,8 @@ export type BIPEvent = Event & {
 };
 
 const LS_INSTALLED = "vc_pwa_installed_v1";
+/** Stesso flag del resume-boot: messo a 1 alla prima apertura dall’icona Home. */
+const LS_SHELL = "vc-pwa-shell";
 
 type BipListener = (evt: BIPEvent | null) => void;
 
@@ -69,6 +71,7 @@ export function detectInstallSurface(): InstallSurface {
 export function markPwaInstalled() {
   try {
     localStorage.setItem(LS_INSTALLED, "1");
+    localStorage.setItem(LS_SHELL, "1");
   } catch {
     /* ignore */
   }
@@ -76,7 +79,7 @@ export function markPwaInstalled() {
 
 export function rememberedPwaInstalled(): boolean {
   try {
-    return localStorage.getItem(LS_INSTALLED) === "1";
+    return localStorage.getItem(LS_INSTALLED) === "1" || localStorage.getItem(LS_SHELL) === "1";
   } catch {
     return false;
   }
@@ -88,6 +91,18 @@ export async function detectPwaAlreadyInstalled(): Promise<boolean> {
   if (isStandalone()) {
     markPwaInstalled();
     return true;
+  }
+  try {
+    if (/[?&]app=/.test(String(location.search || ""))) {
+      markPwaInstalled();
+      return true;
+    }
+    if (sessionStorage.getItem("vc-pwa-cold-app")) {
+      markPwaInstalled();
+      return true;
+    }
+  } catch {
+    /* ignore */
   }
   try {
     const nav = navigator as Navigator & {

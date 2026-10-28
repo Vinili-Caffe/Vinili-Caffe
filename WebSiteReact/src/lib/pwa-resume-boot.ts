@@ -16,7 +16,7 @@ try{var oh=String(location.hash||"");if(isOauthHash(oh)){window.__vcOauthCallbac
 function mq(m){try{return!!(window.matchMedia&&window.matchMedia("(display-mode: "+m+")").matches)}catch(e){return false}}
 function isPwa(){if(mq("standalone")||mq("fullscreen")||mq("minimal-ui")||mq("window-controls-overlay"))return true;try{return!!navigator.standalone}catch(e){return false}}
 function wasShell(){if(isPwa())return true;try{return localStorage.getItem(SHELL_KEY)==="1"}catch(e){return false}}
-function markShell(){if(!isPwa())return;try{localStorage.setItem(SHELL_KEY,"1")}catch(e){}}
+function markShell(){if(!isPwa())return;try{localStorage.setItem(SHELL_KEY,"1");localStorage.setItem("vc_pwa_installed_v1","1")}catch(e){}}
 
 function stripApp(){try{var s=String(location.search||"");if(!/[?&]app=/.test(s))return;var p=new URLSearchParams(s.charAt(0)==="?"?s.slice(1):s);var app=String(p.get("app")||"").trim();if(!app)return;try{window.__vcPwaColdApp=true;window.__vcPwaColdAppAt=Date.now();sessionStorage.setItem("vc-pwa-cold-app",String(Date.now()));sessionStorage.setItem("vc-pwa-cold-app-id",app)}catch(eF){window.__vcPwaColdApp=true}p.delete("app");var qs=p.toString();var next=(location.pathname||"/")+(qs?"?"+qs:"")+(location.hash||"");if(typeof history.replaceState==="function")history.replaceState(history.state,"",next)}catch(eS){}}
 

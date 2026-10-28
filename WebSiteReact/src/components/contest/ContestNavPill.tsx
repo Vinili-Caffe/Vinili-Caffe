@@ -8,7 +8,7 @@ import { fetchContestHighlight, type ContestHighlight } from "@/lib/contest";
 import { SmartLink } from "@/components/SmartLink";
 import { cn } from "@/lib/cn";
 
-/** Pill contest: dentro la navbar; clone fixed solo se la nav è nascosta. */
+/** Pill contest: solo dentro la navbar (niente clone floating quando la nav si nasconde). */
 export function ContestNavPill({ className }: { className?: string }) {
   const { token } = useAuth();
   const pathname = usePathname() || "/";

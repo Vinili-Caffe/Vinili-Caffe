@@ -135,10 +135,11 @@ export function MusicDock({
         }}
         aria-pressed={on}
         aria-expanded={panel}
-        className="inline-flex items-center gap-2 rounded-full bg-espresso/95 px-4 py-2.5 text-sm font-semibold text-crema ring-1 ring-sand/25 shadow-lg transition hover:bg-caramel/25"
+        aria-label={label}
+        title={label}
+        className="inline-flex size-11 items-center justify-center rounded-full bg-espresso/95 text-crema ring-1 ring-sand/25 shadow-lg transition hover:bg-caramel/25"
       >
-        {on ? <Music className="size-4 text-caramel" /> : <VolumeX className="size-4" />}
-        {label}
+        {on ? <Music className="size-[1.15rem] text-caramel" /> : <VolumeX className="size-[1.15rem]" />}
       </button>
     </div>
   );

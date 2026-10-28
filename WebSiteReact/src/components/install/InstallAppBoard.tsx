@@ -144,7 +144,6 @@ export function InstallAppBoard() {
         {!showInstalled && surface === "ios-safari" ? (
           <div className="mt-8 space-y-5">
             <p className="text-sm leading-relaxed text-crema/70">{t("install.iosLead")}</p>
-            <p className="rounded-2xl bg-crema/5 px-4 py-3 text-sm text-crema/70 ring-1 ring-sand/15">{t("install.iosNoOneTap")}</p>
             <ol className="space-y-3.5">
               <Step n={1}>
                 {t("install.iosStep1Before")}{" "}
