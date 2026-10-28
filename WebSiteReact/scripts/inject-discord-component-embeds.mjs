@@ -30,10 +30,21 @@ function meta(html, prop) {
 }
 
 function decode(s) {
+  // Next scrive spesso &#x27; nell’attributo content — senza decode finisce letterale nel CE Discord.
   return String(s || "")
     .replace(/&amp;/g, "&")
     .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&#x27;/gi, "'")
     .replace(/&#39;/g, "'")
+    .replace(/&#x([0-9a-f]+);/gi, (_, h) => {
+      const n = parseInt(h, 16);
+      return Number.isFinite(n) ? String.fromCodePoint(n) : _;
+    })
+    .replace(/&#(\d+);/g, (_, n) => {
+      const c = Number(n);
+      return Number.isFinite(c) ? String.fromCodePoint(c) : _;
+    })
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">");
 }
