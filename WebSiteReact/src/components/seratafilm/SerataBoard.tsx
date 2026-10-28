@@ -448,12 +448,20 @@ export function SerataBoard() {
     if (!token) return Promise.resolve();
     return loadSerataAccess(token).then((r) => {
       if (!r.ok) {
+        // In proiezione non spegnere lo stream per un 403/rete momentaneo
+        if (startedRef.current) return;
         setErr(r.message);
         setStream("");
         return;
       }
       setErr("");
-      setStream(r.filmStreamUrl);
+      const next = String(r.filmStreamUrl || "").trim();
+      if (!next) return;
+      setStream((prev) => {
+        // Ogni access firma un token nuovo: rimontare <video> (key/src) esce dal fullscreen e blocca.
+        if (startedRef.current && prev) return prev;
+        return next;
+      });
     });
   }, [token]);
 
@@ -473,9 +481,10 @@ export function SerataBoard() {
     };
   }, [ready, token, pullAccess]);
 
+  // Niente poll mentre il film gira: focus/visibility + URL firmato = kill playback
   useLiveRefresh(pullAccess, {
     intervalMs: 120_000,
-    enabled: ready && Boolean(token),
+    enabled: ready && Boolean(token) && !filmPlaying,
     boot: false,
     topics: ["serata"],
   });
@@ -586,12 +595,11 @@ export function SerataBoard() {
             <div ref={stageRef} className="relative overflow-hidden rounded-2xl bg-black ring-1 ring-sand/20">
               <video
                 ref={videoRef}
-                key={stream}
                 className="aspect-video w-full bg-black"
                 playsInline
                 preload="auto"
                 poster={FILM_POSTER}
-                src={stream}
+                src={stream || undefined}
                 controls={filmPlaying}
                 onPlay={() => {
                   startedRef.current = true;

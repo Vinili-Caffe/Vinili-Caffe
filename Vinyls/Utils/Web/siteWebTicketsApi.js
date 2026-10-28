@@ -17,7 +17,9 @@ const { normalizeHeaderSecret } = require("./siteStaffAccessApi");
 const {
   guildMemberDisplayAvatarUrlDynamic,
   guildMemberDisplayAvatarUrlStatic,
+  sitePreferredAvatarUrl,
 } = require("../Discord/guildDiscordIdentity");
+const { resolveSiteAvatarUrl } = require("./siteLiveAvatars");
 const { sanitizeDiscordChannelName } = require("../Discord/discordDisplayName");
 const {
   enqueueSiteInAppNotification,
@@ -406,13 +408,40 @@ function syncWebTicketChannelName(ticket, tailOverride) {
 
 function avatarForMember(member) {
   try {
+    // ticketAvatarGlobal1: niente guild CDN (hash stale → 404 in console). Preferisci globale.
     return (
-      guildMemberDisplayAvatarUrlDynamic(member) ||
+      sitePreferredAvatarUrl(member, { size: 128, preferAnimated: true, allowDefault: false }) ||
       guildMemberDisplayAvatarUrlStatic(member) ||
+      guildMemberDisplayAvatarUrlDynamic(member) ||
       ""
     );
   } catch {
     return "";
+  }
+}
+
+/** Guild avatar URL in Mongo spesso 404: non spedirli al client così. */
+function scrubStoredTicketAvatarUrl(url) {
+  const u = String(url || "").trim();
+  if (!u) return "";
+  if (/\/guilds\/\d+\/users\//i.test(u)) return "";
+  if (/cdn\.discordapp\.com\/embed\/avatars\//i.test(u)) return "";
+  return u;
+}
+
+function liveTicketAvatarUrl(guild, userId, storedUrl) {
+  const scrubbed = scrubStoredTicketAvatarUrl(storedUrl);
+  if (!guild || !userId) return scrubbed;
+  try {
+    return (
+      resolveSiteAvatarUrl(guild, userId, storedUrl, {
+        size: 128,
+        preferAnimated: false,
+        allowDefault: false,
+      }) || scrubbed
+    );
+  } catch {
+    return scrubbed;
   }
 }
 
@@ -1458,7 +1487,7 @@ function serializeMessage(doc, nameMap, staffRatings, staffRoles, ticket = null,
     ticketId: String(doc.ticketId),
     authorId,
     authorName: String(doc.authorName || "").trim() || "Utente",
-    authorAvatarUrl: String(doc.authorAvatarUrl || "").trim(),
+    authorAvatarUrl: scrubStoredTicketAvatarUrl(doc.authorAvatarUrl),
     authorKind,
     content: String(doc.content || ""),
     imageUrls: Array.isArray(doc.imageUrls)
@@ -1773,7 +1802,7 @@ function serializeTicket(doc, { includeStaffFields = false, permissions = null, 
     ticketNumber: Number(doc.ticketNumber) || null,
     userId: String(doc.userId || ""),
     authorName: String(doc.authorName || "").trim() || "Utente",
-    authorAvatarUrl: String(doc.authorAvatarUrl || "").trim(),
+    authorAvatarUrl: scrubStoredTicketAvatarUrl(doc.authorAvatarUrl),
     category: String(doc.category || "supporto"),
     categoryLabel: CATEGORY_LABELS[doc.category] || "Supporto",
     subject: buildWebTicketChannelName(doc),
@@ -3647,20 +3676,20 @@ async function handleSiteWebTicketsMentionsGet(client, req, res) {
       {
         id: String(ticket.userId || ""),
         name: String(ticket.authorName || "Utente").trim() || "Utente",
-        avatarUrl: String(ticket.authorAvatarUrl || ""),
+        avatarUrl: scrubStoredTicketAvatarUrl(ticket.authorAvatarUrl),
       },
       ticket.claimedBy
         ? {
             id: String(ticket.claimedBy),
             name: String(ticket.claimedByName || "Staff").trim() || "Staff",
-            avatarUrl: String(ticket.claimedByAvatarUrl || "").trim(),
+            avatarUrl: scrubStoredTicketAvatarUrl(ticket.claimedByAvatarUrl),
           }
         : null,
       ...listAddedUsers(ticket),
       ...authors.map((a) => ({
         id: String(a.authorId || ""),
         name: String(a.authorName || "Utente").trim() || "Utente",
-        avatarUrl: String(a.authorAvatarUrl || ""),
+        avatarUrl: scrubStoredTicketAvatarUrl(a.authorAvatarUrl),
       })),
     ];
     for (const s of seed) {
@@ -4618,18 +4647,39 @@ async function handleSiteWebTicketsDetailGet(client, req, res) {
     if (!role) continue;
     staffRolesOut[uid] = { id: role.id, name: role.name, key: role.key || null };
   }
+  const guild =
+    client?.guilds?.cache?.get?.(String(loaded.ticket.guildId || "")) ||
+    actor.member?.guild ||
+    null;
+  const ticketOut = serializeTicket(loaded.ticket, {
+    includeStaffFields: actor.isStaff || loaded.isOwner || loaded.isAdded,
+    permissions: perms,
+    rateableStaffer,
+  });
+  ticketOut.authorAvatarUrl = liveTicketAvatarUrl(
+    guild,
+    ticketOut.userId || loaded.ticket.userId,
+    loaded.ticket.authorAvatarUrl,
+  );
+  const messagesOut = serializeMessagesWithReplies(
+    messages,
+    nameMap,
+    staffRatings,
+    staffRoles,
+    loaded.ticket,
+  ).map((m) => {
+    if (!m) return m;
+    m.authorAvatarUrl = liveTicketAvatarUrl(guild, m.authorId, m.authorAvatarUrl || "");
+    return m;
+  });
   const payload = {
     ok: true,
     isStaff: actor.isStaff,
     staffCategories: listAccessibleTicketCategories(actor.member),
     viewerId: actor.userId,
     guildId: String(loaded.ticket.guildId || resolveGuildId(client) || ""),
-    ticket: serializeTicket(loaded.ticket, {
-      includeStaffFields: actor.isStaff || loaded.isOwner || loaded.isAdded,
-      permissions: perms,
-      rateableStaffer,
-    }),
-    messages: serializeMessagesWithReplies(messages, nameMap, staffRatings, staffRoles, loaded.ticket),
+    ticket: ticketOut,
+    messages: messagesOut,
     staffRoles: staffRolesOut,
   };
   /* siteApiW8: ETag/304 on ticket detail poll */
