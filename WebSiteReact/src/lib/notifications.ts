@@ -1,6 +1,8 @@
 // Notifiche in-app: /webhooks/site-notifications (+ preferenze via site-profile-extras).
 // Inbox staff: site-staff-access + site-staff-workflows (code candidature / appelli / revisione).
 
+import { page } from "@/lib/site";
+
 export type NotifKind =
   | "info"
   | "success"
@@ -311,9 +313,13 @@ export function timeAgoNotif(atMs: number, now = Date.now()): string {
 export function resolveDestUrl(dest: string): string {
   const u = String(dest || "").trim();
   if (!u) return "";
-  if (/^https?:\/\//i.test(u)) return u;
+  const origin = typeof location !== "undefined" ? location.origin : "https://www.viniliecaffe.it";
   try {
-    return new URL(u, typeof location !== "undefined" ? location.origin : "https://www.viniliecaffe.it").href;
+    const parsed = new URL(u, origin);
+    // notifFeedbackDeep1: path senza slash finale (/feedback#id) → redirect e hash perso
+    if (/^https?:\/\//i.test(u) && parsed.origin !== origin) return u;
+    const normalized = page(`${parsed.pathname}${parsed.search}${parsed.hash}`);
+    return new URL(normalized, origin).href;
   } catch {
     return u;
   }

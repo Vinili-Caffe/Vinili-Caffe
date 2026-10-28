@@ -306,10 +306,11 @@ function clipNotifBody(text, maxLen) {
 function suggestionNotifOpenUrl(suggestionId, board) {
   const id = String(suggestionId || "").trim();
   const staff = board === "staff" || board === true;
+  /* trailingSlash: /feedback#… senza / finale → redirect e hash perso → tab/scheda sbagliata */
   if (!id || !mongoose.isValidObjectId(id)) {
-    return staff ? "/feedback/?board=staff" : "/feedback";
+    return staff ? "/feedback/?board=staff" : "/feedback/";
   }
-  return staff ? `/feedback/?board=staff#vc-suggestion-${id}` : `/feedback#vc-suggestion-${id}`;
+  return staff ? `/feedback/?board=staff#vc-suggestion-${id}` : `/feedback/#vc-suggestion-${id}`;
 }
 
 async function getHighStaffUserIds(guild) {

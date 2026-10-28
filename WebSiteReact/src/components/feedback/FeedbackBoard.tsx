@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence } from "motion/react";
 import { HeartHandshake, Info, LogIn, PenLine, RotateCcw, Shield, Users } from "lucide-react";
 import { Reveal } from "@/components/Reveal";
@@ -43,7 +43,7 @@ function Pill({ on, onClick, children }: { on: boolean; onClick: () => void; chi
 export function FeedbackBoard() {
   const { ready, token, login } = useAuth();
   const { t } = useI18n();
-  const [board, setBoard] = useState<Board>("community");
+  const [board, setBoard] = useState<Board>(() => (readDeepLink().boardStaff ? "staff" : "community"));
   const [list, setList] = useState<Suggestion[] | null>(null);
   const [viewer, setViewer] = useState<Viewer>(null);
   const [error, setError] = useState("");
@@ -55,6 +55,8 @@ export function FeedbackBoard() {
   const [openId, setOpenId] = useState<string | null>(() => readDeepLink().suggestionId || null);
   const [composer, setComposer] = useState<{ edit?: Suggestion } | null>(null);
   const [toast, setToast] = useState("");
+  const deeplinkBoot = useRef(Boolean(readDeepLink().suggestionId || readDeepLink().boardStaff));
+  const triedStaffFlip = useRef(false);
 
   const pull = useCallback(async () => {
     if (!ready) return;
@@ -74,9 +76,20 @@ export function FeedbackBoard() {
     void pull();
   }, [pull]);
 
+  // notifFeedbackDeep1: hash/query → tab + scheda (anche dopo click notifica)
   useEffect(() => {
-    const d = readDeepLink();
-    if (d.boardStaff) setBoard("staff");
+    const sync = () => {
+      const d = readDeepLink();
+      if (d.boardStaff) setBoard("staff");
+      if (d.suggestionId) setOpenId(d.suggestionId);
+    };
+    sync();
+    window.addEventListener("hashchange", sync);
+    window.addEventListener("popstate", sync);
+    return () => {
+      window.removeEventListener("hashchange", sync);
+      window.removeEventListener("popstate", sync);
+    };
   }, []);
 
   // notifVisitExact1: hash = discussione aperta → dismiss push solo per quel feedback
@@ -122,6 +135,27 @@ export function FeedbackBoard() {
     );
   }, [list, status, kind, topic, sort]);
 
+  // deeplink: azzera filtri una volta così la scheda risulta in lista e si apre
+  useEffect(() => {
+    if (!deeplinkBoot.current || !openId || !list) return;
+    if (!list.some((s) => s.id === openId)) return;
+    setStatus("all");
+    setKind("all");
+    setTopic("all");
+    deeplinkBoot.current = false;
+  }, [openId, list]);
+
+  // se l'id non è in community ma abbiamo accesso staff → prova tab staff
+  useEffect(() => {
+    if (!openId || !list || triedStaffFlip.current) return;
+    if (list.some((s) => s.id === openId)) return;
+    if (board !== "community" || !viewer?.canAccessStaffBoard) return;
+    triedStaffFlip.current = true;
+    setBoard("staff");
+    setList(null);
+    setPageNum(1);
+  }, [openId, list, board, viewer]);
+
   const counts = useMemo(() => {
     const c = { pending: 0, accepted: 0, rejected: 0 };
     for (const s of list ?? []) c[s.status]++;
@@ -131,6 +165,15 @@ export function FeedbackBoard() {
   const filtered = status !== "all" || kind !== "all" || topic !== "all";
   const { page: pageSafe, totalPages, slice } = pageSlice(shown, pageNum, PAGE_SIZE);
   const current = list?.find((s) => s.id === openId) ?? null;
+
+  // porta alla pagina che contiene il biglietto (DeepLinkFocus trova l'ancora)
+  useEffect(() => {
+    if (!openId || !shown.length) return;
+    const idx = shown.findIndex((s) => s.id === openId);
+    if (idx < 0) return;
+    const want = Math.floor(idx / PAGE_SIZE) + 1;
+    if (pageNum !== want) setPageNum(want);
+  }, [openId, shown, pageNum]);
 
   const newNote = () => (token ? setComposer({}) : login());
 
