@@ -578,7 +578,7 @@ export function LiveStats({ initial }: { initial: Stats }) {
                     people={people}
                     total={people.length}
                     label={t("stats.staffCount", { people: people.length })}
-                    max={4}
+                    max={3}
                   />
                 );
               })()}
