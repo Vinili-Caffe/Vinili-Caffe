@@ -28,14 +28,15 @@ function Switch({ on, label, disabled, onToggle }: { on: boolean; label: string;
         disabled={disabled}
         onClick={onToggle}
         className={cn(
-          "relative h-6 w-11 shrink-0 rounded-full transition-colors disabled:opacity-50",
+          "relative isolate h-6 w-11 shrink-0 overflow-hidden rounded-full border-0 p-0 transition-colors disabled:opacity-50",
           on ? "bg-caramel" : "bg-crema/15 ring-1 ring-sand/25",
         )}
       >
         <span
+          aria-hidden
           className={cn(
-            "absolute top-0.5 size-5 rounded-full bg-crema shadow transition-transform",
-            on ? "translate-x-5" : "translate-x-0.5",
+            "pointer-events-none absolute left-0.5 top-0.5 size-5 rounded-full bg-crema shadow transition-transform duration-200 ease-out",
+            on ? "translate-x-5" : "translate-x-0",
           )}
         />
       </button>
