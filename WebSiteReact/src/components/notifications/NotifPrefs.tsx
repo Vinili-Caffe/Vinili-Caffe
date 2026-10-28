@@ -28,14 +28,14 @@ function Switch({ on, label, disabled, onToggle }: { on: boolean; label: string;
         disabled={disabled}
         onClick={onToggle}
         className={cn(
-          "relative isolate h-6 w-11 shrink-0 overflow-hidden rounded-full border-0 p-0 transition-colors disabled:opacity-50",
+          "flex h-6 w-11 shrink-0 items-center overflow-hidden rounded-full border-0 p-0.5 transition-colors disabled:opacity-50",
           on ? "bg-caramel" : "bg-crema/15 ring-1 ring-sand/25",
         )}
       >
         <span
           aria-hidden
           className={cn(
-            "pointer-events-none absolute left-0.5 top-0.5 size-5 rounded-full bg-crema shadow transition-transform duration-200 ease-out",
+            "block size-5 shrink-0 rounded-full bg-crema shadow transition-transform duration-200 ease-out will-change-transform",
             on ? "translate-x-5" : "translate-x-0",
           )}
         />

@@ -60,17 +60,17 @@ export function PushCard({ token, compact = false, className }: Props) {
               disabled={busy}
               onClick={() => void toggle()}
               className={cn(
-                "relative isolate h-6 w-11 shrink-0 overflow-hidden rounded-full border-0 p-0 transition-colors disabled:opacity-50",
+                "flex h-6 w-11 shrink-0 items-center overflow-hidden rounded-full border-0 p-0.5 transition-colors disabled:opacity-50",
                 on ? "bg-caramel" : "bg-crema/15 ring-1 ring-sand/25",
               )}
             >
               {busy ? (
-                <Loader2 className="absolute left-1/2 top-1/2 size-3.5 -translate-x-1/2 -translate-y-1/2 animate-spin text-ink" />
+                <Loader2 className="mx-auto size-3.5 animate-spin text-ink" />
               ) : (
                 <span
                   aria-hidden
                   className={cn(
-                    "pointer-events-none absolute left-0.5 top-0.5 size-5 rounded-full bg-crema shadow transition-transform duration-200 ease-out",
+                    "block size-5 shrink-0 rounded-full bg-crema shadow transition-transform duration-200 ease-out will-change-transform",
                     on ? "translate-x-5" : "translate-x-0",
                   )}
                 />
