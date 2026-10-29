@@ -4970,7 +4970,7 @@ async function handleSiteWebTicketsReactionPost(client?, req?, res?) {
     added = true;
   }
 
-  msg.reactions = reactions;
+  (msg as any).reactions = reactions;
   msg.markModified("reactions");
   await msg.save();
 

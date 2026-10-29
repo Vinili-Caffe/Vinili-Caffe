@@ -21,5 +21,6 @@
   "Vinyls/Services/TTS/ttsService.js": "pulizia: abbreviazioni ripetute (op resta 'overpowered', come prima)",
   "Vinyls/Utils/Config/ids.js": "pulizia: Partnership scritto due volte uguale",
   "Vinyls/Utils/Partner/partnershipConfigResolver.js": "pulizia: descriptionChannelId null sempre sovrascritto",
-  "Vinyls/Utils/Web/siteInAppNotificationsService.js": "bug: 'cancella tutte' non chiudeva le push su iPhone (dismiss senza id)"
+  "Vinyls/Utils/Web/siteInAppNotificationsService.js": "bug: 'cancella tutte' non chiudeva le push su iPhone (dismiss senza id)",
+  "Vinyls/Schemas/Community/communitySchemas.js": "bug: boardTags e authorAvatar mancavano dallo schema (i tag delle bacheche non si salvavano)"
 }

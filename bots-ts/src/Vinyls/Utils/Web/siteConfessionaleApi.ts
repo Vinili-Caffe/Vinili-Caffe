@@ -602,7 +602,7 @@ async function handleSiteConfessionaleCommentPost(client?, req?, res?) {
       upvoterUserIds: [],
       downvoterUserIds: [],
     });
-    doc.comments = comments;
+    (doc as any).comments = comments;
     doc.markModified("comments");
     await doc.save();
 

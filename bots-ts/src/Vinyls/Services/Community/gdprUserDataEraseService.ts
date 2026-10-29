@@ -189,7 +189,7 @@ async function scrubGuildFeatureBucketUser(guildId?, userId?, dryRun?) {
   let giveawayParticipationsRemoved = 0;
 
   const beforeSuggestions = Array.isArray(bucket.suggestions) ? bucket.suggestions.length : 0;
-  bucket.suggestions = (Array.isArray(bucket.suggestions) ? bucket.suggestions : []).filter((row?) => {
+  (bucket as any).suggestions = (Array.isArray(bucket.suggestions) ? bucket.suggestions : []).filter((row?) => {
     const authorId = String(row?.AuthorID || row?.authorId || "").trim();
     return authorId !== uid;
   });

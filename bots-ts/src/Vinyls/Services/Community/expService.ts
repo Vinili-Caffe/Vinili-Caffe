@@ -505,9 +505,9 @@ async function addExp(guildId?, userId?, amount?, applyMultiplier = false, weekl
     global.logger?.warn?.("[expService] addExp atomic failed, fallback:", err?.message || err);
     let fallback = await ActivityUserProfile.findOne({ guildId: gid, userId: uid });
     if (!fallback) fallback = new ActivityUserProfile({ guildId: gid, userId: uid });
-    if (!fallback.profile) fallback.profile = {};
-    if (!fallback.profile.totals) fallback.profile.totals = {};
-    if (!fallback.profile.totals.exp) fallback.profile.totals.exp = {};
+    if (!fallback.profile) fallback.profile = {} as any;
+    if (!fallback.profile.totals) fallback.profile.totals = {} as any;
+    if (!fallback.profile.totals.exp) fallback.profile.totals.exp = {} as any;
     ensureWeeklyExp(fallback.profile.totals.exp, now);
     fallback.profile.totals.exp.totalExp = Number(fallback.profile.totals.exp.totalExp || 0) + eff;
     if (activityDelta > 0) {

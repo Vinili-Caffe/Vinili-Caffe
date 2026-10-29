@@ -827,7 +827,7 @@ async function seedDemo(client?, { eventKey, accessToken, count = 8, replace = t
   if (replace !== false) {
     const before = (doc.submissions || []).length;
     const keepIds = new Set();
-    doc.submissions = (doc.submissions || []).filter((s?) => {
+    (doc as any).submissions = (doc.submissions || []).filter((s?) => {
       const keep = !String(s.userId || "").startsWith("demo");
       if (keep) keepIds.add(s.id);
       return keep;
@@ -888,7 +888,7 @@ async function clearDemo(client?, { eventKey, accessToken }: any = {}) {
   if (!staff) return { ok: false, status: 403, error: "forbidden", message: "Solo staff." };
   const doc = await getOrCreateDoc(event.key);
   const before = (doc.submissions || []).length;
-  doc.submissions = (doc.submissions || []).filter((s?) => !String(s.userId || "").startsWith("demo"));
+  (doc as any).submissions = (doc.submissions || []).filter((s?) => !String(s.userId || "").startsWith("demo"));
   /* pulisci voti verso id rimossi */
   const keep = new Set(doc.submissions.map((s?) => s.id));
   if (doc.votes && typeof doc.votes === "object") {
