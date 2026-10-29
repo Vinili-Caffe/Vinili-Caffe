@@ -1,3 +1,6 @@
 # I sorgenti dei bot si salvano byte per byte: gli a capo dentro i testi su più righe
 # finiscono nei messaggi del bot, quindi git non deve convertirli (come succedeva con i .js).
 src/** -text
+
+# script per bash (VPS, Git Bash): sempre a capo Linux
+*.sh text eol=lf
