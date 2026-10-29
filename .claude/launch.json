@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "react-beta-anteprima",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["WebSiteReact/scripts/serve-out.mjs"],
+      "port": 4310
+    }
+  ]
+}
