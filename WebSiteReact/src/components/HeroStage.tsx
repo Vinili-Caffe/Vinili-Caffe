@@ -12,7 +12,9 @@ import { animate, motion, useMotionValue, useReducedMotion } from "motion/react"
 import { DISCORD_INVITE } from "@/lib/site";
 import { useI18n } from "@/lib/i18n";
 import { getVinylMusicApi, subscribeVinylMusic } from "@/lib/vinyl-music-bus";
+import { loadStatsBundle } from "@/lib/stats";
 import { VinylRecord } from "@/components/VinylRecord";
+import { AvatarCircles } from "@/components/ui/avatar-circles";
 import { cn } from "@/lib/cn";
 
 const ease = [0.22, 1, 0.36, 1] as const;
@@ -22,6 +24,7 @@ const ARM_ON = 0;
 const SCRUB_TIME_GAIN = 2.2;
 const SCRUB_MIN_RADIUS = 0.12;
 const SCRUB_MOVE_PX = 8;
+const GUILD_ICON_FALLBACK = "/images/og-server-icon-still.png";
 
 function pointerAngle(clientX: number, clientY: number, rect: DOMRect) {
   const cx = rect.left + rect.width / 2;
@@ -41,14 +44,6 @@ function pointerRadiusRatio(clientX: number, clientY: number, rect: DOMRect) {
   const cy = rect.top + rect.height / 2;
   const r = Math.min(rect.width, rect.height) / 2 || 1;
   return Math.hypot(clientX - cx, clientY - cy) / r;
-}
-
-function DiscordMark({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 127.14 96.36" aria-hidden className={className} fill="currentColor">
-      <path d="M107.7 8.07A105.15 105.15 0 0 0 81.47 0a72.06 72.06 0 0 0-3.36 6.83 97.68 97.68 0 0 0-29.11 0A72.37 72.37 0 0 0 45.64 0a105.89 105.89 0 0 0-26.25 8.09C2.79 32.65-1.71 56.6.54 80.21a105.73 105.73 0 0 0 32.17 16.15 77.7 77.7 0 0 0 6.89-11.11 68.42 68.42 0 0 1-10.85-5.18c.91-.66 1.8-1.34 2.66-2a75.57 75.57 0 0 0 64.32 0c.87.71 1.76 1.39 2.66 2a68.68 68.68 0 0 1-10.87 5.19 77 77 0 0 0 6.89 11.1 105.25 105.25 0 0 0 32.19-16.14c2.64-27.38-4.51-51.11-18.9-72.15ZM42.45 65.69C36.18 65.69 31 60 31 53s5-12.74 11.44-12.74S54 46 53.89 53s-5.05 12.69-11.44 12.69Zm42.24 0C78.41 65.69 73.25 60 73.25 53s5-12.74 11.44-12.74S96.23 46 96.12 53s-5.04 12.69-11.43 12.69Z" />
-    </svg>
-  );
 }
 
 function ChatBubble({
@@ -100,6 +95,8 @@ export function HeroStage({ className }: { className?: string }) {
 
   const [draggingArm, setDraggingArm] = useState(false);
   const [scrubbing, setScrubbing] = useState(false);
+  const [guildIcon, setGuildIcon] = useState(GUILD_ICON_FALLBACK);
+  const [faces, setFaces] = useState<{ name: string; avatarUrl?: string }[]>([]);
   const draggingArmRef = useRef(false);
   const scrubbingRef = useRef(false);
   const armAngle = useMotionValue(ARM_OFF);
@@ -121,6 +118,50 @@ export function HeroStage({ className }: { className?: string }) {
   useEffect(() => {
     playingRef.current = playing;
   }, [playing]);
+
+  useEffect(() => {
+    let alive = true;
+    fetch("/discord-invite.json", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        if (!alive || !j) return;
+        const guild = j.guild || j;
+        const id = String(guild?.id || "").trim();
+        const hash = String(guild?.icon || "").trim();
+        if (!id || !hash) return;
+        const ext = hash.startsWith("a_") ? "gif" : "png";
+        setGuildIcon(`https://cdn.discordapp.com/icons/${id}/${hash}.${ext}?size=128`);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let alive = true;
+    loadStatsBundle("")
+      .then(({ extra }) => {
+        if (!alive || !extra) return;
+        const seen = new Set<string>();
+        const out: { name: string; avatarUrl?: string }[] = [];
+        const push = (name: string, avatarUrl?: string) => {
+          const k = name.trim();
+          if (!k || seen.has(k)) return;
+          seen.add(k);
+          out.push({ name: k, avatarUrl });
+        };
+        for (const m of extra.boostHoverMembers || []) push(m.name, m.avatarUrl);
+        for (const g of extra.staffHoverGroups || []) {
+          for (const m of g.members || []) push(m.name, m.avatarUrl);
+        }
+        setFaces(out.slice(0, 8));
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (draggingArmRef.current || scrubbingRef.current) return;
@@ -327,32 +368,44 @@ export function HeroStage({ className }: { className?: string }) {
           className="pointer-events-none absolute inset-0 rounded-[1.9rem] bg-[radial-gradient(ellipse_at_90%_0%,rgba(255,210,160,0.12),transparent_42%)]"
         />
 
-        <div className="relative z-[1] flex items-start justify-between">
+        <div className="relative z-[1]">
           <a
             href={DISCORD_INVITE}
             target="_blank"
             rel="noopener"
             aria-label={t("common.discord")}
             className={cn(
-              "inline-flex size-[3.15rem] items-center justify-center rounded-full",
-              "bg-gradient-to-br from-[#8b9af5] via-[#5865f2] to-[#3b45b5] text-white",
-              "shadow-[0_16px_32px_-10px_rgba(88,101,242,0.95),inset_0_1px_0_rgba(255,255,255,0.45),inset_0_-4px_8px_rgba(0,0,0,0.4)]",
-              "ring-1 ring-white/30 transition-transform hover:-translate-y-0.5 active:scale-95",
+              "inline-flex size-[3.15rem] overflow-hidden rounded-full",
+              "shadow-[0_16px_32px_-10px_rgba(0,0,0,0.85),inset_0_1px_0_rgba(255,255,255,0.25)]",
+              "ring-2 ring-[#f4e9d8]/25 transition-transform hover:-translate-y-0.5 active:scale-95",
             )}
           >
-            <DiscordMark className="size-[1.4rem]" />
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              key={guildIcon}
+              src={guildIcon}
+              alt=""
+              width={56}
+              height={56}
+              className="size-full object-cover"
+              onError={() => setGuildIcon(GUILD_ICON_FALLBACK)}
+            />
           </a>
-          <span className="mt-2.5 flex gap-1.5 pr-1" aria-hidden>
-            {[0, 1, 2].map((i) => (
-              <span key={i} className="size-[5px] rounded-full bg-[#f4e9d8]/45 shadow-[0_1px_0_rgba(0,0,0,0.45)]" />
-            ))}
-          </span>
         </div>
 
-        <div className="relative mt-5">
+        <div className="relative mt-5 overflow-visible">
+          {/* bolle a destra, fuori dal piatto (sotto z del deck) */}
+          <div
+            className="pointer-events-none absolute -right-3 top-[28%] z-0 flex flex-col items-end gap-2.5 sm:-right-5"
+            aria-hidden
+          >
+            <ChatBubble className="mr-1 scale-[0.9] opacity-90" delay={0.4} />
+            <ChatBubble large delay={0} />
+          </div>
+
           <div
             className={cn(
-              "relative mx-auto aspect-square w-[88%] max-w-[18rem]",
+              "relative z-10 mx-auto aspect-square w-[88%] max-w-[18rem]",
               "rounded-[1.35rem]",
               "bg-[linear-gradient(135deg,#3a2618_0%,#24160e_45%,#2e1d13_70%,#1a100a_100%)]",
               "p-[6%]",
@@ -459,30 +512,14 @@ export function HeroStage({ className }: { className?: string }) {
               className="absolute bottom-[5.5%] right-[8%] size-2.5 rounded-[3px] bg-gradient-to-b from-[#55504a] to-[#1c1a17] shadow-[inset_0_1px_0_rgba(255,255,255,0.25),0_1px_2px_rgba(0,0,0,0.7)]"
             />
           </div>
-
-          <div className="pointer-events-none absolute -right-0.5 top-[18%] flex flex-col items-end gap-2.5 sm:right-1" aria-hidden>
-            <ChatBubble className="mr-5 scale-[0.92] opacity-90" delay={0.4} />
-            <ChatBubble large delay={0} />
-          </div>
         </div>
 
         <div className="relative z-[1] mt-6 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2.5" aria-hidden>
-            <span className="size-10 rounded-full bg-[linear-gradient(145deg,#3a342e,#14110e)] shadow-[0_6px_14px_-6px_rgba(0,0,0,0.8),inset_0_1px_0_rgba(255,255,255,0.1)] ring-2 ring-black/40" />
-            <div className="flex -space-x-2.5">
-              {["#e2c49a", "#9a6a3c", "#f2e6d2"].map((c, i) => (
-                <span
-                  key={c}
-                  className="size-8 rounded-full ring-2 ring-[#1a110c]/95"
-                  style={{
-                    background: `linear-gradient(145deg, ${c}, #2a1c12)`,
-                    zIndex: 3 - i,
-                    boxShadow: "0 4px 10px -4px rgba(0,0,0,0.7)",
-                  }}
-                />
-              ))}
-            </div>
-          </div>
+          {faces.length ? (
+            <AvatarCircles people={faces} max={3} className="min-w-0" />
+          ) : (
+            <span className="size-8" aria-hidden />
+          )}
 
           <motion.a
             href={DISCORD_INVITE}
