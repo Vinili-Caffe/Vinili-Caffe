@@ -368,7 +368,7 @@ export function HeroStage({ className }: { className?: string }) {
           className="pointer-events-none absolute inset-0 rounded-[1.9rem] bg-[radial-gradient(ellipse_at_90%_0%,rgba(255,210,160,0.12),transparent_42%)]"
         />
 
-        <div className="relative z-[1]">
+        <div className="relative z-[1] flex items-start justify-between gap-3">
           <a
             href={DISCORD_INVITE}
             target="_blank"
@@ -391,21 +391,16 @@ export function HeroStage({ className }: { className?: string }) {
               onError={() => setGuildIcon(GUILD_ICON_FALLBACK)}
             />
           </a>
-        </div>
-
-        <div className="relative mt-5 overflow-visible">
-          {/* bolle a destra, fuori dal piatto (sotto z del deck) */}
-          <div
-            className="pointer-events-none absolute -right-3 top-[28%] z-0 flex flex-col items-end gap-2.5 sm:-right-5"
-            aria-hidden
-          >
-            <ChatBubble className="mr-1 scale-[0.9] opacity-90" delay={0.4} />
+          <div className="pointer-events-none flex flex-col items-end gap-2 pt-0.5" aria-hidden>
+            <ChatBubble className="scale-[0.88] opacity-90" delay={0.4} />
             <ChatBubble large delay={0} />
           </div>
+        </div>
 
+        <div className="relative mt-5">
           <div
             className={cn(
-              "relative z-10 mx-auto aspect-square w-[88%] max-w-[18rem]",
+              "relative mx-auto aspect-square w-[88%] max-w-[18rem]",
               "rounded-[1.35rem]",
               "bg-[linear-gradient(135deg,#3a2618_0%,#24160e_45%,#2e1d13_70%,#1a100a_100%)]",
               "p-[6%]",
