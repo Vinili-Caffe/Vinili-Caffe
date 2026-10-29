@@ -249,12 +249,27 @@ export function rankFontStack(f: RankFont): string {
   return `"${fam}", ${m?.fallback || "sans-serif"}`;
 }
 
+/** Surrogati spaiati (es. emoji spezzate da `.slice`) → URIError su Safari in encodeURIComponent. */
+function fontsTextParam(raw: string): string {
+  const cleaned = [...String(raw || "")]
+    .filter((ch) => {
+      const cp = ch.codePointAt(0) ?? 0;
+      return cp < 0xd800 || cp > 0xdfff;
+    })
+    .join("");
+  const glyphs = [...new Set(`Aa${cleaned}`)].join("");
+  try {
+    return encodeURIComponent(glyphs);
+  } catch {
+    return encodeURIComponent("AaVinili");
+  }
+}
+
 /** Un solo foglio Google Fonts con i soli glifi che servono (parametro `text`). */
 export function rankFontsCssUrl(fonts: RankFont[], text: string): string {
   const fams = fonts.map((f) => RANK_FONT_CSS[f.key]).filter((m) => m?.g).map((m) => `family=${m!.family.replace(/ /g, "+")}`);
   if (!fams.length) return "";
-  const glyphs = [...new Set(`Aa${text}`)].join("");
-  return `https://fonts.googleapis.com/css2?${fams.join("&")}&display=swap&text=${encodeURIComponent(glyphs)}`;
+  return `https://fonts.googleapis.com/css2?${fams.join("&")}&display=swap&text=${fontsTextParam(text)}`;
 }
 
 function authHeaders(token: string, json = false): HeadersInit {

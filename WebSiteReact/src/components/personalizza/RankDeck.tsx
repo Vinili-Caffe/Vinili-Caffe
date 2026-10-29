@@ -244,7 +244,8 @@ export function RankDeck({
     fonts.findIndex((f) => f.key === (draft.fontKey || fonts[0]?.key || "arial")),
   );
   const fontLabel = fonts[fontIdx]?.label || fonts[0]?.label || "Arial";
-  const sampleText = (initial.displayName || initial.username || "Vinili").slice(0, 18);
+  /* code-point slice: `.slice(0,18)` spezza le emoji → URIError su Safari in encodeURIComponent */
+  const sampleText = [...(initial.displayName || initial.username || "Vinili")].slice(0, 18).join("");
 
   const liveOpacity = Number(draft.overlayOpacity ?? 0.8);
   const opacityDelta = liveOpacity - bakedOpacity;
@@ -264,12 +265,16 @@ export function RankDeck({
 
   // carica solo i glifi del nome per far vedere ogni font sulle tessere
   useEffect(() => {
-    const href = rankFontsCssUrl(fonts, sampleText);
-    if (!href || document.querySelector(`link[href="${CSS.escape(href)}"]`)) return;
-    const link = document.createElement("link");
-    link.rel = "stylesheet";
-    link.href = href;
-    document.head.appendChild(link);
+    try {
+      const href = rankFontsCssUrl(fonts, sampleText);
+      if (!href || document.querySelector(`link[href="${CSS.escape(href)}"]`)) return;
+      const link = document.createElement("link");
+      link.rel = "stylesheet";
+      link.href = href;
+      document.head.appendChild(link);
+    } catch {
+      /* nome con UTF-16 rotto: niente font subset, la pagina resta usabile */
+    }
   }, [fonts, sampleText]);
 
   useEffect(() => {
