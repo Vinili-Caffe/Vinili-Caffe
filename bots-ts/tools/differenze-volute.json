@@ -11,5 +11,15 @@
   "Vinyls/Buttons/staffProfileHighStaff.js": "bug 9: IDs ridichiarato nello stesso blocco (usato prima della dichiarazione)",
   "Vinyls/Utils/Community/candidatureApplicationsCatalog.js": "candidatura Blogger: domande",
   "Vinyls/Events/interaction/candidatureApplicationHandlers.js": "candidatura Blogger: tipo, ruolo, cooldown, idoneità, accettazione",
-  "Vinyls/Utils/Web/siteStaffWorkflowStore.js": "candidatura Blogger: filtro nella inbox staff"
+  "Vinyls/Utils/Web/siteStaffWorkflowStore.js": "candidatura Blogger: filtro nella inbox staff",
+  "Coffee/Prefix/Utility/help.js": "pulizia: 3 voci dell'help scritte due volte uguali",
+  "Coffee/Services/TTS/ttsService.js": "pulizia: abbreviazione tilted scritta due volte uguale",
+  "Vinyls/Data/Minigames/minigameBanks.js": "pulizia: Brasília e Bogotá scritte due volte uguali",
+  "Vinyls/Services/Community/hogwartsConsumableBoostsService.js": "bug: normalizeBoostRow ignorava l'istante nowMs",
+  "Vinyls/Services/Minigames/minigameService.js": "bug: accento Õ mancante (õ due volte); shuffleArray dichiarata 3 volte; Trick or Treat giocabile a round chiuso",
+  "Vinyls/Services/Moderation/trustedBotGuardService.js": "bug: logModCase chiamato con (client, modCase) invece di { guild, modCase }",
+  "Vinyls/Services/TTS/ttsService.js": "pulizia: abbreviazioni ripetute (op resta 'overpowered', come prima)",
+  "Vinyls/Utils/Config/ids.js": "pulizia: Partnership scritto due volte uguale",
+  "Vinyls/Utils/Partner/partnershipConfigResolver.js": "pulizia: descriptionChannelId null sempre sovrascritto",
+  "Vinyls/Utils/Web/siteInAppNotificationsService.js": "bug: 'cancella tutte' non chiudeva le push su iPhone (dismiss senza id)"
 }

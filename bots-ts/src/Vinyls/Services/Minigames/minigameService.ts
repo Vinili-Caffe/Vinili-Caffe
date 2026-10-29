@@ -2356,10 +2356,9 @@ function buildTrickOrTreatGameFromCustomId(wantId?, cfg?, messageId = null, mess
   const ageMs = Date.now() - startedAt;
   // Troppo vecchio: messaggio orfano abbandonato
   if (ageMs > durationMs + 45 * 60_000) return null;
-  // Bottone ancora lì ma timer scaduto (slot rubato da Impiccato): riapri 10 min
-  if (endsAt <= Date.now()) {
-    endsAt = Date.now() + Math.min(durationMs, 10 * 60_000);
-  }
+  // bug: qui un round già finito veniva riaperto per altri 10 minuti (e con la lista di chi aveva bussato vuota),
+  // quindi si giocava a porta chiusa. Si recupera solo un round ancora dentro il suo tempo.
+  if (endsAt <= Date.now()) return null;
   return {
     type: "halloweenTrickOrTreat",
     rewardExp: normalizeRewardExp(cfg?.halloweenTrickOrTreat?.rewardExp ?? 100),
@@ -2378,6 +2377,14 @@ function buildTrickOrTreatGameFromCustomId(wantId?, cfg?, messageId = null, mess
   };
 }
 
+/** Fine round: via il bottone dal messaggio del round, così nessuno può più bussare a porta chiusa. */
+async function removeTrickOrTreatButton(channel?, game?) {
+  const msgId = String(game?.gameMessageId || "").trim();
+  if (!msgId || typeof channel?.messages?.fetch !== "function") return;
+  const msg = await channel.messages.fetch(msgId).catch(() => null);
+  if (msg?.editable && msg.components?.length) await msg.edit({ components: [] }).catch(() => null);
+}
+
 function scheduleTrickOrTreatRoundTimers(client?, cfg?, channel?, game?) {
   const channelId = String(cfg?.channelId || channel?.id || "").trim();
   if (!channelId || !game || game.type !== "halloweenTrickOrTreat") return game;
@@ -2393,6 +2400,7 @@ function scheduleTrickOrTreatRoundTimers(client?, cfg?, channel?, game?) {
     activeGames.delete(mapKey);
     await clearTrickOrTreatGame(client, { ...cfg, channelId, guildId }, live).catch(() => {});
     const claimed = Object.keys(live.claimedBy || {}).length;
+    if (channel) await removeTrickOrTreatButton(channel, live);
     if (channel) {
       await sendMinigameMessage(channel, {
         embeds: [buildTrickOrTreatEndedEmbed(claimed)],
@@ -14543,6 +14551,14 @@ async function startHalloweenTrickOrTreatGameForAlternate(client?, cfg?) {
 async function handleHalloweenTrickOrTreatButton(interaction?, game?, cfg?) {
   const userId = String(interaction.user?.id || "");
   if (!userId) return true;
+  // round finito (es. timer perso con un riavvio): la porta è chiusa, niente caramelle, e via il bottone
+  if (Number(game.endsAt || 0) > 0 && Number(game.endsAt) <= Date.now()) {
+    await interaction
+      .reply({ content: "🎃 La porta è chiusa: questo round di Trick or Treat è finito. Aspetta il prossimo toc toc!", flags: 1 << 6 })
+      .catch(() => {});
+    await removeTrickOrTreatButton(interaction.channel, game);
+    return true;
+  }
   if (!game.claimedBy || typeof game.claimedBy !== "object") game.claimedBy = {};
   if (game.claimedBy[userId]) {
     await interaction
@@ -15011,6 +15027,7 @@ async function sweepExpiredMinigames(client?) {
       activeGames.delete(mapKey);
       await clearTrickOrTreatGame(client, closeCfg, game).catch((err?) => warnMinigame(err));
       const claimed = Object.keys(game?.claimedBy || {}).length;
+      if (channel) await removeTrickOrTreatButton(channel, game);
       if (channel) {
         await sendMinigameMessage(channel, {
           embeds: [buildTrickOrTreatEndedEmbed(claimed)],

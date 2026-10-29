@@ -355,15 +355,62 @@ export async function loadNotifications(token: string, limit = 50): Promise<Res<
   };
 }
 
-export const markNotifRead = (token: string, id: string) => call<{ updated?: boolean }>(`${NOTIF}/read`, token, { method: "POST", body: { id } });
-export const markAllNotifsRead = (token: string) => call<{ modified?: number }>(`${NOTIF}/read`, token, { method: "POST", body: { all: true } });
+/**
+ * Chiude le notifiche di sistema (centro notifiche di Windows, tendina del telefono) su QUESTO dispositivo quando
+ * le si legge o cancella sul sito. Sugli altri dispositivi le chiude il server con una push "dismiss", che però
+ * ai PC non si manda (Chrome/Edge mostrerebbero "sito aggiornato in background"): senza questo restavano lì.
+ * match: id delle notifiche (tag vc-site-<id>), pagine aperte, oppure "all".
+ */
+export async function closeOsNotifications(match: { ids?: string[]; openUrls?: string[]; all?: boolean }) {
+  try {
+    if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) return;
+    const reg = await navigator.serviceWorker.getRegistration("/");
+    if (!reg?.getNotifications) return;
+    const ids = new Set((match.ids || []).map((x) => String(x || "").trim()).filter(Boolean));
+    const paths = new Set(
+      (match.openUrls || [])
+        .map((u) => {
+          try {
+            return new URL(u, location.origin).pathname.replace(/\/+$/, "") || "/";
+          } catch {
+            return "";
+          }
+        })
+        .filter(Boolean),
+    );
+    for (const n of await reg.getNotifications()) {
+      const d = (n.data && typeof n.data === "object" ? n.data : {}) as { id?: string; openUrl?: string; url?: string; vcAck?: boolean };
+      if (d.vcAck) continue;
+      const nid = String(d.id || "").trim() || String(n.tag || "").replace(/^vc-site-/, "");
+      let path = "";
+      try {
+        path = new URL(String(d.openUrl || d.url || ""), location.origin).pathname.replace(/\/+$/, "") || "/";
+      } catch {
+        /* ignore */
+      }
+      if (match.all || (nid && ids.has(nid)) || (path && paths.has(path))) n.close();
+    }
+  } catch {
+    /* il sito non deve mai rompersi per questo */
+  }
+}
+
+export const markNotifRead = (token: string, id: string) => {
+  void closeOsNotifications({ ids: [id] });
+  return call<{ updated?: boolean }>(`${NOTIF}/read`, token, { method: "POST", body: { id } });
+};
+export const markAllNotifsRead = (token: string) => {
+  void closeOsNotifications({ all: true });
+  return call<{ modified?: number }>(`${NOTIF}/read`, token, { method: "POST", body: { all: true } });
+};
 /** Visita pagina/discussione/ticket → il server marca le notif che puntano lì (come sito vecchio). */
 export const markNotifsForPage = (
   token: string,
   pageUrl: string,
   extra?: { ids?: string[]; ticketIds?: string[]; openUrls?: string[] },
-) =>
-  call<{ modified?: number; updated?: boolean }>(`${NOTIF}/read`, token, {
+) => {
+  void closeOsNotifications({ ids: extra?.ids, openUrls: [pageUrl, ...(extra?.openUrls ?? [])] });
+  return call<{ modified?: number; updated?: boolean }>(`${NOTIF}/read`, token, {
     method: "POST",
     body: {
       pageUrl,
@@ -372,8 +419,15 @@ export const markNotifsForPage = (
       openUrls: extra?.openUrls ?? [],
     },
   });
-export const deleteNotif = (token: string, id: string) => call<{ deleted?: boolean }>(`${NOTIF}/delete`, token, { method: "POST", body: { id } });
-export const clearAllNotifs = (token: string) => call<{ deleted?: number }>(`${NOTIF}/clear`, token, { method: "POST", body: {} });
+};
+export const deleteNotif = (token: string, id: string) => {
+  void closeOsNotifications({ ids: [id] });
+  return call<{ deleted?: boolean }>(`${NOTIF}/delete`, token, { method: "POST", body: { id } });
+};
+export const clearAllNotifs = (token: string) => {
+  void closeOsNotifications({ all: true });
+  return call<{ deleted?: number }>(`${NOTIF}/clear`, token, { method: "POST", body: {} });
+};
 
 export async function loadNotifPrefs(token: string): Promise<Res<NotifPrefs>> {
   const r = await call<{ dm?: NotifPrefs["dm"]; siteNotif?: NotifPrefs["siteNotif"] }>(EXTRAS, token);

@@ -2819,6 +2819,12 @@ async function deleteAllSiteInAppNotificationsForUser(userId?) {
   await migrateLegacyInAppNotificationsForUser(uid).catch(() => null);
   let count = 0;
   const inbox = await SiteDocument.findOne(inboxQuery(uid)).select("inAppNotifItems").catch(() => null);
+  // bug: il "dismiss" partiva senza id e su iPhone le notifiche arrivate da Apple (PWA chiusa) si chiudono solo per tag
+  // (vc-site-<id>): restavano tutte sul telefono. Si raccolgono gli id prima di svuotare.
+  const dismissIds = (Array.isArray(inbox?.inAppNotifItems) ? inbox.inAppNotifItems : [])
+    .map((it?) => String(it?._id || "").trim())
+    .filter(Boolean)
+    .slice(0, 80);
   if (inbox) {
     count += Array.isArray(inbox.inAppNotifItems) ? inbox.inAppNotifItems.length : 0;
     inbox.inAppNotifItems = [];
@@ -2832,7 +2838,7 @@ async function deleteAllSiteInAppNotificationsForUser(userId?) {
   const delLegacy = await SiteDocument.deleteMany(legacyFlatQuery(uid)).catch(() => null);
   count += Number(delLegacy?.deletedCount ?? delLegacy?.n ?? 0);
   if (count > 0) {
-    fireNotifDismissPush(uid, { all: true });
+    fireNotifDismissPush(uid, { all: true, ids: dismissIds, force: true });
     try {
       invalidateUnreadCountCache(uid);
       broadcastInboxChanged(uid);
