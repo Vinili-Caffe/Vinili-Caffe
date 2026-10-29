@@ -222,3 +222,11 @@ shared/discord/chatHubPacing.snapshot.json
 CALENDARIO EVENTO.pdf
 .vercel
 .env*
+
+# ── BOTS RUNTIME GENERATO (bots-ts/src = sorgente) ──
+# Ricrea con: npm run build:bots
+/Vinyls/
+/Coffee/
+/shared/
+/loader.js
+/wait-for-lavalink.js

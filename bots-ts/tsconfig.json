@@ -7,9 +7,11 @@
     "moduleResolution": "node10",
     "moduleDetection": "force",
     "types": ["node"],
-    // pacchetti installati solo dentro Vinyls/ (es. canvas): stesso posto da cui li prende il bot
+    // canvas: dopo promote sta in ../Vinyls; in pre-promote prova anche dist/
     "baseUrl": ".",
-    "paths": { "canvas": ["../Vinyls/node_modules/canvas"] },
+    "paths": {
+      "canvas": ["../Vinyls/node_modules/canvas", "./dist/Vinyls/node_modules/canvas"]
+    },
     "noEmit": true,
     "incremental": true,
     "tsBuildInfoFile": ".tsbuildinfo",

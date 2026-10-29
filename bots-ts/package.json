@@ -2,9 +2,11 @@
   "name": "vinili-caffe-bots-ts",
   "private": true,
   "version": "1.0.0",
-  "description": "I bot (Vinyls, Coffee, shared) in TypeScript: qui si sviluppano. dist/ è il JavaScript che gira sulla VPS.",
+  "description": "Sorgente unica dei bot (Vinyls, Coffee, shared) in TypeScript. npm run build → dist/; npm run promote → copia in root (runtime / VPS).",
   "scripts": {
     "build": "node tools/build.mjs",
+    "promote": "node tools/promote.mjs",
+    "build:promote": "node tools/build.mjs && node tools/promote.mjs",
     "check": "tsc -p tsconfig.json",
     "verify": "node tools/verify.mjs",
     "verify:load": "node tools/load-compare.cjs",

@@ -13,9 +13,11 @@ cd "$(dirname "$0")/.."
 
 echo "compilo bots-ts…"
 node tools/build.mjs | tail -1
-echo "controllo che il JS sia quello previsto…"
-node tools/verify.mjs | tail -1 || true
-node tools/verify.mjs >/dev/null || { echo "verify fallito: il JS compilato non è come previsto, niente pubblicazione" >&2; exit 1; }
+echo "controllo dist…"
+BOTS_TS_SOURCE_ONLY="${BOTS_TS_SOURCE_ONLY:-}" node tools/verify.mjs | tail -3
+node tools/verify.mjs || { echo "verify fallito: niente pubblicazione" >&2; exit 1; }
+# allinea anche la root locale (opzionale ma tiene Vinyls/ = dist)
+node tools/promote.mjs | tail -1
 
 LIST=""
 for f in $FILES; do
