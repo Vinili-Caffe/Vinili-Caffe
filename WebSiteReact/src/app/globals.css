@@ -398,8 +398,9 @@ html[data-vc-cap-blur="0"] [class*="blur-3xl"] {
   filter: none !important;
   opacity: 0.12 !important;
 }
+/* Solo glow/orb decorative: NON matchare backdrop-blur-2xl (substring blur-2xl). */
 html[data-vc-cap-orbs="0"] .vc-fx-orb,
-html[data-vc-cap-orbs="0"] [class*="blur-2xl"] {
+html[data-vc-cap-orbs="0"] [class*="blur-2xl"]:not([class*="backdrop-blur"]) {
   filter: none !important;
   opacity: 0.14 !important;
 }

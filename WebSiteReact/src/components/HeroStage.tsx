@@ -3,7 +3,6 @@
 import {
   useCallback,
   useEffect,
-  useId,
   useRef,
   useState,
   useSyncExternalStore,
@@ -48,56 +47,6 @@ function DiscordMark({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 127.14 96.36" aria-hidden className={className} fill="currentColor">
       <path d="M107.7 8.07A105.15 105.15 0 0 0 81.47 0a72.06 72.06 0 0 0-3.36 6.83 97.68 97.68 0 0 0-29.11 0A72.37 72.37 0 0 0 45.64 0a105.89 105.89 0 0 0-26.25 8.09C2.79 32.65-1.71 56.6.54 80.21a105.73 105.73 0 0 0 32.17 16.15 77.7 77.7 0 0 0 6.89-11.11 68.42 68.42 0 0 1-10.85-5.18c.91-.66 1.8-1.34 2.66-2a75.57 75.57 0 0 0 64.32 0c.87.71 1.76 1.39 2.66 2a68.68 68.68 0 0 1-10.87 5.19 77 77 0 0 0 6.89 11.1 105.25 105.25 0 0 0 32.19-16.14c2.64-27.38-4.51-51.11-18.9-72.15ZM42.45 65.69C36.18 65.69 31 60 31 53s5-12.74 11.44-12.74S54 46 53.89 53s-5.05 12.69-11.44 12.69Zm42.24 0C78.41 65.69 73.25 60 73.25 53s5-12.74 11.44-12.74S96.23 46 96.12 53s-5.04 12.69-11.43 12.69Z" />
-    </svg>
-  );
-}
-
-function TonearmSvg({ className }: { className?: string }) {
-  const uid = useId().replace(/:/g, "");
-  return (
-    <svg viewBox="0 0 100 130" className={className} aria-hidden>
-      <defs>
-        <linearGradient id={`${uid}-m`} x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor="#ffffff" />
-          <stop offset="35%" stopColor="#d8d4cc" />
-          <stop offset="100%" stopColor="#6a655c" />
-        </linearGradient>
-        <linearGradient id={`${uid}-head`} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#3a3632" />
-          <stop offset="100%" stopColor="#12100e" />
-        </linearGradient>
-        <filter id={`${uid}-sh`} x="-50%" y="-50%" width="200%" height="200%">
-          <feDropShadow dx="1" dy="3" stdDeviation="2" floodColor="#000" floodOpacity="0.55" />
-        </filter>
-      </defs>
-      <g filter={`url(#${uid}-sh)`}>
-        <ellipse cx="74" cy="18" rx="13" ry="12" fill="#0e0c0a" />
-        <circle cx="74" cy="16" r="11.5" fill="#1a1612" stroke="#cfc9be" strokeWidth="1.5" />
-        <circle cx="74" cy="16" r="6.2" fill={`url(#${uid}-m)`} />
-        <circle cx="74" cy="16" r="2.2" fill="#2a2620" />
-        <circle cx="74" cy="15.2" r="0.7" fill="#fff" opacity="0.45" />
-        <path
-          d="M74 16 L69 58 Q66 78 48 92 L26 108"
-          fill="none"
-          stroke={`url(#${uid}-m)`}
-          strokeWidth="4.2"
-          strokeLinecap="round"
-        />
-        <path
-          d="M74 16 L69 58 Q66 78 48 92 L26 108"
-          fill="none"
-          stroke="rgba(255,255,255,0.28)"
-          strokeWidth="1.1"
-          strokeLinecap="round"
-          transform="translate(-1.1 -0.6)"
-        />
-        <g transform="rotate(-36 24 110)">
-          <ellipse cx="24" cy="114" rx="11" ry="3" fill="#000" opacity="0.35" />
-          <rect x="12" y="104" width="24" height="11" rx="2.2" fill={`url(#${uid}-head)`} stroke="#8a847a" strokeWidth="0.6" />
-          <rect x="14" y="106" width="18" height="3" rx="1" fill={`url(#${uid}-m)`} opacity="0.35" />
-          <rect x="16" y="114.5" width="3.5" height="2.4" rx="0.4" fill="#0a0806" />
-        </g>
-      </g>
     </svg>
   );
 }
@@ -351,9 +300,11 @@ export function HeroStage({ className }: { className?: string }) {
       transition={{ delay: 0.12, duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
       className={cn("relative mx-auto w-full max-w-[21.5rem] sm:max-w-[25rem]", className)}
     >
+      {/* Alone decorativo: classe senza blur-2xl/3xl nel parent della UI (gate opacity). */}
       <div
         aria-hidden
-        className="pointer-events-none absolute -inset-12 -z-10 rounded-[3rem] bg-[radial-gradient(circle_at_50%_40%,rgba(217,154,91,0.48),transparent_62%)] blur-3xl"
+        className="pointer-events-none absolute -inset-10 -z-10 rounded-[3rem] bg-[radial-gradient(circle_at_50%_40%,rgba(217,154,91,0.42),transparent_62%)] opacity-90"
+        style={{ filter: "blur(42px)" }}
       />
 
       <motion.div
@@ -361,14 +312,19 @@ export function HeroStage({ className }: { className?: string }) {
         transition={{ duration: 7, repeat: Infinity, ease: "easeInOut" }}
         className={cn(
           "relative overflow-visible rounded-[1.9rem]",
-          "bg-[linear-gradient(165deg,rgba(70,64,58,0.55)_0%,rgba(36,32,28,0.68)_45%,rgba(18,16,14,0.78)_100%)]",
-          "p-5 shadow-[0_44px_96px_-36px_rgba(0,0,0,0.95),inset_0_1px_0_rgba(255,255,255,0.16)]",
-          "ring-1 ring-white/12 backdrop-blur-2xl sm:p-6",
+          /* opaco: niente glass / backdrop-blur (matchava gate opacity 0.14) */
+          "bg-[linear-gradient(155deg,#4a3426_0%,#2a1b12_42%,#1a110c_100%)]",
+          "p-5 shadow-[0_44px_96px_-36px_rgba(0,0,0,0.95),inset_0_1px_0_rgba(255,230,200,0.14),inset_0_-2px_0_rgba(0,0,0,0.45)]",
+          "ring-1 ring-black/55 sm:p-6",
         )}
       >
         <div
           aria-hidden
-          className="pointer-events-none absolute inset-0 rounded-[1.9rem] bg-[radial-gradient(ellipse_at_90%_0%,rgba(255,210,160,0.1),transparent_42%)]"
+          className="pointer-events-none absolute inset-0 rounded-[1.9rem] bg-[repeating-linear-gradient(100deg,rgba(255,220,180,0.04)_0_2px,transparent_2px_9px)]"
+        />
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 rounded-[1.9rem] bg-[radial-gradient(ellipse_at_90%_0%,rgba(255,210,160,0.12),transparent_42%)]"
         />
 
         <div className="relative z-[1] flex items-start justify-between">
@@ -388,7 +344,7 @@ export function HeroStage({ className }: { className?: string }) {
           </a>
           <span className="mt-2.5 flex gap-1.5 pr-1" aria-hidden>
             {[0, 1, 2].map((i) => (
-              <span key={i} className="size-[5px] rounded-full bg-white/35 shadow-[0_1px_0_rgba(0,0,0,0.45)]" />
+              <span key={i} className="size-[5px] rounded-full bg-[#f4e9d8]/45 shadow-[0_1px_0_rgba(0,0,0,0.45)]" />
             ))}
           </span>
         </div>
@@ -396,24 +352,24 @@ export function HeroStage({ className }: { className?: string }) {
         <div className="relative mt-5">
           <div
             className={cn(
-              "relative mx-auto aspect-square w-[84%] max-w-[17.25rem]",
+              "relative mx-auto aspect-square w-[88%] max-w-[18rem]",
               "rounded-[1.35rem]",
-              "bg-[linear-gradient(150deg,#4a4641_0%,#2c2926_38%,#161412_100%)]",
-              "p-[7.5%]",
-              "shadow-[0_26px_48px_-16px_rgba(0,0,0,0.95),0_2px_0_rgba(255,255,255,0.1),inset_0_1px_0_rgba(255,255,255,0.18),inset_0_-14px_28px_rgba(0,0,0,0.5)]",
-              "ring-1 ring-black/55",
+              "bg-[linear-gradient(135deg,#3a2618_0%,#24160e_45%,#2e1d13_70%,#1a100a_100%)]",
+              "p-[6%]",
+              "shadow-[0_26px_48px_-16px_rgba(0,0,0,0.95),inset_0_1px_0_rgba(255,230,200,0.12),inset_0_-12px_24px_rgba(0,0,0,0.55)]",
+              "ring-1 ring-black/60",
             )}
           >
             <div
               aria-hidden
-              className="pointer-events-none absolute inset-0 rounded-[1.35rem] bg-[radial-gradient(ellipse_at_25%_15%,rgba(255,255,255,0.16),transparent_48%)]"
+              className="pointer-events-none absolute inset-0 rounded-[1.35rem] bg-[radial-gradient(ellipse_at_25%_15%,rgba(255,230,200,0.14),transparent_48%)]"
             />
 
             <div
               className={cn(
                 "relative size-full rounded-full",
-                "bg-[conic-gradient(from_195deg,#f4f1ea,#9a958c,#efebe3,#5a5650,#f7f4ee,#8a857c,#ebe7e0)]",
-                "p-[2.6%] shadow-[0_14px_26px_-8px_rgba(0,0,0,0.9),inset_0_1px_0_rgba(255,255,255,0.5)]",
+                "bg-[conic-gradient(#8b8f96,#e4e7eb,#7a7e85,#d6d9dd,#8b8f96,#eceff2,#7a7e85)]",
+                "p-[2.4%] shadow-[0_18px_30px_-10px_rgba(0,0,0,0.9)]",
               )}
             >
               <motion.div
@@ -421,7 +377,7 @@ export function HeroStage({ className }: { className?: string }) {
                 style={{ rotate: platterRotate }}
                 onPointerDown={onPlatterPointerDown}
                 className={cn(
-                  "relative size-full touch-none rounded-full will-change-transform outline-none",
+                  "relative size-full touch-none rounded-full bg-[repeating-conic-gradient(#2b2d31_0_4deg,#3a3d42_4deg_8deg)] p-[1.5%] will-change-transform outline-none",
                   scrubbing ? "cursor-grabbing" : "cursor-grab active:cursor-grabbing",
                 )}
                 role="button"
@@ -438,24 +394,53 @@ export function HeroStage({ className }: { className?: string }) {
                   }
                 }}
               >
-                <VinylRecord className="pointer-events-none size-full drop-shadow-[0_8px_16px_rgba(0,0,0,0.55)]" />
+                <VinylRecord className="pointer-events-none size-full rounded-full shadow-[0_0_0_1px_rgba(0,0,0,0.7)]" />
               </motion.div>
-              <span
-                aria-hidden
-                className="pointer-events-none absolute inset-[4%] rounded-full bg-[conic-gradient(from_205deg,transparent_0deg,rgba(255,250,240,0.32)_24deg,transparent_58deg)]"
-              />
             </div>
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-[8%] rounded-full bg-[conic-gradient(from_200deg,transparent_0deg,rgba(255,240,220,0.2)_35deg,transparent_75deg)]"
+            />
 
-            {/* braccio: ruota dal pivot; trascina per play/stop */}
-            <motion.div
-              className="pointer-events-none absolute inset-0 z-10 overflow-visible"
-              style={{ transformOrigin: "88% 12%", rotate: armAngle }}
+            {/* braccio: stesso pivot/SVG del Turntable — trascina per play/stop */}
+            <motion.svg
+              viewBox="0 0 118 100"
+              className="pointer-events-none absolute inset-0 z-[5] size-full overflow-visible"
+              style={{ transformOrigin: "95.5% 15%", rotate: armAngle }}
+              aria-hidden
             >
-              <TonearmSvg className="absolute -right-[4%] top-0 h-[82%] w-[46%]" />
-            </motion.div>
+              <defs>
+                <linearGradient id="vc-hero-arm-metal" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0" stopColor="#f4e9d8" />
+                  <stop offset="0.5" stopColor="#c4a07a" />
+                  <stop offset="1" stopColor="#7d5f42" />
+                </linearGradient>
+                <filter id="vc-hero-arm-soft" x="-20%" y="-20%" width="140%" height="140%">
+                  <feDropShadow dx="0" dy="1.2" stdDeviation="1.1" floodColor="#000" floodOpacity="0.45" />
+                </filter>
+              </defs>
+              <g filter="url(#vc-hero-arm-soft)">
+                <rect x="108.5" y="2" width="8" height="9" rx="2" fill="#1a110c" stroke="#c4a07a" strokeWidth="0.6" />
+                <circle cx="112.7" cy="15" r="7" fill="#1a110c" stroke="#5a4330" strokeWidth="1" />
+                <circle cx="112.7" cy="15" r="3.4" fill="url(#vc-hero-arm-metal)" />
+              </g>
+              <path
+                d="M112.7 15 L110.2 48 Q109.2 56 102.5 61 L86 68.5"
+                fill="none"
+                stroke="url(#vc-hero-arm-metal)"
+                strokeWidth="2"
+                strokeLinecap="round"
+                opacity="0.95"
+              />
+              <g transform="rotate(-28 84 70)" filter="url(#vc-hero-arm-soft)">
+                <ellipse cx="84" cy="72.2" rx="7" ry="2.2" fill="#000" opacity="0.28" />
+                <rect x="78" y="67.2" width="11" height="5.8" rx="1.2" fill="url(#vc-hero-arm-metal)" stroke="#1a110c" strokeWidth="0.55" />
+                <rect x="79.2" y="72.6" width="2.2" height="1.6" rx="0.4" fill="#1a110c" />
+              </g>
+            </motion.svg>
             <motion.div
               className="pointer-events-none absolute inset-0 z-20"
-              style={{ transformOrigin: "88% 12%", rotate: armAngle }}
+              style={{ transformOrigin: "95.5% 15%", rotate: armAngle }}
             >
               <button
                 type="button"
@@ -465,7 +450,7 @@ export function HeroStage({ className }: { className?: string }) {
                   "pointer-events-auto absolute touch-none rounded-full",
                   draggingArm ? "cursor-grabbing" : "cursor-grab",
                 )}
-                style={{ left: "58%", top: "52%", width: "22%", height: "22%" }}
+                style={{ left: "66%", top: "60%", width: "12%", height: "14%" }}
               />
             </motion.div>
 
@@ -488,7 +473,7 @@ export function HeroStage({ className }: { className?: string }) {
               {["#e2c49a", "#9a6a3c", "#f2e6d2"].map((c, i) => (
                 <span
                   key={c}
-                  className="size-8 rounded-full ring-2 ring-[#12100e]/90"
+                  className="size-8 rounded-full ring-2 ring-[#1a110c]/95"
                   style={{
                     background: `linear-gradient(145deg, ${c}, #2a1c12)`,
                     zIndex: 3 - i,
