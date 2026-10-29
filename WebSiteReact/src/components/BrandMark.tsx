@@ -6,17 +6,17 @@ import { cn } from "@/lib/cn";
 import { SmartLink } from "./SmartLink";
 import { HeaderNameMarquee } from "./effects/HeaderNameMarquee";
 
-/** Logo brand statico (stesso asset delle icone PWA) — niente rotazione. */
-const LOGO = "/images/logo-disco.png";
+const FALLBACK = "/images/logo-disco.png";
 const FALLBACK_NAME = "VINILI & CAFFÈ";
 
 /**
- * Logo + wordmark come il nome server (sans, non display serif).
- * Il testo viene da discord-invite.json quando disponibile.
- * `navUnderline`: in navbar — home = linea sempre (segue marquee); altre pagine = solo hover.
+ * Logo guild Discord (GIF animata se il server ce l’ha) + wordmark.
+ * Niente rotazione CSS: l’animazione è quella del logo Discord.
+ * `navUnderline`: home = linea sempre; altre pagine = solo hover.
  */
 export function BrandMark({ className, navUnderline }: { className?: string; navUnderline?: boolean }) {
   const pathname = usePathname() || "/";
+  const [icon, setIcon] = useState(FALLBACK);
   const [name, setName] = useState(FALLBACK_NAME);
   const isHome = pathname === "/" || pathname === "";
 
@@ -27,8 +27,14 @@ export function BrandMark({ className, navUnderline }: { className?: string; nav
       .then((j) => {
         if (!alive || !j) return;
         const guild = j.guild || j;
+        const id = String(guild?.id || "").trim();
+        const hash = String(guild?.icon || "").trim();
         const gName = String(guild?.name || "").trim();
         if (gName) setName(gName);
+        if (!id || !hash) return;
+        /* hash `a_…` = icona animata Discord → GIF */
+        const ext = hash.startsWith("a_") ? "gif" : "png";
+        setIcon(`https://cdn.discordapp.com/icons/${id}/${hash}.${ext}?size=128`);
       })
       .catch(() => {});
     return () => {
@@ -49,13 +55,15 @@ export function BrandMark({ className, navUnderline }: { className?: string; nav
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src={LOGO}
+        key={icon}
+        src={icon}
         alt=""
         width={40}
         height={40}
         className="size-10 shrink-0 rounded-full bg-crema/10 object-cover ring-1 ring-crema/15"
+        onError={() => setIcon(FALLBACK)}
       />
-      {/* Mobile: solo wordmark (la tagline usciva dall’header e finiva sotto pill/contenuto). */}
+      {/* Mobile: solo wordmark */}
       <span className="flex min-w-0 max-w-[9.5rem] flex-col justify-center gap-0.5 overflow-hidden sm:max-w-[14rem] lg:max-xl:hidden">
         <HeaderNameMarquee
           text={main}
