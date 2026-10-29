@@ -35,6 +35,18 @@ const NOMODULI_ROLE_ID = IDs.roles.blacklistModuli;
 const MEMBER_ROLE_ID = IDs.roles.Member;
 const HELPER_ROLE_ID = IDs.roles.Helper;
 const PARTNER_MANAGER_ROLE_ID = IDs.roles.PartnerManager;
+/** Ruolo Blogger: non è ancora tra i nomi di ids.js, è lo stesso id di idsCatalog ("༄ Blogger"). */
+const BLOGGER_ROLE_ID = String((IDs.roles as any).Blogger || "1557507157899878533");
+/** Tipi di candidatura: Helper e Partner Manager (anche da Discord), Blogger (dal sito). */
+const APPLICATION_TYPES = ["helper", "partnermanager", "blogger"];
+const APPLICATION_TYPE_LABELS = { helper: "Helper", partnermanager: "Partner Manager", blogger: "Blogger" };
+function normalizeApplicationType(type?) {
+  const t = String(type || "").trim().toLowerCase();
+  return APPLICATION_TYPES.includes(t) ? t : "helper";
+}
+function applicationTypeLabel(type?) {
+  return APPLICATION_TYPE_LABELS[normalizeApplicationType(type)];
+}
 const HELPER_REAPPLY_BLOCK_ROLE_IDS = [IDs.roles.Staff, IDs.roles.Helper, IDs.roles.Mod, IDs.roles.SeniorModerator, IDs.roles.HighStaff, IDs.roles.Director, IDs.roles.Admin, IDs.roles.Manager, IDs.roles.Founder].filter(Boolean);
 /** Priorità (alto → basso) per messaggio “Sei già un …” quando manca position Discord. */
 const HELPER_BLOCK_ROLE_PRIORITY_IDS = [
@@ -59,6 +71,7 @@ const HELPER_BLOCK_ROLE_FALLBACK_LABEL = {
   [String(IDs.roles.Helper || "")]: "Helper",
   [String(IDs.roles.Staff || "")]: "Staff",
   [String(IDs.roles.PartnerManager || "")]: "Partner Manager",
+  [BLOGGER_ROLE_ID]: "Blogger",
 };
 const pendingApplications = new Map();
 const cooldownByUserAndType = new Map();
@@ -201,17 +214,18 @@ function synthMemberFromOAuth(guild?, meJson?, oauthMember?) {
 }
 
 function cooldownTypeKey(type?) {
-  return type === "partnermanager" ? "partnermanager" : "helper";
+  return normalizeApplicationType(type);
 }
 function cooldownStorageKey(userId?, type?) {
   return `${String(userId || "")}:${cooldownTypeKey(type)}`;
 }
 const draftByStateKey = new Map();
 const candidatePexLocks = new Set();
-const applicationCounters = { helper: 0, partnermanager: 0, };
+const applicationCounters = { helper: 0, partnermanager: 0, blogger: 0, };
 const {
   HELPER_QUESTIONS,
   PARTNER_MANAGER_QUESTIONS,
+  BLOGGER_QUESTIONS,
   choicePlaceholder,
   findQuestionLabel,
 } = require("../../Utils/Community/candidatureApplicationsCatalog") as typeof import("../../Utils/Community/candidatureApplicationsCatalog");
@@ -246,6 +260,10 @@ const APPLICATIONS = {
     label: "Partner Manager",
     questions: PARTNER_MANAGER_QUESTIONS.map(catalogToDiscordQuestion),
   },
+  blogger: {
+    label: "Blogger",
+    questions: BLOGGER_QUESTIONS.map(catalogToDiscordQuestion),
+  },
 };
 
 async function loadCooldownMap() {
@@ -267,7 +285,7 @@ async function loadCooldownMap() {
         continue;
       }
       if (entry && typeof entry === "object") {
-        for (const t of ["helper", "partnermanager"]) {
+        for (const t of APPLICATION_TYPES) {
           const ts = Number(entry[t] || 0);
           if (Number.isFinite(ts) && ts > now) {
             cooldownByUserAndType.set(`${uid}:${t}`, ts);
@@ -306,6 +324,8 @@ async function loadApplicationCounters() {
       const pm = Number(parsed.partnermanager || 0);
       applicationCounters.helper = Number.isFinite(helper) && helper > 0 ? Math.floor(helper) : 0;
       applicationCounters.partnermanager = Number.isFinite(pm) && pm > 0 ? Math.floor(pm) : 0;
+      const blog = Number(parsed.blogger || 0);
+      applicationCounters.blogger = Number.isFinite(blog) && blog > 0 ? Math.floor(blog) : 0;
     }
   } catch (err) {
     global.logger?.warn?.("[candidature] load counters:", err?.message || err);
@@ -318,7 +338,7 @@ async function persistApplicationCounters() {
 
 async function nextApplicationNumber(type?) {
   await loadApplicationCounters();
-  const key = type === "partnermanager" ? "partnermanager" : "helper";
+  const key = normalizeApplicationType(type);
   const current = Number(applicationCounters[key] || 0);
   const next = Number.isFinite(current) ? Math.floor(current) + 1 : 1;
   applicationCounters[key] = next;
@@ -593,7 +613,7 @@ async function bumpApplicationCooldownAfterStaffDepex(userId?) {
   if (!/^\d{16,20}$/.test(uid)) return;
   await loadCooldownMap();
   const floor = Date.now() + APPLICATION_COOLDOWN_MS;
-  for (const type of ["helper", "partnermanager"]) {
+  for (const type of APPLICATION_TYPES) {
     const key = cooldownStorageKey(uid, type);
     const cur = Number(cooldownByUserAndType.get(key) || 0);
     const active = Number.isFinite(cur) && cur > Date.now() ? cur : 0;
@@ -634,10 +654,7 @@ function buildNoModuliDeniedEmbed() {
 
 function buildCooldownDeniedEmbed(untilTs?, type?) {
   const unix = Math.floor(Number(untilTs) / 1000);
-  const label =
-    type === "partnermanager"
-      ? "**Partner Manager**"
-      : "**Helper**";
+  const label = `**${applicationTypeLabel(type)}**`;
   return new EmbedBuilder()
     .setColor("Red")
     .setTitle("<:VC_Lock:1482526739044368476> Candidatura non disponibile")
@@ -647,7 +664,7 @@ function buildCooldownDeniedEmbed(untilTs?, type?) {
         "",
         `<:VC_update:1478721333096349817> Potrai reinviare **solo quella** (${label}) dopo: <t:${unix}:F> (<t:${unix}:R>).`,
         "",
-        "<:VC_InactiveStatus:1482526984234860574> Le candidature **Helper** e **Partner Manager** hanno cooldown **separati**: puoi comunque candidarti all’altra se non è in cooldown.",
+        "<:VC_InactiveStatus:1482526984234860574> Ogni candidatura (**Helper**, **Partner Manager**, **Blogger**) ha il suo cooldown **separato**: puoi comunque candidarti alle altre se non sono in cooldown.",
         "<a:VC_Timer:1482527426557775954> Tra una candidatura e la successiva **dello stesso tipo** passano 15 giorni.",
       ].join("\n"),
     );
@@ -684,7 +701,7 @@ function buildIntroEmbed(type?) {
 function buildFinalThanksEmbed(untilTs?, type?) {
   const unix = Math.floor(Number(untilTs) / 1000);
   const label =
-    type === "partnermanager" ? "Partner Manager" : "Helper";
+    applicationTypeLabel(type);
   return new EmbedBuilder()
     .setColor("#2ECC71")
     .setTitle("<:vegacheckmark:1443666279058772028> Candidatura inviata")
@@ -701,7 +718,7 @@ function buildFinalThanksEmbed(untilTs?, type?) {
 }
 
 function buildFinalThanksPlainMessage(untilTs?, type?) {
-  const label = type === "partnermanager" ? "Partner Manager" : "Helper";
+  const label = applicationTypeLabel(type);
   const ms = Number(untilTs);
   const hasDate = Number.isFinite(ms) && ms > 0;
   const untilText = hasDate
@@ -763,6 +780,7 @@ async function setApplicationMessageStatusColor(message?, color?, decidedBy = ""
 
 function getTargetRoleIdByType(type?) {
   if (type === "partnermanager") return PARTNER_MANAGER_ROLE_ID;
+  if (type === "blogger") return BLOGGER_ROLE_ID;
   if (type === "helper") return HELPER_ROLE_ID;
   return null;
 }
@@ -1034,7 +1052,7 @@ async function postCandidatureToVisioneModuli(client?, guild?, user?, type?, ans
       const subjectName =
         String(user?.globalName || user?.username || user?.tag || "").trim() || String(user.id);
       const typeLabel =
-        String(type || "").toLowerCase() === "partnermanager" ? "Partner Manager" : "Helper";
+        applicationTypeLabel(type);
       void notifyInboxStaffNewItem({
         guild,
         queue: "candidature",
@@ -1114,7 +1132,7 @@ async function postCandidatureToVisioneModuli(client?, guild?, user?, type?, ans
   try {
     const { notifyInboxStaffNewItem } = require("../../Utils/Web/siteStaffWorkflowNotifications") as typeof import("../../Utils/Web/siteStaffWorkflowNotifications");
     const subjectName = String(user?.globalName || user?.username || user?.tag || "").trim() || String(user.id);
-    const typeLabel = String(type || "").toLowerCase() === "partnermanager" ? "Partner Manager" : "Helper";
+    const typeLabel = applicationTypeLabel(type);
     void notifyInboxStaffNewItem({
       guild,
       queue: "candidature",
@@ -1344,6 +1362,7 @@ async function getCandidatureEligibilitySummary(client?, accessToken?) {
         inGuild: false,
         helper: { eligible: false, code: "not_in_guild", message: msg },
         partnermanager: { eligible: false, code: "not_in_guild", message: msg },
+        blogger: { eligible: false, code: "not_in_guild", message: msg },
       };
     }
     return resolved;
@@ -1352,6 +1371,7 @@ async function getCandidatureEligibilitySummary(client?, accessToken?) {
   const { member, userId }: any = resolved;
   const helperRes = await checkMemberCandidatureEligibility(member, "helper");
   const pmRes = await checkMemberCandidatureEligibility(member, "partnermanager");
+  const bloggerRes = await checkMemberCandidatureEligibility(member, "blogger");
   const pack = (e?) =>
     e.ok
       ? { eligible: true }
@@ -1372,13 +1392,14 @@ async function getCandidatureEligibilitySummary(client?, accessToken?) {
     noModuliBlocked: Boolean(NOMODULI_ROLE_ID && hasAnyRoleMember(member, [NOMODULI_ROLE_ID])),
     helper: pack(helperRes),
     partnermanager: pack(pmRes),
+    blogger: pack(bloggerRes),
   };
 }
 
 async function submitCandidatureWebsite(client?, payload?) {
   const accessToken = String(payload?.accessToken || "").trim();
   const typeRaw = String(payload?.type || "").trim().toLowerCase();
-  const type = typeRaw === "partnermanager" ? "partnermanager" : "helper";
+  const type = normalizeApplicationType(typeRaw);
   const answersIn = payload?.answers && typeof payload.answers === "object" ? payload.answers : {};
 
   const resolved = await resolveWebsiteCandidatureMember(client, accessToken);
@@ -1470,7 +1491,7 @@ async function sendCandidatePexLog(guild?, member?, targetRoleId?, roleBeforeId?
 }
 
 async function completeCandidatePexAfterRole(guild?, member?, type?, reason?, sourceMessage?, opts: Record<string, any> = {}) {
-  const targetRoleId = type === "partnermanager" ? PARTNER_MANAGER_ROLE_ID : HELPER_ROLE_ID;
+  const targetRoleId = getTargetRoleIdByType(normalizeApplicationType(type));
   const roleBeforeId = String(IDs.roles.Member || "");
   const recovery = Boolean(opts.recovery);
 
@@ -1524,7 +1545,7 @@ async function completeCandidatePexAfterRole(guild?, member?, type?, reason?, so
 
   try {
     const { enqueueSiteInAppNotification } = require("../../Utils/Web/siteInAppNotificationsService") as typeof import("../../Utils/Web/siteInAppNotificationsService");
-    const label = type === "partnermanager" ? "Partner Manager" : "Helper";
+    const label = applicationTypeLabel(type);
     const msgId = String(sourceMessage?.id || "");
     const openUrl = msgId
       ? `/candidature/?chat=${encodeURIComponent(`candidature:${msgId}`)}`
@@ -1533,7 +1554,10 @@ async function completeCandidatePexAfterRole(guild?, member?, type?, reason?, so
       guildId: guild.id,
       userId: member.id,
       title: recovery ? "Candidatura accettata (recupero)" : "Candidatura accettata",
-      body: `La tua candidatura è stata accettata: ora hai accesso come ${label}. Controlla i messaggi di benvenuto inviati nello staff.`,
+      body:
+        normalizeApplicationType(type) === "blogger"
+          ? `La tua candidatura è stata accettata: ora sei ${label}.`
+          : `La tua candidatura è stata accettata: ora hai accesso come ${label}. Controlla i messaggi di benvenuto inviati nello staff.`,
       kind: "workflow_decision",
       channel: "personal",
       openUrl,
@@ -1545,7 +1569,7 @@ async function completeCandidatePexAfterRole(guild?, member?, type?, reason?, so
 }
 
 async function applyCandidatePex(guild?, actor?, type?, userId?, reason?, sourceMessage?) {
-  const targetRoleId = type === "partnermanager" ? PARTNER_MANAGER_ROLE_ID : HELPER_ROLE_ID;
+  const targetRoleId = getTargetRoleIdByType(normalizeApplicationType(type));
   if (!targetRoleId) return "Ruolo target non configurato.";
 
   const member = guild.members.cache.get(String(userId)) || (await getGuildMemberCached(guild, String(userId)));
@@ -1597,7 +1621,7 @@ function parseCandidatePexCustomId(customId?) {
   const raw = String(customId || "");
   if (!raw.startsWith(`${APPLY_PEX_PREFIX}:`)) return null;
   const [, type, userId] = raw.split(":");
-  if (!["helper", "partnermanager"].includes(String(type || ""))) return null;
+  if (!APPLICATION_TYPES.includes(String(type || ""))) return null;
   if (!/^\d{16,20}$/.test(String(userId || ""))) return null;
   return { type: String(type), userId: String(userId) };
 }
@@ -1606,7 +1630,7 @@ function parseCandidatePexModalId(customId?) {
   const raw = String(customId || "");
   if (!raw.startsWith(`${APPLY_PEX_MODAL_PREFIX}:`)) return null;
   const [, type, userId, messageId] = raw.split(":");
-  if (!["helper", "partnermanager"].includes(String(type || ""))) return null;
+  if (!APPLICATION_TYPES.includes(String(type || ""))) return null;
   if (!/^\d{16,20}$/.test(String(userId || ""))) return null;
   if (!/^\d{16,20}$/.test(String(messageId || ""))) return null;
   return { type: String(type), userId: String(userId), messageId: String(messageId) };
@@ -1839,10 +1863,10 @@ async function handleCandidatureApplicationInteraction(interaction?) {
         );
         await deleteThreadForMessage(interaction.guild, interaction.message);
       }
-      if (rejUid && ["helper", "partnermanager"].includes(rejType)) {
+      if (rejUid && APPLICATION_TYPES.includes(rejType)) {
         try {
           const { enqueueSiteInAppNotification } = require("../../Utils/Web/siteInAppNotificationsService") as typeof import("../../Utils/Web/siteInAppNotificationsService");
-          const label = rejType === "partnermanager" ? "Partner Manager" : "Helper";
+          const label = applicationTypeLabel(rejType);
           const openUrl = rejMessageId
             ? `/candidature/?chat=${encodeURIComponent(`candidature:${rejMessageId}`)}`
             : "/candidature/";
@@ -1972,7 +1996,7 @@ function parseCandidateTypeFromMessage(message?) {
       const id = String(comp?.customId || "");
       if (id.startsWith(`${APPLY_PEX_PREFIX}:`)) {
         const [, type, userId] = id.split(":");
-        if (["helper", "partnermanager"].includes(String(type || "")) && /^\d{16,20}$/.test(String(userId || ""))) {
+        if (APPLICATION_TYPES.includes(String(type || "")) && /^\d{16,20}$/.test(String(userId || ""))) {
           return { type: String(type), userId: String(userId) };
         }
       }
@@ -1980,6 +2004,7 @@ function parseCandidateTypeFromMessage(message?) {
   }
   const title = String(message?.embeds?.[0]?.title || "");
   if (/partner\s*manager/i.test(title)) return { type: "partnermanager", userId: parseUserIdFromEmbedFooter(message) };
+  if (/blogger/i.test(title)) return { type: "blogger", userId: parseUserIdFromEmbedFooter(message) };
   if (/helper/i.test(title)) return { type: "helper", userId: parseUserIdFromEmbedFooter(message) };
   return null;
 }
@@ -2112,7 +2137,7 @@ async function resolveCandidatureBoundFromStore(guildId?, messageId?, type?, use
     .trim()
     .toLowerCase();
   let boundUserId = String(userId || "").trim();
-  if (boundUserId && ["helper", "partnermanager"].includes(boundType)) {
+  if (boundUserId && APPLICATION_TYPES.includes(boundType)) {
     return { boundType, boundUserId };
   }
   try {
@@ -2156,12 +2181,12 @@ async function webRejectCandidateApplication(guild?, actorMember?, messageId?, t
     .trim()
     .toLowerCase();
   let boundUserId = String(bound?.userId || userId || "").trim();
-  if (!boundUserId || !["helper", "partnermanager"].includes(boundType)) {
+  if (!boundUserId || !APPLICATION_TYPES.includes(boundType)) {
     const fromStore = await resolveCandidatureBoundFromStore(guild.id, mid, boundType, boundUserId);
     boundType = fromStore.boundType;
     boundUserId = fromStore.boundUserId;
   }
-  if (!boundUserId || !["helper", "partnermanager"].includes(boundType)) {
+  if (!boundUserId || !APPLICATION_TYPES.includes(boundType)) {
     return { ok: false, status: 400, message: "Candidatura non trovata o dati incompleti (type/userId)." };
   }
   if (msg) {
@@ -2199,10 +2224,10 @@ async function webRejectCandidateApplication(guild?, actorMember?, messageId?, t
   } catch (_) {}
   const rejType = boundType;
   const rejUid = boundUserId;
-  if (rejUid && ["helper", "partnermanager"].includes(rejType)) {
+  if (rejUid && APPLICATION_TYPES.includes(rejType)) {
     try {
       const { enqueueSiteInAppNotification } = require("../../Utils/Web/siteInAppNotificationsService") as typeof import("../../Utils/Web/siteInAppNotificationsService");
-      const label = rejType === "partnermanager" ? "Partner Manager" : "Helper";
+      const label = applicationTypeLabel(rejType);
       const mid = String(messageId || "");
       const openUrl = mid
         ? `/candidature/?chat=${encodeURIComponent(`candidature:${mid}`)}`
@@ -2243,12 +2268,12 @@ async function webAcceptCandidateApplication(guild?, actorMember?, messageId?, t
     .trim()
     .toLowerCase();
   let boundUserId = String(bound?.userId || userId || "").trim();
-  if (!boundUserId || !["helper", "partnermanager"].includes(boundType)) {
+  if (!boundUserId || !APPLICATION_TYPES.includes(boundType)) {
     const fromStore = await resolveCandidatureBoundFromStore(guild.id, mid, boundType, boundUserId);
     boundType = fromStore.boundType;
     boundUserId = fromStore.boundUserId;
   }
-  if (!boundUserId || !["helper", "partnermanager"].includes(boundType)) {
+  if (!boundUserId || !APPLICATION_TYPES.includes(boundType)) {
     return { ok: false, status: 400, message: "Candidatura non trovata o dati incompleti (type/userId)." };
   }
   /* Se c’è messaggio Discord, preferisci i dati parsati; altrimenti body/store (sito). */

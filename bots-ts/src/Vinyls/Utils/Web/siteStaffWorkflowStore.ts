@@ -691,7 +691,7 @@ function isWorkflowRoleSlug(value?, doc?) {
   if (!v) return true;
   const type = String(doc?.workflowType || doc?.workflowKind || "").trim().toLowerCase();
   if (type && v === type) return true;
-  return /^(helper|partnermanager|partner manager)$/.test(v);
+  return /^(helper|partnermanager|partner manager|blogger)$/.test(v);
 }
 
 function readStoredSubject(doc?) {
@@ -2540,7 +2540,7 @@ async function listStaffWorkflowFromDb(client?, guildId?, queue?, opts: Record<s
   const roleFilter = String(opts.filter || "").trim().toLowerCase();
   if (roleFilter && roleFilter !== "all") {
     if (q === "candidature") {
-      if (roleFilter === "helper" || roleFilter === "partnermanager" || roleFilter === "pm") {
+      if (roleFilter === "helper" || roleFilter === "partnermanager" || roleFilter === "pm" || roleFilter === "blogger") {
         filter.workflowType = roleFilter === "pm" ? "partnermanager" : roleFilter;
       }
     } else if (q === "appelli") {

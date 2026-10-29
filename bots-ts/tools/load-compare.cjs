@@ -67,9 +67,17 @@ for (const [n, base] of [["orig", REPO], ["ts", path.join(TS_ROOT, "dist")]]) {
 const a = JSON.parse(fs.readFileSync(tmp("orig"), "utf8"));
 const b = JSON.parse(fs.readFileSync(tmp("ts"), "utf8"));
 const diffs = [];
-for (const k of new Set([...Object.keys(a), ...Object.keys(b)])) if (a[k] !== b[k]) diffs.push(`${k}\n    orig: ${a[k]}\n    ts:   ${b[k]}`);
+// correzioni fatte apposta in bots-ts (tools/differenze-volute.json): si mostrano ma non sono errori
+let INTENTIONAL = {};
+try {
+  INTENTIONAL = JSON.parse(fs.readFileSync(path.join(__dirname, "differenze-volute.json"), "utf8"));
+} catch {}
+const intentional = [];
+for (const k of new Set([...Object.keys(a), ...Object.keys(b)])) if (a[k] !== b[k] && INTENTIONAL[k]) intentional.push(`${k} (${INTENTIONAL[k]})`);
+  else if (a[k] !== b[k]) diffs.push(`${k}\n    orig: ${a[k]}\n    ts:   ${b[k]}`);
 const loaded = Object.values(a).filter((v) => !v.startsWith("ERRORE")).length;
 console.log(`${Object.keys(a).length} moduli, ${loaded} caricati senza errori (gli altri falliscono uguale in entrambi)`);
+if (intentional.length) console.log(`${intentional.length} moduli diversi apposta: ${intentional.join(", ")}`);
 if (diffs.length) {
   console.log(`${diffs.length} differenze:\n${diffs.slice(0, 20).join("\n")}`);
   process.exit(1);

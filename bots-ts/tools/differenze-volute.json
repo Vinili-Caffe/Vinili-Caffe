@@ -8,5 +8,8 @@
   "Vinyls/Utils/noDmPanel.js": "bug 6: componenti discord.js del pannello DM non importati",
   "Vinyls/Utils/Staff/staffPanelActions.js": "bug 7: replyError perso nello spostamento da staff.js",
   "Vinyls/Utils/Web/siteStaffCompitiApi.js": "bug 8: LEGACY_TASK_IDS inesistente, ora dalle chiavi di LEGACY_TASK_LABELS",
-  "Vinyls/Buttons/staffProfileHighStaff.js": "bug 9: IDs ridichiarato nello stesso blocco (usato prima della dichiarazione)"
+  "Vinyls/Buttons/staffProfileHighStaff.js": "bug 9: IDs ridichiarato nello stesso blocco (usato prima della dichiarazione)",
+  "Vinyls/Utils/Community/candidatureApplicationsCatalog.js": "candidatura Blogger: domande",
+  "Vinyls/Events/interaction/candidatureApplicationHandlers.js": "candidatura Blogger: tipo, ruolo, cooldown, idoneità, accettazione",
+  "Vinyls/Utils/Web/siteStaffWorkflowStore.js": "candidatura Blogger: filtro nella inbox staff"
 }

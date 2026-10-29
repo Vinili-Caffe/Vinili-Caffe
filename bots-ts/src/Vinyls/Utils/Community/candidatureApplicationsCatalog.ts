@@ -103,15 +103,77 @@ const PARTNER_MANAGER_QUESTIONS = [
   }
 ];
 
+/** Candidatura Blogger (dal sito): stesse regole degli altri due moduli, domande decise dall'High Staff. */
+const BLOGGER_QUESTIONS = [
+  { id: "id_discord", text: "1. ID Discord", modalLabel: "1. ID Discord", placeholder: "Dal profilo OAuth", kind: "short" },
+  { id: "eta", text: "2. Età", modalLabel: "2. Età", placeholder: "Scrivi la tua età", kind: "short" },
+  {
+    id: "topic_blog",
+    text: "3. Per quale topic blog ti stai candidando?",
+    modalLabel: "3. Topic del blog",
+    placeholder: "Es. gaming, musica, tecnologia, cinema…",
+    kind: "short",
+  },
+  {
+    id: "scelta_argomento",
+    text: "4. Su cosa ti basi per scegliere l'argomento di un articolo?",
+    modalLabel: "4. Scelta dell'argomento",
+    placeholder: "",
+    kind: "paragraph",
+  },
+  {
+    id: "flusso_lavoro",
+    text: "5. Che flusso di lavoro segui per scriverlo?",
+    modalLabel: "5. Flusso di lavoro",
+    placeholder: "",
+    kind: "paragraph",
+  },
+  {
+    id: "fonti",
+    text: "6. Quante e quali tipi di fonti prendi come riferimento?",
+    modalLabel: "6. Fonti",
+    placeholder: "",
+    kind: "paragraph",
+  },
+  {
+    id: "info_poco_chiare",
+    text: "7. Come ti comporti quando trovi informazioni ridotte, contrastanti o poco chiare?",
+    modalLabel: "7. Informazioni poco chiare",
+    placeholder: "",
+    kind: "paragraph",
+  },
+  {
+    id: "articolo_corretto_mediocre",
+    text: "8. Da cosa distingui un articolo redatto correttamente da uno mediocre?",
+    modalLabel: "8. Articolo corretto o mediocre",
+    placeholder: "",
+    kind: "paragraph",
+  },
+  {
+    id: "esempio_articolo",
+    text: "9. Fai un esempio di articolo riguardante il topic per cui ti candidi.",
+    modalLabel: "9. Esempio di articolo",
+    placeholder: "",
+    kind: "paragraph",
+  },
+  {
+    id: "notizia_popolare",
+    text: "10. Se una notizia è molto popolare ma poco rilevante, la sceglieresti comunque? Motiva la risposta.",
+    modalLabel: "10. Notizia popolare ma poco rilevante",
+    placeholder: "",
+    kind: "paragraph",
+  },
+];
+
 function choicePlaceholder(q?) {
   if (!Array.isArray(q.options) || !q.options.length) return String(q.placeholder || "Rispondi qui");
   return `Opzioni: ${q.options.map((o?) => o.label || o.value).join(" / ")}`;
 }
 
 function findQuestionLabel(type?, fieldId?) {
-  const list = type === "partnermanager" ? PARTNER_MANAGER_QUESTIONS : HELPER_QUESTIONS;
+  const list = type === "partnermanager" ? PARTNER_MANAGER_QUESTIONS : type === "blogger" ? BLOGGER_QUESTIONS : HELPER_QUESTIONS;
   const row = list.find((q?) => q.id === fieldId);
   return row ? String(row.text || row.modalLabel || fieldId) : fieldId;
 }
 
-export = { HELPER_QUESTIONS, PARTNER_MANAGER_QUESTIONS, choicePlaceholder, findQuestionLabel };
+export = { HELPER_QUESTIONS, PARTNER_MANAGER_QUESTIONS, BLOGGER_QUESTIONS, choicePlaceholder, findQuestionLabel };
