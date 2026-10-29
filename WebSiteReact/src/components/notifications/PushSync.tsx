@@ -24,7 +24,20 @@ export function PushSync() {
       void syncPushSubscription(token, { forceRefresh });
     };
 
-    const t = window.setTimeout(() => run(false), 900);
+    /* Dopo hardReload / Ops: forza nuova subscription (SW non va più unregistered, ma ripara chi l’aveva perso). */
+    let forceOnce = false;
+    try {
+      if (sessionStorage.getItem("vc_push_resync") === "1") {
+        sessionStorage.removeItem("vc_push_resync");
+        forceOnce = true;
+      } else if (/(?:^|[?&])_vc=/.test(location.search)) {
+        forceOnce = true;
+      }
+    } catch {
+      /* ignore */
+    }
+
+    const t = window.setTimeout(() => run(forceOnce), 900);
     const onVis = () => {
       if (document.visibilityState === "visible") run(false);
     };
