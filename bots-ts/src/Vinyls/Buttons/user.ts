@@ -46,7 +46,7 @@ async function execute(interaction?, client?) {
   try {
     await interaction.deferUpdate().catch(() => {});
     const payload = await buildUserOverviewPayload(guild, targetUserId, lookbackDays, view, client);
-    const payloadWithComponents = {...payload, components: buildUserComponents(parsed.ownerId || interaction.user?.id, targetUserId, lookbackDays, view)};
+    const payloadWithComponents: Record<string, any> = {...payload, components: buildUserComponents(parsed.ownerId || interaction.user?.id, targetUserId, lookbackDays, view)};
     const msg = interaction.message;
     if (!msg?.edit) {
       await sendControlErrorFallback(interaction);

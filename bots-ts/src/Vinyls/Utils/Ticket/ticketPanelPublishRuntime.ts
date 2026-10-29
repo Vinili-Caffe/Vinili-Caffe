@@ -151,7 +151,7 @@ function buildSinglePanelRichPayload(panel?, options: Record<string, any> = {}) 
 
 function buildMultiPanelRichPayload(multi?, options: Record<string, any> = {}) {
   const rows = options.rows || [];
-  const classic = buildMultiPanelClassicFields(multi, options);
+  const classic: any = buildMultiPanelClassicFields(multi, options);
   if (options.attachTicketGif !== false && !classic.imageUrl) {
     classic.imageUrl = `attachment://${TICKET_MEDIA_NAME}`;
   }
@@ -172,7 +172,7 @@ function resolveLinkedSingles(multi?, bucket?) {
   const byId = new Map((bucket.singles || []).map((s?) => [String(s.id), s]));
   const linked = [];
   for (const id of multi.panelIds || []) {
-    const hit = byId.get(String(id));
+    const hit: any = byId.get(String(id));
     if (!hit || hit.disabled) continue;
     linked.push(hit);
   }
@@ -223,7 +223,7 @@ function buildMultiComponents(multi?, linkedSingles?) {
     const options = linkedSingles.slice(0, 25).map((panel?) => {
       const customId = panel.openCustomId || ticketTypeToCustomId(panel.ticketType);
       const presentation = resolveMultiOptionPresentation(panel, multi);
-      const opt = {
+      const opt: Record<string, any> = {
         label: presentation.label,
         description: presentation.description,
         value: customId || `ticket_${panel.ticketType}`,
@@ -289,7 +289,7 @@ async function publishSinglePanel(client?, guildId?, panelId?, options: Record<s
     rows: components,
     attachTicketGif: options.attachTicketGif === true,
   });
-  const payload = {
+  const payload: Record<string, any> = {
     messageId: options.forceNew === true ? null : panel.messageId || null,
     forceNew: options.forceNew === true,
     editOnly,
@@ -355,7 +355,7 @@ async function publishMultiPanel(client?, guildId?, multiId?, options: Record<st
     rows: components,
     attachTicketGif: attachGif,
   });
-  const payload = {
+  const payload: Record<string, any> = {
     messageId: options.forceNew === true ? null : multi.messageId || null,
     forceNew: options.forceNew === true,
     editOnly,

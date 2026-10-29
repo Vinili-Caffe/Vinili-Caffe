@@ -1,4 +1,4 @@
-const axios = require("axios") as typeof import("axios");
+const axios = require("axios") as typeof import("axios").default;
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
 const { guildIconUrl } = require("../Discord/guildDiscordIdentity") as typeof import("../Discord/guildDiscordIdentity");
 
@@ -167,11 +167,11 @@ async function fetchInviteGuildMeta(inviteCodeOrUrl?, options: Record<string, an
     });
 
     if (client && typeof client.fetchInvite === "function") {
-    const first = await withHardTimeout(client.fetchInvite(code, { withCounts: true }));
+    const first: any = await withHardTimeout(client.fetchInvite(code, { withCounts: true }));
     if (first.err) noteRateLimit(first.err);
     let invite = first.value;
         if ((!invite || readApproximateMemberCount(invite, invite?.guild) == null) && !rateLimited) {
-      const second = await withHardTimeout(client.fetchInvite(code, { withCounts: true }));
+      const second: any = await withHardTimeout(client.fetchInvite(code, { withCounts: true }));
       if (second.err) noteRateLimit(second.err);
       if (second.value) invite = second.value;
     }
@@ -188,7 +188,7 @@ async function fetchInviteGuildMeta(inviteCodeOrUrl?, options: Record<string, an
   if (rest && typeof rest.get === "function" && !rateLimited) {
     try {
       const { Routes } = require("discord.js") as typeof import("discord.js");
-      const got = await withHardTimeout(
+      const got: any = await withHardTimeout(
         rest.get(Routes.invite(code), { query: { with_counts: true } }),
       );
       if (got.err) noteRateLimit(got.err);
@@ -212,9 +212,9 @@ async function fetchInviteGuildMeta(inviteCodeOrUrl?, options: Record<string, an
   ).trim();
 
   try {
-    const headers = { Accept: "application/json" };
+    const headers: Record<string, any> = { Accept: "application/json" };
     if (botToken) headers.Authorization = `Bot ${botToken}`;
-    const got = await withHardTimeout(
+    const got: any = await withHardTimeout(
       axios.get(`https://discord.com/api/v10/invites/${encodeURIComponent(code)}?with_counts=true`, {
         timeout: timeoutMs,
         headers,

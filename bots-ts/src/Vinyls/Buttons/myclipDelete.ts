@@ -17,7 +17,7 @@ async function execute(interaction?) {
 
   await interaction.deferUpdate().catch(() => null);
 
-  const result = await deleteUserRepostEntry({
+  const result: any = await deleteUserRepostEntry({
     guild: interaction.guild,
     client: interaction.client,
     repostId: parsed.clipId,

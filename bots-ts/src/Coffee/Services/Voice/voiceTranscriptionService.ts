@@ -2,7 +2,7 @@ const fs = require("fs") as typeof import("fs");
 const path = require("path") as typeof import("path");
 const os = require("os") as typeof import("os");
 const { spawn } = require("child_process") as typeof import("child_process");
-const axios = require("axios") as typeof import("axios");
+const axios = require("axios") as typeof import("axios").default;
 const FormData = require("form-data") as typeof import("form-data");
 const ffmpegStatic = require("ffmpeg-static") as typeof import("ffmpeg-static");
 const { EmbedBuilder } = require("discord.js") as typeof import("discord.js");
@@ -117,7 +117,7 @@ async function downloadAttachmentToTemp(attachment?) {
         return "";
       }
     })();
-    const wrapped = new Error(
+    const wrapped: any = new Error(
       status
         ? `attachment_download_failed status=${status}${host ? ` host=${host}` : ""}`
         : `attachment_download_failed ${err?.message || err}`,
@@ -203,7 +203,7 @@ async function postTranscriptionRequest({ provider, apiKey, filePath, language }
           ? JSON.stringify(err.response.data)
           : "";
     const detail = String(body || err?.message || err).slice(0, 300);
-    const wrapped = new Error(
+    const wrapped: any = new Error(
       `transcription_api_failed provider=${provider} status=${status || "n/a"} ${detail}`,
     );
     wrapped.code = "TRANSCRIPTION_API_FAILED";
@@ -335,7 +335,7 @@ async function catchupVoiceTranscriptionsForChannel(channel?, client?, cfg?) {
   const messages = await channel.messages.fetch({ limit: cfg.restoreFetchLimit }).catch(() => null);
   if (!messages?.size) return { scanned: 0, transcribed: 0 };
 
-  const sorted = Array.from(messages.values()).sort((a?, b?) => a.createdTimestamp - b.createdTimestamp);
+  const sorted = Array.from(messages.values()).sort((a?: any, b?: any) => a.createdTimestamp - b.createdTimestamp);
   let scanned = 0;
   let transcribed = 0;
 

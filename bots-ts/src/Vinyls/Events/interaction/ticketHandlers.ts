@@ -1420,7 +1420,7 @@ async function handleTicketInteraction(interaction?) {
             const rawEmbeds = Array.isArray(panelMessage.embeds)
               ? panelMessage.embeds
               : [...(panelMessage.embeds?.values?.() ?? [])];
-            const editPayload = { components: [claimedButtons] };
+            const editPayload: Record<string, any> = { components: [claimedButtons] };
             if (rawEmbeds.length) editPayload.embeds = rawEmbeds.map((e?) => EmbedBuilder.from(e));
             if (String(panelMessage.content ?? "").length) editPayload.content = panelMessage.content;
             await panelMessage

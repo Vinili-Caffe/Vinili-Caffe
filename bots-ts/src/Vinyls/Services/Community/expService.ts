@@ -397,7 +397,7 @@ async function recordLevelHistory(guildId?, userId?, actorId = null, action = "u
   if (!isValidGuildUserId(guildId, userId)) return null;
   const beforeLevel = getLevelInfo(beforeExp).level;
   const afterLevel = getLevelInfo(afterExp).level;
-  const entry = {
+  const entry: Record<string, any> = {
     action: String(action || "update"),
     beforeExp: Number(beforeExp || 0),
     afterExp: Number(afterExp || 0),

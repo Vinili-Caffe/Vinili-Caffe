@@ -319,7 +319,7 @@ function makeJoinRaidCaseCode() {
 function buildInitialFlagRows(guild?, state?, limit = 8) {
   const ids = Array.isArray(state?.raidInitialFlaggedUserIds) ? state.raidInitialFlaggedUserIds : [];
   const unique = Array.from(new Set(ids.map((x?) => String(x || "")).filter(Boolean)));
-  return unique.slice(0, Math.max(1, limit)).map((userId?) => {
+  return unique.slice(0, Math.max(1, limit)).map((userId?: any) => {
     const member = guild?.members?.cache?.get?.(userId) || null;
     const tag = member?.user?.tag || member?.user?.username || member?.displayName || `user:${userId.slice(-4)}`;
     return `\`${tag}\` | \`${userId}\``;

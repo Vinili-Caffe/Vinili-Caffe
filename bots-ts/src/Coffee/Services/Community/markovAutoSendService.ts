@@ -293,7 +293,7 @@ function buildAutoSendPayload(client?, text?, images?, stickers?, opts: Record<s
   if (!trimmedText && imageUrl && !autoCfg.allowImageOnly) return null;
   if (!trimmedText && stickerRef && !autoCfg.allowStickerOnly) return null;
 
-  const payload = {
+  const payload: Record<string, any> = {
     allowedMentions: buildAllowedMentionsForText(trimmedText, markov),
         __skipNoticeEmbed: true,
         __skipDefaultEmbedFooter: true,

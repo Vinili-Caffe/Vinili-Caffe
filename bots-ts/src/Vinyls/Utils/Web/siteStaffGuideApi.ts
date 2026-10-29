@@ -126,7 +126,7 @@ async function buildIntroPayload(client?, guild?) {
 }
 
 async function buildSectionPayload(client?, member?, sectionId?) {
-  const meta = getStaffGuideSectionMeta(sectionId);
+  const meta: any = getStaffGuideSectionMeta(sectionId);
   const markdown = buildStaffGuideSectionMarkdown(sectionId);
   if (!meta || markdown == null) return null;
 
@@ -141,7 +141,7 @@ async function buildSectionPayload(client?, member?, sectionId?) {
     });
 
   const userNames = await resolveGuideUserNames(client, guild, markdown);
-  const payload = {
+  const payload: Record<string, any> = {
     id: meta.id,
     label: meta.label,
     description: meta.description,

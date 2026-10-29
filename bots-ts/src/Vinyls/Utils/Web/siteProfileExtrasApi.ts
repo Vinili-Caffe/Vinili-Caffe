@@ -554,7 +554,7 @@ async function mutateMentionResponse(guild?, member?, userId?, payload?) {
     return { ok: true, mentionResponse: { access: true, text: "", accessHint: MENTION_RESPONSE_ACCESS_HINT_IT }, message: "Risposta rimossa." };
   }
   if (action === "set") {
-    const out = await setMentionResponse(guild.id, userId, payload?.text || "");
+    const out: any = await setMentionResponse(guild.id, userId, payload?.text || "");
     if (!out?.ok) {
       return {
         ok: false,

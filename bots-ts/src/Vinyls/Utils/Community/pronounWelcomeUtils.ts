@@ -32,7 +32,7 @@ function mapDiscordPronounsStringToGender(raw?) {
 function resolveGenderFromRoleIds(roleIds?) {
   const set = new Set((Array.isArray(roleIds) ? roleIds : []).map((id?) => String(id || "").trim()).filter(Boolean));
   if (!set.size) return null;
-  const roles = IDs.roles || {};
+  const roles: any = IDs.roles || {};
   if (roles.sheHer && set.has(String(roles.sheHer))) return "f";
   if (roles.heHim && set.has(String(roles.heHim))) return "m";
   if (roles.theyThem && set.has(String(roles.theyThem))) return "x";

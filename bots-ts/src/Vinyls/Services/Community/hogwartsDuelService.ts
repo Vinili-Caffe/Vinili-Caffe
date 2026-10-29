@@ -104,7 +104,7 @@ async function loadDuelFighter(client?, guildId?, userId?, displayName?, usernam
     };
   }
   const wandBoost = await resolveDuelWandBoost(client, guildId, userId, inventory.wand);
-  const fighter = buildFighterFromProfile({
+  const fighter: any = buildFighterFromProfile({
     userId,
     displayName,
     username: username || displayName,

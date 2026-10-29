@@ -281,7 +281,7 @@ async function handleMovieNightVoteMessage(message?) {
 
   /* movieNightStrictProposal1: anno/durata solo se lo state del thread corrente ha strictProposalRules */
   if (await movieNightStrictProposalRulesEnabled(message)) {
-    const validation = await validateMovieNightProposalContent(message.content, { enforceMeta: true }).catch(
+    const validation: any = await validateMovieNightProposalContent(message.content, { enforceMeta: true }).catch(
       () => ({ ok: true }),
     );
     if (validation && validation.ok === false) {
@@ -1166,7 +1166,7 @@ async function handlePauseChannelMessage(message?) {
     return true;
   }
 
-  const result = await submitPauseRequestForMember({
+  const result: any = await submitPauseRequestForMember({
     guild: message.guild,
     member: message.member,
     rawStart: parsed.rawStart,

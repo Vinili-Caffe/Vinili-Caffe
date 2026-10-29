@@ -138,7 +138,7 @@ export = {
 
       let sent = 0;
       for (let i = 0; i < textChunks.length; i += 1) {
-        const payload = { content: textChunks[i] };
+        const payload: Record<string, any> = { content: textChunks[i] };
         if (i === 0 && attachment) payload.files = [attachment];
         if (i === 0 && target.replyTo) {
           payload.reply = {
@@ -164,7 +164,7 @@ export = {
       }
 
       if (!textChunks.length && attachment) {
-        const payload = { files: [attachment] };
+        const payload: Record<string, any> = { files: [attachment] };
         if (target.replyTo) {
           payload.reply = {
             messageReference: target.replyTo.id,

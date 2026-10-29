@@ -319,7 +319,7 @@ async function doAssertWebsiteStaffAccess(client?, token?) {
     // guild offline / member missing: fall through to full resolve (no synth privilege)
   }
 
-  const resolved = await resolveWebsiteCandidatureMember(client, token);
+  const resolved: any = await resolveWebsiteCandidatureMember(client, token);
   if (!resolved.ok) {
     const deny = {
       ok: false,
@@ -365,7 +365,7 @@ async function doAssertWebsiteStaffAccess(client?, token?) {
 }
 
 function respondStaffAccessPayload(res?, realPayload?, req?, member?, extra: Record<string, any> = {}) {
-  const viewAs = parseViewAsFromReq(req);
+  const viewAs: any = parseViewAsFromReq(req);
   const out = applyViewAsToStaffAccessPayload(
     { ...realPayload, ...(extra || {}) },
     viewAs,

@@ -163,7 +163,7 @@ async function wasWebPushShown(idRaw?, dedupeKeyRaw?) {
   if (!keys.length || !SHOWN_DOC) return false;
   try {
     const since = new Date(Date.now() - PUSH_SHOWN_ACK_TTL_MS);
-    const doc = await SiteDocument.findOne({
+    const doc: any = await SiteDocument.findOne({
       docType: SHOWN_DOC,
       pushEndpoint: { $in: keys },
       updatedAt: { $gte: since },
@@ -1019,7 +1019,7 @@ async function sendWebPushToUser(userId?, payload: Record<string, any> = {}, sen
       : isVoteReminder || isDigestPush || isTicketContentPush
         ? 60 * 60 * 12
         : 60 * 60;
-  const pushOpts = {
+  const pushOpts: Record<string, any> = {
     TTL: ttlSec,
     urgency: "high",
   };
@@ -1113,7 +1113,7 @@ async function sendWebPushToUser(userId?, payload: Record<string, any> = {}, sen
     const { endpoint, p256dh, auth } = target;
     const appleEp = isApplePushEndpoint(endpoint);
     /* pushAppleTopic1: APNs — niente Topic (collapse FCM-only). Evita BadWebPushTopic. */
-    const baseOpts = appleEp
+    const baseOpts: any = appleEp
       ? { TTL: pushOpts.TTL, urgency: pushOpts.urgency }
       : pushOpts;
     /* pushIosDeclarative1: Apple content → declarative JSON; FCM/dismiss → classic */

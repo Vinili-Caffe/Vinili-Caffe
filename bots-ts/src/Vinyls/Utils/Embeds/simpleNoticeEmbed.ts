@@ -128,7 +128,7 @@ function buildSimpleNoticePayload(description?, guild?, options: Record<string, 
     title: options.title,
     color,
   });
-  let payload = {
+  let payload: Record<string, any> = {
     embeds: [embed],
     allowedMentions: options.allowedMentions || { parse: [] },
         includeAuthor: false,
@@ -178,7 +178,7 @@ function coercePlainContentToNoticePayload(payload?, guild?, options: Record<str
   if (!content) return payload;
   if (isMentionOnlyContent(content)) return payload;
   if (filterNoticesOnly && !contentLooksLikePlainNotice(content)) return payload;
-  const next = buildSimpleNoticePayload(content, guild, {
+  const next: any = buildSimpleNoticePayload(content, guild, {
     ...options,
     allowedMentions: payload.allowedMentions || options.allowedMentions,
     flags: payload.flags,

@@ -29,7 +29,7 @@ export = {
       const targetId = targetUser.id;
       const targetName = economyUsername(targetUser);
       const showStaffControls = await isHighStaff(msg.member, c, msg.author.id);
-      const opened = await openBalPanel(c, msg, { targetId, targetName, showStaffControls });
+      const opened: any = await openBalPanel(c, msg, { targetId, targetName, showStaffControls });
       if (!opened.ok) {
         await deny(msg, opened.message);
         return;

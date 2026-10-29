@@ -72,7 +72,7 @@ async function addStaffWarnFromNegatives(guildId?, userId?, negativeCountAfterAd
 
   const warnReason = String(reason || STAFF_WARN_THREE_NEGATIVES_REASON).slice(0, 500);
   const now = new Date();
-  const update = {
+  const update: Record<string, any> = {
     $setOnInsert: { guildId: gid, userId: uid },
     $inc: { "staff.warnCount": 1 },
     $push: { "staff.warnReasons": warnReason },

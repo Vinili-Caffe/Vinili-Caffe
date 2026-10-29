@@ -510,7 +510,7 @@ function boardNeedsRemoveButtonRefresh(existingComponents?, expectedComponents?)
     if (id.startsWith(REPOST_REMOVE_PREFIX) && !expected.has(id)) return true;
   }
   const hasModernRemove = [...existing].some((id?) => /^repost_remove:[a-f0-9]{24}$/i.test(id));
-  const expectsRemove = [...expected].some((id?) => id.startsWith(REPOST_REMOVE_PREFIX));
+  const expectsRemove = [...expected].some((id?: any) => id.startsWith(REPOST_REMOVE_PREFIX));
   if (expectsRemove && !hasModernRemove) return true;
     const existingLabels = new Set(
     (existingComponents || [])
@@ -898,7 +898,7 @@ async function handleRepostRemoveButton(interaction?) {
     }).catch(() => null);
   }
 
-  const result = await deleteUserRepostEntry({
+  const result: any = await deleteUserRepostEntry({
     guild: interaction.guild,
     client: interaction.client,
     repostId: String(own._id),
@@ -964,7 +964,7 @@ async function syncAllBoardRepostButtons(client?, options: Record<string, any> =
       failed += 1;
       continue;
     }
-    const result = await syncBoardMessageComponentsDetailed(guild, bc, bm).catch((err?) => ({
+    const result: any = await syncBoardMessageComponentsDetailed(guild, bc, bm).catch((err?) => ({
       ok: false,
       reason: "sync_threw",
       detail: err?.message || String(err),
@@ -1186,7 +1186,7 @@ async function createRepostFromMessage(ctx?) {
   const existingBoardMessageId = String(existingBoard?.boardMessageId || "").trim();
 
   const storedMediaFiles = serializableMediaFiles(payload.files);
-  const docPayload = {
+  const docPayload: Record<string, any> = {
     guildId,
     reposterUserId: reposterId,
     sourceAuthorId,
@@ -1221,7 +1221,7 @@ async function createRepostFromMessage(ctx?) {
       existingBoard?._id ? String(existingBoard._id) : repostId,
     );
   } else {
-    const boardSendPayload = {
+    const boardSendPayload: Record<string, any> = {
       embeds: [boardEmbed],
       components: buildBoardMessageComponents(repostId, {
         _id: repostId,
@@ -1490,7 +1490,7 @@ async function sendRepostRoulette(client?, guildId?) {
   const embed = buildRouletteEmbed({ sourceUrl, text, imageUrl: rouletteSendMedia.embedImageUrl });
   const repostId = String(doc._id);
 
-  const roulettePayload = {
+  const roulettePayload: Record<string, any> = {
     embeds: [embed],
     components: [buildRepostaButtonRow(repostId)],
   };
@@ -1504,7 +1504,7 @@ async function sendRepostRoulette(client?, guildId?) {
 async function listRepostsByUser(guildId?, userId?, opts: Record<string, any> = {}) {
   const limit = Math.min(25, Math.max(1, Number(opts.limit) || 10));
   const skip = Math.max(0, Number(opts.skip) || 0);
-  const filter = { guildId: String(guildId), reposterUserId: String(userId) };
+  const filter: Record<string, any> = { guildId: String(guildId), reposterUserId: String(userId) };
   const clipFilter = {
     $or: [
       {

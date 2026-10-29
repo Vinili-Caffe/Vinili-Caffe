@@ -2,10 +2,10 @@ const { EmbedBuilder, PermissionsBitField, UserFlagsBitField, MessageReferenceTy
 const fs = require("fs") as typeof import("fs");
 const path = require("path") as typeof import("path");
 const mongoose = require("mongoose") as typeof import("mongoose");
-const axios = require("axios") as typeof import("axios");
+const axios = require("axios") as typeof import("axios").default;
 const { readSnapshotWithMeta, writeSnapshotWithMeta } = require("../../../shared/recovery/snapshotStore") as typeof import("../../../shared/recovery/snapshotStore");
 const { registerShutdownFlush, armShutdownCheckpoint } = require("../../../shared/recovery/shutdownCheckpoint") as typeof import("../../../shared/recovery/shutdownCheckpoint");
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
+const IDs: any = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
 const { isSecurityProfileImmune, hasAdminsProfileCapability, hasModeratorsProfileCapability, getSecurityStaticsSnapshot, isExtraOwner, } = require("./securityProfilesService") as typeof import("./securityProfilesService");
 const { isJoinGateSuspiciousAccount, } = require("./joinGateSuspiciousService") as typeof import("./joinGateSuspiciousService");
 const { CORE_EXEMPT_USER_IDS } = require("./joinGateExemptUtils") as typeof import("./joinGateExemptUtils");
@@ -605,7 +605,7 @@ function applyAutomodRuntime() {
   PANIC_MODE.lockCommands = typeof p.lockCommands === "boolean" ? p.lockCommands : d.lockCommands;
 
   const dn = automodRuntimeConfig?.discordNative || {};
-  const dnDefault = DEFAULT_AUTOMOD_RUNTIME.discordNative || {};
+  const dnDefault: any = DEFAULT_AUTOMOD_RUNTIME.discordNative || {};
   DISCORD_NATIVE_AUTOMOD_ENABLED =
     typeof dn.enabled === "boolean" ? dn.enabled : dnDefault.enabled !== false;
   const skipList = Array.isArray(dn.skipBotDetectionFor)
@@ -1361,7 +1361,7 @@ async function markBadUserAction(message?, action?, violations = []) {
     inc.activeStrikes = 1;
   }
   const strikeReasons = (Array.isArray(violations) ? violations : []).map((v?) => firstViolationLabel([v])).filter(Boolean).slice(0, 5);
-  const update = {
+  const update: Record<string, any> = {
     $set: {
       [automodBadUser("lastActionAt")]: new Date(),
       [automodBadUser("lastAction")]: normalizedAction || null,
@@ -3712,7 +3712,7 @@ async function runDiscordNativeAutomodExecution(execution?, ruleHint = null) {
   if (messageId && wasDiscordNativeHandled(messageId)) {
     return { handled: true, action: "discord_native_dedupe" };
   }
-  const message = await buildMessageFromAutomodExecution(execution);
+  const message: any = await buildMessageFromAutomodExecution(execution);
   if (!message) return { handled: false, reason: "message_stub_failed" };
   if (isAutomodExemptChannel(message.channel, message.guild, message.client)) {
     return { handled: true, action: "exempt_channel" };

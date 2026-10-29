@@ -84,13 +84,13 @@ function getRestorableRoleIdsFromMember(member?) {
   if (!cache || !guildId) return [];
   return filterRolesExcludedFromRejoinRestore(
     Array.from(cache.values())
-      .filter((role?) => {
+      .filter((role?: any) => {
         if (!role?.id) return false;
         if (String(role.id) === guildId) return false;
         if (role.managed) return false;
         return true;
       })
-      .map((role?) => String(role.id))
+      .map((role?: any) => String(role.id))
       .filter(Boolean),
   );
 }

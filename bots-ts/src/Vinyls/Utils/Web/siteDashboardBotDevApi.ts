@@ -351,7 +351,7 @@ async function postDashboardBotDevRevokePremium(client?, accessToken?, body: Rec
         message: reasonMessage("refund_amount_missing"),
       };
     }
-    const credited = await adjustPremiumCredits(userId, amount, {
+    const credited: any = await adjustPremiumCredits(userId, amount, {
       by: gate.userId,
       reason: "botdev_premium_refund",
       note: note || `Refund after premium revoke guild ${resolved.id}`,
@@ -488,7 +488,7 @@ async function postDashboardBotDevCredits(client?, accessToken?, body: Record<st
   }
   const note = String(body?.note || "").trim().slice(0, 300) || null;
 
-  const result = await adjustPremiumCredits(userId, delta, {
+  const result: any = await adjustPremiumCredits(userId, delta, {
     by: gate.userId,
     reason: "botdev_adjust",
     note,

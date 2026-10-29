@@ -716,7 +716,7 @@ async function startWebhookServer(client?) {
     return sendStackHealth(client, req, res, { service: "bots", includeLavalink: true, includeCoffee: true });
   });
 
-  app.use((err?, req?, res?, next?) => {
+  app.use((err?: any, req?, res?, next?) => {
     const isJsonBodyError =
       err instanceof SyntaxError && Number(err.status) === 400 && "body" in err;
     if (!isJsonBodyError) return next(err);
@@ -746,7 +746,7 @@ async function startWebhookServer(client?) {
 
   client._botHttpWebhookServer = server;
 
-  server.once("error", (err?) => {
+  server.once("error", (err?: any) => {
     client._discadiaVoteHttpServerStarted = false;
     if (client._botHttpWebhookServer === server) client._botHttpWebhookServer = null;
 

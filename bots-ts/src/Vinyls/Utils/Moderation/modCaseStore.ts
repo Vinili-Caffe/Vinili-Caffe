@@ -344,7 +344,7 @@ async function createModCaseStore({
     const windowMs = Number.isFinite(rawWindowMs) && rawWindowMs > 0 ? rawWindowMs : 15_000;
     const createdAtFrom = new Date(Date.now() - windowMs);
     const matchReason = dedupe?.matchReason !== false;
-    const fallbackQuery = {
+    const fallbackQuery: Record<string, any> = {
       guildId,
       action: normalizedAction,
       userId,
@@ -541,7 +541,7 @@ async function findActiveWarns(guildId?, userId?, limit = 20) {
 
 async function findActiveModerations(guildId?, targetUserId?, limit?) {
   const now = new Date();
-  const queryBase = {
+  const queryBase: Record<string, any> = {
     guildId: String(guildId),
     active: true,
     expiresAt: { $gt: now },
@@ -551,7 +551,7 @@ async function findActiveModerations(guildId?, targetUserId?, limit?) {
 
   const byCase = new Map();
   if (useCompactModCase()) {
-    const match = { guildId: String(guildId) };
+    const match: Record<string, any> = { guildId: String(guildId) };
     if (targetUserId) match.userId = String(targetUserId);
     const parents = await ActivityUserProfile.find(match).select(`guildId userId ${MOD_CASES_PATH}`).lean().catch(() => []);
     for (const p of parents) {
@@ -639,7 +639,7 @@ async function countModActionsByMod(guildId?, modId?, action?, since?) {
   const seen = new Set();
   let n = 0;
   if (useCompactModCase()) {
-    const elem = { modId: mid, action: act };
+    const elem: Record<string, any> = { modId: mid, action: act };
     if (since) elem.createdAt = { $gte: since };
     const parents = await ActivityUserProfile.find({
       guildId: String(guildId),
@@ -661,7 +661,7 @@ async function countModActionsByMod(guildId?, modId?, action?, since?) {
     }
   }
   if (useLegacyModCase()) {
-    const q = { guildId: String(guildId), modId: mid, action: act };
+    const q: Record<string, any> = { guildId: String(guildId), modId: mid, action: act };
     if (since) q.createdAt = { $gte: since };
     const leg = await ModCase.find(q).select("caseId").lean().catch(() => []);
     for (const d of leg) {

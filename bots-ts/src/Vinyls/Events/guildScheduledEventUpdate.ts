@@ -203,7 +203,7 @@ export = {
         .setTitle("<a:VC_Verified:1482532479637127188> Evento programmato modificato")
         .setDescription(lines.join("\n"));
 
-      const payload = { embeds: [embed] };
+      const payload: Record<string, any> = { embeds: [embed] };
       if (eventUrl) {
         payload.components = [
           new ActionRowBuilder().addComponents(

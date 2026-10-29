@@ -146,7 +146,7 @@ async function handleSiteStaffTicketsGet(client?, req?, res?) {
     const guildId = String(IDs.guilds.main || "");
     const mine = String(req.query?.mine || "") === "1";
     const unclaimed = String(req.query?.unclaimed || "") === "1";
-    const filter = { guildId, open: true };
+    const filter: Record<string, any> = { guildId, open: true };
     if (mine) filter.claimedBy = String(access.member.id);
     if (unclaimed) {
       filter.$or = [{ claimedBy: null }, { claimedBy: "" }, { claimedBy: { $exists: false } }];

@@ -1,5 +1,5 @@
 const { ChannelType, PermissionsBitField, OverwriteType } = require("discord.js") as typeof import("discord.js");
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
+const IDs: any = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
 const { queueCategoryRenumber } = require("../Community/communityOpsService") as typeof import("../Community/communityOpsService");
 const { buildRecoveryVoiceState } = require("../../../shared/discord/voiceStateRecovery") as typeof import("../../../shared/discord/voiceStateRecovery");
 
@@ -818,7 +818,7 @@ function pauseMs(ms?) {
 
 async function ensureHubGroupChannelOrder(guild?, hubChannel?, client?, options: Record<string, any> = {}) {
   const parentId = getPublicVoiceHubCategoryId(client, hubChannel);
-  const stats = await reorderLimitateCategory(guild, client, {
+  const stats: any = await reorderLimitateCategory(guild, client, {
     parentId,
     forceFetch: options.forceFetch === true,
   });

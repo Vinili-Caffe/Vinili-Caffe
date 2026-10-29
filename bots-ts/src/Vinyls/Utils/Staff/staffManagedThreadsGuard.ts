@@ -103,7 +103,7 @@ function buildRoleMentionRepostPayload(message?, content?) {
   const stickers = [...(message.stickers?.values?.() || [])].map((item?) => item.id).filter(Boolean);
   const embeds = [...(message.embeds || [])].filter((embed?) => embed?.data || embed?.title || embed?.description);
   const safeContent = String(content || "");
-  const payload = {
+  const payload: Record<string, any> = {
     content: safeContent
       ? safeContent.slice(0, DISCORD_MESSAGE_CONTENT_MAX) || undefined
       : undefined,

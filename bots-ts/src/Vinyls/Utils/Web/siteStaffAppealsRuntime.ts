@@ -192,7 +192,7 @@ async function getAppealDetail(guild?, messageId?) {
   if (!parsed) return null;
   const embed = msg.embeds?.[0];
   const status = deriveAppealStatus(msg);
-  const item = {
+  const item: Record<string, any> = {
     ...buildAppealListItem(msg, channel, parsed),
     body: stripDiscordDecorations(String(embed?.description || ""), { keepNewlines: true }),
     fields: embedFieldsToPlain(embed),
@@ -352,7 +352,7 @@ async function autoClosePendingAppealsForUser(guild?, userId?, kind = "", opts: 
   if (!gid || !/^\d{16,20}$/.test(uid)) return 0;
 
   const { SiteDocument } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
-  const filter = {
+  const filter: Record<string, any> = {
     docType: WORKFLOW_DOC,
     guildId: gid,
     userId: uid,
@@ -565,7 +565,7 @@ async function decideUnmuteAppeal(guild?, userId?, messageId?, accept?, actorMem
   };
 
   if (accept) {
-    const out = await applyWebsiteUnmute(guild, userId, guild.client).catch(() => ({ ok: false, message: "Errore unmute." }));
+    const out: any = await applyWebsiteUnmute(guild, userId, guild.client).catch(() => ({ ok: false, message: "Errore unmute." }));
     if (!out?.ok) {
       return { ok: false, status: 400, message: out?.message || "Impossibile completare l'unmute." };
     }

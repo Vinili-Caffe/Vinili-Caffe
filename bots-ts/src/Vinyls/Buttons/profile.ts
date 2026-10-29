@@ -1302,7 +1302,7 @@ async function ensureCustomVocExists(interaction?, ownerId?, client?) {
     (await ActivityUserProfile.findOne({ guildId: guild.id, userId: ownerId })
       .select("profile.customRole")
       .lean()
-      .then((row?) => (row?.profile?.customRole ? { guildId: guild.id, userId: ownerId, ...row.profile.customRole } : null))
+      .then((row?: any) => (row?.profile?.customRole ? { guildId: guild.id, userId: ownerId, ...row.profile.customRole } : null))
       .catch(() => null));
   if (isCustomVocRecreationBlocked(latestDoc)) {
     return { ok: false, reason: "customvoc_recreation_cooldown", until: latestDoc?.customVocRecreationBlockedUntil || null };
@@ -1552,7 +1552,7 @@ async function handleProfileMentionResponsePromptMessage(message?) {
     await editMentionResponsePromptReply(message.client, pending, validation.userMessage);
     return true;
   }
-  const saved = await setMentionResponse(message.guild.id, ownerId, validation.text).catch(() => ({ ok: false }));
+  const saved: any = await setMentionResponse(message.guild.id, ownerId, validation.text).catch(() => ({ ok: false }));
   if (!saved?.ok) {
     await editMentionResponsePromptReply(message.client, pending, saved.userMessage || validation.userMessage);
     return true;
@@ -1991,7 +1991,7 @@ async function execute(interaction?, client?) {
           await interaction.editReply({ content: validation.userMessage }).catch(() => { });
           return;
         }
-        const saved = await setMentionResponse(interaction.guild.id, ownerId, validation.text).catch(() => ({ ok: false }));
+        const saved: any = await setMentionResponse(interaction.guild.id, ownerId, validation.text).catch(() => ({ ok: false }));
         if (!saved?.ok) {
           await interaction.editReply({ content: saved.userMessage || validation.userMessage }).catch(() => { });
           return;

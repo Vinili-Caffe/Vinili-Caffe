@@ -1923,7 +1923,7 @@ async function processMissedJoinMember(member?, opts: Record<string, any> = {}) 
   if (current.client) {
     await activateWelcomeContextForGuild(current.guild.id, current.id).catch(() => {});
   }
-  const out = await dispatchPublicJoinAnnouncements(current).catch((err?) => {
+  const out: any = await dispatchPublicJoinAnnouncements(current).catch((err?) => {
     global.logger?.warn?.("[JOIN RECOVER] welcome dispatch:", current.id, err?.message || err);
     return { ok: false };
   });
@@ -1949,7 +1949,7 @@ async function runDeferredJoinAnnouncements(member?) {
     await clearJoinAnnouncePending(member);
     return;
   }
-  const cleared = await ActivityUserProfile.updateOne(
+  const cleared: any = await ActivityUserProfile.updateOne(
     { guildId, userId, "profile.joinAnnouncePending": true },
     { $unset: { "profile.joinAnnouncePending": "" } },
   ).catch(() => ({ modifiedCount: 0 }));

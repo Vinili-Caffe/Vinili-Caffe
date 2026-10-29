@@ -8,7 +8,8 @@ function resolveEventListenersCeiling(configLike?, fallback = 50) {
 
 function raiseAsyncEventEmitterDefaults(maxListeners?) {
   try {
-    const mod = require("@vladfrangu/async_event_emitter") as typeof import("@vladfrangu/async_event_emitter");
+    // la libreria si esporta in due modi a seconda della versione: si prova AsyncEventEmitter e poi default
+    const mod = require("@vladfrangu/async_event_emitter") as any;
     const Ctor = mod?.AsyncEventEmitter || mod?.default;
     if (Ctor && typeof Ctor === "function") {
             if ("defaultMaxListeners" in Ctor) {

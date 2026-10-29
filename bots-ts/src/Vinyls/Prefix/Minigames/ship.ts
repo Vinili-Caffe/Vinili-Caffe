@@ -31,7 +31,7 @@ async function resolveRandomGuildUser(guild?, excludedIds = []) {
   const pool=guild.members.cache.filter((m?) => !m.user?.bot&&!excluded.has(m.user.id),);
   if (!pool.size) return null;
   const values = Array.from(pool.values());
-  const member = values[Math.floor(Math.random() * values.length)];
+  const member: any = values[Math.floor(Math.random() * values.length)];
   return member?.user || null;
 }
 

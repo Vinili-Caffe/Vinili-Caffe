@@ -368,7 +368,7 @@ async function getDecorDoc(guildId?, dedupeKey?) {
 }
 
 async function listAppliedDecorDocs(guildId?, excludeDedupeKey = "") {
-  const query = {
+  const query: Record<string, any> = {
     docType: FORBIDDEN_DOC,
     guildId: String(guildId || "").trim(),
     userId: FORBIDDEN_CHANNEL_DECOR_OWNER_ID,

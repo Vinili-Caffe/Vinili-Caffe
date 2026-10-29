@@ -81,7 +81,7 @@ async function attachDiscordMirror(entryId?, { discordMessageId, discordChannelI
   const id = String(entryId || "").trim();
   const msgId = String(discordMessageId || "").trim();
   if (!id || !msgId) return null;
-  const $set = { discordMessageId: msgId };
+  const $set: Record<string, any> = { discordMessageId: msgId };
   if (discordChannelId) $set.discordChannelId = String(discordChannelId);
   return SitePmPointsRemovedEntry.findByIdAndUpdate(id, { $set }, { new: true }).lean().catch(() => null);
 }
@@ -110,7 +110,7 @@ async function listPmPointsRemovedEntries({
   const gid = String(guildId || "").trim();
   if (!gid) return { items: [], hasMore: false, nextBefore: null };
 
-  const query = { guildId: gid };
+  const query: Record<string, any> = { guildId: gid };
   if (pendingOnly) query.status = "pending";
   if (pmUserId && /^\d{16,22}$/.test(String(pmUserId))) query.pmUserId = String(pmUserId);
   if (q) {
@@ -294,7 +294,7 @@ async function logPmPointsRemoved({
   if (mirrorChannel?.isTextBased?.() && mirrorContent) {
     const { isDiscordStaffChannelPostsEnabled } = require("../Web/discordWorkflowUiGate") as typeof import("../Web/discordWorkflowUiGate");
     if (!isDiscordStaffChannelPostsEnabled()) return entry;
-    const sendOpts = { content: mirrorContent, __skipNoticeEmbed: true };
+    const sendOpts: Record<string, any> = { content: mirrorContent, __skipNoticeEmbed: true };
     if (Array.isArray(mirrorComponents) && mirrorComponents.length) sendOpts.components = mirrorComponents;
     if (mirrorAllowedMentions !== undefined) sendOpts.allowedMentions = mirrorAllowedMentions;
     const sent = await mirrorChannel.send(sendOpts).catch(() => null);

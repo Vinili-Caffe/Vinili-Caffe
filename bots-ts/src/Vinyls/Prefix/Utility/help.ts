@@ -1096,7 +1096,7 @@ function collectCommandUsageSnippets(command?, commandName?, prefixBase?) {
     }
   }
 
-  const ordered = Array.from(snippets.values()).sort((a?, b?) => a.length - b.length,);
+  const ordered = Array.from(snippets.values()).sort((a?: any, b?: any) => a.length - b.length,);
   return ordered.slice(0, 12);
 }
 
@@ -1136,12 +1136,12 @@ function buildPrefixDetailedHelpEmbed(query?, entries?, context: Record<string, 
   const queryToken = tokens[0] || "";
   if (!queryToken) return null;
 
-  const commands = Array.from(context?.client?.pcommands?.values?.() || [],).filter((cmd?) => String(cmd?.name || "").trim().length);
+  const commands = Array.from(context?.client?.pcommands?.values?.() || [],).filter((cmd?: any) => String(cmd?.name || "").trim().length);
   if (!commands.length) return null;
 
-  let command =
+  let command: any =
     commands.find(
-      (cmd?) =>
+      (cmd?: any) =>
         String(cmd.name || "")
           .trim()
           .toLowerCase() === queryToken,
@@ -1149,7 +1149,7 @@ function buildPrefixDetailedHelpEmbed(query?, entries?, context: Record<string, 
   if (!command) {
     command =
       commands.find(
-        (cmd?) =>
+        (cmd?: any) =>
           Array.isArray(cmd.aliases) &&
           cmd.aliases.some(
             (alias?) =>
@@ -1500,7 +1500,7 @@ function buildSubcommandFallbackEmbed(query?, visibleEntries?, context: Record<s
   const permissions = context?.permissions || {};
   const visibleInvokeSet = getVisibleInvokeSet(visibleEntries);
 
-  const prefixCommand = resolvePrefixCommandByToken(context?.client, queryToken,);
+  const prefixCommand: any = resolvePrefixCommandByToken(context?.client, queryToken,);
   if (prefixCommand) {
     const commandName = String(prefixCommand.name || "").trim().toLowerCase();
     const prefixBase = getPrefixBase(prefixCommand);

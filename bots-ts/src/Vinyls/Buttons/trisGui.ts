@@ -140,7 +140,7 @@ async function execute(interaction?, client?) {
         return true;
       }
       if (!interaction.deferred && !interaction.replied) await interaction.deferUpdate().catch(() => {});
-      const played = await playCell(client, msg, session, parsed.cell, cfg, uid);
+      const played: any = await playCell(client, msg, session, parsed.cell, cfg, uid);
       if (!played.ok) {
         await interaction.followUp({ content: `<:vegax:1443934876440068179> ${played.message}`, flags: PRIVATE_FLAG }).catch(() => {});
         return true;
@@ -163,7 +163,7 @@ async function execute(interaction?, client?) {
         return true;
       }
       if (!interaction.deferred && !interaction.replied) await interaction.deferUpdate().catch(() => {});
-      const refunded = await refundOnClose(client, session, uid);
+      const refunded: any = await refundOnClose(client, session, uid);
       const notice = refunded.amount > 0
         ? `Sessione chiusa. Puntate rimborsate (**${refunded.amount}** a testa).`
         : !refunded.ok
@@ -256,7 +256,7 @@ async function execute(interaction?, client?) {
 
   if (parsed.action === "cell") {
     if (!interaction.deferred && !interaction.replied) await interaction.deferUpdate().catch(() => {});
-    const played = await playCell(client, msg, session, parsed.cell, cfg, uid);
+    const played: any = await playCell(client, msg, session, parsed.cell, cfg, uid);
     if (!played.ok) {
       await interaction.followUp({ content: `<:vegax:1443934876440068179> ${played.message}`, flags: PRIVATE_FLAG }).catch(() => {});
       return true;
@@ -270,7 +270,7 @@ async function execute(interaction?, client?) {
   if (parsed.action === "close") {
     if (!interaction.deferred && !interaction.replied) await interaction.deferUpdate().catch(() => {});
     const wasPlaying = session.phase === "playing";
-    const refunded = await refundOnClose(client, session, uid);
+    const refunded: any = await refundOnClose(client, session, uid);
     const keepOpen = wasPlaying && refunded.ok !== false;
     const notice = !refunded.ok
       ? `Partita ancora aperta: rimborso non riuscito (${refunded.message}). Riprova Chiudi o finisci la partita.`

@@ -170,7 +170,7 @@ async function main() {
     console.warn("[SITE-API] tenant cache warm:", err?.message || err);
   }
   const config = loadVinylsConfig();
-  const client = await createSiteApiRestClient(config, token);
+  const client: any = await createSiteApiRestClient(config, token);
   global.botClient = client;
   /* siteApiW6: register handlers sync; await command loads after listen */
   const { listFoldersIfExists } = require("../../../shared/runtime/fsRuntime") as typeof import("../../../shared/runtime/fsRuntime");
@@ -368,7 +368,7 @@ async function main() {
     return res.status(200).json({ ok: true });
   });
 
-  app.use((err?, req?, res?, next?) => {
+  app.use((err?: any, req?, res?, next?) => {
     const isJsonBodyError =
       (err instanceof SyntaxError && Number(err.status) === 400 && "body" in err) ||
       err?.type === "entity.parse.failed" ||

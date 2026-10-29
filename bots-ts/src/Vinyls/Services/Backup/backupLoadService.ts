@@ -204,6 +204,7 @@ function deleteLoadSession(sessionId?) {
 }
 
 class BackupLoadCancelledError extends Error {
+  declare code: any;
   constructor(message = "<a:VC_Alert:1482706673176150077> Backup load cancelled by user.") {
     super(message);
     this.name = "BackupLoadCancelledError";
@@ -658,7 +659,7 @@ async function syncLoadedChannels({ guild, backupChannels, roleMap, channelMap, 
     if (!channel || !channel.manageable) continue;
 
     const parentMapped = backupChannel.parentId ? channelMap.get(String(backupChannel.parentId)) || null : null;
-    const patch = {
+    const patch: Record<string, any> = {
       name: String(backupChannel.name || channel.name), position: Number(backupChannel.position ?? channel.position), permissionOverwrites: buildPermissionOverwrites(backupChannel.permissionOverwrites, roleMap, guild,), reason: `Backup load ${backupId}`,
     };
 
@@ -763,7 +764,7 @@ async function applyBackupToGuild(guild?, backupId?, selectedActions?, sourceGui
   const markPhase = (phase?) => updateActiveLoad(guildKey, { phase });
   const bumpProcessed = (delta = 1) => { const state = getActiveLoadState(guildKey); if (!state) return; state.processed = Number(state.processed || 0) + Number(delta || 0); state.updatedAtMs = Date.now(); };
 
-  const stats = { deletedRoles: 0, deletedChannels: 0, createdRoles: 0, createdChannels: 0, createdThreads: 0, updatedMembers: 0, loadedBans: 0, loadedMessages: 0, loadedPinnedMessages: 0, loadedEmojis: 0, loadedStickers: 0, loadedWebhooks: 0, loadedInvites: 0, loadedEvents: 0, loadedAutomodRules: 0, };
+  const stats: Record<string, any> = { deletedRoles: 0, deletedChannels: 0, createdRoles: 0, createdChannels: 0, createdThreads: 0, updatedMembers: 0, loadedBans: 0, loadedMessages: 0, loadedPinnedMessages: 0, loadedEmojis: 0, loadedStickers: 0, loadedWebhooks: 0, loadedInvites: 0, loadedEvents: 0, loadedAutomodRules: 0, };
 
   const roleMap = new Map();
   roleMap.set(String(guild.id), String(guild.id));

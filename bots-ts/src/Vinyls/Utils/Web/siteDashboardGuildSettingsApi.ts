@@ -346,7 +346,7 @@ async function patchDashboardGuildSettings(client?, accessToken?, guildId?, body
   if (!protectedGuild && Object.prototype.hasOwnProperty.call(patch, "prefix")) {
     const parsed = normalizePrefix(patch.prefix);
     if (!parsed.ok) return fail(400, "invalid_prefix", reasonToMessage("invalid_prefix"));
-    const saved = await setTenantPrefix(gid, parsed.prefix);
+    const saved: any = await setTenantPrefix(gid, parsed.prefix);
     if (!saved.ok) return fail(400, saved.reason || "persist_failed", reasonToMessage(saved.reason));
   }
 
@@ -394,7 +394,7 @@ async function patchDashboardGuildSettings(client?, accessToken?, guildId?, body
         }
       }
     }
-    const saved = await setTenantDashboardRoles(gid, roleIds);
+    const saved: any = await setTenantDashboardRoles(gid, roleIds);
     if (!saved.ok) return fail(400, saved.reason || "persist_failed", reasonToMessage(saved.reason));
   }
 
@@ -405,7 +405,7 @@ async function patchDashboardGuildSettings(client?, accessToken?, guildId?, body
     if (!parsed.clear && !channelId) {
       return fail(400, "invalid_channel", reasonToMessage("invalid_channel"));
     }
-    const saved = await setTenantUpdatesChannel(gid, channelId);
+    const saved: any = await setTenantUpdatesChannel(gid, channelId);
     if (!saved.ok) return fail(400, saved.reason || "persist_failed", reasonToMessage(saved.reason));
 
     try {
@@ -474,7 +474,7 @@ async function patchDashboardGuildSettings(client?, accessToken?, guildId?, body
         boardsPatch[key] = boardsRaw[key];
       }
     }
-    const saved = await setTenantBoards(gid, boardsPatch);
+    const saved: any = await setTenantBoards(gid, boardsPatch);
     if (!saved.ok) {
       return fail(400, saved.reason || "persist_failed", reasonToMessage(saved.reason));
     }

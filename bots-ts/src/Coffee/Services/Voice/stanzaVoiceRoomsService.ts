@@ -1,7 +1,7 @@
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, EmbedBuilder, InteractionWebhook, OverwriteType, PermissionsBitField, StringSelectMenuBuilder, StringSelectMenuOptionBuilder } = require("discord.js") as typeof import("discord.js");
 const fs = require("fs") as typeof import("fs");
 const path = require("path") as typeof import("path");
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
+const IDs: any = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
 const { sendUserDirectMessage } = require("../../../shared/discord/dmPrivacyNotice") as typeof import("../../../shared/discord/dmPrivacyNotice");
 const { accountUsername, userAvatarUrlDynamic } = require("../../Utils/Discord/guildDiscordIdentity") as typeof import("../../Utils/Discord/guildDiscordIdentity");
 const { CustomRole, ActivityUserProfile } = require("../../../Vinyls/Schemas/Community/communitySchemas") as typeof import("../../../Vinyls/Schemas/Community/communitySchemas");
@@ -1777,7 +1777,7 @@ async function handleStanzaVoiceLobbyJoin(oldState?, newState?, client?) {
     const lobbyCh = newState.channel;
     const { parentId, position } = resolveStanzaVoiceCreatePlacement(guild, lobbyCh);
     const name = buildStanzaChannelName(member);
-    const createPayload = {
+    const createPayload: Record<string, any> = {
       name,
       type: ChannelType.GuildVoice,
       parent: parentId || undefined,

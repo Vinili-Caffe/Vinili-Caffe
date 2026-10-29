@@ -1,5 +1,5 @@
 ﻿const baseLogs = require("./logs") as typeof import("./logs");
-const config = require("../../config.json") as typeof import("../../config.json");
+const config: any = require("../../config.json") as typeof import("../../config.json");
 
 const levels ={debug:0,info:1,success:1,logging:1,warn:2,error:3,};
 function getMinLevel() {

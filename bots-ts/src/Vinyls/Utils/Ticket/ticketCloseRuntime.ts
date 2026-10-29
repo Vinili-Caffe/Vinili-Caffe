@@ -235,7 +235,7 @@ async function closeTicket(targetInteraction?, motivo?, helpers?) {
         await createTranscript(targetInteraction.channel).catch(() => ""),
       );
       const transcriptHTML = await createTranscriptHtml(targetInteraction.channel).catch(() => "");
-      const secureT = await prepareTicketTranscriptSecureFields(targetInteraction.channel, transcriptHTML).catch(() => ({}));
+      const secureT: any = await prepareTicketTranscriptSecureFields(targetInteraction.channel, transcriptHTML).catch(() => ({}));
       transcriptHtmlPath = secureT.transcriptHtmlPath || null;
       transcriptViewToken = secureT.transcriptViewToken || null;
       transcriptViewExpiresAt = secureT.transcriptViewExpiresAt || null;
@@ -467,7 +467,7 @@ async function closeOpenTicketsForGuildUser(guild?, userId?, options: Record<str
       if (channel && storeTranscripts) {
         transcriptTXT = compactTranscriptTextForDb(await createTranscript(channel).catch(() => ""));
         const transcriptHTML = await createTranscriptHtml(channel).catch(() => "");
-        const secureT = await prepareTicketTranscriptSecureFields(channel, transcriptHTML).catch(() => ({}));
+        const secureT: any = await prepareTicketTranscriptSecureFields(channel, transcriptHTML).catch(() => ({}));
         transcriptHtmlPath = secureT.transcriptHtmlPath || null;
         transcriptViewToken = secureT.transcriptViewToken || null;
         transcriptHtmlInline = null;

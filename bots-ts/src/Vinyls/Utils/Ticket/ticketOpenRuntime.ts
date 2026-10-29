@@ -171,7 +171,7 @@ async function createTicketsCategory(interaction?, guild?, options: Record<strin
     }
   }
 
-  const settings = getTicketSettingsSafe(guild.id);
+  const settings: any = getTicketSettingsSafe(guild.id);
   const modeRef = String(settings.overflowCategoryId || "").trim();
 
   const cacheAndReturn = (category?) => {
@@ -231,7 +231,7 @@ async function createTicketsCategory(interaction?, guild?, options: Record<strin
 async function maybeDeleteEmptyCustomTicketCategory(guild?, categoryId?) {
   const cid = String(categoryId || "").trim();
   if (!guild || !cid) return false;
-  const settings = getTicketSettingsSafe(guild.id);
+  const settings: any = getTicketSettingsSafe(guild.id);
   if (String(settings.overflowCategoryId || "") !== "__custom__") return false;
 
   await warmGuildChannels(guild).catch(() => null);

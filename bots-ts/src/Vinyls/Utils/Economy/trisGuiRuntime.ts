@@ -283,7 +283,7 @@ async function renderPanel(session?, notice = "") {
     session.mode === "pvp" && session.phase === "pending" ? "" : notice;
   try {
     const renderTrisCanvas = require("../Render/trisCanvas") as typeof import("../Render/trisCanvas");
-    const rendered = await runEconomyRender(() =>
+    const rendered: any = await runEconomyRender(() =>
       renderTrisCanvas({
                   bet: session.phase === "playing" ? (session.wager || session.bet) : session.bet,
       board: session.board,

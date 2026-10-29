@@ -413,7 +413,7 @@ async function sweepPmVoiceAfkAlerts(client?) {
     }
 
     const aloneMs = now - Number(entry.startedAt || now);
-    const sent = await sendPmAfkCheckAlert(client, member, entry.channelId, aloneMs);
+    const sent: any = await sendPmAfkCheckAlert(client, member, entry.channelId, aloneMs);
     if (sent?.messageId) {
       watchByMemberKey.set(key, {
         ...entry,

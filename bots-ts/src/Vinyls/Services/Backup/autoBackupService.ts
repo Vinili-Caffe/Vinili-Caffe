@@ -31,7 +31,7 @@ function getZonedParts(date = new Date(), timeZone = AUTO_BACKUP_TIMEZONE) {
     minute: "2-digit",
     hour12: false,
   });
-  const parts = formatter.formatToParts(date).reduce((acc?, part?) => {
+  const parts: any = formatter.formatToParts(date).reduce((acc?, part?) => {
     if (part.type !== "literal") acc[part.type] = part.value;
     return acc;
   }, {});

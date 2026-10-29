@@ -1,5 +1,5 @@
 const cron = require("node-cron") as typeof import("node-cron");
-const axios = require("axios") as typeof import("axios");
+const axios = require("axios") as typeof import("axios").default;
 const Poll = require("../../Schemas/Poll/pollSchema") as typeof import("../../Schemas/Poll/pollSchema");
 const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
 const { createPollForGuild } = require("../../Commands/Admin/poll") as typeof import("../../Commands/Admin/poll");
@@ -162,7 +162,7 @@ function applyOptionCount(payload?, cfg: Record<string, any> = {}, forcedTargetO
 
 function getRomeDayBounds(now = new Date()) {
   const fmt = new Intl.DateTimeFormat("en-CA", { timeZone: TIMEZONE, year: "numeric", month: "2-digit", day: "2-digit", });
-  const parts = fmt.formatToParts(now).reduce((acc?, part?) => { if (part.type !== "literal") acc[part.type] = part.value; return acc; }, {});
+  const parts: any = fmt.formatToParts(now).reduce((acc?, part?) => { if (part.type !== "literal") acc[part.type] = part.value; return acc; }, {});
   const year = Number(parts.year || 0);
   const month = Number(parts.month || 1);
   const day = Number(parts.day || 1);
@@ -271,7 +271,7 @@ function msUntilRomeLocalHourDeadline(deadlineHour?) {
   if (!Number.isFinite(h) || h < 0 || h > 23) return 0;
   const now = new Date();
   const fmt = new Intl.DateTimeFormat("en-CA", { timeZone: TIMEZONE, year: "numeric", month: "2-digit", day: "2-digit" });
-  const parts = fmt.formatToParts(now).reduce((acc?, part?) => {
+  const parts: any = fmt.formatToParts(now).reduce((acc?, part?) => {
     if (part.type !== "literal") acc[part.type] = part.value;
     return acc;
   }, {});

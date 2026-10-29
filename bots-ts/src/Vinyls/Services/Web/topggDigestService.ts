@@ -1,4 +1,4 @@
-const axios = require("axios") as typeof import("axios");
+const axios = require("axios") as typeof import("axios").default;
 const { EmbedBuilder } = require("discord.js") as typeof import("discord.js");
 const { getClientChannelCached } = require("../../Utils/Interaction/interactionEntityCache") as typeof import("../../Utils/Interaction/interactionEntityCache");
 const { getBotState, setBotState } = require("../../Utils/BotState/botStateStore") as typeof import("../../Utils/BotState/botStateStore");

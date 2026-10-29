@@ -335,7 +335,7 @@ async function decideBoardsFromWorkflow(client?, access?, body: Record<string, a
   }
   const { modDecide } = require("./siteBoardsApi") as typeof import("./siteBoardsApi");
   const token = String(access?.accessToken || body.accessToken || "").trim();
-  const out = await modDecide(client, {
+  const out: any = await modDecide(client, {
     accessToken: token,
     listingId,
     decision,

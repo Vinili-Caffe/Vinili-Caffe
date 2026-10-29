@@ -1790,7 +1790,7 @@ async function runMovieNightFinalAnnouncementCheck(client?, opts: Record<string,
       __skipNoticeEmbed: true,
     });
 
-    const staffResult = await maybePublishMovieNightStaffCommunication(client, {
+    const staffResult: any = await maybePublishMovieNightStaffCommunication(client, {
       state: previousState,
       saturdayKey,
       weekKey,
@@ -2764,7 +2764,7 @@ async function runMovieNightThreadCloseCheck(client?, opts: Record<string, any> 
 
     const thread = await resolveMovieNightThread(client, state.threadId);
     if (!thread?.isThread?.()) return { skipped: true, reason: "thread_unavailable", weekKey };
-    const tieBreaker = await maybePublishTieBreakerPoll(client, thread, state).catch((err?) => {
+    const tieBreaker: any = await maybePublishTieBreakerPoll(client, thread, state).catch((err?) => {
       global.logger?.warn?.("[MOVIE NIGHT ANNOUNCE] tie breaker poll failed:", err?.message || err);
       return { skipped: true, reason: "tie_poll_failed" };
     });
@@ -2963,7 +2963,7 @@ async function repairMovieNightStaffCommunication(client?, opts: Record<string, 
     (await resolveFinalMovieTitle(client, hydrated, now).catch(() => null)) ||
     hydrated?.finalMovieTitle ||
     getFixedMovieTitleForWeek(now);
-  const staffResult = await maybePublishMovieNightStaffCommunication(client, {
+  const staffResult: any = await maybePublishMovieNightStaffCommunication(client, {
     state: hydrated,
     saturdayKey,
     weekKey,

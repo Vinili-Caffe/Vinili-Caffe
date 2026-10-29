@@ -1195,7 +1195,7 @@ function docToDetail(doc?, member?, memberCache?) {
   const cache =
     memberCache ||
     (member && doc?.userId ? new Map([[String(doc.userId || ""), member]]) : null);
-  const item = docToListItem(doc, cache);
+  const item: any = docToListItem(doc, cache);
   const keepEmoji = false;
   const body = stripDiscordDecorations(doc?.content || doc?.body || "", {
     keepNewlines: true,
@@ -1653,7 +1653,7 @@ async function upsertStaffWorkflowItem(payload?) {
     preserveDecided && preservedStatusLabel
       ? preservedStatusLabel.slice(0, 200)
       : incomingStatusLabel.slice(0, 200);
-  const update = {
+  const update: Record<string, any> = {
     docType: WORKFLOW_DOC,
     guildId,
     userId,
@@ -1745,7 +1745,7 @@ async function upsertStaffWorkflowItem(payload?) {
     update.workflowFields = mergedFields;
   }
 
-  const updateOps = { $set: update };
+  const updateOps: Record<string, any> = { $set: update };
   if (createdAt) {
     updateOps.$set.createdAt = createdAt;
   } else {
@@ -1781,7 +1781,7 @@ async function updateStaffWorkflowStatusByDedupe(guildId?, dedupeKey?, status?, 
   if (!gid || !key) return null;
   const resolvedStatusLabel =
     String(extras.statusLabel || extras.staffReason || "").trim() || statusLabelFor(next);
-  const set = {
+  const set: Record<string, any> = {
     status: next,
     decidedAt: extras.decidedAt || new Date(),
     staffReason: resolvedStatusLabel.slice(0, 200),
@@ -1918,7 +1918,7 @@ async function cancelPendingResocontiWorkflowForUser(guildId?, userId?, extras: 
   const uid = String(userId || "").trim();
   if (!gid || !uid) return 0;
   const kind = String(extras.kind || "").trim().toLowerCase();
-  const filter = {
+  const filter: Record<string, any> = {
     docType: WORKFLOW_DOC,
     guildId: gid,
     userId: uid,
@@ -2045,7 +2045,7 @@ async function cancelPendingPauseWorkflowForUser(guildId?, userId?, extras: Reco
   const uid = String(userId || "").trim();
   if (!gid || !uid) return 0;
   const pauseId = String(extras.pauseId || extras.workflowPauseId || "").trim();
-  const filter = {
+  const filter: Record<string, any> = {
     docType: WORKFLOW_DOC,
     guildId: gid,
     userId: uid,
@@ -2362,7 +2362,7 @@ async function listResocontiWeeks(guildId?, opts: Record<string, any> = {}) {
   const hit = listResocontiWeeks.__cache.get(cacheKey);
   if (hit && Date.now() - hit.at < INBOX_WEEKS_CACHE_MS) return hit.weeks;
   void ensureResocontiWeekKeys(gid).catch(() => 0);
-  const match = { docType: WORKFLOW_DOC, guildId: gid, workflowQueue: "resoconti" };
+  const match: Record<string, any> = { docType: WORKFLOW_DOC, guildId: gid, workflowQueue: "resoconti" };
   if (String(opts.scope || "").toLowerCase() === "pending") match.status = "pending";
   const roleFilter = String(opts.filter || "").trim().toLowerCase();
   if (roleFilter === "staff" || roleFilter === "s") match.workflowKind = "s";
@@ -2391,7 +2391,7 @@ async function listUserWorkflowsForMember(guildId?, userId?, opts: Record<string
   const gid = String(guildId || "").trim();
   const uid = String(userId || "").trim();
   if (!gid || !uid) return [];
-    const filter = { docType: WORKFLOW_DOC, guildId: gid, userId: uid, workflowQueue: "pause" };
+    const filter: Record<string, any> = { docType: WORKFLOW_DOC, guildId: gid, userId: uid, workflowQueue: "pause" };
   if (scope === "pending") filter.status = "pending";
   const docs = await SiteDocument.find(filter).sort({ createdAt: -1 }).limit(40).lean().catch(() => []);
   return (docs || []).map((doc?) => docToListItem(doc, null));
@@ -2415,7 +2415,7 @@ async function listUserInvitedSubjectChats(guildId?, userId?, opts: Record<strin
     if (!queues.length) queues = ["appelli", "candidature"];
   }
   const includeClosed = Boolean(opts.includeClosed);
-  const filter = {
+  const filter: Record<string, any> = {
     docType: WORKFLOW_DOC,
     guildId: gid,
     userId: uid,
@@ -2518,7 +2518,7 @@ async function listStaffWorkflowFromDb(client?, guildId?, queue?, opts: Record<s
   const pageSize = Math.min(50, Math.max(5, Number(opts.pageSize) || 20));
   const gid = String(guildId || "").trim();
   const q = String(queue || "").trim().toLowerCase();
-  const filter = { docType: WORKFLOW_DOC, guildId: gid, workflowQueue: q };
+  const filter: Record<string, any> = { docType: WORKFLOW_DOC, guildId: gid, workflowQueue: q };
   const scopedUserId = String(opts.userId || "").trim();
   /* resoProfile1: cronologia profilo — un solo staffer */
   if (/^\d{16,22}$/.test(scopedUserId)) {

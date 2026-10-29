@@ -256,7 +256,7 @@ async function editMessageComponents(guild?, message?, components?) {
   const messageId = String(message?.id || "").trim();
   if (!channelId || !messageId) throw new Error("message_edit_unavailable");
 
-  const body = { components: componentsToApi(components) };
+  const body: Record<string, any> = { components: componentsToApi(components) };
   const keep = [];
   try {
     const atts =
@@ -291,7 +291,7 @@ async function editMessageComponents(guild?, message?, components?) {
         let retryMs = Number(retryRaw) * 1000;
         let isGlobal = false;
         let isOldMessageEditCap = false;
-        const json = await res.json().catch(() => null);
+        const json: any = await res.json().catch(() => null);
         if (!Number.isFinite(retryMs) || retryMs <= 0) {
           retryMs = Math.ceil(Number(json?.retry_after || 1) * 1000);
         }
@@ -330,7 +330,7 @@ async function editMessageComponents(guild?, message?, components?) {
     return;
   }
   if (typeof message?.edit === "function") {
-    const editPayload = { components };
+    const editPayload: Record<string, any> = { components };
     if (keep.length) editPayload.attachments = keep;
     await message.edit(editPayload);
     return;
@@ -713,7 +713,7 @@ async function backfillQuoteBoardRepostaButtons(guild?) {
         continue;
       }
       const rebuiltIds = components.flatMap((row?) =>
-        [...(row.components || [])].map((c?) =>
+        [...(row.components || [])].map((c?: any) =>
           String(c?.data?.custom_id || c?.customId || "").trim(),
         ),
       );

@@ -93,7 +93,7 @@ function buildCommunityRulesSitePayload() {
     const body = String(ov.body != null ? ov.body : raw).trim();
     const title = String(ov.title || "").trim() || MOD_RULE_TITLE_IT[id] || `Regola ${id}`;
     const links = Array.isArray(ov.links) ? ov.links : [];
-    const out = {
+    const out: Record<string, any> = {
       id,
       category,
       tag: tagLabelForCategory(category),

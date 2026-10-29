@@ -135,7 +135,7 @@ async function maybeAssignHogwartsCompletionRoleOnJoin(client?, member?) {
   const houseId = resolveSortedHouseId(sorted);
   if (!houseId) return;
 
-  const result = await ensureSortedMemberHouseRoles(member, cfg, houseId);
+  const result: any = await ensureSortedMemberHouseRoles(member, cfg, houseId);
   if (result.roleError) {
     global.logger?.warn?.("[HOGWARTS SORTING] join role repair:", member.id, result.roleError);
   }
@@ -360,7 +360,7 @@ async function awardHogwartsFinalePrizes(client?, options: Record<string, any> =
     if (index < 3) housePlaceById.set(row.houseId, index);
   });
 
-  const summary = {
+  const summary: Record<string, any> = {
     eventKey,
     awardedAt: new Date(nowMs).toISOString(),
     houseRanking: rankedHouses,
@@ -481,7 +481,7 @@ async function runHogwartsEventCompletionSweep(client?, options: Record<string, 
       global.logger?.warn?.("[HOGWARTS FINALE PRIZES] cleanup:", err?.message || err);
     });
   }
-  const prizes = await awardHogwartsFinalePrizes(client, options);
+  const prizes: any = await awardHogwartsFinalePrizes(client, options);
   try {
     const { maybeWipeHogwartsEventDataAfterFinale } = require("./hogwartsEventWipeService") as typeof import("./hogwartsEventWipeService");
     const wipe = await maybeWipeHogwartsEventDataAfterFinale(client, {

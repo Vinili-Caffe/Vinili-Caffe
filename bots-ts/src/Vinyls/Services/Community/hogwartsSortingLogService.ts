@@ -241,7 +241,7 @@ async function clearHouseAnnounceOnSortingDocs(guildId?, userId?, eventKey?) {
   const g = String(guildId || "").trim();
   const u = String(userId || "").trim();
   if (!g || !u) return { ok: false, reason: "invalid_member" };
-  const filter = { docType: SORT_DOC, guildId: g, userId: u };
+  const filter: Record<string, any> = { docType: SORT_DOC, guildId: g, userId: u };
   if (eventKey) filter.dedupeKey = String(eventKey).trim();
   await SiteDocument.updateMany(filter, { $unset: { houseAnnounceAt: "", houseAnnounceHouseId: "" } }).catch(() => null);
   return { ok: true };

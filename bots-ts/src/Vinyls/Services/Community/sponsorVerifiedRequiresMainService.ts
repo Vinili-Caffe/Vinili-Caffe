@@ -1,5 +1,5 @@
 const path = require("path") as typeof import("path");
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
+const IDs: any = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
 const { getClientGuildCached, getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache") as typeof import("../../Utils/Interaction/interactionEntityCache");
 const { isUserInMainGuild } = require("../../Utils/Interaction/verifyUtils") as typeof import("../../Utils/Interaction/verifyUtils");
 const { ensureSponsorVerificatoForMember } = require("./communityOpsService") as typeof import("./communityOpsService");

@@ -221,7 +221,7 @@ async function handleSiteLinkUnfurlLegacy(message?) {
     /* ignore */
   }
 
-  const payload = buildPayloadForSiteUrl(urlInfo, message.guild.id);
+  const payload: any = buildPayloadForSiteUrl(urlInfo, message.guild.id);
   const sendBody = {
     content: payload.content || undefined,
     components: payload.components,

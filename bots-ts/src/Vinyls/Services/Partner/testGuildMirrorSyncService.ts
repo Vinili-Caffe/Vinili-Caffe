@@ -551,7 +551,7 @@ async function runTestGuildMirrorSync(client?, opts: Record<string, any> = {}) {
       }
       try {
         const parentId = src.parentId ? channelMap.get(src.parentId) || null : null;
-        const createOpts = {
+        const createOpts: Record<string, any> = {
           name: src.name,
           type: src.type,
           topic: src.topic || undefined,

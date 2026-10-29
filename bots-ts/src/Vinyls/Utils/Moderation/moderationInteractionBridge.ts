@@ -91,7 +91,7 @@ async function runDynoFromInteraction(interaction?, client?, cmd?, args?, guild?
     return { ok: false };
   }
   const outCh = await resolveSanctionOutputChannel(guild, interaction, cmd);
-  const execProxy = createProxyMessage(interaction, outCh, guild, member);
+  const execProxy: any = createProxyMessage(interaction, outCh, guild, member);
   if (options.fromSanzionaAppCommand) {
     execProxy.fromSanzionaAppCommand = true;
   }

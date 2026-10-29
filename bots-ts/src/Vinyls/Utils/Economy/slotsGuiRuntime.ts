@@ -220,7 +220,7 @@ async function renderSlotsAttachment(session?, { animating = false } = {}) {
   if (hit) return attachmentFromCache(hit);
   try {
     const renderSlotsCanvas = require("../Render/slotsCanvas") as typeof import("../Render/slotsCanvas");
-    const rendered = await runEconomyRender(() =>
+    const rendered: any = await runEconomyRender(() =>
       renderSlotsCanvas({
       reels: last?.result?.reels || ["🍒", "🍋", "🔔"],
       bet: session.bet,

@@ -64,7 +64,7 @@ async function createDashboardTicketForm(client?, accessToken?, guildId?, body: 
     return fail(access.status || 403, access.error || "forbidden", access.message || "Accesso negato.");
   }
   const gid = String(guildId || "").trim();
-  const result = await createGuildForm(gid, { title: body.title });
+  const result: any = await createGuildForm(gid, { title: body.title });
   if (!result.ok) {
     return fail(
       result.reason === "quota" ? 400 : 400,
@@ -72,7 +72,7 @@ async function createDashboardTicketForm(client?, accessToken?, guildId?, body: 
       reasonToMessage(result.reason),
     );
   }
-  const listed = await listDashboardTicketForms(client, accessToken, gid);
+  const listed: any = await listDashboardTicketForms(client, accessToken, gid);
   if (!listed.ok) return listed;
   return {
     ok: true,
@@ -93,7 +93,7 @@ async function updateDashboardTicketForm(client?, accessToken?, guildId?, formId
   const patch: Record<string, any> = {};
   if (body.title != null) patch.title = body.title;
   if (Array.isArray(body.fields)) patch.fields = body.fields;
-  const result = await updateGuildForm(gid, formId, patch);
+  const result: any = await updateGuildForm(gid, formId, patch);
   if (!result.ok) {
     return fail(
       result.reason === "not_found" ? 404 : 400,
@@ -101,7 +101,7 @@ async function updateDashboardTicketForm(client?, accessToken?, guildId?, formId
       reasonToMessage(result.reason),
     );
   }
-  const listed = await listDashboardTicketForms(client, accessToken, gid);
+  const listed: any = await listDashboardTicketForms(client, accessToken, gid);
   if (!listed.ok) return listed;
   return {
     ok: true,
@@ -119,7 +119,7 @@ async function deleteDashboardTicketForm(client?, accessToken?, guildId?, formId
     return fail(access.status || 403, access.error || "forbidden", access.message || "Accesso negato.");
   }
   const gid = String(guildId || "").trim();
-  const result = await deleteGuildForm(gid, formId);
+  const result: any = await deleteGuildForm(gid, formId);
   if (!result.ok) {
     return fail(
       result.reason === "not_found" ? 404 : 500,
@@ -127,7 +127,7 @@ async function deleteDashboardTicketForm(client?, accessToken?, guildId?, formId
       reasonToMessage(result.reason),
     );
   }
-  const listed = await listDashboardTicketForms(client, accessToken, gid);
+  const listed: any = await listDashboardTicketForms(client, accessToken, gid);
   if (!listed.ok) return listed;
   return {
     ok: true,

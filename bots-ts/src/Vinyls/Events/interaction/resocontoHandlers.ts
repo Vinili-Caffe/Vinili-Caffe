@@ -990,7 +990,7 @@ async function showReasonModal(interaction?, payload?, sourceMessageId = null) {
 async function handleResocontoButton(interaction?) {
   const parsed = parseResocontoButtonCustomId(interaction.customId);
   const parsedOverride = parsed ? null : parseResocontoOverrideCustomId(interaction.customId);
-  const payload = parsed || parsedOverride;
+  const payload: any = parsed || parsedOverride;
   if (!payload) return false;
   if (!interaction.guild) return true;
   if (!hasResocontoButtonAccess(interaction, payload)) {

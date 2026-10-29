@@ -482,7 +482,7 @@ function fireNotifDismissPush(userId?, spec: Record<string, any> = {}) {
       }
       try {
         const { broadcastSiteNotificationsChanged } = require("./siteSuggestionsBroadcast") as typeof import("./siteSuggestionsBroadcast");
-        const extra = { userId: uid };
+        const extra: Record<string, any> = { userId: uid };
         if (unreadCount >= 0) extra.unread = unreadCount;
         broadcastSiteNotificationsChanged(extra);
       } catch (_) {}
@@ -662,7 +662,7 @@ async function pushInboxItemAtomic(userId?, newItem?, dedupe = null) {
     { upsert: true },
   ).catch(() => null);
 
-  const filter = { ...inboxQuery(uid) };
+  const filter: Record<string, any> = { ...inboxQuery(uid) };
   /* notifDigestRace1: per replaceDedupe create, un solo item con stesso dedupeKey */
   if (dedupeKey && exclusiveKey) {
     filter.$nor = [{ inAppNotifItems: { $elemMatch: { dedupeKey } } }];
@@ -1477,7 +1477,7 @@ async function removeSiteInAppNotificationsMatching(opts: Record<string, any> = 
   }
 
   const matchSpec = { exactKeys, prefixes, openUrls, kinds };
-  const filter = { docType: NOTIF, inAppNotifAggregate: true };
+  const filter: Record<string, any> = { docType: NOTIF, inAppNotifAggregate: true };
   if (onlyUserId) filter.userId = onlyUserId;
   else {
     const or = [];
@@ -1878,7 +1878,7 @@ async function enqueueSiteInAppNotification(opts: Record<string, any> = {}) {
             : kind === "vote_reminder" || normalizeKind(existing.notifKind || kind) === "vote_reminder"
               ? 60 * 60 * 12
               : undefined;
-        const pushResult = await fireNotificationPush(
+        const pushResult: any = await fireNotificationPush(
           userId,
           {
             title: String(existing.title || title || ""),
@@ -1979,7 +1979,7 @@ async function enqueueSiteInAppNotification(opts: Record<string, any> = {}) {
         : kind === "vote_reminder"
           ? 60 * 60 * 12
           : undefined;
-    const pushResult = await fireNotificationPush(
+    const pushResult: any = await fireNotificationPush(
       userId,
       {
         title: itemTitle,
@@ -2032,7 +2032,7 @@ async function pruneSiteInAppNotificationsForUser(userId?) {
 async function deleteSiteInAppNotifications(filter: Record<string, any> = {}) {
   if (!filter || typeof filter !== "object" || Array.isArray(filter)) return 0;
   const { kind, ...rest } = filter;
-  const legacyFilter = { docType: NOTIF, inAppNotifAggregate: { $ne: true }, ...rest };
+  const legacyFilter: Record<string, any> = { docType: NOTIF, inAppNotifAggregate: { $ne: true }, ...rest };
   if (kind != null && String(kind).trim() !== "") legacyFilter.notifKind = String(kind).trim();
   const delLegacy = await SiteDocument.deleteMany(legacyFilter).catch(() => null);
   let count = Number(delLegacy?.deletedCount ?? delLegacy?.n ?? 0);

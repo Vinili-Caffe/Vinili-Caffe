@@ -85,7 +85,7 @@ export = {
         .setTitle("<:VC_threads:1478515497569095760> Thread Aggiornato")
         .setDescription(lines.join("\n"));
 
-      const payload = { embeds: [embed] };
+      const payload: Record<string, any> = { embeds: [embed] };
       if (isHttpUrl(newThread?.url)) {
         payload.components = [
           new ActionRowBuilder().addComponents(

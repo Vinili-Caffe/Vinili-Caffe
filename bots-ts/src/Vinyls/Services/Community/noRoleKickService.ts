@@ -41,7 +41,7 @@ async function fetchMembersPagedRest(guild?, onMember?) {
   while (true) {
     let batch;
     try {
-      const opts = { limit: NO_ROLE_FETCH_PAGE_LIMIT, cache: true };
+      const opts: Record<string, any> = { limit: NO_ROLE_FETCH_PAGE_LIMIT, cache: true };
       if (after) opts.after = after;
       batch = await guild.members.list(opts);
     } catch (err) {

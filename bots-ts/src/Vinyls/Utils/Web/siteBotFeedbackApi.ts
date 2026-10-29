@@ -276,7 +276,7 @@ async function getBotFeedbackList(client?, payload: Record<string, any> = {}) {
 
   const viewerId = viewer && viewer.id ? String(viewer.id) : "";
   const canModerate = Boolean(viewer && viewer.canModerate);
-  const query = { docType: BF, guildId: guild.id };
+  const query: Record<string, any> = { docType: BF, guildId: guild.id };
   if (!canModerate) {
     if (viewerId) {
       query.$or = [{ status: { $ne: "rejected" } }, { userId: viewerId }];
@@ -362,8 +362,8 @@ async function createBotFeedback(client?, payload: Record<string, any> = {}) {
         (await resolved.guild.roles.fetch(HIGH_STAFF_ROLE_ID).catch(() => null));
       const recipients = role
         ? Array.from(role.members.values())
-            .filter((m?) => m && !m.user?.bot && String(m.id) !== String(resolved.userId))
-            .map((m?) => String(m.id))
+            .filter((m?: any) => m && !m.user?.bot && String(m.id) !== String(resolved.userId))
+            .map((m?: any) => String(m.id))
         : [];
       const label = kind === "bug" ? "bug" : "suggerimento";
       const preview = content.length > 220 ? `${content.slice(0, 219)}…` : content;
@@ -428,7 +428,7 @@ async function updateOwnBotFeedback(client?, payload: Record<string, any> = {}) 
   }
 
   const kindRaw = payload.kind != null ? normalizeFeedbackKind(payload.kind) : "";
-  const $set = { content, updatedAt: new Date() };
+  const $set: Record<string, any> = { content, updatedAt: new Date() };
   if (kindRaw) $set.feedbackKind = kindRaw;
 
   const updated = await SiteDocument.findOneAndUpdate(
@@ -779,7 +779,7 @@ async function serveBotFeedbackFile(client?, req?, res?) {
       });
       return;
     }
-    const doc = await SiteDocument.findOne({
+    const doc: any = await SiteDocument.findOne({
       docType: BF,
       _id: feedbackId,
       guildId: resolved.guild.id,

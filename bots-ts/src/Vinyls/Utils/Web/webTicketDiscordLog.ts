@@ -339,7 +339,7 @@ async function sendWebTicketDiscordLog(client?, action?, ticket?, meta: Record<s
         ? { guild, guildName: guild.name, guildIconURL: guildIconFrom(guild) }
         : {}),
     });
-    const payload = { embeds: [embed] };
+    const payload: Record<string, any> = { embeds: [embed] };
     if (action === "closed") {
       const row = buildWebTicketClosedTranscriptRow(ticket);
       if (row) payload.components = [row];
@@ -407,7 +407,7 @@ async function sendWebTicketMessageActivityLog(client?, kind?, ticket?, messageD
         .setDescription(lines.join("\n"));
       const preview = images.find((u?) => /^https?:\/\//i.test(String(u || "")));
       if (preview) embed.setImage(String(preview));
-      const payload = { embeds: [embed] };
+      const payload: Record<string, any> = { embeds: [embed] };
       if (url) {
         payload.components = [
           new ActionRowBuilder().addComponents(
@@ -457,7 +457,7 @@ async function sendWebTicketMessageActivityLog(client?, kind?, ticket?, messageD
         .setDescription(lines.join("\n"));
       const preview = afterImages.find((u?) => /^https?:\/\//i.test(String(u || "")));
       if (preview) embed.setImage(String(preview));
-      const payload = { embeds: [embed] };
+      const payload: Record<string, any> = { embeds: [embed] };
       if (url) {
         payload.components = [
           new ActionRowBuilder().addComponents(

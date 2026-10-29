@@ -44,7 +44,7 @@ function normalizeTrackEntry(raw?) {
   if (!TRACK_KINDS.has(kind)) return null;
   const dateRaw = raw?.date != null ? new Date(raw.date) : new Date();
   const date = dateRaw instanceof Date && Number.isFinite(dateRaw.getTime()) ? dateRaw : new Date();
-  const entry = {
+  const entry: Record<string, any> = {
     kind,
     reason: String(raw?.reason || "").trim().slice(0, 500),
     date,

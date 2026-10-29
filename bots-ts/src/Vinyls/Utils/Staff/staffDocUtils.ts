@@ -64,7 +64,7 @@ async function incrementStaffValutazioneCounters(guildId?, userId?, kind?, reaso
     : { "staff.valutazioniCount": 1, "staff.positiveCount": 1 };
   const reasonsKey = negative ? "staff.negativeReasons" : "staff.positiveReasons";
   const reasonText = String(reason || "");
-  const update = { $inc: inc };
+  const update: Record<string, any> = { $inc: inc };
   if (reasonText) update.$push = { [reasonsKey]: reasonText };
   const doc = await ActivityUserProfile.findOneAndUpdate({ guildId: g, userId: u }, update, {
     new: true,
@@ -325,7 +325,7 @@ async function archiveStaffRolesHistoryThenUnsetStaff(guildId?, userId?) {
   const merged = [...existing, ...incoming, ...fromTrack].slice(-STAFF_ROLES_HISTORY_RETENTION_CAP);
   const partnerRetention = extractPartnershipStaffRetention(prev.staff);
 
-  const update = { $set: { staffRolesHistoryRetention: merged } };
+  const update: Record<string, any> = { $set: { staffRolesHistoryRetention: merged } };
   if (partnerRetention) {
     update.$set.staff = partnerRetention;
   } else {
@@ -452,7 +452,7 @@ async function appendStaffRolesHistoryEntry(
   const profileDoc = await getOrCreateStaffDoc(gid, uid);
   const s = ensureStaff(profileDoc);
   if (!Array.isArray(s.rolesHistory)) s.rolesHistory = [];
-  const entry = {
+  const entry: Record<string, any> = {
     oldRole: String(oldRole || "").trim(),
     newRole: String(newRole ?? "").trim(),
     reason: String(reason || "").trim() || null,

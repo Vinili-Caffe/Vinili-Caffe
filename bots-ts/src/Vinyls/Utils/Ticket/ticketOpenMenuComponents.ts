@@ -91,7 +91,7 @@ function buildMultipanelSelectRows(multi?, bucket?) {
   const byId = new Map((bucket.singles || []).map((s?) => [String(s.id), s]));
   const linked = [];
   for (const id of multi.panelIds || []) {
-    const hit = byId.get(String(id));
+    const hit: any = byId.get(String(id));
     if (!hit || hit.disabled) continue;
     linked.push(hit);
   }
@@ -103,7 +103,7 @@ function buildMultipanelSelectRows(multi?, bucket?) {
       multi.optionOverrides && typeof multi.optionOverrides === "object"
         ? multi.optionOverrides[String(panel.id)] || null
         : null;
-    const opt = {
+    const opt: Record<string, any> = {
       label: String((ov && ov.label) || panel.buttonText || ticketTypeLabel(panel.ticketType) || "Ticket").slice(
         0,
         100,

@@ -3,7 +3,7 @@ const fs = require("fs") as typeof import("fs");
 const path = require("path") as typeof import("path");
 const os = require("os") as typeof import("os");
 const { spawnSync } = require("child_process") as typeof import("child_process");
-const axios = require("axios") as typeof import("axios");
+const axios = require("axios") as typeof import("axios").default;
 const ffmpegPath = require("ffmpeg-static") as typeof import("ffmpeg-static");
 const {
   registerCanvasFonts,
@@ -934,7 +934,7 @@ export = async function renderQuoteCanvas(params?) {
   const { coverImageUrl, message, username, footerText, style } = params;
   const url = String(coverImageUrl || "").trim();
   const normalized = normalizeQuoteStyle(style);
-  const layout = measureQuoteLayout(message, username, footerText, normalized);
+  const layout: any = measureQuoteLayout(message, username, footerText, normalized);
   layout.emojiAssets = await loadEmojiAssets(layout.mainText);
 
   const allowAnimated = normalized.avatarMode === "dynamic";

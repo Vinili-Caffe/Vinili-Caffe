@@ -20,7 +20,7 @@ async function execute(interaction?) {
   }
   if (parsed.action === "accept") {
     if (!interaction.deferred && !interaction.replied) await interaction.deferUpdate().catch(() => {});
-    const out = await acceptPvpChallenge(interaction.client, interaction, session);
+    const out: any = await acceptPvpChallenge(interaction.client, interaction, session);
     if (!out.ok) {
       await interaction.followUp({ content: `<:vegax:1443934876440068179> ${out.message}`, flags: PRIVATE_FLAG }).catch(() => {});
       return true;

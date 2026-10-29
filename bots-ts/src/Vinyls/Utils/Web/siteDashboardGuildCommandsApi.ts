@@ -280,7 +280,7 @@ async function patchDashboardGuildCommands(client?, accessToken?, guildId?, body
       if (isSlashCommandAclKey(name)) slashSyncJobs.push({ key: name, acl: null });
       continue;
     }
-    const sanitized = sanitizeAclInput(value);
+    const sanitized: any = sanitizeAclInput(value);
     if (sanitized && sanitized.invalid) {
       return fail(400, "invalid_commands", `Configurazione non valida per ${name}.`);
     }

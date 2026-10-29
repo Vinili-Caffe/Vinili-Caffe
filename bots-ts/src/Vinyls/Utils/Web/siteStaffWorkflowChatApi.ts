@@ -342,7 +342,7 @@ function serializeMessage(doc?, replyMap?, avatarOverrides?, roleOverrides?) {
   if (!authorRoleLabel && roleOverrides && roleOverrides.get(authorId)) {
     authorRoleLabel = String(roleOverrides.get(authorId) || "").trim();
   }
-  const out = {
+  const out: Record<string, any> = {
     id: String(doc?._id || ""),
     dedupeKey: String(doc?.dedupeKey || ""),
     queue: String(doc?.queue || ""),
@@ -917,7 +917,7 @@ async function resolveWorkflowChatAccess(client?, accessToken?, dedupeKey?, opts
     };
   }
 
-  const userRes = await resolveSubjectChatMember(client, guild, token, { inviteOnly });
+  const userRes: any = await resolveSubjectChatMember(client, guild, token, { inviteOnly });
   if (!userRes.ok) {
     return {
       ok: false,
@@ -1030,7 +1030,7 @@ async function handleSiteStaffWorkflowChatReadPost(client?, req?, res?) {
     const wantIds = [
       ...new Set(rawIds.map((id?) => String(id || "").trim()).filter((id?) => mongoose.isValidObjectId(id))),
     ].slice(0, 120);
-    const q = { guildId: access.guild.id, dedupeKey: access.dedupeKey };
+    const q: Record<string, any> = { guildId: access.guild.id, dedupeKey: access.dedupeKey };
     if (wantIds.length) q._id = { $in: wantIds };
     let docs = await SiteWorkflowChatMessage.find(q)
       .sort({ createdAt: -1 })
@@ -1437,7 +1437,7 @@ async function handleSiteStaffWorkflowChatSubjectPost(client?, req?, res?) {
     }
 
     let chat = null;
-    let dm = { sent: false };
+    let dm: Record<string, any> = { sent: false };
     if (action === "invite") {
       if (subjectChatHasActive(access.subjectChat)) {
         return res.status(409).json({
@@ -1549,7 +1549,7 @@ async function handleSiteStaffWorkflowChatMessagePatch(client?, req?, res?) {
     const body = req.body && typeof req.body === "object" ? req.body : {};
     const dedupeKey = String(body.dedupeKey || req.query?.dedupeKey || "").trim();
     const messageId = String(req.params?.messageId || body.messageId || "").trim();
-    const access = await resolveWorkflowChatAccess(client, bearerFromRequest(req), dedupeKey, { req });
+    const access: any = await resolveWorkflowChatAccess(client, bearerFromRequest(req), dedupeKey, { req });
     if (!access.ok) {
       return res.status(access.status).json({ ok: false, error: access.error, message: access.message });
     }
@@ -1638,7 +1638,7 @@ async function handleSiteStaffWorkflowChatMessageDelete(client?, req?, res?) {
     const body = req.body && typeof req.body === "object" ? req.body : {};
     const dedupeKey = String(body.dedupeKey || req.query?.dedupeKey || "").trim();
     const messageId = String(req.params?.messageId || body.messageId || "").trim();
-    const access = await resolveWorkflowChatAccess(client, bearerFromRequest(req), dedupeKey, { req });
+    const access: any = await resolveWorkflowChatAccess(client, bearerFromRequest(req), dedupeKey, { req });
     if (!access.ok) {
       return res.status(access.status).json({ ok: false, error: access.error, message: access.message });
     }
@@ -1679,7 +1679,7 @@ async function handleSiteStaffWorkflowChatTypingPost(client?, req?, res?) {
   try {
     const body = req.body && typeof req.body === "object" ? req.body : {};
     const dedupeKey = String(body.dedupeKey || body.key || "").trim();
-    const access = await resolveWorkflowChatAccess(client, bearerFromRequest(req), dedupeKey, { req });
+    const access: any = await resolveWorkflowChatAccess(client, bearerFromRequest(req), dedupeKey, { req });
     if (!access.ok) {
       return res.status(access.status).json({ ok: false, error: access.error, message: access.message });
     }

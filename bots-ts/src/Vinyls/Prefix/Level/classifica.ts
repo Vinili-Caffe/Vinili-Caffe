@@ -470,10 +470,10 @@ async function computeDailyBucketTotalsByUser(guild?) {
 function sortDailyActivityTotals(perUser?, board?) {
   const arr = Array.from(perUser.values());
   if (board === "messages") {
-    return arr.filter((e?) => e.textCount > 0).sort((a?, b?) => b.textCount - a.textCount);
+    return arr.filter((e?: any) => e.textCount > 0).sort((a?: any, b?: any) => b.textCount - a.textCount);
   }
   if (board === "voice") {
-    return arr.filter((e?) => e.voiceSeconds > 0).sort((a?, b?) => b.voiceSeconds - a.voiceSeconds);
+    return arr.filter((e?: any) => e.voiceSeconds > 0).sort((a?: any, b?: any) => b.voiceSeconds - a.voiceSeconds);
   }
   return [];
 }

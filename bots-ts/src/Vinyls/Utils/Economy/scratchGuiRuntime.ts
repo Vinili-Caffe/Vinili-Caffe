@@ -98,7 +98,7 @@ async function renderPanel(session?) {
   const last = session.lastResult;
   try {
     const renderScratchCanvas = require("../Render/scratchCanvas") as typeof import("../Render/scratchCanvas");
-    const rendered = await runEconomyRender(() =>
+    const rendered: any = await runEconomyRender(() =>
       renderScratchCanvas({
       phase: session.phase,
       bet: session.bet,

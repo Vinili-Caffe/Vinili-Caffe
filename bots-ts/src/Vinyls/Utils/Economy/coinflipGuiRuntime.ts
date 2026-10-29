@@ -100,7 +100,7 @@ async function renderCoinflipAttachment(session?, { animating = false } = {}) {
   if (hit) return attachmentFromCache(hit);
   try {
     const renderCoinflipCanvas = require("../Render/coinflipCanvas") as typeof import("../Render/coinflipCanvas");
-    const rendered = await runEconomyRender(() =>
+    const rendered: any = await runEconomyRender(() =>
       renderCoinflipCanvas({
       bet: session.bet,
       playerChoice: last?.result?.player || "",

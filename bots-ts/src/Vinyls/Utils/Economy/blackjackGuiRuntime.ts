@@ -113,7 +113,7 @@ async function renderPanel(session?, cfg?) {
   }
   try {
     const renderBlackjackCanvas = require("../Render/blackjackCanvas") as typeof import("../Render/blackjackCanvas");
-    const rendered = await runEconomyRender(() =>
+    const rendered: any = await runEconomyRender(() =>
       renderBlackjackCanvas({
       bet: displayBet(session),
       doubled: Boolean(session.doubled) && session.phase !== "idle",

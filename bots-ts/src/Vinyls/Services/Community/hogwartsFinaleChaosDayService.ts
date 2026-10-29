@@ -375,7 +375,7 @@ async function countChatSince(client?, channelId?, sinceMs?, minRequired?) {
   let count = 0;
   let beforeId;
   for (let page = 0; page < 5; page += 1) {
-    const opts = { limit: 100 };
+    const opts: Record<string, any> = { limit: 100 };
     if (beforeId) opts.before = beforeId;
     const batch = await ch.messages.fetch(opts).catch(() => null);
     if (!batch?.size) break;
@@ -571,7 +571,7 @@ async function grantFinaleChaosBoost(client, {
     scope,
     durationMs: Math.max(60_000, Math.floor(Number(durationMs) || 3600000)),
   };
-  const activated = await activateConsumableBoost(client, {
+  const activated: any = await activateConsumableBoost(client, {
     guildId,
     userId,
     houseId,

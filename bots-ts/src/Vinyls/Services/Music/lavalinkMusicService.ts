@@ -539,13 +539,13 @@ async function getYoutubeOauthAccessToken() {
     const { host, port } = parseLavalinkHost();
     const pass = String(process.env.LAVALINK_PASSWORD || "youshallnotpass").trim();
     const base = `http://${host}:${port}`;
-    const ytInfo = await fetch(`${base}/youtube`, {
+    const ytInfo: any = await fetch(`${base}/youtube`, {
       headers: { Authorization: pass },
       signal: AbortSignal.timeout(8_000),
     }).then((r?) => (r.ok ? r.json() : null)).catch(() => null);
     const refresh = String(ytInfo?.refreshToken || "").trim();
     if (!refresh) return null;
-    const tok = await fetch(`${base}/youtube/oauth/${encodeURIComponent(refresh)}`, {
+    const tok: any = await fetch(`${base}/youtube/oauth/${encodeURIComponent(refresh)}`, {
       headers: { Authorization: pass },
       signal: AbortSignal.timeout(15_000),
     }).then((r?) => (r.ok ? r.json() : null)).catch(() => null);
@@ -826,7 +826,7 @@ async function fetchSpotifyOembedMeta(url?) {
       headers: { Accept: "application/json" },
     });
     if (!res.ok) return null;
-    const j = await res.json().catch(() => null);
+    const j: any = await res.json().catch(() => null);
     const title = String(j?.title || "").trim();
     const author = String(j?.author_name || "").trim();
     if (!title) return null;
@@ -1548,7 +1548,7 @@ function trackForManualQueue(track?) {
         ? track
         : null;
   if (!encoded) return null;
-  const out = { encoded };
+  const out: Record<string, any> = { encoded };
   if (track.info && typeof track.info === "object") out.info = track.info;
   if (track.vcRequestedByUserId) out.vcRequestedByUserId = String(track.vcRequestedByUserId);
   if (track.vcRequestedByUserTag) out.vcRequestedByUserTag = String(track.vcRequestedByUserTag);
@@ -1565,7 +1565,7 @@ function tagTracksWithRequester(tracks?, requesterUser?) {
     : "";
   return tracks
     .map((t?) => {
-      const base = trackForManualQueue(t);
+      const base: any = trackForManualQueue(t);
       if (!base) return null;
       return {
         ...base,
@@ -1775,7 +1775,7 @@ async function fetchSpotifyClientCredentialsToken() {
     body: "grant_type=client_credentials",
   });
   if (!res.ok) return "";
-  const j = await res.json().catch(() => null);
+  const j: any = await res.json().catch(() => null);
   const tok = String(j?.access_token || "").trim();
   const expiresIn = Math.max(60, Number(j?.expires_in) || 3600);
   if (!tok) return "";
@@ -1805,7 +1805,7 @@ async function trySpotifyDirectUrlViaSearch(_node?, track?) {
       headers: { Authorization: `Bearer ${tok}`, Accept: "application/json" },
     });
     if (!res.ok) return null;
-    const j = await res.json().catch(() => null);
+    const j: any = await res.json().catch(() => null);
     const items = Array.isArray(j?.tracks?.items) ? j.tracks.items : [];
     const hit = items.find((it?) => it?.external_urls?.spotify || it?.id) || items[0];
     if (!hit) return null;
@@ -1845,7 +1845,7 @@ async function searchSpotifyTrackMetaForQuery(rawQuery?) {
       headers: { Authorization: `Bearer ${tok}`, Accept: "application/json" },
     });
     if (!res.ok) return null;
-    const j = await res.json().catch(() => null);
+    const j: any = await res.json().catch(() => null);
     const items = Array.isArray(j?.tracks?.items) ? j.tracks.items : [];
     if (!items.length) return null;
     const hint = parsePlainMusicQueryHint(q);

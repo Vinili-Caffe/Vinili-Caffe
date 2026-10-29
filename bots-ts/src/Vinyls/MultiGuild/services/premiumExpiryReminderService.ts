@@ -123,7 +123,7 @@ async function sendReminderInGuildChannel(guild?, user?, embed?, lang?) {
     return null;
   }
   const file = createStandardGifAttachment();
-  const payload = {
+  const payload: Record<string, any> = {
     embeds: [embed],
     components: [buildRenewLinkRow(guild.id, lang)],
     ...(file ? { files: [file] } : {}),

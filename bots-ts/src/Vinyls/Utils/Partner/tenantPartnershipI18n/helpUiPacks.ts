@@ -146,7 +146,7 @@ const HELP_UI_IT = pack({
   help_cmd_user_info_syntax: "info [userId]",
 });
 
-const HELP_UI_LOCALES = {
+const HELP_UI_LOCALES: Record<string, any> = {
   en: HELP_UI_EN,
   it: HELP_UI_IT,
   es: pack({

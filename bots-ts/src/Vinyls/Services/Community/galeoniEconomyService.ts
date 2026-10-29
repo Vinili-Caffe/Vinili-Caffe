@@ -105,7 +105,7 @@ function isGaleoniEconomyUnlocked(client?, nowMs = Date.now()) {
 }
 
 function economyConfig(client?) {
-  const raw = mergeConfig(client?.config?.galeoniEconomy);
+  const raw: any = mergeConfig(client?.config?.galeoniEconomy);
   raw.enabled = raw.enabled !== false;
   raw.previewMode = raw.previewMode === true;
   raw.startDate = normalizeId(raw.startDate) || DEFAULT_CONFIG.startDate;
@@ -1220,7 +1220,7 @@ async function assertRobberCanSteal(client?, message?) {
 }
 
 async function robBank(client?, message?) {
-  const access = await assertRobberCanSteal(client, message);
+  const access: any = await assertRobberCanSteal(client, message);
   if (!access.ok) return { ok: false, message: access.message };
   const reserve = await reserveCooldown(message.guild.id, message.author.id, "rob", access.cfg.rob.cooldownMs);
   if (!reserve.ok) return { ok: false, code: "cooldown", message: `Puoi riprovare un furto tra ${formatDuration(reserve.remainingMs)}.` };
@@ -1242,7 +1242,7 @@ async function robBank(client?, message?) {
 }
 
 async function rob(client?, message?, targetUser?) {
-  const access = await assertRobberCanSteal(client, message);
+  const access: any = await assertRobberCanSteal(client, message);
   if (!access.ok) return { ok: false, message: access.message };
   if (!targetUser || targetUser.bot) return { ok: false, message: "Scegli un utente valido da derubare." };
   const targetCheck = await evaluateRobTarget(client, message.guild, targetUser.id, access.cfg, message.author.id);

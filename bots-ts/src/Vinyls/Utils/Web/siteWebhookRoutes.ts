@@ -3520,7 +3520,7 @@ function mountSiteWebhookRoutes(app?, client?, deps?) {
           message: "Header Authorization: Bearer <token> richiesto.",
         });
       }
-      const out = await getDashboardTranscriptHtml(
+      const out: any = await getDashboardTranscriptHtml(
         client,
         accessToken,
         req.params?.guildId,

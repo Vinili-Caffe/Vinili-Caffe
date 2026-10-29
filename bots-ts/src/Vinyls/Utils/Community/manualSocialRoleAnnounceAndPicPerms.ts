@@ -97,13 +97,13 @@ function pickNewestRoleAddEntryForMember(logs?, targetUserId?, roleIdSet?) {
   const tid = String(targetUserId || "");
   const nowMs = Date.now();
   const rows = Array.from(logs.entries.values())
-    .filter((item?) => {
+    .filter((item?: any) => {
       const createdMs = Number(item?.createdTimestamp || 0);
       const targetId = String(item?.target?.id || item?.targetId || "");
       const withinWindow = createdMs > 0 && nowMs - createdMs <= AUDIT_LOOKBACK_MS;
       return withinWindow && targetId === tid && auditEntryAddsAnyRole(item, roleIdSet);
     })
-    .sort((a?, b?) => Number(b?.createdTimestamp || 0) - Number(a?.createdTimestamp || 0));
+    .sort((a?: any, b?: any) => Number(b?.createdTimestamp || 0) - Number(a?.createdTimestamp || 0));
   return rows[0] || null;
 }
 
@@ -318,7 +318,7 @@ async function sendSelfieVerifiedRoleAnnounce(member?, channel?, roleId?, title?
   if (!channel?.isTextBased?.()) return false;
   const embed = buildSelfieVerifiedGuildedStyleEmbed(member, roleId, title);
   const verifiedSelfieImage = buildVerifiedSelfieImageAttachment();
-  const payload = { content: `<@${member.id}>`, embeds: [embed] };
+  const payload: Record<string, any> = { content: `<@${member.id}>`, embeds: [embed] };
   if (verifiedSelfieImage) payload.files = [verifiedSelfieImage];
   const sent = await channel.send(payload).catch(() => null);
   return Boolean(sent?.id);

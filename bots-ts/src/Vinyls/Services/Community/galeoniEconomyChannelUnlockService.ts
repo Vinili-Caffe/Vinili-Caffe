@@ -118,7 +118,7 @@ function startGaleoniEconomyChannelUnlockLoop(client?) {
   const run = async () => {
     try {
       if (!isGaleoniEconomyUnlocked(client)) {
-        const cfg = economyConfig(client);
+        const cfg: any = economyConfig(client);
         const startMs = Number(cfg.startMs || 0);
         const delay = Number.isFinite(startMs) && startMs > Date.now()
           ? Math.min(60_000, Math.max(1000, startMs - Date.now()))

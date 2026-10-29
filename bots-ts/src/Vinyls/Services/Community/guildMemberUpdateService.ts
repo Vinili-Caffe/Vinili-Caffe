@@ -363,7 +363,7 @@ async function countRecentBotBoostAnnouncesForUser(channel?, userId?, opts: Reco
   let scanned = 0;
   while (scanned < maxScan) {
     const batchSize = Math.min(100, maxScan - scanned);
-    const fetchOpts = { limit: batchSize };
+    const fetchOpts: Record<string, any> = { limit: batchSize };
     if (before) fetchOpts.before = before;
     const batch = await channel.messages.fetch(fetchOpts).catch(() => null);
     if (!batch?.size) break;
@@ -409,7 +409,7 @@ async function countRecentBotBoostAnnouncesForUserMulti(channel?, userId?, thres
   let scanned = 0;
   while (scanned < maxScan) {
     const batchSize = Math.min(100, maxScan - scanned);
-    const fetchOpts = { limit: batchSize };
+    const fetchOpts: Record<string, any> = { limit: batchSize };
     if (before) fetchOpts.before = before;
     const batch = await channel.messages.fetch(fetchOpts).catch(() => null);
     if (!batch?.size) break;

@@ -956,7 +956,7 @@ async function handleWeeklyContestSubmissionMessage(message?, client?) {
     }
 
     const newMsgId = String(posted.id);
-    const update = {
+    const update: Record<string, any> = {
       $set: {
         [`submissions.${category}.${userId}`]: newMsgId,
         [`submissionMessageIndex.${newMsgId}`]: { category, userId },
@@ -1882,7 +1882,7 @@ async function runContestFinalePrizeGrantJob(client?) {
           const entry = await tryGrantContestFinaleTempRole(guild, third.userId, CONTEST_PRIZE_VIP_ROLE_ID, PRIZE_ROLE_DURATION_MS);
           if (entry) catRemovalsOutfit.push(entry);
         }
-        const metaOutfit = { $set: { [`finalePrizesResolvedCategories.${category}`]: true } };
+        const metaOutfit: Record<string, any> = { $set: { [`finalePrizesResolvedCategories.${category}`]: true } };
         if (catRemovalsOutfit.length) metaOutfit.$push = { finalePrizeRoleRemovals: { $each: catRemovalsOutfit } };
         await WeeklyContestMeta.findOneAndUpdate(
           { guildId: gid, eventKey: EVENT_KEY_PRODUCTION },
@@ -1941,7 +1941,7 @@ async function runContestFinalePrizeGrantJob(client?) {
       if (entry) catRemovals.push(entry);
     }
 
-    const metaUpdate = { $set: { [`finalePrizesResolvedCategories.${category}`]: true } };
+    const metaUpdate: Record<string, any> = { $set: { [`finalePrizesResolvedCategories.${category}`]: true } };
     if (catRemovals.length) metaUpdate.$push = { finalePrizeRoleRemovals: { $each: catRemovals } };
     await WeeklyContestMeta.findOneAndUpdate(
       { guildId: gid, eventKey: EVENT_KEY_PRODUCTION },
@@ -2308,7 +2308,7 @@ async function removeContestSubmissionAndStripVotesForMessage(guildId?, eventKey
     const arr = $pullAll[k];
     if (!Array.isArray(arr) || arr.length === 0) delete $pullAll[k];
   }
-  const update = { $unset };
+  const update: Record<string, any> = { $unset };
   if (Object.keys($pullAll).length) update.$pullAll = $pullAll;
   const res = await WeeklyContestBundle.updateOne({ guildId: gid, eventKey: ek }, update).catch((err?) => {
     global.logger?.error?.("[WEEKLY_CONTEST] disqualify bundle:", err?.message || err);

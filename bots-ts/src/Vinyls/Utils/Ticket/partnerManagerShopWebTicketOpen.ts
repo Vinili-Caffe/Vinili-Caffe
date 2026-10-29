@@ -18,7 +18,7 @@ const MAX_OPEN_PER_USER = 1;
 
 function sitePublicOrigin() {
   try {
-    const cfg = require("../../config.json") as typeof import("../../config.json");
+    const cfg: any = require("../../config.json") as typeof import("../../config.json");
     const raw =
       String(cfg?.website?.publicUrl || cfg?.site?.publicUrl || cfg?.oauth?.redirectUri || "").trim() ||
       String(cfg?.topgg?.votePageUrl || cfg?.vote?.voteUrl || "").trim();

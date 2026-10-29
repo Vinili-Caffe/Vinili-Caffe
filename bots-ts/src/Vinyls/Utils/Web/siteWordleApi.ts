@@ -69,7 +69,7 @@ async function handleSiteWordleTodayGet(client?, req?, res?) {
     await wordle.ensureReady(cfg);
     let lang = parseLang(req.query?.lang);
     const day = wordle.todayKey();
-    const payload = {
+    const payload: Record<string, any> = {
       ok: true,
       day,
       lang,

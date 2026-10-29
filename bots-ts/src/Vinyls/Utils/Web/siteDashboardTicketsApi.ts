@@ -469,7 +469,7 @@ async function listDashboardTickets(client?, accessToken?, guildId?, query: Reco
   );
   const offset = Number.isFinite(offsetRaw) && offsetRaw > 0 ? offsetRaw : 0;
 
-  const filter = { guildId: gid };
+  const filter: Record<string, any> = { guildId: gid };
   if (status === "open") filter.open = true;
   else if (status === "closed") filter.open = false;
   if (type && TICKET_TYPES.includes(type)) filter.ticketType = type;
@@ -638,7 +638,7 @@ async function listDashboardTickets(client?, accessToken?, guildId?, query: Reco
     types: TICKET_TYPES.slice(),
     tickets: slice.map((t?) => {
       const act = activity.get(String(t._id || t.channelId || "")) || {};
-      const panel = t.panelId ? panelById.get(String(t.panelId)) : null;
+      const panel: any = t.panelId ? panelById.get(String(t.panelId)) : null;
       const panelTitle =
         (panel && panel.title) ||
         String(t.ticketType || "supporto").toUpperCase();

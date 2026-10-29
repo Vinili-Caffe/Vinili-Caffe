@@ -475,7 +475,7 @@ async function patchDashboardPartnership(client?, accessToken?, guildId?, body?)
   const patch = body && typeof body === "object" ? body : {};
   await refreshPartnershipConfigCache().catch(() => null);
   const { buildMainPartnershipMongoSeed, isMainPartnershipSettingsGuild } = require("../Partner/partnershipConfigResolver") as typeof import("../Partner/partnershipConfigResolver");
-  const prev = getPartnershipConfigSync(gid) || (isMainPartnershipSettingsGuild(gid) ? buildMainPartnershipMongoSeed(gid) : null) || {};
+  const prev: any = getPartnershipConfigSync(gid) || (isMainPartnershipSettingsGuild(gid) ? buildMainPartnershipMongoSeed(gid) : null) || {};
   const configPatch: Record<string, any> = {};
   let channelForInvite = null;
   let clearDescCache = false;
@@ -763,7 +763,7 @@ async function patchDashboardPartnership(client?, accessToken?, guildId?, body?)
     void setTenantObjectiveFlag(client, gid, access.userId, flag).catch(() => null);
   }
 
-  const out = {
+  const out: Record<string, any> = {
     ok: true,
     status: 200,
     guildId: gid,
@@ -1045,7 +1045,7 @@ async function leaveDashboardPartnership(client?, accessToken?, guildId?) {
     };
   }
 
-  const result = await clearTenantPartnershipGuildData(gid);
+  const result: any = await clearTenantPartnershipGuildData(gid);
   if (!result?.ok) {
     return fail(400, result?.reason || "save_failed", reasonToMessage(result?.reason || "save_failed"));
   }
@@ -1154,11 +1154,11 @@ async function getDashboardPartnershipManagers(client?, accessToken?, guildId?) 
   }
 
   let members = role.members
-    ? Array.from(role.members.values()).filter((m?) => m && !m.user?.bot)
+    ? Array.from(role.members.values()).filter((m?: any) => m && !m.user?.bot)
     : [];
   if (!members.length && guild.members?.cache?.size) {
     members = Array.from(guild.members.cache.values()).filter(
-      (m?) => m && !m.user?.bot && m.roles?.cache?.has?.(roleId),
+      (m?: any) => m && !m.user?.bot && m.roles?.cache?.has?.(roleId),
     );
   }
 

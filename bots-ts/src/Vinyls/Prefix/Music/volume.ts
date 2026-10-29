@@ -10,7 +10,7 @@ export = {
   examples: ["+volume 35", "+volume 75"],
   async execute(message?, args?) {
     const raw = Array.isArray(args) ? args[0] : "";
-    const result = await setGuildMusicVolume(message.client, message.guild, raw, message.author.id);
+    const result: any = await setGuildMusicVolume(message.client, message.guild, raw, message.author.id);
     if (result.ok) {
       const embed = new EmbedBuilder()
         .setColor(0x2ecc71)

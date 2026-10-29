@@ -46,7 +46,7 @@ async function resetPanelSelectMenu(interaction?, rebuildComponents?, options: R
   const components = await resolvePanelComponents(rebuildComponents, interaction);
   if (!Array.isArray(components)) return false;
   const embeds = await resolvePanelEmbeds(options.rebuildEmbeds, interaction);
-  const updatePayload = {
+  const updatePayload: Record<string, any> = {
     ...(embeds ? { embeds } : {}),
     components,
   };

@@ -579,7 +579,7 @@ function emitSiteLiveStreamChanged(slug?, live?) {
 
 async function applyStreamerOfflineState(client?, streamer?, prev?) {
   const wasLive = Boolean(prev?.isLive);
-  const patch = {
+  const patch: Record<string, any> = {
     isLive: false,
     voiceChannelMode: "off",
     voiceChannelId: null,
@@ -635,7 +635,7 @@ async function runKickLiveAlertPoll(client?) {
     const state = await loadState();
 
     for (const streamer of cfg.streamers) {
-      const stream = liveBySlug.get(streamer.slug);
+      const stream: any = liveBySlug.get(streamer.slug);
       const prev = state.streamers?.[streamer.slug];
 
       if (!stream?.id) {

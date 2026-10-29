@@ -21,7 +21,7 @@ function pack(p?) {
   return p;
 }
 
-const COMMAND_UI_LOCALES = {
+const COMMAND_UI_LOCALES: Record<string, any> = {
   es: pack({
     count: "Total", daily: "Diario", weekly: "Semanal", true: "verdadero", false: "falso",
     errors_tenantOnly: "<:vegax:1443934876440068179> `{command}` solo está disponible en **servidores con partnership activa**.",

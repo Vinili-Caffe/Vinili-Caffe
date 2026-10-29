@@ -259,7 +259,7 @@ function assembleVcRichSendPayload(opts: Record<string, any> = {}, container?) {
       ? opts.files.filter(Boolean)
       : [opts.files].filter(Boolean)
     : [];
-  const payload = {
+  const payload: Record<string, any> = {
     content: String(opts.content ?? "").trim(),
     embeds: [],
     components: [container],
@@ -431,7 +431,7 @@ function buildVcPagePayload(opts: Record<string, any> = {}) {
       : [opts.files].filter(Boolean)
     : [];
 
-  const payload = {
+  const payload: Record<string, any> = {
     content: "",
     embeds: [],
     components: [container],
@@ -635,7 +635,7 @@ function coerceClassicSendPayloadToV2(payload?) {
 
   if (!embeds.length) return payload;
 
-  const fields = classicEmbedToVcFields(embeds[0]);
+  const fields: any = classicEmbedToVcFields(embeds[0]);
   if (embeds.length > 1) {
     const extras = embeds.slice(1).map((e?) => {
       const d = classicEmbedToVcFields(e);

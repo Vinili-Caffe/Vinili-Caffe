@@ -103,7 +103,7 @@ async function sendWelcomeInGuildChannel(guild?, client?, user?, embed?) {
     return null;
   }
 
-  const payload = welcomePayload(embed);
+  const payload: any = welcomePayload(embed);
   if (user?.id) {
     payload.content = `<@${user.id}> Non riesco a scriverti in DM — ecco il messaggio di benvenuto qui.`;
     payload.allowedMentions = { users: [user.id], roles: [], parse: [] };

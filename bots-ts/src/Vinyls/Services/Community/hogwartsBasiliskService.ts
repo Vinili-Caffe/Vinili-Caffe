@@ -1077,7 +1077,7 @@ async function runMinigameStartWithBasilisk(client?, cfg?, gameType?, startFn?, 
     const { rollHouseBurrobirraForMinigameStart } = require("../Minigames/hogwartsHouseBurrobirraEffectService") as typeof import("../Minigames/hogwartsHouseBurrobirraEffectService");
     await rollHouseBurrobirraForMinigameStart(client, cfg?.channelId, houseId, durationMs).catch(() => false);
   }
-  let plan = basiliskEligible ? await planBasiliskStrike(client, cfg, { ...options, gameType }) : null;
+  let plan: any = basiliskEligible ? await planBasiliskStrike(client, cfg, { ...options, gameType }) : null;
   if (plan?.mode === "persistent_players" && plan.shouldAnnounce === false) {
     const cure = await attemptPhoenixBasiliskCure(client, cfg, plan);
     if (cure.curseCleared) plan = null;

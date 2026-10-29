@@ -1,6 +1,6 @@
 const path = require("path") as typeof import("path");
 const fs = require("fs") as typeof import("fs");
-const IDs = require("../Utils/Config/ids") as typeof import("../Utils/Config/ids");
+const IDs: any = require("../Utils/Config/ids") as typeof import("../Utils/Config/ids");
 const { personalityPanelFindOneAndUpdate, personalityPanelUpdateOne } = require("../Utils/Global/globalSettingsGuildStores") as typeof import("../Utils/Global/globalSettingsGuildStores");
 const { getGuildChannelCached, getGuildRoleCached } = require("../Utils/Interaction/interactionEntityCache") as typeof import("../Utils/Interaction/interactionEntityCache");
 const { TENANT_EMBED_COLOR } = require("../MultiGuild/utils/tenantEmbedBranding") as typeof import("../MultiGuild/utils/tenantEmbedBranding");
@@ -113,7 +113,7 @@ async function processOneGuildTagPanel(client?, guildId?, config?) {
   });
   if (!panelDoc) return;
 
-  const messagePayload = buildVcPagePayload({
+  const messagePayload: any = buildVcPagePayload({
     messageId: panelDoc.infoMessageId1 || null,
     guildId,
     accentColor: SPONSOR_PANEL_COLOR,
@@ -192,7 +192,7 @@ async function processOneVerifyPanel(client?, guildId?, verifyChannelIds?) {
   const panelDoc = await sponsorGetOrCreatePanelDoc(guildId, channel.id).catch(() => null);
   if (!panelDoc) return 0;
 
-  const verifyPayload = buildVcPagePayload({
+  const verifyPayload: any = buildVcPagePayload({
     messageId: panelDoc.verifyPanelMessageId || null,
     guildId,
     accentColor: color,

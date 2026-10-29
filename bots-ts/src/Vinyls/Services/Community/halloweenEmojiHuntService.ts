@@ -209,7 +209,7 @@ function jumpUrlFor(guildId?, channelId?, messageId?) {
 async function sendHuntAnnounce(channel?, embed?, { withPing = false } = {}) {
   if (!channel?.send || !embed) return null;
   const roleId = minigamesPingRoleId();
-  const payload = { embeds: [embed] };
+  const payload: Record<string, any> = { embeds: [embed] };
   if (withPing && roleId) {
     payload.content = `<@&${roleId}>`;
     payload.allowedMentions = { roles: [roleId] };
@@ -490,7 +490,7 @@ async function handleHalloweenEmojiHuntReaction(client?, reaction?, user?) {
     const fresh = readState(await loadState(guildId));
     if (fresh.winnerUserId || fresh.activeMessageId !== normalizeId(message.id)) return true;
     const eventKey = resolveEventKey(client);
-    const candy = cfg.rewardCandy > 0
+    const candy: any = cfg.rewardCandy > 0
       ? await addHalloweenCandyWithPassAlong({
           guildId,
           userId: user.id,

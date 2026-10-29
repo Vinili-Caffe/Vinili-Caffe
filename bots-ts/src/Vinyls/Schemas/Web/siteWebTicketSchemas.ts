@@ -173,7 +173,7 @@ const SiteWebTicketCounter =
 
 async function nextWebTicketNumber(guildId?) {
   const id = `web_ticket:${String(guildId || "").trim()}`;
-  const doc = await SiteWebTicketCounter.findByIdAndUpdate(
+  const doc: any = await SiteWebTicketCounter.findByIdAndUpdate(
     id,
     { $inc: { seq: 1 } },
     { upsert: true, new: true },

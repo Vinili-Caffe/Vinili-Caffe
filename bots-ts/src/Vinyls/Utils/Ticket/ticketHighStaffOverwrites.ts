@@ -92,7 +92,7 @@ function permissionMapToAllowDeny(options?) {
 function buildTypedCreateOverwrite(id?, type?, { allow = [], deny = [] } = {}) {
   const targetId = normalizeOverwriteTargetId(id);
   if (!targetId) return null;
-  const payload = { id: targetId, type };
+  const payload: Record<string, any> = { id: targetId, type };
   if (allow?.length) payload.allow = allow;
   if (deny?.length) payload.deny = deny;
   return payload;

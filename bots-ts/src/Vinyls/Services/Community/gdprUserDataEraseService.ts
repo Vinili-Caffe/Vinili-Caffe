@@ -220,7 +220,7 @@ async function scrubGuildFeatureBucketUser(guildId?, userId?, dryRun?) {
 async function eraseActivityUserProfiles({ guildId, userId, client, dryRun }) {
   const uid = String(userId || "").trim();
   const scopeGuildId = String(guildId || "").trim();
-  const profileQuery = { userId: uid };
+  const profileQuery: Record<string, any> = { userId: uid };
     if (scopeGuildId) profileQuery.guildId = scopeGuildId;
   const profiles = await ActivityUserProfile.find(profileQuery).lean().catch(() => []);
   let deleted = 0;
@@ -274,7 +274,7 @@ async function eraseActivityUserProfiles({ guildId, userId, client, dryRun }) {
     if (keepTenantPartnership) retainedTenantPartnership += 1;
     if (dryRun) continue;
 
-    const payload = {
+    const payload: Record<string, any> = {
       _id: doc._id,
       guildId: gid,
       userId: uid,

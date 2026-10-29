@@ -90,7 +90,7 @@ async function runCleanupUsersNotInServer(guildId?, memberIds?, { dryRun = false
 
   for (const [Model, name] of guildScoped) {
     if (!Model?.countDocuments) continue;
-    const filterGuild = {
+    const filterGuild: Record<string, any> = {
       guildId: String(guildId),
       userId: { $nin: excludeUserIds },
       $expr: {

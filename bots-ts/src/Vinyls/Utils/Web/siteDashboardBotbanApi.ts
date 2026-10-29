@@ -1,5 +1,5 @@
 const { Routes } = require("discord.js") as typeof import("discord.js");
-const axios = require("axios") as typeof import("axios");
+const axios = require("axios") as typeof import("axios").default;
 const { assertDashboardHighStaffAccess } = require("./siteDashboardApi") as typeof import("./siteDashboardApi");
 const {
   normalizeSnowflake,

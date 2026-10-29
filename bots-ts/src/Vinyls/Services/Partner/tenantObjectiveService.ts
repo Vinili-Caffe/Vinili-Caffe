@@ -82,7 +82,7 @@ function applyContextGuildFlags(stats?, rawStats?, contextGuildId?, legacyObject
   const ctxFlags = readGuildFlags(rawStats, contextGuildId);
   const flatCanon = rawStats?.flags && typeof rawStats.flags === "object" ? rawStats.flags : {};
   const legacyNorm = legacyObjectiveStats ? normalizeStats(legacyObjectiveStats) : null;
-  const legacyFlat = legacyNorm?.flags || {};
+  const legacyFlat: any = legacyNorm?.flags || {};
   return {
     ...stats,
     flags: {

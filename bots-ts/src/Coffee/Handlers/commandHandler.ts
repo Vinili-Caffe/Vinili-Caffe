@@ -93,7 +93,7 @@ export = (client?) => {
     const rest = new REST({ version: "10" }).setToken(token);
     if (!clientId) {
       try {
-        const app = await rest.get(Routes.currentApplication());
+        const app: any = await rest.get(Routes.currentApplication());
         clientId = app?.id || null;
       } catch (error) {
         global.logger?.error?.(

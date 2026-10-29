@@ -183,7 +183,7 @@ async function claimAdventDay(client, { guildId, userId, day, staffPreview = fal
     [`${ROOT}.updatedAt`]: nowIso,
   };
 
-  const update = {
+  const update: Record<string, any> = {
     $set: setFields,
     $addToSet: { [`${ROOT}.rewardKeys`]: rewardKey },
     $setOnInsert: { guildId: g, userId: u },
@@ -228,7 +228,7 @@ async function claimAdventDay(client, { guildId, userId, day, staffPreview = fal
   }
 
   if (premiumCreditGrant > 0) {
-    const creditRes = await addPremiumCredits(u, premiumCreditGrant).catch(() => ({ ok: false }));
+    const creditRes: any = await addPremiumCredits(u, premiumCreditGrant).catch(() => ({ ok: false }));
     if (!creditRes?.ok) {
       global.logger?.warn?.("[starWars] advent premium credits failed", {
         userId: u,

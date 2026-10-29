@@ -69,7 +69,7 @@ async function runCustomVocDbCleanup(guild?, { dryRun = false, repairPermissions
     if (chId && uid) ownerByChannelId.set(chId, uid);
   }
 
-  const stats = {
+  const stats: Record<string, any> = {
     scanned: rows.length,
     orphansCleared: 0,
     mismatchesCleared: 0,

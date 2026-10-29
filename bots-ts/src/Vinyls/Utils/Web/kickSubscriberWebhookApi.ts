@@ -36,7 +36,7 @@ async function resolveDiscordUserIdFromBearer(accessToken?) {
     if (!meRes.ok) {
       return { ok: false, status: 401, error: "invalid_token", message: "Sessione Discord non valida o scaduta." };
     }
-    const meJson = await meRes.json().catch(() => ({}));
+    const meJson: any = await meRes.json().catch(() => ({}));
     const userId = String(meJson?.id || "").trim();
     if (!/^\d{17,20}$/.test(userId)) {
       return { ok: false, status: 401, error: "invalid_user", message: "Profilo Discord non valido." };

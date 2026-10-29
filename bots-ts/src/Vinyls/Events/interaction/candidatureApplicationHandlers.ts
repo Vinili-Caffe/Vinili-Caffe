@@ -93,7 +93,7 @@ function withTimeout(promise?, timeoutMs?, label?) {
 async function fetchDiscordMe(accessToken?) {
   const out = await fetchDiscordOAuthMe(accessToken, { timeoutMs: WEBSITE_AUTH_TIMEOUT_MS });
   if (!out.ok) {
-    const err = new Error(out.message || out.error || "discord_unreachable");
+    const err: any = new Error(out.message || out.error || "discord_unreachable");
     err.name = out.error === "discord_timeout" ? "AbortError" : "Error";
     err.oauth = out;
     throw err;

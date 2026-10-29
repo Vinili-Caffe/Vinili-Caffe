@@ -123,7 +123,7 @@ function buildPremiumActivatedEmbed({ guild, plan, premium, creditsLeft, lang })
 
 function buildPremiumActivatedPayload(guild?, user?, embed?, lang?) {
   const file = createStandardGifAttachment();
-  const payload = {
+  const payload: Record<string, any> = {
     embeds: [embed],
     components: [buildDashboardLinkRow(guild?.id, lang)],
     ...(file ? { files: [file] } : {}),
@@ -152,7 +152,7 @@ async function sendPremiumActivatedInGuildChannel(guild?, user?, embed?, lang?) 
     return null;
   }
 
-  const payload = buildPremiumActivatedPayload(guild, user, embed, lang);
+  const payload: any = buildPremiumActivatedPayload(guild, user, embed, lang);
   if (!user?.id) delete payload.content;
 
   const sent = await channel.send(payload).catch((err?) => {

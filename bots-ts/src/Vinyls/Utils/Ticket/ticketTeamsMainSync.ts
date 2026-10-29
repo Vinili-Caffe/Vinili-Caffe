@@ -147,7 +147,7 @@ async function ensureMainTicketTeamsSeeded(options: Record<string, any> = {}) {
     const singles = [...(prev.singles || [])];
     let changed = false;
     for (const def of MAIN_TEAM_DEFS) {
-      const team = teamBySeed.get(def.seedKey);
+      const team: any = teamBySeed.get(def.seedKey);
       if (!team) continue;
       const idx = singles.findIndex((s?) => String(s.seedKey || "") === String(def.panelSeedKey));
       if (idx < 0) continue;

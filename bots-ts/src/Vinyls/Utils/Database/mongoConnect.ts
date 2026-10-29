@@ -74,7 +74,7 @@ async function waitForMongoReachable(url?, maxWaitMs = 30_000) {
 }
 
 function buildConnectOptions(url?) {
-  const opts = { ...MONGO_CONNECT_OPTIONS };
+  const opts: Record<string, any> = { ...MONGO_CONNECT_OPTIONS };
   const endpoint = parseMongoEndpoint(url);
   if (endpoint?.isLocal) {
     Object.assign(opts, MONGO_LOCAL_CONNECT_OPTIONS);

@@ -6,7 +6,7 @@ const { checkPrefixPermission, getPrefixRequiredRoles, buildGlobalPermissionDeni
 const { buildCooldownErrorEmbed, buildBusyCommandErrorEmbed, buildMissingArgumentsErrorEmbed, buildInternalCommandErrorEmbed } = require("../Moderation/commandErrorEmbeds") as typeof import("../Moderation/commandErrorEmbeds");
 const { buildErrorLogEmbed } = require("../../../shared/discord/errorLogEmbed") as typeof import("../../../shared/discord/errorLogEmbed");
 const { showPrefixUsageGuide } = require("../Moderation/prefixUsageGuide") as typeof import("../Moderation/prefixUsageGuide");
-const IDs = require("../Config/ids") as typeof import("../Config/ids");
+const IDs: any = require("../Config/ids") as typeof import("../Config/ids");
 const { getCentralChannel } = require("../Logging/commandUsageLogger") as typeof import("../Logging/commandUsageLogger");
 const { EPHEMERAL_TTL_SHORT_MS } = require("../Config/ephemeralMessageTtl") as typeof import("../Config/ephemeralMessageTtl");
 const PREFIX_COOLDOWN_BYPASS_ROLE_ID = IDs.roles?.HighStaff || IDs.roles?.Founder || null;

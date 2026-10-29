@@ -1,4 +1,4 @@
-const axios = require("axios") as typeof import("axios");
+const axios = require("axios") as typeof import("axios").default;
 const MINIGAME_429_THROTTLE_MS = 60 * 60 * 1000;
 const MINIGAME_403_THROTTLE_MS = 60 * 1000;
 let last429LogAt = 0;
@@ -1271,7 +1271,7 @@ async function deleteHogwartsSpawnSchedulerDocAwait(client?) {
   const channelId = String(cfg?.channelId || "").trim();
   if (!channelId || mongoose.connection?.readyState !== 1) return;
   const guildId = await resolveMinigameGuildIdAsync(cfg, client);
-  const filter = { docType: HOGWARTS_SPAWN_SCHEDULER_DOC_TYPE, dedupeKey: channelId };
+  const filter: Record<string, any> = { docType: HOGWARTS_SPAWN_SCHEDULER_DOC_TYPE, dedupeKey: channelId };
   if (guildId) filter.guildId = guildId;
   await SiteDocument.deleteMany(filter).catch((err?) => warnMinigame(err));
 }
@@ -1570,7 +1570,7 @@ async function assessHogwartsScheduledSpawnReadyDetailed(cfg?, client?) {
         failsafeDue: false,
       });
     }
-    const freshActivity = assessFreshSpawnChatActivity(cfg);
+    const freshActivity: any = assessFreshSpawnChatActivity(cfg);
     if (!freshActivity.ok && !freshActivity.skipped) {
       blockers.push({
         code: "fresh_chat_activity",
@@ -8246,7 +8246,7 @@ function buildMinigameTimeoutEmbedForGame(game?) {
 function buildGameSnapshotFromPersistedState(state?) {
   const type = String(state?.type || "").trim();
   const parsed = parseStateTarget(state.target);
-  const game = { type, rewardExp: Number(state.rewardExp || 0) };
+  const game: Record<string, any> = { type, rewardExp: Number(state.rewardExp || 0) };
   switch (type) {
     case "guessNumber":
       game.target = Number(state.target);
@@ -10497,7 +10497,7 @@ async function fetchObservationTowerRoundMessages(channel?, game?) {
   let truncated = false;
   const maxPages = 50;
   for (let page = 0; page < maxPages; page += 1) {
-    const opts = { limit: 100 };
+    const opts: Record<string, any> = { limit: 100 };
     if (before) opts.before = before;
     const batch = await fetchObservationTowerMessagesPage(channel, opts);
     if (!batch || !batch.size) {
@@ -11198,7 +11198,7 @@ async function startDrivingQuizGame(client?, cfg?) {
     }
   }
 
-  const gameState = { type: "drivingQuiz", questionType: row.questionType ?? "trueFalse", statement: row.statement, rewardExp, startedAt: Date.now(), endsAt: Date.now() + durationMs, timeout, hintTimeout, gameMessageId: gameMessage?.id || null, };
+  const gameState: Record<string, any> = { type: "drivingQuiz", questionType: row.questionType ?? "trueFalse", statement: row.statement, rewardExp, startedAt: Date.now(), endsAt: Date.now() + durationMs, timeout, hintTimeout, gameMessageId: gameMessage?.id || null, };
   if (row.questionType === "multiple") {
     gameState.options = row.options;
     const optLen = Array.isArray(row.options) ? row.options.length : 0;
@@ -14662,7 +14662,7 @@ async function handleHalloweenTrickOrTreatButton(interaction?, game?, cfg?) {
       expGained: effectiveExp,
     });
   }
-  const replyPayload = { flags: 1 << 6 };
+  const replyPayload: Record<string, any> = { flags: 1 << 6 };
   if (candyResult?.code === "passed_along") {
     replyPayload.embeds = [
       new EmbedBuilder()
@@ -14871,7 +14871,7 @@ async function maybeStartRandomGame(client?, force = false) {
           keepPending = true;
           return false;
         }
-        const freshActivity = assessFreshSpawnChatActivity(cfg);
+        const freshActivity: any = assessFreshSpawnChatActivity(cfg);
         if (!freshActivity.ok && !freshActivity.skipped) {
           standbyChannels.add(cfg.channelId);
           logMinigameDebug("skip: insufficient fresh chat activity", {
@@ -15278,7 +15278,7 @@ async function maybeRollHalloweenCandyDrop({ client, guild, userId, cfg, game })
   const amount = Math.max(1, Math.floor(Number(dropCfg.amount ?? 1)));
 
   try {
-    const candyResult = await addHalloweenCandyWithPassAlong({
+    const candyResult: any = await addHalloweenCandyWithPassAlong({
       guildId: gid,
       userId: uid,
       amount,
@@ -17177,7 +17177,7 @@ async function mountHouseChannelActiveGameFromState(client?, cfg?, channel?, sta
       housePoints,
     });
     const startedAt = new Date(state.startedAt).getTime();
-    const towerGame = {
+    const towerGame: Record<string, any> = {
       type: "hogwartsObservationTower",
       targetBricks,
       houseBrickCounts,
@@ -17639,7 +17639,7 @@ async function restoreActiveGames(client?) {
     const housePoints = Math.max(0, Math.floor(Number(parsed?.housePoints) || 0));
     const rewardExp = Number(state.rewardExp || 0);
     const startedAt = new Date(state.startedAt).getTime();
-    const towerGame = {
+    const towerGame: Record<string, any> = {
       type: "hogwartsObservationTower",
       targetBricks,
       houseBrickCounts,
@@ -17676,7 +17676,7 @@ async function restoreActiveGames(client?) {
     const parsed = parseStateTarget(state.target);
     const statement = parsed?.statement || "";
     const isMultiple = Array.isArray(parsed?.options) && Number.isFinite(parsed?.correctIndex);
-    const gameState = { type: "drivingQuiz", questionType: isMultiple ? "multiple" : "trueFalse", statement, rewardExp: Number(state.rewardExp || 0), startedAt: new Date(state.startedAt).getTime(), endsAt, timeout: null, gameMessageId: state.gameMessageId || null, };
+    const gameState: Record<string, any> = { type: "drivingQuiz", questionType: isMultiple ? "multiple" : "trueFalse", statement, rewardExp: Number(state.rewardExp || 0), startedAt: new Date(state.startedAt).getTime(), endsAt, timeout: null, gameMessageId: state.gameMessageId || null, };
     if (isMultiple) {
       gameState.options = parsed.options;
       gameState.correctIndex = parsed.correctIndex;

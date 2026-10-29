@@ -138,7 +138,7 @@ export = (client?) => {
         );
       }
       try {
-        const me = await rest.get(Routes.currentApplication());
+        const me: any = await rest.get(Routes.currentApplication());
         const tokenAppId = me?.id || null;
         if (tokenAppId && String(tokenAppId) !== String(clientId) && LOG_COMMANDS) {
           global.logger.warn(`[COMMANDS] Token appartiene all'app ${tokenAppId}, ma in codice usi clientId ${clientId}. Imposta DISCORD_CLIENT_ID uguale all'Application ID dell'app del token.`);

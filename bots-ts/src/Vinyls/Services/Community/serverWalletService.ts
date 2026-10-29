@@ -218,7 +218,7 @@ async function addCurrency({ guildId, userId, currency, amount, reason, actorId 
     rewardKey: rewardKeyNorm,
   });
   const basePath = currencyPath(cur);
-  const update = {
+  const update: Record<string, any> = {
     $inc: {
       [`${basePath}.balance`]: creditAmt,
       [`${basePath}.earned`]: creditAmt,
@@ -305,7 +305,7 @@ async function addDualReward({ guildId, userId, totalAmount, reason, actorId = n
   const caffeAfter = caffeBefore.balance + split.caffe;
   const now = new Date();
   const entries = [];
-  const update = {
+  const update: Record<string, any> = {
     $set: { [`${WALLET_PATH}.updatedAt`]: now },
     $inc: {},
     $push: {},

@@ -3,7 +3,7 @@ const path = require("node:path") as typeof import("node:path");
 const crypto = require("node:crypto") as typeof import("node:crypto");
 const mongoose = require("mongoose") as typeof import("mongoose");
 const { ChannelType, Collection, ApplicationCommandType, ApplicationCommandOptionType, PermissionFlagsBits } = require("discord.js") as typeof import("discord.js");
-const IDs = require("../Config/ids") as typeof import("../Config/ids");
+const IDs: any = require("../Config/ids") as typeof import("../Config/ids");
 const {
   WEB_TICKET_CATEGORIES,
   WEB_TICKET_STATUS,
@@ -1482,7 +1482,7 @@ function serializeMessage(doc?, nameMap?, staffRatings?, staffRoles?, ticket = n
   if (!doc) return null;
   const authorId = String(doc.authorId || "");
   const authorKind = resolveMessageAuthorKind(doc, ticket, staffRoles);
-  const out = {
+  const out: Record<string, any> = {
     id: String(doc._id),
     ticketId: String(doc.ticketId),
     authorId,
@@ -1727,7 +1727,7 @@ function clampStarRating(raw?) {
 
 async function refreshTicketLastMessageFields(ticket?) {
   if (!ticket) return ticket;
-  const last = await SiteWebTicketMessage.findOne({ ticketId: ticket._id })
+  const last: any = await SiteWebTicketMessage.findOne({ ticketId: ticket._id })
     .sort({ createdAt: -1 })
     .lean();
   if (!last) {
@@ -1797,7 +1797,7 @@ function serializeTicket(doc?, { includeStaffFields = false, permissions = null,
       name: String(doc.claimedByName || "").trim() || "Staff",
     };
   }
-  const out = {
+  const out: Record<string, any> = {
     id: String(doc._id),
     ticketNumber: Number(doc.ticketNumber) || null,
     userId: String(doc.userId || ""),
@@ -2952,7 +2952,7 @@ async function executeWebTicketPrefixCommand(client?, actor?, ticket?, rawInput?
   const fakeMessages = {
     fetch: async (options: Record<string, any> = {}) => {
       const limit = Math.min(100, Math.max(1, Number(options.limit) || 50));
-      const query = { ticketId: ticket._id };
+      const query: Record<string, any> = { ticketId: ticket._id };
       const before = String(options.before || "").trim();
       if (before && mongoose.isValidObjectId(before)) {
         query._id = { $lt: before };
@@ -3382,7 +3382,7 @@ async function handleSiteWebTicketsReadPost(client?, req?, res?) {
   const wantIds = [
     ...new Set(rawIds.map((id?) => String(id || "").trim()).filter((id?) => mongoose.isValidObjectId(id))),
   ].slice(0, 120);
-  const q = { ticketId: loaded.ticket._id };
+  const q: Record<string, any> = { ticketId: loaded.ticket._id };
   if (wantIds.length) q._id = { $in: wantIds };
   const docs = await SiteWebTicketMessage.find(q)
     .sort({ createdAt: -1 })
@@ -3408,7 +3408,7 @@ async function handleSiteWebTicketsReadPost(client?, req?, res?) {
 }
 
 async function handleSiteWebTicketsTypingPost(client?, req?, res?) {
-  const actor = await resolveMemberOrStaff(client, req);
+  const actor: any = await resolveMemberOrStaff(client, req);
   if (!actor.ok) {
     return res.status(actor.status).json({ ok: false, error: actor.error, message: actor.message });
   }
@@ -4209,7 +4209,7 @@ async function handleSiteWebTicketsListGet(client?, req?, res?) {
 
   const statusFilter = String(req.query?.status || "").trim().toLowerCase();
   const categoryFilter = normalizeCategory(req.query?.category);
-  const filter = { guildId, listHidden: { $ne: true } };
+  const filter: Record<string, any> = { guildId, listHidden: { $ne: true } };
   const staffCategories = listAccessibleTicketCategories(actor.member);
 
   const pageRaw = Math.max(1, Math.floor(Number(req.query?.page) || 1));
@@ -5093,7 +5093,7 @@ async function handleSiteWebTicketsMessagePatch(client?, req?, res?) {
   msg.editedAt = new Date();
   await msg.save();
 
-    const last = await SiteWebTicketMessage.findOne({ ticketId: ticket._id }).sort({ createdAt: -1 }).select("_id").lean();
+    const last: any = await SiteWebTicketMessage.findOne({ ticketId: ticket._id }).sort({ createdAt: -1 }).select("_id").lean();
   if (last && String(last._id) === String(msg._id)) {
     ticket.lastMessagePreview = previewFromContent(content, imageCount);
     ticket.lastMessageAt = msg.editedAt;

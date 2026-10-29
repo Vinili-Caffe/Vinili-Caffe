@@ -737,7 +737,7 @@ async function cleanupActivityUserProfileOnGuildLeave(guildId?, userId?, client?
     return;
   }
 
-  const payload = {
+  const payload: Record<string, any> = {
     _id: doc._id,
     guildId: gid,
     userId: uid,

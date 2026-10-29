@@ -52,7 +52,7 @@ async function executeTenantPartnershipMessageFlow(message?, resolvedClient?, de
   if (message.author?.bot || message.system || message.webhookId) return;
 
   if (isHumanPartnershipChannelMessage(message)) {
-    const manualResult = await tryProcessManualPartnershipMessage(message).catch(() => ({ handled: false }));
+    const manualResult: any = await tryProcessManualPartnershipMessage(message).catch(() => ({ handled: false }));
     if (manualResult?.handled) return;
     const prefixCommand = resolveOfficialPrefixCommandFromMessage(message, resolvedClient, defaultPrefix);
     if (prefixCommand) {
@@ -465,7 +465,7 @@ export = {
           logEventError(resolvedClient, "AUTOMOD ERROR", error);
         }
       }
-      const manualResult = await tryProcessManualPartnershipMessage(message).catch(() => ({ handled: false }));
+      const manualResult: any = await tryProcessManualPartnershipMessage(message).catch(() => ({ handled: false }));
       if (manualResult?.handled) return;
       const prefixCommand = resolveOfficialPrefixCommandFromMessage(message, resolvedClient, defaultPrefix);
       if (prefixCommand) {

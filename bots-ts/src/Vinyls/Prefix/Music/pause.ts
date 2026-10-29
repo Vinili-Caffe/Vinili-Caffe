@@ -8,7 +8,7 @@ export = {
   usage: "+pause",
   examples: ["+pause"],
   async execute(message?) {
-    const result = await pauseGuildTrack(message);
+    const result: any = await pauseGuildTrack(message);
     if (result.ok) {
       const embed = new EmbedBuilder()
         .setColor(0x2ecc71)

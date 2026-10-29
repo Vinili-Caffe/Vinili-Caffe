@@ -362,7 +362,7 @@ async function savePartnershipConfig(guildId?, patch?) {
     return { ok: false, reason: "mongo_not_ready" };
   }
   const map = await loadConfigMap();
-  const prev = rowToConfig(map[gid]) || (allowProtectedSettings ? buildMainPartnershipMongoSeed(gid) : null) || {
+  const prev: any = rowToConfig(map[gid]) || (allowProtectedSettings ? buildMainPartnershipMongoSeed(gid) : null) || {
     partnershipsChannelId: null,
     logsChannelId: null,
     partnerManagerRoleId: null,
@@ -412,7 +412,7 @@ async function savePartnershipConfig(guildId?, patch?) {
 async function setPartnershipChannel(guildId?, channelId?) {
   const id = channelId ? normalizeChannelId(channelId) : null;
   if (channelId && !id) return { ok: false, reason: "invalid_channel" };
-  const patch = { partnershipsChannelId: id };
+  const patch: Record<string, any> = { partnershipsChannelId: id };
   if (!id) {
     patch.invite = { code: null, url: null, channelId: null };
   }
@@ -588,7 +588,7 @@ async function setBehaviorDeleteAction(guildId?, action?) {
 
 async function completePartnershipSetup(guildId?, userId?) {
   const prev = getPartnershipConfigSync(guildId);
-  const patch = {
+  const patch: Record<string, any> = {
     setupCompleted: true,
     setupCompletedAt: Date.now(),
     setupCompletedBy: String(userId || "").trim() || null,

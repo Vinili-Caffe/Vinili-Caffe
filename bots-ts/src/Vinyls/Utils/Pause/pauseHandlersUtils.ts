@@ -795,7 +795,7 @@ function buildRequestButtonsRow(userId?, pauseId?, disabled = false) {
       .setEmoji(`<:vegax:1443934876440068179>`)
       .setStyle(ButtonStyle.Danger),
   );
-  if (disabled) row.components.forEach((c?) => c.setDisabled(true));
+  if (disabled) row.components.forEach((c?: any) => c.setDisabled(true));
   return row;
 }
 

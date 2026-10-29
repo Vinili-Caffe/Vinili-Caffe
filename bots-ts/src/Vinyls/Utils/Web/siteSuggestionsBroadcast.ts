@@ -61,7 +61,7 @@ function scrubRealtimePayload(payload?) {
   /* wsWorkflowScrub1: stessa regola per la chat staff dei workflow — solo tipo + id conversazione
      (+ id del messaggio eliminato, + stop del typing); il client ricarica i messaggi via API. */
   if (type.startsWith("workflow_chat")) {
-    const out = { type, at: payload.at || new Date().toISOString() };
+    const out: Record<string, any> = { type, at: payload.at || new Date().toISOString() };
     const dedupeKey = String(payload.dedupeKey || "").trim();
     if (dedupeKey) out.dedupeKey = dedupeKey;
     if (type === "workflow_chat_message_deleted" && payload.messageId) out.messageId = String(payload.messageId);
@@ -75,7 +75,7 @@ function scrubRealtimePayload(payload?) {
   }
   if (!type.startsWith("web_ticket")) return payload;
   const ticketId = String(payload.ticketId || payload.ticket?.id || "").trim();
-  const out = { type, at: payload.at || new Date().toISOString() };
+  const out: Record<string, any> = { type, at: payload.at || new Date().toISOString() };
   if (ticketId) out.ticketId = ticketId;
   if (payload.stop === true) out.stop = true;
   return out;
@@ -127,7 +127,7 @@ function broadcastSiteSuggestionsChanged() {
 
 /** Voto Top.gg / Discadia registrato → client su /vote/ ricarica subito (niente attesa cache/poll). */
 function broadcastSiteVotesChanged(extra = null) {
-  const payload = {
+  const payload: Record<string, any> = {
     type: "votes_changed",
     at: new Date().toISOString(),
   };
@@ -144,7 +144,7 @@ function broadcastSiteVotesChanged(extra = null) {
 }
 
 function broadcastSiteNotificationsChanged(extra = null) {
-  const payload = {
+  const payload: Record<string, any> = {
     type: "notifications_changed",
     at: new Date().toISOString(),
   };

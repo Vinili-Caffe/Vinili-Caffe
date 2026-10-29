@@ -30,7 +30,7 @@ function pushRolesHistoryWithActor(staff, { oldRole, newRole, reason, kind, acto
   const { actorLabelFromUser } = require("./staffTrackHistory") as typeof import("./staffTrackHistory");
   const actorId = String(actorUser?.id || "").trim() || null;
   const actorName = actorLabelFromUser(actorUser, actorId);
-  const entry = {
+  const entry: Record<string, any> = {
     oldRole: String(oldRole || "").trim(),
     newRole: String(newRole ?? "").trim(),
     reason: String(reason || "").trim() || null,

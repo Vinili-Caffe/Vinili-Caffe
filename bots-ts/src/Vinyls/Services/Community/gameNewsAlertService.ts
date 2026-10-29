@@ -2,7 +2,7 @@
  * Novità giochi → canale announcement come articolo plain (no embed).
  * Ping ruolo + link completo in fondo. Solo news fresche (no edizioni/anni vecchi).
  */
-const axios = require("axios") as typeof import("axios");
+const axios = require("axios") as typeof import("axios").default;
 const { ChannelType } = require("discord.js") as typeof import("discord.js");
 const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
 const { getBotState, setBotState } = require("../../Utils/BotState/botStateStore") as typeof import("../../Utils/BotState/botStateStore");
@@ -58,7 +58,7 @@ const MINOR_RE =
 
 /** Catalogo giochi del menu personalizza + fonti ufficiali e non. */
 function defaultGamesCatalog() {
-  const R = IDs.roles || {};
+  const R: any = IDs.roles || {};
   return [
     {
       key: "minecraft",
@@ -737,7 +737,7 @@ function storyFingerprint(item?) {
   const title = stripSourceSuffix(item?.title || "");
   const allVers = extractVersionTokens(`${title} ${item?.summary || ""}`);
   /* preferisci versione dotted/snapshot: allinea "Title Update 1.0.1" e "patch 1.0.1" */
-  const dotted = allVers.filter((v?) => v.startsWith("v:") || v.startsWith("snap:"));
+  const dotted = allVers.filter((v?: any) => v.startsWith("v:") || v.startsWith("snap:"));
   const vers = dotted.length ? dotted : allVers;
   if (vers.length) return `${gameKey}|${vers.sort().join(",")}`;
   /* gameNewsStoryDedupe2: token ordinati (non i primi 7 in ordine titolo) —
@@ -802,8 +802,8 @@ function isSameNewsStory(a?, b?) {
   const fa = storyFingerprint(a);
   const fb = storyFingerprint(b);
   if (fa && fa === fb) return true;
-  const va = new Set(extractVersionTokens(`${a.title || ""} ${a.summary || ""}`).filter((x?) => x.startsWith("v:") || x.startsWith("snap:")));
-  const vb = new Set(extractVersionTokens(`${b.title || ""} ${b.summary || ""}`).filter((x?) => x.startsWith("v:") || x.startsWith("snap:")));
+  const va = new Set(extractVersionTokens(`${a.title || ""} ${a.summary || ""}`).filter((x?: any) => x.startsWith("v:") || x.startsWith("snap:")));
+  const vb = new Set(extractVersionTokens(`${b.title || ""} ${b.summary || ""}`).filter((x?: any) => x.startsWith("v:") || x.startsWith("snap:")));
   if ([...va].some((x?) => vb.has(x))) return true;
   /* versioni esplicite diverse → storie diverse (no merge per jaccard) */
   if (hasVersionFingerprint(fa) && hasVersionFingerprint(fb) && fa !== fb) return false;

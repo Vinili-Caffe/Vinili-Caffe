@@ -259,7 +259,7 @@ async function putCommandPermissions({ accessToken, applicationId, guildId, comm
     json = null;
   }
   if (!res.ok) {
-    const err = new Error(json?.message || text || `Discord permissions PUT ${res.status}`);
+    const err: any = new Error(json?.message || text || `Discord permissions PUT ${res.status}`);
     err.status = res.status;
     err.code = json?.code;
     err.rawError = json;
@@ -286,7 +286,7 @@ async function getCommandPermissions({ accessToken, applicationId, guildId, comm
   if (!res.ok) {
     const code = Number(json?.code || 0);
         if (code === 10066) return { permissions: [] };
-    const err = new Error(json?.message || text || `Discord permissions GET ${res.status}`);
+    const err: any = new Error(json?.message || text || `Discord permissions GET ${res.status}`);
     err.status = res.status;
     err.code = code;
     err.rawError = json;
@@ -315,7 +315,7 @@ async function getAllGuildCommandPermissions({ accessToken, applicationId, guild
   if (!res.ok) {
     const code = Number(json?.code || 0);
     if (code === 10066) return [];
-    const err = new Error(json?.message || text || `Discord permissions bulk GET ${res.status}`);
+    const err: any = new Error(json?.message || text || `Discord permissions bulk GET ${res.status}`);
     err.status = res.status;
     err.code = code;
     err.rawError = json;

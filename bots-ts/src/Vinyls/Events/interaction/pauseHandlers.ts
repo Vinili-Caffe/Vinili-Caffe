@@ -633,7 +633,7 @@ async function handlePauseRequestModal(interaction?) {
   }
   await interaction.deferReply({ flags: 1 << 6 }).catch(() => null);
   const channel = interaction.channel || (await getGuildChannelCached(interaction.guild, IDs.channels?.pause));
-  const result = await submitPauseRequestForMember({
+  const result: any = await submitPauseRequestForMember({
     guild: interaction.guild,
     member,
     rawStart,
@@ -664,7 +664,7 @@ async function handlePauseRolePickForPending(interaction?) {
   const member = interaction.member || (await getGuildMemberCached(interaction.guild, interaction.user.id));
   await interaction.deferUpdate().catch(() => null);
   const channel = interaction.channel || (await getGuildChannelCached(interaction.guild, IDs.channels?.pause));
-  const result = await submitPauseRequestForMember({
+  const result: any = await submitPauseRequestForMember({
     guild: interaction.guild,
     member,
     rawStart: pending.rawStart,

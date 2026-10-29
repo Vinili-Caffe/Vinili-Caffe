@@ -158,7 +158,7 @@ async function fetchCoffeeWikiCatalog(roleIds?) {
       headers: { Accept: "application/json" },
       signal: ac.signal,
     });
-    const data = await res.json().catch(() => ({}));
+    const data: any = await res.json().catch(() => ({}));
     if (!res.ok || !data?.ok || !data?.catalog) {
       return {
         ok: false,

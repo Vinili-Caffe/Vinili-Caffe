@@ -36,7 +36,7 @@ async function executeTenantPartnershipMessageUpdateFlow(previous?, updated?, re
   }
 
   if (contentChanged && !updated.author.bot && !updated.system && !updated.webhookId) {
-    const manualResolve = await tryResolvePendingManualPartnershipOnUpdate(previous, updated).catch(() => ({ handled: false }));
+    const manualResolve: any = await tryResolvePendingManualPartnershipOnUpdate(previous, updated).catch(() => ({ handled: false }));
     if (manualResolve?.handled) {
       if (manualResolve.delete) {
         await updated.delete().catch(() => null);
@@ -233,7 +233,7 @@ async function sendMessageEditLog(previous?, updated?) {
     embed.setImage(preview.url);
   }
 
-  const payload = { embeds: [embed], files };
+  const payload: Record<string, any> = { embeds: [embed], files };
   if (isHttpUrl(updated.url)) {
     const row = new ActionRowBuilder()
     .addComponents(new ButtonBuilder().setStyle(ButtonStyle.Link).setLabel("Vai al Messaggio").setURL(updated.url),);
@@ -292,7 +292,7 @@ export = {
       const contentChanged = before !== after;
 
       if (contentChanged && !updated.author.bot && !updated.system && !updated.webhookId) {
-        const manualResolve = await tryResolvePendingManualPartnershipOnUpdate(previous, updated).catch(() => ({ handled: false }));
+        const manualResolve: any = await tryResolvePendingManualPartnershipOnUpdate(previous, updated).catch(() => ({ handled: false }));
         if (manualResolve?.handled) {
           if (manualResolve.delete) {
             await updated.delete().catch(() => null);

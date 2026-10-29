@@ -1,7 +1,7 @@
 "use strict";
 
 const { PermissionsBitField, ChannelType, OverwriteType } = require("discord.js") as typeof import("discord.js");
-const axios = require("axios") as typeof import("axios");
+const axios = require("axios") as typeof import("axios").default;
 const { CustomRole, ActivityUserProfile } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
 const { resolveCustomRoleState } = require("../../Utils/Community/customRoleState") as typeof import("../../Utils/Community/customRoleState");
 const { getCustomRoleSlotCapFromRoles, getCustomRoleSlotCapWithContest, memberHasCustomRolePanelAccess } = require("../../Utils/Community/customRoleSlots") as typeof import("../../Utils/Community/customRoleSlots");
@@ -499,7 +499,7 @@ async function createCustomVoc({ client, guild, member, ownerId }) {
     (await ActivityUserProfile.findOne({ guildId: guild.id, userId: ownerId })
       .select("profile.customRole")
       .lean()
-      .then((row?) => (row?.profile?.customRole ? { guildId: guild.id, userId: ownerId, ...row.profile.customRole } : null))
+      .then((row?: any) => (row?.profile?.customRole ? { guildId: guild.id, userId: ownerId, ...row.profile.customRole } : null))
       .catch(() => null));
 
   if (isCustomVocRecreationBlocked(latestDoc)) {

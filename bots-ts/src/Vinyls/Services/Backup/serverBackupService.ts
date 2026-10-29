@@ -315,7 +315,7 @@ function getBackupsRootFolder() {
 function assertSafeBackupId(backupId?) {
   const normalizedId = String(backupId || "").trim().toUpperCase();
   if (!/^[A-Z0-9_-]{1,64}$/.test(normalizedId)) {
-    const err = new Error("backup_id non valido.");
+    const err: any = new Error("backup_id non valido.");
     err.code = "EINVAL";
     throw err;
   }
@@ -325,7 +325,7 @@ function assertSafeBackupId(backupId?) {
 function assertSafeGuildId(guildId?) {
   const gid = String(guildId || "").trim();
   if (!/^\d{16,22}$/.test(gid)) {
-    const err = new Error("guild_id non valido.");
+    const err: any = new Error("guild_id non valido.");
     err.code = "EINVAL";
     throw err;
   }
@@ -338,7 +338,7 @@ function resolveUnderBackupRoot(guildId?, fileName?) {
   const full = path.resolve(root, fileName);
   const rootWithSep = root.endsWith(path.sep) ? root : root + path.sep;
   if (full !== root && !full.startsWith(rootWithSep)) {
-    const err = new Error("backup path fuori dalla cartella consentita.");
+    const err: any = new Error("backup path fuori dalla cartella consentita.");
     err.code = "EINVAL";
     throw err;
   }
@@ -596,7 +596,7 @@ async function readGuildBackup(guildId?, backupId?) {
   const expectedCompressed = String(meta?.checksum?.compressed || "").trim().toLowerCase();
   const expectedPayload = String(meta?.checksum?.payload || "").trim().toLowerCase();
 
-  const tryRead = async (targetPath?, sourceLabel?) => { const compressed = await fs.readFile(targetPath); const compressedSha256 = sha256(compressed); const uncompressed = await gunzipAsync(compressed); const serialized = uncompressed.toString("utf8"); const payloadSha256 = sha256(Buffer.from(serialized, "utf8")); if (expectedCompressed && expectedCompressed !== compressedSha256.toLowerCase()) { const err = new Error("checksum compressed mismatch"); err.code = "EBADCHK"; throw err; } if (expectedPayload && expectedPayload !== payloadSha256.toLowerCase()) { const err = new Error("checksum payload mismatch"); err.code = "EBADCHK"; throw err; } const payload = JSON.parse(serialized); return { filePath: targetPath, sizeBytes: compressed.length, payload, meta, checksum: { algorithm: "sha256", compressed: compressedSha256, payload: payloadSha256, compressedVerified: expectedCompressed ? true : null, payloadVerified: expectedPayload ? true : null, }, source: sourceLabel, }; };
+  const tryRead = async (targetPath?, sourceLabel?) => { const compressed = await fs.readFile(targetPath); const compressedSha256 = sha256(compressed); const uncompressed = await gunzipAsync(compressed); const serialized = uncompressed.toString("utf8"); const payloadSha256 = sha256(Buffer.from(serialized, "utf8")); if (expectedCompressed && expectedCompressed !== compressedSha256.toLowerCase()) { const err: any = new Error("checksum compressed mismatch"); err.code = "EBADCHK"; throw err; } if (expectedPayload && expectedPayload !== payloadSha256.toLowerCase()) { const err: any = new Error("checksum payload mismatch"); err.code = "EBADCHK"; throw err; } const payload = JSON.parse(serialized); return { filePath: targetPath, sizeBytes: compressed.length, payload, meta, checksum: { algorithm: "sha256", compressed: compressedSha256, payload: payloadSha256, compressedVerified: expectedCompressed ? true : null, payloadVerified: expectedPayload ? true : null, }, source: sourceLabel, }; };
 
   let primaryError = null;
   try {
@@ -611,7 +611,7 @@ async function readGuildBackup(guildId?, backupId?) {
     return fromBackup;
   }
 
-  const err = new Error(`Backup ${String(backupId || "").toUpperCase()} non leggibile (primary+backup).${String(primaryError?.message || "",)}`,
+  const err: any = new Error(`Backup ${String(backupId || "").toUpperCase()} non leggibile (primary+backup).${String(primaryError?.message || "",)}`,
   );
   err.code = primaryError?.code || "EBADBACKUP";
   throw err;
@@ -814,7 +814,7 @@ async function readBackupByIdGlobal(backupRef?) {
   const parsed = parseBackupRef(backupRef);
   const backupId = String(parsed.backupId || "").trim().toUpperCase();
   if (!backupId) {
-    const err = new Error("backup_id non valido.");
+    const err: any = new Error("backup_id non valido.");
     err.code = "EINVAL";
     throw err;
   }
@@ -832,7 +832,7 @@ async function readBackupByIdGlobal(backupRef?) {
     new Set(matches.map((meta?) => String(meta?.guildId || "").trim()).filter(Boolean)),
   );
   if (uniqueGuildIds.length > 1) {
-    const err = new Error(
+    const err: any = new Error(
       `<a:VC_Alert:1482706673176150077> Backup \`${backupId}\` trovato in più server. Usa il formato \`guildId:${backupId}\`.`,
     );
     err.code = "EAMBIGUOUS";
@@ -840,7 +840,7 @@ async function readBackupByIdGlobal(backupRef?) {
   }
   const hit = matches[0] || null;
   if (!hit?.guildId) {
-    const err = new Error(`<a:VC_Alert:1482706673176150077> Backup \`${backupId}\` non trovato.`);
+    const err: any = new Error(`<a:VC_Alert:1482706673176150077> Backup \`${backupId}\` non trovato.`);
     err.code = "ENOENT";
     throw err;
   }
@@ -1025,7 +1025,7 @@ async function readSecuritySnapshot(guildId?, snapshotId?) {
   const effectiveGuildId = getEffectiveGuildIdForSecurity(guildId);
   const normalizedId = String(snapshotId || "").trim();
   if (!normalizedId.startsWith(SECURITY_SNAPSHOT_PREFIX)) {
-    const err = new Error("<a:VC_Alert:1482706673176150077> Invalid security snapshot id");
+    const err: any = new Error("<a:VC_Alert:1482706673176150077> Invalid security snapshot id");
     err.code = "EBADSEC";
     throw err;
   }

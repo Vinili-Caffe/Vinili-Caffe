@@ -292,7 +292,7 @@ async function renderRpsAttachment(session?, { animating = false, notice = "" } 
     const renderRpsCanvas = require("../Render/rpsCanvas") as typeof import("../Render/rpsCanvas");
         const canvasNotice =
       session.mode === "pvp" && session.phase === "pending" ? "" : notice;
-    const rendered = await runEconomyRender(() =>
+    const rendered: any = await runEconomyRender(() =>
       renderRpsCanvas({
       bet: session.bet,
       phase: session.phase,

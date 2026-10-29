@@ -138,7 +138,7 @@ async function getAppAccessToken(clientId?, clientSecret?) {
     return tokenCache.accessToken;
   }
   if (Number(tokenCache.failUntil || 0) > now) {
-    const err = new Error(
+    const err: any = new Error(
       String(tokenCache.lastFailMsg || "Twitch token network backoff").trim(),
     );
     err.code = "TWITCH_TOKEN_BACKOFF";
@@ -508,7 +508,7 @@ function emitSiteLiveStreamChanged(login?, live?) {
 
 async function applyStreamerOfflineState(client?, streamer?, prev?) {
   const wasLive = Boolean(prev?.isLive);
-  const patch = {
+  const patch: Record<string, any> = {
     isLive: false,
     voiceChannelMode: "off",
     lastOfflineAt: new Date().toISOString(),
@@ -550,7 +550,7 @@ async function runTwitchLiveAlertPoll(client?) {
     const state = await loadState();
 
     for (const streamer of cfg.streamers) {
-      const stream = liveByLogin.get(streamer.login);
+      const stream: any = liveByLogin.get(streamer.login);
       const prev = state.streamers?.[streamer.login];
 
       if (!stream?.id) {

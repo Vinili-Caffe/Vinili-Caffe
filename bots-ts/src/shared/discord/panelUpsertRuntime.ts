@@ -1,6 +1,6 @@
 const fs = require("fs") as typeof import("fs");
 const crypto = require("crypto") as typeof import("crypto");
-const axios = require("axios") as typeof import("axios");
+const axios = require("axios") as typeof import("axios").default;
 const CDN_ATTACHMENT_PATTERN = /(cdn\.discordapp\.com|media\.discordapp\.net)\/attachments\//i;
 /** Components V2: Container = 17 (discord-api-types / discord.js ComponentType.Container). */
 const COMPONENT_TYPE_CONTAINER = 17;
@@ -278,8 +278,8 @@ function resolvePanelHistoryLimit(client?) {
 }
 
 function scoreEmbedSimilarity(message?, payload?) {
-  const msgFirst = simplifyEmbed(Array.isArray(message?.embeds) ? message.embeds[0] : null) || {};
-  const nextFirst = simplifyEmbed(Array.isArray(payload?.embeds) ? payload.embeds[0] : null) || {};
+  const msgFirst: any = simplifyEmbed(Array.isArray(message?.embeds) ? message.embeds[0] : null) || {};
+  const nextFirst: any = simplifyEmbed(Array.isArray(payload?.embeds) ? payload.embeds[0] : null) || {};
   let score = 0;
   if (msgFirst.title && nextFirst.title && msgFirst.title === nextFirst.title) score += 6;
   if (msgFirst.author?.name && nextFirst.author?.name && msgFirst.author.name === nextFirst.author.name) score += 4;
@@ -457,7 +457,7 @@ async function upsertPanelMessage(channel?, client?, payload?) {
     const editPayload = preparePanelDiscordPayload(omitPanelFilesIfAttachmentPresent(existing, payload));
     const needsEdit = await shouldEditMessage(existing, editPayload);
     if (!needsEdit) return { ok: true, message: existing };
-    const edited = await editPanelMessageSafe(existing, editPayload);
+    const edited: any = await editPanelMessageSafe(existing, editPayload);
     if (edited.ok && edited.message) {
       upsertCachedBotPanelMessage(channel, client, edited.message);
       return { ok: true, message: edited.message };
@@ -519,7 +519,7 @@ async function upsertPanelMessage(channel?, client?, payload?) {
             return finalize(await sendNew());
     }
     if (direct) {
-      const edited = await editExisting(direct);
+      const edited: any = await editExisting(direct);
       if (edited.ok) return finalize(edited);
       if (edited.staleMessageId) {
         if (editOnly) return finalize(edited);
@@ -602,7 +602,7 @@ async function upsertPanelMessage(channel?, client?, payload?) {
   }
 
   if (existing) {
-    const edited = await editExisting(existing);
+    const edited: any = await editExisting(existing);
     if (edited.ok) return finalize(edited);
     if (edited.staleMessageId) return finalize(await sendNew());
     return finalize(edited);

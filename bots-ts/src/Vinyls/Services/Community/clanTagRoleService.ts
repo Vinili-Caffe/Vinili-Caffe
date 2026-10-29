@@ -1,5 +1,5 @@
 const { EmbedBuilder } = require("discord.js") as typeof import("discord.js");
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
+const IDs: any = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
 const { getGuildMemberCached, getGuildChannelCached } = require("../../Utils/Interaction/interactionEntityCache") as typeof import("../../Utils/Interaction/interactionEntityCache");
 const { memberDisplayName, guildMemberDisplayAvatarUrlDynamic } = require("../../Utils/Discord/guildDiscordIdentity") as typeof import("../../Utils/Discord/guildDiscordIdentity");
 const { wasRoleRestoredByMuteMirror, isSocialRoleAnnounceGloballySuppressed } = require("../../Utils/Moderation/muteRestoreAnnounceSuppress") as typeof import("../../Utils/Moderation/muteRestoreAnnounceSuppress");

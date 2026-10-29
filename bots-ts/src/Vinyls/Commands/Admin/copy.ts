@@ -1,6 +1,6 @@
 const { safeEditReply } = require("../../../shared/discord/replyRuntime") as typeof import("../../../shared/discord/replyRuntime");
 const { SlashCommandBuilder, EmbedBuilder } = require("discord.js") as typeof import("discord.js");
-const { default: axios } = require("axios") as typeof import("axios");
+const { default: axios } = require("axios") as typeof import("axios").default;
 const EPHEMERAL_FLAG = 1 << 6;
 
 function buildEmbed(color?, description?) {

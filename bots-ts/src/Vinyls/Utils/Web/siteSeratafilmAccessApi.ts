@@ -168,7 +168,7 @@ async function verifySeratafilmHighStaffAccess(client?, accessToken?) {
     };
   }
 
-  const resolved = await resolveWebsiteCandidatureMember(client, accessToken);
+  const resolved: any = await resolveWebsiteCandidatureMember(client, accessToken);
   if (!resolved.ok) {
     const st = Number(resolved.status) || 403;
     writeCachedAccess(accessToken, {

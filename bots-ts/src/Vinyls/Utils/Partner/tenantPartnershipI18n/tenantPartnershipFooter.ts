@@ -6,7 +6,7 @@ function applyLocalizedTenantFooter(payload?, lang = "it") {
   return {
     ...payload,
     embeds: payload.embeds.map((embed?) => {
-      const builder = embed instanceof EmbedBuilder ? embed : EmbedBuilder.from(embed);
+      const builder: any = embed instanceof EmbedBuilder ? embed : EmbedBuilder.from(embed);
       const existing = builder.data?.footer || builder.footer || {};
       return builder.setFooter({
         text: t(lang, "footerCopyright"),

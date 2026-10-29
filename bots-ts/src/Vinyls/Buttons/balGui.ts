@@ -64,7 +64,7 @@ async function execute(interaction?, client?) {
     const raw = interaction.fields?.getTextInputValue?.("caffe_amount") || "";
     const amount = Math.floor(Number(String(raw).replace(/[^\d]/g, "")));
     const msg = { guild: interaction.guild, member: interaction.member, author: interaction.user };
-    const out = await convertCaffeToGaleoni(client, msg, amount);
+    const out: any = await convertCaffeToGaleoni(client, msg, amount);
     if (!out.ok) {
       await replyPrivate(interaction, `<:vegax:1443934876440068179> ${out.message}`);
       return true;

@@ -378,7 +378,7 @@ export = {
       const imageAttachment=new AttachmentBuilder(canvasBuffer,{name:imageName,});
       const skullEmbed = buildSkullEmbed(user, message, imageName);
 
-      const payload={embeds:[skullEmbed],files:[imageAttachment],allowedMentions:{parse:[]},};
+      const payload: Record<string, any>={embeds:[skullEmbed],files:[imageAttachment],allowedMentions:{parse:[]},};
 
       const replyRef=await maybeBuildReplyReference(message,skullboardChannel,);
       if (replyRef) {

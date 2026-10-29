@@ -348,7 +348,7 @@ async function atomicClaimSlot(docId?, slot?, claim?, expectedSlotUserId = null)
   if (!docId || (slot !== "a" && slot !== "b") || !claim?.userId) return null;
   const userField = `rawWebhook.claims.${slot}.userId`;
   const claimField = `rawWebhook.claims.${slot}`;
-  const filter = { _id: docId, status: "active" };
+  const filter: Record<string, any> = { _id: docId, status: "active" };
   if (expectedSlotUserId) {
     filter[userField] = normalizeId(expectedSlotUserId);
   } else {
@@ -439,7 +439,7 @@ async function peekSpellListHousePointsAward(client?, guildId?, userId?, houseId
   let petMult = petHousePointsMultiplier(pet);
   let petUsable = petMult > 1;
   if (petUsable) {
-    const usage = await getShopDurableBoostUsage(client, gid, uid, SHOP_CATEGORIES.PET);
+    const usage: any = await getShopDurableBoostUsage(client, gid, uid, SHOP_CATEGORIES.PET);
     if (usage?.exhausted) {
       petMult = 1;
       petUsable = false;

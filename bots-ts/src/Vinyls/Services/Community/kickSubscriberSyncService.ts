@@ -184,7 +184,7 @@ async function getAppAccessToken(cfg?, opts: Record<string, any> = {}) {
         }
         throw new Error(`Kick app token HTTP ${res.status} ${t.slice(0, 180)}`);
       }
-      const data = await res.json().catch(() => ({}));
+      const data: any = await res.json().catch(() => ({}));
       const accessToken = String(data.access_token || "").trim();
       const expiresIn = Math.max(300, Math.floor(Number(data.expires_in) || 3600));
       if (!accessToken) throw new Error("Kick app token missing");
@@ -236,7 +236,7 @@ async function fetchKickUserMe(accessToken?) {
     const t = await res.text().catch(() => "");
     throw new Error(`Kick users HTTP ${res.status} ${t.slice(0, 180)}`);
   }
-  const data = await res.json().catch(() => ({}));
+  const data: any = await res.json().catch(() => ({}));
   const rows = Array.isArray(data?.data) ? data.data : [];
   return rows[0] || null;
 }
@@ -282,7 +282,7 @@ async function ensureEventSubscriptions(cfg?, state?) {
     const listRes = await fetch(`${KICK_API}/events/subscriptions`, {
       headers: { Accept: "application/json", Authorization: `Bearer ${token}` },
     });
-    const listJson = await listRes.json().catch(() => ({}));
+    const listJson: any = await listRes.json().catch(() => ({}));
     const existing = Array.isArray(listJson?.data) ? listJson.data : [];
     const ids = existing.map((r?) => String(r.id || r.subscription_id || "").trim()).filter(Boolean);
     if (ids.length) {
@@ -349,7 +349,7 @@ async function getKickPublicKeyPem() {
   try {
     const res = await fetch(KICK_PUBLIC_KEY_URL, { headers: { Accept: "application/json" } });
     if (!res.ok) throw new Error(`Kick public-key HTTP ${res.status}`);
-    const data = await res.json().catch(() => ({}));
+    const data: any = await res.json().catch(() => ({}));
     const pem = normalizePem(data?.data?.public_key || data?.public_key || "");
     if (!pem.includes("BEGIN PUBLIC KEY")) throw new Error("Kick public key missing");
     publicKeyCache = { pem, at: now };
@@ -690,7 +690,7 @@ async function completeOAuthLink(client, { code, stateNonce }) {
     return { ok: false, error: "state_expired", status: 400 };
   }
 
-  const tokenPack = await exchangeAuthorizationCode(cfg, code, pending.codeVerifier);
+  const tokenPack: any = await exchangeAuthorizationCode(cfg, code, pending.codeVerifier);
   const accessToken = String(tokenPack?.access_token || "").trim();
   if (!accessToken) return { ok: false, error: "token_missing", status: 502 };
 

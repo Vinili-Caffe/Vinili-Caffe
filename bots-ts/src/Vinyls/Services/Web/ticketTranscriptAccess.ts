@@ -1,5 +1,5 @@
 const { PermissionFlagsBits, Routes } = require("discord.js") as typeof import("discord.js");
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
+const IDs: any = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
 const {
   STAFF_HIGH_STAFF_ELIGIBLE_KEYS,
   memberHasAnyRoleKey,

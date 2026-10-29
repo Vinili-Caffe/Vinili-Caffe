@@ -334,7 +334,7 @@ async function withTimeout(promise?, ms?, label?) {
       promise,
       new Promise((_?, reject?) => {
         timer = setTimeout(() => {
-          const err = new Error(label ? `${label}_timeout` : "timeout");
+          const err: any = new Error(label ? `${label}_timeout` : "timeout");
           err.code = "ETIMEDOUT";
           reject(err);
         }, timeoutMs);

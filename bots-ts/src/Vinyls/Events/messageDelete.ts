@@ -231,7 +231,7 @@ export = {
       if (!channelId || !resolvedClient) return;
       if (!resolvedClient.snipes) resolvedClient.snipes = new Map();
 
-      const payload = buildSnipePayload(resolved, channelId);
+      const payload: any = buildSnipePayload(resolved, channelId);
       try {
         const { shouldSkipStoringSnipe } = require("../Services/Minigames/minigameService") as typeof import("../Services/Minigames/minigameService");
         if (shouldSkipStoringSnipe(resolvedClient, channelId, payload)) return;

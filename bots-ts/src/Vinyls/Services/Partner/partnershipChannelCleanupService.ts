@@ -52,7 +52,7 @@ async function runPartnershipChannelCleanup(client?) {
 
     while (hasMore && batches < MAX_BATCHES) {
       batches++;
-      const options = { limit: BULK_DELETE_LIMIT };
+      const options: Record<string, any> = { limit: BULK_DELETE_LIMIT };
       if (lastId) options.before = lastId;
 
       const messages = await channel.messages.fetch(options);

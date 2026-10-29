@@ -221,7 +221,7 @@ function markLinkedAutoValutazioneSpentByTrade(staff?, resolvedEntry?, tradeReas
 function pushValutazioneEntry(staff?, kind?, reason?, message?, meta = null) {
   const listName = kind === "negative" ? "negativeValutazioni" : "positiveValutazioni";
   if (!Array.isArray(staff[listName])) staff[listName] = [];
-  const row = {
+  const row: Record<string, any> = {
     reason: String(reason || ""),
     channelId: message?.channelId ? String(message.channelId) : null,
     messageId: message?.id ? String(message.id) : null,

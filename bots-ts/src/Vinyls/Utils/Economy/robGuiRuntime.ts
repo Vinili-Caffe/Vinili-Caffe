@@ -187,7 +187,7 @@ async function renderPanel(session?, opts: Record<string, any> = {}, notice = ""
   }
   try {
     const renderRobCanvas = require("../Render/robCanvas") as typeof import("../Render/robCanvas");
-    const rendered = await runEconomyRender(() =>
+    const rendered: any = await runEconomyRender(() =>
       Promise.race([
       renderRobCanvas({
         phase: previewSpin ? "animating" : session.phase === "spinning" ? "animating" : session.phase,
@@ -450,12 +450,12 @@ async function pickRandomTarget(client?, message?, excludeId?, cfg?, currency = 
 
   if (guild.members?.fetch) await guild.members.fetch().catch(() => null);
   const members = Array.from(guild.members?.cache?.values?.() || [])
-    .filter((m?) => m?.user && !m.user.bot && !skipIds.has(m.user.id));
+    .filter((m?: any) => m?.user && !m.user.bot && !skipIds.has(m.user.id));
   if (!members.length) return null;
   const shuffled = members.sort(() => Math.random() - 0.5);
   const tries = Math.min(80, shuffled.length);
   for (let i = 0; i < tries; i += 1) {
-    const pick = shuffled[i];
+    const pick: any = shuffled[i];
     const check = await evaluateRobTarget(client, guild, pick.user.id, cfg, excludeId, currency);
     if (!check.ok) continue;
     return {
@@ -530,7 +530,7 @@ function formatRobNotice(result?, targetName?, modeHint = null) {
 async function preflightRobAttempt(client?, messageLike?, session?, cfg?) {
   if (session.isBank || isRobBankTarget(session.targetId)) return { ok: true };
   const currency = session.currency === "vinili" ? "vinili" : "caffe";
-  const target = await resolveTargetUser(client, messageLike, session.targetId, cfg || economyConfig(client), currency);
+  const target: any = await resolveTargetUser(client, messageLike, session.targetId, cfg || economyConfig(client), currency);
   if (target?.error) {
     if (isSoftRobTargetBlock(target)) {
       const { clearRobCooldown } = require("../../Services/Community/activeEconomyService") as typeof import("../../Services/Community/activeEconomyService");
@@ -563,7 +563,7 @@ async function attemptRob(client?, messageLike?, session?, cfg?) {
     session.updatedAt = now();
     return { ok: true, result };
   }
-  const target = await resolveTargetUser(client, messageLike, session.targetId, cfg || economyConfig(client), currency);
+  const target: any = await resolveTargetUser(client, messageLike, session.targetId, cfg || economyConfig(client), currency);
   if (target?.error) {
     if (isSoftRobTargetBlock(target)) {
       const { clearRobCooldown } = require("../../Services/Community/activeEconomyService") as typeof import("../../Services/Community/activeEconomyService");

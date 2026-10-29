@@ -4,7 +4,7 @@ const { addRolesAndGetMember, getClientGuildCached, getGuildMemberCached, getGui
 const { ActivityUserProfile, ACTIVITY_MAIN_GUILD_ID } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
 const { sponsorMainLeave } = require("../../Utils/Community/activityUserProfilePaths") as typeof import("../../Utils/Community/activityUserProfilePaths");
 const { isSponsorGuildVerify } = require("../../Utils/Interaction/verifyUtils") as typeof import("../../Utils/Interaction/verifyUtils");
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
+const IDs: any = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
 const { resolveVoteRoleIdForGuild } = require("../../Utils/Community/resolveVoteRoleId") as typeof import("../../Utils/Community/resolveVoteRoleId");
 const { getEffectiveJoinedAt } = require("./effectiveMemberJoinService") as typeof import("./effectiveMemberJoinService");
 const VOTE_ROLE_ID = IDs.roles.Voter;

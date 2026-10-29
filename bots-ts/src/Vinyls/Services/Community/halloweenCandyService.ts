@@ -154,7 +154,7 @@ async function tryClaimCandyId({ guildId, userId, eventKey, candyId, resetOwned 
     filter[`${CANDY_PATH}.owned`] = { $ne: cid };
   }
 
-  const update = {
+  const update: Record<string, any> = {
     $set: {
       [`${CANDY_PATH}.eventKey`]: ek,
       [`${CANDY_PATH}.updatedAt`]: new Date(),

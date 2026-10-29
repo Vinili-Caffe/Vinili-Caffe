@@ -233,7 +233,7 @@ async function removeLoadingReaction(message?, resolvedClient?) {
 async function resolveWithTimeout(task?, fallbackValue?, label?, timeoutMs = PREFIX_PRECHECK_TIMEOUT_MS) {
   let timer = null;
   try {
-    const raced = await Promise.race([
+    const raced: any = await Promise.race([
       Promise.resolve()
         .then(task)
         .then((value?) => ({ timedOut: false, value })),

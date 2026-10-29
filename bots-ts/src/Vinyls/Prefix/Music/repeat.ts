@@ -13,7 +13,7 @@ export = {
   examples: ["+repeat", "+repeat disable", "+repeat enable", "+repeat queue"],
   async execute(message?, args?) {
     const kw = Array.isArray(args) && args.length ? String(args[0] || "").trim() : "";
-    const result = await toggleRepeatOneGuild(message, kw);
+    const result: any = await toggleRepeatOneGuild(message, kw);
     if (result.ok && result.mode === "queue") {
       const embed = new EmbedBuilder()
         .setColor(0x2ecc71)

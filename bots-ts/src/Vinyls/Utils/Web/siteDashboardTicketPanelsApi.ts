@@ -465,7 +465,7 @@ async function syncDashboardTicketPanels(client?, accessToken?, guildId?) {
   if (!access.ok) {
     return fail(access.status || 403, access.error || "forbidden", access.message || "Accesso negato.");
   }
-  const out = await syncGuildTicketPanelsFromLegacy(client, String(guildId), { publish: true });
+  const out: any = await syncGuildTicketPanelsFromLegacy(client, String(guildId), { publish: true });
   if (!out.ok) return fail(500, out.reason || "persist_failed", reasonToMessage(out.reason));
   return listDashboardTicketPanels(client, accessToken, guildId);
 }

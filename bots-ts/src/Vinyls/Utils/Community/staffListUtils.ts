@@ -709,7 +709,7 @@ async function refreshStaffList(client?, guildId = IDs.guilds.main, opts: Record
     const roleDebug = staffRoleIds.map((roleId?) => {
       const role = guild.roles.cache.get(roleId);
       if (!role) return { roleId, name: null, memberCount: 0 };
-      const count = Array.from(iterMembers(membersSource)).filter((m?) => m?.roles?.cache?.has?.(roleId)).length;
+      const count = Array.from(iterMembers(membersSource)).filter((m?: any) => m?.roles?.cache?.has?.(roleId)).length;
       return { roleId, name: role.name, memberCount: count };
     });
     global.logger?.error?.("[STAFF LIST] Empty content debug", {

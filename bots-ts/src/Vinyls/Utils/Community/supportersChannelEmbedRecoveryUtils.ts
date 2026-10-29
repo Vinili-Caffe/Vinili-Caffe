@@ -88,7 +88,7 @@ async function countBotSupportersEmbedsForUser(channel?, userId?, botId?, sinceM
   let scanned = 0;
   while (scanned < MAX_SUPPORTERS_CHANNEL_SCAN) {
     const batchSize = Math.min(100, MAX_SUPPORTERS_CHANNEL_SCAN - scanned);
-    const fetchOpts = { limit: batchSize };
+    const fetchOpts: Record<string, any> = { limit: batchSize };
     if (before) fetchOpts.before = before;
     const batch = await channel.messages.fetch(fetchOpts).catch(() => null);
     if (!batch?.size) break;

@@ -596,7 +596,7 @@ function buildDeferredStartupTasks(client?, primaryScheduler?, engagementTick?) 
       weight: 55,
       enabled: primaryScheduler && shouldRunBannedUnbanDmOnStartup(client),
       run: async () => {
-        const result = await sendBannedUnbanLinkDms(client, { dryRun: false, once: true });
+        const result: any = await sendBannedUnbanLinkDms(client, { dryRun: false, once: true });
         if (result?.skipped) {
           global.logger?.info?.(`[dm-banned-unban] skipped: ${result.reason || "unknown"}`);
         } else {

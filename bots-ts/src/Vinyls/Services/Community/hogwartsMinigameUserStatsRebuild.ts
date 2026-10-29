@@ -194,7 +194,7 @@ async function fetchChannelMessagesBetween(channel?, sinceMs?, untilMs?, options
   let before;
   let batches = 0;
   while (true) {
-    const opts = { limit: 100 };
+    const opts: Record<string, any> = { limit: 100 };
     if (before) opts.before = before;
     const batch = await channel.messages.fetch(opts).catch(() => null);
     if (!batch?.size) break;

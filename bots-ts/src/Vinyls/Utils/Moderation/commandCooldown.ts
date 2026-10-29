@@ -129,7 +129,7 @@ async function getUserCommandCooldownSeconds({ guildId, userId, member }) {
   let level = 0;
   if (guildId && userId && isDbReady()) {
     try {
-      const profile = await ActivityUserProfile.findOne({ guildId, userId })
+      const profile: any = await ActivityUserProfile.findOne({ guildId, userId })
         .select("profile.totals.exp.level")
         .lean();
       level = Number(profile?.profile?.totals?.exp?.level || 0);

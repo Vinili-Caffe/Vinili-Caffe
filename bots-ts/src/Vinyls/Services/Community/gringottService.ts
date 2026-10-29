@@ -296,7 +296,7 @@ async function addGaleoni({ guildId, userId, amount, reason, actorId = null, sou
     source,
     rewardKey: rewardKeyNorm,
   });
-  const update = {
+  const update: Record<string, any> = {
     $set: { [`${GRINGOTT_PATH}.eventKey`]: normalizeId(eventKey) },
     $inc: {
       [`${GRINGOTT_PATH}.balance`]: creditAmt,

@@ -669,7 +669,7 @@ async function runMigrationJob(client?, job?) {
   }
 
   await refreshPartnershipConfigCache().catch(() => {});
-  const cfg = getPartnershipConfigSync(guildId) || {};
+  const cfg: any = getPartnershipConfigSync(guildId) || {};
   const channelId = String(job.channelId || cfg.partnershipsChannelId || "").trim();
   const logsChannelId = String(job.logsChannelId || cfg.logsChannelId || "").trim();
   const roleId = String(job.roleId || cfg.partnerManagerRoleId || "").trim();
@@ -1072,7 +1072,7 @@ async function enqueuePartnershipHistoryMigration({
   }
 
   await refreshPartnershipConfigCache().catch(() => {});
-  const cfg = getPartnershipConfigSync(gid) || {};
+  const cfg: any = getPartnershipConfigSync(gid) || {};
   const useConfigured = String(mode || "configured") !== "custom";
 
     const resolvedChannelId = String(

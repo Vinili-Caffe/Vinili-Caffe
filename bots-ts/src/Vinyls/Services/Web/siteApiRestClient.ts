@@ -100,7 +100,7 @@ function asCacheMap(seed = []) {
       asCacheMap(
         [...map.values()]
           .filter(fn)
-          .map((v?) => [String(v?.id || v?.user?.id || ""), v])
+          .map((v?: any) => [String(v?.id || v?.user?.id || ""), v])
           .filter(([id]) => id),
       ),
     find: (fn?) => [...map.values()].find(fn),
@@ -364,7 +364,7 @@ function buildRoleColorsApiBody(colorsObj?) {
   if (!colorsObj || typeof colorsObj !== "object") return null;
   const primary = colorValueToInt(colorsObj.primaryColor ?? colorsObj.primary_color);
   if (primary == null) return null;
-  const body = { primary_color: primary };
+  const body: Record<string, any> = { primary_color: primary };
   const secondary = colorValueToInt(colorsObj.secondaryColor ?? colorsObj.secondary_color);
   if (secondary != null) body.secondary_color = secondary;
   else body.secondary_color = null;
@@ -676,7 +676,7 @@ function wrapChannel(raw?, guild?, clientRef?) {
         const rest = restClient?._rest;
         if (!rest) throw new Error("REST unavailable");
         const targetId = String(target?.id || target);
-        const existing = overwriteCache.get(targetId) || {
+        const existing: any = overwriteCache.get(targetId) || {
           allow: wrapPermissionBits(0),
           deny: wrapPermissionBits(0),
           type: 1,
@@ -824,7 +824,7 @@ function wrapChannel(raw?, guild?, clientRef?) {
     createInvite: async (options: Record<string, any> = {}) => {
       const rest = restClient?._rest;
       if (!rest) throw new Error("REST unavailable");
-      const body = {
+      const body: Record<string, any> = {
         max_age: options.maxAge != null ? Number(options.maxAge) : 86400,
         max_uses: options.maxUses != null ? Number(options.maxUses) : 0,
         unique: Boolean(options.unique),
@@ -946,7 +946,7 @@ function wrapMember(raw?, guild?, userObj?) {
     displayAvatarURL: (opts: Record<string, any> = {}) => user.displayAvatarURL(opts),
     roles: {
       cache: rolesCache,
-      highest: [...rolesCache.values()].sort((a?, b?) => (b.position || 0) - (a.position || 0))[0] || null,
+      highest: [...rolesCache.values()].sort((a?: any, b?: any) => (b.position || 0) - (a.position || 0))[0] || null,
       add: async (roleOrRoles?, reason?) => {
                 const ids = expandRestRoleIds(roleOrRoles);
         const reasonOpt = reason ? String(reason).slice(0, 512) : undefined;
@@ -1206,7 +1206,7 @@ function wrapGuild(raw?, client?) {
       create: async (channelOrId?, options: Record<string, any> = {}) => {
         const chId = String(channelOrId?.id || channelOrId || "").trim();
         if (!/^\d{17,22}$/.test(chId)) throw new Error("missing_channel");
-        let ch = guild.channels.cache.get(chId);
+        let ch: any = guild.channels.cache.get(chId);
         if (!ch && typeof guild.channels.fetch === "function") {
           ch = await guild.channels.fetch(chId).catch(() => null);
         }
@@ -1278,7 +1278,7 @@ function wrapGuild(raw?, client?) {
     if (roleId && force && client._rest) {
       try {
         const raw = await client._rest.get(Routes.guildRole(guild.id, String(roleId)));
-        const prev = guild.roles.cache.get(String(roleId));
+        const prev: any = guild.roles.cache.get(String(roleId));
         const wrapped = wrapRole(raw, guild, prev?.members || null);
         if (wrapped?.id) guild.roles.cache.set(wrapped.id, wrapped);
         return wrapped;
@@ -1338,7 +1338,7 @@ function wrapGuild(raw?, client?) {
   guild.roles.edit = async (roleId?, payload: Record<string, any> = {}, reason?) => {
     const id = String(roleId?.id || roleId || "").trim();
     if (!id) throw new Error("roleId required");
-    let role = guild.roles.cache.get(id);
+    let role: any = guild.roles.cache.get(id);
     if (!role || typeof role.edit !== "function") {
       role = await guild.roles.fetch(id);
     }
@@ -1366,7 +1366,7 @@ function wrapGuild(raw?, client?) {
   guild.channels.create = async (options: Record<string, any> = {}) => {
     const rest = client._rest;
     if (!rest) throw new Error("REST unavailable");
-    const body = {
+    const body: Record<string, any> = {
       name: String(options.name || "channel").slice(0, 100),
     };
     if (options.type != null) body.type = Number(options.type);
@@ -1443,7 +1443,7 @@ function wrapGuild(raw?, client?) {
       if (!uid || !/^\d{5,24}$/.test(uid)) throw new Error("invalid_user");
       const accessToken = String(options.accessToken || options.access_token || "").trim();
       if (!accessToken) throw new Error("missing_access_token");
-      const body = { access_token: accessToken };
+      const body: Record<string, any> = { access_token: accessToken };
       if (Array.isArray(options.roles)) {
         body.roles = options.roles.map((r?) => String(r)).filter((id?) => /^\d{5,24}$/.test(id));
       }
@@ -1530,7 +1530,7 @@ function wrapGuild(raw?, client?) {
         const member = wrapMember(rawM, guild, wrapUser(rawM.user, client));
         guild.members.cache.set(member.id, member);
         for (const rid of rawM.roles || []) {
-          const role = guild.roles.cache.get(String(rid));
+          const role: any = guild.roles.cache.get(String(rid));
           if (role?.members) role.members.set(member.id, member);
         }
       }
@@ -1656,7 +1656,7 @@ async function createSiteApiRestClient(config?, token?, options: Record<string, 
   if (!me) throw lastErr || new Error("discord_me_unavailable");
   const guildCache = asCacheMap();
 
-  const client = {
+  const client: Record<string, any> = {
     config,
     _rest: rest,
     _isSiteApiRestClient: true,
@@ -1664,7 +1664,7 @@ async function createSiteApiRestClient(config?, token?, options: Record<string, 
     fetchInvite: async (code?) => {
       const inviteCode = String(code || "").trim();
       if (!inviteCode) return null;
-      const raw = await rest.get(Routes.invite(inviteCode));
+      const raw: any = await rest.get(Routes.invite(inviteCode));
       if (!raw) return null;
       return {
         code: String(raw.code || inviteCode),
@@ -1703,7 +1703,7 @@ async function createSiteApiRestClient(config?, token?, options: Record<string, 
     channels: {
       cache: asCacheMap(),
       fetch: async (id?) => {
-        const raw = await rest.get(Routes.channel(String(id)));
+        const raw: any = await rest.get(Routes.channel(String(id)));
         const guild =
           raw.guild_id &&
           (guildCache.get(String(raw.guild_id)) ||
@@ -1717,7 +1717,7 @@ async function createSiteApiRestClient(config?, token?, options: Record<string, 
       cache: guildCache,
             fetchLite: async (id?) => {
         const gid = String(id);
-        const hit = guildCache.get(gid);
+        const hit: any = guildCache.get(gid);
         if (hit?.members && typeof hit.members.fetch === "function") return hit;
         const raw = await rest.get(Routes.guild(gid));
         const guild = wrapGuild(raw, client);
@@ -1796,7 +1796,7 @@ async function createSiteApiRestClient(config?, token?, options: Record<string, 
 
   if (options.warmAllGuilds) {
     for (const gid of [...guildCache.keys()]) {
-      const stub = guildCache.get(gid);
+      const stub: any = guildCache.get(gid);
       if (stub && stub.partial !== true) continue;
       await client.guilds.fetch(gid).catch(() => null);
     }

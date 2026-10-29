@@ -138,7 +138,7 @@ export = {
         .setTitle(isPin ? "<:VC_BlackPin:1482534513400610948> Message Pin" : "<:VC_BlackPin:1482534513400610948> Message Unpin")
         .setDescription(lines.join("\n"));
 
-      const payload = { embeds: [embed] };
+      const payload: Record<string, any> = { embeds: [embed] };
       if (messageUrl) {
         payload.components = [
           new ActionRowBuilder().addComponents(

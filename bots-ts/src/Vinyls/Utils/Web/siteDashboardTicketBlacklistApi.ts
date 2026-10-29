@@ -59,10 +59,10 @@ async function serializeEntries(client?, guild?, entries?, panels?, roles?) {
   const roleById = new Map((roles || []).map((r?) => [String(r.id), r]));
   const out = [];
   for (const entry of entries || []) {
-    const panel = entry.panelId ? panelById.get(String(entry.panelId)) : null;
+    const panel: any = entry.panelId ? panelById.get(String(entry.panelId)) : null;
     let label = entry.targetId;
     if (entry.type === "role") {
-      const role = roleById.get(String(entry.targetId));
+      const role: any = roleById.get(String(entry.targetId));
       label = role?.name ? `@${role.name}` : `@${entry.targetId}`;
     } else {
       const username = await resolveUserLabel(client, guild, entry.targetId);
@@ -132,7 +132,7 @@ async function addDashboardTicketBlacklist(client?, accessToken?, guildId?, body
     if (!okPanel) return fail(400, "invalid_panel", reasonToMessage("invalid_panel"));
   }
 
-  const result = await addGuildTicketBlacklistEntry(gid, {
+  const result: any = await addGuildTicketBlacklistEntry(gid, {
     type,
     targetId,
     panelId,
@@ -147,7 +147,7 @@ async function addDashboardTicketBlacklist(client?, accessToken?, guildId?, body
     );
   }
 
-  const listed = await listDashboardTicketBlacklist(client, accessToken, gid);
+  const listed: any = await listDashboardTicketBlacklist(client, accessToken, gid);
   if (!listed.ok) return listed;
   return {
     ok: true,
@@ -166,7 +166,7 @@ async function deleteDashboardTicketBlacklist(client?, accessToken?, guildId?, e
     return fail(access.status || 403, access.error || "forbidden", access.message || "Accesso negato.");
   }
   const gid = String(guildId || "").trim();
-  const result = await removeGuildTicketBlacklistEntry(gid, entryId);
+  const result: any = await removeGuildTicketBlacklistEntry(gid, entryId);
   if (!result.ok) {
     return fail(
       result.reason === "not_found" ? 404 : 500,
@@ -174,7 +174,7 @@ async function deleteDashboardTicketBlacklist(client?, accessToken?, guildId?, e
       reasonToMessage(result.reason),
     );
   }
-  const listed = await listDashboardTicketBlacklist(client, accessToken, gid);
+  const listed: any = await listDashboardTicketBlacklist(client, accessToken, gid);
   if (!listed.ok) return listed;
   return {
     ok: true,

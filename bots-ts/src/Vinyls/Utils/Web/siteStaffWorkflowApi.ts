@@ -93,7 +93,7 @@ function parseWorkflowListQuery(query?) {
 }
 
 async function countPendingWorkflow(guildId?, queue?, extras: Record<string, any> = {}) {
-  const filter = {
+  const filter: Record<string, any> = {
     docType: WORKFLOW_DOC,
     guildId: String(guildId || ""),
     workflowQueue: String(queue || ""),

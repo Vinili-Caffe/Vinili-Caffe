@@ -1139,7 +1139,7 @@ function schedulePanicRestoreRetry(guild?, state?, reason = "retry") {
 
 function buildChannelBackupSnapshot(channel?) {
   if (!channel?.id) return null;
-  const overwrites = Array.from(channel.permissionOverwrites?.cache?.values?.() || []).map((ov?) => ({ id: String(ov?.id || ""), type: Number(ov?.type ?? 0), allow: String(BigInt(ov?.allow?.bitfield || 0n)), deny: String(BigInt(ov?.deny?.bitfield || 0n)), })).filter((ov?) => ov.id);
+  const overwrites = Array.from(channel.permissionOverwrites?.cache?.values?.() || []).map((ov?: any) => ({ id: String(ov?.id || ""), type: Number(ov?.type ?? 0), allow: String(BigInt(ov?.allow?.bitfield || 0n)), deny: String(BigInt(ov?.deny?.bitfield || 0n)), })).filter((ov?) => ov.id);
   return {
     id: String(channel.id),
     type: Number(channel.type ?? 0),
@@ -1183,7 +1183,7 @@ async function restoreDeletedRoleSnapshots(guild?, state?) {
   }
   let restored = 0;
   let failed = 0;
-  pending.sort((a?, b?) => Number(a.position || 0) - Number(b.position || 0));
+  pending.sort((a?: any, b?: any) => Number(a.position || 0) - Number(b.position || 0));
   for (const snap of pending) {
     const payload = {
       name: String(snap.name || "restored-role"),
@@ -1225,7 +1225,7 @@ async function restoreDeletedChannelSnapshots(guild?, state?) {
     const parentChannel = parentId ? await getGuildChannelCached(guild, parentId, { ttlMs: 30_000 }) : null;
     const overwritePayload = (Array.isArray(snap.permissionOverwrites) ? snap.permissionOverwrites : []).map((ov?) => ({ id: String(ov?.id || ""), type: Number(ov?.type ?? 0), allow: BigInt(String(ov?.allow || "0")), deny: BigInt(String(ov?.deny || "0")), })).filter((ov?) => { if (!ov.id) return false; if (ov.type === OverwriteType.Role) { return ov.id === String(guild.id || "") || guild.roles.cache.has(ov.id); } if (ov.type === OverwriteType.Member) { return guild.members.cache.has(ov.id); } return false; }).filter((ov?) => ov.id);
 
-    const createPayload = { name: String(snap.name || "restored-channel"), type, parent: parentChannel?.type === 4 ? String(parentChannel.id) : null, permissionOverwrites: overwritePayload, reason: "AntiNuke restore: deleted channel snapshot", };
+    const createPayload: Record<string, any> = { name: String(snap.name || "restored-channel"), type, parent: parentChannel?.type === 4 ? String(parentChannel.id) : null, permissionOverwrites: overwritePayload, reason: "AntiNuke restore: deleted channel snapshot", };
     if (typeof snap.nsfw === "boolean") createPayload.nsfw = snap.nsfw;
     if (typeof snap.topic === "string" && [0, 5, 15, 16].includes(type)) createPayload.topic = snap.topic;
     if (Number.isFinite(Number(snap.rateLimitPerUser)) && [0, 5, 15, 16].includes(type)) {
@@ -1318,7 +1318,7 @@ async function runAutoBackupSyncAfterPanic(guild?, state?) {
   state.createdChannelIds.clear();
   state.createdWebhookIds.clear();
 
-  const pendingCategorySnapshots = Array.from(state?.deletedChannelSnapshots?.values?.() || [],).filter((snap?) => Number(snap?.type) === 4).length;
+  const pendingCategorySnapshots = Array.from(state?.deletedChannelSnapshots?.values?.() || [],).filter((snap?: any) => Number(snap?.type) === 4).length;
   const restoredRoles = enabled && cfg.restoreDeletedRoles ? await restoreDeletedRoleSnapshots(guild, state) : { restored: 0, failed: 0 };
   const restoredChannels = enabled && cfg.restoreDeletedChannels ? await restoreDeletedChannelSnapshots(guild, state) : { restored: 0, failed: 0 };
 

@@ -1,7 +1,7 @@
 const cron = require("node-cron") as typeof import("node-cron");
 const { getBotState, setBotState } = require("../../Utils/BotState/botStateStore") as typeof import("../../Utils/BotState/botStateStore");
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, } = require("discord.js") as typeof import("discord.js");
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
+const IDs: any = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
 const { aggregateSanctionsByModInWeek } = require("../../Utils/Moderation/modCaseStore") as typeof import("../../Utils/Moderation/modCaseStore");
 const { RESOCONTO_APPLY_PREFIX, RESOCONTO_REJECT_PREFIX } = require("../../Events/interaction/resocontoHandlers") as typeof import("../../Events/interaction/resocontoHandlers");
@@ -2102,7 +2102,7 @@ async function applyWeeklyStaffAutoValutazioniForMember({
     "Staff",
   );
 
-  let limitsResult = { ok: true, skipped: skipLimitAutovalutazione ? "skip_context" : "ineligible" };
+  let limitsResult: Record<string, any> = { ok: true, skipped: skipLimitAutovalutazione ? "skip_context" : "ineligible" };
   if (canEvaluateWeeklyLimits && !skipLimitAutovalutazione) {
             const shouldApplyPositive =
       reachedDoubleWeeklyLimits && !inPauseAtLeastOneDay && !graceNewStaffRole;
@@ -3393,7 +3393,7 @@ async function runWeeklyLimitAutoValutazioniCatchupSegment(client?, segment?, no
     }
     eligibleCount += 1;
 
-    const result = await applyWeeklyStaffAutoValutazioniForMember({
+    const result: any = await applyWeeklyStaffAutoValutazioniForMember({
       guild,
       member,
       staffDoc,
@@ -3526,7 +3526,7 @@ function startWeeklyStaffResocontoLoop(client?) {
   );
   weeklyStaffResocontoTasks.push(task);
 
-  const preResocontoTask = cron.schedule(
+  const preResocontoTask: any = cron.schedule(
     "0 18 * * 5",
     () => {
       void runPreResocontoReminders(client).catch((err?) => {

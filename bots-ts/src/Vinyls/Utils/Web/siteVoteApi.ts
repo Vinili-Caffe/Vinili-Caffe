@@ -167,14 +167,14 @@ async function fetchUserIdentity(client?, guild?, userId?, { allowFetch = false 
 async function buildVoteBoardPayload(client?, { searchUserId = "" } = {}) {
   const guildId = resolveGuildId(client);
   if (!guildId) {
-    const err = new Error("no_guild");
+    const err: any = new Error("no_guild");
     err.code = "no_guild";
     throw err;
   }
   const guild =
     client.guilds.cache.get(guildId) || (await client.guilds.fetch(guildId).catch(() => null));
   if (!guild) {
-    const err = new Error("guild_unavailable");
+    const err: any = new Error("guild_unavailable");
     err.code = "guild_unavailable";
     throw err;
   }

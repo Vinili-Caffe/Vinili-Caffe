@@ -101,7 +101,7 @@ function buildAtomicGiveawayUpdate(filter?, update?) {
   // Query deve fallire se il subdoc non matcha (es. già ended): altrimenti
   // mongoose timestamps bumpa updatedAt del parent → modifiedCount=1 anche a vuoto
   // e bot+scheduler annunciano il vincitore due volte.
-  const elemMatch = { _id: oid };
+  const elemMatch: Record<string, any> = { _id: oid };
   if (filter.ended !== undefined) {
     arrayFilter["g.ended"] = Boolean(filter.ended);
     elemMatch.ended = Boolean(filter.ended);
@@ -154,6 +154,10 @@ function buildAtomicGiveawayUpdate(filter?, update?) {
 }
 
 class GiveawayFindQuery {
+  declare _lean: any;
+  declare _limit: any;
+  declare filter: any;
+  declare projection: any;
   constructor(filter?, projection?) {
     this.filter = filter;
     this.projection = projection;
@@ -173,7 +177,7 @@ class GiveawayFindQuery {
 
   async exec() {
     if (isScheduledDueFilter(this.filter) || isUpcomingActiveFilter(this.filter)) {
-      const elem = { ended: false };
+      const elem: Record<string, any> = { ended: false };
       if (this.filter.endAt?.$lte) elem.endAt = { $lte: this.filter.endAt.$lte };
       if (this.filter.endAt?.$gt) elem.endAt = { ...(elem.endAt || {}), $gt: this.filter.endAt.$gt };
       if (this.filter.cancelled?.$ne != null) elem.cancelled = { $ne: this.filter.cancelled.$ne };
@@ -222,6 +226,9 @@ class GiveawayFindQuery {
 }
 
 class GiveawayFindOneQuery {
+  declare _lean: any;
+  declare filter: any;
+  declare projection: any;
   constructor(filter?, projection?) {
     this.filter = filter;
     this.projection = projection;
@@ -257,6 +264,8 @@ class GiveawayFindOneQuery {
 }
 
 class GiveawayFindByIdQuery {
+  declare _lean: any;
+  declare id: any;
   constructor(id?) {
     this.id = id;
     this._lean = false;

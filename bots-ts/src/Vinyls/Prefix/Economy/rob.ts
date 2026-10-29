@@ -50,9 +50,9 @@ export = {
         );
         return;
       }
-      const resolved = await resolveTargetUser(c, msg, targetId, cfg, currency);
+      const resolved: any = await resolveTargetUser(c, msg, targetId, cfg, currency);
       let softNotice = "";
-      let sessionTarget = resolved;
+      let sessionTarget: any = resolved;
       if (!resolved || resolved.error) {
         if (targetId && isSoftRobTargetBlock(resolved) && resolved.id) {
           softNotice = `${EMOJI_DENY} ${resolved.error}`;
@@ -73,7 +73,7 @@ export = {
           return;
         }
       }
-      const session = await makeSession({
+      const session: any = await makeSession({
         ownerId: msg.author.id,
         guildId: msg.guild.id,
         targetId: sessionTarget.id,

@@ -48,7 +48,7 @@ async function execute(interaction?, client?) {
     await interaction.deferUpdate().catch(() => {});
     const member = await guild.members.fetch(userId).catch(() => null);
     const user = member?.user ?? interaction.user;
-    const payload = await buildMeOverviewPayload(guild, user, member, lookbackDays, view);
+    const payload: any = await buildMeOverviewPayload(guild, user, member, lookbackDays, view);
     const msg = interaction.message;
     if (!msg?.edit) {
       await sendControlErrorFallback(interaction);

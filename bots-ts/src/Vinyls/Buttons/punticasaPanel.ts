@@ -243,7 +243,7 @@ async function buildHouseDashboardPayload(client?, guild?, houseId?, ownerId?, o
       }))),
   );
   const components = [rowActions, rowNav];
-  const payload = { embeds: [embed], components };
+  const payload: Record<string, any> = { embeds: [embed], components };
   if (crest.files.length) payload.files = crest.files;
   return payload;
 }
@@ -315,7 +315,7 @@ async function buildHouseMembersPayload(client?, guild?, houseId?, ownerId?, pag
         default: opt.value === hid,
       }))),
   );
-  const payload = { embeds: [embed], components: [rowActions, rowPeriod, rowNav] };
+  const payload: Record<string, any> = { embeds: [embed], components: [rowActions, rowPeriod, rowNav] };
   if (crest.files.length) payload.files = crest.files;
   return payload;
 }

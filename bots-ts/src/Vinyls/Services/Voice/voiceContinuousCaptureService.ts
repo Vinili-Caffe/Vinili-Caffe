@@ -52,6 +52,13 @@ function markCaptureOpusUnavailable(capture?, err?) {
 const captureByGuild = new Map();
 
 class PcmRingBuffer {
+  declare buffer: any;
+  declare capacity: any;
+  declare head: any;
+  declare lastAppendAt: any;
+  declare lastAppendLen: any;
+  declare lastWriteAt: any;
+  declare size: any;
   constructor(maxSeconds?) {
     this.capacity = Math.max(1, maxSeconds) * PCM_BYTES_PER_SEC;
     this.buffer = Buffer.alloc(this.capacity);

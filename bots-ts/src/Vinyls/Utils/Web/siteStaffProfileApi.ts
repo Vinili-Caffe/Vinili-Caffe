@@ -1284,7 +1284,7 @@ async function handleSiteStaffProfileGet(client?, req?, res?) {
       targetUser = targetMember.user || null;
     }
 
-    const payload = await buildStaffProfilePayloadForWeb(client, targetMember, targetUser, {
+    const payload: any = await buildStaffProfilePayloadForWeb(client, targetMember, targetUser, {
       allowProspectPex: !isSelf && memberIsHighStaffEligible(access.member),
       viewerMember: access.member,
     });
@@ -1353,7 +1353,7 @@ async function handleSiteStaffProfileGet(client?, req?, res?) {
           weekKey = "";
         }
         /* resoPendBadge1: non contare doc status=pending già deciduti nel content Discord */
-        const resoFilter = {
+        const resoFilter: Record<string, any> = {
           docType: WORKFLOW_DOC,
           guildId,
           workflowQueue: "resoconti",

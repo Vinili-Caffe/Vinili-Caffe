@@ -119,7 +119,7 @@ async function execute(interaction?, client?) {
         return true;
       }
       if (!interaction.deferred && !interaction.replied) await interaction.deferUpdate().catch(() => {});
-      const refunded = await refundOnClose(client, session, uid);
+      const refunded: any = await refundOnClose(client, session, uid);
       session.panelAnimating = false;
       const notice = refunded.amount > 0
         ? `Sessione chiusa. Puntate rimborsate (**${refunded.amount}** a testa).`
@@ -222,7 +222,7 @@ async function execute(interaction?, client?) {
 
   if (parsed.action === "close") {
     if (!interaction.deferred && !interaction.replied) await interaction.deferUpdate().catch(() => {});
-    const refunded = await refundOnClose(client, session, interaction.user?.id);
+    const refunded: any = await refundOnClose(client, session, interaction.user?.id);
     session.panelAnimating = false;
     const notice = refunded.amount > 0
       ? `Sessione chiusa. Puntate rimborsate (**${refunded.amount}** a testa).`

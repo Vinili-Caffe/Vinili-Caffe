@@ -4,7 +4,7 @@ const fs = require("fs") as typeof import("fs");
 const path = require("path") as typeof import("path");
 const os = require("os") as typeof import("os");
 const { spawnSync } = require("child_process") as typeof import("child_process");
-const axios = require("axios") as typeof import("axios");
+const axios = require("axios") as typeof import("axios").default;
 const ffmpegPath = require("ffmpeg-static") as typeof import("ffmpeg-static");
 const {
   drawLabelWithEmoji,

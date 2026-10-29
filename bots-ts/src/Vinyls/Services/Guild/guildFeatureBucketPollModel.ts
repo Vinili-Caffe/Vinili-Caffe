@@ -114,6 +114,11 @@ function wrapPollSubdoc(bucket?, subdoc?) {
 }
 
 class PollFindOneQuery {
+  declare _lean: any;
+  declare _select: any;
+  declare _sort: any;
+  declare filter: any;
+  declare guildId: any;
   constructor(guildId?, filter?) {
     this.guildId = guildId;
     this.filter = filter;
@@ -162,6 +167,12 @@ class PollFindOneQuery {
 }
 
 class PollFindQuery {
+  declare _lean: any;
+  declare _limit: any;
+  declare _sort: any;
+  declare filter: any;
+  declare guildId: any;
+  declare projection: any;
   constructor(guildId?, filter?, projection?) {
     this.guildId = guildId;
     this.filter = filter;

@@ -347,7 +347,7 @@ function resolveRoleIdForWeight(guild?, roleIdOrName?) {
     .replace(/\s+/g, " ")
     .trim();
   if (!normalized) return raw;
-  const roles = IDs.roles || {};
+  const roles: any = IDs.roles || {};
 
   // organicoModDedupe1: Mod / Moderator / Moderatore = stesso gradino (non Senior).
   if (/^(mod|moderator|moderatore)$/i.test(normalized)) {
@@ -730,7 +730,7 @@ function rosterMembersById(roster?) {
 async function buildPexDepexHistory(guild?, client?, filterUserId?, rosterById = null) {
   await ensureGuildRolesCached(guild);
   const guildId = String(guild.id);
-  const query = { guildId };
+  const query: Record<string, any> = { guildId };
   if (filterUserId) {
     query.userId = String(filterUserId);
   } else {

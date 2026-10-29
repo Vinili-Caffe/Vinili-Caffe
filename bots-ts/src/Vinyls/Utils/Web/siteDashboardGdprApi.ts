@@ -54,7 +54,7 @@ async function exportSelfGdprData(client?, accessToken?) {
   }
 
   const guildId = resolveMainGuildId(client);
-  const exportResult = await exportUserGdprData({
+  const exportResult: any = await exportUserGdprData({
     guildId,
     userId: uid,
     requestedByUserId: uid,
@@ -97,7 +97,7 @@ async function eraseSelfGdprData(client?, accessToken?, body: Record<string, any
 
   if (!confirm) {
     const guildId = resolveMainGuildId(client);
-    const preview = await eraseUserGdprData({
+    const preview: any = await eraseUserGdprData({
       guildId,
       userId: uid,
       client,
@@ -137,7 +137,7 @@ async function eraseSelfGdprData(client?, accessToken?, body: Record<string, any
   }
 
   const guildId = resolveMainGuildId(client);
-  const eraseResult = await eraseUserGdprData({
+  const eraseResult: any = await eraseUserGdprData({
     guildId,
     userId: uid,
     client,

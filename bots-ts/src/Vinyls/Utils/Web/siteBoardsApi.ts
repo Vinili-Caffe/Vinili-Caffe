@@ -1291,7 +1291,7 @@ async function verifyTurnstileToken(secret?, token?, ip?) {
       headers: { "content-type": "application/x-www-form-urlencoded" },
       body,
     });
-    const data = await res.json().catch(() => null);
+    const data: any = await res.json().catch(() => null);
     if (data && data.success === true) return { ok: true };
     return { ok: false, error: "turnstile_failed", codes: data?.["error-codes"] || [] };
   } catch (err) {
@@ -1316,7 +1316,7 @@ async function canUserVoteListing(listingId?, userId?, cfg?) {
     };
   }
   const since = new Date(Date.now() - cfg.voteCooldownHours * 60 * 60 * 1000);
-  const recent = await SiteDocument.findOne({
+  const recent: any = await SiteDocument.findOne({
     docType: BV,
     boardListingId: id,
     userId: uid,
@@ -1377,7 +1377,7 @@ function serializeListing(doc?, opts: Record<string, any> = {}) {
   const description = card
     ? String(doc.boardTagline || "").trim() || rawDesc.slice(0, 280)
     : rawDesc;
-  const out = {
+  const out: Record<string, any> = {
     id: String(doc._id),
     kind: String(doc.boardKind || ""),
     discordId: String(doc.boardDiscordId || ""),
@@ -1610,7 +1610,7 @@ async function listListingsUncached(client?, query: Record<string, any> = {}) {
   const sort = String(query.sort || "score").trim().toLowerCase();
   const page = Math.max(1, Number(query.page) || 1);
   const perPage = Math.min(48, Math.max(1, Number(query.perPage) || 24));
-  const filter = { docType: BL, status: "approved" };
+  const filter: Record<string, any> = { docType: BL, status: "approved" };
   if (kind === "server" || kind === "bot") filter.boardKind = kind;
   if (tag) filter.boardTags = tag;
   if (category) filter.boardCategories = category;
@@ -1805,7 +1805,7 @@ async function getListingBySlug(client?, slug?, opts: Record<string, any> = {}) 
 function getBoardsPublicConfig(client?) {
   const gate = featureGate(client);
   if (!gate.ok) return gate;
-  const ads = gate.cfg.ads || {};
+  const ads: any = gate.cfg.ads || {};
   return {
     ok: true,
     status: 200,
@@ -1944,7 +1944,7 @@ async function createListing(client?, payload: Record<string, any> = {}) {
     };
   }
 
-  const dup = await SiteDocument.findOne({
+  const dup: any = await SiteDocument.findOne({
     docType: BL,
     boardDiscordId: discordId,
     status: { $in: ACTIVE_STATUSES },
@@ -2293,7 +2293,7 @@ async function refreshMyListing(client?, payload: Record<string, any> = {}) {
   if (!mongoose.isValidObjectId(id)) {
     return { ok: false, status: 400, error: "invalid_id", message: "ID scheda non valido." };
   }
-  const doc = await SiteDocument.findOne({ _id: id, docType: BL, userId: auth.userId }).lean();
+  const doc: any = await SiteDocument.findOne({ _id: id, docType: BL, userId: auth.userId }).lean();
   if (!doc) return { ok: false, status: 404, error: "not_found", message: "Scheda non trovata." };
   const kind = String(doc.boardKind || "") === "bot" ? "bot" : "server";
   if (kind !== "server") {
@@ -2330,7 +2330,7 @@ async function refreshMyListing(client?, payload: Record<string, any> = {}) {
   const prev =
     (doc.boardStats && typeof doc.boardStats === "object" && doc.boardStats) || {};
   const inviteUrl = String(doc.boardInviteUrl || "").trim();
-  const tagInfo = (await resolveGuildServerTag(client, guild, inviteUrl)) || {};
+  const tagInfo: any = (await resolveGuildServerTag(client, guild, inviteUrl)) || {};
   const stats = {
     members: Number(guild.memberCount) || 0,
     name: String(guild.name || ""),
@@ -2351,7 +2351,7 @@ async function refreshMyListing(client?, payload: Record<string, any> = {}) {
   const discordBanner =
     discordGuildBannerUrl(guild) || preferAnimatedDiscordMediaUrl(doc.boardBannerUrl || "") || "";
   const title = String(guild.name || doc.title || "").trim();
-  const $set = {
+  const $set: Record<string, any> = {
     boardStats: stats,
     boardIconUrl: iconUrl,
     updatedAt: new Date(),
@@ -2809,7 +2809,7 @@ async function guildBoardDefaults(client?, payload: Record<string, any> = {}) {
   const defs = await resolveGuildBoardDefaults(client, guildId);
   let inviteUrl = defs.inviteUrl || "";
   if (!inviteUrl) {
-    const gen = await generateInvite(client, {
+    const gen: any = await generateInvite(client, {
       accessToken: payload.accessToken,
       guildId,
     });
@@ -2838,7 +2838,7 @@ async function startListingVoteSession(client?, payload: Record<string, any> = {
   if (!mongoose.isValidObjectId(id)) {
     return { ok: false, status: 400, error: "invalid_id", message: "ID scheda non valido." };
   }
-  const listing = await SiteDocument.findOne({ _id: id, docType: BL, status: "approved" }).lean();
+  const listing: any = await SiteDocument.findOne({ _id: id, docType: BL, status: "approved" }).lean();
   if (!listing) {
     return { ok: false, status: 404, error: "not_found", message: "Scheda non trovata o non approvata." };
   }
@@ -3218,7 +3218,7 @@ async function reportListing(client?, payload: Record<string, any> = {}) {
   if (reason.length < 8) {
     return { ok: false, status: 400, error: "short_reason", message: "Motivo troppo corto." };
   }
-  const listing = await SiteDocument.findOne({ _id: id, docType: BL }).lean();
+  const listing: any = await SiteDocument.findOne({ _id: id, docType: BL }).lean();
   if (!listing) return { ok: false, status: 404, error: "not_found", message: "Scheda non trovata." };
   await SiteDocument.create({
     docType: BR,
@@ -3377,7 +3377,7 @@ async function listListingReviews(client?, payload: Record<string, any> = {}) {
   if (!mongoose.isValidObjectId(id)) {
     return { ok: false, status: 400, error: "invalid_id", message: "ID scheda non valido." };
   }
-  const listing = await SiteDocument.findOne({ _id: id, docType: BL }).lean();
+  const listing: any = await SiteDocument.findOne({ _id: id, docType: BL }).lean();
   if (!listing) return { ok: false, status: 404, error: "not_found", message: "Scheda non trovata." };
 
   let viewerUserId = "";
@@ -3450,7 +3450,7 @@ async function listListingReviews(client?, payload: Record<string, any> = {}) {
 
   let mine = null;
   if (viewerUserId) {
-    const mineDoc = await SiteDocument.findOne({
+    const mineDoc: any = await SiteDocument.findOne({
       docType: BREV,
       boardListingId: id,
       userId: viewerUserId,
@@ -3520,7 +3520,7 @@ async function createListingReview(client?, payload: Record<string, any> = {}, r
   if (content.length < 12) {
     return { ok: false, status: 400, error: "short_content", message: "La recensione è troppo corta." };
   }
-  const listing = await SiteDocument.findOne({ _id: id, docType: BL, status: "approved" }).lean();
+  const listing: any = await SiteDocument.findOne({ _id: id, docType: BL, status: "approved" }).lean();
   if (!listing) {
     return { ok: false, status: 404, error: "not_found", message: "Scheda non trovata o non approvata." };
   }
@@ -3613,7 +3613,7 @@ async function reportListingReview(client?, payload: Record<string, any> = {}) {
   if (reason.length < 8) {
     return { ok: false, status: 400, error: "short_reason", message: "Motivo troppo corto." };
   }
-  const review = await SiteDocument.findOne({ _id: reviewId, docType: BREV }).lean();
+  const review: any = await SiteDocument.findOne({ _id: reviewId, docType: BREV }).lean();
   if (!review) return { ok: false, status: 404, error: "not_found", message: "Recensione non trovata." };
   await SiteDocument.create({
     docType: BR,
@@ -3637,13 +3637,13 @@ async function upsertListingReviewReply(client?, payload: Record<string, any> = 
   if (!mongoose.isValidObjectId(reviewId)) {
     return { ok: false, status: 400, error: "invalid_id", message: "ID recensione non valido." };
   }
-  const review = await SiteDocument.findOne({ _id: reviewId, docType: BREV, status: "approved" }).lean();
+  const review: any = await SiteDocument.findOne({ _id: reviewId, docType: BREV, status: "approved" }).lean();
   if (!review) return { ok: false, status: 404, error: "not_found", message: "Recensione non trovata." };
   const listingId = String(review.boardListingId || "").trim();
   if (!mongoose.isValidObjectId(listingId)) {
     return { ok: false, status: 400, error: "invalid_listing", message: "Scheda non valida." };
   }
-  const listing = await SiteDocument.findOne({ _id: listingId, docType: BL }).lean();
+  const listing: any = await SiteDocument.findOne({ _id: listingId, docType: BL }).lean();
   if (!listing) return { ok: false, status: 404, error: "not_found", message: "Scheda non trovata." };
   if (String(listing.userId || listing.ownerId || "") !== auth.userId) {
     return {
@@ -3713,7 +3713,7 @@ async function syncSiteServerReviewToMainBoardListing(siteReviewDoc?) {
     if (String(src.reviewKind || "").toLowerCase() !== "server") return { ok: false, skipped: true };
     const uid = String(src.userId || "").trim();
     if (!uid) return { ok: false, skipped: true };
-    const listing = await findMainGuildServerListing();
+    const listing: any = await findMainGuildServerListing();
     if (!listing) return { ok: false, skipped: true, reason: "no_listing" };
     const listingOwnerId = String(listing.userId || listing.ownerId || "").trim();
     if (listingOwnerId && listingOwnerId === uid) {
@@ -3767,7 +3767,7 @@ async function removeSiteServerReviewFromMainBoardListing(userId?) {
   try {
     const uid = String(userId || "").trim();
     if (!uid) return { ok: false, skipped: true };
-    const listing = await findMainGuildServerListing();
+    const listing: any = await findMainGuildServerListing();
     if (!listing) return { ok: false, skipped: true };
     const listingId = String(listing._id);
     const del = await SiteDocument.deleteOne({
@@ -3814,7 +3814,7 @@ async function modListPending(client?, payload: Record<string, any> = {}) {
   if (denied) return denied;
   const status = String(payload.status || "pending").trim() || "pending";
   const kind = String(payload.kind || payload.filter || "").trim().toLowerCase();
-  const filter = { docType: BL };
+  const filter: Record<string, any> = { docType: BL };
   if (status === "all") {
     filter.status = { $nin: ["draft"] };
   } else if (status === "draft") {
@@ -4024,7 +4024,7 @@ async function refreshListingStats(client?, listing?) {
       (listing.boardStats && typeof listing.boardStats === "object" && listing.boardStats) ||
       {};
     const inviteUrl = listing.inviteUrl || listing.boardInviteUrl || "";
-    const tagInfo = (await resolveGuildServerTag(client, guild, inviteUrl)) || {};
+    const tagInfo: any = (await resolveGuildServerTag(client, guild, inviteUrl)) || {};
     const stats = {
       members: Number(guild.memberCount) || 0,
       name: String(guild.name || ""),
@@ -4235,7 +4235,7 @@ async function probeDiscordInvite(code?) {
     if (!res.ok) {
       return { ok: true, found: false, reason: "bad_status", status: res.status };
     }
-    const data = await res.json().catch(() => null);
+    const data: any = await res.json().catch(() => null);
     const guildName = String(data?.guild?.name || data?.guild_name || "").trim();
     return {
       ok: true,
@@ -4262,7 +4262,7 @@ async function probeGithubUser(handle?) {
     });
     if (res.status === 404) return { ok: true, found: false, reason: "not_found", status: 404 };
     if (res.ok) {
-      const data = await res.json().catch(() => null);
+      const data: any = await res.json().catch(() => null);
       return {
         ok: true,
         found: true,
@@ -4284,7 +4284,7 @@ async function probeYoutubeHandle(handle?) {
     const oembed = `https://www.youtube.com/oembed?format=json&url=${encodeURIComponent(url)}`;
     const res = await fetchProbe(oembed, { method: "GET", timeoutMs: 5500, accept: "application/json" });
     if (res.ok) {
-      const data = await res.json().catch(() => null);
+      const data: any = await res.json().catch(() => null);
       return {
         ok: true,
         found: true,

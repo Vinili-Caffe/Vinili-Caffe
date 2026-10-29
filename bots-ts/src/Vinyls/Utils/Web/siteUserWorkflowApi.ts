@@ -72,7 +72,7 @@ async function handleSiteUserWorkflowsGet(client?, req?, res?) {
 
     const scope = String(req.query?.scope || "pending").trim().toLowerCase();
     const items = (await listUserWorkflowsForMember(user.guild.id, user.userId, { scope }))
-      .filter((row?) => isPauseDedupeKey(row?.dedupeKey) || String(row?.queue || "").toLowerCase() === "pause");
+      .filter((row?: any) => isPauseDedupeKey(row?.dedupeKey) || String(row?.queue || "").toLowerCase() === "pause");
     return res.status(200).json({ ok: true, scope: scope === "all" ? "all" : "pending", items });
   } catch (err) {
     global.logger?.error?.("[WEBHOOK] site-user-workflows GET:", err);

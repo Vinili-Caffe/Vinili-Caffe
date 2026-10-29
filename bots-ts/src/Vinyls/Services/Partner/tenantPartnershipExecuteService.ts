@@ -453,7 +453,7 @@ async function executeTenantPartnership(interaction?, { description: rawDescript
       pingPlan,
     });
 
-    const thankYouPayload = { embeds: [embed] };
+    const thankYouPayload: Record<string, any> = { embeds: [embed] };
     if (aboveEmbedContent) {
       thankYouPayload.content = aboveEmbedContent;
       thankYouPayload.allowedMentions = buildPartnershipPublishAllowedMentions(

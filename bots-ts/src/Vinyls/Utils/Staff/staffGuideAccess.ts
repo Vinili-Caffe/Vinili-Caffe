@@ -110,8 +110,8 @@ function memberCanReadStaffGuideSection(member?, sectionId?) {
 function listReadableStaffGuideSections(member?) {
   return listStaffGuideSectionMeta()
     .filter((section?) => memberCanReadStaffGuideSection(member, section.id))
-    .map((section?) => {
-      const out = {
+    .map((section?: any) => {
+      const out: Record<string, any> = {
         id: section.id,
         label: section.label,
         description: section.description,

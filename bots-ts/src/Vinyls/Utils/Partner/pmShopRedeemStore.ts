@@ -59,7 +59,7 @@ async function listPmShopRedeems({ guildId, pmUserId, limit = 30, before = null 
   }
 
   const lim = Math.max(1, Math.min(50, Math.floor(Number(limit) || 30)));
-  const query = { guildId: gid, pmUserId: uid };
+  const query: Record<string, any> = { guildId: gid, pmUserId: uid };
   if (before) {
     const d = new Date(before);
     if (!Number.isNaN(d.getTime())) query.createdAt = { $lt: d };

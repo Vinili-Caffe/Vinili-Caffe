@@ -458,7 +458,7 @@ async function ticketSwitchPanelExecute(message?, categoryToken?) {
           ticketDoc.descriptionPromptMessageId = null;
         }
 
-    const persistSet = {
+    const persistSet: Record<string, any> = {
       ticketType: panelConfig.type,
       claimedBy: ticketDoc.claimedBy != null && String(ticketDoc.claimedBy).trim() !== "" ? ticketDoc.claimedBy : null,
     };

@@ -203,7 +203,7 @@ function buildSelectOptionsForSegment(guild?, segment?, member?, numericLevel?, 
     const nat = listUnlockedNaturalRoleIds().filter((rid?) => guild?.roles?.cache?.has?.(rid));
     const opts = [removeOpt];
     for (const rid of nat) {
-      const row = {
+      const row: Record<string, any> = {
         label: roleLabel(guild, rid).slice(0, 100),
         value: rid,
         description: "Colore classico",
@@ -296,7 +296,7 @@ function buildMergedColorSelectOptions(guild?, member?, numericLevel?, canPickPl
     if (opts.length >= MERGED_SELECT_MAX) return;
     if (!guild?.roles?.cache?.has?.(rid)) return;
     const label = `${prefix}${roleLabel(guild, rid)}`.slice(0, 100);
-    const row = { label, value: rid };
+    const row: Record<string, any> = { label, value: rid };
     if (kind === "plus") {
       row.emoji = EMOJI_COLOR_PLUS;
       row.description = String(description || "Gradiente Plus").slice(0, 100);

@@ -154,7 +154,7 @@ async function execute(interaction?, client?) {
         ? `🪙 Sessione chiusa. Ho riscosso automaticamente **${out.amount} Galeoni**.`
         : `<a:VC_Cross:1482532424570376253> Sessione chiusa, ma non sono riuscito a riscuotere: ${out.message}`;
     }
-    const cleared = deleteSession(interaction.message?.id, session);
+    const cleared: any = deleteSession(interaction.message?.id, session);
     if (cleared && typeof cleared.then === "function") await cleared.catch(() => null);
     session.cashedOut = true;
     await updatePanel(interaction, session, cfg, notice, true);

@@ -63,14 +63,14 @@ function normalizeBoostRow(row?) {
 }
 
 function isEconomyConsumablesUnlocked(client?, nowMs = Date.now()) {
-  const cfg = economyConfig(client);
+  const cfg: any = economyConfig(client);
   if (!cfg.enabled) return false;
   if (Number.isFinite(cfg.startMs) && Number(nowMs || Date.now()) < cfg.startMs) return false;
   return true;
 }
 
 function economyConsumablesLockMessage(client?) {
-  const cfg = economyConfig(client);
+  const cfg: any = economyConfig(client);
   if (!cfg.enabled) return "I boost consumabili non sono disponibili.";
   if (Number.isFinite(cfg.startMs) && Date.now() < cfg.startMs) {
     return "I boost consumabili si sbloccano lunedì 10 agosto alle 14:00 con l'economia Galeoni.";
@@ -508,7 +508,7 @@ async function sendConsumableBoostAnnounce(channel, {
     imageAttachmentName: imageAsset?.name || "",
     mode,
   });
-  const payload = {
+  const payload: Record<string, any> = {
     content: content || undefined,
     embeds: [embed],
     files: files.length ? files : undefined,

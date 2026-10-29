@@ -67,7 +67,7 @@ function isMeaningfulDeletedMessage(msg?) {
 
 function buildPurgeLogText(messages?, channelId?) {
   const rows = [];
-  const ordered=Array.from(messages?.values?.()||[]).sort((a?,b?) => {const at=Number(a?.createdTimestamp||0);const bt=Number(b?.createdTimestamp||0);return at-bt;});
+  const ordered=Array.from(messages?.values?.()||[]).sort((a?: any,b?: any) => {const at=Number(a?.createdTimestamp||0);const bt=Number(b?.createdTimestamp||0);return at-bt;});
 
   rows.push(`------ ${channelId || "#sconosciuto"}`);
   rows.push("");
@@ -83,7 +83,7 @@ function buildPurgeLogText(messages?, channelId?) {
 
     const attachments = msg?.attachments ? Array.from(msg.attachments.values()) : [];
     if (attachments.length) {
-      const list=attachments.map((a?) => String(a?.url||a?.name||"")).filter(Boolean).join(", ");
+      const list=attachments.map((a?: any) => String(a?.url||a?.name||"")).filter(Boolean).join(", ");
       if (list) rows.push(`attachment: ${list}`);
     }
     rows.push("");

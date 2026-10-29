@@ -1,7 +1,7 @@
 const fs = require("fs") as typeof import("fs");
 const path = require("path") as typeof import("path");
 const { EmbedBuilder, PermissionsBitField, PermissionFlagsBits, } = require("discord.js") as typeof import("discord.js");
-const IDs = require("../Config/ids") as typeof import("../Config/ids");
+const IDs: any = require("../Config/ids") as typeof import("../Config/ids");
 const { hasAdminsProfileCapability } = require("../../Services/Moderation/securityProfilesService") as typeof import("../../Services/Moderation/securityProfilesService");
 const { isPartnerPmDailyCommandsThread } = require("../Partner/partnersChatChannelUtils") as typeof import("../Partner/partnersChatChannelUtils");
 const { getStaffCmdsThreadIdsCache, ensureStaffCmdsThreadIdsHydrated, isHighStaffCommandsThread, isStaffCmdsPmCommandsThreadSync } = require("../Staff/staffCmdsChannelUtils") as typeof import("../Staff/staffCmdsChannelUtils");
@@ -1604,7 +1604,7 @@ async function checkPrefixPermission(message?, commandName?, subcommandName = nu
     }
   }
 
-  const openMediaBypass = tryResolveMultiGuildOpenMediaBypass(guildId, safeCommand, options);
+  const openMediaBypass: any = tryResolveMultiGuildOpenMediaBypass(guildId, safeCommand, options);
   if (openMediaBypass !== null) {
     if (openMediaBypass.allowed !== false && message?.member) {
       try {

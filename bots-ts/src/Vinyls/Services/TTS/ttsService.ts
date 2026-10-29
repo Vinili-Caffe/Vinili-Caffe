@@ -6,7 +6,7 @@ const { Readable } = require("stream") as typeof import("stream");
 const fs = require("fs") as typeof import("fs");
 const path = require("path") as typeof import("path");
 const os = require("os") as typeof import("os");
-const axios = require("axios") as typeof import("axios");
+const axios = require("axios") as typeof import("axios").default;
 const crypto = require("crypto") as typeof import("crypto");
 const WebSocket = require("ws") as typeof import("ws");
 const prism = require("prism-media") as typeof import("prism-media");
@@ -1609,7 +1609,7 @@ async function catchupTtsMessagesForChannel(
   if (!messages) return;
 
   const cutoffMs = Math.max(0, baseCutoffMs - 1500);
-  const sorted = Array.from(messages.values()).sort((a?, b?) => a.createdTimestamp - b.createdTimestamp);
+  const sorted = Array.from(messages.values()).sort((a?: any, b?: any) => a.createdTimestamp - b.createdTimestamp);
 
   for (const message of sorted) {
     if (state.queue.length >= MAX_TTS_QUEUE) break;

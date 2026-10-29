@@ -40,7 +40,7 @@ function resolveTicketPanel(guildId?, ticketOrPanelId?) {
 }
 
 function resolveTranscriptLogChannelId(guildId?, ticket?, fallbackIds: Record<string, any> = {}) {
-  const s = getOptions(guildId) || {};
+  const s: any = getOptions(guildId) || {};
   const panel = resolveTicketPanel(guildId, ticket);
   return (
     String(panel?.transcriptChannelId || "").trim() ||
@@ -126,7 +126,7 @@ function buildClaimedControlButtons(guildId?, overrides = null) {
 function openerAllowBitsToMemberOverwrite(allowBits?) {
   const bits = Array.isArray(allowBits) ? allowBits : [];
   const has = (flag?) => bits.some((b?) => b === flag);
-  const map = {
+  const map: Record<string, any> = {
     ViewChannel: true,
     SendMessages: true,
     ReadMessageHistory: true,
@@ -216,7 +216,7 @@ function buildOpenerPermissionList(guildId?, permsOverride = null) {
 
 function buildStaffSpectateOverwrite(guildId?) {
   const s = getOptions(guildId);
-  const p = s.ticketPerms || {};
+  const p: any = s.ticketPerms || {};
   if (s.claimedStaffCanView === false) {
     return { ViewChannel: false };
   }

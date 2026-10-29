@@ -60,7 +60,7 @@ function sessionFromDb(raw?, guildId?, userId?) {
 
 function compactForDb(messageId?, session?) {
   const last = session?.lastResult;
-  const out = {
+  const out: Record<string, any> = {
     messageId: normalizeId(messageId),
     ownerId: normalizeId(session.ownerId),
     bank: Math.max(0, Math.floor(Number(session.bank) || 0)),
@@ -149,7 +149,7 @@ async function loadSlotsGuiSessionByMessage(guildId?, messageId?) {
   if (!mid) return null;
   if (!(await waitMongoBrief())) return null;
   const path = SLOTS_GUI_PATH;
-  const filter = { [`${path}.messageId`]: mid };
+  const filter: Record<string, any> = { [`${path}.messageId`]: mid };
   if (g) filter.guildId = g;
   const doc = await ActivityUserProfile.findOne(filter)
     .select(`${SLOTS_GUI_PATH} userId guildId`)

@@ -90,7 +90,7 @@ function getRomeDateTimeParts(date = new Date()) {
     second: "2-digit",
     hour12: false,
   });
-  const parts = fmt.formatToParts(date).reduce((acc?, part?) => {
+  const parts: any = fmt.formatToParts(date).reduce((acc?, part?) => {
     if (part.type !== "literal") acc[part.type] = part.value;
     return acc;
   }, {});

@@ -289,7 +289,7 @@ function ticketIdArrayFilterClause(ticketId?) {
 }
 
 function buildTicketArrayFilter(filter?, ticketId?) {
-  const arrayFilter = { "t._id": ticketIdArrayFilterClause(ticketId) };
+  const arrayFilter: Record<string, any> = { "t._id": ticketIdArrayFilterClause(ticketId) };
   if (Object.prototype.hasOwnProperty.call(filter, "channelId")) {
     arrayFilter["t.channelId"] = String(filter.channelId);
   }
@@ -550,7 +550,7 @@ async function updateBucketTicketSet(bucketId?, $set?, arrayFilter?) {
         return null;
       });
 
-  let result = await tryUpdate($set);
+  let result: any = await tryUpdate($set);
   if (!result?.__bsonTooLarge) return result;
 
   global.logger?.warn?.("[Ticket.findOneAndUpdate]", result.__err?.message || result.__err);
@@ -605,6 +605,10 @@ async function execTicketFindAllBuckets(query?) {
 }
 
 class TicketFindQuery {
+  declare _lean: any;
+  declare _limit: any;
+  declare filter: any;
+  declare projection: any;
   constructor(filter?, projection?) {
     this.filter = filter;
     this.projection = projection && typeof projection === "object" ? { ...projection } : null;
@@ -694,6 +698,9 @@ class TicketFindQuery {
 }
 
 class TicketFindOneQuery {
+  declare _lean: any;
+  declare filter: any;
+  declare projection: any;
   constructor(filter?, projection?) {
     this.filter = filter;
     this.projection = projection && typeof projection === "object" ? { ...projection } : null;
@@ -846,7 +853,7 @@ const Ticket = {
       return opts.new !== false ? readTicketByRef(ref.bucketId, ref.ticketId) : null;
     }
     const arrayFilter = buildTicketArrayFilter(filter, ref.ticketId);
-    let result = await updateBucketTicketSet(ref.bucketId, $set, arrayFilter);
+    let result: any = await updateBucketTicketSet(ref.bucketId, $set, arrayFilter);
         if (result && Number(result.modifiedCount || 0) < 1) {
       const current = await readTicketByRef(ref.bucketId, ref.ticketId);
       if (current && ticketUpdateSatisfied(current, $set)) {
@@ -880,7 +887,7 @@ const Ticket = {
         return null;
       }
       if (ticketUpdateSatisfied(fresh, $set)) return fresh;
-      let forced = await updateBucketTicketSet(ref.bucketId, $set, {
+      let forced: any = await updateBucketTicketSet(ref.bucketId, $set, {
         "t._id": ticketIdArrayFilterClause(ref.ticketId),
       });
       if (forced && Number(forced.modifiedCount || 0) < 1 && filter.channelId) {

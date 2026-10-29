@@ -179,7 +179,7 @@ async function buildStatusEmbeds(guild?) {
   const autoRules = getAutoModRulesSnapshot();
   const autoPanic = getAutoModPanicSnapshot(guildId);
   const sec = await getSecurityLockState(guild);
-  const antiCfg = anti?.config || {};
+  const antiCfg: any = anti?.config || {};
   const panicCfg = antiCfg?.panicMode || {};
   const quarantine = antiCfg?.autoQuarantine || {};
   const backup = panicCfg?.autoBackupSync || {};
@@ -190,9 +190,9 @@ async function buildStatusEmbeds(guild?) {
   const raidWarnedRoleIds=Array.isArray(raid?.config?.warnedRoleIds)?raid.config.warnedRoleIds.filter(Boolean):[];
   const raidWarnedRoles=raidWarnedRoleIds.length?raidWarnedRoleIds.map((id?) => `<@&${id}>`).join(", ")
     : "<a:VC_Cross:1482532424570376253>";
-  const idFlag = raid?.config?.idFlag || {};
-  const ageFlag = raid?.config?.ageFlag || {};
-  const noPfpFlag = raid?.config?.noPfpFlag || {};
+  const idFlag: any = raid?.config?.idFlag || {};
+  const ageFlag: any = raid?.config?.ageFlag || {};
+  const noPfpFlag: any = raid?.config?.noPfpFlag || {};
 
   const hs = autoCfg?.heatSystem || {};
   const at = autoCfg?.autoTimeouts || {};
@@ -345,7 +345,7 @@ async function buildPanicStatusEmbeds(guild?) {
   const auto = getAutoModPanicSnapshot(guildId);
   const sec = await getSecurityLockState(guild);
 
-  const panicCfg = anti?.config?.panicMode || {};
+  const panicCfg: any = anti?.config?.panicMode || {};
   const lockdown = panicCfg?.lockdown || {};
   const warnedRoleIds=Array.isArray(panicCfg?.warnedRoleIds)?panicCfg.warnedRoleIds.filter(Boolean):[];
   const whitelistCategoryIds=Array.isArray(panicCfg?.whitelistCategoryIds)?panicCfg.whitelistCategoryIds.filter(Boolean):[];
@@ -406,7 +406,7 @@ async function disableAntiNuke(guild?, actorId?) {
     panicStopped = Boolean(stopped?.ok);
   }
 
-  const cfg = snap?.config || {};
+  const cfg: any = snap?.config || {};
   const setResult=setAntiNukeConfigSnapshot({...cfg,enabled:false,panicMode:{...(cfg.panicMode||{}),enabled:false,lockdown:{...(cfg.panicMode?.lockdown||{}),lockModerationCommands:false,lockAllCommands:false,},},});
 
   return {
@@ -472,7 +472,7 @@ async function disableLockCommands(guildId?) {
   const wasActive = antiLockMod || antiLockAll || raidLock;
   if (!wasActive) return { ok: true, changed: false, note: "LockCommands già disattivati." };
 
-  const antiCfg = anti?.config || {};
+  const antiCfg: any = anti?.config || {};
   const antiUpdated=setAntiNukeConfigSnapshot({...antiCfg,panicMode:{...(antiCfg.panicMode||{}),lockdown:{...(antiCfg.panicMode?.lockdown||{}),lockModerationCommands:false,lockAllCommands:false,},},});
 
   const raidUpdated=setJoinRaidConfigSnapshot({...(raid?.config||{}),lockCommands:false,});
@@ -488,7 +488,7 @@ async function disableLockCommands(guildId?) {
 async function enableAntiNuke(guild?, actorId?) {
   const guildId = String(guild?.id || "");
   const snap = getAntiNukeStatusSnapshot(guildId);
-  const cfg = snap?.config || {};
+  const cfg: any = snap?.config || {};
 
   // Arm the module + panic *capability*, but do NOT start a live panic.
   // Starting panic on enable was locking the whole server (channel lockdown)
@@ -586,7 +586,7 @@ async function enableLockCommands(guildId?) {
     return { ok: true, changed: false, note: "LockCommands già attivi." };
   }
 
-  const antiCfg = anti?.config || {};
+  const antiCfg: any = anti?.config || {};
   const antiUpdated=setAntiNukeConfigSnapshot({...antiCfg,panicMode:{...(antiCfg.panicMode||{}),lockdown:{...(antiCfg.panicMode?.lockdown||{}),lockModerationCommands:true,lockAllCommands:true,},},});
   const raidUpdated=setJoinRaidConfigSnapshot({...(raid?.config||{}),lockCommands:true,});
   const ok = Boolean(antiUpdated?.ok && raidUpdated?.ok);

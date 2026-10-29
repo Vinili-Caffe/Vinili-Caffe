@@ -1405,7 +1405,7 @@ function buildProfileSubdocModel({ selectPath, mapDoc, buildSet = null, clearSet
         const incDoc = typeof buildInc === "function" ? buildInc(incPayload) : {};
         const insertGuild = String(filter?.guildId || update?.$setOnInsert?.guildId || "");
         const insertUser = String(filter?.userId || update?.$setOnInsert?.userId || "");
-        const mongoUpdate = {
+        const mongoUpdate: Record<string, any> = {
           $setOnInsert: { guildId: insertGuild, userId: insertUser },
         };
         if (Object.keys(setDoc).length) mongoUpdate.$set = setDoc;

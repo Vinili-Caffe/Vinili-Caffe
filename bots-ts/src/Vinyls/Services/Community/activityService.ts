@@ -422,7 +422,7 @@ async function loadDailyRowsFromProfile(guildId?, dateKeys = null) {
 }
 
 async function loadHourlyRowsFromProfile(guildId?, hourKeys = null, userId = null) {
-  const filter = { guildId: String(guildId || "") };
+  const filter: Record<string, any> = { guildId: String(guildId || "") };
   if (!filter.guildId) return [];
   if (userId) filter.userId = String(userId);
   let q = ActivityUserProfile.find(filter).select("guildId userId profile.totals.hourly");

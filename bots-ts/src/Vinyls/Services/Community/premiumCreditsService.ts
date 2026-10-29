@@ -264,7 +264,7 @@ async function spendCreditsForTenantPremium(userId?, guildId?, months?, opts: Re
   }
   const until = baseUntil == null ? null : baseUntil + plan.days * DAY_MS;
 
-  const grantOpts = {
+  const grantOpts: Record<string, any> = {
     source: "credits",
     updatedBy: String(userId),
     note: opts.note || `Credits redeem: ${plan.months} month(s)`,

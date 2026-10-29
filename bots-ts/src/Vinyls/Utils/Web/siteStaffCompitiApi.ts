@@ -1289,7 +1289,7 @@ async function handleSiteStaffCompitiGet(client?, req?, res?) {
     });
 
     res.setHeader("Cache-Control", "private, no-store");
-    const payload = {
+    const payload: Record<string, any> = {
       ok: true,
       weekKey,
       monthKey,

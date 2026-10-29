@@ -15,7 +15,7 @@ async function resolveCanvasDiscordMarkup(guild?, client?, text?) {
 
   const userLabelById = new Map();
   await Promise.all(
-    [...userIds].map(async (id?) => {
+    [...userIds].map(async (id?: any) => {
       let member = guild.members.cache.get(id);
       if (!member) {
         member = await guild.members.fetch(id).catch(() => null);

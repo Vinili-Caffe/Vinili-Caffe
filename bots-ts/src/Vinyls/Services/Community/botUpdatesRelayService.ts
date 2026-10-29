@@ -180,7 +180,7 @@ async function ensureTenantUpdatesWebhook(client?, guildId?, channelId?) {
 
   if (hook?.id) {
     try {
-      const body = { name };
+      const body: Record<string, any> = { name };
       if (avatarDataUri) body.avatar = avatarDataUri;
       hook = await rest.patch(Routes.webhook(String(hook.id)), { body });
     } catch (err) {
@@ -195,7 +195,7 @@ async function ensureTenantUpdatesWebhook(client?, guildId?, channelId?) {
   }
 
   try {
-    const body = { name };
+    const body: Record<string, any> = { name };
     if (avatarDataUri) body.avatar = avatarDataUri;
     const created = await rest.post(Routes.channelWebhooks(cid), {
       body,
@@ -243,7 +243,7 @@ function buildRelayPayload(message?, client?) {
     ? message.embeds.map((e?) => (typeof e?.toJSON === "function" ? e.toJSON() : e)).filter(Boolean)
     : [];
   const files = collectRelayFiles(message);
-  const payload = {
+  const payload: Record<string, any> = {
     allowedMentions: { parse: [] },
     username: appDisplayName(client).slice(0, 80),
   };
@@ -347,7 +347,7 @@ async function relayPublishedBotUpdate(client?, message?) {
   const targets = listTenantUpdatesTargetsSync();
   if (!targets.length) return { ok: true, relayed: 0 };
 
-  const payload = buildRelayPayload(message, client);
+  const payload: any = buildRelayPayload(message, client);
   let relayed = 0;
 
   for (const target of targets) {

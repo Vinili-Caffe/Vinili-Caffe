@@ -451,7 +451,7 @@ async function peekRobSuccessChance(client?, guildId?, userId?, baseChance?) {
   let boostUsesRemaining = null;
   let boostExhausted = false;
   if (bonus > 0) {
-    const usage = await getShopDurableBoostUsage(client, guildId, userId, SHOP_CATEGORIES.BROOM);
+    const usage: any = await getShopDurableBoostUsage(client, guildId, userId, SHOP_CATEGORIES.BROOM);
     boostUsesRemaining = Number.isFinite(Number(usage?.remaining)) ? Number(usage.remaining) : null;
     boostExhausted = Boolean(usage?.exhausted);
     if (boostExhausted) bonus = 0;

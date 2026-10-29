@@ -590,7 +590,7 @@ async function buildMemberDetail(guild?, targetMember?, pausedSet?, viewerMember
   if (memberIsPm(targetMember) || isPmOnly) {
     try {
       const { getUserPartnershipScoresForGuild } = require("../../Services/Partner/tenantLeaderboardService") as typeof import("../../Services/Partner/tenantLeaderboardService");
-      const scores = await getUserPartnershipScoresForGuild(guildId, uid);
+      const scores: any = await getUserPartnershipScoresForGuild(guildId, uid);
       partnerPointsSpendable = Math.max(0, Math.floor(Number(scores?.points ?? partnerPointsSpendable) || 0));
       partnerPointsEarned = Math.max(
         0,

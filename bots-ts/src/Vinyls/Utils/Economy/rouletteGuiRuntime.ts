@@ -182,7 +182,7 @@ async function renderRouletteAttachment(session?, { animating = false, previewSp
   if (hit) return attachmentFromCache(hit);
   try {
     const renderRouletteCanvas = require("../Render/rouletteCanvas") as typeof import("../Render/rouletteCanvas");
-    const rendered = await runEconomyRender(() =>
+    const rendered: any = await runEconomyRender(() =>
       renderRouletteCanvas({
       bet: session.bet,
       playerChoice: session.choice,

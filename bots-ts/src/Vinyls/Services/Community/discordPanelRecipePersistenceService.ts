@@ -153,7 +153,7 @@ async function persistDiscordPanelRecipes(extra: Record<string, any> = {}) {
     return { ...prev, skipped: true, unchanged: true };
   }
 
-  const payload = {
+  const payload: Record<string, any> = {
     ...nextCore,
     updatedAt: new Date(),
     ...extra,

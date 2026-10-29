@@ -231,7 +231,7 @@ async function handleSiteNotificationsPushSubscribePost(client?, req?, res?) {
     }
     const body = req.body && typeof req.body === "object" ? req.body : {};
     const subscription = body.subscription && typeof body.subscription === "object" ? body.subscription : body;
-    const saved = await upsertWebPushSubscription(resolved.userId, subscription, {
+    const saved: any = await upsertWebPushSubscription(resolved.userId, subscription, {
       userAgent: String(body.userAgent || req.headers["user-agent"] || "").trim(),
       deviceClass: String(body.deviceClass || body.clientDevice || "").trim(),
       /* pushApplePhonePrefer1 */

@@ -1,6 +1,6 @@
 "use strict";
 
-const axios = require("axios") as typeof import("axios");
+const axios = require("axios") as typeof import("axios").default;
 const {
   ActivityUserProfile,
   UserFullDiscordStateHistory,

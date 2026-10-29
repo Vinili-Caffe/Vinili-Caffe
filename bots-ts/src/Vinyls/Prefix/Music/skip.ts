@@ -8,7 +8,7 @@ export = {
   usage: "+skip",
   examples: ["+skip"],
   async execute(message?) {
-    const result = await skipGuild(message);
+    const result: any = await skipGuild(message);
     if (result.ok && typeof result.embedDescription === "string" && result.embedDescription.trim()) {
       const embed = new EmbedBuilder()
         .setColor(0x2ecc71)

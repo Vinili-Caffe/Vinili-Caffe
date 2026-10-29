@@ -102,7 +102,7 @@ function buildServerLoadingPayload(safeLookback?, authorId?) {
 }
 
 function normalizeServerMessageEdit(payload?, allowedMentions = null) {
-  const out = {
+  const out: Record<string, any> = {
     content: payload?.content != null ? String(payload.content) : "",
     embeds: Array.isArray(payload?.embeds) ? payload.embeds : [],
     files: payload?.files || [],

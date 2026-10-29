@@ -148,7 +148,7 @@ export = {
       const cover = scheduledEvent.coverImageURL?.({ size: 1024 });
       if (cover) embed.setImage(cover);
 
-      const payload = { embeds: [embed] };
+      const payload: Record<string, any> = { embeds: [embed] };
       if (eventUrl) {
         payload.components = [
           new ActionRowBuilder().addComponents(

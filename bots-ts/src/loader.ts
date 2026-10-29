@@ -354,7 +354,7 @@ function spawnBotProcess(bot?, workingDir?, file?, resolve?) {
     }
     console.log(`[Loader] Runtime ${bot.label}: ${nodeBin} (loader execPath: ${process.execPath})`);
     const nodeArgs = process.env.SHOW_NODE_WARNINGS === '1' ? [scriptPath] : ['--disable-warning=ExperimentalWarning', scriptPath];
-    const spawnEnv = { ...silencedEnv, RUN_UNDER_LOADER: '1', ...shardEnv };
+    const spawnEnv: Record<string, any> = { ...silencedEnv, RUN_UNDER_LOADER: '1', ...shardEnv };
     if (nodePath) spawnEnv.NODE_PATH = nodePath;
     const proc=child_process.spawn(nodeBin,nodeArgs,{cwd:workingDir,stdio:'inherit',env:spawnEnv,shell:false});
 

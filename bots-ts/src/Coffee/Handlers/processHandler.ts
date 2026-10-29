@@ -29,7 +29,7 @@ export = function installProcessHandlers() {
     void exitAfterFlush("SIGTERM");
   });
 
-  process.on("unhandledRejection", (err?) => {
+  process.on("unhandledRejection", (err?: any) => {
     if (isVoiceTransportError(err)) {
       global.logger?.warn?.("[PROCESS] Voice transport (recovered): " + (err?.message || err));
       return;

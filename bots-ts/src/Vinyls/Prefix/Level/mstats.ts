@@ -47,7 +47,7 @@ export = {
       bestStreak = Number(cached.doc?.profile?.totals?.exp?.minigame?.bestStreak ?? 0);
     } else {
       try {
-        const doc = await ActivityUserProfile.findOne({ guildId: message.guild.id, userId: targetUser.id })
+        const doc: any = await ActivityUserProfile.findOne({ guildId: message.guild.id, userId: targetUser.id })
           .select("profile.totals.exp.minigame")
           .lean();
         totalExp = Number(doc?.profile?.totals?.exp?.minigame?.totalExp || 0);

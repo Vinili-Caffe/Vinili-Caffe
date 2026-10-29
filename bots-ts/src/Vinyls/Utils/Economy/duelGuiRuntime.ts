@@ -245,7 +245,7 @@ async function renderDuelAttachment(client?, guild?, left?, right?, outcome?, me
       image: `attachment://${hit.fileName}`,
     };
   }
-  const rendered = await runEconomyRender(() =>
+  const rendered: any = await runEconomyRender(() =>
     renderDuelCanvas(params, { animating: Boolean(animating) }),
   );
   const fileName = rendered.format === "gif" ? "duel.gif" : "duel.png";

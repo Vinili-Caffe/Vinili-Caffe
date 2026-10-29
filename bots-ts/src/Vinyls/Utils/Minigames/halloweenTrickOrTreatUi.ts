@@ -134,7 +134,7 @@ function buildTrickOrTreatHintEmbed({ remainingMs = 0, claimedCount = 0, jumpUrl
 /** Payload promemoria: embed + bottone link al messaggio col Trick or Treat. */
 function buildTrickOrTreatHintMessage({ remainingMs = 0, claimedCount = 0, jumpUrl = "" } = {}) {
   const link = String(jumpUrl || "").trim();
-  const payload = {
+  const payload: Record<string, any> = {
     embeds: [buildTrickOrTreatHintEmbed({ remainingMs, claimedCount, jumpUrl: link })],
   };
   if (link) {

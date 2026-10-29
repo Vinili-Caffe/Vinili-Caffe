@@ -1916,7 +1916,7 @@ function mountSiteWebhookRoutes(app?, client?, deps?) {
   app.get("/webhooks/site-contest/:eventKey/status", async (req?, res?) => {
     try {
       const accessToken = normalizeHeaderSecret(req.headers.authorization);
-      const out = await getContestStatus(client, { eventKey: req.params.eventKey, accessToken });
+      const out: any = await getContestStatus(client, { eventKey: req.params.eventKey, accessToken });
       return res.status(Number(out.status) || 500).json(out);
     } catch (err) {
       global.logger?.error?.("[WEBHOOK] site-contest status:", err);
@@ -2039,7 +2039,7 @@ function mountSiteWebhookRoutes(app?, client?, deps?) {
         return res.status(401).json({ ok: false, error: "missing_token", message: "Accedi con Discord." });
       }
       const body = req.body && typeof req.body === "object" ? req.body : {};
-      const out = await setSiteContestPublicOpen(client, {
+      const out: any = await setSiteContestPublicOpen(client, {
         eventKey: req.params.eventKey,
         accessToken,
         publicOpen: body.publicOpen !== false && body.open !== false,
@@ -4201,7 +4201,7 @@ function mountSiteWebhookRoutes(app?, client?, deps?) {
           message: "Header Authorization: Bearer <token> richiesto.",
         });
       }
-      const out = await getDashboardTranscriptHtml(
+      const out: any = await getDashboardTranscriptHtml(
         client,
         accessToken,
         req.params?.guildId,

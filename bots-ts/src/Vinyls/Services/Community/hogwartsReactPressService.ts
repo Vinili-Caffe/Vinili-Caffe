@@ -1091,7 +1091,7 @@ async function countChatMessagesSince(client?, channelId?, sinceMs?, minRequired
   let beforeId = undefined;
   const maxPages = 6;
   for (let page = 0; page < maxPages; page += 1) {
-    const opts = { limit: 100 };
+    const opts: Record<string, any> = { limit: 100 };
     if (beforeId) opts.before = beforeId;
     const batch = await channel.messages.fetch(opts).catch(() => null);
     if (!batch?.size) break;

@@ -316,7 +316,7 @@ async function finalizeManualPartnership(message?, managerId?, inviteMeta?, _opt
     staffPartnerActions: s.partnerActions || [],
     pingPlan,
   });
-  const thankYouPayload = { embeds: [thankYouEmbed] };
+  const thankYouPayload: Record<string, any> = { embeds: [thankYouEmbed] };
   if (aboveEmbedContent) {
     thankYouPayload.content = aboveEmbedContent;
     thankYouPayload.allowedMentions = buildPartnershipPublishAllowedMentions(

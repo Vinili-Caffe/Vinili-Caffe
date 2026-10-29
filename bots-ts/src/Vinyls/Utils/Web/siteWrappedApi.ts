@@ -399,7 +399,7 @@ async function getSiteWrapped(client?, payload?) {
     .filter((e?) => e.count > 0)
     .sort((a?, b?) => b.count - a.count)[0] || null;
 
-  const stats = ranks?.stats || {};
+  const stats: any = ranks?.stats || {};
   const level = nInt(stats.level);
   const totalExp = nInt(stats.totalExp);
   const weeklyExp = nInt(stats.weeklyExp);

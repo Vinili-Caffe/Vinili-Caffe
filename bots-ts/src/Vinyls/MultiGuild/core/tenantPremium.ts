@@ -203,7 +203,7 @@ async function setTenantPremium(guildId?, patch: Record<string, any> = {}) {
 }
 
 async function grantTenantPremium(guildId?, opts: Record<string, any> = {}) {
-  const patch = {
+  const patch: Record<string, any> = {
     active: true,
     plan: opts.plan || "premium",
     source: opts.source || "manual",

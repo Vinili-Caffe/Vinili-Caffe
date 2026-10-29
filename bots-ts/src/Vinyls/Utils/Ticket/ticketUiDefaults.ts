@@ -99,7 +99,7 @@ function isDefaultWelcomeDescription(text?) {
 function resolveTicketBotLanguage(guildId?, guild = null) {
   try {
     const { getTicketSettingsSync } = require("../../MultiGuild/core/tenantTicketSettings") as typeof import("../../MultiGuild/core/tenantTicketSettings");
-    const settings = getTicketSettingsSync(guildId) || {};
+    const settings: any = getTicketSettingsSync(guildId) || {};
     const raw = String(settings.language || settings.lang || "server").trim().toLowerCase();
     if (raw && raw !== "server") {
       return normalizeTenantLanguage(raw);

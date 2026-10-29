@@ -221,7 +221,7 @@ function resolveSchedulerGuildId(client?) {
 }
 
 function resolveSchedulerDedupeKey(client?) {
-  const eventCfg = resolveHogwartsEventConfig(client);
+  const eventCfg: any = resolveHogwartsEventConfig(client);
   const fromEvent = String(eventCfg?.dedupeKey || eventCfg?.eventKey || "").trim();
   return fromEvent || "default";
 }

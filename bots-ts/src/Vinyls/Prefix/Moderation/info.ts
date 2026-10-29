@@ -182,7 +182,7 @@ export = {
       return strikeEmbed;
     };
 
-    const payload={embeds:[buildPageEmbed(0)],allowedMentions:{repliedUser:false,users:[]},};
+    const payload: Record<string, any>={embeds:[buildPageEmbed(0)],allowedMentions:{repliedUser:false,users:[]},};
 
     if (totalPages > 1) {
       payload.components = [buildStrikeButtons(message.author.id, member.id, 0, totalPages)];

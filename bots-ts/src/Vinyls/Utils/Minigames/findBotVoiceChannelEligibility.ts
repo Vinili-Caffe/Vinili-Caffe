@@ -1,4 +1,4 @@
-const IDs = require("../Config/ids") as typeof import("../Config/ids");
+const IDs: any = require("../Config/ids") as typeof import("../Config/ids");
 const {
   isPublicVoiceHubId,
   isSpawnedHubChannel,

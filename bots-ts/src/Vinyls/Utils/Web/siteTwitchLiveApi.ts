@@ -164,13 +164,13 @@ async function helixGet(clientId?, accessToken?, path?, query?) {
 }
 
 async function fetchUserIdByLogin(clientId?, accessToken?, login?) {
-  const data = await helixGet(clientId, accessToken, "users", { login });
+  const data: any = await helixGet(clientId, accessToken, "users", { login });
   const row = Array.isArray(data?.data) ? data.data[0] : null;
   return String(row?.id || "").trim() || null;
 }
 
 async function fetchLatestVod(clientId?, accessToken?, userId?) {
-  const data = await helixGet(clientId, accessToken, "videos", {
+  const data: any = await helixGet(clientId, accessToken, "videos", {
     user_id: userId,
     type: "archive",
     first: "1",

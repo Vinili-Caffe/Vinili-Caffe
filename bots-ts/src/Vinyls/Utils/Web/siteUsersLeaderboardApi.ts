@@ -72,7 +72,7 @@ function stripDataUrl(value?) {
 }
 
 function siteSafeRankCard(doc?) {
-  const theme = getRankCardThemeFromDoc(doc) || {};
+  const theme: any = getRankCardThemeFromDoc(doc) || {};
   return {
     ...theme,
     wallpaperUrl: stripDataUrl(theme.wallpaperUrl),
@@ -892,7 +892,7 @@ async function buildCustomProfileData(guild?, userId?, opts?) {
     secondaryRole?.id || doc.secondaryRoleId,
   ]);
 
-  let roleMembers = role?.members ? Array.from(role.members.values()).filter((m?) => !m.user?.bot) : [];
+  let roleMembers = role?.members ? Array.from(role.members.values()).filter((m?: any) => !m.user?.bot) : [];
   if (role && roleMembers.length === 0) {
         const ownerMember =
       guild.members.cache.get(ownerSid) ||
@@ -907,7 +907,7 @@ async function buildCustomProfileData(guild?, userId?, opts?) {
     if (snap?.byRole && role?.id) {
       const ids = snap.byRole.get(String(role.id)) || [];
       if (Array.isArray(ids) && ids.length) {
-        const have = new Set(roleMembers.map((m?) => String(m.id)));
+        const have = new Set(roleMembers.map((m?: any) => String(m.id)));
         const missing = ids.filter((id?) => id && !have.has(String(id))).slice(0, lite ? 12 : 40);
         for (const id of missing) {
           const m = guild.members.cache.get(String(id));
@@ -924,7 +924,7 @@ async function buildCustomProfileData(guild?, userId?, opts?) {
               m &&
               !m.user?.bot &&
               m.roles?.cache?.has?.(role.id) &&
-              !roleMembers.some((x?) => String(x.id) === String(id))
+              !roleMembers.some((x?: any) => String(x.id) === String(id))
             ) {
               roleMembers.push(m);
             }
@@ -947,7 +947,7 @@ async function buildCustomProfileData(guild?, userId?, opts?) {
     return String(a.displayName || a.username || "").localeCompare(String(b.displayName || b.username || ""), "it");
   };
   const roleSharedMembers = roleMembers
-    .map((member?) => mapSharedMember(member, String(member.id || member.user?.id || "") === ownerSid))
+    .map((member?: any) => mapSharedMember(member, String(member.id || member.user?.id || "") === ownerSid))
     .filter((member?) => member.id)
     .sort(sortSharedMembers)
     .slice(0, 60);
@@ -982,7 +982,7 @@ async function buildCustomProfileData(guild?, userId?, opts?) {
   } catch {
       }
   let secondaryRoleMembers = secondaryRole?.members
-    ? Array.from(secondaryRole.members.values()).filter((m?) => !m.user?.bot)
+    ? Array.from(secondaryRole.members.values()).filter((m?: any) => !m.user?.bot)
     : [];
   if (secondaryRole && secondaryRoleMembers.length === 0) {
     const ownerMember =
@@ -998,7 +998,7 @@ async function buildCustomProfileData(guild?, userId?, opts?) {
     if (snap?.byRole && secondaryRole?.id) {
       const ids = snap.byRole.get(String(secondaryRole.id)) || [];
       if (Array.isArray(ids) && ids.length) {
-        const have = new Set(secondaryRoleMembers.map((m?) => String(m.id)));
+        const have = new Set(secondaryRoleMembers.map((m?: any) => String(m.id)));
         const missing = ids.filter((id?) => id && !have.has(String(id))).slice(0, lite ? 12 : 40);
         for (const id of missing) {
           const m = guild.members.cache.get(String(id));
@@ -1015,7 +1015,7 @@ async function buildCustomProfileData(guild?, userId?, opts?) {
               m &&
               !m.user?.bot &&
               m.roles?.cache?.has?.(secondaryRole.id) &&
-              !secondaryRoleMembers.some((x?) => String(x.id) === String(id))
+              !secondaryRoleMembers.some((x?: any) => String(x.id) === String(id))
             ) {
               secondaryRoleMembers.push(m);
             }
@@ -1026,7 +1026,7 @@ async function buildCustomProfileData(guild?, userId?, opts?) {
   } catch {
       }
   const secondaryRoleSharedMembers = secondaryRoleMembers
-    .map((member?) => mapSharedMember(member, String(member.id || member.user?.id || "") === ownerSid))
+    .map((member?: any) => mapSharedMember(member, String(member.id || member.user?.id || "") === ownerSid))
     .filter((member?) => member.id)
     .sort(sortSharedMembers)
     .slice(0, 60);
@@ -1921,7 +1921,7 @@ async function handleSiteUsersLeaderboardGet(client?, req?, res?) {
       }
       if (profileMeta.hit && profileMeta.stale) {
         startCacheBuild(profileCacheKey, async () => {
-          const rebuilt = await buildProfileSearchPayload(client, guildId, searchId);
+          const rebuilt: any = await buildProfileSearchPayload(client, guildId, searchId);
           const memberResolved = Boolean(rebuilt && rebuilt._memberResolved);
           if (rebuilt && Object.prototype.hasOwnProperty.call(rebuilt, "_memberResolved")) {
             delete rebuilt._memberResolved;
@@ -1941,7 +1941,7 @@ async function handleSiteUsersLeaderboardGet(client?, req?, res?) {
           "X-VC-Users-Stale": "1",
         });
       }
-      const payload = await buildProfileSearchPayload(client, guildId, searchId);
+      const payload: any = await buildProfileSearchPayload(client, guildId, searchId);
       const memberResolved = Boolean(payload && payload._memberResolved);
       if (payload && Object.prototype.hasOwnProperty.call(payload, "_memberResolved")) {
         delete payload._memberResolved;
@@ -2073,7 +2073,7 @@ async function handleSiteUsersLeaderboardGet(client?, req?, res?) {
         guild && searchId ? await getResolvedWeeklyExpMultiplier(guild, searchId, guildExpSettings).catch(() => null) : null;
       const weeklyEffectiveMultiplier = board === "weekly" ? expMultiplierResolved : null;
       const row = await buildRowFromDoc(client, guild, board, doc, searchRank, pageMaxSecondary, globalExpMultiplier, overrides, weeklyEffectiveMultiplier);
-      const stats = buildSearchStats(guild, board, doc, row.username, globalExpMultiplier, hourlySingular, null, membersApprox);
+      const stats: any = buildSearchStats(guild, board, doc, row.username, globalExpMultiplier, hourlySingular, null, membersApprox);
       const member =
         guild?.members?.cache?.get?.(searchId) || (guild ? await guild.members.fetch({ user: searchId, force: true }).catch(() => null) : null);
       const profileAvatarUrl =

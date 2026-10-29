@@ -644,7 +644,7 @@ async function handleSiteConfessionaleDeletePost(client?, req?, res?) {
     }
 
     const viewerId = memberUserId(auth.member);
-    const existing = await SiteDocument.findOne({
+    const existing: any = await SiteDocument.findOne({
       _id: id,
       docType: DOC,
     })

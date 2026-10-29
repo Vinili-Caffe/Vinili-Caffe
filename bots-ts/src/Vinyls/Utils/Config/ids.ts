@@ -1,8 +1,8 @@
 const path = require("path") as typeof import("path");
 const catalog = require("./idsCatalog") as typeof import("./idsCatalog");
-const maps = catalog.maps || {};
+const maps: any = catalog.maps || {};
 const multi = catalog.multi || {};
-const meta = catalog.meta || {};
+const meta: any = catalog.meta || {};
 
 function toNameIdLines(entries?) {
   return (Array.isArray(entries) ? entries : [])
@@ -47,7 +47,7 @@ const fullCatalog = {
     : [],
 };
 
-const ids = {
+const ids: Record<string, any> = {
   guilds: {
     main: "1329080093599076474",
     test: "1462458562507964584",

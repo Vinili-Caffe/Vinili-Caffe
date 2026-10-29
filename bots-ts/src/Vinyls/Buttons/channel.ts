@@ -51,7 +51,7 @@ async function execute(interaction?) {
 
   try {
     await interaction.deferUpdate().catch(() => {});
-    const payload = await buildChannelOverviewPayload(guild, channel, lookbackDays, view, parsed.ownerId || interaction.user?.id);
+    const payload: any = await buildChannelOverviewPayload(guild, channel, lookbackDays, view, parsed.ownerId || interaction.user?.id);
     const msg = interaction.message;
     if (!msg?.edit) {
       await sendControlErrorFallback(interaction);

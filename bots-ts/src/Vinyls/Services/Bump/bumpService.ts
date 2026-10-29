@@ -1228,7 +1228,7 @@ async function recordDiscadiaVote(client?, guildId?, userId?, options: Record<st
   const shouldSnapshotPreviousMonth =
     monthChanged && hasAnyCounter && previousMonthKey && previousMonthKey !== currentMonthKey;
 
-  const update = {
+  const update: Record<string, any> = {
     $setOnInsert: { guildId: IDs.guilds.main, userId },
     $set: {
       [DISCADIA_LAST_VOTE_AT_PATH]: now,

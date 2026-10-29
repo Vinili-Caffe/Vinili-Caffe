@@ -289,7 +289,7 @@ async function handleHogwartsSortingEligibility(client?, req?, res?) {
         message: "Header Authorization: Bearer <token> richiesto.",
       });
     }
-    const resolved = await resolveWebsiteCandidatureMember(client, accessToken);
+    const resolved: any = await resolveWebsiteCandidatureMember(client, accessToken);
     if (!resolved.ok) {
       return res.status(Number(resolved.status) || 500).json(resolved);
     }
@@ -363,7 +363,7 @@ async function handleHogwartsSortingSubmit(client?, req?, res?) {
       });
     }
 
-    const resolved = await resolveWebsiteCandidatureMember(client, accessToken);
+    const resolved: any = await resolveWebsiteCandidatureMember(client, accessToken);
     if (!resolved.ok) {
       return res.status(Number(resolved.status) || 500).json(resolved);
     }
@@ -471,12 +471,12 @@ async function handleHogwartsGringottGet(client?, req?, res?) {
         message: "Header Authorization: Bearer <token> richiesto.",
       });
     }
-    const resolved = await resolveWebsiteCandidatureMember(client, accessToken);
+    const resolved: any = await resolveWebsiteCandidatureMember(client, accessToken);
     if (!resolved.ok) {
       return res.status(Number(resolved.status) || 500).json(resolved);
     }
     const cfg = resolveHogwartsEventConfig(client);
-    const gate = await gateHogwartsHubParticipation(client, resolved, cfg);
+    const gate: any = await gateHogwartsHubParticipation(client, resolved, cfg);
     if (!gate.ok) return res.status(gate.status || 403).json(gate);
     const existing = await findExistingSort(resolved.guild.id, resolved.userId, cfg.eventKey, {
       member: resolved.member,
@@ -539,7 +539,7 @@ async function resolveShopParticipant(client?, req?) {
   if (!accessToken) {
     return { ok: false, status: 401, error: "missing_token", message: "Header Authorization: Bearer <token> richiesto." };
   }
-  const resolved = await resolveWebsiteCandidatureMember(client, accessToken);
+  const resolved: any = await resolveWebsiteCandidatureMember(client, accessToken);
   if (!resolved.ok) return { ok: false, status: Number(resolved.status) || 500, ...resolved };
   const cfg = resolveHogwartsEventConfig(client);
   const gate = await gateHogwartsHubParticipation(client, resolved, cfg);
@@ -561,7 +561,7 @@ async function resolveShopParticipant(client?, req?) {
 
 async function handleHogwartsShopGet(client?, req?, res?) {
   try {
-    const participant = await resolveShopParticipant(client, req);
+    const participant: any = await resolveShopParticipant(client, req);
     if (!participant.ok) return res.status(participant.status || 500).json(participant);
     const { resolved, cfg, houseId, houseMeta, previewViewer } = participant;
     const state = await getShopProfileState(resolved.guild.id, resolved.userId, cfg.eventKey);
@@ -603,7 +603,7 @@ async function handleHogwartsShopGet(client?, req?, res?) {
 async function handleHogwartsShopPurchasePost(client?, req?, res?) {
   setHogwartsMutationNoStore(res);
   try {
-    const participant = await resolveShopParticipant(client, req);
+    const participant: any = await resolveShopParticipant(client, req);
     if (!participant.ok) return res.status(participant.status || 500).json(participant);
   if (participant.previewViewer) {
       return res.status(403).json({
@@ -884,7 +884,7 @@ function publicPotionsState(raw?, potionsCfg?) {
 async function resolvePotionsParticipant(client?, req?) {
   const accessToken = normalizeHeaderSecret(req.headers.authorization);
   if (!accessToken) return { ok: false, status: 401, error: "missing_token", message: "Header Authorization: Bearer <token> richiesto." };
-  const resolved = await resolveWebsiteCandidatureMember(client, accessToken);
+  const resolved: any = await resolveWebsiteCandidatureMember(client, accessToken);
   if (!resolved.ok) return { ok: false, status: Number(resolved.status) || 500, ...resolved };
   const cfg = resolveHogwartsEventConfig(client);
   const potionsCfg = resolvePotionsConfig(client);
@@ -1097,7 +1097,7 @@ async function awardPotionsHousePoints(client?, guildId?, userId?, houseId?, eve
 
 async function handleHogwartsPotionsGet(client?, req?, res?) {
   try {
-    const participant = await resolvePotionsParticipant(client, req);
+    const participant: any = await resolvePotionsParticipant(client, req);
     if (!participant.ok) return res.status(participant.status || 500).json(participant);
     const { resolved, cfg, potionsCfg, houseId, houseMeta, previewViewer } = participant;
     const previewRound = previewViewer ? buildPotionsRound(makePotionPreviewRoundKey(resolved.userId), potionsCfg.roundSize) : null;
@@ -1143,7 +1143,7 @@ async function handleHogwartsPotionsGet(client?, req?, res?) {
 async function handleHogwartsPotionsPost(client?, req?, res?) {
   setHogwartsMutationNoStore(res);
   try {
-    const participant = await resolvePotionsParticipant(client, req);
+    const participant: any = await resolvePotionsParticipant(client, req);
     if (!participant.ok) return res.status(participant.status || 500).json(participant);
     const { resolved, cfg, potionsCfg, houseId, houseMeta, previewViewer } = participant;
     const body = req.body && typeof req.body === "object" ? req.body : {};
@@ -1360,7 +1360,7 @@ async function handleHogwartsHousePointsGet(client?, req?, res?) {
       if (!accessToken) {
         return res.status(401).json({ ok: false, error: "missing_token", message: "Header Authorization: Bearer <token> richiesto." });
       }
-      const resolved = await resolveWebsiteCandidatureMember(client, accessToken);
+      const resolved: any = await resolveWebsiteCandidatureMember(client, accessToken);
       if (!resolved.ok) return res.status(Number(resolved.status) || 403).json({ ok: false, error: resolved.error, message: resolved.message });
       if (!hasHogwartsSortingPreviewAccess(cfg, resolved.member, resolved.userId)) {
         return res.status(403).json({ ok: false, error: "forbidden", message: "In anteprima questa pagina è riservata all'High Staff del server." });
@@ -1386,7 +1386,7 @@ async function handleHogwartsHousePointsGet(client?, req?, res?) {
 async function resolveForbiddenBookParticipant(client?, req?, options: Record<string, any> = {}) {
   const accessToken = normalizeHeaderSecret(req.headers.authorization);
   if (!accessToken) return { ok: false, status: 401, error: "missing_token", message: "Accedi con Discord per raccogliere i libri proibiti." };
-  const resolved = await resolveWebsiteCandidatureMember(client, accessToken);
+  const resolved: any = await resolveWebsiteCandidatureMember(client, accessToken);
   if (!resolved.ok) return { ...resolved, status: Number(resolved.status) || 500 };
   const cfg = resolveHogwartsEventConfig(client);
   const previewViewer = canPreviewForbiddenBooks(client, resolved.member, resolved.userId);
@@ -1483,7 +1483,7 @@ async function handleHogwartsForbiddenBooksPublicStatus(client?, req?, res?) {
 
 async function handleHogwartsForbiddenBooksGet(client?, req?, res?) {
   try {
-    const participant = await resolveForbiddenBookParticipant(client, req, { allowPreviewViewer: true });
+    const participant: any = await resolveForbiddenBookParticipant(client, req, { allowPreviewViewer: true });
     if (!participant.ok) return res.status(participant.status || 500).json(participant);
     const { resolved, dedupeKey, runtime } = participant;
     const progressOpts = {
@@ -1516,7 +1516,7 @@ async function handleHogwartsForbiddenBooksGet(client?, req?, res?) {
 async function handleHogwartsForbiddenBooksClaim(client?, req?, res?) {
   setHogwartsMutationNoStore(res);
   try {
-    const participant = await resolveForbiddenBookParticipant(client, req, { allowPreviewViewer: true });
+    const participant: any = await resolveForbiddenBookParticipant(client, req, { allowPreviewViewer: true });
     if (!participant.ok) return res.status(participant.status || 500).json(participant);
     const bookIds = Array.isArray(participant.bookIds) ? participant.bookIds : [];
     const bookId = normalizeForbiddenBookId(req.body?.bookId, bookIds);
@@ -1634,7 +1634,7 @@ async function handleHogwartsSortingAccessGet(client?, req?, res?) {
       });
     }
 
-    const resolved = await resolveWebsiteCandidatureMember(client, accessToken);
+    const resolved: any = await resolveWebsiteCandidatureMember(client, accessToken);
     if (!resolved.ok) {
       return res.status(Number(resolved.status) || 403).json({
         ok: false,

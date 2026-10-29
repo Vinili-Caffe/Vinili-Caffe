@@ -264,7 +264,7 @@ async function releaseWelcomeGreetingExpClaim(guildId?, welcomerUserId?, joinTar
 
 async function tryAwardWelcomeGreetingExpOnce(message?, options: Record<string, any> = {}) {
   const source = String(options.source || "unknown");
-  const logCtx = {
+  const logCtx: Record<string, any> = {
     source,
     guildId: String(message.guild?.id || ""),
     channelId: String(message.channelId || ""),

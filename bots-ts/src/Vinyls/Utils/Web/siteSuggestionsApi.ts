@@ -326,8 +326,8 @@ async function getHighStaffUserIds(guild?) {
   const role = guild.roles.cache.get(HIGH_STAFF_ROLE_ID) || (await guild.roles.fetch(HIGH_STAFF_ROLE_ID).catch(() => null));
   const userIds = role
     ? Array.from(role.members.values())
-        .filter((member?) => member && !member.user?.bot)
-        .map((member?) => String(member.id))
+        .filter((member?: any) => member && !member.user?.bot)
+        .map((member?: any) => String(member.id))
     : [];
   highStaffCache = { guildId, expiresAt: Date.now() + HIGH_STAFF_CACHE_TTL_MS, userIds };
   return userIds;
@@ -402,7 +402,7 @@ async function notifySuggestionAuthor(guildId?, authorUserId?, payload?) {
   const gid = String(guildId || "").trim();
   const aid = String(authorUserId || "").trim();
   if (!gid || !aid) return;
-  const opts = {
+  const opts: Record<string, any> = {
     guildId: gid,
     userId: aid,
     title: String(payload.title || "").trim().slice(0, 120),
@@ -798,7 +798,7 @@ async function addSiteSuggestionComment(client?, payload: Record<string, any> = 
     parentOid = new mongoose.Types.ObjectId(rootParentId);
   }
 
-  const comment = {
+  const comment: Record<string, any> = {
     userId: resolved.userId,
     authorName: displayNameForMember(resolved.member),
     authorAvatarUrl:
@@ -1173,7 +1173,7 @@ async function staffSetSiteSuggestionDecision(client?, payload: Record<string, a
     if (denied) return denied;
   }
 
-  const set = { status: nextStatus, updatedAt: new Date() };
+  const set: Record<string, any> = { status: nextStatus, updatedAt: new Date() };
   if (nextStatus === "pending") {
     set.staffReason = "";
     set.staffUserId = "";
@@ -1314,7 +1314,7 @@ async function updateOwnSiteSuggestion(client?, payload: Record<string, any> = {
   const tagCheck = validateSuggestionTopicTag(payload.tag != null ? payload.tag : payload.topic, kind);
   if (!tagCheck.ok) return tagCheck;
 
-  const $set = { content, updatedAt: new Date(), topicTag: tagCheck.tag };
+  const $set: Record<string, any> = { content, updatedAt: new Date(), topicTag: tagCheck.tag };
   if (kindRaw) $set.feedbackKind = kindRaw;
 
   const updated = await SiteDocument.findOneAndUpdate(
@@ -1617,7 +1617,7 @@ async function serveSiteSuggestionFile(client?, req?, res?) {
       });
       return;
     }
-    const doc = await SiteDocument.findOne({
+    const doc: any = await SiteDocument.findOne({
       docType: SG,
       _id: suggestionId,
       guildId: resolved.guild.id,

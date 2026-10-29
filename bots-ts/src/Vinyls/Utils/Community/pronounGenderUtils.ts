@@ -20,7 +20,7 @@ const PRONOUN_X_SUFFIX_EXCLUDE = new Set([
 function resolveMemberPronounGender(member?) {
   const cache = member?.roles?.cache;
   if (!cache) return "u";
-  const roles = IDs.roles || {};
+  const roles: any = IDs.roles || {};
   const has = (id?) => {
     const s = String(id || "").trim();
     if (!s) return false;

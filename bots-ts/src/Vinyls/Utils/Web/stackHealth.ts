@@ -85,7 +85,7 @@ async function probeCoffeeHealth(timeoutMs = 1500) {
       signal: ctrl?.signal,
       cache: "no-store",
     });
-    const json = await res.json().catch(() => ({}));
+    const json: any = await res.json().catch(() => ({}));
     const ok = Boolean(res.ok && (json?.ok === true || json?.status === "online"));
     return {
       ok,

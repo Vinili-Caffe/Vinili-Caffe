@@ -148,7 +148,7 @@ function deepMergeChrome(base?, patch?) {
   const rawPatch = patch && typeof patch === "object" ? patch : {};
   const a = sanitizeChromePrefs(base);
   const b = sanitizeChromePrefs(patch);
-  const out = { ...a, ...b, updatedAt: Math.max(Number(a.updatedAt) || 0, Number(b.updatedAt) || 0, Date.now()) };
+  const out: Record<string, any> = { ...a, ...b, updatedAt: Math.max(Number(a.updatedAt) || 0, Number(b.updatedAt) || 0, Date.now()) };
   if (a.hogwartsBgm || b.hogwartsBgm) out.hogwartsBgm = { ...(a.hogwartsBgm || {}), ...(b.hogwartsBgm || {}) };
   if (a.seratafilmBgm || b.seratafilmBgm) out.seratafilmBgm = { ...(a.seratafilmBgm || {}), ...(b.seratafilmBgm || {}) };
   if (a.eventoBgm || b.eventoBgm) {

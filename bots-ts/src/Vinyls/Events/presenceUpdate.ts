@@ -647,7 +647,7 @@ async function clearPersistedStatus(guildId?, userId?) {
 async function getPersistedStatus(guildId?, userId?) {
   if (!isDbReady() || !guildId || !userId) return null;
   try {
-    const doc = await ActivityUserProfile.findOne({ guildId, userId })
+    const doc: any = await ActivityUserProfile.findOne({ guildId, userId })
       .select("profile.supporterStatus")
       .lean();
     if (!doc?.profile?.supporterStatus) return null;

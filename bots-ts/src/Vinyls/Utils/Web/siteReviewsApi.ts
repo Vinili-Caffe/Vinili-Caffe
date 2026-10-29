@@ -223,8 +223,8 @@ async function getHighStaffUserIds(guild?) {
   const role = guild.roles.cache.get(HIGH_STAFF_ROLE_ID) || (await guild.roles.fetch(HIGH_STAFF_ROLE_ID).catch(() => null));
   const userIds = role
     ? Array.from(role.members.values())
-        .filter((member?) => member && !member.user?.bot)
-        .map((member?) => String(member.id))
+        .filter((member?: any) => member && !member.user?.bot)
+        .map((member?: any) => String(member.id))
     : [];
   highStaffCache = { guildId, expiresAt: Date.now() + STAFF_CACHE_TTL_MS, userIds };
   return userIds;
@@ -427,7 +427,7 @@ function sortSerializedReviewsNewestFirst(list?) {
 }
 
 function enrichServerReviewDoc(doc?, staffMap?, viewerUserId?) {
-  const base = serializeReview(doc, staffMap);
+  const base: any = serializeReview(doc, staffMap);
   const likes = Array.isArray(doc.likedUserIds) ? doc.likedUserIds.map((x?) => String(x)) : [];
   base.likeCount = likes.length;
   base.likedByViewer = Boolean(viewerUserId && likes.includes(String(viewerUserId)));
@@ -774,7 +774,7 @@ async function submitSiteReview(client?, payload: Record<string, any> = {}) {
   };
   const existing = await SiteDocument.findOne(query).lean().catch(() => null);
 
-  const $set = {
+  const $set: Record<string, any> = {
     rating,
     content,
     authorName: displayNameForMember(resolved.member),

@@ -9,7 +9,7 @@ export = {
   usage: "+previous",
   examples: ["+previous"],
   async execute(message?) {
-    const result = await previousGuildTrack(message);
+    const result: any = await previousGuildTrack(message);
     const spotifyEmoji = "<:VC_Spotify:1482527369477492797>";
     const embedDescRaw =
       typeof result.embedDescription === "string" && result.embedDescription.trim()

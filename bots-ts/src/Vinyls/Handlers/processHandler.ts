@@ -48,7 +48,7 @@ export = () => {
     void exitAfterFlush("SIGTERM");
   });
 
-  process.on("unhandledRejection", (err?) => {
+  process.on("unhandledRejection", (err?: any) => {
     if (isVoiceTransportError(err)) {
       logs.warn(`[PROCESS] Voice transport (recovered): ${err?.message || err}`);
       return;

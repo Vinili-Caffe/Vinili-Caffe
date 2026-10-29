@@ -605,7 +605,7 @@ async function purgeDuplicateCompitoSettimanaleValutazioni(client?, opts: Record
   for (const doc of docs) dbUserIds.add(String(doc.userId || ""));
 
   const actor = { user: client.user || { username: "Automazione Staff" }, member: null };
-  const summary = {
+  const summary: Record<string, any> = {
     ok: true,
     dryRun,
     scanned: docs.length,

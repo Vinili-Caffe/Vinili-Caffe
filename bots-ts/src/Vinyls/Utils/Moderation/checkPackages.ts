@@ -152,7 +152,7 @@ async function checkAndInstallPackages(
     }
     const packageJson = JSON.parse(await fs.readFile("package.json", "utf8"));
     const installedPackages = new Set([...Object.keys(packageJson.dependencies || {}), ...Object.keys(packageJson.devDependencies || {}),]);
-    const missingPackages = [...requiredPackages].filter((pkg?) => {
+    const missingPackages = [...requiredPackages].filter((pkg?: any) => {
       if (ignorePackages.includes(pkg)) return false;
       if (installedPackages.has(pkg)) return false;
       try {
