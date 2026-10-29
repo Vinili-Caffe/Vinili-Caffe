@@ -19,7 +19,7 @@ async function reviewPartnerPointReport({
   reviewerUserId,
   pmUserId,
   reporterUserId = null,
-}) {
+}: any) {
   const ref = entryId || message?.id;
   const mongoEntry = await findPmPointsRemovedEntry(guild?.id, ref);
   if (mongoEntry) {

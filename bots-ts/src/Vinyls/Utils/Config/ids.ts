@@ -320,7 +320,6 @@ const ids: Record<string, any> = {
     ReviveVoc: "1544830674848972861",
     /** @deprecated migrato in Events (ruolo Discord eliminato) */
     SerataFilm: "1544830669023346688",
-    Partnership: "1544830657073774717",
     Events: "1544830669023346688",
     HogwartsEventParticipant: "1507000390493798511",
     HogwartsFinaleWinnerBonus: "1544830792168116234",

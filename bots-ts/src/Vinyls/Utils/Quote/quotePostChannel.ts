@@ -30,7 +30,7 @@ function resolveBoardChannelId(guildId?, kind = "quote") {
   const fromTenantSettings = normalizeQuoteChannelId(getTenantChannelMapSync(gid).quotes);
   if (fromTenantSettings) return fromTenantSettings;
   try {
-    const access = resolveGuildAccess(gid);
+    const access: any = resolveGuildAccess(gid);
     return normalizeQuoteChannelId(access?.entry?.channelMap?.quotes);
   } catch {
       }

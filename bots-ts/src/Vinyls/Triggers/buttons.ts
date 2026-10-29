@@ -870,14 +870,14 @@ export = {
         }).catch((err?) => { logButtonErr(err); return null; });
       }
       try {
-        await AvatarPrivacy.findOneAndUpdate(
+        await (AvatarPrivacy.findOneAndUpdate(
           { guildId: interaction.guild.id, userId: targetId },
           {
             $set: { blocked: false },
             $setOnInsert: { guildId: interaction.guild.id, userId: targetId },
           },
           { upsert: true, new: true, setDefaultsOnInsert: true },
-        );
+        ) as any);
       } catch (err) {
         logButtonErr(err, { warn: true });
       }
@@ -904,14 +904,14 @@ export = {
         }).catch((err?) => { logButtonErr(err); return null; });
       }
       try {
-        await BannerPrivacy.findOneAndUpdate(
+        await (BannerPrivacy.findOneAndUpdate(
           { guildId: interaction.guild.id, userId: targetId },
           {
             $set: { blocked: false },
             $setOnInsert: { guildId: interaction.guild.id, userId: targetId },
           },
           { upsert: true, new: true, setDefaultsOnInsert: true },
-        );
+        ) as any);
       } catch (err) {
         logButtonErr(err, { warn: true });
       }

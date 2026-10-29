@@ -147,7 +147,7 @@ async function buildCommandsResponse(client?, accessToken?, guildId?) {
   const applicationId = resolveBotApplicationId(client);
   const botToken = resolveBotToken(client);
   let commands = getTenantCommandAclMapSync(guildId);
-  let discordSync = { ok: true, warning: null };
+  let discordSync: any = { ok: true, warning: null };
 
   const slashKeys = collectSlashKeys(guildId);
   if (slashKeys.length && accessToken && applicationId && botToken) {

@@ -1639,7 +1639,7 @@ async function listListingsUncached(client?, query: Record<string, any> = {}) {
       { content: rx },
     ];
   }
-  let sortSpec = { boardScore: -1, boardBumpedAt: -1, createdAt: -1 };
+  let sortSpec: any = { boardScore: -1, boardBumpedAt: -1, createdAt: -1 };
   if (sort === "new") sortSpec = { createdAt: -1 };
   else if (sort === "bumps") sortSpec = { boardBumpedAt: -1, boardScore: -1 };
   else if (sort === "votes") sortSpec = { boardVotes30d: -1, boardScore: -1 };

@@ -317,7 +317,7 @@ async function saveCountingRow(row?) {
   if ((updated?.matchedCount || 0) > 0) return;
   await coll.updateOne(
     { _counterKey: TICKET_COUNTER_KEY },
-    { $push: { countschemas: ((payload as any) as any) } },
+    ({ $push: { countschemas: (((payload as any) as any) as any) } } as any),
   );
 }
 
@@ -384,7 +384,7 @@ async function bumpGuildPostCounter(guildId?, arrayKey?, seedFn?, retry = true) 
   const next = seed + 1;
   const inserted = await coll.updateOne(
     { _counterKey: TICKET_COUNTER_KEY, [`${arrayKey}.guildId`]: { $ne: g } },
-    { $push: { [arrayKey]: { guildId: g, count: next } } },
+    ({ $push: { [arrayKey]: { guildId: g, count: next } } } as any),
     { maxTimeMS: 12000 },
   );
   if (inserted.modifiedCount > 0) return next;
@@ -462,7 +462,7 @@ async function setGuildPostCounter(guildId?, arrayKey?, count?) {
   if (updated.modifiedCount > 0) return c;
   await coll.updateOne(
     { _counterKey: TICKET_COUNTER_KEY, [`${arrayKey}.guildId`]: { $ne: g } },
-    { $push: { [arrayKey]: { guildId: g, count: c } } },
+    ({ $push: { [arrayKey]: { guildId: g, count: c } } } as any),
     { maxTimeMS: 12000 },
   );
   return c;

@@ -4,7 +4,6 @@ import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from 
 import { usePathname } from "next/navigation";
 import { AnimatePresence, motion, useMotionValueEvent, useScroll } from "motion/react";
 import {
-  Bell,
   BookOpen,
   CalendarDays,
   ChevronDown,
@@ -260,7 +259,7 @@ function canOpenDashBacheca(staff: StaffAccess | null, stickyOk: boolean) {
   return Boolean(staff?.isFounder || staff?.viewAsAllowed);
 }
 
-/** Account solo nel drawer mobile: login / profilo / notif / staff / tema. */
+/** Account solo nel drawer mobile: login / profilo / staff / tema (le notifiche hanno la campanella nella navbar). */
 function MobileDrawerAccount({ onClose }: { onClose: () => void }) {
   const { t } = useI18n();
   const { ready, user, token, login, logout } = useAuth();
@@ -308,12 +307,6 @@ function MobileDrawerAccount({ onClose }: { onClose: () => void }) {
   const eventoOpen = isEventoHighStaff(staff) || isEventoPublicWindowOpen();
   const links = [
     { href: profileHref, label: t("auth.profile"), icon: <UserRound className="size-4" />, locked: false },
-    {
-      href: page("/notifications/"),
-      label: t("notif.title"),
-      icon: <Bell className="size-4" />,
-      locked: false,
-    },
     {
       href: page("/evento/"),
       label: t("nav.evento"),

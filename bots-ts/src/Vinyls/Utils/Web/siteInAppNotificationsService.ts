@@ -1139,7 +1139,7 @@ async function recoverUnreadApplePushHedges(opts: Record<string, any> = {}) {
 
 function fireNotificationPush(
   userId,
-  { title, body, openUrl, kind, id, ticketId, messageId, channel, dedupeKey, ttlSeconds, msgCount },
+  { title, body, openUrl, kind, id, ticketId, messageId, channel, dedupeKey, ttlSeconds, msgCount }: any,
   { push = true } = {},
 ) {
   /* notifPushSync1: invalidate before WS fanout so mode=count on other devices is fresh */

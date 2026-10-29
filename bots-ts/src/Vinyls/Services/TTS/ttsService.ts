@@ -301,7 +301,7 @@ const TTS_ABBREVIATIONS_EN = {
   soz: "sorry", mb: "my bad", fwiw: "for what it's worth", tldr: "too long didn't read",
   imao: "in my arrogant opinion", iirc: "if I remember correctly", amirite: "am I right",
   tfw: "that feeling when", mfw: "my face when", mrw: "my reaction when",
-  op: "original poster", oc: "original content", obv: "obviously", obvs: "obviously",
+  op: "overpowered", oc: "original content", obv: "obviously", obvs: "obviously",
   prob: "probably", probs: "probably", def: "definitely", legit: "legitimately",
   totes: "totally", srsly: "seriously", rly: "really", kinda: "kind of", sorta: "sort of",
   coulda: "could have", woulda: "would have", shoulda: "should have", gotta: "got to",
@@ -323,12 +323,12 @@ const TTS_ABBREVIATIONS_EN = {
   oof: "oof", yolo: "you only live once", fomo: "fear of missing out",
   bae: "babe", bestie: "bestie", poggers: "poggers", kek: "kek",
   rekt: "wrecked", pwnd: "owned", noob: "newbie", newb: "newbie",
-  op: "overpowered", nerf: "nerf", buff: "buff", f2p: "free to play", p2w: "pay to win", grind: "grind", loot: "loot", rng: "random",
+  nerf: "nerf", buff: "buff", f2p: "free to play", p2w: "pay to win", grind: "grind", loot: "loot", rng: "random",
   dps: "damage per second", main: "main", alt: "alt", smurf: "smurf", carry: "carry",
-  tilt: "tilt", tilted: "tilted", toxic: "toxic", ff: "forfeit", inv: "invite",
+  tilt: "tilt", toxic: "toxic", ff: "forfeit", inv: "invite",
   dc: "disconnect", ratio: "ratio", copium: "copium", periodt: "period",
-  slay: "slay", tea: "tea", hc: "headcanon", fic: "fanfiction", fanfic: "fanfiction",
-  collab: "collaboration", colab: "collaboration", promo: "promotion", hmu: "hit me up",
+  tea: "tea", hc: "headcanon", fic: "fanfiction", fanfic: "fanfiction",
+  collab: "collaboration", colab: "collaboration", promo: "promotion",
   o7: "salute", re: "regarding", fwd: "forward", cc: "carbon copy", nm: "never mind",
   qt: "cutie", bby: "baby", bruh: "bruh", fam: "family", homie: "homie", dawg: "dawg",
   peeps: "people", squad: "squad", crew: "crew", lit: "lit", fire: "fire", slaps: "slaps",
@@ -1274,7 +1274,7 @@ async function playNext(state?) {
     fs.writeFileSync(tmpPath, buffer);
     state.currentTtsFile = tmpPath;
     const ffmpegArgs = ["-analyzeduration", "0", "-loglevel", "0", "-i", tmpPath, "-f", "s16le", "-ar", "48000", "-ac", "2",];
-    const transcoder = new prism.FFmpeg({ args: ffmpegArgs, shell: false, command: ffmpegStatic || "ffmpeg", });
+    const transcoder = new prism.FFmpeg(({ args: ffmpegArgs, shell: false, command: ffmpegStatic || "ffmpeg", } as any));
     const resource = createAudioResource(transcoder, { inputType: StreamType.Raw, inlineVolume: false, });
     state.player.play(resource);
   } catch (err) {
@@ -1777,11 +1777,11 @@ async function playOneShotTtsOnConnection(connection?, text?, lang = "it") {
       "-analyzeduration", "0", "-loglevel", "0", "-i", tmpPath,
       "-f", "s16le", "-ar", "48000", "-ac", "2",
     ];
-    const transcoder = new prism.FFmpeg({
+    const transcoder = new prism.FFmpeg(({
       args: ffmpegArgs,
       shell: false,
       command: ffmpegStatic || "ffmpeg",
-    });
+    } as any));
     const resource = createAudioResource(transcoder, {
       inputType: StreamType.Raw,
       inlineVolume: false,

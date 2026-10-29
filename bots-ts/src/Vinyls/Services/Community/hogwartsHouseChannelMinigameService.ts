@@ -565,7 +565,7 @@ function scheduleHouseChannelJob(client?, houseId?, mode?, state?) {
   const existing = state.timers.get(key);
   if (existing) clearTimeout(existing);
   const timer = setTimeout(async () => {
-    let spawnResult = { ok: false, reason: "inactive" };
+    let spawnResult: any = { ok: false, reason: "inactive" };
     try {
       if (isHogwartsEventLiveForHouseChannels(client)) {
         spawnResult = await trySpawnHouseChannelMinigame(client, houseId, mode, state);

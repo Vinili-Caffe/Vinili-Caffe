@@ -586,7 +586,7 @@ function rewriteCustomPrefixAliases(message?, resolvedClient?, defaultPrefix?) {
   return false;
 }
 
-async function handleOfficialPrefixMessage({ message, resolvedClient, defaultPrefix, overrideCommand = null, maybeSendWrongPrefixHint, getCachedOrFetchMember, hasAnyStaffBypassPermission }) {
+async function handleOfficialPrefixMessage({ message, resolvedClient, defaultPrefix, overrideCommand = null, maybeSendWrongPrefixHint, getCachedOrFetchMember, hasAnyStaffBypassPermission }: any) {
   rewriteCustomPrefixAliases(message, resolvedClient, defaultPrefix);
   const isEditedPrefixExecution = Boolean(message?.__fromMessageUpdatePrefix);
   const startsWithDefault = message.content.startsWith(defaultPrefix);

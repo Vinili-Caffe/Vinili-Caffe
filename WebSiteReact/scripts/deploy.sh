@@ -31,6 +31,13 @@ mkdir -p /root/vc_www_bak
 [ -d "$DEST" ] && cp -a "$DEST" "/root/vc_www_bak/${NAME}-$(date +%Y%m%d-%H%M%S)"
 N="$DEST.new"; rm -rf "$N"; mkdir -p "$N"
 tar -xzf /root/vc-react-out.tgz -C "$N"
+# pezzi di codice della versione prima (/_next/static): chi ha il sito già aperto li chiede ancora, senza di loro
+# la pagina va in "This page couldn't load" (ChunkLoadError). Si tengono per 14 giorni, i nuovi vincono.
+if [ -d "$DEST/_next/static" ]; then
+  mkdir -p "$N/_next/static"
+  cp -an "$DEST/_next/static/." "$N/_next/static/"
+  find "$N/_next/static" -type f -mtime +14 -delete
+fi
 chown -R www-data:www-data "$N" 2>/dev/null || true
 rm -rf "$DEST.old"; [ -d "$DEST" ] && mv "$DEST" "$DEST.old"; mv "$N" "$DEST"; rm -rf "$DEST.old"
 ls -1dt /root/vc_www_bak/${NAME}-* 2>/dev/null | tail -n +6 | xargs -r rm -rf

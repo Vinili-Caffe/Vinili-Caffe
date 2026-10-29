@@ -57,9 +57,6 @@ const PREFIX_SUBCOMMAND_HELP_DESCRIPTIONS = {
   "play.shuffle": "Mescola l'ordine dei brani in coda.",
   "play.clear": "Svuota la coda dei brani in attesa.",
   "play.repeat": "Ripetizione traccia, ripetizione della coda, disattiva tutto.",
-  "play.previous": "Torna al brano riprodotto prima di quello attuale.",
-  "play.rewind": "Riporta il brano in riproduzione all'inizio.",
-  "play.restart": "Ricomincia dall'inizio la sequenza del brano in riproduzione + della coda.",
 };
 
 const CONTEXT_HELP_DESCRIPTIONS: Record<string, any> = {};

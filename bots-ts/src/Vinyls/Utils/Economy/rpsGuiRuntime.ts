@@ -395,7 +395,7 @@ async function buildRpsGuiPayload(session?, cfg?, notice = "", disabled = false,
   });
   if (session.mode === "pvp" && session.phase === "pending" && notice) {
     payload.content = String(notice).slice(0, 1800);
-    payload.allowedMentions = {
+    (payload as any).allowedMentions = {
       repliedUser: false,
       users: [String(session.opponentId || "")].filter(Boolean),
     };

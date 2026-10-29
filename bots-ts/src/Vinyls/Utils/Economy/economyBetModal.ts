@@ -116,7 +116,7 @@ async function handleEconomyBetModal({
   onApplied,
   beforeApply = null,
   balance = null,
-}) {
+}: any) {
   if (parsed?.action !== BET_MODAL_ACTION) return false;
   const parsedBet = parseBetAmountInput(interaction, cfg, balance);
   if (!parsedBet.ok) {

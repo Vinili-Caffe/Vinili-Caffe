@@ -2691,13 +2691,13 @@ async function listStaffWorkflowFromDb(client?, guildId?, queue?, opts: Record<s
   let total = 0;
   let aggDocs = null;
   if (skipExactCount) {
-    aggDocs = await SiteDocument.aggregate([{ $match: filter }, ...sortStages])
+    aggDocs = await (SiteDocument.aggregate([{ $match: filter }, ...sortStages]) as any)
       .option({ maxTimeMS: 4000 })
       .catch(() => null);
   } else {
     const pair = await Promise.all([
       SiteDocument.countDocuments(filter).maxTimeMS(4000).catch(() => 0),
-      SiteDocument.aggregate([{ $match: filter }, ...sortStages])
+      (SiteDocument.aggregate([{ $match: filter }, ...sortStages]) as any)
         .option({ maxTimeMS: 4000 })
         .catch(() => null),
     ]);

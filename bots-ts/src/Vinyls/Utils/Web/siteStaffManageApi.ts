@@ -742,7 +742,7 @@ async function handleSiteStaffManageGet(client?, req?, res?) {
     const skipHeavyRoster = Boolean(targetId) && String(req.query?.roster || "1") === "0";
     const forceMember = String(req.query?.fresh || "") === "1";
 
-    let roster = { sections: [], paused: new Set(), counts: { total: 0, onPause: 0 }, guild: null };
+    let roster: any = { sections: [], paused: new Set(), counts: { total: 0, onPause: 0 }, guild: null };
     if (!skipHeavyRoster) {
       roster = await buildRoster(client);
       if (access.pmManageOnly) {
@@ -990,7 +990,7 @@ async function handleSiteStaffManagePost(client?, req?, res?) {
 
     const actorUser = access.member.user || access.user;
     const targetUser = targetMember.user || { id: targetId };
-    let result = { ok: false, message: "Azione non eseguita." };
+    let result: any = { ok: false, message: "Azione non eseguita." };
 
     if (action === "pex") {
       if (getHighestLadderRole(targetMember)) {

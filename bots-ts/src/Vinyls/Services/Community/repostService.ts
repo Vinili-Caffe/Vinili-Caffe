@@ -1430,7 +1430,7 @@ async function aggregateRandomUniqueRepost(guildId?, excludeKeys = null) {
   ];
 
   if (excludeKeys instanceof Set && excludeKeys.size) {
-    pipeline.push({
+    pipeline.push(({
       $match: {
         $expr: {
           $not: {
@@ -1438,10 +1438,10 @@ async function aggregateRandomUniqueRepost(guildId?, excludeKeys = null) {
           },
         },
       },
-    });
+    } as any));
   }
 
-  pipeline.push({ $sample: { size: 1 } });
+  pipeline.push(({ $sample: { size: 1 } } as any));
 
   const rows = await GuildRepost.aggregate((pipeline as any)).catch(() => []);
   return rows?.[0] || null;

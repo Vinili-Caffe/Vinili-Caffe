@@ -324,7 +324,7 @@ async function buildDuelPayload(client?, guild?, session?, left?, right?, outcom
     components: rows,
   });
     payload.content = notice ? String(notice).slice(0, 1800) : "";
-  payload.allowedMentions = {
+  (payload as any).allowedMentions = {
     repliedUser: false,
     users: notice ? duelParticipantUserIds(left, right) : [],
   };
@@ -401,7 +401,7 @@ async function buildInvitePayload(client?, guild?, session?, ownerFighter?, noti
   });
   if (notice) {
     payload.content = String(notice).slice(0, 1800);
-    payload.allowedMentions = {
+    (payload as any).allowedMentions = {
       repliedUser: false,
       users: [String(session.opponentId || "")].filter(Boolean),
     };

@@ -249,7 +249,7 @@ function buildTenantHelpEntries(guildId?, client = null) {
 function buildTenantHelpPages(entries?, client?) {
   const pages = [{ type: "home", stats: resolveBotStats(client) }];
   for (const chunk of chunkEntries(entries, COMMANDS_PER_PAGE)) {
-    pages.push({ type: "commands", items: chunk });
+    pages.push(({ type: "commands", items: chunk } as any));
   }
   return pages;
 }

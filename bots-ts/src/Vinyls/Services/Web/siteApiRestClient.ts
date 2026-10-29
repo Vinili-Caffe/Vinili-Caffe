@@ -684,7 +684,7 @@ function wrapChannel(raw?, guild?, clientRef?) {
         let allow = BigInt(existing.allow?.bitfield ?? 0);
         let deny = BigInt(existing.deny?.bitfield ?? 0);
         for (const [key, value] of Object.entries(options || {})) {
-          const bit = PermissionsBitField.Flags[key];
+          const bit: any = PermissionsBitField.Flags[key];
           if (bit == null) continue;
           allow &= ~bit;
           deny &= ~bit;

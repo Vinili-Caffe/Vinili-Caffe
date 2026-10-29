@@ -1427,7 +1427,7 @@ async function computeUserSearchRankMeta({
     }).catch(() => 0);
     searchRank = higher + 1;
   }
-  let overrides =
+  let overrides: any =
     useHourlyBoard && hourlySingular && board === "weekly" ? { weeklyExp: hourlySingular.weeklyExp } : null;
   let dayOvr: Record<string, any> = {};
   if (guild && (board === "messages" || board === "voice")) {
@@ -2059,7 +2059,7 @@ async function handleSiteUsersLeaderboardGet(client?, req?, res?) {
         if (!Number.isFinite(globalExpMultiplier) || globalExpMultiplier <= 0) globalExpMultiplier = 1;
         guildExpSettings = await getGuildExpSettings(guildId).catch(() => null);
       }
-      let overrides =
+      let overrides: any =
         useHourlyBoard && hourlySingular && board === "weekly"
           ? { weeklyExp: hourlySingular.weeklyExp }
           : null;

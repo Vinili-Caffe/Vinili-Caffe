@@ -16,6 +16,23 @@ const IGNORE = [
   /powerPreference|no available adapters/i,
 ];
 
+/** Pezzo di codice della versione precedente non più sul server (dopo una pubblicazione). */
+const STALE_CHUNK = /ChunkLoadError|Failed to load chunk|Loading chunk [w-]+ failed|Importing a module script failed|error loading dynamically imported module/i;
+const STALE_RELOAD_KEY = "vc_stale_chunk_reload_at";
+
+/** Si ricarica la pagina (una volta al minuto al massimo) così arriva la versione nuova invece della schermata d'errore. */
+function recoverFromStaleChunk(message: string) {
+  if (!STALE_CHUNK.test(message)) return;
+  try {
+    const last = Number(sessionStorage.getItem(STALE_RELOAD_KEY) || 0);
+    if (Date.now() - last < 60_000) return;
+    sessionStorage.setItem(STALE_RELOAD_KEY, String(Date.now()));
+  } catch {
+    /* senza sessionStorage si ricarica comunque, una volta sola per pagina */
+  }
+  window.location.reload();
+}
+
 /**
  * Registro errori: gli errori JavaScript dei visitatori finiscono nel log del bot
  * (/webhooks/site-client-error → logs/site-client-errors.log). Niente dati personali: testo, pagina, browser.
@@ -39,10 +56,15 @@ export function ErrorReporter() {
         /* il registro non deve mai rompere la pagina */
       }
     };
-    const onError = (e: ErrorEvent) => send("error", e.message || String(e.error), e.error?.stack);
+    const onError = (e: ErrorEvent) => {
+      send("error", e.message || String(e.error), e.error?.stack);
+      recoverFromStaleChunk(String(e.message || e.error?.name || ""));
+    };
     const onRejection = (e: PromiseRejectionEvent) => {
       const r = e.reason as { message?: string; stack?: string } | string | undefined;
-      send("promise", typeof r === "string" ? r : r?.message || String(r), typeof r === "object" ? r?.stack : undefined);
+      const msg = typeof r === "string" ? r : r?.message || String(r);
+      send("promise", msg, typeof r === "object" ? r?.stack : undefined);
+      recoverFromStaleChunk(`${msg} ${typeof r === "object" ? (r as { name?: string })?.name || "" : ""}`);
     };
     window.addEventListener("error", onError);
     window.addEventListener("unhandledrejection", onRejection);

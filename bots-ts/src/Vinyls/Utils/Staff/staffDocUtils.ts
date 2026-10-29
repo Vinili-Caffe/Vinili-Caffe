@@ -444,7 +444,7 @@ async function purgeStaffChannelMessagesForUser(guild?, userId?) {
 async function appendStaffRolesHistoryEntry(
   guildId,
   userId,
-  { oldRole, newRole, reason, date, kind, displayName, username, avatarUrl, actorId, actorName },
+  { oldRole, newRole, reason, date, kind, displayName, username, avatarUrl, actorId, actorName }: any,
 ) {
   const gid = String(guildId || "").trim();
   const uid = String(userId || "").trim();

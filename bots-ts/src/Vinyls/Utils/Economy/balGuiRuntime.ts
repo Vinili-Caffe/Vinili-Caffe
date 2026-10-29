@@ -46,7 +46,7 @@ function emptyWalletState() {
   };
 }
 
-function makeSession({ ownerId, guildId, targetId, targetName, showStaffControls, state, adjustAmount, staffCurrency, bridge }) {
+function makeSession({ ownerId, guildId, targetId, targetName, showStaffControls, state, adjustAmount, staffCurrency, bridge }: any) {
   const bridgeData = bridge && typeof bridge === "object" ? bridge : {};
   return {
     ownerId: String(ownerId || ""),

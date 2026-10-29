@@ -315,7 +315,7 @@ async function buildTrisGuiPayload(session?, cfg?, notice = "", panelClosed = fa
   });
   if (session.mode === "pvp" && session.phase === "pending" && notice) {
     payload.content = String(notice).slice(0, 1800);
-    payload.allowedMentions = { repliedUser: false, users: [String(session.opponentId || "")].filter(Boolean) };
+    (payload as any).allowedMentions = { repliedUser: false, users: [String(session.opponentId || "")].filter(Boolean) };
   }
   return payload;
 }

@@ -134,7 +134,7 @@ async function buildBannerPayload({ guild, targetMember, fallbackUser, requester
 
   let privacyDoc = null;
   try {
-    privacyDoc = await BannerPrivacy.findOne({ guildId: guild.id, userId: user.id });
+    privacyDoc = await (BannerPrivacy.findOne({ guildId: guild.id, userId: user.id }) as any);
   } catch (err) {
     global.logger?.warn?.("[banner] fetch:", err?.message || err);
   }
@@ -171,18 +171,18 @@ async function buildBannerPayload({ guild, targetMember, fallbackUser, requester
   const shouldCountNow = canCountThisMode && !nextViewState[activeMode];
   if (shouldCountNow) {
     try {
-      privacyCount = await BannerPrivacy.findOneAndUpdate(
+      privacyCount = await (BannerPrivacy.findOneAndUpdate(
         { guildId: guild.id, userId: user.id },
         { $inc: { views: 1 } },
         { upsert: true, new: true, setDefaultsOnInsert: true },
-      );
+      ) as any);
       nextViewState[activeMode] = true;
     } catch (err) {
       global.logger?.warn?.("[banner] fetch:", err?.message || err);
     }
   } else {
     try {
-      privacyCount = await BannerPrivacy.findOne({ guildId: guild.id, userId: user.id });
+      privacyCount = await (BannerPrivacy.findOne({ guildId: guild.id, userId: user.id }) as any);
     } catch (err) {
       global.logger?.warn?.("[banner] fetch:", err?.message || err);
     }

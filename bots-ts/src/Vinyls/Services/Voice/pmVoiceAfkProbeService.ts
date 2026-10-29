@@ -15,7 +15,7 @@ function sleep(ms?) {
 }
 
 function createDeferred() {
-  let resolve = () => {};
+  let resolve: (value?: any) => void = () => {};
   const promise = new Promise((res?) => {
     resolve = (res as any);
   });
@@ -396,7 +396,7 @@ async function startPmVoiceAfkProbe(client?, opts: Record<string, any> = {}) {
 
   void (async () => {
     let connection = null;
-    let heard = false;
+    let heard: any = false;
     try {
       await suspendActiveVoiceForProbe(client, guildId, returnCtx);
       if (isProbeAborted(guildId)) return;

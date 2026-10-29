@@ -292,7 +292,7 @@ function buildCustomVocCreateOverwrites(guild?, ownerId?, botUserId?) {
     },
   ];
   if (MEMBER_ROLE_ID) {
-    rows.splice(1, 0, {
+    rows.splice(1, 0, ({
       id: MEMBER_ROLE_ID,
       allow: [PermissionsBitField.Flags.ViewChannel],
       deny: [
@@ -302,10 +302,10 @@ function buildCustomVocCreateOverwrites(guild?, ownerId?, botUserId?) {
         PermissionsBitField.Flags.Stream,
         PermissionsBitField.Flags.SendMessages,
       ],
-    });
+    } as any));
   }
   if (MUTED_ROLE_ID) {
-    rows.push({
+    rows.push(({
       id: MUTED_ROLE_ID,
       deny: [
         PermissionsBitField.Flags.ViewChannel,
@@ -318,7 +318,7 @@ function buildCustomVocCreateOverwrites(guild?, ownerId?, botUserId?) {
         PermissionsBitField.Flags.CreatePrivateThreads,
         PermissionsBitField.Flags.SendMessagesInThreads,
       ],
-    });
+    } as any));
   }
   return rows;
 }

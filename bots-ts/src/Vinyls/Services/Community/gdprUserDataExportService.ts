@@ -74,7 +74,7 @@ async function queryLegacyCollection(collectionName?, userId?, guildId?) {
   const uid = String(userId || "").trim();
   const gid = String(guildId || "").trim();
   const filters = [{ userId: uid }];
-  if (gid) filters.push({ guildId: gid, userId: uid });
+  if (gid) filters.push(({ guildId: gid, userId: uid } as any));
   const seen = new Set();
   const docs = [];
   for (const filter of filters) {

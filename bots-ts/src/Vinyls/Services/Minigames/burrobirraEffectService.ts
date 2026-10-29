@@ -613,7 +613,7 @@ function startBurrobirraEffectLoop(client?) {
   cron.schedule(
     "* * * * *",
     runCronDetached("[BURROBIRRA EFFECT]", () => runBurrobirraTick(client)),
-    { timezone: TIME_ZONE, noOverlap: true, recoverMissedExecutions: false },
+    ({ timezone: TIME_ZONE, noOverlap: true, recoverMissedExecutions: false } as any),
   );
 }
 

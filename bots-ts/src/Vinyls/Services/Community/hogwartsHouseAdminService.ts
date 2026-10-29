@@ -300,7 +300,7 @@ async function transferSortedMemberToHouse(client?, guild?, targetUserId?, targe
     return { ok: false, code: "already_there", houseId: toHouse, houseLabel: houseLabel(toHouse, eventCfg) };
   }
 
-  let points = { movedTotal: 0, skipped: alreadyThere };
+  let points: any = { movedTotal: 0, skipped: alreadyThere };
   if (!alreadyThere) {
     await SiteDocument.updateMany(
       { docType: SORTING_DOC, guildId: gid, userId: uid },
@@ -329,7 +329,7 @@ async function transferSortedMemberToHouse(client?, guild?, targetUserId?, targe
   }
 
   const member = guild?.members?.cache?.get(uid) || (await guild?.members?.fetch(uid).catch(() => null));
-  let roles = { roleAssigned: false };
+  let roles: any = { roleAssigned: false };
   if (member) {
     try {
       roles = await assignHouseRoles(member, eventCfg, toHouse);
@@ -338,7 +338,7 @@ async function transferSortedMemberToHouse(client?, guild?, targetUserId?, targe
     }
   }
 
-  let announced = { ok: false, skipped: !announce };
+  let announced: any = { ok: false, skipped: !announce };
   if (announce) {
     announced = await logHogwartsSortingCompleted({
       client,

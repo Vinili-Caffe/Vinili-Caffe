@@ -20,7 +20,7 @@ function resolveRouletteChannelId(guildId?) {
   const fromTenantSettings = normalizeRouletteChannelId(getTenantChannelMapSync(gid).roulette);
   if (fromTenantSettings) return fromTenantSettings;
   try {
-    const access = resolveGuildAccess(gid);
+    const access: any = resolveGuildAccess(gid);
     return normalizeRouletteChannelId(access?.entry?.channelMap?.roulette);
   } catch {
   }

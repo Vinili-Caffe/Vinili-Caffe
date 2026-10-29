@@ -282,7 +282,7 @@ function splitRowsForEmbeds(rows?, limit = 3500) {
   return chunks;
 }
 
-async function buildPauseListPayload({ guildId, requesterId, targetUser, isHighStaff, client, filterMonth, pauseRoleFilter }) {
+async function buildPauseListPayload({ guildId, requesterId, targetUser, isHighStaff, client, filterMonth, pauseRoleFilter }: any) {
   if (!isHighStaff && String(targetUser?.id || "") !== String(requesterId || "")) {
     return { ok: false, error: "<:vegax:1443934876440068179> Puoi vedere solo le tue pause." };
   }

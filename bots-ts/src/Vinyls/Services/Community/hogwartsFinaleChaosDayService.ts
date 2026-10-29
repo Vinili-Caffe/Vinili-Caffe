@@ -549,7 +549,7 @@ async function grantFinaleChaosBoost(client, {
   boostScope,
   durationMs,
   eventKey,
-}) {
+}: any) {
   const type = normalizeBoostType(boostType) === "exp" ? CONSUMABLE_BOOST_TYPES.EXP : CONSUMABLE_BOOST_TYPES.HOUSE_POINTS;
   const scope = normalizeBoostScope(boostScope) === "house" ? CONSUMABLE_BOOST_SCOPES.HOUSE : CONSUMABLE_BOOST_SCOPES.PERSONAL;
   let houseId = normalizeId(houseIdHint).toLowerCase();

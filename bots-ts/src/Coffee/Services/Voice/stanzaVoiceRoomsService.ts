@@ -3169,7 +3169,7 @@ async function handleStanzaUsersMemberMessageCreate(message?) {
   }
 
   const action = pending.action;
-  let ok = false;
+  let ok: any = false;
   let doneLine = "";
 
   const tchUsers = await stanzaCompanionTextChannel(message.guild, vid);

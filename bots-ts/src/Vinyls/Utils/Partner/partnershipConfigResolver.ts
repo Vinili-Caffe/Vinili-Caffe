@@ -262,7 +262,6 @@ function resolvePartnershipConfigSync(guildId?) {
     partnershipsChannelId: tenant?.partnershipsChannelId || null,
     logsChannelId: logsId,
     pointsRemovedChannelId: logsId,
-    descriptionChannelId: null,
     partnersChatChannelId: tenant?.pmCommandsChannelId || null,
     pmCommandsChannelId: tenant?.pmCommandsChannelId || null,
     pmCommandsCategoryIds: tenant?.pmCommandsCategoryIds || [],

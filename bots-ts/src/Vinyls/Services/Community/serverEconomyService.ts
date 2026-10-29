@@ -70,7 +70,7 @@ function mergeConfig(raw: Record<string, any> = {}) {
 }
 
 function economyConfig(client?) {
-  const raw = mergeConfig(client?.config?.serverEconomy);
+  const raw: any = mergeConfig(client?.config?.serverEconomy);
   raw.enabled = (raw as any).enabled !== false;
   raw.earnSplitMinPct = int(raw.earnSplitMinPct, DEFAULT_CONFIG.earnSplitMinPct, 1, 99);
   raw.earnSplitMaxPct = int(raw.earnSplitMaxPct, DEFAULT_CONFIG.earnSplitMaxPct, raw.earnSplitMinPct, 99);

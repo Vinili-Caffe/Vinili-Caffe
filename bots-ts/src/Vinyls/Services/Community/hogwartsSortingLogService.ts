@@ -247,7 +247,7 @@ async function clearHouseAnnounceOnSortingDocs(guildId?, userId?, eventKey?) {
   return { ok: true };
 }
 
-function revokeHouseSortingAnnouncesForMember({ guildId, userId, eventKey }) {
+function revokeHouseSortingAnnouncesForMember({ guildId, userId, eventKey }: any) {
   const g = String(guildId || "").trim();
   const u = String(userId || "").trim();
   if (!g || !u) return { ok: false, reason: "invalid_member" };
@@ -473,7 +473,7 @@ async function announceHouseSorting({
   sortedAtMs,
   source,
   knownDedupeKeys,
-}) {
+}: any) {
   const uid = String(userId || member?.id || "").trim();
   const sortedHouse = normalizeHouseId(houseId);
   if (!uid || !sortedHouse || !guild) return { ok: false, reason: "invalid_entry" };

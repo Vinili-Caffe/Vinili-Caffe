@@ -63,7 +63,7 @@ function annotatePattern(decl, why) {
 for (const d of ts.getPreEmitDiagnostics(program)) {
   if (!d.file) continue;
   // { campo in più } passato a una funzione che destruttura i parametri
-  if (d.code === 2353) {
+  if (d.code === 2353 || d.code === 2345 || d.code === 2741 || d.code === 2739) {
     let n = nodeAt(d.file, d.start);
     while (n && !ts.isObjectLiteralExpression(n)) n = n.parent;
     const call = n && n.parent && ts.isCallExpression(n.parent) ? n.parent : null;

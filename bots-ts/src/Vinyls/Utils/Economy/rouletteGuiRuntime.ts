@@ -28,7 +28,7 @@ function betStep(cfg?) {
   return Math.max(1, Math.floor(Number(cfg?.minBet) || 5));
 }
 
-function makeSession({ ownerId, guildId, bet, cfg, choice, isNumber, currency }) {
+function makeSession({ ownerId, guildId, bet, cfg, choice, isNumber, currency }: any) {
   return {
     ownerId: String(ownerId || ""),
     guildId: String(guildId || ""),

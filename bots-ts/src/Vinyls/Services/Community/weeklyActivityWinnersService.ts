@@ -1543,7 +1543,7 @@ async function publishMonthlyActivityWinners(client?, options: Record<string, an
   const combinedRows = displayTopCombined.length
     ? displayTopCombined.map((item?, index?) => formatRankLine(index, `<@${item.userId}>`, item.value, "exp totali"))
     : [buildEmptyLine("EXP totali (chat + vocale)")];
-  let awarded = { topMonthlyWinner: null, monthlyTopSecond: null, monthlyTopThird: null, monthlyVotersTop: [] };
+  let awarded: any = { topMonthlyWinner: null, monthlyTopSecond: null, monthlyTopThird: null, monthlyVotersTop: [] };
   if (options.skipMonthlyRoles) {
     awarded = {
       topMonthlyWinner: displayTopCombined[0] || null,

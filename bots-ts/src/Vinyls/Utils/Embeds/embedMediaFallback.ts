@@ -247,7 +247,7 @@ function installEmbedMediaFallbackPatch() {
       if (url && typeof url === "object" && (url as any).url != null) {
         const cleaned = sanitizeEmbedMediaUrl(((url as any).url as any), { size: 256 });
         if (!cleaned) return this;
-        return original.call(this, { ...url, url: cleaned }, ...rest);
+        return original.call(this, ({ ...url, url: cleaned } as any), ...rest);
       }
       const cleaned = sanitizeEmbedMediaUrl(url, { size: 256 });
       if (!cleaned) return this;
@@ -261,7 +261,7 @@ function installEmbedMediaFallbackPatch() {
       if (url && typeof url === "object" && (url as any).url != null) {
         const cleaned = sanitizeEmbedMediaUrl(((url as any).url as any), { size: 512 });
         if (!cleaned) return this;
-        return original.call(this, { ...url, url: cleaned }, ...rest);
+        return original.call(this, ({ ...url, url: cleaned } as any), ...rest);
       }
       const cleaned = sanitizeEmbedMediaUrl(url, { size: 512 });
       if (!cleaned) return this;

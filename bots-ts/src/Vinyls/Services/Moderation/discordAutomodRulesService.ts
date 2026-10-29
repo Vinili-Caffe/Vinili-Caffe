@@ -559,10 +559,10 @@ function buildBlockActions(alertChannelId?, guild?) {
       .permissionsFor(guild?.members?.me)
       ?.has(PermissionsBitField.Flags.ViewChannel);
   if (alertId && alertOk) {
-    actions.push({
+    actions.push(({
       type: AutoModerationActionType.SendAlertMessage,
       metadata: { channel: alertId },
-    });
+    } as any));
   }
   return actions;
 }

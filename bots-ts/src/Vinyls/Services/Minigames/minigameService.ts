@@ -2924,16 +2924,6 @@ function normalizeRewardExp(value?) {
   return best;
 }
 
-function shuffleArray(arr = []) {
-  if (!Array.isArray(arr) || arr.length <= 1) return arr;
-  const out = [...arr];
-  for (let i = out.length - 1; i > 0; i -= 1) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [out[i], out[j]] = [out[j], out[i]];
-  }
-  return out;
-}
-
 function pickRandomItem(list = []) {
   if (!Array.isArray(list) || !list.length) return null;
   return list[randomBetween(0, list.length - 1)] || null;
@@ -6423,7 +6413,7 @@ const ACCENT_TO_ASCII = {
   ù: "u", ú: "u", û: "u", ü: "u", ū: "u", ŭ: "u", ů: "u", ű: "u",
   ñ: "n", Ñ: "N", ç: "c", Ç: "C", ý: "y", ÿ: "y", ß: "ss",
   À: "A", Á: "A", Â: "A", Ã: "A", Ä: "A", Å: "A", È: "E", É: "E", Ê: "E", Ë: "E",
-  Ì: "I", Í: "I", Î: "I", Ï: "I", Ò: "O", Ó: "O", Ô: "O", õ: "O", Ö: "O",
+  Ì: "I", Í: "I", Î: "I", Ï: "I", Ò: "O", Ó: "O", Ô: "O", Õ: "O", Ö: "O",
   Ù: "U", Ú: "U", Û: "U", Ü: "U",
 };
 
@@ -8614,15 +8604,6 @@ async function saveRotationState(client?, cfg?, guildIdOverride = null) {
     { $set: { dateKey, queue: rotationQueue, lastSentAt: lastSentAtByChannel.get(channelId) || 0 } },
     { upsert: true, new: true, setDefaultsOnInsert: true },
   ).catch(() => { });
-}
-
-function shuffleArray(arr?) {
-  const a = arr.slice();
-  for (let i = a.length - 1; i > 0; i -= 1) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
 }
 
 async function getNextGameType(client?, cfg?) {

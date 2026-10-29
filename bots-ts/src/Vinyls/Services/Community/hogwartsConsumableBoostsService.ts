@@ -51,14 +51,16 @@ function isBoostRowActive(row?, nowMs = Date.now()) {
   return expiresAt > Number(nowMs || Date.now());
 }
 
-function normalizeBoostRow(row?) {
-  if (!isBoostRowActive(row)) return null;
+// bug: chi la chiama passa l'istante di riferimento (nowMs) ma veniva ignorato e si usava sempre "adesso"
+function normalizeBoostRow(row?, nowMs = Date.now()) {
+  if (!isBoostRowActive(row, nowMs)) return null;
+  const now = Number(nowMs || Date.now());
   return {
     itemId: normalizeId(row.itemId),
     itemName: normalizeId(row.itemName),
     activatedBy: normalizeId(row.activatedBy),
     expiresAt: new Date(safeMs(row.expiresAt)),
-    remainingMs: Math.max(0, safeMs(row.expiresAt) - Date.now()),
+    remainingMs: Math.max(0, safeMs(row.expiresAt) - now),
   };
 }
 
@@ -948,11 +950,11 @@ function startConsumableBoostExpiryLoop(client?) {
   cron.schedule(
     "* * * * *",
     runCronDetached("[HOGWARTS CONSUMABLE BOOST EXPIRY]", () => runConsumableBoostExpiryTick(client)),
-    { timezone: "Europe/Rome", noOverlap: true, recoverMissedExecutions: false },
+    ({ timezone: "Europe/Rome", noOverlap: true, recoverMissedExecutions: false } as any),
   );
 }
 
-async function activateConsumableBoost(client, { guildId, userId, houseId, item, eventKey, buyerDisplayName, houseLabel, skipPrecheck = false }) {
+async function activateConsumableBoost(client, { guildId, userId, houseId, item, eventKey, buyerDisplayName, houseLabel, skipPrecheck = false }: any) {
   const check = skipPrecheck
     ? { ok: true, houseId: normalizeHouseId(houseId) }
     : await assertConsumableActivationAllowed(client, guildId, userId, houseId, item);

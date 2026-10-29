@@ -1,2 +1,1 @@
-src\Vinyls\Utils\Render\canvasIconGlyphs.ts:6  canvasModule.Path2D
-src\Vinyls\Utils\Render\rankCanvas.ts:19  canvasModule.Path2D
+

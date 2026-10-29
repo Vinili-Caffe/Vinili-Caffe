@@ -14,10 +14,10 @@ function resolveModLogChannelId(guildId?) {
     if (mainId && gid === mainId) {
     return normalizeModLogChannelId(IDs.channels?.modLogs);
   }
-  const fromTenantSettings = normalizeModLogChannelId(getTenantChannelMapSync(gid).modLogs);
+  const fromTenantSettings = normalizeModLogChannelId((getTenantChannelMapSync(gid) as any).modLogs);
   if (fromTenantSettings) return fromTenantSettings;
   try {
-    const access = resolveGuildAccess(gid);
+    const access: any = resolveGuildAccess(gid);
     return normalizeModLogChannelId(access?.entry?.channelMap?.modLogs);
   } catch {
   }
