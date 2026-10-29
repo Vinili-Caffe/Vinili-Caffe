@@ -24,25 +24,25 @@ export default function manifest(): MetadataRoute.Manifest {
     prefer_related_applications: false,
     icons: [
       {
-        src: "/images/pwa-icon-192.png?v=20261028icon1",
+        src: "/images/pwa-icon-192.png?v=20261029logo1",
         sizes: "192x192",
         type: "image/png",
         purpose: "any",
       },
       {
-        src: "/images/pwa-icon-512.png?v=20261028icon1",
+        src: "/images/pwa-icon-512.png?v=20261029logo1",
         sizes: "512x512",
         type: "image/png",
         purpose: "any",
       },
       {
-        src: "/images/pwa-icon-192-maskable.png?v=20261028icon1",
+        src: "/images/pwa-icon-192-maskable.png?v=20261029logo1",
         sizes: "192x192",
         type: "image/png",
         purpose: "maskable",
       },
       {
-        src: "/images/pwa-icon-512-maskable.png?v=20261028icon1",
+        src: "/images/pwa-icon-512-maskable.png?v=20261029logo1",
         sizes: "512x512",
         type: "image/png",
         purpose: "maskable",

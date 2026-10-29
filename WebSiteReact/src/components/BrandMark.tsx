@@ -2,22 +2,21 @@
 
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
-import { motion } from "motion/react";
 import { cn } from "@/lib/cn";
 import { SmartLink } from "./SmartLink";
 import { HeaderNameMarquee } from "./effects/HeaderNameMarquee";
 
-const FALLBACK = "/images/logo-disco.png";
+/** Logo brand statico (stesso asset delle icone PWA) — niente rotazione. */
+const LOGO = "/images/logo-disco.png";
 const FALLBACK_NAME = "VINILI & CAFFÈ";
 
 /**
- * Logo guild Discord + wordmark come il nome server (sans, non display serif).
+ * Logo + wordmark come il nome server (sans, non display serif).
  * Il testo viene da discord-invite.json quando disponibile.
  * `navUnderline`: in navbar — home = linea sempre (segue marquee); altre pagine = solo hover.
  */
 export function BrandMark({ className, navUnderline }: { className?: string; navUnderline?: boolean }) {
   const pathname = usePathname() || "/";
-  const [icon, setIcon] = useState(FALLBACK);
   const [name, setName] = useState(FALLBACK_NAME);
   const isHome = pathname === "/" || pathname === "";
 
@@ -28,13 +27,8 @@ export function BrandMark({ className, navUnderline }: { className?: string; nav
       .then((j) => {
         if (!alive || !j) return;
         const guild = j.guild || j;
-        const id = String(guild?.id || "").trim();
-        const hash = String(guild?.icon || "").trim();
         const gName = String(guild?.name || "").trim();
         if (gName) setName(gName);
-        if (!id || !hash) return;
-        /* speedRes1: sempre PNG still — GIF Discord in nav = LCP/CPU su pagine senza hero. */
-        setIcon(`https://cdn.discordapp.com/icons/${id}/${hash}.png?size=128`);
       })
       .catch(() => {});
     return () => {
@@ -53,14 +47,13 @@ export function BrandMark({ className, navUnderline }: { className?: string; nav
       className={cn("group relative z-[1] flex h-10 min-w-0 items-center gap-2", className)}
       aria-current={isHome ? "page" : undefined}
     >
-      <motion.img
-        key={icon}
-        src={icon}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={LOGO}
         alt=""
+        width={40}
+        height={40}
         className="size-10 shrink-0 rounded-full bg-crema/10 object-cover ring-1 ring-crema/15"
-        animate={{ rotate: 360 }}
-        transition={{ duration: 12, repeat: Infinity, ease: "linear" }}
-        onError={() => setIcon(FALLBACK)}
       />
       {/* Mobile: solo wordmark (la tagline usciva dall’header e finiva sotto pill/contenuto). */}
       <span className="flex min-w-0 max-w-[9.5rem] flex-col justify-center gap-0.5 overflow-hidden sm:max-w-[14rem] lg:max-xl:hidden">

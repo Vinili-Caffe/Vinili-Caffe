@@ -7,9 +7,7 @@ import { isPerfPaused } from "@/lib/perf-pause";
 import { useDeviceFx } from "./DeviceFxProvider";
 import { HalloweenDecor } from "./HalloweenDecor";
 import { cn } from "@/lib/cn";
-import { cobwebPath, hwSprite } from "./halloween-sprites";
-
-const WEB = cobwebPath();
+import { hwSprite } from "./halloween-sprites";
 
 type Kind = "bat" | "leaf" | "candy" | "ghost" | "spider" | "spark";
 
@@ -106,38 +104,36 @@ function drawFlyer(ctx: CanvasRenderingContext2D, f: Flyer, t: number, dpr: numb
  */
 export function HalloweenFx() {
   const { caps, ready } = useDeviceFx();
-  const [on, setOn] = useState(false);
+  const [season, setSeason] = useState(false);
+  const [fxOn, setFxOn] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [boo, setBoo] = useState(false);
   const budget = halloweenBudgetFromCaps(caps);
 
   useEffect(() => {
-    // le decorazioni ferme si vedono anche con gli effetti spenti: niente canvas né nebbia, solo SVG
     if (!ready) {
-      setOn(false);
+      setSeason(false);
+      setFxOn(false);
       return;
     }
-    if (!isHalloweenSeason()) {
-      setOn(false);
+    const inSeason = isHalloweenSeason();
+    setSeason(inSeason);
+    if (!inSeason) {
+      setFxOn(false);
       return;
     }
-    if (!effectEnabled(EFFECT_KEYS.halloweenFx, true)) {
-      setOn(false);
-      return;
-    }
+    // ragnatele + decor SVG: sempre in stagione. Canvas/nebbia/boo solo se FX attivi.
+    let phonePreview = false;
     try {
-      if (document.documentElement.classList.contains("vc-phone-preview")) {
-        setOn(false);
-        return;
-      }
+      phonePreview = document.documentElement.classList.contains("vc-phone-preview");
     } catch {
       /* ignore */
     }
-    setOn(true);
+    setFxOn(!phonePreview && effectEnabled(EFFECT_KEYS.halloweenFx, true));
   }, [ready, caps.motion, caps.canvas, caps.particles]);
 
   useEffect(() => {
-    if (!on || !budget.canvas || budget.particles <= 0) return;
+    if (!fxOn || !budget.canvas || budget.particles <= 0) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d", { alpha: true });
@@ -266,11 +262,12 @@ export function HalloweenFx() {
       window.removeEventListener("resize", resize);
       document.removeEventListener("visibilitychange", onVis);
     };
-  }, [on, budget.canvas, budget.particles, budget.flyer, budget.boo, budget.dprCap]);
+  }, [fxOn, budget.canvas, budget.particles, budget.flyer, budget.boo, budget.dprCap]);
 
-  if (!on) return null;
+  if (!season) return null;
 
-  if (!caps.motion) {
+  // Solo decor (ragnatele 4 angoli + zucche/ragno/pipistrelli): tutti in stagione
+  if (!fxOn || !caps.motion) {
     return (
       <div className="pointer-events-none fixed inset-0 z-[40] overflow-hidden" aria-hidden>
         <HalloweenDecor live={false} />
@@ -302,22 +299,6 @@ export function HalloweenFx() {
       ) : (
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_90%_60%_at_50%_100%,rgba(255,200,150,0.07),transparent_70%)] opacity-70" />
       )}
-
-      {/* ragnatele d'angolo */}
-      <svg className={cn("absolute left-0 top-0 size-40 text-crema sm:size-56", cssOnly ? "opacity-[0.16]" : "opacity-[0.24]", "light:opacity-[0.2]")} viewBox="0 0 120 120" fill="none">
-        <path d={WEB} stroke="currentColor" strokeWidth="0.55" strokeLinecap="round" />
-      </svg>
-      <svg
-        className={cn(
-          "absolute right-0 top-0 size-32 -scale-x-100 text-crema sm:size-44",
-          cssOnly ? "opacity-[0.14]" : "opacity-[0.2]",
-          "light:opacity-[0.16]",
-        )}
-        viewBox="0 0 120 120"
-        fill="none"
-      >
-        <path d={WEB} stroke="currentColor" strokeWidth="0.6" strokeLinecap="round" />
-      </svg>
 
       {!cssOnly && (
         <>

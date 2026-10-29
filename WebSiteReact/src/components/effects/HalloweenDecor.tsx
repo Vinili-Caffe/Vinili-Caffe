@@ -2,6 +2,9 @@
 
 import { motion } from "motion/react";
 import { cn } from "@/lib/cn";
+import { cobwebPath } from "./halloween-sprites";
+
+const WEB = cobwebPath();
 
 /** Zucca intagliata: la luce dentro tremola appena (solo con il movimento attivo). */
 function Pumpkin({ className, live, delay = 0 }: { className?: string; live: boolean; delay?: number }) {
@@ -66,10 +69,36 @@ function Spider({ className }: { className?: string }) {
   );
 }
 
+function CornerWeb({
+  className,
+  flipX,
+  flipY,
+}: {
+  className?: string;
+  flipX?: boolean;
+  flipY?: boolean;
+}) {
+  return (
+    <svg
+      className={cn(
+        "absolute size-36 text-crema opacity-[0.28] sm:size-52 light:opacity-[0.22]",
+        flipX && "-scale-x-100",
+        flipY && "-scale-y-100",
+        className,
+      )}
+      viewBox="0 0 120 120"
+      fill="none"
+      aria-hidden
+    >
+      <path d={WEB} stroke="currentColor" strokeWidth="0.6" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 /**
- * Decorazioni di Halloween ferme ai bordi dello schermo (zucche, ragno appeso, pipistrelli):
- * le vede chiunque, anche su telefoni deboli o con "riduci movimento"; con il movimento attivo
- * oscillano appena. Non intercettano i click.
+ * Decorazioni di Halloween ferme ai bordi (ragnatele ai 4 angoli, zucche, ragno, pipistrelli):
+ * le vede chiunque in stagione, anche su telefoni deboli o con "riduci movimento";
+ * con il movimento attivo oscillano appena. Non intercettano i click.
  */
 export function HalloweenDecor({ live }: { live: boolean }) {
   const sway = (amp: number, dur: number, delay = 0) =>
@@ -77,6 +106,12 @@ export function HalloweenDecor({ live }: { live: boolean }) {
 
   return (
     <>
+      {/* ragnatele d’angolo — sempre, per tutti */}
+      <CornerWeb className="left-0 top-0" />
+      <CornerWeb className="right-0 top-0" flipX />
+      <CornerWeb className="bottom-0 left-0" flipY />
+      <CornerWeb className="bottom-0 right-0" flipX flipY />
+
       {/* ragno che pende dalla ragnatela in alto a sinistra */}
       <motion.div className="absolute left-[4.5rem] top-0 flex origin-top flex-col items-center sm:left-[7rem]" {...sway(4, 5.5)}>
         <span className="h-24 w-px bg-gradient-to-b from-crema/10 to-crema/45 sm:h-36" />
