@@ -237,7 +237,7 @@ async function execute(interaction?) {
         await interaction.followUp({ content: "<:vegax:1443934876440068179> Utente non trovato.", flags: PRIVATE_FLAG }).catch(() => {});
         return true;
       }
-      const res = await runValutazionePosPauseTradeForPanel(interaction.guild, interaction.member, targetUser, posCount, pauseDays);
+      const res: any = await runValutazionePosPauseTradeForPanel(interaction.guild, interaction.member, targetUser, posCount, pauseDays);
       if (!res.ok) {
         await interaction.followUp({ content: res.message || "<:vegax:1443934876440068179> Operazione non riuscita.", flags: PRIVATE_FLAG }).catch(() => {});
         return true;

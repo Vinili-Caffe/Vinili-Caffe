@@ -243,7 +243,7 @@ function installEmbedMediaFallbackPatch() {
 
   if (typeof proto.setThumbnail === "function") {
     const original = proto.setThumbnail;
-    proto.setThumbnail = function setThumbnailWithAvatarFallback(url?, ...rest) {
+    proto.setThumbnail = function setThumbnailWithAvatarFallback(url?: any, ...rest) {
       if (url && typeof url === "object" && (url as any).url != null) {
         const cleaned = sanitizeEmbedMediaUrl(((url as any).url as any), { size: 256 });
         if (!cleaned) return this;
@@ -257,7 +257,7 @@ function installEmbedMediaFallbackPatch() {
 
   if (typeof proto.setImage === "function") {
     const original = proto.setImage;
-    proto.setImage = function setImageWithAvatarFallback(url?, ...rest) {
+    proto.setImage = function setImageWithAvatarFallback(url?: any, ...rest) {
       if (url && typeof url === "object" && (url as any).url != null) {
         const cleaned = sanitizeEmbedMediaUrl(((url as any).url as any), { size: 512 });
         if (!cleaned) return this;

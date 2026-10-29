@@ -2645,7 +2645,7 @@ async function listStaffWorkflowFromDb(client?, guildId?, queue?, opts: Record<s
       else: { $convert: { input: "$createdAt", to: "long", onError: 0, onNull: 0 } },
     },
   };
-  const sortStages =
+  const sortStages: any[] =
     q === "resoconti"
       ? [
           {

@@ -328,7 +328,7 @@ async function patchDashboardGuildCommands(client?, accessToken?, guildId?, body
     }
   }
 
-    const saved = await patchTenantCommandAclMap(access.guildId, patch);
+    const saved: any = await patchTenantCommandAclMap(access.guildId, patch);
   if (!saved.ok) {
     return fail(500, saved.reason || "persist_failed", reasonToMessage(saved.reason));
   }
