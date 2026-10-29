@@ -1,0 +1,1 @@
+export = require("../../Services/Guild/guildFeatureBucketPollModel");

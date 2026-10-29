@@ -1,0 +1,23 @@
+{
+  // Controllo dei tipi dei bot in TypeScript (npm run check). La compilazione vera la fa tools/build.mjs.
+  "compilerOptions": {
+    "target": "ES2023",
+    "lib": ["ES2023"],
+    "module": "commonjs",
+    "moduleResolution": "node10",
+    "moduleDetection": "force",
+    "types": ["node"],
+    "noEmit": true,
+    "incremental": true,
+    "tsBuildInfoFile": ".tsbuildinfo",
+    "allowJs": false,
+    "resolveJsonModule": true,
+    "esModuleInterop": false,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    // severità di partenza (il codice viene da JavaScript): si alza man mano che i tipi migliorano
+    "strict": false,
+    "noImplicitAny": false
+  },
+  "include": ["src/**/*.ts", "types/**/*.d.ts"]
+}

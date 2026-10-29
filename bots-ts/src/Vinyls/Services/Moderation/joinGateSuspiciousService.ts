@@ -1,0 +1,137 @@
+const mongoose = require("mongoose") as typeof import("mongoose");
+const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
+const { joinGateSuspicious } = require("../../Utils/Community/activityUserProfilePaths") as typeof import("../../Utils/Community/activityUserProfilePaths");
+const CACHE = new Map();
+const DEFAULT_TTL_MS = 3 * 24 * 60 * 60_000;
+
+function nowMs() {
+  return Date.now();
+}
+
+function isDbReady() {
+  return mongoose.connection?.readyState === 1;
+}
+
+function toGuildId(guildId?) {
+  return String(guildId || "").trim();
+}
+
+function toUserId(userId?) {
+  return String(userId || "").trim();
+}
+
+function makeKey(guildId?, userId?) {
+  return `${toGuildId(guildId)}:${toUserId(userId)}`;
+}
+
+function setCache(guildId?, userId?, payload?, ttlMs = 60_000) {
+  const key = makeKey(guildId, userId);
+  if (!key || key === ":") return;
+  CACHE.set(key, {
+    value: payload,
+    expiresAt: nowMs() + Math.max(5_000, Number(ttlMs || 60_000)),
+  });
+}
+
+function getCache(guildId?, userId?) {
+  const key = makeKey(guildId, userId);
+  const hit = CACHE.get(key);
+  if (!hit) return undefined;
+  if (Number(hit.expiresAt || 0) <= nowMs()) {
+    CACHE.delete(key);
+    return undefined;
+  }
+  return hit.value;
+}
+
+async function markJoinGateSuspiciousAccount(
+  guildId?,
+  userId?,
+  options: Record<string, any> = {},
+) {
+  const gid = toGuildId(guildId);
+  const uid = toUserId(userId);
+  if (!gid || !uid) return { ok: false, reason: "missing_identifiers" };
+
+  const ttlMs = Math.max(60_000, Number(options?.ttlMs || DEFAULT_TTL_MS));
+  const markedAt = new Date();
+  const expiresAt = new Date(markedAt.getTime() + ttlMs);
+  const reason = String(options?.reason || "").slice(0, 500);
+  const source = String(options?.source || "joingate").trim() || "joingate";
+
+  setCache(gid, uid, { suspicious: true, source, reason, expiresAt }, ttlMs);
+  if (!isDbReady()) return { ok: true, persisted: false };
+
+  try {
+    await ActivityUserProfile.updateOne(
+      { guildId: gid, userId: uid },
+      {
+        $set: {
+          [joinGateSuspicious("source")]: source,
+          [joinGateSuspicious("reason")]: reason,
+          [joinGateSuspicious("markedAt")]: markedAt,
+          [joinGateSuspicious("expiresAt")]: expiresAt,
+        },
+      },
+      { upsert: true, setDefaultsOnInsert: true },
+    );
+    return { ok: true, persisted: true };
+  } catch {
+    return { ok: false, reason: "db_write_failed" };
+  }
+}
+
+async function isJoinGateSuspiciousAccount(guildId?, userId?) {
+  const gid = toGuildId(guildId);
+  const uid = toUserId(userId);
+  if (!gid || !uid) return false;
+  const cached = getCache(gid, uid);
+  if (cached !== undefined) return Boolean(cached?.suspicious);
+  if (!isDbReady()) return false;
+
+  try {
+    const now = new Date();
+    const row = await ActivityUserProfile.findOne(
+      {
+        guildId: gid,
+        userId: uid,
+        [joinGateSuspicious("markedAt")]: { $exists: true },
+        $or: [
+          { [joinGateSuspicious("expiresAt")]: null },
+          { [joinGateSuspicious("expiresAt")]: { $gt: now } },
+        ],
+      },
+      {
+        _id: 0,
+        [joinGateSuspicious("source")]: 1,
+        [joinGateSuspicious("reason")]: 1,
+        [joinGateSuspicious("expiresAt")]: 1,
+      },
+    )
+      .lean()
+      .catch(() => null);
+    const sub = row?.moderation?.joinGateSuspicious;
+    if (!sub) {
+      setCache(gid, uid, { suspicious: false }, 30_000);
+      return false;
+    }
+    const expiresTs = sub.expiresAt ? new Date(sub.expiresAt).getTime() : nowMs() + 60_000;
+    const remaining = Math.max(30_000, expiresTs - nowMs());
+    setCache(
+      gid,
+      uid,
+      {
+        suspicious: true,
+        source: String(sub.source || "joingate"),
+        reason: String(sub.reason || ""),
+        expiresAt: sub.expiresAt || null,
+      },
+      remaining,
+    );
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export = { markJoinGateSuspiciousAccount, isJoinGateSuspiciousAccount };

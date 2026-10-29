@@ -1,0 +1,34 @@
+{
+  "version": 1,
+  "defaults": {
+    "mode": "tenant",
+    "enabled": true,
+    "features": {
+      "utility": true,
+      "music": false,
+      "tts": false,
+      "minigames": false,
+      "moderation": false,
+      "partnership": true,
+      "level": false,
+      "stats": false,
+      "economy": false,
+      "ticket": false,
+      "security": false,
+      "community_automations": false,
+      "website": false,
+      "staff_tools": false,
+      "giveaway": false
+    }
+  },
+  "guilds": {
+    "1466188130330869792": {
+      "label": "tenant_1466188130330869792",
+      "mode": "tenant",
+      "enabled": true,
+      "features": {
+        "giveaway": true
+      }
+    }
+  }
+}

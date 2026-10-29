@@ -1,0 +1,145 @@
+{
+  "guilds": {
+    "1329080093599076474": {
+      "days": {
+        "2026-02-28": {
+          "actions": {
+            "timeout": 1
+          },
+          "rules": {
+            "invite": 1
+          },
+          "channels": {
+            "1470775925426618468": 1
+          },
+          "users": {
+            "944980651713658970": 1
+          },
+          "panicEnabled": 0
+        },
+        "2026-06-27": {
+          "actions": {
+            "warn": 4,
+            "delete": 4
+          },
+          "rules": {
+            "similar_message": 8
+          },
+          "channels": {
+            "1442569130573303898": 8
+          },
+          "users": {
+            "1254899536003076230": 8
+          },
+          "panicEnabled": 0
+        },
+        "2026-10-09": {
+          "actions": {
+            "timeout": 1
+          },
+          "rules": {
+            "grabbed_scam_image": 1
+          },
+          "channels": {
+            "1442569130573303898": 1
+          },
+          "users": {
+            "882703902099767378": 1
+          },
+          "panicEnabled": 0
+        },
+        "2026-10-11": {
+          "actions": {
+            "timeout": 1
+          },
+          "rules": {
+            "word_blacklist": 1
+          },
+          "channels": {
+            "1442569130573303898": 1
+          },
+          "users": {
+            "1375874921418457108": 1
+          },
+          "panicEnabled": 0
+        },
+        "2026-10-13": {
+          "actions": {
+            "delete": 1
+          },
+          "rules": {
+            "mention_user": 1,
+            "new_lines": 1,
+            "characters": 1,
+            "suspicious_account": 1
+          },
+          "channels": {
+            "1442569130573303898": 1
+          },
+          "users": {
+            "1397724990694101083": 1
+          },
+          "panicEnabled": 0
+        },
+        "2026-10-14": {
+          "actions": {
+            "delete": 1,
+            "warn": 1
+          },
+          "rules": {
+            "emoji_spam": 2,
+            "new_lines": 2,
+            "characters": 2,
+            "attachment_link": 2,
+            "suspicious_account": 2
+          },
+          "channels": {
+            "1442569130573303898": 2
+          },
+          "users": {
+            "1557026381181878373": 2
+          },
+          "panicEnabled": 0
+        },
+        "2026-10-20": {
+          "actions": {
+            "warn": 1
+          },
+          "rules": {
+            "new_lines": 1,
+            "characters": 1,
+            "attachment_image": 1,
+            "suspicious_account": 1
+          },
+          "channels": {
+            "1562123304754487316": 1
+          },
+          "users": {
+            "1387824221232562176": 1
+          },
+          "panicEnabled": 0
+        }
+      }
+    },
+    "1462458562507964584": {
+      "days": {
+        "2026-10-12": {
+          "actions": {
+            "warn": 3,
+            "delete": 12
+          },
+          "rules": {
+            "regular_message": 25
+          },
+          "channels": {
+            "1559143104139755540": 15
+          },
+          "users": {
+            "470373387609571339": 15
+          },
+          "panicEnabled": 0
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,122 @@
+{
+  "prefix": ",",
+  "developers": [
+    "295500038401163264"
+  ],
+  "mainGuildId": "1329080093599076474",
+  "channels": {
+    "ticketLogs": "1442569290682208296",
+    "chat": "1442569130573303898",
+    "commands": "1442569138114662490",
+    "stanzaLobbyVoice": "1499754530076626964"
+  },
+  "stanzaCategoryId": "1442569076902989844",
+  "stanzaDiscoveryExcludeParentIds": [
+    "1442569078379118755"
+  ],
+  "chatReminder": {
+    "channelId": "1442569130573303898",
+    "timeZone": "Europe/Rome",
+    "startHour": 8,
+    "endHour": 24,
+    "minGapMs": 1800000,
+    "firstReminderMinMessages30m": 5,
+    "secondReminderMinMessages30m": 20
+  },
+  "status": "idle",
+  "presence": {
+    "activityName": "viniliecaffe.it | .gg/viniliecaffe | ,help",
+    "streamUrl": "",
+    "forbiddenSectionEvent": {
+      "enabled": true,
+      "startDate": "2026-06-20T12:00:00",
+      "endDate": "2026-09-01T10:00:00",
+      "bookEmoji": "📖"
+    }
+  },
+  "tts": {
+    "enabled": true,
+    "lang": "it",
+    "maxChars": 1000,
+    "autojoin": false,
+    "includeUsername": false,
+    "stayConnected": false,
+    "restoreVoiceOnRestart": true
+  },
+  "voiceTranscription": {
+    "enabled": true,
+    "channelIds": [],
+    "maxDurationSec": 120,
+    "language": "it",
+    "invite": ".gg/viniliecaffe",
+    "provider": "auto",
+    "restoreOnRestart": true,
+    "restoreLookbackMs": 7200000,
+    "restoreFetchLimit": 50
+  },
+  "music": {
+    "restoreVoiceOnRestart": true,
+    "restoreVoiceMaxSnapshotAgeMs": 86400000
+  },
+  "markov": {
+    "enabled": true,
+    "messagesPath": "Data/markov/messages",
+    "maxLinesPerChannel": 10000,
+    "minStoredWords": 2,
+    "excludedChannelIds": [],
+    "excludedCategoryIds": [],
+    "keeperHttpHost": "127.0.0.1",
+    "keeperHttpPort": 3012,
+    "generatorServiceUrl": "http://127.0.0.1:3013",
+    "generatorTimeoutMs": 8000,
+    "fallbackLocalOnRemoteError": true,
+    "backfillOnStartup": true,
+    "backfillSkipIfGuildLinesAtLeast": 30,
+    "backfillMessagesPerChannel": 100,
+    "defaultMaxSymbols": 180,
+    "defaultKeySize": 2,
+    "filterLinks": true,
+    "allowUserMentions": true,
+    "storeImages": true,
+    "imagesPath": "Data/markov/images",
+    "maxImagesPerChannel": 500,
+    "imageChance": 0.35,
+    "mediaChance": 0.15,
+    "mediaImageShare": 0.7,
+    "storeStickers": true,
+    "stickersPath": "Data/markov/stickers",
+    "maxStickersPerChannel": 200,
+    "stickerChance": 0.25,
+    "collectPrefixMessages": true,
+    "commandStyleEnabled": false,
+    "commandStyleChance": 0,
+    "vinylsStylePrefix": "+",
+    "autoSend": {
+      "enabled": true,
+      "outputChannelId": "1442569130573303898",
+      "minMessagesBetween": 12,
+      "maxMessagesBetween": 28,
+      "minCorpusLines": 30,
+      "minCorpusImages": 5,
+      "minCorpusStickers": 3,
+      "minSendGapMs": 45000,
+      "channelCooldownMs": 45000,
+      "imageChance": 0.35,
+      "stickerChance": 0.25,
+      "mediaChance": 0.15,
+      "mediaImageShare": 0.7,
+      "maxSymbols": 160,
+      "maxWords": 22,
+      "allowImageOnly": false,
+      "allowStickerOnly": false,
+      "preventBackToBackImages": true,
+      "commandStyleEnabled": false,
+      "commandStyleChance": 0,
+      "replyToMarkovMessage": true,
+      "replyToBotMessage": false,
+      "replyToMention": true,
+      "replyCooldownMs": 8000,
+      "maxTrackedMessageIds": 500
+    }
+  }
+}

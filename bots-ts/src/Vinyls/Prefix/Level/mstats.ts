@@ -1,0 +1,93 @@
+const { EmbedBuilder } = require("discord.js") as typeof import("discord.js");
+const { safeMessageReply } = require("../../../shared/discord/replyRuntime") as typeof import("../../../shared/discord/replyRuntime");
+const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
+const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
+const { guildMemberDisplayAvatarUrlDynamic } = require("../../Utils/Discord/guildDiscordIdentity") as typeof import("../../Utils/Discord/guildDiscordIdentity");
+
+const MSTATS_CACHE_TTL_MS = 45 * 1000;
+const mstatsCache = new Map();
+
+const EXP_REWARDS=[{exp:500,roleId:IDs.roles.Rookie},{exp:1000,roleId:IDs.roles.Scout},{exp:1500,roleId:IDs.roles.Explorer},{exp:2500,roleId:IDs.roles.Tracker},{exp:5000,roleId:IDs.roles.Achiever},{exp:10000,roleId:IDs.roles.Vanguard},{exp:50000,roleId:IDs.roles.Mentor},{exp:100000,roleId:IDs.roles.Strategist},];
+
+function getUnlockedRewards(totalExp?) {
+  const expValue = Number(totalExp || 0);
+  return EXP_REWARDS.filter((reward?) => expValue >= reward.exp);
+}
+
+async function resolveTargetUser(message?, args = []) {
+  const mention = message.mentions?.users?.first();
+  if (mention) return mention;
+  const raw = Array.isArray(args) && args[0] ? String(args[0]) : "";
+  const id = raw.replace(/[<@!>]/g, "");
+  if (/^\d{16,20}$/.test(id)) {
+    const user = await message.client.users.fetch(id).catch(() => null);
+    if (user) return user;
+  }
+  return message.author;
+}
+
+export = {
+  name: "mstats",
+  allowEmptyArgs: true,
+  async execute(message?, args = []) {
+    await message.channel.sendTyping();
+    const targetUser = await resolveTargetUser(message, args);
+
+    let totalExp = 0;
+    let weeklyExp = 0;
+    let currentStreak = 0;
+    let bestStreak = 0;
+    const cacheKey = `${message.guild.id}:${targetUser.id}`;
+    const now = Date.now();
+    const cached = mstatsCache.get(cacheKey);
+    if (cached && now < (cached.expiresAt || 0)) {
+      totalExp = Number(cached.doc?.profile?.totals?.exp?.minigame?.totalExp || 0);
+      weeklyExp = Number(cached.doc?.profile?.totals?.exp?.minigame?.weeklyExp || 0);
+      currentStreak = Number(cached.doc?.profile?.totals?.exp?.minigame?.currentStreak ?? 0);
+      bestStreak = Number(cached.doc?.profile?.totals?.exp?.minigame?.bestStreak ?? 0);
+    } else {
+      try {
+        const doc = await ActivityUserProfile.findOne({ guildId: message.guild.id, userId: targetUser.id })
+          .select("profile.totals.exp.minigame")
+          .lean();
+        totalExp = Number(doc?.profile?.totals?.exp?.minigame?.totalExp || 0);
+        weeklyExp = Number(doc?.profile?.totals?.exp?.minigame?.weeklyExp || 0);
+        currentStreak = Number(doc?.profile?.totals?.exp?.minigame?.currentStreak ?? 0);
+        bestStreak = Number(doc?.profile?.totals?.exp?.minigame?.bestStreak ?? 0);
+        mstatsCache.set(cacheKey, { doc: doc || {}, expiresAt: now + MSTATS_CACHE_TTL_MS });
+      } catch (err) {
+        global.logger?.warn?.("[mstats] ActivityUserProfile find:", err?.message || err);
+      }
+    }
+
+    const unlocked = getUnlockedRewards(totalExp);
+    const unlockedText = unlocked.length ? unlocked.map((reward?) => `<a:VC_Arrow:1482706699365257397> <@&${reward.roleId}>`).join("\n") : "Nessun ruolo ancora sbloccato";
+
+    const descLines = [
+      `<a:VC_Arrow:1482706699365257397> Hai un totale di \`${totalExp}\` punti (exp) <a:VC_FlowerPink:1468688049725636903>`,
+      `<a:VC_Arrow:1482706699365257397> Score settimanale minigames: \`${weeklyExp}\` punti`,
+      "",
+      "🎲 .ᐟ Ruoli sbloccati:",
+      unlockedText,
+    ];
+    if (currentStreak > 0 || bestStreak > 0) {
+      descLines.push("", "<a:VC_Flame:1482725674711126140> **Serie vittorie:** " + (currentStreak > 0 ? `attuale **${currentStreak}**` : "—") + (bestStreak > 0 ? ` • record **${bestStreak}**` : ""));
+    }
+
+    const targetMember = await message.guild.members.fetch(targetUser.id).catch(() => null);
+    const embed = new EmbedBuilder()
+      .setColor("#6f4e37")
+      .setAuthor({
+        name: targetUser.username,
+        iconURL:
+          guildMemberDisplayAvatarUrlDynamic(targetMember || targetUser) || undefined,
+      })
+      .setTitle(`Le statistiche nei Minigames di ${targetUser.username} <a:VC_Flowers:1468687836055212174>`)
+      .setDescription(descLines.join("\n"));
+
+    await safeMessageReply(message, {
+      embeds: [embed],
+      allowedMentions: { repliedUser: false },
+    });
+  },
+};
