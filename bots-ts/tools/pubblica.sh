@@ -11,7 +11,10 @@ FILES="${1:?file da pubblicare (relativi a src/, es. Vinyls/Utils/x.ts)}"
 PROCS="${2:?processi da riavviare (es. bots-vinyls, bots-coffee, site-api)}"
 cd "$(dirname "$0")/.."
 
-node tools/build.mjs >/dev/null
+echo "compilo bots-ts…"
+node tools/build.mjs | tail -1
+echo "controllo che il JS sia quello previsto…"
+node tools/verify.mjs | tail -1 || true
 node tools/verify.mjs >/dev/null || { echo "verify fallito: il JS compilato non è come previsto, niente pubblicazione" >&2; exit 1; }
 
 LIST=""
@@ -19,10 +22,13 @@ for f in $FILES; do
   js="${f%.ts}"; js="${js%.js}.js"
   [ -f "dist/$js" ] || { echo "manca dist/$js" >&2; exit 1; }
   node --check "dist/$js"
+  [ -n "${PROVA:-}" ] && { echo "ok (prova): $js"; continue; }
   scp -q "dist/$js" "vinili:/tmp/vcbot_$(echo "$js" | tr '/' '_')"
   LIST="$LIST $js"
 done
 
+[ -n "${PROVA:-}" ] && { echo "prova finita: niente caricato sulla VPS"; exit 0; }
+echo "carico sulla VPS e riavvio: $PROCS"
 ssh vinili "FILES='$LIST' PROCS='$PROCS' bash -s" <<'REMOTE'
 set -euo pipefail
 N=/root/.nvm/versions/node/v22.22.2/bin/node
