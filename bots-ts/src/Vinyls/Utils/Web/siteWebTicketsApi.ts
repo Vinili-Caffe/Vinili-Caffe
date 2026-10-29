@@ -2084,7 +2084,7 @@ async function notifyMentionedUsers(
   return mentioned;
 }
 
-async function notifyUserTicketEvent(guildId?, ticket?, title?, body?, targetUserId = null, { mode = "event", openUrl } = {}) {
+async function notifyUserTicketEvent(guildId?, ticket?, title?, body?, targetUserId = null, { mode = "event", openUrl }: any = {}) {
   const userId = String(targetUserId || ticket?.userId || "").trim();
   if (!guildId || !userId) return;
   const sid = String(ticket._id || ticket.id || "");
@@ -2197,7 +2197,7 @@ async function notifyTicketChatMessage(
     skipUserIds = [],
     client = null,
     deferStaffToQueue = false,
-  } = {},
+  }: any = {},
 ) {
   /* notifUseful1: opener Personali (staff reply / needs reply) + staff Inbox new-msg for participants */
   if (!ticket) return;

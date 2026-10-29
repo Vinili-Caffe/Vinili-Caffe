@@ -48,7 +48,7 @@ async function loadLbDoc(guildId?, eventKey?) {
     .catch(() => null);
 }
 
-async function recordHalloweenReactWin({ guildId, userId, eventKey, amount = 1 } = {}) {
+async function recordHalloweenReactWin({ guildId, userId, eventKey, amount = 1 }: any = {}) {
   const gid = normalizeId(guildId);
   const uid = normalizeId(userId);
   const ek = normalizeId(eventKey) || "halloween_2026";

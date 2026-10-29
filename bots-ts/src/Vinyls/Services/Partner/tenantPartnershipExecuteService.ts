@@ -56,7 +56,7 @@ function normalizePartnershipDescription(rawDescription?, partnershipCfg?) {
     : rawDescriptionTrimmed;
 }
 
-async function executeTenantPartnership(interaction?, { description: rawDescription, managerId, skipped = false } = {}) {
+async function executeTenantPartnership(interaction?, { description: rawDescription, managerId, skipped = false }: any = {}) {
   const guildId = interaction.guild?.id;
   const partnershipCfg = resolvePartnershipConfigSync(guildId);
   const description = normalizePartnershipDescription(rawDescription, partnershipCfg);

@@ -77,7 +77,7 @@ async function createPmPointsRemovedEntry(payload?) {
   return doc?.toObject ? doc.toObject() : doc;
 }
 
-async function attachDiscordMirror(entryId?, { discordMessageId, discordChannelId } = {}) {
+async function attachDiscordMirror(entryId?, { discordMessageId, discordChannelId }: any = {}) {
   const id = String(entryId || "").trim();
   const msgId = String(discordMessageId || "").trim();
   if (!id || !msgId) return null;
@@ -106,7 +106,7 @@ async function listPmPointsRemovedEntries({
   pendingOnly = false,
   pmUserId = null,
   q = null,
-} = {}) {
+}: any = {}) {
   const gid = String(guildId || "").trim();
   if (!gid) return { items: [], hasMore: false, nextBefore: null };
 

@@ -7,7 +7,7 @@ const {
   formatQueue,
   pauseToggle,
   nowPlayingStatus,
-} = require("../../Services/Music/lavalinkMusicService") as typeof import("../../Services/Music/lavalinkMusicService");
+}: any = require("../../Services/Music/lavalinkMusicService") as typeof import("../../Services/Music/lavalinkMusicService");
 
 const EPHEMERAL_FLAG = 1 << 6;
 

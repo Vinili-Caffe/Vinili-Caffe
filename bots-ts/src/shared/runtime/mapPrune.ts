@@ -1,7 +1,7 @@
 /**
  * utilità prune Map in-memory (snipes, hub, panel cache).
  */
-function pruneMapByAge(map?, { maxAgeMs, now = Date.now(), getTs, onDelete } = {}) {
+function pruneMapByAge(map?, { maxAgeMs, now = Date.now(), getTs, onDelete }: any = {}) {
   if (!(map instanceof Map) || !maxAgeMs || maxAgeMs <= 0) return 0;
   let removed = 0;
   for (const [key, value] of map.entries()) {

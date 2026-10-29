@@ -8,7 +8,7 @@ function buildAuthorFilter(userId?) {
     !msg.system;
 }
 
-function createPromptMessageCollector(channel?, { userId, time, max = 1 } = {}) {
+function createPromptMessageCollector(channel?, { userId, time, max = 1 }: any = {}) {
   if (!channel?.createMessageCollector) return null;
 
   const filter = buildAuthorFilter(userId);

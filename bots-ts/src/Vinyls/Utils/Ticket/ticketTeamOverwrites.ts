@@ -31,7 +31,7 @@ function buildTeamPermissionOverwrites({
   supportTeamIds,
   openerId,
   openerPerms,
-} = {}) {
+}: any = {}) {
   const teamIds = normalizeTeamIdList(supportTeamIds, 10);
   if (!teamIds.length) return null;
 

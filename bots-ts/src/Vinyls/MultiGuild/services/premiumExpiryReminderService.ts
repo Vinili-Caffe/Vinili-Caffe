@@ -141,7 +141,7 @@ async function sendReminderInGuildChannel(guild?, user?, embed?, lang?) {
   });
 }
 
-async function sendPremiumExpiryReminderDm(client?, { userId, guildId, untilMs, days } = {}) {
+async function sendPremiumExpiryReminderDm(client?, { userId, guildId, untilMs, days }: any = {}) {
   const uid = String(userId || "").trim();
   const gid = String(guildId || "").trim();
   if (!client || !/^\d{16,20}$/.test(gid)) return null;

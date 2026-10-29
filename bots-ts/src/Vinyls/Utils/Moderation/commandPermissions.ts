@@ -2601,7 +2601,7 @@ function isPrefixCommandAllowedInWebTicket({
   ticketCategory,
   client,
   guildId,
-} = {}) {
+}: any = {}) {
   const safeCommand = String(commandName || "")
     .trim()
     .toLowerCase();
@@ -2636,7 +2636,7 @@ function isSlashCommandAllowedInWebTicket({
   ticketCategory,
   client,
   guildId,
-} = {}) {
+}: any = {}) {
   const safeCommand = String(commandName || "")
     .trim()
     .toLowerCase();

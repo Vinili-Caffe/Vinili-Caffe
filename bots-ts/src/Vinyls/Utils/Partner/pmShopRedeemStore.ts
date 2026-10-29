@@ -51,7 +51,7 @@ async function logPmShopRedeem(payload: Record<string, any> = {}) {
   return doc?.toObject ? doc.toObject() : doc;
 }
 
-async function listPmShopRedeems({ guildId, pmUserId, limit = 30, before = null } = {}) {
+async function listPmShopRedeems({ guildId, pmUserId, limit = 30, before = null }: any = {}) {
   const gid = String(guildId || "").trim();
   const uid = String(pmUserId || "").trim();
   if (!gid || !/^\d{16,22}$/.test(uid)) {

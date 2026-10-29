@@ -291,7 +291,7 @@ async function getConfessionaleStaffUserIds(guild?) {
   return userIds;
 }
 
-function collectDiscussionParticipantIds(doc?, { excludeUserId } = {}) {
+function collectDiscussionParticipantIds(doc?, { excludeUserId }: any = {}) {
   const ids = new Set();
   const ownerId = String(doc?.userId || "").trim();
   if (ownerId) ids.add(ownerId);

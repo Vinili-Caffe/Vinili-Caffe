@@ -133,7 +133,7 @@ async function handleSiteLiveEventGet(client?, req?, res?) {
   }
 }
 
-async function buildLiveEventPayload(client?, { force } = {}) {
+async function buildLiveEventPayload(client?, { force }: any = {}) {
   const now = Date.now();
   const guildId = resolveGuildId(client);
   if (!guildId) {

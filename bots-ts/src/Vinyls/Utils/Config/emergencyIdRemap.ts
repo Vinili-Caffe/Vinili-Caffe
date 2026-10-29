@@ -212,7 +212,7 @@ function persistGuildIdRemap({
   channelMap,
   emojiMap,
   stickerMap,
-} = {}) {
+}: any = {}) {
   const roleRemap = mapFromMapLike(roleMap);
   const channelRemap = mapFromMapLike(channelMap);
   const emojiRemap = mapFromMapLike(emojiMap);

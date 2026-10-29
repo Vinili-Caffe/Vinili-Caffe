@@ -1,7 +1,7 @@
 const { safeMessageReply } = require("../../../shared/discord/replyRuntime") as typeof import("../../../shared/discord/replyRuntime");
 const { isPartnershipOperational } = require("../../Utils/Partner/partnershipConfigResolver") as typeof import("../../Utils/Partner/partnershipConfigResolver");
 const { recordTenantStaffNotification } = require("../../Services/Partner/tenantStaffNotificationService") as typeof import("../../Services/Partner/tenantStaffNotificationService");
-const { getDevIds, isMainGuild } = require("../../Utils/Moderation/commandPermissions") as typeof import("../../Utils/Moderation/commandPermissions");
+const { getDevIds, isMainGuild }: any = require("../../Utils/Moderation/commandPermissions") as typeof import("../../Utils/Moderation/commandPermissions");
 const { replyPrefixSetupRequired } = require("../../Utils/Partner/tenantSetupRequiredReply") as typeof import("../../Utils/Partner/tenantSetupRequiredReply");
 
 function isBotDev(userId?, client?) {

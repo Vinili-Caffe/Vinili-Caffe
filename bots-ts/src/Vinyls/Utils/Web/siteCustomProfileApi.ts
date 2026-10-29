@@ -135,7 +135,7 @@ async function getCustomProfileCustomization(client, { accessToken }) {
   };
 }
 
-async function getCustomProfileGuildEmojis(client?, { accessToken, force = false } = {}) {
+async function getCustomProfileGuildEmojis(client?, { accessToken, force = false }: any = {}) {
   const resolved = await resolveWebsiteGuildMember(client, accessToken);
   if (!resolved.ok) return resolved;
 

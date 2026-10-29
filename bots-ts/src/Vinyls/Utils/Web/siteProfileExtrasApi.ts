@@ -249,7 +249,7 @@ async function buildRolePanelCategory(guild?, member?, cat?, prefetched: Record<
   };
 }
 
-async function getProfileExtras(client?, { accessToken, section: sectionRaw, viewAs: viewAsRaw } = {}) {
+async function getProfileExtras(client?, { accessToken, section: sectionRaw, viewAs: viewAsRaw }: any = {}) {
   const resolved = await resolveWebsiteGuildMember(client, accessToken);
   if (!resolved.ok) return resolved;
   let { guild, member, userId } = resolved;

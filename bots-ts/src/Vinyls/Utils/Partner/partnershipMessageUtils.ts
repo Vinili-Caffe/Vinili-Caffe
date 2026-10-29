@@ -317,7 +317,7 @@ function resolvePartnershipPublishBody({
   pingPlan = null,
   pingRoleId = null,
   badgeEmojis = null,
-} = {}) {
+}: any = {}) {
   const sanitized = resolvePartnershipDescriptionForPublish({
     description,
     legacy,
@@ -344,7 +344,7 @@ function resolvePartnershipDescriptionForPublish({
   description,
   legacy = false,
   contentFilters = null,
-} = {}) {
+}: any = {}) {
     const raw = unwrapDiscordForwardQuoteDump(String(description || "").trim());
     const filters = legacy
     ? normalizePartnershipContentFilters(

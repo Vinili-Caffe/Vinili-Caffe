@@ -166,7 +166,7 @@ async function handleUsageGuideInteraction(interaction?, { prefix = "+" } = {}) 
   return true;
 }
 
-async function showPrefixUsageGuide({ message, command, prefix = "+", deleteCommandMessage = null }) {
+async function showPrefixUsageGuide({ message, command, prefix = "+", deleteCommandMessage = null }: any) {
   if (!message || !command) return false;
   const defaultEmbed = buildDefaultGuideEmbed(command, prefix, message.guild);
   const row = buildSubcommandRow(command, message.author.id, "__default");

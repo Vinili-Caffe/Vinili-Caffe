@@ -65,7 +65,7 @@ function normalizeKind(kind?) {
 }
 
 /** notifCats1: successful Top.gg/Discadia vote registration (not reminders). */
-function isVoteRegisteredNotification({ kind, title, body, dedupeKey } = {}) {
+function isVoteRegisteredNotification({ kind, title, body, dedupeKey }: any = {}) {
   const k = normalizeKind(kind);
   const t = String(title || "");
   const b = String(body || "");
@@ -128,7 +128,7 @@ function inboxQueueIdFromOpenUrl(openUrl?) {
  * resoBellFlat1: Resoconti NON hanno più riga coda in campanella (resoProfile1) —
  * se restano “dedicated” spariscono ovunque. Li trattiamo come item Inbox normali.
  */
-function isDedicatedInboxQueueAlert({ openUrl, dedupeKey, channel, title, body } = {}) {
+function isDedicatedInboxQueueAlert({ openUrl, dedupeKey, channel, title, body }: any = {}) {
   const ch = String(channel || "").trim().toLowerCase();
   if (ch === "personal") return false;
   const key = String(dedupeKey || "").trim().toLowerCase();
@@ -163,7 +163,7 @@ function isDedicatedInboxQueueAlert({ openUrl, dedupeKey, channel, title, body }
 }
 
 /** notifCats3: PM subject of a point removal / review outcome → Inbox → Punti tolti. */
-function isPuntiToltiSubjectNotif({ dedupeKey, title, body } = {}) {
+function isPuntiToltiSubjectNotif({ dedupeKey, title, body }: any = {}) {
   const key = String(dedupeKey || "").trim().toLowerCase();
   if (/^pt-removed:/.test(key) || /^pt-review:/.test(key)) return true;
   const hay = `${String(title || "")} ${String(body || "")}`.toLowerCase();
@@ -173,14 +173,14 @@ function isPuntiToltiSubjectNotif({ dedupeKey, title, body } = {}) {
 }
 
 /** notifUseful1: SLA alerts for staff Inbox. */
-function isStaffTicketSlaNotif({ dedupeKey, kind } = {}) {
+function isStaffTicketSlaNotif({ dedupeKey, kind }: any = {}) {
   const key = String(dedupeKey || "").trim().toLowerCase();
   if (/^web_ticket:sla:/.test(key)) return true;
   return String(kind || "").trim().toLowerCase() === "web_ticket_sla";
 }
 
 /** notifUseful1: @mentions in ticket / workflow → Inbox Mentions (staff) or Personali. */
-function isMentionNotif({ dedupeKey, kind } = {}) {
+function isMentionNotif({ dedupeKey, kind }: any = {}) {
   const k = String(kind || "").trim().toLowerCase();
   if (k === "web_ticket_mention" || k === "workflow_mention") return true;
   const key = String(dedupeKey || "").trim().toLowerCase();
@@ -188,7 +188,7 @@ function isMentionNotif({ dedupeKey, kind } = {}) {
 }
 
 /** notifUseful1: opener-side ticket events stay Personali (never Inbox). */
-function isPersonalTicketOpenerNotif({ dedupeKey, channel, openUrl, kind } = {}) {
+function isPersonalTicketOpenerNotif({ dedupeKey, channel, openUrl, kind }: any = {}) {
   const ch = String(channel || "").trim().toLowerCase();
   const url = String(openUrl || "").toLowerCase();
   if (ch === "inbox" || /(?:\?|&)view=staff\b/.test(url)) return false;
@@ -208,7 +208,7 @@ function isPersonalTicketOpenerNotif({ dedupeKey, channel, openUrl, kind } = {})
 }
 
 /** notifCats3: staff-side ticket queue / staff view tickets → Inbox. */
-function isStaffTicketNotif({ dedupeKey, openUrl, kind, channel } = {}) {
+function isStaffTicketNotif({ dedupeKey, openUrl, kind, channel }: any = {}) {
   if (isPersonalTicketOpenerNotif({ dedupeKey, openUrl, kind, channel })) return false;
   if (isStaffTicketSlaNotif({ dedupeKey, kind })) return true;
   const key = String(dedupeKey || "").trim().toLowerCase();
@@ -230,7 +230,7 @@ function isStaffTicketNotif({ dedupeKey, openUrl, kind, channel } = {}) {
 }
 
 /** notifCats3: High Staff “new review” alerts → Inbox (author likes/replies stay personal). */
-function isStaffReviewNotif({ dedupeKey, title, kind } = {}) {
+function isStaffReviewNotif({ dedupeKey, title, kind }: any = {}) {
   const key = String(dedupeKey || "").trim().toLowerCase();
   if (/^rev-new:/.test(key) || /^rev-staff-target:/.test(key)) return true;
   const k = String(kind || "").trim().toLowerCase();
@@ -240,7 +240,7 @@ function isStaffReviewNotif({ dedupeKey, title, kind } = {}) {
 }
 
 /** notifCats3 + staffFeedbackCommentInbox1: High Staff new suggestion/bug + staff-board comments → Inbox. */
-function isStaffFeedbackNotif({ dedupeKey, title, kind, openUrl, channel } = {}) {
+function isStaffFeedbackNotif({ dedupeKey, title, kind, openUrl, channel }: any = {}) {
   const key = String(dedupeKey || "").trim().toLowerCase();
   if (/^suggestion:new:/.test(key) || /^bot_feedback_new:/.test(key)) return true;
   const k = String(kind || "").trim().toLowerCase();
@@ -253,7 +253,7 @@ function isStaffFeedbackNotif({ dedupeKey, title, kind, openUrl, channel } = {})
 }
 
 /** notifUseful1: workflow decision for requester stays Personali. */
-function isWorkflowDecisionPersonalNotif({ dedupeKey, kind, channel } = {}) {
+function isWorkflowDecisionPersonalNotif({ dedupeKey, kind, channel }: any = {}) {
   const ch = String(channel || "").trim().toLowerCase();
   if (ch === "personal") {
     const k = String(kind || "").trim().toLowerCase();

@@ -356,7 +356,7 @@ function findPmUserIdsInText(text?, pmUserIds?, nameIndex?, excludeUserId?) {
   return found;
 }
 
-function findPmUserIdAfterBotPartnership(messages?, index?, { pmUserIds, nameIndex, managerId, windowMs = 3 * 60 * 1000 } = {}) {
+function findPmUserIdAfterBotPartnership(messages?, index?, { pmUserIds, nameIndex, managerId, windowMs = 3 * 60 * 1000 }: any = {}) {
   const base = messages?.[index];
   const baseTs = Number(base?.createdTimestamp || 0);
   if (!base || !baseTs || !pmUserIds?.size) return null;

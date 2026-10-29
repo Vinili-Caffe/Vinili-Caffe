@@ -54,7 +54,7 @@ function welcomeBadgeForGender(gender?) {
  * Prefer clear he/she guild roles over Discord profile strings.
  * welcomePronouns4: profile "ask"/"any"/"they" used to win and lock Benvenut*.
  */
-function resolveWelcomeBadge(member?, { discordPronouns, roleIds } = {}) {
+function resolveWelcomeBadge(member?, { discordPronouns, roleIds }: any = {}) {
   const fromProfile = mapDiscordPronounsStringToGender(discordPronouns);
   const fromRoleIds = resolveGenderFromRoleIds(roleIds);
   const fromMember = resolveMemberPronounGender(member);

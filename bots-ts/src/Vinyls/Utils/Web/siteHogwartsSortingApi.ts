@@ -994,7 +994,7 @@ async function previewPotionsHouseReward(client?, guildId?, userId?, basePoints?
       petHousePointsMultiplier,
       getShopDurableBoostUsage,
       SHOP_CATEGORIES,
-    } = require("../../Services/Community/hogwartsShopBoostsService") as typeof import("../../Services/Community/hogwartsShopBoostsService");
+    }: any = require("../../Services/Community/hogwartsShopBoostsService") as typeof import("../../Services/Community/hogwartsShopBoostsService");
     if (!isHogwartsShopBoostActive(client)) return empty;
     const inventory = await loadShopInventory(guildId, userId);
     const pet = inventory?.[SHOP_CATEGORIES.PET] || null;

@@ -18,7 +18,7 @@ const { addExpWithLevel, shouldIgnoreExpForMember, incrementMinigameWinCounters 
 const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
 const { getClientChannelCached, getGuildMemberCached, } = require("../../Utils/Interaction/interactionEntityCache") as typeof import("../../Utils/Interaction/interactionEntityCache");
 const { getGuessYearBank, getCompleteVerseBank, getGuessEmojiBank, getQuoteFilmBank, getProverbBank, getSynonymAntonymBank, getGuessCityBank, getCapitalQuizBank, getItalianRegionCapitalBank, getItalianGkBank, getDrivingTrueFalseBank, getDrivingMultipleChoiceBank, getDrivingSignQuestions, getFastTypingPhrases, getHangmanWords, getTreasureHuntEmojiPairs, getHogwartsQuizBank, getHogwartsCipherBank, getHogwartsMemoryEmojiBank, getMemoryEmojiBank, CAPITAL_ITALIAN, CAPITAL_COUNTRY_REGION, REGION_AREA, REGION_HINT_DATA, FAMOUS_CAPITAL_COUNTRIES, FLAG_WELL_KNOWN_COUNTRIES } = require("../../Data/Minigames/minigameBanks") as typeof import("../../Data/Minigames/minigameBanks");
-const { getHogwartsGuessWords, getHogwartsHangmanWords, getHogwartsFastTypingPhrases, getHogwartsGuessYearBank, getHogwartsQuoteFilmBank, getHogwartsCompleteVerseBank, getHogwartsProverbBank, getHogwartsSynonymAntonymBank, getHogwartsGuessCityBank, getHogwartsGuessEmojiBank, getHogwartsTreasureHuntEmojiPairs, getHogwartsItalianGkBank } = require("../../Data/Minigames/hogwartsBonusMinigameBanks") as typeof import("../../Data/Minigames/hogwartsBonusMinigameBanks");
+const { getHogwartsGuessWords, getHogwartsHangmanWords, getHogwartsFastTypingPhrases, getHogwartsGuessYearBank, getHogwartsQuoteFilmBank, getHogwartsCompleteVerseBank, getHogwartsProverbBank, getHogwartsSynonymAntonymBank, getHogwartsGuessCityBank, getHogwartsGuessEmojiBank, getHogwartsTreasureHuntEmojiPairs, getHogwartsItalianGkBank }: any = require("../../Data/Minigames/hogwartsBonusMinigameBanks") as typeof import("../../Data/Minigames/hogwartsBonusMinigameBanks");
 const { getHogwartsCharacterBank } = require("../../Data/Minigames/hogwartsCharacterBank") as typeof import("../../Data/Minigames/hogwartsCharacterBank");
 const { buildImageAttachmentFromRelativePath, resolveShopItemPublicImageUrl } = require("../../Utils/Web/hogwartsEventAssets") as typeof import("../../Utils/Web/hogwartsEventAssets");
 const { safeLoadImage } = require("../../Utils/Render/safeLoadImage") as typeof import("../../Utils/Render/safeLoadImage");
@@ -639,7 +639,7 @@ async function clearPersistedRolePing(channelId?) {
   await SiteDocument.deleteMany({ docType: MINIGAME_ROLE_PING_DOC_TYPE, dedupeKey: chId }).catch(() => null);
 }
 
-async function sendMinigameMessage(channel?, payload?, options = "minigame") {
+async function sendMinigameMessage(channel?, payload?, options: any = "minigame") {
   if (!channel?.send) return null;
   const client = channel.client;
   const opts = normalizeMinigameSendOptions(options);

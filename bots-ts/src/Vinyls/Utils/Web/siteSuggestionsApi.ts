@@ -424,7 +424,7 @@ async function notifySuggestionAuthor(guildId?, authorUserId?, payload?) {
 }
 
 /** discussionParticipantsFanOut1 — owner + prior comment authors; exclude actor; Set-deduped. */
-function collectSuggestionDiscussionParticipantIds(doc?, { excludeUserId } = {}) {
+function collectSuggestionDiscussionParticipantIds(doc?, { excludeUserId }: any = {}) {
   const ids = new Set();
   const ownerId = String(doc?.userId || "").trim();
   if (ownerId) ids.add(ownerId);

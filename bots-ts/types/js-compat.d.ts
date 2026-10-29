@@ -15,4 +15,12 @@ declare module "discord.js" {
   interface Client {
     [key: string]: any;
   }
+  // i colori arrivano da config e variabili (stringhe "#rrggbb" o numeri): discord.js li accetta, il tipo no
+  interface EmbedBuilder {
+    setColor(color: any): this;
+  }
+  // le righe dei modali si costruiscono con new ActionRowBuilder() senza specificare il tipo di componente
+  interface ModalBuilder {
+    addComponents(...components: any[]): this;
+  }
 }

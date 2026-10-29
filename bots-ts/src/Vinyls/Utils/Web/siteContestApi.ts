@@ -283,7 +283,7 @@ function tryUnlinkStoredImage(imageUrl?) {
   }
 }
 
-async function getContestStatus(client?, { eventKey, accessToken } = {}) {
+async function getContestStatus(client?, { eventKey, accessToken }: any = {}) {
   const event = getEvent(eventKey);
   if (!event) return { ok: false, status: 404, error: "unknown_event", message: "Contest non trovato." };
 
@@ -328,7 +328,7 @@ async function getContestStatus(client?, { eventKey, accessToken } = {}) {
   });
 }
 
-async function listEvents(client?, { accessToken } = {}) {
+async function listEvents(client?, { accessToken }: any = {}) {
   let staffPreview = false;
   if (accessToken) staffPreview = await isStaffPreview(client, accessToken);
   const now = Date.now();
@@ -349,7 +349,7 @@ async function listEvents(client?, { accessToken } = {}) {
 }
 
 /** Singolo contest da mettere in risalto (home card + pill nav). */
-async function getHighlight(client?, { accessToken } = {}) {
+async function getHighlight(client?, { accessToken }: any = {}) {
   let staffPreview = false;
   if (accessToken) staffPreview = await isStaffPreview(client, accessToken);
   const now = Date.now();
@@ -390,7 +390,7 @@ async function getHighlight(client?, { accessToken } = {}) {
   };
 }
 
-async function submitEntry(client?, { eventKey, accessToken, image, category } = {}) {
+async function submitEntry(client?, { eventKey, accessToken, image, category }: any = {}) {
   const event = getEvent(eventKey);
   if (!event) return { ok: false, status: 404, error: "unknown_event", message: "Contest non trovato." };
 
@@ -477,7 +477,7 @@ async function submitEntry(client?, { eventKey, accessToken, image, category } =
   };
 }
 
-async function getSwipeFeed(client?, { eventKey, accessToken, category, limit = 20 } = {}) {
+async function getSwipeFeed(client?, { eventKey, accessToken, category, limit = 20 }: any = {}) {
   const event = getEvent(eventKey);
   if (!event) return { ok: false, status: 404, error: "unknown_event", message: "Contest non trovato." };
 
@@ -522,7 +522,7 @@ async function getSwipeFeed(client?, { eventKey, accessToken, category, limit = 
   };
 }
 
-async function castSwipe(client?, { eventKey, accessToken, submissionId, action } = {}) {
+async function castSwipe(client?, { eventKey, accessToken, submissionId, action }: any = {}) {
   const event = getEvent(eventKey);
   if (!event) return { ok: false, status: 404, error: "unknown_event", message: "Contest non trovato." };
 
@@ -605,7 +605,7 @@ async function notifyOwnerLike(client?, event?, sub?) {
   });
 }
 
-async function getLeaderboard(client?, { eventKey, accessToken, category, page = 1, pageSize = 10 } = {}) {
+async function getLeaderboard(client?, { eventKey, accessToken, category, page = 1, pageSize = 10 }: any = {}) {
   const event = getEvent(eventKey);
   if (!event) return { ok: false, status: 404, error: "unknown_event", message: "Contest non trovato." };
 
@@ -658,7 +658,7 @@ async function getLeaderboard(client?, { eventKey, accessToken, category, page =
   };
 }
 
-async function deleteEntry(client?, { eventKey, accessToken, category } = {}) {
+async function deleteEntry(client?, { eventKey, accessToken, category }: any = {}) {
   const event = getEvent(eventKey);
   if (!event) return { ok: false, status: 404, error: "unknown_event", message: "Contest non trovato." };
 
@@ -695,7 +695,7 @@ async function deleteEntry(client?, { eventKey, accessToken, category } = {}) {
   };
 }
 
-async function replaceEntry(client?, { eventKey, accessToken, image, category } = {}) {
+async function replaceEntry(client?, { eventKey, accessToken, image, category }: any = {}) {
   const event = getEvent(eventKey);
   if (!event) return { ok: false, status: 404, error: "unknown_event", message: "Contest non trovato." };
 
@@ -799,7 +799,7 @@ async function serveContestFile(req?, res?) {
 }
 
 /** Staff: apri/chiudi visibilità pubblica (env override non persistito — flag in-memory + persist su doc meta). */
-async function setPublicOpen(client?, { eventKey, accessToken, publicOpen } = {}) {
+async function setPublicOpen(client?, { eventKey, accessToken, publicOpen }: any = {}) {
   const event = getEvent(eventKey);
   if (!event) return { ok: false, status: 404, error: "unknown_event", message: "Contest non trovato." };
   const staff = await isContestStaff(client, accessToken);
@@ -812,7 +812,7 @@ async function setPublicOpen(client?, { eventKey, accessToken, publicOpen } = {}
 }
 
 /** Staff: riempie il deck con foto placeholder (picsum) per provare lo swipe. */
-async function seedDemo(client?, { eventKey, accessToken, count = 8, replace = true } = {}) {
+async function seedDemo(client?, { eventKey, accessToken, count = 8, replace = true }: any = {}) {
   const event = getEvent(eventKey);
   if (!event) return { ok: false, status: 404, error: "unknown_event", message: "Contest non trovato." };
   const staff = await isContestStaff(client, accessToken);
@@ -881,7 +881,7 @@ async function seedDemo(client?, { eventKey, accessToken, count = 8, replace = t
 }
 
 /** Staff: rimuove solo le submission demo*. */
-async function clearDemo(client?, { eventKey, accessToken } = {}) {
+async function clearDemo(client?, { eventKey, accessToken }: any = {}) {
   const event = getEvent(eventKey);
   if (!event) return { ok: false, status: 404, error: "unknown_event", message: "Contest non trovato." };
   const staff = await isContestStaff(client, accessToken);

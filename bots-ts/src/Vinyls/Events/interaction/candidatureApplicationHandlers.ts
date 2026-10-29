@@ -1349,7 +1349,7 @@ async function getCandidatureEligibilitySummary(client?, accessToken?) {
     return resolved;
   }
 
-  const { member, userId } = resolved;
+  const { member, userId }: any = resolved;
   const helperRes = await checkMemberCandidatureEligibility(member, "helper");
   const pmRes = await checkMemberCandidatureEligibility(member, "partnermanager");
   const pack = (e?) =>
@@ -1386,7 +1386,7 @@ async function submitCandidatureWebsite(client?, payload?) {
     return { ok: false, status: resolved.status, error: resolved.error, message: resolved.message };
   }
 
-  const { member, userId, guild } = resolved;
+  const { member, userId, guild }: any = resolved;
 
   const eligibility = await checkMemberCandidatureEligibility(member, type);
   if (!eligibility.ok) {

@@ -241,7 +241,7 @@ async function runPostRestoreIdSync({
   emojiMap,
   stickerMap,
   syncMongo = true,
-} = {}) {
+}: any = {}) {
   const persisted = persistGuildIdRemap({
     guildId,
     backupId,

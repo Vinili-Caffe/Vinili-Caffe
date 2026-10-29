@@ -264,7 +264,7 @@ async function refreshTicketFormsCache() {
   return getGuildFormsSync;
 }
 
-async function createGuildForm(guildId?, { title } = {}) {
+async function createGuildForm(guildId?, { title }: any = {}) {
   const form = normalizeForm({ title, fields: [] });
   if (!form) return { ok: false, reason: "invalid_form" };
   const result = await mutateGuildForms(guildId, (prev?) => {

@@ -81,7 +81,7 @@ function resetTestMirrorRemapCache() {
   cache = null;
 }
 
-function persistTestMirrorMaps({ roleMap, channelMap, meta = {} } = {}) {
+function persistTestMirrorMaps({ roleMap, channelMap, meta = {} }: any = {}) {
   const roleRemap = mapFromMapLike(roleMap);
   const channelRemap = mapFromMapLike(channelMap);
   let prev: Record<string, any> = {};

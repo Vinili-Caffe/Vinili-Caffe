@@ -273,7 +273,7 @@ function normalizeChaosGameId(game?) {
   return g;
 }
 
-function formatPrizeLines(c?, { firstSlot, boostType, boostScope } = {}) {
+function formatPrizeLines(c?, { firstSlot, boostType, boostScope }: any = {}) {
   const lines = [
     `**${formatGaleoni(c.rewardGaleoni)}**`,
     `<a:VC_Winner:1482535294757507255> **${c.rewardHousePoints} punti casa** (con multi animale / boost attivi)`,

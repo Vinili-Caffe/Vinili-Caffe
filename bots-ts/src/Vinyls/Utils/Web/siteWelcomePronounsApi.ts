@@ -52,7 +52,7 @@ function roleIdsFromMember(member?) {
  *
  * welcomePronouns4: merge OAuth+bot role ids; guild m/f beats profile ask/any.
  */
-async function getWelcomePronouns(client?, { accessToken, fresh } = {}) {
+async function getWelcomePronouns(client?, { accessToken, fresh }: any = {}) {
   const resolved = await resolveWebsiteGuildMember(client, accessToken);
   if (!resolved.ok) {
     return {

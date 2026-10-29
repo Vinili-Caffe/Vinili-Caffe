@@ -194,7 +194,7 @@ async function addHalloweenCandy({
   reason = "",
   source = "minigame",
   client = null,
-} = {}) {
+}: any = {}) {
   const g = normalizeId(guildId);
   const u = normalizeId(userId);
   const amt = Math.max(0, Math.floor(Number(amount) || 0));
@@ -370,7 +370,7 @@ async function addHalloweenCandy({
  * Embed + pulsante profilo quando sblocchi una caramella (hunt / dolcetto).
  * @returns {{ embeds: import("discord.js").EmbedBuilder[], components: import("discord.js").ActionRowBuilder[] } | null}
  */
-function buildHalloweenCandyUnlockPayload({ candyResult, userId, expGained = 0 } = {}) {
+function buildHalloweenCandyUnlockPayload({ candyResult, userId, expGained = 0 }: any = {}) {
   const first = candyResult?.firstAward;
   const name = String(first?.name || "").trim();
   if (!name) return null;
@@ -503,7 +503,7 @@ async function passAlongHalloweenCandy({
   reason = "pass_along",
   source = "pass_along",
   client = null,
-} = {}) {
+}: any = {}) {
   const g = normalizeId(guildId);
   const exclude = normalizeId(excludeUserId);
   const ek = normalizeId(eventKey) || "halloween_2026";

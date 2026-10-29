@@ -5,7 +5,7 @@ const { PARTNER_REWARD_LABELS } = require("../../../shared/partner/partnerManage
 async function completePartnerManagerRedeemForGuild(
   guild?,
   client?,
-  { targetUserId, redeemTier, actorUser, reason = "", source = "discord_hs" } = {},
+  { targetUserId, redeemTier, actorUser, reason = "", source = "discord_hs" }: any = {},
 ) {
   const gid = String(guild?.id || "").trim();
   const uid = String(targetUserId || "").trim();

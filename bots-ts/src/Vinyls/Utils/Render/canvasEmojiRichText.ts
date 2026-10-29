@@ -1,3 +1,4 @@
+declare const createCanvas: any; // usato solo dopo typeof createCanvas === "function"
 const { drawTextWithSpecialFallback, fontStack, fontStackWithPrimary } = require("./canvasFonts") as typeof import("./canvasFonts");
 const { normalizeTextForCanvas, replaceCanvasCompatChars } = require("./canvasUtils") as typeof import("./canvasUtils");
 const { safeLoadImage } = require("./safeLoadImage") as typeof import("./safeLoadImage");

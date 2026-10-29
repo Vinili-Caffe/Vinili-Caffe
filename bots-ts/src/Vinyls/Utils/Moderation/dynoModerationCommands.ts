@@ -1,3 +1,4 @@
+declare const targetMember: any; // usato solo dopo typeof targetMember !== "undefined"
 const { EmbedBuilder, PermissionsBitField, ActionRowBuilder, ButtonBuilder, ButtonStyle, } = require("discord.js") as typeof import("discord.js");
 const IDs = require("../Config/ids") as typeof import("../Config/ids");
 const { resolveCaseByGuildCaseId, resolveCaseByContextMessageId, appendCaseEditStore, setCaseReasonStore, setCaseDurationStore, findActiveModerations, countModLogsForUser, findModLogsPage, findOpenCases, findActiveWarns } = require("./modCaseStore") as typeof import("./modCaseStore");

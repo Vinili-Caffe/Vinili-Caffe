@@ -46,10 +46,46 @@ const edits = new Map(); // file → Map(pos → text)
 const suspicious = [];
 const classFields = new Map(); // classe → { file, pos, names }
 
+/** Parametro/variabile destrutturato senza tipo (`{ a, b } = {}`): in JS i campi mancanti o in più vanno bene. */
+function annotatePattern(decl, why) {
+  if (!decl || decl.type || !(ts.isParameter(decl) || ts.isVariableDeclaration(decl))) return false;
+  if (!ts.isObjectBindingPattern(decl.name) && !ts.isIdentifier(decl.name)) return false;
+  if (ts.isVariableDeclaration(decl) && (ts.isForOfStatement(decl.parent.parent) || ts.isForInStatement(decl.parent.parent))) return false;
+  const file = decl.getSourceFile().fileName;
+  if (file.includes("node_modules")) return false;
+  if (!edits.has(file)) edits.set(file, new Map());
+  const pos = decl.questionToken ? decl.questionToken.end : decl.name.end;
+  edits.get(file).set(pos, ": any");
+  bump(why);
+  return true;
+}
+
 for (const d of ts.getPreEmitDiagnostics(program)) {
-  if (!d.file || (d.code !== 2339 && d.code !== 2551)) continue;
+  if (!d.file) continue;
+  // { campo in più } passato a una funzione che destruttura i parametri
+  if (d.code === 2353) {
+    let n = nodeAt(d.file, d.start);
+    while (n && !ts.isObjectLiteralExpression(n)) n = n.parent;
+    const call = n && n.parent && ts.isCallExpression(n.parent) ? n.parent : null;
+    const decl = call ? checker.getResolvedSignature(call)?.declaration : null;
+    const idx = call ? call.arguments.indexOf(n) : -1;
+    if (!(decl && idx >= 0 && decl.parameters && decl.parameters[idx] && annotatePattern(decl.parameters[idx], "opzioni in più a parametro destrutturato"))) {
+      bump("campo non previsto (altro)");
+    }
+    continue;
+  }
+  if (d.code !== 2339 && d.code !== 2551) continue;
   const sf = d.file;
   let n = nodeAt(sf, d.start);
+  // const { a } = x / function f({ a } = {}) con a che per TypeScript non c'è
+  {
+    let b = n;
+    while (b && !ts.isBindingElement(b) && !ts.isPropertyAccessExpression(b) && !ts.isElementAccessExpression(b)) b = b.parent;
+    if (b && ts.isBindingElement(b) && ts.isObjectBindingPattern(b.parent) && b.parent.parent) {
+      if (!annotatePattern(b.parent.parent, "campo mancante in un destrutturato")) bump("destrutturato non annotabile");
+      continue;
+    }
+  }
   while (n && !ts.isPropertyAccessExpression(n) && !ts.isElementAccessExpression(n)) n = n.parent;
   if (!n) {
     bump("altro: non è un accesso a proprietà");

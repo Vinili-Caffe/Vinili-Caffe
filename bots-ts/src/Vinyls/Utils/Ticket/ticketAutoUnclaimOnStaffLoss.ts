@@ -1,5 +1,5 @@
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js") as typeof import("discord.js");
-const { buildTicketFlowRich } = require("./ticketUxMessages") as typeof import("./ticketUxMessages");
+const { buildTicketFlowRich }: any = require("./ticketUxMessages") as typeof import("./ticketUxMessages");
 const { isComponentsV2Message } = require("../Embeds/vcPageEmbedV2") as typeof import("../Embeds/vcPageEmbedV2");
 const Ticket = require("../../Schemas/Ticket/ticketSchema");
 const IDs = require("../Config/ids") as typeof import("../Config/ids");

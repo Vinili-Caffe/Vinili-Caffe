@@ -155,7 +155,7 @@ function isFullStartupSyncEnabled() {
   return envFlagEnabled("FULL_STARTUP_SYNC");
 }
 
-function shouldRunStartupWork(namespace?, key?, { ttlMs, forceEnv } = {}) {
+function shouldRunStartupWork(namespace?, key?, { ttlMs, forceEnv }: any = {}) {
   if (forceEnv && envFlagEnabled(forceEnv)) {
     return { run: true, reason: "force_env" };
   }

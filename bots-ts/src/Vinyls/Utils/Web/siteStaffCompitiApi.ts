@@ -846,7 +846,7 @@ async function loadSwapBonus(guildId?, userId?, monthKey = "") {
   };
 }
 
-async function saveSwapBonusState(guildId?, userId?, { bonus, weekKey = "", monthKey = "" } = {}) {
+async function saveSwapBonusState(guildId?, userId?, { bonus, weekKey = "", monthKey = "" }: any = {}) {
   const set = {
     "profile.siteStaffCompitiSwapBonus": Math.max(0, Math.floor(Number(bonus) || 0)),
   };
@@ -920,7 +920,7 @@ async function ensureStafferCompitiSwapBonus(client?, guildId?, userId?, monthKe
  * Nuovo staff pexato (Member→staff) nella settimana Mon–Sun Rome corrente:
  * niente miss/VN compiti fino al lunedì successivo.
  */
-async function isNewStaffCompitiGrace({ guildId, userId, member = null, now = new Date() } = {}) {
+async function isNewStaffCompitiGrace({ guildId, userId, member = null, now = new Date() }: any = {}) {
   try {
     const {
       getCurrentResocontoPexWeekWindowUtc,

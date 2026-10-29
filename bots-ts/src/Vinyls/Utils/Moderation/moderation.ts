@@ -107,7 +107,7 @@ async function closeCasePersist(modCase?, closeReason = null) {
   await closeCaseByRef(String(modCase.guildId), String(modCase.userId), Number(modCase.caseId), closeReason).catch(() => null);
 }
 
-async function logModCase({ guild, modCase }) {
+async function logModCase({ guild, modCase }: any) {
   await sendStaffActionToModLogs(guild, modCase).catch(() => null);
 }
 

@@ -227,7 +227,7 @@ export = async function renderSkullboardCanvas({
   /* skullHiDpi1: disegno a doppia risoluzione, testo ed emoji restano nitidi anche ingranditi */
   const SCALE = 2;
   const canvas = createCanvas(width * SCALE, height * SCALE);
-  const ctx = canvas.getContext("2d");
+  const ctx: any = canvas.getContext("2d");
   ctx.scale(SCALE, SCALE);
   ctx.imageSmoothingQuality = "high";
 

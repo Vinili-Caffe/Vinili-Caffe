@@ -1406,7 +1406,7 @@ async function staffCommunicationMessageStillExists(client?, messageId?) {
   return Boolean(message?.id);
 }
 
-async function staffCommunicationPostExistsInChannel(client?, { title, weekKey, sinceMs } = {}) {
+async function staffCommunicationPostExistsInChannel(client?, { title, weekKey, sinceMs }: any = {}) {
   const channel = await fetchStaffCommunicationChannel(client);
   if (!channel?.messages?.fetch) return false;
   const film = String(title || "").trim();
@@ -2288,7 +2288,7 @@ async function ensureReviewThreadForEndMessage(message?, {
   title,
   state,
   permissionsClosed = false,
-} = {}) {
+}: any = {}) {
   if (!message?.id) return { thread: null, created: false };
   let thread = await resolveReviewThreadFromMessage(message);
   let created = false;
@@ -2387,7 +2387,7 @@ async function isSerataFilmStageLive(guild?) {
   return Boolean(fetched?.find?.((row?) => String(row?.channelId || "") === MOVIE_NIGHT_EVENT_CHANNEL_ID));
 }
 
-async function repairMovieNightEndAnnouncementLeaderboard(client?, { guild, weekKey, state, title, lbResult = null } = {}) {
+async function repairMovieNightEndAnnouncementLeaderboard(client?, { guild, weekKey, state, title, lbResult = null }: any = {}) {
   if (!client || !isHogwartsWeeklyTopReplaced(client)) return { skipped: true, reason: "hogwarts_inactive" };
   const messageId = String(state?.stageCloseMessageId || "").trim();
   if (!messageId || messageId === "pending") return { skipped: true, reason: "no_close_message" };

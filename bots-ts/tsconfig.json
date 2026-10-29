@@ -7,6 +7,9 @@
     "moduleResolution": "node10",
     "moduleDetection": "force",
     "types": ["node"],
+    // pacchetti installati solo dentro Vinyls/ (es. canvas): stesso posto da cui li prende il bot
+    "baseUrl": ".",
+    "paths": { "canvas": ["../Vinyls/node_modules/canvas"] },
     "noEmit": true,
     "incremental": true,
     "tsBuildInfoFile": ".tsbuildinfo",

@@ -213,7 +213,7 @@ async function logHogwartsShopPurchase({
   skipDiscord = false,
   skipDm = false,
   knownDedupeKeys,
-} = {}) {
+}: any = {}) {
   const uid = String(userId || member?.id || "").trim();
   if (!uid) return { ok: false, reason: "no_user" };
   const ms = Number(purchasedAtMs || Date.now());

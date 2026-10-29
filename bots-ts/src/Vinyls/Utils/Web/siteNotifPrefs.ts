@@ -187,7 +187,7 @@ async function setDigestQueues(guildId?, userId?, digestQueues?) {
   return next;
 }
 
-function serializeSiteNotifPrefs(mutedKinds?, digestQueues?, { member } = {}) {
+function serializeSiteNotifPrefs(mutedKinds?, digestQueues?, { member }: any = {}) {
   const muted = new Set(normalizeMutedKinds(mutedKinds));
   const digests = new Set(normalizeDigestQueues(digestQueues));
   return {
@@ -210,13 +210,13 @@ function serializeSiteNotifPrefs(mutedKinds?, digestQueues?, { member } = {}) {
   };
 }
 
-async function getSerializedSiteNotifPrefs(guildId?, userId?, { member } = {}) {
+async function getSerializedSiteNotifPrefs(guildId?, userId?, { member }: any = {}) {
   const muted = await getMutedKinds(guildId, userId).catch(() => []);
   const digests = await getDigestQueues(guildId, userId).catch(() => normalizeDigestQueues(null));
   return serializeSiteNotifPrefs(muted, digests, { member });
 }
 
-async function mutateSiteNotifPrefs(guildId?, userId?, payload?, { member } = {}) {
+async function mutateSiteNotifPrefs(guildId?, userId?, payload?, { member }: any = {}) {
   const action = String(payload?.action || "").trim();
   const muted = new Set(await getMutedKinds(guildId, userId).catch(() => []));
   const digests = new Set(await getDigestQueues(guildId, userId).catch(() => normalizeDigestQueues(null)));
@@ -290,7 +290,7 @@ async function userPrefersNotifDigest(guildId?, userId?, queue?) {
   return prefersDigestQueue(digests, queue);
 }
 
-function inferVoteListingFromNotif({ title, body, dedupeKey, openUrl } = {}) {
+function inferVoteListingFromNotif({ title, body, dedupeKey, openUrl }: any = {}) {
   const blob = [title, body, dedupeKey, openUrl]
     .map((x?) => String(x || "").toLowerCase())
     .join(" ");
@@ -304,7 +304,7 @@ function inferVoteListingFromNotif({ title, body, dedupeKey, openUrl } = {}) {
 async function shouldSkipSiteInAppNotif(
   guildId?,
   userId?,
-  { kind, title, body, dedupeKey, openUrl, mutedKinds, voteBlocked } = {},
+  { kind, title, body, dedupeKey, openUrl, mutedKinds, voteBlocked }: any = {},
 ) {
   const gid = resolveGuildId(guildId);
   const uid = String(userId || "").trim();
