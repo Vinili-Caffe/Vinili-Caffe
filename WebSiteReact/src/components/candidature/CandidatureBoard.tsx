@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { AlertTriangle, ArrowLeft, ArrowRight, Check, CheckCircle2, Clock, Coffee, Handshake, Loader2, PenLine, Send, Shield } from "lucide-react";
 import { AuthGateCard } from "@/components/AuthGateCard";
 import { Reveal } from "@/components/Reveal";
@@ -44,10 +44,42 @@ function Beans({ total, done }: { total: number; done: number }) {
   );
 }
 
-function Field({ q, n, value, set, readOnly }: { q: Question; n: number; value: string | string[] | undefined; set: (v: string | string[]) => void; readOnly?: boolean }) {
+/** Scossa breve per i campi da compilare (rifatta a ogni tentativo grazie alla key). */
+function Shake({ on, round, children }: { on: boolean; round: number; children: React.ReactNode }) {
+  const reduce = useReducedMotion();
+  return (
+    <motion.div
+      key={on ? `shake-${round}` : "ok"}
+      initial={false}
+      animate={on && !reduce ? { x: [0, -9, 9, -6, 6, -3, 3, 0] } : { x: 0 }}
+      transition={{ duration: 0.45, ease: "easeInOut" }}
+    >
+      {children}
+    </motion.div>
+  );
+}
+
+function Field({
+  q,
+  n,
+  value,
+  set,
+  readOnly,
+  invalid,
+}: {
+  q: Question;
+  n: number;
+  value: string | string[] | undefined;
+  set: (v: string | string[]) => void;
+  readOnly?: boolean;
+  invalid?: boolean;
+}) {
   const id = `cand-${q.id}`;
-  const box =
-    "w-full rounded-xl border border-sand/15 bg-espresso/75 px-3.5 py-2.5 text-sm text-crema outline-none placeholder:text-crema/30 focus:border-caramel/45 focus:ring-2 focus:ring-caramel/35";
+  const box = cn(
+    "w-full rounded-xl border bg-espresso/75 px-3.5 py-2.5 text-sm text-crema outline-none transition-[border-color,box-shadow] placeholder:text-crema/30 focus:border-caramel/45 focus:ring-2 focus:ring-caramel/35",
+    invalid ? "border-[#e2836f]/80 ring-2 ring-[#e2836f]/25 light:border-[#a83a2c]/70" : "border-sand/15",
+  );
+  const group = invalid ? "border-[#e2836f]/80 ring-2 ring-[#e2836f]/25 light:border-[#a83a2c]/70" : "border-sand/12";
 
   const head = (
     <div className="space-y-1">
@@ -66,7 +98,7 @@ function Field({ q, n, value, set, readOnly }: { q: Question; n: number; value: 
     return (
       <fieldset className="space-y-2.5">
         <legend className="w-full">{head}</legend>
-        <div className="space-y-1 rounded-xl border border-sand/12 bg-espresso/55 p-2" role="radiogroup" aria-label={q.text}>
+        <div className={cn("space-y-1 rounded-xl border bg-espresso/55 p-2 transition-[border-color,box-shadow]", group)} role="radiogroup" aria-label={q.text}>
           {q.options!.map((o) => {
             const on = cur === o.value;
             return (
@@ -92,7 +124,7 @@ function Field({ q, n, value, set, readOnly }: { q: Question; n: number; value: 
     return (
       <fieldset className="space-y-2.5">
         <legend className="w-full">{head}</legend>
-        <div className="flex flex-wrap gap-2 rounded-xl border border-sand/12 bg-espresso/55 p-3" role="group" aria-label={q.text}>
+        <div className={cn("flex flex-wrap gap-2 rounded-xl border bg-espresso/55 p-3 transition-[border-color,box-shadow]", group)} role="group" aria-label={q.text}>
           {q.options!.map((o) => {
             const on = cur.includes(o.value);
             return (
@@ -199,7 +231,27 @@ export function CandidatureBoard() {
     setAnswers((a) => (a.id_discord === user.id ? a : { ...a, id_discord: user.id }));
   }, [draft.restored, user, type]);
 
-  const set = (id: string, v: string | string[]) => setAnswers((a) => ({ ...a, [id]: v }));
+  const [missing, setMissing] = useState<Set<string>>(() => new Set());
+  const [shakeRound, setShakeRound] = useState(0);
+  const set = (id: string, v: string | string[]) => {
+    setAnswers((a) => ({ ...a, [id]: v }));
+    // appena si compila, via il bordo rosso
+    setMissing((m) => {
+      if (!m.has(id)) return m;
+      const next = new Set(m);
+      next.delete(id);
+      return next;
+    });
+  };
+  /** Segna i campi vuoti (bordo rosso + scossa) e porta al primo. */
+  const flagMissing = (ids: string[]) => {
+    setMissing(new Set(ids));
+    setShakeRound((r) => r + 1);
+    setErr("");
+    window.setTimeout(() => {
+      document.getElementById(`field-${ids[0]}`)?.scrollIntoView({ block: "center", behavior: "smooth" });
+    }, 60);
+  };
 
   const filled = (q: Question) => {
     const v = answers[q.id];
@@ -209,9 +261,10 @@ export function CandidatureBoard() {
   const firstEmpty = useMemo(() => questions.findIndex((q) => !filled(q)), [questions, answers]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const next = () => {
-    const miss = page.find((q) => !filled(q));
-    if (miss) return setErr(`Compila tutti i campi del modulo. Manca: ${miss.text}`);
+    const miss = page.filter((q) => !filled(q)).map((q) => q.id);
+    if (miss.length) return flagMissing(miss);
     setErr("");
+    setMissing(new Set());
     setStep((s) => s + 1);
     window.scrollTo({ top: (document.getElementById("modulo")?.offsetTop ?? 0) - 100, behavior: "smooth" });
   };
@@ -220,7 +273,7 @@ export function CandidatureBoard() {
     if (!token) return login();
     if (firstEmpty >= 0) {
       setStep(Math.floor(firstEmpty / STEP));
-      return setErr(`Compila tutti i campi del modulo. Manca: ${questions[firstEmpty].text}`);
+      return flagMissing(questions.filter((q) => !filled(q)).map((q) => q.id));
     }
     setBusy(true);
     setErr("");
@@ -385,14 +438,18 @@ export function CandidatureBoard() {
                   </dl>
                 ) : (
                   page.map((q, i) => (
-                    <Field
-                      key={q.id}
-                      q={q}
-                      n={step * STEP + i + 1}
-                      value={answers[q.id]}
-                      set={(v) => set(q.id, v)}
-                      readOnly={q.id === "id_discord"}
-                    />
+                    <div key={q.id} id={`field-${q.id}`} className="scroll-mt-28">
+                      <Shake on={missing.has(q.id)} round={shakeRound}>
+                        <Field
+                          q={q}
+                          n={step * STEP + i + 1}
+                          value={answers[q.id]}
+                          set={(v) => set(q.id, v)}
+                          readOnly={q.id === "id_discord"}
+                          invalid={missing.has(q.id)}
+                        />
+                      </Shake>
+                    </div>
                   ))
                 )}
               </motion.div>

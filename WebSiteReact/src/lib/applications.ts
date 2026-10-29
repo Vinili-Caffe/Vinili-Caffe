@@ -67,7 +67,13 @@ export const ROLES: { id: RoleType; label: string; questions: Question[] }[] = [
     questions: [
       { id: "id_discord", text: "ID Discord", kind: "short" },
       { id: "eta", text: "Età", placeholder: "Scrivi la tua età", kind: "short" },
-      { id: "topic_blog", text: "Per quale topic blog ti stai candidando?", placeholder: "Es. gaming, musica, tecnologia, cinema…", kind: "short" },
+      {
+        id: "topic_blog",
+        text: "Per quale topic blog ti stai candidando?",
+        kind: "multi_choice",
+        hint: "Puoi selezionare più di un'opzione.",
+        options: opts("Anime & Manga", "Lettura", "Scrittura", "Film & Serie TV", "Sport", "Musica", "Gaming", "Disegno", "Cucina", "Fotografia"),
+      },
       { id: "scelta_argomento", text: "Su cosa ti basi per scegliere l'argomento di un articolo?", kind: "paragraph" },
       { id: "flusso_lavoro", text: "Che flusso di lavoro segui per scriverlo?", kind: "paragraph" },
       { id: "fonti", text: "Quante e quali tipi di fonti prendi come riferimento?", kind: "paragraph" },
