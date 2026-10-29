@@ -1,50 +1,51 @@
 "use client";
 
 import { motion, useReducedMotion } from "motion/react";
-import { HeroBackdrop, HERO_PROMO_POSTER, HERO_PROMO_VIDEO, HERO_PROMO_VIDEO_MOBILE } from "@/components/HeroBackdrop";
+import {
+  HeroBackdrop,
+  HERO_ATMO_BAND,
+  HERO_ATMO_VIDEO,
+  HERO_ATMO_VIDEO_MOBILE,
+} from "@/components/HeroBackdrop";
 
 const ease = [0.22, 1, 0.36, 1] as const;
 
-/** Testata delle pagine interne: promo loop + titolo (override image/video per eventi). */
+/** Testata pagine interne: stessa atmosfera della home, crop più stretto (no card / no testo finto). */
 export function PageHero({
   kicker,
   title,
   accent,
   text,
   icon,
-  imageSrc = HERO_PROMO_POSTER,
+  imageSrc = HERO_ATMO_BAND,
   imageSrcMobile,
-  videoSrc = HERO_PROMO_VIDEO,
-  videoSrcMobile = HERO_PROMO_VIDEO_MOBILE,
+  videoSrc = HERO_ATMO_VIDEO,
+  videoSrcMobile = HERO_ATMO_VIDEO_MOBILE,
   tone = "site",
 }: {
   kicker: string;
   title: string;
   accent?: string;
   text?: string;
-  /** elemento già creato (es. <BookOpen />): da un Server Component non si può passare il componente */
   icon?: React.ReactNode;
-  /** Poster / still (default: promo). */
   imageSrc?: string;
   imageSrcMobile?: string;
-  /** Loop hero; `null` = solo still (es. evento). */
   videoSrc?: string | null;
   videoSrcMobile?: string | null;
-  /** `evento` = overlay navy/galassia (no roast Halloween). */
   tone?: "site" | "evento";
 }) {
   const reduce = useReducedMotion();
   const isEvento = tone === "evento";
   return (
-    /* overflow-x only: evita tagli a titolo/italic; pb + gap CSS verso il blocco sotto */
     <section className="vc-page-hero relative isolate overflow-x-hidden pb-20 pt-36 sm:pb-28 sm:pt-44">
       <HeroBackdrop
-        poster={imageSrc}
+        poster={isEvento ? imageSrc : imageSrc || HERO_ATMO_BAND}
         posterMobile={imageSrcMobile}
         videoSrc={isEvento ? null : videoSrc}
         videoSrcMobile={isEvento ? null : videoSrcMobile}
         priority
-        imgClassName="size-full object-cover opacity-70"
+        imgClassName="size-full object-cover opacity-55 sm:opacity-60"
+        objectPosition={isEvento ? "center" : "50% 42%"}
       />
       <div
         className="absolute inset-0 -z-10"
@@ -55,22 +56,11 @@ export function PageHero({
                 "linear-gradient(to bottom, rgba(5,7,15,0.45), rgba(10,16,32,0.78) 50%, rgba(5,7,15,0.94) 82%, #05070f)",
               ].join(", ")
             : [
-                "radial-gradient(ellipse 90% 50% at 50% -8%, rgba(217,154,91,0.18), transparent 55%)",
-                "radial-gradient(ellipse 55% 40% at 85% 30%, rgba(240,180,110,0.08), transparent 50%)",
-                "linear-gradient(to bottom, rgba(14,9,6,0.42) 0%, rgba(14,9,6,0.78) 48%, rgba(14,9,6,0.94) 78%, var(--color-espresso) 100%)",
+                "radial-gradient(ellipse 90% 45% at 50% 0%, rgba(217,154,91,0.16), transparent 55%)",
+                "linear-gradient(to bottom, rgba(14,9,6,0.5) 0%, rgba(14,9,6,0.78) 42%, rgba(14,9,6,0.94) 78%, var(--color-espresso) 100%)",
               ].join(", "),
         }}
       />
-      {!isEvento ? (
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[55%] opacity-60"
-          style={{
-            background:
-              "linear-gradient(105deg, transparent 38%, rgba(240,180,110,0.06) 49%, rgba(217,154,91,0.1) 52%, transparent 64%)",
-          }}
-        />
-      ) : null}
 
       <div className="scheme-dark mx-auto max-w-4xl px-6 text-center">
         <motion.p

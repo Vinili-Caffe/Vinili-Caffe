@@ -24,8 +24,8 @@ export default async function Home() {
         title="Vinili & Caffè"
         description="Community Discord Italiana chill dove parlare di tutto. Ruoli, eventi, giveaway, bot esclusivi."
       />
-      {/* LCP: poster hero promo (hoisted in <head>) */}
-      <link rel="preload" as="image" href="/images/hero-promo-16x9.jpg" type="image/jpeg" />
+      {/* LCP: atmosfera hero (hoisted in <head>) */}
+      <link rel="preload" as="image" href="/images/hero-cafe-atmosphere.jpg" type="image/jpeg" />
       <Hero />
       <LiveStats initial={stats} />
       <Why />

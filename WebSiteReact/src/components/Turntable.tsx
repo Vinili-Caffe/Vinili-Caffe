@@ -45,7 +45,7 @@ function pointerRadiusRatio(clientX: number, clientY: number, rect: DOMRect) {
 /**
  * Giradischi visuale: audio/volume/minutaggio dal VinylMusicRoot globale (persistito su disco).
  */
-export function Turntable() {
+export function Turntable({ className }: { className?: string } = {}) {
   const vinyl = useSyncExternalStore(subscribeVinylMusic, getVinylMusicApi, () => null);
   const reduce = useReducedMotion();
   const wrap = useRef<HTMLDivElement>(null);
@@ -284,7 +284,7 @@ export function Turntable() {
   };
 
   return (
-    <div ref={wrap} className="relative mx-auto w-[min(88vw,30rem)] select-none">
+    <div ref={wrap} className={cn("relative mx-auto w-[min(88vw,30rem)] select-none", className)}>
       <div className="absolute inset-[-10%] rounded-[3rem] bg-[radial-gradient(circle_at_40%_50%,rgba(240,180,110,0.25),transparent_60%)] blur-2xl" />
 
       <div className="relative aspect-[1.18/1] rounded-[1.6rem] bg-[linear-gradient(135deg,#3a2618_0%,#24160e_45%,#2e1d13_70%,#1a100a_100%)] p-[5%] shadow-[0_50px_90px_-40px_rgba(0,0,0,1),inset_0_1px_0_rgba(255,230,200,0.12),inset_0_-2px_0_rgba(0,0,0,0.5)] ring-1 ring-black/60">

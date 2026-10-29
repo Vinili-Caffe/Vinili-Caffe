@@ -5,13 +5,11 @@ import { motion, useReducedMotion, useScroll, useTransform } from "motion/react"
 import { ChevronDown, Sparkles } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { useI18n } from "@/lib/i18n";
-import { DiscordButton } from "./DiscordButton";
 import { HeroBackdrop } from "./HeroBackdrop";
-import { Turntable } from "./Turntable";
+import { HeroStage } from "./HeroStage";
 import { RotatingText } from "./ui/rotating-text";
-import { StarMagnet } from "./ui/star-border";
 
-const EMBERS = Array.from({ length: 14 }, (_, i) => ({
+const EMBERS = Array.from({ length: 12 }, (_, i) => ({
   left: `${(i * 37 + 11) % 100}%`,
   size: 3 + ((i * 7) % 4),
   delay: (i * 0.9) % 7,
@@ -34,11 +32,9 @@ export function Hero() {
   const [welcome, setWelcome] = useState(t("home.welcome"));
   const ref = useRef<HTMLElement>(null);
   const { scrollYProgress } = useScroll({ target: ref, offset: ["start start", "end start"] });
-  const bgY = useTransform(scrollYProgress, [0, 1], ["0%", "18%"]);
+  const bgY = useTransform(scrollYProgress, [0, 1], ["0%", "16%"]);
   const fade = useTransform(scrollYProgress, [0.6, 0.98], [1, 0]);
   const reduce = useReducedMotion();
-  // le braci dipendono da "riduci movimento", che il server non conosce: si aggiungono dopo l'avvio,
-  // così l'HTML del server e quello del browser coincidono (prima: errore React #418 in home)
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
@@ -79,17 +75,15 @@ export function Hero() {
   return (
     <section ref={ref} className="relative isolate flex min-h-dvh items-center overflow-hidden pt-24">
       <motion.div style={reduce ? undefined : { y: bgY }} className="absolute inset-0 -z-20">
-        <HeroBackdrop priority imgClassName="size-full scale-110 object-cover" />
+        <HeroBackdrop priority imgClassName="size-full scale-[1.08] object-cover" objectPosition="55% 40%" />
       </motion.div>
-      {/* Atmosfera midnight café: wash uniforme su tutto l'hero; espresso solo nell'ultima striscia */}
       <div
         className="absolute inset-0 -z-10"
         style={{
           background: [
-            "radial-gradient(ellipse 120% 100% at 50% 40%, rgba(217,154,91,0.14), transparent 72%)",
-            "radial-gradient(ellipse 90% 80% at 88% 50%, rgba(240,180,110,0.08), transparent 68%)",
-            "radial-gradient(ellipse 80% 70% at 12% 55%, rgba(217,154,91,0.06), transparent 65%)",
-            "linear-gradient(to bottom, rgba(14,9,6,0.28) 0%, rgba(14,9,6,0.32) 55%, rgba(14,9,6,0.4) 82%, rgba(14,9,6,0.72) 94%, var(--color-espresso) 100%)",
+            "radial-gradient(ellipse 100% 80% at 70% 45%, rgba(217,154,91,0.12), transparent 60%)",
+            "radial-gradient(ellipse 70% 60% at 15% 50%, rgba(14,9,6,0.35), transparent 55%)",
+            "linear-gradient(to bottom, rgba(14,9,6,0.35) 0%, rgba(14,9,6,0.28) 45%, rgba(14,9,6,0.55) 82%, var(--color-espresso) 100%)",
           ].join(", "),
         }}
       />
@@ -99,10 +93,10 @@ export function Hero() {
           {EMBERS.map((e, i) => (
             <motion.span
               key={i}
-              className="absolute bottom-0 rounded-full bg-ember shadow-[0_0_12px_3px_rgba(240,180,110,0.6)]"
+              className="absolute bottom-0 rounded-full bg-ember shadow-[0_0_12px_3px_rgba(240,180,110,0.55)]"
               style={{ left: e.left, width: e.size, height: e.size }}
               initial={{ y: 0, x: 0, opacity: 0 }}
-              animate={{ y: "-95vh", x: e.drift, opacity: [0, 0.9, 0.9, 0] }}
+              animate={{ y: "-95vh", x: e.drift, opacity: [0, 0.85, 0.85, 0] }}
               transition={{ duration: e.duration, delay: e.delay, repeat: Infinity, ease: "easeOut" }}
             />
           ))}
@@ -111,7 +105,7 @@ export function Hero() {
 
       <motion.div
         style={reduce ? undefined : { opacity: fade }}
-        className="scheme-dark mx-auto grid w-full max-w-6xl items-center gap-12 px-6 pb-20 lg:grid-cols-[1.1fr_0.9fr]"
+        className="scheme-dark mx-auto grid w-full max-w-6xl items-center gap-10 px-6 pb-24 lg:grid-cols-[1.05fr_0.95fr] lg:gap-8"
       >
         <div className="@container min-w-0 text-center lg:text-left">
           <motion.p
@@ -133,9 +127,8 @@ export function Hero() {
             <span className="mb-1 block font-script text-[2.35rem] font-normal leading-none text-sand sm:mb-2 sm:text-[2.85rem] lg:text-[3.25rem]">
               {welcome}
             </span>
-            {/* il nome sempre su una riga: la misura si adatta alla colonna */}
-            <span className="block whitespace-nowrap bg-gradient-to-b from-crema via-sand to-caramel bg-clip-text pr-[0.08em] text-[min(6rem,18.5cqw)] text-transparent drop-shadow-[0_2px_24px_rgba(217,154,91,0.25)]">
-              Vinili <span className="italic">&amp;</span> Caffè
+            <span className="block whitespace-nowrap text-crema drop-shadow-[0_2px_24px_rgba(217,154,91,0.2)] pr-[0.08em] text-[min(6rem,18.5cqw)]">
+              Vinili <span className="italic text-sand">&amp;</span> Caffè
             </span>
           </motion.h1>
 
@@ -154,9 +147,6 @@ export function Hero() {
             transition={{ delay: 0.4, duration: 0.8, ease }}
             className="mt-10 flex flex-wrap items-center justify-center gap-3 lg:justify-start"
           >
-            <StarMagnet>
-              <DiscordButton />
-            </StarMagnet>
             <a
               href="#esplora"
               className="rounded-full bg-crema/8 px-6 py-3.5 font-semibold text-crema ring-1 ring-crema/25 transition-[transform,background-color,color,box-shadow] duration-200 ease-out hover:-translate-y-0.5 hover:bg-crema/14 hover:ring-sand/40 active:scale-[0.97]"
@@ -166,18 +156,8 @@ export function Hero() {
           </motion.div>
         </div>
 
-        <motion.div
-          initial={{ opacity: 0, scale: 0.85, rotate: -8 }}
-          animate={{ opacity: 1, scale: 1, rotate: 0 }}
-          transition={{ delay: 0.2, duration: 1.2, ease }}
-          className="relative"
-        >
-          <div
-            aria-hidden
-            className="pointer-events-none absolute left-1/2 top-1/2 -z-10 size-[min(100%,28rem)] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgba(217,154,91,0.28),transparent_65%)] blur-2xl"
-          />
-          <Turntable />
-        </motion.div>
+        {/* Card promo reale: Turntable + Entra (CTA Discord primaria) */}
+        <HeroStage className="lg:justify-self-end" />
       </motion.div>
 
       <motion.a
