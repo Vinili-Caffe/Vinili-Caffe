@@ -1035,6 +1035,10 @@ const siteDocumentSchema = new Schema(
     boardListingId: { type: String, default: "", trim: true, maxlength: 32 },
     boardClientIpHash: { type: String, default: "", trim: true, maxlength: 80 },
     /* boardsWizard1 */
+    // bug: boardTags e authorAvatar mancavano dallo schema, quindi Mongoose (strict) non li salvava mai:
+    // i tag delle schede andavano persi e il filtro per tag non trovava niente
+    boardTags: { type: [String], default: undefined },
+    authorAvatar: { type: String, default: "" },
     boardCategories: { type: [String], default: undefined },
     boardLocales: { type: [String], default: undefined },
     boardVisitorNotes: { type: String, default: "", trim: true, maxlength: 1000 },

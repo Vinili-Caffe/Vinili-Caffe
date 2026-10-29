@@ -57,7 +57,7 @@ async function remapActivityProfiles({ guildId, roleMap, channelMap }) {
   for await (const doc of cursor) {
     scanned += 1;
     const set: Record<string, any> = {};
-    const cr = doc?.profile?.customRole || {};
+    const cr: any = doc?.profile?.customRole || {};
     if (cr.roleId) {
       const n = mapId(roleMap, cr.roleId) || remapRoleIdForward(cr.roleId);
       if (n && n !== String(cr.roleId)) set["profile.customRole.roleId"] = n;

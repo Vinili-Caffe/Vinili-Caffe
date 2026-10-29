@@ -319,7 +319,7 @@ async function acceptPauseRequestWeb(client?, guild?, actorMember?, userId?, pau
   }
   pauseActionLocks.add(lockKey);
   try {
-    const stafferRecord = await getStaffPauseRecord(guildId, userId);
+    const stafferRecord: any = await getStaffPauseRecord(guildId, userId);
     const targetPause = stafferRecord?.staff?.pauses?.id?.(pauseId);
     if (!targetPause) {
       return { ok: false, status: 404, message: "Richiesta pausa non trovata." };

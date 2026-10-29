@@ -51,7 +51,7 @@ async function createPmPointsRemovedEntry(payload?) {
   if (!guildId || !/^\d{16,22}$/.test(pmUserId)) return null;
 
   const status = String(payload?.status || "logged");
-  const doc = await SitePmPointsRemovedEntry.create({
+  const doc: any = await SitePmPointsRemovedEntry.create({
     guildId,
     pmUserId,
     rule: String(payload?.rule || "").trim(),

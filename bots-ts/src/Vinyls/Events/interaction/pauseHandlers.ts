@@ -96,7 +96,7 @@ async function handlePauseButton(interaction?) {
 
   const guildId = interaction.guildId;
   const messageId = interaction.message?.id;
-  let stafferRecord = await getStaffPauseRecord(guildId, userId);
+  let stafferRecord: any = await getStaffPauseRecord(guildId, userId);
   let effectiveUserId = userId;
   if (!stafferRecord && messageId) {
     const byMsg = await getStaffAndPauseByRequestMessageId(guildId, messageId);

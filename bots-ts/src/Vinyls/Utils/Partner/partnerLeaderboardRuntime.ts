@@ -69,7 +69,7 @@ async function fetchSortedPartners(guild?, isWeekly?) {
   const weekBounds = isWeekly ? getPartnerLeaderboardWeekBoundsUtc(new Date()) : null;
   return allStaff
     .map((row?) => {
-      const staff = row.staff || {};
+      const staff: any = row.staff || {};
       if (!isWeekly) {
         return { userId: row.userId, score: computeTotalPartnerScore(staff) };
       }
