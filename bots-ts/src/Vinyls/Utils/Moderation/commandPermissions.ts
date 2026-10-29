@@ -624,7 +624,7 @@ function normalizePermissionList(permissionFlags?) {
     if (resolved == null) continue;
     dedup.add(String(resolved));
   }
-  return Array.from(dedup, (value?) => BigInt(value));
+  return Array.from(dedup, (value?) => BigInt((value as any)));
 }
 
 function parseChannelReferenceKey(value?) {

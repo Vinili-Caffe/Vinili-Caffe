@@ -986,7 +986,7 @@ async function buildStaffProfilePayloadForWeb(client?, member?, user?, opts: Rec
     avatarPromise,
     modstatsPromise,
   ]);
-  const staff = mergeStaffEmbedded(doc?.staff || {}, legacyMap.get(userId) || null);
+  const staff = mergeStaffEmbedded(doc?.staff || {}, (legacyMap as any).get(userId) || null);
   /* careerRetentionMerge1 */
   const careerRetentionRows = Array.isArray(doc?.staffRolesHistoryRetention)
     ? doc.staffRolesHistoryRetention

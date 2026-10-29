@@ -976,7 +976,7 @@ function buildHelpV2Container(page?, navState?, guildId = "") {
   }
   const components = [{ type: ComponentType.TextDisplay, content, },];
   if (navState.total > 1) {
-    components.push(buildNavigationRow(navState).toJSON());
+    components.push((buildNavigationRow(navState).toJSON() as any));
   }
   return {
     type: ComponentType.Container,
@@ -1107,7 +1107,7 @@ function collectPrefixExampleLines(command?, commandName?, prefixBase?, subEntri
   const snippets = collectCommandUsageSnippets(command, commandName, prefixBase,);
   if (requestedSub) {
     for (const row of snippets) {
-      const lower = row.toLowerCase();
+      const lower = (row as any).toLowerCase();
       if (
         lower.includes(`${prefixBase}${commandName} ${requestedSub}`) ||
         lower.includes(` ${requestedSub} `)
@@ -1291,7 +1291,7 @@ function buildSlashDetailedHelpEmbed(query?, entries?, context: Record<string, a
   const slashCommands = [];
   for (const cmd of Array.from(context?.client?.commands?.values?.() || [])) {
     if (!shouldIncludeSlashCommandInHelp(cmd)) continue;
-    const dataJson = cmd?._helpDataJson || cmd?.data?.toJSON?.();
+    const dataJson = (cmd as any)?._helpDataJson || (cmd as any)?.data?.toJSON?.();
     if (!dataJson?.name) continue;
     const type = dataJson.type || ApplicationCommandType.ChatInput;
     if (type !== ApplicationCommandType.ChatInput) continue;
@@ -1477,9 +1477,9 @@ function resolvePrefixCommandByToken(client?, token?) {
   if (!safeToken) return null;
   const commands = Array.from(client?.pcommands?.values?.() || []);
   for (const command of commands) {
-    const name = String(command?.name || "").trim().toLowerCase();
+    const name = String((command as any)?.name || "").trim().toLowerCase();
     if (name && name === safeToken) return command;
-    const aliases = Array.isArray(command?.aliases) ? command.aliases.map((alias?) => String(alias || "").trim().toLowerCase(),) : [];
+    const aliases = Array.isArray((command as any)?.aliases) ? (command as any).aliases.map((alias?) => String(alias || "").trim().toLowerCase(),) : [];
     if (aliases.includes(safeToken)) return command;
   }
   return null;
@@ -1525,7 +1525,7 @@ function buildSubcommandFallbackEmbed(query?, visibleEntries?, context: Record<s
   const slashCommands = [];
   for (const cmd of Array.from(context?.client?.commands?.values?.() || [])) {
     if (!shouldIncludeSlashCommandInHelp(cmd)) continue;
-    const dataJson = cmd?._helpDataJson || cmd?.data?.toJSON?.();
+    const dataJson = (cmd as any)?._helpDataJson || (cmd as any)?.data?.toJSON?.();
     if (!dataJson?.name) continue;
     const type = dataJson.type || ApplicationCommandType.ChatInput;
     if (type !== ApplicationCommandType.ChatInput) continue;

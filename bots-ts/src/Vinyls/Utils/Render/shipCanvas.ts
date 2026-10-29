@@ -175,7 +175,7 @@ function pickMessage(percent?, seed?) {
 
 function runFfmpeg(args?) {
   if (!ffmpegPath) return false;
-  const out = spawnSync(ffmpegPath, args, {
+  const out = spawnSync((ffmpegPath as any), args, {
     stdio: "ignore",
     windowsHide: true,
   });

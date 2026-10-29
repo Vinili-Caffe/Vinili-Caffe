@@ -17,7 +17,7 @@ function sleep(ms?) {
 function createDeferred() {
   let resolve = () => {};
   const promise = new Promise((res?) => {
-    resolve = res;
+    resolve = (res as any);
   });
   return { promise, resolve };
 }
@@ -416,7 +416,7 @@ async function startPmVoiceAfkProbe(client?, opts: Record<string, any> = {}) {
         markPmAfkAlertSent(guildId, targetUserId, sent.channelId, sent.messageId);
         alertReady?.resolve(sent);
       } else if (alertReady) {
-        alertReady.resolve(alertMessageId ? { channelId: voiceChannelId, messageId: alertMessageId } : null);
+        (alertReady.resolve as any)(alertMessageId ? { channelId: voiceChannelId, messageId: alertMessageId } : null);
       }
 
       const { startVoiceContinuousCapture } = require("./voiceContinuousCaptureService") as typeof import("./voiceContinuousCaptureService");

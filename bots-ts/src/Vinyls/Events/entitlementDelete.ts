@@ -3,6 +3,6 @@ const { handleEntitlementDelete } = require("../Services/Community/discordStoreE
 export = {
   name: "entitlementDelete",
   async execute(entitlement?, client?) {
-    await handleEntitlementDelete(entitlement, client);
+    await (handleEntitlementDelete as any)(entitlement, client);
   },
 };

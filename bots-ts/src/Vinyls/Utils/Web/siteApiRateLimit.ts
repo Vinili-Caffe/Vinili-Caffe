@@ -151,31 +151,31 @@ function createSiteApiRateLimiters() {
   const proxyMax = parsePositiveInt(process.env.SITE_API_RATE_KICK_PROXY_MAX, 180);
 
   return {
-    global: rateLimit({
+    global: ((rateLimit as any)({
       ...shared,
       windowMs: 60_000,
       max: globalMax,
       skip: shouldSkipRateLimit,
-    }),
-    strict: rateLimit({
+    }) as any),
+    strict: ((rateLimit as any)({
       ...shared,
       windowMs: 60_000,
       max: strictMax,
       skip: shouldSkipRateLimit,
-    }),
-    privileged: rateLimit({
+    }) as any),
+    privileged: ((rateLimit as any)({
       ...shared,
       windowMs: 60_000,
       max: privilegedMax,
       skip: (req?) => String(req.method || "").toUpperCase() === "OPTIONS",
-    }),
-    kickProxy: rateLimit({
+    }) as any),
+    kickProxy: ((rateLimit as any)({
       ...shared,
       windowMs: 60_000,
       max: proxyMax,
       keyGenerator: (req?) => clientIpKey(req),
       skip: (req?) => String(req.method || "").toUpperCase() === "OPTIONS",
-    }),
+    }) as any),
   };
 }
 

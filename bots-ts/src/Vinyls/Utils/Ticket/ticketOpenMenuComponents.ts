@@ -125,7 +125,7 @@ function buildMultipanelSelectRows(multi?, bucket?) {
   const ticketMenu = new StringSelectMenuBuilder()
     .setCustomId(TICKET_OPEN_MENU_CUSTOM_ID)
     .setPlaceholder(placeholder)
-    .addOptions(options);
+    .addOptions((options as any));
   return [new ActionRowBuilder().addComponents(ticketMenu)];
 }
 

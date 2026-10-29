@@ -603,7 +603,7 @@ function getWeekKey(date?) {
   const dayNr = (utcDate.getUTCDay() + 6) % 7;
   utcDate.setUTCDate(utcDate.getUTCDate() - dayNr + 3);
   const firstThursday = new Date(Date.UTC(utcDate.getUTCFullYear(), 0, 4));
-  const weekNr = 1 + Math.round((utcDate - firstThursday) / (7 * 24 * 60 * 60 * 1000));
+  const weekNr = 1 + Math.round(((utcDate as any) - (firstThursday as any)) / (7 * 24 * 60 * 60 * 1000));
   return `${utcDate.getUTCFullYear()}-W${pad2(weekNr)}`;
 }
 
@@ -2143,8 +2143,8 @@ async function publishHogwartsBiweeklyActivityWinners(client?, options: Record<s
     rowsSource.filter((row?) => Number(row?.voiceExp || 0) > 0).sort((a?, b?) => Number(b.voiceExp || 0) - Number(a.voiceExp || 0)).slice(0, 300),
     sortedHouseByUserId,
   );
-  const topMessagesPool = await resolveTopThreeUsers(client, guild, messageDocs, (doc?) => Number(doc?.messageCount || 0), 40, HOGWARTS_EVENT_TOP_EXCLUDED_ROLE_IDS);
-  const topVoicePool = await resolveTopThreeUsers(client, guild, voiceDocs, (doc?) => Number(doc?.voiceExp || 0), 40, HOGWARTS_EVENT_TOP_EXCLUDED_ROLE_IDS);
+  const topMessagesPool = await resolveTopThreeUsers(client, guild, messageDocs, (doc?) => Number(doc?.messageCount || 0), 40, (HOGWARTS_EVENT_TOP_EXCLUDED_ROLE_IDS as any));
+  const topVoicePool = await resolveTopThreeUsers(client, guild, voiceDocs, (doc?) => Number(doc?.voiceExp || 0), 40, (HOGWARTS_EVENT_TOP_EXCLUDED_ROLE_IDS as any));
   const minigameWeekKeys = getIsoWeekKeysInBiweeklyWindow(periodEndMs, periodStartMs);
   let minigameDocsRaw = [];
   if (minigameWeekKeys.length) {
@@ -2168,9 +2168,9 @@ async function publishHogwartsBiweeklyActivityWinners(client?, options: Record<s
     sortedHouseByUserId,
   );
   const mgScore = (doc?) => effectiveMinigameBiweeklyScore(doc, minigameWeekKeys);
-  let topMinigamePool = await resolveTopThreeUsers(client, guild, minigameDocs, mgScore, 40, HOGWARTS_EVENT_TOP_EXCLUDED_ROLE_IDS);
+  let topMinigamePool = await resolveTopThreeUsers(client, guild, minigameDocs, mgScore, 40, (HOGWARTS_EVENT_TOP_EXCLUDED_ROLE_IDS as any));
   if (!topMinigamePool.length && minigameDocs.some((d?) => mgScore(d) > 0)) {
-    topMinigamePool = await resolveMinigameTopForced(client, guild, minigameDocs, mgScore, 40, HOGWARTS_EVENT_TOP_EXCLUDED_ROLE_IDS);
+    topMinigamePool = await resolveMinigameTopForced(client, guild, minigameDocs, mgScore, 40, (HOGWARTS_EVENT_TOP_EXCLUDED_ROLE_IDS as any));
   }
   const dedupedTops = buildHogwartsBiweeklyTopsDeduped(topMessagesPool, topVoicePool, topMinigamePool, sortedHouseByUserId, 3);
   const displayTopMessages = dedupedTops.messages;

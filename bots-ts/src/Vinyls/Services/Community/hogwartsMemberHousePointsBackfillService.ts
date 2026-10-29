@@ -275,7 +275,7 @@ function memberMapToDbPayload(map?) {
       houseId: hid,
       total,
       byPeriod: Object.fromEntries(
-        Object.entries(byPeriod).map(([k, v]) => [k, Math.max(0, Math.floor(Number(v) || 0))]).filter(([, v]) => v > 0),
+        Object.entries(byPeriod).map(([k, v]) => [k, Math.max(0, Math.floor(Number(v) || 0))]).filter(([, v]) => (v as any) > 0),
       ),
     };
   }

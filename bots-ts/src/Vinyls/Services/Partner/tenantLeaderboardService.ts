@@ -173,7 +173,7 @@ async function listTargetGuildIds() {
   const ids = new Set();
   for (const gid of listConfiguredPartnershipGuildIds()) ids.add(String(gid));
   for (const gid of listOperationalPartnershipGuildIds()) ids.add(String(gid));
-  return Array.from(ids).filter((id?) => /^\d{16,20}$/.test(id));
+  return Array.from(ids).filter((id?) => /^\d{16,20}$/.test((id as any)));
 }
 
 async function aggregateServerPartnershipScores(period?) {

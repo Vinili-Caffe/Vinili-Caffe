@@ -80,7 +80,7 @@ async function resolveUserMemberLabels(client?, guild?, members?) {
           client?.users?.cache?.get(id) ||
           (await client?.users?.fetch?.(id).catch(() => null));
         const label = String(user?.username || "").trim();
-        if (label) out[id] = label;
+        if (label) out[(id as any)] = label;
       } catch (_) {}
     }),
   );

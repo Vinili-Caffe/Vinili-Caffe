@@ -112,7 +112,7 @@ function clearAnnouncedBoostSlotsMemoryForGuild(guildId?) {
     if (k.startsWith(prefix)) slotsByKey.delete(k);
   }
   for (const k of [...hydratedKeys]) {
-    if (k.startsWith(prefix)) hydratedKeys.delete(k);
+    if ((k as any).startsWith(prefix)) hydratedKeys.delete(k);
   }
   for (const k of [...inflightHydrate.keys()]) {
     if (k.startsWith(prefix)) inflightHydrate.delete(k);

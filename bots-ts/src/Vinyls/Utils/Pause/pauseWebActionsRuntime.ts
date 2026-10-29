@@ -235,7 +235,7 @@ async function getStaffPauseInboxDetail(client?, guildId?, userId?, pauseId?) {
   const guild = client.guilds.cache.get(gid) || (await client.guilds.fetch(gid).catch(() => null));
   const member = guild ? await getGuildMemberCached(guild, uid).catch(() => null) : null;
   const today = getTodayUtc();
-  const yearBounds = getCurrentYearBoundsUtc(today);
+  const yearBounds = (getCurrentYearBoundsUtc as any)(today);
   const status = String(pause.status || "pending").trim() || "pending";
   const displayName =
     String(member?.displayName || member?.user?.globalName || member?.user?.username || uid).trim() || uid;
@@ -254,7 +254,7 @@ async function getStaffPauseInboxDetail(client?, guildId?, userId?, pauseId?) {
     createdAt: pause.createdAt ? new Date(pause.createdAt).toISOString() : null,
     cancelledAt: pause.cancelledAt ? new Date(pause.cancelledAt).toISOString() : null,
     phase: getPausePhase(pause.dataRichiesta, pause.dataRitorno, today),
-    timing: getPauseTimingText(pause.dataRichiesta, pause.dataRitorno, today),
+    timing: (getPauseTimingText as any)(pause.dataRichiesta, pause.dataRitorno, today),
     status,
     statusLabel: getPauseStatusLabel(pause, today),
     giorniScalati: computePauseScaledDaysThisYear(pause, today, yearBounds.yearStart, yearBounds.yearEnd),
@@ -587,7 +587,7 @@ async function cancelPauseRequestWeb(client?, guild?, actorMember?, userId?, pau
     if (start && end) {
       if (todayUtc < start) consumedForCancelledPause = 0;
       else if (todayUtc > end) consumedForCancelledPause = totalScheduledDays;
-      else consumedForCancelledPause = Math.max(1, Math.floor((todayUtc - start) / MS_PER_DAY) + 1);
+      else consumedForCancelledPause = Math.max(1, Math.floor(((todayUtc as any) - (start as any)) / MS_PER_DAY) + 1);
     }
 
     await updatePauseInDb(guildId, userId, pauseId, {

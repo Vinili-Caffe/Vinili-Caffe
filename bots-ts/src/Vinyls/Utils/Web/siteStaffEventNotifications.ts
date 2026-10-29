@@ -45,7 +45,7 @@ async function getHighStaffRecipientUserIds(guild?) {
   const ids = await collectIdsForRoleIds(guild, staffLadderRoleIds(STAFF_HIGH_STAFF_ELIGIBLE_KEYS));
   return cacheSet(
     cacheKey,
-    ids.filter((id?) => /^\d{16,22}$/.test(id)),
+    ids.filter((id?) => /^\d{16,22}$/.test((id as any))),
   );
 }
 
@@ -59,7 +59,7 @@ async function getOrganicoViewerUserIds(guild?) {
   const ids = await collectIdsForRoleIds(guild, roleIds);
   return cacheSet(
     cacheKey,
-    ids.filter((id?) => /^\d{16,22}$/.test(id)),
+    ids.filter((id?) => /^\d{16,22}$/.test((id as any))),
   );
 }
 

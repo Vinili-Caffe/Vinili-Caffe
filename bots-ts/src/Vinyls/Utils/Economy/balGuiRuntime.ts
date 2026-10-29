@@ -340,7 +340,7 @@ async function openBalPanel(client?, message?, options: Record<string, any> = {}
       bridge: { showGaleoni: true, galeoniOnly: true, canConvert: false, galeoni },
     });
     await warmupBalPanel();
-    return { ok: true, session, payload: await buildBalPayload(session, false) };
+    return { ok: true, session, payload: await buildBalPayload(session, (false as any)) };
   }
 
   const state = await getServerWallet(guildId, targetId);
@@ -355,7 +355,7 @@ async function openBalPanel(client?, message?, options: Record<string, any> = {}
     bridge,
   });
   await warmupBalPanel();
-  return { ok: true, session, payload: await buildBalPayload(session, false) };
+  return { ok: true, session, payload: await buildBalPayload(session, (false as any)) };
 }
 
 export = { AMOUNT_STEPS, applyStaffCredit, applyStaffDebit, buildAmountModal, buildBalPayload, buildConvertModal, controlId, convertModalId, cycleStep, deleteSession, formatCurrency, getSession, isBalGuiCustomId, isStaffAction, modalId, normalizeAmountStep, openBalPanel, parseBalGuiCustomId, reloadBalance, setSession, staffCurrencyLabel, warmupBalPanel };

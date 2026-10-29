@@ -293,7 +293,7 @@ function getSecondThreshold(client?) {
 
 async function saveRotationState() {
   if (!rotationGuildId || !rotationDate) return;
-  await chatReminderRotationFindOneAndUpdate(
+  await (chatReminderRotationFindOneAndUpdate as any)(
     { guildId: rotationGuildId },
     {
       $set: {

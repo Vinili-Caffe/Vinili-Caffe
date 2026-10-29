@@ -14,8 +14,8 @@ async function exitAfterFlush(signal?) {
 }
 
 export = function installProcessHandlers() {
-  if (process.__viniliTestProcessHandlersInstalled) return;
-  process.__viniliTestProcessHandlersInstalled = true;
+  if ((process as any).__viniliTestProcessHandlersInstalled) return;
+  (process as any).__viniliTestProcessHandlersInstalled = true;
 
   process.on("SIGINT", () => {
     void exitAfterFlush("SIGINT");

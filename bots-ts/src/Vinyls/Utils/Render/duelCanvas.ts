@@ -98,7 +98,7 @@ function resultReveal(frameIndex?, totalFrames?) {
 
 function runFfmpeg(args?) {
   if (!ffmpegPath) return false;
-  const out = spawnSync(ffmpegPath, args, { stdio: "ignore", windowsHide: true });
+  const out = spawnSync((ffmpegPath as any), args, { stdio: "ignore", windowsHide: true });
   return Number(out?.status) === 0;
 }
 
@@ -247,7 +247,7 @@ async function loadCanvasImageFromBuffer(buf?) {
       tmpIn = path.join(os.tmpdir(), `vc-duel-webp-${Date.now()}.webp`);
       tmpOut = path.join(os.tmpdir(), `vc-duel-webp-${Date.now()}.png`);
       fs.writeFileSync(tmpIn, buf);
-      const out = spawnSync(ffmpegPath, ["-y", "-i", tmpIn, "-frames:v", "1", tmpOut], { stdio: "ignore", windowsHide: true });
+      const out = spawnSync((ffmpegPath as any), ["-y", "-i", tmpIn, "-frames:v", "1", tmpOut], { stdio: "ignore", windowsHide: true });
       if (Number(out?.status) === 0 && fs.existsSync(tmpOut)) {
         const pngBuf = fs.readFileSync(tmpOut);
         const img = await canvasModule.loadImage(pngBuf).catch(() => null);

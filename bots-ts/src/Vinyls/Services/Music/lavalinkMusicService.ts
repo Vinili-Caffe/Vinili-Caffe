@@ -58,7 +58,7 @@ const NOW_PLAYING_EMBED_TITLE = getNowPlayingEmbedTitle();
 async function musicPurgeTts(guildId?, client?) {
   const h = musicHooks();
   if (typeof h.purgeTtsVoicePersistence === "function") {
-    return h.purgeTtsVoicePersistence(guildId, client);
+    return (h.purgeTtsVoicePersistence as any)(guildId, client);
   }
   const { purgeTtsVoicePersistence } = require("../TTS/ttsService") as typeof import("../TTS/ttsService");
   return purgeTtsVoicePersistence(guildId, client);
@@ -66,7 +66,7 @@ async function musicPurgeTts(guildId?, client?) {
 async function musicLeaveTts(guildId?, client?) {
   const h = musicHooks();
   if (typeof h.leaveTtsGuild === "function") {
-    return h.leaveTtsGuild(guildId, client);
+    return (h.leaveTtsGuild as any)(guildId, client);
   }
   const { leaveTtsGuild } = require("../TTS/ttsService") as typeof import("../TTS/ttsService");
   return leaveTtsGuild(guildId, client);
@@ -75,7 +75,7 @@ async function musicStartCapture(opts?) {
   const h = musicHooks();
   if (!h.enableVoiceCapture) return;
   if (typeof h.startVoiceContinuousCapture === "function") {
-    return h.startVoiceContinuousCapture(opts);
+    return (h.startVoiceContinuousCapture as any)(opts);
   }
   const { startVoiceContinuousCapture } = require("../Voice/voiceContinuousCaptureService") as typeof import("../Voice/voiceContinuousCaptureService");
   return startVoiceContinuousCapture(opts);
@@ -83,7 +83,7 @@ async function musicStartCapture(opts?) {
 async function musicStopCapture(guildId?) {
   const h = musicHooks();
   if (typeof h.stopVoiceContinuousCapture === "function") {
-    return h.stopVoiceContinuousCapture(guildId);
+    return (h.stopVoiceContinuousCapture as any)(guildId);
   }
   try {
     const { stopVoiceContinuousCapture } = require("../Voice/voiceContinuousCaptureService") as typeof import("../Voice/voiceContinuousCaptureService");
@@ -92,7 +92,7 @@ async function musicStopCapture(guildId?) {
 }
 function musicIsCaptureActive(guildId?) {
   const h = musicHooks();
-  if (typeof h.isVoiceCaptureActive === "function") return h.isVoiceCaptureActive(guildId);
+  if (typeof h.isVoiceCaptureActive === "function") return (h.isVoiceCaptureActive as any)(guildId);
   try {
     const { isVoiceCaptureActive } = require("../Voice/voiceContinuousCaptureService") as typeof import("../Voice/voiceContinuousCaptureService");
     return isVoiceCaptureActive(guildId);
@@ -626,7 +626,7 @@ async function clearBlockingNativeVoiceForMusic(guildId?, client?) {
       }
     } catch (_) {}
     try {
-      await musicStopCapture(gid, client).catch(() => {});
+      await (musicStopCapture as any)(gid, client).catch(() => {});
     } catch (_) {}
     try {
       const { clearVoiceSession } = require("../Voice/voiceSessionService") as typeof import("../Voice/voiceSessionService");
@@ -2654,7 +2654,7 @@ function markMusicVoiceLeaveIntentional(client?, guildId?) {
 async function leaveMusicVoiceChannelMarked(client?, guildId?) {
   const gid = String(guildId || "").trim();
   if (!gid || !client) return;
-  await musicStopCapture(gid, client).catch(() => null);
+  await (musicStopCapture as any)(gid, client).catch(() => null);
   musicIdleSince.delete(gid);
   lastMusicEndHandledByGuild.delete(gid);
   markMusicVoiceLeaveIntentional(client, gid);

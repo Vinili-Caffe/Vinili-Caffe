@@ -625,7 +625,7 @@ async function buildPreviewMp4File(srcUrl?, outPath?, seconds = 40) {
     });
     child.on("close", (code?) => {
       clearTimeout(killer);
-      if (code === 0) resolve();
+      if (code === 0) ((resolve as any)() as any);
       else reject(new Error(`ffmpeg_exit_${code}: ${errBuf.slice(0, 240)}`));
     });
   });

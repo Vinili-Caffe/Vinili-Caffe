@@ -354,7 +354,7 @@ async function handleStaffButtons(interaction?) {
   }
 
   if (interaction.customId == "limiti") {
-    const embed = new EmbedBuilder().setColor("#6f4e37").setDescription(
+    const embed = (new EmbedBuilder().setColor("#6f4e37").setDescription as any)(
       "<:VC_Info:1482526956703580372> I **`limiti settimanali`** sono dei **messaggi** e delle **ore vocali** che entro una __settimana__ si devono __raggiungere__.\n\n" +
       "> <:VC_Attention:1482534443632558151> **Superare** i limiti di __poco__ potrebbe comportare un **depex**, mentre **superarli** di __tanto__ **__non garantisce__** un **pex**.\n\n" +
       "<a:VC_Arrow:1482706699365257397> <@&" + IDs.roles.Helper + ">\n" +

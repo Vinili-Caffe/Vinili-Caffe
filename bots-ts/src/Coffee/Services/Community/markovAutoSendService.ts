@@ -16,7 +16,7 @@ async function withAutoSendGuildLock(guildId?, fn?) {
   const prev = autoSendLocksByGuild.get(key) || Promise.resolve();
   let release = () => {};
   const gate = new Promise((resolve?) => {
-    release = resolve;
+    release = (resolve as any);
   });
   const chain = prev.finally(() => gate);
   autoSendLocksByGuild.set(key, chain);

@@ -210,7 +210,7 @@ function buildSelectOptionsForSegment(guild?, segment?, member?, numericLevel?, 
       };
       const em = naturalPersonalityColorEmoji(rid);
       if (em) row.emoji = em;
-      opts.push(row);
+      opts.push((row as any));
     }
     return opts.slice(0, 25);
   }

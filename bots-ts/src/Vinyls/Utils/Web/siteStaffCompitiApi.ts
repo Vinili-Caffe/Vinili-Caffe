@@ -172,7 +172,7 @@ function currentRomeIsoWeekKey(date = new Date()) {
   const dayNum = utc.getUTCDay() || 7;
   utc.setUTCDate(utc.getUTCDate() + 4 - dayNum);
   const yearStart = new Date(Date.UTC(utc.getUTCFullYear(), 0, 1));
-  const weekNo = Math.ceil(((utc - yearStart) / 86400000 + 1) / 7);
+  const weekNo = Math.ceil((((utc as any) - (yearStart as any)) / 86400000 + 1) / 7);
   return `${utc.getUTCFullYear()}-W${String(weekNo).padStart(2, "0")}`;
 }
 

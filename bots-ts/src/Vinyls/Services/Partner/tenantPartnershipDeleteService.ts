@@ -98,8 +98,8 @@ async function findPartnerActionByMessage(guildId?, message?) {
         for (const candidateName of messagePartnerNames) {
           if (
             candidateName === partnerName ||
-            candidateName.includes(partnerName) ||
-            partnerName.includes(candidateName)
+            (candidateName as any).includes(partnerName) ||
+            partnerName.includes((candidateName as any))
           ) {
             score += 45;
           }

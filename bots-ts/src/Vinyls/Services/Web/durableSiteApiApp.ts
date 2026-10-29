@@ -370,7 +370,7 @@ async function main() {
 
   app.use((err?: any, req?, res?, next?) => {
     const isJsonBodyError =
-      (err instanceof SyntaxError && Number(err.status) === 400 && "body" in err) ||
+      (err instanceof SyntaxError && Number((err as any).status) === 400 && "body" in err) ||
       err?.type === "entity.parse.failed" ||
       err?.type === "entity.too.large";
     if (isJsonBodyError) {

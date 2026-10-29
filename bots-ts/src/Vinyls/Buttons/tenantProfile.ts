@@ -106,7 +106,7 @@ export = {
       await updateTenantProfilePrefs(parsed.guildId, parsed.targetUserId, {
         suppressManagerPing: !prefs.suppressManagerPing,
       });
-      section = TENANT_PROFILE_SECTIONS.SETTINGS;
+      section = (TENANT_PROFILE_SECTIONS.SETTINGS as any);
     } else if (parsed.action === "set_privacy") {
       const prefs = await getTenantProfilePrefs(parsed.guildId, parsed.targetUserId);
       await updateTenantProfilePrefs(parsed.guildId, parsed.targetUserId, {
@@ -115,9 +115,9 @@ export = {
       void setTenantObjectiveFlag(interaction.client, parsed.guildId, parsed.targetUserId, "privacySet", {
         discordLocale: interaction.locale,
       }).catch(() => null);
-      section = TENANT_PROFILE_SECTIONS.SETTINGS;
+      section = (TENANT_PROFILE_SECTIONS.SETTINGS as any);
     } else if (parsed.action === "open_lang") {
-      section = TENANT_PROFILE_SECTIONS.LANGUAGE;
+      section = (TENANT_PROFILE_SECTIONS.LANGUAGE as any);
     } else if (parsed.action === "lang_pick") {
       const nextLang = normalizeTenantLanguage(parsed.extra);
       await updateTenantProfilePrefs(parsed.guildId, parsed.targetUserId, {
@@ -125,7 +125,7 @@ export = {
         languageManual: true,
       });
       await replyEphemeral(interaction, `<:success:1461731530333229226> ${t(nextLang, "languageUpdated")}`);
-      section = TENANT_PROFILE_SECTIONS.LANGUAGE;
+      section = (TENANT_PROFILE_SECTIONS.LANGUAGE as any);
     } else if (parsed.action === "bsel_slot") {
       const slotIndex = Math.max(0, Math.min(1, Number(parsed.extra) || 0));
       const prefs = await getTenantProfilePrefs(parsed.guildId, parsed.targetUserId);
@@ -175,22 +175,22 @@ export = {
       await safeUpdateTenantProfilePanel(interaction, payload);
       return true;
     } else if (parsed.action === "badge_collapse") {
-      section = TENANT_PROFILE_SECTIONS.BADGES;
+      section = (TENANT_PROFILE_SECTIONS.BADGES as any);
       page = 1;
     } else if (parsed.action === "obj_p") {
-      section = TENANT_PROFILE_SECTIONS.OBJECTIVES;
+      section = (TENANT_PROFILE_SECTIONS.OBJECTIVES as any);
       page = Math.max(1, Number(parsed.extra) || 1);
     } else if (parsed.action === "bbrowse_p") {
-      section = TENANT_PROFILE_SECTIONS.BADGE_BROWSE;
+      section = (TENANT_PROFILE_SECTIONS.BADGE_BROWSE as any);
       page = Math.max(1, Number(parsed.extra) || 1);
     } else {
       section = sectionFromAction(parsed.action);
-      if (section === TENANT_PROFILE_SECTIONS.NOTIFICATIONS && !isViewOnlyPanel(parsed)) {
+      if ((section as any) === TENANT_PROFILE_SECTIONS.NOTIFICATIONS && !isViewOnlyPanel(parsed)) {
         await updateTenantProfilePrefs(parsed.guildId, parsed.targetUserId, {
           notificationsReadAt: new Date(),
         });
       }
-      if (section === TENANT_PROFILE_SECTIONS.BADGE_BROWSE) {
+      if ((section as any) === TENANT_PROFILE_SECTIONS.BADGE_BROWSE) {
         page = 1;
       }
     }

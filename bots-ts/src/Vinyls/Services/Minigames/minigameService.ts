@@ -2489,7 +2489,7 @@ async function saveActiveGame(client?, cfg?, payload?) {
     guildId = channel?.guild?.id || null;
   }
   if (!guildId) return;
-  await minigameStateFindOneAndUpdate(
+  await (minigameStateFindOneAndUpdate as any)(
     { guildId, channelId },
     { $set: { guildId, channelId, ...payload } },
     { upsert: true, new: true, setDefaultsOnInsert: true },
@@ -5261,7 +5261,7 @@ async function loadPopularSongList(cfg?) {
     warnMinigame(err);
   }
 
-  const feeds = Array.isArray(cfg?.guessSong?.popularFeeds)?.length ? cfg.guessSong.popularFeeds : DEFAULT_POPULAR_FEEDS;
+  const feeds = (Array.isArray(cfg?.guessSong?.popularFeeds) as any)?.length ? cfg.guessSong.popularFeeds : DEFAULT_POPULAR_FEEDS;
   for (const feed of feeds) {
     if (!feed) continue;
     try {
@@ -5371,7 +5371,7 @@ async function fetchArtistCountry(cfg?, artistName?) {
   const urls = [];
 
   for (const term of terms) {
-    urls.push(`${apiBase}${encodeURIComponent(term)}&fmt=json&limit=8`);
+    urls.push(`${apiBase}${encodeURIComponent((term as any))}&fmt=json&limit=8`);
   }
   urls.push(
     `https://musicbrainz.org/ws/2/artist/?query=artist:${encodeURIComponent(artistName)}&fmt=json&limit=8`,
@@ -7259,7 +7259,7 @@ async function runMinigameChannelExclusive(channelId?, task?) {
   const previous = minigameChannelExclusiveQueues.get(key) || Promise.resolve();
   let release = () => { };
   const gate = new Promise((resolve?) => {
-    release = resolve;
+    release = (resolve as any);
   });
   minigameChannelExclusiveQueues.set(key, previous.then(() => gate));
   await previous;
@@ -7278,7 +7278,7 @@ async function runHogwartsPodiumRegisterExclusive(channelId?, task?) {
   const previous = hogwartsPodiumRegisterQueues.get(key) || Promise.resolve();
   let release = () => { };
   const gate = new Promise((resolve?) => {
-    release = resolve;
+    release = (resolve as any);
   });
   hogwartsPodiumRegisterQueues.set(key, previous.then(() => gate));
   await previous;
@@ -8596,7 +8596,7 @@ async function loadRotationState(client?, cfg?, guildIdOverride = null) {
   }
   rotationDate = dateKey;
   rotationQueue = [];
-  await minigameRotationFindOneAndUpdate(
+  await (minigameRotationFindOneAndUpdate as any)(
     { guildId, channelId },
     { $set: { dateKey, queue: [] } },
     { upsert: true, new: true, setDefaultsOnInsert: true },
@@ -8609,7 +8609,7 @@ async function saveRotationState(client?, cfg?, guildIdOverride = null) {
   const guildId = guildIdOverride ?? cfg?.guildId ?? (await getChannelCached(client, channelId))?.guild?.id ?? null;
   if (!guildId) return;
   const dateKey = rotationDate || getRomeDateKey(new Date());
-  await minigameRotationFindOneAndUpdate(
+  await (minigameRotationFindOneAndUpdate as any)(
     { guildId, channelId },
     { $set: { dateKey, queue: rotationQueue, lastSentAt: lastSentAtByChannel.get(channelId) || 0 } },
     { upsert: true, new: true, setDefaultsOnInsert: true },
@@ -13210,7 +13210,7 @@ async function reactTreasureHuntEmojiWithFallbacks(message?, token?, options: Re
   const tryPlace = async (candidate?, label?) => {
     for (let attempt = 0; attempt < 3; attempt += 1) {
       const result = await reactTreasureHuntEmoji(message, candidate, { quiet: true });
-      if (result === true || result?.ok) {
+      if ((result as any) === true || result?.ok) {
         logTreasureHuntReactDebug(`${label} react ok`, {
           ...baseMeta,
           candidate,

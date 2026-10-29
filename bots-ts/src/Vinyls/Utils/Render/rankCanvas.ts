@@ -16,7 +16,7 @@ let path2dCtorMemo;
 function getPath2DConstructor() {
   if (path2dCtorMemo !== undefined) return path2dCtorMemo;
   const candidates = [
-    canvasModule.Path2D,
+    (canvasModule as any).Path2D,
     typeof globalThis !== "undefined" ? globalThis.Path2D : null,
   ];
   for (const Ctor of candidates) {
@@ -582,7 +582,7 @@ function decodeGifDataUrlToBuffer(url?) {
 
 function runFfmpeg(args?) {
   if (!ffmpegPath) return false;
-  const out = spawnSync(ffmpegPath, args, {
+  const out = spawnSync((ffmpegPath as any), args, {
     stdio: "ignore",
     windowsHide: true,
   });

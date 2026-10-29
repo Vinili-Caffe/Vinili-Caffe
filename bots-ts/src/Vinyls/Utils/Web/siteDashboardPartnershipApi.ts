@@ -182,7 +182,7 @@ function serializePartnership(config?, guildId = null) {
       imageUrl: defaults.imageUrl || "",
       footerText: defaults.footerText || "",
       footerIconUrl: defaults.footerIconUrl || "",
-      timestampEnabled: defaults.timestampEnabled !== false,
+      timestampEnabled: (defaults as any).timestampEnabled !== false,
     },
   };
 }
@@ -1164,7 +1164,7 @@ async function getDashboardPartnershipManagers(client?, accessToken?, guildId?) 
 
   const managers = [];
   for (const member of members) {
-    const scores = await getUserPartnershipScoresForGuild(access.guildId, member.id).catch(() => ({
+    const scores = await getUserPartnershipScoresForGuild(access.guildId, (member as any).id).catch(() => ({
       points: 0,
       total: 0,
       daily: 0,

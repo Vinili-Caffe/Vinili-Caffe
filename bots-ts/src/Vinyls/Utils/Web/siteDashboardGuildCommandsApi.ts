@@ -125,13 +125,13 @@ function mergePermissionsJsonIntoCommands(guildId?, commands?, catalog?) {
   for (const name of names) {
     const base = buildPrefixAclFromPermissionsJson(name);
     if (!base || isAclEmpty(base)) continue;
-    const mongo = out[name];
+    const mongo = out[(name as any)];
     const hasMongoRoles = Boolean(mongo?.roleMode && Array.isArray(mongo.roleIds) && mongo.roleIds.length);
     const hasMongoChannels = Boolean(
       mongo?.channelMode && Array.isArray(mongo.channelIds) && mongo.channelIds.length,
     );
     if (hasMongoRoles && hasMongoChannels) continue;
-    out[name] = {
+    out[(name as any)] = {
       enabled: mongo?.enabled !== false,
       roleMode: hasMongoRoles ? mongo.roleMode : base.roleMode,
       roleIds: hasMongoRoles ? mongo.roleIds.slice() : base.roleIds.slice(),

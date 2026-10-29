@@ -505,7 +505,7 @@ async function fetchAllMessages(channel?, maxMessages = 2000) {
     results.push(...list);
 
     if (chunk.size < 100) break;
-    beforeId = list[list.length - 1]?.id;
+    beforeId = (list[list.length - 1] as any)?.id;
     if (!beforeId) break;
   }
 

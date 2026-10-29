@@ -96,10 +96,10 @@ function isNativeBoostSystemMessage(message?) {
     MessageType?.GuildBoostTier1,
     MessageType?.GuildBoostTier2,
     MessageType?.GuildBoostTier3,
-    MessageType?.UserPremiumGuildSubscription,
-    MessageType?.UserPremiumGuildSubscriptionTier1,
-    MessageType?.UserPremiumGuildSubscriptionTier2,
-    MessageType?.UserPremiumGuildSubscriptionTier3,
+    (MessageType as any)?.UserPremiumGuildSubscription,
+    (MessageType as any)?.UserPremiumGuildSubscriptionTier1,
+    (MessageType as any)?.UserPremiumGuildSubscriptionTier2,
+    (MessageType as any)?.UserPremiumGuildSubscriptionTier3,
     8,
     9,
     10,
@@ -653,7 +653,7 @@ export = {
           ];
           for (let i = 0; i < results.length; i += 1) {
             if (results[i].status === "rejected") {
-              logEventError(resolvedClient, labels[i], results[i].reason);
+              logEventError(resolvedClient, labels[i], (results[i] as any).reason);
             }
           }
         });

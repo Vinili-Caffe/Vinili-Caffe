@@ -507,9 +507,9 @@ function boardNeedsRemoveButtonRefresh(existingComponents?, expectedComponents?)
     if (!existing.has(id)) return true;
   }
   for (const id of existing) {
-    if (id.startsWith(REPOST_REMOVE_PREFIX) && !expected.has(id)) return true;
+    if ((id as any).startsWith(REPOST_REMOVE_PREFIX) && !expected.has(id)) return true;
   }
-  const hasModernRemove = [...existing].some((id?) => /^repost_remove:[a-f0-9]{24}$/i.test(id));
+  const hasModernRemove = [...existing].some((id?) => /^repost_remove:[a-f0-9]{24}$/i.test((id as any)));
   const expectsRemove = [...expected].some((id?: any) => id.startsWith(REPOST_REMOVE_PREFIX));
   if (expectsRemove && !hasModernRemove) return true;
     const existingLabels = new Set(
@@ -1443,7 +1443,7 @@ async function aggregateRandomUniqueRepost(guildId?, excludeKeys = null) {
 
   pipeline.push({ $sample: { size: 1 } });
 
-  const rows = await GuildRepost.aggregate(pipeline).catch(() => []);
+  const rows = await GuildRepost.aggregate((pipeline as any)).catch(() => []);
   return rows?.[0] || null;
 }
 

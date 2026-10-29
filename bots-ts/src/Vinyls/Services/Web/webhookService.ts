@@ -718,7 +718,7 @@ async function startWebhookServer(client?) {
 
   app.use((err?: any, req?, res?, next?) => {
     const isJsonBodyError =
-      err instanceof SyntaxError && Number(err.status) === 400 && "body" in err;
+      err instanceof SyntaxError && Number((err as any).status) === 400 && "body" in err;
     if (!isJsonBodyError) return next(err);
 
         if (isDiscadiaWebhookRequest(req)) {

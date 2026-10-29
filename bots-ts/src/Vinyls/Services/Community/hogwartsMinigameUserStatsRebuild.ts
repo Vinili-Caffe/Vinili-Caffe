@@ -322,8 +322,8 @@ async function rebuildUserMinigameStatsFromDiscord(client?, options: Record<stri
       fetchDelayMs: options.fetchDelayMs,
       onBatch: options.onBatch,
     });
-    roundsByChannel[channelId] = fetched.rounds.length;
-    messagesByChannel[channelId] = fetched.messageCount;
+    roundsByChannel[(channelId as any)] = fetched.rounds.length;
+    messagesByChannel[(channelId as any)] = fetched.messageCount;
     for (const round of fetched.rounds) {
       const win = await detectUserWinInRound(round, userId, botId, sortedHouseByUserId, reactionCache);
       if (win) allWins.push({ ...win, channelId });

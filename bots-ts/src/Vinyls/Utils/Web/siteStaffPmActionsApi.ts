@@ -51,7 +51,7 @@ async function handleSiteStaffPmActionsPost(client?, req?, res?) {
         });
       }
       const invite = String(body.invite || body.inviteUrl || "").trim();
-      const meta = await fetchInviteGuildMeta(client, invite).catch(() => null);
+      const meta = await fetchInviteGuildMeta(client, (invite as any)).catch(() => null);
       const targetGuildId = normalizeGuildId(meta?.guildId || body.guildId);
       if (!targetGuildId) {
         return res.status(400).json({ ok: false, error: "invalid_invite", message: "Invite o guild ID non valido." });

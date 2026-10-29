@@ -127,7 +127,7 @@ function getWeekKeyRome(date = new Date()) {
   const dayNr = (utcDate.getUTCDay() + 6) % 7;
   utcDate.setUTCDate(utcDate.getUTCDate() - dayNr + 3);
   const firstThursday = new Date(Date.UTC(utcDate.getUTCFullYear(), 0, 4));
-  const weekNr = 1 + Math.round((utcDate - firstThursday) / (7 * 24 * 60 * 60 * 1000));
+  const weekNr = 1 + Math.round(((utcDate as any) - (firstThursday as any)) / (7 * 24 * 60 * 60 * 1000));
   return `${utcDate.getUTCFullYear()}-W${pad2(weekNr)}`;
 }
 

@@ -79,7 +79,7 @@ function getMarkovExcludedChannelIds(config: Record<string, any> = {}) {
   const markov = config?.markov || {};
   const fromConfig = Array.isArray(markov.excludedChannelIds) ? markov.excludedChannelIds : [];
   const vinyls = getVinylsIds();
-  const poketwo = String(vinyls?.channels?.poketwo || IDs.channels?.poketwo || "").trim();
+  const poketwo = String(vinyls?.channels?.poketwo || (IDs.channels as any)?.poketwo || "").trim();
   const extras = poketwo ? [poketwo] : [];
   return new Set([...fromConfig, ...extras].map(String).filter(Boolean));
 }

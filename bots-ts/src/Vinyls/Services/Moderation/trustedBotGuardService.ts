@@ -152,7 +152,7 @@ async function punishMemberForBotAbuse(guild?, userId?, reason?, action = "ban")
         modId: guild.client.user.id,
         reason,
       });
-      await logModCase(guild.client, modCase);
+      await (logModCase as any)(guild.client, modCase);
     } catch (err) {
       global.logger?.warn?.("[trustedBotGuard] modcase failed:", err?.message || err);
     }

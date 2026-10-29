@@ -273,7 +273,7 @@ async function resolveLeaveStaffRoleIdsFromDb(guildId?, userId?) {
       .concat(Array.isArray(doc.staff?.rolesHistory) ? doc.staff.rolesHistory : [])
       .concat(Array.isArray(doc.staffRolesHistoryRetention) ? doc.staffRolesHistoryRetention : [])
       .filter(Boolean);
-    rows.sort((a?, b?) => new Date(b?.date || 0) - new Date(a?.date || 0));
+    rows.sort((a?, b?) => (new Date(b?.date || 0) as any) - (new Date(a?.date || 0) as any));
 
     // If career already ends at Member: skip inventing ladder from older rows,
     // but organicoLeaveAfterDim1 — plain "Dimissioni" then leave still needs Esce stamp.

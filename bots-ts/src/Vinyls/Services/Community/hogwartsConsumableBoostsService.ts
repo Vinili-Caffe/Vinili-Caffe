@@ -109,16 +109,16 @@ async function loadPersonalConsumableBoosts(guildId?, userId?) {
 
 function resolveScopeBoost(boostType?, scope?, guildBoosts?, personalBoosts?, houseId?, nowMs = Date.now()) {
   if (scope === CONSUMABLE_BOOST_SCOPES.PERSONAL) {
-    return normalizeBoostRow(personalBoosts?.[boostType], nowMs);
+    return (normalizeBoostRow as any)(personalBoosts?.[boostType], nowMs);
   }
   const typeBucket = guildBoosts?.[boostType] && typeof guildBoosts[boostType] === "object" ? guildBoosts[boostType] : {};
   if (scope === CONSUMABLE_BOOST_SCOPES.GLOBAL) {
-    return normalizeBoostRow(typeBucket.global, nowMs);
+    return (normalizeBoostRow as any)(typeBucket.global, nowMs);
   }
   const house = normalizeHouseId(houseId);
   if (!house) return null;
   const houses = typeBucket.houses && typeof typeBucket.houses === "object" ? typeBucket.houses : {};
-  return normalizeBoostRow(houses[house], nowMs);
+  return (normalizeBoostRow as any)(houses[house], nowMs);
 }
 
 async function getActiveConsumableBoosts(client?, guildId?, userId?, houseId?) {
@@ -173,7 +173,7 @@ function anyActiveHouseBoost(guildBoosts?, boostType?, nowMs = Date.now()) {
   const houses = guildBoosts?.[boostType]?.houses;
   if (!houses || typeof houses !== "object") return null;
   for (const [houseId, row] of Object.entries(houses)) {
-    const normalized = normalizeBoostRow(row, nowMs);
+    const normalized = (normalizeBoostRow as any)(row, nowMs);
     if (normalized) return { ...normalized, houseId: normalizeHouseId(houseId) };
   }
   return null;

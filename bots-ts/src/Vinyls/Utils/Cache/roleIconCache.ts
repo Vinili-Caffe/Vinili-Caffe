@@ -49,7 +49,7 @@ async function cacheRoleIcon(iconUrl?) {
 
     const imageBuffer = await downloadImage(iconUrl);
     /* perfP2: write async — non blocca l'event loop su I/O disco */
-    await fs.promises.writeFile(filepath, imageBuffer);
+    await fs.promises.writeFile(filepath, (imageBuffer as any));
 
     return filepath;
   } catch (error) {

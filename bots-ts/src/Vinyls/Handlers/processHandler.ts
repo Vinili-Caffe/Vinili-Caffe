@@ -33,8 +33,8 @@ async function exitAfterFlush(signal?) {
 }
 
 export = () => {
-  if (process.__viniliProcessHandlersInstalled) return;
-  process.__viniliProcessHandlersInstalled = true;
+  if ((process as any).__viniliProcessHandlersInstalled) return;
+  (process as any).__viniliProcessHandlersInstalled = true;
 
   process.on("SIGINT", () => {
     void exitAfterFlush("SIGINT");

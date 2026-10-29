@@ -821,7 +821,7 @@ async function listDashboardGuildsUncached(client?, accessToken?) {
   }
   for (const id of fallbackIds) {
     if (seen.has(id)) continue;
-    if (blacklistedGuildIds.has(id)) continue;
+    if (blacklistedGuildIds.has((id as any))) continue;
     if (!(await userHasGuildManageAccessViaBot(client, id, user.userId))) continue;
     seen.add(id);
     const isProtected = isViniliProtectedGuild(id) || isViniliFullFeatureGuild(id);

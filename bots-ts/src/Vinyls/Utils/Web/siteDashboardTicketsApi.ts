@@ -708,14 +708,14 @@ async function resolveDiscordUserLabels(client?, userIds?, options: Record<strin
     if (cachedUser) {
       const label = discordUserDisplayLabel(cachedUser, id);
       if (label) {
-        out[id] = label;
+        out[(id as any)] = label;
         writeCachedUserLabel(id, label);
       }
       continue;
     }
     const mem = readCachedUserLabel(id);
     if (mem) {
-      out[id] = mem;
+      out[(id as any)] = mem;
       continue;
     }
     missing.push(id);

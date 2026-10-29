@@ -74,7 +74,7 @@ async function handleInfoStrikeInteraction(interaction?) {
     await interaction.update({ components: [] }).catch(() => null);
     return true;
   }
-  const auto = (await getAutoModMemberSnapshot(interaction.guild.id, member.id).catch(() => null)) || {};
+  const auto = (await (getAutoModMemberSnapshot as any)(interaction.guild.id, member.id).catch(() => null)) || {};
   const strikeItems = Array.isArray(auto.strikeReasons)
     ? auto.strikeReasons.map((x?) => String(x || "").trim()).filter(Boolean)
     : [];

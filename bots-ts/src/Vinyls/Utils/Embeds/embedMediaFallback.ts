@@ -223,7 +223,7 @@ function applyEmbedMediaFallbackToPayload(payload?) {
 
 function installEmbedMediaFallbackPatch() {
   if (!EmbedBuilder || typeof EmbedBuilder !== "function") return;
-  if (EmbedBuilder.prototype.__viniliEmbedMediaFallbackPatched) return;
+  if ((EmbedBuilder.prototype as any).__viniliEmbedMediaFallbackPatched) return;
 
   const proto = EmbedBuilder.prototype;
 
@@ -244,8 +244,8 @@ function installEmbedMediaFallbackPatch() {
   if (typeof proto.setThumbnail === "function") {
     const original = proto.setThumbnail;
     proto.setThumbnail = function setThumbnailWithAvatarFallback(url?, ...rest) {
-      if (url && typeof url === "object" && url.url != null) {
-        const cleaned = sanitizeEmbedMediaUrl(url.url, { size: 256 });
+      if (url && typeof url === "object" && (url as any).url != null) {
+        const cleaned = sanitizeEmbedMediaUrl(((url as any).url as any), { size: 256 });
         if (!cleaned) return this;
         return original.call(this, { ...url, url: cleaned }, ...rest);
       }
@@ -258,8 +258,8 @@ function installEmbedMediaFallbackPatch() {
   if (typeof proto.setImage === "function") {
     const original = proto.setImage;
     proto.setImage = function setImageWithAvatarFallback(url?, ...rest) {
-      if (url && typeof url === "object" && url.url != null) {
-        const cleaned = sanitizeEmbedMediaUrl(url.url, { size: 512 });
+      if (url && typeof url === "object" && (url as any).url != null) {
+        const cleaned = sanitizeEmbedMediaUrl(((url as any).url as any), { size: 512 });
         if (!cleaned) return this;
         return original.call(this, { ...url, url: cleaned }, ...rest);
       }
@@ -269,7 +269,7 @@ function installEmbedMediaFallbackPatch() {
     };
   }
 
-  EmbedBuilder.prototype.__viniliEmbedMediaFallbackPatched = true;
+  (EmbedBuilder.prototype as any).__viniliEmbedMediaFallbackPatched = true;
 }
 
 export = {

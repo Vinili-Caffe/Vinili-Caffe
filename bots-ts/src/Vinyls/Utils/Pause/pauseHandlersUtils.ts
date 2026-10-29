@@ -167,7 +167,7 @@ function getPauseDaysBetween(startRaw?, endRaw?) {
   const start = parseItalianDate(startRaw);
   const end = parseItalianDate(endRaw);
   if (!start || !end || end < start) return null;
-  return Math.floor((end - start) / MS_PER_DAY) + 1;
+  return Math.floor(((end as any) - (start as any)) / MS_PER_DAY) + 1;
 }
 
 function getTodayUtc() {
@@ -1360,7 +1360,7 @@ function computeConsumedDaysForCancelledPause(pause?) {
   if (!start || !end) return 0;
   if (todayUtc < start) return 0;
   if (todayUtc > end) return totalScheduledDays;
-  return Math.max(1, Math.floor((todayUtc - start) / MS_PER_DAY) + 1);
+  return Math.max(1, Math.floor(((todayUtc as any) - (start as any)) / MS_PER_DAY) + 1);
 }
 
 async function cancelOpenPausesOnMemberLeave(guild?, userId?, options: Record<string, any> = {}) {

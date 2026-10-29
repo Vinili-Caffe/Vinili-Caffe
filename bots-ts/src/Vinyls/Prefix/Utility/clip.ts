@@ -98,7 +98,7 @@ export = {
 
     if (pending?.editable) {
       await pending.edit({
-        embeds: [EmbedBuilder.from(result.ackEmbed)],
+        embeds: [EmbedBuilder.from((result.ackEmbed as any))],
         components: [],
         allowedMentions: { users: [message.author.id] },
       }).catch(() => null);
@@ -106,7 +106,7 @@ export = {
     }
 
     await safeMessageReply(message, {
-      embeds: [EmbedBuilder.from(result.ackEmbed)],
+      embeds: [EmbedBuilder.from((result.ackEmbed as any))],
       allowedMentions: { users: [message.author.id] },
     });
   },

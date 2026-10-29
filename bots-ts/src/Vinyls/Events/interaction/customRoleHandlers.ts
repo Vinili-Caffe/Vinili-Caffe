@@ -927,7 +927,7 @@ async function handleRoleActionButton(interaction?) {
   const ownerState = await ensureOwnerCustomRoleActive(interaction, ownerId, roleId,);
   if (!ownerState.ok) return true;
 
-  const role = ownerState.state.resolvedRole || (await fetchRole(interaction, roleId));
+  const role = (ownerState.state as any).resolvedRole || (await fetchRole(interaction, roleId));
   if (!role) {
     await CustomRole.updateOne(
       { guildId: interaction.guild.id, userId: ownerId },
@@ -1119,7 +1119,7 @@ async function handleRoleActionModal(interaction?) {
   const ownerState = await ensureOwnerCustomRoleActive(interaction, ownerId, roleId,);
   if (!ownerState.ok) return true;
 
-  const role = ownerState.state.resolvedRole || (await fetchRole(interaction, roleId));
+  const role = (ownerState.state as any).resolvedRole || (await fetchRole(interaction, roleId));
   if (!role) {
     await CustomRole.updateOne(
       { guildId: interaction.guild.id, userId: ownerId },
@@ -1585,7 +1585,7 @@ async function handleAddRemoveSelectMenus(interaction?) {
     if (!ownerState.ok) return true;
 
     const targetId = interaction.values?.[0];
-    const role = ownerState.state.resolvedRole || (await fetchRole(interaction, roleId));
+    const role = (ownerState.state as any).resolvedRole || (await fetchRole(interaction, roleId));
     if (!targetId || !role) {
       await interaction
         .reply({
@@ -1636,7 +1636,7 @@ async function handleAddRemoveSelectMenus(interaction?) {
     const ownerState = await ensureOwnerCustomRoleActive(interaction, ownerId, roleId,);
     if (!ownerState.ok) return true;
 
-    const role = ownerState.state.resolvedRole || (await fetchRole(interaction, roleId));
+    const role = (ownerState.state as any).resolvedRole || (await fetchRole(interaction, roleId));
     if (!role) {
       await CustomRole.updateOne(
         { guildId: interaction.guild.id, userId: ownerId },

@@ -106,7 +106,7 @@ async function execute(interaction?, client?) {
     if (!interaction.deferred && !interaction.replied) await interaction.deferUpdate().catch(() => {});
     deleteSession(interaction.message?.id);
     resetForNewAttempt(session);
-    const payload = await buildRobGuiPayload(session, "", true, false);
+    const payload = await buildRobGuiPayload(session, "", true, (false as any));
     await interaction.message?.edit?.(payload).catch(() => {});
     return true;
   }

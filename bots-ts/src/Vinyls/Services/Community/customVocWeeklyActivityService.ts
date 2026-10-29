@@ -201,7 +201,7 @@ async function runCustomVocWeeklyEnforcement(client?, { mode = "weekly", guildId
       const lastEval = Number(customRole?.customVocLastEvaluatedWeekEndMs || 0);
       let weekEndMsList = [];
       if (mode === "weekly") {
-        const weekEnd = getLastSunday21BoundaryMsAtOrBefore(nowMs);
+        const weekEnd = getLastSunday21BoundaryMsAtOrBefore((nowMs as any));
         if (weekEnd > lastEval) weekEndMsList = [weekEnd];
       } else {
         weekEndMsList = listCompletedWeekEndMsForBackfill(nowMs, lastEval);

@@ -188,14 +188,14 @@ async function getStaffTargets(client?, guild?) {
     const role = guild.roles.cache.get(roleId) || (await guild.roles.fetch(roleId).catch(() => null));
     const members = role ? Array.from(role.members.values()) : [];
     for (const member of members) {
-      if (!member || member.user?.bot) continue;
-      const id = String(member.id);
+      if (!member || (member as any).user?.bot) continue;
+      const id = String((member as any).id);
       if (byId.has(id)) continue;
       byId.set(id, {
         id,
         name: displayNameForMember(member),
         avatarUrl:
-          resolveSiteAvatarUrl(guild, member.id, "", { size: 128, preferAnimated: true }) || "",
+          resolveSiteAvatarUrl(guild, (member as any).id, "", { size: 128, preferAnimated: true }) || "",
       });
     }
   }

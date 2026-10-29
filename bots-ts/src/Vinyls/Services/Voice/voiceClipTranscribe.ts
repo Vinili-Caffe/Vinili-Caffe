@@ -17,7 +17,7 @@ function runFfmpegToMp3(inputPath?, outputPath?) {
   return new Promise((resolve?, reject?) => {
     const ffmpeg = ffmpegStatic || "ffmpeg";
     const args = ["-y", "-i", inputPath, "-ac", "1", "-ar", "16000", "-b:a", "64k", outputPath];
-    const proc = spawn(ffmpeg, args, { stdio: ["ignore", "ignore", "pipe"] });
+    const proc = spawn((ffmpeg as any), args, { stdio: ["ignore", "ignore", "pipe"] });
     let err = "";
     proc.stderr?.on("data", (chunk?) => {
       err += String(chunk || "");

@@ -183,11 +183,11 @@ const PREMIUM_ROLE_IDS = new Set(
 );
 
 const CHANNEL_TO_CATEGORY = new Map(
-  [
+  ([
     [CHANNEL_MOBILE_ID, "mobile"],
     [CHANNEL_OUTFIT_ID, "mobile"],
     ...(CHANNEL_PC_ID ? [[CHANNEL_PC_ID, "pc"]] : []),
-  ].filter(([id]) => id),
+  ].filter(([id]) => id) as any),
 );
 
 const CONTEST_SUBMISSION_KIND_LABEL = IS_DISEGNI_CONTEST ? "disegno" : "sfondo";
@@ -1453,8 +1453,8 @@ function rawPcMessageMapFromVoterLean(lean?) {
 function scaleRawVoteMapToTotal(rawObj?, targetTotal?) {
   const entries = Object.entries(rawObj || {})
     .map(([mid, v]) => [String(mid), Math.max(0, Math.floor(Number(v)))])
-    .filter(([, n]) => n > 0);
-  const sum = entries.reduce((a, [, n]) => a + n, 0);
+    .filter(([, n]) => (n as any) > 0);
+  const sum = entries.reduce((a, [, n]) => (a as any) + n, 0);
   const out = new Map();
   if (targetTotal <= 0 || sum <= 0) return out;
   if (targetTotal >= sum) {
@@ -1464,7 +1464,7 @@ function scaleRawVoteMapToTotal(rawObj?, targetTotal?) {
   const floors = entries.map(([mid, n]) => ({
     mid,
     n,
-    f: Math.floor((n * targetTotal) / sum),
+    f: Math.floor(((n as any) * targetTotal) / sum),
   }));
   let allocated = 0;
   for (const w of floors) {
@@ -1472,7 +1472,7 @@ function scaleRawVoteMapToTotal(rawObj?, targetTotal?) {
     allocated += w.f;
   }
   let rem = targetTotal - allocated;
-  floors.sort((a?, b?) => b.n - a.n || a.mid.localeCompare(b.mid));
+  floors.sort((a?, b?) => (b as any).n - (a.n as any) || (a.mid as any).localeCompare(b.mid));
   let i = 0;
   while (rem > 0 && floors.length) {
     const w = floors[i % floors.length];

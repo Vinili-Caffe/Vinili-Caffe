@@ -75,14 +75,14 @@ async function handleSiteBootGet(client?, req?, res?) {
       out.partial = true;
     }
 
-    if (prefsOut?.ok && prefsOut.prefs) {
-      out.prefs = prefsOut.prefs;
-      if (prefsOut.prefs.theme) out.theme = prefsOut.prefs.theme;
+    if (prefsOut?.ok && (prefsOut as any).prefs) {
+      out.prefs = (prefsOut as any).prefs;
+      if ((prefsOut as any).prefs.theme) out.theme = (prefsOut as any).prefs.theme;
     } else {
       out.partial = true;
     }
 
-    const uid = String(out.me?.id || prefsOut?.userId || "").trim();
+    const uid = String(out.me?.id || (prefsOut as any)?.userId || "").trim();
     if (uid) {
       try {
         const counted = await countSiteInAppUnreadForUser(uid);
@@ -100,11 +100,11 @@ async function handleSiteBootGet(client?, req?, res?) {
     }
 
     if (!out.me && !out.prefs && !out.unread) {
-      const status = Number(meOut?.status) || Number(prefsOut?.status) || 503;
+      const status = Number(meOut?.status) || Number((prefsOut as any)?.status) || 503;
       return res.status(status).json({
         ok: false,
         error: meOut?.error || prefsOut?.error || "boot_unavailable",
-        message: meOut?.message || prefsOut?.message || "503",
+        message: meOut?.message || (prefsOut as any)?.message || "503",
       });
     }
 

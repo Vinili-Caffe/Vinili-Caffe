@@ -516,7 +516,7 @@ async function findActiveWarns(guildId?, userId?, limit = 20) {
     const u = await loadCompactUserDoc(guildId, userId);
     const warns = (u?.cases || [])
       .filter((c?) => String(c.action || "") === "WARN" && c.active !== false)
-      .sort((a?, b?) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
+      .sort((a?, b?) => (new Date(b.createdAt || 0) as any) - (new Date(a.createdAt || 0) as any))
       .slice(0, limit);
     for (const c of warns) rows.push(plainFromCompactCase(guildId, userId, c));
   }
@@ -578,7 +578,7 @@ async function findActiveModerations(guildId?, targetUserId?, limit?) {
     }
   }
   const rows = Array.from(byCase.values());
-  rows.sort((a?, b?) => new Date(a.expiresAt || 0) - new Date(b.expiresAt || 0));
+  rows.sort((a?, b?) => (new Date(a.expiresAt || 0) as any) - (new Date(b.expiresAt || 0) as any));
   return rows.slice(0, limit);
 }
 

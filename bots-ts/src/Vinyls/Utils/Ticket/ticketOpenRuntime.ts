@@ -104,7 +104,7 @@ async function resolveCustomTicketCategory(guild?, dashboardName?) {
 async function resolveAutoTicketCategory(guild?, interaction?) {
   let categoryName = TICKETS_CATEGORY_NAME;
   try {
-    categoryName = resolveDiscordTicketCategoryName(getTicketSettingsSafe(guild.id)?.categoryName);
+    categoryName = resolveDiscordTicketCategoryName((getTicketSettingsSafe(guild.id) as any)?.categoryName);
   } catch (_) {
     categoryName = TICKETS_CATEGORY_NAME;
   }

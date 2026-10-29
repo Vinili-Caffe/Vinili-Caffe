@@ -66,7 +66,7 @@ function buildRoleIdSet(keys?, extraIds = []) {
 
 function getProtectedRoleIdSet() {
   if (!protectedRoleIdSet) {
-    protectedRoleIdSet = buildRoleIdSet(PROTECTED_ROLE_KEYS, EXTRA_PROTECTED_ROLE_IDS);
+    protectedRoleIdSet = buildRoleIdSet(PROTECTED_ROLE_KEYS, (EXTRA_PROTECTED_ROLE_IDS as any));
   }
   return protectedRoleIdSet;
 }

@@ -622,10 +622,10 @@ function buildAlreadyRoleEmbed(roleId?) {
 }
 
 function buildNoModuliDeniedEmbed() {
-  return new EmbedBuilder()
+  return (new EmbedBuilder()
     .setColor("Red")
     .setTitle("<:VC_Lock:1482526739044368476> Accesso negato")
-    .setDescription(
+    .setDescription as any)(
       "<a:VC_Alert:1482706673176150077> Sei blacklistato dalle candidature.",
       "",
       "<:VC_Ticket:1482535175283019888> Se pensi sia un errore apri un ticket.",

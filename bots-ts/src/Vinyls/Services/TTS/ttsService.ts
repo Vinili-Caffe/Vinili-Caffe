@@ -671,7 +671,7 @@ async function fetchEdgeTtsMp3(text?, langBase?) {
       try {
         ws?.close();
       } catch (_) {}
-      resolve();
+      ((resolve as any)() as any);
     };
     const timer = setTimeout(() => fail(new Error("EdgeTTS: timeout")), 20000);
     timer.unref?.();
@@ -1521,7 +1521,7 @@ async function saveVoiceState(guildId?, channelId?, botUserId?) {
   if (lastSavedChannels.get(dedupeKey) === channelId) return;
   lastSavedChannels.set(dedupeKey, channelId);
   try {
-    await voiceFindOneAndUpdate(
+    await (voiceFindOneAndUpdate as any)(
       { guildId, botUserId: bid, claimLegacyVoiceRow: true },
       { $set: { channelId, lockedChannelId: channelId, updatedAt: new Date() } },
       { upsert: true, new: true },
@@ -1551,7 +1551,7 @@ async function saveTtsLastMessageProgress(guildId?, channelId?, messageId?, crea
   const mid = String(messageId);
   const ts = createdTimestamp ? new Date(Number(createdTimestamp)) : new Date();
   try {
-    await voiceFindOneAndUpdate(
+    await (voiceFindOneAndUpdate as any)(
       { guildId: gid, botUserId: bid, claimLegacyVoiceRow: true },
       {
         $set: {
@@ -1615,12 +1615,12 @@ async function catchupTtsMessagesForChannel(
     if (state.queue.length >= MAX_TTS_QUEUE) break;
     if (
       lastProcessedMessageId &&
-      String(message?.id || "") === String(lastProcessedMessageId)
+      String((message as any)?.id || "") === String(lastProcessedMessageId)
     ) {
       continue;
     }
-    if (message?.createdTimestamp <= cutoffMs) continue;
-    if (message?.author?.bot) continue;
+    if ((message as any)?.createdTimestamp <= cutoffMs) continue;
+    if ((message as any)?.author?.bot) continue;
     await enqueueTtsMessageFromHistory(message, client, voiceChannel, state, prefix).catch(() => null);
   }
 }
@@ -1791,7 +1791,7 @@ async function playOneShotTtsOnConnection(connection?, text?, lang = "it") {
         player.removeListener(AudioPlayerStatus.Idle, onIdle);
         player.removeListener("error", onError);
         if (err) reject(err);
-        else resolve();
+        else ((resolve as any)() as any);
       };
       const onIdle = () => done(null);
       const onError = (err?) => done(err);

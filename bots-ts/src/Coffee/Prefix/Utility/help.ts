@@ -8,7 +8,7 @@ const HELP_EMBED_COLOR = "#6f4e37";
 const ERROR_EMBED_COLOR = "Red";
 const PRIVATE_FLAG = 1 << 6;
 const NO_REPLY_MENTIONS = { repliedUser: false };
-const PAGE_ROLE_IDS = [IDs.roles.Member, IDs.roles.Staff, IDs.roles.HighStaff, IDs.roles.Founder].filter(Boolean);
+const PAGE_ROLE_IDS = [IDs.roles.Member, (IDs.roles as any).Staff, IDs.roles.HighStaff, IDs.roles.Founder].filter(Boolean);
 const PAGE_TITLES = { [IDs.roles.Member]: "Comandi Utente", [IDs.roles.Founder]: "Comandi Dev", all: "Comandi Disponibili" };
 const CATEGORY_LABELS = { utility: "Utility", music: "Musica", tts: "TTS", dev: "Developer" };
 const CATEGORY_ORDER = ["utility", "music", "tts", "dev"];
@@ -287,8 +287,8 @@ function buildEntries(client?, permissions?) {
           ...base,
           invoke: `${prefixBase}${command.name} ${sub}`,
           description: getPrefixSubcommandDescription(command, sub),
-          roles: Array.isArray(subcommandRoles[sub])
-            ? subcommandRoles[sub]
+          roles: Array.isArray(subcommandRoles[(sub as any)])
+            ? subcommandRoles[(sub as any)]
             : commandRoles,
           aliases: [],
           subAliases: extractDirectAliasesForSubcommand(command, sub),
@@ -400,14 +400,14 @@ function getEntryDisplayTier(entry?) {
     if (r === IDs.roles.Founder) minTier = Math.min(minTier, 3);
     else if (r === IDs.roles.HighStaff) minTier = Math.min(minTier, 2);
     else if (
-      r === IDs.roles.Staff ||
-      r === IDs.roles.PartnerManager
+      r === (IDs.roles as any).Staff ||
+      r === (IDs.roles as any).PartnerManager
     )
       minTier = Math.min(minTier, 1);
     else minTier = Math.min(minTier, 0);
   }
   if (minTier === 0) return "utente";
-  if (minTier === 1) return IDs.roles.Staff;
+  if (minTier === 1) return (IDs.roles as any).Staff;
   if (minTier === 2) return IDs.roles.HighStaff;
   return IDs.roles.Founder;
 }
@@ -417,7 +417,7 @@ function canMemberSeeEntry(entry?, memberRoles?) {
   if (!Array.isArray(roles) || roles.length === 0) return true;
   if (hasAnyRole(memberRoles, roles)) return true;
   const memberHasMemberRole = IDs.roles.Member && memberRoles?.has(IDs.roles.Member);
-  const entryOnlyVip=roles.length>0&&roles.every((r?) => String(r)===String(IDs.roles.VIP||""));
+  const entryOnlyVip=roles.length>0&&roles.every((r?) => String(r)===String((IDs.roles as any).VIP||""));
   if (memberHasMemberRole && entryOnlyVip) return true;
   return false;
 }
@@ -644,7 +644,7 @@ async function handleCoffeeHelpNavInteraction(interaction?) {
 function buildHelpV2Container(page?, navState?) {
   const components=[{type:ComponentType.TextDisplay,content:page?.renderedText||renderPageText(page),},];
   if (navState.total > 1) {
-    components.push(buildNavigationRow(navState).toJSON());
+    components.push((buildNavigationRow(navState).toJSON() as any));
   }
   return {
     type: ComponentType.Container,
@@ -792,7 +792,7 @@ function collectPrefixExampleLines(command?, commandName?, prefixBase?, subEntri
   const snippets=collectCommandUsageSnippets(command,commandName,prefixBase,);
   if (requestedSub) {
     for (const row of snippets) {
-      const lower = row.toLowerCase();
+      const lower = (row as any).toLowerCase();
       if (
         lower.includes(`${prefixBase}${commandName} ${requestedSub}`) ||
         lower.includes(` ${requestedSub} `)
@@ -973,7 +973,7 @@ function buildSlashDetailedHelpEmbed(query?, entries?, context: Record<string, a
   const slashCommands = [];
   for (const cmd of Array.from(context?.client?.commands?.values?.() || [])) {
     if (!shouldIncludeSlashCommandInHelp(cmd)) continue;
-    const dataJson = cmd?._helpDataJson || cmd?.data?.toJSON?.();
+    const dataJson = (cmd as any)?._helpDataJson || (cmd as any)?.data?.toJSON?.();
     if (!dataJson?.name) continue;
     const type = dataJson.type || ApplicationCommandType.ChatInput;
     if (type !== ApplicationCommandType.ChatInput) continue;
@@ -1057,9 +1057,9 @@ function resolvePrefixCommandByToken(client?, token?) {
   if (!safeToken) return null;
   const commands = Array.from(client?.pcommands?.values?.() || []);
   for (const command of commands) {
-    const name=String(command?.name||"").trim().toLowerCase();
+    const name=String((command as any)?.name||"").trim().toLowerCase();
     if (name && name === safeToken) return command;
-    const aliases=Array.isArray(command?.aliases)?command.aliases.map((alias?) => String(alias||"").trim().toLowerCase(),):[];
+    const aliases=Array.isArray((command as any)?.aliases)?(command as any).aliases.map((alias?) => String(alias||"").trim().toLowerCase(),):[];
     if (aliases.includes(safeToken)) return command;
   }
   return null;
@@ -1246,14 +1246,14 @@ export = {
     const resolvedMember = freshMember || message.member;
     const memberRoles = resolvedMember?.roles?.cache || new Map();
     const rolePages=PAGE_ROLE_IDS.filter((roleId?) => memberRoles?.has(roleId),);
-    const hasPartnerManager=Boolean(memberRoles?.has?.(IDs.roles.PartnerManager),);
+    const hasPartnerManager=Boolean(memberRoles?.has?.((IDs.roles as any).PartnerManager),);
     const hasHighStaff = Boolean(memberRoles?.has?.(IDs.roles.HighStaff));
     const hasFounder = Boolean(memberRoles?.has?.(IDs.roles.Founder));
     if (
-      !rolePages.includes(IDs.roles.Staff) &&
+      !rolePages.includes((IDs.roles as any).Staff) &&
       (hasPartnerManager || hasHighStaff || hasFounder)
     ) {
-      rolePages.push(IDs.roles.Staff);
+      rolePages.push((IDs.roles as any).Staff);
     }
     const visibleEntriesForQuery=dedupeAndSortEntries(allEntries.filter((entry?) => canMemberSeeEntry(entry,memberRoles)),);
 

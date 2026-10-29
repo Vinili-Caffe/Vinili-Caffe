@@ -129,7 +129,7 @@ async function resolveIdentitiesForList(client?, guild?, userIds?, lite?, softOn
         : await fetchUserIdentity(client, guild, uid, { skipUserFetch: Boolean(lite) }),
     ]),
   );
-  const map = new Map(entries);
+  const map = new Map((entries as any));
   const missing = ids.filter((uid?) => identityLooksIncomplete(map.get(uid), uid));
   if (!missing.length) return map;
   if (soft) {
@@ -2363,12 +2363,12 @@ async function handleSiteUsersLeaderboardGet(client?, req?, res?) {
         ActivityUserProfile.countDocuments(filter).catch(() => 0),
         ActivityUserProfile.find(filter)
           .select(select)
-          .sort(sort)
+          .sort((sort as any))
           .skip(skip)
           .limit(perPage)
           .lean()
           .catch(() => []),
-        ActivityUserProfile.findOne(filter).select(select).sort(sort).lean().catch(() => null),
+        ActivityUserProfile.findOne(filter).select(select).sort((sort as any)).lean().catch(() => null),
       ]);
     }
 

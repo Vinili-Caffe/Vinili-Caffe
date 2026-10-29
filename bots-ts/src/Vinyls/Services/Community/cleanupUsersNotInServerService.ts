@@ -89,7 +89,7 @@ async function runCleanupUsersNotInServer(guildId?, memberIds?, { dryRun = false
   const excludeUserIds = [...new Set([...(Array.isArray(memberIds) ? memberIds : []).map((id?) => String(id).trim()).filter(Boolean), ...keepUserIds])];
 
   for (const [Model, name] of guildScoped) {
-    if (!Model?.countDocuments) continue;
+    if (!(Model as any)?.countDocuments) continue;
     const filterGuild: Record<string, any> = {
       guildId: String(guildId),
       userId: { $nin: excludeUserIds },
@@ -119,8 +119,8 @@ async function runCleanupUsersNotInServer(guildId?, memberIds?, { dryRun = false
     }
     
     const n = dryRun
-      ? await Model.countDocuments(filterGuild).catch(() => 0)
-      : (await Model.deleteMany(filterGuild).catch(() => ({ deletedCount: 0 })))?.deletedCount ?? 0;
+      ? await (Model as any).countDocuments(filterGuild).catch(() => 0)
+      : (await (Model as any).deleteMany(filterGuild).catch(() => ({ deletedCount: 0 })))?.deletedCount ?? 0;
     if (n > 0) {
       total += n;
       details.push({ name, count: n });
@@ -154,7 +154,7 @@ async function runFullCleanupUsersNotInServer(client?) {
   if (!guilds.length) return;
   const allMemberIds = new Set();
   for (const guild of guilds) {
-    const guildId = guild?.id;
+    const guildId = (guild as any)?.id;
     if (!guildId) continue;
     const memberIds = await fetchCompleteGuildMemberIds(guild);
     if (!memberIds) {
@@ -166,7 +166,7 @@ async function runFullCleanupUsersNotInServer(client?) {
       dryRun: false,
       includeUserScoped: false,
       client,
-      memberCount: guild.memberCount,
+      memberCount: (guild as any).memberCount,
     });
   }
   await runCleanupUserScopedNotInAnyServer(Array.from(allMemberIds), { dryRun: false });

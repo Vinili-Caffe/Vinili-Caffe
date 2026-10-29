@@ -282,7 +282,7 @@ async function handlePauseButton(interaction?) {
       else
         consumedForCancelledPause = Math.max(
           1,
-          Math.floor((todayUtc - start) / MS_PER_DAY) + 1,
+          Math.floor(((todayUtc as any) - (start as any)) / MS_PER_DAY) + 1,
         );
     }
 

@@ -115,7 +115,7 @@ function sumCustomVocVoiceSecondsFromDaily(daily?, channelIds?, weekEndMs?) {
   const dateKeys = buildRomeDateKeysForWeekEnding(weekEndMs);
   let total = 0;
   for (const dateKey of dateKeys) {
-    const voiceChannels = toObjectMap(dailyMap?.[dateKey]?.voiceChannels);
+    const voiceChannels = toObjectMap(dailyMap?.[(dateKey as any)]?.voiceChannels);
     for (const [cid, value] of Object.entries(voiceChannels)) {
       if (!idSet.has(String(cid))) continue;
       const sec = Number(value || 0);

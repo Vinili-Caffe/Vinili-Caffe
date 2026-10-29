@@ -3,7 +3,7 @@ const canvasModule = require("canvas") as typeof import("canvas");
 let path2dCtorMemo;
 function getPath2DConstructor() {
   if (path2dCtorMemo !== undefined) return path2dCtorMemo;
-  const candidates = [canvasModule.Path2D, typeof globalThis !== "undefined" ? globalThis.Path2D : null];
+  const candidates = [(canvasModule as any).Path2D, typeof globalThis !== "undefined" ? globalThis.Path2D : null];
   for (const Ctor of candidates) {
     if (typeof Ctor !== "function") continue;
     try {

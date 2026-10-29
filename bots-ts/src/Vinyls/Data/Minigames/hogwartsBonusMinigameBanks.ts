@@ -201,7 +201,7 @@ function getHogwartsGuessYearBank() {
 }
 
 function getHogwartsQuoteFilmBank() {
-  return HOGWARTS_QUOTE_FILM_BANK;
+  return ((HOGWARTS_QUOTE_FILM_BANK as any) as any);
 }
 
 function getHogwartsCompleteVerseBank() {

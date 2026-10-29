@@ -241,7 +241,7 @@ async function listPartnershipBlacklistGuildsBucket(limit = 50) {
   const safe = Math.max(1, Math.min(100, Number(limit) || 50));
   const arr = await getPartnershipBlacklistEntries();
   return [...arr]
-    .sort((a?, b?) => new Date(b?.addedAt || 0) - new Date(a?.addedAt || 0))
+    .sort((a?, b?) => (new Date(b?.addedAt || 0) as any) - (new Date(a?.addedAt || 0) as any))
     .slice(0, safe);
 }
 
@@ -317,7 +317,7 @@ async function saveCountingRow(row?) {
   if ((updated?.matchedCount || 0) > 0) return;
   await coll.updateOne(
     { _counterKey: TICKET_COUNTER_KEY },
-    { $push: { countschemas: payload } },
+    { $push: { countschemas: ((payload as any) as any) } },
   );
 }
 

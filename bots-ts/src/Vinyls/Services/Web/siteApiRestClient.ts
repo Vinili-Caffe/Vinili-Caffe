@@ -1290,7 +1290,7 @@ function wrapGuild(raw?, client?) {
     return roleId ? guild.roles.cache.get(String(roleId)) || null : guild.roles.cache;
   };
 
-  guild.roles.create = async (options: Record<string, any> = {}) => {
+  (guild.roles as any).create = async (options: Record<string, any> = {}) => {
     const rest = client._rest;
     if (!rest) throw new Error("REST unavailable");
     const body: Record<string, any> = {};
@@ -1335,7 +1335,7 @@ function wrapGuild(raw?, client?) {
     return wrapped;
   };
 
-  guild.roles.edit = async (roleId?, payload: Record<string, any> = {}, reason?) => {
+  (guild.roles as any).edit = async (roleId?, payload: Record<string, any> = {}, reason?) => {
     const id = String(roleId?.id || roleId || "").trim();
     if (!id) throw new Error("roleId required");
     let role: any = guild.roles.cache.get(id);
@@ -1363,7 +1363,7 @@ function wrapGuild(raw?, client?) {
     return guild.channels.cache;
   };
 
-  guild.channels.create = async (options: Record<string, any> = {}) => {
+  (guild.channels as any).create = async (options: Record<string, any> = {}) => {
     const rest = client._rest;
     if (!rest) throw new Error("REST unavailable");
     const body: Record<string, any> = {
@@ -1416,7 +1416,7 @@ function wrapGuild(raw?, client?) {
     return wrapped;
   };
 
-  guild.emojis.fetch = async () => {
+  (guild.emojis as any).fetch = async () => {
     await enrichGuildEmojis(client._rest, guild);
     return guild.emojis.cache;
   };
@@ -1775,7 +1775,7 @@ async function createSiteApiRestClient(config?, token?, options: Record<string, 
     for (let page = 0; page < 25; page += 1) {
       const query = new URLSearchParams({ limit: "200" });
       if (after) query.set("after", after);
-      const batch = await rest.get(`${userGuildsPath()}?${query.toString()}`);
+      const batch = await rest.get((`${userGuildsPath()}?${query.toString()}` as any));
       if (!Array.isArray(batch) || !batch.length) break;
       for (const g of batch) {
         const gid = String(g?.id || "").trim();

@@ -239,7 +239,7 @@ function pauseRoleDisplayLabel(trackOrFields?, member?, guild = null) {
   try {
     return formatPauseRoleLabelForMessage(g, track, member);
   } catch (_) {
-    return track === "PartnerManager" ? "Partner Manager" : track === "Entrambi" ? "Entrambi" : "Staff";
+    return track === "PartnerManager" ? "Partner Manager" : (track as any) === "Entrambi" ? "Entrambi" : "Staff";
   }
 }
 
@@ -2325,10 +2325,10 @@ async function loadMembersForDocs(guild?, docs?) {
 async function ensureResocontiWeekKeys(guildId?) {
   const gid = String(guildId || "").trim();
   if (!gid) return 0;
-  if (!ensureResocontiWeekKeys.__at) ensureResocontiWeekKeys.__at = new Map();
-  const last = Number(ensureResocontiWeekKeys.__at.get(gid) || 0);
+  if (!(ensureResocontiWeekKeys as any).__at) (ensureResocontiWeekKeys as any).__at = new Map();
+  const last = Number((ensureResocontiWeekKeys as any).__at.get(gid) || 0);
   if (Date.now() - last < ENSURE_WEEK_KEYS_MIN_MS) return 0;
-  ensureResocontiWeekKeys.__at.set(gid, Date.now());
+  (ensureResocontiWeekKeys as any).__at.set(gid, Date.now());
   const missing = await SiteDocument.find({
     docType: WORKFLOW_DOC,
     guildId: gid,
@@ -2358,8 +2358,8 @@ async function listResocontiWeeks(guildId?, opts: Record<string, any> = {}) {
   const gid = String(guildId || "").trim();
   if (!gid) return [];
   const cacheKey = `${gid}:${String(opts.scope || "all").toLowerCase()}:${String(opts.filter || "").toLowerCase()}`;
-  if (!listResocontiWeeks.__cache) listResocontiWeeks.__cache = new Map();
-  const hit = listResocontiWeeks.__cache.get(cacheKey);
+  if (!(listResocontiWeeks as any).__cache) (listResocontiWeeks as any).__cache = new Map();
+  const hit = (listResocontiWeeks as any).__cache.get(cacheKey);
   if (hit && Date.now() - hit.at < INBOX_WEEKS_CACHE_MS) return hit.weeks;
   void ensureResocontiWeekKeys(gid).catch(() => 0);
   const match: Record<string, any> = { docType: WORKFLOW_DOC, guildId: gid, workflowQueue: "resoconti" };
@@ -2382,7 +2382,7 @@ async function listResocontiWeeks(guildId?, opts: Record<string, any> = {}) {
     label: formatWeekLabel(row._id),
     count: Number(row.count) || 0,
   }));
-  listResocontiWeeks.__cache.set(cacheKey, { at: Date.now(), weeks });
+  (listResocontiWeeks as any).__cache.set(cacheKey, { at: Date.now(), weeks });
   return weeks;
 }
 
@@ -2489,7 +2489,7 @@ async function getPendingPauseWorkflowForMember(guildId?, userId?, client = null
       const record = await getStaffPauseRecord(gid, uid);
       const pause = (Array.isArray(record?.staff?.pauses) ? record.staff.pauses : [])
         .filter((p?) => String(p?.status || "") === "pending")
-        .sort((a?, b?) => new Date(b?.createdAt || 0) - new Date(a?.createdAt || 0))[0];
+        .sort((a?, b?) => (new Date(b?.createdAt || 0) as any) - (new Date(a?.createdAt || 0) as any))[0];
       if (pause?._id) {
         const bot = client || global.client || null;
         const guild =
@@ -3147,7 +3147,7 @@ async function upsertPauseWorkflowFromPause(client?, guild?, userId?, pause?) {
   const pauseId = String(pause?._id || pause?.id || "").trim();
   if (!gid || !uid || !pauseId) return null;
   const today = getTodayUtc();
-  const yearBounds = getCurrentYearBoundsUtc(today);
+  const yearBounds = (getCurrentYearBoundsUtc as any)(today);
   const status = normalizeStatus(pause?.status, "pending");
       const statusLabel = getPauseStatusLabel(pause, today);
   const member = guild ? await getGuildMemberCached(guild, uid).catch(() => null) : null;
@@ -3189,7 +3189,7 @@ async function upsertPauseWorkflowFromPause(client?, guild?, userId?, pause?) {
       ruoloRichiesto: roleTrack,
       ruoloLabel: roleLabel,
           phase: getPausePhase(pause.dataRichiesta, pause.dataRitorno, today),
-          timing: getPauseTimingText(pause.dataRichiesta, pause.dataRitorno, today),
+          timing: (getPauseTimingText as any)(pause.dataRichiesta, pause.dataRitorno, today),
           statusLabel,
           giorniScalati: computePauseScaledDaysThisYear(pause, today, yearBounds.yearStart, yearBounds.yearEnd),
         },
@@ -3392,11 +3392,11 @@ async function listStaffWorkflowForInbox(client?, guild?, viewerMember?, queue?,
 
   if (q === "appelli" && guild) {
     const appealSyncKey = `appeals:${guildId}`;
-    if (!listStaffWorkflowForInbox.__syncAt) listStaffWorkflowForInbox.__syncAt = new Map();
-    const lastAppeal = Number(listStaffWorkflowForInbox.__syncAt.get(appealSyncKey) || 0);
+    if (!(listStaffWorkflowForInbox as any).__syncAt) (listStaffWorkflowForInbox as any).__syncAt = new Map();
+    const lastAppeal = Number((listStaffWorkflowForInbox as any).__syncAt.get(appealSyncKey) || 0);
     const listScope = String(opts.scope || "pending").toLowerCase();
     if (opts.forceSync || Date.now() - lastAppeal > INBOX_SYNC_MIN_MS) {
-      listStaffWorkflowForInbox.__syncAt.set(appealSyncKey, Date.now());
+      (listStaffWorkflowForInbox as any).__syncAt.set(appealSyncKey, Date.now());
       /* inboxLoadFast1: sync Discord sempre in background — lista DB subito */
       void syncAppealsToWorkflowStore(guild, {
         scope: listScope === "pending" ? "pending" : "all",
@@ -3408,10 +3408,10 @@ async function listStaffWorkflowForInbox(client?, guild?, viewerMember?, queue?,
 
   if (q === "pause" && client && guildId) {
     const pauseSyncKey = `pause:${guildId}`;
-    if (!listStaffWorkflowForInbox.__syncAt) listStaffWorkflowForInbox.__syncAt = new Map();
-    const last = Number(listStaffWorkflowForInbox.__syncAt.get(pauseSyncKey) || 0);
+    if (!(listStaffWorkflowForInbox as any).__syncAt) (listStaffWorkflowForInbox as any).__syncAt = new Map();
+    const last = Number((listStaffWorkflowForInbox as any).__syncAt.get(pauseSyncKey) || 0);
         if (opts.forceSync || Date.now() - last > INBOX_SYNC_MIN_MS) {
-      listStaffWorkflowForInbox.__syncAt.set(pauseSyncKey, Date.now());
+      (listStaffWorkflowForInbox as any).__syncAt.set(pauseSyncKey, Date.now());
       void syncPauseWorkflowFieldsFromProfiles(guildId).catch(() => 0);
     void syncPausesToWorkflowStore(client, guildId).catch(() => 0);
     }
@@ -3419,16 +3419,16 @@ async function listStaffWorkflowForInbox(client?, guild?, viewerMember?, queue?,
 
         if (q === "resoconti" && guild) {
     const resoSyncKey = `resoconti:${guildId}`;
-    if (!listStaffWorkflowForInbox.__syncAt) listStaffWorkflowForInbox.__syncAt = new Map();
-    const lastReso = Number(listStaffWorkflowForInbox.__syncAt.get(resoSyncKey) || 0);
+    if (!(listStaffWorkflowForInbox as any).__syncAt) (listStaffWorkflowForInbox as any).__syncAt = new Map();
+    const lastReso = Number((listStaffWorkflowForInbox as any).__syncAt.get(resoSyncKey) || 0);
     if (opts.forceSync || Date.now() - lastReso > INBOX_SYNC_MIN_MS) {
-      listStaffWorkflowForInbox.__syncAt.set(resoSyncKey, Date.now());
+      (listStaffWorkflowForInbox as any).__syncAt.set(resoSyncKey, Date.now());
       void syncResocontiToWorkflowStore(guild, { maxPages: opts.forceSync ? 2 : 2 }).catch(() => 0);
     }
-    if (!listStaffWorkflowForInbox.__pruneAt) listStaffWorkflowForInbox.__pruneAt = new Map();
-    const lastPrune = Number(listStaffWorkflowForInbox.__pruneAt.get(resoSyncKey) || 0);
+    if (!(listStaffWorkflowForInbox as any).__pruneAt) (listStaffWorkflowForInbox as any).__pruneAt = new Map();
+    const lastPrune = Number((listStaffWorkflowForInbox as any).__pruneAt.get(resoSyncKey) || 0);
     if (opts.forceSync || Date.now() - lastPrune > INBOX_PRUNE_MIN_MS) {
-      listStaffWorkflowForInbox.__pruneAt.set(resoSyncKey, Date.now());
+      (listStaffWorkflowForInbox as any).__pruneAt.set(resoSyncKey, Date.now());
       void pruneDepexedPendingResoconti(guild, guildId).catch(() => 0);
     }
   }
@@ -3453,10 +3453,10 @@ async function listStaffWorkflowForInbox(client?, guild?, viewerMember?, queue?,
 
   if (q === "appelli" && guild) {
     const appealSyncKey = `appeals:${guildId}`;
-    if (!listStaffWorkflowForInbox.__pruneAt) listStaffWorkflowForInbox.__pruneAt = new Map();
-    const lastAppealPrune = Number(listStaffWorkflowForInbox.__pruneAt.get(appealSyncKey) || 0);
+    if (!(listStaffWorkflowForInbox as any).__pruneAt) (listStaffWorkflowForInbox as any).__pruneAt = new Map();
+    const lastAppealPrune = Number((listStaffWorkflowForInbox as any).__pruneAt.get(appealSyncKey) || 0);
     if (opts.forceSync || Date.now() - lastAppealPrune > INBOX_PRUNE_MIN_MS) {
-      listStaffWorkflowForInbox.__pruneAt.set(appealSyncKey, Date.now());
+      (listStaffWorkflowForInbox as any).__pruneAt.set(appealSyncKey, Date.now());
       void autoCloseObsoletePendingAppeals(guild, { limit: 30 }).catch(() => 0);
     }
   }
@@ -3472,10 +3472,10 @@ async function listStaffWorkflowForInbox(client?, guild?, viewerMember?, queue?,
     } catch (_) {}
         items = filterPauseInboxItemsCachedOnly(guild, items, knownStaffIds);
     const pausePruneKey = `pausePrune:${guildId}`;
-    if (!listStaffWorkflowForInbox.__pruneAt) listStaffWorkflowForInbox.__pruneAt = new Map();
-    const lastPausePrune = Number(listStaffWorkflowForInbox.__pruneAt.get(pausePruneKey) || 0);
+    if (!(listStaffWorkflowForInbox as any).__pruneAt) (listStaffWorkflowForInbox as any).__pruneAt = new Map();
+    const lastPausePrune = Number((listStaffWorkflowForInbox as any).__pruneAt.get(pausePruneKey) || 0);
     if (opts.forceSync || Date.now() - lastPausePrune > INBOX_PRUNE_MIN_MS) {
-      listStaffWorkflowForInbox.__pruneAt.set(pausePruneKey, Date.now());
+      (listStaffWorkflowForInbox as any).__pruneAt.set(pausePruneKey, Date.now());
       const pendingSnapshot = items.filter((item?) => String(item?.status || "") === "pending");
       void prunePendingPauseInboxUsers(guild, client, guildId, pendingSnapshot).catch((err?) => {
         global.logger?.warn?.("[staffWorkflow] prune depexed pauses:", err?.message || err);

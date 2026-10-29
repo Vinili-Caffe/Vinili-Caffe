@@ -411,7 +411,7 @@ async function auditSingleProfilePartnerDay(guild?, doc?, targetDateKey?, opts: 
 
   let flagged = 0;
   for (const index of invalidIndices) {
-    const action = actions[index];
+    const action = actions[(index as any)];
     if (!action) continue;
     const alreadyPenalized = Array.isArray(action.auditPenaltyDates) && action.auditPenaltyDates.includes(targetDateKey);
     if (alreadyPenalized) continue;

@@ -317,7 +317,7 @@ async function collectUsersFromConfiguredReactions(message?) {
       if (!reactor?.bot) ids.add(String(reactor.id));
     }
   }
-  return [...ids].filter((id?) => /^\d{16,22}$/.test(id));
+  return [...ids].filter((id?) => /^\d{16,22}$/.test((id as any)));
 }
 
 async function syncIdeaBugReactionMembersToThread(thread?, message?, opts: Record<string, any> = {}) {

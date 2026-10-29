@@ -680,7 +680,7 @@ const IT_ONE_UNIT_AGO = [
 function normalizeItalianUnitAgo(s?) {
   const t = String(s || "");
   for (const [re, rep] of IT_ONE_UNIT_AGO) {
-    if (re.test(t)) return rep;
+    if ((re as any).test(t)) return rep;
   }
   return t;
 }

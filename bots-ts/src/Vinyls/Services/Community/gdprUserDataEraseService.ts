@@ -118,7 +118,7 @@ async function eraseSiteDocuments({ guildId, userId, client, dryRun }) {
     }).catch(() => null));
 
   const retainDocTypes = [...RETAINED_SITE_DOC_TYPES];
-  if (retainHogwartsSorting) retainDocTypes.push(SORTING_DOC);
+  if (retainHogwartsSorting) retainDocTypes.push((SORTING_DOC as any));
 
   const guildScope = gid
     ? { $or: [{ guildId: gid }, { guildId: "" }, { guildId: null }, { guildId: { $exists: false } }] }

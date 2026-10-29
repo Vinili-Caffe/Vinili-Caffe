@@ -1938,7 +1938,7 @@ async function listStaffRecipientsForCategory(client?, guildId?, category?, excl
     }
   } catch {
       }
-  return [...recipients].filter((id?) => id && !excluded.has(id)).slice(0, 60);
+  return [...recipients].filter((id?) => id && !excluded.has((id as any))).slice(0, 60);
 }
 
 function isTicketChatParticipant(ticket?, userId?) {
@@ -2174,7 +2174,7 @@ async function purgeTicketNotifications(
       .filter(Boolean),
   );
   const recipients = (await listTicketNotifRecipientIds(client, ticket, { includeCategoryStaff })).filter(
-    (id?) => !excluded.has(id),
+    (id?) => !excluded.has((id as any)),
   );
   let n = 0;
   await Promise.all(
@@ -3977,7 +3977,7 @@ function listPrefixCommandsForStaff(client?, member?, userId?, ticketCategory?) 
         if (typeof cmd.getSubcommandDescription === "function") {
           subDesc = String(cmd.getSubcommandDescription(sub) || "").trim().slice(0, 160) || description;
         } else if (cmd.subcommandDescriptions && typeof cmd.subcommandDescriptions === "object") {
-          subDesc = String(cmd.subcommandDescriptions[sub] || "").trim().slice(0, 160) || description;
+          subDesc = String(cmd.subcommandDescriptions[(sub as any)] || "").trim().slice(0, 160) || description;
         }
         commands.push({
           name,
@@ -4023,7 +4023,7 @@ function slashCommandJson(cmd?) {
 }
 
 function loadSlashCommandsFromDisk() {
-  if (loadSlashCommandsFromDisk.cache) return loadSlashCommandsFromDisk.cache;
+  if ((loadSlashCommandsFromDisk as any).cache) return (loadSlashCommandsFromDisk as any).cache;
   const items = [];
   const root = path.join(__dirname, "../../Commands");
   if (!fs.existsSync(root)) return items;
@@ -4054,7 +4054,7 @@ function loadSlashCommandsFromDisk() {
       }
     }
   }
-  loadSlashCommandsFromDisk.cache = items;
+  (loadSlashCommandsFromDisk as any).cache = items;
   return items;
 }
 
@@ -6321,7 +6321,7 @@ async function handleSiteWebTicketsResolvePost(client?, req?, res?) {
 
   const channels: Record<string, any> = {};
   for (const cid of channelIds) {
-    if (channels[cid]) continue;
+    if (channels[(cid as any)]) continue;
     try {
       const ch =
         guild?.channels?.cache?.get?.(cid) ||
@@ -6329,7 +6329,7 @@ async function handleSiteWebTicketsResolvePost(client?, req?, res?) {
         null;
       if (!ch) continue;
       if (!memberCanViewChannelId(actor.member, guild, cid)) continue;
-      channels[cid] = {
+      channels[(cid as any)] = {
         id: cid,
         name: sanitizeDiscordChannelName(ch.name || "canale") || "canale",
         type: Number(ch.type) || 0,
@@ -6340,14 +6340,14 @@ async function handleSiteWebTicketsResolvePost(client?, req?, res?) {
 
   const users: Record<string, any> = {};
   for (const uid of userIds) {
-    if (users[uid]) continue;
+    if (users[(uid as any)]) continue;
     try {
       const member =
         guild?.members?.cache?.get?.(uid) ||
         (await guild?.members?.fetch?.(uid).catch?.(() => null)) ||
         null;
       if (member) {
-        users[uid] = {
+        users[(uid as any)] = {
           id: uid,
           name: displayNameForMember(member),
           avatarUrl: avatarForMember(member) || "",
@@ -6365,7 +6365,7 @@ async function handleSiteWebTicketsResolvePost(client?, req?, res?) {
       } catch {
         avatarUrl = "";
       }
-      users[uid] = {
+      users[(uid as any)] = {
         id: uid,
         name:
           knownBotDisplayName(uid) ||
@@ -6379,7 +6379,7 @@ async function handleSiteWebTicketsResolvePost(client?, req?, res?) {
 
   const roles: Record<string, any> = {};
   for (const rid of roleIds) {
-    if (roles[rid]) continue;
+    if (roles[(rid as any)]) continue;
     try {
       const role =
         guild?.roles?.cache?.get?.(rid) ||
@@ -6388,7 +6388,7 @@ async function handleSiteWebTicketsResolvePost(client?, req?, res?) {
       if (!role) continue;
       const name = String(role.name || "").trim();
       if (!name) continue;
-      roles[rid] = {
+      roles[(rid as any)] = {
         id: rid,
         name: name.slice(0, 80),
         color: Number(role.color) || 0,
@@ -6399,15 +6399,15 @@ async function handleSiteWebTicketsResolvePost(client?, req?, res?) {
 
   const links: Record<string, any> = {};
   for (const rawUrl of urls) {
-    if (links[rawUrl]) continue;
+    if (links[(rawUrl as any)]) continue;
     if (isPublicImageUrl(rawUrl)) {
-      links[rawUrl] = { kind: "image", url: rawUrl };
+      links[(rawUrl as any)] = { kind: "image", url: rawUrl };
       continue;
     }
     const parsed = parseDiscordContentUrl(rawUrl);
     if (!parsed) continue;
     if (parsed.guildId !== guildId) {
-      links[rawUrl] = {
+      links[(rawUrl as any)] = {
         kind: "external",
         url: rawUrl,
         label: "Apri su Discord",
@@ -6426,7 +6426,7 @@ async function handleSiteWebTicketsResolvePost(client?, req?, res?) {
         if (msg) {
           const attachment = msg.attachments?.first?.() || null;
           const attUrl = attachment?.url ? String(attachment.url) : "";
-          links[rawUrl] = {
+          links[(rawUrl as any)] = {
             kind: "message",
             url: rawUrl,
             channelId: parsed.channelId,
@@ -6439,7 +6439,7 @@ async function handleSiteWebTicketsResolvePost(client?, req?, res?) {
           continue;
         }
       }
-      links[rawUrl] = {
+      links[(rawUrl as any)] = {
         kind: "channel",
         url: rawUrl,
         channelId: parsed.channelId,

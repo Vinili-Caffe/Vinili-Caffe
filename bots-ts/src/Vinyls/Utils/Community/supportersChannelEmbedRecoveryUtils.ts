@@ -56,14 +56,14 @@ async function collectRecentRoleAddsFromAudit(guild?, roleIds?, lookbackMs = DEF
   const entries = logs?.entries ? Array.from(logs.entries.values()) : [];
   const rows = [];
   for (const entry of entries) {
-    const createdMs = Number(entry?.createdTimestamp || 0);
+    const createdMs = Number((entry as any)?.createdTimestamp || 0);
     if (!createdMs || createdMs < minTs) continue;
-    const targetId = String(entry?.target?.id || entry?.targetId || "");
+    const targetId = String((entry as any)?.target?.id || (entry as any)?.targetId || "");
     if (!targetId || !auditEntryAddsAnyRole(entry, idSet)) continue;
     for (const c of auditLogChangesArray(entry)) {
       for (const rid of changeNewRoleIds(c)) {
         if (!idSet.has(rid)) continue;
-        rows.push({ userId: targetId, roleId: rid, createdMs, executorId: String(entry?.executor?.id || "") });
+        rows.push({ userId: targetId, roleId: rid, createdMs, executorId: String((entry as any)?.executor?.id || "") });
       }
     }
   }

@@ -299,7 +299,7 @@ function isErrorEmbed(data?) {
 function installEmbedFooterPatch() {
   if (!EmbedBuilder || typeof EmbedBuilder !== "function") return;
   installEmbedMediaFallbackPatch();
-  if (EmbedBuilder.prototype.__defaultFooterPatched) return;
+  if ((EmbedBuilder.prototype as any).__defaultFooterPatched) return;
   const originalToJSON = EmbedBuilder.prototype.toJSON;
   if (typeof originalToJSON !== "function") return;
   EmbedBuilder.prototype.toJSON = function toJSONWithDefaultFooter(...args) {
@@ -322,7 +322,7 @@ function installEmbedFooterPatch() {
     }
     return withMedia;
   };
-  EmbedBuilder.prototype.__defaultFooterPatched = true;
+  (EmbedBuilder.prototype as any).__defaultFooterPatched = true;
 }
 
 export = {

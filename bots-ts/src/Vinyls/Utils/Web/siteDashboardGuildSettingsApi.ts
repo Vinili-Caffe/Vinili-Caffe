@@ -511,7 +511,7 @@ async function patchDashboardGuildSettings(client?, accessToken?, guildId?, body
         return fail(402, "premium_required", reasonToMessage("premium_required"));
       }
     }
-    const applied = await patchBotGuildIdentity(client, gid, identityPatch);
+    const applied = await patchBotGuildIdentity(client, gid, (identityPatch as any));
     if (!applied.ok) {
       return fail(400, applied.reason || "nick_failed", reasonToMessage(applied.reason));
     }

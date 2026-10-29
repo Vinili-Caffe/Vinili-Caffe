@@ -41,7 +41,7 @@ function buildTeamPermissionOverwrites({
   const byTarget = new Map();
   for (const team of teams) {
     const permMap = teamPermsToPermissionMap(team);
-    for (const member of team.members || []) {
+    for (const member of (team as any).members || []) {
       const type = member?.type === "user" ? "user" : "role";
       const id = String(member?.id || "").trim();
       if (!id) continue;

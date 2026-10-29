@@ -427,7 +427,7 @@ function buildMemberPauseBlock(guild?, targetMember?, staffDoc?, pausedSet?) {
   const uid = String(targetMember.id);
   const pauses = Array.isArray(staffDoc?.pauses) ? staffDoc.pauses : [];
   const today = getTodayUtc();
-  const yearBounds = getCurrentYearBoundsUtc(today);
+  const yearBounds = (getCurrentYearBoundsUtc as any)(today);
   const budget = computeStaffPauseDayBudget(targetMember, { staff: staffDoc || {} }, null);
   const consumed = budget.usedDays;
   const baseLimit = budget.baseLimit;

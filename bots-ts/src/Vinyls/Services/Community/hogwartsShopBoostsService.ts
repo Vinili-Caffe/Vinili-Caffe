@@ -70,12 +70,12 @@ function readMinigameExpInPeriodWindow(minigameTotals?, periodStartMs?, nowMs = 
     [String(mg.weeklyKey || ""), Number(mg.weeklyExp) || 0],
     [String(mg.prevWeekKey || ""), Number(mg.prevWeekExp) || 0],
   ]) {
-    if (!key || expRaw <= 0) continue;
+    if (!key || (expRaw as any) <= 0) continue;
     const weekStart = isoWeekMondayMsFromKey(key);
     if (!Number.isFinite(weekStart)) continue;
     const weekEnd = weekStart + 7 * 24 * 60 * 60 * 1000 - 1;
     if (weekEnd < start || weekStart > now || weekStart < start) continue;
-    sum += Math.max(0, Math.floor(expRaw));
+    sum += Math.max(0, Math.floor((expRaw as any)));
   }
   return sum;
 }

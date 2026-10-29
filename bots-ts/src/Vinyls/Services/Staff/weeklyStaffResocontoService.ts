@@ -1348,7 +1348,7 @@ function buildStaffResocontoAzioneDisplay({
     staffDoc?.negativeCount,
   );
 
-  if (gradeAction === "Pex" || gradeAction === "Depex") {
+  if ((gradeAction as any) === "Pex" || (gradeAction as any) === "Depex") {
       } else if (gradeAction === "Valutazione Positiva") {
     if (!parts.some((part?) => part.startsWith("Valutazione Positiva"))) {
       pushPart(formatValutazioneLabel("positive", false, "griglia attività/condotta"));
@@ -1512,7 +1512,7 @@ async function withAutoValutazioneLock(lockKey?, fn?) {
   }
   let release = () => {};
   const gate = new Promise((resolve?) => {
-    release = resolve;
+    release = (resolve as any);
   });
   autoValutazioneInFlight.set(lockKey, gate);
   try {
@@ -3194,7 +3194,7 @@ async function runPreResocontoReminders(client?) {
   const idsFromStaffDocs = (staffDocs || [])
     .map((r?) => String(r?.userId || ""))
     .filter((id?) => /^\d{16,20}$/.test(id));
-  const idsFromGuild = collectAllResocontoRelevantMemberIdsFromGuild(guild).filter((id?) => /^\d{16,20}$/.test(id));
+  const idsFromGuild = collectAllResocontoRelevantMemberIdsFromGuild(guild).filter((id?) => /^\d{16,20}$/.test((id as any)));
   const staffUserIds = Array.from(new Set([...idsFromStaffDocs, ...idsFromGuild]));
   if (!staffUserIds.length) return;
 

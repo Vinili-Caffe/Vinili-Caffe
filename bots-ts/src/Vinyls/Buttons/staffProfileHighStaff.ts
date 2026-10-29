@@ -795,7 +795,7 @@ async function execute(interaction?) {
         return true;
       }
       const targetMember = await guild.members.fetch(parsed.targetId).catch(() => null);
-      if (!targetMember?.roles?.cache?.has?.(IDs.roles.PartnerManager)) {
+      if (!targetMember?.roles?.cache?.has?.(((IDs as any).roles.PartnerManager as any))) {
         await sendModalReply({ content: "<a:VC_Cross:1482532424570376253> I punti partner si gestiscono solo per Partner Manager." });
         return true;
       }

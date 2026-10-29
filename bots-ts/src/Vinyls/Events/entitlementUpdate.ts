@@ -3,6 +3,6 @@ const { handleEntitlementUpdate } = require("../Services/Community/discordStoreE
 export = {
   name: "entitlementUpdate",
   async execute(_oldEntitlement?, newEntitlement?, client?) {
-    await handleEntitlementUpdate(newEntitlement, client);
+    await (handleEntitlementUpdate as any)(newEntitlement, client);
   },
 };

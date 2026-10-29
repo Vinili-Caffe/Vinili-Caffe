@@ -45,7 +45,7 @@ export = {
         guildId,
         userId,
         message: afkMessage,
-        timestamp: Date.now(),
+        timestamp: (Date.now() as any),
         originalName,
       });
       await member.setNickname(afkNickname).catch(() => {});

@@ -681,7 +681,7 @@ function buildDeferredStartupTasks(client?, primaryScheduler?, engagementTick?) 
       label: "reconcile resoconto reviewer compito settimanale",
       weight: 81,
       enabled: primaryScheduler && fullSync,
-      run: () => reconcileResocontoReviewerRewardAutoValutazioni(client),
+      run: () => (reconcileResocontoReviewerRewardAutoValutazioni as any)(client),
     },
     {
       label: "purge duplicate compito settimanale valutazioni",

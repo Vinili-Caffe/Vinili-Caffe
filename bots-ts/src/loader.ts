@@ -308,7 +308,7 @@ function ensureDependencies(workingDir?, useWorkspaces?) {
             console.log(`[Loader] npm install in ${installDir}`);
             runNpmInstall(installDir).then((code?) => {
                 if (code === 0) {
-                    resolveInstall();
+                    ((resolveInstall as any)() as any);
                     return;
                 }
 
@@ -317,7 +317,7 @@ function ensureDependencies(workingDir?, useWorkspaces?) {
                     if (retryCode !== 0) {
                         console.log(`[Loader] npm install fallito anche con --force (code ${retryCode}), avvio bot comunque.`);
                     }
-                    resolveInstall();
+                    ((resolveInstall as any)() as any);
                 });
             });
         }).finally(() => {
@@ -402,7 +402,7 @@ function runfile(bot?, options: Record<string, any> = {}) {
         const start=()=>{
             clearStartupTimer(bot.key);
             if (shuttingDown) {
-                resolve();
+                ((resolve as any)() as any);
                 return;
             }
             console.log(`[Loader] Trigger avvio ${bot.label}`);

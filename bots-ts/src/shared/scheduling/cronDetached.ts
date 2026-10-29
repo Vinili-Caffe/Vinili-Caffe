@@ -9,7 +9,7 @@ function runCronDetached(logLabel?, fn?) {
           .catch((err?) => {
             global.logger?.error?.(logLabel, err);
           })
-          .finally(() => resolve());
+          .finally(() => ((resolve as any)() as any));
       });
     });
   };

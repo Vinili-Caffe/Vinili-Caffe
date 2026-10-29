@@ -390,17 +390,17 @@ function buildHeaderPromoButtonHtml({ mode, eventUrl, candidatureUrl }) {
 }
 
 function buildHeaderPromoClientConfig({ eventRaw = {}, eventUrl, candidatureUrl }) {
-  const tz = normalizeId(eventRaw?.calendar?.timezone || eventRaw?.timezone) || "Europe/Rome";
-  const hubStartDate = String(eventRaw?.sortingStartDate || eventRaw?.startDate || "").trim();
-  const endDate = String(eventRaw?.endDate || "").trim();
+  const tz = normalizeId((eventRaw as any)?.calendar?.timezone || (eventRaw as any)?.timezone) || "Europe/Rome";
+  const hubStartDate = String((eventRaw as any)?.sortingStartDate || (eventRaw as any)?.startDate || "").trim();
+  const endDate = String((eventRaw as any)?.endDate || "").trim();
   const startMs = parseDateStartMs(hubStartDate, tz);
   const endMs = parseDateEndMs(endDate, tz);
   return {
     eventUrl: String(eventUrl || "/evento").trim() || "/evento",
     candidatureUrl: String(candidatureUrl || "/candidature").trim() || "/candidature",
     event: {
-      enabled: eventRaw?.enabled !== false,
-      previewMode: eventRaw?.previewMode === true,
+      enabled: (eventRaw as any)?.enabled !== false,
+      previewMode: (eventRaw as any)?.previewMode === true,
       startDate: hubStartDate,
       sortingStartDate: hubStartDate,
       endDate,

@@ -312,18 +312,18 @@ function startVerificationTenureLoop(client?) {
 async function backfillVerificationTenure(client?) {
   const guilds = Array.from(client.guilds.cache.values());
   for (const guild of guilds) {
-    await guild.members.fetch().catch(() => null);
-    const targetMembers = String(guild.id) === String(MAIN_GUILD_ID || "")
-      ? guild.members.cache.filter((m?) => !m.user?.bot && VERIFIED_ROLE_IDS.some((roleId?) => m.roles.cache.has(roleId)))
-      : guild.members.cache.filter((m?) => !m.user?.bot && VERIFIED_ROLE_IDS.some((roleId?) => m.roles.cache.has(roleId)));
+    await (guild as any).members.fetch().catch(() => null);
+    const targetMembers = String((guild as any).id) === String(MAIN_GUILD_ID || "")
+      ? (guild as any).members.cache.filter((m?) => !m.user?.bot && VERIFIED_ROLE_IDS.some((roleId?) => m.roles.cache.has(roleId)))
+      : (guild as any).members.cache.filter((m?) => !m.user?.bot && VERIFIED_ROLE_IDS.some((roleId?) => m.roles.cache.has(roleId)));
 
     for (const member of targetMembers.values()) {
       const verifiedAt = member.joinedAt || new Date();
       await ActivityUserProfile.findOneAndUpdate(
-        { guildId: guild.id, userId: member.id },
+        { guildId: (guild as any).id, userId: member.id },
         {
           $setOnInsert: {
-            guildId: guild.id,
+            guildId: (guild as any).id,
             userId: member.id,
             "profile.verificationTenure.verifiedAt": verifiedAt,
             "profile.verificationTenure.stage": 1,
@@ -333,7 +333,7 @@ async function backfillVerificationTenure(client?) {
       ).catch(() => null);
       await ActivityUserProfile.updateOne(
         {
-          guildId: guild.id,
+          guildId: (guild as any).id,
           userId: member.id,
           $or: [
             { "profile.verificationTenure.verifiedAt": { $exists: false } },
@@ -348,7 +348,7 @@ async function backfillVerificationTenure(client?) {
         },
       ).catch(() => null);
       const record = await ActivityUserProfile.findOne({
-        guildId: guild.id,
+        guildId: (guild as any).id,
         userId: member.id,
       }).catch(() => null);
       if (!record) continue;

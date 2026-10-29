@@ -73,7 +73,7 @@ async function fetchVerify(userIds?) {
 
   const url = new URL(VERIFY_PATH, `${getBaseUrl()}/`);
   for (const id of ids.slice(0, MAX_IDS_PER_REQUEST)) {
-    url.searchParams.append("user_id", id);
+    url.searchParams.append("user_id", (id as any));
   }
 
   const controller = typeof AbortController !== "undefined" ? new AbortController() : null;

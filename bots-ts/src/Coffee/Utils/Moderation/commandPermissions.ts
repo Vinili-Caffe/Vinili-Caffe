@@ -360,8 +360,8 @@ async function checkPrefixPermission(message?, commandName?, subcommandName = nu
         const { isAllowedVoiceCommandChannel } = require("../../../shared/voice/voiceCommandChannelAccess") as typeof import("../../../shared/voice/voiceCommandChannelAccess");
         return await isAllowedVoiceCommandChannel(message.guild, ch, {
           blockedChannelIds: [
-            IDs.channels?.riunioneStaff || "1443958044802420798",
-            IDs.channels?.serataFilm || "1497535199813042306",
+            (IDs.channels as any)?.riunioneStaff || "1443958044802420798",
+            (IDs.channels as any)?.serataFilm || "1497535199813042306",
           ],
         });
       } catch (_) {

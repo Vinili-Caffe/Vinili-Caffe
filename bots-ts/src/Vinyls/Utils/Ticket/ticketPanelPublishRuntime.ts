@@ -394,7 +394,7 @@ async function publishMultiPanel(client?, guildId?, multiId?, options: Record<st
   }));
 
   try {
-    await personalityPanelUpdateOne(
+    await (personalityPanelUpdateOne as any)(
       { guildId: String(guildId), channelId: String(multi.channelId) },
       { $set: { ticketInfoMessageId: message.id } },
       { upsert: true },

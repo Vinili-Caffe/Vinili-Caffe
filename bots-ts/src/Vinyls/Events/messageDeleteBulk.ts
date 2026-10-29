@@ -73,15 +73,15 @@ function buildPurgeLogText(messages?, channelId?) {
   rows.push("");
 
   for (const msg of ordered) {
-    const authorId = String(msg?.author?.id || "sconosciuto");
+    const authorId = String((msg as any)?.author?.id || "sconosciuto");
     const flags = [];
-    if (msg?.author?.bot) flags.push("BOT");
-    if (msg?.webhookId) flags.push("WEBHOOK");
+    if ((msg as any)?.author?.bot) flags.push("BOT");
+    if ((msg as any)?.webhookId) flags.push("WEBHOOK");
     const suffix = flags.length ? ` [${flags.join("/")}]` : "";
-    const content = sanitizeText(msg?.content || "Nessun contenuto.");
+    const content = sanitizeText((msg as any)?.content || "Nessun contenuto.");
     rows.push(`[${authorId}]${suffix} ${content}`);
 
-    const attachments = msg?.attachments ? Array.from(msg.attachments.values()) : [];
+    const attachments = (msg as any)?.attachments ? Array.from((msg as any).attachments.values()) : [];
     if (attachments.length) {
       const list=attachments.map((a?: any) => String(a?.url||a?.name||"")).filter(Boolean).join(", ");
       if (list) rows.push(`attachment: ${list}`);

@@ -167,7 +167,7 @@ async function handleTicketInteraction(interaction?) {
     ticketSettings.transcriptChannelId ||
     ticketSettings.logChannelId ||
     IDs.channels.ticketLogs;
-  const ticketEmbedColor = getTicketEmbedColor(guildId);
+  const ticketEmbedColor = (getTicketEmbedColor as any)(guildId);
   const ROLE_STAFF = ticketSettings.staffRoleId || IDs.roles.Staff;
   const ROLE_HIGHSTAFF = ticketSettings.highStaffRoleId || IDs.roles.HighStaff;
   const ROLE_PARTNERMANAGER = getPartnerManagerRoleId(guildId) || IDs.roles.PartnerManager;

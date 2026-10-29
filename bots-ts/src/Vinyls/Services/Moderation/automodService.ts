@@ -3935,7 +3935,7 @@ function validateAutoModRuntimeConfig(cfg?) {
   const panicChecks = [["triggerCount", 1, 30], ["triggerWindowMs", 10_000, 24 * 60 * 60_000], ["durationMs", 30_000, 24 * 60 * 60_000], ["raidWindowMs", 10_000, 60 * 60_000], ["raidUserThreshold", 1, 100], ["raidYoungThreshold", 1, 100],];
   for (const [key, min, max] of panicChecks) {
     const value = Number(p[key]);
-    if (!Number.isFinite(value) || value < min || value > max) {
+    if (!Number.isFinite(value) || (value as any) < min || (value as any) > max) {
       return { ok: false, reason: `invalid_panic_${key}` };
     }
   }

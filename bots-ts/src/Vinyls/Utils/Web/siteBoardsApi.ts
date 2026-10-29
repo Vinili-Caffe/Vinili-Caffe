@@ -1652,7 +1652,7 @@ async function listListingsUncached(client?, query: Record<string, any> = {}) {
   /* boardsListLite1: projection + card serialize (no full markdown blobs) */
   const rows = await SiteDocument.find(filter)
     .select(LIST_CARD_SELECT)
-    .sort(sortSpec)
+    .sort((sortSpec as any))
     .skip((page - 1) * perPage)
     .limit(perPage)
     .lean();

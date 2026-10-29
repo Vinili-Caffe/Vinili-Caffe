@@ -182,10 +182,10 @@ function applyPersistentAntiNukeConfig(raw?) {
     7 * 24 * 60 * 60_000,
     ANTINUKE_CONFIG.autoQuarantine.quarantineTimeoutMs,
   );
-  ANTINUKE_CONFIG.autoQuarantine.whitelistUserIds = normalizeStringSet(
+  ANTINUKE_CONFIG.autoQuarantine.whitelistUserIds = (normalizeStringSet(
     aq.whitelistUserIds,
     ANTINUKE_CONFIG.autoQuarantine.whitelistUserIds,
-  );
+  ) as any);
   mergeCoreUsersIntoAutoQuarantineWhitelist();
 
   Object.assign(ANTINUKE_CONFIG.kickBanFilter, src.kickBanFilter || {});
@@ -266,10 +266,10 @@ function applyPersistentAntiNukeConfig(raw?) {
     12 * 60 * 60_000,
     ANTINUKE_CONFIG.panicMode.extendByMsOnTrigger,
   );
-  ANTINUKE_CONFIG.panicMode.warnedRoleIds = normalizeStringSet(
+  ANTINUKE_CONFIG.panicMode.warnedRoleIds = (normalizeStringSet(
     pm.warnedRoleIds,
     ANTINUKE_CONFIG.panicMode.warnedRoleIds,
-  );
+  ) as any);
   ANTINUKE_CONFIG.panicMode.whitelistCategoryIds = normalizeStringSet(
     pm.whitelistCategoryIds,
     ANTINUKE_CONFIG.panicMode.whitelistCategoryIds,
@@ -962,9 +962,9 @@ function buildLockdownRestorePayload(snapshot?) {
   const payload: Record<string, any> = {};
   for (const [name, bit] of LOCKDOWN_CHANNEL_PERMISSION_FLAGS) {
     const f = BigInt(bit || 0n);
-    if ((allowBits & f) !== 0n) payload[name] = true;
-    else if ((denyBits & f) !== 0n) payload[name] = false;
-    else payload[name] = null;
+    if ((allowBits & f) !== 0n) payload[(name as any)] = true;
+    else if ((denyBits & f) !== 0n) payload[(name as any)] = false;
+    else payload[(name as any)] = null;
   }
   return payload;
 }
@@ -1186,11 +1186,11 @@ async function restoreDeletedRoleSnapshots(guild?, state?) {
   pending.sort((a?: any, b?: any) => Number(a.position || 0) - Number(b.position || 0));
   for (const snap of pending) {
     const payload = {
-      name: String(snap.name || "restored-role"),
-      colors: { primaryColor: Number(snap.color || 0) },
-      hoist: Boolean(snap.hoist),
-      mentionable: Boolean(snap.mentionable),
-      permissions: BigInt(String(snap.permissions || "0")),
+      name: String((snap as any).name || "restored-role"),
+      colors: { primaryColor: Number((snap as any).color || 0) },
+      hoist: Boolean((snap as any).hoist),
+      mentionable: Boolean((snap as any).mentionable),
+      permissions: BigInt(String((snap as any).permissions || "0")),
       reason: "AntiNuke restore: deleted role snapshot",
     };
     const role = await guild.roles.create(payload).catch(() => null);
@@ -1198,7 +1198,7 @@ async function restoreDeletedRoleSnapshots(guild?, state?) {
       failed += 1;
       continue;
     }
-    const targetPosition = Math.max(1, Number(snap.position || 1));
+    const targetPosition = Math.max(1, Number((snap as any).position || 1));
     await role.setPosition(targetPosition, { reason: "<a:VC_Unlock:1482532082466029608> AntiNuke restore: role position" }).catch(() => { });
     restored += 1;
   }
@@ -1216,33 +1216,33 @@ async function restoreDeletedChannelSnapshots(guild?, state?) {
   let restored = 0;
   let failed = 0;
   for (const snap of pending) {
-    const type = Number(snap.type ?? 0);
+    const type = Number((snap as any).type ?? 0);
     if ([10, 11, 12, 14].includes(type)) {
       failed += 1;
       continue;
     }
-    const parentId = String(snap.parentId || "").trim();
+    const parentId = String((snap as any).parentId || "").trim();
     const parentChannel = parentId ? await getGuildChannelCached(guild, parentId, { ttlMs: 30_000 }) : null;
-    const overwritePayload = (Array.isArray(snap.permissionOverwrites) ? snap.permissionOverwrites : []).map((ov?) => ({ id: String(ov?.id || ""), type: Number(ov?.type ?? 0), allow: BigInt(String(ov?.allow || "0")), deny: BigInt(String(ov?.deny || "0")), })).filter((ov?) => { if (!ov.id) return false; if (ov.type === OverwriteType.Role) { return ov.id === String(guild.id || "") || guild.roles.cache.has(ov.id); } if (ov.type === OverwriteType.Member) { return guild.members.cache.has(ov.id); } return false; }).filter((ov?) => ov.id);
+    const overwritePayload = (Array.isArray((snap as any).permissionOverwrites) ? (snap as any).permissionOverwrites : []).map((ov?) => ({ id: String(ov?.id || ""), type: Number(ov?.type ?? 0), allow: BigInt(String(ov?.allow || "0")), deny: BigInt(String(ov?.deny || "0")), })).filter((ov?) => { if (!ov.id) return false; if (ov.type === OverwriteType.Role) { return ov.id === String(guild.id || "") || guild.roles.cache.has(ov.id); } if (ov.type === OverwriteType.Member) { return guild.members.cache.has(ov.id); } return false; }).filter((ov?) => ov.id);
 
-    const createPayload: Record<string, any> = { name: String(snap.name || "restored-channel"), type, parent: parentChannel?.type === 4 ? String(parentChannel.id) : null, permissionOverwrites: overwritePayload, reason: "AntiNuke restore: deleted channel snapshot", };
-    if (typeof snap.nsfw === "boolean") createPayload.nsfw = snap.nsfw;
-    if (typeof snap.topic === "string" && [0, 5, 15, 16].includes(type)) createPayload.topic = snap.topic;
-    if (Number.isFinite(Number(snap.rateLimitPerUser)) && [0, 5, 15, 16].includes(type)) {
-      createPayload.rateLimitPerUser = Math.max(0, Number(snap.rateLimitPerUser || 0));
+    const createPayload: Record<string, any> = { name: String((snap as any).name || "restored-channel"), type, parent: parentChannel?.type === 4 ? String(parentChannel.id) : null, permissionOverwrites: overwritePayload, reason: "AntiNuke restore: deleted channel snapshot", };
+    if (typeof (snap as any).nsfw === "boolean") createPayload.nsfw = (snap as any).nsfw;
+    if (typeof (snap as any).topic === "string" && [0, 5, 15, 16].includes(type)) createPayload.topic = (snap as any).topic;
+    if (Number.isFinite(Number((snap as any).rateLimitPerUser)) && [0, 5, 15, 16].includes(type)) {
+      createPayload.rateLimitPerUser = Math.max(0, Number((snap as any).rateLimitPerUser || 0));
     }
-    if (Number.isFinite(Number(snap.bitrate)) && [2, 13].includes(type)) {
-      createPayload.bitrate = Number(snap.bitrate || 0);
+    if (Number.isFinite(Number((snap as any).bitrate)) && [2, 13].includes(type)) {
+      createPayload.bitrate = Number((snap as any).bitrate || 0);
     }
-    if (Number.isFinite(Number(snap.userLimit)) && [2, 13].includes(type)) {
-      createPayload.userLimit = Math.max(0, Number(snap.userLimit || 0));
+    if (Number.isFinite(Number((snap as any).userLimit)) && [2, 13].includes(type)) {
+      createPayload.userLimit = Math.max(0, Number((snap as any).userLimit || 0));
     }
-    if (snap.rtcRegion && [2, 13].includes(type)) createPayload.rtcRegion = snap.rtcRegion;
-    if (Number.isFinite(Number(snap.videoQualityMode)) && [2, 13].includes(type)) {
-      createPayload.videoQualityMode = Number(snap.videoQualityMode || 1);
+    if ((snap as any).rtcRegion && [2, 13].includes(type)) createPayload.rtcRegion = (snap as any).rtcRegion;
+    if (Number.isFinite(Number((snap as any).videoQualityMode)) && [2, 13].includes(type)) {
+      createPayload.videoQualityMode = Number((snap as any).videoQualityMode || 1);
     }
-    if (Number.isFinite(Number(snap.defaultAutoArchiveDuration)) && [0, 5, 15, 16].includes(type)) {
-      createPayload.defaultAutoArchiveDuration = Number(snap.defaultAutoArchiveDuration || 1440);
+    if (Number.isFinite(Number((snap as any).defaultAutoArchiveDuration)) && [0, 5, 15, 16].includes(type)) {
+      createPayload.defaultAutoArchiveDuration = Number((snap as any).defaultAutoArchiveDuration || 1440);
     }
 
     const restoredChannel = await guild.channels.create(createPayload).catch(() => null);
@@ -1250,7 +1250,7 @@ async function restoreDeletedChannelSnapshots(guild?, state?) {
       failed += 1;
       continue;
     }
-    const position = Number(snap.position || 0);
+    const position = Number((snap as any).position || 0);
     if (Number.isFinite(position) && position >= 0) {
       await restoredChannel.setPosition(position, { reason: "<a:VC_Unlock:1482532082466029608> AntiNuke restore: channel position" }).catch(() => { });
     }
@@ -1278,7 +1278,7 @@ async function runAutoBackupSyncAfterPanic(guild?, state?) {
       isProtectedStage = () => false;
     }
     for (const channelId of state.createdChannelIds) {
-      if (isProtectedStage(channelId, guild.client)) {
+      if ((isProtectedStage as any)(channelId, guild.client)) {
         global.logger?.warn?.("[AntiNuke] skip delete protected streamer stage:", channelId);
         continue;
       }

@@ -182,7 +182,7 @@ async function handleMovieNightVoteMessage(message?) {
   if (!messageHasMovieNightProposalContent(message.content)) return false;
 
   const reacted = await message.react(MOVIE_NIGHT_THREAD_REACTION).then(() => true).catch(() => false);
-  if (!reacted && MOVIE_NIGHT_THREAD_REACTION !== DEFAULT_THREAD_VOTE_REACTION) {
+  if (!reacted && (MOVIE_NIGHT_THREAD_REACTION as any) !== DEFAULT_THREAD_VOTE_REACTION) {
     await message.react(DEFAULT_THREAD_VOTE_REACTION).catch(() => {});
   }
   return false;

@@ -875,7 +875,7 @@ async function sendMemberRoleUpdateLog(oldMember?, newMember?) {
 
   const expectedAddedIds = new Set(cacheAdditions.map((role?) => String(role?.id || "")).filter(Boolean));
   const expectedRemovedIds = new Set(cacheRemovals.map((role?) => String(role?.id || "")).filter(Boolean));
-  const audit = await resolveResponsible(guild, actionType, (entry?) => { if (String(entry?.target?.id || "") !== String(newMember?.id || "")) return 0; let score = 3; const changes = Array.isArray(entry?.changes) ? entry.changes : []; const auditAddedIds = new Set(); const auditRemovedIds = new Set(); for (const change of changes) { const key = String(change?.key || ""); const raw = Array.isArray(change?.new) ? change.new : Array.isArray(change?.old) ? change.old : []; if (key !== "$add" && key !== "$remove") continue; for (const item of raw) { const id = String(item?.id || item?.role_id || "").trim(); if (!id) continue; if (key === "$add") auditAddedIds.add(id); if (key === "$remove") auditRemovedIds.add(id); } } if (!auditAddedIds.size && !auditRemovedIds.size) return score; for (const id of auditAddedIds) { if (expectedAddedIds.has(id)) score += 4; } for (const id of auditRemovedIds) { if (expectedRemovedIds.has(id)) score += 4; } if (auditAddedIds.size === expectedAddedIds.size && auditRemovedIds.size === expectedRemovedIds.size) { score += 6; } return score; },); const auditAdditions = []; const auditRemovals = [];
+  const audit = await resolveResponsible(guild, actionType, (entry?) => { if (String(entry?.target?.id || "") !== String(newMember?.id || "")) return 0; let score = 3; const changes = Array.isArray(entry?.changes) ? entry.changes : []; const auditAddedIds = new Set(); const auditRemovedIds = new Set(); for (const change of changes) { const key = String(change?.key || ""); const raw = Array.isArray(change?.new) ? change.new : Array.isArray(change?.old) ? change.old : []; if (key !== "$add" && key !== "$remove") continue; for (const item of raw) { const id = String(item?.id || item?.role_id || "").trim(); if (!id) continue; if (key === "$add") auditAddedIds.add(id); if (key === "$remove") auditRemovedIds.add(id); } } if (!auditAddedIds.size && !auditRemovedIds.size) return score; for (const id of auditAddedIds) { if (expectedAddedIds.has((id as any))) score += 4; } for (const id of auditRemovedIds) { if (expectedRemovedIds.has((id as any))) score += 4; } if (auditAddedIds.size === expectedAddedIds.size && auditRemovedIds.size === expectedRemovedIds.size) { score += 6; } return score; },); const auditAdditions = []; const auditRemovals = [];
   const auditChanges = Array.isArray(audit?.entry?.changes) ? audit.entry.changes : [];
   for (const change of auditChanges) {
     const key = String(change?.key || "");
@@ -1371,10 +1371,10 @@ function getBoostSystemMessageTypes() {
       MessageType?.GuildBoostTier1,
       MessageType?.GuildBoostTier2,
       MessageType?.GuildBoostTier3,
-      MessageType?.UserPremiumGuildSubscription,
-      MessageType?.UserPremiumGuildSubscriptionTier1,
-      MessageType?.UserPremiumGuildSubscriptionTier2,
-      MessageType?.UserPremiumGuildSubscriptionTier3,
+      (MessageType as any)?.UserPremiumGuildSubscription,
+      (MessageType as any)?.UserPremiumGuildSubscriptionTier1,
+      (MessageType as any)?.UserPremiumGuildSubscriptionTier2,
+      (MessageType as any)?.UserPremiumGuildSubscriptionTier3,
       8,
       9,
       10,
@@ -2321,12 +2321,12 @@ async function recoverRecentBoostEmbedsOnStartup(client?, opts: Record<string, a
     const audits = await guild.fetchAuditLogs({ type: AuditLogEvent.MemberUpdate, limit: 50 }).catch(() => null);
     const entries = audits?.entries ? Array.from(audits.entries.values()) : [];
     for (const entry of entries) {
-      const createdMs = Number(entry?.createdTimestamp || 0);
+      const createdMs = Number((entry as any)?.createdTimestamp || 0);
       if (!createdMs || now - createdMs > lookbackMs) continue;
-      const changes = Array.isArray(entry?.changes) ? entry.changes : [];
+      const changes = Array.isArray((entry as any)?.changes) ? (entry as any).changes : [];
       const hasPremiumSinceChange = changes.some((c?) => String(c?.key || "").toLowerCase() === "premium_since");
       if (!hasPremiumSinceChange) continue;
-      const targetId = String(entry?.target?.id || "");
+      const targetId = String((entry as any)?.target?.id || "");
       if (!targetId) continue;
       candidates.push({ targetId, createdMs });
     }
@@ -2340,9 +2340,9 @@ async function recoverRecentBoostEmbedsOnStartup(client?, opts: Record<string, a
     const minTs = now - lookbackMs;
     const fromMembers = [];
     for (const member of rows) {
-      const ts = Number(member?.premiumSinceTimestamp || 0);
+      const ts = Number((member as any)?.premiumSinceTimestamp || 0);
       if (!ts || ts < minTs) continue;
-      fromMembers.push({ targetId: String(member.id), createdMs: ts });
+      fromMembers.push({ targetId: String((member as any).id), createdMs: ts });
     }
     candidates = fromMembers;
     memberCandidates = candidates.length;
@@ -2357,19 +2357,19 @@ async function recoverRecentBoostEmbedsOnStartup(client?, opts: Record<string, a
     const samples = [];
     const fromChannel = [];
     for (const m of recent) {
-      if (!m?.author?.id) continue;
-      const createdMs = Number(m.createdTimestamp || 0);
+      if (!(m as any)?.author?.id) continue;
+      const createdMs = Number((m as any).createdTimestamp || 0);
       if (!createdMs || createdMs < minTs) continue;
-      const t = Number(m.type);
+      const t = Number((m as any).type);
       typeCounts[String(Number.isFinite(t) ? t : "NaN")] = Number(typeCounts[String(t)] || 0) + 1;
       if (samples.length < 6) {
         samples.push({
-          id: String(m.id || ""),
+          id: String((m as any).id || ""),
           type: Number.isFinite(t) ? t : null,
-          system: Boolean(m.system),
-          authorId: String(m.author?.id || ""),
-          contentLen: Number(String(m.content || "").length),
-          hasEmbeds: Array.isArray(m.embeds) && m.embeds.length > 0,
+          system: Boolean((m as any).system),
+          authorId: String((m as any).author?.id || ""),
+          contentLen: Number(String((m as any).content || "").length),
+          hasEmbeds: Array.isArray((m as any).embeds) && (m as any).embeds.length > 0,
           createdTimestamp: createdMs,
         });
       }
@@ -2422,12 +2422,12 @@ async function recoverRecentBoostEmbedsOnStartup(client?, opts: Record<string, a
     let n = 0;
     for (const m of recent) {
       if (!m) continue;
-      if (String(m.author?.id || "") !== botIdForBoostRecovery) continue;
-      const embeds = Array.isArray(m.embeds) ? m.embeds : [];
+      if (String((m as any).author?.id || "") !== botIdForBoostRecovery) continue;
+      const embeds = Array.isArray((m as any).embeds) ? (m as any).embeds : [];
       const embedTexts = embeds.map((e?) =>
         [e?.title || "", e?.description || "", e?.footer?.text || ""].join("\n"),
       );
-      const text = [m.content || "", ...embedTexts].join("\n");
+      const text = [(m as any).content || "", ...embedTexts].join("\n");
       if (!textMentionsUserId(text, userId)) continue;
       if (!boostAnnounceLooksLikeBoost(text)) continue;
       n += 1;

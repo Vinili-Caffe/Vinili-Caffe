@@ -180,7 +180,7 @@ async function collectHumanMemberIdsWithRole(guild?, roleId?, opts: Record<strin
       if (!member?.user?.bot && member.roles?.cache?.has(rid)) ids.add(String(member.id));
     }
   }
-  return [...ids].filter((id?) => /^\d{16,22}$/.test(id));
+  return [...ids].filter((id?) => /^\d{16,22}$/.test((id as any)));
 }
 
 async function addAllRoleMembersToThread(thread?, guild?, roleId?, opts: Record<string, any> = {}) {

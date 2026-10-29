@@ -127,7 +127,7 @@ function collectDiscordAutomodExemptChannelIds(guild?, client = null) {
       if (isLimitateAutomodExemptChannel(ch, guild, client)) ids.add(String(ch.id));
     }
   }
-  return [...ids].filter((id?) => /^\d{16,22}$/.test(id));
+  return [...ids].filter((id?) => /^\d{16,22}$/.test((id as any)));
 }
 
 export = {

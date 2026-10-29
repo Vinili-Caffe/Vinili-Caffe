@@ -1,0 +1,4 @@
+Chiamate con più argomenti di quelli che la funzione usa: in JS quelli in più si ignorano.
+Da controllare: a volte è un parametro che la funzione dovrebbe usare e non usa.
+
+

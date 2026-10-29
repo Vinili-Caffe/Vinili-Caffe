@@ -69,14 +69,14 @@ function rmDirSafe(dir?) {
 function runFfmpeg(args?) {
   return new Promise((resolve?, reject?) => {
     const ffmpeg = ffmpegStatic || "ffmpeg";
-    const proc = spawn(ffmpeg, args, { stdio: ["ignore", "ignore", "pipe"] });
+    const proc = spawn((ffmpeg as any), args, { stdio: ["ignore", "ignore", "pipe"] });
     let err = "";
     proc.stderr?.on("data", (chunk?) => {
       err += String(chunk || "");
     });
     proc.on("error", reject);
     proc.on("close", (code?) => {
-      if (code === 0) resolve();
+      if (code === 0) ((resolve as any)() as any);
       else reject(new Error(err.trim() || `ffmpeg exit ${code}`));
     });
   });

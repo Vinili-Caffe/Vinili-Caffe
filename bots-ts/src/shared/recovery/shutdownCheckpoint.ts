@@ -12,9 +12,9 @@ async function flushAll(reason = "manual") {
   try {
     for (const row of flushers) {
       try {
-        await Promise.resolve(row.fn(reason));
+        await Promise.resolve((row as any).fn(reason));
       } catch (err) {
-        global.logger?.warn?.(`[shutdownCheckpoint] flush failed ${row.name}:`, err?.message || err);
+        global.logger?.warn?.(`[shutdownCheckpoint] flush failed ${(row as any).name}:`, err?.message || err);
       }
     }
   } finally {
