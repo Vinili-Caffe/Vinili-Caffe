@@ -195,7 +195,7 @@ async function checkPage(cdp, path, mode) {
     ).result.value || {};
   // i dati arrivano dal server: se la pagina sembra vuota si riprova un paio di volte prima di segnalarla
   let v = await measure();
-  for (let i = 0; i < 3 && (v.text || 0) < 40; i++) {
+  for (let i = 0; i < 6 && ((v.text || 0) < 40 || !v.at); i++) {
     await wait(2000);
     v = await measure();
   }

@@ -1,18 +1,21 @@
 "use client";
 
 import { motion, useReducedMotion } from "motion/react";
+import { HeroBackdrop, HERO_PROMO_POSTER, HERO_PROMO_VIDEO, HERO_PROMO_VIDEO_MOBILE } from "@/components/HeroBackdrop";
 
 const ease = [0.22, 1, 0.36, 1] as const;
 
-/** Testata delle pagine interne: foto sfumata + titolo (override image per eventi). */
+/** Testata delle pagine interne: promo loop + titolo (override image/video per eventi). */
 export function PageHero({
   kicker,
   title,
   accent,
   text,
   icon,
-  imageSrc = "/images/sfondo-still.webp",
-  imageSrcMobile = "/images/sfondo-mobile-still.webp",
+  imageSrc = HERO_PROMO_POSTER,
+  imageSrcMobile,
+  videoSrc = HERO_PROMO_VIDEO,
+  videoSrcMobile = HERO_PROMO_VIDEO_MOBILE,
   tone = "site",
 }: {
   kicker: string;
@@ -21,9 +24,12 @@ export function PageHero({
   text?: string;
   /** elemento già creato (es. <BookOpen />): da un Server Component non si può passare il componente */
   icon?: React.ReactNode;
-  /** Sfondo hero (default: locale). */
+  /** Poster / still (default: promo). */
   imageSrc?: string;
   imageSrcMobile?: string;
+  /** Loop hero; `null` = solo still (es. evento). */
+  videoSrc?: string | null;
+  videoSrcMobile?: string | null;
   /** `evento` = overlay navy/galassia (no roast Halloween). */
   tone?: "site" | "evento";
 }) {
@@ -32,18 +38,14 @@ export function PageHero({
   return (
     /* overflow-x only: evita tagli a titolo/italic; pb + gap CSS verso il blocco sotto */
     <section className="vc-page-hero relative isolate overflow-x-hidden pb-20 pt-36 sm:pb-28 sm:pt-44">
-      <picture>
-        <source media="(max-width: 640px)" srcSet={imageSrcMobile} type={imageSrcMobile.endsWith(".webp") ? "image/webp" : undefined} />
-        <img
-          src={imageSrc}
-          alt=""
-          width={1600}
-          height={900}
-          decoding="async"
-          fetchPriority="high"
-          className="absolute inset-0 -z-20 size-full object-cover opacity-60"
-        />
-      </picture>
+      <HeroBackdrop
+        poster={imageSrc}
+        posterMobile={imageSrcMobile}
+        videoSrc={isEvento ? null : videoSrc}
+        videoSrcMobile={isEvento ? null : videoSrcMobile}
+        priority
+        imgClassName="size-full object-cover opacity-70"
+      />
       <div
         className="absolute inset-0 -z-10"
         style={{
@@ -53,9 +55,9 @@ export function PageHero({
                 "linear-gradient(to bottom, rgba(5,7,15,0.45), rgba(10,16,32,0.78) 50%, rgba(5,7,15,0.94) 82%, #05070f)",
               ].join(", ")
             : [
-                "radial-gradient(ellipse 90% 50% at 50% -8%, rgba(217,154,91,0.2), transparent 55%)",
+                "radial-gradient(ellipse 90% 50% at 50% -8%, rgba(217,154,91,0.18), transparent 55%)",
                 "radial-gradient(ellipse 55% 40% at 85% 30%, rgba(240,180,110,0.08), transparent 50%)",
-                "linear-gradient(to bottom, rgba(14,9,6,0.45) 0%, rgba(14,9,6,0.82) 48%, rgba(14,9,6,0.94) 78%, var(--color-espresso) 100%)",
+                "linear-gradient(to bottom, rgba(14,9,6,0.42) 0%, rgba(14,9,6,0.78) 48%, rgba(14,9,6,0.94) 78%, var(--color-espresso) 100%)",
               ].join(", "),
         }}
       />
@@ -79,7 +81,6 @@ export function PageHero({
         >
           <span className="text-ember [&>svg]:size-3.5">{icon}</span> {kicker}
         </motion.p>
-        {/* h1 subito visibile (niente opacity:0) → LCP/FCP più bassi */}
         <h1 className="mx-auto mt-6 max-w-4xl text-balance font-display text-5xl font-semibold leading-[1.15] text-crema sm:text-7xl">
           {title}
           {accent ? (

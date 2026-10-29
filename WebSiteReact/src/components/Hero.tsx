@@ -6,6 +6,7 @@ import { ChevronDown, Sparkles } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { useI18n } from "@/lib/i18n";
 import { DiscordButton } from "./DiscordButton";
+import { HeroBackdrop } from "./HeroBackdrop";
 import { Turntable } from "./Turntable";
 import { RotatingText } from "./ui/rotating-text";
 import { StarMagnet } from "./ui/star-border";
@@ -78,18 +79,7 @@ export function Hero() {
   return (
     <section ref={ref} className="relative isolate flex min-h-dvh items-center overflow-hidden pt-24">
       <motion.div style={reduce ? undefined : { y: bgY }} className="absolute inset-0 -z-20">
-        <picture>
-          <source media="(max-width: 640px)" srcSet="/images/sfondo-mobile-still.webp" type="image/webp" />
-          <img
-            src="/images/sfondo-still.webp"
-            alt=""
-            width={1920}
-            height={1080}
-            decoding="async"
-            fetchPriority="high"
-            className="size-full scale-110 object-cover"
-          />
-        </picture>
+        <HeroBackdrop priority imgClassName="size-full scale-110 object-cover" />
       </motion.div>
       {/* Atmosfera midnight café: wash uniforme su tutto l'hero; espresso solo nell'ultima striscia */}
       <div

@@ -26,6 +26,8 @@ export function EventoHero({
       tone="evento"
       imageSrc="/images/star-wars-italia-galaxy.webp"
       imageSrcMobile="/images/star-wars-italia-galaxy-mobile.webp"
+      videoSrc={null}
+      videoSrcMobile={null}
     />
   );
 }
