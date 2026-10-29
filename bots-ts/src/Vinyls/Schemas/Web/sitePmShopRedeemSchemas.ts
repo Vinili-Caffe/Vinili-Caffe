@@ -33,7 +33,7 @@ const sitePmShopRedeemSchema = new Schema(
 sitePmShopRedeemSchema.index({ guildId: 1, pmUserId: 1, createdAt: -1, _id: -1 });
 sitePmShopRedeemSchema.index({ guildId: 1, createdAt: -1, _id: -1 });
 
-const SitePmShopRedeemEntry =
+const SitePmShopRedeemEntry: import("mongoose").Model<import("mongoose").InferSchemaType<typeof sitePmShopRedeemSchema>> =
   models.SitePmShopRedeemEntry ||
   model("SitePmShopRedeemEntry", sitePmShopRedeemSchema, "sitepmshopredeems");
 

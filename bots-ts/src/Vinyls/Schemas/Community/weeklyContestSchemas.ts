@@ -36,7 +36,7 @@ const weeklyContestSchema = new Schema(
 );
 weeklyContestSchema.index({ guildId: 1, eventKey: 1 }, { unique: true });
 
-const WeeklyContest =
+const WeeklyContest: import("mongoose").Model<import("mongoose").InferSchemaType<typeof weeklyContestSchema>> =
   models.WeeklyContest || model("WeeklyContest", weeklyContestSchema, COLLECTION);
 
 const WeeklyContestBundle = WeeklyContest;

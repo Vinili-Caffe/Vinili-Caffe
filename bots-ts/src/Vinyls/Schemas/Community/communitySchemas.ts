@@ -1345,7 +1345,7 @@ modCaseSchema.index({ guildId: 1, userId: 1, createdAt: -1 });
 modCaseSchema.index({ guildId: 1, modId: 1, createdAt: -1 });
 modCaseSchema.index({ guildId: 1, action: 1, active: 1, expiresAt: 1 });
 
-const GlobalSettings=models.GlobalSettings||model("GlobalSettings",globalSettingsSchema);
+const GlobalSettings: import("mongoose").Model<import("mongoose").InferSchemaType<typeof globalSettingsSchema>>=models.GlobalSettings||model("GlobalSettings",globalSettingsSchema);
 const LegacyVerificationTenure = null;
 const ReviewReward = {
   async findOne(filter?) {
@@ -1800,13 +1800,13 @@ const RepostPrivacy = buildProfileSubdocModel({
   clearSet: { "profile.privacy.repost.blocked": false },
 });
 
-const ActivityUserProfile = models.ActivityUserProfile || model("ActivityUserProfile", activityUserProfileSchema, "activityuserprofiles");
-const ActivityGuildHourly = models.ActivityGuildHourly || model("ActivityGuildHourly", activityGuildHourlySchema, "activityguildhourlys");
-const UserLeaveBackup = models.UserLeaveBackup || model("UserLeaveBackup", userLeaveBackupSchema, "userleavebackups");
-const UserFullDiscordStateHistory =
+const ActivityUserProfile: import("mongoose").Model<import("mongoose").InferSchemaType<typeof activityUserProfileSchema>> = models.ActivityUserProfile || model("ActivityUserProfile", activityUserProfileSchema, "activityuserprofiles");
+const ActivityGuildHourly: import("mongoose").Model<import("mongoose").InferSchemaType<typeof activityGuildHourlySchema>> = models.ActivityGuildHourly || model("ActivityGuildHourly", activityGuildHourlySchema, "activityguildhourlys");
+const UserLeaveBackup: import("mongoose").Model<import("mongoose").InferSchemaType<typeof userLeaveBackupSchema>> = models.UserLeaveBackup || model("UserLeaveBackup", userLeaveBackupSchema, "userleavebackups");
+const UserFullDiscordStateHistory: import("mongoose").Model<import("mongoose").InferSchemaType<typeof userFullDiscordStateHistorySchema>> =
   models.UserFullDiscordStateHistory ||
   model("UserFullDiscordStateHistory", userFullDiscordStateHistorySchema, "userfulldiscordstatehistories");
-const SiteDocument = models.SiteDocument || model("SiteDocument", siteDocumentSchema, "sitedocuments");
+const SiteDocument: import("mongoose").Model<import("mongoose").InferSchemaType<typeof siteDocumentSchema>> = models.SiteDocument || model("SiteDocument", siteDocumentSchema, "sitedocuments");
 const ModCase = USE_LEGACY_MOD_CASE_MODEL ? (models.mod_case || model("mod_case", modCaseSchema, MOD_CASE_COLLECTION)) : null;
 
 export = {

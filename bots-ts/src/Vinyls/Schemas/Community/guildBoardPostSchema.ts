@@ -27,7 +27,7 @@ const guildBoardPostBaseSchema = new Schema(
 guildBoardPostBaseSchema.index({ guildId: 1, createdAt: -1 });
 guildBoardPostBaseSchema.index({ guildId: 1, boardChannelId: 1, boardMessageId: 1 });
 
-const GuildBoardPost =
+const GuildBoardPost: import("mongoose").Model<import("mongoose").InferSchemaType<typeof guildBoardPostBaseSchema>> =
   models.GuildBoardPost || model("GuildBoardPost", guildBoardPostBaseSchema, COLLECTION);
 
 const quoteDiscriminatorSchema = new Schema(

@@ -27,6 +27,6 @@ const siteContestSchema = new Schema(
   { timestamps: true },
 );
 
-const SiteContest = models.SiteContest || model("SiteContest", siteContestSchema, COLLECTION);
+const SiteContest: import("mongoose").Model<import("mongoose").InferSchemaType<typeof siteContestSchema>> = models.SiteContest || model("SiteContest", siteContestSchema, COLLECTION);
 
 export = { COLLECTION, SiteContest, siteContestSchema };

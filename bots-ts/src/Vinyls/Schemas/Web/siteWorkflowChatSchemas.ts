@@ -65,7 +65,7 @@ const siteWorkflowChatMessageSchema = new Schema(
 siteWorkflowChatMessageSchema.index({ guildId: 1, dedupeKey: 1, createdAt: 1 });
 siteWorkflowChatMessageSchema.index({ guildId: 1, dedupeKey: 1, createdAt: -1 });
 
-const SiteWorkflowChatMessage =
+const SiteWorkflowChatMessage: import("mongoose").Model<import("mongoose").InferSchemaType<typeof siteWorkflowChatMessageSchema>> =
   models.SiteWorkflowChatMessage ||
   model("SiteWorkflowChatMessage", siteWorkflowChatMessageSchema, "siteworkflowchatmessages");
 

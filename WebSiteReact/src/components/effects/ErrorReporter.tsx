@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { recoverFromStaleChunk } from "@/lib/stale-chunk-recovery";
 
 /** Rumore che non dipende dal sito: estensioni, richieste annullate, avvisi innocui del browser. */
 const IGNORE = [
@@ -15,23 +16,6 @@ const IGNORE = [
   /insertBefore|removeChild/i,
   /powerPreference|no available adapters/i,
 ];
-
-/** Pezzo di codice della versione precedente non più sul server (dopo una pubblicazione). */
-const STALE_CHUNK = /ChunkLoadError|Failed to load chunk|Loading chunk [w-]+ failed|Importing a module script failed|error loading dynamically imported module/i;
-const STALE_RELOAD_KEY = "vc_stale_chunk_reload_at";
-
-/** Si ricarica la pagina (una volta al minuto al massimo) così arriva la versione nuova invece della schermata d'errore. */
-function recoverFromStaleChunk(message: string) {
-  if (!STALE_CHUNK.test(message)) return;
-  try {
-    const last = Number(sessionStorage.getItem(STALE_RELOAD_KEY) || 0);
-    if (Date.now() - last < 60_000) return;
-    sessionStorage.setItem(STALE_RELOAD_KEY, String(Date.now()));
-  } catch {
-    /* senza sessionStorage si ricarica comunque, una volta sola per pagina */
-  }
-  window.location.reload();
-}
 
 /**
  * Registro errori: gli errori JavaScript dei visitatori finiscono nel log del bot
