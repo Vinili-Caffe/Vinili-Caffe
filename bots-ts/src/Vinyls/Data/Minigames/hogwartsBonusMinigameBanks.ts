@@ -200,8 +200,15 @@ function getHogwartsGuessYearBank() {
   return HOGWARTS_GUESS_YEAR_BANK;
 }
 
+/**
+ * bug: la banca "citazione → film" a tema Hogwarts non è mai stata scritta (HOGWARTS_QUOTE_FILM_BANK non esisteva).
+ * Vuota = il minigioco usa la banca normale delle citazioni, come succede già oggi.
+ * Per attivarla: riempire l'array (stesso formato di QUOTE_FILM_BANK in minigameBanks) ed esportare la funzione qui sotto.
+ */
+const HOGWARTS_QUOTE_FILM_BANK = [];
+
 function getHogwartsQuoteFilmBank() {
-  return ((HOGWARTS_QUOTE_FILM_BANK as any) as any);
+  return HOGWARTS_QUOTE_FILM_BANK;
 }
 
 function getHogwartsCompleteVerseBank() {

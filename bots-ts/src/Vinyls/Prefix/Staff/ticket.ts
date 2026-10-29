@@ -633,7 +633,8 @@ async function ticketReopenByNumber(ctx?, ticketNumber?) {
 
   try {
     const { scheduleDiscordAutomodRulesResync } = require("../../Services/Moderation/discordAutomodRulesService") as typeof import("../../Services/Moderation/discordAutomodRulesService");
-    scheduleDiscordAutomodRulesResync(message.client);
+    // bug: qui non c'è `message` (riapertura da numero): il client è quello della guild
+    scheduleDiscordAutomodRulesResync(guild.client);
   } catch (_) {}
 
   const row = new ActionRowBuilder().addComponents(

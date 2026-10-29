@@ -805,7 +805,8 @@ async function execute(interaction?) {
       const { logPmPointsRemoved } = require("../Utils/Partner/pmPointsRemovedStore") as typeof import("../Utils/Partner/pmPointsRemovedStore");
       const { getPartnershipLogChannelIds } = require("../Utils/Partner/partnershipConfigResolver") as typeof import("../Utils/Partner/partnershipConfigResolver");
       const { isDiscordStaffChannelPostsEnabled } = require("../Utils/Web/discordWorkflowUiGate") as typeof import("../Utils/Web/discordWorkflowUiGate");
-      const IDs = require("../Utils/Config/ids") as typeof import("../Utils/Config/ids");
+      // bug: qui c'era un secondo `const IDs = require(...)`, che rendeva IDs inutilizzabile anche 10 righe sopra
+      // (controllo Partner Manager) → errore a ogni rimozione punti. Si usa l'IDs già importato in cima al file.
       const channelIds = getPartnershipLogChannelIds(guild.id);
       const hardFallback = isDiscordStaffChannelPostsEnabled()
         ? String(IDs.channels?.puntiTolti || "").trim()

@@ -137,6 +137,16 @@ function createMemberResolver(guild?) {
   };
 }
 
+// bug: replyError si è perso spostando questo codice da Commands/Staff/staff.js; ripristinato com'era
+// (embed rosso, risposta privata)
+async function replyError(interaction?, description?) {
+  const { safeEditReply } = require("../../../shared/discord/replyRuntime") as typeof import("../../../shared/discord/replyRuntime");
+  return safeEditReply(interaction, {
+    embeds: [new EmbedBuilder().setColor("#ED4245").setDescription(String(description || ""))],
+    flags: 1 << 6,
+  });
+}
+
 async function ensureMember(interaction?, user?, resolveMember?) {
   const member = await resolveMember(user.id);
   if (!member) {

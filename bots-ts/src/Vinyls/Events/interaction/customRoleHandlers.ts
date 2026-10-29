@@ -1064,9 +1064,16 @@ async function handleRoleActionButton(interaction?) {
     }
     const HOLO = { primaryColor: 11127295, secondaryColor: 16759788, tertiaryColor: 16761760 };
     const edited = await role.edit({ colors: HOLO }, `Custom role holographic by ${interaction.user.tag}`).then(() => true).catch(() => false);
+    // bug: confirmRoleState esiste solo nella funzione dei modali, qui era undefined e lo stile olografico
+    // andava in errore. Stesso controllo: si rilegge il ruolo da Discord e si guarda se i colori sono quelli giusti.
+    const confirmHoloState = async (checkFn) => {
+      const refreshedRole = await fetchRole(interaction, roleId);
+      const roleToCheck = refreshedRole || role;
+      return Boolean(roleToCheck && checkFn(roleToCheck));
+    };
     const applied =
       edited &&
-      (await confirmRoleState((liveRole?) => {
+      (await confirmHoloState((liveRole?) => {
         const p = Number(liveRole.colors?.primaryColor ?? NaN);
         const s = Number(liveRole.colors?.secondaryColor ?? NaN);
         const t = Number(liveRole.colors?.tertiaryColor ?? NaN);

@@ -3,6 +3,8 @@ const { decrementQuoteCount } = require("../Utils/Quote/quoteCounter") as typeof
 const { ROLE_MULTIPLIERS } = require("../Services/Community/expService") as typeof import("../Services/Community/expService");
 const { AvatarPrivacy, BannerPrivacy, ActivityUserProfile, } = require("../Schemas/Community/communitySchemas") as typeof import("../Schemas/Community/communitySchemas");
 const IDs = require("../Utils/Config/ids") as typeof import("../Utils/Config/ids");
+// bug: queste due righe dei perk erano usate senza import (il messaggio dei vantaggi andava in errore)
+const { MENTION_RESPONSE_PERK_BODY, MENTION_RESPONSE_PERK_LINE_DISCORD } = require("../Utils/Community/mentionResponseAccessUtils") as typeof import("../Utils/Community/mentionResponseAccessUtils");
 const { siteTicketsPageDiscordRef } = require("../../shared/web/siteTicketsPageRef") as typeof import("../../shared/web/siteTicketsPageRef");
 const { ZODIAC_ROLE_IDS } = require("../Utils/Community/zodiacRoles") as typeof import("../Utils/Community/zodiacRoles");
 const { PERSONALITY_NORMAL_COLOR_ROLE_IDS_ALL } = require("../Utils/Community/personalityColorUnlocks") as typeof import("../Utils/Community/personalityColorUnlocks");

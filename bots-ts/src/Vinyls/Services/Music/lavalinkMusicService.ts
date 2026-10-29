@@ -621,9 +621,8 @@ async function clearBlockingNativeVoiceForMusic(guildId?, client?) {
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
       await musicPurgeTts(gid, client).catch(() => {});
-      if (typeof tts.leaveTtsGuild === "function") {
-        await tts.leaveTtsGuild(gid, client).catch(() => {});
-      }
+      // bug: `tts` non esisteva (errore subito dopo il purge, l'uscita del TTS non partiva mai)
+      await musicLeaveTts(gid, client).catch(() => {});
     } catch (_) {}
     try {
       await (musicStopCapture as any)(gid, client).catch(() => {});

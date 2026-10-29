@@ -57,6 +57,8 @@ const LEGACY_TASK_LABELS = Object.freeze({
   invite_users: "Invitare utenti (storico)",
   boost_or_vip: "Boost o VIP (storico)",
 });
+/** bug: isKnownTaskId usava LEGACY_TASK_IDS senza che esistesse (errore su ogni compito fuori catalogo). */
+const LEGACY_TASK_IDS = new Set(Object.keys(LEGACY_TASK_LABELS));
 
 function displayTaskLabel(taskId?, status?) {
   const id = String(taskId || "").trim();

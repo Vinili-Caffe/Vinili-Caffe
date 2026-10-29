@@ -1,5 +1,7 @@
 const { siteUserProfilePagePlainRef } = require("../../shared/web/siteTicketsPageRef") as typeof import("../../shared/web/siteTicketsPageRef");
 const { getNoDmPreferences, setNoDmCategories, DM_CATEGORIES, DM_CATEGORY_ALL, DM_CATEGORY_LABELS } = require("./noDmList") as typeof import("./noDmList");
+// bug: i componenti Discord del pannello non erano importati (il pannello preferenze DM andava in errore)
+const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require("discord.js") as typeof import("discord.js");
 
 function _stripRef(p?) {
   if (!p || typeof p !== "object") return p;
