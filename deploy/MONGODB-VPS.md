@@ -19,7 +19,7 @@ chmod +x setup-vps-mongo.sh start-mongo.sh backup-mongo.sh restore-mongo.sh
 ./setup-vps-mongo.sh
 ```
 
-Poi nel **`.env` del bot** (stesso user/password di `.env.mongo`):
+Poi nel **`.env` del bot** (stessi `MONGO_INITDB_*` usati da Docker):
 
 ```
 MONGO_URL=mongodb://USER:PASSWORD@127.0.0.1:27017/nomedb?authSource=admin
@@ -31,14 +31,16 @@ Poi: **`pm2 restart all --update-env`** (o il processo del bot).
 
 ---
 
-## File `.env.mongo` (due righe)
+## Credenziali `MONGO_INITDB_*` nel `.env` del bot
 
-Se non c’è:
+Nel file `/opt/bot/.env` (niente file separato):
 
 ```bash
-printf '%s\n' 'MONGO_INITDB_ROOT_USERNAME=vinili' 'MONGO_INITDB_ROOT_PASSWORD=LA_TUA_PASSWORD' > /opt/bot/deploy/.env.mongo
-chmod 600 /opt/bot/deploy/.env.mongo
+MONGO_INITDB_ROOT_USERNAME=vinili
+MONGO_INITDB_ROOT_PASSWORD=LA_TUA_PASSWORD
 ```
+
+`chmod 600 /opt/bot/.env`
 
 ---
 
@@ -135,17 +137,17 @@ sudo chmod +x reset-mongo-root.sh
 sudo ./reset-mongo-root.sh USER PASS
 ```
 
-Lo script fa `down -v`, esporta user/pass **in shell** (zero CRLF, zero compose che legge file sbagliato), `up -d`, testa il ping, riscrive `.env.mongo` in LF. Poi **restore** del dump se ti servono i dati.
+Lo script fa `down -v`, esporta user/pass **in shell**, `up -d`, testa il ping, aggiorna `MONGO_INITDB_*` nel `.env` del bot. Poi **restore** del dump se ti servono i dati.
 
 ---
 
 ## Authentication failed anche con password giusta
 
-Spesso **CRLF** nel file `.env.mongo` (creato su Windows): la password nel container ha un `\r` in coda.
+Spesso **CRLF** nel `.env` (creato su Windows): la password nel container ha un `\r` in coda.
 
 ```bash
-cat -A /opt/bot/deploy/.env.mongo   # se vedi ^M = CRLF
-sudo apt install -y dos2unix && sudo dos2unix /opt/bot/deploy/.env.mongo
+cat -A /opt/bot/.env   # se vedi ^M = CRLF
+sudo apt install -y dos2unix && sudo dos2unix /opt/bot/.env
 ```
 
 Poi **sempre** `docker compose down -v` e `up -d` (altrimenti il vecchio root resta).
@@ -183,7 +185,7 @@ PowerShell: `.\deploy\compass-tunnel.ps1 -VpsHost IP_O_DOMINIO`
 In Compass → Edit connection → **SSH Tunnel**: host `vinili` (o IP VPS), user `root`, chiave `~/.ssh/vinili`.  
 Hostname Mongo: `127.0.0.1`, porta `27017` (lato VPS). Nessun tunnel esterno.
 
-Compass URI (stessi user/password di `.env.mongo`):
+Compass URI (stessi user/password di `MONGO_INITDB_*` nel `.env`):
 
 ```text
 mongodb://USER:PASS@127.0.0.1:27018/?authSource=admin

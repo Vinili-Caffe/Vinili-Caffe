@@ -1,15 +1,17 @@
 #!/bin/bash
 set -e
-F="$(cd "$(dirname "$0")" && pwd)/.env.mongo"
+DIR="$(cd "$(dirname "$0")" && pwd)"
+BOT_ROOT="$(cd "$DIR/.." && pwd)"
+F="${BOT_ENV:-$BOT_ROOT/.env}"
 if [[ ! -f "$F" ]]; then
   echo "Manca $F"
   exit 1
 fi
 if grep -q $'\r' "$F" 2>/dev/null; then
-  echo "Trovato CRLF in .env.mongo — converto (sudo dos2unix)."
+  echo "Trovato CRLF in $F — converto (sudo dos2unix)."
   command -v dos2unix >/dev/null || { echo "Installa: sudo apt install dos2unix"; exit 1; }
   sudo dos2unix "$F"
-  echo "Fatto. Ora: docker compose down -v && up -d (volume nuovo obbligatorio)."
+  echo "Fatto. Se Mongo era stato creato con password sporca: docker compose down -v && ./start-mongo.sh (volume nuovo)."
 else
-  echo "Nessun CRLF in .env.mongo"
+  echo "Nessun CRLF in $F"
 fi

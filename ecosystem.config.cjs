@@ -75,12 +75,28 @@ const lavalinkPm2App = {
   env: lavalinkEnvFromFile,
 };
 
+/** Solo TS se esiste bots-ts/src (locale e VPS dopo cutover). Altrimenti legacy .js in root. */
+const botsSrcDir = path.join(base, "bots-ts", "src");
+const botsUseTs = fs.existsSync(path.join(botsSrcDir, "wait-for-lavalink.ts"));
+const tsxImportArgs = "--disable-warning=ExperimentalWarning --import tsx";
+
+/** Vinyls/…/x.js → bots-ts/src/Vinyls/…/x.ts quando TS attivo. */
+function resolveBotScript(relJs) {
+  if (!botsUseTs || !/\.(js)$/.test(relJs)) return { script: relJs, useTs: false };
+  if (!/^(Vinyls|Coffee|shared)\//.test(relJs)) return { script: relJs, useTs: false };
+  const tsRel = relJs.replace(/\.js$/, ".ts");
+  const full = path.join(botsSrcDir, tsRel);
+  if (!fs.existsSync(full)) return { script: relJs, useTs: false };
+  return { script: path.join("bots-ts", "src", tsRel), useTs: true };
+}
+
 function makeBotsApp(name, loaderBots, memRestart, nodeHeapMb) {
   return {
     name,
-    cwd: base,
-    script: "wait-for-lavalink.js",
+    cwd: botsUseTs ? botsSrcDir : base,
+    script: botsUseTs ? "wait-for-lavalink.ts" : "wait-for-lavalink.js",
     interpreter: nodeInterpreter,
+    interpreter_args: botsUseTs ? tsxImportArgs : undefined,
     exec_mode: "fork",
     instances: 1,
     ...HA_RESTART,
@@ -92,6 +108,7 @@ function makeBotsApp(name, loaderBots, memRestart, nodeHeapMb) {
       NODE_ENV: "production",
       HOST_ROLE: String(botEnvFromFile.HOST_ROLE || "primary"),
       ...botEnvFromFile,
+      BOT_REPO: base,
       LOADER_BOTS: loaderBots,
       SITE_API_EXTERNAL: "1",
       PARTNERSHIP_MIGRATION_EXTERNAL: "1",
@@ -148,11 +165,13 @@ function mergeNodeOptions(existing, extra) {
 }
 
 function ensurePm2App(name, script, memRestart, extraEnv, nodeOpts, overrides) {
+  const resolved = resolveBotScript(script);
   return {
     name,
     cwd: base,
-    script,
+    script: resolved.script,
     interpreter: nodeInterpreter,
+    interpreter_args: resolved.useTs ? tsxImportArgs : undefined,
     exec_mode: "fork",
     instances: 1,
     ...HA_RESTART,
@@ -161,6 +180,7 @@ function ensurePm2App(name, script, memRestart, extraEnv, nodeOpts, overrides) {
       NODE_ENV: "production",
       HOST_ROLE: String(botEnvFromFile.HOST_ROLE || "primary"),
       ...botEnvFromFile,
+      BOT_REPO: base,
       ...extraEnv,
       NODE_OPTIONS: mergeNodeOptions(botEnvFromFile.NODE_OPTIONS, nodeOpts),
     },
@@ -189,23 +209,24 @@ module.exports = {
     ensurePm2App(
       "discadia-votes",
       "Vinyls/Services/Web/discadiaVoteIntakeApp.js",
-      "160M",
+      /* tsx RSS tipicamente >160M al boot */
+      "260M",
       { DISCADIA_VOTE_INTAKE_PORT: "3010" },
-      "--max-old-space-size=128",
+      "--max-old-space-size=192",
     ),
     ensurePm2App(
       "topgg-votes",
       "Vinyls/Services/Web/topggVoteIntakeApp.js",
-      "160M",
+      "260M",
       { TOPGG_VOTE_INTAKE_PORT: "3014" },
-      "--max-old-space-size=128",
+      "--max-old-space-size=192",
     ),
     ensurePm2App(
       "vote-drain",
       "Vinyls/Services/Web/voteQueueDrainWorkerApp.js",
-      "180M",
+      "280M",
       { VOTE_QUEUE_WORKER: "1" },
-      "--max-old-space-size=140",
+      "--max-old-space-size=220",
     ),
     ensurePm2App(
       "site-api",
@@ -224,35 +245,37 @@ module.exports = {
     ensurePm2App(
       "partnership-migration",
       "Vinyls/Services/Web/partnershipMigrationWorkerApp.js",
-      "180M",
+      "280M",
       { PARTNERSHIP_MIGRATION_WORKER: "1" },
-      "--max-old-space-size=140",
+      "--max-old-space-size=220",
     ),
     ensurePm2App(
       "bot-scheduler",
       "Vinyls/Services/Web/botSchedulerWorkerApp.js",
-      "320M",
+      /* era 320M: in TS stava a ~307M a regime */
+      "420M",
       { BOT_SCHEDULER_WORKER: "1" },
-      "--max-old-space-size=240",
+      "--max-old-space-size=320",
     ),
     ensurePm2App(
       "community-poll",
       "Vinyls/Services/Web/communityPollWorkerApp.js",
-      "280M",
+      "360M",
       {
         COMMUNITY_POLL_WORKER: "1",
         COMMUNITY_POLL_EXTERNAL: "1",
         LIVE_VOICE_EXP_INTERVAL_MS: String(botEnvFromFile.LIVE_VOICE_EXP_INTERVAL_MS || "45000"),
         LIVE_VOICE_EXP_BATCH_SIZE: String(botEnvFromFile.LIVE_VOICE_EXP_BATCH_SIZE || "50"),
       },
-      "--max-old-space-size=220",
+      "--max-old-space-size=280",
     ),
     ensurePm2App(
       "auto-backup",
       "Vinyls/Services/Web/autoBackupWorkerApp.js",
-      "350M",
+      /* picchi backup >350M con tsx */
+      "480M",
       { AUTO_BACKUP_WORKER: "1" },
-      "--max-old-space-size=280",
+      "--max-old-space-size=380",
     ),
     ensurePm2App(
       "host-watchdog",

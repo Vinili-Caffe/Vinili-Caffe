@@ -1,3 +1,10 @@
 # Auto detect text files and perform LF normalization
 * text=auto
 Lavalink/start-lavalink.sh text eol=lf
+
+# bots-ts: i sorgenti si salvano byte per byte — gli a capo nei testi su più
+# righe finiscono nei messaggi del bot, quindi git non deve convertirli.
+bots-ts/src/** -text
+
+# script bash (VPS, Git Bash): sempre a capo Linux
+*.sh text eol=lf

@@ -1,7 +1,8 @@
 #!/bin/bash
 set -e
 DIR="$(cd "$(dirname "$0")" && pwd)"
-ENV="$DIR/.env.mongo"
+BOT_ROOT="$(cd "$DIR/.." && pwd)"
+ENV="${BOT_ENV:-$BOT_ROOT/.env}"
 RAW="${1:?Uso: $0 CARTELLA_DUMP
 
 La cartella deve essere l output di mongodump, con dentro cartelle DB e file .bson, es:

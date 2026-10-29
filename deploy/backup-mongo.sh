@@ -3,15 +3,21 @@ set -e
 # Cron ha PATH minimo: assicuriamo che docker sia trovato
 export PATH="/usr/local/bin:/usr/bin:/bin:$PATH"
 DIR="$(cd "$(dirname "$0")" && pwd)"
-ENV="$DIR/.env.mongo"
+BOT_ROOT="$(cd "$DIR/.." && pwd)"
+ENV="${BOT_ENV:-$BOT_ROOT/.env}"
 if [[ ! -f "$ENV" ]]; then
-  echo "[$(date '+%Y-%m-%dT%H:%M:%S')] ERRORE: Manca $ENV (crea da deploy/.env.mongo con MONGO_INITDB_ROOT_USERNAME e MONGO_INITDB_ROOT_PASSWORD)"
+  echo "[$(date '+%Y-%m-%dT%H:%M:%S')] ERRORE: Manca $ENV (MONGO_INITDB_ROOT_USERNAME / MONGO_INITDB_ROOT_PASSWORD)"
   exit 1
 fi
 # shellcheck disable=SC1090
 set -a
+# shellcheck source=/dev/null
 source "$ENV"
 set +a
+if [[ -z "${MONGO_INITDB_ROOT_USERNAME:-}" || -z "${MONGO_INITDB_ROOT_PASSWORD:-}" ]]; then
+  echo "[$(date '+%Y-%m-%dT%H:%M:%S')] ERRORE: in $ENV mancano MONGO_INITDB_ROOT_USERNAME / MONGO_INITDB_ROOT_PASSWORD"
+  exit 1
+fi
 if ! command -v docker >/dev/null 2>&1; then
   echo "[$(date '+%Y-%m-%dT%H:%M:%S')] ERRORE: docker non trovato nel PATH"
   exit 1

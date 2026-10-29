@@ -108,7 +108,6 @@ web_modules/
 .env.test.local
 .env.production.local
 .env.local
-deploy/.env.mongo
 deploy/backups/
 deploy/atlas-dump/
 
@@ -223,10 +222,15 @@ CALENDARIO EVENTO.pdf
 .vercel
 .env*
 
-# ── BOTS RUNTIME GENERATO (bots-ts/src = sorgente) ──
-# Ricrea con: npm run build:bots
+# ── BOTS: non più in root (runtime = bots-ts/dist) ──
 /Vinyls/
 /Coffee/
 /shared/
-/loader.js
-/wait-for-lavalink.js
+# loader.js + wait-for-lavalink.js in root = wrapper tracciati (puntano a bots-ts/dist)
+
+# ── WebSite (ex .gitignore locale) ──
+.DS_Store
+*.pem
+WebSite/next-env.d.ts
+WebSite/scripts/_tmp_*
+WebSite/build/
