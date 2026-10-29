@@ -2,16 +2,29 @@
 
 import "./globals.css";
 import { useEffect } from "react";
-import { hardReload, isStaleChunkMessage, canAutoRecoverStaleChunk } from "@/lib/stale-chunk-recovery";
+import { hardReload, canAutoRecoverStaleChunk } from "@/lib/stale-chunk-recovery";
+
+/** Gli errori presi qui non passano da window.onerror: senza questo non finirebbero nel registro. */
+function reportBoundaryError(error: Error & { digest?: string }) {
+  try {
+    const message = `${error?.name || "Error"}: ${error?.message || ""}${error?.digest ? ` (digest ${error.digest})` : ""}`;
+    const body = JSON.stringify({ kind: "boundary", message: message.slice(0, 400), stack: String(error?.stack || "").slice(0, 1500), url: location.pathname + location.search });
+    if (!navigator.sendBeacon?.("/webhooks/site-client-error", new Blob([body], { type: "application/json" }))) {
+      void fetch("/webhooks/site-client-error", { method: "POST", headers: { "Content-Type": "application/json" }, body, keepalive: true }).catch(() => {});
+    }
+  } catch {
+    /* il registro non deve mai rompere la pagina */
+  }
+}
 
 /**
  * Pagina d'errore del sito (al posto di "This page couldn't load" di Next).
- * Chunk della versione vecchia dopo un deploy → hard reload (SW + cache).
+ * Quasi sempre è la versione vecchia rimasta in cache dopo un deploy: un hard reload (SW + cache) la sistema,
+ * quindi lo si tenta subito (al massimo una volta al minuto) per qualsiasi errore; la pagina resta solo se si ripete.
  */
 export default function GlobalError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   useEffect(() => {
-    const text = `${error?.name || ""} ${error?.message || ""}`;
-    if (!isStaleChunkMessage(text)) return;
+    reportBoundaryError(error);
     if (!canAutoRecoverStaleChunk()) return;
     void hardReload();
   }, [error]);

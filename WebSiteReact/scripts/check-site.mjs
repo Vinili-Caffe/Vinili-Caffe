@@ -189,7 +189,7 @@ async function checkPage(cdp, path, mode) {
         expression: `(() => {
           const d = document.documentElement;
           const main = document.querySelector("main");
-          return { overflow: d.scrollWidth - d.clientWidth, text: (main ? main.innerText : document.body.innerText).trim().length };
+          return { overflow: d.scrollWidth - d.clientWidth, text: (main ? main.innerText : document.body.innerText).trim().length, at: location.pathname };
         })()`,
       })
     ).result.value || {};
@@ -201,7 +201,9 @@ async function checkPage(cdp, path, mode) {
   }
 
   if (v.overflow > 1) problems.push(`sborda di ${v.overflow}px in larghezza`);
-  if ((v.text || 0) < 40 && !SHORT_OK.has(path)) problems.push("pagina quasi vuota");
+  // pagine riservate (evento, puzzle, contest chiusi) senza accesso rimandano alla home: non sono vuote
+  const redirected = v.at && v.at.replace(/\/?$/, "/") !== path;
+  if ((v.text || 0) < 40 && !SHORT_OK.has(path) && !redirected) problems.push("pagina quasi vuota");
   await cdp.send("Target.closeTarget", { targetId });
   return problems;
 }
