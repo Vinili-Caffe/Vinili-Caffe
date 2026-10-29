@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, LayoutGroup, motion } from "motion/react";
 import { ArrowUpRight, Loader2, Store, Users, type LucideIcon } from "lucide-react";
 import { KINDS, loadReviews, type ReviewKind, type ReviewsData } from "@/lib/reviews";
@@ -51,14 +51,30 @@ export function ReviewsBrowser({ initial }: { initial: ReviewsData | null }) {
     return () => window.removeEventListener("hashchange", read);
   }, []);
 
+  // dopo un like il server avvisa in tempo reale e la lista si ricarica: se intanto la pagina si accorcia
+  // (lista vuota per un attimo, caricamento) il browser riporta in cima. L'altezza resta bloccata finché arriva
+  // la lista nuova, e un ricaricamento vuoto della stessa scheda non cancella le recensioni già a schermo.
+  const listRef = useRef<HTMLDivElement>(null);
+  const [holdHeight, setHoldHeight] = useState(0);
+  const loadedKind = useRef<ReviewKind | null>(null);
   useEffect(() => {
     if (!ready) return;
     let alive = true;
+    setHoldHeight(listRef.current?.offsetHeight || 0);
     setLoading(true);
     loadReviews(kind, token).then((d) => {
       if (!alive) return;
-      if (d) setData(d);
+      if (d) {
+        setData((prev) => {
+          const sameKind = loadedKind.current === kind;
+          if (sameKind && prev?.reviews?.length && !d.reviews?.length) return prev;
+          return d;
+        });
+        loadedKind.current = kind;
+      }
       setLoading(false);
+      // un frame dopo, quando la lista nuova è già disegnata
+      requestAnimationFrame(() => alive && setHoldHeight(0));
     });
     return () => {
       alive = false;
@@ -185,7 +201,12 @@ export function ReviewsBrowser({ initial }: { initial: ReviewsData | null }) {
         </div>
       </div>
 
-      <div id="reviews-list" className="relative mt-5 scroll-mt-28">
+      <div
+        id="reviews-list"
+        ref={listRef}
+        className="relative mt-5 scroll-mt-28"
+        style={holdHeight ? { minHeight: holdHeight } : undefined}
+      >
         {loading && (
           <div className="absolute inset-x-0 top-0 z-10 flex justify-center">
             <Loader2 className="size-5 animate-spin text-crema/50" />

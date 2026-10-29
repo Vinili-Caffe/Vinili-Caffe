@@ -1,9 +1,9 @@
-// Candidature (Helper / Partner Manager) e appelli (unban / unmute).
+// Candidature (Helper / Partner Manager / Blogger) e appelli (unban / unmute).
 // Domande: copia di Vinyls/Utils/Community/candidatureApplicationsCatalog.js (il bot rifiuta campi mancanti).
 // Handler: Vinyls/Events/interaction/candidatureApplicationHandlers.js, unbanWebsiteHandlers.js, unmuteWebsiteHandlers.js
 // Se l'API è spenta nel .env del bot risponde 503 "candidature_http_disabled": va mostrato come "chiuso", non come errore.
 
-export type RoleType = "helper" | "partnermanager";
+export type RoleType = "helper" | "partnermanager" | "blogger";
 export type Question = {
   id: string;
   text: string;
@@ -61,6 +61,22 @@ export const ROLES: { id: RoleType; label: string; questions: Question[] }[] = [
       { id: "staff_altri_server", text: "Attualmente ricopri questo ruolo anche in altri server? Se si, indica quali", placeholder: "Indica quali server", kind: "paragraph" },
     ],
   },
+  {
+    id: "blogger",
+    label: "Blogger",
+    questions: [
+      { id: "id_discord", text: "ID Discord", kind: "short" },
+      { id: "eta", text: "Età", placeholder: "Scrivi la tua età", kind: "short" },
+      { id: "topic_blog", text: "Per quale topic blog ti stai candidando?", placeholder: "Es. gaming, musica, tecnologia, cinema…", kind: "short" },
+      { id: "scelta_argomento", text: "Su cosa ti basi per scegliere l'argomento di un articolo?", kind: "paragraph" },
+      { id: "flusso_lavoro", text: "Che flusso di lavoro segui per scriverlo?", kind: "paragraph" },
+      { id: "fonti", text: "Quante e quali tipi di fonti prendi come riferimento?", kind: "paragraph" },
+      { id: "info_poco_chiare", text: "Come ti comporti quando trovi informazioni ridotte, contrastanti o poco chiare?", kind: "paragraph" },
+      { id: "articolo_corretto_mediocre", text: "Da cosa distingui un articolo redatto correttamente da uno mediocre?", kind: "paragraph" },
+      { id: "esempio_articolo", text: "Fai un esempio di articolo riguardante il topic per cui ti candidi.", kind: "paragraph" },
+      { id: "notizia_popolare", text: "Se una notizia è molto popolare ma poco rilevante, la sceglieresti comunque? Motiva la risposta.", kind: "paragraph" },
+    ],
+  },
 ];
 
 export const REQUIREMENTS = [
@@ -74,7 +90,8 @@ export const REQUIREMENTS = [
 export const encodeMulti = (vals: string[]) => vals.map((v) => `• ${v}`).join("\n");
 
 export type RoleEligibility = { eligible: boolean; code?: string; message?: string; roleLabel?: string; cooldown_until_ms?: number };
-export type Eligibility = { inGuild: boolean; noModuliBlocked?: boolean; helper: RoleEligibility; partnermanager: RoleEligibility };
+// blogger facoltativo: finché il bot non è aggiornato non lo manda
+export type Eligibility = { inGuild: boolean; noModuliBlocked?: boolean; helper: RoleEligibility; partnermanager: RoleEligibility; blogger?: RoleEligibility };
 
 type Res<T> = { ok: true; data: T } | { ok: false; message: string; disabled?: boolean; status?: number };
 

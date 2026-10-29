@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { AlertTriangle, ArrowLeft, ArrowRight, Check, CheckCircle2, Clock, Coffee, Handshake, Loader2, Send, Shield } from "lucide-react";
+import { AlertTriangle, ArrowLeft, ArrowRight, Check, CheckCircle2, Clock, Coffee, Handshake, Loader2, PenLine, Send, Shield } from "lucide-react";
 import { AuthGateCard } from "@/components/AuthGateCard";
 import { Reveal } from "@/components/Reveal";
 import { RichText } from "@/components/RichText";
@@ -167,8 +167,11 @@ export function CandidatureBoard() {
     loadEligibility(token).then((r) => {
       if (r.ok) {
         setElig(r.data);
-        // se uno dei due ruoli è possibile e l'altro no, parti da quello giusto
-        if (!r.data.helper.eligible && r.data.partnermanager.eligible) setType("partnermanager");
+        // parti dal primo ruolo a cui ci si può davvero candidare
+        if (!r.data.helper.eligible) {
+          if (r.data.partnermanager.eligible) setType("partnermanager");
+          else if (r.data.blogger?.eligible) setType("blogger");
+        }
       } else setEligErr({ text: r.message, disabled: r.disabled });
     });
   }, [token]);
@@ -274,17 +277,17 @@ export function CandidatureBoard() {
         </div>
       </Reveal>
 
-      {/* scelta del ruolo: due grembiuli */}
+      {/* scelta del ruolo: un grembiule per ruolo */}
       <section>
         <Reveal className="mb-8 text-center">
           <p className="font-script text-4xl text-caramel">Entra nello staff</p>
           <h2 className="mt-1 font-display text-4xl font-semibold sm:text-5xl">Per quale ruolo ti candidi?</h2>
         </Reveal>
-        <div role="radiogroup" className="grid gap-4 sm:grid-cols-2">
+        <div role="radiogroup" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {ROLES.map((r) => {
             const on = r.id === type;
             const e = elig?.[r.id];
-            const Icon = r.id === "helper" ? Shield : Handshake;
+            const Icon = r.id === "helper" ? Shield : r.id === "blogger" ? PenLine : Handshake;
             return (
               <button
                 key={r.id}
@@ -341,7 +344,7 @@ export function CandidatureBoard() {
         ) : !me?.eligible ? (
           <div className="rounded-3xl bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast p-10 text-center ring-1 ring-sand/12">
             <p className="font-display text-3xl font-semibold">Per ora non puoi candidarti come {role.label}</p>
-            <p className="mt-2 text-crema/60">{me?.code === "cooldown" && me.cooldown_until_ms ? `Hai già inviato una candidatura: potrai riprovare dal ${dateTimeIt(me.cooldown_until_ms)}.` : me?.message}</p>
+            <p className="mt-2 text-crema/60">{me?.code === "cooldown" && me.cooldown_until_ms ? `Hai già inviato una candidatura: potrai riprovare dal ${dateTimeIt(me.cooldown_until_ms)}.` : me?.message || "Le candidature per questo ruolo non sono ancora aperte."}</p>
           </div>
         ) : (
           <form

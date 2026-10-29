@@ -1,14 +1,15 @@
 "use client";
 
 import { useEffect } from "react";
+import { SW_URL } from "@/lib/push";
 
 /** Registra /sw.js per tutti: push + dismiss + badge + pagina offline (le pagine vere non vanno in cache). */
 export function SwRegister() {
   useEffect(() => {
     if (!("serviceWorker" in navigator)) return;
-    // query bust: forza update SW dopo fix dismiss/badge
+    // stesso indirizzo delle notifiche push (lib/push.ts): mai due versioni del SW in lotta
     navigator.serviceWorker
-      .register("/sw.js?v=20261028pushClickNavIos2")
+      .register(SW_URL, { scope: "/" })
       .then((reg) => {
         try {
           void reg.update();

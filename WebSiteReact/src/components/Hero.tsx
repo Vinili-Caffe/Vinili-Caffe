@@ -9,6 +9,7 @@ import { DiscordButton } from "./DiscordButton";
 import { Turntable } from "./Turntable";
 import { RotatingText } from "./ui/rotating-text";
 import { StarMagnet } from "./ui/star-border";
+import { useRichFx } from "./effects/DeviceFxProvider";
 
 const EMBERS = Array.from({ length: 14 }, (_, i) => ({
   left: `${(i * 37 + 11) % 100}%`,
@@ -36,6 +37,7 @@ export function Hero() {
   const bgY = useTransform(scrollYProgress, [0, 1], ["0%", "18%"]);
   const fade = useTransform(scrollYProgress, [0.6, 0.98], [1, 0]);
   const reduce = useReducedMotion();
+  const richFx = useRichFx();
   // le braci dipendono da "riduci movimento", che il server non conosce: si aggiungono dopo l'avvio,
   // così l'HTML del server e quello del browser coincidono (prima: errore React #418 in home)
   const [mounted, setMounted] = useState(false);
@@ -78,18 +80,34 @@ export function Hero() {
   return (
     <section ref={ref} className="relative isolate flex min-h-dvh items-center overflow-hidden pt-24">
       <motion.div style={reduce ? undefined : { y: bgY }} className="absolute inset-0 -z-20">
-        <picture>
-          <source media="(max-width: 640px)" srcSet="/images/sfondo-mobile-still.webp" type="image/webp" />
+        {/* sfondo animato: la GIF promo 16:9 convertita in video (240 KB invece di 6,8 MB, stessi fotogrammi).
+            Con movimento ridotto o su dispositivi deboli resta il primo fotogramma fermo. */}
+        {richFx ? (
+          <video
+            autoPlay
+            muted
+            loop
+            playsInline
+            preload="auto"
+            poster="/images/hero/promo-poster.jpg"
+            aria-hidden
+            className="size-full scale-110 object-cover"
+          >
+            <source src="/images/hero/promo-loop.webm" type="video/webm" />
+            <source src="/images/hero/promo-loop.mp4" type="video/mp4" />
+          </video>
+        ) : (
+          // eslint-disable-next-line @next/next/no-img-element
           <img
-            src="/images/sfondo-still.webp"
+            src="/images/hero/promo-poster.jpg"
             alt=""
-            width={1920}
-            height={1080}
+            width={854}
+            height={480}
             decoding="async"
             fetchPriority="high"
             className="size-full scale-110 object-cover"
           />
-        </picture>
+        )}
       </motion.div>
       {/* Atmosfera midnight café: wash uniforme su tutto l'hero; espresso solo nell'ultima striscia */}
       <div

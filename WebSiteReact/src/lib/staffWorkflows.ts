@@ -96,6 +96,7 @@ export const QUEUE_FILTERS: Record<string, { id: string; label: string }[]> = {
     { id: "", label: "Tutte" },
     { id: "helper", label: "Helper" },
     { id: "partnermanager", label: "Partner Manager" },
+    { id: "blogger", label: "Blogger" },
   ],
   appelli: [
     { id: "", label: "Tutti" },

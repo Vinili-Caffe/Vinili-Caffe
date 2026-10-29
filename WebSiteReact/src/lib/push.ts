@@ -2,8 +2,10 @@
 // /webhooks/site-notifications/push/{vapid-public-key,subscribe,unsubscribe} (siteInAppNotificationsApi.js).
 // I ticket le richiedono agli utenti (non allo staff) per aprirne uno.
 
-// stesso service worker che registra tutto il sito (SwRegister): niente secondo SW sullo stesso scope
-const SW_URL = "/sw.js?v=20261025iosPushAlive5";
+// UN solo indirizzo per il service worker, usato anche da SwRegister: con due versioni diverse il browser
+// sostituiva il SW a ogni visita (uno lo registrava la pagina, l'altro le notifiche) e le iscrizioni push ne soffrivano.
+// Da cambiare solo qui quando serve forzare l'aggiornamento di sw.js.
+export const SW_URL = "/sw.js?v=20261029swUnico1";
 const b64ToBytes = (b64: string) => {
   const pad = "=".repeat((4 - (b64.length % 4)) % 4);
   const raw = atob((b64 + pad).replace(/-/g, "+").replace(/_/g, "/"));

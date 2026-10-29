@@ -24,15 +24,8 @@ export default async function Home() {
         title="Vinili & Caffè"
         description="Community Discord Italiana chill dove parlare di tutto. Ruoli, eventi, giveaway, bot esclusivi."
       />
-      {/* LCP: preload sfondo hero (hoisted in <head>) */}
-      <link
-        rel="preload"
-        as="image"
-        href="/images/sfondo-still.webp"
-        type="image/webp"
-        imageSrcSet="/images/sfondo-mobile-still.webp 640w, /images/sfondo-still.webp 1920w"
-        imageSizes="100vw"
-      />
+      {/* LCP: preload del primo fotogramma dello sfondo hero (hoisted in <head>) */}
+      <link rel="preload" as="image" href="/images/hero/promo-poster.jpg" type="image/jpeg" />
       <Hero />
       <LiveStats initial={stats} />
       <Why />
