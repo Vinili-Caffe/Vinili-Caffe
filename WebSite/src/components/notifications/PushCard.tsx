@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { BellOff, BellRing, Loader2 } from "lucide-react";
-import { disablePush, enablePush, pushIsOn, pushSupported } from "@/lib/push";
+import { BellOff, BellRing, Loader2, Send } from "lucide-react";
+import { disablePush, enablePush, pushIsOn, pushSupported, testPush } from "@/lib/push";
 import { cn } from "@/lib/cn";
 
 type Props = {
@@ -17,6 +17,8 @@ export function PushCard({ token, compact = false, className }: Props) {
   const [on, setOn] = useState<boolean | null>(null);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
+  const [testing, setTesting] = useState(false);
+  const [test, setTest] = useState<{ ok: boolean; message: string } | null>(null);
   const supported = typeof window === "undefined" || pushSupported();
 
   useEffect(() => {
@@ -30,7 +32,30 @@ export function PushCard({ token, compact = false, className }: Props) {
     setBusy(false);
     if (!r.ok) return setMsg(r.message || "Operazione non riuscita.");
     setOn(!on);
+    setTest(null);
   };
+
+  const sendTest = async () => {
+    setTesting(true);
+    setTest(null);
+    setTest(await testPush(token));
+    setTesting(false);
+  };
+
+  const testLine = test ? (
+    <p className={cn("mt-1.5 text-xs leading-snug", test.ok ? "text-crema/65" : "text-[#e2836f] light:text-[#a83a2c]")}>{test.message}</p>
+  ) : null;
+
+  const testButton = (extra?: string) => (
+    <button
+      type="button"
+      onClick={() => void sendTest()}
+      disabled={testing}
+      className={cn("inline-flex items-center gap-1.5 rounded-full font-semibold text-crema/80 ring-1 ring-sand/25 hover:bg-crema/8 disabled:opacity-60", extra)}
+    >
+      {testing ? <Loader2 className="size-3.5 animate-spin" /> : <Send className="size-3.5" />} Prova
+    </button>
+  );
 
   if (compact) {
     return (
@@ -51,6 +76,7 @@ export function PushCard({ token, compact = false, className }: Props) {
                 : "Su iPhone: aggiungi l’app alla Home"}
             </p>
           </div>
+          {on ? testButton("px-2.5 py-1 text-xs") : null}
           {supported && on !== null ? (
             <button
               type="button"
@@ -79,6 +105,7 @@ export function PushCard({ token, compact = false, className }: Props) {
           ) : null}
         </div>
         {msg ? <p className="mt-1.5 text-xs text-[#e2836f] light:text-[#a83a2c]">{msg}</p> : null}
+        {testLine}
       </div>
     );
   }
@@ -98,7 +125,9 @@ export function PushCard({ token, compact = false, className }: Props) {
           {supported ? "Ricevi gli avvisi del sito anche a pagina chiusa." : "Questo browser non le supporta. Su iPhone aggiungi il sito alla schermata Home."}
         </p>
         {msg && <p className="mt-1 text-sm text-[#e2836f] light:text-[#a83a2c]">{msg}</p>}
+        {testLine}
       </div>
+      {supported && on ? testButton("px-4 py-2 text-sm") : null}
       {supported && on !== null && (
         <button
           type="button"

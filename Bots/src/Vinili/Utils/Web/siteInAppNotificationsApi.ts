@@ -15,6 +15,7 @@ const {
   upsertWebPushSubscription,
   removeWebPushSubscription,
   noteWebPushShown,
+  sendWebPushTestToEndpoint,
 } = require("./siteWebPushService") as typeof import("./siteWebPushService");
 const { isLitePerf, resolveSitePerfTier } = require("./sitePerfHints") as typeof import("./sitePerfHints");
 const { fetchDiscordOAuthMe } = require("./discordOauthMe") as typeof import("./discordOauthMe");
@@ -282,6 +283,30 @@ async function handleSiteNotificationsPushShownPost(_client?, req?, res?) {
   }
 }
 
+/* Notifica di prova a questo dispositivo (pagina notifiche). Una ogni 10 secondi per utente. */
+const lastPushTestAt = new Map();
+async function handleSiteNotificationsPushTestPost(_client?, req?, res?) {
+  try {
+    const accessToken = normalizeHeaderSecret(req.headers.authorization);
+    const resolved = await resolveUserIdFromBearer(accessToken);
+    if (!resolved.ok) {
+      return res.status(Number(resolved.status) || 401).json(resolved);
+    }
+    const now = Date.now();
+    if (now - Number(lastPushTestAt.get(resolved.userId) || 0) < 10_000) {
+      return res.status(429).json({ ok: false, error: "too_fast", message: "Aspetta qualche secondo e riprova." });
+    }
+    lastPushTestAt.set(resolved.userId, now);
+    if (lastPushTestAt.size > 2000) lastPushTestAt.clear();
+    const body = req.body && typeof req.body === "object" ? req.body : {};
+    const out: any = await sendWebPushTestToEndpoint(resolved.userId, String(body.endpoint || "").trim());
+    return res.status(200).json(out);
+  } catch (err) {
+    global.logger?.error?.("[WEBHOOK] site-notifications push test:", err);
+    return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+  }
+}
+
 async function handleSiteNotificationsPushUnsubscribePost(client?, req?, res?) {
   try {
     const accessToken = normalizeHeaderSecret(req.headers.authorization);
@@ -315,4 +340,5 @@ export = {
   handleSiteNotificationsPushSubscribePost,
   handleSiteNotificationsPushShownPost,
   handleSiteNotificationsPushUnsubscribePost,
+  handleSiteNotificationsPushTestPost,
 };

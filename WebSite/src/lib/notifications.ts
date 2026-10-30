@@ -345,6 +345,7 @@ export async function loadNotifications(token: string, limit = 50): Promise<Res<
   // API già newest-first; riordina comunque per sicurezza (campanella / lista)
   items.sort((a, b) => Number(b.at || 0) - Number(a.at || 0));
   const unread = Number(r.data.unread ?? r.data.unreadCount);
+  void syncOsNotificationsWithInbox(items, items.length < limit);
   return {
     ok: true,
     data: {
@@ -356,9 +357,32 @@ export async function loadNotifications(token: string, limit = 50): Promise<Res<
 }
 
 /**
+ * All'apertura del sito (e a ogni ricarica della campanella) toglie dal centro notifiche di QUESTO dispositivo
+ * quelle già lette o cancellate altrove. Il server non manda push di chiusura (vedi public/sw.js), quindi è qui
+ * che telefono e PC si allineano. complete: la lista contiene tutta l'inbox (le assenti sono state cancellate).
+ */
+async function syncOsNotificationsWithInbox(items: SiteNotification[], complete: boolean) {
+  try {
+    if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) return;
+    const reg = await navigator.serviceWorker.getRegistration("/");
+    if (!reg?.getNotifications) return;
+    const byId = new Map(items.map((n) => [String(n.id), n]));
+    for (const os of await reg.getNotifications()) {
+      const d = (os.data && typeof os.data === "object" ? os.data : {}) as { id?: string };
+      const nid = String(d.id || "").trim() || String(os.tag || "").replace(/^vc-site-/, "");
+      if (!nid || nid.startsWith("test")) continue;
+      const item = byId.get(nid);
+      if ((item && item.read) || (!item && complete)) os.close();
+    }
+  } catch {
+    /* il sito non deve mai rompersi per questo */
+  }
+}
+
+/**
  * Chiude le notifiche di sistema (centro notifiche di Windows, tendina del telefono) su QUESTO dispositivo quando
- * le si legge o cancella sul sito. Sugli altri dispositivi le chiude il server con una push "dismiss", che però
- * ai PC non si manda (Chrome/Edge mostrerebbero "sito aggiornato in background"): senza questo restavano lì.
+ * le si legge o cancella sul sito. Gli altri dispositivi le chiudono da soli alla prossima apertura
+ * (syncOsNotificationsWithInbox) o subito se hanno il sito aperto (avviso in tempo reale).
  * match: id delle notifiche (tag vc-site-<id>), pagine aperte, oppure "all".
  */
 export async function closeOsNotifications(match: { ids?: string[]; openUrls?: string[]; all?: boolean }) {

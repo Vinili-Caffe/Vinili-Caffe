@@ -458,7 +458,7 @@ function fireNotifDismissPush(userId?, spec: Record<string, any> = {}) {
     const now = Date.now();
     const prev = Number(lastDismissPushAt.get(key) || 0);
     /* pushTicketOpenDismiss1: force bypass throttle (open ticket da altro device) */
-    const throttleMs = spec.force === true ? 2500 : 45000;
+    const throttleMs = spec.force === true ? 500 : 1500;
     if (now - prev < throttleMs) return;
     lastDismissPushAt.set(key, now);
     if (lastDismissPushAt.size > 400) {
@@ -466,9 +466,9 @@ function fireNotifDismissPush(userId?, spec: Record<string, any> = {}) {
         if (now - Number(at || 0) > 120000) lastDismissPushAt.delete(k);
       }
     }
-    /* badgeOsDismiss1: dismiss webpush di nuovo SOLO per chiudere banner OS + badge
-       su telefono (sendWebPushToUser già skip desktop/WNS). WS con unread per device aperti.
-       Non tocca content push / soft-retry / shown-ack. */
+    /* Solo avviso in tempo reale ai dispositivi col sito aperto (chiudono i banner e aggiornano il badge).
+       Niente push: una push che non mostra nulla fa revocare l'iscrizione (iOS) o rallentare le altre (Chrome).
+       I dispositivi chiusi si allineano all'apertura del sito o con la notifica successiva. */
     try {
       invalidateUnreadCountCache(uid);
     } catch (_) {}
@@ -485,21 +485,6 @@ function fireNotifDismissPush(userId?, spec: Record<string, any> = {}) {
         const extra: Record<string, any> = { userId: uid };
         if (unreadCount >= 0) extra.unread = unreadCount;
         broadcastSiteNotificationsChanged(extra);
-      } catch (_) {}
-      try {
-        const { sendWebPushToUser } = require("./siteWebPushService") as typeof import("./siteWebPushService");
-        await sendWebPushToUser(uid, {
-          type: "dismiss",
-          ticketId: singleTicket,
-          id: singleId,
-          ids,
-          ticketIds,
-          openUrls,
-          dedupeKeys,
-          pageUrl,
-          all: spec.all === true,
-          unreadCount,
-        });
       } catch (_) {}
     })();
   } catch (_) {}
@@ -748,60 +733,10 @@ function broadcastInboxChanged(userId = "") {
   } catch (_) {}
 }
 
-/* pushPhoneAllSoftRetry1: soft-retry mobile per TUTTE le notif (non solo vote_reminder).
-   Stesso pattern di bumpService votePushPhoneRetry — FCM/APNs spesso miss al primo colpo. */
-/* pushAppleZombieHedge5: APNs 201 ≠ banner iOS. NoHedge4 spegneva i retry se mobileSent>0
-   e il catchup PWA restava bloccato da toasted → Top.gg solo su PC. Hedge corto solo Apple. */
-/* pushDesktopMissRetry1 + pushShownAckVisible1: retry PC se desktopSent=0; SW ack su visible. */
-/* pushClosedPwaNoRotate1: PWA chiusa/kill → SW spesso NON fa /push/shown anche se APNs 201.
-   rotate+denylist uccideva la sub Apple → push morte finché non riapri. Hedge lungo, MAI rotate. */
-/* pushIosDeclarativeNoHedge1: web_push:8030 = iOS mostra il banner SENZA SW.
-   Hedge che aspetta /push/shown → re-push :mprN all’infinito (banner a raffica).
-   Se mobileAppleSent>0 = consegnato: STOP hedge. Soft-retry solo se mobileSent===0. */
-const mobilePushSoftRetryTimers = new Map();
-const MOBILE_PUSH_SOFT_RETRY_DELAYS_MS = Object.freeze([
-  25_000,
-  90_000,
-  3 * 60_000,
-  15 * 60_000,
-  45 * 60_000,
-]);
-/* pushAppleHedgeUntilShown1: APNs 201 ≠ banner iPhone (PWA kill/SW morto).
-   Ripeti finché /push/shown (o max rounds) — niente rotate/denylist (pushClosedPwaNoRotate1).
-   Prima bugListBoot1=1 ping → hedge “exhausted” subito senza banner. */
-/* pushAppleWaitUntil1: primo rewake a 8s con Topic/mpr distinto. */
-const APPLE_ZOMBIE_HEDGE_DELAYS_MS = Object.freeze([
-  8_000,
-  25_000,
-  90_000,
-  3 * 60_000,
-  15 * 60_000,
-  45 * 60_000,
-]);
-/* 3 round × ~64min ≈ ~3h di ritentativi finché shown-ack */
-const APPLE_ZOMBIE_HEDGE_MAX_ROUNDS = 3;
-const appleZombieHedgeBases = new Set();
-const appleZombieHedgeRounds = new Map();
-
-function mobilePushSoftRetryKeyBase(userId?, dedupeKey?, id?) {
-  const uid = normalizeUserId(userId);
-  const dk = String(dedupeKey || "").trim().slice(0, 120) || String(id || "").trim().slice(0, 80) || "na";
-  return `mpr:${uid}:${dk}`;
-}
-
-function clearMobilePushSoftRetries(userId?, dedupeKey?, id?, { includeAppleHedge = true } = {}) {
-  const base = mobilePushSoftRetryKeyBase(userId, dedupeKey, id);
-  if (!base.startsWith("mpr:")) return;
-  if (!includeAppleHedge && appleZombieHedgeBases.has(base)) return;
-  const prefix = `${base}:`;
-  for (const [key, timer] of mobilePushSoftRetryTimers) {
-    if (!String(key).startsWith(prefix) && key !== base) continue;
-    clearTimeout(timer);
-    mobilePushSoftRetryTimers.delete(key);
-  }
-  appleZombieHedgeBases.delete(base);
-  appleZombieHedgeRounds.delete(base);
-}
+/* Nuovi tentativi: li fa siteWebPushService solo sugli errori temporanei, per dispositivo.
+   Le vecchie code (telefono, PC, "hedge" Apple) rimandavano la stessa notifica fino a 5 volte
+   con Topic diversi: doppioni e servizi push che rallentavano. Restano i nomi per i chiamanti. */
+function clearMobilePushSoftRetries(_userId?, _dedupeKey?, _id?, _opts: Record<string, any> = {}) {}
 
 /* pushSkipRead1: non ri-mandare push se già letta / dismessa.
    missingMeansUnread=true → primo send (fail-open se non ancora in DB).
@@ -829,312 +764,12 @@ async function isSiteInAppNotificationStillUnread(userId?, id?, dedupeKey?, { mi
   }
 }
 
-function clearPushRetriesForInboxItem(userId?, item?) {
-  const uid = normalizeUserId(userId);
-  if (!uid || !item) return;
-  const nid = String(item._id || item.id || "").trim();
-  const dk = String(item.dedupeKey || "").trim();
-  try {
-    /* pushAppleHedgeKeepOnRead1: mark-read da PC non spegne hedge Apple zombie */
-    clearMobilePushSoftRetries(uid, dk, nid, { includeAppleHedge: false });
-  } catch (_) {}
-  try {
-    const kind = String(item.notifKind || item.kind || "").trim().toLowerCase();
-    if (kind === "vote_reminder" || /vote_reminder/.test(dk)) {
-      const bump = require("../../Services/Bump/bumpService") as typeof import("../../Services/Bump/bumpService");
-      if (typeof bump.clearVoteReminderPhoneRetriesForUser === "function") {
-        bump.clearVoteReminderPhoneRetriesForUser(uid);
-      }
-    }
-  } catch (_) {}
-}
+function clearPushRetriesForInboxItem(_userId?, _item?) {}
 
-function scheduleMobilePushSoftRetries(userId?, payload?, pushOut?) {
-  const uid = normalizeUserId(userId);
-  if (!uid || !payload) return;
-  if (pushOut?.skipped === true) return;
-  const mobileCandidates =
-    Number(pushOut?.mobileCandidates) || Number(pushOut?.mobileTargets) || 0;
-  const mobileTargets = Number(pushOut?.mobileTargets) || 0;
-  const mobileSent = Number(pushOut?.mobileSent) || 0;
-  const mobileAppleSent = Number(pushOut?.mobileAppleSent) || 0;
-  /* pushNoMobileSoftRetrySpam1: candidates include denylist/gone — senza target vivi
-     i :mprN loggano miss forever (mobileTargets:0). Soft-retry solo se c’è da mandare. */
-  if (mobileCandidates <= 0) return;
-  if (mobileSent <= 0 && mobileTargets <= 0) return;
-  /* pushIosDeclarativeNoHedge1: APNs/declarative già consegnato → niente hedge
-     (altrimenti :mprN = banner iOS all’infinito). Soft-retry SOLO miss totale. */
-  if (mobileSent > 0) {
-    if (mobileAppleSent > 0) {
-      clearMobilePushSoftRetries(uid, payload.dedupeKey, payload.id);
-      global.logger?.info?.(
-        "[siteInAppNotifications] apple declarative delivered — no hedge:",
-        uid,
-        String(payload?.kind || ""),
-        { mobileSent, mobileAppleSent },
-      );
-      return;
-    }
-    /* Android/FCM ha ricevuto almeno un send → stop */
-    clearMobilePushSoftRetries(uid, payload.dedupeKey, payload.id);
-    return;
-  }
-  let delays = MOBILE_PUSH_SOFT_RETRY_DELAYS_MS;
-  let reason = "mobile_miss";
+function scheduleMobilePushSoftRetries(_userId?, _payload?, _pushOut?) {}
 
-  const baseKey = mobilePushSoftRetryKeyBase(uid, payload.dedupeKey, payload.id);
-  const prevRound =
-    reason === "apple_zombie_hedge" ? Number(appleZombieHedgeRounds.get(baseKey) || 0) : 0;
-  clearMobilePushSoftRetries(uid, payload.dedupeKey, payload.id);
-  if (reason === "apple_zombie_hedge") {
-    appleZombieHedgeBases.add(baseKey);
-    const nextRound = Math.max(1, prevRound || 1);
-    if (nextRound > APPLE_ZOMBIE_HEDGE_MAX_ROUNDS) {
-      appleZombieHedgeBases.delete(baseKey);
-      appleZombieHedgeRounds.delete(baseKey);
-      global.logger?.info?.(
-        "[siteInAppNotifications] apple hedge max rounds stop:",
-        uid,
-        String(payload?.kind || ""),
-        APPLE_ZOMBIE_HEDGE_MAX_ROUNDS,
-      );
-      return;
-    }
-    appleZombieHedgeRounds.set(baseKey, nextRound);
-  } else {
-    appleZombieHedgeBases.delete(baseKey);
-    appleZombieHedgeRounds.delete(baseKey);
-  }
-
-  const base = {
-    title: String(payload.title || "").trim(),
-    body: String(payload.body || "").trim(),
-    openUrl: String(payload.openUrl || "").trim(),
-    kind: normalizeKind(payload.kind),
-    id: String(payload.id || "").trim(),
-    ticketId: String(payload.ticketId || "").trim(),
-    messageId: String(payload.messageId || "").trim(),
-    channel: String(payload.channel || "").trim().slice(0, 16),
-    dedupeKey: String(payload.dedupeKey || "").trim().slice(0, 180),
-    ttlSeconds: Number(payload.ttlSeconds) > 0 ? Number(payload.ttlSeconds) : 60 * 60 * 12,
-  };
-  if (!base.title && !base.body) return;
-
-  delays.forEach((delayMs?, idx?) => {
-    const key = `${baseKey}:${idx}`;
-    const timer = setTimeout(() => {
-      mobilePushSoftRetryTimers.delete(key);
-      void (async () => {
-        try {
-          /* pushSkipRead1: skip soft-retry se già letta — ma NON per apple_zombie_hedge
-             (pushAppleHedgeKeepOnRead1: lettura PC ≠ banner iPhone). */
-          if (reason !== "apple_zombie_hedge") {
-            const stillUnread = await isSiteInAppNotificationStillUnread(uid, base.id, base.dedupeKey, {
-              missingMeansUnread: false,
-            });
-            if (!stillUnread) {
-              clearMobilePushSoftRetries(uid, payload.dedupeKey, payload.id);
-              return;
-            }
-          }
-          /* pushAppleShownAck1 + pushShownAckCrossProc1: stop se SW Apple ha mostrato (Mongo) */
-          try {
-            const { wasWebPushShown } = require("./siteWebPushService") as typeof import("./siteWebPushService");
-            if (await wasWebPushShown(base.id, base.dedupeKey)) {
-              clearMobilePushSoftRetries(uid, payload.dedupeKey, payload.id);
-              return;
-            }
-          } catch (_) {}
-          const { sendWebPushToUser } = require("./siteWebPushService") as typeof import("./siteWebPushService");
-          const out = await sendWebPushToUser(
-            uid,
-            {
-              ...base,
-              dedupeKey: String(base.dedupeKey || "") + ":mpr" + String(idx + 1),
-              topicAttempt: idx + 1,
-            },
-            { deviceFilter: "mobile" },
-          );
-          /* dopo send: shown-ack può arrivare dal hedge stesso (lookup cross-process) */
-          try {
-            const { wasWebPushShown } = require("./siteWebPushService") as typeof import("./siteWebPushService");
-            if (
-              (await wasWebPushShown(base.id, base.dedupeKey)) ||
-              (await wasWebPushShown(base.id, String(base.dedupeKey || "") + ":mpr" + String(idx + 1)))
-            ) {
-              clearMobilePushSoftRetries(uid, payload.dedupeKey, payload.id);
-              return;
-            }
-          } catch (_) {}
-          const got = Number(out?.mobileSent) || 0;
-          const gotApple = Number(out?.mobileAppleSent) || 0;
-          const aliveTargets = Number(out?.mobileTargets) || 0;
-          /* nessun endpoint mobile vivo (tutti gone / no sub) → stop coda, niente warn spam */
-          if (got <= 0 && aliveTargets <= 0) {
-            clearMobilePushSoftRetries(uid, payload.dedupeKey, payload.id);
-            return;
-          }
-          /* miss path: stop al primo ack. apple hedge: continua finché shown-ack o fine tentativi. */
-          if (got > 0 && !(reason === "apple_zombie_hedge" && gotApple >= got)) {
-            clearMobilePushSoftRetries(uid, payload.dedupeKey, payload.id);
-            return;
-          }
-          if (got > 0 && reason === "apple_zombie_hedge") {
-            /* pushClosedPwaNoRotate1: esaurito hedge SENZA shown-ack ≠ token morto.
-               PWA kill/chiusa: APNs 201 ok ma SW non gira → no /push/shown.
-               rotate+denylist spegneva le push fino al reopen. Solo nudge WS soft. */
-            if (idx >= delays.length - 1) {
-              try {
-                const { wasWebPushShown } = require("./siteWebPushService") as typeof import("./siteWebPushService");
-                await new Promise((r?) => setTimeout(r, 2500));
-                if (await wasWebPushShown(base.id, base.dedupeKey)) {
-                  clearMobilePushSoftRetries(uid, payload.dedupeKey, payload.id);
-                  return;
-                }
-                const round = Number(appleZombieHedgeRounds.get(baseKey) || 1);
-                if (round < APPLE_ZOMBIE_HEDGE_MAX_ROUNDS) {
-                  appleZombieHedgeRounds.set(baseKey, round + 1);
-                  scheduleMobilePushSoftRetries(uid, base, {
-                    mobileCandidates: Math.max(1, Number(pushOut?.mobileCandidates) || 1),
-                    mobileSent: 1,
-                    mobileAppleSent: 1,
-                  });
-                  return;
-                }
-                try {
-                  const { broadcastSiteRealtime, notifyExternalSiteRealtime } = require("./siteSuggestionsBroadcast") as typeof import("./siteSuggestionsBroadcast");
-                  const nudge = {
-                    type: "vc:push-resubscribe",
-                    userId: uid,
-                    reason: "apple_hedge_exhausted_soft",
-                    at: new Date().toISOString(),
-                  };
-                  broadcastSiteRealtime(nudge);
-                  notifyExternalSiteRealtime(nudge);
-                } catch (_) {}
-              } catch (_) {}
-              appleZombieHedgeBases.delete(baseKey);
-              appleZombieHedgeRounds.delete(baseKey);
-            }
-            return;
-          }
-          global.logger?.warn?.("[siteInAppNotifications] mobile soft-retry miss:", uid, base.kind, idx + 1, {
-            mobileTargets: out?.mobileTargets,
-            mobileFailed: out?.mobileFailed,
-            skippedGone: out?.skippedGone,
-          });
-        } catch (err) {
-          global.logger?.warn?.(
-            "[siteInAppNotifications] mobile soft-retry error:",
-            uid,
-            err?.message || err,
-          );
-        }
-      })();
-    }, delayMs);
-    if (typeof timer.unref === "function") timer.unref();
-    mobilePushSoftRetryTimers.set(key, timer);
-  });
-}
-
-/* pushHedgeBootRecover1: soft-retry/hedge sono in RAM → SIGINT/restart li cancella.
-   Claim vote già scritto → restore non ri-manda. Catch-up: unread recenti senza
-   /push/shown → re-push mobile + ri-arma apple_zombie_hedge. */
-async function recoverUnreadApplePushHedges(opts: Record<string, any> = {}) {
-  /* pushNoBootResend1: Apple declarative (web_push 8030) mostra il banner senza SW → mai
-     /push/shown → a ogni restart ri-mandava le unread delle ultime 6h (banner doppi).
-     FCM/Android fa sempre ack → qui veniva saltato comunque. Disattivato. */
-  if (opts.force !== true) {
-    return { ok: true, skipped: true, reason: "declarative_no_ack" };
-  }
-  const maxAgeMs = Math.max(
-    30 * 60 * 1000,
-    Math.min(12 * 60 * 60 * 1000, Number(opts.maxAgeMs) || 6 * 60 * 60 * 1000),
-  );
-  const limitUsers = Math.max(1, Math.min(80, Number(opts.limitUsers) || 40));
-  const since = new Date(Date.now() - maxAgeMs);
-  let scanned = 0;
-  let recovered = 0;
-  let skippedShown = 0;
-  let skippedNoMobile = 0;
-  try {
-    const { sendWebPushToUser, wasWebPushShown } = require("./siteWebPushService") as typeof import("./siteWebPushService");
-    const inboxes = await SiteDocument.find({
-      docType: NOTIF,
-      inAppNotifAggregate: true,
-      "inAppNotifItems.0": { $exists: true },
-      updatedAt: { $gte: since },
-    })
-      .select("userId inAppNotifItems")
-      .limit(limitUsers)
-      .lean()
-      .catch(() => []);
-    for (const inbox of inboxes || []) {
-      const uid = normalizeUserId(inbox?.userId);
-      if (!uid) continue;
-      const items = Array.isArray(inbox.inAppNotifItems) ? inbox.inAppNotifItems : [];
-      for (const it of items) {
-        if (it?.readAt) continue;
-        const createdAt = it?.createdAt ? new Date(it.createdAt).getTime() : 0;
-        if (!Number.isFinite(createdAt) || createdAt < since.getTime()) continue;
-        const kind = normalizeKind(it.notifKind || it.kind);
-        const title = String(it.title || "").trim();
-        const body = String(it.body || "").trim();
-        if (!title && !body) continue;
-        const id = String(it._id || it.id || "").trim();
-        const dedupeKey = String(it.dedupeKey || "").trim();
-        if (!id && !dedupeKey) continue;
-        scanned += 1;
-        try {
-          if (await wasWebPushShown(id, dedupeKey)) {
-            skippedShown += 1;
-            continue;
-          }
-        } catch (_) {}
-        const payload = {
-          title,
-          body,
-          openUrl: String(it.openUrl || "").trim(),
-          kind,
-          id,
-          ticketId: String(it.ticketId || "").trim(),
-          messageId: String(it.messageId || "").trim(),
-          channel: String(it.notifChannel || it.channel || "").trim().slice(0, 16),
-          dedupeKey,
-          ttlSeconds: 60 * 60 * 12,
-        };
-        let out = null;
-        try {
-          out = await sendWebPushToUser(uid, payload, { deviceFilter: "mobile" });
-        } catch (err) {
-          global.logger?.warn?.(
-            "[siteInAppNotifications] hedge boot recover send failed:",
-            uid,
-            kind,
-            err?.message || err,
-          );
-          continue;
-        }
-        const mobileCandidates =
-          Number(out?.mobileCandidates) || Number(out?.mobileTargets) || 0;
-        if (mobileCandidates <= 0) {
-          skippedNoMobile += 1;
-          continue;
-        }
-        try {
-          scheduleMobilePushSoftRetries(uid, payload, out);
-          recovered += 1;
-        } catch (_) {}
-      }
-    }
-  } catch (err) {
-    global.logger?.warn?.(
-      "[siteInAppNotifications] hedge boot recover failed:",
-      err?.message || err,
-    );
-    return { ok: false, scanned, recovered, skippedShown, skippedNoMobile };
-  }
-  return { ok: true, scanned, recovered, skippedShown, skippedNoMobile };
+async function recoverUnreadApplePushHedges(_opts: Record<string, any> = {}) {
+  return { ok: true, skipped: true, reason: "retries_removed" };
 }
 
 function fireNotificationPush(
@@ -1180,53 +815,7 @@ function fireNotificationPush(
           return { ok: true, sent: 0, skipped: true, reason: "already_read_pushSkipRead1" };
         }
       }
-      const out = await sendWebPushToUser(userId, payload);
-      try {
-        /* pushPhoneAllSoftRetry1 */
-        scheduleMobilePushSoftRetries(userId, payload, out);
-      } catch (_) {}
-      /* pushDesktopClosedPwa1: PWA PC chiusa = solo FCM/WNS. Più retry desktop
-         (3.5s / 20s / 90s) se desktopSent=0 — prima un solo tentativo spesso miss. */
-      try {
-        if ((Number(out?.desktopSent) || 0) === 0 && out?.skipped !== true) {
-          const deskDelays = [3_500, 20_000, 90_000];
-          deskDelays.forEach((delayMs?, idx?) => {
-            const deskTimer = setTimeout(() => {
-              void (async () => {
-                try {
-                  const stillUnread = await isSiteInAppNotificationStillUnread(
-                    userId,
-                    payload.id,
-                    payload.dedupeKey,
-                    { missingMeansUnread: false },
-                  );
-                  if (!stillUnread) return;
-                  const deskOut = await sendWebPushToUser(
-                    userId,
-                    {
-                      ...payload,
-                      dedupeKey: String(payload.dedupeKey || payload.id || "") + ":dpr" + String(idx + 1),
-                      topicAttempt: idx + 1,
-                      ttlSeconds: Math.max(Number(payload.ttlSeconds) || 0, 60 * 60 * 12),
-                    },
-                    { deviceFilter: "desktop" },
-                  );
-                  if ((Number(deskOut?.desktopSent) || 0) > 0) {
-                    global.logger?.info?.(
-                      "[siteInAppNotifications] desktop miss retry ok:",
-                      userId,
-                      payload.kind,
-                      idx + 1,
-                    );
-                  }
-                } catch (_) {}
-              })();
-            }, delayMs);
-            if (typeof deskTimer.unref === "function") deskTimer.unref();
-          });
-        }
-      } catch (_) {}
-      return out;
+      return sendWebPushToUser(userId, payload);
     })().catch((err?) => {
       global.logger?.warn?.("[siteInAppNotifications] push send failed:", err?.message || err);
       return { ok: false, sent: 0, failed: 1 };

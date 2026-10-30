@@ -41,12 +41,6 @@ export async function hardReload(path?: string) {
   try {
     const u = new URL(raw, location.origin);
     u.searchParams.set("_vc", String(Date.now()));
-    /* segnale a PushSync: ri-iscrivi push dopo un recovery (subscription potenzialmente rotta) */
-    try {
-      sessionStorage.setItem("vc_push_resync", "1");
-    } catch {
-      /* ignore */
-    }
     location.replace(`${u.pathname}${u.search}${location.hash || ""}`);
   } catch {
     location.reload();

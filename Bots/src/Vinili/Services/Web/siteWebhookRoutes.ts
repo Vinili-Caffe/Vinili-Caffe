@@ -302,6 +302,7 @@ function mountSiteWebhookRoutes(app?, client?, deps?) {
     handleSiteNotificationsPushSubscribePost,
     handleSiteNotificationsPushShownPost,
     handleSiteNotificationsPushUnsubscribePost,
+    handleSiteNotificationsPushTestPost,
   } = require("../../Utils/Web/siteInAppNotificationsApi") as typeof import("../../Utils/Web/siteInAppNotificationsApi");
   const { completeSiteVerify } = require("../../Utils/Web/siteVerifyApi") as typeof import("../../Utils/Web/siteVerifyApi");
   const {
@@ -449,6 +450,9 @@ function mountSiteWebhookRoutes(app?, client?, deps?) {
   });
   app.post("/webhooks/site-notifications/push/unsubscribe", (req?, res?) => {
     return handleSiteNotificationsPushUnsubscribePost(client, req, res);
+  });
+  app.post("/webhooks/site-notifications/push/test", (req?, res?) => {
+    return handleSiteNotificationsPushTestPost(client, req, res);
   });
   app.get("/webhooks/site-seratafilm-access", (req?, res?) => handleSiteSeratafilmAccessGet(client, req, res));
   app.get("/webhooks/site-seratafilm-film", (req?, res?) => handleSiteSeratafilmFilmGet(client, req, res));

@@ -3,11 +3,11 @@
 import { useEffect, useRef } from "react";
 import { useAuth } from "@/lib/auth";
 import { pushSupported, syncPushSubscription } from "@/lib/push";
-import { subscribeSiteRealtime } from "@/lib/site-realtime";
 
 /**
- * pushPcBannerFix1: se il permesso c’è, ri-posta sempre la subscription al server
- * (endpoint FCM zombie = sent:1 senza banner). Ascolta anche `vc:push-resubscribe`.
+ * Tiene viva l'iscrizione push di questo dispositivo: all'apertura del sito e quando si torna sulla scheda/PWA
+ * (al massimo una volta al minuto) controlla che esista e la ri-registra sul server. Se il browser l'ha revocata
+ * o rinnovata da solo, il server riceve quella nuova e le notifiche riprendono senza fare niente.
  */
 export function PushSync() {
   const { ready, token } = useAuth();
@@ -17,48 +17,23 @@ export function PushSync() {
     if (!ready || !token || !pushSupported()) return;
     if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
 
-    const run = (forceRefresh = false) => {
+    const run = () => {
       const now = Date.now();
-      if (!forceRefresh && now - lastSync.current < 15_000) return;
+      if (now - lastSync.current < 60_000) return;
       lastSync.current = now;
-      void syncPushSubscription(token, { forceRefresh });
+      void syncPushSubscription(token);
     };
 
-    /* Dopo hardReload / Ops: forza nuova subscription (SW non va più unregistered, ma ripara chi l’aveva perso). */
-    let forceOnce = false;
-    try {
-      if (sessionStorage.getItem("vc_push_resync") === "1") {
-        sessionStorage.removeItem("vc_push_resync");
-        forceOnce = true;
-      } else if (/(?:^|[?&])_vc=/.test(location.search)) {
-        forceOnce = true;
-      }
-    } catch {
-      /* ignore */
-    }
-
-    const t = window.setTimeout(() => run(forceOnce), 900);
+    const t = window.setTimeout(run, 900);
     const onVis = () => {
-      if (document.visibilityState === "visible") run(false);
+      if (document.visibilityState === "visible") run();
     };
     document.addEventListener("visibilitychange", onVis);
-
-    const offWs = subscribeSiteRealtime((ping) => {
-      /* forceRefresh solo su nudge esplicito — evita churn endpoint a PWA chiusa */
-      if (String(ping?.type || "") === "vc:push-resubscribe") run(true);
-    });
-
-    const onSwMsg = (ev: MessageEvent) => {
-      const t = ev?.data && typeof ev.data === "object" ? String((ev.data as { type?: string }).type || "") : "";
-      if (t === "vc:push-resubscribe") run(true);
-    };
-    navigator.serviceWorker?.addEventListener?.("message", onSwMsg);
-
+    window.addEventListener("online", run);
     return () => {
       window.clearTimeout(t);
       document.removeEventListener("visibilitychange", onVis);
-      offWs();
-      navigator.serviceWorker?.removeEventListener?.("message", onSwMsg);
+      window.removeEventListener("online", run);
     };
   }, [ready, token]);
 
