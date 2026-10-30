@@ -7,7 +7,7 @@ const {
   installConsoleLogger,
 } = require("./workerAppBootstrap") as typeof import("./workerAppBootstrap");
 const { createSiteApiRestClient } = require("./siteApiRestClient") as typeof import("./siteApiRestClient");
-const { startAutoBackupLoop, listAutoBackupGuildIds } = require("../Backup/autoBackupService") as typeof import("../Backup/autoBackupService");
+const { startAutoBackupLoop, runAutoBackupTick, listAutoBackupGuildIds } = require("../Backup/autoBackupService") as typeof import("../Backup/autoBackupService");
 
 loadDotEnv();
 process.env.AUTO_BACKUP_WORKER = "1";
@@ -43,6 +43,15 @@ async function main() {
     await client.guilds.fetch(gid).catch((err?) => {
       console.warn(`[AUTO-BACKUP] fetch guild ${gid} failed:`, err?.message || err);
     });
+  }
+
+  /* AUTO_BACKUP_ONCE=1: pm2 lo avvia all'orario (cron_restart), fa il backup e si chiude invece di restare acceso tutto il giorno */
+  if (String(process.env.AUTO_BACKUP_ONCE || "").trim() === "1") {
+    console.log(`[AUTO-BACKUP] giro unico: protected=${targetIds.length}`);
+    await runAutoBackupTick(client);
+    console.log("[AUTO-BACKUP] fatto, chiudo");
+    await mongoose.disconnect().catch(() => null);
+    process.exit(0);
   }
 
   startAutoBackupLoop(client);

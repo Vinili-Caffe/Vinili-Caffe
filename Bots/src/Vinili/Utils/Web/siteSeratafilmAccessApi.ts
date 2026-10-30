@@ -87,27 +87,52 @@ function buildFilmStreamUrl(userId?) {
   return `/webhooks/site-seratafilm-film?st=${encodeURIComponent(st)}`;
 }
 
-function resolveSeratafilmFilmPath() {
+function readSeratafilmLinkFilm() {
+  const envUrl = String(process.env.VC_SERATAFILM_FILM_URL || "").trim();
+  if (envUrl) return envUrl;
   const envPath = String(process.env.VC_SERATAFILM_FILM_FILE || "").trim();
-  if (envPath && fs.existsSync(envPath)) return envPath;
+  if (envPath) return envPath;
+  /* il file vero è quello del bot TS (/opt/bot/Vinyls/Config/site.config.json ora è un collegamento a questo) */
   const cfgPaths = [
-    "/opt/bot/Vinyls/Config/site.config.json",
     path.join(__dirname, "../../Config/site.config.json"),
     path.join(__dirname, "../../../Vinili/Config/site.config.json"),
   ];
-  const wwwRoot = String(process.env.VC_WWW_ROOT || "/var/www/viniliecaffe").trim() || "/var/www/viniliecaffe";
   for (const cfgPath of cfgPaths) {
     try {
       const cfg = JSON.parse(fs.readFileSync(cfgPath, "utf8"));
       const link = String(cfg?.seratafilmEvent?.linkFilm || "").trim();
-      if (link.startsWith("/")) {
-        const full = path.join(wwwRoot, link.replace(/^\//, ""));
-        if (fs.existsSync(full)) return full;
-      }
+      if (link) return link;
     } catch (_) {}
   }
+  return "";
+}
+
+/** Locale su disco, oppure URL http(s) CDN (niente copia sulla VPS). */
+function resolveSeratafilmFilmSource() {
+  const link = readSeratafilmLinkFilm();
+  if (/^https?:\/\//i.test(link)) {
+    return { kind: "url", url: link };
+  }
+  const wwwRoot = String(process.env.VC_WWW_ROOT || "/var/www/viniliecaffe").trim() || "/var/www/viniliecaffe";
+  if (link.startsWith("/")) {
+    const full = path.join(wwwRoot, link.replace(/^\//, ""));
+    if (fs.existsSync(full)) return { kind: "file", path: full };
+  }
+  if (link && fs.existsSync(link)) return { kind: "file", path: link };
   const fallback = path.join(wwwRoot, "images/evento-hogwarts/streamingcommunityz-web.mp4");
-  return fallback;
+  if (fs.existsSync(fallback)) return { kind: "file", path: fallback };
+  return { kind: "missing", path: "", url: "" };
+}
+
+function resolveSeratafilmFilmPath() {
+  const src = resolveSeratafilmFilmSource();
+  return src.kind === "file" ? src.path : "";
+}
+
+function resolveFilmStreamUrlForUser(userId?) {
+  const src = resolveSeratafilmFilmSource();
+  if (src.kind === "url" && src.url) return src.url;
+  return buildFilmStreamUrl(userId);
 }
 
 function pipeVideoRange(req?, res?, filePath?) {
@@ -225,7 +250,7 @@ async function handleSiteSeratafilmAccessGet(client?, req?, res?) {
         cached: Boolean(verified.cached),
       });
     }
-    const filmStreamUrl = buildFilmStreamUrl(verified.userId);
+    const filmStreamUrl = resolveFilmStreamUrlForUser(verified.userId);
     return res.status(200).json({
       ok: true,
       allowed: true,
@@ -254,8 +279,15 @@ async function handleSiteSeratafilmFilmGet(client?, req?, res?) {
     if (!allowed) {
       return res.status(401).type("text/plain").send("unauthorized");
     }
-    const filePath = resolveSeratafilmFilmPath();
-    return pipeVideoRange(req, res, filePath);
+    const src = resolveSeratafilmFilmSource();
+    if (src.kind === "url" && src.url) {
+      res.setHeader("Cache-Control", "private, no-store");
+      return res.redirect(302, src.url);
+    }
+    if (src.kind !== "file" || !src.path) {
+      return res.status(404).type("text/plain").send("not_found");
+    }
+    return pipeVideoRange(req, res, src.path);
   } catch (err) {
     global.logger?.error?.("[WEBHOOK] site-seratafilm-film:", err);
     return res.status(500).type("text/plain").send("internal");

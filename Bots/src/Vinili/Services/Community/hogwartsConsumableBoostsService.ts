@@ -400,7 +400,6 @@ function findHogwartsImagePath(relativePath?) {
   const candidates = [
     path.join(HOGWARTS_IMG_DIR, rel),
     path.resolve(process.cwd(), "Vinili/Assets/evento-hogwarts", rel),
-    path.resolve("/opt/bot/Vinyls/Assets/evento-hogwarts", rel),
     path.resolve("/var/www/viniliecaffe/images/evento-hogwarts", rel),
     path.resolve("/var/www/viniliecaffe-react/images/evento-hogwarts", rel),
   ];

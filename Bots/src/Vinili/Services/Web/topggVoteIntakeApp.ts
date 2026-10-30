@@ -33,7 +33,7 @@ async function main() {
     process.exit(1);
   }
 
-  await mongoose.connect(mongo, {
+  if (mongoose.connection.readyState === 0) await mongoose.connect(mongo, {
     maxPoolSize: 2,
     minPoolSize: 0,
     maxIdleTimeMS: 30_000,
@@ -104,7 +104,12 @@ async function main() {
   });
 }
 
-main().catch((err?) => {
-  console.error("[TOPGG INTAKE] fatal:", err);
-  process.exit(1);
-});
+/* Avvio da solo oppure dentro un processo condiviso (backgroundWorkersApp / voteIntakeApp) che passa il client. */
+if (require.main === module) {
+  main().catch((err?) => {
+    console.error("[TOPGG INTAKE] fatal:", err);
+    process.exit(1);
+  });
+}
+
+export = { startTopggIntake: main };

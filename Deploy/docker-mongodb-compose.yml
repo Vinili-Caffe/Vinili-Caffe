@@ -18,8 +18,9 @@ services:
     command:
       - mongod
       - --bind_ip_all
+      # 0.3: dal 30/10/2026, con meno processi Node (meno connessioni) e la VPS senza RAM libera
       - --wiredTigerCacheSizeGB
-      - "0.4"
+      - "0.3"
 
 volumes:
   vc_mongodb_data:

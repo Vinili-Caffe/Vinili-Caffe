@@ -17,9 +17,9 @@ export type SerataEvent = {
 export const SERATA_EVENT: SerataEvent = {
   timezone: "Europe/Rome",
   recurring: { weekday: 6, hour: 21, minute: 0 },
-  /** Extra mercoledì 28 ott 2026 21:00 Rome (CET). */
-  overrideIso: "2026-10-28T21:00:00+01:00",
-  filmTitle: "La sposa cadavere",
+  /** Prova / serata live — aggiorna prima della serata pubblica. */
+  overrideIso: "2026-10-30T11:55:03+01:00",
+  filmTitle: "Nightmare Before Christmas",
   nextFilmTitle: "",
 };
 

@@ -132,6 +132,19 @@ async function runGuildAutoBackup(guild?) {
   return created;
 }
 
+/* Un giro di backup su tutte le guild protette (al massimo uno al giorno per guild, vedi runGuildAutoBackup). */
+async function runAutoBackupTick(client?) {
+  const guilds = await resolveAutoBackupGuilds(client);
+  for (const guild of guilds) {
+    try {
+      await validateAndHealGuildBackups(guild.id, { limit: 20 }).catch(() => null);
+      await runGuildAutoBackup(guild);
+    } catch (error) {
+      global.logger?.error?.(`[backup.auto] failed guild=${guild.id}:`, error);
+    }
+  }
+}
+
 function startAutoBackupLoop(client?) {
   const dedicated = String(process.env.AUTO_BACKUP_WORKER || "").trim() === "1";
   const external = String(process.env.AUTO_BACKUP_EXTERNAL || "").trim() === "1";
@@ -146,17 +159,7 @@ function startAutoBackupLoop(client?) {
     `[backup.auto] loop avviato — solo guild protette (${targets.length}): ${targets.join(", ") || "(nessuna)"}`,
   );
 
-  const runTick = async () => {
-    const guilds = await resolveAutoBackupGuilds(client);
-    for (const guild of guilds) {
-      try {
-        await validateAndHealGuildBackups(guild.id, { limit: 20 }).catch(() => null);
-        await runGuildAutoBackup(guild);
-      } catch (error) {
-        global.logger?.error?.(`[backup.auto] failed guild=${guild.id}:`, error);
-      }
-    }
-  };
+  const runTick = () => runAutoBackupTick(client);
 
   runTick().catch(() => {});
 
@@ -171,6 +174,7 @@ function startAutoBackupLoop(client?) {
 
 export = {
   startAutoBackupLoop,
+  runAutoBackupTick,
   listAutoBackupGuildIds,
   isViniliProtectedGuild,
 };

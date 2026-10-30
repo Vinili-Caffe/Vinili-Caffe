@@ -15,7 +15,7 @@ process.env.VOTE_QUEUE_WORKER = "1";
 installConsoleLogger();
 installWorkerEmbedPatches();
 
-async function main() {
+async function main(shared?: { client?: any } | null) {
   const mongo = resolveMongoUrl();
   if (!mongo) {
     console.error("[VOTE-DRAIN] Missing MONGO_URL / MONGODB_URI");
@@ -28,13 +28,13 @@ async function main() {
   }
 
   const config = loadVinylsConfig();
-  await mongoose.connect(mongo, {
+  if (mongoose.connection.readyState === 0) await mongoose.connect(mongo, {
     maxPoolSize: 4,
     serverSelectionTimeoutMS: 12_000,
   });
   console.log("[VOTE-DRAIN] Mongo connected");
 
-  const client = await createSiteApiRestClient(config, token);
+  const client = shared?.client || (await createSiteApiRestClient(config, token));
   global.botClient = client;
   startVoteQueueLoop(client, 15_000);
   console.log(
@@ -42,7 +42,12 @@ async function main() {
   );
 }
 
-main().catch((err?) => {
-  console.error("[VOTE-DRAIN] fatal:", err);
-  process.exit(1);
-});
+/* Avvio da solo oppure dentro un processo condiviso (backgroundWorkersApp / voteIntakeApp) che passa il client. */
+if (require.main === module) {
+  main().catch((err?) => {
+    console.error("[VOTE-DRAIN] fatal:", err);
+    process.exit(1);
+  });
+}
+
+export = { startVoteDrainWorker: main };

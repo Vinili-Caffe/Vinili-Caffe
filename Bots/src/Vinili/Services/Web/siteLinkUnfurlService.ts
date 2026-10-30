@@ -27,7 +27,6 @@ function loadOgMeta() {
   const candidates = [
     path.join(__dirname, "../../Config/og-meta.json"),
     path.join(__dirname, "../../../Vinili/Config/og-meta.json"),
-    "/opt/bot/Vinyls/Config/og-meta.json",
   ];
   for (const file of candidates) {
     try {

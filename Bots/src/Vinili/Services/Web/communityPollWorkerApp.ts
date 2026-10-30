@@ -27,7 +27,7 @@ process.env.COMMUNITY_POLL_WORKER = "1";
 installConsoleLogger();
 installWorkerEmbedPatches();
 
-async function main() {
+async function main(shared?: { client?: any } | null) {
   const mongo = resolveMongoUrl();
   if (!mongo) {
     console.error("[COMMUNITY-POLL] Missing MONGO_URL / MONGODB_URI");
@@ -40,13 +40,13 @@ async function main() {
   }
 
   const config = loadVinylsConfig();
-  await mongoose.connect(mongo, {
+  if (mongoose.connection.readyState === 0) await mongoose.connect(mongo, {
     maxPoolSize: 4,
     serverSelectionTimeoutMS: 12_000,
   });
   console.log("[COMMUNITY-POLL] Mongo connected");
 
-  const client = await createSiteApiRestClient(config, token, {
+  const client = shared?.client || await createSiteApiRestClient(config, token, {
     restTimeoutMs: 12_000,
     meAttempts: 5,
   });
@@ -68,7 +68,12 @@ async function main() {
   );
 }
 
-main().catch((err?) => {
-  console.error("[COMMUNITY-POLL] fatal:", err);
-  process.exit(1);
-});
+/* Avvio da solo oppure dentro un processo condiviso (backgroundWorkersApp / voteIntakeApp) che passa il client. */
+if (require.main === module) {
+  main().catch((err?) => {
+    console.error("[COMMUNITY-POLL] fatal:", err);
+    process.exit(1);
+  });
+}
+
+export = { startCommunityPollWorker: main };

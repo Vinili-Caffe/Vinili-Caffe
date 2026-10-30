@@ -37,7 +37,7 @@ function loadVinylsConfig() {
   return JSON.parse(fs.readFileSync(configPath, "utf8"));
 }
 
-async function main() {
+async function main(shared?: { client?: any } | null) {
   /* mongoSingleSource1 */
   const mongo = require("../../Utils/Database/mongoConnect").buildMongoUrl();
   if (!mongo) {
@@ -59,7 +59,7 @@ async function main() {
     debug: (...a) => console.log(...a),
   };
 
-  await mongoose.connect(mongo, {
+  if (mongoose.connection.readyState === 0) await mongoose.connect(mongo, {
     maxPoolSize: 4,
     serverSelectionTimeoutMS: 12_000,
   });
@@ -67,7 +67,7 @@ async function main() {
 
   await refreshPartnershipConfigCache().catch(() => null);
 
-  const client = await createSiteApiRestClient(config, token);
+  const client = shared?.client || (await createSiteApiRestClient(config, token));
   global.botClient = client;
   startPartnershipHistoryMigrationWorker(client);
   console.log(
@@ -78,7 +78,12 @@ async function main() {
   keepAlive.unref?.();
 }
 
-main().catch((err?) => {
-  console.error("[PARTNERSHIP-MIGRATION] fatal:", err);
-  process.exit(1);
-});
+/* Avvio da solo oppure dentro un processo condiviso (backgroundWorkersApp / voteIntakeApp) che passa il client. */
+if (require.main === module) {
+  main().catch((err?) => {
+    console.error("[PARTNERSHIP-MIGRATION] fatal:", err);
+    process.exit(1);
+  });
+}
+
+export = { startPartnershipMigrationWorker: main };

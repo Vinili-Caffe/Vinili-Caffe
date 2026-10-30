@@ -27,13 +27,15 @@ const BOOT_GRACE_MS = {
 
 const LAVALINK_PASSWORD = String(process.env.LAVALINK_PASSWORD || "youshallnotpass").trim() || "youshallnotpass";
 
-/** @type {{ name: string, kind: 'http'|'tcp', url?: string, host?: string, port?: number, headers?: Record<string,string> }} */
+/** key: contatore errori separato quando due controlli riguardano lo stesso processo pm2. */
+/** @type {{ name: string, key?: string, kind: 'http'|'tcp', url?: string, host?: string, port?: number, headers?: Record<string,string> }} */
 const CHECKS = [
   /* perfP0: health webhook è sul processo Vinyls (LOADER_BOTS=vinyls) */
   { name: "bots-vinyls", kind: "http", url: "http://127.0.0.1:3000/webhooks/health" },
   { name: "site-api", kind: "http", url: "http://127.0.0.1:3020/webhooks/site-api/health" },
-  { name: "discadia-votes", kind: "http", url: "http://127.0.0.1:3010/webhooks/discadia/health" },
-  { name: "topgg-votes", kind: "http", url: "http://127.0.0.1:3014/webhooks/topgg/health" },
+  /* Discadia e Top.gg sono lo stesso processo pm2 (voteIntakeApp) */
+  { name: "vote-intake", key: "vote-intake:discadia", kind: "http", url: "http://127.0.0.1:3010/webhooks/discadia/health" },
+  { name: "vote-intake", key: "vote-intake:topgg", kind: "http", url: "http://127.0.0.1:3014/webhooks/topgg/health" },
   /* lavalinkAuthHealth1: HTTP /version con Authorization (niente WARN RequestAuthorizationFilter) */
   {
     name: "lavalink",
@@ -49,13 +51,9 @@ const PM2_RESTARTABLE = new Set([
   "bots-vinyls",
   "bots-coffee",
   "site-api",
-  "discadia-votes",
-  "topgg-votes",
+  "vote-intake",
   "lavalink",
-  "vote-drain",
-  "bot-scheduler",
-  "auto-backup",
-  "partnership-migration",
+  "bot-workers",
 ]);
 
 const failCounts = new Map();
@@ -184,6 +182,7 @@ async function tick() {
   const pm2 = await pm2InfoMap();
   for (const check of CHECKS) {
     const info = pm2?.get(check.name) || null;
+    const fk = check.key || check.name;
     let ok = false;
     if (check.kind === "http") ok = await httpGetOk(check.url, 8000, check.headers || null);
     else if (check.kind === "tcp") ok = await tcpOk(check.host, check.port);
@@ -193,29 +192,30 @@ async function tick() {
       // Processo online ma ancora in boot: non contare come fail.
       else if (!ok && isInBootGrace(check.name, info)) {
         log("info", `${check.name} still booting (uptime ${Math.round(info.uptimeMs / 1000)}s)`);
-        failCounts.set(check.name, 0);
+        failCounts.set(fk, 0);
         continue;
       }
     }
 
-    const prev = failCounts.get(check.name) || 0;
+    const prev = failCounts.get(fk) || 0;
     if (ok) {
       if (prev > 0) log("info", `${check.name} recovered`);
-      failCounts.set(check.name, 0);
+      failCounts.set(fk, 0);
       continue;
     }
 
     const next = prev + 1;
-    failCounts.set(check.name, next);
+    failCounts.set(fk, next);
     log("warn", `${check.name} unhealthy (${next}/${FAIL_THRESHOLD})`);
     if (next >= FAIL_THRESHOLD) {
       await maybeRestart(check.name, `failed_${next}_checks`, info);
-      failCounts.set(check.name, 0);
+      failCounts.set(fk, 0);
     }
   }
 
   if (pm2) {
-    for (const name of ["vote-drain", "bot-scheduler", "auto-backup", "partnership-migration"]) {
+    /* auto-backup no: è fermo apposta tra un backup e l'altro (cron_restart) */
+    for (const name of ["bot-workers"]) {
       const info = pm2.get(name);
       if (!info || info.status === "online") {
         failCounts.set(name, 0);

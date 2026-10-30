@@ -75,26 +75,32 @@ const lavalinkPm2App = {
   env: lavalinkEnvFromFile,
 };
 
-const botsTsRootName = ["Bots", "bots-ts"].find((name) =>
-  fs.existsSync(path.join(base, name, "src", "wait-for-lavalink.ts")),
+/* Bot in TypeScript. Sulla VPS gira il JavaScript già compilato (Bots/tools/compila.mjs, pubblica.sh):
+   ogni .ts è sostituito dal suo .js nella stessa cartella, niente tsx a runtime (meno RAM, avvii senza
+   compilare 1100 file su un core solo). In locale, con i .ts, si usa tsx come prima. */
+const botsTsRootName = ["Bots", "bots-ts"].find(
+  (name) =>
+    fs.existsSync(path.join(base, name, "src", "wait-for-lavalink.ts")) ||
+    fs.existsSync(path.join(base, name, "src", "wait-for-lavalink.js")),
 ) || "bots-ts";
 const botsSrcDir = path.join(base, botsTsRootName, "src");
 const botsUseTs = fs.existsSync(path.join(botsSrcDir, "wait-for-lavalink.ts"));
+const botsUseSrc = botsUseTs || fs.existsSync(path.join(botsSrcDir, "wait-for-lavalink.js"));
 const tsxImportArgs = "--disable-warning=ExperimentalWarning --import tsx";
 
 function resolveBotScript(relJs) {
-  if (!botsUseTs || !/\.(js)$/.test(relJs)) return { script: relJs, useTs: false };
+  if (!botsUseSrc || !/\.(js)$/.test(relJs)) return { script: relJs, useTs: false };
   if (!/^(Vinili|Caffè|Vinyls|Coffee|shared)\//.test(relJs)) return { script: relJs, useTs: false };
   const tsRel = relJs.replace(/\.js$/, ".ts");
-  const full = path.join(botsSrcDir, tsRel);
-  if (!fs.existsSync(full)) return { script: relJs, useTs: false };
-  return { script: path.join(botsTsRootName, "src", tsRel), useTs: true };
+  if (fs.existsSync(path.join(botsSrcDir, tsRel))) return { script: path.join(botsTsRootName, "src", tsRel), useTs: true };
+  if (fs.existsSync(path.join(botsSrcDir, relJs))) return { script: path.join(botsTsRootName, "src", relJs), useTs: false };
+  return { script: relJs, useTs: false };
 }
 
 function makeBotsApp(name, loaderBots, memRestart, nodeHeapMb) {
   return {
     name,
-    cwd: botsUseTs ? botsSrcDir : base,
+    cwd: botsUseSrc ? botsSrcDir : base,
     script: botsUseTs ? "wait-for-lavalink.ts" : "wait-for-lavalink.js",
     interpreter: nodeInterpreter,
     interpreter_args: botsUseTs ? tsxImportArgs : undefined,
@@ -204,26 +210,13 @@ module.exports = {
         SPOTIFY_TOKEN_CACHE_PORT: "8003",
       },
     },
+    /* Top.gg (3014) + Discadia (3010) in un processo: prima discadia-votes e topgg-votes */
     ensurePm2App(
-      "discadia-votes",
-      "Vinili/Services/Web/discadiaVoteIntakeApp.js",
+      "vote-intake",
+      "Vinili/Services/Web/voteIntakeApp.js",
       "260M",
-      { DISCADIA_VOTE_INTAKE_PORT: "3010" },
+      { DISCADIA_VOTE_INTAKE_PORT: "3010", TOPGG_VOTE_INTAKE_PORT: "3014" },
       "--max-old-space-size=192",
-    ),
-    ensurePm2App(
-      "topgg-votes",
-      "Vinili/Services/Web/topggVoteIntakeApp.js",
-      "260M",
-      { TOPGG_VOTE_INTAKE_PORT: "3014" },
-      "--max-old-space-size=192",
-    ),
-    ensurePm2App(
-      "vote-drain",
-      "Vinili/Services/Web/voteQueueDrainWorkerApp.js",
-      "280M",
-      { VOTE_QUEUE_WORKER: "1" },
-      "--max-old-space-size=220",
     ),
     ensurePm2App(
       "site-api",
@@ -238,38 +231,31 @@ module.exports = {
       },
       "--max-old-space-size=512",
     ),
+    /* vote-drain + partnership-migration + bot-scheduler + community-poll in un processo (backgroundWorkersApp) */
     ensurePm2App(
-      "partnership-migration",
-      "Vinili/Services/Web/partnershipMigrationWorkerApp.js",
-      "280M",
-      { PARTNERSHIP_MIGRATION_WORKER: "1" },
-      "--max-old-space-size=220",
-    ),
-    ensurePm2App(
-      "bot-scheduler",
-      "Vinili/Services/Web/botSchedulerWorkerApp.js",
-      "420M",
-      { BOT_SCHEDULER_WORKER: "1" },
-      "--max-old-space-size=320",
-    ),
-    ensurePm2App(
-      "community-poll",
-      "Vinili/Services/Web/communityPollWorkerApp.js",
-      "360M",
+      "bot-workers",
+      "Vinili/Services/Web/backgroundWorkersApp.js",
+      "700M",
       {
+        VOTE_QUEUE_WORKER: "1",
+        PARTNERSHIP_MIGRATION_WORKER: "1",
+        BOT_SCHEDULER_WORKER: "1",
         COMMUNITY_POLL_WORKER: "1",
         COMMUNITY_POLL_EXTERNAL: "1",
         LIVE_VOICE_EXP_INTERVAL_MS: String(botEnvFromFile.LIVE_VOICE_EXP_INTERVAL_MS || "45000"),
         LIVE_VOICE_EXP_BATCH_SIZE: String(botEnvFromFile.LIVE_VOICE_EXP_BATCH_SIZE || "50"),
       },
-      "--max-old-space-size=280",
+      "--max-old-space-size=560",
     ),
+    /* Backup automatico: parte alle 00:15 (ora del server), fa il giro e si chiude. Se il server si
+       riavvia gira subito una volta, ma il backup è al massimo uno al giorno (marker su disco). */
     ensurePm2App(
       "auto-backup",
       "Vinili/Services/Web/autoBackupWorkerApp.js",
       "480M",
-      { AUTO_BACKUP_WORKER: "1" },
+      { AUTO_BACKUP_WORKER: "1", AUTO_BACKUP_ONCE: "1" },
       "--max-old-space-size=380",
+      { autorestart: false, cron_restart: "15 0 * * *" },
     ),
     ensurePm2App(
       "host-watchdog",

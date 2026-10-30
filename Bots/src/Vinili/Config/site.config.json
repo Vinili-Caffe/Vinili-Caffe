@@ -195,10 +195,10 @@
       "hour": 21,
       "minute": 0
     },
-    "overrideIso": "2026-10-28T21:00:00+01:00",
-    "linkFilm": "",
+    "overrideIso": "2026-10-30T11:55:03+01:00",
+    "linkFilm": "https://cdn.viniliecaffe.it/images/seratafilm/nightmare-before-christmas.mp4",
     "hogwartsThemeVideoUrl": "/images/evento-hogwarts/theme-bg.mp4",
-    "filmTitle": "La sposa cadavere",
+    "filmTitle": "Nightmare Before Christmas",
     "creditsSkip": {
       "enabled": false,
       "startSeconds": 0,
