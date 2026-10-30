@@ -351,7 +351,7 @@ function loadRoleIdRemap() {
   try {
     const fs = require("fs") as typeof import("fs");
     const path = require("path") as typeof import("path");
-    const fp = path.join(__dirname, "../../Data/roleIdRemap.emergency.json");
+    const fp = path.join(__dirname, "../Data/roleIdRemap.emergency.json");
     const raw = JSON.parse(fs.readFileSync(fp, "utf8"));
     const forward = raw?.idRemap && typeof raw.idRemap === "object" ? raw.idRemap : {};
     const reverse: Record<string, any> = {};

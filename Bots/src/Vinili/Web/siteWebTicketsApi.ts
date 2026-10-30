@@ -233,7 +233,7 @@ const EMOJI_CACHE_TTL_MS = 5 * 60 * 1000;
 const ALLOWED_IMAGE_MIME = new Set(["image/png", "image/jpeg", "image/jpg", "image/webp", "image/gif"]);
 const ALLOWED_VIDEO_MIME = new Set(["video/mp4", "video/webm", "video/quicktime"]);
 const ALLOWED_MEDIA_MIME = new Set([...ALLOWED_IMAGE_MIME, ...ALLOWED_VIDEO_MIME]);
-const UPLOAD_ROOT = path.resolve(__dirname, "../../Data/uploads/web-tickets");
+const UPLOAD_ROOT = path.resolve(__dirname, "../Data/uploads/web-tickets");
 
 let guildEmojiCache = { guildId: "", at: 0, emojis: [] };
 let cachedBotUserId = "";
@@ -4025,7 +4025,7 @@ function slashCommandJson(cmd?) {
 function loadSlashCommandsFromDisk() {
   if ((loadSlashCommandsFromDisk as any).cache) return (loadSlashCommandsFromDisk as any).cache;
   const items = [];
-  const root = path.join(__dirname, "../../Commands");
+  const root = path.join(__dirname, "../Commands");
   if (!fs.existsSync(root)) return items;
   let folders = [];
   try {

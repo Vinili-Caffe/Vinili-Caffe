@@ -7,7 +7,7 @@
 const fs = require("fs") as typeof import("fs");
 const path = require("path") as typeof import("path");
 
-const LOG_DIR = path.join(__dirname, "..", "..", "logs");
+const LOG_DIR = path.join(__dirname, "..", "logs");
 const LOG_FILE = path.join(LOG_DIR, "site-client-errors.log");
 const MAX_BYTES = 2 * 1024 * 1024;
 const PER_MINUTE = 20;

@@ -1,20 +1,17 @@
 /**
- * Root upload sito.
- * Pre-cutover (Vinyls/Utils/Web): `../../../Data` → `/opt/bot/Data`.
- * Post-cutover (bots-ts/src/Vinili/Utils/Web): stesso `../../../` andrebbe in
- * `bots-ts/src/Data` (vuoto) — usiamo `../../Data` (Vinili/Data → Vinyls/Data)
- * e, se esistono ancora file in `/opt/bot/Data/uploads/...`, preferiamo quelli.
+ * Root upload sito (questo file sta in bots-ts/src/Vinili/Web).
+ * Prima si guarda il vecchio `/opt/bot/Data/uploads/...` (bacheche, contest, suggerimenti, compiti),
+ * poi `Vinili/Data/uploads/...`, dove si creano le cartelle nuove.
  */
 const fs = require("node:fs") as typeof import("node:fs");
 const path = require("node:path") as typeof import("node:path");
 
 function resolveSiteUploadRoot(subdir: string, fromDirname = __dirname) {
   const name = String(subdir || "").replace(/^\/+|\/+$/g, "");
-  const linked = path.resolve(fromDirname, "../../Data/uploads", name);
-  const legacyBot = path.resolve(fromDirname, "../../../../../Data/uploads", name);
-  const brokenTsSrc = path.resolve(fromDirname, "../../../Data/uploads", name);
+  const linked = path.resolve(fromDirname, "../Data/uploads", name);
+  const legacyBot = path.resolve(fromDirname, "../../../../Data/uploads", name);
 
-  for (const candidate of [legacyBot, linked, brokenTsSrc]) {
+  for (const candidate of [legacyBot, linked]) {
     try {
       if (fs.existsSync(candidate)) return candidate;
     } catch (_) {}

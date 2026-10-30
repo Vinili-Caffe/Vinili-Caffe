@@ -12,7 +12,7 @@ const { registerShutdownFlush, armShutdownCheckpoint } = require("../../shared/r
 const DEFAULT_DELAY_MS = 4 * 60 * 1000;
 const pending = new Map();
 /* rebootDurability1: pending chat DM fallbacks → snapshot disk */
-const SNAPSHOT_PATH = path.join(__dirname, "..", "..", "Data", "siteChatDmFallbackSnapshot.json");
+const SNAPSHOT_PATH = path.join(__dirname, "..", "Data", "siteChatDmFallbackSnapshot.json");
 let flushRegistered = false;
 let restoredOnStartup = false;
 

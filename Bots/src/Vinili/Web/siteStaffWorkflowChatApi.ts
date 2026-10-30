@@ -49,7 +49,7 @@ const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 const MAX_REACTION_KINDS = 12;
 const MAX_REACTION_USERS = 80;
 const ALLOWED_MEDIA_MIME = new Set(["image/png", "image/jpeg", "image/webp", "image/gif", "video/mp4", "video/webm", "video/quicktime"]);
-const UPLOAD_ROOT = path.resolve(__dirname, "../../Data/uploads/workflow-chat");
+const UPLOAD_ROOT = path.resolve(__dirname, "../Data/uploads/workflow-chat");
 
 function bearerFromRequest(req?) {
   const header = normalizeHeaderSecret(req?.headers?.authorization);

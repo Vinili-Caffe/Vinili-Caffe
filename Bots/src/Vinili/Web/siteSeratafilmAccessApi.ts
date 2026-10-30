@@ -103,8 +103,8 @@ function readSeratafilmLinkFilm() {
   if (envPath) return envPath;
   /* il file vero è quello del bot TS (/opt/bot/Vinyls/Config/site.config.json ora è un collegamento a questo) */
   const cfgPaths = [
-    path.join(__dirname, "../../Config/site.config.json"),
-    path.join(__dirname, "../../../Vinili/Config/site.config.json"),
+    path.join(__dirname, "../Config/site.config.json"),
+    path.join(__dirname, "../../Vinili/Config/site.config.json"),
   ];
   for (const cfgPath of cfgPaths) {
     try {
