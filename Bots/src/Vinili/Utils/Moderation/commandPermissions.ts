@@ -23,7 +23,7 @@ const {
   isPartnershipOperational,
   memberHasPartnerManagerRole,
   SETUP_REQUIRED_REPLY,
-} = require("../../Utils/Partner/partnershipConfigResolver") as typeof import("../Partner/partnershipConfigResolver");
+} = require("../Partner/partnershipConfigResolver") as typeof import("../Partner/partnershipConfigResolver");
 const EMPTY_PERMISSIONS = { slash: {}, prefix: {}, channels: {}, buttons: {}, selectMenus: {}, modals: {}, };
 const PERMISSIONS_CANDIDATES = [
   path.resolve(__dirname, "../../permissions.json"),

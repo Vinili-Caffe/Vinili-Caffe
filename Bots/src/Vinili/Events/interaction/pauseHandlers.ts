@@ -20,7 +20,7 @@ const pauseActionLocks = new Set();
 
 function notifyStaffPauseCalendarChanged(userId?) {
   try {
-    const { broadcastSiteStaffPausesChanged } = require("../../Utils/Web/siteSuggestionsBroadcast") as typeof import("../../Utils/Web/siteSuggestionsBroadcast");
+    const { broadcastSiteStaffPausesChanged } = require("../../Web/siteSuggestionsBroadcast") as typeof import("../../Web/siteSuggestionsBroadcast");
     broadcastSiteStaffPausesChanged();
   } catch {
       }
@@ -28,7 +28,7 @@ function notifyStaffPauseCalendarChanged(userId?) {
   const uid = String(userId || "").trim();
   if (!/^\d{16,22}$/.test(uid)) return;
   try {
-    const { clearStaffProfileCacheForUser } = require("../../Utils/Web/siteStaffProfileApi") as typeof import("../../Utils/Web/siteStaffProfileApi");
+    const { clearStaffProfileCacheForUser } = require("../../Web/siteStaffProfileApi") as typeof import("../../Web/siteStaffProfileApi");
     clearStaffProfileCacheForUser(uid, { action: "pause" });
   } catch {
       }
@@ -242,7 +242,7 @@ async function handlePauseButton(interaction?) {
     await interaction.message?.edit({ content: updatedContent, components: [] });
     notifyStaffPauseCalendarChanged(effectiveUserId);
     try {
-      const { updateStaffWorkflowFromPause, workflowActorExtras } = require("../../Utils/Web/siteStaffWorkflowStore") as typeof import("../../Utils/Web/siteStaffWorkflowStore");
+      const { updateStaffWorkflowFromPause, workflowActorExtras } = require("../../Web/siteStaffWorkflowStore") as typeof import("../../Web/siteStaffWorkflowStore");
       await updateStaffWorkflowFromPause(
         guildId,
         effectiveUserId,
@@ -361,7 +361,7 @@ async function handlePauseButton(interaction?) {
     void maybeRepositionPauseSticky(interaction.channel, interaction.client).catch(() => null);
     notifyStaffPauseCalendarChanged(effectiveUserId);
     try {
-      const { updateStaffWorkflowFromPause, workflowActorExtras } = require("../../Utils/Web/siteStaffWorkflowStore") as typeof import("../../Utils/Web/siteStaffWorkflowStore");
+      const { updateStaffWorkflowFromPause, workflowActorExtras } = require("../../Web/siteStaffWorkflowStore") as typeof import("../../Web/siteStaffWorkflowStore");
       await updateStaffWorkflowFromPause(
         guildId,
         effectiveUserId,
@@ -538,7 +538,7 @@ async function handlePauseButton(interaction?) {
   void maybeRepositionPauseSticky(interaction.channel, interaction.client).catch(() => null);
   notifyStaffPauseCalendarChanged(effectiveUserId);
   try {
-    const { updateStaffWorkflowFromPause, workflowActorExtras } = require("../../Utils/Web/siteStaffWorkflowStore") as typeof import("../../Utils/Web/siteStaffWorkflowStore");
+    const { updateStaffWorkflowFromPause, workflowActorExtras } = require("../../Web/siteStaffWorkflowStore") as typeof import("../../Web/siteStaffWorkflowStore");
     await updateStaffWorkflowFromPause(
       guildId,
       effectiveUserId,

@@ -1,4 +1,4 @@
-const { t, resolveTenantLanguage } = require("./tenantPartnershipI18n") as typeof import("./tenantPartnershipI18n");
+const { t, resolveTenantLanguage } = require("./tenantPartnershipI18n/index") as typeof import("./tenantPartnershipI18n/index");
 const { buildSimpleNoticePayload } = require("../Embeds/simpleNoticeEmbed") as typeof import("../Embeds/simpleNoticeEmbed");
 
 function localeOptionsFromMessage(message?, userId?) {

@@ -199,7 +199,7 @@ async function openPartnerManagerShopWebTicketForMember(client?, guild?, member?
       serializeMessage,
       ticketBroadcastPayload,
       notifyStaffNewTicket,
-    } = require("../Web/siteWebTicketsApi") as typeof import("../Web/siteWebTicketsApi");
+    } = require("../../Web/siteWebTicketsApi") as typeof import("../../Web/siteWebTicketsApi");
     const serialized = serializeTicket(ticket, { includeStaffFields: true });
     const broadcastTicket = ticketBroadcastPayload(serialized);
     emitTicketEvent({ type: "web_ticket_created", ticket: broadcastTicket });

@@ -258,7 +258,7 @@ async function buildThankYouVariablesHelpPayload(interaction?, lang = "en") {
   const { resolvePartnershipConfigSync } = require("./partnershipConfigResolver") as typeof import("./partnershipConfigResolver");
   const { getOrCreateStaffDoc } = require("../Staff/staffDocUtils") as typeof import("../Staff/staffDocUtils");
   const { resolvePartnerTotalEarned } = require("../Staff/partnerPointsDisplayUtils") as typeof import("../Staff/partnerPointsDisplayUtils");
-  const { t } = require("./tenantPartnershipI18n") as typeof import("./tenantPartnershipI18n");
+  const { t } = require("./tenantPartnershipI18n/index") as typeof import("./tenantPartnershipI18n/index");
   const { buildLocalizedVariableHelpSections } = require("./tenantPartnershipI18n/embedVarHelpPacks") as typeof import("./tenantPartnershipI18n/embedVarHelpPacks");
   const { normalizeTenantLanguage } = require("./tenantPartnershipI18n/languages") as typeof import("./tenantPartnershipI18n/languages");
   const code = normalizeTenantLanguage(lang);
@@ -315,7 +315,7 @@ async function buildThankYouVariablesHelpPayload(interaction?, lang = "en") {
 }
 
 function buildThankYouVariablesHelpText(lang = "en") {
-  const { t } = require("./tenantPartnershipI18n") as typeof import("./tenantPartnershipI18n");
+  const { t } = require("./tenantPartnershipI18n/index") as typeof import("./tenantPartnershipI18n/index");
   const { normalizeTenantLanguage } = require("./tenantPartnershipI18n/languages") as typeof import("./tenantPartnershipI18n/languages");
   return t(normalizeTenantLanguage(lang), "varHelp_openHint");
 }

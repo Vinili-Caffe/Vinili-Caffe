@@ -404,7 +404,7 @@ async function purgeDueStaffGraceProfiles(client = null) {
         global.logger?.warn?.("[STAFF GRACE PURGE] staff channel cleanup:", uid, err?.message || err);
       });
       try {
-        const { cancelPendingResocontiWorkflowForUser } = require("../../Utils/Web/siteStaffWorkflowStore") as typeof import("../../Utils/Web/siteStaffWorkflowStore");
+        const { cancelPendingResocontiWorkflowForUser } = require("../../Web/siteStaffWorkflowStore") as typeof import("../../Web/siteStaffWorkflowStore");
         await cancelPendingResocontiWorkflowForUser(gid, uid, {
           statusLabel: "Annullato (depex)",
           decidedBy: "system",

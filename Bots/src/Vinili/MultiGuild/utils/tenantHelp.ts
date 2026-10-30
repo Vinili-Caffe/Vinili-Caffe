@@ -7,7 +7,7 @@ const {
   rewriteDefaultCommandPrefix,
 } = require("../core/tenantGuildSettings") as typeof import("../core/tenantGuildSettings");
 const { TENANT_EMBED_COLOR } = require("./tenantEmbedBranding") as typeof import("./tenantEmbedBranding");
-const { t } = require("../../Utils/Partner/tenantPartnershipI18n") as typeof import("../../Utils/Partner/tenantPartnershipI18n");
+const { t } = require("../../Utils/Partner/tenantPartnershipI18n/index") as typeof import("../../Utils/Partner/tenantPartnershipI18n/index");
 const { resolveTenantLanguageForMessage } = require("../../Utils/Partner/tenantPartnershipPrefixMessages") as typeof import("../../Utils/Partner/tenantPartnershipPrefixMessages");
 const HELP_COLOR = TENANT_EMBED_COLOR;
 const ERROR_COLOR = "Red";

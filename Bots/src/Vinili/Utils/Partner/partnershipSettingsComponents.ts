@@ -4,7 +4,7 @@ const { formatPingDelayDisplay, formatPingDelayForInput, formatPingMemberThresho
 const { hasThankYouEmbedContent, resolveThankYouEmbedEditorValues, truncateModalValue, formatThankYouEmbedValueForModal } = require("./partnershipThankYouEmbed") as typeof import("./partnershipThankYouEmbed");
 const { applyPartnershipPayloadBranding, TENANT_EMBED_COLOR } = require("../../MultiGuild/utils/tenantEmbedBranding") as typeof import("../../MultiGuild/utils/tenantEmbedBranding");
 const { applyLocalizedTenantFooter } = require("./tenantPartnershipI18n/tenantPartnershipFooter") as typeof import("./tenantPartnershipI18n/tenantPartnershipFooter");
-const { t } = require("./tenantPartnershipI18n") as typeof import("./tenantPartnershipI18n");
+const { t } = require("./tenantPartnershipI18n/index") as typeof import("./tenantPartnershipI18n/index");
 const { TENANT_PARTNERSHIP_ARROWS } = require("./tenantPartnershipArrows") as typeof import("./tenantPartnershipArrows");
 const { formatLeaveAction, channelLine, roleLine, formatPmCommandsZone } = require("./tenantPartnershipAdminRuntime") as typeof import("./tenantPartnershipAdminRuntime");
 

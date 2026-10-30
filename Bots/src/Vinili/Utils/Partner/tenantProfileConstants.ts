@@ -1,4 +1,4 @@
-const { TENANT_LANGUAGES, TENANT_LANGUAGE_OPTIONS, LANGUAGE_PICKER_ROWS, BADGE_COPY, OBJECTIVE_COPY, buildObjectiveDefs, normalizeTenantLanguage, t, getLanguageFlag, getLanguageLabel, resolveTenantLanguage } = require("./tenantPartnershipI18n") as typeof import("./tenantPartnershipI18n");
+const { TENANT_LANGUAGES, TENANT_LANGUAGE_OPTIONS, LANGUAGE_PICKER_ROWS, BADGE_COPY, OBJECTIVE_COPY, buildObjectiveDefs, normalizeTenantLanguage, t, getLanguageFlag, getLanguageLabel, resolveTenantLanguage } = require("./tenantPartnershipI18n/index") as typeof import("./tenantPartnershipI18n/index");
 const { TENANT_PARTNERSHIP_ARROWS } = require("./tenantPartnershipArrows") as typeof import("./tenantPartnershipArrows");
 const { BADGE_DEFS } = require("./tenantObjectiveDefs") as typeof import("./tenantObjectiveDefs");
 const MAX_SELECTED_BADGES = 2;

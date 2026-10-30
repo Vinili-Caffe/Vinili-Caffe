@@ -6,7 +6,7 @@ const {
   applyPartnershipPayloadBranding,
   resolveEmbedColorForGuild,
 } = require("../../MultiGuild/utils/tenantEmbedBranding") as typeof import("../../MultiGuild/utils/tenantEmbedBranding");
-const { t } = require("../../Utils/Partner/tenantPartnershipI18n") as typeof import("../../Utils/Partner/tenantPartnershipI18n");
+const { t } = require("../../Utils/Partner/tenantPartnershipI18n/index") as typeof import("../../Utils/Partner/tenantPartnershipI18n/index");
 const { resolveTenantLanguageForMessage } = require("../../Utils/Partner/tenantPartnershipPrefixMessages") as typeof import("../../Utils/Partner/tenantPartnershipPrefixMessages");
 
 function resolveBotClientId(client?) {

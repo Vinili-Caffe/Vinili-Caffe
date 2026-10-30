@@ -21,7 +21,7 @@ const {
   tenantNoPermissionError,
 } = require("../../Utils/Partner/tenantPartnershipPrefixMessages") as typeof import("../../Utils/Partner/tenantPartnershipPrefixMessages");
 const { replyPrefixSetupRequired } = require("../../Utils/Partner/tenantSetupRequiredReply") as typeof import("../../Utils/Partner/tenantSetupRequiredReply");
-const { t } = require("../../Utils/Partner/tenantPartnershipI18n") as typeof import("../../Utils/Partner/tenantPartnershipI18n");
+const { t } = require("../../Utils/Partner/tenantPartnershipI18n/index") as typeof import("../../Utils/Partner/tenantPartnershipI18n/index");
 
 const MAX_EMBED_DESCRIPTION = 4096;
 

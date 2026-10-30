@@ -81,7 +81,7 @@ function getDefaultWelcomeDescription(lang = DEFAULT_LANGUAGE) {
 
 function getDefaultTicketPanelFooter(lang = DEFAULT_LANGUAGE) {
   try {
-    const { t } = require("../Partner/tenantPartnershipI18n") as typeof import("../Partner/tenantPartnershipI18n");
+    const { t } = require("../Partner/tenantPartnershipI18n/index") as typeof import("../Partner/tenantPartnershipI18n/index");
     const text = String(t(lang, "footerCopyright") || "").trim();
     if (text && text !== "footerCopyright") return text;
   } catch (_) {}

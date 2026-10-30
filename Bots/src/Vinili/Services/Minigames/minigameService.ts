@@ -18,11 +18,7 @@ const { addExpWithLevel, shouldIgnoreExpForMember, incrementMinigameWinCounters 
 const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
 const { getClientChannelCached, getGuildMemberCached, } = require("../../Utils/Interaction/interactionEntityCache") as typeof import("../../Utils/Interaction/interactionEntityCache");
 const { getGuessYearBank, getCompleteVerseBank, getGuessEmojiBank, getQuoteFilmBank, getProverbBank, getSynonymAntonymBank, getGuessCityBank, getCapitalQuizBank, getItalianRegionCapitalBank, getItalianGkBank, getDrivingTrueFalseBank, getDrivingMultipleChoiceBank, getDrivingSignQuestions, getFastTypingPhrases, getHangmanWords, getTreasureHuntEmojiPairs, getHogwartsQuizBank, getHogwartsCipherBank, getHogwartsMemoryEmojiBank, getMemoryEmojiBank, CAPITAL_ITALIAN, CAPITAL_COUNTRY_REGION, REGION_AREA, REGION_HINT_DATA, FAMOUS_CAPITAL_COUNTRIES, FLAG_WELL_KNOWN_COUNTRIES } = require("../../Data/Minigames/minigameBanks") as typeof import("../../Data/Minigames/minigameBanks");
-const { getHogwartsGuessWords, getHogwartsHangmanWords, getHogwartsFastTypingPhrases, getHogwartsGuessYearBank, getHogwartsQuoteFilmBank, getHogwartsCompleteVerseBank, getHogwartsProverbBank, getHogwartsSynonymAntonymBank, getHogwartsGuessCityBank, getHogwartsGuessEmojiBank, getHogwartsTreasureHuntEmojiPairs, getHogwartsItalianGkBank }: any = require("../../Data/Minigames/hogwartsBonusMinigameBanks") as typeof import("../../Data/Minigames/hogwartsBonusMinigameBanks");
-const { getHogwartsCharacterBank } = require("../../Data/Minigames/hogwartsCharacterBank") as typeof import("../../Data/Minigames/hogwartsCharacterBank");
-const { buildImageAttachmentFromRelativePath, resolveShopItemPublicImageUrl } = require("../../Utils/Web/hogwartsEventAssets") as typeof import("../../Utils/Web/hogwartsEventAssets");
 const { safeLoadImage } = require("../../Utils/Render/safeLoadImage") as typeof import("../../Utils/Render/safeLoadImage");
-const { shouldApplyHogwartsBonusTheme, resolveHogwartsBonusPromptTitle, resolveHogwartsBonusPromptSubtitle, pickHogwartsBonusBank } = require("../../Utils/Minigames/hogwartsBonusMinigameTheme") as typeof import("../../Utils/Minigames/hogwartsBonusMinigameTheme");
 const {
   isHalloweenEventLiveForMinigames,
   isHalloweenExclusiveMinigamesEnabled,
@@ -38,6 +34,36 @@ const {
   buildHalloweenMissingEmojiRound,
   buildHalloweenCountBatsRound,
 } = require("../../Utils/Minigames/halloweenMinigameHooks") as typeof import("../../Utils/Minigames/halloweenMinigameHooks");
+const {
+  isHogwartsEventLiveForMinigames,
+  isHogwartsExclusiveMinigamesEnabled,
+  isHogwartsRuntimeDisabled,
+} = require("../../Utils/Minigames/hogwartsMinigameHooks") as typeof import("../../Utils/Minigames/hogwartsMinigameHooks");
+/* Evento Hogwarts concluso (codice in Bots/archivio/hogwarts): questi nomi restano usati nei rami Hogwarts
+   ancora dentro questo file e qui valgono "evento spento": niente basilisco, nessun canale casa, avvio diretto
+   del minigioco. Spariscono quando questi rami verranno tolti da minigameService. */
+async function runMinigameStartWithBasilisk(_client?, _cfg?, _gameType?, startFn?, _opts?) {
+  return startFn();
+}
+async function isBasiliskBlockedForUser(..._a: any[]) {
+  return false;
+}
+async function maybeAnnouncePersistentCurseEndAfterMinigame(..._a: any[]) {}
+async function grantFinaleChaosWinRewards(..._a: any[]): Promise<any> {
+  return null;
+}
+async function bootstrapHogwartsHouseChannelMinigameScheduler(..._a: any[]) {}
+const CHAOS_FIND_SCROLL_WINNERS = 2;
+function formatGaleoni(amount?) {
+  const n = Math.max(0, Math.floor(Number(amount) || 0));
+  return `${n} ${n === 1 ? "Galeone d'Oro" : "Galeoni d'Oro"}`;
+}
+const HOGWARTS_HOUSE_CHANNELS_OFF = {
+  HOUSE_CHANNEL_MAP: new Map(),
+  isHogwartsHouseChannelId: (_id?) => false,
+  getHouseIdForChannel: (_id?) => "",
+  buildHouseChannelSpawnCfg: (..._a: any[]): any => null,
+};
 const {
   addHalloweenCandyWithPassAlong,
   buildHalloweenCandyUnlockPayload,
@@ -56,15 +82,10 @@ const {
   processHalloweenMinigamesShowcaseForce,
 } = require("./minigameHalloweenShowcaseService") as typeof import("./minigameHalloweenShowcaseService");
 const { buildHalloweenFindGhostFoundEmbed } = require("../../Utils/Minigames/halloweenFindGhostUi") as typeof import("../../Utils/Minigames/halloweenFindGhostUi");
-const { resolveHogwartsEventConfig, isEventWindowOpen } = require("../../Utils/Web/hogwartsSortingConfig") as typeof import("../../Utils/Web/hogwartsSortingConfig");
-const { findSortingDoc, resolveSortedHouseId, resolveHouseIdFromMemberRoles, normalizeHogwartsHouseId: normalizeSortedHouseId } = require("../../Utils/Web/hogwartsSortingResolve") as typeof import("../../Utils/Web/hogwartsSortingResolve");
-const { getHouseMeta } = require("../../Utils/Web/hogwartsSortingBank") as typeof import("../../Utils/Web/hogwartsSortingBank");
 const { accountUsername, guildMemberDisplayAvatarUrlDynamic } = require("../../Utils/Discord/guildDiscordIdentity") as typeof import("../../Utils/Discord/guildDiscordIdentity");
 const { isValidGuildUserId } = require("../../Utils/DB/validateWriteIds") as typeof import("../../Utils/DB/validateWriteIds");
 const mongoose = require("mongoose") as typeof import("mongoose");
 const { registerShutdownFlush, armShutdownCheckpoint } = require("../../../shared/recovery/shutdownCheckpoint") as typeof import("../../../shared/recovery/shutdownCheckpoint");
-const { isBurrobirraActive, refreshBurrobirraActiveCache } = require("./burrobirraEffectService") as typeof import("./burrobirraEffectService");
-const { applyBurrobirraToPayload, distortMinigameText, shuffleSpacedTokens } = require("../../Utils/Minigames/burrobirraDistortion") as typeof import("../../Utils/Minigames/burrobirraDistortion");
 const {
   mergeFindBotVoiceExcludedChannelIds,
   isVoiceChannelEligibleForFindBotMinigame,
@@ -73,6 +94,174 @@ const { formatItalianMinutesBold } = require("../../Utils/Text/italianDurationLa
 const { applyDefaultFooterToEmbeds } = require("../../Utils/Embeds/defaultFooter") as typeof import("../../Utils/Embeds/defaultFooter");
 const { TENANT_EMBED_COLOR } = require("../../MultiGuild/utils/tenantEmbedBranding") as typeof import("../../MultiGuild/utils/tenantEmbedBranding");
 const MINIGAME_EMBED_COLOR = TENANT_EMBED_COLOR;
+
+/** Lazy Hogwarts/burrobirra: con kill-switch ON non carica archivio evento. */
+function loadHogwartsBonusBanks(): any {
+  if (isHogwartsRuntimeDisabled()) return null;
+  try {
+    return require("../../Data/Minigames/hogwartsBonusMinigameBanks");
+  } catch (_) {
+    return null;
+  }
+}
+function getHogwartsGuessWords(...a: any[]) { return loadHogwartsBonusBanks()?.getHogwartsGuessWords?.(...a) || []; }
+function getHogwartsHangmanWords(...a: any[]) { return loadHogwartsBonusBanks()?.getHogwartsHangmanWords?.(...a) || []; }
+function getHogwartsFastTypingPhrases(...a: any[]) { return loadHogwartsBonusBanks()?.getHogwartsFastTypingPhrases?.(...a) || []; }
+function getHogwartsGuessYearBank(...a: any[]) { return loadHogwartsBonusBanks()?.getHogwartsGuessYearBank?.(...a) || []; }
+function getHogwartsQuoteFilmBank(...a: any[]) { return loadHogwartsBonusBanks()?.getHogwartsQuoteFilmBank?.(...a) || []; }
+function getHogwartsCompleteVerseBank(...a: any[]) { return loadHogwartsBonusBanks()?.getHogwartsCompleteVerseBank?.(...a) || []; }
+function getHogwartsProverbBank(...a: any[]) { return loadHogwartsBonusBanks()?.getHogwartsProverbBank?.(...a) || []; }
+function getHogwartsSynonymAntonymBank(...a: any[]) { return loadHogwartsBonusBanks()?.getHogwartsSynonymAntonymBank?.(...a) || []; }
+function getHogwartsGuessCityBank(...a: any[]) { return loadHogwartsBonusBanks()?.getHogwartsGuessCityBank?.(...a) || []; }
+function getHogwartsGuessEmojiBank(...a: any[]) { return loadHogwartsBonusBanks()?.getHogwartsGuessEmojiBank?.(...a) || []; }
+function getHogwartsTreasureHuntEmojiPairs(...a: any[]) { return loadHogwartsBonusBanks()?.getHogwartsTreasureHuntEmojiPairs?.(...a) || []; }
+function getHogwartsItalianGkBank(...a: any[]) { return loadHogwartsBonusBanks()?.getHogwartsItalianGkBank?.(...a) || []; }
+function getHogwartsCharacterBank(...a: any[]) {
+  if (isHogwartsRuntimeDisabled()) return [];
+  try {
+    return require("../../Data/Minigames/hogwartsCharacterBank").getHogwartsCharacterBank?.(...a) || [];
+  } catch (_) {
+    return [];
+  }
+}
+function buildImageAttachmentFromRelativePath(...a: any[]) {
+  if (isHogwartsRuntimeDisabled()) return null;
+  try {
+    return require("../../Utils/Web/hogwartsEventAssets").buildImageAttachmentFromRelativePath?.(...a) || null;
+  } catch (_) {
+    return null;
+  }
+}
+function resolveShopItemPublicImageUrl(...a: any[]) {
+  if (isHogwartsRuntimeDisabled()) return "";
+  try {
+    return require("../../Utils/Web/hogwartsEventAssets").resolveShopItemPublicImageUrl?.(...a) || "";
+  } catch (_) {
+    return "";
+  }
+}
+function shouldApplyHogwartsBonusTheme(...a: any[]) {
+  if (isHogwartsRuntimeDisabled()) return false;
+  try {
+    return Boolean(require("../../Utils/Minigames/hogwartsBonusMinigameTheme").shouldApplyHogwartsBonusTheme?.(...a));
+  } catch (_) {
+    return false;
+  }
+}
+function resolveHogwartsBonusPromptTitle(...a: any[]) {
+  try {
+    return require("../../Utils/Minigames/hogwartsBonusMinigameTheme").resolveHogwartsBonusPromptTitle?.(...a) || "";
+  } catch (_) {
+    return "";
+  }
+}
+function resolveHogwartsBonusPromptSubtitle(...a: any[]) {
+  try {
+    return require("../../Utils/Minigames/hogwartsBonusMinigameTheme").resolveHogwartsBonusPromptSubtitle?.(...a) || "";
+  } catch (_) {
+    return "";
+  }
+}
+function pickHogwartsBonusBank(...a: any[]) {
+  try {
+    return require("../../Utils/Minigames/hogwartsBonusMinigameTheme").pickHogwartsBonusBank?.(...a) || null;
+  } catch (_) {
+    return null;
+  }
+}
+function resolveHogwartsEventConfig(client?: any) {
+  if (isHogwartsRuntimeDisabled(client)) return null;
+  try {
+    return require("../../Utils/Web/hogwartsSortingConfig").resolveHogwartsEventConfig(client);
+  } catch (_) {
+    return null;
+  }
+}
+function isEventWindowOpen(...a: any[]) {
+  try {
+    return require("../../Utils/Web/hogwartsSortingConfig").isEventWindowOpen?.(...a) || { open: false };
+  } catch (_) {
+    return { open: false };
+  }
+}
+function findSortingDoc(...a: any[]) {
+  if (isHogwartsRuntimeDisabled()) return null;
+  try {
+    return require("../../Utils/Web/hogwartsSortingResolve").findSortingDoc?.(...a) || null;
+  } catch (_) {
+    return null;
+  }
+}
+function resolveSortedHouseId(...a: any[]) {
+  if (isHogwartsRuntimeDisabled()) return "";
+  try {
+    return require("../../Utils/Web/hogwartsSortingResolve").resolveSortedHouseId?.(...a) || "";
+  } catch (_) {
+    return "";
+  }
+}
+function resolveHouseIdFromMemberRoles(...a: any[]) {
+  if (isHogwartsRuntimeDisabled()) return "";
+  try {
+    return require("../../Utils/Web/hogwartsSortingResolve").resolveHouseIdFromMemberRoles?.(...a) || "";
+  } catch (_) {
+    return "";
+  }
+}
+function normalizeSortedHouseId(...a: any[]) {
+  if (isHogwartsRuntimeDisabled()) return "";
+  try {
+    return require("../../Utils/Web/hogwartsSortingResolve").normalizeHogwartsHouseId?.(...a) || "";
+  } catch (_) {
+    return "";
+  }
+}
+function getHouseMeta(...a: any[]) {
+  if (isHogwartsRuntimeDisabled()) return null;
+  try {
+    return require("../../Utils/Web/hogwartsSortingBank").getHouseMeta?.(...a) || null;
+  } catch (_) {
+    return null;
+  }
+}
+function isBurrobirraActive(..._a: any[]) {
+  if (isHogwartsRuntimeDisabled()) return false;
+  try {
+    return Boolean(require("./burrobirraEffectService").isBurrobirraActive?.(..._a));
+  } catch (_) {
+    return false;
+  }
+}
+function refreshBurrobirraActiveCache(..._a: any[]) {
+  if (isHogwartsRuntimeDisabled()) return;
+  try {
+    require("./burrobirraEffectService").refreshBurrobirraActiveCache?.(..._a);
+  } catch (_) {}
+}
+async function applyBurrobirraToPayload(payload?: any, ..._a: any[]) {
+  if (isHogwartsRuntimeDisabled()) return payload;
+  try {
+    return await require("../../Utils/Minigames/burrobirraDistortion").applyBurrobirraToPayload(payload, ..._a);
+  } catch (_) {
+    return payload;
+  }
+}
+function distortMinigameText(text?: any, ..._a: any[]) {
+  if (isHogwartsRuntimeDisabled()) return text;
+  try {
+    return require("../../Utils/Minigames/burrobirraDistortion").distortMinigameText(text, ..._a);
+  } catch (_) {
+    return text;
+  }
+}
+function shuffleSpacedTokens(...a: any[]) {
+  if (isHogwartsRuntimeDisabled()) return a[0];
+  try {
+    return require("../../Utils/Minigames/burrobirraDistortion").shuffleSpacedTokens?.(...a) ?? a[0];
+  } catch (_) {
+    return a[0];
+  }
+}
 const activeGames = new Map();
 const channelWinClosing = new Set();
 const treasureHuntReactLocks = new Set();
@@ -214,7 +403,14 @@ const HOGWARTS_HOUSE_MAP_CACHE_MS = 90 * 1000;
 const hogwartsSortedHouseByUserCache = new Map();
 const HOGWARTS_HOUSE_POINTS_DOC_OWNER_ID = "__event__";
 const HOGWARTS_HOUSE_IDS = ["gryffindor", "hufflepuff", "ravenclaw", "slytherin"];
-const { housePointPeriodKey: resolveHogwartsHousePointPeriod } = require("../../Utils/Web/hogwartsHousePointPeriods") as typeof import("../../Utils/Web/hogwartsHousePointPeriods");
+function resolveHogwartsHousePointPeriod(...a: any[]) {
+  if (isHogwartsRuntimeDisabled()) return "";
+  try {
+    return require("../../Utils/Web/hogwartsHousePointPeriods").housePointPeriodKey?.(...a) || "";
+  } catch (_) {
+    return "";
+  }
+}
 const MINIGAME_FIRST_HOUR = 8;
 const MINIGAME_LAST_HOUR = 23;
 const MINIGAME_LAST_MINUTE = 45;
@@ -564,30 +760,14 @@ function normalizeMinigameSendOptions(options?) {
 }
 
 function isBurrobirraActiveForChannel(client?, channelId?) {
-  const chId = String(channelId || "").trim();
-  if (!client || !chId) return isBurrobirraActive(client);
-  try {
-    const { getHouseIdForChannel } = require("../Community/hogwartsHouseChannelMinigameService") as typeof import("../Community/hogwartsHouseChannelMinigameService");
-    if (getHouseIdForChannel(chId)) {
-      const { isHouseBurrobirraLiveForChannel } = require("./hogwartsHouseBurrobirraEffectService") as typeof import("./hogwartsHouseBurrobirraEffectService");
-      return isHouseBurrobirraLiveForChannel(client, chId);
-    }
-  } catch (_) {}
-  return isBurrobirraActive(client);
+  return false;
 }
 
 function applyBurrobirraStrongDurationMs(client?, channelId?, durationMs?) {
   return Math.max(1, Number(durationMs) || 60000);
 }
 
-async function refreshBurrobirraCaches(client?) {
-  if (!client) return;
-  await refreshBurrobirraActiveCache(client).catch(() => false);
-  try {
-    const { refreshHouseBurrobirraCache } = require("./hogwartsHouseBurrobirraEffectService") as typeof import("./hogwartsHouseBurrobirraEffectService");
-    await refreshHouseBurrobirraCache(client).catch(() => false);
-  } catch (_) {}
-}
+async function refreshBurrobirraCaches(client?) {}
 
 function clearRolePingSentThisStart(channelId?) {
   const chId = String(channelId || "").trim();
@@ -771,22 +951,6 @@ function getConfig(client?) {
     }
   }
   return out;
-}
-
-function isHogwartsEventLiveForMinigames(client?, nowMs = Date.now()) {
-  try {
-    const { isHogwartsRuntimeDisabled } = require("../../Utils/Web/hogwartsRuntimeKillSwitch") as typeof import("../../Utils/Web/hogwartsRuntimeKillSwitch");
-    if (isHogwartsRuntimeDisabled(client)) return false;
-  } catch (_) {}
-  const eventCfg = resolveHogwartsEventConfig(client);
-  return Boolean(isEventWindowOpen(eventCfg, nowMs)?.open);
-}
-
-function isHogwartsExclusiveMinigamesEnabled(client?, cfg?) {
-  const raw = client?.config?.minigames?.hogwartsExclusiveDuringEvent;
-  if (raw === false) return false;
-  if (raw === true) return true;
-  return cfg?.hogwartsExclusiveDuringEvent !== false;
 }
 
 const HOGWARTS_EVENT_MINIGAME_ROLE_ID = String(
@@ -2181,16 +2345,6 @@ function isMainChatMinigameChannelBusy() {
 }
 
 function hasAnyHouseChannelMinigameBusy() {
-  let houseChannelIds;
-  try {
-    const { HOUSE_CHANNEL_MAP } = require("../Community/hogwartsHouseChannelMinigameService") as typeof import("../Community/hogwartsHouseChannelMinigameService");
-    houseChannelIds = HOUSE_CHANNEL_MAP ? [...HOUSE_CHANNEL_MAP.keys()] : [];
-  } catch (_) {
-    houseChannelIds = [];
-  }
-  for (const channelId of houseChannelIds) {
-    if (isMinigameChannelBusy(channelId)) return true;
-  }
   return false;
 }
 
@@ -2561,7 +2715,6 @@ async function clearActiveGame(client?, cfg?, gameHint = null) {
   const game = gameHint || activeGames.get(channelId) || null;
   if (game?.basilisk?.announceEndOnFinish) {
     try {
-      const { maybeAnnouncePersistentCurseEndAfterMinigame } = require("../Community/hogwartsBasiliskService") as typeof import("../Community/hogwartsBasiliskService");
       await maybeAnnouncePersistentCurseEndAfterMinigame(client, game);
     } catch (err) {
       warnMinigame(err);
@@ -7384,60 +7537,19 @@ async function resolveHogwartsSortedHouse(guildId?, userId?, eventKey?, options:
 }
 
 async function rejectIfBasiliskBlockedMessage(message?, game?) {
-  if (!game?.basilisk || !message?.guild) return false;
-  const { isBasiliskBlockedForUser } = require("../Community/hogwartsBasiliskService") as typeof import("../Community/hogwartsBasiliskService");
-  const blocked = await isBasiliskBlockedForUser(message.client, message.guild.id, message.author.id, game);
-  if (!blocked) return false;
-  await message.react(BASILISK_BLOCK_EMOJI).catch(() => message.react(MINIGAME_WRONG_EMOJI).catch(() => { }));
-  return true;
+  return false;
 }
 
 async function rejectIfHogwartsEventBlacklistedMessage(message?) {
-  if (!message?.author?.id) return false;
-  const { isUserHighStaffExcludedFromHogwartsEvent } = require("../../Utils/Web/hogwartsEventParticipation") as typeof import("../../Utils/Web/hogwartsEventParticipation");
-  const blocked = await isUserHighStaffExcludedFromHogwartsEvent(
-    message.client,
-    message.author.id,
-    message.member,
-  );
-  if (!blocked) return false;
-  await message.react(MINIGAME_WRONG_EMOJI).catch(() => { });
-  return true;
+  return false;
 }
 
 async function rejectIfBasiliskBlockedInteraction(interaction?, game?) {
-  if (!game?.basilisk || !interaction?.guild) return false;
-  const { isBasiliskBlockedForUser } = require("../Community/hogwartsBasiliskService") as typeof import("../Community/hogwartsBasiliskService");
-  const blocked = await isBasiliskBlockedForUser(interaction.client, interaction.guild.id, interaction.user.id, game);
-  if (!blocked) return false;
-  await interaction
-    .reply({
-      content: `${BASILISK_BLOCK_EMOJI} Sei pietrificato dal Basilisco e non puoi partecipare a questo minigioco.`,
-      flags: 1 << 6,
-    })
-    .catch(() => { });
-  return true;
+  return false;
 }
 
 async function rejectIfHogwartsEventBlacklistedInteraction(interaction?) {
-  if (!interaction?.user?.id) return false;
-  const {
-    isUserHighStaffExcludedFromHogwartsEvent,
-    HOGWARTS_BLACKLISTED_MESSAGE,
-  } = require("../../Utils/Web/hogwartsEventParticipation") as typeof import("../../Utils/Web/hogwartsEventParticipation");
-  const blocked = await isUserHighStaffExcludedFromHogwartsEvent(
-    interaction.client,
-    interaction.user.id,
-    interaction.member,
-  );
-  if (!blocked) return false;
-  await interaction
-    .reply({
-      content: HOGWARTS_BLACKLISTED_MESSAGE || "Sei escluso dall'evento Hogwarts e non puoi partecipare.",
-      flags: 1 << 6,
-    })
-    .catch(() => { });
-  return true;
+  return false;
 }
 
 function resolveHouseChannelRequiredHouseId(game?) {
@@ -7498,196 +7610,11 @@ async function rejectIfWrongHouseChannelMemberInteraction(interaction?, game?) {
 }
 
 async function awardHogwartsHousePointsForWinner(client?, guildId?, userId?, gameType?, amount?, unsortedAmount = 0) {
-  const cfg = getConfig(client);
-  const basePoints = Math.max(0, Math.floor(Number(amount) || 0));
-  const baseFallback = Math.max(0, Math.floor(Number(unsortedAmount) || 0));
-  if (!isHogwartsHousePointsMinigameType(gameType, cfg) || (basePoints <= 0 && baseFallback <= 0) || !isHogwartsEventLiveForMinigames(client)) return null;
-  const gid = String(guildId || "").trim();
-  const uid = String(userId || "").trim();
-  if (!isValidGuildUserId(gid, uid)) return null;
-  const { isUserHighStaffExcludedFromHogwartsEvent } = require("../../Utils/Web/hogwartsEventParticipation") as typeof import("../../Utils/Web/hogwartsEventParticipation");
-  if (await isUserHighStaffExcludedFromHogwartsEvent(client, uid, null)) return null;
-  const eventKey = hogwartsHousePointsDedupeKey(client);
-  const houseId = await resolveHogwartsSortedHouse(gid, uid, eventKey, { client });
-  const allHouses = !houseId;
-  const petBoostBase = allHouses ? baseFallback : basePoints;
-  const { applyPetHousePointsBoost } = require("../Community/hogwartsShopBoostsService") as typeof import("../Community/hogwartsShopBoostsService");
-  const petBoost = await applyPetHousePointsBoost(client, gid, uid, petBoostBase);
-  const points = allHouses ? 0 : petBoost.points;
-  const fallbackPoints = allHouses ? petBoost.points : 0;
-  const petMultiplier = petBoost.multiplier;
-  if (!houseId && fallbackPoints <= 0) return null;
-  const now = new Date();
-  const gamePath = `rawWebhook.byGame.${String(gameType || "").trim()}`;
-  const periodKey = getHogwartsHousePointPeriodKey(now.getTime());
-  const inc = {
-    [gamePath]: allHouses ? fallbackPoints * HOGWARTS_HOUSE_IDS.length : points,
-    "rawWebhook.total": allHouses ? fallbackPoints * HOGWARTS_HOUSE_IDS.length : points,
-  };
-  if (allHouses) {
-    for (const id of HOGWARTS_HOUSE_IDS) {
-      inc[`rawWebhook.totals.${id}`] = fallbackPoints;
-      if (periodKey) inc[`rawWebhook.byPeriod.${periodKey}.${id}`] = fallbackPoints;
-    }
-  } else {
-    inc[`rawWebhook.totals.${houseId}`] = points;
-    if (periodKey) inc[`rawWebhook.byPeriod.${periodKey}.${houseId}`] = points;
-    const { appendMemberHousePointsInc } = require("../Community/hogwartsMemberHousePointsService") as typeof import("../Community/hogwartsMemberHousePointsService");
-    const memberSet: Record<string, any> = {};
-    appendMemberHousePointsInc(inc, memberSet, { userId: uid, houseId, periodKey, points });
-    await SiteDocument.findOneAndUpdate(
-      {
-        docType: SITE_DOCUMENT_TYPE.HOGWARTS_HOUSE_POINTS,
-        guildId: gid,
-        userId: HOGWARTS_HOUSE_POINTS_DOC_OWNER_ID,
-        dedupeKey: eventKey,
-      },
-      {
-        $setOnInsert: {
-          docType: SITE_DOCUMENT_TYPE.HOGWARTS_HOUSE_POINTS,
-          guildId: gid,
-          userId: HOGWARTS_HOUSE_POINTS_DOC_OWNER_ID,
-          dedupeKey: eventKey,
-          createdBy: "minigames",
-          status: "active",
-        },
-        $set: {
-          planKey: "hogwarts_house_points",
-          "rawWebhook.eventKey": eventKey,
-          "rawWebhook.updatedAt": now,
-          ...memberSet,
-        },
-        $inc: inc,
-      },
-      { upsert: true, new: true, setDefaultsOnInsert: true },
-    ).catch((err?) => warnMinigame(err));
-    const { recordHogwartsMinigameHousePointWin } = require("../Community/hogwartsShopBoostsService") as typeof import("../Community/hogwartsShopBoostsService");
-    recordHogwartsMinigameHousePointWin(gid, uid, eventKey).catch(() => null);
-    return {
-      houseId,
-      points,
-      allHouses,
-      petMultiplier: petMultiplier > 1 ? petMultiplier : 0,
-      petName: petBoost.petName || "",
-    };
-  }
-  await SiteDocument.findOneAndUpdate(
-    {
-      docType: SITE_DOCUMENT_TYPE.HOGWARTS_HOUSE_POINTS,
-      guildId: gid,
-      userId: HOGWARTS_HOUSE_POINTS_DOC_OWNER_ID,
-      dedupeKey: eventKey,
-    },
-    {
-      $setOnInsert: {
-        docType: SITE_DOCUMENT_TYPE.HOGWARTS_HOUSE_POINTS,
-        guildId: gid,
-        userId: HOGWARTS_HOUSE_POINTS_DOC_OWNER_ID,
-        dedupeKey: eventKey,
-        createdBy: "minigames",
-        status: "active",
-      },
-      $set: {
-        planKey: "hogwarts_house_points",
-        "rawWebhook.eventKey": eventKey,
-        "rawWebhook.updatedAt": now,
-      },
-      $inc: inc,
-    },
-    { upsert: true, new: true, setDefaultsOnInsert: true },
-  ).catch((err?) => warnMinigame(err));
-  const { recordHogwartsMinigameHousePointWin } = require("../Community/hogwartsShopBoostsService") as typeof import("../Community/hogwartsShopBoostsService");
-  recordHogwartsMinigameHousePointWin(gid, uid, eventKey).catch(() => null);
-  return {
-    houseId,
-    points: allHouses ? fallbackPoints : points,
-    allHouses,
-    petMultiplier: petMultiplier > 1 ? petMultiplier : 0,
-    petName: petBoost.petName || "",
-  };
+  return null;
 }
 
 async function awardHogwartsHousePointsToHouse(client?, guildId?, houseId?, gameType?, amount?, opts: Record<string, any> = {}) {
-  const cfg = getConfig(client);
-  const basePoints = Math.max(0, Math.floor(Number(amount) || 0));
-  const hid = normalizeHogwartsHouseId(houseId);
-  if (!isHogwartsHousePointsMinigameType(gameType, cfg) || basePoints <= 0 || !hid || !isHogwartsEventLiveForMinigames(client)) return null;
-  const gid = String(guildId || "").trim();
-  if (!gid) return null;
-  let points = basePoints;
-  let consumableMultiplier = 1;
-  let consumableLabels = [];
-  if (opts.skipConsumableBoost !== true) {
-    try {
-      const { resolveHousePointsConsumableMultiplier } = require("../Community/hogwartsConsumableBoostsService") as typeof import("../Community/hogwartsConsumableBoostsService");
-      const participantIds = Array.isArray(opts.participantUserIds)
-        ? opts.participantUserIds.map((id?) => String(id || "").trim()).filter(Boolean)
-        : [];
-      const beneficiaryId = String(opts.userId || "").trim();
-      let consumable = { multiplier: 1, labels: [] };
-      if (participantIds.length > 0) {
-                for (const uid of participantIds) {
-          const row = await resolveHousePointsConsumableMultiplier(client, gid, uid, hid);
-          const mult = Math.max(1, Number(row?.multiplier) || 1);
-          if (mult > (Number(consumable.multiplier) || 1)) consumable = row;
-        }
-      } else {
-                consumable = await resolveHousePointsConsumableMultiplier(client, gid, beneficiaryId, hid);
-      }
-      consumableMultiplier = Math.max(1, Number(consumable?.multiplier) || 1);
-      consumableLabels = Array.isArray(consumable?.labels) ? consumable.labels : [];
-      if (consumableMultiplier > 1) points = Math.max(0, Math.floor(basePoints * consumableMultiplier));
-    } catch (err) {
-      warnMinigame(err);
-    }
-  }
-  const eventKey = hogwartsHousePointsDedupeKey(client);
-  const now = new Date();
-  const gamePath = `rawWebhook.byGame.${String(gameType || "").trim()}`;
-  const periodKey = getHogwartsHousePointPeriodKey(now.getTime());
-  const inc = {
-    [gamePath]: points,
-    "rawWebhook.total": points,
-    [`rawWebhook.totals.${hid}`]: points,
-  };
-  if (periodKey) inc[`rawWebhook.byPeriod.${periodKey}.${hid}`] = points;
-  const updated = await SiteDocument.findOneAndUpdate(
-    {
-      docType: SITE_DOCUMENT_TYPE.HOGWARTS_HOUSE_POINTS,
-      guildId: gid,
-      userId: HOGWARTS_HOUSE_POINTS_DOC_OWNER_ID,
-      dedupeKey: eventKey,
-    },
-    {
-      $setOnInsert: {
-        docType: SITE_DOCUMENT_TYPE.HOGWARTS_HOUSE_POINTS,
-        guildId: gid,
-        userId: HOGWARTS_HOUSE_POINTS_DOC_OWNER_ID,
-        dedupeKey: eventKey,
-        createdBy: "minigames",
-        status: "active",
-      },
-      $set: {
-        planKey: "hogwarts_house_points",
-        "rawWebhook.eventKey": eventKey,
-        "rawWebhook.updatedAt": now,
-      },
-      $inc: inc,
-    },
-    { upsert: true, new: true, setDefaultsOnInsert: true },
-  ).catch((err?) => {
-    warnMinigame(err);
-    return null;
-  });
-  if (!updated) return null;
-  return {
-    houseId: hid,
-    points,
-    basePoints,
-    consumableMultiplier: consumableMultiplier > 1 ? consumableMultiplier : 1,
-    consumableLabels,
-    allHouses: false,
-  };
+  return null;
 }
 
 function attachHogwartsHouseChannelMeta(game?, cfg?) {
@@ -8027,37 +7954,7 @@ async function closeHogwartsPodiumRoundIfComplete(client?, cfg?, game?, channelI
 }
 
 async function tryRegisterHogwartsPodiumEntry(client?, game?, guildId?, userId?, channelId = "") {
-  const chId = String(channelId || "").trim();
-  return runHogwartsPodiumRegisterExclusive(chId, async () => {
-    const uid = String(userId || "").trim();
-    const gid = String(guildId || "").trim();
-    if (!isValidGuildUserId(gid, uid)) return { ok: false, code: "invalid_ids" };
-    if (hogwartsRoundUserAlreadyRewarded(game, uid, chId)) {
-      return { ok: false, code: "user_already_won", houseId: "" };
-    }
-    const houseId = normalizeHogwartsHouseId(
-      await resolveHogwartsSortedHouse(gid, uid, hogwartsHousePointsDedupeKey(client), { client }),
-    );
-    if (!houseId) return { ok: false, code: "not_sorted" };
-    if (hogwartsPodiumHasHouse(game, houseId, chId)) return { ok: false, code: "house_already_won", houseId };
-    {
-      const { isUserHighStaffExcludedFromHogwartsEvent } = require("../../Utils/Web/hogwartsEventParticipation") as typeof import("../../Utils/Web/hogwartsEventParticipation");
-      if (await isUserHighStaffExcludedFromHogwartsEvent(client, uid, null)) {
-        return { ok: false, code: "hogwarts_blacklisted" };
-      }
-    }
-    if (game?.basilisk) {
-      const { isBasiliskBlockedForUser } = require("../Community/hogwartsBasiliskService") as typeof import("../Community/hogwartsBasiliskService");
-      if (await isBasiliskBlockedForUser(client, gid, uid, game)) return { ok: false, code: "basilisk_blocked" };
-    }
-    const podium = ensureHogwartsPodium(game, chId);
-    if (podium.length >= HOGWARTS_PODIUM_SIZE) return { ok: false, code: "podium_full" };
-    const place = podium.length;
-    const entry = { userId: uid, houseId, place, at: Date.now() };
-    podium.push(entry);
-    if (chId) hogwartsPodiumByChannel.set(chId, podium.slice());
-    return { ok: true, entry, complete: isHogwartsPodiumRoundComplete(game, chId) };
-  });
+  return { ok: false, code: "event_off", complete: false } as any;
 }
 
 function formatHogwartsPodiumWinnerLine(cfg?, gameType?, row?) {
@@ -10584,7 +10481,6 @@ async function recountObservationTowerBricks(channel?, game?, client?) {
       let blocked = basiliskCache.get(userId);
       if (blocked === undefined) {
         try {
-          const { isBasiliskBlockedForUser } = require("../Community/hogwartsBasiliskService") as typeof import("../Community/hogwartsBasiliskService");
           blocked = await isBasiliskBlockedForUser(client, guildId, userId, game);
         } catch (_) {
           blocked = false;
@@ -10628,7 +10524,6 @@ async function recountObservationTowerBricks(channel?, game?, client?) {
     let liveForMerge = game;
     if (game?.basilisk && guildId) {
       try {
-        const { isBasiliskBlockedForUser } = require("../Community/hogwartsBasiliskService") as typeof import("../Community/hogwartsBasiliskService");
         const liveParticipants = serializeObservationTowerParticipants(game.participantCounts);
         const liveHouses = serializeObservationTowerParticipantHouses(game.participantHouses);
         for (const uid of Object.keys(liveParticipants)) {
@@ -11725,41 +11620,7 @@ async function startFindScrollGame(client?, cfg?) {
 }
 
 async function startFinaleChaosFindScroll(client?, opts: Record<string, any> = {}) {
-  const base = getConfig(client);
-  if (!base?.channelId) return false;
-  const announceId = String(opts.announceChannelId || base.channelId || "").trim();
-  if (!announceId) return false;
-    if (activeGames.has(announceId) || activeGames.has(base.channelId)) return false;
-  const { CHAOS_FIND_SCROLL_WINNERS } = require("../Community/hogwartsFinaleChaosDayService") as typeof import("../Community/hogwartsFinaleChaosDayService");
-  const requiredWinners = Math.max(1, Number(opts.requiredWinners) || Number(CHAOS_FIND_SCROLL_WINNERS) || 1);
-  const durationMs = Math.max(60_000, Math.floor(Number(opts.durationMs) || 900000));
-  const cfg = {
-    ...base,
-    roleId: opts.pingRoleId || base.roleId,
-    channelId: announceId,
-    finaleChaos: true,
-    findScroll: {
-      ...(base.findScroll && typeof base.findScroll === "object" ? base.findScroll : {}),
-      eventLive: true,
-      unlocked: true,
-      durationMs,
-      rewardExp: 0,
-      finaleChaos: {
-        firstSlot: opts.firstSlot === true,
-        boostType: opts.boostType === "exp" ? "exp" : "housePoints",
-        boostScope: opts.boostScope === "house" ? "house" : "personal",
-        firstSlotBoostDurationMs: Math.max(60_000, Math.floor(Number(opts.firstSlotBoostDurationMs) || 3600000)),
-        rewardGaleoni: Math.max(0, Math.floor(Number(opts.rewardGaleoni) || 1000)),
-        rewardHousePoints: Math.max(0, Math.floor(Number(opts.rewardHousePoints) || 500)),
-        hintBeforeExpiryMs: Math.max(60_000, Math.floor(Number(opts.hintBeforeExpiryMs) || 450000)),
-        slotKey: String(opts.slotKey || "").trim(),
-        chaosEventKey: String(opts.chaosEventKey || "").trim(),
-        requiredWinners,
-        winnerIds: [],
-      },
-    },
-  };
-  return startFindScrollGame(client, cfg);
+  return false;
 }
 
 async function tickFinaleChaosFindScrollHints(client?, chaosCfg?, nowMs = Date.now()) {
@@ -14699,9 +14560,15 @@ async function handleHalloweenTrickOrTreatButton(interaction?, game?, cfg?) {
   return true;
 }
 
+function isHogwartsArchivedExclusiveType(type?) {
+  const t = String(type || "");
+  return isHogwartsThemedMinigameType(t) || t === "hogwartsGuessCharacter" || /^hogwarts/i.test(t);
+}
+
 async function safeStartGameByType(client?, cfg?, gameType?) {
   try {
     await refreshBurrobirraCaches(client);
+    if (isHogwartsRuntimeDisabled(client) && isHogwartsArchivedExclusiveType(gameType)) return false;
     if (cfg?.hogwartsEventLive && isHogwartsExclusiveMinigamesEnabled(client, cfg) && !isHogwartsEventMinigameType(gameType, cfg)) return false;
     if (shouldUseHalloweenTheme(cfg) && !isHalloweenMinigameType(gameType)) return false;
     if (gameType === "guessWord") return startGuessWordGame(client, cfg);
@@ -14919,7 +14786,6 @@ async function maybeStartRandomGame(client?, force = false) {
       }
       tried.add(gameType);
 
-      const { runMinigameStartWithBasilisk } = require("../Community/hogwartsBasiliskService") as typeof import("../Community/hogwartsBasiliskService");
       const result = await runMinigameStartWithBasilisk(
         client,
         cfg,
@@ -14974,37 +14840,7 @@ async function maybeStartRandomGame(client?, force = false) {
 }
 
 async function spawnHouseChannelMinigame(client?, spawnCfg?, gameType?) {
-  const channelId = String(spawnCfg?.channelId || "").trim();
-  if (!channelId) return false;
-  if (startingChannels.has(channelId)) return false;
-  startingChannels.add(channelId);
-  clearRolePingSentThisStart(channelId);
-  try {
-    const { runMinigameStartWithBasilisk } = require("../Community/hogwartsBasiliskService") as typeof import("../Community/hogwartsBasiliskService");
-    const result = await runMinigameStartWithBasilisk(
-      client,
-      spawnCfg,
-      gameType,
-      () => safeStartGameByType(client, spawnCfg, gameType),
-      { getActiveGame: (id?) => activeGames.get(String(id || "").trim()) },
-    );
-    if (result && result.basiliskSkip) return true;
-    const started = result === true || (result && result.started);
-    if (!started) return false;
-    const game = activeGames.get(channelId);
-    const meta = spawnCfg?.hogwartsHouseChannelMeta;
-    if (game && meta && typeof meta === "object") {
-      game.hogwartsHouseChannel = { ...meta };
-      if (meta.soloHouseId) game.soloHouseId = String(meta.soloHouseId);
-    }
-    if (game?.type === "hogwartsObservationTower" && game.basilisk) {
-      await persistObservationTowerState(client, spawnCfg, game).catch(() => null);
-    }
-    return true;
-  } finally {
-    startingChannels.delete(channelId);
-    clearRolePingSentThisStart(channelId);
-  }
+  return false;
 }
 
 function getActiveGameForChannel(channelId?) {
@@ -15048,7 +14884,7 @@ async function sweepExpiredMinigames(client?) {
     }
   }
   try {
-    const houseChannelSvc = require("../Community/hogwartsHouseChannelMinigameService") as typeof import("../Community/hogwartsHouseChannelMinigameService");
+    const houseChannelSvc = HOGWARTS_HOUSE_CHANNELS_OFF;
     const guildId = String(IDs.guilds?.main || "").trim();
     if (!guildId) return;
     for (const [channelId] of houseChannelSvc.HOUSE_CHANNEL_MAP) {
@@ -15075,7 +14911,6 @@ function startMinigameExpireSweep(client?) {
 }
 
 async function bootstrapMinigameScheduler(client?) {
-  const { isHogwartsRuntimeDisabled } = require("../../Utils/Web/hogwartsRuntimeKillSwitch") as typeof import("../../Utils/Web/hogwartsRuntimeKillSwitch");
   const hogwartsOff = isHogwartsRuntimeDisabled(client);
   hogwartsSpawnPersistClientRef = client;
   if (!hogwartsOff) armHogwartsSpawnShutdownPersist();
@@ -15137,7 +14972,6 @@ async function bootstrapMinigameScheduler(client?) {
   }
   if (!hogwartsOff) {
     try {
-      const { bootstrapHogwartsHouseChannelMinigameScheduler } = require("../Community/hogwartsHouseChannelMinigameService") as typeof import("../Community/hogwartsHouseChannelMinigameService");
       await bootstrapHogwartsHouseChannelMinigameScheduler(client);
     } catch (err) {
       global.logger?.warn?.("[MINIGAMES] house channel scheduler:", err?.message || err);
@@ -15146,7 +14980,6 @@ async function bootstrapMinigameScheduler(client?) {
 }
 
 function scheduleMinigameLoopTick(client?) {
-  const { isHogwartsRuntimeDisabled } = require("../../Utils/Web/hogwartsRuntimeKillSwitch") as typeof import("../../Utils/Web/hogwartsRuntimeKillSwitch");
   const cfg = getConfig(client);
   if (!isHogwartsRuntimeDisabled(client) && isHogwartsRandomSpawnMode(cfg, client)) {
     logMinigameSpawn("scheduler: Hogwarts random mode active", {
@@ -15750,7 +15583,6 @@ async function handleMinigameButtonWin(interaction?, game?, cfg?) {
 
     if (game?.finaleChaos && game?.type === "findScroll") {
     const chaos = game.finaleChaos;
-    const { CHAOS_FIND_SCROLL_WINNERS } = require("../Community/hogwartsFinaleChaosDayService") as typeof import("../Community/hogwartsFinaleChaosDayService");
     const required = Math.max(2, Number(chaos.requiredWinners) || Number(CHAOS_FIND_SCROLL_WINNERS) || 2);
     const uid = String(interaction.user.id || "").trim();
     const winners = Array.isArray(chaos.winnerIds) ? chaos.winnerIds.map(String) : [];
@@ -15820,8 +15652,6 @@ async function handleMinigameButtonWin(interaction?, game?, cfg?) {
       else activeGames.set(String(cfg.channelId || ""), live);
       roundComplete = liveWinners.length >= required;
 
-      const { grantFinaleChaosWinRewards } = require("../Community/hogwartsFinaleChaosDayService") as typeof import("../Community/hogwartsFinaleChaosDayService");
-      const { formatGaleoni } = require("../Community/gringottService") as typeof import("../Community/gringottService");
       const need = required;
       const rewards = await grantFinaleChaosWinRewards(client, {
         guildId: interaction.guild.id,
@@ -15967,7 +15797,7 @@ async function handleMinigameMessage(message?, client?) {
   if (message.author?.bot) return false;
   const chId = String(message.channelId || "");
   if (channelWinClosing.has(chId)) return true;
-  const houseChannelSvc = require("../Community/hogwartsHouseChannelMinigameService") as typeof import("../Community/hogwartsHouseChannelMinigameService");
+  const houseChannelSvc = HOGWARTS_HOUSE_CHANNELS_OFF;
   let cfg = baseCfg;
   if (houseChannelSvc.isHogwartsHouseChannelId(chId)) {
     if (!activeGames.has(chId) && !isMinigameRehydrateBlocked(chId)) {
@@ -17060,7 +16890,6 @@ ${game.previewUrl}`,
       : cfg;
   if (liveGame.finaleChaos && liveGame.type === "findScroll") {
     try {
-      const { CHAOS_FIND_SCROLL_WINNERS } = require("../Community/hogwartsFinaleChaosDayService") as typeof import("../Community/hogwartsFinaleChaosDayService");
       liveGame.finaleChaos.requiredWinners = Math.max(
         2,
         Number(liveGame.finaleChaos.requiredWinners) || Number(CHAOS_FIND_SCROLL_WINNERS) || 2,
@@ -17074,56 +16903,11 @@ ${game.previewUrl}`,
 }
 
 async function restoreSingleHouseChannelActiveGame(client?, chId?, houseId?, guildId?) {
-  const houseChannelSvc = require("../Community/hogwartsHouseChannelMinigameService") as typeof import("../Community/hogwartsHouseChannelMinigameService");
-  const channelId = String(chId || "").trim();
-  const gid = String(guildId || "").trim();
-  if (!channelId || !gid || activeGames.has(channelId)) return false;
-  if (channelWinClosing.has(channelId) || isMinigameRehydrateBlocked(channelId)) return false;
-  const partialCfg = { guildId: gid, channelId };
-  await purgeExpiredMinigameDbState(client, partialCfg);
-  const state = await minigameStateFindOneLean({ guildId: gid, channelId }).catch(() => null);
-  if (!state) return false;
-  const endsAt = new Date(state.endsAt).getTime();
-  if (endsAt <= Date.now()) {
-    const channel = await getChannelCached(client, channelId);
-    const mode = state.type === "hogwartsObservationTower" ? "tower" : "themed";
-    const closeCfg = houseChannelSvc.buildHouseChannelSpawnCfg(client, channelId, houseId, mode) || partialCfg;
-    closeCfg.guildId = gid;
-    if (channel) {
-      await closeExpiredMinigameState(client, closeCfg, channel, state);
-    } else {
-      await clearActiveGame(client, { ...partialCfg, guildId: gid, channelId });
-    }
-    return false;
-  }
-  if (!isHogwartsThemedMinigameType(state.type)) {
-    await clearActiveGame(client, partialCfg);
-    return false;
-  }
-  const mode = state.type === "hogwartsObservationTower" ? "tower" : "themed";
-  const cfg = houseChannelSvc.buildHouseChannelSpawnCfg(client, channelId, houseId, mode);
-  if (!cfg) {
-    await clearActiveGame(client, partialCfg);
-    return false;
-  }
-  cfg.guildId = gid;
-  const channel = await getChannelCached(client, channelId);
-  if (!channel?.guild) return false;
-  const remainingMs = endsAt - Date.now();
-  if (remainingMs <= 0) return false;
-  await mountHouseChannelActiveGameFromState(client, cfg, channel, state, remainingMs);
-  if (activeGames.has(channelId)) channelNoRehydrateUntil.delete(channelId);
-  return activeGames.has(channelId);
+  return false;
 }
 
 async function ensureHouseChannelActiveGameFromDb(client?, channelId?, guildId?) {
-  const houseChannelSvc = require("../Community/hogwartsHouseChannelMinigameService") as typeof import("../Community/hogwartsHouseChannelMinigameService");
-  const chId = String(channelId || "").trim();
-  const houseId = houseChannelSvc.getHouseIdForChannel(chId);
-  if (!houseId) return false;
-  const gid = String(guildId || IDs.guilds?.main || "").trim();
-  if (!gid) return false;
-  return restoreSingleHouseChannelActiveGame(client, chId, houseId, gid);
+  return false;
 }
 
 async function mountHouseChannelActiveGameFromState(client?, cfg?, channel?, state?, remainingMs?) {
@@ -17219,14 +17003,7 @@ async function mountHouseChannelActiveGameFromState(client?, cfg?, channel?, sta
 }
 
 async function restoreHouseChannelActiveGames(client?) {
-  const baseCfg = getConfig(client);
-  if (!baseCfg?.enabled) return;
-  const houseChannelSvc = require("../Community/hogwartsHouseChannelMinigameService") as typeof import("../Community/hogwartsHouseChannelMinigameService");
-  const guildId = String(IDs.guilds?.main || "").trim();
-  if (!guildId) return;
-  for (const [channelId, houseId] of houseChannelSvc.HOUSE_CHANNEL_MAP) {
-    await restoreSingleHouseChannelActiveGame(client, channelId, houseId, guildId);
-  }
+  return;
 }
 
 async function restoreActiveGames(client?) {
@@ -17245,6 +17022,10 @@ async function restoreActiveGames(client?) {
   }
   const state = await minigameStateFindOneLean({ guildId, channelId: cfg.channelId, }).catch(() => null);
   if (!state) return;
+  if (isHogwartsRuntimeDisabled(client) && isHogwartsArchivedExclusiveType(state.type)) {
+    await clearActiveGame(client, restoreCfg);
+    return;
+  }
   if (restoreCfg.hogwartsEventLive && isHogwartsExclusiveMinigamesEnabled(client, restoreCfg) && !isHogwartsEventMinigameType(state.type, restoreCfg)) {
     await clearActiveGame(client, restoreCfg);
     return;
@@ -18078,7 +17859,7 @@ async function isMinigameFloodExemptChannel(message?) {
   const userId = String(message?.author?.id || "").trim();
   const guildId = String(message?.guild?.id || "").trim();
   const game = activeGames.get(msgChId);
-  const houseChannelSvc = require("../Community/hogwartsHouseChannelMinigameService") as typeof import("../Community/hogwartsHouseChannelMinigameService");
+  const houseChannelSvc = HOGWARTS_HOUSE_CHANNELS_OFF;
   const isHouseCh = houseChannelSvc.isHogwartsHouseChannelId(msgChId);
 
   async function resolveAuthorHouseId() {
@@ -18133,7 +17914,6 @@ async function handleFindBotVoiceWin(client?, guild?, member?, game?, cfg?) {
   if (!channelId || !member?.user || member.user.bot) return false;
   clearNoParticipationDelay(channelId);
   if (game?.basilisk) {
-    const { isBasiliskBlockedForUser } = require("../Community/hogwartsBasiliskService") as typeof import("../Community/hogwartsBasiliskService");
     const blocked = await isBasiliskBlockedForUser(client, guild.id, member.id, game);
     if (blocked) return false;
   }

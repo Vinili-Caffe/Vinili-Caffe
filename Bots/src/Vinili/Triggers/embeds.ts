@@ -1,4 +1,4 @@
-const Embeds = require("../Embeds") as typeof import("../Embeds");
+const Embeds = require("../Embeds/index") as typeof import("../Embeds/index");
 const { isDiscordPanelEnabled } = require("../Utils/Config/discordPanelsConfig") as typeof import("../Utils/Config/discordPanelsConfig");
 const {
   persistDiscordPanelRecipes,

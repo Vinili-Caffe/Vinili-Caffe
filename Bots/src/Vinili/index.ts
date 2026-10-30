@@ -189,7 +189,7 @@ initializeCommandCollections(client, { includeSnipes: true });
     global.logger?.info?.(`[BOOT] handlers_events_ms=${Date.now() - handlersStartedAt}`);
 
     try {
-      require("./MultiGuild").attachToClient(client);
+      require("./MultiGuild/index").attachToClient(client);
     } catch (err) {
       global.logger?.warn?.("[MultiGuild] attach failed:", err?.message || err);
     }

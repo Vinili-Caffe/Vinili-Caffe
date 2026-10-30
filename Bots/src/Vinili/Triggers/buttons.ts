@@ -194,7 +194,7 @@ async function handleStaffButtons(interaction?) {
         components: [],
       }).catch((err?) => { logButtonErr(err); return null; });
       try {
-        const { notifyStaffWarnDepexDeferred, memberDisplayName } = require("../Utils/Web/siteStaffEventNotifications") as typeof import("../Utils/Web/siteStaffEventNotifications");
+        const { notifyStaffWarnDepexDeferred, memberDisplayName } = require("../Web/siteStaffEventNotifications") as typeof import("../Web/siteStaffEventNotifications");
         void notifyStaffWarnDepexDeferred({
           guild,
           staffUserId: userId,
@@ -230,7 +230,7 @@ async function handleStaffButtons(interaction?) {
     });
     await sendPexDepexLog(guild, "depex", targetUser, oldRoleId, newRoleId, "Depex da 2 warn staff (scelta High Staff).");
     try {
-      const { notifyStaffPexDepex, memberDisplayName } = require("../Utils/Web/siteStaffEventNotifications") as typeof import("../Utils/Web/siteStaffEventNotifications");
+      const { notifyStaffPexDepex, memberDisplayName } = require("../Web/siteStaffEventNotifications") as typeof import("../Web/siteStaffEventNotifications");
       void notifyStaffPexDepex({
         guild,
         kind: "depex",

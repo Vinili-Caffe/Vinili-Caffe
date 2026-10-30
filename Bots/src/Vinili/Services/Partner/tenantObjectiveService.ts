@@ -2,7 +2,7 @@ const { EmbedBuilder } = require("discord.js") as typeof import("discord.js");
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
 const { OBJECTIVE_DEFS } = require("../../Utils/Partner/tenantObjectiveDefs") as typeof import("../../Utils/Partner/tenantObjectiveDefs");
 const { OBJECTIVE_COPY } = require("../../Utils/Partner/tenantProfileConstants") as typeof import("../../Utils/Partner/tenantProfileConstants");
-const { t, resolveTenantLanguage } = require("../../Utils/Partner/tenantPartnershipI18n") as typeof import("../../Utils/Partner/tenantPartnershipI18n");
+const { t, resolveTenantLanguage } = require("../../Utils/Partner/tenantPartnershipI18n/index") as typeof import("../../Utils/Partner/tenantPartnershipI18n/index");
 const {
   getUserPartnershipScores,
   fetchLeaderboardRows,

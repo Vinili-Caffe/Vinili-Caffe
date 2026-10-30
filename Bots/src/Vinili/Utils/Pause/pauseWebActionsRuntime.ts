@@ -43,13 +43,13 @@ const {
   computeStaffPauseDayBudget,
   allocateBestStaffWeekPauseBonusDays,
 } = require("./pauseHandlersUtils") as typeof import("./pauseHandlersUtils");
-const { invalidateStaffPauseCalendarCache } = require("../Web/siteStaffPauseApi") as typeof import("../Web/siteStaffPauseApi");
+const { invalidateStaffPauseCalendarCache } = require("../../Web/siteStaffPauseApi") as typeof import("../../Web/siteStaffPauseApi");
 
 const pauseActionLocks = new Set();
 
 function notifyStaffPauseCalendarChanged(userId?) {
   try {
-    const { broadcastSiteStaffPausesChanged } = require("../Web/siteSuggestionsBroadcast") as typeof import("../Web/siteSuggestionsBroadcast");
+    const { broadcastSiteStaffPausesChanged } = require("../../Web/siteSuggestionsBroadcast") as typeof import("../../Web/siteSuggestionsBroadcast");
     broadcastSiteStaffPausesChanged();
   } catch {
       }
@@ -57,7 +57,7 @@ function notifyStaffPauseCalendarChanged(userId?) {
   const uid = String(userId || "").trim();
   if (!/^\d{16,22}$/.test(uid)) return;
   try {
-    const { clearStaffProfileCacheForUser } = require("../Web/siteStaffProfileApi") as typeof import("../Web/siteStaffProfileApi");
+    const { clearStaffProfileCacheForUser } = require("../../Web/siteStaffProfileApi") as typeof import("../../Web/siteStaffProfileApi");
     clearStaffProfileCacheForUser(uid, { action: "pause" });
   } catch {
       }
@@ -101,7 +101,7 @@ async function listPendingStaffPauses(client?, guildId?) {
   const guild = client.guilds.cache.get(gid) || (await client.guilds.fetch(gid).catch(() => null));
   const today = getTodayUtc();
   const items = [];
-  const { memberEligibleForPauseRole, autoCancelPendingPausesIfNotEligible } = require("../Web/siteStaffWorkflowStore") as typeof import("../Web/siteStaffWorkflowStore");
+  const { memberEligibleForPauseRole, autoCancelPendingPausesIfNotEligible } = require("../../Web/siteStaffWorkflowStore") as typeof import("../../Web/siteStaffWorkflowStore");
   const presenceByUser = new Map();
 
   for (const doc of docs) {
@@ -167,7 +167,7 @@ async function listStaffPausesForInbox(client?, guildId?, opts: Record<string, a
   const guild = client.guilds.cache.get(gid) || (await client.guilds.fetch(gid).catch(() => null));
   const today = getTodayUtc();
   const items = [];
-  const { memberEligibleForPauseRole, autoCancelPendingPausesIfNotEligible } = require("../Web/siteStaffWorkflowStore") as typeof import("../Web/siteStaffWorkflowStore");
+  const { memberEligibleForPauseRole, autoCancelPendingPausesIfNotEligible } = require("../../Web/siteStaffWorkflowStore") as typeof import("../../Web/siteStaffWorkflowStore");
   const presenceByUser = new Map();
 
   for (const doc of docs) {
@@ -296,7 +296,7 @@ async function rejectPauseRequestWeb(client?, guild?, actorMember?, userId?, pau
     invalidateStaffPauseCalendarCache();
     notifyStaffPauseCalendarChanged(userId);
     try {
-      const { updateStaffWorkflowFromPause, workflowActorExtras } = require("../Web/siteStaffWorkflowStore") as typeof import("../Web/siteStaffWorkflowStore");
+      const { updateStaffWorkflowFromPause, workflowActorExtras } = require("../../Web/siteStaffWorkflowStore") as typeof import("../../Web/siteStaffWorkflowStore");
       await updateStaffWorkflowFromPause(
         guildId,
         userId,
@@ -539,7 +539,7 @@ async function acceptPauseRequestWeb(client?, guild?, actorMember?, userId?, pau
     invalidateStaffPauseCalendarCache();
     notifyStaffPauseCalendarChanged(userId);
     try {
-      const { updateStaffWorkflowFromPause, workflowActorExtras } = require("../Web/siteStaffWorkflowStore") as typeof import("../Web/siteStaffWorkflowStore");
+      const { updateStaffWorkflowFromPause, workflowActorExtras } = require("../../Web/siteStaffWorkflowStore") as typeof import("../../Web/siteStaffWorkflowStore");
       await updateStaffWorkflowFromPause(
         guildId,
         userId,
@@ -675,7 +675,7 @@ async function cancelPauseRequestWeb(client?, guild?, actorMember?, userId?, pau
     invalidateStaffPauseCalendarCache();
     notifyStaffPauseCalendarChanged(userId);
     try {
-      const { updateStaffWorkflowFromPause, workflowActorExtras } = require("../Web/siteStaffWorkflowStore") as typeof import("../Web/siteStaffWorkflowStore");
+      const { updateStaffWorkflowFromPause, workflowActorExtras } = require("../../Web/siteStaffWorkflowStore") as typeof import("../../Web/siteStaffWorkflowStore");
       await updateStaffWorkflowFromPause(
         guildId,
         userId,

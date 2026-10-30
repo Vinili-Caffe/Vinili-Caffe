@@ -1082,7 +1082,7 @@ async function restoreBumpReminders(client?) {
   /* pushHedgeBootRecover1: dopo restart ri-arma hedge per unread senza /push/shown
      (SIGINT alle 12:39 uccideva i timer RAM → Top.gg claimato ma zero banner iOS). */
   try {
-    const { recoverUnreadApplePushHedges } = require("../Utils/Web/siteInAppNotificationsService") as typeof import("../Utils/Web/siteInAppNotificationsService");
+    const { recoverUnreadApplePushHedges } = require("../Web/siteInAppNotificationsService") as typeof import("../Web/siteInAppNotificationsService");
     setTimeout(() => {
       recoverUnreadApplePushHedges({ maxAgeMs: 6 * 60 * 60 * 1000, limitUsers: 50 }).catch((err?) => {
         global.logger?.warn?.("[PUSH HEDGE RECOVER]", err?.message || err);
@@ -1137,7 +1137,7 @@ async function restoreCoreStartupState(client?) {
     global.logger?.warn?.("[antiNuke] quarantine restore failed:", err?.message || err);
   }
   try {
-    const { restoreChatDmFallbacksOnStartup } = require("../Utils/Web/siteChatDmFallback") as typeof import("../Utils/Web/siteChatDmFallback");
+    const { restoreChatDmFallbacksOnStartup } = require("../Web/siteChatDmFallback") as typeof import("../Web/siteChatDmFallback");
     if (typeof restoreChatDmFallbacksOnStartup === "function") {
       await restoreChatDmFallbacksOnStartup(client);
     }
@@ -1237,7 +1237,7 @@ function startPrimaryLoops(client?, engagementTick?) {
     ["[MOD CASE LIFECYCLE] Failed to start loop", () => startModCaseLifecycleLoop(client)],
     ["[TICKET AUTO CLOSE PROMPT] Failed to start loop", () => startTicketAutoClosePromptLoop(client)],
     ["[WEB TICKET SLA] Failed to start loop", () => {
-      const { startWebTicketSlaNotifLoop } = require("../Utils/Web/siteWebTicketsApi") as typeof import("../Utils/Web/siteWebTicketsApi");
+      const { startWebTicketSlaNotifLoop } = require("../Web/siteWebTicketsApi") as typeof import("../Web/siteWebTicketsApi");
       startWebTicketSlaNotifLoop(client);
     }],
     ["[TRANSCRIPT CLEANUP] Failed to start loop", () => startTranscriptCleanupLoop()],

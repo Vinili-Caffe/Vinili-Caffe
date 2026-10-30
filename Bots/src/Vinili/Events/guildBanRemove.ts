@@ -65,7 +65,7 @@ export = {
       await logChannel.send({ embeds: [embed] }).catch(() => null);
 
       try {
-        const { autoClosePendingAppealsForUser } = require("../Utils/Web/siteStaffAppealsRuntime") as typeof import("../Utils/Web/siteStaffAppealsRuntime");
+        const { autoClosePendingAppealsForUser } = require("../Web/siteStaffAppealsRuntime") as typeof import("../Web/siteStaffAppealsRuntime");
         void autoClosePendingAppealsForUser(guild, targetId, "unban").catch((err?) => {
           global.logger?.warn?.("[guildBanRemove] appeal auto-close unban:", targetId, err?.message || err);
         });

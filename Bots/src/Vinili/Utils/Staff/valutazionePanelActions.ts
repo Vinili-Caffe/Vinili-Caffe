@@ -5,9 +5,9 @@ const {
   ensureStaff,
   incrementStaffValutazioneCounters,
   appendStaffRolesHistoryEntry,
-} = require("../../Utils/Staff/staffDocUtils") as typeof import("./staffDocUtils");
-const IDs = require("../../Utils/Config/ids") as typeof import("../Config/ids");
-const { getGuildChannelCached, getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache") as typeof import("../Interaction/interactionEntityCache");
+} = require("./staffDocUtils") as typeof import("./staffDocUtils");
+const IDs = require("../Config/ids") as typeof import("../Config/ids");
+const { getGuildChannelCached, getGuildMemberCached } = require("../Interaction/interactionEntityCache") as typeof import("../Interaction/interactionEntityCache");
 const {
   addStaffWarnFromNegatives,
   applyFullDepex,
@@ -15,7 +15,7 @@ const {
   STAFF_WARN_THREE_NEGATIVES_REASON,
   NEGATIVES_PER_STAFF_WARN,
 } = require("../../Services/Staff/staffWarnService") as typeof import("../../Services/Staff/staffWarnService");
-const { syncStaffDbAndPauseChannelAfterDepex } = require("../../Utils/Staff/staffPmUtils") as typeof import("./staffPmUtils");
+const { syncStaffDbAndPauseChannelAfterDepex } = require("./staffPmUtils") as typeof import("./staffPmUtils");
 const { resolveStaffValutazioniChannel, resolveStaffPexDepexChannel } = require("./staffChannelUtils") as typeof import("./staffChannelUtils");
 const { accountUsername, guildMemberDisplayAvatarUrlDynamic, resolveEmbedUserAvatarUrl } = require("../Discord/guildDiscordIdentity") as typeof import("../Discord/guildDiscordIdentity");
 const { TENANT_EMBED_COLOR } = require("../../MultiGuild/utils/tenantEmbedBranding") as typeof import("../../MultiGuild/utils/tenantEmbedBranding");
@@ -28,7 +28,7 @@ function clearWebStaffProfileCache(userId?, action = "valutazione") {
   const uid = String(userId || "").trim();
   if (!/^\d{16,22}$/.test(uid)) return;
   try {
-    require("../Web/siteStaffProfileApi").clearStaffProfileCacheForUser(uid, { action });
+    require("../../Web/siteStaffProfileApi").clearStaffProfileCacheForUser(uid, { action });
   } catch (_) {}
 }
 
@@ -426,7 +426,7 @@ async function valutazionePositiveAddCore(profileDoc?, staffUser?, reason?, acto
   await profileDoc.save();
   await mirrorValTrackHistory(guildId, userId, "val_pos", reason, actor, counts.sectionCount);
   try {
-    const { notifyStaffValutazione, memberDisplayName } = require("../Web/siteStaffEventNotifications") as typeof import("../Web/siteStaffEventNotifications");
+    const { notifyStaffValutazione, memberDisplayName } = require("../../Web/siteStaffEventNotifications") as typeof import("../../Web/siteStaffEventNotifications");
     void notifyStaffValutazione({
       guild: channel?.guild || null,
       staffUserId: userId,
@@ -481,7 +481,7 @@ async function valutazionePositiveRemoveCore(profileDoc?, staffUser?, removeId?,
   const edited = await editOriginalValutazioneMessage(channel?.guild || null, originalEntry, embed);
   if (!edited) await sendChannelEmbed(channel, { embeds: [embed] });
   try {
-    const { notifyStaffValutazioneRemoved, memberDisplayName } = require("../Web/siteStaffEventNotifications") as typeof import("../Web/siteStaffEventNotifications");
+    const { notifyStaffValutazioneRemoved, memberDisplayName } = require("../../Web/siteStaffEventNotifications") as typeof import("../../Web/siteStaffEventNotifications");
     void notifyStaffValutazioneRemoved({
       guild: channel?.guild || null,
       staffUserId: String(staffUser?.id || ""),
@@ -605,7 +605,7 @@ async function valutazioneNegativeAddCore(guild?, profileDoc?, staffUser?, reaso
     }
   }
   try {
-    const { notifyStaffValutazione, notifyStaffWarn, notifyStaffPexDepex, memberDisplayName } = require("../Web/siteStaffEventNotifications") as typeof import("../Web/siteStaffEventNotifications");
+    const { notifyStaffValutazione, notifyStaffWarn, notifyStaffPexDepex, memberDisplayName } = require("../../Web/siteStaffEventNotifications") as typeof import("../../Web/siteStaffEventNotifications");
     void notifyStaffValutazione({
       guild,
       staffUserId: staffUser.id,
@@ -683,7 +683,7 @@ async function valutazioneNegativeRemoveCore(profileDoc?, staffUser?, removeId?,
   const edited = await editOriginalValutazioneMessage(channel?.guild || null, originalEntry, embed);
   if (!edited) await sendChannelEmbed(channel, { embeds: [embed] });
   try {
-    const { notifyStaffValutazioneRemoved, memberDisplayName } = require("../Web/siteStaffEventNotifications") as typeof import("../Web/siteStaffEventNotifications");
+    const { notifyStaffValutazioneRemoved, memberDisplayName } = require("../../Web/siteStaffEventNotifications") as typeof import("../../Web/siteStaffEventNotifications");
     void notifyStaffValutazioneRemoved({
       guild: channel?.guild || null,
       staffUserId: String(staffUser?.id || ""),

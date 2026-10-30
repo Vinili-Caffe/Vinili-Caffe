@@ -504,7 +504,10 @@ const ITALIAN_GK_BANK = [
   { question: "Qual è la regione più a sud d'Italia?", answers: ["Sicilia", "Calabria"] },
 ];
 
-const { HOGWARTS_QUIZ_BANK } = require("./hogwartsQuizBank") as typeof import("./hogwartsQuizBank");
+/* evento Hogwarts concluso: il banco quiz è in Bots/archivio/hogwarts */
+function loadHogwartsQuizBank(): any[] {
+  return [];
+}
 
 const HOGWARTS_CIPHER_BANK = [
   { word: "Erbicida", answers: ["Erbicida"] },
@@ -714,7 +717,6 @@ function shuffleBankInPlace(arr?) {
   CAPITAL_QUIZ_BANK,
   ITALIAN_REGION_CAPITAL_BANK,
   ITALIAN_GK_BANK,
-  HOGWARTS_QUIZ_BANK,
   HOGWARTS_CIPHER_BANK,
   HOGWARTS_MEMORY_EMOJI_BANK,
   MEMORY_EMOJI_BANK,
@@ -794,7 +796,9 @@ function getItalianGkBank() {
 }
 
 function getHogwartsQuizBank() {
-  return HOGWARTS_QUIZ_BANK;
+  const bank = loadHogwartsQuizBank();
+  if (Array.isArray(bank) && bank.length) shuffleBankInPlace(bank);
+  return bank;
 }
 
 function getHogwartsCipherBank() {

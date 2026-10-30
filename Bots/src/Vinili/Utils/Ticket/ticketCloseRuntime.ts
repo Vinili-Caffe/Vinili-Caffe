@@ -272,7 +272,7 @@ async function closeTicket(targetInteraction?, motivo?, helpers?) {
       ).catch(() => null)) || ticket;
 
     try {
-      const { invalidateSlimClosedTicketsCache } = require("../Web/siteDashboardTicketsApi") as typeof import("../Web/siteDashboardTicketsApi");
+      const { invalidateSlimClosedTicketsCache } = require("../../Web/siteDashboardTicketsApi") as typeof import("../../Web/siteDashboardTicketsApi");
       invalidateSlimClosedTicketsCache(targetInteraction.guild?.id);
     } catch (_) {}
 
@@ -583,7 +583,7 @@ async function closeOpenTicketsForGuildUser(guild?, userId?, options: Record<str
     }
   }
   try {
-    const { invalidateSlimClosedTicketsCache } = require("../Web/siteDashboardTicketsApi") as typeof import("../Web/siteDashboardTicketsApi");
+    const { invalidateSlimClosedTicketsCache } = require("../../Web/siteDashboardTicketsApi") as typeof import("../../Web/siteDashboardTicketsApi");
     invalidateSlimClosedTicketsCache(guild.id);
   } catch (_) {}
   return { closed };

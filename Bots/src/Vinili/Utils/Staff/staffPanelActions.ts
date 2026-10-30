@@ -1,12 +1,12 @@
 const { EmbedBuilder } = require("discord.js") as typeof import("discord.js");
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
-const { getOrCreateStaffDoc, ensureStaff, applyStaffLadderTrackResetToObject } = require("../../Utils/Staff/staffDocUtils") as typeof import("./staffDocUtils");
-const { initPartnerManagerFieldsIfMissing, syncStaffDbAndPauseChannelAfterDepex } = require("../../Utils/Staff/staffPmUtils") as typeof import("./staffPmUtils");
-const IDs = require("../../Utils/Config/ids") as typeof import("../Config/ids");
-const { getStaffRoleEmojiByRoleId } = require("../../Utils/Community/staffRoleEmoji") as typeof import("../Community/staffRoleEmoji");
-const { getClientChannelCached, getGuildChannelCached } = require("../../Utils/Interaction/interactionEntityCache") as typeof import("../Interaction/interactionEntityCache");
-const { guildMemberDisplayAvatarUrlDynamic } = require("../../Utils/Discord/guildDiscordIdentity") as typeof import("../Discord/guildDiscordIdentity");
-const { memberHasStaffRole, queueStaffListRefreshAfterRoleMutation } = require("../../Utils/Community/staffListUtils") as typeof import("../Community/staffListUtils");
+const { getOrCreateStaffDoc, ensureStaff, applyStaffLadderTrackResetToObject } = require("./staffDocUtils") as typeof import("./staffDocUtils");
+const { initPartnerManagerFieldsIfMissing, syncStaffDbAndPauseChannelAfterDepex } = require("./staffPmUtils") as typeof import("./staffPmUtils");
+const IDs = require("../Config/ids") as typeof import("../Config/ids");
+const { getStaffRoleEmojiByRoleId } = require("../Community/staffRoleEmoji") as typeof import("../Community/staffRoleEmoji");
+const { getClientChannelCached, getGuildChannelCached } = require("../Interaction/interactionEntityCache") as typeof import("../Interaction/interactionEntityCache");
+const { guildMemberDisplayAvatarUrlDynamic } = require("../Discord/guildDiscordIdentity") as typeof import("../Discord/guildDiscordIdentity");
+const { memberHasStaffRole, queueStaffListRefreshAfterRoleMutation } = require("../Community/staffListUtils") as typeof import("../Community/staffListUtils");
 const { applyDepexOneLevel } = require("../../Services/Staff/staffWarnService") as typeof import("../../Services/Staff/staffWarnService");
 const { applyDepexSideEffects: applyResocontoStaffDepexSideEffects } = require("../../Events/interaction/resocontoHandlers") as typeof import("../../Events/interaction/resocontoHandlers");
 const { clearStaffPendingPurgeAt } = require("../../Services/Community/userLeaveBackupService") as typeof import("../../Services/Community/userLeaveBackupService");
@@ -62,7 +62,7 @@ async function mirrorTrackHistory(guildId?, userId?, entry?, kindOverride?) {
 function firePexDepexSiteNotif(guild, { kind, targetUser, oldRoleId, newRoleId, reason, actorUser, sourceHint }) {
   const targetUserId = String(targetUser?.id || "").trim();
   try {
-    const { notifyStaffPexDepex, memberDisplayName } = require("../Web/siteStaffEventNotifications") as typeof import("../Web/siteStaffEventNotifications");
+    const { notifyStaffPexDepex, memberDisplayName } = require("../../Web/siteStaffEventNotifications") as typeof import("../../Web/siteStaffEventNotifications");
     void notifyStaffPexDepex({
       guild,
       kind,
@@ -78,7 +78,7 @@ function firePexDepexSiteNotif(guild, { kind, targetUser, oldRoleId, newRoleId, 
   } catch (_) {}
   /* staffProfLiveAll1: clear cache → broadcast WS ai profili aperti */
   try {
-    require("../Web/siteStaffProfileApi").clearStaffProfileCacheForUser(targetUserId, {
+    require("../../Web/siteStaffProfileApi").clearStaffProfileCacheForUser(targetUserId, {
       action: kind || sourceHint || "career",
     });
   } catch (_) {}
@@ -927,7 +927,7 @@ async function runProfileStaffWarnAdd(guild?, client?, targetUser?, actorUser?, 
   try {
     const freshDoc = await getOrCreateStaffDoc(guild.id, targetUser.id);
     const warnCount = Math.max(0, Number(ensureStaff(freshDoc)?.warnCount || s.warnCount || 0));
-    const { notifyStaffWarn, memberDisplayName } = require("../Web/siteStaffEventNotifications") as typeof import("../Web/siteStaffEventNotifications");
+    const { notifyStaffWarn, memberDisplayName } = require("../../Web/siteStaffEventNotifications") as typeof import("../../Web/siteStaffEventNotifications");
     void notifyStaffWarn({
       guild,
       staffUserId: targetUser.id,
@@ -939,7 +939,7 @@ async function runProfileStaffWarnAdd(guild?, client?, targetUser?, actorUser?, 
     }).catch(() => 0);
   } catch (_) {}
   try {
-    require("../Web/siteStaffProfileApi").clearStaffProfileCacheForUser(targetUser.id, {
+    require("../../Web/siteStaffProfileApi").clearStaffProfileCacheForUser(targetUser.id, {
       action: "warn_add",
     });
   } catch (_) {}
@@ -1026,7 +1026,7 @@ async function runProfileStaffWarnRemove(guild?, client?, targetUser?, actorUser
     await warnChannel.send({ content: `${targetUser}`, embeds: [embed] }).catch(() => null);
   }
   try {
-    const { notifyStaffWarnRemoved, memberDisplayName } = require("../Web/siteStaffEventNotifications") as typeof import("../Web/siteStaffEventNotifications");
+    const { notifyStaffWarnRemoved, memberDisplayName } = require("../../Web/siteStaffEventNotifications") as typeof import("../../Web/siteStaffEventNotifications");
     void notifyStaffWarnRemoved({
       guild,
       staffUserId: targetUser.id,
@@ -1037,7 +1037,7 @@ async function runProfileStaffWarnRemove(guild?, client?, targetUser?, actorUser
     }).catch(() => 0);
   } catch (_) {}
   try {
-    require("../Web/siteStaffProfileApi").clearStaffProfileCacheForUser(targetUser.id, {
+    require("../../Web/siteStaffProfileApi").clearStaffProfileCacheForUser(targetUser.id, {
       action: "warn_rm",
     });
   } catch (_) {}

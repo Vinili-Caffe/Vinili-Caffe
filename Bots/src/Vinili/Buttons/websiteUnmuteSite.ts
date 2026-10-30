@@ -1,6 +1,6 @@
 const { EmbedBuilder } = require("discord.js") as typeof import("discord.js");
 const IDs = require("../Utils/Config/ids") as typeof import("../Utils/Config/ids");
-const { enqueueSiteInAppNotification } = require("../Utils/Web/siteInAppNotificationsService") as typeof import("../Utils/Web/siteInAppNotificationsService");
+const { enqueueSiteInAppNotification } = require("../Web/siteInAppNotificationsService") as typeof import("../Web/siteInAppNotificationsService");
 const { applyWebsiteUnmute } = require("../Events/interaction/unmuteWebsiteHandlers") as typeof import("../Events/interaction/unmuteWebsiteHandlers");
 const {
   isDiscordWorkflowUiEnabled,

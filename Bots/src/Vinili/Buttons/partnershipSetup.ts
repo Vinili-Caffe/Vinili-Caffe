@@ -24,7 +24,7 @@ const {
 } = require("../Utils/Partner/partnershipSetupComponents") as typeof import("../Utils/Partner/partnershipSetupComponents");
 
 const { memberCanManageTenantPartnershipSettings } = require("../Utils/Partner/tenantPartnershipAdminAccess") as typeof import("../Utils/Partner/tenantPartnershipAdminAccess");
-const { t, resolveTenantLanguage } = require("../Utils/Partner/tenantPartnershipI18n") as typeof import("../Utils/Partner/tenantPartnershipI18n");
+const { t, resolveTenantLanguage } = require("../Utils/Partner/tenantPartnershipI18n/index") as typeof import("../Utils/Partner/tenantPartnershipI18n/index");
 const { resolveTenantLanguageForInteraction, tenantI18nNoticePayload } = require("../Utils/Partner/tenantPartnershipPrefixMessages") as typeof import("../Utils/Partner/tenantPartnershipPrefixMessages");
 const { buildSimpleNoticePayload } = require("../Utils/Embeds/simpleNoticeEmbed") as typeof import("../Utils/Embeds/simpleNoticeEmbed");
 const { setTenantObjectiveFlag } = require("../Services/Partner/tenantObjectiveService") as typeof import("../Services/Partner/tenantObjectiveService");

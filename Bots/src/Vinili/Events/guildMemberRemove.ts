@@ -26,7 +26,7 @@ const { trackMemberLeave } = require("../Services/Community/dailyMemberStatsServ
 const { handleMainGuildMemberRemove } = require("../Services/Staff/staffAccessMirrorService") as typeof import("../Services/Staff/staffAccessMirrorService");
 const { cancelOpenPausesOnMemberLeave } = require("../Utils/Pause/pauseHandlersUtils") as typeof import("../Utils/Pause/pauseHandlersUtils");
 const { appendStaffRolesHistoryEntry } = require("../Utils/Staff/staffDocUtils") as typeof import("../Utils/Staff/staffDocUtils");
-const { identityFromMember } = require("../Utils/Web/siteStaffRosterCache") as typeof import("../Utils/Web/siteStaffRosterCache");
+const { identityFromMember } = require("../Web/siteStaffRosterCache") as typeof import("../Web/siteStaffRosterCache");
 
 function isViniliFullFeatureGuild(guildId?) {
   try {
@@ -188,7 +188,7 @@ async function closeOpenWebTicketsForMember(member?, closeReason = "Utente uscit
     closeOpenWebTicketsForGuildUser,
     autoUnclaimOpenWebTicketsClaimedByUser,
     removeLeftUserFromOpenWebTickets,
-  } = require("../Utils/Web/siteWebTicketsApi") as typeof import("../Utils/Web/siteWebTicketsApi");
+  } = require("../Web/siteWebTicketsApi") as typeof import("../Web/siteWebTicketsApi");
   const client = member.client;
   const guildId = member.guild?.id;
   const userId = member.id;
@@ -799,7 +799,7 @@ export = {
           const {
             autoUnclaimOpenWebTicketsClaimedByUser,
             removeLeftUserFromOpenWebTickets,
-          } = require("../Utils/Web/siteWebTicketsApi") as typeof import("../Utils/Web/siteWebTicketsApi");
+          } = require("../Web/siteWebTicketsApi") as typeof import("../Web/siteWebTicketsApi");
           await autoUnclaimOpenWebTicketsClaimedByUser(member.client, member.guild.id, member.id, {
             reason: "perché è uscito dal server",
             claimerName: member.user?.globalName || member.user?.username || "",
@@ -900,7 +900,7 @@ export = {
         const {
           autoUnclaimOpenWebTicketsClaimedByUser,
           removeLeftUserFromOpenWebTickets,
-        } = require("../Utils/Web/siteWebTicketsApi") as typeof import("../Utils/Web/siteWebTicketsApi");
+        } = require("../Web/siteWebTicketsApi") as typeof import("../Web/siteWebTicketsApi");
         await autoUnclaimOpenWebTicketsClaimedByUser(member.client, member.guild.id, member.id, {
           reason: wasKicked
             ? "perché è stato kickato dal server"
@@ -917,7 +917,7 @@ export = {
         global.logger?.warn?.("[guildMemberRemove] ticket auto-unclaim on leave:", member.id, err?.message || err);
       });
       try {
-        require("../Utils/Web/siteReviewsApi").scheduleExStaffReviewsPurge(client || member.client);
+        require("../Web/siteReviewsApi").scheduleExStaffReviewsPurge(client || member.client);
       } catch (_) {}
       await handlePmStaffPartnershipWipeOnLeave(member, activeClient).catch((err?) => {
         global.logger?.warn?.(
@@ -932,7 +932,7 @@ export = {
         global.logger?.warn?.("[guildMemberRemove] cancel pauses:", err?.message || err);
       });
       try {
-        const { cancelPendingPauseWorkflowForUser, cancelPendingResocontiWorkflowForUser } = require("../Utils/Web/siteStaffWorkflowStore") as typeof import("../Utils/Web/siteStaffWorkflowStore");
+        const { cancelPendingPauseWorkflowForUser, cancelPendingResocontiWorkflowForUser } = require("../Web/siteStaffWorkflowStore") as typeof import("../Web/siteStaffWorkflowStore");
         await cancelPendingPauseWorkflowForUser(member.guild.id, member.id, {
           statusLabel: "Annullato (uscita)",
           decidedBy: "system",
@@ -960,7 +960,7 @@ export = {
         const {
           broadcastSiteMemberLeft,
           broadcastSiteLiveStatsChangedDebounced,
-        } = require("../Utils/Web/siteSuggestionsBroadcast") as typeof import("../Utils/Web/siteSuggestionsBroadcast");
+        } = require("../Web/siteSuggestionsBroadcast") as typeof import("../Web/siteSuggestionsBroadcast");
         broadcastSiteMemberLeft(member.id, guild.id);
         broadcastSiteLiveStatsChangedDebounced();
       } catch (err) {

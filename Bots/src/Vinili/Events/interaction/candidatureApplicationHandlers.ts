@@ -766,7 +766,7 @@ async function setApplicationMessageStatusColor(message?, color?, decidedBy = ""
     await message.edit({ embeds, components: [] }).catch(() => null);
   }
   try {
-    const { updateStaffWorkflowFromMessage } = require("../../Utils/Web/siteStaffWorkflowStore") as typeof import("../../Utils/Web/siteStaffWorkflowStore");
+    const { updateStaffWorkflowFromMessage } = require("../../Web/siteStaffWorkflowStore") as typeof import("../../Web/siteStaffWorkflowStore");
     const status =
       String(color || "").toLowerCase() === String(APPLICATION_ACCEPTED_COLOR).toLowerCase()
         ? "accepted"
@@ -1030,7 +1030,7 @@ async function postCandidatureToVisioneModuli(client?, guild?, user?, type?, ans
   if (!discordPosts) {
     const messageId = newSiteWorkflowMessageId();
     try {
-      const { persistCandidatureWorkflowFromPayload } = require("../../Utils/Web/siteStaffWorkflowStore") as typeof import("../../Utils/Web/siteStaffWorkflowStore");
+      const { persistCandidatureWorkflowFromPayload } = require("../../Web/siteStaffWorkflowStore") as typeof import("../../Web/siteStaffWorkflowStore");
       await persistCandidatureWorkflowFromPayload(guild, {
         messageId,
         channelId: "site",
@@ -1048,7 +1048,7 @@ async function postCandidatureToVisioneModuli(client?, guild?, user?, type?, ans
     await setCooldown(user.id, nextAllowedAt, type);
     if (stateKey) await clearDraftState(stateKey);
     try {
-      const { notifyInboxStaffNewItem } = require("../../Utils/Web/siteStaffWorkflowNotifications") as typeof import("../../Utils/Web/siteStaffWorkflowNotifications");
+      const { notifyInboxStaffNewItem } = require("../../Web/siteStaffWorkflowNotifications") as typeof import("../../Web/siteStaffWorkflowNotifications");
       const subjectName =
         String(user?.globalName || user?.username || user?.tag || "").trim() || String(user.id);
       const typeLabel =
@@ -1126,11 +1126,11 @@ async function postCandidatureToVisioneModuli(client?, guild?, user?, type?, ans
   if (stateKey) await clearDraftState(stateKey);
 
   try {
-    const { persistCandidatureWorkflowFromMessage } = require("../../Utils/Web/siteStaffWorkflowStore") as typeof import("../../Utils/Web/siteStaffWorkflowStore");
+    const { persistCandidatureWorkflowFromMessage } = require("../../Web/siteStaffWorkflowStore") as typeof import("../../Web/siteStaffWorkflowStore");
     await persistCandidatureWorkflowFromMessage(guild, sent, type, user.id, "pending");
   } catch (_) {}
   try {
-    const { notifyInboxStaffNewItem } = require("../../Utils/Web/siteStaffWorkflowNotifications") as typeof import("../../Utils/Web/siteStaffWorkflowNotifications");
+    const { notifyInboxStaffNewItem } = require("../../Web/siteStaffWorkflowNotifications") as typeof import("../../Web/siteStaffWorkflowNotifications");
     const subjectName = String(user?.globalName || user?.username || user?.tag || "").trim() || String(user.id);
     const typeLabel = applicationTypeLabel(type);
     void notifyInboxStaffNewItem({
@@ -1517,7 +1517,7 @@ async function completeCandidatePexAfterRole(guild?, member?, type?, reason?, so
 
   await sendCandidatePexLog(guild, member, targetRoleId, roleBeforeId, reason);
   try {
-    const { notifyStaffPexDepex, memberDisplayName } = require("../../Utils/Web/siteStaffEventNotifications") as typeof import("../../Utils/Web/siteStaffEventNotifications");
+    const { notifyStaffPexDepex, memberDisplayName } = require("../../Web/siteStaffEventNotifications") as typeof import("../../Web/siteStaffEventNotifications");
     void notifyStaffPexDepex({
       guild,
       kind: "pex",
@@ -1544,7 +1544,7 @@ async function completeCandidatePexAfterRole(guild?, member?, type?, reason?, so
   }
 
   try {
-    const { enqueueSiteInAppNotification } = require("../../Utils/Web/siteInAppNotificationsService") as typeof import("../../Utils/Web/siteInAppNotificationsService");
+    const { enqueueSiteInAppNotification } = require("../../Web/siteInAppNotificationsService") as typeof import("../../Web/siteInAppNotificationsService");
     const label = applicationTypeLabel(type);
     const msgId = String(sourceMessage?.id || "");
     const openUrl = msgId
@@ -1865,7 +1865,7 @@ async function handleCandidatureApplicationInteraction(interaction?) {
       }
       if (rejUid && APPLICATION_TYPES.includes(rejType)) {
         try {
-          const { enqueueSiteInAppNotification } = require("../../Utils/Web/siteInAppNotificationsService") as typeof import("../../Utils/Web/siteInAppNotificationsService");
+          const { enqueueSiteInAppNotification } = require("../../Web/siteInAppNotificationsService") as typeof import("../../Web/siteInAppNotificationsService");
           const label = applicationTypeLabel(rejType);
           const openUrl = rejMessageId
             ? `/candidature/?chat=${encodeURIComponent(`candidature:${rejMessageId}`)}`
@@ -2195,7 +2195,7 @@ async function webRejectCandidateApplication(guild?, actorMember?, messageId?, t
   }
   /* notifCandRejectClear1: sempre workflow + purge inbox staff (come accept) */
   try {
-    const { updateStaffWorkflowFromMessage } = require("../../Utils/Web/siteStaffWorkflowStore") as typeof import("../../Utils/Web/siteStaffWorkflowStore");
+    const { updateStaffWorkflowFromMessage } = require("../../Web/siteStaffWorkflowStore") as typeof import("../../Web/siteStaffWorkflowStore");
     await updateStaffWorkflowFromMessage(guild.id, "candidature", String(messageId), "rejected", {
       decidedBy,
       decidedByName,
@@ -2205,8 +2205,8 @@ async function webRejectCandidateApplication(guild?, actorMember?, messageId?, t
     const {
       clearWorkflowLifecycleNotifs,
       inboxOpenUrl,
-    } = require("../../Utils/Web/siteStaffWorkflowNotifications") as typeof import("../../Utils/Web/siteStaffWorkflowNotifications");
-    const { removeSiteInAppNotificationsMatching } = require("../../Utils/Web/siteInAppNotificationsService") as typeof import("../../Utils/Web/siteInAppNotificationsService");
+    } = require("../../Web/siteStaffWorkflowNotifications") as typeof import("../../Web/siteStaffWorkflowNotifications");
+    const { removeSiteInAppNotificationsMatching } = require("../../Web/siteInAppNotificationsService") as typeof import("../../Web/siteInAppNotificationsService");
     const mid = String(messageId || "").trim();
     const openUrls = mid ? [inboxOpenUrl("candidature", mid)] : [];
     await clearWorkflowLifecycleNotifs({
@@ -2226,7 +2226,7 @@ async function webRejectCandidateApplication(guild?, actorMember?, messageId?, t
   const rejUid = boundUserId;
   if (rejUid && APPLICATION_TYPES.includes(rejType)) {
     try {
-      const { enqueueSiteInAppNotification } = require("../../Utils/Web/siteInAppNotificationsService") as typeof import("../../Utils/Web/siteInAppNotificationsService");
+      const { enqueueSiteInAppNotification } = require("../../Web/siteInAppNotificationsService") as typeof import("../../Web/siteInAppNotificationsService");
       const label = applicationTypeLabel(rejType);
       const mid = String(messageId || "");
       const openUrl = mid
@@ -2281,7 +2281,7 @@ async function webAcceptCandidateApplication(guild?, actorMember?, messageId?, t
   const ok = !String(status || "").toLowerCase().includes("impossibile") && !String(status || "").toLowerCase().includes("non trovato");
   if (ok) {
     try {
-      const { updateStaffWorkflowFromMessage } = require("../../Utils/Web/siteStaffWorkflowStore") as typeof import("../../Utils/Web/siteStaffWorkflowStore");
+      const { updateStaffWorkflowFromMessage } = require("../../Web/siteStaffWorkflowStore") as typeof import("../../Web/siteStaffWorkflowStore");
       await updateStaffWorkflowFromMessage(guild.id, "candidature", String(messageId), "accepted", {
         decidedBy,
         decidedByName,

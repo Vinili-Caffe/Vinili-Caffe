@@ -2,7 +2,7 @@
 
 const { GlobalSettings } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
 const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
-const Embeds = require("../../Embeds") as typeof import("../../Embeds");
+const Embeds = require("../../Embeds/index") as typeof import("../../Embeds/index");
 const {
   getEnabledDiscordPanelNames,
   isDiscordPanelEnabled,

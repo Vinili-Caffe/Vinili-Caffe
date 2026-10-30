@@ -1,14 +1,14 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder, StringSelectMenuOptionBuilder } = require("discord.js") as typeof import("discord.js");
 const { TENANT_EMBED_COLOR } = require("../../MultiGuild/utils/tenantEmbedBranding") as typeof import("../../MultiGuild/utils/tenantEmbedBranding");
 const { applyPartnershipPayloadBranding } = require("../../MultiGuild/utils/tenantEmbedBranding") as typeof import("../../MultiGuild/utils/tenantEmbedBranding");
-const { applyDefaultFooterToEmbeds } = require("../../Utils/Embeds/defaultFooter") as typeof import("../Embeds/defaultFooter");
+const { applyDefaultFooterToEmbeds } = require("../Embeds/defaultFooter") as typeof import("../Embeds/defaultFooter");
 const { fetchLeaderboardRows, findRankEntry, normalizeCategory, normalizePeriod } = require("../../Services/Partner/tenantLeaderboardService") as typeof import("../../Services/Partner/tenantLeaderboardService");
 const { getPartnershipConfigSync } = require("../../MultiGuild/core/tenantPartnershipSettings") as typeof import("../../MultiGuild/core/tenantPartnershipSettings");
 const { getManagedInvite } = require("../../MultiGuild/services/guildJoinAlertService") as typeof import("../../MultiGuild/services/guildJoinAlertService");
 const { getPartnerManagerRoleId } = require("./partnershipConfigResolver") as typeof import("./partnershipConfigResolver");
 const { formatUserLabel, fetchMembers, rankLabel } = require("../../Prefix/Level/classifica") as typeof import("../../Prefix/Level/classifica");
 const { guildIconUrl } = require("../Discord/guildDiscordIdentity") as typeof import("../Discord/guildDiscordIdentity");
-const { t } = require("./tenantPartnershipI18n") as typeof import("./tenantPartnershipI18n");
+const { t } = require("./tenantPartnershipI18n/index") as typeof import("./tenantPartnershipI18n/index");
 const { TENANT_PARTNERSHIP_ARROWS } = require("./tenantPartnershipArrows") as typeof import("./tenantPartnershipArrows");
 const PAGE_SIZE = 10;
 const PREFIX = "tlb";

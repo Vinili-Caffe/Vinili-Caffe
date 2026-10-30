@@ -3,8 +3,8 @@ const { ActivityUserProfile } = require("../../Schemas/Community/communitySchema
 const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
 const { shouldBlockDm } = require("../../Utils/noDmList") as typeof import("../../Utils/noDmList");
 const { isUserDmPrivacyBlockedError, notifyDmPrivacyBlockedInCommands } = require("../../../shared/discord/dmPrivacyNotice") as typeof import("../../../shared/discord/dmPrivacyNotice");
-const { enqueueSiteInAppNotification } = require("../../Utils/Web/siteInAppNotificationsService") as typeof import("../../Utils/Web/siteInAppNotificationsService");
-const { shouldSkipDiscordDmForActiveWebPush } = require("../../Utils/Web/siteNotifPrefs") as typeof import("../../Utils/Web/siteNotifPrefs");
+const { enqueueSiteInAppNotification } = require("../../Web/siteInAppNotificationsService") as typeof import("../../Web/siteInAppNotificationsService");
+const { shouldSkipDiscordDmForActiveWebPush } = require("../../Web/siteNotifPrefs") as typeof import("../../Web/siteNotifPrefs");
 const { getClientChannelCached, getClientGuildCached, getGuildMemberCached, getUserCached } = require("../../Utils/Interaction/interactionEntityCache") as typeof import("../../Utils/Interaction/interactionEntityCache");
 const { addExpWithLevel, shouldIgnoreExpForMember } = require("../Community/expService") as typeof import("../Community/expService");
 const { voteCountMonthKeyRome } = require("../../Utils/romeVoteMonthKey") as typeof import("../../Utils/romeVoteMonthKey");
@@ -229,7 +229,7 @@ function scheduleVoteReminderPhoneRetries(payload?) {
         try {
           /* pushSkipRead1: no retry se reminder già letto/dismesso */
           try {
-            const notifSvc = require("../../Utils/Web/siteInAppNotificationsService") as typeof import("../../Utils/Web/siteInAppNotificationsService");
+            const notifSvc = require("../../Web/siteInAppNotificationsService") as typeof import("../../Web/siteInAppNotificationsService");
             if (typeof notifSvc.isSiteInAppNotificationStillUnread === "function") {
               const still = await notifSvc.isSiteInAppNotificationStillUnread(uid, base.id, base.dedupeKey, {
                 missingMeansUnread: false,
@@ -241,7 +241,7 @@ function scheduleVoteReminderPhoneRetries(payload?) {
               }
             }
           } catch (_) {}
-          const { sendWebPushToUser } = require("../../Utils/Web/siteWebPushService") as typeof import("../../Utils/Web/siteWebPushService");
+          const { sendWebPushToUser } = require("../../Web/siteWebPushService") as typeof import("../../Web/siteWebPushService");
           /* Topic unico per tentativo (no collapse FCM con il primo “ok” fantasma) */
           const out = await sendWebPushToUser(
             uid,
@@ -1301,18 +1301,18 @@ async function recordDiscadiaVote(client?, guildId?, userId?, options: Record<st
 
   /* voteWsLive1: invalida cache /vote/ + ping WS subito (anche se ancora sulla pagina o in PWA). */
   try {
-    const { invalidateSiteVoteCache } = require("../../Utils/Web/siteVoteApi") as typeof import("../../Utils/Web/siteVoteApi");
+    const { invalidateSiteVoteCache } = require("../../Web/siteVoteApi") as typeof import("../../Web/siteVoteApi");
     invalidateSiteVoteCache(mainGuildId, userId);
   } catch (_) {}
   try {
-    const { broadcastSiteVotesChanged } = require("../../Utils/Web/siteSuggestionsBroadcast") as typeof import("../../Utils/Web/siteSuggestionsBroadcast");
+    const { broadcastSiteVotesChanged } = require("../../Web/siteSuggestionsBroadcast") as typeof import("../../Web/siteSuggestionsBroadcast");
     broadcastSiteVotesChanged({ userId: String(userId || "").trim(), platform: voteListing });
   } catch (_) {}
 
   /* smartNotifLifecycle1: al voto → via reminder inbox+OS di quella piattaforma */
   try {
     clearVoteReminderPhoneRetries(userId, voteListing);
-    const { removeSiteInAppNotificationsMatching } = require("../../Utils/Web/siteInAppNotificationsService") as typeof import("../../Utils/Web/siteInAppNotificationsService");
+    const { removeSiteInAppNotificationsMatching } = require("../../Web/siteInAppNotificationsService") as typeof import("../../Web/siteInAppNotificationsService");
     void removeSiteInAppNotificationsMatching({
       userId: String(userId || "").trim(),
       prefixes: [`vote_reminder_${voteListing}_`],

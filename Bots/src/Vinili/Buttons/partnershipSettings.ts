@@ -35,7 +35,7 @@ const {
 const { seedDefaultThankYouEmbedIfEmpty } = require("../Utils/Partner/partnershipThankYouEmbed") as typeof import("../Utils/Partner/partnershipThankYouEmbed");
 const { syncTenantPartnerDescription } = require("../Services/Partner/tenantPartnerDescriptionService") as typeof import("../Services/Partner/tenantPartnerDescriptionService");
 const { memberCanManageTenantPartnershipSettings } = require("../Utils/Partner/tenantPartnershipAdminAccess") as typeof import("../Utils/Partner/tenantPartnershipAdminAccess");
-const { t, resolveTenantLanguage } = require("../Utils/Partner/tenantPartnershipI18n") as typeof import("../Utils/Partner/tenantPartnershipI18n");
+const { t, resolveTenantLanguage } = require("../Utils/Partner/tenantPartnershipI18n/index") as typeof import("../Utils/Partner/tenantPartnershipI18n/index");
 const { resolveTenantLanguageForInteraction, tenantI18nNoticePayload } = require("../Utils/Partner/tenantPartnershipPrefixMessages") as typeof import("../Utils/Partner/tenantPartnershipPrefixMessages");
 const { buildSimpleNoticePayload } = require("../Utils/Embeds/simpleNoticeEmbed") as typeof import("../Utils/Embeds/simpleNoticeEmbed");
 const { resolvePartnershipConfigSync } = require("../Utils/Partner/partnershipConfigResolver") as typeof import("../Utils/Partner/partnershipConfigResolver");

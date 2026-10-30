@@ -501,7 +501,7 @@ async function updateStreamVoiceChannel(client?, streamer?, mode?) {
 
 function emitSiteLiveStreamChanged(login?, live?) {
   try {
-    const { broadcastSiteLiveStreamChanged } = require("../../Utils/Web/siteSuggestionsBroadcast") as typeof import("../../Utils/Web/siteSuggestionsBroadcast");
+    const { broadcastSiteLiveStreamChanged } = require("../../Web/siteSuggestionsBroadcast") as typeof import("../../Web/siteSuggestionsBroadcast");
     broadcastSiteLiveStreamChanged({ platform: "twitch", login: String(login || ""), live: Boolean(live) });
   } catch (_) {}
 }

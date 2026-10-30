@@ -20,7 +20,7 @@ const {
 const { memberHasPartnerManagerRole, isPartnershipOperational } = require("./partnershipConfigResolver") as typeof import("./partnershipConfigResolver");
 const { partnersChatPartnerCommandDeniedReplyContent } = require("./partnersChatChannelUtils") as typeof import("./partnersChatChannelUtils");
 const { replyInteractionSetupRequired } = require("./tenantSetupRequiredReply") as typeof import("./tenantSetupRequiredReply");
-const { t } = require("./tenantPartnershipI18n") as typeof import("./tenantPartnershipI18n");
+const { t } = require("./tenantPartnershipI18n/index") as typeof import("./tenantPartnershipI18n/index");
 const SNOWFLAKE_RE = /^\d{16,20}$/;
 const POINTS_ADD_PREFIX = "tpts:a:";
 const POINTS_REMOVE_PREFIX = "tpts:r:";

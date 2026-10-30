@@ -5,7 +5,7 @@ const { applyDefaultFooterToEmbeds } = require("../Embeds/defaultFooter") as typ
 const { getUserPartnershipScores } = require("../../Services/Partner/tenantLeaderboardService") as typeof import("../../Services/Partner/tenantLeaderboardService");
 const { memberDisplayName, userAvatarUrlDynamic } = require("../Discord/guildDiscordIdentity") as typeof import("../Discord/guildDiscordIdentity");
 const { buildTenantLookupNotFoundPayload } = require("./tenantLookupNotFoundRuntime") as typeof import("./tenantLookupNotFoundRuntime");
-const { t } = require("./tenantPartnershipI18n") as typeof import("./tenantPartnershipI18n");
+const { t } = require("./tenantPartnershipI18n/index") as typeof import("./tenantPartnershipI18n/index");
 const SNOWFLAKE_RE = /^\d{16,20}$/;
 const USER_MENTION_RE = /^<@!?(\d{16,20})>$/;
 

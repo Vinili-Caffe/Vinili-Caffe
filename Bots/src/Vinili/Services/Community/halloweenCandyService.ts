@@ -310,7 +310,7 @@ async function addHalloweenCandy({
   const next = readCandyRaw(doc);
   const owned = normalizeOwnedIds(next?.owned);
   try {
-    const { invalidateProfileCacheForUser } = require("../../Utils/Web/siteUsersLeaderboardApi") as typeof import("../../Utils/Web/siteUsersLeaderboardApi");
+    const { invalidateProfileCacheForUser } = require("../../Web/siteUsersLeaderboardApi") as typeof import("../../Web/siteUsersLeaderboardApi");
     invalidateProfileCacheForUser(g, u);
   } catch {
     /* optional */
@@ -340,7 +340,7 @@ async function addHalloweenCandy({
         }).catch(() => null);
       }
       try {
-        const { invalidateProfileCacheForUser } = require("../../Utils/Web/siteUsersLeaderboardApi") as typeof import("../../Utils/Web/siteUsersLeaderboardApi");
+        const { invalidateProfileCacheForUser } = require("../../Web/siteUsersLeaderboardApi") as typeof import("../../Web/siteUsersLeaderboardApi");
         invalidateProfileCacheForUser(mainId, u);
       } catch {
         /* optional */

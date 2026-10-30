@@ -159,7 +159,7 @@ async function runModCaseLifecycleTick(client?) {
       global.logger?.warn?.("[mutedMirrorRole] active mute reconcile failed:", err?.message || err);
     });
     const { isViniliFullFeatureGuild } = require("../../MultiGuild/core/guildFeatureScope") as typeof import("../../MultiGuild/core/guildFeatureScope");
-    const { autoCloseObsoletePendingAppeals } = require("../../Utils/Web/siteStaffAppealsRuntime") as typeof import("../../Utils/Web/siteStaffAppealsRuntime");
+    const { autoCloseObsoletePendingAppeals } = require("../../Web/siteStaffAppealsRuntime") as typeof import("../../Web/siteStaffAppealsRuntime");
     for (const guild of client.guilds.cache.values()) {
       if (!isViniliFullFeatureGuild(guild.id)) continue;
       await autoCloseObsoletePendingAppeals(guild, { limit: 25 }).catch((err?) => {

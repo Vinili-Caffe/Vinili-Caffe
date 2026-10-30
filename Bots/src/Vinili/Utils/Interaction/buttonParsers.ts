@@ -1,4 +1,4 @@
-const Buttons = require("../../Buttons") as typeof import("../../Buttons");
+const Buttons = require("../../Buttons/index") as typeof import("../../Buttons/index");
 const { SERVER_REFRESH_CUSTOM_ID_PREFIX } = Buttons.server;
 const { ME_REFRESH_CUSTOM_ID_PREFIX, ME_PERIOD_OPEN_CUSTOM_ID_PREFIX, ME_PERIOD_SET_CUSTOM_ID_PREFIX, ME_PERIOD_BACK_CUSTOM_ID_PREFIX, normalizeLookbackDays } = Buttons.me;
 const { USER_REFRESH_CUSTOM_ID_PREFIX, USER_PERIOD_OPEN_CUSTOM_ID_PREFIX, USER_PERIOD_SET_CUSTOM_ID_PREFIX, USER_PERIOD_BACK_CUSTOM_ID_PREFIX } = Buttons.user;

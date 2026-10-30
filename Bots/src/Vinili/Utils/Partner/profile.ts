@@ -1,15 +1,15 @@
 const { safeMessageReply } = require("../../../shared/discord/replyRuntime") as typeof import("../../../shared/discord/replyRuntime");
 const { isViniliFullFeatureGuild } = require("../../MultiGuild/core/guildFeatureScope") as typeof import("../../MultiGuild/core/guildFeatureScope");
 const { shouldApplyMultiGuildLayer } = require("../../MultiGuild/core/accessPolicy") as typeof import("../../MultiGuild/core/accessPolicy");
-const { isPartnershipOperational } = require("../../Utils/Partner/partnershipConfigResolver") as typeof import("./partnershipConfigResolver");
-const { buildTenantProfilePayload } = require("../../Utils/Partner/tenantProfileRuntime") as typeof import("./tenantProfileRuntime");
-const { TENANT_PROFILE_SECTIONS } = require("../../Utils/Partner/tenantProfileConstants") as typeof import("./tenantProfileConstants");
+const { isPartnershipOperational } = require("./partnershipConfigResolver") as typeof import("./partnershipConfigResolver");
+const { buildTenantProfilePayload } = require("./tenantProfileRuntime") as typeof import("./tenantProfileRuntime");
+const { TENANT_PROFILE_SECTIONS } = require("./tenantProfileConstants") as typeof import("./tenantProfileConstants");
 const {
   replyTenantMessage,
-} = require("../../Utils/Partner/tenantPartnershipPrefixMessages") as typeof import("./tenantPartnershipPrefixMessages");
+} = require("./tenantPartnershipPrefixMessages") as typeof import("./tenantPartnershipPrefixMessages");
 const profileButton = require("../../Buttons/profile") as typeof import("../../Buttons/profile");
-const { buildStaffProfilePayload, SECTION_HOME } = require("../../Utils/Staff/staffProfilePanelRuntime") as typeof import("../Staff/staffProfilePanelRuntime");
-const { isChannelOrThreadUnderStaffCmds, isStaffCmdsPmCommandsThread } = require("../../Utils/Staff/staffCmdsChannelUtils") as typeof import("../Staff/staffCmdsChannelUtils");
+const { buildStaffProfilePayload, SECTION_HOME } = require("../Staff/staffProfilePanelRuntime") as typeof import("../Staff/staffProfilePanelRuntime");
+const { isChannelOrThreadUnderStaffCmds, isStaffCmdsPmCommandsThread } = require("../Staff/staffCmdsChannelUtils") as typeof import("../Staff/staffCmdsChannelUtils");
 
 function withDiscordTimeout(promise?, ms = 8000, label = "discord") {
   const limit = Math.max(500, Number(ms) || 8000);

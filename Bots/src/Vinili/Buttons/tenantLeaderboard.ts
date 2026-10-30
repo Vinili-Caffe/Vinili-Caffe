@@ -8,7 +8,7 @@ const {
 } = require("../Utils/Partner/partnersChatChannelUtils") as typeof import("../Utils/Partner/partnersChatChannelUtils");
 const { resolveTenantLanguageForInteraction } = require("../Utils/Partner/tenantPartnershipPrefixMessages") as typeof import("../Utils/Partner/tenantPartnershipPrefixMessages");
 const { evaluateTenantObjectives } = require("../Services/Partner/tenantObjectiveService") as typeof import("../Services/Partner/tenantObjectiveService");
-const { t } = require("../Utils/Partner/tenantPartnershipI18n") as typeof import("../Utils/Partner/tenantPartnershipI18n");
+const { t } = require("../Utils/Partner/tenantPartnershipI18n/index") as typeof import("../Utils/Partner/tenantPartnershipI18n/index");
 const { safePanelMessageUpdate } = require("../../shared/discord/replyRuntime") as typeof import("../../shared/discord/replyRuntime");
 
 function match(interaction?) {

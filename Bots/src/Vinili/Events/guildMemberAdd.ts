@@ -2035,7 +2035,7 @@ export = {
         global.logger?.warn?.("[guildMemberAdd] daily member stats:", err?.message || err);
       });
       try {
-        const { broadcastSiteLiveStatsChangedDebounced } = require("../Utils/Web/siteSuggestionsBroadcast") as typeof import("../Utils/Web/siteSuggestionsBroadcast");
+        const { broadcastSiteLiveStatsChangedDebounced } = require("../Web/siteSuggestionsBroadcast") as typeof import("../Web/siteSuggestionsBroadcast");
         broadcastSiteLiveStatsChangedDebounced();
       } catch (_) {}
       const joinGateConfig = getJoinGateConfigSnapshot();

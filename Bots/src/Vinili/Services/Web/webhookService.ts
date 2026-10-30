@@ -738,7 +738,7 @@ async function startWebhookServer(client?) {
   const http = require("node:http") as typeof import("node:http");
   const server = http.createServer(app);
   try {
-    const { attachSiteSuggestionsWsServer } = require("../../Utils/Web/siteSuggestionsBroadcast") as typeof import("../../Utils/Web/siteSuggestionsBroadcast");
+    const { attachSiteSuggestionsWsServer } = require("../../Web/siteSuggestionsBroadcast") as typeof import("../../Web/siteSuggestionsBroadcast");
     attachSiteSuggestionsWsServer(server);
   } catch (err) {
     global.logger?.warn?.("[WEBHOOK] WebSocket suggerimenti (init):", err?.message || err);

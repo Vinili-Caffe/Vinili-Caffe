@@ -1,6 +1,6 @@
 const { getUserPartnershipScores } = require("./tenantLeaderboardService") as typeof import("./tenantLeaderboardService");
 const { getTenantProfilePrefs } = require("./tenantProfilePreferencesService") as typeof import("./tenantProfilePreferencesService");
-const { resolveTenantLanguage } = require("../../Utils/Partner/tenantPartnershipI18n") as typeof import("../../Utils/Partner/tenantPartnershipI18n");
+const { resolveTenantLanguage } = require("../../Utils/Partner/tenantPartnershipI18n/index") as typeof import("../../Utils/Partner/tenantPartnershipI18n/index");
 const { userQualifiesForTenantMissions } = require("../../Utils/Partner/partnershipConfigResolver") as typeof import("../../Utils/Partner/partnershipConfigResolver");
 const {
   loadObjectiveState,

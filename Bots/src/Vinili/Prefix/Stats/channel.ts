@@ -1,5 +1,5 @@
 const { safeMessageReply } = require("../../../shared/discord/replyRuntime") as typeof import("../../../shared/discord/replyRuntime");
-const channelButton = require("../../Buttons").channel;
+const channelButton = require("../../Buttons/index").channel;
 
 export = {
   name: channelButton.name,

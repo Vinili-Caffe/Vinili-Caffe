@@ -1,5 +1,5 @@
 const { safeMessageReply } = require("../../../shared/discord/replyRuntime") as typeof import("../../../shared/discord/replyRuntime");
-const userButton = require("../../Buttons").user;
+const userButton = require("../../Buttons/index").user;
 const {
   isPartnershipOperational,
   memberHasPartnerManagerRole,

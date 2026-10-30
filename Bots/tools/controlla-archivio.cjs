@@ -1,9 +1,12 @@
 // Cerca in src/ i require/import verso file che non esistono più (es. spostati in archivio/).
 // Il controllo dei tipi vede solo i require con "as typeof import(...)": questo li vede tutti.
+// Soft-dep Hogwarts: se il file usa isHogwartsRuntimeDisabled, i require verso moduli
+// evento mancanti sono intenzionali (lazy + kill-switch ON = non caricati).
 //   node tools/controlla-archivio.cjs
 const fs = require("fs");
 const path = require("path");
 const SRC = path.resolve(__dirname, "..", "src");
+const SOFT_ARCHIVIO = /hogwarts|burrobirra|gringott|galeoni/i;
 
 function walk(dir, out = []) {
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -18,9 +21,11 @@ const exists = (p) => fs.existsSync(p) && fs.statSync(p).isFile();
 let bad = 0;
 for (const f of walk(SRC)) {
   const s = fs.readFileSync(f, "utf8");
+  const softOk = /isHogwartsRuntimeDisabled/.test(s);
   for (const m of s.matchAll(/(?:require|import)\(\s*(["'`])([^"'`$]+)\1\s*\)/g)) {
     const spec = m[2];
     if (!spec.startsWith(".")) continue;
+    if (softOk && SOFT_ARCHIVIO.test(spec)) continue;
     const b = path.resolve(path.dirname(f), spec);
     const ok = [b, b.replace(/\.js$/, ".ts"), `${b}.ts`, `${b}.json`, path.join(b, "index.ts")].some(exists)
       || (fs.existsSync(b) && fs.statSync(b).isDirectory());
