@@ -39,7 +39,14 @@ export function isImageUrl(raw: string): boolean {
   if (/media\.tenor\.com|tenor\.com\/.*\.gif|giphy\.com\/media/i.test(u)) return true;
   if (/\/webhooks\/site-(?:web-tickets|bot-feedback|suggestions|[^/]+-workflow-chat)\/files\//i.test(u)) return true;
   if (/\/webhooks\/site-discussion-images\//i.test(u)) return true;
-  if (/\/(?:uploads|files|attachments|media)\//i.test(u)) return true;
+  if (/cdn\.viniliecaffe\.it\//i.test(u)) {
+    if (/\.(mp3|ogg|wav|m4a|aac|mp4|webm|mov)(\?|#|$)/i.test(u)) return false;
+    return true;
+  }
+  if (/\/(?:uploads|files|attachments|media|boards)\//i.test(u)) {
+    if (/\.(mp3|ogg|wav|m4a|aac|mp4|webm|mov)(\?|#|$)/i.test(u)) return false;
+    return true;
+  }
   return false;
 }
 
@@ -187,8 +194,12 @@ function resolveClick(target: Element): { items: LightboxItem[]; index: number }
   ) {
     return { items: [current], index: 0 };
   }
-  // allegati / upload: apri anche senza marker (come vecchio sito)
-  if (/\/(?:webhooks\/site-|uploads\/|files\/|attachments\/|media\/)/i.test(current.url) || /cdn\.discordapp\.com\/attachments|media\.discordapp\.net/i.test(current.url)) {
+  // allegati / upload / CDN bacheca: apri anche senza marker (come vecchio sito)
+  if (
+    /\/(?:webhooks\/site-|uploads\/|files\/|attachments\/|media\/|boards\/)/i.test(current.url) ||
+    /cdn\.viniliecaffe\.it\//i.test(current.url) ||
+    /cdn\.discordapp\.com\/attachments|media\.discordapp\.net/i.test(current.url)
+  ) {
     return { items: [current], index: 0 };
   }
   return null;

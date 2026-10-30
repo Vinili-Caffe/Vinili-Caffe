@@ -535,6 +535,23 @@ function wrapMessage(raw?, clientRef?, meta: Record<string, any> = {}) {
     username: raw.author?.username || "unknown",
     bot: Boolean(raw.author?.bot),
   };
+  const attachmentEntries = (Array.isArray(raw.attachments) ? raw.attachments : [])
+    .map((a?) => {
+      const id = String(a?.id || "").trim();
+      if (!id) return null;
+      return [
+        id,
+        {
+          id,
+          name: String(a?.filename || a?.name || "").trim(),
+          url: String(a?.url || "").trim(),
+          proxyURL: String(a?.proxy_url || a?.proxyURL || "").trim(),
+          contentType: String(a?.content_type || a?.contentType || "").trim(),
+          size: Number(a?.size) || 0,
+        },
+      ];
+    })
+    .filter(Boolean);
   const message = {
     id: messageId,
     channelId,
@@ -542,6 +559,7 @@ function wrapMessage(raw?, clientRef?, meta: Record<string, any> = {}) {
     content: raw.content || "",
     embeds: Array.isArray(raw.embeds) ? raw.embeds : [],
     components: Array.isArray(raw.components) ? raw.components : [],
+    attachments: asCacheMap(attachmentEntries),
     author,
     createdTimestamp,
     createdAt: new Date(createdTimestamp),

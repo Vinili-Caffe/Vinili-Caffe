@@ -6,7 +6,7 @@ const {
   computeLeaderboardRows,
   computeWeeklyExpFromProfileDoc,
   getRomeDayKey,
-} = require("../Prefix/Level/classifica") as typeof import("../Prefix/Level/classifica");
+} = require("../Utils/Community/leaderboardHelpers") as typeof import("../Utils/Community/leaderboardHelpers");
 const { findCustomVoiceByOwner, findCustomVoiceByRole } = require("../Utils/Interaction/customRoleUtils") as typeof import("../Utils/Interaction/customRoleUtils");
 const { getRankCardThemeFromDoc, resolveRankCardWallpaper } = require("../Utils/Render/rankCardTheme") as typeof import("../Utils/Render/rankCardTheme");
 const {

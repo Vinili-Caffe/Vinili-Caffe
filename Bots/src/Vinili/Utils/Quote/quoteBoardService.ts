@@ -349,7 +349,7 @@ async function upsertQuoteBoardFromParsed(guildId?, boardChannelId?, boardMessag
       ? parsed.createdAt
       : new Date();
 
-  return GuildQuoteBoard.findOneAndUpdate(
+  const doc = await GuildQuoteBoard.findOneAndUpdate(
     { guildId: gid, boardChannelId: bc, boardMessageId: bm },
     {
       $set: {
@@ -371,6 +371,15 @@ async function upsertQuoteBoardFromParsed(guildId?, boardChannelId?, boardMessag
     },
     { upsert: true, new: true, timestamps: false, setDefaultsOnInsert: true },
   ).catch(() => null);
+  if (doc?._id && String(doc.imageUrl || "").trim()) {
+    void (async () => {
+      try {
+        const { stabilizeQuoteMedia } = require("../Community/boardMediaStable") as typeof import("../Community/boardMediaStable");
+        await stabilizeQuoteMedia(null, doc.toObject?.() || doc);
+      } catch (_) {}
+    })();
+  }
+  return doc;
 }
 
 async function backfillQuoteBoardFromChannel(guild?) {

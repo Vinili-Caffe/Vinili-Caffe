@@ -1,19 +1,12 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, } = require("discord.js") as typeof import("discord.js");
-const { safeMessageReply } = require("../../../shared/discord/replyRuntime") as typeof import("../../../shared/discord/replyRuntime");
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
 const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
-const { getGuildChannelCached, getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache") as typeof import("../../Utils/Interaction/interactionEntityCache");
+const { getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache") as typeof import("../../Utils/Interaction/interactionEntityCache");
 const { MESSAGE_EXP, VOICE_EXP_PER_MINUTE, getLevelInfo, getCurrentWeekKey, } = require("../../Services/Community/expService") as typeof import("../../Services/Community/expService");
 const { isChannelInTicketCategory } = require("../../Utils/Ticket/ticketCategoryUtils") as typeof import("../../Utils/Ticket/ticketCategoryUtils");
 const { memberHasStaffRole } = require("../../Utils/Community/staffListUtils") as typeof import("../../Utils/Community/staffListUtils");
-const {
-  isPartnerPmDailyCommandsThread,
-  partnersChatPartnerCommandDeniedReplyContent,
-  sendPartnersChatDeniedPrefixCleanup,
-} = require("../../Utils/Partner/partnersChatChannelUtils") as typeof import("../../Utils/Partner/partnersChatChannelUtils");
 const { guildIconUrl } = require("../../Utils/Discord/guildDiscordIdentity") as typeof import("../../Utils/Discord/guildDiscordIdentity");
 const TOP_LIMIT = 10;
-const LEADERBOARD_CHANNEL_ID = IDs.channels.commands;
 const CLASSIFICA_TOGGLE_PREFIX = "classifica_toggle:";
 const CLASSIFICA_CLOSE_PREFIX = "classifica_close:";
 const TIME_ZONE = "Europe/Rome";
@@ -771,84 +764,16 @@ function computeWeeklyExpFromProfileDoc(doc?, now = new Date()) {
   return Math.max(0, Math.floor(baseExpFromText + baseExpFromVoice));
 }
 
+/* Helper classifiche (ex +classifica). Nessun comando Discord. */
 export = {
-  name: "classifica",
-  aliases: ["c", "cs"],
-  allowEmptyArgs: true,
   TOP_LIMIT,
   rankLabel,
   formatUserLabel,
   fetchMembers,
-
-  async execute(message?) {
-    await message.channel.sendTyping();
-    const deniedPartnerZone = await partnersChatPartnerCommandDeniedReplyContent(message.channel);
-    if (deniedPartnerZone) {
-      await sendPartnersChatDeniedPrefixCleanup(message, deniedPartnerZone);
-      return;
-    }
-    if (await isPartnerPmDailyCommandsThread(message.channel)) {
-      const { buildPartnerLeaderboardPayload } = require("../../Utils/Partner/partnerLeaderboardRuntime") as typeof import("../../Utils/Partner/partnerLeaderboardRuntime");
-      const partnerPayload = await buildPartnerLeaderboardPayload(message.client, message.guild, "settimanale", 1);
-      await safeMessageReply(message, {
-        ...partnerPayload,
-        allowedMentions: { repliedUser: false },
-      });
-      return;
-    }
-    const mode = "weekly";
-    const payload = await buildClassificaPayload(message.guild, mode, {
-      ownerId: message.author?.id,
-      sourceMessageId: message.id,
-    });
-
-    const shouldRedirect = message.channel.id !== LEADERBOARD_CHANNEL_ID;
-    if (!shouldRedirect) {
-      await safeMessageReply(message, {
-        ...payload,
-        allowedMentions: { repliedUser: false },
-      });
-      return;
-    }
-
-    const leaderboardChannel = message.guild.channels.cache.get(LEADERBOARD_CHANNEL_ID) || (await getGuildChannelCached(message.guild, LEADERBOARD_CHANNEL_ID));
-
-    if (!leaderboardChannel || !leaderboardChannel.isTextBased()) {
-      await safeMessageReply(message, {
-        content: `Non riesco a trovare il canale <#${LEADERBOARD_CHANNEL_ID}>.`,
-        allowedMentions: { repliedUser: false },
-      });
-      return;
-    }
-
-    const sent = await leaderboardChannel.send(payload).catch(() => null);
-    if (!sent) {
-      await safeMessageReply(message, {
-        content: `Non sono riuscito a inviare la classifica in <#${LEADERBOARD_CHANNEL_ID}>.`,
-        allowedMentions: { repliedUser: false },
-      });
-      return;
-    }
-
-    const label = "Vai alla classifica";
-    const redirectEmbed = new EmbedBuilder()
-    .setColor("#6f4e37")
-    .setDescription(`Per evitare di intasare la chat, la classifica` +
-      ` (settimanale, mensile o generale) è stata generata nel canale <#${LEADERBOARD_CHANNEL_ID}>.\n` +
-      `[Clicca qui per vederla](${sent.url}) o utilizza i pulsanti sotto il messaggio nel canale indicato.`);
-
-    const row = new ActionRowBuilder().addComponents(new ButtonBuilder().setStyle(ButtonStyle.Link).setLabel(label).setURL(sent.url),);
-
-    await safeMessageReply(message, {
-      embeds: [redirectEmbed],
-      components: [row],
-      allowedMentions: { repliedUser: false },
-    });
-  },
   CLASSIFICA_TOGGLE_PREFIX,
   CLASSIFICA_CLOSE_PREFIX,
   buildClassificaPayload,
-    computeLeaderboardRows,
+  computeLeaderboardRows,
   computeWeeklyExpFromProfileDoc,
   computeDailyBucketTotalsByUser,
   sortDailyActivityTotals,

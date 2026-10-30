@@ -17,7 +17,7 @@ const {
   updateTicketReopenOutsideSession,
   forgetTicketReopenOutsideSession,
 } = require("./ticketReopenOutsideSession") as typeof import("./ticketReopenOutsideSession");
-const ticketModule = require("../../Prefix/Staff/ticket") as typeof import("../../Prefix/Staff/ticket");
+const ticketModule = require("./ticketStaffRuntime") as typeof import("./ticketStaffRuntime");
 const { editTicketMemberOverwrite } = require("./ticketHighStaffOverwrites") as typeof import("./ticketHighStaffOverwrites");
 const {
   parseTicketPanelMessageIdFromCustomId,

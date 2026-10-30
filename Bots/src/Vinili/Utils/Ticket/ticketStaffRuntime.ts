@@ -21,8 +21,6 @@ const { buildTicketPanelUnclaimedButtonRow } = require("../../Utils/Ticket/ticke
 const { buildClaimedControlButtons, resolveTicketPanel } = require("../../Utils/Ticket/ticketGuildOptions") as typeof import("../../Utils/Ticket/ticketGuildOptions");
 const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
 const { getClientGuildCached, getGuildChannelCached, getGuildMemberCached, } = require("../../Utils/Interaction/interactionEntityCache") as typeof import("../../Utils/Interaction/interactionEntityCache");
-const { isDiscordTicketsEnabled, workflowMovedToSiteMessage, buildSiteLinkRow, siteWorkflowUrl } = require("../../Web/discordWorkflowUiGate") as typeof import("../../Web/discordWorkflowUiGate");
-const { buildSimpleNoticePayload } = require("../../Utils/Embeds/simpleNoticeEmbed") as typeof import("../../Utils/Embeds/simpleNoticeEmbed");
 const STAFF_ROLE_ID = IDs.roles.Staff;
 const HIGHSTAFF_ROLE_ID = IDs.roles.HighStaff;
 const PARTNERMANAGER_ROLE_ID = IDs.roles.PartnerManager;
@@ -706,118 +704,8 @@ async function ticketReopenByNumber(ctx?, ticketNumber?) {
   return true;
 }
 
+/* Runtime staff ticket (ex +ticket). Nessun comando Discord. */
 export = {
-  skipPrefix: true,
-  name: "ticket",
-  allowEmptyArgs: true,
-
-  async execute(message?, args = [], client?) {
-    if (!isDiscordTicketsEnabled()) {
-      const url = siteWorkflowUrl("tickets");
-      await safeMessageReply(message, {
-        ...buildSimpleNoticePayload(workflowMovedToSiteMessage("tickets"), message.guild),
-        components: [buildSiteLinkRow("Apri ticket sul sito", url)],
-        allowedMentions: NO_REPLY_MENTIONS,
-      });
-      return;
-    }
-    if (!message.inGuild?.() || !message.guild || !message.member) {
-      await safeMessageReply(message, {
-        content:
-          "<:vegax:1443934876440068179> Questo comando può essere usato solo in un server.",
-        allowedMentions: NO_REPLY_MENTIONS,
-      });
-      return;
-    }
-
-    if (args.length > 0) {
-      await safeMessageReply(message, {
-        embeds: [
-          makeErrorEmbed(
-            "Ticket",
-            "<:vegax:1443934876440068179> Usa solo **`+ticket`** senza argomenti. Nel canale di un ticket aperto ricevi il **pannello** con i pulsanti; se sei **High Staff** e sei fuori da un ticket, puoi usare il **menu** per riaprire un ticket chiuso.",
-          ),
-        ],
-        allowedMentions: NO_REPLY_MENTIONS,
-      });
-      return;
-    }
-
-    const effectiveChannelId = message.channel?.isThread?.() ? message.channel?.parentId || message.channel?.id : message.channel?.id;
-    const activeTicketInChannel = effectiveChannelId ? await Ticket.findOne({ channelId: effectiveChannelId, open: true }, { _id: 1 }).lean().catch(() => null) : null;
-
-    if (!activeTicketInChannel) {
-      const canReopenOutside =
-        HIGHSTAFF_ROLE_ID && message.member.roles.cache.has(HIGHSTAFF_ROLE_ID);
-      if (canReopenOutside) {
-        const {
-          buildTicketReopenOutsidePanelPayload,
-          fetchClosedTicketsOrdered,
-        } = require("../../Utils/Ticket/ticketStaffPanelBuild") as typeof import("../../Utils/Ticket/ticketStaffPanelBuild");
-        const { rememberTicketReopenOutsideSession } = require("../../Utils/Ticket/ticketReopenOutsideSession") as typeof import("../../Utils/Ticket/ticketReopenOutsideSession");
-        const closedRaw = await fetchClosedTicketsOrdered(message.guild.id);
-        const panel = await buildTicketReopenOutsidePanelPayload(message.guild, closedRaw, {
-          page: 0,
-          filterQuery: "",
-        });
-        const sent = await safeMessageReply(message, {
-          embeds: [panel.embed],
-          components: panel.components,
-          allowedMentions: { repliedUser: false },
-        });
-        if (sent?.id) {
-          rememberTicketReopenOutsideSession(message.client, sent.id, {
-            authorId: message.author.id,
-            guildId: message.guild.id,
-            commandMessageId: message.id,
-            filterQuery: "",
-            page: 0,
-          });
-        }
-        return;
-      }
-      await safeMessageReply(message, {
-        embeds: [
-          new EmbedBuilder()
-            .setColor("#6f4e37")
-            .setDescription(
-              "<:VC_Attention:1482534443632558151> Usa `+ticket` **dentro un ticket aperto** per il pannello. Solo **High Staff** può usare `+ticket` fuori dal ticket per il menu di riapertura.",
-            ),
-        ],
-        allowedMentions: { repliedUser: false },
-      });
-      return;
-    }
-    const ticketDocFull = await Ticket.findOne(
-      { channelId: effectiveChannelId, open: true },
-      { channelId: 1, open: 1, userId: 1, claimedBy: 1, guildId: 1, ticketNumber: 1, ticketType: 1 },
-    ).lean().catch(() => null);
-    const { buildTicketStaffPanelPayload } = require("../../Utils/Ticket/ticketStaffPanelBuild") as typeof import("../../Utils/Ticket/ticketStaffPanelBuild");
-    const { embed, components } = buildTicketStaffPanelPayload(
-      message.member,
-      message.channel,
-      ticketDocFull,
-    );
-    if (!components.length) {
-      await safeMessageReply(message, {
-        embeds: [
-          new EmbedBuilder()
-            .setColor("#6f4e37")
-            .setDescription(
-              "<:VC_Attention:1482534443632558151> Nessun pulsante disponibile per i tuoi permessi in questo ticket.",
-            ),
-        ],
-        allowedMentions: { repliedUser: false },
-      });
-      return;
-    }
-    await safeMessageReply(message, {
-      embeds: [embed],
-      components,
-      allowedMentions: { repliedUser: false },
-    });
-    return;
-  },
   ticketSwitchPanelExecute,
   ticketReopenByNumber,
   canClaimTicket,

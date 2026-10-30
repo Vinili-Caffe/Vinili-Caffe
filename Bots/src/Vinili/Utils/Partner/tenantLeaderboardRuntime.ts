@@ -6,7 +6,7 @@ const { fetchLeaderboardRows, findRankEntry, normalizeCategory, normalizePeriod 
 const { getPartnershipConfigSync } = require("../../MultiGuild/core/tenantPartnershipSettings") as typeof import("../../MultiGuild/core/tenantPartnershipSettings");
 const { getManagedInvite } = require("../../MultiGuild/services/guildJoinAlertService") as typeof import("../../MultiGuild/services/guildJoinAlertService");
 const { getPartnerManagerRoleId } = require("./partnershipConfigResolver") as typeof import("./partnershipConfigResolver");
-const { formatUserLabel, fetchMembers, rankLabel } = require("../../Prefix/Level/classifica") as typeof import("../../Prefix/Level/classifica");
+const { formatUserLabel, fetchMembers, rankLabel } = require("../Community/leaderboardHelpers") as typeof import("../Community/leaderboardHelpers");
 const { guildIconUrl } = require("../Discord/guildDiscordIdentity") as typeof import("../Discord/guildDiscordIdentity");
 const { t } = require("./tenantPartnershipI18n/index") as typeof import("./tenantPartnershipI18n/index");
 const { TENANT_PARTNERSHIP_ARROWS } = require("./tenantPartnershipArrows") as typeof import("./tenantPartnershipArrows");

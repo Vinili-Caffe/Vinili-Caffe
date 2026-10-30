@@ -1252,6 +1252,13 @@ async function createRepostFromMessage(ctx?) {
     ).catch(() => {});
 
     boardUrl = messageJumpUrl(guildId, boardChannel.id, boardMsg.id);
+    void (async () => {
+      try {
+        const { stabilizeRepostMedia } = require("../../Utils/Community/boardMediaStable") as typeof import("../../Utils/Community/boardMediaStable");
+        const lean = await GuildRepost.findById(doc._id).lean().catch(() => null);
+        if (lean) await stabilizeRepostMedia(guild?.client, lean);
+      } catch (_) {}
+    })();
   }
   const prefix = String(guild?.client?.config?.prefix || "+").trim() || "+";
   const ackEmbed = buildShareAckEmbed({ reposterId, boardUrl, prefix });

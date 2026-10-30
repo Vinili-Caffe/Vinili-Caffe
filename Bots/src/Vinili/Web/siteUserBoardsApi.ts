@@ -13,6 +13,10 @@ const {
 } = require("../Services/Community/repostService") as typeof import("../Services/Community/repostService");
 const { resolveWebsiteGuildMember } = require("./siteRoleRequestApi") as typeof import("./siteRoleRequestApi");
 const { getClientGuildCached } = require("../Utils/Interaction/interactionEntityCache") as typeof import("../Utils/Interaction/interactionEntityCache");
+const {
+  stabilizeQuoteMedia,
+  stabilizeRepostMedia,
+} = require("../Utils/Community/boardMediaStable") as typeof import("../Utils/Community/boardMediaStable");
 
 const PER_PAGE = 6;
 const KINDS = new Set(["quote", "repost", "clip"]);
@@ -90,6 +94,24 @@ function serializeRepost(doc?, guildId?, kind?) {
   };
 }
 
+async function stabilizeAndSerializeQuote(client?, doc?, guildId?) {
+  const imageUrl = await stabilizeQuoteMedia(client, doc);
+  return serializeQuote({ ...doc, imageUrl }, guildId);
+}
+
+async function stabilizeAndSerializeRepost(client?, doc?, guildId?, kind?) {
+  const media = await stabilizeRepostMedia(client, doc);
+  return serializeRepost(
+    {
+      ...doc,
+      attachmentUrl: media.attachmentUrl,
+      mediaFiles: media.mediaFiles,
+    },
+    guildId,
+    kind,
+  );
+}
+
 async function handleSiteUserBoardsGet(client?, req?, res?) {
   try {
     const kind = String(req.query?.kind || "").trim().toLowerCase();
@@ -111,8 +133,10 @@ async function handleSiteUserBoardsGet(client?, req?, res?) {
     let total = 0;
     if (kind === "quote") {
       const out = await listQuotesByUser(guildId, userId, { limit: PER_PAGE, skip });
-      rows = (out.rows || []).map((d?) => serializeQuote(d, guildId));
       total = Number(out.total) || 0;
+      rows = await Promise.all(
+        (out.rows || []).map((d?) => stabilizeAndSerializeQuote(client, d, guildId)),
+      );
     } else {
       const out = await listRepostsByUser(guildId, userId, {
         limit: PER_PAGE,
@@ -120,8 +144,10 @@ async function handleSiteUserBoardsGet(client?, req?, res?) {
         clipsOnly: kind === "clip",
         excludeClips: kind === "repost",
       });
-      rows = (out.rows || []).map((d?) => serializeRepost(d, guildId, kind));
       total = Number(out.total) || 0;
+      rows = await Promise.all(
+        (out.rows || []).map((d?) => stabilizeAndSerializeRepost(client, d, guildId, kind)),
+      );
     }
 
     const totalPages = Math.max(1, Math.ceil(total / PER_PAGE));

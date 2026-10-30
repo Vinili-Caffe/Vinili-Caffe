@@ -2,10 +2,17 @@ const fs = require("fs") as typeof import("fs");
 const path = require("path") as typeof import("path");
 const http = require("node:http") as typeof import("node:http");
 
+/* ROOT = bots-ts/src (Prefix/Commands). .env vive in cwd pm2 (/opt/bot), non sotto src. */
 const ROOT = path.resolve(__dirname, "../../..");
-const envPath = path.join(ROOT, ".env");
+const envCandidates = [
+  path.join(process.cwd(), ".env"),
+  path.resolve(ROOT, "../../.env"),
+  path.resolve(ROOT, "../.env"),
+  path.join(ROOT, ".env"),
+];
 try {
-  if (fs.existsSync(envPath)) {
+  const envPath = envCandidates.find((p?) => fs.existsSync(p)) || "";
+  if (envPath) {
     for (const line of fs.readFileSync(envPath, "utf8").split(/\n/)) {
       const t = line.trim();
       if (!t || t.startsWith("#")) continue;

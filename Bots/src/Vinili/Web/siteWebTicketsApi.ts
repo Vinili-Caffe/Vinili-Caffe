@@ -204,7 +204,7 @@ function webTicketsDetailEtag(ticket?, messages?) {
 }
 const { hasStaffTicketRole } = require("../Utils/Ticket/ticketStaffPanelBuild") as typeof import("../Utils/Ticket/ticketStaffPanelBuild");
 const { memberIsResocontoPmReviewer } = require("../Utils/Ticket/ticketPartnershipStaffRoles") as typeof import("../Utils/Ticket/ticketPartnershipStaffRoles");
-const { canClaimTicket } = require("../Prefix/Staff/ticket") as typeof import("../Prefix/Staff/ticket");
+const { canClaimTicket } = require("../Utils/Ticket/ticketStaffRuntime") as typeof import("../Utils/Ticket/ticketStaffRuntime");
 const { handleOfficialPrefixMessage } = require("../Utils/Prefix/officialPrefixDispatcher") as typeof import("../Utils/Prefix/officialPrefixDispatcher");
 const { getTicketPanelConfig } = require("../Utils/Ticket/ticketPanelConfig") as typeof import("../Utils/Ticket/ticketPanelConfig");
 const { buildTicketChannelName, sanitizeTicketChannelTail } = require("../Utils/Ticket/ticketNamingRuntime") as typeof import("../Utils/Ticket/ticketNamingRuntime");

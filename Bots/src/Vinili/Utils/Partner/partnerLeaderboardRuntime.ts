@@ -1,7 +1,7 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js") as typeof import("discord.js");
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
 const { getPartnerLeaderboardWeekBoundsUtc } = require("../../Services/Staff/weeklyStaffResocontoService") as typeof import("../../Services/Staff/weeklyStaffResocontoService");
-const { TOP_LIMIT, rankLabel, formatUserLabel, fetchMembers } = require("../../Prefix/Level/classifica") as typeof import("../../Prefix/Level/classifica");
+const { TOP_LIMIT, rankLabel, formatUserLabel, fetchMembers } = require("../Community/leaderboardHelpers") as typeof import("../Community/leaderboardHelpers");
 const IDs = require("../Config/ids") as typeof import("../Config/ids");
 const PLB_MODE_PREFIX = "plb_mode:";
 const PLB_NAV_PREFIX = "plb_nav:";
