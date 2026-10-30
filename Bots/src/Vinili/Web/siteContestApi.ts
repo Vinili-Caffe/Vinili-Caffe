@@ -61,7 +61,8 @@ const EVENTS = {
     title: "Contest outfit Halloween",
     blurb: "Mostra il tuo outfit Halloween e vota gli altri con uno swipe.",
     startMs: Date.parse("2026-10-31T12:00:00+01:00"),
-    endMs: Date.parse("2026-11-01T21:00:00+01:00"),
+    /* Allineato a chiusura evento Halloween (HALLOWEEN_EVENT_END / 2026-11-02 12:00 Rome). */
+    endMs: Date.parse("2026-11-02T12:00:00+01:00"),
     maxPerCategory: 1,
     categories: [{ id: "main", label: "Outfit" }],
     publicOpen: true,

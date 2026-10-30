@@ -576,12 +576,12 @@ async function deleteUserQuoteEntry({ guild, quoteId, userId }) {
             { name: "Data rimozione", value: `${dateStr} ${timeStr}`, inline: true },
           )
           .setFooter({
-            text: `Puoi bloccare le future quote tramite la pagina [Personalizza](https://www.viniliecaffe.it/personalizza/) • Oggi alle ${timeStr}`,
+            text: `Gestisci le quote dal profilo sul sito · Personalizza: https://www.viniliecaffe.it/personalizza/ · Oggi alle ${timeStr}`,
           });
         await boardMsg
           .edit({ embeds: [removedEmbed], components: [], files: [], attachments: [] })
           .catch(async () => {
-            await boardMsg.delete().catch(() => null);
+            if (typeof boardMsg.delete === "function") await boardMsg.delete().catch(() => null);
           });
       }
     }
@@ -592,7 +592,9 @@ async function deleteUserQuoteEntry({ guild, quoteId, userId }) {
       guild.channels.cache.get(oc) || (await guild.channels.fetch(oc).catch(() => null));
     if (originCh?.isTextBased?.()) {
       const originMsg = await originCh.messages.fetch(om).catch(() => null);
-      if (originMsg) await originMsg.delete().catch(() => null);
+      if (originMsg && typeof originMsg.delete === "function") {
+        await originMsg.delete().catch(() => null);
+      }
     }
   }
 

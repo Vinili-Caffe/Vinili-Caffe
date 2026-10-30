@@ -16,6 +16,12 @@ const REMOVED_BUTTON_HANDLER_NAMES = new Set([
   "slotsGui",
   "trisGui",
   "classificaToggle",
+  "myquoteDelete",
+  "myrepostDelete",
+  "myclipDelete",
+  "myquotePagination",
+  "myrepostPagination",
+  "myclipPagination",
 ]);
 
 function isNonHandlerFile(relativeKey?) {

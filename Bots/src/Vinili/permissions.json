@@ -749,45 +749,6 @@
                 "channels.vocaleSquad3"
             ]
         },
-        "myrepost": {
-            "roles": [
-                "roles.ServerBooster",
-                "roles.donator",
-                "roles.VIP",
-                "roles.Level10"
-            ],
-            "channels": [
-                "channels.commands",
-                "channels.staffCmds",
-                "channels.highCmds"
-            ]
-        },
-        "myclip": {
-            "roles": [
-                "roles.ServerBooster",
-                "roles.donator",
-                "roles.VIP",
-                "roles.Level10"
-            ],
-            "channels": [
-                "channels.commands",
-                "channels.staffCmds",
-                "channels.highCmds"
-            ]
-        },
-        "myquote": {
-            "roles": [
-                "roles.ServerBooster",
-                "roles.donator",
-                "roles.VIP",
-                "roles.Level10"
-            ],
-            "channels": [
-                "channels.commands",
-                "channels.staffCmds",
-                "channels.highCmds"
-            ]
-        },
         "rank": {
             "roles": [
                 "roles.Member"
@@ -1009,6 +970,11 @@
                 "channels.staffCmds",
                 "channels.sanzioniUtenti",
                 "channels.highCmds"
+            ]
+        },
+        "reminder": {
+            "roles": [
+                "roles.Member"
             ]
         },
         "unban": {

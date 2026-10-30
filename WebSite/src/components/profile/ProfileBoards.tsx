@@ -319,8 +319,7 @@ export function ProfileBoards({ userId, owns, token }: { userId: string; owns: b
         </p>
         <h2 className="mt-1.5 font-display text-3xl font-semibold sm:text-4xl">Quote, repost e clip</h2>
         <p className="mt-2 max-w-2xl text-sm text-crema/55">
-          Le stesse voci di <code className="text-crema/70">+myquote</code>, <code className="text-crema/70">+myrepost</code> e{" "}
-          <code className="text-crema/70">+myclip</code>.
+          Le quote, i repost e le clip che hai pubblicato sulla bacheca Discord. Da qui puoi gestirli e rimuoverli.
         </p>
       </div>
 

@@ -24,7 +24,7 @@ export const TIERS: Tier[] = [
       { text: "Bypass dei requisiti nei giveaway" },
       { text: "Cambiare il tuo nickname" },
       { text: `Sblocchi i colori **PLUS** in ${P}`, isNew: true },
-      { text: "Sblocchi i comandi +quote, +repost e +myrepost" },
+      { text: "Sblocchi i comandi +quote e +repost" },
       { text: "**X4** EXP boost" },
     ],
   },

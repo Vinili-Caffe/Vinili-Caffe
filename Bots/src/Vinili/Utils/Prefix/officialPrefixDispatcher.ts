@@ -52,6 +52,9 @@ const REMOVED_PREFIX_COMMANDS = new Set([
   "libriproibiti",
   "forbiddenbooks",
   "live",
+  "myquote",
+  "myrepost",
+  "myclip",
 ]);
 const FIRE_AND_FORGET_PREFIX_COMMANDS = new Set([]);
 

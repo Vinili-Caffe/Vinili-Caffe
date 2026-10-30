@@ -140,9 +140,9 @@ type Fail = { ok: false; message: string; error?: string; status?: number };
 type Ok<T> = { ok: true; data: T };
 
 export const BOARD_FEATURES: { id: keyof BoardFeatures; title: string; hint: string }[] = [
-  { id: "quote", title: "Quote", hint: "+quote, +myquote e bacheca citazioni" },
-  { id: "repost", title: "Repost", hint: "+repost, +myrepost e bottone Reposta" },
-  { id: "clip", title: "Clip", hint: "+clip, +myclip e pubblicazione clip vocali" },
+  { id: "quote", title: "Quote", hint: "+quote e bacheca citazioni (gestione sul profilo sito)" },
+  { id: "repost", title: "Repost", hint: "+repost e bottone Reposta (gestione sul profilo sito)" },
+  { id: "clip", title: "Clip", hint: "+clip e pubblicazione clip vocali (gestione sul profilo sito)" },
   { id: "skull", title: "Skullboard", hint: "Reazione 💀 e pubblicazione in bacheca" },
 ];
 

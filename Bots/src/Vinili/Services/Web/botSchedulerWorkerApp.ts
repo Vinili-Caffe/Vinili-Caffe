@@ -16,6 +16,7 @@ const {
 const { startModCaseLifecycleLoop } = require("../Moderation/modCaseLifecycleService") as typeof import("../Moderation/modCaseLifecycleService");
 const { startCustomRoleExpiryLoop } = require("../Community/customRoleExpiryService") as typeof import("../Community/customRoleExpiryService");
 const { runDueOneTimeReminders } = require("../Reminders/oneTimeReminderService") as typeof import("../Reminders/oneTimeReminderService");
+const { runDueChannelReminders } = require("../Reminders/channelReminderService") as typeof import("../Reminders/channelReminderService");
 const { startTenantOfflineRecoveryLoop } = require("../Partner/tenantOfflineRecoveryService") as typeof import("../Partner/tenantOfflineRecoveryService");
 const { isMultiGuildLayerEnabled } = require("../../MultiGuild/core/env") as typeof import("../../MultiGuild/core/env");
 const { tickStaffCompitiDeadlines, tickStaffCompitiAssignments } = require("../../Web/siteStaffCompitiApi") as typeof import("../../Web/siteStaffCompitiApi");
@@ -76,6 +77,7 @@ async function main(shared?: { client?: any } | null) {
     reminderBusy = true;
     try {
       await runDueOneTimeReminders(client);
+      await runDueChannelReminders(client);
     } catch (err) {
       global.logger?.error?.("[BOT-SCHEDULER][REMINDER]", err?.message || err);
     } finally {

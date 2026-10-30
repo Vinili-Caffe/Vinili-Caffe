@@ -1,6 +1,7 @@
 const PREFIX_COMMAND_DESCRIPTIONS = Object.freeze({
   help: "Mostra tutti i comandi disponibili con il bot.",
   afk: "Imposta il tuo stato AFK con un messaggio personalizzato.",
+  reminder: "Imposta un reminder nel canale con data/ora e motivo.",
   avatar: "Mostra l'avatar di un utente.",
   banner: "Mostra il banner di un utente.",
   voices: "Mostra le voci TTS disponibili.",
@@ -70,9 +71,6 @@ const PREFIX_COMMAND_DESCRIPTIONS = Object.freeze({
   quote: "Genera una quote da un messaggio.",
   clip: "Pubblica una clip vocale sulla bacheca.",
   repost: "Condivide un messaggio sulla bacheca.",
-  myrepost: "Elenco dei repost che hai pubblicato sulla bacheca.",
-  myclip: "Elenco delle clip vocali che hai pubblicato sulla bacheca.",
-  myquote: "Elenco delle quote che hai pubblicato sulla bacheca.",
   pause: "Mette in pausa la traccia in riproduzione.",
   resume: "Riprende la traccia in pausa.",
   skip: "Salta la traccia in riproduzione e passa alla successiva in coda.",
@@ -94,6 +92,8 @@ const PREFIX_COMMAND_DESCRIPTIONS = Object.freeze({
 });
 
 const PREFIX_SUBCOMMAND_DESCRIPTIONS = Object.freeze({
+  "reminder.list": "Elenca i tuoi reminder in attesa.",
+  "reminder.cancel": "Annulla un reminder con il suo id corto.",
   "set.autojoin": "Attiva o disattiva autojoin TTS.",
   "set.voice": "Imposta la lingua TTS personale.",
   "now.playing": "Mostra il brano in riproduzione.",

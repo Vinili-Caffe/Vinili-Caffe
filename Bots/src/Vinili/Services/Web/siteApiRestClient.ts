@@ -588,6 +588,14 @@ function wrapMessage(raw?, clientRef?, meta: Record<string, any> = {}) {
       const updated = await rest.patch(Routes.channelMessage(channelId, messageId), { body });
       return wrapMessage(updated, clientRef, { channelId, channel: meta.channel });
     },
+    delete: async (reason?) => {
+      const rest = clientRef?._rest;
+      if (!rest || !channelId) throw new Error("REST unavailable");
+      await rest.delete(Routes.channelMessage(channelId, messageId), {
+        reason: reason ? String(reason).slice(0, 512) : undefined,
+      });
+      return true;
+    },
     startThread: async (opts: Record<string, any> = {}) => {
       const rest = clientRef?._rest;
       if (!rest || !channelId) throw new Error("REST unavailable");

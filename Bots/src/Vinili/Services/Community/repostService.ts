@@ -661,7 +661,7 @@ function buildRepostRemovedEmbed({ userId, isClip = false }) {
       { name: "Rimosso da", value: `<@${userId}>`, inline: true },
       { name: "Data rimozione", value: `${dateStr} ${timeStr}`, inline: true },
     )
-    .setFooter({ text: `Gestisci i tuoi repost con \`+myrepost\` · Oggi alle ${timeStr}` });
+    .setFooter({ text: `Gestisci i tuoi repost dal profilo sul sito · Oggi alle ${timeStr}` });
 }
 
 async function applyBoardMessageRemovedState(guild?, boardChannelId?, boardMessageId?, userId?, isClip?) {
@@ -912,7 +912,7 @@ async function handleRepostRemoveButton(interaction?) {
   }
 
   return interaction.editReply({
-    content: "<a:VC_Verified:1482532479637127188> Repost rimosso dai tuoi (`+myrepost`).",
+    content: "<a:VC_Verified:1482532479637127188> Repost rimosso.",
   }).catch(() => null);
 }
 

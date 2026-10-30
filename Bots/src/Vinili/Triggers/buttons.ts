@@ -1087,7 +1087,7 @@ export = {
         "<:VC_Dot:1482532364222595303> Bypass dei requisiti nei giveaway",
         "<:VC_Dot:1482532364222595303> Possibilità di cambiare il tuo nickname",
         "<:VC_Dot:1482532364222595303> Sblocchi i COLORI PLUS in [Personalizza](https://www.viniliecaffe.it/personalizza/) <:VC_New:1471891729471770819>",
-        "<:VC_Dot:1482532364222595303> Sblocchi i comandi `+quote`, `+repost` e `+myrepost`",
+        "<:VC_Dot:1482532364222595303> Sblocchi i comandi `+quote` e `+repost`",
         "<:VC_Dot:1482532364222595303> X4 EXP boost",
       ].join("\n");
 
@@ -1219,7 +1219,7 @@ export = {
           "<:blueflash:1470064803157643468> Sblocchi i COLORI PLUS in [Personalizza](https://www.viniliecaffe.it/personalizza/) <:VC_New:1471891729471770819>",
           "<a:VC_CrownYellow:1482706085440651428> Aggiungi reazioni al messaggio quando ti @menzionano in chat (max. 3)",
           MENTION_RESPONSE_PERK_LINE_DISCORD,
-          "<a:reddiamond:1443652837346377841> Sblocchi i comandi `+quote`, `+repost` e `+myrepost`",
+          "<a:reddiamond:1443652837346377841> Sblocchi i comandi `+quote` e `+repost`",
           "<:exp:1470067108543987846> X2 EXP Boost",
           "",
           "<a:VC_Boost:1482706171386269830> **Inoltre boostando il server due volte sbloccherai altri vantaggi:**",
@@ -1272,7 +1272,7 @@ export = {
               "<:VC_DoubleReply:1482532332509466797> Permesso di cambiare nickname",
               "<:VC_DoubleReply:1482532332509466797> Permesso di allegare link e immagini in chat",
               "<:VC_DoubleReply:1482532332509466797> Permesso di inviare messaggi vocali in chat",
-              "<:VC_DoubleReply:1482532332509466797> Sblocchi i comandi \`+quote\`, \`+repost\` e \`+myrepost\`",
+              "<:VC_DoubleReply:1482532332509466797> Sblocchi i comandi \`+quote\` e \`+repost\`",
               `<:VC_Reply:1482532158080942191> <:VC_New:1471891729471770819> Nuovo colore gradiente sbloccato con [Personalizza](https://www.viniliecaffe.it/personalizza/)<@&${IDs.roles.colorUnlockLv10}>`
             ].join("\n"),
             inline: true,

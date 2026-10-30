@@ -15,6 +15,7 @@ const {
 const { bootstrapSupporter, recoverSupporterStatusAnnouncesOnStartup } = require("./presenceUpdate") as typeof import("./presenceUpdate");
 const { restoreTtsConnections } = require("../Services/TTS/ttsService") as typeof import("../Services/TTS/ttsService");
 const { runDueOneTimeReminders, } = require("../Services/Reminders/oneTimeReminderService") as typeof import("../Services/Reminders/oneTimeReminderService");
+const { runDueChannelReminders, } = require("../Services/Reminders/channelReminderService") as typeof import("../Services/Reminders/channelReminderService");
 const { bootstrapMinigameScheduler } = require("../Services/Minigames/minigameSchedulerService") as typeof import("../Services/Minigames/minigameSchedulerService");
 const { startVerificationTenureLoop, backfillVerificationTenure, startVoteRoleCleanupLoop, runAllGuilds: renumberAllCategories, startCategoryNumberingLoop, startSponsorKickLoop, startSponsorGuildNicknameSweepLoop, } = require("../Services/Community/communityOpsService") as typeof import("../Services/Community/communityOpsService");
 const { startBirthdayLoop } = require("../Services/Community/birthdayService") as typeof import("../Services/Community/birthdayService");
@@ -250,7 +251,10 @@ function buildDeferredStartupTasks(client?, primaryScheduler?, engagementTick?) 
       label: "run due one-time reminders",
       weight: 8,
       enabled: String(process.env.BOT_SCHEDULER_EXTERNAL || "").trim() !== "1",
-      run: () => runDueOneTimeReminders(client),
+      run: async () => {
+        await runDueOneTimeReminders(client);
+        await runDueChannelReminders(client);
+      },
     },
     {
       label: "restore core startup state",
@@ -1491,6 +1495,7 @@ export = {
         engagementTickRunning = true;
         try {
           await runDueOneTimeReminders(client);
+          await runDueChannelReminders(client);
         } catch (err) {
           global.logger?.error?.(err);
         } finally {

@@ -1,5 +1,5 @@
 /**
- * Profilo sito — quote / repost / clip dell'utente (stessi dati di +myquote/+myrepost/+myclip).
+ * Profilo sito — quote / repost / clip dell'utente (ex +myquote/+myrepost/+myclip).
  * GET  /webhooks/site-user-boards?kind=&userId=&page=
  * DELETE /webhooks/site-user-boards  Authorization Bearer + { kind, id }
  */

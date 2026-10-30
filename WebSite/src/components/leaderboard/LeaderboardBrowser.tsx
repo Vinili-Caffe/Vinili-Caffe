@@ -2,8 +2,18 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, LayoutGroup, motion } from "motion/react";
-import { Crosshair, Gamepad2, Loader2, MessageSquare, Mic, Search, Sparkles, TrendingUp, Trophy, X, type LucideIcon } from "lucide-react";
-import { BOARDS, loadBoard, metric, type BoardId, type LeaderPage, type LeaderRow } from "@/lib/leaderboard";
+import { Crosshair, Gamepad2, Loader2, MessageSquare, Mic, Search, TrendingUp, Trophy, X, type LucideIcon } from "lucide-react";
+import {
+  BOARDS,
+  PERIODS,
+  boardUnit,
+  loadBoard,
+  metric,
+  type BoardId,
+  type LeaderPage,
+  type LeaderRow,
+  type PeriodId,
+} from "@/lib/leaderboard";
 import { useAuth } from "@/lib/auth";
 import { page } from "@/lib/site";
 import { cn } from "@/lib/cn";
@@ -14,7 +24,6 @@ import { ShowMoreButton } from "@/components/ui/ShowMore";
 
 const BOARD_ICONS: Record<BoardId, LucideIcon> = {
   level: TrendingUp,
-  weekly: Sparkles,
   messages: MessageSquare,
   voice: Mic,
   minigames: Gamepad2,
@@ -29,9 +38,21 @@ const PODIUM = [
 
 const profileHref = (id: string) => page(`/user/?id=${id}`);
 
-function PodiumDisc({ row, place, board, me }: { row: LeaderRow; place: 0 | 1 | 2; board: BoardId; me: boolean }) {
+function PodiumDisc({
+  row,
+  place,
+  board,
+  period,
+  me,
+}: {
+  row: LeaderRow;
+  place: 0 | 1 | 2;
+  board: BoardId;
+  period: PeriodId;
+  me: boolean;
+}) {
   const p = PODIUM[place];
-  const m = metric(board, row);
+  const m = metric(board, period, row);
   const size = place === 0 ? "size-28 sm:size-52" : "size-24 sm:size-44";
   return (
     <motion.a
@@ -79,8 +100,20 @@ function PodiumDisc({ row, place, board, me }: { row: LeaderRow; place: 0 | 1 | 
   );
 }
 
-function Row({ row, board, me, flash }: { row: LeaderRow; board: BoardId; me: boolean; flash?: boolean }) {
-  const m = metric(board, row);
+function Row({
+  row,
+  board,
+  period,
+  me,
+  flash,
+}: {
+  row: LeaderRow;
+  board: BoardId;
+  period: PeriodId;
+  me: boolean;
+  flash?: boolean;
+}) {
+  const m = metric(board, period, row);
   return (
     <motion.li
       layout="position"
@@ -102,7 +135,6 @@ function Row({ row, board, me, flash }: { row: LeaderRow; board: BoardId; me: bo
             {row.displayName}
             {me && <span className="ml-2 rounded-full bg-caramel/20 px-2 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wider text-ember">tu</span>}
           </span>
-          {/* barra: verso il prossimo livello / rispetto al primo della settimana */}
           <span className="mt-1.5 block h-1.5 w-full max-w-xs overflow-hidden rounded-full bg-crema/8">
             <motion.span
               className="block h-full rounded-full bg-gradient-to-r from-caramel to-ember"
@@ -124,6 +156,7 @@ function Row({ row, board, me, flash }: { row: LeaderRow; board: BoardId; me: bo
 export function LeaderboardBrowser({ initial }: { initial: LeaderPage | null }) {
   const { user } = useAuth();
   const [board, setBoard] = useState<BoardId>("level");
+  const [period, setPeriod] = useState<PeriodId>("alltime");
   const [pageNum, setPageNum] = useState(1);
   const [data, setData] = useState<LeaderPage | null>(initial);
   const [podium, setPodium] = useState<LeaderRow[]>(initial?.rows.slice(0, 3) ?? []);
@@ -136,11 +169,11 @@ export function LeaderboardBrowser({ initial }: { initial: LeaderPage | null }) 
   const first = useRef(true);
   const LIST_CHUNK = 50;
 
-  // cambio classifica → prima pagina + ricarica podio
+  // cambio classifica o periodo → prima pagina + ricarica podio
   useEffect(() => {
     setPageNum(1);
     setListVisible(LIST_CHUNK);
-  }, [board]);
+  }, [board, period]);
 
   useEffect(() => {
     setListVisible(LIST_CHUNK);
@@ -148,13 +181,13 @@ export function LeaderboardBrowser({ initial }: { initial: LeaderPage | null }) 
 
   useEffect(() => {
     /* Boot con `initial`: niente secondo round-trip (Speed Insights /classifiche). */
-    if (first.current && initial && board === "level") {
+    if (first.current && initial && board === "level" && period === "alltime") {
       setBoardBoot(false);
       return;
     }
     let alive = true;
     setBoardBoot(true);
-    loadBoard(board, 1).then((d) => {
+    loadBoard(board, 1, { period }).then((d) => {
       if (!alive) return;
       if (d) setPodium(d.rows.slice(0, 3));
       setBoardBoot(false);
@@ -162,10 +195,10 @@ export function LeaderboardBrowser({ initial }: { initial: LeaderPage | null }) 
     return () => {
       alive = false;
     };
-  }, [board, initial]);
+  }, [board, period, initial]);
 
   useEffect(() => {
-    if (first.current && initial && board === "level" && pageNum === 1) {
+    if (first.current && initial && board === "level" && period === "alltime" && pageNum === 1) {
       first.current = false;
       setListLoading(false);
       return;
@@ -174,7 +207,7 @@ export function LeaderboardBrowser({ initial }: { initial: LeaderPage | null }) 
     let alive = true;
     setListLoading(true);
     setFound(null);
-    loadBoard(board, pageNum).then((d) => {
+    loadBoard(board, pageNum, { period }).then((d) => {
       if (!alive) return;
       setData(d);
       if (d && pageNum === 1) setPodium(d.rows.slice(0, 3));
@@ -183,11 +216,14 @@ export function LeaderboardBrowser({ initial }: { initial: LeaderPage | null }) 
     return () => {
       alive = false;
     };
-  }, [board, pageNum, initial]);
+  }, [board, period, pageNum, initial]);
 
   useLiveRefresh(
     async () => {
-      const [list, topPage] = await Promise.all([loadBoard(board, pageNum), loadBoard(board, 1)]);
+      const [list, topPage] = await Promise.all([
+        loadBoard(board, pageNum, { period }),
+        loadBoard(board, 1, { period }),
+      ]);
       if (list) setData(list);
       if (topPage) setPodium(topPage.rows.slice(0, 3));
     },
@@ -202,12 +238,12 @@ export function LeaderboardBrowser({ initial }: { initial: LeaderPage | null }) 
         return;
       }
       setSearching(true);
-      const res = await loadBoard(board, 1, { userId: clean, perPage: 10 });
+      const res = await loadBoard(board, 1, { userId: clean, perPage: 10, period });
       setSearching(false);
       const row = res?.rows.find((r) => r.userId === clean) ?? null;
       setFound({ row, id: clean });
     },
-    [board],
+    [board, period],
   );
 
   const page = data?.page ?? pageNum;
@@ -216,7 +252,12 @@ export function LeaderboardBrowser({ initial }: { initial: LeaderPage | null }) 
   const restVisible = rest.length > LIST_CHUNK ? rest.slice(0, listVisible) : rest;
   const restRemaining = rest.length > LIST_CHUNK ? Math.max(0, rest.length - listVisible) : 0;
   const boardInfo = BOARDS.find((b) => b.id === board)!;
+  const unit = boardUnit(board, period);
   const podiumLoading = boardBoot && top.length === 0;
+  const emptyHint =
+    board === "minigames" && period === "monthly"
+      ? "La classifica mensile minigames non è ancora tracciata."
+      : "Nessun dato in classifica al momento.";
 
   return (
     <div className="mx-auto max-w-5xl px-6 pb-16">
@@ -254,8 +295,39 @@ export function LeaderboardBrowser({ initial }: { initial: LeaderPage | null }) 
         </div>
       </LayoutGroup>
 
+      <LayoutGroup id="periods">
+        <div className="mt-3 flex flex-wrap justify-center gap-2" role="tablist" aria-label="Periodo">
+          {PERIODS.map((p) => {
+            const active = period === p.id;
+            return (
+              <button
+                key={p.id}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                onClick={() => setPeriod(p.id)}
+                className={cn(
+                  "relative isolate inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors sm:text-sm",
+                  active ? "text-espresso" : "text-crema/65 hover:text-crema",
+                )}
+              >
+                {active && (
+                  <motion.span
+                    layoutId="period-pill"
+                    className="absolute inset-0 -z-10 rounded-full bg-gradient-to-b from-crema to-sand"
+                    transition={{ type: "spring", stiffness: 400, damping: 32 }}
+                  />
+                )}
+                {!active && <span className="absolute inset-0 -z-10 rounded-full bg-crema/6 ring-1 ring-sand/15" />}
+                {p.label}
+              </button>
+            );
+          })}
+        </div>
+      </LayoutGroup>
+
       <p className="mt-4 text-center text-sm text-crema/50">
-        {data ? `${data.total.toLocaleString("it-IT")} membri in classifica · ordinati per ${boardInfo.unit}` : " "}
+        {data ? `${data.total.toLocaleString("it-IT")} membri in classifica · ordinati per ${unit}` : " "}
       </p>
 
       {/* podio: sempre top 3 della board, indipendente dalla pagina lista */}
@@ -266,14 +338,14 @@ export function LeaderboardBrowser({ initial }: { initial: LeaderPage | null }) 
               <Loader2 className="size-6 animate-spin" />
             </motion.div>
           ) : top.length ? (
-            <motion.div key={board} exit={{ opacity: 0, y: -10 }} className="grid grid-cols-3 items-end gap-2 sm:gap-8">
+            <motion.div key={`${board}-${period}`} exit={{ opacity: 0, y: -10 }} className="grid grid-cols-3 items-end gap-2 sm:gap-8">
               {top.map((r, i) => (
-                <PodiumDisc key={r.userId} row={r} place={i as 0 | 1 | 2} board={board} me={r.userId === user?.id} />
+                <PodiumDisc key={r.userId} row={r} place={i as 0 | 1 | 2} board={board} period={period} me={r.userId === user?.id} />
               ))}
             </motion.div>
           ) : (
             <motion.p key="empty" className="py-20 text-center text-crema/60">
-              Nessun dato in classifica al momento.
+              {emptyHint}
             </motion.p>
           )}
         </AnimatePresence>
@@ -329,14 +401,16 @@ export function LeaderboardBrowser({ initial }: { initial: LeaderPage | null }) 
           >
             <div className="mt-3 overflow-hidden rounded-2xl bg-gradient-to-b from-caramel/[0.08] via-roast/85 to-roast ring-1 ring-caramel/30">
               <div className="flex items-center justify-between px-4 pt-3 text-xs uppercase tracking-[0.2em] text-crema/40 sm:px-6">
-                <span>Risultato · {boardInfo.label}</span>
+                <span>
+                  Risultato · {boardInfo.label} · {PERIODS.find((p) => p.id === period)?.label}
+                </span>
                 <button type="button" onClick={() => setFound(null)} aria-label="Chiudi risultato" className="rounded-full p-1 hover:bg-crema/10">
                   <X className="size-4" />
                 </button>
               </div>
               {found.row ? (
                 <ul>
-                  <Row row={found.row} board={board} me={found.row.userId === user?.id} />
+                  <Row row={found.row} board={board} period={period} me={found.row.userId === user?.id} />
                 </ul>
               ) : (
                 <p className="px-4 py-4 text-sm text-crema/65 sm:px-6">
@@ -363,7 +437,7 @@ export function LeaderboardBrowser({ initial }: { initial: LeaderPage | null }) 
             </div>
             <ul>
               {restVisible.map((r) => (
-                <Row key={r.userId} row={r} board={board} me={r.userId === user?.id} />
+                <Row key={r.userId} row={r} board={board} period={period} me={r.userId === user?.id} />
               ))}
             </ul>
             <ShowMoreButton

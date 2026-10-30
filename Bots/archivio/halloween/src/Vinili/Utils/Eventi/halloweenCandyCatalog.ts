@@ -1,4 +1,5 @@
-const CANDY_IMAGE_BASE = "/images/caramelle_del_porco_dio";
+/* Path neutrale: "porco_dio" nei URL veniva bloccato da adblock (ERR_FAILED in console). */
+const CANDY_IMAGE_BASE = "/images/halloween-candy";
 /** Media pubblici su Cloudflare R2 (cdn); fallback storico era api.viniliecaffe.it. */
 const CANDY_PUBLIC_ORIGIN = "https://cdn.viniliecaffe.it";
 
