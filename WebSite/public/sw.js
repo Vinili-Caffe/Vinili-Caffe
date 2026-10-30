@@ -182,7 +182,7 @@ self.addEventListener("push", (event) => {
         const shown = await self.registration.getNotifications({ tag: p.tag }).catch(() => []);
         if (shown && shown.length) {
           await setOsBadge(p.badge);
-          return;
+        return;
         }
       }
       if (!p.title && !p.body) p.body = "Hai una nuova notifica.";
@@ -263,12 +263,12 @@ self.addEventListener("notificationclick", (event) => {
         if (self.clients.openWindow) await self.clients.openWindow(abs).catch(() => null);
         return;
       }
-      await same.focus().catch(() => null);
-      try {
-        same.postMessage({ type: "vc:notif-navigate", url: abs });
-      } catch {
-        /* ignore */
-      }
+        await same.focus().catch(() => null);
+        try {
+          same.postMessage({ type: "vc:notif-navigate", url: abs });
+        } catch {
+          /* ignore */
+        }
       if (pathKey(same.url) === pathKey(abs)) return;
       // iOS: navigate() sulla PWA spesso non va, si apre direttamente la destinazione
       if (!isIos() && typeof same.navigate === "function") {
