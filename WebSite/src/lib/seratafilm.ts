@@ -25,7 +25,7 @@ export const SERATA_EVENT: SerataEvent = {
 
 /** Locandina sul player — media su API/VPS (non in WebSite/public). */
 export const FILM_POSTER =
-  "https://api.viniliecaffe.it/images/seratafilm/sposa-cadavere-poster.jpg?v=20261030apiPoster1";
+  "https://cdn.viniliecaffe.it/images/seratafilm/sposa-cadavere-poster.jpg?v=20261030cdn1";
 
 /** BGM attesa default — come site.config.json → seratafilmBgm.youtube.videoUrls. */
 export const SERATA_BGM_YT_ID = "7wnVYIJipzU";

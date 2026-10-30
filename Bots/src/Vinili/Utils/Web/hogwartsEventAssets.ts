@@ -76,9 +76,9 @@ function buildShopItemImageAttachment(imageFile?) {
 function resolveShopItemPublicImageUrl(client?, imageFile?) {
   const file = String(imageFile || "").trim();
   if (!file) return "";
-  const base = resolveSitePublicUrl(client);
+  const cdn = String(process.env.VC_PHOTOS_CDN_ORIGIN || "https://cdn.viniliecaffe.it").trim().replace(/\/+$/, "");
   const segments = file.split("/").map((part?) => encodeURIComponent(part));
-  return `${base}/images/evento-hogwarts/${segments.join("/")}`;
+  return `${cdn}/images/evento-hogwarts/${segments.join("/")}`;
 }
 
 function normalizeHouseId(value?) {
@@ -103,9 +103,9 @@ function resolveHouseCrestPublicUrl(client?, houseId?, customCrestUrl?) {
   if (/^https?:\/\//i.test(custom)) return custom;
   const house = normalizeHouseId(houseId);
   if (!house) return "";
-  const base = resolveSitePublicUrl(client);
+  const cdn = String(process.env.VC_PHOTOS_CDN_ORIGIN || "https://cdn.viniliecaffe.it").trim().replace(/\/+$/, "");
   const file = String(HOUSE_META[house]?.crestFile || `${house}.png`).trim();
-  return `${base}/images/evento-hogwarts/crests/${encodeURIComponent(file)}`;
+  return `${cdn}/images/evento-hogwarts/crests/${encodeURIComponent(file)}`;
 }
 
 function resolveHouseCrestEmbedAssets(client?, houseId?, customCrestUrl?) {

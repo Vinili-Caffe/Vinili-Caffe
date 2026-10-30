@@ -197,7 +197,7 @@
     },
     "overrideIso": "",
     "linkFilm": "https://cdn.viniliecaffe.it/images/seratafilm/nightmare-before-christmas.mp4",
-    "hogwartsThemeVideoUrl": "/images/evento-hogwarts/theme-bg.mp4",
+    "hogwartsThemeVideoUrl": "",
     "filmTitle": "Nightmare Before Christmas",
     "creditsSkip": {
       "enabled": false,
@@ -341,7 +341,7 @@
     "staffListShowEachRole": true,
     "showEmptyStaffRoles": true
   },
-  "openGraphImageUrl": "https://www.viniliecaffe.it/images/og-server-icon.gif?v=20260904brandGif1",
+  "openGraphImageUrl": "https://cdn.viniliecaffe.it/images/og-server-icon.gif?v=20261030cdn1",
   "rankCardApiUrl": "/webhooks/site-rank-card",
   "openGraphImageWidth": 512,
   "openGraphImageHeight": 512,
@@ -402,5 +402,5 @@
       "/staff/accesso-richiesto"
     ]
   },
-  "siteBannerUrl": "https://www.viniliecaffe.it/images/og-banner.gif?v=20260904brandGif1"
+  "siteBannerUrl": "https://cdn.viniliecaffe.it/images/og-server-icon.gif?v=20261030cdn1"
 }
