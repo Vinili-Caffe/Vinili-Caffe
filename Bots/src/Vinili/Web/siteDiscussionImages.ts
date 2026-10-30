@@ -40,7 +40,8 @@ function validIds(scope?, docId?) {
 }
 
 /** Salva fino a 3 immagini (data URL) e ritorna gli indirizzi da mettere nel commento (senza firma). */
-function saveDiscussionImages(scope?, docId?, images?) {
+async function saveDiscussionImages(scope?, docId?, images?) {
+  const { savePublicSiteMedia, isCdnMediaUrl } = require("./siteCdnMedia") as typeof import("./siteCdnMedia");
   const list = Array.isArray(images) ? images.slice(0, MAX_PER_COMMENT) : [];
   if (!list.length || !validIds(scope, docId)) return [];
   const dir = path.join(UPLOAD_ROOT, scope, String(docId));
@@ -50,8 +51,15 @@ function saveDiscussionImages(scope?, docId?, images?) {
     const parsed = parseDataUrlImage(item);
     if (!parsed) continue;
     const name = `${Date.now().toString(36)}-${crypto.randomBytes(5).toString("hex")}.${EXT[parsed.mime] || "jpg"}`;
-    fs.writeFileSync(path.join(dir, name), parsed.buffer);
-    urls.push(`${URL_PREFIX}/${scope}/${String(docId)}/${name}`);
+    const fallbackUrl = `${URL_PREFIX}/${scope}/${String(docId)}/${name}`;
+    const saved = await savePublicSiteMedia({
+      diskPath: path.join(dir, name),
+      buffer: parsed.buffer,
+      cdnKey: `uploads/site-discussion/${scope}/${docId}/${name}`,
+      contentType: parsed.mime,
+      fallbackUrl,
+    });
+    urls.push(saved.url);
   }
   return urls;
 }
@@ -62,9 +70,12 @@ function sign(scope?, docId?, name?, exp?) {
 
 /** Aggiunge la firma a tempo agli indirizzi salvati. */
 function signDiscussionImageUrls(urls?) {
+  const { isCdnMediaUrl } = require("./siteCdnMedia") as typeof import("./siteCdnMedia");
   return (Array.isArray(urls) ? urls : [])
     .map((u?) => {
-      const m = new RegExp(`^${URL_PREFIX}/([a-z]+)/([a-f0-9]{24})/([a-z0-9._-]+)$`, "i").exec(String(u || ""));
+      const raw = String(u || "");
+      if (isCdnMediaUrl(raw.split("?")[0])) return raw.split("?")[0];
+      const m = new RegExp(`^${URL_PREFIX}/([a-z]+)/([a-f0-9]{24})/([a-z0-9._-]+)$`, "i").exec(raw);
       if (!m) return "";
       const exp = Date.now() + TOKEN_TTL_MS;
       return `${m[0]}?exp=${exp}&st=${sign(m[1], m[2], m[3], exp)}`;
@@ -88,11 +99,16 @@ function serveDiscussionImage(req?, res?) {
     crypto.timingSafeEqual(Buffer.from(st), Buffer.from(expect));
   if (!ok) return res.status(403).end();
   const full = path.join(UPLOAD_ROOT, scope, docId, name);
-  if (!full.startsWith(path.join(UPLOAD_ROOT, scope, docId)) || !fs.existsSync(full)) return res.status(404).end();
-  res.setHeader("Content-Type", MIME[path.extname(name).toLowerCase()] || "image/jpeg");
-  res.setHeader("Cache-Control", "private, max-age=3600");
-  res.setHeader("X-Content-Type-Options", "nosniff");
-  return fs.createReadStream(full).pipe(res);
+  if (!full.startsWith(path.join(UPLOAD_ROOT, scope, docId))) return res.status(404).end();
+  if (fs.existsSync(full)) {
+    res.setHeader("Content-Type", MIME[path.extname(name).toLowerCase()] || "image/jpeg");
+    res.setHeader("Cache-Control", "private, max-age=3600");
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    return fs.createReadStream(full).pipe(res);
+  }
+  const { redirectToCdnIfConfigured } = require("./siteCdnMedia") as typeof import("./siteCdnMedia");
+  if (redirectToCdnIfConfigured(res, `uploads/site-discussion/${scope}/${docId}/${name}`)) return;
+  return res.status(404).end();
 }
 
 export = { saveDiscussionImages, signDiscussionImageUrls, serveDiscussionImage, MAX_PER_COMMENT };

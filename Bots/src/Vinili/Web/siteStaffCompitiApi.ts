@@ -283,14 +283,14 @@ function extForMime(mime?) {
   return "jpg";
 }
 
-function saveProofs(weekKey?, userId?, imagesInput?) {
+async function saveProofs(weekKey?, userId?, imagesInput?) {
+  const { savePublicSiteMedia, isCdnMediaUrl } = require("./siteCdnMedia") as typeof import("./siteCdnMedia");
   const list = Array.isArray(imagesInput) ? imagesInput : [];
   const out = [];
   const dir = ensureUploadDir(weekKey, userId);
   for (let i = 0; i < list.length && out.length < MAX_PROOFS; i++) {
     const item = list[i];
     if (item && typeof item === "object" && item.url && !String(item.url).startsWith("data:")) {
-      // keep existing proof reference
       out.push({
         id: String(item.id || crypto.randomBytes(6).toString("hex")),
         name: String(item.name || "prova").slice(0, 80),
@@ -303,17 +303,25 @@ function saveProofs(weekKey?, userId?, imagesInput?) {
     if (!parsed) continue;
     const id = crypto.randomBytes(6).toString("hex");
     const name = `${id}.${extForMime(parsed.mime)}`;
-    fs.writeFileSync(path.join(dir, name), parsed.buffer);
-    const url = `/webhooks/site-staff-compiti/files/${encodeURIComponent(weekKey)}/${encodeURIComponent(userId)}/${encodeURIComponent(name)}`;
-    out.push({ id, name, mime: parsed.mime, url });
+    const fallbackUrl = `/webhooks/site-staff-compiti/files/${encodeURIComponent(weekKey)}/${encodeURIComponent(userId)}/${encodeURIComponent(name)}`;
+    const saved = await savePublicSiteMedia({
+      diskPath: path.join(dir, name),
+      buffer: parsed.buffer,
+      cdnKey: `uploads/staff-compiti/${weekKey}/${userId}/${name}`,
+      contentType: parsed.mime,
+      fallbackUrl,
+    });
+    out.push({ id, name, mime: parsed.mime, url: saved.url });
   }
   return out;
 }
 
 function withProofTokens(weekKey?, userId?, proofs?) {
+  const { isCdnMediaUrl } = require("./siteCdnMedia") as typeof import("./siteCdnMedia");
   return (proofs || []).map((p?) => {
     const name = String(p.name || "").trim() || String(p.url || "").split("?")[0].split("/").pop() || "";
     const baseUrl = String(p.url || "").split("?")[0];
+    if (isCdnMediaUrl(baseUrl)) return { ...p, name: name || p.name, url: baseUrl };
     const st = createFileToken(weekKey, userId, name);
     const url = st && baseUrl ? `${baseUrl}?st=${encodeURIComponent(st)}` : baseUrl || p.url;
     return { ...p, name: name || p.name, url };
@@ -1692,7 +1700,7 @@ async function handleSiteStaffCompitiPost(client?, req?, res?) {
     const proofsInput = Array.isArray(body.proofs) ? body.proofs : Array.isArray(body.images) ? body.images : [];
     let proofs = entry.proofs || [];
     if (proofsInput.length) {
-      proofs = saveProofs(weekKey, viewerId, proofsInput);
+      proofs = await saveProofs(weekKey, viewerId, proofsInput);
     }
 
     entry.taskId = taskId;
@@ -1774,9 +1782,13 @@ async function handleSiteStaffCompitiFileGet(client?, req?, res?) {
     }
     const fp = path.join(UPLOAD_ROOT, weekKey, userId, path.basename(fileName));
     if (!fp.startsWith(path.join(UPLOAD_ROOT, weekKey, userId))) return res.status(400).end();
-    if (!fs.existsSync(fp)) return res.status(404).end();
-    res.setHeader("Cache-Control", "private, max-age=300");
-    return res.sendFile(fp);
+    if (fs.existsSync(fp)) {
+      res.setHeader("Cache-Control", "private, max-age=300");
+      return res.sendFile(fp);
+    }
+    const { redirectToCdnIfConfigured } = require("./siteCdnMedia") as typeof import("./siteCdnMedia");
+    if (redirectToCdnIfConfigured(res, `uploads/staff-compiti/${weekKey}/${userId}/${path.basename(fileName)}`)) return;
+    return res.status(404).end();
   } catch (_) {
     return res.status(500).end();
   }

@@ -18,6 +18,7 @@ node tools/controlla-archivio.cjs | tail -1
 for f in $(cat "$TMP/lista.txt"); do node --check "build/js/$f"; done
 
 PRUNE='\( -path "*/node_modules" -o -path ./Vinili/Data -o -path ./Caffè/Data -o -path ./Vinili/UI -o -path "*/logs" \) -prune -o'
+mkdir -p "$TMP"
 ssh vinili "cd /opt/bot/bots-ts/src && find . $PRUNE -name '*.js' -print | sed 's#^\./##' | sort" > "$TMP/vps.txt"
 comm -13 "$TMP/lista.txt" "$TMP/vps.txt" | grep -v '^Vinili/Utils/Config/idsCatalog\.js$' > "$TMP/da-togliere.txt" || true
 echo "$(wc -l < "$TMP/lista.txt") file da caricare, $(wc -l < "$TMP/da-togliere.txt") da togliere dal server:"

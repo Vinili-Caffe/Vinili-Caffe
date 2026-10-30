@@ -20,6 +20,7 @@ const { voteCountMonthKeyRome } = require("../Utils/romeVoteMonthKey") as typeof
 
 /* boardsBannerUpload1 */
 const { resolveSiteUploadRoot } = require("./siteUploadRoots") as typeof import("./siteUploadRoots");
+const { savePublicSiteMedia, cdnOrigin } = require("./siteCdnMedia") as typeof import("./siteCdnMedia");
 const BOARD_BANNER_UPLOAD_ROOT = resolveSiteUploadRoot("site-boards");
 const BOARD_BANNER_MAX_BYTES = 2.5 * 1024 * 1024;
 const BOARD_BANNER_MIME = new Set(["image/png", "image/jpeg", "image/jpg", "image/webp", "image/gif"]);
@@ -888,11 +889,22 @@ function sanitizeUrl(value?, max = 500) {
     u = u.replace(/^http:\/\//i, "https://");
   }
   if (!/^https:\/\//i.test(u)) return "";
+  try {
+    const origin = cdnOrigin();
+    if (origin && u.startsWith(`${origin}/uploads/site-boards/`)) return u.slice(0, max);
+  } catch (_) {}
   return u;
 }
 
 function isUploadedBoardBannerUrl(url?) {
-  return /\/webhooks\/site-boards\/files\/\d+\//i.test(String(url || ""));
+  const s = String(url || "");
+  if (/\/webhooks\/site-boards\/files\/\d+\//i.test(s)) return true;
+  try {
+    const origin = cdnOrigin();
+    return Boolean(origin && s.startsWith(`${origin}/uploads/site-boards/`));
+  } catch (_) {
+    return false;
+  }
 }
 
 function boardBannerExtForMime(mime?) {
@@ -942,10 +954,16 @@ async function uploadBoardBanner(client?, payload: Record<string, any> = {}) {
     };
   }
   const dir = path.join(BOARD_BANNER_UPLOAD_ROOT, userId);
-  fs.mkdirSync(dir, { recursive: true });
   const name = `banner-${Date.now().toString(36)}-${crypto.randomBytes(4).toString("hex")}.${boardBannerExtForMime(parsed.mime)}`;
-  fs.writeFileSync(path.join(dir, name), parsed.buffer);
-  const url = `/webhooks/site-boards/files/${encodeURIComponent(userId)}/${encodeURIComponent(name)}`;
+  const fallbackUrl = `/webhooks/site-boards/files/${encodeURIComponent(userId)}/${encodeURIComponent(name)}`;
+  const saved = await savePublicSiteMedia({
+    diskPath: path.join(dir, name),
+    buffer: parsed.buffer,
+    cdnKey: `uploads/site-boards/${userId}/${name}`,
+    contentType: parsed.mime,
+    fallbackUrl,
+  });
+  const url = saved.url;
   return { ok: true, status: 200, url, bannerUrl: url, message: "Banner caricato." };
 }
 
@@ -968,13 +986,23 @@ function mimeFromBoardBannerFileName(fileName?) {
 }
 
 async function serveBoardBannerFile(req?, res?) {
-  const full = resolveStoredBoardBannerFile(req.params?.userId, req.params?.fileName);
-  if (!full) {
-    return res.status(404).json({ ok: false, error: "not_found", message: "File non trovato." });
+  const userId = String(req.params?.userId || "");
+  const fileName = String(req.params?.fileName || "");
+  const full = resolveStoredBoardBannerFile(userId, fileName);
+  if (full) {
+    res.setHeader("Content-Type", mimeFromBoardBannerFileName(fileName));
+    res.setHeader("Cache-Control", "public, max-age=86400");
+    return res.status(200).send(fs.readFileSync(full));
   }
-  res.setHeader("Content-Type", mimeFromBoardBannerFileName(req.params?.fileName));
-  res.setHeader("Cache-Control", "public, max-age=86400");
-  return res.status(200).send(fs.readFileSync(full));
+  const { cdnUrlForKey } = require("./siteCdnMedia") as typeof import("./siteCdnMedia");
+  const cdn = cdnUrlForKey(
+    `uploads/site-boards/${decodeURIComponent(userId)}/${decodeURIComponent(fileName)}`,
+  );
+  if (cdn) {
+    res.setHeader("Cache-Control", "public, max-age=86400");
+    return res.redirect(301, cdn);
+  }
+  return res.status(404).json({ ok: false, error: "not_found", message: "File non trovato." });
 }
 
 function sanitizeTags(tags?, maxTags?) {

@@ -202,6 +202,8 @@ function verifySuggestionFileAccessToken(st?, suggestionId?, fileName?) {
 
 function withSuggestionFileAccessToken(suggestionId?, rawUrl?) {
   const url = String(rawUrl || "").trim();
+  const { isCdnMediaUrl } = require("./siteCdnMedia") as typeof import("./siteCdnMedia");
+  if (isCdnMediaUrl(url.split("?")[0])) return url.split("?")[0];
   if (!url || !url.includes("/webhooks/site-suggestions/files/")) return url;
   const m = /\/files\/[^/]+\/([^/?#]+)/.exec(url);
   if (!m) return url;
@@ -248,7 +250,8 @@ function parseDataUrlImage(raw?) {
   return { mime, buffer: buf };
 }
 
-function saveSuggestionImages(suggestionId?, imagesInput?) {
+async function saveSuggestionImages(suggestionId?, imagesInput?) {
+  const { savePublicSiteMedia } = require("./siteCdnMedia") as typeof import("./siteCdnMedia");
   const list = Array.isArray(imagesInput) ? imagesInput : [];
   const urls = [];
   const dir = ensureSuggestionUploadDir(suggestionId);
@@ -258,10 +261,15 @@ function saveSuggestionImages(suggestionId?, imagesInput?) {
     if (!parsed) continue;
     idx += 1;
     const name = `${String(idx).padStart(2, "0")}-${crypto.randomBytes(4).toString("hex")}.${extForMime(parsed.mime)}`;
-    fs.writeFileSync(path.join(dir, name), parsed.buffer);
-    urls.push(
-      `/webhooks/site-suggestions/files/${encodeURIComponent(String(suggestionId))}/${encodeURIComponent(name)}`,
-    );
+    const fallbackUrl = `/webhooks/site-suggestions/files/${encodeURIComponent(String(suggestionId))}/${encodeURIComponent(name)}`;
+    const saved = await savePublicSiteMedia({
+      diskPath: path.join(dir, name),
+      buffer: parsed.buffer,
+      cdnKey: `uploads/site-suggestions/${suggestionId}/${name}`,
+      contentType: parsed.mime,
+      fallbackUrl,
+    });
+    urls.push(saved.url);
   }
   return urls;
 }
@@ -701,7 +709,7 @@ async function createSiteSuggestion(client?, payload: Record<string, any> = {}) 
     return { ok: false, status: 500, error: "save_failed", message: "Non sono riuscito a salvare il suggerimento." };
   }
 
-  const imageUrls = saveSuggestionImages(String(doc._id), payload.images);
+  const imageUrls = await saveSuggestionImages(String(doc._id), payload.images);
   if (imageUrls.length) {
     doc.imageUrls = imageUrls;
     await doc.save().catch(() => null);
@@ -810,7 +818,7 @@ async function addSiteSuggestionComment(client?, payload: Record<string, any> = 
     ...(parentOid ? { parentCommentId: parentOid } : {}),
   };
   if (wantImages) {
-    comment.imageUrls = saveDiscussionImages("feedback", suggestionId, payload.images);
+    comment.imageUrls = await saveDiscussionImages("feedback", suggestionId, payload.images);
     if (!comment.imageUrls.length && content.length < 2) {
       return { ok: false, status: 400, error: "bad_image", message: "Immagine non valida o troppo grande (max 2,5 MB)." };
     }
@@ -1648,13 +1656,15 @@ async function serveSiteSuggestionFile(client?, req?, res?) {
     return;
   }
   const full = resolveStoredSuggestionFile(suggestionId, fileName);
-  if (!full) {
-    res.status(404).json({ ok: false, error: "not_found" });
+  if (full) {
+    res.setHeader("Cache-Control", "private, no-store");
+    res.setHeader("Content-Type", mimeFromFileName(req.params?.fileName));
+    fs.createReadStream(full).pipe(res);
     return;
   }
-  res.setHeader("Cache-Control", "private, no-store");
-  res.setHeader("Content-Type", mimeFromFileName(req.params?.fileName));
-  fs.createReadStream(full).pipe(res);
+  const { redirectToCdnIfConfigured } = require("./siteCdnMedia") as typeof import("./siteCdnMedia");
+  if (redirectToCdnIfConfigured(res, `uploads/site-suggestions/${suggestionId}/${fileName}`)) return;
+  res.status(404).json({ ok: false, error: "not_found" });
 }
 
 export = {

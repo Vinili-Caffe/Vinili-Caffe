@@ -157,7 +157,8 @@ function parseDataUrlImage(raw?) {
   return { mime, buffer: buf };
 }
 
-function saveFeedbackImages(feedbackId?, imagesInput?) {
+async function saveFeedbackImages(feedbackId?, imagesInput?) {
+  const { savePublicSiteMedia } = require("./siteCdnMedia") as typeof import("./siteCdnMedia");
   const list = Array.isArray(imagesInput) ? imagesInput : [];
   const urls = [];
   const dir = ensureUploadDir(feedbackId);
@@ -167,8 +168,15 @@ function saveFeedbackImages(feedbackId?, imagesInput?) {
     if (!parsed) continue;
     idx += 1;
     const name = `${String(idx).padStart(2, "0")}-${crypto.randomBytes(4).toString("hex")}.${extForMime(parsed.mime)}`;
-    fs.writeFileSync(path.join(dir, name), parsed.buffer);
-    urls.push(`/webhooks/site-bot-feedback/files/${encodeURIComponent(String(feedbackId))}/${encodeURIComponent(name)}`);
+    const fallbackUrl = `/webhooks/site-bot-feedback/files/${encodeURIComponent(String(feedbackId))}/${encodeURIComponent(name)}`;
+    const saved = await savePublicSiteMedia({
+      diskPath: path.join(dir, name),
+      buffer: parsed.buffer,
+      cdnKey: `uploads/bot-feedback/${feedbackId}/${name}`,
+      contentType: parsed.mime,
+      fallbackUrl,
+    });
+    urls.push(saved.url);
   }
   return urls;
 }
@@ -349,7 +357,7 @@ async function createBotFeedback(client?, payload: Record<string, any> = {}) {
     return { ok: false, status: 500, error: "save_failed", message: "Non sono riuscito a salvare il feedback." };
   }
 
-  const imageUrls = saveFeedbackImages(String(doc._id), payload.images);
+  const imageUrls = await saveFeedbackImages(String(doc._id), payload.images);
   if (imageUrls.length) {
     doc.imageUrls = imageUrls;
     await doc.save().catch(() => null);
@@ -804,13 +812,15 @@ async function serveBotFeedbackFile(client?, req?, res?) {
     return;
   }
   const full = resolveStoredFile(feedbackId, fileName);
-  if (!full) {
-    res.status(404).json({ ok: false, error: "not_found" });
+  if (full) {
+    res.setHeader("Cache-Control", "private, no-store");
+    res.setHeader("Content-Type", mimeFromFileName(req.params?.fileName));
+    fs.createReadStream(full).pipe(res);
     return;
   }
-  res.setHeader("Cache-Control", "private, no-store");
-  res.setHeader("Content-Type", mimeFromFileName(req.params?.fileName));
-  fs.createReadStream(full).pipe(res);
+  const { redirectToCdnIfConfigured } = require("./siteCdnMedia") as typeof import("./siteCdnMedia");
+  if (redirectToCdnIfConfigured(res, `uploads/bot-feedback/${feedbackId}/${fileName}`)) return;
+  res.status(404).json({ ok: false, error: "not_found" });
 }
 
 export = {

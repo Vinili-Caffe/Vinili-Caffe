@@ -14,6 +14,7 @@ const { enqueueSiteInAppNotification } = require("./siteInAppNotificationsServic
 const IDsGuild = () => String(IDs?.guilds?.main || "").trim();
 
 const { resolveSiteUploadRoot } = require("./siteUploadRoots") as typeof import("./siteUploadRoots");
+const { savePublicSiteMedia } = require("./siteCdnMedia") as typeof import("./siteCdnMedia");
 const UPLOAD_ROOT = resolveSiteUploadRoot("site-contests");
 const MAX_BYTES = 4 * 1024 * 1024;
 const ALLOWED_MIME = new Set(["image/png", "image/jpeg", "image/jpg", "image/webp"]);
@@ -452,17 +453,22 @@ async function submitEntry(client?, { eventKey, accessToken, image, category }: 
   }
 
   const dir = path.join(UPLOAD_ROOT, event.key, auth.userId);
-  fs.mkdirSync(dir, { recursive: true });
   const name = `${cat}-${Date.now().toString(36)}-${crypto.randomBytes(4).toString("hex")}.${extForMime(parsed.mime)}`;
-  fs.writeFileSync(path.join(dir, name), parsed.buffer);
-  const imageUrl = `/webhooks/site-contest/files/${encodeURIComponent(event.key)}/${encodeURIComponent(auth.userId)}/${encodeURIComponent(name)}`;
+  const fallbackUrl = `/webhooks/site-contest/files/${encodeURIComponent(event.key)}/${encodeURIComponent(auth.userId)}/${encodeURIComponent(name)}`;
+  const saved = await savePublicSiteMedia({
+    diskPath: path.join(dir, name),
+    buffer: parsed.buffer,
+    cdnKey: `uploads/site-contests/${event.key}/${auth.userId}/${name}`,
+    contentType: parsed.mime,
+    fallbackUrl,
+  });
 
   const sub = {
     id: crypto.randomBytes(8).toString("hex"),
     userId: auth.userId,
     displayName: auth.displayName,
     avatarUrl: auth.avatarUrl,
-    imageUrl,
+    imageUrl: saved.url,
     category: cat,
     likes: 0,
     createdAt: new Date(),
@@ -749,10 +755,16 @@ async function replaceEntry(client?, { eventKey, accessToken, image, category }:
   tryUnlinkStoredImage(sub.imageUrl);
 
   const dir = path.join(UPLOAD_ROOT, event.key, auth.userId);
-  fs.mkdirSync(dir, { recursive: true });
   const name = `${cat}-${Date.now().toString(36)}-${crypto.randomBytes(4).toString("hex")}.${extForMime(parsed.mime)}`;
-  fs.writeFileSync(path.join(dir, name), parsed.buffer);
-  sub.imageUrl = `/webhooks/site-contest/files/${encodeURIComponent(event.key)}/${encodeURIComponent(auth.userId)}/${encodeURIComponent(name)}`;
+  const fallbackUrl = `/webhooks/site-contest/files/${encodeURIComponent(event.key)}/${encodeURIComponent(auth.userId)}/${encodeURIComponent(name)}`;
+  const saved = await savePublicSiteMedia({
+    diskPath: path.join(dir, name),
+    buffer: parsed.buffer,
+    cdnKey: `uploads/site-contests/${event.key}/${auth.userId}/${name}`,
+    contentType: parsed.mime,
+    fallbackUrl,
+  });
+  sub.imageUrl = saved.url;
   sub.likes = 0;
   sub.displayName = auth.displayName;
   sub.avatarUrl = auth.avatarUrl;
@@ -789,14 +801,25 @@ function mimeFromName(fileName?) {
 }
 
 async function serveContestFile(req?, res?) {
-  const full = resolveStoredFile(req.params.eventKey, req.params.userId, req.params.fileName);
-  if (!full) {
-    res.status(404).type("application/json").send(JSON.stringify({ ok: false, error: "not_found" }));
+  const eventKey = String(req.params?.eventKey || "");
+  const userId = String(req.params?.userId || "");
+  const fileName = String(req.params?.fileName || "");
+  const full = resolveStoredFile(eventKey, userId, fileName);
+  if (full) {
+    res.setHeader("Cache-Control", "public, max-age=86400");
+    res.setHeader("Content-Type", mimeFromName(fileName));
+    fs.createReadStream(full).pipe(res);
     return;
   }
-  res.setHeader("Cache-Control", "public, max-age=86400");
-  res.setHeader("Content-Type", mimeFromName(req.params.fileName));
-  fs.createReadStream(full).pipe(res);
+  /* file già migrati su R2: redirect CDN */
+  const { cdnUrlForKey } = require("./siteCdnMedia") as typeof import("./siteCdnMedia");
+  const cdn = cdnUrlForKey(`uploads/site-contests/${decodeURIComponent(eventKey)}/${decodeURIComponent(userId)}/${decodeURIComponent(fileName)}`);
+  if (cdn) {
+    res.setHeader("Cache-Control", "public, max-age=86400");
+    res.redirect(301, cdn);
+    return;
+  }
+  res.status(404).type("application/json").send(JSON.stringify({ ok: false, error: "not_found" }));
 }
 
 /** Staff: apri/chiudi visibilità pubblica (env override non persistito — flag in-memory + persist su doc meta). */

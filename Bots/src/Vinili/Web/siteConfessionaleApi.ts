@@ -587,7 +587,7 @@ async function handleSiteConfessionaleCommentPost(client?, req?, res?) {
     const displayName = anonymous ? ANON_LABEL : memberDisplayName(auth.member);
     const displayAvatar = anonymous ? "" : memberAvatarUrl(auth.member);
 
-    const imageUrls = wantImages ? saveDiscussionImages("confessionale", id, req.body.images) : [];
+    const imageUrls = wantImages ? await saveDiscussionImages("confessionale", id, req.body.images) : [];
     if (wantImages && !imageUrls.length && content.length < MIN_COMMENT_LEN) {
       return res.status(400).json({ ok: false, error: "bad_image", message: "Immagine non valida o troppo grande (max 2,5 MB)." });
     }

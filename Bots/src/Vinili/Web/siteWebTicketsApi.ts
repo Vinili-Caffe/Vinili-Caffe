@@ -1207,6 +1207,8 @@ function verifyTicketFileAccessToken(st?, ticketId?, fileName?) {
 
 function withTicketFileAccessToken(ticketId?, rawUrl?) {
   const url = String(rawUrl || "").trim();
+  const { isCdnMediaUrl } = require("./siteCdnMedia") as typeof import("./siteCdnMedia");
+  if (isCdnMediaUrl(url.split("?")[0])) return url.split("?")[0];
   if (!url || !url.includes("/webhooks/site-web-tickets/files/")) return url;
   const m = /\/files\/[^/]+\/([^/?#]+)/.exec(url);
   if (!m) return url;
@@ -1222,7 +1224,8 @@ function withTicketFileAccessToken(ticketId?, rawUrl?) {
   return `${base}?st=${encodeURIComponent(st)}`;
 }
 
-function saveTicketImages(ticketId?, imagesInput?) {
+async function saveTicketImages(ticketId?, imagesInput?) {
+  const { savePublicSiteMedia } = require("./siteCdnMedia") as typeof import("./siteCdnMedia");
   const list = Array.isArray(imagesInput) ? imagesInput : [];
   const urls = [];
   const dir = ensureUploadDir(ticketId);
@@ -1232,10 +1235,15 @@ function saveTicketImages(ticketId?, imagesInput?) {
     if (!parsed) continue;
     idx += 1;
     const name = `${String(idx).padStart(2, "0")}-${crypto.randomBytes(4).toString("hex")}.${extForMime(parsed.mime)}`;
-    fs.writeFileSync(path.join(dir, name), parsed.buffer);
-    urls.push(
-      `/webhooks/site-web-tickets/files/${encodeURIComponent(String(ticketId))}/${encodeURIComponent(name)}`,
-    );
+    const fallbackUrl = `/webhooks/site-web-tickets/files/${encodeURIComponent(String(ticketId))}/${encodeURIComponent(name)}`;
+    const saved = await savePublicSiteMedia({
+      diskPath: path.join(dir, name),
+      buffer: parsed.buffer,
+      cdnKey: `uploads/web-tickets/${ticketId}/${name}`,
+      contentType: parsed.mime,
+      fallbackUrl,
+    });
+    urls.push(saved.url);
   }
   return urls;
 }
@@ -4513,7 +4521,7 @@ async function handleSiteWebTicketsCreatePost(client?, req?, res?) {
     messageCount: 0,
   });
 
-  const imageUrls = saveTicketImages(String(ticket._id), req.body?.images);
+  const imageUrls = await saveTicketImages(String(ticket._id), req.body?.images);
   const messagesOut = [];
   if (content || imageUrls.length) {
     const userRole = resolveCommunityRoleForMember(actor.member);
@@ -4704,7 +4712,7 @@ async function handleSiteWebTicketsMessagePost(client?, req?, res?) {
   }
 
   let content = sanitizeText(req.body?.content, MAX_CONTENT);
-  const imageUrls = saveTicketImages(String(ticket._id), req.body?.images);
+  const imageUrls = await saveTicketImages(String(ticket._id), req.body?.images);
   if (!content && !imageUrls.length) {
     return res.status(400).json({ ok: false, error: "empty", message: "Messaggio vuoto." });
   }
@@ -6543,7 +6551,12 @@ async function handleSiteWebTicketsFileGet(client?, req?, res?) {
     return res.status(401).json({ ok: false, error: "unauthorized", message: "Accesso negato." });
   }
   const filePath = path.join(UPLOAD_ROOT, ticketId, fileName);
-  if (!filePath.startsWith(UPLOAD_ROOT) || !fs.existsSync(filePath)) {
+  if (!filePath.startsWith(UPLOAD_ROOT)) {
+    return res.status(404).json({ ok: false, error: "not_found" });
+  }
+  if (!fs.existsSync(filePath)) {
+    const { redirectToCdnIfConfigured } = require("./siteCdnMedia") as typeof import("./siteCdnMedia");
+    if (redirectToCdnIfConfigured(res, `uploads/web-tickets/${ticketId}/${fileName}`)) return;
     return res.status(404).json({ ok: false, error: "not_found" });
   }
   const ext = path.extname(fileName).toLowerCase();

@@ -231,7 +231,8 @@ function ensureUploadDir(dedupeKey?) {
   return dir;
 }
 
-function saveWorkflowImages(dedupeKey?, imagesInput?) {
+async function saveWorkflowImages(dedupeKey?, imagesInput?) {
+  const { savePublicSiteMedia } = require("./siteCdnMedia") as typeof import("./siteCdnMedia");
   const list = Array.isArray(imagesInput) ? imagesInput : [];
   const urls = [];
   const folder = uploadFolderKey(dedupeKey);
@@ -242,10 +243,15 @@ function saveWorkflowImages(dedupeKey?, imagesInput?) {
     if (!parsed) continue;
     idx += 1;
     const name = `${String(idx).padStart(2, "0")}-${crypto.randomBytes(4).toString("hex")}.${extForMime(parsed.mime)}`;
-    fs.writeFileSync(path.join(dir, name), parsed.buffer);
-    urls.push(
-      `/webhooks/site-staff-workflow-chat/files/${encodeURIComponent(folder)}/${encodeURIComponent(name)}`,
-    );
+    const fallbackUrl = `/webhooks/site-staff-workflow-chat/files/${encodeURIComponent(folder)}/${encodeURIComponent(name)}`;
+    const saved = await savePublicSiteMedia({
+      diskPath: path.join(dir, name),
+      buffer: parsed.buffer,
+      cdnKey: `uploads/workflow-chat/${folder}/${name}`,
+      contentType: parsed.mime,
+      fallbackUrl,
+    });
+    urls.push(saved.url);
   }
   return urls;
 }
@@ -1134,7 +1140,7 @@ async function handleSiteStaffWorkflowChatPost(client?, req?, res?) {
       if (target) replyToId = target._id;
     }
 
-    const imageUrls = saveWorkflowImages(dedupeKey, body.images);
+    const imageUrls = await saveWorkflowImages(dedupeKey, body.images);
     if (!content && !imageUrls.length) {
       return res.status(400).json({ ok: false, error: "empty", message: "Messaggio vuoto." });
     }
@@ -1374,7 +1380,12 @@ async function handleSiteStaffWorkflowChatFileGet(client?, req?, res?) {
       return res.status(access.status).json({ ok: false, error: access.error, message: access.message });
     }
     const filePath = path.join(UPLOAD_ROOT, folderKey, fileName);
-    if (!filePath.startsWith(UPLOAD_ROOT) || !fs.existsSync(filePath)) {
+    if (!filePath.startsWith(UPLOAD_ROOT)) {
+      return res.status(404).json({ ok: false, error: "not_found", message: "File non trovato." });
+    }
+    if (!fs.existsSync(filePath)) {
+      const { redirectToCdnIfConfigured } = require("./siteCdnMedia") as typeof import("./siteCdnMedia");
+      if (redirectToCdnIfConfigured(res, `uploads/workflow-chat/${folderKey}/${fileName}`)) return;
       return res.status(404).json({ ok: false, error: "not_found", message: "File non trovato." });
     }
     const ext = path.extname(fileName).toLowerCase();
