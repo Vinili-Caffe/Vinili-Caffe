@@ -1,4 +1,5 @@
 const { tryConquistaCommand } = require("../../Services/Community/starWarsDiscordMinigamesService") as typeof import("../../Services/Community/starWarsDiscordMinigamesService");
+const { assertStarWarsPluginOrReply } = require("../../EventPlugins/starwars/assertPlugin") as typeof import("../../EventPlugins/starwars/assertPlugin");
 
 export = {
   name: "conquista",
@@ -9,6 +10,7 @@ export = {
 
   async execute(message?) {
     if (!message.guild) return;
+    if (!(await assertStarWarsPluginOrReply(message))) return;
     await tryConquistaCommand(message, message.client);
   },
 };

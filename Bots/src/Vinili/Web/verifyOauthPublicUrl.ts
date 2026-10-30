@@ -6,15 +6,6 @@ function resolvePublicSiteBase() {
     .replace(/\/+$/, "");
 }
 
-function buildSiteVerifyOAuthStartUrl(guildId?) {
-  const base = resolvePublicSiteBase();
-  const params = new URLSearchParams();
-  const gid = String(guildId || "").trim();
-  if (/^\d{17,22}$/.test(gid)) params.set("guildId", gid);
-  const q = params.toString();
-  return `${base}/webhooks/site-verify/oauth-start${q ? `?${q}` : ""}`;
-}
-
 function resolveDiscordOauthClientIdForSite() {
   return String(
     process.env.DISCORD_OAUTH_CLIENT_ID ||
@@ -47,7 +38,6 @@ function normalizeSiteOAuthReturnPath(raw?) {
 }
 
 export = {
-  buildSiteVerifyOAuthStartUrl,
   resolvePublicSiteBase,
   resolveDiscordOauthClientIdForSite,
   resolveDiscordOauthRedirectUriForSite,

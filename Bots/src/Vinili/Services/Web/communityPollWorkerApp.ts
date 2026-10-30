@@ -1,6 +1,6 @@
 /**
  * Worker esterno: poll HTTP / sweep pesanti fuori da bots-vinyls.
- * Twitch + Kick + Game news + live voice EXP + userFullState + movie night + weekly DM.
+ * Twitch + Game news + live voice EXP + userFullState + movie night + weekly DM.
  */
 const mongoose = require("mongoose") as typeof import("mongoose");
 const {
@@ -13,14 +13,12 @@ const {
 } = require("./workerAppBootstrap") as typeof import("./workerAppBootstrap");
 const { createSiteApiRestClient } = require("./siteApiRestClient") as typeof import("./siteApiRestClient");
 const { startTwitchLiveAlertLoop } = require("../Community/twitchLiveAlertService") as typeof import("../Community/twitchLiveAlertService");
-const { startKickLiveAlertLoop } = require("../Community/kickLiveAlertService") as typeof import("../Community/kickLiveAlertService");
 const { startGameNewsAlertLoop } = require("../Community/gameNewsAlertService") as typeof import("../Community/gameNewsAlertService");
 const { startLiveVoiceExpLoop } = require("../Community/activityService") as typeof import("../Community/activityService");
 const { startUserFullStatePersistenceLoop } = require("../Community/userFullStatePersistenceService") as typeof import("../Community/userFullStatePersistenceService");
 const { startMovieNightAnnouncementLoop } = require("../Community/movieNightAnnouncementService") as typeof import("../Community/movieNightAnnouncementService");
 const { startWeeklyDmReminderLoop } = require("../Community/weeklyDmReminderService") as typeof import("../Community/weeklyDmReminderService");
 const { startDailyPartnerAuditLoop } = require("../Partner/partnerAuditService") as typeof import("../Partner/partnerAuditService");
-const { startAutoPollLoop } = require("../Community/autoPollService") as typeof import("../Community/autoPollService");
 
 loadDotEnv();
 process.env.COMMUNITY_POLL_WORKER = "1";
@@ -54,17 +52,15 @@ async function main(shared?: { client?: any } | null) {
 
   /* Avvio immediato (niente delay 90s — siamo già un processo dedicato) */
   startTwitchLiveAlertLoop(client);
-  startKickLiveAlertLoop(client);
   startGameNewsAlertLoop(client);
   startLiveVoiceExpLoop(client);
   startUserFullStatePersistenceLoop(client);
   startMovieNightAnnouncementLoop(client);
   startWeeklyDmReminderLoop(client);
   startDailyPartnerAuditLoop(client);
-  startAutoPollLoop(client);
 
   console.log(
-    `[COMMUNITY-POLL] online as ${client.user?.tag || client.user?.username || "bot"} (twitch/kick/gamenews/voiceExp/fullState/movieNight/weeklyDm/partnerAudit/autoPoll)`,
+    `[COMMUNITY-POLL] online as ${client.user?.tag || client.user?.username || "bot"} (twitch/gamenews/voiceExp/fullState/movieNight/weeklyDm/partnerAudit)`,
   );
 }
 

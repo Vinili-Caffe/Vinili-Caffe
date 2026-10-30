@@ -1,11 +1,9 @@
 /**
- * Dirette home (E6). Stesse API del sito vecchio:
- * GET /webhooks/site-twitch-live, /webhooks/site-kick-live
- * GET /webhooks/site-kick-sub/status, /webhooks/site-kick-sub/oauth-start
+ * Dirette home (E6). API:
+ * GET /webhooks/site-twitch-live
  *
- * Twitch e Kick: live oppure ultimo VOD (badge «In diretta» / «Ultimo VOD»).
- * Il player (iframe / mp4) parte solo al click.
- * Anteprima Kick: 10 minuti, stessa chiave del vecchio `vc_kick_pip_watch_v2`.
+ * Twitch: live oppure ultimo VOD (badge «In diretta» / «Ultimo VOD»).
+ * Il player (iframe) parte solo al click.
  *
  * Su localhost / `next dev` i path relativi `/webhooks/` non esistono: si punta a www
  * (come il vecchio `apiUrlLocal` / WS ticket).
@@ -14,8 +12,6 @@
 import { apiUrl } from "./api";
 
 export const TWITCH_LIVE_URL = "/webhooks/site-twitch-live";
-export const KICK_LIVE_URL = "/webhooks/site-kick-live";
-export const KICK_SUB_URL = "/webhooks/site-kick-sub";
 
 /** @deprecated usa `apiUrl` — tenuta per import esistenti. */
 export function liveApiUrl(path: string): string {
@@ -24,11 +20,8 @@ export function liveApiUrl(path: string): string {
 
 export const LIVE_POLL_MS = 150_000;
 export const LIVE_HIDE_AFTER_MISSES = 3;
-export const KICK_PREVIEW_LIMIT_MS = 10 * 60_000;
 
-const WATCH_KEY = "vc_kick_pip_watch_v2";
-
-export type LivePlatform = "twitch" | "kick";
+export type LivePlatform = "twitch";
 export type LiveKind = "live" | "vod";
 
 export type LiveStream = {
@@ -42,8 +35,6 @@ export type LiveStream = {
   thumbnailUrl: string | null;
   url: string;
   embedUrl: string | null;
-  playbackUrl: string | null;
-  previewMp4Url: string | null;
 };
 
 export type LivePayload = {
@@ -52,36 +43,14 @@ export type LivePayload = {
   primary: LiveStream | null;
 };
 
-export type KickSubStatus = {
-  enabled: true;
-  linked: boolean;
-  subActive: boolean;
-  subscribeUrl: string | null;
-};
-
-type WatchState = {
-  streamId: string;
-  watchedMs: number;
-  sessionStart: number;
-  locked: boolean;
-};
-
 function str(v: unknown) {
   return String(v ?? "").trim();
 }
 
 function safeThumb(url: string): string | null {
-  if (
-    url.startsWith("/webhooks/site-twitch-live/thumb") ||
-    url.startsWith("/webhooks/site-kick-live/thumb")
-  ) {
+  if (url.startsWith("/webhooks/site-twitch-live/thumb")) {
     return liveApiUrl(url);
   }
-  return null;
-}
-
-function safeKickMedia(url: string): string | null {
-  if (url.startsWith("/webhooks/site-kick-live/")) return liveApiUrl(url);
   return null;
 }
 
@@ -113,8 +82,6 @@ export function parseStream(raw: unknown): LiveStream | null {
     thumbnailUrl: safeThumb(str(s.thumbnailUrl)),
     url: str(s.url),
     embedUrl: safeTwitchEmbed(str(s.embedUrl)),
-    playbackUrl: safeKickMedia(str(s.playbackUrl)),
-    previewMp4Url: safeKickMedia(str(s.previewMp4Url)),
   };
 }
 
@@ -136,7 +103,7 @@ export function withEmbedParent(embedUrl: string): string {
   }
 }
 
-export function externalUrl(url: string, platform: LivePlatform): string | null {
+export function externalUrl(url: string, platform: LivePlatform = "twitch"): string | null {
   try {
     const u = new URL(url);
     if (u.protocol !== "https:") return null;
@@ -144,20 +111,9 @@ export function externalUrl(url: string, platform: LivePlatform): string | null 
     if (platform === "twitch" && (host === "twitch.tv" || host.endsWith(".twitch.tv"))) {
       return u.toString();
     }
-    if (platform === "kick" && (host === "kick.com" || host.endsWith(".kick.com"))) {
-      return u.toString();
-    }
   } catch {
     /* url sporco */
   }
-  return null;
-}
-
-export function kickPlayableUrl(stream: LiveStream): string | null {
-  if (stream.previewMp4Url) return stream.previewMp4Url;
-  if (!stream.playbackUrl || typeof document === "undefined") return null;
-  const probe = document.createElement("video");
-  if (probe.canPlayType("application/vnd.apple.mpegurl")) return stream.playbackUrl;
   return null;
 }
 
@@ -200,98 +156,4 @@ export function resolveShown(
   if (liveOnly && primary && primary.kind !== "live") return { action: "hide" };
   if (primary && (!liveOnly || primary.kind === "live")) return { action: "show", stream: primary };
   return { action: "offline" };
-}
-
-export async function fetchKickSubStatus(
-  token: string,
-): Promise<KickSubStatus | "disabled" | null> {
-  try {
-    const r = await fetch(liveApiUrl(`${KICK_SUB_URL}/status`), {
-      credentials: "omit",
-      cache: "no-store",
-      headers: { Accept: "application/json", Authorization: `Bearer ${token}` },
-    });
-    const j = (await r.json().catch(() => null)) as {
-      ok?: boolean;
-      enabled?: boolean;
-      error?: string;
-      linked?: boolean;
-      subActive?: boolean;
-      subscribeUrl?: string;
-    } | null;
-    if (!j) return null;
-    if (j.enabled === false || j.error === "disabled") return "disabled";
-    if (!r.ok || j.ok !== true) return null;
-    return {
-      enabled: true,
-      linked: j.linked === true,
-      subActive: j.subActive === true,
-      subscribeUrl: externalUrl(str(j.subscribeUrl), "kick"),
-    };
-  } catch {
-    return null;
-  }
-}
-
-export async function startKickSubLink(
-  token: string,
-): Promise<{ status: number; url: string | null; disabled: boolean }> {
-  try {
-    const r = await fetch(liveApiUrl(`${KICK_SUB_URL}/oauth-start`), {
-      credentials: "omit",
-      cache: "no-store",
-      headers: { Accept: "application/json", Authorization: `Bearer ${token}` },
-    });
-    const j = (await r.json().catch(() => null)) as {
-      url?: string;
-      enabled?: boolean;
-      error?: string;
-    } | null;
-    const disabled = j?.enabled === false || j?.error === "disabled";
-    const url = typeof j?.url === "string" && j.url.startsWith("https://") ? j.url : null;
-    return { status: r.status, url, disabled };
-  } catch {
-    return { status: 0, url: null, disabled: false };
-  }
-}
-
-function writeWatch(state: WatchState | null) {
-  try {
-    if (!state) localStorage.removeItem(WATCH_KEY);
-    else localStorage.setItem(WATCH_KEY, JSON.stringify(state));
-  } catch {
-    /* storage pieno o bloccato */
-  }
-}
-
-/** Chiude l'eventuale sessione aperta e restituisce il totale per questo stream. */
-export function loadWatch(streamId: string): WatchState {
-  let raw: WatchState | null = null;
-  try {
-    const j = JSON.parse(localStorage.getItem(WATCH_KEY) || "null") as WatchState | null;
-    if (j && typeof j === "object" && str(j.streamId) === streamId) raw = j;
-  } catch {
-    raw = null;
-  }
-  if (!raw) return { streamId, watchedMs: 0, sessionStart: 0, locked: false };
-  let watchedMs = Math.max(0, Number(raw.watchedMs) || 0);
-  const sessionStart = Number(raw.sessionStart) || 0;
-  if (sessionStart > 0) watchedMs += Math.max(0, Date.now() - sessionStart);
-  const locked = raw.locked === true || watchedMs >= KICK_PREVIEW_LIMIT_MS;
-  const next: WatchState = { streamId, watchedMs, sessionStart: 0, locked };
-  writeWatch(next);
-  return next;
-}
-
-export function beginWatch(streamId: string): WatchState {
-  const cur = loadWatch(streamId);
-  if (cur.locked) return cur;
-  const next = { ...cur, sessionStart: Date.now() };
-  writeWatch(next);
-  return next;
-}
-
-export function flushWatch(streamId: string): WatchState {
-  const cur = loadWatch(streamId);
-  return cur;
 }

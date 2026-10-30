@@ -2,6 +2,8 @@ const { Routes } = require("discord-api-types/v10") as typeof import("discord-ap
 
 const DEFAULT_OBSOLETE_SLASH_NAMES = [
   "music",
+  "poll",
+  "copy",
   "squalifica",
   "dmbroadcast",
   "gringott",

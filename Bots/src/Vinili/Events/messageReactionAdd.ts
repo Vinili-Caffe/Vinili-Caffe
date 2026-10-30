@@ -3,7 +3,6 @@ const { skullboardFindOneLean, skullboardUpsert } = require("../Utils/Global/glo
 const { handleMinigameReaction } = require("../Services/Minigames/minigameService") as typeof import("../Services/Minigames/minigameService");
 const { handleHalloweenEmojiHuntReaction } = require("../Services/Community/halloweenEmojiHuntService") as typeof import("../Services/Community/halloweenEmojiHuntService");
 const { handleIdeaBugReaction } = require("../Services/Community/ideaBugThreadService") as typeof import("../Services/Community/ideaBugThreadService");
-const { handlePollVoteReaction } = require("../Services/Community/pollReactionThreadService") as typeof import("../Services/Community/pollReactionThreadService");
 const IDs = require("../Utils/Config/ids") as typeof import("../Utils/Config/ids");
 const { getGuildChannelCached, getGuildMemberCached } = require("../Utils/Interaction/interactionEntityCache") as typeof import("../Utils/Interaction/interactionEntityCache");
 const { cacheRoleIcon } = require("../Utils/Cache/roleIconCache") as typeof import("../Utils/Cache/roleIconCache");
@@ -303,19 +302,25 @@ export = {
 
       try {
         const client = reaction.client || reaction.message?.client || user?.client;
-        const halloweenHuntHandled = await handleHalloweenEmojiHuntReaction(client, reaction, user);
-        if (halloweenHuntHandled) return;
         try {
-          const { handleStarWarsReaction } = require("../Services/Community/starWarsDiscordMinigamesService") as typeof import("../Services/Community/starWarsDiscordMinigamesService");
-          const swHandled = await handleStarWarsReaction(client, reaction, user);
-          if (swHandled) return;
+          const { isHalloweenRuntimeDisabled } = require("../EventPlugins/halloween/runtimeKillSwitch") as typeof import("../EventPlugins/halloween/runtimeKillSwitch");
+          if (!isHalloweenRuntimeDisabled(client)) {
+            const halloweenHuntHandled = await handleHalloweenEmojiHuntReaction(client, reaction, user);
+            if (halloweenHuntHandled) return;
+          }
+        } catch (_) {}
+        try {
+          const { isStarWarsRuntimeDisabled } = require("../EventPlugins/starwars/runtimeKillSwitch") as typeof import("../EventPlugins/starwars/runtimeKillSwitch");
+          if (!isStarWarsRuntimeDisabled(client)) {
+            const { handleStarWarsReaction } = require("../Services/Community/starWarsDiscordMinigamesService") as typeof import("../Services/Community/starWarsDiscordMinigamesService");
+            const swHandled = await handleStarWarsReaction(client, reaction, user);
+            if (swHandled) return;
+          }
         } catch (_) {}
         const handled = await handleMinigameReaction(client, reaction, user);
         if (handled) return;
         const ideaBugHandled = await handleIdeaBugReaction(reaction, user);
         if (ideaBugHandled) return;
-        const pollVoteHandled = await handlePollVoteReaction(reaction, user);
-        if (pollVoteHandled) return;
       } catch (mgErr) {
         global.logger?.error?.("[ReactionAdd] event reaction handler:", mgErr?.message || mgErr);
       }

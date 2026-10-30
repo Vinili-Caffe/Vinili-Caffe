@@ -127,7 +127,7 @@ export function HalloweenDecor({ live }: { live: boolean }) {
         ))}
       </div>
 
-      {/* zucche BL — nascoste se c’è il PiP Twitch/Kick (stesso angolo; vedi globals html[data-vc-live-pip]) */}
+      {/* zucche BL — nascoste se c’è il PiP Twitch (stesso angolo; vedi globals html[data-vc-live-pip]) */}
       <div className="vc-hw-pumpkins absolute bottom-2 left-2 flex items-end gap-1 drop-shadow-[0_0_18px_rgba(255,130,40,0.45)] sm:bottom-3 sm:left-4">
         <Pumpkin live={live} className="w-12 sm:w-20" />
         <Pumpkin live={live} delay={0.8} className="-ml-2 w-8 sm:w-12" />

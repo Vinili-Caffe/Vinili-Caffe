@@ -58,7 +58,9 @@
     "httpVoteWebhookEnabled": true,
     "webhookPort": 3000,
     "webhookSecret": "",
-    "botIds": ["1468236145753067739"],
+    "botIds": [
+      "1468236145753067739"
+    ],
     "cooldownMinutes": 1440,
     "bumpSuccessPatterns": [
       "has been successfully bumped",
@@ -131,153 +133,11 @@
       }
     }
   },
-  "autoPoll": {
-    "enabled": false,
-    "apiUrl": "https://opentdb.com/api.php?amount=1&type=multiple&encode=url3986",
-    "apiThemeCatalog": [
-      {
-        "id": 9,
-        "key": "general_knowledge",
-        "label": "General Knowledge"
-      },
-      {
-        "id": 10,
-        "key": "books",
-        "label": "Books"
-      },
-      {
-        "id": 11,
-        "key": "film",
-        "label": "Film"
-      },
-      {
-        "id": 12,
-        "key": "music",
-        "label": "Music"
-      },
-      {
-        "id": 13,
-        "key": "musicals_theatres",
-        "label": "Musicals & Theatres"
-      },
-      {
-        "id": 14,
-        "key": "television",
-        "label": "Television"
-      },
-      {
-        "id": 15,
-        "key": "video_games",
-        "label": "Video Games"
-      },
-      {
-        "id": 16,
-        "key": "board_games",
-        "label": "Board Games"
-      },
-      {
-        "id": 17,
-        "key": "science_nature",
-        "label": "Science & Nature"
-      },
-      {
-        "id": 18,
-        "key": "computers",
-        "label": "Computers"
-      },
-      {
-        "id": 19,
-        "key": "mathematics",
-        "label": "Mathematics"
-      },
-      {
-        "id": 20,
-        "key": "mythology",
-        "label": "Mythology"
-      },
-      {
-        "id": 21,
-        "key": "sports",
-        "label": "Sports"
-      },
-      {
-        "id": 22,
-        "key": "geography",
-        "label": "Geography"
-      },
-      {
-        "id": 23,
-        "key": "history",
-        "label": "History"
-      },
-      {
-        "id": 24,
-        "key": "politics",
-        "label": "Politics"
-      },
-      {
-        "id": 25,
-        "key": "art",
-        "label": "Art"
-      },
-      {
-        "id": 26,
-        "key": "celebrities",
-        "label": "Celebrities"
-      },
-      {
-        "id": 27,
-        "key": "animals",
-        "label": "Animals"
-      },
-      {
-        "id": 28,
-        "key": "vehicles",
-        "label": "Vehicles"
-      },
-      {
-        "id": 29,
-        "key": "comics",
-        "label": "Comics"
-      },
-      {
-        "id": 30,
-        "key": "gadgets",
-        "label": "Gadgets"
-      },
-      {
-        "id": 31,
-        "key": "anime_manga",
-        "label": "Anime & Manga"
-      },
-      {
-        "id": 32,
-        "key": "cartoon_animations",
-        "label": "Cartoon & Animations"
-      }
-    ],
-    "apiThemeCategories": [
-      "all"
-    ],
-    "sources": [
-      "local",
-      "openrouter"
-    ],
-    "duplicateLookbackDays": 21,
-    "maxCandidateAttempts": 80,
-    "minOptions": 2,
-    "maxOptions": 10,
-    "publishInChat": true,
-    "useNativePoll": false,
-    "nativePollDurationHours": 24,
-    "slots": [
-      { "hour": 14, "minute": 30, "key": "1430" },
-      { "hour": 20, "minute": 0, "key": "2000" }
-    ]
-  },
   "threadVote": {
     "enabled": true,
-    "threadIds": ["1493625991363432489"],
+    "threadIds": [
+      "1493625991363432489"
+    ],
     "namedThreads": [
       {
         "parentChannelId": "1442569115972669541",
@@ -299,7 +159,9 @@
       "1528439672219500734"
     ],
     "mainGuildId": "1329080093599076474",
-    "staffRoleIds": ["1544831228690046976"],
+    "staffRoleIds": [
+      "1544831228690046976"
+    ],
     "threadName": "Prove richiesta",
     "prompt": "Manda qui le prove",
     "autoArchiveDuration": 10080
@@ -309,7 +171,10 @@
     "guildId": "1462458562507964584",
     "channelId": "1526909652967751741",
     "mainGuildId": "1329080093599076474",
-    "staffRoleIds": ["1442568904311570555", "1442568901887000618"],
+    "staffRoleIds": [
+      "1442568904311570555",
+      "1442568901887000618"
+    ],
     "threadName": "Richiesta staff",
     "autoArchiveDuration": 10080
   },
@@ -368,7 +233,11 @@
         "ravenclaw": 38,
         "slytherin": 53
       },
-      "themedGameTypes": ["hogwartsQuiz", "hogwartsMemoryEmoji", "hogwartsCipher"]
+      "themedGameTypes": [
+        "hogwartsQuiz",
+        "hogwartsMemoryEmoji",
+        "hogwartsCipher"
+      ]
     },
     "hogwartsBasilisk": {
       "enabled": false,
@@ -639,9 +508,24 @@
       "rotationWeight": 3,
       "cooldownMs": 600000,
       "tiers": [
-        { "weight": 1, "targetBricks": 30, "minPlayers": 3, "housePoints": 50 },
-        { "weight": 1, "targetBricks": 40, "minPlayers": 4, "housePoints": 100 },
-        { "weight": 1, "targetBricks": 50, "minPlayers": 5, "housePoints": 150 }
+        {
+          "weight": 1,
+          "targetBricks": 30,
+          "minPlayers": 3,
+          "housePoints": 50
+        },
+        {
+          "weight": 1,
+          "targetBricks": 40,
+          "minPlayers": 4,
+          "housePoints": 100
+        },
+        {
+          "weight": 1,
+          "targetBricks": 50,
+          "minPlayers": 5,
+          "housePoints": 150
+        }
       ]
     },
     "guessYear": {
@@ -674,14 +558,44 @@
     },
     "treasureHunt": {
       "emojiPairs": [
-        { "decoy": "⚓", "winner": "💎" },
-        { "decoy": "🪄", "winner": "💎" },
-        { "decoy": "✨", "winner": "🏆" }
+        {
+          "decoy": "⚓",
+          "winner": "💎"
+        },
+        {
+          "decoy": "🪄",
+          "winner": "💎"
+        },
+        {
+          "decoy": "✨",
+          "winner": "🏆"
+        }
       ],
       "buckets": [
-        { "weight": 1, "minMessages": 20, "maxMessages": 30, "minDurationMs": 60000,  "maxDurationMs": 120000, "rewardExp": 100 },
-        { "weight": 1, "minMessages": 30, "maxMessages": 50, "minDurationMs": 90000,  "maxDurationMs": 180000, "rewardExp": 150 },
-        { "weight": 1, "minMessages": 40, "maxMessages": 70, "minDurationMs": 120000, "maxDurationMs": 240000, "rewardExp": 200 }
+        {
+          "weight": 1,
+          "minMessages": 20,
+          "maxMessages": 30,
+          "minDurationMs": 60000,
+          "maxDurationMs": 120000,
+          "rewardExp": 100
+        },
+        {
+          "weight": 1,
+          "minMessages": 30,
+          "maxMessages": 50,
+          "minDurationMs": 90000,
+          "maxDurationMs": 180000,
+          "rewardExp": 150
+        },
+        {
+          "weight": 1,
+          "minMessages": 40,
+          "maxMessages": 70,
+          "minDurationMs": 120000,
+          "maxDurationMs": 240000,
+          "rewardExp": 200
+        }
       ]
     },
     "halloweenQuiz": {
@@ -758,19 +672,46 @@
         "id": "r1",
         "label": "Round 1",
         "start": "2026-06-20T12:00:00",
-        "bookIds": ["home", "faq", "wiki", "regole", "donazioni", "vote", "ruoli", "sponsor"]
+        "bookIds": [
+          "home",
+          "faq",
+          "wiki",
+          "regole",
+          "donazioni",
+          "vote",
+          "ruoli",
+          "sponsor"
+        ]
       },
       {
         "id": "r2",
         "label": "Round 2",
         "start": "2026-06-20T17:00:00",
-        "bookIds": ["candidature", "evento_shop", "evento_smistamento", "evento_pozioni", "recensioni", "suggerimenti", "appelli", "sponsor"]
+        "bookIds": [
+          "candidature",
+          "evento_shop",
+          "evento_smistamento",
+          "evento_pozioni",
+          "recensioni",
+          "suggerimenti",
+          "appelli",
+          "sponsor"
+        ]
       },
       {
         "id": "r3",
         "label": "Round 3",
         "start": "2026-06-20T21:00:00",
-        "bookIds": ["donazioni", "evento_coppa", "privacy", "terms", "cookie", "appelli", "faq", "wiki"]
+        "bookIds": [
+          "donazioni",
+          "evento_coppa",
+          "privacy",
+          "terms",
+          "cookie",
+          "appelli",
+          "faq",
+          "wiki"
+        ]
       }
     ]
   },
@@ -825,7 +766,11 @@
     "eventKey": "hogwarts_finale_chaos_20260831",
     "startDate": "2026-08-31T00:00:00",
     "endDate": "2026-09-01T00:00:00",
-    "slotMinutes": [0, 20, 40],
+    "slotMinutes": [
+      0,
+      20,
+      40
+    ],
     "activeDurationMs": 900000,
     "hintBeforeExpiryMs": 450000,
     "minChatMessagesBetweenSpawns": 8,
@@ -833,7 +778,11 @@
     "rewardHousePoints": 500,
     "firstSlotBoostDurationMs": 3600000,
     "forbiddenBookCount": 8,
-    "games": ["reactPress", "forbiddenSection", "spellListHunt"],
+    "games": [
+      "reactPress",
+      "forbiddenSection",
+      "spellListHunt"
+    ],
     "pingRoleId": "1507000390493798511"
   },
   "hogwartsPotions": {
@@ -875,34 +824,6 @@
       }
     ]
   },
-  "kickLiveAlerts": {
-    "enabled": false,
-    "pollIntervalSec": 90,
-    "reannounceCooldownSec": 2700,
-    "streamVoiceChannelId": "1548393335557726272",
-    "streamers": [
-      {
-        "slug": "diunk17",
-        "displayName": "diunk17",
-        "discordUserId": "610531025470095390",
-        "deleteAnnouncementOnOffline": true,
-        "streamVoiceChannelId": "1548393335557726272",
-        "voiceNameOn": "༄🟢︲Streaming diunk17",
-        "voiceNameOff": "༄🔴︲Streaming diunk17",
-        "voiceStatusOn": "🟢 Sono in live su https://kick.com/diunk17"
-      }
-    ]
-  },
-  "kickSubscriberSync": {
-    "enabled": false,
-    "streamerSlug": "diunk17",
-    "roleId": "1544830822031298592",
-    "moderatorRoleId": "1544831244640976917",
-    "graceHours": 48,
-    "moderatorGraceHours": 336,
-    "reconcileIntervalMs": 900000,
-    "redirectUri": "https://api.viniliecaffe.it/webhooks/site-kick-sub/oauth-callback"
-  },
   "counting": {
     "enabled": false
   },
@@ -918,10 +839,35 @@
     "minBet": 2,
     "maxBet": 50,
     "dailyBetCap": 200,
-    "work": { "cooldownMs": 3600000, "minReward": 3, "maxReward": 8, "streakStepPct": 1, "streakMaxBonusPct": 8, "streakGraceMs": 10800000 },
-    "daily": { "cooldownMs": 86400000, "reward": 15, "streakStepPct": 2, "streakMaxBonusPct": 20, "streakGraceMs": 172800000 },
-    "weekly": { "cooldownMs": 604800000, "reward": 70, "streakStepPct": 4, "streakMaxBonusPct": 40, "streakGraceMs": 1209600000 },
-    "monthly": { "cooldownMs": 2592000000, "reward": 200, "streakStepPct": 8, "streakMaxBonusPct": 80, "streakGraceMs": 5356800000 },
+    "work": {
+      "cooldownMs": 3600000,
+      "minReward": 3,
+      "maxReward": 8,
+      "streakStepPct": 1,
+      "streakMaxBonusPct": 8,
+      "streakGraceMs": 10800000
+    },
+    "daily": {
+      "cooldownMs": 86400000,
+      "reward": 15,
+      "streakStepPct": 2,
+      "streakMaxBonusPct": 20,
+      "streakGraceMs": 172800000
+    },
+    "weekly": {
+      "cooldownMs": 604800000,
+      "reward": 70,
+      "streakStepPct": 4,
+      "streakMaxBonusPct": 40,
+      "streakGraceMs": 1209600000
+    },
+    "monthly": {
+      "cooldownMs": 2592000000,
+      "reward": 200,
+      "streakStepPct": 8,
+      "streakMaxBonusPct": 80,
+      "streakGraceMs": 5356800000
+    },
     "rob": {
       "cooldownMs": 10800000,
       "successChance": 25,
@@ -931,14 +877,48 @@
       "failPenalty": 15,
       "targetProtectionMs": 43200000
     },
-    "roulette": { "cooldownMs": 5000, "numberPayout": 36, "simplePayout": 2 },
-    "rps": { "cooldownMs": 5000, "winPayout": 2 },
-    "slots": { "cooldownMs": 5000, "pairPayout": 3, "triplePayout": 12, "jackpotPayout": 55 },
-    "blackjack": { "cooldownMs": 5000, "winPayout": 2, "blackjackPayout": 2.5 },
-    "coinflip": { "cooldownMs": 5000, "winPayout": 2 },
-    "tris": { "enabled": false, "cooldownMs": 5000, "winPayout": 2, "botRandomPct": 35 },
-    "scratch": { "cooldownMs": 5000, "pairPayout": 0, "triplePayout": 2, "quadPayout": 3.5, "fivePayout": 7, "jackpotPayout": 15 },
-    "shop": { "enabled": false, "purchaseCooldownMs": 3000 },
+    "roulette": {
+      "cooldownMs": 5000,
+      "numberPayout": 36,
+      "simplePayout": 2
+    },
+    "rps": {
+      "cooldownMs": 5000,
+      "winPayout": 2
+    },
+    "slots": {
+      "cooldownMs": 5000,
+      "pairPayout": 3,
+      "triplePayout": 12,
+      "jackpotPayout": 55
+    },
+    "blackjack": {
+      "cooldownMs": 5000,
+      "winPayout": 2,
+      "blackjackPayout": 2.5
+    },
+    "coinflip": {
+      "cooldownMs": 5000,
+      "winPayout": 2
+    },
+    "tris": {
+      "enabled": false,
+      "cooldownMs": 5000,
+      "winPayout": 2,
+      "botRandomPct": 35
+    },
+    "scratch": {
+      "cooldownMs": 5000,
+      "pairPayout": 0,
+      "triplePayout": 2,
+      "quadPayout": 3.5,
+      "fivePayout": 7,
+      "jackpotPayout": 15
+    },
+    "shop": {
+      "enabled": false,
+      "purchaseCooldownMs": 3000
+    },
     "bridge": {
       "enabled": false,
       "caffePerGaleone": 4,
@@ -956,10 +936,35 @@
     "minBet": 5,
     "maxBet": 0,
     "dailyBetCap": 0,
-    "work": { "cooldownMs": 3600000, "minReward": 8, "maxReward": 24, "streakStepPct": 1, "streakMaxBonusPct": 10, "streakGraceMs": 10800000 },
-    "daily": { "cooldownMs": 86400000, "reward": 50, "streakStepPct": 3, "streakMaxBonusPct": 30, "streakGraceMs": 172800000 },
-    "weekly": { "cooldownMs": 604800000, "reward": 250, "streakStepPct": 5, "streakMaxBonusPct": 50, "streakGraceMs": 1209600000 },
-    "monthly": { "cooldownMs": 2592000000, "reward": 900, "streakStepPct": 10, "streakMaxBonusPct": 100, "streakGraceMs": 5356800000 },
+    "work": {
+      "cooldownMs": 3600000,
+      "minReward": 8,
+      "maxReward": 24,
+      "streakStepPct": 1,
+      "streakMaxBonusPct": 10,
+      "streakGraceMs": 10800000
+    },
+    "daily": {
+      "cooldownMs": 86400000,
+      "reward": 50,
+      "streakStepPct": 3,
+      "streakMaxBonusPct": 30,
+      "streakGraceMs": 172800000
+    },
+    "weekly": {
+      "cooldownMs": 604800000,
+      "reward": 250,
+      "streakStepPct": 5,
+      "streakMaxBonusPct": 50,
+      "streakGraceMs": 1209600000
+    },
+    "monthly": {
+      "cooldownMs": 2592000000,
+      "reward": 900,
+      "streakStepPct": 10,
+      "streakMaxBonusPct": 100,
+      "streakGraceMs": 5356800000
+    },
     "rob": {
       "cooldownMs": 10800000,
       "successChance": 35,
@@ -969,13 +974,44 @@
       "failPenalty": 35,
       "targetProtectionMs": 43200000
     },
-    "roulette": { "cooldownMs": 5000, "numberPayout": 36, "simplePayout": 2 },
-    "rps": { "cooldownMs": 5000, "winPayout": 2 },
-    "slots": { "cooldownMs": 5000, "pairPayout": 3, "triplePayout": 12, "jackpotPayout": 55 },
-    "blackjack": { "cooldownMs": 5000, "winPayout": 2, "blackjackPayout": 2.5 },
-    "coinflip": { "cooldownMs": 5000, "winPayout": 2 },
-    "tris": { "enabled": false, "cooldownMs": 5000, "winPayout": 2, "botRandomPct": 35 },
-    "scratch": { "cooldownMs": 5000, "pairPayout": 0, "triplePayout": 2, "quadPayout": 3.5, "fivePayout": 7, "jackpotPayout": 15 }
+    "roulette": {
+      "cooldownMs": 5000,
+      "numberPayout": 36,
+      "simplePayout": 2
+    },
+    "rps": {
+      "cooldownMs": 5000,
+      "winPayout": 2
+    },
+    "slots": {
+      "cooldownMs": 5000,
+      "pairPayout": 3,
+      "triplePayout": 12,
+      "jackpotPayout": 55
+    },
+    "blackjack": {
+      "cooldownMs": 5000,
+      "winPayout": 2,
+      "blackjackPayout": 2.5
+    },
+    "coinflip": {
+      "cooldownMs": 5000,
+      "winPayout": 2
+    },
+    "tris": {
+      "enabled": false,
+      "cooldownMs": 5000,
+      "winPayout": 2,
+      "botRandomPct": 35
+    },
+    "scratch": {
+      "cooldownMs": 5000,
+      "pairPayout": 0,
+      "triplePayout": 2,
+      "quadPayout": 3.5,
+      "fivePayout": 7,
+      "jackpotPayout": 15
+    }
   },
   "categoryNumbering": {
     "enabled": true,
@@ -995,7 +1031,12 @@
   "publicVoiceHubs": {
     "enabled": true,
     "categoryId": "1442569076902989844",
-    "disabledCreateGroups": ["penta", "hexa", "setta", "octa"],
+    "disabledCreateGroups": [
+      "penta",
+      "hexa",
+      "setta",
+      "octa"
+    ],
     "channelIds": [
       "1442569113108218058",
       "1442569121350025306",
@@ -1061,10 +1102,22 @@
     "sortingLogChannelId": "1507685351102353448",
     "eventKey": "hogwarts_summer_2026",
     "houses": {
-      "gryffindor": { "roleId": "1504791825657888898", "label": "Gryffindor" },
-      "ravenclaw": { "roleId": "1504791921246339072", "label": "Ravenclaw" },
-      "hufflepuff": { "roleId": "1504791899100155987", "label": "Hufflepuff" },
-      "slytherin": { "roleId": "1504791872671973537", "label": "Slytherin" }
+      "gryffindor": {
+        "roleId": "1504791825657888898",
+        "label": "Gryffindor"
+      },
+      "ravenclaw": {
+        "roleId": "1504791921246339072",
+        "label": "Ravenclaw"
+      },
+      "hufflepuff": {
+        "roleId": "1504791899100155987",
+        "label": "Hufflepuff"
+      },
+      "slytherin": {
+        "roleId": "1504791872671973537",
+        "label": "Slytherin"
+      }
     },
     "gringott": {
       "sortingReward": 250
@@ -1081,8 +1134,16 @@
     "duel": {
       "cooldownMs": 1800000,
       "voldemortPortraitFile": "voldemort.png",
-      "vsBot": { "galeoni": 10, "housePoints": 15, "minPlayerWinChance": 30, "maxPlayerWinChance": 76 },
-      "vsUser": { "galeoni": 10, "housePoints": 15 }
+      "vsBot": {
+        "galeoni": 10,
+        "housePoints": 15,
+        "minPlayerWinChance": 30,
+        "maxPlayerWinChance": 76
+      },
+      "vsUser": {
+        "galeoni": 10,
+        "housePoints": 15
+      }
     },
     "staffBypassUserIds": [],
     "punticasaPrefectHouses": {
@@ -1091,5 +1152,11 @@
       "610531025470095390": "ravenclaw",
       "470373387609571339": "gryffindor"
     }
+  },
+  "halloweenRuntime": {
+    "disabled": false
+  },
+  "starWarsRuntime": {
+    "disabled": true
   }
 }

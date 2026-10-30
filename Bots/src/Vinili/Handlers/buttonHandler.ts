@@ -4,11 +4,10 @@ const { listJsFilesRecursive } = require("../../shared/runtime/fsRuntime") as ty
 const IDS_SUBFOLDER = path.sep + "ids" + path.sep;
 
 const REMOVED_BUTTON_HANDLER_NAMES = new Set([
-  "balGui",
+  // balGui / incomeClaimGui: gated by serverEconomy.enabled at runtime
   "blackjackGui",
   "coinflipGui",
   "duelGui",
-  "incomeClaimGui",
   "robGui",
   "rouletteGui",
   "rpsGui",
@@ -16,6 +15,7 @@ const REMOVED_BUTTON_HANDLER_NAMES = new Set([
   "shopGui",
   "slotsGui",
   "trisGui",
+  "classificaToggle",
 ]);
 
 function isNonHandlerFile(relativeKey?) {

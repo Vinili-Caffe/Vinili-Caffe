@@ -4,28 +4,23 @@
  * Discord channel panels (Vinili/Embeds) allowlist.
  * Site flows (ruoli, ticket, verify, candidature, pause, staff guide) stay on the website.
  *
- * Override: DISCORD_PANELS_ENABLED=info,sanzioni,sponsor,sponsorVerify,sponsorTicket
+ * Override: DISCORD_PANELS_ENABLED=info,sanzioni,sponsor
  */
 
 const DEFAULT_ENABLED = Object.freeze([
   "info",
   "sanzioni",
   "sponsor",
-  "sponsorVerify",
-  "sponsorTicket",
 ]);
 
 const PANEL_SITE_REPLACES = Object.freeze({
   ruoli: "/ruoli/",
   ticket: "/tickets/",
-  verify: "/user/",
   candidature: "/candidature/",
   pause: "/staff/pause/",
   staff: "/staff/guida/",
   staffList: "/staff/organico/",
   sponsor: null,
-  sponsorVerify: null,
-  sponsorTicket: null,
 });
 
 function parseEnabledFromEnv() {

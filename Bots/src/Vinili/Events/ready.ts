@@ -45,10 +45,8 @@ const { startWeeklyStaffResocontoLoop } = require("../Services/Staff/weeklyStaff
 const { startWeeklyActivityWinnersLoop } = require("../Services/Community/weeklyActivityWinnersService") as typeof import("../Services/Community/weeklyActivityWinnersService");
 const { startStafferDellaSettimanaLoop } = require("../Services/Staff/stafferDellaSettimanaService") as typeof import("../Services/Staff/stafferDellaSettimanaService");
 const { startTwitchLiveAlertLoop } = require("../Services/Community/twitchLiveAlertService") as typeof import("../Services/Community/twitchLiveAlertService");
-const { startKickLiveAlertLoop } = require("../Services/Community/kickLiveAlertService") as typeof import("../Services/Community/kickLiveAlertService");
 const { startGameNewsAlertLoop } = require("../Services/Community/gameNewsAlertService") as typeof import("../Services/Community/gameNewsAlertService");
 const { startStreamerStageGuardLoop } = require("../Services/Community/streamerStageGuardService") as typeof import("../Services/Community/streamerStageGuardService");
-const { startKickSubscriberSyncLoop } = require("../Services/Community/kickSubscriberSyncService") as typeof import("../Services/Community/kickSubscriberSyncService");
 const { startContestPrizeMaintenanceCron } = require("../Services/Community/contestPrizeMaintenanceService") as typeof import("../Services/Community/contestPrizeMaintenanceService");
 const { startStaffWarnResetLoop } = require("../Services/Staff/staffWarnService") as typeof import("../Services/Staff/staffWarnService");
 const { runStaffWarnChannelMigrationOnStartup } = require("../Services/Staff/staffWarnChannelMigrationService") as typeof import("../Services/Staff/staffWarnChannelMigrationService");
@@ -65,7 +63,6 @@ const { startDbMaintenanceLoop } = require("../Services/Community/dbMaintenanceS
 const { startVoteQueueLoop } = require("../Services/Web/discadiaVoteQueueService") as typeof import("../Services/Web/discadiaVoteQueueService");
 const { startWebhookServer, shouldStartBotHttpServer } = require("../Services/Web/webhookService") as typeof import("../Services/Web/webhookService");
 const { checkAndInstallPackages } = require("../Utils/Moderation/checkPackages") as typeof import("../Utils/Moderation/checkPackages");
-const { startAutoPollLoop } = require("../Services/Community/autoPollService") as typeof import("../Services/Community/autoPollService");
 const { startMovieNightAnnouncementLoop, recoverMovieNightAnnouncementsOnStartup, ensureMovieNightStaffCommunicationOnStartup } = require("../Services/Community/movieNightAnnouncementService") as typeof import("../Services/Community/movieNightAnnouncementService");
 const { startGlobalExpEventAnnouncementLoop } = require("../Services/Community/globalExpEventAnnouncementService") as typeof import("../Services/Community/globalExpEventAnnouncementService");
 const { printRecoveryHealthOnce } = require("../../shared/recovery/recoveryHealth") as typeof import("../../shared/recovery/recoveryHealth");
@@ -1217,17 +1214,9 @@ function startPrimaryLoops(client?, engagementTick?) {
   const loopStarters = [
     ["[LIVE VOICE EXP] Failed to start loop", () => startLiveVoiceExpLoop(client)],
     ["[MINIGAMES] Failed to start loop", () => void bootstrapMinigameScheduler(client).catch((err?) => global.logger?.error?.("[MINIGAMES] bootstrap failed:", err?.message || err))],
-    ["[HALLOWEEN EMOJI HUNT] Failed to start loop", () => {
-      const { startHalloweenEmojiHuntLoop } = require("../Services/Community/halloweenEmojiHuntService") as typeof import("../Services/Community/halloweenEmojiHuntService");
-      startHalloweenEmojiHuntLoop(client);
-    }],
-    ["[HALLOWEEN REACT LB] Failed to start end loop", () => {
-      const { startHalloweenReactLeaderboardLoop } = require("../Services/Community/halloweenReactLeaderboardService") as typeof import("../Services/Community/halloweenReactLeaderboardService");
-      startHalloweenReactLeaderboardLoop(client);
-    }],
-    ["[STAR WARS MG] Failed to start loop", () => {
-      const { startStarWarsMinigamesLoop } = require("../Services/Community/starWarsDiscordMinigamesService") as typeof import("../Services/Community/starWarsDiscordMinigamesService");
-      startStarWarsMinigamesLoop(client);
+    ["[EventPlugins] Failed to register seasonal plugins", () => {
+      const { registerEventPlugins } = require("../EventPlugins/registerEventPlugins") as typeof import("../EventPlugins/registerEventPlugins");
+      registerEventPlugins(client);
     }],
     ["[DAILY MEMBER STATS] Failed to start loop", () => startDailyMemberStatsLoop(client)],
     ["[DAILY ENGAGEMENT STATS] Failed to start loop", () => startDailyEngagementStatsLoop(client)],
@@ -1250,10 +1239,8 @@ function startPrimaryLoops(client?, engagementTick?) {
     ["[EXP EVENT ANNOUNCE] Failed to start loop", () => startGlobalExpEventAnnouncementLoop(client)],
     /* perfP1: se COMMUNITY_POLL_EXTERNAL=1 i start* no-op qui (gira community-poll) */
     ["[TWITCH LIVE] Failed to start loop", () => startTwitchLiveAlertLoop(client)],
-    ["[KICK LIVE] Failed to start loop", () => startKickLiveAlertLoop(client)],
     ["[GAME NEWS] Failed to start loop", () => startGameNewsAlertLoop(client)],
     ["[STREAMER STAGE] Failed to start guard", () => startStreamerStageGuardLoop(client)],
-    ["[KICK SUB] Failed to start sync loop", () => startKickSubscriberSyncLoop(client)],
     ["[DB MAINTENANCE] Failed to start loop", () => startDbMaintenanceLoop(client)],
     ["[STAFF GRACE PURGE] Failed to start loop", () => startStaffGracePurgeLoop(client)],
     ["[JOIN RAID RESTORE] Failed to start loop", () => {
@@ -1531,11 +1518,6 @@ export = {
       }
     }
     maybeCheckPackagesOnReady(client);
-    try {
-      startAutoPollLoop(client);
-    } catch (error) {
-      logError(client, "[STATUS] Error while loading bot status (auto poll):", error);
-    }
 
     logBotReady(client, readyStartedAt);
 

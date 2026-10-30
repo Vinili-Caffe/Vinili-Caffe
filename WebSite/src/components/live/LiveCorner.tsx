@@ -1,29 +1,18 @@
 "use client";
 
-import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import Image from "next/image";
 import { AnimatePresence, motion } from "motion/react";
-import { ExternalLink, Play, Radio, Volume2, VolumeX, X } from "lucide-react";
-import { useAuth } from "@/lib/auth";
+import { ExternalLink, Play, Radio, X } from "lucide-react";
 import { useI18n, type Locale } from "@/lib/i18n";
 import {
-  KICK_LIVE_URL,
-  KICK_PREVIEW_LIMIT_MS,
   LIVE_HIDE_AFTER_MISSES,
   LIVE_POLL_MS,
   TWITCH_LIVE_URL,
-  beginWatch,
   externalUrl,
-  fetchKickSubStatus,
   fetchLive,
-  flushWatch,
-  kickPlayableUrl,
-  loadWatch,
   resolveShown,
-  startKickSubLink,
   withEmbedParent,
-  type KickSubStatus,
-  type LivePlatform,
   type LiveStream,
 } from "@/lib/live";
 import { useChromeOpenListener } from "@/lib/chrome-open";
@@ -127,27 +116,21 @@ export function LiveCorner() {
 
   // Twitch: live + ultimo VOD (prima solo live → PiP invisibile se c’era solo VOD)
   const twitch = useShownStream(TWITCH_LIVE_URL, false);
-  const kick = useShownStream(KICK_LIVE_URL, false);
-  const [open, setOpen] = useState<LivePlatform | null>(null);
+  const [open, setOpen] = useState(false);
   const [chromeOpen, setChromeOpen] = useState(false);
   const twitchHere = Boolean(twitch);
-  const kickHere = Boolean(kick);
-  const [presence, setPresence] = useState({ twitchHere, kickHere });
-  if (presence.twitchHere !== twitchHere || presence.kickHere !== kickHere) {
-    setPresence({ twitchHere, kickHere });
-    if ((open === "twitch" && !twitchHere) || (open === "kick" && !kickHere)) setOpen(null);
+  const [presence, setPresence] = useState(twitchHere);
+  if (presence !== twitchHere) {
+    setPresence(twitchHere);
+    if (open && !twitchHere) setOpen(false);
   }
 
   useEffect(() => useChromeOpenListener(setChromeOpen), []);
 
-  const entries: { platform: LivePlatform; stream: LiveStream }[] = [];
-  if (twitch) entries.push({ platform: "twitch", stream: twitch });
-  if (kick) entries.push({ platform: "kick", stream: kick });
-
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(null);
+      if (e.key === "Escape") setOpen(false);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -155,12 +138,12 @@ export function LiveCorner() {
 
   // menù chrome aperti → nascondi PiP (non coprire nav / account / notif)
   useEffect(() => {
-    if (chromeOpen) setOpen(null);
+    if (chromeOpen) setOpen(false);
   }, [chromeOpen]);
 
   // zucche Halloween condividono l’angolo BL a z-40: segnala al decor di farsi da parte
   useEffect(() => {
-    if (phone || !entries.length || chromeOpen) {
+    if (phone || !twitch || chromeOpen) {
       try {
         delete document.documentElement.dataset.vcLivePip;
       } catch {
@@ -176,54 +159,28 @@ export function LiveCorner() {
         /* ignore */
       }
     };
-  }, [phone, entries.length, chromeOpen]);
+  }, [phone, twitch, chromeOpen]);
 
-  if (phone || !entries.length || chromeOpen) return null;
-
-  const opened = entries.find((e) => e.platform === open) || null;
+  if (phone || !twitch || chromeOpen) return null;
 
   return (
     <div
       data-vc-live-corner
       className="pointer-events-none fixed bottom-4 left-4 z-[55] flex w-[min(17.5rem,calc(100vw-2rem))] flex-col-reverse items-start gap-2 sm:bottom-5 sm:left-5"
     >
-      {entries
-        .filter((e) => e.platform !== open)
-        .map((e) => (
-          <LivePill
-            key={e.platform}
-            platform={e.platform}
-            stream={e.stream}
-            onOpen={() => setOpen(e.platform)}
-          />
-        ))}
+      {!open && <LivePill stream={twitch} onOpen={() => setOpen(true)} />}
       <AnimatePresence>
-        {opened && (
-          <LiveStage
-            key={opened.platform}
-            platform={opened.platform}
-            stream={opened.stream}
-            onClose={() => setOpen(null)}
-          />
-        )}
+        {open && <LiveStage key={twitch.id} stream={twitch} onClose={() => setOpen(false)} />}
       </AnimatePresence>
     </div>
   );
 }
 
-function LivePill({
-  platform,
-  stream,
-  onOpen,
-}: {
-  platform: LivePlatform;
-  stream: LiveStream;
-  onOpen: () => void;
-}) {
+function LivePill({ stream, onOpen }: { stream: LiveStream; onOpen: () => void }) {
   const { t } = useI18n();
   const live = stream.kind === "live";
   const label = live ? t("live.lastLive") : t("live.lastVod");
-  const brand = platform === "twitch" ? t("live.twitch") : t("live.kick");
+  const brand = t("live.twitch");
 
   return (
     <button
@@ -243,20 +200,11 @@ function LivePill({
   );
 }
 
-function LiveStage({
-  platform,
-  stream,
-  onClose,
-}: {
-  platform: LivePlatform;
-  stream: LiveStream;
-  onClose: () => void;
-}) {
+function LiveStage({ stream, onClose }: { stream: LiveStream; onClose: () => void }) {
   const { t, locale } = useI18n();
   const titleId = useId();
   const live = stream.kind === "live";
-  const brand = platform === "twitch" ? t("live.twitch") : t("live.kick");
-  const href = externalUrl(stream.url, platform);
+  const href = externalUrl(stream.url, "twitch");
   const closeRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -297,11 +245,7 @@ function LiveStage({
         </button>
       </header>
 
-      {platform === "twitch" ? (
-        <TwitchPlayer key={stream.id} stream={stream} />
-      ) : (
-        <KickPlayer key={stream.id} stream={stream} />
-      )}
+      <TwitchPlayer key={stream.id} stream={stream} />
 
       <div className="space-y-1.5 px-3 pt-2 pb-3">
         {stream.title && <p className="line-clamp-2 text-xs text-crema/90">{stream.title}</p>}
@@ -317,11 +261,10 @@ function LiveStage({
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-caramel to-ember px-2.5 py-1 text-xs font-semibold text-ink transition-[transform,filter] duration-200 ease-out hover:-translate-y-0.5 active:scale-[0.97]"
             >
-              {platform === "twitch" ? t("live.openTwitch") : t("live.openKick")}
+              {t("live.openTwitch")}
               <ExternalLink className="size-3.5" aria-hidden />
             </a>
           )}
-          {platform === "kick" && <KickSubButton fallbackUrl={href} />}
         </div>
       </div>
     </motion.section>
@@ -396,242 +339,5 @@ function TwitchPlayer({ stream }: { stream: LiveStream }) {
         </div>
       )}
     </Poster>
-  );
-}
-
-function KickPlayer({ stream }: { stream: LiveStream }) {
-  const { t } = useI18n();
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const [on, setOn] = useState(false);
-  const [locked, setLocked] = useState(() => loadWatch(stream.id).locked);
-  const [failed, setFailed] = useState(false);
-  const [muted, setMuted] = useState(true);
-  const href = externalUrl(stream.url, "kick");
-
-  useEffect(() => () => {
-    flushWatch(stream.id);
-  }, [stream.id]);
-
-  useEffect(() => {
-    const onVis = () => {
-      if (document.hidden) flushWatch(stream.id);
-      else if (videoRef.current && !videoRef.current.paused) beginWatch(stream.id);
-    };
-    document.addEventListener("visibilitychange", onVis);
-    return () => document.removeEventListener("visibilitychange", onVis);
-  }, [stream.id]);
-
-  useEffect(() => {
-    if (!on || locked) return;
-    const id = window.setInterval(() => {
-      const v = videoRef.current;
-      if (document.hidden || !v || v.paused || v.ended) {
-        flushWatch(stream.id);
-        return;
-      }
-      const st = flushWatch(stream.id);
-      if (!st.locked && st.watchedMs < KICK_PREVIEW_LIMIT_MS) {
-        beginWatch(stream.id);
-        return;
-      }
-      v.pause();
-      v.removeAttribute("src");
-      v.load();
-      setLocked(true);
-      setOn(false);
-    }, 1000);
-    return () => window.clearInterval(id);
-  }, [on, locked, stream.id]);
-
-  const play = useCallback(() => {
-    const st = beginWatch(stream.id);
-    if (st.locked) {
-      setLocked(true);
-      return;
-    }
-    const src = kickPlayableUrl(stream);
-    const v = videoRef.current;
-    if (!src || !v) {
-      setFailed(true);
-      return;
-    }
-    if (!v.src.endsWith(src)) v.src = src;
-    v.muted = true;
-    setMuted(true);
-    setOn(true);
-    setFailed(false);
-    void v.play().catch(() => {
-      flushWatch(stream.id);
-      setOn(false);
-      setFailed(true);
-    });
-  }, [stream]);
-
-  function toggleMute() {
-    const v = videoRef.current;
-    if (!v) return;
-    v.muted = !v.muted;
-    setMuted(v.muted);
-  }
-
-  return (
-    <Poster stream={stream}>
-      <video
-        ref={videoRef}
-        className={on && !locked ? "absolute inset-0 size-full bg-espresso object-contain" : "hidden"}
-        playsInline
-        loop
-        preload="none"
-        aria-label={t("live.playerKick")}
-        poster={stream.thumbnailUrl || undefined}
-        onPlay={() => {
-          if (!loadWatch(stream.id).locked) beginWatch(stream.id);
-        }}
-        onError={() => {
-          flushWatch(stream.id);
-          setOn(false);
-          setFailed(true);
-        }}
-      />
-      {!on && !locked && !failed && <PlayPlate label={t("live.play")} onClick={play} />}
-      {(locked || failed) && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-espresso/80 px-5 text-center">
-          <p className="text-xs font-semibold tracking-[0.18em] text-caramel uppercase">
-            {locked ? t("live.previewEnded") : t("live.previewFail")}
-          </p>
-          <p className="max-w-xs text-sm text-crema/85">
-            {locked ? t("live.previewLimit") : t("live.previewFailHint")}
-          </p>
-          {href && (
-            <a
-              href={href}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mt-1 rounded-full bg-gradient-to-r from-caramel to-ember px-3.5 py-1.5 text-sm font-semibold text-ink"
-            >
-              {t("live.openKick")}
-            </a>
-          )}
-        </div>
-      )}
-      {on && !locked && (
-        <button
-          type="button"
-          onClick={toggleMute}
-          aria-label={muted ? t("live.unmute") : t("live.mute")}
-          className="absolute right-2 bottom-2 rounded-full bg-espresso/75 p-2 text-crema ring-1 ring-sand/30"
-        >
-          {muted ? <VolumeX className="size-4" aria-hidden /> : <Volume2 className="size-4" aria-hidden />}
-        </button>
-      )}
-    </Poster>
-  );
-}
-
-function KickSubButton({ fallbackUrl }: { fallbackUrl: string | null }) {
-  const { t } = useI18n();
-  const { token, user, login } = useAuth();
-  const [status, setStatus] = useState<KickSubStatus | null>(null);
-  const [hidden, setHidden] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [note, setNote] = useState<string | null>(null);
-  const [seenToken, setSeenToken] = useState(token);
-  if (seenToken !== token) {
-    setSeenToken(token);
-    if (!token) setStatus(null);
-  }
-
-  const applyStatus = useCallback((next: KickSubStatus | "disabled" | null) => {
-    if (next === "disabled") {
-      setHidden(true);
-      setStatus(null);
-      return;
-    }
-    if (next) setStatus(next);
-  }, []);
-
-  useEffect(() => {
-    if (!token) return;
-    let alive = true;
-    const pull = () => {
-      void fetchKickSubStatus(token).then((next) => {
-        if (alive) applyStatus(next);
-      });
-    };
-    pull();
-    window.addEventListener("focus", pull);
-    return () => {
-      alive = false;
-      window.removeEventListener("focus", pull);
-    };
-  }, [token, applyStatus]);
-
-  if (hidden) return null;
-
-  const linked = !!status?.linked;
-  const active = linked && !!status?.subActive;
-  const label = !token || !user ? t("live.subLogin") : active ? t("live.subActive") : linked ? t("live.subLinked") : t("live.sub");
-
-  async function onClick() {
-    setNote(null);
-    if (!token || !user) {
-      login();
-      return;
-    }
-    if (active) {
-      const url = status?.subscribeUrl || fallbackUrl;
-      if (url) window.open(url, "_blank", "noopener,noreferrer");
-      return;
-    }
-    if (linked) {
-      setNote(t("live.subLinkedHint"));
-      return;
-    }
-    setBusy(true);
-    const out = await startKickSubLink(token);
-    setBusy(false);
-    if (out.disabled) {
-      setHidden(true);
-      return;
-    }
-    if (out.status === 401) {
-      login();
-      return;
-    }
-    if (out.url) {
-      location.assign(out.url);
-      return;
-    }
-    setNote(t("live.subError"));
-  }
-
-  const openKick = status?.subscribeUrl || fallbackUrl;
-
-  return (
-    <div className="flex min-w-0 flex-col gap-2">
-      <button
-        type="button"
-        onClick={() => void onClick()}
-        disabled={busy}
-        className="inline-flex items-center rounded-full bg-crema/8 px-3.5 py-1.5 text-sm font-semibold text-crema ring-1 ring-sand/25 transition-[transform,filter] duration-200 ease-out hover:-translate-y-0.5 active:scale-[0.97] hover:ring-sand/40 disabled:opacity-60"
-      >
-        {busy ? t("common.loading") : label}
-      </button>
-      {note && (
-        <div className="rounded-2xl bg-caramel/10 px-3 py-2 text-xs leading-relaxed text-crema ring-1 ring-caramel/25">
-          <p>{note}</p>
-          {openKick && (
-            <a
-              href={openKick}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mt-1.5 inline-flex font-semibold text-ember underline-offset-2 hover:underline"
-            >
-              {t("live.openKick")}
-            </a>
-          )}
-        </div>
-      )}
-    </div>
   );
 }

@@ -57,7 +57,7 @@ export const LEGAL_PRIVACY: LegalDoc = {
         { type: "ul", items: [
             "Messaggi, comandi, reazioni e metadati per livelli/EXP, ticket Discord, moderazione, minigiochi, eventi, quote/repost/clip e classifiche.",
             "Dati partnership, preferenze vocali (TTS/clip/trascrizioni) e dati di voto da piattaforme esterne.",
-            "Metadati di integrazioni live (es. **Twitch** / **Kick**) quando le alert o gli strumenti collegati sono attivi."
+            "Metadati di integrazioni live (es. **Twitch**) quando le alert o gli strumenti collegati sono attivi."
           ] },
         { type: "label", text: "Trascrizioni vocali e strumenti automatici" },
         { type: "ul", items: [
@@ -115,7 +115,7 @@ export const LEGAL_PRIVACY: LegalDoc = {
             "Google (Google Analytics) per la misurazione del traffico sulle pagine dove lo script è attivo.",
             "Piattaforme di voto/listing (es. top.gg, Discadia) quando usi o ricevi funzioni di voto.",
             "Provider di pagamento (es. PayPal) quando effettui una donazione o un pagamento collegato.",
-            "Twitch / Kick e relativi servizi, solo per le funzioni live/alert attivate.",
+            "Twitch e relativi servizi, solo per le funzioni live/alert attivate.",
             "Provider tecnici di trascrizione vocale (speech-to-text), solo se usi clip/trascrizione.",
             "Staff autorizzato, per ticket, confessionale, suggerimenti, moderazione e strumenti operativi.",
             "Amministratori del server Discord in cui sei membro, per dati necessari al funzionamento di quel server.",
@@ -379,7 +379,7 @@ export const LEGAL_TERMS: LegalDoc = {
             "Server Discord per socializzazione, eventi, supporto e attività di community.",
             "Bot pubblici/multi-server (musica, TTS/voice, livelli, ticket, moderazione, partnership, utility) configurabili anche da dashboard web.",
             "Pagine web per voto, profilo, ruoli, wiki, candidature, unban, notifiche, suggerimenti, recensioni, feedback bot, confessionale, donazioni/crediti e ticket di supporto live.",
-            "Integrazioni live (es. Twitch/Kick) e alert correlati, dove attivi.",
+            "Integrazioni live (es. Twitch) e alert correlati, dove attivi.",
             "Aree riservate per staff e amministratori (strumenti operativi e configurazione).",
             "Integrazioni con Discord, piattaforme di voto, provider di pagamento e altri servizi tecnici necessari."
           ] },

@@ -8,7 +8,7 @@ const {
 function readStreamVoiceChannelIdsFromClient(client?) {
   const ids = new Set();
   const cfg = client?.config || {};
-  for (const key of ["kickLiveAlerts", "twitchLiveAlerts"]) {
+  for (const key of ["twitchLiveAlerts"]) {
     const raw = String(cfg?.[key]?.streamVoiceChannelId || "").trim();
     if (/^\d{16,22}$/.test(raw)) ids.add(raw);
   }

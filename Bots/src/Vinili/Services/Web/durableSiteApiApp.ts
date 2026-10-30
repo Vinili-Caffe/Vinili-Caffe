@@ -215,12 +215,6 @@ async function main() {
         const pathOnly = String(req.originalUrl || req.url || req.path || "")
           .split("?")[0]
           .replace(/\/+$/, "") || "/";
-                if (
-          pathOnly === "/webhooks/site-kick-sub/events" ||
-          pathOnly.endsWith("/site-kick-sub/events")
-        ) {
-          req._kickSubRawBody = Buffer.isBuffer(buf) ? Buffer.from(buf) : buf;
-        }
       },
     }),
   );
@@ -498,19 +492,14 @@ async function main() {
     } catch (err) {
       console.warn("[SITE-API] staff warm init:", err?.message || err);
     }
-    /* apiWarmSwr2: kick/twitch PIP + vote board + reviews list + compiti workers */
+    /* apiWarmSwr2: twitch PIP + vote board + reviews list + compiti workers */
     try {
-      const { warmSiteKickLiveCache } = require("../../Web/siteKickLiveApi") as typeof import("../../Web/siteKickLiveApi");
       const { warmSiteTwitchLiveCache } = require("../../Web/siteTwitchLiveApi") as typeof import("../../Web/siteTwitchLiveApi");
       const warmLivePip = () => {
-        Promise.all([
-          warmSiteKickLiveCache(client).catch(() => null),
-          warmSiteTwitchLiveCache(client).catch(() => null),
-        ]).catch((e?) => {
+        warmSiteTwitchLiveCache(client).catch((e?) => {
           console.warn("[SITE-API] live-pip warm:", e?.message || e);
         });
       };
-      /* twitchTokenFailBackoff2: warm dopo boot (CPU/FD saturi a 2.5s → ENFILE/23) */
       setTimeout(warmLivePip, 20_000);
       setInterval(warmLivePip, Math.max(55_000, Number(process.env.VC_SITE_WARM_LIVE_MS || 90_000) || 90_000)).unref?.();
     } catch (err) {

@@ -484,9 +484,6 @@ async function startWebhookServer(client?) {
         if (pathOnly === "/webhooks/discadia") {
           req._discadiaRawBody = buf;
         }
-        if (pathOnly === "/webhooks/site-kick-sub/events" || pathOnly.endsWith("/site-kick-sub/events")) {
-          req._kickSubRawBody = Buffer.isBuffer(buf) ? Buffer.from(buf) : buf;
-        }
       },
     }),
   );
@@ -516,8 +513,6 @@ async function startWebhookServer(client?) {
     const isSiteUsers = pathStr.startsWith("/webhooks/site-users");
     const isSiteVote = pathStr.startsWith("/webhooks/site-vote");
     const isSiteLiveEvent = pathStr.startsWith("/webhooks/site-live-event");
-    const isSiteKickLive = pathStr.startsWith("/webhooks/site-kick-live");
-    const isSiteKickSub = pathStr.startsWith("/webhooks/site-kick-sub");
     const isSiteRoles = pathStr.startsWith("/webhooks/site-roles");
     const isSiteRankCard = pathStr.startsWith("/webhooks/site-rank-card");
     const isSiteWikiHelp = pathStr.startsWith("/webhooks/site-wiki-help");
@@ -565,8 +560,6 @@ async function startWebhookServer(client?) {
       !isSiteUsers &&
       !isSiteVote &&
       !isSiteLiveEvent &&
-      !isSiteKickLive &&
-      !isSiteKickSub &&
       !isSiteRoles &&
       !isSiteRankCard &&
       !isSiteWikiHelp &&
@@ -605,7 +598,7 @@ async function startWebhookServer(client?) {
     if (allowOrigin) {
       res.setHeader("Access-Control-Allow-Origin", allowOrigin);
       res.append("Vary", "Origin");
-    } else if (isStatus || isSiteRules || isSiteUsers || isSiteVote || isSiteLiveEvent || isSiteKickLive || isSiteKickSub || isSiteRoles || isSiteRankCard || isSiteWikiHelp || isSiteReviews || isSiteBoards || isSiteSuggestions || isSiteBotFeedback || isSiteNotifications || isSiteSeratafilmAccess || isSiteStaffAccess || isSiteHogwartsSorting) {
+    } else if (isStatus || isSiteRules || isSiteUsers || isSiteVote || isSiteLiveEvent || isSiteRoles || isSiteRankCard || isSiteWikiHelp || isSiteReviews || isSiteBoards || isSiteSuggestions || isSiteBotFeedback || isSiteNotifications || isSiteSeratafilmAccess || isSiteStaffAccess || isSiteHogwartsSorting) {
       res.setHeader("Access-Control-Allow-Origin", "*");
     }
     res.setHeader("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS");

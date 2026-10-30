@@ -20,7 +20,7 @@ function snowflakeOk(id?) {
 function readConfiguredStreamVoiceIds(client?) {
   const ids = new Set();
   const cfg = client?.config || {};
-  for (const key of ["kickLiveAlerts", "twitchLiveAlerts"]) {
+  for (const key of ["twitchLiveAlerts"]) {
     const top = String(cfg?.[key]?.streamVoiceChannelId || "").trim();
     if (snowflakeOk(top)) ids.add(top);
     const list = Array.isArray(cfg?.[key]?.streamers) ? cfg[key].streamers : [];
@@ -41,7 +41,7 @@ function isProtectedStreamerStageChannelId(channelId?, client = null) {
   try {
     const raw = JSON.parse(fs.readFileSync(CONFIG_PATH, "utf8"));
     const ids = new Set();
-    for (const key of ["kickLiveAlerts", "twitchLiveAlerts"]) {
+    for (const key of ["twitchLiveAlerts"]) {
       const top = String(raw?.[key]?.streamVoiceChannelId || "").trim();
       if (snowflakeOk(top)) ids.add(top);
     }
@@ -57,7 +57,6 @@ function offlineNameFromConfig(client?) {
   const cfg = client?.config || {};
   return (
     String(cfg?.twitchLiveAlerts?.streamers?.[0]?.voiceNameOff || "").trim() ||
-    String(cfg?.kickLiveAlerts?.streamers?.[0]?.voiceNameOff || "").trim() ||
     "༄🔴︲Streaming diunk17"
   );
 }
@@ -66,7 +65,7 @@ function persistStreamVoiceChannelId(newId?) {
   const id = String(newId || "").trim();
   if (!snowflakeOk(id)) return false;
   const raw = JSON.parse(fs.readFileSync(CONFIG_PATH, "utf8"));
-  for (const key of ["twitchLiveAlerts", "kickLiveAlerts"]) {
+  for (const key of ["twitchLiveAlerts"]) {
     if (!raw[key] || typeof raw[key] !== "object") raw[key] = {};
     raw[key].streamVoiceChannelId = id;
     if (Array.isArray(raw[key].streamers)) {
@@ -82,7 +81,7 @@ function persistStreamVoiceChannelId(newId?) {
 function rebindClientConfig(client?, newId?) {
   const id = String(newId || "").trim();
   if (!client?.config || !snowflakeOk(id)) return;
-  for (const key of ["twitchLiveAlerts", "kickLiveAlerts"]) {
+  for (const key of ["twitchLiveAlerts"]) {
     if (!client.config[key] || typeof client.config[key] !== "object") client.config[key] = {};
     client.config[key].streamVoiceChannelId = id;
     if (Array.isArray(client.config[key].streamers)) {

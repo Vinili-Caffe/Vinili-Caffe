@@ -414,7 +414,7 @@ html[data-vc-fx-motion="0"] .vc-hw-eyes {
   animation: none !important;
 }
 
-/* PiP Twitch/Kick in basso a sinistra: non coprire con le zucche */
+/* PiP Twitch in basso a sinistra: non coprire con le zucche */
 html[data-vc-live-pip] .vc-hw-pumpkins {
   display: none !important;
 }

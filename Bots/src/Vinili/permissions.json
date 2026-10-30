@@ -66,22 +66,6 @@
                 ]
             }
         },
-        "poll": {
-            "roles": [
-                "roles.HighStaff"
-            ],
-            "subcommands": {
-                "create": [
-                    "roles.HighStaff"
-                ],
-                "remove": [
-                    "roles.HighStaff"
-                ],
-                "edit": [
-                    "roles.HighStaff"
-                ]
-            }
-        },
         "say": {
             "roles": [
                 "roles.Founder"
@@ -108,11 +92,6 @@
             ]
         },
         "banner": {
-            "roles": [
-                "roles.Member"
-            ]
-        },
-        "classifica": {
             "roles": [
                 "roles.Member"
             ]
@@ -222,16 +201,6 @@
                 "channels.commands",
                 "channels.staffCmds",
                 "channels.news",
-                "channels.highCmds"
-            ]
-        },
-        "mstats": {
-            "roles": [
-                "roles.Member"
-            ],
-            "channels": [
-                "channels.commands",
-                "channels.staffCmds",
                 "channels.highCmds"
             ]
         },
@@ -829,28 +798,6 @@
                 "channels.highCmds"
             ]
         },
-        "sezioneproibita": {
-            "roles": [
-                "roles.Founder",
-                "roles.Manager",
-                "roles.Admin"
-            ],
-            "channels": [
-                "channels.highCmds"
-            ],
-            "subcommands": {
-                "winner": [
-                    "roles.Founder",
-                    "roles.Manager",
-                    "roles.Admin"
-                ],
-                "check": [
-                    "roles.Founder",
-                    "roles.Manager",
-                    "roles.Admin"
-                ]
-            }
-        },
         "blacklist": {
             "roles": [
                 "roles.Staff",
@@ -933,104 +880,9 @@
                 "channels.economy"
             ]
         },
-        "rob": {
-            "roles": [
-                "roles.Member"
-            ],
-            "channels": [
-                "channels.economy"
-            ]
-        },
-        "pay": {
-            "roles": [
-                "roles.Member"
-            ],
-            "channels": [
-                "channels.economy"
-            ]
-        },
-        "roulette": {
-            "roles": [
-                "roles.Member"
-            ],
-            "channels": [
-                "channels.economy"
-            ]
-        },
-        "rps": {
-            "roles": [
-                "roles.Member"
-            ],
-            "channels": [
-                "channels.economy"
-            ]
-        },
-        "slots": {
-            "roles": [
-                "roles.Member"
-            ],
-            "channels": [
-                "channels.economy"
-            ]
-        },
-        "blackjack": {
-            "roles": [
-                "roles.Member"
-            ],
-            "channels": [
-                "channels.economy"
-            ]
-        },
-        "bj": {
-            "roles": [
-                "roles.Member"
-            ],
-            "channels": [
-                "channels.economy"
-            ]
-        },
-        "coinflip": {
-            "roles": [
-                "roles.Member"
-            ],
-            "channels": [
-                "channels.economy"
-            ]
-        },
-        "cf": {
-            "roles": [
-                "roles.Member"
-            ],
-            "channels": [
-                "channels.economy"
-            ]
-        },
-        "tris": {
-            "roles": [
-                "roles.Member"
-            ],
-            "channels": [
-                "channels.economy"
-            ]
-        },
-        "scratch": {
-            "roles": [
-                "roles.Member"
-            ],
-            "channels": [
-                "channels.economy"
-            ]
-        },
         "snipe": {
             "roles": [
                 "roles.Member"
-            ]
-        },
-        "ticket": {
-            "roles": [
-                "roles.Staff",
-                "roles.PartnerManager",
-                "roles.HighStaff"
             ]
         },
         "top": {

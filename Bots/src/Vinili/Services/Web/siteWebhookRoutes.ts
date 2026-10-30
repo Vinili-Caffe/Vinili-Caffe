@@ -304,7 +304,6 @@ function mountSiteWebhookRoutes(app?, client?, deps?) {
     handleSiteNotificationsPushUnsubscribePost,
     handleSiteNotificationsPushTestPost,
   } = require("../../Web/siteInAppNotificationsApi") as typeof import("../../Web/siteInAppNotificationsApi");
-  const { completeSiteVerify } = require("../../Web/siteVerifyApi") as typeof import("../../Web/siteVerifyApi");
   const {
     handleSiteSeratafilmAccessGet,
     handleSiteSeratafilmFilmGet,
@@ -853,27 +852,6 @@ function mountSiteWebhookRoutes(app?, client?, deps?) {
     }
   });
 
-  app.post("/webhooks/site-verify/complete", async (req?, res?) => {
-    try {
-      const accessToken = normalizeHeaderSecret(req.headers.authorization);
-      if (!accessToken) {
-        return res.status(401).json({
-          ok: false,
-          error: "missing_token",
-          message: "Header Authorization: Bearer <token> richiesto.",
-        });
-      }
-      const body = req.body && typeof req.body === "object" ? req.body : {};
-      const out = await completeSiteVerify(client, {
-        accessToken,
-        guildId: body.guildId,
-      });
-      return res.status(Number(out.status) || 500).json(out);
-    } catch (err) {
-      global.logger?.error?.("[WEBHOOK] site-verify complete:", err);
-      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
-    }
-  });
   app.get("/webhooks/site-verify/oauth-start", (req?, res?) => {
     const clientId = resolveDiscordOauthClientIdForSite();
     const redirectUri = resolveDiscordOauthRedirectUriForSite();
@@ -914,10 +892,6 @@ function mountSiteWebhookRoutes(app?, client?, deps?) {
   app.get("/webhooks/site-live-event", (req?, res?) => {
     return handleSiteLiveEventGet(client, req, res);
   });
-  app.get("/webhooks/site-kick-live", (req?, res?) => {
-    const { handleSiteKickLiveGet } = require("../../Web/siteKickLiveApi") as typeof import("../../Web/siteKickLiveApi");
-    return handleSiteKickLiveGet(client, req, res);
-  });
   app.get("/webhooks/site-twitch-live", (req?, res?) => {
     const { handleSiteTwitchLiveGet } = require("../../Web/siteTwitchLiveApi") as typeof import("../../Web/siteTwitchLiveApi");
     return handleSiteTwitchLiveGet(client, req, res);
@@ -925,42 +899,6 @@ function mountSiteWebhookRoutes(app?, client?, deps?) {
   app.get("/webhooks/site-twitch-live/thumb", (req?, res?) => {
     const { handleSiteTwitchLiveThumb } = require("../../Web/siteTwitchLiveApi") as typeof import("../../Web/siteTwitchLiveApi");
     return handleSiteTwitchLiveThumb(client, req, res);
-  });
-  app.get("/webhooks/site-kick-live/stream.m3u8", (req?, res?) => {
-    const { handleSiteKickLiveStreamPlaylist } = require("../../Web/siteKickLiveApi") as typeof import("../../Web/siteKickLiveApi");
-    return handleSiteKickLiveStreamPlaylist(client, req, res);
-  });
-  app.get("/webhooks/site-kick-live/preview.mp4", (req?, res?) => {
-    const { handleSiteKickLivePreviewMp4 } = require("../../Web/siteKickLiveApi") as typeof import("../../Web/siteKickLiveApi");
-    return handleSiteKickLivePreviewMp4(client, req, res);
-  });
-  app.get("/webhooks/site-kick-live/thumb", (req?, res?) => {
-    const { handleSiteKickLiveThumb } = require("../../Web/siteKickLiveApi") as typeof import("../../Web/siteKickLiveApi");
-    return handleSiteKickLiveThumb(client, req, res);
-  });
-  app.get("/webhooks/site-kick-live/proxy", (req?, res?) => {
-    const { handleSiteKickLiveProxy } = require("../../Web/siteKickLiveApi") as typeof import("../../Web/siteKickLiveApi");
-    return handleSiteKickLiveProxy(client, req, res);
-  });
-  app.get("/webhooks/site-kick-sub/oauth-callback", (req?, res?) => {
-    const { handleKickSubOAuthCallback } = require("../../Web/kickSubscriberWebhookApi") as typeof import("../../Web/kickSubscriberWebhookApi");
-    return handleKickSubOAuthCallback(client, req, res);
-  });
-  app.get("/webhooks/site-kick-sub/oauth-start", (req?, res?) => {
-    const { handleKickSubOAuthStartGet } = require("../../Web/kickSubscriberWebhookApi") as typeof import("../../Web/kickSubscriberWebhookApi");
-    return handleKickSubOAuthStartGet(client, req, res);
-  });
-  app.get("/webhooks/site-kick-sub/status", (req?, res?) => {
-    const { handleKickSubStatusGet } = require("../../Web/kickSubscriberWebhookApi") as typeof import("../../Web/kickSubscriberWebhookApi");
-    return handleKickSubStatusGet(client, req, res);
-  });
-  app.post("/webhooks/site-kick-sub/unlink", (req?, res?) => {
-    const { handleKickSubUnlinkPost } = require("../../Web/kickSubscriberWebhookApi") as typeof import("../../Web/kickSubscriberWebhookApi");
-    return handleKickSubUnlinkPost(client, req, res);
-  });
-  app.post("/webhooks/site-kick-sub/events", (req?, res?) => {
-    const { handleKickSubEventsWebhook } = require("../../Web/kickSubscriberWebhookApi") as typeof import("../../Web/kickSubscriberWebhookApi");
-    return handleKickSubEventsWebhook(client, req, res);
   });
   app.get("/webhooks/site-wiki-help", async (req?, res?) => {
     try {

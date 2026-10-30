@@ -136,88 +136,13 @@ async function runSponsorPanel(client?) {
   }
 }
 
-async function processOneVerifyPanel(client?, guildId?, verifyChannelIds?) {
-  const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js") as typeof import("discord.js");
-  const { upsertPanelMessage } = require("../../shared/discord/panelUpsertRuntime") as typeof import("../../shared/discord/panelUpsertRuntime");
-  const { buildVcPagePayload } = require("../Utils/Embeds/vcPageEmbedV2") as typeof import("../Utils/Embeds/vcPageEmbedV2");
-  const guild = await sponsorFetchGuild(client, guildId);
-  if (!guild) {
-    if (sponsorVerifyPanelVerbose()) global.logger.warn("[SPONSOR] Verify panel: guild non trovata:", guildId);
-    return 0;
-  }
-  await sponsorEnsureChannelsFetched(guild);
-  let channel = await sponsorFetchTextChannel(guild, verifyChannelIds[guildId]);
-  if (!channel) channel = guild.channels.cache.find((ch?) => ch.name?.toLowerCase().includes("start")) || null;
-  if (!channel?.isTextBased?.()) {
-    global.logger.warn("[SPONSOR] Verify panel: canale non trovato in guild " + guild.name + " (" + guildId + ").");
-    return 0;
-  }
-
-  const color = client.config?.embedVerify || SPONSOR_PANEL_COLOR;
-  const { buildSiteVerifyOAuthStartUrl } = require("../Web/verifyOauthPublicUrl") as typeof import("../Web/verifyOauthPublicUrl");
-  const verifyUrl = buildSiteVerifyOAuthStartUrl(guildId);
-  const verifyRow = new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setStyle(ButtonStyle.Link)
-      .setURL(verifyUrl)
-      .setEmoji(`<a:VC_Verified:1482532479637127188>`)
-      .setLabel("︲VERIFY"),
-  );
-
-  const panelDoc = await sponsorGetOrCreatePanelDoc(guildId, channel.id).catch(() => null);
-  if (!panelDoc) return 0;
-
-  const verifyPayload: any = buildVcPagePayload({
-    messageId: panelDoc.verifyPanelMessageId || null,
-    guildId,
-    accentColor: color,
-    title: "<:verification:1461725843125571758> **`Verification Required!`**",
-    body: [
-      "<:VC_Space:1482459974667075685> <:alarm:1461725841451909183> **Per accedere a `" +
-        (guild.name || "this server") +
-        "` devi prima verificarti.**",
-      "<:VC_Space:1482459974667075685><:VC_Space:1482459974667075685> <:rightSort:1461726104422453298> Clicca il pulsante **Verify** qui sotto per iniziare.",
-      "<:VC_Space:1482459974667075685><:VC_Space:1482459974667075685> <:VC_Reply:1482532158080942191> Gli unici dati a cui avremo accesso saranno, come indicato direttamente da Discord, nome utente, avatar e banner del tuo profilo.",
-    ].join("\n"),
-    rows: [verifyRow],
-    ...(() => {
-      const primary = resolveBotPhotoMedia(VERIFY_OAUTH_IMAGE_NAME);
-      return primary.mediaUrl ? primary : resolveBotPhotoMedia(VERIFY_FALLBACK_IMAGE_NAME);
-    })(),
-  });
-  const panelMessage = await upsertPanelMessage(channel, client, verifyPayload);
-  if (panelMessage?.id) {
-    await personalityPanelUpdateOne({ guildId, channelId: channel.id }, { $set: { verifyPanelMessageId: panelMessage.id } }).catch(() => {});
-  } else if (verifyPayload.messageId) {
-    await personalityPanelUpdateOne({ guildId, channelId: channel.id }, { $set: { verifyPanelMessageId: null } }).catch(() => {});
-  }
-  return panelMessage?.id ? 1 : 0;
+async function processOneVerifyPanel(_client?, _guildId?, _verifyChannelIds?) {
+  return 0;
 }
 
-async function runSponsorVerifyPanels(client?) {
-  if (sponsorVerifyPanelsDisabled(client)) return 0;
-  let sponsorGuildIds = Array.isArray(client.config?.sponsorGuildIds) ? [...client.config.sponsorGuildIds] : [];
-  const verifyChannelIds = client.config?.sponsorVerifyChannelIds || {};
-  if (sponsorGuildIds.length === 0) sponsorGuildIds = Object.keys(verifyChannelIds);
-  if (sponsorGuildIds.length === 0) {
-    global.logger.warn("[SPONSOR] runSponsorVerifyPanels: nessuna guild in config.");
-    return 0;
-  }
-
-  let sent = 0;
-  for (let i = 0; i < sponsorGuildIds.length; i += SPONSOR_BATCH_SIZE) {
-    const batch = sponsorGuildIds.slice(i, i + SPONSOR_BATCH_SIZE);
-    const results = await Promise.all(
-      batch.map((guildId?) =>
-        processOneVerifyPanel(client, guildId, verifyChannelIds).catch((err?) => {
-          global.logger.error("[SPONSOR] runSponsorVerifyPanels guild " + guildId + ":", err?.message || err);
-          return 0;
-        }),
-      ),
-    );
-    sent += results.reduce((a?, n?) => a + n, 0);
-  }
-  return sent;
+async function runSponsorVerifyPanels(_client?) {
+  /* Verify Discord/sito rimosso — panel sponsor verify disattivato. */
+  return 0;
 }
 
 async function runSponsorTicketPanels() {
