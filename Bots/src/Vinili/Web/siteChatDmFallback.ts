@@ -183,7 +183,7 @@ async function fireFallback(key?, entry?) {
     const user = await client.users.fetch(entry.userId).catch(() => null);
     if (!user?.send) return { sent: false, reason: "no_user" };
 
-    const { buildSiteLinkRow } = require("../Utils/Web/discordWorkflowUiGate") as typeof import("../Utils/Web/discordWorkflowUiGate");
+    const { buildSiteLinkRow } = require("./discordWorkflowUiGate") as typeof import("./discordWorkflowUiGate");
     const { sendDm } = require("../Utils/noDmList") as typeof import("../Utils/noDmList");
 
     const label = entry.label || (entry.scope === "ticket" ? "ticket" : "chat");

@@ -1,4 +1,4 @@
-const { isDiscordStaffChannelPostsEnabled } = require("../Utils/Web/discordWorkflowUiGate") as typeof import("../Utils/Web/discordWorkflowUiGate");
+const { isDiscordStaffChannelPostsEnabled } = require("../Web/discordWorkflowUiGate") as typeof import("../Web/discordWorkflowUiGate");
 const { startStaffListPeriodicRefreshLoop } = require("../Utils/Community/staffListUtils") as typeof import("../Utils/Community/staffListUtils");
 
 async function run(client?) {

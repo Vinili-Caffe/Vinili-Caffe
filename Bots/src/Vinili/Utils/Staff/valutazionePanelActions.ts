@@ -318,7 +318,7 @@ async function resolveValutazioneRemoveIndexFromChannelScan(guild?, staff?, kind
 
   const channelId = String(IDs.channels?.valutazioniStaff || "").trim();
   if (!channelId) return -1;
-  const { isDiscordStaffChannelPostsEnabled } = require("../Web/discordWorkflowUiGate") as typeof import("../Web/discordWorkflowUiGate");
+  const { isDiscordStaffChannelPostsEnabled } = require("../../Web/discordWorkflowUiGate") as typeof import("../../Web/discordWorkflowUiGate");
   if (!isDiscordStaffChannelPostsEnabled()) return -1;
   const channel = guild.channels.cache.get(channelId) || (await getGuildChannelCached(guild, channelId));
   if (!channel?.messages?.fetch) return -1;
@@ -373,7 +373,7 @@ async function resolveValutazioneRemoveIndexFull(guild?, staff?, kind?, removeId
 }
 
 async function editOriginalValutazioneMessage(guild?, entry?, embed?) {
-  const { isDiscordStaffChannelPostsEnabled } = require("../Web/discordWorkflowUiGate") as typeof import("../Web/discordWorkflowUiGate");
+  const { isDiscordStaffChannelPostsEnabled } = require("../../Web/discordWorkflowUiGate") as typeof import("../../Web/discordWorkflowUiGate");
   if (!isDiscordStaffChannelPostsEnabled()) return false;
   const channelId = String(entry?.channelId || "").trim();
   const messageId = String(entry?.messageId || "").trim();

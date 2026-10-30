@@ -21,7 +21,7 @@ const {
   discordDefaultAvatarUrl,
   accountUsername,
 } = require("../Utils/Discord/guildDiscordIdentity") as typeof import("../Utils/Discord/guildDiscordIdentity");
-const { buildSiteLinkRow, subjectWorkflowChatPath } = require("../Utils/Web/discordWorkflowUiGate") as typeof import("../Utils/Web/discordWorkflowUiGate");
+const { buildSiteLinkRow, subjectWorkflowChatPath } = require("./discordWorkflowUiGate") as typeof import("./discordWorkflowUiGate");
 const { resolveStaffProfileDisplayRoleId } = require("../Utils/Staff/staffProfilePanelRuntime") as typeof import("../Utils/Staff/staffProfilePanelRuntime");
 const { stripDiscordDecorations } = require("./siteStaffRosterCache") as typeof import("./siteStaffRosterCache");
 const {

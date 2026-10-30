@@ -2,7 +2,7 @@ const { handleResocontoActionInteraction } = require("../Events/interaction/reso
 const {
   isDiscordWorkflowUiEnabled,
   replyWorkflowMovedToSite,
-} = require("../Utils/Web/discordWorkflowUiGate") as typeof import("../Utils/Web/discordWorkflowUiGate");
+} = require("../Web/discordWorkflowUiGate") as typeof import("../Web/discordWorkflowUiGate");
 
 function match(interaction?) {
   const id = String(interaction?.customId || "");

@@ -47,7 +47,7 @@ const {
   fetchWebsiteGuildMember,
   readCachedWebsiteMember,
   clearWebsiteMemberCaches,
-} = require("../Utils/Web/websiteGuildMemberFetch") as typeof import("../Utils/Web/websiteGuildMemberFetch");
+} = require("./websiteGuildMemberFetch") as typeof import("./websiteGuildMemberFetch");
 const { memberIsHighStaffEligible } = require("./siteStaffDashboardApi") as typeof import("./siteStaffDashboardApi");
 
 const PROFILE_CACHE_TTL_MS = 120_000;
@@ -1225,7 +1225,7 @@ async function handleSiteStaffProfileGet(client?, req?, res?) {
         }
       }
       if (!targetMember) {
-        const { isOnNegativeCache, isUnknownMemberError } = require("../Utils/Web/websiteGuildMemberFetch") as typeof import("../Utils/Web/websiteGuildMemberFetch");
+        const { isOnNegativeCache, isUnknownMemberError } = require("./websiteGuildMemberFetch") as typeof import("./websiteGuildMemberFetch");
         /* leaveProfileLive1: known leave / unknown member → not staff (no stale paint) */
         if (isOnNegativeCache(targetUserId)) {
           return res.status(404).json({

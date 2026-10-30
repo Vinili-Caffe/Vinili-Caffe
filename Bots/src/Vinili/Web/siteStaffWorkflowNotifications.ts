@@ -292,7 +292,7 @@ function practiceLabel(queue?, workflow?) {
 
 function subjectChatOpenUrl(queue?, dedupeKey?) {
   try {
-    const { subjectWorkflowChatPath } = require("../Utils/Web/discordWorkflowUiGate") as typeof import("../Utils/Web/discordWorkflowUiGate");
+    const { subjectWorkflowChatPath } = require("./discordWorkflowUiGate") as typeof import("./discordWorkflowUiGate");
     return subjectWorkflowChatPath(queue, dedupeKey);
   } catch {
     const q = String(queue || "").trim().toLowerCase();

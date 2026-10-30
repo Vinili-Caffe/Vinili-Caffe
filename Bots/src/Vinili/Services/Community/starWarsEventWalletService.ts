@@ -7,15 +7,15 @@
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
 const { isValidGuildUserId } = require("../../Utils/DB/validateWriteIds") as typeof import("../../Utils/DB/validateWriteIds");
 const { addPremiumCredits } = require("./premiumCreditsService") as typeof import("./premiumCreditsService");
-const { resolveStarWarsEventConfig } = require("../../Utils/Web/starWarsEventConfig") as typeof import("../../Utils/Web/starWarsEventConfig");
+const { resolveStarWarsEventConfig } = require("../../Utils/Eventi/starWarsEventConfig") as typeof import("../../Utils/Eventi/starWarsEventConfig");
 const {
   ADVENT_EVENT_KEY,
   CRATE_LABELS,
   getAdventDay,
   listAdventDays,
-} = require("../../Utils/Web/starWarsAdventCatalog") as typeof import("../../Utils/Web/starWarsAdventCatalog");
-const { adventSlotForRomeDate } = require("../../Utils/Web/starWarsEventCalendar") as typeof import("../../Utils/Web/starWarsEventCalendar");
-const { openCrateLoot } = require("../../Utils/Web/starWarsCrateLoot") as typeof import("../../Utils/Web/starWarsCrateLoot");
+} = require("../../Utils/Eventi/starWarsAdventCatalog") as typeof import("../../Utils/Eventi/starWarsAdventCatalog");
+const { adventSlotForRomeDate } = require("../../Utils/Eventi/starWarsEventCalendar") as typeof import("../../Utils/Eventi/starWarsEventCalendar");
+const { openCrateLoot } = require("../../Utils/Eventi/starWarsCrateLoot") as typeof import("../../Utils/Eventi/starWarsCrateLoot");
 
 const ROOT = "profile.events.starwars";
 const CRATE_IDS = Object.freeze(Object.keys(CRATE_LABELS));

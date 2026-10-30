@@ -696,7 +696,7 @@ async function startWebhookServer(client?) {
 
   app.get("/webhooks/coffee/health", async (req?, res?) => {
     try {
-      const { probeCoffeeHealth } = require("../../Utils/Web/stackHealth") as typeof import("../../Utils/Web/stackHealth");
+      const { probeCoffeeHealth } = require("../../Web/stackHealth") as typeof import("../../Web/stackHealth");
       const coffee = await probeCoffeeHealth(1500);
       return res.status(coffee.ok ? 200 : 503).json({
         ok: coffee.ok,
@@ -712,7 +712,7 @@ async function startWebhookServer(client?) {
   });
 
   app.get("/webhooks/health", (req?, res?) => {
-    const { sendStackHealth } = require("../../Utils/Web/stackHealth") as typeof import("../../Utils/Web/stackHealth");
+    const { sendStackHealth } = require("../../Web/stackHealth") as typeof import("../../Web/stackHealth");
     return sendStackHealth(client, req, res, { service: "bots", includeLavalink: true, includeCoffee: true });
   });
 

@@ -7,7 +7,7 @@ const { verifyState, VERIFY_CODE_TTL_MS, VERIFY_MAX_ATTEMPTS, CENTRAL_VERIFY_LOG
 const { VERIFY_UNAVAILABLE, VERIFY_LOAD_MEMBER, VERIFY_CONFIG, VERIFY_ROLES_FAILED } = require("../../Utils/Text/replyMessages") as typeof import("../../Utils/Text/replyMessages");
 const { upsertVerifiedMember, applyTenureForMember } = require("../../Services/Community/communityOpsService") as typeof import("../../Services/Community/communityOpsService");
 const { accountUsername, guildMemberDisplayAvatarUrlDynamic } = require("../../Utils/Discord/guildDiscordIdentity") as typeof import("../../Utils/Discord/guildDiscordIdentity");
-const { buildSiteVerifyOAuthStartUrl } = require("../../Utils/Web/verifyOauthPublicUrl") as typeof import("../../Utils/Web/verifyOauthPublicUrl");
+const { buildSiteVerifyOAuthStartUrl } = require("../../Web/verifyOauthPublicUrl") as typeof import("../../Web/verifyOauthPublicUrl");
 const { removePreMemberRoleIfPresent } = require("../../Utils/Community/preMemberRoleService") as typeof import("../../Utils/Community/preMemberRoleService");
 
 const CONTEST_DISEGNI_VERIFY_FLOW_CHANNEL_ID = String(IDs.channels?.contestDisegniEventVerifyPing || "").trim();

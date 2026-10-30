@@ -358,7 +358,7 @@ async function resolvePexDepexChannel(guild?) {
 }
 
 async function sendPexDepexLog(guild?, type?, targetUser?, oldRoleId?, newRoleId?, reason?) {
-  const { isDiscordStaffChannelPostsEnabled } = require("../../Utils/Web/discordWorkflowUiGate") as typeof import("../../Utils/Web/discordWorkflowUiGate");
+  const { isDiscordStaffChannelPostsEnabled } = require("../../Web/discordWorkflowUiGate") as typeof import("../../Web/discordWorkflowUiGate");
   if (!isDiscordStaffChannelPostsEnabled()) return;
   const channel = await resolvePexDepexChannel(guild);
   if (!channel?.isTextBased?.()) return;
@@ -399,7 +399,7 @@ async function syncResocontoWorkflowOutcome(guild?, channelId?, messageId?, opts
   let idOk = /^\d{16,22}$/.test(mid);
   if (!idOk) {
     try {
-      const { isWorkflowMessageId } = require("../../Utils/Web/discordWorkflowUiGate") as typeof import("../../Utils/Web/discordWorkflowUiGate");
+      const { isWorkflowMessageId } = require("../../Web/discordWorkflowUiGate") as typeof import("../../Web/discordWorkflowUiGate");
       idOk = isWorkflowMessageId(mid);
     } catch (_) {}
   }
@@ -1240,7 +1240,7 @@ function resolveResocontoChannelId(channelId?) {
   const configured = String(IDs.channels?.resocontiStaff || IDs.channels?.valutazioniStaff || "").trim();
   if (configured) return configured;
   try {
-    const { isDiscordWorkflowChannelPostsEnabled } = require("../../Utils/Web/discordWorkflowUiGate") as typeof import("../../Utils/Web/discordWorkflowUiGate");
+    const { isDiscordWorkflowChannelPostsEnabled } = require("../../Web/discordWorkflowUiGate") as typeof import("../../Web/discordWorkflowUiGate");
     if (!isDiscordWorkflowChannelPostsEnabled()) return "site";
   } catch (_) {}
   return "";
@@ -1271,7 +1271,7 @@ async function decideResocontoFromWeb(guild?, actorMember?, opts: Record<string,
   const overrideActionKey = String(opts.overrideActionKey || opts.altActionKey || "").trim().toLowerCase();
   const proposedActionKey = String(opts.actionKey || "").trim().toLowerCase();
 
-  const { isWorkflowMessageId, isDiscordWorkflowChannelPostsEnabled } = require("../../Utils/Web/discordWorkflowUiGate") as typeof import("../../Utils/Web/discordWorkflowUiGate");
+  const { isWorkflowMessageId, isDiscordWorkflowChannelPostsEnabled } = require("../../Web/discordWorkflowUiGate") as typeof import("../../Web/discordWorkflowUiGate");
   const discordPosts = isDiscordWorkflowChannelPostsEnabled();
   if (!channelId && !discordPosts) channelId = "site";
 

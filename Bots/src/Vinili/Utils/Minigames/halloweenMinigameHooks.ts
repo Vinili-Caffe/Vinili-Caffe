@@ -7,7 +7,7 @@ const {
   buildHalloweenMissingEmojiRound,
   buildHalloweenCountBatsRound,
 } = require("../../Data/Minigames/halloweenMinigameBanks");
-const { isHalloweenEventLive, isWithinHalloweenCandyHours } = require("../Web/halloweenEventConfig") as typeof import("../Web/halloweenEventConfig");
+const { isHalloweenEventLive, isWithinHalloweenCandyHours } = require("../Eventi/halloweenEventConfig") as typeof import("../Eventi/halloweenEventConfig");
 
 const HALLOWEEN_EXCLUSIVE_GAME_TYPES = Object.freeze([
   "halloweenQuiz",

@@ -7,11 +7,11 @@
 
 const { SiteDocument, SITE_DOCUMENT_TYPE, ActivityUserProfile } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
 const { isValidGuildUserId } = require("../../Utils/DB/validateWriteIds") as typeof import("../../Utils/DB/validateWriteIds");
-const { resolveStarWarsEventConfig } = require("../../Utils/Web/starWarsEventConfig") as typeof import("../../Utils/Web/starWarsEventConfig");
-const { resolveFeatureStateNow, FEATURES, EPOCHS } = require("../../Utils/Web/starWarsEventCalendar") as typeof import("../../Utils/Web/starWarsEventCalendar");
-const { unitsForEpoch, EPOCH_FACTIONS, publicShopCatalog } = require("../../Utils/Web/starWarsEconomyCatalog") as typeof import("../../Utils/Web/starWarsEconomyCatalog");
+const { resolveStarWarsEventConfig } = require("../../Utils/Eventi/starWarsEventConfig") as typeof import("../../Utils/Eventi/starWarsEventConfig");
+const { resolveFeatureStateNow, FEATURES, EPOCHS } = require("../../Utils/Eventi/starWarsEventCalendar") as typeof import("../../Utils/Eventi/starWarsEventCalendar");
+const { unitsForEpoch, EPOCH_FACTIONS, publicShopCatalog } = require("../../Utils/Eventi/starWarsEconomyCatalog") as typeof import("../../Utils/Eventi/starWarsEconomyCatalog");
 const { getStarWarsWallet, ROOT, publicWallet } = require("./starWarsEventWalletService") as typeof import("./starWarsEventWalletService");
-const { ADVENT_EVENT_KEY } = require("../../Utils/Web/starWarsAdventCatalog") as typeof import("../../Utils/Web/starWarsAdventCatalog");
+const { ADVENT_EVENT_KEY } = require("../../Utils/Eventi/starWarsAdventCatalog") as typeof import("../../Utils/Eventi/starWarsAdventCatalog");
 
 const BANK_OWNER = "__starwars_faction_bank__";
 

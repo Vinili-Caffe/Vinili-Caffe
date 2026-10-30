@@ -326,7 +326,7 @@ async function ensureAutoValutazione(guild?, member?, key?, type?, reason?, opti
     // Site-first: Mongo + notifica sito. Discord channel solo se DISCORD_STAFF_CHANNEL_POSTS=1.
     let channel = null;
     try {
-      const { isDiscordStaffChannelPostsEnabled } = require("../../Utils/Web/discordWorkflowUiGate") as typeof import("../../Utils/Web/discordWorkflowUiGate");
+      const { isDiscordStaffChannelPostsEnabled } = require("../../Web/discordWorkflowUiGate") as typeof import("../../Web/discordWorkflowUiGate");
       if (isDiscordStaffChannelPostsEnabled()) {
         channel = await resolveValutazioniChannel(guild);
       }

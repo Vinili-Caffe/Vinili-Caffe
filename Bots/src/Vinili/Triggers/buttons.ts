@@ -325,7 +325,7 @@ async function handleStaffButtons(interaction?) {
     let pauseHint =
       "> Per __richiedere__ una pausa apri la pagina sul **sito**: https://www.viniliecaffe.it/staff/pause/\n\n";
     try {
-      const { siteWorkflowUrl } = require("../Utils/Web/discordWorkflowUiGate") as typeof import("../Utils/Web/discordWorkflowUiGate");
+      const { siteWorkflowUrl } = require("../Web/discordWorkflowUiGate") as typeof import("../Web/discordWorkflowUiGate");
       pauseHint = `> Per __richiedere__ una pausa apri la pagina sul **sito**: ${siteWorkflowUrl("pause")}\n\n`;
     } catch (_) {}
     const embed = new EmbedBuilder().setColor("#6f4e37").setDescription(

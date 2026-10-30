@@ -1604,7 +1604,7 @@ async function awardBumpVoteExp(client?, guild?, userId?, source?, previousLastA
   if (String(source || "").includes("vote") || String(source || "") === "topgg") {
     try {
       const { addStarWarsVoteReward } = require("../Community/starWarsRewardsService") as typeof import("../Community/starWarsRewardsService");
-      const { resolveStarWarsEventConfig } = require("../../Utils/Web/starWarsEventConfig") as typeof import("../../Utils/Web/starWarsEventConfig");
+      const { resolveStarWarsEventConfig } = require("../../Utils/Eventi/starWarsEventConfig") as typeof import("../../Utils/Eventi/starWarsEventConfig");
       if (resolveStarWarsEventConfig(client)?.enabled) {
         await addStarWarsVoteReward(client, { guildId, userId }).catch(() => null);
       }

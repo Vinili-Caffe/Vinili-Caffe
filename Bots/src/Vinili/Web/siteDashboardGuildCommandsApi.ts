@@ -24,7 +24,7 @@ const { PARTNERSHIP_PREFIX_COMMANDS } = require("../MultiGuild/core/openMediaCom
 const {
   syncSlashAclToDiscord,
   loadSlashAclMapFromDiscord,
-} = require("../Utils/Web/discordApplicationCommandPermissions") as typeof import("../Utils/Web/discordApplicationCommandPermissions");
+} = require("./discordApplicationCommandPermissions") as typeof import("./discordApplicationCommandPermissions");
 const { verifyDashboardGuildAccess } = require("./siteDashboardApi") as typeof import("./siteDashboardApi");
 const { listGuildPickerData } = require("./siteDashboardPartnershipApi") as typeof import("./siteDashboardPartnershipApi");
 const { buildPrefixAclFromPermissionsJson } = require("../Utils/Moderation/commandPermissions") as typeof import("../Utils/Moderation/commandPermissions");

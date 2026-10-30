@@ -40,7 +40,7 @@ function extractProfileSectionFromMessage(message?) {
 }
 
 async function refreshProfilePanelIfPresent(interaction?, client?) {
-  const { isDiscordProfileEnabled } = require("../Utils/Web/discordWorkflowUiGate") as typeof import("../Utils/Web/discordWorkflowUiGate");
+  const { isDiscordProfileEnabled } = require("../Web/discordWorkflowUiGate") as typeof import("../Web/discordWorkflowUiGate");
   if (!isDiscordProfileEnabled()) return;
   const msg = interaction?.message;
   if (!msg?.edit || !interaction?.guild) return;

@@ -24,14 +24,14 @@ const {
   isStarWarsPublicWindowOpen,
   isStarWarsEventLive,
   romeYmd,
-} = require("../Utils/Web/starWarsEventConfig") as typeof import("../Utils/Web/starWarsEventConfig");
+} = require("../Utils/Eventi/starWarsEventConfig") as typeof import("../Utils/Eventi/starWarsEventConfig");
 const {
   resolveFeatureStateNow,
   adventSlotForRomeDate,
   listCalendarDays,
   getCalendarDay,
   EPOCHS,
-} = require("../Utils/Web/starWarsEventCalendar") as typeof import("../Utils/Web/starWarsEventCalendar");
+} = require("../Utils/Eventi/starWarsEventCalendar") as typeof import("../Utils/Eventi/starWarsEventCalendar");
 const {
   getStarWarsWallet,
   claimAdventDay,
@@ -46,8 +46,8 @@ const {
   computeFactionFromAnswers,
   getFactionMeta,
   FACTION_META,
-} = require("../Utils/Web/starWarsSortingBank") as typeof import("../Utils/Web/starWarsSortingBank");
-const { listMinigamesStatus } = require("../Utils/Web/starWarsMinigamesRegistry") as typeof import("../Utils/Web/starWarsMinigamesRegistry");
+} = require("../Utils/Eventi/starWarsSortingBank") as typeof import("../Utils/Eventi/starWarsSortingBank");
+const { listMinigamesStatus } = require("../Utils/Eventi/starWarsMinigamesRegistry") as typeof import("../Utils/Eventi/starWarsMinigamesRegistry");
 const {
   getEconomySnapshot,
   buyUnit,

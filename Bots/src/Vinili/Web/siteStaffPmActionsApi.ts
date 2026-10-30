@@ -117,7 +117,7 @@ async function handleSiteStaffPmActionsPost(client?, req?, res?) {
         try {
           const { logPmPointsRemoved } = require("../Utils/Partner/pmPointsRemovedStore") as typeof import("../Utils/Partner/pmPointsRemovedStore");
           const { getPartnershipLogChannelIds } = require("../Utils/Partner/partnershipConfigResolver") as typeof import("../Utils/Partner/partnershipConfigResolver");
-          const { isDiscordStaffChannelPostsEnabled } = require("../Utils/Web/discordWorkflowUiGate") as typeof import("../Utils/Web/discordWorkflowUiGate");
+          const { isDiscordStaffChannelPostsEnabled } = require("./discordWorkflowUiGate") as typeof import("./discordWorkflowUiGate");
           const channelIds = getPartnershipLogChannelIds(guild.id);
           const hardFallback = isDiscordStaffChannelPostsEnabled()
             ? String(IDs.channels?.puntiTolti || "").trim()

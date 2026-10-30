@@ -1,4 +1,4 @@
-const { MOD_RULE_DETAIL } = require("../Moderation/modRegolamentoConstants") as typeof import("../Moderation/modRegolamentoConstants");
+const { MOD_RULE_DETAIL } = require("../Utils/Moderation/modRegolamentoConstants") as typeof import("../Utils/Moderation/modRegolamentoConstants");
 const MOD_RULE_TITLE_IT = {
   "1.1": "ToS e Linee Guida di Discord",
   "1.2": "Discriminazione e linguaggio offensivo",

@@ -1,6 +1,6 @@
 "use strict";
 
-const { findHateSpeechMatch } = require("../Moderation/automodHateSpeechMatch") as typeof import("../Moderation/automodHateSpeechMatch");
+const { findHateSpeechMatch } = require("../Utils/Moderation/automodHateSpeechMatch") as typeof import("../Utils/Moderation/automodHateSpeechMatch");
 
 const USER_MIN_INTERVAL_MS = 2500;
 const USER_WINDOW_MS = 30_000;

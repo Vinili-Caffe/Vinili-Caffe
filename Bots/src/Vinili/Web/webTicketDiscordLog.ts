@@ -1,10 +1,10 @@
 "use strict";
 
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js") as typeof import("discord.js");
-const IDs = require("../Config/ids") as typeof import("../Config/ids");
-const { resolveTranscriptLogChannelId } = require("../Ticket/ticketGuildOptions") as typeof import("../Ticket/ticketGuildOptions");
-const { toDiscordTimestamp } = require("../Logging/channelRolesLogUtils") as typeof import("../Logging/channelRolesLogUtils");
-const { TICKET_UX_COLOR } = require("../Ticket/ticketUxMessages") as typeof import("../Ticket/ticketUxMessages");
+const IDs = require("../Utils/Config/ids") as typeof import("../Utils/Config/ids");
+const { resolveTranscriptLogChannelId } = require("../Utils/Ticket/ticketGuildOptions") as typeof import("../Utils/Ticket/ticketGuildOptions");
+const { toDiscordTimestamp } = require("../Utils/Logging/channelRolesLogUtils") as typeof import("../Utils/Logging/channelRolesLogUtils");
+const { TICKET_UX_COLOR } = require("../Utils/Ticket/ticketUxMessages") as typeof import("../Utils/Ticket/ticketUxMessages");
 
 const DEFAULT_SITE_ORIGIN = "https://www.viniliecaffe.it";
 const MAX_DIFF = 1600;
@@ -178,7 +178,7 @@ function buildWebTicketClosedTranscriptRow(ticket?) {
 
 function buildWebTicketLogEmbed(action?, ticket?, meta: Record<string, any> = {}) {
   if (action === "closed") {
-    const { buildTicketClosedEmbed } = require("../Ticket/ticketCloseRuntime") as typeof import("../Ticket/ticketCloseRuntime");
+    const { buildTicketClosedEmbed } = require("../Utils/Ticket/ticketCloseRuntime") as typeof import("../Utils/Ticket/ticketCloseRuntime");
     return buildTicketClosedEmbed(webTicketClosedEmbedData(ticket, meta, meta.guild || null));
   }
 

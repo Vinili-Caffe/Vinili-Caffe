@@ -1,6 +1,6 @@
 const IDs = require("../Config/ids") as typeof import("../Config/ids");
 const { getGuildChannelCached, getClientChannelCached } = require("../Interaction/interactionEntityCache") as typeof import("../Interaction/interactionEntityCache");
-const { isDiscordStaffChannelPostsEnabled } = require("../Web/discordWorkflowUiGate") as typeof import("../Web/discordWorkflowUiGate");
+const { isDiscordStaffChannelPostsEnabled } = require("../../Web/discordWorkflowUiGate") as typeof import("../../Web/discordWorkflowUiGate");
 
 async function resolveStaffValutazioniChannel(guild?, client = null) {
   if (!isDiscordStaffChannelPostsEnabled()) return null;

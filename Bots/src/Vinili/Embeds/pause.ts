@@ -1,7 +1,7 @@
 const IDs = require("../Utils/Config/ids") as typeof import("../Utils/Config/ids");
 const { getClientChannelCached } = require("../Utils/Interaction/interactionEntityCache") as typeof import("../Utils/Interaction/interactionEntityCache");
 const { ensurePauseStickyPanel } = require("../Utils/Pause/pauseStickyPanelRuntime") as typeof import("../Utils/Pause/pauseStickyPanelRuntime");
-const { isDiscordWorkflowChannelPostsEnabled } = require("../Utils/Web/discordWorkflowUiGate") as typeof import("../Utils/Web/discordWorkflowUiGate");
+const { isDiscordWorkflowChannelPostsEnabled } = require("../Web/discordWorkflowUiGate") as typeof import("../Web/discordWorkflowUiGate");
 
 async function run(client?) {
   if (!isDiscordWorkflowChannelPostsEnabled()) return;

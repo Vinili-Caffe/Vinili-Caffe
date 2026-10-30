@@ -5,7 +5,7 @@ const {
   isDiscordWorkflowChannelPostsEnabled,
   newSiteWorkflowMessageId,
   buildInboxManageLinkRow,
-} = require("../../Utils/Web/discordWorkflowUiGate") as typeof import("../../Utils/Web/discordWorkflowUiGate");
+} = require("../../Web/discordWorkflowUiGate") as typeof import("../../Web/discordWorkflowUiGate");
 const { getBotState, setBotState } = require("../../Utils/BotState/botStateStore") as typeof import("../../Utils/BotState/botStateStore");
 const { EPHEMERAL_TTL_PING_ONLY_MS, scheduleMessageDeletion } = require("../../Utils/Config/ephemeralMessageTtl") as typeof import("../../Utils/Config/ephemeralMessageTtl");
 const { resolveSubmissionChannel } = require("./candidatureApplicationHandlers") as typeof import("./candidatureApplicationHandlers");
@@ -18,8 +18,8 @@ const {
   ensureWebsiteGuild,
   fetchWebsiteGuildMember,
   isOnNegativeCache,
-} = require("../../Utils/Web/websiteGuildMemberFetch") as typeof import("../../Utils/Web/websiteGuildMemberFetch");
-const { fetchDiscordOAuthMe } = require("../../Utils/Web/discordOauthMe") as typeof import("../../Utils/Web/discordOauthMe");
+} = require("../../Web/websiteGuildMemberFetch") as typeof import("../../Web/websiteGuildMemberFetch");
+const { fetchDiscordOAuthMe } = require("../../Web/discordOauthMe") as typeof import("../../Web/discordOauthMe");
 
 const UNMUTE_VISIONE_REACTIONS = ["<:thumbsup:1471292172145004768>", "<:thumbsdown:1471292163957457013>"];
 const UNMUTE_PENDING_COLOR = TENANT_EMBED_COLOR;

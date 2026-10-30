@@ -501,7 +501,7 @@ function getPointsRemovedLogChannelId(guildId?) {
   const legacyPuntiTolti = String(IDs.channels?.puntiTolti || "").trim();
   if (legacyPuntiTolti && String(id) === legacyPuntiTolti) {
     try {
-      const { isDiscordStaffChannelPostsEnabled } = require("../Web/discordWorkflowUiGate") as typeof import("../Web/discordWorkflowUiGate");
+      const { isDiscordStaffChannelPostsEnabled } = require("../../Web/discordWorkflowUiGate") as typeof import("../../Web/discordWorkflowUiGate");
       if (!isDiscordStaffChannelPostsEnabled()) return null;
     } catch (_) {}
   }

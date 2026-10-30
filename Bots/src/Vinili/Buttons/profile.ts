@@ -26,7 +26,7 @@ const { ensureCustomPrivateCategory, isChannelInCustomPrivateCategory } = requir
 const { buildCustomVocWeeklyActivityPanelState, buildCustomVocWeeklyActivityEmbedLines, getLastSunday21BoundaryMsAtOrBefore } = require("../Utils/Community/customVocWeeklyActivityUtils") as typeof import("../Utils/Community/customVocWeeklyActivityUtils");
 const { isCustomVocRecreationBlocked } = require("../Services/Community/customVocWeeklyActivityService") as typeof import("../Services/Community/customVocWeeklyActivityService");
 const { withMongoTimeout } = require("../Utils/Database/mongoConnect") as typeof import("../Utils/Database/mongoConnect");
-const { isDiscordProfileEnabled, replyProfileMovedToSite, siteUserProfilePageDiscordRef } = require("../Utils/Web/discordWorkflowUiGate") as typeof import("../Utils/Web/discordWorkflowUiGate");
+const { isDiscordProfileEnabled, replyProfileMovedToSite, siteUserProfilePageDiscordRef } = require("../Web/discordWorkflowUiGate") as typeof import("../Web/discordWorkflowUiGate");
 
 const PROFILE_DB_MS = 10_000;
 const PROFILE_DISCORD_MS = 8_000;

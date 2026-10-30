@@ -23,7 +23,7 @@ const { isLitePerf, resolveSitePerfTier } = require("./sitePerfHints") as typeof
 const {
   fetchWebsiteGuildMember,
   readCachedWebsiteMember,
-} = require("../Utils/Web/websiteGuildMemberFetch") as typeof import("../Utils/Web/websiteGuildMemberFetch");
+} = require("./websiteGuildMemberFetch") as typeof import("./websiteGuildMemberFetch");
 const { listBirthdaysForMonth } = require("../Services/Community/profileStore") as typeof import("../Services/Community/profileStore");
 const { getRomeDateParts } = require("../Services/Community/birthdayService") as typeof import("../Services/Community/birthdayService");
 const { sendJsonWithEtag, weakEtagFromJson } = require("./siteHttpEtag") as typeof import("./siteHttpEtag");
@@ -1893,7 +1893,7 @@ async function handleSiteUsersLeaderboardGet(client?, req?, res?) {
     if (searchId && board === "profile") {
       const profileCacheKey = `profile:v${PROFILE_CACHE_VER}:${guildId}:${searchId}`;
       /* leaveProfileLive1: never serve cached in-guild snapshot after leave/negative */
-      const { isOnNegativeCache } = require("../Utils/Web/websiteGuildMemberFetch") as typeof import("../Utils/Web/websiteGuildMemberFetch");
+      const { isOnNegativeCache } = require("./websiteGuildMemberFetch") as typeof import("./websiteGuildMemberFetch");
       if (isOnNegativeCache(searchId)) {
         try {
           listCache.delete(profileCacheKey);

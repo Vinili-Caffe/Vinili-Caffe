@@ -2,7 +2,7 @@ const { handleCandidatureApplicationInteraction } = require("../Events/interacti
 const {
   isDiscordWorkflowUiEnabled,
   replyWorkflowMovedToSite,
-} = require("../Utils/Web/discordWorkflowUiGate") as typeof import("../Utils/Web/discordWorkflowUiGate");
+} = require("../Web/discordWorkflowUiGate") as typeof import("../Web/discordWorkflowUiGate");
 const APPLY_PREFIXES = ["apply_helper", "apply_partnermanager", "apply_start", "apply_back", "apply_page", "apply_form", "apply_pex"];
 
 function match(interaction?) {

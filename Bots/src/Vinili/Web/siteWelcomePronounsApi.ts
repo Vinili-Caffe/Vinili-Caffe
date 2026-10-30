@@ -2,7 +2,7 @@
 
 const { resolveWebsiteGuildMember } = require("./siteRoleRequestApi") as typeof import("./siteRoleRequestApi");
 const { resolveWelcomeBadge } = require("../Utils/Community/pronounWelcomeUtils") as typeof import("../Utils/Community/pronounWelcomeUtils");
-const { fetchWebsiteGuildMember, clearWebsiteMemberCaches } = require("../Utils/Web/websiteGuildMemberFetch") as typeof import("../Utils/Web/websiteGuildMemberFetch");
+const { fetchWebsiteGuildMember, clearWebsiteMemberCaches } = require("./websiteGuildMemberFetch") as typeof import("./websiteGuildMemberFetch");
 
 const CACHE_TTL_MS = 45_000;
 const cache = new Map();

@@ -619,7 +619,7 @@ async function fetchMembersForStaffList(guild?) {
 }
 
 async function refreshStaffList(client?, guildId = IDs.guilds.main, opts: Record<string, any> = {}) {
-  const { isDiscordStaffChannelPostsEnabled } = require("../Web/discordWorkflowUiGate") as typeof import("../Web/discordWorkflowUiGate");
+  const { isDiscordStaffChannelPostsEnabled } = require("../../Web/discordWorkflowUiGate") as typeof import("../../Web/discordWorkflowUiGate");
   if (!isDiscordStaffChannelPostsEnabled()) return;
   const force = Boolean(opts?.force);
   const bootstrapOnly = Boolean(opts?.bootstrapOnly);
@@ -883,7 +883,7 @@ async function refreshStaffList(client?, guildId = IDs.guilds.main, opts: Record
 }
 
 function startStaffListPeriodicRefreshLoop(client?) {
-  const { isDiscordStaffChannelPostsEnabled } = require("../Web/discordWorkflowUiGate") as typeof import("../Web/discordWorkflowUiGate");
+  const { isDiscordStaffChannelPostsEnabled } = require("../../Web/discordWorkflowUiGate") as typeof import("../../Web/discordWorkflowUiGate");
   if (!isDiscordStaffChannelPostsEnabled()) return;
   if (!client || client._staffListPeriodicRefreshStarted) return;
   client._staffListPeriodicRefreshStarted = true;
@@ -891,7 +891,7 @@ function startStaffListPeriodicRefreshLoop(client?) {
 }
 
 function scheduleStaffListRefresh(client?, guildId = IDs.guilds.main, delayMs = 500, opts: Record<string, any> = {}) {
-  const { isDiscordStaffChannelPostsEnabled } = require("../Web/discordWorkflowUiGate") as typeof import("../Web/discordWorkflowUiGate");
+  const { isDiscordStaffChannelPostsEnabled } = require("../../Web/discordWorkflowUiGate") as typeof import("../../Web/discordWorkflowUiGate");
   if (!isDiscordStaffChannelPostsEnabled()) return;
   const state = ensureState(client);
   const gidKey = String(guildId ?? IDs.guilds.main ?? "").trim();

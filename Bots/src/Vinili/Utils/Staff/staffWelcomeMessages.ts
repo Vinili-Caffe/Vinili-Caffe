@@ -3,7 +3,7 @@ const { getStaffChatThreadIds, getStaffCmdsThreadIds } = require("../Global/glob
 const { applyPronounGenderToTextForMember } = require("../Community/pronounGenderUtils") as typeof import("../Community/pronounGenderUtils");
 const { resolveStaffChatPmThread } = require("./staffChatChannelUtils") as typeof import("./staffChatChannelUtils");
 const { getGuildChannelCached } = require("../Interaction/interactionEntityCache") as typeof import("../Interaction/interactionEntityCache");
-const { siteWorkflowUrl } = require("../Web/discordWorkflowUiGate") as typeof import("../Web/discordWorkflowUiGate");
+const { siteWorkflowUrl } = require("../../Web/discordWorkflowUiGate") as typeof import("../../Web/discordWorkflowUiGate");
 
 function buildHelperStaffWelcomeBody() {
   const staffNews = String(IDs.channels?.staffNews || "").trim();

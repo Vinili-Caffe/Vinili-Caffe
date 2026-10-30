@@ -12,7 +12,7 @@ const {
   nextWebTicketNumber,
 } = require("../Schemas/Web/siteWebTicketSchemas") as typeof import("../Schemas/Web/siteWebTicketSchemas");
 const { resolveWebsiteGuildMember } = require("./siteRoleRequestApi") as typeof import("./siteRoleRequestApi");
-const { fetchWebsiteGuildMember } = require("../Utils/Web/websiteGuildMemberFetch") as typeof import("../Utils/Web/websiteGuildMemberFetch");
+const { fetchWebsiteGuildMember } = require("./websiteGuildMemberFetch") as typeof import("./websiteGuildMemberFetch");
 const { normalizeHeaderSecret } = require("./siteStaffAccessApi") as typeof import("./siteStaffAccessApi");
 const {
   guildMemberDisplayAvatarUrlDynamic,
@@ -30,7 +30,7 @@ const {
   setWebTicketPagePresence,
   clearWebTicketPagePresence,
   shouldSkipWebTicketInAppNotif,
-} = require("../Utils/Web/webTicketPagePresence") as typeof import("../Utils/Web/webTicketPagePresence");
+} = require("./webTicketPagePresence") as typeof import("./webTicketPagePresence");
 const { setTyping: setChatTyping, clearTyping: clearChatTyping } = require("./siteChatTyping") as typeof import("./siteChatTyping");
 const { memberHasStaffRole } = require("../Utils/Community/staffListUtils") as typeof import("../Utils/Community/staffListUtils");
 const { broadcastSiteWebTicketsEvent } = require("./siteSuggestionsBroadcast") as typeof import("./siteSuggestionsBroadcast");
@@ -215,8 +215,8 @@ const { getOrCreateStaffDoc } = require("../Utils/Staff/staffDocUtils") as typeo
 const {
   consumeWebTicketMessageRateLimit,
   checkWebTicketUserMessageAutomod,
-} = require("../Utils/Web/webTicketMessageGuard") as typeof import("../Utils/Web/webTicketMessageGuard");
-const { sendWebTicketDiscordLog, sendWebTicketMessageActivityLog } = require("../Utils/Web/webTicketDiscordLog") as typeof import("../Utils/Web/webTicketDiscordLog");
+} = require("./webTicketMessageGuard") as typeof import("./webTicketMessageGuard");
+const { sendWebTicketDiscordLog, sendWebTicketMessageActivityLog } = require("./webTicketDiscordLog") as typeof import("./webTicketDiscordLog");
 
 const MAX_SUBJECT = 120;
 const MAX_CONTENT = 2000;

@@ -282,13 +282,13 @@ async function main() {
   };
 
   app.get("/webhooks/site-api/health", (_req?, res?) => {
-    const { sendStackHealth } = require("../../Utils/Web/stackHealth") as typeof import("../../Utils/Web/stackHealth");
+    const { sendStackHealth } = require("../../Web/stackHealth") as typeof import("../../Web/stackHealth");
     return sendStackHealth(client, _req, res, { service: "site-api", includeLavalink: false });
   });
   app.get("/webhooks/site-api/perf", (_req?, res?) => {
     let oauth = { size: 0, inflight: 0, ttlMs: 0 };
     try {
-      oauth = require("../../Utils/Web/discordOauthMe").getDiscordOAuthMeCacheStats();
+      oauth = require("../../Web/discordOauthMe").getDiscordOAuthMeCacheStats();
     } catch (_) {}
     res.setHeader("Cache-Control", "no-store");
     return res.status(200).json({
@@ -300,7 +300,7 @@ async function main() {
     });
   });
   app.get("/webhooks/health", (req?, res?) => {
-    const { sendStackHealth } = require("../../Utils/Web/stackHealth") as typeof import("../../Utils/Web/stackHealth");
+    const { sendStackHealth } = require("../../Web/stackHealth") as typeof import("../../Web/stackHealth");
     return sendStackHealth(client, req, res, { service: "site-api", includeLavalink: false });
   });
   app.get("/webhooks/status", (_req?, res?) => {

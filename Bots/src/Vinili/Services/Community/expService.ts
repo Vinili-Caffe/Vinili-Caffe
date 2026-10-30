@@ -10,7 +10,7 @@ const { sendLevelMilestoneSupportersAnnouncement } = require("../../Utils/Commun
 const { applyDefaultFooterToEmbeds } = require("../../Utils/Embeds/defaultFooter") as typeof import("../../Utils/Embeds/defaultFooter");
 const VINILI_EMBED_COLOR_INT = 0x826bc2;
 const { memberDisplayName, resolveEmbedUserAvatarUrl } = require("../../Utils/Discord/guildDiscordIdentity") as typeof import("../../Utils/Discord/guildDiscordIdentity");
-const { parseScheduleMs, parseScheduleEndMs } = require("../../Utils/Web/eventDates") as typeof import("../../Utils/Web/eventDates");
+const { parseScheduleMs, parseScheduleEndMs } = require("../../Utils/Eventi/eventDates") as typeof import("../../Utils/Eventi/eventDates");
 const EXP_EXCLUDED_CATEGORY_IDS = new Set([].filter(Boolean).map((id?) => String(id)),);
 const TIME_ZONE = "Europe/Rome";
 const MESSAGE_EXP = 2;

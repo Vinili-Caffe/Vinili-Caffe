@@ -5,7 +5,7 @@ const { applyWebsiteUnmute } = require("../Events/interaction/unmuteWebsiteHandl
 const {
   isDiscordWorkflowUiEnabled,
   replyWorkflowMovedToSite,
-} = require("../Utils/Web/discordWorkflowUiGate") as typeof import("../Utils/Web/discordWorkflowUiGate");
+} = require("../Web/discordWorkflowUiGate") as typeof import("../Web/discordWorkflowUiGate");
 
 const ACC_PREFIX = "website_unmute_acc";
 const REJ_PREFIX = "website_unmute_rej";

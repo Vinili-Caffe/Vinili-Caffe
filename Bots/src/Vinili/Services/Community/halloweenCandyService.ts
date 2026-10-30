@@ -1,13 +1,13 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js") as typeof import("discord.js");
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
 const { isValidGuildUserId } = require("../../Utils/DB/validateWriteIds") as typeof import("../../Utils/DB/validateWriteIds");
-const { resolveHalloweenEventConfig, isHalloweenEventLive } = require("../../Utils/Web/halloweenEventConfig") as typeof import("../../Utils/Web/halloweenEventConfig");
+const { resolveHalloweenEventConfig, isHalloweenEventLive } = require("../../Utils/Eventi/halloweenEventConfig") as typeof import("../../Utils/Eventi/halloweenEventConfig");
 const {
   getHalloweenCandyById,
   halloweenCandyTotal,
   listHalloweenCandyCatalog,
   normalizeCandyId,
-} = require("../../Utils/Web/halloweenCandyCatalog") as typeof import("../../Utils/Web/halloweenCandyCatalog");
+} = require("../../Utils/Eventi/halloweenCandyCatalog") as typeof import("../../Utils/Eventi/halloweenCandyCatalog");
 
 const CANDY_PATH = "profile.events.halloween.candy";
 const SITE_ORIGIN = "https://www.viniliecaffe.it";
@@ -319,7 +319,7 @@ async function addHalloweenCandy({
   /* testGuildForceLive: sito legge sempre guild main → mirror caramelle sul main */
   try {
     const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
-    const { isHalloweenForceLiveOnTestGuild } = require("../../Utils/Web/halloweenEventConfig") as typeof import("../../Utils/Web/halloweenEventConfig");
+    const { isHalloweenForceLiveOnTestGuild } = require("../../Utils/Eventi/halloweenEventConfig") as typeof import("../../Utils/Eventi/halloweenEventConfig");
     const mainId = normalizeId(IDs.guilds?.main);
     const testId = normalizeId(IDs.guilds?.test);
     if (

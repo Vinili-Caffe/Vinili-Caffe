@@ -3,7 +3,7 @@
  */
 "use strict";
 
-const { fetchDiscordOAuthMe } = require("../Utils/Web/discordOauthMe") as typeof import("../Utils/Web/discordOauthMe");
+const { fetchDiscordOAuthMe } = require("./discordOauthMe") as typeof import("./discordOauthMe");
 const {
   setSitePresence,
   clearSitePresence,

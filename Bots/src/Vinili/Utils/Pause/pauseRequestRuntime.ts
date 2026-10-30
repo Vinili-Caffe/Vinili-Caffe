@@ -9,7 +9,7 @@ const {
   isDiscordWorkflowUiEnabled,
   isDiscordWorkflowChannelPostsEnabled,
   buildInboxManageLinkRow,
-} = require("../Web/discordWorkflowUiGate") as typeof import("../Web/discordWorkflowUiGate");
+} = require("../../Web/discordWorkflowUiGate") as typeof import("../../Web/discordWorkflowUiGate");
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const IT_MONTHS = { gennaio: 1, feb: 2, febbraio: 2, mar: 3, marzo: 3, apr: 4, aprile: 4, mag: 5, maggio: 5, giu: 6, giugno: 6, lug: 7, luglio: 7, ago: 8, agosto: 8, set: 9, sett: 9, settembre: 9, ott: 10, ottobre: 10, nov: 11, novembre: 11, dic: 12, dicembre: 12 };
 const PAUSE_REQUEST_ROLE_IDS = [

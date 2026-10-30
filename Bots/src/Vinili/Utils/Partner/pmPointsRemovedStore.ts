@@ -292,7 +292,7 @@ async function logPmPointsRemoved({
   });
   if (!entry) return null;
   if (mirrorChannel?.isTextBased?.() && mirrorContent) {
-    const { isDiscordStaffChannelPostsEnabled } = require("../Web/discordWorkflowUiGate") as typeof import("../Web/discordWorkflowUiGate");
+    const { isDiscordStaffChannelPostsEnabled } = require("../../Web/discordWorkflowUiGate") as typeof import("../../Web/discordWorkflowUiGate");
     if (!isDiscordStaffChannelPostsEnabled()) return entry;
     const sendOpts: Record<string, any> = { content: mirrorContent, __skipNoticeEmbed: true };
     if (Array.isArray(mirrorComponents) && mirrorComponents.length) sendOpts.components = mirrorComponents;

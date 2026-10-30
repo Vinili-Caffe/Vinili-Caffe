@@ -9,7 +9,7 @@ const {
   siteUserProfilePageUrl,
   siteUserProfilePageDiscordRef,
   siteUserProfilePagePlainRef,
-} = require("../../../shared/web/siteTicketsPageRef") as typeof import("../../../shared/web/siteTicketsPageRef");
+} = require("../../shared/web/siteTicketsPageRef") as typeof import("../../shared/web/siteTicketsPageRef");
 const EPHEMERAL = 1 << 6;
 
 function envFlagOn(name?) {
@@ -90,7 +90,7 @@ function isTenantPrefixProfileEmbedAllowed(guildId?) {
   const gid = String(guildId || "").trim();
   if (!gid) return false;
   try {
-    const { isViniliFullFeatureGuild } = require("../../MultiGuild/core/guildFeatureScope") as typeof import("../../MultiGuild/core/guildFeatureScope");
+    const { isViniliFullFeatureGuild } = require("../MultiGuild/core/guildFeatureScope") as typeof import("../MultiGuild/core/guildFeatureScope");
     if (isViniliFullFeatureGuild(gid)) return false;
   } catch {
     return false;
@@ -100,7 +100,7 @@ function isTenantPrefixProfileEmbedAllowed(guildId?) {
       isPartnershipOperational,
       shouldBlockTenantPartnershipPrefixCommands,
       isTenantPartnershipPrefixToolkitEnabled,
-    } = require("../Partner/partnershipConfigResolver") as typeof import("../Partner/partnershipConfigResolver");
+    } = require("../Utils/Partner/partnershipConfigResolver") as typeof import("../Utils/Partner/partnershipConfigResolver");
     if (shouldBlockTenantPartnershipPrefixCommands(guildId)) return false;
     if (!isTenantPartnershipPrefixToolkitEnabled(guildId)) return false;
     return isPartnershipOperational(guildId);
@@ -117,7 +117,7 @@ function profileMovedToSiteMessage() {
   const url = siteWorkflowUrl("userPersonalize");
   let staffCmdsMention = "#staff-cmds";
   try {
-    const IDs = require("../Config/ids") as typeof import("../Config/ids");
+    const IDs = require("../Utils/Config/ids") as typeof import("../Utils/Config/ids");
     const id = String(IDs.channels?.staffCmds || "").trim();
     if (/^\d{16,20}$/.test(id)) staffCmdsMention = `<#${id}>`;
   } catch (_) {}
@@ -188,7 +188,7 @@ async function replyWorkflowMovedToSite(interaction?, kind?) {
   const components = [buildSiteLinkRow(kind === "tickets" ? "Apri i ticket sul sito" : "Apri sul sito", path)];
   const payload = { content, components, flags: EPHEMERAL };
   try {
-    const { safeReply } = require("../../../shared/discord/replyRuntime") as typeof import("../../../shared/discord/replyRuntime");
+    const { safeReply } = require("../../shared/discord/replyRuntime") as typeof import("../../shared/discord/replyRuntime");
     const ok = await safeReply(interaction, payload).catch(() => false);
     if (ok) return true;
   } catch (_) {}

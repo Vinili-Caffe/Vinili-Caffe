@@ -18,7 +18,7 @@ const {
   sendWebPushTestToEndpoint,
 } = require("./siteWebPushService") as typeof import("./siteWebPushService");
 const { isLitePerf, resolveSitePerfTier } = require("./sitePerfHints") as typeof import("./sitePerfHints");
-const { fetchDiscordOAuthMe } = require("../Utils/Web/discordOauthMe") as typeof import("../Utils/Web/discordOauthMe");
+const { fetchDiscordOAuthMe } = require("./discordOauthMe") as typeof import("./discordOauthMe");
 const { tryNotModified } = require("./siteHttpEtag") as typeof import("./siteHttpEtag");
 
 const BEARER_USER_CACHE_TTL_MS = 90_000;

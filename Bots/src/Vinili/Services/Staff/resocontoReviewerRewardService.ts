@@ -319,7 +319,7 @@ async function reviewerAlreadyHasCompitoForWeekSegment(guild?, staff?, weekKey?,
 }
 
 async function channelHasActiveCompitoForWeekSegment(guild?, staff?, weekKey?, segment?, userId?) {
-  const { isDiscordStaffChannelPostsEnabled } = require("../../Utils/Web/discordWorkflowUiGate") as typeof import("../../Utils/Web/discordWorkflowUiGate");
+  const { isDiscordStaffChannelPostsEnabled } = require("../../Web/discordWorkflowUiGate") as typeof import("../../Web/discordWorkflowUiGate");
   if (!isDiscordStaffChannelPostsEnabled()) return false;
   const wk = String(weekKey || "");
   const seg = String(segment || "");
@@ -559,7 +559,7 @@ async function runResocontoReviewerRewardRecovery(client?) {
   if (recoveryRunning) return;
   recoveryRunning = true;
   try {
-    const { isDiscordStaffChannelPostsEnabled } = require("../../Utils/Web/discordWorkflowUiGate") as typeof import("../../Utils/Web/discordWorkflowUiGate");
+    const { isDiscordStaffChannelPostsEnabled } = require("../../Web/discordWorkflowUiGate") as typeof import("../../Web/discordWorkflowUiGate");
     if (!isDiscordStaffChannelPostsEnabled()) return;
 
     const guildId = String(IDs.guilds?.main || "");

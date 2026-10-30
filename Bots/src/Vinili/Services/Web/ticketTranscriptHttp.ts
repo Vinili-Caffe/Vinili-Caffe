@@ -6,7 +6,7 @@ const {
   normalizeTranscriptViewTokenParam,
   timingSafeHexEq,
 } = require("../../Utils/Ticket/ticketTranscriptSecure") as typeof import("../../Utils/Ticket/ticketTranscriptSecure");
-const { resolvePublicSiteBase } = require("../../Utils/Web/verifyOauthPublicUrl") as typeof import("../../Utils/Web/verifyOauthPublicUrl");
+const { resolvePublicSiteBase } = require("../../Web/verifyOauthPublicUrl") as typeof import("../../Web/verifyOauthPublicUrl");
 
 const RATE_WINDOW_MS = 60_000;
 const RATE_MAX = 120;

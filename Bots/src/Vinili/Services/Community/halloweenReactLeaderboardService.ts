@@ -8,7 +8,7 @@ const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Conf
 const {
   resolveHalloweenEventConfig,
   isHalloweenEventWindowOpen,
-} = require("../../Utils/Web/halloweenEventConfig") as typeof import("../../Utils/Web/halloweenEventConfig");
+} = require("../../Utils/Eventi/halloweenEventConfig") as typeof import("../../Utils/Eventi/halloweenEventConfig");
 
 const DOC_TYPE = SITE_DOCUMENT_TYPE.HOGWARTS_REACT_PRESS;
 const DOC_OWNER = "__halloween_react_lb__";

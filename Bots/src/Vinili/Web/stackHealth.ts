@@ -1,6 +1,6 @@
 const net = require("node:net") as typeof import("node:net");
 const mongoose = require("mongoose") as typeof import("mongoose");
-const { isMongoReady } = require("../Database/mongoConnect") as typeof import("../Database/mongoConnect");
+const { isMongoReady } = require("../Utils/Database/mongoConnect") as typeof import("../Utils/Database/mongoConnect");
 
 function tcpProbe(host?, port?, timeoutMs = 1500) {
   return new Promise((resolve?) => {

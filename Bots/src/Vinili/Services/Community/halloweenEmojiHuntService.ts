@@ -4,7 +4,7 @@ const {
   isHalloweenEventLive,
   resolveHalloweenEventConfig,
   createUtcFromRomeLocal,
-} = require("../../Utils/Web/halloweenEventConfig") as typeof import("../../Utils/Web/halloweenEventConfig");
+} = require("../../Utils/Eventi/halloweenEventConfig") as typeof import("../../Utils/Eventi/halloweenEventConfig");
 const {
   addHalloweenCandyWithPassAlong,
   buildHalloweenCandyUnlockPayload,

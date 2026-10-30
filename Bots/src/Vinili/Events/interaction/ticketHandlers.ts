@@ -94,7 +94,7 @@ const {
   ticketFormOpenBlockReason,
 } = require("../../Utils/Ticket/ticketFormModalRuntime") as typeof import("../../Utils/Ticket/ticketFormModalRuntime");
 const { findGuildFormById, refreshTicketFormsCache } = require("../../MultiGuild/core/tenantTicketForms") as typeof import("../../MultiGuild/core/tenantTicketForms");
-const { isDiscordTicketsEnabled, replyWorkflowMovedToSite } = require("../../Utils/Web/discordWorkflowUiGate") as typeof import("../../Utils/Web/discordWorkflowUiGate");
+const { isDiscordTicketsEnabled, replyWorkflowMovedToSite } = require("../../Web/discordWorkflowUiGate") as typeof import("../../Web/discordWorkflowUiGate");
 
 function isLegacyTicketOpenAction(id?) {
   return ["ticket_partnership", "ticket_supporto", "ticket_highstaff", "ticket_perks"].includes(String(id || ""));

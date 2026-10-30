@@ -9,7 +9,7 @@ const { PAUSE_ROLE_PICK_PREFIX } = require("../Utils/Pause/pauseRequestSubmitRun
 const {
   isDiscordWorkflowUiEnabled,
   replyWorkflowMovedToSite,
-} = require("../Utils/Web/discordWorkflowUiGate") as typeof import("../Utils/Web/discordWorkflowUiGate");
+} = require("../Web/discordWorkflowUiGate") as typeof import("../Web/discordWorkflowUiGate");
 
 const PREFIXES = ["pause_accept:", "pause_reject:", "pause_cancel:", "pause_list:", "pause_list_month:"];
 const PAUSE_REQUEST_MODAL_ID = "pause_request:modal";

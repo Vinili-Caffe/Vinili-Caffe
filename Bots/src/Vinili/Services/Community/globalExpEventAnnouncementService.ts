@@ -2,7 +2,7 @@ const cron = require("node-cron") as typeof import("node-cron");
 const botConfig = require("../../config.json") as typeof import("../../config.json");
 const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
 const { GlobalSettings } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
-const { parseScheduleMs } = require("../../Utils/Web/eventDates") as typeof import("../../Utils/Web/eventDates");
+const { parseScheduleMs } = require("../../Utils/Eventi/eventDates") as typeof import("../../Utils/Eventi/eventDates");
 const { getClientChannelCached } = require("../../Utils/Interaction/interactionEntityCache") as typeof import("../../Utils/Interaction/interactionEntityCache");
 const { runCronDetached } = require("../../../shared/scheduling/cronDetached") as typeof import("../../../shared/scheduling/cronDetached");
 

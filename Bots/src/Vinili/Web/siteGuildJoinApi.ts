@@ -1,7 +1,7 @@
 "use strict";
 
 const IDs = require("../Utils/Config/ids") as typeof import("../Utils/Config/ids");
-const { fetchDiscordOAuthMe } = require("../Utils/Web/discordOauthMe") as typeof import("../Utils/Web/discordOauthMe");
+const { fetchDiscordOAuthMe } = require("./discordOauthMe") as typeof import("./discordOauthMe");
 
 const JOIN_COOLDOWN_MS = 60_000;
 const recentJoinByUser = new Map();

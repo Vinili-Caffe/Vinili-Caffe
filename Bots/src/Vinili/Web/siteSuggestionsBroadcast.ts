@@ -345,7 +345,7 @@ function invalidateLeftMemberSiteCaches(userId?, guildId?) {
   const uid = String(userId || "").trim();
   if (!uid) return;
   try {
-    const { markWebsiteMemberLeft } = require("../Utils/Web/websiteGuildMemberFetch") as typeof import("../Utils/Web/websiteGuildMemberFetch");
+    const { markWebsiteMemberLeft } = require("./websiteGuildMemberFetch") as typeof import("./websiteGuildMemberFetch");
     markWebsiteMemberLeft(uid);
   } catch (_) {}
   try {

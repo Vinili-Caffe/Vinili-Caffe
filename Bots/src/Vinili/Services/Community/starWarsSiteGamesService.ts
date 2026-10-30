@@ -6,12 +6,12 @@
 
 const { SiteDocument, SITE_DOCUMENT_TYPE, ActivityUserProfile } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
 const { isValidGuildUserId } = require("../../Utils/DB/validateWriteIds") as typeof import("../../Utils/DB/validateWriteIds");
-const { resolveStarWarsEventConfig } = require("../../Utils/Web/starWarsEventConfig") as typeof import("../../Utils/Web/starWarsEventConfig");
-const { FEATURES, resolveFeatureStateNow } = require("../../Utils/Web/starWarsEventCalendar") as typeof import("../../Utils/Web/starWarsEventCalendar");
-const { ADVENT_EVENT_KEY } = require("../../Utils/Web/starWarsAdventCatalog") as typeof import("../../Utils/Web/starWarsAdventCatalog");
+const { resolveStarWarsEventConfig } = require("../../Utils/Eventi/starWarsEventConfig") as typeof import("../../Utils/Eventi/starWarsEventConfig");
+const { FEATURES, resolveFeatureStateNow } = require("../../Utils/Eventi/starWarsEventCalendar") as typeof import("../../Utils/Eventi/starWarsEventCalendar");
+const { ADVENT_EVENT_KEY } = require("../../Utils/Eventi/starWarsAdventCatalog") as typeof import("../../Utils/Eventi/starWarsAdventCatalog");
 const { getStarWarsWallet, ROOT, publicWallet } = require("./starWarsEventWalletService") as typeof import("./starWarsEventWalletService");
 const { grantStarWarsReward } = require("./starWarsRewardsService") as typeof import("./starWarsRewardsService");
-const { getRuntimeFlags } = require("../../Utils/Web/starWarsRuntimeGate") as typeof import("../../Utils/Web/starWarsRuntimeGate");
+const { getRuntimeFlags } = require("../../Utils/Eventi/starWarsRuntimeGate") as typeof import("../../Utils/Eventi/starWarsRuntimeGate");
 
 const DOC_TYPE = SITE_DOCUMENT_TYPE.STARWARS_EVENT_STATE;
 const OWNER = "__starwars_site_games__";

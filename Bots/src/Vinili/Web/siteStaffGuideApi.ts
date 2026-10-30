@@ -18,7 +18,7 @@ const {
   buildDefaultRoleNameMap,
   buildDefaultChannelNameMap,
   humanizeIdKey,
-} = require("../Utils/Web/discordGuideMarkdown") as typeof import("../Utils/Web/discordGuideMarkdown");
+} = require("./discordGuideMarkdown") as typeof import("./discordGuideMarkdown");
 
 function buildRoleNameMap(guild?) {
   const map = buildDefaultRoleNameMap(IDs);

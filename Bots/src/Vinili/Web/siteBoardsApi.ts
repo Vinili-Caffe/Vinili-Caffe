@@ -7,7 +7,7 @@ const fs = require("node:fs") as typeof import("node:fs");
 const path = require("node:path") as typeof import("node:path");
 const mongoose = require("mongoose") as typeof import("mongoose");
 const { SiteDocument, SITE_DOCUMENT_TYPE } = require("../Schemas/Community/communitySchemas") as typeof import("../Schemas/Community/communitySchemas");
-const { fetchDiscordOAuthMe } = require("../Utils/Web/discordOauthMe") as typeof import("../Utils/Web/discordOauthMe");
+const { fetchDiscordOAuthMe } = require("./discordOauthMe") as typeof import("./discordOauthMe");
 const { assertWebsiteStaffAccess } = require("./siteStaffAccessApi") as typeof import("./siteStaffAccessApi");
 const { memberIsHighStaffEligible } = require("../Utils/Staff/staffRoleHierarchy") as typeof import("../Utils/Staff/staffRoleHierarchy");
 const {

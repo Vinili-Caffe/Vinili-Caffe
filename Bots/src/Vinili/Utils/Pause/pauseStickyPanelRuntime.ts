@@ -7,7 +7,7 @@ const {
   isDiscordWorkflowUiEnabled,
   buildSiteLinkRow,
   siteWorkflowPath,
-} = require("../Web/discordWorkflowUiGate") as typeof import("../Web/discordWorkflowUiGate");
+} = require("../../Web/discordWorkflowUiGate") as typeof import("../../Web/discordWorkflowUiGate");
 const { buildVcPagePayload } = require("../Embeds/vcPageEmbedV2") as typeof import("../Embeds/vcPageEmbedV2");
 
 const PAUSE_REQUEST_OPEN_ID = "pause_request:open";

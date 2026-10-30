@@ -1,7 +1,7 @@
 const { randomInt } = require("crypto") as typeof import("crypto");
 const { EmbedBuilder } = require("discord.js") as typeof import("discord.js");
 const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
-const { resolvePublicSiteBase } = require("../../Utils/Web/verifyOauthPublicUrl") as typeof import("../../Utils/Web/verifyOauthPublicUrl");
+const { resolvePublicSiteBase } = require("../../Web/verifyOauthPublicUrl") as typeof import("../../Web/verifyOauthPublicUrl");
 const publicSiteBase = resolvePublicSiteBase();
 const { siteTicketsPageUrl } = require("../../../shared/web/siteTicketsPageRef") as typeof import("../../../shared/web/siteTicketsPageRef");
 const suggestionSiteUrl = `${publicSiteBase}/feedback`;

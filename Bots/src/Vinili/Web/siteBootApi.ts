@@ -5,7 +5,7 @@
 "use strict";
 
 const { ActivityUserProfile } = require("../Schemas/Community/communitySchemas") as typeof import("../Schemas/Community/communitySchemas");
-const { fetchDiscordOAuthMe } = require("../Utils/Web/discordOauthMe") as typeof import("../Utils/Web/discordOauthMe");
+const { fetchDiscordOAuthMe } = require("./discordOauthMe") as typeof import("./discordOauthMe");
 const { resolveWebsiteGuildMember } = require("./siteRoleRequestApi") as typeof import("./siteRoleRequestApi");
 const { sanitizeChromePrefs } = require("./siteChromePrefsApi") as typeof import("./siteChromePrefsApi");
 const { countSiteInAppUnreadForUser } = require("./siteInAppNotificationsService") as typeof import("./siteInAppNotificationsService");

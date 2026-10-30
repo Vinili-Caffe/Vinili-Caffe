@@ -6,10 +6,10 @@ const crypto = require("crypto") as typeof import("crypto");
 const fs = require("node:fs") as typeof import("node:fs");
 const path = require("node:path") as typeof import("node:path");
 const IDs = require("../Utils/Config/ids") as typeof import("../Utils/Config/ids");
-const { fetchDiscordOAuthMe } = require("../Utils/Web/discordOauthMe") as typeof import("../Utils/Web/discordOauthMe");
+const { fetchDiscordOAuthMe } = require("./discordOauthMe") as typeof import("./discordOauthMe");
 const { assertWebsiteStaffAccess } = require("./siteStaffAccessApi") as typeof import("./siteStaffAccessApi");
 const { SiteContest } = require("../Schemas/Web/siteContestSchemas") as typeof import("../Schemas/Web/siteContestSchemas");
-const { fetchWebsiteGuildMember } = require("../Utils/Web/websiteGuildMemberFetch") as typeof import("../Utils/Web/websiteGuildMemberFetch");
+const { fetchWebsiteGuildMember } = require("./websiteGuildMemberFetch") as typeof import("./websiteGuildMemberFetch");
 const { enqueueSiteInAppNotification } = require("./siteInAppNotificationsService") as typeof import("./siteInAppNotificationsService");
 const IDsGuild = () => String(IDs?.guilds?.main || "").trim();
 

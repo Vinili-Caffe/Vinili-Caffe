@@ -3058,7 +3058,7 @@ async function syncAppealsToWorkflowStore(guild?, opts: Record<string, any> = {}
 }
 
 async function syncResocontiToWorkflowStore(guild?, opts: Record<string, any> = {}) {
-  const { isDiscordStaffChannelPostsEnabled } = require("../Utils/Web/discordWorkflowUiGate") as typeof import("../Utils/Web/discordWorkflowUiGate");
+  const { isDiscordStaffChannelPostsEnabled } = require("./discordWorkflowUiGate") as typeof import("./discordWorkflowUiGate");
   if (!isDiscordStaffChannelPostsEnabled()) return 0;
   const guildId = String(guild?.id || "").trim();
   if (!guildId) return 0;

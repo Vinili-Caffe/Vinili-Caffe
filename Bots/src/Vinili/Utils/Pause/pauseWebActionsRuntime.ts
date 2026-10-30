@@ -466,7 +466,7 @@ async function acceptPauseRequestWeb(client?, guild?, actorMember?, userId?, pau
     const {
       isDiscordWorkflowUiEnabled,
       buildInboxManageLinkRow,
-    } = require("../Web/discordWorkflowUiGate") as typeof import("../Web/discordWorkflowUiGate");
+    } = require("../../Web/discordWorkflowUiGate") as typeof import("../../Web/discordWorkflowUiGate");
     const discordUi = isDiscordWorkflowUiEnabled();
     const buttonsRow = discordUi
       ? buildAcceptedButtonsRow(userId, pauseId, {
@@ -642,7 +642,7 @@ async function cancelPauseRequestWeb(client?, guild?, actorMember?, userId?, pau
     const {
       isDiscordWorkflowUiEnabled,
       buildInboxManageLinkRow,
-    } = require("../Web/discordWorkflowUiGate") as typeof import("../Web/discordWorkflowUiGate");
+    } = require("../../Web/discordWorkflowUiGate") as typeof import("../../Web/discordWorkflowUiGate");
     const discordUi = isDiscordWorkflowUiEnabled();
     const buttonsRow = discordUi
       ? buildAcceptedButtonsRow(userId, pauseId, { hideCancel: true })

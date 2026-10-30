@@ -17,7 +17,7 @@ const {
   canAutoSpawnFeature,
   getRuntimeFlags,
   isHighStaffMember,
-} = require("../../Utils/Web/starWarsRuntimeGate") as typeof import("../../Utils/Web/starWarsRuntimeGate");
+} = require("../../Utils/Eventi/starWarsRuntimeGate") as typeof import("../../Utils/Eventi/starWarsRuntimeGate");
 const { grantStarWarsReward } = require("./starWarsRewardsService") as typeof import("./starWarsRewardsService");
 
 const DOC_TYPE = SITE_DOCUMENT_TYPE.STARWARS_EVENT_STATE;

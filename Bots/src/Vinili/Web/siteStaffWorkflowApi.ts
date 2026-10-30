@@ -247,7 +247,7 @@ async function fetchWorkflowItemDetail(client?, guild?, access?, queue?, itemId?
   const canManageHighStaff = memberIsHighStaffEligible(access.member);
   const q = String(queue || "").trim().toLowerCase();
   const id = String(itemId || "").trim();
-  const { isDiscordWorkflowChannelPostsEnabled } = require("../Utils/Web/discordWorkflowUiGate") as typeof import("../Utils/Web/discordWorkflowUiGate");
+  const { isDiscordWorkflowChannelPostsEnabled } = require("./discordWorkflowUiGate") as typeof import("./discordWorkflowUiGate");
   const discordPosts = isDiscordWorkflowChannelPostsEnabled();
 
   if (q === "pause" && !canManageHighStaff) {

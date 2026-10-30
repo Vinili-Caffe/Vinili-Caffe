@@ -12,7 +12,7 @@ const {
   ensureWatchedMovieNightTitlesReady,
   mergeWatchedTitleEntries,
 } = require("../../Utils/Community/movieNightWatchedTitles") as typeof import("../../Utils/Community/movieNightWatchedTitles");
-const { siteWorkflowUrl } = require("../../Utils/Web/discordWorkflowUiGate") as typeof import("../../Utils/Web/discordWorkflowUiGate");
+const { siteWorkflowUrl } = require("../../Web/discordWorkflowUiGate") as typeof import("../../Web/discordWorkflowUiGate");
 const { startSerataFilmAttendanceSession, snapshotSerataFilmAttendance, clearSerataFilmAttendanceSession, restoreSerataFilmAttendanceSession } = require("./serataFilmAttendance") as typeof import("./serataFilmAttendance");
 const { startSerataFilmSession, finishSerataFilmSessionsForChannel } = require("../Staff/staffAutoValutazioniService") as typeof import("../Staff/staffAutoValutazioniService");
 const TIME_ZONE = "Europe/Rome";

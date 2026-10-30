@@ -7,7 +7,7 @@ const {
   createLinkAuthorizeUrl,
   getLinkStatus,
   unlinkKickAccount,
-} = require("../../Services/Community/kickSubscriberSyncService") as typeof import("../../Services/Community/kickSubscriberSyncService");
+} = require("../Services/Community/kickSubscriberSyncService") as typeof import("../Services/Community/kickSubscriberSyncService");
 
 function htmlPage(title?, body?) {
   return `<!doctype html><html lang="it"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>${title}</title>

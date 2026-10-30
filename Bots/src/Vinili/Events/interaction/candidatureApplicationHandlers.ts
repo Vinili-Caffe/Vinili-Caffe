@@ -88,8 +88,8 @@ const {
   ensureWebsiteGuild,
   fetchWebsiteGuildMember,
   isUnknownMemberError,
-} = require("../../Utils/Web/websiteGuildMemberFetch") as typeof import("../../Utils/Web/websiteGuildMemberFetch");
-const { DISCORD_OAUTH_UA, fetchDiscordOAuthMe } = require("../../Utils/Web/discordOauthMe") as typeof import("../../Utils/Web/discordOauthMe");
+} = require("../../Web/websiteGuildMemberFetch") as typeof import("../../Web/websiteGuildMemberFetch");
+const { DISCORD_OAUTH_UA, fetchDiscordOAuthMe } = require("../../Web/discordOauthMe") as typeof import("../../Web/discordOauthMe");
 
 function withTimeout(promise?, timeoutMs?, label?) {
   let timer = null;
@@ -1014,7 +1014,7 @@ async function postCandidatureToVisioneModuli(client?, guild?, user?, type?, ans
     isDiscordWorkflowChannelPostsEnabled,
     buildInboxManageLinkRow,
     newSiteWorkflowMessageId,
-  } = require("../../Utils/Web/discordWorkflowUiGate") as typeof import("../../Utils/Web/discordWorkflowUiGate");
+  } = require("../../Web/discordWorkflowUiGate") as typeof import("../../Web/discordWorkflowUiGate");
   const discordPosts = isDiscordWorkflowChannelPostsEnabled();
   const discordUi = isDiscordWorkflowUiEnabled();
 

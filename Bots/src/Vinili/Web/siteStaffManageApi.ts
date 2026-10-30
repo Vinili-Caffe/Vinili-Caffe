@@ -30,7 +30,7 @@ const {
 } = require("../Utils/Staff/staffPanelActions") as typeof import("../Utils/Staff/staffPanelActions");
 const { viewerIsFounder } = require("../Utils/Staff/staffProfilePanelRuntime") as typeof import("../Utils/Staff/staffProfilePanelRuntime");
 const { clearStaffProfileCacheForUser } = require("./siteStaffProfileApi") as typeof import("./siteStaffProfileApi");
-const { clearWebsiteMemberCaches, fetchWebsiteGuildMember, ensureWebsiteGuild } = require("../Utils/Web/websiteGuildMemberFetch") as typeof import("../Utils/Web/websiteGuildMemberFetch");
+const { clearWebsiteMemberCaches, fetchWebsiteGuildMember, ensureWebsiteGuild } = require("./websiteGuildMemberFetch") as typeof import("./websiteGuildMemberFetch");
 const {
   runValutazionePositiveAddForPanel,
   runValutazioneNegativeAddForPanel,

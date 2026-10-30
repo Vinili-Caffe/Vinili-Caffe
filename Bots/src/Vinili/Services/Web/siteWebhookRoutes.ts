@@ -3,7 +3,7 @@ const {
   resolveDiscordOauthClientIdForSite,
   resolveDiscordOauthRedirectUriForSite,
   normalizeSiteOAuthReturnPath,
-} = require("../../Utils/Web/verifyOauthPublicUrl") as typeof import("../../Utils/Web/verifyOauthPublicUrl");
+} = require("../../Web/verifyOauthPublicUrl") as typeof import("../../Web/verifyOauthPublicUrl");
 
 function isCandidatureWebsiteApiEnabled() {
   return ["1", "true", "yes", "on"].includes(String(process.env.WEBSITE_CANDIDATURE_HTTP || "").trim().toLowerCase());
@@ -213,7 +213,7 @@ function mountSiteWebhookRoutes(app?, client?, deps?) {
     );
   }
 
-  const { buildCommunityRulesSitePayload } = require("../../Utils/Web/communityRulesPayload") as typeof import("../../Utils/Web/communityRulesPayload");
+  const { buildCommunityRulesSitePayload } = require("../../Web/communityRulesPayload") as typeof import("../../Web/communityRulesPayload");
   const { handleSiteUsersLeaderboardGet } = require("../../Web/siteUsersLeaderboardApi") as typeof import("../../Web/siteUsersLeaderboardApi");
   const { handleSiteVoteGet } = require("../../Web/siteVoteApi") as typeof import("../../Web/siteVoteApi");
   const { handleSiteWordleTodayGet, handleSiteWordleGuessPost } = require("../../Web/siteWordleApi") as typeof import("../../Web/siteWordleApi");
@@ -314,7 +314,7 @@ function mountSiteWebhookRoutes(app?, client?, deps?) {
     handleSiteChromePrefsPost,
   } = require("../../Web/siteChromePrefsApi") as typeof import("../../Web/siteChromePrefsApi");
   const { handleSiteCookieConsentGet } = require("../../Web/siteCookieConsentApi") as typeof import("../../Web/siteCookieConsentApi");
-  const { fetchDiscordOAuthMe } = require("../../Utils/Web/discordOauthMe") as typeof import("../../Utils/Web/discordOauthMe");
+  const { fetchDiscordOAuthMe } = require("../../Web/discordOauthMe") as typeof import("../../Web/discordOauthMe");
   const { handleSiteStaffAccessGet } = require("../../Web/siteStaffAccessApi") as typeof import("../../Web/siteStaffAccessApi");
   const {
     handleSiteConfessionaleGet,
@@ -943,23 +943,23 @@ function mountSiteWebhookRoutes(app?, client?, deps?) {
     return handleSiteKickLiveProxy(client, req, res);
   });
   app.get("/webhooks/site-kick-sub/oauth-callback", (req?, res?) => {
-    const { handleKickSubOAuthCallback } = require("../../Utils/Web/kickSubscriberWebhookApi") as typeof import("../../Utils/Web/kickSubscriberWebhookApi");
+    const { handleKickSubOAuthCallback } = require("../../Web/kickSubscriberWebhookApi") as typeof import("../../Web/kickSubscriberWebhookApi");
     return handleKickSubOAuthCallback(client, req, res);
   });
   app.get("/webhooks/site-kick-sub/oauth-start", (req?, res?) => {
-    const { handleKickSubOAuthStartGet } = require("../../Utils/Web/kickSubscriberWebhookApi") as typeof import("../../Utils/Web/kickSubscriberWebhookApi");
+    const { handleKickSubOAuthStartGet } = require("../../Web/kickSubscriberWebhookApi") as typeof import("../../Web/kickSubscriberWebhookApi");
     return handleKickSubOAuthStartGet(client, req, res);
   });
   app.get("/webhooks/site-kick-sub/status", (req?, res?) => {
-    const { handleKickSubStatusGet } = require("../../Utils/Web/kickSubscriberWebhookApi") as typeof import("../../Utils/Web/kickSubscriberWebhookApi");
+    const { handleKickSubStatusGet } = require("../../Web/kickSubscriberWebhookApi") as typeof import("../../Web/kickSubscriberWebhookApi");
     return handleKickSubStatusGet(client, req, res);
   });
   app.post("/webhooks/site-kick-sub/unlink", (req?, res?) => {
-    const { handleKickSubUnlinkPost } = require("../../Utils/Web/kickSubscriberWebhookApi") as typeof import("../../Utils/Web/kickSubscriberWebhookApi");
+    const { handleKickSubUnlinkPost } = require("../../Web/kickSubscriberWebhookApi") as typeof import("../../Web/kickSubscriberWebhookApi");
     return handleKickSubUnlinkPost(client, req, res);
   });
   app.post("/webhooks/site-kick-sub/events", (req?, res?) => {
-    const { handleKickSubEventsWebhook } = require("../../Utils/Web/kickSubscriberWebhookApi") as typeof import("../../Utils/Web/kickSubscriberWebhookApi");
+    const { handleKickSubEventsWebhook } = require("../../Web/kickSubscriberWebhookApi") as typeof import("../../Web/kickSubscriberWebhookApi");
     return handleKickSubEventsWebhook(client, req, res);
   });
   app.get("/webhooks/site-wiki-help", async (req?, res?) => {

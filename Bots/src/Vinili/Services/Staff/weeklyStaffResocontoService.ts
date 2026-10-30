@@ -2220,7 +2220,7 @@ function buildResocontoButtons(kind?, userId?, actionKey?, roleId = null) {
   const {
     isDiscordWorkflowUiEnabled,
     buildInboxManageLinkRow,
-  } = require("../../Utils/Web/discordWorkflowUiGate") as typeof import("../../Utils/Web/discordWorkflowUiGate");
+  } = require("../../Web/discordWorkflowUiGate") as typeof import("../../Web/discordWorkflowUiGate");
   if (!isDiscordWorkflowUiEnabled()) {
     return buildInboxManageLinkRow("resoconti");
   }
@@ -2360,7 +2360,7 @@ async function filterResocontoReviewersNotInPause(guildId?, reviewerUserIds?) {
 
 async function createResocontoThread(message?, userId?, userLabel = null, staffDoc = null, segment = null, staffRoleId = null) {
   try {
-    const { isDiscordWorkflowUiEnabled } = require("../../Utils/Web/discordWorkflowUiGate") as typeof import("../../Utils/Web/discordWorkflowUiGate");
+    const { isDiscordWorkflowUiEnabled } = require("../../Web/discordWorkflowUiGate") as typeof import("../../Web/discordWorkflowUiGate");
     if (!isDiscordWorkflowUiEnabled()) return;
   } catch (_) {}
   if (!message?.startThread) return;
@@ -2573,7 +2573,7 @@ async function runWeeklyStaffResocontoSegment(client?, segment?, opts: Record<st
     isDiscordWorkflowChannelPostsEnabled,
     isDiscordStaffChannelPostsEnabled,
     newSiteWorkflowMessageId,
-  } = require("../../Utils/Web/discordWorkflowUiGate") as typeof import("../../Utils/Web/discordWorkflowUiGate");
+  } = require("../../Web/discordWorkflowUiGate") as typeof import("../../Web/discordWorkflowUiGate");
   const discordPostsEnabled =
     isDiscordStaffChannelPostsEnabled() && isDiscordWorkflowChannelPostsEnabled();
 

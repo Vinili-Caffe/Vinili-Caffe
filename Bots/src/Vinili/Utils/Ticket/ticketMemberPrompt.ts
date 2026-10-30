@@ -3,7 +3,7 @@ const Ticket = require("../../Schemas/Ticket/ticketSchema");
 const { getGuildMemberCached } = require("../Interaction/interactionEntityCache") as typeof import("../Interaction/interactionEntityCache");
 const { isTicketOpenedByMember, memberCanActAsTicketStaff } = require("./ticketStaffPanelBuild") as typeof import("./ticketStaffPanelBuild");
 const { editTicketMemberOverwrite } = require("./ticketHighStaffOverwrites") as typeof import("./ticketHighStaffOverwrites");
-const { isDiscordTicketsEnabled } = require("../Web/discordWorkflowUiGate") as typeof import("../Web/discordWorkflowUiGate");
+const { isDiscordTicketsEnabled } = require("../../Web/discordWorkflowUiGate") as typeof import("../../Web/discordWorkflowUiGate");
 
 const TICKET_MEMBER_PROMPT_TTL_MS = 90_000;
 const pendingTicketMemberPrompts = new Map();

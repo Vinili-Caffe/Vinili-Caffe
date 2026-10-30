@@ -571,7 +571,7 @@ function resolveCompitoPurgeSinceMs(referenceNow = new Date()) {
 }
 
 async function purgeDuplicateCompitoSettimanaleValutazioni(client?, opts: Record<string, any> = {}) {
-  const { isDiscordStaffChannelPostsEnabled } = require("../../Utils/Web/discordWorkflowUiGate") as typeof import("../../Utils/Web/discordWorkflowUiGate");
+  const { isDiscordStaffChannelPostsEnabled } = require("../../Web/discordWorkflowUiGate") as typeof import("../../Web/discordWorkflowUiGate");
   if (!isDiscordStaffChannelPostsEnabled()) return { ok: false, skipped: "staff_discord_posts_disabled" };
   const dryRun = Boolean(opts.dryRun);
   const guildId = String(IDs.guilds?.main || "");

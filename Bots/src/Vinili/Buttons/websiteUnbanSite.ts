@@ -4,7 +4,7 @@ const { enqueueSiteInAppNotification } = require("../Web/siteInAppNotificationsS
 const {
   isDiscordWorkflowUiEnabled,
   replyWorkflowMovedToSite,
-} = require("../Utils/Web/discordWorkflowUiGate") as typeof import("../Utils/Web/discordWorkflowUiGate");
+} = require("../Web/discordWorkflowUiGate") as typeof import("../Web/discordWorkflowUiGate");
 const ACC_PREFIX = "website_unban_acc";
 const REJ_PREFIX = "website_unban_rej";
 const EPHEMERAL = 1 << 6;

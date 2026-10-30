@@ -5,8 +5,8 @@ const COOLDOWN = SITE_DOCUMENT_TYPE.ROLE_REQUEST_COOLDOWN;
 const { createSiteRoleJoinRequest } = require("../Events/interaction/customRoleHandlers") as typeof import("../Events/interaction/customRoleHandlers");
 const { isArchivedEventRoleId } = require("../Utils/Community/userCustomRoleFilter") as typeof import("../Utils/Community/userCustomRoleFilter");
 const { collectBlockedSystemRoleIds, isListableUserCustomRole } = require("../Utils/Community/userCustomRoleFilter") as typeof import("../Utils/Community/userCustomRoleFilter");
-const { fetchWebsiteGuildMember, isOnNegativeCache, readCachedWebsiteMember, writeCachedWebsiteMember, ensureWebsiteGuild } = require("../Utils/Web/websiteGuildMemberFetch") as typeof import("../Utils/Web/websiteGuildMemberFetch");
-const { DISCORD_OAUTH_UA, fetchDiscordOAuthMe } = require("../Utils/Web/discordOauthMe") as typeof import("../Utils/Web/discordOauthMe");
+const { fetchWebsiteGuildMember, isOnNegativeCache, readCachedWebsiteMember, writeCachedWebsiteMember, ensureWebsiteGuild } = require("./websiteGuildMemberFetch") as typeof import("./websiteGuildMemberFetch");
+const { DISCORD_OAUTH_UA, fetchDiscordOAuthMe } = require("./discordOauthMe") as typeof import("./discordOauthMe");
 
 const ROLE_REQUEST_COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000;
 const BLOCKED_ROLE_IDS = collectBlockedSystemRoleIds();

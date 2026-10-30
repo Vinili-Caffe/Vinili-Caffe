@@ -154,7 +154,7 @@ async function processOneVerifyPanel(client?, guildId?, verifyChannelIds?) {
   }
 
   const color = client.config?.embedVerify || SPONSOR_PANEL_COLOR;
-  const { buildSiteVerifyOAuthStartUrl } = require("../Utils/Web/verifyOauthPublicUrl") as typeof import("../Utils/Web/verifyOauthPublicUrl");
+  const { buildSiteVerifyOAuthStartUrl } = require("../Web/verifyOauthPublicUrl") as typeof import("../Web/verifyOauthPublicUrl");
   const verifyUrl = buildSiteVerifyOAuthStartUrl(guildId);
   const verifyRow = new ActionRowBuilder().addComponents(
     new ButtonBuilder()

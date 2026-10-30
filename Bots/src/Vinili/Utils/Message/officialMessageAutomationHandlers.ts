@@ -1128,7 +1128,7 @@ async function handlePauseChannelMessage(message?) {
     const {
       isDiscordWorkflowUiEnabled,
       siteWorkflowUrl,
-    } = require("../Web/discordWorkflowUiGate") as typeof import("../Web/discordWorkflowUiGate");
+    } = require("../../Web/discordWorkflowUiGate") as typeof import("../../Web/discordWorkflowUiGate");
     if (!isDiscordWorkflowUiEnabled()) {
       const warning = await message.channel
         .send({

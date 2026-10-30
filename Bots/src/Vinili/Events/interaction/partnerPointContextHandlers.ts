@@ -21,7 +21,7 @@ const IN_RULE = "regolaViolata";
 const EPHEMERAL = MessageFlags.Ephemeral;
 
 async function resolvePartnerLogChannel(guild?) {
-  const { isDiscordStaffChannelPostsEnabled } = require("../../Utils/Web/discordWorkflowUiGate") as typeof import("../../Utils/Web/discordWorkflowUiGate");
+  const { isDiscordStaffChannelPostsEnabled } = require("../../Web/discordWorkflowUiGate") as typeof import("../../Web/discordWorkflowUiGate");
   if (!isDiscordStaffChannelPostsEnabled()) return null;
   const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
   const { primary, fallback } = getPartnershipLogChannelIds(guild?.id);

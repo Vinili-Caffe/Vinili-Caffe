@@ -42,7 +42,7 @@ async function ensureResocontoStaffChannelMemberOverwrite(channel?, userId?) {
 }
 
 async function ensureResocontoStaffChannelAccessOnReady(client?) {
-  const { isDiscordStaffChannelPostsEnabled } = require("../../Utils/Web/discordWorkflowUiGate") as typeof import("../../Utils/Web/discordWorkflowUiGate");
+  const { isDiscordStaffChannelPostsEnabled } = require("../../Web/discordWorkflowUiGate") as typeof import("../../Web/discordWorkflowUiGate");
   if (!isDiscordStaffChannelPostsEnabled()) return;
 
   const guildId = String(IDs.guilds?.main || "");
