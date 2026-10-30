@@ -21,8 +21,6 @@ const { startBirthdayLoop } = require("../Services/Community/birthdayService") a
 const { startDailyMemberStatsLoop } = require("../Services/Community/dailyMemberStatsService") as typeof import("../Services/Community/dailyMemberStatsService");
 const { startDailyEngagementStatsLoop } = require("../Services/Community/dailyEngagementStatsService") as typeof import("../Services/Community/dailyEngagementStatsService");
 const { startDailyChannelMessageStatsLoop } = require("../Services/Community/dailyChannelMessageStatsService") as typeof import("../Services/Community/dailyChannelMessageStatsService");
-const { purgeDisabledTrisSessions } = require("../Utils/Economy/trisGuiRuntime") as typeof import("../Utils/Economy/trisGuiRuntime");
-const { startHogwartsEventEndLoop } = require("../Services/Community/hogwartsEventEndService") as typeof import("../Services/Community/hogwartsEventEndService");
 const { migrateLegacyDailyStatsCollections } = require("../Services/Community/dailyStatsStore") as typeof import("../Services/Community/dailyStatsStore");
 const { restoreTempBans } = require("../Services/Moderation/joinRaidService") as typeof import("../Services/Moderation/joinRaidService");
 const { sweepExpiredCommunicationTimeoutMirrors, reconcileIncompleteActiveMuteMirrors } = require("../Services/Moderation/mutedMirrorRoleService") as typeof import("../Services/Moderation/mutedMirrorRoleService");
@@ -1231,7 +1229,6 @@ function startPrimaryLoops(client?, engagementTick?) {
       const { startStarWarsMinigamesLoop } = require("../Services/Community/starWarsDiscordMinigamesService") as typeof import("../Services/Community/starWarsDiscordMinigamesService");
       startStarWarsMinigamesLoop(client);
     }],
-    ["[HOGWARTS FINALE PRIZES] Failed to start completion loop", () => startHogwartsEventEndLoop(client)],
     ["[DAILY MEMBER STATS] Failed to start loop", () => startDailyMemberStatsLoop(client)],
     ["[DAILY ENGAGEMENT STATS] Failed to start loop", () => startDailyEngagementStatsLoop(client)],
     ["[DAILY CHANNEL MESSAGE STATS] Failed to start loop", () => startDailyChannelMessageStatsLoop(client)],

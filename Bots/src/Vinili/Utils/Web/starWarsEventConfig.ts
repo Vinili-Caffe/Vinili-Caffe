@@ -4,7 +4,7 @@
  */
 "use strict";
 
-const { parseEventDateMs } = require("./hogwartsSortingConfig") as typeof import("./hogwartsSortingConfig");
+const { parseEventDateMs } = require("./eventDates") as typeof import("./eventDates");
 
 const DEFAULT_EVENT_KEY = "starwars_2026";
 

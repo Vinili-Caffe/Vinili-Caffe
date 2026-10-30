@@ -10,12 +10,6 @@ const { scheduleMemberCounterRefresh } = require("../Utils/Community/memberCount
 const { getStaffRoleEmojiByRoleId } = require("../Utils/Community/staffRoleEmoji") as typeof import("../Utils/Community/staffRoleEmoji");
 const { queueIdsCatalogSync } = require("../Utils/Config/idsAutoSync") as typeof import("../Utils/Config/idsAutoSync");
 const { runCleanupAfterMemberLeave } = require("../Services/Community/cleanupUsersNotInServerService") as typeof import("../Services/Community/cleanupUsersNotInServerService");
-const {
-  attachHogwartsRetentionMarkers,
-  extractHogwartsProfileSlice,
-  shouldRetainHogwartsProfileOnLeave,
-} = require("../Services/Community/hogwartsLeaveRetention") as typeof import("../Services/Community/hogwartsLeaveRetention");
-const { resolveHogwartsEventConfig } = require("../Utils/Web/hogwartsSortingConfig") as typeof import("../Utils/Web/hogwartsSortingConfig");
 const { backupUserOnLeave } = require("../Services/Community/userLeaveBackupService") as typeof import("../Services/Community/userLeaveBackupService");
 const { handleMuteMirrorOnMemberLeave } = require("../Services/Moderation/mutedMirrorRoleService") as typeof import("../Services/Moderation/mutedMirrorRoleService");
 const {
@@ -722,14 +716,12 @@ async function cleanupActivityUserProfileOnGuildLeave(guildId?, userId?, client?
     doc.moderation != null && typeof doc.moderation === "object";
   const keepEventWeekWinners =
     Array.isArray(doc?.profile?.totals?.exp?.event?.weekWinners) && doc.profile.totals.exp.event.weekWinners.length > 0;
-  const keepHogwarts = await shouldRetainHogwartsProfileOnLeave(client, doc, { guildId: gid, userId: uid });
   const keepCustomPerksCleanup = Boolean(pendingCustomPerksCleanup);
 
   if (
     !keepModeration &&
     !keepEventWeekWinners &&
     !keepStaffGrace &&
-    !keepHogwarts &&
     !keepCustomPerksCleanup &&
     !keepRolesHistoryRetention
   ) {
@@ -753,13 +745,6 @@ async function cleanupActivityUserProfileOnGuildLeave(guildId?, userId?, client?
   const profile: Record<string, any> = {};
   if (keepEventWeekWinners) {
     profile.totals = { exp: { event: { weekWinners: doc.profile.totals.exp.event.weekWinners } } };
-  }
-  if (keepHogwarts) {
-    const hogwartsSlice = extractHogwartsProfileSlice(doc);
-    if (hogwartsSlice) {
-      const cfg = client ? resolveHogwartsEventConfig(client) : null;
-      profile.events = { hogwarts: attachHogwartsRetentionMarkers(hogwartsSlice, cfg) };
-    }
   }
   if (keepCustomPerksCleanup) {
     profile.customPerksDiscordCleanup = pendingCustomPerksCleanup;

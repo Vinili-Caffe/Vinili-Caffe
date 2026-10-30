@@ -3,7 +3,7 @@ const { CustomRole, SiteDocument, SITE_DOCUMENT_TYPE } = require("../../Schemas/
 
 const COOLDOWN = SITE_DOCUMENT_TYPE.ROLE_REQUEST_COOLDOWN;
 const { createSiteRoleJoinRequest } = require("../../Events/interaction/customRoleHandlers") as typeof import("../../Events/interaction/customRoleHandlers");
-const { isHogwartsSystemRoleId } = require("./hogwartsSortingConfig") as typeof import("./hogwartsSortingConfig");
+const { isArchivedEventRoleId } = require("../Community/userCustomRoleFilter") as typeof import("../Community/userCustomRoleFilter");
 const { collectBlockedSystemRoleIds, isListableUserCustomRole } = require("../Community/userCustomRoleFilter") as typeof import("../Community/userCustomRoleFilter");
 const { fetchWebsiteGuildMember, isOnNegativeCache, readCachedWebsiteMember, writeCachedWebsiteMember, ensureWebsiteGuild } = require("./websiteGuildMemberFetch") as typeof import("./websiteGuildMemberFetch");
 const { DISCORD_OAUTH_UA, fetchDiscordOAuthMe } = require("./discordOauthMe") as typeof import("./discordOauthMe");
@@ -292,7 +292,7 @@ async function submitSiteRoleRequest(client?, payload?) {
   if (!/^\d{17,22}$/.test(roleId)) {
     return { ok: false, status: 400, error: "invalid_role", message: "Ruolo richiesto non valido." };
   }
-  if (isHogwartsSystemRoleId(roleId, client) || BLOCKED_ROLE_IDS.has(roleId)) {
+  if (isArchivedEventRoleId(roleId) || BLOCKED_ROLE_IDS.has(roleId)) {
     return {
       ok: false,
       status: 400,
@@ -485,7 +485,7 @@ async function leaveSiteRole(client?, payload?) {
   if (!/^\d{17,22}$/.test(roleId)) {
     return { ok: false, status: 400, error: "invalid_role", message: "Ruolo non valido." };
   }
-  if (isHogwartsSystemRoleId(roleId, client) || BLOCKED_ROLE_IDS.has(roleId)) {
+  if (isArchivedEventRoleId(roleId) || BLOCKED_ROLE_IDS.has(roleId)) {
     return {
       ok: false,
       status: 400,

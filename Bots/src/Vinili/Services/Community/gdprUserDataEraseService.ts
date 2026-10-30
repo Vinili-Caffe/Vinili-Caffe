@@ -14,15 +14,8 @@ const {
 const COUNTING_RESTORE_DOC_TYPE = SITE_DOCUMENT_TYPE.COUNTING_RESTORE_TOKEN;
 const { GuildFeatureBucket } = require("../../Schemas/Guild/guildFeatureBucketSchema") as typeof import("../../Schemas/Guild/guildFeatureBucketSchema");
 const { GuildRepost } = require("../../Schemas/Community/repostSchema") as typeof import("../../Schemas/Community/repostSchema");
-const {
-  attachHogwartsRetentionMarkers,
-  extractHogwartsProfileSlice,
-  isHogwartsEventRetentionActive,
-  shouldRetainHogwartsProfileOnLeave,
-} = require("./hogwartsLeaveRetention") as typeof import("./hogwartsLeaveRetention");
-const { resolveHogwartsEventConfig } = require("../../Utils/Web/hogwartsSortingConfig") as typeof import("../../Utils/Web/hogwartsSortingConfig");
-const { revokeHouseSortingAnnouncesForMember } = require("./hogwartsSortingLogService") as typeof import("./hogwartsSortingLogService");
 
+/* Log su disco dell'evento Hogwarts (concluso, codice in Bots/archivio): i dati restano, quindi si cancellano su richiesta */
 const HOGWARTS_LOG_DIR = path.resolve(__dirname, "../../Data/Hogwarts");
 const SORTING_LOG_FILE = path.join(HOGWARTS_LOG_DIR, "sorting-log.jsonl");
 const HOUSE_ANNOUNCE_LOG_FILE = path.join(HOGWARTS_LOG_DIR, "house-sorting-announce.jsonl");
@@ -44,7 +37,6 @@ const LEGACY_USER_COLLECTIONS = Object.freeze([
 ]);
 
 const RETAINED_SITE_DOC_TYPES = new Set([SITE_DOCUMENT_TYPE.PAYMENT]);
-const SORTING_DOC = SITE_DOCUMENT_TYPE.HOGWARTS_SORTING;
 
 function countRows(rows?) {
   return Number(rows?.deletedCount ?? rows?.modifiedCount ?? rows?.matchedCount ?? rows ?? 0);
@@ -107,18 +99,7 @@ async function deleteLegacyUserRows(userId?, guildId?, dryRun?) {
 async function eraseSiteDocuments({ guildId, userId, client, dryRun }) {
   const uid = String(userId || "").trim();
   const gid = String(guildId || "").trim();
-  const cfg = client ? resolveHogwartsEventConfig(client) : null;
-  const retainHogwartsSorting =
-    Boolean(gid && cfg && isHogwartsEventRetentionActive(cfg)) &&
-    (await SiteDocument.exists({
-      docType: SORTING_DOC,
-      guildId: gid,
-      userId: uid,
-      dedupeKey: String(cfg.eventKey || "").trim(),
-    }).catch(() => null));
-
   const retainDocTypes = [...RETAINED_SITE_DOC_TYPES];
-  if (retainHogwartsSorting) retainDocTypes.push((SORTING_DOC as any));
 
   const guildScope = gid
     ? { $or: [{ guildId: gid }, { guildId: "" }, { guildId: null }, { guildId: { $exists: false } }] }
@@ -163,16 +144,12 @@ async function eraseSiteDocuments({ guildId, userId, client, dryRun }) {
       },
     ).catch(() => ({ modifiedCount: 0 }));
     anonymizedStaffReviews = Number(reviewRes?.modifiedCount || 0);
-    if (!retainHogwartsSorting && gid && cfg?.eventKey) {
-      revokeHouseSortingAnnouncesForMember({ guildId: gid, userId: uid, eventKey: cfg.eventKey });
-    }
   }
 
   return {
     deletedUserDocs,
     deletedRequesterDocs,
     anonymizedStaffReviews,
-    retainedHogwartsSorting: retainHogwartsSorting ? 1 : 0,
     retainedPayments: await SiteDocument.countDocuments({ userId: uid, docType: SITE_DOCUMENT_TYPE.PAYMENT }).catch(() => 0),
   };
 }
@@ -227,7 +204,6 @@ async function eraseActivityUserProfiles({ guildId, userId, client, dryRun }) {
   let trimmed = 0;
   let retainedModeration = 0;
   let retainedStaff = 0;
-  let retainedHogwarts = 0;
   let retainedTenantPartnership = 0;
 
   for (const doc of Array.isArray(profiles) ? profiles : []) {
@@ -250,15 +226,11 @@ async function eraseActivityUserProfiles({ guildId, userId, client, dryRun }) {
     const keepEventWeekWinners =
       Array.isArray(doc?.profile?.totals?.exp?.event?.weekWinners) &&
       doc.profile.totals.exp.event.weekWinners.length > 0;
-    const keepHogwarts = client
-      ? await shouldRetainHogwartsProfileOnLeave(client, doc, { guildId: gid, userId: uid })
-      : false;
 
     if (
       !keepModeration &&
       !keepEventWeekWinners &&
       !keepStaffGrace &&
-      !keepHogwarts &&
       !keepTenantPartnership &&
       !keepRolesHistoryRetention
     ) {
@@ -270,7 +242,6 @@ async function eraseActivityUserProfiles({ guildId, userId, client, dryRun }) {
     trimmed += 1;
     if (keepModeration) retainedModeration += 1;
     if (keepStaffGrace) retainedStaff += 1;
-    if (keepHogwarts) retainedHogwarts += 1;
     if (keepTenantPartnership) retainedTenantPartnership += 1;
     if (dryRun) continue;
 
@@ -291,13 +262,6 @@ async function eraseActivityUserProfiles({ guildId, userId, client, dryRun }) {
     if (keepEventWeekWinners) {
       profile.totals = { exp: { event: { weekWinners: doc.profile.totals.exp.event.weekWinners } } };
     }
-    if (keepHogwarts) {
-      const hogwartsSlice = extractHogwartsProfileSlice(doc);
-      if (hogwartsSlice) {
-        const cfg = client ? resolveHogwartsEventConfig(client) : null;
-        profile.events = { hogwarts: attachHogwartsRetentionMarkers(hogwartsSlice, cfg) };
-      }
-    }
         if (keepTenantPartnership) profile.tenantPartnership = tenantPartnership;
     if (Object.keys(profile).length) payload.profile = profile;
     await ActivityUserProfile.collection.replaceOne({ _id: doc._id }, payload).catch(() => null);
@@ -314,7 +278,6 @@ async function eraseActivityUserProfiles({ guildId, userId, client, dryRun }) {
     trimmed,
     retainedModeration,
     retainedStaff,
-    retainedHogwarts,
     retainedTenantPartnership,
   };
 }
@@ -409,7 +372,6 @@ async function eraseUserGdprData({ guildId, userId, client, dryRun = false }) {
 
   const site = await eraseSiteDocuments({ guildId: gid, userId: uid, client, dryRun });
   deleted.siteDocuments = Number(site.deletedUserDocs || 0) + Number(site.deletedRequesterDocs || 0);
-  retained.hogwartsSortingDoc = Number(site.retainedHogwartsSorting || 0);
   retained.payments = Number(site.retainedPayments || 0);
 
   const profileResult = await eraseActivityUserProfiles({ guildId: gid, userId: uid, client, dryRun });
@@ -417,7 +379,6 @@ async function eraseUserGdprData({ guildId, userId, client, dryRun = false }) {
   trimmedProfiles.count = Number(profileResult.trimmed || 0);
   retained.moderationProfiles = Number(profileResult.retainedModeration || 0);
   retained.staffProfiles = Number(profileResult.retainedStaff || 0);
-  retained.hogwartsProfiles = Number(profileResult.retainedHogwarts || 0);
   retained.tenantPartnershipProfiles = Number(profileResult.retainedTenantPartnership || 0);
 
   deleted.legacyCollections = await deleteLegacyUserRows(uid, gid, dryRun);
@@ -450,7 +411,6 @@ async function eraseUserGdprData({ guildId, userId, client, dryRun = false }) {
       "I casi moderazione e i pagamenti non vengono cancellati automaticamente.",
       "Storico partnership (staff.partnerActions) e progressi [Personalizza](https://www.viniliecaffe.it/personalizza/) pm restano conservati.",
       "Con guildId impostato, i profili ActivityUser degli altri server non vengono toccati.",
-      "Durante l'evento Hogwarts attivo, smistamento e profilo evento possono restare conservati.",
       "I transcript ticket su disco non vengono eliminati: solo il testo descrizione nel DB viene oscurato.",
       "Messaggi Discord e dati account Discord restano su Discord.",
     ],

@@ -40,7 +40,6 @@ const {
 } = require("../Community/personalityRolePersistence") as typeof import("../Community/personalityRolePersistence");
 const { ROLE_PANEL_CATEGORY_KEYS, normalizeRolePanelCategory } = require("../Community/ruoliColoriPanelComponents") as typeof import("../Community/ruoliColoriPanelComponents");
 const { inferBirthYearFromAge, tryCelebrateBirthdayAfterProfileSave } = require("../../Services/Community/birthdayService") as typeof import("../../Services/Community/birthdayService");
-const { isHogwartsProfileSectionEnabled } = require("../../Services/Community/hogwartsProfileSectionService") as typeof import("../../Services/Community/hogwartsProfileSectionService");
 const {
   getSerializedSiteNotifPrefs,
   mutateSiteNotifPrefs,
@@ -155,7 +154,6 @@ function extrasSkeleton(userId?) {
     mentionReaction: { access: false, max: 0, reactions: [], display: [] },
     mentionResponse: { access: false, accessHint: MENTION_RESPONSE_ACCESS_HINT_IT, text: "" },
     rolePanel: { categories: [], byKey: {} },
-    hogwarts: { enabled: false, sortingUrl: "/evento/smistamento/", summary: null },
   };
 }
 
@@ -281,7 +279,6 @@ async function getProfileExtras(client?, { accessToken, section: sectionRaw, vie
     birthday,
     reactionDoc,
     mentionResponse,
-    hogwartsEnabled,
     profileLevel,
     canPlus,
   ] = await Promise.all([
@@ -293,13 +290,11 @@ async function getProfileExtras(client?, { accessToken, section: sectionRaw, vie
     needBirthday ? getBirthdayProfile(guild.id, userId).catch(() => null) : null,
     needReactions ? MentionReaction.findOne({ guildId: guild.id, userId }).lean().catch(() => null) : null,
     needResponse ? getMentionResponse(guild.id, userId).catch(() => null) : null,
-    Promise.resolve(isHogwartsProfileSectionEnabled(client)),
     needRoles ? colorUnlocks.fetchNumericProfileLevel(guild.id, userId).catch(() => 0) : 0,
     needRoles ? colorUnlocks.memberHasPlusColorFullEligibilityAsync(member).catch(() => false) : false,
   ]);
 
   const payload = extrasSkeleton(userId);
-  payload.hogwarts.enabled = Boolean(hogwartsEnabled);
 
   if (needDm && dmPrefs) payload.dm = serializeDmPrefs(dmPrefs);
   if (needNotif && siteNotif) {

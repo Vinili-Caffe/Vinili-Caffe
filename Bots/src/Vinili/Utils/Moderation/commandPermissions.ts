@@ -1106,7 +1106,6 @@ function normalizeButtonPolicy(policy?) {
     const ownerFromMessageMention = Boolean(policy.ownerFromMessageMention);
     const ownerOrRole = Boolean(policy.ownerOrRole);
     const grantRecipientOnly = Boolean(policy.grantRecipientOnly);
-    const punticasaPrefectOnly = Boolean(policy.punticasaPrefectOnly);
     let channelPolicy = null;
     if (Array.isArray(policy.channels)) {
       channelPolicy = normalizeChannelList(policy.channels);
@@ -1120,7 +1119,6 @@ function normalizeButtonPolicy(policy?) {
       ownerFromMessageMention,
       ownerOrRole,
       grantRecipientOnly,
-      punticasaPrefectOnly,
       channels: channelPolicy,
     };
   }
@@ -1170,17 +1168,6 @@ function getDevIds(client?) {
   const raw = client?.config?.developers ?? "";
   const fromConfig = Array.isArray(raw) ? raw.map((id?) => String(id).trim()).filter(Boolean) : String(raw).split(",").map((id?) => id.trim()).filter(Boolean);
   return Array.from(new Set([...fromIds, ...fromConfig]));
-}
-
-function denyIfPunticasaPrefectOnlyBlocked(userId?, client?, enabled?) {
-  if (!enabled) return null;
-  try {
-    const { isPunticasaAllowedUser } = require("../Community/punticasaPrefectAccess") as typeof import("../Community/punticasaPrefectAccess");
-    if (isPunticasaAllowedUser(userId, client)) return null;
-  } catch {
-    return { allowed: false, reason: "missing_role", requiredRoles: null, ownerId: null, channels: null };
-  }
-  return { allowed: false, reason: "missing_role", requiredRoles: null, ownerId: null, channels: null };
 }
 
 async function checkTenantPartnershipSlashAccess(interaction?, options: Record<string, any> = {}) {
@@ -1814,17 +1801,6 @@ async function checkPrefixPermission(message?, commandName?, subcommandName = nu
   }
 
   const cmdCfg = data?.prefix?.[safeCommand];
-  const prefectGate = denyIfPunticasaPrefectOnlyBlocked(
-    userId,
-    message?.client,
-    cmdCfg && typeof cmdCfg === "object" && cmdCfg.punticasaPrefectOnly,
-  );
-  if (prefectGate) {
-    if (options.returnDetails) {
-      return { ...prefectGate, channels: channelPolicy || null };
-    }
-    return false;
-  }
   const roles = resolvePrefixRoles(data, commandName, subcommandName);
   const permissions = resolvePrefixPermissions(data, commandName, subcommandName);
 
@@ -2023,13 +1999,6 @@ async function checkButtonPermission(interaction?) {
   if (!policy) {
     return { allowed: true, reason: null, requiredRoles: null, ownerId: null };
   }
-
-  const prefectGate = denyIfPunticasaPrefectOnlyBlocked(
-    interaction?.user?.id,
-    interaction?.client,
-    policy.punticasaPrefectOnly,
-  );
-  if (prefectGate) return prefectGate;
 
   let grantRecipientMatched = false;
   if (policy.grantRecipientOnly) {
@@ -2234,13 +2203,6 @@ async function checkStringSelectPermission(interaction?) {
   if (!policy) {
     return { allowed: true, reason: null, requiredRoles: null, ownerId: null };
   }
-
-  const prefectGate = denyIfPunticasaPrefectOnlyBlocked(
-    interaction?.user?.id,
-    interaction?.client,
-    policy.punticasaPrefectOnly,
-  );
-  if (prefectGate) return prefectGate;
 
   const hasOwnerConstraint = (Number.isInteger(policy.ownerSegment) && policy.ownerSegment >= 0) || policy.ownerFromMessageMention;
   let ownerId = null;
@@ -2447,13 +2409,6 @@ async function checkModalPermission(interaction?) {
   if (!policy) {
     return { allowed: true, reason: null, requiredRoles: null, ownerId: null };
   }
-
-  const prefectGate = denyIfPunticasaPrefectOnlyBlocked(
-    interaction?.user?.id,
-    interaction?.client,
-    policy.punticasaPrefectOnly,
-  );
-  if (prefectGate) return prefectGate;
 
   const hasOwnerConstraint = (Number.isInteger(policy.ownerSegment) && policy.ownerSegment >= 0) || policy.ownerFromMessageMention;
   let ownerId = null;

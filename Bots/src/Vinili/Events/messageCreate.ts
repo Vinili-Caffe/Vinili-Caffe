@@ -1,7 +1,6 @@
 const { EmbedBuilder, PermissionFlagsBits, MessageType } = require("discord.js") as typeof import("discord.js");
 const { handleTtsMessage } = require("../Services/TTS/ttsService") as typeof import("../Services/TTS/ttsService");
 const { handleMinigameMessage } = require("../Services/Minigames/minigameService") as typeof import("../Services/Minigames/minigameService");
-const { recordReactPressCandidateMessage } = require("../Services/Community/hogwartsReactPressService") as typeof import("../Services/Community/hogwartsReactPressService");
 const { recordMessageActivity } = require("../Services/Community/activityService") as typeof import("../Services/Community/activityService");
 const { handleMessageCommunityExpBonuses } = require("../Services/Community/messageCommunityExpBonusesService") as typeof import("../Services/Community/messageCommunityExpBonusesService");
 const { trackMessageEngagement } = require("../Services/Community/dailyEngagementStatsService") as typeof import("../Services/Community/dailyEngagementStatsService");
@@ -614,11 +613,6 @@ export = {
         handleMessageCommunityExpBonuses(message).catch((err?) =>
           logEventError(resolvedClient, "COMMUNITY EXP BONUS ERROR", err),
         );
-        try {
-          recordReactPressCandidateMessage(message);
-        } catch (err) {
-          logEventError(resolvedClient, "PREMI LA REACT CANDIDATE ERROR", err);
-        }
         trackMessageEngagement(message).catch((err?) =>
           logEventError(resolvedClient, "DAILY ENGAGEMENT MESSAGE ERROR", err),
         );

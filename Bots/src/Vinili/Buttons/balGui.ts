@@ -1,8 +1,7 @@
 const { MessageFlags } = require("discord.js") as typeof import("discord.js");
 const { CURRENCY_CAFFE, CURRENCY_VINILI } = require("../Services/Community/serverWalletService") as typeof import("../Services/Community/serverWalletService");
 const { isHighStaff } = require("../Services/Community/activeEconomyService") as typeof import("../Services/Community/activeEconomyService");
-const { applyStaffCredit, applyStaffDebit, buildAmountModal, buildBalPayload, buildConvertModal, cycleStep, deleteSession, formatCurrency, getSession, isBalGuiCustomId, isStaffAction, normalizeAmountStep, parseBalGuiCustomId, reloadBalance, setSession, staffCurrencyLabel } = require("../Utils/Economy/balGuiRuntime") as typeof import("../Utils/Economy/balGuiRuntime");
-const { convertCaffeToGaleoni } = require("../Services/Community/serverEconomyBridgeService") as typeof import("../Services/Community/serverEconomyBridgeService");
+const { applyStaffCredit, applyStaffDebit, buildAmountModal, buildBalPayload, cycleStep, deleteSession, formatCurrency, getSession, isBalGuiCustomId, isStaffAction, normalizeAmountStep, parseBalGuiCustomId, reloadBalance, setSession, staffCurrencyLabel } = require("../Utils/Economy/balGuiRuntime") as typeof import("../Utils/Economy/balGuiRuntime");
 const PRIVATE_FLAG = MessageFlags.Ephemeral;
 
 function match(interaction?) {
@@ -50,36 +49,6 @@ async function loadBalSession(interaction?, parsed?) {
 async function execute(interaction?, client?) {
   const parsed = parseBalGuiCustomId(interaction.customId);
   if (!parsed) return false;
-
-  if (parsed.kind === "convert_modal") {
-    if (parsed.ownerId !== String(interaction.user?.id || "")) {
-      await replyPrivate(interaction, "<a:VC_Cross:1482532424570376253> Questo modulo non è tuo.");
-      return true;
-    }
-    const session = await loadBalSession(interaction, parsed);
-    if (!session || session.ownerId !== parsed.ownerId || session.targetId !== parsed.targetId) {
-      await replyPrivate(interaction, "<a:VC_Cross:1482532424570376253> Sessione scaduta. Usa di nuovo `+bal`.");
-      return true;
-    }
-    const raw = interaction.fields?.getTextInputValue?.("caffe_amount") || "";
-    const amount = Math.floor(Number(String(raw).replace(/[^\d]/g, "")));
-    const msg = { guild: interaction.guild, member: interaction.member, author: interaction.user };
-    const out: any = await convertCaffeToGaleoni(client, msg, amount);
-    if (!out.ok) {
-      await replyPrivate(interaction, `<:vegax:1443934876440068179> ${out.message}`);
-      return true;
-    }
-    session.state = out.wallet || session.state;
-    session.galeoni = out.gringott
-      ? { balance: out.gringott.balance, earned: out.gringott.earned, spent: out.gringott.spent }
-      : session.galeoni;
-    await reloadBalance(client, session, msg);
-    session.lastNotice = out.message;
-    setSession(interaction.message.id, session);
-    const payload = await buildBalPayload(session, session.lastNotice, false);
-    await interaction.update(payload).catch(() => {});
-    return true;
-  }
 
   if (parsed.kind === "modal") {
     if (!(await ensureStaff(interaction, client))) return true;
@@ -131,15 +100,6 @@ async function execute(interaction?, client?) {
       await replyPrivate(interaction, "<a:VC_Cross:1482532424570376253> Non puoi aggiornare questo pannello.");
       return true;
     }
-  }
-
-  if (action === "convert") {
-    if (!session.canConvert) {
-      await replyPrivate(interaction, "<a:VC_Cross:1482532424570376253> Conversione non disponibile su questo pannello.");
-      return true;
-    }
-    await interaction.showModal(buildConvertModal(session)).catch(() => {});
-    return true;
   }
 
   if (action === "amount_modal") {

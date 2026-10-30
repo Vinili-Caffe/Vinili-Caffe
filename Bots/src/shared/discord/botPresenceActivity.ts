@@ -27,15 +27,7 @@ function isDiscordStreamingUrl(url?) {
 
 function buildBotPresenceActivities(client?) {
   const cfg = client?.config?.presence && typeof client.config.presence === "object" ? client.config.presence : {};
-  let name = String(cfg.activityName || "Vinili & Caffè").trim() || "Vinili & Caffè";
-  try {
-    const forbiddenEvent = cfg.forbiddenSectionEvent && typeof cfg.forbiddenSectionEvent === "object" ? cfg.forbiddenSectionEvent : {};
-    const { isForbiddenBooksHuntActiveCached } = require("../../Vinili/Services/Community/hogwartsForbiddenSectionChannelService") as typeof import("../../Vinili/Services/Community/hogwartsForbiddenSectionChannelService");
-    if (forbiddenEvent.enabled !== false && isForbiddenBooksHuntActiveCached(client)) {
-      const bookEmoji = String(forbiddenEvent.bookEmoji || "📖").trim() || "📖";
-      if (!name.includes(bookEmoji)) name = `${name} ${bookEmoji}`;
-    }
-  } catch {}
+  const name = String(cfg.activityName || "Vinili & Caffè").trim() || "Vinili & Caffè";
   const streamUrl = String(process.env.BOT_PRESENCE_STREAM_URL || cfg.streamUrl || "").trim();
   if (streamUrl && isDiscordStreamingUrl(streamUrl)) {
     return [{ type: ActivityType.Streaming, name, url: streamUrl }];

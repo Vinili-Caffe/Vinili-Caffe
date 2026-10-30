@@ -32,10 +32,6 @@ export = {
       global.logger?.warn?.("[VOICE TRANSCRIBE] restore failed:", err?.message || err);
     });
     const { applyBotPresence, schedulePresenceStabilization, installBotPresenceKeeper } = require("../../shared/discord/botPresenceActivity") as typeof import("../../shared/discord/botPresenceActivity");
-    const { syncForbiddenSectionPresence, startForbiddenSectionPresenceLoop } = require("../../Vinili/Services/Community/hogwartsForbiddenSectionChannelService") as typeof import("../../Vinili/Services/Community/hogwartsForbiddenSectionChannelService");
-    await syncForbiddenSectionPresence(activeClient).catch((err?) => {
-      global.logger?.warn?.("[FORBIDDEN CHANNELS] presence sync failed:", err?.message || err);
-    });
     await applyBotPresence(activeClient);
     installBotPresenceKeeper(activeClient);
     schedulePresenceStabilization(activeClient);
@@ -46,11 +42,6 @@ export = {
       startHourlyReminderLoop(activeClient);
     } catch (err) {
       global.logger?.error?.("[CHAT REMINDER] Failed to start hourly loop:", err?.message || err);
-    }
-    try {
-      startForbiddenSectionPresenceLoop(activeClient);
-    } catch (err) {
-      global.logger?.error?.("[FORBIDDEN CHANNELS] Failed to start presence loop:", err?.message || err);
     }
     try {
       const { initLavalinkMusicIfEnabled } = require("../Services/Music/lavalinkMusicService") as typeof import("../Services/Music/lavalinkMusicService");

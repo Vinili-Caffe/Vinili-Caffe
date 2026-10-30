@@ -189,16 +189,6 @@
                 "channels.highCmds"
             ]
         },
-        "punticasa": {
-            "punticasaPrefectOnly": true,
-            "channels": [
-                "channels.highCmds",
-                "channels.hogwartsHouseGryffindor",
-                "channels.hogwartsHouseHufflepuff",
-                "channels.hogwartsHouseRavenclaw",
-                "channels.hogwartsHouseSlytherin"
-            ]
-        },
         "me": {
             "roles": [
                 "roles.Member"
@@ -1799,50 +1789,6 @@
             "roles.Director",
             "roles.HighStaff"
         ],
-        "punticasa_panel:pick:*": {
-            "punticasaPrefectOnly": true,
-            "channels": [
-                "channels.highCmds",
-                "channels.hogwartsHouseGryffindor",
-                "channels.hogwartsHouseHufflepuff",
-                "channels.hogwartsHouseRavenclaw",
-                "channels.hogwartsHouseSlytherin"
-            ],
-            "ownerSegment": 2
-        },
-        "punticasa_panel:switch:*": {
-            "punticasaPrefectOnly": true,
-            "channels": [
-                "channels.highCmds",
-                "channels.hogwartsHouseGryffindor",
-                "channels.hogwartsHouseHufflepuff",
-                "channels.hogwartsHouseRavenclaw",
-                "channels.hogwartsHouseSlytherin"
-            ],
-            "ownerSegment": 2
-        },
-        "punticasa_panel:btn:*": {
-            "punticasaPrefectOnly": true,
-            "channels": [
-                "channels.highCmds",
-                "channels.hogwartsHouseGryffindor",
-                "channels.hogwartsHouseHufflepuff",
-                "channels.hogwartsHouseRavenclaw",
-                "channels.hogwartsHouseSlytherin"
-            ],
-            "ownerSegment": 4
-        },
-        "punticasa_panel_modal:*": {
-            "punticasaPrefectOnly": true,
-            "channels": [
-                "channels.highCmds",
-                "channels.hogwartsHouseGryffindor",
-                "channels.hogwartsHouseHufflepuff",
-                "channels.hogwartsHouseRavenclaw",
-                "channels.hogwartsHouseSlytherin"
-            ],
-            "ownerSegment": 3
-        },
         "ping": [
             "roles.Member"
         ],

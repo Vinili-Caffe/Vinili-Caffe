@@ -2,7 +2,7 @@ const IDs = require("../Config/ids") as typeof import("../Config/ids");
 const { CustomRole } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
 const { userAvatarUrlDynamic } = require("../Discord/guildDiscordIdentity") as typeof import("../Discord/guildDiscordIdentity");
 const { discordRoleIconUrl } = require("../Discord/discordRoleIconUrl") as typeof import("../Discord/discordRoleIconUrl");
-const { isHogwartsSystemRoleId } = require("./hogwartsSortingConfig") as typeof import("./hogwartsSortingConfig");
+const { isArchivedEventRoleId } = require("../Community/userCustomRoleFilter") as typeof import("../Community/userCustomRoleFilter");
 const { collectBlockedSystemRoleIds, isListableUserCustomRole } = require("../Community/userCustomRoleFilter") as typeof import("../Community/userCustomRoleFilter");
 const { sendJsonWithEtag, weakEtagFromParts } = require("./siteHttpEtag") as typeof import("./siteHttpEtag");
 
@@ -384,7 +384,7 @@ async function buildSiteRolesPayload(client?) {
       { roleId: String(doc.secondaryRoleId || "").trim(), slot: "secondary" },
     ].filter((entry?) => entry.roleId);
     for (const entry of roleEntries) {
-      if (isHogwartsSystemRoleId(entry.roleId, client) || BLOCKED_ROLE_IDS.has(entry.roleId)) continue;
+      if (isArchivedEventRoleId(entry.roleId) || BLOCKED_ROLE_IDS.has(entry.roleId)) continue;
       const role = guild.roles.cache.get(entry.roleId) || (await guild.roles.fetch(entry.roleId).catch(() => null));
       if (!role) continue;
       if (!isListableUserCustomRole(role, { blockedRoleIds: BLOCKED_ROLE_IDS })) continue;

@@ -23,7 +23,6 @@ const { partnerManagerPerkDateActive, fetchPartnerManagerTimedPerkLean, partnerM
 const { findCustomVoiceByRole } = require("../Utils/Interaction/customRoleUtils") as typeof import("../Utils/Interaction/customRoleUtils");
 const { buildCustomVocCreateOverwrites, ensureCustomVocChannelBaseline, stripLinkedCustomRolesFromChannel, syncCustomVocChannelForOwner } = require("../Services/Community/customVocPermissionsService") as typeof import("../Services/Community/customVocPermissionsService");
 const { ensureCustomPrivateCategory, isChannelInCustomPrivateCategory } = require("../Utils/Community/customPrivateCategoryUtils") as typeof import("../Utils/Community/customPrivateCategoryUtils");
-const { buildHogwartsProfileHomeLines, fetchHogwartsProfileSection, isHogwartsProfileSectionEnabled } = require("../Services/Community/hogwartsProfileSectionService") as typeof import("../Services/Community/hogwartsProfileSectionService");
 const { buildCustomVocWeeklyActivityPanelState, buildCustomVocWeeklyActivityEmbedLines, getLastSunday21BoundaryMsAtOrBefore } = require("../Utils/Community/customVocWeeklyActivityUtils") as typeof import("../Utils/Community/customVocWeeklyActivityUtils");
 const { isCustomVocRecreationBlocked } = require("../Services/Community/customVocWeeklyActivityService") as typeof import("../Services/Community/customVocWeeklyActivityService");
 const { withMongoTimeout } = require("../Utils/Database/mongoConnect") as typeof import("../Utils/Database/mongoConnect");
@@ -63,7 +62,6 @@ const SECTION_MENTIONRESPONSE = "mentionresponse";
 const SECTION_DMFILTERS = "dmfilters";
 const SECTION_PRIVACY = "privacy";
 const SECTION_ROLE_PANEL = "rolepanel";
-const SECTION_HOGWARTS = "hogwarts";
 const SECTION_COLORS = "colors";
 const CMD_COLORS_SEG = "cmd_colors_seg:";
 const PRIVATE_FLAG = 1 << 6;
@@ -497,19 +495,6 @@ async function fetchProfilePanelState(guild?, userId?, client?) {
     guildId && userId ? mongoProfileQuery(hasEventWeekWinnerGrant(guildId, userId, 2), "profile event week2") : false,
     guildId && userId ? mongoProfileQuery(hasEventWeekWinnerGrant(guildId, userId, 3), "profile event week3") : false,
   ]);
-  const hogwarts =
-    client && guildId && userId
-      ? await withMongoTimeout(
-        fetchHogwartsProfileSection(client, guildId, userId, member, guild),
-        PROFILE_DB_MS,
-        "profile hogwarts section",
-      ).catch((err?) => {
-        global.logger?.warn?.("[profile] hogwarts section:", err?.message || err);
-        return isHogwartsProfileSectionEnabled(client) ? { visible: true, sorted: false, galeoniLabel: "0 Galeoni d'Oro", cupRankLabel: "—", houseCupPoints: 0 } : { visible: false };
-      })
-      : isHogwartsProfileSectionEnabled(client)
-        ? { visible: true, sorted: false, galeoniLabel: "0 Galeoni d'Oro", cupRankLabel: "—", houseCupPoints: 0 }
-        : { visible: false };
   const contestSecondUnlock = Boolean(contestPrizeLean?.profile?.contestPrizes?.disegniSecondPlaceUnlock) || Boolean(contestPrizeLean?.profile?.totals?.exp?.event?.contestDisegniSecondPlaceUnlock);
   const pmCustomBundleActive = partnerManagerPerkDateActive(contestPrizeLean?.staff?.partnerManagerCustomPerksUntil);
   const hasCustomRoleAccess = memberHasCustomRolePanelAccess(member, { hasContestSecondPlaceUnlock: contestSecondUnlock, hasEventWeek2Grant: Boolean(eventWeek2Grant), hasEventWeek3Grant: Boolean(eventWeek3Grant), hasPartnerManagerCustomBundle: pmCustomBundleActive });
@@ -560,7 +545,6 @@ async function fetchProfilePanelState(guild?, userId?, client?) {
     privacy: { avatar: Boolean(avatarPrivacy?.blocked), banner: Boolean(bannerPrivacy?.blocked), quotes: Boolean(quotePrivacy?.blocked), reposts: Boolean(repostPrivacy?.blocked) },
     featureAccess: { customRole: hasCustomRoleAccess, customVoc: hasCustomVocAccess, customReaction: hasCustomReactionAccess, mentionResponse: hasMentionResponseAccess, customReactionMax, secondaryCustomRole: memberHasCustomRoleSecondarySlot(member) },
     colors: { level: colorLevel, canPickPlus: colorCanPickPlus },
-    hogwarts: hogwarts && typeof hogwarts === "object" ? hogwarts : { visible: false },
     customVocActivity,
   };
 }
@@ -741,37 +725,6 @@ function buildSectionEmbed(section?, state?, userOrMember?, guild = null, isSelf
     ].join("\n"));
   }
 
-  if (section === SECTION_HOGWARTS) {
-    const hw = state?.hogwarts && typeof state.hogwarts === "object" ? state.hogwarts : { visible: false };
-    if (!hw.visible) {
-      return base.setDescription("<:VC_Attention:1482534443632558151> La sezione **Evento Hogwarts** non è disponibile in questo momento.");
-    }
-    const houseLine = hw.sorted
-      ? `<:VC_Hogwarts:1508766773837693061> **Casata:** ${hw.houseLabel || hw.houseId}`
-      : "<:VC_Hogwarts:1508766773837693061> **Casata:** Non smistato — completa lo smistamento su https://viniliecaffe.it/evento/smistamento";
-    const rankLine = hw.sorted
-      ? `<a:VC_Diamon:1482706116873031680> **Classifica Coppa:** ${hw.cupRankLabel} — ${hw.houseCupPointsLabel || "0 pt"}`
-      : "<a:VC_Diamon:1482706116873031680> **Classifica Coppa:** disponibile dopo lo smistamento";
-    return base
-      .setTitle("<:VC_Hogwarts:1508766773837693061> Evento Hogwarts")
-      .setDescription(
-        [
-          "<:VC_Info:1482526956703580372> **Il tuo progresso nell'evento:**",
-          "",
-          `🪙 **Galeoni:** ${hw.galeoniLabel || "0 Galeoni d'Oro"}`,
-          `<:VC_Leaderboard:1482534806314287387> **Punti personali:** ${hw.memberPointsLabel || "0 pt"}`,
-          houseLine,
-          rankLine,
-          "",
-          "<:VC_Modifica:1478859646587633717> **Shop — oggetti acquistati:**",
-          "",
-          ...(Array.isArray(hw.shopLines) && hw.shopLines.length ? hw.shopLines : ["<:VC_Dot:1482532364222595303> Nessun oggetto acquistato."]),
-          "",
-          "<:VC_Modifica:1478859646587633717> Usa il menu a tendina per cambiare pagina. Pagine evento: https://viniliecaffe.it/evento",
-        ].join("\n"),
-      );
-  }
-
   if (section === SECTION_ROLE_PANEL) {
     return base.setDescription(
       [
@@ -811,7 +764,6 @@ function buildSectionEmbed(section?, state?, userOrMember?, guild = null, isSelf
       `<:VC_Modifica:1478859646587633717> Vocale Privata: ${customVocLinked}`,
       `<:VC_emoji:1485419161168511036> Custom Reactions: ${reactionsText}`,
       ...(state?.featureAccess?.mentionResponse ? [`<a:VC_Ping:1482694298687246377> Mention Response: **${mentionResponseText ? "Impostata" : "Non impostata"}**`] : []),
-      ...buildHogwartsProfileHomeLines(state?.hogwarts),
       "",
       isSelfView
         ? "<:VC_Modifica:1478859646587633717> Usa il menu a tendina per cambiare pagina e i pulsanti per agire."
@@ -843,14 +795,6 @@ function buildRows(guild?, ownerId?, section?, state = null, rolePanelCategory =
   const selectOptions = [
     { label: "Home", value: SECTION_HOME, emoji: "<:VC_addperson:1485419347068588073>", default: section === SECTION_HOME },
   ];
-  if (state?.hogwarts?.visible) {
-    selectOptions.splice(1, 0, {
-      label: "Evento Hogwarts",
-      value: SECTION_HOGWARTS,
-      emoji: "<:VC_Hogwarts:1508766773837693061>",
-      default: section === SECTION_HOGWARTS,
-    });
-  }
   if (!readOnly) {
     selectOptions.push(
       { label: "Ruoli", value: SECTION_ROLE_PANEL, emoji: "<a:VC_Diamon:1482706116873031680>", default: section === SECTION_ROLE_PANEL },
@@ -1095,8 +1039,7 @@ async function buildPanelPayload(guild?, ownerId?, client?, section = SECTION_HO
     !canAccessCustomVoc && requestedSection === SECTION_CUSTOMVOC;
   const isDeniedCustomReaction = !canAccessCustomReaction && requestedSection === SECTION_CUSTOMREACTION;
   const isDeniedMentionResponse = !canAccessMentionResponse && requestedSection === SECTION_MENTIONRESPONSE;
-  const isDeniedHogwarts = !state?.hogwarts?.visible && requestedSection === SECTION_HOGWARTS;
-  const safeSection = (isDeniedCustomRole || isDeniedSecondaryCustomRole || isDeniedSecondaryNoPrimary || isDeniedCustomVoc || isDeniedCustomReaction || isDeniedMentionResponse || isDeniedHogwarts)
+  const safeSection = (isDeniedCustomRole || isDeniedSecondaryCustomRole || isDeniedSecondaryNoPrimary || isDeniedCustomVoc || isDeniedCustomReaction || isDeniedMentionResponse)
     ? SECTION_HOME
     : requestedSection;
   const draft = getBirthdayDraft(guild?.id, ownerId);
@@ -1126,8 +1069,7 @@ async function buildPanelPayload(guild?, ownerId?, client?, section = SECTION_HO
   const isSelfView = !viewerId || String(viewerId) === String(ownerId);
   const viewSection =
     !isSelfView &&
-    safeSection !== SECTION_HOME &&
-    safeSection !== SECTION_HOGWARTS
+    safeSection !== SECTION_HOME
       ? SECTION_HOME
       : safeSection;
   return finalizeProfilePanelPayload(

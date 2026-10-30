@@ -10,7 +10,7 @@ const { sendLevelMilestoneSupportersAnnouncement } = require("../../Utils/Commun
 const { applyDefaultFooterToEmbeds } = require("../../Utils/Embeds/defaultFooter") as typeof import("../../Utils/Embeds/defaultFooter");
 const VINILI_EMBED_COLOR_INT = 0x826bc2;
 const { memberDisplayName, resolveEmbedUserAvatarUrl } = require("../../Utils/Discord/guildDiscordIdentity") as typeof import("../../Utils/Discord/guildDiscordIdentity");
-const { parseScheduleMs, parseScheduleEndMs } = require("../../Utils/Web/hogwartsEventSchedule") as typeof import("../../Utils/Web/hogwartsEventSchedule");
+const { parseScheduleMs, parseScheduleEndMs } = require("../../Utils/Web/eventDates") as typeof import("../../Utils/Web/eventDates");
 const EXP_EXCLUDED_CATEGORY_IDS = new Set([].filter(Boolean).map((id?) => String(id)),);
 const TIME_ZONE = "Europe/Rome";
 const MESSAGE_EXP = 2;
@@ -427,22 +427,6 @@ async function addExp(guildId?, userId?, amount?, applyMultiplier = false, weekl
   let effective = Math.max(0, Math.floor(Number(amount))) * multiplier;
   const gid = String(guildId);
   const uid = String(userId);
-  if (effective > 0) {
-    const client = options?.client || options?.guild?.client || null;
-    if (client) {
-      try {
-        const { isHogwartsShopBoostActive } = require("./hogwartsShopBoostsService") as typeof import("./hogwartsShopBoostsService");
-        const { resolveExpConsumableMultiplier } = require("./hogwartsConsumableBoostsService") as typeof import("./hogwartsConsumableBoostsService");
-        const { resolveSortedHouseForUser } = require("./galeoniEconomyService") as typeof import("./galeoniEconomyService");
-        if (isHogwartsShopBoostActive(client)) {
-          const houseId = await resolveSortedHouseForUser(gid, uid, client).catch(() => "");
-          const consumable = await resolveExpConsumableMultiplier(client, gid, uid, houseId);
-          const consumableMult = Math.max(1, Number(consumable?.multiplier) || 1);
-          if (consumableMult > 1) effective = Math.max(0, Math.floor(effective * consumableMult));
-        }
-      } catch (_) {}
-    }
-  }
   const weeklyEffective =
     weeklyAmountOverride !== null
       ? Math.max(0, Math.floor(Number(weeklyAmountOverride)))

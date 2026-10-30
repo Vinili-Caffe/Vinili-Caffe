@@ -4,7 +4,7 @@ const { leaveTtsGuild, handleTtsBotVoiceMove, isTtsPostJoinVoiceGraceActive } = 
 const { handleVoiceActivity, } = require("../Services/Community/activityService") as typeof import("../Services/Community/activityService");
 const { trackVoiceEngagement } = require("../Services/Community/dailyEngagementStatsService") as typeof import("../Services/Community/dailyEngagementStatsService");
 const { handleSerataFilmVoiceState } = require("../Services/Staff/staffAutoValutazioniService") as typeof import("../Services/Staff/staffAutoValutazioniService");
-const { handleSerataFilmHouseAttendanceVoiceState } = require("../Services/Community/hogwartsSerataFilmHouseLeaderboardService") as typeof import("../Services/Community/hogwartsSerataFilmHouseLeaderboardService");
+const { handleSerataFilmAttendanceVoiceState } = require("../Services/Community/serataFilmAttendance") as typeof import("../Services/Community/serataFilmAttendance");
 const IDs = require("../Utils/Config/ids") as typeof import("../Utils/Config/ids");
 
 function isViniliFullFeatureGuild(guildId?) {
@@ -329,9 +329,9 @@ export = {
     }
 
     try {
-      await handleSerataFilmHouseAttendanceVoiceState(oldState, newState);
+      await handleSerataFilmAttendanceVoiceState(oldState, newState);
     } catch (error) {
-      global.logger?.error?.("[SERATA FILM HOUSE LB ERROR]", error);
+      global.logger?.error?.("[SERATA FILM ATTENDANCE ERROR]", error);
     }
 
     try {

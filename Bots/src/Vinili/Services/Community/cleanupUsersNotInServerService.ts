@@ -1,5 +1,4 @@
 const { ActivityUserProfile, ACTIVITY_MAIN_GUILD_ID } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
-const { resolveHogwartsCleanupExcludeUserIds } = require("./hogwartsLeaveRetention") as typeof import("./hogwartsLeaveRetention");
 const { automodBadUser } = require("../../Utils/Community/activityUserProfilePaths") as typeof import("../../Utils/Community/activityUserProfilePaths");
 const { resolveGuildMemberIds } = require("../../Utils/Discord/threadRoleMembers") as typeof import("../../Utils/Discord/threadRoleMembers");
 const guildScoped = [ [ActivityUserProfile, "ActivityUserProfile"] ];
@@ -85,8 +84,7 @@ async function unsetStaffForUsersNotInGuild(guildId?, memberIds?, dryRun?, membe
 async function runCleanupUsersNotInServer(guildId?, memberIds?, { dryRun = false, includeUserScoped = true, client = null, memberCount = 0 } = {}) {
   let total = 0;
   const details = [];
-  const keepUserIds = await resolveHogwartsCleanupExcludeUserIds(client, guildId);
-  const excludeUserIds = [...new Set([...(Array.isArray(memberIds) ? memberIds : []).map((id?) => String(id).trim()).filter(Boolean), ...keepUserIds])];
+  const excludeUserIds = [...new Set((Array.isArray(memberIds) ? memberIds : []).map((id?) => String(id).trim()).filter(Boolean))];
 
   for (const [Model, name] of guildScoped) {
     if (!(Model as any)?.countDocuments) continue;
@@ -109,12 +107,6 @@ async function runCleanupUsersNotInServer(guildId?, memberIds?, { dryRun = false
         { "moderation.automodBadUser.totalTriggers": { $lte: 0 } },
         { "profile.privacy.avatar.views": { $not: { $gt: 0 } } },
         { "profile.privacy.banner.views": { $not: { $gt: 0 } } },
-        {
-          $or: [
-            { "profile.events.hogwarts.retainUntil": { $exists: false } },
-            { "profile.events.hogwarts.retainUntil": { $lte: new Date() } },
-          ],
-        },
       ];
     }
     

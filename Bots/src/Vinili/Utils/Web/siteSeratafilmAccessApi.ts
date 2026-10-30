@@ -2,7 +2,16 @@ const crypto = require("crypto") as typeof import("crypto");
 const fs = require("fs") as typeof import("fs");
 const path = require("path") as typeof import("path");
 const { resolveWebsiteCandidatureMember } = require("../../Events/interaction/candidatureApplicationHandlers") as typeof import("../../Events/interaction/candidatureApplicationHandlers");
-const { memberHasHogwartsPreviewStaffRole } = require("./hogwartsEventParticipation") as typeof import("./hogwartsEventParticipation");
+const IDs = require("../Config/ids") as typeof import("../Config/ids");
+/* Pagina serata film riservata all'High Staff (stesso elenco usato per l'anteprima degli eventi) */
+const HIGH_STAFF_ACCESS_ROLE_IDS = [IDs.roles?.Founder, IDs.roles?.Admin, IDs.roles?.HighStaff, IDs.roles?.Director]
+  .map((id?) => String(id || "").trim())
+  .filter(Boolean);
+
+function memberHasHighStaffAccess(member?) {
+  if (!member?.roles?.cache) return false;
+  return HIGH_STAFF_ACCESS_ROLE_IDS.some((roleId?) => member.roles.cache.has(roleId));
+}
 const ACCESS_CACHE_TTL_MS = 90_000;
 const ACCESS_CACHE_MAX = 400;
 const FILM_STREAM_TTL_MS = 4 * 60 * 60 * 1000;
@@ -210,7 +219,7 @@ async function verifySeratafilmHighStaffAccess(client?, accessToken?) {
     };
   }
   const member = resolved.member;
-  if (!memberHasHogwartsPreviewStaffRole(member)) {
+  if (!memberHasHighStaffAccess(member)) {
     writeCachedAccess(accessToken, {
       ok: false,
       status: 403,

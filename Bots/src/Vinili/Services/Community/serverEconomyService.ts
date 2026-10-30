@@ -1,7 +1,19 @@
 const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
 const { randomInt } = require("node:crypto") as typeof import("node:crypto");
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
-const { resolveMainGuildMember } = require("../../Utils/Web/hogwartsEventParticipation") as typeof import("../../Utils/Web/hogwartsEventParticipation");
+const { getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache") as typeof import("../../Utils/Interaction/interactionEntityCache");
+
+/** Il membro nel server principale (i ruoli dell'economia valgono lì), anche se il comando arriva da un altro server. */
+async function resolveMainGuildMember(client?, userId?, member = null) {
+  const mainGuildId = String(IDs.guilds?.main || "").trim();
+  const uid = String(userId || "").trim();
+  if (!uid) return null;
+  if (String(member?.guild?.id || "") === mainGuildId && member?.roles?.cache) return member;
+  if (!mainGuildId || !client?.guilds) return member || null;
+  const guild = client.guilds.cache.get(mainGuildId) || (await client.guilds.fetch(mainGuildId).catch(() => null));
+  if (!guild) return null;
+  return getGuildMemberCached(guild, uid, { preferFresh: true }).catch(() => null);
+}
 const { formatEconomyAmount } = require("../../Utils/Economy/economyDisplayHelpers") as typeof import("../../Utils/Economy/economyDisplayHelpers");
 const {
   CURRENCY_CAFFE,
@@ -424,4 +436,4 @@ module.exports = {
   splitDualReward,
 };
 
-Object.assign(module.exports, require("./serverEconomyGamblingRob"));
+/* azzardo e furti (rob, slots, roulette…) erano qui: sono in Bots/archivio/giochi-economia */

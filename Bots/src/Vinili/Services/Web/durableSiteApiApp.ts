@@ -572,12 +572,6 @@ async function main() {
     } catch (err) {
       console.warn("[SITE-API] partnership migration worker:", err?.message || err);
     }
-    try {
-      const { startPotionReminderLoop } = require("../Community/hogwartsPotionReminderService") as typeof import("../Community/hogwartsPotionReminderService");
-      startPotionReminderLoop(client);
-    } catch (err) {
-      console.warn("[SITE-API] potions reminder loop:", err?.message || err);
-    }
   });
 }
 

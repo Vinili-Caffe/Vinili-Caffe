@@ -45,7 +45,6 @@ const path = require("path") as typeof import("path");
 const { readSnapshotWithMeta, writeSnapshotWithMeta } = require("../../shared/recovery/snapshotStore") as typeof import("../../shared/recovery/snapshotStore");
 const { ghostPingNewMemberOnJoin } = require("../Utils/Message/ghostPingOnChannelEnter") as typeof import("../Utils/Message/ghostPingOnChannelEnter");
 const { trackMemberJoin } = require("../Services/Community/dailyMemberStatsService") as typeof import("../Services/Community/dailyMemberStatsService");
-const { maybeAssignHogwartsCompletionRoleOnJoin } = require("../Services/Community/hogwartsEventEndService") as typeof import("../Services/Community/hogwartsEventEndService");
 const { buildMemberWelcomePhrase } = require("../Utils/Community/pronounWelcomeUtils") as typeof import("../Utils/Community/pronounWelcomeUtils");
 const { isMongoReady } = require("../Utils/Database/mongoConnect") as typeof import("../Utils/Database/mongoConnect");
 
@@ -2286,7 +2285,6 @@ export = {
           try {
             await restoreDiscadiaVoteRoleOnRejoin(member).catch(() => {});
             await restoreCustomRoleOnRejoin(member).catch(() => {});
-            await maybeAssignHogwartsCompletionRoleOnJoin(member.client, member).catch(() => {});
             await sendJoinLog(memberAfterVerifyJoin).catch(() => {});
 
             if (canAnnounce) {

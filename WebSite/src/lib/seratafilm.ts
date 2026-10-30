@@ -23,9 +23,9 @@ export const SERATA_EVENT: SerataEvent = {
   nextFilmTitle: "",
 };
 
-/** Locandina sul player — media su API/VPS (non in WebSite/public). */
+/** Locandina sul player — sempre da CDN (`vc-media`). */
 export const FILM_POSTER =
-  "https://cdn.viniliecaffe.it/images/seratafilm/sposa-cadavere-poster.jpg?v=20261030cdn1";
+  "https://cdn.viniliecaffe.it/images/seratafilm/nightmare-before-christmas-poster.jpg?v=20261030cdn2";
 
 /** BGM attesa default — come site.config.json → seratafilmBgm.youtube.videoUrls. */
 export const SERATA_BGM_YT_ID = "7wnVYIJipzU";

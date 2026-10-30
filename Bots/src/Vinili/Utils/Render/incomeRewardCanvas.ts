@@ -1,6 +1,6 @@
 const canvasModule = require("canvas") as typeof import("canvas");
 const { formatDuration } = require("../../Services/Community/activeEconomyService") as typeof import("../../Services/Community/activeEconomyService");
-const { formatEconomyAmountShort, resolveDisplayMode } = require("../Economy/economyDisplayHelpers") as typeof import("../Economy/economyDisplayHelpers");
+const { formatEconomyAmountShort } = require("../Economy/economyDisplayHelpers") as typeof import("../Economy/economyDisplayHelpers");
 const { registerCanvasFonts } = require("./canvasFonts") as typeof import("./canvasFonts");
 const { createCanvas } = canvasModule;
 const TYPE_META = {
@@ -21,11 +21,8 @@ function formatRewardShort(amount?, client = null) {
   return formatEconomyAmountShort(amount, client);
 }
 
-function currencyUnitShort(client = null) {
-  const mode = resolveDisplayMode(client);
-  if (mode === "galeoni") return "Galeoni";
-  if (mode === "server") return "Caffè";
-  return "Galeoni";
+function currencyUnitShort(_client = null) {
+  return "Caffè";
 }
 
 function roundRect(ctx?, x?, y?, w?, h?, r?) {

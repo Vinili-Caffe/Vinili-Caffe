@@ -1,7 +1,6 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, AttachmentBuilder, ChannelType, } = require("discord.js") as typeof import("discord.js");
 const { skullboardFindOneLean, skullboardUpsert } = require("../Utils/Global/globalSettingsGuildStores") as typeof import("../Utils/Global/globalSettingsGuildStores");
 const { handleMinigameReaction } = require("../Services/Minigames/minigameService") as typeof import("../Services/Minigames/minigameService");
-const { handleReactPressReaction } = require("../Services/Community/hogwartsReactPressService") as typeof import("../Services/Community/hogwartsReactPressService");
 const { handleHalloweenEmojiHuntReaction } = require("../Services/Community/halloweenEmojiHuntService") as typeof import("../Services/Community/halloweenEmojiHuntService");
 const { handleIdeaBugReaction } = require("../Services/Community/ideaBugThreadService") as typeof import("../Services/Community/ideaBugThreadService");
 const { handlePollVoteReaction } = require("../Services/Community/pollReactionThreadService") as typeof import("../Services/Community/pollReactionThreadService");
@@ -304,8 +303,6 @@ export = {
 
       try {
         const client = reaction.client || reaction.message?.client || user?.client;
-        const reactPressHandled = await handleReactPressReaction(client, reaction, user);
-        if (reactPressHandled) return;
         const halloweenHuntHandled = await handleHalloweenEmojiHuntReaction(client, reaction, user);
         if (halloweenHuntHandled) return;
         try {

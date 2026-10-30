@@ -1,14 +1,9 @@
 const { ActionRowBuilder, AttachmentBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle } = require("discord.js") as typeof import("discord.js");
 const { buildImageButtonPayload, canvasStatusLine } = require("./guiPanelPayload") as typeof import("./guiPanelPayload");
 const { CURRENCY_CAFFE, CURRENCY_VINILI, addCurrency, formatCurrency, getServerWallet, spendCurrency } = require("../../Services/Community/serverWalletService") as typeof import("../../Services/Community/serverWalletService");
-const { getBalBridgePanel } = require("../../Services/Community/serverEconomyBridgeService") as typeof import("../../Services/Community/serverEconomyBridgeService");
-const { resolveEconomyMode } = require("../../Services/Community/activeEconomyService") as typeof import("../../Services/Community/activeEconomyService");
-const { getGringottBalance } = require("../../Services/Community/gringottService") as typeof import("../../Services/Community/gringottService");
-const { eventKey } = require("../../Services/Community/galeoniEconomyService") as typeof import("../../Services/Community/galeoniEconomyService");
 const { createPersistedGuiSessionApi, SESSION_DB_TTL_MS } = require("../../Services/Community/economyGuiSessionStore") as typeof import("../../Services/Community/economyGuiSessionStore");
 const PREFIX = "bal_gui";
 const MODAL_PREFIX = "bal_gui_md";
-const CONVERT_MODAL_PREFIX = "bal_gui_cv";
 const SESSION_TTL_MS = SESSION_DB_TTL_MS;
 const AMOUNT_STEPS = [2, 5, 10, 25, 50, 100];
 const { setSession, getSession, deleteSession } = createPersistedGuiSessionApi("bal", { ttlMs: SESSION_TTL_MS });
@@ -46,8 +41,7 @@ function emptyWalletState() {
   };
 }
 
-function makeSession({ ownerId, guildId, targetId, targetName, showStaffControls, state, adjustAmount, staffCurrency, bridge }: any) {
-  const bridgeData = bridge && typeof bridge === "object" ? bridge : {};
+function makeSession({ ownerId, guildId, targetId, targetName, showStaffControls, state, adjustAmount, staffCurrency }: any) {
   return {
     ownerId: String(ownerId || ""),
     guildId: String(guildId || ""),
@@ -57,11 +51,6 @@ function makeSession({ ownerId, guildId, targetId, targetName, showStaffControls
     state: state || emptyWalletState(),
     adjustAmount: normalizeAmountStep(adjustAmount ?? AMOUNT_STEPS[1]),
     staffCurrency: staffCurrency === CURRENCY_CAFFE ? CURRENCY_CAFFE : CURRENCY_VINILI,
-    showGaleoni: Boolean(bridgeData.showGaleoni),
-    galeoniOnly: Boolean(bridgeData.galeoniOnly),
-    canConvert: Boolean(bridgeData.canConvert),
-    galeoni: bridgeData.galeoni || { balance: 0, earned: 0, spent: 0 },
-    conversion: bridgeData.conversion || null,
     lastNotice: "",
     panelClosed: false,
     createdAt: now(),
@@ -79,14 +68,11 @@ function modalId(ownerId?, targetId?) {
 
 function isBalGuiCustomId(customId?) {
   const id = String(customId || "");
-  return id.startsWith(`${PREFIX}:`) || id.startsWith(`${MODAL_PREFIX}:`) || id.startsWith(`${CONVERT_MODAL_PREFIX}:`);
+  return id.startsWith(`${PREFIX}:`) || id.startsWith(`${MODAL_PREFIX}:`);
 }
 
 function parseBalGuiCustomId(customId?) {
   const parts = String(customId || "").split(":");
-  if (parts[0] === CONVERT_MODAL_PREFIX && parts.length >= 3) {
-    return { kind: "convert_modal", ownerId: parts[1], targetId: parts[2] };
-  }
   if (parts[0] === PREFIX && parts.length >= 4) {
     return { kind: "button", action: parts[1], ownerId: parts[2], targetId: parts[3] };
   }
@@ -130,30 +116,11 @@ function buildRows(session?, panelClosed = false) {
   }
   rows.push(
     new ActionRowBuilder().addComponents(
-      ...(session.canConvert
-        ? [
-            new ButtonBuilder()
-              .setCustomId(controlId("convert", ownerId, targetId))
-              .setLabel("Converti Caffè")
-              .setEmoji("🪙")
-              .setStyle(ButtonStyle.Success)
-              .setDisabled(locked),
-          ]
-        : []),
       new ButtonBuilder().setCustomId(controlId("refresh", ownerId, targetId)).setLabel("Aggiorna").setEmoji("🔄").setStyle(ButtonStyle.Secondary).setDisabled(locked),
       new ButtonBuilder().setCustomId(controlId("close", ownerId, targetId)).setLabel("Chiudi").setEmoji("<a:VC_Cross:1482532424570376253>").setStyle(ButtonStyle.Danger).setDisabled(locked),
     ),
   );
   return rows;
-}
-
-function bridgeHintForSession(session?) {
-  const conv = session.conversion;
-  if (!session.showGaleoni || session.galeoniOnly) return "";
-  if (session.canConvert && conv?.rateLabel) {
-    return `${conv.rateLabel} · oggi ancora ${conv.remainingGaleoni} Galeoni`;
-  }
-  return "Saldo evento Hogwarts su Gringott";
 }
 
 async function renderPanel(session?, notice = "") {
@@ -164,21 +131,13 @@ async function renderPanel(session?, notice = "") {
       targetLabel: session.targetName,
       vinili: session.state?.vinili || emptyWalletState().vinili,
       caffe: session.state?.caffe || emptyWalletState().caffe,
-      galeoni: session.galeoni || { balance: 0, earned: 0, spent: 0 },
-      showGaleoni: session.showGaleoni,
-      galeoniOnly: Boolean(session.galeoniOnly),
-      bridgeHint: bridgeHintForSession(session),
       staffMode: session.showStaffControls,
       staffCurrency: session.staffCurrency,
       noticeShort:
         status ||
         (session.showStaffControls
           ? `${staffCurrencyLabel(session.staffCurrency)} · ${session.adjustAmount}`
-          : session.galeoniOnly
-            ? "Galeoni d'Oro"
-            : session.showGaleoni
-              ? "Vinili · Caffè · Galeoni"
-              : "Vinili & Caffè"),
+          : "Vinili & Caffè"),
     });
     const fileName = "server-bal.png";
     const files = [new AttachmentBuilder(Buffer.from(rendered.buffer), { name: fileName })];
@@ -198,57 +157,10 @@ async function buildBalPayload(session?, notice = "", panelClosed = false) {
 }
 
 async function reloadBalance(client?, session?, messageLike = null) {
-  if (resolveEconomyMode(client) === "galeoni" && session.showGaleoni && !session.showStaffControls) {
-    const evt = eventKey(client);
-    const gState = await getGringottBalance(session.guildId, session.targetId, evt);
-    session.galeoni = {
-      balance: Math.max(0, Math.floor(Number(gState?.balance) || 0)),
-      earned: Math.max(0, Math.floor(Number(gState?.earned) || 0)),
-      spent: Math.max(0, Math.floor(Number(gState?.spent) || 0)),
-    };
-    session.showGaleoni = true;
-    session.galeoniOnly = true;
-    session.canConvert = false;
-    session.state = emptyWalletState();
-    session.updatedAt = now();
-    return session;
-  }
   const state = await getServerWallet(session.guildId, session.targetId);
   session.state = state || emptyWalletState();
-  const msg = messageLike || { guild: { id: session.guildId }, author: { id: session.ownerId }, member: null };
-  const bridge = await getBalBridgePanel(client, msg, session.ownerId, session.targetId);
-  session.showGaleoni = bridge.showGaleoni;
-  session.galeoniOnly = false;
-  session.canConvert = bridge.canConvert;
-  session.galeoni = bridge.galeoni;
-  session.conversion = bridge.conversion;
   session.updatedAt = now();
   return session;
-}
-
-function convertModalId(ownerId?, targetId?) {
-  return `${CONVERT_MODAL_PREFIX}:${ownerId}:${targetId}`;
-}
-
-function buildConvertModal(session?) {
-  const min = Math.max(1, Math.floor(Number(session.conversion?.cfg?.minCaffeConvert) || 8));
-  const rate = Math.max(1, Math.floor(Number(session.conversion?.cfg?.caffePerGaleone) || 4));
-  return new ModalBuilder()
-    .setCustomId(convertModalId(session.ownerId, session.targetId))
-    .setTitle("Converti Caffè in Galeoni")
-    .addComponents(
-      new ActionRowBuilder().addComponents(
-        new TextInputBuilder()
-          .setCustomId("caffe_amount")
-          .setLabel(`Caffè da convertire (${rate} → 1 Galeone)`)
-          .setStyle(TextInputStyle.Short)
-          .setRequired(true)
-          .setMinLength(1)
-          .setMaxLength(7)
-          .setPlaceholder(`Min ${min}`)
-          .setValue(String(min)),
-      ),
-    );
 }
 
 async function applyStaffCredit(client?, session?, actorId?) {
@@ -311,7 +223,6 @@ async function warmupBalPanel() {
   } catch (_) {}
 }
 
-
 setImmediate(() => {
   warmupBalPanel().catch(() => {});
 });
@@ -320,31 +231,7 @@ async function openBalPanel(client?, message?, options: Record<string, any> = {}
   const guildId = String(message?.guild?.id || "");
   const targetId = String(options.targetId || message?.author?.id || "");
   const targetName = String(options.targetName || "Utente").trim() || "Utente";
-  const mode = resolveEconomyMode(client);
-
-  if (mode === "galeoni") {
-    const evt = eventKey(client);
-    const gState = await getGringottBalance(guildId, targetId, evt);
-    const galeoni = {
-      balance: Math.max(0, Math.floor(Number(gState?.balance) || 0)),
-      earned: Math.max(0, Math.floor(Number(gState?.earned) || 0)),
-      spent: Math.max(0, Math.floor(Number(gState?.spent) || 0)),
-    };
-    const session = makeSession({
-      ownerId: message.author.id,
-      guildId,
-      targetId,
-      targetName,
-      showStaffControls: false,
-      state: emptyWalletState(),
-      bridge: { showGaleoni: true, galeoniOnly: true, canConvert: false, galeoni },
-    });
-    await warmupBalPanel();
-    return { ok: true, session, payload: await buildBalPayload(session, (false as any)) };
-  }
-
   const state = await getServerWallet(guildId, targetId);
-  const bridge = await getBalBridgePanel(client, message, message.author.id, targetId);
   const session = makeSession({
     ownerId: message.author.id,
     guildId,
@@ -352,10 +239,9 @@ async function openBalPanel(client?, message?, options: Record<string, any> = {}
     targetName,
     showStaffControls: Boolean(options.showStaffControls),
     state: state || emptyWalletState(),
-    bridge,
   });
   await warmupBalPanel();
   return { ok: true, session, payload: await buildBalPayload(session, (false as any)) };
 }
 
-export = { AMOUNT_STEPS, applyStaffCredit, applyStaffDebit, buildAmountModal, buildBalPayload, buildConvertModal, controlId, convertModalId, cycleStep, deleteSession, formatCurrency, getSession, isBalGuiCustomId, isStaffAction, modalId, normalizeAmountStep, openBalPanel, parseBalGuiCustomId, reloadBalance, setSession, staffCurrencyLabel, warmupBalPanel };
+export = { AMOUNT_STEPS, applyStaffCredit, applyStaffDebit, buildAmountModal, buildBalPayload, controlId, cycleStep, deleteSession, formatCurrency, getSession, isBalGuiCustomId, isStaffAction, modalId, normalizeAmountStep, openBalPanel, parseBalGuiCustomId, reloadBalance, setSession, staffCurrencyLabel, warmupBalPanel };

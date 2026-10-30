@@ -1,5 +1,12 @@
 const IDs = require("../Config/ids") as typeof import("../Config/ids");
-const { collectHogwartsSystemRoleIds } = require("../Web/hogwartsSortingConfig") as typeof import("../Web/hogwartsSortingConfig");
+/* Ruoli dell'evento Hogwarts (4 case + commemorativo, evento concluso): se esistono ancora non sono ruoli personalizzati */
+const ARCHIVED_EVENT_ROLE_IDS = [
+  "1504791825657888898",
+  "1504791921246339072",
+  "1504791899100155987",
+  "1504791872671973537",
+  "1507000390493798511",
+];
 
 function looksLikeUserCustomRoleName(name?) {
   const n = String(name || "");
@@ -22,17 +29,13 @@ const SYSTEMISH_CUSTOM_NAME_RE =
   /^(bots?\s*ufficiali|official\s*bots?|staff|founder|manager|admin|director|helper|mod(?:erator)?|member|muted|everyone)$/i;
 
 function collectBlockedSystemRoleIds() {
-  const out = new Set(collectHogwartsSystemRoleIds(null));
+  const out = new Set(ARCHIVED_EVENT_ROLE_IDS);
   for (const id of EXTRA_NON_CUSTOM_ROLE_IDS) out.add(id);
   for (const id of Object.values(IDs?.roles || {})) {
     const sid = String(id || "").trim();
     if (sid) out.add(sid);
   }
   return out;
-}
-
-function collectHogwartsOnlyRoleIds() {
-  return collectHogwartsSystemRoleIds(null);
 }
 
 function isListableUserCustomRole(role?, { blockedRoleIds = null } = {}) {
@@ -70,8 +73,8 @@ function canSafelyDeleteCustomPerkRole(role?, doc?, { blockedRoleIds = null } = 
 export = {
   looksLikeUserCustomRoleName,
   stripCustomRoleMarker,
-  collectHogwartsOnlyRoleIds,
   collectBlockedSystemRoleIds,
+  isArchivedEventRoleId: (roleId?) => ARCHIVED_EVENT_ROLE_IDS.includes(String(roleId || "").trim()),
   collectFixedGuildRoleIds: collectBlockedSystemRoleIds,
   isListableUserCustomRole,
   isCustomRolePurgeDryRun,

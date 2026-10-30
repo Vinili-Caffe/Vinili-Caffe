@@ -29,28 +29,18 @@ function resolveDisplayMode(client = null) {
   try {
     const { resolveEconomyMode } = require("../../Services/Community/activeEconomyService") as typeof import("../../Services/Community/activeEconomyService");
     const mode = resolveEconomyMode(client?.config ? client : { config: loadBotConfig(client) });
-    if (mode === "galeoni" || mode === "server") return mode;
+    if (mode === "server") return mode;
   } catch {
       }
   const config = loadBotConfig(client);
   if (!config) return null;
   if (config.serverEconomy?.enabled === true) return "server";
-  if (config.galeoniEconomy?.enabled === false) return null;
-  if (config.galeoniEconomy?.enabled === true || config.serverEconomy?.enabled === false) return "galeoni";
   return null;
 }
 
 function formatEconomyAmount(amount?, client = null) {
   const n = intAmount(amount);
   const mode = resolveDisplayMode(client);
-  if (mode === "galeoni") {
-    try {
-      const { formatGaleoni } = require("../../Services/Community/gringottService") as typeof import("../../Services/Community/gringottService");
-      return formatGaleoni(n);
-    } catch {
-      return `${n} ${n === 1 ? "Galeone d'Oro" : "Galeoni d'Oro"}`;
-    }
-  }
   if (mode === "server") {
     try {
       const { formatCurrency } = require("../../Services/Community/serverWalletService") as typeof import("../../Services/Community/serverWalletService");
@@ -65,13 +55,7 @@ function formatEconomyAmount(amount?, client = null) {
 function formatEconomyAmountShort(amount?, client = null) {
   const n = intAmount(amount);
   const mode = resolveDisplayMode(client);
-  if (mode === "galeoni") {
-    return `${n} ${n === 1 ? "Galeone" : "Galeoni"}`;
-  }
-  if (mode === "server") {
-    return `${n} ${n === 1 ? "Caffè" : "Caffè"}`;
-  }
-  return `${n} ${n === 1 ? "Galeone" : "Galeoni"}`;
+  return `${n} Caffè`;
 }
 
 function formatEconomyBet(amount?, client = null) {
