@@ -1,11 +1,12 @@
 /**
  * Contratto plugin eventi (Hogwarts / Halloween / Star Wars).
- * Il core Vinili registra solo da qui — niente start* evento sparsi in ready.
+ * Pack codice: archivio/{halloween|starwars|hogwarts}/src/Vinili/…
+ * Qui restano shim + register; il core Vinili avvia solo da questo entrypoint.
  *
  * Riattivare stagione:
  * - halloweenRuntime.disabled = false (o halloweenEvent.enabled + finestra live)
  * - starWarsRuntime.disabled = false (o starWarsEvent.enabled + live)
- * - hogwartsRuntime.disabled = false (+ restore da archivio se serve)
+ * - hogwartsRuntime.disabled = false (+ moduli già in archivio/hogwarts)
  */
 "use strict";
 

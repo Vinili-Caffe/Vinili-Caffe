@@ -1,19 +1,29 @@
-# Plugin evento Star Wars
+# Plugin evento starwars
 
-Pack gestito come Hogwarts: **kill-switch + register lazy**.
+Codice sotto `archivio/starwars/src/Vinili/` (layout Hogwarts).
+Shim in `src/Vinili/…` re-exportano da qui.
+Register: `EventPlugins/starwars/`.
 
-- Contratto live: `Bots/src/Vinili/EventPlugins/starwars/`
-- Config: `starWarsRuntime.disabled` (default **true** fuori evento) + `starWarsEvent`
-- Core entry: `EventPlugins/registerEventPlugins.ts`
-- Prefix pubblici (`ordine66`, `conquista`, `punta`) gated da `assertPlugin`
-- `+swspawn` resta High Staff per anteprima
-
-Moduli feature (oggi sotto `src/Vinili`, loop solo se plugin on):
-
-- `Services/Community/starWars*`
-- `Utils/Eventi/starWars*`
-- `Web/siteStarWarsEventoApi.ts`
-- `Prefix/Minigames/{ordine66,conquista,punta,swspawn}.ts`
 - `Buttons/starWarsMinigames.ts`
-
-Riattivare stagione: `starWarsRuntime.disabled = false` (e/o `starWarsEvent` live) + restart.
+- `Prefix/Minigames/conquista.ts`
+- `Prefix/Minigames/ordine66.ts`
+- `Prefix/Minigames/punta.ts`
+- `Prefix/Minigames/swspawn.ts`
+- `Services/Community/starWarsDiscordMinigamesService.ts`
+- `Services/Community/starWarsEconomyService.ts`
+- `Services/Community/starWarsEventWalletService.ts`
+- `Services/Community/starWarsRewardsService.ts`
+- `Services/Community/starWarsSiteGamesService.ts`
+- `Services/Community/starWarsTransversalService.ts`
+- `Utils/Eventi/starWarsAdventCatalog.ts`
+- `Utils/Eventi/starWarsCrateLoot.ts`
+- `Utils/Eventi/starWarsEconomyCatalog.ts`
+- `Utils/Eventi/starWarsEventCalendar.ts`
+- `Utils/Eventi/starWarsEventConfig.ts`
+- `Utils/Eventi/starWarsMinigamesRegistry.ts`
+- `Utils/Eventi/starWarsRuntimeGate.ts`
+- `Utils/Eventi/starWarsSortingBank.ts`
+- `Web/siteStarWarsEventoApi.ts`
+- `EventPlugins/starwars/runtimeKillSwitch.ts`
+- `EventPlugins/starwars/register.ts`
+- `EventPlugins/starwars/assertPlugin.ts`
