@@ -4,7 +4,7 @@ const { buildPronounsRow, buildAgeRow, buildRegionRow, buildZodiacRow, buildRela
 const { getClientChannelCached } = require("../Utils/Interaction/interactionEntityCache") as typeof import("../Utils/Interaction/interactionEntityCache");
 const { upsertPanelMessage } = require("../../shared/discord/panelUpsertRuntime") as typeof import("../../shared/discord/panelUpsertRuntime");
 const { buildVcPagePayload } = require("../Utils/Embeds/vcPageEmbedV2") as typeof import("../Utils/Embeds/vcPageEmbedV2");
-const { botPhotoCdnUrl } = require("../Utils/Discord/botPhotosCdn") as typeof import("../Utils/Discord/botPhotosCdn");
+const { resolveBotPhotoMedia } = require("../Utils/Discord/botPhotosCdn") as typeof import("../Utils/Discord/botPhotosCdn");
 
 const CHANNEL_ID = IDs.channels.ruoliColori;
 const IMAGE_NAME = "personalità.gif";
@@ -63,7 +63,7 @@ async function run(client?) {
         "<a:VC_Exclamation:1482534702077444217> Massimo **1** ruolo per categoria.",
       ].join("\n"),
       rows: [pronouns, age, zodiacMenu, region, relationship],
-      mediaUrl: botPhotoCdnUrl(IMAGE_NAME),
+      ...resolveBotPhotoMedia(IMAGE_NAME),
     }),
   );
 
@@ -80,7 +80,7 @@ async function run(client?) {
         "<a:VC_Exclamation:1482534702077444217> Massimo **1** ruolo per categoria.",
       ].join("\n"),
       rows: [dmStatus, mentionsMenu],
-      mediaUrl: botPhotoCdnUrl(MENTIONS_IMAGE_NAME),
+      ...resolveBotPhotoMedia(MENTIONS_IMAGE_NAME),
     }),
   );
 
@@ -97,7 +97,7 @@ async function run(client?) {
         "<a:VC_Exclamation:1482534702077444217> Verrà mostrato il **colore più in alto** nella lista dei ruoli nel tuo profilo.",
       ].join("\n"),
       rows: [colorsMenu],
-      mediaUrl: botPhotoCdnUrl(COLORS_IMAGE_NAME),
+      ...resolveBotPhotoMedia(COLORS_IMAGE_NAME),
     }),
   );
 
@@ -130,7 +130,7 @@ async function run(client?) {
         `<:VC_5:1482706459765637272> <@&${IDs.roles.aquaBlackPlus}> — livello **200**`,
       ].join("\n"),
       rows: [plusColorsMenu],
-      mediaUrl: botPhotoCdnUrl(PLUS_COLORS_IMAGE_NAME),
+      ...resolveBotPhotoMedia(PLUS_COLORS_IMAGE_NAME),
     }),
   );
 

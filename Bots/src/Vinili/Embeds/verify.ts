@@ -7,7 +7,7 @@ const { buildSiteVerifyOAuthStartUrl } = require("../Utils/Web/verifyOauthPublic
 const { siteTicketsPageDiscordRef } = require("../../shared/web/siteTicketsPageRef") as typeof import("../../shared/web/siteTicketsPageRef");
 const { buildVcPagePayload } = require("../Utils/Embeds/vcPageEmbedV2") as typeof import("../Utils/Embeds/vcPageEmbedV2");
 const { TENANT_EMBED_COLOR } = require("../MultiGuild/utils/tenantEmbedBranding") as typeof import("../MultiGuild/utils/tenantEmbedBranding");
-const { botPhotoCdnUrl } = require("../Utils/Discord/botPhotosCdn") as typeof import("../Utils/Discord/botPhotosCdn");
+const { resolveBotPhotoMedia } = require("../Utils/Discord/botPhotosCdn") as typeof import("../Utils/Discord/botPhotosCdn");
 
 const VERIFY_CHANNEL_ID = IDs.channels.verify;
 const VERIFY_MEDIA_NAME = "verifica.gif";
@@ -58,7 +58,7 @@ async function run(client?) {
         "<:VC_Ticket:1482535175283019888> Per **qualsiasi** problema, non **esitate** ad aprire un **__" +
         siteTicketsPageDiscordRef("SUPPORTO") +
         "__**",
-      mediaUrl: botPhotoCdnUrl(VERIFY_MEDIA_NAME),
+      ...resolveBotPhotoMedia(VERIFY_MEDIA_NAME),
     }),
   );
 
@@ -78,7 +78,7 @@ async function run(client?) {
         "<:VC_Space:1482459974667075685><:VC_Space:1482459974667075685> <:VC_Reply:1482532158080942191> Gli unici dati a cui avremo accesso saranno, come indicato direttamente da Discord, nome utente, avatar e banner del tuo profilo.",
       ].join("\n"),
       rows: [verifyRow],
-      mediaUrl: botPhotoCdnUrl(VERIFY_OAUTH_IMAGE_NAME),
+      ...resolveBotPhotoMedia(VERIFY_OAUTH_IMAGE_NAME),
     }),
   );
 

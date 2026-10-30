@@ -2,7 +2,7 @@ const IDs: any = require("../Utils/Config/ids") as typeof import("../Utils/Confi
 const { personalityPanelFindOneAndUpdate, personalityPanelUpdateOne } = require("../Utils/Global/globalSettingsGuildStores") as typeof import("../Utils/Global/globalSettingsGuildStores");
 const { getGuildChannelCached, getGuildRoleCached } = require("../Utils/Interaction/interactionEntityCache") as typeof import("../Utils/Interaction/interactionEntityCache");
 const { TENANT_EMBED_COLOR } = require("../MultiGuild/utils/tenantEmbedBranding") as typeof import("../MultiGuild/utils/tenantEmbedBranding");
-const { botPhotoCdnUrl } = require("../Utils/Discord/botPhotosCdn") as typeof import("../Utils/Discord/botPhotosCdn");
+const { resolveBotPhotoMedia } = require("../Utils/Discord/botPhotosCdn") as typeof import("../Utils/Discord/botPhotosCdn");
 const SPONSOR_PANEL_COLOR = TENANT_EMBED_COLOR;
 const SPONSOR_BATCH_SIZE = 6;
 
@@ -103,7 +103,7 @@ async function processOneGuildTagPanel(client?, guildId?, config?) {
     accentColor: SPONSOR_PANEL_COLOR,
     body: buildSponsorTagBody(config, boosterRoleMention),
     footer: `.gg/viniliecaffe • ${new Date().toLocaleString("it-IT", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}`,
-    mediaUrl: botPhotoCdnUrl(TAG_IMAGE_NAME),
+    ...resolveBotPhotoMedia(TAG_IMAGE_NAME),
   });
   const sentMessage = await upsertPanelMessage(channel, client, messagePayload);
   if (sentMessage?.id) {
@@ -180,7 +180,10 @@ async function processOneVerifyPanel(client?, guildId?, verifyChannelIds?) {
       "<:VC_Space:1482459974667075685><:VC_Space:1482459974667075685> <:VC_Reply:1482532158080942191> Gli unici dati a cui avremo accesso saranno, come indicato direttamente da Discord, nome utente, avatar e banner del tuo profilo.",
     ].join("\n"),
     rows: [verifyRow],
-    mediaUrl: botPhotoCdnUrl(VERIFY_OAUTH_IMAGE_NAME) || botPhotoCdnUrl(VERIFY_FALLBACK_IMAGE_NAME),
+    ...(() => {
+      const primary = resolveBotPhotoMedia(VERIFY_OAUTH_IMAGE_NAME);
+      return primary.mediaUrl ? primary : resolveBotPhotoMedia(VERIFY_FALLBACK_IMAGE_NAME);
+    })(),
   });
   const panelMessage = await upsertPanelMessage(channel, client, verifyPayload);
   if (panelMessage?.id) {

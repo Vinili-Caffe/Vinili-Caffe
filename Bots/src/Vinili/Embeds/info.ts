@@ -6,7 +6,7 @@ const { getClientChannelCached } = require("../Utils/Interaction/interactionEnti
 const { upsertPanelMessage } = require("../../shared/discord/panelUpsertRuntime") as typeof import("../../shared/discord/panelUpsertRuntime");
 const { siteTicketsPageDiscordRef, siteUserProfilePageDiscordRef } = require("../../shared/web/siteTicketsPageRef") as typeof import("../../shared/web/siteTicketsPageRef");
 const { buildVcPagePayload } = require("../Utils/Embeds/vcPageEmbedV2") as typeof import("../Utils/Embeds/vcPageEmbedV2");
-const { botPhotoCdnUrl } = require("../Utils/Discord/botPhotosCdn") as typeof import("../Utils/Discord/botPhotosCdn");
+const { resolveBotPhotoMedia } = require("../Utils/Discord/botPhotosCdn") as typeof import("../Utils/Discord/botPhotosCdn");
 const INFO_MEDIA_NAME = "info.gif";
 
 async function deleteMessageIfPresent(channel?, messageId?) {
@@ -120,7 +120,7 @@ async function run(client?) {
       { heading: "<:VC_Info:1482526956703580372> Informazioni", body: infoMetaText },
     ],
     footer: "Usa i bottoni sottostanti per accedere ad altre categorie del server.",
-    mediaUrl: botPhotoCdnUrl(INFO_MEDIA_NAME),
+    ...resolveBotPhotoMedia(INFO_MEDIA_NAME),
     rows: [row1, row2],
     includeBanner: false,
   });

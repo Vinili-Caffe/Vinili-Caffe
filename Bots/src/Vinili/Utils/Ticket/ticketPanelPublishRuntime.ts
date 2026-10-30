@@ -32,9 +32,10 @@ const {
   resolveTicketBotLanguage,
 } = require("./ticketUiDefaults") as typeof import("./ticketUiDefaults");
 
-const { botPhotoCdnUrl } = require("../Discord/botPhotosCdn") as typeof import("../Discord/botPhotosCdn");
+const { resolveBotPhotoMedia, botPhotoCdnUrl } = require("../Discord/botPhotosCdn") as typeof import("../Discord/botPhotosCdn");
 const TICKET_MEDIA_NAME = "ticket.gif";
-const TICKET_MEDIA_URL = botPhotoCdnUrl(TICKET_MEDIA_NAME);
+const TICKET_MEDIA = resolveBotPhotoMedia(TICKET_MEDIA_NAME);
+const TICKET_MEDIA_URL = TICKET_MEDIA.mediaUrl || botPhotoCdnUrl(TICKET_MEDIA_NAME);
 
 const STYLE_MAP = {
   Primary: ButtonStyle.Primary,
@@ -143,7 +144,11 @@ function buildSinglePanelRichPayload(panel?, options: Record<string, any> = {}) 
   const rows = options.rows || [];
   const classic = buildSinglePanelClassicFields(panel, options);
   if (options.attachTicketGif && !classic.imageUrl) {
-    classic.imageUrl = TICKET_MEDIA_URL;
+    classic.imageUrl = TICKET_MEDIA.mediaUrl || TICKET_MEDIA_URL;
+    if (TICKET_MEDIA.files?.length) {
+      classic.files = TICKET_MEDIA.files;
+      classic.mediaName = TICKET_MEDIA.mediaName;
+    }
   }
   return buildVcRichFromClassicFields({ ...classic, rows });
 }
@@ -152,7 +157,11 @@ function buildMultiPanelRichPayload(multi?, options: Record<string, any> = {}) {
   const rows = options.rows || [];
   const classic: any = buildMultiPanelClassicFields(multi, options);
   if (options.attachTicketGif !== false && !classic.imageUrl) {
-    classic.imageUrl = TICKET_MEDIA_URL;
+    classic.imageUrl = TICKET_MEDIA.mediaUrl || TICKET_MEDIA_URL;
+    if (TICKET_MEDIA.files?.length) {
+      classic.files = TICKET_MEDIA.files;
+      classic.mediaName = TICKET_MEDIA.mediaName;
+    }
   }
   return buildVcRichFromClassicFields({ ...classic, rows });
 }

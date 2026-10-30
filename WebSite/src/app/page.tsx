@@ -4,6 +4,7 @@ import { LiveStats } from "@/components/LiveStats";
 import { SiteShell } from "@/components/SiteShell";
 import { loadBuildStats } from "@/lib/stats";
 import { DiscordComponentEmbed } from "@/components/DiscordComponentEmbed";
+import { cdnUrl } from "@/lib/site";
 
 /* Below-fold: split dal chunk iniziale (home Speed Insights). */
 const Why = dynamic(() => import("@/components/Why").then((m) => m.Why));
@@ -25,7 +26,7 @@ export default async function Home() {
         description="Community Discord Italiana chill dove parlare di tutto. Ruoli, eventi, giveaway, bot esclusivi."
       />
       {/* LCP: atmosfera hero (hoisted in <head>) */}
-      <link rel="preload" as="image" href="/images/hero-cafe-atmosphere.jpg" type="image/jpeg" />
+      <link rel="preload" as="image" href={cdnUrl("/images/hero-cafe-atmosphere.jpg")} type="image/jpeg" />
       <Hero />
       <LiveStats initial={stats} />
       <Why />

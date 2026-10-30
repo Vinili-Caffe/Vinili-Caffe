@@ -8,7 +8,7 @@ const {
   siteWorkflowPath,
 } = require("../Utils/Web/discordWorkflowUiGate") as typeof import("../Utils/Web/discordWorkflowUiGate");
 const { buildVcPagePayload } = require("../Utils/Embeds/vcPageEmbedV2") as typeof import("../Utils/Embeds/vcPageEmbedV2");
-const { botPhotoCdnUrl } = require("../Utils/Discord/botPhotosCdn") as typeof import("../Utils/Discord/botPhotosCdn");
+const { resolveBotPhotoMedia } = require("../Utils/Discord/botPhotosCdn") as typeof import("../Utils/Discord/botPhotosCdn");
 const CANDIDATURE_MEDIA_NAME = "candidature.gif";
 
 async function run(client?) {
@@ -75,7 +75,7 @@ Per candidarsi, è necessario **soddisfare** i seguenti __requisiti__:
       guildId: candidatureChannel.guild?.id,
       title: "Candidature staff",
       body,
-      mediaUrl: botPhotoCdnUrl(CANDIDATURE_MEDIA_NAME),
+      ...resolveBotPhotoMedia(CANDIDATURE_MEDIA_NAME),
       rows: [rowCandidature],
     }),
   );

@@ -2,13 +2,14 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useReducedMotion } from "motion/react";
+import { cdnUrl } from "@/lib/site";
 
 /** Atmosfera café senza testo/UI finta — da integrare con hero reale. */
-export const HERO_ATMO_POSTER = "/images/hero-cafe-atmosphere.jpg";
-export const HERO_ATMO_VIDEO = "/images/hero-cafe-atmosphere.mp4";
-export const HERO_ATMO_VIDEO_MOBILE = "/images/hero-cafe-atmosphere-mobile.mp4";
+export const HERO_ATMO_POSTER = cdnUrl("/images/hero-cafe-atmosphere.jpg");
+export const HERO_ATMO_VIDEO = cdnUrl("/images/hero-cafe-atmosphere.mp4");
+export const HERO_ATMO_VIDEO_MOBILE = cdnUrl("/images/hero-cafe-atmosphere-mobile.mp4");
 /** Poster più “corto” per PageHero tagliato. */
-export const HERO_ATMO_BAND = "/images/hero-cafe-atmosphere-band.jpg";
+export const HERO_ATMO_BAND = cdnUrl("/images/hero-cafe-atmosphere-band.jpg");
 
 /**
  * Sfondo hero animato (atmosfera). Reduced-motion → solo poster.
