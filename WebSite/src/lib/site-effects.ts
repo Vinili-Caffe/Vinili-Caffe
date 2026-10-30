@@ -1,6 +1,6 @@
 /** Preferenze effetti sito (stesse chiavi del WebSite vecchio dove esistevano). */
 
-/** Stagione Halloween (Rome): 15 ott → 2 nov — FX + musica home. */
+/** Stagione Halloween (Rome): 15 ott → 2 nov alle 12 (chiusura evento, come il bot) — FX + musica home. */
 export function isHalloweenSeason(now = new Date()): boolean {
   try {
     const parts = new Intl.DateTimeFormat("en-GB", {
@@ -8,18 +8,21 @@ export function isHalloweenSeason(now = new Date()): boolean {
       year: "numeric",
       month: "2-digit",
       day: "2-digit",
+      hour: "2-digit",
+      hourCycle: "h23",
     }).formatToParts(now);
     const y = Number(parts.find((p) => p.type === "year")?.value);
     const m = Number(parts.find((p) => p.type === "month")?.value);
     const d = Number(parts.find((p) => p.type === "day")?.value);
+    const h = Number(parts.find((p) => p.type === "hour")?.value);
     if (!y || !m || !d) return false;
     if (m === 10 && d >= 15) return true;
-    if (m === 11 && d <= 2) return true;
+    if (m === 11 && (d === 1 || (d === 2 && h < 12))) return true;
     return false;
   } catch {
     const m = now.getMonth() + 1;
     const d = now.getDate();
-    return (m === 10 && d >= 15) || (m === 11 && d <= 2);
+    return (m === 10 && d >= 15) || (m === 11 && (d === 1 || (d === 2 && now.getHours() < 12)));
   }
 }
 

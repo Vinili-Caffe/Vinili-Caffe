@@ -62,7 +62,7 @@ function resolveHalloweenEventConfig(client?) {
   const enabled = readBool(process.env.HALLOWEEN_EVENT_ENABLED ?? raw.enabled, false);
   const timezone = String(process.env.HALLOWEEN_EVENT_TZ || raw.timezone || "Europe/Rome").trim() || "Europe/Rome";
   const startDate = String(process.env.HALLOWEEN_EVENT_START || raw.startDate || "2026-10-24T12:00:00").trim();
-  const endDate = String(process.env.HALLOWEEN_EVENT_END || raw.endDate || "2026-11-01T12:00:00").trim();
+  const endDate = String(process.env.HALLOWEEN_EVENT_END || raw.endDate || "2026-11-02T12:00:00").trim();
   const eventKey = String(process.env.HALLOWEEN_EVENT_KEY || raw.eventKey || DEFAULT_EVENT_KEY).trim() || DEFAULT_EVENT_KEY;
   const testGuildForceLive = readBool(
     process.env.HALLOWEEN_TEST_FORCE_LIVE ?? raw.testGuildForceLive,
