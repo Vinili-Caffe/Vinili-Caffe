@@ -2,7 +2,21 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, LayoutGroup, motion } from "motion/react";
-import { Crosshair, Gamepad2, Loader2, MessageSquare, Mic, Search, TrendingUp, Trophy, X, type LucideIcon } from "lucide-react";
+import {
+  Calendar,
+  CalendarDays,
+  Crosshair,
+  Gamepad2,
+  Infinity as InfinityIcon,
+  Loader2,
+  MessageSquare,
+  Mic,
+  Search,
+  TrendingUp,
+  Trophy,
+  X,
+  type LucideIcon,
+} from "lucide-react";
 import {
   BOARDS,
   PERIODS,
@@ -27,6 +41,12 @@ const BOARD_ICONS: Record<BoardId, LucideIcon> = {
   messages: MessageSquare,
   voice: Mic,
   minigames: Gamepad2,
+};
+
+const PERIOD_ICONS: Record<PeriodId, LucideIcon> = {
+  alltime: InfinityIcon,
+  weekly: CalendarDays,
+  monthly: Calendar,
 };
 
 // i primi 3: oro, argento, bronzo
@@ -187,9 +207,10 @@ export function LeaderboardBrowser({ initial }: { initial: LeaderPage | null }) 
     }
     let alive = true;
     setBoardBoot(true);
+    setPodium([]);
     loadBoard(board, 1, { period }).then((d) => {
       if (!alive) return;
-      if (d) setPodium(d.rows.slice(0, 3));
+      if (d && d.board === board && d.period === period) setPodium(d.rows.slice(0, 3));
       setBoardBoot(false);
     });
     return () => {
@@ -207,8 +228,14 @@ export function LeaderboardBrowser({ initial }: { initial: LeaderPage | null }) 
     let alive = true;
     setListLoading(true);
     setFound(null);
+    /* Evita metric del periodo nuovo su righe vecchie (mostrava 0 EXP). */
+    setData(null);
     loadBoard(board, pageNum, { period }).then((d) => {
       if (!alive) return;
+      if (d && (d.board !== board || d.period !== period)) {
+        setListLoading(false);
+        return;
+      }
       setData(d);
       if (d && pageNum === 1) setPodium(d.rows.slice(0, 3));
       setListLoading(false);
@@ -246,14 +273,16 @@ export function LeaderboardBrowser({ initial }: { initial: LeaderPage | null }) 
     [board, period],
   );
 
-  const page = data?.page ?? pageNum;
-  const top = podium;
-  const rest = page === 1 ? (data?.rows.slice(3) ?? []) : (data?.rows ?? []);
+  const dataReady = Boolean(data && data.board === board && data.period === period);
+  const viewPeriod: PeriodId = dataReady ? data!.period : period;
+  const page = dataReady ? (data!.page ?? pageNum) : pageNum;
+  const top = dataReady ? podium : [];
+  const rest = dataReady ? (page === 1 ? data!.rows.slice(3) : data!.rows) : [];
   const restVisible = rest.length > LIST_CHUNK ? rest.slice(0, listVisible) : rest;
   const restRemaining = rest.length > LIST_CHUNK ? Math.max(0, rest.length - listVisible) : 0;
   const boardInfo = BOARDS.find((b) => b.id === board)!;
-  const unit = boardUnit(board, period);
-  const podiumLoading = boardBoot && top.length === 0;
+  const unit = boardUnit(board, viewPeriod);
+  const podiumLoading = boardBoot || listLoading || !dataReady;
   const emptyHint =
     board === "minigames" && period === "monthly"
       ? "La classifica mensile minigames non è ancora tracciata."
@@ -299,6 +328,7 @@ export function LeaderboardBrowser({ initial }: { initial: LeaderPage | null }) 
         <div className="mt-3 flex flex-wrap justify-center gap-2" role="tablist" aria-label="Periodo">
           {PERIODS.map((p) => {
             const active = period === p.id;
+            const Icon = PERIOD_ICONS[p.id];
             return (
               <button
                 key={p.id}
@@ -319,6 +349,7 @@ export function LeaderboardBrowser({ initial }: { initial: LeaderPage | null }) 
                   />
                 )}
                 {!active && <span className="absolute inset-0 -z-10 rounded-full bg-crema/6 ring-1 ring-sand/15" />}
+                <Icon className="size-3.5 sm:size-4" />
                 {p.label}
               </button>
             );
@@ -327,7 +358,7 @@ export function LeaderboardBrowser({ initial }: { initial: LeaderPage | null }) 
       </LayoutGroup>
 
       <p className="mt-4 text-center text-sm text-crema/50">
-        {data ? `${data.total.toLocaleString("it-IT")} membri in classifica · ordinati per ${unit}` : " "}
+        {dataReady ? `${data!.total.toLocaleString("it-IT")} membri in classifica · ordinati per ${unit}` : " "}
       </p>
 
       {/* podio: sempre top 3 della board, indipendente dalla pagina lista */}
@@ -338,9 +369,9 @@ export function LeaderboardBrowser({ initial }: { initial: LeaderPage | null }) 
               <Loader2 className="size-6 animate-spin" />
             </motion.div>
           ) : top.length ? (
-            <motion.div key={`${board}-${period}`} exit={{ opacity: 0, y: -10 }} className="grid grid-cols-3 items-end gap-2 sm:gap-8">
+            <motion.div key={`${board}-${viewPeriod}`} exit={{ opacity: 0, y: -10 }} className="grid grid-cols-3 items-end gap-2 sm:gap-8">
               {top.map((r, i) => (
-                <PodiumDisc key={r.userId} row={r} place={i as 0 | 1 | 2} board={board} period={period} me={r.userId === user?.id} />
+                <PodiumDisc key={r.userId} row={r} place={i as 0 | 1 | 2} board={board} period={viewPeriod} me={r.userId === user?.id} />
               ))}
             </motion.div>
           ) : (
@@ -410,7 +441,7 @@ export function LeaderboardBrowser({ initial }: { initial: LeaderPage | null }) 
               </div>
               {found.row ? (
                 <ul>
-                  <Row row={found.row} board={board} period={period} me={found.row.userId === user?.id} />
+                  <Row row={found.row} board={board} period={viewPeriod} me={found.row.userId === user?.id} />
                 </ul>
               ) : (
                 <p className="px-4 py-4 text-sm text-crema/65 sm:px-6">
@@ -437,7 +468,7 @@ export function LeaderboardBrowser({ initial }: { initial: LeaderPage | null }) 
             </div>
             <ul>
               {restVisible.map((r) => (
-                <Row key={r.userId} row={r} board={board} period={period} me={r.userId === user?.id} />
+                <Row key={r.userId} row={r} board={board} period={viewPeriod} me={r.userId === user?.id} />
               ))}
             </ul>
             <ShowMoreButton

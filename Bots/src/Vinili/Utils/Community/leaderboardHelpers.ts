@@ -307,14 +307,9 @@ async function computeLeaderboardRows(guild?, mode = "alltime", maxCandidates = 
   }
 
   if (mode === "monthly") {
+    /* site-api spesso ha channels.cache vuoto: senza fallback il mensile tornava sempre []. */
     const eligibleChannels = await getEligibleChannelIdSet(guild);
-    if (!eligibleChannels.size) {
-      leaderboardCache.set(key, {
-        rows: [],
-        expiresAt: Date.now() + LEADERBOARD_CACHE_TTL_MS,
-      });
-      return [];
-    }
+    const filterByChannel = eligibleChannels.size > 0;
     const { prefix: monthDayKeyPrefix } = getRomeMonthKeyPrefix(new Date());
     const perUserMonthly = new Map();
     const profileDocsMonthly = await ActivityUserProfile.find({ guildId: guild.id })
@@ -332,11 +327,11 @@ async function computeLeaderboardRows(guild?, mode = "alltime", maxCandidates = 
           let textCount = 0;
           let voiceSeconds = 0;
           for (const [channelId, value] of extractChannelEntries(dayRow?.textChannels)) {
-            if (!eligibleChannels.has(String(channelId))) continue;
+            if (filterByChannel && !eligibleChannels.has(String(channelId))) continue;
             textCount += Math.max(0, Number(value || 0));
           }
           for (const [channelId, value] of extractChannelEntries(dayRow?.voiceChannels)) {
-            if (!eligibleChannels.has(String(channelId))) continue;
+            if (filterByChannel && !eligibleChannels.has(String(channelId))) continue;
             voiceSeconds += Math.max(0, Number(value || 0));
           }
           if (textCount <= 0 && voiceSeconds <= 0) continue;

@@ -17,7 +17,7 @@ export const metadata: Metadata = {
   ...pageSocialMeta({
     path: "/classifiche/",
     title: "Classifiche",
-    description: "I membri più attivi di Vinili & Caffè: livello, messaggi, vocale e minigames — All-Time, settimanale o mensile.",
+    description: "I membri più attivi di Vinili & Caffè: livello, messaggi, vocale e minigames.",
   }),
 };
 
@@ -28,14 +28,14 @@ export default async function ClassifichePage() {
       <DiscordComponentEmbed
         path="/classifiche/"
         title="Classifiche"
-        description="I membri più attivi di Vinili & Caffè: livello, messaggi, vocale e minigames — All-Time, settimanale o mensile."
+        description="I membri più attivi di Vinili & Caffè: livello, messaggi, vocale e minigames."
       />
       <PageHero
         icon={<Trophy />}
         kicker="Classifiche"
         title="I dischi"
         accent="d'oro"
-        text="Chi spacca di più nel server: livello, messaggi, ore in vocale e minigames — scegli All-Time, settimanale o mensile."
+        text="Chi spacca di più nel server: livello, messaggi, ore in vocale e minigames."
       />
       <LeaderboardBrowser initial={initial} />
     </SiteShell>
