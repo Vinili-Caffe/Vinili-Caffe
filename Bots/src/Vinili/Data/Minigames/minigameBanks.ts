@@ -504,61 +504,6 @@ const ITALIAN_GK_BANK = [
   { question: "Qual è la regione più a sud d'Italia?", answers: ["Sicilia", "Calabria"] },
 ];
 
-/* evento Hogwarts concluso: il banco quiz è in Bots/archivio/hogwarts */
-function loadHogwartsQuizBank(): any[] {
-  return [];
-}
-
-const HOGWARTS_CIPHER_BANK = [
-  { word: "Erbicida", answers: ["Erbicida"] },
-  { word: "Expelliarmus", answers: ["Expelliarmus"] },
-  { word: "Lumos", answers: ["Lumos"] },
-  { word: "Accio", answers: ["Accio"] },
-  { word: "Alohomora", answers: ["Alohomora"] },
-  { word: "Oblivion", answers: ["Oblivion"] },
-  { word: "Protego", answers: ["Protego"] },
-  { word: "Reducto", answers: ["Reducto"] },
-  { word: "Incendio", answers: ["Incendio"] },
-  { word: "Reparo", answers: ["Reparo"] },
-  { word: "Diffindo", answers: ["Diffindo"] },
-  { word: "Stupeficium", answers: ["Stupeficium"] },
-  { word: "Rictusempra", answers: ["Rictusempra"] },
-  { word: "Sectumsempra", answers: ["Sectumsempra"] },
-  { word: "Wingardium", answers: ["Wingardium", "Wingardium Leviosa"] },
-  { word: "Veritaserum", answers: ["Veritaserum"] },
-  { word: "Polisucco", answers: ["Polisucco", "Pozione Polisucco"] },
-  { word: "Amortentia", answers: ["Amortentia"] },
-  { word: "Felix", answers: ["Felix", "Felix Felicis"] },
-  { word: "Antidoto", answers: ["Antidoto"] },
-  { word: "Bacchetta", answers: ["Bacchetta"] },
-  { word: "Gufo", answers: ["Gufo"] },
-  { word: "Libro", answers: ["Libro"] },
-  { word: "Incantesimo", answers: ["Incantesimo"] },
-  { word: "Pozione", answers: ["Pozione"] },
-  { word: "Boccetta", answers: ["Boccetta"] },
-  { word: "Occhiali", answers: ["Occhiali"] },
-  { word: "Cicatrice", answers: ["Cicatrice"] },
-  { word: "Naso", answers: ["Naso"] },
-];
-
-const HOGWARTS_MEMORY_EMOJI_BANK = [
-  { sequence: ["⚡", "🦉", "📚", "🧹"] },
-  { sequence: ["🪄", "🏰", "🕯️", "🗝️"] },
-  { sequence: ["🦁", "📜", "⭐", "🧪"] },
-  { sequence: ["🐍", "🔮", "🧹", "🍬"] },
-  { sequence: ["🦡", "📚", "🪄", "🚂"] },
-  { sequence: ["🦅", "🕯️", "⚡", "📜"] },
-  { sequence: ["🐉", "🗝️", "🦉", "⭐"] },
-  { sequence: ["🚂", "🏰", "🍬", "🔮"] },
-  { sequence: ["📜", "🧪", "🪄", "🦁", "⚡"] },
-  { sequence: ["🦉", "🧹", "🐍", "🕯️", "📚"] },
-  { sequence: ["🏰", "🗝️", "🦡", "🔮", "🚂"] },
-  { sequence: ["🐉", "⭐", "📜", "🍬", "🪄"] },
-  { sequence: ["⚡", "🧪", "🦅", "🧹", "🦉"] },
-  { sequence: ["🦁", "🏰", "🗝️", "📚", "🐍"] },
-  { sequence: ["🍬", "🕯️", "🚂", "🔮", "🦡"] },
-];
-
 const MEMORY_EMOJI_BANK = [
   { sequence: ["🎧", "☕", "💿", "🎲"] },
   { sequence: ["🍕", "🎬", "⭐", "🎮"] },
@@ -717,8 +662,6 @@ function shuffleBankInPlace(arr?) {
   CAPITAL_QUIZ_BANK,
   ITALIAN_REGION_CAPITAL_BANK,
   ITALIAN_GK_BANK,
-  HOGWARTS_CIPHER_BANK,
-  HOGWARTS_MEMORY_EMOJI_BANK,
   MEMORY_EMOJI_BANK,
   DRIVING_TRUE_FALSE_BANK,
   DRIVING_MULTIPLE_CHOICE_BANK,
@@ -795,20 +738,6 @@ function getItalianGkBank() {
   return ITALIAN_GK_BANK;
 }
 
-function getHogwartsQuizBank() {
-  const bank = loadHogwartsQuizBank();
-  if (Array.isArray(bank) && bank.length) shuffleBankInPlace(bank);
-  return bank;
-}
-
-function getHogwartsCipherBank() {
-  return HOGWARTS_CIPHER_BANK;
-}
-
-function getHogwartsMemoryEmojiBank() {
-  return HOGWARTS_MEMORY_EMOJI_BANK;
-}
-
 function getMemoryEmojiBank() {
   return MEMORY_EMOJI_BANK;
 }
@@ -861,9 +790,6 @@ export = {
   getCapitalQuizBank,
   getItalianRegionCapitalBank,
   getItalianGkBank,
-  getHogwartsQuizBank,
-  getHogwartsCipherBank,
-  getHogwartsMemoryEmojiBank,
   getMemoryEmojiBank,
   getDrivingTrueFalseBank,
   getDrivingMultipleChoiceBank,

@@ -1,0 +1,56 @@
+{
+  "falseCalls": [
+    "isHogwartsEventLiveForMinigames",
+    "isHogwartsPodiumWinMode",
+    "shouldApplyHogwartsBonusTheme",
+    "shouldUseHogwartsTheme",
+    "isBurrobirraActiveForChannel",
+    "isBurrobirraActive",
+    "isHogwartsRandomSpawnMode",
+    "isHogwartsAlternatingRotationActive",
+    "hogwartsWantsThemedNext",
+    "isHogwartsScrollMinigameUnlocked",
+    "isHogwartsMemoryMinigameUnlocked",
+    "isHogwartsCipherMinigameUnlocked",
+    "isHogwartsTowerMinigameUnlocked",
+    "isHouseChannelTowerMinigameUnlocked",
+    "hasAnyHouseChannelMinigameBusy",
+    "isHogwartsHouseChannelId",
+    "isHogwartsPodiumSilentParticipant",
+    "isHogwartsPodiumRoundComplete",
+    "isWrongHouseChannelMember",
+    "closeHogwartsPodiumRoundIfComplete",
+    "shouldSuppressUnsortedWrongReaction",
+    "rejectIfBasiliskBlockedMessage",
+    "rejectIfHogwartsEventBlacklistedMessage",
+    "rejectIfBasiliskBlockedInteraction",
+    "rejectIfHogwartsEventBlacklistedInteraction",
+    "rejectIfWrongHouseChannelMemberMessage",
+    "rejectIfWrongHouseChannelMemberInteraction",
+    "hogwartsRoundUserAlreadyRewarded"
+  ],
+  "trueCalls": ["isHogwartsRuntimeDisabled"],
+  "falseProps": [
+    "hogwartsEventLive",
+    "finaleChaos",
+    "basilisk",
+    "hogwartsHouseChannel",
+    "hogwartsHouseChannelMeta",
+    "burrobirraApplies",
+    "burrobirraStrong"
+  ],
+  "deadTypes": "^(hogwarts|findScroll$)",
+  "pureCalls": "^(is|has|should|String|Boolean|Number)$|^(is|has|should)[A-Z]|^get[A-Za-z]*Bank$",
+  "dropCalls": [
+    "stampMinigameBurrobirraApplies",
+    "refreshBurrobirraCaches",
+    "clearHogwartsPodiumChannel",
+    "clearHogwartsSpawnScheduler",
+    "waitForHogwartsPodiumPendingAwards",
+    "restoreHogwartsPodiumFromState"
+  ],
+  "identityCalls": {
+    "distortPromptIfBurrobirra": 1,
+    "attachHogwartsHouseChannelMeta": 0
+  }
+}
