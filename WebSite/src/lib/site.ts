@@ -9,6 +9,26 @@ export const API_ORIGIN = "https://api.viniliecaffe.it";
 /** true = fetch/WS verso API_ORIGIN (www resta solo static). */
 export const USE_API_ORIGIN = true;
 
+/** Media statici su Cloudflare R2 (custom domain). */
+export const CDN_ORIGIN = "https://cdn.viniliecaffe.it";
+
+/**
+ * `/images/*` e `/audio/*` → CDN.
+ * Eccezione: hero home (`hero-cafe-atmosphere*`) resta same-origin su www (LCP/preload).
+ */
+export function cdnUrl(path: string): string {
+  const raw = String(path || "").trim();
+  if (!raw) return raw;
+  if (/^(https?:|data:|blob:)/i.test(raw)) return raw;
+  const q = raw.indexOf("?");
+  const pathname = (q >= 0 ? raw.slice(0, q) : raw).trim();
+  const query = q >= 0 ? raw.slice(q) : "";
+  const p = pathname.startsWith("/") ? pathname : `/${pathname}`;
+  if (p.startsWith("/images/hero-cafe-atmosphere")) return `${p}${query}`;
+  if (p.startsWith("/images/") || p.startsWith("/audio/")) return `${CDN_ORIGIN}${p}${query}`;
+  return `${p}${query}`;
+}
+
 export const DISCORD_INVITE = "https://discord.gg/viniliecaffe";
 
 /** Social ufficiali (footer + promo). */

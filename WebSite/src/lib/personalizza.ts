@@ -1,5 +1,5 @@
 // Personalizza: site-custom-profile (+ /emojis), site-profile-extras, site-rank-card (+ preview).
-// Handler: Vinyls/Utils/Web/siteCustomProfileApi.js, siteProfileExtrasApi.js, siteRankCardApi.js
+// Handler: Vinili/Utils/Web/siteCustomProfileApi.js, siteProfileExtrasApi.js, siteRankCardApi.js
 
 export const HOLO_PRIMARY = "#a9c0ff";
 export const HOLO_SECONDARY = "#ffc0ec";

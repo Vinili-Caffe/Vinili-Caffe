@@ -1,5 +1,5 @@
 // Inbox workflow: GET/POST /webhooks/site-staff-workflows (+ chat dedicata)
-// Handler: Vinyls/Utils/Web/siteStaffWorkflowApi.js — UI: staff-inbox-page.js
+// Handler: Vinili/Utils/Web/siteStaffWorkflowApi.js — UI: staff-inbox-page.js
 
 import { staffFetch, type ApiRes } from "./staff";
 

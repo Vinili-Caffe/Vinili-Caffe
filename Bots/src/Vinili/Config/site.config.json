@@ -1,0 +1,406 @@
+{
+  "siteName": "Vinili & Caffè • Italia • Social • Gaming",
+  "siteUrl": "https://www.viniliecaffe.it/",
+  "voteUrl": "/vote",
+  "discadiaVoteUrl": "https://discadia.com/vote/viniliecaffe/",
+  "topggVoteUrl": "https://top.gg/discord/servers/832911595289169920/vote",
+  "reviewsUrl": "https://disboard.org/it/server/1329080093599076474",
+  "donationsUrl": "https://www.paypal.com/paypalme/viniliecaffeit",
+  "premiumCheckoutUrl": "",
+  "discordOauth": {
+    "clientId": "1329118940110127204",
+    "redirectUri": "https://www.viniliecaffe.it/"
+  },
+  "maintenance": {
+    "enabled": false,
+    "allowedUserIds": [],
+    "includeGuildStaffInMaintenanceBypass": true,
+    "title": "Sito in manutenzione",
+    "message": "Stiamo sistemando alcune parti del sito. Torna tra poco!"
+  },
+  "candidatureSubmitApiUrl": "/webhooks/site-candidature",
+  "candidatureSubmitApiUrlLocal": "http://127.0.0.1:3042/webhooks/site-candidature",
+  "unbanSubmitApiUrl": "/webhooks/site-unban",
+  "unbanSubmitApiUrlLocal": "http://127.0.0.1:3042/webhooks/site-unban",
+  "unmuteSubmitApiUrl": "/webhooks/site-unmute",
+  "unmuteSubmitApiUrlLocal": "http://127.0.0.1:3042/webhooks/site-unmute",
+  "discordInviteUrl": "https://discord.gg/viniliecaffe",
+  "discordSponsorTicketsMessageUrl": "https://www.viniliecaffe.it/tickets/",
+  "wikiUrl": "/wiki",
+  "sponsorUrl": "/sponsor",
+  "wikiBotViniliAvatarUrl": "https://cdn.discordapp.com/avatars/1329118940110127204/a_2f3825915a41d0f9bcbf9f2675e6d6f0.gif?size=128",
+  "wikiBotCaffeAvatarUrl": "https://cdn.discordapp.com/avatars/1466495522474037463/a_22dd648e8c21d246ccca2cf395533ea8.gif?size=128",
+  "faqUrl": "/faq",
+  "communityRulesUrl": "",
+  "communityRulesApiUrl": "/webhooks/site-rules",
+  "communityRulesApiUrlLocal": "http://127.0.0.1:3042/webhooks/site-rules",
+  "usersLeaderboardApiUrl": "/webhooks/site-users",
+  "usersLeaderboardApiUrlLocal": "http://127.0.0.1:3042/webhooks/site-users",
+  "voteApiUrl": "/webhooks/site-vote",
+  "voteApiUrlLocal": "http://127.0.0.1:3042/webhooks/site-vote",
+  "siteNotificationsApiUrl": "/webhooks/site-notifications",
+  "siteNotificationsApiUrlLocal": "http://127.0.0.1:3042/webhooks/site-notifications",
+  "suggestionsApiUrl": "/webhooks/site-suggestions",
+  "suggestionsApiUrlLocal": "http://127.0.0.1:3042/webhooks/site-suggestions",
+  "botFeedbackApiUrl": "/webhooks/site-bot-feedback",
+  "botFeedbackApiUrlLocal": "http://127.0.0.1:3042/webhooks/site-bot-feedback",
+  "webTicketsApiUrl": "/webhooks/site-web-tickets",
+  "webTicketsApiUrlLocal": "http://127.0.0.1:3042/webhooks/site-web-tickets",
+  "dashboardApiUrl": "/webhooks/site-dashboard",
+  "dashboardApiUrlLocal": "http://127.0.0.1:3042/webhooks/site-dashboard",
+  "rolesApiUrl": "/webhooks/site-roles",
+  "rolesApiUrlLocal": "http://127.0.0.1:3042/webhooks/site-roles",
+  "liveEventApiUrl": "",
+  "liveEventApiUrlLocal": "",
+  "seratafilmAccessApiUrl": "/webhooks/site-seratafilm-access",
+  "seratafilmAccessApiUrlLocal": "http://127.0.0.1:3042/webhooks/site-seratafilm-access",
+  "staffAccessApiUrl": "/webhooks/site-staff-access",
+  "staffAccessApiUrlLocal": "http://127.0.0.1:3042/webhooks/site-staff-access",
+  "staffDashboardApiUrl": "/webhooks/site-staff-dashboard",
+  "staffDashboardApiUrlLocal": "http://127.0.0.1:3042/webhooks/site-staff-dashboard",
+  "staffManageApiUrl": "/webhooks/site-staff-manage",
+  "staffManageApiUrlLocal": "http://127.0.0.1:3042/webhooks/site-staff-manage",
+  "staffPauseApiUrl": "/webhooks/site-staff-pause",
+  "staffPauseApiUrlLocal": "http://127.0.0.1:3042/webhooks/site-staff-pause",
+  "staffProfileApiUrl": "/webhooks/site-staff-profile",
+  "staffProfileApiUrlLocal": "http://127.0.0.1:3042/webhooks/site-staff-profile",
+  "staffPmHubApiUrl": "/webhooks/site-staff-pm-hub",
+  "staffPmHubApiUrlLocal": "http://127.0.0.1:3042/webhooks/site-staff-pm-hub",
+  "staffPmShopApiUrl": "/webhooks/site-staff-pm-shop",
+  "staffPmShopApiUrlLocal": "http://127.0.0.1:3042/webhooks/site-staff-pm-shop",
+  "staffTicketsApiUrl": "/webhooks/site-staff-tickets",
+  "staffTicketsApiUrlLocal": "http://127.0.0.1:3042/webhooks/site-staff-tickets",
+  "staffSerataFilmApiUrl": "/webhooks/site-staff-seratafilm",
+  "staffSerataFilmApiUrlLocal": "http://127.0.0.1:3042/webhooks/site-staff-seratafilm",
+  "staffGuideApiUrl": "/webhooks/site-staff-guide",
+  "staffGuideApiUrlLocal": "http://127.0.0.1:3042/webhooks/site-staff-guide",
+  "hogwartsSortingApiUrl": "/webhooks/site-hogwarts-sorting",
+  "hogwartsSortingApiUrlLocal": "http://127.0.0.1:3042/webhooks/site-hogwarts-sorting",
+  "hogwartsEvent": {
+    "enabled": false,
+    "previewMode": false,
+    "startDate": "2026-06-01T14:00:00",
+    "sortingStartDate": "2026-06-01T12:00:00",
+    "endDate": "2026-09-01T12:00:00",
+    "sortingLogChannelId": "1507685351102353448",
+    "introVideoDurationSec": 12.2,
+    "introVideoTrimEndSec": 0,
+    "calendar": {
+      "timezone": "Europe/Rome"
+    }
+  },
+  "hogwartsHousePoints": {
+    "pollIntervalMs": 15000,
+    "maxPoints": 100000,
+    "scaleStops": [
+      500,
+      1000,
+      2500,
+      5000,
+      10000,
+      25000,
+      50000,
+      100000
+    ],
+    "gryffindor": 0,
+    "ravenclaw": 0,
+    "hufflepuff": 0,
+    "slytherin": 0,
+    "schoolYear": {
+      "title": "Clessidre dell'anno scolastico",
+      "subtitle": "Punti raccolti nella fascia scolastica attiva in questo momento.",
+      "periods": [
+        {
+          "label": "1° anno",
+          "range": "1 - 14 giugno 2026",
+          "startDate": "2026-06-01",
+          "endDate": "2026-06-14"
+        },
+        {
+          "label": "2° anno",
+          "range": "15 - 28 giugno 2026",
+          "startDate": "2026-06-15",
+          "endDate": "2026-06-28"
+        },
+        {
+          "label": "3° anno",
+          "range": "29 giugno - 12 luglio 2026",
+          "startDate": "2026-06-29",
+          "endDate": "2026-07-12"
+        },
+        {
+          "label": "4° anno",
+          "range": "13 - 26 luglio 2026",
+          "startDate": "2026-07-13",
+          "endDate": "2026-07-26"
+        },
+        {
+          "label": "5° anno",
+          "range": "27 luglio - 9 agosto 2026",
+          "startDate": "2026-07-27",
+          "endDate": "2026-08-09"
+        },
+        {
+          "label": "6° anno",
+          "range": "10 - 23 agosto 2026",
+          "startDate": "2026-08-10",
+          "endDate": "2026-08-23"
+        },
+        {
+          "label": "7° anno",
+          "range": "24 - 30 agosto 2026",
+          "startDate": "2026-08-24",
+          "endDate": "2026-08-30"
+        }
+      ],
+      "gryffindor": 0,
+      "ravenclaw": 0,
+      "hufflepuff": 0,
+      "slytherin": 0
+    },
+    "eventTotal": {
+      "title": "Clessidre dell'intero evento",
+      "subtitle": "Totale complessivo accumulato da ogni casa durante tutta la durata dell'evento Hogwarts.",
+      "gryffindor": 0,
+      "ravenclaw": 0,
+      "hufflepuff": 0,
+      "slytherin": 0
+    }
+  },
+  "hogwartsBgm": {
+    "youtube": {
+      "videoUrls": [
+        "https://www.youtube.com/watch?v=pDst9A3sqis"
+      ]
+    },
+    "baseVolume": 0.34
+  },
+  "seratafilmBgm": {
+    "youtube": {
+      "videoUrls": [
+        "https://www.youtube.com/watch?v=7wnVYIJipzU"
+      ],
+      "eventVideoUrls": [
+        "https://www.youtube.com/watch?v=pDst9A3sqis"
+      ]
+    },
+    "trackUrls": [],
+    "fadeStartSeconds": 120,
+    "baseVolume": 0.34
+  },
+  "seratafilmEvent": {
+    "timezone": "Europe/Rome",
+    "recurring": {
+      "weekday": 6,
+      "hour": 21,
+      "minute": 0
+    },
+    "overrideIso": "2026-10-28T21:00:00+01:00",
+    "linkFilm": "",
+    "hogwartsThemeVideoUrl": "/images/evento-hogwarts/theme-bg.mp4",
+    "filmTitle": "La sposa cadavere",
+    "creditsSkip": {
+      "enabled": false,
+      "startSeconds": 0,
+      "label": "Salta titoli di coda"
+    },
+    "adBreak": {
+      "enabled": false,
+      "videoUrl": "",
+      "atPercent": 50,
+      "totalMs": 62000,
+      "introMs": 5000,
+      "outroMs": 5000,
+      "introTitle": "Pausa pubblicitaria",
+      "introText": "Tra poco riprenderemo la proiezione. Resta con noi!",
+      "outroTitle": "La proiezione riprende",
+      "outroText": "Grazie per la pazienza. Buona visione!"
+    },
+    "schedule": [
+      {
+        "date": "2026-06-06",
+        "title": "Harry Potter e la pietra filosofale"
+      },
+      {
+        "date": "2026-06-13",
+        "title": "Harry Potter e la camera dei segreti"
+      },
+      {
+        "date": "2026-06-20",
+        "skip": true
+      },
+      {
+        "date": "2026-06-27",
+        "title": "Harry Potter e il prigioniero di Azkaban"
+      },
+      {
+        "date": "2026-07-04",
+        "title": "Harry Potter e il calice di fuoco"
+      },
+      {
+        "date": "2026-07-11",
+        "skip": true
+      },
+      {
+        "date": "2026-07-18",
+        "title": "Harry Potter e l'Ordine della Fenice"
+      },
+      {
+        "date": "2026-07-25",
+        "title": "Harry Potter e il principe mezzosangue"
+      },
+      {
+        "date": "2026-08-01",
+        "skip": true
+      },
+      {
+        "date": "2026-08-08",
+        "title": "Harry Potter e i Doni della Morte - Parte 1"
+      },
+      {
+        "date": "2026-08-15",
+        "skip": true
+      },
+      {
+        "date": "2026-08-22",
+        "skip": true
+      },
+      {
+        "date": "2026-08-29",
+        "title": "Harry Potter e i Doni della Morte - Parte 2"
+      },
+      {
+        "date": "2026-09-05",
+        "title": "Il Corvo"
+      },
+      {
+        "date": "2026-09-12",
+        "title": "Gran Turismo"
+      },
+      {
+        "date": "2026-09-19",
+        "title": "Cars - Motori ruggenti"
+      },
+      {
+        "date": "2026-09-26",
+        "title": "V per Vendetta"
+      },
+      {
+        "date": "2026-10-03",
+        "title": "Watch Obsession"
+      },
+      {
+        "date": "2026-10-10",
+        "title": "Il mistero di Sleepy Hollow"
+      },
+      {
+        "date": "2026-10-17",
+        "title": "Kung Fu Panda"
+      }
+    ]
+  },
+  "discordInviteCode": "viniliecaffe",
+  "useDiscordGuildBanner": true,
+  "useDiscordGuildIcon": true,
+  "useDiscordGuildFoundedDate": false,
+  "useDiscordGuildDescription": true,
+  "aboutDescription": "Vinili & Caffè nasce per unire tutti gli utenti in una community molto chill in cui si può parlare di tutto. Qui troverete un sacco di ruoli, canali, funzioni, bot, tutto ciò che una persona può desiderare.",
+  "discordStaffListBuild": {
+    "enabled": true,
+    "guildId": "1329080093599076474",
+    "staffRoleIds": [
+      "1442568886988963923",
+      "1521562607339704442",
+      "1442568893435478097",
+      "1502322782602530977",
+      "1544831228690046976",
+      "1544831236868931636",
+      "1442568901887000618",
+      "1442568904311570555",
+      "1442568910070349985"
+    ],
+    "staffRoleDisplayOrder": [
+      "1442568886988963923",
+      "1521562607339704442",
+      "1442568893435478097",
+      "1502322782602530977",
+      "1544831228690046976",
+      "1544831236868931636",
+      "1442568901887000618",
+      "1442568904311570555",
+      "1442568910070349985"
+    ],
+    "excludeFromStaffListRoleIds": [
+      "1544831242510270464",
+      "1545183984932233367"
+    ],
+    "partnerManagerRoleId": "1544831242510270464",
+    "bloggerRoleId": "1557507157899878533",
+    "communityManagerRoleId": "",
+    "maxMembersToScan": 50000,
+    "staffListShowEachRole": true,
+    "showEmptyStaffRoles": true
+  },
+  "openGraphImageUrl": "https://www.viniliecaffe.it/images/og-server-icon.gif?v=20260904brandGif1",
+  "rankCardApiUrl": "/webhooks/site-rank-card",
+  "openGraphImageWidth": 512,
+  "openGraphImageHeight": 512,
+  "openGraphSiteName": "Vinili & Caffè",
+  "themeColor": "#140f0c",
+  "metaDescription": "Community Discord italiana: vinili, caffè, musica e chiacchiere. Entra nel server ufficiale Vinili & Caffè.",
+  "metaKeywords": "vinili, caffè, discord, community, musica, vinyl, italia",
+  "supportEmail": "supporto@viniliecaffe.it",
+  "siteModeratorEmail": "supporto@viniliecaffe.it",
+  "siteAdminEmail": "ammministrazione@viniliecaffe.it",
+  "foundedDisplay": "10 dicembre 2025",
+  "liveStats": {
+    "enabled": true,
+    "inviteProxyPath": "/discord-invite.json",
+    "extraStatsPath": "/live-stats-extra.json",
+    "pollIntervalMs": 45000,
+    "introFallbackMs": 45000,
+    "liveEventPollMs": 90000
+  },
+  "kickLivePip": {
+    "enabled": true,
+    "apiUrl": "/webhooks/site-kick-live",
+    "apiUrlLocal": "",
+    "subApiUrl": "/webhooks/site-kick-sub",
+    "pollIntervalMs": 90000,
+    "previewLimitMs": 600000
+  },
+  "statMembers": "0",
+  "statBoosts": "0",
+  "statStaff": "0",
+  "instagramUrl": "https://www.instagram.com/viniliecaffe/",
+  "tiktokUrl": "https://www.tiktok.com/@viniliecaffe",
+  "cookieYesClientId": "",
+  "googleAnalyticsMeasurementId": "G-KPF6425N60",
+  "googleAnalyticsPropertyId": "534917560",
+  "googleAnalyticsServiceAccountEmail": "vc-site-analytics@vinilicaffe.iam.gserviceaccount.com",
+  "termsUrl": "https://www.viniliecaffe.it/terms",
+  "privacyUrl": "https://www.viniliecaffe.it/privacy",
+  "cookiePolicyUrl": "https://www.viniliecaffe.it/cookie",
+  "legalTermsUpdated": "14 agosto 2026",
+  "legalPrivacyUpdated": "14 agosto 2026",
+  "legalCookieUpdated": "14 agosto 2026",
+  "sponsorPromoUntil": "",
+  "siteSponsorAd": {
+    "enabled": true,
+    "id": "asteris-gaming-2026-06",
+    "title": "Asteris Gaming Anime Chill Nitro",
+    "badge": "Sponsor",
+    "description": "  ITA • Community accogliente\n• Vocali e chat testuali sempre attive\n• Staff gentile e preparato\n• Eventi in palio Nitro Boost da 10 euro\n\nEntrate e non ve ne pentirete!",
+    "buttonUrl": "https://discord.gg/asteris-gaminganimechillnitro-1267522772029145170",
+    "buttonLabel": "Entra su Asteris Gaming",
+    "startAt": "2026-06-03T21:00:00",
+    "until": "2026-07-03T23:59:59"
+  },
+  "siteRoutes": {
+    "hiddenPaths": [
+      "/seratafilm/accesso-richiesto",
+      "/staff/accesso-richiesto"
+    ]
+  },
+  "siteBannerUrl": "https://www.viniliecaffe.it/images/og-banner.gif?v=20260904brandGif1"
+}

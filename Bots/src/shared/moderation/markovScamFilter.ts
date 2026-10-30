@@ -1,7 +1,7 @@
 const fs = require("fs") as typeof import("fs");
 const path = require("path") as typeof import("path");
 
-const CONFIG_PATH = path.resolve(__dirname, "../../Vinyls/Utils/Config/automodScamConfig.json");
+const CONFIG_PATH = path.resolve(__dirname, "../../Vinili/Utils/Config/automodScamConfig.json");
 
 const DEFAULT_SCAM_CONFIG = {
   domains: ["dsc.gg", "depxbit.com", "depixbit.com"],

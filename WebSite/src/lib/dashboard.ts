@@ -1,7 +1,7 @@
 // Dashboard bot: accesso + lista server gestibili.
 // Vecchio: dashboard-access-gate.js, dashboard-page.js, dashboard-server-switcher.js
 // API: GET /webhooks/site-dashboard/access, GET /webhooks/site-dashboard/guilds
-// Handler: Vinyls/Utils/Web/siteDashboardApi.js (+ siteWebhookRoutes.js).
+// Handler: Vinili/Utils/Web/siteDashboardApi.js (+ siteWebhookRoutes.js).
 
 import { page } from "@/lib/site";
 

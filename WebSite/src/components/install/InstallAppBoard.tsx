@@ -13,6 +13,7 @@ import { useI18n } from "@/lib/i18n";
 import { useAuth } from "@/lib/auth";
 import { BTN_GHOST, BTN_PRIMARY_LG, PANEL } from "@/lib/ui";
 import { cn } from "@/lib/cn";
+import { cdnUrl } from "@/lib/site";
 import {
   confirmPwaInstalledByUser,
   detectInstallSurface,
@@ -118,7 +119,7 @@ export function InstallAppBoard() {
         <div className="flex flex-wrap items-center gap-3">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src="/images/pwa-icon-192.png"
+            src={cdnUrl("/images/pwa-icon-192.png")}
             alt=""
             width={64}
             height={64}

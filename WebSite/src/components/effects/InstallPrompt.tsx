@@ -6,7 +6,7 @@ import { Download, Share, X } from "lucide-react";
 import { useChromeOpenListener } from "@/lib/chrome-open";
 import { useAuth } from "@/lib/auth";
 import { SmartLink } from "@/components/SmartLink";
-import { page } from "@/lib/site";
+import { page, cdnUrl } from "@/lib/site";
 import {
   detectInstallSurface,
   detectPwaAlreadyInstalled,
@@ -107,7 +107,7 @@ export function InstallPrompt() {
           </button>
           <div className="flex items-start gap-3 pr-6">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/images/pwa-icon-192.png" alt="" className="size-12 shrink-0 rounded-2xl ring-1 ring-sand/20" />
+            <img src={cdnUrl("/images/pwa-icon-192.png")} alt="" className="size-12 shrink-0 rounded-2xl ring-1 ring-sand/20" />
             <div className="min-w-0">
               <p className="font-display text-xl font-semibold leading-tight">Vinili &amp; Caffè sul telefono</p>
               {ios ? (

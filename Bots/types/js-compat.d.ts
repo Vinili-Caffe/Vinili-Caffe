@@ -22,5 +22,6 @@ declare module "discord.js" {
   // le righe dei modali si costruiscono con new ActionRowBuilder() senza specificare il tipo di componente
   interface ModalBuilder {
     addComponents(...components: any[]): this;
+    setComponents(...components: any[]): this;
   }
 }

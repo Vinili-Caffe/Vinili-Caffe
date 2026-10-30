@@ -30,7 +30,7 @@ function buildBotPresenceActivities(client?) {
   let name = String(cfg.activityName || "Vinili & Caffè").trim() || "Vinili & Caffè";
   try {
     const forbiddenEvent = cfg.forbiddenSectionEvent && typeof cfg.forbiddenSectionEvent === "object" ? cfg.forbiddenSectionEvent : {};
-    const { isForbiddenBooksHuntActiveCached } = require("../../Vinyls/Services/Community/hogwartsForbiddenSectionChannelService") as typeof import("../../Vinyls/Services/Community/hogwartsForbiddenSectionChannelService");
+    const { isForbiddenBooksHuntActiveCached } = require("../../Vinili/Services/Community/hogwartsForbiddenSectionChannelService") as typeof import("../../Vinili/Services/Community/hogwartsForbiddenSectionChannelService");
     if (forbiddenEvent.enabled !== false && isForbiddenBooksHuntActiveCached(client)) {
       const bookEmoji = String(forbiddenEvent.bookEmoji || "📖").trim() || "📖";
       if (!name.includes(bookEmoji)) name = `${name} ${bookEmoji}`;

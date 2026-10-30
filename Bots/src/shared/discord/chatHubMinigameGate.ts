@@ -1,4 +1,4 @@
-const { minigameStateFindOneLean } = require("../../Vinyls/Utils/BotState/domainStatesStore") as typeof import("../../Vinyls/Utils/BotState/domainStatesStore");
+const { minigameStateFindOneLean } = require("../../Vinili/Utils/BotState/domainStatesStore") as typeof import("../../Vinili/Utils/BotState/domainStatesStore");
 
 async function isChatHubMinigameActive(guildId?, channelId?) {
   const gid = String(guildId || "").trim();

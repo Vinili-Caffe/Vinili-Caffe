@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # Pubblica TypeScript su VPS in /opt/bot/bots-ts/src (runtime solo TS + tsx).
 # Uso (da Git Bash, dalla cartella bots-ts):
-#   bash tools/pubblica.sh "Vinyls/Utils/noDmPanel.ts Vinyls/Triggers/buttons.ts" "bots-vinyls"
-#   bash tools/pubblica.sh "Vinyls/Utils/Web/siteStaffCompitiApi.ts" "site-api"
+#   bash tools/pubblica.sh "Vinili/Utils/noDmPanel.ts Vinili/Triggers/buttons.ts" "bots-vinyls"
+#   bash tools/pubblica.sh "Vinili/Utils/Web/siteStaffCompitiApi.ts" "site-api"
 # Percorsi relativi a src/. Backup in /root/vc_bot_bak_<data>.
 set -euo pipefail
-FILES="${1:?file da pubblicare (relativi a src/, es. Vinyls/Utils/x.ts)}"
+FILES="${1:?file da pubblicare (relativi a src/, es. Vinili/Utils/x.ts)}"
 PROCS="${2:?processi da riavviare (es. bots-vinyls, bots-coffee, site-api)}"
 cd "$(dirname "$0")/.."
 

@@ -1,5 +1,5 @@
 // GDPR self-service: /webhooks/site-dashboard/account/gdpr/*
-// Handler: Vinyls/Utils/Web/siteDashboardGdprApi.js (+ siteWebhookRoutes.js).
+// Handler: Vinili/Utils/Web/siteDashboardGdprApi.js (+ siteWebhookRoutes.js).
 // UI vecchia: WebSite/js/gdpr-data-page.js — solo export, anteprima erase, erase con confirmToken.
 
 export type CountTree = { [key: string]: number | CountTree };

@@ -363,7 +363,7 @@ function prepareFreshCreatePayload(payload?, { stripReference = false } = {}) {
 
 function resolveTenantBrandingHelpers() {
   try {
-    return require("../../Vinyls/MultiGuild/utils/tenantEmbedBranding");
+    return require("../../Vinili/MultiGuild/utils/tenantEmbedBranding");
   } catch {
     return null;
   }
@@ -478,7 +478,7 @@ function prepareMessageEditPayload(payload?, source = null) {
 function maybeCoercePlainNoticeEmbed(payload?, source?) {
   if (payload == null) return payload;
   try {
-    const { coercePlainContentToNoticePayload } = require("../../Vinyls/Utils/Embeds/simpleNoticeEmbed") as typeof import("../../Vinyls/Utils/Embeds/simpleNoticeEmbed");
+    const { coercePlainContentToNoticePayload } = require("../../Vinili/Utils/Embeds/simpleNoticeEmbed") as typeof import("../../Vinili/Utils/Embeds/simpleNoticeEmbed");
     const guild = source?.guild || source?.channel?.guild || null;
     return coercePlainContentToNoticePayload(payload, guild) || payload;
   } catch {
@@ -489,7 +489,7 @@ function maybeCoercePlainNoticeEmbed(payload?, source?) {
 function finalizeOutgoingPayload(payload?, source?) {
   let next = payload;
   try {
-    const { applyEmergencyRoleRemapToOutgoingPayload } = require("../../Vinyls/Utils/Config/emergencyRoleIdRemap") as typeof import("../../Vinyls/Utils/Config/emergencyRoleIdRemap");
+    const { applyEmergencyRoleRemapToOutgoingPayload } = require("../../Vinili/Utils/Config/emergencyRoleIdRemap") as typeof import("../../Vinili/Utils/Config/emergencyRoleIdRemap");
     next = applyEmergencyRoleRemapToOutgoingPayload(next);
   } catch (_) {}
   next = maybeCoercePlainNoticeEmbed(next, source);

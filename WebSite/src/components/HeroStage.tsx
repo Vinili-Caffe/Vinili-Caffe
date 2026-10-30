@@ -9,7 +9,7 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import { animate, motion, useMotionValue, useReducedMotion } from "motion/react";
-import { DISCORD_INVITE } from "@/lib/site";
+import { DISCORD_INVITE, cdnUrl } from "@/lib/site";
 import { useI18n } from "@/lib/i18n";
 import { getVinylMusicApi, subscribeVinylMusic } from "@/lib/vinyl-music-bus";
 import { loadStatsBundle } from "@/lib/stats";
@@ -24,7 +24,8 @@ const ARM_ON = 0;
 const SCRUB_TIME_GAIN = 2.2;
 const SCRUB_MIN_RADIUS = 0.12;
 const SCRUB_MOVE_PX = 8;
-const GUILD_ICON_FALLBACK = "/images/og-server-icon-still.png";
+
+const GUILD_ICON_FALLBACK = cdnUrl("/images/discord-still.png");
 
 function pointerAngle(clientX: number, clientY: number, rect: DOMRect) {
   const cx = rect.left + rect.width / 2;

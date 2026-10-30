@@ -1,4 +1,4 @@
-// Feedback (idee e problemi): /webhooks/site-suggestions — handler Vinyls/Utils/Web/siteSuggestionsApi.js
+// Feedback (idee e problemi): /webhooks/site-suggestions — handler Vinili/Utils/Web/siteSuggestionsApi.js
 // Ogni azione risponde con { ok, suggestion } già aggiornato: si sostituisce nella lista.
 
 export type Board = "community" | "staff";

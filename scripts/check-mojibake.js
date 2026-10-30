@@ -7,7 +7,7 @@ function getBotRoot() {
   const botFolder =
     argv.find((a) => !String(a || "").startsWith("--")) ||
     process.env.BOT_FOLDER ||
-    "Vinyls";
+    "Vinili";
   return path.join(workspaceRoot, botFolder);
 }
 

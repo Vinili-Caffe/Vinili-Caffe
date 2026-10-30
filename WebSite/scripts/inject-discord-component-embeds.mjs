@@ -1,7 +1,7 @@
 /**
  * Dopo next build + flatten: inietta <script id="discord:component-embed"> in ogni HTML
  * (Component Embeds nativi Discord — link preview V2).
- * Thumb: logo GIF (`/images/og-server-icon.gif`). OG classico (card PNG) resta fallback.
+ * Thumb: icona live del server main (`/webhooks/site-guild-icon`).
  */
 import { readFile, writeFile, readdir, stat } from "node:fs/promises";
 import { join, basename } from "node:path";
@@ -12,8 +12,8 @@ const SITE_ORIGIN = "https://www.viniliecaffe.it";
 const SITE_INVITE = "https://discord.gg/viniliecaffe";
 const ACCENT = 0x6f4e37;
 const ACCENT_404 = 0xe07a5f;
-const LOGO_VER = "20261027ogLogo1";
-const LOGO_THUMB = `${SITE_ORIGIN}/images/og-server-icon.gif?v=${LOGO_VER}`;
+const LOGO_VER = "20261030guildIconLive1";
+const LOGO_THUMB = `${SITE_ORIGIN}/webhooks/site-guild-icon?size=512&v=${LOGO_VER}`;
 const MAX_BYTES = 3000;
 const SCRIPT_RE =
   /<script\s+id=["']discord:component-embed["'][^>]*>[\s\S]*?<\/script>/gi;

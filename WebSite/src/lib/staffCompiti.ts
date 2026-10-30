@@ -1,5 +1,5 @@
 // Compiti settimanali: GET/POST /webhooks/site-staff-compiti (+ files signed).
-// Handler: Vinyls/Utils/Web/siteStaffCompitiApi.js — UI vecchia: staff-compiti-page.js
+// Handler: Vinili/Utils/Web/siteStaffCompitiApi.js — UI vecchia: staff-compiti-page.js
 
 import { staffFetch, type ApiRes } from "./staff";
 

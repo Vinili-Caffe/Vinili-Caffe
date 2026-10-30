@@ -1,6 +1,6 @@
 /* Vinili & Caffè — service worker: push + dismiss + badge OS. Unica cache: la pagina offline
    (le pagine vere non si mettono mai in cache, così non si vedono versioni vecchie). */
-/* Payload: Vinyls/Utils/Web/siteWebPushService.js
+/* Payload: Vinili/Utils/Web/siteWebPushService.js
    content → { title, body, openUrl, id, unreadCount, … }
    dismiss → { type:"dismiss", ids, ticketIds, unreadCount, all, … }
    iosDismissTag1: iOS declarative (8030) non compare in getNotifications →
@@ -413,8 +413,8 @@ self.addEventListener("push", (event) => {
           await self.registration.showNotification("Vinili & Caffè", {
             body: "Nuova notifica",
             tag: data.id ? `vc-site-${data.id}` : "vc-site-fallback",
-            icon: "/images/og-server-icon-still.png",
-            badge: "/images/og-server-icon-still.png",
+            icon: "https://cdn.viniliecaffe.it/images/discord-still.png",
+            badge: "https://cdn.viniliecaffe.it/images/discord-still.png",
             data: { ...data, url: data.openUrl || "/" },
           });
           await ackShown(data);
@@ -427,7 +427,7 @@ self.addEventListener("push", (event) => {
 
       /* pushPcBannerFix1: mai GIF (Chrome a volte fallisce showNotification);
          navigate SOLO iOS (su Chrome può far rifiutare le options). */
-      const stillIcon = "/images/og-server-icon-still.png";
+      const stillIcon = "https://cdn.viniliecaffe.it/images/discord-still.png";
       const pickIcon = (raw) => {
         const s = String(raw || "").trim();
         if (!s || /\.gif(?:\?|$)/i.test(s)) return stillIcon;

@@ -19,8 +19,8 @@ export const SITE_ORIGIN = "https://www.viniliecaffe.it";
 
 /** Screenshot reali pagina 1200×630 (`/og/{slug}.png`) — solo fallback legacy / debug. */
 const OG_CARD_VERSION = "20261026embedFix1";
-/** Logo GIF — thumb OG + accessory Component Embed (niente screenshot pagina). */
-const LOGO_VERSION = "20261027ogLogo1";
+/** Thumb OG = icona live del server main (proxy API, non asset in repo). */
+const LOGO_VERSION = "20261030guildIconLive1";
 /** Limite Discord per il JSON component-embed (byte). */
 export const DISCORD_COMPONENT_EMBED_MAX_BYTES = 3000;
 
@@ -39,9 +39,9 @@ function normalizePagePath(path: string): string {
   return p;
 }
 
-/** Logo GIF — thumb accessorio piccolo. */
+/** Icona guild Discord live — thumb accessorio piccolo. */
 export function siteLogoOgImage(version = LOGO_VERSION) {
-  const url = `${SITE_ORIGIN}/images/og-server-icon.gif?v=${version}`;
+  const url = `${SITE_ORIGIN}/webhooks/site-guild-icon?size=512&v=${version}`;
   return {
     url,
     width: 512,

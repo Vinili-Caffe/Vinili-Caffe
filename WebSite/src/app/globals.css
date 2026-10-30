@@ -214,9 +214,9 @@ body::-webkit-scrollbar,
 
 /* Cursori custom (come sito legacy): vinile = default, caffè = click, loading = busy */
 :root {
-  --vc-cursor-default: url("/images/musicrecordspin-cursor-static.png") 12 12, auto;
-  --vc-cursor-pointer: url("/images/coffe-cursor-static.png") 9 11, pointer;
-  --vc-cursor-wait: url("/images/vc-loading-cursor.png") 16 16, auto;
+  --vc-cursor-default: url("https://cdn.viniliecaffe.it/images/musicrecordspin-cursor-static.png") 12 12, auto;
+  --vc-cursor-pointer: url("https://cdn.viniliecaffe.it/images/coffe-cursor-static.png") 9 11, pointer;
+  --vc-cursor-wait: url("https://cdn.viniliecaffe.it/images/vc-loading-cursor.png") 16 16, auto;
 }
 
 html.vc-site-cursor-ok,

@@ -234,3 +234,7 @@ CALENDARIO EVENTO.pdf
 WebSite/next-env.d.ts
 WebSite/scripts/_tmp_*
 WebSite/build/
+
+# Mai ricreare: nome vecchio post-rename → solo WebSite/
+WebSiteReact/
+

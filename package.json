@@ -4,14 +4,14 @@
   "version": "2.0.1",
   "description": "Repository di Vinili & Caffè",
   "workspaces": [
-    "bots-ts/src/Vinyls",
-    "bots-ts/src/Coffee"
+    "Bots/src/Vinili",
+    "Bots/src/Caffè"
   ],
   "scripts": {
-    "start": "npm start --prefix bots-ts",
-    "install:bots": "npm install --legacy-peer-deps --prefix bots-ts/src/Vinyls && npm install --legacy-peer-deps --prefix bots-ts/src/Coffee",
-    "check:bots": "npm run check --prefix bots-ts",
-    "i18n:tenant": "node bots-ts/src/Vinyls/Utils/Partner/tenantPartnershipI18n/scripts/generate-tenant-i18n.cjs"
+    "start": "npm start --prefix Bots",
+    "install:bots": "npm install --legacy-peer-deps --ignore-scripts --prefix Bots/src/Vinili && npm install --legacy-peer-deps --ignore-scripts --prefix \"Bots/src/Caffè\" && npm install --legacy-peer-deps --ignore-scripts --prefix Bots",
+    "check:bots": "npm run check --prefix Bots",
+    "i18n:tenant": "node Bots/src/Vinili/Utils/Partner/tenantPartnershipI18n/scripts/generate-tenant-i18n.cjs"
   },
   "overrides": {
     "discord.js": "14.25.1"

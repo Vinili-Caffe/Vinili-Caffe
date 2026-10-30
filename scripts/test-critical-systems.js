@@ -3,7 +3,7 @@ const path = require("path");
 
 function getBotRoot() {
   const workspaceRoot = path.resolve(__dirname, "..");
-  const botFolder = process.argv[2] || process.env.BOT_FOLDER || "Vinyls";
+  const botFolder = process.argv[2] || process.env.BOT_FOLDER || "Vinili";
   return path.join(workspaceRoot, botFolder);
 }
 
@@ -165,8 +165,8 @@ async function run(root) {
     );
     const isStaffZoneExempt = automodService?.__test?.isStaffZoneExemptChannel;
     assert(typeof isStaffZoneExempt === "function", "automod __test isStaffZoneExemptChannel mancante");
-    const staffChatId = String(require("../Vinyls/Utils/Config/ids").channels?.staffChat || "");
-    const staffCmdsId = String(require("../Vinyls/Utils/Config/ids").channels?.staffCmds || "");
+    const staffChatId = String(require("../Vinili/Utils/Config/ids").channels?.staffChat || "");
+    const staffCmdsId = String(require("../Vinili/Utils/Config/ids").channels?.staffCmds || "");
     assert(staffChatId && staffCmdsId, "staffChat/staffCmds ids mancanti");
     assert(
       isStaffZoneExempt({ id: "thread-pm", isThread: () => true, parentId: staffChatId }) === true,
@@ -287,7 +287,7 @@ async function run(root) {
       ) === false,
       "detectScamImageBait solo immagine profilo sospetto senza testo",
     );
-    const guildMemberUpdate = require("../Vinyls/Events/guildMemberUpdate");
+    const guildMemberUpdate = require("../Vinili/Events/guildMemberUpdate");
     const resolveBoostSlotTarget = guildMemberUpdate?.__test?.resolveBoostSlotTarget;
     const noteNativeBoostSeen = guildMemberUpdate?.__test?.noteNativeBoostSeen;
     const nativeBoostSeenSince = guildMemberUpdate?.__test?.nativeBoostSeenSince;
@@ -321,7 +321,7 @@ async function run(root) {
       parseNativeBoostSlotCount({ type: 8, content: "Diuk ha appena potenziato il server 1 volta!" }) === 1,
       "parseNativeBoostSlotCount 1 volta",
     );
-    const pokeNameBlock = require("../Vinyls/Services/Moderation/pokeNameChannelBlockService");
+    const pokeNameBlock = require("../Vinili/Services/Moderation/pokeNameChannelBlockService");
     assert(pokeNameBlock.isPokeNameBotMessage({ author: { id: pokeNameBlock.POKE_NAME_BOT_ID } }) === true, "Poke-Name author id");
     assert(pokeNameBlock.isPokeNameBotMessage({ applicationId: pokeNameBlock.POKE_NAME_BOT_ID }) === true, "Poke-Name application id");
     assert(pokeNameBlock.isPokeNameAllowedChannel({ channelId: pokeNameBlock.POKE_NAME_ALLOWED_CHANNEL_ID }) === true, "Poke-Name canale pokétwo");
@@ -330,7 +330,7 @@ async function run(root) {
       "Poke-Name thread sotto pokétwo",
     );
     assert(pokeNameBlock.isPokeNameAllowedChannel({ channelId: "999", channel: { parentId: "888" } }) === false, "Poke-Name canale generico");
-    const cmdPerms = require("../Vinyls/Utils/Moderation/commandPermissions");
+    const cmdPerms = require("../Vinili/Utils/Moderation/commandPermissions");
     const matchChannel = cmdPerms?.__test?.channelMatchesPolicyChannelList;
     const normalizeChannels = cmdPerms?.__test?.normalizeChannelList;
     const highZone = cmdPerms?.__test?.HIGH_STAFF_COMMANDS_ZONE_TOKEN;
@@ -339,8 +339,8 @@ async function run(root) {
       normalizeChannels(["channels.highCmds"]).includes(highZone),
       "highCmds espande zona thread High Staff",
     );
-    const staffCmds = String(require("../Vinyls/Utils/Config/ids").channels?.staffCmds || "");
-    const commands = String(require("../Vinyls/Utils/Config/ids").channels?.commands || "");
+    const staffCmds = String(require("../Vinili/Utils/Config/ids").channels?.staffCmds || "");
+    const commands = String(require("../Vinili/Utils/Config/ids").channels?.commands || "");
     assert(
       matchChannel({ id: "thread1", isThread: () => true, parentId: staffCmds }, [staffCmds]) === true,
       "thread staff-cmds match parent policy",

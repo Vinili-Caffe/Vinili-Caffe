@@ -1,7 +1,7 @@
 // Presenza sul sito (online/idle), non Discord.
 // POST /webhooks/site-user-presence  { status, path, visible } | { clear: true, status: "offline" }
 // GET  /webhooks/site-user-presence/query?ids=…
-// Handler: Vinyls/Utils/Web/siteUserPresenceApi.js — UI vecchia: vc-site-presence.js
+// Handler: Vinili/Utils/Web/siteUserPresenceApi.js — UI vecchia: vc-site-presence.js
 // Pallini su ogni Avatar con userId (watchUser); heartbeat anche fuori dalle route “chat”.
 
 import { apiUrl } from "@/lib/api";

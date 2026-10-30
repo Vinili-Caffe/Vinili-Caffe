@@ -1,4 +1,4 @@
-// Profilo utente: GET /webhooks/site-users?board=profile&userId=… (handler Vinyls/Utils/Web/siteUsersLeaderboardApi.js)
+// Profilo utente: GET /webhooks/site-users?board=profile&userId=… (handler Vinili/Utils/Web/siteUsersLeaderboardApi.js)
 // La card +rank è una GIF generata da /webhooks/site-rank-card-public?userId=…
 // Le impostazioni (compleanno, privacy, reazioni…) stanno in Personalizza, non qui.
 

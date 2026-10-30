@@ -1,5 +1,5 @@
 // Calendario pause: GET/POST /webhooks/site-staff-pause
-// Handler: Vinyls/Utils/Web/siteStaffPauseApi.js — UI: staff-pause-page.js
+// Handler: Vinili/Utils/Web/siteStaffPauseApi.js — UI: staff-pause-page.js
 
 import { staffFetch, type ApiRes } from "./staff";
 

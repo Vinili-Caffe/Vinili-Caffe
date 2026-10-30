@@ -43,16 +43,20 @@ if [ -d "$TS" ]; then
 fi
 mkdir -p "$TS"
 tar -xzf /tmp/vc-bots-ts-src.tgz -C "$TS"
+# rimuovi vecchi nomi cartella se presenti
+rm -rf "$TS/src/Vinyls" "$TS/src/Vinil" "$TS/src/Coffee"
 install -m 644 /tmp/vc-ecosystem.config.cjs "$B/ecosystem.config.cjs"
 
 # deps runtime TS
 cd "$TS"
 $NPM install --omit=dev --no-fund --no-audit
 
+# srcName = cartella in bots-ts/src (Vinili/Caffè); legacyName = /opt/bot/Vinyls|Coffee (Data/node_modules).
 link_runtime() {
-  local name="$1"
-  local legacy="$B/$name"
-  local dest="$TS/src/$name"
+  local srcName="$1"
+  local legacyName="${2:-$1}"
+  local legacy="$B/$legacyName"
+  local dest="$TS/src/$srcName"
   mkdir -p "$dest"
   # Sempre: Data/Photos/node_modules dal legacy (runtime vero). Se dest/Data è una
   # cartella syncata vuota/incompleta, sostituisci col link.
@@ -60,24 +64,24 @@ link_runtime() {
     [ -e "$legacy/$d" ] || continue
     if [ -L "$dest/$d" ]; then
       ln -sfn "$legacy/$d" "$dest/$d"
-      echo "relink $name/$d → legacy"
+      echo "relink $srcName/$d → legacy $legacyName"
     elif [ -d "$dest/$d" ] && [ "$d" = "Data" -o "$d" = "Photos" -o "$d" = "UI" ]; then
       # cartella codice syncata: meglio il Data live della VPS
       rm -rf "$dest/$d"
       ln -sfn "$legacy/$d" "$dest/$d"
-      echo "replace $name/$d → legacy symlink"
+      echo "replace $srcName/$d → legacy $legacyName symlink"
     elif [ ! -e "$dest/$d" ]; then
       ln -sfn "$legacy/$d" "$dest/$d"
-      echo "link $name/$d → legacy"
+      echo "link $srcName/$d → legacy $legacyName"
     fi
   done
   if [ ! -e "$dest/node_modules" ] && [ -f "$dest/package.json" ]; then
-    echo "npm install in src/$name…"
+    echo "npm install in src/$srcName…"
     (cd "$dest" && $NPM install --legacy-peer-deps --no-fund --no-audit) || true
   fi
 }
-link_runtime Vinyls
-link_runtime Coffee
+link_runtime Vinili Vinyls
+link_runtime Caffè Coffee
 
 # tsx anche in root bot (site-api cwd=/opt/bot risolve --import tsx)
 cd "$B"

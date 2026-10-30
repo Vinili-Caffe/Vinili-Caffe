@@ -1,6 +1,6 @@
 import { SITE_ORIGIN } from "./site";
 
-/** Bacheca: directory pubblica bot/server — API /webhooks/site-boards (Vinyls/Utils/Web/siteBoardsApi.js). */
+/** Bacheca: directory pubblica bot/server — API /webhooks/site-boards (Vinili/Utils/Web/siteBoardsApi.js). */
 
 export type BoardKind = "server" | "bot";
 export type BoardSort = "score" | "new" | "bumps" | "votes" | "reviews";

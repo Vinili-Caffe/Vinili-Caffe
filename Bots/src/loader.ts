@@ -7,7 +7,7 @@ const child_process = require('child_process') as typeof import("child_process")
 const fs = require('fs') as typeof import("fs");
 const path = require('path') as typeof import("path");
 const os = require('os') as typeof import("os");
-/** Directory codice bot (Vinyls/Coffee/shared accanto al loader): in locale = bots-ts/dist, in VPS = /opt/bot. */
+/** Directory codice bot (Vinili/Caffè/shared accanto al loader): in locale = bots-ts/dist, in VPS = /opt/bot. */
 const baseDir = __dirname;
 /** Root repo (.env, scripts, .git, package.json workspaces). BOT_REPO o parent di bots-ts/dist. */
 function resolveRepoRoot() {
@@ -26,7 +26,10 @@ const ENABLE_LOADER_GIT_PULL =
   ["1", "true", "yes", "on"].includes(String(process.env.ENABLE_LOADER_GIT_PULL || "").trim().toLowerCase());
 const ENABLE_LOADER_NPM_INSTALL =
   ["1", "true", "yes", "on"].includes(String(process.env.ENABLE_LOADER_NPM_INSTALL || "").trim().toLowerCase());
-const ALL_BOTS=[{key:'vinyls',label:'Vinyls',folderSuffix:'Vinyls',startupDelayMs:0},{key:'Coffee',label:'Coffee',folderSuffix:'Coffee',startupDelayMs:0}];
+const ALL_BOTS=[
+  {key:'vinyls',label:'Vinili',folderSuffix:'Vinili',startupDelayMs:0},
+  {key:'coffee',label:'Caffè',folderSuffix:'Caffè',startupDelayMs:0},
+];
 /** perfP0: LOADER_BOTS=vinyls|coffee|all — permette PM2 split heap. */
 function resolveBotsToStart() {
     const raw = String(process.env.LOADER_BOTS || process.env.BOTS_ONLY || 'all').trim().toLowerCase();
@@ -464,7 +467,7 @@ process.on("exit", () => {
 
 async function bootBots() {
   try {
-    const { buildMongoUrl, waitForMongoReachable } = require("./Vinyls/Utils/Database/mongoConnect") as typeof import("./Vinyls/Utils/Database/mongoConnect");
+    const { buildMongoUrl, waitForMongoReachable } = require("./Vinili/Utils/Database/mongoConnect") as typeof import("./Vinili/Utils/Database/mongoConnect");
     const mongoUrl = buildMongoUrl(null);
     if (mongoUrl) {
       console.log("[Loader] Attesa MongoDB...");

@@ -7,16 +7,15 @@
     "moduleDetection": "force",
     "types": ["node"],
     "ignoreDeprecations": "6.0",
-    "baseUrl": ".",
     "paths": {
-      "canvas": ["./src/Vinyls/node_modules/canvas"]
+      "canvas": ["./src/Vinili/node_modules/canvas"]
     },
     "noEmit": true,
     "incremental": true,
     "tsBuildInfoFile": ".tsbuildinfo",
     "allowJs": false,
     "resolveJsonModule": true,
-    "esModuleInterop": false,
+    "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "strict": false,

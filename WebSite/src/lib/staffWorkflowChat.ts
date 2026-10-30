@@ -1,6 +1,6 @@
 // Chat pratiche staff: GET/POST /webhooks/site-staff-workflow-chat
 // Subject invite: POST /webhooks/site-staff-workflow-chat/subject
-// Handler: Vinyls/Utils/Web/siteStaffWorkflowChatApi.js
+// Handler: Vinili/Utils/Web/siteStaffWorkflowChatApi.js
 
 import { staffFetch, type ApiRes } from "./staff";
 

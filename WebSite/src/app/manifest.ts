@@ -1,4 +1,5 @@
 import type { MetadataRoute } from "next";
+import { cdnUrl } from "@/lib/site";
 export const dynamic = "force-static";
 
 export default function manifest(): MetadataRoute.Manifest {
@@ -21,25 +22,25 @@ export default function manifest(): MetadataRoute.Manifest {
     prefer_related_applications: false,
     icons: [
       {
-        src: "/images/pwa-icon-192.png?v=20261029logo1",
+        src: cdnUrl("/images/pwa-icon-192.png?v=20261029logo1"),
         sizes: "192x192",
         type: "image/png",
         purpose: "any",
       },
       {
-        src: "/images/pwa-icon-512.png?v=20261029logo1",
+        src: cdnUrl("/images/pwa-icon-512.png?v=20261029logo1"),
         sizes: "512x512",
         type: "image/png",
         purpose: "any",
       },
       {
-        src: "/images/pwa-icon-192-maskable.png?v=20261029logo1",
+        src: cdnUrl("/images/pwa-icon-192-maskable.png?v=20261029logo1"),
         sizes: "192x192",
         type: "image/png",
         purpose: "maskable",
       },
       {
-        src: "/images/pwa-icon-512-maskable.png?v=20261029logo1",
+        src: cdnUrl("/images/pwa-icon-512-maskable.png?v=20261029logo1"),
         sizes: "512x512",
         type: "image/png",
         purpose: "maskable",

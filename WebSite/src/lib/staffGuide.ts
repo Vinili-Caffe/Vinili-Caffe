@@ -1,5 +1,5 @@
 // Guida staff: GET /webhooks/site-staff-guide[?section=]
-// Handler: Vinyls/Utils/Web/siteStaffGuideApi.js — UI: staff-guide-page.js
+// Handler: Vinili/Utils/Web/siteStaffGuideApi.js — UI: staff-guide-page.js
 
 import { staffFetch, type ApiRes } from "./staff";
 

@@ -1,6 +1,8 @@
-// Confessionale: /webhooks/site-confessionale — handler Vinyls/Utils/Web/siteConfessionaleApi.js
+// Confessionale: /webhooks/site-confessionale — handler Vinili/Utils/Web/siteConfessionaleApi.js
 // Le confessioni sono anonime: l'API non espone mai l'autore, solo `isMine` per chi l'ha scritta.
 // Commentare è riservato allo staff operativo (anche in anonimo); moderare all'High Staff.
+
+import { cdnUrl } from "@/lib/site";
 
 export type Board = "community" | "staff";
 export type ConfStatus = "active" | "resolved" | "soft_deleted";
@@ -68,4 +70,4 @@ export const resolveConfession = async (token: string, id: string, reason: strin
 export const reopenConfession = async (token: string, id: string, reason: string) => item(await call(`${base}/${id}/reopen`, token, { reason }));
 export const deleteConfession = async (token: string, id: string, reason: string) => item(await call(`${base}/${id}/delete`, token, { reason }));
 
-export const BGM_SRC = "/audio/confessionale-bgm.mp3";
+export const BGM_SRC = cdnUrl("/audio/confessionale-bgm.mp3");

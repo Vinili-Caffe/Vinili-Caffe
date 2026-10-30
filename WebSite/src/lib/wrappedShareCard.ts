@@ -1,4 +1,5 @@
 import { sizedDiscordCdn } from "@/lib/discord-cdn";
+import { cdnUrl } from "@/lib/site";
 import { fmt, hours, type WrappedPayload } from "@/lib/wrapped";
 
 export type WrappedShareFormat = "story" | "square";
@@ -285,7 +286,7 @@ async function buildAll(data: WrappedPayload, onFirst?: (card: WrappedShareCard)
   const avatarUrl = sizedDiscordCdn(data.user.avatarUrl, 256, { animate: false });
   const [avatar, logo] = await Promise.all([
     loadImage(avatarUrl, true, 800),
-    loadImage("/images/logo-disco.png", false, 600),
+    loadImage(cdnUrl("/images/logo-disco.png"), false, 600),
   ]);
 
   const story = await makeCard(data, "story", avatar, logo);

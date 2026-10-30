@@ -1,6 +1,6 @@
 import { subscribeSiteRealtime, type SiteRealtimePing } from "./site-realtime";
 
-// Tickets: /webhooks/site-web-tickets — handler Vinyls/Utils/Web/siteWebTicketsApi.js
+// Tickets: /webhooks/site-web-tickets — handler Vinili/Utils/Web/siteWebTicketsApi.js
 // Ogni azione risponde con il ticket aggiornato (e i suoi `permissions`): l'interfaccia mostra solo
 // quello che i permessi del bot consentono, non decide nulla da sola.
 // Tempo reale: WebSocket condiviso (site-realtime) → solo ping, poi reload API.

@@ -5,9 +5,9 @@ da quella proprietaria del repository (vedi LICENSE).
 
 Esempi:
 
-- **npm** — dipendenze in `package.json`, `Vinyls/package.json`, `Coffee/package.json`,
+- **npm** — dipendenze in `package.json`, `Bots/src/Vinili/package.json`, `Bots/src/Caffè/package.json`,
   `WebSite/package.json` (ciascuna con la propria licenza nel pacchetto).
-- **WebSite/js/plugins.js** e altri vendor — copyright e licenze indicati nei file.
+- Vendor sotto WebSite — copyright e licenze indicati nei file.
 - **deploy/tools/** — tool esterni (es. MongoDB Database Tools) con LICENSE dedicata.
 
 Il copyright su **codice originale** Vinili & Caffè resta ai titolari indicati in

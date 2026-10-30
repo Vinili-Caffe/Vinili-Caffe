@@ -1,5 +1,5 @@
 // Gestione staff: GET/POST /webhooks/site-staff-manage
-// Handler: Vinyls/Utils/Web/siteStaffManageApi.js — UI: staff-manage-page.js
+// Handler: Vinili/Utils/Web/siteStaffManageApi.js — UI: staff-manage-page.js
 
 import { staffFetch, type ApiRes } from "./staff";
 

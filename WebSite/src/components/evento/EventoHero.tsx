@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import { PageHero } from "@/components/PageHero";
 import { EVENTO_KICKER } from "@/lib/evento-starwars";
+import { cdnUrl } from "@/lib/site";
 
 /** Hero come le pagine sito, con foto galassia Star Wars. */
 export function EventoHero({
@@ -24,8 +25,8 @@ export function EventoHero({
       accent={accent}
       text={text}
       tone="evento"
-      imageSrc="/images/star-wars-italia-galaxy.webp"
-      imageSrcMobile="/images/star-wars-italia-galaxy-mobile.webp"
+      imageSrc={cdnUrl("/images/starwars/star-wars-italia-galaxy.webp")}
+      imageSrcMobile={cdnUrl("/images/starwars/star-wars-italia-galaxy-mobile.webp")}
       videoSrc={null}
       videoSrcMobile={null}
     />

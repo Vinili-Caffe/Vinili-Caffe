@@ -3,10 +3,11 @@
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/cn";
+import { cdnUrl } from "@/lib/site";
 import { SmartLink } from "./SmartLink";
 import { HeaderNameMarquee } from "./effects/HeaderNameMarquee";
 
-const FALLBACK = "/images/logo-disco.png";
+const FALLBACK = cdnUrl("/images/logo-disco.png");
 const FALLBACK_NAME = "VINILI & CAFFÈ";
 
 /**

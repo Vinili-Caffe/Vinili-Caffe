@@ -1,6 +1,6 @@
 // Candidature (Helper / Partner Manager / Blogger) e appelli (unban / unmute).
-// Domande: copia di Vinyls/Utils/Community/candidatureApplicationsCatalog.js (il bot rifiuta campi mancanti).
-// Handler: Vinyls/Events/interaction/candidatureApplicationHandlers.js, unbanWebsiteHandlers.js, unmuteWebsiteHandlers.js
+// Domande: copia di Vinili/Utils/Community/candidatureApplicationsCatalog.js (il bot rifiuta campi mancanti).
+// Handler: Vinili/Events/interaction/candidatureApplicationHandlers.js, unbanWebsiteHandlers.js, unmuteWebsiteHandlers.js
 // Se l'API è spenta nel .env del bot risponde 503 "candidature_http_disabled": va mostrato come "chiuso", non come errore.
 
 export type RoleType = "helper" | "partnermanager" | "blogger";

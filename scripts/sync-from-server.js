@@ -22,8 +22,8 @@ const SYNC_SERVER = env.SYNC_SERVER || process.env.SYNC_SERVER;
 const SYNC_REMOTE_PATH = (env.SYNC_REMOTE_PATH || process.env.SYNC_REMOTE_PATH || "/opt/bot").replace(/\\/g, "/").replace(/\/+$/, "");
 
 const FILES = [
-  "Vinyls/Utils/Config/idsCatalog.js",
-  "Vinyls/Utils/Config/helpNewUntil.json",
+  "Vinili/Utils/Config/idsCatalog.js",
+  "Vinili/Utils/Config/helpNewUntil.json",
 ];
 
 if (!SYNC_SERVER) {

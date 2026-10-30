@@ -2,6 +2,7 @@
 // Logica allineata a WebSite/js/puzzle-page.js (puzzleHs9).
 
 import type { StaffAccess } from "@/lib/staff";
+import { cdnUrl } from "@/lib/site";
 
 export const PUZZLE_COLS = 6;
 export const PUZZLE_ROWS = 3;
@@ -9,8 +10,9 @@ export const PUZZLE_PIECE_COUNT = PUZZLE_COLS * PUZZLE_ROWS;
 export const PUZZLE_TAB_RATIO = 0.2;
 /** Ratio immagine star-wars-italia-galaxy (1600×816). */
 export const PUZZLE_ASPECT = 1600 / 816;
-/** Asset sul sito vero; in beta/anteprima arriva via proxy. */
-export const PUZZLE_IMG = "/images/star-wars-italia-galaxy.png?v=20260926puzzleHs9";
+
+/** Asset su CDN R2. */
+export const PUZZLE_IMG = cdnUrl("/images/starwars/star-wars-italia-galaxy.png?v=20261030cdn1");
 
 export type EdgeSign = -1 | 0 | 1;
 export type PieceEdges = { top: EdgeSign; right: EdgeSign; bottom: EdgeSign; left: EdgeSign };

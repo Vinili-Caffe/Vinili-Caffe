@@ -1,0 +1,29 @@
+/**
+ * Root upload sito.
+ * Pre-cutover (Vinyls/Utils/Web): `../../../Data` → `/opt/bot/Data`.
+ * Post-cutover (bots-ts/src/Vinili/Utils/Web): stesso `../../../` andrebbe in
+ * `bots-ts/src/Data` (vuoto) — usiamo `../../Data` (Vinili/Data → Vinyls/Data)
+ * e, se esistono ancora file in `/opt/bot/Data/uploads/...`, preferiamo quelli.
+ */
+const fs = require("node:fs") as typeof import("node:fs");
+const path = require("node:path") as typeof import("node:path");
+
+function resolveSiteUploadRoot(subdir: string, fromDirname = __dirname) {
+  const name = String(subdir || "").replace(/^\/+|\/+$/g, "");
+  const linked = path.resolve(fromDirname, "../../Data/uploads", name);
+  const legacyBot = path.resolve(fromDirname, "../../../../../Data/uploads", name);
+  const brokenTsSrc = path.resolve(fromDirname, "../../../Data/uploads", name);
+
+  for (const candidate of [legacyBot, linked, brokenTsSrc]) {
+    try {
+      if (fs.existsSync(candidate)) return candidate;
+    } catch (_) {}
+  }
+  /* default: Vinili/Data (symlink runtime) — crea cartella al primo upload */
+  try {
+    fs.mkdirSync(linked, { recursive: true });
+  } catch (_) {}
+  return linked;
+}
+
+export = { resolveSiteUploadRoot };

@@ -3,9 +3,9 @@ function getToken(config: Record<string, any> = {}, envKey = "DISCORD_TOKEN") {
 }
 
 function getMongoUrl(config: Record<string, any> = {}) {
-  /* mongoSingleSource1: stessa regola di Vinyls/Utils/Database/mongoConnect */
+  /* mongoSingleSource1: stessa regola di Vinili/Utils/Database/mongoConnect */
   try {
-    const { buildMongoUrl } = require("../../Vinyls/Utils/Database/mongoConnect") as typeof import("../../Vinyls/Utils/Database/mongoConnect");
+    const { buildMongoUrl } = require("../../Vinili/Utils/Database/mongoConnect") as typeof import("../../Vinili/Utils/Database/mongoConnect");
     const url = buildMongoUrl({ config: { mongoURL: config?.mongoURL || config?.mongoUrl } });
     if (url) return url;
   } catch (_) {}

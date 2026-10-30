@@ -1,5 +1,5 @@
 // Area staff: gate GET /webhooks/site-staff-access (+ flag permessi per nav e pagine).
-// Handler: Vinyls/Utils/Web/siteStaffAccessApi.js
+// Handler: Vinili/Utils/Web/siteStaffAccessApi.js
 
 export type StaffIdentity = {
   userId: string;

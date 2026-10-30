@@ -1,5 +1,6 @@
 /** Serata film: accesso high-staff + stream firmato. API /webhooks/site-seratafilm-access|film */
 
+import { cdnUrl } from "@/lib/site";
 import { isHalloweenSeason } from "@/lib/site-effects";
 import { VINYL_YT_HALLOWEEN } from "@/lib/youtube-player";
 
@@ -12,7 +13,7 @@ export type SerataEvent = {
   nextFilmTitle: string;
 };
 
-/** Allineato a Vinyls/Config/site.config.json → seratafilmEvent (senza inventare titoli). */
+/** Allineato a Vinili/Config/site.config.json → seratafilmEvent (senza inventare titoli). */
 export const SERATA_EVENT: SerataEvent = {
   timezone: "Europe/Rome",
   recurring: { weekday: 6, hour: 21, minute: 0 },
@@ -22,8 +23,9 @@ export const SERATA_EVENT: SerataEvent = {
   nextFilmTitle: "",
 };
 
-/** Locandina sul player (cover 16:9, frame dallo stream). */
-export const FILM_POSTER = "/images/seratafilm/sposa-cadavere-poster.jpg?v=20261026sposa1";
+/** Locandina sul player — media su API/VPS (non in WebSite/public). */
+export const FILM_POSTER =
+  "https://api.viniliecaffe.it/images/seratafilm/sposa-cadavere-poster.jpg?v=20261030apiPoster1";
 
 /** BGM attesa default — come site.config.json → seratafilmBgm.youtube.videoUrls. */
 export const SERATA_BGM_YT_ID = "7wnVYIJipzU";
@@ -51,7 +53,7 @@ export const COUNTDOWN_FIRST_BEEP_SEC = 1.141;
 export const COUNTDOWN_LEAD_MS = Math.round(FINAL_COUNTDOWN_MS + COUNTDOWN_FIRST_BEEP_SEC * 1000);
 /** Istante (sec nel mp3) di ogni beep, dal “10” al “1”. */
 export const COUNTDOWN_BEEP_AT_SEC = [1.141, 2.073, 3.212, 4.099, 5.155, 6.312, 7.382, 8.354, 9.407, 10.36] as const;
-export const COUNTDOWN_MP3 = "/audio/countdown.mp3";
+export const COUNTDOWN_MP3 = cdnUrl("/audio/countdown.mp3");
 
 export type SerataAccess =
   | { ok: true; allowed: true; filmStreamUrl: string; isHighStaff?: boolean; canManage?: boolean }

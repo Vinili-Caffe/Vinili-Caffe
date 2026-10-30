@@ -6,7 +6,7 @@ import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { Bell, Bookmark, Heart, Share2, UserPlus } from "lucide-react";
 import { Iphone } from "@/components/magicui/iphone";
 import { useChromeOpenListener } from "@/lib/chrome-open";
-import { DISCORD_INVITE, SITE_ORIGIN } from "@/lib/site";
+import { DISCORD_INVITE, SITE_ORIGIN, cdnUrl } from "@/lib/site";
 import { cn } from "@/lib/cn";
 import profile from "@/data/social-profile.json";
 
@@ -107,7 +107,8 @@ function ctasFor(ch: Channel) {
   return CTAS.filter((c) => !c.channels || c.channels.includes(ch.id));
 }
 function asset(path: string) {
-  return `${path}${path.includes("?") ? "&" : "?"}v=${ASSET_V}`;
+  const withV = `${path}${path.includes("?") ? "&" : "?"}v=${ASSET_V}`;
+  return cdnUrl(withV);
 }
 
 function readStore(): Store {
@@ -204,7 +205,7 @@ function ScreenSite() {
   return (
     <div className="relative flex h-full flex-col overflow-hidden bg-[#0e0906] text-[#f4e9d8]">
       <img
-        src={asset("/images/sfondo-mobile-still.webp")}
+        src={asset("/images/hero-cafe-atmosphere.jpg")}
         alt=""
         className="absolute inset-0 size-full object-cover opacity-55"
       />

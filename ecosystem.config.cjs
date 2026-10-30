@@ -2,6 +2,7 @@ const fs = require("fs");
 const path = require("path");
 const base = path.resolve(__dirname);
 const envPath = path.join(base, ".env");
+
 try {
   if (fs.existsSync(envPath)) {
     const text = fs.readFileSync(envPath, "utf8");
@@ -64,8 +65,7 @@ const lavalinkPm2App = {
   cwd: path.join(base, "Lavalink"),
   script: path.join(base, "Lavalink", "Lavalink.jar"),
   interpreter: "java",
-    /* perfP0: heap Lavalink più stretto (ex 384/550) */
-    interpreter_args: "-Xms64m -Xmx320m -XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:MaxGCPauseMillis=100 -jar",
+  interpreter_args: "-Xms64m -Xmx320m -XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:MaxGCPauseMillis=100 -jar",
   args: "--spring.config.additional-location=optional:file:./",
   instances: 1,
   ...HA_RESTART,
@@ -75,19 +75,20 @@ const lavalinkPm2App = {
   env: lavalinkEnvFromFile,
 };
 
-/** Solo TS se esiste bots-ts/src (locale e VPS dopo cutover). Altrimenti legacy .js in root. */
-const botsSrcDir = path.join(base, "bots-ts", "src");
+const botsTsRootName = ["Bots", "bots-ts"].find((name) =>
+  fs.existsSync(path.join(base, name, "src", "wait-for-lavalink.ts")),
+) || "bots-ts";
+const botsSrcDir = path.join(base, botsTsRootName, "src");
 const botsUseTs = fs.existsSync(path.join(botsSrcDir, "wait-for-lavalink.ts"));
 const tsxImportArgs = "--disable-warning=ExperimentalWarning --import tsx";
 
-/** Vinyls/…/x.js → bots-ts/src/Vinyls/…/x.ts quando TS attivo. */
 function resolveBotScript(relJs) {
   if (!botsUseTs || !/\.(js)$/.test(relJs)) return { script: relJs, useTs: false };
-  if (!/^(Vinyls|Coffee|shared)\//.test(relJs)) return { script: relJs, useTs: false };
+  if (!/^(Vinili|Caffè|Vinyls|Coffee|shared)\//.test(relJs)) return { script: relJs, useTs: false };
   const tsRel = relJs.replace(/\.js$/, ".ts");
   const full = path.join(botsSrcDir, tsRel);
   if (!fs.existsSync(full)) return { script: relJs, useTs: false };
-  return { script: path.join("bots-ts", "src", tsRel), useTs: true };
+  return { script: path.join(botsTsRootName, "src", tsRel), useTs: true };
 }
 
 function makeBotsApp(name, loaderBots, memRestart, nodeHeapMb) {
@@ -120,7 +121,6 @@ function makeBotsApp(name, loaderBots, memRestart, nodeHeapMb) {
       FULL_STARTUP_SYNC: String(botEnvFromFile.FULL_STARTUP_SYNC || "0"),
       STARTUP_PANELS: String(botEnvFromFile.STARTUP_PANELS || "0"),
       FORCE_SLASH_DEPLOY: "0",
-      /* perfP2: mai git/npm dal loader in prod */
       ENABLE_LOADER_GIT_PULL: "0",
       ENABLE_LOADER_NPM_INSTALL: "0",
       VC_VOICE_PCM_RING_SEC: String(botEnvFromFile.VC_VOICE_PCM_RING_SEC || "20"),
@@ -128,7 +128,6 @@ function makeBotsApp(name, loaderBots, memRestart, nodeHeapMb) {
       VC_MUSIC_QUEUE_SNAPSHOT_MS: String(botEnvFromFile.VC_MUSIC_QUEUE_SNAPSHOT_MS || "30000"),
       VC_MINIGAME_TICK_MS: String(botEnvFromFile.VC_MINIGAME_TICK_MS || "30000"),
       VC_MONGO_POOL_SIZE: String(botEnvFromFile.VC_MONGO_POOL_SIZE || "6"),
-      /* residuo1: profilo activity senza nested daily/hourly */
       ACTIVITY_DAILY_STORAGE_MODE: String(botEnvFromFile.ACTIVITY_DAILY_STORAGE_MODE || "compact"),
       ACTIVITY_HOURLY_STORAGE_MODE: String(botEnvFromFile.ACTIVITY_HOURLY_STORAGE_MODE || "compact"),
       LOOP_STAGGER_MS: String(botEnvFromFile.LOOP_STAGGER_MS || "400"),
@@ -137,7 +136,6 @@ function makeBotsApp(name, loaderBots, memRestart, nodeHeapMb) {
       LIVE_VOICE_EXP_BATCH_SIZE: String(botEnvFromFile.LIVE_VOICE_EXP_BATCH_SIZE || "50"),
       VC_VOICE_AUDIT_ATTEMPTS: String(botEnvFromFile.VC_VOICE_AUDIT_ATTEMPTS || "1"),
       LAVALINK_MUSIC_WAIT_MS: String(botEnvFromFile.LAVALINK_MUSIC_WAIT_MS || "20000"),
-      /* perfP0: canvas meno paralleli / meno frame GIF */
       VC_ECONOMY_RENDER_CONCURRENCY: String(botEnvFromFile.VC_ECONOMY_RENDER_CONCURRENCY || "1"),
       VC_SLOTS_GIF_FRAMES: String(botEnvFromFile.VC_SLOTS_GIF_FRAMES || "14"),
       VC_ROULETTE_GIF_FRAMES: String(botEnvFromFile.VC_ROULETTE_GIF_FRAMES || "12"),
@@ -208,29 +206,28 @@ module.exports = {
     },
     ensurePm2App(
       "discadia-votes",
-      "Vinyls/Services/Web/discadiaVoteIntakeApp.js",
-      /* tsx RSS tipicamente >160M al boot */
+      "Vinili/Services/Web/discadiaVoteIntakeApp.js",
       "260M",
       { DISCADIA_VOTE_INTAKE_PORT: "3010" },
       "--max-old-space-size=192",
     ),
     ensurePm2App(
       "topgg-votes",
-      "Vinyls/Services/Web/topggVoteIntakeApp.js",
+      "Vinili/Services/Web/topggVoteIntakeApp.js",
       "260M",
       { TOPGG_VOTE_INTAKE_PORT: "3014" },
       "--max-old-space-size=192",
     ),
     ensurePm2App(
       "vote-drain",
-      "Vinyls/Services/Web/voteQueueDrainWorkerApp.js",
+      "Vinili/Services/Web/voteQueueDrainWorkerApp.js",
       "280M",
       { VOTE_QUEUE_WORKER: "1" },
       "--max-old-space-size=220",
     ),
     ensurePm2App(
       "site-api",
-      "Vinyls/Services/Web/durableSiteApiApp.js",
+      "Vinili/Services/Web/durableSiteApiApp.js",
       "620M",
       {
         SITE_API_PORT: "3020",
@@ -239,27 +236,25 @@ module.exports = {
         PARTNERSHIP_MIGRATION_EXTERNAL: "1",
         VC_SITE_VOTE_WARM_MS: String(botEnvFromFile.VC_SITE_VOTE_WARM_MS || "60000"),
       },
-      /* siteApiW4: was 360 — heap pressure under staff+notif caches */
       "--max-old-space-size=512",
     ),
     ensurePm2App(
       "partnership-migration",
-      "Vinyls/Services/Web/partnershipMigrationWorkerApp.js",
+      "Vinili/Services/Web/partnershipMigrationWorkerApp.js",
       "280M",
       { PARTNERSHIP_MIGRATION_WORKER: "1" },
       "--max-old-space-size=220",
     ),
     ensurePm2App(
       "bot-scheduler",
-      "Vinyls/Services/Web/botSchedulerWorkerApp.js",
-      /* era 320M: in TS stava a ~307M a regime */
+      "Vinili/Services/Web/botSchedulerWorkerApp.js",
       "420M",
       { BOT_SCHEDULER_WORKER: "1" },
       "--max-old-space-size=320",
     ),
     ensurePm2App(
       "community-poll",
-      "Vinyls/Services/Web/communityPollWorkerApp.js",
+      "Vinili/Services/Web/communityPollWorkerApp.js",
       "360M",
       {
         COMMUNITY_POLL_WORKER: "1",
@@ -271,8 +266,7 @@ module.exports = {
     ),
     ensurePm2App(
       "auto-backup",
-      "Vinyls/Services/Web/autoBackupWorkerApp.js",
-      /* picchi backup >350M con tsx */
+      "Vinili/Services/Web/autoBackupWorkerApp.js",
       "480M",
       { AUTO_BACKUP_WORKER: "1" },
       "--max-old-space-size=380",
@@ -317,7 +311,6 @@ module.exports = {
         max_memory_restart: "110M",
       },
     ),
-    /* perfP0: Vinyls e Coffee in processi separati (heap isolato) */
     makeBotsApp("bots-vinyls", "vinyls", "720M", 580),
     makeBotsApp("bots-coffee", "coffee", "420M", 320),
   ],
