@@ -152,6 +152,10 @@ function createStandardGifAttachment() {
   return null;
 }
 
+function resolveBrandingImagePublicUrl() {
+  return BRANDING_IMAGE_URL || "";
+}
+
 function applyBrandingBannerImage(embed?) {
   if (!embed) return embed;
   const builder = embed instanceof EmbedBuilder ? embed : EmbedBuilder.from(embed);
