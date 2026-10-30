@@ -611,23 +611,7 @@ async function handleOfficialPrefixMessage({ message, resolvedClient, defaultPre
   const rawCmd = overrideCommand ? overrideCommand.name : args.shift();
   const cmd = normalizePrefixCommandToken(rawCmd);
   if (!cmd) return;
-  if (REMOVED_PREFIX_COMMANDS.has(cmd)) {
-    await deleteCommandMessage();
-    const removedMessage =
-      cmd === "colors"
-        ? "<:vegax:1443934876440068179> Il comando `+colors` non esiste più. https://www.viniliecaffe.it/personalizza"
-        : cmd === "ticket"
-          ? "<:vegax:1443934876440068179> Il comando `+ticket` non esiste più. Apri ticket su https://www.viniliecaffe.it/tickets/"
-          : `<:vegax:1443934876440068179> Il comando \`+${cmd}\` non esiste più.`;
-    await sendTemporaryMessage(
-      message.channel,
-      {
-        content: removedMessage,
-      },
-      EPHEMERAL_TTL_SHORT_MS,
-    );
-    return;
-  }
+  if (REMOVED_PREFIX_COMMANDS.has(cmd)) return;
 
   const command =
     overrideCommand ||

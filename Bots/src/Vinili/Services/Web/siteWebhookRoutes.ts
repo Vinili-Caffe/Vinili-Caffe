@@ -415,6 +415,14 @@ function mountSiteWebhookRoutes(app?, client?, deps?) {
   app.get("/webhooks/site-users", (req?, res?) => {
     return handleSiteUsersLeaderboardGet(client, req, res);
   });
+  app.get("/webhooks/site-user-boards", (req?, res?) => {
+    const { handleSiteUserBoardsGet } = require("../../Web/siteUserBoardsApi") as typeof import("../../Web/siteUserBoardsApi");
+    return handleSiteUserBoardsGet(client, req, res);
+  });
+  app.delete("/webhooks/site-user-boards", (req?, res?) => {
+    const { handleSiteUserBoardsDelete } = require("../../Web/siteUserBoardsApi") as typeof import("../../Web/siteUserBoardsApi");
+    return handleSiteUserBoardsDelete(client, req, res);
+  });
   app.get("/webhooks/site-vote", (req?, res?) => {
     return handleSiteVoteGet(client, req, res);
   });

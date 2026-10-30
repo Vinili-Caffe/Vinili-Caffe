@@ -72,14 +72,6 @@ async function maybeBlockDiscordHeadingMarkdown(message?) {
     });
     return null;
   });
-  if (deleted) {
-    global.logger?.info?.("[HEADING BLOCK] removed heading markdown", {
-      guildId: String(message.guild.id),
-      channelId: String(message.channelId || ""),
-      userId: String(message.author?.id || ""),
-      hadMember: Boolean(member),
-    });
-  }
   return Boolean(deleted);
 }
 

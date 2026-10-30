@@ -10,6 +10,7 @@ import { isUserId, loadProfile, type ProfileResult } from "@/lib/profile";
 import { page } from "@/lib/site";
 import { AlbumCover } from "./AlbumCover";
 import { CandyCollection, CustomStuff, RankCard, RolesList } from "./ProfileSections";
+import { ProfileBoards } from "./ProfileBoards";
 import { Tracklist } from "./Tracklist";
 
 // ruoli che rendono un profilo "staff": Founder, Manager, Director, High Staff, Staff, Partner Manager
@@ -138,6 +139,7 @@ export function ProfileView() {
             <RankCard p={p} owns={owns} />
             <CustomStuff p={p} owns={owns} />
             <CandyCollection p={p} />
+            <ProfileBoards userId={p.userId} owns={owns} token={token} />
             <RolesList p={p} />
           </div>
         </div>
