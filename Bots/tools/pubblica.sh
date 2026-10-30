@@ -12,8 +12,6 @@ set -euo pipefail
 FILES="${1:?file da pubblicare (relativi a src/, es. Vinili/Utils/x.ts)}"
 PROCS="${2:?processi da riavviare (es. bots-vinyls, bots-coffee, site-api, bot-workers)}"
 cd "$(dirname "$0")/.."
-# sulla VPS sono collegamenti alle cartelle dei bot vecchi: lì gira ancora il loro .js
-SKIP_RE='^(Vinili/Data|Vinili/UI|Vinili/Photos|Caffè/Data)/'
 
 TS_LIST=""
 UP_LIST=""
@@ -21,12 +19,12 @@ for f in $FILES; do
   f="${f#./}"
   f="${f#src/}"
   [ -f "src/$f" ] || { echo "manca src/$f" >&2; exit 1; }
-  if [[ "$f" =~ $SKIP_RE ]]; then echo "$f: sulla VPS questa cartella è quella dei bot vecchi, non si pubblica da qui" >&2; exit 1; fi
   if [[ "$f" == *.ts && "$f" != *.d.ts ]]; then
     [[ "$f" == "Vinili/Utils/Config/idsCatalog.ts" ]] && { echo "idsCatalog.js lo rigenera il bot sulla VPS: non si sovrascrive" >&2; exit 1; }
     TS_LIST="$TS_LIST $f"
     UP_LIST="$UP_LIST ${f%.ts}.js"
   else
+    [[ "$f" == "Vinili/Config/site.config.json" ]] && { echo "site.config.json sulla VPS è dati vivi (serata film…): non si sovrascrive da qui" >&2; exit 1; }
     UP_LIST="$UP_LIST $f"
   fi
 done

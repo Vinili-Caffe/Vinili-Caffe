@@ -142,7 +142,7 @@ function buildMultiPanelClassicFields(multi?, options: Record<string, any> = {})
 
 function buildSinglePanelRichPayload(panel?, options: Record<string, any> = {}) {
   const rows = options.rows || [];
-  const classic = buildSinglePanelClassicFields(panel, options);
+  const classic: any = buildSinglePanelClassicFields(panel, options);
   if (options.attachTicketGif && !classic.imageUrl) {
     classic.imageUrl = TICKET_MEDIA.mediaUrl || TICKET_MEDIA_URL;
     if (TICKET_MEDIA.files?.length) {

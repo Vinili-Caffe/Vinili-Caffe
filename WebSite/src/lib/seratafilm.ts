@@ -17,8 +17,8 @@ export type SerataEvent = {
 export const SERATA_EVENT: SerataEvent = {
   timezone: "Europe/Rome",
   recurring: { weekday: 6, hour: 21, minute: 0 },
-  /** Prova / serata live — aggiorna prima della serata pubblica. */
-  overrideIso: "2026-10-30T11:55:03+01:00",
+  /** Vuoto = sabato 21:00 Europe/Rome (recurring). Imposta ISO solo per una data fissa. */
+  overrideIso: "",
   filmTitle: "Nightmare Before Christmas",
   nextFilmTitle: "",
 };
