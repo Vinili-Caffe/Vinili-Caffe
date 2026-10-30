@@ -33,9 +33,9 @@ export function BrandMark({ className, navUnderline }: { className?: string; nav
         const gName = String(guild?.name || "").trim();
         if (gName) setName(gName);
         if (!id || !hash) return;
-        /* hash `a_…` = icona animata Discord → GIF */
-        const ext = hash.startsWith("a_") ? "gif" : "png";
-        setIcon(`https://cdn.discordapp.com/icons/${id}/${hash}.${ext}?size=128`);
+        /* hash `a_…` = icona animata: WebP animato a 80px (la GIF a 128px pesava ~400 KB in ogni pagina per un logo da 40px) */
+        const animated = hash.startsWith("a_") ? "&animated=true" : "";
+        setIcon(`https://cdn.discordapp.com/icons/${id}/${hash}.webp?size=80${animated}`);
       })
       .catch(() => {});
     return () => {

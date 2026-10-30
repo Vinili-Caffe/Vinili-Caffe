@@ -130,8 +130,9 @@ export function HeroStage({ className }: { className?: string }) {
         const id = String(guild?.id || "").trim();
         const hash = String(guild?.icon || "").trim();
         if (!id || !hash) return;
-        const ext = hash.startsWith("a_") ? "gif" : "png";
-        setGuildIcon(`https://cdn.discordapp.com/icons/${id}/${hash}.${ext}?size=128`);
+        /* WebP animato a 64px: la GIF a 128px pesava ~400 KB per un cerchio di 50px */
+        const animated = hash.startsWith("a_") ? "&animated=true" : "";
+        setGuildIcon(`https://cdn.discordapp.com/icons/${id}/${hash}.webp?size=64${animated}`);
       })
       .catch(() => {});
     return () => {

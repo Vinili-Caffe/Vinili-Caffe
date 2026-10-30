@@ -118,8 +118,9 @@ export function Hero() {
             <RotatingText words={t("home.badgeWords").split("|")} className="text-ember" />
           </motion.p>
 
+          {/* speedLcp1: niente opacity 0 sui testi in cima (LCP): il browser non li conta finché sono invisibili */}
           <motion.h1
-            initial={{ opacity: 0, y: 24 }}
+            initial={{ y: 24 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1, duration: 0.9, ease }}
             className="mt-7 font-display text-6xl font-semibold leading-[0.95] tracking-tight sm:text-7xl lg:text-8xl"
@@ -133,7 +134,7 @@ export function Hero() {
           </motion.h1>
 
           <motion.p
-            initial={{ opacity: 0, y: 16 }}
+            initial={{ y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.25, duration: 0.8, ease }}
             className="mx-auto mt-7 max-w-xl text-pretty text-lg leading-relaxed text-crema/80 lg:mx-0"

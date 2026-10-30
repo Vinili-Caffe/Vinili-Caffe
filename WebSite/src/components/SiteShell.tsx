@@ -15,6 +15,7 @@ import { ViewState } from "./effects/ViewState";
 import { SourceGuard } from "./effects/SourceGuard";
 import { StorageGc } from "./effects/StorageGc";
 import { ErrorReporter } from "./effects/ErrorReporter";
+import { VitalsReporter } from "./effects/VitalsReporter";
 import { DeepLinkFocus } from "./effects/DeepLinkFocus";
 import { DeviceFxProvider, useDeviceFx } from "./effects/DeviceFxProvider";
 import { PresenceRoot } from "./presence/PresenceRoot";
@@ -68,6 +69,7 @@ export function SiteShell({
           <ViewAsProvider>
             <EventoChromeProvider active={evento}>
               <ErrorReporter />
+              <VitalsReporter />
               <DeepLinkFocus />
               <BootGate />
               <RealtimeBoot />

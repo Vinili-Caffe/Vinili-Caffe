@@ -64,7 +64,7 @@ export function PageHero({
 
       <div className="scheme-dark mx-auto max-w-4xl px-6 text-center">
         <motion.p
-          initial={reduce ? false : { opacity: 0, y: 14 }}
+          initial={reduce ? false : { y: 14 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.55, ease }}
           className="inline-flex items-center gap-2 rounded-full bg-crema/10 px-4 py-1.5 text-xs font-medium uppercase tracking-[0.25em] text-sand shadow-[inset_0_1px_0_rgba(244,233,216,0.08)] ring-1 ring-sand/30 backdrop-blur-md"
@@ -82,7 +82,7 @@ export function PageHero({
         </h1>
         {text ? (
           <motion.p
-            initial={reduce ? false : { opacity: 0, y: 10 }}
+            initial={reduce ? false : { y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.08, duration: 0.55, ease }}
             className="mx-auto mt-5 max-w-[38rem] text-pretty text-lg leading-relaxed text-crema/80"
