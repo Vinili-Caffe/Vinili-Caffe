@@ -374,7 +374,7 @@ function mountSiteWebhookRoutes(app?, client?, deps?) {
     handleSiteWebTicketsPresencePost,
     handleSiteWebTicketsReadPost,
     handleSiteWebTicketsTypingPost,
-  } = require("../../Web/siteWebTicketsApi") as typeof import("../../Web/siteWebTicketsApi");
+  } = require("../../features/tickets/site/siteWebTicketsApi") as typeof import("../../features/tickets/site/siteWebTicketsApi");
   // Hogwarts event retired — API always 410 (finale prizes live elsewhere).
   app.use("/webhooks/site-hogwarts-sorting", (_req?, res?) => {
     return res.status(410).json({
@@ -2762,7 +2762,7 @@ function mountSiteWebhookRoutes(app?, client?, deps?) {
     listDashboardTickets,
     listDashboardTranscripts,
     getDashboardTranscriptHtml,
-  } = require("../../Web/siteDashboardTicketsApi") as typeof import("../../Web/siteDashboardTicketsApi");
+  } = require("../../features/tickets/dashboard/siteDashboardTicketsApi") as typeof import("../../features/tickets/dashboard/siteDashboardTicketsApi");
   const {
     listDashboardTicketPanels,
     createDashboardTicketPanel,
@@ -2774,25 +2774,25 @@ function mountSiteWebhookRoutes(app?, client?, deps?) {
     publishDashboardTicketPanel,
     publishDashboardTicketMultiPanel,
     syncDashboardTicketPanels,
-  } = require("../../Web/siteDashboardTicketPanelsApi") as typeof import("../../Web/siteDashboardTicketPanelsApi");
+  } = require("../../features/tickets/dashboard/siteDashboardTicketPanelsApi") as typeof import("../../features/tickets/dashboard/siteDashboardTicketPanelsApi");
   const {
     listDashboardTicketTeams,
     searchDashboardTicketTeamMembers,
     createDashboardTicketTeam,
     updateDashboardTicketTeam,
     deleteDashboardTicketTeam,
-  } = require("../../Web/siteDashboardTicketTeamsApi") as typeof import("../../Web/siteDashboardTicketTeamsApi");
+  } = require("../../features/tickets/dashboard/siteDashboardTicketTeamsApi") as typeof import("../../features/tickets/dashboard/siteDashboardTicketTeamsApi");
   const {
     listDashboardTicketBlacklist,
     addDashboardTicketBlacklist,
     deleteDashboardTicketBlacklist,
-  } = require("../../Web/siteDashboardTicketBlacklistApi") as typeof import("../../Web/siteDashboardTicketBlacklistApi");
+  } = require("../../features/tickets/dashboard/siteDashboardTicketBlacklistApi") as typeof import("../../features/tickets/dashboard/siteDashboardTicketBlacklistApi");
   const {
     listDashboardTicketForms,
     createDashboardTicketForm,
     updateDashboardTicketForm,
     deleteDashboardTicketForm,
-  } = require("../../Web/siteDashboardTicketFormsApi") as typeof import("../../Web/siteDashboardTicketFormsApi");
+  } = require("../../features/tickets/dashboard/siteDashboardTicketFormsApi") as typeof import("../../features/tickets/dashboard/siteDashboardTicketFormsApi");
   const { getDashboardPartnershipLeaderboard } = require("../../Web/siteDashboardLeaderboardApi") as typeof import("../../Web/siteDashboardLeaderboardApi");
   const {
     getDashboardGuildSettings,

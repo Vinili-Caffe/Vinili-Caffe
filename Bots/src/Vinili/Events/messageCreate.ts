@@ -13,7 +13,7 @@ const { channelAllowsMedia, getCachedOrFetchMember, handleDisboardBump, handleDi
 const { handleAfk, handleMentionAutoReactions, handleMentionAutoResponses, handleWordReactions, logEventError, } = require("../Utils/Message/officialMessageCommunityHandlers") as typeof import("../Utils/Message/officialMessageCommunityHandlers");
 const { runAutoModMessage } = require("../Services/Moderation/automodService") as typeof import("../Services/Moderation/automodService");
 const { handleCustomProfilePromptMessage } = require("./interaction/customRoleHandlers") as typeof import("./interaction/customRoleHandlers");
-const { handleTicketMemberPromptMessage } = require("../Utils/Ticket/ticketMemberPrompt") as typeof import("../Utils/Ticket/ticketMemberPrompt");
+const { handleTicketMemberPromptMessage } = require("../features/tickets/discord/ticketMemberPrompt") as typeof import("../features/tickets/discord/ticketMemberPrompt");
 const { handleUntrustedBotMessage, handleUntrustedApplicationMessage } = require("../Services/Moderation/trustedBotGuardService") as typeof import("../Services/Moderation/trustedBotGuardService");
 const IDs = require("../Utils/Config/ids") as typeof import("../Utils/Config/ids");
 const { EPHEMERAL_TTL_SHORT_MS, scheduleMessageDeletion } = require("../Utils/Config/ephemeralMessageTtl") as typeof import("../Utils/Config/ephemeralMessageTtl");

@@ -1,6 +1,6 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, AuditLogEvent, PermissionsBitField, } = require("discord.js") as typeof import("discord.js");
-const { closeOpenTicketsForGuildUser } = require("../Utils/Ticket/ticketCloseRuntime") as typeof import("../Utils/Ticket/ticketCloseRuntime");
-const { autoUnclaimOpenTicketsClaimedByUser } = require("../Utils/Ticket/ticketAutoUnclaimOnStaffLoss") as typeof import("../Utils/Ticket/ticketAutoUnclaimOnStaffLoss");
+const { closeOpenTicketsForGuildUser } = require("../features/tickets/discord/ticketCloseRuntime") as typeof import("../features/tickets/discord/ticketCloseRuntime");
+const { autoUnclaimOpenTicketsClaimedByUser } = require("../features/tickets/discord/ticketAutoUnclaimOnStaffLoss") as typeof import("../features/tickets/discord/ticketAutoUnclaimOnStaffLoss");
 const { ActivityUserProfile, UserLeaveBackup, ACTIVITY_MAIN_GUILD_ID } = require("../Schemas/Community/communitySchemas") as typeof import("../Schemas/Community/communitySchemas");
 const { sponsorMainLeave } = require("../Utils/Community/activityUserProfilePaths") as typeof import("../Utils/Community/activityUserProfilePaths");
 const IDs = require("../Utils/Config/ids") as typeof import("../Utils/Config/ids");
@@ -187,7 +187,7 @@ async function closeOpenWebTicketsForMember(member?, closeReason = "Utente uscit
     closeOpenWebTicketsForGuildUser,
     autoUnclaimOpenWebTicketsClaimedByUser,
     removeLeftUserFromOpenWebTickets,
-  } = require("../Web/siteWebTicketsApi") as typeof import("../Web/siteWebTicketsApi");
+  } = require("../features/tickets/site/siteWebTicketsApi") as typeof import("../features/tickets/site/siteWebTicketsApi");
   const client = member.client;
   const guildId = member.guild?.id;
   const userId = member.id;
@@ -780,7 +780,7 @@ export = {
         });
         let autoCloseOnLeaveTenant = true;
         try {
-          const { getTicketSettingsSync } = require("../MultiGuild/core/tenantTicketSettings") as typeof import("../MultiGuild/core/tenantTicketSettings");
+          const { getTicketSettingsSync } = require("../features/tickets/tenant/tenantTicketSettings") as typeof import("../features/tickets/tenant/tenantTicketSettings");
           autoCloseOnLeaveTenant =
             getTicketSettingsSync(member.guild.id)?.autoCloseOnUserLeave !== false;
         } catch (_) {
@@ -798,7 +798,7 @@ export = {
           const {
             autoUnclaimOpenWebTicketsClaimedByUser,
             removeLeftUserFromOpenWebTickets,
-          } = require("../Web/siteWebTicketsApi") as typeof import("../Web/siteWebTicketsApi");
+          } = require("../features/tickets/site/siteWebTicketsApi") as typeof import("../features/tickets/site/siteWebTicketsApi");
           await autoUnclaimOpenWebTicketsClaimedByUser(member.client, member.guild.id, member.id, {
             reason: "perché è uscito dal server",
             claimerName: member.user?.globalName || member.user?.username || "",
@@ -866,7 +866,7 @@ export = {
 
       let autoCloseOnLeave = true;
       try {
-        const { getTicketSettingsSync } = require("../MultiGuild/core/tenantTicketSettings") as typeof import("../MultiGuild/core/tenantTicketSettings");
+        const { getTicketSettingsSync } = require("../features/tickets/tenant/tenantTicketSettings") as typeof import("../features/tickets/tenant/tenantTicketSettings");
         autoCloseOnLeave = getTicketSettingsSync(guild.id)?.autoCloseOnUserLeave !== false;
       } catch (_) {
         autoCloseOnLeave = true;
@@ -893,7 +893,7 @@ export = {
         const {
           autoUnclaimOpenWebTicketsClaimedByUser,
           removeLeftUserFromOpenWebTickets,
-        } = require("../Web/siteWebTicketsApi") as typeof import("../Web/siteWebTicketsApi");
+        } = require("../features/tickets/site/siteWebTicketsApi") as typeof import("../features/tickets/site/siteWebTicketsApi");
         await autoUnclaimOpenWebTicketsClaimedByUser(member.client, member.guild.id, member.id, {
           reason: wasKicked
             ? "perché è stato kickato dal server"

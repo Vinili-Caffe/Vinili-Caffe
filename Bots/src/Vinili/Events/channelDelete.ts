@@ -6,7 +6,7 @@ const { ARROW, toDiscordTimestamp, channelTypeLabel, formatAuditActor, buildAudi
 const { handleChannelDeletionAction: antiNukeHandleChannelDeletionAction } = require("../Services/Moderation/antiNukeService") as typeof import("../Services/Moderation/antiNukeService");
 const { clearGameForChannel } = require("../Services/Minigames/minigameService") as typeof import("../Services/Minigames/minigameService");
 const { finishSerataFilmSessionsForChannel } = require("../Services/Staff/staffAutoValutazioniService") as typeof import("../Services/Staff/staffAutoValutazioniService");
-const { isTicketCategoryName } = require("../Utils/Ticket/ticketCategoryUtils") as typeof import("../Utils/Ticket/ticketCategoryUtils");
+const { isTicketCategoryName } = require("../features/tickets/discord/ticketCategoryUtils") as typeof import("../features/tickets/discord/ticketCategoryUtils");
 const { tryDeleteEmptyCustomPrivateCategory } = require("../Utils/Community/customPrivateCategoryUtils") as typeof import("../Utils/Community/customPrivateCategoryUtils");
 const { shouldResyncAutomodForChannel, scheduleDiscordAutomodRulesResync } = require("../Services/Moderation/discordAutomodRulesService") as typeof import("../Services/Moderation/discordAutomodRulesService");
 const { handleCustomPrivateVoiceChannelDelete } = require("../Services/Community/customVocChannelCleanupService") as typeof import("../Services/Community/customVocChannelCleanupService");

@@ -33,7 +33,7 @@ const { syncAllTenantPartnerDescriptions } = require("../MultiGuild/services/Par
 const { startStaffChatThreadsLoop } = require("../Services/Staff/staffChatThreadsService") as typeof import("../Services/Staff/staffChatThreadsService");
 const { startStaffCmdsThreadsLoop } = require("../Services/Staff/staffCmdsThreadsService") as typeof import("../Services/Staff/staffCmdsThreadsService");
 const { startPublicVoiceHubSetup } = require("../Services/Voice/publicVoiceHubService") as typeof import("../Services/Voice/publicVoiceHubService");
-const { startTicketAutoClosePromptLoop, startTranscriptCleanupLoop, } = require("../Services/Ticket/ticketMaintenanceService") as typeof import("../Services/Ticket/ticketMaintenanceService");
+const { startTicketAutoClosePromptLoop, startTranscriptCleanupLoop, } = require("../features/tickets/transcript/ticketMaintenanceService") as typeof import("../features/tickets/transcript/ticketMaintenanceService");
 const { startAutoBackupLoop } = require("../Services/Backup/autoBackupService") as typeof import("../Services/Backup/autoBackupService");
 const { startModCaseLifecycleLoop } = require("../Services/Moderation/modCaseLifecycleService") as typeof import("../Services/Moderation/modCaseLifecycleService");
 const { startWeeklyStaffResocontoLoop } = require("../Services/Staff/weeklyStaffResocontoService") as typeof import("../Services/Staff/weeklyStaffResocontoService");
@@ -1186,7 +1186,7 @@ function startPrimaryLoops(client?, engagementTick?) {
     ["[MOD CASE LIFECYCLE] Failed to start loop", () => startModCaseLifecycleLoop(client)],
     ["[TICKET AUTO CLOSE PROMPT] Failed to start loop", () => startTicketAutoClosePromptLoop(client)],
     ["[WEB TICKET SLA] Failed to start loop", () => {
-      const { startWebTicketSlaNotifLoop } = require("../Web/siteWebTicketsApi") as typeof import("../Web/siteWebTicketsApi");
+      const { startWebTicketSlaNotifLoop } = require("../features/tickets/site/siteWebTicketsApi") as typeof import("../features/tickets/site/siteWebTicketsApi");
       startWebTicketSlaNotifLoop(client);
     }],
     ["[TRANSCRIPT CLEANUP] Failed to start loop", () => startTranscriptCleanupLoop()],

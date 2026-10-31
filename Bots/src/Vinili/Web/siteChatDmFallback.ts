@@ -116,7 +116,7 @@ async function userStillNeedsDm(entry?) {
 }
 
 async function ticketStillNeedsDm(entry?) {
-  const { SiteWebTicketMessage } = require("../Schemas/Web/siteWebTicketSchemas") as typeof import("../Schemas/Web/siteWebTicketSchemas");
+  const { SiteWebTicketMessage } = require("../features/tickets/data/siteWebTicketSchemas") as typeof import("../features/tickets/data/siteWebTicketSchemas");
   const mid = String(entry.messageId || "").trim();
   if (!mid) return { ok: false, reason: "no_message" };
 

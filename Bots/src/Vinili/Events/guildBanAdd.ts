@@ -2,7 +2,7 @@ const { AuditLogEvent, EmbedBuilder } = require("discord.js") as typeof import("
 const { buildAuditExtraLines } = require("../Utils/Logging/channelRolesLogUtils") as typeof import("../Utils/Logging/channelRolesLogUtils");
 const { resolveModLogChannel, fetchRecentAuditEntry, formatResponsible, nowDiscordTs, } = require("../Utils/Logging/modAuditLogUtils") as typeof import("../Utils/Logging/modAuditLogUtils");
 const { handleKickBanAction: antiNukeHandleKickBanAction } = require("../Services/Moderation/antiNukeService") as typeof import("../Services/Moderation/antiNukeService");
-const { closeOpenTicketsForGuildUser } = require("../Utils/Ticket/ticketCloseRuntime") as typeof import("../Utils/Ticket/ticketCloseRuntime");
+const { closeOpenTicketsForGuildUser } = require("../features/tickets/discord/ticketCloseRuntime") as typeof import("../features/tickets/discord/ticketCloseRuntime");
 const { isViniliFullFeatureGuild } = require("../MultiGuild/core/guildFeatureScope") as typeof import("../MultiGuild/core/guildFeatureScope");
 
 function sleep(ms?) {

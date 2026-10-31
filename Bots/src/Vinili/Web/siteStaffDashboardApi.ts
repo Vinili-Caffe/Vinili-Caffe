@@ -18,7 +18,7 @@ const {
   memberIsPm,
   stripDiscordDecorations,
 } = require("./siteStaffRosterCache") as typeof import("./siteStaffRosterCache");
-const { countOpenWebTickets } = require("./siteWebTicketsApi") as typeof import("./siteWebTicketsApi");
+const { countOpenWebTickets } = require("../features/tickets/site/siteWebTicketsApi") as typeof import("../features/tickets/site/siteWebTicketsApi");
 const { sendJsonWithEtag, weakEtagFromJson, weakEtagFromParts } = require("./siteHttpEtag") as typeof import("./siteHttpEtag");
 
 const DASH_CACHE_TTL_MS = 45_000;

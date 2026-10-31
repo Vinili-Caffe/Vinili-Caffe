@@ -36,7 +36,7 @@ const {
   sanitizeWebTicketMentionsToScope,
   sanitizeWebTicketChannelMentions,
   memberCanViewChannelId,
-} = require("./siteWebTicketsApi") as typeof import("./siteWebTicketsApi");
+} = require("../features/tickets/site/siteWebTicketsApi") as typeof import("../features/tickets/site/siteWebTicketsApi");
 
 const WORKFLOW_DOC = SITE_DOCUMENT_TYPE.STAFF_WORKFLOW;
 const QUEUES = new Set(["pause", "candidature", "appelli", "resoconti", "revisione"]);

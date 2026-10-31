@@ -15,7 +15,7 @@ const QUARANTINE_ROLE_ID=String(IDs.roles?.Muted||"1442568884833095832",);
 async function forceQuarantineOverwrite(channel?) {
   if (!channel?.guild || !QUARANTINE_ROLE_ID) return;
   if (channel?.isThread?.()) return;
-  const { isChannelInTicketCategory } = require("../Utils/Ticket/ticketCategoryUtils") as typeof import("../Utils/Ticket/ticketCategoryUtils");
+  const { isChannelInTicketCategory } = require("../features/tickets/discord/ticketCategoryUtils") as typeof import("../features/tickets/discord/ticketCategoryUtils");
   if (isChannelInTicketCategory(channel)) return;
 
   const me = channel.guild.members?.me;

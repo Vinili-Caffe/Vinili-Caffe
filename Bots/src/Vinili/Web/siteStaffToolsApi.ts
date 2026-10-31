@@ -30,7 +30,7 @@ const { buildPmShopCatalogForWeb } = require("./siteStaffPmShopApi") as typeof i
 const { memberIsPm } = require("./siteStaffRosterCache") as typeof import("./siteStaffRosterCache");
 const { sendJsonWithEtag, weakEtagFromParts } = require("./siteHttpEtag") as typeof import("./siteHttpEtag");
 const { resolveWebUserIdentitiesBatch } = require("./siteWebUserIdentity") as typeof import("./siteWebUserIdentity");
-const { memberCanManagePartnerManagers } = require("../Utils/Ticket/ticketPartnershipStaffRoles") as typeof import("../Utils/Ticket/ticketPartnershipStaffRoles");
+const { memberCanManagePartnerManagers } = require("../features/tickets/discord/ticketPartnershipStaffRoles") as typeof import("../features/tickets/discord/ticketPartnershipStaffRoles");
 
 function memberIsHighStaff(member?) {
   return memberHasAnyRoleKey(member, STAFF_HIGH_STAFF_ELIGIBLE_KEYS);

@@ -7,7 +7,7 @@ const {
   matchPartnerManagerShopAckInteraction,
   memberCanAckPartnerManagerShopRedeem,
 } = require("../Utils/Staff/partnerManagerShopAckRuntime") as typeof import("../Utils/Staff/partnerManagerShopAckRuntime");
-const { closeTicket } = require("../Utils/Ticket/ticketCloseRuntime") as typeof import("../Utils/Ticket/ticketCloseRuntime");
+const { closeTicket } = require("../features/tickets/discord/ticketCloseRuntime") as typeof import("../features/tickets/discord/ticketCloseRuntime");
 const {
   safeReply: safeReplyHelper,
   safeEditReply: safeEditReplyHelper,

@@ -125,7 +125,7 @@ function memberIsHighStaffForPointReview(member?) {
   const ids = [IDs.roles?.HighStaff, IDs.roles?.Founder, IDs.roles?.Manager, IDs.roles?.Admin].filter(Boolean).map(String);
   if (ids.some((rid?) => member.roles.cache.has(rid))) return true;
   try {
-    const { memberIsResocontoPmReviewer } = require("../Ticket/ticketPartnershipStaffRoles") as typeof import("../Ticket/ticketPartnershipStaffRoles");
+    const { memberIsResocontoPmReviewer } = require("../../features/tickets/discord/ticketPartnershipStaffRoles") as typeof import("../../features/tickets/discord/ticketPartnershipStaffRoles");
     return memberIsResocontoPmReviewer(member);
   } catch {
     return false;

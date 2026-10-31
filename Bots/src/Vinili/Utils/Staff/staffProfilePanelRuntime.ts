@@ -352,7 +352,7 @@ function viewerCanUsePartnerPointsPanel(member?) {
     return true;
   }
   try {
-    const { memberIsResocontoPmReviewer } = require("../Ticket/ticketPartnershipStaffRoles") as typeof import("../Ticket/ticketPartnershipStaffRoles");
+    const { memberIsResocontoPmReviewer } = require("../../features/tickets/discord/ticketPartnershipStaffRoles") as typeof import("../../features/tickets/discord/ticketPartnershipStaffRoles");
     return memberIsResocontoPmReviewer(member);
   } catch {
     return false;

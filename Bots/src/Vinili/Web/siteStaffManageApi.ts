@@ -49,7 +49,7 @@ const {
 } = require("./siteStaffRosterCache") as typeof import("./siteStaffRosterCache");
 const {
   memberIsResocontoPmReviewer,
-} = require("../Utils/Ticket/ticketPartnershipStaffRoles") as typeof import("../Utils/Ticket/ticketPartnershipStaffRoles");
+} = require("../features/tickets/discord/ticketPartnershipStaffRoles") as typeof import("../features/tickets/discord/ticketPartnershipStaffRoles");
 const { buildStaffTrackTimeline, isHiddenManualStaffCareerReason } = require("../Utils/Staff/staffTrackHistory") as typeof import("../Utils/Staff/staffTrackHistory");
 const {
   getTodayUtc,

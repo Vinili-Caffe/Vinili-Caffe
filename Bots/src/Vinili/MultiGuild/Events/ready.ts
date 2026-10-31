@@ -8,7 +8,7 @@ const {
 } = require("../core/tenantRegistryStore") as typeof import("../core/tenantRegistryStore");
 const { refreshTenantGuildSettingsCache } = require("../core/tenantGuildSettings") as typeof import("../core/tenantGuildSettings");
 const { refreshPartnershipConfigCache } = require("../core/tenantPartnershipSettings") as typeof import("../core/tenantPartnershipSettings");
-const { refreshTicketConfigCache } = require("../core/tenantTicketSettings") as typeof import("../core/tenantTicketSettings");
+const { refreshTicketConfigCache } = require("../../features/tickets/tenant/tenantTicketSettings") as typeof import("../../features/tickets/tenant/tenantTicketSettings");
 const { leaveAllBlacklistedGuilds } = require("../../Services/Moderation/botUsageBlacklistService") as typeof import("../../Services/Moderation/botUsageBlacklistService");
 
 export = {

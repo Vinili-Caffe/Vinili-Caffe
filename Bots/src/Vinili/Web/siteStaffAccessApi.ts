@@ -11,7 +11,7 @@ const {
   memberCanReviewAppelli,
   memberHasDirectorRole,
 } = require("../Utils/Staff/staffRoleHierarchy") as typeof import("../Utils/Staff/staffRoleHierarchy");
-const { memberIsResocontoPmReviewer } = require("../Utils/Ticket/ticketPartnershipStaffRoles") as typeof import("../Utils/Ticket/ticketPartnershipStaffRoles");
+const { memberIsResocontoPmReviewer } = require("../features/tickets/discord/ticketPartnershipStaffRoles") as typeof import("../features/tickets/discord/ticketPartnershipStaffRoles");
 const {
   getResocontoSegmentsForReviewerUserId,
   memberHasResocontoReviewerRole,

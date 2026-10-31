@@ -11,7 +11,7 @@ const { addExpWithLevel, MESSAGE_EXP, VOICE_EXP_PER_MINUTE, shouldIgnoreExpForMe
 const { resolveVoiceExpMultiplier, computeVoiceExpFromSeconds } = require("../../Utils/Community/voiceExpChannelUtils") as typeof import("../../Utils/Community/voiceExpChannelUtils");
 const { isViniliFullFeatureGuild } = require("../../MultiGuild/core/guildFeatureScope") as typeof import("../../MultiGuild/core/guildFeatureScope");
 const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
-const { isChannelInTicketCategory } = require("../../Utils/Ticket/ticketCategoryUtils") as typeof import("../../Utils/Ticket/ticketCategoryUtils");
+const { isChannelInTicketCategory } = require("../../features/tickets/discord/ticketCategoryUtils") as typeof import("../../features/tickets/discord/ticketCategoryUtils");
 const TIME_ZONE = "Europe/Rome";
 const DAY_MS = 24 * 60 * 60 * 1000;
 const BACKFILL_HOUR_SUFFIX = "T12";
