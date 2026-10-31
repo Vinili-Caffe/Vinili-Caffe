@@ -80,7 +80,7 @@ function mountBoardsRoutes(app?, client?, ctx: Record<string, any> = {}) {
       let allowClosed = String(req.query?.allowClosed || "") === "1";
       if (accessToken && !allowClosed) {
         try {
-          const { assertWebsiteStaffAccess } = require("../../Web/siteStaffAccessApi") as typeof import("../../Web/siteStaffAccessApi");
+          const { assertWebsiteStaffAccess } = require("../staff/siteStaffAccessApi") as typeof import("../staff/siteStaffAccessApi");
           const staff = await assertWebsiteStaffAccess(client, accessToken);
           if (staff?.ok) allowClosed = true;
         } catch (_) {}
@@ -111,7 +111,7 @@ function mountBoardsRoutes(app?, client?, ctx: Record<string, any> = {}) {
       let allowClosed = String(req.query?.allowClosed || "") === "1";
       if (accessToken && !allowClosed) {
         try {
-          const { assertWebsiteStaffAccess } = require("../../Web/siteStaffAccessApi") as typeof import("../../Web/siteStaffAccessApi");
+          const { assertWebsiteStaffAccess } = require("../staff/siteStaffAccessApi") as typeof import("../staff/siteStaffAccessApi");
           const staff = await assertWebsiteStaffAccess(client, accessToken);
           if (staff?.ok) allowClosed = true;
         } catch (_) {}

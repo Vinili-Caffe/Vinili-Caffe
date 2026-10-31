@@ -339,7 +339,7 @@ async function main() {
     try {
       if (type === "staff_pauses_changed") {
         try {
-          const { invalidateStaffPauseCalendarCache } = require("../../Web/siteStaffPauseApi") as typeof import("../../Web/siteStaffPauseApi");
+          const { invalidateStaffPauseCalendarCache } = require("../../features/staff/siteStaffPauseApi") as typeof import("../../features/staff/siteStaffPauseApi");
           invalidateStaffPauseCalendarCache();
         } catch {
                   }
@@ -347,7 +347,7 @@ async function main() {
       /* leaveProfileLive1: bots → site-api: wipe profile/staff/member caches before WS fanout */
       if (type === "member_left") {
         try {
-          const { invalidateLeftMemberSiteCaches } = require("../../Web/siteSuggestionsBroadcast") as typeof import("../../Web/siteSuggestionsBroadcast");
+          const { invalidateLeftMemberSiteCaches } = require("../../features/suggestions/siteSuggestionsBroadcast") as typeof import("../../features/suggestions/siteSuggestionsBroadcast");
           invalidateLeftMemberSiteCaches(body.userId, body.guildId);
         } catch {
                   }
@@ -361,7 +361,7 @@ async function main() {
         } catch {
                   }
       }
-      const { broadcastSiteRealtime } = require("../../Web/siteSuggestionsBroadcast") as typeof import("../../Web/siteSuggestionsBroadcast");
+      const { broadcastSiteRealtime } = require("../../features/suggestions/siteSuggestionsBroadcast") as typeof import("../../features/suggestions/siteSuggestionsBroadcast");
       broadcastSiteRealtime({ ...body, at: body.at || new Date().toISOString() });
     } catch (err) {
       return res.status(500).json({ ok: false, error: "broadcast_failed", message: err?.message || String(err) });
@@ -404,7 +404,7 @@ async function main() {
     server.maxHeadersCount = 100;
   } catch (_) {}
   try {
-    const { attachSiteSuggestionsWsServer } = require("../../Web/siteSuggestionsBroadcast") as typeof import("../../Web/siteSuggestionsBroadcast");
+    const { attachSiteSuggestionsWsServer } = require("../../features/suggestions/siteSuggestionsBroadcast") as typeof import("../../features/suggestions/siteSuggestionsBroadcast");
     attachSiteSuggestionsWsServer(server);
   } catch (err) {
     console.warn("[SITE-API] WebSocket init:", err?.message || err);
@@ -479,9 +479,9 @@ async function main() {
       console.warn("[SITE-API] site-boards warm init:", err?.message || err);
     }
     try {
-      const { warmStaffRosterCache } = require("../../Web/siteStaffRosterCache") as typeof import("../../Web/siteStaffRosterCache");
-      const { warmSiteStaffOrganicoCache } = require("../../Web/siteStaffOrganicoApi") as typeof import("../../Web/siteStaffOrganicoApi");
-      const { warmSiteStaffDashboardDeps } = require("../../Web/siteStaffDashboardApi") as typeof import("../../Web/siteStaffDashboardApi");
+      const { warmStaffRosterCache } = require("../../features/staff/siteStaffRosterCache") as typeof import("../../features/staff/siteStaffRosterCache");
+      const { warmSiteStaffOrganicoCache } = require("../../features/staff/siteStaffOrganicoApi") as typeof import("../../features/staff/siteStaffOrganicoApi");
+      const { warmSiteStaffDashboardDeps } = require("../../features/staff/siteStaffDashboardApi") as typeof import("../../features/staff/siteStaffDashboardApi");
       const warmStaff = () => {
         warmStaffRosterCache(client)
           .then(() =>
@@ -549,7 +549,7 @@ async function main() {
       console.warn("[SITE-API] site-reviews warm init:", err?.message || err);
     }
     try {
-      const { warmSiteStaffCompitiWorkersCache } = require("../../Web/siteStaffCompitiApi") as typeof import("../../Web/siteStaffCompitiApi");
+      const { warmSiteStaffCompitiWorkersCache } = require("../../features/staff/siteStaffCompitiApi") as typeof import("../../features/staff/siteStaffCompitiApi");
       const warmCompiti = () => {
         warmSiteStaffCompitiWorkersCache(client).catch((e?) => {
           console.warn("[SITE-API] compiti workers warm:", e?.message || e);

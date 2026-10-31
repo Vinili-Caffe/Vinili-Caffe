@@ -36,7 +36,7 @@ async function resolveUserIdFromToken(accessToken?) {
 
 function emitPresenceChanged(userId?, status?) {
   try {
-    const { broadcastSiteRealtime, notifyExternalSiteRealtime } = require("./siteSuggestionsBroadcast") as typeof import("./siteSuggestionsBroadcast");
+    const { broadcastSiteRealtime, notifyExternalSiteRealtime } = require("../features/suggestions/siteSuggestionsBroadcast") as typeof import("../features/suggestions/siteSuggestionsBroadcast");
     const payload = {
       type: "site_presence_changed",
       userId: String(userId),

@@ -25,7 +25,7 @@ const { trackMemberLeave } = require("../Services/Community/dailyMemberStatsServ
 const { handleMainGuildMemberRemove } = require("../Services/Staff/staffAccessMirrorService") as typeof import("../Services/Staff/staffAccessMirrorService");
 const { cancelOpenPausesOnMemberLeave } = require("../Utils/Pause/pauseHandlersUtils") as typeof import("../Utils/Pause/pauseHandlersUtils");
 const { appendStaffRolesHistoryEntry } = require("../Utils/Staff/staffDocUtils") as typeof import("../Utils/Staff/staffDocUtils");
-const { identityFromMember } = require("../Web/siteStaffRosterCache") as typeof import("../Web/siteStaffRosterCache");
+const { identityFromMember } = require("../features/staff/siteStaffRosterCache") as typeof import("../features/staff/siteStaffRosterCache");
 
 function isViniliFullFeatureGuild(guildId?) {
   try {
@@ -925,7 +925,7 @@ export = {
         global.logger?.warn?.("[guildMemberRemove] cancel pauses:", err?.message || err);
       });
       try {
-        const { cancelPendingPauseWorkflowForUser, cancelPendingResocontiWorkflowForUser } = require("../Web/siteStaffWorkflowStore") as typeof import("../Web/siteStaffWorkflowStore");
+        const { cancelPendingPauseWorkflowForUser, cancelPendingResocontiWorkflowForUser } = require("../features/workflow/siteStaffWorkflowStore") as typeof import("../features/workflow/siteStaffWorkflowStore");
         await cancelPendingPauseWorkflowForUser(member.guild.id, member.id, {
           statusLabel: "Annullato (uscita)",
           decidedBy: "system",
@@ -953,7 +953,7 @@ export = {
         const {
           broadcastSiteMemberLeft,
           broadcastSiteLiveStatsChangedDebounced,
-        } = require("../Web/siteSuggestionsBroadcast") as typeof import("../Web/siteSuggestionsBroadcast");
+        } = require("../features/suggestions/siteSuggestionsBroadcast") as typeof import("../features/suggestions/siteSuggestionsBroadcast");
         broadcastSiteMemberLeft(member.id, guild.id);
         broadcastSiteLiveStatsChangedDebounced();
       } catch (err) {

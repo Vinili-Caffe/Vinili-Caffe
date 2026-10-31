@@ -203,7 +203,7 @@ async function reviewPmPointsRemovedEntry({ guild, entryRef, isConfirm, reviewer
     const spendable = resolvePartnerPointsShown(staffData?.staff);
     const saldoHint = Number(spendable) !== Number(total) ? ` · Saldo shop: \`${spendable}\`` : "";
     try {
-      const { notifyPuntiToltiReviewed, notifyPuntiToltiPointsRemoved } = require("../../Web/siteStaffEventNotifications") as typeof import("../../Web/siteStaffEventNotifications");
+      const { notifyPuntiToltiReviewed, notifyPuntiToltiPointsRemoved } = require("../../features/staff/siteStaffEventNotifications") as typeof import("../../features/staff/siteStaffEventNotifications");
       const reporterId = String(entry.reporterUserId || "").trim();
       if (/^\d{16,22}$/.test(reporterId)) {
         void notifyPuntiToltiReviewed({
@@ -243,7 +243,7 @@ async function reviewPmPointsRemovedEntry({ guild, entryRef, isConfirm, reviewer
   ).catch(() => null);
   await syncDiscordReviewMessage(guild, entry, false, reviewerId);
   try {
-    const { notifyPuntiToltiReviewed } = require("../../Web/siteStaffEventNotifications") as typeof import("../../Web/siteStaffEventNotifications");
+    const { notifyPuntiToltiReviewed } = require("../../features/staff/siteStaffEventNotifications") as typeof import("../../features/staff/siteStaffEventNotifications");
     const reporterId = String(entry.reporterUserId || "").trim();
     if (/^\d{16,22}$/.test(reporterId)) {
       void notifyPuntiToltiReviewed({

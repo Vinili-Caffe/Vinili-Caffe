@@ -15,7 +15,7 @@ function mountContestRoutes(app?, client?, ctx: Record<string, any> = {}) {
     setPublicOpen: setSiteContestPublicOpen,
     seedDemo: seedSiteContestDemo,
     clearDemo: clearSiteContestDemo,
-  } = require("../../Web/siteContestApi") as typeof import("../../Web/siteContestApi");
+  } = require("./siteContestApi") as typeof import("./siteContestApi");
 
   /* siteContestHalloween1 — unlisted contest swipe + submit */
   app.get("/webhooks/site-contest/events", async (req?, res?) => {

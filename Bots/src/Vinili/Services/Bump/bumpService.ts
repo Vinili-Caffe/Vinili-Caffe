@@ -3,7 +3,7 @@ const { ActivityUserProfile } = require("../../Schemas/Community/communitySchema
 const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
 const { shouldBlockDm } = require("../../Utils/noDmList") as typeof import("../../Utils/noDmList");
 const { isUserDmPrivacyBlockedError, notifyDmPrivacyBlockedInCommands } = require("../../../shared/discord/dmPrivacyNotice") as typeof import("../../../shared/discord/dmPrivacyNotice");
-const { enqueueSiteInAppNotification } = require("../../Web/siteInAppNotificationsService") as typeof import("../../Web/siteInAppNotificationsService");
+const { enqueueSiteInAppNotification } = require("../../features/notifications/siteInAppNotificationsService") as typeof import("../../features/notifications/siteInAppNotificationsService");
 const { shouldSkipDiscordDmForActiveWebPush } = require("../../Web/siteNotifPrefs") as typeof import("../../Web/siteNotifPrefs");
 const { getClientChannelCached, getClientGuildCached, getGuildMemberCached, getUserCached } = require("../../Utils/Interaction/interactionEntityCache") as typeof import("../../Utils/Interaction/interactionEntityCache");
 const { addExpWithLevel, shouldIgnoreExpForMember } = require("../Community/expService") as typeof import("../Community/expService");
@@ -229,7 +229,7 @@ function scheduleVoteReminderPhoneRetries(payload?) {
         try {
           /* pushSkipRead1: no retry se reminder già letto/dismesso */
           try {
-            const notifSvc = require("../../Web/siteInAppNotificationsService") as typeof import("../../Web/siteInAppNotificationsService");
+            const notifSvc = require("../../features/notifications/siteInAppNotificationsService") as typeof import("../../features/notifications/siteInAppNotificationsService");
             if (typeof notifSvc.isSiteInAppNotificationStillUnread === "function") {
               const still = await notifSvc.isSiteInAppNotificationStillUnread(uid, base.id, base.dedupeKey, {
                 missingMeansUnread: false,
@@ -1305,14 +1305,14 @@ async function recordDiscadiaVote(client?, guildId?, userId?, options: Record<st
     invalidateSiteVoteCache(mainGuildId, userId);
   } catch (_) {}
   try {
-    const { broadcastSiteVotesChanged } = require("../../Web/siteSuggestionsBroadcast") as typeof import("../../Web/siteSuggestionsBroadcast");
+    const { broadcastSiteVotesChanged } = require("../../features/suggestions/siteSuggestionsBroadcast") as typeof import("../../features/suggestions/siteSuggestionsBroadcast");
     broadcastSiteVotesChanged({ userId: String(userId || "").trim(), platform: voteListing });
   } catch (_) {}
 
   /* smartNotifLifecycle1: al voto → via reminder inbox+OS di quella piattaforma */
   try {
     clearVoteReminderPhoneRetries(userId, voteListing);
-    const { removeSiteInAppNotificationsMatching } = require("../../Web/siteInAppNotificationsService") as typeof import("../../Web/siteInAppNotificationsService");
+    const { removeSiteInAppNotificationsMatching } = require("../../features/notifications/siteInAppNotificationsService") as typeof import("../../features/notifications/siteInAppNotificationsService");
     void removeSiteInAppNotificationsMatching({
       userId: String(userId || "").trim(),
       prefixes: [`vote_reminder_${voteListing}_`],

@@ -1,4 +1,4 @@
-const { verifyDashboardGuildAccess } = require("../../../Web/siteDashboardApi") as typeof import("../../../Web/siteDashboardApi");
+const { verifyDashboardGuildAccess } = require("../../dashboard/siteDashboardApi") as typeof import("../../dashboard/siteDashboardApi");
 const {
   MAX_FORMS,
   MAX_FIELDS,

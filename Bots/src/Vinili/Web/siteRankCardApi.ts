@@ -186,7 +186,7 @@ async function updateRankCardCustomization(client?, payload?) {
     ).catch(() => null);
     invalidatePublicRankCardCache(resolved.userId);
     try {
-      const { broadcastSiteRankCardChanged } = require("./siteSuggestionsBroadcast") as typeof import("./siteSuggestionsBroadcast");
+      const { broadcastSiteRankCardChanged } = require("../features/suggestions/siteSuggestionsBroadcast") as typeof import("../features/suggestions/siteSuggestionsBroadcast");
       broadcastSiteRankCardChanged(resolved.userId, { action: "reset" });
     } catch (_) {}
     return {
@@ -214,7 +214,7 @@ async function updateRankCardCustomization(client?, payload?) {
   ).catch(() => null);
   invalidatePublicRankCardCache(resolved.userId);
   try {
-    const { broadcastSiteRankCardChanged } = require("./siteSuggestionsBroadcast") as typeof import("./siteSuggestionsBroadcast");
+    const { broadcastSiteRankCardChanged } = require("../features/suggestions/siteSuggestionsBroadcast") as typeof import("../features/suggestions/siteSuggestionsBroadcast");
     broadcastSiteRankCardChanged(resolved.userId, { action: "save" });
   } catch (_) {}
 

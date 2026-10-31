@@ -1,6 +1,6 @@
 /** Ticket dal sito, gestione: presa in carico, chiusura, membri, trasferimento, categoria, nome, richiesta di chiusura, voto allo staff; pulizia quando un utente o uno staffer esce. */
 const { WEB_TICKET_STATUS, SiteWebTicket } = require("../data/siteWebTicketSchemas") as typeof import("../data/siteWebTicketSchemas");
-const { removeSiteInAppNotificationsForTicket } = require("../../../Web/siteInAppNotificationsService") as typeof import("../../../Web/siteInAppNotificationsService");
+const { removeSiteInAppNotificationsForTicket } = require("../../notifications/siteInAppNotificationsService") as typeof import("../../notifications/siteInAppNotificationsService");
 const { displayNameForMember, sanitizeText, resolveGuildId } = require("./ticketNames") as typeof import("./ticketNames");
 const { memberCanBypassClaimedTicketManage, listAddedUsers, ticketHasAddedUser, buildTicketPermissions } = require("./ticketStaffAccess") as typeof import("./ticketStaffAccess");
 const { serializeMessage, resolveRateableStaffer, clampStarRating, serializeTicket } = require("./ticketSerialize") as typeof import("./ticketSerialize");

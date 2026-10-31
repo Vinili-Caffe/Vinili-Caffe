@@ -8,7 +8,7 @@ const IDs: any = require("../../../Utils/Config/ids") as typeof import("../../..
 const { SiteWebTicket } = require("../data/siteWebTicketSchemas") as typeof import("../data/siteWebTicketSchemas");
 const { resolveWebsiteGuildMember } = require("../../../Web/siteRoleRequestApi") as typeof import("../../../Web/siteRoleRequestApi");
 const { fetchWebsiteGuildMember } = require("../../../Web/websiteGuildMemberFetch") as typeof import("../../../Web/websiteGuildMemberFetch");
-const { normalizeHeaderSecret } = require("../../../Web/siteStaffAccessApi") as typeof import("../../../Web/siteStaffAccessApi");
+const { normalizeHeaderSecret } = require("../../staff/siteStaffAccessApi") as typeof import("../../staff/siteStaffAccessApi");
 const { normalizeCategory, resolveGuildId } = require("./ticketNames") as typeof import("./ticketNames");
 const { memberIsWebTicketStaff, memberCanAccessTicketCategory, ticketHasAddedUser, buildTicketPermissions } = require("./ticketStaffAccess") as typeof import("./ticketStaffAccess");
 

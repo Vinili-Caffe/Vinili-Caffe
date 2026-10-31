@@ -90,7 +90,7 @@ async function syncStaffDbAndPauseChannelAfterDepex(guild?, userId?, member?) {
   await deleteStaffPauseRequestChannelMessages(guild, uid);
   await deleteStaffRelatedMessagesFromConfiguredChannels(guild, uid, doc?.staff);
   try {
-    const { cancelPendingResocontiWorkflowForUser } = require("../../Web/siteStaffWorkflowStore") as typeof import("../../Web/siteStaffWorkflowStore");
+    const { cancelPendingResocontiWorkflowForUser } = require("../../features/workflow/siteStaffWorkflowStore") as typeof import("../../features/workflow/siteStaffWorkflowStore");
     await cancelPendingResocontiWorkflowForUser(gid, uid, {
       statusLabel: "Annullato (depex)",
       decidedBy: "system",

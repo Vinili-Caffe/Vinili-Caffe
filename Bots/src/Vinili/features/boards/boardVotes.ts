@@ -417,7 +417,7 @@ async function sweepBoardVoteReminders(client?) {
       ? `https://www.viniliecaffe.it/bacheca/vota/?slug=${encodeURIComponent(slug)}`
       : `https://www.viniliecaffe.it/bacheca/vota/?id=${encodeURIComponent(listingId)}`;
     try {
-      const { enqueueSiteInAppNotification } = require("../../Web/siteInAppNotificationsService") as typeof import("../../Web/siteInAppNotificationsService");
+      const { enqueueSiteInAppNotification } = require("../notifications/siteInAppNotificationsService") as typeof import("../notifications/siteInAppNotificationsService");
       const ok = await enqueueSiteInAppNotification({
         guildId: String(IDs.guilds?.main || "").trim() || "global",
         userId: uid,

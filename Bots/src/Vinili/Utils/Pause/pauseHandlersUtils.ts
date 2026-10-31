@@ -1374,7 +1374,7 @@ async function cancelOpenPausesOnMemberLeave(guild?, userId?, options: Record<st
       pause.cancelledAt = new Date();
       cancelled += 1;
       try {
-        const { updateStaffWorkflowFromPause } = require("../../Web/siteStaffWorkflowStore") as typeof import("../../Web/siteStaffWorkflowStore");
+        const { updateStaffWorkflowFromPause } = require("../../features/workflow/siteStaffWorkflowStore") as typeof import("../../features/workflow/siteStaffWorkflowStore");
         await updateStaffWorkflowFromPause(guildId, uid, pauseId, "cancelled", {
           statusLabel: String(options.reason || "Annullato (uscita)").slice(0, 200),
           staffReason: String(options.reason || "Annullato (uscita)").slice(0, 200),
@@ -1403,14 +1403,14 @@ async function cancelOpenPausesOnMemberLeave(guild?, userId?, options: Record<st
 
   if (cancelled > 0) {
     try {
-      const { broadcastSiteStaffPausesChanged } = require("../../Web/siteSuggestionsBroadcast") as typeof import("../../Web/siteSuggestionsBroadcast");
+      const { broadcastSiteStaffPausesChanged } = require("../../features/suggestions/siteSuggestionsBroadcast") as typeof import("../../features/suggestions/siteSuggestionsBroadcast");
       broadcastSiteStaffPausesChanged();
     } catch {
     }
     /* staffProfLiveAll1 */
     try {
       if (/^\d{16,22}$/.test(uid)) {
-        require("../../Web/siteStaffProfileApi").clearStaffProfileCacheForUser(uid, { action: "pause" });
+        require("../../features/staff/siteStaffProfileApi").clearStaffProfileCacheForUser(uid, { action: "pause" });
       }
     } catch {
     }

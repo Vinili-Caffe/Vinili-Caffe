@@ -74,7 +74,7 @@ async function onStafferDellaSettimanaRoleAdded(guildId?, userId?) {
   const monthKey = resolveStafferBonusMonthKey({ weekKey });
   const grant = await grantBestStaffWeekPauseBonus(guildId, userId, { weekKey, monthKey });
   try {
-    const { grantCompitiSwapBonus } = require("../../Web/siteStaffCompitiApi") as typeof import("../../Web/siteStaffCompitiApi");
+    const { grantCompitiSwapBonus } = require("../../features/staff/siteStaffCompitiApi") as typeof import("../../features/staff/siteStaffCompitiApi");
     const swap = await grantCompitiSwapBonus(guildId, userId, 1, { weekKey, monthKey });
     if (!swap?.ok || Number(swap.granted || 0) < 1) {
       global.logger?.warn?.("[STAFFER SETTIMANA] compiti swap grant:", swap);
@@ -131,7 +131,7 @@ async function tickStafferDellaSettimanaWeek(client?) {
   if (sameAsLastWeek || newWeekBoundary) {
     const res = await grantBestStaffWeekPauseBonus(guildId, primaryId, { weekKey, monthKey });
     try {
-      const { grantCompitiSwapBonus } = require("../../Web/siteStaffCompitiApi") as typeof import("../../Web/siteStaffCompitiApi");
+      const { grantCompitiSwapBonus } = require("../../features/staff/siteStaffCompitiApi") as typeof import("../../features/staff/siteStaffCompitiApi");
       const swap = await grantCompitiSwapBonus(guildId, primaryId, 1, { weekKey, monthKey });
       if (!swap?.ok || (Number(swap.granted || 0) < 1 && !swap?.skipped)) {
         global.logger?.warn?.("[STAFFER SETTIMANA] tick compiti swap:", swap);

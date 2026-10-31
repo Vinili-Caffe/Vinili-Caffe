@@ -8,7 +8,7 @@ const { ActivityUserProfile } = require("../Schemas/Community/communitySchemas")
 const { fetchDiscordOAuthMe } = require("./discordOauthMe") as typeof import("./discordOauthMe");
 const { resolveWebsiteGuildMember } = require("./siteRoleRequestApi") as typeof import("./siteRoleRequestApi");
 const { sanitizeChromePrefs } = require("./siteChromePrefsApi") as typeof import("./siteChromePrefsApi");
-const { countSiteInAppUnreadForUser } = require("./siteInAppNotificationsService") as typeof import("./siteInAppNotificationsService");
+const { countSiteInAppUnreadForUser } = require("../features/notifications/siteInAppNotificationsService") as typeof import("../features/notifications/siteInAppNotificationsService");
 const IDs = require("../Utils/Config/ids") as typeof import("../Utils/Config/ids");
 
 function normalizeHeaderSecret(raw?) {

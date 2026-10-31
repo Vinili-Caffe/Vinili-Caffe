@@ -6,7 +6,7 @@ function mountDashboardRoutes(app?, client?, ctx: Record<string, any> = {}) {
     getDashboardGuildOverview,
     getDashboardAccess,
     verifyDashboardGuildAccess,
-  } = require("../../Web/siteDashboardApi") as typeof import("../../Web/siteDashboardApi");
+  } = require("./siteDashboardApi") as typeof import("./siteDashboardApi");
   const {
     getDashboardPartnership,
     patchDashboardPartnership,
@@ -20,25 +20,25 @@ function mountDashboardRoutes(app?, client?, ctx: Record<string, any> = {}) {
     getDashboardPartnershipManagers,
     adjustDashboardPartnershipManagerPoints,
     getDashboardPartnershipHistory,
-  } = require("../../Web/siteDashboardPartnershipApi") as typeof import("../../Web/siteDashboardPartnershipApi");
-  const { getDashboardPartnershipLeaderboard } = require("../../Web/siteDashboardLeaderboardApi") as typeof import("../../Web/siteDashboardLeaderboardApi");
+  } = require("./siteDashboardPartnershipApi") as typeof import("./siteDashboardPartnershipApi");
+  const { getDashboardPartnershipLeaderboard } = require("./siteDashboardLeaderboardApi") as typeof import("./siteDashboardLeaderboardApi");
   const {
     getDashboardGuildSettings,
     patchDashboardGuildSettings,
-  } = require("../../Web/siteDashboardGuildSettingsApi") as typeof import("../../Web/siteDashboardGuildSettingsApi");
+  } = require("./siteDashboardGuildSettingsApi") as typeof import("./siteDashboardGuildSettingsApi");
   const {
     getDashboardGuildCommands,
     patchDashboardGuildCommands,
-  } = require("../../Web/siteDashboardGuildCommandsApi") as typeof import("../../Web/siteDashboardGuildCommandsApi");
+  } = require("./siteDashboardGuildCommandsApi") as typeof import("./siteDashboardGuildCommandsApi");
   const {
     listDashboardStaffNotifications,
     markDashboardStaffNotificationsRead,
-  } = require("../../Web/siteDashboardStaffNotificationsApi") as typeof import("../../Web/siteDashboardStaffNotificationsApi");
+  } = require("./siteDashboardStaffNotificationsApi") as typeof import("./siteDashboardStaffNotificationsApi");
   const {
     listDashboardBotban,
     addDashboardBotban,
     removeDashboardBotban,
-  } = require("../../Web/siteDashboardBotbanApi") as typeof import("../../Web/siteDashboardBotbanApi");
+  } = require("./siteDashboardBotbanApi") as typeof import("./siteDashboardBotbanApi");
   const {
     getDashboardBotDevOverview,
     listDashboardBotDevGuilds,
@@ -50,15 +50,15 @@ function mountDashboardRoutes(app?, client?, ctx: Record<string, any> = {}) {
     postDashboardBotDevRevokePremium,
     getDashboardBotDevCredits,
     postDashboardBotDevCredits,
-  } = require("../../Web/siteDashboardBotDevApi") as typeof import("../../Web/siteDashboardBotDevApi");
+  } = require("./siteDashboardBotDevApi") as typeof import("./siteDashboardBotDevApi");
   const {
     getDashboardTenantProfile,
     patchDashboardTenantProfile,
-  } = require("../../Web/siteDashboardTenantProfileApi") as typeof import("../../Web/siteDashboardTenantProfileApi");
-  const { getDashboardAccountSummary } = require("../../Web/siteDashboardAccountApi") as typeof import("../../Web/siteDashboardAccountApi");
-  const { exportSelfGdprData, eraseSelfGdprData } = require("../../Web/siteDashboardGdprApi") as typeof import("../../Web/siteDashboardGdprApi");
+  } = require("./siteDashboardTenantProfileApi") as typeof import("./siteDashboardTenantProfileApi");
+  const { getDashboardAccountSummary } = require("./siteDashboardAccountApi") as typeof import("./siteDashboardAccountApi");
+  const { exportSelfGdprData, eraseSelfGdprData } = require("./siteDashboardGdprApi") as typeof import("./siteDashboardGdprApi");
   const { getPremiumCredits, spendCreditsForTenantPremium } = require("../../Services/Community/premiumCreditsService") as typeof import("../../Services/Community/premiumCreditsService");
-  const { fetchDiscordUser } = require("../../Web/siteDashboardApi") as typeof import("../../Web/siteDashboardApi");
+  const { fetchDiscordUser } = require("./siteDashboardApi") as typeof import("./siteDashboardApi");
   app.get("/webhooks/site-dashboard/access", async (req?, res?) => {
     try {
       const accessToken = normalizeHeaderSecret(req.headers.authorization);

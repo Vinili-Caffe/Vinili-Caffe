@@ -1,7 +1,7 @@
 /** Bacheche: creazione dell'invito al server e valori predefiniti presi dal server. */
 const mongoose = require("mongoose") as typeof import("mongoose");
 const { SiteDocument } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
-const { buildKnownBotGuildIdSet, syncKnownBotGuildIdsFromRest } = require("../../Web/siteDashboardApi") as typeof import("../../Web/siteDashboardApi");
+const { buildKnownBotGuildIdSet, syncKnownBotGuildIdsFromRest } = require("../dashboard/siteDashboardApi") as typeof import("../dashboard/siteDashboardApi");
 const { PermissionFlagsBits, ChannelType } = require("discord.js") as typeof import("discord.js");
 const { voteCountMonthKeyRome } = require("../../Utils/romeVoteMonthKey") as typeof import("../../Utils/romeVoteMonthKey");
 const { snowflakeOk, sanitizeUrl, sanitizeCategories, sanitizeLocales, sanitizeSocials, discordGuildBannerUrl, discordGuildIconUrl, preferAnimatedDiscordMediaUrl, discordGuildInviteHint, sanitizeBoardFeatures } = require("./boardSanitize") as typeof import("./boardSanitize");

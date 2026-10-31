@@ -10,7 +10,7 @@ function mountNotificationsRoutes(app?, client?, ctx: Record<string, any> = {}) 
     handleSiteNotificationsPushShownPost,
     handleSiteNotificationsPushUnsubscribePost,
     handleSiteNotificationsPushTestPost,
-  } = require("../../Web/siteInAppNotificationsApi") as typeof import("../../Web/siteInAppNotificationsApi");
+  } = require("./siteInAppNotificationsApi") as typeof import("./siteInAppNotificationsApi");
   app.get("/webhooks/site-notifications", (req?, res?) => {
     return handleSiteNotificationsGet(client, req, res);
   });

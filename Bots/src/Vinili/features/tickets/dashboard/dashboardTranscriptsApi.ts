@@ -1,6 +1,6 @@
 /** Dashboard dei server: elenco delle trascrizioni dei ticket chiusi e apertura di una trascrizione. */
 const Ticket = require("../../../Schemas/Ticket/ticketSchema");
-const { verifyDashboardGuildAccess } = require("../../../Web/siteDashboardApi") as typeof import("../../../Web/siteDashboardApi");
+const { verifyDashboardGuildAccess } = require("../../dashboard/siteDashboardApi") as typeof import("../../dashboard/siteDashboardApi");
 const { getTicketSettingsForGuild, TICKET_TYPES } = require("../tenant/tenantTicketSettings") as typeof import("../tenant/tenantTicketSettings");
 const { buildTicketTranscriptViewUrl, buildTicketTranscriptApiUrl, transcriptViewExpired } = require("../transcript/ticketTranscriptSecure") as typeof import("../transcript/ticketTranscriptSecure");
 

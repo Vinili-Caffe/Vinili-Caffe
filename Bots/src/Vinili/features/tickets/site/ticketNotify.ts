@@ -1,9 +1,9 @@
 /** Ticket dal sito: eventi in tempo reale, notifiche a staff e utenti, avvisi di attesa (SLA). */
 const IDs: any = require("../../../Utils/Config/ids") as typeof import("../../../Utils/Config/ids");
 const { WEB_TICKET_STATUS, SiteWebTicket, SiteWebTicketMessage } = require("../data/siteWebTicketSchemas") as typeof import("../data/siteWebTicketSchemas");
-const { enqueueSiteInAppNotification, removeInboxItemByDedupeKey, removeSiteInAppNotificationsForTicket } = require("../../../Web/siteInAppNotificationsService") as typeof import("../../../Web/siteInAppNotificationsService");
+const { enqueueSiteInAppNotification, removeInboxItemByDedupeKey, removeSiteInAppNotificationsForTicket } = require("../../notifications/siteInAppNotificationsService") as typeof import("../../notifications/siteInAppNotificationsService");
 const { shouldSkipWebTicketInAppNotif } = require("./webTicketPagePresence") as typeof import("./webTicketPagePresence");
-const { broadcastSiteWebTicketsEvent } = require("../../../Web/siteSuggestionsBroadcast") as typeof import("../../../Web/siteSuggestionsBroadcast");
+const { broadcastSiteWebTicketsEvent } = require("../../suggestions/siteSuggestionsBroadcast") as typeof import("../../suggestions/siteSuggestionsBroadcast");
 const { CATEGORY_LABELS, sanitizeText, normalizeCategory } = require("./ticketNames") as typeof import("./ticketNames");
 const { memberCanAccessTicketCategory, listAddedUsers, ticketHasAddedUser } = require("./ticketStaffAccess") as typeof import("./ticketStaffAccess");
 const { parseMentionTargets, listTicketMessageAuthorIds } = require("./ticketMentions") as typeof import("./ticketMentions");

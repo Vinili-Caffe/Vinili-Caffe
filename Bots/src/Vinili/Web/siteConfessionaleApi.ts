@@ -3,10 +3,10 @@ const mongoose = require("mongoose") as typeof import("mongoose");
 const { saveDiscussionImages, signDiscussionImageUrls } = require("./siteDiscussionImages") as typeof import("./siteDiscussionImages");
 const IDs = require("../Utils/Config/ids") as typeof import("../Utils/Config/ids");
 const { SiteDocument, SITE_DOCUMENT_TYPE } = require("../Schemas/Community/communitySchemas") as typeof import("../Schemas/Community/communitySchemas");
-const { assertWebsiteStaffAccess, normalizeHeaderSecret, memberCanUseOpsStaffPages } = require("./siteStaffAccessApi") as typeof import("./siteStaffAccessApi");
+const { assertWebsiteStaffAccess, normalizeHeaderSecret, memberCanUseOpsStaffPages } = require("../features/staff/siteStaffAccessApi") as typeof import("../features/staff/siteStaffAccessApi");
 const { resolveWebsiteGuildMember } = require("./siteRoleRequestApi") as typeof import("./siteRoleRequestApi");
-const { broadcastSiteConfessionaleChanged } = require("./siteSuggestionsBroadcast") as typeof import("./siteSuggestionsBroadcast");
-const { enqueueSiteInAppNotification, removeSiteInAppNotificationsMatching } = require("./siteInAppNotificationsService") as typeof import("./siteInAppNotificationsService");
+const { broadcastSiteConfessionaleChanged } = require("../features/suggestions/siteSuggestionsBroadcast") as typeof import("../features/suggestions/siteSuggestionsBroadcast");
+const { enqueueSiteInAppNotification, removeSiteInAppNotificationsMatching } = require("../features/notifications/siteInAppNotificationsService") as typeof import("../features/notifications/siteInAppNotificationsService");
 const { STAFF_ROLE_IDS } = require("../Utils/Community/staffListUtils") as typeof import("../Utils/Community/staffListUtils");
 const { sendJsonWithEtag, weakEtagFromJson } = require("./siteHttpEtag") as typeof import("./siteHttpEtag");
 
@@ -270,7 +270,7 @@ async function getConfessionaleStaffUserIds(guild?) {
     return Array.isArray(staffIdsCache.userIds) ? staffIdsCache.userIds : [];
   }
   try {
-    const { ensureGuildMembersLoaded } = require("./siteStaffRosterCache") as typeof import("./siteStaffRosterCache");
+    const { ensureGuildMembersLoaded } = require("../features/staff/siteStaffRosterCache") as typeof import("../features/staff/siteStaffRosterCache");
     await ensureGuildMembersLoaded(guild);
   } catch (_) {}
   const ids = new Set();

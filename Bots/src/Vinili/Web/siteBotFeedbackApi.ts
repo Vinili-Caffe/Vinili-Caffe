@@ -5,9 +5,9 @@ const mongoose = require("mongoose") as typeof import("mongoose");
 const IDs = require("../Utils/Config/ids") as typeof import("../Utils/Config/ids");
 const { SiteDocument, SITE_DOCUMENT_TYPE } = require("../Schemas/Community/communitySchemas") as typeof import("../Schemas/Community/communitySchemas");
 const { resolveWebsiteGuildMember } = require("./siteRoleRequestApi") as typeof import("./siteRoleRequestApi");
-const { normalizeHeaderSecret } = require("./siteStaffAccessApi") as typeof import("./siteStaffAccessApi");
+const { normalizeHeaderSecret } = require("../features/staff/siteStaffAccessApi") as typeof import("../features/staff/siteStaffAccessApi");
 const { guildMemberDisplayAvatarUrlDynamic, guildMemberDisplayAvatarUrlStatic } = require("../Utils/Discord/guildDiscordIdentity") as typeof import("../Utils/Discord/guildDiscordIdentity");
-const { enqueueSiteInAppNotification } = require("./siteInAppNotificationsService") as typeof import("./siteInAppNotificationsService");
+const { enqueueSiteInAppNotification } = require("../features/notifications/siteInAppNotificationsService") as typeof import("../features/notifications/siteInAppNotificationsService");
 const { recordTenantBugReport } = require("../MultiGuild/services/Partner/tenantObjectiveService") as typeof import("../MultiGuild/services/Partner/tenantObjectiveService");
 const {
   applyLiveAvatarToSuggestionLike,

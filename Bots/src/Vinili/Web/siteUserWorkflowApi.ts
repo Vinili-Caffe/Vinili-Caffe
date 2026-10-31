@@ -1,10 +1,10 @@
-const { normalizeHeaderSecret } = require("./siteStaffAccessApi") as typeof import("./siteStaffAccessApi");
+const { normalizeHeaderSecret } = require("../features/staff/siteStaffAccessApi") as typeof import("../features/staff/siteStaffAccessApi");
 const { resolveWebsiteGuildMember } = require("./siteRoleRequestApi") as typeof import("./siteRoleRequestApi");
 const {
   getUserWorkflowDetailFromDb,
   listUserWorkflowsForMember,
   listUserInvitedSubjectChats,
-} = require("./siteStaffWorkflowStore") as typeof import("./siteStaffWorkflowStore");
+} = require("../features/workflow/siteStaffWorkflowStore") as typeof import("../features/workflow/siteStaffWorkflowStore");
 
 function isPauseDedupeKey(key?) {
   return String(key || "")

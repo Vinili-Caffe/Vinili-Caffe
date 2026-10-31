@@ -24,7 +24,7 @@ function emitBoardsChanged(action?, extras: Record<string, any> = {}) {
     invalidateListingsListCache();
   } catch (_) {}
   try {
-    const { broadcastSiteBoardsChanged } = require("../../Web/siteSuggestionsBroadcast") as typeof import("../../Web/siteSuggestionsBroadcast");
+    const { broadcastSiteBoardsChanged } = require("../suggestions/siteSuggestionsBroadcast") as typeof import("../suggestions/siteSuggestionsBroadcast");
     broadcastSiteBoardsChanged(action, extras && typeof extras === "object" ? extras : {});
   } catch (_) {}
 }

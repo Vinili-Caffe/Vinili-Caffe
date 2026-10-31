@@ -6,6 +6,6 @@
 #   PROVA=1 bash tools/cdn-push-vps.sh
 set -euo pipefail
 cd "$(dirname "$0")/.."
-bash tools/pubblica.sh "Vinili/Web/siteCdnMedia.ts Vinili/Web/siteContestApi.ts Vinili/features/boards/siteBoardsApi.ts" "site-api bot-workers"
+bash tools/pubblica.sh "Vinili/Web/siteCdnMedia.ts Vinili/features/contest/siteContestApi.ts Vinili/features/boards/siteBoardsApi.ts" "site-api bot-workers"
 scp -q tools/cdn-sync-on-vps.mjs vinili:/opt/bot/bots-ts/tools/cdn-sync-on-vps.mjs
 ssh vinili "mkdir -p /opt/bot/bots-ts/tools; PROVA=${PROVA:-} VC_CDN_MEDIA_JS=/opt/bot/bots-ts/src/Vinili/Web/siteCdnMedia.js node /opt/bot/bots-ts/tools/cdn-sync-on-vps.mjs"

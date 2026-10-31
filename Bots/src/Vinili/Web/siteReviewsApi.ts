@@ -4,8 +4,8 @@ const IDs = require("../Utils/Config/ids") as typeof import("../Utils/Config/ids
 const { SiteDocument, ActivityUserProfile, SITE_DOCUMENT_TYPE } = require("../Schemas/Community/communitySchemas") as typeof import("../Schemas/Community/communitySchemas");
 
 const RV = SITE_DOCUMENT_TYPE.REVIEW;
-const { enqueueSiteInAppNotification } = require("./siteInAppNotificationsService") as typeof import("./siteInAppNotificationsService");
-const { broadcastSiteReviewsChanged } = require("./siteSuggestionsBroadcast") as typeof import("./siteSuggestionsBroadcast");
+const { enqueueSiteInAppNotification } = require("../features/notifications/siteInAppNotificationsService") as typeof import("../features/notifications/siteInAppNotificationsService");
+const { broadcastSiteReviewsChanged } = require("../features/suggestions/siteSuggestionsBroadcast") as typeof import("../features/suggestions/siteSuggestionsBroadcast");
 const { resolveWebsiteGuildMember } = require("./siteRoleRequestApi") as typeof import("./siteRoleRequestApi");
 const { getLevelInfo, getTotalExpForLevel, addExpWithLevel } = require("../Services/Community/expService") as typeof import("../Services/Community/expService");
 const { syncPersistentAutoValutazioniForMember, removeAutoValutazione } = require("../Services/Staff/staffAutoValutazioniService") as typeof import("../Services/Staff/staffAutoValutazioniService");
@@ -179,7 +179,7 @@ async function getStaffTargets(client?, guild?) {
   }
 
   try {
-    const { ensureGuildMembersLoaded } = require("./siteStaffRosterCache") as typeof import("./siteStaffRosterCache");
+    const { ensureGuildMembersLoaded } = require("../features/staff/siteStaffRosterCache") as typeof import("../features/staff/siteStaffRosterCache");
     await ensureGuildMembersLoaded(guild);
   } catch (_) {}
   const byId = new Map();
@@ -217,7 +217,7 @@ async function getHighStaffUserIds(guild?) {
     return [];
   }
   try {
-    const { ensureGuildMembersLoaded } = require("./siteStaffRosterCache") as typeof import("./siteStaffRosterCache");
+    const { ensureGuildMembersLoaded } = require("../features/staff/siteStaffRosterCache") as typeof import("../features/staff/siteStaffRosterCache");
     await ensureGuildMembersLoaded(guild);
   } catch (_) {}
   const role = guild.roles.cache.get(HIGH_STAFF_ROLE_ID) || (await guild.roles.fetch(HIGH_STAFF_ROLE_ID).catch(() => null));

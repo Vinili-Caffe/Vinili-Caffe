@@ -145,7 +145,7 @@ async function getCustomProfileGuildEmojis(client?, { accessToken, force = false
   }
 
   try {
-    const { listGuildPickerData } = require("./siteDashboardPartnershipApi") as typeof import("./siteDashboardPartnershipApi");
+    const { listGuildPickerData } = require("../features/dashboard/siteDashboardPartnershipApi") as typeof import("../features/dashboard/siteDashboardPartnershipApi");
     const pickers = await listGuildPickerData(client, guildId, { force: force === true });
     const emojis = Array.isArray(pickers?.emojis) ? pickers.emojis : [];
     return {

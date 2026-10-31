@@ -3115,7 +3115,7 @@ export = {
       });
       try {
         const { memberIsMuted } = require("../../Events/interaction/unmuteWebsiteHandlers") as typeof import("../../Events/interaction/unmuteWebsiteHandlers");
-        const { autoClosePendingAppealsForUser } = require("../../Web/siteStaffAppealsRuntime") as typeof import("../../Web/siteStaffAppealsRuntime");
+        const { autoClosePendingAppealsForUser } = require("../../features/staff/siteStaffAppealsRuntime") as typeof import("../../features/staff/siteStaffAppealsRuntime");
         const wasMuted = memberIsMuted(oldMember);
         const isMuted = memberIsMuted(newMember);
         if (wasMuted && !isMuted) {
@@ -3199,7 +3199,7 @@ export = {
                 const {
                   cancelPendingResocontiWorkflowForUser,
                   autoCancelPendingPausesIfNotEligible,
-                } = require("../../Web/siteStaffWorkflowStore") as typeof import("../../Web/siteStaffWorkflowStore");
+                } = require("../../features/workflow/siteStaffWorkflowStore") as typeof import("../../features/workflow/siteStaffWorkflowStore");
                                 await cancelPendingResocontiWorkflowForUser(newMember.guild.id, newMember.id, {
                   kind: "s",
                   statusLabel: "Annullato (depex)",
@@ -3249,7 +3249,7 @@ export = {
                 const {
                   cancelPendingResocontiWorkflowForUser,
                   autoCancelPendingPausesIfNotEligible,
-                } = require("../../Web/siteStaffWorkflowStore") as typeof import("../../Web/siteStaffWorkflowStore");
+                } = require("../../features/workflow/siteStaffWorkflowStore") as typeof import("../../features/workflow/siteStaffWorkflowStore");
                 await cancelPendingResocontiWorkflowForUser(newMember.guild.id, newMember.id, {
                   kind: "p",
                   statusLabel: "Annullato (depex PM)",

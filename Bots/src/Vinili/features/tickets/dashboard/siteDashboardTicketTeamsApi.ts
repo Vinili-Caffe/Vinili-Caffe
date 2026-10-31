@@ -1,5 +1,5 @@
-const { verifyDashboardGuildAccess } = require("../../../Web/siteDashboardApi") as typeof import("../../../Web/siteDashboardApi");
-const { listGuildPickerData } = require("../../../Web/siteDashboardPartnershipApi") as typeof import("../../../Web/siteDashboardPartnershipApi");
+const { verifyDashboardGuildAccess } = require("../../dashboard/siteDashboardApi") as typeof import("../../dashboard/siteDashboardApi");
+const { listGuildPickerData } = require("../../dashboard/siteDashboardPartnershipApi") as typeof import("../../dashboard/siteDashboardPartnershipApi");
 const {
   MAX_TEAMS,
   MAX_MEMBERS,

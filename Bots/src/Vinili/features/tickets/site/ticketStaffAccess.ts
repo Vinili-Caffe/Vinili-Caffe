@@ -221,7 +221,7 @@ async function findGuildMemberByName(guild?, rawName?) {
 async function enrichSlugAuthorsFromStaffRoster(client?, guild?, slugs?, nameHints?, out?) {
   if (!client || !guild || !slugs.length) return;
   try {
-    const { getCachedStaffRoster, ensureGuildMembersLoaded } = require("../../../Web/siteStaffRosterCache") as typeof import("../../../Web/siteStaffRosterCache");
+    const { getCachedStaffRoster, ensureGuildMembersLoaded } = require("../../staff/siteStaffRosterCache") as typeof import("../../staff/siteStaffRosterCache");
     await ensureGuildMembersLoaded(guild);
     const roster = await getCachedStaffRoster(client);
     if (!roster?.ok) return;
@@ -301,7 +301,7 @@ async function buildStaffRoleMapForUserIds(client?, guildId?, userIds?, { nameHi
   const snowflakes = ids.filter((id?) => /^\d{5,32}$/.test(id));
   const slugs = ids.filter((id?) => id.startsWith("discord:"));
   try {
-    const { ensureGuildMembersLoaded } = require("../../../Web/siteStaffRosterCache") as typeof import("../../../Web/siteStaffRosterCache");
+    const { ensureGuildMembersLoaded } = require("../../staff/siteStaffRosterCache") as typeof import("../../staff/siteStaffRosterCache");
     /* ticketDetailFast1: preferisci gli id del ticket (no full guild fetch se basta) */
     await ensureGuildMembersLoaded(guild, snowflakes.slice(0, 24));
   } catch {

@@ -67,7 +67,7 @@ async function reviewPartnerPointReport({
     const spendable = resolvePartnerPointsShown(staffData?.staff);
     const saldoHint = Number(spendable) !== Number(total) ? ` · Saldo shop: \`${spendable}\`` : "";
     try {
-      const { notifyPuntiToltiReviewed, notifyPuntiToltiPointsRemoved } = require("../../Web/siteStaffEventNotifications") as typeof import("../../Web/siteStaffEventNotifications");
+      const { notifyPuntiToltiReviewed, notifyPuntiToltiPointsRemoved } = require("../../features/staff/siteStaffEventNotifications") as typeof import("../../features/staff/siteStaffEventNotifications");
       const reporterId = String(reporterUserId || "").trim();
       if (/^\d{16,22}$/.test(reporterId)) {
         void notifyPuntiToltiReviewed({
@@ -99,7 +99,7 @@ async function reviewPartnerPointReport({
     .edit({ content: updatedContent, components: disableRows(message.components) })
     .catch(() => null);
   try {
-    const { notifyPuntiToltiReviewed } = require("../../Web/siteStaffEventNotifications") as typeof import("../../Web/siteStaffEventNotifications");
+    const { notifyPuntiToltiReviewed } = require("../../features/staff/siteStaffEventNotifications") as typeof import("../../features/staff/siteStaffEventNotifications");
     const reporterId = String(reporterUserId || "").trim();
     if (/^\d{16,22}$/.test(reporterId)) {
       void notifyPuntiToltiReviewed({

@@ -139,7 +139,7 @@ async function listGuildEmojisCached(client?, guildId?, { force = false } = {}) 
     return guildEmojiCache.emojis;
   }
   try {
-    const { listGuildPickerData } = require("../../../Web/siteDashboardPartnershipApi") as typeof import("../../../Web/siteDashboardPartnershipApi");
+    const { listGuildPickerData } = require("../../dashboard/siteDashboardPartnershipApi") as typeof import("../../dashboard/siteDashboardPartnershipApi");
     const pickers = await listGuildPickerData(client, gid, { force: force === true });
     const emojis = Array.isArray(pickers?.emojis) ? pickers.emojis : [];
     guildEmojiCache = { guildId: gid, at: now, emojis };

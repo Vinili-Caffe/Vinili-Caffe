@@ -1,7 +1,7 @@
 /** Bacheche: revisione dello staff (elenco in attesa, approva/rifiuta). */
 const mongoose = require("mongoose") as typeof import("mongoose");
 const { SiteDocument } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
-const { assertWebsiteStaffAccess } = require("../../Web/siteStaffAccessApi") as typeof import("../../Web/siteStaffAccessApi");
+const { assertWebsiteStaffAccess } = require("../staff/siteStaffAccessApi") as typeof import("../staff/siteStaffAccessApi");
 const { memberIsHighStaffEligible } = require("../../Utils/Staff/staffRoleHierarchy") as typeof import("../../Utils/Staff/staffRoleHierarchy");
 const { sanitizeText } = require("./boardSanitize") as typeof import("./boardSanitize");
 const { BL, emitBoardsChanged, featureGate } = require("./boardReviews") as typeof import("./boardReviews");

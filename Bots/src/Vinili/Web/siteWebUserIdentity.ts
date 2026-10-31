@@ -4,7 +4,7 @@ const {
   userAvatarUrlDynamic,
   sitePreferredAvatarUrl,
 } = require("../Utils/Discord/guildDiscordIdentity") as typeof import("../Utils/Discord/guildDiscordIdentity");
-const { identityFromMember } = require("./siteStaffRosterCache") as typeof import("./siteStaffRosterCache");
+const { identityFromMember } = require("../features/staff/siteStaffRosterCache") as typeof import("../features/staff/siteStaffRosterCache");
 
 const DEFAULT_BATCH = 5;
 const DEFAULT_CAP = 80;

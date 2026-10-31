@@ -1048,7 +1048,7 @@ async function restoreBumpReminders(client?) {
   /* pushHedgeBootRecover1: dopo restart ri-arma hedge per unread senza /push/shown
      (SIGINT alle 12:39 uccideva i timer RAM → Top.gg claimato ma zero banner iOS). */
   try {
-    const { recoverUnreadApplePushHedges } = require("../Web/siteInAppNotificationsService") as typeof import("../Web/siteInAppNotificationsService");
+    const { recoverUnreadApplePushHedges } = require("../features/notifications/siteInAppNotificationsService") as typeof import("../features/notifications/siteInAppNotificationsService");
     setTimeout(() => {
       recoverUnreadApplePushHedges({ maxAgeMs: 6 * 60 * 60 * 1000, limitUsers: 50 }).catch((err?) => {
         global.logger?.warn?.("[PUSH HEDGE RECOVER]", err?.message || err);

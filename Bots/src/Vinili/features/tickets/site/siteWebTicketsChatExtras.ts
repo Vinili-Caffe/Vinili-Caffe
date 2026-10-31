@@ -247,7 +247,7 @@ async function handleSiteWebTicketsMentionsGet(client?, req?, res?) {
     if ((claimEligible || (guildSearch && actor.isStaff)) && ticket && canAccessTicket) {
     if (claimEligible && actor.isStaff) {
       try {
-        const { getCachedStaffRoster } = require("../../../Web/siteStaffRosterCache") as typeof import("../../../Web/siteStaffRosterCache");
+        const { getCachedStaffRoster } = require("../../staff/siteStaffRosterCache") as typeof import("../../staff/siteStaffRosterCache");
         const roster = await getCachedStaffRoster(client);
         const people = Array.isArray(roster?.sections)
           ? roster.sections.flatMap((s?) => (Array.isArray(s?.members) ? s.members : []))
@@ -324,7 +324,7 @@ async function handleSiteWebTicketsMentionsGet(client?, req?, res?) {
     let roles = [];
   if (actingAsStaff && mentionScope?.allowedRoleIds?.size) {
     try {
-      const { listGuildPickerData } = require("../../../Web/siteDashboardPartnershipApi") as typeof import("../../../Web/siteDashboardPartnershipApi");
+      const { listGuildPickerData } = require("../../dashboard/siteDashboardPartnershipApi") as typeof import("../../dashboard/siteDashboardPartnershipApi");
       const pickers = await listGuildPickerData(client, guildId, { force: false });
       roles = (Array.isArray(pickers?.roles) ? pickers.roles : [])
         .filter((r?) => r && String(r.id) !== String(guildId))

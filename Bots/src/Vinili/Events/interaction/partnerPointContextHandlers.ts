@@ -120,7 +120,7 @@ async function handlePartnerSegnalaModal(interaction?) {
   }
   if (entryMessageId(entry)) {
     try {
-      const { notifyPuntiToltiPending, memberDisplayName } = require("../../Web/siteStaffEventNotifications") as typeof import("../../Web/siteStaffEventNotifications");
+      const { notifyPuntiToltiPending, memberDisplayName } = require("../../features/staff/siteStaffEventNotifications") as typeof import("../../features/staff/siteStaffEventNotifications");
       const reporterMember = await guild.members.fetch(parsed.actorId).catch(() => null);
       void notifyPuntiToltiPending({
         guild,
@@ -244,7 +244,7 @@ async function handlePartnerEliminaMainModal(interaction?) {
   });
   if (entry && deleteResult.pointsAdjusted) {
     try {
-      const { notifyPuntiToltiPointsRemoved, memberDisplayName } = require("../../Web/siteStaffEventNotifications") as typeof import("../../Web/siteStaffEventNotifications");
+      const { notifyPuntiToltiPointsRemoved, memberDisplayName } = require("../../features/staff/siteStaffEventNotifications") as typeof import("../../features/staff/siteStaffEventNotifications");
       const actorMember = await guild.members.fetch(parsed.actorId).catch(() => null);
       void notifyPuntiToltiPointsRemoved({
         guild,
@@ -338,7 +338,7 @@ async function handlePartnerRimuoviModal(interaction?) {
   });
   if (entry?.id || entry?._id) {
     try {
-      const { notifyPuntiToltiPointsRemoved, memberDisplayName } = require("../../Web/siteStaffEventNotifications") as typeof import("../../Web/siteStaffEventNotifications");
+      const { notifyPuntiToltiPointsRemoved, memberDisplayName } = require("../../features/staff/siteStaffEventNotifications") as typeof import("../../features/staff/siteStaffEventNotifications");
       const actorMember = await guild.members.fetch(parsed.actorId).catch(() => null);
       void notifyPuntiToltiPointsRemoved({
         guild,

@@ -1,6 +1,6 @@
 "use strict";
 
-const { broadcastSiteRealtime } = require("./siteSuggestionsBroadcast") as typeof import("./siteSuggestionsBroadcast");
+const { broadcastSiteRealtime } = require("../features/suggestions/siteSuggestionsBroadcast") as typeof import("../features/suggestions/siteSuggestionsBroadcast");
 
 const TYPING_TTL_MS = 4500;
 const TYPING_MIN_INTERVAL_MS = 1800;

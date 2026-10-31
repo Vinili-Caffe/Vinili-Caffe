@@ -2182,7 +2182,7 @@ async function applyWeeklyStaffAutoValutazioniForMember({
 
   if (reachedTripleWeeklyLimits && !inPauseAtLeastOneDay && guild?.id && userId) {
     try {
-      const { tryAutoSubmitCompito } = require("../../Web/siteStaffCompitiAutoComplete") as typeof import("../../Web/siteStaffCompitiAutoComplete");
+      const { tryAutoSubmitCompito } = require("../../features/staff/siteStaffCompitiAutoComplete") as typeof import("../../features/staff/siteStaffCompitiAutoComplete");
       await tryAutoSubmitCompito(global.botClient || guild?.client, {
         guildId: guild.id,
         userId,
@@ -2861,7 +2861,7 @@ async function runWeeklyStaffResocontoSegment(client?, segment?, opts: Record<st
       } else {
         const siteMessageId = newSiteWorkflowMessageId();
         try {
-          const { persistResocontoWorkflowFromPayload } = require("../../Web/siteStaffWorkflowStore") as typeof import("../../Web/siteStaffWorkflowStore");
+          const { persistResocontoWorkflowFromPayload } = require("../../features/workflow/siteStaffWorkflowStore") as typeof import("../../features/workflow/siteStaffWorkflowStore");
           await persistResocontoWorkflowFromPayload(guild, {
             messageId: siteMessageId,
             channelId: "site",
@@ -2901,7 +2901,7 @@ async function runWeeklyStaffResocontoSegment(client?, segment?, opts: Record<st
         completedCount += 1;
         try {
           if (useDiscordPosts) {
-            const { persistResocontoWorkflowFromMessage } = require("../../Web/siteStaffWorkflowStore") as typeof import("../../Web/siteStaffWorkflowStore");
+            const { persistResocontoWorkflowFromMessage } = require("../../features/workflow/siteStaffWorkflowStore") as typeof import("../../features/workflow/siteStaffWorkflowStore");
             await persistResocontoWorkflowFromMessage(
               guild,
               staffMsg,
@@ -2932,7 +2932,7 @@ async function runWeeklyStaffResocontoSegment(client?, segment?, opts: Record<st
           }
         } catch (_) {}
         try {
-          const { notifyInboxStaffNewItem } = require("../../Web/siteStaffWorkflowNotifications") as typeof import("../../Web/siteStaffWorkflowNotifications");
+          const { notifyInboxStaffNewItem } = require("../../features/workflow/siteStaffWorkflowNotifications") as typeof import("../../features/workflow/siteStaffWorkflowNotifications");
           const subjectName = String(member?.displayName || member?.user?.username || userId).trim();
           void notifyInboxStaffNewItem({
             guild,
@@ -3055,7 +3055,7 @@ async function runWeeklyStaffResocontoSegment(client?, segment?, opts: Record<st
       } else {
         const siteMessageId = newSiteWorkflowMessageId();
         try {
-          const { persistResocontoWorkflowFromPayload } = require("../../Web/siteStaffWorkflowStore") as typeof import("../../Web/siteStaffWorkflowStore");
+          const { persistResocontoWorkflowFromPayload } = require("../../features/workflow/siteStaffWorkflowStore") as typeof import("../../features/workflow/siteStaffWorkflowStore");
           await persistResocontoWorkflowFromPayload(guild, {
             messageId: siteMessageId,
             channelId: "site",
@@ -3084,7 +3084,7 @@ async function runWeeklyStaffResocontoSegment(client?, segment?, opts: Record<st
         sentCount += 1;
         try {
           if (useDiscordPosts) {
-            const { persistResocontoWorkflowFromMessage } = require("../../Web/siteStaffWorkflowStore") as typeof import("../../Web/siteStaffWorkflowStore");
+            const { persistResocontoWorkflowFromMessage } = require("../../features/workflow/siteStaffWorkflowStore") as typeof import("../../features/workflow/siteStaffWorkflowStore");
             await persistResocontoWorkflowFromMessage(
               guild,
               pmMsg,
@@ -3105,7 +3105,7 @@ async function runWeeklyStaffResocontoSegment(client?, segment?, opts: Record<st
           }
         } catch (_) {}
         try {
-          const { notifyInboxStaffNewItem } = require("../../Web/siteStaffWorkflowNotifications") as typeof import("../../Web/siteStaffWorkflowNotifications");
+          const { notifyInboxStaffNewItem } = require("../../features/workflow/siteStaffWorkflowNotifications") as typeof import("../../features/workflow/siteStaffWorkflowNotifications");
           const subjectName = String(member?.displayName || member?.user?.username || userId).trim();
           void notifyInboxStaffNewItem({
             guild,

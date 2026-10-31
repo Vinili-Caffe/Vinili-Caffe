@@ -63,7 +63,7 @@ async function mirrorTrackHistory(guildId?, userId?, entry?, kindOverride?) {
 function firePexDepexSiteNotif(guild, { kind, targetUser, oldRoleId, newRoleId, reason, actorUser, sourceHint }) {
   const targetUserId = String(targetUser?.id || "").trim();
   try {
-    const { notifyStaffPexDepex, memberDisplayName } = require("../../Web/siteStaffEventNotifications") as typeof import("../../Web/siteStaffEventNotifications");
+    const { notifyStaffPexDepex, memberDisplayName } = require("../../features/staff/siteStaffEventNotifications") as typeof import("../../features/staff/siteStaffEventNotifications");
     void notifyStaffPexDepex({
       guild,
       kind,
@@ -79,7 +79,7 @@ function firePexDepexSiteNotif(guild, { kind, targetUser, oldRoleId, newRoleId, 
   } catch (_) {}
   /* staffProfLiveAll1: clear cache → broadcast WS ai profili aperti */
   try {
-    require("../../Web/siteStaffProfileApi").clearStaffProfileCacheForUser(targetUserId, {
+    require("../../features/staff/siteStaffProfileApi").clearStaffProfileCacheForUser(targetUserId, {
       action: kind || sourceHint || "career",
     });
   } catch (_) {}
@@ -1029,7 +1029,7 @@ async function runProfileStaffWarnAdd(guild?, client?, targetUser?, actorUser?, 
   try {
     const freshDoc = await getOrCreateStaffDoc(guild.id, targetUser.id);
     const warnCount = Math.max(0, Number(ensureStaff(freshDoc)?.warnCount || s.warnCount || 0));
-    const { notifyStaffWarn, memberDisplayName } = require("../../Web/siteStaffEventNotifications") as typeof import("../../Web/siteStaffEventNotifications");
+    const { notifyStaffWarn, memberDisplayName } = require("../../features/staff/siteStaffEventNotifications") as typeof import("../../features/staff/siteStaffEventNotifications");
     void notifyStaffWarn({
       guild,
       staffUserId: targetUser.id,
@@ -1041,7 +1041,7 @@ async function runProfileStaffWarnAdd(guild?, client?, targetUser?, actorUser?, 
     }).catch(() => 0);
   } catch (_) {}
   try {
-    require("../../Web/siteStaffProfileApi").clearStaffProfileCacheForUser(targetUser.id, {
+    require("../../features/staff/siteStaffProfileApi").clearStaffProfileCacheForUser(targetUser.id, {
       action: "warn_add",
     });
   } catch (_) {}
@@ -1128,7 +1128,7 @@ async function runProfileStaffWarnRemove(guild?, client?, targetUser?, actorUser
     await warnChannel.send({ content: `${targetUser}`, embeds: [embed] }).catch(() => null);
   }
   try {
-    const { notifyStaffWarnRemoved, memberDisplayName } = require("../../Web/siteStaffEventNotifications") as typeof import("../../Web/siteStaffEventNotifications");
+    const { notifyStaffWarnRemoved, memberDisplayName } = require("../../features/staff/siteStaffEventNotifications") as typeof import("../../features/staff/siteStaffEventNotifications");
     void notifyStaffWarnRemoved({
       guild,
       staffUserId: targetUser.id,
@@ -1139,7 +1139,7 @@ async function runProfileStaffWarnRemove(guild?, client?, targetUser?, actorUser
     }).catch(() => 0);
   } catch (_) {}
   try {
-    require("../../Web/siteStaffProfileApi").clearStaffProfileCacheForUser(targetUser.id, {
+    require("../../features/staff/siteStaffProfileApi").clearStaffProfileCacheForUser(targetUser.id, {
       action: "warn_rm",
     });
   } catch (_) {}

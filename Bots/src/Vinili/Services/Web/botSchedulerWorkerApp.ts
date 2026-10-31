@@ -18,7 +18,7 @@ const { startCustomRoleExpiryLoop } = require("../Community/customRoleExpiryServ
 const { runDueChannelReminders } = require("../Reminders/channelReminderService") as typeof import("../Reminders/channelReminderService");
 const { startTenantOfflineRecoveryLoop } = require("../../MultiGuild/services/Partner/tenantOfflineRecoveryService") as typeof import("../../MultiGuild/services/Partner/tenantOfflineRecoveryService");
 const { isMultiGuildLayerEnabled } = require("../../MultiGuild/core/env") as typeof import("../../MultiGuild/core/env");
-const { tickStaffCompitiDeadlines, tickStaffCompitiAssignments } = require("../../Web/siteStaffCompitiApi") as typeof import("../../Web/siteStaffCompitiApi");
+const { tickStaffCompitiDeadlines, tickStaffCompitiAssignments } = require("../../features/staff/siteStaffCompitiApi") as typeof import("../../features/staff/siteStaffCompitiApi");
 
 loadDotEnv();
 process.env.BOT_SCHEDULER_WORKER = "1";

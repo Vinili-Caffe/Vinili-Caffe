@@ -368,14 +368,14 @@ async function createPauseRequest({ guild, userId, requesterMention, rawStart, r
   }
 
   try {
-    const { upsertPauseWorkflowFromPause, syncPausesToWorkflowStore } = require("../../Web/siteStaffWorkflowStore") as typeof import("../../Web/siteStaffWorkflowStore");
+    const { upsertPauseWorkflowFromPause, syncPausesToWorkflowStore } = require("../../features/workflow/siteStaffWorkflowStore") as typeof import("../../features/workflow/siteStaffWorkflowStore");
     for (const createdPause of createdPauses) {
       await upsertPauseWorkflowFromPause(client, guild, uid, createdPause);
     }
     void syncPausesToWorkflowStore(guild.client, guild.id).catch(() => 0);
   } catch (_) {}
   try {
-    const { notifyInboxStaffNewItem } = require("../../Web/siteStaffWorkflowNotifications") as typeof import("../../Web/siteStaffWorkflowNotifications");
+    const { notifyInboxStaffNewItem } = require("../../features/workflow/siteStaffWorkflowNotifications") as typeof import("../../features/workflow/siteStaffWorkflowNotifications");
     const subjectName =
       String(member?.displayName || member?.user?.globalName || member?.user?.username || "").trim() ||
       uid;

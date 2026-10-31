@@ -1,6 +1,6 @@
 /** Rotte HTTP delle richieste allo staff (workflow) e delle loro chat. */
 function mountWorkflowRoutes(app?, client?, ctx: Record<string, any> = {}) {
-  const { handleSiteStaffWorkflowGet, handleSiteStaffWorkflowPost } = require("../../Web/siteStaffWorkflowApi") as typeof import("../../Web/siteStaffWorkflowApi");
+  const { handleSiteStaffWorkflowGet, handleSiteStaffWorkflowPost } = require("./siteStaffWorkflowApi") as typeof import("./siteStaffWorkflowApi");
   app.get("/webhooks/site-staff-workflows", (req?, res?) => handleSiteStaffWorkflowGet(client, req, res));
   app.post("/webhooks/site-staff-workflows", (req?, res?) => handleSiteStaffWorkflowPost(client, req, res));
   const {
@@ -15,7 +15,7 @@ function mountWorkflowRoutes(app?, client?, ctx: Record<string, any> = {}) {
     handleSiteStaffWorkflowChatMessageDelete,
     handleSiteStaffWorkflowChatTypingPost,
     handleSiteStaffWorkflowChatMentionsGet,
-  } = require("../../Web/siteStaffWorkflowChatApi") as typeof import("../../Web/siteStaffWorkflowChatApi");
+  } = require("./siteStaffWorkflowChatApi") as typeof import("./siteStaffWorkflowChatApi");
   app.get("/webhooks/site-staff-workflow-chat/emojis", (req?, res?) => handleSiteStaffWorkflowChatEmojisGet(client, req, res));
   app.get("/webhooks/site-staff-workflow-chat/mentions", (req?, res?) =>
     handleSiteStaffWorkflowChatMentionsGet(client, req, res),

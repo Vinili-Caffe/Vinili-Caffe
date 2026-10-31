@@ -1,7 +1,7 @@
 /** Rotte HTTP dei suggerimenti. */
 function mountSuggestionsRoutes(app?, client?, ctx: Record<string, any> = {}) {
   const { normalizeHeaderSecret, replyJsonEtag } = ctx;
-  const { getSiteSuggestions, createSiteSuggestion, updateOwnSiteSuggestion, deleteOwnSiteSuggestion, addSiteSuggestionComment, updateSiteSuggestionComment, deleteSiteSuggestionComment, setSiteSuggestionCommentVote, setSiteSuggestionVote, staffAcceptSiteSuggestion, staffRejectSiteSuggestion, staffSetSiteSuggestionDecision, staffDeleteSiteSuggestion, serveSiteSuggestionFile } = require("../../Web/siteSuggestionsApi") as typeof import("../../Web/siteSuggestionsApi");
+  const { getSiteSuggestions, createSiteSuggestion, updateOwnSiteSuggestion, deleteOwnSiteSuggestion, addSiteSuggestionComment, updateSiteSuggestionComment, deleteSiteSuggestionComment, setSiteSuggestionCommentVote, setSiteSuggestionVote, staffAcceptSiteSuggestion, staffRejectSiteSuggestion, staffSetSiteSuggestionDecision, staffDeleteSiteSuggestion, serveSiteSuggestionFile } = require("./siteSuggestionsApi") as typeof import("./siteSuggestionsApi");
 
   app.get("/webhooks/site-suggestions/files/:suggestionId/:fileName", async (req?, res?) => {
     try {
