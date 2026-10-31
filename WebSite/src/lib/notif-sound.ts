@@ -1,5 +1,7 @@
 /** Ding notifiche (Web Audio) — parity con vc-landing-notif playNotifSound. */
 
+import { runAfterGesturePaint } from "@/lib/audio-unlock";
+
 const SOUND_AT_KEY = "vc_notif_sound_at_v1";
 const MIN_GAP_MS = 1800;
 
@@ -58,12 +60,17 @@ async function unlock(): Promise<boolean> {
 }
 
 export function armNotifAudioUnlock() {
+  let armed = true;
   const once = () => {
-    void unlock().then((ok) => {
-      if (ok && pending) {
-        pending = false;
-        playNotifSound();
-      }
+    if (!armed) return;
+    armed = false;
+    runAfterGesturePaint(() => {
+      void unlock().then((ok) => {
+        if (ok && pending) {
+          pending = false;
+          playNotifSound();
+        }
+      });
     });
   };
   window.addEventListener("pointerdown", once, { once: true, passive: true });

@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
 import dynamic from "next/dynamic";
+import { preload } from "react-dom";
 import { SiteShell } from "@/components/SiteShell";
 import { BoardSkeleton } from "@/components/ui/EmptyState";
 import { DiscordComponentEmbed } from "@/components/DiscordComponentEmbed";
 import { pageSocialMeta } from "@/lib/og";
+import { cdnUrl } from "@/lib/site";
 
 const ContestBoard = dynamic(
   () => import("@/components/contest/ContestBoard").then((m) => m.ContestBoard),
@@ -56,6 +58,8 @@ export default async function ContestPage({
       </SiteShell>
     );
   }
+  /* l'intestazione sta nella tabella caricata a parte: senza questo l'immagine partiva 2–3 s dopo (LCP) */
+  preload(cdnUrl("/images/hero-cafe-atmosphere-band.jpg"), { as: "image", fetchPriority: "high" });
   return (
     <SiteShell>
       <DiscordComponentEmbed

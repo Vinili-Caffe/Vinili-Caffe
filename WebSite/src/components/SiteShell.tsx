@@ -89,7 +89,8 @@ export function SiteShell({
               <ApiOutageBanner />
               {!evento ? <SponsorAd /> : null}
               <Navbar />
-              <main className="min-h-[70dvh]">{children}</main>
+              {/* alto almeno quanto lo schermo: il footer parte sotto e non "salta" mentre la pagina carica (CLS) */}
+              <main className="min-h-dvh">{children}</main>
               <Footer />
               <CookieConsent />
               <NotifLiveToasts />

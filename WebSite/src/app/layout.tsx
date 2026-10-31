@@ -92,6 +92,8 @@ export default function RootLayout({
         {/* avatar, emoji e media di Discord arrivano da qui: collegamento aperto in anticipo */}
         <link rel="preconnect" href="https://cdn.discordapp.com" crossOrigin="" />
         <link rel="dns-prefetch" href="https://media.discordapp.net" />
+        {/* immagini dell'intestazione, foto dei contest e cursori: senza crossOrigin, come le <img> */}
+        <link rel="preconnect" href="https://cdn.viniliecaffe.it" />
         {API_FETCH_BOOT ? <link rel="preconnect" href="https://api.viniliecaffe.it" crossOrigin="" /> : null}
         <script dangerouslySetInnerHTML={{ __html: THEME_BOOT_SCRIPT }} />
         <script dangerouslySetInnerHTML={{ __html: SPONSOR_AD_BOOT }} />

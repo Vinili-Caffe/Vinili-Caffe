@@ -1,5 +1,6 @@
 /** Soft click digitazione — condiviso tra TypeSfx (input) e Wordle (griglia/tastiera). */
 
+import { runAfterGesturePaint } from "@/lib/audio-unlock";
 import { getLiveCaps } from "@/lib/device-fx";
 import { EFFECT_KEYS, effectEnabled, typeSfxVolume } from "@/lib/site-effects";
 
@@ -58,9 +59,13 @@ function ensure(): AudioContext | null {
 }
 
 export function unlockTypeSfx() {
+  if (unlocked) return;
   unlocked = true;
-  const c = ensure();
-  if (c && c.state === "suspended") void c.resume();
+  runAfterGesturePaint(() => {
+    if (!unlocked) return;
+    const c = ensure();
+    if (c && c.state === "suspended") void c.resume();
+  });
 }
 
 export function playTypeSfx() {
@@ -70,6 +75,8 @@ export function playTypeSfx() {
   if (vol <= 0.001 || !unlocked) return;
   const now = performance.now();
   if (now - lastPlay < MAX_RATE_MS) return;
+  /* audio non ancora pronto (lo crea unlockTypeSfx dopo il tocco): questo click resta muto */
+  if (!ctx) return;
   const c = ensure();
   if (!c || !gain || !bufs) return;
 
