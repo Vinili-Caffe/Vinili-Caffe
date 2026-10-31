@@ -5,6 +5,8 @@ const { getMemoryEmojiBank } = require("../../Data/Minigames/minigameBanks") as 
 const {
   isHalloweenEventLiveForMinigames,
   isHalloweenExclusiveMinigamesEnabled,
+  shouldUseHalloweenTheme,
+  getHalloweenExclusiveAvailableTypes,
 } = require("../../Utils/Minigames/halloweenMinigameHooks") as typeof import("../../Utils/Minigames/halloweenMinigameHooks");
 const { mergeFindBotVoiceExcludedChannelIds } = require("../../Utils/Minigames/findBotVoiceChannelEligibility") as typeof import("../../Utils/Minigames/findBotVoiceChannelEligibility");
 const { randomBetween } = require("./minigameSources") as typeof import("./minigameSources");
@@ -62,6 +64,9 @@ function getGameTypeCooldownMs(type?, cfg?) {
 }
 
 function getAvailableGameTypes(cfg?) {
+  if (shouldUseHalloweenTheme(cfg)) {
+    return getHalloweenExclusiveAvailableTypes(cfg);
+  }
   const types = [];
   if (cfg?.guessNumber !== false) types.push("guessNumber");
   if (cfg?.guessWord?.apiUrl) types.push("guessWord");

@@ -221,7 +221,7 @@ async function restoreTrickOrTreatSideSlot(client?, cfg?, channel?) {
 }
 
 async function startHalloweenTrickOrTreatGame(client?, cfg?, options: Record<string, any> = {}) {
-  const channelId = cfg.channelId;
+  const channelId = String(cfg?.channelId || "").trim();
   const mapKey = trickOrTreatMapKey(channelId);
   // Solo un ToT per canale; Impiccato/altri minigiochi possono restare attivi in parallelo.
   if (!channelId || activeGames.has(mapKey) || getTrickOrTreatGame(channelId)) return false;
@@ -439,7 +439,7 @@ async function handleHalloweenTrickOrTreatButton(interaction?, game?, cfg?) {
     const ignoreExp = await shouldIgnoreExpForMember({
       guildId: interaction.guild.id,
       member,
-      channelId: cfg.channelId || null,
+      channelId: cfg?.channelId || interaction.channelId || null,
     });
     if (!ignoreExp && baseExp > 0) {
       await addExpWithLevel(interaction.guild, userId, baseExp, false, true);

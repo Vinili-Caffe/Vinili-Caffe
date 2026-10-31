@@ -32,7 +32,7 @@ function getMinigameRomeTime(date?, client?) {
 
 function getChannelSafe(client?, channelId?) {
   if (!channelId) return null;
-  return client.channels.cache.get(channelId) || null;
+  return client?.channels?.cache?.get?.(channelId) || null;
 }
 
 async function getChannelCached(client?, channelId?) {

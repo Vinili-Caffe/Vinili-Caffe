@@ -162,9 +162,22 @@ async function loadState(guildId?) {
   return SiteDocument.findOne({ guildId: gid, docType: DOC_TYPE, dedupeKey: DOC_DEDUPE }).lean().catch(() => null);
 }
 
+function isMongoReady() {
+  try {
+    const mongoose = require("mongoose") as typeof import("mongoose");
+    return mongoose.connection?.readyState === 1;
+  } catch {
+    return false;
+  }
+}
+
 async function saveState(guildId?, patch?) {
   const gid = normalizeId(guildId);
   if (!gid) return null;
+  if (!isMongoReady()) {
+    global.logger?.warn?.("[HALLOWEEN-HUNT] saveState skipped: mongo not ready");
+    return null;
+  }
   /* userId solo in $setOnInsert: $set+$setOnInsert sullo stesso path → Mongo conflict */
   return SiteDocument.findOneAndUpdate(
     { guildId: gid, docType: DOC_TYPE, dedupeKey: DOC_DEDUPE },
@@ -301,7 +314,8 @@ async function spawnHunt(client?, cfg?, guildId?, slotKey?, channelIdOverride = 
     const next = await peekNextCandyKind(guildId);
     if (next !== KIND_HUNT) return { ok: false, reason: "alternate_tot" };
   }
-  const channelId = normalizeId(channelIdOverride || cfg.channelId);
+  const channelId = normalizeId(channelIdOverride || cfg?.channelId);
+  if (!channelId) return { ok: false, reason: "no_channel_id" };
   const channel = await client.channels.fetch(channelId).catch(() => null);
   if (!channel?.isTextBased?.()) return { ok: false, reason: "no_channel" };
   const message = await pickRandomChatMessage(channel, cfg);
@@ -566,6 +580,7 @@ function startHalloweenEmojiHuntLoop(client?) {
   loopState.add(client);
   const tick = async () => {
     try {
+      if (!isMongoReady()) return;
       await runHalloweenEmojiHuntTick(client);
     } catch (err) {
       global.logger?.warn?.("[HALLOWEEN-HUNT] tick:", err?.message || err);
@@ -579,10 +594,11 @@ function startHalloweenEmojiHuntLoop(client?) {
     timer.unref?.();
     client._halloweenEmojiHuntTimer = timer;
   };
+  const bootDelayMs = 25_000;
   if (client.isReady?.()) {
-    setTimeout(() => void tick(), 15_000).unref?.();
+    setTimeout(() => void tick(), bootDelayMs).unref?.();
   } else {
-    client.once("ready", () => setTimeout(() => void tick(), 15_000).unref?.());
+    client.once("ready", () => setTimeout(() => void tick(), bootDelayMs).unref?.());
   }
   schedule();
 }

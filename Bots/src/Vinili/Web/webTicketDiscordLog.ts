@@ -2,11 +2,11 @@
 
 /** Inbox sito (/tickets/) è la fonte di verità — mirror Discord dismesso. */
 async function sendWebTicketDiscordLog() {
-  return null;
+    return null;
 }
 
 async function sendWebTicketMessageActivityLog() {
-  return null;
+    return null;
 }
 
 export = {
