@@ -1,6 +1,6 @@
 const {
   handleTenantPartnerManagerRoleUpdate,
-} = require("../../Services/Partner/tenantPartnerManagerRoleService") as typeof import("../../Services/Partner/tenantPartnerManagerRoleService");
+} = require("../services/Partner/tenantPartnerManagerRoleService") as typeof import("../services/Partner/tenantPartnerManagerRoleService");
 
 export = {
   name: "guildMemberUpdate",

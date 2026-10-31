@@ -3,15 +3,15 @@ const IDs = require("../Utils/Config/ids") as typeof import("../Utils/Config/ids
 const { getGuildChannelCached } = require("../Utils/Interaction/interactionEntityCache") as typeof import("../Utils/Interaction/interactionEntityCache");
 const { runAutoModMessage } = require("../Services/Moderation/automodService") as typeof import("../Services/Moderation/automodService");
 const { handleDisboardBump, handleDiscadiaBump, handleVoteManagerMessage } = require("../Utils/Message/officialMessageAutomationHandlers") as typeof import("../Utils/Message/officialMessageAutomationHandlers");
-const { handleMentionAutoReactions, handleWordReactions, maybePunishCountingOnEdit } = require("../Utils/Message/officialMessageCommunityHandlers") as typeof import("../Utils/Message/officialMessageCommunityHandlers");
+const { handleMentionAutoReactions, handleWordReactions } = require("../Utils/Message/officialMessageCommunityHandlers") as typeof import("../Utils/Message/officialMessageCommunityHandlers");
 const { toDiscordTimestamp } = require("../Utils/Logging/channelRolesLogUtils") as typeof import("../Utils/Logging/channelRolesLogUtils");
 const { handlePartnerDescriptionMessageUpsert, isPartnerDescriptionChannel } = require("../Services/Partner/partnerDescriptionSyncService") as typeof import("../Services/Partner/partnerDescriptionSyncService");
 const {
   handleTenantPartnerDescriptionMessageUpsert,
   isTenantPartnerDescriptionChannel,
-} = require("../Services/Partner/tenantPartnerDescriptionService") as typeof import("../Services/Partner/tenantPartnerDescriptionService");
+} = require("../MultiGuild/services/Partner/tenantPartnerDescriptionService") as typeof import("../MultiGuild/services/Partner/tenantPartnerDescriptionService");
 const { shouldDeleteHumanPartnershipsChannelMessage } = require("../Utils/Partner/partnerPointContextUtils") as typeof import("../Utils/Partner/partnerPointContextUtils");
-const { tryResolvePendingManualPartnershipOnUpdate } = require("../Services/Partner/tenantManualPartnershipService") as typeof import("../Services/Partner/tenantManualPartnershipService");
+const { tryResolvePendingManualPartnershipOnUpdate } = require("../MultiGuild/services/Partner/tenantManualPartnershipService") as typeof import("../MultiGuild/services/Partner/tenantManualPartnershipService");
 
 function isViniliFullFeatureGuild(guildId?) {
   try {
@@ -281,10 +281,6 @@ export = {
           await updated.delete().catch(() => null);
           return;
         }
-      }
-
-      if (!updated.author.bot && !updated.system && !updated.webhookId) {
-        await maybePunishCountingOnEdit(previous, updated, resolvedClient);
       }
 
       const before = String(previous?.content || "");

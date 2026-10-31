@@ -15,7 +15,7 @@ const {
   isPartnershipSkipManagerAllowed,
   buildSkipDeniedEmbed,
 } = require("../../Utils/Partner/partnershipConfigResolver") as typeof import("../../Utils/Partner/partnershipConfigResolver");
-const { replyInteractionSetupRequired } = require("../../Utils/Partner/tenantSetupRequiredReply") as typeof import("../../Utils/Partner/tenantSetupRequiredReply");
+const { replyInteractionSetupRequired } = require("../../MultiGuild/utils/Partner/tenantSetupRequiredReply") as typeof import("../../MultiGuild/utils/Partner/tenantSetupRequiredReply");
 const EPHEMERAL_FLAG = 1 << 6;
 
 function buildPartnershipModalCustomId(openerId?, managerId?, skipped?) {

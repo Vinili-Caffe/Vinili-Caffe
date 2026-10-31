@@ -29,7 +29,7 @@ const mongoose = require("mongoose") as typeof import("mongoose");
 const { createSiteApiRestClient } = require("./siteApiRestClient") as typeof import("./siteApiRestClient");
 const {
   startPartnershipHistoryMigrationWorker,
-} = require("../Partner/tenantPartnershipHistoryMigrationService") as typeof import("../Partner/tenantPartnershipHistoryMigrationService");
+} = require("../../MultiGuild/services/Partner/tenantPartnershipHistoryMigrationService") as typeof import("../../MultiGuild/services/Partner/tenantPartnershipHistoryMigrationService");
 const { refreshPartnershipConfigCache } = require("../../MultiGuild/core/tenantPartnershipSettings") as typeof import("../../MultiGuild/core/tenantPartnershipSettings");
 
 function loadVinylsConfig() {

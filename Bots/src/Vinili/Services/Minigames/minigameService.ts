@@ -1,36 +1,18 @@
 
 const { minigameStateDeleteOne, minigameStateDeleteMany, minigameRotationDeleteOne, minigameRotationDeleteMany } = require("../../Utils/BotState/domainStatesStore") as typeof import("../../Utils/BotState/domainStatesStore");
 const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
-const {
-  isHalloweenMinigameType,
-  shouldUseHalloweenTheme,
-} = require("../../Utils/Minigames/halloweenMinigameHooks") as typeof import("../../Utils/Minigames/halloweenMinigameHooks");
-const {
-  buildTrickOrTreatEndedEmbed,
-} = require("../../Utils/Minigames/halloweenTrickOrTreatUi") as typeof import("../../Utils/Minigames/halloweenTrickOrTreatUi");
-const {
-  registerHalloweenShowcaseDeps,
-  processHalloweenMinigamesShowcaseForce,
-} = require("./minigameHalloweenShowcaseService") as typeof import("./minigameHalloweenShowcaseService");
-const { buildHalloweenFindGhostFoundEmbed } = require("../../Utils/Minigames/halloweenFindGhostUi") as typeof import("../../Utils/Minigames/halloweenFindGhostUi");
-const { formatItalianMinutesBold } = require("../../Utils/Text/italianDurationLabels") as typeof import("../../Utils/Text/italianDurationLabels");
 const { logMinigameSpawn, logMaybeStartSkip, warnMinigame, logMinigameDebug, is429Error } = require("./minigameLog") as typeof import("./minigameLog");
-const { buildPromptImageAttachment } = require("./minigameImages") as typeof import("./minigameImages");
-const { buildFindBotEmbed } = require("./minigameEmbeds") as typeof import("./minigameEmbeds");
 const { getMinigameRomeTime, getChannelSafe, getChannelCached, isWithinAllowedWindow } = require("./minigameUtils") as typeof import("./minigameUtils");
-const { normalizeRewardExp } = require("./minigameText") as typeof import("./minigameText");
 const { lastSentAtByChannel, getActivityWindowMs, getMinMessages, getRecentActivityStats, computeAdaptiveMinMessages, isReadyByActivity, assessFreshSpawnChatActivity, getActivityScopeKey, backfillRecentChatActivityFromHistory, isFailsafeDue } = require("./minigameActivity") as typeof import("./minigameActivity");
 const { nextGameHook, activeGames, channelWinClosing, blockMinigameRehydrate, pendingGames, standbyChannels, lastNoParticipationEndAtByChannel, lastPlayedGameTypesByChannel, lastPlayedAtByChannelAndType, startingChannels, clearActiveGame, clearMinigameRoundTimers } = require("./minigameState") as typeof import("./minigameState");
-const { clearRolePingSentThisStart, sendMinigameRolePing } = require("./minigameRolePing") as typeof import("./minigameRolePing");
+const { clearRolePingSentThisStart } = require("./minigameRolePing") as typeof import("./minigameRolePing");
 const { sendMinigameMessage } = require("./minigameDiscord") as typeof import("./minigameDiscord");
 const { resolveMinigameGuildIdAsync, purgeExpiredMinigameDbState, leaveFindBotVoiceChannel } = require("./minigameRound") as typeof import("./minigameRound");
 const { LAST_PLAYED_ROTATION_SIZE, getConfig, getAvailableGameTypes, saveRotationState, getNextGameType, requeueGameType } = require("./minigameConfig") as typeof import("./minigameConfig");
 const { suppressMinigameSnipe, isMinigameSnipeSuppressed, pickSnipeEntryForChannel, shouldSkipStoringSnipe, redactSnipeContentForMinigame } = require("./minigameSnipe") as typeof import("./minigameSnipe");
-const { TOT_MAP_SUFFIX, isTrickOrTreatMapKey, clearTrickOrTreatGame, removeTrickOrTreatButton, startHalloweenTrickOrTreatGame, startHalloweenTrickOrTreatGameForAlternate } = require("./minigameTrickOrTreat") as typeof import("./minigameTrickOrTreat");
 const { startTreasureHuntGame } = require("./minigameTreasureHunt") as typeof import("./minigameTreasureHunt");
 const { startStandardMemoryEmojiGame } = require("./minigameMemory") as typeof import("./minigameMemory");
 const { hasFindBotVoiceSession, shouldDeferTtsLeaveForFindBotVoiceMinigame, startFindBotGame, startFindBotVoiceGame } = require("./minigameFindBot") as typeof import("./minigameFindBot");
-const { startHalloweenQuizGame, startHalloweenFindGhostGame, startHalloweenMissingEmojiGame, startHalloweenCountBatsGame } = require("./minigameHalloweenGames") as typeof import("./minigameHalloweenGames");
 const { startGuessNumberGame, startGuessWordGame, startGuessFlagGame, startGuessPlayerGame, startGuessSongGame, startGuessCapitalGame, startGuessRegionCapitalGame, startGuessReverseCapitalGame, startFastTypeGame, startGuessTeamGame, startGuessSingerGame, startGuessAlbumGame, startHangmanGame, startItalianGkGame, startDrivingQuizGame, startMathExpressionGame, startGuessYearGame, startCompleteVerseGame, startGuessEmojiGame, startQuoteFilmGame, startCompleteProverbGame, startSynonymAntonymGame, startGuessCityGame } = require("./minigameQuizGames") as typeof import("./minigameQuizGames");
 const { restoreActiveGames } = require("./minigameRestore") as typeof import("./minigameRestore");
 const { isStaleOrInvalidActiveGame, closeStaleActiveMinigameChannel, handleMinigameReaction, handleMinigameMessage, handleMinigameButton, isMinigameFloodExemptChannel, handleMinigameVoiceState } = require("./minigameHandlers") as typeof import("./minigameHandlers");
@@ -59,6 +41,26 @@ const MINIGAME_LAST_MINUTE = 45;
 const MINIGAME_SLOT_MINUTES = [0, 15, 30, 45];
 let lastMinigameSlotKey = null;
 const MINIGAME_INTERVAL_SLOT_SLACK_MS = Math.max(0, Math.min(5 * 60 * 1000, Number(process.env.MINIGAME_INTERVAL_SLOT_SLACK_MS ?? 90_000)));
+const HALLOWEEN_STARTER_GAME_TYPES = new Set([
+  "halloweenFindGhost",
+  "halloweenQuiz",
+  "halloweenMissingEmoji",
+  "halloweenCountBats",
+  "halloweenTrickOrTreat",
+]);
+
+async function startHalloweenTrickOrTreatGameForAlternate(client?, cfg?) {
+  try {
+    const { startHalloweenTrickOrTreatGameForAlternate: startTot } =
+      require("./minigameTrickOrTreat") as typeof import("./minigameTrickOrTreat");
+    return Boolean(await startTot(client, cfg));
+  } catch (err) {
+    warnMinigame(err);
+    return false;
+  }
+}
+
+async function processHalloweenMinigamesShowcaseForce(_client?) {}
 
 function isMinigameFixedSlot(rome?, client = null) {
   const { hour, minute } = rome;
@@ -122,22 +124,16 @@ function isMainChatMinigameChannelBusy() {
 }
 
 function hasAnyActiveMinigame() {
-  for (const [key, game] of activeGames.entries()) {
-    if (isTrickOrTreatMapKey(key) || game?.type === "halloweenTrickOrTreat") continue;
+  for (const [, game] of activeGames.entries()) {
+    if (game?.type === "halloweenTrickOrTreat") continue;
     return true;
   }
   return startingChannels.size > 0 || channelWinClosing.size > 0 || pendingGames.size > 0;
 }
 
-function realChannelIdFromTotMapKey(key?) {
-  const k = String(key || "");
-  if (k.endsWith(TOT_MAP_SUFFIX)) return k.slice(0, -TOT_MAP_SUFFIX.length);
-  return k;
-}
-
 async function safeStartGameByType(client?, cfg?, gameType?) {
   try {
-    if (shouldUseHalloweenTheme(cfg) && !isHalloweenMinigameType(gameType)) return false;
+    if (HALLOWEEN_STARTER_GAME_TYPES.has(String(gameType || ""))) return false;
     if (gameType === "guessWord") return startGuessWordGame(client, cfg);
     if (gameType === "guessFlag") return startGuessFlagGame(client, cfg);
     if (gameType === "guessPlayer") return startGuessPlayerGame(client, cfg);
@@ -156,7 +152,6 @@ async function safeStartGameByType(client?, cfg?, gameType?) {
     if (gameType === "mathExpression")
       return startMathExpressionGame(client, cfg);
     if (gameType === "findBot") return startFindBotGame(client, cfg);
-    if (gameType === "halloweenFindGhost") return startHalloweenFindGhostGame(client, cfg);
     if (gameType === "findBotVoice") return startFindBotVoiceGame(client, cfg);
     if (gameType === "memoryEmoji") return startStandardMemoryEmojiGame(client, cfg);
     if (gameType === "guessNumber") return startGuessNumberGame(client, cfg);
@@ -168,10 +163,6 @@ async function safeStartGameByType(client?, cfg?, gameType?) {
     if (gameType === "synonymAntonym") return startSynonymAntonymGame(client, cfg);
     if (gameType === "guessCity") return startGuessCityGame(client, cfg);
     if (gameType === "treasureHunt") return startTreasureHuntGame(client, cfg);
-    if (gameType === "halloweenQuiz") return startHalloweenQuizGame(client, cfg);
-    if (gameType === "halloweenMissingEmoji") return startHalloweenMissingEmojiGame(client, cfg);
-    if (gameType === "halloweenCountBats") return startHalloweenCountBatsGame(client, cfg);
-    if (gameType === "halloweenTrickOrTreat") return startHalloweenTrickOrTreatGame(client, cfg);
     return false;
   } catch (error) {
     warnMinigame(error);
@@ -371,23 +362,13 @@ async function sweepExpiredMinigames(client?) {
   if (!cfg?.enabled) return;
   for (const [mapKey, game] of [...activeGames.entries()]) {
     if (!isStaleOrInvalidActiveGame(game)) continue;
-    if (game?.type === "halloweenTrickOrTreat" || isTrickOrTreatMapKey(mapKey)) {
-      const realCh = isTrickOrTreatMapKey(mapKey)
-        ? realChannelIdFromTotMapKey(mapKey)
-        : String(mapKey || "").trim();
-      const closeCfg = { ...cfg, channelId: realCh };
+    if (game?.type === "halloweenTrickOrTreat") {
+      const channelId = String(mapKey || "").trim();
+      const closeCfg = { ...cfg, channelId };
       if (!closeCfg.guildId && game?.guildId) closeCfg.guildId = String(game.guildId);
-      const channel = await getChannelCached(client, realCh);
       clearMinigameRoundTimers(game);
       activeGames.delete(mapKey);
-      await clearTrickOrTreatGame(client, closeCfg, game).catch((err?) => warnMinigame(err));
-      const claimed = Object.keys(game?.claimedBy || {}).length;
-      if (channel) await removeTrickOrTreatButton(channel, game);
-      if (channel) {
-        await sendMinigameMessage(channel, {
-          embeds: [buildTrickOrTreatEndedEmbed(claimed)],
-        }).catch(() => {});
-      }
+      await closeStaleActiveMinigameChannel(client, closeCfg, channelId, game).catch((err?) => warnMinigame(err));
       continue;
     }
     const channelId = String(mapKey || "").trim();
@@ -489,28 +470,6 @@ function scheduleMinigameLoopTick(client?) {
   loopIntervals.set(client, timer);
 }
 
-/* halloween showcase → minigameHalloweenShowcaseService */
-try {
-  registerHalloweenShowcaseDeps({
-    getConfig,
-    clearGameForChannel,
-    clearActiveGame,
-    startHalloweenTrickOrTreatGame,
-    safeStartGameByType,
-    getChannelCached,
-    normalizeRewardExp,
-    buildPromptImageAttachment,
-    buildFindBotEmbed,
-    formatItalianMinutesBold,
-    sendMinigameRolePing,
-    sendMinigameMessage,
-    buildHalloweenFindGhostFoundEmbed,
-    warnMinigame,
-  });
-} catch (err) {
-  global.logger?.warn?.("[MINIGAMES] halloween showcase deps:", err?.message || err);
-}
-
 function startMinigameLoop(client?) {
   if (loopState.has(client)) return;
   loopState.add(client);
@@ -520,14 +479,6 @@ function startMinigameLoop(client?) {
     enabled: Boolean(cfg?.enabled),
   });
   scheduleMinigameLoopTick(client);
-  const showcaseTimer = setInterval(() => {
-    void processHalloweenMinigamesShowcaseForce(client).catch((err?) => warnMinigame(err));
-  }, 8_000);
-  showcaseTimer.unref?.();
-  client._halloweenShowcaseTimer = showcaseTimer;
-  setTimeout(() => {
-    void processHalloweenMinigamesShowcaseForce(client).catch((err?) => warnMinigame(err));
-  }, 4_000).unref?.();
 }
 
 async function forceStartMinigame(client?) {

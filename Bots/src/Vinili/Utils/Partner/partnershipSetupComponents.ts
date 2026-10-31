@@ -2,10 +2,10 @@ const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder
 const { getPartnershipConfigSync } = require("../../MultiGuild/core/tenantPartnershipSettings") as typeof import("../../MultiGuild/core/tenantPartnershipSettings");
 const { formatPingMemberThresholdForInput } = require("./partnershipPingUtils") as typeof import("./partnershipPingUtils");
 const { applyPartnershipPayloadBranding } = require("../../MultiGuild/utils/tenantEmbedBranding") as typeof import("../../MultiGuild/utils/tenantEmbedBranding");
-const { t } = require("./tenantPartnershipI18n/index") as typeof import("./tenantPartnershipI18n/index");
-const { TENANT_PARTNERSHIP_ARROWS } = require("./tenantPartnershipArrows") as typeof import("./tenantPartnershipArrows");
-const { formatPingsSummary, channelLine, roleLine } = require("./tenantPartnershipAdminRuntime") as typeof import("./tenantPartnershipAdminRuntime");
-const { applyLocalizedTenantFooter } = require("./tenantPartnershipI18n/tenantPartnershipFooter") as typeof import("./tenantPartnershipI18n/tenantPartnershipFooter");
+const { t } = require("../../MultiGuild/utils/Partner/tenantPartnershipI18n/index") as typeof import("../../MultiGuild/utils/Partner/tenantPartnershipI18n/index");
+const { TENANT_PARTNERSHIP_ARROWS } = require("../../MultiGuild/utils/Partner/tenantPartnershipArrows") as typeof import("../../MultiGuild/utils/Partner/tenantPartnershipArrows");
+const { formatPingsSummary, channelLine, roleLine } = require("../../MultiGuild/utils/Partner/tenantPartnershipAdminRuntime") as typeof import("../../MultiGuild/utils/Partner/tenantPartnershipAdminRuntime");
+const { applyLocalizedTenantFooter } = require("../../MultiGuild/utils/Partner/tenantPartnershipI18n/tenantPartnershipFooter") as typeof import("../../MultiGuild/utils/Partner/tenantPartnershipI18n/tenantPartnershipFooter");
 
 const PREFIX = "psetup";
 const MODAL_PREFIX = "psetup_modal";

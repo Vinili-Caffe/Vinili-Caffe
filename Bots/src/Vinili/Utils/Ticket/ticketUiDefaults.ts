@@ -3,7 +3,7 @@ const {
   DEFAULT_LANGUAGE,
   normalizeTenantLanguage,
   mapDiscordLocaleToTenantLanguage,
-} = require("../Partner/tenantPartnershipI18n/languages") as typeof import("../Partner/tenantPartnershipI18n/languages");
+} = require("../../MultiGuild/utils/Partner/tenantPartnershipI18n/languages") as typeof import("../../MultiGuild/utils/Partner/tenantPartnershipI18n/languages");
 
 const DEFAULT_TICKET_PANEL_TITLE = "Apri un ticket";
 const DEFAULT_TICKET_PANEL_COLOR = "#6F4E37";
@@ -81,7 +81,7 @@ function getDefaultWelcomeDescription(lang = DEFAULT_LANGUAGE) {
 
 function getDefaultTicketPanelFooter(lang = DEFAULT_LANGUAGE) {
   try {
-    const { t } = require("../Partner/tenantPartnershipI18n/index") as typeof import("../Partner/tenantPartnershipI18n/index");
+    const { t } = require("../../MultiGuild/utils/Partner/tenantPartnershipI18n/index") as typeof import("../../MultiGuild/utils/Partner/tenantPartnershipI18n/index");
     const text = String(t(lang, "footerCopyright") || "").trim();
     if (text && text !== "footerCopyright") return text;
   } catch (_) {}

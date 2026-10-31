@@ -1,4 +1,4 @@
-const { parseBadgesCustomId, handleBadgesNavInteraction } = require("../Prefix/Staff/badges") as typeof import("../Prefix/Staff/badges");
+const { parseBadgesCustomId, handleBadgesNavInteraction } = require("../Prefix/Partnership/badges") as typeof import("../Prefix/Partnership/badges");
 
 export = {
   name: "badgesNav",

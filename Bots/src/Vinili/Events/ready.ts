@@ -6,12 +6,8 @@ const { restorePendingVoteReminders, restorePendingDiscadiaReminders, restorePen
 const { shouldRunDiscadiaVoteMonthRepairOnStartup, repairDiscadiaVoteMonthRowsForMainGuild, startDiscadiaVoteMonthRolloverCron } = require("../Services/Bump/discadiaVoteMonthRepairOnStartupService") as typeof import("../Services/Bump/discadiaVoteMonthRepairOnStartupService");
 const { processAllRecentAutomationMessages } = require("../Utils/Message/officialMessageAutomationHandlers") as typeof import("../Utils/Message/officialMessageAutomationHandlers");
 const { recoverMissedTopggVotesOnStartup } = require("../Services/Bump/topggVoteRecoveryOnStartupService") as typeof import("../Services/Bump/topggVoteRecoveryOnStartupService");
-const { processPendingCountingMessages, restoreWelcomeSessionsFromDb } = require("../Utils/Message/officialMessageCommunityHandlers") as typeof import("../Utils/Message/officialMessageCommunityHandlers");
-const { rehydrateCountingChannelBans } = require("../Utils/Community/countingChannelBanService") as typeof import("../Utils/Community/countingChannelBanService");
-const {
-  hydrateCountingRestoreTokens,
-  startCountingRestoreMaintenance,
-} = require("../Utils/Community/countingRestoreService") as typeof import("../Utils/Community/countingRestoreService");
+const { restoreWelcomeSessionsFromDb } = require("../Utils/Message/officialMessageCommunityHandlers") as typeof import("../Utils/Message/officialMessageCommunityHandlers");
+/* counting → archivio/codice-morto (ChannelBan/Restore + Buttons/countingRestore) */
 const { bootstrapSupporter, recoverSupporterStatusAnnouncesOnStartup } = require("./presenceUpdate") as typeof import("./presenceUpdate");
 const { restoreTtsConnections } = require("../Services/TTS/ttsService") as typeof import("../Services/TTS/ttsService");
 const { runDueChannelReminders, } = require("../Services/Reminders/channelReminderService") as typeof import("../Services/Reminders/channelReminderService");
@@ -33,7 +29,7 @@ const { syncPmVoiceAfkWatchFromGateway, startPmVoiceAfkWatchLoop, } = require(".
 const { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop, } = require("../Services/Community/customRoleExpiryService") as typeof import("../Services/Community/customRoleExpiryService");
 const { startDailyPartnerAuditLoop, } = require("../Services/Partner/partnerAuditService") as typeof import("../Services/Partner/partnerAuditService");
 const { syncPartnerDescription } = require("../Services/Partner/partnerDescriptionSyncService") as typeof import("../Services/Partner/partnerDescriptionSyncService");
-const { syncAllTenantPartnerDescriptions } = require("../Services/Partner/tenantPartnerDescriptionService") as typeof import("../Services/Partner/tenantPartnerDescriptionService");
+const { syncAllTenantPartnerDescriptions } = require("../MultiGuild/services/Partner/tenantPartnerDescriptionService") as typeof import("../MultiGuild/services/Partner/tenantPartnerDescriptionService");
 const { startStaffChatThreadsLoop } = require("../Services/Staff/staffChatThreadsService") as typeof import("../Services/Staff/staffChatThreadsService");
 const { startStaffCmdsThreadsLoop } = require("../Services/Staff/staffCmdsThreadsService") as typeof import("../Services/Staff/staffCmdsThreadsService");
 const { startPublicVoiceHubSetup } = require("../Services/Voice/publicVoiceHubService") as typeof import("../Services/Voice/publicVoiceHubService");
@@ -48,8 +44,7 @@ const { startGameNewsAlertLoop } = require("../Services/Community/gameNewsAlertS
 const { startStreamerStageGuardLoop } = require("../Services/Community/streamerStageGuardService") as typeof import("../Services/Community/streamerStageGuardService");
 const { startContestPrizeMaintenanceCron } = require("../Services/Community/contestPrizeMaintenanceService") as typeof import("../Services/Community/contestPrizeMaintenanceService");
 const { startStaffWarnResetLoop } = require("../Services/Staff/staffWarnService") as typeof import("../Services/Staff/staffWarnService");
-const { runStaffWarnChannelMigrationOnStartup } = require("../Services/Staff/staffWarnChannelMigrationService") as typeof import("../Services/Staff/staffWarnChannelMigrationService");
-const { runStaffNegativesWarnConversionMigrationOnStartup } = require("../Services/Staff/staffNegativesWarnConversionMigrationService") as typeof import("../Services/Staff/staffNegativesWarnConversionMigrationService");
+/* staffWarnChannelMigration + staffNegativesWarnConversion → archivio/codice-morto (one-shot fatti) */
 const { startStaffAutoValutazioniLoop, syncAllStaffAutoValutazioni, restoreActiveSerataFilmSessions, cleanupMalformedAutoValutazioni } = require("../Services/Staff/staffAutoValutazioniService") as typeof import("../Services/Staff/staffAutoValutazioniService");
 const { reconcileResocontoReviewerRewardAutoValutazioni } = require("../Services/Staff/resocontoReviewerRewardService") as typeof import("../Services/Staff/resocontoReviewerRewardService");
 const { purgeDuplicateCompitoSettimanaleValutazioni } = require("../Services/Staff/compitoSettimanaleDuplicatePurgeService") as typeof import("../Services/Staff/compitoSettimanaleDuplicatePurgeService");
@@ -258,16 +253,7 @@ function buildDeferredStartupTasks(client?, primaryScheduler?, engagementTick?) 
       enabled: true,
       run: () => restoreCoreStartupState(client),
     },
-    {
-      label: "reconcile orphan ticket channels",
-      weight: 11,
-      enabled: primaryScheduler && (fullSync || shouldRunMediumStartup("orphan-tickets", STARTUP_MEDIUM_TTL_MS)),
-      run: async () => {
-        const { reconcileOrphanTicketsOnStartup } = require("../Services/Ticket/ticketOrphanReconcileService") as typeof import("../Services/Ticket/ticketOrphanReconcileService");
-        await reconcileOrphanTicketsOnStartup(client);
-        markMediumStartup("orphan-tickets");
-      },
-    },
+    /* orphan ticket reconcile → archivio/codice-morto (main Discord tickets site-only) */
     {
       label: "startup sync queue",
       weight: 12,
@@ -599,21 +585,6 @@ function buildDeferredStartupTasks(client?, primaryScheduler?, engagementTick?) 
             `[dm-banned-unban] completed: sent=${result.sent} failed=${result.failed} target=${result.target}`,
           );
         }
-      },
-    },
-    {
-      label: "staff warn channel migration",
-      weight: 74,
-      enabled: primaryScheduler && fullSync,
-      run: () => runStaffWarnChannelMigrationOnStartup(client),
-    },
-    {
-      label: "staff negatives→warn conversion migration",
-      weight: 75,
-      enabled: primaryScheduler && (fullSync || shouldRunMediumStartup("staff-neg-warn-migration", STARTUP_MEDIUM_TTL_MS)),
-      run: async () => {
-        await runStaffNegativesWarnConversionMigrationOnStartup(client);
-        markMediumStartup("staff-neg-warn-migration");
       },
     },
     {
@@ -1415,7 +1386,7 @@ export = {
       try {
         const {
           startPartnershipHistoryMigrationWorker,
-        } = require("../Services/Partner/tenantPartnershipHistoryMigrationService") as typeof import("../Services/Partner/tenantPartnershipHistoryMigrationService");
+        } = require("../MultiGuild/services/Partner/tenantPartnershipHistoryMigrationService") as typeof import("../MultiGuild/services/Partner/tenantPartnershipHistoryMigrationService");
         startPartnershipHistoryMigrationWorker(client);
       } catch (err) {
         global.logger?.error?.("[PARTNERSHIP HISTORY MIGRATION WORKER]", err);
@@ -1513,21 +1484,6 @@ export = {
     }
 
     void processPendingPrefixCommands(client).catch((err?) => global.logger?.warn?.("[READY] pending commands:", err?.message || err));
-    void processPendingCountingMessages(client).catch((err?) => global.logger?.warn?.("[READY] counting catch-up:", err?.message || err));
-    void rehydrateCountingChannelBans(client).catch((err?) =>
-      global.logger?.warn?.("[READY] counting channel bans rehydrate:", err?.message || err),
-    );
-    void hydrateCountingRestoreTokens(client).catch((err?) =>
-      global.logger?.warn?.("[READY] counting restore tokens hydrate:", err?.message || err),
-    );
-    startCountingRestoreMaintenance(client);
-    const countingCatchUpRetry = setTimeout(() => {
-      void processPendingCountingMessages(client).catch((err?) =>
-        global.logger?.warn?.("[READY] counting catch-up retry:", err?.message || err),
-      );
-    }, STARTUP_PANELS_RETRY_MS);
-    countingCatchUpRetry.unref?.();
-
     if (primaryScheduler) {
       void runStartupPanels(client, "ready").catch(() => { });
             if (envFlagEnabled("STARTUP_PANELS_RETRY")) {

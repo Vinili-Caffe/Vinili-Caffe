@@ -6,7 +6,7 @@ const {
   listPartnershipBlacklistGuilds,
 } = require("../Services/Partner/partnershipBlacklistService") as typeof import("../Services/Partner/partnershipBlacklistService");
 const { extractInviteCode, fetchInviteGuildMeta } = require("../Utils/Partner/partnershipBlacklistDisplay") as typeof import("../Utils/Partner/partnershipBlacklistDisplay");
-const blacklistCommand = require("../Prefix/Staff/blacklist") as typeof import("../Prefix/Staff/blacklist");
+const blacklistCommand = require("../Prefix/Partnership/blacklist") as typeof import("../Prefix/Partnership/blacklist");
 const { safePanelMessageUpdate, safeMessageEdit } = require("../../shared/discord/replyRuntime") as typeof import("../../shared/discord/replyRuntime");
 const { partnersChatPartnerCommandDeniedReplyContent, schedulePartnersDeniedDeleteReply } = require("../Utils/Partner/partnersChatChannelUtils") as typeof import("../Utils/Partner/partnersChatChannelUtils");
 const PREFIX = "blacklist_ui";

@@ -528,7 +528,7 @@ async function handlePmStaffPartnershipWipeOnLeave(member?, client?) {
   if (!guild?.id || String(guild.id) !== String(MAIN_GUILD_ID)) return;
   if (!PARTNER_MANAGER_ROLE_ID || !member.roles?.cache?.has(PARTNER_MANAGER_ROLE_ID)) return;
 
-  const { deletePartnershipsForPmStaffLeave } = require("../Services/Partner/tenantPartnershipDeleteService") as typeof import("../Services/Partner/tenantPartnershipDeleteService");
+  const { deletePartnershipsForPmStaffLeave } = require("../MultiGuild/services/Partner/tenantPartnershipDeleteService") as typeof import("../MultiGuild/services/Partner/tenantPartnershipDeleteService");
   const removed = await deletePartnershipsForPmStaffLeave(
     guild,
     member.id,

@@ -1,0 +1,107 @@
+{
+  "hogwartsSortingApiUrl": "/webhooks/site-hogwarts-sorting",
+  "hogwartsSortingApiUrlLocal": "http://127.0.0.1:3042/webhooks/site-hogwarts-sorting",
+  "hogwartsEvent": {
+    "enabled": false,
+    "previewMode": false,
+    "startDate": "2026-06-01T14:00:00",
+    "sortingStartDate": "2026-06-01T12:00:00",
+    "endDate": "2026-09-01T12:00:00",
+    "sortingLogChannelId": "1507685351102353448",
+    "introVideoDurationSec": 12.2,
+    "introVideoTrimEndSec": 0,
+    "calendar": {
+      "timezone": "Europe/Rome"
+    }
+  },
+  "hogwartsHousePoints": {
+    "pollIntervalMs": 15000,
+    "maxPoints": 100000,
+    "scaleStops": [
+      500,
+      1000,
+      2500,
+      5000,
+      10000,
+      25000,
+      50000,
+      100000
+    ],
+    "gryffindor": 0,
+    "ravenclaw": 0,
+    "hufflepuff": 0,
+    "slytherin": 0,
+    "schoolYear": {
+      "title": "Clessidre dell'anno scolastico",
+      "subtitle": "Punti raccolti nella fascia scolastica attiva in questo momento.",
+      "periods": [
+        {
+          "label": "1° anno",
+          "range": "1 - 14 giugno 2026",
+          "startDate": "2026-06-01",
+          "endDate": "2026-06-14"
+        },
+        {
+          "label": "2° anno",
+          "range": "15 - 28 giugno 2026",
+          "startDate": "2026-06-15",
+          "endDate": "2026-06-28"
+        },
+        {
+          "label": "3° anno",
+          "range": "29 giugno - 12 luglio 2026",
+          "startDate": "2026-06-29",
+          "endDate": "2026-07-12"
+        },
+        {
+          "label": "4° anno",
+          "range": "13 - 26 luglio 2026",
+          "startDate": "2026-07-13",
+          "endDate": "2026-07-26"
+        },
+        {
+          "label": "5° anno",
+          "range": "27 luglio - 9 agosto 2026",
+          "startDate": "2026-07-27",
+          "endDate": "2026-08-09"
+        },
+        {
+          "label": "6° anno",
+          "range": "10 - 23 agosto 2026",
+          "startDate": "2026-08-10",
+          "endDate": "2026-08-23"
+        },
+        {
+          "label": "7° anno",
+          "range": "24 - 30 agosto 2026",
+          "startDate": "2026-08-24",
+          "endDate": "2026-08-30"
+        }
+      ],
+      "gryffindor": 0,
+      "ravenclaw": 0,
+      "hufflepuff": 0,
+      "slytherin": 0
+    },
+    "eventTotal": {
+      "title": "Clessidre dell'intero evento",
+      "subtitle": "Totale complessivo accumulato da ogni casa durante tutta la durata dell'evento Hogwarts.",
+      "gryffindor": 0,
+      "ravenclaw": 0,
+      "hufflepuff": 0,
+      "slytherin": 0
+    }
+  },
+  "hogwartsBgm": {
+    "youtube": {
+      "videoUrls": [
+        "https://www.youtube.com/watch?v=pDst9A3sqis"
+      ]
+    },
+    "baseVolume": 0.34
+  },
+  "seratafilmEvent_hogwartsThemeVideoUrl": "",
+  "seratafilmBgm_eventVideoUrls": [
+    "https://www.youtube.com/watch?v=pDst9A3sqis"
+  ]
+}

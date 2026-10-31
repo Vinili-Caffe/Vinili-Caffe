@@ -11,7 +11,6 @@ const { sendMinigameMessage } = require("./minigameDiscord") as typeof import(".
 const { treasureHuntDisplayTexts, getTreasureHuntMessageUrl } = require("./minigameTreasureEmoji") as typeof import("./minigameTreasureEmoji");
 const { resolveMinigameGuildIdAsync, parseStateTarget, buildMinigameTimeoutEmbedForGame, buildGameSnapshotFromPersistedState, closeExpiredMinigameState, sendMinigameTimeoutAndClose, scheduleMinuteHint, scheduleGenericHint } = require("./minigameRound") as typeof import("./minigameRound");
 const { getConfig, loadRotationState } = require("./minigameConfig") as typeof import("./minigameConfig");
-const { mountRestoredTrickOrTreat, restoreTrickOrTreatSideSlot } = require("./minigameTrickOrTreat") as typeof import("./minigameTrickOrTreat");
 const { mountTreasureHuntGame } = require("./minigameTreasureHunt") as typeof import("./minigameTreasureHunt");
 const { mountMemoryEmojiGameFromState } = require("./minigameMemory") as typeof import("./minigameMemory");
 const { scheduleFindMinigameTimeout, joinFindBotVoiceChannel } = require("./minigameFindBot") as typeof import("./minigameFindBot");
@@ -26,10 +25,6 @@ async function restoreActiveGames(client?) {
   if (!channel) channel = await getChannelCached(client, cfg.channelId);
   await loadRotationState(client, { ...cfg, guildId }, guildId);
   const restoreCfg = { ...cfg, guildId };
-  // ToT su slot dedicato: resta attivo anche se Impiccato occupa lo slot minigioco.
-  if (channel?.guild) {
-    await restoreTrickOrTreatSideSlot(client, restoreCfg, channel).catch((err?) => warnMinigame(err));
-  }
   const state = await minigameStateFindOneLean({ guildId, channelId: cfg.channelId, }).catch(() => null);
   if (!state) return;
   const now = Date.now();
@@ -348,8 +343,8 @@ async function restoreActiveGames(client?) {
     return;
   }
   if (state.type === "halloweenTrickOrTreat") {
-    // Legacy: ToT era sullo slot minigioco → migra sul side slot
-    await mountRestoredTrickOrTreat(client, restoreCfg, channel, state);
+    if (channel) await closeExpiredMinigameState(client, restoreCfg, channel, state);
+    else await clearActiveGame(client, restoreCfg);
     return;
   }
   if (state.type === "memoryEmoji") {

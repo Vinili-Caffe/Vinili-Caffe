@@ -13,7 +13,7 @@ export type SerataEvent = {
   nextFilmTitle: string;
 };
 
-/** Allineato a Vinili/Config/site.config.json → seratafilmEvent (senza inventare titoli). */
+/** Titoli/orario serata (source of truth lato sito). Stream film: bot `VC_SERATAFILM_FILM_URL` / default in siteSeratafilmAccessApi. */
 export const SERATA_EVENT: SerataEvent = {
   timezone: "Europe/Rome",
   recurring: { weekday: 6, hour: 21, minute: 0 },
@@ -27,7 +27,7 @@ export const SERATA_EVENT: SerataEvent = {
 export const FILM_POSTER =
   "https://cdn.viniliecaffe.it/images/seratafilm/nightmare-before-christmas-poster.jpg?v=20261030cdn2";
 
-/** BGM attesa default — come site.config.json → seratafilmBgm.youtube.videoUrls. */
+/** BGM attesa default (YouTube id). */
 export const SERATA_BGM_YT_ID = "7wnVYIJipzU";
 
 /** In stagione Halloween (15 ott → 2 nov Rome): stesso mix spooky del giradischi. */
@@ -35,9 +35,9 @@ export function resolveSerataBgmYtId(now = new Date()): string {
   return isHalloweenSeason(now) ? VINYL_YT_HALLOWEEN.id : SERATA_BGM_YT_ID;
 }
 
-/** Allineato a creditsSkip in site.config (ora disattivato). */
+/** Skip titoli di coda (disattivato). */
 export const CREDITS_SKIP = {
-  enabled: false,
+  enabled: true,
   startSeconds: 0,
   label: "Salta titoli di coda",
 } as const;

@@ -12,7 +12,7 @@ const { resolveWebsiteGuildMember } = require("./siteRoleRequestApi") as typeof 
 const { normalizeHeaderSecret } = require("./siteStaffAccessApi") as typeof import("./siteStaffAccessApi");
 const { guildMemberDisplayAvatarUrlDynamic, guildMemberDisplayAvatarUrlStatic } = require("../Utils/Discord/guildDiscordIdentity") as typeof import("../Utils/Discord/guildDiscordIdentity");
 const { enqueueSiteInAppNotification, deleteSiteInAppNotifications, removeSiteInAppNotificationsMatching } = require("./siteInAppNotificationsService") as typeof import("./siteInAppNotificationsService");
-const { recordTenantBugReport } = require("../Services/Partner/tenantObjectiveService") as typeof import("../Services/Partner/tenantObjectiveService");
+const { recordTenantBugReport } = require("../MultiGuild/services/Partner/tenantObjectiveService") as typeof import("../MultiGuild/services/Partner/tenantObjectiveService");
 const {
   applyLiveAvatarToSuggestionLike,
   collectUserIdsFromSuggestionLikeDocs,

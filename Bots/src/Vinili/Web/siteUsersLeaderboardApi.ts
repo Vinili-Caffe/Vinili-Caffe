@@ -1701,24 +1701,6 @@ async function buildProfileSearchPayload(client?, guildId?, searchId?) {
   const effectiveJoined = null;
   const romeToday = getRomeDateParts();
   const publicBirthday = buildPublicBirthdayPayload(doc?.profile?.birthday, romeToday);
-  let halloweenCandy = null;
-  try {
-    const { buildHalloweenCandyProfileSection } = require("../Services/Community/halloweenCandyService") as typeof import("../Services/Community/halloweenCandyService");
-    let forceCandyPreview = false;
-    try {
-      const { memberIsHighStaffEligible } = require("../Utils/Staff/staffRoleHierarchy") as typeof import("../Utils/Staff/staffRoleHierarchy");
-      forceCandyPreview = Boolean(member && memberIsHighStaffEligible(member));
-    } catch {
-      forceCandyPreview = false;
-    }
-    halloweenCandy = buildHalloweenCandyProfileSection(doc?.profile?.events?.halloween?.candy, client, "", {
-      forceVisible: forceCandyPreview,
-      guildId: guildId || guild?.id || "",
-    });
-  } catch {
-    halloweenCandy = null;
-  }
-
   return {
     ok: true,
     search: true,
@@ -1751,7 +1733,6 @@ async function buildProfileSearchPayload(client?, guildId?, searchId?) {
       ...(publicBirthday ? { birthday: publicBirthday } : {}),
       ...(Array.isArray(weeklyMultiplierSources) ? { weeklyMultiplierSources } : {}),
       ...(Number.isFinite(Number(expMultiplierResolved)) ? { expMultiplierResolved: Number(expMultiplierResolved) } : {}),
-      ...(halloweenCandy ? { halloweenCandy } : {}),
     },
     rows,
   };

@@ -1,14 +1,14 @@
 const { SlashCommandBuilder, MessageFlags } = require("discord.js") as typeof import("discord.js");
 const { safeReply } = require("../../../shared/discord/replyRuntime") as typeof import("../../../shared/discord/replyRuntime");
 const { isPartnershipOperational } = require("../../Utils/Partner/partnershipConfigResolver") as typeof import("../../Utils/Partner/partnershipConfigResolver");
-const { replyInteractionSetupRequired } = require("../../Utils/Partner/tenantSetupRequiredReply") as typeof import("../../Utils/Partner/tenantSetupRequiredReply");
+const { replyInteractionSetupRequired } = require("../../MultiGuild/utils/Partner/tenantSetupRequiredReply") as typeof import("../../MultiGuild/utils/Partner/tenantSetupRequiredReply");
 const {
   memberCanManageTenantPartnershipSettings,
   TENANT_PARTNERSHIP_ADMIN_DENIED_MESSAGE,
-} = require("../../Utils/Partner/tenantPartnershipAdminAccess") as typeof import("../../Utils/Partner/tenantPartnershipAdminAccess");
+} = require("../../MultiGuild/utils/Partner/tenantPartnershipAdminAccess") as typeof import("../../MultiGuild/utils/Partner/tenantPartnershipAdminAccess");
 const { isViniliFullFeatureGuild } = require("../../MultiGuild/core/guildFeatureScope") as typeof import("../../MultiGuild/core/guildFeatureScope");
 const { normalizePartnershipLogId } = require("../../Utils/Partner/partnershipLogMessageUtils") as typeof import("../../Utils/Partner/partnershipLogMessageUtils");
-const { deletePartnershipByGlobalLogId } = require("../../Services/Partner/tenantPartnershipDeleteService") as typeof import("../../Services/Partner/tenantPartnershipDeleteService");
+const { deletePartnershipByGlobalLogId } = require("../../MultiGuild/services/Partner/tenantPartnershipDeleteService") as typeof import("../../MultiGuild/services/Partner/tenantPartnershipDeleteService");
 
 const EPHEMERAL = MessageFlags.Ephemeral;
 

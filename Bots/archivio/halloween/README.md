@@ -1,9 +1,17 @@
 # Plugin evento halloween
 
 Codice sotto `archivio/halloween/src/Vinili/` (layout Hogwarts).
-Shim in `src/Vinili/…` re-exportano da qui.
-Register: `EventPlugins/halloween/`.
 
+## Live (`Bots/src/Vinili`)
+
+**Shim rimasti (solo plugin):**
+- `EventPlugins/halloween/register.ts`
+- `EventPlugins/halloween/runtimeKillSwitch.ts`
+
+**Stub locale (evento staccato):**
+- `Utils/Minigames/halloweenMinigameHooks.ts` — export invariati, tutti i gate Halloween disattivati; bank vuote.
+
+**Rimosso dal live** (solo in archivio sotto):
 - `Data/Minigames/halloweenMinigameBanks.ts`
 - `Services/Community/halloweenCandyService.ts`
 - `Services/Community/halloweenEmojiHuntService.ts`
@@ -16,7 +24,6 @@ Register: `EventPlugins/halloween/`.
 - `Utils/Minigames/halloweenCandyAlternate.ts`
 - `Utils/Minigames/halloweenEmojiHuntUi.ts`
 - `Utils/Minigames/halloweenFindGhostUi.ts`
-- `Utils/Minigames/halloweenMinigameHooks.ts`
 - `Utils/Minigames/halloweenTrickOrTreatUi.ts`
-- `EventPlugins/halloween/runtimeKillSwitch.ts`
-- `EventPlugins/halloween/register.ts`
+
+Riattivazione: ripristinare shim + wiring minigame/reazioni/API profilo come in archivio.

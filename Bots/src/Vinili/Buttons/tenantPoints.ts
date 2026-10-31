@@ -14,14 +14,14 @@ const {
   buildTenantPointsModal,
   buildTenantPointsPayload,
   parsePointsAmount,
-} = require("../Utils/Partner/tenantPointsRuntime") as typeof import("../Utils/Partner/tenantPointsRuntime");
+} = require("../MultiGuild/utils/Partner/tenantPointsRuntime") as typeof import("../MultiGuild/utils/Partner/tenantPointsRuntime");
 const { safeMessageEdit } = require("../../shared/discord/replyRuntime") as typeof import("../../shared/discord/replyRuntime");
 const {
   partnersChatPartnerCommandDeniedReplyContent,
   schedulePartnersDeniedDeleteReply,
 } = require("../Utils/Partner/partnersChatChannelUtils") as typeof import("../Utils/Partner/partnersChatChannelUtils");
 const { resolvePointsCustomLogChannelId } = require("../Utils/Partner/partnershipConfigResolver") as typeof import("../Utils/Partner/partnershipConfigResolver");
-const { resolveTenantLanguageForInteraction } = require("../Utils/Partner/tenantPartnershipPrefixMessages") as typeof import("../Utils/Partner/tenantPartnershipPrefixMessages");
+const { resolveTenantLanguageForInteraction } = require("../MultiGuild/utils/Partner/tenantPartnershipPrefixMessages") as typeof import("../MultiGuild/utils/Partner/tenantPartnershipPrefixMessages");
 
 const EPHEMERAL = 1 << 6;
 

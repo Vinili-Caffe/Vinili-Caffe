@@ -467,7 +467,7 @@ async function setPartnerDescChannel(guildId?, channelId?) {
   const id = channelId ? normalizeChannelId(channelId) : null;
   if (channelId && !id) return { ok: false, reason: "invalid_channel" };
   if (!id) return clearPartnerDesc(guildId);
-  const { clearTenantDescriptionCache } = require("../../Services/Partner/tenantPartnerDescriptionService") as typeof import("../../Services/Partner/tenantPartnerDescriptionService");
+  const { clearTenantDescriptionCache } = require("../services/Partner/tenantPartnerDescriptionService") as typeof import("../services/Partner/tenantPartnerDescriptionService");
   clearTenantDescriptionCache(guildId);
   return savePartnershipConfig(guildId, {
     partnerDesc: normalizePartnerDesc({
@@ -483,7 +483,7 @@ async function setPartnerDescStatic(guildId?, staticText?) {
   const text = String(staticText || "").replace(/\r\n/g, "\n").trim();
   if (!text) return { ok: false, reason: "empty_text" };
   if (text.length > 4000) return { ok: false, reason: "too_long" };
-  const { clearTenantDescriptionCache } = require("../../Services/Partner/tenantPartnerDescriptionService") as typeof import("../../Services/Partner/tenantPartnerDescriptionService");
+  const { clearTenantDescriptionCache } = require("../services/Partner/tenantPartnerDescriptionService") as typeof import("../services/Partner/tenantPartnerDescriptionService");
   clearTenantDescriptionCache(guildId);
   return savePartnershipConfig(guildId, {
     partnerDesc: normalizePartnerDesc({
@@ -496,7 +496,7 @@ async function setPartnerDescStatic(guildId?, staticText?) {
 }
 
 async function clearPartnerDesc(guildId?) {
-  const { clearTenantDescriptionCache } = require("../../Services/Partner/tenantPartnerDescriptionService") as typeof import("../../Services/Partner/tenantPartnerDescriptionService");
+  const { clearTenantDescriptionCache } = require("../services/Partner/tenantPartnerDescriptionService") as typeof import("../services/Partner/tenantPartnerDescriptionService");
   clearTenantDescriptionCache(guildId);
   return savePartnershipConfig(guildId, { partnerDesc: normalizePartnerDesc(null) });
 }
@@ -638,7 +638,7 @@ async function removePartnershipConfig(guildId?) {
   if (!saved) return { ok: false, reason: "persist_failed" };
   await refreshPartnershipConfigCache();
   try {
-    const { clearTenantDescriptionCache } = require("../../Services/Partner/tenantPartnerDescriptionService") as typeof import("../../Services/Partner/tenantPartnerDescriptionService");
+    const { clearTenantDescriptionCache } = require("../services/Partner/tenantPartnerDescriptionService") as typeof import("../services/Partner/tenantPartnerDescriptionService");
     clearTenantDescriptionCache(gid);
   } catch (_) {}
   return { ok: true };

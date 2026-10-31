@@ -12,7 +12,6 @@ const {
   rerollGiveawayByMessageId,
   scheduleGiveawayEnd,
 } = require("../../Services/Giveaway/giveawayService") as typeof import("../../Services/Giveaway/giveawayService");
-const { isConfigured: isMorgamesVerifyConfigured } = require("../../Services/Integrations/morgamesDiscordGiveawayVerify") as typeof import("../../Services/Integrations/morgamesDiscordGiveawayVerify");
 const EPHEMERAL_FLAG = 1 << 6;
 
 function parseMessageIdFromOption(value?) {
@@ -57,13 +56,7 @@ export = {
             .setRequired(false)
             .addChannelTypes(ChannelType.GuildText),
         )
-        .addUserOption((o?) => o.setName("host").setDescription("Utente che ospita il giveaway").setRequired(false))
-        .addBooleanOption((o?) =>
-          o
-            .setName("requisito_morgames")
-            .setDescription("Richiedi account Morgames collegato a Discord (default: no)")
-            .setRequired(false),
-        ),
+        .addUserOption((o?) => o.setName("host").setDescription("Utente che ospita il giveaway").setRequired(false)),
     )
     .addSubcommand((sub?) =>
       sub
@@ -118,7 +111,6 @@ export = {
       const hostUser = interaction.options.getUser("host") || interaction.user;
       const hostId = hostUser?.id;
       const hostTag = hostUser?.tag || "";
-      const requireMorgames = interaction.options.getBoolean("requisito_morgames") === true;
 
       if (!prize) {
         return safeEditReply(interaction, {
@@ -131,14 +123,6 @@ export = {
       if (!durationMs || durationMs < 60 * 1000) {
         return safeEditReply(interaction, {
           content: "<a:VC_Cross:1482532424570376253> Durata non valida. Usa ad es. `1h`, `24h`, `7d`.",
-          flags: EPHEMERAL_FLAG,
-        });
-      }
-
-      if (requireMorgames && !isMorgamesVerifyConfigured()) {
-        return safeEditReply(interaction, {
-          content:
-            "<a:VC_Cross:1482532424570376253> Requisito Morgames attivo ma manca `MORGAMES_DISCORD_GIVEAWAY_API_SECRET` sul bot. Configuralo e riprova.",
           flags: EPHEMERAL_FLAG,
         });
       }
@@ -162,7 +146,7 @@ export = {
           prize,
           durationMs,
           winnerCount,
-          requireMorgames,
+          requireMorgames: false,
         });
 
         const embed = buildGiveawayEmbed(giveaway);
@@ -179,9 +163,7 @@ export = {
         scheduleGiveawayEnd(interaction.client, giveaway._id.toString(), giveaway.endAt);
 
         return safeEditReply(interaction, {
-          content:
-            `<a:VC_Events:1482706144953897223> Giveaway creato in ${channel}. Termina tra ${durationStr}.` +
-            (requireMorgames ? " Requisito: account Morgames collegato a Discord." : ""),
+          content: `<a:VC_Events:1482706144953897223> Giveaway creato in ${channel}. Termina tra ${durationStr}.`,
           flags: EPHEMERAL_FLAG,
         });
       } catch (err) {

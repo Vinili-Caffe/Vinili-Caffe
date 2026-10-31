@@ -302,13 +302,8 @@ export = {
 
       try {
         const client = reaction.client || reaction.message?.client || user?.client;
-        try {
-          const { isHalloweenRuntimeDisabled } = require("../EventPlugins/halloween/runtimeKillSwitch") as typeof import("../EventPlugins/halloween/runtimeKillSwitch");
-          if (!isHalloweenRuntimeDisabled(client)) {
-            const halloweenHuntHandled = await handleHalloweenEmojiHuntReaction(client, reaction, user);
-            if (halloweenHuntHandled) return;
-          }
-        } catch (_) {}
+        const huntHandled = await handleHalloweenEmojiHuntReaction(client, reaction, user);
+        if (huntHandled) return;
         const handled = await handleMinigameReaction(client, reaction, user);
         if (handled) return;
         const ideaBugHandled = await handleIdeaBugReaction(reaction, user);

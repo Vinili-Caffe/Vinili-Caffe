@@ -2,11 +2,11 @@ const IDs = require("../Utils/Config/ids") as typeof import("../Utils/Config/ids
 const {
   listTenantStaffNotifications,
   countUnreadNotifications,
-} = require("../Services/Partner/tenantStaffNotificationService") as typeof import("../Services/Partner/tenantStaffNotificationService");
+} = require("../MultiGuild/services/Partner/tenantStaffNotificationService") as typeof import("../MultiGuild/services/Partner/tenantStaffNotificationService");
 const {
   getTenantProfilePrefs,
   updateTenantProfilePrefs,
-} = require("../Services/Partner/tenantProfilePreferencesService") as typeof import("../Services/Partner/tenantProfilePreferencesService");
+} = require("../MultiGuild/services/Partner/tenantProfilePreferencesService") as typeof import("../MultiGuild/services/Partner/tenantProfilePreferencesService");
 const { assertDashboardHighStaffAccess } = require("./siteDashboardApi") as typeof import("./siteDashboardApi");
 
 const LIST_LIMIT = 20;

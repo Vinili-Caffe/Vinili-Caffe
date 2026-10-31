@@ -6,7 +6,7 @@ const {
   shouldBlockTenantPartnershipPrefixCommands,
   shouldUseTenantStatsInfoRouting,
 } = require("../../Utils/Partner/partnershipConfigResolver") as typeof import("../../Utils/Partner/partnershipConfigResolver");
-const { memberCanManageTenantPartnershipSettings } = require("../../Utils/Partner/tenantPartnershipAdminAccess") as typeof import("../../Utils/Partner/tenantPartnershipAdminAccess");
+const { memberCanManageTenantPartnershipSettings } = require("../../MultiGuild/utils/Partner/tenantPartnershipAdminAccess") as typeof import("../../MultiGuild/utils/Partner/tenantPartnershipAdminAccess");
 const {
   partnersChatPartnerCommandDeniedReplyContent,
   sendPartnersChatDeniedPrefixCleanup,
@@ -14,13 +14,13 @@ const {
 const {
   parseUserInfoArgs,
   buildTenantUserInfoPayload,
-} = require("../../Utils/Partner/tenantUserInfoRuntime") as typeof import("../../Utils/Partner/tenantUserInfoRuntime");
+} = require("../../MultiGuild/utils/Partner/tenantUserInfoRuntime") as typeof import("../../MultiGuild/utils/Partner/tenantUserInfoRuntime");
 const {
   resolveTenantLanguageForMessage,
   tenantOnlyError,
   tenantNoPermissionError,
-} = require("../../Utils/Partner/tenantPartnershipPrefixMessages") as typeof import("../../Utils/Partner/tenantPartnershipPrefixMessages");
-const { replyPrefixSetupRequired } = require("../../Utils/Partner/tenantSetupRequiredReply") as typeof import("../../Utils/Partner/tenantSetupRequiredReply");
+} = require("../../MultiGuild/utils/Partner/tenantPartnershipPrefixMessages") as typeof import("../../MultiGuild/utils/Partner/tenantPartnershipPrefixMessages");
+const { replyPrefixSetupRequired } = require("../../MultiGuild/utils/Partner/tenantSetupRequiredReply") as typeof import("../../MultiGuild/utils/Partner/tenantSetupRequiredReply");
 
 function memberCanUseTenantUserInfo(member?, guild?) {
   const guildId = String(guild?.id || "").trim();

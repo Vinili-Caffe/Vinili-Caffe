@@ -486,7 +486,7 @@ async function executePrefixCommandRuntime({
       }),
     ]);
     try {
-      const { maybeApplyTenantEphemeralCommandCleanup } = require("../Partner/tenantProfileEphemeral") as typeof import("../Partner/tenantProfileEphemeral");
+      const { maybeApplyTenantEphemeralCommandCleanup } = require("../../MultiGuild/utils/Partner/tenantProfileEphemeral") as typeof import("../../MultiGuild/utils/Partner/tenantProfileEphemeral");
       void maybeApplyTenantEphemeralCommandCleanup(execMessage, cmdName);
     } catch (_) {}
   } catch (error) {

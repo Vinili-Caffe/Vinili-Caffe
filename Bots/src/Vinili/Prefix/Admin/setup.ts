@@ -1,7 +1,7 @@
 const { safePrefixPanelReply, safeMessageReply } = require("../../../shared/discord/replyRuntime") as typeof import("../../../shared/discord/replyRuntime");
 const { isViniliFullFeatureGuild } = require("../../MultiGuild/core/guildFeatureScope") as typeof import("../../MultiGuild/core/guildFeatureScope");
-const { memberCanManageTenantPartnershipSettings } = require("../../Utils/Partner/tenantPartnershipAdminAccess") as typeof import("../../Utils/Partner/tenantPartnershipAdminAccess");
-const { resolveTenantLanguageForMessage, tenantNoticePayload } = require("../../Utils/Partner/tenantPartnershipPrefixMessages") as typeof import("../../Utils/Partner/tenantPartnershipPrefixMessages");
+const { memberCanManageTenantPartnershipSettings } = require("../../MultiGuild/utils/Partner/tenantPartnershipAdminAccess") as typeof import("../../MultiGuild/utils/Partner/tenantPartnershipAdminAccess");
+const { resolveTenantLanguageForMessage, tenantNoticePayload } = require("../../MultiGuild/utils/Partner/tenantPartnershipPrefixMessages") as typeof import("../../MultiGuild/utils/Partner/tenantPartnershipPrefixMessages");
 const { refreshPartnershipConfigCache, getPartnershipConfigSync, isPartnershipSetupComplete } = require("../../MultiGuild/core/tenantPartnershipSettings") as typeof import("../../MultiGuild/core/tenantPartnershipSettings");
 const { buildStepPayload, buildSetupAlreadyCompletedEmbed } = require("../../Utils/Partner/partnershipSetupComponents") as typeof import("../../Utils/Partner/partnershipSetupComponents");
 

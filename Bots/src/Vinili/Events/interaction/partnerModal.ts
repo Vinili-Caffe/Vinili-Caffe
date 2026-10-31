@@ -6,9 +6,9 @@ const {
 } = require("../../Utils/Partner/partnershipConfigResolver") as typeof import("../../Utils/Partner/partnershipConfigResolver");
 const {
   executeTenantPartnership,
-} = require("../../Services/Partner/tenantPartnershipExecuteService") as typeof import("../../Services/Partner/tenantPartnershipExecuteService");
-const { replyInteractionSetupRequired } = require("../../Utils/Partner/tenantSetupRequiredReply") as typeof import("../../Utils/Partner/tenantSetupRequiredReply");
-const { resolvePartnershipDeferOptions } = require("../../Utils/Partner/tenantProfileEphemeral") as typeof import("../../Utils/Partner/tenantProfileEphemeral");
+} = require("../../MultiGuild/services/Partner/tenantPartnershipExecuteService") as typeof import("../../MultiGuild/services/Partner/tenantPartnershipExecuteService");
+const { replyInteractionSetupRequired } = require("../../MultiGuild/utils/Partner/tenantSetupRequiredReply") as typeof import("../../MultiGuild/utils/Partner/tenantSetupRequiredReply");
+const { resolvePartnershipDeferOptions } = require("../../MultiGuild/utils/Partner/tenantProfileEphemeral") as typeof import("../../MultiGuild/utils/Partner/tenantProfileEphemeral");
 
 async function handlePartnerModal(interaction?) {
   if (

@@ -10,7 +10,7 @@ const { handleStaffProofRequestMessage } = require("../Services/Staff/staffProof
 const { handleMainStaffAlertThreadMessage } = require("../Services/Staff/mainStaffAlertThreadService") as typeof import("../Services/Staff/mainStaffAlertThreadService");
 const { handleOfficialPrefixMessage } = require("../Utils/Prefix/officialPrefixDispatcher") as typeof import("../Utils/Prefix/officialPrefixDispatcher");
 const { channelAllowsMedia, getCachedOrFetchMember, handleDisboardBump, handleDiscadiaBump, handleMovieNightVoteMessage, handlePauseChannelMessage, handleSanzioniChannelMessage, handleThreadVoteMessage, handleVoteManagerMessage, hasMediaPermission, isDiscordInviteLinkMessage, isMediaMessage, } = require("../Utils/Message/officialMessageAutomationHandlers") as typeof import("../Utils/Message/officialMessageAutomationHandlers");
-const { handleAfk, handleCounting, handleMentionAutoReactions, handleMentionAutoResponses, handleWordReactions, logEventError, } = require("../Utils/Message/officialMessageCommunityHandlers") as typeof import("../Utils/Message/officialMessageCommunityHandlers");
+const { handleAfk, handleMentionAutoReactions, handleMentionAutoResponses, handleWordReactions, logEventError, } = require("../Utils/Message/officialMessageCommunityHandlers") as typeof import("../Utils/Message/officialMessageCommunityHandlers");
 const { runAutoModMessage } = require("../Services/Moderation/automodService") as typeof import("../Services/Moderation/automodService");
 const { handleCustomProfilePromptMessage } = require("./interaction/customRoleHandlers") as typeof import("./interaction/customRoleHandlers");
 const { handleTicketMemberPromptMessage } = require("../Utils/Ticket/ticketMemberPrompt") as typeof import("../Utils/Ticket/ticketMemberPrompt");
@@ -23,9 +23,9 @@ const { handlePartnerDescriptionMessageUpsert, isPartnerDescriptionChannel } = r
 const {
   handleTenantPartnerDescriptionMessageUpsert,
   isTenantPartnerDescriptionChannel,
-} = require("../Services/Partner/tenantPartnerDescriptionService") as typeof import("../Services/Partner/tenantPartnerDescriptionService");
+} = require("../MultiGuild/services/Partner/tenantPartnerDescriptionService") as typeof import("../MultiGuild/services/Partner/tenantPartnerDescriptionService");
 const { shouldDeleteHumanPartnershipsChannelMessage, isHumanPartnershipChannelMessage } = require("../Utils/Partner/partnerPointContextUtils") as typeof import("../Utils/Partner/partnerPointContextUtils");
-const { tryProcessManualPartnershipMessage } = require("../Services/Partner/tenantManualPartnershipService") as typeof import("../Services/Partner/tenantManualPartnershipService");
+const { tryProcessManualPartnershipMessage } = require("../MultiGuild/services/Partner/tenantManualPartnershipService") as typeof import("../MultiGuild/services/Partner/tenantManualPartnershipService");
 const STAFF_BYPASS_PERMISSIONS = [PermissionFlagsBits.Administrator, PermissionFlagsBits.ManageGuild, PermissionFlagsBits.ManageChannels, PermissionFlagsBits.ManageRoles, PermissionFlagsBits.ManageMessages, PermissionFlagsBits.KickMembers, PermissionFlagsBits.BanMembers, PermissionFlagsBits.ModerateMembers,];
 const FORCE_DELETE_CHANNEL_IDS = new Set([IDs.channels.messagesAutoDelete].filter(Boolean).map((id?) => String(id)));
 const MEDIA_BLOCK_EXEMPT_CATEGORY_ID = IDs.categories.categorChat;
@@ -626,7 +626,6 @@ export = {
           })(),
           handleMentionAutoReactions(message),
           handleMentionAutoResponses(message),
-          handleCounting(message, resolvedClient),
           handleWordReactions(message),
         ]).then((results?) => {
           const labels = [
@@ -635,7 +634,6 @@ export = {
             "PM AFK CHAT ERROR",
             "MENTION REACTION ERROR",
             "MENTION RESPONSE ERROR",
-            "COUNTING ERROR",
             "WORD REACTIONS ERROR",
           ];
           for (let i = 0; i < results.length; i += 1) {
@@ -645,8 +643,7 @@ export = {
           }
         });
 
-      /* perfP0: community + TTS fuori dal critical path (anche non-prefix).
-         Counting resta nel Promise.allSettled ma non blocca più il handler principale. */
+      /* perfP0: community + TTS fuori dal critical path (anche non-prefix). Counting archiviato. */
       setImmediate(() => {
         runCommunitySideEffects().catch(() => null);
       });

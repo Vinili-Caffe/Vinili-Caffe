@@ -16,7 +16,7 @@ const {
   snapshotGuildMeta,
 } = require("../Services/Moderation/botGuildLifecycleLogService") as typeof import("../Services/Moderation/botGuildLifecycleLogService");
 const { loadTenantRegistryMap } = require("../MultiGuild/core/tenantRegistryStore") as typeof import("../MultiGuild/core/tenantRegistryStore");
-const { handleTenantGuildBotRemoved } = require("../Services/Partner/tenantPartnershipLeaveService") as typeof import("../Services/Partner/tenantPartnershipLeaveService");
+const { handleTenantGuildBotRemoved } = require("../MultiGuild/services/Partner/tenantPartnershipLeaveService") as typeof import("../MultiGuild/services/Partner/tenantPartnershipLeaveService");
 const { guildIconUrl } = require("../Utils/Discord/guildDiscordIdentity") as typeof import("../Utils/Discord/guildDiscordIdentity");
 const {
   getPremiumCredits,

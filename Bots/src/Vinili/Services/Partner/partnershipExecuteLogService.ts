@@ -168,7 +168,7 @@ async function sendPartnershipDeleteLog({
   let managerBadgeEmojis = [];
   if (managerId && guild?.id) {
     try {
-      const { resolveManagerSelectedBadgeEmojis } = require("./tenantProfilePreferencesService") as typeof import("./tenantProfilePreferencesService");
+      const { resolveManagerSelectedBadgeEmojis } = require("../../MultiGuild/services/Partner/tenantProfilePreferencesService") as typeof import("../../MultiGuild/services/Partner/tenantProfilePreferencesService");
       managerBadgeEmojis = await resolveManagerSelectedBadgeEmojis(guild.id, managerId);
     } catch {
       managerBadgeEmojis = [];
@@ -264,7 +264,7 @@ async function sendPartnershipExecuteLog({
   let managerBadgeEmojis = [];
   if (managerId && guild?.id) {
     try {
-      const { resolveManagerSelectedBadgeEmojis } = require("./tenantProfilePreferencesService") as typeof import("./tenantProfilePreferencesService");
+      const { resolveManagerSelectedBadgeEmojis } = require("../../MultiGuild/services/Partner/tenantProfilePreferencesService") as typeof import("../../MultiGuild/services/Partner/tenantProfilePreferencesService");
       managerBadgeEmojis = await resolveManagerSelectedBadgeEmojis(guild.id, managerId);
     } catch {
       managerBadgeEmojis = [];

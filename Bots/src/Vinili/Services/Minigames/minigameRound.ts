@@ -2,7 +2,6 @@
 const { EmbedBuilder } = require("discord.js") as typeof import("discord.js");
 const { minigameStateFindOneLean, minigameStateFindOneAndUpdate, minigameStateDeleteOne } = require("../../Utils/BotState/domainStatesStore") as typeof import("../../Utils/BotState/domainStatesStore");
 const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
-const { buildTrickOrTreatEndedEmbed } = require("../../Utils/Minigames/halloweenTrickOrTreatUi") as typeof import("../../Utils/Minigames/halloweenTrickOrTreatUi");
 const { warnMinigame } = require("./minigameLog") as typeof import("./minigameLog");
 const { normalizeCountryName, buildPromptImageAttachment } = require("./minigameImages") as typeof import("./minigameImages");
 const { MINIGAME_EMBED_COLOR, buildHangmanEmbed, buildMinuteHintEmbed, buildGenericHintEmbed, buildWinEmbed, buildTimeoutNumberEmbed, buildTimeoutWordEmbed, buildTimeoutFlagEmbed, buildTimeoutPlayerEmbed, buildTimeoutSongEmbed, buildTimeoutFindBotEmbed, buildTimeoutFindBotVoiceEmbed, buildMemoryTimeoutEmbed, buildTimeoutCapitalEmbed, buildTimeoutRegionCapitalEmbed, buildTimeoutReverseCapitalEmbed, buildTimeoutFastTypeEmbed, buildTimeoutTeamEmbed, buildTimeoutSingerEmbed, buildTimeoutAlbumEmbed, buildTimeoutHangmanEmbed, buildTimeoutItalianGkEmbed, buildTimeoutDrivingQuizEmbed, buildTimeoutMathEmbed, buildTimeoutGuessYearEmbed, buildTimeoutCompleteVerseEmbed, buildTimeoutGuessEmojiEmbed, buildTimeoutQuoteFilmEmbed, buildTimeoutCompleteProverbEmbed, buildTimeoutSynonymAntonymEmbed, buildTimeoutGuessCityEmbed, buildTreasureHuntTimeoutEmbed } = require("./minigameEmbeds") as typeof import("./minigameEmbeds");
@@ -247,10 +246,11 @@ function buildMinigameTimeoutEmbedForGame(game?) {
         .setColor(MINIGAME_EMBED_COLOR)
         .setTitle("Tempo scaduto 🦇")
         .setDescription(`I pipistrelli erano **${game.displayAnswer || game.count || "?"}**.`);
-    case "halloweenTrickOrTreat": {
-      const claimed = Object.keys(game?.claimedBy || {}).length;
-      return buildTrickOrTreatEndedEmbed(claimed);
-    }
+    case "halloweenTrickOrTreat":
+      return new EmbedBuilder()
+        .setColor(MINIGAME_EMBED_COLOR)
+        .setTitle("Trick or Treat concluso")
+        .setDescription("Il round Halloween non è più attivo.");
     default:
       return null;
   }

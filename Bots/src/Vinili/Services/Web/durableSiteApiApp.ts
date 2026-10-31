@@ -563,7 +563,7 @@ async function main() {
     try {
       const {
         startPartnershipHistoryMigrationWorker,
-      } = require("../Partner/tenantPartnershipHistoryMigrationService") as typeof import("../Partner/tenantPartnershipHistoryMigrationService");
+      } = require("../../MultiGuild/services/Partner/tenantPartnershipHistoryMigrationService") as typeof import("../../MultiGuild/services/Partner/tenantPartnershipHistoryMigrationService");
       startPartnershipHistoryMigrationWorker(client);
     } catch (err) {
       console.warn("[SITE-API] partnership migration worker:", err?.message || err);

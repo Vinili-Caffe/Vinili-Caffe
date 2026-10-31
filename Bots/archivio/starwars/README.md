@@ -2,10 +2,14 @@
 
 Codice sotto `archivio/starwars/src/Vinili/`.
 
-**Shim live rimasti (solo sito/rewards):**
+## Live (`Bots/src/Vinili`)
+
+**Shim rimasti:**
 - `Web/siteStarWarsEventoApi.ts`
 - `EventPlugins/starwars/{register,runtimeKillSwitch,assertPlugin}.ts`
-- `Services/Community/starWarsRewardsService.ts` (vote reward bump)
 - `Utils/Eventi/starWarsEventConfig.ts`
 
-**Shim Discord/minigiochi e cataloghi orfani rimossi dal live** — restano solo in archivio.
+**Rimosso dal live:**
+- `Services/Community/starWarsRewardsService.ts` (reward voto bump — solo in archivio)
+
+Discord/minigiochi e cataloghi orfani restano solo in archivio.

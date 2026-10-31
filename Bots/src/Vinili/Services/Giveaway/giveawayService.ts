@@ -1,12 +1,17 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js") as typeof import("discord.js");
 const Giveaway = require("../../Schemas/Giveaway/giveawaySchema");
 const { getClientChannelCached } = require("../../Utils/Interaction/interactionEntityCache") as typeof import("../../Utils/Interaction/interactionEntityCache");
-const {
-  isConfigured: isMorgamesVerifyConfigured,
-  verifyDiscordUserLinked,
-  filterLinkedDiscordUsers,
-  MORGAMES_SITE_URL,
-} = require("../Integrations/morgamesDiscordGiveawayVerify") as typeof import("../Integrations/morgamesDiscordGiveawayVerify");
+/* Morgames verify → archivio/codice-morto/.../morgamesDiscordGiveawayVerify.ts (requisito giveaway dismesso). */
+const MORGAMES_SITE_URL = "https://morgames.app";
+function isMorgamesVerifyConfigured() {
+  return false;
+}
+async function verifyDiscordUserLinked() {
+  return { ok: true, linked: true };
+}
+async function filterLinkedDiscordUsers(ids?) {
+  return Array.isArray(ids) ? ids : [];
+}
 const GIVEAWAY_ENTER_PREFIX = "giveaway_enter:";
 const GIVEAWAY_LEAVE_PREFIX = "giveaway_leave:";
 const GIVEAWAY_COUNT_PREFIX = "giveaway_count:";
@@ -256,22 +261,10 @@ async function enterGiveaway(interaction?, client?, opts?) {
   const userId = String(interaction.user?.id || "");
   const wasIn = giveaway.participants && giveaway.participants.includes(userId);
 
-  /* morgamesGw1 + morgamesTutorial1: check immediato; se non linked → mini-tutorial */
-  if (giveaway.requireMorgames && !wasIn) {
-    if (!isMorgamesVerifyConfigured()) {
-      global.logger?.warn?.("[GIVEAWAY] requireMorgames ma MORGAMES_DISCORD_GIVEAWAY_API_SECRET assente");
-      await replyGiveawayEphemeral(
-        interaction,
-        "<a:VC_Alert:1482706673176150077> Verifica Morgames non configurata. Riprova più tardi.",
-      );
-      return true;
-    }
-    const verified = await verifyDiscordUserLinked(userId, { force: fromRetry });
-    if (!verified.ok || verified.linked !== true) {
-      await replyGiveawayEphemeral(interaction, buildMorgamesTutorialPayload(giveawayId));
-      return true;
-    }
-  }
+  /* Morgames archived: requisito storico ignorato. */
+  void fromRetry;
+  void isMorgamesVerifyConfigured;
+  void verifyDiscordUserLinked;
 
   const updated = await Giveaway.findOneAndUpdate(
     { _id: giveawayId, ended: false },
@@ -287,9 +280,7 @@ async function enterGiveaway(interaction?, client?, opts?) {
     interaction,
     wasIn
       ? "<a:VC_Alert:1482706673176150077> Sei già iscritto!"
-      : giveaway.requireMorgames
-        ? "<a:VC_Events:1482706144953897223> Account Morgames ok — sei entrato nel giveaway!"
-        : "<a:VC_Events:1482706144953897223> Sei entrato nel giveaway!",
+      : "<a:VC_Events:1482706144953897223> Sei entrato nel giveaway!",
   );
 
   return true;
@@ -395,17 +386,9 @@ const GIVEAWAY_READ_PROJECTION = {
 
 async function resolveEligibleParticipants(giveaway?) {
   const participants = Array.isArray(giveaway?.participants) ? giveaway.participants : [];
-  if (!giveaway?.requireMorgames) return participants;
-  if (!isMorgamesVerifyConfigured()) {
-    global.logger?.warn?.("[GIVEAWAY] end/reroll: requireMorgames senza secret → pool vuoto (fail-closed)");
-    return [];
-  }
-  try {
-    return await filterLinkedDiscordUsers(participants);
-  } catch (err) {
-    global.logger?.warn?.("[GIVEAWAY] morgames filter failed:", err?.message || err);
-    return [];
-  }
+  /* Morgames archived: niente filtro linked. */
+  void filterLinkedDiscordUsers;
+  return participants;
 }
 
 async function endGiveaway(giveawayId?, client?) {

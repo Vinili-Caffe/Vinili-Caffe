@@ -1,10 +1,9 @@
 const { EmbedBuilder, MessageFlagsBitField } = require("discord.js") as typeof import("discord.js");
 const IDs = require("../Utils/Config/ids") as typeof import("../Utils/Config/ids");
 const { getGuildChannelCached } = require("../Utils/Interaction/interactionEntityCache") as typeof import("../Utils/Interaction/interactionEntityCache");
-const { maybePunishCountingOnDelete } = require("../Utils/Message/officialMessageCommunityHandlers") as typeof import("../Utils/Message/officialMessageCommunityHandlers");
 const { toDiscordTimestamp } = require("../Utils/Logging/channelRolesLogUtils") as typeof import("../Utils/Logging/channelRolesLogUtils");
 const { handlePartnerDescriptionMessageDelete } = require("../Services/Partner/partnerDescriptionSyncService") as typeof import("../Services/Partner/partnerDescriptionSyncService");
-const { handleTenantPartnerDescriptionMessageDelete } = require("../Services/Partner/tenantPartnerDescriptionService") as typeof import("../Services/Partner/tenantPartnerDescriptionService");
+const { handleTenantPartnerDescriptionMessageDelete } = require("../MultiGuild/services/Partner/tenantPartnerDescriptionService") as typeof import("../MultiGuild/services/Partner/tenantPartnerDescriptionService");
 
 function isViniliFullFeatureGuild(guildId?) {
   try {
@@ -222,7 +221,6 @@ export = {
 
       void handlePartnerDescriptionMessageDelete(resolvedClient, resolved).catch(() => null);
       void handleTenantPartnerDescriptionMessageDelete(resolvedClient, resolved).catch(() => null);
-      await maybePunishCountingOnDelete(resolved, resolvedClient);
       if (!hasMeaningfulDeleteData(resolved)) return;
 
       await sendDeleteLog(resolved);

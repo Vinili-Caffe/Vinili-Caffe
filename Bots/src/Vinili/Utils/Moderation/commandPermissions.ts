@@ -294,7 +294,7 @@ function tryTenantPartnershipSetupBypass(guildId?, customId?, interaction = null
     try {
       const {
         memberCanManageTenantPartnershipSettings,
-      } = require("../Partner/tenantPartnershipAdminAccess") as typeof import("../Partner/tenantPartnershipAdminAccess");
+      } = require("../../MultiGuild/utils/Partner/tenantPartnershipAdminAccess") as typeof import("../../MultiGuild/utils/Partner/tenantPartnershipAdminAccess");
       if (
         !memberCanManageTenantPartnershipSettings(interaction?.member, interaction?.guild)
       ) {
@@ -1219,7 +1219,7 @@ async function checkTenantPartnershipSlashAccess(interaction?, options: Record<s
     const {
       memberCanManageTenantPartnershipSettings,
       TENANT_PARTNERSHIP_ADMIN_DENIED_MESSAGE,
-    } = require("../Partner/tenantPartnershipAdminAccess") as typeof import("../Partner/tenantPartnershipAdminAccess");
+    } = require("../../MultiGuild/utils/Partner/tenantPartnershipAdminAccess") as typeof import("../../MultiGuild/utils/Partner/tenantPartnershipAdminAccess");
     const allowed = memberCanManageTenantPartnershipSettings(interaction.member, interaction.guild);
     if (options.returnDetails) {
       return {
@@ -1267,7 +1267,7 @@ async function checkTenantPartnershipSlashAccess(interaction?, options: Record<s
     const {
       memberCanManageTenantPartnershipSettings,
       TENANT_PARTNERSHIP_ADMIN_DENIED_MESSAGE,
-    } = require("../Partner/tenantPartnershipAdminAccess") as typeof import("../Partner/tenantPartnershipAdminAccess");
+    } = require("../../MultiGuild/utils/Partner/tenantPartnershipAdminAccess") as typeof import("../../MultiGuild/utils/Partner/tenantPartnershipAdminAccess");
     const allowed = memberCanManageTenantPartnershipSettings(interaction.member, interaction.guild);
     if (options.returnDetails) {
       return {
@@ -1575,7 +1575,7 @@ async function checkPrefixPermission(message?, commandName?, subcommandName = nu
     try {
       const {
         memberCanManageTenantPartnershipSettings,
-      } = require("../Partner/tenantPartnershipAdminAccess") as typeof import("../Partner/tenantPartnershipAdminAccess");
+      } = require("../../MultiGuild/utils/Partner/tenantPartnershipAdminAccess") as typeof import("../../MultiGuild/utils/Partner/tenantPartnershipAdminAccess");
       const allowed = memberCanManageTenantPartnershipSettings(message.member, message.guild);
       if (options.returnDetails) {
         return {

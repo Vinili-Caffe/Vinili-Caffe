@@ -8,7 +8,7 @@ const {
   PREFIX,
   isBadgeBrowsePanel,
   readBadgeBrowsePageFromMessage,
-} = require("../Utils/Partner/tenantProfileRuntime") as typeof import("../Utils/Partner/tenantProfileRuntime");
+} = require("../MultiGuild/utils/Partner/tenantProfileRuntime") as typeof import("../MultiGuild/utils/Partner/tenantProfileRuntime");
 const {
   partnersChatPartnerCommandDeniedReplyContent,
   schedulePartnersDeniedDeleteReply,
@@ -16,10 +16,10 @@ const {
 const {
   getTenantProfilePrefs,
   updateTenantProfilePrefs,
-} = require("../Services/Partner/tenantProfilePreferencesService") as typeof import("../Services/Partner/tenantProfilePreferencesService");
-const { t, normalizeTenantLanguage } = require("../Utils/Partner/tenantProfileConstants") as typeof import("../Utils/Partner/tenantProfileConstants");
-const { resolveTenantLanguageForInteraction } = require("../Utils/Partner/tenantPartnershipPrefixMessages") as typeof import("../Utils/Partner/tenantPartnershipPrefixMessages");
-const { setTenantObjectiveFlag } = require("../Services/Partner/tenantObjectiveService") as typeof import("../Services/Partner/tenantObjectiveService");
+} = require("../MultiGuild/services/Partner/tenantProfilePreferencesService") as typeof import("../MultiGuild/services/Partner/tenantProfilePreferencesService");
+const { t, normalizeTenantLanguage } = require("../MultiGuild/utils/Partner/tenantProfileConstants") as typeof import("../MultiGuild/utils/Partner/tenantProfileConstants");
+const { resolveTenantLanguageForInteraction } = require("../MultiGuild/utils/Partner/tenantPartnershipPrefixMessages") as typeof import("../MultiGuild/utils/Partner/tenantPartnershipPrefixMessages");
+const { setTenantObjectiveFlag } = require("../MultiGuild/services/Partner/tenantObjectiveService") as typeof import("../MultiGuild/services/Partner/tenantObjectiveService");
 
 const EPHEMERAL = 1 << 6;
 

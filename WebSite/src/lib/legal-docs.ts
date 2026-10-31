@@ -28,7 +28,7 @@ export const LEGAL_PRIVACY: LegalDoc = {
       id: "titolare-del-trattamento",
       title: "Titolare del trattamento",
       blocks: [
-        { type: "p", text: "Il **titolare del trattamento** è **Lorenzo Antonio Corvaglia**, gestore del progetto **Vinili & Caffè**, contattabile all’email **supporto@viniliecaffe.it** e tramite il server Discord ufficiale della community." },
+        { type: "p", text: "Il **titolare del trattamento** è **Lorenzo Antonio Corvaglia**, gestore del progetto **Vinili & Caffè**, contattabile tramite il server Discord ufficiale della community." },
         { type: "p", text: "**Server Discord di terzi:** quando il bot opera su un server non ufficiale, l’amministratore di quel server resta responsabile delle scelte di configurazione e dei trattamenti tipici della community ospite; noi trattiamo i dati necessari al funzionamento delle funzioni del bot attivate su quel server." },
       ],
     },
@@ -158,7 +158,7 @@ export const LEGAL_PRIVACY: LegalDoc = {
       title: "I tuoi diritti (GDPR)",
       blocks: [
         { type: "p", text: "Nei limiti previsti dal GDPR puoi esercitare i diritti di **accesso**, **rettifica**, **cancellazione**, **limitazione** o **opposizione** al trattamento, **portabilità** e, dove il trattamento si basa sul consenso, **revoca del consenso** in qualsiasi momento." },
-        { type: "p", text: "Per i dati gestiti da sito e bot puoi esportarli o richiederne la cancellazione dalla pagina [[I tuoi dati|/dati/]] (accesso con Discord). Puoi anche scriverci sul server Discord ufficiale o all’email **supporto@viniliecaffe.it**." },
+        { type: "p", text: "Per i dati gestiti da sito e bot puoi esportarli o richiederne la cancellazione dalla pagina [[I tuoi dati|/dati/]] (accesso con Discord). Puoi anche scriverci sul server Discord ufficiale." },
         { type: "p", text: "Se ritieni che il trattamento non sia conforme, hai il diritto di proporre reclamo al **Garante per la Protezione dei Dati Personali**." },
         { type: "cta", href: "/dati/", label: "I tuoi dati" },
       ],
@@ -212,7 +212,7 @@ export const LEGAL_PRIVACY: LegalDoc = {
       id: "contatti-e-reclami",
       title: "Contatti e reclami",
       blocks: [
-        { type: "p", text: "Per domande privacy, richieste GDPR o segnalazioni puoi contattarci tramite Discord o email (supporto@viniliecaffe.it)." },
+        { type: "p", text: "Per domande privacy, richieste GDPR o segnalazioni puoi contattarci tramite Discord." },
         { type: "p", text: "Hai inoltre diritto di proporre reclamo al Garante per la Protezione dei Dati Personali (www.garanteprivacy.it)." },
       ],
     },
@@ -347,7 +347,7 @@ export const LEGAL_COOKIE: LegalDoc = {
       id: "contatti",
       title: "Contatti",
       blocks: [
-        { type: "p", text: "Per domande su questa Cookie Policy: Discord o email (supporto@viniliecaffe.it)." },
+        { type: "p", text: "Per domande su questa Cookie Policy: contattaci sul server Discord ufficiale." },
       ],
     },
   ],
@@ -524,7 +524,7 @@ export const LEGAL_TERMS: LegalDoc = {
       id: "contatti",
       title: "Contatti",
       blocks: [
-        { type: "p", text: "Per domande sui Termini di Servizio puoi contattarci tramite Discord o email (supporto@viniliecaffe.it)." },
+        { type: "p", text: "Per domande sui Termini di Servizio puoi contattarci tramite Discord." },
       ],
     },
   ],
@@ -566,7 +566,7 @@ export const LEGAL_COPYRIGHT: LegalDoc = {
             "Software e servizi sono forniti “così come sono”, senza garanzie."
           ] },
         { type: "p", text: "Testo completo della licenza:" },
-        { type: "pre", text: "LICENZA PROPRIETARIA — VINILI & CAFFÈ\n=====================================\n\nCopyright (c) 2024–2026 Vinili & Caffè. Tutti i diritti riservati.\n\nIl presente avviso copre l'ecosistema Vinili & Caffè, incluso:\n\n  • repository, codice sorgente, script, configurazioni, asset e documentazione;\n  • sito web, dashboard e materiali correlati;\n  • bot Discord e relativi asset/branding;\n  • server Discord ufficiale della community (brand, icone, banner,\n    emoji/sticker personalizzati e materiali creati dallo staff).\n\nCONCESSIONE\n-----------\n\nNon viene concessa alcuna licenza, esplicita o implicita, a terzi per l'uso di\nquesto software, dei contenuti del sito/bot o degli asset del server ufficiale,\nsalvo autorizzazione scritta dei titolari.\n\nÈ espressamente vietato, senza previa autorizzazione scritta dei titolari:\n\n  • copiare, riprodurre o duplicare codice, file, brand o asset protetti;\n  • modificare, adattare, tradurre o creare opere derivate;\n  • distribuire, pubblicare, sublicenziare o mettere a disposizione di terzi;\n  • eseguire, installare o far girare il software in ambienti non autorizzati;\n  • decompilare, disassemblare o effettuare reverse engineering, salvo dove la legge applicabile lo imponga in modo inderogabile;\n  • rimuovere o alterare avvisi di copyright o di licenza;\n  • ripubblicare o rivendere emoji, sticker, banner, loghi o materiali del server ufficiale come propri.\n\nUSO AUTORIZZATO\n---------------\n\nL'uso del codice e degli asset protetti è consentito esclusivamente al\npersonale autorizzato di Vinili & Caffè, per finalità interne e operative\nconcordate dai titolari. L'uso della community (sito/bot/server) da parte\ndegli utenti è regolato dai Termini di Servizio e non trasferisce proprietà\nsu brand, codice o asset ufficiali.\n\nTERZE PARTI\n-----------\n\nComponenti di terze parti (librerie npm, script vendor, tool in deploy/tools)\ne la piattaforma Discord restano soggetti alle rispettive licenze/policy.\nIl presente documento non estende diritti su tali componenti.\n\nCONTENUTI UTENTE\n----------------\n\nI messaggi, media e altri contenuti pubblicati dagli utenti restano dei\nrispettivi autori, nei limiti di legge, delle policy Discord e dei Termini\ndi Servizio di Vinili & Caffè.\n\nGARANZIE E RESPONSABILITÀ\n-------------------------\n\nIl software e i servizi sono forniti \"così come sono\", senza garanzie di alcun\ntipo. In nessun caso i titolari saranno responsabili per danni derivanti\ndall'uso non autorizzato o da qualsiasi utilizzo del materiale coperto da\nquesta licenza.\n\nCONTATTI\n--------\n\nPer richieste di autorizzazione: contattare i titolari di Vinili & Caffè\nattraverso i canali ufficiali della community (email supporto@viniliecaffe.it o Discord)." },
+        { type: "pre", text: "LICENZA PROPRIETARIA — VINILI & CAFFÈ\n=====================================\n\nCopyright (c) 2024–2026 Vinili & Caffè. Tutti i diritti riservati.\n\nIl presente avviso copre l'ecosistema Vinili & Caffè, incluso:\n\n  • repository, codice sorgente, script, configurazioni, asset e documentazione;\n  • sito web, dashboard e materiali correlati;\n  • bot Discord e relativi asset/branding;\n  • server Discord ufficiale della community (brand, icone, banner,\n    emoji/sticker personalizzati e materiali creati dallo staff).\n\nCONCESSIONE\n-----------\n\nNon viene concessa alcuna licenza, esplicita o implicita, a terzi per l'uso di\nquesto software, dei contenuti del sito/bot o degli asset del server ufficiale,\nsalvo autorizzazione scritta dei titolari.\n\nÈ espressamente vietato, senza previa autorizzazione scritta dei titolari:\n\n  • copiare, riprodurre o duplicare codice, file, brand o asset protetti;\n  • modificare, adattare, tradurre o creare opere derivate;\n  • distribuire, pubblicare, sublicenziare o mettere a disposizione di terzi;\n  • eseguire, installare o far girare il software in ambienti non autorizzati;\n  • decompilare, disassemblare o effettuare reverse engineering, salvo dove la legge applicabile lo imponga in modo inderogabile;\n  • rimuovere o alterare avvisi di copyright o di licenza;\n  • ripubblicare o rivendere emoji, sticker, banner, loghi o materiali del server ufficiale come propri.\n\nUSO AUTORIZZATO\n---------------\n\nL'uso del codice e degli asset protetti è consentito esclusivamente al\npersonale autorizzato di Vinili & Caffè, per finalità interne e operative\nconcordate dai titolari. L'uso della community (sito/bot/server) da parte\ndegli utenti è regolato dai Termini di Servizio e non trasferisce proprietà\nsu brand, codice o asset ufficiali.\n\nTERZE PARTI\n-----------\n\nComponenti di terze parti (librerie npm, script vendor, tool in deploy/tools)\ne la piattaforma Discord restano soggetti alle rispettive licenze/policy.\nIl presente documento non estende diritti su tali componenti.\n\nCONTENUTI UTENTE\n----------------\n\nI messaggi, media e altri contenuti pubblicati dagli utenti restano dei\nrispettivi autori, nei limiti di legge, delle policy Discord e dei Termini\ndi Servizio di Vinili & Caffè.\n\nGARANZIE E RESPONSABILITÀ\n-------------------------\n\nIl software e i servizi sono forniti \"così come sono\", senza garanzie di alcun\ntipo. In nessun caso i titolari saranno responsabili per danni derivanti\ndall'uso non autorizzato o da qualsiasi utilizzo del materiale coperto da\nquesta licenza.\n\nCONTATTI\n--------\n\nPer richieste di autorizzazione: contattare i titolari di Vinili & Caffè\nattraverso i canali ufficiali della community (Discord)." },
       ],
     },
   ],

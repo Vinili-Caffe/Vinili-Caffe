@@ -1,16 +1,16 @@
 const IDs = require("../Utils/Config/ids") as typeof import("../Utils/Config/ids");
 const { accountUsername, userAvatarUrlStatic } = require("../Utils/Discord/guildDiscordIdentity") as typeof import("../Utils/Discord/guildDiscordIdentity");
 const { assertDashboardHighStaffAccess, isDashboardBotDevUser } = require("./siteDashboardApi") as typeof import("./siteDashboardApi");
-const { getTenantProfileSnapshot } = require("../Services/Partner/tenantProfileProgressService") as typeof import("../Services/Partner/tenantProfileProgressService");
+const { getTenantProfileSnapshot } = require("../MultiGuild/services/Partner/tenantProfileProgressService") as typeof import("../MultiGuild/services/Partner/tenantProfileProgressService");
 const {
   getTenantProfilePrefs,
   updateTenantProfilePrefs,
-} = require("../Services/Partner/tenantProfilePreferencesService") as typeof import("../Services/Partner/tenantProfilePreferencesService");
-const { setTenantObjectiveFlag } = require("../Services/Partner/tenantObjectiveService") as typeof import("../Services/Partner/tenantObjectiveService");
+} = require("../MultiGuild/services/Partner/tenantProfilePreferencesService") as typeof import("../MultiGuild/services/Partner/tenantProfilePreferencesService");
+const { setTenantObjectiveFlag } = require("../MultiGuild/services/Partner/tenantObjectiveService") as typeof import("../MultiGuild/services/Partner/tenantObjectiveService");
 const {
   listTenantStaffNotifications,
   countUnreadNotifications,
-} = require("../Services/Partner/tenantStaffNotificationService") as typeof import("../Services/Partner/tenantStaffNotificationService");
+} = require("../MultiGuild/services/Partner/tenantStaffNotificationService") as typeof import("../MultiGuild/services/Partner/tenantStaffNotificationService");
 const {
   BADGE_DEFS,
   MAX_SELECTED_BADGES,
@@ -18,7 +18,7 @@ const {
   TENANT_LANGUAGE_OPTIONS,
   normalizeTenantLanguage,
   getLanguageLabel,
-} = require("../Utils/Partner/tenantProfileConstants") as typeof import("../Utils/Partner/tenantProfileConstants");
+} = require("../MultiGuild/utils/Partner/tenantProfileConstants") as typeof import("../MultiGuild/utils/Partner/tenantProfileConstants");
 
 function mainGuildId(client?) {
   return String(client?.config?.mainGuildId || IDs.guilds?.main || "").trim();

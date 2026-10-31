@@ -3,8 +3,6 @@ const { ActivityUserProfile } = require("../../Schemas/Community/communitySchema
 const { addExpWithLevel, shouldIgnoreExpForMember, incrementMinigameWinCounters } = require("../Community/expService") as typeof import("../Community/expService");
 const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
 const { getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache") as typeof import("../../Utils/Interaction/interactionEntityCache");
-const { isHalloweenEventLiveForMinigames } = require("../../Utils/Minigames/halloweenMinigameHooks") as typeof import("../../Utils/Minigames/halloweenMinigameHooks");
-const { addHalloweenCandyWithPassAlong, buildHalloweenCandyUnlockPayload, resolveEventKey: resolveHalloweenCandyEventKey } = require("../Community/halloweenCandyService") as typeof import("../Community/halloweenCandyService");
 const { warnMinigame } = require("./minigameLog") as typeof import("./minigameLog");
 const { EXP_REWARDS, buildRewardEmbed } = require("./minigameEmbeds") as typeof import("./minigameEmbeds");
 const { getChannelCached } = require("./minigameUtils") as typeof import("./minigameUtils");
@@ -92,64 +90,7 @@ async function computeMinigameAwardForUser({ guildId, userId, cfg, baseExp, star
  * Piccola chance di caramella su vittoria minigame (non TOT/caccia).
  * Stesso meccanismo unica + pass-along se collezione completa.
  */
-async function maybeRollHalloweenCandyDrop({ client, guild, userId, cfg, game }) {
-  const gid = String(guild?.id || "").trim();
-  const uid = String(userId || "").trim();
-  if (!client || !gid || !uid) return null;
-  const gameType = String(game?.type || "").trim();
-  if (gameType === "halloweenTrickOrTreat") return null;
-  if (!isHalloweenEventLiveForMinigames(client, Date.now(), gid)) return null;
-
-  const dropCfg =
-    (cfg?.halloweenCandyDrop && typeof cfg.halloweenCandyDrop === "object" ? cfg.halloweenCandyDrop : null) ||
-    (client?.config?.minigames?.halloweenCandyDrop && typeof client.config.minigames.halloweenCandyDrop === "object"
-      ? client.config.minigames.halloweenCandyDrop
-      : null) ||
-    {};
-  if (dropCfg.enabled === false) return null;
-  const chance = Math.max(0, Math.min(100, Number(dropCfg.chancePercent ?? 6)));
-  if (!(chance > 0) || Math.random() * 100 >= chance) return null;
-  const amount = Math.max(1, Math.floor(Number(dropCfg.amount ?? 1)));
-
-  try {
-    const candyResult: any = await addHalloweenCandyWithPassAlong({
-      guildId: gid,
-      userId: uid,
-      amount,
-      eventKey: resolveHalloweenCandyEventKey(client),
-      reason: "minigame_win_drop",
-      source: `minigame:${gameType || "unknown"}`,
-      client,
-    });
-    if (!candyResult) return null;
-    if (candyResult.code === "passed_along" && candyResult.passedToUserId) {
-      const unlock = buildHalloweenCandyUnlockPayload({
-        candyResult,
-        userId: candyResult.passedToUserId,
-        expGained: 0,
-      });
-      return {
-        code: "passed_along",
-        candyResult,
-        unlock,
-        passedFromUserId: uid,
-        passedToUserId: String(candyResult.passedToUserId),
-      };
-    }
-    if (candyResult.ok) {
-      const unlock = buildHalloweenCandyUnlockPayload({
-        candyResult,
-        userId: uid,
-        expGained: 0,
-      });
-      return { code: "ok", candyResult, unlock, passedToUserId: null };
-    }
-    if (candyResult.code === "collection_complete") {
-      return { code: "collection_complete", candyResult, unlock: null, passedToUserId: null };
-    }
-  } catch (err) {
-    warnMinigame(err);
-  }
+async function maybeRollHalloweenCandyDrop(_opts?) {
   return null;
 }
 

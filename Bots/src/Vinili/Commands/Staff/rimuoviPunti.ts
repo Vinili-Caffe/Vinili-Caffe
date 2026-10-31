@@ -2,7 +2,7 @@ const {
   ContextMenuCommandBuilder,
   ApplicationCommandType,
 } = require("discord.js") as typeof import("discord.js");
-const { executeTenantPointsContextMenu } = require("../../Utils/Partner/tenantPointsRuntime") as typeof import("../../Utils/Partner/tenantPointsRuntime");
+const { executeTenantPointsContextMenu } = require("../../MultiGuild/utils/Partner/tenantPointsRuntime") as typeof import("../../MultiGuild/utils/Partner/tenantPointsRuntime");
 
 export = {
   expectsModal: true,

@@ -60,7 +60,7 @@ export = {
 
             setTimeout(() => {
       try {
-        const { runTenantOfflineRecoveryTick } = require("../../Services/Partner/tenantOfflineRecoveryService") as typeof import("../../Services/Partner/tenantOfflineRecoveryService");
+        const { runTenantOfflineRecoveryTick } = require("../services/Partner/tenantOfflineRecoveryService") as typeof import("../services/Partner/tenantOfflineRecoveryService");
         void runTenantOfflineRecoveryTick(client, {
           minIntervalMs: 60_000,
           force: false,

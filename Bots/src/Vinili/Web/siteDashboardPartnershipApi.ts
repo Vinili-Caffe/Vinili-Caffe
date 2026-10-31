@@ -18,7 +18,7 @@ const {
   formatPingDelayForInput,
   DEFAULT_CUSTOM_ROLE_PING_DELAY_MS,
 } = require("../Utils/Partner/partnershipPingUtils") as typeof import("../Utils/Partner/partnershipPingUtils");
-const { setTenantObjectiveFlag } = require("../Services/Partner/tenantObjectiveService") as typeof import("../Services/Partner/tenantObjectiveService");
+const { setTenantObjectiveFlag } = require("../MultiGuild/services/Partner/tenantObjectiveService") as typeof import("../MultiGuild/services/Partner/tenantObjectiveService");
 const { verifyDashboardGuildAccess } = require("./siteDashboardApi") as typeof import("./siteDashboardApi");
 const {
   ensureTenantPremiumCacheFresh,
@@ -723,7 +723,7 @@ async function patchDashboardPartnership(client?, accessToken?, guildId?, body?)
 
   if (clearDescCache) {
     try {
-      const { clearTenantDescriptionCache } = require("../Services/Partner/tenantPartnerDescriptionService") as typeof import("../Services/Partner/tenantPartnerDescriptionService");
+      const { clearTenantDescriptionCache } = require("../MultiGuild/services/Partner/tenantPartnerDescriptionService") as typeof import("../MultiGuild/services/Partner/tenantPartnerDescriptionService");
       clearTenantDescriptionCache(gid);
     } catch (_) {}
   }
@@ -790,7 +790,7 @@ async function getDashboardPartnershipMigration(client?, accessToken?, guildId?)
 
   const {
     getPartnershipHistoryMigrationStatus,
-  } = require("../Services/Partner/tenantPartnershipHistoryMigrationService") as typeof import("../Services/Partner/tenantPartnershipHistoryMigrationService");
+  } = require("../MultiGuild/services/Partner/tenantPartnershipHistoryMigrationService") as typeof import("../MultiGuild/services/Partner/tenantPartnershipHistoryMigrationService");
   const status = await getPartnershipHistoryMigrationStatus(access.guildId);
   await refreshPartnershipConfigCache().catch(() => null);
   const config = getPartnershipConfigSync(access.guildId);
@@ -824,7 +824,7 @@ async function startDashboardPartnershipMigration(client?, accessToken?, guildId
   const {
     enqueuePartnershipHistoryMigration,
     startPartnershipHistoryMigrationWorker,
-  } = require("../Services/Partner/tenantPartnershipHistoryMigrationService") as typeof import("../Services/Partner/tenantPartnershipHistoryMigrationService");
+  } = require("../MultiGuild/services/Partner/tenantPartnershipHistoryMigrationService") as typeof import("../MultiGuild/services/Partner/tenantPartnershipHistoryMigrationService");
 
   try {
     startPartnershipHistoryMigrationWorker(client);
@@ -850,7 +850,7 @@ async function undoDashboardPartnershipMigration(client?, accessToken?, guildId?
 
   const {
     undoPartnershipHistoryMigration,
-  } = require("../Services/Partner/tenantPartnershipHistoryMigrationService") as typeof import("../Services/Partner/tenantPartnershipHistoryMigrationService");
+  } = require("../MultiGuild/services/Partner/tenantPartnershipHistoryMigrationService") as typeof import("../MultiGuild/services/Partner/tenantPartnershipHistoryMigrationService");
   return undoPartnershipHistoryMigration(access.guildId, { requestedBy: access.userId });
 }
 
@@ -866,7 +866,7 @@ async function assertTenantPartnershipAccess(client?, accessToken?, guildId?) {
 async function resolveDashboardBlacklistTarget(rawInput?, ownerGuildId?) {
   const {
     normalizeTargetGuildId,
-  } = require("../Services/Partner/tenantPartnershipBlacklistService") as typeof import("../Services/Partner/tenantPartnershipBlacklistService");
+  } = require("../MultiGuild/services/Partner/tenantPartnershipBlacklistService") as typeof import("../MultiGuild/services/Partner/tenantPartnershipBlacklistService");
   const { fetchInviteGuildMeta } = require("../Utils/Partner/partnershipBlacklistDisplay") as typeof import("../Utils/Partner/partnershipBlacklistDisplay");
   const input = String(rawInput || "").trim();
   if (!input) return { error: "invalid" };
@@ -910,7 +910,7 @@ async function getDashboardPartnershipBlacklist(client?, accessToken?, guildId?)
 
   const {
     listTenantPartnershipBlacklistGuilds,
-  } = require("../Services/Partner/tenantPartnershipBlacklistService") as typeof import("../Services/Partner/tenantPartnershipBlacklistService");
+  } = require("../MultiGuild/services/Partner/tenantPartnershipBlacklistService") as typeof import("../MultiGuild/services/Partner/tenantPartnershipBlacklistService");
   const {
     resolvePartnershipBlacklistEntryDisplay,
   } = require("../Utils/Partner/partnershipBlacklistDisplay") as typeof import("../Utils/Partner/partnershipBlacklistDisplay");
@@ -953,7 +953,7 @@ async function addDashboardPartnershipBlacklist(client?, accessToken?, guildId?,
   const {
     addTenantPartnershipBlacklistGuild,
     listTenantPartnershipBlacklistGuilds,
-  } = require("../Services/Partner/tenantPartnershipBlacklistService") as typeof import("../Services/Partner/tenantPartnershipBlacklistService");
+  } = require("../MultiGuild/services/Partner/tenantPartnershipBlacklistService") as typeof import("../MultiGuild/services/Partner/tenantPartnershipBlacklistService");
   const {
     resolvePartnershipBlacklistEntryDisplay,
   } = require("../Utils/Partner/partnershipBlacklistDisplay") as typeof import("../Utils/Partner/partnershipBlacklistDisplay");
@@ -995,7 +995,7 @@ async function removeDashboardPartnershipBlacklist(client?, accessToken?, guildI
   const {
     normalizeTargetGuildId,
     removeTenantPartnershipBlacklistGuild,
-  } = require("../Services/Partner/tenantPartnershipBlacklistService") as typeof import("../Services/Partner/tenantPartnershipBlacklistService");
+  } = require("../MultiGuild/services/Partner/tenantPartnershipBlacklistService") as typeof import("../MultiGuild/services/Partner/tenantPartnershipBlacklistService");
   const targetId = normalizeTargetGuildId(targetGuildId);
   if (!targetId) {
     return fail(400, "invalid_id", reasonToMessage("invalid_id"));
@@ -1032,7 +1032,7 @@ async function leaveDashboardPartnership(client?, accessToken?, guildId?) {
   const {
     clearTenantPartnershipGuildData,
     hasPartnershipLeaveWork,
-  } = require("../Services/Partner/tenantPartnershipLeaveService") as typeof import("../Services/Partner/tenantPartnershipLeaveService");
+  } = require("../MultiGuild/services/Partner/tenantPartnershipLeaveService") as typeof import("../MultiGuild/services/Partner/tenantPartnershipLeaveService");
 
   if (!(await hasPartnershipLeaveWork(gid))) {
     return {
@@ -1131,7 +1131,7 @@ async function getDashboardPartnershipManagers(client?, accessToken?, guildId?) 
   if (!access.ok) return access;
 
   const { getPartnerManagerRoleId } = require("../Utils/Partner/partnershipConfigResolver") as typeof import("../Utils/Partner/partnershipConfigResolver");
-  const { getUserPartnershipScoresForGuild } = require("../Services/Partner/tenantLeaderboardService") as typeof import("../Services/Partner/tenantLeaderboardService");
+  const { getUserPartnershipScoresForGuild } = require("../MultiGuild/services/Partner/tenantLeaderboardService") as typeof import("../MultiGuild/services/Partner/tenantLeaderboardService");
 
   const guild = await resolveGuildForPartnershipApi(client, access.guildId);
   if (!guild) {
@@ -1204,7 +1204,7 @@ async function adjustDashboardPartnershipManagerPoints(client?, accessToken?, gu
   const {
     getUserPartnershipScoresForGuild,
     invalidateLeaderboardCache,
-  } = require("../Services/Partner/tenantLeaderboardService") as typeof import("../Services/Partner/tenantLeaderboardService");
+  } = require("../MultiGuild/services/Partner/tenantLeaderboardService") as typeof import("../MultiGuild/services/Partner/tenantLeaderboardService");
 
   const guild = await resolveGuildForPartnershipApi(client, access.guildId);
   if (!guild) {

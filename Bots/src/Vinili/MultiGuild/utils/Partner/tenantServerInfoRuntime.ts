@@ -1,0 +1,149 @@
+const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js") as typeof import("discord.js");
+const { TENANT_EMBED_COLOR } = require("../tenantEmbedBranding") as typeof import("../tenantEmbedBranding");
+const { applyPartnershipPayloadBranding } = require("../tenantEmbedBranding") as typeof import("../tenantEmbedBranding");
+const { applyDefaultFooterToEmbeds } = require("../../../Utils/Embeds/defaultFooter") as typeof import("../../../Utils/Embeds/defaultFooter");
+const { getGuildPartnershipScores } = require("../../services/Partner/tenantLeaderboardService") as typeof import("../../services/Partner/tenantLeaderboardService");
+const { resolveGuildInviteUrl } = require("./tenantLeaderboardRuntime") as typeof import("./tenantLeaderboardRuntime");
+const { guildIconUrl } = require("../../../Utils/Discord/guildDiscordIdentity") as typeof import("../../../Utils/Discord/guildDiscordIdentity");
+const { listConfiguredPartnershipGuildIds } = require("../../core/tenantPartnershipSettings") as typeof import("../../core/tenantPartnershipSettings");
+const { buildTenantLookupNotFoundPayload } = require("./tenantLookupNotFoundRuntime") as typeof import("./tenantLookupNotFoundRuntime");
+const { t } = require("./tenantPartnershipI18n/index") as typeof import("./tenantPartnershipI18n/index");
+const IDs = require("../../../Utils/Config/ids") as typeof import("../../../Utils/Config/ids");
+const { isPartnershipOperational } = require("../../../Utils/Partner/partnershipConfigResolver") as typeof import("../../../Utils/Partner/partnershipConfigResolver");
+const SNOWFLAKE_RE = /^\d{16,20}$/;
+
+function inlineCode(value?) {
+  return `\`${String(value ?? "").replace(/`/g, "'")}\``;
+}
+
+function parseServerInfoArgs(args = []) {
+  const tokens = (Array.isArray(args) ? args : [])
+    .map((token?) => String(token || "").trim())
+    .filter(Boolean);
+  const guildId = tokens.find((token?) => SNOWFLAKE_RE.test(token)) || null;
+  const invalidId = tokens.find((token?) => /^\d+$/.test(token) && !SNOWFLAKE_RE.test(token)) || null;
+  return { guildId, invalidId };
+}
+
+function listPartnershipGuildIdsForDiscovery() {
+  const ids = new Set();
+  const mainId = String(IDs.guilds?.main || "").trim();
+  if (mainId && isPartnershipOperational(mainId)) ids.add(mainId);
+  for (const gid of listConfiguredPartnershipGuildIds()) {
+    ids.add(String(gid));
+  }
+  return Array.from(ids);
+}
+
+function isKnownPartnershipGuild(guildId?) {
+  const gid = String(guildId || "").trim();
+  if (!SNOWFLAKE_RE.test(gid)) return false;
+  const mainId = String(IDs.guilds?.main || "").trim();
+  if (mainId && gid === mainId) return isPartnershipOperational(mainId);
+  return listConfiguredPartnershipGuildIds().includes(gid);
+}
+
+async function resolveTargetGuild(client?, sourceGuild?, guildId?) {
+  const explicit = String(guildId || "").trim();
+  if (SNOWFLAKE_RE.test(explicit)) {
+    return (
+      client?.guilds?.cache?.get(explicit) ||
+      (await client?.guilds?.fetch?.(explicit).catch(() => null))
+    );
+  }
+  return sourceGuild || null;
+}
+
+async function buildTenantServerInfoPayload(client?, sourceGuild?, options: Record<string, any> = {}) {
+  const lang = options.lang || "it";
+  const lookupContext = { guild: sourceGuild, client, lang };
+  const IDs = require("../../../Utils/Config/ids") as typeof import("../../../Utils/Config/ids");
+  const mainId = String(IDs.guilds?.main || "").trim();
+  const sourceId = String(sourceGuild?.id || "").trim();
+  const allowCross = Boolean(mainId && sourceId === mainId);
+  const explicitLookup = Boolean(options.guildId) && allowCross;
+
+  if (options.invalidId) {
+    return buildTenantLookupNotFoundPayload("server", lookupContext);
+  }
+
+  const requestedGuildId = explicitLookup
+    ? String(options.guildId).trim()
+    : sourceId;
+
+  if (!isKnownPartnershipGuild(requestedGuildId)) {
+    return buildTenantLookupNotFoundPayload("server", lookupContext);
+  }
+
+  const guild = await resolveTargetGuild(client, sourceGuild, explicitLookup ? options.guildId : null);
+  const targetGuildId = guild?.id || requestedGuildId;
+  if (!SNOWFLAKE_RE.test(targetGuildId)) {
+    return {
+      content:
+        "<:vegax:1443934876440068179> Specifica un server con `+server info` o `+server info <guildId>`.",
+      allowedMentions: { repliedUser: false },
+    };
+  }
+
+  const [scores, owner, inviteUrl] = await Promise.all([
+    getGuildPartnershipScores(targetGuildId),
+    guild?.fetchOwner?.().catch(() => null) ?? Promise.resolve(null),
+    resolveGuildInviteUrl(client, targetGuildId),
+  ]);
+
+  const displayName = guild?.name || `Server ${targetGuildId}`;
+  const ownerMention = owner?.id ? `<@${owner.id}>` : t(lang, "serverInfo_na");
+  const icon = guild ? guildIconUrl(guild, { size: 256 }) : null;
+
+  const embed = new EmbedBuilder()
+    .setColor(TENANT_EMBED_COLOR)
+    .setThumbnail(icon || null)
+    .setDescription(
+      [
+        `<:926683website:1524730518481141901> **${t(lang, "serverInfo_name")}:** ${inlineCode(displayName)}`,
+        `<:808239search:1524730540983582728> **${t(lang, "serverInfo_id")}:** ${inlineCode(targetGuildId)}`,
+        `<:861752staff:1524730539129438258> **${t(lang, "serverInfo_owner")}:** ${ownerMention}`,
+        "",
+        `<:981353partner:1524730506531311688> **${t(lang, "serverInfo_count")}:** ${inlineCode(scores.total)}`,
+        `<:709897bolt:1524730543122681988> **${t(lang, "serverInfo_daily")}:** ${inlineCode(scores.daily)}`,
+        `<:7619planet:1524730515436077187> **${t(lang, "serverInfo_weekly")}:** ${inlineCode(scores.weekly)}`,
+      ].join("\n"),
+    );
+
+  const components = [];
+  if (inviteUrl) {
+    components.push(
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setStyle(ButtonStyle.Link)
+          .setLabel(t(lang, "serverInfo_join"))
+          .setEmoji("<:981353partner:1524730506531311688>")
+          .setURL(inviteUrl),
+      ),
+    );
+  }
+
+  const brandingGuild = guild || sourceGuild;
+  return applyPartnershipPayloadBranding(
+    applyDefaultFooterToEmbeds(
+      {
+        embeds: [embed],
+        components,
+        allowedMentions: { repliedUser: false, users: owner?.id ? [owner.id] : [] },
+      },
+      explicitLookup && !guild ? null : brandingGuild,
+    ),
+    { guildId: targetGuildId, guild: guild || (explicitLookup ? null : sourceGuild), client },
+  );
+}
+
+function pickRandomOperationalPartnershipGuildId(excludeGuildId = null) {
+  const exclude = String(excludeGuildId || "").trim();
+  const pool = listPartnershipGuildIdsForDiscovery().filter(
+    (gid?) => !exclude || String(gid) !== exclude,
+  );
+  if (!pool.length) return null;
+  return pool[Math.floor(Math.random() * pool.length)] || null;
+}
+
+export = { parseServerInfoArgs, buildTenantServerInfoPayload, pickRandomOperationalPartnershipGuildId, isKnownPartnershipGuild };

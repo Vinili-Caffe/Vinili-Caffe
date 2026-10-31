@@ -1,6 +1,5 @@
 /** Memory emoji: sequenza da memorizzare, richiesta di riscriverla e ripristino. */
 const { getMemoryEmojiBank } = require("../../Data/Minigames/minigameBanks") as typeof import("../../Data/Minigames/minigameBanks");
-const { shouldUseHalloweenTheme, getHalloweenMemoryEmojiBank } = require("../../Utils/Minigames/halloweenMinigameHooks") as typeof import("../../Utils/Minigames/halloweenMinigameHooks");
 const { buildMemorySequenceEmbed, buildMemoryRecallEmbed } = require("./minigameEmbeds") as typeof import("./minigameEmbeds");
 const { getChannelCached } = require("./minigameUtils") as typeof import("./minigameUtils");
 const { normalizeRewardExp, shuffleArray, normalizeMemorySequence, displayMemorySequence } = require("./minigameText") as typeof import("./minigameText");
@@ -303,13 +302,10 @@ async function startMemoryEmojiGame(client?, cfg?, options?) {
 }
 
 async function startStandardMemoryEmojiGame(client?, cfg?) {
-  const bank = shouldUseHalloweenTheme(cfg)
-    ? getHalloweenMemoryEmojiBank()
-    : getMemoryEmojiBank();
   return startMemoryEmojiGame(client, cfg, {
     type: "memoryEmoji",
     cfgKey: "memoryEmoji",
-    bank,
+    bank: getMemoryEmojiBank(),
   });
 }
 

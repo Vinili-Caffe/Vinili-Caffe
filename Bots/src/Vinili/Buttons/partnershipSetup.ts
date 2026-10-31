@@ -23,11 +23,11 @@ const {
   buildSetupAlreadyCompletedEmbed,
 } = require("../Utils/Partner/partnershipSetupComponents") as typeof import("../Utils/Partner/partnershipSetupComponents");
 
-const { memberCanManageTenantPartnershipSettings } = require("../Utils/Partner/tenantPartnershipAdminAccess") as typeof import("../Utils/Partner/tenantPartnershipAdminAccess");
-const { t, resolveTenantLanguage } = require("../Utils/Partner/tenantPartnershipI18n/index") as typeof import("../Utils/Partner/tenantPartnershipI18n/index");
-const { resolveTenantLanguageForInteraction, tenantI18nNoticePayload } = require("../Utils/Partner/tenantPartnershipPrefixMessages") as typeof import("../Utils/Partner/tenantPartnershipPrefixMessages");
+const { memberCanManageTenantPartnershipSettings } = require("../MultiGuild/utils/Partner/tenantPartnershipAdminAccess") as typeof import("../MultiGuild/utils/Partner/tenantPartnershipAdminAccess");
+const { t, resolveTenantLanguage } = require("../MultiGuild/utils/Partner/tenantPartnershipI18n/index") as typeof import("../MultiGuild/utils/Partner/tenantPartnershipI18n/index");
+const { resolveTenantLanguageForInteraction, tenantI18nNoticePayload } = require("../MultiGuild/utils/Partner/tenantPartnershipPrefixMessages") as typeof import("../MultiGuild/utils/Partner/tenantPartnershipPrefixMessages");
 const { buildSimpleNoticePayload } = require("../Utils/Embeds/simpleNoticeEmbed") as typeof import("../Utils/Embeds/simpleNoticeEmbed");
-const { setTenantObjectiveFlag } = require("../Services/Partner/tenantObjectiveService") as typeof import("../Services/Partner/tenantObjectiveService");
+const { setTenantObjectiveFlag } = require("../MultiGuild/services/Partner/tenantObjectiveService") as typeof import("../MultiGuild/services/Partner/tenantObjectiveService");
 const { createPromptMessageCollector } = require("../../shared/discord/promptMessageCollectorRuntime") as typeof import("../../shared/discord/promptMessageCollectorRuntime");
 
 const PRIVATE_FLAG = 1 << 6;

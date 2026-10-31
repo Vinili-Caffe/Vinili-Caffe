@@ -16,7 +16,7 @@ const {
 const { startModCaseLifecycleLoop } = require("../Moderation/modCaseLifecycleService") as typeof import("../Moderation/modCaseLifecycleService");
 const { startCustomRoleExpiryLoop } = require("../Community/customRoleExpiryService") as typeof import("../Community/customRoleExpiryService");
 const { runDueChannelReminders } = require("../Reminders/channelReminderService") as typeof import("../Reminders/channelReminderService");
-const { startTenantOfflineRecoveryLoop } = require("../Partner/tenantOfflineRecoveryService") as typeof import("../Partner/tenantOfflineRecoveryService");
+const { startTenantOfflineRecoveryLoop } = require("../../MultiGuild/services/Partner/tenantOfflineRecoveryService") as typeof import("../../MultiGuild/services/Partner/tenantOfflineRecoveryService");
 const { isMultiGuildLayerEnabled } = require("../../MultiGuild/core/env") as typeof import("../../MultiGuild/core/env");
 const { tickStaffCompitiDeadlines, tickStaffCompitiAssignments } = require("../../Web/siteStaffCompitiApi") as typeof import("../../Web/siteStaffCompitiApi");
 

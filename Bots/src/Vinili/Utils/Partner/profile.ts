@@ -2,11 +2,11 @@ const { safeMessageReply } = require("../../../shared/discord/replyRuntime") as 
 const { isViniliFullFeatureGuild } = require("../../MultiGuild/core/guildFeatureScope") as typeof import("../../MultiGuild/core/guildFeatureScope");
 const { shouldApplyMultiGuildLayer } = require("../../MultiGuild/core/accessPolicy") as typeof import("../../MultiGuild/core/accessPolicy");
 const { isPartnershipOperational } = require("./partnershipConfigResolver") as typeof import("./partnershipConfigResolver");
-const { buildTenantProfilePayload } = require("./tenantProfileRuntime") as typeof import("./tenantProfileRuntime");
-const { TENANT_PROFILE_SECTIONS } = require("./tenantProfileConstants") as typeof import("./tenantProfileConstants");
+const { buildTenantProfilePayload } = require("../../MultiGuild/utils/Partner/tenantProfileRuntime") as typeof import("../../MultiGuild/utils/Partner/tenantProfileRuntime");
+const { TENANT_PROFILE_SECTIONS } = require("../../MultiGuild/utils/Partner/tenantProfileConstants") as typeof import("../../MultiGuild/utils/Partner/tenantProfileConstants");
 const {
   replyTenantMessage,
-} = require("./tenantPartnershipPrefixMessages") as typeof import("./tenantPartnershipPrefixMessages");
+} = require("../../MultiGuild/utils/Partner/tenantPartnershipPrefixMessages") as typeof import("../../MultiGuild/utils/Partner/tenantPartnershipPrefixMessages");
 const { isChannelOrThreadUnderStaffCmds, isStaffCmdsPmCommandsThread } = require("../Staff/staffCmdsChannelUtils") as typeof import("../Staff/staffCmdsChannelUtils");
 const { siteWorkflowUrl } = require("../../Web/discordWorkflowUiGate") as typeof import("../../Web/discordWorkflowUiGate");
 

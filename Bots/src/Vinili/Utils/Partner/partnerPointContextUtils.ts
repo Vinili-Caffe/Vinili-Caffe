@@ -4,7 +4,7 @@ const { getPartnershipChannelId } = require("./partnershipConfigResolver") as ty
 const {
   findPartnerActionByGlobalLogId,
   findPartnerActionByMessage,
-} = require("../../Services/Partner/tenantPartnershipDeleteService") as typeof import("../../Services/Partner/tenantPartnershipDeleteService");
+} = require("../../MultiGuild/services/Partner/tenantPartnershipDeleteService") as typeof import("../../MultiGuild/services/Partner/tenantPartnershipDeleteService");
 const { extractPartnershipLogIdFromMessage } = require("./partnershipLogMessageUtils") as typeof import("./partnershipLogMessageUtils");
 
 const MAIN_PARTNERSHIP_REMOVE_MODAL_PREFIX = "pem_m:";

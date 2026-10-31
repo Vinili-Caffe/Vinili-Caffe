@@ -258,9 +258,9 @@ async function buildThankYouVariablesHelpPayload(interaction?, lang = "en") {
   const { resolvePartnershipConfigSync } = require("./partnershipConfigResolver") as typeof import("./partnershipConfigResolver");
   const { getOrCreateStaffDoc } = require("../Staff/staffDocUtils") as typeof import("../Staff/staffDocUtils");
   const { resolvePartnerTotalEarned } = require("../Staff/partnerPointsDisplayUtils") as typeof import("../Staff/partnerPointsDisplayUtils");
-  const { t } = require("./tenantPartnershipI18n/index") as typeof import("./tenantPartnershipI18n/index");
-  const { buildLocalizedVariableHelpSections } = require("./tenantPartnershipI18n/embedVarHelpPacks") as typeof import("./tenantPartnershipI18n/embedVarHelpPacks");
-  const { normalizeTenantLanguage } = require("./tenantPartnershipI18n/languages") as typeof import("./tenantPartnershipI18n/languages");
+  const { t } = require("../../MultiGuild/utils/Partner/tenantPartnershipI18n/index") as typeof import("../../MultiGuild/utils/Partner/tenantPartnershipI18n/index");
+  const { buildLocalizedVariableHelpSections } = require("../../MultiGuild/utils/Partner/tenantPartnershipI18n/embedVarHelpPacks") as typeof import("../../MultiGuild/utils/Partner/tenantPartnershipI18n/embedVarHelpPacks");
+  const { normalizeTenantLanguage } = require("../../MultiGuild/utils/Partner/tenantPartnershipI18n/languages") as typeof import("../../MultiGuild/utils/Partner/tenantPartnershipI18n/languages");
   const code = normalizeTenantLanguage(lang);
   const tLang = (key?) => t(code, key);
   const guild = interaction?.guild || null;
@@ -315,8 +315,8 @@ async function buildThankYouVariablesHelpPayload(interaction?, lang = "en") {
 }
 
 function buildThankYouVariablesHelpText(lang = "en") {
-  const { t } = require("./tenantPartnershipI18n/index") as typeof import("./tenantPartnershipI18n/index");
-  const { normalizeTenantLanguage } = require("./tenantPartnershipI18n/languages") as typeof import("./tenantPartnershipI18n/languages");
+  const { t } = require("../../MultiGuild/utils/Partner/tenantPartnershipI18n/index") as typeof import("../../MultiGuild/utils/Partner/tenantPartnershipI18n/index");
+  const { normalizeTenantLanguage } = require("../../MultiGuild/utils/Partner/tenantPartnershipI18n/languages") as typeof import("../../MultiGuild/utils/Partner/tenantPartnershipI18n/languages");
   return t(normalizeTenantLanguage(lang), "varHelp_openHint");
 }
 

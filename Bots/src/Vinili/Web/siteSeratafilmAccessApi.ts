@@ -96,24 +96,16 @@ function buildFilmStreamUrl(userId?) {
   return `/webhooks/site-seratafilm-film?st=${encodeURIComponent(st)}`;
 }
 
+/** Default CDN; override: VC_SERATAFILM_FILM_URL (http/s) o VC_SERATAFILM_FILM_FILE (path locale). */
+const DEFAULT_SERATAFILM_LINK_FILM =
+  "https://cdn.viniliecaffe.it/images/seratafilm/nightmare-before-christmas.mp4";
+
 function readSeratafilmLinkFilm() {
   const envUrl = String(process.env.VC_SERATAFILM_FILM_URL || "").trim();
   if (envUrl) return envUrl;
   const envPath = String(process.env.VC_SERATAFILM_FILM_FILE || "").trim();
   if (envPath) return envPath;
-  /* il file vero è quello del bot TS (/opt/bot/Vinyls/Config/site.config.json ora è un collegamento a questo) */
-  const cfgPaths = [
-    path.join(__dirname, "../Config/site.config.json"),
-    path.join(__dirname, "../../Vinili/Config/site.config.json"),
-  ];
-  for (const cfgPath of cfgPaths) {
-    try {
-      const cfg = JSON.parse(fs.readFileSync(cfgPath, "utf8"));
-      const link = String(cfg?.seratafilmEvent?.linkFilm || "").trim();
-      if (link) return link;
-    } catch (_) {}
-  }
-  return "";
+  return DEFAULT_SERATAFILM_LINK_FILM;
 }
 
 /** Locale su disco, oppure URL http(s) CDN (niente copia sulla VPS). */

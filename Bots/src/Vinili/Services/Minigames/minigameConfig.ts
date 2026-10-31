@@ -2,7 +2,10 @@
 const { minigameRotationFindOneLean, minigameRotationFindOneAndUpdate } = require("../../Utils/BotState/domainStatesStore") as typeof import("../../Utils/BotState/domainStatesStore");
 const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
 const { getMemoryEmojiBank } = require("../../Data/Minigames/minigameBanks") as typeof import("../../Data/Minigames/minigameBanks");
-const { isHalloweenEventLiveForMinigames, isHalloweenExclusiveMinigamesEnabled, isHalloweenMinigameType, shouldUseHalloweenTheme, getHalloweenExclusiveAvailableTypes } = require("../../Utils/Minigames/halloweenMinigameHooks") as typeof import("../../Utils/Minigames/halloweenMinigameHooks");
+const {
+  isHalloweenEventLiveForMinigames,
+  isHalloweenExclusiveMinigamesEnabled,
+} = require("../../Utils/Minigames/halloweenMinigameHooks") as typeof import("../../Utils/Minigames/halloweenMinigameHooks");
 const { mergeFindBotVoiceExcludedChannelIds } = require("../../Utils/Minigames/findBotVoiceChannelEligibility") as typeof import("../../Utils/Minigames/findBotVoiceChannelEligibility");
 const { randomBetween } = require("./minigameSources") as typeof import("./minigameSources");
 const { getChannelCached, getRomeDateKey } = require("./minigameUtils") as typeof import("./minigameUtils");
@@ -18,12 +21,10 @@ const GAME_TYPE_COOLDOWN_MS = 30 * 60 * 1000;
 function getConfig(client?) {
   const cfg = client?.config?.minigames || null;
   if (!cfg) return null;
-  const halloweenEventLive = isHalloweenEventLiveForMinigames(client);
-  const halloweenExclusiveDuringEvent = isHalloweenExclusiveMinigamesEnabled(client, cfg);
-  const out = {
+  return {
     ...cfg,
-    halloweenEventLive,
-    halloweenExclusiveDuringEvent,
+    halloweenEventLive: isHalloweenEventLiveForMinigames(client),
+    halloweenExclusiveDuringEvent: isHalloweenExclusiveMinigamesEnabled(client, cfg),
     channelId: IDs.channels.chat,
     roleId: IDs.roles.Minigames,
     findBot: {
@@ -39,19 +40,6 @@ function getConfig(client?) {
       ),
     },
   };
-  if (halloweenEventLive && halloweenExclusiveDuringEvent) {
-    const active = out.channelId ? activeGames.get(out.channelId) : null;
-    if (active?.type && !isHalloweenMinigameType(active.type)) {
-      if (active.timeout) clearTimeout(active.timeout);
-      if (active.hintTimeout) clearTimeout(active.hintTimeout);
-      if (active.revealTimeout) clearTimeout(active.revealTimeout);
-      activeGames.delete(out.channelId);
-    }
-    if (rotationQueue.some((type?) => !isHalloweenMinigameType(type))) {
-      rotationQueue = [];
-    }
-  }
-  return out;
 }
 
 function getGameTypeRotationWeight(cfg?, type?) {
@@ -75,9 +63,6 @@ function getGameTypeCooldownMs(type?, cfg?) {
 
 function getAvailableGameTypes(cfg?) {
   const types = [];
-  if (shouldUseHalloweenTheme(cfg)) {
-    return getHalloweenExclusiveAvailableTypes(cfg);
-  }
   if (cfg?.guessNumber !== false) types.push("guessNumber");
   if (cfg?.guessWord?.apiUrl) types.push("guessWord");
   if (cfg?.guessFlag?.apiUrl) types.push("guessFlag");
@@ -152,18 +137,11 @@ async function getNextGameType(client?, cfg?) {
   const guildId = cfg?.guildId ?? (cfg?.channelId ? (await getChannelCached(client, cfg.channelId))?.guild?.id ?? null : null);
   await loadRotationState(client, cfg, guildId);
   const todayKey = getRomeDateKey(new Date());
-  const halloweenCycle = shouldUseHalloweenTheme(cfg);
   const queueSet = new Set(rotationQueue);
   const queueMatchesConfig = available.length === queueSet.size && available.every((t?) => queueSet.has(t));
-  if (rotationDate !== todayKey || rotationQueue.length === 0 || (!halloweenCycle && !queueMatchesConfig)) {
+  if (rotationDate !== todayKey || rotationQueue.length === 0 || !queueMatchesConfig) {
     rotationDate = todayKey;
     rotationQueue = shuffleArray(expandGameTypesByRotationWeight(cfg, available.slice()));
-  }
-  if (halloweenCycle) {
-    const badQueue = rotationQueue.some((t?) => !available.includes(t));
-    if (badQueue || rotationQueue.length === 0) {
-      rotationQueue = shuffleArray(available.slice());
-    }
   }
   const channelId = cfg?.channelId;
   const now = Date.now();
@@ -175,34 +153,21 @@ async function getNextGameType(client?, cfg?) {
     return typeof at === "number" && now - at < getGameTypeCooldownMs(type, cfg);
   };
   const halfAvailable = Math.floor(available.length / 2);
-  if (!halloweenCycle && rotationQueue.length < halfAvailable && available.length > 0) {
+  if (rotationQueue.length < halfAvailable && available.length > 0) {
     rotationQueue = shuffleArray(expandGameTypesByRotationWeight(cfg, available.slice()));
   }
-  let next = null;
-  if (!next) {
-    if (halloweenCycle && rotationQueue.length === 0) {
-      rotationQueue = shuffleArray(available.slice());
-    }
-    next = rotationQueue.shift() || available[0];
-  }
+  let next = rotationQueue.shift() || available[0];
   while ((excludeSet.has(next) || isOnCooldown(next)) && (rotationQueue.length > 0 || available.length > 1)) {
     if (rotationQueue.length > 0) {
-      if (halloweenCycle) {
-        next = rotationQueue.shift();
-      } else {
-        rotationQueue.push(next);
-        next = rotationQueue.shift();
-      }
-    } else if (halloweenCycle) {
-      rotationQueue = shuffleArray(available.filter((t?) => t !== next));
-      break;
+      rotationQueue.push(next);
+      next = rotationQueue.shift();
     } else {
       const others = available.filter((t?) => !excludeSet.has(t) && !isOnCooldown(t));
       next = others.length ? others[randomBetween(0, others.length - 1)] : available[0];
       break;
     }
   }
-  if (next && !halloweenCycle) {
+  if (next) {
     rotationQueue = rotationQueue.filter((type?) => type !== next);
     rotationQueue.push(next);
   }

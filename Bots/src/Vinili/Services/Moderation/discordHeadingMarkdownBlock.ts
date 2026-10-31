@@ -1,3 +1,4 @@
+const { PermissionFlagsBits } = require("discord.js") as typeof import("discord.js");
 const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
 const { getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache") as typeof import("../../Utils/Interaction/interactionEntityCache");
 const { isChannelInTicketCategory } = require("../../Utils/Ticket/ticketCategoryUtils") as typeof import("../../Utils/Ticket/ticketCategoryUtils");
@@ -36,6 +37,14 @@ function memberHasPatronRole(member?) {
   }
 }
 
+function memberHasAdministrator(member?) {
+  try {
+    return Boolean(member?.permissions?.has?.(PermissionFlagsBits.Administrator));
+  } catch {
+    return false;
+  }
+}
+
 async function resolveMemberForHeadingGate(message?) {
   const guild = message.guild;
   const userId = message.author?.id;
@@ -59,8 +68,8 @@ async function maybeBlockDiscordHeadingMarkdown(message?) {
   if (!discordMessageUsesHeadingMarkdown(message.content)) return false;
 
   const member = await resolveMemberForHeadingGate(message);
-  // solo Patron: niente bypass Admin (staff senza Patron non deve passare)
-  if (member && memberHasPatronRole(member)) return false;
+  // Patron + Administrator; staff senza Admin resta bloccato
+  if (member && (memberHasPatronRole(member) || memberHasAdministrator(member))) return false;
 
   const deleted = await message.delete().catch((err?) => {
     global.logger?.warn?.("[HEADING BLOCK] delete failed", {

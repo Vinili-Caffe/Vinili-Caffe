@@ -2740,7 +2740,7 @@ async function executeWebTicketPartnershipSlash(client, actor, ticket, rawInput,
     buildSkipDeniedEmbed,
   } = require("../Utils/Partner/partnershipConfigResolver") as typeof import("../Utils/Partner/partnershipConfigResolver");
   const { partnersChatPartnerCommandDeniedReplyContent } = require("../Utils/Partner/partnersChatChannelUtils") as typeof import("../Utils/Partner/partnersChatChannelUtils");
-  const { executeTenantPartnership } = require("../Services/Partner/tenantPartnershipExecuteService") as typeof import("../Services/Partner/tenantPartnershipExecuteService");
+  const { executeTenantPartnership } = require("../MultiGuild/services/Partner/tenantPartnershipExecuteService") as typeof import("../MultiGuild/services/Partner/tenantPartnershipExecuteService");
   const { SETUP_REQUIRED_REPLY } = require("../Utils/Partner/partnershipConfigResolver") as typeof import("../Utils/Partner/partnershipConfigResolver");
 
   if (!isPartnershipOperational(guild?.id)) {

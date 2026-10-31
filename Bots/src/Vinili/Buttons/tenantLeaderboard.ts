@@ -1,14 +1,14 @@
 const {
   parseLeaderboardCustomId,
   buildLeaderboardPayload,
-} = require("../Utils/Partner/tenantLeaderboardRuntime") as typeof import("../Utils/Partner/tenantLeaderboardRuntime");
+} = require("../MultiGuild/utils/Partner/tenantLeaderboardRuntime") as typeof import("../MultiGuild/utils/Partner/tenantLeaderboardRuntime");
 const {
   partnersChatPartnerCommandDeniedReplyContent,
   schedulePartnersDeniedDeleteReply,
 } = require("../Utils/Partner/partnersChatChannelUtils") as typeof import("../Utils/Partner/partnersChatChannelUtils");
-const { resolveTenantLanguageForInteraction } = require("../Utils/Partner/tenantPartnershipPrefixMessages") as typeof import("../Utils/Partner/tenantPartnershipPrefixMessages");
-const { evaluateTenantObjectives } = require("../Services/Partner/tenantObjectiveService") as typeof import("../Services/Partner/tenantObjectiveService");
-const { t } = require("../Utils/Partner/tenantPartnershipI18n/index") as typeof import("../Utils/Partner/tenantPartnershipI18n/index");
+const { resolveTenantLanguageForInteraction } = require("../MultiGuild/utils/Partner/tenantPartnershipPrefixMessages") as typeof import("../MultiGuild/utils/Partner/tenantPartnershipPrefixMessages");
+const { evaluateTenantObjectives } = require("../MultiGuild/services/Partner/tenantObjectiveService") as typeof import("../MultiGuild/services/Partner/tenantObjectiveService");
+const { t } = require("../MultiGuild/utils/Partner/tenantPartnershipI18n/index") as typeof import("../MultiGuild/utils/Partner/tenantPartnershipI18n/index");
 const { safePanelMessageUpdate } = require("../../shared/discord/replyRuntime") as typeof import("../../shared/discord/replyRuntime");
 
 function match(interaction?) {

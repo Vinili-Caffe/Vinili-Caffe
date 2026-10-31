@@ -167,7 +167,7 @@ async function buildThankYouEmbed({
   let managerBadgeEmojis = [];
   if (managerId && guild?.id) {
     try {
-      const { resolveManagerSelectedBadgeEmojis } = require("../../Services/Partner/tenantProfilePreferencesService") as typeof import("../../Services/Partner/tenantProfilePreferencesService");
+      const { resolveManagerSelectedBadgeEmojis } = require("../../MultiGuild/services/Partner/tenantProfilePreferencesService") as typeof import("../../MultiGuild/services/Partner/tenantProfilePreferencesService");
       managerBadgeEmojis = await resolveManagerSelectedBadgeEmojis(guild.id, managerId);
     } catch {
       managerBadgeEmojis = [];

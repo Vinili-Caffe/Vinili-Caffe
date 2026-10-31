@@ -16,9 +16,9 @@ const {
 const {
   executeTenantPartnership,
   normalizePartnershipDescription,
-} = require("../../Services/Partner/tenantPartnershipExecuteService") as typeof import("../../Services/Partner/tenantPartnershipExecuteService");
+} = require("../../MultiGuild/services/Partner/tenantPartnershipExecuteService") as typeof import("../../MultiGuild/services/Partner/tenantPartnershipExecuteService");
 const { hasRequiredDiscordInviteLink } = require("../../Utils/Partner/partnershipMessageUtils") as typeof import("../../Utils/Partner/partnershipMessageUtils");
-const { replyInteractionSetupRequired } = require("../../Utils/Partner/tenantSetupRequiredReply") as typeof import("../../Utils/Partner/tenantSetupRequiredReply");
+const { replyInteractionSetupRequired } = require("../../MultiGuild/utils/Partner/tenantSetupRequiredReply") as typeof import("../../MultiGuild/utils/Partner/tenantSetupRequiredReply");
 
 const EPHEMERAL = MessageFlags.Ephemeral;
 

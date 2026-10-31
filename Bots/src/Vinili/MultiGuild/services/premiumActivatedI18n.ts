@@ -2,8 +2,8 @@ const {
   DEFAULT_LANGUAGE,
   TENANT_LANGUAGES,
   normalizeTenantLanguage,
-} = require("../../Utils/Partner/tenantPartnershipI18n/languages") as typeof import("../../Utils/Partner/tenantPartnershipI18n/languages");
-const { resolveTenantLanguage } = require("../../Utils/Partner/tenantPartnershipI18n/index") as typeof import("../../Utils/Partner/tenantPartnershipI18n/index");
+} = require("../utils/Partner/tenantPartnershipI18n/languages") as typeof import("../utils/Partner/tenantPartnershipI18n/languages");
+const { resolveTenantLanguage } = require("../utils/Partner/tenantPartnershipI18n/index") as typeof import("../utils/Partner/tenantPartnershipI18n/index");
 
 function merge(base?, patch?) {
   return { ...base, ...patch };

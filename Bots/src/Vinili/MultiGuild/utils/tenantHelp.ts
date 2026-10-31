@@ -7,8 +7,8 @@ const {
   rewriteDefaultCommandPrefix,
 } = require("../core/tenantGuildSettings") as typeof import("../core/tenantGuildSettings");
 const { TENANT_EMBED_COLOR } = require("./tenantEmbedBranding") as typeof import("./tenantEmbedBranding");
-const { t } = require("../../Utils/Partner/tenantPartnershipI18n/index") as typeof import("../../Utils/Partner/tenantPartnershipI18n/index");
-const { resolveTenantLanguageForMessage } = require("../../Utils/Partner/tenantPartnershipPrefixMessages") as typeof import("../../Utils/Partner/tenantPartnershipPrefixMessages");
+const { t } = require("./Partner/tenantPartnershipI18n/index") as typeof import("./Partner/tenantPartnershipI18n/index");
+const { resolveTenantLanguageForMessage } = require("./Partner/tenantPartnershipPrefixMessages") as typeof import("./Partner/tenantPartnershipPrefixMessages");
 const HELP_COLOR = TENANT_EMBED_COLOR;
 const ERROR_COLOR = "Red";
 const NO_REPLY_MENTIONS = { repliedUser: false, parse: [] };
@@ -334,7 +334,7 @@ async function handleTenantHelpNavInteraction(interaction?) {
     return true;
   }
 
-  const { resolveTenantLanguageForInteraction } = require("../../Utils/Partner/tenantPartnershipPrefixMessages") as typeof import("../../Utils/Partner/tenantPartnershipPrefixMessages");
+  const { resolveTenantLanguageForInteraction } = require("./Partner/tenantPartnershipPrefixMessages") as typeof import("./Partner/tenantPartnershipPrefixMessages");
   const lang = await resolveTenantLanguageForInteraction(interaction).catch(() => "it");
   const entries = buildTenantHelpEntries(interaction.guild.id, interaction.client);
   const pages = buildTenantHelpPages(entries, interaction.client);

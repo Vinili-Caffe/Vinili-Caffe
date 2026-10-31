@@ -7,7 +7,7 @@ const {
   findRankEntry,
   normalizeCategory,
   normalizePeriod,
-} = require("../Services/Partner/tenantLeaderboardService") as typeof import("../Services/Partner/tenantLeaderboardService");
+} = require("../MultiGuild/services/Partner/tenantLeaderboardService") as typeof import("../MultiGuild/services/Partner/tenantLeaderboardService");
 const { guildIconUrl, userAvatarUrlDynamic } = require("../Utils/Discord/guildDiscordIdentity") as typeof import("../Utils/Discord/guildDiscordIdentity");
 const { verifyDashboardGuildAccess } = require("./siteDashboardApi") as typeof import("./siteDashboardApi");
 const { getBotState } = require("../Utils/BotState/botStateStore") as typeof import("../Utils/BotState/botStateStore");

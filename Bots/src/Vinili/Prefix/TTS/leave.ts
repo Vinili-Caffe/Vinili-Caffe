@@ -36,7 +36,7 @@ export = {
   async execute(message?, args = []) {
     const sub = String(args[0] || "").toLowerCase();
     if (sub === "partnership") {
-      const { executeLeavePartnership } = require("../../Utils/Partner/tenantPartnershipLeaveRuntime") as typeof import("../../Utils/Partner/tenantPartnershipLeaveRuntime");
+      const { executeLeavePartnership } = require("../../MultiGuild/utils/Partner/tenantPartnershipLeaveRuntime") as typeof import("../../MultiGuild/utils/Partner/tenantPartnershipLeaveRuntime");
       return executeLeavePartnership(message);
     }
 

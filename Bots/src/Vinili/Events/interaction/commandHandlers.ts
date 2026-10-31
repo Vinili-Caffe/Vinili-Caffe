@@ -3,7 +3,7 @@ const { DEFAULT_OBSOLETE_SLASH_NAMES } = require("../../../shared/discord/purgeO
 const { safeReply: safeReplyHelper } = require("../../../shared/discord/replyRuntime") as typeof import("../../../shared/discord/replyRuntime");
 const{applyDefaultFooterToEmbeds,}=require("../../Utils/Embeds/defaultFooter") as typeof import("../../Utils/Embeds/defaultFooter");
 const { checkSlashPermission, getSlashRequiredRoles, buildGlobalPermissionDeniedEmbed, buildGlobalChannelDeniedEmbed, } = require("../../Utils/Moderation/commandPermissions") as typeof import("../../Utils/Moderation/commandPermissions");
-const { replyInteractionSetupRequired } = require("../../Utils/Partner/tenantSetupRequiredReply") as typeof import("../../Utils/Partner/tenantSetupRequiredReply");
+const { replyInteractionSetupRequired } = require("../../MultiGuild/utils/Partner/tenantSetupRequiredReply") as typeof import("../../MultiGuild/utils/Partner/tenantSetupRequiredReply");
 const { getUserCommandCooldownSeconds, consumeUserCooldown, } = require("../../Utils/Moderation/commandCooldown") as typeof import("../../Utils/Moderation/commandCooldown");
 const { buildCooldownErrorEmbed, buildBusyCommandErrorEmbed, buildInternalCommandErrorEmbed, } = require("../../Utils/Moderation/commandErrorEmbeds") as typeof import("../../Utils/Moderation/commandErrorEmbeds");
 const { buildErrorLogEmbed } = require("../../../shared/discord/errorLogEmbed") as typeof import("../../../shared/discord/errorLogEmbed");
@@ -149,7 +149,7 @@ async function handleSlashCommand(interaction?, client?) {
   const isAdminCommand=String(command?.category||"").toLowerCase()==="admin";
     let forceEphemeralDefer = !isAdminCommand && command?.publicReply !== true;
   if (command?.publicReply === true) {
-    const { userWantsPartnershipCommandPrivacy } = require("../../Utils/Partner/tenantProfileEphemeral") as typeof import("../../Utils/Partner/tenantProfileEphemeral");
+    const { userWantsPartnershipCommandPrivacy } = require("../../MultiGuild/utils/Partner/tenantProfileEphemeral") as typeof import("../../MultiGuild/utils/Partner/tenantProfileEphemeral");
     const wantsPrivate = await userWantsPartnershipCommandPrivacy(
       interaction.guildId || interaction.guild?.id,
       interaction.user?.id,

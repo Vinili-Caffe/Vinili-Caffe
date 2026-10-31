@@ -2,7 +2,6 @@
 const axios = require("axios") as typeof import("axios").default;
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle, AttachmentBuilder } = require("discord.js") as typeof import("discord.js");
 const { getGuessYearBank, getCompleteVerseBank, getGuessEmojiBank, getQuoteFilmBank, getProverbBank, getSynonymAntonymBank, getGuessCityBank, getItalianGkBank, getDrivingTrueFalseBank, getDrivingMultipleChoiceBank, getDrivingSignQuestions, getFastTypingPhrases, getHangmanWords } = require("../../Data/Minigames/minigameBanks") as typeof import("../../Data/Minigames/minigameBanks");
-const { shouldUseHalloweenTheme, getHalloweenHangmanWords, getHalloweenGuessYearBank, getHalloweenCompleteVerseBank } = require("../../Utils/Minigames/halloweenMinigameHooks") as typeof import("../../Utils/Minigames/halloweenMinigameHooks");
 const { warnMinigame } = require("./minigameLog") as typeof import("./minigameLog");
 const { normalizeCountryName, polishItalianQuestionText, fetchWikiRegionImage, fetchSingerImageFallback, buildDrivingQuizPromptImage, buildEmojiRichPromptImageAttachment, buildPromptImageAttachment, fetchRawImageAttachment, buildRemoteGuessImageCardAttachment, buildMathExpressionImageAttachment, censorArtworkImage, buildRegionNameImageAttachment } = require("./minigameImages") as typeof import("./minigameImages");
 const { buildGuessNumberEmbed, buildGuessWordEmbed, buildGuessFlagEmbed, buildGuessPlayerEmbed, buildGuessSongEmbed, buildGuessCapitalEmbed, buildGuessRegionCapitalEmbed, buildGuessReverseCapitalEmbed, buildFastTypeEmbed, buildGuessTeamEmbed, buildGuessSingerEmbed, buildGuessAlbumEmbed, buildHangmanEmbed, buildItalianGkEmbed, DRIVING_QUIZ_LETTERS, buildDrivingQuizEmbed, buildMathExpressionEmbed, buildTimeoutNumberEmbed, buildTimeoutWordEmbed, buildTimeoutFlagEmbed, buildTimeoutPlayerEmbed, buildTimeoutCapitalEmbed, buildTimeoutRegionCapitalEmbed, buildTimeoutReverseCapitalEmbed, buildTimeoutFastTypeEmbed, buildTimeoutTeamEmbed, buildTimeoutSingerEmbed, buildTimeoutHangmanEmbed, buildTimeoutItalianGkEmbed, buildTimeoutDrivingQuizEmbed, buildTimeoutMathEmbed, buildGuessYearEmbed, buildCompleteVerseEmbed, buildGuessEmojiEmbed, buildQuoteFilmEmbed, buildCompleteProverbEmbed, buildSynonymAntonymEmbed, buildGuessCityEmbed } = require("./minigameEmbeds") as typeof import("./minigameEmbeds");
@@ -1109,11 +1108,8 @@ async function startHangmanGame(client?, cfg?) {
   if (!channelId || activeGames.has(channelId)) return false;
 
   let words = [];
-  if (shouldUseHalloweenTheme(cfg)) {
-    words = getHalloweenHangmanWords().map(normalizeWord).filter(isValidHangmanWord);
-  }
   const apiUrl = cfg?.hangman?.apiUrl || cfg?.guessWord?.apiUrl || null;
-  if (!words.length && apiUrl) {
+  if (apiUrl) {
     try {
       const res = await axios.get(apiUrl, { timeout: 15000 });
       const list = extractWordListFromApiPayload(res?.data);
@@ -1128,11 +1124,7 @@ async function startHangmanGame(client?, cfg?) {
   }
   if (!words.length) {
     const customWords = Array.isArray(cfg?.hangman?.words) ? cfg.hangman.words : [];
-    const fallbackWords = customWords.length
-      ? customWords
-      : shouldUseHalloweenTheme(cfg)
-        ? getHalloweenHangmanWords()
-        : getHangmanWords();
+    const fallbackWords = customWords.length ? customWords : getHangmanWords();
     words = fallbackWords.map(normalizeWord).filter(isValidHangmanWord);
   }
   if (!words.length) return false;
@@ -1154,7 +1146,6 @@ async function startHangmanGame(client?, cfg?) {
   const hangmanAttachment = buildPromptImageAttachment("Impiccato", [maskedWord, `Errori: 0/${maxMisses}`],
     "hangman", "", client);
   let hangmanEmbed = buildHangmanEmbed(maskedWord, rewardExp, durationMs);
-  if (shouldUseHalloweenTheme(cfg)) hangmanEmbed.setTitle("Impiccato Halloween 🎃");
   if (hangmanAttachment) {
     hangmanEmbed.setImage(`attachment://${hangmanAttachment.name}`);
   }
@@ -1609,9 +1600,7 @@ async function startMathExpressionGame(client?, cfg?) {
 async function startGuessYearGame(client?, cfg?) {
   const channelId = cfg.channelId;
   if (!channelId || activeGames.has(channelId)) return false;
-  const bank = shouldUseHalloweenTheme(cfg)
-    ? getHalloweenGuessYearBank()
-    : getGuessYearBank();
+  const bank = getGuessYearBank();
   const pick = pickQuestionAvoidRecent(channelId, "guessYear", bank, (r?) => `${r.type}:${r.title}:${r.year}`, 25);
   if (!pick) return false;
   const rewardExp = normalizeRewardExp(cfg?.guessYear?.rewardExp ?? 150);
@@ -1621,10 +1610,9 @@ async function startGuessYearGame(client?, cfg?) {
   await sendMinigameRolePing(channel, cfg);
   const typeLabel = { film: "Film", series: "Serie TV", song: "Canzone", album: "Album" }[pick.type] || pick.type;
   const lines = [pick.subtitle ? `${pick.title} — ${pick.subtitle}` : pick.title, `Categoria: ${typeLabel}`];
-  const attachment = buildPromptImageAttachment(shouldUseHalloweenTheme(cfg) ? "Indovina l'anno Halloween" : "Indovina l'anno", lines, "guess_year", "", client);
+  const attachment = buildPromptImageAttachment("Indovina l'anno", lines, "guess_year", "", client);
   const imageUrl = attachment ? `attachment://${attachment.name}` : null;
   const embed = buildGuessYearEmbed(pick.title, pick.subtitle || null, rewardExp, durationMs, imageUrl);
-  if (shouldUseHalloweenTheme(cfg)) embed.setTitle("Indovina l'anno Halloween 🎃");
   const gameMessage = await sendMinigameMessage(channel, { embeds: [embed], files: attachment ? [attachment] : [] }).catch(() => null);
   const timeout = scheduleMinigameRoundTimeout(client, cfg, channelId, channel, durationMs);
   const yearHint = `<a:VC_Flame:1482725674711126140> L'anno è tra **${pick.year - 5}** e **${pick.year + 5}**.`;
@@ -1657,9 +1645,7 @@ async function startGuessYearGame(client?, cfg?) {
 async function startCompleteVerseGame(client?, cfg?) {
   const channelId = cfg.channelId;
   if (!channelId || activeGames.has(channelId)) return false;
-  const bank = shouldUseHalloweenTheme(cfg)
-    ? getHalloweenCompleteVerseBank()
-    : getCompleteVerseBank();
+  const bank = getCompleteVerseBank();
   const pick = pickQuestionAvoidRecent(channelId, "completeVerse", bank, (r?) => r.verse, 15);
   if (!pick) return false;
   const rewardExp = normalizeRewardExp(cfg?.completeVerse?.rewardExp ?? 150);
@@ -1667,10 +1653,9 @@ async function startCompleteVerseGame(client?, cfg?) {
   const channel = await getChannelCached(client, channelId);
   if (!channel) return false;
   await sendMinigameRolePing(channel, cfg);
-  const attachment = buildPromptImageAttachment(shouldUseHalloweenTheme(cfg) ? "Completa il verso Halloween" : "Completa il verso", [pick.verse, `${pick.song} — ${pick.artist}`], "complete_verse", "", client);
+  const attachment = buildPromptImageAttachment("Completa il verso", [pick.verse, `${pick.song} — ${pick.artist}`], "complete_verse", "", client);
   const imageUrl = attachment ? `attachment://${attachment.name}` : null;
   const embed = buildCompleteVerseEmbed(pick.verse, rewardExp, durationMs, imageUrl);
-  if (shouldUseHalloweenTheme(cfg)) embed.setTitle("Completa il verso Halloween 🎃");
   const gameMessage = await sendMinigameMessage(channel, { embeds: [embed], files: attachment ? [attachment] : [] }).catch(() => null);
   const timeout = scheduleMinigameRoundTimeout(client, cfg, channelId, channel, durationMs);
   const hintText = `Verso: ${buildRevealHint(pick.answer)}`;

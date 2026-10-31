@@ -11,7 +11,6 @@ import {
   Info,
   Loader2,
   LogIn,
-  Mail,
   Shield,
   Ticket,
   Trash2,
@@ -246,7 +245,7 @@ export function DatiBoard() {
             <SmartLink href="/tickets/" className="text-caramel underline-offset-2 hover:underline">
               ticket
             </SmartLink>{" "}
-            o scrivi a <strong className="text-crema">supporto@viniliecaffe.it</strong>.
+            sul server o sul sito.
           </p>
           <div className="flex flex-wrap gap-3">
             <SmartLink
@@ -255,12 +254,6 @@ export function DatiBoard() {
             >
               <Ticket className="size-4" /> Apri un ticket
             </SmartLink>
-            <a
-              href="mailto:supporto@viniliecaffe.it"
-              className="inline-flex items-center gap-2 rounded-full bg-crema/8 px-5 py-2.5 text-sm font-semibold text-crema ring-1 ring-sand/25 transition hover:ring-sand/40"
-            >
-              <Mail className="size-4" /> Scrivi via email
-            </a>
           </div>
         </Card>
       </Reveal>

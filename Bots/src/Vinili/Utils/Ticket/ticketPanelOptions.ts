@@ -6,7 +6,7 @@ const {
   isDefaultWelcomeDescription,
   wrapMentionsInSpoiler,
 } = require("./ticketUiDefaults") as typeof import("./ticketUiDefaults");
-const { DEFAULT_LANGUAGE } = require("../Partner/tenantPartnershipI18n/languages") as typeof import("../Partner/tenantPartnershipI18n/languages");
+const { DEFAULT_LANGUAGE } = require("../../MultiGuild/utils/Partner/tenantPartnershipI18n/languages") as typeof import("../../MultiGuild/utils/Partner/tenantPartnershipI18n/languages");
 
 const DAYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
 const DAY_LABELS = {

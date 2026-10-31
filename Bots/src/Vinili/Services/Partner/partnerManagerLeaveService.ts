@@ -217,7 +217,7 @@ async function findManagerPartnerDocs(guildId?, managerUserId?) {
 }
 
 async function executeDeletePartnerships(guild?, managerUserId?, client?) {
-  const { deletePartnershipsForManagerLeave } = require("./tenantPartnershipDeleteService") as typeof import("./tenantPartnershipDeleteService");
+  const { deletePartnershipsForManagerLeave } = require("../../MultiGuild/services/Partner/tenantPartnershipDeleteService") as typeof import("../../MultiGuild/services/Partner/tenantPartnershipDeleteService");
   return deletePartnershipsForManagerLeave(guild, managerUserId, client);
 }
 

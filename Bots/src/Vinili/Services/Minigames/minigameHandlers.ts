@@ -17,7 +17,6 @@ const { handleExpReward, computeMinigameAwardForUser, mergeHalloweenCandyDropInt
 const { treasureEmojiMatches, botPlacedTreasureReaction, getTreasureHuntMessageUrl } = require("./minigameTreasureEmoji") as typeof import("./minigameTreasureEmoji");
 const { saveActiveGame, purgeExpiredMinigameDbState, parseStateTarget, shouldRevealHangmanSolutionOnBoard, updateHangmanBoardMessage, buildMinigameTimeoutEmbedForGame, sendMinigameTimeoutAndClose, handleMinigameWin } = require("./minigameRound") as typeof import("./minigameRound");
 const { getConfig } = require("./minigameConfig") as typeof import("./minigameConfig");
-const { trickOrTreatMapKey, trickOrTreatStateChannelId, getTrickOrTreatGame, saveTrickOrTreatGame, buildTrickOrTreatGameFromCustomId, scheduleTrickOrTreatRoundTimers, handleHalloweenTrickOrTreatButton } = require("./minigameTrickOrTreat") as typeof import("./minigameTrickOrTreat");
 const { ensureTreasureHuntGame, handleTreasureHuntIncomingMessage, cleanupTreasureHuntReactions } = require("./minigameTreasureHunt") as typeof import("./minigameTreasureHunt");
 const { resolveFindBotVoiceBotChannelId, syncFindBotVoiceTargetChannel, getActiveFindBotVoiceGame, handleFindBotVoiceWin } = require("./minigameFindBot") as typeof import("./minigameFindBot");
 
@@ -1241,136 +1240,19 @@ ${game.previewUrl}`,
   }
 
   if (String(interaction.customId || "").startsWith("minigame_trickortreat:")) {
-    const wantId = String(interaction.customId || "");
-    const chId = String(interaction.channelId || cfg.channelId || "").trim();
-    const mapKey = trickOrTreatMapKey(chId);
-    let totGame = getTrickOrTreatGame(chId);
-    if (!totGame || totGame.customId !== wantId) {
-      totGame = null;
-      for (const g of activeGames.values()) {
-        if (g && g.type === "halloweenTrickOrTreat" && String(g.customId || "") === wantId) {
-          totGame = g;
-          break;
-        }
-      }
-    }
-    const mountTot = (game?) => {
-      if (!game || !chId) return null;
-      scheduleTrickOrTreatRoundTimers(
-        interaction.client,
-        { ...cfg, channelId: chId, guildId: interaction.guildId || cfg.guildId },
-        interaction.channel,
-        game,
-      );
-      activeGames.set(mapKey, game);
-      const legacy = activeGames.get(chId);
-      if (legacy?.type === "halloweenTrickOrTreat") activeGames.delete(chId);
-      return game;
-    };
-    // Rehydrate da doc ToT dedicato (o legacy sullo slot minigioco se ancora ToT)
-    if (!totGame && chId) {
-      try {
-        const guildId = String(interaction.guildId || "").trim();
-        if (guildId) {
-          let state = await minigameStateFindOneLean({
-            guildId,
-            channelId: trickOrTreatStateChannelId(chId),
-          }).catch(() => null);
-          if (!state || state.type !== "halloweenTrickOrTreat") {
-            const main = await minigameStateFindOneLean({ guildId, channelId: chId }).catch(() => null);
-            if (main?.type === "halloweenTrickOrTreat") state = main;
-          }
-          if (state?.type === "halloweenTrickOrTreat") {
-            const parsed = parseStateTarget(state.target);
-            const customId = state.customId || parsed?.customId || wantId;
-            if (customId === wantId) {
-              const endsAt = new Date(state.endsAt).getTime();
-              if (endsAt > Date.now()) {
-                totGame = mountTot({
-                  type: "halloweenTrickOrTreat",
-                  rewardExp: Number(state.rewardExp || 0),
-                  treatChancePercent: Number(parsed?.treatChancePercent ?? 80),
-                  candyOnTreat: Number(parsed?.candyOnTreat ?? 1),
-                  claimedBy: parsed?.claimedBy && typeof parsed.claimedBy === "object" ? { ...parsed.claimedBy } : {},
-                  customId,
-                  startedAt: new Date(state.startedAt).getTime(),
-                  endsAt,
-                  timeout: null,
-                  gameMessageId: state.gameMessageId || interaction.message?.id || null,
-                  multiClaim: true,
-                });
-                await saveTrickOrTreatGame(
-                  interaction.client,
-                  { ...cfg, channelId: chId, guildId },
-                  {
-                    type: "halloweenTrickOrTreat",
-                    target: JSON.stringify({
-                      treatChancePercent: totGame.treatChancePercent,
-                      candyOnTreat: totGame.candyOnTreat,
-                      claimedBy: totGame.claimedBy,
-                      customId,
-                    }),
-                    rewardExp: totGame.rewardExp,
-                    startedAt: new Date(totGame.startedAt),
-                    endsAt: new Date(totGame.endsAt),
-                    gameMessageId: totGame.gameMessageId,
-                    customId,
-                  },
-                ).catch(() => {});
-              }
-            }
-          }
-        }
-      } catch (err) {
-        warnMinigame(err);
-      }
-    }
-    // Recovery immediato: Impiccato ha rubato lo slot — riattiva dal customId / timestamp messaggio
-    if (!totGame && chId) {
-      const recovered = buildTrickOrTreatGameFromCustomId(
-        wantId,
-        cfg,
-        interaction.message?.id || null,
-        interaction.message?.createdTimestamp || null,
-      );
-      if (recovered) {
-        totGame = mountTot(recovered);
-        await saveTrickOrTreatGame(
-          interaction.client,
-          { ...cfg, channelId: chId, guildId: interaction.guildId || cfg.guildId },
-          {
-            type: "halloweenTrickOrTreat",
-            target: JSON.stringify({
-              treatChancePercent: recovered.treatChancePercent,
-              candyOnTreat: recovered.candyOnTreat,
-              claimedBy: {},
-              customId: wantId,
-            }),
-            rewardExp: recovered.rewardExp,
-            startedAt: new Date(recovered.startedAt),
-            endsAt: new Date(recovered.endsAt),
-            gameMessageId: recovered.gameMessageId,
-            customId: wantId,
-          },
-        ).catch(() => {});
-        global.logger?.info?.("[MINIGAMES] ToT recovered from button customId (slot was stolen)", {
-          channelId: chId,
-          customId: wantId,
-          endsAt: recovered.endsAt,
-        });
-      }
-    }
-    if (!totGame || totGame.type !== "halloweenTrickOrTreat" || interaction.customId !== totGame.customId) {
+    try {
+      const { handleHalloweenTrickOrTreatButton } =
+        require("./minigameTrickOrTreat") as typeof import("./minigameTrickOrTreat");
+      await handleHalloweenTrickOrTreatButton(interaction, client);
+    } catch (err) {
+      warnMinigame(err);
       await interaction
         .reply({
           content: "<:cancel:1461730653677551691> Round Trick or Treat non attivo.",
           flags: 1 << 6,
         })
         .catch(() => {});
-      return true;
     }
-    const totCfg = { ...cfg, channelId: chId || cfg.channelId, guildId: interaction.guildId || cfg.guildId };
-    await handleHalloweenTrickOrTreatButton(interaction, totGame, totCfg);
     return true;
   }
 

@@ -1,7 +1,7 @@
 const { PermissionsBitField, EmbedBuilder } = require("discord.js") as typeof import("discord.js");
 const { getGuildChannelCached } = require("../Interaction/interactionEntityCache") as typeof import("../Interaction/interactionEntityCache");
 const { accountUsername, guildMemberDisplayAvatarUrlDynamic } = require("../Discord/guildDiscordIdentity") as typeof import("../Discord/guildDiscordIdentity");
-const { resolveModLogChannelId } = require("../Moderation/tenantModLogChannel") as typeof import("../Moderation/tenantModLogChannel");
+const { resolveModLogChannelId } = require("../../MultiGuild/utils/tenantModLogChannel") as typeof import("../../MultiGuild/utils/tenantModLogChannel");
 
 function logModLogSendFailure(guild?, channel?, err?, context?) {
   global.logger?.warn?.("[modLogs] invio fallito:", {

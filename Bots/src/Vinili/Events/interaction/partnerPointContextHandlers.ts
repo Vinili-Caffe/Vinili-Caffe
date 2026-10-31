@@ -11,9 +11,9 @@ const {
   MAIN_PARTNERSHIP_REMOVE_MODAL_PREFIX,
   MAIN_PARTNERSHIP_REMOVE_RULE_INPUT,
 } = require("../../Utils/Partner/partnerPointContextUtils") as typeof import("../../Utils/Partner/partnerPointContextUtils");
-const { deletePartnershipFromContextMessage } = require("../../Services/Partner/tenantPartnershipDeleteService") as typeof import("../../Services/Partner/tenantPartnershipDeleteService");
+const { deletePartnershipFromContextMessage } = require("../../MultiGuild/services/Partner/tenantPartnershipDeleteService") as typeof import("../../MultiGuild/services/Partner/tenantPartnershipDeleteService");
 const { memberHasPartnerManagerRole, getPartnershipLogChannelIds, shouldApplyMainPartnershipFilters } = require("../../Utils/Partner/partnershipConfigResolver") as typeof import("../../Utils/Partner/partnershipConfigResolver");
-const { recordTenantBugReport } = require("../../Services/Partner/tenantObjectiveService") as typeof import("../../Services/Partner/tenantObjectiveService");
+const { recordTenantBugReport } = require("../../MultiGuild/services/Partner/tenantObjectiveService") as typeof import("../../MultiGuild/services/Partner/tenantObjectiveService");
 const { logPmPointsRemoved, entryMessageId } = require("../../Utils/Partner/pmPointsRemovedStore") as typeof import("../../Utils/Partner/pmPointsRemovedStore");
 const { safeReply, safeDeferReply } = require("../../../shared/discord/replyRuntime") as typeof import("../../../shared/discord/replyRuntime");
 

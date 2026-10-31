@@ -24,7 +24,6 @@ for f in $FILES; do
     TS_LIST="$TS_LIST $f"
     UP_LIST="$UP_LIST ${f%.ts}.js"
   else
-    [[ "$f" == "Vinili/Config/site.config.json" ]] && { echo "site.config.json sulla VPS è dati vivi (serata film…): non si sovrascrive da qui" >&2; exit 1; }
     UP_LIST="$UP_LIST $f"
   fi
 done
