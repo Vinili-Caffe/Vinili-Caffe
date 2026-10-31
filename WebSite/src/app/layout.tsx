@@ -15,6 +15,7 @@ import { PWA_NOTIF_NAV_BOOT } from "@/lib/pwa-notif-nav-boot";
 import { STORAGE_GC_BOOT } from "@/lib/storage-gc-boot";
 import { EXT_CONSOLE_BOOT } from "@/lib/ext-console-boot";
 import { API_FETCH_BOOT } from "@/lib/api";
+import { SSR_TEXT_SNAPSHOT_BOOT } from "@/lib/hydration-diff";
 import { SITE_TITLE_BRAND, SITE_TITLE_TEMPLATE } from "@/lib/page-title";
 import { SITE_EMBED_COLOR, SITE_THEME_COLOR, siteLogoOgImage } from "@/lib/og";
 import "./globals.css";
@@ -115,6 +116,8 @@ export default function RootLayout({
             </ThemeProvider>
           </I18nFromAuth>
         </AuthProvider>
+        {/* testo della pagina arrivata dal server, prima che React la prenda: ErrorReporter lo confronta se c'è un errore #418 */}
+        <script dangerouslySetInnerHTML={{ __html: SSR_TEXT_SNAPSHOT_BOOT }} />
       </body>
     </html>
   );

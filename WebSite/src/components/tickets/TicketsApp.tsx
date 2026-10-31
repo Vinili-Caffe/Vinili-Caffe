@@ -490,7 +490,11 @@ export function TicketsApp() {
     });
   };
 
-  if (!ready) return <div className="mx-auto h-64 max-w-6xl animate-pulse rounded-3xl bg-crema/[0.04] lg:h-[70vh]" />;
+  /* stesse misure della lista/card vere, così il resto della pagina non si sposta quando arrivano */
+  if (!ready)
+    return (
+      <div className="mx-auto min-h-[22rem] max-w-7xl animate-pulse rounded-[1.5rem] bg-crema/[0.04] lg:h-[min(40rem,calc(100dvh-14rem))] lg:min-h-[28rem] lg:rounded-[2rem]" />
+    );
   if (!token)
     return (
       <AuthGateCard title={t("tickets.gateTitle")} text={t("tickets.gateText")} />

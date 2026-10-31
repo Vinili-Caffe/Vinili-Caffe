@@ -283,7 +283,8 @@ function Bubble({
             <div className="mt-2 grid grid-cols-2 gap-1.5" data-vc-lightbox-gallery>
               {m.imageUrls.map((u) => (
                 <a key={u} href={u} data-vc-lightbox className="overflow-hidden rounded-lg">
-                  <img src={u} alt="Allegato" loading="lazy" className="max-h-60 w-full object-cover" />
+                  {/* spazio fissato prima che l'immagine arrivi: senza, la chat saltava (CLS) e perdeva il fondo */}
+                  <img src={u} alt="Allegato" loading="lazy" width={320} height={240} className="aspect-[4/3] max-h-60 w-full object-cover" />
                 </a>
               ))}
             </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { describeHydrationDiff, isHydrationMismatch } from "@/lib/hydration-diff";
 import { recoverFromStaleChunk } from "@/lib/stale-chunk-recovery";
 
 /** Rumore che non dipende dal sito: estensioni, richieste annullate, avvisi innocui del browser. */
@@ -19,7 +20,8 @@ const IGNORE = [
 
 /**
  * Registro errori: gli errori JavaScript dei visitatori finiscono nel log del bot
- * (/webhooks/site-client-error → logs/site-client-errors.log). Niente dati personali: testo, pagina, browser.
+ * (/webhooks/site-client-error → logs/site-client-errors.log). Niente dati personali: testo, pagina, browser
+ * (per gli errori #418 anche ~120 caratteri della pagina attorno al punto che cambia).
  * Al massimo 10 per pagina e mai due volte lo stesso.
  */
 export function ErrorReporter() {
@@ -41,7 +43,10 @@ export function ErrorReporter() {
       }
     };
     const onError = (e: ErrorEvent) => {
-      send("error", e.message || String(e.error), e.error?.stack);
+      const message = e.message || String(e.error);
+      /* #418: al posto dello stack (inutile, minificato) il punto dove server e browser differiscono */
+      const diff = isHydrationMismatch(message) ? describeHydrationDiff() : null;
+      send("error", message, diff ?? e.error?.stack);
       recoverFromStaleChunk(String(e.message || e.error?.name || ""));
     };
     const onRejection = (e: PromiseRejectionEvent) => {
