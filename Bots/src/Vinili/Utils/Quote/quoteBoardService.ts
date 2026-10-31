@@ -374,7 +374,7 @@ async function upsertQuoteBoardFromParsed(guildId?, boardChannelId?, boardMessag
   if (doc?._id && String(doc.imageUrl || "").trim()) {
     void (async () => {
       try {
-        const { stabilizeQuoteMedia } = require("../Community/boardMediaStable") as typeof import("../Community/boardMediaStable");
+        const { stabilizeQuoteMedia } = require("../../features/boards/boardMediaStable") as typeof import("../../features/boards/boardMediaStable");
         await stabilizeQuoteMedia(null, doc.toObject?.() || doc);
       } catch (_) {}
     })();

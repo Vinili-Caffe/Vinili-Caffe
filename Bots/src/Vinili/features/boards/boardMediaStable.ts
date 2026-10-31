@@ -12,7 +12,7 @@ const {
 const {
   getClientGuildCached,
   getGuildChannelCached,
-} = require("../Interaction/interactionEntityCache") as typeof import("../Interaction/interactionEntityCache");
+} = require("../../Utils/Interaction/interactionEntityCache") as typeof import("../../Utils/Interaction/interactionEntityCache");
 const {
   isCdnMediaUrl,
   isSiteCdnConfigured,

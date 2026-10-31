@@ -248,7 +248,7 @@ function mountSiteWebhookRoutes(app?, client?, deps?) {
   const {
     ensureBoardsVoteReminderScheduler,
     ensureBoardsStatsScheduler,
-  } = require("../../Web/siteBoardsApi") as typeof import("../../Web/siteBoardsApi");
+  } = require("../../features/boards/siteBoardsApi") as typeof import("../../features/boards/siteBoardsApi");
   try {
     ensureBoardsStatsScheduler(client);
   } catch (_) {}

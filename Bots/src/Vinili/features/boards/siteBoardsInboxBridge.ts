@@ -2,8 +2,8 @@
  * boardsInboxRevisione1: Bacheca pending → coda Inbox "revisione" (Server|Bot).
  * boardsInboxSelfNotif1: notifica anche il mittente se è staff (revisione).
  */
-const IDs = require("../Utils/Config/ids") as typeof import("../Utils/Config/ids");
-const { SiteDocument, SITE_DOCUMENT_TYPE } = require("../Schemas/Community/communitySchemas") as typeof import("../Schemas/Community/communitySchemas");
+const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
+const { SiteDocument, SITE_DOCUMENT_TYPE } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
 
 const BL = SITE_DOCUMENT_TYPE.BOARD_LISTING;
 const QUEUE = "revisione";
@@ -110,7 +110,7 @@ async function upsertBoardsRevisioneWorkflow(doc?, opts: Record<string, any> = {
     String(d.userId || "");
   const iconUrl = String(d.boardIconUrl || "").trim();
 
-  const { upsertStaffWorkflowItem } = require("./siteStaffWorkflowStore") as typeof import("./siteStaffWorkflowStore");
+  const { upsertStaffWorkflowItem } = require("../../Web/siteStaffWorkflowStore") as typeof import("../../Web/siteStaffWorkflowStore");
   const wfDoc = await upsertStaffWorkflowItem({
     guildId,
     queue: QUEUE,
@@ -135,12 +135,12 @@ async function upsertBoardsRevisioneWorkflow(doc?, opts: Record<string, any> = {
   });
 
   try {
-    const { broadcastSiteStaffWorkflowChanged } = require("./siteSuggestionsBroadcast") as typeof import("./siteSuggestionsBroadcast");
+    const { broadcastSiteStaffWorkflowChanged } = require("../../Web/siteSuggestionsBroadcast") as typeof import("../../Web/siteSuggestionsBroadcast");
     broadcastSiteStaffWorkflowChanged(QUEUE);
   } catch (_) {}
 
   try {
-    const { invalidateWorkflowSummaryCache } = require("./siteStaffWorkflowApi") as typeof import("./siteStaffWorkflowApi");
+    const { invalidateWorkflowSummaryCache } = require("../../Web/siteStaffWorkflowApi") as typeof import("../../Web/siteStaffWorkflowApi");
     invalidateWorkflowSummaryCache();
   } catch (_) {}
 
@@ -161,7 +161,7 @@ async function notifyBoardsRevisioneStaff(client?, doc?, opts: Record<string, an
     client?.guilds?.cache?.get?.(guildId) ||
     (client?.guilds?.fetch ? await client.guilds.fetch(guildId).catch(() => null) : null);
   if (!guild) return 0;
-  const { notifyInboxStaffNewItem } = require("./siteStaffWorkflowNotifications") as typeof import("./siteStaffWorkflowNotifications");
+  const { notifyInboxStaffNewItem } = require("../../Web/siteStaffWorkflowNotifications") as typeof import("../../Web/siteStaffWorkflowNotifications");
   const repend = Boolean(opts.repending);
   return notifyInboxStaffNewItem({
     guild,
@@ -211,7 +211,7 @@ async function notifyBoardsOwnerDecision(doc?, opts: Record<string, any> = {}) {
     title = "Scheda rifiutata";
     body = `La scheda «${name}» non è stata approvata.` + (reason ? ` Motivo: ${reason}` : "");
   }
-  const { notifyWorkflowSubjectDecision } = require("./siteStaffWorkflowNotifications") as typeof import("./siteStaffWorkflowNotifications");
+  const { notifyWorkflowSubjectDecision } = require("../../Web/siteStaffWorkflowNotifications") as typeof import("../../Web/siteStaffWorkflowNotifications");
   return notifyWorkflowSubjectDecision({
     guildId,
     userId,
@@ -246,7 +246,7 @@ async function onBoardsListingDecided(client?, doc?, opts: Record<string, any> =
     staffReason: opts.reason || "",
   });
   try {
-    const { clearWorkflowLifecycleNotifs } = require("./siteStaffWorkflowNotifications") as typeof import("./siteStaffWorkflowNotifications");
+    const { clearWorkflowLifecycleNotifs } = require("../../Web/siteStaffWorkflowNotifications") as typeof import("../../Web/siteStaffWorkflowNotifications");
     if (wf) void clearWorkflowLifecycleNotifs(wf).catch(() => null);
   } catch (_) {}
   if (opts.notifyOwner !== false) {
@@ -272,13 +272,13 @@ async function onBoardsListingWithdrawn(client?, doc?, opts: Record<string, any>
     wf = null;
   }
   try {
-    const { clearWorkflowLifecycleNotifs } = require("./siteStaffWorkflowNotifications") as typeof import("./siteStaffWorkflowNotifications");
+    const { clearWorkflowLifecycleNotifs } = require("../../Web/siteStaffWorkflowNotifications") as typeof import("../../Web/siteStaffWorkflowNotifications");
     if (wf) void clearWorkflowLifecycleNotifs(wf).catch(() => null);
   } catch (_) {}
   try {
     const { removeInboxItemByDedupeKey, removeSiteInAppNotificationsMatching } = require(
       "./siteInAppNotificationsService",
-    ) as typeof import("./siteInAppNotificationsService");
+    ) as typeof import("../../Web/siteInAppNotificationsService");
     const uid = String(d.userId || "").trim();
     if (uid) {
       void removeInboxItemByDedupeKey(uid, boardsRevisioneDedupeKey(listingId)).catch(() => false);

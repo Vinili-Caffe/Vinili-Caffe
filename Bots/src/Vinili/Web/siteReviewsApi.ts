@@ -24,7 +24,7 @@ const { TENANT_EMBED_COLOR } = require("../MultiGuild/utils/tenantEmbedBranding"
 /* boardsImportSiteServerReviews1: lazy require evita cicli con siteBoardsApi */
 function mirrorSiteServerReviewToBoard(doc?) {
   try {
-    const api = require("./siteBoardsApi") as typeof import("./siteBoardsApi");
+    const api = require("../features/boards/siteBoardsApi") as typeof import("../features/boards/siteBoardsApi");
     return Promise.resolve(api.syncSiteServerReviewToMainBoardListing(doc)).catch(() => null);
   } catch (_) {
     return Promise.resolve(null);
@@ -32,7 +32,7 @@ function mirrorSiteServerReviewToBoard(doc?) {
 }
 function unmirrorSiteServerReviewFromBoard(userId?) {
   try {
-    const api = require("./siteBoardsApi") as typeof import("./siteBoardsApi");
+    const api = require("../features/boards/siteBoardsApi") as typeof import("../features/boards/siteBoardsApi");
     return Promise.resolve(api.removeSiteServerReviewFromMainBoardListing(userId)).catch(() => null);
   } catch (_) {
     return Promise.resolve(null);

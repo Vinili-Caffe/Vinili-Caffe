@@ -25,7 +25,7 @@ export = {
 
       /* boardsBotLeftPurge1: se il server era in bacheca, cancella scheda + dati */
       try {
-        const { deleteServerListingsForLeftGuild } = require("../Web/siteBoardsApi") as typeof import("../Web/siteBoardsApi");
+        const { deleteServerListingsForLeftGuild } = require("../features/boards/siteBoardsApi") as typeof import("../features/boards/siteBoardsApi");
         const client = guild.client || global.botClient || null;
         await deleteServerListingsForLeftGuild(client, guild.id, {
           reason: "bot_left_guild",

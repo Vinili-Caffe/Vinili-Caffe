@@ -376,7 +376,7 @@ async function fetchWorkflowItemDetail(client?, guild?, access?, queue?, itemId?
           .lean()
           .catch(() => null);
         if (!listing) return;
-        const { upsertBoardsRevisioneWorkflow } = require("./siteBoardsInboxBridge") as typeof import("./siteBoardsInboxBridge");
+        const { upsertBoardsRevisioneWorkflow } = require("../features/boards/siteBoardsInboxBridge") as typeof import("../features/boards/siteBoardsInboxBridge");
         await upsertBoardsRevisioneWorkflow(listing, {
           status: listing.status || "pending",
           notify: false,
@@ -655,7 +655,7 @@ async function handleSiteStaffWorkflowPost(client?, req?, res?) {
       if (!canManageHighStaff) {
         return res.status(403).json({ ok: false, error: "forbidden", message: "Solo High Staff." });
       }
-      const { decideBoardsFromWorkflow } = require("./siteBoardsInboxBridge") as typeof import("./siteBoardsInboxBridge");
+      const { decideBoardsFromWorkflow } = require("../features/boards/siteBoardsInboxBridge") as typeof import("../features/boards/siteBoardsInboxBridge");
       result = await decideBoardsFromWorkflow(
         client,
         { accessToken, member: access.member },

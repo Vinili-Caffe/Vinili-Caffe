@@ -1254,7 +1254,7 @@ async function createRepostFromMessage(ctx?) {
     boardUrl = messageJumpUrl(guildId, boardChannel.id, boardMsg.id);
     void (async () => {
       try {
-        const { stabilizeRepostMedia } = require("../../Utils/Community/boardMediaStable") as typeof import("../../Utils/Community/boardMediaStable");
+        const { stabilizeRepostMedia } = require("../../features/boards/boardMediaStable") as typeof import("../../features/boards/boardMediaStable");
         const lean = await GuildRepost.findById(doc._id).lean().catch(() => null);
         if (lean) await stabilizeRepostMedia(guild?.client, lean);
       } catch (_) {}

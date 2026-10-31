@@ -5,18 +5,18 @@
  */
 "use strict";
 
-const IDs = require("../Utils/Config/ids") as typeof import("../Utils/Config/ids");
-const { listQuotesByUser, deleteUserQuoteEntry } = require("../Utils/Quote/quoteBoardService") as typeof import("../Utils/Quote/quoteBoardService");
+const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
+const { listQuotesByUser, deleteUserQuoteEntry } = require("../../Utils/Quote/quoteBoardService") as typeof import("../../Utils/Quote/quoteBoardService");
 const {
   listRepostsByUser,
   deleteUserRepostEntry,
-} = require("../Services/Community/repostService") as typeof import("../Services/Community/repostService");
-const { resolveWebsiteGuildMember } = require("./siteRoleRequestApi") as typeof import("./siteRoleRequestApi");
-const { getClientGuildCached } = require("../Utils/Interaction/interactionEntityCache") as typeof import("../Utils/Interaction/interactionEntityCache");
+} = require("../../Services/Community/repostService") as typeof import("../../Services/Community/repostService");
+const { resolveWebsiteGuildMember } = require("../../Web/siteRoleRequestApi") as typeof import("../../Web/siteRoleRequestApi");
+const { getClientGuildCached } = require("../../Utils/Interaction/interactionEntityCache") as typeof import("../../Utils/Interaction/interactionEntityCache");
 const {
   stabilizeQuoteMedia,
   stabilizeRepostMedia,
-} = require("../Utils/Community/boardMediaStable") as typeof import("../Utils/Community/boardMediaStable");
+} = require("./boardMediaStable") as typeof import("./boardMediaStable");
 
 const PER_PAGE = 6;
 const KINDS = new Set(["quote", "repost", "clip"]);

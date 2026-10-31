@@ -467,7 +467,7 @@ async function main() {
       console.warn("[SITE-API] site-wiki-help warm init:", err?.message || err);
     }
     try {
-      const { warmSiteBoardsListingsCache } = require("../../Web/siteBoardsApi") as typeof import("../../Web/siteBoardsApi");
+      const { warmSiteBoardsListingsCache } = require("../../features/boards/siteBoardsApi") as typeof import("../../features/boards/siteBoardsApi");
       const warmBoards = () => {
         warmSiteBoardsListingsCache(client).catch((e?) => {
           console.warn("[SITE-API] site-boards warm:", e?.message || e);
