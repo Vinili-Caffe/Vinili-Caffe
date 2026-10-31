@@ -31,7 +31,6 @@ plugins:
       - "ytsearch:%QUERY%"
       - "ytmsearch:%ISRC%"
       - "ytmsearch:%QUERY%"
-      - "scsearch:%QUERY%"
     sources:
       # Link spotify:track/album/playlist restano ok; spsearch LavaSrc timeouta spesso
       # (lookup embed fatto dal bot via Web API — vedi spsearchFix1).
