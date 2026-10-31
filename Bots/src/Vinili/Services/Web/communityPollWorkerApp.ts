@@ -1,6 +1,6 @@
 /**
  * Worker esterno: poll HTTP / sweep pesanti fuori da bots-vinyls.
- * Twitch + Game news + live voice EXP + userFullState + movie night + weekly DM.
+ * Twitch + Game news + live voice EXP + userFullState + movie night.
  */
 const mongoose = require("mongoose") as typeof import("mongoose");
 const {
@@ -17,7 +17,6 @@ const { startGameNewsAlertLoop } = require("../Community/gameNewsAlertService") 
 const { startLiveVoiceExpLoop } = require("../Community/activityService") as typeof import("../Community/activityService");
 const { startUserFullStatePersistenceLoop } = require("../Community/userFullStatePersistenceService") as typeof import("../Community/userFullStatePersistenceService");
 const { startMovieNightAnnouncementLoop } = require("../Community/movieNightAnnouncementService") as typeof import("../Community/movieNightAnnouncementService");
-const { startWeeklyDmReminderLoop } = require("../Community/weeklyDmReminderService") as typeof import("../Community/weeklyDmReminderService");
 const { startDailyPartnerAuditLoop } = require("../Partner/partnerAuditService") as typeof import("../Partner/partnerAuditService");
 
 loadDotEnv();
@@ -56,11 +55,10 @@ async function main(shared?: { client?: any } | null) {
   startLiveVoiceExpLoop(client);
   startUserFullStatePersistenceLoop(client);
   startMovieNightAnnouncementLoop(client);
-  startWeeklyDmReminderLoop(client);
   startDailyPartnerAuditLoop(client);
 
   console.log(
-    `[COMMUNITY-POLL] online as ${client.user?.tag || client.user?.username || "bot"} (twitch/gamenews/voiceExp/fullState/movieNight/weeklyDm/partnerAudit)`,
+    `[COMMUNITY-POLL] online as ${client.user?.tag || client.user?.username || "bot"} (twitch/gamenews/voiceExp/fullState/movieNight/partnerAudit)`,
   );
 }
 

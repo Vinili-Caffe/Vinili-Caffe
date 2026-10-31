@@ -10,15 +10,11 @@ const { ZODIAC_ROLE_IDS } = require("../Utils/Community/zodiacRoles") as typeof 
 const { PERSONALITY_NORMAL_COLOR_ROLE_IDS_ALL } = require("../Utils/Community/personalityColorUnlocks") as typeof import("../Utils/Community/personalityColorUnlocks");
 const { PERSONALITY_MENTION_ROLE_IDS, PERSONALITY_HOBBY_ROLE_IDS, PERSONALITY_GAMING_ROLE_IDS } = require("../Utils/Community/personalityRolePersistence") as typeof import("../Utils/Community/personalityRolePersistence");
 const { getGuildMemberCached, getUserCached } = require("../Utils/Interaction/interactionEntityCache") as typeof import("../Utils/Interaction/interactionEntityCache");
-const { applyDepexOneLevel } = require("../Services/Staff/staffWarnService") as typeof import("../Services/Staff/staffWarnService");
-const { syncStaffDbAndPauseChannelAfterDepex } = require("../Utils/Staff/staffPmUtils") as typeof import("../Utils/Staff/staffPmUtils");
-const { appendStaffRolesHistoryEntry } = require("../Utils/Staff/staffDocUtils") as typeof import("../Utils/Staff/staffDocUtils");
-const { sendPexDepexLog } = require("../Events/interaction/resocontoHandlers") as typeof import("../Events/interaction/resocontoHandlers");
 const { checkButtonPermission, checkStringSelectPermission, buildGlobalPermissionDeniedEmbed, buildGlobalChannelDeniedEmbed, buildGlobalNotYourControlEmbed, } = require("../Utils/Moderation/commandPermissions") as typeof import("../Utils/Moderation/commandPermissions");
 const { ROLE_TRY_AGAIN, ROLE_PLUS_FORBIDDEN } = require("../Utils/Text/replyMessages") as typeof import("../Utils/Text/replyMessages");
 const { applyDefaultFooterToEmbeds } = require("../Utils/Embeds/defaultFooter") as typeof import("../Utils/Embeds/defaultFooter");
 const { TENANT_EMBED_COLOR } = require("../MultiGuild/utils/tenantEmbedBranding") as typeof import("../MultiGuild/utils/tenantEmbedBranding");
-const { accountUsername, guildMemberDisplayAvatarUrlDynamic, userAvatarUrlDynamic } = require("../Utils/Discord/guildDiscordIdentity") as typeof import("../Utils/Discord/guildDiscordIdentity");
+const { accountUsername, guildMemberDisplayAvatarUrlDynamic } = require("../Utils/Discord/guildDiscordIdentity") as typeof import("../Utils/Discord/guildDiscordIdentity");
 const PRIVATE_FLAG = 1 << 6;
 const MONO_GUILD_DENIED_TEXT = "Questo bot è utilizzabile solo sul server principale di Vinili & Caffè.";
 const { buildStaffGuideMenuRow, STAFF_GUIDE_MENU_ID, STAFF_GUIDE_SECTION_IDS } = require("../Utils/Staff/staffGuideMenuComponents") as typeof import("../Utils/Staff/staffGuideMenuComponents");
@@ -175,80 +171,21 @@ async function handleStaffButtons(interaction?) {
   if (!interaction.isButton()) return false;
 
   if (interaction.customId && interaction.customId.startsWith("staff_warn_depex:")) {
-    const parts = String(interaction.customId).split(":");
-    const userId = parts[1];
-    const choice = parts[2];
-    if (!userId || !/^\d{16,20}$/.test(userId) || !["yes", "no"].includes(choice)) return false;
-    const hasHighStaff = interaction.member?.roles?.cache?.has?.(IDs.roles?.HighStaff);
-    if (!hasHighStaff) {
-      await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> Solo l'High Staff può usare questo pulsante.", flags: PRIVATE_FLAG }).catch((err?) => { logButtonErr(err); return null; });
-      return true;
-    }
-    const guild = interaction.guild;
-    const member = await getGuildMemberCached(guild, userId);
-    const targetUser = member?.user;
-    if (choice === "no") {
-      await interaction.update({
-        content: "<:VC_OnlineStatus:1482527088912240650> Nessuna azione. Al **3° warn staff** scatterà il depex completo.",
-        embeds: [],
-        components: [],
-      }).catch((err?) => { logButtonErr(err); return null; });
-      try {
-        const { notifyStaffWarnDepexDeferred, memberDisplayName } = require("../Web/siteStaffEventNotifications") as typeof import("../Web/siteStaffEventNotifications");
-        void notifyStaffWarnDepexDeferred({
-          guild,
-          staffUserId: userId,
-          staffName: memberDisplayName(member, targetUser, userId),
-          actorUserId: String(interaction.user.id),
-          actorName: memberDisplayName(interaction.member, interaction.user, interaction.user.id),
-        }).catch(() => 0);
-      } catch (_) {}
-      return true;
-    }
-    if (!member) {
-      await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> Utente non trovato nel server.", flags: PRIVATE_FLAG }).catch((err?) => { logButtonErr(err); return null; });
-      return true;
-    }
-    const result = await applyDepexOneLevel(guild, member);
-    if (!result.ok) {
-      await interaction.reply({ content: `<a:VC_Alert:1482706673176150077> ${result.reason || "Depex non applicato."}`, flags: PRIVATE_FLAG }).catch((err?) => { logButtonErr(err); return null; });
-      return true;
-    }
-    const freshMember = await getGuildMemberCached(guild, userId, { preferFresh: true }).catch(() => member);
-    await syncStaffDbAndPauseChannelAfterDepex(guild, userId, freshMember);
-    const oldRoleId = result.roleRemoved;
-    const newRoleId = result.newRole || (result.fullDepex ? String(IDs.roles?.Member || "") : "");
-    await appendStaffRolesHistoryEntry(guild.id, userId, {
-      oldRole: oldRoleId,
-      newRole: newRoleId,
-      reason: "Depex da 2 warn staff (scelta High Staff).",
-      displayName: (freshMember?.displayName || targetUser?.globalName || targetUser?.username || "").trim() || null,
-      username: String(targetUser?.username || "").trim() || null,
-      avatarUrl:
-        userAvatarUrlDynamic(freshMember || targetUser, { size: 128 }) ||
-        null,
-    });
-    await sendPexDepexLog(guild, "depex", targetUser, oldRoleId, newRoleId, "Depex da 2 warn staff (scelta High Staff).");
+    let url = "https://www.viniliecaffe.it/user/?tab=staff";
     try {
-      const { notifyStaffPexDepex, memberDisplayName } = require("../Web/siteStaffEventNotifications") as typeof import("../Web/siteStaffEventNotifications");
-      void notifyStaffPexDepex({
-        guild,
-        kind: "depex",
-        targetUserId: userId,
-        targetName: memberDisplayName(freshMember, targetUser, userId),
-        oldRoleId,
-        newRoleId,
-        reason: "Depex da 2 warn staff (scelta High Staff).",
-        actorUserId: String(interaction.user.id),
-        actorName: memberDisplayName(interaction.member, interaction.user, interaction.user.id),
-        sourceHint: `warn-depex-btn:${userId}`,
-      }).catch(() => 0);
+      const { siteWorkflowUrl } = require("../Web/discordWorkflowUiGate") as typeof import("../Web/discordWorkflowUiGate");
+      const base = siteWorkflowUrl("userProfile") || "https://www.viniliecaffe.it/user/";
+      url = `${base}${base.includes("?") ? "&" : "?"}tab=staff`;
     } catch (_) {}
-    await interaction.update({
-      content: "<:vegacheckmark:1443666279058772028> Depex applicato (un livello in basso).",
-      embeds: [],
-      components: [],
-    }).catch((err?) => { logButtonErr(err); return null; });
+    await interaction
+      .reply({
+        content: `<:VC_Staff:1494286904089247754> Le azioni warn/depex si gestiscono sul **sito**: ${url}`,
+        flags: PRIVATE_FLAG,
+      })
+      .catch((err?) => {
+        logButtonErr(err);
+        return null;
+      });
     return true;
   }
 

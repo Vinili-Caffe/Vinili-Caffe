@@ -24,7 +24,12 @@ const REMOVED_PREFIX_COMMANDS = new Set([
   "pay",
   "paga",
   "duel",
-  // bal/work/daily/weekly/monthly: gated by serverEconomy.enabled (not hard-removed)
+  "bal",
+  "balance",
+  "work",
+  "daily",
+  "weekly",
+  "monthly",
   "rob",
   "shop",
   "negozio",
@@ -39,6 +44,10 @@ const REMOVED_PREFIX_COMMANDS = new Set([
   "cf",
   "tris",
   "scratch",
+  "conquista",
+  "swspawn",
+  "punta",
+  "ordine66",
 ]);
 let prefixPermissionsCache = { filePath: null, mtimeMs: 0, data: {} };
 

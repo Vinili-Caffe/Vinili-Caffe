@@ -1,5 +1,5 @@
 const { isHandledTicketInteraction } = require("../Utils/Ticket/ticketInteractionRuntime") as typeof import("../Utils/Ticket/ticketInteractionRuntime");
-const { handleTicketInteraction } = require("../Events/interaction/ticketHandlers") as typeof import("../Events/interaction/ticketHandlers");
+const { replyWorkflowMovedToSite } = require("../Web/discordWorkflowUiGate") as typeof import("../Web/discordWorkflowUiGate");
 
 function match(interaction?) {
   const { isTicketButton, isTicketSelect, isTicketModal, isTicketUserSelect } = isHandledTicketInteraction(interaction);
@@ -7,7 +7,7 @@ function match(interaction?) {
 }
 
 async function execute(interaction?) {
-  return await handleTicketInteraction(interaction);
+  return replyWorkflowMovedToSite(interaction, "tickets");
 }
 
 export = { name: "ticket", order: 10, match, execute };

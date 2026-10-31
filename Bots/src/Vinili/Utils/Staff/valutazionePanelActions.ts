@@ -551,23 +551,7 @@ async function valutazioneNegativeAddCore(guild?, profileDoc?, staffUser?, reaso
   if (warnResult.added && warnChannel) {
     const warnEmbed = await buildAutoStaffWarnFromNegativesEmbed(actor, staffUser, warnResult.warnCount, guild);
     await warnChannel.send({ content: formatStaffMention(staffUser), embeds: [warnEmbed] }).catch(() => null);
-    if (warnResult.shouldAskDepex) {
-      const staffMemberForThumb = await getGuildMemberCached(guild, staffUser.id).catch(() => null);
-      const promptEmbed = new EmbedBuilder()
-        .setColor("#E74C3C")
-        .setTitle("<a:VC_Alert:1482706673176150077> 2 warn staff — Decidi azione")
-        .setDescription(
-          `${formatStaffMention(staffUser)} ha raggiunto **2 warn staff** (da valutazioni negative).\n\n` +
-          "**Depex ora** = un livello in basso.\n" +
-          "**No** = nessuna azione ora; al **3° warn** scatterà il **depex completo**.",
-        )
-        .setThumbnail(guildMemberDisplayAvatarUrlDynamic(staffMemberForThumb || staffUser) || undefined);
-      const row = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId(`staff_warn_depex:${staffUser.id}:yes`).setLabel("Depex ora").setStyle(ButtonStyle.Danger),
-        new ButtonBuilder().setCustomId(`staff_warn_depex:${staffUser.id}:no`).setLabel("No (al 3° warn depex completo)").setStyle(ButtonStyle.Secondary),
-      );
-      await warnChannel.send({ content: formatStaffMention(staffUser), embeds: [promptEmbed], components: [row] }).catch(() => null);
-    }
+    /* Prompt depex Discord (staff_warn_depex) rimosso: decisione High Staff sul sito. */
   }
   if (warnResult.added && warnResult.shouldFullDepex) {
     const member = await getGuildMemberCached(guild, staffUser.id);

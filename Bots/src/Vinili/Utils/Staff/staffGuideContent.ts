@@ -362,7 +362,7 @@ const SECTION_BUILDERS = {
         : "> `/partnership` - Utilizzabile dal pannello comandi nei **ticket Partnership** sul sito\n") +
       "> `+desc` / comandi partnership - nei **ticket Partnership** sul sito (pannello comandi del ticket)\n" +
       `> Ticket staff: ${siteWorkflowUrl("ticketsStaff")}\n` +
-      "> `+classifica` - Per vedere la classifica punti partner settimanale e totale\n" +
+      "> Classifica punti partner: sul **sito** → [Classifiche](https://www.viniliecaffe.it/classifiche/)\n" +
       "> `+blacklist` - Per vedere i server in blacklist\n" +
       `> Profilo / shop PM: sul **sito staff** → ${siteWorkflowUrl("staff")}\n` +
       `> Punti tolti: ${siteWorkflowUrl("puntiTolti")}\n\n` +

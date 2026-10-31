@@ -85,7 +85,7 @@ function buildDonationPackageEmbed(tier?, member?, isPurchase = false) {
       `<a:reddiamond:1443652837346377841> Bypass dei requisiti nei **giveaway**\n` +
       `<:moon:1470064812615667827> Permesso di cambiare il tuo **nickname**\n` +
       `<:blueflash:1470064803157643468> Sblocchi i **COLORI PLUS** in [Personalizza](https://www.viniliecaffe.it/personalizza/)\n` +
-      `<a:reddiamond:1443652837346377841> Sblocchi i comandi \`+quote\`, \`+repost\` e \`+myrepost\`\n` +
+      `<a:reddiamond:1443652837346377841> Sblocchi i comandi \`+quote\` e \`+repost\` (gestione dal profilo sul sito)\n` +
       "<:exp:1470067108543987846> X4 EXP boost\n" +
       "\n" +
       `<a:flyingnitroboost:1443652205705170986> Tutto lo **staff** ti _ringrazia_ per averci __supportato__.\n` +

@@ -14,7 +14,6 @@ const {
 } = require("../Utils/Community/countingRestoreService") as typeof import("../Utils/Community/countingRestoreService");
 const { bootstrapSupporter, recoverSupporterStatusAnnouncesOnStartup } = require("./presenceUpdate") as typeof import("./presenceUpdate");
 const { restoreTtsConnections } = require("../Services/TTS/ttsService") as typeof import("../Services/TTS/ttsService");
-const { runDueOneTimeReminders, } = require("../Services/Reminders/oneTimeReminderService") as typeof import("../Services/Reminders/oneTimeReminderService");
 const { runDueChannelReminders, } = require("../Services/Reminders/channelReminderService") as typeof import("../Services/Reminders/channelReminderService");
 const { bootstrapMinigameScheduler } = require("../Services/Minigames/minigameSchedulerService") as typeof import("../Services/Minigames/minigameSchedulerService");
 const { startVerificationTenureLoop, backfillVerificationTenure, startVoteRoleCleanupLoop, runAllGuilds: renumberAllCategories, startCategoryNumberingLoop, startSponsorKickLoop, startSponsorGuildNicknameSweepLoop, } = require("../Services/Community/communityOpsService") as typeof import("../Services/Community/communityOpsService");
@@ -37,7 +36,6 @@ const { syncPartnerDescription } = require("../Services/Partner/partnerDescripti
 const { syncAllTenantPartnerDescriptions } = require("../Services/Partner/tenantPartnerDescriptionService") as typeof import("../Services/Partner/tenantPartnerDescriptionService");
 const { startStaffChatThreadsLoop } = require("../Services/Staff/staffChatThreadsService") as typeof import("../Services/Staff/staffChatThreadsService");
 const { startStaffCmdsThreadsLoop } = require("../Services/Staff/staffCmdsThreadsService") as typeof import("../Services/Staff/staffCmdsThreadsService");
-const { startResocontoStaffChannelAccessLoop } = require("../Services/Staff/resocontoStaffChannelAccessService") as typeof import("../Services/Staff/resocontoStaffChannelAccessService");
 const { startPublicVoiceHubSetup } = require("../Services/Voice/publicVoiceHubService") as typeof import("../Services/Voice/publicVoiceHubService");
 const { startTicketAutoClosePromptLoop, startTranscriptCleanupLoop, } = require("../Services/Ticket/ticketMaintenanceService") as typeof import("../Services/Ticket/ticketMaintenanceService");
 const { startAutoBackupLoop } = require("../Services/Backup/autoBackupService") as typeof import("../Services/Backup/autoBackupService");
@@ -84,7 +82,6 @@ const { syncAgeBracketRolesFromStoredBirthdays } = require("../Utils/Community/a
 const { postTopggStatsDigestIfConfigured } = require("../Services/Web/topggDigestService") as typeof import("../Services/Web/topggDigestService");
 const {
   restorePauseMessageStatusSync,
-  startPauseMessageStatusMaintenance,
   rewriteStaleCancelledPauseMessages,
 } = require("../Utils/Pause/pauseHandlersUtils") as typeof import("../Utils/Pause/pauseHandlersUtils");
 const { formatDurationMs, runPhasedStartupTasks, } = require("../Utils/Startup/readyStartupRuntime") as typeof import("../Utils/Startup/readyStartupRuntime");
@@ -248,11 +245,10 @@ function buildDeferredStartupTasks(client?, primaryScheduler?, engagementTick?) 
         }),
     },
     {
-      label: "run due one-time reminders",
+      label: "run due channel reminders",
       weight: 8,
       enabled: String(process.env.BOT_SCHEDULER_EXTERNAL || "").trim() !== "1",
       run: async () => {
-        await runDueOneTimeReminders(client);
         await runDueChannelReminders(client);
       },
     },
@@ -1441,11 +1437,6 @@ export = {
         global.logger?.error?.("[STAFF CMDS THREAD INIT ERROR]", err);
       }
       try {
-        startResocontoStaffChannelAccessLoop(client);
-      } catch (err) {
-        global.logger?.error?.("[RESOCONTO STAFF CHANNEL INIT ERROR]", err);
-      }
-      try {
         startStaffChatThreadsLoop(client);
       } catch (err) {
         global.logger?.error?.("[STAFF CHAT THREAD INIT ERROR]", err);
@@ -1494,7 +1485,6 @@ export = {
         if (engagementTickRunning) return;
         engagementTickRunning = true;
         try {
-          await runDueOneTimeReminders(client);
           await runDueChannelReminders(client);
         } catch (err) {
           global.logger?.error?.(err);
@@ -1550,16 +1540,6 @@ export = {
     countingCatchUpRetry.unref?.();
 
     if (primaryScheduler) {
-            startPauseMessageStatusMaintenance(client);
-            try {
-        const { isDiscordPanelEnabled } = require("../Utils/Config/discordPanelsConfig") as typeof import("../Utils/Config/discordPanelsConfig");
-        if (isDiscordPanelEnabled("staffList")) {
-          const { startStaffListPeriodicRefreshLoop } = require("../Utils/Community/staffListUtils") as typeof import("../Utils/Community/staffListUtils");
-          startStaffListPeriodicRefreshLoop(client);
-        }
-      } catch (err) {
-        global.logger?.warn?.("[STAFF LIST] startup bootstrap failed:", err?.message || err);
-      }
       void runStartupPanels(client, "ready").catch(() => { });
             if (envFlagEnabled("STARTUP_PANELS_RETRY")) {
         const retryPanels = setTimeout(() => {

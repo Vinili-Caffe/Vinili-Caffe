@@ -1,29 +1,14 @@
 # Plugin evento starwars
 
 Codice sotto `archivio/starwars/src/Vinili/` (layout Hogwarts).
-Shim in `src/Vinili/…` re-exportano da qui.
-Register: `EventPlugins/starwars/`.
+Shim in `src/Vinili/…` re-exportano da qui per API sito / plugin register.
 
-- `Buttons/starWarsMinigames.ts`
-- `Prefix/Minigames/conquista.ts`
-- `Prefix/Minigames/ordine66.ts`
-- `Prefix/Minigames/punta.ts`
-- `Prefix/Minigames/swspawn.ts`
-- `Services/Community/starWarsDiscordMinigamesService.ts`
-- `Services/Community/starWarsEconomyService.ts`
-- `Services/Community/starWarsEventWalletService.ts`
-- `Services/Community/starWarsRewardsService.ts`
-- `Services/Community/starWarsSiteGamesService.ts`
-- `Services/Community/starWarsTransversalService.ts`
-- `Utils/Eventi/starWarsAdventCatalog.ts`
-- `Utils/Eventi/starWarsCrateLoot.ts`
-- `Utils/Eventi/starWarsEconomyCatalog.ts`
-- `Utils/Eventi/starWarsEventCalendar.ts`
-- `Utils/Eventi/starWarsEventConfig.ts`
-- `Utils/Eventi/starWarsMinigamesRegistry.ts`
-- `Utils/Eventi/starWarsRuntimeGate.ts`
-- `Utils/Eventi/starWarsSortingBank.ts`
+**Discord minigame shims rimossi dal live** (non ricaricare):  
+`Buttons/starWarsMinigames`, `Prefix/Minigames/{conquista,swspawn,punta,ordine66}`,  
+`Services/Community/starWarsDiscordMinigamesService`, `Utils/Eventi/starWarsMinigamesRegistry`.  
+Restano in archivio; comandi in `REMOVED_PREFIX`.
+
+Shim ancora in live (sito/evento):
 - `Web/siteStarWarsEventoApi.ts`
-- `EventPlugins/starwars/runtimeKillSwitch.ts`
-- `EventPlugins/starwars/register.ts`
-- `EventPlugins/starwars/assertPlugin.ts`
+- `EventPlugins/starwars/{register,runtimeKillSwitch,assertPlugin}.ts`
+- servizi/utils Eventi non Discord-minigame

@@ -309,14 +309,6 @@ export = {
             if (halloweenHuntHandled) return;
           }
         } catch (_) {}
-        try {
-          const { isStarWarsRuntimeDisabled } = require("../EventPlugins/starwars/runtimeKillSwitch") as typeof import("../EventPlugins/starwars/runtimeKillSwitch");
-          if (!isStarWarsRuntimeDisabled(client)) {
-            const { handleStarWarsReaction } = require("../Services/Community/starWarsDiscordMinigamesService") as typeof import("../Services/Community/starWarsDiscordMinigamesService");
-            const swHandled = await handleStarWarsReaction(client, reaction, user);
-            if (swHandled) return;
-          }
-        } catch (_) {}
         const handled = await handleMinigameReaction(client, reaction, user);
         if (handled) return;
         const ideaBugHandled = await handleIdeaBugReaction(reaction, user);

@@ -2,8 +2,6 @@ const { ActivityUserProfile, GlobalSettings, LEVEL_HISTORY_MAX_ENTRIES, ACTIVITY
 const { isValidGuildUserId } = require("../../Utils/DB/validateWriteIds") as typeof import("../../Utils/DB/validateWriteIds");
 const { isMongoReady } = require("../../Utils/Database/mongoConnect") as typeof import("../../Utils/Database/mongoConnect");
 const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
-const { shouldBlockDm } = require("../../Utils/noDmList") as typeof import("../../Utils/noDmList");
-const { sendUserDirectMessage } = require("../../../shared/discord/dmPrivacyNotice") as typeof import("../../../shared/discord/dmPrivacyNotice");
 const botConfig = require("../../config.json") as typeof import("../../config.json");
 const { getGuildChannelCached, getGuildMemberCached, getGuildRoleCached, getClientGuildCached, getClientChannelCached } = require("../../Utils/Interaction/interactionEntityCache") as typeof import("../../Utils/Interaction/interactionEntityCache");
 const { sendLevelMilestoneSupportersAnnouncement } = require("../../Utils/Community/levelMilestoneSupportersAnnounceEmbeds") as typeof import("../../Utils/Community/levelMilestoneSupportersAnnounceEmbeds");
@@ -23,7 +21,6 @@ const LEVEL_UP_CHANNEL_ID = IDs.channels.commands;
 const PERKS_CHANNEL_ID = IDs.channels.supporters;
 const PERK_ROLE_ID = IDs.roles.PicPerms;
 const LEVEL_ROLE_MAP = new Map([[10, IDs.roles.Level10], [20, IDs.roles.Level20], [30, IDs.roles.Level30], [50, IDs.roles.Level50], [70, IDs.roles.Level70], [100, IDs.roles.Level100], [125, IDs.roles.Level120], [150, IDs.roles.Level150], [200, IDs.roles.Level200],]);
-const PERK_NEAR_LEVEL_DISTANCE = 2;
 const ROLE_MULTIPLIER_DEFS = [
   ["ServerBooster", 2],
   ["MVP", 2],
@@ -209,15 +206,6 @@ async function fetchUserExpSnapshot(guildId?, userId?) {
   if (!exp) return { totalExp: 0, level: 0, levelFromExp: 0, exists: false };
   const repaired = repairExpTotals(exp);
   return { ...repaired, exists: true };
-}
-
-function getNextPerkLevel(currentLevel?) {
-  const safeLevel = Math.max(0, Math.floor(Number(currentLevel || 0)));
-  return (
-    Array.from(LEVEL_ROLE_MAP.keys())
-      .filter((level?) => level > safeLevel)
-      .sort((a?, b?) => a - b)[0] || null
-  );
 }
 
 function buildRoleMultipliersMerged(doc?) {
@@ -661,69 +649,6 @@ async function sendPerksLevelMessage(guild?, member?, level?) {
   await sendLevelUpPayload(channel, member, payload);
 }
 
-async function buildPerkNearDmEmbed(member?, targetLevel?, roleLabel?, missingExp?) {
-  const safeRoleLabel = String(roleLabel || "<:VC_Mention:1482526855289634997> Ruolo sconosciuto").trim();
-  const perkThumb = await resolveEmbedUserAvatarUrl(member, { size: 256 });
-  return {
-    embeds: [
-      {
-        color: VINILI_EMBED_COLOR_INT,
-        title: "<:VC_InactiveStatus:1482526984234860574> Sei vicino a un nuovo perk!",
-        thumbnail: { url: perkThumb },
-        description: [
-          `<a:VC_PandaClap:1331620157398712330> ${member}, ci sei quasi!`,
-          `<:VC_Mention:1482526855289634997> Sei vicino al ruolo **${safeRoleLabel}** (livello \`${targetLevel}\`).`,
-          `<:VC_EXP:1482534670896730143> Ti mancano **${Math.max(0, Number(missingExp || 0))} EXP**.`,
-          PERKS_CHANNEL_ID
-            ? `<:VC_InactiveStatus:1482526984234860574> Info perks: <#${PERKS_CHANNEL_ID}>`
-            : "<:VC_InactiveStatus:1482526984234860574> Controlla il canale info del server.",
-        ].join("\n"),
-      },
-    ],
-  };
-}
-
-async function maybeSendPerkNearReminder(guild?, member?, result?) {
-  if (!guild || !member || !result?.doc || !result?.levelInfo) return;
-  if (member.user?.bot) return;
-
-  const currentLevel = Number(result.levelInfo.level || 0);
-  const nextPerkLevel = getNextPerkLevel(currentLevel);
-  if (!nextPerkLevel) return;
-
-  if (nextPerkLevel - currentLevel > PERK_NEAR_LEVEL_DISTANCE) return;
-
-  const roleId = LEVEL_ROLE_MAP.get(nextPerkLevel);
-  if (!roleId) return;
-
-  const expSub = result.doc?.profile?.totals?.exp || result.doc?.exp || {};
-  const reminded = Array.isArray(expSub.perkNearReminderLevels)
-    ? expSub.perkNearReminderLevels.map((value?) => Number(value)).filter(Number.isFinite)
-    : [];
-  if (reminded.includes(nextPerkLevel)) return;
-
-  if (await shouldBlockDm(guild.id, member.id, "perks").catch(() => false)) return;
-
-  const targetExp = getTotalExpForLevel(nextPerkLevel);
-  const missingExp = Math.max(0, targetExp - Number(result.afterExp || 0));
-  const role = guild.roles.cache.get(roleId) || (await getGuildRoleCached(guild, roleId));
-  const roleLabel = role?.name || `ID ${roleId}`;
-  const payload = await buildPerkNearDmEmbed(member, nextPerkLevel, roleLabel, missingExp);
-
-  const sent = await sendUserDirectMessage(member.user, payload, {
-    guildId: guild.id,
-    commandsChannelId: IDs.channels.commands,
-    shouldNotifyForDiscordPrivacyBlock: async () => !(await shouldBlockDm(guild.id, member.id, "perks").catch(() => false)),
-  });
-  if (!sent) return;
-
-  const nextReminded = Array.from(new Set([...reminded.filter((level?) => level > currentLevel), nextPerkLevel]),);
-  await ActivityUserProfile.updateOne(
-    { guildId: guild.id, userId: member.id },
-    { $set: { "profile.totals.exp.perkNearReminderLevels": nextReminded } },
-  ).catch(() => null);
-}
-
 async function getLevelUpChannel(guild?) {
   if (!guild || !LEVEL_UP_CHANNEL_ID) return null;
   const client = guild.client;
@@ -1138,15 +1063,11 @@ async function addExpWithLevel(guild?, userId?, amount?, applyMultiplier = false
         await healMissingLevelRoles(member, result.levelInfo.level);
         await addPerkRoleIfPossible(member);
       }
-      await maybeSendPerkNearReminder(guild, member, result);
     }
   } else if (result.levelInfo.level >= 10 && member) {
     /* levelRoleHeal1: self-heal milestone (es. Level10) anche senza level-up */
     await healMissingLevelRoles(member, result.levelInfo.level);
     await addPerkRoleIfPossible(member);
-    await maybeSendPerkNearReminder(guild, member, result);
-  } else if (member) {
-    await maybeSendPerkNearReminder(guild, member, result);
   }
   return result;
 }

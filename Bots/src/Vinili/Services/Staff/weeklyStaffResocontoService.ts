@@ -3179,102 +3179,6 @@ async function runWeeklyStaffResoconti(client?, opts: Record<string, any> = {}) 
   }
 }
 
-async function runPreResocontoReminders(client?) {
-  const guildId = String(IDs.guilds?.main || "");
-  if (!guildId) return;
-  const guild = await getClientGuildCached(client, guildId);
-  if (!guild) return;
-
-  const resocontoExcludeVoiceChannels = collectResocontoVoiceExcludeIds(guild);
-  const resocontoOverviewVoiceExclude =
-    resocontoExcludeVoiceChannels.size > 0 ? resocontoExcludeVoiceChannels : null;
-  const resocontoScope = buildResocontoOverviewOptions(guild);
-
-  const staffDocs = await ActivityUserProfile.find({ guildId, staff: { $exists: true } }, { userId: 1, staff: 1 }).lean().catch(() => []);
-  const idsFromStaffDocs = (staffDocs || [])
-    .map((r?) => String(r?.userId || ""))
-    .filter((id?) => /^\d{16,20}$/.test(id));
-  const idsFromGuild = collectAllResocontoRelevantMemberIdsFromGuild(guild).filter((id?) => /^\d{16,20}$/.test((id as any)));
-  const staffUserIds = Array.from(new Set([...idsFromStaffDocs, ...idsFromGuild]));
-  if (!staffUserIds.length) return;
-
-  const fetchedMembers = await Promise.all(staffUserIds.map((id?) => getGuildMemberCached(guild, id)));
-  const hasStaffRole = (m?) => Boolean(resolveStaffRole(m));
-  const hasPmRole = (m?) => m.roles.cache.has(String(IDs.roles.PartnerManager));
-  const reminderMembers = fetchedMembers.filter(
-    (m?) => m && !m.user?.bot && (hasStaffRole(m) || hasPmRole(m)),
-  );
-  if (!reminderMembers.length) return;
-
-  reminderMembers.sort(compareResocontoMembers);
-
-  const staffMap = new Map((staffDocs || []).map((r?) => [String(r.userId), r.staff || {}]));
-  const staffOnlyIds = reminderMembers.filter(hasStaffRole).map((m?) => m.id);
-  const overviewResults = await Promise.all(
-    staffOnlyIds.map((uid?) =>
-      getUserOverviewStats(
-        guildId,
-        uid,
-        7,
-        resocontoOverviewVoiceExclude,
-        resocontoScope,
-      )),
-  );
-  const overviewByUserId = new Map(staffOnlyIds.map((id?, i?) => [String(id), overviewResults[i] || null]));
-  const resocontoTime =
-    "**domenica alle 15:00:** Partner Manager, Helper, Mod, Senior Moderator e Director (tutti insieme)";
-  const reminderWindow = getPmResocontoWindow(new Date());
-  const skipDmUserIds = new Set(getDevIds(client).map((id?) => String(id)).filter((id?) => /^\d{16,20}$/.test(id)));
-
-  for (const member of reminderMembers) {
-    const userId = String(member.id);
-    if (skipDmUserIds.has(userId)) continue;
-    const staffDoc = staffMap.get(userId);
-    if (wasInPauseDuringWeek(staffDoc, reminderWindow.weekStart, reminderWindow.weekEnd, "Staff") || wasInPauseDuringWeek(staffDoc, reminderWindow.weekStart, reminderWindow.weekEnd, "PartnerManager")) continue;
-
-    const staffRoleId = resolveStaffRole(member);
-    if (staffRoleId && !wasPexedInWeek(staffDoc, reminderWindow.weekStart)) {
-      const limits = STAFF_ACTIVITY_LIMITS[String(staffRoleId)];
-      if (limits) {
-        const overview = overviewByUserId.get(userId);
-        const d7 = overview?.windows?.d7;
-        const msg = Math.max(0, Math.floor(toSafeNumber(d7?.text ?? 0)));
-        const voiceSec = Math.max(0, Math.floor(toSafeNumber(d7?.voiceSeconds ?? 0)));
-        const hours = voiceSec / 3600;
-        const limitsEval = evaluateStaffWeeklyLimitsWithSwap(msg, hours, limits);
-        const needMsg = limitsEval.remainingMessages;
-        const needHours = limitsEval.remainingHours;
-        if (needMsg > 0 || needHours > 0) {
-          const parts = [];
-          if (needMsg > 0) parts.push(`**${needMsg}** messaggi`);
-          if (needHours > 0) parts.push(`**${needHours.toFixed(2)}** ore in vocale`);
-          const text = `<:VC_Staff:1494286904089247754> **Promemoria resoconto**\n\nIl resoconto staff è ${resocontoTime}.\n\nPer rientrare nei limiti ti mancano: ${parts.join(" e ")}.`;
-          await member.send({ content: text }).catch(() => null);
-        }
-      }
-    }
-
-    if (hasPmRole(member)) {
-      if (isPmResocontoExcludedUserId(userId)) continue;
-      const pmWindow = reminderWindow;
-      if (wasPmPexedInWeek(staffDoc, pmWindow.weekStart)) continue;
-      const weeklyPartners = countPmWeeklyPartners(staffDoc, pmWindow.weekStart, pmWindow.weekEnd);
-      const minPartners = PM_WEEKLY_PARTNER_MIN_FOR_OK;
-      if (weeklyPartners >= minPartners) continue;
-      const mancano = minPartners - weeklyPartners;
-      const tierHint =
-        weeklyPartners <= PM_WEEKLY_DEPEX_MAX_PARTNERS
-          ? " (0–15: al resoconto **Depex**)"
-          : weeklyPartners < minPartners
-            ? " (resoconto: **16**–**29** → **Richiamo**; **≥30** → **Nulla**)"
-            : "";
-      await member.send({
-        content: `<:VC_PartnerManager:1494286911286808576> **Promemoria resoconto**\n\nIl resoconto staff è ${resocontoTime}.\n\nCome Partner Manager ti mancano **${mancano}** partner per raggiungere il minimo di ${minPartners}${tierHint}. Attualmente ne hai **${weeklyPartners}**.`,
-      }).catch(() => null);
-    }
-  }
-}
-
 function getStaffRoleIdForResocontoSegment(segment?) {
   if (segment === "helper") return String(IDs.roles.Helper || "").trim();
   if (segment === "mod") return String(IDs.roles.Mod || "").trim();
@@ -3525,17 +3429,6 @@ function startWeeklyStaffResocontoLoop(client?) {
     { timezone: TIME_ZONE, noOverlap: true },
   );
   weeklyStaffResocontoTasks.push(task);
-
-  const preResocontoTask: any = cron.schedule(
-    "0 18 * * 5",
-    () => {
-      void runPreResocontoReminders(client).catch((err?) => {
-        global.logger?.error?.("[WEEKLY STAFF RESOCONTO] Pre-reminder failed", err);
-      });
-    },
-    { timezone: TIME_ZONE, noOverlap: true },
-  );
-  if (typeof preResocontoTask?.ref === "function") preResocontoTask.ref();
 
   setTimeout(() => {
     runSameDayPmResocontoRecovery(client).catch((err?) => {

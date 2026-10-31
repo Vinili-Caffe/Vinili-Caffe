@@ -8,8 +8,8 @@ const {
   replyTenantMessage,
 } = require("./tenantPartnershipPrefixMessages") as typeof import("./tenantPartnershipPrefixMessages");
 const profileButton = require("../../Buttons/profile") as typeof import("../../Buttons/profile");
-const { buildStaffProfilePayload, SECTION_HOME } = require("../Staff/staffProfilePanelRuntime") as typeof import("../Staff/staffProfilePanelRuntime");
 const { isChannelOrThreadUnderStaffCmds, isStaffCmdsPmCommandsThread } = require("../Staff/staffCmdsChannelUtils") as typeof import("../Staff/staffCmdsChannelUtils");
+const { siteWorkflowUrl } = require("../../Web/discordWorkflowUiGate") as typeof import("../../Web/discordWorkflowUiGate");
 
 function withDiscordTimeout(promise?, ms = 8000, label = "discord") {
   const limit = Math.max(500, Number(ms) || 8000);
@@ -92,29 +92,13 @@ export = {
       return;
     }
 
-    if (await isStaffCmdsPmCommandsThread(message.channel)) {
-      const staffPayload = await buildStaffProfilePayload(
-        message.guild,
-        targetUser.id,
-        message.author.id,
-        message.client,
-        SECTION_HOME,
-        { sourceMessageId: message.id, partnersChatPanel: true, sourceChannel: message.channel },
-      );
-      await upsertProfileReply(message, staffPayload);
-      return;
-    }
-
-    if (isChannelOrThreadUnderStaffCmds(message.channel)) {
-      const staffPayload = await buildStaffProfilePayload(
-        message.guild,
-        targetUser.id,
-        message.author.id,
-        message.client,
-        SECTION_HOME,
-        { sourceMessageId: message.id, partnersChatPanel: false, sourceChannel: message.channel },
-      );
-      await upsertProfileReply(message, staffPayload);
+    if ((await isStaffCmdsPmCommandsThread(message.channel)) || isChannelOrThreadUnderStaffCmds(message.channel)) {
+      const base = siteWorkflowUrl("userProfile") || "https://www.viniliecaffe.it/user/";
+      const profileUrl = `${base}${base.includes("?") ? "&" : "?"}tab=staff`;
+      await safeMessageReply(message, {
+        content: `<:VC_Staff:1494286904089247754> Il pannello staff Discord non è più attivo. Apri il profilo sul **sito**: ${profileUrl}`,
+        allowedMentions: { repliedUser: false },
+      });
       return;
     }
 

@@ -22,7 +22,7 @@ function buildBoostEmbed(member?, boostCount?) {
       "<a:VC_CrownYellow:1482706085440651428> Aggiungi reazioni al messaggio quando ti @menzionano in chat (max. 3)\n" +
       `${MENTION_RESPONSE_PERK_LINE_DISCORD}\n` +
       "<a:VC_Money:1482724694699278487> Cooldown sui comandi del nostro bot ridotto (da 30 secondi a 15 secondi)\n" +
-      "<a:reddiamond:1443652837346377841> Sblocchi i comandi `+quote`, `+repost` e `+myrepost`\n" +
+      "<a:reddiamond:1443652837346377841> Sblocchi i comandi `+quote` e `+repost` (gestione dal profilo sul sito)\n" +
       "<:exp:1470067108543987846> X2 EXP Boost\n" +
       "\n" +
       `<a:flyingnitroboost:1443652205705170986> Tutto lo **staff** ti _ringrazia_ per averci __supportato__.\n` +

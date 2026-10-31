@@ -4,16 +4,13 @@ const { canInvokePrefixCommand, mapCategoryToFeature } = require("./accessPolicy
 const { resolveGuildAccess } = require("./guildRegistry") as typeof import("./guildRegistry");
 const MUSIC_PREFIX_COMMANDS = new Set(["play", "pause", "resume", "skip", "stop", "volume", "shuffle", "clear", "repeat", "previous", "rewind", "restart", "now", "next", "queue", "lyrics", "requested", "upcoming"]);
 const TTS_PREFIX_COMMANDS = new Set(["join", "leave", "set", "voices"]);
-const UTILITY_PREFIX_COMMANDS = new Set(["ping", "avatar", "banner", "afk", "snipe", "quote", "repost", "clip", "myrepost", "myclip", "myquote", "invite", "invites"]);
+const UTILITY_PREFIX_COMMANDS = new Set(["ping", "avatar", "banner", "afk", "snipe", "quote", "repost", "clip", "invite", "invites"]);
 const TENANT_ALWAYS_PREFIX_COMMANDS = new Set([
   "ping",
   "invite",
   "quote",
   "repost",
   "clip",
-  "myquote",
-  "myrepost",
-  "myclip",
 ]);
 const MINIGAMES_PREFIX_COMMANDS = new Set(["ship"]);
 const PARTNERSHIP_PREFIX_COMMANDS = new Set([

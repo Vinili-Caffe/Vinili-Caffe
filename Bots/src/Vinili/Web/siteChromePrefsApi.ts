@@ -46,41 +46,7 @@ function sanitizeChromePrefs(raw?) {
     };
     if (!Number.isFinite(out.typeSfx.volume)) delete out.typeSfx.volume;
   }
-  if (src.kickPip && typeof src.kickPip === "object") {
-    const kick: Record<string, any> = {};
-    if (typeof src.kickPip.userClosed === "boolean") kick.userClosed = src.kickPip.userClosed;
-    if (src.kickPip.dismiss && typeof src.kickPip.dismiss === "object") {
-      const ids = Array.isArray(src.kickPip.dismiss.ids)
-        ? src.kickPip.dismiss.ids.map((x?) => String(x || "").trim()).filter(Boolean).slice(0, 20)
-        : [];
-      if (src.kickPip.dismiss.id) ids.push(String(src.kickPip.dismiss.id).trim());
-      kick.dismiss = {
-        ids,
-        id: String(src.kickPip.dismiss.id || ids[0] || "").slice(0, 120),
-        slug: String(src.kickPip.dismiss.slug || "").slice(0, 120),
-        at: Number(src.kickPip.dismiss.at) || Date.now(),
-      };
-    }
-    if (src.kickPip.pos && typeof src.kickPip.pos === "object") {
-      const corner = String(src.kickPip.pos.corner || "").trim();
-      if (/^(tl|tr|bl|br)$/.test(corner)) kick.pos = { corner };
-      else if (Number.isFinite(Number(src.kickPip.pos.left)) && Number.isFinite(Number(src.kickPip.pos.top))) {
-        kick.pos = {
-          left: Math.max(0, Math.min(10000, Number(src.kickPip.pos.left))),
-          top: Math.max(0, Math.min(10000, Number(src.kickPip.pos.top))),
-        };
-      }
-    }
-    if (src.kickPip.resume && typeof src.kickPip.resume === "object") {
-      const rt = Number(src.kickPip.resume.t);
-      const rid = String(src.kickPip.resume.id || "").trim().slice(0, 120);
-      if (rid && Number.isFinite(rt) && rt > 0.2) {
-        kick.resume = { id: rid, t: Math.min(rt, 86400), at: Number(src.kickPip.resume.at) || Date.now() };
-      }
-    }
-    if (Object.keys(kick).length) out.kickPip = kick;
-  }
-  /* twitchPipPrefs1: open/closed + pos synced across devices like kickPip */
+  /* twitchPipPrefs1: open/closed + pos synced across devices */
   if (src.twitchPip && typeof src.twitchPip === "object") {
     const tw: Record<string, any> = {};
     if (typeof src.twitchPip.userClosed === "boolean") tw.userClosed = src.twitchPip.userClosed;
@@ -160,19 +126,6 @@ function deepMergeChrome(base?, patch?) {
     out.eventoBgm = bAt >= aAt ? { ...ea, ...eb } : { ...eb, ...ea };
   }
   if (a.typeSfx || b.typeSfx) out.typeSfx = { ...(a.typeSfx || {}), ...(b.typeSfx || {}) };
-  if (a.kickPip || b.kickPip || rawPatch.kickPip) {
-    out.kickPip = { ...(a.kickPip || {}), ...(b.kickPip || {}) };
-    if (
-      rawPatch.kickPip &&
-      Object.prototype.hasOwnProperty.call(rawPatch.kickPip, "dismiss") &&
-      rawPatch.kickPip.dismiss === null
-    ) {
-      delete out.kickPip.dismiss;
-    }
-    if (typeof rawPatch.kickPip?.userClosed === "boolean") {
-      out.kickPip.userClosed = rawPatch.kickPip.userClosed;
-    }
-  }
   if (a.twitchPip || b.twitchPip || rawPatch.twitchPip) {
     out.twitchPip = { ...(a.twitchPip || {}), ...(b.twitchPip || {}) };
     if (

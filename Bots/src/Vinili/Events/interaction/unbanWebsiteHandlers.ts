@@ -1,17 +1,14 @@
-const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js") as typeof import("discord.js");
+const { EmbedBuilder } = require("discord.js") as typeof import("discord.js");
 const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
 const {
-  isDiscordWorkflowUiEnabled,
   isDiscordWorkflowChannelPostsEnabled,
   newSiteWorkflowMessageId,
   buildInboxManageLinkRow,
 } = require("../../Web/discordWorkflowUiGate") as typeof import("../../Web/discordWorkflowUiGate");
 const { getBotState, setBotState } = require("../../Utils/BotState/botStateStore") as typeof import("../../Utils/BotState/botStateStore");
-const { EPHEMERAL_TTL_PING_ONLY_MS, scheduleMessageDeletion } = require("../../Utils/Config/ephemeralMessageTtl") as typeof import("../../Utils/Config/ephemeralMessageTtl");
 const { resolveSubmissionChannel } = require("./candidatureApplicationHandlers") as typeof import("./candidatureApplicationHandlers");
 const { TENANT_EMBED_COLOR } = require("../../MultiGuild/utils/tenantEmbedBranding") as typeof import("../../MultiGuild/utils/tenantEmbedBranding");
 const { fetchDiscordOAuthMe } = require("../../Web/discordOauthMe") as typeof import("../../Web/discordOauthMe");
-const UNBAN_VISIONE_REACTIONS = ["<:thumbsup:1471292172145004768>", "<:thumbsdown:1471292163957457013>",];
 const UNBAN_PENDING_COLOR = TENANT_EMBED_COLOR;
 const UNBAN_COOLDOWN_MS = 15 * 24 * 60 * 60 * 1000;
 const cooldownByUser = new Map();
@@ -266,21 +263,7 @@ async function submitWebsiteUnban(client?, payload?) {
     .setDescription(bodyText)
     .setTimestamp(new Date());
 
-  const uidBtn = String(resolved.userId || "").trim();
-  const decisionRow = isDiscordWorkflowUiEnabled()
-    ? new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-          .setCustomId(`website_unban_acc:${uidBtn}`)
-          .setLabel("Accetta unban")
-          .setStyle(ButtonStyle.Success)
-          .setEmoji("<:success:1461731530333229226>"),
-        new ButtonBuilder()
-          .setCustomId(`website_unban_rej:${uidBtn}`)
-          .setLabel("Rifiuta")
-          .setStyle(ButtonStyle.Danger)
-          .setEmoji("<:cancel:1461730653677551691>"),
-      )
-    : buildInboxManageLinkRow("appelli");
+  const decisionRow = buildInboxManageLinkRow("appelli");
 
   const highStaffRoleId = IDs.roles.HighStaff;
   const mention = highStaffRoleId ? `<@&${highStaffRoleId}>` : null;
@@ -298,32 +281,6 @@ async function submitWebsiteUnban(client?, payload?) {
       error: "send_failed",
       message: "Impossibile pubblicare la richiesta nel canale di invio. Riprova più tardi.",
     };
-  }
-
-  if (isDiscordWorkflowUiEnabled() && typeof sent.startThread === "function") {
-    const threadUserLabel =
-      String(subjectName || resolved.userId)
-        .replace(/[\r\n#:@<>`]/g, " ")
-        .replace(/\s+/g, " ")
-        .trim()
-        .slice(0, 70) || resolved.userId;
-    const thread = await sent
-      .startThread({
-        name: `Richiesta unban ${threadUserLabel}`,
-        autoArchiveDuration: 1440,
-        reason: `Richiesta unban (${resolved.userId})`,
-      })
-      .catch(() => null);
-    if (thread?.isTextBased?.() && highStaffRoleId) {
-      const pingMsg = await thread.send({ content: `<@&${highStaffRoleId}>` }).catch(() => null);
-      if (pingMsg) scheduleMessageDeletion(pingMsg, EPHEMERAL_TTL_PING_ONLY_MS);
-    }
-  }
-
-  if (isDiscordWorkflowUiEnabled()) {
-    for (const emoji of UNBAN_VISIONE_REACTIONS) {
-      await sent.react(emoji).catch(() => {});
-    }
   }
 
   const nextAt = Date.now() + UNBAN_COOLDOWN_MS;

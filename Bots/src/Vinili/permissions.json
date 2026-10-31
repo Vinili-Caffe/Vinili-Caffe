@@ -1,2263 +1,2164 @@
 {
-    "slash": {
-        "partnership": {
-            "roles": [
-                "roles.PartnerManager"
-            ]
-        },
-        "segnala": {
-            "roles": [
-                "roles.SeniorModerator",
-                "roles.Director"
-            ],
-            "channels": [
-                "channels.partnerships"
-            ]
-        },
-        "sanziona": {
-            "roles": [
-                "roles.Staff"
-            ]
-        },
-        "delete": {
-            "roles": [
-                "roles.HighStaff"
-            ],
-            "subcommands": {
-                "partnership": [
-                    "roles.HighStaff"
-                ]
-            }
-        },
-        "elimina partnership": {
-            "roles": [
-                "roles.HighStaff"
-            ],
-            "channels": [
-                "channels.partnerships",
-                "channels.partnerLogs"
-            ]
-        },
-        "aggiungi punti": {
-            "permissions": "Administrator"
-        },
-        "rimuovi punti": {
-            "permissions": "Administrator"
-        },
-        "giveaway": {
-            "roles": [
-                "roles.HighStaff"
-            ],
-            "subcommands": {
-                "create": [
-                    "roles.HighStaff"
-                ],
-                "end": [
-                    "roles.HighStaff"
-                ],
-                "edit": [
-                    "roles.HighStaff"
-                ],
-                "delete": [
-                    "roles.HighStaff"
-                ],
-                "reroll": [
-                    "roles.HighStaff"
-                ]
-            }
-        },
-        "say": {
-            "roles": [
-                "roles.Founder"
-            ]
-        }
+  "slash": {
+    "partnership": {
+      "roles": [
+        "roles.PartnerManager"
+      ]
     },
-    "prefix": {
-        "afk": {
-            "roles": [
-                "roles.Member"
-            ]
-        },
-        "avatar": {
-            "roles": [
-                "roles.Member"
-            ]
-        },
-        "backup": {
-            "roles": [
-                "roles.HighStaff"
-            ],
-            "channels": [
-                "channels.highCmds"
-            ]
-        },
-        "banner": {
-            "roles": [
-                "roles.Member"
-            ]
-        },
-        "security": {
-            "roles": [
-                "roles.HighStaff"
-            ],
-            "channels": [
-                "channels.highCmds"
-            ]
-        },
-        "profile": [
-            "roles.PartnerManager"
-        ],
-        "description": [
-            "roles.PartnerManager"
-        ],
-        "history": [
-            "roles.PartnerManager"
-        ],
-        "points": [
-            "roles.PartnerManager"
-        ],
-        "badges": [
-            "roles.PartnerManager"
-        ],
-        "leaderboard": [
-            "roles.PartnerManager"
-        ],
-        "random": {
-            "roles": [
-                "roles.PartnerManager"
-            ],
-            "subcommands": {
-                "server": [
-                    "roles.PartnerManager"
-                ]
-            }
-        },
-        "help": {
-            "roles": [
-                "roles.Member"
-            ],
-            "channels": [
-                "channels.commands",
-                "channels.staffCmds",
-                "channels.highCmds"
-            ]
-        },
-        "info": {
-            "roles": [
-                "roles.HighStaff"
-            ],
-            "channels": [
-                "channels.highCmds"
-            ]
-        },
-        "join": {
-            "roles": [
-                "roles.Member"
-            ]
-        },
-        "leave": {
-            "roles": [
-                "roles.Member"
-            ]
-        },
-        "level": {
-            "roles": [
-                "roles.HighStaff"
-            ],
-            "channels": [
-                "channels.highCmds"
-            ]
-        },
-        "me": {
-            "roles": [
-                "roles.Member"
-            ],
-            "channels": [
-                "channels.commands",
-                "channels.staffCmds",
-                "channels.highCmds"
-            ]
-        },
-        "user": {
-            "roles": [
-                "roles.Member"
-            ],
-            "channels": [
-                "channels.commands",
-                "channels.staffCmds",
-                "channels.highCmds"
-            ],
-            "subcommands": {
-                "info": [
-                    "roles.PartnerManager"
-                ]
-            }
-        },
-        "membercount": {
-            "roles": [
-                "roles.Member"
-            ],
-            "channels": [
-                "channels.commands",
-                "channels.staffCmds",
-                "channels.news",
-                "channels.highCmds"
-            ]
-        },
-        "ping": {
-            "roles": [
-                "roles.Member"
-            ],
-            "channels": [
-                "channels.commands",
-                "channels.staffCmds",
-                "channels.highCmds"
-            ]
-        },
-        "invite": {
-            "roles": [
-                "roles.Member"
-            ],
-            "channels": [
-                "channels.commands",
-                "channels.staffCmds",
-                "channels.highCmds",
-                "channels.partnersChat"
-            ]
-        },
-        "invites": {
-            "roles": [
-                "roles.Member"
-            ],
-            "channels": [
-                "channels.commands",
-                "channels.staffCmds",
-                "channels.highCmds"
-            ]
-        },
-        "clear": {
-            "roles": [
-                "roles.Member"
-            ],
-            "channels": [
-                "channels.chat",
-                "channels.media",
-                "channels.commands",
-                "channels.vocaleLounge1",
-                "channels.vocaleLounge2",
-                "channels.vocaleLounge3",
-                "channels.vocaleDuo1",
-                "channels.vocaleDuo2",
-                "channels.vocaleduo3",
-                "channels.vocaleTrio1",
-                "channels.trio2",
-                "channels.vocaleTrio3",
-                "channels.vocaleSquad1",
-                "channels.vocaleSquad2",
-                "channels.vocaleSquad3",
-                "channels.staffCmds",
-                "channels.highCmds"
-            ]
-        },
-        "lyrics": {
-            "roles": [
-                "roles.Member"
-            ],
-            "channels": [
-                "channels.chat",
-                "channels.media",
-                "channels.commands",
-                "channels.vocaleLounge1",
-                "channels.vocaleLounge2",
-                "channels.vocaleLounge3",
-                "channels.vocaleDuo1",
-                "channels.vocaleDuo2",
-                "channels.vocaleduo3",
-                "channels.vocaleTrio1",
-                "channels.trio2",
-                "channels.vocaleTrio3",
-                "channels.vocaleSquad1",
-                "channels.vocaleSquad2",
-                "channels.vocaleSquad3",
-                "channels.staffCmds",
-                "channels.highCmds"
-            ]
-        },
-        "next": {
-            "roles": [
-                "roles.Member"
-            ],
-            "channels": [
-                "channels.chat",
-                "channels.media",
-                "channels.commands",
-                "channels.vocaleLounge1",
-                "channels.vocaleLounge2",
-                "channels.vocaleLounge3",
-                "channels.vocaleDuo1",
-                "channels.vocaleDuo2",
-                "channels.vocaleduo3",
-                "channels.vocaleTrio1",
-                "channels.trio2",
-                "channels.vocaleTrio3",
-                "channels.vocaleSquad1",
-                "channels.vocaleSquad2",
-                "channels.vocaleSquad3",
-                "channels.staffCmds",
-                "channels.highCmds"
-            ]
-        },
-        "now": {
-            "roles": [
-                "roles.Member"
-            ],
-            "channels": [
-                "channels.chat",
-                "channels.media",
-                "channels.commands",
-                "channels.vocaleLounge1",
-                "channels.vocaleLounge2",
-                "channels.vocaleLounge3",
-                "channels.vocaleDuo1",
-                "channels.vocaleDuo2",
-                "channels.vocaleduo3",
-                "channels.vocaleTrio1",
-                "channels.trio2",
-                "channels.vocaleTrio3",
-                "channels.vocaleSquad1",
-                "channels.vocaleSquad2",
-                "channels.vocaleSquad3",
-                "channels.staffCmds"
-            ]
-        },
-        "pause": {
-            "roles": [
-                "roles.Member"
-            ],
-            "channels": [
-                "channels.chat",
-                "channels.media",
-                "channels.commands",
-                "channels.vocaleLounge1",
-                "channels.vocaleLounge2",
-                "channels.vocaleLounge3",
-                "channels.vocaleDuo1",
-                "channels.vocaleDuo2",
-                "channels.vocaleduo3",
-                "channels.vocaleTrio1",
-                "channels.trio2",
-                "channels.vocaleTrio3",
-                "channels.vocaleSquad1",
-                "channels.vocaleSquad2",
-                "channels.vocaleSquad3",
-                "channels.staffCmds",
-                "channels.highCmds"
-            ]
-        },
-        "play": {
-            "roles": [
-                "roles.Member"
-            ],
-            "channels": [
-                "channels.chat",
-                "channels.media",
-                "channels.commands",
-                "channels.vocaleLounge1",
-                "channels.vocaleLounge2",
-                "channels.vocaleLounge3",
-                "channels.vocaleDuo1",
-                "channels.vocaleDuo2",
-                "channels.vocaleduo3",
-                "channels.vocaleTrio1",
-                "channels.trio2",
-                "channels.vocaleTrio3",
-                "channels.vocaleSquad1",
-                "channels.vocaleSquad2",
-                "channels.vocaleSquad3",
-                "channels.staffCmds",
-                "channels.highCmds"
-            ]
-        },
-        "previous": {
-            "roles": [
-                "roles.Member"
-            ],
-            "channels": [
-                "channels.chat",
-                "channels.media",
-                "channels.commands",
-                "channels.vocaleLounge1",
-                "channels.vocaleLounge2",
-                "channels.vocaleLounge3",
-                "channels.vocaleDuo1",
-                "channels.vocaleDuo2",
-                "channels.vocaleduo3",
-                "channels.vocaleTrio1",
-                "channels.trio2",
-                "channels.vocaleTrio3",
-                "channels.vocaleSquad1",
-                "channels.vocaleSquad2",
-                "channels.vocaleSquad3",
-                "channels.staffCmds",
-                "channels.highCmds"
-            ]
-        },
-        "queue": {
-            "roles": [
-                "roles.Member"
-            ],
-            "channels": [
-                "channels.chat",
-                "channels.media",
-                "channels.commands",
-                "channels.vocaleLounge1",
-                "channels.vocaleLounge2",
-                "channels.vocaleLounge3",
-                "channels.vocaleDuo1",
-                "channels.vocaleDuo2",
-                "channels.vocaleduo3",
-                "channels.vocaleTrio1",
-                "channels.trio2",
-                "channels.vocaleTrio3",
-                "channels.vocaleSquad1",
-                "channels.vocaleSquad2",
-                "channels.vocaleSquad3",
-                "channels.staffCmds",
-                "channels.highCmds"
-            ]
-        },
-        "repeat": {
-            "roles": [
-                "roles.Member"
-            ],
-            "channels": [
-                "channels.chat",
-                "channels.media",
-                "channels.commands",
-                "channels.vocaleLounge1",
-                "channels.vocaleLounge2",
-                "channels.vocaleLounge3",
-                "channels.vocaleDuo1",
-                "channels.vocaleDuo2",
-                "channels.vocaleduo3",
-                "channels.vocaleTrio1",
-                "channels.trio2",
-                "channels.vocaleTrio3",
-                "channels.vocaleSquad1",
-                "channels.vocaleSquad2",
-                "channels.vocaleSquad3",
-                "channels.staffCmds",
-                "channels.highCmds"
-            ]
-        },
-        "requested": {
-            "roles": [
-                "roles.Member"
-            ],
-            "channels": [
-                "channels.chat",
-                "channels.media",
-                "channels.commands",
-                "channels.vocaleLounge1",
-                "channels.vocaleLounge2",
-                "channels.vocaleLounge3",
-                "channels.vocaleDuo1",
-                "channels.vocaleDuo2",
-                "channels.vocaleduo3",
-                "channels.vocaleTrio1",
-                "channels.trio2",
-                "channels.vocaleTrio3",
-                "channels.vocaleSquad1",
-                "channels.vocaleSquad2",
-                "channels.vocaleSquad3",
-                "channels.staffCmds",
-                "channels.highCmds"
-            ]
-        },
-        "restart": {
-            "roles": [
-                "roles.Member"
-            ],
-            "channels": [
-                "channels.chat",
-                "channels.media",
-                "channels.commands",
-                "channels.vocaleLounge1",
-                "channels.vocaleLounge2",
-                "channels.vocaleLounge3",
-                "channels.vocaleDuo1",
-                "channels.vocaleDuo2",
-                "channels.vocaleduo3",
-                "channels.vocaleTrio1",
-                "channels.trio2",
-                "channels.vocaleTrio3",
-                "channels.vocaleSquad1",
-                "channels.vocaleSquad2",
-                "channels.vocaleSquad3",
-                "channels.staffCmds",
-                "channels.highCmds"
-            ]
-        },
-        "resume": {
-            "roles": [
-                "roles.Member"
-            ],
-            "channels": [
-                "channels.chat",
-                "channels.media",
-                "channels.commands",
-                "channels.vocaleLounge1",
-                "channels.vocaleLounge2",
-                "channels.vocaleLounge3",
-                "channels.vocaleDuo1",
-                "channels.vocaleDuo2",
-                "channels.vocaleduo3",
-                "channels.vocaleTrio1",
-                "channels.trio2",
-                "channels.vocaleTrio3",
-                "channels.vocaleSquad1",
-                "channels.vocaleSquad2",
-                "channels.vocaleSquad3",
-                "channels.staffCmds",
-                "channels.highCmds"
-            ]
-        },
-        "rewind": {
-            "roles": [
-                "roles.Member"
-            ],
-            "channels": [
-                "channels.chat",
-                "channels.media",
-                "channels.commands",
-                "channels.vocaleLounge1",
-                "channels.vocaleLounge2",
-                "channels.vocaleLounge3",
-                "channels.vocaleDuo1",
-                "channels.vocaleDuo2",
-                "channels.vocaleduo3",
-                "channels.vocaleTrio1",
-                "channels.trio2",
-                "channels.vocaleTrio3",
-                "channels.vocaleSquad1",
-                "channels.vocaleSquad2",
-                "channels.vocaleSquad3",
-                "channels.staffCmds",
-                "channels.highCmds"
-            ]
-        },
-        "shuffle": {
-            "roles": [
-                "roles.Member"
-            ],
-            "channels": [
-                "channels.chat",
-                "channels.media",
-                "channels.commands",
-                "channels.vocaleLounge1",
-                "channels.vocaleLounge2",
-                "channels.vocaleLounge3",
-                "channels.vocaleDuo1",
-                "channels.vocaleDuo2",
-                "channels.vocaleduo3",
-                "channels.vocaleTrio1",
-                "channels.trio2",
-                "channels.vocaleTrio3",
-                "channels.vocaleSquad1",
-                "channels.vocaleSquad2",
-                "channels.vocaleSquad3",
-                "channels.staffCmds"
-            ]
-        },
-        "skip": {
-            "roles": [
-                "roles.Member"
-            ],
-            "channels": [
-                "channels.chat",
-                "channels.media",
-                "channels.commands",
-                "channels.vocaleLounge1",
-                "channels.vocaleLounge2",
-                "channels.vocaleLounge3",
-                "channels.vocaleDuo1",
-                "channels.vocaleDuo2",
-                "channels.vocaleduo3",
-                "channels.vocaleTrio1",
-                "channels.trio2",
-                "channels.vocaleTrio3",
-                "channels.vocaleSquad1",
-                "channels.vocaleSquad2",
-                "channels.vocaleSquad3",
-                "channels.staffCmds",
-                "channels.highCmds"
-            ]
-        },
-        "stop": {
-            "roles": [
-                "roles.Member"
-            ],
-            "channels": [
-                "channels.chat",
-                "channels.media",
-                "channels.commands",
-                "channels.vocaleLounge1",
-                "channels.vocaleLounge2",
-                "channels.vocaleLounge3",
-                "channels.vocaleDuo1",
-                "channels.vocaleDuo2",
-                "channels.vocaleduo3",
-                "channels.vocaleTrio1",
-                "channels.trio2",
-                "channels.vocaleTrio3",
-                "channels.vocaleSquad1",
-                "channels.vocaleSquad2",
-                "channels.vocaleSquad3",
-                "channels.staffCmds",
-                "channels.highCmds"
-            ]
-        },
-        "upcoming": {
-            "roles": [
-                "roles.Member"
-            ],
-            "channels": [
-                "channels.chat",
-                "channels.media",
-                "channels.commands",
-                "channels.vocaleLounge1",
-                "channels.vocaleLounge2",
-                "channels.vocaleLounge3",
-                "channels.vocaleDuo1",
-                "channels.vocaleDuo2",
-                "channels.vocaleduo3",
-                "channels.vocaleTrio1",
-                "channels.trio2",
-                "channels.vocaleTrio3",
-                "channels.vocaleSquad1",
-                "channels.vocaleSquad2",
-                "channels.vocaleSquad3",
-                "channels.staffCmds",
-                "channels.highCmds"
-            ]
-        },
-        "volume": {
-            "roles": [
-                "roles.Member"
-            ],
-            "channels": [
-                "channels.chat",
-                "channels.media",
-                "channels.commands",
-                "channels.vocaleLounge1",
-                "channels.vocaleLounge2",
-                "channels.vocaleLounge3",
-                "channels.vocaleDuo1",
-                "channels.vocaleDuo2",
-                "channels.vocaleduo3",
-                "channels.vocaleTrio1",
-                "channels.trio2",
-                "channels.vocaleTrio3",
-                "channels.vocaleSquad1",
-                "channels.vocaleSquad2",
-                "channels.vocaleSquad3",
-                "channels.staffCmds",
-                "channels.highCmds"
-            ]
-        },
-        "purge": [
-            "roles.HighStaff"
-        ],
-        "quote": {
-            "roles": [
-                "roles.ServerBooster",
-                "roles.donator",
-                "roles.VIP",
-                "roles.Level10"
-            ],
-            "channels": [
-                "channels.chat",
-                "channels.media",
-                "channels.commands",
-                "channels.selfieVerificati",
-                "channels.serataFilm",
-                "channels.vocaleLounge1",
-                "channels.vocaleLounge2",
-                "channels.vocaleLounge3",
-                "channels.vocaleDuo1",
-                "channels.vocaleDuo2",
-                "channels.vocaleduo3",
-                "channels.vocaleTrio1",
-                "channels.trio2",
-                "channels.vocaleTrio3",
-                "channels.vocaleSquad1",
-                "channels.vocaleSquad2",
-                "channels.vocaleSquad3"
-            ]
-        },
-        "repost": {
-            "roles": [
-                "roles.ServerBooster",
-                "roles.donator",
-                "roles.VIP",
-                "roles.Level10"
-            ],
-            "channels": [
-                "channels.chat",
-                "channels.media",
-                "channels.commands",
-                "channels.selfieVerificati",
-                "channels.serataFilm",
-                "channels.vocaleLounge1",
-                "channels.vocaleLounge2",
-                "channels.vocaleLounge3",
-                "channels.vocaleDuo1",
-                "channels.vocaleDuo2",
-                "channels.vocaleduo3",
-                "channels.vocaleTrio1",
-                "channels.trio2",
-                "channels.vocaleTrio3",
-                "channels.vocaleSquad1",
-                "channels.vocaleSquad2",
-                "channels.vocaleSquad3"
-            ]
-        },
-        "clip": {
-            "roles": [
-                "roles.ServerBooster",
-                "roles.donator",
-                "roles.VIP",
-                "roles.Level10"
-            ],
-            "channels": [
-                "channels.chat",
-                "channels.media",
-                "channels.commands",
-                "channels.selfieVerificati",
-                "channels.serataFilm",
-                "channels.vocaleLounge1",
-                "channels.vocaleLounge2",
-                "channels.vocaleLounge3",
-                "channels.vocaleDuo1",
-                "channels.vocaleDuo2",
-                "channels.vocaleduo3",
-                "channels.vocaleTrio1",
-                "channels.trio2",
-                "channels.vocaleTrio3",
-                "channels.vocaleSquad1",
-                "channels.vocaleSquad2",
-                "channels.vocaleSquad3"
-            ]
-        },
-        "rank": {
-            "roles": [
-                "roles.Member"
-            ],
-            "channels": [
-                "channels.commands",
-                "channels.staffCmds",
-                "channels.highCmds"
-            ]
-        },
-        "blacklist": {
-            "roles": [
-                "roles.Staff",
-                "roles.PartnerManager"
-            ],
-            "channels": [
-                "channels.staffCmdsPmThread"
-            ]
-        },
-        "server": {
-            "roles": [
-                "roles.Member"
-            ],
-            "channels": [
-                "channels.commands",
-                "channels.staffCmds",
-                "channels.highCmds"
-            ],
-            "subcommands": {
-                "info": [
-                    "roles.PartnerManager"
-                ]
-            }
-        },
-        "channel": {
-            "roles": [
-                "roles.Member"
-            ],
-            "channels": [
-                "channels.commands",
-                "channels.staffCmds",
-                "channels.highCmds"
-            ]
-        },
-        "ship": {
-            "roles": [
-                "roles.Member"
-            ],
-            "channels": [
-                "channels.commands"
-            ]
-        },
-        "bal": {
-            "roles": [
-                "roles.Member"
-            ],
-            "channels": [
-                "channels.economy"
-            ]
-        },
-        "work": {
-            "roles": [
-                "roles.Member"
-            ],
-            "channels": [
-                "channels.economy"
-            ]
-        },
-        "daily": {
-            "roles": [
-                "roles.Member"
-            ],
-            "channels": [
-                "channels.economy"
-            ]
-        },
-        "weekly": {
-            "roles": [
-                "roles.Member"
-            ],
-            "channels": [
-                "channels.economy"
-            ]
-        },
-        "monthly": {
-            "roles": [
-                "roles.Member"
-            ],
-            "channels": [
-                "channels.economy"
-            ]
-        },
-        "snipe": {
-            "roles": [
-                "roles.Member"
-            ]
-        },
-        "top": {
-            "roles": [
-                "roles.Member"
-            ],
-            "channels": [
-                "channels.commands",
-                "channels.staffCmds",
-                "channels.highCmds"
-            ]
-        },
-        "ban": {
-            "roles": [
-                "roles.Director",
-                "roles.Manager",
-                "roles.Admin",
-                "roles.Founder"
-            ],
-            "channels": [
-                "channels.highCmds",
-                "channels.sanzioniUtenti",
-                "channels.highCmds"
-            ]
-        },
-        "case": {
-            "roles": [
-                "roles.Staff"
-            ],
-            "channels": [
-                "channels.staffCmds",
-                "channels.sanzioniUtenti",
-                "channels.highCmds"
-            ]
-        },
-        "delwarn": {
-            "roles": [
-                "roles.HighStaff",
-                "roles.Director"
-            ],
-            "channels": [
-                "channels.highCmds",
-                "channels.sanzioniUtenti",
-                "channels.highCmds"
-            ]
-        },
-        "clearwarn": {
-            "roles": [
-                "roles.HighStaff",
-                "roles.Director"
-            ],
-            "channels": [
-                "channels.highCmds",
-                "channels.sanzioniUtenti",
-                "channels.highCmds"
-            ]
-        },
-        "duration": {
-            "roles": [
-                "roles.Director",
-                "roles.HighStaff"
-            ],
-            "channels": [
-                "channels.highCmds",
-                "channels.sanzioniUtenti",
-                "channels.highCmds"
-            ]
-        },
-        "kick": {
-            "roles": [
-                "roles.Director",
-                "roles.HighStaff"
-            ],
-            "channels": [
-                "channels.highCmds",
-                "channels.sanzioniUtenti",
-                "channels.highCmds"
-            ]
-        },
-        "lock": {
-            "roles": [
-                "roles.HighStaff"
-            ]
-        },
-        "moderations": {
-            "roles": [
-                "roles.Staff"
-            ],
-            "channels": [
-                "channels.staffCmds",
-                "channels.sanzioniUtenti",
-                "channels.highCmds"
-            ]
-        },
-        "modlogs": {
-            "roles": [
-                "roles.Staff"
-            ],
-            "channels": [
-                "channels.staffCmds",
-                "channels.sanzioniUtenti",
-                "channels.highCmds"
-            ]
-        },
-        "mute": {
-            "roles": [
-                "roles.Mod",
-                "roles.SeniorModerator",
-                "roles.Director",
-                "roles.HighStaff"
-            ],
-            "channels": [
-                "channels.staffCmds",
-                "channels.sanzioniUtenti",
-                "channels.highCmds"
-            ]
-        },
-        "reason": {
-            "roles": [
-                "roles.Director",
-                "roles.HighStaff"
-            ],
-            "channels": [
-                "channels.staffCmds",
-                "channels.sanzioniUtenti",
-                "channels.highCmds"
-            ]
-        },
-        "reminder": {
-            "roles": [
-                "roles.Member"
-            ]
-        },
-        "unban": {
-            "roles": [
-                "roles.Director",
-                "roles.HighStaff"
-            ],
-            "channels": [
-                "channels.highCmds",
-                "channels.sanzioniUtenti",
-                "channels.highCmds"
-            ]
-        },
-        "unlock": {
-            "roles": [
-                "roles.HighStaff"
-            ]
-        },
-        "unmute": {
-            "roles": [
-                "roles.HighStaff",
-                "roles.Director"
-            ],
-            "channels": [
-                "channels.highCmds",
-                "channels.sanzioniUtenti",
-                "channels.highCmds"
-            ]
-        },
-        "warn": {
-            "roles": [
-                "roles.Staff"
-            ],
-            "channels": [
-                "channels.staffCmds",
-                "channels.sanzioniUtenti",
-                "channels.highCmds"
-            ]
-        },
-        "warnings": {
-            "roles": [
-                "roles.Staff"
-            ],
-            "channels": [
-                "channels.staffCmds",
-                "channels.sanzioniUtenti",
-                "channels.highCmds"
-            ]
-        },
-        "set": {
-            "roles": [
-                "roles.Member"
-            ],
-            "subcommands": {
-                "voice": [
-                    "roles.Member"
-                ],
-                "autojoin": [
-                    "roles.HighStaff"
-                ]
-            }
-        },
-        "voices": {
-            "roles": [
-                "roles.Member"
-            ]
-        }
+    "segnala": {
+      "roles": [
+        "roles.SeniorModerator",
+        "roles.Director"
+      ],
+      "channels": [
+        "channels.partnerships"
+      ]
     },
-    "buttons": {
-        "accetta": {
-            "ownerFromMessageMention": true
-        },
-        "avatar_unblock:*": {
-            "ownerSegment": 1
-        },
-        "avatar_mode:*": {
-            "roles": [
-                "roles.Member"
-            ],
-            "ownerSegment": 1
-        },
-        "avatar_views": [
-            "roles.Member"
-        ],
-        "backup_delete_cancel:*": {
-            "ownerSegment": 2
-        },
-        "backup_delete_confirm:*": {
-            "ownerSegment": 2
-        },
-        "backup_info_delete:*": {
-            "ownerSegment": 2
-        },
-        "backup_info_load:*": {
-            "ownerSegment": 2
-        },
-        "backup_panel:open:*": {
-            "ownerSegment": 3
-        },
-        "backup_list_next:*": {
-            "ownerSegment": 1
-        },
-        "backup_list_prev:*": {
-            "ownerSegment": 1
-        },
-        "backup_load_*": {
-            "roles": [
-                "roles.HighStaff"
-            ],
-            "channels": [
-                "channels.staffCmds"
-            ]
-        },
-        "banner_unblock:*": {
-            "ownerSegment": 1
-        },
-        "banner_mode:*": {
-            "roles": [
-                "roles.Member"
-            ],
-            "ownerSegment": 1
-        },
-        "banner_views": [
-            "roles.Member"
-        ],
-        "bh_age:*": {
-            "ownerSegment": 1
-        },
-        "bh_cancel:*": {
-            "ownerSegment": 1
-        },
-        "bh_date:*": {
-            "ownerSegment": 1
-        },
-        "bh_privacy:*": {
-            "ownerSegment": 1
-        },
-        "bh_profile_remove:*": {
-            "ownerSegment": 1
-        },
-        "bh_remove_no:*": {
-            "ownerSegment": 1
-        },
-        "bh_remove_yes:*": {
-            "ownerSegment": 1
-        },
-        "bh_save:*": {
-            "ownerSegment": 1
-        },
-        "giveaway_enter:*": [
-            "roles.Member"
-        ],
-        "giveaway_morgames_retry:*": [
-            "roles.Member"
-        ],
-        "giveaway_reroll:*": [
-            "roles.HighStaff"
-        ],
-        "level_panel:server_nav:*": {
-            "roles": [
-                "roles.HighStaff"
-            ],
-            "ownerSegment": 2
-        },
-        "level_panel:server_ch:*": {
-            "roles": [
-                "roles.HighStaff"
-            ],
-            "ownerSegment": 3
-        },
-        "level_panel:server_role:*": {
-            "roles": [
-                "roles.HighStaff"
-            ],
-            "ownerSegment": 3
-        },
-        "level_panel:server_btn:*": {
-            "roles": [
-                "roles.HighStaff"
-            ],
-            "ownerSegment": 3
-        },
-        "level_panel:user_btn:*": {
-            "roles": [
-                "roles.HighStaff"
-            ],
-            "ownerSegment": 3
-        },
-        "level_panel_modal:*": {
-            "roles": [
-                "roles.HighStaff"
-            ],
-            "ownerSegment": 3
-        },
-        "mpr:*": {
-            "roles": [
-                "roles.Staff"
-            ],
-            "channels": [
-                "channels.staffCmds",
-                "channels.sanzioniUtenti",
-                "channels.highCmds"
-            ],
-            "ownerSegment": 3
-        },
-        "security_panel:hub:*": {
-            "ownerSegment": 2
-        },
-        "security_panel:pick:*": {
-            "roles": [
-                "roles.Founder"
-            ],
-            "ownerSegment": 2
-        },
-        "security_panel:toggle:*": {
-            "roles": [
-                "roles.Founder"
-            ],
-            "ownerSegment": 2
-        },
-        "security_panel:bulk:*": {
-            "roles": [
-                "roles.Founder"
-            ],
-            "ownerSegment": 2
-        },
-        "security_panel:status:*": {
-            "ownerSegment": 2
-        },
-        "security_panel:panic:*": {
-            "ownerSegment": 2
-        },
-        "security_panel:statics:*": {
-            "ownerSegment": 2
-        },
-        "security_panel:back:*": {
-            "ownerSegment": 2
-        },
-        "cmd_colors_btn:*": {
-            "ownerSegment": 1,
-            "roles": [
-                "roles.Member"
-            ]
-        },
-        "claim_ticket": [
-            "roles.Staff",
-            "roles.HighStaff",
-            "roles.PartnerManager"
-        ],
-        "close_ticket": [
-            "roles.Staff",
-            "roles.HighStaff",
-            "roles.PartnerManager"
-        ],
-        "close_ticket_motivo": [
-            "roles.Staff",
-            "roles.HighStaff",
-            "roles.PartnerManager"
-        ],
-        "ticket_autoclose_accept": null,
-        "ticket_autoclose_reject": null,
-        "customrole_color:*": {
-            "roles": [
-                "roles.VIP",
-                "roles.ServerBooster",
-                "roles.DoubleBooster",
-                "roles.Level50",
-                "roles.VIPplus"
-            ],
-            "ownerSegment": 1
-        },
-        "customrole_delete:*": {
-            "roles": [
-                "roles.VIP",
-                "roles.ServerBooster",
-                "roles.DoubleBooster",
-                "roles.Level50",
-                "roles.VIPplus"
-            ],
-            "ownerSegment": 1
-        },
-        "customrole_emoji:*": {
-            "roles": [
-                "roles.VIP",
-                "roles.ServerBooster",
-                "roles.DoubleBooster",
-                "roles.Level50",
-                "roles.VIPplus"
-            ],
-            "ownerSegment": 1
-        },
-        "customrole_grant:*": {
-            "roles": [
-                "roles.VIP",
-                "roles.donator",
-                "roles.DoubleBooster",
-                "roles.Level50",
-                "roles.Level70",
-                "roles.VIPplus"
-            ],
-            "grantRecipientOnly": true
-        },
-        "customrole_members:*": {
-            "roles": [
-                "roles.VIP",
-                "roles.ServerBooster",
-                "roles.DoubleBooster",
-                "roles.Level50",
-                "roles.VIPplus"
-            ],
-            "ownerSegment": 1
-        },
-        "customrole_members_remove:*": {
-            "roles": [
-                "roles.VIP",
-                "roles.ServerBooster",
-                "roles.DoubleBooster",
-                "roles.Level50",
-                "roles.VIPplus"
-            ],
-            "ownerSegment": 1
-        },
-        "customrole_name:*": {
-            "roles": [
-                "roles.VIP",
-                "roles.ServerBooster",
-                "roles.DoubleBooster",
-                "roles.Level50",
-                "roles.VIPplus"
-            ],
-            "ownerSegment": 1
-        },
-        "customvoc_emoji:*": {
-            "roles": [
-                "roles.VIP",
-                "roles.DoubleBooster",
-                "roles.Level50",
-                "roles.VIPplus"
-            ],
-            "ownerSegment": 1
-        },
-        "customvoc_add:*": {
-            "roles": [
-                "roles.VIP",
-                "roles.DoubleBooster",
-                "roles.Level50",
-                "roles.VIPplus"
-            ],
-            "ownerSegment": 1
-        },
-        "customvoc_remove:*": {
-            "roles": [
-                "roles.VIP",
-                "roles.DoubleBooster",
-                "roles.Level50",
-                "roles.VIPplus"
-            ],
-            "ownerSegment": 1
-        },
-        "customvoc_name:*": {
-            "roles": [
-                "roles.VIP",
-                "roles.DoubleBooster",
-                "roles.Level50",
-                "roles.VIPplus"
-            ],
-            "ownerSegment": 1
-        },
-        "customreaction_add:*": {
-            "roles": [
-                "roles.VIP",
-                "roles.ServerBooster",
-                "roles.DoubleBooster",
-                "roles.Level70",
-                "roles.VIPplus"
-            ],
-            "ownerSegment": 1
-        },
-        "customreaction_remove:*": {
-            "roles": [
-                "roles.VIP",
-                "roles.ServerBooster",
-                "roles.DoubleBooster",
-                "roles.Level70",
-                "roles.VIPplus"
-            ],
-            "ownerSegment": 1
-        },
-        "customreaction_clear:*": {
-            "roles": [
-                "roles.VIP",
-                "roles.ServerBooster",
-                "roles.DoubleBooster",
-                "roles.Level70",
-                "roles.VIPplus"
-            ],
-            "ownerSegment": 1
-        },
-        "blacklist_ui:*": {
-            "ownerSegment": 2
-        },
-        "psetup:*": {
-            "ownerSegment": 1
-        },
-        "psettings:*": {
-            "ownerSegment": 1
-        },
-        "profile_panel:select:*": {
-            "roles": [
-                "roles.Member"
-            ],
-            "ownerSegment": 2
-        },
-        "profile_panel:action:*": {
-            "roles": [
-                "roles.Member"
-            ],
-            "ownerSegment": 2
-        },
-        "profile_panel:*": {
-            "ownerSegment": 2
-        },
-        "staff_profile_panel:*": {
-            "roles": [
-                "roles.Staff",
-                "roles.PartnerManager",
-                "roles.HighStaff"
-            ]
-        },
-        "staff_pm_shop:*": {
-            "roles": [
-                "roles.PartnerManager"
-            ],
-            "ownerSegment": 2,
-            "ownerSeparator": ":"
-        },
-        "staff_val_neg_trade:*": {
-            "roles": [
-                "roles.Staff",
-                "roles.PartnerManager",
-                "roles.HighStaff"
-            ],
-            "ownerSegment": 2,
-            "ownerSeparator": ":"
-        },
-        "hogwarts_spell_list:*": [
-            "roles.Member"
-        ],
-        "pm_shop_ack:*": {
-            "roles": [
-                "roles.Member",
-                "roles.PartnerManager"
-            ]
-        },
-        "staff_hp:*": {
-            "roles": [
-                "roles.HighStaff",
-                "roles.Founder"
-            ]
-        },
-        "eb:author:*": {
-            "ownerFromMessageMention": true
-        },
-        "eb:color:*": {
-            "ownerFromMessageMention": true
-        },
-        "eb:content:*": {
-            "ownerFromMessageMention": true
-        },
-        "eb:description:*": {
-            "ownerFromMessageMention": true
-        },
-        "eb:footer:*": {
-            "ownerFromMessageMention": true
-        },
-        "eb:image:*": {
-            "ownerFromMessageMention": true
-        },
-        "eb:send:*": {
-            "ownerFromMessageMention": true
-        },
-        "eb:thumbnail:*": {
-            "ownerFromMessageMention": true
-        },
-        "eb:title:*": {
-            "ownerFromMessageMention": true
-        },
-        "error_pending": {
-            "permissions": "Administrator"
-        },
-        "error_solved": {
-            "permissions": "Administrator"
-        },
-        "error_unsolved": {
-            "permissions": "Administrator"
-        },
-        "comandi": [
-            "roles.Staff"
-        ],
-        "compiti_fissi": [
-            "roles.Helper",
-            "roles.Mod",
-            "roles.HighStaff"
-        ],
-        "generalimoderazione": [
-            "roles.Staff"
-        ],
-        "guidamiddle": [
-            "roles.SeniorModerator",
-            "roles.Director",
-            "roles.HighStaff"
-        ],
-        "guidapartners": [
-            "roles.PartnerManager",
-            "roles.Director",
-            "roles.HighStaff"
-        ],
-        "help_next_*": [
-            "roles.Member"
-        ],
-        "help_home_*": [
-            "roles.Member"
-        ],
-        "badges_prev_*": [
-            "roles.PartnerManager"
-        ],
-        "badges_next_*": [
-            "roles.PartnerManager"
-        ],
-        "help_prev_*": [
-            "roles.Member"
-        ],
-        "info_badges_roles": [
-            "roles.Member"
-        ],
-        "info_boost_levels": [
-            "roles.Member"
-        ],
-        "info_donations": [
-            "roles.Member"
-        ],
-        "info_level": [
-            "roles.Member"
-        ],
-        "info_levels": [
-            "roles.Member"
-        ],
-        "infolivelli": [
-            "roles.Member"
-        ],
-        "info_rules": [
-            "roles.Member"
-        ],
-        "info_strike_close:*": {
-            "ownerFromMessageMention": true
-        },
-        "info_strike_first:*": {
-            "ownerFromMessageMention": true
-        },
-        "info_strike_last:*": {
-            "ownerFromMessageMention": true
-        },
-        "info_strike_next:*": {
-            "ownerFromMessageMention": true
-        },
-        "info_strike_prev:*": {
-            "ownerFromMessageMention": true
-        },
-        "limiti": [
-            "roles.Staff"
-        ],
-        "lineeguida": [
-            "roles.Staff"
-        ],
-        "metodi": [
-            "roles.Member"
-        ],
-        "middle_*": [
-            "roles.SeniorModerator",
-            "roles.Director",
-            "roles.HighStaff"
-        ],
-        "moderazione_staff": [
-            "roles.Staff"
-        ],
-        "minigame_*": [
-            "roles.Member"
-        ],
-        "next": [
-            "roles.PartnerManager",
-            "roles.HighStaff"
-        ],
-        "pause": [
-            "roles.Staff"
-        ],
-        "pause_accept:*": [
-            "roles.HighStaff"
-        ],
-        "pause_cancel:*": [
-            "roles.HighStaff"
-        ],
-        "pause_list:*": {
-            "roles": [
-                "roles.Staff",
-                "roles.PartnerManager",
-                "roles.HighStaff"
-            ],
-            "ownerSegment": 1,
-            "ownerOrRole": true
-        },
-        "pause_reject:*": [
-            "roles.HighStaff"
-        ],
-        "pause_rolepick:*": [
-            "roles.Staff",
-            "roles.PartnerManager",
-            "roles.HighStaff"
-        ],
-        "pause_request:open": [
-            "roles.Staff",
-            "roles.PartnerManager",
-            "roles.SeniorModerator",
-            "roles.Director",
-            "roles.HighStaff"
-        ],
-        "pause_request:modal": [
-            "roles.Staff",
-            "roles.PartnerManager",
-            "roles.SeniorModerator",
-            "roles.Director",
-            "roles.HighStaff"
-        ],
-        "ping": [
-            "roles.Member"
-        ],
-        "plb_*": [
-            "roles.Member"
-        ],
-        "pex": [
-            "roles.Staff"
-        ],
-        "prev": [
-            "roles.PartnerManager",
-            "roles.HighStaff"
-        ],
-        "r_multiplier_info": [
-            "roles.Member"
-        ],
-        "regolamento": [
-            "roles.Staff"
-        ],
-        "regole_staff": [
-            "roles.Staff"
-        ],
-        "resoconto_apply:*": [
-            "roles.Manager",
-            "roles.Founder"
-        ],
-        "resoconto_reject:*": [
-            "roles.Manager",
-            "roles.Founder"
-        ],
-        "resoconto_override:*": [
-            "roles.Manager",
-            "roles.Founder"
-        ],
-        "rifiuta": {
-            "ownerFromMessageMention": true
-        },
-        "sanzioni": [
-            "roles.Staff"
-        ],
-        "stats_me_period_back*": {
-            "ownerSegment": 1
-        },
-        "stats_me_period_open*": {
-            "ownerSegment": 1
-        },
-        "stats_me_period_set*": {
-            "ownerSegment": 1
-        },
-        "stats_me_refresh*": {
-            "ownerSegment": 1
-        },
-        "stats_user_period_back*": {
-            "ownerSegment": 1
-        },
-        "stats_user_period_open*": {
-            "ownerSegment": 1
-        },
-        "stats_user_period_set*": {
-            "ownerSegment": 1
-        },
-        "stats_user_refresh*": {
-            "ownerSegment": 1
-        },
-        "stats_server_refresh*": {
-            "ownerSegment": 1
-        },
-        "stats_top_channel_page_first*": {
-            "ownerSegment": 1
-        },
-        "stats_top_channel_page_last*": {
-            "ownerSegment": 1
-        },
-        "stats_top_channel_page_modal_open*": {
-            "ownerSegment": 1
-        },
-        "stats_top_channel_page_next*": {
-            "ownerSegment": 1
-        },
-        "stats_top_channel_page_prev*": {
-            "ownerSegment": 1
-        },
-        "stats_top_channel_period_back*": {
-            "ownerSegment": 1
-        },
-        "stats_top_channel_period_open*": {
-            "ownerSegment": 1
-        },
-        "stats_top_channel_period_set*": {
-            "ownerSegment": 1
-        },
-        "stats_top_channel_refresh*": {
-            "ownerSegment": 1
-        },
-        "statics:*": {
-            "ownerSegment": 1
-        },
-        "stats_top_channel_view_select*": {
-            "ownerSegment": 1
-        },
-        "siterolerequest:*": {
-            "roles": [
-                "roles.HighStaff",
-                "roles.Founder"
-            ]
-        },
-        "testualimoderazione": [
-            "roles.Staff"
-        ],
-        "ticket_rate:*": {
-            "roles": [
-                "roles.HighStaff"
-            ],
-            "ownerFromMessageMention": true,
-            "ownerOrRole": true
-        },
-        "ticket_transcript:*": {
-            "roles": [
-                "roles.HighStaff"
-            ],
-            "ownerFromMessageMention": true,
-            "ownerOrRole": true
-        },
-        "torna_indietro": [
-            "roles.Member"
-        ],
-        "unclaim": [
-            "roles.Staff",
-            "roles.HighStaff",
-            "roles.PartnerManager"
-        ],
-        "ticket_panel_add_member:*": [
-            "roles.Staff",
-            "roles.HighStaff",
-            "roles.PartnerManager"
-        ],
-        "ticket_panel_remove_member:*": [
-            "roles.Staff",
-            "roles.HighStaff",
-            "roles.PartnerManager"
-        ],
-        "ticket_panel_transfer_user:*": null,
-        "ticket_panel_switch_category:*": [
-            "roles.HighStaff"
-        ],
-        "ticket_panel_nav_add": [
-            "roles.Staff",
-            "roles.HighStaff",
-            "roles.PartnerManager"
-        ],
-        "ticket_panel_nav_remove": [
-            "roles.Staff",
-            "roles.HighStaff",
-            "roles.PartnerManager"
-        ],
-        "ticket_panel_nav_switch": [
-            "roles.HighStaff"
-        ],
-        "ticket_panel_nav_rename": [
-            "roles.HighStaff"
-        ],
-        "ticket_panel_nav_closerequest": null,
-        "ticket_panel_nav_transfer": null,
-        "ticket_panel_reopen_pick": null,
-        "valutazioni": [
-            "roles.Staff"
-        ],
-        "apply_helper": [
-            "roles.Member"
-        ],
-        "apply_partnermanager": [
-            "roles.Member"
-        ],
-        "apply_start:*": {
-            "roles": [
-                "roles.Member"
-            ],
-            "ownerSegment": 2
-        },
-        "apply_back:*": {
-            "roles": [
-                "roles.Member"
-            ],
-            "ownerSegment": 2
-        },
-        "apply_page:*": {
-            "roles": [
-                "roles.Member"
-            ],
-            "ownerSegment": 2
-        },
-        "apply_pex:*": [
-            "roles.Admin",
-            "roles.Manager",
-            "roles.Founder"
-        ],
-        "apply_reject:*": [
-            "roles.Admin",
-            "roles.Manager",
-            "roles.Founder"
-        ],
-        "website_unban_acc:*": [
-            "roles.HighStaff"
-        ],
-        "website_unban_rej:*": [
-            "roles.HighStaff"
-        ],
-        "candidature_premi_partner": [
-            "roles.Member"
-        ],
-        "info_sponsor": [
-            "roles.Member"
-        ],
-        "me_period_back*": {
-            "ownerSegment": 1
-        },
-        "me_period_open*": {
-            "ownerSegment": 1
-        },
-        "me_period_set*": {
-            "ownerSegment": 1
-        },
-        "me_refresh*": {
-            "ownerSegment": 1
-        },
-        "nodm_panel_all*": {
-            "ownerSegment": 1
-        },
-        "nodm_panel_done*": {
-            "ownerSegment": 1
-        },
-        "nodm_panel_none*": {
-            "ownerSegment": 1
-        },
-        "nodm_panel_toggle_*": {
-            "ownerSegment": 1
-        },
-        "privacy_panel_all*": {
-            "ownerSegment": 1
-        },
-        "privacy_panel_done*": {
-            "ownerSegment": 1
-        },
-        "privacy_panel_none*": {
-            "ownerSegment": 1
-        },
-        "privacy_panel_toggle_*": {
-            "ownerSegment": 1
-        },
-        "quote_remove:*": {
-            "ownerSegment": 1
-        },
-        "repost_btn:*": {
-            "roles": [
-                "roles.ServerBooster",
-                "roles.donator",
-                "roles.VIP",
-                "roles.Level10"
-            ]
-        },
-        "repost_src:*": {
-            "roles": [
-                "roles.ServerBooster",
-                "roles.donator",
-                "roles.VIP",
-                "roles.Level10"
-            ]
-        },
-        "myrepost_page_first:*": {
-            "ownerSegment": 1
-        },
-        "myrepost_page_prev:*": {
-            "ownerSegment": 1
-        },
-        "myrepost_page_next:*": {
-            "ownerSegment": 1
-        },
-        "myrepost_page_last:*": {
-            "ownerSegment": 1
-        },
-        "myclip_page_first:*": {
-            "ownerSegment": 1
-        },
-        "myclip_page_prev:*": {
-            "ownerSegment": 1
-        },
-        "myclip_page_next:*": {
-            "ownerSegment": 1
-        },
-        "myclip_page_last:*": {
-            "ownerSegment": 1
-        },
-        "myquote_page_first:*": {
-            "ownerSegment": 1
-        },
-        "myquote_page_prev:*": {
-            "ownerSegment": 1
-        },
-        "myquote_page_next:*": {
-            "ownerSegment": 1
-        },
-        "myquote_page_last:*": {
-            "ownerSegment": 1
-        },
-        "myrepost_close:*": {
-            "ownerSegment": 1
-        },
-        "myclip_close:*": {
-            "ownerSegment": 1
-        },
-        "myquote_close:*": {
-            "ownerSegment": 1
-        },
-        "server_refresh*": {
-            "ownerSegment": 1
-        },
-        "channel_refresh*": {
-            "ownerSegment": 1
-        },
-        "channel_period_open*": {
-            "ownerSegment": 1
-        },
-        "channel_period_set*": {
-            "ownerSegment": 1
-        },
-        "channel_period_back*": {
-            "ownerSegment": 1
-        },
-        "serverDescription": [
-            "roles.PartnerManager",
-            "roles.HighStaff"
-        ],
-        "staff_warn_depex:*": [
-            "roles.HighStaff"
-        ],
-        "top_channel_page_first*": {
-            "ownerSegment": 1
-        },
-        "top_channel_page_last*": {
-            "ownerSegment": 1
-        },
-        "top_channel_page_modal_open*": {
-            "ownerSegment": 1
-        },
-        "top_channel_page_next*": {
-            "ownerSegment": 1
-        },
-        "top_channel_page_prev*": {
-            "ownerSegment": 1
-        },
-        "top_channel_period_back*": {
-            "ownerSegment": 1
-        },
-        "top_channel_period_open*": {
-            "ownerSegment": 1
-        },
-        "top_channel_period_set*": {
-            "ownerSegment": 1
-        },
-        "top_channel_refresh*": {
-            "ownerSegment": 1
-        },
-        "user_period_back*": {
-            "ownerSegment": 1
-        },
-        "user_period_open*": {
-            "ownerSegment": 1
-        },
-        "user_period_set*": {
-            "ownerSegment": 1
-        },
-        "user_refresh*": {
-            "ownerSegment": 1
-        },
-        "wcVote:*": {
-            "roles": [
-                "roles.Member"
-            ]
-        },
-        "vocalimoderazione": [
-            "roles.Staff"
-        ],
-        "warnstaff": [
-            "roles.Staff"
+    "sanziona": {
+      "roles": [
+        "roles.Staff"
+      ]
+    },
+    "delete": {
+      "roles": [
+        "roles.HighStaff"
+      ],
+      "subcommands": {
+        "partnership": [
+          "roles.HighStaff"
         ]
+      }
     },
-    "selectMenus": {
-        "customrole_add_select:*": {
-            "roles": [
-                "roles.VIP",
-                "roles.ServerBooster",
-                "roles.DoubleBooster",
-                "roles.Level50",
-                "roles.VIPplus"
-            ],
-            "ownerSegment": 1
-        },
-        "customrole_color_type_select:*": {
-            "roles": [
-                "roles.VIP",
-                "roles.ServerBooster",
-                "roles.DoubleBooster",
-                "roles.Level50",
-                "roles.VIPplus"
-            ],
-            "ownerSegment": 1
-        },
-        "customrole_remove_select:*": {
-            "roles": [
-                "roles.VIP",
-                "roles.ServerBooster",
-                "roles.DoubleBooster",
-                "roles.Level50",
-                "roles.VIPplus"
-            ],
-            "ownerSegment": 1
-        },
-        "customvoc_add_select:*": {
-            "roles": [
-                "roles.VIP",
-                "roles.DoubleBooster",
-                "roles.Level50",
-                "roles.VIPplus"
-            ],
-            "ownerSegment": 1
-        },
-        "customvoc_remove_select:*": {
-            "roles": [
-                "roles.VIP",
-                "roles.DoubleBooster",
-                "roles.Level50",
-                "roles.VIPplus"
-            ],
-            "ownerSegment": 1
-        },
-        "customreaction_remove_pick:*": {
-            "roles": [
-                "roles.VIP",
-                "roles.ServerBooster",
-                "roles.DoubleBooster",
-                "roles.Level70",
-                "roles.VIPplus"
-            ],
-            "ownerSegment": 1
-        },
-        "security_panel:hub:*": {
-            "ownerSegment": 2
-        },
-        "security_panel:pick:*": {
-            "roles": [
-                "roles.HighStaff"
-            ],
-            "ownerSegment": 2
-        },
-        "security_panel:toggle:*": {
-            "roles": [
-                "roles.Founder"
-            ],
-            "ownerSegment": 2
-        },
-        "security_panel:bulk:*": {
-            "roles": [
-                "roles.Founder"
-            ],
-            "ownerSegment": 2
-        },
-        "profile_panel:select:*": {
-            "roles": [
-                "roles.Member"
-            ],
-            "ownerSegment": 2
-        },
-        "profile_panel:*": {
-            "ownerSegment": 2
-        },
-        "staff_profile_panel:select:*": {
-            "roles": [
-                "roles.Staff",
-                "roles.PartnerManager",
-                "roles.HighStaff"
-            ],
-            "ownerSegment": 2
-        },
-        "backup_list_select:*": {
-            "ownerSegment": 1
-        },
-        "backup_panel:select:*": {
-            "ownerSegment": 2
-        },
-        "backup_load_*": {
-            "roles": [
-                "roles.HighStaff"
-            ],
-            "channels": [
-                "channels.staffCmds"
-            ]
-        },
-        "usage_guide:*": {
-            "ownerSegment": 2
-        },
-        "personality_age": [
-            "roles.Member"
-        ],
-        "personality_colors_1": [
-            "roles.Member"
-        ],
-        "personality_colors_plus": [
-            "roles.Donator",
-            "roles.VIP",
-            "roles.Level50",
-            "roles.ServerBooster",
-            "roles.VIPplus"
-        ],
-        "personality_dm": [
-            "roles.Member"
-        ],
-        "personality_mentions": [
-            "roles.Member"
-        ],
-        "personality_hobby": [
-            "roles.Member"
-        ],
-        "personality_pronouns": [
-            "roles.Member"
-        ],
-        "personality_region": [
-            "roles.Member"
-        ],
-        "personality_relationship": [
-            "roles.Member"
-        ],
-        "personality_zodiac": [
-            "roles.Member"
-        ],
-        "cmd_colors_seg:*": {
-            "ownerSegment": 1,
-            "roles": [
-                "roles.Member"
-            ]
-        },
-        "stats_top_channel_view_select*": {
-            "ownerSegment": 1
-        },
-        "top_channel_view_select*": {
-            "ownerSegment": 1
-        },
-        "ticket_open_menu": null
+    "elimina partnership": {
+      "roles": [
+        "roles.HighStaff"
+      ],
+      "channels": [
+        "channels.partnerships",
+        "channels.partnerLogs"
+      ]
     },
-    "modals": {
-        "backup_panel_modal:*": {
-            "ownerSegment": 2
-        },
-        "customrole_modal_*": {
-            "roles": [
-                "roles.VIP",
-                "roles.ServerBooster",
-                "roles.DoubleBooster",
-                "roles.Level50",
-                "roles.VIPplus"
-            ],
-            "ownerSegment": 1
-        },
-        "customvoc_modal_*": {
-            "roles": [
-                "roles.VIP",
-                "roles.DoubleBooster",
-                "roles.Level50",
-                "roles.VIPplus"
-            ],
-            "ownerSegment": 1
-        },
-        "customreaction_modal_*": {
-            "roles": [
-                "roles.VIP",
-                "roles.ServerBooster",
-                "roles.DoubleBooster",
-                "roles.Level70",
-                "roles.VIPplus"
-            ],
-            "ownerSegment": 1
-        },
-        "profile_panel:modal_*": {
-            "roles": [
-                "roles.Member"
-            ],
-            "ownerSegment": 2
-        },
-        "blacklist_ui_modal:*": {
-            "ownerSegment": 2
-        },
-        "psetup_modal:*": {
-            "ownerSegment": 1
-        },
-        "psettings_modal:*": {
-            "ownerSegment": 1
-        },
-        "profile_panel:*": {
-            "ownerSegment": 2
-        },
-        "staff_hp_modal:*": {
-            "roles": [
-                "roles.HighStaff",
-                "roles.Founder"
-            ]
-        },
-        "vcsm:*": {
-            "roles": [
-                "roles.HighStaff",
-                "roles.Founder"
-            ]
-        },
-        "ebm:*": {
-            "ownerSegment": 2
-        },
-        "ebm:send:*": {
-            "ownerSegment": 2
-        },
-        "bh_modal_date:*": {
-            "ownerSegment": 1
-        },
-        "bh_modal_age:*": {
-            "ownerSegment": 1
-        },
-        "modal_close_ticket:*": {
-            "ownerSegment": 1
-        },
-        "modal_ticket_panel_rename": [
-            "roles.HighStaff"
+    "aggiungi punti": {
+      "permissions": "Administrator"
+    },
+    "rimuovi punti": {
+      "permissions": "Administrator"
+    },
+    "giveaway": {
+      "roles": [
+        "roles.HighStaff"
+      ],
+      "subcommands": {
+        "create": [
+          "roles.HighStaff"
         ],
-        "modal_ticket_panel_closerequest": null,
-        "partnershipModal_*": {
-            "ownerSegment": 1
-        },
-        "partnershipModal_cmd_*": {
-            "ownerSegment": 1
-        },
-        "stats_top_channel_page_modal:*": {
-            "ownerSegment": 1
-        },
-        "apply_form:*": {
-            "ownerSegment": 2
-        },
-        "apply_pex_modal:*": {
-            "ownerSegment": 2
-        },
-        "top_page_modal:*": {
-            "ownerSegment": 1
-        },
-        "resoconto_reason:*": [
-            "roles.Manager",
-            "roles.Founder"
+        "end": [
+          "roles.HighStaff"
+        ],
+        "edit": [
+          "roles.HighStaff"
+        ],
+        "delete": [
+          "roles.HighStaff"
+        ],
+        "reroll": [
+          "roles.HighStaff"
         ]
+      }
+    },
+    "say": {
+      "roles": [
+        "roles.Founder"
+      ]
     }
+  },
+  "prefix": {
+    "afk": {
+      "roles": [
+        "roles.Member"
+      ]
+    },
+    "avatar": {
+      "roles": [
+        "roles.Member"
+      ]
+    },
+    "backup": {
+      "roles": [
+        "roles.HighStaff"
+      ],
+      "channels": [
+        "channels.highCmds"
+      ]
+    },
+    "banner": {
+      "roles": [
+        "roles.Member"
+      ]
+    },
+    "security": {
+      "roles": [
+        "roles.HighStaff"
+      ],
+      "channels": [
+        "channels.highCmds"
+      ]
+    },
+    "profile": [
+      "roles.PartnerManager"
+    ],
+    "description": [
+      "roles.PartnerManager"
+    ],
+    "history": [
+      "roles.PartnerManager"
+    ],
+    "points": [
+      "roles.PartnerManager"
+    ],
+    "badges": [
+      "roles.PartnerManager"
+    ],
+    "leaderboard": [
+      "roles.PartnerManager"
+    ],
+    "random": {
+      "roles": [
+        "roles.PartnerManager"
+      ],
+      "subcommands": {
+        "server": [
+          "roles.PartnerManager"
+        ]
+      }
+    },
+    "help": {
+      "roles": [
+        "roles.Member"
+      ],
+      "channels": [
+        "channels.commands",
+        "channels.staffCmds",
+        "channels.highCmds"
+      ]
+    },
+    "info": {
+      "roles": [
+        "roles.HighStaff"
+      ],
+      "channels": [
+        "channels.highCmds"
+      ]
+    },
+    "join": {
+      "roles": [
+        "roles.Member"
+      ]
+    },
+    "leave": {
+      "roles": [
+        "roles.Member"
+      ]
+    },
+    "level": {
+      "roles": [
+        "roles.HighStaff"
+      ],
+      "channels": [
+        "channels.highCmds"
+      ]
+    },
+    "me": {
+      "roles": [
+        "roles.Member"
+      ],
+      "channels": [
+        "channels.commands",
+        "channels.staffCmds",
+        "channels.highCmds"
+      ]
+    },
+    "user": {
+      "roles": [
+        "roles.Member"
+      ],
+      "channels": [
+        "channels.commands",
+        "channels.staffCmds",
+        "channels.highCmds"
+      ],
+      "subcommands": {
+        "info": [
+          "roles.PartnerManager"
+        ]
+      }
+    },
+    "membercount": {
+      "roles": [
+        "roles.Member"
+      ],
+      "channels": [
+        "channels.commands",
+        "channels.staffCmds",
+        "channels.news",
+        "channels.highCmds"
+      ]
+    },
+    "ping": {
+      "roles": [
+        "roles.Member"
+      ],
+      "channels": [
+        "channels.commands",
+        "channels.staffCmds",
+        "channels.highCmds"
+      ]
+    },
+    "invite": {
+      "roles": [
+        "roles.Member"
+      ],
+      "channels": [
+        "channels.commands",
+        "channels.staffCmds",
+        "channels.highCmds",
+        "channels.partnersChat"
+      ]
+    },
+    "invites": {
+      "roles": [
+        "roles.Member"
+      ],
+      "channels": [
+        "channels.commands",
+        "channels.staffCmds",
+        "channels.highCmds"
+      ]
+    },
+    "clear": {
+      "roles": [
+        "roles.Member"
+      ],
+      "channels": [
+        "channels.chat",
+        "channels.media",
+        "channels.commands",
+        "channels.vocaleLounge1",
+        "channels.vocaleLounge2",
+        "channels.vocaleLounge3",
+        "channels.vocaleDuo1",
+        "channels.vocaleDuo2",
+        "channels.vocaleduo3",
+        "channels.vocaleTrio1",
+        "channels.trio2",
+        "channels.vocaleTrio3",
+        "channels.vocaleSquad1",
+        "channels.vocaleSquad2",
+        "channels.vocaleSquad3",
+        "channels.staffCmds",
+        "channels.highCmds"
+      ]
+    },
+    "lyrics": {
+      "roles": [
+        "roles.Member"
+      ],
+      "channels": [
+        "channels.chat",
+        "channels.media",
+        "channels.commands",
+        "channels.vocaleLounge1",
+        "channels.vocaleLounge2",
+        "channels.vocaleLounge3",
+        "channels.vocaleDuo1",
+        "channels.vocaleDuo2",
+        "channels.vocaleduo3",
+        "channels.vocaleTrio1",
+        "channels.trio2",
+        "channels.vocaleTrio3",
+        "channels.vocaleSquad1",
+        "channels.vocaleSquad2",
+        "channels.vocaleSquad3",
+        "channels.staffCmds",
+        "channels.highCmds"
+      ]
+    },
+    "next": {
+      "roles": [
+        "roles.Member"
+      ],
+      "channels": [
+        "channels.chat",
+        "channels.media",
+        "channels.commands",
+        "channels.vocaleLounge1",
+        "channels.vocaleLounge2",
+        "channels.vocaleLounge3",
+        "channels.vocaleDuo1",
+        "channels.vocaleDuo2",
+        "channels.vocaleduo3",
+        "channels.vocaleTrio1",
+        "channels.trio2",
+        "channels.vocaleTrio3",
+        "channels.vocaleSquad1",
+        "channels.vocaleSquad2",
+        "channels.vocaleSquad3",
+        "channels.staffCmds",
+        "channels.highCmds"
+      ]
+    },
+    "now": {
+      "roles": [
+        "roles.Member"
+      ],
+      "channels": [
+        "channels.chat",
+        "channels.media",
+        "channels.commands",
+        "channels.vocaleLounge1",
+        "channels.vocaleLounge2",
+        "channels.vocaleLounge3",
+        "channels.vocaleDuo1",
+        "channels.vocaleDuo2",
+        "channels.vocaleduo3",
+        "channels.vocaleTrio1",
+        "channels.trio2",
+        "channels.vocaleTrio3",
+        "channels.vocaleSquad1",
+        "channels.vocaleSquad2",
+        "channels.vocaleSquad3",
+        "channels.staffCmds"
+      ]
+    },
+    "pause": {
+      "roles": [
+        "roles.Member"
+      ],
+      "channels": [
+        "channels.chat",
+        "channels.media",
+        "channels.commands",
+        "channels.vocaleLounge1",
+        "channels.vocaleLounge2",
+        "channels.vocaleLounge3",
+        "channels.vocaleDuo1",
+        "channels.vocaleDuo2",
+        "channels.vocaleduo3",
+        "channels.vocaleTrio1",
+        "channels.trio2",
+        "channels.vocaleTrio3",
+        "channels.vocaleSquad1",
+        "channels.vocaleSquad2",
+        "channels.vocaleSquad3",
+        "channels.staffCmds",
+        "channels.highCmds"
+      ]
+    },
+    "play": {
+      "roles": [
+        "roles.Member"
+      ],
+      "channels": [
+        "channels.chat",
+        "channels.media",
+        "channels.commands",
+        "channels.vocaleLounge1",
+        "channels.vocaleLounge2",
+        "channels.vocaleLounge3",
+        "channels.vocaleDuo1",
+        "channels.vocaleDuo2",
+        "channels.vocaleduo3",
+        "channels.vocaleTrio1",
+        "channels.trio2",
+        "channels.vocaleTrio3",
+        "channels.vocaleSquad1",
+        "channels.vocaleSquad2",
+        "channels.vocaleSquad3",
+        "channels.staffCmds",
+        "channels.highCmds"
+      ]
+    },
+    "previous": {
+      "roles": [
+        "roles.Member"
+      ],
+      "channels": [
+        "channels.chat",
+        "channels.media",
+        "channels.commands",
+        "channels.vocaleLounge1",
+        "channels.vocaleLounge2",
+        "channels.vocaleLounge3",
+        "channels.vocaleDuo1",
+        "channels.vocaleDuo2",
+        "channels.vocaleduo3",
+        "channels.vocaleTrio1",
+        "channels.trio2",
+        "channels.vocaleTrio3",
+        "channels.vocaleSquad1",
+        "channels.vocaleSquad2",
+        "channels.vocaleSquad3",
+        "channels.staffCmds",
+        "channels.highCmds"
+      ]
+    },
+    "queue": {
+      "roles": [
+        "roles.Member"
+      ],
+      "channels": [
+        "channels.chat",
+        "channels.media",
+        "channels.commands",
+        "channels.vocaleLounge1",
+        "channels.vocaleLounge2",
+        "channels.vocaleLounge3",
+        "channels.vocaleDuo1",
+        "channels.vocaleDuo2",
+        "channels.vocaleduo3",
+        "channels.vocaleTrio1",
+        "channels.trio2",
+        "channels.vocaleTrio3",
+        "channels.vocaleSquad1",
+        "channels.vocaleSquad2",
+        "channels.vocaleSquad3",
+        "channels.staffCmds",
+        "channels.highCmds"
+      ]
+    },
+    "repeat": {
+      "roles": [
+        "roles.Member"
+      ],
+      "channels": [
+        "channels.chat",
+        "channels.media",
+        "channels.commands",
+        "channels.vocaleLounge1",
+        "channels.vocaleLounge2",
+        "channels.vocaleLounge3",
+        "channels.vocaleDuo1",
+        "channels.vocaleDuo2",
+        "channels.vocaleduo3",
+        "channels.vocaleTrio1",
+        "channels.trio2",
+        "channels.vocaleTrio3",
+        "channels.vocaleSquad1",
+        "channels.vocaleSquad2",
+        "channels.vocaleSquad3",
+        "channels.staffCmds",
+        "channels.highCmds"
+      ]
+    },
+    "requested": {
+      "roles": [
+        "roles.Member"
+      ],
+      "channels": [
+        "channels.chat",
+        "channels.media",
+        "channels.commands",
+        "channels.vocaleLounge1",
+        "channels.vocaleLounge2",
+        "channels.vocaleLounge3",
+        "channels.vocaleDuo1",
+        "channels.vocaleDuo2",
+        "channels.vocaleduo3",
+        "channels.vocaleTrio1",
+        "channels.trio2",
+        "channels.vocaleTrio3",
+        "channels.vocaleSquad1",
+        "channels.vocaleSquad2",
+        "channels.vocaleSquad3",
+        "channels.staffCmds",
+        "channels.highCmds"
+      ]
+    },
+    "restart": {
+      "roles": [
+        "roles.Member"
+      ],
+      "channels": [
+        "channels.chat",
+        "channels.media",
+        "channels.commands",
+        "channels.vocaleLounge1",
+        "channels.vocaleLounge2",
+        "channels.vocaleLounge3",
+        "channels.vocaleDuo1",
+        "channels.vocaleDuo2",
+        "channels.vocaleduo3",
+        "channels.vocaleTrio1",
+        "channels.trio2",
+        "channels.vocaleTrio3",
+        "channels.vocaleSquad1",
+        "channels.vocaleSquad2",
+        "channels.vocaleSquad3",
+        "channels.staffCmds",
+        "channels.highCmds"
+      ]
+    },
+    "resume": {
+      "roles": [
+        "roles.Member"
+      ],
+      "channels": [
+        "channels.chat",
+        "channels.media",
+        "channels.commands",
+        "channels.vocaleLounge1",
+        "channels.vocaleLounge2",
+        "channels.vocaleLounge3",
+        "channels.vocaleDuo1",
+        "channels.vocaleDuo2",
+        "channels.vocaleduo3",
+        "channels.vocaleTrio1",
+        "channels.trio2",
+        "channels.vocaleTrio3",
+        "channels.vocaleSquad1",
+        "channels.vocaleSquad2",
+        "channels.vocaleSquad3",
+        "channels.staffCmds",
+        "channels.highCmds"
+      ]
+    },
+    "rewind": {
+      "roles": [
+        "roles.Member"
+      ],
+      "channels": [
+        "channels.chat",
+        "channels.media",
+        "channels.commands",
+        "channels.vocaleLounge1",
+        "channels.vocaleLounge2",
+        "channels.vocaleLounge3",
+        "channels.vocaleDuo1",
+        "channels.vocaleDuo2",
+        "channels.vocaleduo3",
+        "channels.vocaleTrio1",
+        "channels.trio2",
+        "channels.vocaleTrio3",
+        "channels.vocaleSquad1",
+        "channels.vocaleSquad2",
+        "channels.vocaleSquad3",
+        "channels.staffCmds",
+        "channels.highCmds"
+      ]
+    },
+    "shuffle": {
+      "roles": [
+        "roles.Member"
+      ],
+      "channels": [
+        "channels.chat",
+        "channels.media",
+        "channels.commands",
+        "channels.vocaleLounge1",
+        "channels.vocaleLounge2",
+        "channels.vocaleLounge3",
+        "channels.vocaleDuo1",
+        "channels.vocaleDuo2",
+        "channels.vocaleduo3",
+        "channels.vocaleTrio1",
+        "channels.trio2",
+        "channels.vocaleTrio3",
+        "channels.vocaleSquad1",
+        "channels.vocaleSquad2",
+        "channels.vocaleSquad3",
+        "channels.staffCmds"
+      ]
+    },
+    "skip": {
+      "roles": [
+        "roles.Member"
+      ],
+      "channels": [
+        "channels.chat",
+        "channels.media",
+        "channels.commands",
+        "channels.vocaleLounge1",
+        "channels.vocaleLounge2",
+        "channels.vocaleLounge3",
+        "channels.vocaleDuo1",
+        "channels.vocaleDuo2",
+        "channels.vocaleduo3",
+        "channels.vocaleTrio1",
+        "channels.trio2",
+        "channels.vocaleTrio3",
+        "channels.vocaleSquad1",
+        "channels.vocaleSquad2",
+        "channels.vocaleSquad3",
+        "channels.staffCmds",
+        "channels.highCmds"
+      ]
+    },
+    "stop": {
+      "roles": [
+        "roles.Member"
+      ],
+      "channels": [
+        "channels.chat",
+        "channels.media",
+        "channels.commands",
+        "channels.vocaleLounge1",
+        "channels.vocaleLounge2",
+        "channels.vocaleLounge3",
+        "channels.vocaleDuo1",
+        "channels.vocaleDuo2",
+        "channels.vocaleduo3",
+        "channels.vocaleTrio1",
+        "channels.trio2",
+        "channels.vocaleTrio3",
+        "channels.vocaleSquad1",
+        "channels.vocaleSquad2",
+        "channels.vocaleSquad3",
+        "channels.staffCmds",
+        "channels.highCmds"
+      ]
+    },
+    "upcoming": {
+      "roles": [
+        "roles.Member"
+      ],
+      "channels": [
+        "channels.chat",
+        "channels.media",
+        "channels.commands",
+        "channels.vocaleLounge1",
+        "channels.vocaleLounge2",
+        "channels.vocaleLounge3",
+        "channels.vocaleDuo1",
+        "channels.vocaleDuo2",
+        "channels.vocaleduo3",
+        "channels.vocaleTrio1",
+        "channels.trio2",
+        "channels.vocaleTrio3",
+        "channels.vocaleSquad1",
+        "channels.vocaleSquad2",
+        "channels.vocaleSquad3",
+        "channels.staffCmds",
+        "channels.highCmds"
+      ]
+    },
+    "volume": {
+      "roles": [
+        "roles.Member"
+      ],
+      "channels": [
+        "channels.chat",
+        "channels.media",
+        "channels.commands",
+        "channels.vocaleLounge1",
+        "channels.vocaleLounge2",
+        "channels.vocaleLounge3",
+        "channels.vocaleDuo1",
+        "channels.vocaleDuo2",
+        "channels.vocaleduo3",
+        "channels.vocaleTrio1",
+        "channels.trio2",
+        "channels.vocaleTrio3",
+        "channels.vocaleSquad1",
+        "channels.vocaleSquad2",
+        "channels.vocaleSquad3",
+        "channels.staffCmds",
+        "channels.highCmds"
+      ]
+    },
+    "purge": [
+      "roles.HighStaff"
+    ],
+    "quote": {
+      "roles": [
+        "roles.ServerBooster",
+        "roles.donator",
+        "roles.VIP",
+        "roles.Level10"
+      ],
+      "channels": [
+        "channels.chat",
+        "channels.media",
+        "channels.commands",
+        "channels.selfieVerificati",
+        "channels.serataFilm",
+        "channels.vocaleLounge1",
+        "channels.vocaleLounge2",
+        "channels.vocaleLounge3",
+        "channels.vocaleDuo1",
+        "channels.vocaleDuo2",
+        "channels.vocaleduo3",
+        "channels.vocaleTrio1",
+        "channels.trio2",
+        "channels.vocaleTrio3",
+        "channels.vocaleSquad1",
+        "channels.vocaleSquad2",
+        "channels.vocaleSquad3"
+      ]
+    },
+    "repost": {
+      "roles": [
+        "roles.ServerBooster",
+        "roles.donator",
+        "roles.VIP",
+        "roles.Level10"
+      ],
+      "channels": [
+        "channels.chat",
+        "channels.media",
+        "channels.commands",
+        "channels.selfieVerificati",
+        "channels.serataFilm",
+        "channels.vocaleLounge1",
+        "channels.vocaleLounge2",
+        "channels.vocaleLounge3",
+        "channels.vocaleDuo1",
+        "channels.vocaleDuo2",
+        "channels.vocaleduo3",
+        "channels.vocaleTrio1",
+        "channels.trio2",
+        "channels.vocaleTrio3",
+        "channels.vocaleSquad1",
+        "channels.vocaleSquad2",
+        "channels.vocaleSquad3"
+      ]
+    },
+    "clip": {
+      "roles": [
+        "roles.ServerBooster",
+        "roles.donator",
+        "roles.VIP",
+        "roles.Level10"
+      ],
+      "channels": [
+        "channels.chat",
+        "channels.media",
+        "channels.commands",
+        "channels.selfieVerificati",
+        "channels.serataFilm",
+        "channels.vocaleLounge1",
+        "channels.vocaleLounge2",
+        "channels.vocaleLounge3",
+        "channels.vocaleDuo1",
+        "channels.vocaleDuo2",
+        "channels.vocaleduo3",
+        "channels.vocaleTrio1",
+        "channels.trio2",
+        "channels.vocaleTrio3",
+        "channels.vocaleSquad1",
+        "channels.vocaleSquad2",
+        "channels.vocaleSquad3"
+      ]
+    },
+    "rank": {
+      "roles": [
+        "roles.Member"
+      ],
+      "channels": [
+        "channels.commands",
+        "channels.staffCmds",
+        "channels.highCmds"
+      ]
+    },
+    "blacklist": {
+      "roles": [
+        "roles.Staff",
+        "roles.PartnerManager"
+      ],
+      "channels": [
+        "channels.staffCmdsPmThread"
+      ]
+    },
+    "server": {
+      "roles": [
+        "roles.Member"
+      ],
+      "channels": [
+        "channels.commands",
+        "channels.staffCmds",
+        "channels.highCmds"
+      ],
+      "subcommands": {
+        "info": [
+          "roles.PartnerManager"
+        ]
+      }
+    },
+    "channel": {
+      "roles": [
+        "roles.Member"
+      ],
+      "channels": [
+        "channels.commands",
+        "channels.staffCmds",
+        "channels.highCmds"
+      ]
+    },
+    "ship": {
+      "roles": [
+        "roles.Member"
+      ],
+      "channels": [
+        "channels.commands"
+      ]
+    },
+    "bal": {
+      "roles": [
+        "roles.Member"
+      ],
+      "channels": [
+        "channels.economy"
+      ]
+    },
+    "work": {
+      "roles": [
+        "roles.Member"
+      ],
+      "channels": [
+        "channels.economy"
+      ]
+    },
+    "daily": {
+      "roles": [
+        "roles.Member"
+      ],
+      "channels": [
+        "channels.economy"
+      ]
+    },
+    "weekly": {
+      "roles": [
+        "roles.Member"
+      ],
+      "channels": [
+        "channels.economy"
+      ]
+    },
+    "monthly": {
+      "roles": [
+        "roles.Member"
+      ],
+      "channels": [
+        "channels.economy"
+      ]
+    },
+    "snipe": {
+      "roles": [
+        "roles.Member"
+      ]
+    },
+    "top": {
+      "roles": [
+        "roles.Member"
+      ],
+      "channels": [
+        "channels.commands",
+        "channels.staffCmds",
+        "channels.highCmds"
+      ]
+    },
+    "ban": {
+      "roles": [
+        "roles.Director",
+        "roles.Manager",
+        "roles.Admin",
+        "roles.Founder"
+      ],
+      "channels": [
+        "channels.highCmds",
+        "channels.sanzioniUtenti",
+        "channels.highCmds"
+      ]
+    },
+    "case": {
+      "roles": [
+        "roles.Staff"
+      ],
+      "channels": [
+        "channels.staffCmds",
+        "channels.sanzioniUtenti",
+        "channels.highCmds"
+      ]
+    },
+    "delwarn": {
+      "roles": [
+        "roles.HighStaff",
+        "roles.Director"
+      ],
+      "channels": [
+        "channels.highCmds",
+        "channels.sanzioniUtenti",
+        "channels.highCmds"
+      ]
+    },
+    "clearwarn": {
+      "roles": [
+        "roles.HighStaff",
+        "roles.Director"
+      ],
+      "channels": [
+        "channels.highCmds",
+        "channels.sanzioniUtenti",
+        "channels.highCmds"
+      ]
+    },
+    "duration": {
+      "roles": [
+        "roles.Director",
+        "roles.HighStaff"
+      ],
+      "channels": [
+        "channels.highCmds",
+        "channels.sanzioniUtenti",
+        "channels.highCmds"
+      ]
+    },
+    "kick": {
+      "roles": [
+        "roles.Director",
+        "roles.HighStaff"
+      ],
+      "channels": [
+        "channels.highCmds",
+        "channels.sanzioniUtenti",
+        "channels.highCmds"
+      ]
+    },
+    "lock": {
+      "roles": [
+        "roles.HighStaff"
+      ]
+    },
+    "moderations": {
+      "roles": [
+        "roles.Staff"
+      ],
+      "channels": [
+        "channels.staffCmds",
+        "channels.sanzioniUtenti",
+        "channels.highCmds"
+      ]
+    },
+    "modlogs": {
+      "roles": [
+        "roles.Staff"
+      ],
+      "channels": [
+        "channels.staffCmds",
+        "channels.sanzioniUtenti",
+        "channels.highCmds"
+      ]
+    },
+    "mute": {
+      "roles": [
+        "roles.Mod",
+        "roles.SeniorModerator",
+        "roles.Director",
+        "roles.HighStaff"
+      ],
+      "channels": [
+        "channels.staffCmds",
+        "channels.sanzioniUtenti",
+        "channels.highCmds"
+      ]
+    },
+    "reason": {
+      "roles": [
+        "roles.Director",
+        "roles.HighStaff"
+      ],
+      "channels": [
+        "channels.staffCmds",
+        "channels.sanzioniUtenti",
+        "channels.highCmds"
+      ]
+    },
+    "reminder": {
+      "roles": [
+        "roles.Member"
+      ]
+    },
+    "unban": {
+      "roles": [
+        "roles.Director",
+        "roles.HighStaff"
+      ],
+      "channels": [
+        "channels.highCmds",
+        "channels.sanzioniUtenti",
+        "channels.highCmds"
+      ]
+    },
+    "unlock": {
+      "roles": [
+        "roles.HighStaff"
+      ]
+    },
+    "unmute": {
+      "roles": [
+        "roles.HighStaff",
+        "roles.Director"
+      ],
+      "channels": [
+        "channels.highCmds",
+        "channels.sanzioniUtenti",
+        "channels.highCmds"
+      ]
+    },
+    "warn": {
+      "roles": [
+        "roles.Staff"
+      ],
+      "channels": [
+        "channels.staffCmds",
+        "channels.sanzioniUtenti",
+        "channels.highCmds"
+      ]
+    },
+    "warnings": {
+      "roles": [
+        "roles.Staff"
+      ],
+      "channels": [
+        "channels.staffCmds",
+        "channels.sanzioniUtenti",
+        "channels.highCmds"
+      ]
+    },
+    "set": {
+      "roles": [
+        "roles.Member"
+      ],
+      "subcommands": {
+        "voice": [
+          "roles.Member"
+        ],
+        "autojoin": [
+          "roles.HighStaff"
+        ]
+      }
+    },
+    "voices": {
+      "roles": [
+        "roles.Member"
+      ]
+    }
+  },
+  "buttons": {
+    "accetta": {
+      "ownerFromMessageMention": true
+    },
+    "avatar_unblock:*": {
+      "ownerSegment": 1
+    },
+    "avatar_mode:*": {
+      "roles": [
+        "roles.Member"
+      ],
+      "ownerSegment": 1
+    },
+    "avatar_views": [
+      "roles.Member"
+    ],
+    "backup_delete_cancel:*": {
+      "ownerSegment": 2
+    },
+    "backup_delete_confirm:*": {
+      "ownerSegment": 2
+    },
+    "backup_info_delete:*": {
+      "ownerSegment": 2
+    },
+    "backup_info_load:*": {
+      "ownerSegment": 2
+    },
+    "backup_panel:open:*": {
+      "ownerSegment": 3
+    },
+    "backup_list_next:*": {
+      "ownerSegment": 1
+    },
+    "backup_list_prev:*": {
+      "ownerSegment": 1
+    },
+    "backup_load_*": {
+      "roles": [
+        "roles.HighStaff"
+      ],
+      "channels": [
+        "channels.staffCmds"
+      ]
+    },
+    "banner_unblock:*": {
+      "ownerSegment": 1
+    },
+    "banner_mode:*": {
+      "roles": [
+        "roles.Member"
+      ],
+      "ownerSegment": 1
+    },
+    "banner_views": [
+      "roles.Member"
+    ],
+    "bh_age:*": {
+      "ownerSegment": 1
+    },
+    "bh_cancel:*": {
+      "ownerSegment": 1
+    },
+    "bh_date:*": {
+      "ownerSegment": 1
+    },
+    "bh_privacy:*": {
+      "ownerSegment": 1
+    },
+    "bh_profile_remove:*": {
+      "ownerSegment": 1
+    },
+    "bh_remove_no:*": {
+      "ownerSegment": 1
+    },
+    "bh_remove_yes:*": {
+      "ownerSegment": 1
+    },
+    "bh_save:*": {
+      "ownerSegment": 1
+    },
+    "giveaway_enter:*": [
+      "roles.Member"
+    ],
+    "giveaway_morgames_retry:*": [
+      "roles.Member"
+    ],
+    "giveaway_reroll:*": [
+      "roles.HighStaff"
+    ],
+    "level_panel:server_nav:*": {
+      "roles": [
+        "roles.HighStaff"
+      ],
+      "ownerSegment": 2
+    },
+    "level_panel:server_ch:*": {
+      "roles": [
+        "roles.HighStaff"
+      ],
+      "ownerSegment": 3
+    },
+    "level_panel:server_role:*": {
+      "roles": [
+        "roles.HighStaff"
+      ],
+      "ownerSegment": 3
+    },
+    "level_panel:server_btn:*": {
+      "roles": [
+        "roles.HighStaff"
+      ],
+      "ownerSegment": 3
+    },
+    "level_panel:user_btn:*": {
+      "roles": [
+        "roles.HighStaff"
+      ],
+      "ownerSegment": 3
+    },
+    "level_panel_modal:*": {
+      "roles": [
+        "roles.HighStaff"
+      ],
+      "ownerSegment": 3
+    },
+    "mpr:*": {
+      "roles": [
+        "roles.Staff"
+      ],
+      "channels": [
+        "channels.staffCmds",
+        "channels.sanzioniUtenti",
+        "channels.highCmds"
+      ],
+      "ownerSegment": 3
+    },
+    "security_panel:hub:*": {
+      "ownerSegment": 2
+    },
+    "security_panel:pick:*": {
+      "roles": [
+        "roles.Founder"
+      ],
+      "ownerSegment": 2
+    },
+    "security_panel:toggle:*": {
+      "roles": [
+        "roles.Founder"
+      ],
+      "ownerSegment": 2
+    },
+    "security_panel:bulk:*": {
+      "roles": [
+        "roles.Founder"
+      ],
+      "ownerSegment": 2
+    },
+    "security_panel:status:*": {
+      "ownerSegment": 2
+    },
+    "security_panel:panic:*": {
+      "ownerSegment": 2
+    },
+    "security_panel:statics:*": {
+      "ownerSegment": 2
+    },
+    "security_panel:back:*": {
+      "ownerSegment": 2
+    },
+    "cmd_colors_btn:*": {
+      "ownerSegment": 1,
+      "roles": [
+        "roles.Member"
+      ]
+    },
+    "claim_ticket": [
+      "roles.Staff",
+      "roles.HighStaff",
+      "roles.PartnerManager"
+    ],
+    "close_ticket": [
+      "roles.Staff",
+      "roles.HighStaff",
+      "roles.PartnerManager"
+    ],
+    "close_ticket_motivo": [
+      "roles.Staff",
+      "roles.HighStaff",
+      "roles.PartnerManager"
+    ],
+    "ticket_autoclose_accept": null,
+    "ticket_autoclose_reject": null,
+    "customrole_color:*": {
+      "roles": [
+        "roles.VIP",
+        "roles.ServerBooster",
+        "roles.DoubleBooster",
+        "roles.Level50",
+        "roles.VIPplus"
+      ],
+      "ownerSegment": 1
+    },
+    "customrole_delete:*": {
+      "roles": [
+        "roles.VIP",
+        "roles.ServerBooster",
+        "roles.DoubleBooster",
+        "roles.Level50",
+        "roles.VIPplus"
+      ],
+      "ownerSegment": 1
+    },
+    "customrole_emoji:*": {
+      "roles": [
+        "roles.VIP",
+        "roles.ServerBooster",
+        "roles.DoubleBooster",
+        "roles.Level50",
+        "roles.VIPplus"
+      ],
+      "ownerSegment": 1
+    },
+    "customrole_grant:*": {
+      "roles": [
+        "roles.VIP",
+        "roles.donator",
+        "roles.DoubleBooster",
+        "roles.Level50",
+        "roles.Level70",
+        "roles.VIPplus"
+      ],
+      "grantRecipientOnly": true
+    },
+    "customrole_members:*": {
+      "roles": [
+        "roles.VIP",
+        "roles.ServerBooster",
+        "roles.DoubleBooster",
+        "roles.Level50",
+        "roles.VIPplus"
+      ],
+      "ownerSegment": 1
+    },
+    "customrole_members_remove:*": {
+      "roles": [
+        "roles.VIP",
+        "roles.ServerBooster",
+        "roles.DoubleBooster",
+        "roles.Level50",
+        "roles.VIPplus"
+      ],
+      "ownerSegment": 1
+    },
+    "customrole_name:*": {
+      "roles": [
+        "roles.VIP",
+        "roles.ServerBooster",
+        "roles.DoubleBooster",
+        "roles.Level50",
+        "roles.VIPplus"
+      ],
+      "ownerSegment": 1
+    },
+    "customvoc_emoji:*": {
+      "roles": [
+        "roles.VIP",
+        "roles.DoubleBooster",
+        "roles.Level50",
+        "roles.VIPplus"
+      ],
+      "ownerSegment": 1
+    },
+    "customvoc_add:*": {
+      "roles": [
+        "roles.VIP",
+        "roles.DoubleBooster",
+        "roles.Level50",
+        "roles.VIPplus"
+      ],
+      "ownerSegment": 1
+    },
+    "customvoc_remove:*": {
+      "roles": [
+        "roles.VIP",
+        "roles.DoubleBooster",
+        "roles.Level50",
+        "roles.VIPplus"
+      ],
+      "ownerSegment": 1
+    },
+    "customvoc_name:*": {
+      "roles": [
+        "roles.VIP",
+        "roles.DoubleBooster",
+        "roles.Level50",
+        "roles.VIPplus"
+      ],
+      "ownerSegment": 1
+    },
+    "customreaction_add:*": {
+      "roles": [
+        "roles.VIP",
+        "roles.ServerBooster",
+        "roles.DoubleBooster",
+        "roles.Level70",
+        "roles.VIPplus"
+      ],
+      "ownerSegment": 1
+    },
+    "customreaction_remove:*": {
+      "roles": [
+        "roles.VIP",
+        "roles.ServerBooster",
+        "roles.DoubleBooster",
+        "roles.Level70",
+        "roles.VIPplus"
+      ],
+      "ownerSegment": 1
+    },
+    "customreaction_clear:*": {
+      "roles": [
+        "roles.VIP",
+        "roles.ServerBooster",
+        "roles.DoubleBooster",
+        "roles.Level70",
+        "roles.VIPplus"
+      ],
+      "ownerSegment": 1
+    },
+    "blacklist_ui:*": {
+      "ownerSegment": 2
+    },
+    "psetup:*": {
+      "ownerSegment": 1
+    },
+    "psettings:*": {
+      "ownerSegment": 1
+    },
+    "profile_panel:select:*": {
+      "roles": [
+        "roles.Member"
+      ],
+      "ownerSegment": 2
+    },
+    "profile_panel:action:*": {
+      "roles": [
+        "roles.Member"
+      ],
+      "ownerSegment": 2
+    },
+    "profile_panel:*": {
+      "ownerSegment": 2
+    },
+    "hogwarts_spell_list:*": [
+      "roles.Member"
+    ],
+    "pm_shop_ack:*": {
+      "roles": [
+        "roles.Member",
+        "roles.PartnerManager"
+      ]
+    },
+    "eb:author:*": {
+      "ownerFromMessageMention": true
+    },
+    "eb:color:*": {
+      "ownerFromMessageMention": true
+    },
+    "eb:content:*": {
+      "ownerFromMessageMention": true
+    },
+    "eb:description:*": {
+      "ownerFromMessageMention": true
+    },
+    "eb:footer:*": {
+      "ownerFromMessageMention": true
+    },
+    "eb:image:*": {
+      "ownerFromMessageMention": true
+    },
+    "eb:send:*": {
+      "ownerFromMessageMention": true
+    },
+    "eb:thumbnail:*": {
+      "ownerFromMessageMention": true
+    },
+    "eb:title:*": {
+      "ownerFromMessageMention": true
+    },
+    "error_pending": {
+      "permissions": "Administrator"
+    },
+    "error_solved": {
+      "permissions": "Administrator"
+    },
+    "error_unsolved": {
+      "permissions": "Administrator"
+    },
+    "comandi": [
+      "roles.Staff"
+    ],
+    "compiti_fissi": [
+      "roles.Helper",
+      "roles.Mod",
+      "roles.HighStaff"
+    ],
+    "generalimoderazione": [
+      "roles.Staff"
+    ],
+    "guidamiddle": [
+      "roles.SeniorModerator",
+      "roles.Director",
+      "roles.HighStaff"
+    ],
+    "guidapartners": [
+      "roles.PartnerManager",
+      "roles.Director",
+      "roles.HighStaff"
+    ],
+    "help_next_*": [
+      "roles.Member"
+    ],
+    "help_home_*": [
+      "roles.Member"
+    ],
+    "badges_prev_*": [
+      "roles.PartnerManager"
+    ],
+    "badges_next_*": [
+      "roles.PartnerManager"
+    ],
+    "help_prev_*": [
+      "roles.Member"
+    ],
+    "info_badges_roles": [
+      "roles.Member"
+    ],
+    "info_boost_levels": [
+      "roles.Member"
+    ],
+    "info_donations": [
+      "roles.Member"
+    ],
+    "info_level": [
+      "roles.Member"
+    ],
+    "info_levels": [
+      "roles.Member"
+    ],
+    "infolivelli": [
+      "roles.Member"
+    ],
+    "info_rules": [
+      "roles.Member"
+    ],
+    "info_strike_close:*": {
+      "ownerFromMessageMention": true
+    },
+    "info_strike_first:*": {
+      "ownerFromMessageMention": true
+    },
+    "info_strike_last:*": {
+      "ownerFromMessageMention": true
+    },
+    "info_strike_next:*": {
+      "ownerFromMessageMention": true
+    },
+    "info_strike_prev:*": {
+      "ownerFromMessageMention": true
+    },
+    "limiti": [
+      "roles.Staff"
+    ],
+    "lineeguida": [
+      "roles.Staff"
+    ],
+    "metodi": [
+      "roles.Member"
+    ],
+    "middle_*": [
+      "roles.SeniorModerator",
+      "roles.Director",
+      "roles.HighStaff"
+    ],
+    "moderazione_staff": [
+      "roles.Staff"
+    ],
+    "minigame_*": [
+      "roles.Member"
+    ],
+    "next": [
+      "roles.PartnerManager",
+      "roles.HighStaff"
+    ],
+    "pause": [
+      "roles.Staff"
+    ],
+    "ping": [
+      "roles.Member"
+    ],
+    "plb_*": [
+      "roles.Member"
+    ],
+    "pex": [
+      "roles.Staff"
+    ],
+    "prev": [
+      "roles.PartnerManager",
+      "roles.HighStaff"
+    ],
+    "r_multiplier_info": [
+      "roles.Member"
+    ],
+    "regolamento": [
+      "roles.Staff"
+    ],
+    "regole_staff": [
+      "roles.Staff"
+    ],
+    "rifiuta": {
+      "ownerFromMessageMention": true
+    },
+    "sanzioni": [
+      "roles.Staff"
+    ],
+    "stats_me_period_back*": {
+      "ownerSegment": 1
+    },
+    "stats_me_period_open*": {
+      "ownerSegment": 1
+    },
+    "stats_me_period_set*": {
+      "ownerSegment": 1
+    },
+    "stats_me_refresh*": {
+      "ownerSegment": 1
+    },
+    "stats_user_period_back*": {
+      "ownerSegment": 1
+    },
+    "stats_user_period_open*": {
+      "ownerSegment": 1
+    },
+    "stats_user_period_set*": {
+      "ownerSegment": 1
+    },
+    "stats_user_refresh*": {
+      "ownerSegment": 1
+    },
+    "stats_server_refresh*": {
+      "ownerSegment": 1
+    },
+    "stats_top_channel_page_first*": {
+      "ownerSegment": 1
+    },
+    "stats_top_channel_page_last*": {
+      "ownerSegment": 1
+    },
+    "stats_top_channel_page_modal_open*": {
+      "ownerSegment": 1
+    },
+    "stats_top_channel_page_next*": {
+      "ownerSegment": 1
+    },
+    "stats_top_channel_page_prev*": {
+      "ownerSegment": 1
+    },
+    "stats_top_channel_period_back*": {
+      "ownerSegment": 1
+    },
+    "stats_top_channel_period_open*": {
+      "ownerSegment": 1
+    },
+    "stats_top_channel_period_set*": {
+      "ownerSegment": 1
+    },
+    "stats_top_channel_refresh*": {
+      "ownerSegment": 1
+    },
+    "statics:*": {
+      "ownerSegment": 1
+    },
+    "stats_top_channel_view_select*": {
+      "ownerSegment": 1
+    },
+    "siterolerequest:*": {
+      "roles": [
+        "roles.HighStaff",
+        "roles.Founder"
+      ]
+    },
+    "testualimoderazione": [
+      "roles.Staff"
+    ],
+    "ticket_rate:*": {
+      "roles": [
+        "roles.HighStaff"
+      ],
+      "ownerFromMessageMention": true,
+      "ownerOrRole": true
+    },
+    "ticket_transcript:*": {
+      "roles": [
+        "roles.HighStaff"
+      ],
+      "ownerFromMessageMention": true,
+      "ownerOrRole": true
+    },
+    "torna_indietro": [
+      "roles.Member"
+    ],
+    "unclaim": [
+      "roles.Staff",
+      "roles.HighStaff",
+      "roles.PartnerManager"
+    ],
+    "ticket_panel_add_member:*": [
+      "roles.Staff",
+      "roles.HighStaff",
+      "roles.PartnerManager"
+    ],
+    "ticket_panel_remove_member:*": [
+      "roles.Staff",
+      "roles.HighStaff",
+      "roles.PartnerManager"
+    ],
+    "ticket_panel_transfer_user:*": null,
+    "ticket_panel_switch_category:*": [
+      "roles.HighStaff"
+    ],
+    "ticket_panel_nav_add": [
+      "roles.Staff",
+      "roles.HighStaff",
+      "roles.PartnerManager"
+    ],
+    "ticket_panel_nav_remove": [
+      "roles.Staff",
+      "roles.HighStaff",
+      "roles.PartnerManager"
+    ],
+    "ticket_panel_nav_switch": [
+      "roles.HighStaff"
+    ],
+    "ticket_panel_nav_rename": [
+      "roles.HighStaff"
+    ],
+    "ticket_panel_nav_closerequest": null,
+    "ticket_panel_nav_transfer": null,
+    "ticket_panel_reopen_pick": null,
+    "valutazioni": [
+      "roles.Staff"
+    ],
+    "apply_helper": [
+      "roles.Member"
+    ],
+    "apply_partnermanager": [
+      "roles.Member"
+    ],
+    "apply_start:*": {
+      "roles": [
+        "roles.Member"
+      ],
+      "ownerSegment": 2
+    },
+    "apply_back:*": {
+      "roles": [
+        "roles.Member"
+      ],
+      "ownerSegment": 2
+    },
+    "apply_page:*": {
+      "roles": [
+        "roles.Member"
+      ],
+      "ownerSegment": 2
+    },
+    "apply_pex:*": [
+      "roles.Admin",
+      "roles.Manager",
+      "roles.Founder"
+    ],
+    "apply_reject:*": [
+      "roles.Admin",
+      "roles.Manager",
+      "roles.Founder"
+    ],
+    "website_unban_acc:*": [
+      "roles.HighStaff"
+    ],
+    "website_unban_rej:*": [
+      "roles.HighStaff"
+    ],
+    "candidature_premi_partner": [
+      "roles.Member"
+    ],
+    "info_sponsor": [
+      "roles.Member"
+    ],
+    "me_period_back*": {
+      "ownerSegment": 1
+    },
+    "me_period_open*": {
+      "ownerSegment": 1
+    },
+    "me_period_set*": {
+      "ownerSegment": 1
+    },
+    "me_refresh*": {
+      "ownerSegment": 1
+    },
+    "nodm_panel_all*": {
+      "ownerSegment": 1
+    },
+    "nodm_panel_done*": {
+      "ownerSegment": 1
+    },
+    "nodm_panel_none*": {
+      "ownerSegment": 1
+    },
+    "nodm_panel_toggle_*": {
+      "ownerSegment": 1
+    },
+    "privacy_panel_all*": {
+      "ownerSegment": 1
+    },
+    "privacy_panel_done*": {
+      "ownerSegment": 1
+    },
+    "privacy_panel_none*": {
+      "ownerSegment": 1
+    },
+    "privacy_panel_toggle_*": {
+      "ownerSegment": 1
+    },
+    "quote_remove:*": {
+      "ownerSegment": 1
+    },
+    "repost_btn:*": {
+      "roles": [
+        "roles.ServerBooster",
+        "roles.donator",
+        "roles.VIP",
+        "roles.Level10"
+      ]
+    },
+    "repost_src:*": {
+      "roles": [
+        "roles.ServerBooster",
+        "roles.donator",
+        "roles.VIP",
+        "roles.Level10"
+      ]
+    },
+    "myrepost_page_first:*": {
+      "ownerSegment": 1
+    },
+    "myrepost_page_prev:*": {
+      "ownerSegment": 1
+    },
+    "myrepost_page_next:*": {
+      "ownerSegment": 1
+    },
+    "myrepost_page_last:*": {
+      "ownerSegment": 1
+    },
+    "myclip_page_first:*": {
+      "ownerSegment": 1
+    },
+    "myclip_page_prev:*": {
+      "ownerSegment": 1
+    },
+    "myclip_page_next:*": {
+      "ownerSegment": 1
+    },
+    "myclip_page_last:*": {
+      "ownerSegment": 1
+    },
+    "myquote_page_first:*": {
+      "ownerSegment": 1
+    },
+    "myquote_page_prev:*": {
+      "ownerSegment": 1
+    },
+    "myquote_page_next:*": {
+      "ownerSegment": 1
+    },
+    "myquote_page_last:*": {
+      "ownerSegment": 1
+    },
+    "myrepost_close:*": {
+      "ownerSegment": 1
+    },
+    "myclip_close:*": {
+      "ownerSegment": 1
+    },
+    "myquote_close:*": {
+      "ownerSegment": 1
+    },
+    "server_refresh*": {
+      "ownerSegment": 1
+    },
+    "channel_refresh*": {
+      "ownerSegment": 1
+    },
+    "channel_period_open*": {
+      "ownerSegment": 1
+    },
+    "channel_period_set*": {
+      "ownerSegment": 1
+    },
+    "channel_period_back*": {
+      "ownerSegment": 1
+    },
+    "serverDescription": [
+      "roles.PartnerManager",
+      "roles.HighStaff"
+    ],
+    "top_channel_page_first*": {
+      "ownerSegment": 1
+    },
+    "top_channel_page_last*": {
+      "ownerSegment": 1
+    },
+    "top_channel_page_modal_open*": {
+      "ownerSegment": 1
+    },
+    "top_channel_page_next*": {
+      "ownerSegment": 1
+    },
+    "top_channel_page_prev*": {
+      "ownerSegment": 1
+    },
+    "top_channel_period_back*": {
+      "ownerSegment": 1
+    },
+    "top_channel_period_open*": {
+      "ownerSegment": 1
+    },
+    "top_channel_period_set*": {
+      "ownerSegment": 1
+    },
+    "top_channel_refresh*": {
+      "ownerSegment": 1
+    },
+    "user_period_back*": {
+      "ownerSegment": 1
+    },
+    "user_period_open*": {
+      "ownerSegment": 1
+    },
+    "user_period_set*": {
+      "ownerSegment": 1
+    },
+    "user_refresh*": {
+      "ownerSegment": 1
+    },
+    "wcVote:*": {
+      "roles": [
+        "roles.Member"
+      ]
+    },
+    "vocalimoderazione": [
+      "roles.Staff"
+    ],
+    "warnstaff": [
+      "roles.Staff"
+    ]
+  },
+  "selectMenus": {
+    "customrole_add_select:*": {
+      "roles": [
+        "roles.VIP",
+        "roles.ServerBooster",
+        "roles.DoubleBooster",
+        "roles.Level50",
+        "roles.VIPplus"
+      ],
+      "ownerSegment": 1
+    },
+    "customrole_color_type_select:*": {
+      "roles": [
+        "roles.VIP",
+        "roles.ServerBooster",
+        "roles.DoubleBooster",
+        "roles.Level50",
+        "roles.VIPplus"
+      ],
+      "ownerSegment": 1
+    },
+    "customrole_remove_select:*": {
+      "roles": [
+        "roles.VIP",
+        "roles.ServerBooster",
+        "roles.DoubleBooster",
+        "roles.Level50",
+        "roles.VIPplus"
+      ],
+      "ownerSegment": 1
+    },
+    "customvoc_add_select:*": {
+      "roles": [
+        "roles.VIP",
+        "roles.DoubleBooster",
+        "roles.Level50",
+        "roles.VIPplus"
+      ],
+      "ownerSegment": 1
+    },
+    "customvoc_remove_select:*": {
+      "roles": [
+        "roles.VIP",
+        "roles.DoubleBooster",
+        "roles.Level50",
+        "roles.VIPplus"
+      ],
+      "ownerSegment": 1
+    },
+    "customreaction_remove_pick:*": {
+      "roles": [
+        "roles.VIP",
+        "roles.ServerBooster",
+        "roles.DoubleBooster",
+        "roles.Level70",
+        "roles.VIPplus"
+      ],
+      "ownerSegment": 1
+    },
+    "security_panel:hub:*": {
+      "ownerSegment": 2
+    },
+    "security_panel:pick:*": {
+      "roles": [
+        "roles.HighStaff"
+      ],
+      "ownerSegment": 2
+    },
+    "security_panel:toggle:*": {
+      "roles": [
+        "roles.Founder"
+      ],
+      "ownerSegment": 2
+    },
+    "security_panel:bulk:*": {
+      "roles": [
+        "roles.Founder"
+      ],
+      "ownerSegment": 2
+    },
+    "profile_panel:select:*": {
+      "roles": [
+        "roles.Member"
+      ],
+      "ownerSegment": 2
+    },
+    "profile_panel:*": {
+      "ownerSegment": 2
+    },
+    "backup_list_select:*": {
+      "ownerSegment": 1
+    },
+    "backup_panel:select:*": {
+      "ownerSegment": 2
+    },
+    "backup_load_*": {
+      "roles": [
+        "roles.HighStaff"
+      ],
+      "channels": [
+        "channels.staffCmds"
+      ]
+    },
+    "usage_guide:*": {
+      "ownerSegment": 2
+    },
+    "personality_age": [
+      "roles.Member"
+    ],
+    "personality_colors_1": [
+      "roles.Member"
+    ],
+    "personality_colors_plus": [
+      "roles.Donator",
+      "roles.VIP",
+      "roles.Level50",
+      "roles.ServerBooster",
+      "roles.VIPplus"
+    ],
+    "personality_dm": [
+      "roles.Member"
+    ],
+    "personality_mentions": [
+      "roles.Member"
+    ],
+    "personality_hobby": [
+      "roles.Member"
+    ],
+    "personality_pronouns": [
+      "roles.Member"
+    ],
+    "personality_region": [
+      "roles.Member"
+    ],
+    "personality_relationship": [
+      "roles.Member"
+    ],
+    "personality_zodiac": [
+      "roles.Member"
+    ],
+    "cmd_colors_seg:*": {
+      "ownerSegment": 1,
+      "roles": [
+        "roles.Member"
+      ]
+    },
+    "stats_top_channel_view_select*": {
+      "ownerSegment": 1
+    },
+    "top_channel_view_select*": {
+      "ownerSegment": 1
+    },
+    "ticket_open_menu": null
+  },
+  "modals": {
+    "backup_panel_modal:*": {
+      "ownerSegment": 2
+    },
+    "customrole_modal_*": {
+      "roles": [
+        "roles.VIP",
+        "roles.ServerBooster",
+        "roles.DoubleBooster",
+        "roles.Level50",
+        "roles.VIPplus"
+      ],
+      "ownerSegment": 1
+    },
+    "customvoc_modal_*": {
+      "roles": [
+        "roles.VIP",
+        "roles.DoubleBooster",
+        "roles.Level50",
+        "roles.VIPplus"
+      ],
+      "ownerSegment": 1
+    },
+    "customreaction_modal_*": {
+      "roles": [
+        "roles.VIP",
+        "roles.ServerBooster",
+        "roles.DoubleBooster",
+        "roles.Level70",
+        "roles.VIPplus"
+      ],
+      "ownerSegment": 1
+    },
+    "profile_panel:modal_*": {
+      "roles": [
+        "roles.Member"
+      ],
+      "ownerSegment": 2
+    },
+    "blacklist_ui_modal:*": {
+      "ownerSegment": 2
+    },
+    "psetup_modal:*": {
+      "ownerSegment": 1
+    },
+    "psettings_modal:*": {
+      "ownerSegment": 1
+    },
+    "profile_panel:*": {
+      "ownerSegment": 2
+    },
+    "vcsm:*": {
+      "roles": [
+        "roles.HighStaff",
+        "roles.Founder"
+      ]
+    },
+    "ebm:*": {
+      "ownerSegment": 2
+    },
+    "ebm:send:*": {
+      "ownerSegment": 2
+    },
+    "bh_modal_date:*": {
+      "ownerSegment": 1
+    },
+    "bh_modal_age:*": {
+      "ownerSegment": 1
+    },
+    "modal_close_ticket:*": {
+      "ownerSegment": 1
+    },
+    "modal_ticket_panel_rename": [
+      "roles.HighStaff"
+    ],
+    "modal_ticket_panel_closerequest": null,
+    "partnershipModal_*": {
+      "ownerSegment": 1
+    },
+    "partnershipModal_cmd_*": {
+      "ownerSegment": 1
+    },
+    "stats_top_channel_page_modal:*": {
+      "ownerSegment": 1
+    },
+    "apply_form:*": {
+      "ownerSegment": 2
+    },
+    "apply_pex_modal:*": {
+      "ownerSegment": 2
+    },
+    "top_page_modal:*": {
+      "ownerSegment": 1
+    }
+  }
 }

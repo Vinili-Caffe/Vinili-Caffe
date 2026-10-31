@@ -36,8 +36,6 @@ function clientIpKey(req?) {
 function isReadOnlySiteGet(req?) {
   if (String(req.method || "").toUpperCase() !== "GET") return false;
   const path = webhookPath(req);
-  // Kick media proxy: NON in skip — altrimenti open-proxy abuse senza tetto
-  if (path.startsWith("/webhooks/site-kick-live/proxy")) return false;
   if (path.includes("/push/vapid-public-key")) return true;
   if (path === "/webhooks/site-chrome-prefs") return true;
   if (path === "/webhooks/site-discord-me") return true;
@@ -62,9 +60,6 @@ function isReadOnlySiteGet(req?) {
   if (path === "/webhooks/site-rules") return true;
   if (path.startsWith("/webhooks/site-notifications") && !path.includes("/push/subscribe")) return true;
   if (path.startsWith("/webhooks/site-live-event")) return true;
-  if (path.startsWith("/webhooks/site-kick-live")) return true;
-  if (path.startsWith("/webhooks/site-kick-sub/status")) return true;
-  if (path.startsWith("/webhooks/site-kick-sub/oauth-start")) return true;
   if (path.startsWith("/webhooks/site-dashboard")) return true;
   if (path.startsWith("/webhooks/site-twitch-live")) return true;
   if (path.startsWith("/webhooks/site-wiki-help")) return true;
@@ -80,7 +75,6 @@ function shouldSkipRateLimit(req?) {
     path === "/webhooks/site-api/health" ||
     path === "/webhooks/health" ||
     path === "/webhooks/status" ||
-    path === "/webhooks/site-kick-sub/events" ||
     path === "/webhooks/site-chrome-prefs" ||
     path === "/webhooks/site-discord-me" ||
     path === "/webhooks/site-staff-access" ||
@@ -100,10 +94,6 @@ function isPrivilegedMutatingPath(req?) {
   if (String(req.method || "").toUpperCase() === "GET") return false;
   const path = webhookPath(req);
   return path.startsWith("/webhooks/site-staff-") || path.startsWith("/webhooks/site-web-tickets");
-}
-
-function isKickProxyPath(req?) {
-  return webhookPath(req).startsWith("/webhooks/site-kick-live/proxy");
 }
 
 function rateLimitedJson(_req?, res?) {
@@ -149,7 +139,6 @@ function createSiteApiRateLimiters() {
   const globalMax = parsePositiveInt(process.env.SITE_API_RATE_GLOBAL_MAX, 1200);
   const strictMax = parsePositiveInt(process.env.SITE_API_RATE_STRICT_MAX, 400);
   const privilegedMax = parsePositiveInt(process.env.SITE_API_RATE_PRIVILEGED_MAX, 240);
-  const proxyMax = parsePositiveInt(process.env.SITE_API_RATE_KICK_PROXY_MAX, 180);
 
   return {
     global: ((rateLimit as any)({
@@ -170,13 +159,6 @@ function createSiteApiRateLimiters() {
       max: privilegedMax,
       skip: (req?) => String(req.method || "").toUpperCase() === "OPTIONS",
     }) as any),
-    kickProxy: ((rateLimit as any)({
-      ...shared,
-      windowMs: 60_000,
-      max: proxyMax,
-      keyGenerator: (req?) => clientIpKey(req),
-      skip: (req?) => String(req.method || "").toUpperCase() === "OPTIONS",
-    }) as any),
   };
 }
 
@@ -191,12 +173,11 @@ const STRICT_WEBHOOK_PREFIXES = [
 ];
 
 function mountSiteApiRateLimit(app?) {
-  const { global, strict, privileged, kickProxy } = createSiteApiRateLimiters();
+  const { global, strict, privileged } = createSiteApiRateLimiters();
 
   app.use((req?, res?, next?) => {
     const path = webhookPath(req);
     if (!path.startsWith("/webhooks/")) return next();
-    if (isKickProxyPath(req)) return kickProxy(req, res, next);
     if (isPrivilegedMutatingPath(req)) return privileged(req, res, next);
     const method = String(req.method || "").toUpperCase();
     const useStrict =
