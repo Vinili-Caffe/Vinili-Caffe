@@ -996,6 +996,8 @@ async function runMovieNightEventStartCheck(client?, opts: Record<string, any> =
   }
 }
 
+let lastStageCloseSweepReason = "";
+
 function startMovieNightAnnouncementLoop(client?) {
   const dedicated = String(process.env.COMMUNITY_POLL_WORKER || "").trim() === "1";
   const external = String(process.env.COMMUNITY_POLL_EXTERNAL || "").trim() === "1";
@@ -1055,7 +1057,16 @@ function startMovieNightAnnouncementLoop(client?) {
   );
   const stageCloseSweepTask = cron.schedule(
     STAGE_CLOSE_SWEEP_CRON,
-    runCronDetached("[MOVIE NIGHT STAGE CLOSE]", () => runMovieNightStageCloseRecoveryCheck(client)),
+    runCronDetached("[MOVIE NIGHT STAGE CLOSE]", async () => {
+      /* serataCloseLog1: senza questo non si capiva perché la fine serata non partiva */
+      const res = await runMovieNightStageCloseRecoveryCheck(client);
+      const reason = String(res?.reason || (res?.ok ? "ok" : ""));
+      if (reason !== "outside_window" && reason !== "close_already_done" && reason !== lastStageCloseSweepReason) {
+        lastStageCloseSweepReason = reason;
+        global.logger?.warn?.("[MOVIE NIGHT STAGE CLOSE] sweep:", JSON.stringify(res || null).slice(0, 300));
+      }
+      return res;
+    }),
     { timezone: TIME_ZONE, noOverlap: true },
   );
   // keep EXTRA_EVENT_START/STAGE cron constants for documentation; sweeps already cover Wed via EVENT_START_SWEEP_CRON

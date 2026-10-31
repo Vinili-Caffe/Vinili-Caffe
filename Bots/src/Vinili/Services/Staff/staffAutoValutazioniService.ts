@@ -919,7 +919,9 @@ async function finishSerataFilmSessionsForChannel(guild?, channelId?, opts: Reco
   let sessions = [...serataFilmSessions.values()]
     .filter((session?) => String(session.guildId || "") === String(guild.id || ""));
   const seededAttendance = attendanceMapFromSnapshot(opts.attendanceSnapshot);
-  if (!sessions.length && (seededAttendance.size || opts.allowEmptyAttendance || opts.eventId)) {
+  /* serataNoMassNeg1: senza presenze vere (snapshot vuoto, es. dopo un riavvio o da uno script) niente sessione
+     finta: prima bastava avere l'eventId e dava la negativa a tutto lo staff anche se c'era */
+  if (!sessions.length && (seededAttendance.size || opts.allowEmptyAttendance)) {
     // serataFilmFinishFromClose1: recover path when stage closed via cron without in-memory session
     const eventId = String(opts.eventId || `stage-${Date.now()}`);
     const session = {

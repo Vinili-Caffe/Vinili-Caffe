@@ -22,6 +22,9 @@ async function fetchStageCloseMessageForWeek(clientOrGuild?, weekKey?, state?) {
   if (!channel?.messages?.fetch) return null;
   const messageId = String(state?.stageCloseMessageId || "").trim();
   if (!messageId || messageId === "pending") return null;
+  /* serataExtraWeek1: il messaggio salvato deve essere di QUESTA serata. La serata extra del mercoledì
+     salva il suo con weekKey = data (es. 2026-10-28): stessa settimana, e il sabato risultava già chiuso. */
+  if (String(state?.weekKey || "").trim() !== String(weekKey || "").trim()) return null;
   const message = await channel.messages.fetch(messageId).catch(() => null);
   if (!message || !isStageCloseMessageForWeekKey(message, weekKey)) return null;
   return message;

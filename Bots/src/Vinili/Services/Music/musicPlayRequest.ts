@@ -5,7 +5,7 @@ const { getMusicSearchMode, isYoutubeLikeUrl, logMusic, lavalinkErrorHint, isPla
 const { safeDiscordLinkLabel, resolveSpotifyWebUrl, formatTrackTitleMarkdownLink } = require("./musicSpotifyLinks") as typeof import("./musicSpotifyLinks");
 const { notifyBotPresenceVoiceActivity } = require("../../../shared/discord/botPresenceActivity") as typeof import("../../../shared/discord/botPresenceActivity");
 const { playWithMirrorFallbacks, resolvePlayableTracks, describeTrack, encodedFromPlayerTrack } = require("./musicMirror") as typeof import("./musicMirror");
-const { musicHooks, musicPurgeTts, endListeners, guildMusicSessionBlocksOtherVoiceChannels, persistMusicQueueSnapshotNow, getShardIdForGuild, musicJoinVoiceChannelErrorMessage, clearBlockingNativeVoiceForMusic, leaveMusicVoiceChannelMarked, destroyGhostMusicStateIfBotNotInVoice } = require("./musicVoice") as typeof import("./musicVoice");
+const { nativeVoiceChannelId, musicHooks, musicPurgeTts, endListeners, guildMusicSessionBlocksOtherVoiceChannels, persistMusicQueueSnapshotNow, getShardIdForGuild, musicJoinVoiceChannelErrorMessage, clearBlockingNativeVoiceForMusic, leaveMusicVoiceChannelMarked, destroyGhostMusicStateIfBotNotInVoice } = require("./musicVoice") as typeof import("./musicVoice");
 const { resolveDefaultJoinGlobalVolume, musicStartCapture, trackForManualQueue, clearSessionCurrentRequester, getSession, isLavalinkUsable, cancelPendingQueueEndedEmbed, attachEndHandler, initLavalinkMusicIfEnabled } = require("./musicEngine") as typeof import("./musicEngine");
 const { formatTrackDurationMs, formatEstimatedUntilPlayMs } = require("./musicQueueView") as typeof import("./musicQueueView");
 const { getNowPlayingEmbedTitle, formatNowPlayingLead } = require("./musicQueueControls") as typeof import("./musicQueueControls");
@@ -105,6 +105,14 @@ async function playMusicRequest(ctx?, query?) {
         message: "Registrazione clip in corso. Ferma la clip o attendi la fine, poi riprova.",
       };
     }
+  }
+  /* noVoiceSteal1: se il bot è in un ALTRO canale per il TTS, la musica non lo porta via */
+  const ttsChannelId = nativeVoiceChannelId(guildId);
+  if (ttsChannelId && ttsChannelId !== String(voiceChannel.id)) {
+    return {
+      ok: false,
+      message: `Il bot è già in <#${ttsChannelId}> per il **TTS**. Entra in quel canale, oppure fai uscire il TTS con **leave**, poi riprova \`+play\`.`,
+    };
   }
   if (await clearBlockingNativeVoiceForMusic(guildId, client)) {
     return {

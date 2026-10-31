@@ -1,0 +1,202 @@
+/** Repost: roulette (un repost a caso) e i repost di un utente. */
+const { GuildRepost } = require("../../Schemas/Community/repostSchema") as typeof import("../../Schemas/Community/repostSchema");
+const { resolveRoulettePostChannel } = require("../../Utils/Quote/repostRoulettePostChannel") as typeof import("../../Utils/Quote/repostRoulettePostChannel");
+const { serializableMediaFiles, isAudioAttachmentMeta, isImageAttachmentMeta, prepareRepostSendMedia, resolveRepostMediaFilesForSend } = require("./repostMedia") as typeof import("./repostMedia");
+const { messageJumpUrl, buildRouletteEmbed, buildRepostaButtonRow } = require("./repostEmbeds") as typeof import("./repostEmbeds");
+
+const ROULETTE_RECENT_LIMIT = Math.max(
+  15,
+  Math.min(80, Number(process.env.VC_REPOST_ROULETTE_RECENT_LIMIT || 40)),
+);
+const ROULETTE_PICK_ATTEMPTS = 12;
+
+const recentRouletteSourceKeysByGuild = new Map();
+
+function isRepostDisabledInGuild(guildId?) {
+  try {
+    const { isTenantBoardFeatureEnabledSync } = require("../../MultiGuild/core/tenantGuildSettings") as typeof import("../../MultiGuild/core/tenantGuildSettings");
+    return !isTenantBoardFeatureEnabledSync(guildId, "repost");
+  } catch {
+    return false;
+  }
+}
+
+function repostSourceKey(doc?) {
+  const sc = String(doc?.sourceChannelId || "").trim();
+  const sm = String(doc?.sourceMessageId || "").trim();
+  if (!sc || !sm) return "";
+  return `${sc}:${sm}`;
+}
+
+function pushRouletteSourceKey(guildId?, sourceKey?) {
+  const gid = String(guildId || "").trim();
+  const key = String(sourceKey || "").trim();
+  if (!gid || !key) return;
+  const prev = recentRouletteSourceKeysByGuild.get(gid) || [];
+  const next = prev.filter((entry?) => entry !== key);
+  next.push(key);
+  while (next.length > ROULETTE_RECENT_LIMIT) next.shift();
+  recentRouletteSourceKeysByGuild.set(gid, next);
+}
+
+async function aggregateRandomUniqueRepost(guildId?, excludeKeys = null) {
+  const gid = String(guildId || "").trim();
+  if (!gid) return null;
+
+  const pipeline = [
+    { $match: { guildId: gid } },
+    { $sort: { createdAt: -1 } },
+    {
+      $group: {
+        _id: { sc: "$sourceChannelId", sm: "$sourceMessageId" },
+        doc: { $first: "$$ROOT" },
+      },
+    },
+    { $replaceRoot: { newRoot: "$doc" } },
+  ];
+
+  if (excludeKeys instanceof Set && excludeKeys.size) {
+    pipeline.push(({
+      $match: {
+        $expr: {
+          $not: {
+            $in: [{ $concat: ["$sourceChannelId", ":", "$sourceMessageId"] }, Array.from(excludeKeys)],
+          },
+        },
+      },
+    } as any));
+  }
+
+  pipeline.push(({ $sample: { size: 1 } } as any));
+
+  const rows = await GuildRepost.aggregate((pipeline as any)).catch(() => []);
+  return rows?.[0] || null;
+}
+
+async function pickRandomRepostForGuild(guildId?) {
+  const gid = String(guildId || "").trim();
+  if (!gid) return null;
+
+  const recent = new Set(recentRouletteSourceKeysByGuild.get(gid) || []);
+  let doc = null;
+
+  for (let attempt = 0; attempt < ROULETTE_PICK_ATTEMPTS; attempt += 1) {
+    doc = await aggregateRandomUniqueRepost(gid, recent);
+    if (!doc) break;
+    const sourceKey = repostSourceKey(doc);
+    if (!sourceKey || !recent.has(sourceKey)) break;
+  }
+
+  if (!doc) {
+    doc = await aggregateRandomUniqueRepost(gid);
+  }
+
+  const sourceKey = repostSourceKey(doc);
+  if (sourceKey) pushRouletteSourceKey(gid, sourceKey);
+  return doc;
+}
+
+async function sendRepostRoulette(client?, guildId?) {
+  if (isRepostDisabledInGuild(guildId)) return false;
+  const guild = client.guilds.cache.get(guildId) || (await client.guilds.fetch(guildId).catch(() => null));
+  if (!guild) return false;
+
+  const doc = await pickRandomRepostForGuild(guildId);
+  if (!doc) return false;
+
+  const rouletteChannel = await resolveRoulettePostChannel(guild);
+  if (!rouletteChannel?.isTextBased?.()) return false;
+
+  const sourceUrl = messageJumpUrl(guildId, doc.sourceChannelId, doc.sourceMessageId);
+  const imageUrl = String(doc.attachmentUrl || "").trim();
+  const text = String(doc.content || "").trim();
+  const rouletteFiles = await resolveRepostMediaFilesForSend(guild, doc);
+  const rouletteSendMedia = prepareRepostSendMedia({ imageUrl, files: rouletteFiles });
+
+  const embed = buildRouletteEmbed({ sourceUrl, text, imageUrl: rouletteSendMedia.embedImageUrl });
+  const repostId = String(doc._id);
+
+  const roulettePayload: Record<string, any> = {
+    embeds: [embed],
+    components: [buildRepostaButtonRow(repostId)],
+  };
+  if (rouletteSendMedia.files.length) roulettePayload.files = rouletteSendMedia.files;
+
+  await rouletteChannel.send(roulettePayload).catch(() => null);
+
+  return true;
+}
+
+async function listRepostsByUser(guildId?, userId?, opts: Record<string, any> = {}) {
+  const limit = Math.min(25, Math.max(1, Number(opts.limit) || 10));
+  const skip = Math.max(0, Number(opts.skip) || 0);
+  const filter: Record<string, any> = { guildId: String(guildId), reposterUserId: String(userId) };
+  const clipFilter = {
+    $or: [
+      {
+        $expr: {
+          $and: [
+            { $eq: ["$sourceChannelId", "$sourceMessageId"] },
+            { $eq: ["$boardChannelId", "$boardMessageId"] },
+            { $eq: ["$sourceChannelId", "$boardChannelId"] },
+          ],
+        },
+      },
+      {
+        $expr: {
+          $and: [
+            { $eq: ["$sourceChannelId", "$boardChannelId"] },
+            { $eq: ["$sourceMessageId", "$boardMessageId"] },
+            { $ne: ["$sourceMessageId", ""] },
+          ],
+        },
+      },
+      { sourceMessageId: "pending" },
+      { "mediaFiles.name": { $regex: /^clip\.mp3$/i } },
+    ],
+  };
+  if (opts.clipsOnly) {
+    Object.assign(filter, clipFilter);
+  } else if (opts.excludeClips) {
+    filter.$nor = [clipFilter];
+  }
+  const [rows, total] = await Promise.all([
+    GuildRepost.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
+    GuildRepost.countDocuments(filter).catch(() => 0),
+  ]);
+  return { rows: rows || [], total: Number(total) || 0 };
+}
+
+function resolveRepostPreviewImageUrl(row?) {
+  const direct = String(row?.attachmentUrl || "").trim();
+  if (direct && !direct.startsWith("attachment://")) return direct;
+  for (const file of serializableMediaFiles(row?.mediaFiles)) {
+    if (isImageAttachmentMeta(file.name)) return file.url;
+  }
+  return "";
+}
+
+function formatMyRepostPreview(row?, boardUrl = "") {
+  const text = String(row?.content || "").trim();
+  if (text) {
+    return text.length > 80 ? `${text.slice(0, 79)}…` : text;
+  }
+  const jump = String(boardUrl || "").trim();
+  const link = (label?) => (jump ? `[${label}](${jump})` : label);
+  const imageUrl = resolveRepostPreviewImageUrl(row);
+  if (imageUrl) {
+    const isGif = /\.gif(\?|$)/i.test(imageUrl);
+    return `🖼️ ${link(isGif ? "GIF" : "Immagine")}`;
+  }
+  const files = serializableMediaFiles(row?.mediaFiles);
+  if (files.some((file?) => isAudioAttachmentMeta(file.name))) {
+    return `🎵 ${link("Clip audio")}`;
+  }
+  if (files.length) {
+    const name = files[0].name || "Allegato";
+    return `📎 ${link(name)}`;
+  }
+  return "";
+}
+
+export = { isRepostDisabledInGuild, sendRepostRoulette, listRepostsByUser, resolveRepostPreviewImageUrl, formatMyRepostPreview };
