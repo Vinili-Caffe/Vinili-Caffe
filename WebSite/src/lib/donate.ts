@@ -6,14 +6,15 @@ import type { Perk } from "./perks";
 export const PAYPAL = "https://www.paypal.com/paypalme/viniliecaffeit";
 const P = "[[Personalizza|/personalizza/]]";
 
-export type Tier = { id: string; role: string; cup: string; price: string; badge?: string; cta: string; size: number; perks: Perk[] };
+export type Tier = { id: string; role: string; cup: string; amount: number; from?: boolean; badge?: string; cta: string; size: number; perks: Perk[] };
 
 export const TIERS: Tier[] = [
   {
     id: "donator",
     role: "Donator",
     cup: "Espresso",
-    price: "da 3 €",
+    amount: 3,
+    from: true,
     badge: "Il più economico",
     cta: "Offri un espresso",
     size: 0.78,
@@ -32,7 +33,7 @@ export const TIERS: Tier[] = [
     id: "vip",
     role: "VIP",
     cup: "Cappuccino",
-    price: "10 €",
+    amount: 10,
     badge: "Il più scelto",
     cta: "Offri un cappuccino",
     size: 0.92,
@@ -50,7 +51,7 @@ export const TIERS: Tier[] = [
     id: "vipplus",
     role: "VIP+",
     cup: "La moka intera",
-    price: "20 €",
+    amount: 20,
     badge: "Novità",
     cta: "Offri la moka",
     size: 1,

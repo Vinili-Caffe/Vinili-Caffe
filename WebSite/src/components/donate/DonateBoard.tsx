@@ -4,6 +4,7 @@ import { Reveal } from "@/components/Reveal";
 import { RichText } from "@/components/RichText";
 import { PAYPAL, TIERS, WHERE } from "@/lib/donate";
 import { cn } from "@/lib/cn";
+import { PromoBanner, PromoPrice, PromoSticker } from "@/components/promo/Promo";
 
 const WHERE_ICONS = [<Server key="s" />, <Bot key="b" />, <PartyPopper key="p" />];
 
@@ -17,6 +18,10 @@ const CTA: Record<string, string> = {
 export function DonateBoard() {
   return (
     <div className="mx-auto max-w-6xl space-y-20 px-6 pb-20">
+      <Reveal>
+        <PromoBanner />
+      </Reveal>
+
       <Reveal>
         <div className="grid gap-3 md:grid-cols-3">
           {WHERE.map((w, i) => (
@@ -52,6 +57,7 @@ export function DonateBoard() {
                   )}
                 >
                   {star && <div className="absolute -top-24 left-1/2 size-56 -translate-x-1/2 rounded-full bg-caramel/20 blur-3xl" />}
+                  <PromoSticker className="absolute left-4 top-4 z-10" />
                   {t.badge && (
                     <span
                       className={cn(
@@ -65,7 +71,14 @@ export function DonateBoard() {
 
                   <div className="relative mt-2 text-center">
                     <h3 className="font-display text-4xl font-semibold">{t.role}</h3>
-                    <p className="mt-3 font-display text-5xl font-bold lining-nums text-crema">{t.price}</p>
+                    <p className="mt-3">
+                      <PromoPrice
+                        value={t.amount}
+                        prefix={t.from ? "da " : undefined}
+                        className="font-display text-5xl font-bold text-crema"
+                        oldClassName="mb-1 font-display text-2xl font-semibold"
+                      />
+                    </p>
                   </div>
 
                   <PerkList perks={t.perks} className="relative mt-7 flex-1 border-t border-sand/10 pt-6" />

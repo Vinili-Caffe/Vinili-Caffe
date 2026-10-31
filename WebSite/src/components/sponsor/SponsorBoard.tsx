@@ -11,6 +11,8 @@ import { loadSiteAnalytics, type SiteAnalytics } from "@/lib/siteAnalytics";
 import { page } from "@/lib/site";
 import { cn } from "@/lib/cn";
 import { Disclosure } from "@/components/ui/Disclosure";
+import { PromoBanner, PromoInline } from "@/components/promo/Promo";
+import { PROMO, promoOn, promoPrice } from "@/lib/promo";
 
 type Kind = "channel" | "website" | "events";
 
@@ -77,7 +79,8 @@ export function SponsorBoard() {
     lines.push({ label: `Passaggio promozionale ×${passes}`, price: EVENTS.price * passes });
   }
   if (kind !== "events" && extra > 0) lines.push({ label: `Ping @everyone aggiuntivi ×${extra}`, price: EXTRA_PING * extra });
-  const total = lines.reduce((s, l) => s + l.price, 0);
+  const subtotal = lines.reduce((s, l) => s + l.price, 0);
+  const total = promoPrice(subtotal);
 
   const pps = analytics?.pagesPerSession ?? (analytics ? analytics.pageViews / Math.max(1, analytics.sessions) : 0);
   const audience = [
@@ -88,6 +91,10 @@ export function SponsorBoard() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-20 px-6 pb-20">
+      <Reveal>
+        <PromoBanner />
+      </Reveal>
+
       {/* intro + requisiti */}
       <Reveal>
         <div className="grid gap-4 md:grid-cols-[1.4fr_1fr]">
@@ -185,7 +192,7 @@ export function SponsorBoard() {
                     )}
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <p className="text-sm font-semibold text-crema/60">
-                        Ping @everyone aggiuntivi <span className="font-normal text-crema/40">· {eur(EXTRA_PING)} l&apos;uno</span>
+                        Ping @everyone aggiuntivi <span className="font-normal text-crema/40">· <PromoInline value={EXTRA_PING} /> l&apos;uno</span>
                       </p>
                       <Stepper value={extra} set={setExtra} />
                     </div>
@@ -193,7 +200,7 @@ export function SponsorBoard() {
                 ) : (
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <p className="text-sm font-semibold text-crema/60">
-                      Passaggi promozionali <span className="font-normal text-crema/40">· {eur(EVENTS.price)} l&apos;uno</span>
+                      Passaggi promozionali <span className="font-normal text-crema/40">· <PromoInline value={EVENTS.price} /> l&apos;uno</span>
                     </p>
                     <Stepper value={passes} set={(n) => setPasses(Math.max(1, n))} min={1} />
                   </div>
@@ -214,16 +221,16 @@ export function SponsorBoard() {
                     <p className="text-sm font-semibold text-crema">{CHANNEL.title}</p>
                   </div>
                   <div className="px-4 py-1 text-sm lining-nums">
-                    <div className="grid grid-cols-[1fr_4.5rem_4.5rem] gap-x-2 py-1.5 text-[0.65rem] font-semibold uppercase tracking-[0.14em] text-crema/35">
+                    <div className="grid grid-cols-[1fr_6.5rem_6.5rem] gap-x-2 py-1.5 text-[0.65rem] font-semibold uppercase tracking-[0.14em] text-crema/35">
                       <span>Durata</span>
                       <span className="text-right">×1 ping</span>
                       <span className="text-right">×2 ping</span>
                     </div>
                     {CHANNEL.durations.map((d) => (
-                      <div key={d.days} className="grid grid-cols-[1fr_4.5rem_4.5rem] gap-x-2 border-t border-sand/8 py-2.5">
+                      <div key={d.days} className="grid grid-cols-[1fr_6.5rem_6.5rem] gap-x-2 border-t border-sand/8 py-2.5">
                         <span className="text-crema/75">{d.days} giorni</span>
-                        <span className="text-right font-semibold text-sand">{eur(d.ping1)}</span>
-                        <span className="text-right font-semibold text-sand">{eur(d.ping2)}</span>
+                        <span className="text-right"><PromoInline value={d.ping1} className="font-semibold text-sand" /></span>
+                        <span className="text-right"><PromoInline value={d.ping2} className="font-semibold text-sand" /></span>
                       </div>
                     ))}
                   </div>
@@ -238,7 +245,7 @@ export function SponsorBoard() {
                     {WEBSITE.durations.map((d) => (
                       <li key={d.days} className="flex items-center justify-between gap-4 py-2.5">
                         <span className="text-crema/75">{d.days} giorni</span>
-                        <span className="font-semibold text-sand">{eur(d.price)}</span>
+                        <PromoInline value={d.price} className="font-semibold text-sand" />
                       </li>
                     ))}
                   </ul>
@@ -252,11 +259,11 @@ export function SponsorBoard() {
                   <ul className="divide-y divide-sand/8 px-4 text-sm lining-nums">
                     <li className="flex items-center justify-between gap-4 py-2.5">
                       <span className="text-crema/75">Passaggio promozionale</span>
-                      <span className="font-semibold text-sand">{eur(EVENTS.price)}</span>
+                      <PromoInline value={EVENTS.price} className="font-semibold text-sand" />
                     </li>
                     <li className="flex items-center justify-between gap-4 py-2.5">
                       <span className="text-crema/75">Ping @everyone aggiuntivo</span>
-                      <span className="font-semibold text-sand">{eur(EXTRA_PING)}</span>
+                      <PromoInline value={EXTRA_PING} className="font-semibold text-sand" />
                     </li>
                   </ul>
                 </div>
@@ -267,6 +274,18 @@ export function SponsorBoard() {
           {/* lo scontrino: carta e inchiostro fissi, uguale nei due temi */}
           <div className="lg:sticky lg:top-28 lg:self-start">
             <div className="relative rounded-t-3xl bg-paper px-7 pb-8 pt-7 font-mono text-ink shadow-[0_30px_60px_-30px_rgba(0,0,0,0.9)]">
+              {promoOn() && (
+                <motion.span
+                  aria-hidden
+                  initial={{ scale: 2, opacity: 0, rotate: 0 }}
+                  whileInView={{ scale: 1, opacity: 1, rotate: 14 }}
+                  viewport={{ once: true }}
+                  transition={{ type: "spring", stiffness: 500, damping: 20, delay: 0.4 }}
+                  className="absolute -right-2 top-16 rounded-lg border-[3px] border-[#b5502a] px-2.5 py-1 font-display text-sm font-black uppercase tracking-widest text-[#b5502a] opacity-80 mix-blend-multiply"
+                >
+                  Scontato -{PROMO.percent}%
+                </motion.span>
+              )}
               <p className="text-center font-display text-2xl font-bold uppercase tracking-[0.04em]">VINILI & CAFFÈ</p>
               <p className="text-center text-[0.7rem] uppercase tracking-[0.3em] text-ink/50">preventivo sponsor</p>
               <div className="my-5 border-t-2 border-dashed border-ink/20" />
@@ -280,7 +299,14 @@ export function SponsorBoard() {
                   ))}
                 </AnimatePresence>
               </ul>
+              {promoOn() && (
+                <div className="mt-3 flex justify-between gap-4 text-sm font-semibold text-[#b5502a]">
+                  <span>Sconto -{PROMO.percent}%</span>
+                  <span className="shrink-0 lining-nums">-{eur(subtotal - total)}</span>
+                </div>
+              )}
               <div className="my-5 border-t-2 border-dashed border-ink/20" />
+              {promoOn() && <p className="-mb-1 text-right text-sm text-ink/45 line-through decoration-[#b5502a] decoration-2 lining-nums">{eur(subtotal)}</p>}
               <div className="flex items-end justify-between">
                 <span className="text-sm font-bold uppercase tracking-widest">Totale</span>
                 <motion.span key={total} initial={{ scale: 1.15 }} animate={{ scale: 1 }} className="font-display text-4xl font-bold lining-nums">
