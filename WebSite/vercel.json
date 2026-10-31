@@ -16,8 +16,8 @@
       "permanent": true
     },
     {
-      "source": "/bacheca/:path*",
-      "destination": "/vetrina/:path*",
+      "source": "/bacheca/(.*)",
+      "destination": "/vetrina/$1",
       "permanent": true
     }
   ],
