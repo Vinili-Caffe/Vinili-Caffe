@@ -249,6 +249,5 @@ export = (client?) => {
     }
 
     client._prefixOverrideCache = null;
-    client.logs.success("[FUNCTION] Successfully reloaded prefix commands.");
   };
 };

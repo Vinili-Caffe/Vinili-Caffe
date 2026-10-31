@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { BookOpen, CalendarDays, LayoutDashboard, ListChecks, LogIn, LogOut, MessageSquareText, Sparkles, UserRound } from "lucide-react";
+import { BookOpen, CalendarDays, LayoutDashboard, ListChecks, LogIn, LogOut, MessageSquareText, Sparkles, UserRound, Users } from "lucide-react";
 import { loadStaffAccess, type StaffAccess } from "@/lib/staff";
 import { avatarUrl, displayName, useAuth } from "@/lib/auth";
 import { useI18n } from "@/lib/i18n";
@@ -207,6 +207,12 @@ export function UserMenu({ className }: { className?: string }) {
                 <p className="px-3 pb-1 pt-1.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-caramel">Area staff</p>
                 {[
                   { href: "/staff/guida/", label: "Guida", icon: <BookOpen className="size-4" />, show: true },
+                  {
+                    href: "/staff/gestione/",
+                    label: "Gestione",
+                    icon: <Users className="size-4" />,
+                    show: Boolean(staff.canManage || staff.canManagePm),
+                  },
                   { href: "/staff/compiti/", label: "Compiti", icon: <ListChecks className="size-4" />, show: staff.canCompiti },
                   { href: "/staff/pause/", label: "Pause", icon: <CalendarDays className="size-4" />, show: true },
                 ]

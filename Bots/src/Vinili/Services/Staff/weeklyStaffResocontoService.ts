@@ -2217,25 +2217,8 @@ function pmActionToKey(action?) {
 }
 
 function buildResocontoButtons(kind?, userId?, actionKey?, roleId = null) {
-  const {
-    isDiscordWorkflowUiEnabled,
-    buildInboxManageLinkRow,
-  } = require("../../Web/discordWorkflowUiGate") as typeof import("../../Web/discordWorkflowUiGate");
-  if (!isDiscordWorkflowUiEnabled()) {
-    return buildInboxManageLinkRow("resoconti");
-  }
-  const payload = kind === "s" ? `${kind}:${userId}:${roleId}:${actionKey}`
-    : `${kind}:${userId}:${actionKey}`;
-  return new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId(`${RESOCONTO_APPLY_PREFIX}:${payload}`)
-      .setEmoji("<:vegacheckmark:1443666279058772028>")
-      .setStyle(ButtonStyle.Success),
-    new ButtonBuilder()
-      .setCustomId(`${RESOCONTO_REJECT_PREFIX}:${payload}`)
-      .setEmoji("<:vegax:1443934876440068179>")
-      .setStyle(ButtonStyle.Danger),
-  );
+  const { buildInboxManageLinkRow } = require("../../Web/discordWorkflowUiGate") as typeof import("../../Web/discordWorkflowUiGate");
+  return buildInboxManageLinkRow("resoconti");
 }
 
 function formatThreadDateTime(value?) {

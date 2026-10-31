@@ -15,6 +15,10 @@ let upgradeListenerAttached = false;
 
 function attachSiteSuggestionsWsServer(server?) {
   if (!server || upgradeListenerAttached) return false;
+  /* Realtime WS è su site-api (3020). Su bots-vinyls con SITE_API_EXTERNAL non montare/loggare un secondo listener. */
+  if (isTruthyEnv("SITE_API_EXTERNAL") && !isTruthyEnv("SITE_API_PROCESS")) {
+    return false;
+  }
   const WS = tryRequireWs();
   if (!WS || !WS.WebSocketServer) {
     global.logger?.warn?.("[WEBHOOK] Pacchetto `ws` assente: `npm install ws` in Vinyls per WebSocket sito.");

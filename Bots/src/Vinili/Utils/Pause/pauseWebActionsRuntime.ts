@@ -1,7 +1,6 @@
 const IDs = require("../Config/ids") as typeof import("../Config/ids");
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
 const { getGuildMemberCached, resolveGuildMemberPresence } = require("../Interaction/interactionEntityCache") as typeof import("../Interaction/interactionEntityCache");
-const { scheduleStaffListRefresh } = require("../Community/staffListUtils") as typeof import("../Community/staffListUtils");
 const {
   MS_PER_DAY,
   parseItalianDate,
@@ -15,8 +14,6 @@ const {
   computePauseScaledDaysThisYear,
   getStaffPauseRecord,
   updatePauseInDb,
-  buildAcceptedButtonsRow,
-  schedulePauseButtonsRemoval,
   syncSingleAcceptedPauseMessage,
   getPausePhase,
   getBasePauseLimit,
@@ -526,7 +523,6 @@ async function acceptPauseRequestWeb(client?, guild?, actorMember?, userId?, pau
       }
     }
 
-    scheduleStaffListRefresh(client, guildId, 800);
     invalidateStaffPauseCalendarCache();
     notifyStaffPauseCalendarChanged(userId);
     try {
@@ -657,7 +653,6 @@ async function cancelPauseRequestWeb(client?, guild?, actorMember?, userId?, pau
         .catch(() => null);
     }
 
-    scheduleStaffListRefresh(client, guildId, 800);
     invalidateStaffPauseCalendarCache();
     notifyStaffPauseCalendarChanged(userId);
     try {

@@ -138,6 +138,5 @@ export = (client?) => {
     global.logger?.info?.(
       `[PREFIX] Loaded ${client.pcommands.size} prefix command(s).`,
     );
-    client.logs?.success?.("[FUNCTION] Successfully reloaded prefix commands.");
   };
 };

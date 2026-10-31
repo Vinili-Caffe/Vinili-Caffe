@@ -31,7 +31,6 @@ function isHogwartsRuntimeDisabled(client?) {
 
 function registerHogwartsPlugin(client?) {
   if (isHogwartsRuntimeDisabled(client)) {
-    global.logger?.info?.("[EventPlugin:hogwarts] disabled — pack in archivio, no register");
     return { ok: true, enabled: false };
   }
   global.logger?.warn?.(

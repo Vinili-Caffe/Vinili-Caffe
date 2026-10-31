@@ -43,7 +43,7 @@ export = (client?) => {
 
     loaded.sort((a?, b?) => a.order - b.order || String(a.name).localeCompare(String(b.name)));
     client.buttonHandlers = loaded;
-    global.logger?.info?.(`[BUTTON_HANDLERS] Loaded ${client.buttonHandlers.length} button handlers.`);
+    /* Conteggio incluso in [BOOT] Loaded modules. */
     return client.buttonHandlers;
   };
 };

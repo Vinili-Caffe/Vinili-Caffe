@@ -187,8 +187,6 @@ async function checkAndInstallPackages(
           }
         }
       }
-    } else {
-      client.logs.success("All required packages are installed.");
     }
     await checkForOutdatedPackages(client);
     await checkNodeVersion(client);

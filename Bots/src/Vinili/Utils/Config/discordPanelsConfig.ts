@@ -20,7 +20,7 @@ const PANEL_SITE_REPLACES = Object.freeze({
   candidature: "/candidature/",
   pause: "/staff/pause/",
   staffList: "/staff/organico/",
-  /* guida staff resta anche su Discord (Embeds/staff) */
+  /* guida staff: solo sito (Discord panel dismesso) */
   staff: "/staff/guida/",
   sponsor: null,
 });

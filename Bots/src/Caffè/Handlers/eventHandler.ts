@@ -76,6 +76,6 @@ export = (client?) => {
 
     const LOG_EVENTS = String(process.env.LOG_EVENTS || process.env.LOG_COMMANDS || "0") === "1";
     if (LOG_EVENTS) global.logger.info(table.toString());
-    global.logger.info(`[EVENTS] Loaded ${loaded} events.`);
+    /* Conteggio incluso in [BOOT] Loaded modules — niente riga dedicata. */
   };
 };

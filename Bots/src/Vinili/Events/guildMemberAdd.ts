@@ -5,7 +5,6 @@ const IDs = require("../Utils/Config/ids") as typeof import("../Utils/Config/ids
 const { shouldBlockDm } = require("../Utils/noDmList") as typeof import("../Utils/noDmList");
 const { notifyDmPrivacyBlockedInCommands } = require("../../shared/discord/dmPrivacyNotice") as typeof import("../../shared/discord/dmPrivacyNotice");
 const { queueIdsCatalogSync } = require("../Utils/Config/idsAutoSync") as typeof import("../Utils/Config/idsAutoSync");
-const { scheduleStaffListRefresh, memberHasStaffRole } = require("../Utils/Community/staffListUtils") as typeof import("../Utils/Community/staffListUtils");
 const { scheduleMemberCounterRefresh, updateMemberCounterNow } = require("../Utils/Community/memberCounterUtils") as typeof import("../Utils/Community/memberCounterUtils");
 const { processJoinRaidForMember, registerJoinRaidSecuritySignal, } = require("../Services/Moderation/joinRaidService") as typeof import("../Services/Moderation/joinRaidService");
 const { getJoinGateConfigSnapshot, } = require("../Services/Moderation/joinGateService") as typeof import("../Services/Moderation/joinGateService");
@@ -1611,9 +1610,6 @@ async function dispatchPublicJoinAnnouncements(member?) {
   await maybeSendInviteNearRewardReminder(fresh, info);
   await maybeSendInviteReward(fresh, info);
 
-  if (fresh.guild?.id === IDs.guilds.main && fresh.client && memberHasStaffRole(fresh)) {
-    scheduleStaffListRefresh(fresh.client, fresh.guild.id);
-  }
   return { ok: true, announced: Boolean(welcomeChannel) };
 }
 
@@ -1792,10 +1788,12 @@ async function recoverJoinAnnouncementsOnStartup(client?, opts: Record<string, a
     pendingClearedGone > 0 ||
     pendingStaleCleared > 0 ||
     pendingReady > 0;
-  const recoverLine = `[JOIN RECOVER] pending=${pendingProcessed} ready=${pendingReady} waitingVerify=${pendingWaitingVerify} clearedGone=${pendingClearedGone} staleCleared=${pendingStaleCleared} missedScanned=${missedScanned} missedSkippedOk=${missedSkippedOk} missedRecovered=${missedRecovered} welcomes=${recovered} rolesFixed=${rolesFixed} lookbackMs=${lookbackMs}`;
-  /* joinRecoverPendingDrain1: idle (solo waitingVerify) → info, non warn ogni boot */
-  if (actionable) global.logger?.warn?.(recoverLine);
-  else global.logger?.info?.(recoverLine);
+  /* Idle (solo waitingVerify / scan senza azioni) → silenzio a ogni boot. */
+  if (actionable) {
+    global.logger?.warn?.(
+      `[JOIN RECOVER] pending=${pendingProcessed} ready=${pendingReady} waitingVerify=${pendingWaitingVerify} clearedGone=${pendingClearedGone} staleCleared=${pendingStaleCleared} missedScanned=${missedScanned} missedSkippedOk=${missedSkippedOk} missedRecovered=${missedRecovered} welcomes=${recovered} rolesFixed=${rolesFixed} lookbackMs=${lookbackMs}`,
+    );
+  }
 
   return {
     ok: true,
@@ -2295,9 +2293,6 @@ export = {
               await maybeSendInviteReward(member, info);
             }
 
-            if (member.guild?.id === IDs.guilds.main && member.client && memberHasStaffRole(member)) {
-              scheduleStaffListRefresh(member.client, member.guild.id);
-            }
             scheduleMemberCounterRefresh(member.guild, { delayMs: 250, secondPassMs: 1800 });
           } catch (err) {
             global.logger?.warn?.("[guildMemberAdd] background post-welcome failed:", member.guild?.id, member?.id, err?.message || err);

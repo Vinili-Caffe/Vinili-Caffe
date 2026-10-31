@@ -93,6 +93,6 @@ export = (client?) => {
       const tableStr = table.toString();
       tableStr.split("\n").forEach((line?) => global.logger.info(line));
     }
-    global.logger.info(`[EVENTS] Loaded ${loaded} events.`);
+    /* Conteggio incluso in [BOOT] Loaded modules. */
   };
 };

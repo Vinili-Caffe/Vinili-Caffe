@@ -8,7 +8,6 @@ const { isHalloweenRuntimeDisabled } = require("./runtimeKillSwitch") as typeof 
 
 function registerHalloweenPlugin(client?) {
   if (isHalloweenRuntimeDisabled(client)) {
-    global.logger?.info?.("[EventPlugin:halloween] disabled — skip loops");
     return { ok: true, enabled: false };
   }
   try {

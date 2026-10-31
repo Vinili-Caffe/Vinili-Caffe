@@ -165,15 +165,6 @@ async function getStaffListPausedUserIds(guildId?) {
   return out;
 }
 
-/** No-op: organico Discord canale dismesso. */
-async function fetchMembersForStaffList() {
-  return new Map();
-}
-async function refreshStaffList() {}
-function startStaffListPeriodicRefreshLoop() {}
-function scheduleStaffListRefresh() {}
-function queueStaffListRefreshAfterRoleMutation() {}
-
 export = {
   STAFF_NEW_EMOJI,
   STAFF_PAUSE_EMOJI,
@@ -187,9 +178,4 @@ export = {
   didStaffListDisplayRolesChange,
   getStaffListPausedUserIds,
   getStaffListNewBadgeRoleIdsByUser,
-  fetchMembersForStaffList,
-  refreshStaffList,
-  scheduleStaffListRefresh,
-  queueStaffListRefreshAfterRoleMutation,
-  startStaffListPeriodicRefreshLoop,
 };

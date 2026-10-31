@@ -6,7 +6,7 @@ const IDs = require("../Config/ids") as typeof import("../Config/ids");
 const { getStaffRoleEmojiByRoleId } = require("../Community/staffRoleEmoji") as typeof import("../Community/staffRoleEmoji");
 const { getClientChannelCached, getGuildChannelCached } = require("../Interaction/interactionEntityCache") as typeof import("../Interaction/interactionEntityCache");
 const { guildMemberDisplayAvatarUrlDynamic } = require("../Discord/guildDiscordIdentity") as typeof import("../Discord/guildDiscordIdentity");
-const { memberHasStaffRole, queueStaffListRefreshAfterRoleMutation } = require("../Community/staffListUtils") as typeof import("../Community/staffListUtils");
+const { memberHasStaffRole } = require("../Community/staffListUtils") as typeof import("../Community/staffListUtils");
 const { applyDepexOneLevel } = require("../../Services/Staff/staffWarnService") as typeof import("../../Services/Staff/staffWarnService");
 const { applyDepexSideEffects: applyResocontoStaffDepexSideEffects } = require("../../Events/interaction/resocontoHandlers") as typeof import("../../Events/interaction/resocontoHandlers");
 const { clearStaffPendingPurgeAt } = require("../../Services/Community/userLeaveBackupService") as typeof import("../../Services/Community/userLeaveBackupService");
@@ -545,7 +545,6 @@ async function runProspectStaffPex(guild?, client?, targetUser?, actorUser?, rea
   await profileDoc.save();
   await mirrorTrackHistory(guild.id, targetUser.id, histEntry, "pex");
   await clearStaffPendingPurgeAt(guild.id, targetUser.id);
-  queueStaffListRefreshAfterRoleMutation(client || guild.client, guild.id);
   const rb = roleBeforeForHistory ? guild.roles.cache.get(roleBeforeForHistory) : null;
   const ra = guild.roles.cache.get(roleAfter);
   const actionEmoji = getStaffRoleEmojiByRoleId(roleAfter);
@@ -641,7 +640,6 @@ async function runProspectStaffPexToPartnerManager(guild?, client?, targetUser?,
   await profileDoc.save();
   await mirrorTrackHistory(guild.id, targetUser.id, histEntry, "pex");
   await clearStaffPendingPurgeAt(guild.id, targetUser.id);
-  queueStaffListRefreshAfterRoleMutation(client || guild.client, guild.id);
   const rb = roleBeforeForHistory ? guild.roles.cache.get(roleBeforeForHistory) : null;
   const ra = guild.roles.cache.get(roleAfter);
   const actionEmoji = getStaffRoleEmojiByRoleId(roleAfter);
@@ -722,7 +720,6 @@ async function runProspectStaffPexToBlogger(guild?, client?, targetUser?, actorU
   await profileDoc.save();
   await mirrorTrackHistory(guild.id, targetUser.id, histEntry, "pex");
   await clearStaffPendingPurgeAt(guild.id, targetUser.id);
-  queueStaffListRefreshAfterRoleMutation(client || guild.client, guild.id);
   const rb = roleBeforeForHistory ? guild.roles.cache.get(roleBeforeForHistory) : null;
   const ra = guild.roles.cache.get(roleAfter);
   const actionEmoji = getStaffRoleEmojiByRoleId(roleAfter) || "📝";
@@ -814,7 +811,6 @@ async function runProfileStaffPex(guild?, client?, targetUser?, actorUser?, reas
   await profileDoc.save();
   await mirrorTrackHistory(guild.id, targetUser.id, histEntry, "pex");
   await clearStaffPendingPurgeAt(guild.id, targetUser.id);
-  queueStaffListRefreshAfterRoleMutation(client || guild.client, guild.id);
   const rb = guild.roles.cache.get(roleBefore);
   const ra = guild.roles.cache.get(roleAfter);
   const actionEmoji = getStaffRoleEmojiByRoleId(roleAfter);

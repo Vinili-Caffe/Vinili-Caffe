@@ -3095,21 +3095,13 @@ async function probeLavalinkHttpReady(host?, port?, timeoutMs = 2500) {
 
 async function waitForLavalinkTcpThenInitShoukaku(client?) {
   const { waitUntilLavalinkReady } = require("../../../shared/music/lavalinkProbe") as typeof import("../../../shared/music/lavalinkProbe");
-  const ready = await waitUntilLavalinkReady({
-    onWaiting: ({ host, port }) => {
-      logMusic(
-        `Lavalink non ancora pronto su ${host}:${port}, attendo prima di collegare Shoukaku...`,
-      );
-    },
-  });
+  const ready = await waitUntilLavalinkReady({});
   const { host, port, url } = ready;
   const portNum = Number(port) || 2333;
 
   if (!ready.ok) {
     client._shoukakuInitPending = false;
-    global.logger?.warn?.(
-      `[MUSIC] Lavalink non raggiungibile entro ${Math.round((ready.waitedMs || 0) / 1000)}s su ${host}:${portNum}. Riprovo al prossimo comando musica.`,
-    );
+    /* wait-for-lavalink già monitora: niente warn duplicato al boot. */
     return;
   }
 

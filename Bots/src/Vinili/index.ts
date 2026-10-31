@@ -180,13 +180,13 @@ initializeCommandCollections(client, { includeSnipes: true });
       global.logger.error("[DATABASE] Startup aborted: MongoDB is required before login.");
       process.exit(1);
     }
-    global.logger?.info?.(`[BOOT] mongo_connect_ms=${Date.now() - mongoStartedAt}`);
+    const mongoMs = Date.now() - mongoStartedAt;
 
     const handlersStartedAt = Date.now();
     installHandlers(APP_ROOT, client);
     client.handleEvents(path.join(APP_ROOT, "Events"));
     client.handleTriggers(APP_ROOT);
-    global.logger?.info?.(`[BOOT] handlers_events_ms=${Date.now() - handlersStartedAt}`);
+    const handlersMs = Date.now() - handlersStartedAt;
 
     try {
       require("./MultiGuild/index").attachToClient(client);
@@ -202,7 +202,7 @@ initializeCommandCollections(client, { includeSnipes: true });
     const commandsStartedAt = Date.now();
     await client.prefixCommands(pcommandFolders, path.join(APP_ROOT, "Prefix"));
     client.__prefixCommandsReady = true;
-    global.logger?.info?.(`[BOOT] prefix_commands_ms=${Date.now() - commandsStartedAt}`);
+    const prefixMs = Date.now() - commandsStartedAt;
 
     const slashButtonsStartedAt = Date.now();
     await Promise.all([
@@ -212,7 +212,7 @@ initializeCommandCollections(client, { includeSnipes: true });
       client.loadButtonHandlers(path.join(APP_ROOT, "Buttons")),
     ]);
     client.__bootCommandsReady = true;
-    global.logger?.info?.(`[BOOT] commands_buttons_ms=${Date.now() - slashButtonsStartedAt}`);
+    const cmdsMs = Date.now() - slashButtonsStartedAt;
 
     if (typeof client.logBootTables === "function") {
       client.logBootTables();
@@ -225,7 +225,6 @@ initializeCommandCollections(client, { includeSnipes: true });
       for (let attempt = 1; attempt <= maxAttempts; attempt++) {
         try {
           await client.login(client.config.token);
-          global.logger?.info?.(`[BOOT] login_resolve_ms=${Date.now() - loginStartedAt}`);
           loggedIn = true;
           break;
         } catch (error) {
@@ -245,7 +244,9 @@ initializeCommandCollections(client, { includeSnipes: true });
       }
       if (!loggedIn) process.exit(1);
     }
-    global.logger?.info?.(`[BOOT] pre_ready_ms=${Date.now() - bootStartedAt}`);
+    global.logger?.info?.(
+      `[BOOT] pre_ready ${Date.now() - bootStartedAt}ms (mongo=${mongoMs} handlers=${handlersMs} prefix=${prefixMs} cmds=${cmdsMs} login=${Date.now() - loginStartedAt})`,
+    );
   } catch (err) {
     if (global.logger && typeof global.logger.error === "function") {
       global.logger.error("[STARTUP]", err);

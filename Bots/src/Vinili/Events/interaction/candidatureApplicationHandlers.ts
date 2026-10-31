@@ -3,7 +3,6 @@ const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, EmbedB
 const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
 const { getGuildChannelCached, getGuildMemberCached, } = require("../../Utils/Interaction/interactionEntityCache") as typeof import("../../Utils/Interaction/interactionEntityCache");
 const { getOrCreateStaffDoc, deleteThreadForMessage, ensureStaff } = require("../../Utils/Staff/staffDocUtils") as typeof import("../../Utils/Staff/staffDocUtils");
-const { scheduleStaffListRefresh } = require("../../Utils/Community/staffListUtils") as typeof import("../../Utils/Community/staffListUtils");
 const { clearStaffPendingPurgeAt } = require("../../Services/Community/userLeaveBackupService") as typeof import("../../Services/Community/userLeaveBackupService");
 const { applyDefaultFooterToEmbeds } = require("../../Utils/Embeds/defaultFooter") as typeof import("../../Utils/Embeds/defaultFooter");
 const { TENANT_EMBED_COLOR } = require("../../MultiGuild/utils/tenantEmbedBranding") as typeof import("../../MultiGuild/utils/tenantEmbedBranding");
@@ -1153,11 +1152,6 @@ async function completeCandidatePexAfterRole(guild?, member?, type?, reason?, so
     profileDoc.markModified("staff");
     await profileDoc.save();
     await clearStaffPendingPurgeAt(guild.id, member.id);
-    if (guild.client && guild.id === IDs.guilds?.main) {
-      scheduleStaffListRefresh(guild.client, guild.id, 800);
-      const t = setTimeout(() => scheduleStaffListRefresh(guild.client, guild.id, 500), 2500);
-      if (t?.unref) t.unref();
-    }
   }
 
   await sendCandidatePexLog(guild, member, targetRoleId, roleBeforeId, reason);

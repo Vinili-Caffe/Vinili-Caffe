@@ -54,7 +54,7 @@ export = {
     const protectedIds = getProtectedGuildIds();
     const tenantIds = listTenantGuildIds();
     global.logger?.info?.(
-      `[MultiGuild] attivo — protette (main/test/sponsor): ${protectedIds.length} | tenant registry: ${tenantIds.length}`,
+      `[MultiGuild] protette=${protectedIds.length} tenant=${tenantIds.length}`,
     );
     client._multiGuildReadyAt = Date.now();
 

@@ -181,13 +181,6 @@ function normalizePauseDates(startRaw?, endRaw?) {
   return { dataRichiesta: formatDateDDMMYYYY(startDate), dataRitorno: formatDateDDMMYYYY(endDate), startDate };
 }
 
-function buildPauseRequestButtonsRow(userId?, pauseId?) {
-  return new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId(`pause_accept:${userId}:${pauseId}`).setLabel("Accetta").setEmoji("<:vegacheckmark:1443666279058772028>").setStyle(ButtonStyle.Success),
-    new ButtonBuilder().setCustomId(`pause_reject:${userId}:${pauseId}`).setLabel("Rifiuta").setEmoji("<:vegax:1443934876440068179>").setStyle(ButtonStyle.Danger),
-  );
-}
-
 function formatRuoloPausaRichiestoInMessage(guild?, normalizedOrRawRole?) {
   const n = normalizePauseRoleChoice(normalizedOrRawRole);
   const staffRole = guild?.roles?.cache?.get(String(IDs.roles?.Staff || ""));
@@ -302,9 +295,7 @@ async function createPauseRequest({ guild, userId, requesterMention, rawStart, r
           ? `\n<:VC_Attention:1482534443632558151> Richiesta separata (${i + 1}/${createdPauses.length}): puoi accettare/rifiutare questo ruolo indipendentemente dall'altro.`
           : "";
       const content = `<:VC_Staff:1494286904089247754> ${highStaffRoleMention} ${mention} ha richiesto una pausa.\n<:VC_Mention:1482526855289634997> Ruolo pausa richiesto: **${trackLabel}**${pairNote}\n<a:VC_Calendar:1482706208149475358> Data richiesta: ${normalized.dataRichiesta}\n<a:VC_Calendar:1482706208149475358> Data ritorno: ${normalized.dataRitorno}\n<:VC_reason:1478517122929004544> Motivo: ${reason}${i === 0 ? warningBlock : ""}`;
-      const pauseComponents = discordUi
-        ? [buildPauseRequestButtonsRow(uid, thisPauseId)]
-        : [buildInboxManageLinkRow("pause")];
+      const pauseComponents = [buildInboxManageLinkRow("pause")];
       const posted = await pauseChannel
         .send({
           content,

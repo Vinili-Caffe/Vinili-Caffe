@@ -200,7 +200,7 @@
     "hogwartsThemeVideoUrl": "",
     "filmTitle": "Nightmare Before Christmas",
     "creditsSkip": {
-      "enabled": false,
+      "enabled": true,
       "startSeconds": 0,
       "label": "Salta titoli di coda"
     },
@@ -349,7 +349,7 @@
   "openGraphSiteName": "Vinili & Caffè",
   "themeColor": "#140f0c",
   "metaDescription": "Community Discord italiana: vinili, caffè, musica e chiacchiere. Entra nel server ufficiale Vinili & Caffè.",
-  "metaKeywords": "vinili, caffè, discord, community, musica, vinyl, italia",
+  "metaKeywords": "vinili, caffè, discord, community, musica, italia",
   "supportEmail": "supporto@viniliecaffe.it",
   "siteModeratorEmail": "supporto@viniliecaffe.it",
   "siteAdminEmail": "ammministrazione@viniliecaffe.it",

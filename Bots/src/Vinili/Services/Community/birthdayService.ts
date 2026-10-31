@@ -288,9 +288,7 @@ function startBirthdayLoop(client?) {
     { timezone: DEFAULT_TIME_ZONE },
   );
 
-  global.logger?.info?.(
-    "[BIRTHDAY] loop started (00:00 + 00:15 Europe/Rome backup + recovery on boot)",
-  );
+  global.logger?.info?.("[BIRTHDAY] cron Europe/Rome 00:00+00:15");
 
   setImmediate(() => {
     runBirthdayTick(client, { stripFlairFirst: false }).catch((err?) =>

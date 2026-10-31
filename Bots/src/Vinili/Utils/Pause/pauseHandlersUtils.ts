@@ -784,42 +784,17 @@ function computePauseScaledDaysThisYear(pause?, todayUtc?, yearStart?, yearEnd?)
   return 0;
 }
 
-function buildRequestButtonsRow(userId?, pauseId?, disabled = false) {
-  const row = new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId(`pause_accept:${userId}:${pauseId}`)
-      .setEmoji(`<:vegacheckmark:1443666279058772028>`)
-      .setStyle(ButtonStyle.Success),
-    new ButtonBuilder()
-      .setCustomId(`pause_reject:${userId}:${pauseId}`)
-      .setEmoji(`<:vegax:1443934876440068179>`)
-      .setStyle(ButtonStyle.Danger),
-  );
-  if (disabled) row.components.forEach((c?: any) => c.setDisabled(true));
-  return row;
+function buildPauseInboxLinkRow() {
+  const { buildInboxManageLinkRow } = require("../../Web/discordWorkflowUiGate") as typeof import("../../Web/discordWorkflowUiGate");
+  return buildInboxManageLinkRow("pause");
 }
 
-function buildAcceptedButtonsRow(userId?, pauseId?, options: Record<string, any> = {}) {
-  const { hideCancel = false, disableCancel = false } = options;
-  const components = [];
-  if (!hideCancel) {
-    components.push(
-      new ButtonBuilder()
-        .setCustomId(`pause_cancel:${userId}:${pauseId}`)
-        .setLabel("Annulla")
-        .setEmoji(`<:vegax:1443934876440068179>`)
-        .setStyle(ButtonStyle.Danger)
-        .setDisabled(disableCancel),
-    );
-  }
-  components.push(
-    new ButtonBuilder()
-      .setCustomId(`pause_list:${userId}:${pauseId}`)
-      .setEmoji(`<:customprofile:1443925456972808304>`)
-      .setLabel("Lista pause")
-      .setStyle(ButtonStyle.Secondary),
-  );
-  return new ActionRowBuilder().addComponents(components);
+function buildRequestButtonsRow(_userId?, _pauseId?, _disabled = false) {
+  return buildPauseInboxLinkRow();
+}
+
+function buildAcceptedButtonsRow(_userId?, _pauseId?, _options: Record<string, any> = {}) {
+  return buildPauseInboxLinkRow();
 }
 
 async function getPauseReasonFromMessage(client?, pause?) {
@@ -1037,11 +1012,6 @@ function schedulePauseStatusRefresh(guild?, userId?, pause?) {
   const flags = pauseStatusRefreshScheduled.get(key) || { start: false, end: false };
   const runPhaseSync = () => {
         syncAcceptedPauseMessagePhaseOnly(guild, userId, pause).catch(() => null);
-    try {
-      const { scheduleStaffListRefresh } = require("../Community/staffListUtils") as typeof import("../Community/staffListUtils");
-      scheduleStaffListRefresh(guild.client, guild.id, 800);
-    } catch {
-          }
   };
       const startAt = getRomeDayStartUtcMs(start) ?? start.getTime();
   const dayAfterEnd = new Date(end.getTime() + MS_PER_DAY);
@@ -1433,11 +1403,6 @@ async function cancelOpenPausesOnMemberLeave(guild?, userId?, options: Record<st
 
   if (cancelled > 0) {
     try {
-      const { scheduleStaffListRefresh } = require("../Community/staffListUtils") as typeof import("../Community/staffListUtils");
-      scheduleStaffListRefresh(guild.client || options.client, guildId, 800);
-    } catch {
-    }
-    try {
       const { broadcastSiteStaffPausesChanged } = require("../../Web/siteSuggestionsBroadcast") as typeof import("../../Web/siteSuggestionsBroadcast");
       broadcastSiteStaffPausesChanged();
     } catch {
@@ -1471,7 +1436,7 @@ async function applyCancelledPauseContentToMessage(channel?, messageId?, content
   if (!cancelledPauseMessageLooksStale(msg.content) && /aveva una pausa \*\*annullata\*\*/i.test(String(msg.content || ""))) {
     return false;
   }
-  const components = [buildAcceptedButtonsRow(userId, pauseId, { hideCancel: true })];
+  const components = [buildPauseInboxLinkRow()];
   const edited = await msg.edit({ content, components }).catch((err?) => {
     global.logger?.warn?.("[PAUSE] cancelled message rewrite failed:", String(messageId), err?.message || err);
     return null;

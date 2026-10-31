@@ -624,9 +624,16 @@ function startTestGuildMirrorSyncLoop(client?, intervalMs = DEFAULT_INTERVAL_MS)
   const tick = () => {
     void runTestGuildMirrorSync(client).then((out?) => {
       if (out?.ok) {
-        global.logger?.info?.(
-          `[TEST MIRROR] sync ok +r${out.stats?.rolesCreated || 0}/-${out.stats?.rolesDeleted || 0} +c${out.stats?.channelsCreated || 0}/-${out.stats?.channelsDeleted || 0} members=${out.members?.synced || 0}`,
-        );
+        const rC = Number(out.stats?.rolesCreated || 0);
+        const rD = Number(out.stats?.rolesDeleted || 0);
+        const cC = Number(out.stats?.channelsCreated || 0);
+        const cD = Number(out.stats?.channelsDeleted || 0);
+        const members = Number(out.members?.synced || 0);
+        if (rC || rD || cC || cD || members) {
+          global.logger?.info?.(
+            `[TEST MIRROR] sync +r${rC}/-${rD} +c${cC}/-${cD} members=${members}`,
+          );
+        }
       } else if (out?.reason && out.reason !== "in_flight") {
         global.logger?.warn?.(`[TEST MIRROR] sync skip/fail: ${out.reason}`);
       }
@@ -635,7 +642,6 @@ function startTestGuildMirrorSyncLoop(client?, intervalMs = DEFAULT_INTERVAL_MS)
   setTimeout(tick, 90_000);
   mirrorTimer = setInterval(tick, ms);
   if (typeof mirrorTimer.unref === "function") mirrorTimer.unref();
-  global.logger?.info?.(`[TEST MIRROR] loop ogni ${Math.round(ms / 3600000)}h`);
   return mirrorTimer;
 }
 

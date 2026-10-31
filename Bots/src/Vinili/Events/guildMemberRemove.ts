@@ -5,7 +5,6 @@ const { ActivityUserProfile, UserLeaveBackup, ACTIVITY_MAIN_GUILD_ID } = require
 const { sponsorMainLeave } = require("../Utils/Community/activityUserProfilePaths") as typeof import("../Utils/Community/activityUserProfilePaths");
 const IDs = require("../Utils/Config/ids") as typeof import("../Utils/Config/ids");
 const { getGuildChannelCached, getClientGuildCached } = require("../Utils/Interaction/interactionEntityCache") as typeof import("../Utils/Interaction/interactionEntityCache");
-const { scheduleStaffListRefresh, memberHasStaffRole, } = require("../Utils/Community/staffListUtils") as typeof import("../Utils/Community/staffListUtils");
 const { scheduleMemberCounterRefresh } = require("../Utils/Community/memberCounterUtils") as typeof import("../Utils/Community/memberCounterUtils");
 const { getStaffRoleEmojiByRoleId } = require("../Utils/Community/staffRoleEmoji") as typeof import("../Utils/Community/staffRoleEmoji");
 const { queueIdsCatalogSync } = require("../Utils/Config/idsAutoSync") as typeof import("../Utils/Config/idsAutoSync");
@@ -826,12 +825,6 @@ export = {
       if (member?.user?.bot && member?.guild?.id) {
         if (client) queueIdsCatalogSync(client, member.guild.id, "botLeave");
       }
-      if (member?.guild?.id === IDs.guilds.main) {
-        if (client && memberHasStaffRole(member)) {
-          scheduleStaffListRefresh(client, member.guild.id);
-        }
-      }
-
       if (
         member?.user &&
         !member.user.bot &&

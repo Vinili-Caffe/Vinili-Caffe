@@ -8,7 +8,6 @@ const { isStarWarsRuntimeDisabled } = require("./runtimeKillSwitch") as typeof i
 
 function registerStarWarsPlugin(client?) {
   if (isStarWarsRuntimeDisabled(client)) {
-    global.logger?.info?.("[EventPlugin:starwars] disabled — skip minigames loop");
     return { ok: true, enabled: false };
   }
   try {

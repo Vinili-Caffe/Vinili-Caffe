@@ -58,6 +58,6 @@ export = (client?) => {
 
     const LOG_TRIGGERS = String(process.env.LOG_TRIGGERS || process.env.LOG_COMMANDS || "0") === "1";
     if (LOG_TRIGGERS) global.logger.info(table.toString());
-    global.logger.info(`[TRIGGERS] Loaded ${loaded} triggers.`);
+    /* Conteggio incluso in [BOOT] Loaded modules. */
   };
 };

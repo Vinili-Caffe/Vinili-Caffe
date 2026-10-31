@@ -113,32 +113,6 @@ function isDiscordTicketsEnabled() {
   return envFlagOn("DISCORD_TICKETS_UI");
 }
 
-function profileMovedToSiteMessage() {
-  const url = siteWorkflowUrl("userPersonalize");
-  let staffCmdsMention = "#staff-cmds";
-  try {
-    const IDs = require("../Utils/Config/ids") as typeof import("../Utils/Config/ids");
-    const id = String(IDs.channels?.staffCmds || "").trim();
-    if (/^\d{16,20}$/.test(id)) staffCmdsMention = `<#${id}>`;
-  } catch (_) {}
-  return `<a:VC_Alert:1482706673176150077> Il **profilo community** si gestisce **solo sul sito**:\n${url}\n\nPartner Manager: usa \`+profile\` nel thread **Comandi Partner Manager** sotto ${staffCmdsMention}.`;
-}
-
-async function replyProfileMovedToSite(interaction?) {
-  const content = profileMovedToSiteMessage();
-  const row = buildSiteLinkRow("Apri il tuo profilo", siteWorkflowPath("userPersonalize"));
-  try {
-    if (interaction?.deferred || interaction?.replied) {
-      await interaction.followUp({ content, components: [row], flags: EPHEMERAL }).catch(() => null);
-      return true;
-    }
-    await interaction.reply({ content, components: [row], flags: EPHEMERAL }).catch(() => null);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 function siteWorkflowPath(kind?) {
   return WORKFLOW_SITE_PATHS[kind] || WORKFLOW_SITE_PATHS.inbox;
 }
@@ -177,33 +151,6 @@ function buildInboxManageLinkRow(queue?) {
   return buildSiteLinkRow("Gestisci sul sito", siteWorkflowPath(kind));
 }
 
-function workflowMovedToSiteMessage(kind?) {
-  const url = siteWorkflowUrl(kind);
-  return `<a:VC_Alert:1482706673176150077> Questa pratica si gestisce **solo sul sito**:\n${url}`;
-}
-
-async function replyWorkflowMovedToSite(interaction?, kind?) {
-  const content = workflowMovedToSiteMessage(kind);
-  const path = siteWorkflowPath(kind);
-  const components = [buildSiteLinkRow(kind === "tickets" ? "Apri i ticket sul sito" : "Apri sul sito", path)];
-  const payload = { content, components, flags: EPHEMERAL };
-  try {
-    const { safeReply } = require("../../shared/discord/replyRuntime") as typeof import("../../shared/discord/replyRuntime");
-    const ok = await safeReply(interaction, payload).catch(() => false);
-    if (ok) return true;
-  } catch (_) {}
-  try {
-    if (interaction?.deferred || interaction?.replied) {
-      await interaction.followUp(payload).catch(() => null);
-      return true;
-    }
-    await interaction.reply(payload).catch(() => null);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 export = {
   isDiscordWorkflowUiEnabled,
   isDiscordWorkflowChannelPostsEnabled,
@@ -211,8 +158,6 @@ export = {
   isDiscordProfileEnabled,
   isTenantPrefixProfileEmbedAllowed,
   isDiscordTicketsEnabled,
-  profileMovedToSiteMessage,
-  replyProfileMovedToSite,
   newSiteWorkflowMessageId,
   isWorkflowMessageId,
   sitePublicOrigin,
@@ -228,7 +173,5 @@ export = {
   buildSiteLinkRow,
   subjectWorkflowChatPath,
   buildInboxManageLinkRow,
-  workflowMovedToSiteMessage,
-  replyWorkflowMovedToSite,
   WORKFLOW_SITE_PATHS,
 };

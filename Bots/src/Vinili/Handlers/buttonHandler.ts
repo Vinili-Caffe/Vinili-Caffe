@@ -52,6 +52,11 @@ export = (client?) => {
 
     for (const fullPath of allPaths) {
       const key = path.relative(dir, fullPath);
+      const fileName = path.basename(fullPath).replace(/\.(cjs|mjs|js|cts|mts|ts)$/i, "");
+      /* Skip prima del require: file stale in REMOVED non devono crashare il boot. */
+      if (REMOVED_BUTTON_HANDLER_NAMES.has(String(fileName).trim())) {
+        continue;
+      }
       try {
         delete require.cache[require.resolve(fullPath)];
         const mod = require(fullPath);
@@ -59,7 +64,7 @@ export = (client?) => {
           global.logger?.warn?.(`[BUTTON_HANDLERS] ${key}: missing match/execute, skipped.`);
           continue;
         }
-        const name = mod.name || path.basename(fullPath).replace(/\.(cjs|mjs|js|cts|mts|ts)$/i, "");
+        const name = mod.name || fileName;
         if (REMOVED_BUTTON_HANDLER_NAMES.has(String(name).trim())) {
           continue;
         }
@@ -76,7 +81,7 @@ export = (client?) => {
 
     loaded.sort((a?, b?) => a.order - b.order || String(a.name).localeCompare(String(b.name)));
     client.buttonHandlers = loaded;
-    global.logger?.info?.(`[BUTTON_HANDLERS] Loaded ${client.buttonHandlers.length} button handlers.`);
+    /* Conteggio incluso in [BOOT] Loaded modules. */
     return client.buttonHandlers;
   };
 };

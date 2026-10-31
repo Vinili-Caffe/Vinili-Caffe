@@ -2,7 +2,7 @@ const { EmbedBuilder, PermissionsBitField, AuditLogEvent, MessageType, } = requi
 const { DIVIDER_URL } = require("../../../shared/discord/constants") as typeof import("../../../shared/discord/constants");
 const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
 const { getGuildChannelCached, getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache") as typeof import("../../Utils/Interaction/interactionEntityCache");
-const { scheduleStaffListRefresh, didStaffMembershipChange, didStaffListDisplayRolesChange, memberHasStaffRole } = require("../../Utils/Community/staffListUtils") as typeof import("../../Utils/Community/staffListUtils");
+const { didStaffMembershipChange, didStaffListDisplayRolesChange, memberHasStaffRole } = require("../../Utils/Community/staffListUtils") as typeof import("../../Utils/Community/staffListUtils");
 const { memberHasPartnerManagerRole, memberHasAnyStaffPresenceForDepexSync, buildStaffPartnerManagerIdUnsetUpdate } = require("../../Utils/Staff/staffPmUtils") as typeof import("../../Utils/Staff/staffPmUtils");
 const { deleteStaffPauseRequestChannelMessages, deleteStaffRelatedMessagesFromConfiguredChannels, ensureStaff, archiveStaffRolesHistoryThenUnsetStaff, } = require("../../Utils/Staff/staffDocUtils") as typeof import("../../Utils/Staff/staffDocUtils");
 const { ActivityUserProfile, CustomRole } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
@@ -3164,7 +3164,6 @@ export = {
           await recordManualStaffRoleHistoryIfNeeded(oldMember, newMember).catch((err?) => {
             global.logger?.warn?.("[guildMemberUpdate] manual staff rolesHistory:", newMember.id, err?.message || err);
           });
-          scheduleStaffListRefresh(botClient, newMember.guild.id);
           const oldRank = getMemberStaffRankRoleId(oldMember);
           const newRank = getMemberStaffRankRoleId(newMember);
           if (oldRank !== newRank) {

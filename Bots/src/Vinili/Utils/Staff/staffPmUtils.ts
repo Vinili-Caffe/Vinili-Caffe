@@ -1,6 +1,6 @@
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
 const IDs = require("../Config/ids") as typeof import("../Config/ids");
-const { memberHasStaffRole, queueStaffListRefreshAfterRoleMutation } = require("../Community/staffListUtils") as typeof import("../Community/staffListUtils");
+const { memberHasStaffRole } = require("../Community/staffListUtils") as typeof import("../Community/staffListUtils");
 const {
   deleteStaffPauseRequestChannelMessages,
   deleteStaffRelatedMessagesFromConfiguredChannels,
@@ -84,7 +84,6 @@ async function syncStaffDbAndPauseChannelAfterDepex(guild?, userId?, member?) {
     (await guild.members.fetch({ user: uid, force: true }).catch(() => null)) || member;
   if (memberHasAnyStaffPresenceForDepexSync(verified)) {
     await applyStaffDatabaseAfterDepex(gid, uid, verified);
-    queueStaffListRefreshAfterRoleMutation(guild.client, gid);
     return;
   }
   const doc = await ActivityUserProfile.findOne({ guildId: gid, userId: uid }, { staff: 1 }).lean().catch(() => null);
@@ -100,7 +99,6 @@ async function syncStaffDbAndPauseChannelAfterDepex(guild?, userId?, member?) {
     global.logger?.warn?.("[staffPmUtils] cancel pending resoconti on depex:", uid, err?.message || err);
   }
   await applyStaffDatabaseAfterDepex(gid, uid, verified);
-  queueStaffListRefreshAfterRoleMutation(guild.client, gid);
 }
 
 export = {

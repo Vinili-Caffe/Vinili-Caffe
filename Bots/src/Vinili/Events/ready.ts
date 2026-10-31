@@ -930,7 +930,6 @@ async function processPendingPrefixCommands(client?) {
   const collected = [];
   const seenIds = new Set();
   const scanStartedAt = Date.now();
-  global.logger?.info?.("[READY] Avvio scan prefix in sospeso…");
 
   const scanChannel = async (channel?, guildPrefix?, me?) => {
     const perms = me ? channel.permissionsFor(me) : null;
@@ -967,10 +966,7 @@ async function processPendingPrefixCommands(client?) {
 
   const executeCollected = async (rows?, label?) => {
     rows.sort((a?, b?) => a.ts - b.ts);
-    if (!rows.length) {
-      global.logger?.info?.(`[READY] ${label}: nessun prefix da recuperare.`);
-      return;
-    }
+    if (!rows.length) return;
     const loadingN = rows.filter((row?) => row.reason === "loading").length;
     global.logger?.info?.(
       `[READY] ${label}: recupero ${rows.length} prefix (loading=${loadingN}, orphan=${rows.length - loadingN}).`,
@@ -1040,9 +1036,11 @@ async function processPendingPrefixCommands(client?) {
     client.__pendingPrefixRecoveryActive = false;
   }
 
-  global.logger?.info?.(
-    `[READY] Scan prefix in sospeso completato (total=${collected.length}, scanMs=${Date.now() - scanStartedAt}).`,
-  );
+  if (collected.length) {
+    global.logger?.info?.(
+      `[READY] Scan prefix completato (total=${collected.length}, scanMs=${Date.now() - scanStartedAt}).`,
+    );
+  }
 }
 
 function isPrimaryScheduler(client?) {
@@ -1155,12 +1153,7 @@ async function runStartupPanels(client?, label = "immediate") {
     ttlMs: STARTUP_PANELS_TTL_MS,
     forceEnv: "STARTUP_PANELS",
   });
-  if (!decision.run) {
-    global.logger?.info?.(
-      `[STARTUP] Panels skipped (${decision.reason}; TTL ${Math.round(STARTUP_PANELS_TTL_MS / 3600000)}h). STARTUP_PANELS=1 o FULL_STARTUP_SYNC=1 per forzare.`,
-    );
-    return;
-  }
+  if (!decision.run) return;
 
   client._startupPanelsRefreshRunning = true;
   const panelsStartedAt = Date.now();
@@ -1188,13 +1181,9 @@ async function runDeferredStartup(client?, primaryScheduler?, engagementTick?) {
   const startupTasks = buildDeferredStartupTasks(client, primaryScheduler, engagementTick);
   const hooks = createStartupHooks(client);
   const startedAt = Date.now();
-  const fullSync = isFullStartupSyncEnabled();
-  if (!fullSync) {
-    global.logger?.info?.("[STARTUP] Fast path: recovery/sync pesanti saltati (FULL_STARTUP_SYNC=1 per forzarli).");
-  }
   const summary = await runPhasedStartupTasks(startupTasks, hooks, { mediumConcurrency: 4 });
   global.logger?.info?.(
-    `[STARTUP] phased startup queued: fast=${summary.fastResults.length} medium=${summary.mediumResults.length} heavy=${summary.heavyCount} in ${formatDurationMs(Date.now() - startedAt)}.`,
+    `[STARTUP] ready: fast=${summary.fastResults.length} medium=${summary.mediumResults.length} heavy=${summary.heavyCount} in ${formatDurationMs(Date.now() - startedAt)}${isFullStartupSyncEnabled() ? " (full sync)" : ""}.`,
   );
 }
 
@@ -1559,8 +1548,6 @@ export = {
           });
       }, CLEANUP_USERS_NOT_IN_SERVER_DELAY_MS);
       if (t?.unref) t.unref();
-    } else if (!cleanupDisabled) {
-      global.logger?.info?.("[STARTUP] Cleanup utenti non in server saltato (throttle); FULL_STARTUP_SYNC=1 per forzare.");
     }
     if (CLEANUP_USERS_NOT_IN_SERVER_INTERVAL_MS > 0) {
       const iv = setInterval(() => {

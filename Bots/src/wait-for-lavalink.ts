@@ -170,7 +170,6 @@ function checkLavalinkStatus() {
       scheduleNextCheck(intervalMs);
       return;
     }
-    console.log("[wait-for-lavalink] Lavalink raggiungibile, attendo " + settleMs / 1000 + "s (stabilizzazione JVM)...");
     settleTimer = setTimeout(() => {
       settleTimer = null;
       check().then((stillOk?) => {
@@ -198,13 +197,6 @@ if (blockUntilReady) {
       "; il backend parte solo dopo il primo check TCP OK (LAVALINK_BLOCK_STARTUP=1).",
   );
 } else {
-  console.log(
-    "[wait-for-lavalink] Avvio immediato del backend; Lavalink su " +
-      host +
-      ":" +
-      port +
-      " viene monitorato in background (musica si collega quando pronto).",
-  );
   runLoader();
 }
 

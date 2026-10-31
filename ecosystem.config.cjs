@@ -55,8 +55,8 @@ const HA_RESTART = Object.freeze({
   watch: false,
   min_uptime: "20s",
   max_restarts: 40,
+  /* Delay fisso (no exp_backoff): PM2 loggava "Reset the restart delay…" a ogni boot stabile. */
   restart_delay: 2500,
-  exp_backoff_restart_delay: 1000,
   kill_timeout: 10000,
 });
 

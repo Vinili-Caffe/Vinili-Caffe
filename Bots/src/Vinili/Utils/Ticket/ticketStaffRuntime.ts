@@ -81,24 +81,8 @@ function messageIsPlusTicketStaffPanel(message?) {
   return false;
 }
 
-async function refreshTicketStaffPanelsInChannel(channel?, ticketDoc?) {
-  if (!channel?.messages?.fetch || !ticketDoc) return;
-  const { buildTicketStaffPanelPayload } = require("../../Utils/Ticket/ticketStaffPanelBuild") as typeof import("../../Utils/Ticket/ticketStaffPanelBuild");
-  const recent = await channel.messages.fetch({ limit: 40 }).catch(() => null);
-  if (!recent) return;
-
-  for (const panelMsg of recent.values()) {
-    if (!messageIsPlusTicketStaffPanel(panelMsg) || !panelMsg.editable) continue;
-    const refId = panelMsg.reference?.messageId;
-    if (!refId) continue;
-    const refMsg = recent.get(refId) || (await channel.messages.fetch(refId).catch(() => null));
-    const authorId = refMsg?.author?.id;
-    if (!authorId || refMsg?.author?.bot) continue;
-    const member = await getGuildMemberCached(channel.guild, authorId).catch(() => null);
-    if (!member) continue;
-    const { embed, components } = buildTicketStaffPanelPayload(member, channel, ticketDoc);
-    await panelMsg.edit({ embeds: [embed], components }).catch(() => {});
-  }
+async function refreshTicketStaffPanelsInChannel(_channel?, _ticketDoc?) {
+  /* ticket_panel_nav_* handlers removed — no Discord staff nav panel refresh */
 }
 
 function canClaimTicket(member?, ticketType?, _guildId = null) {

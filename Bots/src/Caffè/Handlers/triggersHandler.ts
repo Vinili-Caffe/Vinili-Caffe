@@ -59,6 +59,6 @@ export = (client?) => {
       }
       global.logger.info(table.toString());
     }
-    global.logger.info(`[TRIGGERS] Loaded ${loaded} triggers.`);
+    /* Conteggio incluso in [BOOT] Loaded modules. */
   };
 };
