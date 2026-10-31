@@ -40,20 +40,28 @@ function joinMentionsNicely(mentions?) {
   return `${mentions.slice(0, -1).join(", ")} e ${mentions[mentions.length - 1]}`;
 }
 
+const BIRTHDAY_PERSONALIZZA_URL = "https://www.viniliecaffe.it/personalizza/";
+const BIRTHDAY_CTA =
+  `<a:VC_Arrow:1482706699365257397> Vuoi festeggiare anche tu? Aggiungi il compleanno su ${BIRTHDAY_PERSONALIZZA_URL} — il giorno del tuo compleanno ricevi un **multi EXP ×2** per tutta la giornata.`;
+
 function buildBirthdayAnnouncement(docs?, currentYear?) {
   const mentions = docs.map((doc?) => `<@${doc.userId}>`);
   const who = joinMentionsNicely(mentions);
   const intro = `<:creation:1461732905016492220> Oggi è il compleanno di ${who}.`;
 
-  const visibleAges = docs.filter((doc?) => doc.showAge && Number.isFinite(Number(doc.birthYear))).map((doc?) => Math.max(1, currentYear - Number(doc.birthYear)));
+  const visibleAges = docs
+    .filter((doc?) => doc.showAge && Number.isFinite(Number(doc.birthYear)))
+    .map((doc?) => Math.max(1, currentYear - Number(doc.birthYear)));
 
+  let body = "";
   if (!visibleAges.length) {
-    return `${intro}\n<a:VC_Events:1482706144953897223> Fate gli auguri!`;
+    body = `${intro}\n<a:VC_Events:1482706144953897223> Fate gli auguri!`;
+  } else if (visibleAges.length === 1) {
+    body = `${intro}\n<a:VC_Events:1482706144953897223> Oggi compie **${visibleAges[0]}** anni. Tantissimi auguri — e un **×2 EXP** per oggi.`;
+  } else {
+    body = `${intro}\n<a:VC_Events:1482706144953897223> Oggi compiono **${visibleAges.join(", ")}** anni. Tantissimi auguri — multi **×2 EXP** per tutta la giornata.`;
   }
-  if (visibleAges.length === 1) {
-    return `${intro}\n<a:VC_Events:1482706144953897223> Oggi compie ${visibleAges[0]} anni. Tantissimi auguri.`;
-  }
-  return `${intro}\n<a:VC_Events:1482706144953897223> Oggi compiono ${visibleAges.join(", ")} anni. Tantissimi auguri.`;
+  return `${body}\n\n${BIRTHDAY_CTA}`;
 }
 
 function isMemberGoneError(err?) {
@@ -159,8 +167,26 @@ async function deliverBirthdayAnnouncementsForGuild(guild?, guildDocs?, today?) 
   }
 }
 
-async function tryCelebrateBirthdayAfterProfileSave(client?, guildId?, userId?) {
+/**
+ * Accetta (client, guildId, userId) oppure (guild, userId, client?) — fix legacy call invertita.
+ */
+async function tryCelebrateBirthdayAfterProfileSave(arg1?, arg2?, arg3?) {
+  let client = null;
+  let guildId = "";
+  let userId = "";
+  let guildHint = null;
+  if (arg1 && (arg1.guilds?.cache || typeof arg1.guilds?.fetch === "function")) {
+    client = arg1;
+    guildId = String(arg2 || "").trim();
+    userId = String(arg3 || "").trim();
+  } else if (arg1?.id && (arg1.members || arg1.client)) {
+    guildHint = arg1;
+    client = arg1.client || arg3 || null;
+    guildId = String(arg1.id || "").trim();
+    userId = String(arg2 || "").trim();
+  }
   if (!client || !guildId || !userId) return;
+
   const today = getRomeDateParts(new Date());
   const doc = await ActivityUserProfile.findOne({ guildId: String(guildId), userId: String(userId) })
     .select("_id guildId userId profile.birthday")
@@ -172,11 +198,26 @@ async function tryCelebrateBirthdayAfterProfileSave(client?, guildId?, userId?) 
   if (Number(b.day) !== today.day || Number(b.month) !== today.month) return;
   if (Number(b.lastCelebratedYear) === today.year) return;
 
-  const guild = client.guilds.cache.get(String(guildId)) || (await client.guilds.fetch(String(guildId)).catch(() => null));
+  const guild =
+    guildHint ||
+    client.guilds.cache.get(String(guildId)) ||
+    (await client.guilds.fetch(String(guildId)).catch(() => null));
   if (!guild) return;
 
   const guildDocs = [{ _id: doc._id, guildId: doc.guildId, userId: doc.userId, ...b }];
   await deliverBirthdayAnnouncementsForGuild(guild, guildDocs, today);
+}
+
+/** True se giorno/mese non si possono più cambiare (annuncio già uscito quest'anno o ruolo flair attivo). */
+async function isBirthdayDayChangeLocked(guild?, userId?, currentBirthday?) {
+  const today = getRomeDateParts(new Date());
+  const celebratedThisYear = Number(currentBirthday?.lastCelebratedYear) === today.year;
+  if (celebratedThisYear) return true;
+  if (!guild || !userId || !BIRTHDAY_ROLE_ID) return false;
+  const member =
+    guild.members?.cache?.get?.(String(userId)) ||
+    (await getGuildMemberCached(guild, String(userId)).catch(() => null));
+  return Boolean(member?.roles?.cache?.has?.(BIRTHDAY_ROLE_ID));
 }
 
 async function runBirthdayTick(client?, opts: Record<string, any> = {}) {
@@ -276,4 +317,6 @@ export = {
   inferBirthYearFromAge,
   getBirthdayLoopStatus,
   tryCelebrateBirthdayAfterProfileSave,
+  isBirthdayDayChangeLocked,
+  BIRTHDAY_ROLE_ID,
 };

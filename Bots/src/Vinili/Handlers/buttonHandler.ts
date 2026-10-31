@@ -24,6 +24,12 @@ const REMOVED_BUTTON_HANDLER_NAMES = new Set([
   "myrepostPagination",
   "myclipPagination",
   "colorsCommand",
+  "candidature",
+  "ticket",
+  "websiteUnbanSite",
+  "websiteUnmuteSite",
+  "resoconto",
+  "profile",
 ]);
 
 function isNonHandlerFile(relativeKey?) {

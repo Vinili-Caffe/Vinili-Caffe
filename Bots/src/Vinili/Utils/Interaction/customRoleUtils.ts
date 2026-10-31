@@ -205,12 +205,12 @@ function sanitizeVoiceBaseName(name?) {
   return clean;
 }
 
-/* discordNameEmoji1: SEP = U+01C0 ǀ (lettera). Win/font fallback trasformava
-   U+FE32 ︰ in "-" sul sito; |/│/｜ venivano sanitizzati. */
-const CUSTOM_VOC_SEP = "\u01C0";
+/* discordNameEmoji1: SEP = U+FE32 ︲ (come vocali pubbliche / stage).
+   U+01C0 ǀ restava illeggibile su Discord; il sito mappa FE32 in canvasUtils. */
+const CUSTOM_VOC_SEP = "\uFE32";
 const CUSTOM_VOC_SEPARATORS = [
   CUSTOM_VOC_SEP,
-  "\uFE32",
+  "\u01C0",
   "\u2758",
   "︲",
   "|",

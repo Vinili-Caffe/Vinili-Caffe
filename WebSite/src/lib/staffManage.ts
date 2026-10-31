@@ -50,9 +50,13 @@ export type ManageMemberDetail = ManageIdentity & {
   canPexProspect?: boolean;
   prospectPexChoices?: ManageProspectChoice[];
   canPexPm?: boolean;
+  canPexBlogger?: boolean;
   canDepexLadder?: boolean;
   canDepexPm?: boolean;
+  canDepexBlogger?: boolean;
   canDepexFull?: boolean;
+  isBlogger?: boolean;
+  isBloggerOnly?: boolean;
   careerRankBlocked?: boolean;
   careerRankBlockMessage?: string | null;
   viewerIsFounder?: boolean;
@@ -95,6 +99,7 @@ export type ManagePayload = {
 export type ManageAction =
   | "pex"
   | "pex_pm"
+  | "pex_blogger"
   | "pex_helper"
   | "pex_mod"
   | "pex_senior_moderator"
@@ -103,6 +108,7 @@ export type ManageAction =
   | "pex_manager"
   | "depex"
   | "depex_pm"
+  | "depex_blogger"
   | "depex_full"
   | "val_pos"
   | "val_neg"
@@ -142,6 +148,7 @@ export function postManage(
 export const ACTION_LABELS: Record<string, string> = {
   pex: "Pex",
   pex_pm: "Pex → Partner Manager",
+  pex_blogger: "Pex → Blogger",
   pex_helper: "Pex → Helper",
   pex_mod: "Pex → Mod",
   pex_senior_moderator: "Pex → Senior Moderator",
@@ -150,6 +157,7 @@ export const ACTION_LABELS: Record<string, string> = {
   pex_manager: "Pex → Manager",
   depex: "Depex (scala)",
   depex_pm: "Depex Partner Manager",
+  depex_blogger: "Depex Blogger",
   depex_full: "Depex completo",
   val_pos: "Valutazione +",
   val_neg: "Valutazione −",

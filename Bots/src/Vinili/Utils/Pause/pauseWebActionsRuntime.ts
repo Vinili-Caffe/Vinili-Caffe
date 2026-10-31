@@ -1,7 +1,6 @@
 const IDs = require("../Config/ids") as typeof import("../Config/ids");
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
 const { getGuildMemberCached, resolveGuildMemberPresence } = require("../Interaction/interactionEntityCache") as typeof import("../Interaction/interactionEntityCache");
-const { maybeRepositionPauseSticky } = require("./pauseStickyPanelRuntime") as typeof import("./pauseStickyPanelRuntime");
 const { scheduleStaffListRefresh } = require("../Community/staffListUtils") as typeof import("../Community/staffListUtils");
 const {
   MS_PER_DAY,
@@ -464,16 +463,9 @@ async function acceptPauseRequestWeb(client?, guild?, actorMember?, userId?, pau
     const msg = await fetchPauseRequestMessage(guild, targetPause);
     const pauseChannel = msg?.channel || null;
     const {
-      isDiscordWorkflowUiEnabled,
       buildInboxManageLinkRow,
     } = require("../../Web/discordWorkflowUiGate") as typeof import("../../Web/discordWorkflowUiGate");
-    const discordUi = isDiscordWorkflowUiEnabled();
-    const buttonsRow = discordUi
-      ? buildAcceptedButtonsRow(userId, pauseId, {
-          hideCancel: false,
-          disableCancel: pauseAlreadyEnded,
-        })
-      : buildInboxManageLinkRow("pause");
+    const buttonsRow = buildInboxManageLinkRow("pause");
     const msgComponents = buttonsRow ? [buttonsRow] : [];
 
     if (roleChoice === PAUSE_ROLE_BOTH) {
@@ -535,7 +527,6 @@ async function acceptPauseRequestWeb(client?, guild?, actorMember?, userId?, pau
     }
 
     scheduleStaffListRefresh(client, guildId, 800);
-    if (pauseChannel) void maybeRepositionPauseSticky(pauseChannel, client).catch(() => null);
     invalidateStaffPauseCalendarCache();
     notifyStaffPauseCalendarChanged(userId);
     try {
@@ -640,13 +631,9 @@ async function cancelPauseRequestWeb(client?, guild?, actorMember?, userId?, pau
     });
 
     const {
-      isDiscordWorkflowUiEnabled,
       buildInboxManageLinkRow,
     } = require("../../Web/discordWorkflowUiGate") as typeof import("../../Web/discordWorkflowUiGate");
-    const discordUi = isDiscordWorkflowUiEnabled();
-    const buttonsRow = discordUi
-      ? buildAcceptedButtonsRow(userId, pauseId, { hideCancel: true })
-      : buildInboxManageLinkRow("pause");
+    const buttonsRow = buildInboxManageLinkRow("pause");
     const msgComponents = buttonsRow ? [buttonsRow] : [];
 
     const staffMsg = await fetchPauseRequestMessage(guild, targetPause);
@@ -668,7 +655,6 @@ async function cancelPauseRequestWeb(client?, guild?, actorMember?, userId?, pau
           content: `<:cancel:1461730653677551691> Pausa annullata per <@${userId}> (via sito · ${actorTag}). <a:VC_Calendar:1482706208149475358> Giorni scalati: \`${consumedForCancelledPause}\`. <:VC_Clock:1473359204189474886> Totale usati: \`${giorniTotaliUsati}/${maxGiorni}\` (\`${giorniRimanenti}\` rimanenti).`,
         })
         .catch(() => null);
-      void maybeRepositionPauseSticky(pauseChannel, client).catch(() => null);
     }
 
     scheduleStaffListRefresh(client, guildId, 800);

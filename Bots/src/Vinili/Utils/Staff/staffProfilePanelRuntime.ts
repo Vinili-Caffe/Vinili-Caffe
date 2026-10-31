@@ -48,7 +48,7 @@ const PROFILE_FULL = "full";
 const PROFILE_PM_ONLY = "pm_only";
 const PROFILE_PROSPECT = "prospect";
 const STAFF_ROLE_PRIORITY = [String(IDs.roles.Director), String(IDs.roles.SeniorModerator), String(IDs.roles.Mod), String(IDs.roles.Helper), String(IDs.roles.Staff)].filter(Boolean);
-const STAFF_PROFILE_DISPLAY_ROLE_PRIORITY = [IDs.roles.Founder, IDs.roles.Manager, IDs.roles.Admin, IDs.roles.Director, IDs.roles.HighStaff, String(IDs.roles.SeniorModerator), String(IDs.roles.Mod), String(IDs.roles.Helper), IDs.roles.PartnerManager, String(IDs.roles.Staff)].filter(Boolean);
+const STAFF_PROFILE_DISPLAY_ROLE_PRIORITY = [IDs.roles.Founder, IDs.roles.Manager, IDs.roles.Admin, IDs.roles.Director, IDs.roles.HighStaff, String(IDs.roles.SeniorModerator), String(IDs.roles.Mod), String(IDs.roles.Helper), IDs.roles.PartnerManager, String(IDs.roles.Staff), IDs.roles.Blogger].filter(Boolean);
 const STAFF_LADDER_ROLE_IDS_FOR_PANEL = [String(IDs.roles.Helper), String(IDs.roles.Mod), String(IDs.roles.SeniorModerator), String(IDs.roles.Director), String(IDs.roles.Admin), String(IDs.roles.Manager), String(IDs.roles.Founder)].filter(Boolean).map((id?) => String(id));
 const STAFF_PANEL_NON_PM_ROLE_IDS = [String(IDs.roles?.Founder), String(IDs.roles?.Manager), String(IDs.roles?.Admin), String(IDs.roles?.Director), String(IDs.roles?.HighStaff), String(IDs.roles?.SeniorModerator), String(IDs.roles?.Mod), String(IDs.roles?.Helper), String(IDs.roles?.Staff)].filter(Boolean).map((id?) => String(id));
 const STAFF_PANEL_NAV_ROLE_PRIORITY = [String(IDs.roles?.Founder), String(IDs.roles?.Manager), String(IDs.roles?.Admin), String(IDs.roles?.Director), String(IDs.roles?.HighStaff), String(IDs.roles?.SeniorModerator), String(IDs.roles?.Mod), String(IDs.roles?.Helper), String(IDs.roles?.Staff)].filter(Boolean).map((id?) => String(id));
@@ -218,6 +218,7 @@ function staffProfileRoleBadgeKind(roleId?) {
   if (IDs.roles.Founder && id === String(IDs.roles.Founder)) return "founder";
   if (IDs.roles.Manager && id === String(IDs.roles.Manager)) return "manager";
   if (IDs.roles.PartnerManager && id === String(IDs.roles.PartnerManager)) return "pm";
+  if (IDs.roles.Blogger && id === String(IDs.roles.Blogger)) return "blogger";
   if (IDs.roles.StafferDelMese && id === String(IDs.roles.StafferDelMese)) return "sdm";
   if (IDs.roles.StafferDellaSettimana && id === String(IDs.roles.StafferDellaSettimana)) return "sdw";
   if (IDs.roles.HighStaff && id === String(IDs.roles.HighStaff)) return "highstaff";
@@ -231,6 +232,7 @@ function staffProfileRoleBadgeIcon(kind?) {
   if (kind === "founder") return "fa-star-o";
   if (kind === "manager") return "fa-briefcase";
   if (kind === "pm") return "fa-handshake-o";
+  if (kind === "blogger") return "fa-pencil";
   if (kind === "sdm") return "fa-trophy";
   if (kind === "sdw") return "fa-star";
   if (kind === "highstaff") return "fa-shield";
@@ -316,6 +318,10 @@ function buildStaffProfileRoleBadges(guild?, member?) {
   }
   if (pmId && member.roles.cache.has(pmId)) {
     pushRoleBadgeIfMissing(badges, guild, pmId, "Partner Manager");
+  }
+  const bloggerId = String(IDs.roles.Blogger || "").trim();
+  if (bloggerId && member.roles.cache.has(bloggerId)) {
+    pushRoleBadgeIfMissing(badges, guild, bloggerId, "Blogger");
   }
   return appendStaffDelMeseBadge(
     guild,

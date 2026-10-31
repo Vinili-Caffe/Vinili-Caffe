@@ -1,6 +1,6 @@
 const IDs = require("../Utils/Config/ids") as typeof import("../Utils/Config/ids");
 const { ActivityUserProfile } = require("../Schemas/Community/communitySchemas") as typeof import("../Schemas/Community/communitySchemas");
-const { memberHasStaffRole, getStaffListPausedUserIds } = require("../Utils/Community/staffListUtils") as typeof import("../Utils/Community/staffListUtils");
+const { memberHasStaffRole, memberIsBlogger, getStaffListPausedUserIds } = require("../Utils/Community/staffListUtils") as typeof import("../Utils/Community/staffListUtils");
 const {
   resolveStaffProfileDisplayRoleId,
   buildFullProfileRoleLabelForEmbed,
@@ -21,6 +21,7 @@ const {
   runProfileStaffWarnRemove,
   runProspectStaffPex,
   runProspectStaffPexToPartnerManager,
+  runProspectStaffPexToBlogger,
   getHighestLadderRole,
   getNextLadderRoleId,
   peekDepexLadderTargetRoleId,
@@ -73,6 +74,7 @@ const { loadStaffTrackStatsByUserIds } = require("../Utils/Staff/staffLegacyMerg
 const MANAGE_ACTIONS = new Set([
   "pex",
   "pex_pm",
+  "pex_blogger",
   "pex_helper",
   "pex_mod",
   "pex_senior_moderator",
@@ -81,6 +83,7 @@ const MANAGE_ACTIONS = new Set([
   "pex_manager",
   "depex",
   "depex_pm",
+  "depex_blogger",
   "depex_full",
   "val_pos",
   "val_neg",
@@ -395,11 +398,14 @@ async function buildRoster(client?) {
   for (const sec of sections) {
     for (const m of sec.members) {
       const s = statsByUser.get(m.userId) || { positive: 0, negative: 0, warn: 0, pauses: [] };
-      const isPmOnly = String(m.profileKind || "").toLowerCase() === "pm_only";
+      const kind = String(m.profileKind || "").toLowerCase();
+      const isPmOnly = kind === "pm_only";
+      const isBloggerOnly = kind === "blogger_only";
       m.isPmOnly = isPmOnly;
+      m.isBloggerOnly = isBloggerOnly;
       m.isNew = Boolean(newBadgeByUser?.has?.(String(m.userId)));
       m.onPause = Boolean(m.onPause);
-      if (isPmOnly) {
+      if (isPmOnly || isBloggerOnly) {
         m.positive = 0;
         m.negative = 0;
         m.warn = 0;
@@ -530,10 +536,12 @@ async function buildMemberDetail(guild?, targetMember?, pausedSet?, viewerMember
   const staff = mergeStaffEmbedded(doc?.staff || {}, legacyMap.get(uid) || null);
   const displayRoleId = resolveStaffProfileDisplayRoleId(targetMember);
   let label = buildFullProfileRoleLabelForEmbed(guild, targetMember);
-  const profileKind = resolveStaffProfileKind(targetMember);
+  const isBloggerOnly = memberIsBlogger(targetMember) && !memberHasStaffRole(targetMember) && !memberIsPm(targetMember);
+  const profileKind = isBloggerOnly ? "blogger_only" : resolveStaffProfileKind(targetMember);
   const isPmOnly = profileKind === PROFILE_PM_ONLY || profileKind === "pm_only";
   const isProspect = profileKind === PROFILE_PROSPECT || profileKind === "prospect";
-  label = stripDiscordDecorations(label) || (isProspect ? "Member" : "Staff");
+  label = stripDiscordDecorations(label) || (isBloggerOnly ? "Blogger" : isProspect ? "Member" : "Staff");
+  if (isBloggerOnly && (!label || label === "—")) label = "Blogger";
   const ladderRoleId = getHighestLadderRole(targetMember) || null;
   const ladderRole = ladderRoleId ? guild.roles.cache.get(ladderRoleId) : null;
   const roleName = (roleId?) => {
@@ -554,7 +562,9 @@ async function buildMemberDetail(guild?, targetMember?, pausedSet?, viewerMember
   const prospectPexChoices =
     isPmOnly && memberIsPm(targetMember)
       ? buildProspectPexChoices(viewerMember, { fromPartnerManager: true })
-      : isProspect || (!ladderRoleId && !memberHasStaffRole(targetMember) && !memberIsPm(targetMember))
+      : isBloggerOnly ||
+          isProspect ||
+          (!ladderRoleId && !memberHasStaffRole(targetMember) && !memberIsPm(targetMember))
         ? buildProspectPexChoices(viewerMember, { fromPartnerManager: false })
         : [];
   const depexTargetLabel =
@@ -607,8 +617,10 @@ async function buildMemberDetail(guild?, targetMember?, pausedSet?, viewerMember
     displayRoleLabel: label,
     profileKind,
     isPmOnly,
+    isBloggerOnly: Boolean(isBloggerOnly),
     isProspect: Boolean(isProspect),
     isPm: memberIsPm(targetMember),
+    isBlogger: memberIsBlogger(targetMember),
     onPause: Boolean(pausedSet?.has?.(uid)),
     ladderRoleId,
     ladderRoleLabel: ladderRole ? stripDiscordDecorations(ladderRole.name) || ladderRole.name : null,
@@ -624,11 +636,16 @@ async function buildMemberDetail(guild?, targetMember?, pausedSet?, viewerMember
     canPexProspect: Boolean(prospectPexChoices.length && canCareerTouch),
     prospectPexChoices,
     canPexPm: Boolean(!memberIsPm(targetMember) && canCareerTouch),
+    canPexBlogger: Boolean(!memberIsBlogger(targetMember) && canCareerTouch),
     canDepexLadder: Boolean(ladderRoleId && !depexLadderIsMember && canCareerTouch),
     canDepexPm: Boolean(memberIsPm(targetMember) && canCareerTouch),
+    canDepexBlogger: Boolean(memberIsBlogger(targetMember) && canCareerTouch),
     canDepexFull: Boolean(
       canCareerTouch &&
-        (ladderRoleId || memberIsPm(targetMember) || memberHasStaffRole(targetMember)),
+        (ladderRoleId ||
+          memberIsPm(targetMember) ||
+          memberHasStaffRole(targetMember) ||
+          memberIsBlogger(targetMember)),
     ),
     careerRankBlocked: !canCareerTouch,
     careerRankBlockMessage: canCareerTouch
@@ -947,8 +964,14 @@ async function handleSiteStaffManagePost(client?, req?, res?) {
     const isProspectPexAction =
       action === "pex" ||
       action === "pex_pm" ||
+      action === "pex_blogger" ||
       Object.prototype.hasOwnProperty.call(PROSPECT_PEX_ROLE_BY_ACTION, action);
-    if (!memberHasStaffRole(targetMember) && !memberIsPm(targetMember) && !isProspectPexAction) {
+    if (
+      !memberHasStaffRole(targetMember) &&
+      !memberIsPm(targetMember) &&
+      !memberIsBlogger(targetMember) &&
+      !isProspectPexAction
+    ) {
       return res.status(400).json({
         ok: false,
         error: "not_staff",
@@ -960,8 +983,10 @@ async function handleSiteStaffManagePost(client?, req?, res?) {
     const isCareerAction =
       action === "pex" ||
       action === "pex_pm" ||
+      action === "pex_blogger" ||
       action === "depex" ||
       action === "depex_pm" ||
+      action === "depex_blogger" ||
       action === "depex_full" ||
       Object.prototype.hasOwnProperty.call(PROSPECT_PEX_ROLE_BY_ACTION, action);
     if (isCareerAction) {
@@ -1007,6 +1032,8 @@ async function handleSiteStaffManagePost(client?, req?, res?) {
       }
     } else if (action === "pex_pm") {
       result = await runProspectStaffPexToPartnerManager(guild, client, targetUser, actorUser, reason);
+    } else if (action === "pex_blogger") {
+      result = await runProspectStaffPexToBlogger(guild, client, targetUser, actorUser, reason);
     } else if (Object.prototype.hasOwnProperty.call(PROSPECT_PEX_ROLE_BY_ACTION, action)) {
       if (FOUNDER_ONLY_PROSPECT_PEX.has(action) && !viewerIsFounder(access.member)) {
         return res.status(403).json({
@@ -1032,10 +1059,14 @@ async function handleSiteStaffManagePost(client?, req?, res?) {
       result = await runProfileStaffDepex(guild, client, targetUser, actorUser, reason, "ladder");
     } else if (action === "depex_pm") {
       result = await runProfileStaffDepex(guild, client, targetUser, actorUser, reason, "partner_manager");
+    } else if (action === "depex_blogger") {
+      result = await runProfileStaffDepex(guild, client, targetUser, actorUser, reason, "blogger");
     } else if (action === "depex_full") {
       /* depexPmOnlyFullFix1: senza scala ma con PM → depex_pm (evita 400 not staff ladder) */
       if (!getHighestLadderRole(targetMember) && memberIsPm(targetMember)) {
         result = await runProfileStaffDepex(guild, client, targetUser, actorUser, reason, "partner_manager");
+      } else if (!getHighestLadderRole(targetMember) && !memberIsPm(targetMember) && memberIsBlogger(targetMember)) {
+        result = await runProfileStaffDepex(guild, client, targetUser, actorUser, reason, "blogger");
       } else {
         result = await runProfileStaffCompleteDepex(guild, client, targetUser, access.member, reason);
       }
@@ -1131,6 +1162,7 @@ async function handleSiteStaffManagePost(client?, req?, res?) {
     if (
       action === "pex" ||
       action === "pex_pm" ||
+      action === "pex_blogger" ||
       Object.prototype.hasOwnProperty.call(PROSPECT_PEX_ROLE_BY_ACTION, action) ||
       action.startsWith("depex") ||
       PAUSE_MANAGE_ACTIONS.has(action)

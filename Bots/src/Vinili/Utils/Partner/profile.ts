@@ -7,7 +7,6 @@ const { TENANT_PROFILE_SECTIONS } = require("./tenantProfileConstants") as typeo
 const {
   replyTenantMessage,
 } = require("./tenantPartnershipPrefixMessages") as typeof import("./tenantPartnershipPrefixMessages");
-const profileButton = require("../../Buttons/profile") as typeof import("../../Buttons/profile");
 const { isChannelOrThreadUnderStaffCmds, isStaffCmdsPmCommandsThread } = require("../Staff/staffCmdsChannelUtils") as typeof import("../Staff/staffCmdsChannelUtils");
 const { siteWorkflowUrl } = require("../../Web/discordWorkflowUiGate") as typeof import("../../Web/discordWorkflowUiGate");
 
@@ -110,24 +109,14 @@ export = {
       });
     }
 
-    const payload = await profileButton.buildPanelPayload(
-      message.guild,
-      targetUser.id,
-      message.client,
-      "home",
-      null,
-      message.author.id,
-    ).catch((err?) => {
-      global.logger?.warn?.("[profile] buildPanelPayload failed:", err?.message || err);
-      return null;
+    const personalizza = siteWorkflowUrl("userPersonalize") || "https://www.viniliecaffe.it/personalizza/";
+    const userPage = siteWorkflowUrl("userProfile") || "https://www.viniliecaffe.it/user/";
+    await safeMessageReply(message, {
+      content:
+        `<:VC_Attention:1482534443632558151> Il profilo Discord non è più attivo.\n` +
+        `Personalizza: ${personalizza}\n` +
+        `Profilo: ${userPage}`,
+      allowedMentions: { repliedUser: false },
     });
-    if (!payload) {
-      await safeMessageReply(message, {
-        content: "<:VC_Attention:1482534443632558151> Il profilo non risponde in tempo (database o Discord lenti). Riprova tra qualche secondo.",
-        allowedMentions: { repliedUser: false },
-      });
-      return;
-    }
-    await upsertProfileReply(message, payload);
   },
 };

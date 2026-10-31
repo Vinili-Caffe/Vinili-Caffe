@@ -14,12 +14,14 @@ const DEFAULT_ENABLED = Object.freeze([
 ]);
 
 const PANEL_SITE_REPLACES = Object.freeze({
+  /* pannelli Discord rimossi: redirect solo se qualcuno ripubblica */
   ruoli: "/ruoli/",
   ticket: "/tickets/",
   candidature: "/candidature/",
   pause: "/staff/pause/",
-  staff: "/staff/guida/",
   staffList: "/staff/organico/",
+  /* guida staff resta anche su Discord (Embeds/staff) */
+  staff: "/staff/guida/",
   sponsor: null,
 });
 

@@ -1,7 +1,6 @@
 export = {
   server: require("./server"),
   me: require("./me"),
-  profile: require("./profile"),
   user: require("./user"),
   channel: require("./channel"),
   blacklist: require("./blacklist"),

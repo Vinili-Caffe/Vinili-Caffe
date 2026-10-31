@@ -133,7 +133,6 @@ function resolveNotOwnerPanelHint(customId?) {
     id.startsWith("customrole_") ||
     id.startsWith("customvoc_") ||
     id.startsWith("customreaction_") ||
-    id.startsWith("cmd_colors") ||
     id.startsWith("avatar_") ||
     id.startsWith("banner_") ||
     id.startsWith("bh_") ||

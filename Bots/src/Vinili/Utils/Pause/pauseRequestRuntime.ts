@@ -4,7 +4,6 @@ const IDs = require("../Config/ids") as typeof import("../Config/ids");
 const { getOnePausePerMonthWarning, getOneWeekBetweenWarning, normalizePauseRoleChoice, PAUSE_ROLE_STAFF, PAUSE_ROLE_PM, PAUSE_ROLE_BOTH } = require("./pauseHandlersUtils") as typeof import("./pauseHandlersUtils");
 const { getGuildChannelCached, getClientChannelCached } = require("../Interaction/interactionEntityCache") as typeof import("../Interaction/interactionEntityCache");
 const { hydrateGuildMembersForRolePings } = require("../Discord/threadRoleMembers") as typeof import("../Discord/threadRoleMembers");
-const { maybeRepositionPauseSticky } = require("./pauseStickyPanelRuntime") as typeof import("./pauseStickyPanelRuntime");
 const {
   isDiscordWorkflowUiEnabled,
   isDiscordWorkflowChannelPostsEnabled,
@@ -374,7 +373,6 @@ async function createPauseRequest({ guild, userId, requesterMention, rawStart, r
       global.logger?.error?.("[createPauseRequest] save (messageId) failed", err);
     }
     if (!isSiteApiProcess()) {
-      void maybeRepositionPauseSticky(pauseChannel, client).catch(() => null);
     }
   }
 

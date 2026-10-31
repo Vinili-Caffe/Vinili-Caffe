@@ -15,6 +15,7 @@ const { resolveStaffValutazioniChannel, resolveStaffPexDepexChannel } = require(
 const { stafferAwardRoleIds, stripStafferAwardRoles } = require("./staffRoleHierarchy") as typeof import("./staffRoleHierarchy");
 const ROLE_MEMBER = IDs.roles.Member;
 const ROLE_PARTNER_MANAGER = IDs.roles.PartnerManager;
+const ROLE_BLOGGER = String(IDs.roles.Blogger || "").trim();
 const ROLE_STAFF = IDs.roles.Staff;
 const ROLE_HIGH_STAFF = IDs.roles.HighStaff;
 const ROLE_HELPER = IDs.roles.Helper;
@@ -664,6 +665,87 @@ ${actionEmoji} \`${rb?.name || "Member"}\` <a:VC_Arrow:1482706699365257397> \`${
   return { ok: true };
 }
 
+/** Pex Blogger (add-on): senza scala Staff / side-effect Helper. */
+async function runProspectStaffPexToBlogger(guild?, client?, targetUser?, actorUser?, reason?) {
+  if (String(targetUser.id) === String(actorUser.id)) {
+    return { ok: false, message: "<:VC_Attention:1482534443632558151> Non puoi usare questa azione su te stesso." };
+  }
+  {
+    const resolveMemberEarly = createMemberResolver(guild);
+    const targetEarly = await resolveMemberEarly(targetUser.id);
+    const actorMember = await resolveGuildActorMember(guild, actorUser);
+    if (targetEarly) {
+      const rankGate = assertStaffCareerHierarchy(actorMember, targetEarly, {});
+      if (!rankGate.ok) return rankGate;
+    }
+  }
+  const resolveMember = createMemberResolver(guild);
+  const member = await resolveMember(targetUser.id);
+  if (!member) {
+    return { ok: false, message: "<:VC_Attention:1482534443632558151> Utente non trovato nel server." };
+  }
+  if (!ROLE_BLOGGER) {
+    return { ok: false, message: "<:vegax:1443934876440068179> Ruolo Blogger non configurato negli ID." };
+  }
+  if (member.roles.cache.has(ROLE_BLOGGER)) {
+    return { ok: false, message: "<:VC_Attention:1482534443632558151> L'utente ha già il ruolo Blogger." };
+  }
+  if (ROLE_MEMBER && !member.roles.cache.has(ROLE_MEMBER)) {
+    return {
+      ok: false,
+      message:
+        "<:VC_Attention:1482534443632558151> Per questa promozione serve il ruolo **Member** sull'utente.",
+    };
+  }
+  const roleBeforeForHistory =
+    getHighestLadderRole(member) ||
+    (ROLE_PARTNER_MANAGER && member.roles.cache.has(ROLE_PARTNER_MANAGER) ? ROLE_PARTNER_MANAGER : "") ||
+    (ROLE_MEMBER || "");
+  const roleAfter = ROLE_BLOGGER;
+  const pexDepexChannel = await resolveStaffPexDepexChannel(guild, client || guild.client);
+  const staffDoc = await getOrCreateStaffDoc(guild.id, targetUser.id);
+  await member.roles.add(roleAfter);
+  const baseRoleVerification = await ensureRoleState(member, roleAfter, true);
+  if (!baseRoleVerification.ok) {
+    return { ok: false, message: "<:vegax:1443934876440068179> Pex non applicato: impossibile assegnare Blogger." };
+  }
+  const profileDoc = staffDoc;
+  const s = ensureStaff(profileDoc);
+  const histEntry = pushRolesHistoryWithActor(s, {
+    oldRole: roleBeforeForHistory,
+    newRole: roleAfter,
+    reason,
+    kind: "pex",
+    actorUser,
+  });
+  profileDoc.markModified("staff");
+  await profileDoc.save();
+  await mirrorTrackHistory(guild.id, targetUser.id, histEntry, "pex");
+  await clearStaffPendingPurgeAt(guild.id, targetUser.id);
+  queueStaffListRefreshAfterRoleMutation(client || guild.client, guild.id);
+  const rb = roleBeforeForHistory ? guild.roles.cache.get(roleBeforeForHistory) : null;
+  const ra = guild.roles.cache.get(roleAfter);
+  const actionEmoji = getStaffRoleEmojiByRoleId(roleAfter) || "📝";
+  await pexDepexChannel
+    ?.send?.({
+      content: `**<:success:1461731530333229226> PEX** ${targetUser}
+${actionEmoji} \`${rb?.name || "Member"}\` <a:VC_Arrow:1482706699365257397> \`${ra?.name || "Blogger"}\`
+<:VC_reason:1478517122929004544> __${reason}__`,
+      __skipNoticeEmbed: true,
+    })
+    .catch(() => null);
+  firePexDepexSiteNotif(guild, {
+    kind: "pex",
+    targetUser,
+    oldRoleId: roleBeforeForHistory,
+    newRoleId: roleAfter,
+    reason,
+    actorUser,
+    sourceHint: "prospect-pex-blogger",
+  });
+  return { ok: true };
+}
+
 async function runProfileStaffPex(guild?, client?, targetUser?, actorUser?, reason?) {
   if (String(targetUser.id) === String(actorUser.id)) {
     return { ok: false, message: "<:VC_Attention:1482534443632558151> Non puoi usare questa azione su te stesso." };
@@ -774,7 +856,8 @@ async function runProfileStaffDepex(guild?, client?, targetUser?, actorUser?, re
   const pexDepexChannel = await resolveStaffPexDepexChannel(guild, client || guild.client);
   const mode = String(targetRemoval || "auto").toLowerCase();
   const ladderRole = getHighestLadderRole(member);
-  const hasPmRole = member.roles.cache.has(ROLE_PARTNER_MANAGER);
+  const hasPmRole = Boolean(ROLE_PARTNER_MANAGER && member.roles.cache.has(ROLE_PARTNER_MANAGER));
+  const hasBloggerRole = Boolean(ROLE_BLOGGER && member.roles.cache.has(ROLE_BLOGGER));
   let oldRoleForLog = null;
   let newRoleForLog = null;
 
@@ -791,6 +874,27 @@ async function runProfileStaffDepex(guild?, client?, targetUser?, actorUser?, re
     }
     oldRoleForLog = ROLE_PARTNER_MANAGER;
     newRoleForLog = ROLE_MEMBER || "";
+  } else if (mode === "blogger") {
+    if (!ROLE_BLOGGER || !hasBloggerRole) {
+      return {
+        ok: false,
+        message: "<:VC_Attention:1482534443632558151> L'utente non ha il ruolo **Blogger**.",
+      };
+    }
+    await member.roles.remove(ROLE_BLOGGER).catch(() => null);
+    const stillHas = (await resolveMember(targetUser.id)) || member;
+    if (stillHas.roles?.cache?.has?.(ROLE_BLOGGER)) {
+      return { ok: false, message: "<:vegax:1443934876440068179> Depex Blogger: impossibile rimuovere il ruolo." };
+    }
+    if (ROLE_MEMBER) await stillHas.roles.add(ROLE_MEMBER).catch(() => null);
+    oldRoleForLog = ROLE_BLOGGER;
+    newRoleForLog =
+      getHighestLadderRole(stillHas) ||
+      (ROLE_PARTNER_MANAGER && stillHas.roles?.cache?.has?.(ROLE_PARTNER_MANAGER)
+        ? ROLE_PARTNER_MANAGER
+        : "") ||
+      ROLE_MEMBER ||
+      "";
   } else if (mode === "ladder") {
     if (!ladderRole) {
       return {
@@ -831,6 +935,8 @@ async function runProfileStaffDepex(guild?, client?, targetUser?, actorUser?, re
     }
     oldRoleForLog = ROLE_PARTNER_MANAGER;
     newRoleForLog = ROLE_MEMBER || "";
+  } else if (hasBloggerRole) {
+    return runProfileStaffDepex(guild, client, targetUser, actorUser, reason, "blogger");
   } else {
     return {
       ok: false,
@@ -1104,12 +1210,16 @@ async function runProfileStaffCompleteDepex(guild?, client?, targetUser?, actorM
     if (ROLE_PARTNER_MANAGER && member.roles.cache.has(ROLE_PARTNER_MANAGER)) {
       return runProfileStaffDepex(guild, client, targetUser, actorUser, reason, "partner_manager");
     }
+    if (ROLE_BLOGGER && member.roles.cache.has(ROLE_BLOGGER)) {
+      return runProfileStaffDepex(guild, client, targetUser, actorUser, reason, "blogger");
+    }
     return { ok: false, message: "<:VC_Attention:1482534443632558151> L'utente non ha un ruolo staff da depexare." };
   }
   const isAdminOrAbove = [ROLE_ADMIN, ROLE_MANAGER, ROLE_CO_OWNER, ROLE_OWNER].filter(Boolean).includes(roleToRemove);
   const roleIdsToRemove = [
     ROLE_STAFF,
     roleToRemove,
+    ...(ROLE_BLOGGER ? [ROLE_BLOGGER] : []),
     ...(isAdminOrAbove ? [ROLE_HIGH_STAFF] : []),
     ...stafferAwardRoleIds(),
   ].filter(Boolean);
@@ -1169,6 +1279,7 @@ export = {
   runProfileStaffPex,
   runProspectStaffPex,
   runProspectStaffPexToPartnerManager,
+  runProspectStaffPexToBlogger,
   runProfileStaffDepex,
   runProfileStaffCompleteDepex,
   runProfileStaffWarnAdd,

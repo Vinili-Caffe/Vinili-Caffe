@@ -281,6 +281,10 @@ export function ExtrasPanel({
           <div className="min-w-0 flex-1">
             <p className="text-xs font-semibold uppercase tracking-[0.28em] text-caramel">Compleanno</p>
             <h3 className="mt-1 font-display text-2xl font-semibold">Quando festeggiamo?</h3>
+            <p className="mt-2 text-sm leading-relaxed text-crema/60">
+              Il giorno del tuo compleanno ricevi un annuncio in chat, il ruolo compleanno e un multi EXP ×2 per tutta
+              la giornata. Dopo l&apos;annuncio non potrai più cambiare giorno/mese fino all&apos;anno prossimo.
+            </p>
             <div className="mt-4 grid grid-cols-3 gap-2">
               <label className="block">
                 <span className="text-[0.65rem] font-semibold uppercase tracking-wider text-crema/45">Giorno</span>

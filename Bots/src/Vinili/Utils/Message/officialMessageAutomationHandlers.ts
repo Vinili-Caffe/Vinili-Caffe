@@ -4,7 +4,6 @@ const { addExpWithLevel, shouldIgnoreExpForMember } = require("../../Services/Co
 const { upsertVoteRole } = require("../../Services/Community/communityOpsService") as typeof import("../../Services/Community/communityOpsService");
 const { PAUSE_REQUEST_ROLE_IDS, parsePauseChannelMessageContent } = require("../Pause/pauseRequestRuntime") as typeof import("../Pause/pauseRequestRuntime");
 const { submitPauseRequestForMember } = require("../Pause/pauseRequestSubmitRuntime") as typeof import("../Pause/pauseRequestSubmitRuntime");
-const { maybeRepositionPauseSticky, isPauseStickyPanelMessage } = require("../Pause/pauseStickyPanelRuntime") as typeof import("../Pause/pauseStickyPanelRuntime");
 const {
   maybeRepositionModerationSticky,
   isModerationStickyPanelMessage,
@@ -1114,14 +1113,10 @@ async function handlePauseChannelMessage(message?) {
   if (!isPauseChannel) return false;
 
         if (message.author?.bot || message.webhookId || message.system) {
-    if (!isPauseStickyPanelMessage(message)) {
-      void maybeRepositionPauseSticky(message.channel, message.client).catch(() => null);
-    }
     return false;
   }
 
   const finish = () => {
-    void maybeRepositionPauseSticky(message.channel, message.client).catch(() => null);
   };
 
   try {

@@ -2,7 +2,6 @@ const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js") a
 const IDs = require("../Config/ids") as typeof import("../Config/ids");
 const { EPHEMERAL_TTL_NORMAL_MS, scheduleMessageDeletion } = require("../Config/ephemeralMessageTtl") as typeof import("../Config/ephemeralMessageTtl");
 const { createPauseRequest, PAUSE_REQUEST_ROLE_IDS, formatRuoloPausaRichiestoInMessage } = require("./pauseRequestRuntime") as typeof import("./pauseRequestRuntime");
-const { maybeRepositionPauseSticky } = require("./pauseStickyPanelRuntime") as typeof import("./pauseStickyPanelRuntime");
 
 const PAUSE_ROLE_PICK_TIMEOUT_MS = 45_000;
 const PAUSE_ROLE_PICK_PREFIX = "pause_rolepick:";
@@ -96,7 +95,6 @@ async function submitPauseRequestForMember({ guild, member, rawStart, rawEnd, re
     requestedRole: role,
   });
   if (result.ok && replyChannel) {
-    void maybeRepositionPauseSticky(replyChannel, guild.client).catch(() => null);
   }
   return result;
 }

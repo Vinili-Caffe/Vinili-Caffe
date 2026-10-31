@@ -142,17 +142,26 @@ async function getBirthdayProfile(guildId?, userId?) {
 
 async function setBirthdayProfile(guildId?, userId?, payload: Record<string, any> = {}) {
   const safe = payload || {};
-  return upsertProfile(guildId, userId, {
-    $set: {
-      "profile.birthday.day": safe.day == null ? null : Number(safe.day),
-      "profile.birthday.month": safe.month == null ? null : Number(safe.month),
-      "profile.birthday.birthYear": safe.birthYear == null ? null : Number(safe.birthYear),
-      "profile.birthday.showAge": safe.showAge == null ? true : Boolean(safe.showAge),
-      "profile.birthday.lastCelebratedYear": safe.lastCelebratedYear == null ? null : Number(safe.lastCelebratedYear),
-      "profile.birthday.registrationMessageId": safe.registrationMessageId == null ? null : String(safe.registrationMessageId),
-      "profile.birthday.registrationChannelId": safe.registrationChannelId == null ? null : String(safe.registrationChannelId),
-    },
-  });
+  const $set: Record<string, any> = {
+    "profile.birthday.day": safe.day == null ? null : Number(safe.day),
+    "profile.birthday.month": safe.month == null ? null : Number(safe.month),
+    "profile.birthday.birthYear": safe.birthYear == null ? null : Number(safe.birthYear),
+    "profile.birthday.showAge": safe.showAge == null ? true : Boolean(safe.showAge),
+  };
+  /* Non azzerare lastCelebratedYear / registration se non passati (altrimenti ogni save ripete l'annuncio). */
+  if (Object.prototype.hasOwnProperty.call(safe, "lastCelebratedYear")) {
+    $set["profile.birthday.lastCelebratedYear"] =
+      safe.lastCelebratedYear == null ? null : Number(safe.lastCelebratedYear);
+  }
+  if (Object.prototype.hasOwnProperty.call(safe, "registrationMessageId")) {
+    $set["profile.birthday.registrationMessageId"] =
+      safe.registrationMessageId == null ? null : String(safe.registrationMessageId);
+  }
+  if (Object.prototype.hasOwnProperty.call(safe, "registrationChannelId")) {
+    $set["profile.birthday.registrationChannelId"] =
+      safe.registrationChannelId == null ? null : String(safe.registrationChannelId);
+  }
+  return upsertProfile(guildId, userId, { $set });
 }
 
 async function clearBirthdayProfile(guildId?, userId?) {

@@ -15,7 +15,6 @@ const { runAutoModMessage } = require("../Services/Moderation/automodService") a
 const { handleCustomProfilePromptMessage } = require("./interaction/customRoleHandlers") as typeof import("./interaction/customRoleHandlers");
 const { handleTicketMemberPromptMessage } = require("../Utils/Ticket/ticketMemberPrompt") as typeof import("../Utils/Ticket/ticketMemberPrompt");
 const { handleUntrustedBotMessage, handleUntrustedApplicationMessage } = require("../Services/Moderation/trustedBotGuardService") as typeof import("../Services/Moderation/trustedBotGuardService");
-const { handleProfileMentionResponsePromptMessage } = require("../Buttons/profile") as typeof import("../Buttons/profile");
 const IDs = require("../Utils/Config/ids") as typeof import("../Utils/Config/ids");
 const { EPHEMERAL_TTL_SHORT_MS, scheduleMessageDeletion } = require("../Utils/Config/ephemeralMessageTtl") as typeof import("../Utils/Config/ephemeralMessageTtl");
 const { isCoffeePrefixCommandToken } = require("../../shared/discord/coffeePrefixCommandTokens") as typeof import("../../shared/discord/coffeePrefixCommandTokens");
@@ -554,10 +553,9 @@ export = {
 
     if (!isEditedPrefixExecution && message.guild) {
       try {
-        if (await handleProfileMentionResponsePromptMessage(message)) return;
         if (await handleCustomProfilePromptMessage(message)) return;
         if (await handleTicketMemberPromptMessage(message)) return;
-              } catch (error) {
+      } catch (error) {
         logEventError(resolvedClient, "CUSTOM PROFILE PROMPT ERROR", error);
       }
     }

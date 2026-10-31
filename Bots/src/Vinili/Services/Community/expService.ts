@@ -28,6 +28,8 @@ const ROLE_MULTIPLIER_DEFS = [
   ["Donator", 4],
   ["VIP", 5],
   ["VIPplus", 6],
+  /** Compleanno: ruolo flair solo quel giorno → ×2 EXP (si toglie a mezzanotte). */
+  ["birthdayFlair", 2],
   ["Level100", 1.15],
   ["Level120", 1.2],
   ["Level150", 1.25],

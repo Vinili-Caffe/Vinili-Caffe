@@ -11,7 +11,6 @@ const { getClientGuildCached, getGuildMemberCached, getGuildChannelCached, getUs
 const { userAvatarUrlDynamic } = require("../../Utils/Discord/guildDiscordIdentity") as typeof import("../../Utils/Discord/guildDiscordIdentity");
 const { fetchGuildChannel, fetchGuildMember, fetchGuildRole, replyEphemeral, parseRoleActionId, parseVoiceActionId, canManageRole, refreshEmbedRoleLine, sanitizeVoiceBaseName, parseCustomVocName, buildCustomVocName, extractCustomVocEmojiFromMessage, normalizeCustomVocEmojiValue } = require("../../Utils/Interaction/customRoleUtils") as typeof import("../../Utils/Interaction/customRoleUtils");
 const { CUSTOM_VOC_MEMBER_PERMS, CUSTOM_VOC_OWNER_BASE_PERMS, applyOverwrite } = require("../../Services/Community/customVocPermissionsService") as typeof import("../../Services/Community/customVocPermissionsService");
-const { buildPanelPayload } = require("../../Buttons/profile") as typeof import("../../Buttons/profile");
 const { readSnapshotWithMeta, writeSnapshotWithMeta } = require("../../../shared/recovery/snapshotStore") as typeof import("../../../shared/recovery/snapshotStore");
 const pendingRoleGrants = new Map();
 const pendingSiteRoleRequests = new Map();
@@ -299,14 +298,10 @@ async function editProfilePromptReply(client?, pending?, content?) {
   return hook.editMessage("@original", { content, embeds: [], components: [] }).then(() => true).catch(() => false);
 }
 
-async function refreshProfilePanelFromPrompt(message?, pending?, section?) {
-  const panelMessageId = String(pending?.panelMessageId || "");
-  if (!panelMessageId || !message?.channel?.messages?.fetch) return;
-  const panel = await message.channel.messages.fetch(panelMessageId).catch(() => null);
-  if (!panel?.editable) return;
-  const payload = await buildPanelPayload(message.guild, pending.ownerId, message.client, section).catch(() => null);
-  if (payload) await panel.edit(payload).catch(() => {});
+async function refreshProfilePanelFromPrompt() {
+  return;
 }
+
 
 function canManageRoleFromGuild(guild?, client?, role?) {
   const me = guild?.members?.me || guild?.members?.cache?.get(client?.user?.id);
@@ -980,15 +975,7 @@ async function handleRoleActionButton(interaction?) {
       updatePayload,
     ).catch(() => { });
 
-    const panelSection = isSecondary ? "customrole_secondary" : "customrole";
-    const panelPayload = await buildPanelPayload(interaction.guild, ownerId, interaction.client, panelSection);
-    const deferred = await interaction.deferUpdate().then(() => true).catch(() => false);
-    if (deferred) {
-      await interaction.message?.edit?.(panelPayload).catch(() => { });
-    } else {
-      const updated = await interaction.update(panelPayload).then(() => true).catch(() => false);
-      if (!updated) await interaction.message?.edit?.(panelPayload).catch(() => { });
-    }
+    await interaction.deferUpdate().catch(() => { });
     const doneMsg = `<:vegacheckmark:1443666279058772028> Il ruolo **${roleName}** è stato eliminato.`;
     await interaction.followUp({ content: doneMsg, flags: PRIVATE_FLAG }).catch(() => {
       return interaction.reply({ content: doneMsg, flags: PRIVATE_FLAG }).catch(() => { });
@@ -1823,26 +1810,9 @@ async function handleAddRemoveSelectMenus(interaction?) {
   return false;
 }
 
-async function refreshProfileCustomReactionPanel(interaction?, ownerId?, { updateInteraction = false } = {}) {
-  const payload = await buildPanelPayload(
-    interaction.guild,
-    ownerId,
-    interaction.client,
-    "customreaction",
-  ).catch(() => null);
-  if (!payload) return false;
-  if (updateInteraction) {
-    await interaction.update(payload).catch(async () => {
-      if (interaction.message) {
-        await safeMessageEdit(interaction.message, payload, interaction).catch(() => {});
-      }
-    });
-    return true;
-  }
-  if (interaction.message) {
-    await safeMessageEdit(interaction.message, payload, interaction).catch(() => {});
-  }
-  return true;
+async function refreshProfileCustomReactionPanel() {
+  /* Pannello profilo Discord dismesso — custom reaction resta sui bottoni dedicati. */
+  return false;
 }
 
 async function handleCustomReactionButton(interaction?) {
@@ -2047,13 +2017,6 @@ async function handleCustomReactionSelect(interaction?) {
   if (ch?.messages?.fetch) {
     const panelMessage = await ch.messages.fetch(panelMessageId).catch(() => null);
     if (panelMessage) {
-      const payload = await buildPanelPayload(
-        interaction.guild,
-        ownerId,
-        interaction.client,
-        "customreaction",
-      ).catch(() => null);
-      if (payload) await safeMessageEdit(panelMessage, payload, interaction).catch(() => {});
     }
   }
   return true;

@@ -39,7 +39,12 @@ const {
   persistPersonalityRoleDelta,
 } = require("../Utils/Community/personalityRolePersistence") as typeof import("../Utils/Community/personalityRolePersistence");
 const { ROLE_PANEL_CATEGORY_KEYS, normalizeRolePanelCategory } = require("../Utils/Community/ruoliColoriPanelComponents") as typeof import("../Utils/Community/ruoliColoriPanelComponents");
-const { inferBirthYearFromAge, tryCelebrateBirthdayAfterProfileSave } = require("../Services/Community/birthdayService") as typeof import("../Services/Community/birthdayService");
+const {
+  inferBirthYearFromAge,
+  tryCelebrateBirthdayAfterProfileSave,
+  isBirthdayDayChangeLocked,
+  getRomeDateParts,
+} = require("../Services/Community/birthdayService") as typeof import("../Services/Community/birthdayService");
 const {
   getSerializedSiteNotifPrefs,
   mutateSiteNotifPrefs,
@@ -466,16 +471,43 @@ async function mutateBirthday(guild?, userId?, client?, payload?) {
       }
       birthYear = inferBirthYearFromAge(day, month, age);
     }
-    const nowY = new Date().getFullYear();
+    const nowY = getRomeDateParts().year;
     if (birthYear > nowY) {
       return { ok: false, reason: "invalid_age", message: "L'anno di nascita non puo essere nel futuro." };
     }
     if (birthYear < nowY - 120) {
       return { ok: false, reason: "invalid_age", message: "Anno di nascita non valido." };
     }
-    await setBirthdayProfile(guild.id, userId, { day, month, birthYear, showAge });
-    await tryCelebrateBirthdayAfterProfileSave(guild, userId, client).catch(() => null);
+    const prevDay = Number(current.day) || 0;
+    const prevMonth = Number(current.month) || 0;
+    const dayMonthChanged = Boolean(prevDay && prevMonth) && (day !== prevDay || month !== prevMonth);
+    if (dayMonthChanged) {
+      const locked = await isBirthdayDayChangeLocked(guild, userId, current);
+      if (locked) {
+        return {
+          ok: false,
+          reason: "birthday_locked",
+          message:
+            "Non puoi cambiare giorno/mese: il compleanno di quest'anno è già stato annunciato (o hai ancora il ruolo compleanno). Puoi aggiornare solo l'anno o la privacy età.",
+        };
+      }
+    }
+    await setBirthdayProfile(guild.id, userId, {
+      day,
+      month,
+      birthYear,
+      showAge,
+      lastCelebratedYear: current.lastCelebratedYear,
+      registrationMessageId: current.registrationMessageId,
+      registrationChannelId: current.registrationChannelId,
+    });
+    await tryCelebrateBirthdayAfterProfileSave(client, guild.id, userId).catch(() => null);
     const birthday = await getBirthdayProfile(guild.id, userId);
+    const today = getRomeDateParts();
+    const celebratedNow =
+      Number(birthday?.day) === today.day &&
+      Number(birthday?.month) === today.month &&
+      Number(birthday?.lastCelebratedYear) === today.year;
     return {
       ok: true,
       birthday: {
@@ -484,7 +516,9 @@ async function mutateBirthday(guild?, userId?, client?, payload?) {
         birthYear: Number(birthday?.birthYear) || null,
         showAge: birthday?.showAge !== false,
       },
-      message: "Compleanno salvato.",
+      message: celebratedNow
+        ? "Compleanno salvato. Oggi è il tuo giorno: annuncio in chat e multi ×2 attivi!"
+        : "Compleanno salvato.",
     };
   }
   return { ok: false, reason: "invalid_action", message: "Azione compleanno non valida." };
@@ -686,6 +720,7 @@ async function mutateProfileExtras(client?, payload?) {
       invalid_date: 400,
       invalid_age: 400,
       birthday_incomplete: 400,
+      birthday_locked: 403,
       missing_access: 403,
       locked_color: 403,
       role_not_found: 404,

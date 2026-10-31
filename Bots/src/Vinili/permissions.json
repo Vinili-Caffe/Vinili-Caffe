@@ -801,46 +801,6 @@
         "channels.commands"
       ]
     },
-    "bal": {
-      "roles": [
-        "roles.Member"
-      ],
-      "channels": [
-        "channels.economy"
-      ]
-    },
-    "work": {
-      "roles": [
-        "roles.Member"
-      ],
-      "channels": [
-        "channels.economy"
-      ]
-    },
-    "daily": {
-      "roles": [
-        "roles.Member"
-      ],
-      "channels": [
-        "channels.economy"
-      ]
-    },
-    "weekly": {
-      "roles": [
-        "roles.Member"
-      ],
-      "channels": [
-        "channels.economy"
-      ]
-    },
-    "monthly": {
-      "roles": [
-        "roles.Member"
-      ],
-      "channels": [
-        "channels.economy"
-      ]
-    },
     "snipe": {
       "roles": [
         "roles.Member"
@@ -1212,12 +1172,6 @@
     },
     "security_panel:back:*": {
       "ownerSegment": 2
-    },
-    "cmd_colors_btn:*": {
-      "ownerSegment": 1,
-      "roles": [
-        "roles.Member"
-      ]
     },
     "claim_ticket": [
       "roles.Staff",
@@ -1797,51 +1751,6 @@
         "roles.Level10"
       ]
     },
-    "myrepost_page_first:*": {
-      "ownerSegment": 1
-    },
-    "myrepost_page_prev:*": {
-      "ownerSegment": 1
-    },
-    "myrepost_page_next:*": {
-      "ownerSegment": 1
-    },
-    "myrepost_page_last:*": {
-      "ownerSegment": 1
-    },
-    "myclip_page_first:*": {
-      "ownerSegment": 1
-    },
-    "myclip_page_prev:*": {
-      "ownerSegment": 1
-    },
-    "myclip_page_next:*": {
-      "ownerSegment": 1
-    },
-    "myclip_page_last:*": {
-      "ownerSegment": 1
-    },
-    "myquote_page_first:*": {
-      "ownerSegment": 1
-    },
-    "myquote_page_prev:*": {
-      "ownerSegment": 1
-    },
-    "myquote_page_next:*": {
-      "ownerSegment": 1
-    },
-    "myquote_page_last:*": {
-      "ownerSegment": 1
-    },
-    "myrepost_close:*": {
-      "ownerSegment": 1
-    },
-    "myclip_close:*": {
-      "ownerSegment": 1
-    },
-    "myquote_close:*": {
-      "ownerSegment": 1
-    },
     "server_refresh*": {
       "ownerSegment": 1
     },
@@ -2052,12 +1961,6 @@
     "personality_zodiac": [
       "roles.Member"
     ],
-    "cmd_colors_seg:*": {
-      "ownerSegment": 1,
-      "roles": [
-        "roles.Member"
-      ]
-    },
     "stats_top_channel_view_select*": {
       "ownerSegment": 1
     },

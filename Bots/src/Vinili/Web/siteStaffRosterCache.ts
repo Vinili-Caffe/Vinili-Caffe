@@ -9,6 +9,8 @@ const {
 const {
   STAFF_LIST_SECTION_ROLE_IDS,
   memberHasStaffRole,
+  memberIsBlogger,
+  memberOnStaffList,
   getStaffListPausedUserIds,
 } = require("../Utils/Community/staffListUtils") as typeof import("../Utils/Community/staffListUtils");
 const {
@@ -98,7 +100,7 @@ function countCachedStaffMembers(guild?) {
     typeof guild?.members?.cache?.values === "function" ? [...guild.members.cache.values()] : [];
   for (const member of list) {
     if (!member || member.user?.bot) continue;
-    if (memberHasStaffRole(member) || memberIsPm(member)) n += 1;
+    if (memberOnStaffList(member) || memberIsPm(member)) n += 1;
   }
   return n;
 }
@@ -270,7 +272,7 @@ function buildRosterFromGuild(guild?, pausedSet?) {
     for (const member of memberList) {
       if (!member?.roles?.cache?.has?.(roleId)) continue;
       if (member.user?.bot) continue;
-      if (!memberHasStaffRole(member) && !memberIsPm(member)) continue;
+      if (!memberOnStaffList(member) && !memberIsPm(member)) continue;
       const uid = String(member.id);
       if (seen.has(uid)) continue;
       seen.add(uid);
@@ -279,14 +281,16 @@ function buildRosterFromGuild(guild?, pausedSet?) {
       total += 1;
       if (memberIsPm(member)) pmCount += 1;
       const displayRoleId = resolveStaffProfileDisplayRoleId(member);
-      let label = buildFullProfileRoleLabelForEmbed(guild, member);
-      label = stripDiscordDecorations(label) || role.name || "Staff";
+      let label = stripDiscordDecorations(buildFullProfileRoleLabelForEmbed(guild, member));
+      if (!label || label === "—") label = stripDiscordDecorations(role.name) || role.name || "Staff";
+      const bloggerOnly = memberIsBlogger(member) && !memberHasStaffRole(member);
       const row = {
         ...identityFromMember(member),
         displayRoleId: displayRoleId || roleId,
         displayRoleLabel: label,
-        profileKind: resolveStaffProfileKind(member),
+        profileKind: bloggerOnly ? "blogger_only" : resolveStaffProfileKind(member),
         isPm: memberIsPm(member),
+        isBlogger: memberIsBlogger(member),
         onPause: pausedNow,
         isStaffDelMese: memberIsStaffDelMese(member),
         isStaffDelSettimana: memberIsStaffDelSettimana(member),

@@ -6,6 +6,7 @@ import {
   ArrowUpCircle,
   Handshake,
   Loader2,
+  PenLine,
   Search,
   UserMinus,
   Users,
@@ -31,7 +32,7 @@ type CareerOpt = {
   action: string;
   label: string;
   hint: string;
-  tone: "up" | "down" | "pm" | "out";
+  tone: "up" | "down" | "pm" | "blogger" | "out";
 };
 
 function cleanRole(label: string | null | undefined) {
@@ -70,6 +71,14 @@ function buildCareerOpts(member: ManageMemberDetail, actions: string[]): CareerO
       tone: "pm",
     });
   }
+  if (member.canPexBlogger && has("pex_blogger") && !member.isBlogger) {
+    opts.push({
+      action: "pex_blogger",
+      label: ACTION_LABELS.pex_blogger || "Pex → Blogger",
+      hint: "Aggiunge Blogger",
+      tone: "blogger",
+    });
+  }
   if (member.canDepexLadder && has("depex") && member.depexTargetLabel) {
     opts.push({
       action: "depex",
@@ -83,6 +92,14 @@ function buildCareerOpts(member: ManageMemberDetail, actions: string[]): CareerO
       action: "depex_pm",
       label: ACTION_LABELS.depex_pm || "Depex Partner Manager",
       hint: "Rimuove Partner Manager",
+      tone: "down",
+    });
+  }
+  if (member.canDepexBlogger && has("depex_blogger")) {
+    opts.push({
+      action: "depex_blogger",
+      label: ACTION_LABELS.depex_blogger || "Depex Blogger",
+      hint: "Rimuove Blogger",
       tone: "down",
     });
   }
@@ -100,6 +117,7 @@ function buildCareerOpts(member: ManageMemberDetail, actions: string[]): CareerO
 function toneIcon(tone: CareerOpt["tone"]) {
   if (tone === "up") return <ArrowUpCircle className="size-5" />;
   if (tone === "pm") return <Handshake className="size-5" />;
+  if (tone === "blogger") return <PenLine className="size-5" />;
   if (tone === "out") return <UserMinus className="size-5" />;
   return <ArrowDownCircle className="size-5" />;
 }
@@ -406,7 +424,7 @@ export function GestioneBoard() {
                     >
                       <span
                         className={cn(
-                          o.tone === "up" || o.tone === "pm"
+                          o.tone === "up" || o.tone === "pm" || o.tone === "blogger"
                             ? "text-[#9fd3ac] light:text-[#2f6b3f]"
                             : "text-[#f0a493] light:text-[#a83a2c]",
                         )}

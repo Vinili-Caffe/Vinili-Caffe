@@ -212,6 +212,7 @@ const ids: Record<string, any> = {
     PartnerManager: "1544831242510270464",
     Partnership: "1544830657073774717",
     CommunityManager: "1545183984932233367",
+    Blogger: "1557507157899878533",
     Staff: "1442568910070349985",
     separatore2: "1469759519159615620",
     redPlus: "1544842926188658698",
