@@ -589,4 +589,4 @@ async function closeOpenTicketsForGuildUser(guild?, userId?, options: Record<str
   return { closed };
 }
 
-export = { buildTicketClosedEmbed, buildTicketRatingRows, closeOpenTicketsForGuildUser, closeTicket, sendTranscriptWithBrowserLink };
+export = { closeOpenTicketsForGuildUser, closeTicket };

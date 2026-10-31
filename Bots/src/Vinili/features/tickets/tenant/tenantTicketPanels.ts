@@ -13,7 +13,6 @@ const {
   normalizeSupportHours,
   supportHoursLabel,
   panelOpenCustomId,
-  asBool: optBool,
   asInt: optInt,
   normalizeId: optId,
 } = require("../discord/ticketPanelOptions") as typeof import("../discord/ticketPanelOptions");

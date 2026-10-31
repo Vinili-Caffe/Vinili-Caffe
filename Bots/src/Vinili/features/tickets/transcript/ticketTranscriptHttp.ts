@@ -1,5 +1,4 @@
 const fs = require("node:fs") as typeof import("node:fs");
-const path = require("node:path") as typeof import("node:path");
 const { viniliPath } = require("../../../core/paths") as typeof import("../../../core/paths");
 const Ticket = require("../data/guildFeatureBucketTicketModel");
 const { readSnapshotWithMeta, writeSnapshotWithMeta } = require("../../../../shared/recovery/snapshotStore") as typeof import("../../../../shared/recovery/snapshotStore");

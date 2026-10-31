@@ -6,7 +6,6 @@ const IDs = require("../../../Utils/Config/ids") as typeof import("../../../Util
 const { PERKS_STAFF_ROLE_IDS } = require("./ticketPerksStaffRoles") as typeof import("./ticketPerksStaffRoles");
 const { applyPartnershipTicketRoleOverwrites } = require("./ticketPartnershipStaffRoles") as typeof import("./ticketPartnershipStaffRoles");
 const {
-  HIGHSTAFF_ROLE_ID,
   TICKET_STAFF_SPECTATE_OVERWRITES,
   applyHighStaffTicketWriteOverwrite,
   applyTicketStaffRoleOverwrites,

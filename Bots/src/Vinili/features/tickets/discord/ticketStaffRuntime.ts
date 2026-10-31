@@ -2,8 +2,8 @@ const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, PermissionFl
 const { safeMessageReply } = require("../../../../shared/discord/replyRuntime") as typeof import("../../../../shared/discord/replyRuntime");
 const Ticket = require("../../../Schemas/Ticket/ticketSchema");
 const { makeTicketErrorEmbed } = require("./ticketUxMessages") as typeof import("./ticketUxMessages");
-const { TICKETS_CATEGORY_NAME, isChannelInTicketCategory } = require("./ticketCategoryUtils") as typeof import("./ticketCategoryUtils");
-const { buildTicketChannelName, resolveTicketRenamePrefix, sanitizeTicketChannelTail } = require("./ticketNamingRuntime") as typeof import("./ticketNamingRuntime");
+const { TICKETS_CATEGORY_NAME } = require("./ticketCategoryUtils") as typeof import("./ticketCategoryUtils");
+const { buildTicketChannelName } = require("./ticketNamingRuntime") as typeof import("./ticketNamingRuntime");
 const { getTicketPanelConfig } = require("./ticketPanelConfig") as typeof import("./ticketPanelConfig");
 const { PERKS_STAFF_ROLE_IDS, PERKS_PING_ROLE_IDS, memberCanAccessPerksTicket, buildPerksPingMention } = require("./ticketPerksStaffRoles") as typeof import("./ticketPerksStaffRoles");
 const { PARTNERSHIP_TICKET_STAFF_ROLE_IDS, memberCanAccessPartnershipTicket, buildPartnershipTicketReviewerCreateOverwrites, clearPartnershipTicketPermissionOverwrites, applyPartnershipTicketRoleOverwrites } = require("./ticketPartnershipStaffRoles") as typeof import("./ticketPartnershipStaffRoles");
@@ -20,7 +20,7 @@ const {
 const { buildTicketPanelUnclaimedButtonRow } = require("./ticketAutoUnclaimOnStaffLoss") as typeof import("./ticketAutoUnclaimOnStaffLoss");
 const { buildClaimedControlButtons, resolveTicketPanel } = require("./ticketGuildOptions") as typeof import("./ticketGuildOptions");
 const IDs = require("../../../Utils/Config/ids") as typeof import("../../../Utils/Config/ids");
-const { getClientGuildCached, getGuildChannelCached, getGuildMemberCached, } = require("../../../Utils/Interaction/interactionEntityCache") as typeof import("../../../Utils/Interaction/interactionEntityCache");
+const { getGuildMemberCached } = require("../../../Utils/Interaction/interactionEntityCache") as typeof import("../../../Utils/Interaction/interactionEntityCache");
 const STAFF_ROLE_ID = IDs.roles.Staff;
 const HIGHSTAFF_ROLE_ID = IDs.roles.HighStaff;
 const PARTNERMANAGER_ROLE_ID = IDs.roles.PartnerManager;
