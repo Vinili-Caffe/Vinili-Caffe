@@ -23,9 +23,10 @@ async function runRepostCommand(message?, targetMessage?) {
       const color = result.privacyBlocked ? "#ed4245" : "Red";
       await safeMessageReply(message, {
         embeds: [
-          new EmbedBuilder()
-            .setColor(color)
-            .setDescription(`<:vegax:1443934876440068179> ${result.message || "Repost non riuscito."}`),
+          result.privacyEmbed ||
+            new EmbedBuilder()
+              .setColor(color)
+              .setDescription(`<:vegax:1443934876440068179> ${result.message || "Repost non riuscito."}`),
         ],
         allowedMentions: { repliedUser: false },
       }).catch(() => null);

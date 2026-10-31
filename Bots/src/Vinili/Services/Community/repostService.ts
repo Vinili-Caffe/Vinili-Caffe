@@ -1045,6 +1045,23 @@ async function hasUserAlreadySavedRepost(guildId?, reposterUserId?, sourceChanne
   return Boolean(found?._id);
 }
 
+/* repostPrivacyEmbed1: stesso stile dell'embed "Quote bloccate" */
+function buildRepostPrivacyBlockedEmbed(authorLabel?) {
+  const dateText = new Date().toLocaleString("it-IT", { timeZone: "Europe/Rome", day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+  return new EmbedBuilder()
+    .setColor("#ed4245")
+    .setTitle("<a:VC_Unlock:1482532082466029608> Repost bloccati")
+    .setDescription(
+      [
+        `**${authorLabel}** ha bloccato i repost dei propri messaggi.`,
+        "",
+        "**Rispetta la privacy**",
+        "L'utente ha scelto di non essere repostato. Rispetta questa decisione!",
+      ].join("\n"),
+    )
+    .setFooter({ text: `Se hai bisogno di condividere il messaggio, usa uno screenshot o chiedi il permesso diretto. ${dateText}` });
+}
+
 async function createRepostFromMessage(ctx?) {
   const { guild, reposter, targetMessage, replyChannel: replyChannelRaw, preferBoardChannel, quotedAuthorId } = ctx;
   const reposterId = String(reposter?.id || reposter?.user?.id || "");
@@ -1116,6 +1133,7 @@ async function createRepostFromMessage(ctx?) {
       ok: false,
       message: `**${authorLabel}** ha bloccato i repost dei propri messaggi.`,
       privacyBlocked: true,
+      privacyEmbed: buildRepostPrivacyBlockedEmbed(authorLabel),
     };
   }
 
@@ -1373,7 +1391,11 @@ async function handleRepostaButton(interaction?) {
 
   if (!result.ok) {
     await interaction
-      .editReply({ content: result.message || "Repost fallito.", embeds: [], components: [] })
+      .editReply(
+        result.privacyEmbed
+          ? { content: "", embeds: [result.privacyEmbed], components: [] }
+          : { content: result.message || "Repost fallito.", embeds: [], components: [] },
+      )
       .catch(() => {});
     return { handled: true };
   }
