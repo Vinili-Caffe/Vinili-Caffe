@@ -567,6 +567,31 @@ async function bumpApplicationCooldownAfterStaffDepex(userId?) {
   await persistCooldownMap();
 }
 
+/* tolta per sbaglio nel commit del 31/10 ma ancora usata dall'invio della candidatura dal sito */
+function buildFinalThanksPlainMessage(untilTs?, type?) {
+  const label = applicationTypeLabel(type);
+  const ms = Number(untilTs);
+  const hasDate = Number.isFinite(ms) && ms > 0;
+  const untilText = hasDate
+    ? new Date(ms).toLocaleString("it-IT", {
+      timeZone: "Europe/Rome",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    })
+    : null;
+  return [
+    "Grazie per esserti candidato.",
+    untilText
+      ? `Per un'altra candidatura ${label} dovrai attendere fino al ${untilText}.`
+      : `Per un'altra candidatura ${label} dovrai attendere il tempo di cooldown previsto.`,
+    "Puoi comunque candidarti all'altro ruolo se non l'hai già fatto.",
+    "Non chiedere l'esito o di guardare la candidatura in qualsiasi modo, altrimenti essa verrà automaticamente scartata.",
+  ].join(" ");
+}
+
 function buildCandidateActionRow(type?, userId?) {
   return new ActionRowBuilder().addComponents(
     new ButtonBuilder()

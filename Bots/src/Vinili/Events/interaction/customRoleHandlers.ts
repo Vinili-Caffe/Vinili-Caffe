@@ -298,7 +298,7 @@ async function editProfilePromptReply(client?, pending?, content?) {
   return hook.editMessage("@original", { content, embeds: [], components: [] }).then(() => true).catch(() => false);
 }
 
-async function refreshProfilePanelFromPrompt() {
+async function refreshProfilePanelFromPrompt(..._args: any[]) {
   return;
 }
 
@@ -1810,7 +1810,7 @@ async function handleAddRemoveSelectMenus(interaction?) {
   return false;
 }
 
-async function refreshProfileCustomReactionPanel() {
+async function refreshProfileCustomReactionPanel(..._args: any[]) {
   /* Pannello profilo Discord dismesso — custom reaction resta sui bottoni dedicati. */
   return false;
 }

@@ -185,7 +185,7 @@ async function stabilizeRepostMedia(client?, doc?) {
     attachmentUrl = fresh.imageUrl;
   }
   if (fresh.files.length) {
-    const byName = new Map(fresh.files.map((f?) => [String(f.name || "").toLowerCase(), f]));
+    const byName = new Map<string, any>(fresh.files.map((f?) => [String(f.name || "").toLowerCase(), f]));
     if (!mediaFiles.length) {
       mediaFiles = fresh.files;
     } else {

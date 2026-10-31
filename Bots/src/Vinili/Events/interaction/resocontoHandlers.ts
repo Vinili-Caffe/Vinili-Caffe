@@ -120,6 +120,20 @@ function resolveAutoReasonForResocontoAction(payload?) {
   return "";
 }
 
+/* tolta per sbaglio nel commit del 31/10 ma ancora usata da "applica" nei resoconti */
+function shouldOpenReasonModalForResocontoApply(payload?) {
+  if (!payload || payload.mode !== "apply") return false;
+  if (payload.kind !== "s") return false;
+  if (payload.actionKey === "px") {
+    return resolveAutoReasonForResocontoAction(payload) === "";
+  }
+  if (["vp", "vn"].includes(payload.actionKey)) {
+    return resolveAutoReasonForResocontoAction(payload) === "";
+  }
+  if (payload.actionKey !== "dp") return false;
+  return isModOrAboveRoleId(payload.roleId);
+}
+
 async function hasRoleAfterRefresh(guild?, userId?, roleId?) {
   if (!roleId) return false;
   const freshMember = await getGuildMemberCached(guild, userId, { preferFresh: true }).catch(() => null);
