@@ -82,7 +82,7 @@ function extForMime(mime?) {
 }
 
 async function saveProofs(weekKey?, userId?, imagesInput?) {
-  const { savePublicSiteMedia, isCdnMediaUrl } = require("../../Web/siteCdnMedia") as typeof import("../../Web/siteCdnMedia");
+  const { savePublicSiteMedia } = require("../../Web/siteCdnMedia") as typeof import("../../Web/siteCdnMedia");
   const list = Array.isArray(imagesInput) ? imagesInput : [];
   const out = [];
   const dir = ensureUploadDir(weekKey, userId);

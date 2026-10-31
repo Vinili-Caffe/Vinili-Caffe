@@ -1,0 +1,809 @@
+/** Resoconti settimanali: valutazioni automatiche (limiti, sanzioni, revisori) e collegamento ai log. */
+const { getClientChannelCached } = require("../../Utils/Interaction/interactionEntityCache") as typeof import("../../Utils/Interaction/interactionEntityCache");
+const { ensureStaff, getOrCreateStaffDoc } = require("../../Utils/Staff/staffDocUtils") as typeof import("../../Utils/Staff/staffDocUtils");
+const { ensureStaffProfileDoc, getStaffDoc, valutazionePositiveAddCore, valutazioneNegativeAddCore } = require("../../Utils/Staff/valutazionePanelActions") as typeof import("../../Utils/Staff/valutazionePanelActions");
+const { STAFF_ACTIVITY_LIMITS, evaluateStaffWeeklyLimitsWithSwap, evaluateStaffWeeklyLimitsAtMultiplier, STAFF_SANCTION_LIMITS, toSafeNumber } = require("./resocontoLimits") as typeof import("./resocontoLimits");
+const { getRomeDateParts, createUtcFromRomeLocal, parseRomeWallClock, getResocontoClosingSundayUtc } = require("./resocontoTime") as typeof import("./resocontoTime");
+const { overviewLooksLikeEmptyFallback } = require("./resocontoActivity") as typeof import("./resocontoActivity");
+const { hadPauseAtLeastOneDayDuringWeek, hydrateStaffPausesFromWorkflowIfMissing } = require("./resocontoPauses") as typeof import("./resocontoPauses");
+const { hasStaffLimitsValutazioneForCycle, hasStaffSanctionsValutazioneForCycle, findAutoValutazioneEntry } = require("./resocontoGrades") as typeof import("./resocontoGrades");
+
+const STAFF_LIMITS_POSITIVE_MULTIPLIER = 2;
+
+function shouldSkipLimitAutovalutazioniForStaffMember({
+  graceNewStaffRole = false,
+  wasPexedResocontoDay = false,
+} = {}) {
+  /* resoNewStaffGrace2: auto-val limiti solo skip per Member→staff (nuovo), non helper→mod */
+  return Boolean(graceNewStaffRole || wasPexedResocontoDay);
+}
+
+function shouldSkipSanctionAutovalutazioniForStaffMember({
+  graceNewStaffRole = false,
+  wasPexedResocontoDay = false,
+} = {}) {
+  /* resoNewStaffGrace2: niente auto-val sanzioni ai nuovi in staff (Member→staff) */
+  return Boolean(graceNewStaffRole || wasPexedResocontoDay);
+}
+
+function staffHasPositiveValutazioneNeedle(staffDoc?, needles?) {
+  const list = Array.isArray(staffDoc?.positiveReasons) ? staffDoc.positiveReasons : [];
+  const normalizedNeedles = (Array.isArray(needles) ? needles : [])
+    .map((needle?) => String(needle || "").toLowerCase())
+    .filter(Boolean);
+  if (!normalizedNeedles.length) return false;
+  return list.some((entry?) => {
+    const normalized = String(entry || "").toLowerCase();
+    return normalizedNeedles.some((needle?) => normalized.includes(needle));
+  });
+}
+
+function staffHasNegativeValutazioneNeedle(staffDoc?, needles?) {
+  const list = Array.isArray(staffDoc?.negativeReasons) ? staffDoc.negativeReasons : [];
+  const normalizedNeedles = (Array.isArray(needles) ? needles : [])
+    .map((needle?) => String(needle || "").toLowerCase())
+    .filter(Boolean);
+  if (!normalizedNeedles.length) return false;
+  return list.some((entry?) => {
+    const normalized = String(entry || "").toLowerCase();
+    return normalizedNeedles.some((needle?) => normalized.includes(needle));
+  });
+}
+
+function shouldSkipManualResocontoVp(staffDoc?, resocontoWeekKey?, staffRoleId?, reason?) {
+  const reasonNorm = String(reason || "").toLowerCase();
+  const since = getResocontoCycleMessagesSince();
+  if (reasonNorm.includes("limiti settimanali")) {
+    if (/completati|rispettati/.test(reasonNorm) && !/doppio|triplo|×\s*2|x2/.test(reasonNorm)) {
+      /* Mai VP automatica/manuale solo per 1×. */
+      return true;
+    }
+    if (hasStaffLimitsValutazioneForCycle(staffDoc, resocontoWeekKey, staffRoleId)) return true;
+    return Boolean(
+      findLogForReasonNeedlesSince(
+        staffDoc,
+        ["limiti settimanali superati almeno del doppio"],
+        "positive",
+        since,
+      ),
+    );
+  }
+  if (reasonNorm.includes("compito sanzioni")) {
+    if (hasStaffSanctionsValutazioneForCycle(staffDoc, resocontoWeekKey, staffRoleId)) return true;
+    return Boolean(
+      findLogForReasonNeedlesSince(staffDoc, ["compito sanzioni completato"], "positive", since),
+    );
+  }
+  if (reasonNorm.includes("griglia")) {
+    if (
+      staffHasPositiveValutazioneNeedle(staffDoc, [
+        "griglia attività/condotta",
+        "valutazione positiva da griglia",
+      ])
+    ) {
+      return true;
+    }
+    return Boolean(
+      findLogForReasonNeedlesSince(
+        staffDoc,
+        ["griglia attività/condotta", "valutazione positiva da griglia"],
+        "positive",
+        since,
+      ),
+    );
+  }
+  return false;
+}
+
+function shouldSkipManualResocontoVn(staffDoc?, resocontoWeekKey?, staffRoleId?, reason?) {
+  const reasonNorm = String(reason || "").toLowerCase();
+  const since = getResocontoCycleMessagesSince();
+  if (reasonNorm.includes("limiti settimanali")) {
+    if (hasStaffLimitsValutazioneForCycle(staffDoc, resocontoWeekKey, staffRoleId)) return true;
+    return Boolean(
+      findLogForReasonNeedlesSince(
+        staffDoc,
+        ["limiti settimanali non raggiunti", "limiti settimanali non rispettati"],
+        "negative",
+        since,
+      ),
+    );
+  }
+  if (reasonNorm.includes("griglia")) {
+    if (
+      staffHasNegativeValutazioneNeedle(staffDoc, [
+        "griglia attività/condotta",
+        "valutazione negativa da griglia",
+      ])
+    ) {
+      return true;
+    }
+    return Boolean(
+      findLogForReasonNeedlesSince(
+        staffDoc,
+        ["griglia attività/condotta", "valutazione negativa da griglia"],
+        "negative",
+        since,
+      ),
+    );
+  }
+  return false;
+}
+
+function resocontoAutoActor(guild?) {
+  return { user: guild?.client?.user || { username: "Automazione Resoconti" }, member: null };
+}
+
+const autoValutazioneInFlight = new Map();
+
+function autoValutazioneLockKey(guildId?, userId?, key?) {
+  return `${String(guildId || "")}:${String(userId || "")}:${String(key || "")}`;
+}
+
+async function withAutoValutazioneLock(lockKey?, fn?) {
+  while (autoValutazioneInFlight.has(lockKey)) {
+    await autoValutazioneInFlight.get(lockKey);
+  }
+  let release = () => {};
+  const gate = new Promise((resolve?) => {
+    release = (resolve as any);
+  });
+  autoValutazioneInFlight.set(lockKey, gate);
+  try {
+    return await fn();
+  } finally {
+    autoValutazioneInFlight.delete(lockKey);
+    release();
+  }
+}
+
+function parseResocontoReviewerTaskKey(keyStr?) {
+  const m = /^resoconto_reviewer_task:([^:]+):([^:]+):(\d{17,20})$/.exec(String(keyStr || ""));
+  if (!m) return null;
+  return { weekKey: m[1], segment: m[2], userId: m[3] };
+}
+
+function hasResocontoReviewerTaskAutoEntry(staff, { weekKey, segment, userId, type, reason }) {
+  const autoEntries = Array.isArray(staff?.autoValutazioni) ? staff.autoValutazioni : [];
+  const reasonStr = String(reason || "");
+  const seg = String(segment || "");
+  const uid = String(userId || "");
+  const wk = String(weekKey || "");
+  return autoEntries.some((entry?) => {
+    if (String(entry?.type || "") !== String(type || "")) return false;
+    const parsed = parseResocontoReviewerTaskKey(String(entry?.key || ""));
+    if (!parsed) return false;
+    return (
+      parsed.segment === seg &&
+      parsed.userId === uid &&
+      parsed.weekKey === wk &&
+      String(entry?.reason || "") === reasonStr
+    );
+  });
+}
+
+function findUnlinkedPositiveLogForReasonSince(staff?, reason?, sinceDate?) {
+  const reasonStr = String(reason || "");
+  const sinceMs = sinceDate instanceof Date ? sinceDate.getTime() : 0;
+  const reasons = Array.isArray(staff?.positiveReasons) ? staff.positiveReasons : [];
+  const logs = Array.isArray(staff?.positiveValutazioni) ? staff.positiveValutazioni : [];
+  const autoEntries = Array.isArray(staff?.autoValutazioni) ? staff.autoValutazioni : [];
+  const linkedMessageIds = new Set(
+    autoEntries
+      .filter((entry?) => String(entry?.reason || "") === reasonStr && String(entry?.messageId || ""))
+      .map((entry?) => String(entry.messageId)),
+  );
+  for (let idx = reasons.length - 1; idx >= 0; idx -= 1) {
+    if (String(reasons[idx] || "") !== reasonStr) continue;
+    const log = logs[idx];
+    if (!log?.messageId || !log?.channelId) continue;
+    if (linkedMessageIds.has(String(log.messageId))) continue;
+    const logMs = log.createdAt ? new Date(log.createdAt).getTime() : 0;
+    if (sinceMs > 0 && logMs > 0 && logMs < sinceMs) continue;
+    return log;
+  }
+  return null;
+}
+
+async function classifyResocontoReviewerAutoEntry(guild?, entry?, expectedReason = "") {
+  if (!entry) return "stale";
+  if (entry.spentByTrade) return "spent";
+
+  const parsed = parseResocontoReviewerTaskKey(String(entry?.key || ""));
+  const currentWeekKey = getResocontoCycleWeekKey();
+  if (parsed?.weekKey && parsed.weekKey !== currentWeekKey) return "stale";
+
+    if (parsed?.weekKey && parsed.weekKey === currentWeekKey) {
+    const channelId = String(entry.channelId || "");
+    const messageId = String(entry.messageId || "");
+    if (!channelId || !messageId || !guild) return "spent";
+
+    const channel =
+      guild.channels?.cache?.get(channelId) ||
+      (await getClientChannelCached(guild.client, channelId).catch(() => null));
+    if (!channel?.messages?.fetch) return "spent";
+
+    const message = await channel.messages.fetch(messageId).catch(() => null);
+    if (!message) return "spent";
+
+    const expected = String(expectedReason || entry?.reason || "").trim();
+    if (!expected) return "active";
+    const embedDesc = String(message.embeds?.[0]?.description || "");
+    const embedTitle = String(message.embeds?.[0]?.title || "");
+    const blob = `${embedTitle}\n${embedDesc}\n${String(message.content || "")}`;
+    return blob.includes(expected) ? "active" : "spent";
+  }
+
+  return "stale";
+}
+
+function buildResocontoCompitoClaimId(weekKey?, segment?, userId?) {
+  return `${String(weekKey || "").trim()}:${String(segment || "").trim()}:${String(userId || "").trim()}`;
+}
+
+function staffHasResocontoCompitoClaim(staff?, weekKey?, segment?, userId?) {
+  const id = buildResocontoCompitoClaimId(weekKey, segment, userId);
+  if (!id || id.startsWith("::") || id.endsWith(":")) return false;
+  const rows = Array.isArray(staff?.resocontoCompitoClaims) ? staff.resocontoCompitoClaims : [];
+  if (rows.some((row?) => {
+    if (row == null) return false;
+    if (typeof row === "string") return row === id;
+    return String(row.id || row.key || "") === id;
+  })) {
+    return true;
+  }
+    const wk = String(weekKey || "");
+  const uid = String(userId || "");
+  if (!wk || !uid) return false;
+  return (Array.isArray(staff?.autoValutazioni) ? staff.autoValutazioni : []).some((entry?) => {
+    const parsed = parseResocontoReviewerTaskKey(String(entry?.key || ""));
+    return Boolean(parsed && parsed.weekKey === wk && parsed.userId === uid);
+  });
+}
+
+function rememberResocontoCompitoClaim(staff?, weekKey?, segment?, userId?) {
+  if (!staff || typeof staff !== "object") return false;
+  const id = buildResocontoCompitoClaimId(weekKey, segment, userId);
+  if (!id || id.includes("::") || id.startsWith(":") || id.endsWith(":")) return false;
+  if (staffHasResocontoCompitoClaim(staff, weekKey, segment, userId)) return false;
+  if (!Array.isArray(staff.resocontoCompitoClaims)) staff.resocontoCompitoClaims = [];
+  staff.resocontoCompitoClaims.push({
+    id,
+    weekKey: String(weekKey || ""),
+    segment: String(segment || ""),
+    userId: String(userId || ""),
+    at: new Date(),
+  });
+    if (staff.resocontoCompitoClaims.length > 40) {
+    staff.resocontoCompitoClaims = staff.resocontoCompitoClaims.slice(-40);
+  }
+  return true;
+}
+
+async function resocontoReviewerAutoEntryIsCurrentCycle(guild?, entry?, expectedReason = "") {
+  return (await classifyResocontoReviewerAutoEntry(guild, entry, expectedReason)) === "active";
+}
+
+async function persistSpentResocontoReviewerClaim(profileDoc?, staff?, entry?) {
+  if (!profileDoc || !staff || !entry || entry.spentByTrade) return false;
+  entry.spentByTrade = true;
+  entry.spentAt = new Date();
+  entry.spentReason = entry.spentReason || "claim_preserved_after_message_change";
+  entry.updatedAt = new Date();
+  const parsed = parseResocontoReviewerTaskKey(String(entry.key || ""));
+  if (parsed) rememberResocontoCompitoClaim(staff, parsed.weekKey, parsed.segment, parsed.userId);
+  profileDoc.markModified("staff");
+  await profileDoc.save();
+  return true;
+}
+
+function findUnlinkedPositiveLogForReason(staff?, reason?) {
+  const reasonStr = String(reason || "");
+  const reasons = Array.isArray(staff?.positiveReasons) ? staff.positiveReasons : [];
+  const logs = Array.isArray(staff?.positiveValutazioni) ? staff.positiveValutazioni : [];
+  const autoEntries = Array.isArray(staff?.autoValutazioni) ? staff.autoValutazioni : [];
+  const linkedMessageIds = new Set(
+    autoEntries
+      .filter((entry?) => String(entry?.reason || "") === reasonStr && String(entry?.messageId || ""))
+      .map((entry?) => String(entry.messageId)),
+  );
+  for (let idx = reasons.length - 1; idx >= 0; idx -= 1) {
+    if (String(reasons[idx] || "") !== reasonStr) continue;
+    const log = logs[idx];
+    if (!log?.messageId || !log?.channelId) continue;
+    if (linkedMessageIds.has(String(log.messageId))) continue;
+    return log;
+  }
+  return null;
+}
+
+function findUnlinkedPositiveLogForReasonNeedles(staff?, needles?) {
+  return findLogForReasonNeedlesSince(staff, needles, "positive", null, { unlinkedOnly: true });
+}
+
+function findUnlinkedLogForReasonNeedlesSince(staff?, needles?, type = "positive", sinceDate = null) {
+  return findLogForReasonNeedlesSince(staff, needles, type, sinceDate, { unlinkedOnly: true });
+}
+
+function findLogForReasonNeedlesSince(
+  staff?,
+  needles?,
+  type = "positive",
+  sinceDate = null,
+  { unlinkedOnly = false } = {},
+) {
+  const normalizedNeedles = (Array.isArray(needles) ? needles : [])
+    .map((needle?) => String(needle || "").toLowerCase())
+    .filter(Boolean);
+  if (!normalizedNeedles.length) return null;
+  const reasons =
+    type === "negative"
+      ? Array.isArray(staff?.negativeReasons)
+        ? staff.negativeReasons
+        : []
+      : Array.isArray(staff?.positiveReasons)
+        ? staff.positiveReasons
+        : [];
+  const logs =
+    type === "negative"
+      ? Array.isArray(staff?.negativeValutazioni)
+        ? staff.negativeValutazioni
+        : []
+      : Array.isArray(staff?.positiveValutazioni)
+        ? staff.positiveValutazioni
+        : [];
+  const autoEntries = Array.isArray(staff?.autoValutazioni) ? staff.autoValutazioni : [];
+  const linkedMessageIds = new Set(
+    autoEntries
+      .filter((entry?) => String(entry?.messageId || ""))
+      .map((entry?) => String(entry.messageId)),
+  );
+  const sinceMs = sinceDate ? new Date(sinceDate).getTime() : 0;
+  for (let idx = reasons.length - 1; idx >= 0; idx -= 1) {
+    const normalized = String(reasons[idx] || "").toLowerCase();
+    if (!normalizedNeedles.some((needle?) => normalized.includes(needle))) continue;
+    const log = logs[idx];
+    if (!log?.messageId || !log?.channelId) continue;
+    if (unlinkedOnly && linkedMessageIds.has(String(log.messageId))) continue;
+    if (sinceMs) {
+      const createdMs = log?.createdAt ? new Date(log.createdAt).getTime() : 0;
+      if (!createdMs || createdMs < sinceMs) continue;
+    }
+    return { log, reason: String(reasons[idx] || "") };
+  }
+  return null;
+}
+
+async function weeklyScopedAutoEntryIsCurrentCycle(guild?, entry?) {
+  if (!entry || !guild) return false;
+  const channelId = String(entry.channelId || "");
+  const messageId = String(entry.messageId || "");
+  if (!channelId || !messageId) return false;
+  const channel =
+    guild.channels?.cache?.get(channelId) ||
+    (await getClientChannelCached(guild.client, channelId).catch(() => null));
+  if (!channel?.messages?.fetch) return false;
+  const message = await channel.messages.fetch(messageId).catch(() => null);
+  if (!message) return false;
+  const since = getResocontoCycleMessagesSince();
+  const sinceMs = since?.getTime?.() || 0;
+  if (sinceMs && Number(message.createdTimestamp || 0) < sinceMs) return false;
+  return true;
+}
+
+async function relinkScopedAutoValutazione(profileDoc?, staff?, keyStr?, reason?, type?, log?) {
+  if (!profileDoc || !staff || !log) return null;
+  if (!Array.isArray(staff.autoValutazioni)) staff.autoValutazioni = [];
+  if (findAutoValutazioneEntry(staff, keyStr)) {
+    return { ok: true, skipped: "exists", relinked: true };
+  }
+  staff.autoValutazioni.push({
+    key: String(keyStr),
+    type: String(type || "positive"),
+    reason: String(reason || ""),
+    channelId: String(log.channelId || ""),
+    messageId: String(log.messageId || ""),
+    createdAt: log.createdAt || new Date(),
+    updatedAt: new Date(),
+  });
+  profileDoc.markModified("staff");
+  await profileDoc.save();
+  return { ok: true, skipped: "relinked", relinked: true };
+}
+
+async function relinkResocontoReviewerAutoValutazione(profileDoc?, staff?, keyStr?, reason?, type?) {
+  if (type !== "positive" || !profileDoc || !staff) return null;
+  const log = findUnlinkedPositiveLogForReasonSince(
+    staff,
+    reason,
+    getResocontoCycleMessagesSince(),
+  );
+  if (!log) return null;
+  return relinkScopedAutoValutazione(profileDoc, staff, keyStr, reason, type, log);
+}
+
+async function ensureWeeklyLimitAutoValutazione({ guild, member, key, type, reason, force = false, equivalentReasonNeedles = null }) {
+  if (!guild || !member?.user || !key || !type) return { ok: false };
+  const keyStr = String(key || "");
+  const lockKey = autoValutazioneLockKey(guild.id, member.id, keyStr);
+  return withAutoValutazioneLock(lockKey, async () => {
+  const { resolveStaffValutazioniChannel } = require("../../Utils/Staff/staffChannelUtils") as typeof import("../../Utils/Staff/staffChannelUtils");
+  const channel = await resolveStaffValutazioniChannel(guild, guild.client);
+  
+  let profileDoc = await ensureStaffProfileDoc(
+    await getStaffDoc(guild.id, member.id),
+    guild.id,
+    member.id,
+  );
+  let staff = ensureStaff(profileDoc);
+  if (!staff) return { ok: false, skipped: "no_staff_doc" };
+  if (!Array.isArray(staff.autoValutazioni)) staff.autoValutazioni = [];
+  const weeklyLimitReasons = Array.isArray(equivalentReasonNeedles)
+    ? equivalentReasonNeedles
+    : type === "negative"
+      ? ["limiti settimanali non raggiunti", "limiti settimanali non rispettati"]
+      : ["limiti settimanali completati", "limiti settimanali rispettati", "limiti settimanali superati almeno del doppio"];
+  const isWeeklyLimitsKey = keyStr.startsWith("weekly_limits:");
+  const isWeeklySanzioniKey = keyStr.startsWith("weekly_sanzioni:");
+  const isResocontoReviewerKey = keyStr.startsWith("resoconto_reviewer_task:");
+  const isWeeklyScopedKey = isWeeklyLimitsKey || isWeeklySanzioniKey || isResocontoReviewerKey;
+
+  if (isResocontoReviewerKey && !force) {
+    const parsedClaim = parseResocontoReviewerTaskKey(keyStr);
+    if (
+      parsedClaim &&
+      staffHasResocontoCompitoClaim(staff, parsedClaim.weekKey, parsedClaim.segment, parsedClaim.userId)
+    ) {
+      return { ok: true, skipped: "compito_claim" };
+    }
+  }
+
+  if ((isWeeklyLimitsKey || isWeeklySanzioniKey) && !force) {
+            const existingWeekly = findAutoValutazioneEntry(staff, keyStr);
+    if (existingWeekly) {
+      if (existingWeekly.spentByTrade) {
+        return { ok: true, skipped: "spent_by_trade" };
+      }
+      return { ok: true, skipped: "exists" };
+    }
+    const since = getResocontoCycleMessagesSince();
+    const linked = findLogForReasonNeedlesSince(staff, weeklyLimitReasons, type, since, {
+      unlinkedOnly: true,
+    });
+    if (linked?.log) {
+      const logReason = String(linked.log?.reason || linked.reason || "").toLowerCase();
+      const reasonMatchesLog = weeklyLimitReasons.some((needle?) => logReason.includes(needle));
+      if (reasonMatchesLog) {
+        const relinked = await relinkScopedAutoValutazione(
+          profileDoc,
+          staff,
+          keyStr,
+          linked.reason || String(reason || ""),
+          type,
+          linked.log,
+        );
+        if (relinked) return relinked;
+      }
+    }
+  }
+
+  if (!isWeeklyScopedKey) {
+    const reasonList = type === "negative" ? staff.negativeReasons : staff.positiveReasons;
+    const alreadyHasEquivalentWeeklyLimitValutazione =
+      weeklyLimitReasons.length > 0 &&
+      Array.isArray(reasonList) &&
+      reasonList.some((entry?) => {
+        const normalized = String(entry || "").toLowerCase();
+        return weeklyLimitReasons.some((needle?) => normalized.includes(needle));
+      });
+    if (alreadyHasEquivalentWeeklyLimitValutazione) {
+      return { ok: true, skipped: "equivalent_exists" };
+    }
+  }
+  let existing = findAutoValutazioneEntry(staff, keyStr);
+  if (existing?.spentByTrade && !force) {
+    if (isResocontoReviewerKey) {
+      const parsed = parseResocontoReviewerTaskKey(keyStr);
+      if (parsed && rememberResocontoCompitoClaim(staff, parsed.weekKey, parsed.segment, parsed.userId)) {
+        profileDoc.markModified("staff");
+        await profileDoc.save();
+      }
+    }
+    return { ok: true, skipped: "spent_by_trade" };
+  }
+  if (existing && !force && isResocontoReviewerKey) {
+    const claim = await classifyResocontoReviewerAutoEntry(
+      guild,
+      existing,
+      String(reason || ""),
+    );
+    if (claim === "active" || claim === "spent") {
+      const parsed = parseResocontoReviewerTaskKey(keyStr);
+      if (claim === "spent") {
+        existing.spentByTrade = true;
+        existing.spentAt = existing.spentAt || new Date();
+        existing.spentReason = existing.spentReason || "claim_preserved_after_message_change";
+        existing.updatedAt = new Date();
+      }
+      if (parsed) rememberResocontoCompitoClaim(staff, parsed.weekKey, parsed.segment, parsed.userId);
+      profileDoc.markModified("staff");
+      await profileDoc.save();
+      return { ok: true, skipped: claim === "spent" ? "spent_by_trade" : "exists" };
+    }
+        staff.autoValutazioni = staff.autoValutazioni.filter(
+      (entry?) => String(entry?.key || "") !== keyStr,
+    );
+    profileDoc.markModified("staff");
+    await profileDoc.save();
+    existing = null;
+  }
+  if (existing && !force) return { ok: true, skipped: "exists" };
+  if (keyStr.startsWith("resoconto_reviewer_task:")) {
+    const parsed = parseResocontoReviewerTaskKey(keyStr);
+    if (parsed && hasResocontoReviewerTaskAutoEntry(staff, { ...parsed, type, reason }) && !force) {
+      const existingReviewer = findAutoValutazioneEntry(staff, keyStr);
+      if (existingReviewer?.spentByTrade) {
+        if (rememberResocontoCompitoClaim(staff, parsed.weekKey, parsed.segment, parsed.userId)) {
+          profileDoc.markModified("staff");
+          await profileDoc.save();
+        }
+        return { ok: true, skipped: "spent_by_trade" };
+      }
+      const claim = await classifyResocontoReviewerAutoEntry(
+        guild,
+        existingReviewer,
+        String(reason || ""),
+      );
+      if (claim === "active" || claim === "spent") {
+        if (claim === "spent" && existingReviewer) {
+          existingReviewer.spentByTrade = true;
+          existingReviewer.spentAt = existingReviewer.spentAt || new Date();
+          existingReviewer.updatedAt = new Date();
+        }
+        rememberResocontoCompitoClaim(staff, parsed.weekKey, parsed.segment, parsed.userId);
+        profileDoc.markModified("staff");
+        await profileDoc.save();
+        return { ok: true, skipped: claim === "spent" ? "spent_by_trade" : "exists" };
+      }
+      staff.autoValutazioni = staff.autoValutazioni.filter(
+        (entry?) => String(entry?.key || "") !== keyStr,
+      );
+      profileDoc.markModified("staff");
+      await profileDoc.save();
+    }
+  }
+  if (existing && force) {
+    staff.autoValutazioni = staff.autoValutazioni.filter((entry?) => String(entry?.key || "") !== keyStr);
+    profileDoc.markModified("staff");
+  }
+
+  profileDoc = await ensureStaffProfileDoc(
+    await getStaffDoc(guild.id, member.id),
+    guild.id,
+    member.id,
+  );
+  staff = ensureStaff(profileDoc);
+  if (!staff) return { ok: false, skipped: "no_staff_doc" };
+  existing = findAutoValutazioneEntry(staff, keyStr);
+  if (existing?.spentByTrade && !force) return { ok: true, skipped: "spent_by_trade" };
+  if (existing && !force) return { ok: true, skipped: "exists" };
+
+  const actor = resocontoAutoActor(guild);
+  const result = type === "negative"
+    ? await valutazioneNegativeAddCore(guild, profileDoc, member.user, reason, actor, channel)
+    : await valutazionePositiveAddCore(profileDoc, member.user, reason, actor, channel);
+
+  if (!result?.ok && !result?.message) {
+    return { ok: false, skipped: "valutazione_post_failed" };
+  }
+
+  profileDoc = await getOrCreateStaffDoc(guild.id, member.id);
+  if (!profileDoc) return { ok: false, skipped: "no_profile" };
+  const freshStaff = ensureStaff(profileDoc);
+  if (!Array.isArray(freshStaff.autoValutazioni)) freshStaff.autoValutazioni = [];
+  if (findAutoValutazioneEntry(freshStaff, keyStr) && !force) {
+    return { ok: true, skipped: "exists" };
+  }
+  freshStaff.autoValutazioni = freshStaff.autoValutazioni.filter(
+    (entry?) => String(entry?.key || "") !== keyStr,
+  );
+  freshStaff.autoValutazioni.push({
+    key: keyStr,
+    type: String(type),
+    reason: String(reason || ""),
+    channelId: channel?.id ? String(channel.id) : null,
+    messageId: result?.message?.id ? String(result.message.id) : null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  });
+  if (isResocontoReviewerKey) {
+    const parsed = parseResocontoReviewerTaskKey(keyStr);
+    if (parsed) {
+      rememberResocontoCompitoClaim(freshStaff, parsed.weekKey, parsed.segment, parsed.userId);
+    }
+  }
+  profileDoc.markModified("staff");
+  await profileDoc.save();
+  return { ok: true, created: true, reviewerId: String(member.id || "") };
+  });
+}
+
+async function applyWeeklyStaffAutoValutazioniForMember({
+  guild,
+  member,
+  staffDoc,
+  staffRoleId,
+  overview,
+  resocontoWeekKey,
+  sanctionCountByModId,
+  graceNewStaffRole,
+  weekStart,
+  weekEnd,
+  force = false,
+  skipLimitAutovalutazione = false,
+  skipSanctionAutovalutazione = false,
+}) {
+  const userId = String(member?.id || "");
+  const limits = STAFF_ACTIVITY_LIMITS[String(staffRoleId)];
+  const overviewUnavailable = overviewLooksLikeEmptyFallback(overview);
+  const canEvaluateWeeklyLimits =
+    Boolean(limits) && !graceNewStaffRole && !overviewUnavailable;
+
+  const d7 = overview?.windows?.d7;
+  const weeklyMessages = Math.max(0, Math.floor(toSafeNumber(d7?.text ?? 0)));
+  const weeklyVoiceSeconds = Math.max(0, Math.floor(toSafeNumber(d7?.voiceSeconds ?? 0)));
+  const weeklyVoiceHours = weeklyVoiceSeconds / 3600;
+  const limitsEvaluation = limits
+    ? evaluateStaffWeeklyLimitsWithSwap(weeklyMessages, weeklyVoiceHours, limits)
+    : null;
+  const doubleLimitsEvaluation = limits
+    ? evaluateStaffWeeklyLimitsAtMultiplier(
+        weeklyMessages,
+        weeklyVoiceHours,
+        limits,
+        STAFF_LIMITS_POSITIVE_MULTIPLIER,
+      )
+    : null;
+  const tripleLimitsEvaluation = limits
+    ? evaluateStaffWeeklyLimitsAtMultiplier(weeklyMessages, weeklyVoiceHours, limits, 3)
+    : null;
+  const reachedWeeklyLimits = Boolean(canEvaluateWeeklyLimits && limitsEvaluation?.reached);
+  const reachedDoubleWeeklyLimits = Boolean(
+    canEvaluateWeeklyLimits && doubleLimitsEvaluation?.reached,
+  );
+  const reachedTripleWeeklyLimits = Boolean(
+    canEvaluateWeeklyLimits && tripleLimitsEvaluation?.reached,
+  );
+    await hydrateStaffPausesFromWorkflowIfMissing(guild?.id, userId, staffDoc).catch(() => null);
+  const inPauseAtLeastOneDay = hadPauseAtLeastOneDayDuringWeek(
+    staffDoc,
+    weekStart,
+    weekEnd,
+    "Staff",
+  );
+
+  let limitsResult: Record<string, any> = { ok: true, skipped: skipLimitAutovalutazione ? "skip_context" : "ineligible" };
+  if (canEvaluateWeeklyLimits && !skipLimitAutovalutazione) {
+            const shouldApplyPositive =
+      reachedDoubleWeeklyLimits && !inPauseAtLeastOneDay && !graceNewStaffRole;
+    const shouldApplyNegative =
+      !reachedWeeklyLimits && !inPauseAtLeastOneDay && !graceNewStaffRole;
+    limitsResult = {
+      ok: true,
+      skipped: inPauseAtLeastOneDay ? "pause_week" : "ineligible",
+    };
+    if (shouldApplyPositive) {
+      limitsResult = await ensureWeeklyLimitAutoValutazione({
+        guild,
+        member,
+        key: `weekly_limits:${resocontoWeekKey}:${staffRoleId}`,
+        type: "positive",
+        reason: "Limiti settimanali superati almeno del doppio.",
+        equivalentReasonNeedles: [
+          "limiti settimanali superati almeno del doppio",
+        ],
+        force,
+      }).catch((err?) => {
+        global.logger?.warn?.(
+          "[WEEKLY STAFF RESOCONTO] weekly limit valutazione failed:",
+          userId,
+          err?.message || err,
+        );
+        return { ok: false };
+      });
+    } else if (shouldApplyNegative) {
+      limitsResult = await ensureWeeklyLimitAutoValutazione({
+        guild,
+        member,
+        key: `weekly_limits:${resocontoWeekKey}:${staffRoleId}`,
+        type: "negative",
+        reason: "Limiti settimanali non raggiunti.",
+        force,
+      }).catch((err?) => {
+        global.logger?.warn?.(
+          "[WEEKLY STAFF RESOCONTO] weekly limit valutazione failed:",
+          userId,
+          err?.message || err,
+        );
+        return { ok: false };
+      });
+    } else if (!reachedWeeklyLimits && graceNewStaffRole) {
+      limitsResult = { ok: true, skipped: "grace_new_role" };
+    } else if (reachedWeeklyLimits && !reachedDoubleWeeklyLimits) {
+      limitsResult = { ok: true, skipped: "below_double_limits" };
+    }
+  }
+
+  let sanctionsResult = null;
+  const sanctionLimit = STAFF_SANCTION_LIMITS[String(staffRoleId)];
+  const weeklySanctions = sanctionCountByModId?.get?.(userId) || 0;
+  const metWeeklySanctionLimit =
+    sanctionLimit != null && weeklySanctions >= sanctionLimit;
+  if (metWeeklySanctionLimit && !skipSanctionAutovalutazione && !graceNewStaffRole) {
+    sanctionsResult = await ensureWeeklyLimitAutoValutazione({
+      guild,
+      member,
+      key: `weekly_sanzioni:${resocontoWeekKey}:${staffRoleId}`,
+      type: "positive",
+      reason: "Compito sanzioni completato.",
+      equivalentReasonNeedles: ["compito sanzioni completato"],
+      force,
+    }).catch((err?) => {
+      global.logger?.warn?.(
+        "[WEEKLY STAFF RESOCONTO] weekly sanctions valutazione failed:",
+        userId,
+        err?.message || err,
+      );
+      return { ok: false };
+    });
+  } else if (graceNewStaffRole && metWeeklySanctionLimit) {
+    sanctionsResult = { ok: true, skipped: "grace_new_role" };
+  }
+
+  if (reachedTripleWeeklyLimits && !inPauseAtLeastOneDay && guild?.id && userId) {
+    try {
+      const { tryAutoSubmitCompito } = require("../../features/staff/siteStaffCompitiAutoComplete") as typeof import("../../features/staff/siteStaffCompitiAutoComplete");
+      await tryAutoSubmitCompito(global.botClient || guild?.client, {
+        guildId: guild.id,
+        userId,
+        taskId: "limits_triple",
+        evidence: `Limiti ×3 raggiunti (${weeklyMessages} msg / ${weeklyVoiceHours.toFixed(1)}h) · ${resocontoWeekKey}`,
+      });
+    } catch (err) {
+      global.logger?.warn?.("[WEEKLY STAFF RESOCONTO] compiti limits_triple:", err?.message || err);
+    }
+  }
+
+  return {
+    limits: Boolean(limitsResult?.created),
+    sanctions: Boolean(sanctionsResult?.created),
+    skippedLimits: limitsResult?.skipped || null,
+    skippedSanctions: sanctionsResult?.skipped || null,
+  };
+}
+
+function getResocontoCycleWeekKey(now = new Date()) {
+            const r = parseRomeWallClock(now);
+  if (r.weekday === "Sun") {
+    return `${r.year}-${String(r.month).padStart(2, "0")}-${String(r.day).padStart(2, "0")}`;
+  }
+  const closingSunday = getResocontoClosingSundayUtc(now);
+  const closingParts = getRomeDateParts(closingSunday);
+  return `${closingParts.year}-${String(closingParts.month).padStart(2, "0")}-${String(closingParts.day).padStart(2, "0")}`;
+}
+
+function getResocontoCycleMessagesSince(now = new Date()) {
+  const r = parseRomeWallClock(now);
+  const wdMap = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+  const w = wdMap[r.weekday];
+
+    if (w === 0) {
+    return createUtcFromRomeLocal(r.year, r.month, r.day, 0, 0, 0);
+  }
+
+  const closingSunday = getResocontoClosingSundayUtc(now);
+  const sunParts = getRomeDateParts(closingSunday);
+  return createUtcFromRomeLocal(sunParts.year, sunParts.month, sunParts.day, 0, 0, 0);
+}
+
+export = { STAFF_LIMITS_POSITIVE_MULTIPLIER, shouldSkipLimitAutovalutazioniForStaffMember, shouldSkipSanctionAutovalutazioniForStaffMember, shouldSkipManualResocontoVp, shouldSkipManualResocontoVn, classifyResocontoReviewerAutoEntry, staffHasResocontoCompitoClaim, rememberResocontoCompitoClaim, ensureWeeklyLimitAutoValutazione, applyWeeklyStaffAutoValutazioniForMember, getResocontoCycleWeekKey, getResocontoCycleMessagesSince };

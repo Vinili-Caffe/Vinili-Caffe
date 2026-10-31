@@ -1,48 +1,20 @@
 const fs = require("node:fs") as typeof import("node:fs");
 const path = require("node:path") as typeof import("node:path");
-const crypto = require("node:crypto") as typeof import("node:crypto");
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
-const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
 const {
   assertWebsiteStaffAccess,
   normalizeHeaderSecret,
 } = require("./siteStaffAccessApi") as typeof import("./siteStaffAccessApi");
 const {
-  accountUsername,
-  userAvatarUrlDynamic,
-  discordDefaultAvatarUrl,
-} = require("../../Utils/Discord/guildDiscordIdentity") as typeof import("../../Utils/Discord/guildDiscordIdentity");
-const { memberIsHighStaffEligible } = require("../../Utils/Staff/staffRoleHierarchy") as typeof import("../../Utils/Staff/staffRoleHierarchy");
-const { remapRoleIdForward } = require("../../Utils/Config/emergencyRoleIdRemap") as typeof import("../../Utils/Config/emergencyRoleIdRemap");
-const {
-  parseViewAsFromReq,
-  canUseViewAs,
-  compitiRoleOverride,
-} = require("../../Web/siteViewAsPreview") as typeof import("../../Web/siteViewAsPreview");
-const {
-  notifyCompitiSubmitted,
-  notifyCompitiApproved,
-  notifyCompitiRejected,
-  notifyCompitiMissed,
-  notifyCompitiAutoFailed,
-  notifyCompitiDeadlineSoon,
-  taskLabelFromMeta,
-} = require("./siteStaffCompitiNotifications") as typeof import("./siteStaffCompitiNotifications");
-const { memberDisplayName } = require("./siteStaffEventNotifications") as typeof import("./siteStaffEventNotifications");
-const {
   TASKS_META,
   ALLOWED_TASK_IDS,
-  isAutoTask,
   publicTasksMeta,
-  taskById,
 } = require("./siteStaffCompitiCatalog") as typeof import("./siteStaffCompitiCatalog");
-const { isoWeeksInMonthKey, currentRomeIsoWeekKey, romeMonthKey, sundaySubmitDeadlineMs, sundayReviewDeadlineMs, weekKeysInRomeMonth, prevRomeMonthKey, monthKeyForWeekKey, compitiActiveMonthKey, dateKeysForIsoWeekKey, deadlinesPayload } = require("./compitiCalendar") as typeof import("./compitiCalendar");
-const { MAX_PROOFS, UPLOAD_ROOT, verifyFileToken, saveProofs, withProofTokens } = require("./compitiProofs") as typeof import("./compitiProofs");
-const { LEGACY_TASK_LABELS, MAX_NOTE, REASON_OK, REASON_FAIL, shouldSkipNegativeValutazione, STATUS, emptyWeek, sanitizeWeekEntry, pruneWeekMap, loadMap, saveMap, clearGhostDraftPicks, revertUnreviewedRandomAutoPicks, applyValutazione } = require("./compitiWeeks") as typeof import("./compitiWeeks");
-const { MONTHLY_SWAP_BASE, sanitizePlanEntry, planPoolIds, collectPrevMonthTaskIds, lockedTaskIdsForMonth, monthCompletedWeekCount, planSwapsLeft, pickRandomPoolReplacement, loadPlanMap, savePlanMap, loadSwapBonus, saveSwapBonusState, grantCompitiSwapBonus, ensureStafferCompitiSwapBonus, isNewStaffCompitiGrace, ensureMonthPlanForUser } = require("./compitiPlan") as typeof import("./compitiPlan");
+const { currentRomeIsoWeekKey, romeMonthKey, weekKeysInRomeMonth, compitiActiveMonthKey, deadlinesPayload } = require("./compitiCalendar") as typeof import("./compitiCalendar");
+const { UPLOAD_ROOT, verifyFileToken } = require("./compitiProofs") as typeof import("./compitiProofs");
+const { REASON_OK, REASON_FAIL, emptyWeek, sanitizeWeekEntry, loadMap, clearGhostDraftPicks, revertUnreviewedRandomAutoPicks } = require("./compitiWeeks") as typeof import("./compitiWeeks");
+const { lockedTaskIdsForMonth, grantCompitiSwapBonus, ensureStafferCompitiSwapBonus, isNewStaffCompitiGrace, ensureMonthPlanForUser } = require("./compitiPlan") as typeof import("./compitiPlan");
 const { buildIdentityFromMember, publicProgress, buildPublicPlan, buildMonthEntries, workerMembersCache, scanWorkerMembers, listWorkerMembers, resolveCompitiRoles, warmSiteStaffCompitiWorkersCache } = require("./compitiPeople") as typeof import("./compitiPeople");
 const { resolveGuildId, tickStaffCompitiDeadlines, tickStaffCompitiAssignments, tryAutoSubmitCompito, tickInviteActiveCompiti } = require("./compitiTicks") as typeof import("./compitiTicks");
-const { resolveSiteUploadRoot } = require("../../Web/siteUploadRoots") as typeof import("../../Web/siteUploadRoots");
 const { handleSiteStaffCompitiPost } = require("./compitiPost") as typeof import("./compitiPost");
 
 
