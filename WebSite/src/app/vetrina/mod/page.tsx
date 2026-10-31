@@ -12,16 +12,16 @@ const ModQueue = dynamic(
 );
 
 export const metadata: Metadata = {
-  ...pageSocialMeta({ path: "/bacheca/mod/", title: "Mod Bacheca", description: "Coda moderazione Bacheca." }),
+  ...pageSocialMeta({ path: "/vetrina/mod/", title: "Mod Vetrina", description: "Coda moderazione Vetrina." }),
 };
 
 export default function Page() {
   return (
     <SiteShell>
       <DiscordComponentEmbed
-        path="/bacheca/mod/"
-        title="Mod Bacheca"
-        description="Coda moderazione Bacheca."
+        path="/vetrina/mod/"
+        title="Mod Vetrina"
+        description="Coda moderazione Vetrina."
       />
       <PageHero
         icon={<Shield />}

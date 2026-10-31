@@ -36,7 +36,7 @@ export function ModQueue() {
     return (
       <section className="mx-auto max-w-md px-6 pb-24 text-center">
         <Shield className="mx-auto size-10 text-caramel" />
-        <p className="mt-4 font-display text-3xl">Moderazione bacheca</p>
+        <p className="mt-4 font-display text-3xl">Moderazione vetrina</p>
         <p className="mt-2 text-crema/60">Solo staff. Accedi con Discord.</p>
         <button type="button" onClick={login} className="mt-6 inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-caramel to-ember px-5 py-2.5 font-semibold text-ink">
           <LogIn className="size-4" /> Accedi

@@ -9,6 +9,16 @@
       "source": "/offline.html",
       "destination": "/offline/",
       "permanent": true
+    },
+    {
+      "source": "/bacheca",
+      "destination": "/vetrina/",
+      "permanent": true
+    },
+    {
+      "source": "/bacheca/:path*",
+      "destination": "/vetrina/:path*",
+      "permanent": true
     }
   ],
   "headers": [

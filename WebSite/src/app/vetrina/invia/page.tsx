@@ -12,20 +12,20 @@ const SubmitListing = dynamic(
 );
 
 export const metadata: Metadata = {
-  ...pageSocialMeta({ path: "/bacheca/invia/", title: "Bacheca · Invia", description: "Invia una scheda bot o server alla Bacheca." }),
+  ...pageSocialMeta({ path: "/vetrina/invia/", title: "Vetrina · Invia", description: "Invia una scheda bot o server alla Vetrina." }),
 };
 
 export default function Page() {
   return (
     <SiteShell>
       <DiscordComponentEmbed
-        path="/bacheca/invia/"
-        title="Bacheca · Invia"
-        description="Invia una scheda bot o server alla Bacheca."
+        path="/vetrina/invia/"
+        title="Vetrina · Invia"
+        description="Invia una scheda bot o server alla Vetrina."
       />
       <PageHero
         icon={<PlusCircle />}
-        kicker="Bacheca"
+        kicker="Vetrina"
         title="Invia"
         accent="una scheda"
         text="Compila la scheda del tuo server o bot e mandala in revisione."

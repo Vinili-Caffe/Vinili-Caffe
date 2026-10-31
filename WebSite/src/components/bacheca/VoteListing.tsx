@@ -195,7 +195,7 @@ export function VoteListing() {
         )}
 
         {step === "done" && (
-          <SmartLink href={page(slug ? `/bacheca/scheda/?slug=${encodeURIComponent(slug)}` : "/bacheca/")} className="mt-8 inline-flex w-full justify-center rounded-full bg-crema/10 py-3 text-sm font-semibold ring-1 ring-sand/25">
+          <SmartLink href={page(slug ? `/vetrina/scheda/?slug=${encodeURIComponent(slug)}` : "/vetrina/")} className="mt-8 inline-flex w-full justify-center rounded-full bg-crema/10 py-3 text-sm font-semibold ring-1 ring-sand/25">
             Torna alla scheda
           </SmartLink>
         )}

@@ -320,7 +320,7 @@ function MobileDrawerAccount({ onClose }: { onClose: () => void }) {
       locked: !dashOpen,
     },
     {
-      href: page("/bacheca/"),
+      href: page("/vetrina/"),
       label: t("auth.bacheca"),
       icon: <MessageSquareText className="size-4" />,
       locked: !dashOpen,

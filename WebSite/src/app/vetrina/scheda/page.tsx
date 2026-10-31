@@ -12,20 +12,20 @@ const ListingDetail = dynamic(
 );
 
 export const metadata: Metadata = {
-  ...pageSocialMeta({ path: "/bacheca/scheda/", title: "Bacheca · Scheda", description: "Scheda dettaglio bot o server in Bacheca." }),
+  ...pageSocialMeta({ path: "/vetrina/scheda/", title: "Vetrina · Scheda", description: "Scheda dettaglio bot o server in Vetrina." }),
 };
 
 export default function Page() {
   return (
     <SiteShell>
       <DiscordComponentEmbed
-        path="/bacheca/scheda/"
-        title="Bacheca · Scheda"
-        description="Scheda dettaglio bot o server in Bacheca."
+        path="/vetrina/scheda/"
+        title="Vetrina · Scheda"
+        description="Scheda dettaglio bot o server in Vetrina."
       />
       <PageHero
         icon={<Album />}
-        kicker="Bacheca"
+        kicker="Vetrina"
         title="Dettaglio"
         accent="scheda"
         text="Dettaglio della scheda: descrizione, link e azioni."

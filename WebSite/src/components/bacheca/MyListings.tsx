@@ -58,7 +58,7 @@ export function MyListings() {
     <section className="mx-auto max-w-5xl px-6 pb-24">
       <div className="mb-8 flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-crema/55">{list ? `${list.length} schede` : "Caricamento…"}</p>
-        <SmartLink href={page("/bacheca/invia/")} className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-caramel to-ember px-4 py-2 text-sm font-semibold text-ink">
+        <SmartLink href={page("/vetrina/invia/")} className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-caramel to-ember px-4 py-2 text-sm font-semibold text-ink">
           <Plus className="size-4" /> Nuova
         </SmartLink>
       </div>
@@ -74,7 +74,7 @@ export function MyListings() {
       )}
 
       {list && list.length === 0 && (
-        <p className="text-center text-crema/50">Nessuna scheda ancora. Inviane una dalla bacheca.</p>
+        <p className="text-center text-crema/50">Nessuna scheda ancora. Inviane una dalla vetrina.</p>
       )}
 
       {list && list.length > 0 && (() => {
@@ -89,7 +89,7 @@ export function MyListings() {
                 listing={item}
                 i={i}
                 onOpen={() => {
-                  if (item.slug) window.location.href = page(`/bacheca/scheda/?slug=${encodeURIComponent(item.slug)}`);
+                  if (item.slug) window.location.href = page(`/vetrina/scheda/?slug=${encodeURIComponent(item.slug)}`);
                 }}
               />
               <div className="mt-2 flex items-center justify-between gap-2 px-1 text-xs text-crema/45">

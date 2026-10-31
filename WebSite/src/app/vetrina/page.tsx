@@ -10,21 +10,21 @@ const BoardsBrowse = dynamic(() => import("@/components/bacheca/BoardsBrowse").t
 });
 
 export const metadata: Metadata = {
-  ...pageSocialMeta({ path: "/bacheca/", title: "Bacheca", description: "Directory di bot e server Discord della community Vinili & Caffè." }),
+  ...pageSocialMeta({ path: "/vetrina/", title: "Vetrina", description: "Directory di bot e server Discord della community Vinili & Caffè." }),
 };
 
 export default function Page() {
   return (
     <SiteShell>
       <DiscordComponentEmbed
-        path="/bacheca/"
-        title="Bacheca"
+        path="/vetrina/"
+        title="Vetrina"
         description="Directory di bot e server Discord della community Vinili & Caffè."
       />
       <PageHero
         icon={<Disc3 />}
-        kicker="Bacheca"
-        title="La bacheca"
+        kicker="Vetrina"
+        title="La vetrina"
         accent="community"
         text="Bot e server Discord ordinati per genere: sfoglia, apri la scheda, vota."
       />

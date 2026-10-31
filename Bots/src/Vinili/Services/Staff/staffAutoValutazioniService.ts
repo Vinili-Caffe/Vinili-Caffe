@@ -942,9 +942,14 @@ async function finishSerataFilmSessionsForChannel(guild?, channelId?, opts: Reco
     );
   }
   if (!sessions.length) {
-    global.logger?.warn?.(
-      "[STAFF AUTO VALUTAZIONI] serata stage closed but no session in memory/disk — skip auto negatives (avoid mass false positives)",
-    );
+    /* serataNoSessionLog1: il controllo di chiusura gira ogni 5 minuti: questo avviso al massimo una volta ogni 6 ore */
+    const self = finishSerataFilmSessionsForChannel as any;
+    if (Date.now() - Number(self._lastNoSessionWarnAt || 0) > 6 * 60 * 60 * 1000) {
+      self._lastNoSessionWarnAt = Date.now();
+      global.logger?.warn?.(
+        "[STAFF AUTO VALUTAZIONI] serata stage closed but no session in memory/disk — skip auto negatives (avoid mass false positives)",
+      );
+    }
     return { ok: false, skipped: true, reason: "no_session" };
   }
   const results = [];

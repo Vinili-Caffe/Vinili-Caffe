@@ -75,7 +75,7 @@ async function listListingsUncached(client?, query: Record<string, any> = {}) {
       listings: [],
       enabled: cfg.enabled,
       publicOpen: false,
-      message: "La Bacheca è in anteprima staff. Torna presto.",
+      message: "La Vetrina è in anteprima staff. Torna presto.",
     };
   }
   const kind = String(query.kind || "").trim().toLowerCase();
@@ -244,7 +244,7 @@ async function getListingBySlug(client?, slug?, opts: Record<string, any> = {}) 
       ok: false,
       status: 403,
       error: "boards_preview",
-      message: "La Bacheca è in anteprima staff.",
+      message: "La Vetrina è in anteprima staff.",
       publicOpen: false,
     };
   }

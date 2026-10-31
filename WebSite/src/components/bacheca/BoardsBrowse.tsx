@@ -64,7 +64,7 @@ export function BoardsBrowse({ initialKind = "", initialConfig = null, initialLi
       ]);
       if (c) setCfg(c);
       if (l) setList(l);
-      else if (!quiet) setErr("Non riesco a caricare la bacheca.");
+      else if (!quiet) setErr("Non riesco a caricare la vetrina.");
       if (token) setStaff(await checkStaffAccess(token));
       else setStaff(false);
       if (!quiet) setLoading(false);
@@ -117,13 +117,13 @@ export function BoardsBrowse({ initialKind = "", initialConfig = null, initialLi
         ))}
         <div className="ml-auto flex flex-wrap gap-2">
           <SmartLink
-            href={page("/bacheca/le-mie/")}
+            href={page("/vetrina/le-mie/")}
             className="inline-flex items-center gap-2 rounded-full bg-crema/8 px-4 py-2 text-sm font-semibold text-crema ring-1 ring-sand/25"
           >
             Le mie
           </SmartLink>
           <SmartLink
-            href={page("/bacheca/invia/")}
+            href={page("/vetrina/invia/")}
             className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-caramel to-ember px-4 py-2 text-sm font-semibold text-ink"
           >
             <Plus className="size-4" /> Invia scheda
@@ -174,9 +174,9 @@ export function BoardsBrowse({ initialKind = "", initialConfig = null, initialLi
         <div className="mt-8 flex gap-3 rounded-2xl bg-caramel/10 p-5 ring-1 ring-caramel/25">
           <Info className="mt-0.5 size-5 shrink-0 text-ember" />
           <div className="min-w-0">
-            <p className="font-semibold text-crema">Bacheca in anteprima staff</p>
+            <p className="font-semibold text-crema">Vetrina in anteprima staff</p>
             <p className="mt-1 text-sm text-crema/70">
-              {list?.message || cfg?.message || "La Bacheca è in anteprima. Accedi con un account staff per vedere l’elenco."}
+              {list?.message || cfg?.message || "La Vetrina è in anteprima. Accedi con un account staff per vedere l’elenco."}
             </p>
             {!token && ready && (
               <button
@@ -234,7 +234,7 @@ export function BoardsBrowse({ initialKind = "", initialConfig = null, initialLi
                       query={q}
                       i={i}
                       onOpen={() => {
-                        window.location.href = page(`/bacheca/scheda/?slug=${encodeURIComponent(item.slug || item.id)}`);
+                        window.location.href = page(`/vetrina/scheda/?slug=${encodeURIComponent(item.slug || item.id)}`);
                       }}
                     />
                   ))}

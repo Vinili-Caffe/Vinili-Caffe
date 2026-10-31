@@ -68,7 +68,7 @@ export function readDeepLink(href?: string): DeepLinkIds {
   const confessionId = firstMongo(hashEntity("vc-conf-card-", hash), /\/confessionale/i.test(pathLc) ? q.get("id") : "");
   const reviewId = firstMongo(hashEntity("vc-review-", hash), /\/recensioni/i.test(pathLc) ? q.get("id") : "");
   const botFeedbackId = firstMongo(hashEntity("vc-bot-feedback-", hash));
-  const listingId = firstMongo(/\/bacheca/i.test(pathLc) ? q.get("id") : "");
+  const listingId = firstMongo(/\/(bacheca|vetrina)/i.test(pathLc) ? q.get("id") : "");
 
   const rawId = firstMongo(q.get("id"), q.get("ticketId"), q.get("ticket"), q.get("suggestion"));
 

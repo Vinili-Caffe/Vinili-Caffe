@@ -12,20 +12,20 @@ const VoteListing = dynamic(
 );
 
 export const metadata: Metadata = {
-  ...pageSocialMeta({ path: "/bacheca/vota/", title: "Bacheca · Vota", description: "Vota una scheda della Bacheca." }),
+  ...pageSocialMeta({ path: "/vetrina/vota/", title: "Vetrina · Vota", description: "Vota una scheda della Vetrina." }),
 };
 
 export default function Page() {
   return (
     <SiteShell>
       <DiscordComponentEmbed
-        path="/bacheca/vota/"
-        title="Bacheca · Vota"
-        description="Vota una scheda della Bacheca."
+        path="/vetrina/vota/"
+        title="Vetrina · Vota"
+        description="Vota una scheda della Vetrina."
       />
       <PageHero
         icon={<ThumbsUp />}
-        kicker="Bacheca"
+        kicker="Vetrina"
         title="Voto"
         accent="voto"
         text="Sostieni una scheda completando il percorso di voto."

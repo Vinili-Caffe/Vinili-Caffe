@@ -12,20 +12,20 @@ const BoardsBrowse = dynamic(
 );
 
 export const metadata: Metadata = {
-  ...pageSocialMeta({ path: "/bacheca/bot/", title: "Bot in Bacheca", description: "Bot Discord in Bacheca Vinili & Caffè." }),
+  ...pageSocialMeta({ path: "/vetrina/bot/", title: "Bot in Vetrina", description: "Bot Discord in Vetrina Vinili & Caffè." }),
 };
 
 export default function Page() {
   return (
     <SiteShell>
       <DiscordComponentEmbed
-        path="/bacheca/bot/"
-        title="Bot in Bacheca"
-        description="Bot Discord in Bacheca Vinili & Caffè."
+        path="/vetrina/bot/"
+        title="Bot in Vetrina"
+        description="Bot Discord in Vetrina Vinili & Caffè."
       />
       <PageHero
         icon={<Bot />}
-        kicker="Bacheca"
+        kicker="Vetrina"
         title="Scaffale"
         accent="bot"
         text="I bot in vetrina: cerca, filtra e apri la scheda."

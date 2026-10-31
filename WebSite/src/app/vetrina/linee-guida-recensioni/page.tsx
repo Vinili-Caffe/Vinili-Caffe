@@ -12,23 +12,23 @@ const Guidelines = dynamic(
 );
 
 export const metadata: Metadata = {
-  ...pageSocialMeta({ path: "/bacheca/linee-guida-recensioni/", title: "Bacheca · Linee guida recensioni", description: "Linee guida per le recensioni in Bacheca." }),
+  ...pageSocialMeta({ path: "/vetrina/linee-guida-recensioni/", title: "Vetrina · Linee guida recensioni", description: "Linee guida per le recensioni in Vetrina." }),
 };
 
 export default function Page() {
   return (
     <SiteShell>
       <DiscordComponentEmbed
-        path="/bacheca/linee-guida-recensioni/"
-        title="Bacheca · Linee guida recensioni"
-        description="Linee guida per le recensioni in Bacheca."
+        path="/vetrina/linee-guida-recensioni/"
+        title="Vetrina · Linee guida recensioni"
+        description="Linee guida per le recensioni in Vetrina."
       />
       <PageHero
         icon={<ScrollText />}
-        kicker="Bacheca"
+        kicker="Vetrina"
         title="Linee guida"
         accent="recensioni"
-        text="Regole per le recensioni sulle schede della Bacheca."
+        text="Regole per le recensioni sulle schede della Vetrina."
       />
       <Guidelines />
     </SiteShell>

@@ -80,7 +80,7 @@ export function watchedIds() {
 /** Heartbeat su pagine “social” + ovunque ci siano avatar in watch (shouldNet). */
 export function pathWantsPresence(path: string) {
   const p = String(path || "").toLowerCase();
-  return /\/tickets(?:\/|$)|\/staff(?:\/|$)|\/confessionale(?:\/|$)|\/bacheca(?:\/|$)|\/feedback(?:\/|$)|\/classifiche(?:\/|$)|\/vote(?:\/|$)|\/user(?:\/|$)|\/recensioni(?:\/|$)|\/notifications(?:\/|$)|\/ruoli(?:\/|$)|\/$/.test(
+  return /\/tickets(?:\/|$)|\/staff(?:\/|$)|\/confessionale(?:\/|$)|\/(?:bacheca|vetrina)(?:\/|$)|\/feedback(?:\/|$)|\/classifiche(?:\/|$)|\/vote(?:\/|$)|\/user(?:\/|$)|\/recensioni(?:\/|$)|\/notifications(?:\/|$)|\/ruoli(?:\/|$)|\/$/.test(
     p,
   );
 }

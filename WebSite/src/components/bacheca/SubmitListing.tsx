@@ -18,7 +18,7 @@ import { Select } from "@/components/ui/Select";
 
 type Guild = { id: string; name: string; iconUrl?: string; alreadyListed?: boolean; botPresent?: boolean; hasDraft?: boolean };
 type ListingDraft = { discordId: string; name: string; tagline: string; description: string };
-type BachecaDraft = { kind: BoardKind; form: ListingDraft };
+type VetrinaDraft = { kind: BoardKind; form: ListingDraft };
 
 const BACHECA_DRAFT_KEY = "vc_bacheca_draft_v1";
 const emptyForm = (): ListingDraft => ({ discordId: "", name: "", tagline: "", description: "" });
@@ -27,7 +27,7 @@ const emptyForm = (): ListingDraft => ({ discordId: "", name: "", tagline: "", d
 export function SubmitListing() {
   const { ready, token, login } = useAuth();
   const [cfg, setCfg] = useState<BoardsConfig | null>(null);
-  const [draftBundle, setDraftBundle] = useState<BachecaDraft>(() => ({ kind: "server", form: emptyForm() }));
+  const [draftBundle, setDraftBundle] = useState<VetrinaDraft>(() => ({ kind: "server", form: emptyForm() }));
   const kind = draftBundle.kind;
   const form = draftBundle.form;
   const setKind = (k: BoardKind) => setDraftBundle((b) => ({ ...b, kind: k }));
@@ -68,7 +68,7 @@ export function SubmitListing() {
     return (
       <section className="mx-auto max-w-xl px-6 pb-24 text-center">
         <p className="font-display text-3xl">Serve il login</p>
-        <p className="mt-2 text-crema/60">Per inviare una scheda in bacheca accedi con Discord.</p>
+        <p className="mt-2 text-crema/60">Per inviare una scheda in vetrina accedi con Discord.</p>
         <button type="button" onClick={login} className="mt-6 inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-caramel to-ember px-5 py-2.5 font-semibold text-ink">
           <LogIn className="size-4" /> Accedi
         </button>
@@ -115,11 +115,11 @@ export function SubmitListing() {
     const slug = r.data.listing?.slug;
     if (slug) {
       window.setTimeout(() => {
-        window.location.href = page(`/bacheca/scheda/?slug=${encodeURIComponent(slug)}`);
+        window.location.href = page(`/vetrina/scheda/?slug=${encodeURIComponent(slug)}`);
       }, 900);
     } else {
       window.setTimeout(() => {
-        window.location.href = page("/bacheca/le-mie/");
+        window.location.href = page("/vetrina/le-mie/");
       }, 900);
     }
   }
@@ -130,7 +130,7 @@ export function SubmitListing() {
         <Info className="mt-0.5 size-5 shrink-0 text-ember" />
         <p className="text-sm text-crema/75">
           Compila tagline e descrizione come sul sito attuale. Dopo l’invio la scheda va in revisione staff.{" "}
-          <SmartLink href={page("/bacheca/linee-guida-recensioni/")} className="text-caramel underline">
+          <SmartLink href={page("/vetrina/linee-guida-recensioni/")} className="text-caramel underline">
             Linee guida
           </SmartLink>
         </p>
@@ -170,7 +170,7 @@ export function SubmitListing() {
                 { value: "", label: "Seleziona…" },
                 ...guilds.map((g) => ({
                   value: g.id,
-                  label: `${g.name}${g.alreadyListed ? " (già in bacheca)" : ""}${!g.botPresent ? " — bot assente" : ""}`,
+                  label: `${g.name}${g.alreadyListed ? " (già in vetrina)" : ""}${!g.botPresent ? " — bot assente" : ""}`,
                   disabled: !!g.alreadyListed && !g.hasDraft,
                 })),
               ]}

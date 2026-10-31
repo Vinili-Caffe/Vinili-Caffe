@@ -414,14 +414,14 @@ async function sweepBoardVoteReminders(client?) {
     const name = String(listing?.title || "scheda").trim() || "scheda";
     const slug = String(listing?.boardSlug || "").trim();
     const openUrl = slug
-      ? `https://www.viniliecaffe.it/bacheca/vota/?slug=${encodeURIComponent(slug)}`
-      : `https://www.viniliecaffe.it/bacheca/vota/?id=${encodeURIComponent(listingId)}`;
+      ? `https://www.viniliecaffe.it/vetrina/vota/?slug=${encodeURIComponent(slug)}`
+      : `https://www.viniliecaffe.it/vetrina/vota/?id=${encodeURIComponent(listingId)}`;
     try {
       const { enqueueSiteInAppNotification } = require("../notifications/siteInAppNotificationsService") as typeof import("../notifications/siteInAppNotificationsService");
       const ok = await enqueueSiteInAppNotification({
         guildId: String(IDs.guilds?.main || "").trim() || "global",
         userId: uid,
-        title: "Promemoria voto Bacheca",
+        title: "Promemoria voto Vetrina",
         body: `Puoi votare di nuovo per ${name}. Grazie per il supporto!`,
         kind: "vote_reminder",
         openUrl,

@@ -70,7 +70,7 @@ function boardsConfig(client?) {
 function featureGate(client?) {
   const cfg = boardsConfig(client);
   if (!cfg.enabled) {
-    return { ok: false, status: 503, error: "boards_disabled", message: "La Bacheca non è attiva." };
+    return { ok: false, status: 503, error: "boards_disabled", message: "La Vetrina non è attiva." };
   }
   return { ok: true, cfg };
 }

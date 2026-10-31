@@ -101,7 +101,7 @@ async function upsertBoardsRevisioneWorkflow(doc?, opts: Record<string, any> = {
         : statusRaw === "pending"
           ? "pending"
           : "closed";
-  const name = String(d.title || "").trim() || "Scheda bacheca";
+  const name = String(d.title || "").trim() || "Scheda vetrina";
   const tagline = String(d.boardTagline || "").trim();
   const dedupeKey = boardsRevisioneDedupeKey(listingId);
   const guildId = String(opts.guildId || IDs.guilds?.main || "").trim();
@@ -168,7 +168,7 @@ async function notifyBoardsRevisioneStaff(client?, doc?, opts: Record<string, an
     queue: QUEUE,
     subjectUserId: String(d.userId || "").trim(),
     subjectName,
-    title: repend ? "Scheda bacheca da rivedere" : "Nuova scheda in revisione",
+    title: repend ? "Scheda vetrina da rivedere" : "Nuova scheda in revisione",
     body: repend
       ? `${subjectName} ha aggiornato campi sensibili di «${name}» (${kindLabel(kind)}).`
       : `${subjectName} ha inviato «${name}» (${kindLabel(kind)}) in moderazione.`,
@@ -177,7 +177,7 @@ async function notifyBoardsRevisioneStaff(client?, doc?, opts: Record<string, an
     kind,
     dedupeKey: `inbox:revisione:new:${listingId}`,
     /* boardsRevPreview1 + boardsRevLangPath1: scheda?id= resiste a /en/… */
-    openUrl: `/bacheca/scheda/?id=${encodeURIComponent(listingId)}&review=1`,
+    openUrl: `/vetrina/scheda/?id=${encodeURIComponent(listingId)}&review=1`,
   }).catch(() => 0);
 }
 
@@ -199,7 +199,7 @@ async function notifyBoardsOwnerDecision(doc?, opts: Record<string, any> = {}) {
   const kind = String(d.boardKind || "") === "bot" ? "bot" : "server";
   const name = String(d.title || "").trim() || "la tua scheda";
   const reason = String(opts.reason || d.staffReason || d.boardModeration?.rejectReason || "").trim();
-  let title = "Scheda bacheca aggiornata";
+  let title = "Scheda vetrina aggiornata";
   let body = `La scheda «${name}» è stata aggiornata.`;
   if (status === "accepted") {
     title = "Scheda approvata";
@@ -222,7 +222,7 @@ async function notifyBoardsOwnerDecision(doc?, opts: Record<string, any> = {}) {
     decidedByName: opts.decidedByName || "",
     dedupeKey: boardsRevisioneDedupeKey(listingId),
     notifDedupeKey: `wfc:decision:revisione:${listingId}:${status}`,
-    openUrl: "/bacheca/le-mie/",
+    openUrl: "/vetrina/le-mie/",
     workflow: { workflowKind: kind },
   }).catch(() => false);
 }
@@ -291,6 +291,9 @@ async function onBoardsListingWithdrawn(client?, doc?, opts: Record<string, any>
       `/bacheca/server/${encodeURIComponent(listingId)}/?review=1`,
       `/bacheca/bots/${encodeURIComponent(listingId)}`,
       `/bacheca/bots/${encodeURIComponent(listingId)}?review=1`,
+      /* vetrina1: le notifiche nuove puntano a /vetrina/, quelle vecchie restano su /bacheca/ */
+      `/vetrina/scheda/?id=${encodeURIComponent(listingId)}`,
+      `/vetrina/scheda/?id=${encodeURIComponent(listingId)}&review=1`,
     ];
     void removeSiteInAppNotificationsMatching({
       exactKeys: [`inbox:revisione:new:${listingId}`, boardsRevisioneDedupeKey(listingId)],

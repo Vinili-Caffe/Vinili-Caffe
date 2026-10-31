@@ -12,20 +12,20 @@ const MyListings = dynamic(
 );
 
 export const metadata: Metadata = {
-  ...pageSocialMeta({ path: "/bacheca/le-mie/", title: "Bacheca · Le mie schede", description: "Le tue schede in Bacheca Vinili & Caffè." }),
+  ...pageSocialMeta({ path: "/vetrina/le-mie/", title: "Vetrina · Le mie schede", description: "Le tue schede in Vetrina Vinili & Caffè." }),
 };
 
 export default function Page() {
   return (
     <SiteShell>
       <DiscordComponentEmbed
-        path="/bacheca/le-mie/"
-        title="Bacheca · Le mie schede"
-        description="Le tue schede in Bacheca Vinili & Caffè."
+        path="/vetrina/le-mie/"
+        title="Vetrina · Le mie schede"
+        description="Le tue schede in Vetrina Vinili & Caffè."
       />
       <PageHero
         icon={<Library />}
-        kicker="Bacheca"
+        kicker="Vetrina"
         title="I tuoi"
         accent="dischi"
         text="Bozze, in revisione e pubblicate."

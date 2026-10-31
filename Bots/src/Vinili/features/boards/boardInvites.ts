@@ -471,7 +471,7 @@ async function generateInvite(client?, payload: Record<string, any> = {}) {
     maxUses: 0,
     unique: true,
     temporary: false,
-    reason: `Bacheca Vinili — nuovo invite — ${auth.userId}`,
+    reason: `Vetrina Vinili — nuovo invite — ${auth.userId}`,
   };
 
   async function createInviteOnChannel(channel?) {

@@ -65,7 +65,7 @@ function inboxOpenUrl(queue?, itemHint = "", subjectUserId = "") {
       lid = m ? m[1] : "";
     }
     /* boardsRevLangPath1: scheda?id= (no pretty path — evita miss con /en/…) */
-    if (lid) return `/bacheca/scheda/?id=${encodeURIComponent(lid)}&review=1`;
+    if (lid) return `/vetrina/scheda/?id=${encodeURIComponent(lid)}&review=1`;
     return `/notifications/?view=staff&inbox=revisione&scope=pending`;
   }
   const tab = QUEUE_TAB[q] || "candidature";
@@ -297,7 +297,7 @@ function subjectChatOpenUrl(queue?, dedupeKey?) {
   } catch {
     const q = String(queue || "").trim().toLowerCase();
     const key = String(dedupeKey || "").trim();
-    if (q === "revisione") return "/bacheca/le-mie/";
+    if (q === "revisione") return "/vetrina/le-mie/";
     const base = q === "appelli" ? "/appelli/" : "/candidature/";
     return key ? `${base}?chat=${encodeURIComponent(key)}` : base;
   }

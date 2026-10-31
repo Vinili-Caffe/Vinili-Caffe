@@ -188,7 +188,7 @@ export function UserMenu({ className }: { className?: string }) {
                   <LayoutDashboard className="size-4" /> {t("auth.dashboard")}
                 </SmartLink>
                 <SmartLink
-                  href={page("/bacheca/")}
+                  href={page("/vetrina/")}
                   onClick={() => window.setTimeout(() => setOpen(false), 0)}
                   className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm text-crema/80 transition-[transform,background-color,color] duration-150 ease-out hover:bg-crema/8 hover:text-crema active:scale-[0.98]"
                 >

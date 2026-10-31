@@ -79,7 +79,7 @@ export function ListingDetail() {
   if (!slug) {
     return (
       <section className="mx-auto max-w-3xl px-6 pb-24 text-center">
-        <p className="text-crema/60">Manca lo slug della scheda. Torna alla <SmartLink href={page("/bacheca/")} className="text-caramel underline">bacheca</SmartLink>.</p>
+        <p className="text-crema/60">Manca lo slug della scheda. Torna alla <SmartLink href={page("/vetrina/")} className="text-caramel underline">vetrina</SmartLink>.</p>
       </section>
     );
   }
@@ -97,8 +97,8 @@ export function ListingDetail() {
       <section className="mx-auto max-w-3xl px-6 pb-24 text-center">
         <p className="font-display text-3xl text-crema/80">Disco non trovato</p>
         <p className="mt-2 text-crema/55">{err || "Questa scheda non è disponibile."}</p>
-        <SmartLink href={page("/bacheca/")} className="mt-6 inline-flex rounded-full bg-crema/8 px-5 py-2.5 text-sm font-semibold ring-1 ring-sand/25">
-          Torna alla bacheca
+        <SmartLink href={page("/vetrina/")} className="mt-6 inline-flex rounded-full bg-crema/8 px-5 py-2.5 text-sm font-semibold ring-1 ring-sand/25">
+          Torna alla vetrina
         </SmartLink>
       </section>
     );
@@ -169,7 +169,7 @@ export function ListingDetail() {
               </a>
             )}
             <SmartLink
-              href={page(`/bacheca/vota/?slug=${encodeURIComponent(listing.slug)}&id=${encodeURIComponent(listing.id)}`)}
+              href={page(`/vetrina/vota/?slug=${encodeURIComponent(listing.slug)}&id=${encodeURIComponent(listing.id)}`)}
               className="inline-flex items-center gap-2 rounded-full bg-crema/10 px-5 py-2.5 text-sm font-semibold ring-1 ring-sand/25"
             >
               <ThumbsUp className="size-4" /> Vota

@@ -12,20 +12,20 @@ const BoardsBrowse = dynamic(
 );
 
 export const metadata: Metadata = {
-  ...pageSocialMeta({ path: "/bacheca/server/", title: "Bacheca · Server", description: "Server Discord in Bacheca Vinili & Caffè." }),
+  ...pageSocialMeta({ path: "/vetrina/server/", title: "Vetrina · Server", description: "Server Discord in Vetrina Vinili & Caffè." }),
 };
 
 export default function Page() {
   return (
     <SiteShell>
       <DiscordComponentEmbed
-        path="/bacheca/server/"
-        title="Bacheca · Server"
-        description="Server Discord in Bacheca Vinili & Caffè."
+        path="/vetrina/server/"
+        title="Vetrina · Server"
+        description="Server Discord in Vetrina Vinili & Caffè."
       />
       <PageHero
         icon={<Server />}
-        kicker="Bacheca"
+        kicker="Vetrina"
         title="Scaffale"
         accent="server"
         text="I server in vetrina: cerca, filtra e apri la scheda."

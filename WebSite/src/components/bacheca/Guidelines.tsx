@@ -17,7 +17,7 @@ const SECTIONS: { title: string; body: string }[] = [
   },
   {
     title: "Niente contenuti sessualmente espliciti",
-    body: "La Bacheca punta a contenuti sicuri e adatti alla community. Non includere né collegare materiale sessualmente esplicito nelle recensioni.",
+    body: "La Vetrina punta a contenuti sicuri e adatti alla community. Non includere né collegare materiale sessualmente esplicito nelle recensioni.",
   },
   {
     title: "Non usare le recensioni per segnalare violazioni",
@@ -42,7 +42,7 @@ export function Guidelines() {
   return (
     <section className="mx-auto max-w-3xl px-6 pb-24">
       <p className="text-crema/65 leading-relaxed">
-        Le recensioni aiutano chi sceglie un server o un bot. Queste regole valgono per ogni testo pubblicato sulle schede della Bacheca.
+        Le recensioni aiutano chi sceglie un server o un bot. Queste regole valgono per ogni testo pubblicato sulle schede della Vetrina.
       </p>
       <div className="mt-10 space-y-5">
         {SECTIONS.map((s, i) => (

@@ -195,7 +195,7 @@ export function isInboxLinked(n: SiteNotification): boolean {
     return true;
   }
   if (/[?&]inbox=(pause|candidature|appelli|resoconti|punti-tolti|revisione)\b/.test(url)) {
-    return /nuovo resoconto|nuovo appello|nuova candidatur|nuova richiesta pausa|nuova scheda|scheda bacheca|in revisione|punti tolti\s*[—\-–]?\s*segnalazione in attesa|richiedente in chat/.test(hay);
+    return /nuovo resoconto|nuovo appello|nuova candidatur|nuova richiesta pausa|nuova scheda|scheda bacheca|scheda vetrina|in revisione|punti tolti\s*[—\-–]?\s*segnalazione in attesa|richiedente in chat/.test(hay);
   }
   return false;
 }
@@ -229,7 +229,7 @@ export const PERSONAL_CATS: { id: PersonalCatId; label: string }[] = [
   { id: "tickets", label: "Ticket" },
   { id: "candidature", label: "Candidature" },
   { id: "appelli", label: "Appelli" },
-  { id: "revisione", label: "Bacheca" },
+  { id: "revisione", label: "Vetrina" },
   { id: "reviews", label: "Recensioni" },
   { id: "feedback", label: "Feedback" },
   { id: "confessionale", label: "Confessioni" },
@@ -249,7 +249,7 @@ export function personalCategory(n: SiteNotification): PersonalCatId {
   if (kind === "workflow_decision" || /^(cand-|unban-|unmute-|cand-pex-|cand-rej-|wfc:decision:|appeal-auto-close:)/.test(key)) {
     const hay = `${key} ${n.openUrl}`.toLowerCase();
     if (/appelli|unban|unmute|appeal/.test(hay)) return "appelli";
-    if (/revisione|bacheca|scheda (server|bot)/.test(hay)) return "revisione";
+    if (/revisione|bacheca|vetrina|scheda (server|bot)/.test(hay)) return "revisione";
     return "candidature";
   }
   if (kind === "review") return "reviews";
