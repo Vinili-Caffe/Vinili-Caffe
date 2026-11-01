@@ -14,9 +14,9 @@ rm -rf "$TMP"; mkdir -p "$TMP"
 
 node tools/compila.mjs >/dev/null
 node tools/controlla-archivio.cjs | tail -1
-( cd build/js && find . -name '*.js' | sed 's#^\./##' | grep -v '^Vinili/Utils/Config/idsCatalog\.js$' | sort ) > "$TMP/lista.txt"
+( cd build/js && find . -name '*.js' | sed 's#^\./##' | grep -v '^Vinili/Utils/Config/idsCatalog\.js$' | LC_ALL=C sort ) > "$TMP/lista.txt"
 if [ -d build/archivio ]; then
-  ( cd build/archivio && find . -name '*.js' | sed 's#^\./##' | sort ) > "$TMP/lista-archivio.txt"
+  ( cd build/archivio && find . -name '*.js' | sed 's#^\./##' | LC_ALL=C sort ) > "$TMP/lista-archivio.txt"
 else
   : > "$TMP/lista-archivio.txt"
 fi
@@ -25,11 +25,17 @@ for f in $(cat "$TMP/lista-archivio.txt"); do node --check "build/archivio/$f"; 
 
 PRUNE='\( -path "*/node_modules" -o -path ./Vinili/Data -o -path ./Caffè/Data -o -path ./Vinili/UI -o -path "*/logs" \) -prune -o'
 mkdir -p "$TMP"
-ssh vinili "cd /opt/bot/bots-ts/src && find . $PRUNE -name '*.js' -print | sed 's#^\./##' | sort" > "$TMP/vps.txt"
-comm -13 "$TMP/lista.txt" "$TMP/vps.txt" | grep -v '^Vinili/Utils/Config/idsCatalog\.js$' > "$TMP/da-togliere.txt" || true
+ssh vinili "cd /opt/bot/bots-ts/src && find . $PRUNE -name '*.js' -print | sed 's#^\./##' | LC_ALL=C sort" > "$TMP/vps.txt"
+# Stesso ordinamento qui e sulla VPS (LC_ALL=C): con locale diversi `comm` segna da togliere file che esistono.
+LC_ALL=C comm -13 --check-order "$TMP/lista.txt" "$TMP/vps.txt" | grep -v '^Vinili/Utils/Config/idsCatalog\.js$' > "$TMP/da-togliere.txt" || true
 echo "$(wc -l < "$TMP/lista.txt") js src, $(wc -l < "$TMP/lista-archivio.txt") js archivio, $(wc -l < "$TMP/da-togliere.txt") da togliere dal server:"
 sed 's/^/  - /' "$TMP/da-togliere.txt" | head -60
 if [ -n "${PROVA:-}" ]; then echo "prova finita: niente sulla VPS"; exit 0; fi
+# Freno di sicurezza: una quantità anomala di file da togliere vuol dire che qualcosa non va.
+if [ "$(wc -l < "$TMP/da-togliere.txt")" -gt "${MAX_TOGLIERE:-40}" ]; then
+  echo "STOP: troppi file da togliere (>${MAX_TOGLIERE:-40}). Controlla la lista; se è giusta rilancia con MAX_TOGLIERE=<n>." >&2
+  exit 1
+fi
 
 tar -czf "$TMP/js.tgz" -C build/js -T "$TMP/lista.txt"
 tar -czf "$TMP/archivio.tgz" -C build/archivio -T "$TMP/lista-archivio.txt" 2>/dev/null || tar -czf "$TMP/archivio.tgz" -T /dev/null
