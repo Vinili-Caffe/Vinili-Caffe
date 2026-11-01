@@ -2,7 +2,9 @@
 
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { ExternalLink, LayoutGrid, Link2, Loader2, Mic, Quote, Repeat2, Shuffle, Skull, Trash2, X } from "lucide-react";
+import { CalendarDays, ExternalLink, Heart, LayoutGrid, Link2, Loader2, Mic, Quote, Repeat2, Shuffle, Skull, Sparkles, Trash2, UserRound, X } from "lucide-react";
+import { SmartLink } from "@/components/SmartLink";
+import { page as sitePage } from "@/lib/site";
 import { useAuth } from "@/lib/auth";
 import {
   KIND_LABEL,
@@ -27,6 +29,11 @@ import { BachecaCard, Cassette, LinkChips, Pin, ReactionBar } from "./BachecaCar
 
 const FILTERS: BachecaFilter[] = ["all", "quote", "repost", "clip", "skull"];
 const SORTS: BachecaSort[] = ["new", "top", "week"];
+const SORT_ICONS: Record<BachecaSort, React.ReactNode> = {
+  new: <Sparkles />,
+  top: <Heart />,
+  week: <CalendarDays />,
+};
 const FILTER_ICONS: Record<BachecaFilter, React.ReactNode> = {
   all: <LayoutGrid />,
   quote: <Quote />,
@@ -249,13 +256,31 @@ export function BachecaWall() {
               onClick={() => setSort(s)}
               aria-pressed={sort === s}
               className={cn(
-                "rounded-full px-3.5 py-1.5 text-sm font-semibold transition-colors",
+                "inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-semibold transition-colors [&>svg]:size-4",
                 sort === s ? "bg-caramel text-ink" : "bg-crema/8 text-crema/70 ring-1 ring-sand/20 hover:text-crema",
               )}
             >
+              {SORT_ICONS[s]}
               {SORT_LABEL[s]}
             </button>
           ))}
+          {/* le proprie quote, repost e clip stanno nel profilo (sezione Bacheca) */}
+          {user?.id ? (
+            <SmartLink
+              href={sitePage(`/user/?id=${encodeURIComponent(user.id)}#miei-contenuti`)}
+              className="inline-flex items-center gap-1.5 rounded-full bg-crema/8 px-3.5 py-1.5 text-sm font-semibold text-crema/70 ring-1 ring-sand/20 transition-colors hover:text-crema [&>svg]:size-4"
+            >
+              <UserRound /> I miei
+            </SmartLink>
+          ) : (
+            <button
+              type="button"
+              onClick={login}
+              className="inline-flex items-center gap-1.5 rounded-full bg-crema/8 px-3.5 py-1.5 text-sm font-semibold text-crema/70 ring-1 ring-sand/20 transition-colors hover:text-crema [&>svg]:size-4"
+            >
+              <UserRound /> I miei
+            </button>
+          )}
           <motion.button
             type="button"
             onClick={draw}

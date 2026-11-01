@@ -293,6 +293,14 @@ export function ProfileBoards({ userId, owns, token }: { userId: string; owns: b
     setPage(1);
   };
 
+  /* dal pulsante "I miei" della Bacheca: /user/?id=…#miei-contenuti → scorre qui quando i dati ci sono */
+  const jumped = useRef(false);
+  useEffect(() => {
+    if (loading || jumped.current || location.hash !== "#miei-contenuti") return;
+    jumped.current = true;
+    document.getElementById("miei-contenuti")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [loading]);
+
   const onDelete = async (item: BoardItem) => {
     if (!token || !owns) return;
     const ok = await confirmDialog({
@@ -313,7 +321,7 @@ export function ProfileBoards({ userId, owns, token }: { userId: string; owns: b
 
   return (
     <Reveal>
-      <div className="mb-5">
+      <div id="miei-contenuti" className="mb-5 scroll-mt-28">
         <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.3em] text-caramel">
           <MessageSquareQuote className="size-4" /> Bacheca
         </p>
