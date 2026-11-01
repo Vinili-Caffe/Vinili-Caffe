@@ -13,6 +13,7 @@ const { REPOST_BTN_PREFIX, REPOST_SRC_PREFIX, messageJumpUrl, buildShareAckEmbed
 const { REPOST_DB_MS, ensureRepostDbReady, timedRepostQuery, ensureBoardRepostaButton } = require("./repostBoardSync") as typeof import("./repostBoardSync");
 const { EPHEMERAL_FLAG } = require("./repostRemove") as typeof import("./repostRemove");
 const { isRepostDisabledInGuild } = require("./repostRoulette") as typeof import("./repostRoulette");
+const { SITE_BOARD_CHANNEL, isBachecaSiteGuild, isSiteBoardChannel, newBachecaItemId, bachecaItemUrl, mirrorUrlToBacheca, broadcastBachecaChanged } = require("../../features/bacheca/bachecaSite") as typeof import("../../features/bacheca/bachecaSite");
 
 const REPOST_DISABLED_MESSAGE = "I repost sono disattivati su questo server per ora.";
 
@@ -161,15 +162,19 @@ async function createRepostFromMessage(ctx?) {
 
   const replyChannel =
     replyChannelRaw?.isTextBased?.() ? replyChannelRaw : targetMessage.channel?.isTextBased?.() ? targetMessage.channel : null;
-  const boardChannel = await resolveBoardChannel(guild, replyChannel, preferBoardChannel);
-  if (!boardChannel?.isTextBased?.()) {
+  /* bachecaSite1: sul server principale il repost va sulla Bacheca del sito, non nel canale */
+  const siteBoard = isBachecaSiteGuild(guildId);
+  const boardChannel = siteBoard ? null : await resolveBoardChannel(guild, replyChannel, preferBoardChannel);
+  if (!siteBoard && !boardChannel?.isTextBased?.()) {
     return { ok: false, message: "Impossibile pubblicare il repost in questo canale." };
   }
+  const boardLink = (channelId?, messageId?) =>
+    siteBoard || isSiteBoardChannel(channelId) ? bachecaItemUrl(messageId) : messageJumpUrl(guildId, channelId, messageId);
 
   if (await hasUserAlreadySavedRepost(guildId, reposterId, targetMessage.channel.id, targetMessage.id)) {
     const existingBoard = await findExistingBoardPost(guildId, targetMessage.channel.id, targetMessage.id);
     const boardUrl = existingBoard?.boardChannelId && existingBoard?.boardMessageId
-      ? messageJumpUrl(guildId, existingBoard.boardChannelId, existingBoard.boardMessageId)
+      ? boardLink(existingBoard.boardChannelId, existingBoard.boardMessageId)
       : "";
     const prefix = String(guild?.client?.config?.prefix || "+").trim() || "+";
     return {
@@ -229,9 +234,9 @@ async function createRepostFromMessage(ctx?) {
     authorUsername: authorLabel,
     authorAvatarUrl:
       guildMemberDisplayAvatarUrlDynamic(sourceMember || targetMessage.member || author, { size: 512 }) || "",
-    boardChannelId: existingBoardChannelId || String(boardChannel.id),
+    boardChannelId: existingBoardChannelId || (siteBoard ? SITE_BOARD_CHANNEL : String(boardChannel.id)),
     totalPosts,
-    boardMessageId: existingBoardMessageId || "",
+    boardMessageId: existingBoardMessageId || (siteBoard ? newBachecaItemId() : ""),
   };
   if (storedMediaFiles.length) docPayload.mediaFiles = storedMediaFiles;
 
@@ -245,13 +250,33 @@ async function createRepostFromMessage(ctx?) {
   let boardMessage = null;
   let boardUrl = "";
   if (existingBoardChannelId && existingBoardMessageId) {
-    boardUrl = messageJumpUrl(guildId, existingBoardChannelId, existingBoardMessageId);
-    await ensureBoardRepostaButton(
-      guild,
-      existingBoardChannelId,
-      existingBoardMessageId,
-      existingBoard?._id ? String(existingBoard._id) : repostId,
-    );
+    boardUrl = boardLink(existingBoardChannelId, existingBoardMessageId);
+    if (!isSiteBoardChannel(existingBoardChannelId)) {
+      await ensureBoardRepostaButton(
+        guild,
+        existingBoardChannelId,
+        existingBoardMessageId,
+        existingBoard?._id ? String(existingBoard._id) : repostId,
+      );
+    }
+    if (siteBoard) broadcastBachecaChanged("repost", existingBoardMessageId);
+  } else if (siteBoard) {
+    /* media copiati subito sul CDN: gli allegati di Discord scadono */
+    const itemId = String(docPayload.boardMessageId);
+    const cdnAttachment = payload.imageUrl ? await mirrorUrlToBacheca("repost", itemId, payload.imageUrl, "") : "";
+    const cdnFiles = [];
+    for (const f of storedMediaFiles) {
+      cdnFiles.push({ url: await mirrorUrlToBacheca("repost", itemId, f.url, f.name), name: f.name });
+    }
+    await timedRepostQuery(
+      GuildRepost.updateOne(
+        { _id: doc._id },
+        { $set: { attachmentUrl: cdnAttachment, ...(cdnFiles.length ? { mediaFiles: cdnFiles } : {}) } },
+      ),
+      "repost cdn update",
+    ).catch(() => {});
+    boardUrl = bachecaItemUrl(itemId);
+    broadcastBachecaChanged("new", itemId);
   } else {
     const boardSendPayload: Record<string, any> = {
       embeds: [boardEmbed],

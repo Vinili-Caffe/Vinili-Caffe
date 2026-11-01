@@ -309,6 +309,32 @@ async function exportClipFromCommand(ctx?) {
       transcription = transcribed.ok ? transcribed.text : "";
     }
 
+    /* bachecaSite1: sul server principale la clip va sulla Bacheca del sito, non nel canale */
+    const bachecaSite = require("../../features/bacheca/bachecaSite") as typeof import("../../features/bacheca/bachecaSite");
+    if (bachecaSite.isBachecaSiteGuild(guildId)) {
+      let siteTotal;
+      try {
+        siteTotal = await nextClipCount(guildId);
+      } catch (err) {
+        global.logger?.warn?.("[clip] counter failed:", err?.message || err);
+        return { ok: false, message: "Contatore clip non disponibile. Riprova tra poco." };
+      }
+      const { registerBachecaClip } = require("../../features/bacheca/bachecaClip") as typeof import("../../features/bacheca/bachecaClip");
+      const saved = await registerBachecaClip({ guildId, requester, requesterId, mp3Path, transcription, totalPosts: siteTotal });
+      if (!saved.ok) return { ok: false, message: "Non riesco a salvare la clip in Bacheca. Riprova tra poco." };
+      const {
+        resolveCommandPrefixForGuild: prefixFor,
+      } = require("../../MultiGuild/core/tenantGuildSettings") as typeof import("../../MultiGuild/core/tenantGuildSettings");
+      const ackEmbed = buildClipAckEmbed({
+        requesterId,
+        boardUrl: saved.boardUrl,
+        voiceChannelName: extracted.voiceChannelName || voiceChannel.name,
+        durationSec: extracted.durationSec,
+        prefix: prefixFor(guildId, client),
+      });
+      return { ok: true, ackEmbed, boardUrl: saved.boardUrl, durationSec: extracted.durationSec };
+    }
+
     const quoteChannel = await resolveBoardPostChannel(guild, "clip");
     const postChannel = quoteChannel || commandChannel;
     if (!postChannel?.isTextBased?.()) {

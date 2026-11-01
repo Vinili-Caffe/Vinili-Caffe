@@ -107,7 +107,11 @@ async function sendRepostRoulette(client?, guildId?) {
   const rouletteChannel = await resolveRoulettePostChannel(guild);
   if (!rouletteChannel?.isTextBased?.()) return false;
 
-  const sourceUrl = messageJumpUrl(guildId, doc.sourceChannelId, doc.sourceMessageId);
+  /* bachecaSite1: le clip nuove nascono sulla Bacheca del sito (sorgente "site") */
+  const { isSiteBoardChannel, bachecaItemUrl } = require("../../features/bacheca/bachecaSite") as typeof import("../../features/bacheca/bachecaSite");
+  const sourceUrl = isSiteBoardChannel(doc.sourceChannelId)
+    ? bachecaItemUrl(doc.sourceMessageId)
+    : messageJumpUrl(guildId, doc.sourceChannelId, doc.sourceMessageId);
   const imageUrl = String(doc.attachmentUrl || "").trim();
   const text = String(doc.content || "").trim();
   const rouletteFiles = await resolveRepostMediaFilesForSend(guild, doc);

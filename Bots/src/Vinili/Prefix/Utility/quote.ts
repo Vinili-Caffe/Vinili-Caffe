@@ -8,6 +8,7 @@ const { registerQuoteBoardPost, buildQuoteBoardComponents } = require("../../Uti
 const { QuotePrivacy } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
 const { accountUsername, memberDisplayName, memberLabelWithUsername, guildMemberDisplayAvatarUrlDynamic, guildMemberDisplayAvatarUrlStatic } = require("../../Utils/Discord/guildDiscordIdentity") as typeof import("../../Utils/Discord/guildDiscordIdentity");
 const { isRepostDisabledInGuild } = require("../../Services/Community/repostService") as typeof import("../../Services/Community/repostService");
+const { SITE_BOARD_CHANNEL, isBachecaSiteGuild, newBachecaItemId, buildBachecaLinkButton, putBachecaMedia, broadcastBachecaChanged } = require("../../features/bacheca/bachecaSite") as typeof import("../../features/bacheca/bachecaSite");
 const { TENANT_EMBED_COLOR } = require("../../MultiGuild/utils/tenantEmbedBranding") as typeof import("../../MultiGuild/utils/tenantEmbedBranding");
 const {
   getTenantBoardsSync,
@@ -181,10 +182,15 @@ export = {
     }
 
     const attachment = new AttachmentBuilder(buffer, { name: quoteFormat === "gif" ? "quote.gif" : "quote.png" });
-    const quoteChannel = await resolveQuotePostChannel(message.guild);
-    const embedDescription = quoteChannel
-      ? `<a:VC_Sparkles:1468546911936974889> Puoi trovare il post creato nel canale: <#${quoteChannel.id}>!`
-      : "<a:VC_Sparkles:1468546911936974889> Quote pubblicata in questo canale.";
+    /* bachecaSite1: sul server principale la quote va sulla Bacheca del sito, non nel canale */
+    const siteBoard = isBachecaSiteGuild(message.guild.id);
+    const siteItemId = siteBoard ? newBachecaItemId() : "";
+    const quoteChannel = siteBoard ? null : await resolveQuotePostChannel(message.guild);
+    const embedDescription = siteBoard
+      ? "<a:VC_Sparkles:1468546911936974889> La quote è appesa in **Bacheca** sul sito!"
+      : quoteChannel
+        ? `<a:VC_Sparkles:1468546911936974889> Puoi trovare il post creato nel canale: <#${quoteChannel.id}>!`
+        : "<a:VC_Sparkles:1468546911936974889> Quote pubblicata in questo canale.";
     const embed = new EmbedBuilder()
       .setColor(TENANT_EMBED_COLOR)
       .setDescription(embedDescription)
@@ -194,15 +200,39 @@ export = {
       });
 
     const replyMsg=await safeMessageReply(message,{files:[attachment],embeds:[embed],allowedMentions:{repliedUser:false},});
-    if (replyMsg?.id && !isRepostDisabledInGuild(message.guild.id)) {
-      const repostRow = new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-          .setCustomId(`repost_src:${message.channel.id}:${replyMsg.id}:${author.id}`)
-          .setLabel("Reposta")
-          .setEmoji("1443652837346377841")
-          .setStyle(ButtonStyle.Secondary),
-      );
-      await replyMsg.edit({ components: [repostRow] }).catch(() => {});
+    if (replyMsg?.id && (siteBoard || !isRepostDisabledInGuild(message.guild.id))) {
+      const repostRow = new ActionRowBuilder();
+      if (!isRepostDisabledInGuild(message.guild.id)) {
+        repostRow.addComponents(
+          new ButtonBuilder()
+            .setCustomId(`repost_src:${message.channel.id}:${replyMsg.id}:${author.id}`)
+            .setLabel("Reposta")
+            .setEmoji("1443652837346377841")
+            .setStyle(ButtonStyle.Secondary),
+        );
+      }
+      if (siteBoard) repostRow.addComponents(buildBachecaLinkButton(siteItemId));
+      await replyMsg.edit({ components: [repostRow as any] }).catch(() => {});
+    }
+
+    if (siteBoard) {
+      const fileName = quoteFormat === "gif" ? "quote.gif" : "quote.png";
+      const cdnUrl = await putBachecaMedia("quote", siteItemId, fileName, buffer, quoteFormat === "gif" ? "image/gif" : "image/png");
+      const replyImageUrl =
+        [...(replyMsg?.attachments?.values?.() || [])].find((att?) => /\.(png|gif)(\?|$)/i.test(String(att?.name || att?.url || "")))?.url || "";
+      await registerQuoteBoardPost({
+        guildId: message.guild.id,
+        creatorUserId: message.author.id,
+        quotedUserId: author.id,
+        boardChannelId: SITE_BOARD_CHANNEL,
+        boardMessageId: siteItemId,
+        originChannelId: message.channel.id,
+        originMessageId: replyMsg?.id || "0",
+        imageUrl: cdnUrl || replyImageUrl,
+        quotedUsername: quoteUserLabel,
+        totalPosts,
+      }).catch(() => null);
+      broadcastBachecaChanged("new", siteItemId);
     }
 
     if (

@@ -64,6 +64,7 @@ export const REACT_PAGES = new Set([
   "/feedback/",
 
   "/confessionale/",
+  "/bacheca/",
   "/candidature/",
   "/appelli/",
   "/tickets/",
@@ -158,6 +159,7 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     labelKey: "nav.community",
     links: [
+      { labelKey: "nav.bachecaWall", href: page("/bacheca/"), hintKey: "nav.hint.bachecaWall" },
       { labelKey: "nav.users", href: page("/classifiche/"), hintKey: "nav.hint.users" },
       { labelKey: "nav.roles", href: page("/ruoli/"), hintKey: "nav.hint.roles" },
       { labelKey: "nav.rules", href: page("/regole/"), hintKey: "nav.hint.rules" },

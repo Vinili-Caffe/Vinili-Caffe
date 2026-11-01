@@ -317,12 +317,15 @@ export = {
       if (!message || !message.guild || !message.author) return;
       if ((message.embeds?.length || 0) > 0) return;
 
-      const skullChannelId = resolveSkullboardChannelId(message.guild.id);
-      if (!skullChannelId) return;
+      /* bachecaSite1: sul server principale la 💀 appende il messaggio sulla Bacheca del sito */
+      const bachecaSite = require("../features/bacheca/bachecaSite") as typeof import("../features/bacheca/bachecaSite");
+      const siteBoard = bachecaSite.isBachecaSiteGuild(message.guild.id);
+      const skullChannelId = siteBoard ? "" : resolveSkullboardChannelId(message.guild.id);
+      if (!siteBoard && !skullChannelId) return;
       if (!isSkullboardSourceChannel(message.channel)) {
         return;
       }
-      if (String(message.channel?.id || "") === String(skullChannelId)) return;
+      if (!siteBoard && String(message.channel?.id || "") === String(skullChannelId)) return;
 
       if (message.client) {
         if (!message.client._skullboardInFlight) {
@@ -335,10 +338,21 @@ export = {
       }
 
       const existing = await skullboardFindOneLean(message.guild.id, message.id).catch(() => null);
-      if (existing?.postMessageId) return;
+      if (existing?.postMessageId) {
+        if (siteBoard) {
+          /* altre 💀 sullo stesso messaggio: il conteggio sul sito sale */
+          const { GuildSkullPost } = require("../Schemas/Community/guildBoardPostSchema") as typeof import("../Schemas/Community/guildBoardPostSchema");
+          await GuildSkullPost.updateOne(
+            { guildId: message.guild.id, sourceMessageId: message.id },
+            { $max: { skullCount: Math.max(1, Number(reaction.count || 1)) } },
+          ).catch(() => null);
+          bachecaSite.broadcastBachecaChanged("skull", existing.postMessageId);
+        }
+        return;
+      }
 
-      const skullboardChannel = await findSkullboardChannel(message.guild, skullChannelId);
-      if (!skullboardChannel?.isTextBased?.()) return;
+      const skullboardChannel = siteBoard ? null : await findSkullboardChannel(message.guild, skullChannelId);
+      if (!siteBoard && !skullboardChannel?.isTextBased?.()) return;
 
       const member = await findAuthorMember(message);
       const rawContent = buildBaseContent(message);
@@ -360,6 +374,28 @@ export = {
         canvasBuffer = await renderSkullCanvas(message, member, content, replyData, mediaUrl, hasMedia, hasEmbedOnly);
       } catch (error) {
         global.logger?.error?.("[Skullboard] Canvas render failed:", error);
+        return;
+      }
+
+      if (siteBoard) {
+        const { registerBachecaSkull } = require("../features/bacheca/bachecaSkull") as typeof import("../features/bacheca/bachecaSkull");
+        const saved = await registerBachecaSkull({
+          message,
+          member,
+          reactorId: String(user?.id || ""),
+          content: rawContent,
+          canvasBuffer,
+          files,
+          skullCount: Number(reaction.count || 1),
+        });
+        if (!saved.ok) return;
+        await skullboardUpsert(message.guild.id, message.id, saved.itemId).catch(() => null);
+        const siteConfirm = new EmbedBuilder()
+          .setColor("#6f4e37")
+          .setDescription("<:VC_Skully:1331591939094614057> Il messaggio è stato appeso in **Bacheca** sul sito.");
+        await message.channel
+          .send({ embeds: [siteConfirm], components: [bachecaSite.buildBachecaLinkRow(saved.itemId, "Vai alla Bacheca") as any] })
+          .catch(() => {});
         return;
       }
 

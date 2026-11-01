@@ -18,6 +18,8 @@ const {
   stabilizeRepostMedia,
 } = require("./boardMediaStable") as typeof import("./boardMediaStable");
 
+const { isSiteBoardChannel, bachecaItemUrl } = require("../bacheca/bachecaSite") as typeof import("../bacheca/bachecaSite");
+
 const PER_PAGE = 6;
 const KINDS = new Set(["quote", "repost", "clip"]);
 
@@ -36,6 +38,9 @@ function jumpUrl(guildId?, channelId?, messageId?) {
   const c = String(channelId || "").trim();
   const m = String(messageId || "").trim();
   if (!g || !c || !m || m === "pending" || m === "0") return "";
+  /* bachecaSite1: i contenuti nuovi stanno sulla Bacheca del sito, non in un canale */
+  if (isSiteBoardChannel(c)) return bachecaItemUrl(m);
+  if (!/^d{16,20}$/.test(c)) return "";
   return `https://discord.com/channels/${g}/${c}/${m}`;
 }
 

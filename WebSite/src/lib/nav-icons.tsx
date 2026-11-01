@@ -26,6 +26,7 @@ import {
   ThumbsUp,
   Ticket,
   Trophy,
+  Pin,
   Users,
 } from "lucide-react";
 import type { EventoPageId } from "@/lib/evento-starwars";
@@ -48,6 +49,7 @@ export const NAV_ICONS: Record<string, LucideIcon> = {
   "nav.rules": FileText,
   "nav.faq": CircleHelp,
   "nav.confessionale": MessagesSquare,
+  "nav.bachecaWall": Pin,
   "nav.wordle": Grid3x3,
   "nav.evento": Sparkles,
   "nav.appeals": Scale,

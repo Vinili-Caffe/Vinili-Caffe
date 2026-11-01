@@ -11,13 +11,13 @@
       "permanent": true
     },
     {
-      "source": "/bacheca",
-      "destination": "/vetrina/",
+      "source": "/bacheca/(bot|server|scheda|invia|le-mie|vota|mod|linee-guida-recensioni)/(.*)",
+      "destination": "/vetrina/$1/$2",
       "permanent": true
     },
     {
-      "source": "/bacheca/(.*)",
-      "destination": "/vetrina/$1",
+      "source": "/bacheca/(bot|server|scheda|invia|le-mie|vota|mod|linee-guida-recensioni)",
+      "destination": "/vetrina/$1/",
       "permanent": true
     }
   ],

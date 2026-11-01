@@ -1196,6 +1196,14 @@ function startPrimaryLoops(client?, engagementTick?) {
     ["[WEEKLY STAFF RESOCONTO] Failed to start loop", () => startWeeklyStaffResocontoLoop(client)],
     ["[PREMIUM EXPIRY REMINDER] Failed to start loop", () => startPremiumExpiryReminderLoop(client)],
     ["[MOVIE NIGHT ANNOUNCE] Failed to start loop", () => startMovieNightAnnouncementLoop(client)],
+    ["[BACHECA] import vecchi post 💀 fallito", () => {
+      /* bachecaSite1: una volta sola, dopo l'avvio e senza fretta */
+      const t = setTimeout(() => {
+        const { importOldSkullPosts } = require("../features/bacheca/bachecaImport") as typeof import("../features/bacheca/bachecaImport");
+        importOldSkullPosts(client).catch((err?) => global.logger?.warn?.("[BACHECA] import:", err?.message || err));
+      }, 3 * 60 * 1000);
+      t.unref?.();
+    }],
     ["[EXP EVENT ANNOUNCE] Failed to start loop", () => startGlobalExpEventAnnouncementLoop(client)],
     /* perfP1: se COMMUNITY_POLL_EXTERNAL=1 i start* no-op qui (gira community-poll) */
     ["[TWITCH LIVE] Failed to start loop", () => startTwitchLiveAlertLoop(client)],

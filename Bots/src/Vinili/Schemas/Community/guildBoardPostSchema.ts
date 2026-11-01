@@ -8,11 +8,13 @@ const DISCRIMINATOR_KEY = "type";
 const BOARD_POST_TYPE = Object.freeze({
   QUOTE: "quote",
   REPOST: "repost",
+  SKULL: "skull",
 });
 
 const guildBoardPostBaseSchema = new Schema(
   {
     guildId: { type: String, required: true, index: true },
+    /* bachecaSite1: sul server principale la bacheca è la pagina del sito: boardChannelId = "site" */
     boardChannelId: { type: String, default: "" },
     boardMessageId: { type: String, default: "" },
     totalPosts: { type: Number, default: 0 },
@@ -82,6 +84,35 @@ const GuildRepost =
   models.GuildRepost ||
   GuildBoardPost.discriminator(BOARD_POST_TYPE.REPOST, repostDiscriminatorSchema);
 
+/* bachecaSite1: messaggio finito in bacheca con una 💀 (prima si salvavano solo gli id) */
+const skullDiscriminatorSchema = new Schema(
+  {
+    sourceAuthorId: { type: String, required: true, index: true },
+    sourceChannelId: { type: String, required: true },
+    sourceMessageId: { type: String, required: true },
+    firstReactorId: { type: String, default: "" },
+    content: { type: String, default: "" },
+    imageUrl: { type: String, default: "" },
+    mediaFiles: {
+      type: [{ url: { type: String, default: "" }, name: { type: String, default: "" } }],
+      default: undefined,
+    },
+    authorUsername: { type: String, default: "" },
+    authorAvatarUrl: { type: String, default: "" },
+    skullCount: { type: Number, default: 1 },
+  },
+  { _id: false },
+);
+
+skullDiscriminatorSchema.index(
+  { guildId: 1, sourceMessageId: 1 },
+  { unique: true, name: "skull_guild_source_unique", partialFilterExpression: { [DISCRIMINATOR_KEY]: BOARD_POST_TYPE.SKULL } },
+);
+
+const GuildSkullPost =
+  models.GuildSkullPost ||
+  GuildBoardPost.discriminator(BOARD_POST_TYPE.SKULL, skullDiscriminatorSchema);
+
 export = {
   COLLECTION,
   DISCRIMINATOR_KEY,
@@ -89,4 +120,5 @@ export = {
   GuildBoardPost,
   GuildQuoteBoard,
   GuildRepost,
+  GuildSkullPost,
 };

@@ -511,7 +511,8 @@ async function startWebhookServer(client?) {
     const isUnmute = pathStr.startsWith("/webhooks/site-unmute");
     const isSiteRules = pathStr.startsWith("/webhooks/site-rules");
     const isSiteUsers = pathStr.startsWith("/webhooks/site-users");
-    const isSiteUserBoards = pathStr.startsWith("/webhooks/site-user-boards");
+    /* bachecaSite1: la Bacheca del sito ha le stesse regole (CORS, metodi) dei contenuti del profilo */
+    const isSiteUserBoards = pathStr.startsWith("/webhooks/site-user-boards") || pathStr.startsWith("/webhooks/site-bacheca");
     const isSiteVote = pathStr.startsWith("/webhooks/site-vote");
     const isSiteLiveEvent = pathStr.startsWith("/webhooks/site-live-event");
     const isSiteRoles = pathStr.startsWith("/webhooks/site-roles");

@@ -48,6 +48,7 @@ function isReadOnlySiteGet(req?) {
   if (path.startsWith("/webhooks/site-welcome-pronouns")) return true;
   if (path.startsWith("/webhooks/site-users")) return true;
   if (path.startsWith("/webhooks/site-user-boards")) return true;
+  if (path.startsWith("/webhooks/site-bacheca")) return true;
   if (path.startsWith("/webhooks/site-roles")) return true;
   if (path.startsWith("/webhooks/site-vote")) return true;
   if (path.startsWith("/webhooks/site-web-tickets")) return true;

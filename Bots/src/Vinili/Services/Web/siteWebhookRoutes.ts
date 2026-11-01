@@ -11,6 +11,7 @@ function isCandidatureWebsiteApiEnabled() {
 const { mountWebTicketRoutes } = require("../../features/tickets/site/webTicketRoutes") as typeof import("../../features/tickets/site/webTicketRoutes");
 const { mountDashboardTicketRoutes } = require("../../features/tickets/dashboard/dashboardTicketRoutes") as typeof import("../../features/tickets/dashboard/dashboardTicketRoutes");
 const { mountBoardsRoutes } = require("../../features/boards/boardsRoutes") as typeof import("../../features/boards/boardsRoutes");
+const { mountBachecaRoutes } = require("../../features/bacheca/bachecaRoutes") as typeof import("../../features/bacheca/bachecaRoutes");
 const { mountSuggestionsRoutes } = require("../../features/suggestions/suggestionsRoutes") as typeof import("../../features/suggestions/suggestionsRoutes");
 const { mountContestRoutes } = require("../../features/contest/contestRoutes") as typeof import("../../features/contest/contestRoutes");
 const { mountWorkflowRoutes } = require("../../features/workflow/workflowRoutes") as typeof import("../../features/workflow/workflowRoutes");
@@ -322,6 +323,7 @@ function mountSiteWebhookRoutes(app?, client?, deps?) {
     return handleSiteUsersLeaderboardGet(client, req, res);
   });
   mountBoardsRoutes(app, client, { replyJsonEtag, normalizeHeaderSecret });
+  mountBachecaRoutes(app, client);
   app.get("/webhooks/site-vote", (req?, res?) => {
     return handleSiteVoteGet(client, req, res);
   });
