@@ -456,7 +456,7 @@ function getSupportAutoValutazioneReason(member?) {
   }
 
   if (hasAnyRole(member, getGuildedRoleIds(member.client))) {
-    return "Mette una nostra GUILD TAGS.";
+    return "Mette la nostra GUILD TAG.";
   }
 
   return null;

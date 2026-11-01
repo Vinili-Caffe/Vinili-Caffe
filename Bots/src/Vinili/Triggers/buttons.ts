@@ -930,7 +930,7 @@ export = {
             name: "`GUILDED`",
             value: [
               "<@&1544830820181745704>",
-              "Ottenibile mettendo una delle nostre guild tags",
+              "Ottenibile mettendo la nostra guild tag **V&C**",
               "९ Esclusività del ruolo.",
             ].join("\n"),
             inline: true,

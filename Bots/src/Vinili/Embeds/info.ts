@@ -31,13 +31,9 @@ async function run(client?) {
     `Dubbi o problemi? Apri un ${siteTicketsPageDiscordRef("SUPPORTO")}: lo staff vi risponderà il prima possibile!`,
   ].join("\n");
   const infoGuildTagsText = [
-    "<:VC_Femboy1:1528177995095867515><:VC_Femboy2:1528178060581671084> <a:VC_Arrow:1482706699365257397> <https://discord.com/invite/E6vrm5zE6B>",
-    "<:VC_666_1:1528177848890691684><:VC_666_2:1528177905404870828> <a:VC_Arrow:1482706699365257397> <https://discord.com/invite/QnTN5P578g>",
-    "<:VC_Porn1:1482497744513011944><:VC_Porn2:1482497774892089547> <a:VC_Arrow:1482706699365257397> <https://discord.com/invite/WMuZ4EMAkc>",
-    "<:VC_Cat1:1528177482807640125><:VC_Cat2:1528177684843073546> <a:VC_Arrow:1482706699365257397> <https://discord.com/invite/uqUNS9f5m5>",
-    "<:VC_Weed1:1482497951686201534><:VC_Weed2:1482497986910097592> <a:VC_Arrow:1482706699365257397> <https://discord.com/invite/SzBwnxHXNv>",
-    "<:VC_Figa1:1482495980275499169><:VC_Figa2:1482496046222544937> <a:VC_Arrow:1482706699365257397> <https://discord.com/invite/z3EXtJwvQH>",
-  ].join("\n");
+    "<:VC_Reply:1482532158080942191> Metti la tag **V&C** sul tuo profilo Discord e ricevi il ruolo **Guilded**: immagini e link in chat e nickname personalizzato!",
+  ].join("
+");
   const infoLinksText = [
     "<:VC_Instagram:1482526710426767360> [Seguici su Instagram](https://www.instagram.com/viniliecaffe/)",
     "<:VC_TikTok:1498017166060949525> [Seguici su TikTok](https://www.tiktok.com/@viniliecaffe)",
@@ -115,7 +111,7 @@ async function run(client?) {
     title: "Ti diamo il benvenuto nella nostra community!",
     body: infoIntroText,
     sections: [
-      { heading: "<:VC_Firework:1470796227913322658> LE NOSTRE GUILD TAGS", body: infoGuildTagsText },
+      { heading: "<:VC_Firework:1470796227913322658> LA NOSTRA GUILD TAG", body: infoGuildTagsText },
       { heading: "<:VC_Link:1482460590894088222> Links", body: infoLinksText },
       { heading: "<:VC_Info:1482526956703580372> Informazioni", body: infoMetaText },
     ],
