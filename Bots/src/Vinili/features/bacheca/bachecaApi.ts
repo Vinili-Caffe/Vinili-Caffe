@@ -19,6 +19,8 @@ const PER_PAGE = 24;
 const KINDS = new Set(["all", "quote", "repost", "clip", "skull"]);
 const SORTS = new Set(["new", "top", "week"]);
 const ITEM_ID_RE = /^[a-f0-9]{24}$|^\d{16,20}$/i;
+/* contenuti coi media persi e senza testo: sul muro resterebbe solo un riquadro vuoto */
+const VISIBLE = { $nor: [{ mediaLost: true, content: { $in: ["", null] } }] };
 
 function mainGuildId() {
   return String(IDs.guilds?.main || "").trim();
@@ -224,7 +226,7 @@ async function handleBachecaList(client?, req?, res?) {
     const kind = KINDS.has(String(req.query?.kind || "")) ? String(req.query.kind) : "all";
     const sort = SORTS.has(String(req.query?.sort || "")) ? String(req.query.sort) : "new";
     const page = Math.max(1, Math.min(200, Math.floor(Number(req.query?.page) || 1)));
-    const match: Record<string, any> = { guildId, boardMessageId: { $nin: ["", null, "0", "pending"] }, ...kindMatch(kind) };
+    const match: Record<string, any> = { guildId, boardMessageId: { $nin: ["", null, "0", "pending"] }, ...kindMatch(kind), $and: [VISIBLE] };
     if (sort === "week") match.createdAt = { $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) };
     const pipeline: any[] = groupPipeline(match);
     if (sort === "new") {
@@ -275,7 +277,7 @@ async function handleBachecaRandom(client?, req?, res?) {
   try {
     const guildId = mainGuildId();
     const [picked] = await GuildBoardPost.aggregate([
-      { $match: { guildId, boardMessageId: { $nin: ["", null, "0", "pending"] } } },
+      { $match: { guildId, boardMessageId: { $nin: ["", null, "0", "pending"] }, $and: [VISIBLE] } },
       { $sample: { size: 1 } },
     ]);
     if (!picked) return res.status(200).json({ ok: false, status: 404, error: "empty" });

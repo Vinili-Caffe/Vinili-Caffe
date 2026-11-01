@@ -121,17 +121,25 @@ async function stabilizeOldBoardMedia(client?) {
     .catch(() => []);
   let fixed = 0;
   let failed = 0;
+  /* non recuperabili: si segnano, così il muro può nasconderli se non hanno testo */
+  const markLost = (model?, id?) => model.updateOne({ _id: id }, { $set: { mediaLost: true } }).catch(() => null);
   for (const doc of quotes) {
     const url = await stabilizeQuoteMedia(client, doc).catch(() => "");
     if (url && /cdn\.viniliecaffe\.it/i.test(url)) fixed += 1;
-    else failed += 1;
+    else {
+      failed += 1;
+      await markLost(GuildQuoteBoard, doc._id);
+    }
     await sleep(GAP_MS);
   }
   for (const doc of reposts) {
     const out: any = await stabilizeRepostMedia(client, doc).catch(() => null);
     const urls = [out?.attachmentUrl, ...(out?.mediaFiles || []).map((f?) => f?.url)].filter(Boolean);
     if (urls.length && urls.every((u) => !discordRe.test(String(u)))) fixed += 1;
-    else failed += 1;
+    else {
+      failed += 1;
+      await markLost(GuildRepost, doc._id);
+    }
     await sleep(GAP_MS);
   }
   if (quotes.length || reposts.length) {

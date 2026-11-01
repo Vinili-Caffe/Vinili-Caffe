@@ -18,6 +18,8 @@ const guildBoardPostBaseSchema = new Schema(
     boardChannelId: { type: String, default: "" },
     boardMessageId: { type: String, default: "" },
     totalPosts: { type: Number, default: 0 },
+    /* media non più recuperabili (messaggio o file spariti da Discord): senza testo non si mostra sul muro */
+    mediaLost: { type: Boolean, default: undefined },
   },
   {
     timestamps: true,
