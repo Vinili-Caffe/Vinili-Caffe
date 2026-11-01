@@ -1,7 +1,7 @@
 /** Compiti staff: piano del mese (estrazione dei compiti, cambi, bonus). */
 const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
-const { TASKS_META, ALLOWED_TASK_IDS, MAX_HARD_PER_MONTH, isHardTask, countHardTasks } = require("./siteStaffCompitiCatalog") as typeof import("./siteStaffCompitiCatalog");
+const { TASKS_META, ALLOWED_TASK_IDS, HARD_TASKS_PER_MONTH, isHardTask, countHardTasks } = require("./siteStaffCompitiCatalog") as typeof import("./siteStaffCompitiCatalog");
 const { romeMonthKey, weekKeysInRomeMonth, prevRomeMonthKey, monthKeyForWeekKey, compitiActiveMonthKey } = require("./compitiCalendar") as typeof import("./compitiCalendar");
 const { STATUS, loadMap } = require("./compitiWeeks") as typeof import("./compitiWeeks");
 
@@ -22,17 +22,20 @@ function drawDistinctMonthTasks(excludeSet?, n?) {
   const all = TASKS_META.map((t?) => t.id);
   const want = Math.max(0, Math.min(Number(n) || 0, all.length));
   const picked = [];
-  /* al massimo MAX_HARD_PER_MONTH compiti difficili nel pool */
-  const take = (ids?) => {
+  /* sempre esattamente HARD_TASKS_PER_MONTH compiti difficili nel pool, il resto facili/medi */
+  const take = (ids?, limit?) => {
     for (const id of ids) {
-      if (picked.length >= want) break;
-      if (picked.includes(id)) continue;
-      if (isHardTask(id) && countHardTasks(picked) >= MAX_HARD_PER_MONTH) continue;
-      picked.push(id);
+      if (picked.length >= limit) break;
+      if (!picked.includes(id)) picked.push(id);
     }
   };
-  take(shuffleInPlace(all.filter((id?) => !excludeSet.has(id))));
-  if (picked.length < want) take(shuffleInPlace(all.filter((id?) => !picked.includes(id))));
+  const fresh = (hard?) => shuffleInPlace(all.filter((id?) => isHardTask(id) === hard && !excludeSet.has(id)));
+  const any = (hard?) => shuffleInPlace(all.filter((id?) => isHardTask(id) === hard));
+  const hardWant = Math.min(HARD_TASKS_PER_MONTH, want);
+  take(fresh(true), hardWant);
+  take(any(true), hardWant);
+  take(fresh(false), want);
+  take(any(false), want);
   return picked.slice(0, want);
 }
 
@@ -146,36 +149,48 @@ function planSwapsLeft(plan?, bonus = 0) {
   return baseLeft + bonusLeft;
 }
 
-/** Sostituto per `replaceTaskId`: se nel resto del pool c'è già il massimo di difficili, niente difficili. */
-function pickRandomPoolReplacement(poolIds?, preferExclude = null, replaceTaskId = "") {
+/** Sostituto per `replaceTaskId`, dello stesso tipo: difficile → difficile, facile/medio → facile/medio
+ *  (così nel pool resta sempre esattamente un difficile). `wantHard` forza il tipo. */
+function pickRandomPoolReplacement(poolIds?, preferExclude = null, replaceTaskId = "", wantHard = null) {
   const pool = new Set((poolIds || []).map((x?) => String(x || "").trim()).filter(Boolean));
   const extra = preferExclude instanceof Set ? preferExclude : new Set();
-  const hardFull = countHardTasks([...pool].filter((id?) => id !== replaceTaskId)) >= MAX_HARD_PER_MONTH;
-  const allowed = TASKS_META.map((t?) => t.id).filter((id?) => !pool.has(id) && !(hardFull && isHardTask(id)));
+  const hard = typeof wantHard === "boolean" ? wantHard : isHardTask(replaceTaskId);
+  const allowed = TASKS_META.map((t?) => t.id).filter((id?) => !pool.has(id) && isHardTask(id) === hard);
   let candidates = allowed.filter((id?) => !extra.has(id));
   if (!candidates.length) candidates = allowed;
   if (!candidates.length) return "";
   return candidates[Math.floor(Math.random() * candidates.length)] || "";
 }
 
-/** Pool estratti prima del limite: i difficili in più (non ancora usati in una settimana) diventano altri compiti. */
-function capHardTasks(poolIds?, weekMap?, monthKey?, preferExclude = null) {
+/** Pool estratti prima della regola: porta i difficili a esattamente HARD_TASKS_PER_MONTH,
+ *  cambiando solo compiti non ancora usati in una settimana del mese. */
+function balanceHardTasks(poolIds?, weekMap?, monthKey?, preferExclude = null) {
   const used = new Set();
   for (const [wk, entry] of Object.entries(weekMap || {})) {
     if (entry?.taskId && monthKeyForWeekKey(wk) === monthKey) used.add(entry.taskId);
   }
-  let hardKept = poolIds.filter((id?) => isHardTask(id) && used.has(id)).length;
   let pool = [...poolIds];
-  for (const id of poolIds) {
+  const swap = (id?, wantHard?) => {
+    const replacement = pickRandomPoolReplacement(pool, preferExclude, id, wantHard);
+    if (replacement) pool = pool.map((x?) => (x === id ? replacement : x));
+  };
+  /* troppi: tiene prima quelli già usati, gli altri diventano facili/medi */
+  let hardKept = pool.filter((id?) => isHardTask(id) && used.has(id)).length;
+  for (const id of [...pool]) {
     if (!isHardTask(id) || used.has(id)) continue;
-    if (hardKept < MAX_HARD_PER_MONTH) {
-      hardKept += 1;
-      continue;
-    }
-    const replacement = pickRandomPoolReplacement(pool, preferExclude, id);
-    if (replacement && !isHardTask(replacement)) pool = pool.map((x?) => (x === id ? replacement : x));
+    if (hardKept < HARD_TASKS_PER_MONTH) hardKept += 1;
+    else swap(id, false);
   }
-  return pool;
+  /* nessuno: l'ultimo facile/medio non ancora usato diventa difficile */
+  while (countHardTasks(pool) < HARD_TASKS_PER_MONTH) {
+    const free = [...pool].reverse().find((id?) => !isHardTask(id) && !used.has(id));
+    if (!free) break;
+    const before = pool;
+    swap(free, true);
+    if (pool === before) break;
+  }
+  /* niente cambiato → stesso array, così chi chiama non risalva */
+  return pool.every((id?, i?) => id === poolIds[i]) ? poolIds : pool;
 }
 
 async function loadPlanMap(guildId?, userId?) {
@@ -339,11 +354,11 @@ async function ensureMonthPlanForUser(guildId?, userId?, { monthKey = "", weekKe
   const existingPool = planPoolIds(existing);
   if (existingPool.length >= weekKeys.length && !force) {
     let pool = existingPool;
-    if (countHardTasks(pool) > MAX_HARD_PER_MONTH) {
+    if (countHardTasks(pool) !== HARD_TASKS_PER_MONTH) {
       const weekMap = await loadMap(guildId, userId);
-      pool = capHardTasks(pool, weekMap, mk, collectPrevMonthTaskIds(plans, weekMap, prevRomeMonthKey(mk)));
+      pool = balanceHardTasks(pool, weekMap, mk, collectPrevMonthTaskIds(plans, weekMap, prevRomeMonthKey(mk)));
     }
-    // Persist migrated taskIds if we only had byWeek (o se sono stati tolti difficili in più).
+    // Persist migrated taskIds if we only had byWeek (o se è cambiato il numero di difficili).
     if (
       pool !== existingPool ||
       !Array.isArray(existing.taskIds) ||

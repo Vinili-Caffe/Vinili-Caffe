@@ -1,9 +1,9 @@
 /**
  * Catalogo compiti staff settimanali.
  * Marker: compitiCatalog1
- * Difficoltà: facile / medio / difficile; massimo MAX_HARD_PER_MONTH difficili nel pool del mese.
+ * Difficoltà: facile / medio / difficile; nel pool del mese sempre esattamente HARD_TASKS_PER_MONTH difficili.
  */
-const MAX_HARD_PER_MONTH = 1;
+const HARD_TASKS_PER_MONTH = 1;
 
 const TASKS_META = Object.freeze([
   {
@@ -109,7 +109,7 @@ function publicTasksMeta() {
 export = {
   TASKS_META,
   ALLOWED_TASK_IDS,
-  MAX_HARD_PER_MONTH,
+  HARD_TASKS_PER_MONTH,
   taskById,
   isHardTask,
   countHardTasks,
