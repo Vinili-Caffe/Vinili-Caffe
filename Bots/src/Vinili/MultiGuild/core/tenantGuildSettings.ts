@@ -206,23 +206,25 @@ function rowToBoards(row?, guildId = null) {
 function applyProtectedBoardsCatalogOverlay(guildId?, boards?) {
   const gid = normalizeGuildId(guildId);
   if (!gid || !isViniliProtectedGuild(gid)) return boards;
-  let catalogQuotes = null;
+  /* bachecaSite1: solo il server principale resta col catalogo (funzioni attive), ma senza canale:
+     i suoi contenuti vanno sulla Bacheca del sito. Gli altri server protetti usano i canali che impostano. */
+  let mainId = "";
   try {
     const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
-    catalogQuotes = normalizeChannelId(IDs?.channels?.quotes);
+    mainId = String(IDs?.guilds?.main || "").trim();
   } catch {
-    catalogQuotes = null;
+    mainId = "";
   }
-  if (!catalogQuotes) return boards;
+  if (!mainId || gid !== mainId) return boards;
   return {
     ...boards,
     enabled: boards?.enabled !== false,
     mode: "shared",
-    sharedChannelId: catalogQuotes,
-    quoteChannelId: catalogQuotes,
-    repostChannelId: catalogQuotes,
-    clipChannelId: catalogQuotes,
-    skullChannelId: catalogQuotes,
+    sharedChannelId: null,
+    quoteChannelId: null,
+    repostChannelId: null,
+    clipChannelId: null,
+    skullChannelId: null,
         features: boards?.features && typeof boards.features === "object"
       ? { ...defaultBoardFeatures(), ...boards.features }
       : defaultBoardFeatures(),

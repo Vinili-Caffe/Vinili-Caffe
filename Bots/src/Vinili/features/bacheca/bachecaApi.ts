@@ -164,31 +164,8 @@ function groupPipeline(match: Record<string, any>): any[] {
   ];
 }
 
-/* i contenuti vecchi hanno ancora link di Discord che scadono: si copiano sul CDN in sottofondo (la prossima volta escono dal CDN) */
-const stabilizing = new Set<string>();
-function stabilizeInBackground(client?, rows?: any[]) {
-  const { stabilizeQuoteMedia, stabilizeRepostMedia } = require("../boards/boardMediaStable") as typeof import("../boards/boardMediaStable");
-  const isCdn = (u?) => !u || /cdn\.viniliecaffe\.it/i.test(String(u));
-  for (const r of rows) {
-    const doc = r.doc || r;
-    const key = String(doc._id || "");
-    if (!key || stabilizing.has(key) || doc.type === "skull") continue;
-    const stale =
-      doc.type === "quote"
-        ? !isCdn(doc.imageUrl)
-        : !isCdn(doc.attachmentUrl) || (doc.mediaFiles || []).some((f?) => !isCdn(f?.url));
-    if (!stale) continue;
-    stabilizing.add(key);
-    const job = doc.type === "quote" ? stabilizeQuoteMedia(client, doc) : stabilizeRepostMedia(client, doc);
-    void Promise.resolve(job)
-      .catch(() => null)
-      .finally(() => stabilizing.delete(key));
-  }
-}
-
 async function hydrate(client?, rows?: any[], viewerId = "") {
   const guildId = mainGuildId();
-  stabilizeInBackground(client, rows);
   const guild = await getClientGuildCached(client, guildId).catch(() => null);
   const ids = rows.map((r) => String(r.doc?.boardMessageId || r._id || ""));
   const [{ counts, mine }, repostedSources] = await Promise.all([

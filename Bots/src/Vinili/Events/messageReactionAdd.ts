@@ -37,7 +37,8 @@ function resolveSkullboardChannelId(guildId?) {
     if (fromTenant) return fromTenant;
   } catch {
       }
-  return IDs.channels.quotes ? String(IDs.channels.quotes) : null;
+  /* niente ripiego sul vecchio #bacheca: il principale usa il sito, gli altri il loro canale skull */
+  return null;
 }
 
 function isSkullboardSourceChannel(channel?) {

@@ -1,4 +1,3 @@
-const { isViniliProtectedGuild } = require("../../MultiGuild/core/viniliProtectedGuilds") as typeof import("../../MultiGuild/core/viniliProtectedGuilds");
 const { resolveGuildAccess } = require("../../MultiGuild/core/guildRegistry") as typeof import("../../MultiGuild/core/guildRegistry");
 const {
   getTenantChannelMapSync,
@@ -21,7 +20,11 @@ function normalizeBoardKind(kind?) {
 function resolveBoardChannelId(guildId?, kind = "quote") {
   const gid = String(guildId || "").trim();
   if (!gid) return null;
-  if (isViniliProtectedGuild(gid)) {
+  /* bachecaSite1: il server principale usa la Bacheca del sito (il canale #bacheca non c'è più).
+     Gli altri server, protetti compresi, usano il canale che impostano dalla dashboard. */
+  if (String(IDs.guilds?.main || "").trim() === gid) {
+    const { isBachecaSiteGuild } = require("../../features/bacheca/bachecaSite") as typeof import("../../features/bacheca/bachecaSite");
+    if (isBachecaSiteGuild(gid)) return null;
     return normalizeQuoteChannelId(IDs.channels?.quotes);
   }
   const boardKind = normalizeBoardKind(kind);
