@@ -39,6 +39,7 @@ const NotifNavigate = dynamic(() => import("./notifications/NotifNavigate").then
 const PwaKeepLinks = dynamic(() => import("./effects/PwaKeepLinks").then((m) => m.PwaKeepLinks), { ssr: false });
 const BackToTopFab = dynamic(() => import("./BackToTopFab").then((m) => m.BackToTopFab), { ssr: false });
 const VinylMusicRoot = dynamic(() => import("./vinyl/VinylMusicRoot").then((m) => m.VinylMusicRoot), { ssr: false });
+const ItsTimeIntro = dynamic(() => import("./effects/ItsTimeIntro").then((m) => m.ItsTimeIntro), { ssr: false });
 const EventoMusic = dynamic(() => import("./evento/EventoMusic").then((m) => m.EventoMusic), { ssr: false });
 const OfflineQueueBoot = dynamic(() => import("./effects/OfflineQueueBoot").then((m) => m.OfflineQueueBoot), { ssr: false });
 
@@ -96,6 +97,8 @@ export function SiteShell({
               <NotifLiveToasts />
               <BackToTopFab />
               {evento ? <EventoMusic /> : <VinylMusicRoot />}
+              {/* easter egg: "It's time" all'apertura, poi la musica del giradischi */}
+              {!evento ? <ItsTimeIntro /> : null}
               <SiteEffects />
             </EventoChromeProvider>
           </ViewAsProvider>
