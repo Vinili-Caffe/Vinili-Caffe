@@ -32,7 +32,6 @@ const VINYLS_PREFIX_COMMAND_NAMES = new Set([
   "moderations",
   "modlogs",
   "monthly",
-  "mstats",
   "mute",
   "myrepost",
   "next",

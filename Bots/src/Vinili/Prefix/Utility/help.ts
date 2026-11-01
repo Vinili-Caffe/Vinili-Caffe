@@ -418,7 +418,6 @@ const OBSOLETE_PREFIX_HELP_NAMES = new Set([
   "notify",
   "quit",
   "classifica",
-  "mstats",
   "no-dm-list",
   "recensione",
   "evento",

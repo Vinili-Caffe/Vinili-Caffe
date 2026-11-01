@@ -37,7 +37,7 @@ function buildHalloweenFindGhostFoundEmbed(rewardExp?, durationMs?) {
       [
         `<:VC_EXP:1482534670896730143> Hai trovato il messaggio nascosto: clicca il bottone per ottenere **${exp} exp**.`,
         `> <a:VC_pixeltime:1482535344103620771> Hai ${formatItalianMinutesBold(minutes)} per cliccare il bottone.`,
-        `> <a:VC_Winner:1482535294757507255> Esegui il comando \`+mstats\` per vedere le tue statistiche dei minigiochi.`,
+        `> <a:VC_Winner:1482535294757507255> Guarda le tue statistiche dei minigiochi nel [tuo profilo](https://www.viniliecaffe.it/profilo/).`,
       ].join("\n"),
     )
     .setFooter({ text: "© 2026 Vinili & Caffè. Tutti i diritti riservati." });

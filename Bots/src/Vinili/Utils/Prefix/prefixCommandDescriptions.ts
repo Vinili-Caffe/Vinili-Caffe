@@ -16,7 +16,6 @@ const PREFIX_COMMAND_DESCRIPTIONS = Object.freeze({
   leave: "Fa uscire il bot dal canale vocale.",
   set: "Configura autojoin TTS e la lingua della voce.",
   classifica: "Mostra la classifica livelli.",
-  mstats: "Mostra statistiche minigiochi di un utente.",
   me: "Mostra le tue statistiche attività.",
   user: "Mostra le statistiche attività di un utente.",
   server: "Mostra statistiche attività del server.",

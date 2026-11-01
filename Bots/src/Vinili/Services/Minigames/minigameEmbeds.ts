@@ -17,7 +17,7 @@ function buildGuessNumberEmbed(min?, max?, rewardExp?, durationMs?) {
       [
         `<:VC_EXP:1482534670896730143> Indovina un numero tra **${min}** e **${max}** per ottenere **${rewardExp} exp**.`,
         `> <a:VC_pixeltime:1482535344103620771> Hai ${formatItalianMinutesBold(minutes)} per indovinarlo!`,
-        `> <a:VC_Winner:1482535294757507255> Esegui il comando \`+mstats\` per vedere le tue statistiche dei minigiochi.`,
+        `> <a:VC_Winner:1482535294757507255> Guarda le tue statistiche dei minigiochi nel [tuo profilo](https://www.viniliecaffe.it/profilo/).`,
       ].join("\n"),
     );
 }
@@ -31,7 +31,7 @@ function buildGuessWordEmbed(scrambled?, rewardExp?, durationMs?) {
       [
         `<:VC_EXP:1482534670896730143> Indovina la parola da queste lettere: **${scrambled}** per ottenere **${rewardExp} exp**.`,
         `> <a:VC_pixeltime:1482535344103620771> Hai ${formatItalianMinutesBold(minutes)} per indovinarla!`,
-        `> <a:VC_Winner:1482535294757507255> Esegui il comando \`+mstats\` per vedere le tue statistiche dei minigiochi.`,
+        `> <a:VC_Winner:1482535294757507255> Guarda le tue statistiche dei minigiochi nel [tuo profilo](https://www.viniliecaffe.it/profilo/).`,
       ].join("\n"),
     );
 }
@@ -45,7 +45,7 @@ function buildGuessFlagEmbed(flagUrl?, rewardExp?, durationMs?) {
       [
         `<:VC_EXP:1482534670896730143> Indovina la nazione da questa bandiera per ottenere **${rewardExp} exp**.`,
         `> <a:VC_pixeltime:1482535344103620771> Hai ${formatItalianMinutesBold(minutes)} per indovinarla!`,
-        `> <a:VC_Winner:1482535294757507255> Esegui il comando \`+mstats\` per vedere le tue statistiche dei minigiochi.`,
+        `> <a:VC_Winner:1482535294757507255> Guarda le tue statistiche dei minigiochi nel [tuo profilo](https://www.viniliecaffe.it/profilo/).`,
       ].join("\n"),
     )
     .setImage(flagUrl);
@@ -59,7 +59,7 @@ function buildGuessPlayerEmbed(rewardExp?, durationMs?, imageUrl?) {
     .setDescription([
       `<:VC_EXP:1482534670896730143> Indovina il calciatore più famoso per ottenere **${rewardExp} exp**.`,
       `> <a:VC_pixeltime:1482535344103620771> Hai ${formatItalianMinutesBold(minutes)} per indovinarlo!`,
-      `> <a:VC_Winner:1482535294757507255> Esegui il comando \`+mstats\` per vedere le tue statistiche dei minigiochi.`,
+      `> <a:VC_Winner:1482535294757507255> Guarda le tue statistiche dei minigiochi nel [tuo profilo](https://www.viniliecaffe.it/profilo/).`,
     ].join("\n"),);
   if (imageUrl) {
     embed.setImage(imageUrl);
@@ -75,7 +75,7 @@ function buildGuessSongEmbed(rewardExp?, durationMs?, artworkUrl?) {
     .setDescription([
       `<:VC_EXP:1482534670896730143> Indovina la canzone per ottenere **${rewardExp} exp**.`,
       `> <a:VC_pixeltime:1482535344103620771> Hai ${formatItalianMinutesBold(minutes)} per indovinarla!`,
-      `> <a:VC_Winner:1482535294757507255> Esegui il comando \`+mstats\` per vedere le tue statistiche dei minigiochi.`,
+      `> <a:VC_Winner:1482535294757507255> Guarda le tue statistiche dei minigiochi nel [tuo profilo](https://www.viniliecaffe.it/profilo/).`,
     ].join("\n"),);
   if (artworkUrl) embed.setImage(artworkUrl);
   return embed;
@@ -89,7 +89,7 @@ function buildGuessCapitalEmbed(country?, rewardExp?, durationMs?, imageUrl = nu
     .setDescription([
       `<:VC_EXP:1482534670896730143> Indovina la capitale di **${country}** per ottenere **${rewardExp} exp**.`,
       `> <a:VC_pixeltime:1482535344103620771> Hai ${formatItalianMinutesBold(minutes)} per rispondere!`,
-      `> <a:VC_Winner:1482535294757507255> Esegui il comando \`+mstats\` per vedere le tue statistiche dei minigiochi.`,
+      `> <a:VC_Winner:1482535294757507255> Guarda le tue statistiche dei minigiochi nel [tuo profilo](https://www.viniliecaffe.it/profilo/).`,
     ].join("\n"),
     );
   if (imageUrl) embed.setImage(imageUrl);
@@ -104,7 +104,7 @@ function buildGuessRegionCapitalEmbed(region?, rewardExp?, durationMs?, imageUrl
     .setDescription([
       `<:VC_EXP:1482534670896730143> Indovina il capoluogo della regione **${region}** per ottenere **${rewardExp} exp**.`,
       `> <a:VC_pixeltime:1482535344103620771> Hai ${formatItalianMinutesBold(minutes)} per rispondere!`,
-      `> <a:VC_Winner:1482535294757507255> Esegui il comando \`+mstats\` per vedere le tue statistiche dei minigiochi.`,
+      `> <a:VC_Winner:1482535294757507255> Guarda le tue statistiche dei minigiochi nel [tuo profilo](https://www.viniliecaffe.it/profilo/).`,
     ].join("\n"),
     );
   if (imageName) embed.setImage(`attachment://${imageName}`);
@@ -120,7 +120,7 @@ function buildGuessReverseCapitalEmbed(capital?, rewardExp?, durationMs?, imageU
     .setDescription([
       `<:VC_EXP:1482534670896730143> **${capital}** è la capitale di quale Stato? Indovina per **${rewardExp} exp**.`,
       `> <a:VC_pixeltime:1482535344103620771> Hai ${formatItalianMinutesBold(minutes)} per rispondere!`,
-      `> <a:VC_Winner:1482535294757507255> Esegui il comando \`+mstats\` per vedere le tue statistiche dei minigiochi.`,
+      `> <a:VC_Winner:1482535294757507255> Guarda le tue statistiche dei minigiochi nel [tuo profilo](https://www.viniliecaffe.it/profilo/).`,
     ].join("\n"),
     );
   if (imageUrl) embed.setImage(imageUrl);
@@ -136,7 +136,7 @@ function buildFastTypeEmbed(phrase?, rewardExp?, durationMs?) {
       [
         `<:VC_EXP:1482534670896730143> Il primo che scrive questa frase ottiene **${rewardExp} exp**.`,
         `> <a:VC_pixeltime:1482535344103620771> Hai ${formatItalianMinutesBold(minutes)} per scrivere la frase.`,
-        `> <a:VC_Winner:1482535294757507255> Esegui il comando \`+mstats\` per vedere le tue statistiche dei minigiochi.`,
+        `> <a:VC_Winner:1482535294757507255> Guarda le tue statistiche dei minigiochi nel [tuo profilo](https://www.viniliecaffe.it/profilo/).`,
       ].join("\n"),
     );
 }
@@ -149,7 +149,7 @@ function buildGuessTeamEmbed(rewardExp?, durationMs?, imageUrl?) {
     .setDescription([
       `<:VC_EXP:1482534670896730143> Indovina la squadra di calcio dal logo per ottenere **${rewardExp} exp**.`,
       `> <a:VC_pixeltime:1482535344103620771> Hai ${formatItalianMinutesBold(minutes)} per indovinare la squadra.`,
-      `> <a:VC_Winner:1482535294757507255> Esegui il comando \`+mstats\` per vedere le tue statistiche dei minigiochi.`,
+      `> <a:VC_Winner:1482535294757507255> Guarda le tue statistiche dei minigiochi nel [tuo profilo](https://www.viniliecaffe.it/profilo/).`,
     ].join("\n"),
     );
   if (imageUrl) embed.setImage(imageUrl);
@@ -164,7 +164,7 @@ function buildGuessSingerEmbed(rewardExp?, durationMs?, imageUrl?) {
     .setDescription([
       `<:VC_EXP:1482534670896730143> Indovina il cantante dalla foto per ottenere **${rewardExp} exp**.`,
       `> <a:VC_pixeltime:1482535344103620771> Hai ${formatItalianMinutesBold(minutes)} per indovinare il cantante.`,
-      `> <a:VC_Winner:1482535294757507255> Esegui il comando \`+mstats\` per vedere le tue statistiche dei minigiochi.`,
+      `> <a:VC_Winner:1482535294757507255> Guarda le tue statistiche dei minigiochi nel [tuo profilo](https://www.viniliecaffe.it/profilo/).`,
     ].join("\n"),
     );
   if (imageUrl) embed.setImage(imageUrl);
@@ -179,7 +179,7 @@ function buildGuessAlbumEmbed(rewardExp?, durationMs?, imageUrlOrAttachment?) {
     .setDescription([
       `<:VC_EXP:1482534670896730143> Indovina l'album dalla copertina per ottenere **${rewardExp} exp**.`,
       `> <a:VC_pixeltime:1482535344103620771> Hai ${formatItalianMinutesBold(minutes)} per indovinare l'album.`,
-      `> <a:VC_Winner:1482535294757507255> Esegui il comando \`+mstats\` per vedere le tue statistiche dei minigiochi.`,
+      `> <a:VC_Winner:1482535294757507255> Guarda le tue statistiche dei minigiochi nel [tuo profilo](https://www.viniliecaffe.it/profilo/).`,
     ].join("\n"),
     );
   if (imageUrlOrAttachment) embed.setImage(imageUrlOrAttachment);
@@ -195,7 +195,7 @@ function buildHangmanEmbed(maskedWord?, rewardExp?, durationMs?) {
       [
         `<:VC_EXP:1482534670896730143> Scrivi una lettera o prova la parola intera per ottenere **${rewardExp} exp**.`,
         `> <a:VC_pixeltime:1482535344103620771> Hai ${formatItalianMinutesBold(minutes)} per indovinare la parola.`,
-        `> <a:VC_Winner:1482535294757507255> Esegui il comando \`+mstats\` per vedere le tue statistiche dei minigiochi.`,
+        `> <a:VC_Winner:1482535294757507255> Guarda le tue statistiche dei minigiochi nel [tuo profilo](https://www.viniliecaffe.it/profilo/).`,
       ].join("\n"),
     );
 }
@@ -209,7 +209,7 @@ function buildItalianGkEmbed(question?, rewardExp?, durationMs?) {
       [
         `<:VC_EXP:1482534670896730143> **Domanda:** ${question} per ottenere **${rewardExp} exp**.`,
         `> <a:VC_pixeltime:1482535344103620771> Hai ${formatItalianMinutesBold(minutes)} per rispondere alla domanda.`,
-        `> <a:VC_Winner:1482535294757507255> Esegui il comando \`+mstats\` per vedere le tue statistiche dei minigiochi.`,
+        `> <a:VC_Winner:1482535294757507255> Guarda le tue statistiche dei minigiochi nel [tuo profilo](https://www.viniliecaffe.it/profilo/).`,
       ].join("\n"),
     );
 }
@@ -249,7 +249,7 @@ function buildMathExpressionEmbed( expression?, rewardExp?, durationMs?, imageNa
     .setDescription([
       `<:VC_EXP:1482534670896730143> Risolvi: **${expression}** per ottenere **${rewardExp} exp**.`,
       `> <a:VC_pixeltime:1482535344103620771> Hai ${formatItalianMinutesBold(minutes)} per risolvere l'espressione.`,
-      `> <a:VC_Winner:1482535294757507255> Esegui il comando \`+mstats\` per vedere le tue statistiche dei minigiochi.`,
+      `> <a:VC_Winner:1482535294757507255> Guarda le tue statistiche dei minigiochi nel [tuo profilo](https://www.viniliecaffe.it/profilo/).`,
     ].join("\n"),
     );
   if (imageName) embed.setImage(`attachment://${imageName}`);
@@ -265,7 +265,7 @@ function buildFindBotEmbed(rewardExp?, durationMs?) {
       [
         `<:VC_EXP:1482534670896730143> Trova il messaggio del bot tra i canali del server, premi il bottone per ottenere **${rewardExp} exp**.`,
         `> <a:VC_pixeltime:1482535344103620771> Hai ${formatItalianMinutesBold(minutes)} per trovarlo.`,
-        `> <a:VC_Winner:1482535294757507255> Esegui il comando \`+mstats\` per vedere le tue statistiche dei minigiochi.`,
+        `> <a:VC_Winner:1482535294757507255> Guarda le tue statistiche dei minigiochi nel [tuo profilo](https://www.viniliecaffe.it/profilo/).`,
       ].join("\n"),
     );
 }
@@ -279,7 +279,7 @@ function buildFindBotButtonEmbed(rewardExp?, durationMs?) {
       [
         `<:VC_EXP:1482534670896730143> Hai trovato il messaggio nascosto: clicca il bottone per ottenere **${rewardExp} exp**.`,
         `> <a:VC_pixeltime:1482535344103620771> Hai ${formatItalianMinutesBold(minutes)} per cliccare il bottone.`,
-        `> <a:VC_Winner:1482535294757507255> Esegui il comando \`+mstats\` per vedere le tue statistiche dei minigiochi.`,
+        `> <a:VC_Winner:1482535294757507255> Guarda le tue statistiche dei minigiochi nel [tuo profilo](https://www.viniliecaffe.it/profilo/).`,
       ].join("\n"),
     );
 }
@@ -293,7 +293,7 @@ function buildFindBotVoiceEmbed(rewardExp?, durationMs?) {
       [
         `<:VC_EXP:1482534670896730143> Il bot si è nascosto in una **vocale vuota** del server: entra in quella vocale per ottenere **${rewardExp} exp**.`,
         `> <a:VC_pixeltime:1482535344103620771> Hai ${formatItalianMinutesBold(minutes)} per trovarlo.`,
-        `> <a:VC_Winner:1482535294757507255> Esegui il comando \`+mstats\` per vedere le tue statistiche dei minigiochi.`,
+        `> <a:VC_Winner:1482535294757507255> Guarda le tue statistiche dei minigiochi nel [tuo profilo](https://www.viniliecaffe.it/profilo/).`,
       ].join("\n"),
     );
 }
@@ -348,7 +348,7 @@ function buildWinEmbed(winnerId?, effectiveExp?, totalExp?, details = null) {
     .setTitle("<a:VC_Events:1482706144953897223> Un utente ha vinto<a:VC_Exclamation:1482534702077444217>")
     .setDescription(lines.join("\n"))
     .setFooter({
-      text: 'Digita il comando "+mstats" per vedere i tuoi progressi',
+      text: "I tuoi progressi sono nel profilo su viniliecaffe.it/profilo",
     });
 }
 
@@ -380,7 +380,7 @@ function buildRewardEmbed(member?, reward?, totalExp?) {
     })
     .setDescription(description)
     .setFooter({
-      text: "Gli exp guadagnati si sommano al tuo livello globale! Controlla le tue statistiche con il comando \`+mstats\`",
+      text: "Gli exp guadagnati si sommano al tuo livello globale! Controlla le tue statistiche su viniliecaffe.it/profilo",
     });
 }
 
@@ -651,7 +651,7 @@ function buildGuessYearEmbed(title?, subtitle?, rewardExp?, durationMs?, imageUr
     .setDescription([
       `<:VC_EXP:1482534670896730143> In che anno è uscito **${title}**${sub}? Scrivi l'anno per **${rewardExp} exp**.`,
       `> <a:VC_pixeltime:1482535344103620771> Hai ${formatItalianMinutesBold(minutes)} per rispondere!`,
-      `> <a:VC_Winner:1482535294757507255> Esegui il comando \`+mstats\` per vedere le tue statistiche.`,
+      `> <a:VC_Winner:1482535294757507255> Guarda le tue statistiche nel [tuo profilo](https://www.viniliecaffe.it/profilo/).`,
     ].join("\n"));
   if (imageUrl) embed.setImage(imageUrl);
   return embed;
@@ -668,7 +668,7 @@ function buildCompleteVerseEmbed(verse?, rewardExp?, durationMs?, imageUrl = nul
     .setDescription([
       promptLine,
       `> <a:VC_pixeltime:1482535344103620771> Hai ${formatItalianMinutesBold(minutes)} per rispondere!`,
-      `> <a:VC_Winner:1482535294757507255> Esegui il comando \`+mstats\` per vedere le tue statistiche.`,
+      `> <a:VC_Winner:1482535294757507255> Guarda le tue statistiche nel [tuo profilo](https://www.viniliecaffe.it/profilo/).`,
     ].join("\n"));
   if (imageUrl) embed.setImage(imageUrl);
   return embed;
@@ -682,7 +682,7 @@ function buildGuessEmojiEmbed(emojis?, rewardExp?, durationMs?, imageUrl = null)
     .setDescription([
       `<:VC_EXP:1482534670896730143> Cosa rappresenta **${emojis}**? Scrivi film, serie o canzone per **${rewardExp} exp**.`,
       `> <a:VC_pixeltime:1482535344103620771> Hai ${formatItalianMinutesBold(minutes)} per rispondere!`,
-      `> <a:VC_Winner:1482535294757507255> Esegui il comando \`+mstats\` per vedere le tue statistiche.`,
+      `> <a:VC_Winner:1482535294757507255> Guarda le tue statistiche nel [tuo profilo](https://www.viniliecaffe.it/profilo/).`,
     ].join("\n"));
   if (imageUrl) embed.setImage(imageUrl);
   return embed;
@@ -696,7 +696,7 @@ function buildQuoteFilmEmbed(quote?, rewardExp?, durationMs?, imageUrl = null) {
     .setDescription([
       `<:VC_EXP:1482534670896730143> *"${quote}"* — Da quale film o serie? **${rewardExp} exp**.`,
       `> <a:VC_pixeltime:1482535344103620771> Hai ${formatItalianMinutesBold(minutes)} per rispondere!`,
-      `> <a:VC_Winner:1482535294757507255> Esegui il comando \`+mstats\` per vedere le tue statistiche.`,
+      `> <a:VC_Winner:1482535294757507255> Guarda le tue statistiche nel [tuo profilo](https://www.viniliecaffe.it/profilo/).`,
     ].join("\n"));
   if (imageUrl) embed.setImage(imageUrl);
   return embed;
@@ -713,7 +713,7 @@ function buildCompleteProverbEmbed(start?, rewardExp?, durationMs?, imageUrl = n
     .setDescription([
       promptLine,
       `> <a:VC_pixeltime:1482535344103620771> Hai ${formatItalianMinutesBold(minutes)} per rispondere!`,
-      `> <a:VC_Winner:1482535294757507255> Esegui il comando \`+mstats\` per vedere le tue statistiche.`,
+      `> <a:VC_Winner:1482535294757507255> Guarda le tue statistiche nel [tuo profilo](https://www.viniliecaffe.it/profilo/).`,
     ].join("\n"));
   if (imageUrl) embed.setImage(imageUrl);
   return embed;
@@ -728,7 +728,7 @@ function buildSynonymAntonymEmbed(word?, kind?, rewardExp?, durationMs?, imageUr
     .setDescription([
       `<:VC_EXP:1482534670896730143> Scrivi ${label} di **${word}** per **${rewardExp} exp**.`,
       `> <a:VC_pixeltime:1482535344103620771> Hai ${formatItalianMinutesBold(minutes)} per rispondere!`,
-      `> <a:VC_Winner:1482535294757507255> Esegui il comando \`+mstats\` per vedere le tue statistiche.`,
+      `> <a:VC_Winner:1482535294757507255> Guarda le tue statistiche nel [tuo profilo](https://www.viniliecaffe.it/profilo/).`,
     ].join("\n"));
   if (imageUrl) embed.setImage(imageUrl);
   return embed;
@@ -742,7 +742,7 @@ function buildGuessCityEmbed(landmark?, rewardExp?, durationMs?, imageUrl = null
     .setDescription([
       `<:VC_EXP:1482534670896730143> In quale città si trova **${landmark}**? **${rewardExp} exp**.`,
       `> <a:VC_pixeltime:1482535344103620771> Hai ${formatItalianMinutesBold(minutes)} per rispondere!`,
-      `> <a:VC_Winner:1482535294757507255> Esegui il comando \`+mstats\` per vedere le tue statistiche.`,
+      `> <a:VC_Winner:1482535294757507255> Guarda le tue statistiche nel [tuo profilo](https://www.viniliecaffe.it/profilo/).`,
     ].join("\n"));
   if (imageUrl) embed.setImage(imageUrl);
   return embed;

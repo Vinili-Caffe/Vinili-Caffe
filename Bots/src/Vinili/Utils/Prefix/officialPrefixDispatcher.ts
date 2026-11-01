@@ -47,7 +47,6 @@ const REMOVED_PREFIX_COMMANDS = new Set([
   "notify",
   "quit",
   "classifica",
-  "mstats",
   "sezioneproibita",
   "libriproibiti",
   "forbiddenbooks",
