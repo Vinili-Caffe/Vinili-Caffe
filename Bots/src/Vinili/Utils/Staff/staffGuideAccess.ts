@@ -122,7 +122,6 @@ function listReadableStaffGuideSections(member?) {
 }
 
 export = {
-  STAFF_GUIDE_LADDER_SECTION_IDS,
   getStaffGuideAccessRoleIds,
   memberCanReadStaffGuideSection,
   listReadableStaffGuideSections,

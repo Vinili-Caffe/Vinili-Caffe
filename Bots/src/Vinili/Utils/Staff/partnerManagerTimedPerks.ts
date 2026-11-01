@@ -173,13 +173,8 @@ async function sweepExpiredPartnerManagerTimedPerks(client?) {
 }
 
 export = {
-  THIRTY_DAYS_MS,
-  partnerManagerPerkDateActive,
   fetchPartnerManagerTimedPerkLean,
   partnerManagerCustomBundleActiveFromLean,
-  partnerManagerVipActiveFromLean,
-  memberHasVipRole,
-  memberHasCustomRoleOrVocPermission,
   resolvePartnerManagerShopInstantBlocks,
   applyPartnerManagerRedeem50,
   applyPartnerManagerRedeem100,

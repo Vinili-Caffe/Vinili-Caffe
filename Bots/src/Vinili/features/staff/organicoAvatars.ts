@@ -6,19 +6,6 @@ const { sitePreferredAvatarUrl, normalizeDiscordCdnAvatarUrl, remoteImageUrlLoad
 
 const organicoCache = new Map();
 
-function defaultAvatarForUserId(userId?, size = 128) {
-  const uid = String(userId || "").trim();
-  let index = 0;
-  if (/^\d{16,22}$/.test(uid)) {
-    try {
-      index = Number((BigInt(uid) >> 22n) % 6n);
-    } catch {
-      index = 0;
-    }
-  }
-  return `https://cdn.discordapp.com/embed/avatars/${index}.png?size=${size}`;
-}
-
 /* organicoAvatarHeal1: a_*.png → a_*.gif + size=128 */
 function normalizeHistoryAvatarUrl(url?) {
   const raw = String(url || "").trim();

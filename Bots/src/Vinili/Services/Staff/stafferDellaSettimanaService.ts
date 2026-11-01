@@ -163,7 +163,5 @@ function startStafferDellaSettimanaLoop(client?) {
 
 export = {
   onStafferDellaSettimanaRoleAdded,
-  tickStafferDellaSettimanaWeek,
   startStafferDellaSettimanaLoop,
-  stafferDellaSettimanaRoleId,
 };

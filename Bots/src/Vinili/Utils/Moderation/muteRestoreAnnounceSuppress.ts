@@ -39,12 +39,6 @@ function registerMuteMirrorRestoreRoleSuppress(guildId?, userId?, roleIds?, opts
   });
 }
 
-function registerBulkRoleRestoreAnnounceSuppress(guildId?, userId?, roleIds?, opts: Record<string, any> = {}) {
-  registerMuteMirrorRestoreRoleSuppress(guildId, userId, roleIds, {
-    ttlMs: opts.ttlMs || 7 * 24 * 60 * 60 * 1000,
-  });
-}
-
 function wasRoleRestoredByMuteMirror(guildId?, userId?, roleId?) {
   if (isSocialRoleAnnounceGloballySuppressed()) return true;
   const rid = String(roleId || "").trim();
@@ -57,9 +51,7 @@ function wasRoleRestoredByMuteMirror(guildId?, userId?, roleId?) {
 }
 
 export = {
-  DEFAULT_RESTORE_ANNOUNCE_SUPPRESS_MS,
   registerMuteMirrorRestoreRoleSuppress,
-  registerBulkRoleRestoreAnnounceSuppress,
   isSocialRoleAnnounceGloballySuppressed,
   wasRoleRestoredByMuteMirror,
 };

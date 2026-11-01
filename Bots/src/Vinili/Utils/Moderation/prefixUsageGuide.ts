@@ -1,4 +1,4 @@
-const { ActionRowBuilder, StringSelectMenuBuilder, EmbedBuilder, MessageFlags, ComponentType } = require("discord.js") as typeof import("discord.js");
+const { ActionRowBuilder, StringSelectMenuBuilder, EmbedBuilder, MessageFlags } = require("discord.js") as typeof import("discord.js");
 const { TENANT_EMBED_COLOR, applyTenantPayloadBranding, stripTenantBrandingInternals } = require("../../MultiGuild/utils/tenantEmbedBranding") as typeof import("../../MultiGuild/utils/tenantEmbedBranding");
 const { buildSimpleNoticePayload } = require("../Embeds/simpleNoticeEmbed") as typeof import("../Embeds/simpleNoticeEmbed");
 
@@ -190,5 +190,4 @@ export = {
   showPrefixUsageGuide,
   parseUsageGuideCustomId,
   handleUsageGuideInteraction,
-  GUIDE_LIFETIME_MS,
 };

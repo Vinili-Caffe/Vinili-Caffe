@@ -284,10 +284,6 @@ async function scheduleChatDmFallback(client?, opts: Record<string, any> = {}) {
   return { scheduled: true, delayMs: wait };
 }
 
-function pendingChatDmFallbackCount() {
-  return pending.size;
-}
-
 async function restoreChatDmFallbacksOnStartup(client?) {
   if (!client || restoredOnStartup) return { restored: 0, fired: 0 };
   restoredOnStartup = true;
@@ -338,7 +334,6 @@ async function restoreChatDmFallbacksOnStartup(client?) {
 export = {
   scheduleChatDmFallback,
   cancelChatDmFallback,
-  pendingChatDmFallbackCount,
   delayMs,
   restoreChatDmFallbacksOnStartup,
 };

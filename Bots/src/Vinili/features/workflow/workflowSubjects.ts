@@ -144,66 +144,6 @@ async function applyWorkflowSubjectToItem(client?, guild?, item?, options: Recor
   };
 }
 
-async function enrichWorkflowListSubjects(client?, guild?, items?) {
-  if (!client || !Array.isArray(items) || !items.length) return items || [];
-
-  const needIds = [
-    ...new Set(
-      items
-        .filter((it?) => {
-          const uid = String(it?.userId || "").trim();
-          if (!/^\d{16,22}$/.test(uid)) return false;
-          const name = String(it?.displayName || "").trim();
-          const nameMissing =
-            !name ||
-            name === uid ||
-            /^\d{16,22}$/.test(name) ||
-            isGenericWorkflowSubjectLabel(name) ||
-            isWorkflowRoleSlug(name, { workflowType: it.type || it.kind || "" });
-          return nameMissing || !hasRealDiscordAvatarUrl(it?.avatarUrl);
-        })
-        .map((it?) => String(it.userId)),
-    ),
-  ].slice(0, 60);
-
-  const resolved = new Map();
-    for (let i = 0; i < needIds.length; i += 5) {
-    const chunk = needIds.slice(i, i + 5);
-    await Promise.all(
-      chunk.map(async (uid?) => {
-        const sub = await resolveWorkflowSubject(client, guild, uid);
-        if (sub.displayName || sub.avatarUrl) resolved.set(uid, sub);
-      }),
-    );
-  }
-
-  return items.map((it?) => {
-    const uid = String(it?.userId || "").trim();
-    const sub = resolved.get(uid);
-    if (!sub) {
-      if (hasRealDiscordAvatarUrl(it.avatarUrl)) return it;
-            if (/cdn\.discordapp\.com\/embed\/avatars\//i.test(String(it.avatarUrl || ""))) {
-        return { ...it, avatarUrl: "" };
-      }
-      return it;
-    }
-    const name = String(it.displayName || "").trim();
-    const nameMissing =
-      !name ||
-      name === uid ||
-      /^\d{16,22}$/.test(name) ||
-      isGenericWorkflowSubjectLabel(name) ||
-      isWorkflowRoleSlug(name, { workflowType: it.type || it.kind || "" });
-    const subName = String(sub.displayName || "").trim();
-    const subIsId = !subName || subName === uid || /^\d{16,22}$/.test(subName);
-    return {
-      ...it,
-      displayName: nameMissing ? (subIsId ? "Utente" : subName) : it.displayName,
-      avatarUrl: sub.avatarUrl || (hasRealDiscordAvatarUrl(it.avatarUrl) ? it.avatarUrl : "") || "",
-    };
-  });
-}
-
 function cleanAppealPreviewText(text?) {
   return stripDiscordDecorations(String(text || ""), { keepNewlines: true })
     .replace(/^Utente\s*:?\s*/im, "")

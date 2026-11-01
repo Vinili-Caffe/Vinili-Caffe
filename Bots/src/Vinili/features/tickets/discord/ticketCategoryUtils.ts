@@ -33,10 +33,6 @@ function resolveDiscordTicketCategoryName(dashboardOrDiscordName?) {
   return raw.slice(0, 100);
 }
 
-function buildOverflowTicketCategoryName(index?) {
-  return `${TICKETS_CATEGORY_NAME}${TICKETS_OVERFLOW_SEPARATOR}${index}`;
-}
-
 function isChannelInTicketCategory(channel?) {
   if (!channel?.guild?.channels?.cache) return false;
   const cache = channel.guild.channels.cache;
@@ -63,8 +59,6 @@ function isTicketChannelName(name?) {
 export = {
   TICKETS_CATEGORY_NAME,
   TICKETS_OVERFLOW_SEPARATOR,
-  TICKET_CHANNEL_TYPE_MARKERS,
-  buildOverflowTicketCategoryName,
   isChannelInTicketCategory,
   isTicketCategoryName,
   isTicketChannelName,

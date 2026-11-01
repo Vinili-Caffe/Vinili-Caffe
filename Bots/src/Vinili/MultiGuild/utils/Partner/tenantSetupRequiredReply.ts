@@ -39,7 +39,6 @@ async function replyInteractionSetupRequired(interaction?, options: Record<strin
 }
 
 export = {
-  buildSetupRequiredPayload,
   replyPrefixSetupRequired,
   replyInteractionSetupRequired,
 };

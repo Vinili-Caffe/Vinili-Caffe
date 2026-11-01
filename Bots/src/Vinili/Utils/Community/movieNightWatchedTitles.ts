@@ -144,23 +144,6 @@ function isMovieNightTitleAlreadyWatched(title?, state?, now = new Date()) {
   });
 }
 
-async function rememberWatchedMovieNightTitle(title?, meta: Record<string, any> = {}) {
-  const clean = extractMovieNightProposalTitle(title) || String(title || "").trim();
-  if (!clean) return null;
-  const state = await getBotState(STATE_KEY, null);
-  const base = state && typeof state === "object" ? state : {};
-  const nextEntries = mergeWatchedTitleEntries(base.watchedMovieTitles, {
-    title: clean,
-    at: new Date().toISOString(),
-    source: String(meta.source || "remember"),
-    saturdayKey: String(meta.saturdayKey || ""),
-    weekKey: String(meta.weekKey || ""),
-  });
-  const next = { ...base, watchedMovieTitles: nextEntries };
-  await setBotState(STATE_KEY, next);
-  return next;
-}
-
 function extractTitleFromAnnouncementContent(content?) {
   const raw = String(content || "");
   const patterns = [
@@ -243,10 +226,7 @@ async function isProposedMovieNightTitleAlreadyWatched(title?, now = new Date())
 
 export = {
   STATE_KEY,
-  collectWatchedTitlesFromState,
   ensureWatchedMovieNightTitlesReady,
-  isMovieNightTitleAlreadyWatched,
   isProposedMovieNightTitleAlreadyWatched,
   mergeWatchedTitleEntries,
-  rememberWatchedMovieNightTitle,
 };

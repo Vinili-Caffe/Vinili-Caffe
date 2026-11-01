@@ -113,5 +113,4 @@ export = {
   markInteractionReplied,
   releaseInteraction,
   isShuttingDown,
-  flushInflightInteractions,
 };

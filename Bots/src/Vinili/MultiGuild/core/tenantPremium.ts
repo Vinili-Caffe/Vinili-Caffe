@@ -226,10 +226,6 @@ async function revokeTenantPremium(guildId?, opts: Record<string, any> = {}) {
   });
 }
 
-function listActiveTenantPremiumGuildIdsSync() {
-  return Object.keys(premiumCache).filter((gid?) => rowToPremium(premiumCache[gid]).active);
-}
-
 async function revokeAllPremiumBySource(source?, opts: Record<string, any> = {}) {
   const src = String(source || "").trim();
   if (!src) return { ok: false, reason: "invalid_source" };
@@ -257,17 +253,13 @@ async function revokeAllPremiumBySource(source?, opts: Record<string, any> = {})
 
 export = {
   BOT_STATE_KEY,
-  emptyPremiumRow,
   serializePremiumPublic,
-  refreshTenantPremiumCache,
   ensureTenantPremiumCacheFresh,
   getTenantPremiumSync,
   getTenantPremium,
   isTenantPremiumActiveSync,
   isTenantPremiumActive,
-  setTenantPremium,
   grantTenantPremium,
   revokeTenantPremium,
-  listActiveTenantPremiumGuildIdsSync,
   revokeAllPremiumBySource,
 };

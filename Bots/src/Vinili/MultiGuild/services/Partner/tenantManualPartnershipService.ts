@@ -562,5 +562,4 @@ async function tryResolvePendingManualPartnershipOnUpdate(_oldMessage?, newMessa
 export = {
   tryProcessManualPartnershipMessage,
   tryResolvePendingManualPartnershipOnUpdate,
-  isPendingManualPartnershipMessage,
 };

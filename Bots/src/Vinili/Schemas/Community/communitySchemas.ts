@@ -1353,28 +1353,6 @@ modCaseSchema.index({ guildId: 1, modId: 1, createdAt: -1 });
 modCaseSchema.index({ guildId: 1, action: 1, active: 1, expiresAt: 1 });
 
 const GlobalSettings: import("mongoose").Model<import("mongoose").InferSchemaType<typeof globalSettingsSchema>>=models.GlobalSettings||model("GlobalSettings",globalSettingsSchema);
-const LegacyVerificationTenure = null;
-const ReviewReward = {
-  async findOne(filter?) {
-    const doc = await ActivityUserProfile.findOne(filter).select("guildId userId profile.totals.exp.bumpVoteRewards.disboard_review").lean().catch(() => null);
-    if (!doc?.profile?.totals?.exp?.bumpVoteRewards?.disboard_review?.rewardedAt) return null;
-    return { guildId: doc.guildId, userId: doc.userId, rewardedBy: doc.profile.totals.exp.bumpVoteRewards.disboard_review.rewardedBy || null, rewardedAt: doc.profile.totals.exp.bumpVoteRewards.disboard_review.rewardedAt || null };
-  },
-  async create(payload: Record<string, any> = {}) {
-    return ActivityUserProfile.findOneAndUpdate(
-      { guildId: String(payload.guildId || ""), userId: String(payload.userId || "") },
-      {
-        $setOnInsert: { guildId: String(payload.guildId || ""), userId: String(payload.userId || "") },
-        $set: {
-          "profile.totals.exp.bumpVoteRewards.disboard_review.rewardedBy": payload.rewardedBy ? String(payload.rewardedBy) : null,
-          "profile.totals.exp.bumpVoteRewards.disboard_review.rewardedAt": payload.rewardedAt ? new Date(payload.rewardedAt) : new Date(),
-        },
-      },
-      { upsert: true, new: true, setDefaultsOnInsert: true },
-    ).catch(() => null);
-  },
-};
-const LegacyInviteTrack = null;
 function buildProfileSubdocModel({ selectPath, mapDoc, buildSet = null, clearSet = null, buildInc = null }) {
   function asQueryLike(run?) {
     return {
@@ -1464,51 +1442,6 @@ const VerificationTenure = buildProfileSubdocModel({
   }),
   clearSet: { "profile.verificationTenure.verifiedAt": null, "profile.verificationTenure.stage": 1 },
 });
-const InviteTrack = {
-  async findOneAndUpdate(filter?, update: Record<string, any> = {}, options: Record<string, any> = {}) {
-    const setPayload = update?.$set || {};
-    const insertPayload = update?.$setOnInsert || {};
-    return ActivityUserProfile.findOneAndUpdate(
-      filter,
-      {
-        $setOnInsert: { guildId: String(filter?.guildId || ""), userId: String(filter?.userId || ""), ...(insertPayload?.joinedAt ? { "profile.inviteTrack.joinedAt": insertPayload.joinedAt } : {}) },
-        $set: {
-          ...(setPayload?.inviterId != null ? { "profile.inviteTrack.inviterId": setPayload.inviterId } : {}),
-          ...(setPayload?.inviteCode != null ? { "profile.inviteTrack.inviteCode": String(setPayload.inviteCode) } : {}),
-          ...(setPayload?.active != null ? { "profile.inviteTrack.active": Boolean(setPayload.active) } : {}),
-          ...(Object.prototype.hasOwnProperty.call(setPayload, "leftAt") ? { "profile.inviteTrack.leftAt": setPayload.leftAt } : {}),
-        },
-      },
-      { upsert: Boolean(options?.upsert), new: options?.new !== false, setDefaultsOnInsert: true },
-    ).lean().catch(() => null);
-  },
-  async countDocuments(filter: Record<string, any> = {}) {
-    const q = { guildId: filter?.guildId };
-    if (filter?.inviterId != null) q["profile.inviteTrack.inviterId"] = filter.inviterId;
-    if (filter?.active != null) q["profile.inviteTrack.active"] = Boolean(filter.active);
-    return ActivityUserProfile.countDocuments(q).catch(() => 0);
-  },
-  async aggregate(pipeline = []) {
-    const translated = pipeline.map((stage?) => {
-      if (!stage?.$match) return stage;
-      const m = { ...stage.$match };
-      if (Object.prototype.hasOwnProperty.call(m, "inviterId")) {
-        m["profile.inviteTrack.inviterId"] = m.inviterId;
-        delete m.inviterId;
-      }
-      return { $match: m };
-    }).map((stage?) => {
-      if (!stage?.$group) return stage;
-      const g = { ...stage.$group };
-      if (g._id === "$inviterId") g._id = "$profile.inviteTrack.inviterId";
-      return { $group: g };
-    });
-    return ActivityUserProfile.aggregate(translated).catch(() => []);
-  },
-  async deleteOne(filter?) {
-    return ActivityUserProfile.updateOne(filter, { $set: { "profile.inviteTrack.active": false, "profile.inviteTrack.leftAt": new Date() } }).catch(() => ({ modifiedCount: 0 }));
-  },
-};
 const InviteReminderState = {
   findOne(filter: Record<string, any> = {}) {
     const run = async () => {
@@ -1824,15 +1757,10 @@ export = {
   ACTIVITY_LEGACY_HOURLY_DISABLED,
   LEVEL_HISTORY_MAX_ENTRIES,
   GlobalSettings,
-  VerificationTenure,
-  ReviewReward,
-  InviteTrack,
   InviteReminderState,
   ActivityUserProfile,
   ActivityGuildHourly,
   ModCase,
-  modCaseEntrySchema,
-  modCaseEditEntrySchema,
   CustomRole,
   AvatarPrivacy,
   BannerPrivacy,

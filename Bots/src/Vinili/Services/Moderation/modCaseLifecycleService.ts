@@ -194,4 +194,4 @@ function startModCaseLifecycleLoop(client?) {
   return loopHandle;
 }
 
-export = { startModCaseLifecycleLoop, runModCaseLifecycleTick };
+export = { startModCaseLifecycleLoop };

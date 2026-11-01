@@ -168,8 +168,4 @@ async function prunePendingPauseInboxUsers(guild?, client?, guildId?, items?) {
   }
 }
 
-async function filterPauseInboxItemsToEligibleStaff(guild?, items?) {
-  return filterPauseInboxItemsCachedOnly(guild, items);
-}
-
 export = { cancelPendingResocontiWorkflowForUser, pruneDepexedPendingResoconti, cancelPendingPauseWorkflowForUser, filterPauseInboxItemsCachedOnly, prunePendingPauseInboxUsers };

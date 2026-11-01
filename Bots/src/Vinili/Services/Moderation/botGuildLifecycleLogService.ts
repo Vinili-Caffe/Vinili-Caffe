@@ -91,7 +91,6 @@ function snapshotGuildMeta(guild?) {
 
 export = {
   BOT_STATE_KEY,
-  MAX_EVENTS,
   appendBotGuildLifecycleEvent,
   listBotGuildLifecycleEvents,
   snapshotGuildMeta,

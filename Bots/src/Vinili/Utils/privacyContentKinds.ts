@@ -21,6 +21,5 @@ function privacyContentModel(kind?) {
 export = {
   PRIVACY_CONTENT_KINDS,
   PRIVACY_CONTENT_LABELS,
-  PRIVACY_CONTENT_MODELS,
   privacyContentModel,
 };

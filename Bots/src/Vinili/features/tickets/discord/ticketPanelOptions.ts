@@ -3,22 +3,10 @@ const { buildVcRichFromClassicFields } = require("../../../Utils/Embeds/vcPageEm
 const {
   DEFAULT_TICKET_WELCOME_COLOR,
   getDefaultWelcomeDescription,
-  isDefaultWelcomeDescription,
-  wrapMentionsInSpoiler,
 } = require("./ticketUiDefaults") as typeof import("./ticketUiDefaults");
 const { DEFAULT_LANGUAGE } = require("../../../MultiGuild/utils/Partner/tenantPartnershipI18n/languages") as typeof import("../../../MultiGuild/utils/Partner/tenantPartnershipI18n/languages");
 
 const DAYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
-const DAY_LABELS = {
-  sunday: "Domenica",
-  monday: "Lunedì",
-  tuesday: "Martedì",
-  wednesday: "Mercoledì",
-  thursday: "Giovedì",
-  friday: "Venerdì",
-  saturday: "Sabato",
-};
-
 const MENTION_TOKENS = new Set(["everyone", "here", "opener"]);
 
 function asBool(value?, fallback?) {
@@ -161,43 +149,6 @@ function isWelcomeEmpty(welcome?) {
   );
 }
 
-function embedBuilderToWelcome(embed?) {
-  if (!embed) return null;
-  const data =
-    typeof embed.toJSON === "function"
-      ? embed.toJSON()
-      : embed.data && typeof embed.data === "object"
-        ? embed.data
-        : embed;
-  if (!data || typeof data !== "object") return null;
-  let color = DEFAULT_TICKET_WELCOME_COLOR;
-  if (data.color != null && Number.isFinite(Number(data.color))) {
-    color = `#${Number(data.color).toString(16).padStart(6, "0")}`;
-  }
-  const fields = Array.isArray(data.fields)
-    ? data.fields.map((f?) => ({
-        name: f?.name,
-        value: f?.value,
-        inline: Boolean(f?.inline),
-      }))
-    : [];
-  return normalizeWelcome({
-    color,
-    title: data.title || "",
-    titleUrl: data.url || null,
-    description: data.description || "",
-    authorName: data.author?.name || null,
-    authorIconUrl: data.author?.icon_url || data.author?.iconURL || null,
-    authorUrl: data.author?.url || null,
-    largeImageUrl: data.image?.url || null,
-    smallImageUrl: data.thumbnail?.url || null,
-    footerText: data.footer?.text || null,
-    footerIconUrl: data.footer?.icon_url || data.footer?.iconURL || null,
-    footerTimestamp: Boolean(data.timestamp),
-    fields,
-  });
-}
-
 function defaultWelcomeForTicketType(ticketType?, lang = DEFAULT_LANGUAGE) {
   const description = getDefaultWelcomeDescription(lang);
   try {
@@ -257,329 +208,22 @@ function supportHoursLabel(hours?) {
   return `${enabled.length}g`;
 }
 
-function parseHm(value?) {
-  const m = String(value || "").match(/^(\d{1,2}):(\d{2})$/);
-  if (!m) return null;
-  const h = Number(m[1]);
-  const min = Number(m[2]);
-  if (!Number.isFinite(h) || !Number.isFinite(min) || h > 23 || min > 59) return null;
-  return h * 60 + min;
-}
-
-function getZonedParts(date?, timeZone?) {
-  try {
-    const fmt = new Intl.DateTimeFormat("en-GB", {
-      timeZone: timeZone || "Europe/Rome",
-      weekday: "short",
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false,
-    });
-    const parts = fmt.formatToParts(date);
-    const map: Record<string, any> = {};
-    for (const p of parts) map[p.type] = p.value;
-    const wd = String(map.weekday || "").toLowerCase();
-    const dayMap = {
-      sun: "sunday",
-      mon: "monday",
-      tue: "tuesday",
-      wed: "wednesday",
-      thu: "thursday",
-      fri: "friday",
-      sat: "saturday",
-    };
-    return {
-      day: dayMap[wd] || "monday",
-      minutes: Number(map.hour || 0) * 60 + Number(map.minute || 0),
-    };
-  } catch (_) {
-    const d = date instanceof Date ? date : new Date();
-    return { day: DAYS[d.getUTCDay()], minutes: d.getUTCHours() * 60 + d.getUTCMinutes() };
-  }
-}
-
-function isWithinSupportHours(hours?, now = new Date()) {
-  if (supportHoursAreUnrestricted(hours)) return { ok: true, unrestricted: true };
-  const zoned = getZonedParts(now, hours.timezone);
-  const day = hours.days?.[zoned.day];
-  if (!day || day.enabled !== true) {
-    return { ok: false, reason: "closed_day", day: zoned.day, timezone: hours.timezone };
-  }
-  if (day.allDay) return { ok: true, day: zoned.day };
-  const start = parseHm(day.start);
-  const end = parseHm(day.end);
-  if (start == null || end == null) return { ok: true, day: zoned.day };
-  const mins = zoned.minutes;
-  const inRange = start <= end ? mins >= start && mins < end : mins >= start || mins < end;
-  return inRange
-    ? { ok: true, day: zoned.day }
-    : { ok: false, reason: "closed_hours", day: zoned.day, timezone: hours.timezone, start: day.start, end: day.end };
-}
-
-function memberPassesAccessRules(member?, rules?) {
-  const list = Array.isArray(rules) && rules.length ? rules : [{ roleId: "everyone", allow: true }];
-  const roleIds = new Set([...(member?.roles?.cache?.keys?.() || [])].map((id?) => String(id)));
-  for (const rule of list) {
-    const rid = String(rule.roleId || "");
-    const matches = rid === "everyone" || roleIds.has(rid);
-    if (!matches) continue;
-    return rule.allow !== false;
-  }
-  return false;
-}
-
-function resolveWelcomeClassicFieldsFromPanel(welcome?, fallbackEmbed?, lang = DEFAULT_LANGUAGE, guildId = null) {
-  const defaultDesc = getDefaultWelcomeDescription(lang);
-  const w = welcome && typeof welcome === "object" ? welcome : null;
-  const hasCustom =
-    w &&
-    (w.title ||
-      w.description ||
-      w.authorName ||
-      w.largeImageUrl ||
-      w.smallImageUrl ||
-      w.footerText ||
-      (Array.isArray(w.fields) && w.fields.length));
-  if (!hasCustom) {
-    const fromFallback = fallbackEmbed ? embedBuilderToWelcome(fallbackEmbed) : null;
-    if (fromFallback) {
-      return {
-        accentColor: fromFallback.color || DEFAULT_TICKET_WELCOME_COLOR,
-        title: fromFallback.title || "",
-        titleUrl: fromFallback.titleUrl || "",
-        description: fromFallback.description || defaultDesc,
-        authorName: fromFallback.authorName || "",
-        authorIconUrl: fromFallback.authorIconUrl || "",
-        thumbnailUrl: fromFallback.smallImageUrl || "",
-        imageUrl: fromFallback.largeImageUrl || "",
-        footerText: fromFallback.footerText || "",
-        footerTimestamp: fromFallback.footerTimestamp,
-        fields: fromFallback.fields || [],
-        guildId,
-      };
-    }
-    return {
-      accentColor: DEFAULT_TICKET_WELCOME_COLOR,
-      description: defaultDesc,
-      guildId,
-    };
-  }
-  const description = isDefaultWelcomeDescription(w.description)
-    ? defaultDesc
-    : String(w.description || "").trim();
-  return {
-    accentColor: normalizeEmbedColor(w.color, DEFAULT_TICKET_WELCOME_COLOR),
-    title: w.title || "",
-    titleUrl: w.titleUrl || "",
-    description: description || defaultDesc,
-    authorName: w.authorName || "",
-    authorIconUrl: w.authorIconUrl || "",
-    thumbnailUrl: w.smallImageUrl || "",
-    imageUrl: w.largeImageUrl || "",
-    footerText: w.footerText || "",
-    footerTimestamp: w.footerTimestamp,
-    fields: Array.isArray(w.fields) ? w.fields.slice(0, 25) : [],
-    guildId,
-  };
-}
-
-function buildWelcomePayloadFromPanel(welcome?, fallbackEmbed?, lang = DEFAULT_LANGUAGE, opts: Record<string, any> = {}) {
-  const guildId = opts.guildId || null;
-  const fields = resolveWelcomeClassicFieldsFromPanel(welcome, fallbackEmbed, lang, guildId);
-  const rows = opts.rows || [];
-  return buildVcRichFromClassicFields({ ...fields, rows });
-}
-
-function buildWelcomeEmbedFromPanel(welcome?, fallbackEmbed?, lang = DEFAULT_LANGUAGE) {
-  const defaultDesc = getDefaultWelcomeDescription(lang);
-  const w = welcome && typeof welcome === "object" ? welcome : null;
-  const hasCustom =
-    w &&
-    (w.title ||
-      w.description ||
-      w.authorName ||
-      w.largeImageUrl ||
-      w.smallImageUrl ||
-      w.footerText ||
-      (Array.isArray(w.fields) && w.fields.length));
-  if (!hasCustom) {
-    return new EmbedBuilder().setColor(DEFAULT_TICKET_WELCOME_COLOR).setDescription(defaultDesc);
-  }
-  const embed = new EmbedBuilder().setColor(
-    normalizeEmbedColor(w.color, DEFAULT_TICKET_WELCOME_COLOR),
-  );
-  if (w.title) {
-    if (w.titleUrl) embed.setTitle(w.title).setURL(w.titleUrl);
-    else embed.setTitle(w.title);
-  }
-  const description = isDefaultWelcomeDescription(w.description)
-    ? defaultDesc
-    : String(w.description || "").trim();
-  embed.setDescription(description || defaultDesc);
-  if (w.authorName) {
-    embed.setAuthor({
-      name: w.authorName,
-      iconURL: w.authorIconUrl || undefined,
-      url: w.authorUrl || undefined,
-    });
-  }
-  if (w.largeImageUrl) embed.setImage(w.largeImageUrl);
-  if (w.smallImageUrl) embed.setThumbnail(w.smallImageUrl);
-  if (w.footerText || w.footerIconUrl) {
-    embed.setFooter({
-      text: w.footerText || "\u200b",
-      iconURL: w.footerIconUrl || undefined,
-    });
-  }
-  if (w.footerTimestamp) embed.setTimestamp(new Date());
-  if (Array.isArray(w.fields) && w.fields.length) {
-    embed.addFields(
-      w.fields.slice(0, 25).map((f?) => ({
-        name: f.name,
-        value: f.value,
-        inline: Boolean(f.inline),
-      })),
-    );
-  }
-  return embed;
-}
-
-function collectDiscordMentionIds(text?) {
-  const roles = [];
-  const users = [];
-  const raw = String(text || "");
-  for (const m of raw.matchAll(/<@&(\d{16,22})>/g)) roles.push(m[1]);
-  for (const m of raw.matchAll(/<@!?(\d{16,22})>/g)) {
-        if (raw.includes(`<@&${m[1]}>`)) continue;
-    users.push(m[1]);
-  }
-  return {
-    roles: [...new Set(roles)],
-    users: [...new Set(users)],
-  };
-}
-
-function rewriteRoleNamesToMentions(text?, guild?, roleIds = []) {
-  let out = String(text || "");
-  const mentioned = new Set(collectDiscordMentionIds(out).roles);
-  if (!out || !guild?.roles?.cache) {
-    return { text: out, roleIds: [...mentioned] };
-  }
-  const preferred = [...new Set((roleIds || []).map(String).filter((id?) => /^\d{16,22}$/.test(id)))];
-  const roles = preferred
-    .map((id?) => guild.roles.cache.get(id))
-    .filter(Boolean)
-    .sort((a?, b?) => String(b.name || "").length - String(a.name || "").length);
-  for (const role of roles) {
-    const id = String(role.id);
-    const mention = `<@&${id}>`;
-    if (out.includes(mention)) {
-      mentioned.add(id);
-      continue;
-    }
-    const name = String(role.name || "").trim();
-    if (!name) continue;
-    const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const re = new RegExp(`(?:\\*{1,2}|_{1,2})*${escaped}(?:\\*{1,2}|_{1,2})*`, "gi");
-    const next = out.replace(re, mention);
-    if (next !== out) {
-      out = next;
-      mentioned.add(id);
-    }
-  }
-  return { text: out, roleIds: [...mentioned] };
-}
-
-function roleIdsFromMentionOnOpen(mentionOnOpen?) {
-  const list = Array.isArray(mentionOnOpen) ? mentionOnOpen : [];
-  return list.map(String).filter((token?) => /^\d{16,22}$/.test(token));
-}
-
-function buildOpenMentions({ mentionOnOpen, supportRoleIds, userId, fallbackStaffRoleId }) {
-  const mentions = [];
-  const allowedUsers = [];
-  const allowedRoles = [];
-  const parse = [];
-  const list = Array.isArray(mentionOnOpen) ? mentionOnOpen : [];
-  for (const token of list) {
-    if (token === "opener" && userId) {
-      mentions.push(`<@${userId}>`);
-      allowedUsers.push(String(userId));
-    } else if (token === "everyone") {
-      mentions.push("@everyone");
-      parse.push("everyone");
-    } else if (token === "here") {
-      mentions.push("@here");
-      parse.push("everyone");
-    } else if (/^\d{16,22}$/.test(String(token))) {
-      mentions.push(`<@&${token}>`);
-      allowedRoles.push(String(token));
-    }
-  }
-  for (const roleId of supportRoleIds || []) {
-    const id = String(roleId || "");
-    if (!/^\d{16,22}$/.test(id)) continue;
-    if (!mentions.includes(`<@&${id}>`)) mentions.push(`<@&${id}>`);
-    if (!allowedRoles.includes(id)) allowedRoles.push(id);
-  }
-  if (!mentions.length && fallbackStaffRoleId) {
-    mentions.push(`<@${userId}>`, `<@&${fallbackStaffRoleId}>`);
-    allowedUsers.push(String(userId));
-    allowedRoles.push(String(fallbackStaffRoleId));
-  }
-  const joined = mentions.join(" ").trim();
-  return {
-    content: wrapMentionsInSpoiler(joined),
-    allowedMentions: {
-      parse: [...new Set(parse)],
-      users: [...new Set(allowedUsers)],
-      roles: [...new Set(allowedRoles)],
-    },
-  };
-}
-
 function panelOpenCustomId(panelId?) {
   const id = String(panelId || "").trim();
   return id ? `tkp:${id}` : null;
 }
 
-function parsePanelOpenCustomId(customId?) {
-  const raw = String(customId || "").trim();
-  if (!raw.startsWith("tkp:")) return null;
-  const id = raw.slice(4).trim();
-  return id || null;
-}
-
-function isPanelOpenCustomId(customId?) {
-  return Boolean(parsePanelOpenCustomId(customId));
-}
-
 export = {
-  DAYS,
-  DAY_LABELS,
   normalizeMentionOnOpen,
   normalizeIdList,
   normalizeAccessRules,
   normalizeTicketPermsOverride,
   normalizeWelcome,
   isWelcomeEmpty,
-  embedBuilderToWelcome,
   defaultWelcomeForTicketType,
   normalizeSupportHours,
-  supportHoursAreUnrestricted,
   supportHoursLabel,
-  isWithinSupportHours,
-  memberPassesAccessRules,
-  buildWelcomeEmbedFromPanel,
-  resolveWelcomeClassicFieldsFromPanel,
-  buildWelcomePayloadFromPanel,
-  buildOpenMentions,
-  collectDiscordMentionIds,
-  rewriteRoleNamesToMentions,
-  roleIdsFromMentionOnOpen,
   panelOpenCustomId,
-  parsePanelOpenCustomId,
-  isPanelOpenCustomId,
   asBool,
   asInt,
   normalizeId,

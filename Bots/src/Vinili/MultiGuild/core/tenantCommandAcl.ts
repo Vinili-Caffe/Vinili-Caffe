@@ -589,41 +589,6 @@ function listTenantSlashCatalogItems(guildId?) {
   return items;
 }
 
-function buildTenantSlashCommandCatalog(guildId?) {
-  const items = listTenantSlashCatalogItems(guildId);
-  if (!items.length) return [];
-  const byCat = new Map();
-  for (const item of items) {
-    const catId = item.category || "partnership";
-    if (!byCat.has(catId)) byCat.set(catId, []);
-    byCat.get(catId).push(item);
-  }
-  const categories = [];
-  for (const [catId, commands] of byCat.entries()) {
-    const catMeta = CATEGORY_META[catId] || { label: catId, order: 500 };
-    categories.push({
-      id: catId,
-      label: catMeta.label,
-      order: catMeta.order,
-      kind: "prefix",
-      commands,
-    });
-  }
-  categories.sort((a?, b?) => a.order - b.order || a.label.localeCompare(b.label, "it"));
-  return categories;
-}
-
-function buildDiscordIntegrationsLink(guildId?, applicationId?) {
-  const gid = String(guildId || "").trim();
-  const appId = String(applicationId || "").trim();
-  if (!/^\d{16,22}$/.test(gid) || !/^\d{16,22}$/.test(appId)) return null;
-  return {
-    applicationId: appId,
-    url: `discord://-/guilds/${gid}/settings/integrations/${appId}`,
-    webUrl: `https://discord.com/guilds/${gid}/settings/integrations/${appId}`,
-  };
-}
-
 function buildFullViniliCommandCatalog() {
   const metaMap = loadPrefixCommandMeta();
   const aliasNames = getPrefixAliasNames();
@@ -937,31 +902,24 @@ function resolveTenantCommandAcl(message?, commandName?, options: Record<string,
 }
 
 export = {
-  MODE_INCLUDE,
-  MODE_EXCLUDE,
   normalizeCommandName,
   normalizeCommandAclKey,
   isSlashCommandAclKey,
   normalizeMode,
   normalizeIdList,
   emptyAcl,
-  decodeCommandAclEntry,
   encodeCommandAclEntry,
   isAclEmpty,
   cloneCommandAcl,
-  resolveInheritedCommandAcl,
   applyPartnershipPrefixInheritance,
   partnershipSlashAclKey,
   decodeCommandsMap,
   buildTenantCommandCatalog,
-  buildTenantSlashCommandCatalog,
   listTenantSlashCatalogItems,
-  buildDiscordIntegrationsLink,
   resolveTenantCommandAcl,
   peekDashboardCommandAcl,
   dashboardChannelIncludeAllows,
   memberPassesRoleAcl,
   channelPassesChannelAcl,
   TENANT_SLASH_COMMAND_DEFS,
-  GALEONI_ECONOMY_PREFIX_COMMANDS,
 };

@@ -790,7 +790,6 @@ async function clearWorkflowLifecycleNotifs(doc?) {
 
 export = {
   inboxOpenUrl,
-  getInboxRecipientUserIds,
   notifyInboxStaffNewItem,
   notifyPauseRequesterDecision,
   notifyWorkflowSubjectInvited,
@@ -800,6 +799,5 @@ export = {
   notifyWorkflowSubjectDecision,
   clearWorkflowLifecycleNotifs,
   subjectChatOpenUrl,
-  practiceLabel,
 };
 /* notifUseful1 marker */

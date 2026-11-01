@@ -255,5 +255,4 @@ async function exportUserGdprData({ guildId, userId, requestedByUserId }) {
 
 export = {
   exportUserGdprData,
-  MAX_ATTACHMENT_BYTES,
 };

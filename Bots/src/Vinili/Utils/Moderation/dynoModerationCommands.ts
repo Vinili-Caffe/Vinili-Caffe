@@ -338,21 +338,6 @@ function formatDynoDate(value?) {
   return formatted.replace(",", "").replace(",", "");
 }
 
-async function resolveRoleFlexible(message?, raw?) {
-  const mentionRole = message.mentions?.roles?.first();
-  if (mentionRole) return mentionRole;
-  const token = String(raw || "").replace(/[<@&>]/g, "").trim();
-  if (/^\d{17,20}$/.test(token)) {
-    return (
-      message.guild.roles.cache.get(token) ||
-      (await message.guild.roles.fetch(token).catch(() => null))
-    );
-  }
-  const byName = message.guild.roles.cache.find((role?) => String(role.name || "").toLowerCase() === String(raw || "").toLowerCase(),);
-  if (byName) return byName;
-  return null;
-}
-
 function parseLockDuration(raw?) {
   const token = String(raw || "").trim().toLowerCase();
   if (!token) return null;

@@ -188,7 +188,6 @@ async function syncGuildTicketTeamsFromLegacy(client?, guildId?, options: Record
 }
 
 export = {
-  MAIN_TEAM_DEFS,
   DEFAULT_TEAM_SEED,
   ensureMainTicketTeamsSeeded,
   syncGuildTicketTeamsFromLegacy,

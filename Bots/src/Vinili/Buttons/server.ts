@@ -1,4 +1,4 @@
-const { ActionRowBuilder, ButtonBuilder, ButtonStyle, AttachmentBuilder, MessageFlags, EmbedBuilder } = require("discord.js") as typeof import("discord.js");
+const { ActionRowBuilder, ButtonBuilder, ButtonStyle, AttachmentBuilder, EmbedBuilder } = require("discord.js") as typeof import("discord.js");
 const { getServerOverviewStats } = require("../Services/Community/activityService") as typeof import("../Services/Community/activityService");
 const { renderServerActivityCanvas, prefetchStatsCanvasAvatar } = require("../Utils/Render/activityCanvas") as typeof import("../Utils/Render/activityCanvas");
 const { getOrBuildStatsCanvasBuffer } = require("../Utils/Stats/statsCanvasCache") as typeof import("../Utils/Stats/statsCanvasCache");

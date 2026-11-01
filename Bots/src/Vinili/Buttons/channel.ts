@@ -142,12 +142,6 @@ function buildChannelComponents(ownerId?, channelId?, lookbackDays?, view?) {
   return [row1].slice(0, 5);
 }
 
-function parseChannelActivityArgs(args?) {
-  const raw = Array.isArray(args) && args[0] != null ? String(args[0]).trim().replace(/d$/i, "") : "";
-  const lookback = raw ? Number.parseInt(raw, 10) : 14;
-  return { lookbackDays: normalizeLookbackDays(lookback) };
-}
-
 async function resolveChannelAndLookback(message?, args = []) {
   const guild = message.guild;
   const tokens = Array.isArray(args) ? args.map((a?) => String(a ?? "").trim()).filter(Boolean) : [];
@@ -183,4 +177,4 @@ async function resolveChannelAndLookback(message?, args = []) {
   return { channel: message.channel, lookbackDays };
 }
 
-export = { name: "channel", order: 8, match, execute, buildChannelOverviewPayload, buildChannelComponents, parseChannelActivityArgs, resolveChannelAndLookback, normalizeLookbackDays };
+export = { name: "channel", order: 8, match, execute, buildChannelOverviewPayload, resolveChannelAndLookback, normalizeLookbackDays };

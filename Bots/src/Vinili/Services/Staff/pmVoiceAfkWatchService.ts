@@ -111,24 +111,6 @@ function qualifiesForWatch(voiceState?, member?, client = null) {
   return isAloneHumanInChannel(member, channel);
 }
 
-function describeVoicePresence(voiceState?) {
-  if (!voiceState) return "in vocale";
-  const micOff = Boolean(voiceState.selfMute || voiceState.serverMute);
-  const audioOff = Boolean(voiceState.selfDeaf || voiceState.serverDeaf);
-  if (!micOff && !audioOff) return "con microfono attivo";
-  if (micOff && audioOff) {
-    return voiceState.serverDeaf || voiceState.serverMute
-      ? "muto e silenziato dall'audio (staff)"
-      : "muto e audio disattivati";
-  }
-  if (audioOff) {
-    return voiceState.serverDeaf ? "silenziato dall'audio (staff)" : "audio disattivato";
-  }
-  if (voiceState.serverMute) return "muto (mute staff)";
-  if (voiceState.selfMute) return "muto (auto-mute)";
-  return "muto";
-}
-
 function memberQualifiedBefore(oldState?, member?, client = null) {
   if (!oldState || !member?.id) return undefined;
   if (String(oldState.member?.id || oldState.id || "") !== String(member.id)) return undefined;
@@ -528,4 +510,4 @@ async function sendPmAfkSanctionNotice(client?, guild?, opts: Record<string, any
   return true;
 }
 
-export = { PM_AFK_VOICE_CATEGORY_ID, isPmAfkWatchVoiceChannel, handlePmVoiceAfkVoiceState, syncPmVoiceAfkWatchFromGateway, startPmVoiceAfkWatchLoop, sweepPmVoiceAfkAlerts, resetPmVoiceAfkCountdown, clearPmVoiceAfkCountdown, markPmAfkAlertSent, cancelPendingPmAfkAlert, deletePmAfkUserAlertMessage, sendPmAfkSanctionNotice, handlePmVoiceAfkChatMessage, isStaffInVoiceWithTarget, isStaffMember, isPendingAlert, getMemberWatchEntry };
+export = { handlePmVoiceAfkVoiceState, syncPmVoiceAfkWatchFromGateway, startPmVoiceAfkWatchLoop, resetPmVoiceAfkCountdown, clearPmVoiceAfkCountdown, markPmAfkAlertSent, cancelPendingPmAfkAlert, deletePmAfkUserAlertMessage, sendPmAfkSanctionNotice, handlePmVoiceAfkChatMessage, isStaffInVoiceWithTarget, isStaffMember, isPendingAlert, getMemberWatchEntry };

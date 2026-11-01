@@ -130,24 +130,6 @@ async function mutateGuildTicketBlacklist(guildId?, mutator?) {
   return { ok: true, bucket: nextBucket };
 }
 
-function memberIsTicketBlacklisted(member?, guildId?, panelId = null) {
-  if (!member) return false;
-  const bucket = getGuildTicketBlacklistSync(guildId);
-  const entries = bucket.entries || [];
-  if (!entries.length) return false;
-  const uid = String(member.id || member.user?.id || "").trim();
-  const roleCache = member.roles?.cache;
-  const wantPanel = normalizePanelId(panelId);
-
-  for (const entry of entries) {
-    const entryPanel = entry.panelId || null;
-        if (entryPanel && entryPanel !== wantPanel) continue;
-    if (entry.type === "user" && uid && entry.targetId === uid) return true;
-    if (entry.type === "role" && roleCache?.has?.(entry.targetId)) return true;
-  }
-  return false;
-}
-
 async function addGuildTicketBlacklistEntry(guildId?, payload: Record<string, any> = {}) {
   const entry = normalizeEntry(payload);
   if (!entry) return { ok: false, reason: "invalid_entry" };
@@ -192,14 +174,9 @@ export = {
   BOT_STATE_KEY,
   MAX_ENTRIES,
   MAX_REASON,
-  newEntryId,
   normalizeEntry,
-  normalizePanelId,
   getGuildTicketBlacklist,
-  getGuildTicketBlacklistSync,
   refreshTicketBlacklistCache,
-  mutateGuildTicketBlacklist,
   addGuildTicketBlacklistEntry,
   removeGuildTicketBlacklistEntry,
-  memberIsTicketBlacklisted,
 };

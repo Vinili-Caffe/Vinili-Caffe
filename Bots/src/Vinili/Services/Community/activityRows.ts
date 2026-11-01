@@ -131,28 +131,6 @@ function pushRowsFromRollupHours(hours?, gid?, wanted?, byRowKey?) {
   }
 }
 
-function extractCompactRowsByKey(doc: Record<string, any> = {}, keyField = "dateKey") {
-  const guildId = String(doc?.guildId || "");
-  const bucketKey = String(doc?.[keyField] || "");
-  const users = toObjectMap(doc?.users || {});
-  const rows = [];
-  for (const [userIdRaw, userData] of Object.entries(users)) {
-    const userId = String(userIdRaw || "");
-    if (!userId) continue;
-    const clean = userData && typeof userData === "object" ? userData : {};
-    rows.push({
-      guildId,
-      [keyField]: bucketKey,
-      userId,
-      textCount: Number(clean?.textCount || 0),
-      voiceSeconds: Number(clean?.voiceSeconds || 0),
-      textChannels: toObjectMap(clean?.textChannels || {}),
-      voiceChannels: toObjectMap(clean?.voiceChannels || {}),
-    });
-  }
-  return rows;
-}
-
 function extractProfileRowsByKey(doc: Record<string, any> = {}, bucketField = "daily", keyField = "dateKey") {
   const guildId = String(doc?.guildId || "");
   const userId = String(doc?.userId || "");

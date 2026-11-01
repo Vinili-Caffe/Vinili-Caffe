@@ -78,16 +78,6 @@ async function applyZodiacRoleFromBirthday(guild?, userId?, month?, day?) {
   return { ok: true };
 }
 
-async function stripAllZodiacRoles(guild?, userId?) {
-  const uid = String(userId || "").trim();
-  if (!uid || !guild) return;
-  const member = await guild.members.fetch({ user: uid, force: true }).catch(() => null);
-  if (!member) return;
-  const had = ZODIAC_ROLE_IDS.filter((rid?) => member.roles.cache.has(rid));
-  if (!had.length) return;
-  await member.roles.remove(had, "Compleanno: profilo rimosso").catch(() => {});
-}
-
 const ZODIAC_STARTUP_SYNC_BATCH = 5;
 const ZODIAC_STARTUP_SYNC_BATCH_DELAY_MS = 1200;
 
@@ -148,8 +138,6 @@ async function syncZodiacRolesFromStoredBirthdays(client?) {
 
 export = {
   ZODIAC_ROLE_IDS,
-  getZodiacRoleIdForBirthday,
   applyZodiacRoleFromBirthday,
-  stripAllZodiacRoles,
   syncZodiacRolesFromStoredBirthdays,
 };

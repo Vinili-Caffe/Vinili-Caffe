@@ -65,7 +65,6 @@ function resolveSameServerCooldownMs(partnershipCfg?) {
 
 export = {
   PARTNER_SAME_TARGET_COOLDOWN_MS,
-  getLatestPartnerCreateAtForTarget,
   checkSamePartnerTargetCooldown,
   resolveSameServerCooldownMs,
 };

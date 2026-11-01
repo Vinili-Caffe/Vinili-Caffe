@@ -5,7 +5,6 @@ const { isTicketOpenedByMember, memberCanActAsTicketStaff } = require("./ticketS
 const { editTicketMemberOverwrite } = require("./ticketHighStaffOverwrites") as typeof import("./ticketHighStaffOverwrites");
 const { isDiscordTicketsEnabled } = require("../../../Web/discordWorkflowUiGate") as typeof import("../../../Web/discordWorkflowUiGate");
 
-const TICKET_MEMBER_PROMPT_TTL_MS = 90_000;
 const pendingTicketMemberPrompts = new Map();
 
 function ticketMemberPromptKey(guildId?, userId?) {
@@ -17,26 +16,6 @@ function clearTicketMemberPrompt(guildId?, userId?) {
   const old = pendingTicketMemberPrompts.get(key);
   if (old?.timerId) clearTimeout(old.timerId);
   pendingTicketMemberPrompts.delete(key);
-}
-
-function registerTicketMemberPrompt(interaction?, data?) {
-  const guildId = String(interaction.guild?.id || "");
-  const userId = String(interaction.user?.id || "");
-  if (!guildId || !userId) return;
-  clearTicketMemberPrompt(guildId, userId);
-  const key = ticketMemberPromptKey(guildId, userId);
-  const timerId = setTimeout(() => pendingTicketMemberPrompts.delete(key), TICKET_MEMBER_PROMPT_TTL_MS);
-  timerId.unref?.();
-  pendingTicketMemberPrompts.set(key, {
-    ...(data || {}),
-    guildId,
-    requesterId: userId,
-    channelId: String(interaction.channelId || interaction.channel?.id || ""),
-    interactionApplicationId: interaction.applicationId ? String(interaction.applicationId) : "",
-    interactionToken: interaction.token ? String(interaction.token) : "",
-    expiresAt: Date.now() + TICKET_MEMBER_PROMPT_TTL_MS,
-    timerId,
-  });
 }
 
 async function editTicketMemberPromptReply(client?, pending?, content?) {
@@ -150,7 +129,5 @@ async function handleTicketMemberPromptMessage(message?) {
 }
 
 export = {
-  registerTicketMemberPrompt,
-  clearTicketMemberPrompt,
   handleTicketMemberPromptMessage,
 };

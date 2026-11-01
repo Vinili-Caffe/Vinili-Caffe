@@ -111,4 +111,4 @@ function serveDiscussionImage(req?, res?) {
   return res.status(404).end();
 }
 
-export = { saveDiscussionImages, signDiscussionImageUrls, serveDiscussionImage, MAX_PER_COMMENT };
+export = { saveDiscussionImages, signDiscussionImageUrls, serveDiscussionImage };

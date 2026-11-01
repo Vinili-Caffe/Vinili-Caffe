@@ -140,27 +140,12 @@ function buildDynoArgs(targetId?, resolved?, reason?, durationOverride?) {
   }
 }
 
-function formatSanctionPreview(resolved?, reason?, durationOverride?) {
-  const type = String(resolved?.step?.type || "").toLowerCase();
-  const dur = String(durationOverride || resolved?.step?.duration || "").trim();
-  const labels = { warn: "Warn", mute: "Mute", ban: "Ban", kick: "Kick" };
-  const label = labels[type] || type;
-  const n = Number(resolved?.stepIndex || 0) + 1;
-  const total = Number(resolved?.stepsLength || 0);
-  const stepNote = total > 1 ? ` (${n}°/${total})` : "";
-  if (type === "mute" && dur) return `${label} ${dur}${stepNote}`;
-  if (type === "ban" && dur) return `${label} ${dur}${stepNote}`;
-  return `${label}${stepNote}`;
-}
-
 export = {
-  STAFF_REGOLA_STEPS,
   KNOWN_RULE_DOTS,
   normalizeRuleDot,
   countPreviousRuleCases,
   resolveStaffRegolaSanction,
   buildDefaultReason,
   buildDynoArgs,
-  formatSanctionPreview,
   isMatchingRuleCase,
 };

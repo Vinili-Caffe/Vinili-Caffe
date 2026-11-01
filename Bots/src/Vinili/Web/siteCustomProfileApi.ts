@@ -20,7 +20,7 @@ const {
   memberHasGradientHoloAccess,
 } = require("../Services/Community/customProfileMutations") as typeof import("../Services/Community/customProfileMutations");
 const { resolveCustomRoleState } = require("../Utils/Community/customRoleState") as typeof import("../Utils/Community/customRoleState");
-const { getCustomRoleSlotCapWithContest, getCustomRoleSlotCapFromRoles, memberHasCustomRolePanelAccess } = require("../Utils/Community/customRoleSlots") as typeof import("../Utils/Community/customRoleSlots");
+const { getCustomRoleSlotCapWithContest, getCustomRoleSlotCapFromRoles } = require("../Utils/Community/customRoleSlots") as typeof import("../Utils/Community/customRoleSlots");
 const { hasExtraCustomPerksUnlock } = require("../Utils/Community/customPerksUnlock") as typeof import("../Utils/Community/customPerksUnlock");
 const { hasEventWeekWinnerGrant } = require("../Services/Community/weekWinnerGrantsService") as typeof import("../Services/Community/weekWinnerGrantsService");
 const { fetchPartnerManagerTimedPerkLean, partnerManagerCustomBundleActiveFromLean } = require("../Utils/Staff/partnerManagerTimedPerks") as typeof import("../Utils/Staff/partnerManagerTimedPerks");

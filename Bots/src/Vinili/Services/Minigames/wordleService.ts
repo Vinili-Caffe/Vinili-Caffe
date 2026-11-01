@@ -108,57 +108,8 @@ function pickDailyAnswer(lang?, day?) {
   return bank[hashPick(`vc-wordle:${k}:${day}`, bank.length)];
 }
 
-function findStartedSessionToday(userId?) {
-  const day = todayKey();
-  const uid = String(userId);
-  for (const s of sessions.values()) {
-    if (!s || String(s.userId) !== uid || s.day !== day) continue;
-    if ((Array.isArray(s.guesses) && s.guesses.length > 0) || s.won || s.lost) return s;
-  }
-  return null;
-}
-
-function getOrCreateSession(userId?, lang?) {
-  const day = todayKey();
-  /* wordleOnePerDay1: Discord — una sola partita/giorno cross-lingua */
-  const locked = findStartedSessionToday(userId);
-  if (locked) {
-    preferredLang.set(String(userId), locked.lang);
-    return locked;
-  }
-  const key = sessionKey(userId, lang, day);
-  let s = sessions.get(key);
-  if (!s) {
-    s = {
-      userId: String(userId),
-      lang,
-      day,
-      answer: pickDailyAnswer(lang, day),
-      guesses: [],
-      won: false,
-      lost: false,
-      channelId: null,
-      messageId: null,
-    };
-    sessions.set(key, s);
-  }
-  preferredLang.set(String(userId), lang);
-  return s;
-}
-
 function getSession(userId?, lang?) {
   return sessions.get(sessionKey(userId, lang, todayKey())) || null;
-}
-
-function bindBoardMessage(session?, message?) {
-  if (!session || !message) return;
-  session.channelId = String(message.channelId || message.channel?.id || "") || null;
-  session.messageId = String(message.id || "") || null;
-}
-
-function resolveUserLang(userId?, argLang?) {
-  if (argLang) return argLang;
-  return preferredLang.get(String(userId)) || "it";
 }
 
 /**
@@ -189,37 +140,6 @@ function scoreGuess(answer?, guess?) {
   return out;
 }
 
-function tilesForRow(answer?, guess?) {
-  const marks = scoreGuess(answer, guess);
-  return marks
-    .map((m?) => (m === "g" ? "🟩" : m === "y" ? "🟨" : "⬛"))
-    .join(" ");
-}
-
-function lettersLine(guess?) {
-  return normalizeWord(guess)
-    .toUpperCase()
-    .split("")
-    .join(" · ");
-}
-
-function emptyRow() {
-  return "⬜ ⬜ ⬜ ⬜ ⬜";
-}
-
-function buildBoardText(session?) {
-  const lines = [];
-  for (const g of session.guesses) {
-    lines.push("`" + lettersLine(g) + "`");
-    lines.push(tilesForRow(session.answer, g));
-  }
-  const left = MAX_ATTEMPTS - session.guesses.length;
-  for (let i = 0; i < left; i++) {
-    lines.push(emptyRow());
-  }
-  return lines.join("\n");
-}
-
 function isValidGuess(lang?, raw?) {
   const w = normalizeWord(raw);
   if (w.length !== WORD_LEN) return { ok: false, reason: "len" };
@@ -234,24 +154,6 @@ function isValidGuess(lang?, raw?) {
   return { ok: true, word: w };
 }
 
-function applyGuess(session?, raw?) {
-  if (session.won || session.lost) {
-    return { ok: false, reason: "done" };
-  }
-  const check = isValidGuess(session.lang, raw);
-  if (!check.ok) return check;
-  if (session.guesses.includes(check.word)) {
-    return { ok: false, reason: "dup" };
-  }
-  session.guesses.push(check.word);
-  if (check.word === session.answer) {
-    session.won = true;
-  } else if (session.guesses.length >= MAX_ATTEMPTS) {
-    session.lost = true;
-  }
-  return { ok: true, word: check.word, session };
-}
-
 function statusLabel(session?) {
   if (session.won) return `✅ Vinto in **${session.guesses.length}/${MAX_ATTEMPTS}**`;
   if (session.lost) return `❌ Perso · parola: **${session.answer.toUpperCase()}**`;
@@ -262,22 +164,8 @@ function langLabel(lang?) {
   return String(normalizeWordleLang(lang) || "it").toUpperCase();
 }
 
-function getDictMeta() {
-  return dictCache?.meta || null;
-}
-
 function isWordleCustomId(customId?) {
   return /^wordle:(guess|lang|help|modal):/.test(String(customId || ""));
-}
-
-function parseWordleCustomId(customId?) {
-  const parts = String(customId || "").split(":");
-  if (parts[0] !== "wordle" || parts.length < 3) return null;
-  const action = parts[1];
-  if (action === "lang") {
-    return { action, lang: parts[2], userId: parts[3] };
-  }
-  return { action, userId: parts[2] };
 }
 
 export = {
@@ -288,18 +176,11 @@ export = {
   todayKey,
   parseLang,
   ensureReady,
-  getOrCreateSession,
   getSession,
-  bindBoardMessage,
-  resolveUserLang,
   scoreGuess,
-  buildBoardText,
-  applyGuess,
   isValidGuess,
   statusLabel,
   langLabel,
   pickDailyAnswer,
-  getDictMeta,
   isWordleCustomId,
-  parseWordleCustomId,
 };

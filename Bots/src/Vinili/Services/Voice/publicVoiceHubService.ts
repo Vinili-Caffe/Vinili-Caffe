@@ -10,9 +10,6 @@ const { rememberSpawnedChannel, isSpawnedHubChannel, countHumanMembersResolved, 
 
 const userCreateLocks = new Set();
 const hubCreateLocks = new Map();
-/** Marker deploy: spawn SEMPRE sotto hub (voice-only reorder; text non interferisce). */
-const HUB_SPAWN_STACK_MARKER = "hubSpawnUnderHub3";
-
 async function ensurePublicVoiceHubChannelsOnReady(client?) {
   const guildId = String(IDs.guilds?.main || "");
   if (!guildId) return;
@@ -328,8 +325,6 @@ export = {
   toSuperscriptNumber,
   handlePublicVoiceHubJoin,
   handlePublicVoiceHubEmpty,
-  recoverPublicVoiceHubOnStartup,
-  ensurePublicVoiceHubChannelsOnReady,
   startPublicVoiceHubSetup,
   sweepEmptySpawnedHubChannels,
   buildSpawnPermissionOverwrites,

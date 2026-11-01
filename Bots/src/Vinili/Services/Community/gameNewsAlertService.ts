@@ -219,7 +219,6 @@ function startGameNewsAlertLoop(client?) {
 
 export = {
   startGameNewsAlertLoop,
-  runGameNewsPoll,
   resolveConfig,
   classifyImportance,
   defaultGamesCatalog,

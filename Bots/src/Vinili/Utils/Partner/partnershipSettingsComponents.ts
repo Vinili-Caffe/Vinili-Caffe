@@ -41,14 +41,6 @@ function formatPartnerManagerSummary(guild?, config?, lang = "it") {
   return roleLine(roleId, guild);
 }
 
-function formatRolesSummary(guild?, config?, lang = "it") {
-  const parts = [
-    config?.partnerManagerRoleId ? roleLine(config.partnerManagerRoleId, guild) : null,
-    config?.managerBadgeRoleId ? roleLine(config.managerBadgeRoleId, guild) : null,
-  ].filter(Boolean);
-  return parts.length ? parts.join(" ") : t(lang, "common_null");
-}
-
 function formatDelaySummaryLine(guild?, config?, lang = "it") {
   const pings = config?.pings || {};
   const delayValue = formatPingDelayDisplay(pings.customRoleDelayMs);
@@ -533,7 +525,6 @@ function buildViewPayload(guild?, ownerId?, view?, config?, lang = "it") {
 export = {
   PREFIX,
   MODAL_PREFIX,
-  SETTINGS_COLOR,
   PROMPT_TTL_MS,
   buildCustomId,
   parseCustomId,

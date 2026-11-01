@@ -1,4 +1,4 @@
-const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require("discord.js") as typeof import("discord.js");
+const { EmbedBuilder } = require("discord.js") as typeof import("discord.js");
 const BLACKLIST_FOUND_ERROR = "È stato **trovato** un server in **blacklist**!";
 
 function buildPartnershipBlacklistCancelledPayload(errorDetail = BLACKLIST_FOUND_ERROR) {
@@ -22,4 +22,4 @@ function buildPartnershipBlacklistCancelledPayload(errorDetail = BLACKLIST_FOUND
   };
 }
 
-export = { BLACKLIST_FOUND_ERROR, buildPartnershipBlacklistCancelledPayload };
+export = { buildPartnershipBlacklistCancelledPayload };

@@ -85,6 +85,5 @@ async function maybeBlockDiscordHeadingMarkdown(message?) {
 }
 
 export = {
-  discordMessageUsesHeadingMarkdown,
   maybeBlockDiscordHeadingMarkdown,
 };

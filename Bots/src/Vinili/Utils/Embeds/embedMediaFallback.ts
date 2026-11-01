@@ -2,7 +2,6 @@ const { EmbedBuilder } = require("discord.js") as typeof import("discord.js");
 const { discordDefaultAvatarUrl } = require("../Discord/guildDiscordIdentity") as typeof import("../Discord/guildDiscordIdentity");
 
 const MEDIA_AVATAR_RE = /media\.discordapp\.net\/avatars\/(\d{5,24})\//i;
-const GUILD_ICON_RE = /cdn\.discordapp\.com\/icons\/(\d{5,24})\//i;
 const BAD_TOKEN_RE = /(?:^|\/)(?:null|undefined|NaN)(?:\/|\.|$)/i;
 
 function clampSize(size?) {
@@ -33,14 +32,6 @@ function isDiscordAvatarLikeUrl(url?) {
       s,
     ) || MEDIA_AVATAR_RE.test(s)
   );
-}
-
-function isDiscordGuildIconUrl(url?) {
-  return GUILD_ICON_RE.test(String(url || ""));
-}
-
-function isDiscordCdnUrl(url?) {
-  return /(?:cdn\.discordapp\.com|media\.discordapp\.net)\//i.test(String(url || ""));
 }
 
 function sanitizeEmbedMediaUrl(url?, { preferDefaultOnBad = true, size = 256 } = {}) {
@@ -179,11 +170,6 @@ function embedHasMeaningfulContent(embed?) {
   return false;
 }
 
-function filterMeaningfulEmbeds(embeds?) {
-  if (!Array.isArray(embeds)) return [];
-  return embeds.filter((emb?) => embedHasMeaningfulContent(emb));
-}
-
 function sanitizeEmbedInstance(embed?) {
   if (!embed) return embed;
   if (typeof embed.data === "object" && embed.data) {
@@ -275,13 +261,8 @@ function installEmbedMediaFallbackPatch() {
 export = {
   sanitizeEmbedMediaUrl,
   sanitizeEmbedDataObject,
-  sanitizeEmbedInstance,
   embedHasMeaningfulContent,
-  filterMeaningfulEmbeds,
   applyEmbedMediaFallbackToPayload,
   installEmbedMediaFallbackPatch,
-  isDiscordAvatarLikeUrl,
-  isDiscordGuildIconUrl,
-  isDiscordCdnUrl,
   defaultAvatarUrl,
 };

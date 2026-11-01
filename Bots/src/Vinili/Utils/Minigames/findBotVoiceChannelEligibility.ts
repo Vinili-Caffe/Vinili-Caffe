@@ -61,7 +61,6 @@ function isVoiceChannelEligibleForFindBotMinigame(channel?, client?, excludedCha
 
 export = {
   STANZA_LOBBY_VOICE_ID,
-  buildDefaultFindBotVoiceExcludedChannelIds,
   mergeFindBotVoiceExcludedChannelIds,
   isVoiceChannelEligibleForFindBotMinigame,
   __test: {

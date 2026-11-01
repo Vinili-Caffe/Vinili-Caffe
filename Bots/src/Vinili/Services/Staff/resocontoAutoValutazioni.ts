@@ -182,29 +182,6 @@ function hasResocontoReviewerTaskAutoEntry(staff, { weekKey, segment, userId, ty
   });
 }
 
-function findUnlinkedPositiveLogForReasonSince(staff?, reason?, sinceDate?) {
-  const reasonStr = String(reason || "");
-  const sinceMs = sinceDate instanceof Date ? sinceDate.getTime() : 0;
-  const reasons = Array.isArray(staff?.positiveReasons) ? staff.positiveReasons : [];
-  const logs = Array.isArray(staff?.positiveValutazioni) ? staff.positiveValutazioni : [];
-  const autoEntries = Array.isArray(staff?.autoValutazioni) ? staff.autoValutazioni : [];
-  const linkedMessageIds = new Set(
-    autoEntries
-      .filter((entry?) => String(entry?.reason || "") === reasonStr && String(entry?.messageId || ""))
-      .map((entry?) => String(entry.messageId)),
-  );
-  for (let idx = reasons.length - 1; idx >= 0; idx -= 1) {
-    if (String(reasons[idx] || "") !== reasonStr) continue;
-    const log = logs[idx];
-    if (!log?.messageId || !log?.channelId) continue;
-    if (linkedMessageIds.has(String(log.messageId))) continue;
-    const logMs = log.createdAt ? new Date(log.createdAt).getTime() : 0;
-    if (sinceMs > 0 && logMs > 0 && logMs < sinceMs) continue;
-    return log;
-  }
-  return null;
-}
-
 async function classifyResocontoReviewerAutoEntry(guild?, entry?, expectedReason = "") {
   if (!entry) return "stale";
   if (entry.spentByTrade) return "spent";
@@ -280,51 +257,6 @@ function rememberResocontoCompitoClaim(staff?, weekKey?, segment?, userId?) {
   return true;
 }
 
-async function resocontoReviewerAutoEntryIsCurrentCycle(guild?, entry?, expectedReason = "") {
-  return (await classifyResocontoReviewerAutoEntry(guild, entry, expectedReason)) === "active";
-}
-
-async function persistSpentResocontoReviewerClaim(profileDoc?, staff?, entry?) {
-  if (!profileDoc || !staff || !entry || entry.spentByTrade) return false;
-  entry.spentByTrade = true;
-  entry.spentAt = new Date();
-  entry.spentReason = entry.spentReason || "claim_preserved_after_message_change";
-  entry.updatedAt = new Date();
-  const parsed = parseResocontoReviewerTaskKey(String(entry.key || ""));
-  if (parsed) rememberResocontoCompitoClaim(staff, parsed.weekKey, parsed.segment, parsed.userId);
-  profileDoc.markModified("staff");
-  await profileDoc.save();
-  return true;
-}
-
-function findUnlinkedPositiveLogForReason(staff?, reason?) {
-  const reasonStr = String(reason || "");
-  const reasons = Array.isArray(staff?.positiveReasons) ? staff.positiveReasons : [];
-  const logs = Array.isArray(staff?.positiveValutazioni) ? staff.positiveValutazioni : [];
-  const autoEntries = Array.isArray(staff?.autoValutazioni) ? staff.autoValutazioni : [];
-  const linkedMessageIds = new Set(
-    autoEntries
-      .filter((entry?) => String(entry?.reason || "") === reasonStr && String(entry?.messageId || ""))
-      .map((entry?) => String(entry.messageId)),
-  );
-  for (let idx = reasons.length - 1; idx >= 0; idx -= 1) {
-    if (String(reasons[idx] || "") !== reasonStr) continue;
-    const log = logs[idx];
-    if (!log?.messageId || !log?.channelId) continue;
-    if (linkedMessageIds.has(String(log.messageId))) continue;
-    return log;
-  }
-  return null;
-}
-
-function findUnlinkedPositiveLogForReasonNeedles(staff?, needles?) {
-  return findLogForReasonNeedlesSince(staff, needles, "positive", null, { unlinkedOnly: true });
-}
-
-function findUnlinkedLogForReasonNeedlesSince(staff?, needles?, type = "positive", sinceDate = null) {
-  return findLogForReasonNeedlesSince(staff, needles, type, sinceDate, { unlinkedOnly: true });
-}
-
 function findLogForReasonNeedlesSince(
   staff?,
   needles?,
@@ -374,23 +306,6 @@ function findLogForReasonNeedlesSince(
   return null;
 }
 
-async function weeklyScopedAutoEntryIsCurrentCycle(guild?, entry?) {
-  if (!entry || !guild) return false;
-  const channelId = String(entry.channelId || "");
-  const messageId = String(entry.messageId || "");
-  if (!channelId || !messageId) return false;
-  const channel =
-    guild.channels?.cache?.get(channelId) ||
-    (await getClientChannelCached(guild.client, channelId).catch(() => null));
-  if (!channel?.messages?.fetch) return false;
-  const message = await channel.messages.fetch(messageId).catch(() => null);
-  if (!message) return false;
-  const since = getResocontoCycleMessagesSince();
-  const sinceMs = since?.getTime?.() || 0;
-  if (sinceMs && Number(message.createdTimestamp || 0) < sinceMs) return false;
-  return true;
-}
-
 async function relinkScopedAutoValutazione(profileDoc?, staff?, keyStr?, reason?, type?, log?) {
   if (!profileDoc || !staff || !log) return null;
   if (!Array.isArray(staff.autoValutazioni)) staff.autoValutazioni = [];
@@ -409,17 +324,6 @@ async function relinkScopedAutoValutazione(profileDoc?, staff?, keyStr?, reason?
   profileDoc.markModified("staff");
   await profileDoc.save();
   return { ok: true, skipped: "relinked", relinked: true };
-}
-
-async function relinkResocontoReviewerAutoValutazione(profileDoc?, staff?, keyStr?, reason?, type?) {
-  if (type !== "positive" || !profileDoc || !staff) return null;
-  const log = findUnlinkedPositiveLogForReasonSince(
-    staff,
-    reason,
-    getResocontoCycleMessagesSince(),
-  );
-  if (!log) return null;
-  return relinkScopedAutoValutazione(profileDoc, staff, keyStr, reason, type, log);
 }
 
 async function ensureWeeklyLimitAutoValutazione({ guild, member, key, type, reason, force = false, equivalentReasonNeedles = null }) {

@@ -339,11 +339,6 @@ async function isNewStaffCompitiGrace({ guildId, userId, member = null, now = ne
   }
 }
 
-async function seedWeekEntryFromPlan() {
-  // Pool pick: non forzare un task sulla settimana.
-  return null;
-}
-
 async function ensureMonthPlanForUser(guildId?, userId?, { monthKey = "", weekKey = "", force = false } = {}) {
   const mk = monthKey || romeMonthKey();
   const weekKeys = weekKeysInRomeMonth(mk);

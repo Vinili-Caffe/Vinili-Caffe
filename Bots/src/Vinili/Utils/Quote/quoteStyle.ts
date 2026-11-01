@@ -411,14 +411,6 @@ function createQuoteLinearGradient(ctx?, x?, y?, w?, h?, angleDeg?, from?, to?) 
   return g;
 }
 
-function cssQuoteLinearGradient(angleDeg?, from?, to?) {
-  const fromHex = normalizeHexColor(from) || "#070707";
-  const toHex = normalizeHexColor(to);
-  if (!toHex || toHex === fromHex) return fromHex;
-  const angle = clampAngle(angleDeg, 135);
-  return `linear-gradient(${angle}deg, ${fromHex}, ${toHex})`;
-}
-
 function resolveQuoteStyleFontFamily(style?) {
   const s = normalizeQuoteStyle(style);
   const entry = FONT_CATALOG[s.font];
@@ -430,11 +422,6 @@ function resolveQuoteFontCss(style?, size?, weight?) {
   if (!family) return null;
   const prefix = weight ? `${weight} ` : "";
   return `${prefix}${size}px ${family}`;
-}
-
-function resolveQuoteFontPreviewFamily(style?) {
-  const s = normalizeQuoteStyle(style);
-  return FONT_CATALOG[s.font]?.preview || FONT_CATALOG.sans.preview;
 }
 
 function resolveQuoteCanvasSize(style?) {
@@ -531,30 +518,20 @@ function listQuoteFonts() {
 }
 
 export = {
-  BG_PRESETS,
-  FONT_CATALOG,
-  DEFAULT_FOOTER,
-  DEFAULT_FADE_DEPTH,
-  DEFAULT_FADE_OPACITY,
   defaultQuoteStyle,
   normalizeQuoteStyle,
   normalizeHexColor,
   encodeQuoteStyleCompact,
   decodeQuoteStyleCompact,
   resolveQuoteStyleColors,
-  resolveQuoteStyleFontFamily,
   resolveQuoteFontCss,
-  resolveQuoteFontPreviewFamily,
   resolveQuoteCanvasSize,
   resolveQuoteFooterText,
   resolveQuoteFadeParams,
   colorWithAlpha,
   hexToRgb,
   lerpHexColor,
-  sampleQuoteBgColorAt,
   resolveQuoteFadeEdgeColor,
   createQuoteLinearGradient,
-  cssQuoteLinearGradient,
   listQuoteFonts,
-  colorsFromCustomHex,
 };

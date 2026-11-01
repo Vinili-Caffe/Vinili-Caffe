@@ -1,6 +1,4 @@
 const DEFAULT_CUSTOM_ROLE_PING_DELAY_MS = 5 * 60 * 1000;
-const DEFAULT_TENANT_PING_MEMBER_THRESHOLD = 0;
-
 function remapPingRoleId(roleId?) {
   try {
     const { remapRoleIdForward } = require("../Config/emergencyRoleIdRemap") as typeof import("../Config/emergencyRoleIdRemap");
@@ -309,41 +307,6 @@ function detectUsedPingsInContent(content?, pingPlan: Record<string, any> = {}) 
   };
 }
 
-function extractMentionIdsFromContent(content?) {
-  const text = String(content || "");
-  const users = [...text.matchAll(/<@!?(\d{16,20})>/g)].map((m?) => m[1]);
-  const roles = [...text.matchAll(/<@&(\d{16,20})>/g)].map((m?) => m[1]);
-  return {
-    users: [...new Set(users.map(String))],
-    roles: [...new Set(roles.map(String))],
-  };
-}
-
-function buildPartnershipPublishAllowedMentionsFromContent(
-  content?,
-  pingPlan: Record<string, any> = {},
-  managerId = null,
-  { excludeUserIds = [] } = {},
-) {
-  const excluded = normalizeExcludeUserIds(excludeUserIds);
-  const { notifyCustomRoleId } = resolveNotifyFlags(pingPlan);
-  const used = detectUsedPingsInContent(content, pingPlan);
-  const extracted = extractMentionIdsFromContent(content);
-  const silentRoleId =
-    pingPlan.customRoleId && !notifyCustomRoleId ? String(pingPlan.customRoleId) : null;
-  const roles = [
-    ...new Set([
-      ...(used.customRoleId ? [String(used.customRoleId)] : []),
-      ...extracted.roles.filter((id?) => id !== silentRoleId),
-    ]),
-  ];
-  const users = [
-    ...new Set([...(managerId ? [String(managerId)] : []), ...extracted.users]),
-  ].filter((id?) => !excluded.has(String(id)));
-  const parse = used.pingHere || used.pingEveryone ? ["everyone"] : [];
-  return { parse, roles, users };
-}
-
 function stripInvalidTenantSlashPartnershipMentions(description?, pingPlan: Record<string, any> = {}) {
   let content = String(description || "");
 
@@ -377,4 +340,4 @@ function applyTenantSlashPartnershipPings(description?, pingPlan: Record<string,
   return content ? `${toAdd.join(" ")}\n\n${content}` : toAdd.join(" ");
 }
 
-export = { DEFAULT_CUSTOM_ROLE_PING_DELAY_MS, DEFAULT_TENANT_PING_MEMBER_THRESHOLD, parsePingDelayInput, formatPingDelayLabel, formatPingDelayForInput, formatPingDelayDisplay, formatPingMemberThresholdForInput, parsePingMemberThresholdInput, resolveEffectiveDelayMs, resolveEffectiveCustomRoleDelayMs, resolveEffectiveHereDelayMs, resolveEffectiveEveryoneDelayMs, resolvePingDelayDecision, resolveCustomRolePingDecision, resolvePartnershipPublishPings, resolveNotifyFlags, buildPartnershipPingPrefix, formatPartnershipPingDisplay, prependPartnershipPingPrefix, buildPartnershipPublishAllowedMentions, buildPartnershipPublishAllowedMentionsFromContent, detectUsedPingsInContent, applyTenantSlashPartnershipPings };
+export = { DEFAULT_CUSTOM_ROLE_PING_DELAY_MS, parsePingDelayInput, formatPingDelayLabel, formatPingDelayForInput, formatPingDelayDisplay, formatPingMemberThresholdForInput, parsePingMemberThresholdInput, resolvePartnershipPublishPings, buildPartnershipPingPrefix, formatPartnershipPingDisplay, prependPartnershipPingPrefix, buildPartnershipPublishAllowedMentions, detectUsedPingsInContent, applyTenantSlashPartnershipPings };

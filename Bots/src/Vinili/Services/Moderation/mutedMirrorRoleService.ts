@@ -1,9 +1,8 @@
 const { PermissionsBitField } = require("discord.js") as typeof import("discord.js");
-const mongoose = require("mongoose") as typeof import("mongoose");
 const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
-const { ActivityUserProfile, CustomRole } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
+const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
 const { isValidGuildUserId } = require("../../Utils/DB/validateWriteIds") as typeof import("../../Utils/DB/validateWriteIds");
-const { addRolesAndGetMember, getClientGuildCached, getGuildMemberCached, getGuildRoleCached, isUnknownDiscordMemberError } = require("../../Utils/Interaction/interactionEntityCache") as typeof import("../../Utils/Interaction/interactionEntityCache");
+const { getClientGuildCached, getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache") as typeof import("../../Utils/Interaction/interactionEntityCache");
 const { ensureMongoReady } = require("../../Utils/Database/mongoConnect") as typeof import("../../Utils/Database/mongoConnect");
 const { getUserExpStats, syncLevelRolesForMember } = require("../Community/expService") as typeof import("../Community/expService");
 const { applyTenureForMember } = require("../Community/communityOpsService") as typeof import("../Community/communityOpsService");
@@ -18,8 +17,8 @@ const { syncClanTagRolesForUserEverywhereAfterMemberEvent } = require("../Commun
 const { hasEventWeekWinnerGrant } = require("../Community/weekWinnerGrantsService") as typeof import("../Community/weekWinnerGrantsService");
 const { hasExtraCustomPerksUnlock } = require("../../Utils/Community/customPerksUnlock") as typeof import("../../Utils/Community/customPerksUnlock");
 const { setMemberRolesSafe, resolveGuildBotMember } = require("./muteRoleRest") as typeof import("./muteRoleRest");
-const { memorySnapshots, isPostUnmuteReconciliationCurrent, profileResyncMadeChanges, markPostUnmuteReconciliationComplete, markRecentUnmuteProfileRecovery, wasRecentUnmuteProfileRecoveryDone, markMuteMirrorStaffProtect, clearMuteMirrorStaffProtect, isMuteMirrorStaffProtectActive, memberIsInMuteMirrorState, shouldSuppressStaffDepexForMuteMirror, snapshotKey, normalizeSnapshotRoleIds, dbReady, loadProfileMuteSnapshotRoleIds, loadSnapshot, memberLooksRoleWiped, isCommunicationTimeoutActive, hasPendingMuteMirrorSnapshot } = require("./muteStaffProtect") as typeof import("./muteStaffProtect");
-const { EMPTY_SNAPSHOT_COOLDOWN_MS, upsertSnapshot, hasSnapshot, isEmptySnapshotOnCooldown, markEmptySnapshotCooldown, clearEmptySnapshotCooldown, recoverSnapshotRoleIdsFallback, clearSnapshot, buildRestoreTargetRoleIds, collectSnapshotRoleIds, buildRolesWhileMuted, filterRestorableRoleIds, resolveMutedRoleContext, shouldDeferRoleRestoreForMuteMirror, captureMuteRoleSnapshot } = require("./muteSnapshot") as typeof import("./muteSnapshot");
+const { isPostUnmuteReconciliationCurrent, markPostUnmuteReconciliationComplete, wasRecentUnmuteProfileRecoveryDone, markMuteMirrorStaffProtect, isMuteMirrorStaffProtectActive, memberIsInMuteMirrorState, shouldSuppressStaffDepexForMuteMirror, dbReady, loadProfileMuteSnapshotRoleIds, loadSnapshot, isCommunicationTimeoutActive, hasPendingMuteMirrorSnapshot } = require("./muteStaffProtect") as typeof import("./muteStaffProtect");
+const { EMPTY_SNAPSHOT_COOLDOWN_MS, upsertSnapshot, hasSnapshot, isEmptySnapshotOnCooldown, markEmptySnapshotCooldown, clearEmptySnapshotCooldown, recoverSnapshotRoleIdsFallback, clearSnapshot, collectSnapshotRoleIds, buildRolesWhileMuted, resolveMutedRoleContext, shouldDeferRoleRestoreForMuteMirror, captureMuteRoleSnapshot } = require("./muteSnapshot") as typeof import("./muteSnapshot");
 const { didCommunicationTimeoutChange, resolveCommunicationTimeoutUntilMs } = require("./muteTimeout") as typeof import("./muteTimeout");
 const { resyncProfileDerivedRolesForMember } = require("./muteProfileRoles") as typeof import("./muteProfileRoles");
 const { restoreRolesAfterCommunicationTimeoutEnd } = require("./muteRestore") as typeof import("./muteRestore");
@@ -477,27 +476,6 @@ async function applyActiveMuteMirror(member?, options: Record<string, any> = {})
   return { ok: true, reason: "already_ok" };
 }
 
-async function listActiveMuteCaseUserIds(guildId?, limit = 50) {
-  const gid = String(guildId || "").trim();
-  if (!gid || !dbReady()) return [];
-  const now = new Date();
-  const rows = await ActivityUserProfile.find({
-    guildId: gid,
-    "moderation.modCases": {
-      $elemMatch: {
-        action: "MUTE",
-        active: { $ne: false },
-        expiresAt: { $gt: now },
-      },
-    },
-  })
-    .select("userId")
-    .limit(Math.max(1, Math.min(200, Number(limit) || 50)))
-    .lean()
-    .catch(() => []);
-  return rows.map((r?) => String(r.userId || "").trim()).filter(Boolean);
-}
-
 async function reconcileIncompleteActiveMuteMirrors(client?, options: Record<string, any> = {}) {
   if (activeMuteReconcileInFlight) return activeMuteReconcileInFlight;
   activeMuteReconcileInFlight = runReconcileIncompleteActiveMuteMirrors(client, options).finally(() => {
@@ -635,7 +613,6 @@ export = {
   syncMutedMirrorRoleFromMemberUpdate,
   syncMutedMirrorOnMemberJoin,
   handleMuteMirrorOnMemberLeave,
-  enforceMutedStripIfNeeded,
   applyActiveMuteMirror,
   captureMuteRoleSnapshot,
   reconcileIncompleteActiveMuteMirrors,

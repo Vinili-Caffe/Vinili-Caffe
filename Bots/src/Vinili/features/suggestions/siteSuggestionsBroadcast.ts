@@ -322,19 +322,6 @@ function broadcastSiteSerataChanged(extras: Record<string, any> = {}) {
   notifyExternalSiteRealtime(payload);
 }
 
-function broadcastSiteUiChanged(scope = "", extras: Record<string, any> = {}) {
-  const ex = extras && typeof extras === "object" ? extras : {};
-  const payload = {
-    type: "site_ui_changed",
-    scope: String(scope || ex.scope || "").trim() || undefined,
-    action: String(ex.action || "").trim() || undefined,
-    userId: String(ex.userId || "").trim() || undefined,
-    at: new Date().toISOString(),
-  };
-  broadcastSiteRealtime(payload);
-  notifyExternalSiteRealtime(payload);
-}
-
 function broadcastSiteWebTicketsEvent(payload?) {
   if (!payload || typeof payload !== "object") return;
   const body = { ...payload };
@@ -404,19 +391,15 @@ export = {
   broadcastSiteStaffProfileChanged,
   broadcastSiteStaffCompitiChanged,
   broadcastSiteBoardsChanged,
-  broadcastSiteLiveStatsChanged,
   broadcastSiteLiveStatsChangedDebounced,
   broadcastSiteLiveStreamChanged,
   broadcastSitePartnershipChanged,
   broadcastSiteRankCardChanged,
   broadcastSiteSerataChanged,
-  broadcastSiteUiChanged,
   broadcastSiteWebTicketsEvent,
   broadcastSiteMemberLeft,
   invalidateLeftMemberSiteCaches,
   broadcastSiteRealtime,
   notifyExternalSiteRealtime,
-  SUGGESTIONS_WS_PATH: LEGACY_SUGGESTIONS_WS_PATH,
   SITE_REALTIME_WS_PATH,
-  WS_UPGRADE_PATHS,
 };

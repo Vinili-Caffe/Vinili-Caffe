@@ -52,16 +52,6 @@ async function tenantNoticePayload(message?, key?, vars: Record<string, any> = {
   });
 }
 
-async function interactionTenantNoticePayload(interaction?, key?, vars: Record<string, any> = {}, options: Record<string, any> = {}) {
-  const lang = await resolveTenantLanguageForInteraction(interaction);
-  const text = rewritePrefixInText(t(lang, key, vars), interaction.guild?.id, interaction.client);
-  return buildSimpleNoticePayload(text, interaction.guild, {
-    ephemeral: options.ephemeral !== false,
-    allowedMentions: { parse: [] },
-    ...options,
-  });
-}
-
 function tenantI18nNoticePayload(lang?, key?, guild?, vars: Record<string, any> = {}, options: Record<string, any> = {}) {
   const text = rewritePrefixInText(t(lang, key, vars), guild?.id, guild?.client || options.client);
   return buildSimpleNoticePayload(text, guild, {
@@ -85,7 +75,6 @@ async function tenantNoPermissionError(message?, command?) {
 export = {
   replyTenantMessage,
   tenantNoticePayload,
-  interactionTenantNoticePayload,
   tenantI18nNoticePayload,
   tenantOnlyError,
   tenantNotConfiguredError,
@@ -94,5 +83,4 @@ export = {
   resolveTenantLanguageForMessage,
   resolveTenantLanguageForInteraction,
   localeOptionsFromMessage,
-  localeOptionsFromInteraction,
 };

@@ -6,18 +6,6 @@ const { wait, getCurrentResocontoPexWeekWindowUtc, dayKeyToWeekdayLabel } = requ
 const RESOCONTO_MEMBER_FETCH_PAGE_LIMIT = 1000;
 const RESOCONTO_MEMBER_FETCH_PAGE_DELAY_MS = 400;
 
-function collectVoiceChannelIdsUnderCategory(guild?, categoryId?) {
-  const out = new Set();
-  const cat = String(categoryId || "");
-  if (!guild?.channels?.cache || !cat) return out;
-  for (const ch of guild.channels.cache.values()) {
-    if (!ch?.isVoiceBased?.()) continue;
-    if (String(ch.parentId || "") !== cat) continue;
-    out.add(String(ch.id));
-  }
-  return out;
-}
-
 const RESOCONTO_PUBLIC_VOICE_NAME_RE = /\b(Lounge|Duo|Trio|Quad|Penta|Hexa|Setta|Octa|Squad)\b/i;
 
 function isResocontoPublicVoiceName(name?) {

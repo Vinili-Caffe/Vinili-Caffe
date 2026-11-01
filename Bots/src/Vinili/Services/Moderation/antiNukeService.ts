@@ -18,7 +18,6 @@ const { getAntiNukeStatusSnapshot } = require("./antiNukeStatus") as typeof impo
 
 
 
-const ARROW = "<:VC_right_arrow:1482459908245815296>";
 const COMMAND_LOCK_CACHE_TTL_MS = 2_000;
 
 applyPersistentAntiNukeConfig(readJsonSafe(ANTINUKE_CONFIG_PATH, null));
@@ -27,10 +26,6 @@ ANTINUKE_CONFIG.autoQuarantine.strictMode = true;
 enforceCriticalAntiNukeGuards();
 ANTINUKE_CONFIG.autoQuarantine.monitorChannelPermissions = true;
 ANTINUKE_CONFIG.autoQuarantine.strictMemberRoleAddition = true;
-
-function hasAllPerms(member?, flags?) {
-  return flags.every((flag?) => member?.permissions?.has?.(flag));
-}
 
 function rehydrateAntiNukePanicForGuild(guild?) {
   if (!guild?.id || !isAntiNukeScopeGuild(guild.id)) return;

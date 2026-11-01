@@ -68,7 +68,6 @@ function listShopItems(currency?) {
 }
 
 export = {
-  SERVER_SHOP_CATALOG,
   getShopItemById,
   listShopItems,
 };

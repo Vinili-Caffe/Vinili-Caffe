@@ -311,11 +311,6 @@ async function findDuplicateCompitoRemovals(guild?, staff?, userId?) {
   });
 }
 
-function findDuplicateCompitoMessageIds(guild?, staff?, userId?) {
-  return findDuplicateCompitoRemovals(guild, staff, userId)
-    .then((rows?) => rows.map((row?) => row.messageId).filter(Boolean));
-}
-
 function findDuplicateResocontoAutoKeys(staff?, userId?, weekKey = null) {
   const auto = Array.isArray(staff?.autoValutazioni) ? staff.autoValutazioni : [];
   const byWeekSegment = new Map();
@@ -562,14 +557,6 @@ async function purgeDuplicateCompitoSettimanaleForMember(guild?, member?, channe
   return { userId, removed, autoRemoved, repaired, planned, autoKeys };
 }
 
-function resolveCompitoPurgeSinceMs(referenceNow = new Date()) {
-  const weeklyResocontoService = require("./weeklyStaffResocontoService") as typeof import("./weeklyStaffResocontoService");
-  const window = weeklyResocontoService.getCurrentResocontoPexWeekWindowUtc(referenceNow);
-  const fromWindow = window?.windowStart?.getTime?.();
-  if (Number.isFinite(fromWindow) && fromWindow > 0) return fromWindow;
-  return Date.now() - 7 * 24 * 60 * 60 * 1000;
-}
-
 async function purgeDuplicateCompitoSettimanaleValutazioni(client?, opts: Record<string, any> = {}) {
   const { isDiscordStaffChannelPostsEnabled } = require("../../Web/discordWorkflowUiGate") as typeof import("../../Web/discordWorkflowUiGate");
   if (!isDiscordStaffChannelPostsEnabled()) return { ok: false, skipped: "staff_discord_posts_disabled" };
@@ -666,9 +653,5 @@ async function purgeDuplicateCompitoSettimanaleValutazioni(client?, opts: Record
 export = {
   COMPITO_SETTIMANALE_REASON,
   purgeDuplicateCompitoSettimanaleValutazioni,
-  purgeDuplicateCompitoSettimanaleForMember,
-  findDuplicateCompitoMessageIds,
-  resolveCompitoPurgeSinceMs,
   collectActiveCompitoMessagesFromChannel,
-  weekKeyFromCreatedAtMs,
 };

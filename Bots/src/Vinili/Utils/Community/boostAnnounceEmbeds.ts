@@ -1,5 +1,4 @@
 const { EmbedBuilder } = require("discord.js") as typeof import("discord.js");
-const IDs = require("../Config/ids") as typeof import("../Config/ids");
 const { MENTION_RESPONSE_PERK_LINE_DISCORD } = require("./mentionResponseAccessUtils") as typeof import("./mentionResponseAccessUtils");
 const { accountUsername, guildMemberDisplayAvatarUrlDynamic } = require("../Discord/guildDiscordIdentity") as typeof import("../Discord/guildDiscordIdentity");
 const BOOST_ANNOUNCE_STAFF_PING_ROLE_ID = "1442568910070349985";
@@ -77,8 +76,6 @@ function buildBoostPayloadSecond(member?, boostCount?) {
 }
 
 export = {
-  buildBoostEmbed,
-  buildBoostEmbedSecond,
   buildBoostPayload,
   buildBoostPayloadSecond,
   buildBoostAnnounceContent,

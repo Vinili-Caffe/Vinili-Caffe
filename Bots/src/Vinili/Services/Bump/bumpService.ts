@@ -1,6 +1,5 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js") as typeof import("discord.js");
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
 const { shouldBlockDm } = require("../../Utils/noDmList") as typeof import("../../Utils/noDmList");
 const { isUserDmPrivacyBlockedError, notifyDmPrivacyBlockedInCommands } = require("../../../shared/discord/dmPrivacyNotice") as typeof import("../../../shared/discord/dmPrivacyNotice");
 const { enqueueSiteInAppNotification } = require("../../features/notifications/siteInAppNotificationsService") as typeof import("../../features/notifications/siteInAppNotificationsService");
@@ -8,8 +7,8 @@ const { shouldSkipDiscordDmForActiveWebPush } = require("../../Web/siteNotifPref
 const { getClientChannelCached, getClientGuildCached, getGuildMemberCached, getUserCached } = require("../../Utils/Interaction/interactionEntityCache") as typeof import("../../Utils/Interaction/interactionEntityCache");
 const { addExpWithLevel, shouldIgnoreExpForMember } = require("../Community/expService") as typeof import("../Community/expService");
 const { voteCountMonthKeyRome } = require("../../Utils/romeVoteMonthKey") as typeof import("../../Utils/romeVoteMonthKey");
-const { DISCADIA_VOTE_ROOT, DISCADIA_LAST_VOTE_AT_PATH, DISCADIA_LAST_REMINDED_AT_PATH, DISCADIA_LAST_VOTE_LISTING_PATH, DISCADIA_LAST_VOTE_AT_TOPGG_PATH, DISCADIA_LAST_VOTE_AT_DISCADIA_PATH, latestVoteDateFromVoteSub, voteListingKey, voteLastAtPath, voteLastRemindedAtPath, voteStateLastAt, shouldSendVoteReminderForListing, claimVoteReminderSlot, releaseVoteReminderSlot, voteReminderLockKey, clearVoteReminderPhoneRetries, clearVoteReminderPhoneRetriesForUser, extractDiscadiaVoteState, isVoteListingRecordedAtOrAfter, resolveLean } = require("./voteReminderState") as typeof import("./voteReminderState");
-const { discadiaVoteTimers, getVoteCooldownMs, getVoteCheckIntervalMs, dispatchVoteReminder, enqueueVoteCompletedSiteNotification } = require("./voteReminderMessages") as typeof import("./voteReminderMessages");
+const { voteStateLastAt, clearVoteReminderPhoneRetriesForUser, extractDiscadiaVoteState, isVoteListingRecordedAtOrAfter } = require("./voteReminderState") as typeof import("./voteReminderState");
+const { getVoteCooldownMs, getVoteCheckIntervalMs, enqueueVoteCompletedSiteNotification } = require("./voteReminderMessages") as typeof import("./voteReminderMessages");
 const { recordDiscadiaVote, restorePendingVoteReminders, sendDueDiscadiaVoteReminders } = require("./discadiaVotes") as typeof import("./discadiaVotes");
 const { buildBumpStateModel, createBumpReminderService } = require("./bumpReminder") as typeof import("./bumpReminder");
 const { awardBumpVoteExp } = require("./bumpRewards") as typeof import("./bumpRewards");
@@ -60,4 +59,4 @@ function startDiscadiaVoteReminderLoop(client?) {
       return discadiaVoteReminderLoopHandle;
 }
 
-export = { createBumpReminderService, recordBump: disboardService.recordBump, restorePendingReminders: disboardService.restorePendingReminders, startBumpDueReminderSweepLoop, recordDiscadiaBump: discadiaBumpService.recordBump, restorePendingDiscadiaReminders: discadiaBumpService.restorePendingReminders, recordDiscadiaVote, enqueueVoteCompletedSiteNotification, sendDueReminders: sendDueDiscadiaVoteReminders, startDiscadiaVoteReminderLoop, restorePendingVoteReminders, awardBumpVoteExp, getVoteCooldownMs, isVoteListingRecordedAtOrAfter, voteStateLastAt, extractDiscadiaVoteState, clearVoteReminderPhoneRetriesForUser };
+export = { createBumpReminderService, recordBump: disboardService.recordBump, restorePendingReminders: disboardService.restorePendingReminders, startBumpDueReminderSweepLoop, recordDiscadiaBump: discadiaBumpService.recordBump, restorePendingDiscadiaReminders: discadiaBumpService.restorePendingReminders, recordDiscadiaVote, enqueueVoteCompletedSiteNotification, startDiscadiaVoteReminderLoop, restorePendingVoteReminders, awardBumpVoteExp, getVoteCooldownMs, isVoteListingRecordedAtOrAfter, voteStateLastAt, extractDiscadiaVoteState, clearVoteReminderPhoneRetriesForUser };

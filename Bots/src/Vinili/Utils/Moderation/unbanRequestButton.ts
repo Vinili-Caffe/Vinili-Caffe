@@ -13,6 +13,5 @@ function buildUnbanRequestRow() {
 }
 
 export = {
-  UNBAN_REQUEST_URL,
   buildUnbanRequestRow,
 };

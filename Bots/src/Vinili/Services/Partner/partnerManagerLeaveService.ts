@@ -17,7 +17,6 @@ const {
 } = require("../../MultiGuild/core/tenantPartnershipSettings") as typeof import("../../MultiGuild/core/tenantPartnershipSettings");
 const {
   getPartnershipChannelId,
-  resolvePartnershipLifecycleLogChannelId,
   resolvePartnershipConfigSync,
   isMainPartnershipSettingsGuild,
   isPartnershipOperational,
@@ -27,20 +26,10 @@ const { readSnapshotWithMeta, writeSnapshotWithMeta } = require("../../../shared
 const { registerShutdownFlush, armShutdownCheckpoint } = require("../../../shared/recovery/shutdownCheckpoint") as typeof import("../../../shared/recovery/shutdownCheckpoint");
 
 const GRACE_MS = 5 * 60 * 1000;
-const WARN_REASON = "Manager uscito dal server — warn";
 /* rebootDurability1: grace manager leave → snapshot disk */
 const GRACE_SNAPSHOT_PATH = path.join(__dirname, "..", "..", "Data", "partnerManagerLeaveGraceSnapshot.json");
 let graceFlushRegistered = false;
 let graceRestored = false;
-
-function getRomeDateKey(date = new Date()) {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Europe/Rome",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(date);
-}
 
 function getGraceMap(client?) {
   if (!client._partnerManagerLeaveGrace) client._partnerManagerLeaveGrace = new Map();
@@ -178,85 +167,9 @@ async function deletePartnerActionMessages(guild?, action?) {
   }
 }
 
-async function logPartnerWarn(guild?, staffUserId?, reason?, action?) {
-  const channelId = resolvePartnershipLifecycleLogChannelId(guild?.id);
-  if (!channelId) return null;
-  const channel = await getGuildChannelCached(guild, channelId).catch(() => null);
-  if (!channel?.isTextBased?.()) return null;
-
-  const msgRef =
-    Array.isArray(action?.partnerMessageIds) && action.partnerMessageIds.length
-      ? `https://discord.com/channels/${guild.id}/${action.partnershipChannelId || getPartnershipChannelId(guild.id)}/${action.partnerMessageIds[0]}`
-      : "N/D";
-  const inviteDb = action?.invite ? String(action.invite).slice(0, 300) : "N/D";
-
-  try {
-    const sent = await channel.send({
-      content: `<:VC_PartnerManager:1494286911286808576> <@${staffUserId}>
-<:VC_reason:1478517122929004544> ${reason}
-<:VC_Chat:1482532573002465413> Messaggio: ${msgRef}
-<link:1470064815899803668> Invite: ${inviteDb}`,
-    });
-    return { channelId: sent.channelId || channel.id, messageId: sent.id };
-  } catch (err) {
-    global.logger?.warn?.("[partnerManagerLeave] warn log failed:", err?.message || err);
-    return null;
-  }
-}
-
-async function findManagerPartnerDocs(guildId?, managerUserId?) {
-  return ActivityUserProfile.find({
-    guildId: String(guildId),
-    "staff.partnerActions": {
-      $elemMatch: {
-        action: "create",
-        managerId: String(managerUserId),
-      },
-    },
-  }).catch(() => []);
-}
-
 async function executeDeletePartnerships(guild?, managerUserId?, client?) {
   const { deletePartnershipsForManagerLeave } = require("../../MultiGuild/services/Partner/tenantPartnershipDeleteService") as typeof import("../../MultiGuild/services/Partner/tenantPartnershipDeleteService");
   return deletePartnershipsForManagerLeave(guild, managerUserId, client);
-}
-
-async function executeWarnPartnerships(guild?, managerUserId?) {
-  const { memberHasPartnerManagerRole } = require("../../Utils/Partner/partnershipConfigResolver") as typeof import("../../Utils/Partner/partnershipConfigResolver");
-  const docs = await findManagerPartnerDocs(guild.id, managerUserId);
-  const dateKey = getRomeDateKey(new Date());
-  let warned = 0;
-  for (const doc of docs) {
-    if (!doc?.staff) continue;
-    const staffMember = await guild.members.fetch(String(doc.userId || "")).catch(() => null);
-    if (!memberHasPartnerManagerRole(staffMember, guild.id)) continue;
-    const actions = Array.isArray(doc.staff.partnerActions) ? doc.staff.partnerActions : [];
-    let changed = false;
-    for (const action of actions) {
-      if (action?.action !== "create" || String(action?.managerId || "") !== String(managerUserId)) continue;
-      const penaltyDates = Array.isArray(action.auditPenaltyDates) ? action.auditPenaltyDates : [];
-      if (penaltyDates.includes(dateKey)) continue;
-      const logResult = await logPartnerWarn(guild, doc.userId, WARN_REASON, action);
-      action.auditPenaltyDates = [...penaltyDates, dateKey];
-      action.auditPenaltyLogs = Array.isArray(action.auditPenaltyLogs) ? action.auditPenaltyLogs : [];
-      action.auditPenaltyLogs.push({
-        dateKey,
-        reason: WARN_REASON,
-        channelId: logResult?.channelId || "",
-        messageId: logResult?.messageId || "",
-      });
-      doc.staff.partnerCount = Math.max(0, Number(doc.staff.partnerCount || 0) - 1);
-      warned += 1;
-      changed = true;
-    }
-    if (changed) {
-      doc.markModified("staff");
-      await doc.save().catch((err?) => {
-        global.logger?.warn?.("[partnerManagerLeave] save warn failed:", err?.message || err);
-      });
-    }
-  }
-  return warned;
 }
 
 async function sendManagerLeaveDm(user?, guild?, inviteUrl?, options: Record<string, any> = {}) {
@@ -468,10 +381,8 @@ async function handleTenantPartnerManagerRejoin(member?, client?) {
 }
 
 export = {
-  GRACE_MS,
   deletePartnerActionMessages,
   handleTenantPartnerManagerLeave,
   handleTenantPartnerManagerRejoin,
-  shouldHandleTenantManagerLeave,
   restorePartnerManagerLeaveGraceOnStartup,
 };

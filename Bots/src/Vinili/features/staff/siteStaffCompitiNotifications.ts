@@ -184,10 +184,7 @@ async function notifyCompitiDeadlineSoon(opts: Record<string, any> = {}) {
 }
 
 export = {
-  compitiOpenUrl,
   taskLabelFromMeta,
-  submitDedupeKey,
-  clearCompitiSubmitNotifs,
   notifyCompitiSubmitted,
   notifyCompitiApproved,
   notifyCompitiRejected,

@@ -40,7 +40,6 @@ function memberQualifiesForStaffThreadSpec(member?, spec?) {
 
 export = {
   alwaysAccessStaffThreadRoleIds,
-  isHighStaffExclusiveThreadSpec,
   resolveStaffThreadQualifyingRoleIds,
   memberHasStaffThreadAccess,
   memberQualifiesForStaffThreadSpec,

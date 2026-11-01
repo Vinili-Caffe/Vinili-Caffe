@@ -1,11 +1,10 @@
-const { ActionRowBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, PermissionFlagsBits, } = require("discord.js") as typeof import("discord.js");
-const path = require("path") as typeof import("path");
+const { EmbedBuilder, PermissionFlagsBits } = require("discord.js") as typeof import("discord.js");
 const { readSnapshotWithMeta, writeSnapshotWithMeta } = require("../../../shared/recovery/snapshotStore") as typeof import("../../../shared/recovery/snapshotStore");
 const { registerShutdownFlush, armShutdownCheckpoint } = require("../../../shared/recovery/shutdownCheckpoint") as typeof import("../../../shared/recovery/shutdownCheckpoint");
 const { readBackupByIdGlobal, createGuildBackup } = require("./serverBackupService") as typeof import("./serverBackupService");
 const { LOAD_ACTIONS, DEFAULT_ACTIONS, DEFAULT_MESSAGES_LIMIT, ACTIVE_LOAD_STALE_MS, activeLoadsByGuild, persistRuntimeSnapshotNow, ensureRuntimeLoaded, sleep, sanitizeActions, normalizeMessagesLimit, formatMessagesLimit, createLoadSession, getLoadSession, updateLoadSessionActions, updateLoadSessionMessagesLimit, deleteLoadSession } = require("./backupLoadSessions") as typeof import("./backupLoadSessions");
-const { buildLoadWarningEmbed, buildLoadInProgressEmbed, buildLoadStartComponents, countBackupMessages, countBackupPinnedMessages, buildPreflightWarningEmbed, buildPreflightButtons, buildLoadDoneEmbed, buildLoadErrorEmbed, buildLoadCancelledEmbed, buildLoadComponents, buildDryRunEmbed } = require("./backupLoadEmbeds") as typeof import("./backupLoadEmbeds");
-const { buildPermissionOverwrites, syncLoadedRoles, syncLoadedChannels, normalizeMessagePayload, resolveAssetInput, computePermissionDiffs } = require("./backupLoadSync") as typeof import("./backupLoadSync");
+const { buildLoadWarningEmbed, buildLoadInProgressEmbed, buildLoadStartComponents, buildPreflightWarningEmbed, buildPreflightButtons, buildLoadDoneEmbed, buildLoadErrorEmbed, buildLoadCancelledEmbed, buildLoadComponents, buildDryRunEmbed } = require("./backupLoadEmbeds") as typeof import("./backupLoadEmbeds");
+const { buildPermissionOverwrites, syncLoadedRoles, syncLoadedChannels, normalizeMessagePayload, resolveAssetInput } = require("./backupLoadSync") as typeof import("./backupLoadSync");
 
 
 
@@ -610,22 +609,6 @@ async function applyBackupToGuild(guild?, backupId?, selectedActions?, sourceGui
   return stats;
 }
 
-async function runBackupDryRun(guild?, backupRef?, selectedActions = null, messagesLimit = DEFAULT_MESSAGES_LIMIT) {
-  const actions = sanitizeActions(selectedActions || [...DEFAULT_ACTIONS]);
-  const { payload, guildId: sourceGuildId, backupId } = await readBackupByIdGlobal(backupRef);
-  const diff = computePermissionDiffs(guild, payload);
-  const totalMessages = countBackupMessages(payload);
-  const effectiveLimit = normalizeMessagesLimit(messagesLimit, DEFAULT_MESSAGES_LIMIT);
-
-  const backupRoles = (Array.isArray(payload?.roles) ? payload.roles : []).filter((r?) => String(r?.name || "").trim() !== "@everyone",);
-  const backupChannels = Array.isArray(payload?.channels) ? payload.channels : [];
-  const backupThreads = Array.isArray(payload?.threads) ? payload.threads : [];
-  const backupMembers = Array.isArray(payload?.members) ? payload.members : [];
-
-  const summary = { backupId: String(backupId || "").toUpperCase(), sourceGuildId: String(sourceGuildId || ""), actions: [...actions], canDeleteRoles: [...guild.roles.cache.values()].every((r?) => r.id === guild.id || r.managed || r.editable), canDeleteChannels: [...guild.channels.cache.values()].every((c?) => c.deletable), expected: { createRoles: backupRoles.length, createChannels: backupChannels.length, createThreads: backupThreads.length, updateMembers: backupMembers.length, loadMessages: effectiveLimit == null ? totalMessages : Math.min(totalMessages, effectiveLimit), loadPinnedMessages: countBackupPinnedMessages(payload), messagesLimit: effectiveLimit, }, permissions: diff, };
-
-  return summary;
-}
 async function handleBackupLoadInteraction(interaction?) {
   const customId = String(interaction?.customId || "");
   const isSelect = interaction?.isStringSelectMenu?.();
@@ -880,4 +863,4 @@ function cancelGuildBackupLoad(guildId?) {
   return requestCancelActiveLoad(guildId);
 }
 
-export = { LOAD_ACTIONS, DEFAULT_ACTIONS, createLoadSession, buildLoadWarningEmbed, buildLoadComponents, handleBackupLoadInteraction, getGuildBackupLoadStatus, cancelGuildBackupLoad, runBackupDryRun, buildDryRunEmbed };
+export = { LOAD_ACTIONS, DEFAULT_ACTIONS, createLoadSession, buildLoadWarningEmbed, buildLoadComponents, handleBackupLoadInteraction, getGuildBackupLoadStatus, cancelGuildBackupLoad, buildDryRunEmbed };

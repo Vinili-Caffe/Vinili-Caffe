@@ -8,23 +8,6 @@ function parseGeneratorUrl(client?) {
   return raw || null;
 }
 
-function getGenerateCooldownMs(client?) {
-  const ms = Number(getMarkovConfig(client).generateCooldownMs ?? 5000);
-  return Number.isFinite(ms) && ms > 0 ? ms : 5000;
-}
-
-function checkGenerateCooldown(userId?, channelId?, client?) {
-  const key = `${String(userId)}:${String(channelId)}`;
-  const now = Date.now();
-  const waitMs = getGenerateCooldownMs(client);
-  const last = generateCooldowns.get(key) || 0;
-  if (now - last < waitMs) {
-    return { ok: false, retryAfterMs: waitMs - (now - last) };
-  }
-  generateCooldowns.set(key, now);
-  return { ok: true, retryAfterMs: 0 };
-}
-
 function buildMarkovModel(lines?, keySize = 2) {
   const model = new Map();
   for (const line of lines) {
@@ -171,4 +154,4 @@ async function generateMarkovLines(client?, channel?, options: Record<string, an
   return { ok: true, reason: null, lines, source };
 }
 
-export = { checkGenerateCooldown, generateLocalMarkov, requestRemoteGeneration, generateMarkovLines };
+export = { generateMarkovLines };

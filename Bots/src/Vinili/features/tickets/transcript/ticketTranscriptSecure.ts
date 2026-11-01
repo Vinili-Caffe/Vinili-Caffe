@@ -3,7 +3,6 @@ const { ButtonBuilder, ActionRowBuilder, ButtonStyle } = require("discord.js") a
 const { saveTranscriptHtml } = require("./transcriptUtils") as typeof import("./transcriptUtils");
 
 const TRANSCRIPT_VIEW_TOKEN_BYTES = 32;
-const TRANSCRIPT_INLINE_MAX_CHARS = 48_000;
 const TRANSCRIPT_VIEW_TTL_MS = 90 * 24 * 60 * 60 * 1000;
 
 function generateTranscriptViewToken() {
@@ -104,10 +103,8 @@ function timingSafeHexEq(a?, b?) {
 }
 
 export = {
-  TRANSCRIPT_INLINE_MAX_CHARS,
   TRANSCRIPT_VIEW_TTL_MS,
   normalizeTranscriptViewTokenParam,
-  resolveTranscriptPublicBaseUrl,
   buildTicketTranscriptViewUrl,
   buildTicketTranscriptApiUrl,
   transcriptViewExpired,

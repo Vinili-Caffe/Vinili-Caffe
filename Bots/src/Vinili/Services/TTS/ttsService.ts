@@ -1,7 +1,7 @@
 
 const { accountUsername } = require("../../Utils/Discord/guildDiscordIdentity") as typeof import("../../Utils/Discord/guildDiscordIdentity");
 const { filterScriptsForTtsLang } = require("../../../shared/discord/ttsTextSanitize") as typeof import("../../../shared/discord/ttsTextSanitize");
-const { ttsStates, getState, setLockedChannel, resolveMusicBlocksTtsForGuild, ensureConnection, leaveTtsGuild, saveVoiceState } = require("./ttsEngine") as typeof import("./ttsEngine");
+const { ttsStates, getState, resolveMusicBlocksTtsForGuild, ensureConnection, leaveTtsGuild } = require("./ttsEngine") as typeof import("./ttsEngine");
 const { booleanFromConfig, passesTtsContentFilters, sanitizeText, normalizeCaseForTts, expandAbbreviationsForTts, normalizePausesForTts, numbersToWordsForTts } = require("./ttsText") as typeof import("./ttsText");
 const { hydrateUserTtsLangForUser, setUserTtsLang, getUserTtsLang, resolveDefaultTtsLang } = require("./ttsLang") as typeof import("./ttsLang");
 const { resolveTtsMessageVoiceChannel, resolveBotTtsVoiceChannelId, authorIsInVoiceChannel, isTtsPostJoinVoiceGraceActive, handleTtsBotVoiceMove, purgeTtsVoicePersistence } = require("./ttsVoice") as typeof import("./ttsVoice");
@@ -61,23 +61,6 @@ async function handleTtsMessage(message?, client?, prefix?) {
   text = numbersToWordsForTts(text, lang);
   await saveTtsLastMessageProgress(voiceChannel.guild.id, voiceChannel.id, message.id, message.createdTimestamp, String(client?.user?.id || ""));
   enqueue(state, { voiceChannel, text, lang });
-}
-
-async function armTtsChannel(voiceChannel?) {
-  if (!voiceChannel) return { ok: false, reason: "no_voice_channel" };
-  if (!voiceChannel.joinable) return { ok: false, reason: "not_joinable" };
-  const musicBlock = resolveMusicBlocksTtsForGuild(voiceChannel.client, voiceChannel.guild.id);
-  if (musicBlock.blocked) {
-    return { ok: false, reason: "music_active", musicChannelId: musicBlock.channelId };
-  }
-  setLockedChannel(voiceChannel.guild.id, voiceChannel.id);
-  await saveVoiceState(voiceChannel.guild.id, voiceChannel.id, String(voiceChannel.client?.user?.id || ""));
-  return { ok: true };
-}
-
-function setTtsLockedChannel(guildId?, channelId?) {
-  if (!guildId || !channelId) return;
-  setLockedChannel(guildId, channelId);
 }
 
 function snapshotTtsQueueForGuild(guildId?, channelId?) {

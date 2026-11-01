@@ -621,12 +621,8 @@ function startUserFullStatePersistenceLoop(client?) {
 }
 
 export = {
-  SCHEMA_VERSION,
-  buildDiscordState,
   persistUserFullState,
   schedulePersistUserFullState,
-  runUserFullStateSweep,
   startUserFullStatePersistenceLoop,
   captureOwnedRoleDetails,
-  captureCustomVoc,
 };

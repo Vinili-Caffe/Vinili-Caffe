@@ -259,8 +259,6 @@ function getRankCardThemeFromDoc(doc?) {
 
 export = {
   DEFAULT_RANK_CARD_THEME,
-  RANK_CARD_WALLPAPERS,
-  RANK_FONT_CATALOG,
   clamp,
   mergeRankCardTheme,
   getRankCardThemeFromDoc,
@@ -269,7 +267,5 @@ export = {
   normalizeHex,
   resolveRankCardWallpaper,
   resolveRankFontFamily,
-  sanitizeFontKey,
   sanitizeWallpaperKey,
-  sanitizeWallpaperUrl,
 };

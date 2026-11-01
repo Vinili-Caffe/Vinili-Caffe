@@ -100,15 +100,6 @@ async function isStaffCmdsManagedCommandsThread(channel?) {
   return (await isStaffCmdsPmCommandsThread(channel)) || (await isStaffCmdsHighCommandsThread(channel));
 }
 
-async function resolveStaffCmdsPmThread(client?) {
-  const cached = getStaffCmdsThreadIdsCache().pm;
-  const threadId = cached || (await getStaffCmdsThreadIds()).pm;
-  if (!threadId) return null;
-  const resolved =
-    client?.channels?.cache?.get(threadId) || (await client?.channels?.fetch(threadId).catch(() => null));
-  return resolved?.isThread?.() ? resolved : null;
-}
-
 let staffCmdsThreadIdsHydratePromise = null;
 
 async function ensureStaffCmdsThreadIdsHydrated() {
@@ -142,35 +133,16 @@ function resolveStaffCmdsThreadSpecKeySync(channel?, ids: Record<string, any> = 
   return null;
 }
 
-async function resolveStaffCmdsThreadSpecKey(channel?) {
-  if (!channel?.isThread?.()) return null;
-  const cached = getStaffCmdsThreadIdsCache();
-  let fetched = { pm: null, high: null };
-  try {
-    fetched = await getStaffCmdsThreadIds();
-  } catch (_) {}
-  const ids = {
-    pm: cached.pm || fetched.pm || null,
-    high: cached.high || fetched.high || null,
-  };
-  return resolveStaffCmdsThreadSpecKeySync(channel, ids);
-}
-
 export = {
   staffCmdsChannelId,
   setStaffCmdsThreadIdsCache,
   getStaffCmdsThreadIdsCache,
   isChannelOrThreadUnderStaffCmds,
   isStaffCmdsMainChannel,
-  isPmCommandsThreadName,
-  isHighCommandsThreadName,
   isStaffCmdsPmCommandsThreadSync,
   isHighStaffCommandsThread,
   isStaffCmdsPmCommandsThread,
-  isStaffCmdsHighCommandsThread,
   isStaffCmdsManagedCommandsThread,
-  resolveStaffCmdsPmThread,
   ensureStaffCmdsThreadIdsHydrated,
-  resolveStaffCmdsThreadSpecKey,
   resolveStaffCmdsThreadSpecKeySync,
 };

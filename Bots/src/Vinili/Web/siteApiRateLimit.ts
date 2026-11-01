@@ -189,11 +189,6 @@ function mountSiteApiRateLimit(app?) {
 }
 
 export = {
-  createSiteApiRateLimiters,
   mountSiteApiRateLimit,
-  shouldSkipRateLimit,
-  isReadOnlySiteGet,
-  isPrivilegedMutatingPath,
   clientIpKey,
-  rateLimitKey,
 };

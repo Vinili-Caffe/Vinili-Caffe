@@ -79,12 +79,6 @@ function defaultTeamPerms() {
   return out;
 }
 
-function fullTeamPerms() {
-  const out: Record<string, any> = {};
-  for (const key of TEAM_PERM_KEYS) out[key] = true;
-  return out;
-}
-
 function normalizeTeamPerms(raw?, { isDefault = false } = {}) {
   if (isDefault) return null;
   const src = raw && typeof raw === "object" ? raw : {};
@@ -200,13 +194,6 @@ function getGuildTeamsSync(guildId?) {
 async function getGuildTeams(guildId?) {
   await loadTeamsRoot();
   return getGuildTeamsSync(guildId);
-}
-
-function findGuildTeamById(guildId?, teamId?) {
-  const id = normalizeTeamId(teamId);
-  if (!id) return null;
-  const bucket = getGuildTeamsSync(guildId);
-  return (bucket.teams || []).find((t?) => String(t.id) === id) || null;
 }
 
 function findGuildTeamsByIds(guildId?, teamIds?) {
@@ -350,7 +337,6 @@ export = {
   MAX_MEMBERS,
   DEFAULT_TEAM_SEED,
   TEAM_PERM_KEYS,
-  TEAM_PERM_TO_FLAGS,
   newTeamId,
   normalizeTeamId,
   normalizeTeamIdList,
@@ -358,16 +344,10 @@ export = {
   normalizeTeamPerms,
   normalizeMembers,
   defaultTeamPerms,
-  fullTeamPerms,
-  collectDefaultTeamMembers,
-  ensureDefaultTeamInBucket,
   getGuildTeams,
-  getGuildTeamsSync,
-  findGuildTeamById,
   findGuildTeamsByIds,
   mutateGuildTeams,
   ensureGuildDefaultTeam,
   refreshTicketTeamsCache,
   teamPermsToPermissionMap,
-  loadTeamsRoot,
 };

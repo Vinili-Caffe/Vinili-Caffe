@@ -341,7 +341,5 @@ async function maybeAnnounceDonationPackageInSupporters(oldMember?, newMember?) 
 
 export = {
   maybeAnnounceDonationPackageInSupporters,
-  sendDonationPackageAnnounceNow,
   recoverDonationPackageAnnouncesOnStartup,
-  donationAnnounceBlobMatchesTier,
 };

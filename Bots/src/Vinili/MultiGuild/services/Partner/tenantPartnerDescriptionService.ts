@@ -164,7 +164,6 @@ async function syncAllTenantPartnerDescriptions(client?) {
 
 export = {
   isTenantPartnerDescriptionChannel,
-  getTenantPartnerDescriptionText,
   getTenantPartnerDescriptionTextOrSync,
   syncTenantPartnerDescription,
   syncAllTenantPartnerDescriptions,

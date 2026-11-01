@@ -182,4 +182,4 @@ async function sendModCommandUsageToModLogs(guild?, message?, commandName?) {
   await channel.send({ embeds: [embed] }).catch((err?) => logModLogSendFailure(guild, channel, err, "command_usage"));
 }
 
-export = { resolveModLogChannel, logModLogSendFailure, fetchRecentAuditEntry, formatResponsible, nowDiscordTs, formatDurationForModLog, buildStaffActionModLogEmbed, sendStaffActionToModLogs, sendModCommandUsageToModLogs };
+export = { resolveModLogChannel, fetchRecentAuditEntry, formatResponsible, nowDiscordTs, sendStaffActionToModLogs, sendModCommandUsageToModLogs };

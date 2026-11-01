@@ -22,15 +22,6 @@ function isChannelOrThreadUnderStaffChat(channel?) {
   return false;
 }
 
-async function isStaffChatManagedThread(channel?) {
-  if (!channel || typeof channel.isThread !== "function" || !channel.isThread()) return false;
-  const chatId = staffChatChannelId();
-  if (!chatId || String(channel.parentId || "") !== chatId) return false;
-  const ids = await getStaffChatThreadIds();
-  const threadId = String(channel.id);
-  return threadId === ids.pm || threadId === ids.senior || threadId === ids.highStaff || threadId === ids.blogger;
-}
-
 async function resolveStaffChatPmThread(client?) {
   const ids = await getStaffChatThreadIds();
   const threadId = String(ids?.pm || "").trim();
@@ -60,7 +51,6 @@ async function staffChatCommandsDeniedReplyContent(channel?) {
 export = {
   staffChatChannelId,
   isChannelOrThreadUnderStaffChat,
-  isStaffChatManagedThread,
   resolveStaffChatPmThread,
   staffChatCommandsDeniedReplyContent,
 };

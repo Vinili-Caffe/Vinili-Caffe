@@ -764,10 +764,7 @@ async function startWebhookServer(client?) {
 
 export = {
   startWebhookServer,
-  shouldStartDiscadiaVoteHttpWebhook,
-  shouldStartTopggVoteHttpWebhook,
   shouldStartBotHttpServer,
-  shouldStartPublicSiteReadonlyHttp,
   isCandidatureWebsiteApiEnabled,
   extractTopggVoteDiscordUserId,
   isTopggWebhookAuthorized,

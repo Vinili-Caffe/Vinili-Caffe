@@ -620,15 +620,12 @@ function isVoiceCaptureActive(guildId?) {
 
 export = {
   CAPTURE_MAX_SEC,
-  PCM_BYTES_PER_SEC,
   PCM_SAMPLE_RATE,
   PCM_CHANNELS,
   extractVoiceCaptureClip,
   getVoiceCaptureInfo,
   isVoiceCaptureActive,
-  pcmBufferHasAudio,
   startVoiceContinuousCapture,
   stopVoiceContinuousCapture,
   syncCaptureVoiceChannelMember,
-  mixPcmBuffers,
 };

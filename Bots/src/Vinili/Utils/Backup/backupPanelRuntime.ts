@@ -173,6 +173,5 @@ export = {
   buildBackupPanelModal,
   parseBackupPanelModalCustomId,
   parseBackupPanelOpenButtonId,
-  formatBackupOpenButtonId,
   SECTION_HOME,
 };

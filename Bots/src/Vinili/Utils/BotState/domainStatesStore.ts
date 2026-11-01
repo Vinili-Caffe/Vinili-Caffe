@@ -292,21 +292,6 @@ async function voiceDeleteOne(filter?) {
   );
 }
 
-async function voiceDeleteManyInGuildIds(guildIds?) {
-  const set = new Set((guildIds || []).map((id?) => String(id || "")));
-  if (!set.size) return;
-  await atomicSetArray(
-    "domains.voiceStates",
-    {
-      $filter: {
-        input: arrayOrEmpty("domains.voiceStates"),
-        as: "row",
-        cond: { $not: [{ $in: [{ $toString: "$$row.guildId" }, Array.from(set)] }] },
-      },
-    },
-  );
-}
-
 async function voiceFindManyLeanForBot(botUserId?, options: Record<string, any> = {}) {
   const id = String(botUserId || "").trim();
   if (!id) return [];
@@ -324,11 +309,6 @@ async function voiceFindManyLeanForBot(botUserId?, options: Record<string, any> 
     if (includeLegacy && !b && !hasAnyExplicitBotForGuild(gid)) return true;
     return false;
   });
-}
-
-async function voiceFindManyLean() {
-  const domains = await getDomainsLean();
-  return domains.voiceStates || [];
 }
 
 async function ttsUserLangFindManyLean() {
@@ -532,9 +512,7 @@ export = {
   minigameRotationDeleteMany,
   voiceFindOneAndUpdate,
   voiceDeleteOne,
-  voiceDeleteManyInGuildIds,
   voiceFindManyLeanForBot,
-  voiceFindManyLean,
   ttsUserLangFindManyLean,
   ttsUserLangFindOneLean,
   ttsUserLangUpsert,

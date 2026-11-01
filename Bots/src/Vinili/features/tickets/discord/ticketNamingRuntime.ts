@@ -16,19 +16,4 @@ function buildTicketChannelName(panelConfig?, rawValue?, fallbackValue = "utente
   return `༄${String(panelConfig?.emoji || "")}︲${String(panelConfig?.name || "supporto")}᲼${safeTail}`.slice(0, 100);
 }
 
-function resolveTicketRenamePrefix(currentName?, ticketDoc?, fallbackPanelConfig = null) {
-  const current = String(currentName || "");
-  const unicodeSeparatorIndex = current.lastIndexOf("᲼");
-  if (unicodeSeparatorIndex !== -1) return current.slice(0, unicodeSeparatorIndex + 1);
-
-  const hyphenIndex = current.lastIndexOf("-");
-  if (hyphenIndex !== -1) return current.slice(0, hyphenIndex + 1);
-
-  const panelConfig = fallbackPanelConfig || ticketDoc;
-  if (panelConfig) {
-    return `༄${String(panelConfig.emoji || "")}︲${String(panelConfig.name || panelConfig.ticketType || "supporto")}᲼`;
-  }
-  return null;
-}
-
 export = { buildTicketChannelName, sanitizeTicketChannelTail };

@@ -337,10 +337,6 @@ function startPremiumExpiryReminderLoop(client?, opts: Record<string, any> = {})
 }
 
 export = {
-  REMINDER_STATE_KEY,
-  THRESHOLDS_DAYS,
-  runPremiumExpiryReminderSweep,
   startPremiumExpiryReminderLoop,
   sendPremiumExpiryReminderDm,
-  buildPremiumExpiryReminderEmbed,
 };

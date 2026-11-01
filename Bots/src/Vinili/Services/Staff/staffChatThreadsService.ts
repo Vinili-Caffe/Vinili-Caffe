@@ -12,7 +12,6 @@ const {
   resolveStaffThreadQualifyingRoleIds,
   memberHasStaffThreadAccess,
   memberQualifiesForStaffThreadSpec,
-  alwaysAccessStaffThreadRoleIds,
 } = require("../../Utils/Staff/staffThreadQualification") as typeof import("../../Utils/Staff/staffThreadQualification");
 const { getResocontoReviewerUserIdsForSegment } = require("../../Utils/Staff/resocontoAccess") as typeof import("../../Utils/Staff/resocontoAccess");
 const { resolveExistingStaffThread } = require("../../Utils/Staff/staffManagedThreadResolve") as typeof import("../../Utils/Staff/staffManagedThreadResolve");
@@ -59,10 +58,6 @@ const STAFF_CHAT_THREAD_SPECS = [
     ],
   },
 ];
-
-function alwaysAccessRoleIds() {
-  return alwaysAccessStaffThreadRoleIds();
-}
 
 function specRoleIds(spec?) {
   return resolveStaffThreadQualifyingRoleIds(spec);
@@ -186,16 +181,6 @@ async function sendThreadIntro(thread?, spec?) {
     .catch((err?) => {
       global.logger?.warn?.("[STAFF CHAT THREAD] Intro fallita:", spec.key, err?.message || err);
     });
-}
-
-async function deleteThreadIfAny(client?, threadId?) {
-  const id = String(threadId || "").trim();
-  if (!/^\d{16,22}$/.test(id)) return;
-  const ch = client.channels?.cache?.get(id) || (await client.channels.fetch(id).catch(() => null));
-  if (!ch?.isThread?.()) return;
-  await ch.delete("Sostituzione thread chat staff").catch((err?) => {
-    global.logger?.warn?.("[STAFF CHAT THREAD] Eliminazione thread fallita:", id, err?.message || err);
-  });
 }
 
 async function createStaffChatThread(parent?, guild?, spec?) {
@@ -338,7 +323,6 @@ function startStaffChatThreadsLoop(client?) {
 export = {
   STAFF_CHAT_THREAD_SPECS,
   startStaffChatThreadsLoop,
-  ensureStaffChatThreadsOnReady,
   syncStaffChatThreadsForMemberChange,
   memberQualifiesForSpec,
 };

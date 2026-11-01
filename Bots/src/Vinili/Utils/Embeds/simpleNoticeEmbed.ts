@@ -190,11 +190,7 @@ function coercePlainContentToNoticePayload(payload?, guild?, options: Record<str
 }
 
 export = {
-  buildSimpleNoticeEmbed,
   buildSimpleNoticePayload,
   coercePlainContentToNoticePayload,
-  contentLooksLikePlainNotice,
-  contentLooksLikePlainSuccess,
   isMentionOnlyContent,
-  resolveNoticeColor,
 };

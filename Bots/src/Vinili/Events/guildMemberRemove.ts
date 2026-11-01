@@ -1,7 +1,7 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, AuditLogEvent, PermissionsBitField, } = require("discord.js") as typeof import("discord.js");
 const { closeOpenTicketsForGuildUser } = require("../features/tickets/discord/ticketCloseRuntime") as typeof import("../features/tickets/discord/ticketCloseRuntime");
 const { autoUnclaimOpenTicketsClaimedByUser } = require("../features/tickets/discord/ticketAutoUnclaimOnStaffLoss") as typeof import("../features/tickets/discord/ticketAutoUnclaimOnStaffLoss");
-const { ActivityUserProfile, UserLeaveBackup, ACTIVITY_MAIN_GUILD_ID } = require("../Schemas/Community/communitySchemas") as typeof import("../Schemas/Community/communitySchemas");
+const { ActivityUserProfile, UserLeaveBackup } = require("../Schemas/Community/communitySchemas") as typeof import("../Schemas/Community/communitySchemas");
 const IDs = require("../Utils/Config/ids") as typeof import("../Utils/Config/ids");
 const { getGuildChannelCached, getClientGuildCached } = require("../Utils/Interaction/interactionEntityCache") as typeof import("../Utils/Interaction/interactionEntityCache");
 const { scheduleMemberCounterRefresh } = require("../Utils/Community/memberCounterUtils") as typeof import("../Utils/Community/memberCounterUtils");

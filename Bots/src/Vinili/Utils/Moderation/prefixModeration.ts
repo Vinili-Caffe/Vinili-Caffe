@@ -31,31 +31,6 @@ async function fetchMemberSafe(guild?, userId?) {
   return member;
 }
 
-async function fetchMembersSafe(guild?, userIds?) {
-  if (!guild || !Array.isArray(userIds) || userIds.length === 0)
-    return new Map();
-  const result = new Map();
-  const missing = [];
-  for (const id of userIds) {
-    const cached = getCachedMember(guild.id, id);
-    if (cached) {
-      result.set(id, cached);
-    } else {
-      missing.push(id);
-    }
-  }
-  if (missing.length > 0) {
-    const fetched=await guild.members.fetch({user:missing}).catch(() => null);
-    if (fetched) {
-      for (const [id, member] of fetched.entries()) {
-        result.set(id, member);
-        setCachedMember(guild.id, id, member);
-      }
-    }
-  }
-  return result;
-}
-
 function extractUserId(raw?, message?) {
   const mention = message.mentions?.users?.first();
   if (mention) return mention.id;
@@ -133,9 +108,4 @@ async function resolveTarget(message?, args?, index = 0) {
   return { user, member, userId };
 }
 
-function getReason(args?, startIndex?) {
-  const reason=Array.isArray(args)?args.slice(startIndex).join(" ").trim():"";
-  return reason || "Nessun motivo fornito";
-}
-
-export = { fetchMemberSafe, fetchMembersSafe, extractUserId, resolveTarget, getReason };
+export = { extractUserId, resolveTarget };

@@ -166,16 +166,6 @@ async function removeLevelRoleIfPossible(member?, roleId?) {
   return !fresh?.roles?.cache?.has(roleId);
 }
 
-async function removePerkRoleIfPossible(member?) {
-  if (!member?.guild || !PERK_ROLE_ID) return;
-  const me = member.guild.members.me;
-  if (!me?.permissions.has("ManageRoles")) return;
-  const role = member.guild.roles.cache.get(PERK_ROLE_ID) || (await getGuildRoleCached(member.guild, PERK_ROLE_ID));
-  if (!role || role.position >= me.roles.highest.position) return;
-  if (!member.roles.cache.has(PERK_ROLE_ID)) return;
-  await member.roles.remove(role).catch(() => {});
-}
-
 async function syncLevelRolesForMember(guild?, userId?, level?) {
   if (!guild || !userId) return [];
   const safeLevel = Math.max(0, Math.floor(Number(level || 0)));

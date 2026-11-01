@@ -196,14 +196,6 @@ async function handlePartnershipInviteDeleted(client?, invite?) {
 }
 
 export = {
-  syncPartnershipInviteFromManaged: async (guildId?, fallbackChannelId = null) => {
-        const gid = String(guildId || "").trim();
-    if (!/^\d{16,20}$/.test(gid)) return { ok: false, reason: "invalid_guild" };
-    const managed = await getManagedInvite(gid).catch(() => null);
-    const invite = inviteRowFromManaged(managed, fallbackChannelId);
-    if (!invite) return { ok: false, reason: "no_managed_invite" };
-    return { ok: true, invite, source: "managed" };
-  },
   maybeSyncPartnershipInviteFromManaged,
   ensurePartnershipChannelInvite,
   handlePartnershipInviteDeleted,

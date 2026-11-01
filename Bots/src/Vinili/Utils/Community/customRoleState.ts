@@ -105,4 +105,4 @@ function buildExpiryText(doc?) {
   return `<t:${ts}:F> (<t:${ts}:R>)`;
 }
 
-export = { resolveCustomRoleState, buildExpiryText, fetchRoleStrict };
+export = { resolveCustomRoleState, buildExpiryText };

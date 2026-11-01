@@ -45,4 +45,4 @@ function applyGeneratedPacks(uiPacks?, badgeCopy?, objectiveCopy?) {
   }
 }
 
-export = { applyGeneratedPacks, GEN_DIR };
+export = { applyGeneratedPacks };

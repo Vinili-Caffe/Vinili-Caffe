@@ -180,22 +180,6 @@ function canvasFont(size?, weight = 700, fontPrimary = "Arial") {
   return fontStackWithPrimary(fontPrimary || "Arial", size, cssWeight);
 }
 
-function ellipsize(ctx?, text?, maxWidth?) {
-  const safeText = String(text || "");
-  if (ctx.measureText(safeText).width <= maxWidth) return safeText;
-
-  let low = 0;
-  let high = safeText.length;
-  while (low < high) {
-    const mid = Math.ceil((low + high) / 2);
-    const candidate = `${safeText.slice(0, mid)}...`;
-    if (ctx.measureText(candidate).width <= maxWidth) low = mid;
-    else high = mid - 1;
-  }
-
-  return `${safeText.slice(0, Math.max(0, low))}...`;
-}
-
 function drawText(ctx?, text?, x?, y?, options: Record<string, any> = {}) {
   const {
     size = 28,

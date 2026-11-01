@@ -84,31 +84,6 @@ function scorePartnerPeriod(staff?, period?, weekBounds?) {
   );
 }
 
-function accumulatePartnerProfileScores(scores?, profileUserId?, staff?, period?, weekBounds?) {
-  const actions = Array.isArray(staff?.partnerActions) ? staff.partnerActions : [];
-  const afterMs = getPartnerServerResetMs(staff);
-  const hasManagerAttribution = actions.some((action?) => {
-    const mid = String(action?.managerId || "").trim();
-    return /^\d{16,22}$/.test(mid);
-  });
-
-  if (hasManagerAttribution) {
-    for (const action of actions) {
-      if (!isValidPartnerCreate(action, period, weekBounds, afterMs)) continue;
-      const uid = resolvePartnerActionCreditUserId(action, profileUserId);
-      if (!uid) continue;
-      scores.set(uid, (scores.get(uid) || 0) + 1);
-    }
-    return;
-  }
-
-  const score = scorePartnerPeriod(staff, period, weekBounds);
-  const uid = String(profileUserId || "").trim();
-  if (score > 0 && /^\d{16,22}$/.test(uid)) {
-    scores.set(uid, (scores.get(uid) || 0) + score);
-  }
-}
-
 function computeUserPartnershipScoresFromRows(rows?, userId?, weekBounds?) {
   const uid = String(userId || "").trim();
   if (!/^\d{16,22}$/.test(uid)) {
@@ -413,42 +388,14 @@ async function getUserPartnershipScoresForGuild(guildId?, userId?) {
   return computeUserPartnershipScoresFromRows(rows, uid, weekBounds);
 }
 
-async function getUserPartnershipScoresGuildLocal(guildId?, userId?) {
-  const gid = String(guildId || "").trim();
-  const uid = String(userId || "").trim();
-  if (!/^\d{16,20}$/.test(gid) || !/^\d{16,20}$/.test(uid)) {
-    return { points: 0, earned: 0, partnerships: 0, total: 0, daily: 0, weekly: 0 };
-  }
-
-  const weekBounds = getPartnerLeaderboardWeekBoundsUtc(new Date());
-  const row = await ActivityUserProfile.findOne({ guildId: gid, userId: uid })
-    .select("staff.partnerActions staff.partnerCount staff.partnerRedeemSpend staff.partnerServerResetAt")
-    .lean()
-    .catch(() => null);
-  const staff = row?.staff || null;
-  const actions = Array.isArray(staff?.partnerActions) ? staff.partnerActions : [];
-  const afterMs = getPartnerServerResetMs(staff);
-  const earned = resolvePartnerTotalEarned(staff);
-  const points = resolvePartnerPointsShown(staff);
-  let daily = 0;
-  let weekly = 0;
-  for (const action of actions) {
-    if (isValidPartnerCreate(action, "daily", weekBounds, afterMs)) daily += 1;
-    if (isValidPartnerCreate(action, "weekly", weekBounds, afterMs)) weekly += 1;
-  }
-  return { points, earned, partnerships: earned, total: earned, daily, weekly };
-}
-
 export = {
   normalizePeriod,
   normalizeCategory,
   fetchLeaderboardRows,
   findRankEntry,
   aggregateGlobalPartnersScores,
-  listTargetGuildIds,
   getGuildPartnershipScores,
   getUserPartnershipScores,
   getUserPartnershipScoresForGuild,
-  getUserPartnershipScoresGuildLocal,
   invalidateLeaderboardCache,
 };

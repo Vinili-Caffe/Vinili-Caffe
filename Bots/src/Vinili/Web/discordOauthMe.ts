@@ -49,12 +49,6 @@ function writeMeCache(key?, value?, ttlMs?) {
   pruneMeCache();
 }
 
-function invalidateDiscordOAuthMe(accessToken?) {
-  const token = String(accessToken || "").trim();
-  if (!token) return;
-  meCache.delete(tokenCacheKey(token));
-}
-
 async function fetchDiscordOAuthMeUncached(accessToken?, options: Record<string, any> = {}) {
   const token = String(accessToken || "").trim();
   if (!token) {
@@ -200,8 +194,5 @@ function getDiscordOAuthMeCacheStats() {
 export = {
   DISCORD_OAUTH_UA,
   fetchDiscordOAuthMe,
-  fetchDiscordOAuthMeUncached,
-  invalidateDiscordOAuthMe,
   getDiscordOAuthMeCacheStats,
-  OAUTH_ME_CACHE_TTL_MS,
 };

@@ -3,18 +3,6 @@ const { DISCORD_OAUTH_UA, fetchDiscordOAuthMe } = require("../../Web/discordOaut
 
 const WEBSITE_AUTH_TIMEOUT_MS = 4500;
 
-function withTimeout(promise?, timeoutMs?, label?) {
-  let timer = null;
-  return Promise.race([
-    promise,
-    new Promise((_?, reject?) => {
-      timer = setTimeout(() => reject(new Error(`${label || "operation"}_timeout`)), timeoutMs);
-    }),
-  ]).finally(() => {
-    if (timer) clearTimeout(timer);
-  });
-}
-
 async function fetchDiscordMe(accessToken?) {
   const out = await fetchDiscordOAuthMe(accessToken, { timeoutMs: WEBSITE_AUTH_TIMEOUT_MS });
   if (!out.ok) {
@@ -69,11 +57,6 @@ async function fetchOAuthGuildMemberResult(accessToken?, guildId?, timeoutMs = 2
   } finally {
     clearTimeout(timer);
   }
-}
-
-async function fetchOAuthGuildMemberJson(accessToken?, guildId?, timeoutMs = 2500) {
-  const r = await fetchOAuthGuildMemberResult(accessToken, guildId, timeoutMs);
-  return r.json;
 }
 
 function synthMemberFromOAuth(guild?, meJson?, oauthMember?) {

@@ -175,71 +175,6 @@ function truncateExample(value?, max = 72) {
   return `${text.slice(0, max - 1)}…`;
 }
 
-const VARIABLE_HELP_SECTIONS = [
-  {
-    title: "Server",
-    items: [
-      { token: "{guild}", key: "guildName", hint: "Name of the server where you publish the partnership." },
-      { token: "{server}", key: "guildName", hint: "Alias of {guild}." },
-      { token: "{guild.name}", key: "guildName", hint: "Text name of the server." },
-      { token: "{server.name}", key: "guildName", hint: "Alias of {guild.name}." },
-      { token: "{guild.id}", key: "guildId", hint: "Numeric ID of the server." },
-      { token: "{server.id}", key: "guildId", hint: "Alias of {guild.id}." },
-      { token: "{guild.link}", key: "guildLink", hint: "Permanent invite of the partnership channel." },
-      { token: "{server.link}", key: "guildLink", hint: "Alias of {guild.link}." },
-    ],
-  },
-  {
-    title: "Partner server",
-    items: [
-      { token: "{partner}", key: "partnerServerName", hint: "Name of the server you partner with." },
-      { token: "{partner.name}", key: "partnerServerName", hint: "Alias of {partner}." },
-    ],
-  },
-  {
-    title: "User",
-    items: [
-      { token: "{user}", key: "userMention", hint: "Mention of the user who executed the partnership." },
-      { token: "{user.id}", key: "userId", hint: "Discord ID of the user." },
-      { token: "{user.username}", key: "userUsername", hint: "Display name of the user." },
-      { token: "{user.tag}", key: "userTag", hint: "Discord username of the user." },
-      { token: "{user.points}", key: "userPoints", hint: "Total partner points of the user." },
-      { token: "{user.partnerships.count}", key: "userPartnershipsCount", hint: "Total partnerships completed." },
-      { token: "{user.partnerships.week}", key: "userPartnershipsWeek", hint: "Partnerships in the last 7 days." },
-      { token: "{user.partnerships.day}", key: "userPartnershipsDay", hint: "Partnerships in the last 24 hours." },
-    ],
-  },
-  {
-    title: "Manager",
-    items: [
-      { token: "{manager}", key: "managerMention", hint: "Mention of the partnership manager (with selected badges)." },
-      { token: "{manager.id}", key: "managerId", hint: "Manager ID, if present." },
-      { token: "{manager.username}", key: "managerUsername", hint: "Username of the manager." },
-      { token: "{manager.tag}", key: "managerTag", hint: "Alias of the manager name." },
-      { token: "{manager.badges}", key: "managerBadges", hint: "Selected profile badges of the manager." },
-    ],
-  },
-  {
-    title: "Images and icons",
-    items: [
-      { token: "{user.avatar}", key: "userAvatar", hint: "Avatar URL of the user who ran the partnership." },
-      { token: "{guild.icon}", key: "guildIcon", hint: "Icon URL of your server." },
-      { token: "{server.icon}", key: "guildIcon", hint: "Alias of {guild.icon}." },
-      { token: "{partner.icon}", key: "partnerIcon", hint: "Icon URL of the partner server." },
-      { token: "{manager.avatar}", key: "managerAvatar", hint: "Avatar URL of the partnership manager." },
-    ],
-  },
-  {
-    title: "Ping and more",
-    items: [
-      { token: "{ping}", key: "ping", hint: "Main ping applied (role, @here or @everyone)." },
-      { token: "{pings}", key: "pings", hint: "All pings applied together." },
-      { token: "{timestamp}", key: "timestamp", hint: "Relative Discord timestamp." },
-      { token: "{points}", key: "userPoints", hint: "Alias of {user.points}." },
-    ],
-  },
-];
-
 function formatVariableHelpLine(token?, example?, hint?) {
   return [`\`${token}\` **${truncateExample(example)}**`, `> ${hint}`].join("\n");
 }
@@ -314,10 +249,4 @@ async function buildThankYouVariablesHelpPayload(interaction?, lang = "en") {
   return { embeds: embeds.slice(0, 10), flags: 1 << 6 };
 }
 
-function buildThankYouVariablesHelpText(lang = "en") {
-  const { t } = require("../../MultiGuild/utils/Partner/tenantPartnershipI18n/index") as typeof import("../../MultiGuild/utils/Partner/tenantPartnershipI18n/index");
-  const { normalizeTenantLanguage } = require("../../MultiGuild/utils/Partner/tenantPartnershipI18n/languages") as typeof import("../../MultiGuild/utils/Partner/tenantPartnershipI18n/languages");
-  return t(normalizeTenantLanguage(lang), "varHelp_openHint");
-}
-
-export = { buildThankYouTemplateVars, applyPartnershipEmbedTemplate, parseEmbedColorInput, parseEmbedTimestampInput, normalizeOptionalUrl, buildThankYouVariablesHelpPayload, buildThankYouVariablesHelpText };
+export = { buildThankYouTemplateVars, applyPartnershipEmbedTemplate, parseEmbedColorInput, parseEmbedTimestampInput, normalizeOptionalUrl, buildThankYouVariablesHelpPayload };

@@ -415,7 +415,6 @@ async function handleSiteStaffPmShopPost(client?, req?, res?) {
 
 export = {
   buildPmShopCatalogForWeb,
-  stripDiscordMessage,
   handleSiteStaffPmShopPost,
   handleSiteStaffPmShopGet,
 };

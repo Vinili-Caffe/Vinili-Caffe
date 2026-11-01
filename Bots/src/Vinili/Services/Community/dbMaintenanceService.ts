@@ -44,6 +44,5 @@ function startDbMaintenanceLoop(client?, options: Record<string, any> = {}) {
 }
 
 export = {
-  runDbMaintenanceSweep,
   startDbMaintenanceLoop,
 };

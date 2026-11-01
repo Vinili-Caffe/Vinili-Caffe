@@ -99,9 +99,6 @@ async function resolveExistingStaffThread(client?, parent?, specName?, savedId?,
 }
 
 export = {
-  normalizeThreadName,
-  threadMatchesSpecName,
-  collectThreadsUnderParent,
   resolveExistingStaffThread,
   __test: {
     normalizeThreadName,

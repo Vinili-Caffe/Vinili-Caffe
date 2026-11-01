@@ -15,7 +15,6 @@ const {
   resolveStaffThreadQualifyingRoleIds,
   memberHasStaffThreadAccess,
   memberQualifiesForStaffThreadSpec,
-  alwaysAccessStaffThreadRoleIds,
 } = require("../../Utils/Staff/staffThreadQualification") as typeof import("../../Utils/Staff/staffThreadQualification");
 const { getResocontoReviewerUserIdsForSegment } = require("../../Utils/Staff/resocontoAccess") as typeof import("../../Utils/Staff/resocontoAccess");
 const { resolveExistingStaffThread } = require("../../Utils/Staff/staffManagedThreadResolve") as typeof import("../../Utils/Staff/staffManagedThreadResolve");
@@ -43,10 +42,6 @@ const STAFF_CMDS_THREAD_SPECS = [
     ],
   },
 ];
-
-function alwaysAccessRoleIds() {
-  return alwaysAccessStaffThreadRoleIds();
-}
 
 function specRoleIds(spec?) {
   return resolveStaffThreadQualifyingRoleIds(spec);
@@ -347,7 +342,6 @@ function startStaffCmdsThreadsLoop(client?) {
 export = {
   STAFF_CMDS_THREAD_SPECS,
   startStaffCmdsThreadsLoop,
-  ensureStaffCmdsThreadsOnReady,
   syncStaffCmdsThreadsForMemberChange,
   memberQualifiesForSpec,
 };

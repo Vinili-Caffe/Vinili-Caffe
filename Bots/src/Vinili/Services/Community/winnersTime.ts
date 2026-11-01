@@ -64,59 +64,6 @@ function getLastSunday21BoundaryMsAtOrBefore(date = new Date()) {
   return createUtcFromRomeLocal(p.year, p.month, p.day - p.weekday, 21, 0, 0).getTime();
 }
 
-function getLastSunday12BoundaryMsAtOrBefore(date = new Date()) {
-  const nowMs = date instanceof Date ? date.getTime() : Number(date);
-  if (!Number.isFinite(nowMs)) return Date.now();
-  const p = getRomeDateTimeParts(new Date(nowMs));
-  if (p.weekday === 0) {
-    const thisSunday12 = createUtcFromRomeLocal(p.year, p.month, p.day, 12, 0, 0).getTime();
-    if (nowMs < thisSunday12) {
-      return createUtcFromRomeLocal(p.year, p.month, p.day - 7, 12, 0, 0).getTime();
-    }
-    return thisSunday12;
-  }
-  return createUtcFromRomeLocal(p.year, p.month, p.day - p.weekday, 12, 0, 0).getTime();
-}
-
-function romeDateKeyFromMs(ms?) {
-  const p = getRomeDateTimeParts(new Date(ms));
-  return `${p.year}-${pad2(p.month)}-${pad2(p.day)}`;
-}
-
-function buildBiweekPeriodKey(endMs?) {
-  const end = Number(endMs);
-  if (!Number.isFinite(end)) return "";
-  return `${romeDateKeyFromMs(end - HOGWARTS_BIWEEKLY_MS)}_${romeDateKeyFromMs(end)}`;
-}
-
-function buildLastNDaysHourKeys(endMs?, days?) {
-  const n = Math.max(1, Math.min(21, Math.floor(Number(days) || 14)));
-  const keys = [];
-  for (let h = 0; h < 24 * n; h += 1) {
-    const d = new Date(endMs - h * 60 * 60 * 1000);
-    const parts = getTimeParts(d);
-    keys.push(`${parts.year}-${pad2(parts.month)}-${pad2(parts.day)}T${pad2(parts.hour)}`);
-  }
-  return keys;
-}
-
-function buildLast14DaysHourKeys(endMs?) {
-  return buildLastNDaysHourKeys(endMs, 14);
-}
-
-function getIsoWeekKeysInBiweeklyWindow(endMs?, startMs = null) {
-  const end = Number(endMs);
-  if (!Number.isFinite(end)) return [];
-  const start = Number(startMs);
-  const spanMs = Number.isFinite(start) && start < end ? end - start : HOGWARTS_BIWEEKLY_MS;
-  const keys = new Set();
-  for (let h = 0; h < Math.ceil(spanMs / (60 * 60 * 1000)); h += 12) {
-    const parts = getTimeParts(new Date(end - h * 60 * 60 * 1000));
-    keys.add(getWeekKey(new Date(Date.UTC(parts.year, parts.month - 1, parts.day, 12, 0, 0))));
-  }
-  return [...keys].filter(Boolean);
-}
-
 function pad2(value?) {
   return String(value).padStart(2, "0");
 }
@@ -144,18 +91,6 @@ function getWeekKey(date?) {
   const firstThursday = new Date(Date.UTC(utcDate.getUTCFullYear(), 0, 4));
   const weekNr = 1 + Math.round(((utcDate as any) - (firstThursday as any)) / (7 * 24 * 60 * 60 * 1000));
   return `${utcDate.getUTCFullYear()}-W${pad2(weekNr)}`;
-}
-
-function getWeekdayRome(date?) {
-  const formatter = new Intl.DateTimeFormat("en-US", { timeZone: TIME_ZONE, weekday: "short" });
-  return formatter.format(date);
-}
-
-function getLastCompletedWeekKey(date = new Date()) {
-  const wd = getWeekdayRome(date);
-  const daysToLastSunday = wd === "Sun" ? 0 : { Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 }[wd] ?? 0;
-  const lastSundayDate = new Date(date.getTime() - daysToLastSunday * 24 * 60 * 60 * 1000);
-  return getWeekKey(lastSundayDate);
 }
 
 function getMinigameRankWeekKeyForPublish(now = new Date()) {
@@ -280,4 +215,4 @@ function previousMonthKeyRome(now = new Date()) {
   return `${p.year}-${pad2(p.month)}`;
 }
 
-export = { TIME_ZONE, createUtcFromRomeLocal, getLastSunday21BoundaryMsAtOrBefore, getWeekKey, getLastCompletedWeekKey, getMinigameRankWeekKeyForPublish, getDateKeysForWeekKey, buildLast7DaysHourKeys, buildCalendarMonthHourKeys, getPreviousRomeCalendarMonth, buildLastHoursHourKeys, buildHourKeysBetweenMs, hourKeyToBoundsMs, overlapRangeMs, buildAnchorDateFromWeekKey, previousMonthKeyRome };
+export = { TIME_ZONE, createUtcFromRomeLocal, getLastSunday21BoundaryMsAtOrBefore, getWeekKey, getMinigameRankWeekKeyForPublish, buildLast7DaysHourKeys, buildCalendarMonthHourKeys, getPreviousRomeCalendarMonth, buildLastHoursHourKeys, buildHourKeysBetweenMs, hourKeyToBoundsMs, overlapRangeMs, buildAnchorDateFromWeekKey, previousMonthKeyRome };

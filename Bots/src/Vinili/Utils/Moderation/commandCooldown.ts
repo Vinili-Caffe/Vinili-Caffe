@@ -1,5 +1,4 @@
 const mongoose = require("mongoose") as typeof import("mongoose");
-const fs = require("fs") as typeof import("fs");
 const path = require("path") as typeof import("path");
 const { readSnapshotWithMeta, writeSnapshotWithMeta } = require("../../../shared/recovery/snapshotStore") as typeof import("../../../shared/recovery/snapshotStore");
 const { registerShutdownFlush, armShutdownCheckpoint } = require("../../../shared/recovery/shutdownCheckpoint") as typeof import("../../../shared/recovery/shutdownCheckpoint");
@@ -175,4 +174,4 @@ function consumeUserCooldown({ client, guildId, userId, cooldownSeconds }) {
   return { ok: true, remainingMs: 0 };
 }
 
-export = { computeCooldownSeconds, getUserCommandCooldownSeconds, consumeUserCooldown };
+export = { getUserCommandCooldownSeconds, consumeUserCooldown };

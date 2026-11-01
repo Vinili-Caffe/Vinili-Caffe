@@ -238,10 +238,7 @@ async function stabilizeRepostMedia(client?, doc?) {
 }
 
 export = {
-  isDiscordMediaUrl,
-  needsStableMedia,
   stabilizeQuoteMedia,
   stabilizeRepostMedia,
   fetchBoardMessageMedia,
-  migrateUrlToCdn,
 };

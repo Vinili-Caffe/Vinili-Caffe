@@ -92,4 +92,4 @@ if (!global.__vcRoleIconCacheCleanupInterval) {
   }
 }
 
-export = { cacheRoleIcon, cleanOldIcons };
+export = { cacheRoleIcon };

@@ -31,18 +31,7 @@ const RESOCONTO_CRON_SEGMENTS = RESOCONTO_SUNDAY_SEGMENTS.map((segment?) => ({
   segment,
   expression: RESOCONTO_CRON_EXPRESSION,
 }));
-const PM_WEEKLY_DEPEX_MAX_PARTNERS = 15;
-
 let weeklyStaffResocontoTasks = [];
-
-function getStaffResocontoChainSegments(segment?) {
-    const seg = String(segment || "");
-  return STAFF_RESOCONTO_SEGMENTS.includes(seg) ? [seg] : [];
-}
-
-async function runWeeklyStaffResocontoChain(client?, segment?, opts: Record<string, any> = {}) {
-  return runWeeklyStaffResocontoSegment(client, segment, opts);
-}
 
 async function runWeeklyStaffResoconti(client?, opts: Record<string, any> = {}) {
   const seg = opts.segment;
@@ -245,7 +234,6 @@ async function buildStaffResocontoApplyPlanForMember(guild?, userId?, staffRoleI
 
 export = {
   startWeeklyStaffResocontoLoop,
-  runWeeklyStaffResoconti,
   runWeeklyStaffResocontoSegment,
   runWeeklyLimitAutoValutazioniCatchupSegment,
   getPartnerLeaderboardWeekBoundsUtc,

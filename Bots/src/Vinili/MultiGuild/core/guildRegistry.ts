@@ -125,10 +125,6 @@ function listTenantGuildIds() {
   return listRegisteredGuildIds();
 }
 
-function isGuildRegistered(guildId?) {
-  return Boolean(getGuildEntry(guildId));
-}
-
 function resolveGuildAccess(guildId?) {
   const gid = normalizeGuildId(guildId);
   if (!gid) {
@@ -179,12 +175,9 @@ function invalidateRegistryCache() {
 }
 
 export = {
-  REGISTRY_PATH,
   readRegistryFile,
-  getGuildEntry,
   listRegisteredGuildIds,
   listTenantGuildIds,
-  isGuildRegistered,
   resolveGuildAccess,
   invalidateRegistryCache,
   normalizeGuildId,

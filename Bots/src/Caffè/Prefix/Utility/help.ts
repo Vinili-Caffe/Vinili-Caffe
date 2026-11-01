@@ -389,26 +389,6 @@ function hasAnyRole(memberRoles?, roleIds?) {
 }
 
 
-function getEntryDisplayTier(entry?) {
-  const roles = entry?.roles;
-  if (!Array.isArray(roles) || roles.length === 0) return "utente";
-  let minTier = 3;
-  for (const r of roles) {
-    if (r === IDs.roles.Founder) minTier = Math.min(minTier, 3);
-    else if (r === IDs.roles.HighStaff) minTier = Math.min(minTier, 2);
-    else if (
-      r === (IDs.roles as any).Staff ||
-      r === (IDs.roles as any).PartnerManager
-    )
-      minTier = Math.min(minTier, 1);
-    else minTier = Math.min(minTier, 0);
-  }
-  if (minTier === 0) return "utente";
-  if (minTier === 1) return (IDs.roles as any).Staff;
-  if (minTier === 2) return IDs.roles.HighStaff;
-  return IDs.roles.Founder;
-}
-
 function canMemberSeeEntry(entry?, memberRoles?) {
   const roles = entry?.roles;
   if (!Array.isArray(roles) || roles.length === 0) return true;

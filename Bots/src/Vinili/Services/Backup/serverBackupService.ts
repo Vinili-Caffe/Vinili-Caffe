@@ -854,39 +854,6 @@ async function deleteBackupByIdGlobal(backupRef?) {
   return { guildId, backupId };
 }
 
-async function listGuildBackupMetasPaginated(guildId?, { search = "", page = 1, pageSize = 10 } = {}) {
-  const safePageSize = Math.max(1, Math.min(25, Number(pageSize || 10)));
-  const safePage = Math.max(1, Number(page || 1));
-
-  const all = await listGuildBackupMetas(guildId, { search, limit: 500, offset: 0, });
-
-  const total = all.length;
-  const totalPages = Math.max(1, Math.ceil(total / safePageSize));
-  const finalPage = Math.min(safePage, totalPages);
-  const start = (finalPage - 1) * safePageSize;
-  const items = all.slice(start, start + safePageSize);
-
-  return {
-    items,
-    total,
-    totalPages,
-    page: finalPage,
-    pageSize: safePageSize,
-  };
-}
-
-async function verifyBackupByIdGlobal(backupRef?) {
-  const data = await readBackupByIdGlobal(backupRef);
-  return {
-    guildId: data.guildId,
-    backupId: data.backupId,
-    sizeBytes: Number(data.sizeBytes || 0),
-    checksum: data.checksum || null,
-    createdAt: data.payload?.createdAt || null,
-    source: data.payload?.source || null,
-  };
-}
-
 async function pruneGuildBackups(guildId?, { maxManual = 20, maxAutomatic = 1, maxManualAgeDays = 30, minManualToKeep = 5 } = {}) {
   const safeManual = Math.max(1, Math.min(500, Number(maxManual || 20)));
   const safeAutomatic = Math.max(1, Math.min(100, Number(maxAutomatic || 1)));
@@ -1044,12 +1011,4 @@ async function readSecuritySnapshot(guildId?, snapshotId?) {
   }
 }
 
-async function deleteSecuritySnapshot(guildId?, snapshotId?) {
-  const effectiveGuildId = getEffectiveGuildIdForSecurity(guildId);
-  await fs.unlink(path.join(getBackupFolder(effectiveGuildId), `${snapshotId}.json.gz`)).catch(() => null);
-  await fs.unlink(path.join(getBackupFolder(effectiveGuildId), `${snapshotId}.json.gz.bak`)).catch(() => null);
-  await fs.unlink(getBackupMetaPath(effectiveGuildId, snapshotId)).catch(() => null);
-  return { guildId: effectiveGuildId, snapshotId };
-}
-
-export = { createGuildBackup, readGuildBackup, deleteGuildBackup, listGuildBackupMetas, listGuildBackupMetasPaginated, listAllBackupMetas, listAllBackupMetasPaginated, readBackupByIdGlobal, deleteBackupByIdGlobal, verifyBackupByIdGlobal, pruneGuildBackups, validateAndHealGuildBackups, writeSecuritySnapshot, listSecuritySnapshots, readSecuritySnapshot, deleteSecuritySnapshot, getEffectiveGuildIdForSecurity };
+export = { createGuildBackup, listAllBackupMetasPaginated, readBackupByIdGlobal, deleteBackupByIdGlobal, pruneGuildBackups, validateAndHealGuildBackups, writeSecuritySnapshot, listSecuritySnapshots, readSecuritySnapshot, getEffectiveGuildIdForSecurity };

@@ -3,7 +3,7 @@ const IDs = require("../../../Utils/Config/ids") as typeof import("../../../Util
 const { getResocontoReviewerUserIdsForSegment } = require("../../../Utils/Staff/resocontoAccess") as typeof import("../../../Utils/Staff/resocontoAccess");
 
 const { getPartnerManagerRoleId } = require("../../../Utils/Partner/partnershipConfigResolver") as typeof import("../../../Utils/Partner/partnershipConfigResolver");
-const { memberHasRoleId, memberHasConfiguredRole } = require("../../../Utils/Staff/staffRoleHierarchy") as typeof import("../../../Utils/Staff/staffRoleHierarchy");
+const { memberHasRoleId } = require("../../../Utils/Staff/staffRoleHierarchy") as typeof import("../../../Utils/Staff/staffRoleHierarchy");
 const {
   applyTicketStaffRoleOverwrites,
   buildTicketMemberCreateOverwrite,
@@ -72,40 +72,6 @@ async function applyPartnershipTicketRoleOverwrites(channel?) {
   await applyPartnershipTicketReviewerOverwrites(channel);
 }
 
-async function syncOpenPartnershipTicketReviewerAccess(client?) {
-  const Ticket = require("../../../Schemas/Ticket/ticketSchema");
-  const { getGuildChannelCached } = require("../../../Utils/Interaction/interactionEntityCache") as typeof import("../../../Utils/Interaction/interactionEntityCache");
-  const guildId = String(IDs.guilds?.main || client?.config?.mainGuildId || "").trim();
-  if (!guildId) return { ok: false, reason: "no_guild" };
-  if (!RESOCONTO_PM_REVIEWER_USER_IDS.length) return { ok: true, synced: 0 };
-  const guild = client.guilds.cache.get(guildId) || (await client.guilds.fetch(guildId).catch(() => null));
-  if (!guild) return { ok: false, reason: "guild_not_found" };
-  const openTickets = await Ticket.find(
-    {
-      guildId,
-      open: true,
-      ticketType: "partnership",
-    },
-    { channelId: 1 },
-  )
-    .lean()
-    .catch(() => []);
-  let synced = 0;
-  for (const row of openTickets || []) {
-    const channelId = String(row?.channelId || "").trim();
-    if (!channelId) continue;
-    const channel =
-      guild.channels.cache.get(channelId) || (await getGuildChannelCached(guild, channelId).catch(() => null));
-    if (!channel?.permissionOverwrites?.edit) continue;
-    await applyPartnershipTicketRoleOverwrites(channel);
-    synced += 1;
-  }
-  if (synced > 0) {
-    global.logger?.info?.(`[TICKET PARTNERSHIP] Reviewer access sync: ${synced} ticket`);
-  }
-  return { ok: true, synced };
-}
-
 function getPartnershipTicketStaffRoleIds(guildId?) {
   const pmRoleId = getPartnerManagerRoleId(guildId) || PARTNERMANAGER_ROLE_ID;
   return [pmRoleId, HIGHSTAFF_ROLE_ID].filter(Boolean).map(String);
@@ -126,20 +92,6 @@ function memberCanManagePartnerManagers(member?) {
   return memberIsResocontoPmReviewer(member);
 }
 
-function memberHasTicketElevatedClosePrivileges(member?, ticketDoc = null) {
-    if (
-    ticketDoc &&
-    String(ticketDoc?.userId || "").trim() &&
-    String(ticketDoc.userId) === String(member?.id || "")
-  ) {
-    return false;
-  }
-  if (memberHasConfiguredRole(member, "HighStaff") || memberHasRoleId(member, HIGHSTAFF_ROLE_ID)) return true;
-  if (!memberIsResocontoPmReviewer(member)) return false;
-  if (!ticketDoc) return true;
-  return String(ticketDoc?.ticketType || "").trim() === "partnership";
-}
-
 function memberCanAccessPartnershipTicket(member?) {
   const uid = String(member?.id || "").trim();
   if (uid && RESOCONTO_PM_REVIEWER_USER_IDS.includes(uid)) return true;
@@ -151,17 +103,11 @@ function memberCanAccessPartnershipTicket(member?) {
 export = {
   PARTNERMANAGER_ROLE_ID,
   HIGHSTAFF_ROLE_ID,
-  RESOCONTO_PM_REVIEWER_USER_IDS,
   PARTNERSHIP_TICKET_STAFF_ROLE_IDS,
-  PARTNERSHIP_TICKET_REVIEWER_OVERWRITES,
   buildPartnershipTicketReviewerCreateOverwrites,
-  applyPartnershipTicketReviewerOverwrites,
   applyPartnershipTicketRoleOverwrites,
   clearPartnershipTicketPermissionOverwrites,
-  syncOpenPartnershipTicketReviewerAccess,
-  getPartnershipTicketStaffRoleIds,
   memberIsResocontoPmReviewer,
   memberCanManagePartnerManagers,
-  memberHasTicketElevatedClosePrivileges,
   memberCanAccessPartnershipTicket,
 };

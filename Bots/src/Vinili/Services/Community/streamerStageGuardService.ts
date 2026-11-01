@@ -199,5 +199,4 @@ export = {
   startStreamerStageGuardLoop,
   ensureStreamerStageChannel,
   isProtectedStreamerStageChannelId,
-  readConfiguredStreamVoiceIds,
 };

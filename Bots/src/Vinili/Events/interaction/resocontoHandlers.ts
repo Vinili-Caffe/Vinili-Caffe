@@ -1,9 +1,9 @@
-const { EmbedBuilder, ModalBuilder, ActionRowBuilder, TextInputBuilder, TextInputStyle, ButtonBuilder, ButtonStyle, } = require("discord.js") as typeof import("discord.js");
+const { EmbedBuilder } = require("discord.js") as typeof import("discord.js");
 const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
-const { getGuildChannelCached, getGuildMemberCached, getClientChannelCached, } = require("../../Utils/Interaction/interactionEntityCache") as typeof import("../../Utils/Interaction/interactionEntityCache");
+const { getGuildChannelCached, getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache") as typeof import("../../Utils/Interaction/interactionEntityCache");
 const { getOrCreateStaffDoc, deleteThreadForMessage, ensureStaff } = require("../../Utils/Staff/staffDocUtils") as typeof import("../../Utils/Staff/staffDocUtils");
 const { initPartnerManagerFieldsIfMissing, syncStaffDbAndPauseChannelAfterDepex } = require("../../Utils/Staff/staffPmUtils") as typeof import("../../Utils/Staff/staffPmUtils");
-const { addStaffWarnFromNegatives, applyFullDepex, applyDepexOneLevel, getHighestStaffRoleId } = require("../../Services/Staff/staffWarnService") as typeof import("../../Services/Staff/staffWarnService");
+const { applyDepexOneLevel, getHighestStaffRoleId } = require("../../Services/Staff/staffWarnService") as typeof import("../../Services/Staff/staffWarnService");
 const { buildAutoStaffWarnFromNegativesEmbed } = require("../../Utils/Staff/valutazionePanelActions") as typeof import("../../Utils/Staff/valutazionePanelActions");
 const { memberHasStaffRole } = require("../../Utils/Community/staffListUtils") as typeof import("../../Utils/Community/staffListUtils");
 const { getStaffRoleEmojiByRoleId } = require("../../Utils/Community/staffRoleEmoji") as typeof import("../../Utils/Community/staffRoleEmoji");
@@ -16,9 +16,6 @@ const { stripStafferAwardRoles } = require("../../Utils/Staff/staffRoleHierarchy
 const { onResocontoOutcomeRecorded } = require("../../Services/Staff/resocontoReviewerRewardService") as typeof import("../../Services/Staff/resocontoReviewerRewardService");
 const RESOCONTO_APPLY_PREFIX = "resoconto_apply";
 const RESOCONTO_REJECT_PREFIX = "resoconto_reject";
-const RESOCONTO_OVERRIDE_PREFIX = "resoconto_override";
-const RESOCONTO_REASON_MODAL_PREFIX = "resoconto_reason";
-const RESOCONTO_REASON_INPUT_ID = "reason";
 const WEEKLY_LIMITS_POSITIVE_REASON = "Limiti settimanali completati.";
 const WEEKLY_LIMITS_NEGATIVE_REASON = "Limiti settimanali non raggiunti.";
 const STAFF_ACTIONS = new Set(["px", "dp", "vp", "vn", "nl", "batch"]);
@@ -153,38 +150,6 @@ async function ensureRoleRemoved(guild?, member?, roleId?) {
   if (roleRemoved) return true;
   const stillHasRole = await hasRoleAfterRefresh(guild, member.id, roleId);
   return !stillHasRole;
-}
-
-async function sendValutazioneLogEmbed(guild?, actor?, targetUser?, reason?, positive?, valutazioniCount?, sectionOrdinal?) {
-  const { resolveStaffValutazioniChannel } = require("../../Utils/Staff/staffChannelUtils") as typeof import("../../Utils/Staff/staffChannelUtils");
-  const channel = await resolveStaffValutazioniChannel(guild);
-  if (!channel?.isTextBased?.()) return;
-
-  const ord = Math.max(0, Math.floor(Number(sectionOrdinal || 0)));
-  const vid = Math.max(0, Math.floor(Number(sectionOrdinal || 0)));
-  const actorUser = actor?.user || actor;
-  const iconSource = actor?.user ? actor : actorUser;
-  const actorName = String(actorUser?.username || actor?.username || "Staff");
-  const title = positive
-    ? `<:thumbsup:1471292172145004768> **__VALUTAZIONE POSITIVA__** #${ord}`
-    : `<:thumbsdown:1471292163957457013> **__VALUTAZIONE NEGATIVA__** #${ord}`;
-  const embed = new EmbedBuilder()
-    .setAuthor({
-      name: `Valutazione eseguita da ${actorName}`,
-      iconURL: userAvatarUrlDynamic(iconSource) || undefined,
-    })
-    .setTitle(title)
-    .setThumbnail(userAvatarUrlDynamic(targetUser) || undefined)
-    .setDescription(
-      [
-        `<:VC_Staff:1494286904089247754> <a:VC_Arrow:1482706699365257397> <@${targetUser.id}>`,
-        `<:VC_reason:1478517122929004544> __${reason}__`,
-        `<:VC_id:1478517313618575419> **ID Valutazione** __\`${vid}\`__`,
-      ].join("\n"),
-    )
-    .setColor("#6f4e37");
-
-  await channel.send({ content: `<@${targetUser.id}>`, embeds: [embed] }).catch(() => null);
 }
 
 async function applyPexSideEffects(guild?, member?, roleId?) {
@@ -1203,5 +1168,4 @@ export = {
   applyDepexSideEffects,
   sendPexDepexLog,
   decideResocontoFromWeb,
-  buildWebResocontoAlternatives,
 };

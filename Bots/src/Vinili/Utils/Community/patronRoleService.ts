@@ -221,11 +221,8 @@ async function recoverPatronAnnouncesOnStartup(client?, opts: Record<string, any
 }
 
 export = {
-  PATRON_PREREQUISITE_ROLE_IDS,
-  memberHasPatronPrerequisites,
   memberHasPatronRole,
   maybeSyncPatronRoleForMember,
   reconcilePatronRolesOnStartup,
   recoverPatronAnnouncesOnStartup,
-  sendPatronRoleAnnounce,
 };

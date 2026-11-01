@@ -6,7 +6,6 @@ const { resolvePartnerTotalEarned, resolvePartnerPointsShown } = require("../Sta
 const { memberHasPartnerManagerRole } = require("./partnershipConfigResolver") as typeof import("./partnershipConfigResolver");
 const { getGuildChannelCached } = require("../Interaction/interactionEntityCache") as typeof import("../Interaction/interactionEntityCache");
 const {
-  buildReviewStatusLine,
   buildUpdatedLogContent,
   disableRows,
 } = require("./pmPointsRemovedReviewHelpers") as typeof import("./pmPointsRemovedReviewHelpers");
@@ -310,8 +309,6 @@ async function logPmPointsRemoved({
 
 export = {
   docToApiItem,
-  createPmPointsRemovedEntry,
-  attachDiscordMirror,
   findPmPointsRemovedEntry,
   listPmPointsRemovedEntries,
   reviewPmPointsRemovedEntry,

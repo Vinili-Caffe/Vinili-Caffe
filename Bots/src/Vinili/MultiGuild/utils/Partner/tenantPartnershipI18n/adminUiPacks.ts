@@ -3349,7 +3349,7 @@ const ADMIN_UI_LOCALES = {
   }
 };
 
-const { ADMIN_EN, ADMIN_IT } = require("./adminPacks") as typeof import("./adminPacks");
+const { ADMIN_IT } = require("./adminPacks") as typeof import("./adminPacks");
 const { TENANT_LANGUAGES } = require("./languages") as typeof import("./languages");
 const { ADMIN_LOCALE_OVERRIDES } = require("./adminLocaleOverrides") as typeof import("./adminLocaleOverrides");
 
@@ -3373,4 +3373,4 @@ function applyAdminUiPacks(uiPacks?) {
   }
 }
 
-export = { ADMIN_UI_LOCALES, applyAdminUiPacks };
+export = { applyAdminUiPacks };

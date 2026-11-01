@@ -68,4 +68,4 @@ function installNodeCronMissFilter(options: Record<string, any> = {}) {
   global.__vcNodeCronMissFilterActive = true;
 }
 
-export = { installNodeCronMissFilter, loadNodeCronLogger };
+export = { installNodeCronMissFilter };

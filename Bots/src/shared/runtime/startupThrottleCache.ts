@@ -129,23 +129,6 @@ function tryClaimStartupWork(namespace?, key?, ttlMs?) {
   });
 }
 
-function clearStartupThrottle(namespace?, key = null) {
-  return withNamespaceLock(namespace, () => {
-    if (!key) {
-      const filePath = getStatePath(namespace);
-      try {
-        if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-        return true;
-      } catch {
-        return false;
-      }
-    }
-    const state = readState(namespace);
-    delete state[String(key)];
-    return writeState(namespace, state);
-  });
-}
-
 function envFlagEnabled(name?) {
   const raw = String(process.env[name] || "").trim().toLowerCase();
   return raw === "1" || raw === "true" || raw === "yes";
@@ -173,7 +156,6 @@ export = {
   isStartupThrottleDue,
   markStartupThrottle,
   tryClaimStartupWork,
-  clearStartupThrottle,
   shouldRunStartupWork,
   isFullStartupSyncEnabled,
   envFlagEnabled,

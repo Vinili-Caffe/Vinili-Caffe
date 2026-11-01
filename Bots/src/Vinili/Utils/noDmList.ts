@@ -246,57 +246,6 @@ async function shouldBlockDm(guildId?, userId?, category?) {
   return prefs.disabled.has(category);
 }
 
-async function getAllNoDmPreferences(guildId?) {
-  const key = String(guildId);
-
-  if (isDbReady()) {
-    await migrateFileToDbOnce();
-    await migrateVoteTopggNoDmSplitOnce();
-    const rows = await listNoDmPreferences(key);
-    return rows.map((row?) => {
-      const uid = String(row.userId);
-      const cat = row.categories;
-      if (!cat || !Array.isArray(cat) || cat.length === 0)
-        return { userId: uid, blockAll: true, disabled: [] };
-      if (cat.includes(DM_CATEGORY_ALL))
-        return { userId: uid, blockAll: true, disabled: [] };
-      return { userId: uid, blockAll: false, disabled: [...cat] };
-    });
-  }
-
-  const data = await loadFileData();
-  const list = Array.isArray(data[key]) ? data[key] : [];
-  return list.map((uid?) => ({ userId: String(uid), blockAll: true, disabled: [] }));
-}
-
-async function addNoDm(guildId?, userId?) {
-  const key = String(guildId);
-  const uid = String(userId);
-
-  if (isDbReady()) {
-    await migrateFileToDbOnce();
-    await setNoDmPreference(key, uid, [DM_CATEGORY_ALL]);
-    await mirrorAddToFile(key, uid).catch(() => { });
-    return;
-  }
-
-  await mirrorAddToFile(key, uid);
-}
-
-async function removeNoDm(guildId?, userId?) {
-  const key = String(guildId);
-  const uid = String(userId);
-
-  if (isDbReady()) {
-    await migrateFileToDbOnce();
-    await clearNoDmPreference(key, uid);
-    await mirrorRemoveFromFile(key, uid).catch(() => { });
-    return;
-  }
-
-  await mirrorRemoveFromFile(key, uid);
-}
-
 async function shouldNotifyDiscordPrivacyBlockForUser(user?, options: Record<string, any> = {}) {
   const guildId = String(options.guildId || "").trim();
   if (!guildId || options.notifyOnPrivacyBlock === false) return false;
@@ -365,4 +314,4 @@ async function sendDm(user?, payload?, options: Record<string, any> = {}) {
   return deliverUserDm(user, payload, options);
 }
 
-export = { getNoDmSet, addNoDm, removeNoDm, sendDm, getNoDmPreferences, setNoDmCategories, shouldBlockDm, getAllNoDmPreferences, DM_CATEGORIES, DM_CATEGORY_ALL, DM_CATEGORY_LABELS, isUserDmPrivacyBlockedError, notifyDmPrivacyBlockedInCommands };
+export = { sendDm, getNoDmPreferences, setNoDmCategories, shouldBlockDm, DM_CATEGORIES, DM_CATEGORY_ALL, DM_CATEGORY_LABELS, isUserDmPrivacyBlockedError, notifyDmPrivacyBlockedInCommands };

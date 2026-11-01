@@ -216,10 +216,6 @@ function setCachedState(guildId?, userId?, state?) {
   statusCache.set(makeStateKey(guildId, userId), state);
 }
 
-function deleteCachedState(guildId?, userId?) {
-  statusCache.delete(makeStateKey(guildId, userId));
-}
-
 function getPendingState(guildId?, userId?) {
   return pendingChecks.get(makeStateKey(guildId, userId));
 }

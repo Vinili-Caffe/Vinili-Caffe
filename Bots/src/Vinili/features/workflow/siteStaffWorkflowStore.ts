@@ -1,7 +1,7 @@
 const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
-const { SiteDocument, SITE_DOCUMENT_TYPE, ActivityUserProfile } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
+const { SiteDocument } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
 const { getBotState, setBotState } = require("../../Utils/BotState/botStateStore") as typeof import("../../Utils/BotState/botStateStore");
-const { getGuildMemberCached, getUserCached } = require("../../Utils/Interaction/interactionEntityCache") as typeof import("../../Utils/Interaction/interactionEntityCache");
+const { getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache") as typeof import("../../Utils/Interaction/interactionEntityCache");
 const {
   guildMemberDisplayAvatarUrlDynamic,
   userAvatarUrlDynamic,
@@ -25,23 +25,20 @@ const {
   parseCandidateTypeFromMessage,
 } = require("../../Events/interaction/candidatureApplicationHandlers") as typeof import("../../Events/interaction/candidatureApplicationHandlers");
 const {
-  getAppealDetail,
   parseAppealFromMessageOrEmbed,
   deriveAppealStatus,
-  appealSanctionStillActive,
-  closeAppealAsObsolete,
   autoCloseObsoletePendingAppeals,
 } = require("../staff/siteStaffAppealsRuntime") as typeof import("../staff/siteStaffAppealsRuntime");
 const { memberHasResocontoButtonAccess } = require("../../Utils/Staff/resocontoAccess") as typeof import("../../Utils/Staff/resocontoAccess");
 const { RESOCONTO_APPLY_PREFIX, RESOCONTO_REJECT_PREFIX } = require("../../Events/interaction/resocontoHandlers") as typeof import("../../Events/interaction/resocontoHandlers");
-const { RESOCONTO_LIST_ROLE_RANK, RESOCONTO_LIST_RANK_FALLBACK, stripDiscordDecorations, weekKeyFromDate, formatWeekLabel, buildWorkflowDedupeKey, normalizeStatus, statusLabelFor, pauseTrackRoleKey, cleanPauseSubjectDisplayName, pauseRoleDisplayLabel, resocontoActionLabelForKey, extractResocontoAzioneText, formatResocontoProposedLabel, buildResocontoInboxPreview, deriveResocontoStaffFlags, parseResocontoOutcomeFromContent, deriveResocontoStatusLabel, resolveResocontoDocStatus, isSnowflakeLikeLabel, normalizeResocontoActionKey, parseResocontoBodyFields } = require("./workflowLabels") as typeof import("./workflowLabels");
-const { isGenericWorkflowSubjectLabel, pickSubjectDisplayName, memberToSubjectFields, hasRealDiscordAvatarUrl, preferAnimatedStoredAvatarUrl, liveWorkflowAvatarUrl, resolveWorkflowSubject, applyWorkflowSubjectToItem, cleanAppealPreviewText, isWorkflowRoleSlug, readStoredSubject } = require("./workflowSubjects") as typeof import("./workflowSubjects");
+const { buildWorkflowDedupeKey, resocontoActionLabelForKey, buildResocontoInboxPreview, deriveResocontoStaffFlags, parseResocontoOutcomeFromContent, deriveResocontoStatusLabel, resolveResocontoDocStatus } = require("./workflowLabels") as typeof import("./workflowLabels");
+const { memberToSubjectFields, resolveWorkflowSubject } = require("./workflowSubjects") as typeof import("./workflowSubjects");
 const { docToListItem, parseNumberedQaBlocks, docToDetail, snowflakeToDate } = require("./workflowSerialize") as typeof import("./workflowSerialize");
 const { enrichResocontoDetailChart, enrichResocontoRolesHistory } = require("./workflowResocontoHistory") as typeof import("./workflowResocontoHistory");
 const { WORKFLOW_DOC, upsertStaffWorkflowItem, updateStaffWorkflowStatusByDedupe, updateStaffWorkflowFromMessage, updateStaffWorkflowFromPause } = require("./workflowWrites") as typeof import("./workflowWrites");
-const { listResocontiWeeks, listUserWorkflowsForMember, listUserInvitedSubjectChats, getUserWorkflowDetailFromDb, getPendingPauseWorkflowForMember, getStaffWorkflowDetailFromDb, upsertPauseWorkflowFromPause } = require("./workflowQueries") as typeof import("./workflowQueries");
+const { listUserWorkflowsForMember, listUserInvitedSubjectChats, getUserWorkflowDetailFromDb, getPendingPauseWorkflowForMember, getStaffWorkflowDetailFromDb, upsertPauseWorkflowFromPause } = require("./workflowQueries") as typeof import("./workflowQueries");
 const { listStaffWorkflowFromDb } = require("./workflowList") as typeof import("./workflowList");
-const { memberStillRelevantForResoconto, resocontoAutoCancelLabel, memberEligibleForPauseRole, autoCancelPendingPausesIfNotEligible, reconcilePendingPauseWorkflows, parseResocontoFromMessage, syncAppealsToWorkflowStore, syncResocontiToWorkflowStore, ensurePauseWorkflowDoc, syncPauseWorkflowFieldsFromProfiles, syncPausesToWorkflowStore, persistAppealWorkflowFromMessage, persistAppealWorkflowFromPayload } = require("./workflowSync") as typeof import("./workflowSync");
+const { memberStillRelevantForResoconto, memberEligibleForPauseRole, autoCancelPendingPausesIfNotEligible, reconcilePendingPauseWorkflows, parseResocontoFromMessage, syncAppealsToWorkflowStore, syncResocontiToWorkflowStore, ensurePauseWorkflowDoc, syncPauseWorkflowFieldsFromProfiles, syncPausesToWorkflowStore, persistAppealWorkflowFromMessage, persistAppealWorkflowFromPayload } = require("./workflowSync") as typeof import("./workflowSync");
 const { persistCandidatureWorkflowFromMessage, persistCandidatureWorkflowFromPayload, persistResocontoWorkflowFromMessage, persistResocontoWorkflowFromPayload, workflowActorExtras, resocontoWorkflowItemFromDoc, resocontoWorkflowItemFromSnapshot } = require("./workflowPersist") as typeof import("./workflowPersist");
 const { cancelPendingResocontiWorkflowForUser, pruneDepexedPendingResoconti, cancelPendingPauseWorkflowForUser, filterPauseInboxItemsCachedOnly, prunePendingPauseInboxUsers } = require("./workflowAutoCancel") as typeof import("./workflowAutoCancel");
 
@@ -121,10 +118,6 @@ async function scheduleStaffWorkflowBackfill(client?, guild?, viewerMember?, opt
     await backfillInFlight.catch(() => null);
   }
   return true;
-}
-
-async function maybeBackfillStaffWorkflowStore(client?, guild?, viewerMember?) {
-  return scheduleStaffWorkflowBackfill(client, guild, viewerMember);
 }
 
 async function listStaffWorkflowForInbox(client?, guild?, viewerMember?, queue?, opts: Record<string, any> = {}) {
@@ -264,9 +257,7 @@ export = {
   getUserWorkflowDetailFromDb,
   getPendingPauseWorkflowForMember,
   getStaffWorkflowDetailFromDb,
-  backfillStaffWorkflowFromDiscord,
   scheduleStaffWorkflowBackfill,
-  maybeBackfillStaffWorkflowStore,
   syncPausesToWorkflowStore,
   syncPauseWorkflowFieldsFromProfiles,
   upsertPauseWorkflowFromPause,

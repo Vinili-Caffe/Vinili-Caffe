@@ -48,4 +48,4 @@ async function loadBachecaReactions(guildId: string, itemIds: string[], viewerId
   return { counts, mine };
 }
 
-export = { BACHECA_EMOJIS, BachecaReaction, toggleBachecaReaction, loadBachecaReactions };
+export = { BACHECA_EMOJIS, toggleBachecaReaction, loadBachecaReactions };

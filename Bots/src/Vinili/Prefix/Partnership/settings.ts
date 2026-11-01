@@ -1,8 +1,10 @@
 const { safePrefixPanelReply, safeMessageReply } = require("../../../shared/discord/replyRuntime") as typeof import("../../../shared/discord/replyRuntime");
 const { memberCanManageTenantPartnershipSettings } = require("../../MultiGuild/utils/Partner/tenantPartnershipAdminAccess") as typeof import("../../MultiGuild/utils/Partner/tenantPartnershipAdminAccess");
-const { resolveTenantLanguageForMessage,
-  replyTenantMessage,
-  tenantNotConfiguredError, tenantNoticePayload } = require("../../MultiGuild/utils/Partner/tenantPartnershipPrefixMessages") as typeof import("../../MultiGuild/utils/Partner/tenantPartnershipPrefixMessages");
+const {
+  resolveTenantLanguageForMessage,
+  tenantNotConfiguredError,
+  tenantNoticePayload,
+} = require("../../MultiGuild/utils/Partner/tenantPartnershipPrefixMessages") as typeof import("../../MultiGuild/utils/Partner/tenantPartnershipPrefixMessages");
 const { refreshPartnershipConfigCache } = require("../../MultiGuild/core/tenantPartnershipSettings") as typeof import("../../MultiGuild/core/tenantPartnershipSettings");
 const {
   resolvePartnershipConfigSync,

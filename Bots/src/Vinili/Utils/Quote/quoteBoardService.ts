@@ -6,7 +6,6 @@ const { TENANT_EMBED_COLOR } = require("../../MultiGuild/utils/tenantEmbedBrandi
 const {
   isRepostDisabledInGuild,
   REPOST_SRC_PREFIX,
-  REPOST_BTN_PREFIX,
 } = require("../../Services/Community/repostService") as typeof import("../../Services/Community/repostService");
 
 const backfillDoneByGuild = new Set();
@@ -18,7 +17,6 @@ const BACKFILL_PAGE_SIZE = 100;
 const BACKFILL_META_CHANNEL = "__meta__";
 const BACKFILL_META_MESSAGE = "backfill_v2";
 const REPOSTA_BACKFILL_META_MESSAGE = "board_buttons_v2";
-const REPOSTA_BACKFILL_DELAY_MS = 2500;
 let repostaEditCooldownUntil = 0;
 
 function messageJumpUrl(guildId?, channelId?, messageId?) {
@@ -47,38 +45,6 @@ function parseQuoteRemoveCustomId(customId?) {
 
 function componentCustomId(comp?) {
   return String(comp?.customId || comp?.custom_id || "").trim();
-}
-
-function sleep(ms?) {
-  return new Promise((resolve?) => setTimeout(resolve, ms));
-}
-
-function messageHasRepostaButton(message?) {
-  for (const row of message?.components || []) {
-    for (const comp of row.components || []) {
-      const id = componentCustomId(comp);
-      if (id.startsWith(REPOST_SRC_PREFIX) || id.startsWith(REPOST_BTN_PREFIX)) return true;
-    }
-  }
-  return false;
-}
-
-function messageHasRemoveButton(message?) {
-  return Boolean(findQuoteRemoveCustomId(message));
-}
-
-function messageHasCompleteBoardButtons(message?) {
-  return messageHasRepostaButton(message) && messageHasRemoveButton(message);
-}
-
-function findQuoteRemoveCustomId(message?) {
-  for (const row of message?.components || []) {
-    for (const comp of row.components || []) {
-      const id = componentCustomId(comp);
-      if (parseQuoteRemoveCustomId(id)) return id;
-    }
-  }
-  return "";
 }
 
 function buildQuoteRemoveButton(creatorUserId?, originChannelId?, originMessageId?, fallbackChannelId = "") {
@@ -140,13 +106,6 @@ function buildQuoteBoardComponents({
 
   if (!buttons.length) return [];
   return [new ActionRowBuilder().addComponents(...buttons.slice(0, 5))];
-}
-
-function attachmentKeepPayload(message?) {
-  const ids = [...(message?.attachments?.values() || [])]
-    .map((att?) => String(att?.id || "").trim())
-    .filter((id?) => /^\d{16,20}$/.test(id));
-  return ids.map((id?) => ({ id }));
 }
 
 function parseQuoteBoardMessage(message?) {
@@ -218,124 +177,6 @@ function parseQuoteBoardMessage(message?) {
     totalPosts,
     createdAt: message.createdAt || new Date(message.createdTimestamp || Date.now()),
   };
-}
-
-function withTimeout(promise?, ms?, label = "timeout") {
-  const limit = Math.max(1000, Number(ms) || 15000);
-  let timer;
-  return Promise.race([
-    Promise.resolve(promise).finally(() => {
-      if (timer) clearTimeout(timer);
-    }),
-    new Promise((_?, reject?) => {
-      timer = setTimeout(() => reject(new Error(label)), limit);
-    }),
-  ]);
-}
-
-function componentsToApi(components?) {
-  return (components || []).map((row?) => (typeof row?.toJSON === "function" ? row.toJSON() : row));
-}
-
-function resolveBotToken() {
-  return (
-    String(process.env.DISCORD_TOKEN_OFFICIAL || "").trim() ||
-    String(process.env.DISCORD_TOKEN || "").trim() ||
-    String(process.env.TOKEN || "").trim() ||
-    ""
-  );
-}
-
-async function waitRepostaEditCooldown() {
-  const waitMs = repostaEditCooldownUntil - Date.now();
-  if (waitMs > 0) await sleep(waitMs);
-}
-
-async function editMessageComponents(guild?, message?, components?) {
-  const channelId = String(message?.channelId || message?.channel?.id || "").trim();
-  const messageId = String(message?.id || "").trim();
-  if (!channelId || !messageId) throw new Error("message_edit_unavailable");
-
-  const body: Record<string, any> = { components: componentsToApi(components) };
-  const keep = [];
-  try {
-    const atts =
-      typeof message?.attachments?.values === "function"
-        ? [...message.attachments.values()]
-        : Array.isArray(message?.attachments)
-          ? message.attachments
-          : [];
-    for (const att of atts) {
-      const id = String(att?.id || "").trim();
-      if (/^\d{17,22}$/.test(id)) keep.push({ id });
-    }
-  } catch (_) {}
-  if (keep.length) body.attachments = keep;
-  const token = resolveBotToken();
-  if (token) {
-    let attempt = 0;
-    while (attempt < 12) {
-      attempt += 1;
-      await waitRepostaEditCooldown();
-      const res = await fetch(`https://discord.com/api/v10/channels/${channelId}/messages/${messageId}`, {
-        method: "PATCH",
-        headers: {
-          Authorization: `Bot ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(body),
-        signal: AbortSignal.timeout(15_000),
-      });
-      if (res.status === 429) {
-        const retryRaw = res.headers.get("retry-after");
-        let retryMs = Number(retryRaw) * 1000;
-        let isGlobal = false;
-        let isOldMessageEditCap = false;
-        const json: any = await res.json().catch(() => null);
-        if (!Number.isFinite(retryMs) || retryMs <= 0) {
-          retryMs = Math.ceil(Number(json?.retry_after || 1) * 1000);
-        }
-        isGlobal = Boolean(json?.global);
-        isOldMessageEditCap =
-          Number(json?.code) === 30046 ||
-          /older than 1 hour/i.test(String(json?.message || ""));
-                const floor = isOldMessageEditCap
-          ? 45_000
-          : isGlobal
-            ? 30_000
-            : Math.min(30_000, 5_000 + attempt * 2_000);
-        retryMs = Math.min(180_000, Math.max(floor, retryMs));
-        repostaEditCooldownUntil = Date.now() + retryMs;
-        global.logger?.warn?.(
-          `[quote] board buttons backfill rate limited msg=${messageId} waitMs=${retryMs} attempt=${attempt} global=${isGlobal} oldCap=${isOldMessageEditCap}`,
-        );
-        if (isOldMessageEditCap && attempt >= 2) {
-          throw new Error("discord_old_message_edit_cap");
-        }
-        continue;
-      }
-      if (!res.ok) {
-        const text = await res.text().catch(() => "");
-        throw new Error(`discord_patch_${res.status}:${String(text).slice(0, 180)}`);
-      }
-      return;
-    }
-    throw new Error("discord_patch_rate_limited");
-  }
-
-  const rest = guild?.client?._rest || message?.client?._rest || message?.channel?.client?._rest;
-  if (rest) {
-    const { Routes } = require("discord-api-types/v10") as typeof import("discord-api-types/v10");
-    await rest.patch(Routes.channelMessage(channelId, messageId), { body });
-    return;
-  }
-  if (typeof message?.edit === "function") {
-    const editPayload: Record<string, any> = { components };
-    if (keep.length) editPayload.attachments = keep;
-    await message.edit(editPayload);
-    return;
-  }
-  throw new Error("message_edit_unavailable");
 }
 
 async function upsertQuoteBoardFromParsed(guildId?, boardChannelId?, boardMessageId?, parsed?) {
@@ -629,34 +470,6 @@ async function hasPersistedRepostaBackfillMarker(guildId?) {
   return Boolean(meta?._id);
 }
 
-async function markRepostaBackfillComplete(guildId?) {
-  const gid = String(guildId || "").trim();
-  if (!gid) return;
-  await GuildQuoteBoard.updateOne(
-    { guildId: gid, boardChannelId: BACKFILL_META_CHANNEL, boardMessageId: REPOSTA_BACKFILL_META_MESSAGE },
-    {
-      $set: {
-        creatorUserId: "0",
-        quotedUserId: "0",
-        quotedUsername: "reposta_backfill",
-        imageUrl: "",
-        originChannelId: "",
-        originMessageId: "",
-        totalPosts: 0,
-        updatedAt: new Date(),
-      },
-      $setOnInsert: {
-        guildId: gid,
-        boardChannelId: BACKFILL_META_CHANNEL,
-        boardMessageId: REPOSTA_BACKFILL_META_MESSAGE,
-        createdAt: new Date(),
-      },
-    },
-    { upsert: true, timestamps: false },
-  ).catch(() => null);
-  repostaBackfillDoneByGuild.add(gid);
-}
-
 async function isQuoteBoardRepostaBackfillComplete(guildId?) {
   const gid = String(guildId || "").trim();
   if (!gid) return false;
@@ -668,176 +481,12 @@ async function isQuoteBoardRepostaBackfillComplete(guildId?) {
   return false;
 }
 
-async function backfillQuoteBoardRepostaButtons(guild?) {
-  const channel = await resolveQuotePostChannel(guild);
-  if (!channel?.messages?.fetch) return { scanned: 0, updated: 0, skipped: 0, failed: 0 };
-
-  let scanned = 0;
-  let updated = 0;
-  let skipped = 0;
-  let failed = 0;
-  let before;
-  for (let page = 0; page < BACKFILL_MAX_PAGES; page += 1) {
-    global.logger?.info?.(`[quote] reposta backfill fetching page=${page + 1} before=${before || "latest"}`);
-    const batch = await withTimeout(
-      channel.messages.fetch(before ? { limit: BACKFILL_PAGE_SIZE, before } : { limit: BACKFILL_PAGE_SIZE }),
-      30_000,
-      `fetch_timeout_page_${page + 1}`,
-    ).catch((err?) => {
-      global.logger?.warn?.(`[quote] reposta backfill fetch failed: ${err?.message || err}`);
-      return null;
-    });
-    if (!batch?.size) break;
-
-    let pageUpdated = 0;
-    let pageFailed = 0;
-    let consecutiveOldCap = 0;
-    const ordered = [...batch.values()].sort((a?, b?) => b.createdTimestamp - a.createdTimestamp);
-    for (const msg of ordered) {
-      scanned += 1;
-      const parsed = parseQuoteBoardMessage(msg);
-      if (!parsed) {
-        skipped += 1;
-        continue;
-      }
-      if (messageHasCompleteBoardButtons(msg)) {
-        skipped += 1;
-        continue;
-      }
-      if (!parsed.creatorUserId) {
-        skipped += 1;
-        continue;
-      }
-
-      const components = buildQuoteBoardComponents({
-        guildId: guild.id,
-        creatorUserId: parsed.creatorUserId,
-        originChannelId: parsed.originChannelId,
-        originMessageId: parsed.originMessageId,
-        boardChannelId: channel.id,
-        boardMessageId: msg.id,
-        quotedUserId: parsed.quotedUserId,
-        existingRemoveCustomId: findQuoteRemoveCustomId(msg),
-      });
-      if (!components.length) {
-        skipped += 1;
-        continue;
-      }
-      const rebuiltIds = components.flatMap((row?) =>
-        [...(row.components || [])].map((c?: any) =>
-          String(c?.data?.custom_id || c?.customId || "").trim(),
-        ),
-      );
-      const rebuiltHasBoth =
-        rebuiltIds.some((id?) => id.startsWith(REPOST_SRC_PREFIX)) &&
-        rebuiltIds.some((id?) => Boolean(parseQuoteRemoveCustomId(id)));
-      if (!rebuiltHasBoth) {
-        skipped += 1;
-        continue;
-      }
-
-      const editError = { message: "" };
-      const edited = await editMessageComponents(guild, msg, components)
-        .then(() => true)
-        .catch((err?) => {
-          editError.message = String(err?.message || err || "edit_failed");
-          return false;
-        });
-      if (edited) {
-        updated += 1;
-        pageUpdated += 1;
-        consecutiveOldCap = 0;
-      } else {
-        failed += 1;
-        pageFailed += 1;
-        if (pageFailed <= 3) {
-          global.logger?.warn?.(
-            `[quote] reposta backfill edit failed msg=${msg.id}: ${editError.message}`,
-          );
-        }
-        if (editError.message.includes("discord_old_message_edit_cap")) {
-          consecutiveOldCap += 1;
-          if (consecutiveOldCap >= 3) {
-            global.logger?.warn?.(
-              "[quote] board buttons backfill paused: Discord old-message edit cap exhausted. Will need a later resume.",
-            );
-            return { scanned, updated, skipped, failed, pausedByOldCap: true };
-          }
-                    await sleep(60_000);
-        }
-      }
-      if (REPOSTA_BACKFILL_DELAY_MS > 0) {
-        const ageMs = Date.now() - Number(msg.createdTimestamp || 0);
-        const oldMessage = Number.isFinite(ageMs) && ageMs > 60 * 60 * 1000;
-        await sleep(oldMessage ? Math.max(REPOSTA_BACKFILL_DELAY_MS, 45_000) : REPOSTA_BACKFILL_DELAY_MS);
-      }
-    }
-
-    global.logger?.info?.(
-      `[quote] reposta backfill page=${page + 1} scanned=${scanned} updated=${updated} skipped=${skipped} failed=${failed} pageUpdated=${pageUpdated}`,
-    );
-
-    const oldest = ordered[ordered.length - 1];
-    if (!oldest?.id || batch.size < BACKFILL_PAGE_SIZE) break;
-    before = oldest.id;
-  }
-
-  return { scanned, updated, skipped, failed };
-}
-
-async function ensureQuoteBoardRepostaBackfilled(guild?, opts: Record<string, any> = {}) {
-  const wait = opts.wait !== false;
-  const force = opts.force === true;
-  const gid = String(guild?.id || "").trim();
-  if (!gid) return;
-
-  if (!force && (await isQuoteBoardRepostaBackfillComplete(gid))) return;
-
-  let inflight = repostaBackfillInflightByGuild.get(gid);
-  if (!inflight) {
-    inflight = (async () => {
-      try {
-        const result = await backfillQuoteBoardRepostaButtons(guild);
-        if (Number(result.failed || 0) === 0 && !result.pausedByOldCap) {
-          await markRepostaBackfillComplete(gid);
-        }
-        global.logger?.info?.(
-          `[quote] reposta backfill guild=${gid} scanned=${result.scanned} updated=${result.updated} skipped=${result.skipped} failed=${result.failed}${result.pausedByOldCap ? " pausedByOldCap=1" : ""}`,
-        );
-      } catch (err) {
-        global.logger?.warn?.("[quote] reposta backfill failed:", err?.message || err);
-      } finally {
-        repostaBackfillInflightByGuild.delete(gid);
-      }
-    })();
-    repostaBackfillInflightByGuild.set(gid, inflight);
-  }
-
-  if (wait) await inflight;
-}
-
-async function syncQuoteBoardRepostaButtonsOnStartup(client?) {
-  const guilds = [...(client?.guilds?.cache?.values() || [])];
-  for (const guild of guilds) {
-    const channel = await resolveQuotePostChannel(guild);
-    if (!channel) continue;
-    await ensureQuoteBoardRepostaBackfilled(guild, { wait: true });
-  }
-}
-
 export = {
   messageJumpUrl,
   registerQuoteBoardPost,
   listQuotesByUser,
   deleteUserQuoteEntry,
   deleteQuoteBoardRecordByMessage,
-  ensureQuoteBoardBackfilled,
-  backfillQuoteBoardFromChannel,
-  isQuoteBoardBackfillComplete,
   buildQuoteBoardComponents,
-  backfillQuoteBoardRepostaButtons,
-  ensureQuoteBoardRepostaBackfilled,
-  syncQuoteBoardRepostaButtonsOnStartup,
   isQuoteBoardRepostaBackfillComplete,
-  markRepostaBackfillComplete,
 };

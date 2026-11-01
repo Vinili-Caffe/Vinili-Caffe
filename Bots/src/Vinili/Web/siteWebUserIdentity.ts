@@ -262,7 +262,6 @@ export = {
   isSnowflakeLabel,
   safeDisplayLabel,
   identityFallback,
-  identityFromUser,
   resolveWebUserIdentity,
   resolveWebUserIdentitiesBatch,
 };

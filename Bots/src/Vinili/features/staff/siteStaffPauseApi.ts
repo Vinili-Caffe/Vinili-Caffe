@@ -699,6 +699,5 @@ async function handleSiteStaffPausePost(client?, req?, res?) {
 export = {
   handleSiteStaffPauseGet,
   handleSiteStaffPausePost,
-  buildStaffPauseCalendarPayload,
   invalidateStaffPauseCalendarCache,
 };

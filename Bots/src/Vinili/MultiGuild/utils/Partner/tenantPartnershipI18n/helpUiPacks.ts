@@ -497,4 +497,4 @@ function applyHelpUiPacks(uiPacks?) {
   }
 }
 
-export = { HELP_UI_LOCALES, applyHelpUiPacks };
+export = { applyHelpUiPacks };

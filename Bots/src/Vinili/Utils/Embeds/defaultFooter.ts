@@ -331,10 +331,8 @@ export = {
   applyDefaultFooter,
   applyDefaultFooterToEmbeds,
   stripDefaultFooterInternals,
-  normalizeOutgoingPayload,
   installEmbedFooterPatch,
   installOutgoingMessageEmbedPatch,
   installEmbedMediaFallbackPatch,
   setEmbedBrandDefaultColor,
-  getEmbedBrandDefaultColor,
 };

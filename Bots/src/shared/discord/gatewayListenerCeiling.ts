@@ -104,9 +104,6 @@ function installGatewayShardListenerCeiling(client?) {
 }
 
 export = {
-  applyGatewayShardListenerCeiling,
-  collectGatewayEmitters,
   installGatewayShardListenerCeiling,
   resolveEventListenersCeiling,
-  raiseAsyncEventEmitterDefaults,
 };

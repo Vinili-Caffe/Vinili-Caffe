@@ -330,30 +330,6 @@ function customEmojiUrl(id?, animated = false) {
   return `https://cdn.discordapp.com/emojis/${id}.${ext}?size=96`;
 }
 
-function drawEmojiPlaceholder(ctx?, x?, y?, drawSize?) {
-  const r = Math.max(4, Math.round(drawSize * 0.22));
-  ctx.save();
-  ctx.fillStyle = "rgba(90, 78, 110, 0.55)";
-  ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.lineTo(x + drawSize - r, y);
-  ctx.quadraticCurveTo(x + drawSize, y, x + drawSize, y + r);
-  ctx.lineTo(x + drawSize, y + drawSize - r);
-  ctx.quadraticCurveTo(x + drawSize, y + drawSize, x + drawSize - r, y + drawSize);
-  ctx.lineTo(x + r, y + drawSize);
-  ctx.quadraticCurveTo(x, y + drawSize, x, y + drawSize - r);
-  ctx.lineTo(x, y + r);
-  ctx.quadraticCurveTo(x, y, x + r, y);
-  ctx.closePath();
-  ctx.fill();
-  ctx.fillStyle = "#c9b89f";
-  ctx.font = `600 ${Math.max(12, Math.round(drawSize * 0.42))}px sans-serif`;
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillText("?", x + drawSize / 2, y + drawSize / 2);
-  ctx.restore();
-}
-
 async function getEmojiImage(token?) {
   const key =
     typeof token === "string"

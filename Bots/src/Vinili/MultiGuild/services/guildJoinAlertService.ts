@@ -313,7 +313,6 @@ async function handleManagedInviteDeleted(client?, invite?) {
 }
 
 export = {
-  isJoinAlertEnabled,
   handleBotJoinedGuild,
   handleManagedInviteDeleted,
   getManagedInvite,

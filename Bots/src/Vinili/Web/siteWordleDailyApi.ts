@@ -217,7 +217,6 @@ async function handleSiteWordleDailyPost(client?, req?, res?) {
 
 export = {
   cleanGame,
-  betterGame,
   isStartedGame,
   loadDailyGame,
   loadStartedDailyGame,

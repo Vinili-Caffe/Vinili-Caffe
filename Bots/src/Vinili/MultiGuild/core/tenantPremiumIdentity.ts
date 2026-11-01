@@ -137,18 +137,12 @@ async function patchTenantPremiumIdentity(guildId?, patch: Record<string, any> =
   return { ok: true, identity: getTenantPremiumIdentitySync(gid) };
 }
 
-async function setTenantPremiumIdentityVisuallyApplied(guildId?, visuallyApplied?) {
-  return patchTenantPremiumIdentity(guildId, { visuallyApplied: visuallyApplied === true });
-}
-
 export = {
   BOT_STATE_KEY,
   emptyIdentity,
   identityHasCustom,
   ensureTenantPremiumIdentityCacheFresh,
-  refreshTenantPremiumIdentityCache,
   getTenantPremiumIdentitySync,
   getTenantPremiumIdentity,
   patchTenantPremiumIdentity,
-  setTenantPremiumIdentityVisuallyApplied,
 };

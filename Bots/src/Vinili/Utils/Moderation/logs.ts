@@ -108,14 +108,4 @@ function purple(message?) {
   return write(message, `${color.purple}[${getTimestamp()}]${color.reset} `);
 }
 
-function getRecentErrors(limit = 80) {
-  const safe = Math.max(1, Math.min(300, Number(limit || 80)));
-  return errorBuffer.slice(0, safe);
-}
-
-function getRecentConsole(limit = 250) {
-  const safe = Math.max(1, Math.min(CONSOLE_BUFFER_MAX, Number(limit || 250)));
-  return consoleBuffer.slice(0, safe);
-}
-
-export = { getTimestamp, write, info, warn, error, success, debug, logging, torquise, purple, getRecentErrors, getRecentConsole, color };
+export = { getTimestamp, write, info, warn, error, success, debug, logging, torquise, purple, color };

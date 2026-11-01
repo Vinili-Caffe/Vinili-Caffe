@@ -625,11 +625,6 @@ async function countOpenWebTickets(guildId?) {
   return promise;
 }
 
-function invalidateOpenWebTicketsCache() {
-  openWebTicketsCache = null;
-  webTicketsListCache.clear();
-}
-
 export = {
   handleSiteWebTicketsMetaGet,
   handleSiteWebTicketsPresencePost,
@@ -664,7 +659,6 @@ export = {
   handleSiteWebTicketsRatePost,
   handleSiteWebTicketsFileGet,
   countOpenWebTickets,
-  invalidateOpenWebTicketsCache,
   CATEGORY_LABELS,
   WEB_TICKET_CATEGORIES,
   emitTicketEvent,

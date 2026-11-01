@@ -328,4 +328,4 @@ function applyCommandsUiPacks(uiPacks?) {
   }
 }
 
-export = { COMMAND_UI_KEYS, COMMAND_UI_LOCALES, applyCommandsUiPacks };
+export = { applyCommandsUiPacks };

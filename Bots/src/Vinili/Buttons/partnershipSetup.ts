@@ -24,7 +24,7 @@ const {
 } = require("../Utils/Partner/partnershipSetupComponents") as typeof import("../Utils/Partner/partnershipSetupComponents");
 
 const { memberCanManageTenantPartnershipSettings } = require("../MultiGuild/utils/Partner/tenantPartnershipAdminAccess") as typeof import("../MultiGuild/utils/Partner/tenantPartnershipAdminAccess");
-const { t, resolveTenantLanguage } = require("../MultiGuild/utils/Partner/tenantPartnershipI18n/index") as typeof import("../MultiGuild/utils/Partner/tenantPartnershipI18n/index");
+const { t } = require("../MultiGuild/utils/Partner/tenantPartnershipI18n/index") as typeof import("../MultiGuild/utils/Partner/tenantPartnershipI18n/index");
 const { resolveTenantLanguageForInteraction, tenantI18nNoticePayload } = require("../MultiGuild/utils/Partner/tenantPartnershipPrefixMessages") as typeof import("../MultiGuild/utils/Partner/tenantPartnershipPrefixMessages");
 const { buildSimpleNoticePayload } = require("../Utils/Embeds/simpleNoticeEmbed") as typeof import("../Utils/Embeds/simpleNoticeEmbed");
 const { setTenantObjectiveFlag } = require("../MultiGuild/services/Partner/tenantObjectiveService") as typeof import("../MultiGuild/services/Partner/tenantObjectiveService");

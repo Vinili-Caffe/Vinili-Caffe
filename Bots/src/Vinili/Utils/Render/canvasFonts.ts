@@ -209,4 +209,4 @@ function drawTextWithSpecialFallback(ctx?, text?, x?, y?, options: Record<string
   ctx.restore();
 }
 
-export = { registerCanvasFonts, fontStack, fontStackPrimaryOnly, fontStackWithPrimary, drawTextWithSpecialFallback, PRIMARY_FONT, TIBETAN_FONT, SYMBOLS_FONT, COLOR_EMOJI_FONT, EMOJI_FONT, FRAKTUR_FONT, MATH_FONT, FALLBACK_FONT, FONT_STACK };
+export = { registerCanvasFonts, fontStack, fontStackPrimaryOnly, fontStackWithPrimary, drawTextWithSpecialFallback, FALLBACK_FONT };

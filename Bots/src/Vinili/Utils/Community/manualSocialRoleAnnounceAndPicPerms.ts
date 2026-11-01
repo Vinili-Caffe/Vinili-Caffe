@@ -453,6 +453,5 @@ async function maybeAnnounceManualSocialRolesAndGrantPicPermsBundle(oldMember?, 
 export = {
   maybeAnnounceManualSocialRolesAndGrantPicPermsBundle,
   recoverManualSocialRoleAnnouncesOnStartup,
-  memberEligibleForPicPerms,
   tryRevokePicPermsIfIneligible,
 };

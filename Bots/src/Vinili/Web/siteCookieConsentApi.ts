@@ -97,9 +97,6 @@ async function handleSiteCookieConsentGet(client?, req?, res?) {
 
 export = {
   handleSiteCookieConsentGet,
-  getCookieConsentEligibility,
-  evaluateCookieRejectEligibility,
-  VIP_ROLE_ID,
   VIP_PLUS_ROLE_ID,
   DOUBLE_BOOSTER_ROLE_ID,
 };

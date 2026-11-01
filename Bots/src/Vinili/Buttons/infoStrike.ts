@@ -132,5 +132,4 @@ export = {
     return handleInfoStrikeInteraction(interaction);
   },
   buildStrikeButtons,
-  parseInfoStrikeCustomId,
 };

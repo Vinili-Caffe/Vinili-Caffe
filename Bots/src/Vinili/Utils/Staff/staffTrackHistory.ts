@@ -234,10 +234,8 @@ function buildStaffTrackTimeline(guild?, staff?, { limit = 400 } = {}) {
 }
 
 export = {
-  TRACK_KINDS,
   actorLabelFromUser,
   appendStaffTrackHistory,
   buildStaffTrackTimeline,
   isHiddenManualStaffCareerReason,
-  normalizeTrackEntry,
 };

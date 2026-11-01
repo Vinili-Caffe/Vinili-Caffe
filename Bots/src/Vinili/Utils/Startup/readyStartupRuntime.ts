@@ -29,20 +29,6 @@ async function runTimedTask({ label, run, onStart, onSuccess, onError }) {
   }
 }
 
-async function runTaskGroup(tasks?, hooks: Record<string, any> = {}) {
-  return Promise.all(
-    tasks.map((task?) =>
-      runTimedTask({
-        label: task.label,
-        run: task.run,
-        onStart: hooks.onStart,
-        onSuccess: hooks.onSuccess,
-        onError: hooks.onError,
-      }),
-    ),
-  );
-}
-
 async function runTaskSequence(tasks?, hooks: Record<string, any> = {}) {
   const results = [];
   for (const task of tasks) {
@@ -130,8 +116,5 @@ async function runPhasedStartupTasks(tasks?, hooks: Record<string, any> = {}, op
 export = {
   formatDurationMs,
   runPhasedStartupTasks,
-  runTaskGroup,
-  runTaskSequence,
   runTaskPool,
-  sortStartupTasksByWeight,
 };

@@ -1,4 +1,4 @@
-const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js") as typeof import("discord.js");
+const { EmbedBuilder } = require("discord.js") as typeof import("discord.js");
 const IDs = require("../Config/ids") as typeof import("../Config/ids");
 
 const MAX_REACTIONS = 3;
@@ -134,34 +134,8 @@ function buildCustomReactionPanelEmbed(reactions?, maxReactions = MAX_REACTIONS,
     .setFooter({ text: "Il bot aggiunge queste reaction solo quando sei menzionato nel messaggio." });
 }
 
-function buildCustomReactionPanelRows(ownerId?) {
-  const safeOwner = String(ownerId || "").trim();
-  return [
-    new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId(`customreaction_add:${safeOwner}`)
-        .setLabel("Aggiungi")
-        .setEmoji(`<:VC_emoji:1485419161168511036>`)
-        .setStyle(ButtonStyle.Primary),
-      new ButtonBuilder()
-        .setCustomId(`customreaction_remove:${safeOwner}`)
-        .setLabel("Rimuovi")
-        .setEmoji(`<:VC_emoji:1485419161168511036>`)
-        .setStyle(ButtonStyle.Primary),
-      new ButtonBuilder()
-        .setCustomId(`customreaction_clear:${safeOwner}`)
-        .setLabel("Azzera tutto")
-        .setEmoji(`<:VC_delete:1485421886589501511>`)
-        .setStyle(ButtonStyle.Danger),
-    ),
-  ];
-}
-
 export = {
   MAX_REACTIONS,
-  MAX_REACTIONS_PREMIUM,
-  CUSTOM_REACTION_ROLE_IDS,
-  CUSTOM_REACTION_FIVE_ROLE_IDS,
   memberHasCustomReactionRoleAccess,
   getCustomReactionMax,
   parseReactionTokens,
@@ -169,5 +143,4 @@ export = {
   resolveStoredCustomEmojiFromClient,
   toDisplay,
   buildCustomReactionPanelEmbed,
-  buildCustomReactionPanelRows,
 };

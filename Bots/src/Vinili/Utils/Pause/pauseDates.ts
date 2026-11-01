@@ -222,11 +222,6 @@ function getStaffWeekKeyNow(now = new Date()) {
   return resolveWeekKey(now);
 }
 
-function formatRomeMonthKey(date = new Date()) {
-  const { formatRomeMonthKey: fmt } = require("../Staff/stafferDellaSettimanaWeekKey") as typeof import("../Staff/stafferDellaSettimanaWeekKey");
-  return fmt(date);
-}
-
 function coerceMonthKey(raw?) {
   const { coerceMonthKey: coerce } = require("../Staff/stafferDellaSettimanaWeekKey") as typeof import("../Staff/stafferDellaSettimanaWeekKey");
   return coerce(raw);

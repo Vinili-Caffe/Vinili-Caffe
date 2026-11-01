@@ -1,17 +1,13 @@
 const IDs = require("../Config/ids") as typeof import("../Config/ids");
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
-const { getGuildMemberCached, resolveGuildMemberPresence } = require("../Interaction/interactionEntityCache") as typeof import("../Interaction/interactionEntityCache");
+const { getGuildMemberCached } = require("../Interaction/interactionEntityCache") as typeof import("../Interaction/interactionEntityCache");
 const {
   MS_PER_DAY,
   parseItalianDate,
   getPauseDaysBetween,
   getTodayUtc,
-  getCurrentYearBoundsUtc,
-  countOverlapDays,
   computeConsumedPauseDays,
   getMemberRoleLabel,
-  getPauseStatusLabel,
-  computePauseScaledDaysThisYear,
   getStaffPauseRecord,
   updatePauseInDb,
   syncSingleAcceptedPauseMessage,
@@ -33,7 +29,6 @@ const {
   PAUSE_ROLE_PM,
   PAUSE_ROLE_BOTH,
   getBestStaffPauseBonusDays,
-  getStaffPauseBonusDaysTotal,
   getValPosTradedPauseBonusDays,
   grantBestStaffPauseBonusYear,
   computeStaffPauseDayBudget,
@@ -85,185 +80,6 @@ async function fetchPauseRequestMessage(guild?, pause?) {
   const channel = guild.channels.cache.get(chId) || (await guild.channels.fetch(chId).catch(() => null));
   if (!channel?.messages?.fetch) return null;
   return channel.messages.fetch(msgId).catch(() => null);
-}
-
-async function listPendingStaffPauses(client?, guildId?) {
-  const gid = String(guildId || IDs.guilds.main || "").trim();
-  const docs = await ActivityUserProfile.find(
-    { guildId: gid, "staff.pauses.status": "pending" },
-    { userId: 1, "staff.pauses": 1 },
-  )
-    .lean()
-    .catch(() => []);
-
-  const guild = client.guilds.cache.get(gid) || (await client.guilds.fetch(gid).catch(() => null));
-  const today = getTodayUtc();
-  const items = [];
-  const { memberEligibleForPauseRole, autoCancelPendingPausesIfNotEligible } = require("../../features/workflow/siteStaffWorkflowStore") as typeof import("../../features/workflow/siteStaffWorkflowStore");
-  const presenceByUser = new Map();
-
-  for (const doc of docs) {
-    const userId = String(doc?.userId || "").trim();
-    const pauses = Array.isArray(doc?.staff?.pauses) ? doc.staff.pauses : [];
-    let presence = presenceByUser.get(userId);
-    if (!presence && guild && userId) {
-      presence = await resolveGuildMemberPresence(guild, userId, { preferFresh: true }).catch(() => ({
-        member: null,
-        left: false,
-        uncertain: true,
-      }));
-      presenceByUser.set(userId, presence);
-      if (presence.left || (presence.member && !memberEligibleForPauseRole(presence.member, "Staff"))) {
-        await autoCancelPendingPausesIfNotEligible(guild, userId, { decidedBy: "system" }).catch(() => 0);
-      }
-    }
-    for (const pause of pauses) {
-      if (!pause || String(pause.status || "") !== "pending") continue;
-      const ruoloRichiesto = String(pause.ruoloRichiesto || pause.ruolo || "Staff").trim();
-      if (presence) {
-        if (presence.uncertain && !presence.member) {
-                  } else if (presence.left || !presence.member || !memberEligibleForPauseRole(presence.member, ruoloRichiesto)) {
-          continue;
-        }
-      }
-      const pauseId = String(pause._id || "");
-      const member = presence?.member || (guild ? await getGuildMemberCached(guild, userId).catch(() => null) : null);
-      const displayName =
-        String(member?.displayName || member?.user?.globalName || member?.user?.username || userId).trim() ||
-        userId;
-      items.push({
-        id: pauseId,
-        userId,
-        displayName,
-        avatarUrl: member?.displayAvatarURL?.({ size: 64, extension: "webp" }) || "",
-        start: String(pause.dataRichiesta || ""),
-        end: String(pause.dataRitorno || ""),
-        motivazione: String(pause.motivazione || "").trim(),
-        ruoloRichiesto,
-        createdAt: pause.createdAt ? new Date(pause.createdAt).toISOString() : null,
-        phase: getPausePhase(pause.dataRichiesta, pause.dataRitorno, today),
-      });
-    }
-  }
-
-  items.sort((a?, b?) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")));
-  return items;
-}
-
-async function listStaffPausesForInbox(client?, guildId?, opts: Record<string, any> = {}) {
-  const scope = String(opts.scope || "all").toLowerCase();
-  const limit = Math.min(150, Math.max(1, Number(opts.limit) || 80));
-  const gid = String(guildId || IDs.guilds.main || "").trim();
-  const query =
-    scope === "pending"
-      ? { guildId: gid, "staff.pauses.status": "pending" }
-      : { guildId: gid, "staff.pauses.0": { $exists: true } };
-  const docs = await ActivityUserProfile.find(query, { userId: 1, "staff.pauses": 1 })
-    .lean()
-    .catch(() => []);
-
-  const guild = client.guilds.cache.get(gid) || (await client.guilds.fetch(gid).catch(() => null));
-  const today = getTodayUtc();
-  const items = [];
-  const { memberEligibleForPauseRole, autoCancelPendingPausesIfNotEligible } = require("../../features/workflow/siteStaffWorkflowStore") as typeof import("../../features/workflow/siteStaffWorkflowStore");
-  const presenceByUser = new Map();
-
-  for (const doc of docs) {
-    const userId = String(doc?.userId || "").trim();
-    const pauses = Array.isArray(doc?.staff?.pauses) ? doc.staff.pauses : [];
-    let presence = presenceByUser.get(userId);
-    if (!presence && guild && userId) {
-      presence = await resolveGuildMemberPresence(guild, userId, { preferFresh: true }).catch(() => ({
-        member: null,
-        left: false,
-        uncertain: true,
-      }));
-      presenceByUser.set(userId, presence);
-    }
-    for (const pause of pauses) {
-      if (!pause) continue;
-      const status = String(pause.status || "pending").trim() || "pending";
-      if (scope === "pending" && status !== "pending") continue;
-      const ruoloRichiesto = String(pause.ruoloRichiesto || pause.ruolo || "Staff").trim();
-      if (status === "pending" && presence) {
-        if (presence.uncertain && !presence.member) {
-                  } else if (presence.left || !presence.member || !memberEligibleForPauseRole(presence.member, ruoloRichiesto)) {
-          if (!presenceByUser.get(`${userId}:cancelled`)) {
-            presenceByUser.set(`${userId}:cancelled`, true);
-            await autoCancelPendingPausesIfNotEligible(guild, userId, { decidedBy: "system" }).catch(() => 0);
-          }
-          continue;
-        }
-      }
-      const pauseId = String(pause._id || "");
-      const member = presence?.member || (guild ? await getGuildMemberCached(guild, userId).catch(() => null) : null);
-      const displayName =
-        String(member?.displayName || member?.user?.globalName || member?.user?.username || userId).trim() ||
-        userId;
-      items.push({
-        id: pauseId,
-        userId,
-        displayName,
-        avatarUrl: member?.displayAvatarURL?.({ size: 64, extension: "webp" }) || "",
-        start: String(pause.dataRichiesta || ""),
-        end: String(pause.dataRitorno || ""),
-        motivazione: String(pause.motivazione || "").trim(),
-        ruoloRichiesto,
-        createdAt: pause.createdAt ? new Date(pause.createdAt).toISOString() : null,
-        phase: getPausePhase(pause.dataRichiesta, pause.dataRitorno, today),
-        status,
-        statusLabel: getPauseStatusLabel(pause, today),
-        canAct: status === "pending",
-      });
-    }
-  }
-
-  items.sort((a?, b?) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")));
-  return items.slice(0, limit);
-}
-
-async function getStaffPauseInboxDetail(client?, guildId?, userId?, pauseId?) {
-  const gid = String(guildId || IDs.guilds.main || "").trim();
-  const uid = String(userId || "").trim();
-  const pid = String(pauseId || "").trim();
-  if (!uid || !pid) return null;
-  const stafferRecord = await getStaffPauseRecord(gid, uid);
-  const pause = stafferRecord?.staff?.pauses?.id?.(pid);
-  if (!pause) return null;
-  const guild = client.guilds.cache.get(gid) || (await client.guilds.fetch(gid).catch(() => null));
-  const member = guild ? await getGuildMemberCached(guild, uid).catch(() => null) : null;
-  const today = getTodayUtc();
-  const yearBounds = (getCurrentYearBoundsUtc as any)(today);
-  const status = String(pause.status || "pending").trim() || "pending";
-  const displayName =
-    String(member?.displayName || member?.user?.globalName || member?.user?.username || uid).trim() || uid;
-  return {
-    id: pid,
-    userId: uid,
-    displayName,
-    avatarUrl: member?.displayAvatarURL?.({ size: 128, extension: "webp" }) || "",
-    start: String(pause.dataRichiesta || ""),
-    end: String(pause.dataRitorno || ""),
-    motivazione: String(pause.motivazione || "").trim(),
-    ruoloRichiesto: String(pause.ruoloRichiesto || pause.ruolo || "Staff").trim(),
-    ruolo: String(pause.ruolo || "").trim(),
-    giorniUsati: Number(pause.giorniUsati || 0),
-    giorniAggiuntivi: Number(pause.giorniAggiuntivi || 0),
-    createdAt: pause.createdAt ? new Date(pause.createdAt).toISOString() : null,
-    cancelledAt: pause.cancelledAt ? new Date(pause.cancelledAt).toISOString() : null,
-    phase: getPausePhase(pause.dataRichiesta, pause.dataRitorno, today),
-    timing: (getPauseTimingText as any)(pause.dataRichiesta, pause.dataRitorno, today),
-    status,
-    statusLabel: getPauseStatusLabel(pause, today),
-    giorniScalati: computePauseScaledDaysThisYear(pause, today, yearBounds.yearStart, yearBounds.yearEnd),
-    canAct: status === "pending",
-    fields: [
-      { name: "Periodo", value: `${pause.dataRichiesta || "?"} \u2192 ${pause.dataRitorno || "?"}` },
-      { name: "Ruolo richiesto", value: String(pause.ruoloRichiesto || pause.ruolo || "Staff") },
-      { name: "Motivazione", value: String(pause.motivazione || "\u2014") },
-      { name: "Stato", value: getPauseStatusLabel(pause, today) },
-    ],
-  };
 }
 
 async function rejectPauseRequestWeb(client?, guild?, actorMember?, userId?, pauseId?) {
@@ -696,9 +512,6 @@ async function cancelPauseRequestWeb(client?, guild?, actorMember?, userId?, pau
 }
 
 export = {
-  listPendingStaffPauses,
-  listStaffPausesForInbox,
-  getStaffPauseInboxDetail,
   acceptPauseRequestWeb,
   rejectPauseRequestWeb,
   cancelPauseRequestWeb,

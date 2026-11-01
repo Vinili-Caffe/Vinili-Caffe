@@ -283,8 +283,5 @@ async function runPostRestoreIdSync({
 
 export = {
   runPostRestoreIdSync,
-  remapActivityProfiles,
-  remapLeaveBackups,
   remapGlobalSettingsPanels,
-  remapTicketChannelIds,
 };

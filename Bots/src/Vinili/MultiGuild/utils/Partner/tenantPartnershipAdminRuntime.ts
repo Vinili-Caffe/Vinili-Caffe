@@ -60,6 +60,5 @@ export = {
   formatLeaveAction,
   channelLine,
   roleLine,
-  categoryLine,
   formatPmCommandsZone,
 };

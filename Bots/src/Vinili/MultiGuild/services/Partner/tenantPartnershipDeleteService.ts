@@ -366,9 +366,7 @@ async function deletePartnershipsForPmStaffLeave(guild?, pmUserId?, client?) {
 export = {
   findPartnerActionByGlobalLogId,
   findPartnerActionByMessage,
-  executePartnershipDeletion,
   deletePartnershipByGlobalLogId,
-  deletePartnershipByMessage,
   deletePartnershipFromContextMessage,
   deletePartnershipsForManagerLeave,
   deletePartnershipsForPmStaffLeave,

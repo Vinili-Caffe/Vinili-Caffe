@@ -1,7 +1,6 @@
 const IDs: any = require("../Config/ids") as typeof import("../Config/ids");
 const {
   getClientGuildCached,
-  getGuildMemberCached,
 } = require("./interactionEntityCache") as typeof import("./interactionEntityCache");
 
 const CANONICAL_MAIN_GUILD_ID = "1329080093599076474";
@@ -11,33 +10,6 @@ const MAIN_VERIFIED_ROLE_ID = IDs.roles?.Member || null;
 function isResolvedMainGuildId(guildId?) {
   const g = String(guildId || "");
   return g === MAIN_GUILD_ID || g === CANONICAL_MAIN_GUILD_ID;
-}
-
-async function getMainGuild(client?) {
-  if (!client) return null;
-  let g = await getClientGuildCached(client, MAIN_GUILD_ID);
-  if (!g && String(MAIN_GUILD_ID) !== CANONICAL_MAIN_GUILD_ID) {
-    g = await getClientGuildCached(client, CANONICAL_MAIN_GUILD_ID);
-  }
-  return g;
-}
-
-async function isUserInMainGuild(client?, userId?) {
-  if (!client || !userId) return false;
-  const guild = await getMainGuild(client);
-  if (!guild) return false;
-  const member = await getGuildMemberCached(guild, userId, { preferFresh: true });
-  return Boolean(member);
-}
-
-async function isUserVerifiedInMainGuild(client?, userId?) {
-  if (!client || !userId) return false;
-  const guild = await getMainGuild(client);
-  if (!guild) return false;
-  const member = await getGuildMemberCached(guild, userId);
-  if (!member?.roles?.cache) return false;
-  if (!MAIN_VERIFIED_ROLE_ID) return Boolean(member);
-  return member.roles.cache.has(MAIN_VERIFIED_ROLE_ID);
 }
 
 function isAlreadyVerifiedInThisGuild(member?, guildId?) {
@@ -50,9 +22,5 @@ function isAlreadyVerifiedInThisGuild(member?, guildId?) {
 }
 
 export = {
-  getMainGuild,
-  isUserInMainGuild,
-  isUserVerifiedInMainGuild,
   isAlreadyVerifiedInThisGuild,
-  isResolvedMainGuildId,
 };

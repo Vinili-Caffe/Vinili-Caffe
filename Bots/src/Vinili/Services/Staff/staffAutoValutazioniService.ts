@@ -3,7 +3,7 @@ const { runCronDetached } = require("../../../shared/scheduling/cronDetached") a
 const { isMongoReady } = require("../../Utils/Database/mongoConnect") as typeof import("../../Utils/Database/mongoConnect");
 const IDs: any = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
 const { ActivityUserProfile, SiteDocument } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
-const { getGuildChannelCached, getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache") as typeof import("../../Utils/Interaction/interactionEntityCache");
+const { getGuildChannelCached } = require("../../Utils/Interaction/interactionEntityCache") as typeof import("../../Utils/Interaction/interactionEntityCache");
 const { ensureStaff } = require("../../Utils/Staff/staffDocUtils") as typeof import("../../Utils/Staff/staffDocUtils");
 const { ensureStaffProfileDoc, getStaffDoc, valutazionePositiveAddCore, valutazioneNegativeAddCore } = require("../../Utils/Staff/valutazionePanelActions") as typeof import("../../Utils/Staff/valutazionePanelActions");
 const { getOrCreateStaffDoc } = require("../../Utils/Staff/staffDocUtils") as typeof import("../../Utils/Staff/staffDocUtils");
@@ -1042,18 +1042,14 @@ export = {
   cleanupMalformedAutoValutazioni,
   syncPersistentAutoValutazioniForMember,
   resolveAutoValutazioneCreateKeysFromMemberUpdate,
-  syncStaffBoostAutoValutazione,
   handleStaffBoostAutoValutazioneMemberUpdate,
-  syncWeeklyAutoValutazioniForMember,
   syncAllStaffAutoValutazioni,
   startStaffAutoValutazioniLoop,
   suspendStaffAutoValutazioni,
   startSerataFilmSession,
-  finishSerataFilmSession,
   finishSerataFilmSessionsForChannel,
   handleSerataFilmScheduledEventUpdate,
   handleSerataFilmVoiceState,
   restoreActiveSerataFilmSessions,
   SERATA_FILM_CHANNEL_ID,
-  SERATA_FILM_MIN_MS,
 };

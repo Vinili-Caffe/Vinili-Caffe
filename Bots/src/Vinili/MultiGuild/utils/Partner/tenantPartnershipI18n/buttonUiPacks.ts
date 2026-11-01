@@ -117,4 +117,4 @@ function applyButtonUiPacks(uiPacks?) {
   }
 }
 
-export = { PLACEHOLDER_UI_LOCALES, applyButtonUiPacks };
+export = { applyButtonUiPacks };

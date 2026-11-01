@@ -324,11 +324,6 @@ async function tryAwardWelcomeGreetingExpOnce(message?, options: Record<string, 
   return { ok: false, reason: "award_failed" };
 }
 
-async function tryAwardWelcomeGreetingExp(message?, options: Record<string, any> = {}) {
-  const result = await tryAwardWelcomeGreetingExpOnce(message, options);
-  return result.ok === true;
-}
-
 async function awardWelcomeGreetingExpFromReaction(message?, options: Record<string, any> = {}) {
   const guildId = String(message?.guild?.id || "");
   return runWelcomeExpAwardSerialized(guildId, async () => {
@@ -391,20 +386,6 @@ function scheduleWelcomeGreetingExpBackup(message?, options: Record<string, any>
   if (typeof timer.unref === "function") timer.unref();
 }
 
-async function handleWelcomeGreetingExpBonus(message?) {
-  await ensureWelcomeContextHydratedForGreeting(message);
-  const welcomeRuleMatched = matchesWelcomeGreetingForExp(message);
-  const guildId = String(message?.guild?.id || "");
-  return runWelcomeExpAwardSerialized(guildId, async () => {
-    const result = await tryAwardWelcomeGreetingExpOnce(message, {
-      trustedFromWordReaction: true,
-      welcomeRuleMatched,
-      source: "message_backup",
-    });
-    return result.ok === true;
-  });
-}
-
 async function awardCommunityExp(message?, amount?, source?) {
   const amt = Math.max(0, Math.floor(Number(amount) || 0));
   if (amt < 1) return false;
@@ -458,4 +439,4 @@ async function handleMessageCommunityExpBonuses(message?) {
   await tryAwardWelcomeGreetingFromMessageBonus(message);
 }
 
-export = { FIRST_MESSAGE_DAILY_EXP, WELCOME_GREETING_EXP, getRomeDateKey, handleMessageCommunityExpBonuses, handleWelcomeGreetingExpBonus, awardWelcomeGreetingExpFromReaction, scheduleWelcomeGreetingExpBackup, tryClaimServerFirstMessageOfDayExp, tryClaimWelcomeGreetingExp, findServerFirstMessageWinner };
+export = { getRomeDateKey, handleMessageCommunityExpBonuses, awardWelcomeGreetingExpFromReaction, scheduleWelcomeGreetingExpBackup, tryClaimWelcomeGreetingExp };

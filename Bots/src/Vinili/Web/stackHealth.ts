@@ -1,30 +1,5 @@
-const net = require("node:net") as typeof import("node:net");
 const mongoose = require("mongoose") as typeof import("mongoose");
 const { isMongoReady } = require("../Utils/Database/mongoConnect") as typeof import("../Utils/Database/mongoConnect");
-
-function tcpProbe(host?, port?, timeoutMs = 1500) {
-  return new Promise((resolve?) => {
-    const socket = new net.Socket();
-    let settled = false;
-    const done = (ok?) => {
-      if (settled) return;
-      settled = true;
-      try {
-        socket.destroy();
-      } catch (_) {}
-      resolve(Boolean(ok));
-    };
-    socket.setTimeout(Math.max(250, Number(timeoutMs) || 1500));
-    socket.once("connect", () => done(true));
-    socket.once("timeout", () => done(false));
-    socket.once("error", () => done(false));
-    try {
-      socket.connect(Number(port), String(host || "127.0.0.1"));
-    } catch (_) {
-      done(false);
-    }
-  });
-}
 
 function resolveLavalinkTarget() {
   const raw = String(process.env.LAVALINK_HOST || process.env.LAVALINK_URL || "127.0.0.1:2333").trim();
@@ -166,9 +141,7 @@ function sendStackHealth(client?, req?, res?, opts: Record<string, any> = {}) {
 }
 
 export = {
-  buildStackHealthPayload,
   sendStackHealth,
-  tcpProbe,
   probeCoffeeHealth,
   probeLavalinkHttpReady,
 };

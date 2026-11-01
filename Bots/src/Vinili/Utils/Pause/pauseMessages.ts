@@ -1,7 +1,7 @@
 /** Pause: testi e pulsanti dei messaggi di pausa. */
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
 const IDs = require("../Config/ids") as typeof import("../Config/ids");
-const { MS_PER_DAY, parseItalianDate, getTodayUtc, getCurrentYearBoundsUtc, getRomeMonthKey, getMonthKeyForPauseCount, getStaffWeekKeyNow, coerceMonthKey } = require("./pauseDates") as typeof import("./pauseDates");
+const { MS_PER_DAY, parseItalianDate, getTodayUtc, getCurrentYearBoundsUtc, getMonthKeyForPauseCount, getStaffWeekKeyNow, coerceMonthKey } = require("./pauseDates") as typeof import("./pauseDates");
 const { PAUSE_ROLE_STAFF, PAUSE_ROLE_PM, PAUSE_ROLE_BOTH, computeStaffersInPauseByRoleForRange, getStaffRankLimitKey, resolvePauseStaffRankRoleId, computeStaffersInPauseByStaffRankForRange, getMemberRoleLabel, normalizePauseRoleChoice, getPauseRoleLimit, getBasePauseLimit } = require("./pauseRoles") as typeof import("./pauseRoles");
 
 function buildAcceptedPauseLogContent({
@@ -182,20 +182,6 @@ function getOneWeekBetweenWarning(staffDoc?, excludePauseId = null) {
   if (!last) return null;
   const weekAgo = Date.now() - 7 * MS_PER_DAY;
   if (last.at > weekAgo) return "<:VC_Attention:1482534443632558151> Meno di 1 settimana dall’ultima richiesta. L’High Staff può accettare comunque.";
-  return null;
-}
-
-function getSpanTwoMonthsFiveDaysWarning(normalized?) {
-  if (!normalized?.dataRichiesta || !normalized?.dataRitorno) return null;
-  const start = parseItalianDate(normalized.dataRichiesta);
-  const end = parseItalianDate(normalized.dataRitorno);
-  if (!start || !end) return null;
-  const startKey = getRomeMonthKey(start);
-  const endKey = getRomeMonthKey(end);
-  if (!startKey || !endKey) return null;
-  if (startKey.year === endKey.year && startKey.month === endKey.month) return null;
-  const endDay = end.getUTCDate();
-  if (endDay > 5) return "<:VC_Attention:1482534443632558151> La pausa copre due mesi: il ritorno non dovrebbe superare il 5° giorno dell’altro mese. L’High Staff può accettare comunque.";
   return null;
 }
 

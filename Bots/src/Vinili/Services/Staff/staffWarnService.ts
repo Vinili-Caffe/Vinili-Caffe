@@ -7,7 +7,6 @@ const { getGuildMemberCached } = require("../../Utils/Interaction/interactionEnt
 const {
   getHighestStaffLadderRoleId,
   STAFF_LADDER_KEYS_HIGH_TO_LOW,
-  stripStafferAwardRoles,
 } = require("../../Utils/Staff/staffRoleHierarchy") as typeof import("../../Utils/Staff/staffRoleHierarchy");
 
 const NEGATIVES_PER_STAFF_WARN = 3;
@@ -202,6 +201,5 @@ export = {
   getHighestStaffRoleId,
   applyDepexOneLevel,
   applyFullDepex,
-  runStaffWarnSixMonthReset,
   startStaffWarnResetLoop,
 };

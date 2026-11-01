@@ -41,8 +41,6 @@ function getWordleGuesses(lang) {
 }
 
 export = {
-  WORDLE_IT,
-  WORDLE_EN,
   WORDLE_LANGS,
   normalizeWordleLang,
   getWordleAnswers,

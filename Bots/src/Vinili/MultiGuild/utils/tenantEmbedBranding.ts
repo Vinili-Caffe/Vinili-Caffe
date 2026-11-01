@@ -117,24 +117,12 @@ function shouldApplyPayloadBranding(guildId?, context: Record<string, any> = {})
   return shouldUseTenantEmbedBranding(guildId);
 }
 
-function isTenantManagedGuild(guildId?) {
-  return shouldUseTenantEmbedBranding(guildId);
-}
-
-function isPartnershipBrandedGuild(guildId?) {
-  return shouldUsePartnershipEmbedBranding(guildId);
-}
-
 function shouldUseViniliBrandEmbedColor(guildId?) {
   return shouldUsePartnershipEmbedBranding(guildId);
 }
 
 function resolveEmbedColorForGuild(guildId?) {
   return shouldUseViniliBrandEmbedColor(guildId) ? TENANT_EMBED_COLOR : LEGACY_VINILI_EMBED_COLOR;
-}
-
-function resolvePartnershipEmbedColorForGuild(guildId?) {
-  return resolveEmbedColorForGuild(guildId);
 }
 
 function shouldApplyTenantEmbedColor(guildId?, color?, context: Record<string, any> = {}) {
@@ -152,10 +140,6 @@ function createStandardGifAttachment() {
   return null;
 }
 
-function resolveBrandingImagePublicUrl() {
-  return BRANDING_IMAGE_URL || "";
-}
-
 function applyBrandingBannerImage(embed?) {
   if (!embed) return embed;
   const builder = embed instanceof EmbedBuilder ? embed : EmbedBuilder.from(embed);
@@ -168,20 +152,6 @@ function payloadFilesIncludeBrandingBanner(files?) {
     const name = String(file?.name || file?.attachment?.name || "").trim().toLowerCase();
     return BRANDING_IMAGE_ALIASES.some((alias?) => name === String(alias).toLowerCase());
   });
-}
-
-function ensureBrandingBannerFiles(payload?) {
-  if (!payload || typeof payload !== "object" || Array.isArray(payload)) return payload;
-  if (!payloadHasTenantBannerEmbed(payload)) return payload;
-  const imageUrl = embedImageUrl(Array.isArray(payload.embeds) ? payload.embeds[0] : null);
-  if (!isTenantBannerImageUrl(imageUrl) || !imageUrl.toLowerCase().startsWith("attachment://")) {
-    return payload;
-  }
-  if (payloadFilesIncludeBrandingBanner(payload.files)) return payload;
-  const file = createStandardGifAttachment();
-  if (!file) return payload;
-  const files = Array.isArray(payload.files) ? [...payload.files, file] : [file];
-  return { ...payload, files };
 }
 
 function embedData(embed?) {
@@ -360,32 +330,16 @@ export = {
   LEGACY_VINILI_EMBED_COLOR,
   LEGACY_VINILI_EMBED_COLOR_INT,
   BRANDING_IMAGE_NAME,
-  BRANDING_IMAGE_URL,
-  BRANDING_IMAGE_ATTACHMENT_URL,
-  BRANDING_IMAGE_ALIASES,
-  resolveBrandingImagePublicUrl,
-  isTenantBannerImageUrl,
   normalizeEmbedColorInt,
   isLegacyDefaultEmbedColor,
-  isTenantManagedGuild,
-  isPartnershipBrandedGuild,
-  shouldUseViniliBrandEmbedColor,
   resolveEmbedColorForGuild,
-  resolvePartnershipEmbedColorForGuild,
-  shouldApplyTenantEmbedColor,
-  applyTenantEmbedColor,
-  applyBrandingToEmbed,
   applyTenantPayloadBranding,
   applyPartnershipPayloadBranding,
   stripTenantBrandingInternals,
-  TENANT_BRANDING_APPLIED_KEY,
   PREFIX_DISPATCH_BRANDING_DONE_KEY,
   payloadHasTenantBannerEmbed,
   shouldSkipPrefixDispatcherBranding,
-  shouldUseTenantEmbedBranding,
-  shouldUsePartnershipEmbedBranding,
   createStandardGifAttachment,
   applyBrandingBannerImage,
-  ensureBrandingBannerFiles,
   registerTenantEmbedBrandingApplier,
 };

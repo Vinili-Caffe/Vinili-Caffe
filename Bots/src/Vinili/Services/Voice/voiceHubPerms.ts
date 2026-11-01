@@ -94,15 +94,6 @@ async function ensureSpawnedChannelMemberTextAccess(channel?, guild?) {
   }
 }
 
-function hubOverwriteSpeakDenied(overwrite?) {
-  if (!overwrite) return false;
-  try {
-    return overwrite.deny?.has?.(PermissionsBitField.Flags.Speak) === true;
-  } catch {
-    return false;
-  }
-}
-
 function buildSpawnPermissionOverwrites(hubChannel?, guild?) {
   const lobbyRoles = new Set(hubLobbyRoleIds(guild));
   const memberRoleId = String(IDs.roles?.Member || "").trim();

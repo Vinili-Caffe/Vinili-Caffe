@@ -3,7 +3,6 @@ const {
   createUtcFromRomeLocal,
   getLastSunday21BoundaryMsAtOrBefore,
 } = require("../../Services/Community/weeklyActivityWinnersService") as typeof import("../../Services/Community/weeklyActivityWinnersService");
-const IDs = require("../Config/ids") as typeof import("../Config/ids");
 const { listCustomPrivateVoiceChannelsByOwner } = require("../Interaction/customRoleUtils") as typeof import("../Interaction/customRoleUtils");
 const { isChannelInCustomPrivateCategory } = require("./customPrivateCategoryUtils") as typeof import("./customPrivateCategoryUtils");
 const { PermissionsBitField } = require("discord.js") as typeof import("discord.js");
@@ -149,21 +148,6 @@ function toObjectMap(value?) {
   return typeof value === "object" ? value : {};
 }
 
-function sumCustomVocVoiceSecondsFromHourly(hourly?, channelId?, weekEndMs?) {
-  const cid = String(channelId || "").trim();
-  if (!cid) return 0;
-  const keys = new Set(buildLast7DaysHourKeys(Number(weekEndMs)));
-  const hourlyMap = toObjectMap(hourly);
-  let total = 0;
-  for (const [hourKey, row] of Object.entries(hourlyMap)) {
-    if (!keys.has(String(hourKey))) continue;
-    const voiceChannels = toObjectMap(row?.voiceChannels);
-    const sec = Number(voiceChannels[cid] || 0);
-    if (Number.isFinite(sec) && sec > 0) total += sec;
-  }
-  return Math.floor(total);
-}
-
 function getLiveCustomVocSessionSeconds(profileLean?, channelId?, weekEndMs?) {
   const cid = String(channelId || "").trim();
   const totals = profileLean?.profile?.totals || profileLean?.totals || {};
@@ -257,51 +241,13 @@ function buildCustomVocWeeklyActivityPanelState(customRoleLean?, profileLean?) {
   };
 }
 
-function buildCustomVocWeeklyActivityEmbedLines(activityState?) {
-  if (!activityState || typeof activityState !== "object") return [];
-  const lines = [];
-  if (activityState.recreationBlocked) {
-    lines.push(`<a:VC_Alert:1482706673176150077> Ricreazione bloccata${activityState.cooldownRemainingLabel ? ` per ancora **${activityState.cooldownRemainingLabel}**` : ""} (fino al **${activityState.recreationBlockedLabel || "—"}**).`);
-    if (CUSTOM_VOC_RECREATION_COOLDOWN_MS > 0) {
-      lines.push("<:VC_Info:1482526956703580372> Dopo **3 settimane** consecutive sotto **5 ore** la vocale viene eliminata; per ricrearla serve attendere **2 settimane**.");
-    }
-    return lines;
-  }
-  if (activityState.hasChannel) {
-    lines.push(`<a:VC_Calendar:1482706208149475358> Ore questa settimana: **${activityState.weekHoursLabel}** / **${activityState.minHoursLabel}** richieste`);
-    if (activityState.remainingHoursLabel) {
-      lines.push(`<:VC_Dot:1482532364222595303> Mancano ancora **${activityState.remainingHoursLabel}** per il minimo settimanale`);
-    }
-    if (activityState.failedWeekStreak > 0) {
-      lines.push(`<a:VC_Alert:1482706673176150077> Settimane sotto soglia: **${activityState.failedWeekStreak}/${CUSTOM_VOC_MAX_FAILED_WEEKS}** — alla terza la vocale viene eliminata **domenica alle 21:00**`);
-    } else if (activityState.meetsRequirement) {
-      lines.push("<:VC_OnlineStatus:1482527088912240650> Requisito settimanale attuale raggiunto");
-    }
-    lines.push("<:VC_Info:1482526956703580372> Minimo **5 ore/settimana** nella tua vocale.");
-    return lines;
-  }
-  if (CUSTOM_VOC_RECREATION_COOLDOWN_MS > 0) {
-    lines.push("<:VC_Info:1482526956703580372> Minimo **5 ore/settimana** nella vocale privata; **3 settimane** consecutive sotto soglia → eliminazione **domenica 21:00** e attesa di **2 settimane** per ricrearla.");
-  } else {
-    lines.push("<:VC_Info:1482526956703580372> Minimo **5 ore/settimana** nella vocale privata; **3 settimane** consecutive sotto soglia → eliminazione **domenica 21:00**.");
-  }
-  return lines;
-}
-
 export = {
   CUSTOM_VOC_WEEKLY_MIN_SECONDS,
   CUSTOM_VOC_MAX_FAILED_WEEKS,
   CUSTOM_VOC_RECREATION_COOLDOWN_MS,
-  CUSTOM_VOC_RETROACTIVE_MAX_WEEKS,
-  getCurrentCustomVocWeekEndMs,
   getLastSunday21BoundaryMsAtOrBefore,
   listCompletedWeekEndMsForBackfill,
-  sumCustomVocVoiceSecondsFromHourly,
-  sumCustomVocVoiceSecondsFromHourlyForChannels,
-  sumCustomVocVoiceSecondsFromDaily,
-  collectOwnerCustomVocChannelIds,
   sumCustomVocVoiceSecondsForWeek,
   buildCustomVocWeeklyActivityPanelState,
-  buildCustomVocWeeklyActivityEmbedLines,
   formatCustomVocHoursFromSeconds,
 };

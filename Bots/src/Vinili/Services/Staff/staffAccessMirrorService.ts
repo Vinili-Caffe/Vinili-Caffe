@@ -201,11 +201,8 @@ async function sweepAccessGuild(client?) {
 }
 
 export = {
-  ACCESS_GUILD_ID,
-  isStaffAccessMirrorEnabled,
   handleAccessGuildMemberAdd,
   handleMainGuildMemberUpdate,
   handleMainGuildMemberRemove,
   sweepAccessGuild,
-  syncAccessMember,
 };

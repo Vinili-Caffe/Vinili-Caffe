@@ -101,7 +101,6 @@ async function setPendingDiscadiaVotes(guildId?, userId?, votes?) {
 
 export = {
   DISCADIA_PENDING_VOTES_PATH,
-  enqueuePendingVote,
   enqueuePendingDiscadiaVote,
   enqueuePendingTopggVote,
   listUsersWithPendingDiscadiaVotes,

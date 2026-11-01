@@ -107,4 +107,4 @@ function queueIdsCatalogSync(client?, guildId?, reason = "event", options: Recor
   timers.set(gid, timer);
 }
 
-export = { queueIdsCatalogSync, runIdsCatalogSync };
+export = { queueIdsCatalogSync };

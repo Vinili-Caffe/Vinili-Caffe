@@ -1,6 +1,5 @@
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js") as typeof import("discord.js");
 
-const DEFAULT_SITE_ORIGIN = "https://www.viniliecaffe.it";
 const {
   sitePublicOrigin: sharedSitePublicOrigin,
   siteTicketsPageUrl,
@@ -82,33 +81,6 @@ const WORKFLOW_SITE_PATHS = {
   userPersonalize: "/personalizza/",
 };
 
-function isDiscordProfileEnabled() {
-  return envFlagOn("DISCORD_PROFILE_UI");
-}
-
-function isTenantPrefixProfileEmbedAllowed(guildId?) {
-  const gid = String(guildId || "").trim();
-  if (!gid) return false;
-  try {
-    const { isViniliFullFeatureGuild } = require("../MultiGuild/core/guildFeatureScope") as typeof import("../MultiGuild/core/guildFeatureScope");
-    if (isViniliFullFeatureGuild(gid)) return false;
-  } catch {
-    return false;
-  }
-  try {
-    const {
-      isPartnershipOperational,
-      shouldBlockTenantPartnershipPrefixCommands,
-      isTenantPartnershipPrefixToolkitEnabled,
-    } = require("../Utils/Partner/partnershipConfigResolver") as typeof import("../Utils/Partner/partnershipConfigResolver");
-    if (shouldBlockTenantPartnershipPrefixCommands(guildId)) return false;
-    if (!isTenantPartnershipPrefixToolkitEnabled(guildId)) return false;
-    return isPartnershipOperational(guildId);
-  } catch {
-    return false;
-  }
-}
-
 function isDiscordTicketsEnabled() {
   return envFlagOn("DISCORD_TICKETS_UI");
 }
@@ -155,14 +127,10 @@ export = {
   isDiscordWorkflowUiEnabled,
   isDiscordWorkflowChannelPostsEnabled,
   isDiscordStaffChannelPostsEnabled,
-  isDiscordProfileEnabled,
-  isTenantPrefixProfileEmbedAllowed,
   isDiscordTicketsEnabled,
   newSiteWorkflowMessageId,
   isWorkflowMessageId,
   sitePublicOrigin,
-  siteAbsoluteUrl,
-  siteWorkflowPath,
   siteWorkflowUrl,
   siteTicketsPageUrl,
   siteTicketsPageDiscordRef,
@@ -173,5 +141,4 @@ export = {
   buildSiteLinkRow,
   subjectWorkflowChatPath,
   buildInboxManageLinkRow,
-  WORKFLOW_SITE_PATHS,
 };

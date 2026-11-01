@@ -485,7 +485,6 @@ function buildStaffGuideSectionMarkdown(sectionId?) {
 }
 
 export = {
-  staffSanctionRuleIntro,
   listStaffGuideSectionMeta,
   getStaffGuideSectionMeta,
   getStaffGuideChildSectionIds,

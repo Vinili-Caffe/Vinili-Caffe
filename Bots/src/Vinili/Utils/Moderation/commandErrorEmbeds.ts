@@ -37,13 +37,6 @@ function buildMissingArgumentsErrorEmbed() {
   );
 }
 
-function buildCommandTimeoutErrorEmbed() {
-  return buildBaseErrorEmbed(
-    "<:cancel:1461730653677551691> Comando scaduto",
-    "<:VC_Attention:1482534443632558151> Il comando è scaduto dopo 60 secondi. Riprova.",
-  );
-}
-
 function buildInternalCommandErrorEmbed(rawError?) {
   const raw = String(rawError || "Errore sconosciuto");
   const compact = raw.length > 900 ? `${raw.slice(0, 900)}...` : raw;
@@ -53,4 +46,4 @@ function buildInternalCommandErrorEmbed(rawError?) {
   );
 }
 
-export = { buildCooldownErrorEmbed, buildBusyCommandErrorEmbed, buildMissingArgumentsErrorEmbed, buildCommandTimeoutErrorEmbed, buildInternalCommandErrorEmbed };
+export = { buildCooldownErrorEmbed, buildBusyCommandErrorEmbed, buildMissingArgumentsErrorEmbed, buildInternalCommandErrorEmbed };

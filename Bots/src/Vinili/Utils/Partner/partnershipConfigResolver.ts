@@ -64,16 +64,6 @@ function emptyThankYouEmbed() {
   };
 }
 
-function emptyPartnerDesc() {
-  return {
-    mode: null,
-    channelId: null,
-    staticText: null,
-    sourceMessageId: null,
-    configured: false,
-  };
-}
-
 function buildLegacyPartnershipConfig(guildId?) {
   const gid = String(guildId || IDs.guilds?.main || "").trim();
   const cfg = {
@@ -539,10 +529,6 @@ function getPartnerBlacklistRoleId(guildId?) {
   return resolvePartnershipConfigSync(guildId)?.partnerBlacklistRoleId || null;
 }
 
-function getDescriptionChannelId(guildId?) {
-  return resolvePartnershipConfigSync(guildId)?.descriptionChannelId || null;
-}
-
 function getPartnersChatChannelId(guildId?) {
   return resolvePartnershipConfigSync(guildId)?.partnersChatChannelId || null;
 }
@@ -650,20 +636,7 @@ function listOperationalPartnershipGuildIds(client?) {
   return Array.from(ids);
 }
 
-function collectPartnershipChannelIdsForAutomod() {
-  const ids = new Set(
-    [IDs.channels?.partnerships, "1442569193470824448"].filter(Boolean).map(String),
-  );
-  try {
-    const { getAllPartnershipConfigCacheRows } = require("../../MultiGuild/core/tenantPartnershipSettings") as typeof import("../../MultiGuild/core/tenantPartnershipSettings");
-    for (const cfg of getAllPartnershipConfigCacheRows()) {
-      if (cfg?.partnershipsChannelId) ids.add(String(cfg.partnershipsChannelId));
-    }
-  } catch (_) {}
-  return ids;
-}
-
 const SETUP_REQUIRED_REPLY =
   "<:vegax:1443934876440068179> Partnership non configurata su questo server. Un admin deve completare `+setup`.";
 
-export = { buildLegacyPartnershipConfig, buildMainPartnershipMongoSeed, getMainGuildId, isMainPartnershipSettingsGuild, resolvePartnershipConfigSync, isPartnershipOperational, shouldApplyMainPartnershipFilters, isTenantPartnershipPrefixToolkitEnabled, shouldBlockTenantPartnershipPrefixCommands, shouldUseTenantStatsInfoRouting, shouldRouteTenantPartnershipProfile, isProfilePmModeArg, memberHasPartnerManagerRole, memberCanExecutePartnership, guildMemberHasPartnerManagerRole, userQualifiesForTenantMissions, getPartnershipChannelId, getPartnerManagerRoleId, getPartnershipLogsChannelId, getPointsRemovedLogChannelId, resolvePartnershipLifecycleLogChannelId, resolvePointsCustomLogChannelId, getPartnershipLogChannelIds, getPartnershipPingRoleId, getPartnerBlacklistRoleId, getDescriptionChannelId, getPartnersChatChannelId, getPmCommandsCategoryIds, tenantPmCommandsZoneConfigured, listPartnershipAuditGuildIds, listOperationalPartnershipGuildIds, collectPartnershipChannelIdsForAutomod, SETUP_REQUIRED_REPLY, isPartnershipSkipManagerAllowed, buildSkipDeniedEmbed, buildPartnershipCompletedReplyEmbed };
+export = { buildMainPartnershipMongoSeed, getMainGuildId, isMainPartnershipSettingsGuild, resolvePartnershipConfigSync, isPartnershipOperational, shouldApplyMainPartnershipFilters, isTenantPartnershipPrefixToolkitEnabled, shouldBlockTenantPartnershipPrefixCommands, shouldUseTenantStatsInfoRouting, shouldRouteTenantPartnershipProfile, isProfilePmModeArg, memberHasPartnerManagerRole, memberCanExecutePartnership, userQualifiesForTenantMissions, getPartnershipChannelId, getPartnerManagerRoleId, getPartnershipLogsChannelId, resolvePartnershipLifecycleLogChannelId, resolvePointsCustomLogChannelId, getPartnershipLogChannelIds, getPartnershipPingRoleId, getPartnerBlacklistRoleId, getPartnersChatChannelId, getPmCommandsCategoryIds, tenantPmCommandsZoneConfigured, listPartnershipAuditGuildIds, listOperationalPartnershipGuildIds, SETUP_REQUIRED_REPLY, isPartnershipSkipManagerAllowed, buildSkipDeniedEmbed, buildPartnershipCompletedReplyEmbed };

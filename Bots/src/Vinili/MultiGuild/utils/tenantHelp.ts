@@ -437,9 +437,6 @@ async function executeTenantHelp(message?, args?) {
 }
 
 export = {
-  TENANT_COMMAND_CATALOG,
-  TENANT_PARTNERSHIP_CATALOG,
-  buildTenantHelpEntries,
   executeTenantHelp,
   parseTenantHelpCustomId,
   handleTenantHelpNavInteraction,

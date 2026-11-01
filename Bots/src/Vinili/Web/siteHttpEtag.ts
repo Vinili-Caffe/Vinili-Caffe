@@ -67,11 +67,8 @@ function sendJsonWithEtag(req?, res?, body?, opts: Record<string, any> = {}) {
 }
 
 export = {
-  weakEtagFromString,
   weakEtagFromParts,
   weakEtagFromJson,
-  normalizeEtagToken,
-  ifNoneMatchContains,
   tryNotModified,
   sendJsonWithEtag,
 };

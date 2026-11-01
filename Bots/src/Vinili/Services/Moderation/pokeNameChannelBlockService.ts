@@ -25,9 +25,5 @@ async function maybeDeletePokeNameOutsideAllowedChannel(message?) {
 }
 
 export = {
-  POKE_NAME_BOT_ID,
-  POKE_NAME_ALLOWED_CHANNEL_ID,
-  isPokeNameBotMessage,
-  isPokeNameAllowedChannel,
   maybeDeletePokeNameOutsideAllowedChannel,
 };

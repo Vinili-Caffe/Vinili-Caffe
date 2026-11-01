@@ -88,4 +88,4 @@ function startCoffeeHealthHttpServer(client?) {
   return server;
 }
 
-export = { startCoffeeHealthHttpServer, resolveCoffeeHealthPort };
+export = { startCoffeeHealthHttpServer };

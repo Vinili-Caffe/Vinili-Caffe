@@ -283,7 +283,6 @@ async function buildThankYouEmbed({
 
 export = {
   DEFAULT_THANK_YOU_EMBED_FIELDS,
-  resolveDefaultThankYouDescription,
   defaultThankYouEmbedFieldsForGuild,
   hasThankYouEmbedContent,
   resolveThankYouEmbedEditorValues,
@@ -291,5 +290,4 @@ export = {
   formatThankYouEmbedValueForModal,
   seedDefaultThankYouEmbedIfEmpty,
   buildThankYouEmbed,
-  resolveThankYouManagerOutsideEmbed,
 };

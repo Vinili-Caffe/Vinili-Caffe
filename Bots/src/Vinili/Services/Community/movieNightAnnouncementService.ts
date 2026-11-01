@@ -125,31 +125,6 @@ async function publishMovieNightAnnouncement(guild?, event?, weekKey?) {
   return { ok: true, messageId: String(message.id || ""), threadId: String(thread?.id || "") };
 }
 
-async function syncLiveMovieNightAnnouncementMessage(client?) {
-  const state = await getBotState(STATE_KEY, null).catch(() => null);
-  const messageId = String(state?.messageId || "").trim();
-  const guildId = String(state?.guildId || IDs.guilds?.main || "").trim();
-  if (!messageId || !guildId) return { ok: false, reason: "no_state_message" };
-  const guild = client.guilds.cache.get(guildId) || (await client.guilds.fetch(guildId).catch(() => null));
-  if (!guild) return { ok: false, reason: "guild_not_found" };
-  const channel =
-    guild.channels.cache.get(ANNOUNCEMENT_CHANNEL_ID) ||
-    (await getGuildChannelCached(guild, ANNOUNCEMENT_CHANNEL_ID).catch(() => null));
-  if (!channel?.messages?.fetch) return { ok: false, reason: "channel_unavailable" };
-  const message = await channel.messages.fetch(messageId).catch(() => null);
-  if (!message) return { ok: false, reason: "message_not_found" };
-  const content = buildMovieNightAnnouncementMessage();
-  if (String(message.content || "") === content) {
-    return { ok: true, reason: "already_synced", messageId, skippedStrict: true };
-  }
-  await message.edit({
-    content,
-    allowedMentions: { roles: [...new Set([EVENTS_ROLE_ID, SERATA_FILM_ROLE_ID].filter(Boolean))] },
-  });
-  /* Non attivare strictProposalRules sul thread già aperto */
-  return { ok: true, reason: "edited", messageId, skippedStrict: true };
-}
-
 async function runMovieNightFinalAnnouncementCheck(client?, opts: Record<string, any> = {}) {
   if (movieNightFinalAnnouncementRunning) {
     const out = { skipped: true, reason: "already_running" };

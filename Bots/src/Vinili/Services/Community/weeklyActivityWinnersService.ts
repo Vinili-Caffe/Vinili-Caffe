@@ -11,8 +11,6 @@ const { publishMonthlyActivityWinners } = require("./winnersMonthly") as typeof 
 
 
 const INFO_CHANNEL_ID = IDs.channels.info;
-const WEEKLY_WINNERS_PUBLISH_INTRO_MARK = "Annunciamo i vincitori di questa settimana";
-
 let royaleMinigameSyncTimer = null;
 function scheduleRoyaleMinigameRoleSync(client?, delayMs = 45_000) {
   if (!client || !ROYALE_MINIGAME_ROLE_ID) return;

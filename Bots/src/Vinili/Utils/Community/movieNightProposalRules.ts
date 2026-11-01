@@ -183,8 +183,5 @@ async function validateMovieNightProposalContent(raw?, { enforceMeta = false } =
 }
 
 export = {
-  MAX_RUNTIME_MINUTES,
-  extractMovieNightProposalYear,
-  fetchMovieNightProposalMeta,
   validateMovieNightProposalContent,
 };

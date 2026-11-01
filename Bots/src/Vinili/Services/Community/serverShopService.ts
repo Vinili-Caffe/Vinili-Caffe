@@ -304,15 +304,11 @@ async function getShopPanelState(client?, message?, currency = CURRENCY_CAFFE) {
 
 export = {
   applyGamblePayoutBonus,
-  applyShopEffect,
   consumeRobSuccessBonus,
-  getActiveBoosts,
   getShopPanelState,
-  isServerShopEnabled,
   listShopItems,
   peekRobSuccessBonusPct,
   purchaseShopItem,
-  shopConfig,
   takeFixedIncomeStreakBonusPct,
   takeWorkRewardBonusPct,
 };

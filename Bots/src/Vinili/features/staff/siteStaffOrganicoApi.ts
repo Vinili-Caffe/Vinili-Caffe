@@ -299,7 +299,6 @@ export = {
   handleSiteStaffOrganicoGet,
   handleSiteStaffOrganicoPost,
   warmSiteStaffOrganicoCache,
-  buildStaffDelMeseBlock,
   buildPexDepexHistory,
   classifyPexDepexKind,
 };

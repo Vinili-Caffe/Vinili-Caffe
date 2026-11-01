@@ -150,4 +150,4 @@ async function postTopggStatsDigestIfConfigured(client?) {
   return { ok: Boolean(sent), fields: fields.length, reviewCount };
 }
 
-export = { postTopggStatsDigestIfConfigured, resolveTopggBotUrl, resolveTopggReviewsUrl };
+export = { postTopggStatsDigestIfConfigured, resolveTopggBotUrl };

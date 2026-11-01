@@ -154,6 +154,5 @@ async function sendGuildJoinWelcomeDm(client?, guild?) {
 export = {
   sendGuildJoinWelcomeDm,
   buildWelcomeEmbed,
-  resolveBotJoinInviter,
   pickRandomWritableTextChannel,
 };

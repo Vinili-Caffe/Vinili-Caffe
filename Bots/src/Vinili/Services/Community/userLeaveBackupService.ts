@@ -95,10 +95,6 @@ function getRestorableRoleIdsFromMember(member?) {
   );
 }
 
-async function recordLeaveDepexMessages() {
-  return false;
-}
-
 async function backupUserOnLeave(guildId?, userId?, member = null) {
   const gid = String(guildId || "");
   const uid = String(userId || "");
@@ -440,12 +436,6 @@ async function clearStaffPendingPurgeAt(guildId?, userId?) {
   ).catch(() => null);
 }
 
-async function purgeExpiredUserLeaveBackups() {
-  const now = new Date();
-  const result = await UserLeaveBackup.deleteMany({ expiresAt: { $lte: now } }).catch(() => ({ deletedCount: 0 }));
-  return Number(result?.deletedCount || 0);
-}
-
 async function resolveNextLeaveBackupExpiryClock(guildId?, userId?) {
   const gid = String(guildId || "");
   const uid = String(userId || "");
@@ -455,4 +445,4 @@ async function resolveNextLeaveBackupExpiryClock(guildId?, userId?) {
   return resolveExpiryDate();
 }
 
-export = { backupUserOnLeave, recordLeaveDepexMessages, restoreUserOnJoin, purgeExpiredUserLeaveBackups, purgeDueStaffGraceProfiles, startStaffGracePurgeLoop, clearStaffPendingPurgeAt, resolveNextLeaveBackupExpiryClock };
+export = { backupUserOnLeave, restoreUserOnJoin, startStaffGracePurgeLoop, clearStaffPendingPurgeAt, resolveNextLeaveBackupExpiryClock };

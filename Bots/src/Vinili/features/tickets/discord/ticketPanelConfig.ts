@@ -103,14 +103,6 @@ function getTicketPanelConfig(raw?, lang = DEFAULT_LANGUAGE) {
 }
 
 export = {
-  TICKET_WELCOME_BY_KIND: Object.freeze({
-    supporto: buildDefaultWelcomeContent(DEFAULT_LANGUAGE),
-    partnership: buildDefaultWelcomeContent(DEFAULT_LANGUAGE),
-    high: buildDefaultWelcomeContent(DEFAULT_LANGUAGE),
-    perks: buildDefaultWelcomeContent(DEFAULT_LANGUAGE),
-  }),
-  resolveWelcomeKind,
   getTicketWelcomeContent,
   getTicketPanelConfig,
-  buildTicketPanelEmbed,
 };

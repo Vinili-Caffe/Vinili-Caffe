@@ -110,4 +110,4 @@ async function sendUserDirectMessage(user?, payload?, options: Record<string, an
   }
 }
 
-export = { isUserDmPrivacyBlockedError, buildDmPrivacyBlockedNoticeContent, notifyDmPrivacyBlockedInCommands, sendUserDirectMessage };
+export = { isUserDmPrivacyBlockedError, notifyDmPrivacyBlockedInCommands, sendUserDirectMessage };

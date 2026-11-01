@@ -94,10 +94,6 @@ function channelBelongsToOwnerPingCategory(channelLike?, categoryId?) {
   return resolveParentCategoryId(channelLike) === category;
 }
 
-function channelBelongsToHighStaffOnlyCategory(channelLike?) {
-  return resolveParentCategoryId(channelLike) === HIGH_STAFF_ONLY_CATEGORY_ID;
-}
-
 async function channelBelongsToHighStaffOnlyCategoryAsync(channelLike?, guild?) {
   const categoryId = await resolveParentCategoryIdAsync(channelLike, guild);
   return categoryId === HIGH_STAFF_ONLY_CATEGORY_ID;
@@ -421,15 +417,8 @@ async function handleIdeaBugCategoryThreadCreate(thread?) {
 }
 
 export = {
-  BUG_CHANNEL_IDS,
-  IDEA_CHANNEL_IDS,
-  HIGH_STAFF_ONLY_CATEGORY_ID,
-  OWNER_PING_CATEGORY_ANCHOR_CHANNEL_ID,
-  OWNER_PING_USER_ID,
-  EVERYONE_PING_DELETE_DELAY_MS,
   REACTIONS,
   handleIdeaBugMessage,
   handleIdeaBugCategoryThreadCreate,
   handleIdeaBugReaction,
-  syncIdeaBugReactionMembersToThread,
 };

@@ -11,48 +11,6 @@ const BTN_EMOJI_OFF = "<:VC_OfflineStatus:1482527117051957380>";
 const BTN_EMOJI_ON = "<:VC_OnlineStatus:1482527088912240650>";
 const PRIVATE = 1 << 6;
 
-function _stripRef(p?) {
-  if (!p || typeof p !== "object") return p;
-  const o = { ...p };
-  delete o.reply;
-  delete o.messageReference;
-  delete o.failIfNotExists;
-  if (o.allowedMentions && typeof o.allowedMentions === "object") {
-    o.allowedMentions = { ...o.allowedMentions, repliedUser: false };
-  }
-  return o;
-}
-
-async function _reply(message?, payload?) {
-  if (!message || typeof message.reply !== "function") {
-    return message.channel && message.channel.send
-      ? message.channel.send(_stripRef(payload)).catch(() => null)
-      : null;
-  }
-  try {
-    return await message.reply(payload);
-  } catch (e) {
-    if (e && e.code === 10008) return null;
-    if (
-      e &&
-      e.code === 50035 &&
-      e.rawError &&
-      e.rawError.errors &&
-      e.rawError.errors.message_reference
-    ) {
-      return message.channel.send(_stripRef(payload)).catch(() => null);
-    }
-    const sent =
-      message.channel && message.channel.send
-        ? await message.channel.send(_stripRef(payload)).catch(() => null)
-        : null;
-    if (!sent) {
-      global.logger?.warn?.("[privacyContentPanel] reply failed:", e?.code, e?.message || e);
-    }
-    return sent;
-  }
-}
-
 async function loadStates(guildId?, userId?) {
   const entries = await Promise.all(
     KINDS.map(async (kind?) => {
@@ -195,19 +153,7 @@ async function handlePrivacyPanelInteraction(interaction?) {
   return true;
 }
 
-async function runPrivacyPanel(message?) {
-  const guildId = message.guild.id;
-  const userId = message.author.id;
-  const states = await loadStates(guildId, userId);
-  await _reply(message, {
-    embeds: [buildPanelEmbed(states)],
-    components: buildRows(states, userId),
-    allowedMentions: { repliedUser: false },
-  });
-}
-
 export = {
-  runPrivacyPanel,
   parsePrivacyCustomId,
   handlePrivacyPanelInteraction,
 };

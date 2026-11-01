@@ -1,6 +1,3 @@
-const fs = require("fs") as typeof import("fs");
-const crypto = require("crypto") as typeof import("crypto");
-const axios = require("axios") as typeof import("axios").default;
 const CDN_ATTACHMENT_PATTERN = /(cdn\.discordapp\.com|media\.discordapp\.net)\/attachments\//i;
 /** Components V2: Container = 17 (discord-api-types / discord.js ComponentType.Container). */
 const COMPONENT_TYPE_CONTAINER = 17;
@@ -52,47 +49,6 @@ function normalizeDiscordAttachmentUrl(value?) {
 
 function normalizeText(value?) {
   return String(value ?? "").trim();
-}
-
-function hashBuffer(bufferLike?) {
-  const buffer = Buffer.isBuffer(bufferLike) ? bufferLike : Buffer.from(bufferLike);
-  return crypto.createHash("sha256").update(buffer).digest("hex");
-}
-
-function resolvePayloadFileName(file?) {
-  const json = typeof file?.toJSON === "function" ? file.toJSON() : file;
-  const explicitName = file?.name || file?.data?.name || json?.name || null;
-  if (explicitName) return String(explicitName);
-  const src = file?.attachment ?? file;
-  if (typeof src === "string") {
-    const normalized = src.replace(/\\/g, "/");
-    return normalized.split("/").pop() || null;
-  }
-  return null;
-}
-
-function readPayloadFileBuffer(file?) {
-  const src = file?.attachment ?? file;
-  if (Buffer.isBuffer(src)) return src;
-  if (src instanceof Uint8Array) return Buffer.from(src);
-  if (typeof src === "string" && fs.existsSync(src)) {
-    try {
-      return fs.readFileSync(src);
-    } catch {
-      return null;
-    }
-  }
-  return null;
-}
-
-async function fetchAttachmentHash(url?) {
-  if (!url) return null;
-  try {
-    const res = await axios.get(url, { responseType: "arraybuffer", timeout: 20000 });
-    return hashBuffer(Buffer.from(res.data));
-  } catch {
-    return null;
-  }
 }
 
 function simplifyEmbed(embed?) {
@@ -612,12 +568,7 @@ async function upsertPanelMessage(channel?, client?, payload?) {
 }
 
 export = {
-  shouldEditMessage,
   upsertPanelMessage,
-  normalizeDiscordAttachmentUrl,
-  resolvePayloadFileName,
-  readPayloadFileBuffer,
-  fetchAttachmentHash,
   isComponentsV2Message,
   isComponentsV2Payload,
 };

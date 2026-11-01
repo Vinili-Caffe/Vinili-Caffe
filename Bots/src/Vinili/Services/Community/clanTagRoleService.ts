@@ -395,4 +395,4 @@ async function syncAllMembersClanTags(client?) {
   }
 }
 
-export = { hasMatchingTag, syncClanTagRoles, syncClanTagRolesForUserEverywhere, syncClanTagRolesForUserEverywhereAfterMemberEvent, syncAllMembersClanTags };
+export = { hasMatchingTag, syncClanTagRolesForUserEverywhere, syncClanTagRolesForUserEverywhereAfterMemberEvent, syncAllMembersClanTags };

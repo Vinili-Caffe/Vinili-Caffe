@@ -88,4 +88,4 @@ async function handleSanzionaModal(interaction?, client?) {
   return true;
 }
 
-export = { handleSanzionaModal, parseSanzionaModalId };
+export = { handleSanzionaModal };

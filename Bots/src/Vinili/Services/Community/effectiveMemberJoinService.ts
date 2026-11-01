@@ -165,10 +165,8 @@ function getEffectiveJoinedTimestamp(member?) {
 }
 
 export = {
-  REJOIN_GRACE_MS,
   recordEffectiveMemberJoin,
   recordEffectiveMemberLeave,
   getEffectiveJoinedAt,
   getEffectiveJoinedTimestamp,
-  discordMemberJoinedAt,
 };

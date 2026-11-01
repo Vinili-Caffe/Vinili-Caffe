@@ -11,12 +11,8 @@ const { handleStanzaRenameMessageCreate, handleStanzaEmojiMessageCreate, handleS
 
 
 
-/** Marker deploy: stanze sotto hub "crea una stanza", non in coda (sotto squad). */
-const STANZA_UNDER_HUB_STACK_MARKER = "stanzaUnderHubCoffee1";
 /** Marker used in deploy/probe asserts — do not remove. */
 const STANZA_NAME_ENFORCE_MARKER = "stanzaCreateOnlyStanzaDi1";
-const STANZA_VOICE_MEMBER_SILENCE = { ViewChannel: true, Connect: true, Speak: false, Stream: false, UseVAD: false, UseEmbeddedActivities: false, UseExternalApps: false };
-
 async function isStanzaButtonActorAllowed(interaction?) {
   if (!interaction?.isButton?.()) return false;
   const customId = String(interaction?.customId || "");
@@ -125,5 +121,4 @@ export = {
   placeStanzaAfterGroupTail,
   isManagedStanzaRoomChannel,
   STANZA_NAME_ENFORCE_MARKER,
-  STANZA_UNDER_HUB_STACK_MARKER,
 };

@@ -75,16 +75,6 @@ async function applyAgeBracketRoleFromBirthday(guild?, userId?, day?, month?, bi
   return { ok: true };
 }
 
-async function stripAllAgeBracketRoles(guild?, userId?) {
-  const uid = String(userId || "").trim();
-  if (!uid || !guild) return;
-  const member = await guild.members.fetch({ user: uid, force: true }).catch(() => null);
-  if (!member) return;
-  const had = AGE_BRACKET_ROLE_IDS.filter((rid?) => member.roles.cache.has(rid));
-  if (!had.length) return;
-  await member.roles.remove(had, "Compleanno: profilo rimosso").catch(() => {});
-}
-
 const AGE_BRACKET_STARTUP_SYNC_BATCH = 5;
 const AGE_BRACKET_STARTUP_SYNC_BATCH_DELAY_MS = 1200;
 
@@ -145,10 +135,6 @@ async function syncAgeBracketRolesFromStoredBirthdays(client?) {
 }
 
 export = {
-  AGE_BRACKET_ROLE_IDS,
-  computeAgeFromBirthParts,
-  getAgeBracketRoleIdForAge,
   applyAgeBracketRoleFromBirthday,
-  stripAllAgeBracketRoles,
   syncAgeBracketRolesFromStoredBirthdays,
 };

@@ -216,9 +216,6 @@ function startDailyChannelMessageStatsLoop(client?) {
 }
 
 export = {
-  DAILY_CHANNEL_MESSAGE_REPORT_CHANNEL_ID: DEFAULT_DAILY_CHANNEL_MESSAGE_REPORT_CHANNEL_ID,
-  TRACKED_CHANNELS,
   startDailyChannelMessageStatsLoop,
-  sendDailyChannelMessageReport,
   trackChannelMessage,
 };

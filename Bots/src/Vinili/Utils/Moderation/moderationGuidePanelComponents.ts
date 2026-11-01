@@ -68,19 +68,8 @@ function buildModerationGuideStickyPayload() {
   });
 }
 
-/** @deprecated classic embed — prefer buildModerationGuideStickyPayload (V2) */
-function buildModerationGuideEmbed() {
-  const { EmbedBuilder } = require("discord.js") as typeof import("discord.js");
-  return new EmbedBuilder()
-    .setColor(moderationGuideEmbedColor())
-    .setDescription(buildModerationGuideDescription());
-}
-
 export = {
   MOD_GUIDE_BUTTON_IDS,
   moderationGuideEmbedColor,
-  buildModerationGuideDescription,
-  buildModerationGuideEmbed,
-  buildModerationGuideButtonRow,
   buildModerationGuideStickyPayload,
 };

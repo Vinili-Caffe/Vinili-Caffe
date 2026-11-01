@@ -33,7 +33,5 @@ async function isAllowedVoiceCommandChannel(guild?, channel?, options: Record<st
 }
 
 export = {
-  DEFAULT_BLOCKED_VOICE_CHAT_IDS,
-  isVoiceBasedCommandChannel,
   isAllowedVoiceCommandChannel,
 };

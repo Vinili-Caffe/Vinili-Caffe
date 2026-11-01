@@ -290,17 +290,6 @@ async function userPrefersNotifDigest(guildId?, userId?, queue?) {
   return prefersDigestQueue(digests, queue);
 }
 
-function inferVoteListingFromNotif({ title, body, dedupeKey, openUrl }: any = {}) {
-  const blob = [title, body, dedupeKey, openUrl]
-    .map((x?) => String(x || "").toLowerCase())
-    .join(" ");
-  if (/top\.?gg|topgg|vote_topgg|_topgg|topgg/.test(blob)) return "topgg";
-  if (/discadia|_discadia|bump/.test(blob)) return "discadia";
-  if (/topgg/.test(String(dedupeKey || "").toLowerCase())) return "topgg";
-  if (/discadia/.test(String(dedupeKey || "").toLowerCase())) return "discadia";
-  return "discadia";
-}
-
 async function shouldSkipSiteInAppNotif(
   guildId?,
   userId?,
@@ -355,26 +344,11 @@ async function shouldSkipDiscordDmForActiveWebPush(guildId?, userId?, notifMeta:
 }
 
 export = {
-  SITE_NOTIF_GROUPS,
-  SITE_NOTIF_GROUP_KEYS,
-  SITE_NOTIF_DIGEST_QUEUES,
-  SITE_NOTIF_DIGEST_KEYS,
   KIND_TO_GROUP,
-  memberHasSiteNotifStaffAccess,
-  memberCanSeeSiteNotifGroup,
-  visibleSiteNotifGroups,
-  visibleSiteNotifDigestQueues,
-  getMutedKinds,
-  getDigestQueues,
-  setMutedKinds,
-  setDigestQueues,
-  serializeSiteNotifPrefs,
   getSerializedSiteNotifPrefs,
   mutateSiteNotifPrefs,
   isKindMuted,
-  prefersDigestQueue,
   userPrefersNotifDigest,
-  inferVoteListingFromNotif,
   shouldSkipSiteInAppNotif,
   buildSkipContext,
   shouldSkipDiscordDmForActiveWebPush,

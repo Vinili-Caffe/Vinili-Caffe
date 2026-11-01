@@ -58,12 +58,6 @@ function clearSitePresence(userId?) {
   return setSitePresence(userId, "offline");
 }
 
-function getSitePresence(userId?) {
-  const id = String(userId || "").trim();
-  if (!snowflakeOk(id)) return "offline";
-  return effectiveStatus(byUserId.get(id));
-}
-
 function getManySitePresence(ids?) {
   const out: Record<string, any> = {};
   const now = Date.now();
@@ -112,15 +106,10 @@ function armPrune() {
 armPrune();
 
 export = {
-  ONLINE_TTL_MS,
-  IDLE_TTL_MS,
   MAX_QUERY_IDS,
   setSitePresence,
   clearSitePresence,
-  getSitePresence,
   getManySitePresence,
   parseIds,
-  pruneSitePresence,
-  effectiveStatus,
   normalizeStatus,
 };

@@ -223,5 +223,4 @@ async function sendPremiumActivatedDm(client?, { userId, guildId, plan, premium,
 export = {
   sendPremiumActivatedDm,
   buildPremiumActivatedEmbed,
-  buildDashboardLinkRow,
 };

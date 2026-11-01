@@ -79,35 +79,6 @@ function resolveHubSpawnCreatePosition(guild?, hubChannel?, client?) {
   return tailPos >= 0 ? tailPos + 1 : null;
 }
 
-async function applyHubSpawnCreatePosition(voiceChannel?, rawPosition?, reason?) {
-  if (!voiceChannel || rawPosition === undefined || rawPosition === null) return;
-  const target = Number(rawPosition);
-  if (!Number.isFinite(target)) return;
-  /* Preferisci setPositions (raw API). Channel#setPosition interpreta l'argomento come INDICE. */
-  if (voiceChannel.guild?.channels?.setPositions) {
-    const ok = await voiceChannel.guild.channels
-      .setPositions([{ channel: voiceChannel.id, position: target }])
-      .then(() => true)
-      .catch((err?) => {
-        global.logger?.warn?.("[publicVoiceHub] setPositions failed:", err?.message || err);
-        return false;
-      });
-    if (ok) return;
-  }
-  const parentId = String(voiceChannel.parentId || "");
-  const siblings = listSortableVoiceSiblings(voiceChannel.guild, parentId);
-  const anchor = siblings.find((ch?) => channelCategorySortPosition(ch) === target - 1) || null;
-  const idx = anchor
-    ? resolveVoiceSetPositionIndex(siblings, voiceChannel.id, anchor.id)
-    : null;
-  if (idx == null) return;
-  await voiceChannel
-    .setPosition(idx, { reason: reason || "Vocale hub spawn in coda gruppo" })
-    .catch((err?) => {
-      global.logger?.warn?.("[publicVoiceHub] setPosition(index) failed:", err?.message || err);
-    });
-}
-
 /** Posiziona lo spawn subito sotto l'ultimo canale del gruppo hub (hub o spawn precedente). */
 async function placeSpawnAfterHubGroupTail(created?, hubChannel?, guild?, client?, reason?) {
   if (!created?.id || !hubChannel || !guild) return false;

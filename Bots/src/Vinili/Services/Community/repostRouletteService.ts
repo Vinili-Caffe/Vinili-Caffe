@@ -151,23 +151,6 @@ function scheduleRepostRouletteAfterMinigame(client?, guildId?, channelId?) {
   scheduleRepostAttempt(client, gid, cid, AFTER_MINIGAME_DELAY_MS, 0);
 }
 
-function startRepostRouletteCron(client?) {
-  if (client._repostRouletteCronStarted) return;
-  client._repostRouletteCronStarted = true;
-}
-
-async function runRepostRouletteSweep(client?) {
-  for (const guild of client.guilds.cache.values()) {
-    if (!shouldRunRepostRouletteForGuild(guild.id)) continue;
-    const channelId = resolveRouletteChannelId(guild.id);
-    if (!channelId) continue;
-    scheduleRepostAttempt(client, guild.id, channelId, 5_000, 0);
-  }
-}
-
 export = {
-  startRepostRouletteCron,
-  runRepostRouletteSweep,
-  shouldRunRepostRouletteForGuild,
   scheduleRepostRouletteAfterMinigame,
 };

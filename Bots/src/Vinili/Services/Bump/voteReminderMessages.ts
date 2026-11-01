@@ -333,13 +333,6 @@ async function dispatchVoteReminder(client, { guildId, userId, voteListing, last
   }
 }
 
-function resolveVoteCompletedSiteOpenUrl(client?) {
-  const fromTopgg = String(client?.config?.topgg?.votePageUrl || "").trim();
-  const fromDiscadia = String(client?.config?.discadiaVoteReminder?.voteUrl || "").trim();
-  const fromIds = String(IDs.links?.vote || "").trim();
-  return fromTopgg || fromDiscadia || fromIds || "https://www.viniliecaffe.it/vote";
-}
-
 async function enqueueVoteCompletedSiteNotification(_client?, _userId?, _voteListing?, _opts: Record<string, any> = {}) {
   // notifCats1: no in-app/push for "voto registrato" (Top.gg / Discadia).
   // Vote counting, rewards, and vote_reminder schedulers stay intact.

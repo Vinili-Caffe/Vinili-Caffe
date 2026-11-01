@@ -37,15 +37,6 @@ const TICKET_INTERACTION_IDS = new Set([
   "modal_ticket_panel_closerequest",
   "modal_ticket_panel_reopen_search",
 ]);
-function isBackupInteraction(customId?) {
-  const id = String(customId || "").trim();
-  if (!id) return false;
-  return (
-    id.startsWith("backup_") ||
-    id.startsWith("backup-load_") ||
-    id.startsWith("backup_list_")
-  );
-}
 function isTicketInteraction(customId?) {
   if (!customId || typeof customId !== "string") return false;
   const id = String(customId).trim();

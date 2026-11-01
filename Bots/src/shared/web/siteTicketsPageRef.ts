@@ -1,8 +1,6 @@
 "use strict";
 
 const DEFAULT_SITE_ORIGIN = "https://www.viniliecaffe.it";
-const LEGACY_TICKET_PANEL_CHANNEL_ID = "1442569095068254219";
-
 function sitePublicOrigin() {
   const raw = String(
     process.env.WEBSITE_PUBLIC_ORIGIN ||
@@ -49,12 +47,7 @@ function siteUserProfilePagePlainRef() {
   return `Personalizza: ${siteUserProfilePageUrl()}`;
 }
 
-function isLegacyTicketPanelChannelId(channelId?) {
-  return String(channelId || "").trim() === LEGACY_TICKET_PANEL_CHANNEL_ID;
-}
-
 export = {
-  LEGACY_TICKET_PANEL_CHANNEL_ID,
   sitePublicOrigin,
   siteTicketsPageUrl,
   siteTicketsPageDiscordRef,
@@ -62,5 +55,4 @@ export = {
   siteUserProfilePageUrl,
   siteUserProfilePageDiscordRef,
   siteUserProfilePagePlainRef,
-  isLegacyTicketPanelChannelId,
 };

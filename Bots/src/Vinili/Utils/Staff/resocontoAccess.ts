@@ -9,8 +9,6 @@ const RESOCONTO_SEGMENT_REVIEWER_USER_IDS = {
   director: [],
 };
 
-const RESOCONTO_REVIEWER_SHIFT_CHAIN = ["mod", "senior_moderator", "director"];
-
 const STAFF_ROLE_ID_TO_REVIEWER_USER_IDS = {
   [String(IDs.roles?.Helper || "")]: RESOCONTO_SEGMENT_REVIEWER_USER_IDS.helper,
   [String(IDs.roles?.Mod || "")]: RESOCONTO_SEGMENT_REVIEWER_USER_IDS.mod,
@@ -20,38 +18,6 @@ const STAFF_ROLE_ID_TO_REVIEWER_USER_IDS = {
 
 function normalizeUserIds(ids?) {
   return [...new Set((Array.isArray(ids) ? ids : []).map((id?) => String(id || "").trim()).filter((id?) => /^\d{16,22}$/.test(id)))];
-}
-
-function shiftResocontoReviewersDownOneLevel({ topSegmentReviewers = [] } = {}) {
-  const previous: Record<string, any> = {};
-  for (const segment of RESOCONTO_REVIEWER_SHIFT_CHAIN) {
-    previous[segment] = normalizeUserIds(RESOCONTO_SEGMENT_REVIEWER_USER_IDS[segment]);
-  }
-  for (let index = 0; index < RESOCONTO_REVIEWER_SHIFT_CHAIN.length - 1; index += 1) {
-    const segment = RESOCONTO_REVIEWER_SHIFT_CHAIN[index];
-    const source = RESOCONTO_REVIEWER_SHIFT_CHAIN[index + 1];
-    RESOCONTO_SEGMENT_REVIEWER_USER_IDS[segment] = [...previous[source]];
-  }
-  const topReviewers = normalizeUserIds(topSegmentReviewers);
-  if (topReviewers.length) {
-    RESOCONTO_SEGMENT_REVIEWER_USER_IDS.director = topReviewers;
-  }
-  return { ...RESOCONTO_SEGMENT_REVIEWER_USER_IDS };
-}
-
-function removeResocontoReviewerUserId(userId?) {
-  const uid = String(userId || "").trim();
-  if (!/^\d{16,22}$/.test(uid)) return false;
-  let removed = false;
-  for (const segment of Object.keys(RESOCONTO_SEGMENT_REVIEWER_USER_IDS)) {
-    const before = normalizeUserIds(RESOCONTO_SEGMENT_REVIEWER_USER_IDS[segment]);
-    const after = before.filter((id?) => id !== uid);
-    if (after.length !== before.length) {
-      RESOCONTO_SEGMENT_REVIEWER_USER_IDS[segment] = after;
-      removed = true;
-    }
-  }
-  return removed;
 }
 
 function getResocontoReviewerUserIdsForSegment(segment?, staffRoleId = null) {
@@ -77,10 +43,6 @@ function getResocontoSegmentsForReviewerUserId(userId?) {
 function getResocontoReviewerRoleIds() {
   const highStaffId = String(IDs.roles?.HighStaff || "").trim();
   return [highStaffId].filter((id?) => /^\d{16,22}$/.test(id));
-}
-
-function getResocontoNotifyRoleIdForSegment(_segment = null, _staffRoleId = null) {
-  return getResocontoReviewerRoleIds()[0] || null;
 }
 
 function memberHasResocontoReviewerRole(member?) {
@@ -205,14 +167,9 @@ function isCandidatureStaffReviewInteraction(customId?) {
 }
 
 export = {
-  RESOCONTO_SEGMENT_REVIEWER_USER_IDS,
-  RESOCONTO_REVIEWER_SHIFT_CHAIN,
-  shiftResocontoReviewersDownOneLevel,
-  removeResocontoReviewerUserId,
   getResocontoReviewerUserIdsForSegment,
   getResocontoSegmentsForReviewerUserId,
   getResocontoReviewerRoleIds,
-  getResocontoNotifyRoleIdForSegment,
   memberHasResocontoReviewerRole,
   memberIsResocontoReviewerForSegment,
   memberIsExcludedFromResocontoReviewerReward,

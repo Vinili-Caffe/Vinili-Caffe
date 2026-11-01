@@ -192,4 +192,4 @@ async function importOldPexDepex(client?) {
   return summary;
 }
 
-export = { parsePexDepexMessage, importOldPexDepex };
+export = { importOldPexDepex };

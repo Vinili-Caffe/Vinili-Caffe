@@ -98,15 +98,6 @@ function memberIsFounder(member?) {
   return member.roles.cache.has(founderId);
 }
 
-function memberIsStaffActor(member?) {
-  if (!member?.roles?.cache) return false;
-  const staffIds = getStaffActorRoleIdSet();
-  for (const roleId of staffIds) {
-    if (member.roles.cache.has(roleId)) return true;
-  }
-  return false;
-}
-
 function isConfigDeveloper(userId?) {
   const uid = String(userId || "").trim();
   if (!uid) return false;
@@ -312,7 +303,5 @@ async function handleStaffRoleAssignmentGuard({
 
 export = {
   handleStaffRoleAssignmentGuard,
-  getProtectedStaffAssignmentRoleIds: () => [...getProtectedRoleIdSet()],
   getStaffActorRoleIds: () => [...getStaffActorRoleIdSet()],
-  isAllowedManualStaffRoleAssigner,
 };

@@ -513,4 +513,4 @@ async function executeTenantPartnership(interaction?, { description: rawDescript
   }
 }
 
-export = { executeTenantPartnership, partnerInteractionReply, normalizePartnershipDescription };
+export = { executeTenantPartnership, normalizePartnershipDescription };

@@ -352,15 +352,10 @@ async function sweepUntrustedBotsInGuild(guild?, client?) {
 
 export = {
   buildTrustedBotIdSet,
-  isTrustedBotMember,
-  isTrustedBotMessage,
-  isTrustedApplicationMessage,
   isDiscordOfficialActor,
-  resolveApplicationMessageActorId,
   enforceUntrustedBotMember,
   handleUntrustedBotMessage,
   handleUntrustedApplicationMessage,
   sweepUntrustedBotsInGuild,
   punishMemberForBotAbuse,
-  fetchRecentBotAddExecutorId,
 };

@@ -44,14 +44,6 @@ function setPartnerDescriptionCache(text?, messageId?) {
   cachedMessageId = messageId != null && String(messageId).trim() !== "" ? String(messageId).trim() : null;
 }
 
-function getPartnerDescriptionText() {
-  return cachedText;
-}
-
-function getPartnerDescriptionMessageId() {
-  return cachedMessageId;
-}
-
 async function syncPartnerDescription(client?) {
   if (!DESCRIPTION_CHANNEL_ID || !client) {
     setPartnerDescriptionCache("", null);
@@ -103,10 +95,7 @@ async function handlePartnerDescriptionMessageDelete(client?, message?) {
 }
 
 export = {
-  DESCRIPTION_CHANNEL_ID,
   isPartnerDescriptionChannel,
-  getPartnerDescriptionText,
-  getPartnerDescriptionMessageId,
   syncPartnerDescription,
   getPartnerDescriptionTextOrSync,
   handlePartnerDescriptionMessageUpsert,

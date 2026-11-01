@@ -34,8 +34,6 @@ const ACCESS_CACHE_TTL_MS = 600_000;
 const ACCESS_CACHE_MAX = 400;
 const accessCache = new Map();
 const accessInflight = new Map();
-const STAFF_ACCESS_CACHE_MARKER = "staffAccessCache1";
-
 /* inboxNoDirector1 */
 /** Inbox Resoconti: HS / gestore PM / reviewer — non Director, non staff ladder. */
 function memberCanViewResocontiInbox(member?) {
@@ -534,10 +532,8 @@ async function handleSiteStaffAccessGet(client?, req?, res?) {
 export = {
   handleSiteStaffAccessGet,
   assertWebsiteStaffAccess,
-  memberHasMainServerStaffAccess,
   memberCanUseOpsStaffPages,
   memberCanViewResocontiInbox,
-  memberCanViewPmPointsRemovedInbox,
   normalizeHeaderSecret,
   parseViewAsFromReq,
 };

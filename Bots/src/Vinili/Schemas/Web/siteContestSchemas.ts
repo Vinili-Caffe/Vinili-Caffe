@@ -29,4 +29,4 @@ const siteContestSchema = new Schema(
 
 const SiteContest: import("mongoose").Model<import("mongoose").InferSchemaType<typeof siteContestSchema>> = models.SiteContest || model("SiteContest", siteContestSchema, COLLECTION);
 
-export = { COLLECTION, SiteContest, siteContestSchema };
+export = { COLLECTION, SiteContest };

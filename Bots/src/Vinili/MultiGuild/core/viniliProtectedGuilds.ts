@@ -43,8 +43,4 @@ function isMultiGuildManagedGuild(guildId?) {
   return !isViniliProtectedGuild(guildId);
 }
 
-function invalidateProtectedGuildCache() {
-  protectedSetCache = null;
-}
-
-export = { normalizeGuildId, getProtectedGuildIds, isViniliProtectedGuild, isMultiGuildManagedGuild, invalidateProtectedGuildCache };
+export = { normalizeGuildId, getProtectedGuildIds, isViniliProtectedGuild, isMultiGuildManagedGuild };

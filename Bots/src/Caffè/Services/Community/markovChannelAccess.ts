@@ -203,14 +203,7 @@ async function resolveMarkovOutputChannel(guild?, client?) {
 }
 
 export = {
-  COLLECTIBLE_CHANNEL_TYPES,
-  getMarkovExcludedCategoryIds,
   getMarkovExcludedChannelIds,
-  hasMemberReadWrite,
-  hasBotReadWrite,
-  isMarkovCollectibleChannelType,
-  isChannelCategoryExcluded,
-  isSpawnedPublicVoiceHubChannel,
   isMarkovEligibleChannel,
   listMarkovEligibleChannels,
   listMarkovEligibleThreads,

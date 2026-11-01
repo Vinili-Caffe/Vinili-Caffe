@@ -130,15 +130,6 @@ function prevRomeMonthKey(monthKey?) {
   return `${y}-${String(mo).padStart(2, "0")}`;
 }
 
-function firstWeekKeyOfRomeMonth(monthKey?) {
-  return weekKeysInRomeMonth(monthKey)[0] || "";
-}
-
-function isFirstIsoWeekOfRomeMonth(date = new Date()) {
-  const mk = romeMonthKey(date);
-  return currentRomeIsoWeekKey(date) === firstWeekKeyOfRomeMonth(mk);
-}
-
 function monthKeyForWeekKey(weekKey?) {
   const m = /^(\d{4})-W(\d{2})$/.exec(String(weekKey || ""));
   if (!m) return "";

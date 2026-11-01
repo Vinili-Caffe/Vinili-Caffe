@@ -250,13 +250,11 @@ function buildLiveMirrorMaps(mainGuild?, testGuild?) {
 }
 
 export = {
-  REMAP_PATH,
   getTestGuildId,
   getMainGuildId,
   isTestMirrorGuild,
   persistTestMirrorMaps,
   removeMirrorRemapEntries,
-  resetTestMirrorRemapCache,
   loadMaps,
   remapRoleIdForGuild,
   remapChannelIdForGuild,

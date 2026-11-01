@@ -167,7 +167,6 @@ async function getStaffListPausedUserIds(guildId?) {
 
 export = {
   STAFF_NEW_EMOJI,
-  STAFF_PAUSE_EMOJI,
   STAFF_LIST_SECTION_ROLE_IDS,
   STAFF_ROLE_IDS,
   BLOGGER_ROLE_ID,

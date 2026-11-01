@@ -1,5 +1,5 @@
 const config = require("../config.json") as typeof import("../config.json");
-const { connectMongo, isMongoReady } = require("../Utils/Database/mongoConnect") as typeof import("../Utils/Database/mongoConnect");
+const { isMongoReady } = require("../Utils/Database/mongoConnect") as typeof import("../Utils/Database/mongoConnect");
 const cron = require("node-cron") as typeof import("node-cron");
 const { runCronDetached } = require("../../shared/scheduling/cronDetached") as typeof import("../../shared/scheduling/cronDetached");
 const { restorePendingVoteReminders, restorePendingDiscadiaReminders, restorePendingReminders, startBumpDueReminderSweepLoop, startDiscadiaVoteReminderLoop, } = require("../Services/Bump/bumpService") as typeof import("../Services/Bump/bumpService");
@@ -12,7 +12,7 @@ const { bootstrapSupporter, recoverSupporterStatusAnnouncesOnStartup } = require
 const { restoreTtsConnections } = require("../Services/TTS/ttsService") as typeof import("../Services/TTS/ttsService");
 const { runDueChannelReminders, } = require("../Services/Reminders/channelReminderService") as typeof import("../Services/Reminders/channelReminderService");
 const { bootstrapMinigameScheduler } = require("../Services/Minigames/minigameSchedulerService") as typeof import("../Services/Minigames/minigameSchedulerService");
-const { startVerificationTenureLoop, backfillVerificationTenure, startVoteRoleCleanupLoop, runAllGuilds: renumberAllCategories, startCategoryNumberingLoop, } = require("../Services/Community/communityOpsService") as typeof import("../Services/Community/communityOpsService");
+const { startVerificationTenureLoop, backfillVerificationTenure, runAllGuilds: renumberAllCategories } = require("../Services/Community/communityOpsService") as typeof import("../Services/Community/communityOpsService");
 const { startBirthdayLoop } = require("../Services/Community/birthdayService") as typeof import("../Services/Community/birthdayService");
 const { startDailyMemberStatsLoop } = require("../Services/Community/dailyMemberStatsService") as typeof import("../Services/Community/dailyMemberStatsService");
 const { startDailyEngagementStatsLoop } = require("../Services/Community/dailyEngagementStatsService") as typeof import("../Services/Community/dailyEngagementStatsService");
@@ -20,12 +20,12 @@ const { startDailyChannelMessageStatsLoop } = require("../Services/Community/dai
 const { migrateLegacyDailyStatsCollections } = require("../Services/Community/dailyStatsStore") as typeof import("../Services/Community/dailyStatsStore");
 const { restoreTempBans } = require("../Services/Moderation/joinRaidService") as typeof import("../Services/Moderation/joinRaidService");
 const { sweepExpiredCommunicationTimeoutMirrors, reconcileIncompleteActiveMuteMirrors } = require("../Services/Moderation/mutedMirrorRoleService") as typeof import("../Services/Moderation/mutedMirrorRoleService");
-const { sweepStalePreMemberRoles, startPreMemberRoleSweepLoop } = require("../Utils/Community/preMemberRoleService") as typeof import("../Utils/Community/preMemberRoleService");
+const { sweepStalePreMemberRoles } = require("../Utils/Community/preMemberRoleService") as typeof import("../Utils/Community/preMemberRoleService");
 const { sendBannedUnbanLinkDms, shouldRunBannedUnbanDmOnStartup } = require("../Services/Moderation/bannedUnbanDmService") as typeof import("../Services/Moderation/bannedUnbanDmService");
 const { rehydrateAntiNukePanicForGuild } = require("../Services/Moderation/antiNukeService") as typeof import("../Services/Moderation/antiNukeService");
 const { isViniliFullFeatureGuild } = require("../MultiGuild/core/guildFeatureScope") as typeof import("../MultiGuild/core/guildFeatureScope");
 const { syncLiveVoiceSessionsFromGateway, startLiveVoiceExpLoop, } = require("../Services/Community/activityService") as typeof import("../Services/Community/activityService");
-const { syncPmVoiceAfkWatchFromGateway, startPmVoiceAfkWatchLoop, } = require("../Services/Staff/pmVoiceAfkWatchService") as typeof import("../Services/Staff/pmVoiceAfkWatchService");
+const { syncPmVoiceAfkWatchFromGateway } = require("../Services/Staff/pmVoiceAfkWatchService") as typeof import("../Services/Staff/pmVoiceAfkWatchService");
 const { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop, } = require("../Services/Community/customRoleExpiryService") as typeof import("../Services/Community/customRoleExpiryService");
 const { startDailyPartnerAuditLoop, } = require("../Services/Partner/partnerAuditService") as typeof import("../Services/Partner/partnerAuditService");
 const { syncPartnerDescription } = require("../Services/Partner/partnerDescriptionSyncService") as typeof import("../Services/Partner/partnerDescriptionSyncService");
@@ -45,7 +45,7 @@ const { startStreamerStageGuardLoop } = require("../Services/Community/streamerS
 const { startContestPrizeMaintenanceCron } = require("../Services/Community/contestPrizeMaintenanceService") as typeof import("../Services/Community/contestPrizeMaintenanceService");
 const { startStaffWarnResetLoop } = require("../Services/Staff/staffWarnService") as typeof import("../Services/Staff/staffWarnService");
 /* staffWarnChannelMigration + staffNegativesWarnConversion → archivio/codice-morto (one-shot fatti) */
-const { startStaffAutoValutazioniLoop, syncAllStaffAutoValutazioni, restoreActiveSerataFilmSessions, cleanupMalformedAutoValutazioni } = require("../Services/Staff/staffAutoValutazioniService") as typeof import("../Services/Staff/staffAutoValutazioniService");
+const { syncAllStaffAutoValutazioni, restoreActiveSerataFilmSessions, cleanupMalformedAutoValutazioni } = require("../Services/Staff/staffAutoValutazioniService") as typeof import("../Services/Staff/staffAutoValutazioniService");
 const { reconcileResocontoReviewerRewardAutoValutazioni } = require("../Services/Staff/resocontoReviewerRewardService") as typeof import("../Services/Staff/resocontoReviewerRewardService");
 const { purgeDuplicateCompitoSettimanaleValutazioni } = require("../Services/Staff/compitoSettimanaleDuplicatePurgeService") as typeof import("../Services/Staff/compitoSettimanaleDuplicatePurgeService");
 const { runScheduledEnds, syncActiveGiveawayButtons, scheduleActiveGiveawayEnds } = require("../Services/Giveaway/giveawayService") as typeof import("../Services/Giveaway/giveawayService");
@@ -128,39 +128,10 @@ function logError(client?, ...args) {
   global.logger?.error?.(...args);
 }
 
-function logAlways(client?, ...args) {
-  if (client?.logs?.logging) {
-    client.logs.logging(...args);
-    return;
-  }
-  if (client?.logs?.success) {
-    client.logs.success(...args);
-    return;
-  }
-  if (client?.logs?.error) {
-    client.logs.error(...args);
-    return;
-  }
-  if (global.logger?.info) {
-    global.logger.info(...args);
-    return;
-  }
-  console.log(...args);
-}
-
 function logInfo(client?, ...args) {
   if (!LOG_STARTUP) return;
   if (client?.logs?.success) {
     client.logs.success(...args);
-    return;
-  }
-  global.logger?.info?.(...args);
-}
-
-function logLaunch(client?, ...args) {
-  if (!LOG_STARTUP) return;
-  if (client?.logs?.logging) {
-    client.logs.logging(...args);
     return;
   }
   global.logger?.info?.(...args);
@@ -799,21 +770,6 @@ function messageHasBotLoadingReaction(message?, client?) {
     if (!isPrefixLoadingReaction(reaction)) continue;
         if (reaction.me === true) return true;
     if (botId && reaction.users?.cache?.has(botId)) return true;
-  }
-  return false;
-}
-
-async function messageHasBotLoadingReactionAsync(message?, client?) {
-  if (messageHasBotLoadingReaction(message, client)) return true;
-  const botId = String(client?.user?.id || "");
-  if (!botId || !message?.reactions?.cache?.size) return false;
-  for (const reaction of message.reactions.cache.values()) {
-    if (!isPrefixLoadingReaction(reaction)) continue;
-    try {
-      const users = await reaction.users.fetch();
-      if (users?.has?.(botId)) return true;
-    } catch {
-    }
   }
   return false;
 }

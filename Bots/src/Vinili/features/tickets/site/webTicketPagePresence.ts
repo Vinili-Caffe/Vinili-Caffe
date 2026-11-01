@@ -1,6 +1,5 @@
 "use strict";
 
-const PRESENCE_TTL_MS = 45_000;
 const presenceByUserId = new Map();
 
 function normalizeUserId(value?) {
@@ -30,26 +29,12 @@ function clearWebTicketPagePresence(userId?) {
   presenceByUserId.delete(uid);
 }
 
-function getWebTicketPagePresence(userId?) {
-  const uid = normalizeUserId(userId);
-  if (!uid) return null;
-  const row = presenceByUserId.get(uid);
-  if (!row) return null;
-  if (Date.now() - Number(row.at || 0) > PRESENCE_TTL_MS) {
-    presenceByUserId.delete(uid);
-    return null;
-  }
-  return row;
-}
-
 function shouldSkipWebTicketInAppNotif(_userId?, _ticketId?, _mode?) {
   return false;
 }
 
 export = {
-  PRESENCE_TTL_MS,
   setWebTicketPagePresence,
   clearWebTicketPagePresence,
-  getWebTicketPagePresence,
   shouldSkipWebTicketInAppNotif,
 };

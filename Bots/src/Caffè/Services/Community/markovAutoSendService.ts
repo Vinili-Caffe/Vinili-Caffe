@@ -623,18 +623,7 @@ async function handleMarkovReplyMessageCreate(message?, client?) {
 }
 
 export = {
-  getAutoSendConfig,
-  getMarkovReplyConfig,
   handleMarkovAutoSendMessageCreate,
   handleMarkovReplyMessageCreate,
-  resetGuildState,
-  buildAutoSendPayload,
-  tryBeginAutoSend,
-  getReplyReferenceId,
-  isAutoSendTriggerChannel,
-  isTrackedMarkovMessage,
-  recordMarkovSentMessage,
-  isMarkovReplyTarget,
   isBotClientMessage,
-  messageMentionsClient,
 };

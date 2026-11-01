@@ -40,15 +40,6 @@ function highStaffOnlyDenied() {
   };
 }
 
-function dashboardForbidden(message?) {
-  return {
-    ok: false,
-    status: 403,
-    error: "forbidden",
-    message: message || "Non hai i permessi per gestire questo server dalla dashboard.",
-  };
-}
-
 function botUsageBlacklistedDenied() {
   return {
     ok: false,
@@ -98,22 +89,6 @@ function isDashboardBotDevUser(client?, userId?) {
   } catch {
     return false;
   }
-}
-
-async function resolveDashboardBotDevFlag(client?, accessToken?) {
-  const resolved = await resolveWebsiteGuildMember(client, accessToken);
-  if (!resolved.ok) {
-    if (resolved.error === "not_in_guild" || resolved.status === 403) {
-      return { ok: true, status: 200, botDev: false, userId: null };
-    }
-    return resolved;
-  }
-  return {
-    ok: true,
-    status: 200,
-    botDev: isDashboardBotDevUser(client, resolved.userId),
-    userId: resolved.userId,
-  };
 }
 
 async function assertDashboardBotDevAccess(client?, accessToken?) {
@@ -182,10 +157,6 @@ async function guildMemberHasAnyRole(client?, guildId?, userId?, roleIds?) {
   } catch {
     return false;
   }
-}
-
-async function guildMemberHasRole(client?, guildId?, userId?, roleId?) {
-  return guildMemberHasAnyRole(client, guildId, userId, [roleId]);
 }
 
 function hasManageServerPermission(permissions?, owner = false) {
@@ -488,13 +459,6 @@ async function fetchUserGuilds(accessToken?) {
   } finally {
     discordGuildsInflight.delete(token);
   }
-}
-
-async function fetchUserManageableGuilds(accessToken?) {
-  const all = await fetchUserGuilds(accessToken);
-  if (!all.ok) return all;
-  const manageable = all.guilds.filter((row?) => oauthRowHasManageAccess(row));
-  return { ok: true, guilds: manageable };
 }
 
 async function fetchGuildCounts(client?, guildId?) {
@@ -974,15 +938,10 @@ export = {
   getDashboardGuildOverview,
   verifyDashboardGuildAccess,
   assertDashboardHighStaffAccess,
-  resolveDashboardHighStaffFlag,
   assertDashboardBotDevAccess,
-  resolveDashboardBotDevFlag,
   isDashboardBotDevUser,
   getDashboardAccess,
   fetchDiscordUser,
-  guildMemberHasRole,
-  guildMemberHasAnyRole,
-  hasManageServerPermission,
   buildKnownBotGuildIdSet,
   syncKnownBotGuildIdsFromRest,
 };

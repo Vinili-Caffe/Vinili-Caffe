@@ -42,10 +42,6 @@ function initPartnerManagerFieldsIfMissing(staffObj?) {
   if (!Array.isArray(staffObj.partnerMilestoneDmSent)) staffObj.partnerMilestoneDmSent = [];
 }
 
-function buildStaffPartnerFieldsUnsetUpdate() {
-      return buildStaffPartnerManagerIdUnsetUpdate();
-}
-
 function buildStaffPartnerManagerIdUnsetUpdate() {
   return { $unset: { "staff.managerId": "" } };
 }
@@ -108,8 +104,6 @@ export = {
   memberHasPartnerManagerRole,
   memberHasAnyStaffPresenceForDepexSync,
   initPartnerManagerFieldsIfMissing,
-  buildStaffPartnerFieldsUnsetUpdate,
   buildStaffPartnerManagerIdUnsetUpdate,
-  applyStaffDatabaseAfterDepex,
   syncStaffDbAndPauseChannelAfterDepex,
 };

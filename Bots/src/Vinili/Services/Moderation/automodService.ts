@@ -226,10 +226,6 @@ function isDiscordNativeAutomodEnabled(guildId?) {
   return isAutomodMainGuild(guildId);
 }
 
-function getDiscordNativeViolationSkipKeys() {
-  return new Set(DISCORD_NATIVE_SKIP_KEYS);
-}
-
 function shouldSkipViolationForDiscordNative(key?) {
   if (!DISCORD_NATIVE_AUTOMOD_ENABLED) return false;
   return DISCORD_NATIVE_SKIP_KEYS.has(String(key || ""));
@@ -243,8 +239,6 @@ function clearAutoModPanicState(guildId?) {
     invalidateSecurityLockCache(key);
   } catch (_) {}
 }
-
-const WICK_EQUIV = { textClusterMultiplier: 1.1875, upperCharMultiplier: 9.90575, lowerCharMultiplier: 14.866, };
 
 const INSTANT_LINK_KEYS = new Set(["invite", "scam_pattern", "scam_image_bait", "grabbed_scam_image", "nsfw_link", "word_blacklist", "link_blacklist", "mention_everyone", "mention_hour_cap", "mentions_lockdown",]);
 
@@ -2177,4 +2171,4 @@ function updateAutoModConfig(pathExpr?, value?) {
   return { ok: true, config: getAutoModConfigSnapshot() };
 }
 
-export = { runAutoModMessage, runDiscordNativeAutomodExecution, pingStaffForAutomodExecution, pingStaffAutomodAlert, isDiscordNativeAutomodEnabled, getDiscordNativeViolationSkipKeys, getAutoModMemberSnapshot, isAutoModRoleExemptMember, getAutoModConfigSnapshot, getAutoModRulesSnapshot, updateAutoModConfig, isPanicModeActiveForGuild: isPanicModeActive, getAutoModPanicSnapshot, triggerAutoModPanicExternal, clearAutoModPanicState, __test: { isLikelyCommandMessage, buildAutoModDecisionExplain, isAutomodMediaEmbedUrl, isNsfwUrl, isCrossServerForwardedMessage, detectScam, detectScamImageBait, buildModerationScanText, isStaffZoneExemptChannel } };
+export = { runAutoModMessage, runDiscordNativeAutomodExecution, pingStaffForAutomodExecution, pingStaffAutomodAlert, getAutoModMemberSnapshot, isAutoModRoleExemptMember, getAutoModConfigSnapshot, getAutoModRulesSnapshot, updateAutoModConfig, getAutoModPanicSnapshot, triggerAutoModPanicExternal, clearAutoModPanicState, __test: { isLikelyCommandMessage, buildAutoModDecisionExplain, isAutomodMediaEmbedUrl, isNsfwUrl, isCrossServerForwardedMessage, detectScam, detectScamImageBait, buildModerationScanText, isStaffZoneExemptChannel } };

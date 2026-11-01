@@ -43,33 +43,6 @@ function legacyStaffDocToEmbedded(legacy?) {
   };
 }
 
-function staffHasTrackData(staff?) {
-  if (!staff || typeof staff !== "object") return false;
-  return (
-    num(staff.positiveCount) > 0 ||
-    num(staff.negativeCount) > 0 ||
-    num(staff.warnCount) > 0 ||
-    arr(staff.pauses).length > 0 ||
-    arr(staff.positiveReasons).length > 0 ||
-    arr(staff.negativeReasons).length > 0 ||
-    arr(staff.rolesHistory).length > 0
-  );
-}
-
-function staffHasPartnerData(staff?) {
-  if (!staff || typeof staff !== "object") return false;
-  return (
-    num(staff.partnerCount) > 0 ||
-    num(staff.partnerRedeemSpend) > 0 ||
-    arr(staff.partnerActions).length > 0 ||
-    Boolean(String(staff.managerId || "").trim())
-  );
-}
-
-function staffHasMergeableData(staff?) {
-  return staffHasTrackData(staff) || staffHasPartnerData(staff);
-}
-
 function mergeStaffEmbedded(primary?, fallback?) {
   const out = { ...(fallback || {}), ...(primary || {}) };
   const countFields = ["positiveCount", "negativeCount", "warnCount", "valutazioniCount", "idCount"];
@@ -172,10 +145,6 @@ async function loadStaffTrackStatsByUserIds(guildId?, userIds?) {
 }
 
 export = {
-  legacyStaffDocToEmbedded,
-  staffHasTrackData,
-  staffHasPartnerData,
-  staffHasMergeableData,
   mergeStaffEmbedded,
   loadLegacyStaffByUserIds,
   loadStaffTrackStatsByUserIds,

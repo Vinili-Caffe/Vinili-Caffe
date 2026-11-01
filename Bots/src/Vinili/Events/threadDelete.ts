@@ -1,6 +1,6 @@
 const { formatItalianMinutesPlain } = require("../Utils/Text/italianDurationLabels") as typeof import("../Utils/Text/italianDurationLabels");
 const { AuditLogEvent, EmbedBuilder } = require("discord.js") as typeof import("discord.js");
-const { ARROW, toDiscordTimestamp, yesNo, formatAuditActor, buildAuditExtraLines, resolveChannelRolesLogChannel, resolveResponsible, } = require("../Utils/Logging/channelRolesLogUtils") as typeof import("../Utils/Logging/channelRolesLogUtils");
+const { toDiscordTimestamp, yesNo, formatAuditActor, buildAuditExtraLines, resolveChannelRolesLogChannel, resolveResponsible } = require("../Utils/Logging/channelRolesLogUtils") as typeof import("../Utils/Logging/channelRolesLogUtils");
 const { handleThreadDeletionAction: antiNukeHandleThreadDeletionAction } = require("../Services/Moderation/antiNukeService") as typeof import("../Services/Moderation/antiNukeService");
 const { isViniliFullFeatureGuild } = require("../MultiGuild/core/guildFeatureScope") as typeof import("../MultiGuild/core/guildFeatureScope");
 const THREAD_DELETE_ACTION = AuditLogEvent?.ThreadDelete ?? 112;

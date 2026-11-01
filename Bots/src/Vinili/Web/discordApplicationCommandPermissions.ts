@@ -36,10 +36,6 @@ function parseSlashAclKey(raw?) {
   return { type: Number(m[1]), name: m[2].trim() };
 }
 
-function isSlashAclKey(raw?) {
-  return Boolean(parseSlashAclKey(raw));
-}
-
 function createBotRest(botToken?) {
   return new REST({ version: "10" }).setToken(String(botToken || "").trim());
 }
@@ -509,17 +505,7 @@ async function loadSlashAclMapFromDiscord({
 }
 
 export = {
-  TYPE_CHAT,
-  TYPE_USER,
-  TYPE_MESSAGE,
-  SLASH_KIND_TO_DISCORD_TYPE,
-  slashAclKey,
-  parseSlashAclKey,
-  isSlashAclKey,
-  aclToDiscordPermissions,
-  discordPermissionsToAcl,
   syncSlashAclToDiscord,
   loadSlashAclMapFromDiscord,
   fetchGlobalCommandsByKey,
-  fetchApplicationCommandsByKey,
 };

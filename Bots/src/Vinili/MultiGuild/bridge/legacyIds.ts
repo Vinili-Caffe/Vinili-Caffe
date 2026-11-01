@@ -25,4 +25,4 @@ function buildIdsOverlay(entry?, baseIds = null) {
   };
 }
 
-export = { buildIdsOverlay, applyMapOverlay };
+export = { buildIdsOverlay };

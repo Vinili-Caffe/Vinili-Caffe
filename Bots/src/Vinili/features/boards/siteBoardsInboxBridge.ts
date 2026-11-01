@@ -3,7 +3,7 @@
  * boardsInboxSelfNotif1: notifica anche il mittente se è staff (revisione).
  */
 const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
-const { SiteDocument, SITE_DOCUMENT_TYPE } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
+const { SITE_DOCUMENT_TYPE } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
 
 const BL = SITE_DOCUMENT_TYPE.BOARD_LISTING;
 const QUEUE = "revisione";
@@ -304,21 +304,6 @@ async function onBoardsListingWithdrawn(client?, doc?, opts: Record<string, any>
   return true;
 }
 
-async function syncPendingBoardsToWorkflowStore(client?, opts: Record<string, any> = {}) {
-  const limit = Math.min(120, Math.max(10, Number(opts.limit) || 80));
-  const rows = await SiteDocument.find({ docType: BL, status: "pending" })
-    .sort({ updatedAt: -1 })
-    .limit(limit)
-    .lean()
-    .catch(() => []);
-  let n = 0;
-  for (const row of rows || []) {
-    const out = await upsertBoardsRevisioneWorkflow(row, { status: "pending" }).catch(() => null);
-    if (out) n += 1;
-  }
-  return n;
-}
-
 async function decideBoardsFromWorkflow(client?, access?, body: Record<string, any> = {}) {
   const listingId = String(body.listingId || body.messageId || body.id || "").trim();
   const action = String(body.action || "").trim().toLowerCase();
@@ -369,14 +354,10 @@ async function decideBoardsFromWorkflow(client?, access?, body: Record<string, a
 
 export = {
   QUEUE,
-  boardsRevisioneDedupeKey,
   upsertBoardsRevisioneWorkflow,
-  notifyBoardsRevisioneStaff,
-  notifyBoardsOwnerDecision,
   onBoardsListingPending,
   onBoardsListingDecided,
   onBoardsListingWithdrawn,
-  syncPendingBoardsToWorkflowStore,
   decideBoardsFromWorkflow,
   kindLabel,
 };

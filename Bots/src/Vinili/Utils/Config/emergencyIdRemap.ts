@@ -107,10 +107,6 @@ function remapChannelIdForward(channelId?) {
   return remapKnown("channel", channelId);
 }
 
-function remapEmojiIdForward(emojiId?) {
-  return remapKnown("emoji", emojiId);
-}
-
 function remapIdsInString(text?, kinds = ["role", "channel", "emoji"]) {
   if (typeof text !== "string" || !text) return text;
   const maps = loadMaps();
@@ -246,16 +242,11 @@ function persistGuildIdRemap({
 }
 
 export = {
-  FULL_REMAP_PATH,
-  ROLE_REMAP_PATH,
   normalizeId,
   remapRoleIdForward,
   remapChannelIdForward,
-  remapEmojiIdForward,
-  remapIdsInString,
   remapDeepIdsInPlace,
   applyEmergencyIdRemapToIds,
   persistGuildIdRemap,
-  resetIdRemapCache,
   loadMaps,
 };

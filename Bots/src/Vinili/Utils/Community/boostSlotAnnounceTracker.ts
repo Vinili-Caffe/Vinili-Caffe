@@ -87,16 +87,6 @@ async function persistAnnouncedBoostSlotsToDb(guildId?, userId?) {
   ).catch(() => null);
 }
 
-async function addAnnouncedBoostSlots(guildId?, userId?, add?) {
-  const k = keyOf(guildId, userId);
-  const delta = Math.max(0, Math.floor(Number(add || 0)));
-  const next = getAnnouncedBoostSlots(guildId, userId) + delta;
-  if (next <= 0) slotsByKey.delete(k);
-  else slotsByKey.set(k, next);
-  await persistAnnouncedBoostSlotsToDb(guildId, userId);
-  return next;
-}
-
 async function deleteAnnouncedBoostSlots(guildId?, userId?) {
   const k = keyOf(guildId, userId);
   slotsByKey.delete(k);
@@ -122,7 +112,6 @@ function clearAnnouncedBoostSlotsMemoryForGuild(guildId?) {
 export = {
   getAnnouncedBoostSlots,
   setAnnouncedBoostSlots,
-  addAnnouncedBoostSlots,
   deleteAnnouncedBoostSlots,
   ensureBoostSlotsSynced,
   persistAnnouncedBoostSlotsToDb,

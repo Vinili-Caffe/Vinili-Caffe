@@ -645,10 +645,7 @@ function startTwitchLiveAlertLoop(client?) {
 
 export = {
   startTwitchLiveAlertLoop,
-  runTwitchLiveAlertPoll,
-  evaluateLiveAnnouncementDecision,
   resolveConfig,
-  buildAnnouncementContent,
   normalizeLogin,
   getAppAccessToken,
   fetchLiveStreams,

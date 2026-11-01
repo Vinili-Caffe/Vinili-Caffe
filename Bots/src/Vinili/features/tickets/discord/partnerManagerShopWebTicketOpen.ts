@@ -237,5 +237,4 @@ async function openPartnerManagerShopWebTicketForMember(client?, guild?, member?
 export = {
   openPartnerManagerShopWebTicketForMember,
   sitePublicOrigin,
-  buildPmShopTicketBody,
 };

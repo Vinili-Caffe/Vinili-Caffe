@@ -34,20 +34,6 @@ function assertFeature(ctx?, featureKey?) {
   throw err;
 }
 
-async function addExpWithLevelGuarded(guild?, userId?, amount?, applyMultiplier = false, includeWeekly = true, options: Record<string, any> = {}) {
-  const ctx = requireTenantGuild(guild);
-  assertFeature(ctx, "level");
-  const { addExpWithLevel } = require("../../Services/Community/expService") as typeof import("../../Services/Community/expService");
-  return addExpWithLevel(guild, userId, amount, applyMultiplier, includeWeekly, options);
-}
-
-async function getGuildExpSettingsGuarded(guildId?) {
-  const ctx = requireTenantGuild(guildId);
-  assertFeature(ctx, "level");
-  const { getGuildExpSettings } = require("../../Services/Community/expService") as typeof import("../../Services/Community/expService");
-  return getGuildExpSettings(guildId);
-}
-
 async function ensureGuildFeatureBucketGuarded(guildId?) {
   const ctx = requireTenantGuild(guildId);
   assertFeature(ctx, "ticket");
@@ -55,11 +41,4 @@ async function ensureGuildFeatureBucketGuarded(guildId?) {
   return ensureGuildFeatureBucket(guildId);
 }
 
-function getSecurityProfileGuarded(guildId?) {
-  const ctx = requireTenantGuild(guildId);
-  assertFeature(ctx, "security");
-  const { getSecurityProfilesSnapshot } = require("../../Services/Moderation/securityProfilesService") as typeof import("../../Services/Moderation/securityProfilesService");
-  return getSecurityProfilesSnapshot(guildId);
-}
-
-export = { requireTenantGuild, assertFeature, addExpWithLevelGuarded, getGuildExpSettingsGuarded, ensureGuildFeatureBucketGuarded, getSecurityProfileGuarded };
+export = { ensureGuildFeatureBucketGuarded };

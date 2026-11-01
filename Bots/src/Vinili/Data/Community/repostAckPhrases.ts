@@ -311,12 +311,6 @@ function pickRepostAckPhrase() {
   return phraseBag.pop();
 }
 
-function resetRepostAckPhraseBag() {
-  phraseBag = [];
-}
-
 export = {
-  REPOST_ACK_PHRASES,
   pickRepostAckPhrase,
-  resetRepostAckPhraseBag,
 };

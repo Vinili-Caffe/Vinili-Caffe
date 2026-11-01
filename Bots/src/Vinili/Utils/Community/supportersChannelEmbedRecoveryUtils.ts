@@ -120,12 +120,9 @@ async function botSupportersEmbedExistsForUser(channel?, userId?, botId?, sinceM
 export = {
   DEFAULT_RECOVERY_LOOKBACK_MS,
   EMBED_DEDUPE_LOOKBACK_MS,
-  MAX_SUPPORTERS_CHANNEL_SCAN,
   recoverySleep,
   isRecoveryPrimaryShard,
   collectRecentRoleAddsFromAudit,
-  countBotSupportersEmbedsForUser,
   botSupportersEmbedExistsForUser,
   messageTextBlob,
-  blobMentionsUser,
 };

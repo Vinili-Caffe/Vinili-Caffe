@@ -55,21 +55,6 @@ function resolveVoiceStateUser(guild?, vs?) {
   return { member: member || null, user };
 }
 
-function countHumanMembers(channel?) {
-  const guild = channel?.guild;
-  const channelId = String(channel?.id || "");
-  if (!guild?.voiceStates?.cache || !channelId) return 0;
-  let n = 0;
-  for (const vs of guild.voiceStates.cache.values()) {
-    if (String(vs.channelId || "") !== channelId) continue;
-    const { member, user } = resolveVoiceStateUser(guild, vs);
-    if (user?.bot || member?.user?.bot) continue;
-    if (!user && !member) continue;
-    n += 1;
-  }
-  return n;
-}
-
 function hasBotMemberInChannel(channel?) {
   const guild = channel?.guild;
   const channelId = String(channel?.id || "");

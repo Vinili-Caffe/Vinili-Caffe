@@ -6,37 +6,12 @@ const { HIGH_STAFF_COMMANDS_ZONE_TOKEN, PM_COMMANDS_THREAD_ZONE_TOKEN } = requir
 const { hasAllPermissions } = require("./permMemberChecks") as typeof import("./permMemberChecks");
 const { buildGlobalPermissionDeniedEmbed, buildGlobalChannelDeniedEmbed, buildGlobalNotYourControlEmbed } = require("./permEmbeds") as typeof import("./permEmbeds");
 const { WEB_TICKET_PREFIX_ALLOWED_COMMANDS, WEB_TICKET_PREFIX_CATEGORY_LIMIT, WEB_TICKET_PREFIX_HIDDEN_COMMANDS, WEB_TICKET_SLASH_ALLOWED_COMMANDS, WEB_TICKET_SLASH_HIDDEN_COMMANDS, WEB_TICKET_SLASH_CATEGORY_LIMIT, resolveSlashRoles, resolveSlashPermissions, resolvePrefixRoles, getDevIds, peekMainDashboardCommandAcl } = require("./permWebTicket") as typeof import("./permWebTicket");
-const { loadPermissions, expandResolvedChannelReference, normalizeChannelList, channelMatchesPolicyChannelList, resolveCommandChannelPolicy, hasAnyRole, fetchLiveMember, checkSlashPermission } = require("./permSlash") as typeof import("./permSlash");
+const { loadPermissions, expandResolvedChannelReference, normalizeChannelList, channelMatchesPolicyChannelList, resolveCommandChannelPolicy, hasAnyRole, checkSlashPermission } = require("./permSlash") as typeof import("./permSlash");
 const { resolvePrefixCommandChannels, checkPrefixPermission } = require("./permPrefix") as typeof import("./permPrefix");
 const { checkButtonPermission } = require("./permButton") as typeof import("./permButton");
 const { checkStringSelectPermission, checkModalPermission } = require("./permSelectModal") as typeof import("./permSelectModal");
 
 
-
-async function isGuildOwnerOrAdmin(interaction?) {
-  if (!interaction?.inGuild?.()) return false;
-  const userId = String(interaction?.user?.id || "");
-  if (!userId) return false;
-
-  const guild = interaction.guild || null;
-  const ownerId = String(guild?.ownerId || "");
-  if (ownerId && ownerId === userId) return true;
-
-  const member = interaction.member;
-  if (member?.permissions?.has?.(PermissionFlagsBits.Administrator)) return true;
-
-  const freshMember = await fetchLiveMember(interaction);
-  if (freshMember?.permissions?.has?.(PermissionFlagsBits.Administrator)) {
-    return true;
-  }
-
-  if (guild && typeof guild.fetchOwner === "function") {
-    const owner = await guild.fetchOwner().catch(() => null);
-    if (owner?.id && String(owner.id) === userId) return true;
-  }
-
-  return false;
-}
 
 function getSlashRequiredRoles(interaction?) {
   const data = loadPermissions();

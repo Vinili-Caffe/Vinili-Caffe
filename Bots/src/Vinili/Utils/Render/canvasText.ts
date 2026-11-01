@@ -88,16 +88,6 @@ function getFittedFontSize(ctx?, text?, maxWidth?, maxSize = 52, minSize = 14, w
   return minSize;
 }
 
-function getFittedFontSizeOneLineEmoji(ctx?, text?, maxWidth?, maxSize?, minSize?, weight?) {
-  const prep = prepareVisibleText(String(text || "").trim());
-  if (!prep) return maxSize;
-  for (let s = maxSize; s >= minSize; s -= 1) {
-    const lines = wrapRichTextToLines(ctx, prep, maxWidth, s, weight);
-    if (lines.length <= 1) return s;
-  }
-  return minSize;
-}
-
 function computeWrappedTitleLines(ctx?, rawText?, nameMaxW?, options: Record<string, any> = {}) {
   const weight = options.weight ?? "700";
   const fallback = options.fallback ?? "—";
@@ -114,12 +104,6 @@ function computeWrappedTitleLines(ctx?, rawText?, nameMaxW?, options: Record<str
   if (lines.length > maxLines) lines = lines.slice(0, maxLines);
   const lineHeight = Math.max(22, Math.round(size * 1.28));
   return { source: line, lines, size, lineHeight };
-}
-
-function drawLabelFull(ctx?, text?, x?, y?, maxWidth?, maxSize = 52, options: Record<string, any> = {}) {
-  const value = String(text || "").trim() || "—";
-  const size = getFittedFontSize(ctx, value, maxWidth, maxSize, options.minSize ?? 14, options.weight ?? "700");
-  drawLabel(ctx, value, x, y, { ...options, size });
 }
 
 function drawLabel(
@@ -146,18 +130,6 @@ function drawLabel(
     normalizeCompatibility: false,
     useNumericFont,
     forcePrimaryFont,
-  });
-}
-
-function dateText(value?) {
-  if (!value) return "N/A";
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return "N/A";
-  return d.toLocaleDateString("en-US", {
-    timeZone: ROME_TIME_ZONE,
-    month: "long",
-    day: "numeric",
-    year: "numeric",
   });
 }
 

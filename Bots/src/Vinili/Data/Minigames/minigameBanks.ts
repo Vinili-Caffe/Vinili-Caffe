@@ -389,13 +389,6 @@ const CAPITAL_COUNTRY_REGION = {
   romania: "Europa", bulgaria: "Europa", croazia: "Europa", ungheria: "Europa", finlandia: "Europa", islanda: "Europa",
 };
 
-const REGION_AREA = {
-  Abruzzo: "Centro", Basilicata: "Sud", Calabria: "Sud", Campania: "Sud", "Emilia Romagna": "Nord",
-  "Friuli Venezia Giulia": "Nord", Lazio: "Centro", Liguria: "Nord", Lombardia: "Nord", Marche: "Centro",
-  Molise: "Sud", Piemonte: "Nord", Puglia: "Sud", Sardegna: "Isole", Sicilia: "Isole", Toscana: "Centro",
-  "Trentino Alto Adige": "Nord", Umbria: "Centro", "Valle d'Aosta": "Nord", Veneto: "Nord",
-};
-
 const REGION_HINT_DATA = {
   Abruzzo: { sea: "Mar Adriatico", population: "~1,3 milioni" },
   Basilicata: { sea: "Mar Ionio", population: "~560.000" },
@@ -799,7 +792,6 @@ export = {
   getTreasureHuntEmojiPairs,
   CAPITAL_ITALIAN,
   CAPITAL_COUNTRY_REGION,
-  REGION_AREA,
   REGION_HINT_DATA,
   FAMOUS_CAPITAL_COUNTRIES,
   FLAG_WELL_KNOWN_COUNTRIES,

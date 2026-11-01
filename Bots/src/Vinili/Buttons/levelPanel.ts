@@ -1,5 +1,5 @@
 const { EmbedBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = require("discord.js") as typeof import("discord.js");
-const { buildLevelServerPanelPayload, buildLevelUserPanelPayload } = require("../Prefix/Admin/level");
+const { buildLevelServerPanelPayload } = require("../Prefix/Admin/level");
 const { ActivityUserProfile } = require("../Schemas/Community/communitySchemas") as typeof import("../Schemas/Community/communitySchemas");
 const { getLevelInfo, getTotalExpForLevel, recordLevelHistory, setLevelChannelLocked, setRoleIgnored, setRoleExpMultiplier, setTemporaryEventMultiplier, setGlobalMultiplier, syncLevelRolesForMember, sendLevelUpAnnouncement } = require("../Services/Community/expService") as typeof import("../Services/Community/expService");
 const { getGuildMemberCached } = require("../Utils/Interaction/interactionEntityCache") as typeof import("../Utils/Interaction/interactionEntityCache");

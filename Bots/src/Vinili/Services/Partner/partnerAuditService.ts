@@ -5,7 +5,6 @@ const { ActivityUserProfile } = require("../../Schemas/Community/communitySchema
 const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
 const { getGuildChannelCached, getClientGuildCached } = require("../../Utils/Interaction/interactionEntityCache") as typeof import("../../Utils/Interaction/interactionEntityCache");
 const {
-  resolvePartnershipConfigSync,
   getPartnershipChannelId,
   getPartnershipLogChannelIds,
   listPartnershipAuditGuildIds,
@@ -567,7 +566,5 @@ export = {
   MANAGER_LEFT_SERVER_REASON,
   logPointRemoval,
   startDailyPartnerAuditLoop,
-  runDailyPartnerAudit,
-  runDailyPartnerAuditForGuild,
   runImmediatePartnerAuditForUser,
 };

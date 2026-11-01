@@ -4,7 +4,7 @@ const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Conf
 const { logMinigameSpawn, logMaybeStartSkip, warnMinigame, logMinigameDebug, is429Error } = require("./minigameLog") as typeof import("./minigameLog");
 const { getMinigameRomeTime, getChannelSafe, getChannelCached, isWithinAllowedWindow } = require("./minigameUtils") as typeof import("./minigameUtils");
 const { lastSentAtByChannel, getActivityWindowMs, getMinMessages, getRecentActivityStats, computeAdaptiveMinMessages, isReadyByActivity, assessFreshSpawnChatActivity, getActivityScopeKey, backfillRecentChatActivityFromHistory, isFailsafeDue } = require("./minigameActivity") as typeof import("./minigameActivity");
-const { nextGameHook, activeGames, channelWinClosing, blockMinigameRehydrate, pendingGames, standbyChannels, lastNoParticipationEndAtByChannel, lastPlayedGameTypesByChannel, lastPlayedAtByChannelAndType, startingChannels, clearActiveGame, clearMinigameRoundTimers } = require("./minigameState") as typeof import("./minigameState");
+const { nextGameHook, activeGames, channelWinClosing, blockMinigameRehydrate, pendingGames, standbyChannels, lastNoParticipationEndAtByChannel, lastPlayedGameTypesByChannel, lastPlayedAtByChannelAndType, startingChannels, clearMinigameRoundTimers } = require("./minigameState") as typeof import("./minigameState");
 const { clearRolePingSentThisStart } = require("./minigameRolePing") as typeof import("./minigameRolePing");
 const { sendMinigameMessage } = require("./minigameDiscord") as typeof import("./minigameDiscord");
 const { resolveMinigameGuildIdAsync, purgeExpiredMinigameDbState, leaveFindBotVoiceChannel } = require("./minigameRound") as typeof import("./minigameRound");
@@ -126,14 +126,6 @@ function resolveMainChatMinigameChannelId() {
 function isMainChatMinigameChannelBusy() {
   const chatId = resolveMainChatMinigameChannelId();
   return chatId ? isMinigameChannelBusy(chatId) : false;
-}
-
-function hasAnyActiveMinigame() {
-  for (const [, game] of activeGames.entries()) {
-    if (game?.type === "halloweenTrickOrTreat") continue;
-    return true;
-  }
-  return startingChannels.size > 0 || channelWinClosing.size > 0 || pendingGames.size > 0;
 }
 
 async function safeStartGameByType(client?, cfg?, gameType?) {
@@ -498,17 +490,6 @@ function startMinigameLoop(client?) {
   scheduleMinigameLoopTick(client);
 }
 
-async function forceStartMinigame(client?) {
-  const cfg = getConfig(client);
-  if (!cfg?.enabled) return;
-  if (!cfg.channelId) return;
-  if (activeGames.has(cfg.channelId)) return;
-  const type = await getNextGameType(client, cfg);
-  if (!type) return;
-  pendingGames.set(cfg.channelId, { type, createdAt: Date.now() });
-  await maybeStartRandomGame(client, true);
-}
-
 function clearGameForChannel(channelId?, client = null, guildId = null) {
   const id = String(channelId || "");
   if (!id) return;
@@ -553,4 +534,4 @@ function clearGameForChannel(channelId?, client = null, guildId = null) {
   }
 }
 
-export = { startMinigameLoop, forceStartMinigame, restoreActiveGames, bootstrapMinigameScheduler, handleMinigameMessage, handleMinigameButton, handleMinigameReaction, handleMinigameVoiceState, shouldDeferTtsLeaveForFindBotVoiceMinigame, hasFindBotVoiceSession, clearGameForChannel, isMinigameFloodExemptChannel, isMinigameChannelBusy, isMainChatMinigameChannelBusy, hasAnyActiveMinigame, getActiveGameForChannel, getConfig, isMinigameSnipeSuppressed, pickSnipeEntryForChannel, redactSnipeContentForMinigame, suppressMinigameSnipe, shouldSkipStoringSnipe, startHalloweenTrickOrTreatGameForAlternate, processHalloweenMinigamesShowcaseForce };
+export = { startMinigameLoop, restoreActiveGames, bootstrapMinigameScheduler, handleMinigameMessage, handleMinigameButton, handleMinigameReaction, handleMinigameVoiceState, shouldDeferTtsLeaveForFindBotVoiceMinigame, hasFindBotVoiceSession, clearGameForChannel, isMinigameFloodExemptChannel, isMinigameChannelBusy, isMainChatMinigameChannelBusy, getActiveGameForChannel, getConfig, isMinigameSnipeSuppressed, pickSnipeEntryForChannel, redactSnipeContentForMinigame, suppressMinigameSnipe, shouldSkipStoringSnipe, startHalloweenTrickOrTreatGameForAlternate, processHalloweenMinigamesShowcaseForce };

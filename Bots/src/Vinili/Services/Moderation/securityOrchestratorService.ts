@@ -137,8 +137,4 @@ async function getSecurityLockState(guild?) {
   return result;
 }
 
-async function shouldBlockIncomingJoins(guild?) {
-  return Boolean((await getSecurityLockState(guild)).joinLockActive);
-}
-
-export = { buildSecurityLockDecision, getSecurityLockState, shouldBlockIncomingJoins, invalidateSecurityLockCache };
+export = { getSecurityLockState, invalidateSecurityLockCache };

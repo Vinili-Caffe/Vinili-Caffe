@@ -136,30 +136,6 @@ function formatCurrency(currency?, amount?) {
   return normalizeCurrency(currency) === CURRENCY_CAFFE ? formatCaffe(amount) : formatVinili(amount);
 }
 
-function toPublicServerWalletPayload(state?) {
-  const s = state || {};
-  const vinili = resolveCurrencyBucket(s.vinili);
-  const caffe = resolveCurrencyBucket(s.caffe);
-  return {
-    currencies: ["vinili", "caffe"],
-    vinili: {
-      label: "Vinili",
-      balance: vinili.balance,
-      earned: vinili.earned,
-      spent: vinili.spent,
-      ledger: vinili.ledger.slice(0, 5),
-    },
-    caffe: {
-      label: "Caffè",
-      balance: caffe.balance,
-      earned: caffe.earned,
-      spent: caffe.spent,
-      ledger: caffe.ledger.slice(0, 5),
-    },
-    totalBalance: vinili.balance + caffe.balance,
-  };
-}
-
 function isMongoDuplicateKeyError(err?) {
   return err?.code === 11000 || String(err?.message || "").includes("E11000");
 }
@@ -376,5 +352,4 @@ export = {
   normalizeCurrency,
   splitDualReward,
   spendCurrency,
-  toPublicServerWalletPayload,
 };

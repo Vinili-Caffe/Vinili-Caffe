@@ -80,10 +80,6 @@ function extractMessageStickers(message?) {
   return out;
 }
 
-function extractMessageStickerIds(message?) {
-  return extractMessageStickers(message).map((ref?) => ref.id);
-}
-
 function pickRandomItem(items?) {
   if (!Array.isArray(items) || !items.length) return null;
   return items[Math.floor(Math.random() * items.length)];
@@ -187,19 +183,12 @@ async function resolveMarkovStickerEmbed(client?, stickerRef?) {
 }
 
 export = {
-  extractUserMentionIds,
   buildAllowedMentionsForText,
   isLikelyImageUrl,
   extractMessageImageUrls,
-  normalizeMarkovStickerRef,
   extractMessageStickers,
-  extractMessageStickerIds,
   pickRandomItem,
-  resolveMarkovOutputLimits,
   clampMarkovOutput,
-  fileNameFromImageUrl,
-  validateMarkovImageUrl,
   resolveMarkovImageAttachment,
-  resolveMarkovImageEmbed,
   resolveMarkovStickerEmbed,
 };

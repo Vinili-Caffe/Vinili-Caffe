@@ -111,18 +111,4 @@ async function logModCase({ guild, modCase }: any) {
   await sendStaffActionToModLogs(guild, modCase).catch(() => null);
 }
 
-async function tryDmUser(user?, content?) {
-  if (!user) return false;
-  try {
-    if (typeof content === "string") {
-      await user.send({ content });
-    } else {
-      await user.send(content);
-    }
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-export = { getModConfig, isExempt, getHighestModerationRelevantRolePosition, createModCase, appendCaseEdit, closeCase, closeCasePersist, logModCase, formatDuration, parseDuration, tryDmUser };
+export = { getModConfig, isExempt, getHighestModerationRelevantRolePosition, createModCase, appendCaseEdit, closeCasePersist, logModCase, formatDuration, parseDuration };

@@ -125,11 +125,6 @@ function resolveSeratafilmFilmSource() {
   return { kind: "missing", path: "", url: "" };
 }
 
-function resolveSeratafilmFilmPath() {
-  const src = resolveSeratafilmFilmSource();
-  return src.kind === "file" ? src.path : "";
-}
-
 function resolveFilmStreamUrlForUser(userId?) {
   const src = resolveSeratafilmFilmSource();
   if (src.kind === "url" && src.url) return src.url;

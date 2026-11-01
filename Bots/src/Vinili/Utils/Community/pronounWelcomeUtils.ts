@@ -108,15 +108,7 @@ function buildMemberWelcomePhrase(member?) {
 }
 
 export = {
-  WELCOME_BADGE_INCLUSIVE,
-  WELCOME_BADGE_M,
-  WELCOME_BADGE_F,
-  mapDiscordPronounsStringToGender,
-  resolveGenderFromRoleIds,
-  welcomeBadgeForGender,
   resolveWelcomeBadge,
-  resolveMemberWelcomeWord,
-  capitalizeWelcomeWord,
   buildMemberWelcomePhrase,
   resolveMemberPronounGender,
   applyPronounGenderToText,

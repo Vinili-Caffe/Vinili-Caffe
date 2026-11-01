@@ -35,7 +35,7 @@ const {
 const { seedDefaultThankYouEmbedIfEmpty } = require("../Utils/Partner/partnershipThankYouEmbed") as typeof import("../Utils/Partner/partnershipThankYouEmbed");
 const { syncTenantPartnerDescription } = require("../MultiGuild/services/Partner/tenantPartnerDescriptionService") as typeof import("../MultiGuild/services/Partner/tenantPartnerDescriptionService");
 const { memberCanManageTenantPartnershipSettings } = require("../MultiGuild/utils/Partner/tenantPartnershipAdminAccess") as typeof import("../MultiGuild/utils/Partner/tenantPartnershipAdminAccess");
-const { t, resolveTenantLanguage } = require("../MultiGuild/utils/Partner/tenantPartnershipI18n/index") as typeof import("../MultiGuild/utils/Partner/tenantPartnershipI18n/index");
+const { t } = require("../MultiGuild/utils/Partner/tenantPartnershipI18n/index") as typeof import("../MultiGuild/utils/Partner/tenantPartnershipI18n/index");
 const { resolveTenantLanguageForInteraction, tenantI18nNoticePayload } = require("../MultiGuild/utils/Partner/tenantPartnershipPrefixMessages") as typeof import("../MultiGuild/utils/Partner/tenantPartnershipPrefixMessages");
 const { buildSimpleNoticePayload } = require("../Utils/Embeds/simpleNoticeEmbed") as typeof import("../Utils/Embeds/simpleNoticeEmbed");
 const { resolvePartnershipConfigSync } = require("../Utils/Partner/partnershipConfigResolver") as typeof import("../Utils/Partner/partnershipConfigResolver");
@@ -227,16 +227,6 @@ async function acknowledgeSelectIfNeeded(interaction?) {
   if (interaction.isStringSelectMenu?.() && !interaction.deferred && !interaction.replied) {
     await interaction.deferUpdate().catch(() => {});
   }
-}
-
-async function replyPrivate(interaction?, content?) {
-  const payload = textEphemeralNotice(content, interaction.guild);
-  if (interaction.isStringSelectMenu?.()) {
-    await acknowledgeSelectIfNeeded(interaction);
-    await interaction.followUp(payload).catch(() => {});
-    return;
-  }
-  await interaction.reply(payload).catch(() => {});
 }
 
 async function replyPrivateEmbeds(interaction?, payload?) {

@@ -505,8 +505,6 @@ function listBadgesForDisplay(scores?, objectiveState?, lang?, qualifiesForMissi
 
 export = {
   loadObjectiveState,
-  listObjectivesFromState,
-  listUnlockedBadgesFromObjectives,
   listObjectivesForDisplay,
   listBadgesForDisplay,
   emptyObjectiveProgressState,
@@ -515,5 +513,4 @@ export = {
   setTenantObjectiveFlag,
   recordTenantBugReport,
   buildObjectiveProgress,
-  isObjectiveDone,
 };

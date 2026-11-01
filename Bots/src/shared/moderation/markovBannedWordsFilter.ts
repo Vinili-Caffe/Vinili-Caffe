@@ -209,15 +209,8 @@ function filterBannedLines(lines?) {
   return list.filter((line?) => !isMarkovBannedText(line));
 }
 
-function clearMarkovBannedWordsCache() {
-  cachedTerms = null;
-  cachedSubstringTerms = null;
-}
-
 export = {
-  findBannedWordMatch,
   isMarkovBannedText,
   filterBannedLines,
   loadBannedTerms,
-  clearMarkovBannedWordsCache,
 };

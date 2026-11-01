@@ -88,4 +88,4 @@ async function sanitizeConditionalRolesAfterRejoin(member?) {
   await resetBoostSlotsIfNotBoosting(member);
 }
 
-export = { collectGuildedRoleIds, memberHasSupporterInviteInPresence, filterRoleIdsEligibleForRejoinRestore, sanitizeConditionalRolesAfterRejoin, resetBoostSlotsIfNotBoosting };
+export = { collectGuildedRoleIds, filterRoleIdsEligibleForRejoinRestore, sanitizeConditionalRolesAfterRejoin, resetBoostSlotsIfNotBoosting };

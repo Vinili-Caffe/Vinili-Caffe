@@ -1,7 +1,7 @@
 const mongoose = require("mongoose") as typeof import("mongoose");
 const { ChannelType, PermissionsBitField } = require("discord.js") as typeof import("discord.js");
-const { addRolesAndGetMember, getClientGuildCached, getGuildMemberCached, getGuildRoleCached } = require("../../Utils/Interaction/interactionEntityCache") as typeof import("../../Utils/Interaction/interactionEntityCache");
-const { ActivityUserProfile, ACTIVITY_MAIN_GUILD_ID } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
+const { addRolesAndGetMember, getClientGuildCached, getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache") as typeof import("../../Utils/Interaction/interactionEntityCache");
+const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
 const IDs: any = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
 const { resolveVoteRoleIdForGuild } = require("../../Utils/Community/resolveVoteRoleId") as typeof import("../../Utils/Community/resolveVoteRoleId");
 const { getEffectiveJoinedAt } = require("./effectiveMemberJoinService") as typeof import("./effectiveMemberJoinService");
@@ -389,14 +389,6 @@ function buildNumberedCenteredCategoryName(nextNumber?, currentName?, options: R
   return `${nextNumber}${buildCenteredCategoryBody(core, options)}`.slice(0, 100);
 }
 
-function replaceNumberSuffixOnly(name?, nextNumber?) {
-  const value = String(name || "");
-  if (INDEX_SUFFIX_RE.test(value)) {
-    return value.replace(INDEX_SUFFIX_RE, nextNumber);
-  }
-  return `${value}${nextNumber}`;
-}
-
 const PUBLIC_VOICE_SEPARATOR_NAME = "〝";
 const PUBLIC_VOICE_NUMBERING_GROUPS = ["Lounge", "Duo", "Trio", "Quad", "Penta", "Hexa", "Setta", "Octa", "Squad"];
 function getPublicVoiceHubChannelIdSet() {
@@ -530,22 +522,6 @@ async function resolveGuildMembersMe(guild?) {
   return guild.members.fetch(me.id, { force: true }).catch(() => me);
 }
 
-function guildHasManageableVoiceInCategories(guild?, categoryIds?) {
-  const ids = new Set((categoryIds || []).map((id?) => String(id || "")).filter(Boolean));
-  if (!ids.size || !guild?.channels?.cache) return false;
-  return guild.channels.cache.some((channel?) => {
-    if (!ids.has(String(channel.parentId || ""))) return false;
-    if (channel.type !== ChannelType.GuildVoice) return false;
-    return Boolean(channel.manageable);
-  });
-}
-
-async function guildCanRenumberChannels(guild?, categoryIds?) {
-  const me = await resolveGuildMembersMe(guild);
-  if (memberHasManageChannels(me)) return true;
-  return guildHasManageableVoiceInCategories(guild, categoryIds);
-}
-
 function pauseMs(ms?) {
   return new Promise((resolve?) => setTimeout(resolve, ms));
 }
@@ -670,10 +646,6 @@ function isTicketsCategoryName(name?) {
   return String(name || "")
     .toLowerCase()
     .includes("tickets");
-}
-
-function stripCategoryIndexPrefix(name?) {
-  return String(name || "").replace(INDEX_PREFIX_RE, "").replace(/^\s+/, "");
 }
 
 function ticketsCategoryCoreLabel(name?) {
@@ -879,7 +851,6 @@ function startCategoryNumberingLoop(client?) {
 
 export = {
   upsertVoteRole,
-  removeExpiredVoteRoles,
   startVoteRoleCleanupLoop,
   upsertVerifiedMember,
   applyTenureForMember,
@@ -889,7 +860,5 @@ export = {
   runAllGuilds,
   startCategoryNumberingLoop,
   isCategoryNumberingBotRename,
-  getCategorySettings,
   extractCoreCategoryLabel,
-  buildNumberedCenteredCategoryName,
 };

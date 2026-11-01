@@ -168,14 +168,8 @@ function maybeApplyCommandStyle(client?, text?, corpus = []) {
 }
 
 export = {
-  getCommandStyleConfig,
-  getPrefixConfig,
   looksLikeWrittenCommand,
-  parseCommandLine,
-  isKnownPrefixCommand,
-  extractCommandExamplesFromCorpus,
   sanitizeCommandLikeText,
   sanitizeMarkovCollectLine,
   maybeApplyCommandStyle,
-  buildFakeCommandLine,
 };

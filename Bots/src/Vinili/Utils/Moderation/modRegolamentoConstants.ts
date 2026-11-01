@@ -176,10 +176,7 @@ function violationKeyLabelIt(key?) {
 export = {
   MOD_RULE_DETAIL,
   DISCORD_TIMEOUT_MAX_MS,
-  BUCKET_PRIORITY,
-  BUCKET_VIOLATION_KEYS,
   pickPrimaryAutomodRegolaBucket,
-  collectAutomodRegolaBucketsForViolations,
   getAutomodRegolaSanction,
   formatRegolaDotFromBucket,
   buildAutomodRegolaSummaryLine,

@@ -1,4 +1,4 @@
-const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js") as typeof import("discord.js");
+const { EmbedBuilder } = require("discord.js") as typeof import("discord.js");
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
 const {
   getOrCreateStaffDoc,
@@ -1103,8 +1103,4 @@ async function runValutazionePosPauseTradeForPanel(guild?, actorMember?, staffUs
   }
 }
 
-async function runValutazioneSelfNegTradeForPanel(guild?, actorMember?, staffUser?, negativeRemoveId1Based?) {
-  return runValutazioneNegTradeForPanel(guild, actorMember, staffUser, negativeRemoveId1Based);
-}
-
-export = { buildAutoStaffWarnFromNegativesEmbed, ensureStaffProfileDoc, getStaffDoc, formatStaffMention, valutazionePositiveAddCore, valutazioneNegativeAddCore, valutazionePositiveRemoveCore, makeRemovalEmbed, makeLogEmbed, consumeOldestNegativesFromStaff, removeOldestPositiveValutazioni, runValutazionePositiveAddForPanel, runValutazioneNegativeAddForPanel, runValutazionePositiveRemoveForPanel, runValutazioneNegativeRemoveForPanel, runValutazioneNegTradeForPanel, runValutazionePosPauseTradeForPanel, runValutazioneSelfNegTradeForPanel };
+export = { buildAutoStaffWarnFromNegativesEmbed, ensureStaffProfileDoc, getStaffDoc, valutazionePositiveAddCore, valutazioneNegativeAddCore, valutazionePositiveRemoveCore, makeRemovalEmbed, makeLogEmbed, consumeOldestNegativesFromStaff, removeOldestPositiveValutazioni, runValutazionePositiveAddForPanel, runValutazioneNegativeAddForPanel, runValutazionePositiveRemoveForPanel, runValutazioneNegativeRemoveForPanel, runValutazioneNegTradeForPanel, runValutazionePosPauseTradeForPanel };

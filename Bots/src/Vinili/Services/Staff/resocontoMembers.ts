@@ -94,41 +94,6 @@ function collectResocontoDiscordMemberIdsForSegment(guild?, segment?) {
   return [];
 }
 
-function collectAllResocontoRelevantMemberIdsFromGuild(guild?) {
-  if (!guild?.members?.cache) return [];
-  const ids = new Set();
-  const pmId = String(IDs.roles.PartnerManager || "").trim();
-  for (const member of guild.members.cache.values()) {
-    if (!member || member.user?.bot) continue;
-    if (pmId && member.roles?.cache?.has(pmId)) {
-      ids.add(String(member.id));
-      continue;
-    }
-    if (resolveStaffRole(member)) ids.add(String(member.id));
-  }
-  return Array.from(ids);
-}
-
-function getResocontoMemberRank(member?) {
-  const staffRoleId = resolveStaffRole(member);
-  if (staffRoleId) {
-    const idx = STAFF_ROLE_PRIORITY.indexOf(String(staffRoleId));
-    return idx >= 0 ? idx : 50;
-  }
-  if (member.roles.cache.has(String(IDs.roles.PartnerManager)))
-    return STAFF_ROLE_PRIORITY.length;
-  return 999;
-}
-
-function compareResocontoMembers(a?, b?) {
-  const ra = getResocontoMemberRank(a);
-  const rb = getResocontoMemberRank(b);
-  if (ra !== rb) return ra - rb;
-  const na = String(a.user?.username || a.id).toLowerCase();
-  const nb = String(b.user?.username || b.id).toLowerCase();
-  return na.localeCompare(nb);
-}
-
 function isStaffRolesHistoryPexRow(row?) {
   const kind = String(row?.kind || "").trim().toLowerCase();
   if (kind === "pex") return true;
@@ -219,20 +184,6 @@ function wasPmPexedInWeek(staffDoc?, weekStart?) {
     if (!when || Number.isNaN(when.getTime())) return false;
     if (when.getTime() < weekStartMs) return false;
     return String(row?.newRole || "") === pmRoleId;
-  });
-}
-
-function wasPromotedToRoleInLastDays(staffDoc?, roleId?, days?, now = new Date()) {
-  const targetRoleId = String(roleId || "");
-  if (!targetRoleId) return false;
-  const safeDays = Math.max(1, Math.floor(toSafeNumber(days)));
-  const history = Array.isArray(staffDoc?.rolesHistory) ? staffDoc.rolesHistory : [];
-  const thresholdMs = now.getTime() - safeDays * 24 * 60 * 60 * 1000;
-  return history.some((row?) => {
-    if (String(row?.newRole || "") !== targetRoleId) return false;
-    const when = row?.date ? new Date(row.date) : null;
-    if (!when || Number.isNaN(when.getTime())) return false;
-    return when.getTime() >= thresholdMs;
   });
 }
 

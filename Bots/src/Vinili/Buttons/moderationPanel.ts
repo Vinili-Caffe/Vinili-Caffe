@@ -1,4 +1,4 @@
-const { createProxyMessage, resolvePermChannel, resolveSanctionOutputChannel, replyEphemeral, runDynoFromInteraction } = require("../Utils/Moderation/moderationInteractionBridge") as typeof import("../Utils/Moderation/moderationInteractionBridge");
+const { createProxyMessage, resolvePermChannel, replyEphemeral, runDynoFromInteraction } = require("../Utils/Moderation/moderationInteractionBridge") as typeof import("../Utils/Moderation/moderationInteractionBridge");
 const { checkPrefixPermission } = require("../Utils/Moderation/commandPermissions") as typeof import("../Utils/Moderation/commandPermissions");
 const { PANEL_PREFIX, parseNavCustomId, parseHomeCustomId, parseGoCustomId, parseCloseCustomId, parseModalCustomId, buildModerationPanelPayload, buildModalForAction, SECTION_HOME, FIELD_REASON, FIELD_DURATION, FIELD_CASE, FIELD_EXTRA } = require("../Utils/Moderation/moderationPanelRuntime") as typeof import("../Utils/Moderation/moderationPanelRuntime");
 const { beginPanelSelectDefer, panelSelectFollowUp } = require("../../shared/discord/panelSelectMenuRuntime") as typeof import("../../shared/discord/panelSelectMenuRuntime");

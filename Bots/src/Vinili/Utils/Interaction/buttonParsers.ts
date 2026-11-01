@@ -190,28 +190,4 @@ function normalizeComponentsForDiscord(components?) {
   return normalized;
 }
 
-function disableComponentsForLoading(components?) {
-  if (!Array.isArray(components) || components.length === 0) return [];
-  const out = [];
-  for (const row of components) {
-    const asJson = row?.toJSON ? row.toJSON() : row;
-    const rowType = Number(asJson?.type || 1);
-    const rowComponents = Array.isArray(asJson?.components) ? asJson.components : [];
-    if (!rowComponents.length) continue;
-
-    out.push({
-      type: rowType,
-      components: rowComponents.map((component?) => {
-        if (!component || typeof component !== "object") return component;
-        const type = Number(component.type || 0);
-        if (type === 2 || type === 3 || type === 5 || type === 6 || type === 7 || type === 8) {
-          return { ...component, disabled: true };
-        }
-        return component;
-      }),
-    });
-  }
-  return out;
-}
-
-export = { MAX_COMPONENTS_PER_ROW, MAX_ROWS_PER_MESSAGE, SNOWFLAKE_RE, denyIfNotOwner, sendControlErrorFallback, parseServerRefreshCustomId, parseMeCustomId, parseUserCustomId, parseChannelCustomId, parseTopChannelCustomId, parseTopChannelPageCustomId, parseTopChannelViewSelectCustomId, chunk, normalizeComponentsForDiscord, disableComponentsForLoading };
+export = { SNOWFLAKE_RE, denyIfNotOwner, sendControlErrorFallback, parseServerRefreshCustomId, parseMeCustomId, parseUserCustomId, parseChannelCustomId, parseTopChannelCustomId, parseTopChannelPageCustomId, parseTopChannelViewSelectCustomId, chunk, normalizeComponentsForDiscord };

@@ -1,5 +1,4 @@
 const { EmbedBuilder } = require("discord.js") as typeof import("discord.js");
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
 const { resolveSubmissionChannel } = require("../../Events/interaction/candidatureApplicationHandlers") as typeof import("../../Events/interaction/candidatureApplicationHandlers");
 const { enqueueSiteInAppNotification } = require("../notifications/siteInAppNotificationsService") as typeof import("../notifications/siteInAppNotificationsService");
 const { applyWebsiteUnmute } = require("../../Events/interaction/unmuteWebsiteHandlers") as typeof import("../../Events/interaction/unmuteWebsiteHandlers");
@@ -150,38 +149,6 @@ function buildAppealListItem(msg?, channel?, parsed?) {
     status,
     canAct: status === "pending",
   };
-}
-
-async function listAppeals(guild?, opts: Record<string, any> = {}) {
-  const scope = String(opts.scope || "all").toLowerCase();
-  const limit = Math.min(500, Math.max(1, Number(opts.limit) || 120));
-  const maxPages = Math.min(20, Math.max(1, Number(opts.maxPages) || 5));
-  const channel = await resolveSubmissionChannel(guild);
-  if (!channel?.messages?.fetch) return [];
-  const items = [];
-  let before;
-  for (let page = 0; page < maxPages && items.length < limit; page += 1) {
-    const fetched = await channel.messages
-      .fetch({ limit: 100, ...(before ? { before } : {}) })
-      .catch(() => null);
-    if (!fetched?.size) break;
-    const msgs = [...fetched.values()];
-    before = msgs[msgs.length - 1]?.id;
-    for (const msg of msgs) {
-      const parsed = parseAppealFromMessageOrEmbed(msg);
-      if (!parsed) continue;
-      const status = deriveAppealStatus(msg);
-      if (scope === "pending" && status !== "pending") continue;
-      items.push(buildAppealListItem(msg, channel, parsed));
-      if (items.length >= limit) break;
-    }
-    if (fetched.size < 100) break;
-  }
-  return items.sort((a?, b?) => String(b.createdAt || "").localeCompare(String(a.createdAt || ""))).slice(0, limit);
-}
-
-async function listPendingAppeals(guild?) {
-  return listAppeals(guild, { scope: "pending" });
 }
 
 async function getAppealDetail(guild?, messageId?) {
@@ -590,15 +557,12 @@ async function decideUnmuteAppeal(guild?, userId?, messageId?, accept?, actorMem
 }
 
 export = {
-  listAppeals,
-  listPendingAppeals,
   getAppealDetail,
   parseAppealFromMessageOrEmbed,
   deriveAppealStatus,
   decideUnbanAppeal,
   decideUnmuteAppeal,
   appealSanctionStillActive,
-  appealAutoCloseLabel,
   closeAppealAsObsolete,
   autoClosePendingAppealsForUser,
   autoCloseObsoletePendingAppeals,

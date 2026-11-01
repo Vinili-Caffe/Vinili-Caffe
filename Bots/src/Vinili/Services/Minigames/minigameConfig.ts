@@ -13,7 +13,7 @@ const { randomBetween } = require("./minigameSources") as typeof import("./minig
 const { getChannelCached, getRomeDateKey } = require("./minigameUtils") as typeof import("./minigameUtils");
 const { shuffleArray } = require("./minigameText") as typeof import("./minigameText");
 const { lastSentAtByChannel } = require("./minigameActivity") as typeof import("./minigameActivity");
-const { activeGames, lastPlayedGameTypesByChannel, lastPlayedAtByChannelAndType } = require("./minigameState") as typeof import("./minigameState");
+const { lastPlayedGameTypesByChannel, lastPlayedAtByChannelAndType } = require("./minigameState") as typeof import("./minigameState");
 
 let rotationDate = null;
 let rotationQueue = [];

@@ -1,7 +1,7 @@
 const { ChannelType, PermissionsBitField, OverwriteType } = require("discord.js") as typeof import("discord.js");
 const { CustomRole } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
 const { isChannelInCustomPrivateCategory } = require("../../Utils/Community/customPrivateCategoryUtils") as typeof import("../../Utils/Community/customPrivateCategoryUtils");
-const { getClientGuildCached, getGuildChannelCached } = require("../../Utils/Interaction/interactionEntityCache") as typeof import("../../Utils/Interaction/interactionEntityCache");
+const { getGuildChannelCached } = require("../../Utils/Interaction/interactionEntityCache") as typeof import("../../Utils/Interaction/interactionEntityCache");
 const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
 
 const MEMBER_ROLE_ID = String(IDs?.roles?.Member || "").trim();
@@ -383,24 +383,6 @@ async function repairGuildCustomVocPermissions(guild?) {
   return { channels, rolesStripped };
 }
 
-async function repairCustomVocPermissionsOnStartup(client?) {
-  const guildId = String(client?.config?.mainGuildId || IDs.guilds?.main || "").trim();
-  if (!guildId) return;
-  const guild = await getClientGuildCached(client, guildId).catch(() => null);
-  if (!guild) return;
-  try {
-    const result = await repairGuildCustomVocPermissions(guild);
-    if (result.rolesStripped > 0) {
-      global.logger?.info?.(
-        `[CUSTOM VOC PERMS] stripped ${result.rolesStripped} custom role overwrite(s) on ${result.channels} channel(s)`,
-      );
-    }
-  } catch (err) {
-    global.logger?.error?.("[CUSTOM VOC PERMS] repair failed:", err?.message || err);
-    throw err;
-  }
-}
-
 async function handleCustomVocVoiceStateUpdate(oldState?, newState?) {
   const guild = newState.guild || oldState.guild;
   if (!guild) return;
@@ -441,17 +423,11 @@ async function handleCustomVocVoiceStateUpdate(oldState?, newState?) {
 export = {
   CUSTOM_VOC_MEMBER_PERMS,
   CUSTOM_VOC_OWNER_BASE_PERMS,
-  CUSTOM_VOC_OWNER_PRIVILEGED_PERMS,
-  isCustomPrivateVoiceChannel,
   resolveCustomVocOwnerId,
   buildCustomVocCreateOverwrites,
   ensureCustomVocChannelBaseline,
   applyOverwrite,
-  applyCustomVocOwnerPrivilegedOverwrite,
-  stripCustomVocOwnerPrivilegedOverwrite,
-  stripLinkedCustomRolesFromChannel,
   syncCustomVocChannelForOwner,
   repairGuildCustomVocPermissions,
-  repairCustomVocPermissionsOnStartup,
   handleCustomVocVoiceStateUpdate,
 };

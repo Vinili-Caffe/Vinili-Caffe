@@ -189,12 +189,10 @@ async function waitForChatHubSlot(channelId?, source?, options: Record<string, a
 export = {
   CHAT_HUB_SOURCES,
   DEFAULT_CROSS_BOT_GAP_MS,
-  DEFAULT_SAME_BOT_GAP_MS,
   recordChatHubBotPost,
   extendChatHubQuietUntil,
   extendChatHubQuietForMs,
   msUntilOtherBotGap,
-  msUntilChatHubQuiet,
   msUntilChatHubAllowsPost,
   waitForChatHubBotGap,
   waitForChatHubSlot,

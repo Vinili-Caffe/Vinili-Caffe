@@ -150,5 +150,4 @@ async function recoverMissedTopggVotesOnStartup(client?) {
 
 export = {
   recoverMissedTopggVotesOnStartup,
-  shouldRunTopggVoteRecoveryOnStartup,
 };

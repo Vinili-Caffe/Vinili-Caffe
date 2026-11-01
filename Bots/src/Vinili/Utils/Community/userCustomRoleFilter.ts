@@ -71,14 +71,9 @@ function canSafelyDeleteCustomPerkRole(role?, doc?, { blockedRoleIds = null } = 
 }
 
 export = {
-  looksLikeUserCustomRoleName,
-  stripCustomRoleMarker,
   collectBlockedSystemRoleIds,
   isArchivedEventRoleId: (roleId?) => ARCHIVED_EVENT_ROLE_IDS.includes(String(roleId || "").trim()),
-  collectFixedGuildRoleIds: collectBlockedSystemRoleIds,
   isListableUserCustomRole,
   isCustomRolePurgeDryRun,
-  isDocumentedCustomPerkRoleId,
   canSafelyDeleteCustomPerkRole,
-  EXTRA_NON_CUSTOM_ROLE_IDS,
 };

@@ -4,18 +4,12 @@ const { getPartnerLeaderboardWeekBoundsUtc } = require("../../Services/Staff/wee
 const { TOP_LIMIT, rankLabel, formatUserLabel, fetchMembers } = require("../Community/leaderboardHelpers") as typeof import("../Community/leaderboardHelpers");
 const IDs = require("../Config/ids") as typeof import("../Config/ids");
 const PLB_MODE_PREFIX = "plb_mode:";
-const PLB_NAV_PREFIX = "plb_nav:";
 const {
   resolvePartnerPointsShown,
-  countPartnerCreateActions,
 } = require("../Staff/partnerPointsDisplayUtils") as typeof import("../Staff/partnerPointsDisplayUtils");
 const { guildIconUrl } = require("../Discord/guildDiscordIdentity") as typeof import("../Discord/guildDiscordIdentity");
 const { getPartnerManagerRoleId } = require("./partnershipConfigResolver") as typeof import("./partnershipConfigResolver");
 const { applyPartnershipPayloadBranding, resolveEmbedColorForGuild } = require("../../MultiGuild/utils/tenantEmbedBranding") as typeof import("../../MultiGuild/utils/tenantEmbedBranding");
-
-function countValidAllTimePartners(actions?) {
-  return countPartnerCreateActions(actions);
-}
 
 function computeTotalPartnerScore(staff?) {
     return resolvePartnerPointsShown(staff || {});
@@ -125,4 +119,4 @@ async function buildPartnerLeaderboardPayload(client?, guild?, mode = "totale", 
   );
 }
 
-export = { TOP_LIMIT, PARTNERS_PER_PAGE: TOP_LIMIT, PLB_MODE_PREFIX: "plb_mode:", PLB_NAV_PREFIX: "plb_nav:", buildPartnerLeaderboardPayload, fetchSortedPartners, pickTopPartnerRowsInGuild, countValidAllTimePartners };
+export = { TOP_LIMIT, PLB_MODE_PREFIX: "plb_mode:", PLB_NAV_PREFIX: "plb_nav:", buildPartnerLeaderboardPayload, fetchSortedPartners, pickTopPartnerRowsInGuild };

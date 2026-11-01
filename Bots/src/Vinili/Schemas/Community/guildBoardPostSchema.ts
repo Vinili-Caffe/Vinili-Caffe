@@ -117,7 +117,6 @@ const GuildSkullPost =
 
 export = {
   COLLECTION,
-  DISCRIMINATOR_KEY,
   BOARD_POST_TYPE,
   GuildBoardPost,
   GuildQuoteBoard,

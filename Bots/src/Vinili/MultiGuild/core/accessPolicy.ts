@@ -2,10 +2,6 @@ const { resolveGuildAccess } = require("./guildRegistry") as typeof import("./gu
 const { isViniliProtectedGuild } = require("./viniliProtectedGuilds") as typeof import("./viniliProtectedGuilds");
 const { isViniliFullFeatureGuild } = require("./guildFeatureScope") as typeof import("./guildFeatureScope");
 
-function isProtectedAccess(access?) {
-  return access?.protected === true || access?.mode === "protected";
-}
-
 function shouldApplyMultiGuildLayer(guildId?) {
   if (!isViniliProtectedGuild(guildId)) {
     const access = resolveGuildAccess(guildId);
@@ -84,7 +80,6 @@ function shouldRunViniliCommunityFeatures(guildId?) {
 }
 
 export = {
-  isProtectedAccess,
   isViniliFullFeatureGuild,
   shouldRunViniliCommunityFeatures,
   shouldApplyMultiGuildLayer,

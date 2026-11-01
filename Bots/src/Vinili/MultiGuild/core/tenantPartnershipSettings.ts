@@ -2,7 +2,6 @@ const { getBotState, setBotState } = require("../../Utils/BotState/botStateStore
 const { isMongoReady } = require("../../Utils/Database/mongoConnect") as typeof import("../../Utils/Database/mongoConnect");
 const { isViniliProtectedGuild, normalizeGuildId } = require("./viniliProtectedGuilds") as typeof import("./viniliProtectedGuilds");
 const {
-  DEFAULT_THANK_YOU_EMBED_FIELDS,
   hasThankYouEmbedContent,
 } = require("../../Utils/Partner/partnershipThankYouEmbed") as typeof import("../../Utils/Partner/partnershipThankYouEmbed");
 
@@ -520,12 +519,6 @@ async function touchPartnershipPublishPings(guildId?, pingPlan: Record<string, a
   return savePartnershipConfig(guildId, { pings });
 }
 
-async function touchPartnershipCustomRolePing(guildId?) {
-  const prev = getPartnershipConfigSync(guildId);
-  if (!prev?.pings?.customRoleId) return { ok: false, reason: "no_custom_role" };
-  return touchPartnershipPublishPings(guildId, { customRoleId: prev.pings.customRoleId });
-}
-
 async function setPartnershipInvite(guildId?, inviteRow?) {
   return savePartnershipConfig(guildId, {
     invite: {
@@ -570,20 +563,6 @@ async function setThankYouEmbed(guildId?, thankYouEmbed?) {
 
 async function setManagerLeaveAction(guildId?, action?) {
   return savePartnershipConfig(guildId, { managerLeaveAction: normalizeLeaveAction(action) });
-}
-
-async function setSameServerCooldownMs(guildId?, cooldownMs?) {
-  if (cooldownMs === null || cooldownMs === undefined || cooldownMs === "") {
-    return savePartnershipConfig(guildId, { sameServerCooldownMs: null });
-  }
-  const n = Math.floor(Number(cooldownMs));
-  if (!Number.isFinite(n) || n < 0) return { ok: false, reason: "invalid_same_server_cooldown" };
-  if (n === 0) return savePartnershipConfig(guildId, { sameServerCooldownMs: null });
-  return savePartnershipConfig(guildId, { sameServerCooldownMs: Math.max(1000, n) });
-}
-
-async function setBehaviorDeleteAction(guildId?, action?) {
-  return savePartnershipConfig(guildId, { behaviorDeleteAction: normalizeLeaveAction(action) });
 }
 
 async function completePartnershipSetup(guildId?, userId?) {
@@ -660,15 +639,12 @@ export = {
   setPartnerDescStatic,
   clearPartnerDesc,
   touchPartnershipPublishPings,
-  touchPartnershipCustomRolePing,
   setPartnershipInvite,
   setPartnershipSkipManager,
   setManualPartnershipEnabled,
   setThankYouEmbed,
   setManagerBadgeRole,
   setManagerLeaveAction,
-  setSameServerCooldownMs,
-  setBehaviorDeleteAction,
   completePartnershipSetup,
   isPartnershipSetupComplete,
   normalizeLeaveAction,

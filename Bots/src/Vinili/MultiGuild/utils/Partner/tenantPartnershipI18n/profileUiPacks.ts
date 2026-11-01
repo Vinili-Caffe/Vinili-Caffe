@@ -204,4 +204,4 @@ function applyProfileUiPacks(uiPacks?) {
   }
 }
 
-export = { PROFILE_UI_KEYS, PROFILE_UI_LOCALES, applyProfileUiPacks };
+export = { applyProfileUiPacks };

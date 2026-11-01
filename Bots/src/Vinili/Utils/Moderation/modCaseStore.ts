@@ -911,14 +911,11 @@ async function setCaseDurationStore(guildId?, userId?, caseId?, durationMs?, exp
 }
 
 export = {
-  useLegacyModCase,
-  useCompactModCase,
   createModCaseStore,
   resolveCaseByGuildCaseId,
   resolveCaseByContextMessageId,
   closeCaseByRef,
   findOpenCases,
-  closeOpenMuteCases,
   findActiveWarns,
   findActiveModerations,
   countModLogsForUser,
@@ -930,5 +927,4 @@ export = {
   appendCaseEditStore,
   setCaseReasonStore,
   setCaseDurationStore,
-  plainFromLegacyDoc,
 };

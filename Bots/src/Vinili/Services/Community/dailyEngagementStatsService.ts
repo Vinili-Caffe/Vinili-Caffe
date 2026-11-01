@@ -303,11 +303,8 @@ function startDailyEngagementStatsLoop(client?) {
 }
 
 export = {
-  DAILY_ENGAGEMENT_CHANNEL_ID,
   startDailyEngagementStatsLoop,
-  sendDailyEngagementReport,
   trackMessageEngagement,
   trackVoiceEngagement,
   trackCurrentPublicVoiceMembers,
-  isPublicVoiceChannel,
 };

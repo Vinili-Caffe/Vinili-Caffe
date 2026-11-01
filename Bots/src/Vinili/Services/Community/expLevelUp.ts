@@ -205,4 +205,4 @@ async function sendLevelUpPayload(channel?, member?, payload?) {
   await channel.send(outgoing).catch(() => { });
 }
 
-export = { LEVEL_ROLE_MAP, sendLevelUpMessage, sendLevelUpAnnouncement, scheduleEventLevelUpMessage };
+export = { LEVEL_ROLE_MAP, sendLevelUpAnnouncement, scheduleEventLevelUpMessage };

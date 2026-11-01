@@ -104,8 +104,6 @@ async function stripStafferAwardRoles(member?) {
 
 export = {
   STAFF_LADDER_KEYS_HIGH_TO_LOW,
-  STAFF_PROMOTION_ROLE_UP,
-  STAFF_COORDINATOR_ROLE_KEYS,
   STAFF_HIGH_STAFF_ELIGIBLE_KEYS,
   staffRoleId,
   staffLadderRoleIds,

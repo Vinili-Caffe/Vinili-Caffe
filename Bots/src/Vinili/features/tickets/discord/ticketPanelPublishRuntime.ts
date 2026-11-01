@@ -166,16 +166,6 @@ function buildMultiPanelRichPayload(multi?, options: Record<string, any> = {}) {
   return buildVcRichFromClassicFields({ ...classic, rows });
 }
 
-/** @deprecated — returns V2 payload; prefer buildSinglePanelRichPayload */
-function buildSingleEmbed(panel?, options: Record<string, any> = {}) {
-  return buildSinglePanelRichPayload(panel, options);
-}
-
-/** @deprecated — returns V2 payload; prefer buildMultiPanelRichPayload */
-function buildMultiEmbed(multi?, options: Record<string, any> = {}) {
-  return buildMultiPanelRichPayload(multi, options);
-}
-
 function resolveLinkedSingles(multi?, bucket?) {
   const byId = new Map((bucket.singles || []).map((s?) => [String(s.id), s]));
   const linked = [];
@@ -408,19 +398,8 @@ async function publishMultiPanel(client?, guildId?, multiId?, options: Record<st
 }
 
 export = {
-  buildSingleEmbed,
-  buildMultiEmbed,
-  buildSinglePanelClassicFields,
-  buildMultiPanelClassicFields,
-  buildSinglePanelRichPayload,
-  buildMultiPanelRichPayload,
-  buildSingleComponents,
-  buildMultiComponents,
   publishSinglePanel,
   publishMultiPanel,
-  resolveLinkedSingles,
-  resolveMultiOptionPresentation,
   DEFAULT_OPTION_META,
   TICKET_MEDIA_URL,
-  TICKET_MEDIA_NAME,
 };

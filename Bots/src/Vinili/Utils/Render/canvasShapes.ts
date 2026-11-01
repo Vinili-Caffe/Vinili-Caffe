@@ -101,41 +101,6 @@ function drawImageCover(ctx?, img?, dx?, dy?, dSize?) {
   ctx.drawImage(img, sx, sy, sw, sh, dx, dy, dSize, dSize);
 }
 
-function drawDateBadge(ctx?, title?, value?, x?, y?, w = 280, h = 80) {
-  fillRoundRect(ctx, x, y, w, h, 14, "rgba(43, 52, 67, 0.92)");
-  fillRoundRect(ctx, x + 10, y + 10, w - 20, 24, 9, "rgba(88, 99, 120, 0.62)");
-  drawLabel(ctx, title, x + 18, y + 22, {
-    size: 15,
-    weight: "700",
-    color: "#e0e5ee",
-    forcePrimaryFont: true,
-  });
-  drawLabel(ctx, fitText(ctx, value, w - 32, 21, "700"), x + 18, y + 55, {
-    size: 21,
-    weight: "700",
-    color: "#f2f5fa",
-    useNumericFont: true,
-  });
-}
-
-function drawDateBadgeCompact(ctx?, title?, value?, x?, y?, w?) {
-  const h = 36;
-  fillRoundRect(ctx, x, y, w, h, 11, "rgba(43, 52, 67, 0.95)");
-  fillRoundRect(ctx, x + 8, y + 5, w - 16, 15, 6, "rgba(88, 99, 120, 0.62)");
-  drawLabel(ctx, title, x + 12, y + 14, {
-    size: 11,
-    weight: "700",
-    color: "#e8ecf4",
-    forcePrimaryFont: true,
-  });
-  drawLabel(ctx, fitText(ctx, value, w - 24, 16, "700"), x + 12, y + 27, {
-    size: 15,
-    weight: "700",
-    color: "#f6f8fc",
-    useNumericFont: true,
-  });
-}
-
 function drawDateBadgeStat(ctx?, title?, value?, x?, y?, w?, options: Record<string, any> = {}) {
   const h = options.h ?? 54;
   const pillH = options.pillH ?? 20;

@@ -5,19 +5,10 @@ const { getJoinGateConfigSnapshot } = require("../Services/Moderation/joinGateSe
 const { getGuildChannelCached } = require("../Utils/Interaction/interactionEntityCache") as typeof import("../Utils/Interaction/interactionEntityCache");
 const { guildMemberDisplayAvatarUrlDynamic } = require("../Utils/Discord/guildDiscordIdentity") as typeof import("../Utils/Discord/guildDiscordIdentity");
 const { resolveGuildChannel } = require("./joinInvites") as typeof import("./joinInvites");
-const { buildJoinGateTriggeredEmbed, kickForJoinGate } = require("./joinBots") as typeof import("./joinBots");
+const { kickForJoinGate } = require("./joinBots") as typeof import("./joinBots");
 const { toUnix, formatAccountAge } = require("./joinSuspicious") as typeof import("./joinSuspicious");
 
 const JOIN_LEAVE_LOG_CHANNEL_ID = IDs.channels.joinLeaveLogs;
-
-async function sendSuspiciousAccountLog(member?, reason?) {
-  if (!member?.guild || !reason) return;
-  const modLogId = IDs.channels?.modLogs;
-  const logChannel = modLogId ? await getGuildChannelCached(member.guild, modLogId) : null;
-  if (!logChannel?.isTextBased?.()) return;
-  const embed = buildJoinGateTriggeredEmbed(member, reason);
-  await logChannel.send({ embeds: [embed] }).catch(() => { });
-}
 
 async function handleTooYoungAccount(member?, joinGateConfig = null) {
   const createdTs = toUnix(member.user.createdAt);

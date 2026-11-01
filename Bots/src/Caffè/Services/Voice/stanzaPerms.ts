@@ -136,21 +136,6 @@ function isLegacyStanzaSilenceTextOverwrite(ow?) {
   return Boolean(ow.deny?.has?.(P.SendMessages) && !ow.deny?.has?.(P.ViewChannel));
 }
 
-/** Rimuove overwrite Speak/SendMessages del vecchio silenzio-canale (niente permessi aggiunti). */
-async function clearLegacyStanzaSilenceChannelOverwrites(voiceChannel?, textChannel?, userId?, reason?) {
-  const id = String(userId || "").trim();
-  if (!id) return;
-  const why = reason || "Stanza: silenzio solo server mute Discord";
-  const vow = voiceChannel?.permissionOverwrites?.cache?.get?.(id);
-  if (isLegacyStanzaSilenceVoiceOverwrite(vow)) {
-    await voiceChannel.permissionOverwrites.delete(id, why).catch(() => {});
-  }
-  const tow = textChannel?.permissionOverwrites?.cache?.get?.(id);
-  if (isLegacyStanzaSilenceTextOverwrite(tow)) {
-    await textChannel.permissionOverwrites.delete(id, why).catch(() => {});
-  }
-}
-
 /** Solo Speak-deny legacy sul vocale (il deny chat è gestito a parte). */
 async function clearLegacyStanzaSilenceVoiceOverwrite(voiceChannel?, userId?, reason?) {
   const id = String(userId || "").trim();

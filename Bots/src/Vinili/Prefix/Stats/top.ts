@@ -50,14 +50,6 @@ function normalizeCanvasLabel(value?, fallback?) {
   return text;
 }
 
-async function resolveDisplayName(guild?, userId?) {
-  const cachedMember = guild.members.cache.get(userId);
-  if (cachedMember) return cachedMember.displayName;
-  const fetchedMember = await getGuildMemberCached(guild, userId);
-  if (fetchedMember) return fetchedMember.displayName;
-  return `utente_${String(userId).slice(-6)}`;
-}
-
 async function resolveStatsUsernameLabel(guild?, userId?) {
   const uid = String(userId || "").trim();
   if (!uid) return "—";
@@ -114,22 +106,6 @@ function isTextChannelUnderVoiceCategory(guild?, channel?) {
   }
 
   return voiceCount >= 2 && textCount <= 2;
-}
-
-async function resolveTopUserEntries(guild?, entries = []) {
-  const out = [];
-  for (const item of entries) {
-    const userId = String(item?.id || "");
-    const member = await resolveActiveHumanMember(guild, userId);
-    if (!member) continue;
-    const label = await resolveStatsUsernameLabel(guild, userId);
-    out.push({
-      id: userId,
-      label,
-      value: Number(item?.value || 0),
-    });
-  }
-  return out;
 }
 
 async function resolveTopUserEntriesForCanvas(guild?, entries = []) {
@@ -521,17 +497,6 @@ function resolveViewConfig(selectedView?, source?, lookbackDays = 14) {
   };
 }
 
-function resolveRequestedPage(action?, currentPage?, totalPages?) {
-  const current = Math.max(1, normalizePage(currentPage, 1));
-  const total = Math.max(1, normalizePage(totalPages, 1));
-
-  if (action === "first") return 1;
-  if (action === "prev") return Math.max(1, current - 1);
-  if (action === "next") return Math.min(total, current + 1);
-  if (action === "last") return total;
-  return current;
-}
-
 async function buildTopChannelPayload(
   message?,
   lookbackDays = 14,
@@ -696,7 +661,6 @@ export = {
   TOP_CHANNEL_PAGE_MODAL_CUSTOM_ID_PREFIX,
   TOP_CHANNEL_PAGE_MODAL_INPUT_CUSTOM_ID,
   resolveTopChannelEntries,
-  resolveTopUserEntries,
   resolveTopUserEntriesForCanvas,
   buildTopChannelPayload,
   buildTopChannelComponents,
@@ -705,7 +669,6 @@ export = {
   normalizeTopView,
   normalizeControlsView,
   normalizePage,
-  resolveRequestedPage,
 
   async execute(message?, args = []) {
     const dayToken=Array.isArray(args)?args.find((x?) => /^\d+d?$/i.test(String(x||"").trim())):null;

@@ -1,7 +1,7 @@
 const path = require("path") as typeof import("path");
 const { registerShutdownFlush, armShutdownCheckpoint } = require("../../../shared/recovery/shutdownCheckpoint") as typeof import("../../../shared/recovery/shutdownCheckpoint");
 const { APPLICATION_TYPES, cooldownByUserAndType, cooldownStorageKey, loadCooldownMap, persistCooldownMap } = require("./candidatureEligibility") as typeof import("./candidatureEligibility");
-const { DRAFT_TTL_MS, APPLICATION_COOLDOWN_MS, draftByStateKey, APPLICATIONS, loadDraftMap, persistDraftMap, resolveSubmissionChannel } = require("./candidatureEmbeds") as typeof import("./candidatureEmbeds");
+const { DRAFT_TTL_MS, APPLICATION_COOLDOWN_MS, draftByStateKey, APPLICATIONS, persistDraftMap, resolveSubmissionChannel } = require("./candidatureEmbeds") as typeof import("./candidatureEmbeds");
 const { memberHasCandidatureReviewAccess, parseCandidateTypeFromMessage, listCandidatureApplications, listPendingCandidatureApplications, getCandidatureApplicationDetail } = require("./candidatureList") as typeof import("./candidatureList");
 const { webRejectCandidateApplication, webAcceptCandidateApplication } = require("./candidatureDecision") as typeof import("./candidatureDecision");
 const { resolveWebsiteCandidatureMember, getCandidatureEligibilitySummary, submitCandidatureWebsite } = require("./candidatureWebsite") as typeof import("./candidatureWebsite");
@@ -13,14 +13,6 @@ const { resolveWebsiteCandidatureMember, getCandidatureEligibilitySummary, submi
 
 
 const BOT_ROOT = path.resolve(__dirname, "..", "..");
-const APPLY_HELPER_BUTTON = "apply_helper";
-const APPLY_PM_BUTTON = "apply_partnermanager";
-const APPLY_START_PREFIX = "apply_start";
-const APPLY_BACK_PREFIX = "apply_back";
-const APPLY_PAGE_PREFIX = "apply_page";
-const MODAL_PREFIX = "apply_form";
-const APPLY_PEX_REASON_INPUT_ID = "apply_pex_reason";
-const VISIONE_MODULI_AUTO_PEX_REASON = "Candidatura accettata.";
 const STATE_TTL_MS = 30 * 60 * 1000;
 const pendingApplications = new Map();
 /* rebootDurability1: sync pendingApplications → drafts on shutdown */
@@ -78,29 +70,6 @@ function ensureCandidatureDraftShutdownFlush() {
 }
 
 ensureCandidatureDraftShutdownFlush();
-
-async function setDraftState(stateKey?, answers?, nextStep?) {
-  await loadDraftMap();
-  draftByStateKey.set(stateKey, {
-    answers: answers && typeof answers === "object" ? answers : {},
-    nextStep: Math.max(1, Math.floor(Number(nextStep) || 1)),
-    updatedAt: Date.now(),
-  });
-  await persistDraftMap();
-}
-
-async function getDraftState(stateKey?) {
-  await loadDraftMap();
-  const draft = draftByStateKey.get(stateKey);
-  if (!draft) return null;
-  const updatedAt = Number(draft.updatedAt || 0);
-  if (!Number.isFinite(updatedAt) || Date.now() - updatedAt > DRAFT_TTL_MS) {
-    draftByStateKey.delete(stateKey);
-    await persistDraftMap();
-    return null;
-  }
-  return draft;
-}
 
 async function pruneOldStates() {
   const now = Date.now();

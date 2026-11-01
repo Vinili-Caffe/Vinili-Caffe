@@ -66,15 +66,6 @@ function messageTextHaystack(message?) {
   return parts.join("\n");
 }
 
-async function staffCommunicationMessageStillExists(client?, messageId?) {
-  const id = String(messageId || "").trim();
-  if (!id) return false;
-  const channel = await fetchStaffCommunicationChannel(client);
-  if (!channel?.messages?.fetch) return false;
-  const message = await channel.messages.fetch(id).catch(() => null);
-  return Boolean(message?.id);
-}
-
 async function staffCommunicationPostExistsInChannel(client?, { title, weekKey, sinceMs }: any = {}) {
   const channel = await fetchStaffCommunicationChannel(client);
   if (!channel?.messages?.fetch) return false;
@@ -218,18 +209,6 @@ async function repairMovieNightFinalAnnounceState(client?, state?, weekKey?, sat
   };
   if (sat && status.repairSaturdayKey) next.finalAnnouncedSaturdayKey = sat;
   if (status.repairTitle) next.finalMovieTitle = String(status.repairTitle);
-  await setBotState(STATE_KEY, next);
-  return next;
-}
-
-async function repairMovieNightStaffCommunicationState(client?, state?, saturdayKey?, status?) {
-  if (!status?.repairSaturdayKey || !state || typeof state !== "object") return state;
-  const sat = String(saturdayKey || "").trim();
-  if (!sat) return state;
-  const next = {
-    ...state,
-    staffAnnouncedSaturdayKey: sat,
-  };
   await setBotState(STATE_KEY, next);
   return next;
 }

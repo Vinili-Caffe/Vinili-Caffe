@@ -17,11 +17,6 @@ const { buildStaffProfilePayloadForWeb } = require("./staffProfilePayload") as t
 const STAFF_MEMBER_SOFT_TIMEOUT_MS = 8000;
 const STAFF_MEMBER_HARD_TIMEOUT_MS = 14000;
 
-/* careerPinRecentPex2: scala attuale + ultimo pex PM + ultimo pex →Helper (anche da PM) */
-function isCareerTrackRole(token?) {
-  return isOnStaffCareerLadder(token) || isPartnerManagerRole(token);
-}
-
 async function handleSiteStaffProfileGet(client?, req?, res?) {
   try {
     const accessToken = normalizeHeaderSecret(req.headers.authorization);

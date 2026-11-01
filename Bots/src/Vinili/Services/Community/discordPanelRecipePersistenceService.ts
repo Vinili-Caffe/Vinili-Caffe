@@ -5,7 +5,6 @@ const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Conf
 const Embeds = require("../../Embeds/index") as typeof import("../../Embeds/index");
 const {
   getEnabledDiscordPanelNames,
-  isDiscordPanelEnabled,
   siteReplacesForPanel,
 } = require("../../Utils/Config/discordPanelsConfig") as typeof import("../../Utils/Config/discordPanelsConfig");
 
@@ -296,5 +295,4 @@ async function cleanupDisabledDiscordPanelMessages(client?, options: Record<stri
 export = {
   persistDiscordPanelRecipes,
   cleanupDisabledDiscordPanelMessages,
-  DISABLED_MESSAGE_SLOT_KEYS,
 };

@@ -12,13 +12,6 @@ const { WORKFLOW_DOC, upsertStaffWorkflowItem } = require("./workflowWrites") as
 const ENSURE_WEEK_KEYS_MIN_MS = 10 * 60 * 1000;
 const INBOX_WEEKS_CACHE_MS = 30000;
 
-function workflowSortTimestamp(doc?) {
-  const fromMsg = snowflakeToDate(doc?.workflowMessageId);
-  if (fromMsg) return fromMsg.getTime();
-  const created = doc?.createdAt ? new Date(doc.createdAt).getTime() : NaN;
-  return Number.isFinite(created) ? created : 0;
-}
-
 async function loadMembersForIds(guild?, ids?, limit = 40) {
   const cache = new Map();
   if (!guild) return cache;
@@ -39,11 +32,6 @@ async function loadMembersForIds(guild?, ids?, limit = 40) {
     }),
   );
   return cache;
-}
-
-async function loadMembersForDocs(guild?, docs?) {
-  const ids = docs.flatMap((d?) => [String(d?.userId || ""), String(d?.workflowDecidedBy || "")]).filter(Boolean);
-  return loadMembersForIds(guild, ids);
 }
 
 async function ensureResocontiWeekKeys(guildId?) {

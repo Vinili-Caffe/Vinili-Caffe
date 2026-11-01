@@ -163,9 +163,6 @@ async function sendBannedUnbanLinkDms(client?, opts: Record<string, any> = {}) {
 export = {
   BOT_STATE_KEY,
   DEFAULT_DELAY_MS,
-  buildDmPayload,
-  fetchAllBans,
-  resolveUnbanUrl,
   sendBannedUnbanLinkDms,
   shouldRunBannedUnbanDmOnStartup,
 };

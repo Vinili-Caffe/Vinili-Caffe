@@ -234,53 +234,7 @@ async function detectGrabbedScamImage(message?) {
   return null;
 }
 
-async function rebuildHashesFromRefsDir() {
-  const canvas = tryLoadCanvas();
-  if (!canvas) throw new Error("canvas module unavailable");
-  if (!fs.existsSync(REFS_DIR)) {
-    throw new Error(`refs dir missing: ${REFS_DIR}`);
-  }
-  const files = fs
-    .readdirSync(REFS_DIR)
-    .filter((n?) => /\.(png|jpe?g|webp|bmp)$/i.test(n))
-    .sort();
-  const refs = [];
-  for (const name of files) {
-    const buf = fs.readFileSync(path.join(REFS_DIR, name));
-    const fp = await computeHashesFromBuffer(buf);
-    if (!fp) continue;
-    refs.push({
-      id: name.replace(/\.[^.]+$/, ""),
-      file: name,
-      sha256: fp.sha256,
-      dHash: fp.dHash,
-      aHash: fp.aHash,
-    });
-  }
-  const payload = {
-    version: 1,
-    generatedAt: new Date().toISOString(),
-    dHashMaxDist: DHASH_MAX_DIST,
-    aHashMaxDist: AHASH_MAX_DIST,
-    refs,
-  };
-  fs.mkdirSync(path.dirname(HASHES_PATH), { recursive: true });
-  fs.writeFileSync(HASHES_PATH, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
-  refsLoaded = false;
-  refFingerprints = [];
-  loadFingerprintsFromDisk();
-  return payload;
-}
-
 export = {
   detectGrabbedScamImage,
-  computeHashesFromBuffer,
-  matchFingerprints,
-  isStaticImageAttachment,
-  rebuildHashesFromRefsDir,
-  loadFingerprintsFromDisk,
-  REFS_DIR,
-  HASHES_PATH,
   DHASH_MAX_DIST,
-  AHASH_MAX_DIST,
 };

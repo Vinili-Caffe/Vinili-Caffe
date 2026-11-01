@@ -69,26 +69,9 @@ function formatVisibleChannelMentionsList(channelIds?, memberOrGuild?, { sep = "
   return visible.map((id?) => `<#${id}>`).join(sep);
 }
 
-function scrubInvisibleChannelMentionsInText(text?, memberOrGuild?) {
-  const raw = String(text || "");
-  if (!raw.includes("<#")) return raw;
-  let out = raw.replace(/<#(\d{5,30})>/g, (full?, id?) => {
-    return memberCanViewChannel(memberOrGuild, id) ? full : "";
-  });
-  out = out
-    .replace(/\(\s*\)/g, "")
-    .replace(/\s{2,}/g, " ")
-    .replace(/\s+([.,;:!?])/g, "$1")
-    .replace(/\s+$/g, "")
-    .trim();
-  return out;
-}
-
 export = {
   memberCanViewChannel,
   formatVisibleChannelMention,
-  filterVisibleChannelIds,
   formatVisibleChannelMentionsList,
-  scrubInvisibleChannelMentionsInText,
   normalizeChannelId,
 };

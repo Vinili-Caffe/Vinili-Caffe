@@ -365,4 +365,4 @@ async function buildPauseListPayload({ guildId, requesterId, targetUser, isHighS
   return { ok: true, embeds, components: buildPauseListMonthRows(u, currentYear, monthOptsWithStaff) };
 }
 
-export = { buildPauseListPayload, buildPauseListMonthRows };
+export = { buildPauseListPayload };

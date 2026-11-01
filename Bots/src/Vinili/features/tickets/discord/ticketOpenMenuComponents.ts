@@ -2,7 +2,6 @@ const { ActionRowBuilder, StringSelectMenuBuilder } = require("discord.js") as t
 const {
   resetPanelSelectMenu,
   payloadWithDefaultEphemeral,
-  beginPanelSelectDefer,
 } = require("../../../../shared/discord/panelSelectMenuRuntime") as typeof import("../../../../shared/discord/panelSelectMenuRuntime");
 const {
   getTicketSettingsSync,
@@ -210,24 +209,8 @@ async function replyTicketOpenPanel(interaction?, payload?, safeReply?) {
   return sent;
 }
 
-async function deferTicketOpenPanel(interaction?) {
-  if (!isTicketOpenMenuSelect(interaction)) return false;
-  await refreshTicketOpenMenuCaches();
-  const guildId = interaction.guildId || interaction.guild?.id;
-  const args = selectRowsRebuildArgs(interaction);
-  return beginPanelSelectDefer(
-    interaction,
-    () => buildTicketOpenSelectRows(guildId, args),
-    { flags: 1 << 6 },
-  );
-}
-
 export = {
   TICKET_OPEN_MENU_CUSTOM_ID,
   DEFAULT_DROPDOWN_PLACEHOLDER,
-  buildTicketOpenSelectRows,
-  isTicketOpenMenuSelect,
-  resetTicketOpenPanelAfterInteraction,
   replyTicketOpenPanel,
-  deferTicketOpenPanel,
 };

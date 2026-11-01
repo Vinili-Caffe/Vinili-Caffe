@@ -154,5 +154,4 @@ export = {
   buildTicketPanelUnclaimedButtonRow,
   autoUnclaimOpenTicketsClaimedByUser,
   applyChannelPermissionOverwritesAfterUnclaim,
-  refreshTicketPanelMessageUnclaimed,
 };

@@ -240,14 +240,8 @@ function startPreMemberRoleSweepLoop(client?) {
 }
 
 export = {
-  preMemberRoleId,
-  mainMemberRoleId,
-  memberGainedMainMemberRole,
-  applyPreMemberRoleIfNeeded,
-  removePreMemberRoleIfPresent,
   syncPreMemberRoleForMember,
   handlePreMemberRoleOnMemberUpdate,
-  reconcileVerifiedMemberPreMember,
   sweepStalePreMemberRoles,
   startPreMemberRoleSweepLoop,
 };

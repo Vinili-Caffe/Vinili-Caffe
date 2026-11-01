@@ -12,11 +12,13 @@ const {
 } = require("../../Utils/Partner/partnersChatChannelUtils") as typeof import("../../Utils/Partner/partnersChatChannelUtils");
 const { getTenantProfileSnapshot } = require("../../MultiGuild/services/Partner/tenantProfileProgressService") as typeof import("../../MultiGuild/services/Partner/tenantProfileProgressService");
 const { t } = require("../../MultiGuild/utils/Partner/tenantProfileConstants") as typeof import("../../MultiGuild/utils/Partner/tenantProfileConstants");
-const { resolveTenantLanguageForMessage,
+const {
+  resolveTenantLanguageForMessage,
   resolveTenantLanguageForInteraction,
-  replyTenantMessage,
   tenantOnlyError,
-  tenantNoPermissionError, tenantNoticePayload } = require("../../MultiGuild/utils/Partner/tenantPartnershipPrefixMessages") as typeof import("../../MultiGuild/utils/Partner/tenantPartnershipPrefixMessages");
+  tenantNoPermissionError,
+  tenantNoticePayload,
+} = require("../../MultiGuild/utils/Partner/tenantPartnershipPrefixMessages") as typeof import("../../MultiGuild/utils/Partner/tenantPartnershipPrefixMessages");
 const { replyPrefixSetupRequired } = require("../../MultiGuild/utils/Partner/tenantSetupRequiredReply") as typeof import("../../MultiGuild/utils/Partner/tenantSetupRequiredReply");
 const {
   resolveEmbedColorForGuild,

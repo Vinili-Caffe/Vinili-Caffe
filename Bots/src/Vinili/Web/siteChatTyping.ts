@@ -83,34 +83,7 @@ function clearTyping({ kind, id, userId, eventType, extra = {} }) {
   }
 }
 
-function listTyping({ kind, id, excludeUserId = "" }) {
-  const k = roomKey(kind, id);
-  const map = rooms.get(k);
-  if (!map) return [];
-  const now = Date.now();
-  pruneRoom(map, now);
-  if (!map.size) {
-    rooms.delete(k);
-    return [];
-  }
-  const exclude = normalizeId(excludeUserId);
-  const out = [];
-  for (const [uid, row] of map) {
-    if (exclude && uid === exclude) continue;
-    out.push({
-      userId: uid,
-      userName: String(row?.name || "Utente").trim() || "Utente",
-      at: Number(row?.at || 0),
-    });
-  }
-  out.sort((a?, b?) => a.at - b.at);
-  return out;
-}
-
 export = {
-  TYPING_TTL_MS,
-  TYPING_MIN_INTERVAL_MS,
   setTyping,
   clearTyping,
-  listTyping,
 };

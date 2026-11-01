@@ -208,11 +208,7 @@ function findHateSpeechMatch(content?) {
 
 export = {
   findHateSpeechMatch,
-  loadCustomHateWords,
-  CUSTOM_HATE_WORDS,
   RACIST_WORD_PATTERNS,
   toLeetNormalized,
-  normalizeForHateMatch,
-  collapseObfuscatedRuns,
   compactAlnum,
 };

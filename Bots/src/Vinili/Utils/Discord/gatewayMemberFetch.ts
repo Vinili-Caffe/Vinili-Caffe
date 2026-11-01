@@ -59,8 +59,5 @@ async function fetchGuildMembersRespectingGatewayRateLimit(guild?, opts: Record<
 }
 
 export = {
-  isGatewayMemberListRateLimit,
-  isGuildMembersTimeout,
-  resolveMemberFetchTimeoutMs,
   fetchGuildMembersRespectingGatewayRateLimit,
 };

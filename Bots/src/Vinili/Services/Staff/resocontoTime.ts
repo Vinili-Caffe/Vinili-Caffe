@@ -126,14 +126,6 @@ function getPartnerLeaderboardWeekBoundsUtc(now = new Date()) {
   return { weekStart, weekEndExclusive };
 }
 
-function getResocontoPexSkipWindowUtc(referenceNow = new Date()) {
-  const closingSunday = getResocontoClosingSundayUtc(referenceNow);
-  const sunParts = getRomeDateParts(closingSunday);
-  const monParts = addDaysToRomeYmd(sunParts.year, sunParts.month, sunParts.day, -6);
-  const windowStart = createUtcFromRomeLocal(monParts.year, monParts.month, monParts.day, 0, 0, 0);
-  return { windowStart, windowEndExclusive: closingSunday };
-}
-
 function getCurrentResocontoPexWeekWindowUtc(referenceNow = new Date()) {
   const r = parseRomeWallClock(referenceNow);
   const wdMap = { Sun: 6, Mon: 0, Tue: 1, Wed: 2, Thu: 3, Fri: 4, Sat: 5 };

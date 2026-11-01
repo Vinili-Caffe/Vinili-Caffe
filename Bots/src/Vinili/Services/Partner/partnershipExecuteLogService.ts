@@ -293,13 +293,8 @@ async function sendPartnershipExecuteLog({
 }
 
 export = {
-  nextGlobalPartnershipLogId,
   reserveAndPersistPartnershipLogId,
-  buildPartnershipMessageUrl,
-  buildPartnershipExecuteLogEmbed,
-  buildPartnershipDeleteLogEmbed,
   sendPartnershipExecuteLog,
   sendPartnershipDeleteLog,
   findPartnershipLogIdFromExecuteLogs,
-  DELETE_REASON_LABELS,
 };

@@ -377,7 +377,5 @@ async function handlePartnerPointContextModal(interaction?) {
 
 export = {
   handlePartnerPointContextModal,
-  handlePartnerEliminaMainModal,
   handlePartnerSegnalaModal,
-  handlePartnerRimuoviModal,
 };

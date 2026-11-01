@@ -49,13 +49,6 @@ function buildOpEntry(type?, delta?, meta: Record<string, any> = {}) {
   };
 }
 
-function appendOp(ops?, op?) {
-  const next = Array.isArray(ops) ? ops.slice() : [];
-  next.push(op);
-  if (next.length > MAX_OPS) next.splice(0, next.length - MAX_OPS);
-  return next;
-}
-
 async function loadCreditsMap() {
   if (!isMongoReady()) return {};
   const raw = await getBotState(BOT_STATE_KEY, null);
@@ -136,27 +129,6 @@ async function listPremiumCreditHolders(opts: Record<string, any> = {}) {
     from: total ? start + 1 : 0,
     to: Math.min(start + limit, total),
   };
-}
-
-async function setPremiumCredits(userId?, credits?) {
-  const uid = normalizeUserId(userId);
-  if (!uid) return { ok: false, error: "bad_user" };
-  if (!isMongoReady()) return { ok: false, error: "mongo_unavailable" };
-  const next = normalizeCredits(credits);
-  await ensureCreditsRowShape(uid);
-  const map = await loadCreditsMap();
-  const row = normalizeRow(map[uid]);
-  const updated = await BotState.findOneAndUpdate(
-    { key: BOT_STATE_KEY },
-    {
-      $set: {
-        [`value.${uid}`]: { c: next, at: Date.now(), ops: row.ops },
-      },
-    },
-    { upsert: true, new: true },
-  ).catch(() => null);
-  if (!updated) return { ok: false, error: "persist_failed" };
-  return { ok: true, credits: next };
 }
 
 async function addPremiumCredits(userId?, delta?) {
@@ -358,13 +330,9 @@ async function findLastPremiumSpendForGuild(guildId?, preferredUserId = null) {
 
 export = {
   BOT_STATE_KEY,
-  PREMIUM_CREDIT_PLANS,
   getPremiumCredits,
   listPremiumCreditHolders,
-  setPremiumCredits,
   addPremiumCredits,
-  getPremiumCreditPlan,
-  spendPremiumCredits,
   adjustPremiumCredits,
   spendCreditsForTenantPremium,
   findLastPremiumSpendForGuild,

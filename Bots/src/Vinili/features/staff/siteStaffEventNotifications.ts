@@ -293,41 +293,6 @@ async function notifyStaffWarnRemoved(opts: Record<string, any> = {}) {
   });
 }
 
-async function notifyStaffWarnDepexDeferred(opts: Record<string, any> = {}) {
-  const guild = opts.guild;
-  const guildId = String(guild?.id || opts.guildId || "").trim();
-  const staffUserId = String(opts.staffUserId || "").trim();
-  if (!guild || !guildId || !/^\d{16,22}$/.test(staffUserId)) return 0;
-
-  const staffName = String(opts.staffName || staffUserId).trim();
-  const actorName = String(opts.actorName || "High Staff").trim();
-  const actorUserId = String(opts.actorUserId || "").trim();
-
-  let sent = 0;
-  sent += await notifyUsers(guild, [staffUserId], {
-    title: "Depex non applicato (2° warn)",
-    body: `${actorName} ha scelto di non applicare il depex ora. Al 3° warn staff scatterà il depex completo.`,
-    kind: STAFF_KIND,
-    openUrl: "/staff/",
-    dedupeKey: `warn-depex-no:${staffUserId}`,
-  });
-
-  const hs = await getHighStaffRecipientUserIds(guild);
-  sent += await notifyUsers(
-    guild,
-    hs,
-    {
-      title: `Depex deferito: ${staffName}`,
-      body: `${actorName}: nessun depex ora per ${staffName} (2 warn). Al 3° warn → depex completo.`,
-      kind: STAFF_KIND,
-      openUrl: `/user/?id=${encodeURIComponent(staffUserId)}&tab=staff&manage=1`,
-      dedupeKey: `warn-depex-no-hs:${staffUserId}`,
-    },
-    [staffUserId, actorUserId],
-  );
-  return sent;
-}
-
 async function notifyStaffPexDepex(opts: Record<string, any> = {}) {
   const guild = opts.guild;
   const guildId = String(guild?.id || opts.guildId || "").trim();
@@ -417,7 +382,6 @@ async function notifyResocontoOutcome(opts: Record<string, any> = {}) {
 export = {
   STAFF_KIND,
   getHighStaffRecipientUserIds,
-  getOrganicoViewerUserIds,
   notifyUsers,
   notifyPuntiToltiPending,
   notifyPuntiToltiReviewed,
@@ -426,9 +390,7 @@ export = {
   notifyStaffValutazioneRemoved,
   notifyStaffWarn,
   notifyStaffWarnRemoved,
-  notifyStaffWarnDepexDeferred,
   notifyStaffPexDepex,
   notifyResocontoOutcome,
   memberDisplayName,
-  formatRoleLabel,
 };

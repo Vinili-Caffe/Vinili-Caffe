@@ -177,11 +177,9 @@ function registerPronounGenderReplyHook() {
 }
 
 export = {
-  PRONOUN_X_SUFFIX_EXCLUDE,
   resolveMemberPronounGender,
   applyPronounGenderToText,
   applyPronounGenderToTextForMember,
-  applyPronounGenderToEmbed,
   applyPronounGenderToEmbedForMember,
   applyPronounGenderToPayload,
   registerPronounGenderReplyHook,

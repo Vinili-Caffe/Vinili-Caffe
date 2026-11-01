@@ -646,10 +646,8 @@ function startTestGuildMirrorSyncLoop(client?, intervalMs = DEFAULT_INTERVAL_MS)
 }
 
 export = {
-  runTestGuildMirrorSync,
   startTestGuildMirrorSyncLoop,
   syncTestMemberRolesFromMain,
   mirrorMainRoleDeleteToTest,
   mirrorMainChannelDeleteToTest,
-  pruneDeletedMainMirrors,
 };

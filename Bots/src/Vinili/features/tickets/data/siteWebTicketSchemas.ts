@@ -183,10 +183,8 @@ async function nextWebTicketNumber(guildId?) {
 
 export = {
   WEB_TICKET_CATEGORIES,
-  WEB_TICKET_CATEGORY_LEGACY,
   WEB_TICKET_STATUS,
   SiteWebTicket,
   SiteWebTicketMessage,
-  SiteWebTicketCounter,
   nextWebTicketNumber,
 };

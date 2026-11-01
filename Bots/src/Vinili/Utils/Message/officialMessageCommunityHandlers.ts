@@ -273,10 +273,6 @@ function getWelcomeJoinTargetUserId(guildId?) {
   return normalizeWelcomeJoinTargetUserId(entry.joinTargetUserId);
 }
 
-function getWelcomeSessionId(guildId?) {
-  return getWelcomeJoinTargetUserId(guildId);
-}
-
 function getWelcomeSessionIdForChannel(channelId?, channel = null) {
   const ctx = getWelcomeChannelContext(channelId);
   const fromCtx = readCtxJoinTargetUserId(ctx);
@@ -527,10 +523,6 @@ function matchWelcomeRuleWord(normalized?, rawTerm?) {
   return false;
 }
 
-function matchesWelcomeGreetingTerm(normalized?, term?) {
-  return matchWelcomeRuleWord(normalized, term);
-}
-
 function messageContainsWelcomeSlashTerm(normalized?, term?) {
   const t = String(term || "").trim().toLowerCase();
   if (!t || t.endsWith("*")) return false;
@@ -553,20 +545,6 @@ function messageContainsWelcomeSlashTerm(normalized?, term?) {
   return false;
 }
 
-function matchesWelcomeGreetingWildcardToken(stripped?, prefix?) {
-  const p = String(prefix || "").trim().toLowerCase();
-  if (p.length < 6) return false;
-  const pattern = new RegExp(
-    `(?:^|[\\s\\p{P}])${escapeRegex(p)}[\\p{L}]*(?=[\\s\\p{P}]|$)`,
-    "iu",
-  );
-  return pattern.test(stripLeadingNoiseForGreeting(stripped));
-}
-
-function matchesWelcomeGreetingTermForExp(normalized?, term?) {
-  return matchesWelcomeGreetingTerm(normalized, term);
-}
-
 function welcomeGreetingSlashVariants(rawTerm?, minPartLength = 4) {
   const t = String(rawTerm || "").trim().toLowerCase();
   if (!t.includes("/")) return [];
@@ -575,19 +553,6 @@ function welcomeGreetingSlashVariants(rawTerm?, minPartLength = 4) {
     .split("/")
     .map((part?) => String(part || "").trim().toLowerCase())
     .filter((part?) => part.length >= minLen);
-}
-
-function termMatchesWelcomeGreetingWord(normalized?, rawTerm?) {
-  return matchWelcomeRuleWord(normalized, rawTerm);
-}
-
-function termMatchesWelcomeGreetingWordForExp(normalized?, rawTerm?) {
-  const t = String(rawTerm || "").trim().toLowerCase();
-  if (!t) return false;
-  if (matchesWelcomeGreetingTermForExp(normalized, t)) return true;
-  const variants = welcomeGreetingSlashVariants(t, 4);
-  if (!variants.length) return false;
-  return variants.some((part?) => matchesWelcomeGreetingTermForExp(normalized, part));
 }
 
 function matchesWelcomeGreetingForExp(message?, options: Record<string, any> = {}) {
@@ -905,13 +870,6 @@ function getWelcomeGreetingRule() {
   return rules.find((rule?) => rule?.onlyInWelcomeContext) || null;
 }
 
-function matchesWelcomeGreetingMessage(message?) {
-  const rules = getWordReactionsConfig();
-  if (!Array.isArray(rules) || !rules.length) return false;
-  const now = new Date();
-  return rules.some((rule?) => rule?.onlyInWelcomeContext && messageMatchesWordReactionRule(message, rule, now));
-}
-
 function messageChannelIdsForWelcomeExp(message?) {
   const ids = new Set();
   const cid = String(message?.channelId || "").trim();
@@ -950,10 +908,6 @@ function isMessageInWelcomeExpChannel(message?) {
   const resolved = new Set(resolveWordReactionChannelIds(Array.from(expKeys)));
   const messageIds = messageChannelIdsForWelcomeExp(message);
   return [...resolved].some((id?) => messageIds.has(String(id || "").trim()));
-}
-
-function matchesWelcomeGreetingExpMessage(message?) {
-  return matchesWelcomeGreetingForExp(message);
 }
 
 function resolveWelcomeGreetingSessionId(message?, options: Record<string, any> = {}) {
@@ -1075,4 +1029,4 @@ function logEventError(client?, label?, error?) {
 }
 
 
-export = { handleAfk, handleMentionAutoReactions, handleMentionAutoResponses, handleWordReactions, logEventError, setWelcomeContextActive, activateWelcomeContextForGuild, refreshWelcomeContextForGuild, restoreWelcomeSessionsFromDb, ensureWelcomeContextHydratedForGreeting, isWelcomeContextActive, getWelcomeSessionId, getWelcomeJoinTargetUserId, getWelcomeSessionIdForChannel, normalizeWelcomeJoinTargetUserId, isValidWelcomeJoinTargetUserId, resolveWelcomeGreetingSessionId, resolveWelcomeGreetingSessionIdAsync, resolveWelcomeGreetingSessionIdWithRetry, isMessageInWelcomeExpChannel, matchesWelcomeGreetingMessage, matchesWelcomeGreetingForExp, matchesWelcomeGreetingExpMessage };
+export = { handleAfk, handleMentionAutoReactions, handleMentionAutoResponses, handleWordReactions, logEventError, setWelcomeContextActive, activateWelcomeContextForGuild, refreshWelcomeContextForGuild, restoreWelcomeSessionsFromDb, ensureWelcomeContextHydratedForGreeting, normalizeWelcomeJoinTargetUserId, isValidWelcomeJoinTargetUserId, resolveWelcomeGreetingSessionId, resolveWelcomeGreetingSessionIdAsync, isMessageInWelcomeExpChannel, matchesWelcomeGreetingForExp };

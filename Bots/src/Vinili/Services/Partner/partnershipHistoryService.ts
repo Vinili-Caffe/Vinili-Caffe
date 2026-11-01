@@ -75,7 +75,6 @@ async function listRecentPartnerGuildIds(guildId?, days = DEFAULT_HISTORY_DAYS) 
 }
 
 const MAX_HISTORY_RANGE_DAYS = 3650;
-const DEFAULT_HISTORY_LIST_LIMIT = 250;
 const DEFAULT_HISTORY_PAGE_SIZE = 10;
 const MAX_HISTORY_PAGE_SIZE = 50;
 
@@ -235,18 +234,9 @@ async function listPartnerGuildHistory(guildId?, options: Record<string, any> = 
 }
 
 export = {
-  DEFAULT_HISTORY_DAYS,
-  MAX_HISTORY_DAYS,
-  MAX_HISTORY_RANGE_DAYS,
-  DEFAULT_HISTORY_LIST_LIMIT,
-  DEFAULT_HISTORY_PAGE_SIZE,
-  MAX_HISTORY_PAGE_SIZE,
   clampHistoryDays,
   formatHistoryDaysLabel,
   parseHistoryArgs,
-  resolveHistoryRangeDays,
-  resolveHistoryPage,
-  resolveHistoryPageSize,
   listRecentPartnerGuildIds,
   listPartnerGuildHistory,
 };

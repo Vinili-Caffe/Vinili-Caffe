@@ -12,14 +12,6 @@ const { playMusicRequest } = require("./musicPlayRequest") as typeof import("./m
 /* snapshot a load (Coffee setta hook prima del require) */
 const NOW_PLAYING_EMBED_TITLE = getNowPlayingEmbedTitle();
 
-function probeLavalinkTcp(host?, port?, timeoutMs = 1500) {
-  return require("../../../shared/music/lavalinkProbe").probeLavalinkTcp(host, port, timeoutMs);
-}
-
-async function probeLavalinkHttpReady(host?, port?, timeoutMs = 2500) {
-  return require("../../../shared/music/lavalinkProbe").probeLavalinkHttpReady(host, port, timeoutMs);
-}
-
 function shouldDeferTtsLeaveForMusicEmptyVc(client?, guildId?) {
   const gid = String(guildId || "").trim();
   if (!gid || !client?.shoukaku) return false;

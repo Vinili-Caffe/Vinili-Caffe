@@ -219,7 +219,6 @@ export = {
   parseMainPartnershipRemoveModalId,
   buildPartnerPointModalCustomId,
   buildPartnerPointLogContent,
-  buildPartnerPointHighStaffPingLine,
   getPartnerPointHighStaffPingRoleIds,
   parsePartnerPointModalId,
   memberIsHighStaffForPointReview,

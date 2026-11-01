@@ -103,4 +103,4 @@ function consumeRecentJoinGateKick(guildId?, userId?) {
   return payload;
 }
 
-export = { markJoinGateKick, getRecentJoinGateKick, consumeRecentJoinGateKick };
+export = { markJoinGateKick, consumeRecentJoinGateKick };

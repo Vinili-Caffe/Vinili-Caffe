@@ -208,8 +208,6 @@ async function recoverLevelMilestoneSupportersAnnouncesOnStartup(client?, opts: 
 }
 
 export = {
-  buildLevelMilestoneSupportersEmbed,
-  buildLevelMilestoneSupportersAnnounceContent,
   sendLevelMilestoneSupportersAnnouncement,
   recoverLevelMilestoneSupportersAnnouncesOnStartup,
 };

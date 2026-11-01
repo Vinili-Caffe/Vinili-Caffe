@@ -84,6 +84,4 @@ async function resolveVoteRoleIdForGuild(guild?) {
 
 export = {
   resolveVoteRoleIdForGuild,
-  // esportato per test/debug rapidi (non parte del contratto pubblico)
-  _internal: { voteRoleIdByGuild, normalizeId, resolveByName, tryFetchRoleById, remapRoleId },
 };

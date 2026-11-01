@@ -147,9 +147,7 @@ function filterScamLines(lines?) {
 }
 
 export = {
-  loadScamConfig,
   isMarkovScamText,
-  isMarkovScamImageBait,
   isMarkovScamMessage,
   filterScamLines,
 };

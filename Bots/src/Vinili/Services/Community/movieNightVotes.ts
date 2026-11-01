@@ -295,4 +295,4 @@ async function describeFinalMovieTitleMiss(client?, state?, now = new Date()) {
   return bits.join(" ");
 }
 
-export = { ANNOUNCEMENT_CHANNEL_ID, collectMovieNightVoteResults, maybePublishTieBreakerPoll, hydrateMovieNightStateForWeek, resolveMovieNightThread, resolveFinalMovieTitle, describeFinalMovieTitleMiss };
+export = { ANNOUNCEMENT_CHANNEL_ID, maybePublishTieBreakerPoll, hydrateMovieNightStateForWeek, resolveMovieNightThread, resolveFinalMovieTitle, describeFinalMovieTitleMiss };

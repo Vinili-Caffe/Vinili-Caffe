@@ -77,21 +77,7 @@ async function purgeWorkflowChatByDedupe(guildId?, dedupeKey?) {
   return Number(result?.deletedCount || 0);
 }
 
-async function purgeWorkflowChatByDedupeKeys(guildId?, dedupeKeys?) {
-  const gid = String(guildId || "").trim();
-  const keys = Array.isArray(dedupeKeys)
-    ? [...new Set(dedupeKeys.map((k?) => String(k || "").trim()).filter(Boolean))]
-    : [];
-  if (!gid || !keys.length) return 0;
-  const result = await SiteWorkflowChatMessage.deleteMany({
-    guildId: gid,
-    dedupeKey: { $in: keys },
-  }).catch(() => null);
-  return Number(result?.deletedCount || 0);
-}
-
 export = {
   SiteWorkflowChatMessage,
   purgeWorkflowChatByDedupe,
-  purgeWorkflowChatByDedupeKeys,
 };

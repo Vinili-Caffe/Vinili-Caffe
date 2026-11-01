@@ -140,7 +140,6 @@ async function runOrphanCustomRolesDiscordSweep(client?, opts: Record<string, an
 }
 
 export = {
-  loadCustomPerkIdsForUser,
   purgeLeftMemberCustomPerksFromDiscord,
   runOrphanCustomRolesDiscordSweep,
 };

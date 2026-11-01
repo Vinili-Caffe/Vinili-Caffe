@@ -147,8 +147,5 @@ async function ensureGuildFeatureBucket(guildId?) {
 export = {
   GuildFeatureBucket,
   ensureGuildFeatureBucket,
-  pollEntrySchema,
-  suggestionEntrySchema,
   ticketEntrySchema,
-  giveawayEntrySchema,
 };

@@ -71,7 +71,6 @@ export = {
   syncLiveVoiceSessionsFromGateway,
   runLiveVoiceExpTick,
   startLiveVoiceExpLoop,
-  stopLiveVoiceExpLoop,
   suspendAllLiveVoiceExp,
   isExcludedActivityChannel,
   isChannelInExcludedActivityCategory,

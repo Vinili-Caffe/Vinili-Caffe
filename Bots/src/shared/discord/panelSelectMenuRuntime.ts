@@ -4,10 +4,6 @@ const { EmbedBuilder } = require("discord.js") as typeof import("discord.js");
 
 const EPHEMERAL_FLAG = 1 << 6;
 
-function isStringSelectMenuInteraction(interaction?) {
-  return Boolean(interaction?.isStringSelectMenu?.() && interaction.isStringSelectMenu());
-}
-
 function payloadWithDefaultEphemeral(payload?, ephemeral = true) {
   const next =
     payload && typeof payload === "object" && !Array.isArray(payload)
@@ -63,19 +59,6 @@ async function resetPanelSelectMenu(interaction?, rebuildComponents?, options: R
   return true;
 }
 
-function buildFollowUpInteractionProxy(interaction?, options: Record<string, any> = {}) {
-  const ephemeral = options.ephemeral !== false;
-  const sendFollowUp = (payload?) =>
-    interaction.followUp(payloadWithDefaultEphemeral(payload, ephemeral)).catch(() => null);
-
-    return Object.assign(Object.create(interaction), {
-    isButton: () => Boolean(options.treatAsButton),
-    isStringSelectMenu: () => false,
-    reply: (payload?) => sendFollowUp(payload),
-    editReply: (payload?) => sendFollowUp(payload),
-  });
-}
-
 async function panelSelectFollowUp(interaction?, rebuildComponents?, payload?, options: Record<string, any> = {}) {
   await resetPanelSelectMenu(interaction, rebuildComponents, options);
   return interaction
@@ -90,19 +73,10 @@ async function beginPanelSelectDefer(interaction?, rebuildComponents?, deferOpti
   return Boolean(interaction.deferred);
 }
 
-async function runPanelSelectWithFollowUp(interaction?, rebuildComponents?, handler?, options: Record<string, any> = {}) {
-  await resetPanelSelectMenu(interaction, rebuildComponents, options);
-  const proxy = buildFollowUpInteractionProxy(interaction, options);
-  return handler(proxy, interaction);
-}
-
 export = {
   EPHEMERAL_FLAG,
-  isStringSelectMenuInteraction,
   payloadWithDefaultEphemeral,
   resetPanelSelectMenu,
-  buildFollowUpInteractionProxy,
   panelSelectFollowUp,
   beginPanelSelectDefer,
-  runPanelSelectWithFollowUp,
 };

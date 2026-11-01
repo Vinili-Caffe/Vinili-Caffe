@@ -132,8 +132,6 @@ function parseReviewerFromHandledMessage(message?) {
 const RESOCONTO_MESSAGE_SCAN_PAGE = 100;
 const RESOCONTO_MESSAGE_SCAN_MAX = 1200;
 const COMPITO_CHECK_DEBOUNCE_MS = 6_000;
-const RECOVERY_START_DELAY_MS = 300_000;
-
 let compitoCheckTimer = null;
 let compitoCheckRunning = false;
 let recoveryRunning = false;
@@ -555,44 +553,13 @@ async function reconcileResocontoReviewerRewardAutoValutazioni() {
   return { ok: true, relinked: 0, skipped: "reconcile_disabled" };
 }
 
-async function runResocontoReviewerRewardRecovery(client?) {
-  if (recoveryRunning) return;
-  recoveryRunning = true;
-  try {
-    const { isDiscordStaffChannelPostsEnabled } = require("../../Web/discordWorkflowUiGate") as typeof import("../../Web/discordWorkflowUiGate");
-    if (!isDiscordStaffChannelPostsEnabled()) return;
-
-    const guildId = String(IDs.guilds?.main || "");
-    const channelId = String(IDs.channels?.resocontiStaff || "");
-    if (!guildId || !channelId) return;
-
-    const guild = client.guilds.cache.get(guildId) || (await client.guilds.fetch(guildId).catch(() => null));
-    if (!guild) return;
-    const channel =
-      guild.channels.cache.get(channelId) || (await guild.channels.fetch(channelId).catch(() => null));
-    if (!channel?.isTextBased?.()) return;
-
-    await runDebouncedCompitoSegmentChecks(guild, channel);
-  } finally {
-    recoveryRunning = false;
-  }
-}
-
 function startResocontoReviewerRewardRecoveryLoop(client?) {
       void client;
 }
 
 export = {
   onResocontoOutcomeRecorded,
-  runResocontoReviewerRewardRecovery,
   reconcileResocontoReviewerRewardAutoValutazioni,
   startResocontoReviewerRewardRecoveryLoop,
-  resolveSegmentFromPayload,
-  parseResocontoMessageMeta,
-  collectResocontoSegmentStats,
-  collectResocontoSegmentStatsFromSite,
-  collectResocontoSegmentStatsForCompito,
-  grantCompitoSettimanaleIfEligible,
   runDebouncedCompitoSegmentChecks,
-  maybeGrantCompitoSettimanaleForSegment,
 };

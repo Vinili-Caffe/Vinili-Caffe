@@ -315,10 +315,6 @@ function getTenantBoardsSync(guildId?) {
   return applyProtectedBoardsCatalogOverlay(gid, rowToBoards(settingsCache[gid], gid));
 }
 
-function isTenantBoardsEnabledSync(guildId?) {
-  return getTenantBoardsSync(guildId).enabled !== false;
-}
-
 function isTenantClipTranscriptionEnabledSync(guildId?) {
   const boards = getTenantBoardsSync(guildId);
   return boards?.clipTranscription !== false;
@@ -437,25 +433,12 @@ function getTenantDashboardRoleIdsSync(guildId?) {
   return normalizeRoleIdList(row.dr ?? row.dashboardRoleIds ?? row.dashboardRoleId);
 }
 
-function getTenantDashboardRoleIdSync(guildId?) {
-  const ids = getTenantDashboardRoleIdsSync(guildId);
-  return ids[0] || null;
-}
-
 function getTenantUpdatesChannelIdSync(guildId?) {
   const gid = normalizeGuildId(guildId);
   if (!gid) return null;
   const row = settingsCache[gid];
   if (!row || typeof row !== "object") return null;
   return normalizeChannelId(row.uc ?? row.updatesChannelId);
-}
-
-function getTenantUpdatesWebhookIdSync(guildId?) {
-  const gid = normalizeGuildId(guildId);
-  if (!gid) return null;
-  const row = settingsCache[gid];
-  if (!row || typeof row !== "object") return null;
-  return normalizeChannelId(row.uw ?? row.updatesWebhookId);
 }
 
 function listTenantUpdatesTargetsSync() {
@@ -469,17 +452,6 @@ function listTenantUpdatesTargetsSync() {
       channelId,
       webhookId: normalizeChannelId(row.uw ?? row.updatesWebhookId),
     });
-  }
-  return out;
-}
-
-function listTenantGuildIdsWithDashboardRoleSync() {
-  const out = [];
-  for (const [gid, row] of Object.entries(settingsCache || {})) {
-    if (!row || typeof row !== "object") continue;
-    if (normalizeRoleIdList(row.dr ?? row.dashboardRoleIds ?? row.dashboardRoleId).length) {
-      out.push(String(gid));
-    }
   }
   return out;
 }
@@ -581,50 +553,6 @@ async function patchTenantCommandAclMap(guildId?, patch?) {
   );
   if (!result.ok) return result;
   return { ok: true, commands: getTenantCommandAclMapSync(guildId) };
-}
-
-async function setTenantChannelField(guildId?, fieldKey?, channelId?) {
-  const gid = normalizeGuildId(guildId);
-  if (!gid || isViniliProtectedGuild(gid)) {
-    return { ok: false, reason: "protected_guild" };
-  }
-  if (!isMongoReady()) {
-    return { ok: false, reason: "mongo_not_ready" };
-  }
-  const key = String(fieldKey || "").trim();
-  if (!key) return { ok: false, reason: "invalid_field" };
-  const map = await loadSettingsMap();
-  const nextId = channelId ? normalizeChannelId(channelId) : null;
-  if (channelId && !nextId) {
-    return { ok: false, reason: "invalid_channel" };
-  }
-  const prev = map[gid] && typeof map[gid] === "object" ? { ...map[gid] } : {};
-  if (!nextId) {
-    delete prev[key];
-    if (!Object.keys(prev).length) delete map[gid];
-    else map[gid] = prev;
-  } else {
-    map[gid] = { ...prev, [key]: nextId };
-  }
-  const saved = await setBotState(BOT_STATE_KEY, map);
-  if (!saved) return { ok: false, reason: "persist_failed" };
-  await refreshTenantGuildSettingsCache();
-  const verifyKey =
-    key === "q" ? "quotes" : key === "ml" ? "modLogs" : key === "r" ? "roulette" : null;
-  if (verifyKey) {
-    const persisted = getTenantChannelMapSync(gid)[verifyKey] || null;
-    if (nextId && persisted !== nextId) {
-      return { ok: false, reason: "persist_verify_failed" };
-    }
-    if (!nextId && persisted) {
-      return { ok: false, reason: "persist_verify_failed" };
-    }
-  }
-  return { ok: true, channelId: nextId };
-}
-
-async function setTenantQuoteChannel(guildId?, channelId?) {
-  return setTenantChannelField(guildId, "q", channelId);
 }
 
 function applyClipTranscriptionToBoardsBlob(prevB?, enabled?) {
@@ -871,14 +799,6 @@ async function setTenantBoards(guildId?, patch?) {
   return { ok: true, boards: getTenantBoardsSync(gid) };
 }
 
-async function setTenantModLogChannel(guildId?, channelId?) {
-  return setTenantChannelField(guildId, "ml", channelId);
-}
-
-async function setTenantRouletteChannel(guildId?, channelId?) {
-  return setTenantChannelField(guildId, "r", channelId);
-}
-
 async function setTenantPrefix(guildId?, prefix?) {
   const parsed = normalizePrefix(prefix);
   if (!parsed.ok) return { ok: false, reason: parsed.reason || "invalid_prefix" };
@@ -911,15 +831,6 @@ async function setTenantDashboardRoles(guildId?, roleIds?) {
   );
   if (!result.ok) return result;
   return { ok: true, dashboardRoleIds: ids, dashboardRoleId: ids[0] || null };
-}
-
-async function setTenantDashboardRole(guildId?, roleId?) {
-  if (roleId != null && String(roleId).trim() !== "") {
-    const id = normalizeRoleId(roleId);
-    if (!id) return { ok: false, reason: "invalid_role" };
-    return setTenantDashboardRoles(guildId, [id]);
-  }
-  return setTenantDashboardRoles(guildId, []);
 }
 
 async function setTenantUpdatesChannel(guildId?, channelId?) {
@@ -977,38 +888,26 @@ export = {
   PREFIX_MAX_LEN,
   getTenantChannelMapSync,
   getTenantBoardsSync,
-  isTenantBoardsEnabledSync,
   isTenantBoardFeatureEnabledSync,
   isTenantClipTranscriptionEnabledSync,
   resolveTenantBoardChannelIdSync,
-  syncBoardFeatureCommandAcls,
-  BOARD_FEATURE_KINDS,
   BOARD_FEATURE_COMMANDS,
   getTenantPrefixSync,
   resolveCommandPrefixForGuild,
   resolveCommandPrefixForGuildFresh,
   rewriteDefaultCommandPrefix,
-  getTenantDashboardRoleIdSync,
   getTenantDashboardRoleIdsSync,
   normalizeRoleIdList,
   getTenantUpdatesChannelIdSync,
-  getTenantUpdatesWebhookIdSync,
   listTenantUpdatesTargetsSync,
   getTenantSettingsSnapshotSync,
   getTenantCommandAclMapSync,
   patchTenantCommandAclMap,
-  listTenantGuildIdsWithDashboardRoleSync,
   refreshTenantGuildSettingsCache,
   isTenantGuildSettingsCacheFresh,
   ensureTenantGuildSettingsCacheFresh,
-  guildAllowsCustomQuoteStyleSync,
-  setTenantChannelField,
-  setTenantQuoteChannel,
   setTenantBoards,
-  setTenantModLogChannel,
-  setTenantRouletteChannel,
   setTenantPrefix,
-  setTenantDashboardRole,
   setTenantDashboardRoles,
   setTenantUpdatesChannel,
   setTenantUpdatesWebhook,

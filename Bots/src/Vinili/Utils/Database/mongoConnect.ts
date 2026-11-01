@@ -422,8 +422,6 @@ export = {
   ensureMongoIndexes,
   isMongoReady,
   isMongoTransientError,
-  maskMongoUrlForLog,
   waitForMongoReachable,
-  waitForMongoConnection,
   withMongoTimeout,
 };

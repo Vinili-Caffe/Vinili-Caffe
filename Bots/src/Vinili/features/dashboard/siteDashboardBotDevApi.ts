@@ -511,6 +511,5 @@ export = {
   postDashboardBotDevResetGuild,
   postDashboardBotDevRevokePremium,
   getDashboardBotDevCredits,
-  listDashboardBotDevCredits,
   postDashboardBotDevCredits,
 };

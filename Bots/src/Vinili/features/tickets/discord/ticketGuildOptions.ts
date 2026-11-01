@@ -214,36 +214,10 @@ function buildOpenerPermissionList(guildId?, permsOverride = null) {
   return list;
 }
 
-function buildStaffSpectateOverwrite(guildId?) {
-  const s = getOptions(guildId);
-  const p: any = s.ticketPerms || {};
-  if (s.claimedStaffCanView === false) {
-    return { ViewChannel: false };
-  }
-  return {
-    ViewChannel: true,
-    SendMessages: s.claimedStaffCanType === true,
-    UseApplicationCommands: true,
-    ReadMessageHistory: true,
-    EmbedLinks: p.embedLinks !== false,
-    AttachFiles: p.attachFiles !== false,
-    AddReactions: p.addReactions !== false,
-  };
-}
-
-function getTicketEmbedColor() {
-  return "#6f4e37";
-}
-
 export = {
-  getOptions,
   resolveTicketPanel,
   resolveTranscriptLogChannelId,
   buildTicketControlButtons,
   buildClaimedControlButtons,
-  buildOpenerPermissionList,
-  buildStaffSpectateOverwrite,
-  openerAllowBitsToMemberOverwrite,
   syncOpenTicketOpenerPermissions,
-  getTicketEmbedColor,
 };

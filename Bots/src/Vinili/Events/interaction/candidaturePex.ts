@@ -4,10 +4,9 @@ const { getGuildChannelCached, getGuildMemberCached } = require("../../Utils/Int
 const { getOrCreateStaffDoc, deleteThreadForMessage, ensureStaff } = require("../../Utils/Staff/staffDocUtils") as typeof import("../../Utils/Staff/staffDocUtils");
 const { clearStaffPendingPurgeAt } = require("../../Services/Community/userLeaveBackupService") as typeof import("../../Services/Community/userLeaveBackupService");
 const { sendPartnerManagerWelcome, sendHelperWelcome } = require("../../Utils/Staff/staffWelcomeMessages") as typeof import("../../Utils/Staff/staffWelcomeMessages");
-const { HELPER_ROLE_ID, PARTNER_MANAGER_ROLE_ID, APPLICATION_TYPES, normalizeApplicationType, getTargetRoleIdByType } = require("./candidatureEligibility") as typeof import("./candidatureEligibility");
-const { APPLY_PEX_PREFIX, APPLICATION_ACCEPTED_COLOR, applicationTypeLabel, setApplicationMessageStatusColor } = require("./candidatureEmbeds") as typeof import("./candidatureEmbeds");
+const { HELPER_ROLE_ID, PARTNER_MANAGER_ROLE_ID, normalizeApplicationType, getTargetRoleIdByType } = require("./candidatureEligibility") as typeof import("./candidatureEligibility");
+const { APPLICATION_ACCEPTED_COLOR, applicationTypeLabel, setApplicationMessageStatusColor } = require("./candidatureEmbeds") as typeof import("./candidatureEmbeds");
 
-const APPLY_PEX_MODAL_PREFIX = "apply_pex_modal";
 const candidatePexLocks = new Set();
 
 async function sendCandidatePexWelcome(guild?, member?, targetRoleId?) {
@@ -161,87 +160,6 @@ async function applyCandidatePex(guild?, actor?, type?, userId?, reason?, source
     decidedByName: String(actor?.displayName || actor?.username || actor?.globalName || ""),
   });
   return `Pex completato per <@${member.id}>.`;
-}
-
-function parseCandidatePexCustomId(customId?) {
-  const raw = String(customId || "");
-  if (!raw.startsWith(`${APPLY_PEX_PREFIX}:`)) return null;
-  const [, type, userId] = raw.split(":");
-  if (!APPLICATION_TYPES.includes(String(type || ""))) return null;
-  if (!/^\d{16,20}$/.test(String(userId || ""))) return null;
-  return { type: String(type), userId: String(userId) };
-}
-
-function parseCandidatePexModalId(customId?) {
-  const raw = String(customId || "");
-  if (!raw.startsWith(`${APPLY_PEX_MODAL_PREFIX}:`)) return null;
-  const [, type, userId, messageId] = raw.split(":");
-  if (!APPLICATION_TYPES.includes(String(type || ""))) return null;
-  if (!/^\d{16,20}$/.test(String(userId || ""))) return null;
-  if (!/^\d{16,20}$/.test(String(messageId || ""))) return null;
-  return { type: String(type), userId: String(userId), messageId: String(messageId) };
-}
-
-function isVisioneModuliChannelOrThread(interaction?) {
-  const vid = String(IDs.channels?.visioneModuli || "").trim();
-  if (!vid) return false;
-  const cid = String(interaction.channelId || "");
-  if (cid === vid) return true;
-  const parentId = interaction.channel?.parentId != null ? String(interaction.channel.parentId) : "";
-  return parentId === vid;
-}
-
-async function executeCandidatePexInteraction(interaction?, parsed?, reason?) {
-  const pexLockKey = `${String(interaction.guildId || "dm")}:${String(parsed.messageId)}`;
-  if (candidatePexLocks.has(pexLockKey)) {
-    await interaction.reply({
-      content:
-        "<a:VC_Cross:1482532424570376253> Questa candidatura è già in elaborazione.",
-      flags: 1 << 6,
-    }).catch(() => null);
-    return true;
-  }
-  candidatePexLocks.add(pexLockKey);
-  try {
-    const sendPexModalReply = async (payload?) => {
-      const base = { ...(payload || {}) };
-      if (base.flags == null) base.flags = 1 << 6;
-      if (interaction.deferred || interaction.replied) {
-        const editPayload = { ...base };
-        delete editPayload.flags;
-        await interaction.editReply(editPayload).catch(async () => {
-          await interaction.followUp(base).catch(() => null);
-        });
-        return;
-      }
-      await interaction.reply(base).catch(() => null);
-    };
-    const trimmedReason = String(reason || "").trim();
-    if (!trimmedReason) {
-      await sendPexModalReply({
-        content: "<a:VC_Cross:1482532424570376253> Devi inserire un motivo valido.",
-      });
-      return true;
-    }
-    if (!interaction.deferred && !interaction.replied) {
-      await interaction.deferReply({ flags: 1 << 6 }).catch(() => null);
-    }
-    const srcMessage = await interaction.channel?.messages?.fetch(parsed.messageId).catch(() => null);
-    const status = await applyCandidatePex(
-      interaction.guild,
-      interaction.user,
-      parsed.type,
-      parsed.userId,
-      trimmedReason,
-      srcMessage,
-    );
-    await sendPexModalReply({
-      content: status,
-    });
-    return true;
-  } finally {
-    candidatePexLocks.delete(pexLockKey);
-  }
 }
 
 export = { applyCandidatePex };

@@ -76,7 +76,6 @@ function buildPartnerRewardDiscordEmbedLines(now?) {
 export = {
   PARTNER_REWARD_CANONICAL_TIERS,
   PARTNER_REWARD_LABELS,
-  PARTNER_REWARD_DISCOUNT_WINDOW,
   isPartnerRewardDiscountActive,
   getPartnerRewardPointCost,
   isPartnerRewardCanonicalTier,

@@ -683,7 +683,6 @@ async function resolvePremiumNotifyLanguage(client?, guild?, userId?) {
 }
 
 export = {
-  PREMIUM_PACKS,
   TENANT_LANGUAGES,
   tPremium,
   formatPremiumDuration,

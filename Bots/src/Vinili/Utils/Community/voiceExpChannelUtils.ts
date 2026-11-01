@@ -9,13 +9,7 @@ function computeVoiceExpFromSeconds(seconds?, multiplier = 1, expPerMinute = 5) 
   return Math.floor((sec * rate * mult) / 60);
 }
 
-function isHalfVoiceExpChannel(_channelLike?, _client = null) {
-  return false;
-}
-
 export = {
-  VOICE_EXP_HALF_MULTIPLIER: 1,
   resolveVoiceExpMultiplier,
   computeVoiceExpFromSeconds,
-  isHalfVoiceExpChannel,
 };

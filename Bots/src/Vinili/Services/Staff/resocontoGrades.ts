@@ -283,14 +283,6 @@ function findAutoValutazioneEntry(staff?, keyStr?) {
   return staff.autoValutazioni.find((entry?) => String(entry?.key || "") === keyStr) || null;
 }
 
-function staffActionToKey(action?) {
-  if (action === "Pex") return "px";
-  if (action === "Depex") return "dp";
-  if (action === "Valutazione Positiva") return "vp";
-  if (action === "Valutazione Negativa") return "vn";
-  return "nl";
-}
-
 function pmActionToKey(action?) {
   if (action === "Depex") return "dp";
   if (action === "Richiamo") return "rc";

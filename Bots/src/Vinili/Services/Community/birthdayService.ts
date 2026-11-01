@@ -299,22 +299,10 @@ function startBirthdayLoop(client?) {
   return birthdayCronMain;
 }
 
-function getBirthdayLoopStatus() {
-  return {
-    active: Boolean(birthdayCronMain),
-    backupActive: Boolean(birthdayCronBackup),
-    tickRunning: Boolean(birthdayTickRunning),
-    timezone: DEFAULT_TIME_ZONE,
-  };
-}
-
 export = {
   startBirthdayLoop,
-  runBirthdayTick,
   getRomeDateParts,
   inferBirthYearFromAge,
-  getBirthdayLoopStatus,
   tryCelebrateBirthdayAfterProfileSave,
   isBirthdayDayChangeLocked,
-  BIRTHDAY_ROLE_ID,
 };

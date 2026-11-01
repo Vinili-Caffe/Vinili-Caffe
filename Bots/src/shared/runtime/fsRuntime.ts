@@ -166,4 +166,4 @@ function installHandlers(appRoot?, client?) {
   }
 }
 
-export = { acquireSingleInstanceLock, installHandlers, isBotCodeFile, listFoldersIfExists, listJsFilesIfExists, listJsFilesRecursive, loadEnvFiles };
+export = { acquireSingleInstanceLock, installHandlers, listFoldersIfExists, listJsFilesRecursive, loadEnvFiles };

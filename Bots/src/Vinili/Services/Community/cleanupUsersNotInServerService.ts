@@ -200,8 +200,6 @@ async function runCleanupAfterMemberLeave(client?, guild?) {
 }
 
 export = {
-  runCleanupUsersNotInServer,
-  runCleanupUserScopedNotInAnyServer,
   runFullCleanupUsersNotInServer,
   runCleanupAfterMemberLeave,
 };

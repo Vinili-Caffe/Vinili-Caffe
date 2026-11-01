@@ -383,6 +383,5 @@ function warmSiteTwitchLiveCache(client?) {
 export = {
   handleSiteTwitchLiveGet,
   handleSiteTwitchLiveThumb,
-  refreshLiveCache,
   warmSiteTwitchLiveCache,
 };

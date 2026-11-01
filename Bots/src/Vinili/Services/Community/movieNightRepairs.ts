@@ -1,9 +1,9 @@
 /** Serata film: riparazione di annunci e messaggi staff venuti male. */
-const { getRomeWeekKey, getRomeSaturdayKeyForWeek, getMovieNightFinalAnnouncementSlot, shouldAllowMovieNightStaffCommunication, resolveMovieNightStaffAnnounceSlot, getMovieNightStartupRecoverySlot, isMovieNightFixedScheduleSkipWeek, getFixedMovieTitleForWeek } = require("./movieNightSchedule") as typeof import("./movieNightSchedule");
+const { getRomeWeekKey, getRomeSaturdayKeyForWeek, shouldAllowMovieNightStaffCommunication, resolveMovieNightStaffAnnounceSlot, getMovieNightStartupRecoverySlot, isMovieNightFixedScheduleSkipWeek, getFixedMovieTitleForWeek } = require("./movieNightSchedule") as typeof import("./movieNightSchedule");
 const { EVENTS_ROLE_ID, SERATA_FILM_ROLE_ID, buildDiscordEventUrl, buildFinalMovieNightAnnouncementMessage, buildMovieNightStaffCommunicationPayload } = require("./movieNightMessages") as typeof import("./movieNightMessages");
 const { isFallbackMovieDescription, fetchItalianMovieDescription } = require("./movieNightDescriptions") as typeof import("./movieNightDescriptions");
 const { hydrateMovieNightStateForWeek, resolveFinalMovieTitle } = require("./movieNightVotes") as typeof import("./movieNightVotes");
-const { STATE_KEY, STAFF_COMMUNICATION_CHANNEL_ID, isStageCloseMessageForWeekKey, fetchStaffCommunicationChannel, messageTextHaystack, isMovieNightFinalPublicAnnouncePresent, movieNightStaffCommunicationStatePatch, fetchFinalAnnouncementMessage, resolveMovieNightStaffCommunicationStatus } = require("./movieNightStatus") as typeof import("./movieNightStatus");
+const { STATE_KEY, STAFF_COMMUNICATION_CHANNEL_ID, isStageCloseMessageForWeekKey, fetchStaffCommunicationChannel, isMovieNightFinalPublicAnnouncePresent, movieNightStaffCommunicationStatePatch, fetchFinalAnnouncementMessage, resolveMovieNightStaffCommunicationStatus } = require("./movieNightStatus") as typeof import("./movieNightStatus");
 const { getBotState, setBotState } = require("../../Utils/BotState/botStateStore") as typeof import("../../Utils/BotState/botStateStore");
 const { isMongoReady } = require("../../Utils/Database/mongoConnect") as typeof import("../../Utils/Database/mongoConnect");
 const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
@@ -137,81 +137,6 @@ async function repairFinalMovieNightAnnouncementDescription(client?) {
   }
 }
 
-async function republishMovieNightStaffCommunicationAsPlainText(client?, opts: Record<string, any> = {}) {
-  const now = opts.now || new Date();
-  const channel = await fetchStaffCommunicationChannel(client);
-  if (!channel?.isTextBased?.() || !channel?.messages?.fetch) {
-    return { ok: false, reason: "staff_channel_unavailable" };
-  }
-
-  const state = await getBotState(STATE_KEY, null);
-  const title =
-    String(opts.title || state?.finalMovieTitle || "").trim() ||
-    getFixedMovieTitleForWeek(now) ||
-    "Harry Potter e i Doni della Morte - Parte 1";
-  const saturdayKey = getRomeSaturdayKeyForWeek(now);
-  const weekKey = getRomeWeekKey(now);
-  const announceSlot =
-    String(opts.announceSlot || getMovieNightFinalAnnouncementSlot(now) || getMovieNightStartupRecoverySlot(now) || "friday").toLowerCase() ===
-    "saturday"
-      ? "saturday"
-      : "friday";
-
-  const recent = await channel.messages.fetch({ limit: 40 }).catch(() => null);
-  const marker = /COMUNICAZIONE SERATA FILM/i;
-  const deletedIds = [];
-  if (recent?.size) {
-    for (const message of recent.values()) {
-      const haystack = messageTextHaystack(message);
-      if (!marker.test(haystack)) continue;
-      if (title && !haystack.includes(title) && !/harry potter/i.test(haystack)) continue;
-      const hasEmbed = Array.isArray(message.embeds) && message.embeds.length > 0;
-      const contentEmpty = !String(message.content || "").trim();
-            const tracked = String(state?.staffCommunicationMessageId || "") === String(message.id || "");
-      if (!hasEmbed && !tracked) continue;
-      if (hasEmbed || (tracked && contentEmpty)) {
-        await message.delete().catch(() => null);
-        deletedIds.push(String(message.id));
-      }
-    }
-  }
-
-  if (state && typeof state === "object") {
-    await setBotState(STATE_KEY, {
-      ...state,
-      staffCommunicationMessageId: "",
-      staffCommunicationAt: "",
-      staffAnnouncedSaturdayKey: "",
-    });
-  }
-
-  const message = await channel.send(
-    buildMovieNightStaffCommunicationPayload({
-      title,
-      now,
-      announceSlot,
-    }),
-  );
-  const messageId = String(message?.id || "");
-  await setBotState(STATE_KEY, {
-    ...(state && typeof state === "object" ? state : {}),
-    weekKey,
-    finalMovieTitle: title,
-    staffCommunicationMessageId: messageId,
-    staffCommunicationAt: new Date().toISOString(),
-    staffAnnouncedSaturdayKey: saturdayKey,
-  });
-
-  return {
-    ok: true,
-    messageId,
-    deletedIds,
-    title,
-    weekKey,
-    saturdayKey,
-  };
-}
-
 async function repairMovieNightStaffCommunication(client?, opts: Record<string, any> = {}) {
   const state = await getBotState(STATE_KEY, null);
   const now = opts.now || new Date();
@@ -264,4 +189,4 @@ async function ensureMovieNightStaffCommunicationOnStartup(client?, opts: Record
   return repairMovieNightStaffCommunication(client, opts);
 }
 
-export = { maybePublishMovieNightStaffCommunication, repairFinalMovieNightAnnouncementDescription, republishMovieNightStaffCommunicationAsPlainText, repairMovieNightStaffCommunication, ensureMovieNightStaffCommunicationOnStartup };
+export = { maybePublishMovieNightStaffCommunication, repairFinalMovieNightAnnouncementDescription, repairMovieNightStaffCommunication, ensureMovieNightStaffCommunicationOnStartup };

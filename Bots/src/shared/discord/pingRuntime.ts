@@ -110,8 +110,5 @@ async function executePingCommand(message?, options: Record<string, any> = {}) {
 
 export = {
   executePingCommand,
-  buildPingEmbed,
-  measureRestLatencyMs,
   measureDatabaseLatencyMs,
-  getShardLabel,
 };

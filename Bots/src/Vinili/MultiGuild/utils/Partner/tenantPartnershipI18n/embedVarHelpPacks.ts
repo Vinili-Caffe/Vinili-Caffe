@@ -330,8 +330,6 @@ function buildLocalizedVariableHelpSections(tFn?) {
 }
 
 export = {
-  VAR_HELP_ITEM_DEFS,
-  VAR_HELP_LOCALES,
   applyVarHelpPacks,
   buildLocalizedVariableHelpSections,
 };

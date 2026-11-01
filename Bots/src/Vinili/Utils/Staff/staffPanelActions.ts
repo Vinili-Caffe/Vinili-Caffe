@@ -4,7 +4,7 @@ const { getOrCreateStaffDoc, ensureStaff, applyStaffLadderTrackResetToObject } =
 const { initPartnerManagerFieldsIfMissing, syncStaffDbAndPauseChannelAfterDepex } = require("./staffPmUtils") as typeof import("./staffPmUtils");
 const IDs = require("../Config/ids") as typeof import("../Config/ids");
 const { getStaffRoleEmojiByRoleId } = require("../Community/staffRoleEmoji") as typeof import("../Community/staffRoleEmoji");
-const { getClientChannelCached, getGuildChannelCached } = require("../Interaction/interactionEntityCache") as typeof import("../Interaction/interactionEntityCache");
+const { getGuildChannelCached } = require("../Interaction/interactionEntityCache") as typeof import("../Interaction/interactionEntityCache");
 const { guildMemberDisplayAvatarUrlDynamic } = require("../Discord/guildDiscordIdentity") as typeof import("../Discord/guildDiscordIdentity");
 const { memberHasStaffRole } = require("../Community/staffListUtils") as typeof import("../Community/staffListUtils");
 const { applyDepexOneLevel } = require("../../Services/Staff/staffWarnService") as typeof import("../../Services/Staff/staffWarnService");
@@ -12,7 +12,7 @@ const { applyDepexSideEffects: applyResocontoStaffDepexSideEffects } = require("
 const { clearStaffPendingPurgeAt } = require("../../Services/Community/userLeaveBackupService") as typeof import("../../Services/Community/userLeaveBackupService");
 const { sendPartnerManagerWelcome, sendHelperWelcome } = require("./staffWelcomeMessages") as typeof import("./staffWelcomeMessages");
 const { resolveStaffValutazioniChannel, resolveStaffPexDepexChannel } = require("./staffChannelUtils") as typeof import("./staffChannelUtils");
-const { stafferAwardRoleIds, stripStafferAwardRoles } = require("./staffRoleHierarchy") as typeof import("./staffRoleHierarchy");
+const { stafferAwardRoleIds } = require("./staffRoleHierarchy") as typeof import("./staffRoleHierarchy");
 const ROLE_MEMBER = IDs.roles.Member;
 const ROLE_PARTNER_MANAGER = IDs.roles.PartnerManager;
 const ROLE_BLOGGER = String(IDs.roles.Blogger || "").trim();
@@ -138,41 +138,6 @@ function createMemberResolver(guild?) {
   };
 }
 
-// bug: replyError si è perso spostando questo codice da Commands/Staff/staff.js; ripristinato com'era
-// (embed rosso, risposta privata)
-async function replyError(interaction?, description?) {
-  const { safeEditReply } = require("../../../shared/discord/replyRuntime") as typeof import("../../../shared/discord/replyRuntime");
-  return safeEditReply(interaction, {
-    embeds: [new EmbedBuilder().setColor("#ED4245").setDescription(String(description || ""))],
-    flags: 1 << 6,
-  });
-}
-
-async function ensureMember(interaction?, user?, resolveMember?) {
-  const member = await resolveMember(user.id);
-  if (!member) {
-    await replyError(
-      interaction,
-      "<:VC_Attention:1482534443632558151> Utente non trovato nel server.",
-    );
-    return null;
-  }
-
-  return member;
-}
-
-async function ensureNotSelf(interaction?, targetUser?) {
-  if (interaction.user.id !== targetUser.id) {
-    return true;
-  }
-
-  await replyError(
-    interaction,
-    "<:VC_Attention:1482534443632558151> Non puoi usare questo comando su te stesso.",
-  );
-  return false;
-}
-
 const STAFF_LADDER_ROLES = [
   ROLE_HELPER,
   ROLE_MODERATOR,
@@ -277,74 +242,6 @@ async function applyPexSideEffects(
   const hasLadderRoleNow = Boolean(getHighestLadderRole(member));
   if (!hadAnyStaffRoleBefore && hasLadderRoleNow) {
     await sendHelperWelcome(staffChannel, member);
-  }
-}
-
-async function applyDepexSideEffects(member?, roleId?) {
-  if (roleId === ROLE_PARTNER_MANAGER) {
-    await member.roles.remove(roleId);
-    const verification = await ensureRoleState(member, roleId, false);
-    if (!verification.ok) throw new Error("Depex side effect failed: partner manager role still present.");
-    member = verification.member;
-  }
-
-  if (roleId === ROLE_HELPER) {
-    await member.roles.remove(roleId);
-    await member.roles.remove(ROLE_STAFF);
-    await stripStafferAwardRoles(member);
-    const verification = await ensureMultipleRoleStates(member, [{ roleId, shouldHaveRole: false }, { roleId: ROLE_STAFF, shouldHaveRole: false }]);
-    if (!verification.ok) throw new Error("Depex side effect failed: helper/staff roles still present.");
-    member = verification.member;
-  }
-
-  if (roleId === ROLE_MODERATOR || roleId === ROLE_SENIOR_MODERATOR) {
-    await member.roles.remove(roleId);
-    await member.roles.remove(ROLE_STAFF);
-    await stripStafferAwardRoles(member);
-    const verification = await ensureMultipleRoleStates(member, [{ roleId, shouldHaveRole: false }, { roleId: ROLE_STAFF, shouldHaveRole: false }]);
-    if (!verification.ok) throw new Error("Depex side effect failed: moderator/staff roles still present.");
-    member = verification.member;
-  }
-
-  if (roleId === ROLE_DIRECTOR) {
-    await member.roles.remove(roleId);
-    await member.roles.remove(ROLE_STAFF);
-    await stripStafferAwardRoles(member);
-    const verification = await ensureMultipleRoleStates(member, [
-      { roleId, shouldHaveRole: false },
-      { roleId: ROLE_STAFF, shouldHaveRole: false },
-    ]);
-    if (!verification.ok) throw new Error("Depex side effect failed: director/staff roles still present.");
-    member = verification.member;
-  }
-
-  if (roleId === ROLE_ADMIN) {
-    await member.roles.remove(roleId);
-    await member.roles.remove(ROLE_STAFF);
-    await member.roles.remove(ROLE_HIGH_STAFF);
-    await stripStafferAwardRoles(member);
-    const verification = await ensureMultipleRoleStates(member, [{ roleId, shouldHaveRole: false }, { roleId: ROLE_STAFF, shouldHaveRole: false }, { roleId: ROLE_HIGH_STAFF, shouldHaveRole: false }]);
-    if (!verification.ok) throw new Error("Depex side effect failed: admin/high staff/staff roles still present.");
-    member = verification.member;
-  }
-
-  if (roleId === ROLE_MANAGER) {
-    await member.roles.remove(roleId);
-    await member.roles.remove(ROLE_STAFF);
-    await member.roles.remove(ROLE_HIGH_STAFF);
-    await stripStafferAwardRoles(member);
-    const verification = await ensureMultipleRoleStates(member, [{ roleId, shouldHaveRole: false }, { roleId: ROLE_STAFF, shouldHaveRole: false }, { roleId: ROLE_HIGH_STAFF, shouldHaveRole: false }]);
-    if (!verification.ok) throw new Error("Depex side effect failed: manager/high staff/staff roles still present.");
-    member = verification.member;
-  }
-
-  if (roleId === ROLE_CO_OWNER) {
-    await member.roles.remove(roleId);
-    await member.roles.remove(ROLE_STAFF);
-    await member.roles.remove(ROLE_HIGH_STAFF);
-    await stripStafferAwardRoles(member);
-    const verification = await ensureMultipleRoleStates(member, [{ roleId, shouldHaveRole: false }, { roleId: ROLE_STAFF, shouldHaveRole: false }, { roleId: ROLE_HIGH_STAFF, shouldHaveRole: false }]);
-    if (!verification.ok) throw new Error("Depex side effect failed: co-owner/high staff/staff roles still present.");
   }
 }
 

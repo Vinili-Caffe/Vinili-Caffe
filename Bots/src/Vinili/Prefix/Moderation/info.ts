@@ -1,4 +1,4 @@
-const { ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType, EmbedBuilder, PermissionsBitField, UserFlagsBitField, MessageFlags, } = require("discord.js") as typeof import("discord.js");
+const { EmbedBuilder, PermissionsBitField, UserFlagsBitField } = require("discord.js") as typeof import("discord.js");
 const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
 const { safeMessageReply } = require("../../../shared/discord/replyRuntime") as typeof import("../../../shared/discord/replyRuntime");
 const { getAutoModMemberSnapshot, isAutoModRoleExemptMember, } = require("../../Services/Moderation/automodService") as typeof import("../../Services/Moderation/automodService");
@@ -81,18 +81,6 @@ function chunk(array?, size?) {
   const out = [];
   for (let i = 0; i < array.length; i += size) out.push(array.slice(i, i + size));
   return out;
-}
-
-function buildStrikesEmbed(member?, strikes?, page?, totalPages?) {
-  const safePage = Math.max(0, Math.min(page, totalPages - 1));
-  const current = strikes[safePage] || [];
-  const rows=current.length?current.map((item?,i?) => `\`${safePage*5+i+1}\` ${item}`)
-    : ["Nessuno strike disponibile."];
-
-  return new EmbedBuilder()
-    .setColor("#8b5cf6")
-    .setTitle(`${memberDisplayName(member)}'s Strikes:`)
-    .setDescription([...rows, "", `Page: ${safePage + 1}/${totalPages}`].join("\n"));
 }
 
 function buildStrikeButtons(ownerId?, targetId?, page?, totalPages?) {

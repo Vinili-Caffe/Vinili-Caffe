@@ -14,4 +14,4 @@ const GUESS_BANKS = Object.freeze({ it: WORDLE_GUESS_IT, en: WORDLE_GUESS_EN, es
 const ANSWER_BANKS = Object.freeze({ es: WORDLE_ANSWER_ES, fr: WORDLE_ANSWER_FR, de: WORDLE_ANSWER_DE, pt: WORDLE_ANSWER_PT });
 function getWordleGuessBank(lang) { const k = String(lang || "it").toLowerCase().slice(0, 2); return GUESS_BANKS[k] || GUESS_BANKS.it; }
 function getWordleExtraAnswers(lang) { const k = String(lang || "").toLowerCase().slice(0, 2); return ANSWER_BANKS[k] || null; }
-export = { getWordleGuessBank, getWordleExtraAnswers, GUESS_BANKS, ANSWER_BANKS, WORDLE_GUESS_IT, WORDLE_GUESS_EN, WORDLE_GUESS_ES, WORDLE_GUESS_FR, WORDLE_GUESS_DE, WORDLE_GUESS_PT, WORDLE_ANSWER_ES, WORDLE_ANSWER_FR, WORDLE_ANSWER_DE, WORDLE_ANSWER_PT };
+export = { getWordleGuessBank, getWordleExtraAnswers, WORDLE_ANSWER_DE };

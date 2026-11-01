@@ -3,7 +3,7 @@ const { randomInt } = require("crypto") as typeof import("crypto");
 const path = require("path") as typeof import("path");
 const { readSnapshotWithMeta, writeSnapshotWithMeta } = require("../../../shared/recovery/snapshotStore") as typeof import("../../../shared/recovery/snapshotStore");
 const { registerShutdownFlush, armShutdownCheckpoint } = require("../../../shared/recovery/shutdownCheckpoint") as typeof import("../../../shared/recovery/shutdownCheckpoint");
-const { chatReminderRotationFindOneLean, chatReminderRotationFindOneAndUpdate, chatReminderScheduleCreate, chatReminderScheduleUpdateOne, chatReminderScheduleDeleteOne, chatReminderScheduleFindLatestFuture, chatReminderScheduleFindDueLean, chatReminderScheduleDeleteManyFuture } = require("../../../Vinili/Utils/BotState/domainStatesStore") as typeof import("../../../Vinili/Utils/BotState/domainStatesStore");
+const { chatReminderRotationFindOneLean, chatReminderRotationFindOneAndUpdate, chatReminderScheduleUpdateOne, chatReminderScheduleDeleteOne, chatReminderScheduleFindDueLean, chatReminderScheduleDeleteManyFuture } = require("../../../Vinili/Utils/BotState/domainStatesStore") as typeof import("../../../Vinili/Utils/BotState/domainStatesStore");
 const { getClientChannelCached } = require("../../Utils/Interaction/entityCache") as typeof import("../../Utils/Interaction/entityCache");
 const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
 const { siteTicketsPageDiscordRef } = require("../../../shared/web/siteTicketsPageRef") as typeof import("../../../shared/web/siteTicketsPageRef");
@@ -415,10 +415,6 @@ function getRomeParts(date?, client?) {
   };
 }
 
-function getHourKey(parts?) {
-  return `${parts.year}-${parts.month}-${parts.day}_${parts.hour}`;
-}
-
 function isReminderFixedSlot(parts?, client?) {
   const { hour, minute } = parts;
   const start = getStartHour(client);
@@ -428,11 +424,6 @@ function isReminderFixedSlot(parts?, client?) {
   const startMins = start * 60 + 1;
   if (totalMins < startMins) return false;
   return (totalMins - startMins) % REMINDER_FIXED_INTERVAL_MINUTES === 0;
-}
-
-function rand(max?) {
-  if (max <= 0) return 0;
-  return randomInt(0, max + 1);
 }
 
 function recordReminderActivity(channelId?) {
@@ -606,79 +597,6 @@ async function sendReminderAtFixedSlot(client?, parts?, slotKey?) {
   await saveRotationState();
 }
 
-async function scheduleForHour(client?, parts?, guildId?) {
-  cleanupScheduledHourKeys();
-  const key = getHourKey(parts);
-  if (scheduledHours.has(key)) return;
-
-  const totalSeconds = parts.minute * 60 + parts.second;
-  const remainingMs = Math.max(1, (60 * 60 - totalSeconds) * 1000);
-  const now = Date.now();
-  const minGapMs = getMinGapMs(client);
-  let baseLast = lastSentAt || 0;
-  const latestScheduled = await chatReminderScheduleFindLatestFuture({
-    guildId,
-    now: new Date(),
-  }).catch(() => null);
-  if (latestScheduled?.fireAt) {
-    baseLast = Math.max(baseLast, new Date(latestScheduled.fireAt).getTime());
-  }
-  const minStartDelay = baseLast ? Math.max(0, baseLast + minGapMs - now) : 0;
-  if (minStartDelay >= remainingMs) return;
-  const availableMs = Math.max(0, remainingMs - minStartDelay);
-  const { count30m: activityCount30m } = await getActivityCounts(client);
-  const allowFirst = activityCount30m >= getFirstThreshold(client);
-  const allowSecond =
-    activityCount30m >= getSecondThreshold(client) && availableMs > minGapMs;
-  const delays = [];
-  if (allowFirst) {
-    const firstDelay = minStartDelay + rand(availableMs);
-    delays.push(firstDelay);
-  }
-  if (allowSecond) {
-    const baseDelay = delays.length ? delays[0] : minStartDelay;
-    const secondMin = baseDelay + minGapMs;
-    if (secondMin < remainingMs) {
-      const secondDelay = rand(remainingMs - secondMin) + secondMin;
-      delays.push(secondDelay);
-    }
-  }
-  const fireTimes = delays
-    .sort((a?, b?) => a - b)
-    .map((delay?, idx?) => ({
-      fireAt: new Date(Date.now() + delay),
-      kind: idx === 0 ? "first" : "second",
-    }));
-  if (!fireTimes.length) return;
-  scheduledHours.set(key, Date.now());
-  persistReminderRuntimeNow();
-  for (const item of fireTimes) {
-    const fireAt = item.fireAt;
-    const adjusted = baseLast
-      ? Math.max(fireAt.getTime(), baseLast + minGapMs)
-      : fireAt.getTime();
-    baseLast = adjusted;
-    const doc = await chatReminderScheduleCreate({
-      guildId,
-      fireAt,
-      kind: item.kind,
-    }).catch(() => null);
-    if (!doc) continue;
-    if (adjusted !== fireAt.getTime()) {
-      await chatReminderScheduleUpdateOne(
-        { scheduleId: doc.scheduleId },
-        { $set: { fireAt: new Date(adjusted), kind: item.kind } },
-      ).catch(() => { });
-    }
-    const timeout = setTimeout(() => {
-      scheduledTimeouts.delete(String(doc.scheduleId));
-      sendReminder(client, doc.scheduleId, item.kind).catch(() => { });
-    }, Math.max(1, adjusted - Date.now()));
-    timeout.unref?.();
-    attachScheduleTimeout(doc.scheduleId, timeout);
-  }
-}
-
 async function restoreSchedules(client?) {
   const channelId = getReminderChannelId(client);
   if (!channelId) return;
@@ -725,13 +643,4 @@ function startHourlyReminderLoop(client?) {
   return hourlyLoopHandle;
 }
 
-function getChatReminderLoopStatus() {
-  return {
-    active: Boolean(hourlyLoopHandle),
-    scheduledHours: Number(scheduledHours.size || 0),
-    scheduledTimeouts: Number(scheduledTimeouts.size || 0),
-    timezone: DEFAULT_TIME_ZONE,
-  };
-}
-
-export = { startHourlyReminderLoop, recordReminderActivity, getChatReminderLoopStatus };
+export = { startHourlyReminderLoop, recordReminderActivity };

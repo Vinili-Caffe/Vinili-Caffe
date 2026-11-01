@@ -264,8 +264,6 @@ function buildStepPayload(guild?, ownerId?, step?, config?, lang = "it") {
 export = {
   PREFIX,
   MODAL_PREFIX,
-  SETUP_COLOR,
-  COMPLETE_COLOR,
   PROMPT_TTL_MS,
   buildCustomId,
   parseCustomId,

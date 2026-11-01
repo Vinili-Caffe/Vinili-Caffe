@@ -45,7 +45,5 @@ async function getOrBuildStatsCanvasBuffer(key?, buildFn?) {
 }
 
 export = {
-  getStatsCanvasCache,
-  setStatsCanvasCache,
   getOrBuildStatsCanvasBuffer,
 };

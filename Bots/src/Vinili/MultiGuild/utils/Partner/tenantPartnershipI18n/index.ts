@@ -10,7 +10,6 @@ const {
 const { UI_PACKS, BADGE_COPY, OBJECTIVE_COPY } = require("./packs") as typeof import("./packs");
 const { buildObjectiveDefs } = require("../tenantObjectiveDefs") as typeof import("../tenantObjectiveDefs");
 
-const DISCORD_LOCALE_FALLBACK = "it";
 const FLAG_BY_CODE = new Map(TENANT_LANGUAGE_OPTIONS.map((row?) => [row.code, row.flag]));
 const LABEL_BY_CODE = new Map(TENANT_LANGUAGE_OPTIONS.map((row?) => [row.code, row.label]));
 
@@ -20,10 +19,6 @@ function getLanguageFlag(code?) {
 
 function getLanguageLabel(code?) {
   return LABEL_BY_CODE.get(normalizeTenantLanguage(code)) || "Italiano";
-}
-
-function getLanguageNativeLabel(code?) {
-  return getLanguageLabel(code);
 }
 
 function interpolate(text?, vars: Record<string, any> = {}) {
@@ -86,7 +81,6 @@ async function resolveTenantLanguage(guildId?, userId?, options: Record<string, 
 
 export = {
   DEFAULT_LANGUAGE,
-  DISCORD_LOCALE_FALLBACK,
   TENANT_LANGUAGE_OPTIONS,
   TENANT_LANGUAGES,
   LANGUAGE_PICKER_ROWS,
@@ -95,10 +89,8 @@ export = {
   buildObjectiveDefs,
   normalizeTenantLanguage,
   mapDiscordLocaleToTenantLanguage,
-  resolveLanguageFromPrefs,
   getLanguageFlag,
   getLanguageLabel,
-  getLanguageNativeLabel,
   t,
   resolveTenantLanguage,
 };

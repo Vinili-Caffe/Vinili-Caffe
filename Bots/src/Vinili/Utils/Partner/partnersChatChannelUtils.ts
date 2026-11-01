@@ -240,16 +240,12 @@ function schedulePartnersDeniedDeleteReply(interaction?, ttlMs = EPHEMERAL_TTL_S
 
 export = {
   partnersChatChannelId,
-  isChannelOrThreadUnderPartnersChat,
   isPartnerPmDailyCommandsThread,
-  isOpenPartnershipTicketChannel,
   partnersChatPartnerCommandDeniedReplyContent,
   partnershipPublishChannelCommandsDeniedReplyContent,
-  PARTNERSHIP_PUBLISH_CHANNEL_ALLOWED_COMMANDS,
   isPartnershipPublishChannel,
   sendPartnersChatDeniedPrefixCleanup,
   schedulePartnersDeniedDeleteReply,
-  resolvePmCommandsThreadId,
   resolvePmCommandsChannelMention,
   formatChannelMentionFromChannel,
 };

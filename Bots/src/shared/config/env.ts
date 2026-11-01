@@ -71,6 +71,5 @@ export = {
   getToken,
   getMongoUrl,
   ensureToken,
-  clientIdFromBotToken,
   assertBotTokenIdentity,
 };

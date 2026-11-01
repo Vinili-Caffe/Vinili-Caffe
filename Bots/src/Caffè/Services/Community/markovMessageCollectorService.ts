@@ -124,13 +124,6 @@ function hasCollectibleStickers(message?, client?) {
   return extractMessageStickers(message).length > 0;
 }
 
-function isCollectibleMessage(message?, client?, options: Record<string, any> = {}) {
-  if (!passesEligibility(message, client, options)) return false;
-  if (isMarkovScamMessage(message)) return false;
-  if (isMarkovBotNoiseMessage(message)) return false;
-  return hasCollectibleText(message, client) || hasCollectibleImages(message, client) || hasCollectibleStickers(message, client);
-}
-
 async function ensureMessagesDir(client?) {
   const dir = resolveMessagesDir(client);
   await fsp.mkdir(dir, { recursive: true });
@@ -574,8 +567,4 @@ async function purgeUnsafeCorpusFromDisk(client?) {
   return { files, removed };
 }
 
-async function purgeScamCorpusFromDisk(client?) {
-  return purgeUnsafeCorpusFromDisk(client);
-}
-
-export = { COFFEE_ROOT, getMarkovConfig, isMarkovEnabled, resolveMessagesDir, resolveImagesDir, resolveStickersDir, channelFilePath, channelImagesFilePath, channelStickersFilePath, normalizeMarkovLine, readChannelLines, readChannelImages, readChannelStickers, readGuildCorpus, readGuildImages, readGuildStickers, listStoredChannelIds, appendMarkovLine, appendMarkovImages, appendMarkovStickers, removeStickerFromGuildCorpus, removeImageFromGuildCorpus, ingestMarkovMessage, ingestMarkovMessageCreate, backfillMarkovCorpus, startMarkovBackfill, purgeScamCorpusFromDisk, purgeUnsafeCorpusFromDisk, ensureMessagesDir, ensureImagesDir, ensureStickersDir, trimChannelFile, trimChannelImages, trimChannelStickers, scheduleTrimChannelFile, scheduleTrimChannelImages, scheduleTrimChannelStickers, extractMessageImageUrls, extractMessageStickers };
+export = { getMarkovConfig, isMarkovEnabled, readChannelLines, readGuildCorpus, readGuildImages, readGuildStickers, removeStickerFromGuildCorpus, removeImageFromGuildCorpus, ingestMarkovMessageCreate, startMarkovBackfill, extractMessageImageUrls, extractMessageStickers };

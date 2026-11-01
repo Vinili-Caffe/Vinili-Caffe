@@ -182,7 +182,6 @@ function extractPartnershipMessageHaystack(message?) {
 export = {
   normalizeDescriptionText,
   isForwardedDiscordMessage,
-  resolvePartnershipSourceMessage,
   unwrapDiscordForwardQuoteDump,
   flattenEmbedText,
   extractPartnershipMessageText,

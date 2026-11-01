@@ -88,7 +88,6 @@ function startVoteQueueLoop(client?, intervalMs = 15000) {
 }
 
 export = {
-  processVoteQueue,
   startVoteQueueLoop,
   DISCADIA_PENDING_VOTES_PATH,
 };

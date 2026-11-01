@@ -420,5 +420,4 @@ export = {
   isGuildClipRecording,
   parseClipDurationSec,
   resolveClipConfig,
-  validateClipExportAccess,
 };

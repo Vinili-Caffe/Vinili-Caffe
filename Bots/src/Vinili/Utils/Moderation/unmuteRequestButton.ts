@@ -13,6 +13,5 @@ function buildUnmuteRequestRow() {
 }
 
 export = {
-  UNMUTE_REQUEST_URL,
   buildUnmuteRequestRow,
 };

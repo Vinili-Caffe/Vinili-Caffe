@@ -306,13 +306,6 @@ function getGuildPanelsSync(guildId?) {
   return hit ? normalizeGuildBucket(hit) : emptyGuildBucket();
 }
 
-function findGuildPanelByOpenCustomId(guildId?, customId?) {
-  const cid = String(customId || "").trim();
-  if (!cid) return null;
-  const bucket = getGuildPanelsSync(guildId);
-  return (bucket.singles || []).find((p?) => String(p.openCustomId || "") === cid) || null;
-}
-
 function findGuildPanelById(guildId?, panelId?) {
   const id = String(panelId || "").trim();
   if (!id) return null;
@@ -344,7 +337,6 @@ async function refreshTicketPanelsCache() {
 export = {
   BOT_STATE_KEY,
   TICKET_TYPES,
-  BUTTON_STYLES,
   MAX_SINGLES,
   MAX_MULTIS,
   ticketTypeToCustomId,
@@ -354,9 +346,7 @@ export = {
   newPanelId,
   getGuildPanels,
   getGuildPanelsSync,
-  findGuildPanelByOpenCustomId,
   findGuildPanelById,
   mutateGuildPanels,
   refreshTicketPanelsCache,
-  loadPanelsRoot,
 };

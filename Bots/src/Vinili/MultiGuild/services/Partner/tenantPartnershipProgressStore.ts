@@ -72,7 +72,6 @@ async function loadCanonicalTenantPartnershipRows(contextGuildId?, userId?, sele
 
 export = {
   getTenantPartnershipStorageGuildId,
-  isSameGuild,
   readGuildFlags,
   splitStatsForPersist,
   loadCanonicalTenantPartnershipRows,

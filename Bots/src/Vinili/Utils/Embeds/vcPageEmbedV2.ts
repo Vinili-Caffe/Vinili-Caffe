@@ -128,18 +128,6 @@ function resolveClassicFooterText(fields: Record<string, any> = {}) {
   return String(fields.footerText || "").trim();
 }
 
-function usesClassicRichFieldShape(opts: Record<string, any> = {}) {
-  return (
-    opts.authorName != null ||
-    opts.thumbnailUrl != null ||
-    opts.imageUrl != null ||
-    opts.footer != null ||
-    opts.footerText != null ||
-    opts.description != null ||
-    (Array.isArray(opts.fields) && opts.fields.length > 0)
-  );
-}
-
 /**
  * Container V2 da campi stile embed classico (author, title, description, thumbnail, image, fields, footer).
  */
@@ -341,16 +329,6 @@ function buildVcRichFromClassicFields(fields: Record<string, any> = {}) {
 }
 
 /**
- * Payload V2: stile pagina (body/sections) oppure campi classic-like se presenti description/thumbnail/…
- */
-function buildVcRichPayload(opts: Record<string, any> = {}) {
-  const container = usesClassicRichFieldShape(opts)
-    ? buildVcRichContainerFromClassicFields(opts)
-    : buildVcPageContainer(opts);
-  return assembleVcRichSendPayload(opts, container);
-}
-
-/**
  * @param {object} opts
  * @param {string} [opts.title]
  * @param {string|string[]} [opts.body]
@@ -469,33 +447,6 @@ function componentTypeOf(c?) {
   return Number(raw?.type) || 0;
 }
 
-function classicEmbedToVcFields(embed?) {
-  const data =
-    typeof embed?.toJSON === "function"
-      ? embed.toJSON()
-      : embed?.data && typeof embed.data === "object"
-        ? embed.data
-        : embed || {};
-  const author = data.author || {};
-  const footer = data.footer || {};
-  const thumb = data.thumbnail?.url || data.thumbnail || "";
-  const image = data.image?.url || data.image || "";
-  return {
-    accentColor: data.color != null ? data.color : DEFAULT_ACCENT_INT,
-    title: data.title || "",
-    titleUrl: data.url || "",
-    description: data.description || "",
-    authorName: author.name || "",
-    authorIconUrl: author.icon_url || author.iconURL || "",
-    thumbnailUrl: typeof thumb === "string" ? thumb : "",
-    imageUrl: typeof image === "string" ? image : "",
-    footerText: footer.text || "",
-    footerIconUrl: footer.icon_url || footer.iconURL || "",
-    fields: Array.isArray(data.fields) ? data.fields : [],
-    timestampEnabled: Boolean(data.timestamp),
-  };
-}
-
 /** Unisce ActionRow (type 1) dentro il Container V2 (type 17). */
 function mergeActionRowsIntoV2Payload(v2Payload?, rows = []) {
   if (!v2Payload || typeof v2Payload !== "object") return v2Payload;
@@ -534,159 +485,15 @@ function mergeActionRowsIntoV2Payload(v2Payload?, rows = []) {
   return out;
 }
 
-/**
- * In V2 il content top-level non è ammesso. NON lo infiliamo nel container
- * (rompe layout + ping dentro l’embed): lo splitta il patch send come messaggio testo.
- */
-function attachSplitLeadContent(v2Payload?, content?, allowedMentions?) {
-  const lead = String(content || "").trim();
-  if (!lead || !v2Payload || typeof v2Payload !== "object") return v2Payload;
-  return {
-    ...v2Payload,
-    content: undefined,
-    __v2LeadContent: lead,
-    __v2LeadAllowedMentions:
-      allowedMentions != null ? allowedMentions : { parse: [] },
-  };
-}
-
-function resolveV2AllowedMentions(payload?, nested?) {
-  if (payload?.allowedMentions != null) return payload.allowedMentions;
-  if (nested?.allowedMentions != null) return nested.allowedMentions;
-  // Come gli embed classici: testo con <@> / <@&> non deve pingare
-  return { parse: [] };
-}
-
-/**
- * Converte un payload send/reply classic (`embeds: [...]`) in Components V2.
- * Idempotente se già V2. Usato dalla patch outbound + minigiochi.
- */
-function coerceClassicSendPayloadToV2(payload?) {
-  if (!payload || typeof payload !== "object" || Array.isArray(payload)) return payload;
-  if (payload.__skipComponentsV2 === true || payload.skipComponentsV2 === true) {
-    const cleaned = { ...payload };
-    delete cleaned.__skipComponentsV2;
-    delete cleaned.skipComponentsV2;
-    return cleaned;
-  }
-
-  const outerRows = Array.isArray(payload.components) ? payload.components : [];
-  const leadContent = String(payload.content || "").trim();
-
-  if (isComponentsV2Payload(payload)) {
-    const comps = Array.isArray(payload.components) ? payload.components : [];
-    const container = comps.find((c?) => componentTypeOf(c) === ComponentType.Container);
-    const rows = comps.filter((c?) => componentTypeOf(c) === ComponentType.ActionRow);
-    let next =
-      container && rows.length
-        ? mergeActionRowsIntoV2Payload({ ...payload, components: [container] }, rows)
-        : {
-            ...payload,
-            embeds: [],
-            flags: (Number(payload.flags) || 0) | MessageFlags.IsComponentsV2,
-          };
-    const am = resolveV2AllowedMentions(payload);
-    next = {
-      ...next,
-      content: undefined,
-      embeds: [],
-      allowedMentions: am,
-      flags: (Number(next.flags) || 0) | MessageFlags.IsComponentsV2,
-    };
-    if (leadContent) next = attachSplitLeadContent(next, leadContent, am);
-    return next;
-  }
-
-  const embeds = Array.isArray(payload.embeds) ? payload.embeds.filter(Boolean) : [];
-
-  // Payload V2 passato per errore dentro embeds[0]
-  if (embeds.length === 1 && isComponentsV2Payload(embeds[0])) {
-    let next = mergeActionRowsIntoV2Payload(embeds[0], outerRows);
-    const lead = leadContent || String(embeds[0].content || "").trim();
-    const am = resolveV2AllowedMentions(payload, embeds[0]);
-    next = {
-      ...next,
-      content: undefined,
-      files: payload.files ?? embeds[0].files,
-      allowedMentions: am,
-    };
-    if (lead) next = attachSplitLeadContent(next, lead, am);
-    return next;
-  }
-  if (
-    embeds.length === 1 &&
-    embeds[0] &&
-    typeof embeds[0] === "object" &&
-    (Array.isArray(embeds[0].containers) || Array.isArray(embeds[0].components)) &&
-    Number(embeds[0].flags) & MessageFlags.IsComponentsV2
-  ) {
-    let next = mergeActionRowsIntoV2Payload(embeds[0], outerRows);
-    const lead = leadContent || String(embeds[0].content || "").trim();
-    const am = resolveV2AllowedMentions(payload, embeds[0]);
-    next = {
-      ...next,
-      content: undefined,
-      files: payload.files ?? embeds[0].files,
-      allowedMentions: am,
-    };
-    if (lead) next = attachSplitLeadContent(next, lead, am);
-    return next;
-  }
-
-  if (!embeds.length) return payload;
-
-  const fields: any = classicEmbedToVcFields(embeds[0]);
-  if (embeds.length > 1) {
-    const extras = embeds.slice(1).map((e?) => {
-      const d = classicEmbedToVcFields(e);
-      return [d.title ? `### ${d.title}` : "", d.description].filter(Boolean).join("\n");
-    });
-    fields.description = [fields.description, ...extras].filter(Boolean).join("\n\n");
-  }
-  if (payload.guildId) fields.guildId = payload.guildId;
-  let v2 = buildVcRichFromClassicFields({ ...fields, rows: outerRows });
-  const am = resolveV2AllowedMentions(payload);
-  v2 = {
-    content: undefined,
-    components: v2.components,
-    flags: (Number(payload.flags) || 0) | MessageFlags.IsComponentsV2,
-    embeds: [],
-    files: payload.files,
-    allowedMentions: am,
-    stickers: payload.stickers,
-    tts: payload.tts,
-    nonce: payload.nonce,
-    reply: payload.reply,
-  };
-  if (leadContent) v2 = attachSplitLeadContent(v2, leadContent, am);
-  return v2;
-}
-
 export = {
-  DEFAULT_ACCENT_INT,
   SITE_CAFFE_ACCENT_INT,
-  SITE_LOGO_URL,
-  SITE_DISCORD_INVITE,
   MessageFlags,
-  resolvePageAccentColorInt,
   v2Text,
   v2Separator,
-  v2MediaGallery,
-  v2Section,
-  v2ThumbnailAccessory,
-  buildTitleBlock,
-  buildVcPageContainer,
   buildVcPagePayload,
-  buildVcRichContainerFromClassicFields,
   buildVcRichFromClassicFields,
-  buildVcRichPayload,
-  buildVcSitePageCtaRows,
   buildVcSitePageSharePayload,
-  usesClassicRichFieldShape,
   isComponentsV2Payload,
   isComponentsV2Message,
-  toComponentJson,
-  classicEmbedToVcFields,
   mergeActionRowsIntoV2Payload,
-  coerceClassicSendPayloadToV2,
 };

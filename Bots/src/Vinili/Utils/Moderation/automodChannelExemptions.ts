@@ -131,7 +131,6 @@ function collectDiscordAutomodExemptChannelIds(guild?, client = null) {
 }
 
 export = {
-  getStaticAutomodExemptChannelIds,
   getAutomodExemptCategoryIds,
   isAutomodExemptChannel,
   collectDiscordAutomodExemptChannelIds,

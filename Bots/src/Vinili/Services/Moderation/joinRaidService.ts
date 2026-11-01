@@ -1,4 +1,4 @@
-const { EmbedBuilder, PermissionsBitField, UserFlagsBitField, } = require("discord.js") as typeof import("discord.js");
+const { EmbedBuilder, PermissionsBitField } = require("discord.js") as typeof import("discord.js");
 const fs = require("fs") as typeof import("fs");
 const path = require("path") as typeof import("path");
 const mongoose = require("mongoose") as typeof import("mongoose");
@@ -29,7 +29,6 @@ const JOIN_RAID_CONFIG = { enabled: true, lockCommands: true, triggerAction: "qu
     ]
       .filter(Boolean)
       .map(String), idFlag: { enabled: true, categorization: "adaptive", minimumMatches: 4, compareWindowMs: 3 * 60 * 60_000, createdAtDeltaMs: 20 * 60_000, }, noPfpFlag: { enabled: true, }, ageFlag: { enabled: true, minimumAgeMs: 3 * 24 * 60 * 60_000, }, };
-const JOIN_RAID_PRESETS = { safe: { lockCommands: false, triggerAction: "kick", triggerType: "unique", accountType: "young_or_no_pfp", punishOnActiveRaid: true, triggerCount: 12, triggerWindowMs: 3 * 60 * 60_000, raidDurationMs: 20 * 60_000, idFlag: { minimumMatches: 5, compareWindowMs: 3 * 60 * 60_000, createdAtDeltaMs: 20 * 60_000, }, ageFlag: { minimumAgeMs: 2 * 24 * 60 * 60_000 }, }, balanced: { lockCommands: true, triggerAction: "quarantine", triggerType: "unique", accountType: "young_or_no_pfp", punishOnActiveRaid: true, triggerCount: 18, triggerWindowMs: 3 * 60 * 60_000, raidDurationMs: 30 * 60_000, idFlag: { minimumMatches: 4, compareWindowMs: 3 * 60 * 60_000, createdAtDeltaMs: 20 * 60_000, }, ageFlag: { minimumAgeMs: 3 * 24 * 60 * 60_000 }, }, strict: { lockCommands: true, triggerAction: "ban", triggerType: "events", accountType: "any", punishOnActiveRaid: true, triggerCount: 8, triggerWindowMs: 2 * 60 * 60_000, raidDurationMs: 45 * 60_000, idFlag: { minimumMatches: 3, compareWindowMs: 2 * 60 * 60_000, createdAtDeltaMs: 25 * 60_000, }, ageFlag: { minimumAgeMs: 5 * 24 * 60 * 60_000 }, }, };
 const GUILD_STATE = new Map();
 const TEMP_BAN_TIMERS = new Map();
 const RAID_REPORT_TIMERS = new Map();
@@ -430,24 +429,6 @@ function isNoPfp(member?) {
 function isTooYoung(member?) {
   const ageMs = nowMs() - new Date(member.user.createdAt).getTime();
   return ageMs < JOIN_RAID_CONFIG.ageFlag.minimumAgeMs;
-}
-
-async function isVerifiedBotUser(user?) {
-  if (!user?.bot) return false;
-  const key = String(user.id || "");
-  if (!key) return false;
-  if (VERIFIED_BOT_IDS.has(key)) return true;
-  if (VERIFIED_BOT_CACHE.has(key)) return VERIFIED_BOT_CACHE.get(key);
-
-  let verified = false;
-  try {
-    const flags = user.flags || (typeof user.fetchFlags === "function" ? await user.fetchFlags() : null);
-    verified = Boolean(flags?.has?.(UserFlagsBitField.Flags.VerifiedBot));
-  } catch {
-    verified = false;
-  }
-  VERIFIED_BOT_CACHE.set(key, verified);
-  return verified;
 }
 
 async function getFlagReasons(state?, member?, at = nowMs()) {
@@ -1050,52 +1031,6 @@ async function registerJoinRaidSecuritySignal(member?, options: Record<string, a
   return { ok: true, raid };
 }
 
-function applyJoinRaidPreset(name = "balanced") {
-  const presetKey = String(name || "").toLowerCase();
-  const preset = JOIN_RAID_PRESETS[presetKey];
-  if (!preset) return { ok: false, reason: "invalid_preset" };
-  JOIN_RAID_CONFIG.triggerAction = String(
-    preset.triggerAction || JOIN_RAID_CONFIG.triggerAction,
-  );
-  JOIN_RAID_CONFIG.lockCommands =
-    typeof preset.lockCommands === "boolean"
-      ? preset.lockCommands
-      : JOIN_RAID_CONFIG.lockCommands;
-  JOIN_RAID_CONFIG.triggerType = String(
-    preset.triggerType || JOIN_RAID_CONFIG.triggerType,
-  );
-  JOIN_RAID_CONFIG.accountType = String(
-    preset.accountType || JOIN_RAID_CONFIG.accountType,
-  );
-  JOIN_RAID_CONFIG.punishOnActiveRaid =
-    typeof preset.punishOnActiveRaid === "boolean"
-      ? preset.punishOnActiveRaid
-      : JOIN_RAID_CONFIG.punishOnActiveRaid;
-  JOIN_RAID_CONFIG.triggerCount = Number(
-    preset.triggerCount || JOIN_RAID_CONFIG.triggerCount,
-  );
-  JOIN_RAID_CONFIG.triggerWindowMs = Number(
-    preset.triggerWindowMs || JOIN_RAID_CONFIG.triggerWindowMs,
-  );
-  JOIN_RAID_CONFIG.raidDurationMs = Number(
-    preset.raidDurationMs || JOIN_RAID_CONFIG.raidDurationMs,
-  );
-  JOIN_RAID_CONFIG.idFlag.minimumMatches = Number(
-    preset.idFlag?.minimumMatches || JOIN_RAID_CONFIG.idFlag.minimumMatches,
-  );
-  JOIN_RAID_CONFIG.idFlag.compareWindowMs = Number(
-    preset.idFlag?.compareWindowMs || JOIN_RAID_CONFIG.idFlag.compareWindowMs,
-  );
-  JOIN_RAID_CONFIG.idFlag.createdAtDeltaMs = Number(
-    preset.idFlag?.createdAtDeltaMs || JOIN_RAID_CONFIG.idFlag.createdAtDeltaMs,
-  );
-  JOIN_RAID_CONFIG.ageFlag.minimumAgeMs = Number(
-    preset.ageFlag?.minimumAgeMs || JOIN_RAID_CONFIG.ageFlag.minimumAgeMs,
-  );
-  saveJoinRaidPersistentConfig();
-  return { ok: true, preset: presetKey };
-}
-
 async function getJoinRaidStatusSnapshot(guildId?) {
   const key = String(guildId || "");
   if (!key) return null;
@@ -1206,4 +1141,4 @@ function clearGuildState(guildId?) {
   }
 }
 
-export = { JOIN_RAID_CONFIG, JOIN_RAID_PRESETS, getJoinRaidConfigSnapshot, setJoinRaidConfigSnapshot, processJoinRaidForMember, activateJoinRaidWindow, registerJoinRaidSecuritySignal, restoreTempBans, applyJoinRaidPreset, getJoinRaidStatusSnapshot, clearGuildState, stopJoinRaidWindowForGuild };
+export = { getJoinRaidConfigSnapshot, setJoinRaidConfigSnapshot, processJoinRaidForMember, registerJoinRaidSecuritySignal, restoreTempBans, getJoinRaidStatusSnapshot, clearGuildState, stopJoinRaidWindowForGuild };

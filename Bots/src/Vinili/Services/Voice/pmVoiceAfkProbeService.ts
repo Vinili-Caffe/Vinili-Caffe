@@ -479,4 +479,4 @@ async function startPmVoiceAfkProbe(client?, opts: Record<string, any> = {}) {
   return { channelId: voiceChannelId, messageId: alertMessageId || "" };
 }
 
-export = { PROBE_LISTEN_MS, isProbeActive, notifyProbeSpeechHeard, abortPmVoiceAfkProbe, editProbeAlertMessage, deleteProbeAlertMessage, startPmVoiceAfkProbe };
+export = { isProbeActive, notifyProbeSpeechHeard, abortPmVoiceAfkProbe, deleteProbeAlertMessage, startPmVoiceAfkProbe };

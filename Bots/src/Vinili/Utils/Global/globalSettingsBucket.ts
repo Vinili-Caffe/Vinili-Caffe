@@ -449,25 +449,4 @@ async function decrementClipCount(guildId?) {
   return decrementGuildPostCounter(guildId, "clipcounts");
 }
 
-async function setGuildPostCounter(guildId?, arrayKey?, count?) {
-  const g = String(guildId || "").trim();
-  if (!g) throw new Error("invalid guildId");
-  const c = Math.max(0, Math.floor(Number(count) || 0));
-  const coll = getCollection();
-  if (!coll || mongoose.connection?.readyState !== 1) throw new Error("mongodb unavailable");
-  await ensureBucketArrays();
-  const updated = await coll.updateOne(
-    { _counterKey: TICKET_COUNTER_KEY, [`${arrayKey}.guildId`]: g },
-    { $set: { [`${arrayKey}.$[elem].count`]: c } },
-    { arrayFilters: [{ "elem.guildId": g }], maxTimeMS: 12000 },
-  );
-  if (updated.modifiedCount > 0) return c;
-  await coll.updateOne(
-    { _counterKey: TICKET_COUNTER_KEY, [`${arrayKey}.guildId`]: { $ne: g } },
-    ({ $push: { [arrayKey]: { guildId: g, count: c } } } as any),
-    { maxTimeMS: 12000 },
-  );
-  return c;
-}
-
-export = { TICKET_COUNTER_KEY, COUNTER_COLLECTION, LEGACY_QUOTECOUNTS_COLLECTION, LEGACY_COUNTSCHEMAS_COLLECTION, ensureBucketArrays, getCountingConfigFromBucket, nextQuoteCount, nextRepostCount, nextClipCount, decrementQuoteCount, decrementRepostCount, decrementClipCount, setGuildPostCounter, readGuildCounterFromDoc, pingDbLatencyMs, getPartnershipBlacklistEntries, setPartnershipBlacklistEntries, isPartnershipGuildBlacklistedBucket, addPartnershipBlacklistGuildBucket, removePartnershipBlacklistGuildBucket, listPartnershipBlacklistGuildsBucket, getPartnerPmDailyThreadId, setPartnerPmDailyThreadId, getStaffChatThreadIds, setStaffChatThreadId, getStaffChatHubMessageId, setStaffChatHubMessageId, getStaffCmdsThreadIds, setStaffCmdsThreadId, getStaffCmdsHubMessageId, setStaffCmdsHubMessageId };
+export = { getCountingConfigFromBucket, nextQuoteCount, nextRepostCount, nextClipCount, decrementQuoteCount, decrementRepostCount, decrementClipCount, pingDbLatencyMs, isPartnershipGuildBlacklistedBucket, addPartnershipBlacklistGuildBucket, removePartnershipBlacklistGuildBucket, listPartnershipBlacklistGuildsBucket, getPartnerPmDailyThreadId, setPartnerPmDailyThreadId, getStaffChatThreadIds, setStaffChatThreadId, getStaffChatHubMessageId, setStaffChatHubMessageId, getStaffCmdsThreadIds, setStaffCmdsThreadId, getStaffCmdsHubMessageId, setStaffCmdsHubMessageId };

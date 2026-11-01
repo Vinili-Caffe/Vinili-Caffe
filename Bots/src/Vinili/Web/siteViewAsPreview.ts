@@ -390,16 +390,12 @@ function applyViewAsToResolvedMember(member?, preset?, opts: Record<string, any>
 }
 
 export = {
-  VIEW_AS_HEADER,
-  PRESETS,
   normalizeViewAs,
   parseViewAsFromReq,
   canUseViewAs,
   flagsForPreset,
   applyViewAsToStaffAccessPayload,
-  labelForPreset,
   compitiRoleOverride,
   roleIdsForViewAsPreset,
-  shimMemberRolesForViewAs,
   applyViewAsToResolvedMember,
 };

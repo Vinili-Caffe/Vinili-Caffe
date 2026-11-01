@@ -71,12 +71,6 @@ function markNegativeCache(userId?) {
   pruneMapByExpiry(websiteMemberNegativeCache);
 }
 
-function clearNegativeWebsiteMember(userId?) {
-  const uid = String(userId || "").trim();
-  if (!uid) return;
-  websiteMemberNegativeCache.delete(uid);
-}
-
 function clearWebsiteMemberCaches(userId?) {
   const uid = String(userId || "").trim();
   if (!uid) return;
@@ -221,12 +215,8 @@ async function fetchWebsiteGuildMember(guild?, userId?, options: Record<string, 
 }
 
 export = {
-  WEBSITE_MEMBER_FETCH_TIMEOUT_MS,
-  WEBSITE_MEMBER_CACHE_TTL_MS,
-  WEBSITE_MEMBER_NEGATIVE_CACHE_TTL_MS,
   readCachedWebsiteMember,
   writeCachedWebsiteMember,
-  clearNegativeWebsiteMember,
   clearWebsiteMemberCaches,
   markWebsiteMemberLeft,
   ensureWebsiteGuild,

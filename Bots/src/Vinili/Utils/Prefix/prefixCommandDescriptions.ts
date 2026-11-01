@@ -140,23 +140,10 @@ function resolveApplicationCommandDescription(discordName?, fallback = "") {
   return fromMap || "";
 }
 
-function resolvePrefixSubcommandDescription(commandName?, subcommandName?, fallback = "") {
-  const cmd = String(commandName || "")
-    .trim()
-    .toLowerCase();
-  const sub = String(subcommandName || "")
-    .trim()
-    .toLowerCase();
-  if (!cmd || !sub) return String(fallback || "").trim();
-  return PREFIX_SUBCOMMAND_DESCRIPTIONS[`${cmd}.${sub}`] || String(fallback || "").trim();
-}
-
 export = {
   PREFIX_COMMAND_DESCRIPTIONS,
   PREFIX_SUBCOMMAND_DESCRIPTIONS,
   APPLICATION_COMMAND_DESCRIPTIONS,
-  DASHBOARD_PREFIX_DESCRIPTION_OVERRIDES,
   resolvePrefixCommandDescription,
   resolveApplicationCommandDescription,
-  resolvePrefixSubcommandDescription,
 };

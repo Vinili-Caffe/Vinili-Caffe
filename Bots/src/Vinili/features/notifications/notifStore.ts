@@ -1,6 +1,6 @@
 /** Notifiche del sito: salvataggio della inbox di un utente (e migrazione dal formato vecchio). */
 const { SiteDocument, SITE_DOCUMENT_TYPE } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
-const { normalizeUserId, normalizeKind, isVoteRegisteredNotification } = require("./notifKinds") as typeof import("./notifKinds");
+const { normalizeUserId, normalizeKind } = require("./notifKinds") as typeof import("./notifKinds");
 
 const NOTIF = SITE_DOCUMENT_TYPE.IN_APP_NOTIFICATION;
 const MAX_PER_USER = 150;
@@ -132,14 +132,6 @@ function itemMatchesDedupeWindow(item?, dedupeKeyRaw?, since?) {
   if (!item || String(item.dedupeKey || "") !== dedupeKeyRaw) return false;
   const t = item.createdAt ? new Date(item.createdAt).getTime() : 0;
   return t >= since.getTime();
-}
-
-function isReminderNotificationKind(kind?, title?, body?) {
-  const k = normalizeKind(kind);
-  if (k === "vote_reminder") return true;
-  if (isVoteRegisteredNotification({ kind, title, body })) return false;
-  const hay = `${String(title || "")} ${String(body || "")}`.toLowerCase();
-  return /promemoria|reminder|puoi votare|pozioni disponibili|puoi tornare in aula/.test(hay);
 }
 
 async function pushInboxItemAtomic(userId?, newItem?, dedupe = null) {

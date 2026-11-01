@@ -54,15 +54,8 @@ function memberHasCustomRolePanelAccess(member?, extraUnlocks?) {
   return getCustomRoleSlotCapWithContest(member, extraUnlocks) >= 1;
 }
 
-function memberHasCustomRoleSecondarySlot(member?) {
-  return getCustomRoleSlotCapFromRoles(member) >= 2;
-}
-
 export = {
-  CUSTOM_ROLE_DOUBLE_SLOT_ROLE_IDS,
-  CUSTOM_ROLE_SINGLE_SLOT_ROLE_IDS,
   getCustomRoleSlotCapFromRoles,
   getCustomRoleSlotCapWithContest,
   memberHasCustomRolePanelAccess,
-  memberHasCustomRoleSecondarySlot,
 };

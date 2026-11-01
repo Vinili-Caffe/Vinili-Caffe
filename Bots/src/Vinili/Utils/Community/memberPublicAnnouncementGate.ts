@@ -34,8 +34,6 @@ async function shouldSendPublicMemberAnnouncement(member?) {
 export = {
   MAIN_GUILD_ID,
   MEMBER_ROLE_ID,
-  SEPARATOR_ROLE_IDS,
-  memberHasMemberPlusSeparator,
   normalVerificationCompletedBetween,
   shouldSendPublicMemberAnnouncement,
 };

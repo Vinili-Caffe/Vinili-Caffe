@@ -27,13 +27,7 @@ function isLitePerf(req?) {
   return resolveSitePerfTier(req) === "lite";
 }
 
-function isMidOrLitePerf(req?) {
-  const t = resolveSitePerfTier(req);
-  return t === "lite" || t === "mid";
-}
-
 export = {
   resolveSitePerfTier,
   isLitePerf,
-  isMidOrLitePerf,
 };

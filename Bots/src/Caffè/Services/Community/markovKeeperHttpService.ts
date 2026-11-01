@@ -76,13 +76,4 @@ function startMarkovKeeperHttpServer(client?) {
   return keeperServer;
 }
 
-function stopMarkovKeeperHttpServer() {
-  if (!keeperServer) return;
-  const server = keeperServer;
-  keeperServer = null;
-  server.close(() => {
-    global.logger?.info?.("[MARKOV] keeper HTTP stopped");
-  });
-}
-
-export = { startMarkovKeeperHttpServer, stopMarkovKeeperHttpServer };
+export = { startMarkovKeeperHttpServer };

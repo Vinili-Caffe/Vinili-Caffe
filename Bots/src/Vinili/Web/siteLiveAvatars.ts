@@ -99,59 +99,6 @@ function resolveSiteAvatarUrl(guild?, userId?, storedUrl?, { size = 128, preferA
   return "";
 }
 
-async function resolveSiteAvatarUrlAsync(
-  guild?,
-  client?,
-  userId?,
-  storedUrl?,
-  { size = 128, preferAnimated = true, allowDefault = true } = {},
-) {
-  const uid = String(userId || "").trim();
-  if (!uid) return "";
-
-  let member = guild?.members?.cache?.get?.(uid) || null;
-  if (!member && guild?.members?.fetch) {
-    try {
-      member = await guild.members.fetch(uid);
-    } catch {
-      member = null;
-    }
-  }
-  const liveMember = liveAvatarFromMember(member, { size, preferAnimated, allowDefault });
-  if (liveMember) return liveMember;
-
-  let user = client?.users?.cache?.get?.(uid) || null;
-  if (!user && client?.users?.fetch) {
-    try {
-      user = await client.users.fetch(uid, { force: false });
-    } catch {
-      user = null;
-    }
-  }
-  const liveUser = liveAvatarFromUser(user, { size, preferAnimated, allowDefault });
-  if (liveUser) return liveUser;
-
-  // feedbackAvatar2: fetched member/user known without custom avatar → no stale stored hash.
-  if (member || user) {
-    return allowDefault ? discordDefaultAvatarUrl({ id: uid }, { size }) : "";
-  }
-
-  const storedRaw = String(storedUrl || "").trim();
-  if (/cdn\.discordapp\.com\/embed\/avatars\//i.test(storedRaw)) {
-    return allowDefault ? discordDefaultAvatarUrl({ id: uid }, { size }) : "";
-  }
-  const stored = preferAnimated
-    ? animatedDiscordCdnAvatarUrl(storedUrl, { size })
-    : stabilizeDiscordCdnAvatarUrl(storedUrl, { size });
-  if (stored) {
-    if (/\/guilds\/\d+\/users\//i.test(String(stored))) {
-      return allowDefault ? discordDefaultAvatarUrl({ id: uid }, { size }) : "";
-    }
-    return stored;
-  }
-  return allowDefault ? discordDefaultAvatarUrl({ id: uid }, { size }) : "";
-}
-
 async function prefetchUsersForIds(client?, userIds?, { chunkSize = 50 } = {}) {
   if (!client?.users?.fetch) return;
   const ids = [
@@ -264,55 +211,12 @@ function applyLiveAvatarToSuggestionLike(
   return serialized;
 }
 
-async function applyLiveAvatarToSuggestionLikeAsync(
-  serialized?,
-  guild?,
-  client?,
-  { size = 128, preferAnimated = true, allowDefault = true } = {},
-) {
-  if (!serialized || typeof serialized !== "object") return serialized;
-  serialized.authorAvatarUrl = await resolveSiteAvatarUrlAsync(
-    guild,
-    client,
-    serialized.userId,
-    serialized.authorAvatarUrl,
-    { size, preferAnimated, allowDefault },
-  );
-  serialized.authorName = liveDisplayName(guild, client, serialized.userId, serialized.authorName);
-  if (serialized.staffAvatarUrl != null || serialized.staffUserId) {
-    serialized.staffAvatarUrl = await resolveSiteAvatarUrlAsync(
-      guild,
-      client,
-      serialized.staffUserId,
-      serialized.staffAvatarUrl,
-      { size, preferAnimated, allowDefault },
-    );
-    if (serialized.staffName != null || serialized.staffUserId) {
-      serialized.staffName = liveDisplayName(guild, client, serialized.staffUserId, serialized.staffName);
-    }
-  }
-  if (Array.isArray(serialized.comments)) {
-    for (const c of serialized.comments) {
-      if (!c) continue;
-      c.authorAvatarUrl = await resolveSiteAvatarUrlAsync(guild, client, c.userId, c.authorAvatarUrl, {
-        size,
-        preferAnimated,
-        allowDefault,
-      });
-      c.authorName = liveDisplayName(guild, client, c.userId, c.authorName);
-    }
-  }
-  return serialized;
-}
-
 export = {
   stabilizeDiscordCdnAvatarUrl,
   animatedDiscordCdnAvatarUrl,
   resolveSiteAvatarUrl,
-  resolveSiteAvatarUrlAsync,
   prefetchGuildMembersForIds,
   prefetchUsersForIds,
   collectUserIdsFromSuggestionLikeDocs,
   applyLiveAvatarToSuggestionLike,
-  applyLiveAvatarToSuggestionLikeAsync,
 };

@@ -3,7 +3,6 @@ const { resolvePartnerPointsShown } = require("./partnerPointsDisplayUtils") as 
 const {
   PARTNER_REWARD_CANONICAL_TIERS,
   PARTNER_REWARD_LABELS,
-  isPartnerRewardCanonicalTier,
   getPartnerRewardPointCost,
   partnerManagerRedeemButtonLabel: buildPartnerManagerRedeemButtonLabel,
 } = require("../../../shared/partner/partnerManagerRewardTiers") as typeof import("../../../shared/partner/partnerManagerRewardTiers");
@@ -14,20 +13,6 @@ const PARTNER_MILESTONE_REWARD_LABELS = PARTNER_REWARD_LABELS;
 
 function partnerManagerRedeemButtonLabel(tier?, now?) {
   return buildPartnerManagerRedeemButtonLabel(tier, now);
-}
-
-function partnerManagerRedeemTierFromAction(action?) {
-  const m = String(action || "").match(/^ppm_r(\d+)$/);
-  if (!m) return null;
-  const n = Number(m[1]);
-  return isPartnerRewardCanonicalTier(n) ? n : null;
-}
-
-function partnerManagerApplyPerkTierFromAction(action?) {
-  const m = String(action || "").match(/^ppm_a(\d+)$/);
-  if (!m) return null;
-  const n = Number(m[1]);
-  return n === 50 || n === 100 ? n : null;
 }
 
 function formatPartnerPointsChange(action?, amount?) {
@@ -113,8 +98,6 @@ export = {
   PARTNER_MILESTONE_POINT_TIERS,
   PARTNER_MILESTONE_REWARD_LABELS,
   partnerManagerRedeemButtonLabel,
-  partnerManagerRedeemTierFromAction,
-  partnerManagerApplyPerkTierFromAction,
   partnerManagerCanAffordReward,
   getPartnerRewardPointCost,
   addPartnerPoints,

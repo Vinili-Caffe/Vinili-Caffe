@@ -62,11 +62,7 @@ function filterBotNoiseLines(lines?) {
 }
 
 export = {
-  POKETWO_BOT_ID,
-  POKETWO_BOT_ID_LEGACY,
-  BLOCKED_BOT_IDS,
   isMarkovBotNoiseText,
   isMarkovBotNoiseMessage,
-  messageMentionsBlockedBot,
   filterBotNoiseLines,
 };

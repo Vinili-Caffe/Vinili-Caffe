@@ -362,5 +362,4 @@ export = {
   updateRankCardCustomization,
   getRankCardPreview,
   getPublicRankCardPreview,
-  invalidatePublicRankCardCache,
 };

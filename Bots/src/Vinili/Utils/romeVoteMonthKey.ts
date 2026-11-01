@@ -15,13 +15,6 @@ function voteCountMonthKeyRome(date = new Date()) {
   return `${y}-${m}`;
 }
 
-function isFirstCalendarDayRome(date = new Date()) {
-  const d = date instanceof Date ? date : new Date(date);
-  const ref = Number.isFinite(d.getTime()) ? d : new Date();
-  const day = new Intl.DateTimeFormat("en-GB", { timeZone: ROME_TZ, day: "numeric" }).format(ref);
-  return day === "1";
-}
-
 function romeMonthStartMs(now = new Date()) {
   const end = Number.isFinite(now.getTime()) ? now.getTime() : Date.now();
   const k = voteCountMonthKeyRome(new Date(end));
@@ -36,4 +29,4 @@ function romeMonthStartMs(now = new Date()) {
   return lo;
 }
 
-export = { voteCountMonthKeyRome, romeMonthStartMs, isFirstCalendarDayRome };
+export = { voteCountMonthKeyRome, romeMonthStartMs };

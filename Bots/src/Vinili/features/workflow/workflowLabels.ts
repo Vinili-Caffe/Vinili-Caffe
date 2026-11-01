@@ -15,14 +15,6 @@ const RESOCONTO_LIST_ROLE_RANK = new Map(
 );
 const RESOCONTO_LIST_RANK_FALLBACK = 50;
 
-function resocontoListSortRank(doc?) {
-  const kind = String(doc?.workflowKind || "").trim().toLowerCase();
-  if (kind === "p") return 0;
-  const roleId = String(doc?.workflowRoleId || "").trim();
-  if (roleId && RESOCONTO_LIST_ROLE_RANK.has(roleId)) return RESOCONTO_LIST_ROLE_RANK.get(roleId);
-  return RESOCONTO_LIST_RANK_FALLBACK;
-}
-
 function stripDiscordDecorations(text?, opts: Record<string, any> = {}) {
   const keepNewlines = Boolean(opts?.keepNewlines);
   const keepCustomEmoji = Boolean(opts?.keepCustomEmoji);

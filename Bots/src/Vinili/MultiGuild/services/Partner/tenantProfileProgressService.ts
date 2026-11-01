@@ -61,6 +61,5 @@ async function getTenantProfileSnapshot(guildId?, userId?, options: Record<strin
 }
 
 export = {
-  computeAwardsPercent,
   getTenantProfileSnapshot,
 };

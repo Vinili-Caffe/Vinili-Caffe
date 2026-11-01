@@ -161,20 +161,6 @@ function formatSerataFilmAttendanceCustomId(action?, viewerId?, targetId?, sourc
   return withSourceSuffix(`${PANEL_PREFIX}:sf_att:${act}:${String(viewerId)}:${String(targetId)}`, sourceMessageId);
 }
 
-function parseSerataFilmAttendanceCustomId(customId?) {
-  const parts = String(customId || "").split(":");
-  if (parts.length < 5 || parts[0] !== PANEL_PREFIX || parts[1] !== "sf_att") return null;
-  const action = String(parts[2] || "").toLowerCase();
-  if (action !== "yes" && action !== "no") return null;
-  return {
-    action,
-    viewerId: parts[3],
-    targetId: parts[4],
-    sourceMessageId: normalizeSourceMessageId(parts[5]),
-    willAttend: action === "yes",
-  };
-}
-
 function buildSerataFilmAttendanceButtonRow(viewerId?, targetId?, state?, sourceMessageId = null) {
   if (!state?.editable) return null;
   const v = String(viewerId);
@@ -234,14 +220,11 @@ async function loadSerataFilmStaffAttendanceByUserId(guildId?, userIds?) {
 
 export = {
   getRomeSaturdayKeyForWeek,
-  getActiveSerataFilmAttendanceSaturdayKey,
   getSerataFilmSaturdayKeyForSession,
   canEditSerataFilmAttendance,
   resolveSerataFilmAttendanceForWeek,
   isSerataFilmAbsentExcused,
   buildSerataFilmAttendanceDescriptionLine,
-  formatSerataFilmAttendanceCustomId,
-  parseSerataFilmAttendanceCustomId,
   buildSerataFilmAttendanceButtonRow,
   setSerataFilmWillAttend,
   loadSerataFilmStaffAttendanceByUserId,

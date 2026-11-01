@@ -125,7 +125,6 @@ function startDiscadiaVoteMonthRolloverCron(client?) {
 
 export = {
   shouldRunDiscadiaVoteMonthRepairOnStartup,
-  shouldRunDiscadiaVoteMonthRolloverCron,
   repairDiscadiaVoteMonthRowsForMainGuild,
   startDiscadiaVoteMonthRolloverCron,
 };

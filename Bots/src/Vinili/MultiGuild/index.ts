@@ -63,4 +63,4 @@ function attachToClient(client?) {
   return api;
 }
 
-export = { APP_ROOT, EVENTS_DIR, isLayerEnabled: isMultiGuildLayerEnabled, attachToClient, buildApi, loadMultiGuildEvents };
+export = { APP_ROOT, attachToClient, buildApi };

@@ -53,8 +53,6 @@ function siteReplacesForPanel(name?) {
 }
 
 export = {
-  DEFAULT_ENABLED,
-  PANEL_SITE_REPLACES,
   getEnabledDiscordPanelNames,
   isDiscordPanelEnabled,
   siteReplacesForPanel,

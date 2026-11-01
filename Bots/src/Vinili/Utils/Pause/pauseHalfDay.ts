@@ -4,7 +4,6 @@
 const { MS_PER_DAY, parseItalianDate, getTodayUtc } = require("./pauseDates") as typeof import("./pauseDates");
 
 const HALF_DAY_WEIGHT = 0.5;
-const HALF_DAY_SLOTS = ["mattina", "pomeriggio"] as const;
 const HALF_DAY_LABELS = { mattina: "Mattina (fino alle 14)", pomeriggio: "Pomeriggio/sera (dalle 14)" };
 /** Ora di Roma (in minuti) entro cui si può chiedere quella fascia per oggi. */
 const HALF_DAY_SAME_DAY_CUTOFF_MIN = { mattina: 9 * 60, pomeriggio: 14 * 60 };
@@ -152,7 +151,6 @@ function pausesForWeeklyRules(pauses?) {
 
 export = {
   HALF_DAY_WEIGHT,
-  HALF_DAY_SLOTS,
   HALF_DAY_LIMITS,
   normalizeHalfDay,
   isHalfDayPause,

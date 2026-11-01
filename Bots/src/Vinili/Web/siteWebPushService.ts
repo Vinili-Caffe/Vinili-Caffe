@@ -483,40 +483,20 @@ async function sendWebPushTestToEndpoint(userId?, endpointRaw?) {
   return { ok: false, error: out.skippedGone > 0 ? "endpoint_gone" : "send_failed" };
 }
 
-/* Compatibilità con i vecchi chiamanti: denylist, conferme "mostrata" e rotazione Apple non esistono più. */
-async function isPushEndpointRecentlyGone(_endpointRaw?) {
-  return false;
-}
-async function markPushEndpointGone(endpointRaw?) {
-  await removeWebPushByEndpoint(endpointRaw);
-}
-async function clearPushEndpointGone(_endpointRaw?) {}
 async function noteWebPushShown(_idRaw?, _dedupeKeyRaw?, _meta: Record<string, any> = {}) {
   return { ok: true, ignoredForHedge: true, client: null };
 }
 async function wasWebPushShown(_idRaw?, _dedupeKeyRaw?) {
   return false;
 }
-async function rotateApplePushSubscriptionsForUser(_userId?, _reason?) {
-  return { ok: true, rotated: 0, skipped: true };
-}
-
 export = {
   getPublicVapidKey,
   isPushEnabled,
   upsertWebPushSubscription,
   removeWebPushSubscription,
-  listSubscriptionsForUser,
-  pruneWebPushSubscriptionsForUser,
   userHasActiveWebPush,
   sendWebPushToUser,
   sendWebPushTestToEndpoint,
-  absoluteOpenUrl,
-  isPushEndpointRecentlyGone,
-  markPushEndpointGone,
-  clearPushEndpointGone,
-  removeWebPushByEndpoint,
   noteWebPushShown,
   wasWebPushShown,
-  rotateApplePushSubscriptionsForUser,
 };

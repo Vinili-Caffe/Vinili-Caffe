@@ -632,10 +632,7 @@ export = {
   fetchHttpImageBuffer,
   fetchHttpImageBufferAnimatedFirst,
   fetchHttpImageBufferStaticFirst,
-  buildDiscordCdnFetchCandidates,
-  buildDiscordCdnStaticCandidates,
   discordCdnPathLooksAnimatedAsset,
   discordCdnStaticAvatarUrl,
   discordCdnDefaultAvatarFallbackUrl,
-  isDiscordCdnAvatarAssetUrl,
 };

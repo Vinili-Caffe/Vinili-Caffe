@@ -230,22 +230,6 @@ function fireNotificationPush(
 
 const lastDigestPushAt = new Map();
 
-function shouldFireDigestPush(userId?, dedupeKey?, windowMs = 180_000) {
-  const uid = normalizeUserId(userId);
-  const key = `${uid}:${String(dedupeKey || "").trim()}`;
-  if (!uid || !String(dedupeKey || "").trim()) return true;
-  const now = Date.now();
-  const prev = Number(lastDigestPushAt.get(key) || 0);
-  if (now - prev < windowMs) return false;
-  lastDigestPushAt.set(key, now);
-  if (lastDigestPushAt.size > 500) {
-    for (const [k, at] of lastDigestPushAt) {
-      if (now - Number(at || 0) > 600_000) lastDigestPushAt.delete(k);
-    }
-  }
-  return true;
-}
-
 async function countSiteInAppUnreadForUser(userId?) {
   const uid = normalizeUserId(userId);
   if (!uid) {

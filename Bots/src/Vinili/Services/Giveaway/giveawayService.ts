@@ -150,55 +150,6 @@ async function setGiveawayMessageId(giveawayId?, messageId?) {
   await Giveaway.updateOne({ _id: giveawayId }, { $set: { messageId: String(messageId) } });
 }
 
-async function getGiveawayByMessageId(messageId?) {
-  return Giveaway.findOne({ messageId: String(messageId) }).lean();
-}
-
-async function getGiveawayById(id?) {
-  return Giveaway.findById(id).lean();
-}
-
-function buildMorgamesTutorialPayload(giveawayId?) {
-  const id = String(giveawayId || "").trim();
-  const embed = new EmbedBuilder()
-    .setColor("#f59e0b")
-    .setTitle("<:VC_Morgames:1562470559319719957> Serve un account Morgames")
-    .setDescription(
-      "Questo giveaway è riservato a chi ha **Discord collegato su Morgames**.\n" +
-        "Ci vuole un minuto — poi torna qui e verifica.",
-    )
-    .addFields(
-      {
-        name: "1 · Apri Morgames",
-        value: `Vai su [morgames.app](${MORGAMES_SITE_URL}) (anche dal telefono).`,
-        inline: false,
-      },
-      {
-        name: "2 · Accedi con Discord",
-        value: "Premi **Login** / **Get Started** e autorizza Discord sul sito.",
-        inline: false,
-      },
-      {
-        name: "3 · Torna qui",
-        value: "Quando hai finito, premi **Ho collegato Discord** qui sotto (o di nuovo **Entra** sul giveaway).",
-        inline: false,
-      },
-    )
-    .setFooter({ text: "Collaborazione Vinili & Caffè × Morgames" });
-
-  const row = new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setStyle(ButtonStyle.Link)
-      .setLabel("Apri Morgames")
-      .setURL(MORGAMES_SITE_URL),
-    new ButtonBuilder()
-      .setCustomId(`${GIVEAWAY_MORGAMES_RETRY_PREFIX}${id}`)
-      .setLabel("Ho collegato Discord")
-      .setStyle(ButtonStyle.Success),
-  );
-  return { embeds: [embed], components: [row] };
-}
-
 async function replyGiveawayEphemeral(interaction?, payload?) {
   const ephemeral = { flags: 1 << 6 };
   try {
@@ -284,12 +235,6 @@ async function enterGiveaway(interaction?, client?, opts?) {
   );
 
   return true;
-}
-
-async function retryMorgamesGiveawayEnter(interaction?, client?) {
-  const customId = String(interaction?.customId || "");
-  if (!customId.startsWith(GIVEAWAY_MORGAMES_RETRY_PREFIX)) return false;
-  return enterGiveaway(interaction, client, { fromMorgamesRetry: true });
 }
 
 async function leaveGiveaway(interaction?, client?) {
@@ -770,17 +715,11 @@ export = {
   parseDuration,
   buildGiveawayEmbed,
   buildEnterButton,
-  buildRerollButton,
-  buildMorgamesTutorialPayload,
   createGiveaway,
   setGiveawayMessageId,
-  getGiveawayByMessageId,
-  getGiveawayById,
   enterGiveaway,
-  retryMorgamesGiveawayEnter,
   leaveGiveaway,
   showGiveawayJoinCount,
-  endGiveaway,
   endGiveawayByMessageId,
   editGiveawayByMessageId,
   deleteGiveawayByMessageId,

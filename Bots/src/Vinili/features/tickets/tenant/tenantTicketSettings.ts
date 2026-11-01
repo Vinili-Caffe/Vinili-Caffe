@@ -81,15 +81,6 @@ function asMsFromParts(parts?, fallbackMs?) {
   return Math.min(30 * 24 * 60 * 60 * 1000, Math.max(0, ms));
 }
 
-function msToParts(ms?) {
-  const total = Math.max(0, Math.floor(Number(ms) || 0));
-  const minutesTotal = Math.floor(total / 60000);
-  const d = Math.floor(minutesTotal / (24 * 60));
-  const h = Math.floor((minutesTotal % (24 * 60)) / 60);
-  const m = minutesTotal % 60;
-  return { d, h, m };
-}
-
 function normalizeEmbedColor(value?, fallback = DEFAULT_EMBED_COLOR) {
   const raw = String(value || "").trim();
   if (/^#[0-9a-fA-F]{6}$/.test(raw)) return raw.toLowerCase();
@@ -566,12 +557,6 @@ async function saveTicketSettings(guildId?, patch?) {
   return { ok: true, config: mergeWithFallback(gid, next) };
 }
 
-function isTicketTypeEnabled(guildId?, type?) {
-  const settings = getTicketSettingsSync(guildId);
-  const key = String(type || "").toLowerCase() === "highstaff" ? "high" : String(type || "").toLowerCase();
-  return settings.types?.[key]?.enabled !== false;
-}
-
 function getTicketTypeStaffRoleIds(guildId?, type?) {
   const settings = getTicketSettingsSync(guildId);
   const key = String(type || "").toLowerCase() === "highstaff" ? "high" : String(type || "").toLowerCase();
@@ -579,28 +564,13 @@ function getTicketTypeStaffRoleIds(guildId?, type?) {
   return Array.isArray(ids) ? ids.filter(Boolean) : [];
 }
 
-function getTicketPrimaryStaffRoleId(guildId?, type?) {
-  const ids = getTicketTypeStaffRoleIds(guildId, type);
-  return ids[0] || null;
-}
-
 export = {
   BOT_STATE_KEY,
   TICKET_TYPES,
-  PANEL_SWITCH_BEHAVIORS,
-  DEFAULT_EMBED_COLOR,
   refreshTicketConfigCache,
   getTicketSettingsSync,
   getTicketSettingsForGuild,
   saveTicketSettings,
-  isTicketTypeEnabled,
   getTicketTypeStaffRoleIds,
-  getTicketPrimaryStaffRoleId,
-  idsFallbackConfig,
-  normalizeTypes,
-  normalizeBehaviorOptions,
-  defaultBehaviorOptions,
-  msToParts,
   DASHBOARD_DEFAULT_CATEGORY_NAME,
-  toDashboardCategoryName,
 };

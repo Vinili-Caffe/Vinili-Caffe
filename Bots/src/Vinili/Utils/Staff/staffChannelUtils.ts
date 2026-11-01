@@ -27,20 +27,7 @@ async function resolveStaffPexDepexChannel(guild?, client = null) {
   );
 }
 
-async function resolveStaffPuntiToltiChannel(guild?, client = null) {
-  if (!isDiscordStaffChannelPostsEnabled()) return null;
-  if (!guild) return null;
-  const channelId = String(IDs.channels?.puntiTolti || "").trim();
-  if (!channelId) return null;
-  return (
-    guild.channels.cache.get(channelId) ||
-    (await getGuildChannelCached(guild, channelId)) ||
-    (client ? await getClientChannelCached(client, channelId) : null)
-  );
-}
-
 export = {
   resolveStaffValutazioniChannel,
   resolveStaffPexDepexChannel,
-  resolveStaffPuntiToltiChannel,
 };

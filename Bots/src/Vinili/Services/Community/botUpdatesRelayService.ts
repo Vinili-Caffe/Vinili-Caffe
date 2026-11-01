@@ -5,7 +5,6 @@ const {
 } = require("discord.js") as typeof import("discord.js");
 const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
 const {
-  getTenantUpdatesChannelIdSync,
   listTenantUpdatesTargetsSync,
   setTenantUpdatesWebhook,
   ensureTenantGuildSettingsCacheFresh,
@@ -412,11 +411,8 @@ async function handlePossiblePublishedBotUpdate(client?, previous?, updated?) {
 }
 
 export = {
-  SOURCE_CHANNEL_ID,
   ensureTenantUpdatesWebhook,
   clearTenantUpdatesWebhook,
-  relayPublishedBotUpdate,
   handlePossiblePublishedBotUpdate,
   messageBecamePublished,
-  isSourceUpdatesMessage,
 };

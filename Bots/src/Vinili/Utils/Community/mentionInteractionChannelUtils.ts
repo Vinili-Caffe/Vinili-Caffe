@@ -75,9 +75,5 @@ function messageAllowsMentionInteraction(message?) {
 }
 
 export = {
-  MENTION_INTERACTION_BASE_CHANNEL_IDS,
-  VOICE_TEXT_PARENT_CATEGORY_IDS,
-  channelAllowsMentionInteraction,
-  isVoiceTextChatChannel,
   messageAllowsMentionInteraction,
 };

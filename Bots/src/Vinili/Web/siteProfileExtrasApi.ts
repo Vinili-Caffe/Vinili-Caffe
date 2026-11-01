@@ -1,6 +1,5 @@
 "use strict";
 
-const IDs = require("../Utils/Config/ids") as typeof import("../Utils/Config/ids");
 const { resolveWebsiteGuildMember } = require("./siteRoleRequestApi") as typeof import("./siteRoleRequestApi");
 const {
   getNoDmPreferences,
@@ -100,10 +99,6 @@ function clearExtrasCache(userId?) {
   for (const key of [...extrasGetCache.keys()]) {
     if (key === uid || String(key).indexOf(uid + ":") === 0) extrasGetCache.delete(key);
   }
-}
-
-function resolveGuildId(client?) {
-  return String(client?.config?.mainGuildId || IDs.guilds?.main || "").trim();
 }
 
 function serializeDmPrefs(prefs?) {

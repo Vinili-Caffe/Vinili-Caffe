@@ -114,30 +114,8 @@ function sanitizeCanvasDisplayName(input?, maxChars = 0, fallback = "Giocatore")
   return value;
 }
 
-/**
- * rankNickTight1: togli spazi adiacenti alle emoji (thin/nbsp → " " in normalize,
- * o padding visivo). Non tocca spazi tra parole normali.
- */
-function tightEmojiAdjacentSpaces(input?) {
-  let s = String(input || "");
-  if (!s) return s;
-  try {
-    s = s.replace(
-      /(\p{Extended_Pictographic}(?:\uFE0F|\u200D\p{Extended_Pictographic}|\p{Emoji_Modifier})*)\s+/gu,
-      "$1",
-    );
-    s = s.replace(/\s+(\p{Extended_Pictographic})/gu, "$1");
-  } catch {
-    s = s.replace(/([\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}](?:\uFE0F|\u200D[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}])*)\s+/gu, "$1");
-    s = s.replace(/\s+([\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}])/gu, "$1");
-  }
-  return s;
-}
-
 export = {
   normalizeTextForCanvas,
   sanitizeCanvasDisplayName,
-  tightEmojiAdjacentSpaces,
   replaceCanvasCompatChars,
-  stripCanvasNoiseChars,
 };

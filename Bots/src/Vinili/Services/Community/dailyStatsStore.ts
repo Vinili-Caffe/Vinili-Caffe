@@ -333,8 +333,6 @@ async function migrateLegacyDailyStatsCollections(opts: Record<string, any> = {}
 }
 
 export = {
-  DAILY_STATS_COLLECTION,
-  DailyStats,
   addToSetDailyStatsValue,
   findDailyStats,
   getOrCreateDailyStats,

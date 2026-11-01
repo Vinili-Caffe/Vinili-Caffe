@@ -64,10 +64,6 @@ async function saveStore(store?) {
   return ok;
 }
 
-function invalidateBotUsageBlacklistCache() {
-  cache = { at: 0, data: null };
-}
-
 async function isUserBotUsageBlacklisted(userId?) {
   const uid = normalizeSnowflake(userId);
   if (!uid) return false;
@@ -193,7 +189,6 @@ async function leaveAllBlacklistedGuilds(client?) {
 export = {
   BOT_STATE_KEY,
   normalizeSnowflake,
-  invalidateBotUsageBlacklistCache,
   isUserBotUsageBlacklisted,
   isGuildBotUsageBlacklisted,
   listBotUsageBlacklist,

@@ -1,6 +1,5 @@
 const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
 const { ActivityUserProfile, GlobalSettings } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
-const Ticket = require("../../Schemas/Ticket/ticketSchema");
 const {
   accountUsername,
   userAvatarUrlDynamic,
@@ -21,7 +20,6 @@ const {
 
 const ROSTER_TTL_MS = 5 * 60_000;
 const PAUSED_TTL_MS = 45_000;
-const TICKETS_TTL_MS = 20_000;
 const SNAPSHOT_MAX_AGE_MS = 30 * 60_000;
 const SNAPSHOT_REFRESH_AGE_MS = 90_000;
 const FULL_GUILD_FETCH_TIMEOUT_MS = 14_000;
@@ -410,30 +408,6 @@ async function getPausedUserIdsCached(guildId?) {
   return pausedInflight;
 }
 
-async function getOpenTicketStatsCached(guildId?) {
-  const now = Date.now();
-  if (ticketsCache && ticketsCache.guildId === String(guildId) && ticketsCache.exp > now) {
-    return ticketsCache.stats;
-  }
-  if (ticketsInflight) return ticketsInflight;
-  ticketsInflight = (async () => {
-    const rows = await Ticket.find({ guildId, open: true }, { claimedBy: 1 })
-      .then((r?) => (Array.isArray(r) ? r : []))
-      .catch(() => []);
-    let unclaimed = 0;
-    for (const t of rows) {
-      const c = t?.claimedBy;
-      if (c == null || c === "") unclaimed += 1;
-    }
-    const stats = { openTickets: rows.length, unclaimedTickets: unclaimed };
-    ticketsCache = { guildId: String(guildId), stats, exp: Date.now() + TICKETS_TTL_MS };
-    return stats;
-  })().finally(() => {
-    ticketsInflight = null;
-  });
-  return ticketsInflight;
-}
-
 async function countPendingPausesCached(guildId?) {
   const gid = String(guildId || "").trim();
   if (!gid) return 0;
@@ -630,16 +604,12 @@ function warmStaffRosterCache(client?) {
 export = {
   getCachedStaffRoster,
   warmStaffRosterCache,
-  getPausedUserIdsCached,
-  getOpenTicketStatsCached,
   countPendingPausesCached,
   ensureGuildMembersLoaded,
   identityFromMember,
   memberIsPm,
   stripDiscordDecorations,
   invalidateStaffRosterCache,
-  saveRosterSnapshot,
   loadRosterSnapshot,
   buildStaffDelMeseFromGuild,
-  buildStaffDelSettimanaFromGuild,
 };

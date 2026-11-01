@@ -588,11 +588,6 @@ function extractEmbedDescription(embed?) {
   return typeof embed.description === "string" ? embed.description : "";
 }
 
-function parseBoostCountFromFooter(footerText?) {
-  const m = String(footerText || "").match(/Ora siamo a\s*(\d+)\s*boost/i);
-  return m ? Math.max(0, Number(m[1]) || 0) : 0;
-}
-
 async function buildBoostAnnounceEmbedIndex(channel?, botUid?, fetchLimit = 200) {
   const byUser = new Map();
   const batch = await channel.messages.fetch({ limit: fetchLimit }).catch(() => null);

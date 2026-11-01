@@ -1,6 +1,6 @@
 /** Workflow staff: grafico e storico dei ruoli nel dettaglio di un resoconto. */
 const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
-const { SiteDocument, ActivityUserProfile } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
+const { SiteDocument } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
 
 async function enrichResocontoDetailChart(detail?, doc?, guild?) {
   if (!detail || String(detail.kind || "").toLowerCase() !== "s") return detail;

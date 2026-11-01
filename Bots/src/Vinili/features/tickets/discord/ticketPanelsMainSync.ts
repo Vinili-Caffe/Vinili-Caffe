@@ -213,10 +213,6 @@ async function syncGuildTicketPanelsFromLegacy(client?, guildId?, options: Recor
 }
 
 export = {
-  MAIN_MULTI_SEED,
-  MAIN_PANEL_DEFS,
-  MAIN_MULTI_DESCRIPTION,
   isMainGuild,
-  ensureMainTicketPanelsSeeded,
   syncGuildTicketPanelsFromLegacy,
 };

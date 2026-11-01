@@ -1,4 +1,4 @@
-const { ActionRowBuilder, ButtonBuilder, ButtonStyle, AttachmentBuilder, MessageFlags } = require("discord.js") as typeof import("discord.js");
+const { ActionRowBuilder, ButtonBuilder, ButtonStyle, AttachmentBuilder } = require("discord.js") as typeof import("discord.js");
 const { getUserOverviewStats } = require("../Services/Community/activityService") as typeof import("../Services/Community/activityService");
 const { resolveTopChannelEntries } = require("../Prefix/Stats/top") as typeof import("../Prefix/Stats/top");
 const { renderUserActivityCanvas } = require("../Utils/Render/activityCanvas") as typeof import("../Utils/Render/activityCanvas");
@@ -107,11 +107,6 @@ function buildUserComponents(ownerId?, targetUserId?, lookbackDays?, view?) {
   return [row1];
 }
 
-function parseUserActivityArgs(args?) {
-  const targetId = args && args[0] != null ? String(args[0]).trim() : null;
-  return { targetId, lookbackDays: 14 };
-}
-
 async function resolveUserTargetAndLookback(message?, args = []) {
   const tokens = Array.isArray(args) ? args.map((a?) => String(a ?? "").trim()).filter(Boolean) : [];
   let lookbackDays = 14;
@@ -161,4 +156,4 @@ async function resolveUserTargetAndLookback(message?, args = []) {
   return { targetId: null, lookbackDays };
 }
 
-export = { name: "user", order: 7, match, execute, USER_REFRESH_CUSTOM_ID_PREFIX, USER_PERIOD_OPEN_CUSTOM_ID_PREFIX, USER_PERIOD_SET_CUSTOM_ID_PREFIX, USER_PERIOD_BACK_CUSTOM_ID_PREFIX, buildUserOverviewPayload, buildUserComponents, parseUserActivityArgs, resolveUserTargetAndLookback };
+export = { name: "user", order: 7, match, execute, USER_REFRESH_CUSTOM_ID_PREFIX, USER_PERIOD_OPEN_CUSTOM_ID_PREFIX, USER_PERIOD_SET_CUSTOM_ID_PREFIX, USER_PERIOD_BACK_CUSTOM_ID_PREFIX, buildUserOverviewPayload, buildUserComponents, resolveUserTargetAndLookback };

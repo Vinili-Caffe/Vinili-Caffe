@@ -165,4 +165,4 @@ function validateMentionResponseText(raw?) {
   return { ok: true, text };
 }
 
-export = { validateMentionResponseText, normalizeMentionResponseText, MAX_LEN };
+export = { validateMentionResponseText, normalizeMentionResponseText };

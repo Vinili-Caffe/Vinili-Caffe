@@ -1,4 +1,4 @@
-const { EmbedBuilder, ButtonBuilder, ActionRowBuilder, ButtonStyle, PermissionFlagsBits, MessageFlags, } = require("discord.js") as typeof import("discord.js");
+const { ButtonBuilder, ActionRowBuilder, ButtonStyle, PermissionFlagsBits, MessageFlags } = require("discord.js") as typeof import("discord.js");
 const { DEFAULT_OBSOLETE_SLASH_NAMES } = require("../../../shared/discord/purgeObsoleteApplicationCommands") as typeof import("../../../shared/discord/purgeObsoleteApplicationCommands");
 const { safeReply: safeReplyHelper } = require("../../../shared/discord/replyRuntime") as typeof import("../../../shared/discord/replyRuntime");
 const{applyDefaultFooterToEmbeds,}=require("../../Utils/Embeds/defaultFooter") as typeof import("../../Utils/Embeds/defaultFooter");

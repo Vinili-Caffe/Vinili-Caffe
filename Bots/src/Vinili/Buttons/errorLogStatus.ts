@@ -49,4 +49,4 @@ async function execute(interaction?) {
   return true;
 }
 
-export = { name: "errorLogStatus", order: 30, match, execute, ERROR_STATUS_IDS };
+export = { name: "errorLogStatus", order: 30, match, execute };

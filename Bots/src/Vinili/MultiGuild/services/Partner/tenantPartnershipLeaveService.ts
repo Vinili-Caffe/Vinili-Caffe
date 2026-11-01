@@ -154,7 +154,6 @@ async function handleTenantGuildBotRemoved(guildId?) {
 export = {
   clearTenantPartnershipGuildData,
   handleTenantGuildBotRemoved,
-  hasPartnershipConfigToClear,
   hasPartnershipLeaveWork,
   buildLeavePartnershipDoneEmbed,
   buildLeavePartnershipNothingEmbed,

@@ -1,7 +1,7 @@
 const { safeMessageReply } = require("../../../../shared/discord/replyRuntime") as typeof import("../../../../shared/discord/replyRuntime");
 const { isViniliFullFeatureGuild } = require("../../core/guildFeatureScope") as typeof import("../../core/guildFeatureScope");
 const { memberCanManageTenantPartnershipSettings } = require("./tenantPartnershipAdminAccess") as typeof import("./tenantPartnershipAdminAccess");
-const { resolveTenantLanguageForMessage, replyTenantMessage, tenantNoticePayload } = require("./tenantPartnershipPrefixMessages") as typeof import("./tenantPartnershipPrefixMessages");
+const { resolveTenantLanguageForMessage, tenantNoticePayload } = require("./tenantPartnershipPrefixMessages") as typeof import("./tenantPartnershipPrefixMessages");
 const { refreshPartnershipConfigCache } = require("../../core/tenantPartnershipSettings") as typeof import("../../core/tenantPartnershipSettings");
 const {
   clearTenantPartnershipGuildData,

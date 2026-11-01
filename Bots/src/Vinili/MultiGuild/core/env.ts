@@ -19,4 +19,4 @@ function autoRegisterGuildsOnJoin() {
   return envFlag("MULTI_GUILD_AUTO_REGISTER", false);
 }
 
-export = { envFlag, isMultiGuildLayerEnabled, allowUnknownGuilds, autoRegisterGuildsOnJoin };
+export = { isMultiGuildLayerEnabled, allowUnknownGuilds, autoRegisterGuildsOnJoin };

@@ -218,7 +218,6 @@ async function runPremiumIdentityExpirySweep(client?) {
 
 export = {
   patchBotGuildIdentity,
-  ensureIdentitySnapshotFromDiscord,
   suspendPremiumIdentityVisual,
   restorePremiumIdentityVisual,
   runPremiumIdentityExpirySweep,

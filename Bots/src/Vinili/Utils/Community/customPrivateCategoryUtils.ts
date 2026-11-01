@@ -16,11 +16,6 @@ function stripCategoryIndexPrefix(name?) {
   return String(name || "").replace(CATEGORY_INDEX_PREFIX_RE, "");
 }
 
-function isCanonicalCustomPrivateCategoryName(name?) {
-  const core = stripCategoryIndexPrefix(name);
-  return normalizeCategoryName(core) === normalizeCategoryName(CUSTOM_PRIVATE_CATEGORY_NAME);
-}
-
 function normalizeCategoryName(name?) {
   return String(name || "")
     .normalize("NFKC")
@@ -39,11 +34,6 @@ function isCustomPrivateCategoryName(name?) {
 function isConfiguredCustomPrivateCategory(category?) {
   const configured = String(IDs?.categories?.categoryPrivate || "").trim();
   return Boolean(configured && category && String(category.id) === configured);
-}
-
-function isCustomPrivateCategory(category?) {
-  if (!category || category.type !== ChannelType.GuildCategory) return false;
-  return isCustomPrivateCategoryName(category.name) || isConfiguredCustomPrivateCategory(category);
 }
 
 function listCustomPrivateCategories(guild?) {
@@ -228,13 +218,7 @@ async function ensureCustomPrivateCategory(guild?, client?) {
 }
 
 export = {
-  CUSTOM_PRIVATE_CATEGORY_NAME,
-  CATEGORY_INDEX_PREFIX_RE,
-  extractCategoryIndexPrefix,
   stripCategoryIndexPrefix,
-  isCanonicalCustomPrivateCategoryName,
-  isCustomPrivateCategoryName,
-  isCustomPrivateCategory,
   listCustomPrivateCategories,
   getCustomPrivateCategoryIdSet,
   isChannelInCustomPrivateCategory,

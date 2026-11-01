@@ -45,16 +45,8 @@ function resolveTenantPrefixFeatureCategory(commandName?) {
   return null;
 }
 
-function resolveOpenMediaCategory(commandName?) {
-  return resolveTenantPrefixFeatureCategory(commandName);
-}
-
 function isTenantFeaturePrefixCommand(commandName?) {
   return Boolean(resolveTenantPrefixFeatureCategory(commandName));
-}
-
-function isOpenMediaPrefixCommand(commandName?) {
-  return isTenantFeaturePrefixCommand(commandName);
 }
 
 function buildAllowResult(options?, reason?) {
@@ -104,4 +96,4 @@ function resolveOpenMediaPrefixBypass(guildId?, commandName?, options: Record<st
   return resolveTenantFeaturePrefixBypass(guildId, commandName, options);
 }
 
-export = { MUSIC_PREFIX_COMMANDS, TTS_PREFIX_COMMANDS, UTILITY_PREFIX_COMMANDS, TENANT_ALWAYS_PREFIX_COMMANDS, MINIGAMES_PREFIX_COMMANDS, PARTNERSHIP_PREFIX_COMMANDS, MODERATION_PREFIX_COMMANDS, resolveTenantPrefixFeatureCategory, resolveOpenMediaCategory, isTenantFeaturePrefixCommand, isOpenMediaPrefixCommand, resolveTenantFeaturePrefixBypass, resolveOpenMediaPrefixBypass };
+export = { MUSIC_PREFIX_COMMANDS, TTS_PREFIX_COMMANDS, UTILITY_PREFIX_COMMANDS, TENANT_ALWAYS_PREFIX_COMMANDS, MINIGAMES_PREFIX_COMMANDS, PARTNERSHIP_PREFIX_COMMANDS, MODERATION_PREFIX_COMMANDS, resolveTenantPrefixFeatureCategory, isTenantFeaturePrefixCommand, resolveOpenMediaPrefixBypass };

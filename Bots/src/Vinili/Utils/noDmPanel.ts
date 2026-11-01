@@ -3,39 +3,6 @@ const { getNoDmPreferences, setNoDmCategories, DM_CATEGORIES, DM_CATEGORY_ALL, D
 // bug: i componenti Discord del pannello non erano importati (il pannello preferenze DM andava in errore)
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require("discord.js") as typeof import("discord.js");
 
-function _stripRef(p?) {
-  if (!p || typeof p !== "object") return p;
-  const o = { ...p }; delete o.reply; delete o.messageReference; delete o.failIfNotExists;
-  if (o.allowedMentions && typeof o.allowedMentions === "object") o.allowedMentions = { ...o.allowedMentions, repliedUser: false };
-  return o;
-}
-async function _reply(message?, payload?) {
-  if (!message || typeof message.reply !== "function") {
-    return (message.channel && message.channel.send) ? message.channel.send(_stripRef(payload)).catch(() => null) : null;
-  }
-  try { return await message.reply(payload); } catch (e) {
-    if (e && e.code === 10008) return null;
-    if (e && e.code === 50035 && e.rawError && e.rawError.errors && e.rawError.errors.message_reference) {
-      return message.channel.send(_stripRef(payload)).catch(() => null);
-    }
-    let sendErr = null;
-    const sent = message.channel && message.channel.send
-      ? await message.channel.send(_stripRef(payload)).catch((err?) => {
-        sendErr = err;
-        return null;
-      })
-      : null;
-    if (!sent) {
-      const replyDetail = e?.rawError?.errors ? JSON.stringify(e.rawError.errors) : e?.message || e;
-      global.logger?.warn?.("[noDmPanel] reply failed:", e?.code, replyDetail);
-      if (sendErr) {
-        const sendDetail = sendErr?.rawError?.errors ? JSON.stringify(sendErr.rawError.errors) : sendErr?.message || sendErr;
-        global.logger?.warn?.("[noDmPanel] channel.send failed:", sendErr?.code, sendDetail);
-      }
-    }
-    return sent;
-  }
-}
 const PREFIX = "nodm_panel";
 const EMOJI_OFF = "<:VC_OfflineStatus:1482527117051957380>";
 const EMOJI_ON = "<:VC_OnlineStatus:1482527088912240650>";
@@ -182,19 +149,7 @@ async function handleNoDmPanelInteraction(interaction?) {
   return true;
 }
 
-async function runNoDmPanel(message?) {
-  const guildId = message.guild.id;
-  const userId = message.author.id;
-  const prefs = await getNoDmPreferences(guildId, userId);
-  await _reply(message, {
-    embeds: [buildPanelEmbed(prefs)],
-    components: buildRows(prefs, userId),
-    allowedMentions: { repliedUser: false },
-  });
-}
-
 export = {
-  runNoDmPanel,
   parseNoDmCustomId,
   handleNoDmPanelInteraction,
   PREFIX,

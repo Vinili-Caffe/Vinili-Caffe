@@ -1,17 +1,7 @@
 const {
-  prependPartnershipPingPrefix,
-  applyTenantSlashPartnershipPings,
   buildPartnershipPingPrefix,
 } = require("./partnershipPingUtils") as typeof import("./partnershipPingUtils");
 const { unwrapDiscordForwardQuoteDump } = require("./partnershipMessageBody") as typeof import("./partnershipMessageBody");
-
-function resolvePartnershipPingRoleId(guildId?, pingRoleId?) {
-  if (pingRoleId !== null && pingRoleId !== undefined) {
-    return String(pingRoleId || "").trim();
-  }
-  const { getPartnershipPingRoleId } = require("./partnershipConfigResolver") as typeof import("./partnershipConfigResolver");
-  return String(getPartnershipPingRoleId(guildId) || "").trim();
-}
 
 const DISCORD_INVITE_URL_RE =
   /(?:https?:\/\/)?(?:www\.)?(?:discord\.gg|discord(?:app)?\.com\/invite|discord\.com\/invite)\/[A-Za-z0-9-]+(?:\?[^\s<>()[\]"']*)?/gi;
@@ -201,10 +191,6 @@ function applyPartnershipContentFilters(raw?, filtersInput = null) {
     .trim();
 }
 
-function sanitizePartnershipDescription(raw?) {
-  return applyPartnershipContentFilters(raw, mainPartnershipContentFilters());
-}
-
 function parseManagerFromContent(content?, authorId?) {
   const text = String(content || "");
   const managerLine = text.match(/(?:<:VC_Mention:\d+>\s*)?Manager:\s*<@!?(\d{16,20})>/i);
@@ -291,55 +277,6 @@ function stripManagerReferencesFromDescription(text?, managerId = null) {
     .trim();
 }
 
-function normalizeManagerLine(text?, managerId?, guildId?, { pingRoleId = null, badgeEmojis = null } = {}) {
-  let content = String(text || "").replace(/\r\n/g, "\n").replace(/\r/g, "\n").trim();
-  content = content
-    .replace(/(?:\n*ping:\s*<@&\d+>\s*)+$/gi, "")
-    .replace(/\n*<:VC_Mention:\d+>\s*Manager:\s*<@!?\d+>(?:\s+[^\n]*)?\s*$/gi, "")
-    .replace(/\n*Manager:\s*(?:<@!?\d+>)?(?:\s+[^\n]*)?\s*$/gi, "")
-    .replace(/\n*Partner effettuata con\s*\*\*<@!?\d+>\*\*\s*$/gi, "")
-    .trim();
-  const resolvedPingRoleId = resolvePartnershipPingRoleId(guildId, pingRoleId);
-  const pingLine = resolvedPingRoleId ? `\n\nPing: <@&${resolvedPingRoleId}>` : "";
-  if (!managerId) {
-    return pingLine ? `${content}${pingLine}` : content;
-  }
-  return `${content}${formatPartnershipManagerLine(managerId, badgeEmojis)}${pingLine}`;
-}
-
-function resolvePartnershipPublishBody({
-  description,
-  legacy = false,
-  contentFilters = null,
-  slashCommand = false,
-  managerId = null,
-  guildId = null,
-  pingPlan = null,
-  pingRoleId = null,
-  badgeEmojis = null,
-}: any = {}) {
-  const sanitized = resolvePartnershipDescriptionForPublish({
-    description,
-    legacy,
-    contentFilters,
-  });
-  if (legacy) {
-    const withManager = normalizeManagerLine(sanitized, managerId, guildId, {
-      pingRoleId,
-      badgeEmojis,
-    });
-    return prependPartnershipPingPrefix(withManager, pingPlan);
-  }
-  if (slashCommand) {
-    let content = applyTenantSlashPartnershipPings(sanitized, pingPlan);
-    if (managerId) {
-      content = `${stripTrailingManagerLine(content)}${formatPartnershipManagerLine(managerId, badgeEmojis)}`;
-    }
-    return content;
-  }
-  return prependPartnershipPingPrefix(sanitized, pingPlan, { includeRolePing: true });
-}
-
 function resolvePartnershipDescriptionForPublish({
   description,
   legacy = false,
@@ -360,19 +297,10 @@ export = {
   extractInviteCode,
   extractInviteCodeFromUrl,
   hasRequiredDiscordInviteLink,
-  textContainsDiscordInviteUrl,
   normalizePartnerDescriptionInviteLinks,
   isValidServerName,
-  stripLinksFromDescription,
   stripOuterCodeBlock,
-  stripCustomEmojisFromDescription,
-  stripInvisibleCharsFromDescription,
-  stripSpoilersFromDescription,
-  stripExtraInvitesFromDescription,
-  sanitizePartnershipDescription,
-  normalizePartnershipContentFilters,
   mainPartnershipContentFilters,
-  applyPartnershipContentFilters,
   parseManagerFromContent,
   splitMessage,
   stripTrailingManagerLine,
@@ -380,7 +308,5 @@ export = {
   formatManagerBadgeSuffix,
   buildPartnershipAboveEmbedContent,
   stripManagerReferencesFromDescription,
-  normalizeManagerLine,
-  resolvePartnershipPublishBody,
   resolvePartnershipDescriptionForPublish,
 };

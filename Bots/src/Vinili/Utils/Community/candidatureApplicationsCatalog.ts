@@ -178,15 +178,10 @@ const BLOGGER_QUESTIONS = [
   },
 ];
 
-function choicePlaceholder(q?) {
-  if (!Array.isArray(q.options) || !q.options.length) return String(q.placeholder || "Rispondi qui");
-  return `Opzioni: ${q.options.map((o?) => o.label || o.value).join(" / ")}`;
-}
-
 function findQuestionLabel(type?, fieldId?) {
   const list = type === "partnermanager" ? PARTNER_MANAGER_QUESTIONS : type === "blogger" ? BLOGGER_QUESTIONS : HELPER_QUESTIONS;
   const row = list.find((q?) => q.id === fieldId);
   return row ? String(row.text || row.modalLabel || fieldId) : fieldId;
 }
 
-export = { HELPER_QUESTIONS, PARTNER_MANAGER_QUESTIONS, BLOGGER_QUESTIONS, choicePlaceholder, findQuestionLabel };
+export = { HELPER_QUESTIONS, PARTNER_MANAGER_QUESTIONS, BLOGGER_QUESTIONS, findQuestionLabel };

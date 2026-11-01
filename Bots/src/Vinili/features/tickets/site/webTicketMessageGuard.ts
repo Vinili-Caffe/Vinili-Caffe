@@ -96,5 +96,4 @@ export = {
   consumeWebTicketMessageRateLimit,
   checkWebTicketUserMessageAutomod,
   USER_MIN_INTERVAL_MS,
-  USER_WINDOW_MAX,
 };

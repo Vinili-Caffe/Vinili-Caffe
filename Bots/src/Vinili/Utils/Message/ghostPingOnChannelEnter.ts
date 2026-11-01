@@ -72,8 +72,6 @@ async function ghostPingNewMemberOnJoin(client?, member?) {
 }
 
 export = {
-  JOIN_GHOST_PING_CHANNEL_IDS,
   ghostPingUserIfHuman,
   ghostPingNewMemberOnJoin,
-  isGhostPingParentChannelId,
 };

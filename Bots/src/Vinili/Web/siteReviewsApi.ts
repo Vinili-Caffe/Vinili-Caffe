@@ -248,11 +248,6 @@ function memberHasStaffOrHighStaffRole(member?) {
   return false;
 }
 
-function memberCanAccessStaffReviews(_member?) {
-  // Tab Staff pubblica: leggibile da tutti (come recensioni server).
-  return true;
-}
-
 function memberCanWriteStaffReview(member?) {
   // Solo membri non-staff: staff/HS non recensiscono se stessi né altri staff/HS.
   if (!member?.roles?.cache) return false;

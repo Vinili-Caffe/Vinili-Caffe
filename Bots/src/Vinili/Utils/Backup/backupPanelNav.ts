@@ -39,7 +39,6 @@ function buildBackupPanelNavRow(ownerId?, currentSection?) {
 export = {
   PANEL_PREFIX,
   SECTION_HOME,
-  formatBackupPanelSelectCustomId,
   parseBackupPanelSelectCustomId,
   buildBackupPanelNavRow,
 };

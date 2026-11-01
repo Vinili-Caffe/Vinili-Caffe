@@ -1,6 +1,5 @@
 const { EmbedBuilder, ChannelType, PermissionsBitField, OverwriteType } = require("discord.js") as typeof import("discord.js");
 const { getGuildChannelCached, getGuildMemberCached, getGuildRoleCached } = require("./interactionEntityCache") as typeof import("./interactionEntityCache");
-const IDs = require("../Config/ids") as typeof import("../Config/ids");
 const { getCustomPrivateCategoryIdSet, isChannelInCustomPrivateCategory } = require("../Community/customPrivateCategoryUtils") as typeof import("../Community/customPrivateCategoryUtils");
 
 async function fetchGuildChannel(guild?, channelId?) {
@@ -252,4 +251,4 @@ function buildCustomVocName(emoji?, baseName?) {
   return `${prefix}${safeBase.slice(0, maxBaseLength)}`;
 }
 
-export = { fetchGuildChannel, fetchGuildMember, fetchGuildRole, replyEphemeral, parseRoleActionId, parseVoiceActionId, findCustomVoiceByRole, findCustomVoiceByOwner, listCustomPrivateVoiceChannelsByOwner, discoverCustomPrivateVoiceOwnersFromGuild, canManageRole, refreshEmbedRoleLine, sanitizeVoiceBaseName, parseCustomVocName, buildCustomVocName, extractFirstUnicodeEmoji, normalizeCustomVocEmojiValue, extractCustomVocEmojiFromMessage };
+export = { fetchGuildChannel, fetchGuildMember, fetchGuildRole, replyEphemeral, parseRoleActionId, parseVoiceActionId, findCustomVoiceByRole, findCustomVoiceByOwner, listCustomPrivateVoiceChannelsByOwner, discoverCustomPrivateVoiceOwnersFromGuild, canManageRole, refreshEmbedRoleLine, sanitizeVoiceBaseName, parseCustomVocName, buildCustomVocName, normalizeCustomVocEmojiValue, extractCustomVocEmojiFromMessage };

@@ -6,8 +6,6 @@ const { CORE_EXEMPT_USER_IDS } = require("./joinGateExemptUtils") as typeof impo
 
 const ANTINUKE_CONFIG_PATH = path.resolve(__dirname, "../../Utils/Config/antiNukeConfig.json",);
 const ANTINUKE_CONFIG = { enabled: true, detectPrune: false, vanityGuard: true, autoQuarantine: { enabled: true, strictMode: true, strictMemberRoleAddition: true, monitorPublicRoles: true, monitorChannelPermissions: true, quarantineRoleId: "1442568884833095832", quarantineTimeoutMs: 24 * 60 * 60_000, whitelistUserIds: new Set(["610531025470095390", "700814270069342339",]), }, kickBanFilter: { enabled: true, minuteLimit: 5, hourLimit: 15, heatPerAction: 20, }, roleCreationFilter: { enabled: true, minuteLimit: 5, hourLimit: 15, heatPerAction: 10, }, roleDeletionFilter: { enabled: true, minuteLimit: 3, hourLimit: 10, heatPerAction: 25, }, channelCreationFilter: { enabled: true, minuteLimit: 4, hourLimit: 12, heatPerAction: 16, }, channelDeletionFilter: { enabled: true, minuteLimit: 3, hourLimit: 8, heatPerAction: 25, }, webhookCreationFilter: { enabled: true, minuteLimit: 3, hourLimit: 10, heatPerAction: 15, }, webhookUpdateFilter: { enabled: true, minuteLimit: 4, hourLimit: 12, heatPerAction: 12, }, webhookDeletionFilter: { enabled: true, minuteLimit: 3, hourLimit: 8, heatPerAction: 10, }, inviteCreationFilter: { enabled: true, minuteLimit: 4, hourLimit: 15, heatPerAction: 12, }, panicMode: { enabled: true, useHeatAlgorithm: true, thresholdHeat: 130, decayPerSec: 5, durationMs: 10 * 60_000, maxDurationMs: 45 * 60_000, extendByMsOnTrigger: 2 * 60_000, lockdown: { dangerousRoles: true, unlockDangerousRolesOnFinish: true, lockModerationCommands: true, lockAllCommands: true, channelLockdown: true, banAttackExecutor: false, roleAllowlistIds: new Set([]), }, warnedRoleIds: new Set([String(IDs.roles.HighStaff || ""),].filter(Boolean)), whitelistCategoryIds: new Set([]), autoBackupSync: { enabled: false, restoreDeletedRoles: true, deleteNewRoles: true, restoreDeletedChannels: true, deleteNewChannels: true, deleteNewWebhooks: true, }, instantRollbackWhileActive: { enabled: true, quarantineExecutor: true, deleteCreatedRoles: true, deleteCreatedChannels: true, deleteCreatedWebhooks: true, }, }, };
-const ANTINUKE_PRESETS = { safe: { kickBanFilter: { minuteLimit: 6, hourLimit: 18, heatPerAction: 18 }, roleCreationFilter: { minuteLimit: 6, hourLimit: 16, heatPerAction: 9 }, roleDeletionFilter: { minuteLimit: 4, hourLimit: 10, heatPerAction: 22 }, channelCreationFilter: { minuteLimit: 5, hourLimit: 12, heatPerAction: 14 }, channelDeletionFilter: { minuteLimit: 3, hourLimit: 8, heatPerAction: 24 }, webhookCreationFilter: { minuteLimit: 4, hourLimit: 12, heatPerAction: 12 }, webhookUpdateFilter: { minuteLimit: 5, hourLimit: 14, heatPerAction: 10 }, webhookDeletionFilter: { minuteLimit: 4, hourLimit: 10, heatPerAction: 10 }, inviteCreationFilter: { minuteLimit: 5, hourLimit: 16, heatPerAction: 10 }, panicMode: { thresholdHeat: 140, decayPerSec: 5, durationMs: 8 * 60_000, maxDurationMs: 30 * 60_000, extendByMsOnTrigger: 90_000, autoBackupSync: { enabled: true, restoreDeletedRoles: true, deleteNewRoles: true, restoreDeletedChannels: true, deleteNewChannels: true, deleteNewWebhooks: true, }, }, }, balanced: { kickBanFilter: { minuteLimit: 5, hourLimit: 15, heatPerAction: 20 }, roleCreationFilter: { minuteLimit: 5, hourLimit: 15, heatPerAction: 10 }, roleDeletionFilter: { minuteLimit: 3, hourLimit: 10, heatPerAction: 25 }, channelCreationFilter: { minuteLimit: 4, hourLimit: 12, heatPerAction: 16 }, channelDeletionFilter: { minuteLimit: 3, hourLimit: 8, heatPerAction: 25 }, webhookCreationFilter: { minuteLimit: 3, hourLimit: 10, heatPerAction: 15 }, webhookUpdateFilter: { minuteLimit: 4, hourLimit: 12, heatPerAction: 12 }, webhookDeletionFilter: { minuteLimit: 3, hourLimit: 8, heatPerAction: 10 }, inviteCreationFilter: { minuteLimit: 4, hourLimit: 15, heatPerAction: 12 }, panicMode: { thresholdHeat: 130, decayPerSec: 5, durationMs: 10 * 60_000, maxDurationMs: 45 * 60_000, extendByMsOnTrigger: 2 * 60_000, autoBackupSync: { enabled: true, restoreDeletedRoles: true, deleteNewRoles: true, restoreDeletedChannels: true, deleteNewChannels: true, deleteNewWebhooks: true, }, }, }, strict: { kickBanFilter: { minuteLimit: 4, hourLimit: 12, heatPerAction: 25 }, roleCreationFilter: { minuteLimit: 4, hourLimit: 12, heatPerAction: 12 }, roleDeletionFilter: { minuteLimit: 2, hourLimit: 8, heatPerAction: 30 }, channelCreationFilter: { minuteLimit: 3, hourLimit: 10, heatPerAction: 18 }, channelDeletionFilter: { minuteLimit: 2, hourLimit: 6, heatPerAction: 30 }, webhookCreationFilter: { minuteLimit: 2, hourLimit: 8, heatPerAction: 18 }, webhookUpdateFilter: { minuteLimit: 3, hourLimit: 9, heatPerAction: 16 }, webhookDeletionFilter: { minuteLimit: 2, hourLimit: 6, heatPerAction: 14 }, inviteCreationFilter: { minuteLimit: 3, hourLimit: 10, heatPerAction: 15 }, panicMode: { thresholdHeat: 110, decayPerSec: 4, durationMs: 12 * 60_000, maxDurationMs: 60 * 60_000, extendByMsOnTrigger: 3 * 60_000, autoBackupSync: { enabled: true, restoreDeletedRoles: true, deleteNewRoles: true, restoreDeletedChannels: true, deleteNewChannels: true, deleteNewWebhooks: true, }, }, }, };
-
 function readJsonSafe(filePath?, fallback?) {
   try {
     if (!fs.existsSync(filePath)) return fallback;
@@ -314,29 +312,4 @@ function setAntiNukeConfigSnapshot(rawConfig?) {
   }
 }
 
-function applyPresetSection(target?, patch?) {
-  if (!target || !patch || typeof patch !== "object") return;
-  for (const [k, v] of Object.entries(patch)) {
-    target[k] = v;
-  }
-}
-
-function applyAntiNukePreset(name = "balanced") {
-  const presetKey = String(name || "").toLowerCase();
-  const preset = ANTINUKE_PRESETS[presetKey];
-  if (!preset) return { ok: false, reason: "invalid_preset" };
-  applyPresetSection(ANTINUKE_CONFIG.kickBanFilter, preset.kickBanFilter);
-  applyPresetSection(ANTINUKE_CONFIG.roleCreationFilter, preset.roleCreationFilter);
-  applyPresetSection(ANTINUKE_CONFIG.roleDeletionFilter, preset.roleDeletionFilter);
-  applyPresetSection(ANTINUKE_CONFIG.channelCreationFilter, preset.channelCreationFilter);
-  applyPresetSection(ANTINUKE_CONFIG.channelDeletionFilter, preset.channelDeletionFilter);
-  applyPresetSection(ANTINUKE_CONFIG.webhookCreationFilter, preset.webhookCreationFilter);
-  applyPresetSection(ANTINUKE_CONFIG.webhookUpdateFilter, preset.webhookUpdateFilter);
-  applyPresetSection(ANTINUKE_CONFIG.webhookDeletionFilter, preset.webhookDeletionFilter);
-  applyPresetSection(ANTINUKE_CONFIG.inviteCreationFilter, preset.inviteCreationFilter);
-  applyPresetSection(ANTINUKE_CONFIG.panicMode, preset.panicMode);
-  saveAntiNukePersistentConfig();
-  return { ok: true, preset: presetKey };
-}
-
-export = { ANTINUKE_CONFIG_PATH, ANTINUKE_CONFIG, ANTINUKE_PRESETS, readJsonSafe, applyPersistentAntiNukeConfig, enforceCriticalAntiNukeGuards, setAntiNukeConfigSnapshot, applyAntiNukePreset };
+export = { ANTINUKE_CONFIG_PATH, ANTINUKE_CONFIG, readJsonSafe, applyPersistentAntiNukeConfig, enforceCriticalAntiNukeGuards, setAntiNukeConfigSnapshot };

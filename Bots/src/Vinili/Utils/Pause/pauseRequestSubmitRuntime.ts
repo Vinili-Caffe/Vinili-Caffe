@@ -1,9 +1,8 @@
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js") as typeof import("discord.js");
 const IDs = require("../Config/ids") as typeof import("../Config/ids");
 const { EPHEMERAL_TTL_NORMAL_MS, scheduleMessageDeletion } = require("../Config/ephemeralMessageTtl") as typeof import("../Config/ephemeralMessageTtl");
-const { createPauseRequest, PAUSE_REQUEST_ROLE_IDS, formatRuoloPausaRichiestoInMessage } = require("./pauseRequestRuntime") as typeof import("./pauseRequestRuntime");
+const { createPauseRequest, PAUSE_REQUEST_ROLE_IDS } = require("./pauseRequestRuntime") as typeof import("./pauseRequestRuntime");
 
-const PAUSE_ROLE_PICK_TIMEOUT_MS = 45_000;
 const PAUSE_ROLE_PICK_PREFIX = "pause_rolepick:";
 const PAUSE_ROLE_PICK_PM = `${PAUSE_ROLE_PICK_PREFIX}pm`;
 const PAUSE_ROLE_PICK_STAFF = `${PAUSE_ROLE_PICK_PREFIX}staff`;
@@ -18,15 +17,6 @@ function memberCanRequestPause(member?) {
 
 function storePendingPauseRolePick(userId?, payload?) {
   pendingPauseRolePick.set(String(userId), { ...payload, at: Date.now() });
-}
-
-function takePendingPauseRolePick(userId?) {
-  const key = String(userId || "");
-  const entry = pendingPauseRolePick.get(key);
-  pendingPauseRolePick.delete(key);
-  if (!entry) return null;
-  if (Date.now() - Number(entry.at || 0) > PAUSE_ROLE_PICK_TIMEOUT_MS) return null;
-  return entry;
 }
 
 async function resolveRequestedPauseRole(member?, channel?, authorMention?) {
@@ -102,13 +92,6 @@ async function submitPauseRequestForMember({ guild, member, rawStart, rawEnd, re
 }
 
 export = {
-  PAUSE_ROLE_PICK_PREFIX,
-  PAUSE_ROLE_PICK_PM,
-  PAUSE_ROLE_PICK_STAFF,
-  PAUSE_ROLE_PICK_BOTH,
-  PAUSE_ROLE_PICK_TIMEOUT_MS,
   memberCanRequestPause,
-  storePendingPauseRolePick,
-  takePendingPauseRolePick,
   submitPauseRequestForMember,
 };

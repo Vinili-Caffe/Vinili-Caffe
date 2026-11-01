@@ -555,10 +555,6 @@ function findMatchingCreateAction(actions?, ev?) {
   return null;
 }
 
-function actionAlreadyExists(actions?, ev?) {
-  return Boolean(findMatchingCreateAction(actions, ev));
-}
-
 async function persistImportedEvent(guildId?, ev?, opts: Record<string, any> = {}) {
   const pmUserId = String(ev.pmUserId || "").trim();
   if (!/^\d{16,20}$/.test(pmUserId)) return { ok: false, reason: "missing_pm" };
@@ -1324,7 +1320,5 @@ export = {
   enqueuePartnershipHistoryMigration,
   getPartnershipHistoryMigrationStatus,
   undoPartnershipHistoryMigration,
-  QUEUE_STATE_KEY: QUEUE_STATE_KEY_LARGE,
   QUEUE_STATE_KEY_LARGE,
-  QUEUE_STATE_KEY_SMALL,
 };

@@ -62,6 +62,5 @@ async function resolveQuotePostChannel(guild?) {
 export = {
   resolveQuoteChannelId,
   resolveQuotePostChannel,
-  resolveBoardChannelId,
   resolveBoardPostChannel,
 };

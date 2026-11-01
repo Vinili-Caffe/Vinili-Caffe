@@ -382,10 +382,8 @@ function discordGuideMarkdownToHtml(markdown?, opts: Record<string, any> = {}) {
 export = {
   escapeHtml,
   humanizeIdKey,
-  shortGuideLinkLabel,
   discordGuideMarkdownToHtml,
   buildDefaultRoleNameMap,
   buildDefaultChannelNameMap,
   buildDefaultUserNameMap,
-  KNOWN_GUIDE_USERS,
 };

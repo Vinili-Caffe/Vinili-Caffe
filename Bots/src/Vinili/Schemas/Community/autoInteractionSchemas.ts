@@ -1,4 +1,3 @@
-const mongoose = require("mongoose") as typeof import("mongoose");
 const { ActivityUserProfile } = require("./communitySchemas") as typeof import("./communitySchemas");
 
 function asQueryLike(run?) {

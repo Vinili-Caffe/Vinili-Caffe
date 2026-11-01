@@ -115,19 +115,6 @@ function isCategoryWhitelisted(channel?) {
   return set.has(parentId) || set.has(id);
 }
 
-function addMaintenanceAllowlistUser(guildId?, userId?, durationMs = 15 * 60_000) {
-  const g = String(guildId || "");
-  const u = String(userId || "");
-  if (!g || !u) return { ok: false, reason: "missing_ids" };
-  const safeDuration = Math.max(60_000, Math.min(MAINTENANCE_MAX_MS, Number(durationMs || 0)));
-  cleanupMaintenanceAllowlist(g, Date.now());
-  const bucket = MAINTENANCE_ALLOWLIST.get(g) || new Map();
-  const expiresAt = Date.now() + safeDuration;
-  bucket.set(u, expiresAt);
-  MAINTENANCE_ALLOWLIST.set(g, bucket);
-  return { ok: true, expiresAt, durationMs: safeDuration };
-}
-
 function removeMaintenanceAllowlistUser(guildId?, userId?) {
   const g = String(guildId || "");
   const u = String(userId || "");
@@ -140,20 +127,4 @@ function removeMaintenanceAllowlistUser(guildId?, userId?) {
   return { ok: true, removed };
 }
 
-function listMaintenanceAllowlist(guildId?) {
-  const g = String(guildId || "");
-  if (!g) return [];
-  const now = Date.now();
-  cleanupMaintenanceAllowlist(g, now);
-  const bucket = MAINTENANCE_ALLOWLIST.get(g);
-  if (!bucket?.size) return [];
-  return Array.from(bucket.entries())
-    .map(([userId, expiresAt]) => ({
-      userId: String(userId),
-      expiresAt: Number(expiresAt || 0),
-      remainingMs: Math.max(0, Number(expiresAt || 0) - now),
-    }))
-    .sort((a?, b?) => a.expiresAt - b.expiresAt);
-}
-
-export = { UNKNOWN_EXECUTOR_ID, MAINTENANCE_ALLOWLIST, getMainRoleIds, cleanupMaintenanceAllowlist, isWhitelistedExecutor, isWhitelistedExecutorAsync, isCategoryWhitelisted, addMaintenanceAllowlistUser, removeMaintenanceAllowlistUser, listMaintenanceAllowlist };
+export = { UNKNOWN_EXECUTOR_ID, MAINTENANCE_ALLOWLIST, getMainRoleIds, cleanupMaintenanceAllowlist, isWhitelistedExecutor, isWhitelistedExecutorAsync, isCategoryWhitelisted, removeMaintenanceAllowlistUser };

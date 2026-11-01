@@ -392,6 +392,5 @@ async function restorePendingVoiceTranscriptions(client?) {
 
 export = {
   handleVoiceTranscriptionMessage,
-  buildTranscriptionEmbed,
   restorePendingVoiceTranscriptions,
 };

@@ -262,16 +262,6 @@ function buildBadgeGridRow(state?, snapshot?, badges?, padKeyPrefix?) {
   return row;
 }
 
-function isBadgeCompactPanel(message?) {
-  for (const row of message?.components || []) {
-    for (const comp of row?.components || []) {
-      const parsed = parseProfileCustomId(comp?.customId);
-      if (parsed?.action === TENANT_PROFILE_SECTIONS.BADGE_BROWSE) return true;
-    }
-  }
-  return false;
-}
-
 function isBadgeBrowsePanel(message?) {
   for (const row of message?.components || []) {
     for (const comp of row?.components || []) {
@@ -557,7 +547,6 @@ export = {
   isBotDev,
   TENANT_PROFILE_SECTIONS,
   MAX_SELECTED_BADGES,
-  isBadgeCompactPanel,
   isBadgeBrowsePanel,
   readBadgeBrowsePageFromMessage,
 };

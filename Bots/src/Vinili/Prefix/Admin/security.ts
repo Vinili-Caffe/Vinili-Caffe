@@ -1,11 +1,11 @@
 const{EmbedBuilder,PermissionsBitField,ActionRowBuilder,StringSelectMenuBuilder,ButtonBuilder,ButtonStyle,}=require("discord.js") as typeof import("discord.js");
 const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
 const { safeMessageReply } = require("../../../shared/discord/replyRuntime") as typeof import("../../../shared/discord/replyRuntime");
-const{getAntiNukeStatusSnapshot,stopAntiNukePanic,triggerAntiNukePanicExternal,setAntiNukeConfigSnapshot,}=require("../../Services/Moderation/antiNukeService") as typeof import("../../Services/Moderation/antiNukeService");
+const{ getAntiNukeStatusSnapshot, stopAntiNukePanic, setAntiNukeConfigSnapshot }=require("../../Services/Moderation/antiNukeService") as typeof import("../../Services/Moderation/antiNukeService");
 const{getSecurityStaticsSnapshot,getSecurityProfilesSnapshot,}=require("../../Services/Moderation/securityProfilesService") as typeof import("../../Services/Moderation/securityProfilesService");
 const{getJoinRaidStatusSnapshot,setJoinRaidConfigSnapshot,stopJoinRaidWindowForGuild,}=require("../../Services/Moderation/joinRaidService") as typeof import("../../Services/Moderation/joinRaidService");
 const{getJoinGateConfigSnapshot,updateJoinGateConfig,}=require("../../Services/Moderation/joinGateService") as typeof import("../../Services/Moderation/joinGateService");
-const{getAutoModConfigSnapshot,getAutoModRulesSnapshot,getAutoModPanicSnapshot,triggerAutoModPanicExternal,updateAutoModConfig,clearAutoModPanicState,}=require("../../Services/Moderation/automodService") as typeof import("../../Services/Moderation/automodService");
+const{ getAutoModConfigSnapshot, getAutoModRulesSnapshot, getAutoModPanicSnapshot, updateAutoModConfig, clearAutoModPanicState }=require("../../Services/Moderation/automodService") as typeof import("../../Services/Moderation/automodService");
 const { getSecurityLockState, invalidateSecurityLockCache } = require("../../Services/Moderation/securityOrchestratorService") as typeof import("../../Services/Moderation/securityOrchestratorService");
 const { sendSecurityAuditLog } = require("../../Utils/Logging/securityAuditLog") as typeof import("../../Utils/Logging/securityAuditLog");
 
@@ -26,8 +26,6 @@ const PANIC_CONTROL_ROLE_IDS=[IDs.roles.Founder].filter(Boolean);
 const PAGE_ROLES = 0;
 const PAGE_CHANNELS = 1;
 const PAGE_USERS = 2;
-const TOTAL_STATICS_PAGES = 3;
-
 const SECURITY_MODULE_DEFS = [
   { id: "antinuke", label: "AntiNuke", hint: "Panic, quarantine, vanity guard" },
   { id: "automod", label: "AutoMod", hint: "Heat system, filtri spam, panic" },
@@ -801,7 +799,6 @@ export = {
   subcommands: [],
   subcommandAliases: {},
   subcommandsDescriptions: {},
-  subcommandsUsages: {},
   allowEmptyArgs: true,
 
   buildSecurityHubPayload,

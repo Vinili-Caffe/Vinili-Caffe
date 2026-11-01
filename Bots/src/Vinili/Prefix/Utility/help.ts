@@ -243,15 +243,6 @@ function getPrefixDescription(command?) {
   return base;
 }
 
-function prettifySubcommandName(name?) {
-  const raw = String(name || "").trim();
-  if (!raw) return "subcommand";
-  return raw
-    .replace(/[._-]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
 function getPrefixSubcommandDescription(command?, subcommandName?) {
   const commandName = String(command?.name || "").toLowerCase();
   const sub = String(subcommandName || "").toLowerCase();
@@ -588,50 +579,6 @@ function hasAnyRole(memberRoles?, roleIds?) {
 
 const STAFF_TIER_ROLES = [IDs.roles.Founder, IDs.roles.HighStaff, IDs.roles.Staff, IDs.roles.PartnerManager,].filter(Boolean);
 
-function getEntryDisplayTier(entry?) {
-  const roles = entry?.roles;
-  if (!Array.isArray(roles) || roles.length === 0) return "utente";
-  let minTier = 3;
-  for (const r of roles) {
-    if (r === IDs.roles.Founder) minTier = Math.min(minTier, 3);
-    else if (r === IDs.roles.HighStaff) minTier = Math.min(minTier, 2);
-    else if (
-      r === IDs.roles.Staff ||
-      r === IDs.roles.PartnerManager
-    )
-      minTier = Math.min(minTier, 1);
-    else minTier = Math.min(minTier, 0);
-  }
-  if (minTier === 0) return "utente";
-  if (minTier === 1) return IDs.roles.Staff;
-  if (minTier === 2) return IDs.roles.HighStaff;
-  return IDs.roles.Founder;
-}
-
-function entryBelongsToPage(entry?, pageRoleId?) {
-  return getEntryDisplayTier(entry) === pageRoleId;
-}
-
-function memberCanSeeEntry(entry?, memberRoles?, pageRoleId?) {
-  if (pageRoleId === "utente") {
-    if (!Array.isArray(entry.roles) || !entry.roles.length) return true;
-    if (entry.roles.some((r?) => STAFF_TIER_ROLES.includes(r))) return false;
-    const entryOnlyVip = entry.roles.length > 0 && entry.roles.every((r?) => String(r) === String(IDs.roles.VIP || ""));
-    const memberHasMemberRole = IDs.roles.Member && memberRoles?.has(IDs.roles.Member);
-    if (entryOnlyVip && memberHasMemberRole) return true;
-    return hasAnyRole(memberRoles, entry.roles);
-  }
-  return hasAnyRole(memberRoles, entry.roles);
-}
-
-function filterByPage(entries?, pageRoleId?, memberRoles?) {
-  return entries.filter(
-    (entry?) =>
-      entryBelongsToPage(entry, pageRoleId) &&
-      memberCanSeeEntry(entry, memberRoles, pageRoleId),
-  );
-}
-
 function canMemberSeeEntry(entry?, memberRoles?) {
   const roles = entry?.roles;
   if (!Array.isArray(roles) || roles.length === 0) return true;
@@ -668,14 +615,6 @@ function filterEntriesByHelpChannel(entries?, channelId?, memberRoles = null) {
     });
   }
   return list;
-}
-
-function chunkEntries(entries?, size?) {
-  const chunks = [];
-  for (let i = 0; i < entries.length; i += size) {
-    chunks.push(entries.slice(i, i + size));
-  }
-  return chunks.length ? chunks : [[]];
 }
 
 function chunkEntriesByCategory(entries?, maxPerPage?) {
@@ -1608,21 +1547,6 @@ function buildMiniHelpEmbed(query?, entries?, context: Record<string, any> = {})
     .setDescription(`${lines.join("\n")}${extra}`);
 }
 
-function buildHelpNewUntilPayload(client?, untilMs?) {
-  const permissions = loadPermissions();
-  const ts =
-    typeof untilMs === "number" && Number.isFinite(untilMs)
-      ? untilMs
-      : Date.now() + HELP_NEW_DAYS * 24 * 60 * 60 * 1000;
-  const entries = buildEntries(client, permissions);
-  const out: Record<string, any> = {};
-  for (const entry of entries) {
-    const key = getHelpNewEntryKey(entry);
-    if (key) out[key] = ts;
-  }
-  return out;
-}
-
 /** Catalog for site wiki — same entries/filter as +help for the given Discord roles. */
 function buildWikiHelpCatalog(client?, roleIds = []) {
   const permissions = loadPermissions();
@@ -1700,7 +1624,6 @@ export = {
   description: "Apre la guida ai comandi disponibili su questo server.",
   usage: "+help [comando]",
   examples: ["+help", "+help setup", "+help points"],
-  buildHelpNewUntilPayload,
   parseMainHelpCustomId,
   handleMainHelpNavInteraction,
   buildEntries,

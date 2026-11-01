@@ -437,10 +437,6 @@ async function resetStaffLadderTrackInDb(guildId?, userId?) {
   ).catch(() => null);
 }
 
-async function purgeStaffChannelMessagesForUser(guild?, userId?) {
-  return deleteStaffRelatedMessagesFromConfiguredChannels(guild, userId);
-}
-
 async function appendStaffRolesHistoryEntry(
   guildId,
   userId,
@@ -497,12 +493,9 @@ export = {
   deleteThreadForMessage,
   deleteStaffPauseRequestChannelMessages,
   deleteStaffRelatedMessagesFromConfiguredChannels,
-  purgeStaffChannelMessagesForUser,
   ensureStaff,
   reconcileStaffValutazioneCounters,
   archiveStaffRolesHistoryThenUnsetStaff,
-  extractPartnershipStaffRetention,
-  buildStaffLadderTrackResetUpdate,
   applyStaffLadderTrackResetToObject,
   resetStaffLadderTrackInDb,
 };

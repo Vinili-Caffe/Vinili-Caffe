@@ -74,7 +74,5 @@ function resolveTenantModerationMemberCheck(member?, commandName?, options: Reco
 
 export = {
   MODERATION_PREFIX_COMMANDS,
-  isTenantModerationPrefixCommand,
-  memberHasTenantModerationPermission,
   resolveTenantModerationMemberCheck,
 };

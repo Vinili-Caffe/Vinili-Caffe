@@ -1,4 +1,4 @@
-const { EmbedBuilder, PermissionFlagsBits, MessageType } = require("discord.js") as typeof import("discord.js");
+const { EmbedBuilder, PermissionFlagsBits } = require("discord.js") as typeof import("discord.js");
 const { handleTtsMessage } = require("../Services/TTS/ttsService") as typeof import("../Services/TTS/ttsService");
 const { handleMinigameMessage } = require("../Services/Minigames/minigameService") as typeof import("../Services/Minigames/minigameService");
 const { recordMessageActivity } = require("../Services/Community/activityService") as typeof import("../Services/Community/activityService");
@@ -85,27 +85,6 @@ async function executeTenantPartnershipMessageFlow(message?, resolvedClient?, de
     getCachedOrFetchMember,
     hasAnyStaffBypassPermission,
   });
-}
-
-function isNativeBoostSystemMessage(message?) {
-  const t = Number(message?.type);
-  const boostTypes = new Set([
-    MessageType?.GuildBoost,
-    MessageType?.GuildBoostTier1,
-    MessageType?.GuildBoostTier2,
-    MessageType?.GuildBoostTier3,
-    (MessageType as any)?.UserPremiumGuildSubscription,
-    (MessageType as any)?.UserPremiumGuildSubscriptionTier1,
-    (MessageType as any)?.UserPremiumGuildSubscriptionTier2,
-    (MessageType as any)?.UserPremiumGuildSubscriptionTier3,
-    8,
-    9,
-    10,
-    11,
-  ].filter((x?) => typeof x === "number"));
-  if (boostTypes.has(t)) return true;
-  const txt = String(message?.content || "");
-  return /(ha\s+appena\s+potenziato\s+il\s+server|just\s+boosted\s+the\s+server)/i.test(txt);
 }
 
 function hasAnyStaffBypassPermission(permissions?) {

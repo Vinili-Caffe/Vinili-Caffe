@@ -213,9 +213,6 @@ function installBotPresenceHooks(client?) {
 }
 
 export = {
-  isDiscordStreamingUrl,
-  buildBotPresenceActivities,
-  resolveBotPresenceStatus,
   buildInitialClientPresenceOptions,
   patchClientPresenceGuard,
   applyBotPresence,

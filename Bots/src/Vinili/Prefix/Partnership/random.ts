@@ -14,10 +14,12 @@ const {
   pickRandomOperationalPartnershipGuildId,
 } = require("../../MultiGuild/utils/Partner/tenantServerInfoRuntime") as typeof import("../../MultiGuild/utils/Partner/tenantServerInfoRuntime");
 const { buildTenantLookupNotFoundPayload } = require("../../MultiGuild/utils/Partner/tenantLookupNotFoundRuntime") as typeof import("../../MultiGuild/utils/Partner/tenantLookupNotFoundRuntime");
-const { resolveTenantLanguageForMessage,
+const {
+  resolveTenantLanguageForMessage,
   tenantOnlyError,
   tenantNoPermissionError,
-  replyTenantMessage, tenantNoticePayload } = require("../../MultiGuild/utils/Partner/tenantPartnershipPrefixMessages") as typeof import("../../MultiGuild/utils/Partner/tenantPartnershipPrefixMessages");
+  tenantNoticePayload,
+} = require("../../MultiGuild/utils/Partner/tenantPartnershipPrefixMessages") as typeof import("../../MultiGuild/utils/Partner/tenantPartnershipPrefixMessages");
 const { replyPrefixSetupRequired } = require("../../MultiGuild/utils/Partner/tenantSetupRequiredReply") as typeof import("../../MultiGuild/utils/Partner/tenantSetupRequiredReply");
 
 function memberCanUseTenantRandomServer(member?, guild?) {

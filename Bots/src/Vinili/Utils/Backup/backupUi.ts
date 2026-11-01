@@ -252,10 +252,6 @@ function buildLoadCancelResultEmbed(cancelled?) {
 }
 
 export = {
-  CHANNEL_TYPE_LABEL,
-  formatBytes,
-  truncateLines,
-  toCodeBlock,
   buildCreatingEmbed,
   buildSuccessEmbed,
   buildErrorEmbed,
@@ -263,7 +259,5 @@ export = {
   buildLoadStatusEmbed,
   buildLoadCancelResultEmbed,
   sortChannels,
-  formatChannelList,
   formatRoleList,
-  countMessages,
 };

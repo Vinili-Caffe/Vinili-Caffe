@@ -234,10 +234,6 @@ async function reconcileDoubleBoosterRolesOnStartup(client?, opts: Record<string
   return { ok: true, scanned, assigned };
 }
 
-async function fetchGuildPremiumSubscriptionsMap(guild?) {
-  return new Map();
-}
-
 async function getMemberBoostSlotSignals(guild?, userId?, channel?, opts: Record<string, any> = {}) {
   const gid = String(guild?.id || "");
   const uid = String(userId || "");

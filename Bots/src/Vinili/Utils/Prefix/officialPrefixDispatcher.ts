@@ -1,4 +1,4 @@
-const { EmbedBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder, PermissionFlagsBits, } = require("discord.js") as typeof import("discord.js");
+const { ButtonBuilder, ButtonStyle, ActionRowBuilder } = require("discord.js") as typeof import("discord.js");
 const path = require("path") as typeof import("path");
 const { readSnapshotWithMeta, writeSnapshotWithMeta } = require("../../../shared/recovery/snapshotStore") as typeof import("../../../shared/recovery/snapshotStore");
 const { registerShutdownFlush, armShutdownCheckpoint } = require("../../../shared/recovery/shutdownCheckpoint") as typeof import("../../../shared/recovery/shutdownCheckpoint");
@@ -231,35 +231,6 @@ async function sendTemporaryReply(message?, payload?, ttlMs?) {
     timer.unref?.();
   }
   return sent;
-}
-
-async function addLoadingReaction(message?) {
-  const loadingEmojiId = IDs.emojis?.loadingAnimatedId;
-  const fallbackEmojiId = IDs.emojis?.loadingFallbackId;
-  const emoji = loadingEmojiId ? message.client?.emojis?.cache?.get(loadingEmojiId) : null;
-  if (emoji) {
-    await message.react(emoji).catch(() => {});
-    return;
-  }
-  if (fallbackEmojiId) {
-    await message.react(fallbackEmojiId).catch(() => {});
-    return;
-  }
-  await message.react("\u23F3").catch(() => {});
-}
-
-async function removeLoadingReaction(message?, resolvedClient?) {
-  try {
-    const loadingId = IDs.emojis?.loadingAnimatedId;
-    const fallbackId = IDs.emojis?.loadingFallbackId;
-    const emoji = loadingId ? message.client?.emojis?.cache?.get(loadingId) : null;
-    if (emoji) {
-      const react = message.reactions?.resolve?.(emoji.id);
-      if (react) await react.users.remove(resolvedClient.user.id);
-    }
-    const fallback = message.reactions?.resolve?.("VC_Loading") || (fallbackId ? message.reactions?.resolve?.(fallbackId) : null);
-    if (fallback) await fallback.users.remove(resolvedClient.user.id);
-  } catch (_) {}
 }
 
 async function resolveWithTimeout(task?, fallbackValue?, label?, timeoutMs = PREFIX_PRECHECK_TIMEOUT_MS) {

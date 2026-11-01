@@ -18,26 +18,6 @@ function parseProfilePanelOwnerIdFromCustomId(customId?) {
   return parseProfilePanelPartsFromCustomId(customId).ownerId;
 }
 
-function parseProfilePanelViewerIdFromCustomId(customId?) {
-  return parseProfilePanelPartsFromCustomId(customId).viewerId;
-}
-
-async function resolveProfileCommandTargetUserId(client?, commandMessage?) {
-  if (!commandMessage?.author) return null;
-  const mentioned = commandMessage.mentions?.users?.first?.();
-  if (mentioned?.id) return String(mentioned.id);
-  const content = String(commandMessage.content || "").trim();
-  const parts = content.split(/\s+/);
-  if (parts.length <= 1) return String(commandMessage.author.id);
-  const raw = parts.slice(1).join(" ").trim();
-  const id = raw.replace(/[<@!>]/g, "");
-  if (/^\d{17,20}$/.test(id)) {
-    const fetched = await client?.users?.fetch?.(id).catch(() => null);
-    return fetched ? String(fetched.id) : String(commandMessage.author.id);
-  }
-  return String(commandMessage.author.id);
-}
-
 async function resolveProfilePanelControl(interaction?, ownerIdFromCustomId = null) {
   const userId = String(interaction?.user?.id || "");
   if (!userId) {
@@ -81,8 +61,5 @@ async function resolveProfilePanelControl(interaction?, ownerIdFromCustomId = nu
 
 export = {
   parseProfilePanelOwnerIdFromCustomId,
-  parseProfilePanelViewerIdFromCustomId,
-  parseProfilePanelPartsFromCustomId,
-  resolveProfileCommandTargetUserId,
   resolveProfilePanelControl,
 };

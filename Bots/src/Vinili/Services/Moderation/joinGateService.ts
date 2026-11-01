@@ -153,4 +153,4 @@ function updateJoinGateConfig(pathExpr?, rawValue?) {
   return setJoinGateConfigSnapshot(next);
 }
 
-export = { VALID_ACTIONS, DEFAULT_JOIN_GATE_CONFIG, getJoinGateConfigSnapshot, setJoinGateConfigSnapshot, updateJoinGateConfig };
+export = { getJoinGateConfigSnapshot, setJoinGateConfigSnapshot, updateJoinGateConfig };

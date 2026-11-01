@@ -17,15 +17,6 @@ function shouldSkipBackfillRow(hourKey?, hourSet?) {
   return [...hourSet].some((k?) => k.startsWith(`${dateKey}T`) && k !== hourKey);
 }
 
-function effectiveMinigameBiweeklyScore(doc?, weekKeys?) {
-  const keys = Array.isArray(weekKeys) ? weekKeys : [];
-  let sum = 0;
-  for (const k of keys) {
-    sum += effectiveMinigameWeeklyScoreForRankWeek(doc, k);
-  }
-  return Math.max(0, Math.floor(sum));
-}
-
 function wasStaffDuringWeeklyActivityWindow(staff?, weekPeriodStartMs?, weekPeriodEndMs?, trackedStaffRoleIds?, staffRolesHistoryRetention?) {
   const set =
     trackedStaffRoleIds instanceof Set

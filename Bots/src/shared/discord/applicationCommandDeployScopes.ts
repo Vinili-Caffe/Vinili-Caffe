@@ -67,7 +67,6 @@ async function clearTenantGuildApplicationCommands(client?, guildId?) {
 
 export = {
   GLOBAL_TENANT_COMMAND_NAMES,
-  isGlobalTenantCommand,
   splitApplicationCommandsForDeploy,
   deployGlobalApplicationCommands,
   deployGuildApplicationCommands,

@@ -327,10 +327,7 @@ export = {
   extractInviteCode,
   fetchInviteGuildMeta,
   getCachedInviteGuildMeta,
-  setCachedInviteGuildMeta,
   isInviteFetchRateLimited,
-  markInviteFetchRateLimited,
-  findStoredPartnerInviteForGuildId,
   findStoredPartnerMetaForGuildId,
   resolvePartnershipBlacklistEntryDisplay,
 };

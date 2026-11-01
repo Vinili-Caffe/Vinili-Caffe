@@ -96,23 +96,6 @@ function channelIdIsBoostNativeRecoveryTarget(guild?, channelId?) {
   return false;
 }
 
-async function countNativeBoostEventsSince(guild?, primaryChannel?, userId?, sinceMs?) {
-  if (!primaryChannel?.isTextBased?.() || !userId) return 0;
-  const minTs = Math.max(0, Number(sinceMs || 0) - 2000);
-  const events = await collectNativeBoostSlotEventsForUser(guild, primaryChannel, userId, {
-    minTs,
-    limit: 40,
-  }).catch(() => []);
-  return mergeNativeBoostSlotEvents(events);
-}
-
-async function resolveNativeBoostSignalsSince(guild?, primaryChannel?, userId?, sinceMs?, opts: Record<string, any> = {}) {
-  const seen = nativeBoostSeenSince(guild?.id, userId, sinceMs);
-  if (seen > 0) return seen;
-  if (opts.allowChannelScan !== true) return 0;
-  return countNativeBoostEventsSince(guild, primaryChannel, userId, sinceMs);
-}
-
 async function collectRecentNativeBoosterCandidates(guild?, primaryChannel?, opts: Record<string, any> = {}) {
   const maxWindowMs = opts.longWindow
     ? Math.max(60_000, Math.min(7 * 24 * 60 * 60 * 1000, Number(opts.maxWindowMs || 48 * 60 * 60 * 1000)))

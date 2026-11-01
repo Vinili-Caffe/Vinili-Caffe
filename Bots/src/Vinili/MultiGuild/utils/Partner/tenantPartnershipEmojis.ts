@@ -37,7 +37,6 @@ function toButtonEmoji(value?) {
 }
 
 export = {
-  TENANT_PARTNERSHIP_EMOJI,
   formatTenantEmoji,
   toButtonEmoji,
 };

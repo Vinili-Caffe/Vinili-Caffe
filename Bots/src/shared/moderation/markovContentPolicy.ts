@@ -36,5 +36,4 @@ function filterPolicyBlockedLines(lines?) {
 export = {
   isMarkovPolicyBlockedText,
   filterPolicyBlockedLines,
-  hasForeignScriptSpam,
 };

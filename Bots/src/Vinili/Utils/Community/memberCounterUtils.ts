@@ -80,4 +80,4 @@ function scheduleMemberCounterRefresh(guild?, options: Record<string, any> = {})
   return true;
 }
 
-export = { buildCounterName, updateMemberCounterNow, scheduleMemberCounterRefresh };
+export = { updateMemberCounterNow, scheduleMemberCounterRefresh };

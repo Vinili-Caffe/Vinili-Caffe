@@ -195,9 +195,7 @@ function startDailyMemberStatsLoop(client?) {
 }
 
 export = {
-  DAILY_STATS_CHANNEL_ID,
   startDailyMemberStatsLoop,
-  sendDailyMemberStatsReport,
   trackMemberJoin,
   trackMemberLeave,
   getRomeDateKey,

@@ -30,8 +30,6 @@ const REJECTED_EXEMPT_PATH = path.resolve(
 const rejectedExemptChannelIds = new Set();
 const pruneLogOnce = new Set();
 let syncTimer = null;
-let lastSyncSignature = "";
-
 function loadRejectedExemptChannelIds() {
   try {
     if (!fs.existsSync(REJECTED_EXEMPT_PATH)) return;
@@ -1066,7 +1064,6 @@ async function syncDiscordAutomodRulesForClient(client?, options: Record<string,
     results.push({ guildId, ...row });
   }
   const signature = JSON.stringify(results);
-  lastSyncSignature = signature;
   return { ok: true, results, signature };
 }
 
@@ -1135,4 +1132,4 @@ function mapRuleNameToViolationKey(ruleName?, matchedKeyword = "") {
   return { key: "word_blacklist", info: matched || "native automod" };
 }
 
-export = { RULE_PREFIX, isDiscordNativeConfigEnabled, shouldSyncOnStartup, buildDesiredRuleSpecs, collectExemptChannelIds, collectTicketAutomodExemptChannelIds, resolveExemptChannelsForSpec, isHateSpeechAutomodRuleName, shouldResyncAutomodForChannel, syncGuildDiscordAutomodRules, syncDiscordAutomodRulesForClient, scheduleDiscordAutomodRulesResync, resolveAutomodExecutionRule, mapRuleNameToViolationKey };
+export = { RULE_PREFIX, shouldSyncOnStartup, shouldResyncAutomodForChannel, syncDiscordAutomodRulesForClient, scheduleDiscordAutomodRulesResync, resolveAutomodExecutionRule, mapRuleNameToViolationKey };

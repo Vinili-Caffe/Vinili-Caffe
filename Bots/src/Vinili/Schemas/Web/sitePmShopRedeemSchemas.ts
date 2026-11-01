@@ -39,5 +39,4 @@ const SitePmShopRedeemEntry: import("mongoose").Model<import("mongoose").InferSc
 
 export = {
   SitePmShopRedeemEntry,
-  PM_SHOP_REDEEM_SOURCES,
 };

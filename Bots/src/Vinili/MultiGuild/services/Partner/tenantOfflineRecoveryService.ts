@@ -305,8 +305,5 @@ function startTenantOfflineRecoveryLoop(client?, opts: Record<string, any> = {})
 export = {
   runTenantOfflineRecoveryTick,
   startTenantOfflineRecoveryLoop,
-  recoverOrphanedTenantGuilds,
-  reconcileTenantPartnerManagerScores,
   refreshBotGuildIdSet,
-  collectTrackedTenantGuildIds,
 };
