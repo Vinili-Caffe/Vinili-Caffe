@@ -126,8 +126,10 @@ export function BachecaWall() {
     const out: BachecaItem[][] = Array.from({ length: cols }, () => []);
     const total = new Array(cols).fill(0);
     for (const it of items) {
-      let k = 0;
-      for (let c = 1; c < cols; c++) if (total[c] < total[k] - 1) k = c;
+      /* colonna più a sinistra tra quelle quasi più corte: card alte simili (es. 20px di "Reposta" a capo)
+         non devono saltare in un'altra colonna e lasciare un buco */
+      const min = Math.min(...total);
+      const k = total.findIndex((t) => t <= min + 80);
       out[k].push(it);
       total[k] += heights[it.id] ?? estimateHeight(it);
     }

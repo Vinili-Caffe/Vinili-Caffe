@@ -1,57 +1,64 @@
 "use client";
 
 import { useEffect } from "react";
+import { usePathname } from "next/navigation";
 import { cdnUrl } from "@/lib/site";
 import { getVinylMusicApi } from "@/lib/vinyl-music-bus";
 
 const SRC = cdnUrl("/audio/its-time-mariah-carey.mp3");
-const SESSION_KEY = "vc_its_time_intro_v1";
 const GESTURES = ["pointerdown", "keydown", "touchstart"] as const;
 
+let shared: HTMLAudioElement | null = null;
+function introAudio() {
+  if (!shared) {
+    shared = new Audio(SRC);
+    shared.preload = "auto";
+    shared.volume = 0.8;
+  }
+  return shared;
+}
+
 /**
- * Easter egg: "It's time" all'apertura del sito, poi parte la musica del giradischi.
- * Una volta per visita (sessionStorage). Prova subito; se il browser blocca l'audio senza interazione
- * (quasi sempre alla prima visita, sempre su iPhone) parte al primo tocco, click o tasto.
+ * Easter egg: "It's time" a ogni pagina, subito. La musica del giradischi parte solo col click sul player:
+ * se stava già suonando si ferma per l'intro e riprende dopo.
+ * Se il browser blocca l'audio senza interazione (di solito solo all'apertura del sito) parte al primo tocco, click o tasto.
  */
 export function ItsTimeIntro() {
-  useEffect(() => {
-    try {
-      if (sessionStorage.getItem(SESSION_KEY)) return;
-    } catch {
-      return;
-    }
-    let done = false;
-    const audio = new Audio(SRC);
-    audio.preload = "auto";
-    audio.volume = 0.8;
+  const pathname = usePathname();
 
-    const startSiteMusic = () => {
-      const api = getVinylMusicApi();
-      if (api && !api.on) api.setPlaying(true);
-    };
+  useEffect(() => {
+    let done = false;
+    let resumeMusic = false;
+    const audio = introAudio();
 
     const cleanup = () => {
       for (const g of GESTURES) window.removeEventListener(g, onGesture, true);
     };
 
+    const onEnded = () => {
+      if (!resumeMusic) return;
+      resumeMusic = false;
+      const api = getVinylMusicApi();
+      if (api && !api.on) api.setPlaying(true);
+    };
+
     const play = () => {
       if (done) return;
-      /* la musica del giradischi, se stava già suonando, si ferma per l'intro */
       const api = getVinylMusicApi();
-      if (api?.on) api.setPlaying(false);
+      if (api?.on) {
+        resumeMusic = true;
+        api.setPlaying(false);
+      }
+      audio.currentTime = 0;
       audio
         .play()
         .then(() => {
           done = true;
           cleanup();
-          try {
-            sessionStorage.setItem(SESSION_KEY, "1");
-          } catch {
-            /* ignore */
-          }
         })
         .catch(() => {
           /* bloccato dal browser: si riprova al primo gesto */
+          onEnded();
         });
     };
 
@@ -59,15 +66,17 @@ export function ItsTimeIntro() {
       play();
     }
 
-    audio.addEventListener("ended", startSiteMusic, { once: true });
+    audio.addEventListener("ended", onEnded);
     for (const g of GESTURES) window.addEventListener(g, onGesture, { capture: true, passive: true });
     play();
 
     return () => {
       cleanup();
-      if (!done) audio.pause();
+      audio.removeEventListener("ended", onEnded);
+      audio.pause();
+      onEnded();
     };
-  }, []);
+  }, [pathname]);
 
   return null;
 }
