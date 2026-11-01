@@ -66,7 +66,7 @@ for f in $FILES; do
   install -m 644 "$tmp" "$dest"
   rm -f "$tmp"
 done
-for p in $PROCS; do pm2 restart "$p" >/dev/null; done
+for p in $PROCS; do pm2 restart "$p" >/dev/null 2>&1 || echo "ATTENZIONE: pm2 non trova $p (non riavviato)"; done
 sleep 12
 pm2 ls | grep -E " ($(echo $PROCS | tr ' ' '|')) " || pm2 ls
 echo "backup in $B"

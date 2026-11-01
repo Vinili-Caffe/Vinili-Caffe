@@ -20,8 +20,8 @@ if [ -d build/archivio ]; then
 else
   : > "$TMP/lista-archivio.txt"
 fi
-for f in $(cat "$TMP/lista.txt"); do node --check "build/js/$f"; done
-for f in $(cat "$TMP/lista-archivio.txt"); do node --check "build/archivio/$f"; done
+node tools/controlla-sintassi.cjs build/js "$TMP/lista.txt"
+node tools/controlla-sintassi.cjs build/archivio "$TMP/lista-archivio.txt"
 
 PRUNE='\( -path "*/node_modules" -o -path ./Vinili/Data -o -path ./Caffè/Data -o -path ./Vinili/UI -o -path "*/logs" \) -prune -o'
 mkdir -p "$TMP"
@@ -70,7 +70,7 @@ if [ -f "$B/archivio-prima.tgz" ]; then
 fi
 [ -f "$B/permissions.json" ] && cp -a "$B/permissions.json" Vinili/permissions.json
 [ -f "$B/config.json" ] && cp -a "$B/config.json" Vinili/config.json
-pm2 restart $PROCS >/dev/null
+for p in $PROCS; do pm2 restart "\$p" >/dev/null 2>&1 || echo "pm2 non trova \$p"; done
 pm2 ls
 EOF
 chmod +x "$B/ripristina.sh"
@@ -84,7 +84,7 @@ tar -xzf /tmp/vc_sync_archivio.tgz -C /opt/bot/bots-ts/archivio
 install -m 644 /tmp/vc_sync_permissions.json Vinili/permissions.json
 install -m 644 /tmp/vc_sync_config.json Vinili/config.json
 rm -f /tmp/vc_sync_togliere.txt /tmp/vc_sync_archivio.tgz /tmp/vc_sync_permissions.json /tmp/vc_sync_config.json
-pm2 restart $PROCS >/dev/null
+for p in $PROCS; do pm2 restart "$p" >/dev/null 2>&1 || echo "ATTENZIONE: pm2 non trova $p (non riavviato)"; done
 sleep 40
 pm2 ls | grep -E " ($(echo $PROCS | tr ' ' '|')) " || pm2 ls
 for u in 3000/webhooks/health 3020/webhooks/site-api/health 3014/webhooks/topgg/health 3010/webhooks/discadia/health; do
