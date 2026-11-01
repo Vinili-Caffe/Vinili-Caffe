@@ -65,7 +65,9 @@ async function buildAcceptedPauseMessageContent(guild?, userId?, pause?, { forPm
   }
   const staffDoc = await getStaffPauseRecord(guild.id, uid);
   const roleChoice = normalizePauseRoleChoice(pause.ruolo || pause.ruoloRichiesto) || PAUSE_ROLE_STAFF;
-  const pauseTimingText = getPauseTimingText(pause.dataRichiesta, pause.dataRitorno);
+  const pauseTimingText = pause.halfDay
+    ? `ha una mezza giornata di pausa (${pause.halfDay === "mattina" ? "mattina" : "pomeriggio/sera"})`
+    : getPauseTimingText(pause.dataRichiesta, pause.dataRitorno);
   const baseLimit = getBasePauseLimit(member, forPm ? PAUSE_ROLE_PM : roleChoice === PAUSE_ROLE_BOTH ? PAUSE_ROLE_STAFF : roleChoice);
   const bonusPause = getStaffPauseBonusDaysTotal(member, staffDoc);
   const maxGiorni = baseLimit + bonusPause;
@@ -152,7 +154,8 @@ function getOnePausePerMonthWarning(staffDoc?, normalized?) {
     }
   }
   const countSameMonth = pauses.filter((p?) => {
-    if (!p || p.status === "rejected") return false;
+    /* pauseHalfDay1: le mezze giornate hanno i loro limiti */
+    if (!p || p.status === "rejected" || p.halfDay) return false;
     if (excludeIds.has(String(p._id))) return false;
     const k = getMonthKeyForPauseCount(p.dataRichiesta, p.dataRitorno);
     return k && k.year === newCountKey.year && k.month === newCountKey.month;
@@ -171,7 +174,7 @@ function getOneWeekBetweenWarning(staffDoc?, excludePauseId = null) {
     }
   }
   const withDate = pauses
-    .filter((p?) => p && (p.createdAt || p._id) && !excludeIds.has(String(p._id)))
+    .filter((p?) => p && !p.halfDay && (p.createdAt || p._id) && !excludeIds.has(String(p._id)))
     .map((p?) => ({ ...p, at: p.createdAt ? new Date(p.createdAt).getTime() : 0 }))
     .filter((p?) => p.at > 0)
     .sort((a?, b?) => b.at - a.at);

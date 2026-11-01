@@ -11,6 +11,8 @@ const {
   PAUSE_ROLE_PM,
   PAUSE_ROLE_STAFF,
 } = require("./pauseHandlersUtils") as typeof import("./pauseHandlersUtils");
+const { isHalfDayPause, halfDayScaledDays } = require("./pauseHalfDay") as typeof import("./pauseHalfDay");
+const { computeConsumedPauseDays: computeConsumedPauseDaysWithHalves } = require("./pauseDb") as typeof import("./pauseDb");
 
 const MONTH_LABELS = ["Gen", "Feb", "Mar", "Apr", "Mag", "Giu", "Lug", "Ago", "Set", "Ott", "Nov", "Dic"];
 
@@ -227,6 +229,9 @@ function computePauseScaledDaysThisYear(pause?, todayUtc?, yearStart?, yearEnd?)
   const start = parseItalianDate(pause?.dataRichiesta);
   const plannedEnd = parseItalianDate(pause?.dataRitorno);
   if (!start || !plannedEnd) return 0;
+  if (isHalfDayPause(pause)) {
+    return halfDayScaledDays(pause, todayUtc, countEffectiveOverlapDays(start, start, yearStart, yearEnd));
+  }
   if (pause.status === "cancelled") {
     return countEffectiveOverlapDays(start, getCancelledPauseEffectiveEnd(pause, start, plannedEnd), yearStart, yearEnd);
   }
@@ -240,8 +245,11 @@ function computePauseScaledDaysThisYear(pause?, todayUtc?, yearStart?, yearEnd?)
 function computeConsumedPauseDays(pauses?) {
   if (!Array.isArray(pauses)) return 0;
   const { yearStart, yearEnd } = getCurrentYearBoundsUtc();
-  return pauses.reduce((total?, pause?) => {
-    if (!pause) return total;
+  /* pauseHalfDay1: le mezze giornate le conta pauseDb (mattina + pomeriggio = 1 giorno) */
+  const halfDays = pauses.filter((p?) => p && isHalfDayPause(p));
+  const halfTotal = halfDays.length ? computeConsumedPauseDaysWithHalves(halfDays) : 0;
+  return halfTotal + pauses.reduce((total?, pause?) => {
+    if (!pause || isHalfDayPause(pause)) return total;
     const start = parseItalianDate(pause.dataRichiesta);
     const plannedEnd = parseItalianDate(pause.dataRitorno);
     if (pause.status === "accepted") {

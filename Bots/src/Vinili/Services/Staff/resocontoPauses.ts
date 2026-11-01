@@ -2,6 +2,8 @@
 const IDs: any = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
 const { applyPronounGenderToTextForMember } = require("../../Utils/Community/pronounGenderUtils") as typeof import("../../Utils/Community/pronounGenderUtils");
 const { normalizePauseRoleChoice, roleChoiceAppliesTo, PAUSE_ROLE_PM } = require("../../Utils/Pause/pauseHandlersUtils") as typeof import("../../Utils/Pause/pauseHandlersUtils");
+/* pauseHalfDay1: le mezze giornate contano nel resoconto solo se mattina + pomeriggio dello stesso giorno */
+const { pausesForWeeklyRules } = require("../../Utils/Pause/pauseHalfDay") as typeof import("../../Utils/Pause/pauseHalfDay");
 const { getRomeDateParts, createUtcFromRomeLocal, addDaysToRomeYmd, parseItalianDate, getRomeStartOfDayUtc } = require("./resocontoTime") as typeof import("./resocontoTime");
 
 function pauseRoleAppliesToSection(pauseRole?, sectionRole?) {
@@ -28,7 +30,7 @@ function pauseRoleAppliesToSection(pauseRole?, sectionRole?) {
 }
 
 function getStaffPauseLine(staffDoc?, sectionRole = null, member = null) {
-  const pauses = Array.isArray(staffDoc?.pauses) ? staffDoc.pauses : [];
+  const pauses = pausesForWeeklyRules(staffDoc?.pauses);
   const now = new Date();
   const today = getRomeStartOfDayUtc(now);
   const romeToday = getRomeDateParts(now);
@@ -52,7 +54,7 @@ function getStaffPauseLine(staffDoc?, sectionRole = null, member = null) {
 }
 
 function wasInPauseDuringWeek(staffDoc?, weekStart?, weekEnd?, sectionRole = null) {
-  const pauses = Array.isArray(staffDoc?.pauses) ? staffDoc.pauses : [];
+  const pauses = pausesForWeeklyRules(staffDoc?.pauses);
   const ws = weekStart.getTime();
   const we = weekEnd.getTime();
   for (const p of pauses) {
@@ -69,7 +71,7 @@ function wasInPauseDuringWeek(staffDoc?, weekStart?, weekEnd?, sectionRole = nul
 }
 
 function hadPauseAtLeastOneDayDuringWeek(staffDoc?, weekStart?, weekEnd?, sectionRole = null) {
-  const pauses = Array.isArray(staffDoc?.pauses) ? staffDoc.pauses : [];
+  const pauses = pausesForWeeklyRules(staffDoc?.pauses);
   const ws = weekStart.getTime();
   const we = weekEnd.getTime();
   if (!Number.isFinite(ws) || !Number.isFinite(we) || we < ws) return false;
@@ -105,7 +107,7 @@ function hadPauseAtLeastOneDayDuringWeek(staffDoc?, weekStart?, weekEnd?, sectio
 }
 
 function didPauseEndDuringWeek(staffDoc?, weekStart?, weekEnd?, sectionRole = null) {
-  const pauses = Array.isArray(staffDoc?.pauses) ? staffDoc.pauses : [];
+  const pauses = pausesForWeeklyRules(staffDoc?.pauses);
   const ws = weekStart.getTime();
   const we = weekEnd.getTime();
   for (const p of pauses) {
@@ -173,6 +175,7 @@ async function hydrateStaffPausesFromWorkflowIfMissing(guildId?, userId?, staffD
       giorniUsati: Number(fields.giorniScalati) || 0,
       giorniAggiuntivi: 0,
       ruoloRichiesto: String(fields.ruoloRichiesto || fields.ruoloTrack || "Staff"),
+      halfDay: fields.halfDay || null,
       ruolo: String(fields.ruoloLabel || fields.ruoloTrack || "Staff"),
       status: String(wf.status || "accepted"),
       cancelledAt: String(wf.status) === "cancelled" ? new Date() : null,
@@ -184,7 +187,7 @@ async function hydrateStaffPausesFromWorkflowIfMissing(guildId?, userId?, staffD
 }
 
 function getLatestAcceptedPause(staffDoc?) {
-  const pauses = Array.isArray(staffDoc?.pauses) ? staffDoc.pauses : [];
+  const pauses = pausesForWeeklyRules(staffDoc?.pauses);
   let best = null;
   let bestMs = -Infinity;
   for (const pause of pauses) {

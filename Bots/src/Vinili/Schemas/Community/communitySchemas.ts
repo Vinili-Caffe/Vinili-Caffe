@@ -293,6 +293,12 @@ const staffPauseEntrySchema = new Schema(
         ruoloGradeId: { type: String, default: null },
     /** pauseBothSplit1: gruppo condiviso quando la richiesta partiva da "Entrambi" */
     pauseGroupId: { type: String, default: null },
+    /** pauseHalfDay1: "mattina" | "pomeriggio" = mezza giornata (dataRichiesta = dataRitorno, vale 0,5 giorni) */
+    halfDay: { type: String, default: null },
+    /** chiesta per lo stesso giorno */
+    richiestaInGiornata: { type: Boolean, default: false },
+    /** accettata in automatico dal bot (mezza giornata per oggi nei limiti) */
+    autoAccepted: { type: Boolean, default: false },
     stafferInPausa: { type: Number, default: 0 },
     status: { type: String, default: "pending" },
     cancelledAt: { type: Date, default: null },

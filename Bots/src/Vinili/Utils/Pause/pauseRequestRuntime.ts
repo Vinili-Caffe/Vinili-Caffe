@@ -9,6 +9,8 @@ const {
   isDiscordWorkflowChannelPostsEnabled,
   buildInboxManageLinkRow,
 } = require("../../Web/discordWorkflowUiGate") as typeof import("../../Web/discordWorkflowUiGate");
+const { getTodayUtc: getRomeTodayUtc } = require("./pauseDates") as typeof import("./pauseDates");
+const { normalizeHalfDay, halfDayLabel, canRequestHalfDayToday, getHalfDayConflict, getHalfDayLimitWarnings } = require("./pauseHalfDay") as typeof import("./pauseHalfDay");
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const IT_MONTHS = { gennaio: 1, feb: 2, febbraio: 2, mar: 3, marzo: 3, apr: 4, aprile: 4, mag: 5, maggio: 5, giu: 6, giugno: 6, lug: 7, luglio: 7, ago: 8, agosto: 8, set: 9, sett: 9, settembre: 9, ott: 10, ottobre: 10, nov: 11, novembre: 11, dic: 12, dicembre: 12 };
 const PAUSE_REQUEST_ROLE_IDS = [
@@ -19,9 +21,9 @@ const PAUSE_REQUEST_ROLE_IDS = [
   IDs.roles.HighStaff,
 ].filter(Boolean);
 
+/** "oggi" in ora di Roma (non UTC: tra mezzanotte e l'una sarebbe ancora ieri) */
 function getTodayUtc() {
-  const now = new Date();
-  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  return getRomeTodayUtc();
 }
 
 function parseUserDateInput(raw?) {
@@ -110,9 +112,30 @@ function parsePauseContentByDateScan(trimmed?) {
   return { rawStart, rawEnd, reason };
 }
 
+const HALF_DAY_WORDS = /\b(mezza\s+giornata|mattina|mattino|pomeriggio|sera)\b/gi;
+
+/** pauseHalfDay1: "oggi pomeriggio - visita" / "12/11 mattina esame" → una data + fascia. */
+function parseHalfDayPauseContent(trimmed?) {
+  const words = [...trimmed.matchAll(HALF_DAY_WORDS)].map((m?) => m[1].toLowerCase());
+  if (!words.length) return null;
+  const dates = scanUserDates(trimmed);
+  if (dates.length !== 1) return null;
+  const slot = words.some((w?) => w === "mattina" || w === "mattino")
+    ? "mattina"
+    : words.some((w?) => w === "pomeriggio" || w === "sera")
+      ? "pomeriggio"
+      : null;
+  const reason = cleanPauseReasonCandidate(
+    `${trimmed.slice(0, dates[0].index)} ${trimmed.slice(dates[0].end)}`.replace(HALF_DAY_WORDS, " "),
+  );
+  return { rawStart: dates[0].raw, rawEnd: dates[0].raw, reason, halfDay: slot, halfDayMissingSlot: !slot };
+}
+
 function parsePauseChannelMessageContent(raw?) {
   const trimmed = String(raw || "").trim();
   if (!trimmed) return null;
+  const half = parseHalfDayPauseContent(trimmed);
+  if (half) return half;
   const scanned = parsePauseContentByDateScan(trimmed);
   if (scanned) return scanned;
   const hyphen = trimmed.match(/^(.+?)\s-\s(.+?)\s-\s(.+)$/);
@@ -197,7 +220,9 @@ function isSiteApiProcess() {
   return ["1", "true", "yes", "on"].includes(String(process.env.SITE_API_PROCESS || "").trim().toLowerCase());
 }
 
-async function createPauseRequest({ guild, userId, requesterMention, rawStart, rawEnd, reason, member = null, requestedRole = null }) {
+async function createPauseRequest({ guild, userId, requesterMention, rawStart, rawEnd, reason, member = null, requestedRole = null, halfDay = null }) {
+  /* pauseHalfDay1: mezza giornata = una data sola + fascia; si può chiedere anche per oggi se la fascia non è iniziata */
+  const halfSlot = normalizeHalfDay(halfDay);
   const memberHasStaff = Boolean(member?.roles?.cache?.has(IDs.roles.Staff));
   const memberHasPm = Boolean(member?.roles?.cache?.has(IDs.roles.PartnerManager));
   const fallbackRole = memberHasPm && !memberHasStaff ? "PartnerManager" : PAUSE_ROLE_STAFF;
@@ -210,12 +235,24 @@ async function createPauseRequest({ guild, userId, requesterMention, rawStart, r
       ? requesterMention
       : `<@${uid}>`;
   const client = guild.client;
-  const normalized = normalizePauseDates(rawStart, rawEnd);
+  const normalized = normalizePauseDates(rawStart, halfSlot ? rawStart : rawEnd);
   if (!normalized) {
-    return { ok: false, error: "<a:VC_Alert:1482706673176150077> Date non valide. Formati supportati: `domani`, `GG/MM`, `GG/MM/AAAA`, `1 agosto`, `1 agosto 2027`." };
+    return { ok: false, error: "<a:VC_Alert:1482706673176150077> Date non valide. Formati supportati: `oggi`, `domani`, `GG/MM`, `GG/MM/AAAA`, `1 agosto`, `1 agosto 2027`." };
   }
-  if (normalized.startDate <= getTodayUtc()) {
-    return { ok: false, error: "<a:VC_Alert:1482706673176150077> La pausa deve iniziare almeno da domani. Non puoi richiederla per oggi o per una data già passata." };
+  const romeToday = getRomeTodayUtc();
+  const sameDay = Boolean(halfSlot) && normalized.startDate.getTime() === romeToday.getTime();
+  if (halfSlot) {
+    if (normalized.startDate < romeToday) {
+      return { ok: false, error: "<a:VC_Alert:1482706673176150077> Non puoi chiedere una mezza giornata per una data già passata." };
+    }
+    if (sameDay && !canRequestHalfDayToday(halfSlot)) {
+      return {
+        ok: false,
+        error: `<a:VC_Alert:1482706673176150077> La fascia **${halfDayLabel(halfSlot)}** di oggi è già iniziata: per oggi la mattina si chiede entro le 9, il pomeriggio entro le 14.`,
+      };
+    }
+  } else if (normalized.startDate <= getTodayUtc()) {
+    return { ok: false, error: "<a:VC_Alert:1482706673176150077> La pausa deve iniziare almeno da domani. Per oggi puoi chiedere solo una mezza giornata." };
   }
   if (!String(reason || "").trim()) {
     return { ok: false, error: "<a:VC_Alert:1482706673176150077> Devi specificare una motivazione valida." };
@@ -236,6 +273,10 @@ async function createPauseRequest({ guild, userId, requesterMention, rawStart, r
   }
   if (!stafferDoc.staff) stafferDoc.staff = {};
   if (!Array.isArray(stafferDoc.staff.pauses)) stafferDoc.staff.pauses = [];
+  if (halfSlot) {
+    const conflict = getHalfDayConflict(stafferDoc.staff.pauses, { day: normalized.startDate, slot: halfSlot });
+    if (conflict) return { ok: false, error: `<a:VC_Alert:1482706673176150077> ${conflict}` };
+  }
   /* pauseBothSplit1: Entrambi → due richieste indipendenti (Staff + Partner Manager) */
   const roleTracks =
     normalizedRequestedRole === PAUSE_ROLE_BOTH
@@ -253,6 +294,8 @@ async function createPauseRequest({ guild, userId, requesterMention, rawStart, r
       motivazione: reason,
       ruoloRichiesto: track,
       pauseGroupId,
+      halfDay: halfSlot,
+      richiestaInGiornata: sameDay,
       status: "pending",
       createdAt,
     });
@@ -270,10 +313,14 @@ async function createPauseRequest({ guild, userId, requesterMention, rawStart, r
   const pauseId = pauseIds[0] || "";
 
   const requisitiNonRispettati = [];
-  if (getOnePausePerMonthWarning(stafferDoc, { ...normalized, excludePauseIds: pauseIds })) {
+  if (halfSlot) {
+    for (const w of getHalfDayLimitWarnings(stafferDoc.staff.pauses, { day: normalized.startDate, sameDay, excludePauseIds: pauseIds })) {
+      requisitiNonRispettati.push(`<:VC_Attention:1482534443632558151> ${w}`);
+    }
+  } else if (getOnePausePerMonthWarning(stafferDoc, { ...normalized, excludePauseIds: pauseIds })) {
     requisitiNonRispettati.push("<:VC_Attention:1482534443632558151> **Una pausa al mese:** hai già una richiesta pausa in questo mese.");
   }
-  if (getOneWeekBetweenWarning(stafferDoc, pauseIds)) {
+  if (!halfSlot && getOneWeekBetweenWarning(stafferDoc, pauseIds)) {
     requisitiNonRispettati.push("<:VC_Attention:1482534443632558151> **Almeno 1 settimana tra richieste:** l'ultima richiesta pausa è stata fatta da meno di 7 giorni.");
   }
   const warningBlock = requisitiNonRispettati.length
@@ -294,7 +341,10 @@ async function createPauseRequest({ guild, userId, requesterMention, rawStart, r
         createdPauses.length > 1
           ? `\n<:VC_Attention:1482534443632558151> Richiesta separata (${i + 1}/${createdPauses.length}): puoi accettare/rifiutare questo ruolo indipendentemente dall'altro.`
           : "";
-      const content = `<:VC_Staff:1494286904089247754> ${highStaffRoleMention} ${mention} ha richiesto una pausa.\n<:VC_Mention:1482526855289634997> Ruolo pausa richiesto: **${trackLabel}**${pairNote}\n<a:VC_Calendar:1482706208149475358> Data richiesta: ${normalized.dataRichiesta}\n<a:VC_Calendar:1482706208149475358> Data ritorno: ${normalized.dataRitorno}\n<:VC_reason:1478517122929004544> Motivo: ${reason}${i === 0 ? warningBlock : ""}`;
+      const periodLines = halfSlot
+        ? `<a:VC_Calendar:1482706208149475358> Giorno: ${normalized.dataRichiesta}${sameDay ? " (oggi)" : ""}\n<:VC_Clock:1473359204189474886> Fascia: **${halfDayLabel(halfSlot)}**`
+        : `<a:VC_Calendar:1482706208149475358> Data richiesta: ${normalized.dataRichiesta}\n<a:VC_Calendar:1482706208149475358> Data ritorno: ${normalized.dataRitorno}`;
+      const content = `<:VC_Staff:1494286904089247754> ${highStaffRoleMention} ${mention} ha richiesto ${halfSlot ? "una mezza giornata di pausa" : "una pausa"}.\n<:VC_Mention:1482526855289634997> Ruolo pausa richiesto: **${trackLabel}**${pairNote}\n${periodLines}\n<:VC_reason:1478517122929004544> Motivo: ${reason}${i === 0 ? warningBlock : ""}`;
       const pauseComponents = [buildInboxManageLinkRow("pause")];
       const posted = await pauseChannel
         .send({
@@ -374,12 +424,39 @@ async function createPauseRequest({ guild, userId, requesterMention, rawStart, r
     }
     void syncPausesToWorkflowStore(guild.client, guild.id).catch(() => 0);
   } catch (_) {}
+
+  /* pauseHalfDay1: mezza giornata per oggi nei limiti → accettata subito; l'High Staff può revocarla dalla pratica */
+  let autoAccepted = false;
+  if (halfSlot && sameDay && !requisitiNonRispettati.length) {
+    try {
+      const { updatePauseInDb } = require("./pauseDb") as typeof import("./pauseDb");
+      const { acceptPauseRequestWeb } = require("./pauseWebActionsRuntime") as typeof import("./pauseWebActionsRuntime");
+      const botMember = guild.members?.me || null;
+      autoAccepted = true;
+      for (const createdPause of createdPauses) {
+        const thisId = String(createdPause?._id || "");
+        if (!thisId) continue;
+        await updatePauseInDb(guildId, uid, thisId, { autoAccepted: true });
+        const accepted = await acceptPauseRequestWeb(client, guild, botMember, uid, thisId);
+        if (!accepted?.ok) {
+          autoAccepted = false;
+          await updatePauseInDb(guildId, uid, thisId, { autoAccepted: false });
+        }
+      }
+    } catch (err) {
+      autoAccepted = false;
+      global.logger?.error?.("[createPauseRequest] auto-accept mezza giornata", err);
+    }
+  }
+
   try {
     const { notifyInboxStaffNewItem } = require("../../features/workflow/siteStaffWorkflowNotifications") as typeof import("../../features/workflow/siteStaffWorkflowNotifications");
     const subjectName =
       String(member?.displayName || member?.user?.globalName || member?.user?.username || "").trim() ||
       uid;
-    const period = `${normalized.dataRichiesta} → ${normalized.dataRitorno}`;
+    const period = halfSlot
+      ? `${normalized.dataRichiesta}${sameDay ? " (oggi)" : ""} · ${halfDayLabel(halfSlot).toLowerCase()}`
+      : `${normalized.dataRichiesta} → ${normalized.dataRitorno}`;
     for (const createdPause of createdPauses) {
       const thisId = String(createdPause?._id || "");
       if (!thisId) continue;
@@ -389,8 +466,10 @@ async function createPauseRequest({ guild, userId, requesterMention, rawStart, r
         queue: "pause",
         subjectUserId: uid,
         subjectName,
-        title: "Nuova richiesta pausa",
-        body: `${subjectName} ha richiesto una pausa · ${trackLabel} (${period}).`,
+        title: autoAccepted ? "Mezza giornata accettata in automatico" : halfSlot ? "Nuova richiesta mezza giornata" : "Nuova richiesta pausa",
+        body: autoAccepted
+          ? `${subjectName} ha una mezza giornata di pausa · ${trackLabel} (${period}). Se non va bene puoi revocarla dalla pratica.`
+          : `${subjectName} ha richiesto ${halfSlot ? "una mezza giornata" : "una pausa"} · ${trackLabel} (${period}).`,
         pauseId: thisId,
         dedupeKey: `inbox:pause:new:${thisId}`,
       }).catch(() => 0);
@@ -403,6 +482,8 @@ async function createPauseRequest({ guild, userId, requesterMention, rawStart, r
     roleTracks,
     pauseGroupId,
     primaryPauseId: pauseId,
+    halfDay: halfSlot,
+    autoAccepted,
   };
 }
 

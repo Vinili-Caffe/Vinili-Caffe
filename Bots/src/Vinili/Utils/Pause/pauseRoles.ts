@@ -203,6 +203,8 @@ function hasSiblingAcceptedPauseSameRange(pauses?, targetPause?) {
   return (Array.isArray(pauses) ? pauses : []).some((p?) => {
     if (!p || String(p.status || "") !== "accepted") return false;
     if (tid && String(p._id || "") === tid) return false;
+    /* pauseHalfDay1: mattina e pomeriggio dello stesso giorno non sono la stessa pausa */
+    if (String(p.halfDay || "") !== String(targetPause?.halfDay || "")) return false;
     return String(p.dataRichiesta || "").trim() === start && String(p.dataRitorno || "").trim() === end;
   });
 }

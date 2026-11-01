@@ -1152,9 +1152,9 @@ async function handlePauseChannelMessage(message?) {
     finish();
     return false;
   }
-  const parsed = parsePauseChannelMessageContent(raw);
-  if (!parsed) {
-    const warning = await message.channel.send({ content: `${message.author} formato non valido. Usa il pulsante **Richiedi pausa** qui sotto oppure invia: data inizio, data fine e motivo (es. \`20/05 - 22/05 - viaggio\`).` }).catch(() => null);
+  const parsed: any = parsePauseChannelMessageContent(raw);
+  if (!parsed || parsed.halfDayMissingSlot || !parsed.reason) {
+    const warning = await message.channel.send({ content: `${message.author} formato non valido. Usa il pulsante **Richiedi pausa** qui sotto oppure invia: data inizio, data fine e motivo (es. \`20/05 - 22/05 - viaggio\`). Per mezza giornata: data, \`mattina\` o \`pomeriggio\` e motivo (es. \`oggi pomeriggio - visita medica\`).` }).catch(() => null);
     await message.delete().catch(() => { });
     if (warning) scheduleMessageDeletion(warning, EPHEMERAL_TTL_NORMAL_MS);
     finish();
@@ -1168,6 +1168,7 @@ async function handlePauseChannelMessage(message?) {
     rawEnd: parsed.rawEnd,
     reason: parsed.reason,
     replyChannel: message.channel,
+    halfDay: parsed.halfDay || null,
   });
   if (!result.ok) {
     const errText = result.error === "Selezione ruolo scaduta." ? "Selezione ruolo pausa scaduta. Riinvia la richiesta." : result.error;

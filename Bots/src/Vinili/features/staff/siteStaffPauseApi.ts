@@ -19,6 +19,7 @@ const {
   PAUSE_ROLE_PM,
   PAUSE_ROLE_BOTH,
 } = require("../../Utils/Pause/pauseHandlersUtils") as typeof import("../../Utils/Pause/pauseHandlersUtils");
+const { normalizeHalfDay, canRequestHalfDayToday, HALF_DAY_LIMITS } = require("../../Utils/Pause/pauseHalfDay") as typeof import("../../Utils/Pause/pauseHalfDay");
 const { createPauseRequest } = require("../../Utils/Pause/pauseRequestRuntime") as typeof import("../../Utils/Pause/pauseRequestRuntime");
 const { memberCanRequestPause } = require("../../Utils/Pause/pauseRequestSubmitRuntime") as typeof import("../../Utils/Pause/pauseRequestSubmitRuntime");
 const { assertWebsiteStaffAccess, normalizeHeaderSecret } = require("./siteStaffAccessApi") as typeof import("./siteStaffAccessApi");
@@ -125,6 +126,10 @@ function buildRequestMeta(member?) {
     })),
     needsRolePick: roleChoices.length > 1,
     minStartIso: tomorrowIsoUtc(),
+    /* pauseHalfDay1: mezza giornata anche per oggi, se la fascia non è iniziata */
+    minHalfDayIso: toIsoDay(getTodayUtc()),
+    halfDayToday: { mattina: canRequestHalfDayToday("mattina"), pomeriggio: canRequestHalfDayToday("pomeriggio") },
+    halfDayLimits: HALF_DAY_LIMITS,
     reasonMin: REASON_MIN,
     reasonMax: REASON_MAX,
   };
@@ -241,6 +246,8 @@ function serializePause(doc?, pause?, guild?, today?, identityMap = null) {
     statusLabel: cancelled ? "Annullata" : getPauseStatusLabel(pause, today),
     phase,
     cancelled,
+    halfDay: normalizeHalfDay(pause?.halfDay),
+    autoAccepted: Boolean(pause?.autoAccepted),
   };
 }
 
@@ -500,6 +507,7 @@ async function buildStaffPauseCalendarPayload(client?, year?, month?) {
         ruolo: pause.ruolo,
         start: pause.start,
         end: pause.end,
+        halfDay: pause.halfDay,
       });
     }
   }
@@ -586,7 +594,12 @@ async function handleSiteStaffPausePost(client?, req?, res?) {
 
     const body = req.body && typeof req.body === "object" ? req.body : {};
     const startIso = String(body.start || body.startIso || "").trim();
-    const endIso = String(body.end || body.endIso || "").trim();
+    /* pauseHalfDay1: mezza giornata = solo il giorno + fascia */
+    const halfDay = normalizeHalfDay(body.halfDay);
+    if (body.halfDay && !halfDay) {
+      return res.status(400).json({ ok: false, error: "bad_half_day", message: "Scegli mattina o pomeriggio." });
+    }
+    const endIso = halfDay ? startIso : String(body.end || body.endIso || "").trim();
     const reason = sanitizePauseReason(body.reason || body.motivazione);
     const roleChoices = getMemberPauseRoleChoices(member);
     let requestedRole = normalizePauseRoleChoice(body.role || body.requestedRole || body.ruolo);
@@ -625,7 +638,7 @@ async function handleSiteStaffPausePost(client?, req?, res?) {
       requestedRole = roleChoices[0];
     }
 
-    const dedupKey = requestDedupKey(member.id, startIso, endIso, reason, requestedRole);
+    const dedupKey = requestDedupKey(member.id, startIso, endIso, reason, `${requestedRole || ""}|${halfDay || ""}`);
     if (!claimRequestDedup(dedupKey)) {
       return res.status(429).json({
         ok: false,
@@ -643,6 +656,7 @@ async function handleSiteStaffPausePost(client?, req?, res?) {
       reason,
       member,
       requestedRole,
+      halfDay,
     });
 
     if (!result?.ok) {
@@ -667,8 +681,10 @@ async function handleSiteStaffPausePost(client?, req?, res?) {
       pauseId,
       pauseIds,
       dedupeKey,
-      message:
-        pauseIds.length > 1
+      autoAccepted: Boolean(result.autoAccepted),
+      message: result.autoAccepted
+        ? "Mezza giornata accettata in automatico. Gli High Staff sono stati avvisati."
+        : pauseIds.length > 1
           ? "Richieste inviate (una per ruolo). L'High Staff può accettarle o rifiutarle in modo indipendente."
           : "Richiesta inviata. Puoi discutere con gli High Staff dalla chat qui sotto (come il thread Discord). Si chiude automaticamente a decisione.",
       role: requestedRole,

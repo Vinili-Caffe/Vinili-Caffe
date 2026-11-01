@@ -374,7 +374,12 @@ async function upsertPauseWorkflowFromPause(client?, guild?, userId?, pause?) {
         content: String(pause.motivazione || ""),
         createdAt: pause.createdAt,
         fields: [
-          { name: "Periodo", value: `${pause.dataRichiesta || "?"} → ${pause.dataRitorno || "?"}` },
+          {
+            name: "Periodo",
+            value: pause.halfDay
+              ? `${pause.dataRichiesta || "?"} · mezza giornata (${pause.halfDay === "mattina" ? "mattina" : "pomeriggio/sera"})${pause.autoAccepted ? " · accettata in automatico" : ""}`
+              : `${pause.dataRichiesta || "?"} → ${pause.dataRitorno || "?"}`,
+          },
       { name: "Ruolo richiesto", value: roleLabel },
           { name: "Motivazione", value: String(pause.motivazione || "—") },
           { name: "Stato", value: statusLabel },
@@ -387,6 +392,8 @@ async function upsertPauseWorkflowFromPause(client?, guild?, userId?, pause?) {
       ruoloTrack: roleTrack,
       ruoloRichiesto: roleTrack,
       ruoloLabel: roleLabel,
+      halfDay: pause.halfDay || null,
+      autoAccepted: Boolean(pause.autoAccepted),
           phase: getPausePhase(pause.dataRichiesta, pause.dataRitorno, today),
           timing: (getPauseTimingText as any)(pause.dataRichiesta, pause.dataRitorno, today),
           statusLabel,

@@ -8,6 +8,19 @@ export const PAUSE_REASON_MAX = 500;
 
 export type PauseRoleChoice = { value: string; label: string };
 
+/** Mezza giornata: mattina (fino alle 14) o pomeriggio/sera (dalle 14). Vale 0,5 giorni. */
+export type PauseHalfDay = "mattina" | "pomeriggio";
+
+export const HALF_DAY_LABELS: Record<PauseHalfDay, string> = {
+  mattina: "Mattina",
+  pomeriggio: "Pomeriggio/sera",
+};
+
+export const HALF_DAY_HINTS: Record<PauseHalfDay, string> = {
+  mattina: "fino alle 14 · per oggi entro le 9",
+  pomeriggio: "dalle 14 · per oggi entro le 14",
+};
+
 export type PauseDayEntry = {
   id: string;
   userId: string;
@@ -17,6 +30,7 @@ export type PauseDayEntry = {
   ruolo: string;
   start: string;
   end: string;
+  halfDay?: PauseHalfDay | null;
 };
 
 export type PauseItem = {
@@ -35,6 +49,8 @@ export type PauseItem = {
   statusLabel?: string;
   phase: string;
   cancelled?: boolean;
+  halfDay?: PauseHalfDay | null;
+  autoAccepted?: boolean;
 };
 
 export type PausePendingRequest = {
@@ -54,6 +70,9 @@ export type PauseMe = {
   roleChoices: PauseRoleChoice[];
   needsRolePick: boolean;
   minStartIso: string;
+  minHalfDayIso?: string;
+  halfDayToday?: Record<PauseHalfDay, boolean>;
+  halfDayLimits?: { week: number; month: number; sameDayWeek: number; sameDayMonth: number };
   reasonMin: number;
   reasonMax: number;
   pendingRequest?: PausePendingRequest | null;
@@ -94,8 +113,8 @@ export function loadPauseMonth(token: string, year: number, month: number): Prom
 
 export function requestPause(
   token: string,
-  body: { start: string; end: string; reason: string; role?: string },
-): Promise<ApiRes<{ ok: true; message?: string; pauseId?: string; dedupeKey?: string }>> {
+  body: { start: string; end: string; reason: string; role?: string; halfDay?: PauseHalfDay },
+): Promise<ApiRes<{ ok: true; message?: string; pauseId?: string; dedupeKey?: string; autoAccepted?: boolean }>> {
   return staffFetch(BASE, token, {
     method: "POST",
     body: {
@@ -103,8 +122,14 @@ export function requestPause(
       end: body.end,
       reason: body.reason,
       role: body.role,
+      halfDay: body.halfDay,
     },
   });
+}
+
+/** "12/11/2026 · Mattina" per le mezze giornate, altrimenti "inizio → fine". */
+export function pausePeriodLabel(p: { start: string; end: string; halfDay?: PauseHalfDay | null }): string {
+  return p.halfDay ? `${p.start} · ${HALF_DAY_LABELS[p.halfDay]}` : `${p.start} → ${p.end}`;
 }
 
 export function phaseLabel(phase: string): string {

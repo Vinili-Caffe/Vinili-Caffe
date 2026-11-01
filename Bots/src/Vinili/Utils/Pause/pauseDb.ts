@@ -2,6 +2,7 @@
 const mongoose = require("mongoose") as typeof import("mongoose");
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
 const { MS_PER_DAY, parseItalianDate, getPauseDaysBetween, getTodayUtc, getCurrentYearBoundsUtc, countEffectiveOverlapDays } = require("./pauseDates") as typeof import("./pauseDates");
+const { HALF_DAY_WEIGHT, isHalfDayPause, halfDayScaledDays } = require("./pauseHalfDay") as typeof import("./pauseHalfDay");
 
 async function getStaffAndPauseByRequestMessageId(guildId?, messageId?) {
   const g = String(guildId ?? "").trim();
@@ -51,9 +52,20 @@ function computeConsumedPauseDays(pauses?) {
   const { yearStart, yearEnd } = getCurrentYearBoundsUtc();
   /* pauseBothSplit1: stessi giorni su Staff+PM non devono contare due volte */
   const ranges = [];
+  /* pauseHalfDay1: giorno → fasce (mattina/pomeriggio) scalate; due fasce = 1 giorno */
+  const halves = new Map();
 
   for (const pause of pauses) {
     if (!pause) continue;
+    if (isHalfDayPause(pause)) {
+      const day = parseItalianDate(pause.dataRichiesta);
+      if (day && halfDayScaledDays(pause, new Date(8.64e15)) > 0) {
+        const slots = halves.get(day.getTime()) || new Set();
+        slots.add(String(pause.halfDay));
+        halves.set(day.getTime(), slots);
+      }
+      continue;
+    }
     const start = parseItalianDate(pause.dataRichiesta);
     const plannedEnd = parseItalianDate(pause.dataRitorno);
 
@@ -80,7 +92,6 @@ function computeConsumedPauseDays(pauses?) {
     }
   }
 
-  if (!ranges.length) return 0;
   ranges.sort((a?, b?) => a[0] - b[0] || a[1] - b[1]);
   const merged = [];
   for (const [s, e] of ranges) {
@@ -90,16 +101,25 @@ function computeConsumedPauseDays(pauses?) {
       merged[merged.length - 1][1] = Math.max(merged[merged.length - 1][1], e);
     }
   }
-  return merged.reduce(
-    (total, [s, e]) => total + countEffectiveOverlapDays(new Date(s), new Date(e), yearStart, yearEnd),
+  let total = merged.reduce(
+    (sum, [s, e]) => sum + countEffectiveOverlapDays(new Date(s), new Date(e), yearStart, yearEnd),
     0,
   );
+  for (const [ms, slots] of halves) {
+    if (merged.some(([s, e]) => ms >= s && ms <= e)) continue;
+    const d = new Date(ms);
+    total += countEffectiveOverlapDays(d, d, yearStart, yearEnd) * Math.min(1, slots.size * HALF_DAY_WEIGHT);
+  }
+  return total;
 }
 
 function computePauseScaledDaysThisYear(pause?, todayUtc?, yearStart?, yearEnd?) {
   const start = parseItalianDate(pause?.dataRichiesta);
   const plannedEnd = parseItalianDate(pause?.dataRitorno);
   if (!start || !plannedEnd) return 0;
+  if (isHalfDayPause(pause)) {
+    return halfDayScaledDays(pause, todayUtc, countEffectiveOverlapDays(start, start, yearStart, yearEnd));
+  }
 
   if (pause.status === "cancelled") {
     let effectiveEnd = null;
@@ -135,6 +155,7 @@ function computeConsumedDaysForCancelledPause(pause?) {
   const totalScheduledDays = getPauseDaysBetween(pause?.dataRichiesta, pause?.dataRitorno) || 0;
   if (!start || !end) return 0;
   if (todayUtc < start) return 0;
+  if (isHalfDayPause(pause)) return HALF_DAY_WEIGHT;
   if (todayUtc > end) return totalScheduledDays;
   return Math.max(1, Math.floor(((todayUtc as any) - (start as any)) / MS_PER_DAY) + 1);
 }

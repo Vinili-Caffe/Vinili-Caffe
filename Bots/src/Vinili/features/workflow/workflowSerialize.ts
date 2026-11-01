@@ -89,6 +89,8 @@ function docToListItem(doc?, memberCache?) {
       ruoloTrack: track,
       phase: getPausePhase(start, end, today),
       statusLabel: liveStatusLabel,
+      halfDay: doc?.workflowFields?.halfDay || null,
+      autoAccepted: Boolean(doc?.workflowFields?.autoAccepted),
     };
   }
   if (queue === "candidature") {

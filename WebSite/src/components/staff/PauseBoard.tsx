@@ -6,6 +6,8 @@ import { Avatar } from "@/components/Avatar";
 import { DateField, showToast } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import {
+  HALF_DAY_HINTS,
+  HALF_DAY_LABELS,
   MONTH_NAMES,
   PAUSE_REASON_MAX,
   PAUSE_REASON_MIN,
@@ -17,11 +19,13 @@ import {
   loadPauseMonth,
   mondayIndexFirst,
   phaseLabel,
+  pausePeriodLabel,
   phaseOnCalendarDay,
   requestPause,
   shiftMonth,
   type PauseCalendar,
   type PauseDayEntry,
+  type PauseHalfDay,
   type PauseItem,
 } from "@/lib/staffPause";
 import { useLiveRefresh } from "@/lib/use-live-refresh";
@@ -48,6 +52,8 @@ export function PauseBoard() {
   const [busy, setBusy] = useState(false);
   const [reload, setReload] = useState(0);
   const [pendingKey, setPendingKey] = useState("");
+  const [mode, setMode] = useState<"full" | "half">("full");
+  const [slot, setSlot] = useState<PauseHalfDay>("mattina");
 
   useEffect(() => {
     let alive = true;
@@ -105,13 +111,25 @@ export function PauseBoard() {
 
   async function onRequest(e: React.FormEvent) {
     e.preventDefault();
-    if (!start || !end) {
-      showToast("Indica inizio e ritorno.", true);
-      return;
-    }
-    if (end <= start) {
-      showToast("La data di ritorno deve essere dopo l'inizio.", true);
-      return;
+    const half = mode === "half";
+    if (half) {
+      if (!start) {
+        showToast("Indica il giorno.", true);
+        return;
+      }
+      if (start === cal?.today && cal?.me?.halfDayToday && !cal.me.halfDayToday[slot]) {
+        showToast(`La fascia ${HALF_DAY_LABELS[slot].toLowerCase()} di oggi è già iniziata.`, true);
+        return;
+      }
+    } else {
+      if (!start || !end) {
+        showToast("Indica inizio e ritorno.", true);
+        return;
+      }
+      if (end <= start) {
+        showToast("La data di ritorno deve essere dopo l'inizio.", true);
+        return;
+      }
     }
     const min = cal?.me?.reasonMin || PAUSE_REASON_MIN;
     if (reason.trim().length < min) {
@@ -125,9 +143,10 @@ export function PauseBoard() {
     setBusy(true);
     const r = await requestPause(token, {
       start,
-      end,
+      end: half ? start : end,
       reason: reason.trim().slice(0, cal?.me?.reasonMax || PAUSE_REASON_MAX),
       role: role || undefined,
+      halfDay: half ? slot : undefined,
     });
     setBusy(false);
     if (!r.ok) {
@@ -135,7 +154,7 @@ export function PauseBoard() {
       return;
     }
     showToast(r.data.message || "Richiesta in attesa");
-    if (r.data.dedupeKey) setPendingKey(r.data.dedupeKey);
+    if (r.data.dedupeKey && !r.data.autoAccepted) setPendingKey(r.data.dedupeKey);
     setReason("");
     setReload((n) => n + 1);
   }
@@ -242,7 +261,7 @@ export function PauseBoard() {
                       <div className="min-w-0">
                         <p className="truncate text-sm font-semibold">{e.displayName}</p>
                         <p className="text-xs text-crema/50">
-                          {e.start} → {e.end} · {e.ruolo}
+                          {pausePeriodLabel(e)} · {e.ruolo}
                         </p>
                         <p className="text-xs text-crema/45">{dayPhaseLabel(onDay)}</p>
                       </div>
@@ -275,29 +294,101 @@ export function PauseBoard() {
           {cal?.me?.canRequest ? (
             <form onSubmit={onRequest} className="space-y-3 rounded-3xl bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast p-4 ring-1 ring-sand/12 sm:p-5">
               <h3 className="font-display text-xl font-semibold">Richiedi una pausa</h3>
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
-                <label className="block text-sm">
-                  <span className="text-xs font-semibold uppercase tracking-wider text-crema/45">Inizio</span>
-                  <DateField
-                    required
-                    value={start}
-                    min={cal.me.minStartIso?.slice(0, 10) || undefined}
-                    onChange={setStart}
-                    className="mt-1 w-full"
-                    aria-label="Data inizio pausa"
-                  />
-                </label>
-                <label className="block text-sm">
-                  <span className="text-xs font-semibold uppercase tracking-wider text-crema/45">Ritorno</span>
-                  <DateField
-                    required
-                    value={end}
-                    onChange={setEnd}
-                    className="mt-1 w-full"
-                    aria-label="Data ritorno"
-                  />
-                </label>
+              <div className="grid grid-cols-2 gap-1 rounded-full bg-espresso/60 p-1 ring-1 ring-sand/12" role="tablist">
+                {(
+                  [
+                    ["full", "Giorno intero"],
+                    ["half", "Mezza giornata"],
+                  ] as const
+                ).map(([value, label]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    role="tab"
+                    aria-selected={mode === value}
+                    onClick={() => setMode(value)}
+                    className={cn(
+                      "rounded-full px-3 py-1.5 text-sm font-semibold transition",
+                      mode === value ? "bg-caramel/25 text-ember ring-1 ring-caramel/35" : "text-crema/60 hover:text-crema",
+                    )}
+                  >
+                    {label}
+                  </button>
+                ))}
               </div>
+              {mode === "half" ? (
+                <>
+                  <label className="block text-sm">
+                    <span className="text-xs font-semibold uppercase tracking-wider text-crema/45">Giorno</span>
+                    <DateField
+                      required
+                      value={start}
+                      min={cal.me.minHalfDayIso?.slice(0, 10) || cal.today || undefined}
+                      onChange={setStart}
+                      className="mt-1 w-full"
+                      aria-label="Giorno della mezza giornata"
+                    />
+                  </label>
+                  <fieldset>
+                    <legend className="text-xs font-semibold uppercase tracking-wider text-crema/45">Fascia</legend>
+                    <div className="mt-2 grid grid-cols-2 gap-2">
+                      {(Object.keys(HALF_DAY_LABELS) as PauseHalfDay[]).map((s) => {
+                        const closedToday = start === cal.today && cal.me.halfDayToday?.[s] === false;
+                        return (
+                          <button
+                            key={s}
+                            type="button"
+                            disabled={closedToday}
+                            onClick={() => setSlot(s)}
+                            className={cn(
+                              "rounded-2xl px-3 py-2 text-left ring-1 transition disabled:cursor-not-allowed disabled:opacity-40",
+                              slot === s && !closedToday
+                                ? "bg-caramel/20 text-ember ring-caramel/35"
+                                : "bg-crema/5 text-crema/70 ring-sand/15 hover:text-crema",
+                            )}
+                          >
+                            <span className="block text-sm font-semibold">{HALF_DAY_LABELS[s]}</span>
+                            <span className="block text-[0.7rem] text-crema/45">
+                              {closedToday ? "già iniziata oggi" : HALF_DAY_HINTS[s]}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </fieldset>
+                  <p className="text-xs leading-relaxed text-crema/45">
+                    Vale mezzo giorno del tuo budget pause: mattina e pomeriggio dello stesso giorno fanno un giorno intero.
+                    {cal.me.halfDayLimits
+                      ? ` Massimo ${cal.me.halfDayLimits.week} a settimana e ${cal.me.halfDayLimits.month} al mese; per oggi ${cal.me.halfDayLimits.sameDayWeek} a settimana e ${cal.me.halfDayLimits.sameDayMonth} al mese.`
+                      : ""}{" "}
+                    Se la chiedi per oggi e sei nei limiti viene accettata subito.
+                  </p>
+                </>
+              ) : (
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
+                  <label className="block text-sm">
+                    <span className="text-xs font-semibold uppercase tracking-wider text-crema/45">Inizio</span>
+                    <DateField
+                      required
+                      value={start}
+                      min={cal.me.minStartIso?.slice(0, 10) || undefined}
+                      onChange={setStart}
+                      className="mt-1 w-full"
+                      aria-label="Data inizio pausa"
+                    />
+                  </label>
+                  <label className="block text-sm">
+                    <span className="text-xs font-semibold uppercase tracking-wider text-crema/45">Ritorno</span>
+                    <DateField
+                      required
+                      value={end}
+                      onChange={setEnd}
+                      className="mt-1 w-full"
+                      aria-label="Data ritorno"
+                    />
+                  </label>
+                </div>
+              )}
               {(cal.me.roleChoices || []).length > 0 ? (
                 <fieldset>
                   <legend className="text-xs font-semibold uppercase tracking-wider text-crema/45">Attività in pausa</legend>
@@ -370,7 +461,8 @@ export function PauseBoard() {
                   </span>
                 </div>
                 <p className="mt-0.5 text-sm text-crema/55">
-                  {p.start} → {p.end} · {p.ruolo}
+                  {pausePeriodLabel(p)} · {p.ruolo}
+                  {p.autoAccepted ? " · accettata in automatico" : ""}
                 </p>
                 {p.motivazione ? <p className="mt-1 line-clamp-2 text-xs text-crema/40">{p.motivazione}</p> : null}
               </li>

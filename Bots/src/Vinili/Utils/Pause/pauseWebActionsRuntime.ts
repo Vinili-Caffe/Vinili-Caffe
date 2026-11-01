@@ -41,6 +41,8 @@ const {
 } = require("./pauseHandlersUtils") as typeof import("./pauseHandlersUtils");
 const { invalidateStaffPauseCalendarCache } = require("../../features/staff/siteStaffPauseApi") as typeof import("../../features/staff/siteStaffPauseApi");
 
+const { HALF_DAY_WEIGHT, isHalfDayPause, halfDayLabel } = require("./pauseHalfDay") as typeof import("./pauseHalfDay");
+
 const pauseActionLocks = new Set();
 
 function notifyStaffPauseCalendarChanged(userId?) {
@@ -344,7 +346,8 @@ async function acceptPauseRequestWeb(client?, guild?, actorMember?, userId?, pau
       stafferRecord?.staff?.pauses || stafferRecord?.pauses,
       targetPause,
     );
-    const giorniRichiesti = siblingCovered ? 0 : rangeDays;
+    /* pauseHalfDay1: mezza giornata = 0,5 giorni */
+    const giorniRichiesti = siblingCovered ? 0 : isHalfDayPause(targetPause) ? HALF_DAY_WEIGHT : rangeDays;
     const giorniUsati = usedBefore + giorniRichiesti;
     const giorniRimanenti = maxGiorni - giorniUsati;
     if (giorniRimanenti < 0) {
@@ -453,7 +456,9 @@ async function acceptPauseRequestWeb(client?, guild?, actorMember?, userId?, pau
     const pauseEnd = parseItalianDate(targetPause.dataRitorno);
     const now = getTodayUtc();
     const pauseAlreadyEnded = Boolean(pauseEnd && now > pauseEnd);
-    const pauseTimingText = getPauseTimingText(targetPause.dataRichiesta, targetPause.dataRitorno);
+    const pauseTimingText = isHalfDayPause(targetPause)
+      ? `ha una mezza giornata di pausa (${halfDayLabel(targetPause.halfDay).toLowerCase()})${targetPause.autoAccepted ? ", accettata in automatico" : ""}`
+      : getPauseTimingText(targetPause.dataRichiesta, targetPause.dataRitorno);
 
     await deletePauseThreadIfAny(guild, threadIdToDelete);
 
@@ -571,7 +576,26 @@ async function cancelPauseRequestWeb(client?, guild?, actorMember?, userId?, pau
     const end = parseItalianDate(targetPause.dataRitorno);
     const totalScheduledDays = getPauseDaysBetween(targetPause.dataRichiesta, targetPause.dataRitorno) || 0;
     let consumedForCancelledPause = 0;
-    if (start && end) {
+    /* pauseHalfDay1: mezza giornata accettata in automatico e annullata da un High Staff = revocata, niente giorni scalati */
+    const actorId = String(actorMember?.id || actorMember?.user?.id || "").trim();
+    if (isHalfDayPause(targetPause) && targetPause.autoAccepted && actorId && actorId !== String(userId)) {
+      await updatePauseInDb(guildId, userId, pauseId, { status: "rejected", giorniUsati: 0, cancelledAt: new Date() });
+      const revokedMsg = await fetchPauseRequestMessage(guild, targetPause);
+      if (revokedMsg?.editable) {
+        const revokedSuffix = `\n\n<:cancel:1461730653677551691> **__\`REVOCATA\`__** da <@${actorId}>: nessun giorno scalato.`;
+        await revokedMsg.edit({ content: `${revokedMsg.content || ""}${revokedSuffix}`, components: [] }).catch(() => null);
+      }
+      invalidateStaffPauseCalendarCache();
+      notifyStaffPauseCalendarChanged(userId);
+      try {
+        const { updateStaffWorkflowFromPause, workflowActorExtras } = require("../../features/workflow/siteStaffWorkflowStore") as typeof import("../../features/workflow/siteStaffWorkflowStore");
+        await updateStaffWorkflowFromPause(guildId, userId, pauseId, "rejected", workflowActorExtras(actorMember));
+      } catch (_) {}
+      return { ok: true, status: 200, message: "Mezza giornata revocata: nessun giorno scalato." };
+    }
+    if (start && end && isHalfDayPause(targetPause)) {
+      consumedForCancelledPause = todayUtc < start ? 0 : HALF_DAY_WEIGHT;
+    } else if (start && end) {
       if (todayUtc < start) consumedForCancelledPause = 0;
       else if (todayUtc > end) consumedForCancelledPause = totalScheduledDays;
       else consumedForCancelledPause = Math.max(1, Math.floor(((todayUtc as any) - (start as any)) / MS_PER_DAY) + 1);

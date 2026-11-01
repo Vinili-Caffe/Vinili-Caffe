@@ -39,7 +39,7 @@ async function resolveRequestedPauseRole(member?, channel?, authorMention?) {
   return { ok: true, requestedRole: "Staff" };
 }
 
-async function submitPauseRequestForMember({ guild, member, rawStart, rawEnd, reason, requestedRole = null, replyChannel = null }) {
+async function submitPauseRequestForMember({ guild, member, rawStart, rawEnd, reason, requestedRole = null, replyChannel = null, halfDay = null }) {
   if (!guild || !member?.id) {
     return { ok: false, error: "<a:VC_Alert:1482706673176150077> Richiesta non valida." };
   }
@@ -62,6 +62,7 @@ async function submitPauseRequestForMember({ guild, member, rawStart, rawEnd, re
         rawStart,
         rawEnd,
         reason,
+        halfDay,
       });
       const row = new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId(PAUSE_ROLE_PICK_PM).setLabel("PM").setStyle(ButtonStyle.Secondary),
@@ -93,6 +94,7 @@ async function submitPauseRequestForMember({ guild, member, rawStart, rawEnd, re
     reason,
     member,
     requestedRole: role,
+    halfDay,
   });
   if (result.ok && replyChannel) {
   }
