@@ -158,7 +158,7 @@ function groupPipeline(match: Record<string, any>): any[] {
   return [
     { $match: match },
     { $sort: { createdAt: 1 } },
-    { $group: { _id: "$boardMessageId", doc: { $first: "$ROOT" }, reposts: { $sum: 1 }, reposters: { $addToSet: "$reposterUserId" } } },
+    { $group: { _id: "$boardMessageId", doc: { $first: "$$ROOT" }, reposts: { $sum: 1 }, reposters: { $addToSet: "$reposterUserId" } } },
   ];
 }
 
