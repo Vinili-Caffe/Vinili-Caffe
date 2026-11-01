@@ -77,7 +77,6 @@ export const REACT_PAGES = new Set([
   "/evento/gara/",
   "/evento/miniera/",
   "/contest/sfondi-halloween/",
-  "/contest/outfit-halloween/",
   "/privacy/",
   "/cookie/",
   "/terms/",

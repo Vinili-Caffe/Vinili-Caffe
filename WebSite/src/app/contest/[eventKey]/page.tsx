@@ -17,10 +17,6 @@ const KNOWN = {
     title: "Contest sfondi Halloween",
     text: "Manda uno sfondo PC o telefono, vota gli altri con uno swipe e segui la classifica live.",
   },
-  "outfit-halloween": {
-    title: "Contest outfit Halloween",
-    text: "Mostra il tuo outfit, vota gli altri con uno swipe e segui la classifica live.",
-  },
 } as const;
 
 export function generateStaticParams() {

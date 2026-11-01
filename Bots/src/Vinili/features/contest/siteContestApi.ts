@@ -1,5 +1,5 @@
 /**
- * Contest sito (sfondi / outfit) — unlisted, swipe like Tinder.
+ * Contest sito (sfondi) — unlisted, swipe like Tinder.
  * Storage: Mongo sitecontests + file in Data/uploads/site-contests.
  */
 const crypto = require("crypto") as typeof import("crypto");
@@ -53,18 +53,6 @@ const EVENTS = {
       { id: "pc", label: "PC" },
       { id: "mobile", label: "Telefono / tablet" },
     ],
-    publicOpen: true,
-  },
-  "outfit-halloween": {
-    key: "outfit-halloween",
-    kind: "outfit",
-    title: "Contest outfit Halloween",
-    blurb: "Mostra il tuo outfit Halloween e vota gli altri con uno swipe.",
-    startMs: Date.parse("2026-10-31T12:00:00+01:00"),
-    /* Allineato a chiusura evento Halloween (HALLOWEEN_EVENT_END / 2026-11-02 12:00 Rome). */
-    endMs: Date.parse("2026-11-02T12:00:00+01:00"),
-    maxPerCategory: 1,
-    categories: [{ id: "main", label: "Outfit" }],
     publicOpen: true,
   },
 };
@@ -366,7 +354,7 @@ async function getHighlight(client?, { accessToken }: any = {}) {
   candidates.sort((a?, b?) => {
     const d = promoRank(b.cal) - promoRank(a.cal);
     if (d) return d;
-    /* Stessa fase calendario: ordine di schedule (sfondi prima di outfit). */
+    /* Stessa fase calendario: ordine di schedule. */
     return a.event.startMs - b.event.startMs;
   });
   const top = candidates[0];
@@ -376,7 +364,7 @@ async function getHighlight(client?, { accessToken }: any = {}) {
   const { event, phase, cal } = top;
   const cta = cal === "after" ? "Vedi classifica" : "Partecipa";
   const pill =
-    event.kind === "sfondi" ? "Sfondi" : event.kind === "outfit" ? "Outfit" : "Contest";
+    event.kind === "sfondi" ? "Sfondi" : "Contest";
   return {
     ok: true,
     status: 200,
