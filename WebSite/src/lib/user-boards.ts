@@ -10,6 +10,7 @@ export type BoardItem = {
   originUrl: string;
   previewImageUrl: string;
   previewAudioUrl: string;
+  previewVideoUrl?: string;
   content: string;
   quotedUserId: string;
   quotedUsername: string;

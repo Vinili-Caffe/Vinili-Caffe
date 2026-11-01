@@ -459,7 +459,7 @@ function BachecaDetail({
   const title = { quote: "Quote", repost: "Repost", clip: "Clip vocale", skull: "Skullboard" }[item.kind];
   return (
     <div className="relative rounded-2xl bg-[#fbf7ef] p-5 pt-7 text-ink shadow-2xl">
-      <Pin tone="yellow" />
+      <Pin tone="yellow" className="top-3" />
       <button type="button" onClick={onClose} aria-label="Chiudi" className="absolute right-3 top-3 rounded-full p-1.5 text-ink/60 hover:bg-ink/10 hover:text-ink">
         <X className="size-5" />
       </button>

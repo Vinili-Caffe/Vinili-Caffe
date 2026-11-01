@@ -50,7 +50,13 @@ function isImageUrl(url?) {
 
 function isAudioUrl(url?, name?) {
   const s = `${url || ""} ${name || ""}`;
-  return /\.(mp3|ogg|wav|m4a)(\?|$)/i.test(s);
+  return /\.(mp3|ogg|oga|opus|wav|m4a|aac|flac)(\?|\s|$)/i.test(s);
+}
+
+/* video allegati (anche quelli col nome senza estensione, riconosciuti dall'URL) */
+function isVideoUrl(url?, name?) {
+  const s = `${url || ""} ${name || ""}`;
+  return /\.(mp4|webm|mov|m4v|mkv)(\?|\s|$)/i.test(s);
 }
 
 function serializeQuote(doc?, guildId?) {
@@ -64,6 +70,7 @@ function serializeQuote(doc?, guildId?) {
     originUrl: jumpUrl(guildId, doc?.originChannelId, doc?.originMessageId),
     previewImageUrl: isImageUrl(imageUrl) ? imageUrl : "",
     previewAudioUrl: "",
+    previewVideoUrl: "",
     content: "",
     quotedUserId: String(doc?.quotedUserId || "").trim(),
     quotedUsername: String(doc?.quotedUsername || "").trim(),
@@ -77,11 +84,13 @@ function serializeRepost(doc?, guildId?, kind?) {
   const files = Array.isArray(doc?.mediaFiles) ? doc.mediaFiles : [];
   let previewImageUrl = isImageUrl(doc?.attachmentUrl) ? String(doc.attachmentUrl).trim() : "";
   let previewAudioUrl = "";
+  let previewVideoUrl = "";
   for (const f of files) {
     const url = String(f?.url || "").trim();
     const name = String(f?.name || "");
     if (!previewImageUrl && (isImageUrl(url) || isImageUrl(name))) previewImageUrl = url;
     if (!previewAudioUrl && (isAudioUrl(url, name) || /^clip\.mp3$/i.test(name))) previewAudioUrl = url;
+    if (!previewVideoUrl && isVideoUrl(url, name)) previewVideoUrl = url;
   }
   return {
     id,
@@ -91,6 +100,7 @@ function serializeRepost(doc?, guildId?, kind?) {
     originUrl: jumpUrl(guildId, doc?.sourceChannelId, doc?.sourceMessageId),
     previewImageUrl,
     previewAudioUrl,
+    previewVideoUrl,
     content: String(doc?.content || "").trim().slice(0, 400),
     quotedUserId: "",
     quotedUsername: "",

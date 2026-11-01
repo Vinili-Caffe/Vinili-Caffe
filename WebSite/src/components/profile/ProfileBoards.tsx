@@ -211,6 +211,8 @@ function Card({
           className="aspect-video w-full cursor-zoom-in object-cover bg-crema/[0.03]"
           loading="lazy"
         />
+      ) : item.previewVideoUrl ? (
+        <video src={item.previewVideoUrl} controls preload="metadata" playsInline className="aspect-video w-full bg-black object-contain" />
       ) : item.previewAudioUrl ? (
         <BoardAudioPlayer src={item.previewAudioUrl} id={item.id} />
       ) : (
