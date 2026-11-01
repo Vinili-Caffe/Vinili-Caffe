@@ -32,8 +32,7 @@ async function run(client?) {
   ].join("\n");
   const infoGuildTagsText = [
     "<:VC_Reply:1482532158080942191> Metti la tag **V&C** sul tuo profilo Discord e ricevi il ruolo **Guilded**: immagini e link in chat e nickname personalizzato!",
-  ].join("
-");
+  ].join("\n");
   const infoLinksText = [
     "<:VC_Instagram:1482526710426767360> [Seguici su Instagram](https://www.instagram.com/viniliecaffe/)",
     "<:VC_TikTok:1498017166060949525> [Seguici su TikTok](https://www.tiktok.com/@viniliecaffe)",
