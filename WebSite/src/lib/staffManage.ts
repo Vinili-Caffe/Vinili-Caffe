@@ -166,3 +166,31 @@ export const ACTION_LABELS: Record<string, string> = {
   pause_reject: "Rifiuta pausa",
   pause_cancel: "Annulla pausa",
 };
+
+// Cronologia pex/depex: GET /webhooks/site-staff-organico (pexHistory), anche quelli vecchi importati dal canale.
+export type PexHistoryItem = {
+  kind: "pex" | "depex";
+  userId: string;
+  displayName: string;
+  username?: string;
+  avatarUrl?: string;
+  fromRole?: string;
+  toRole?: string;
+  reason?: string | null;
+  actorId?: string | null;
+  actorName?: string | null;
+  imported?: boolean;
+  dateIso?: string | null;
+  dateLabel?: string | null;
+};
+
+export type PexHistoryPayload = {
+  ok: true;
+  pexHistory: PexHistoryItem[];
+  historyStats?: { total: number; pexCount: number; depexCount: number } | null;
+};
+
+export function loadPexHistory(token: string, userId?: string | null) {
+  const qs = userId ? `?userId=${encodeURIComponent(userId)}` : "";
+  return staffFetch<PexHistoryPayload>(`/webhooks/site-staff-organico${qs}`, token);
+}

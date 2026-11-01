@@ -394,7 +394,9 @@ function mergeUserHistoryRows(doc?) {
       username: row.username,
       avatarUrl: row.avatarUrl,
     }));
-  return fromStaff.concat(fromRetention).concat(fromTrack);
+  /* pexImport1: pex/depex vecchi recuperati dal canale #pex-depex */
+  const fromImport = Array.isArray(doc?.staffPexImported) ? doc.staffPexImported : [];
+  return fromStaff.concat(fromRetention).concat(fromTrack).concat(fromImport);
 }
 
 function rosterMembersById(roster?) {
@@ -418,6 +420,7 @@ async function buildPexDepexHistory(guild?, client?, filterUserId?, rosterById =
       { "staff.rolesHistory.0": { $exists: true } },
       { "staffRolesHistoryRetention.0": { $exists: true } },
       { "staff.trackHistory.0": { $exists: true } },
+      { "staffPexImported.0": { $exists: true } },
     ];
   }
 
@@ -426,6 +429,7 @@ async function buildPexDepexHistory(guild?, client?, filterUserId?, rosterById =
     "staff.rolesHistory": 1,
     "staff.trackHistory": 1,
     staffRolesHistoryRetention: 1,
+    staffPexImported: 1,
   })
     .lean()
     .catch(() => []);
@@ -516,6 +520,9 @@ async function buildPexDepexHistory(guild?, client?, filterUserId?, rosterById =
         fromRole: roleNameFromId(guild, fromRoleId || row.oldRole),
         toRole: roleNameFromId(guild, toRoleId || row.newRole),
         reason: stripDiscordDecorations(row.reason || "") || null,
+        actorId: row.actorId ? String(row.actorId) : null,
+        actorName: row.actorName ? stripDiscordDecorations(String(row.actorName)) || null : null,
+        imported: Boolean(row.importMessageId),
         dateIso: iso,
         dateLabel: formatHistoryDate(iso),
         _sort: iso ? new Date(iso).getTime() : 0,

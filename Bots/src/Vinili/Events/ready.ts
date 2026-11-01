@@ -1197,6 +1197,17 @@ function startPrimaryLoops(client?, engagementTick?) {
     ["[PREMIUM EXPIRY REMINDER] Failed to start loop", () => startPremiumExpiryReminderLoop(client)],
     ["[MOVIE NIGHT ANNOUNCE] Failed to start loop", () => startMovieNightAnnouncementLoop(client)],
     ["[EXP EVENT ANNOUNCE] Failed to start loop", () => startGlobalExpEventAnnouncementLoop(client)],
+    /* pexImport1: una volta sola (segnata in BotState), 2 minuti dopo l'avvio */
+    [
+      "[PEX IMPORT] import cronologia pex/depex fallito",
+      () => {
+        const t = setTimeout(() => {
+          const { importOldPexDepex } = require("../features/staff/pexDepexImport") as typeof import("../features/staff/pexDepexImport");
+          importOldPexDepex(client).catch((err) => global.logger?.error?.("[PEX IMPORT]", err));
+        }, 2 * 60_000);
+        t.unref?.();
+      },
+    ],
     /* perfP1: se COMMUNITY_POLL_EXTERNAL=1 i start* no-op qui (gira community-poll) */
     ["[TWITCH LIVE] Failed to start loop", () => startTwitchLiveAlertLoop(client)],
     ["[GAME NEWS] Failed to start loop", () => startGameNewsAlertLoop(client)],

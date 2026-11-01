@@ -15,6 +15,7 @@ import { Avatar } from "@/components/Avatar";
 import { SmartLink } from "@/components/SmartLink";
 import { confirmDialog, showToast } from "@/components/ui";
 import { useStaff } from "@/components/staff/StaffShell";
+import { PexHistory } from "@/components/staff/PexHistory";
 import { cn } from "@/lib/cn";
 import {
   ACTION_LABELS,
@@ -134,6 +135,7 @@ export function GestioneBoard() {
   const [pick, setPick] = useState<CareerOpt | null>(null);
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
+  const [historyKey, setHistoryKey] = useState(0);
 
   const reload = useCallback(
     async (userId?: string | null) => {
@@ -246,6 +248,7 @@ export function GestioneBoard() {
     setPick(null);
     setReason("");
     await reload(selectedId);
+    setHistoryKey((n) => n + 1);
   }
 
   if (error && !data) {
@@ -255,6 +258,7 @@ export function GestioneBoard() {
   }
 
   return (
+    <div className="space-y-5">
     <div className="grid gap-5 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
       <section className="rounded-2xl bg-gradient-to-b from-caramel/[0.08] via-roast/80 to-roast p-4 ring-1 ring-sand/15 sm:p-5">
         <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
@@ -474,6 +478,12 @@ export function GestioneBoard() {
           </div>
         )}
       </section>
+    </div>
+    <PexHistory
+      token={token}
+      member={member ? { userId: member.userId, displayName: member.displayName } : null}
+      refreshKey={historyKey}
+    />
     </div>
   );
 }

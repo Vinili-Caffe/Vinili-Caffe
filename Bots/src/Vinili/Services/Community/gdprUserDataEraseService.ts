@@ -213,7 +213,9 @@ async function eraseActivityUserProfiles({ guildId, userId, client, dryRun }) {
     const rolesHistoryRetention = Array.isArray(doc.staffRolesHistoryRetention)
       ? doc.staffRolesHistoryRetention.filter(Boolean)
       : [];
-    const keepRolesHistoryRetention = rolesHistoryRetention.length > 0;
+    /* pexImport1: anche i pex/depex importati dal canale restano nella cronologia */
+    const pexImported = Array.isArray(doc.staffPexImported) ? doc.staffPexImported.filter(Boolean) : [];
+    const keepRolesHistoryRetention = rolesHistoryRetention.length > 0 || pexImported.length > 0;
     const tenantPartnership =
       doc?.profile?.tenantPartnership && typeof doc.profile.tenantPartnership === "object"
         ? doc.profile.tenantPartnership
@@ -257,6 +259,7 @@ async function eraseActivityUserProfiles({ guildId, userId, client, dryRun }) {
     if (staffPendingPurgeAt) payload.staffPendingPurgeAt = staffPendingPurgeAt;
     // organicoLeaveRetain2: GDPR trim must not erase organico career history
     if (keepRolesHistoryRetention) payload.staffRolesHistoryRetention = rolesHistoryRetention;
+    if (pexImported.length) payload.staffPexImported = pexImported;
 
     const profile: Record<string, any> = {};
     if (keepEventWeekWinners) {
@@ -268,7 +271,7 @@ async function eraseActivityUserProfiles({ guildId, userId, client, dryRun }) {
     if (keepRolesHistoryRetention) {
       await ActivityUserProfile.updateOne(
         { _id: doc._id },
-        { $set: { staffRolesHistoryRetention: rolesHistoryRetention } },
+        { $set: { staffRolesHistoryRetention: rolesHistoryRetention, ...(pexImported.length ? { staffPexImported: pexImported } : {}) } },
       ).catch(() => null);
     }
   }

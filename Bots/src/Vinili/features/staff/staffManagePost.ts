@@ -424,6 +424,10 @@ async function handleSiteStaffManagePost(client?, req?, res?) {
       PAUSE_MANAGE_ACTIONS.has(action)
     ) {
       invalidateStaffRosterCache();
+      /* pexImport1: la cronologia in Gestione mostra subito il nuovo pex/depex */
+      try {
+        require("./organicoAvatars").organicoCache.clear();
+      } catch (_) {}
     }
 
     const paused = await getStaffListPausedUserIds(guildId);

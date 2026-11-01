@@ -233,6 +233,8 @@ const staffRolesHistoryEntrySchema = new Schema(
     avatarUrl: { type: String, default: null },
         actorId: { type: String, default: null },
     actorName: { type: String, default: null },
+    /** pexImport1: messaggio del canale #pex-depex da cui è stata importata la riga */
+    importMessageId: { type: String, default: null },
   },
   { _id: false },
 );
@@ -755,6 +757,8 @@ const activityUserProfileSchema = new Schema(
     },
     staff: { type: staffEmbeddedSchema },
         staffRolesHistoryRetention: { type: [staffRolesHistoryEntrySchema], default: [] },
+        /** pexImport1: pex/depex vecchi recuperati dal canale #pex-depex (solo per la cronologia in Gestione) */
+        staffPexImported: { type: [staffRolesHistoryEntrySchema], default: [] },
         staffPendingPurgeAt: { type: Date, default: null },
   },
   { timestamps: true },
