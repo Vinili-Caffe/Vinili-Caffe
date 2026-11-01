@@ -151,7 +151,7 @@ async function publishMonthlyActivityWinners(client?, options: Record<string, an
   );
   if (!options.skipDiscordSends && channel) {
     const introLine = `<a:VC_Winner:1482535294757507255> Ciao a tutti! Annunciamo i vincitori del mese.`;
-    const votersRoleTextByIndex = ["<@&1521787468201066666>", "<@&1544830866616754257>", "<@&1544830864565735515>"];
+    const votersRoleTextByIndex = ["<@&1544830868575625276>", "<@&1544830866616754257>", "<@&1544830864565735515>"];
     const voter1 = monthlyVotersTop[0];
     const voter2 = monthlyVotersTop[1];
     const voter3 = monthlyVotersTop[2];

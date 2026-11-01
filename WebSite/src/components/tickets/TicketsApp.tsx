@@ -261,7 +261,26 @@ function PaneBody({
         </div>
       );
     }
-    return <div className="m-auto text-sm text-crema/45">Apro il ticket…</div>;
+    /* ticketSwitchSteady1: stessa forma della chat (testata, messaggi, campo di scrittura) mentre carica,
+       così passando da un ticket all'altro testata e campo non spariscono e ricompaiono */
+    return (
+      <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden" aria-busy="true" aria-label="Apro il ticket…">
+        <div className="shrink-0 border-b border-dashed border-sand/20 bg-roast/60 px-4 py-3 sm:px-6">
+          <div className="h-6 w-48 animate-pulse rounded-md bg-crema/10" />
+          <div className="mt-1.5 h-3.5 w-32 animate-pulse rounded bg-crema/[0.07]" />
+        </div>
+        <div className="min-h-0 flex-1 space-y-4 overflow-hidden px-3 py-5 sm:px-6">
+          {[60, 40, 72, 48].map((w, i) => (
+            <div key={i} className={i % 2 ? "flex justify-end" : "flex"}>
+              <div className="h-12 animate-pulse rounded-2xl bg-crema/[0.06]" style={{ width: `${w}%` }} />
+            </div>
+          ))}
+        </div>
+        <div className="shrink-0 border-t border-sand/10 bg-roast/60 p-3 sm:p-4">
+          <div className="h-11 animate-pulse rounded-2xl bg-crema/[0.06]" />
+        </div>
+      </div>
+    );
   }
   return (
     <div className="m-auto max-w-sm p-8 text-center">
