@@ -15,6 +15,7 @@ import {
   MessageSquareText,
   Sparkles,
   UserRound,
+  Users,
   X,
 } from "lucide-react";
 import { NAV_DIRECT, NAV_GROUPS, NAV_MOBILE_SECTIONS, page, type NavLink } from "@/lib/site";
@@ -330,6 +331,12 @@ function MobileDrawerAccount({ onClose }: { onClose: () => void }) {
     staff && user
       ? [
           { href: "/staff/guida/", label: "Guida", icon: <BookOpen className="size-4" />, show: true },
+          {
+            href: "/staff/gestione/",
+            label: "Gestione",
+            icon: <Users className="size-4" />,
+            show: Boolean(staff.canManage || staff.canManagePm),
+          },
           { href: "/staff/compiti/", label: "Compiti", icon: <ListChecks className="size-4" />, show: staff.canCompiti },
           { href: "/staff/pause/", label: "Pause", icon: <CalendarDays className="size-4" />, show: true },
         ].filter((x) => x.show)
