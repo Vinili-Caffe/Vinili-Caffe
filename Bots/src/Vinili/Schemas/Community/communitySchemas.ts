@@ -686,12 +686,6 @@ const activityUserProfileSchema = new Schema(
       globalOneTimeReminder: {
         entries: { type: [Schema.Types.Mixed], default: [] },
       },
-      sponsorMainLeave: {
-        leftAt: { type: Date, default: null },
-        kickAt: { type: Date, default: null },
-        dmSent: { type: Boolean, default: false },
-        dmFailed: { type: Boolean, default: false },
-      },
             economy: {
         type: Schema.Types.Mixed,
         default: () => ({}),
@@ -774,7 +768,6 @@ activityUserProfileSchema.index({ guildId: 1, "profile.birthday.month": 1, "prof
 activityUserProfileSchema.index({ guildId: 1, "profile.inviteTrack.inviterId": 1 });
 activityUserProfileSchema.index({ userId: 1, "profile.globalOneTimeReminder.entries.key": 1 });
 activityUserProfileSchema.index({ "profile.globalOneTimeReminder.entries.sendAt": 1, "profile.globalOneTimeReminder.entries.sentAt": 1 });
-activityUserProfileSchema.index({ guildId: 1, "profile.sponsorMainLeave.kickAt": 1 });
 activityUserProfileSchema.index({ guildId: 1, "moderation.joinGateSuspicious.expiresAt": 1 });
 activityUserProfileSchema.index({ guildId: 1, "moderation.modCases.caseId": 1 });
 activityUserProfileSchema.index({ guildId: 1, "staff.firstWarnStaffAt": 1 });

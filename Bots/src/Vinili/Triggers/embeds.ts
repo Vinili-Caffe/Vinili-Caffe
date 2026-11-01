@@ -6,9 +6,6 @@ const {
 } = require("../Services/Community/discordPanelRecipePersistenceService") as typeof import("../Services/Community/discordPanelRecipePersistenceService");
 
 const LOG_PANELS = String(process.env.LOG_PANELS || "0") === "1";
-const WARMUP_SPONSOR_DELAY_MS = 500;
-const WARMUP_SPONSOR_BETWEEN_MS = 100;
-const WARMUP_BATCH_SIZE = 6;
 
 async function runPanelTask(section?, label?, runner?, client?) {
   const startedAt = Date.now();
@@ -47,44 +44,6 @@ async function runEmbedOnlySections(client?) {
   if (LOG_PANELS) global.logger?.info?.(`[PANELS] runEmbedOnlySections finished in ${Date.now() - startedAt}ms.`);
 }
 
-function anySponsorPanelEnabled() {
-  return (
-    isDiscordPanelEnabled("sponsor") ||
-    isDiscordPanelEnabled("sponsorVerify") ||
-    isDiscordPanelEnabled("sponsorTicket")
-  );
-}
-
-async function warmupSponsorGuilds(client?) {
-  if (!anySponsorPanelEnabled()) return;
-  const startedAt = Date.now();
-  const sponsorIds = Array.isArray(client.config?.sponsorGuildIds) ? client.config.sponsorGuildIds : Object.keys(client.config?.sponsorVerifyChannelIds || {});
-  if (sponsorIds.length === 0) return;
-
-  await new Promise((r?) => {
-    const timer = setTimeout(r, WARMUP_SPONSOR_DELAY_MS);
-    timer.unref?.();
-  });
-  for (let i = 0; i < sponsorIds.length; i += WARMUP_BATCH_SIZE) {
-    const batch = sponsorIds.slice(i, i + WARMUP_BATCH_SIZE);
-    await Promise.all(
-      batch.map((guildId?) =>
-        client.guilds.fetch(guildId).catch((err?) => {
-          if (LOG_PANELS) global.logger.warn("[SPONSOR] Warmup guild " + guildId + ":", err?.message || err);
-          return null;
-        }),
-      ),
-    );
-    if (i + WARMUP_BATCH_SIZE < sponsorIds.length) {
-      await new Promise((r?) => {
-        const t = setTimeout(r, WARMUP_SPONSOR_BETWEEN_MS);
-        t.unref?.();
-      });
-    }
-  }
-  if (LOG_PANELS) global.logger?.info?.(`[PANELS] warmupSponsorGuilds finished in ${Date.now() - startedAt}ms for ${sponsorIds.length} guild(s).`);
-}
-
 async function runAllClientReadyPanels(client?) {
   const startedAt = Date.now();
   const cleanup = await cleanupDisabledDiscordPanelMessages(client).catch((err?) => {
@@ -96,7 +55,6 @@ async function runAllClientReadyPanels(client?) {
       `[PANELS] disabled cleanup deleted=${cleanup.deleted} clearedSlots=${cleanup.clearedSlots}`,
     );
   }
-  await warmupSponsorGuilds(client);
   await runMenuAndSelectSections(client);
   await runEmbedWithButtonsSections(client);
   await runEmbedOnlySections(client);

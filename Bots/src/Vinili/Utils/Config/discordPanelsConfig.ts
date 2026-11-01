@@ -4,13 +4,12 @@
  * Discord channel panels (Vinili/Embeds) allowlist.
  * Site flows (ruoli, ticket, verify, candidature, pause, staff guide) stay on the website.
  *
- * Override: DISCORD_PANELS_ENABLED=info,sanzioni,sponsor
+ * Override: DISCORD_PANELS_ENABLED=info,sanzioni
  */
 
 const DEFAULT_ENABLED = Object.freeze([
   "info",
   "sanzioni",
-  "sponsor",
 ]);
 
 const PANEL_SITE_REPLACES = Object.freeze({
@@ -22,6 +21,7 @@ const PANEL_SITE_REPLACES = Object.freeze({
   staffList: "/staff/organico/",
   /* guida staff: solo sito (Discord panel dismesso) */
   staff: "/staff/guida/",
+  /* server sponsor dismessi: i loro pannelli vengono ripuliti */
   sponsor: null,
 });
 

@@ -24,11 +24,6 @@ function buildProtectedGuildIdSet() {
   const test = normalizeGuildId(IDs?.guilds?.test);
   if (main) ids.add(main);
   if (test) ids.add(test);
-  const sponsors = Array.isArray(IDs?.guilds?.sponsorGuildIds) ? IDs.guilds.sponsorGuildIds : [];
-  for (const gid of sponsors) {
-    const s = normalizeGuildId(gid);
-    if (s) ids.add(s);
-  }
   return ids;
 }
 

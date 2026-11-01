@@ -3,7 +3,7 @@ const IDs = require("../Utils/Config/ids") as typeof import("../Utils/Config/ids
 const { scheduleMemberCounterRefresh, updateMemberCounterNow } = require("../Utils/Community/memberCounterUtils") as typeof import("../Utils/Community/memberCounterUtils");
 const { processJoinRaidForMember } = require("../Services/Moderation/joinRaidService") as typeof import("../Services/Moderation/joinRaidService");
 const { getJoinGateConfigSnapshot, } = require("../Services/Moderation/joinGateService") as typeof import("../Services/Moderation/joinGateService");
-const { resolveJoinGateConfiguredExempt, isSponsorJoinGateGuildId, } = require("../Services/Moderation/joinGateExemptUtils") as typeof import("../Services/Moderation/joinGateExemptUtils");
+const { resolveJoinGateConfiguredExempt, } = require("../Services/Moderation/joinGateExemptUtils") as typeof import("../Services/Moderation/joinGateExemptUtils");
 const { shouldSendPublicMemberAnnouncement } = require("../Utils/Community/memberPublicAnnouncementGate") as typeof import("../Utils/Community/memberPublicAnnouncementGate");
 const { getSecurityLockState } = require("../Services/Moderation/securityOrchestratorService") as typeof import("../Services/Moderation/securityOrchestratorService");
 const { markJoinGateSuspiciousAccount, } = require("../Services/Moderation/joinGateSuspiciousService") as typeof import("../Services/Moderation/joinGateSuspiciousService");
@@ -14,11 +14,9 @@ const { syncMutedMirrorOnMemberJoin } = require("../Services/Moderation/mutedMir
 const { cancelCustomPerksDiscordCleanupQueue } = require("../Services/Community/customPerksDiscordCleanupQueueService") as typeof import("../Services/Community/customPerksDiscordCleanupQueueService");
 const { handleTenantPartnerManagerRejoin } = require("../Services/Partner/partnerManagerLeaveService") as typeof import("../Services/Partner/partnerManagerLeaveService");
 const { shouldApplyMainPartnershipFilters } = require("../Utils/Partner/partnershipConfigResolver") as typeof import("../Utils/Partner/partnershipConfigResolver");
-const sponsorVerifiedRequiresMain = require("../Services/Community/sponsorVerifiedRequiresMainService") as typeof import("../Services/Community/sponsorVerifiedRequiresMainService");
 const { handleAccessGuildMemberAdd } = require("../Services/Staff/staffAccessMirrorService") as typeof import("../Services/Staff/staffAccessMirrorService");
-const { isAlreadyVerifiedInThisGuild, isSponsorGuildVerify } = require("../Utils/Interaction/verifyUtils") as typeof import("../Utils/Interaction/verifyUtils");
+const { isAlreadyVerifiedInThisGuild } = require("../Utils/Interaction/verifyUtils") as typeof import("../Utils/Interaction/verifyUtils");
 const { syncPreMemberRoleForMember } = require("../Utils/Community/preMemberRoleService") as typeof import("../Utils/Community/preMemberRoleService");
-const { applySponsorGuildAutoVerificato } = require("../Services/Community/communityOpsService") as typeof import("../Services/Community/communityOpsService");
 const { ghostPingNewMemberOnJoin } = require("../Utils/Message/ghostPingOnChannelEnter") as typeof import("../Utils/Message/ghostPingOnChannelEnter");
 const { trackMemberJoin } = require("../Services/Community/dailyMemberStatsService") as typeof import("../Services/Community/dailyMemberStatsService");
 const { resolveGuildChannel, resolveInviteInfo, inviteCodeFromInfo, tryRecordTenantPartnershipInviteJoin, trackInviteJoin, announceInviteInfo, maybeSendInviteReward, maybeSendInviteNearRewardReminder } = require("./joinInvites") as typeof import("./joinInvites");
@@ -113,8 +111,7 @@ export = {
       } catch (_) {}
       const joinGateConfig = getJoinGateConfigSnapshot();
       const isCoreExempt = await resolveJoinGateConfiguredExempt(member?.guild, member?.id, member);
-      const sponsorNoJoinGate = isSponsorJoinGateGuildId(member.guild.id);
-      if (!isCoreExempt && !sponsorNoJoinGate) {
+      if (!isCoreExempt) {
         const lockState = await getSecurityLockState(member.guild);
         if (lockState.joinLockActive) {
           await kickForJoinGate(
@@ -140,7 +137,7 @@ export = {
         return;
       }
 
-      if (!isCoreExempt && !sponsorNoJoinGate) {
+      if (!isCoreExempt) {
         trackRecentJoinSignal(member);
         let joinGateMatch = null;
         if (
@@ -258,19 +255,7 @@ export = {
         await cancelCustomPerksDiscordCleanupQueue(member.guild.id, member.id).catch(() => {});
       }
 
-      await applySponsorGuildAutoVerificato(member).catch((err?) => {
-        global.logger?.warn?.("[guildMemberAdd] applySponsorGuildAutoVerificato:", err?.message || err);
-      });
-
-      const sponsorJoinGid = String(member.guild?.id || "");
-      const memberForTenure =
-        isSponsorGuildVerify(sponsorJoinGid)
-          ? (await getGuildMemberCached(member.guild, member.id, { preferFresh: true }).catch(() => null)) || member
-          : member;
-
-      await sponsorVerifiedRequiresMain.handleGuildMemberAdd(memberForTenure).catch((err?) => {
-        global.logger?.warn?.("[guildMemberAdd] sponsorVerifiedRequiresMain:", err?.message || err);
-      });
+      const memberForTenure = member;
 
       const hadVerifyRole = isAlreadyVerifiedInThisGuild(memberForTenure, member.guild.id);
       await maybeApplyVerificationTenureOnJoin(memberForTenure).catch((err?) => {

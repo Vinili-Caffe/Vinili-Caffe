@@ -57,7 +57,6 @@ async function resolveClanTagMatch(member?, client?, userForClan = null, options
   const user = userForClan || member?.user;
   if (!user) return { match: null, lookupFailed: true };
 
-  const guildTagConfig = IDs.sponsorGuildTagConfig || {};
   const mainTagNorm = normalizeForMatch(MAIN_SERVER_TAG);
   const memberId = String(member?.id || user?.id || "");
   const guildId = String(member?.guild?.id || "");
@@ -88,7 +87,7 @@ async function resolveClanTagMatch(member?, client?, userForClan = null, options
     }
   }
 
-  /* clanLookupRetry1: se il guild corrente fallisce, prova main + sponsor. */
+  /* clanLookupRetry1: se il guild corrente fallisce, riprova dal server principale. */
   if (lookupFailed && client && memberId) {
     const alt = await fetchUserClanViaMemberApi(client, memberId);
     if (alt.ok) {
@@ -102,17 +101,9 @@ async function resolveClanTagMatch(member?, client?, userForClan = null, options
     const clanGuildId = clan.identity_guild_id || clan.identityGuildId;
 
     const isMainGuild = String(clanGuildId || "") === String(MAIN_GUILD_ID);
-    const sponsorGuild = clanGuildId ? guildTagConfig[clanGuildId] || guildTagConfig[String(clanGuildId)] : null;
 
     if (isMainGuild && tagNorm === mainTagNorm) {
       return { match: { type: "native", tag: clan.tag, identityGuildId: MAIN_GUILD_ID }, lookupFailed: false };
-    }
-
-    if (sponsorGuild && normalizeForMatch(sponsorGuild.tagName) === tagNorm) {
-      return {
-        match: { type: "native", tag: clan.tag, identityGuildId: String(clanGuildId || "") },
-        lookupFailed: false,
-      };
     }
   }
 
@@ -125,23 +116,10 @@ async function hadObtainableGuildTagBefore(member?, client?, previousUser?) {
   return Boolean(prev && prev.type === "native");
 }
 
-function guildHasSponsorGuildedExtra(guildId?, client?) {
-  const g = String(guildId || "");
-  if (!g) return false;
-  const map = client?.config?.guildedRoleIds;
-  return Boolean(map && typeof map === "object" && map[g]);
-}
-
-function getAllGuildedRoleIdsFromConfig(client?) {
-  const map = client?.config?.guildedRoleIds;
-  if (!map || typeof map !== "object") return [];
-  return [...new Set(Object.values(map).map((rid?) => String(rid || "")).filter(Boolean))];
-}
-
 async function fetchUserClanViaMemberApi(client?, userId?) {
   const uid = String(userId || "");
   if (!uid || !client?.rest) return { clan: null, ok: false };
-  const order = [String(MAIN_GUILD_ID), ...Object.keys(client?.config?.guildedRoleIds || {})];
+  const order = [String(MAIN_GUILD_ID)];
   const seen = new Set();
   for (const gid of order) {
     const g = String(gid || "");
@@ -170,14 +148,6 @@ function warnClanLookupFailed(kind?, userId?, guildId = "") {
     for (const [k, ts] of lastClanLookupFailLogByUser) {
       if (now - Number(ts || 0) > CLAN_LOOKUP_FAIL_LOG_COOLDOWN_MS) lastClanLookupFailLogByUser.delete(k);
     }
-  }
-  if (kind === "sponsor") {
-    global.logger?.warn?.(
-      "[ClanTagService] skip sync Guilded sponsor: lookup clan fallito",
-      guildId,
-      uid,
-    );
-    return;
   }
   global.logger?.warn?.(
     "[ClanTagService] skip rimozione Guilded: lookup clan fallito",
@@ -257,7 +227,7 @@ function memberCanReceiveAutomatedGuildedOnMain(member?) {
 }
 
 async function applyClanTagGuildedRoles(member?, client?, options: Record<string, any> = {}) {
-  if (!member || member.user?.bot || !client) return { added: false, addedMain: false, addedSponsor: false };
+  if (!member || member.user?.bot || !client) return { added: false, addedMain: false };
 
   const userForClan = options.userForClan || null;
   const refreshFromApi = options.refreshFromApi !== undefined ? options.refreshFromApi : !userForClan;
@@ -266,7 +236,6 @@ async function applyClanTagGuildedRoles(member?, client?, options: Record<string
   const g = String(member.guild.id);
   const onMain = g === String(MAIN_GUILD_ID);
   let addedMain = false;
-  let addedSponsor = false;
 
   if (onMain) {
     if (match && GLOBAL_GUILDED_ROLE_ID) {
@@ -281,7 +250,7 @@ async function applyClanTagGuildedRoles(member?, client?, options: Record<string
             await tryRevokePicPermsIfIneligible(member);
           } catch (_) {}
         }
-        return { added: false, addedMain: false, addedSponsor: false };
+        return { added: false, addedMain: false };
       }
       if (!member.roles.cache.has(GLOBAL_GUILDED_ROLE_ID)) {
         const ok = await member.roles.add(GLOBAL_GUILDED_ROLE_ID).then(() => true).catch(() => false);
@@ -308,51 +277,16 @@ async function applyClanTagGuildedRoles(member?, client?, options: Record<string
     } else if (lookupFailed) {
       warnClanLookupFailed("main", member.id);
     }
-    return { added: addedMain, addedMain, addedSponsor };
+    return { added: addedMain, addedMain };
   }
 
-  if (guildHasSponsorGuildedExtra(g, client)) {
-    if (lookupFailed) {
-      warnClanLookupFailed("sponsor", member.id, member.guild.id);
-      return { added: false, addedMain: false, addedSponsor: false };
-    }
-    const map = client.config.guildedRoleIds;
-    const extraRoleId = String(map[g] || "");
-    const configuredIds = getAllGuildedRoleIdsFromConfig(client);
-    const shouldHaveSponsorRole = Boolean(
-      match &&
-      extraRoleId &&
-      String(match.identityGuildId) === g,
-    );
-    if (shouldHaveSponsorRole) {
-      const others = configuredIds.filter((rid?) => rid !== extraRoleId && member.roles.cache.has(rid));
-      if (others.length) {
-        await removeRolesFromMember(member, others, "Ruolo Guilded sponsor reset");
-      }
-      if (!member.roles.cache.has(extraRoleId)) {
-        const ok = await member.roles.add(extraRoleId).then(() => true).catch(() => false);
-        if (ok) addedSponsor = true;
-      }
-    } else {
-      const presentConfigured = configuredIds.filter((rid?) => member.roles.cache.has(rid));
-      if (presentConfigured.length) {
-        await removeRolesFromMember(member, presentConfigured, "Ruolo Guilded sponsor reset");
-        try {
-          const { tryRevokePicPermsIfIneligible } = require("../../Utils/Community/manualSocialRoleAnnounceAndPicPerms") as typeof import("../../Utils/Community/manualSocialRoleAnnounceAndPicPerms");
-          await tryRevokePicPermsIfIneligible(member);
-        } catch (_) {}
-      }
-    }
-    return { added: addedMain || addedSponsor, addedMain, addedSponsor };
-  }
-
-  return { added: false, addedMain: false, addedSponsor: false };
+  return { added: false, addedMain: false };
 }
 
 async function syncClanTagRoles(member?, options: Record<string, any> = {}) {
   if (!member || member.user?.bot) return;
   const g = String(member.guild?.id || "");
-  if (g !== String(MAIN_GUILD_ID) && !guildHasSponsorGuildedExtra(g, member.client)) return;
+  if (g !== String(MAIN_GUILD_ID)) return;
 
   await applyClanTagGuildedRoles(member, member.client, options);
 }
@@ -371,18 +305,6 @@ async function syncClanTagRolesForUserEverywhere(client?, user?, options: Record
     const m =
       mainGuild.members.cache.get(uid) ||
       (await getGuildMemberCached(mainGuild, uid, { preferFresh: true }));
-    if (m) await syncClanTagRoles(m, mergeOpts);
-  }
-  const map = client.config?.guildedRoleIds;
-  if (!map || typeof map !== "object") return;
-  for (const sponsorGid of Object.keys(map)) {
-    const sg =
-      client.guilds.cache.get(sponsorGid) ||
-      (await client.guilds.fetch(sponsorGid).catch(() => null));
-    if (!sg) continue;
-    const m =
-      sg.members.cache.get(uid) ||
-      (await getGuildMemberCached(sg, uid, { preferFresh: true }));
     if (m) await syncClanTagRoles(m, mergeOpts);
   }
 }
@@ -422,7 +344,7 @@ async function announceNewGuildedMember(member?, tag?, roleIdAssigned = null) {
           "<a:VC_Infinity:1448687797266288832> - Permesso di allegare immagini e link in chat",
           "<a:VC_HeartWhite:1448673535253024860> - Permesso di cambiare il nickname",
           "",
-          "<a:VC_Arrow:1482706699365257397> Grazie per aver scelto la nostra tag! Scopri tutte le nostre tags [qui](https://viniliecaffe.it/perks)",
+          "<a:VC_Arrow:1482706699365257397> Grazie per aver scelto la nostra tag! Scopri tutti i vantaggi [qui](https://viniliecaffe.it/perks)",
         ].join("\n"),
       )
       .setFooter({ text: "Grazie per il tuo supporto!" });
@@ -467,20 +389,6 @@ async function syncAllMembersClanTags(client?) {
 
       const { addedMain } = await applyClanTagGuildedRoles(member, client, { refreshFromApi: true });
       if (addedMain) await new Promise((resolve?) => setTimeout(resolve, 750));
-    }
-
-    const roleMap = client.config?.guildedRoleIds;
-    if (roleMap && typeof roleMap === "object") {
-      for (const sponsorGid of Object.keys(roleMap)) {
-        const sg = client.guilds.cache.get(sponsorGid) || (await client.guilds.fetch(sponsorGid).catch(() => null));
-        if (!sg) continue;
-        const smembers = await sg.members.fetch({ withPresences: true, force: true }).catch(() => sg.members.cache);
-        for (const member of smembers.values()) {
-          if (member.user.bot) continue;
-          const { addedSponsor } = await applyClanTagGuildedRoles(member, client, { refreshFromApi: true });
-          if (addedSponsor) await new Promise((resolve?) => setTimeout(resolve, 750));
-        }
-      }
     }
   } catch (error) {
     global.logger?.error?.("[ClanTagService] Startup sync failed:", error);

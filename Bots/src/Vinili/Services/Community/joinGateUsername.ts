@@ -3,7 +3,7 @@ const { EmbedBuilder, PermissionsBitField } = require("discord.js") as typeof im
 const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
 const { getGuildChannelCached } = require("../../Utils/Interaction/interactionEntityCache") as typeof import("../../Utils/Interaction/interactionEntityCache");
 const { getJoinGateConfigSnapshot } = require("../Moderation/joinGateService") as typeof import("../Moderation/joinGateService");
-const { resolveJoinGateConfiguredExempt, isSponsorJoinGateGuildId } = require("../Moderation/joinGateExemptUtils") as typeof import("../Moderation/joinGateExemptUtils");
+const { resolveJoinGateConfiguredExempt } = require("../Moderation/joinGateExemptUtils") as typeof import("../Moderation/joinGateExemptUtils");
 const { ARROW } = require("../../Utils/Logging/channelRolesLogUtils") as typeof import("../../Utils/Logging/channelRolesLogUtils");
 const { createModCase, getModConfig, logModCase } = require("../../Utils/Moderation/moderation") as typeof import("../../Utils/Moderation/moderation");
 const { buildUnbanRequestRow } = require("../../Utils/Moderation/unbanRequestButton") as typeof import("../../Utils/Moderation/unbanRequestButton");
@@ -82,7 +82,6 @@ async function sendJoinGatePostJoinDm(member?, reason?, extraLines = [], action 
 async function enforceJoinGatePostJoinUsername(oldMember?, newMember?) {
   if (!oldMember?.guild || !newMember?.user) return;
   if (newMember.user.bot) return;
-  if (isSponsorJoinGateGuildId(newMember.guild.id)) return;
   if (await resolveJoinGateConfiguredExempt(newMember.guild, newMember.id, newMember)) return;
 
   const cfg = getJoinGateConfigSnapshot();

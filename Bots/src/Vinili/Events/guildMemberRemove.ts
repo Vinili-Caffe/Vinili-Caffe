@@ -2,7 +2,6 @@ const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, AuditLogEven
 const { closeOpenTicketsForGuildUser } = require("../features/tickets/discord/ticketCloseRuntime") as typeof import("../features/tickets/discord/ticketCloseRuntime");
 const { autoUnclaimOpenTicketsClaimedByUser } = require("../features/tickets/discord/ticketAutoUnclaimOnStaffLoss") as typeof import("../features/tickets/discord/ticketAutoUnclaimOnStaffLoss");
 const { ActivityUserProfile, UserLeaveBackup, ACTIVITY_MAIN_GUILD_ID } = require("../Schemas/Community/communitySchemas") as typeof import("../Schemas/Community/communitySchemas");
-const { sponsorMainLeave } = require("../Utils/Community/activityUserProfilePaths") as typeof import("../Utils/Community/activityUserProfilePaths");
 const IDs = require("../Utils/Config/ids") as typeof import("../Utils/Config/ids");
 const { getGuildChannelCached, getClientGuildCached } = require("../Utils/Interaction/interactionEntityCache") as typeof import("../Utils/Interaction/interactionEntityCache");
 const { scheduleMemberCounterRefresh } = require("../Utils/Community/memberCounterUtils") as typeof import("../Utils/Community/memberCounterUtils");
@@ -16,7 +15,6 @@ const {
 } = require("../Services/Partner/partnerManagerLeaveService") as typeof import("../Services/Partner/partnerManagerLeaveService");
 const { enqueueCustomPerksDiscordCleanupAfterLeave } = require("../Services/Community/customPerksDiscordCleanupQueueService") as typeof import("../Services/Community/customPerksDiscordCleanupQueueService");
 const { purgeLeftMemberCustomPerksFromDiscord } = require("../Services/Community/customRoleLeftMemberDiscordCleanupService") as typeof import("../Services/Community/customRoleLeftMemberDiscordCleanupService");
-const sponsorVerifiedRequiresMain = require("../Services/Community/sponsorVerifiedRequiresMainService") as typeof import("../Services/Community/sponsorVerifiedRequiresMainService");
 const { buildAuditExtraLines } = require("../Utils/Logging/channelRolesLogUtils") as typeof import("../Utils/Logging/channelRolesLogUtils");
 const { handleKickBanAction: antiNukeHandleKickBanAction } = require("../Services/Moderation/antiNukeService") as typeof import("../Services/Moderation/antiNukeService");
 const { consumeRecentJoinGateKick } = require("../Utils/Moderation/joinGateKickCache") as typeof import("../Utils/Moderation/joinGateKickCache");
@@ -63,8 +61,6 @@ function buildStaffTrackedRoleIdSet() {
 const STAFF_TRACKED_ROLE_IDS = buildStaffTrackedRoleIdSet();
 const JOIN_LEAVE_LOG_CHANNEL_ID = IDs.channels.joinLeaveLogs;
 const MAIN_GUILD_ID = IDs.guilds?.main || "1329080093599076474";
-const SPONSOR_GUILD_IDS = IDs.guilds?.sponsorGuildIds || [];
-const OFFICIAL_INVITE_URL = "https://discord.gg/viniliecaffe";
 const REJOIN_DEADLINE_MS = 24 * 60 * 60 * 1000;
 const STAFF_DB_GRACE_MS = 7 * 24 * 60 * 60 * 1000;
 const JOIN_GATE_KICK_REASON_PATTERNS = ["account is too young to be allowed", "account too young to be allowed", "unverified bot addition", "bot added by unauthorized member", "advertising invite link in username", "username matches blocked pattern", "post-join filter",];
@@ -72,61 +68,6 @@ const JOIN_GATE_KICK_REASON_PATTERNS = ["account is too young to be allowed", "a
 function formatActor(actor?) {
   if (!actor) return "sconosciuto";
   return `${actor} \`${actor.id}\`${actor.bot ? " [BOT]" : ""}`;
-}
-
-function makeSponsorRejoinEmbed() {
-  return new EmbedBuilder()
-    .setColor("#ffb020")
-    .setTitle("Rientra nel server principale")
-    .setDescription(
-      "Hai lasciato il server principale **Vinili & Caffè**.\n\n" +
-      "Per mantenere l'accesso ai server TAGS devi rientrare entro **24 ore**.\n\n" +
-      "Clicca il bottone qui sotto per rientrare.",
-    )
-    .setFooter({
-      text: "Se non rientri entro 24h sarai rimosso dal server e perderai la TAG.",
-    });
-}
-
-function makeSponsorRejoinRow() {
-  return new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setStyle(ButtonStyle.Link)
-      .setLabel("Rientra nel server principale")
-      .setURL(OFFICIAL_INVITE_URL),
-  );
-}
-
-async function isUserInAnySponsorGuild(client?, userId?) {
-  for (const guildId of SPONSOR_GUILD_IDS) {
-    const guild = client?.guilds?.cache?.get(guildId);
-    if (!guild) continue;
-    const member = await guild.members.fetch(userId).catch(() => null);
-    if (member) return true;
-  }
-  return false;
-}
-
-async function upsertSponsorLeaveRecord(userId?, leftAt?, kickAt?) {
-  await ActivityUserProfile.updateOne(
-    { guildId: ACTIVITY_MAIN_GUILD_ID, userId },
-    {
-      $set: {
-        [sponsorMainLeave("leftAt")]: leftAt,
-        [sponsorMainLeave("kickAt")]: kickAt,
-        [sponsorMainLeave("dmSent")]: false,
-        [sponsorMainLeave("dmFailed")]: false,
-      },
-    },
-    { upsert: true, setDefaultsOnInsert: true },
-  ).catch(() => { });
-}
-
-async function markSponsorDmResult(userId?, dmOk?) {
-  await ActivityUserProfile.updateOne(
-    { guildId: ACTIVITY_MAIN_GUILD_ID, userId },
-    { $set: dmOk ? { [sponsorMainLeave("dmSent")]: true } : { [sponsorMainLeave("dmFailed")]: true } },
-  ).catch(() => { });
 }
 
 function sleep(ms?) {
@@ -819,29 +760,9 @@ export = {
       await trackMemberLeave(member).catch((err?) => {
         global.logger?.warn?.("[guildMemberRemove] daily member stats:", err?.message || err);
       });
-      if (member?.user && !member.user.bot) {
-        sponsorVerifiedRequiresMain.handleGuildMemberRemoveFromSponsor(member);
-      }
       if (member?.user?.bot && member?.guild?.id) {
         if (client) queueIdsCatalogSync(client, member.guild.id, "botLeave");
       }
-      if (
-        member?.user &&
-        !member.user.bot &&
-        member?.guild?.id === MAIN_GUILD_ID &&
-        SPONSOR_GUILD_IDS.length > 0
-      ) {
-        const activeClient = client || member.client;
-        const inSponsorGuild = await isUserInAnySponsorGuild(activeClient, member.user.id,);
-        if (inSponsorGuild) {
-          const leftAt = new Date();
-          const kickAt = new Date(Date.now() + REJOIN_DEADLINE_MS);
-          await upsertSponsorLeaveRecord(member.user.id, leftAt, kickAt);
-          const dmOk = await member.user.send({ embeds: [makeSponsorRejoinEmbed()], components: [makeSponsorRejoinRow()], }).then(() => true).catch(() => false);
-          await markSponsorDmResult(member.user.id, dmOk);
-        }
-      }
-
       const guild = member.guild;
       scheduleMemberCounterRefresh(guild, { delayMs: 300, secondPassMs: 2200 });
 

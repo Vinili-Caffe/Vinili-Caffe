@@ -37,10 +37,8 @@ async function fetchDiscordUserIdFromUserAccessToken(accessToken?) {
 }
 
 function ticketStaffRoleIdsForGuild(guildId?) {
-  const sponsorStaffIds = guildId && IDs.roles?.sponsorStaffRoleIds ? IDs.roles.sponsorStaffRoleIds[String(guildId)] : [];
   return uniqueIds([
     ...(Array.isArray(IDs.websiteMaintenanceBypassRoleIds) ? IDs.websiteMaintenanceBypassRoleIds : []),
-    ...(Array.isArray(sponsorStaffIds) ? sponsorStaffIds : [sponsorStaffIds]),
     IDs.roles.Staff,
     IDs.roles.Helper,
     IDs.roles.Mod,

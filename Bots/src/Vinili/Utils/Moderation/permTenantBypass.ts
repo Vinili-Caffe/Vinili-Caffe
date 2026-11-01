@@ -24,13 +24,9 @@ const ALLOWED_GUILD_IDS = new Set(
     CATALOG_MAIN_GUILD_ID,
     MAIN_GUILD_ID,
     IDs?.guilds?.test,
-    ...(Array.isArray(IDs?.guilds?.sponsorGuildIds) ? IDs.guilds.sponsorGuildIds : []),
   ]
     .filter(Boolean)
     .map(String),
-);
-const sponsorIdsForComponents = new Set(
-  (Array.isArray(IDs?.guilds?.sponsorGuildIds) ? IDs.guilds.sponsorGuildIds : []).map(String).filter(Boolean),
 );
 function isAllowedGuildUfficiale(guildId?) {
   return !guildId || ALLOWED_GUILD_IDS.has(String(guildId));
@@ -39,7 +35,7 @@ function isAllowedGuildForComponents(guildId?) {
   if (!guildId) return true;
   const s = String(guildId);
   if (MAIN_GUILD_ID && s === String(MAIN_GUILD_ID)) return true;
-  if (ALLOWED_GUILD_IDS.has(s) || sponsorIdsForComponents.has(s)) return true;
+  if (ALLOWED_GUILD_IDS.has(s)) return true;
   try {
     const { isMultiGuildLayerEnabled } = require("../../MultiGuild/core/env") as typeof import("../../MultiGuild/core/env");
     const { shouldApplyMultiGuildLayer } = require("../../MultiGuild/core/accessPolicy") as typeof import("../../MultiGuild/core/accessPolicy");

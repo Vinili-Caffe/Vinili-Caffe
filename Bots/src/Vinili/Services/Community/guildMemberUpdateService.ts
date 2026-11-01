@@ -16,7 +16,6 @@ const { handlePreMemberRoleOnMemberUpdate } = require("../../Utils/Community/pre
 const { syncStaffChatThreadsForMemberChange } = require("../Staff/staffChatThreadsService") as typeof import("../Staff/staffChatThreadsService");
 const { syncStaffCmdsThreadsForMemberChange } = require("../Staff/staffCmdsThreadsService") as typeof import("../Staff/staffCmdsThreadsService");
 const { autoUnclaimOpenTicketsClaimedByUser } = require("../../features/tickets/discord/ticketAutoUnclaimOnStaffLoss") as typeof import("../../features/tickets/discord/ticketAutoUnclaimOnStaffLoss");
-const sponsorVerifiedRequiresMain = require("./sponsorVerifiedRequiresMainService") as typeof import("./sponsorVerifiedRequiresMainService");
 const { syncMutedMirrorRoleFromMemberUpdate, memberIsInMuteMirrorState, shouldSuppressStaffDepexForMuteMirror } = require("../Moderation/mutedMirrorRoleService") as typeof import("../Moderation/mutedMirrorRoleService");
 const { maybeAnnounceDonationPackageInSupporters } = require("../../Utils/Community/donationPackageSupportersAnnounce") as typeof import("../../Utils/Community/donationPackageSupportersAnnounce");
 const { maybeAnnounceManualSocialRolesAndGrantPicPermsBundle } = require("../../Utils/Community/manualSocialRoleAnnounceAndPicPerms") as typeof import("../../Utils/Community/manualSocialRoleAnnounceAndPicPerms");
@@ -97,11 +96,6 @@ export = {
       }
       await syncStaffCmdsThreadsForMemberChange(oldMember, newMember).catch(() => { });
       await syncStaffChatThreadsForMemberChange(oldMember, newMember).catch(() => { });
-      await sponsorVerifiedRequiresMain
-        .handleGuildMemberUpdate(oldMember, newMember, client)
-        .catch((err?) => {
-          global.logger?.warn?.("[guildMemberUpdate] sponsorVerifiedRequiresMain:", err?.message || err);
-        });
       await sendMemberUpdateLog(oldMember, newMember);
       await syncMutedMirrorRoleFromMemberUpdate(oldMember, newMember).catch((err?) => {
         global.logger?.warn?.("[guildMemberUpdate] muted mirror role:", newMember.id, err?.message || err);

@@ -205,8 +205,8 @@ async function checkPrefixPermission(message?, commandName?, subcommandName = nu
   }
 
   if (guildId && !onMainGuild) {
-    const playOnSponsor = safeCommand === "play" && isAllowedGuildUfficiale(guildId);
-    if (!playOnSponsor) {
+    const playOnOfficial = safeCommand === "play" && isAllowedGuildUfficiale(guildId);
+    if (!playOnOfficial) {
       const allowed = await hasAllPermissionsWithLiveFallback(message, [PermissionFlagsBits.Administrator,]);
       if (options.returnDetails) {
         return {

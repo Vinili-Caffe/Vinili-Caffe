@@ -80,7 +80,8 @@ function recipesComparableSnapshot(payload?) {
 function countDirtyDisabledSlots(personalityPanels?) {
   const mainInfoChannelId = String(IDs.channels?.info || "").trim();
   const sanzioniChannelId = String(IDs.channels?.sanzioniUtenti || "").trim();
-  const sponsorDisabled = !isDiscordPanelEnabled("sponsor");
+  /* server sponsor dismessi: i pannelli info fuori dal canale info principale sono vecchi pannelli sponsor */
+  const sponsorDisabled = true;
   let dirty = 0;
   for (const row of Array.isArray(personalityPanels) ? personalityPanels : []) {
     const channelId = String(row?.channelId || "").trim();
@@ -96,15 +97,6 @@ function countDirtyDisabledSlots(personalityPanels?) {
         (key === "infoGifMessageId" || key === "infoMessageId1" || key === "infoMessageId2") &&
         channelId === mainInfoChannelId
       ) {
-        continue;
-      }
-      if (
-        (key === "verifyPanelMessageId" || key === "verifyInfoMessageId") &&
-        isDiscordPanelEnabled("sponsorVerify")
-      ) {
-        continue;
-      }
-      if (key === "sponsorTicketPanelMessageId" && isDiscordPanelEnabled("sponsorTicket")) {
         continue;
       }
       dirty += 1;
@@ -207,7 +199,8 @@ async function cleanupDisabledDiscordPanelMessages(client?, options: Record<stri
 
   const mainInfoChannelId = String(IDs.channels?.info || "").trim();
   const sanzioniChannelId = String(IDs.channels?.sanzioniUtenti || "").trim();
-  const sponsorDisabled = !isDiscordPanelEnabled("sponsor");
+  /* server sponsor dismessi: i pannelli info fuori dal canale info principale sono vecchi pannelli sponsor */
+  const sponsorDisabled = true;
 
   const panels = Array.isArray(doc?.personalityPanels) ? [...doc.personalityPanels] : [];
   let deleted = 0;
@@ -229,15 +222,6 @@ async function cleanupDisabledDiscordPanelMessages(client?, options: Record<stri
         (key === "infoGifMessageId" || key === "infoMessageId1" || key === "infoMessageId2") &&
         channelId === mainInfoChannelId
       ) {
-        continue;
-      }
-      if (
-        (key === "verifyPanelMessageId" || key === "verifyInfoMessageId") &&
-        isDiscordPanelEnabled("sponsorVerify")
-      ) {
-        continue;
-      }
-      if (key === "sponsorTicketPanelMessageId" && isDiscordPanelEnabled("sponsorTicket")) {
         continue;
       }
       const ok = await deleteMessageSafe(client, channelId, mid);
@@ -277,15 +261,6 @@ async function cleanupDisabledDiscordPanelMessages(client?, options: Record<stri
             (key === "infoGifMessageId" || key === "infoMessageId1" || key === "infoMessageId2" || key === "infoMessageId") &&
             channelId === mainInfoChannelId
           ) {
-            continue;
-          }
-          if (
-            (key === "verifyPanelMessageId" || key === "verifyInfoMessageId") &&
-            isDiscordPanelEnabled("sponsorVerify")
-          ) {
-            continue;
-          }
-          if (key === "sponsorTicketPanelMessageId" && isDiscordPanelEnabled("sponsorTicket")) {
             continue;
           }
           const ok = await deleteMessageSafe(client, channelId, mid);

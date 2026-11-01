@@ -116,7 +116,7 @@ export = {
   allowEmptyArgs: true,
   description: "Mostra la cronologia delle partnership recenti.",
   usage: "+history [giorni] [guildId]",
-  examples: ["+history", "+history 7", "+history 1471511928739201047", "+history 7 1471511928739201047"],
+  examples: ["+history", "+history 7", "+history 123456789012345678", "+history 7 123456789012345678"],
 
   async execute(message?, args = []) {
     await message.channel.sendTyping().catch(() => null);

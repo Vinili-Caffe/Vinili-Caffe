@@ -13,12 +13,6 @@ function isResolvedMainGuildId(guildId?) {
   return g === MAIN_GUILD_ID || g === CANONICAL_MAIN_GUILD_ID;
 }
 
-function isSponsorGuildVerify(guildId?) {
-  const gid = String(guildId || "");
-  if (!gid || isResolvedMainGuildId(gid)) return false;
-  return Boolean(IDs.verificatoRoleIds?.[gid] ?? IDs.verificatoRoleIds?.[guildId]);
-}
-
 async function getMainGuild(client?) {
   if (!client) return null;
   let g = await getClientGuildCached(client, MAIN_GUILD_ID);
@@ -52,14 +46,10 @@ function isAlreadyVerifiedInThisGuild(member?, guildId?) {
     const ids = [IDs.roles.Member].filter(Boolean);
     return ids.some((id?) => member.roles.cache.has(id));
   }
-  const gid = String(guildId || "");
-  const sponsorRoleId = IDs.verificatoRoleIds?.[gid] ?? IDs.verificatoRoleIds?.[guildId];
-  if (sponsorRoleId && member.roles.cache.has(sponsorRoleId)) return true;
   return false;
 }
 
 export = {
-  isSponsorGuildVerify,
   getMainGuild,
   isUserInMainGuild,
   isUserVerifiedInMainGuild,

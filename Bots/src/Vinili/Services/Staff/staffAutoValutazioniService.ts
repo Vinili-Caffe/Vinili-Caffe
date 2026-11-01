@@ -92,9 +92,7 @@ function hasAnyRole(member?, roleIds?) {
 }
 
 function getGuildedRoleIds(client?) {
-  const sponsorIds = Object.values(IDs.sponsorRoles || {});
-  const configuredIds = Object.values(client?.config?.guildedRoleIds || {});
-  return [...new Set([IDs.roles?.Guilded, ...sponsorIds, ...configuredIds].map((x?) => String(x || "")).filter(Boolean))];
+  return [IDs.roles?.Guilded].map((x?) => String(x || "")).filter(Boolean);
 }
 
 function supportVanityDebounceKey(guildId?, userId?) {

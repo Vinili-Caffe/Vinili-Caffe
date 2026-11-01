@@ -4,17 +4,10 @@ const { getAnnouncedBoostSlots, ensureBoostSlotsSynced, setAnnouncedBoostSlots, 
 const { textHasSupporterStatusLink, normalizeSupporterStatusText } = require("./supporterStatusLink") as typeof import("./supporterStatusLink");
 const MAIN_GUILD_ID = String(IDs.guilds?.main || "");
 
-function collectGuildedRoleIds(client?) {
+function collectGuildedRoleIds(_client?) {
   const ids = new Set();
   const main = String(IDs.roles?.Guilded || "").trim();
   if (main) ids.add(main);
-  const map = client?.config?.guildedRoleIds;
-  if (map && typeof map === "object") {
-    for (const rid of Object.values(map)) {
-      const v = String(rid || "").trim();
-      if (v) ids.add(v);
-    }
-  }
   return ids;
 }
 

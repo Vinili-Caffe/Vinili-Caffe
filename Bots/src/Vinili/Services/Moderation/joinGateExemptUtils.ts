@@ -1,4 +1,3 @@
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
 const { getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache") as typeof import("../../Utils/Interaction/interactionEntityCache");
 const {
   isSecurityProfileImmune,
@@ -9,13 +8,6 @@ const CORE_EXEMPT_USER_IDS = new Set([
   "1466495522474037463",
   "1329118940110127204",
 ]);
-
-function isSponsorJoinGateGuildId(guildId?) {
-  const g = String(guildId || "").trim();
-  if (!g) return false;
-  const list = Array.isArray(IDs.guilds?.sponsorGuildIds) ? IDs.guilds.sponsorGuildIds : [];
-  return list.some((id?) => String(id || "").trim() === g);
-}
 
 async function resolveJoinGateConfiguredExempt(guild?, userId?, member = null) {
   const uid = String(userId || "");
@@ -30,6 +22,5 @@ async function resolveJoinGateConfiguredExempt(guild?, userId?, member = null) {
 
 export = {
   CORE_EXEMPT_USER_IDS,
-  isSponsorJoinGateGuildId,
   resolveJoinGateConfiguredExempt,
 };

@@ -8,10 +8,6 @@ function joinGateSuspicious(...parts) {
   return ["moderation", "joinGateSuspicious", ...parts].join(".");
 }
 
-function sponsorMainLeave(...parts) {
-  return ["profile", "sponsorMainLeave", ...parts].join(".");
-}
-
 const MOD_CASES_PATH = "moderation.modCases";
 
 function totals(...parts) {
@@ -22,7 +18,6 @@ export = {
   ACTIVITY_MAIN_GUILD_ID,
   automodBadUser,
   joinGateSuspicious,
-  sponsorMainLeave,
   totals,
   MOD_CASES_PATH,
 };

@@ -215,19 +215,7 @@ export const BADGES: Badge[] = [
     role: "༄ Guilded",
     how: "Guild tag",
     isNew: true,
-    desc:
-      "Usi una delle nostre guild tag: " +
-      [
-        ["༄🌙 ʟᴜɴᴀ", "E6vrm5zE6B"],
-        ["༄🔥 ꜰɪʀᴇ", "QnTN5P578g"],
-        ["༄🔞 ᴘღʀɴ", "WMuZ4EMAkc"],
-        ["༄🌟 ꜱᴛᴀʀ", "uqUNS9f5m5"],
-        ["༄🍃 ᴡᴇᴇᴅ", "SzBwnxHXNv"],
-        ["༄💗 ꜰɪɢᴀ", "z3EXtJwvQH"],
-      ]
-        .map(([n, c]) => `[[${n}|https://discord.gg/${c}]]`)
-        .join(", ") +
-      ".",
+    desc: "Usi la guild tag del server **V&C** sul tuo profilo Discord.",
     perks: LINK_NICK,
   },
   {

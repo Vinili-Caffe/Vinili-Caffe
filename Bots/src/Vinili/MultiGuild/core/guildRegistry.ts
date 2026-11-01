@@ -49,7 +49,7 @@ function warnProtectedGuildsInRegistry(registry?) {
     if (protectedRegistryWarned.has(gid)) continue;
     protectedRegistryWarned.add(gid);
     global.logger?.warn?.(
-      `[MultiGuild] registry ignora guild protetta ${gid} (main/test/sponsor). Rimuovila da config/registry.json.`,
+      `[MultiGuild] registry ignora guild protetta ${gid} (main/test). Rimuovila da config/registry.json.`,
     );
   }
 }

@@ -6,7 +6,7 @@ const IDs = require("../Utils/Config/ids") as typeof import("../Utils/Config/ids
 const { queueIdsCatalogSync } = require("../Utils/Config/idsAutoSync") as typeof import("../Utils/Config/idsAutoSync");
 const { registerJoinRaidSecuritySignal } = require("../Services/Moderation/joinRaidService") as typeof import("../Services/Moderation/joinRaidService");
 const { getJoinGateConfigSnapshot } = require("../Services/Moderation/joinGateService") as typeof import("../Services/Moderation/joinGateService");
-const { resolveJoinGateConfiguredExempt, isSponsorJoinGateGuildId } = require("../Services/Moderation/joinGateExemptUtils") as typeof import("../Services/Moderation/joinGateExemptUtils");
+const { resolveJoinGateConfiguredExempt } = require("../Services/Moderation/joinGateExemptUtils") as typeof import("../Services/Moderation/joinGateExemptUtils");
 const { markJoinGateKick } = require("../Utils/Moderation/joinGateKickCache") as typeof import("../Utils/Moderation/joinGateKickCache");
 const { createModCase, getModConfig, logModCase } = require("../Utils/Moderation/moderation") as typeof import("../Utils/Moderation/moderation");
 const { buildUnbanRequestRow } = require("../Utils/Moderation/unbanRequestButton") as typeof import("../Utils/Moderation/unbanRequestButton");
@@ -180,18 +180,6 @@ async function sendBotAddLog(member?) {
 async function handleBotJoin(member?, joinGateConfig?) {
   queueIdsCatalogSync(member.client, member.guild.id, "botJoin");
   await sendBotAddLog(member).catch(() => { });
-  if (isSponsorJoinGateGuildId(member.guild.id)) {
-    try {
-      await addBotRoles(member);
-    } catch (error) {
-      global.logger.error("[guildMemberAdd] Failed to add bot roles:", error);
-    }
-    const welcomeChannelSponsor = await resolveGuildChannel(member.guild, IDs.channels.chat,);
-    if (welcomeChannelSponsor) {
-      await sendWelcomeChannelAnnouncement(welcomeChannelSponsor, member);
-    }
-    return;
-  }
   await sendJoinGateNoAvatarLog(member).catch(() => { });
 
   const botAddEntry = await fetchRecentBotAddEntry(member.guild, member.user.id);

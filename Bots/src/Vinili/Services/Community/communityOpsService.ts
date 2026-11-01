@@ -2,8 +2,6 @@ const mongoose = require("mongoose") as typeof import("mongoose");
 const { ChannelType, PermissionsBitField } = require("discord.js") as typeof import("discord.js");
 const { addRolesAndGetMember, getClientGuildCached, getGuildMemberCached, getGuildRoleCached } = require("../../Utils/Interaction/interactionEntityCache") as typeof import("../../Utils/Interaction/interactionEntityCache");
 const { ActivityUserProfile, ACTIVITY_MAIN_GUILD_ID } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
-const { sponsorMainLeave } = require("../../Utils/Community/activityUserProfilePaths") as typeof import("../../Utils/Community/activityUserProfilePaths");
-const { isSponsorGuildVerify } = require("../../Utils/Interaction/verifyUtils") as typeof import("../../Utils/Interaction/verifyUtils");
 const IDs: any = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
 const { resolveVoteRoleIdForGuild } = require("../../Utils/Community/resolveVoteRoleId") as typeof import("../../Utils/Community/resolveVoteRoleId");
 const { getEffectiveJoinedAt } = require("./effectiveMemberJoinService") as typeof import("./effectiveMemberJoinService");
@@ -16,7 +14,6 @@ const ROLE_STAGE_3 = IDs.roles.OG;
 const VERIFIED_ROLE_IDS = [IDs.roles.Member,].filter(Boolean);
 const DAY_MS = 24 * 60 * 60 * 1000;
 const VERIFICATION_TENURE_SWEEP_INTERVAL_MS = 24 * 60 * 60 * 1000;
-const SPONSOR_VERIFY_NICKNAME = ".gg/viniliecaffe";
 const STAGE_1_DAYS = 30;
 const STAGE_2_DAYS = 365;
 const SUPERSCRIPT_MAP = { 0: "⁰", 1: "¹", 2: "²", 3: "³", 4: "⁴", 5: "⁵", 6: "⁶", 7: "⁷", 8: "⁸", 9: "⁹", };
@@ -30,20 +27,6 @@ const categoryRenameBackoffUntil = new Map();
 let numberingLoopHandle = null;
 let voteCleanupLoopHandle = null;
 let verificationTenureLoopHandle = null;
-let sponsorKickLoopHandle = null;
-let sponsorNickSweepLoopHandle = null;
-const SPONSOR_KICK_REASON = "<a:VC_Alert:1482706673176150077> Non sei più nel server principale da 24 ore. Rientra nel server principale per accedere di nuovo agli server sponsor.";
-const SPONSOR_KICK_INTERVAL_MS = 15 * 60 * 1000;
-const SPONSOR_GUILD_NICK_SWEEP_INTERVAL_MS = (() => {
-  const n = Number(process.env.SPONSOR_GUILD_NICK_SWEEP_INTERVAL_MS);
-  if (Number.isFinite(n) && n >= 60_000) return n;
-  return 6 * 60 * 60 * 1000;
-})();
-const SPONSOR_GUILD_NICK_SWEEP_STAGGER_MS = (() => {
-  const n = Number(process.env.SPONSOR_GUILD_NICK_SWEEP_STAGGER_MS);
-  if (Number.isFinite(n) && n >= 0) return Math.min(Math.floor(n), 5000);
-  return 200;
-})();
 const DISCADIA_VOTE_ROOT = "profile.totals.exp.bumpVoteRewards.discadia_vote";
 const VOTE_ROLE_EXPIRES_AT_PATH = `${DISCADIA_VOTE_ROOT}.voteRole.expiresAt`;
 const VOTE_ROLE_GRANTED_AT_PATH = `${DISCADIA_VOTE_ROOT}.voteRole.grantedAt`;
@@ -133,36 +116,6 @@ async function upsertVerifiedMember(guildId?, userId?, verifiedAt = new Date()) 
   return ActivityUserProfile.findOne({ guildId, userId });
 }
 
-async function ensureSponsorVerificatoForMember(member?) {
-  if (!member?.guild || member.user?.bot) return;
-  const guildId = String(member.guild.id || "");
-  if (!isSponsorGuildVerify(guildId)) return;
-  const sponsorVerifyRoleId =
-    IDs.verificatoRoleIds?.[guildId] ?? IDs.verificatoRoleIds?.[member.guild?.id];
-  if (!sponsorVerifyRoleId) {
-    global.logger?.warn?.("[SPONSOR AUTO] Guild sponsor senza verificatoRoleIds in config:", guildId);
-    return;
-  }
-  const me = member.guild?.members?.me || (await member.guild?.members?.fetchMe?.().catch(() => null));
-  const canManageRoles = Boolean(me?.permissions?.has?.(PermissionsBitField.Flags.ManageRoles));
-  const sponsorVerifyRole = await getGuildRoleCached(member.guild, sponsorVerifyRoleId);
-  const canReachSponsorRole = Boolean(
-    sponsorVerifyRole && me && sponsorVerifyRole.position < me.roles.highest.position,
-  );
-  if (canManageRoles && canReachSponsorRole && !member.roles.cache.has(sponsorVerifyRoleId)) {
-    await addRolesAndGetMember(member.guild, member.id, [sponsorVerifyRoleId]);
-  }
-  const m =
-    (await getGuildMemberCached(member.guild, member.id, { preferFresh: true }).catch(() => null)) || member;
-  if (String(m.nickname || "") === SPONSOR_VERIFY_NICKNAME) return;
-  if (!me?.permissions?.has?.(PermissionsBitField.Flags.ManageNicknames)) return;
-  await m.setNickname(SPONSOR_VERIFY_NICKNAME).catch(() => {});
-}
-
-async function applySponsorGuildAutoVerificato(member?) {
-  await ensureSponsorVerificatoForMember(member);
-}
-
 /** Add target tenure role first; only then strip the others (avoids empty tenure on rate-limit). */
 async function syncTenureDiscordRoles(member?, keepRoleId?) {
   const keep = String(keepRoleId || "").trim();
@@ -208,10 +161,6 @@ async function applyTenureForMember(member?, record?) {
   const hasVerifiedRole = VERIFIED_ROLE_IDS.some((roleId?) => member.roles.cache.has(roleId));
   const me = member.guild?.members?.me || (await member.guild?.members?.fetchMe?.().catch(() => null));
   const canManageRoles = Boolean(me?.permissions?.has?.(PermissionsBitField.Flags.ManageRoles));
-  if (isSponsorGuildVerify(guildId)) {
-    await ensureSponsorVerificatoForMember(member);
-    return;
-  }
   if (!guildId || String(guildId) !== String(MAIN_GUILD_ID || "")) return;
   if (!hasVerifiedRole) return;
   const now = new Date();
@@ -928,121 +877,12 @@ function startCategoryNumberingLoop(client?) {
   });
 }
 
-async function runSponsorKickAfter24h(client?) {
-  if (!client) return;
-  const mainGuildId = IDs.guilds?.main;
-  const sponsorGuildIds = Array.isArray(IDs.guilds?.sponsorGuildIds) ? IDs.guilds.sponsorGuildIds : [];
-  if (!mainGuildId || !sponsorGuildIds.length) return;
-
-  const now = new Date();
-  const toProcess = await ActivityUserProfile.find({
-    guildId: ACTIVITY_MAIN_GUILD_ID,
-    [sponsorMainLeave("kickAt")]: { $lte: now },
-  })
-    .select(`userId ${sponsorMainLeave()}`)
-    .lean()
-    .catch(() => []);
-  if (!toProcess.length) return;
-
-  const mainGuild = await getClientGuildCached(client, mainGuildId);
-  if (!mainGuild) return;
-
-  for (const doc of toProcess) {
-    const userId = doc?.userId;
-    if (!userId) {
-      await ActivityUserProfile.deleteOne({
-        guildId: ACTIVITY_MAIN_GUILD_ID,
-        _id: doc._id,
-      }).catch(() => { });
-      continue;
-    }
-    const inMain = await getGuildMemberCached(mainGuild, userId);
-    if (inMain) {
-      await ActivityUserProfile.updateOne(
-        { guildId: ACTIVITY_MAIN_GUILD_ID, userId },
-        { $unset: { [sponsorMainLeave()]: "" } },
-      ).catch(() => { });
-      continue;
-    }
-    for (const gid of sponsorGuildIds) {
-      const guild = await getClientGuildCached(client, gid);
-      if (!guild) continue;
-      const member = await getGuildMemberCached(guild, userId);
-      if (member && guild.members.me?.permissions?.has?.(PermissionsBitField.Flags.KickMembers)) {
-        await member.kick(SPONSOR_KICK_REASON).catch((err?) => {
-          global.logger?.error?.("[SPONSOR KICK] kick failed", gid, userId, err?.message || err);
-        });
-      }
-    }
-    await ActivityUserProfile.updateOne(
-      { guildId: ACTIVITY_MAIN_GUILD_ID, userId },
-      { $unset: { [sponsorMainLeave()]: "" } },
-    ).catch(() => { });
-  }
-}
-
-function startSponsorKickLoop(client?) {
-  if (!client) return;
-  if (sponsorKickLoopHandle) return sponsorKickLoopHandle;
-  sponsorKickLoopHandle = setInterval(
-    () => {
-      runSponsorKickAfter24h(client).catch((err?) => {
-        global.logger.error("[SPONSOR KICK] loop failed:", err);
-      });
-    },
-    SPONSOR_KICK_INTERVAL_MS,
-  );
-  sponsorKickLoopHandle.unref?.();
-  runSponsorKickAfter24h(client).catch(() => { });
-  return sponsorKickLoopHandle;
-}
-
-async function runSponsorGuildNicknameSweep(client?) {
-  if (!client) return;
-  const sponsorGuildIds = Array.isArray(IDs.guilds?.sponsorGuildIds) ? IDs.guilds.sponsorGuildIds : [];
-  for (const gidRaw of sponsorGuildIds) {
-    const gId = String(gidRaw || "");
-    if (!isSponsorGuildVerify(gId)) continue;
-    const guild = await getClientGuildCached(client, gId).catch(() => null);
-    if (!guild) continue;
-    await guild.members.fetch().catch(() => null);
-    for (const m of guild.members.cache.values()) {
-      if (m.user?.bot) continue;
-      await ensureSponsorVerificatoForMember(m).catch(() => {});
-      if (SPONSOR_GUILD_NICK_SWEEP_STAGGER_MS > 0) {
-        await new Promise((r?) => setTimeout(r, SPONSOR_GUILD_NICK_SWEEP_STAGGER_MS));
-      }
-    }
-  }
-}
-
-function startSponsorGuildNicknameSweepLoop(client?) {
-  if (!client) return;
-  if (sponsorNickSweepLoopHandle) return sponsorNickSweepLoopHandle;
-  sponsorNickSweepLoopHandle = setInterval(() => {
-    runSponsorGuildNicknameSweep(client).catch((err?) => {
-      global.logger?.warn?.("[SPONSOR NICK SWEEP] loop failed:", err?.message || err);
-    });
-  }, SPONSOR_GUILD_NICK_SWEEP_INTERVAL_MS);
-  sponsorNickSweepLoopHandle.unref?.();
-  const initialMs = Number(process.env.SPONSOR_GUILD_NICK_SWEEP_INITIAL_DELAY_MS);
-  const delay = Number.isFinite(initialMs) && initialMs >= 0 ? initialMs : 3 * 60 * 1000;
-  setTimeout(() => {
-    runSponsorGuildNicknameSweep(client).catch((err?) => {
-      global.logger?.warn?.("[SPONSOR NICK SWEEP] initial run failed:", err?.message || err);
-    });
-  }, delay);
-  return sponsorNickSweepLoopHandle;
-}
-
 export = {
   upsertVoteRole,
   removeExpiredVoteRoles,
   startVoteRoleCleanupLoop,
   upsertVerifiedMember,
   applyTenureForMember,
-  applySponsorGuildAutoVerificato,
-  ensureSponsorVerificatoForMember,
   startVerificationTenureLoop,
   backfillVerificationTenure,
   queueCategoryRenumber,
@@ -1052,8 +892,4 @@ export = {
   getCategorySettings,
   extractCoreCategoryLabel,
   buildNumberedCenteredCategoryName,
-  runSponsorKickAfter24h,
-  startSponsorKickLoop,
-  runSponsorGuildNicknameSweep,
-  startSponsorGuildNicknameSweepLoop,
 };

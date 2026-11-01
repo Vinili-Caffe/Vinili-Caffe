@@ -5,7 +5,7 @@ function requireTenantGuild(guildOrId?) {
   const guildId = typeof guildOrId === "string" ? guildOrId : guildOrId?.id;
   if (isViniliProtectedGuild(guildId)) {
     const err: any = new Error(
-      `[MultiGuild] guild protetta (main/test/sponsor): ${guildId}. Usa i servizi Vinyls diretti, non il bridge MultiGuild.`,
+      `[MultiGuild] guild protetta (main/test): ${guildId}. Usa i servizi Vinyls diretti, non il bridge MultiGuild.`,
     );
     err.code = "MULTI_GUILD_PROTECTED";
     throw err;
