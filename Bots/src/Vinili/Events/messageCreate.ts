@@ -12,7 +12,6 @@ const { handleOfficialPrefixMessage } = require("../Utils/Prefix/officialPrefixD
 const { channelAllowsMedia, getCachedOrFetchMember, handleDisboardBump, handleDiscadiaBump, handleMovieNightVoteMessage, handlePauseChannelMessage, handleSanzioniChannelMessage, handleThreadVoteMessage, handleVoteManagerMessage, hasMediaPermission, isDiscordInviteLinkMessage, isMediaMessage, } = require("../Utils/Message/officialMessageAutomationHandlers") as typeof import("../Utils/Message/officialMessageAutomationHandlers");
 const { handleAfk, handleMentionAutoReactions, handleMentionAutoResponses, handleWordReactions, logEventError, } = require("../Utils/Message/officialMessageCommunityHandlers") as typeof import("../Utils/Message/officialMessageCommunityHandlers");
 const { runAutoModMessage } = require("../Services/Moderation/automodService") as typeof import("../Services/Moderation/automodService");
-const { handleCustomProfilePromptMessage } = require("./interaction/customRoleHandlers") as typeof import("./interaction/customRoleHandlers");
 const { handleTicketMemberPromptMessage } = require("../features/tickets/discord/ticketMemberPrompt") as typeof import("../features/tickets/discord/ticketMemberPrompt");
 const { handleUntrustedBotMessage, handleUntrustedApplicationMessage } = require("../Services/Moderation/trustedBotGuardService") as typeof import("../Services/Moderation/trustedBotGuardService");
 const IDs = require("../Utils/Config/ids") as typeof import("../Utils/Config/ids");
@@ -532,10 +531,9 @@ export = {
 
     if (!isEditedPrefixExecution && message.guild) {
       try {
-        if (await handleCustomProfilePromptMessage(message)) return;
         if (await handleTicketMemberPromptMessage(message)) return;
       } catch (error) {
-        logEventError(resolvedClient, "CUSTOM PROFILE PROMPT ERROR", error);
+        logEventError(resolvedClient, "TICKET MEMBER PROMPT ERROR", error);
       }
     }
 
