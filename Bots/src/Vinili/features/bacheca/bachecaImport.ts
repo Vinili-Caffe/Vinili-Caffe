@@ -19,9 +19,35 @@ function fieldValue(embed?, label?: RegExp) {
   return String(f?.value || "");
 }
 
+/** Data di un messaggio Discord ricavata dal suo id. */
+function snowflakeDate(id?) {
+  try {
+    return new Date(Number((BigInt(String(id)) >> 22n) + 1420070400000n));
+  } catch {
+    return null;
+  }
+}
+
+/** I post importati con la data dell'import (la prima versione non riusciva a scriverla) prendono quella vera del post. */
+async function fixImportedSkullDates(guildId: string) {
+  const rows: any[] = await GuildSkullPost.find({ guildId, boardMessageId: { $regex: /^\d{16,20}$/ } })
+    .select("_id boardMessageId createdAt")
+    .lean()
+    .catch(() => []);
+  let fixed = 0;
+  for (const r of rows) {
+    const real = snowflakeDate(r.boardMessageId);
+    if (!real || Math.abs(new Date(r.createdAt).getTime() - real.getTime()) < 60 * 60 * 1000) continue;
+    await GuildSkullPost.collection.updateOne({ _id: r._id }, { $set: { createdAt: real, updatedAt: real } }).catch(() => null);
+    fixed += 1;
+  }
+  if (fixed) global.logger?.info?.(`[BACHECA] date dei post 💀 importati corrette: ${fixed}`);
+}
+
 async function importOldSkullPosts(client?) {
   const guildId = String(IDs.guilds?.main || "").trim();
   if (!guildId || !isBachecaSiteGuild(guildId)) return { ok: false, reason: "disabled" };
+  await fixImportedSkullDates(guildId).catch(() => null);
   const done = await getBotState(STATE_KEY, null).catch(() => null);
   if (done?.finishedAt) return { ok: true, skipped: true };
   const guild = await getClientGuildCached(client, guildId).catch(() => null);
@@ -68,8 +94,8 @@ async function importOldSkullPosts(client?) {
     })
       .then(async (doc?) => {
         imported += 1;
-        /* data vera del post, non quella dell'import */
-        await GuildSkullPost.updateOne({ _id: doc._id }, { $set: { createdAt, updatedAt: createdAt } }, { timestamps: false }).catch(() => null);
+        /* data vera del post, non quella dell'import (createdAt è immutabile per mongoose: si scrive col driver) */
+        await GuildSkullPost.collection.updateOne({ _id: doc._id }, { $set: { createdAt, updatedAt: createdAt } }).catch(() => null);
       })
       .catch(() => null);
   }
