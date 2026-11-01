@@ -1047,13 +1047,53 @@ async function restoreCoreStartupState(client?) {
   schedulePresenceStabilization(client);
 }
 
+/** panelsCodeChange1: impronta del codice dei pannelli (cartella Embeds). Se cambia (nuova pubblicazione)
+ *  i pannelli si ripubblicano subito, senza aspettare le 6 ore del limite all'avvio. */
+const PANELS_CODE_FP_FILE = require("path").join(require("os").tmpdir(), "vinili-caffe-startup-throttle", "panels-code.txt");
+
+function panelsCodeFingerprint() {
+  const fsMod = require("fs") as typeof import("fs");
+  const pathMod = require("path") as typeof import("path");
+  const hash = (require("crypto") as typeof import("crypto")).createHash("sha1");
+  const walk = (dir?) => {
+    let entries = [];
+    try {
+      entries = fsMod.readdirSync(dir, { withFileTypes: true }).sort((a?, b?) => a.name.localeCompare(b.name));
+    } catch {
+      return;
+    }
+    for (const e of entries) {
+      const p = pathMod.join(dir, e.name);
+      if (e.isDirectory()) walk(p);
+      else if (/\.(js|ts)$/.test(e.name)) {
+        hash.update(e.name);
+        try {
+          hash.update(fsMod.readFileSync(p));
+        } catch {
+          /* ignore */
+        }
+      }
+    }
+  };
+  walk(pathMod.join(__dirname, "..", "Embeds"));
+  return hash.digest("hex");
+}
+
 async function runStartupPanels(client?, label = "immediate") {
   if (client._startupPanelsRefreshRunning) return;
 
-  const decision = shouldRunStartupWork(STARTUP_THROTTLE_NS, "startup-panels", {
+  let decision = shouldRunStartupWork(STARTUP_THROTTLE_NS, "startup-panels", {
     ttlMs: STARTUP_PANELS_TTL_MS,
     forceEnv: "STARTUP_PANELS",
   });
+  const codeFp = panelsCodeFingerprint();
+  let prevFp = "";
+  try {
+    prevFp = String(require("fs").readFileSync(PANELS_CODE_FP_FILE, "utf8") || "").trim();
+  } catch {
+    prevFp = "";
+  }
+  if (!decision.run && codeFp && codeFp !== prevFp) decision = { run: true, reason: "panels_code_changed" };
   if (!decision.run) return;
 
   client._startupPanelsRefreshRunning = true;
@@ -1064,6 +1104,12 @@ async function runStartupPanels(client?, label = "immediate") {
       await startupPanelsTrigger.execute(client);
     }
     markStartupThrottle(STARTUP_THROTTLE_NS, "startup-panels");
+    try {
+      require("fs").mkdirSync(require("path").dirname(PANELS_CODE_FP_FILE), { recursive: true });
+      require("fs").writeFileSync(PANELS_CODE_FP_FILE, codeFp);
+    } catch {
+      /* ignore */
+    }
     global.logger?.info?.(
       `[STARTUP] Panels refresh (${label}, ${decision.reason}) in ${formatDurationMs(Date.now() - panelsStartedAt)}.`,
     );

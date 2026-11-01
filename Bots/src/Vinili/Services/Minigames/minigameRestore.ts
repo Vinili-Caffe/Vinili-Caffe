@@ -25,6 +25,18 @@ async function restoreActiveGames(client?) {
   if (!channel) channel = await getChannelCached(client, cfg.channelId);
   await loadRotationState(client, { ...cfg, guildId }, guildId);
   const restoreCfg = { ...cfg, guildId };
+  /* Trick or Treat (Halloween) ha uno slot suo, parallelo agli altri minigiochi: dopo un riavvio va rimesso in piedi
+     a parte, altrimenti i pulsanti del round in corso rispondono "Round Trick or Treat non attivo". */
+  if (channel?.guild) {
+    try {
+      const { restoreTrickOrTreatSideSlot } = require("./minigameTrickOrTreat");
+      if (typeof restoreTrickOrTreatSideSlot === "function") {
+        await restoreTrickOrTreatSideSlot(client, restoreCfg, channel).catch((err?) => warnMinigame(err));
+      }
+    } catch (err) {
+      warnMinigame(err);
+    }
+  }
   const state = await minigameStateFindOneLean({ guildId, channelId: cfg.channelId, }).catch(() => null);
   if (!state) return;
   const now = Date.now();
