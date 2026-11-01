@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { ExternalLink, Link2, Loader2, Shuffle, Trash2, X } from "lucide-react";
+import { ExternalLink, LayoutGrid, Link2, Loader2, Mic, Quote, Repeat2, Shuffle, Skull, Trash2, X } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import {
   KIND_LABEL,
@@ -27,6 +27,13 @@ import { BachecaCard, Cassette, LinkChips, Pin, ReactionBar } from "./BachecaCar
 
 const FILTERS: BachecaFilter[] = ["all", "quote", "repost", "clip", "skull"];
 const SORTS: BachecaSort[] = ["new", "top", "week"];
+const FILTER_ICONS: Record<BachecaFilter, React.ReactNode> = {
+  all: <LayoutGrid />,
+  quote: <Quote />,
+  repost: <Repeat2 />,
+  clip: <Mic />,
+  skull: <Skull />,
+};
 
 /* sughero: grana fatta con gradienti (niente immagini da caricare) */
 const CORK =
@@ -225,10 +232,11 @@ export function BachecaWall() {
               aria-selected={kind === f}
               onClick={() => setKind(f)}
               className={cn(
-                "shrink-0 rounded-t-xl px-4 pb-2.5 pt-2 text-sm font-semibold transition-colors",
+                "inline-flex shrink-0 items-center gap-1.5 rounded-t-xl px-4 pb-2.5 pt-2 text-sm font-semibold transition-colors [&>svg]:size-4",
                 kind === f ? "bg-[#7a5230] text-paper shadow-[0_-4px_12px_-6px_rgba(0,0,0,0.6)]" : "bg-[#5b3d24]/60 text-crema/70 hover:bg-[#5b3d24] hover:text-crema",
               )}
             >
+              {FILTER_ICONS[f]}
               {KIND_LABEL[f]}
             </button>
           ))}

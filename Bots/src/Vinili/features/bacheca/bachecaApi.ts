@@ -91,7 +91,7 @@ function itemKind(doc?) {
   return isClip ? "clip" : "repost";
 }
 
-function serializeItem(row?, guild?, guildId?, rx?, mine?, viewerId = "") {
+function serializeItem(row?, guild?, guildId?, rx?, mine?, viewerId = ""): Record<string, any> {
   const doc = row.doc || row;
   const id = String(doc.boardMessageId || "");
   const kind = itemKind(doc);
@@ -189,11 +189,33 @@ async function hydrate(client?, rows?: any[], viewerId = "") {
   stabilizeInBackground(client, rows);
   const guild = await getClientGuildCached(client, guildId).catch(() => null);
   const ids = rows.map((r) => String(r.doc?.boardMessageId || r._id || ""));
-  const { counts, mine } = await loadBachecaReactions(guildId, ids, viewerId);
+  const [{ counts, mine }, repostedSources] = await Promise.all([
+    loadBachecaReactions(guildId, ids, viewerId),
+    viewerRepostedSources(guildId, rows, viewerId),
+  ]);
   return rows.map((r) => {
     const id = String(r.doc?.boardMessageId || r._id || "");
-    return serializeItem(r, guild, guildId, counts.get(id), mine.get(id), viewerId);
+    const item = serializeItem(r, guild, guildId, counts.get(id), mine.get(id), viewerId);
+    if (!item.repostedByMe && repostedSources.has(itemSourceId(r.doc || r))) item.repostedByMe = true;
+    return item;
   });
+}
+
+/** Messaggio da cui nasce il contenuto: per una quote è la risposta col canvas, per un repost il messaggio repostato. */
+function itemSourceId(doc?) {
+  return String(doc?.type === "quote" ? doc?.originMessageId || "" : doc?.sourceMessageId || "");
+}
+
+/** Repost fatti su Discord dallo stesso utente sullo stesso messaggio (lì una quote repostata diventa un post a parte). */
+async function viewerRepostedSources(guildId: string, rows: any[], viewerId: string) {
+  const sources = rows.map((r) => itemSourceId(r.doc || r)).filter((s) => /^\d{16,20}$/.test(s));
+  if (!viewerId || !sources.length) return new Set<string>();
+  const { GuildRepost } = require("../../Schemas/Community/repostSchema") as typeof import("../../Schemas/Community/repostSchema");
+  const found: any[] = await GuildRepost.find({ guildId, reposterUserId: viewerId, sourceMessageId: { $in: sources } })
+    .select("sourceMessageId")
+    .lean()
+    .catch(() => []);
+  return new Set(found.map((d) => String(d.sourceMessageId)));
 }
 
 async function handleBachecaList(client?, req?, res?) {
@@ -317,7 +339,10 @@ async function handleBachecaRepost(client?, req?, res?) {
     if (!docs.length) return res.status(404).json({ ok: false, error: "not_found", message: "Contenuto non trovato." });
     const first = docs[0];
     if (first.type === "skull") return res.status(400).json({ ok: false, error: "not_repostable", message: "Le 💀 non si repostano." });
-    if (docs.some((d) => String(d.reposterUserId || "") === viewerId)) {
+    if (
+      docs.some((d) => String(d.reposterUserId || "") === viewerId) ||
+      (await viewerRepostedSources(guildId, [{ doc: first }], viewerId)).size > 0
+    ) {
       return res.status(409).json({ ok: false, error: "already", message: "L'hai già repostato." });
     }
     const isQuote = first.type === "quote";

@@ -1199,8 +1199,11 @@ function startPrimaryLoops(client?, engagementTick?) {
     ["[BACHECA] import vecchi post 💀 fallito", () => {
       /* bachecaSite1: una volta sola, dopo l'avvio e senza fretta */
       const t = setTimeout(() => {
-        const { importOldSkullPosts } = require("../features/bacheca/bachecaImport") as typeof import("../features/bacheca/bachecaImport");
-        importOldSkullPosts(client).catch((err?) => global.logger?.warn?.("[BACHECA] import:", err?.message || err));
+        const { importOldSkullPosts, stabilizeOldBoardMedia } = require("../features/bacheca/bachecaImport") as typeof import("../features/bacheca/bachecaImport");
+        importOldSkullPosts(client)
+          .catch((err?) => global.logger?.warn?.("[BACHECA] import:", err?.message || err))
+          .then(() => stabilizeOldBoardMedia(client))
+          .catch((err?) => global.logger?.warn?.("[BACHECA] media vecchi:", err?.message || err));
       }, 3 * 60 * 1000);
       t.unref?.();
     }],

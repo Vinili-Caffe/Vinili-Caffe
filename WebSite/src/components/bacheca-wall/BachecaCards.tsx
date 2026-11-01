@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { motion, useReducedMotion } from "motion/react";
-import { ExternalLink, Pause, Play, Repeat2 } from "lucide-react";
+import { ExternalLink, ImageOff, Pause, Play, Repeat2 } from "lucide-react";
 import { BACHECA_EMOJIS, splitBachecaText, tiltFor, type BachecaItem } from "@/lib/bacheca";
 import { cn } from "@/lib/cn";
 
@@ -36,6 +36,21 @@ export function Pin({ tone = "red", className }: { tone?: "red" | "yellow" | "bl
       </span>
     </span>
   );
+}
+
+/** Immagine con ripiego: se il link non funziona più si vede un riquadro pulito, non il testo alternativo. */
+export function SafeImage({ src, alt, className }: { src: string; alt: string; className?: string }) {
+  const [broken, setBroken] = useState(!src);
+  if (broken) {
+    return (
+      <div className="flex aspect-[4/3] w-full flex-col items-center justify-center gap-1 bg-ink/8 text-center text-ink/45">
+        <ImageOff className="size-7" />
+        <span className="text-xs font-semibold">Immagine non più disponibile</span>
+      </div>
+    );
+  }
+  // eslint-disable-next-line @next/next/no-img-element
+  return <img src={src} alt={alt} loading="lazy" className={className} onError={() => setBroken(true)} />;
 }
 
 /** Striscia di scotch semitrasparente. */
@@ -173,12 +188,7 @@ function Polaroid({ item, onReact, onRepost }: { item: BachecaItem; onReact: (e:
   return (
     <div className="relative bg-[#fbf7ef] p-3 pb-4 text-ink shadow-[0_14px_26px_-10px_rgba(0,0,0,0.6)]">
       <Pin tone="red" />
-      {item.imageUrl ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={item.imageUrl} alt={`Quote di ${item.author.name}`} loading="lazy" className="w-full bg-ink/10 object-cover" />
-      ) : (
-        <div className="flex aspect-video items-center justify-center bg-ink/10 text-sm text-ink/50">Immagine non disponibile</div>
-      )}
+      <SafeImage src={item.imageUrl} alt={`Quote di ${item.author.name}`} className="w-full bg-ink/10 object-cover" />
       <p className="mt-3 text-center font-script text-2xl leading-none text-ink/80">{item.author.name}</p>
       <div className="mt-3 space-y-2">
         <Byline item={item} />
@@ -324,8 +334,7 @@ function SkullCard({ item, onReact }: { item: BachecaItem; onReact: (e: string) 
         <span className="text-[0.65rem] font-black lining-nums">×{item.skulls || 1}</span>
       </span>
       {item.imageUrl ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={item.imageUrl} alt={item.text ? item.text.slice(0, 120) : `Messaggio di ${item.author.name}`} loading="lazy" className="w-full rounded-sm" />
+        <SafeImage src={item.imageUrl} alt={item.text ? item.text.slice(0, 120) : `Messaggio di ${item.author.name}`} className="w-full rounded-sm" />
       ) : (
         <p className="whitespace-pre-line break-words p-2 pr-16 font-display text-lg [overflow-wrap:anywhere]">{item.text}</p>
       )}

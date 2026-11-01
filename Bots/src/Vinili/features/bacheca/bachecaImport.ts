@@ -104,4 +104,40 @@ async function importOldSkullPosts(client?) {
   return { ok: true, imported, missing };
 }
 
-export = { importOldSkullPosts };
+/** Quote e repost vecchi con link di Discord (scadono dopo un giorno): il bot, che vede il canale #bacheca,
+ *  rilegge il messaggio e copia i media sul CDN. A ogni avvio, solo quelli rimasti; quelli già sul CDN si saltano. */
+async function stabilizeOldBoardMedia(client?) {
+  const guildId = String(IDs.guilds?.main || "").trim();
+  if (!guildId || !isBachecaSiteGuild(guildId)) return { ok: false };
+  const { GuildQuoteBoard, GuildRepost } = require("../../Schemas/Community/guildBoardPostSchema") as typeof import("../../Schemas/Community/guildBoardPostSchema");
+  const { stabilizeQuoteMedia, stabilizeRepostMedia } = require("../boards/boardMediaStable") as typeof import("../boards/boardMediaStable");
+  const discordRe = /cdn\.discordapp\.com|media\.discordapp\.net/i;
+  const quotes: any[] = await GuildQuoteBoard.find({ guildId, imageUrl: { $regex: discordRe } }).lean().catch(() => []);
+  const reposts: any[] = await GuildRepost.find({
+    guildId,
+    $or: [{ attachmentUrl: { $regex: discordRe } }, { "mediaFiles.url": { $regex: discordRe } }],
+  })
+    .lean()
+    .catch(() => []);
+  let fixed = 0;
+  let failed = 0;
+  for (const doc of quotes) {
+    const url = await stabilizeQuoteMedia(client, doc).catch(() => "");
+    if (url && /cdn\.viniliecaffe\.it/i.test(url)) fixed += 1;
+    else failed += 1;
+    await sleep(GAP_MS);
+  }
+  for (const doc of reposts) {
+    const out: any = await stabilizeRepostMedia(client, doc).catch(() => null);
+    const urls = [out?.attachmentUrl, ...(out?.mediaFiles || []).map((f?) => f?.url)].filter(Boolean);
+    if (urls.length && urls.every((u) => !discordRe.test(String(u)))) fixed += 1;
+    else failed += 1;
+    await sleep(GAP_MS);
+  }
+  if (quotes.length || reposts.length) {
+    global.logger?.info?.(`[BACHECA] media vecchi copiati sul CDN: ${fixed} ok, ${failed} non recuperabili (su ${quotes.length} quote e ${reposts.length} repost)`);
+  }
+  return { ok: true, fixed, failed };
+}
+
+export = { importOldSkullPosts, stabilizeOldBoardMedia };

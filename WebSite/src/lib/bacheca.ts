@@ -35,7 +35,7 @@ export const KIND_LABEL: Record<BachecaFilter, string> = {
   quote: "Quote",
   repost: "Repost",
   clip: "Clip",
-  skull: "💀 Skull",
+  skull: "Skull",
 };
 
 export const SORT_LABEL: Record<BachecaSort, string> = {
