@@ -118,3 +118,38 @@ export function tiltFor(id: string, max = 3) {
   for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) | 0;
   return ((Math.abs(h) % 1000) / 1000) * max * 2 - max;
 }
+
+const URL_RE = /https?:\/\/[^\s<>()]+/gi;
+const IMAGE_URL_RE = /\.(png|jpe?g|gif|webp|avif)(?:[?#]|$)/i;
+
+export type BachecaTextParts = { text: string; images: string[]; links: { url: string; host: string }[] };
+
+/** Testo del repost senza link grezzi: link a immagini/GIF → immagini, gli altri → chip col nome del sito. */
+export function splitBachecaText(text: string, knownImages: string[] = []): BachecaTextParts {
+  const images: string[] = [];
+  const links: { url: string; host: string }[] = [];
+  const known = new Set(knownImages.filter(Boolean));
+  const clean = String(text || "").replace(URL_RE, (raw) => {
+    const url = raw.replace(/[.,;:!?)\]]+$/, "");
+    let host = "";
+    try {
+      host = new URL(url).hostname.replace(/^www\./, "");
+    } catch {
+      return raw;
+    }
+    if (IMAGE_URL_RE.test(url)) {
+      if (!known.has(url) && !images.includes(url)) images.push(url);
+    } else if (!links.some((l) => l.url === url)) {
+      links.push({ url, host });
+    }
+    /* la punteggiatura subito dopo il link resta nel testo */
+    return raw.slice(url.length);
+  });
+  const tidy = clean
+    .replace(/[ \t]{2,}/g, " ")
+    .replace(/ +([.,;:!?])/g, "$1")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+  return { text: tidy, images, links };
+}

@@ -2,8 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { motion, useReducedMotion } from "motion/react";
-import { Pause, Play, Repeat2 } from "lucide-react";
-import { BACHECA_EMOJIS, tiltFor, type BachecaItem } from "@/lib/bacheca";
+import { ExternalLink, Pause, Play, Repeat2 } from "lucide-react";
+import { BACHECA_EMOJIS, splitBachecaText, tiltFor, type BachecaItem } from "@/lib/bacheca";
 import { cn } from "@/lib/cn";
 
 const ease = [0.22, 1, 0.36, 1] as const;
@@ -192,16 +192,20 @@ function Polaroid({ item, onReact, onRepost }: { item: BachecaItem; onReact: (e:
 function PostIt({ item, onReact, onRepost }: { item: BachecaItem; onReact: (e: string) => void; onRepost?: () => void }) {
   const tones = ["bg-[#fbe68a]", "bg-[#ffd0b0]", "bg-[#c9f0c4]", "bg-[#cfe3ff]"];
   const tone = tones[Math.abs(Math.round(tiltFor(item.id, 100))) % tones.length];
+  /* niente link grezzi: GIF e immagini si vedono, gli altri link diventano chip */
+  const parts = splitBachecaText(item.text, [item.imageUrl]);
+  const photo = item.imageUrl || parts.images[0] || "";
   return (
     <div className={cn("relative p-4 text-ink shadow-[0_14px_22px_-12px_rgba(0,0,0,0.6)]", tone)}>
       <Tape className="-top-3 left-1/2 -translate-x-1/2 -rotate-2" />
-      {item.imageUrl && (
+      {photo && (
         <div className="relative -mx-1 mb-3 rotate-[1.5deg] bg-white p-1.5 shadow-md">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={item.imageUrl} alt="" loading="lazy" className="w-full object-cover" />
+          <img src={photo} alt="" loading="lazy" className="w-full object-cover" onError={(e) => (e.currentTarget.parentElement!.style.display = "none")} />
         </div>
       )}
-      {item.text && <p className="whitespace-pre-line break-words text-[0.95rem] leading-snug [overflow-wrap:anywhere]">{item.text.length > 420 ? `${item.text.slice(0, 420)}…` : item.text}</p>}
+      {parts.text && <p className="whitespace-pre-line break-words text-[0.95rem] leading-snug [overflow-wrap:anywhere]">{parts.text.length > 420 ? `${parts.text.slice(0, 420)}…` : parts.text}</p>}
+      <LinkChips links={parts.links} />
       {item.media.filter((m) => m.type !== "image").length > 0 && (
         <p className="mt-2 text-xs font-semibold text-ink/60">+ {item.media.filter((m) => m.type !== "image").length} allegati</p>
       )}
@@ -209,6 +213,30 @@ function PostIt({ item, onReact, onRepost }: { item: BachecaItem; onReact: (e: s
         <Byline item={item} />
         <ReactionBar item={item} onReact={onReact} onRepost={onRepost} />
       </div>
+    </div>
+  );
+}
+
+/** Link nel testo: solo il nome del sito, cliccabile. */
+export function LinkChips({ links, dark = false }: { links: { url: string; host: string }[]; dark?: boolean }) {
+  if (!links.length) return null;
+  return (
+    <div className="mt-2 flex flex-wrap gap-1.5" onClick={(e) => e.stopPropagation()}>
+      {links.slice(0, 6).map((l) => (
+        <a
+          key={l.url}
+          href={l.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          title={l.url}
+          className={cn(
+            "inline-flex max-w-full items-center gap-1 truncate rounded-full px-2.5 py-0.5 text-xs font-semibold",
+            dark ? "bg-crema/10 text-crema/80 hover:bg-crema/20" : "bg-ink/8 text-ink/75 hover:bg-ink/15",
+          )}
+        >
+          <ExternalLink className="size-3 shrink-0" /> {l.host}
+        </a>
+      ))}
     </div>
   );
 }

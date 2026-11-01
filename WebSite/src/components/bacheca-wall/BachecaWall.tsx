@@ -15,6 +15,7 @@ import {
   reactBacheca,
   removeBacheca,
   repostBacheca,
+  splitBachecaText,
   type BachecaFilter,
   type BachecaItem,
   type BachecaSort,
@@ -22,7 +23,7 @@ import {
 import { useLiveRefresh } from "@/lib/use-live-refresh";
 import { showToast, confirmDialog, openLightbox } from "@/components/ui";
 import { cn } from "@/lib/cn";
-import { BachecaCard, Cassette, Pin, ReactionBar } from "./BachecaCards";
+import { BachecaCard, Cassette, LinkChips, Pin, ReactionBar } from "./BachecaCards";
 
 const FILTERS: BachecaFilter[] = ["all", "quote", "repost", "clip", "skull"];
 const SORTS: BachecaSort[] = ["new", "top", "week"];
@@ -376,7 +377,9 @@ function BachecaDetail({
       showToast("Non riesco a copiare il link.", true);
     }
   };
-  const images = [item.imageUrl, ...item.media.filter((m) => m.type === "image").map((m) => m.url)].filter(Boolean);
+  const mediaImages = [item.imageUrl, ...item.media.filter((m) => m.type === "image").map((m) => m.url)].filter(Boolean);
+  const parts = splitBachecaText(item.kind === "skull" ? "" : item.text, mediaImages);
+  const images = [...mediaImages, ...parts.images];
   const title = { quote: "Quote", repost: "Repost", clip: "Clip vocale", skull: "Skullboard" }[item.kind];
   return (
     <div className="relative rounded-2xl bg-[#fbf7ef] p-5 pt-7 text-ink shadow-2xl">
@@ -401,7 +404,8 @@ function BachecaDetail({
                 <img src={src} alt="" className="w-full rounded-md shadow-md" />
               </button>
             ))}
-            {item.text && item.kind !== "skull" && <p className="whitespace-pre-line break-words text-base leading-relaxed [overflow-wrap:anywhere]">{item.text}</p>}
+            {parts.text && <p className="whitespace-pre-line break-words text-base leading-relaxed [overflow-wrap:anywhere]">{parts.text}</p>}
+            <LinkChips links={parts.links} />
             {item.media
               .filter((m) => m.type === "video" || m.type === "audio")
               .map((m) =>
