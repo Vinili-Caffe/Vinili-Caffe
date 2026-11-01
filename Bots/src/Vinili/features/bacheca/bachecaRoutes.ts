@@ -5,6 +5,7 @@ function mountBachecaRoutes(app?, client?) {
   app.get("/webhooks/site-bacheca/item", (req?, res?) => api().handleBachecaItem(client, req, res));
   app.get("/webhooks/site-bacheca/random", (req?, res?) => api().handleBachecaRandom(client, req, res));
   app.post("/webhooks/site-bacheca/react", (req?, res?) => api().handleBachecaReact(client, req, res));
+  app.post("/webhooks/site-bacheca/repost", (req?, res?) => api().handleBachecaRepost(client, req, res));
   app.delete("/webhooks/site-bacheca", (req?, res?) => api().handleBachecaDelete(client, req, res));
 }
 

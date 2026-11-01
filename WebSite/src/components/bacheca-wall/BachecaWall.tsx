@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { ExternalLink, Link2, Loader2, Shuffle, Trash2, X } from "lucide-react";
 import { useAuth } from "@/lib/auth";
@@ -14,6 +14,7 @@ import {
   pickRandomBacheca,
   reactBacheca,
   removeBacheca,
+  repostBacheca,
   type BachecaFilter,
   type BachecaItem,
   type BachecaSort,
@@ -29,6 +30,16 @@ const SORTS: BachecaSort[] = ["new", "top", "week"];
 /* sughero: grana fatta con gradienti (niente immagini da caricare) */
 const CORK =
   "bg-[#a9784a] [background-image:radial-gradient(rgba(60,32,12,0.35)_1px,transparent_1.5px),radial-gradient(rgba(255,220,170,0.18)_1px,transparent_1.5px),radial-gradient(ellipse_at_30%_20%,rgba(255,210,150,0.25),transparent_60%),radial-gradient(ellipse_at_80%_90%,rgba(40,20,8,0.35),transparent_55%)] [background-size:7px_7px,11px_11px,100%_100%,100%_100%] [background-position:0_0,3px_5px,0_0,0_0]";
+
+/* colonne del muro: si riempiono per righe (1° a sinistra, 2° accanto…), non dall'alto in basso */
+function subscribeResize(cb: () => void) {
+  window.addEventListener("resize", cb);
+  return () => window.removeEventListener("resize", cb);
+}
+function columnsNow() {
+  const w = window.innerWidth;
+  return w >= 1280 ? 4 : w >= 1024 ? 3 : w >= 640 ? 2 : 1;
+}
 
 function readParam(name: string) {
   try {
@@ -62,6 +73,7 @@ export function BachecaWall() {
   const [err, setErr] = useState("");
   const [open, setOpen] = useState<BachecaItem | null>(null);
   const [drawing, setDrawing] = useState(false);
+  const cols = useSyncExternalStore(subscribeResize, columnsNow, () => 1);
   const [freshIds, setFreshIds] = useState<Set<string>>(() => new Set());
   const known = useRef<Set<string>>(new Set());
 
@@ -154,6 +166,23 @@ export function BachecaWall() {
     if (r.ok) patch(item.id, { mine: r.data.mine, reactions: r.data.reactions });
     else {
       patch(item.id, { mine: item.mine, reactions: item.reactions });
+      showToast(r.message, true);
+    }
+  };
+
+  const repost = async (item: BachecaItem) => {
+    if (!token) {
+      showToast("Accedi con Discord per repostare.", false);
+      login();
+      return;
+    }
+    if (item.repostedByMe || item.kind === "skull") return;
+    patch(item.id, { repostedByMe: true, reposts: item.reposts + 1 });
+    const r = await repostBacheca(token, item.id);
+    if (r.ok) {
+      showToast("Repostato! Lo trovi anche nel tuo profilo.");
+    } else if (r.status !== 409) {
+      patch(item.id, { repostedByMe: item.repostedByMe, reposts: item.reposts });
       showToast(r.message, true);
     }
   };
@@ -251,12 +280,25 @@ export function BachecaWall() {
               <p className="mt-2 text-sm text-ink/70">Usa +quote, +repost, +clip o una 💀 su Discord: i contenuti finiscono su questo muro.</p>
             </div>
           ) : (
-            <div className="columns-1 gap-7 sm:columns-2 lg:columns-3 xl:columns-4">
-              <AnimatePresence initial={false}>
-                {items.map((it) => (
-                  <BachecaCard key={it.id} item={it} fresh={freshIds.has(it.id)} onOpen={() => openItem(it)} onReact={(e) => react(it, e)} />
-                ))}
-              </AnimatePresence>
+            <div className="flex items-start gap-7">
+              {Array.from({ length: cols }, (_, c) => (
+                <div key={c} className="flex min-w-0 flex-1 flex-col">
+                  <AnimatePresence initial={false}>
+                    {items
+                      .filter((_, i) => i % cols === c)
+                      .map((it) => (
+                        <BachecaCard
+                          key={it.id}
+                          item={it}
+                          fresh={freshIds.has(it.id)}
+                          onOpen={() => openItem(it)}
+                          onReact={(e) => react(it, e)}
+                          onRepost={() => repost(it)}
+                        />
+                      ))}
+                  </AnimatePresence>
+                </div>
+              ))}
             </div>
           )}
           {hasMore && !loading && (
@@ -299,6 +341,7 @@ export function BachecaWall() {
                 item={open}
                 canRemove={canRemove(open, user?.id)}
                 onReact={(e) => react(open, e)}
+                onRepost={() => repost(open)}
                 onRemove={() => remove(open)}
                 onClose={() => openItem(null)}
               />
@@ -314,12 +357,14 @@ function BachecaDetail({
   item,
   canRemove: removable,
   onReact,
+  onRepost,
   onRemove,
   onClose,
 }: {
   item: BachecaItem;
   canRemove: boolean;
   onReact: (emoji: string) => void;
+  onRepost: () => void;
   onRemove: () => void;
   onClose: () => void;
 }) {
@@ -347,7 +392,7 @@ function BachecaDetail({
 
       <div className="mt-4 space-y-3">
         {item.kind === "clip" ? (
-          <Cassette item={item} onReact={onReact} big />
+          <Cassette item={item} onReact={onReact} onRepost={onRepost} big />
         ) : (
           <>
             {images.map((src, i) => (
@@ -379,7 +424,7 @@ function BachecaDetail({
 
       {item.kind !== "clip" && (
         <div className="mt-4">
-          <ReactionBar item={item} onReact={onReact} />
+          <ReactionBar item={item} onReact={onReact} onRepost={onRepost} />
         </div>
       )}
 

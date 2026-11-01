@@ -54,10 +54,12 @@ function Avatar({ src, name, className }: { src: string; name: string; className
 export function ReactionBar({
   item,
   onReact,
+  onRepost,
   dark = false,
 }: {
   item: BachecaItem;
   onReact: (emoji: string) => void;
+  onRepost?: () => void;
   dark?: boolean;
 }) {
   return (
@@ -89,10 +91,35 @@ export function ReactionBar({
           </motion.button>
         );
       })}
-      {item.reposts > 0 && (
-        <span className={cn("ml-auto inline-flex items-center gap-1 text-xs", dark ? "text-crema/60" : "text-ink/55")} title="Repostato altre volte">
-          <Repeat2 className="size-3.5" /> {item.reposts}
-        </span>
+      {item.kind !== "skull" && onRepost ? (
+        <motion.button
+          type="button"
+          whileTap={{ scale: 0.85 }}
+          onClick={onRepost}
+          disabled={item.repostedByMe}
+          aria-pressed={Boolean(item.repostedByMe)}
+          title={item.repostedByMe ? "L'hai già repostato" : "Reposta"}
+          className={cn(
+            "ml-auto inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold lining-nums transition-colors",
+            item.repostedByMe
+              ? dark
+                ? "bg-caramel text-ink"
+                : "bg-ink text-paper"
+              : dark
+                ? "bg-crema/10 text-crema/80 hover:bg-crema/20"
+                : "bg-ink/8 text-ink/70 hover:bg-ink/15",
+          )}
+        >
+          <Repeat2 className="size-3.5" />
+          {item.repostedByMe ? "Repostato" : "Reposta"}
+          {item.reposts > 0 && <span className="opacity-70">· {item.reposts}</span>}
+        </motion.button>
+      ) : (
+        item.reposts > 0 && (
+          <span className={cn("ml-auto inline-flex items-center gap-1 text-xs", dark ? "text-crema/60" : "text-ink/55")} title="Repostato altre volte">
+            <Repeat2 className="size-3.5" /> {item.reposts}
+          </span>
+        )
       )}
     </div>
   );
@@ -142,7 +169,7 @@ function Hanging({ item, children, onOpen, fresh }: { item: BachecaItem; childre
 }
 
 /** Quote: polaroid con la puntina. */
-function Polaroid({ item, onReact }: { item: BachecaItem; onReact: (e: string) => void }) {
+function Polaroid({ item, onReact, onRepost }: { item: BachecaItem; onReact: (e: string) => void; onRepost?: () => void }) {
   return (
     <div className="relative bg-[#fbf7ef] p-3 pb-4 text-ink shadow-[0_14px_26px_-10px_rgba(0,0,0,0.6)]">
       <Pin tone="red" />
@@ -155,14 +182,14 @@ function Polaroid({ item, onReact }: { item: BachecaItem; onReact: (e: string) =
       <p className="mt-3 text-center font-script text-2xl leading-none text-ink/80">{item.author.name}</p>
       <div className="mt-3 space-y-2">
         <Byline item={item} />
-        <ReactionBar item={item} onReact={onReact} />
+        <ReactionBar item={item} onReact={onReact} onRepost={onRepost} />
       </div>
     </div>
   );
 }
 
 /** Repost: post-it giallo con il testo, foto attaccate con lo scotch. */
-function PostIt({ item, onReact }: { item: BachecaItem; onReact: (e: string) => void }) {
+function PostIt({ item, onReact, onRepost }: { item: BachecaItem; onReact: (e: string) => void; onRepost?: () => void }) {
   const tones = ["bg-[#fbe68a]", "bg-[#ffd0b0]", "bg-[#c9f0c4]", "bg-[#cfe3ff]"];
   const tone = tones[Math.abs(Math.round(tiltFor(item.id, 100))) % tones.length];
   return (
@@ -180,14 +207,14 @@ function PostIt({ item, onReact }: { item: BachecaItem; onReact: (e: string) => 
       )}
       <div className="mt-3 space-y-2 border-t border-ink/10 pt-2">
         <Byline item={item} />
-        <ReactionBar item={item} onReact={onReact} />
+        <ReactionBar item={item} onReact={onReact} onRepost={onRepost} />
       </div>
     </div>
   );
 }
 
 /** Clip: musicassetta. Le bobine girano mentre suona, la trascrizione è l'etichetta. */
-export function Cassette({ item, onReact, big = false }: { item: BachecaItem; onReact: (e: string) => void; big?: boolean }) {
+export function Cassette({ item, onReact, onRepost, big = false }: { item: BachecaItem; onReact: (e: string) => void; onRepost?: () => void; big?: boolean }) {
   const reduce = useReducedMotion();
   const audio = useRef<HTMLAudioElement | null>(null);
   const [playing, setPlaying] = useState(false);
@@ -249,7 +276,7 @@ export function Cassette({ item, onReact, big = false }: { item: BachecaItem; on
       )}
       <div className="mt-3 space-y-2">
         <Byline item={item} dark />
-        <ReactionBar item={item} onReact={onReact} dark />
+        <ReactionBar item={item} onReact={onReact} onRepost={onRepost} dark />
       </div>
     </div>
   );
@@ -286,22 +313,24 @@ export function BachecaCard({
   item,
   onOpen,
   onReact,
+  onRepost,
   fresh,
 }: {
   item: BachecaItem;
   onOpen: () => void;
   onReact: (emoji: string) => void;
+  onRepost: () => void;
   fresh?: boolean;
 }) {
   const body =
     item.kind === "quote" ? (
-      <Polaroid item={item} onReact={onReact} />
+      <Polaroid item={item} onReact={onReact} onRepost={onRepost} />
     ) : item.kind === "clip" ? (
-      <Cassette item={item} onReact={onReact} />
+      <Cassette item={item} onReact={onReact} onRepost={onRepost} />
     ) : item.kind === "skull" ? (
       <SkullCard item={item} onReact={onReact} />
     ) : (
-      <PostIt item={item} onReact={onReact} />
+      <PostIt item={item} onReact={onReact} onRepost={onRepost} />
     );
   return (
     <Hanging item={item} onOpen={onOpen} fresh={fresh}>

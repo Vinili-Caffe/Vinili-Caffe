@@ -24,6 +24,7 @@ export type BachecaItem = {
   reactions: Record<string, number>;
   mine: string[];
   reposts: number;
+  repostedByMe?: boolean;
   onDiscord: boolean;
 };
 
@@ -89,6 +90,11 @@ export async function pickRandomBacheca(token: string | null): Promise<Res<Bache
 
 export function reactBacheca(token: string, id: string, emoji: string) {
   return call<{ reactions: Record<string, number>; mine: string[]; active: boolean }>(`${base}/react`, token, "POST", { id, emoji });
+}
+
+/** Reposta (non le 💀): aggiunge chi clicca ai repost del contenuto. */
+export function repostBacheca(token: string, id: string) {
+  return call<{ id: string; reposts: number }>(`${base}/repost`, token, "POST", { id });
 }
 
 export function removeBacheca(token: string, id: string) {

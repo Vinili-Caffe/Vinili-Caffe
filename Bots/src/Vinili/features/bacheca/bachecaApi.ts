@@ -4,6 +4,7 @@
  * GET    /webhooks/site-bacheca/item?id=        un contenuto (link condiviso /bacheca/?p=)
  * GET    /webhooks/site-bacheca/random          "Pesca dal muro"
  * POST   /webhooks/site-bacheca/react           Bearer + { id, emoji }  → mette/toglie
+ * POST   /webhooks/site-bacheca/repost          Bearer + { id }         → reposta (non le 💀), come il pulsante su Discord
  * DELETE /webhooks/site-bacheca                 Bearer + { id }         → chi l'ha pubblicato lo toglie
  * Con Authorization (facoltativo) nelle GET arrivano anche le reazioni di chi guarda.
  */
@@ -90,7 +91,7 @@ function itemKind(doc?) {
   return isClip ? "clip" : "repost";
 }
 
-function serializeItem(row?, guild?, guildId?, rx?, mine?) {
+function serializeItem(row?, guild?, guildId?, rx?, mine?, viewerId = "") {
   const doc = row.doc || row;
   const id = String(doc.boardMessageId || "");
   const kind = itemKind(doc);
@@ -113,6 +114,7 @@ function serializeItem(row?, guild?, guildId?, rx?, mine?) {
     reactions: rx || {},
     mine: mine || [],
     reposts: Math.max(0, Number(row.reposts || 1) - 1),
+    repostedByMe: Boolean(viewerId) && (row.reposters || []).includes(viewerId),
     onDiscord: !isSiteBoardChannel(doc.boardChannelId),
   };
   if (kind === "quote") {
@@ -156,7 +158,7 @@ function groupPipeline(match: Record<string, any>): any[] {
   return [
     { $match: match },
     { $sort: { createdAt: 1 } },
-    { $group: { _id: "$boardMessageId", doc: { $first: "$$ROOT" }, reposts: { $sum: 1 } } },
+    { $group: { _id: "$boardMessageId", doc: { $first: "$ROOT" }, reposts: { $sum: 1 }, reposters: { $addToSet: "$reposterUserId" } } },
   ];
 }
 
@@ -190,7 +192,7 @@ async function hydrate(client?, rows?: any[], viewerId = "") {
   const { counts, mine } = await loadBachecaReactions(guildId, ids, viewerId);
   return rows.map((r) => {
     const id = String(r.doc?.boardMessageId || r._id || "");
-    return serializeItem(r, guild, guildId, counts.get(id), mine.get(id));
+    return serializeItem(r, guild, guildId, counts.get(id), mine.get(id), viewerId);
   });
 }
 
@@ -297,6 +299,60 @@ async function handleBachecaReact(client?, req?, res?) {
   }
 }
 
+/** Reposta dal sito: come il pulsante "Reposta" su Discord, si aggiunge un repost a nome di chi clicca
+ *  sullo stesso contenuto (il contatore sale e il repost compare nel suo profilo). Le 💀 non si repostano. */
+async function handleBachecaRepost(client?, req?, res?) {
+  try {
+    const viewerId = await requireViewer(client, req, res);
+    if (!viewerId) return;
+    const body = req.body && typeof req.body === "object" ? req.body : {};
+    const id = String(body.id || "").trim();
+    if (!ITEM_ID_RE.test(id)) return res.status(400).json({ ok: false, error: "bad_request" });
+    const guildId = mainGuildId();
+    const { isRepostDisabledInGuild } = require("../../Services/Community/repostRoulette") as typeof import("../../Services/Community/repostRoulette");
+    if (isRepostDisabledInGuild(guildId)) {
+      return res.status(403).json({ ok: false, error: "disabled", message: "I repost sono disattivati per ora." });
+    }
+    const docs: any[] = await GuildBoardPost.find({ guildId, boardMessageId: id }).sort({ createdAt: 1 }).lean();
+    if (!docs.length) return res.status(404).json({ ok: false, error: "not_found", message: "Contenuto non trovato." });
+    const first = docs[0];
+    if (first.type === "skull") return res.status(400).json({ ok: false, error: "not_repostable", message: "Le 💀 non si repostano." });
+    if (docs.some((d) => String(d.reposterUserId || "") === viewerId)) {
+      return res.status(409).json({ ok: false, error: "already", message: "L'hai già repostato." });
+    }
+    const isQuote = first.type === "quote";
+    const sourceAuthorId = String(isQuote ? first.quotedUserId : first.sourceAuthorId || "");
+    const { RepostPrivacy } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
+    const blocked = await RepostPrivacy.findOne({ guildId, userId: sourceAuthorId }).lean().catch(() => null);
+    if ((blocked as any)?.blocked) {
+      return res.status(403).json({ ok: false, error: "privacy", message: "Questa persona ha bloccato i repost dei suoi messaggi." });
+    }
+    const { GuildRepost } = require("../../Schemas/Community/repostSchema") as typeof import("../../Schemas/Community/repostSchema");
+    const { nextRepostCount } = require("../../Utils/Quote/quoteCounter") as typeof import("../../Utils/Quote/quoteCounter");
+    const totalPosts = await nextRepostCount(guildId).catch(() => 0);
+    await GuildRepost.create({
+      guildId,
+      reposterUserId: viewerId,
+      sourceAuthorId,
+      sourceChannelId: String(isQuote ? first.originChannelId || "site" : first.sourceChannelId || "site"),
+      sourceMessageId: String(isQuote ? first.originMessageId || id : first.sourceMessageId || id),
+      content: String(isQuote ? "" : first.content || ""),
+      attachmentUrl: String(isQuote ? first.imageUrl || "" : first.attachmentUrl || ""),
+      ...(Array.isArray(first.mediaFiles) && first.mediaFiles.length ? { mediaFiles: first.mediaFiles } : {}),
+      authorUsername: String(isQuote ? first.quotedUsername || "" : first.authorUsername || ""),
+      authorAvatarUrl: String(first.authorAvatarUrl || ""),
+      boardChannelId: String(first.boardChannelId || ""),
+      boardMessageId: id,
+      totalPosts: Number(totalPosts) || 0,
+    });
+    broadcastBachecaChanged("repost", id);
+    return res.status(200).json({ ok: true, id, reposts: docs.length });
+  } catch (err) {
+    global.logger?.error?.("[site-bacheca] repost:", err?.message || err);
+    return res.status(500).json({ ok: false, error: "internal" });
+  }
+}
+
 /** Toglie un contenuto: quote → chi l'ha creata; clip → chi l'ha registrata; repost → il proprio repost; 💀 → l'autore del messaggio. */
 async function handleBachecaDelete(client?, req?, res?) {
   try {
@@ -336,4 +392,4 @@ async function handleBachecaDelete(client?, req?, res?) {
   }
 }
 
-export = { handleBachecaList, handleBachecaItem, handleBachecaRandom, handleBachecaReact, handleBachecaDelete };
+export = { handleBachecaList, handleBachecaItem, handleBachecaRandom, handleBachecaReact, handleBachecaRepost, handleBachecaDelete };
