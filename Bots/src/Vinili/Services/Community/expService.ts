@@ -1,13 +1,13 @@
-const { ActivityUserProfile, GlobalSettings, LEVEL_HISTORY_MAX_ENTRIES, ACTIVITY_MAIN_GUILD_ID } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
+const { ActivityUserProfile, GlobalSettings, LEVEL_HISTORY_MAX_ENTRIES } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
 const { isValidGuildUserId } = require("../../Utils/DB/validateWriteIds") as typeof import("../../Utils/DB/validateWriteIds");
 const { isMongoReady } = require("../../Utils/Database/mongoConnect") as typeof import("../../Utils/Database/mongoConnect");
 const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
 const { getGuildChannelCached, getGuildRoleCached } = require("../../Utils/Interaction/interactionEntityCache") as typeof import("../../Utils/Interaction/interactionEntityCache");
 const { isLevelExpGuild, getIsoWeekKey, getCurrentWeekKey, getLevelInfo, getTotalExpForLevel, repairExpTotals, resolveLevelUpAnnounceLevel } = require("./expLevels") as typeof import("./expLevels");
 const { DEFAULT_MULTIPLIER, settingsCache, ROLE_MULTIPLIERS, normalizeSettingsDoc, getGuildExpSettings, getRoleMultiplier, combineWeeklyExpMultiplier, getResolvedWeeklyExpMultiplier, getGlobalMultiplier } = require("./expMultipliers") as typeof import("./expMultipliers");
-const { LEVEL_ROLE_MAP, sendLevelUpMessage, sendLevelUpAnnouncement, scheduleEventLevelUpMessage } = require("./expLevelUp") as typeof import("./expLevelUp");
+const { LEVEL_ROLE_MAP, sendLevelUpAnnouncement, scheduleEventLevelUpMessage } = require("./expLevelUp") as typeof import("./expLevelUp");
 const { fetchGuildMember, addLevelRoleIfPossible, healMissingLevelRoles, healLevelRolesForGuildOnStartup, addPerkRoleIfPossible, syncLevelRolesForMember } = require("./expRoles") as typeof import("./expRoles");
-const { getRecentLevelHistory, getLevelHistoryPage, getTopExpGainsInPeriod, getTopLevelGainsInPeriod, sumExpDeltaFromLevelHistoryForRomeDay } = require("./expHistory") as typeof import("./expHistory");
+const { getTopExpGainsInPeriod } = require("./expHistory") as typeof import("./expHistory");
 const { ensureWeeklyExp, getUserExpStats, getUserRanks, retroSyncGuildLevels } = require("./expStats") as typeof import("./expStats");
 
 

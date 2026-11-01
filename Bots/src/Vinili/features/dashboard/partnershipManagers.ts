@@ -102,7 +102,7 @@ async function adjustDashboardPartnershipManagerPoints(client?, accessToken?, gu
   const access = await assertTenantPartnershipAccess(client, accessToken, guildId);
   if (!access.ok) return access;
 
-  const { getPartnerManagerRoleId, memberHasPartnerManagerRole } = require("../../Utils/Partner/partnershipConfigResolver") as typeof import("../../Utils/Partner/partnershipConfigResolver");
+  const { memberHasPartnerManagerRole } = require("../../Utils/Partner/partnershipConfigResolver") as typeof import("../../Utils/Partner/partnershipConfigResolver");
   const {
     addPartnerPoints,
     removePartnerPoints,
