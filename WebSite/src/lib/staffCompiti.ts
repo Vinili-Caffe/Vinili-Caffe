@@ -17,7 +17,9 @@ export type CompitiPill = { kind: string; label: string };
 
 export type CompitiProof = { id: string; name: string; mime: string; url: string };
 
-export type CompitiTaskMeta = { id: string; label: string; auto: boolean };
+export type CompitiDifficulty = "facile" | "medio" | "difficile";
+
+export type CompitiTaskMeta = { id: string; label: string; auto: boolean; difficulty?: CompitiDifficulty };
 
 export type CompitiProgress = {
   weekKey: string;

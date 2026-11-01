@@ -112,6 +112,7 @@ function buildPublicPlan(monthKey?, plan?, map?, currentWeekKey?, swapBonus = 0)
       id: taskId,
       label: meta?.label || taskId,
       auto: Boolean(meta?.auto),
+      difficulty: meta?.difficulty || "medio",
     };
   });
   const used = Math.max(0, Math.floor(Number(plan?.swapUsedCount) || 0));

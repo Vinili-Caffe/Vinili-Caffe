@@ -254,7 +254,7 @@ async function handleSiteStaffCompitiPost(client?, req?, res?) {
       }
       const plans = await loadPlanMap(guildId, viewerId);
       const exclude = collectPrevMonthTaskIds(plans, map, prevRomeMonthKey(monthKey));
-      const replacement = pickRandomPoolReplacement(pool, exclude);
+      const replacement = pickRandomPoolReplacement(pool, exclude, replaceTaskId);
       if (!replacement) {
         return res.status(400).json({
           ok: false,

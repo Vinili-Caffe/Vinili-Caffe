@@ -606,9 +606,23 @@ export function CompitiBoard() {
                         </span>
                         <span className="min-w-0">
                           <span className="block font-semibold leading-snug">{t.label}</span>
-                          {t.auto ? (
-                            <span className="text-[0.65rem] uppercase tracking-wider text-crema/40">Auto</span>
-                          ) : null}
+                          <span className="mt-0.5 flex items-center gap-1.5">
+                            {t.difficulty ? (
+                              <span
+                                className={cn(
+                                  "rounded-full px-1.5 py-px text-[0.6rem] font-semibold uppercase tracking-wider ring-1",
+                                  t.difficulty === "facile" && "bg-emerald-400/10 text-emerald-300 ring-emerald-300/25",
+                                  t.difficulty === "medio" && "bg-amber-400/10 text-amber-300 ring-amber-300/25",
+                                  t.difficulty === "difficile" && "bg-rose-400/10 text-rose-300 ring-rose-300/25",
+                                )}
+                              >
+                                {t.difficulty}
+                              </span>
+                            ) : null}
+                            {t.auto ? (
+                              <span className="text-[0.65rem] uppercase tracking-wider text-crema/40">Auto</span>
+                            ) : null}
+                          </span>
                         </span>
                       </button>
                       {showSwap ? (

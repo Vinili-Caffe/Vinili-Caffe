@@ -1,7 +1,7 @@
 /** Compiti staff: piano del mese (estrazione dei compiti, cambi, bonus). */
 const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
-const { TASKS_META, ALLOWED_TASK_IDS } = require("./siteStaffCompitiCatalog") as typeof import("./siteStaffCompitiCatalog");
+const { TASKS_META, ALLOWED_TASK_IDS, MAX_HARD_PER_MONTH, isHardTask, countHardTasks } = require("./siteStaffCompitiCatalog") as typeof import("./siteStaffCompitiCatalog");
 const { romeMonthKey, weekKeysInRomeMonth, prevRomeMonthKey, monthKeyForWeekKey, compitiActiveMonthKey } = require("./compitiCalendar") as typeof import("./compitiCalendar");
 const { STATUS, loadMap } = require("./compitiWeeks") as typeof import("./compitiWeeks");
 
@@ -21,19 +21,18 @@ function shuffleInPlace(arr?) {
 function drawDistinctMonthTasks(excludeSet?, n?) {
   const all = TASKS_META.map((t?) => t.id);
   const want = Math.max(0, Math.min(Number(n) || 0, all.length));
-  const primary = shuffleInPlace(all.filter((id?) => !excludeSet.has(id)));
   const picked = [];
-  for (const id of primary) {
-    if (picked.length >= want) break;
-    picked.push(id);
-  }
-  if (picked.length < want) {
-    const rest = shuffleInPlace(all.filter((id?) => !picked.includes(id)));
-    for (const id of rest) {
+  /* al massimo MAX_HARD_PER_MONTH compiti difficili nel pool */
+  const take = (ids?) => {
+    for (const id of ids) {
       if (picked.length >= want) break;
+      if (picked.includes(id)) continue;
+      if (isHardTask(id) && countHardTasks(picked) >= MAX_HARD_PER_MONTH) continue;
       picked.push(id);
     }
-  }
+  };
+  take(shuffleInPlace(all.filter((id?) => !excludeSet.has(id))));
+  if (picked.length < want) take(shuffleInPlace(all.filter((id?) => !picked.includes(id))));
   return picked.slice(0, want);
 }
 
@@ -147,14 +146,36 @@ function planSwapsLeft(plan?, bonus = 0) {
   return baseLeft + bonusLeft;
 }
 
-function pickRandomPoolReplacement(poolIds?, preferExclude = null) {
+/** Sostituto per `replaceTaskId`: se nel resto del pool c'è già il massimo di difficili, niente difficili. */
+function pickRandomPoolReplacement(poolIds?, preferExclude = null, replaceTaskId = "") {
   const pool = new Set((poolIds || []).map((x?) => String(x || "").trim()).filter(Boolean));
   const extra = preferExclude instanceof Set ? preferExclude : new Set();
-  const all = TASKS_META.map((t?) => t.id);
-  let candidates = all.filter((id?) => !pool.has(id) && !extra.has(id));
-  if (!candidates.length) candidates = all.filter((id?) => !pool.has(id));
+  const hardFull = countHardTasks([...pool].filter((id?) => id !== replaceTaskId)) >= MAX_HARD_PER_MONTH;
+  const allowed = TASKS_META.map((t?) => t.id).filter((id?) => !pool.has(id) && !(hardFull && isHardTask(id)));
+  let candidates = allowed.filter((id?) => !extra.has(id));
+  if (!candidates.length) candidates = allowed;
   if (!candidates.length) return "";
   return candidates[Math.floor(Math.random() * candidates.length)] || "";
+}
+
+/** Pool estratti prima del limite: i difficili in più (non ancora usati in una settimana) diventano altri compiti. */
+function capHardTasks(poolIds?, weekMap?, monthKey?, preferExclude = null) {
+  const used = new Set();
+  for (const [wk, entry] of Object.entries(weekMap || {})) {
+    if (entry?.taskId && monthKeyForWeekKey(wk) === monthKey) used.add(entry.taskId);
+  }
+  let hardKept = poolIds.filter((id?) => isHardTask(id) && used.has(id)).length;
+  let pool = [...poolIds];
+  for (const id of poolIds) {
+    if (!isHardTask(id) || used.has(id)) continue;
+    if (hardKept < MAX_HARD_PER_MONTH) {
+      hardKept += 1;
+      continue;
+    }
+    const replacement = pickRandomPoolReplacement(pool, preferExclude, id);
+    if (replacement && !isHardTask(replacement)) pool = pool.map((x?) => (x === id ? replacement : x));
+  }
+  return pool;
 }
 
 async function loadPlanMap(guildId?, userId?) {
@@ -317,9 +338,19 @@ async function ensureMonthPlanForUser(guildId?, userId?, { monthKey = "", weekKe
   const existing = plans[mk];
   const existingPool = planPoolIds(existing);
   if (existingPool.length >= weekKeys.length && !force) {
-    // Persist migrated taskIds if we only had byWeek.
-    if (!Array.isArray(existing.taskIds) || !existing.taskIds.length || Object.keys(existing.byWeek || {}).length) {
-      existing.taskIds = existingPool;
+    let pool = existingPool;
+    if (countHardTasks(pool) > MAX_HARD_PER_MONTH) {
+      const weekMap = await loadMap(guildId, userId);
+      pool = capHardTasks(pool, weekMap, mk, collectPrevMonthTaskIds(plans, weekMap, prevRomeMonthKey(mk)));
+    }
+    // Persist migrated taskIds if we only had byWeek (o se sono stati tolti difficili in più).
+    if (
+      pool !== existingPool ||
+      !Array.isArray(existing.taskIds) ||
+      !existing.taskIds.length ||
+      Object.keys(existing.byWeek || {}).length
+    ) {
+      existing.taskIds = pool;
       existing.byWeek = {};
       plans[mk] = existing;
       await savePlanMap(guildId, userId, plans);
