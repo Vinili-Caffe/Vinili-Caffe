@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { CalendarDays, ExternalLink, Heart, LayoutGrid, Link2, Loader2, Mic, Quote, Repeat2, Shuffle, Skull, Sparkles, Trash2, UserRound, X } from "lucide-react";
 import { SmartLink } from "@/components/SmartLink";
@@ -25,7 +25,7 @@ import {
 import { useLiveRefresh } from "@/lib/use-live-refresh";
 import { showToast, confirmDialog, openLightbox } from "@/components/ui";
 import { cn } from "@/lib/cn";
-import { BachecaCard, Cassette, LinkChips, Pin, ReactionBar } from "./BachecaCards";
+import { BachecaCard, Cassette, LinkChips, MediaAttachments, Pin, ReactionBar } from "./BachecaCards";
 
 const FILTERS: BachecaFilter[] = ["all", "quote", "repost", "clip", "skull"];
 const SORTS: BachecaSort[] = ["new", "top", "week"];
@@ -54,6 +54,13 @@ function subscribeResize(cb: () => void) {
 function columnsNow() {
   const w = window.innerWidth;
   return w >= 1280 ? 4 : w >= 1024 ? 3 : w >= 640 ? 2 : 1;
+}
+
+/* altezza prevista finché la card non è misurata */
+function estimateHeight(it: BachecaItem) {
+  if (it.kind === "quote" || it.kind === "skull") return 380;
+  if (it.kind === "clip") return 300;
+  return 200 + (it.imageUrl ? 260 : 0) + Math.min(160, Math.ceil(it.text.length / 40) * 22);
 }
 
 function readParam(name: string) {
@@ -89,6 +96,43 @@ export function BachecaWall() {
   const [open, setOpen] = useState<BachecaItem | null>(null);
   const [drawing, setDrawing] = useState(false);
   const cols = useSyncExternalStore(subscribeResize, columnsNow, () => 1);
+
+  /* masonry: ogni card va nella colonna più corta (altezze vere misurate), così non restano buchi in fondo
+     e l'ordine resta da sinistra a destra */
+  const [heights, setHeights] = useState<Record<string, number>>({});
+  const observer = useRef<ResizeObserver | null>(null);
+  useEffect(() => {
+    const ro = new ResizeObserver((entries) => {
+      setHeights((prev) => {
+        let next = prev;
+        for (const e of entries) {
+          const id = (e.target as HTMLElement).dataset.bid || "";
+          const h = Math.round(e.borderBoxSize?.[0]?.blockSize ?? e.contentRect.height);
+          if (id && h > 0 && Math.abs((prev[id] || 0) - h) > 2) {
+            if (next === prev) next = { ...prev };
+            next[id] = h;
+          }
+        }
+        return next;
+      });
+    });
+    observer.current = ro;
+    return () => ro.disconnect();
+  }, []);
+  const measure = useCallback((node: HTMLDivElement | null) => {
+    if (node) observer.current?.observe(node);
+  }, []);
+  const columns = useMemo(() => {
+    const out: BachecaItem[][] = Array.from({ length: cols }, () => []);
+    const total = new Array(cols).fill(0);
+    for (const it of items) {
+      let k = 0;
+      for (let c = 1; c < cols; c++) if (total[c] < total[k] - 1) k = c;
+      out[k].push(it);
+      total[k] += heights[it.id] ?? estimateHeight(it);
+    }
+    return out;
+  }, [items, cols, heights]);
   const [freshIds, setFreshIds] = useState<Set<string>>(() => new Set());
   const known = useRef<Set<string>>(new Set());
 
@@ -315,21 +359,20 @@ export function BachecaWall() {
             </div>
           ) : (
             <div className="flex items-start gap-7">
-              {Array.from({ length: cols }, (_, c) => (
+              {columns.map((col, c) => (
                 <div key={c} className="flex min-w-0 flex-1 flex-col">
                   <AnimatePresence initial={false}>
-                    {items
-                      .filter((_, i) => i % cols === c)
-                      .map((it) => (
+                    {col.map((it) => (
+                      <div key={it.id} ref={measure} data-bid={it.id} className="flow-root">
                         <BachecaCard
-                          key={it.id}
                           item={it}
                           fresh={freshIds.has(it.id)}
                           onOpen={() => openItem(it)}
                           onReact={(e) => react(it, e)}
                           onRepost={() => repost(it)}
                         />
-                      ))}
+                      </div>
+                    ))}
                   </AnimatePresence>
                 </div>
               ))}
@@ -439,22 +482,8 @@ function BachecaDetail({
             ))}
             {parts.text && <p className="whitespace-pre-line break-words text-base leading-relaxed [overflow-wrap:anywhere]">{parts.text}</p>}
             <LinkChips links={parts.links} />
-            {item.media
-              .filter((m) => m.type === "video" || m.type === "audio")
-              .map((m) =>
-                m.type === "video" ? (
-                  <video key={m.url} src={m.url} controls preload="metadata" className="w-full rounded-md" />
-                ) : (
-                  <audio key={m.url} src={m.url} controls preload="none" className="w-full" />
-                ),
-              )}
-            {item.media
-              .filter((m) => m.type === "file")
-              .map((m) => (
-                <a key={m.url} href={m.url} target="_blank" rel="noopener" className="block text-sm font-semibold text-[#7a5230] underline">
-                  {m.name || "Allegato"}
-                </a>
-              ))}
+            {/* stesso lettore delle card: se l'audio suona già, qui risulta in riproduzione */}
+            <MediaAttachments media={item.media} />
           </>
         )}
       </div>

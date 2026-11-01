@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { motion, useReducedMotion } from "motion/react";
 import { ExternalLink, ImageOff, Pause, Play, Repeat2 } from "lucide-react";
 import { BACHECA_EMOJIS, splitBachecaText, tiltFor, type BachecaItem } from "@/lib/bacheca";
+import { toggleBachecaAudio, useBachecaAudio } from "@/lib/bacheca-audio";
 import { cn } from "@/lib/cn";
 
 const ease = [0.22, 1, 0.36, 1] as const;
@@ -216,13 +217,58 @@ function PostIt({ item, onReact, onRepost }: { item: BachecaItem; onReact: (e: s
       )}
       {parts.text && <p className="whitespace-pre-line break-words text-[0.95rem] leading-snug [overflow-wrap:anywhere]">{parts.text.length > 420 ? `${parts.text.slice(0, 420)}…` : parts.text}</p>}
       <LinkChips links={parts.links} />
-      {item.media.filter((m) => m.type !== "image").length > 0 && (
-        <p className="mt-2 text-xs font-semibold text-ink/60">+ {item.media.filter((m) => m.type !== "image").length} allegati</p>
-      )}
+      <MediaAttachments media={item.media} />
       <div className="mt-3 space-y-2 border-t border-ink/10 pt-2">
         <Byline item={item} />
         <ReactionBar item={item} onReact={onReact} onRepost={onRepost} />
       </div>
+    </div>
+  );
+}
+
+/** Audio allegato: piccolo lettore (stesso lettore unico della Bacheca). */
+export function AudioChip({ url, name, dark = false }: { url: string; name: string; dark?: boolean }) {
+  const [playing, progress] = useBachecaAudio(url);
+  return (
+    <div
+      className={cn("mt-2 flex items-center gap-2.5 rounded-full py-1.5 pl-1.5 pr-3", dark ? "bg-crema/10" : "bg-ink/8")}
+      onClick={(e) => e.stopPropagation()}
+    >
+      <button
+        type="button"
+        onClick={() => toggleBachecaAudio(url)}
+        aria-label={playing ? "Pausa" : `Ascolta ${name || "l'audio"}`}
+        className="flex size-8 shrink-0 items-center justify-center rounded-full bg-caramel text-ink shadow transition-transform active:scale-90"
+      >
+        {playing ? <Pause className="size-3.5" /> : <Play className="size-3.5 translate-x-px" />}
+      </button>
+      <div className="min-w-0 flex-1">
+        <p className={cn("truncate text-xs font-semibold", dark ? "text-crema/80" : "text-ink/75")}>{name || "Audio"}</p>
+        <div className={cn("mt-1 h-1 overflow-hidden rounded-full", dark ? "bg-crema/15" : "bg-ink/10")}>
+          <div className="h-full bg-caramel transition-[width] duration-200" style={{ width: `${progress}%` }} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Allegati non immagine sul post-it: audio col lettore, video subito visibile, il resto come link. */
+export function MediaAttachments({ media, dark = false }: { media: BachecaItem["media"]; dark?: boolean }) {
+  const rest = media.filter((m) => m.type !== "image");
+  if (!rest.length) return null;
+  return (
+    <div onClick={(e) => e.stopPropagation()}>
+      {rest.slice(0, 4).map((m) =>
+        m.type === "audio" ? (
+          <AudioChip key={m.url} url={m.url} name={m.name} dark={dark} />
+        ) : m.type === "video" ? (
+          <video key={m.url} src={m.url} controls preload="metadata" playsInline className="mt-2 w-full rounded-md bg-black" />
+        ) : (
+          <a key={m.url} href={m.url} target="_blank" rel="noopener noreferrer" className={cn("mt-2 block truncate text-xs font-semibold underline", dark ? "text-crema/75" : "text-ink/70")}>
+            {m.name || "Allegato"}
+          </a>
+        ),
+      )}
     </div>
   );
 }
@@ -254,16 +300,11 @@ export function LinkChips({ links, dark = false }: { links: { url: string; host:
 /** Clip: musicassetta. Le bobine girano mentre suona, la trascrizione è l'etichetta. */
 export function Cassette({ item, onReact, onRepost, big = false }: { item: BachecaItem; onReact: (e: string) => void; onRepost?: () => void; big?: boolean }) {
   const reduce = useReducedMotion();
-  const audio = useRef<HTMLAudioElement | null>(null);
-  const [playing, setPlaying] = useState(false);
-  const [progress, setProgress] = useState(0);
-  useEffect(() => () => audio.current?.pause(), []);
+  /* lettore unico: card e dettaglio della stessa clip vanno insieme */
+  const [playing, progress] = useBachecaAudio(item.audioUrl || "");
   const toggle = (e: React.MouseEvent) => {
     e.stopPropagation();
-    const a = audio.current;
-    if (!a) return;
-    if (a.paused) void a.play().catch(() => {});
-    else a.pause();
+    toggleBachecaAudio(item.audioUrl || "");
   };
   const reel = (
     <motion.span
@@ -298,20 +339,6 @@ export function Cassette({ item, onReact, onRepost, big = false }: { item: Bache
       <div className="mt-2 h-1 overflow-hidden rounded-full bg-crema/10">
         <div className="h-full bg-caramel transition-[width] duration-200" style={{ width: `${progress}%` }} />
       </div>
-      {item.audioUrl && (
-        <audio
-          ref={audio}
-          src={item.audioUrl}
-          preload="none"
-          onPlay={() => setPlaying(true)}
-          onPause={() => setPlaying(false)}
-          onEnded={() => (setPlaying(false), setProgress(0))}
-          onTimeUpdate={(e) => {
-            const a = e.currentTarget;
-            if (a.duration) setProgress((a.currentTime / a.duration) * 100);
-          }}
-        />
-      )}
       <div className="mt-3 space-y-2">
         <Byline item={item} dark />
         <ReactionBar item={item} onReact={onReact} onRepost={onRepost} dark />
