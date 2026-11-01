@@ -177,17 +177,12 @@ async function handleCustomProfilePromptMessage(message?) {
     const channel = message.guild?.channels?.cache?.get(channelId) || (await message.guild?.channels?.fetch(channelId).catch(() => null));
     if (!channel || channel.type !== ChannelType.GuildVoice) return done("<:VC_Attention:1482534443632558151> Canale vocale non trovato.", "customvoc");
     const ownerDoc = await CustomRole.findOne({ guildId: message.guild.id, userId: ownerId }, { customVocEmoji: 1, customVocChannelId: 1 }).lean().catch(() => null);
+    /* vocOwnerNoPerms1: il proprietario non ha più permessi Discord sulla vocale, la riconosce solo il database */
     const linkedInDb = String(ownerDoc?.customVocChannelId || "").trim() === channelId;
-    const ownerOverwrite = channel.permissionOverwrites?.cache?.get?.(ownerId);
-    const looksLikeOwner =
-      Boolean(ownerOverwrite?.allow?.has(PermissionsBitField.Flags.ManageChannels)) ||
-      Boolean(ownerOverwrite?.allow?.has(PermissionsBitField.Flags.MoveMembers));
-        if (!linkedInDb && !looksLikeOwner) {
+    if (!linkedInDb) {
       return done("<:VC_Attention:1482534443632558151> Questa vocale non risulta più collegata al tuo profilo.", "customvoc");
     }
-    if (linkedInDb && !looksLikeOwner) {
-      await applyOverwrite(channel, ownerId, CUSTOM_VOC_OWNER_BASE_PERMS, "Custom voc: ripristino permessi proprietario").catch(() => false);
-    }
+    await applyOverwrite(channel, ownerId, CUSTOM_VOC_OWNER_BASE_PERMS, "Custom voc: ripristino permessi proprietario").catch(() => false);
     const me = message.guild?.members?.me || message.guild?.members?.cache?.get(message.client.user.id);
     if (!me?.permissions?.has(PermissionsBitField.Flags.ManageChannels)) return done("<:VC_Attention:1482534443632558151> Mi serve il permesso Gestisci Canali.");
     if (type === "voc_name") {

@@ -28,17 +28,18 @@ const CUSTOM_VOC_MEMBER_PERMS = {
   SendMessages: true,
 };
 
+/* vocOwnerNoPerms1: il proprietario entra e parla come un invitato; nessun permesso di gestione su Discord
+   (sposta/muta/gestisci). Nome, emoji, aggiungi/rimuovi li fa il bot dai pulsanti. `null` toglie i permessi
+   dati in passato alle vocali già esistenti. */
 const CUSTOM_VOC_OWNER_BASE_PERMS = {
   ...CUSTOM_VOC_MEMBER_PERMS,
-  MoveMembers: true,
+  MoveMembers: null,
+  MuteMembers: null,
+  DeafenMembers: null,
+  ManageChannels: null,
 };
 
-const CUSTOM_VOC_OWNER_PRIVILEGED_PERMS = {
-  ...CUSTOM_VOC_OWNER_BASE_PERMS,
-  MuteMembers: true,
-  DeafenMembers: true,
-  ManageChannels: true,
-};
+const CUSTOM_VOC_OWNER_PRIVILEGED_PERMS = CUSTOM_VOC_OWNER_BASE_PERMS;
 
 const CUSTOM_VOC_EVERYONE_DENY = {
   ViewChannel: false,
@@ -275,7 +276,6 @@ function buildCustomVocCreateOverwrites(guild?, ownerId?, botUserId?) {
         PermissionsBitField.Flags.UseVAD,
         PermissionsBitField.Flags.Stream,
         PermissionsBitField.Flags.SendMessages,
-        PermissionsBitField.Flags.MoveMembers,
       ],
     },
     {
