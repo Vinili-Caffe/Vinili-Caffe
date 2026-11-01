@@ -41,6 +41,12 @@ export function SmartLink({ href, onClick, ...rest }: Props) {
       const now = `${location.pathname}${location.search}${location.hash}`;
       if (now !== from) return;
       try {
+        /* pwaInAppNav1: navigazione dentro l'app, non un'apertura: la home non deve "riprendere" la pagina di prima */
+        sessionStorage.setItem("vc-pwa-inapp-nav", String(Date.now()));
+      } catch {
+        /* ignore */
+      }
+      try {
         location.assign(dest);
       } catch {
         /* ignore */

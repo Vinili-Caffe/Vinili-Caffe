@@ -59,6 +59,11 @@ export function PwaKeepLinks() {
       markReturnHere();
       const next = u.pathname + u.search + u.hash;
       if (next !== location.pathname + location.search + location.hash) {
+        try {
+          sessionStorage.setItem("vc-pwa-inapp-nav", String(Date.now()));
+        } catch {
+          /* ignore */
+        }
         location.assign(next);
       }
     };
