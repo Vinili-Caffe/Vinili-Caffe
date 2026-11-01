@@ -314,7 +314,7 @@ async function createPauseRequest({ guild, userId, requesterMention, rawStart, r
 
   const requisitiNonRispettati = [];
   if (halfSlot) {
-    for (const w of getHalfDayLimitWarnings(stafferDoc.staff.pauses, { day: normalized.startDate, sameDay, excludePauseIds: pauseIds })) {
+    for (const w of getHalfDayLimitWarnings(stafferDoc.staff.pauses, { day: normalized.startDate, excludePauseIds: pauseIds })) {
       requisitiNonRispettati.push(`<:VC_Attention:1482534443632558151> ${w}`);
     }
   } else if (getOnePausePerMonthWarning(stafferDoc, { ...normalized, excludePauseIds: pauseIds })) {

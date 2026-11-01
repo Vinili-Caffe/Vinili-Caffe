@@ -72,7 +72,7 @@ export type PauseMe = {
   minStartIso: string;
   minHalfDayIso?: string;
   halfDayToday?: Record<PauseHalfDay, boolean>;
-  halfDayLimits?: { week: number; month: number; sameDayWeek: number; sameDayMonth: number };
+  halfDayLimits?: { week: number; month: number };
   reasonMin: number;
   reasonMax: number;
   pendingRequest?: PausePendingRequest | null;

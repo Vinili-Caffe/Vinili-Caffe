@@ -8,8 +8,9 @@ const HALF_DAY_SLOTS = ["mattina", "pomeriggio"] as const;
 const HALF_DAY_LABELS = { mattina: "Mattina (fino alle 14)", pomeriggio: "Pomeriggio/sera (dalle 14)" };
 /** Ora di Roma (in minuti) entro cui si può chiedere quella fascia per oggi. */
 const HALF_DAY_SAME_DAY_CUTOFF_MIN = { mattina: 9 * 60, pomeriggio: 14 * 60 };
-/** 1 a settimana: la seconda nella stessa settimana (che nel resoconto fa un giorno intero) va approvata a mano. */
-const HALF_DAY_LIMITS = { week: 1, month: 4, sameDayWeek: 1, sameDayMonth: 2 };
+/** Uguali per oggi e per gli altri giorni. 1 a settimana: la seconda nella stessa settimana
+ *  (che nel resoconto fa un giorno intero) va approvata a mano. */
+const HALF_DAY_LIMITS = { week: 1, month: 4 };
 
 function normalizeHalfDay(raw?) {
   const v = String(raw || "").trim().toLowerCase();
@@ -69,13 +70,13 @@ function listHalfDayRequests(pauses?, excludeIds = new Set()) {
     if (seen.has(key)) continue;
     seen.add(key);
     const day = parseItalianDate(p.dataRichiesta);
-    if (day) out.push({ day, sameDay: Boolean(p.richiestaInGiornata) });
+    if (day) out.push({ day });
   }
   return out;
 }
 
 /** Avvisi sui limiti delle mezze giornate (stile "Requisiti non rispettati"). */
-function getHalfDayLimitWarnings(pauses?, { day, sameDay = false, excludePauseIds = [] }: any = {}) {
+function getHalfDayLimitWarnings(pauses?, { day, excludePauseIds = [] }: any = {}) {
   if (!day) return [];
   const list = listHalfDayRequests(pauses, new Set((excludePauseIds || []).map(String)));
   const weekStart = isoWeekStartMs(day);
@@ -89,16 +90,6 @@ function getHalfDayLimitWarnings(pauses?, { day, sameDay = false, excludePauseId
   }
   if (inMonth.length >= HALF_DAY_LIMITS.month) {
     out.push(`**Mezze giornate al mese:** già ${inMonth.length} su ${HALF_DAY_LIMITS.month} in questo mese.`);
-  }
-  if (sameDay) {
-    const sameWeek = inWeek.filter((r?) => r.sameDay).length;
-    const sameMonth = inMonth.filter((r?) => r.sameDay).length;
-    if (sameWeek >= HALF_DAY_LIMITS.sameDayWeek) {
-      out.push(`**Richieste per oggi a settimana:** già ${sameWeek} su ${HALF_DAY_LIMITS.sameDayWeek} in questa settimana.`);
-    }
-    if (sameMonth >= HALF_DAY_LIMITS.sameDayMonth) {
-      out.push(`**Richieste per oggi al mese:** già ${sameMonth} su ${HALF_DAY_LIMITS.sameDayMonth} in questo mese.`);
-    }
   }
   return out;
 }

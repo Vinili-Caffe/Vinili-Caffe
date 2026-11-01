@@ -359,7 +359,7 @@ export function PauseBoard() {
                   <p className="text-xs leading-relaxed text-crema/45">
                     Vale mezzo giorno del tuo budget pause: mattina e pomeriggio dello stesso giorno fanno un giorno intero.
                     {cal.me.halfDayLimits
-                      ? ` Massimo ${cal.me.halfDayLimits.week} a settimana e ${cal.me.halfDayLimits.month} al mese; per oggi ${cal.me.halfDayLimits.sameDayWeek} a settimana e ${cal.me.halfDayLimits.sameDayMonth} al mese.`
+                      ? ` Massimo ${cal.me.halfDayLimits.week} a settimana e ${cal.me.halfDayLimits.month} al mese, che sia per oggi o per un altro giorno.`
                       : ""}{" "}
                     Se la chiedi per oggi e sei nei limiti viene accettata subito.
                   </p>
