@@ -301,6 +301,8 @@ const staffPauseEntrySchema = new Schema(
     richiestaInGiornata: { type: Boolean, default: false },
     /** accettata in automatico dal bot (mezza giornata per oggi nei limiti) */
     autoAccepted: { type: Boolean, default: false },
+    /** avvisi alla richiesta (una pausa al mese, limiti mezze giornate…), mostrati nella pratica sul sito */
+    requisitiNonRispettati: { type: [String], default: [] },
     stafferInPausa: { type: Number, default: 0 },
     status: { type: String, default: "pending" },
     cancelledAt: { type: Date, default: null },

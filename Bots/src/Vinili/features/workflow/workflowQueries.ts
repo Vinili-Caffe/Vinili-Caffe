@@ -370,6 +370,9 @@ async function upsertPauseWorkflowFromPause(client?, guild?, userId?, pause?) {
           },
       { name: "Ruolo richiesto", value: roleLabel },
           { name: "Motivazione", value: String(pause.motivazione || "—") },
+          ...(Array.isArray(pause.requisitiNonRispettati) && pause.requisitiNonRispettati.length
+            ? [{ name: "Requisiti non rispettati", value: `${pause.requisitiNonRispettati.map((r?) => `• ${r}`).join("\n")}\nL'High Staff può accettare comunque.` }]
+            : []),
           { name: "Stato", value: statusLabel },
         ],
         workflowFields: {

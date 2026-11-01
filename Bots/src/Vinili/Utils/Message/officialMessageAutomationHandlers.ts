@@ -2,8 +2,6 @@ const { EmbedBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder } = require("
 const { recordDiscadiaBump, recordDiscadiaVote, recordBump, awardBumpVoteExp, getVoteCooldownMs, isVoteListingRecordedAtOrAfter } = require("../../Services/Bump/bumpService") as typeof import("../../Services/Bump/bumpService");
 const { addExpWithLevel, shouldIgnoreExpForMember } = require("../../Services/Community/expService") as typeof import("../../Services/Community/expService");
 const { upsertVoteRole } = require("../../Services/Community/communityOpsService") as typeof import("../../Services/Community/communityOpsService");
-const { PAUSE_REQUEST_ROLE_IDS, parsePauseChannelMessageContent } = require("../Pause/pauseRequestRuntime") as typeof import("../Pause/pauseRequestRuntime");
-const { submitPauseRequestForMember } = require("../Pause/pauseRequestSubmitRuntime") as typeof import("../Pause/pauseRequestSubmitRuntime");
 const {
   maybeRepositionModerationSticky,
   isModerationStickyPanelMessage,
@@ -1105,82 +1103,19 @@ async function handleSanzioniChannelMessage(message?) {
   return false;
 }
 
+/** Le pause si chiedono solo dal sito: un messaggio nel canale pause viene tolto con il link. */
 async function handlePauseChannelMessage(message?) {
   if (!message?.guild) return false;
-
   const pauseChannelId = String(IDs.channels.pause || "");
-  const isPauseChannel = Boolean(pauseChannelId && String(message.channelId) === pauseChannelId);
-  if (!isPauseChannel) return false;
-
-        if (message.author?.bot || message.webhookId || message.system) {
-    return false;
-  }
-
-  const finish = () => {
-  };
-
-  try {
-    const {
-      isDiscordWorkflowUiEnabled,
-      siteWorkflowUrl,
-    } = require("../../Web/discordWorkflowUiGate") as typeof import("../../Web/discordWorkflowUiGate");
-    if (!isDiscordWorkflowUiEnabled()) {
-      const warning = await message.channel
-        .send({
-          content: `${message.author} le richieste pausa si inviano **solo sul sito**:\n${siteWorkflowUrl("pause")}`,
-        })
-        .catch(() => null);
-      await message.delete().catch(() => {});
-      if (warning) scheduleMessageDeletion(warning, EPHEMERAL_TTL_NORMAL_MS);
-      finish();
-      return true;
-    }
-  } catch (_) {}
-
-  if (!message.member && message.guild?.id && message.author?.id) {
-    message.member = await getGuildMemberCached(message.guild, message.author.id);
-  }
-  const allowedRoleIds = new Set(PAUSE_REQUEST_ROLE_IDS.map(String));
-  const hasAllowedRole = Array.from(allowedRoleIds).some((roleId?) => message.member?.roles?.cache?.has(roleId));
-  if (!hasAllowedRole) {
-    finish();
-    return false;
-  }
-
-  const raw = String(message.content || "").trim();
-  if (!raw) {
-    finish();
-    return false;
-  }
-  const parsed: any = parsePauseChannelMessageContent(raw);
-  if (!parsed || parsed.halfDayMissingSlot || !parsed.reason) {
-    const warning = await message.channel.send({ content: `${message.author} formato non valido. Usa il pulsante **Richiedi pausa** qui sotto oppure invia: data inizio, data fine e motivo (es. \`20/05 - 22/05 - viaggio\`). Per mezza giornata: data, \`mattina\` o \`pomeriggio\` e motivo (es. \`oggi pomeriggio - visita medica\`).` }).catch(() => null);
-    await message.delete().catch(() => { });
-    if (warning) scheduleMessageDeletion(warning, EPHEMERAL_TTL_NORMAL_MS);
-    finish();
-    return true;
-  }
-
-  const result: any = await submitPauseRequestForMember({
-    guild: message.guild,
-    member: message.member,
-    rawStart: parsed.rawStart,
-    rawEnd: parsed.rawEnd,
-    reason: parsed.reason,
-    replyChannel: message.channel,
-    halfDay: parsed.halfDay || null,
-  });
-  if (!result.ok) {
-    const errText = result.error === "Selezione ruolo scaduta." ? "Selezione ruolo pausa scaduta. Riinvia la richiesta." : result.error;
-    const warning = await message.channel.send({ content: `${message.author} <:vegax:1443934876440068179> ${errText}` }).catch(() => null);
-    await message.delete().catch(() => { });
-    if (warning) scheduleMessageDeletion(warning, EPHEMERAL_TTL_NORMAL_MS);
-    finish();
-    return true;
-  }
-
-  await message.delete().catch(() => { });
-  finish();
+  if (!pauseChannelId || String(message.channelId) !== pauseChannelId) return false;
+  if (message.author?.bot || message.webhookId || message.system) return false;
+  const { siteWorkflowUrl } = require("../../Web/discordWorkflowUiGate") as typeof import("../../Web/discordWorkflowUiGate");
+  const warning = await message.channel
+    .send({ content: `${message.author} le richieste pausa si inviano **solo sul sito**:
+${siteWorkflowUrl("pause")}` })
+    .catch(() => null);
+  await message.delete().catch(() => {});
+  if (warning) scheduleMessageDeletion(warning, EPHEMERAL_TTL_NORMAL_MS);
   return true;
 }
 
@@ -1311,34 +1246,9 @@ async function processRecentCommandsChannelMessages(client?) {
   }
 }
 
-async function processRecentPauseChannelMessages(client?) {
-  if (!client || !PAUSE_CHANNEL_ID) return;
-  const channel = client.channels.cache.get(PAUSE_CHANNEL_ID) || (await client.channels.fetch(PAUSE_CHANNEL_ID).catch(() => null));
-  if (!channel?.isTextBased?.() || !channel.messages) return;
-  const cutoff = Date.now() - RECENT_BUMP_LOOKBACK_MS;
-  let messages = [];
-  try {
-    messages = await channel.messages.fetch({ limit: RECENT_VOTE_FETCH_LIMIT });
-  } catch (err) {
-    global.logger?.warn?.("[PAUSE] Failed to fetch recent pause channel for startup:", err?.message || err);
-    return;
-  }
-  const ourId = client.user?.id;
-  const sorted = [...messages.values()].sort((a?, b?) => (b.createdTimestamp || 0) - (a.createdTimestamp || 0));
-  for (const message of sorted) {
-    if ((message.createdTimestamp || 0) < cutoff) continue;
-    if (message.author?.id === ourId) continue;
-    try {
-      await handlePauseChannelMessage(message);
-    } catch (err) {
-      global.logger?.warn?.("[PAUSE] Startup process message error:", err?.message || err);
-    }
-  }
-}
-
 async function processAllRecentAutomationMessages(client?) {
   await processRecentVoteChannelMessages(client);
   await processRecentCommandsChannelMessages(client);
 }
 
-export = { channelAllowsMedia, getCachedOrFetchMember, handleDisboardBump, handleDiscadiaBump, handlePauseChannelMessage, handleSanzioniChannelMessage, handleThreadVoteMessage, handleMovieNightVoteMessage, handleVoteManagerMessage, hasMediaPermission, isDiscordInviteLinkMessage, isMediaMessage, processRecentVoteChannelMessages, processRecentCommandsChannelMessages, processRecentPauseChannelMessages, processAllRecentAutomationMessages, processDiscadiaVote };
+export = { channelAllowsMedia, getCachedOrFetchMember, handleDisboardBump, handleDiscadiaBump, handlePauseChannelMessage, handleSanzioniChannelMessage, handleThreadVoteMessage, handleMovieNightVoteMessage, handleVoteManagerMessage, hasMediaPermission, isDiscordInviteLinkMessage, isMediaMessage, processRecentVoteChannelMessages, processRecentCommandsChannelMessages, processAllRecentAutomationMessages, processDiscadiaVote };

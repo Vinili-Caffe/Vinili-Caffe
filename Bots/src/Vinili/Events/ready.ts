@@ -75,10 +75,6 @@ const { syncAllMembersClanTags } = require("../Services/Community/clanTagRoleSer
 const { syncZodiacRolesFromStoredBirthdays } = require("../Utils/Community/zodiacRoles") as typeof import("../Utils/Community/zodiacRoles");
 const { syncAgeBracketRolesFromStoredBirthdays } = require("../Utils/Community/ageBracketRoles") as typeof import("../Utils/Community/ageBracketRoles");
 const { postTopggStatsDigestIfConfigured } = require("../Services/Web/topggDigestService") as typeof import("../Services/Web/topggDigestService");
-const {
-  restorePauseMessageStatusSync,
-  rewriteStaleCancelledPauseMessages,
-} = require("../Utils/Pause/pauseHandlersUtils") as typeof import("../Utils/Pause/pauseHandlersUtils");
 const { formatDurationMs, runPhasedStartupTasks, } = require("../Utils/Startup/readyStartupRuntime") as typeof import("../Utils/Startup/readyStartupRuntime");
 const { logBotReady } = require("../../shared/discord/readyLog") as typeof import("../../shared/discord/readyLog");
 const { sweepExpiredPartnerManagerTimedPerks } = require("../Utils/Staff/partnerManagerTimedPerks") as typeof import("../Utils/Staff/partnerManagerTimedPerks");
@@ -272,28 +268,6 @@ function buildDeferredStartupTasks(client?, primaryScheduler?, engagementTick?) 
       run: async () => {
         await recoverMissedTopggVotesOnStartup(client);
         markMediumStartup("topgg-vote-recover");
-      },
-    },
-    {
-      label: "sync staff pause message status (accepted)",
-      weight: 19,
-      enabled: false,
-      run: () => restorePauseMessageStatusSync(client),
-    },
-    {
-      label: "rewrite stale cancelled pause messages (legacy ANNULLATA)",
-      weight: 19.5,
-            enabled:
-        primaryScheduler &&
-        (fullSync || shouldRunMediumStartup("cancelled-pause-msg-rewrite", 30 * 24 * 60 * 60 * 1000)),
-      run: async () => {
-        const result = await rewriteStaleCancelledPauseMessages(client);
-        markMediumStartup("cancelled-pause-msg-rewrite");
-        if (result?.rewritten > 0) {
-          global.logger?.info?.(
-            `[PAUSE] cancelled message rewrite: examined=${result.examined} rewritten=${result.rewritten}`,
-          );
-        }
       },
     },
     {
