@@ -354,10 +354,7 @@ async function purgeExStaffReviews(client?) {
       if (await stafferStillStaff(guild, uid)) continue;
       const res = await SiteDocument.deleteMany({ docType: RV, guildId: guild.id, reviewKind: "staff", staffUserId: uid }).catch(() => null);
       const n = Number(res?.deletedCount || 0);
-      if (n) {
-        removed += n;
-        global.logger?.info?.("[siteReviewsApi] recensioni di ex staff cancellate:", uid, n);
-      }
+      if (n) removed += n;
     }
     if (removed) {
       invalidatePublicReviewsListCache(guild.id);
