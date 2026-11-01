@@ -129,23 +129,25 @@ const STAFF_CHAT_THREAD_DB_FIELDS = {
   pm: "staffChatPmThreadId",
   senior: "staffChatSeniorThreadId",
   highStaff: "staffChatHighStaffThreadId",
+  blogger: "staffChatBloggerThreadId",
 };
 
 async function getStaffChatThreadIds() {
   const coll = getCollection();
   if (!coll || mongoose.connection?.readyState !== 1) {
-    return { pm: null, senior: null, highStaff: null };
+    return { pm: null, senior: null, highStaff: null, blogger: null };
   }
   await ensureBucketArrays();
   const doc = await coll.findOne(
     { _counterKey: TICKET_COUNTER_KEY },
-    { projection: { staffChatPmThreadId: 1, staffChatSeniorThreadId: 1, staffChatHighStaffThreadId: 1 } },
+    { projection: { staffChatPmThreadId: 1, staffChatSeniorThreadId: 1, staffChatHighStaffThreadId: 1, staffChatBloggerThreadId: 1 } },
   );
   const pick = (v?) => (v != null && String(v).trim() !== "" ? String(v).trim() : null);
   return {
     pm: pick(doc?.staffChatPmThreadId),
     senior: pick(doc?.staffChatSeniorThreadId),
     highStaff: pick(doc?.staffChatHighStaffThreadId),
+    blogger: pick(doc?.staffChatBloggerThreadId),
   };
 }
 

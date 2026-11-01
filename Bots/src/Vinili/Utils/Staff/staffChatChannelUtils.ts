@@ -28,7 +28,7 @@ async function isStaffChatManagedThread(channel?) {
   if (!chatId || String(channel.parentId || "") !== chatId) return false;
   const ids = await getStaffChatThreadIds();
   const threadId = String(channel.id);
-  return threadId === ids.pm || threadId === ids.senior || threadId === ids.highStaff;
+  return threadId === ids.pm || threadId === ids.senior || threadId === ids.highStaff || threadId === ids.blogger;
 }
 
 async function resolveStaffChatPmThread(client?) {

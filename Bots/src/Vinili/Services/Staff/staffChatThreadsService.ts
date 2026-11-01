@@ -30,6 +30,16 @@ const STAFF_CHAT_THREAD_SPECS = [
       "Thread dedicato ai Partner Manager: coordinamento, aggiornamenti e comunicazione interna PM.",
     ],
   },
+  /* bloggerChat1: come la chat PM, per i Blogger */
+  {
+    key: "blogger",
+    name: "Chat Blogger",
+    roleIds: () => [IDs.roles?.Blogger].filter(Boolean).map(String),
+    introLines: (mentions?) => [
+      `${mentions} **Chat Blogger**`,
+      "Thread dedicato ai Blogger: coordinamento, idee per gli articoli e comunicazione interna.",
+    ],
+  },
   {
     key: "senior",
     name: "Chat Senior Mod & Director",
