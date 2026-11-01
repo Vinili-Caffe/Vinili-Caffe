@@ -1,6 +1,6 @@
 /** Pause: mezze giornate (mattina / pomeriggio), richiesta in giornata e limiti settimanali/mensili.
  *  Una mezza giornata vale 0,5 giorni del budget; mattina + pomeriggio dello stesso giorno = 1 giorno.
- *  Nel resoconto settimanale conta solo quando, con l'altra metà, arriva a un giorno intero. */
+ *  Nel resoconto settimanale due mezze giornate della stessa settimana valgono un giorno intero; una da sola non conta. */
 const { MS_PER_DAY, parseItalianDate, getTodayUtc } = require("./pauseDates") as typeof import("./pauseDates");
 
 const HALF_DAY_WEIGHT = 0.5;
@@ -8,7 +8,8 @@ const HALF_DAY_SLOTS = ["mattina", "pomeriggio"] as const;
 const HALF_DAY_LABELS = { mattina: "Mattina (fino alle 14)", pomeriggio: "Pomeriggio/sera (dalle 14)" };
 /** Ora di Roma (in minuti) entro cui si può chiedere quella fascia per oggi. */
 const HALF_DAY_SAME_DAY_CUTOFF_MIN = { mattina: 9 * 60, pomeriggio: 14 * 60 };
-const HALF_DAY_LIMITS = { week: 2, month: 4, sameDayWeek: 1, sameDayMonth: 2 };
+/** 1 a settimana: la seconda nella stessa settimana (che nel resoconto fa un giorno intero) va approvata a mano. */
+const HALF_DAY_LIMITS = { week: 1, month: 4, sameDayWeek: 1, sameDayMonth: 2 };
 
 function normalizeHalfDay(raw?) {
   const v = String(raw || "").trim().toLowerCase();
@@ -125,11 +126,13 @@ function getHalfDayConflict(pauses?, { day, slot }: any = {}) {
   return null;
 }
 
-/** Pause accettate per le regole del resoconto: le mezze giornate contano solo se mattina + pomeriggio dello stesso giorno. */
+/** Pause accettate per le regole del resoconto: una mezza giornata da sola non conta,
+ *  due mezze giornate nella stessa settimana (anche in giorni diversi) valgono un giorno intero,
+ *  messo sul giorno della seconda. */
 function pausesForWeeklyRules(pauses?) {
   const list = Array.isArray(pauses) ? pauses : [];
   const out = [];
-  const halves = new Map();
+  const weeks = new Map();
   for (const p of list) {
     if (!p) continue;
     if (!isHalfDayPause(p)) {
@@ -137,14 +140,18 @@ function pausesForWeeklyRules(pauses?) {
       continue;
     }
     if (p.status !== "accepted") continue;
-    const key = `${String(p.dataRichiesta || "").trim()}|${String(p.ruolo || p.ruoloRichiesto || "")}`;
-    const entry = halves.get(key) || { pause: p, slots: new Set() };
-    entry.slots.add(normalizeHalfDay(p.halfDay));
-    halves.set(key, entry);
+    const day = parseItalianDate(p.dataRichiesta);
+    if (!day) continue;
+    /* "Entrambi" crea due pause uguali (Staff + PM): contano una volta per ruolo */
+    const key = `${isoWeekStartMs(day)}|${String(p.ruolo || p.ruoloRichiesto || "")}`;
+    const entry = weeks.get(key) || { halves: new Map() };
+    entry.halves.set(`${day.getTime()}|${normalizeHalfDay(p.halfDay)}`, { pause: p, ms: day.getTime() });
+    weeks.set(key, entry);
   }
-  for (const { pause, slots } of halves.values()) {
-    if (slots.size < HALF_DAY_SLOTS.length) continue;
-    const full = typeof pause.toObject === "function" ? pause.toObject() : { ...pause };
+  for (const { halves } of weeks.values()) {
+    if (halves.size < 2) continue;
+    const latest = [...halves.values()].sort((a?, b?) => b.ms - a.ms)[0].pause;
+    const full = typeof latest.toObject === "function" ? latest.toObject() : { ...latest };
     full.halfDay = null;
     full.dataRitorno = full.dataRichiesta;
     out.push(full);
