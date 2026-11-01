@@ -357,7 +357,7 @@ export function PauseBoard() {
                     </div>
                   </fieldset>
                   <p className="text-xs leading-relaxed text-crema/45">
-                    Vale mezzo giorno del tuo budget pause: mattina e pomeriggio dello stesso giorno fanno un giorno intero.
+                    Vale mezzo giorno del tuo budget pause: due mezze giornate fanno un giorno intero.
                     {cal.me.halfDayLimits
                       ? ` Massimo ${cal.me.halfDayLimits.week} a settimana e ${cal.me.halfDayLimits.month} al mese, che sia per oggi o per un altro giorno.`
                       : ""}{" "}
