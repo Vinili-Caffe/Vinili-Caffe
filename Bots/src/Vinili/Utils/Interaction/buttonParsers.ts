@@ -5,7 +5,6 @@ const { USER_REFRESH_CUSTOM_ID_PREFIX, USER_PERIOD_OPEN_CUSTOM_ID_PREFIX, USER_P
 const { CHANNEL_REFRESH_CUSTOM_ID_PREFIX, CHANNEL_PERIOD_OPEN_CUSTOM_ID_PREFIX, CHANNEL_PERIOD_SET_CUSTOM_ID_PREFIX, CHANNEL_PERIOD_BACK_CUSTOM_ID_PREFIX, normalizeLookbackDays: normalizeChannelLookback } = Buttons.channel;
 const { TOP_CHANNEL_REFRESH_CUSTOM_ID_PREFIX, TOP_CHANNEL_PERIOD_OPEN_CUSTOM_ID_PREFIX, TOP_CHANNEL_PERIOD_SET_CUSTOM_ID_PREFIX, TOP_CHANNEL_PERIOD_BACK_CUSTOM_ID_PREFIX, TOP_CHANNEL_VIEW_SELECT_CUSTOM_ID_PREFIX, TOP_CHANNEL_PAGE_FIRST_CUSTOM_ID_PREFIX, TOP_CHANNEL_PAGE_PREV_CUSTOM_ID_PREFIX, TOP_CHANNEL_PAGE_MODAL_OPEN_CUSTOM_ID_PREFIX, TOP_CHANNEL_PAGE_NEXT_CUSTOM_ID_PREFIX, TOP_CHANNEL_PAGE_LAST_CUSTOM_ID_PREFIX, normalizeTopView, normalizeControlsView, normalizePage } = Buttons.topChannelComponents;
 const MAX_COMPONENTS_PER_ROW = 5;
-const MAX_ROWS_PER_MESSAGE = 5;
 const SNOWFLAKE_RE = /^\d{16,20}$/;
 
 async function denyIfNotOwner(interaction?, ownerId?) {
@@ -169,25 +168,4 @@ function chunk(items = [], size = MAX_COMPONENTS_PER_ROW) {
   return out;
 }
 
-function normalizeComponentsForDiscord(components?) {
-  if (!Array.isArray(components) || components.length === 0) return components;
-
-  const normalized = [];
-  for (const row of components) {
-    const asJson = row?.toJSON ? row.toJSON() : row;
-    const rowComponents = Array.isArray(asJson?.components) ? asJson.components : [];
-    if (!rowComponents.length) continue;
-
-    const chunks = chunk(rowComponents, MAX_COMPONENTS_PER_ROW);
-    for (const piece of chunks) {
-      normalized.push({ type: 1, components: piece });
-      if (normalized.length >= MAX_ROWS_PER_MESSAGE) {
-        return normalized;
-      }
-    }
-  }
-
-  return normalized;
-}
-
-export = { SNOWFLAKE_RE, denyIfNotOwner, sendControlErrorFallback, parseServerRefreshCustomId, parseMeCustomId, parseUserCustomId, parseChannelCustomId, parseTopChannelCustomId, parseTopChannelPageCustomId, parseTopChannelViewSelectCustomId, chunk, normalizeComponentsForDiscord };
+export = { SNOWFLAKE_RE, denyIfNotOwner, sendControlErrorFallback, parseServerRefreshCustomId, parseMeCustomId, parseUserCustomId, parseChannelCustomId, parseTopChannelCustomId, parseTopChannelPageCustomId, parseTopChannelViewSelectCustomId, chunk };

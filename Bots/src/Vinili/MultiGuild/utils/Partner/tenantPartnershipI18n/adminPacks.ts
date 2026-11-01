@@ -467,4 +467,4 @@ function mergeAdminPacks(uiPacks?) {
   }
 }
 
-export = { ADMIN_EN, ADMIN_IT, mergeAdminPacks };
+export = { ADMIN_IT, mergeAdminPacks };

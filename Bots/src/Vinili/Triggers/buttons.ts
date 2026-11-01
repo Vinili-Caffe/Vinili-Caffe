@@ -1,6 +1,5 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags, TextDisplayBuilder, SeparatorBuilder, SeparatorSpacingSize } = require("discord.js") as typeof import("discord.js");
 const { decrementQuoteCount } = require("../Utils/Quote/quoteCounter") as typeof import("../Utils/Quote/quoteCounter");
-const { ROLE_MULTIPLIERS } = require("../Services/Community/expService") as typeof import("../Services/Community/expService");
 const { AvatarPrivacy, BannerPrivacy, ActivityUserProfile, } = require("../Schemas/Community/communitySchemas") as typeof import("../Schemas/Community/communitySchemas");
 const IDs = require("../Utils/Config/ids") as typeof import("../Utils/Config/ids");
 const { MENTION_RESPONSE_PERK_BODY, MENTION_RESPONSE_PERK_LINE_DISCORD } = require("../Utils/Community/mentionResponseAccessUtils") as typeof import("../Utils/Community/mentionResponseAccessUtils");

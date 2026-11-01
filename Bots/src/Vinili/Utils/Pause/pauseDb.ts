@@ -4,21 +4,6 @@ const { ActivityUserProfile } = require("../../Schemas/Community/communitySchema
 const { MS_PER_DAY, parseItalianDate, getPauseDaysBetween, getTodayUtc, getCurrentYearBoundsUtc, countEffectiveOverlapDays } = require("./pauseDates") as typeof import("./pauseDates");
 const { HALF_DAY_WEIGHT, isHalfDayPause, halfDayScaledDays } = require("./pauseHalfDay") as typeof import("./pauseHalfDay");
 
-async function getStaffAndPauseByRequestMessageId(guildId?, messageId?) {
-  const g = String(guildId ?? "").trim();
-  const msgId = String(messageId ?? "").trim();
-  if (!g || !msgId) return null;
-  const doc = await ActivityUserProfile.findOne({
-    guildId: g,
-    $or: [{ "staff.pauses.requestMessageId": msgId }, { "staff.pauses.requestMessageIdPm": msgId }],
-  });
-  if (!doc || !Array.isArray(doc.staff?.pauses)) return null;
-  const pause = doc.staff.pauses.find(
-    (p?) => String(p?.requestMessageId) === msgId || String(p?.requestMessageIdPm) === msgId,
-  );
-  return pause ? { stafferRecord: doc, pause } : null;
-}
-
 function normalizePauseIdForQuery(pauseId?) {
   if (!pauseId) return null;
   const str = String(pauseId).trim();
@@ -160,4 +145,4 @@ function computeConsumedDaysForCancelledPause(pause?) {
   return Math.max(1, Math.floor(((todayUtc as any) - (start as any)) / MS_PER_DAY) + 1);
 }
 
-export = { getStaffAndPauseByRequestMessageId, updatePauseInDb, computeConsumedPauseDays, computePauseScaledDaysThisYear, computeConsumedDaysForCancelledPause };
+export = { updatePauseInDb, computeConsumedPauseDays, computePauseScaledDaysThisYear, computeConsumedDaysForCancelledPause };

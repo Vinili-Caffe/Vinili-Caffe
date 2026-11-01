@@ -898,7 +898,6 @@ export = {
   rewriteDefaultCommandPrefix,
   getTenantDashboardRoleIdsSync,
   normalizeRoleIdList,
-  getTenantUpdatesChannelIdSync,
   listTenantUpdatesTargetsSync,
   getTenantSettingsSnapshotSync,
   getTenantCommandAclMapSync,

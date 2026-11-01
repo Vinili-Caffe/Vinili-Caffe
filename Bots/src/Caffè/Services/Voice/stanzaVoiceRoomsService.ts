@@ -4,9 +4,9 @@ const { MAIN_GUILD_ID, isStanzaBotRename, isCanonicalStanzaVoiceName, resolveEnf
 const { isStanzaGuildAllowed, finalizeStanzaVisitorVoiceSessionIfLeft } = require("./stanzaVisitors") as typeof import("./stanzaVisitors");
 const { markStanzaBotRename, syncStanzaCompanionTextName, parseStanzaButtonId, getStanzaMetaOrRehydrate, refreshStanzaPanelEmbedsIfPossible } = require("./stanzaPanel") as typeof import("./stanzaPanel");
 const { restoreStanzaRoomsFromSnapshot } = require("./stanzaSnapshot") as typeof import("./stanzaSnapshot");
-const { buildStanzaChannelName, handleStanzaVoiceLobbyJoin, handleStanzaVoiceEmpty, handleStanzaVoiceOccupied, handleStanzaVoiceSilenceSync } = require("./stanzaLifecycle") as typeof import("./stanzaLifecycle");
+const { handleStanzaVoiceLobbyJoin, handleStanzaVoiceEmpty, handleStanzaVoiceOccupied, handleStanzaVoiceSilenceSync } = require("./stanzaLifecycle") as typeof import("./stanzaLifecycle");
 const { isStanzaRoomController, handleStanzaButton } = require("./stanzaButtons") as typeof import("./stanzaButtons");
-const { handleStanzaRenameMessageCreate, handleStanzaEmojiMessageCreate, handleStanzaLimitMessageCreate, handleStanzaDescMessageCreate, handleStanzaViceMessageCreate, handleStanzaPanelPromptMessageCreate } = require("./stanzaPrompts") as typeof import("./stanzaPrompts");
+const { handleStanzaPanelPromptMessageCreate } = require("./stanzaPrompts") as typeof import("./stanzaPrompts");
 
 
 
@@ -107,18 +107,11 @@ export = {
   handleStanzaVoiceEmpty,
   handleStanzaVoiceSilenceSync,
   handleStanzaButton,
-  handleStanzaRenameMessageCreate,
-  handleStanzaEmojiMessageCreate,
-  handleStanzaLimitMessageCreate,
-  handleStanzaDescMessageCreate,
-  handleStanzaViceMessageCreate,
   handleStanzaPanelPromptMessageCreate,
   handleStanzaChannelUpdate,
-  buildStanzaChannelName,
   resolveEnforcedStanzaVoiceName,
   isCanonicalStanzaVoiceName,
   resolveStanzaVoiceCreatePlacement,
   placeStanzaAfterGroupTail,
   isManagedStanzaRoomChannel,
-  STANZA_NAME_ENFORCE_MARKER,
 };

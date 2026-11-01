@@ -2,9 +2,6 @@ const { ChannelType } = require("discord.js") as typeof import("discord.js");
 const { CustomRole } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
 const { isChannelInCustomPrivateCategory } = require("../../Utils/Community/customPrivateCategoryUtils") as typeof import("../../Utils/Community/customPrivateCategoryUtils");
 const { listCustomPrivateVoiceChannelsByOwner } = require("../../Utils/Interaction/customRoleUtils") as typeof import("../../Utils/Interaction/customRoleUtils");
-const {
-  resolveCustomVocOwnerId,
-} = require("./customVocPermissionsService") as typeof import("./customVocPermissionsService");
 
 async function clearCustomVocChannelIdForUser(guildId?, userId?) {
   const gid = String(guildId || "").trim();

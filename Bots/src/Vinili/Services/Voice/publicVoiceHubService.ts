@@ -2,9 +2,9 @@ const { ChannelType } = require("discord.js") as typeof import("discord.js");
 const IDs: any = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
 const { queueCategoryRenumber } = require("../Community/communityOpsService") as typeof import("../Community/communityOpsService");
 const { buildRecoveryVoiceState } = require("../../../shared/discord/voiceStateRecovery") as typeof import("../../../shared/discord/voiceStateRecovery");
-const { MIN_SUFFIX_DIGITS, getGameVoiceHubCategoryId, isGameVoiceHubsEnabled, isGameVoiceHubChannel, getDuoHubChannelIds, getHubChannelIds, getPublicVoiceHubCategoryId, isPublicVoiceHubId, stripVoiceSuffix, parseVoiceSuffixIndex, toSuperscriptNumber, isHubCreateDisabledForChannel, voiceHubGroupKey, resolveHubGroupKey, resolveHubSpawnBaseName, isHubGroupSpawnChannel, botCanManageVoiceHubs } = require("./voiceHubConfig") as typeof import("./voiceHubConfig");
-const { placeSpawnAfterHubGroupTail, listHubGroupChannels, nextSpawnSuffixIndex, resolveInsertSlot, resolveInsertPosition, refreshParentChannelsCache, verifyHubGroupChannelOrder, buildDesiredSiblingsWithHubSpawns, computeCategoryPositionUpdates, buildLimitateCategoryDesiredOrder, reorderLimitateCategory, pauseMs, ensureHubGroupChannelOrder, realignAllPublicVoiceHubGroups, realignPublicVoiceHubGroupsOnStartup } = require("./voiceHubOrder") as typeof import("./voiceHubOrder");
-const { hubLobbyRoleIds, ensureSpawnedChannelMemberTextAccess, buildSpawnPermissionOverwrites, ensureHubLobbySpeakDenied } = require("./voiceHubPerms") as typeof import("./voiceHubPerms");
+const { MIN_SUFFIX_DIGITS, getGameVoiceHubCategoryId, isGameVoiceHubsEnabled, isGameVoiceHubChannel, getHubChannelIds, getPublicVoiceHubCategoryId, isPublicVoiceHubId, stripVoiceSuffix, parseVoiceSuffixIndex, toSuperscriptNumber, isHubCreateDisabledForChannel, resolveHubGroupKey, resolveHubSpawnBaseName, isHubGroupSpawnChannel, botCanManageVoiceHubs } = require("./voiceHubConfig") as typeof import("./voiceHubConfig");
+const { placeSpawnAfterHubGroupTail, listHubGroupChannels, nextSpawnSuffixIndex, refreshParentChannelsCache, verifyHubGroupChannelOrder, reorderLimitateCategory, pauseMs, realignPublicVoiceHubGroupsOnStartup } = require("./voiceHubOrder") as typeof import("./voiceHubOrder");
+const { ensureSpawnedChannelMemberTextAccess, buildSpawnPermissionOverwrites, ensureHubLobbySpeakDenied } = require("./voiceHubPerms") as typeof import("./voiceHubPerms");
 const { rememberSpawnedChannel, isSpawnedHubChannel, countHumanMembersResolved, memberStillInVoiceChannel, isUserDisconnectedVoiceError, resolveGuildMemberVoiceState, cleanupUnusedSpawnedChannel, scheduleSpawnedChannelDelete, handlePublicVoiceHubEmpty, sweepEmptySpawnedHubChannels } = require("./voiceHubMembers") as typeof import("./voiceHubMembers");
 
 
@@ -309,7 +309,6 @@ async function handlePublicVoiceHubJoin(oldState?, newState?, client?) {
 
 export = {
   getHubChannelIds,
-  getDuoHubChannelIds,
   getGameVoiceHubCategoryId,
   isGameVoiceHubChannel,
   isGameVoiceHubsEnabled,
@@ -317,28 +316,14 @@ export = {
   isPublicVoiceHubId,
   isSpawnedHubChannel,
   stripVoiceSuffix,
-  voiceHubGroupKey,
   resolveHubGroupKey,
-  resolveHubSpawnBaseName,
   isHubGroupSpawnChannel,
   parseVoiceSuffixIndex,
   toSuperscriptNumber,
   handlePublicVoiceHubJoin,
   handlePublicVoiceHubEmpty,
   startPublicVoiceHubSetup,
-  sweepEmptySpawnedHubChannels,
-  buildSpawnPermissionOverwrites,
-  hubLobbyRoleIds,
-  resolveInsertSlot,
-  resolveInsertPosition,
-  placeSpawnAfterHubGroupTail,
   reorderLimitateCategory,
-  buildLimitateCategoryDesiredOrder,
-  ensureHubGroupChannelOrder,
-  realignAllPublicVoiceHubGroups,
-  realignPublicVoiceHubGroupsOnStartup,
   refreshParentChannelsCache,
   verifyHubGroupChannelOrder,
-  buildDesiredSiblingsWithHubSpawns,
-  computeCategoryPositionUpdates,
 };

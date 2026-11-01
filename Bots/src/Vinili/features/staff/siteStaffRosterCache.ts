@@ -611,5 +611,4 @@ export = {
   stripDiscordDecorations,
   invalidateStaffRosterCache,
   loadRosterSnapshot,
-  buildStaffDelMeseFromGuild,
 };

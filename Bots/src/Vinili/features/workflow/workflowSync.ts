@@ -553,4 +553,4 @@ async function persistAppealWorkflowFromPayload(guild?, payload: Record<string, 
   });
 }
 
-export = { memberStillRelevantForResoconto, resocontoAutoCancelLabel, memberEligibleForPauseRole, autoCancelPendingPausesIfNotEligible, reconcilePendingPauseWorkflows, parseResocontoFromMessage, syncAppealsToWorkflowStore, syncResocontiToWorkflowStore, ensurePauseWorkflowDoc, syncPauseWorkflowFieldsFromProfiles, syncPausesToWorkflowStore, persistAppealWorkflowFromMessage, persistAppealWorkflowFromPayload };
+export = { memberStillRelevantForResoconto, resocontoAutoCancelLabel, memberEligibleForPauseRole, autoCancelPendingPausesIfNotEligible, reconcilePendingPauseWorkflows, parseResocontoFromMessage, syncAppealsToWorkflowStore, syncResocontiToWorkflowStore, ensurePauseWorkflowDoc, syncPauseWorkflowFieldsFromProfiles, syncPausesToWorkflowStore, persistAppealWorkflowFromPayload };

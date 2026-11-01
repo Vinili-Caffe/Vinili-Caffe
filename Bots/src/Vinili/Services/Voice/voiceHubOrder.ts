@@ -65,20 +65,6 @@ function resolveVoiceSetPositionIndex(siblings?, moveId?, afterId?) {
   return targetIdx;
 }
 
-/** Coda del gruppo hub (hub + spawn dello stesso tipo), come le stanze sotto l'hub. */
-function resolveHubSpawnCreatePosition(guild?, hubChannel?, client?) {
-  const hubKey = resolveHubGroupKey(hubChannel, client);
-  if (!hubKey) return null;
-  const group = listHubGroupChannels(guild, hubChannel, client);
-  let tailPos = channelCategorySortPosition(hubChannel);
-  for (const ch of group) {
-    const pos = channelCategorySortPosition(ch);
-    if (pos > tailPos) tailPos = pos;
-  }
-  /* rawPosition+1 → Channel Create / setPositions (API), non Channel#setPosition */
-  return tailPos >= 0 ? tailPos + 1 : null;
-}
-
 /** Posiziona lo spawn subito sotto l'ultimo canale del gruppo hub (hub o spawn precedente). */
 async function placeSpawnAfterHubGroupTail(created?, hubChannel?, guild?, client?, reason?) {
   if (!created?.id || !hubChannel || !guild) return false;
@@ -142,39 +128,6 @@ function nextSpawnSuffixIndex(groupChannels?, hubId?) {
   return i;
 }
 
-function resolveInsertSlot(hubChannel?, guild?, client?) {
-  const parentId = getPublicVoiceHubCategoryId(client, hubChannel);
-  const hubKey = resolveHubGroupKey(hubChannel, client);
-  if (!hubKey || !parentId) return null;
-  const siblings = listCategoryVoiceChannelsSorted(guild, parentId);
-  const hubIndex = siblings.findIndex((ch?) => String(ch.id) === String(hubChannel.id));
-  if (hubIndex < 0) return null;
-
-  let insertAt = hubIndex + 1;
-  for (let i = hubIndex + 1; i < siblings.length; i += 1) {
-    const ch = siblings[i];
-    if (ch.type !== ChannelType.GuildVoice && ch.type !== ChannelType.GuildStageVoice) continue;
-    if (isPublicVoiceHubId(ch.id, client, guild)) break;
-    if (resolveHubGroupKey(ch, client) !== hubKey) break;
-    insertAt = i + 1;
-  }
-
-  const prev = siblings[insertAt - 1];
-  if (!prev) return null;
-  const prevPos = channelCategorySortPosition(prev);
-  if (prevPos < 0) return null;
-  // Sempre subito sotto l'ultimo canale del gruppo (hub o spawn precedente).
-  return prevPos + 1;
-}
-
-function resolveInsertPosition(hubChannel?, guild?, client?) {
-  // Preferisci lo slot per indice fratelli (subito dopo l'ultimo spawn del gruppo),
-  // non solo rawPosition+1 (con buchi Discord finiva sotto l'hub sbagliato).
-  const bySlot = resolveInsertSlot(hubChannel, guild, client);
-  if (bySlot != null) return bySlot;
-  return resolveHubSpawnCreatePosition(guild, hubChannel, client);
-}
-
 async function refreshParentChannelsCache(guild?, parentId?, client?, options: Record<string, any> = {}) {
   if (!guild?.channels?.fetch || !parentId) return;
   const force = options.force === true;
@@ -233,18 +186,6 @@ function verifyHubGroupChannelOrder(guild?, hubChannel?, client?) {
     }
   }
   return { ok: misplaced.length === 0, misplaced };
-}
-
-function buildDesiredSiblingsWithHubSpawns(siblings?, hub?, spawns?) {
-  const spawnIdSet = new Set(spawns.map((ch?) => String(ch.id)));
-  const withoutSpawns = siblings.filter((ch?) => !spawnIdSet.has(String(ch.id)));
-  const hubIdx = withoutSpawns.findIndex((ch?) => String(ch.id) === String(hub.id));
-  if (hubIdx < 0) return siblings;
-  return [
-    ...withoutSpawns.slice(0, hubIdx + 1),
-    ...spawns,
-    ...withoutSpawns.slice(hubIdx + 1),
-  ];
 }
 
 function siblingsOrderEqual(left?, right?) {
@@ -533,18 +474,6 @@ function pauseMs(ms?) {
   return new Promise((resolve?) => setTimeout(resolve, ms));
 }
 
-async function ensureHubGroupChannelOrder(guild?, hubChannel?, client?, options: Record<string, any> = {}) {
-  const parentId = getPublicVoiceHubCategoryId(client, hubChannel);
-  const stats: any = await reorderLimitateCategory(guild, client, {
-    parentId,
-    forceFetch: options.forceFetch === true,
-  });
-  stats.hubId = String(hubChannel?.id || "");
-  const verify = verifyHubGroupChannelOrder(guild, hubChannel, client);
-  if (!verify.ok) stats.misplaced = verify.misplaced;
-  return stats;
-}
-
 async function realignAllPublicVoiceHubGroups(guild?, client?) {
   const summary = { moved: 0, skipped: 0, failed: 0, misplaced: [] };
   if (!guild || !(await botCanManageVoiceHubs(guild))) return summary;
@@ -596,4 +525,4 @@ async function realignPublicVoiceHubGroupsOnStartup(client?) {
   return { ok: true, summary };
 }
 
-export = { placeSpawnAfterHubGroupTail, listHubGroupChannels, nextSpawnSuffixIndex, resolveInsertSlot, resolveInsertPosition, refreshParentChannelsCache, verifyHubGroupChannelOrder, buildDesiredSiblingsWithHubSpawns, computeCategoryPositionUpdates, buildLimitateCategoryDesiredOrder, reorderLimitateCategory, pauseMs, ensureHubGroupChannelOrder, realignAllPublicVoiceHubGroups, realignPublicVoiceHubGroupsOnStartup };
+export = { placeSpawnAfterHubGroupTail, listHubGroupChannels, nextSpawnSuffixIndex, refreshParentChannelsCache, verifyHubGroupChannelOrder, reorderLimitateCategory, pauseMs, realignPublicVoiceHubGroupsOnStartup };

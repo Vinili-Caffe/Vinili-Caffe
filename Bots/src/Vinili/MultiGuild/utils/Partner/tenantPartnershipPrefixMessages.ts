@@ -82,5 +82,4 @@ export = {
   resolveTenantLanguage,
   resolveTenantLanguageForMessage,
   resolveTenantLanguageForInteraction,
-  localeOptionsFromMessage,
 };

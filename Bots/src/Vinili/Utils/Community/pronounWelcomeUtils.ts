@@ -1,7 +1,6 @@
 const {
   applyPronounGenderToTextForMember,
   resolveMemberPronounGender,
-  applyPronounGenderToText,
 } = require("./pronounGenderUtils") as typeof import("./pronounGenderUtils");
 const IDs = require("../Config/ids") as typeof import("../Config/ids");
 
@@ -111,6 +110,5 @@ export = {
   resolveWelcomeBadge,
   buildMemberWelcomePhrase,
   resolveMemberPronounGender,
-  applyPronounGenderToText,
   applyPronounGenderToTextForMember,
 };

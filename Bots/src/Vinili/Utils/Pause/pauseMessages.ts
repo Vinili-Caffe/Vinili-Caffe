@@ -215,10 +215,6 @@ function buildPauseInboxLinkRow() {
   return buildInboxManageLinkRow("pause");
 }
 
-function buildRequestButtonsRow(_userId?, _pauseId?, _disabled = false) {
-  return buildPauseInboxLinkRow();
-}
-
 function buildAcceptedButtonsRow(_userId?, _pauseId?, _options: Record<string, any> = {}) {
   return buildPauseInboxLinkRow();
 }
@@ -385,4 +381,4 @@ function getStaffPauseBonusDaysTotal(member?, staffDoc?) {
   );
 }
 
-export = { buildAcceptedPauseLogContent, buildCancelledPauseLogContent, formatPauseRoleLabelForMessage, buildAcceptedPauseMessageContent, getStaffPauseRecord, getOnePausePerMonthWarning, getOneWeekBetweenWarning, getPauseStatusLabel, getPauseTimingText, buildPauseInboxLinkRow, buildRequestButtonsRow, buildAcceptedButtonsRow, getPauseReasonFromMessage, normalizePauseStatusPhrase, getPausePhase, hasActiveAcceptedStaffPause, getBestStaffPauseBonusDays, getValPosTradedPauseBonusDays, resolveStafferBonusMonthKey, listBestStaffWeekPauseGrants, computeWeekBonusDaysConsumed, getBestStaffWeekPauseBonusDaysRemaining, getStaffPauseBonusDaysTotal };
+export = { buildAcceptedPauseLogContent, buildCancelledPauseLogContent, formatPauseRoleLabelForMessage, buildAcceptedPauseMessageContent, getStaffPauseRecord, getOnePausePerMonthWarning, getOneWeekBetweenWarning, getPauseStatusLabel, getPauseTimingText, buildPauseInboxLinkRow, buildAcceptedButtonsRow, getPauseReasonFromMessage, normalizePauseStatusPhrase, getPausePhase, hasActiveAcceptedStaffPause, getBestStaffPauseBonusDays, getValPosTradedPauseBonusDays, resolveStafferBonusMonthKey, listBestStaffWeekPauseGrants, computeWeekBonusDaysConsumed, getBestStaffWeekPauseBonusDaysRemaining, getStaffPauseBonusDaysTotal };

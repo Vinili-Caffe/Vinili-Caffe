@@ -59,5 +59,4 @@ const SitePmPointsRemovedEntry: import("mongoose").Model<import("mongoose").Infe
 
 export = {
   SitePmPointsRemovedEntry,
-  PM_POINTS_REMOVED_STATUSES,
 };

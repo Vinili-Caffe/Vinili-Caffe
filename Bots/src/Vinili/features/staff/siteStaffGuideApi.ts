@@ -207,5 +207,4 @@ async function handleSiteStaffGuideGet(client?, req?, res?) {
 
 export = {
   handleSiteStaffGuideGet,
-  discordGuideMarkdownToHtml,
 };

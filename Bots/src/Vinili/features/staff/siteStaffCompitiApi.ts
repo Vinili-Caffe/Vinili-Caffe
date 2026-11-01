@@ -11,10 +11,10 @@ const {
 } = require("./siteStaffCompitiCatalog") as typeof import("./siteStaffCompitiCatalog");
 const { currentRomeIsoWeekKey, romeMonthKey, weekKeysInRomeMonth, compitiActiveMonthKey, deadlinesPayload } = require("./compitiCalendar") as typeof import("./compitiCalendar");
 const { UPLOAD_ROOT, verifyFileToken } = require("./compitiProofs") as typeof import("./compitiProofs");
-const { REASON_OK, REASON_FAIL, emptyWeek, sanitizeWeekEntry, loadMap, clearGhostDraftPicks, revertUnreviewedRandomAutoPicks } = require("./compitiWeeks") as typeof import("./compitiWeeks");
+const { emptyWeek, sanitizeWeekEntry, loadMap, clearGhostDraftPicks, revertUnreviewedRandomAutoPicks } = require("./compitiWeeks") as typeof import("./compitiWeeks");
 const { lockedTaskIdsForMonth, grantCompitiSwapBonus, ensureStafferCompitiSwapBonus, isNewStaffCompitiGrace, ensureMonthPlanForUser } = require("./compitiPlan") as typeof import("./compitiPlan");
 const { buildIdentityFromMember, publicProgress, buildPublicPlan, buildMonthEntries, workerMembersCache, scanWorkerMembers, listWorkerMembers, resolveCompitiRoles, warmSiteStaffCompitiWorkersCache } = require("./compitiPeople") as typeof import("./compitiPeople");
-const { resolveGuildId, tickStaffCompitiDeadlines, tickStaffCompitiAssignments, tryAutoSubmitCompito, tickInviteActiveCompiti } = require("./compitiTicks") as typeof import("./compitiTicks");
+const { resolveGuildId, tickStaffCompitiDeadlines, tickStaffCompitiAssignments, tryAutoSubmitCompito } = require("./compitiTicks") as typeof import("./compitiTicks");
 const { handleSiteStaffCompitiPost } = require("./compitiPost") as typeof import("./compitiPost");
 
 
@@ -232,18 +232,14 @@ export = {
   handleSiteStaffCompitiFileGet,
   tickStaffCompitiDeadlines,
   tickStaffCompitiAssignments,
-  tickInviteActiveCompiti,
   tryAutoSubmitCompito,
   ensureMonthPlanForUser,
   grantCompitiSwapBonus,
   isNewStaffCompitiGrace,
   ALLOWED_TASK_IDS,
   TASKS_META,
-  publicTasksMeta,
   currentRomeIsoWeekKey,
   romeMonthKey,
   weekKeysInRomeMonth,
-  REASON_OK,
-  REASON_FAIL,
   warmSiteStaffCompitiWorkersCache,
 };

@@ -412,21 +412,6 @@ async function chatReminderRotationFindOneAndUpdate(filter?, update?) {
   );
 }
 
-async function chatReminderScheduleCreate({ guildId, fireAt, kind }) {
-  const scheduleId = randomUUID();
-  const row = {
-    scheduleId,
-    guildId: String(guildId || ""),
-    fireAt: fireAt instanceof Date ? fireAt : new Date(fireAt),
-    kind: kind || "first",
-  };
-  await atomicSetArray(
-    "domains.chatReminderSchedules",
-    { $concatArrays: [arrayOrEmpty("domains.chatReminderSchedules"), [{ $literal: row }]] },
-  );
-  return row;
-}
-
 async function chatReminderScheduleUpdateOne(filter?, update?) {
   const sid = String(filter.scheduleId || filter._id || "");
   if (!sid) return;
@@ -462,20 +447,6 @@ async function chatReminderScheduleDeleteOne(filter?) {
       },
     },
   );
-}
-
-async function chatReminderScheduleFindLatestFuture({ guildId, now }) {
-  const g = String(guildId || "");
-  const t = (now instanceof Date ? now : new Date(now)).getTime();
-  const domains = await getDomainsLean();
-  const arr = (domains.chatReminderSchedules || []).filter(
-    (x?) =>
-      String(x.guildId) === g && new Date(x.fireAt).getTime() > t,
-  );
-  arr.sort(
-    (a?, b?) => new Date(b.fireAt).getTime() - new Date(a.fireAt).getTime(),
-  );
-  return arr[0] || null;
 }
 
 async function chatReminderScheduleFindDueLean(now?) {
@@ -518,10 +489,8 @@ export = {
   ttsUserLangUpsert,
   chatReminderRotationFindOneLean,
   chatReminderRotationFindOneAndUpdate,
-  chatReminderScheduleCreate,
   chatReminderScheduleUpdateOne,
   chatReminderScheduleDeleteOne,
-  chatReminderScheduleFindLatestFuture,
   chatReminderScheduleFindDueLean,
   chatReminderScheduleDeleteManyFuture,
 };

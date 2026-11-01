@@ -264,8 +264,6 @@ export = {
   getRankCardThemeFromDoc,
   listRankCardWallpapers,
   listRankCardFonts,
-  normalizeHex,
   resolveRankCardWallpaper,
   resolveRankFontFamily,
-  sanitizeWallpaperKey,
 };

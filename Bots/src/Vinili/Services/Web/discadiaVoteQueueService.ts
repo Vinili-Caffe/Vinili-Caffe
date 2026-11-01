@@ -4,7 +4,6 @@ const { isVoteListingRecordedAtOrAfter } = require("../Bump/bumpService") as typ
 const {
   listUsersWithPendingDiscadiaVotes,
   setPendingDiscadiaVotes,
-  DISCADIA_PENDING_VOTES_PATH,
   normalizeVoteListing,
 } = require("./discadiaVoteInboxService") as typeof import("./discadiaVoteInboxService");
 
@@ -89,5 +88,4 @@ function startVoteQueueLoop(client?, intervalMs = 15000) {
 
 export = {
   startVoteQueueLoop,
-  DISCADIA_PENDING_VOTES_PATH,
 };

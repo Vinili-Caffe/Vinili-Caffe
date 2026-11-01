@@ -38,7 +38,7 @@ const { enrichResocontoDetailChart, enrichResocontoRolesHistory } = require("./w
 const { WORKFLOW_DOC, upsertStaffWorkflowItem, updateStaffWorkflowStatusByDedupe, updateStaffWorkflowFromMessage, updateStaffWorkflowFromPause } = require("./workflowWrites") as typeof import("./workflowWrites");
 const { listUserWorkflowsForMember, listUserInvitedSubjectChats, getUserWorkflowDetailFromDb, getPendingPauseWorkflowForMember, getStaffWorkflowDetailFromDb, upsertPauseWorkflowFromPause } = require("./workflowQueries") as typeof import("./workflowQueries");
 const { listStaffWorkflowFromDb } = require("./workflowList") as typeof import("./workflowList");
-const { memberStillRelevantForResoconto, memberEligibleForPauseRole, autoCancelPendingPausesIfNotEligible, reconcilePendingPauseWorkflows, parseResocontoFromMessage, syncAppealsToWorkflowStore, syncResocontiToWorkflowStore, ensurePauseWorkflowDoc, syncPauseWorkflowFieldsFromProfiles, syncPausesToWorkflowStore, persistAppealWorkflowFromMessage, persistAppealWorkflowFromPayload } = require("./workflowSync") as typeof import("./workflowSync");
+const { memberStillRelevantForResoconto, memberEligibleForPauseRole, autoCancelPendingPausesIfNotEligible, reconcilePendingPauseWorkflows, parseResocontoFromMessage, syncAppealsToWorkflowStore, syncResocontiToWorkflowStore, ensurePauseWorkflowDoc, syncPauseWorkflowFieldsFromProfiles, syncPausesToWorkflowStore, persistAppealWorkflowFromPayload } = require("./workflowSync") as typeof import("./workflowSync");
 const { persistCandidatureWorkflowFromMessage, persistCandidatureWorkflowFromPayload, persistResocontoWorkflowFromMessage, persistResocontoWorkflowFromPayload, workflowActorExtras, resocontoWorkflowItemFromDoc, resocontoWorkflowItemFromSnapshot } = require("./workflowPersist") as typeof import("./workflowPersist");
 const { cancelPendingResocontiWorkflowForUser, pruneDepexedPendingResoconti, cancelPendingPauseWorkflowForUser, filterPauseInboxItemsCachedOnly, prunePendingPauseInboxUsers } = require("./workflowAutoCancel") as typeof import("./workflowAutoCancel");
 
@@ -247,10 +247,8 @@ export = {
   cancelPendingPauseWorkflowForUser,
   autoCancelPendingPausesIfNotEligible,
   reconcilePendingPauseWorkflows,
-  pruneDepexedPendingResoconti,
   memberStillRelevantForResoconto,
   memberEligibleForPauseRole,
-  listStaffWorkflowFromDb,
   listStaffWorkflowForInbox,
   listUserWorkflowsForMember,
   listUserInvitedSubjectChats,
@@ -264,7 +262,6 @@ export = {
   ensurePauseWorkflowDoc,
   persistCandidatureWorkflowFromMessage,
   persistCandidatureWorkflowFromPayload,
-  persistAppealWorkflowFromMessage,
   persistAppealWorkflowFromPayload,
   persistResocontoWorkflowFromMessage,
   persistResocontoWorkflowFromPayload,
@@ -272,7 +269,6 @@ export = {
   deriveAppealStatus,
   parseCandidateTypeFromMessage,
   parseResocontoFromMessage,
-  syncResocontiToWorkflowStore,
   workflowActorExtras,
   memberToSubjectFields,
   resocontoActionLabelForKey,

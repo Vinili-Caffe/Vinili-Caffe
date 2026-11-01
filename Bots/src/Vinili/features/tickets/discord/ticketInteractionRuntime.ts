@@ -28,8 +28,6 @@ const HANDLED_TICKET_BUTTONS = new Set([
   "ticket_panel_reopen_next",
   "ticket_panel_reopen_close",
 ]);
-const TICKET_PANEL_SWITCH_CATEGORY_PREFIX = "ticket_panel_switch_category";
-
 function getCachedEntity(cache?, key?) {
   const cached = cache.get(key);
   const now = Date.now();
@@ -150,5 +148,4 @@ export = {
   getGuildChannelCached,
   getGuildMemberCached,
   warmGuildChannels,
-  TICKET_PANEL_SWITCH_CATEGORY_PREFIX,
 };

@@ -82,5 +82,4 @@ export = {
   recordPartnershipInviteJoin,
   listJoinLeaderboardScores,
   getRomeDayKey,
-  getCurrentWeekKey,
 };

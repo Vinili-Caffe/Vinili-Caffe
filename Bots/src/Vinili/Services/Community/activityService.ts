@@ -1,12 +1,12 @@
 
 const { isMongoReady } = require("../../Utils/Database/mongoConnect") as typeof import("../../Utils/Database/mongoConnect");
-const { isChannelInExcludedActivityCategory, isExcludedActivityChannel } = require("./activityChannels") as typeof import("./activityChannels");
+const { isExcludedActivityChannel } = require("./activityChannels") as typeof import("./activityChannels");
 const { loadDailyRows, loadHourlyRows } = require("./activityRows") as typeof import("./activityRows");
 const { hydrateProfileActivityBucketsFromGuild } = require("./activityBackfill") as typeof import("./activityBackfill");
 const { isMongoUnavailableError } = require("./activityBumps") as typeof import("./activityBumps");
 const { recordMessageActivity, handleVoiceActivity } = require("./activityRecord") as typeof import("./activityRecord");
-const { secondsInDateKeys, loadLiveVoiceSessions, getLiveVoiceOverlay } = require("./activityAggregate") as typeof import("./activityAggregate");
-const { getUserActivityStats, getServerActivityStats, getChannelOverviewStats } = require("./activityStats") as typeof import("./activityStats");
+const { loadLiveVoiceSessions, getLiveVoiceOverlay } = require("./activityAggregate") as typeof import("./activityAggregate");
+const { getChannelOverviewStats } = require("./activityStats") as typeof import("./activityStats");
 const { getServerOverviewStats, getUserOverviewStats } = require("./activityOverview") as typeof import("./activityOverview");
 const { syncLiveVoiceSessionsFromGateway, runLiveVoiceExpTick } = require("./activityLiveVoice") as typeof import("./activityLiveVoice");
 
@@ -57,8 +57,6 @@ function suspendAllLiveVoiceExp() {
 export = {
   recordMessageActivity,
   handleVoiceActivity,
-  getUserActivityStats,
-  getServerActivityStats,
   getServerOverviewStats,
   getUserOverviewStats,
   getChannelOverviewStats,
@@ -67,11 +65,8 @@ export = {
   loadDailyRows,
   loadHourlyRows,
   hydrateProfileActivityBucketsFromGuild,
-  secondsInDateKeys,
   syncLiveVoiceSessionsFromGateway,
-  runLiveVoiceExpTick,
   startLiveVoiceExpLoop,
   suspendAllLiveVoiceExp,
   isExcludedActivityChannel,
-  isChannelInExcludedActivityCategory,
 };

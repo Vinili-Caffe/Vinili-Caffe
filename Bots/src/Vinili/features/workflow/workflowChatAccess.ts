@@ -268,4 +268,4 @@ async function resolveWorkflowChatAccess(client?, accessToken?, dedupeKey?, opts
   };
 }
 
-export = { bearerFromRequest, parseQueueFromDedupe, resolveWorkflowChatAccess };
+export = { bearerFromRequest, resolveWorkflowChatAccess };

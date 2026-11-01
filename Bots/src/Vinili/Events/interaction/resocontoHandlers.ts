@@ -4,7 +4,6 @@ const { getGuildChannelCached, getGuildMemberCached } = require("../../Utils/Int
 const { getOrCreateStaffDoc, deleteThreadForMessage, ensureStaff } = require("../../Utils/Staff/staffDocUtils") as typeof import("../../Utils/Staff/staffDocUtils");
 const { initPartnerManagerFieldsIfMissing, syncStaffDbAndPauseChannelAfterDepex } = require("../../Utils/Staff/staffPmUtils") as typeof import("../../Utils/Staff/staffPmUtils");
 const { applyDepexOneLevel, getHighestStaffRoleId } = require("../../Services/Staff/staffWarnService") as typeof import("../../Services/Staff/staffWarnService");
-const { buildAutoStaffWarnFromNegativesEmbed } = require("../../Utils/Staff/valutazionePanelActions") as typeof import("../../Utils/Staff/valutazionePanelActions");
 const { memberHasStaffRole } = require("../../Utils/Community/staffListUtils") as typeof import("../../Utils/Community/staffListUtils");
 const { getStaffRoleEmojiByRoleId } = require("../../Utils/Community/staffRoleEmoji") as typeof import("../../Utils/Community/staffRoleEmoji");
 const { clearStaffPendingPurgeAt } = require("../../Services/Community/userLeaveBackupService") as typeof import("../../Services/Community/userLeaveBackupService");

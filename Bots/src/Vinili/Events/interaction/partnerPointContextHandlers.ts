@@ -377,5 +377,4 @@ async function handlePartnerPointContextModal(interaction?) {
 
 export = {
   handlePartnerPointContextModal,
-  handlePartnerSegnalaModal,
 };

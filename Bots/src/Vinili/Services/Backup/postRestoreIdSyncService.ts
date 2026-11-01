@@ -283,5 +283,4 @@ async function runPostRestoreIdSync({
 
 export = {
   runPostRestoreIdSync,
-  remapGlobalSettingsPanels,
 };

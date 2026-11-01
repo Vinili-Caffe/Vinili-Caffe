@@ -71,13 +71,6 @@ function getProtectedRoleIdSet() {
   return protectedRoleIdSet;
 }
 
-function getStaffActorRoleIdSet() {
-  if (!staffActorRoleIdSet) {
-    staffActorRoleIdSet = buildRoleIdSet(STAFF_ACTOR_ROLE_KEYS);
-  }
-  return staffActorRoleIdSet;
-}
-
 function isRecentDuplicate(guildId?, executorId?, targetId?) {
   const key = `${guildId}:${executorId}:${targetId}`;
   const now = Date.now();
@@ -303,5 +296,4 @@ async function handleStaffRoleAssignmentGuard({
 
 export = {
   handleStaffRoleAssignmentGuard,
-  getStaffActorRoleIds: () => [...getStaffActorRoleIdSet()],
 };

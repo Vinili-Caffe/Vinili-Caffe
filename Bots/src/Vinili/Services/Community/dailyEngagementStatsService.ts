@@ -306,5 +306,4 @@ export = {
   startDailyEngagementStatsLoop,
   trackMessageEngagement,
   trackVoiceEngagement,
-  trackCurrentPublicVoiceMembers,
 };

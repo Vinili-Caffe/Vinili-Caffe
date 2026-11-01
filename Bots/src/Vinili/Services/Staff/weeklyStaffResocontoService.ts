@@ -5,9 +5,9 @@ const { getUserOverviewStats } = require("../Community/activityService") as type
 const { getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache") as typeof import("../../Utils/Interaction/interactionEntityCache");
 const { ensureStaff } = require("../../Utils/Staff/staffDocUtils") as typeof import("../../Utils/Staff/staffDocUtils");
 const { ensureStaffProfileDoc, getStaffDoc } = require("../../Utils/Staff/valutazionePanelActions") as typeof import("../../Utils/Staff/valutazionePanelActions");
-const { STAFF_ACTIVITY_LIMITS, STAFF_LIMITS_MSG_PER_HOUR_SWAP, scaleStaffActivityLimits, evaluateStaffWeeklyLimitsWithSwap, evaluateStaffWeeklyLimitsAtMultiplier, STAFF_SANCTION_LIMITS, toSafeNumber } = require("./resocontoLimits") as typeof import("./resocontoLimits");
-const { TIME_ZONE, getRomeDateParts, parseRomeWallClock, getPartnerLeaderboardWeekBoundsUtc, getCurrentResocontoPexWeekWindowUtc, getPmResocontoWindow, getStaffResocontoEvaluationWindow, getWeekStartDate, resolveResocontoWeekKey, getResocontoWeekRangeFromWeekKey } = require("./resocontoTime") as typeof import("./resocontoTime");
-const { collectResocontoVoiceExcludeIds, buildResocontoOverviewOptions, buildResocontoActivityScope, overviewLooksLikeEmptyFallback, serializeCostanzaChart } = require("./resocontoActivity") as typeof import("./resocontoActivity");
+const { STAFF_ACTIVITY_LIMITS, STAFF_LIMITS_MSG_PER_HOUR_SWAP, evaluateStaffWeeklyLimitsWithSwap, evaluateStaffWeeklyLimitsAtMultiplier, STAFF_SANCTION_LIMITS, toSafeNumber } = require("./resocontoLimits") as typeof import("./resocontoLimits");
+const { TIME_ZONE, getRomeDateParts, parseRomeWallClock, getPartnerLeaderboardWeekBoundsUtc, getCurrentResocontoPexWeekWindowUtc, getPmResocontoWindow, getStaffResocontoEvaluationWindow, resolveResocontoWeekKey, getResocontoWeekRangeFromWeekKey } = require("./resocontoTime") as typeof import("./resocontoTime");
+const { collectResocontoVoiceExcludeIds, buildResocontoOverviewOptions, overviewLooksLikeEmptyFallback, serializeCostanzaChart } = require("./resocontoActivity") as typeof import("./resocontoActivity");
 const { getStaffPauseLine, hadPauseAtLeastOneDayDuringWeek, didPauseEndDuringWeek } = require("./resocontoPauses") as typeof import("./resocontoPauses");
 const { resolveStaffRole, wasPexedInWeek, wasFirstStaffPromotionFromMemberInWindow } = require("./resocontoMembers") as typeof import("./resocontoMembers");
 const { computeActivityGrade, computeBehaviorGrade, buildStaffResocontoAzioneDisplay } = require("./resocontoGrades") as typeof import("./resocontoGrades");
@@ -234,14 +234,10 @@ async function buildStaffResocontoApplyPlanForMember(guild?, userId?, staffRoleI
 
 export = {
   startWeeklyStaffResocontoLoop,
-  runWeeklyStaffResocontoSegment,
-  runWeeklyLimitAutoValutazioniCatchupSegment,
   getPartnerLeaderboardWeekBoundsUtc,
   getCurrentResocontoPexWeekWindowUtc,
   wasFirstStaffPromotionFromMemberInWindow,
   getStaffResocontoEvaluationWindow,
-  buildResocontoActivityScope,
-  getWeekStartDate,
   getWeeklySanctionCountByMod,
   resolveStaffRole,
   getResocontoCycleWeekKey,
@@ -263,6 +259,5 @@ export = {
   STAFF_LIMITS_POSITIVE_MULTIPLIER,
   evaluateStaffWeeklyLimitsWithSwap,
   evaluateStaffWeeklyLimitsAtMultiplier,
-  scaleStaffActivityLimits,
   STAFF_SANCTION_LIMITS,
 };

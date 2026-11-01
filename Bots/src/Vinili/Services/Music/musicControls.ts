@@ -149,24 +149,6 @@ async function stopGuild(interaction?) {
   return { ok: true, message: "Musica fermata e coda svuotata." };
 }
 
-async function pauseToggle(interaction?, pause?) {
-  const guild = interaction.guild;
-  if (!guild) return { ok: false, message: "Solo in server." };
-  const requester = interaction.user || interaction.author;
-  if (!requester?.id) return { ok: false, message: "Utente non disponibile." };
-  const player = interaction.client.shoukaku?.players?.get(guild.id);
-  if (!player) return { ok: false, message: "Il bot non è in un canale vocale." };
-  const member = interaction.member || guild.members.cache.get(requester.id) || null;
-  const ptGate = assertMusicCommandAllowed(interaction.client, guild, member, requester.id);
-  if (!ptGate.ok) return ptGate;
-  try {
-    await player.setPaused(pause);
-  } catch (err) {
-    return { ok: false, message: err?.message || "Errore pausa." };
-  }
-  return { ok: true, message: pause ? "In pausa." : "Ripresa." };
-}
-
 async function pauseGuildTrack(interaction?) {
   const client = interaction.client;
   const guild = interaction.guild;
@@ -258,4 +240,4 @@ async function clearGuildQueue(interaction?) {
   return { ok: true };
 }
 
-export = { buildRepeatQueueSnapshot, setGuildMusicVolume, skipGuild, stopGuild, pauseToggle, pauseGuildTrack, resumeGuildTrack, clearGuildQueue };
+export = { buildRepeatQueueSnapshot, setGuildMusicVolume, skipGuild, stopGuild, pauseGuildTrack, resumeGuildTrack, clearGuildQueue };

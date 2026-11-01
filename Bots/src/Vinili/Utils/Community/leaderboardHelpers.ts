@@ -399,5 +399,4 @@ export = {
   computeLeaderboardRows,
   computeWeeklyExpFromProfileDoc,
   getRomeDayKey,
-  getEligibleChannelIdSet,
 };

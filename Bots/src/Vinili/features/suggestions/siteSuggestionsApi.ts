@@ -1,7 +1,7 @@
 
 const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
 const { SiteDocument } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
-const { normalizeSuggestionBoard, SUGGESTION_TOPIC_TAGS, boardListQuery, scrubDiscordDefaultAvatarUrl, avatarHashFromDiscordUrl } = require("./suggestionFields") as typeof import("./suggestionFields");
+const { normalizeSuggestionBoard, boardListQuery, scrubDiscordDefaultAvatarUrl, avatarHashFromDiscordUrl } = require("./suggestionFields") as typeof import("./suggestionFields");
 const { resolveWebsiteGuildMember } = require("../../Web/siteRoleRequestApi") as typeof import("../../Web/siteRoleRequestApi");
 const {
   applyLiveAvatarToSuggestionLike,
@@ -141,5 +141,4 @@ export = {
   staffDeleteSiteSuggestion,
   serveSiteSuggestionFile,
   MAX_IMAGES,
-  SUGGESTION_TOPIC_TAGS,
 };

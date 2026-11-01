@@ -507,5 +507,4 @@ async function loadSlashAclMapFromDiscord({
 export = {
   syncSlashAclToDiscord,
   loadSlashAclMapFromDiscord,
-  fetchGlobalCommandsByKey,
 };

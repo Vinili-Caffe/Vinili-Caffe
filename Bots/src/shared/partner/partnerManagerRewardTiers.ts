@@ -34,10 +34,6 @@ function getPartnerRewardPointCost(canonicalTier?, now?) {
   return isPartnerRewardDiscountActive(now) ? Math.floor(base / 2) : base;
 }
 
-function isPartnerRewardCanonicalTier(value?) {
-  return PARTNER_REWARD_CANONICAL_TIERS.includes(Math.floor(Number(value) || 0));
-}
-
 function partnerManagerRedeemButtonLabel(canonicalTier?, now?) {
   const tier = Math.floor(Number(canonicalTier) || 0);
   const cost = getPartnerRewardPointCost(tier, now);
@@ -78,7 +74,6 @@ export = {
   PARTNER_REWARD_LABELS,
   isPartnerRewardDiscountActive,
   getPartnerRewardPointCost,
-  isPartnerRewardCanonicalTier,
   partnerManagerRedeemButtonLabel,
   buildPartnerRewardDiscountBanner,
   buildPartnerRewardDiscordEmbedLines,

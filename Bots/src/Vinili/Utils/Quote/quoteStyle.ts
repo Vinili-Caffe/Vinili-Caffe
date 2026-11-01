@@ -509,14 +509,6 @@ function resolveQuoteFadeEdgeColor(colors?, layout?) {
   return sampleQuoteBgColorAt(colors, w, h, sx, sy);
 }
 
-function listQuoteFonts() {
-  return Object.keys(FONT_CATALOG).map((key?) => ({
-    key,
-    label: FONT_CATALOG[key].label,
-    preview: FONT_CATALOG[key].preview,
-  }));
-}
-
 export = {
   defaultQuoteStyle,
   normalizeQuoteStyle,
@@ -533,5 +525,4 @@ export = {
   lerpHexColor,
   resolveQuoteFadeEdgeColor,
   createQuoteLinearGradient,
-  listQuoteFonts,
 };

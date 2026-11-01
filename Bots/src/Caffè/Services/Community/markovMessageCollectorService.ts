@@ -567,4 +567,4 @@ async function purgeUnsafeCorpusFromDisk(client?) {
   return { files, removed };
 }
 
-export = { getMarkovConfig, isMarkovEnabled, readChannelLines, readGuildCorpus, readGuildImages, readGuildStickers, removeStickerFromGuildCorpus, removeImageFromGuildCorpus, ingestMarkovMessageCreate, startMarkovBackfill, extractMessageImageUrls, extractMessageStickers };
+export = { getMarkovConfig, isMarkovEnabled, readChannelLines, readGuildCorpus, readGuildImages, readGuildStickers, removeStickerFromGuildCorpus, removeImageFromGuildCorpus, ingestMarkovMessageCreate, startMarkovBackfill, extractMessageImageUrls };

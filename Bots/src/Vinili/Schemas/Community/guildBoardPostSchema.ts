@@ -117,7 +117,6 @@ const GuildSkullPost =
 
 export = {
   COLLECTION,
-  BOARD_POST_TYPE,
   GuildBoardPost,
   GuildQuoteBoard,
   GuildRepost,

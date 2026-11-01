@@ -1213,17 +1213,6 @@ async function joinTtsChannel(voiceChannel?) {
   return { ok: true };
 }
 
-async function armTtsChannel(voiceChannel?) {
-  if (!voiceChannel) return { ok: false, reason: "no_voice_channel" };
-  if (!voiceChannel.joinable) return { ok: false, reason: "not_joinable" };
-  const musicBlock = resolveMusicBlocksTtsForGuild(voiceChannel.client, voiceChannel.guild.id);
-  if (musicBlock.blocked) {
-    return { ok: false, reason: "music_active", musicChannelId: musicBlock.channelId };
-  }
-  setLockedChannel(voiceChannel.guild.id, voiceChannel.id);
-  await saveVoiceState(voiceChannel.guild.id, voiceChannel.id, String(voiceChannel.client?.user?.id || ""));
-  return { ok: true };
-}
 function findLockedChannelIdByGuild(guildId?) {
   if (guildId == null) return null;
   const gid = String(guildId);
@@ -1483,13 +1472,9 @@ async function restoreTtsConnections(client?) {
   }
 }
 
-function setTtsLockedChannel(guildId?, channelId?) {
-  if (!guildId || !channelId) return;
-  setLockedChannel(guildId, channelId);
-}
 function clearGuildTtsLock(guildId?) {
   if (guildId == null) return;
   guildLocks.delete(String(guildId));
 }
 
-export = { handleTtsMessage, armTtsChannel, joinTtsChannel, leaveTtsGuild, setTtsLockedChannel, clearGuildTtsLock, setUserTtsLang, getUserTtsLang, hydrateUserTtsLangForUser, restoreTtsConnections, handleTtsBotVoiceMove, isTtsPostJoinVoiceGraceActive, purgeTtsVoicePersistence };
+export = { handleTtsMessage, joinTtsChannel, leaveTtsGuild, clearGuildTtsLock, setUserTtsLang, getUserTtsLang, hydrateUserTtsLangForUser, restoreTtsConnections, handleTtsBotVoiceMove, isTtsPostJoinVoiceGraceActive, purgeTtsVoicePersistence };

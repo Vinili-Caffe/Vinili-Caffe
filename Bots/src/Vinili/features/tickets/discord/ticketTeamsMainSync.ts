@@ -1,7 +1,6 @@
 const IDs = require("../../../Utils/Config/ids") as typeof import("../../../Utils/Config/ids");
 const { getResocontoReviewerUserIdsForSegment } = require("../../../Utils/Staff/resocontoAccess") as typeof import("../../../Utils/Staff/resocontoAccess");
 const {
-  DEFAULT_TEAM_SEED,
   newTeamId,
   normalizeTeam,
   mutateGuildTeams,
@@ -188,7 +187,6 @@ async function syncGuildTicketTeamsFromLegacy(client?, guildId?, options: Record
 }
 
 export = {
-  DEFAULT_TEAM_SEED,
   ensureMainTicketTeamsSeeded,
   syncGuildTicketTeamsFromLegacy,
 };

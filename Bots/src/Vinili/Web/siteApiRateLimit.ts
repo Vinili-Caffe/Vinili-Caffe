@@ -190,5 +190,4 @@ function mountSiteApiRateLimit(app?) {
 
 export = {
   mountSiteApiRateLimit,
-  clientIpKey,
 };

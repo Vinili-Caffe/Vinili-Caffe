@@ -798,6 +798,5 @@ export = {
   notifyWorkflowMentions,
   notifyWorkflowSubjectDecision,
   clearWorkflowLifecycleNotifs,
-  subjectChatOpenUrl,
 };
 /* notifUseful1 marker */

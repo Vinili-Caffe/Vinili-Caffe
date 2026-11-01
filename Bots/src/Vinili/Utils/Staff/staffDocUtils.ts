@@ -494,7 +494,6 @@ export = {
   deleteStaffPauseRequestChannelMessages,
   deleteStaffRelatedMessagesFromConfiguredChannels,
   ensureStaff,
-  reconcileStaffValutazioneCounters,
   archiveStaffRolesHistoryThenUnsetStaff,
   applyStaffLadderTrackResetToObject,
   resetStaffLadderTrackInDb,

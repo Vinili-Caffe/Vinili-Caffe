@@ -1,10 +1,10 @@
 
 const { defaultGamesCatalog, currentEaFcEdition, inferGameKeyFromContent, reconcileGameIdentity } = require("./gameNewsCatalog") as typeof import("./gameNewsCatalog");
-const { isStaleOrJunkItem, hasDisallowedScript, storyCoreTokens, storyFingerprint, rememberStory, matchesRecentStory, sourceOfficialRank, isSameNewsStory, dedupePreferOfficial, isNearTitleDuplicate } = require("./gameNewsDedupe") as typeof import("./gameNewsDedupe");
-const { expandSteamPlaceholders, stripSteamMarkup, stripHtml, cleanArticleBrief, classifyImportance } = require("./gameNewsText") as typeof import("./gameNewsText");
-const { fetchArticleExcerpt, resolveArticleBrief, resolveArticleUrl } = require("./gameNewsArticles") as typeof import("./gameNewsArticles");
+const { isStaleOrJunkItem, hasDisallowedScript, storyFingerprint, rememberStory, matchesRecentStory, isSameNewsStory, dedupePreferOfficial, isNearTitleDuplicate } = require("./gameNewsDedupe") as typeof import("./gameNewsDedupe");
+const { stripHtml, cleanArticleBrief, classifyImportance } = require("./gameNewsText") as typeof import("./gameNewsText");
+const { resolveArticleBrief, resolveArticleUrl } = require("./gameNewsArticles") as typeof import("./gameNewsArticles");
 const { collectGameItems } = require("./gameNewsSources") as typeof import("./gameNewsSources");
-const { resolveConfig, loadState, saveState, buildArticleContent, postItem } = require("./gameNewsPost") as typeof import("./gameNewsPost");
+const { resolveConfig, loadState, saveState, postItem } = require("./gameNewsPost") as typeof import("./gameNewsPost");
 
 const loopStarted = new WeakSet();
 let pollInFlight = false;
@@ -222,26 +222,15 @@ export = {
   resolveConfig,
   classifyImportance,
   defaultGamesCatalog,
-  collectGameItems,
-  isStaleOrJunkItem,
   currentEaFcEdition,
-  buildArticleContent,
   cleanArticleBrief,
   stripHtml,
-  stripSteamMarkup,
-  expandSteamPlaceholders,
   hasDisallowedScript,
   resolveArticleUrl,
   storyFingerprint,
-  storyCoreTokens,
-  sourceOfficialRank,
-  dedupePreferOfficial,
   isSameNewsStory,
-  matchesRecentStory,
-  rememberStory,
   reconcileGameIdentity,
   inferGameKeyFromContent,
-  fetchArticleExcerpt,
   resolveArticleBrief,
   isNearTitleDuplicate,
 };

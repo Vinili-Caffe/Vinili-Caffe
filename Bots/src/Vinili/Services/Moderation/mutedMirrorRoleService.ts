@@ -17,7 +17,7 @@ const { syncClanTagRolesForUserEverywhereAfterMemberEvent } = require("../Commun
 const { hasEventWeekWinnerGrant } = require("../Community/weekWinnerGrantsService") as typeof import("../Community/weekWinnerGrantsService");
 const { hasExtraCustomPerksUnlock } = require("../../Utils/Community/customPerksUnlock") as typeof import("../../Utils/Community/customPerksUnlock");
 const { setMemberRolesSafe, resolveGuildBotMember } = require("./muteRoleRest") as typeof import("./muteRoleRest");
-const { isPostUnmuteReconciliationCurrent, markPostUnmuteReconciliationComplete, wasRecentUnmuteProfileRecoveryDone, markMuteMirrorStaffProtect, isMuteMirrorStaffProtectActive, memberIsInMuteMirrorState, shouldSuppressStaffDepexForMuteMirror, dbReady, loadProfileMuteSnapshotRoleIds, loadSnapshot, isCommunicationTimeoutActive, hasPendingMuteMirrorSnapshot } = require("./muteStaffProtect") as typeof import("./muteStaffProtect");
+const { isPostUnmuteReconciliationCurrent, markPostUnmuteReconciliationComplete, wasRecentUnmuteProfileRecoveryDone, markMuteMirrorStaffProtect, memberIsInMuteMirrorState, shouldSuppressStaffDepexForMuteMirror, dbReady, loadProfileMuteSnapshotRoleIds, loadSnapshot, isCommunicationTimeoutActive, hasPendingMuteMirrorSnapshot } = require("./muteStaffProtect") as typeof import("./muteStaffProtect");
 const { EMPTY_SNAPSHOT_COOLDOWN_MS, upsertSnapshot, hasSnapshot, isEmptySnapshotOnCooldown, markEmptySnapshotCooldown, clearEmptySnapshotCooldown, recoverSnapshotRoleIdsFallback, clearSnapshot, collectSnapshotRoleIds, buildRolesWhileMuted, resolveMutedRoleContext, shouldDeferRoleRestoreForMuteMirror, captureMuteRoleSnapshot } = require("./muteSnapshot") as typeof import("./muteSnapshot");
 const { didCommunicationTimeoutChange, resolveCommunicationTimeoutUntilMs } = require("./muteTimeout") as typeof import("./muteTimeout");
 const { resyncProfileDerivedRolesForMember } = require("./muteProfileRoles") as typeof import("./muteProfileRoles");
@@ -624,9 +624,7 @@ export = {
   wasRoleRestoredByMuteMirror,
   sweepExpiredCommunicationTimeoutMirrors,
   isCommunicationTimeoutActive,
-  didCommunicationTimeoutChange,
   memberIsInMuteMirrorState,
   shouldSuppressStaffDepexForMuteMirror,
   markMuteMirrorStaffProtect,
-  isMuteMirrorStaffProtectActive,
 };

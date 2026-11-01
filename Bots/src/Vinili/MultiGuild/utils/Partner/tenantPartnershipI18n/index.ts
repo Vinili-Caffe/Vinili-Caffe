@@ -7,7 +7,7 @@ const {
   normalizeTenantLanguage,
   mapDiscordLocaleToTenantLanguage,
 } = require("./languages") as typeof import("./languages");
-const { UI_PACKS, BADGE_COPY, OBJECTIVE_COPY } = require("./packs") as typeof import("./packs");
+const { UI_PACKS, OBJECTIVE_COPY } = require("./packs") as typeof import("./packs");
 const { buildObjectiveDefs } = require("../tenantObjectiveDefs") as typeof import("../tenantObjectiveDefs");
 
 const FLAG_BY_CODE = new Map(TENANT_LANGUAGE_OPTIONS.map((row?) => [row.code, row.flag]));
@@ -84,7 +84,6 @@ export = {
   TENANT_LANGUAGE_OPTIONS,
   TENANT_LANGUAGES,
   LANGUAGE_PICKER_ROWS,
-  BADGE_COPY,
   OBJECTIVE_COPY,
   buildObjectiveDefs,
   normalizeTenantLanguage,

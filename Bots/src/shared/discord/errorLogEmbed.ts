@@ -26,4 +26,4 @@ function buildErrorLogEmbed({ contextLabel, contextValue, userTag, error, title 
   return new EmbedBuilder().setColor("#6f4e37").setTitle(safeTitle).addFields({ name: `<:VC_Poll:1482535102436216832> ${safeLabel}`, value: `\`\`\`${safeContext}\`\`\`` }, { name: "<a:VC_Channel:1482534583944871996> Server", value: `\`\`\`${safeServer}\`\`\`` }, { name: "<:member_role_icon:1330530086792728618> Utente", value: `\`\`\`${safeUserTag}\`\`\`` }, { name: "<a:VC_Alert:1482706673176150077> Errore", value: `\`\`\`${errorInBlock}\`\`\`` }).setTimestamp();
 }
 
-export = { buildErrorLogEmbed, getFullErrorText };
+export = { buildErrorLogEmbed };

@@ -634,5 +634,4 @@ export = {
   fetchHttpImageBufferStaticFirst,
   discordCdnPathLooksAnimatedAsset,
   discordCdnStaticAvatarUrl,
-  discordCdnDefaultAvatarFallbackUrl,
 };

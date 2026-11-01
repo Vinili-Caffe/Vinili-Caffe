@@ -306,7 +306,6 @@ export = {
   applyGamblePayoutBonus,
   consumeRobSuccessBonus,
   getShopPanelState,
-  listShopItems,
   peekRobSuccessBonusPct,
   purchaseShopItem,
   takeFixedIncomeStreakBonusPct,

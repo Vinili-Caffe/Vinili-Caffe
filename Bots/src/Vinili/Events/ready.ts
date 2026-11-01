@@ -42,8 +42,6 @@ const { startStafferDellaSettimanaLoop } = require("../Services/Staff/stafferDel
 const { startTwitchLiveAlertLoop } = require("../Services/Community/twitchLiveAlertService") as typeof import("../Services/Community/twitchLiveAlertService");
 const { startGameNewsAlertLoop } = require("../Services/Community/gameNewsAlertService") as typeof import("../Services/Community/gameNewsAlertService");
 const { startStreamerStageGuardLoop } = require("../Services/Community/streamerStageGuardService") as typeof import("../Services/Community/streamerStageGuardService");
-const { startContestPrizeMaintenanceCron } = require("../Services/Community/contestPrizeMaintenanceService") as typeof import("../Services/Community/contestPrizeMaintenanceService");
-const { startStaffWarnResetLoop } = require("../Services/Staff/staffWarnService") as typeof import("../Services/Staff/staffWarnService");
 /* staffWarnChannelMigration + staffNegativesWarnConversion → archivio/codice-morto (one-shot fatti) */
 const { syncAllStaffAutoValutazioni, restoreActiveSerataFilmSessions, cleanupMalformedAutoValutazioni } = require("../Services/Staff/staffAutoValutazioniService") as typeof import("../Services/Staff/staffAutoValutazioniService");
 const { reconcileResocontoReviewerRewardAutoValutazioni } = require("../Services/Staff/resocontoReviewerRewardService") as typeof import("../Services/Staff/resocontoReviewerRewardService");

@@ -158,4 +158,4 @@ function classifyImportance(title?, summary?) {
   return "minor";
 }
 
-export = { ARTICLE_BRIEF_MAX, expandSteamPlaceholders, stripSteamMarkup, stripHtml, stripLeadingTitleEcho, trimBriefAtSentence, cleanArticleBrief, decodeXml, translateToItalian, classifyImportance };
+export = { ARTICLE_BRIEF_MAX, stripHtml, stripLeadingTitleEcho, trimBriefAtSentence, cleanArticleBrief, decodeXml, translateToItalian, classifyImportance };

@@ -124,5 +124,4 @@ export = {
   isRecoveryPrimaryShard,
   collectRecentRoleAddsFromAudit,
   botSupportersEmbedExistsForUser,
-  messageTextBlob,
 };

@@ -40,4 +40,4 @@ function isExcludedActivityChannel(channelLike?) {
   return false;
 }
 
-export = { isChannelInExcludedActivityCategory, isExcludedActivityChannel };
+export = { isExcludedActivityChannel };

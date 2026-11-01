@@ -633,47 +633,6 @@ async function findModLogsPage(guildId?, userId?, skip?, perPage?) {
   return merged.slice(skip, skip + perPage);
 }
 
-async function countModActionsByMod(guildId?, modId?, action?, since?) {
-  const act = normalizeAction(action);
-  const mid = String(modId || "");
-  const seen = new Set();
-  let n = 0;
-  if (useCompactModCase()) {
-    const elem: Record<string, any> = { modId: mid, action: act };
-    if (since) elem.createdAt = { $gte: since };
-    const parents = await ActivityUserProfile.find({
-      guildId: String(guildId),
-      [MOD_CASES_PATH]: { $elemMatch: elem },
-    })
-      .select(MOD_CASES_PATH)
-      .lean()
-      .catch(() => []);
-    for (const p of parents) {
-      for (const c of p.moderation?.modCases || []) {
-        if (String(c.modId || "") !== mid) continue;
-        if (normalizeAction(c.action) !== act) continue;
-        if (since && new Date(c.createdAt || 0) < since) continue;
-        const key = String(Number(c.caseId));
-        if (seen.has(key)) continue;
-        seen.add(key);
-        n += 1;
-      }
-    }
-  }
-  if (useLegacyModCase()) {
-    const q: Record<string, any> = { guildId: String(guildId), modId: mid, action: act };
-    if (since) q.createdAt = { $gte: since };
-    const leg = await ModCase.find(q).select("caseId").lean().catch(() => []);
-    for (const d of leg) {
-      const key = String(Number(d.caseId));
-      if (useCompactModCase() && seen.has(key)) continue;
-      if (useCompactModCase()) seen.add(key);
-      n += 1;
-    }
-  }
-  return n;
-}
-
 async function summarizeModActionsByModWindows(guildId?, modId?) {
   const mid = String(modId || "");
   const actions = ["MUTE", "BAN", "KICK", "WARN"];
@@ -920,7 +879,6 @@ export = {
   findActiveModerations,
   countModLogsForUser,
   findModLogsPage,
-  countModActionsByMod,
   summarizeModActionsByModWindows,
   aggregateSanctionsByModInWeek,
   findLifecycleCandidates,

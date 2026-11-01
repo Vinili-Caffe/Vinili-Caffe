@@ -154,4 +154,4 @@ async function ensureHubLobbySpeakDenied(hubChannel?, guild?) {
   }
 }
 
-export = { hubLobbyRoleIds, ensureSpawnedChannelMemberTextAccess, buildSpawnPermissionOverwrites, ensureHubLobbySpeakDenied };
+export = { ensureSpawnedChannelMemberTextAccess, buildSpawnPermissionOverwrites, ensureHubLobbySpeakDenied };

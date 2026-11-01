@@ -7,7 +7,7 @@ const { shouldSkipDiscordDmForActiveWebPush } = require("../../Web/siteNotifPref
 const { getClientChannelCached, getClientGuildCached, getGuildMemberCached, getUserCached } = require("../../Utils/Interaction/interactionEntityCache") as typeof import("../../Utils/Interaction/interactionEntityCache");
 const { addExpWithLevel, shouldIgnoreExpForMember } = require("../Community/expService") as typeof import("../Community/expService");
 const { voteCountMonthKeyRome } = require("../../Utils/romeVoteMonthKey") as typeof import("../../Utils/romeVoteMonthKey");
-const { voteStateLastAt, clearVoteReminderPhoneRetriesForUser, extractDiscadiaVoteState, isVoteListingRecordedAtOrAfter } = require("./voteReminderState") as typeof import("./voteReminderState");
+const { voteStateLastAt, extractDiscadiaVoteState, isVoteListingRecordedAtOrAfter } = require("./voteReminderState") as typeof import("./voteReminderState");
 const { getVoteCooldownMs, getVoteCheckIntervalMs, enqueueVoteCompletedSiteNotification } = require("./voteReminderMessages") as typeof import("./voteReminderMessages");
 const { recordDiscadiaVote, restorePendingVoteReminders, sendDueDiscadiaVoteReminders } = require("./discadiaVotes") as typeof import("./discadiaVotes");
 const { buildBumpStateModel, createBumpReminderService } = require("./bumpReminder") as typeof import("./bumpReminder");
@@ -59,4 +59,4 @@ function startDiscadiaVoteReminderLoop(client?) {
       return discadiaVoteReminderLoopHandle;
 }
 
-export = { createBumpReminderService, recordBump: disboardService.recordBump, restorePendingReminders: disboardService.restorePendingReminders, startBumpDueReminderSweepLoop, recordDiscadiaBump: discadiaBumpService.recordBump, restorePendingDiscadiaReminders: discadiaBumpService.restorePendingReminders, recordDiscadiaVote, enqueueVoteCompletedSiteNotification, startDiscadiaVoteReminderLoop, restorePendingVoteReminders, awardBumpVoteExp, getVoteCooldownMs, isVoteListingRecordedAtOrAfter, voteStateLastAt, extractDiscadiaVoteState, clearVoteReminderPhoneRetriesForUser };
+export = { recordBump: disboardService.recordBump, restorePendingReminders: disboardService.restorePendingReminders, startBumpDueReminderSweepLoop, recordDiscadiaBump: discadiaBumpService.recordBump, restorePendingDiscadiaReminders: discadiaBumpService.restorePendingReminders, recordDiscadiaVote, enqueueVoteCompletedSiteNotification, startDiscadiaVoteReminderLoop, restorePendingVoteReminders, awardBumpVoteExp, getVoteCooldownMs, isVoteListingRecordedAtOrAfter, voteStateLastAt, extractDiscadiaVoteState };

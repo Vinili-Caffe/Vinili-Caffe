@@ -147,4 +147,4 @@ function redactSnipeContentForMinigame(client?, channelId?, content?) {
   return "Contenuto nascosto (risposta minigame).";
 }
 
-export = { suppressMinigameSnipe, isMinigameSnipeSuppressed, pickSnipeEntryForChannel, shouldSkipStoringSnipe, redactSnipeContentForMinigame };
+export = { suppressMinigameSnipe, pickSnipeEntryForChannel, shouldSkipStoringSnipe, redactSnipeContentForMinigame };

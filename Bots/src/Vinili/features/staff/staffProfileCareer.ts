@@ -441,4 +441,4 @@ function formatTenureLabel(iso?) {
   }
 }
 
-export = { isOnStaffCareerLadder, isPartnerManagerRole, serializeRolesHistory, resolveTenureIso, formatTenureLabel };
+export = { serializeRolesHistory, resolveTenureIso, formatTenureLabel };

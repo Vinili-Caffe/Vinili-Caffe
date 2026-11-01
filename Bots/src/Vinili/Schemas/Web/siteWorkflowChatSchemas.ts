@@ -69,15 +69,6 @@ const SiteWorkflowChatMessage: import("mongoose").Model<import("mongoose").Infer
   models.SiteWorkflowChatMessage ||
   model("SiteWorkflowChatMessage", siteWorkflowChatMessageSchema, "siteworkflowchatmessages");
 
-async function purgeWorkflowChatByDedupe(guildId?, dedupeKey?) {
-  const gid = String(guildId || "").trim();
-  const key = String(dedupeKey || "").trim();
-  if (!gid || !key) return 0;
-  const result = await SiteWorkflowChatMessage.deleteMany({ guildId: gid, dedupeKey: key }).catch(() => null);
-  return Number(result?.deletedCount || 0);
-}
-
 export = {
   SiteWorkflowChatMessage,
-  purgeWorkflowChatByDedupe,
 };

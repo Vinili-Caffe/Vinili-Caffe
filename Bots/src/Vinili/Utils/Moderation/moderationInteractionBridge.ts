@@ -118,7 +118,6 @@ async function runDynoFromInteraction(interaction?, client?, cmd?, args?, guild?
 export = {
   createProxyMessage,
   resolvePermChannel,
-  resolveSanctionOutputChannel,
   replyEphemeral,
   runDynoFromInteraction,
 };

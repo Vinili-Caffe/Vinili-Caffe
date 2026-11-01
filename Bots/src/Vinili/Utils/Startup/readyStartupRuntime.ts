@@ -116,5 +116,4 @@ async function runPhasedStartupTasks(tasks?, hooks: Record<string, any> = {}, op
 export = {
   formatDurationMs,
   runPhasedStartupTasks,
-  runTaskPool,
 };

@@ -3,7 +3,6 @@ const { resolvePartnerTotalEarned, resolvePartnerPointsShown } = require("../Sta
 const { memberHasPartnerManagerRole } = require("./partnershipConfigResolver") as typeof import("./partnershipConfigResolver");
 const {
   disableRows,
-  buildReviewStatusLine,
   buildUpdatedLogContent,
 } = require("./pmPointsRemovedReviewHelpers") as typeof import("./pmPointsRemovedReviewHelpers");
 const {
@@ -121,7 +120,6 @@ async function reviewPartnerPointReport({
 
 export = {
   disableRows,
-  buildReviewStatusLine,
   buildUpdatedLogContent,
   reviewPartnerPointReport,
 };

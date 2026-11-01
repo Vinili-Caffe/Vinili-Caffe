@@ -218,4 +218,4 @@ function upgradeLegacyTranscriptHtml(html?) {
   return ensureTranscriptMobileCss(raw);
 }
 
-export = { TRANSCRIPT_MOBILE_CSS, isModernTranscriptHtml, upgradeLegacyTranscriptHtml };
+export = { TRANSCRIPT_MOBILE_CSS, upgradeLegacyTranscriptHtml };

@@ -115,16 +115,4 @@ function isCategoryWhitelisted(channel?) {
   return set.has(parentId) || set.has(id);
 }
 
-function removeMaintenanceAllowlistUser(guildId?, userId?) {
-  const g = String(guildId || "");
-  const u = String(userId || "");
-  if (!g || !u) return { ok: false, reason: "missing_ids" };
-  cleanupMaintenanceAllowlist(g, Date.now());
-  const bucket = MAINTENANCE_ALLOWLIST.get(g);
-  if (!bucket) return { ok: true, removed: false };
-  const removed = bucket.delete(u);
-  if (!bucket.size) MAINTENANCE_ALLOWLIST.delete(g);
-  return { ok: true, removed };
-}
-
-export = { UNKNOWN_EXECUTOR_ID, MAINTENANCE_ALLOWLIST, getMainRoleIds, cleanupMaintenanceAllowlist, isWhitelistedExecutor, isWhitelistedExecutorAsync, isCategoryWhitelisted, removeMaintenanceAllowlistUser };
+export = { UNKNOWN_EXECUTOR_ID, MAINTENANCE_ALLOWLIST, getMainRoleIds, cleanupMaintenanceAllowlist, isWhitelistedExecutor, isWhitelistedExecutorAsync, isCategoryWhitelisted };

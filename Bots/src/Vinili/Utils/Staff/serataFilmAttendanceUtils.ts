@@ -4,8 +4,6 @@ const { isValidGuildUserId } = require("../DB/validateWriteIds") as typeof impor
 const { siteWorkflowUrl } = require("../../Web/discordWorkflowUiGate") as typeof import("../../Web/discordWorkflowUiGate");
 const TIME_ZONE = "Europe/Rome";
 const TARGET_WEEKDAY = 6;
-const PANEL_PREFIX = "staff_profile_panel";
-
 const ROME_PARTS_FORMATTER = new Intl.DateTimeFormat("en-GB", {
   timeZone: TIME_ZONE,
   year: "numeric",
@@ -132,53 +130,6 @@ function isSerataFilmAbsentExcused(staff?, saturdayKey?) {
   return staff.serataFilmWillAttend === false;
 }
 
-function buildSerataFilmAttendanceDescriptionLine(state?, isSelfView = false) {
-  const willAttend = Boolean(state?.willAttend);
-  const status = willAttend
-    ? "**Sì**"
-    : "**No** (assenza segnalata)";
-  const lines = [
-    `<a:VC_Calendar:1482706208149475358> **Serata film:** Presenza prevista ${status}`,
-  ];
-  if (isSelfView && state?.editable) {
-    lines.push(`_Segnala l'assenza sul **sito staff** entro le 20:45 di sabato: <${siteWorkflowUrl("staff")}>_`);
-  }
-  return lines.join("\n");
-}
-
-function normalizeSourceMessageId(raw?) {
-  const id = String(raw || "").trim();
-  return /^\d{16,20}$/.test(id) ? id : null;
-}
-
-function withSourceSuffix(baseCustomId?, sourceMessageId?) {
-  const sid = normalizeSourceMessageId(sourceMessageId);
-  return sid ? `${baseCustomId}:${sid}` : baseCustomId;
-}
-
-function formatSerataFilmAttendanceCustomId(action?, viewerId?, targetId?, sourceMessageId = null) {
-  const act = String(action || "").toLowerCase() === "no" ? "no" : "yes";
-  return withSourceSuffix(`${PANEL_PREFIX}:sf_att:${act}:${String(viewerId)}:${String(targetId)}`, sourceMessageId);
-}
-
-function buildSerataFilmAttendanceButtonRow(viewerId?, targetId?, state?, sourceMessageId = null) {
-  if (!state?.editable) return null;
-  const v = String(viewerId);
-  const t = String(targetId);
-  const btn = state.willAttend
-    ? new ButtonBuilder()
-      .setCustomId(formatSerataFilmAttendanceCustomId("no", v, t, sourceMessageId))
-      .setLabel("Segnala assenza serata film")
-      .setEmoji("<a:VC_Cross:1482532424570376253>")
-      .setStyle(ButtonStyle.Danger)
-    : new ButtonBuilder()
-      .setCustomId(formatSerataFilmAttendanceCustomId("yes", v, t, sourceMessageId))
-      .setLabel("Ripristina presenza")
-      .setEmoji("<a:VC_Verified:1482532479637127188>")
-      .setStyle(ButtonStyle.Success);
-  return new ActionRowBuilder().addComponents(btn);
-}
-
 async function setSerataFilmWillAttend(guildId?, userId?, willAttend?, now = new Date()) {
   if (!isValidGuildUserId(guildId, userId)) return { ok: false, code: "bad_input" };
   const saturdayKey = getActiveSerataFilmAttendanceSaturdayKey(now);
@@ -224,8 +175,6 @@ export = {
   canEditSerataFilmAttendance,
   resolveSerataFilmAttendanceForWeek,
   isSerataFilmAbsentExcused,
-  buildSerataFilmAttendanceDescriptionLine,
-  buildSerataFilmAttendanceButtonRow,
   setSerataFilmWillAttend,
   loadSerataFilmStaffAttendanceByUserId,
 };

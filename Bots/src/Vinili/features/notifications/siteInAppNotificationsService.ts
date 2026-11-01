@@ -1,9 +1,9 @@
 
-const { isVoteRegisteredNotification, isDedicatedInboxQueueAlert, isPuntiToltiSubjectNotif, isStaffTicketSlaNotif, isMentionNotif, isPersonalTicketOpenerNotif, isStaffTicketNotif, isStaffReviewNotif, isStaffFeedbackNotif, isWorkflowDecisionPersonalNotif, isInboxLinkedNotification, resolveNotifChannel } = require("./notifKinds") as typeof import("./notifKinds");
+const { isVoteRegisteredNotification, isDedicatedInboxQueueAlert, isPuntiToltiSubjectNotif, isStaffTicketSlaNotif, isPersonalTicketOpenerNotif, isStaffTicketNotif, isStaffReviewNotif, isStaffFeedbackNotif, isWorkflowDecisionPersonalNotif, isInboxLinkedNotification, resolveNotifChannel } = require("./notifKinds") as typeof import("./notifKinds");
 const { migrateLegacyInAppNotificationsForUser } = require("./notifStore") as typeof import("./notifStore");
-const { invalidateUnreadCountCache, clearMobilePushSoftRetries, isSiteInAppNotificationStillUnread, scheduleMobilePushSoftRetries, recoverUnreadApplePushHedges, countSiteInAppUnreadForUser } = require("./notifPush") as typeof import("./notifPush");
+const { invalidateUnreadCountCache, isSiteInAppNotificationStillUnread, recoverUnreadApplePushHedges, countSiteInAppUnreadForUser } = require("./notifPush") as typeof import("./notifPush");
 const { removeInboxItemByDedupeKey, removeSiteInAppNotificationsMatching, removeSiteInAppNotificationsForTicket } = require("./notifRemove") as typeof import("./notifRemove");
-const { enqueueSiteInAppNotification, pruneSiteInAppNotificationsForUser } = require("./notifEnqueue") as typeof import("./notifEnqueue");
+const { enqueueSiteInAppNotification } = require("./notifEnqueue") as typeof import("./notifEnqueue");
 const { deleteSiteInAppNotifications, markSiteInAppNotificationRead, markSiteInAppNotificationsReadMany, markAllSiteInAppNotificationsRead, markSiteInAppNotificationsReadForTicket } = require("./notifRead") as typeof import("./notifRead");
 const { pageContextFromUrlServer, openUrlMatchesPageContextServer, markSiteInAppNotificationsReadForPage } = require("./notifPageRead") as typeof import("./notifPageRead");
 const { listSiteInAppNotificationsForUser, deleteSiteInAppNotificationForUser, deleteAllSiteInAppNotificationsForUser } = require("./notifList") as typeof import("./notifList");
@@ -15,7 +15,6 @@ export = {
   isPuntiToltiSubjectNotif,
   isStaffTicketNotif,
   isStaffTicketSlaNotif,
-  isMentionNotif,
   isPersonalTicketOpenerNotif,
   isWorkflowDecisionPersonalNotif,
   isStaffReviewNotif,
@@ -29,7 +28,6 @@ export = {
   listSiteInAppNotificationsForUser,
   countSiteInAppUnreadForUser,
   invalidateUnreadCountCache,
-  pruneSiteInAppNotificationsForUser,
   deleteSiteInAppNotifications,
   deleteAllSiteInAppNotificationsForUser,
   deleteSiteInAppNotificationForUser,
@@ -42,8 +40,6 @@ export = {
   openUrlMatchesPageContextServer,
   migrateLegacyInAppNotificationsForUser,
   isSiteInAppNotificationStillUnread,
-  clearMobilePushSoftRetries,
-  scheduleMobilePushSoftRetries,
   recoverUnreadApplePushHedges,
 };
 /* notifUseful1 marker */

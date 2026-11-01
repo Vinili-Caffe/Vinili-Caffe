@@ -10,8 +10,4 @@ function memberCanAccessPerksTicket(member?) {
   return PERKS_STAFF_ROLE_IDS.some((roleId?) => member.roles.cache.has(roleId));
 }
 
-function buildPerksPingMention() {
-  return PERKS_PING_ROLE_IDS.map((roleId?) => `<@&${roleId}>`).join(" ");
-}
-
-export = { PERKS_STAFF_ROLE_IDS, PERKS_PING_ROLE_IDS, memberCanAccessPerksTicket, buildPerksPingMention };
+export = { PERKS_STAFF_ROLE_IDS, memberCanAccessPerksTicket };

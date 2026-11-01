@@ -62,5 +62,4 @@ function discordRoleIconUrl(role?, { size = 64 } = {}) {
 
 export = {
   discordRoleIconUrl,
-  isRoleIconHashAnimated,
 };

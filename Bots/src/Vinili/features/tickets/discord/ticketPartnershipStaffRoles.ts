@@ -6,9 +6,7 @@ const { getPartnerManagerRoleId } = require("../../../Utils/Partner/partnershipC
 const { memberHasRoleId } = require("../../../Utils/Staff/staffRoleHierarchy") as typeof import("../../../Utils/Staff/staffRoleHierarchy");
 const {
   applyTicketStaffRoleOverwrites,
-  buildTicketMemberCreateOverwrite,
   editTicketMemberOverwrite,
-  editTicketRoleOverwrite,
 } = require("./ticketHighStaffOverwrites") as typeof import("./ticketHighStaffOverwrites");
 const PARTNERMANAGER_ROLE_ID = IDs.roles.PartnerManager;
 const HIGHSTAFF_ROLE_ID = IDs.roles.HighStaff;
@@ -17,16 +15,6 @@ const RESOCONTO_PM_REVIEWER_USER_IDS = getResocontoReviewerUserIdsForSegment("pm
 const PARTNERSHIP_TICKET_STAFF_ROLE_IDS = [PARTNERMANAGER_ROLE_ID, HIGHSTAFF_ROLE_ID]
   .filter(Boolean)
   .map(String);
-
-const PARTNERSHIP_TICKET_REVIEWER_ALLOW = [
-  PermissionFlagsBits.ViewChannel,
-  PermissionFlagsBits.SendMessages,
-  PermissionFlagsBits.EmbedLinks,
-  PermissionFlagsBits.AttachFiles,
-  PermissionFlagsBits.ReadMessageHistory,
-  PermissionFlagsBits.AddReactions,
-  PermissionFlagsBits.UseApplicationCommands,
-];
 
 const PARTNERSHIP_TICKET_REVIEWER_OVERWRITES = Object.freeze({
   ViewChannel: true,
@@ -37,26 +25,6 @@ const PARTNERSHIP_TICKET_REVIEWER_OVERWRITES = Object.freeze({
   AddReactions: true,
   UseApplicationCommands: true,
 });
-
-function buildPartnershipTicketReviewerCreateOverwrites() {
-  return RESOCONTO_PM_REVIEWER_USER_IDS
-    .map((userId?) =>
-      buildTicketMemberCreateOverwrite(userId, { allow: PARTNERSHIP_TICKET_REVIEWER_ALLOW }),
-    )
-    .filter(Boolean);
-}
-
-async function clearPartnershipTicketPermissionOverwrites(channel?) {
-  if (!channel?.permissionOverwrites?.edit) return;
-  const roleHideFromTicket = { ViewChannel: false };
-  for (const roleId of PARTNERSHIP_TICKET_STAFF_ROLE_IDS) {
-    if (roleId === HIGHSTAFF_ROLE_ID) continue;
-    await editTicketRoleOverwrite(channel, roleId, roleHideFromTicket);
-  }
-  for (const userId of RESOCONTO_PM_REVIEWER_USER_IDS) {
-    await channel.permissionOverwrites.delete(userId).catch(() => null);
-  }
-}
 
 async function applyPartnershipTicketReviewerOverwrites(channel?) {
   if (!channel?.permissionOverwrites?.edit) return;
@@ -103,10 +71,7 @@ function memberCanAccessPartnershipTicket(member?) {
 export = {
   PARTNERMANAGER_ROLE_ID,
   HIGHSTAFF_ROLE_ID,
-  PARTNERSHIP_TICKET_STAFF_ROLE_IDS,
-  buildPartnershipTicketReviewerCreateOverwrites,
   applyPartnershipTicketRoleOverwrites,
-  clearPartnershipTicketPermissionOverwrites,
   memberIsResocontoPmReviewer,
   memberCanManagePartnerManagers,
   memberCanAccessPartnershipTicket,

@@ -493,15 +493,4 @@ function formatQueue(interaction?) {
   return { ok: true, message: lines.join("\n") };
 }
 
-function nowPlayingStatus(interaction?) {
-  const guild = interaction.guild;
-  if (!guild) return { ok: false, message: "Solo in server." };
-  const player = interaction.client.shoukaku?.players?.get(guild.id);
-  const session = guildQueues.get(guild.id);
-  if (!player?.track || !session?.nowPlaying) {
-    return { ok: true, message: "Non in riproduzione." };
-  }
-  return { ok: true, message: `**In riproduzione:** ${session.nowPlaying}` };
-}
-
-export = { fetchGuildQueueEntryRows, formatTrackDurationMs, formatPlaybackPositionClock, formatEstimatedUntilPlayMs, fetchGuildUpcomingQueueRows, fetchGuildRequestedSessionRows, fetchGuildNextUpDetails, fetchGuildNowPlayingDetails, formatQueue, nowPlayingStatus };
+export = { fetchGuildQueueEntryRows, formatTrackDurationMs, formatPlaybackPositionClock, formatEstimatedUntilPlayMs, fetchGuildUpcomingQueueRows, fetchGuildRequestedSessionRows, fetchGuildNextUpDetails, fetchGuildNowPlayingDetails, formatQueue };

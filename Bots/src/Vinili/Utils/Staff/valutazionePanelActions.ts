@@ -1103,4 +1103,4 @@ async function runValutazionePosPauseTradeForPanel(guild?, actorMember?, staffUs
   }
 }
 
-export = { buildAutoStaffWarnFromNegativesEmbed, ensureStaffProfileDoc, getStaffDoc, valutazionePositiveAddCore, valutazioneNegativeAddCore, valutazionePositiveRemoveCore, makeRemovalEmbed, makeLogEmbed, consumeOldestNegativesFromStaff, removeOldestPositiveValutazioni, runValutazionePositiveAddForPanel, runValutazioneNegativeAddForPanel, runValutazionePositiveRemoveForPanel, runValutazioneNegativeRemoveForPanel, runValutazioneNegTradeForPanel, runValutazionePosPauseTradeForPanel };
+export = { ensureStaffProfileDoc, getStaffDoc, valutazionePositiveAddCore, valutazioneNegativeAddCore, valutazionePositiveRemoveCore, makeRemovalEmbed, makeLogEmbed, consumeOldestNegativesFromStaff, removeOldestPositiveValutazioni, runValutazionePositiveAddForPanel, runValutazioneNegativeAddForPanel, runValutazionePositiveRemoveForPanel, runValutazioneNegativeRemoveForPanel, runValutazioneNegTradeForPanel, runValutazionePosPauseTradeForPanel };

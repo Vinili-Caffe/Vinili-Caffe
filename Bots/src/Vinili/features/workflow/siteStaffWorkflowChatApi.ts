@@ -3,14 +3,13 @@ const path = require("path") as typeof import("path");
 const mongoose = require("mongoose") as typeof import("mongoose");
 const {
   SiteWorkflowChatMessage,
-  purgeWorkflowChatByDedupe,
 } = require("../../Schemas/Web/siteWorkflowChatSchemas") as typeof import("../../Schemas/Web/siteWorkflowChatSchemas");
 const { setTyping: setChatTyping, clearTyping: clearChatTyping } = require("../../Web/siteChatTyping") as typeof import("../../Web/siteChatTyping");
 const { loadAuthorAvatarOverrides, loadAuthorRoleOverrides, displayNameForMember } = require("./workflowChatAuthors") as typeof import("./workflowChatAuthors");
 const { MAX_IMAGES, UPLOAD_ROOT, uploadFolderKey } = require("./workflowChatMedia") as typeof import("./workflowChatMedia");
 const { serializeMessage, markWorkflowMessagesRead } = require("./workflowChatSerialize") as typeof import("./workflowChatSerialize");
 const { messageVisibleInSubjectWindows, serializeSubjectChatMeta, emitChatEvent } = require("./workflowChatSubject") as typeof import("./workflowChatSubject");
-const { bearerFromRequest, parseQueueFromDedupe, resolveWorkflowChatAccess } = require("./workflowChatAccess") as typeof import("./workflowChatAccess");
+const { bearerFromRequest, resolveWorkflowChatAccess } = require("./workflowChatAccess") as typeof import("./workflowChatAccess");
 const { handleSiteStaffWorkflowChatPost, handleSiteStaffWorkflowChatReactionPost, handleSiteStaffWorkflowChatMessagePatch, handleSiteStaffWorkflowChatMessageDelete } = require("./workflowChatMessages") as typeof import("./workflowChatMessages");
 const { handleSiteStaffWorkflowChatSubjectPost } = require("./workflowChatSubjectInvite") as typeof import("./workflowChatSubjectInvite");
 const { handleSiteStaffWorkflowChatEmojisGet, handleSiteStaffWorkflowChatMentionsGet } = require("./workflowChatMentions") as typeof import("./workflowChatMentions");
@@ -231,7 +230,5 @@ export = {
   handleSiteStaffWorkflowChatMessageDelete,
   handleSiteStaffWorkflowChatTypingPost,
   handleSiteStaffWorkflowChatMentionsGet,
-  purgeWorkflowChatByDedupe,
-  parseQueueFromDedupe,
   resolveWorkflowChatAccess,
 };

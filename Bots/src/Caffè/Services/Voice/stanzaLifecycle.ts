@@ -311,4 +311,4 @@ async function moveStanzaOccupantsToChannel(voiceChannel?, targetVoice?) {
   return { moved, attempted: humans.length };
 }
 
-export = { buildStanzaChannelName, handleStanzaVoiceLobbyJoin, handleStanzaVoiceEmpty, handleStanzaVoiceOccupied, handleStanzaVoiceSilenceSync, pickRandomTeardownMoveTarget, moveStanzaOccupantsToChannel };
+export = { handleStanzaVoiceLobbyJoin, handleStanzaVoiceEmpty, handleStanzaVoiceOccupied, handleStanzaVoiceSilenceSync, pickRandomTeardownMoveTarget, moveStanzaOccupantsToChannel };

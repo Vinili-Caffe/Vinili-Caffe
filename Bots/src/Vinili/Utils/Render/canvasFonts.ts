@@ -209,4 +209,4 @@ function drawTextWithSpecialFallback(ctx?, text?, x?, y?, options: Record<string
   ctx.restore();
 }
 
-export = { registerCanvasFonts, fontStack, fontStackPrimaryOnly, fontStackWithPrimary, drawTextWithSpecialFallback, FALLBACK_FONT };
+export = { registerCanvasFonts, fontStack, fontStackPrimaryOnly, fontStackWithPrimary, drawTextWithSpecialFallback };

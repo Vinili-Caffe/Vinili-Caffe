@@ -147,5 +147,4 @@ async function ensureGuildFeatureBucket(guildId?) {
 export = {
   GuildFeatureBucket,
   ensureGuildFeatureBucket,
-  ticketEntrySchema,
 };

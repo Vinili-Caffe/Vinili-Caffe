@@ -921,5 +921,4 @@ export = {
   dashboardChannelIncludeAllows,
   memberPassesRoleAcl,
   channelPassesChannelAcl,
-  TENANT_SLASH_COMMAND_DEFS,
 };

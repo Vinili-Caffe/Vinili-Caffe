@@ -1,3 +1,3 @@
-const { GuildQuoteBoard, BOARD_POST_TYPE } = require("./guildBoardPostSchema") as typeof import("./guildBoardPostSchema");
+const { GuildQuoteBoard } = require("./guildBoardPostSchema") as typeof import("./guildBoardPostSchema");
 
-export = { GuildQuoteBoard, BOARD_POST_TYPE };
+export = { GuildQuoteBoard };

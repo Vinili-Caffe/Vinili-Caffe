@@ -99,10 +99,6 @@ async function listCandidatureApplications(guild?, opts: Record<string, any> = {
   return items.sort((a?, b?) => String(b.createdAt || "").localeCompare(String(a.createdAt || ""))).slice(0, limit);
 }
 
-async function listPendingCandidatureApplications(guild?) {
-  return listCandidatureApplications(guild, { scope: "pending" });
-}
-
 function embedDescriptionsJoined(message?) {
   const embeds = Array.isArray(message?.embeds) ? message.embeds : [];
   return embeds
@@ -197,4 +193,4 @@ function stripDiscordDecorations(text?) {
     .trim();
 }
 
-export = { memberHasCandidatureReviewAccess, parseCandidateTypeFromMessage, listCandidatureApplications, listPendingCandidatureApplications, getCandidatureApplicationDetail, resolveCandidatureBoundFromStore, stripDiscordDecorations };
+export = { memberHasCandidatureReviewAccess, parseCandidateTypeFromMessage, listCandidatureApplications, getCandidatureApplicationDetail, resolveCandidatureBoundFromStore, stripDiscordDecorations };

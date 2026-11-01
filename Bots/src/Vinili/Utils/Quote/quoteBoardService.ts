@@ -16,7 +16,6 @@ const BACKFILL_MAX_PAGES = 40;
 const BACKFILL_PAGE_SIZE = 100;
 const BACKFILL_META_CHANNEL = "__meta__";
 const BACKFILL_META_MESSAGE = "backfill_v2";
-const REPOSTA_BACKFILL_META_MESSAGE = "board_buttons_v2";
 let repostaEditCooldownUntil = 0;
 
 function messageJumpUrl(guildId?, channelId?, messageId?) {
@@ -456,31 +455,6 @@ async function deleteQuoteBoardRecordByMessage(guildId?, boardChannelId?, boardM
   return Number(out?.deletedCount || 0) > 0;
 }
 
-async function hasPersistedRepostaBackfillMarker(guildId?) {
-  const gid = String(guildId || "").trim();
-  if (!gid) return false;
-  const meta = await GuildQuoteBoard.findOne({
-    guildId: gid,
-    boardChannelId: BACKFILL_META_CHANNEL,
-    boardMessageId: REPOSTA_BACKFILL_META_MESSAGE,
-  })
-    .select("_id")
-    .lean()
-    .catch(() => null);
-  return Boolean(meta?._id);
-}
-
-async function isQuoteBoardRepostaBackfillComplete(guildId?) {
-  const gid = String(guildId || "").trim();
-  if (!gid) return false;
-  if (repostaBackfillDoneByGuild.has(gid)) return true;
-  if (await hasPersistedRepostaBackfillMarker(gid)) {
-    repostaBackfillDoneByGuild.add(gid);
-    return true;
-  }
-  return false;
-}
-
 export = {
   messageJumpUrl,
   registerQuoteBoardPost,
@@ -488,5 +462,4 @@ export = {
   deleteUserQuoteEntry,
   deleteQuoteBoardRecordByMessage,
   buildQuoteBoardComponents,
-  isQuoteBoardRepostaBackfillComplete,
 };

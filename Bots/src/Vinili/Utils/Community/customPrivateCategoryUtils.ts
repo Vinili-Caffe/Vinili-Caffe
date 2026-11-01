@@ -3,17 +3,11 @@ const IDs = require("../Config/ids") as typeof import("../Config/ids");
 
 /* categoryCenterPad3: sidePad=1 frame=9 — PRIVATE(7) → left=2 right=2 */
 const CUSTOM_PRIVATE_CATEGORY_NAME = "・　　PRIVATE　　・";
-const CATEGORY_INDEX_PREFIX_RE = /^[⁰¹²³⁴⁵⁶⁷⁸⁹]+\s*/;
-
 function extractCategoryIndexPrefix(name?) {
   /* solo apici; niente spazio forzato (rompe il centro ・…・) */
   const match = String(name || "").match(/^([⁰¹²³⁴⁵⁶⁷⁸⁹]+)/);
   if (!match) return "";
   return match[1];
-}
-
-function stripCategoryIndexPrefix(name?) {
-  return String(name || "").replace(CATEGORY_INDEX_PREFIX_RE, "");
 }
 
 function normalizeCategoryName(name?) {
@@ -218,7 +212,6 @@ async function ensureCustomPrivateCategory(guild?, client?) {
 }
 
 export = {
-  stripCategoryIndexPrefix,
   listCustomPrivateCategories,
   getCustomPrivateCategoryIdSet,
   isChannelInCustomPrivateCategory,

@@ -90,12 +90,6 @@ function getDefaultTicketPanelFooter(lang = DEFAULT_LANGUAGE) {
 
 const DEFAULT_TICKET_PANEL_FOOTER = FALLBACK_TICKET_PANEL_FOOTER;
 
-function isDefaultWelcomeDescription(text?) {
-  const t = String(text || "").trim();
-  if (!t) return true;
-  return DEFAULT_WELCOME_DESC_SET.has(t);
-}
-
 function resolveTicketBotLanguage(guildId?, guild = null) {
   try {
     const { getTicketSettingsSync } = require("../tenant/tenantTicketSettings") as typeof import("../tenant/tenantTicketSettings");
@@ -152,7 +146,6 @@ export = {
   getDefaultTicketPanelTitle,
   getDefaultTicketPanelDescription,
   getDefaultTicketPanelFooter,
-  isDefaultWelcomeDescription,
   resolveTicketBotLanguage,
   wrapMentionsInSpoiler,
   isDefaultishSinglePanelEmbed,

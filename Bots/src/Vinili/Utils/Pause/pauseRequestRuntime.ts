@@ -216,10 +216,6 @@ function formatRuoloPausaRichiestoInMessage(guild?, normalizedOrRawRole?) {
   return String(normalizedOrRawRole || "").trim() || staffName;
 }
 
-function isSiteApiProcess() {
-  return ["1", "true", "yes", "on"].includes(String(process.env.SITE_API_PROCESS || "").trim().toLowerCase());
-}
-
 async function createPauseRequest({ guild, userId, requesterMention, rawStart, rawEnd, reason, member = null, requestedRole = null, halfDay = null }) {
   /* pauseHalfDay1: mezza giornata = una data sola + fascia; si può chiedere anche per oggi se la fascia non è iniziata */
   const halfSlot = normalizeHalfDay(halfDay);
@@ -392,4 +388,4 @@ async function createPauseRequest({ guild, userId, requesterMention, rawStart, r
   };
 }
 
-export = { PAUSE_REQUEST_ROLE_IDS, createPauseRequest, parsePauseChannelMessageContent, formatRuoloPausaRichiestoInMessage };
+export = { PAUSE_REQUEST_ROLE_IDS, createPauseRequest, parsePauseChannelMessageContent };

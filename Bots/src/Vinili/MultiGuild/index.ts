@@ -63,4 +63,4 @@ function attachToClient(client?) {
   return api;
 }
 
-export = { APP_ROOT, attachToClient, buildApi };
+export = { APP_ROOT, attachToClient };

@@ -345,44 +345,6 @@ async function syncCustomVocChannelForOwner(guild?, ownerId?) {
   }
 }
 
-async function collectCustomPrivateVoiceChannels(guild?) {
-  if (!guild?.id) return [];
-  await guild.channels.fetch().catch(() => {});
-  const { ownerByChannelId } = await loadCustomVocGuildContext(guild.id);
-  const byId = new Map();
-  for (const channel of guild.channels.cache.values()) {
-    if (isCustomPrivateVoiceChannel(channel, guild)) byId.set(channel.id, channel);
-  }
-  for (const channelId of ownerByChannelId.keys()) {
-    if (byId.has(channelId)) continue;
-    const channel =
-      guild.channels.cache.get(channelId) || (await getGuildChannelCached(guild, channelId));
-    if (channel?.isVoiceBased?.()) byId.set(channel.id, channel);
-  }
-  return [...byId.values()];
-}
-
-async function repairGuildCustomVocPermissions(guild?) {
-  if (!guild?.id) return { channels: 0, rolesStripped: 0 };
-  const { ownerByChannelId, customRoleIds } = await loadCustomVocGuildContext(guild.id);
-  const voiceChannels = await collectCustomPrivateVoiceChannels(guild);
-  let channels = 0;
-  let rolesStripped = 0;
-  for (const channel of voiceChannels) {
-    channels += 1;
-    rolesStripped += await stripLinkedCustomRolesFromChannel(channel, customRoleIds);
-    const ownerId = resolveCustomVocOwnerId(channel, ownerByChannelId);
-    if (ownerId) {
-      await ensureCustomVocChannelBaseline(channel, ownerId, guild.client?.user?.id);
-      const member = guild.members.cache.get(ownerId) || (await guild.members.fetch(ownerId).catch(() => null));
-      if (member?.voice?.channelId && String(member.voice.channelId) === String(channel.id)) {
-        await applyCustomVocOwnerPrivilegedOverwrite(channel, ownerId, "Custom voc repair: creatore in vocale");
-      }
-    }
-  }
-  return { channels, rolesStripped };
-}
-
 async function handleCustomVocVoiceStateUpdate(oldState?, newState?) {
   const guild = newState.guild || oldState.guild;
   if (!guild) return;
@@ -422,12 +384,9 @@ async function handleCustomVocVoiceStateUpdate(oldState?, newState?) {
 
 export = {
   CUSTOM_VOC_MEMBER_PERMS,
-  CUSTOM_VOC_OWNER_BASE_PERMS,
-  resolveCustomVocOwnerId,
   buildCustomVocCreateOverwrites,
   ensureCustomVocChannelBaseline,
   applyOverwrite,
   syncCustomVocChannelForOwner,
-  repairGuildCustomVocPermissions,
   handleCustomVocVoiceStateUpdate,
 };

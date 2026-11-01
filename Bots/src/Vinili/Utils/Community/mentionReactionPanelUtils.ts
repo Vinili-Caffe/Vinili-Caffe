@@ -120,27 +120,11 @@ function toDisplay(token?, clientOrGuild = null) {
   return raw;
 }
 
-function buildCustomReactionPanelEmbed(reactions?, maxReactions = MAX_REACTIONS, clientOrGuild = null) {
-  const current = Array.isArray(reactions) ? reactions : [];
-  const safeMax = Math.max(1, Number(maxReactions) || MAX_REACTIONS);
-  return new EmbedBuilder()
-    .setColor("#6f4e37")
-    .setTitle("Reaction alle menzioni")
-    .setDescription(
-      current.length
-        ? `Le tue reaction (${current.length}/${safeMax}): ${current.map((t?) => toDisplay(t, clientOrGuild)).join(" ")}`
-        : `Nessuna reaction attiva. Usa **Aggiungi** per impostarne fino a ${safeMax}.`,
-    )
-    .setFooter({ text: "Il bot aggiunge queste reaction solo quando sei menzionato nel messaggio." });
-}
-
 export = {
-  MAX_REACTIONS,
   memberHasCustomReactionRoleAccess,
   getCustomReactionMax,
   parseReactionTokens,
   findEmojiByShortName,
   resolveStoredCustomEmojiFromClient,
   toDisplay,
-  buildCustomReactionPanelEmbed,
 };

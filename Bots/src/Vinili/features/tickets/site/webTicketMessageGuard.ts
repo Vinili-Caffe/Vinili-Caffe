@@ -95,5 +95,4 @@ function checkWebTicketUserMessageAutomod(opts: Record<string, any> = {}) {
 export = {
   consumeWebTicketMessageRateLimit,
   checkWebTicketUserMessageAutomod,
-  USER_MIN_INTERVAL_MS,
 };

@@ -128,10 +128,6 @@ function userGlobalAvatarUrlDynamic(userLike?, { size = 256 } = {}) {
   return `https://cdn.discordapp.com/avatars/${uid}/${hash}.${ext}?size=${size}`;
 }
 
-function isDiscordAvatarHashAnimated(hash?) {
-  return String(hash || "").trim().startsWith("a_");
-}
-
 function normalizeDiscordCdnAvatarUrl(url?, { size = 256, preferAnimated = false } = {}) {
   let u = String(url || "").trim();
   if (!u) return "";
@@ -315,14 +311,9 @@ function memberLabelWithUsername(memberLike?, fallbackUser?) {
   return `${primary} (@${uname})`;
 }
 
-function guildFirstThumbnailUrl(guild?, userLike?, { size = 256 } = {}) {
-  return guildIconUrl(guild, { size }) || embedUserAvatarUrlDynamic(userLike, { size });
-}
-
 export = {
   guildIconUrl,
   discordDefaultAvatarUrl,
-  isDiscordAvatarHashAnimated,
   normalizeDiscordCdnAvatarUrl,
   guildMemberDisplayAvatarUrlForSite,
   guildMemberServerAvatarUrlDynamic,
@@ -338,6 +329,5 @@ export = {
   accountUsername,
   memberDisplayName,
   memberLabelWithUsername,
-  guildFirstThumbnailUrl,
   sitePreferredAvatarUrl,
 };

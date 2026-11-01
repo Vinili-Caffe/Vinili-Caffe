@@ -482,4 +482,4 @@ async function httpGet(url?, opts: Record<string, any> = {}) {
   throw lastErr;
 }
 
-export = { isTransientHttpError, ARTICLE_BRIEF_MIN, fetchArticleExcerpt, resolveArticleBrief, isBareGoogleNewsHome, resolveArticleUrl, httpGet };
+export = { isTransientHttpError, ARTICLE_BRIEF_MIN, resolveArticleBrief, isBareGoogleNewsHome, resolveArticleUrl, httpGet };

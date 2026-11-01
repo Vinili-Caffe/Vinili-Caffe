@@ -103,4 +103,4 @@ function normalizeSuggestionKind(value?) {
   return "";
 }
 
-export = { normalizeSuggestionBoard, SUGGESTION_TOPIC_TAGS, suggestionTopicTagOf, validateSuggestionTopicTag, suggestionBoardOf, boardListQuery, scrubDiscordDefaultAvatarUrl, avatarHashFromDiscordUrl, sanitizeBody, sanitizeStaffReason, normalizeSuggestionKind };
+export = { normalizeSuggestionBoard, suggestionTopicTagOf, validateSuggestionTopicTag, suggestionBoardOf, boardListQuery, scrubDiscordDefaultAvatarUrl, avatarHashFromDiscordUrl, sanitizeBody, sanitizeStaffReason, normalizeSuggestionKind };

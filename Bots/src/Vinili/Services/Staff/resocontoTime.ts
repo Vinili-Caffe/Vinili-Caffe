@@ -177,12 +177,6 @@ function getStaffResocontoEvaluationWindow(now = new Date()) {
   };
 }
 
-function getWeekStartDate(now = new Date()) {
-  const date = new Date(now);
-  date.setDate(date.getDate() - 7);
-  return date;
-}
-
 function dayKeyToWeekdayLabel(dayKey?) {
   if (!dayKey || typeof dayKey !== "string") return "?";
   const [y, m, d] = dayKey.split("-").map(Number);
@@ -245,4 +239,4 @@ function formatThreadDateTime(value?) {
   });
 }
 
-export = { TIME_ZONE, wait, getRomeDateParts, createUtcFromRomeLocal, parseRomeWallClock, addDaysToRomeYmd, getResocontoClosingSundayUtc, getPartnerLeaderboardWeekBoundsUtc, getCurrentResocontoPexWeekWindowUtc, getPmResocontoWindow, getStaffResocontoEvaluationWindow, getWeekStartDate, dayKeyToWeekdayLabel, parseItalianDate, getRomeStartOfDayUtc, resolveResocontoWeekKey, getResocontoWeekRangeFromWeekKey, formatThreadDateTime };
+export = { TIME_ZONE, wait, getRomeDateParts, createUtcFromRomeLocal, parseRomeWallClock, addDaysToRomeYmd, getResocontoClosingSundayUtc, getPartnerLeaderboardWeekBoundsUtc, getCurrentResocontoPexWeekWindowUtc, getPmResocontoWindow, getStaffResocontoEvaluationWindow, dayKeyToWeekdayLabel, parseItalianDate, getRomeStartOfDayUtc, resolveResocontoWeekKey, getResocontoWeekRangeFromWeekKey, formatThreadDateTime };

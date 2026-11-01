@@ -220,4 +220,4 @@ async function applyValutazione(client?, guildId?, userId?, type?, weekKey?) {
   }
 }
 
-export = { LEGACY_TASK_LABELS, MAX_NOTE, REASON_OK, REASON_FAIL, shouldSkipNegativeValutazione, STATUS, emptyWeek, sanitizeWeekEntry, pruneWeekMap, loadMap, saveMap, clearGhostDraftPicks, revertUnreviewedRandomAutoPicks, applyValutazione };
+export = { LEGACY_TASK_LABELS, MAX_NOTE, shouldSkipNegativeValutazione, STATUS, emptyWeek, sanitizeWeekEntry, pruneWeekMap, loadMap, saveMap, clearGhostDraftPicks, revertUnreviewedRandomAutoPicks, applyValutazione };

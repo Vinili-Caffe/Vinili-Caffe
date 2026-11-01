@@ -140,4 +140,4 @@ async function handleSiteGuildIconGet(client?, req?, res?) {
   }
 }
 
-export = { handleSiteGuildIconGet, resolveIconTarget };
+export = { handleSiteGuildIconGet };

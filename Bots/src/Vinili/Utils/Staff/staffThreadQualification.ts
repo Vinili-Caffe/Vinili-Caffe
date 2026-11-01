@@ -39,7 +39,6 @@ function memberQualifiesForStaffThreadSpec(member?, spec?) {
 }
 
 export = {
-  alwaysAccessStaffThreadRoleIds,
   resolveStaffThreadQualifyingRoleIds,
   memberHasStaffThreadAccess,
   memberQualifiesForStaffThreadSpec,

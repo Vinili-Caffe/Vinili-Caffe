@@ -11,21 +11,6 @@ const MAX_SET_TIMEOUT_MS = 2147483647;
 const pauseStatusRefreshScheduled = new Map();
 const pauseRankChangeSyncTimers = new Map();
 
-function schedulePauseButtonsRemoval(guild?, channelId?, messageId?, pauseStartRaw?, pauseEndRaw?, userId?, pauseId?, requestMessageIdPm = null) {
-  if (!guild || !channelId || !messageId || !userId || !pauseId) return;
-  const pmId = String(requestMessageIdPm ?? "").trim() || null;
-  const pause = {
-    _id: pauseId,
-    dataRichiesta: pauseStartRaw,
-    dataRitorno: pauseEndRaw,
-    requestChannelId: channelId,
-    requestMessageId: messageId,
-    requestMessageIdPm: pmId,
-    status: "accepted",
-  };
-  schedulePauseStatusRefresh(guild, String(userId), pause);
-}
-
 async function applyAcceptedPausePhaseToDiscordMessage(channel?, messageId?, userId?, pauseId?, phase?, withControls?, rebuiltContent = null) {
   const msg = await channel.messages.fetch(messageId).catch(() => null);
   if (!msg) return false;
@@ -226,31 +211,6 @@ async function restorePauseMessageStatusSync(client?) {
   return { ok: true, examined, synced };
 }
 
-async function scheduleAcceptedPauseStatusTimersOnly(client?) {
-  const guildId = String(IDs.guilds?.main || client?.guilds?.cache?.first?.()?.id || "").trim();
-  if (!guildId) return { ok: false, reason: "no_guild" };
-  const guild = client.guilds.cache.get(guildId) || (await client.guilds.fetch(guildId).catch(() => null));
-  if (!guild) return { ok: false, reason: "guild_not_found" };
-  const docs = await ActivityUserProfile.find(
-    { guildId, "staff.pauses.status": "accepted" },
-    { userId: 1, "staff.pauses": 1 },
-  )
-    .lean()
-    .catch(() => []);
-  let scheduled = 0;
-  for (const doc of docs) {
-    const userId = String(doc?.userId || "").trim();
-    if (!userId) continue;
-    const pauses = Array.isArray(doc?.staff?.pauses) ? doc.staff.pauses : [];
-    for (const pause of pauses) {
-      if (!pause || pause.status !== "accepted") continue;
-      schedulePauseStatusRefresh(guild, userId, pause);
-      scheduled += 1;
-    }
-  }
-  return { ok: true, scheduled };
-}
-
 async function cancelOpenPausesOnMemberLeave(guild?, userId?, options: Record<string, any> = {}) {
   const guildId = String(guild?.id || "").trim();
   const uid = String(userId || "").trim();
@@ -449,12 +409,4 @@ async function rewriteStaleCancelledPauseMessages(client?) {
   return { ok: true, examined, rewritten };
 }
 
-function startPauseMessageStatusMaintenance(client?) {
-  if (!client || client.__vcPauseMessageStatusMaintenanceStarted) return;
-  client.__vcPauseMessageStatusMaintenanceStarted = true;
-  void scheduleAcceptedPauseStatusTimersOnly(client).catch((err?) => {
-    global.logger?.warn?.("[PAUSE] schedule pause status timers failed:", err?.message || err);
-  });
-}
-
-export = { schedulePauseButtonsRemoval, syncSingleAcceptedPauseMessage, scheduleAcceptedPauseMessagesRefreshAfterRankChange, restorePauseMessageStatusSync, cancelOpenPausesOnMemberLeave, rewriteStaleCancelledPauseMessages, startPauseMessageStatusMaintenance };
+export = { syncSingleAcceptedPauseMessage, scheduleAcceptedPauseMessagesRefreshAfterRankChange, cancelOpenPausesOnMemberLeave, rewriteStaleCancelledPauseMessages };

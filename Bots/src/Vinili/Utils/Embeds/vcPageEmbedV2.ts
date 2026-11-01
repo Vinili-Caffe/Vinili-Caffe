@@ -441,50 +441,6 @@ function isComponentsV2Message(message?) {
   return comps.some((c?) => Number(c?.type ?? c?.data?.type) === ComponentType.Container);
 }
 
-function componentTypeOf(c?) {
-  if (!c) return 0;
-  const raw = typeof c.toJSON === "function" ? c.toJSON() : c;
-  return Number(raw?.type) || 0;
-}
-
-/** Unisce ActionRow (type 1) dentro il Container V2 (type 17). */
-function mergeActionRowsIntoV2Payload(v2Payload?, rows = []) {
-  if (!v2Payload || typeof v2Payload !== "object") return v2Payload;
-  const list = (Array.isArray(rows) ? rows : []).filter(Boolean).map((row?) =>
-    typeof row?.toJSON === "function" ? row.toJSON() : row,
-  );
-  const comps = (Array.isArray(v2Payload.components) ? v2Payload.components : []).map((c?) =>
-    typeof c?.toJSON === "function" ? c.toJSON() : c && typeof c === "object" ? { ...c } : c,
-  );
-  if (!comps.length && Array.isArray(v2Payload.containers) && v2Payload.containers.length) {
-    for (const c of v2Payload.containers) {
-      comps.push(typeof c?.toJSON === "function" ? c.toJSON() : c);
-    }
-  }
-  const idx = comps.findIndex((c?) => componentTypeOf(c) === ComponentType.Container);
-  if (idx >= 0 && list.length) {
-    const container = { ...comps[idx] };
-    const inner = Array.isArray(container.components) ? [...container.components] : [];
-    for (const row of list) {
-      if (row && componentTypeOf(row) === ComponentType.ActionRow) inner.push(row);
-    }
-    container.components = inner;
-    comps[idx] = container;
-  } else if (list.length) {
-    for (const row of list) {
-      if (row) comps.push(row);
-    }
-  }
-  const out = {
-    ...v2Payload,
-    components: comps,
-    embeds: [],
-    flags: (Number(v2Payload.flags) || 0) | MessageFlags.IsComponentsV2,
-  };
-  delete out.containers;
-  return out;
-}
-
 export = {
   SITE_CAFFE_ACCENT_INT,
   MessageFlags,
@@ -495,5 +451,4 @@ export = {
   buildVcSitePageSharePayload,
   isComponentsV2Payload,
   isComponentsV2Message,
-  mergeActionRowsIntoV2Payload,
 };

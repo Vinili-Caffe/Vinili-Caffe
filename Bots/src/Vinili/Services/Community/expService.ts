@@ -4,7 +4,7 @@ const { isMongoReady } = require("../../Utils/Database/mongoConnect") as typeof 
 const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
 const { getGuildChannelCached, getGuildRoleCached } = require("../../Utils/Interaction/interactionEntityCache") as typeof import("../../Utils/Interaction/interactionEntityCache");
 const { isLevelExpGuild, getIsoWeekKey, getCurrentWeekKey, getLevelInfo, getTotalExpForLevel, repairExpTotals, resolveLevelUpAnnounceLevel } = require("./expLevels") as typeof import("./expLevels");
-const { DEFAULT_MULTIPLIER, settingsCache, ROLE_MULTIPLIERS, normalizeSettingsDoc, getGuildExpSettings, getRoleMultiplier, combineWeeklyExpMultiplier, getResolvedWeeklyExpMultiplier, getGlobalMultiplier } = require("./expMultipliers") as typeof import("./expMultipliers");
+const { DEFAULT_MULTIPLIER, settingsCache, normalizeSettingsDoc, getGuildExpSettings, getRoleMultiplier, combineWeeklyExpMultiplier, getResolvedWeeklyExpMultiplier, getGlobalMultiplier } = require("./expMultipliers") as typeof import("./expMultipliers");
 const { LEVEL_ROLE_MAP, sendLevelUpAnnouncement, scheduleEventLevelUpMessage } = require("./expLevelUp") as typeof import("./expLevelUp");
 const { fetchGuildMember, addLevelRoleIfPossible, healMissingLevelRoles, healLevelRolesForGuildOnStartup, addPerkRoleIfPossible, syncLevelRolesForMember } = require("./expRoles") as typeof import("./expRoles");
 const { getTopExpGainsInPeriod } = require("./expHistory") as typeof import("./expHistory");
@@ -420,4 +420,4 @@ async function shouldIgnoreExpForMember({ guildId, member, channelId = null, ski
 }
 const PERIOD_LOOKBACK_DAYS = [1, 7, 14, 21, 30];
 
-export = { MESSAGE_EXP, VOICE_EXP_PER_MINUTE, isLevelExpGuild, addExpWithLevel, getUserExpStats, getUserRanks, getLevelInfo, getTotalExpForLevel, getGlobalMultiplier, setGlobalMultiplier, setTemporaryEventMultiplier, getGuildExpSettings, setLevelChannelLocked, setRoleIgnored, setRoleExpMultiplier, shouldIgnoreExpForMember, recordLevelHistory, syncLevelRolesForMember, retroSyncGuildLevels, healLevelRolesForGuildOnStartup, getResolvedWeeklyExpMultiplier, getCurrentWeekKey, incrementMinigameWinCounters, ROLE_MULTIPLIERS, sendLevelUpAnnouncement, getTopExpGainsInPeriod, PERIOD_LOOKBACK_DAYS };
+export = { MESSAGE_EXP, VOICE_EXP_PER_MINUTE, isLevelExpGuild, addExpWithLevel, getUserExpStats, getUserRanks, getLevelInfo, getTotalExpForLevel, getGlobalMultiplier, setGlobalMultiplier, setTemporaryEventMultiplier, getGuildExpSettings, setLevelChannelLocked, setRoleIgnored, setRoleExpMultiplier, shouldIgnoreExpForMember, recordLevelHistory, syncLevelRolesForMember, retroSyncGuildLevels, healLevelRolesForGuildOnStartup, getResolvedWeeklyExpMultiplier, getCurrentWeekKey, incrementMinigameWinCounters, sendLevelUpAnnouncement, getTopExpGainsInPeriod, PERIOD_LOOKBACK_DAYS };

@@ -13,7 +13,7 @@ const { collectMentionUserIdsFromMessages, resolveTicketMentionScope, memberCanV
 const { MAX_IMAGES, saveTicketImages } = require("./ticketMedia") as typeof import("./ticketMedia");
 const { MAX_REACTION_KINDS, buildReactionNameMap } = require("./ticketReactions") as typeof import("./ticketReactions");
 const { webTicketsListCache, ticketsAreImportDupSrv, dedupeTicketDocsSrv, webTicketsListEtag, webTicketsDetailEtag, rememberBotUserId, resolveMessageAuthorKind, serializeMessage, markTicketMessagesRead, staffAvgRatingMap, serializeMessagesWithReplies, resolveRateableStaffer, serializeTicket, previewFromContent } = require("./ticketSerialize") as typeof import("./ticketSerialize");
-const { MAX_CONTENT, emitTicketEvent, notifyStaffNewTicket, createSystemMessage, ticketBroadcastPayload, sweepWebTicketSlaNotifications, startWebTicketSlaNotifLoop } = require("./ticketNotify") as typeof import("./ticketNotify");
+const { MAX_CONTENT, emitTicketEvent, notifyStaffNewTicket, createSystemMessage, ticketBroadcastPayload, startWebTicketSlaNotifLoop } = require("./ticketNotify") as typeof import("./ticketNotify");
 const { resolveMemberOrStaff, loadTicketForActor, handleSiteWebTicketsCommandsGet, handleSiteWebTicketsCommandPost } = require("./ticketCommands") as typeof import("./ticketCommands");
 const { sanitizeWebTicketMentionsToScope, sanitizeWebTicketChannelMentions, handleSiteWebTicketsPresencePost, handleSiteWebTicketsReadPost, handleSiteWebTicketsTypingPost, handleSiteWebTicketsEmojisGet, handleSiteWebTicketsMentionsGet, handleSiteWebTicketsMessagePost, handleSiteWebTicketsReactionPost, handleSiteWebTicketsMessagePatch, handleSiteWebTicketsMessageDelete, handleSiteWebTicketsResolvePost, handleSiteWebTicketsFileGet } = require("./siteWebTicketsChat") as typeof import("./siteWebTicketsChat");
 const { MAX_SUBJECT, handleSiteWebTicketsClaimPost, handleSiteWebTicketsUnclaimPost, closeOpenWebTicketsForGuildUser, autoUnclaimOpenWebTicketsClaimedByUser, removeLeftUserFromOpenWebTickets, handleSiteWebTicketsClosePost, handleSiteWebTicketsMembersPost, handleSiteWebTicketsMembersRemovePost, handleSiteWebTicketsTransferPost, handleSiteWebTicketsCategoryPost, handleSiteWebTicketsRenamePost, handleSiteWebTicketsCloseRequestPost, handleSiteWebTicketsCloseRequestAcceptPost, handleSiteWebTicketsCloseRequestRejectPost, handleSiteWebTicketsRatePost } = require("./siteWebTicketsManage") as typeof import("./siteWebTicketsManage");
@@ -667,7 +667,6 @@ export = {
   ticketBroadcastPayload,
   notifyStaffNewTicket,
   startWebTicketSlaNotifLoop,
-  sweepWebTicketSlaNotifications,
   listGuildMentionChannels,
   sanitizeWebTicketMentionsToScope,
   sanitizeWebTicketChannelMentions,

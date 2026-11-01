@@ -266,39 +266,4 @@ function buildLoadComponents(
   return [selectRow, limitRow, buttonRow];
 }
 
-function buildDryRunEmbed(result?) {
-  const actionLines = Array.isArray(result?.actions) ? result.actions.map((a?) => String(a || "").trim()).filter(Boolean).map((a?) => `• \`${a}\``) : [];
-  return new EmbedBuilder()
-    .setColor("#3498db")
-    .setTitle("<:VC_update:1478721333096349817> Backup Dry Run")
-    .setDescription(
-      [
-        `<:VC_id:1478517313618575419> Backup ID: \`${String(result?.backupId || "")}\``,
-        `Source Guild: \`${String(result?.sourceGuildId || "unknown")}\``,
-        "",
-        "<:VC_update:1478721333096349817> **Planned Actions**",
-        actionLines.join("\n") || "• none",
-        "",
-        "<:VC_update:1478721333096349817> **Estimated Changes**",
-        `<:VC_Mention:1482526855289634997> Roles to create: **${Number(result?.expected?.createRoles || 0)}**`,
-        `<:channeltext:1443247596922470551> Channels to create: **${Number(result?.expected?.createChannels || 0)}**`,
-        `<:VC_threads:1478515497569095760> Threads to create: **${Number(result?.expected?.createThreads || 0)}**`,
-        `<:member_role_icon:1330530086792728618> Members to update: **${Number(result?.expected?.updateMembers || 0)}**`,
-          `<:VC_Chat:1482532573002465413> Messages to load: **${Number(result?.expected?.loadMessages || 0)}**`,
-        `<:VC_update:1478721333096349817> Messages limit: \`${formatMessagesLimit(result?.expected?.messagesLimit)}\``,
-        `<:VC_BlackPin:1482534513400610948> Pinned to load: **${Number(result?.expected?.loadPinnedMessages || 0)}**`,
-        "",
-        "<:VC_update:1478721333096349817> **Permission Diff**",
-        `<:VC_update:1478721333096349817> Missing roles: **${Number(result?.permissions?.roleMissing || 0)}**`,
-        `<:VC_update:1478721333096349817> Role permission mismatches: **${Number(result?.permissions?.rolePermissionMismatches || 0)}**`,
-        `<:VC_update:1478721333096349817> Missing channels: **${Number(result?.permissions?.channelMissing || 0)}**`,
-        `<:VC_update:1478721333096349817> Channel overwrite mismatches: **${Number(result?.permissions?.channelOverwriteMismatches || 0)}**`,
-        "",
-        "<:VC_update:1478721333096349817> **Safety Checks**",
-        `<:VC_update:1478721333096349817> Deletable roles check: **${result?.canDeleteRoles ? "OK" : "BLOCKED"}**`,
-        `<:VC_update:1478721333096349817> Deletable channels check: **${result?.canDeleteChannels ? "OK" : "BLOCKED"}**`,
-      ].filter(Boolean).join("\n"),
-    );
-}
-
-export = { buildLoadWarningEmbed, buildLoadInProgressEmbed, buildLoadStartComponents, countBackupMessages, countBackupPinnedMessages, buildPreflightWarningEmbed, buildPreflightButtons, buildLoadDoneEmbed, buildLoadErrorEmbed, buildLoadCancelledEmbed, buildLoadComponents, buildDryRunEmbed };
+export = { buildLoadWarningEmbed, buildLoadInProgressEmbed, buildLoadStartComponents, buildPreflightWarningEmbed, buildPreflightButtons, buildLoadDoneEmbed, buildLoadErrorEmbed, buildLoadCancelledEmbed, buildLoadComponents };

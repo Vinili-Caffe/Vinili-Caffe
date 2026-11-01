@@ -162,5 +162,4 @@ async function createTicketDocWithGlobalId(TicketModel?, payload: Record<string,
 export = {
   getNextTicketId,
   createTicketDocWithGlobalId,
-  isTicketNumberDuplicate,
 };

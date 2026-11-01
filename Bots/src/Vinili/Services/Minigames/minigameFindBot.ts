@@ -387,4 +387,4 @@ async function handleFindBotVoiceWin(client?, guild?, member?, game?, cfg?) {
   }
 }
 
-export = { scheduleFindMinigameTimeout, pickRandomFindBotChannel, hasFindBotVoiceSession, joinFindBotVoiceChannel, resolveFindBotVoiceBotChannelId, syncFindBotVoiceTargetChannel, getActiveFindBotVoiceGame, shouldDeferTtsLeaveForFindBotVoiceMinigame, startFindBotGame, startFindBotVoiceGame, handleFindBotVoiceWin };
+export = { scheduleFindMinigameTimeout, pickRandomFindBotChannel, joinFindBotVoiceChannel, resolveFindBotVoiceBotChannelId, syncFindBotVoiceTargetChannel, getActiveFindBotVoiceGame, shouldDeferTtsLeaveForFindBotVoiceMinigame, startFindBotGame, startFindBotVoiceGame, handleFindBotVoiceWin };

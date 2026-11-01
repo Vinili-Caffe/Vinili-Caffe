@@ -35,23 +35,6 @@ function rehydrateAntiNukePanicForGuild(guild?) {
   scheduleAntiNukePanicUnlock(guild, state);
 }
 
-async function triggerAntiNukePanicExternal(
-  guild?,
-  reason = "External security signal",
-  addedHeat = 100,
-  options: Record<string, any> = {},
-) {
-  if (!guild?.id) return { ok: false, reason: "missing_guild" };
-  const force = Boolean(options?.force !== false);
-  const panic = await enableAntiNukePanic(
-    guild,
-    String(reason || "External security signal"),
-    Number(addedHeat || 0),
-    { force },
-  );
-  return { ok: true, ...panic };
-}
-
 async function stopAntiNukePanic(guild?, reason = "manual stop", stoppedById = "") {
   if (!guild?.id) return { ok: false, reason: "missing_guild" };
   const state = getPanicState(guild.id);
@@ -170,4 +153,4 @@ async function shouldBlockAllCommands(guild?, options: Record<string, any> = {})
   return blocked;
 }
 
-export = { handleRoleUpdate, handleMemberRoleAddition, handleChannelOverwrite, handleVanityGuard, handleKickBanAction, handleRoleCreationAction, handleRoleDeletionAction, handleChannelCreationAction, handleChannelDeletionAction, handleWebhookCreationAction, handleWebhookUpdateAction, handleWebhookDeletionAction, handleInviteCreationAction, handleThreadCreationAction, handleThreadDeletionAction, handlePruneAction, quarantineExecutor, isAntiNukePanicActive, shouldBlockModerationCommands, shouldBlockAllCommands, invalidateCommandLockCache, isWhitelistedExecutor, isWhitelistedExecutorAsync, getAntiNukeStatusSnapshot, stopAntiNukePanic, triggerAntiNukePanicExternal, enableAntiNukePanic, setAntiNukeConfigSnapshot, rehydrateAntiNukePanicForGuild, restoreAntiNukeQuarantineTimersOnStartup };
+export = { handleRoleUpdate, handleMemberRoleAddition, handleChannelOverwrite, handleVanityGuard, handleKickBanAction, handleRoleCreationAction, handleRoleDeletionAction, handleChannelCreationAction, handleChannelDeletionAction, handleWebhookCreationAction, handleWebhookUpdateAction, handleWebhookDeletionAction, handleInviteCreationAction, handleThreadCreationAction, handleThreadDeletionAction, handlePruneAction, quarantineExecutor, isAntiNukePanicActive, shouldBlockModerationCommands, shouldBlockAllCommands, invalidateCommandLockCache, isWhitelistedExecutor, isWhitelistedExecutorAsync, getAntiNukeStatusSnapshot, stopAntiNukePanic, enableAntiNukePanic, setAntiNukeConfigSnapshot, rehydrateAntiNukePanicForGuild, restoreAntiNukeQuarantineTimersOnStartup };

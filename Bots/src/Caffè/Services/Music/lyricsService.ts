@@ -180,16 +180,4 @@ async function resolveGuildLyrics(client?, guild?, query?) {
   return { ok: true, title, pages: chunkLyrics(body) };
 }
 
-function registerLyricsSession(sessionKey?, data?) {
-  lyricsUiSessions.set(sessionKey, data);
-}
-
-function deleteLyricsSession(sessionKey?) {
-  lyricsUiSessions.delete(sessionKey);
-}
-
-function getLyricsSession(sessionKey?) {
-  return lyricsUiSessions.get(sessionKey) || null;
-}
-
-export = { resolveGuildLyrics, registerLyricsSession, deleteLyricsSession, getLyricsSession, LYRICS_PAGE_MAX };
+export = { resolveGuildLyrics, LYRICS_PAGE_MAX };

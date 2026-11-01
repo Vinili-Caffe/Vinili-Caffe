@@ -43,46 +43,6 @@ async function upsertVoteRole(guildId?, userId?, expiresAt?) {
   );
 }
 
-async function removeExpiredVoteRoles(client?) {
-  const now = new Date();
-  const expired = await ActivityUserProfile.find({ [VOTE_ROLE_EXPIRES_AT_PATH]: { $lte: now } })
-    .select(`guildId userId ${VOTE_ROLE_EXPIRES_AT_PATH}`)
-    .lean();
-  if (!expired.length) return;
-
-  for (const item of expired) {
-    const guild = client.guilds.cache.get(item.guildId) || (await client.guilds.fetch(item.guildId).catch(() => null));
-    if (!guild) {
-      await ActivityUserProfile.updateOne(
-        { guildId: item.guildId, userId: item.userId },
-        { $set: { [VOTE_ROLE_EXPIRES_AT_PATH]: null } },
-      );
-      continue;
-    }
-    const member = guild.members.cache.get(item.userId) || (await guild.members.fetch(item.userId).catch(() => null));
-    const resolvedVoteRoleId = await resolveVoteRoleIdForGuild(guild).catch(() => "");
-    const roleIdToRemove = resolvedVoteRoleId || VOTE_ROLE_ID;
-    if (member?.roles?.cache?.has(roleIdToRemove)) {
-      await member.roles.remove(roleIdToRemove).catch(() => { });
-    }
-    await ActivityUserProfile.updateOne(
-      { guildId: item.guildId, userId: item.userId },
-      { $set: { [VOTE_ROLE_EXPIRES_AT_PATH]: null } },
-    );
-  }
-}
-
-function startVoteRoleCleanupLoop(client?) {
-  if (!client) return;
-  if (voteCleanupLoopHandle) return voteCleanupLoopHandle;
-  removeExpiredVoteRoles(client).catch((err?) => global.logger?.warn?.("[VOTE ROLE] Recovery cleanup on start failed:", err?.message || err));
-  voteCleanupLoopHandle = setInterval(() => {
-    removeExpiredVoteRoles(client).catch(() => { });
-  }, CHECK_INTERVAL_MS);
-  voteCleanupLoopHandle.unref?.();
-  return voteCleanupLoopHandle;
-}
-
 async function upsertVerifiedMember(guildId?, userId?, verifiedAt = new Date()) {
   if (mongoose.connection?.readyState !== 1) return null;
   await ActivityUserProfile.findOneAndUpdate(
@@ -836,29 +796,13 @@ async function runAllGuilds(client?) {
   }
 }
 
-function startCategoryNumberingLoop(client?) {
-  if (numberingLoopHandle) return;
-  const options = getCategorySettings(client);
-  if (!options.enabled) return;
-  numberingLoopHandle = setInterval(() => {
-    runAllGuilds(client).catch(() => { });
-  }, options.intervalMs);
-  numberingLoopHandle.unref?.();
-  runAllGuilds(client).catch((err?) => {
-    global.logger?.warn?.("[CATEGORY NUMBERING] Recovery run on start failed:", err?.message || err);
-  });
-}
-
 export = {
   upsertVoteRole,
-  startVoteRoleCleanupLoop,
   upsertVerifiedMember,
   applyTenureForMember,
   startVerificationTenureLoop,
   backfillVerificationTenure,
   queueCategoryRenumber,
   runAllGuilds,
-  startCategoryNumberingLoop,
   isCategoryNumberingBotRename,
-  extractCoreCategoryLabel,
 };

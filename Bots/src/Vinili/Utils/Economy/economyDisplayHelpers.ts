@@ -58,13 +58,8 @@ function formatEconomyAmountShort(amount?, client = null) {
   return `${n} Caffè`;
 }
 
-function formatEconomyBet(amount?, client = null) {
-  return formatEconomyAmount(amount, client);
-}
-
 export = {
   economyUsername,
   formatEconomyAmount,
   formatEconomyAmountShort,
-  formatEconomyBet,
 };

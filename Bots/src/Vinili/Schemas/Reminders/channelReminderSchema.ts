@@ -30,5 +30,4 @@ const ChannelReminder: import("mongoose").Model<
 export = {
   COLLECTION,
   ChannelReminder,
-  channelReminderSchema,
 };

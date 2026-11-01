@@ -316,4 +316,4 @@ function isNearTitleDuplicate(title?, body?) {
   return tokenJaccard(titleStoryTokens(t), titleStoryTokens(b)) >= 0.72;
 }
 
-export = { BLOCKED_NEWS_HOST_RE, JUNK_TITLE_RE, isStaleOrJunkItem, hasDisallowedScript, normComparable, storyCoreTokens, storyFingerprint, rememberStory, matchesRecentStory, sourceOfficialRank, isSameNewsStory, dedupePreferOfficial, stripSourceSuffix, isNearTitleDuplicate };
+export = { BLOCKED_NEWS_HOST_RE, JUNK_TITLE_RE, isStaleOrJunkItem, hasDisallowedScript, normComparable, storyFingerprint, rememberStory, matchesRecentStory, isSameNewsStory, dedupePreferOfficial, stripSourceSuffix, isNearTitleDuplicate };

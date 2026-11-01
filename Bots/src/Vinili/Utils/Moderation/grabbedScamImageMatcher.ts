@@ -236,5 +236,4 @@ async function detectGrabbedScamImage(message?) {
 
 export = {
   detectGrabbedScamImage,
-  DHASH_MAX_DIST,
 };

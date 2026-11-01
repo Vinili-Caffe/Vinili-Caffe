@@ -113,11 +113,6 @@ function formatChannelMention(channelId?) {
   return /^\d{16,22}$/.test(id) ? `<#${id}>` : null;
 }
 
-function formatChannelMentionFromChannel(channel?) {
-  if (!channel) return null;
-  return formatChannelMention(channel.id);
-}
-
 async function resolvePmCommandsChannelMention(guildId = null) {
   const threadMention = formatChannelMention(await resolvePmCommandsThreadId());
   if (threadMention) return threadMention;
@@ -247,5 +242,4 @@ export = {
   sendPartnersChatDeniedPrefixCleanup,
   schedulePartnersDeniedDeleteReply,
   resolvePmCommandsChannelMention,
-  formatChannelMentionFromChannel,
 };

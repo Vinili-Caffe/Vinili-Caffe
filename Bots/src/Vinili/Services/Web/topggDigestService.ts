@@ -63,10 +63,6 @@ function resolveTopggStatsDigestSchedaUrl(client?, botId?) {
   return bid ? `https://top.gg/bot/${bid}` : "";
 }
 
-function resolveTopggBotUrl(client?) {
-  return resolveTopggStatsDigestSchedaUrl(client, client?.user?.id);
-}
-
 function resolveTopggReviewsUrl(client?, botId?) {
   const explicit = String(client?.config?.topgg?.reviewsPageUrl || "").trim();
   if (explicit) return explicit.replace(/\/+$/, "");
@@ -150,4 +146,4 @@ async function postTopggStatsDigestIfConfigured(client?) {
   return { ok: Boolean(sent), fields: fields.length, reviewCount };
 }
 
-export = { postTopggStatsDigestIfConfigured, resolveTopggBotUrl };
+export = { postTopggStatsDigestIfConfigured };

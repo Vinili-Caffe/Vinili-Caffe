@@ -305,5 +305,4 @@ function startTenantOfflineRecoveryLoop(client?, opts: Record<string, any> = {})
 export = {
   runTenantOfflineRecoveryTick,
   startTenantOfflineRecoveryLoop,
-  refreshBotGuildIdSet,
 };

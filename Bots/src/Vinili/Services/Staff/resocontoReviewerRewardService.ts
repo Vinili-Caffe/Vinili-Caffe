@@ -561,5 +561,4 @@ export = {
   onResocontoOutcomeRecorded,
   reconcileResocontoReviewerRewardAutoValutazioni,
   startResocontoReviewerRewardRecoveryLoop,
-  runDebouncedCompitoSegmentChecks,
 };

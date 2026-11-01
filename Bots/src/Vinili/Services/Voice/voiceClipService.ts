@@ -419,5 +419,4 @@ export = {
   exportClipFromCommand,
   isGuildClipRecording,
   parseClipDurationSec,
-  resolveClipConfig,
 };

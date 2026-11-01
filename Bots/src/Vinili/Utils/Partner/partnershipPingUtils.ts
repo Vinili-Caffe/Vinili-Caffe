@@ -267,13 +267,6 @@ function formatPartnershipPingDisplay({
   return parts.length ? parts.join(" ") : "`null`";
 }
 
-function prependPartnershipPingPrefix(content?, pingPlan?, options: Record<string, any> = {}) {
-  const prefix = buildPartnershipPingPrefix(pingPlan, options);
-  const body = String(content || "").trim();
-  if (!prefix) return body;
-  return body ? `${prefix}\n\n${body}` : prefix;
-}
-
 function normalizeExcludeUserIds(excludeUserIds?) {
   if (!Array.isArray(excludeUserIds) || !excludeUserIds.length) return new Set();
   return new Set(
@@ -307,37 +300,4 @@ function detectUsedPingsInContent(content?, pingPlan: Record<string, any> = {}) 
   };
 }
 
-function stripInvalidTenantSlashPartnershipMentions(description?, pingPlan: Record<string, any> = {}) {
-  let content = String(description || "");
-
-  if (!pingPlan.pingHere) {
-    content = content.replace(/\B@here\b/gi, "");
-  }
-  if (!pingPlan.pingEveryone) {
-    content = content.replace(/\B@everyone\b/gi, "");
-  }
-
-  const configuredPingRoleId =
-    String(pingPlan.customRoleId || pingPlan.customRoleDecision?.roleId || "").trim() || null;
-  if (configuredPingRoleId && !pingPlan.customRoleId) {
-    const roleMention = `<@&${configuredPingRoleId}>`;
-    content = content.split(roleMention).join("");
-  }
-
-  return content;
-}
-
-function applyTenantSlashPartnershipPings(description?, pingPlan: Record<string, any> = {}) {
-  let content = stripInvalidTenantSlashPartnershipMentions(description, pingPlan);
-  const used = detectUsedPingsInContent(content, pingPlan);
-  const toAdd = [];
-
-  if (pingPlan.pingHere && !used.pingHere) toAdd.push("@here");
-  if (pingPlan.pingEveryone && !used.pingEveryone) toAdd.push("@everyone");
-  if (pingPlan.customRoleId && !used.customRoleId) toAdd.push(`<@&${pingPlan.customRoleId}>`);
-
-  if (!toAdd.length) return content;
-  return content ? `${toAdd.join(" ")}\n\n${content}` : toAdd.join(" ");
-}
-
-export = { DEFAULT_CUSTOM_ROLE_PING_DELAY_MS, parsePingDelayInput, formatPingDelayLabel, formatPingDelayForInput, formatPingDelayDisplay, formatPingMemberThresholdForInput, parsePingMemberThresholdInput, resolvePartnershipPublishPings, buildPartnershipPingPrefix, formatPartnershipPingDisplay, prependPartnershipPingPrefix, buildPartnershipPublishAllowedMentions, detectUsedPingsInContent, applyTenantSlashPartnershipPings };
+export = { DEFAULT_CUSTOM_ROLE_PING_DELAY_MS, parsePingDelayInput, formatPingDelayLabel, formatPingDelayForInput, formatPingDelayDisplay, formatPingMemberThresholdForInput, parsePingMemberThresholdInput, resolvePartnershipPublishPings, buildPartnershipPingPrefix, formatPartnershipPingDisplay, buildPartnershipPublishAllowedMentions, detectUsedPingsInContent };

@@ -46,25 +46,6 @@ const HIGHSTAFF_TICKET_WRITE_OVERWRITES = Object.freeze({
   UseApplicationCommands: true,
 });
 
-const TICKET_STAFF_SPECTATE_CREATE_ALLOW = [
-  PermissionFlagsBits.ViewChannel,
-  PermissionFlagsBits.EmbedLinks,
-  PermissionFlagsBits.AttachFiles,
-  PermissionFlagsBits.ReadMessageHistory,
-  PermissionFlagsBits.AddReactions,
-  PermissionFlagsBits.UseApplicationCommands,
-];
-
-const HIGHSTAFF_TICKET_WRITE_CREATE_ALLOW = [
-  PermissionFlagsBits.ViewChannel,
-  PermissionFlagsBits.SendMessages,
-  PermissionFlagsBits.EmbedLinks,
-  PermissionFlagsBits.AttachFiles,
-  PermissionFlagsBits.ReadMessageHistory,
-  PermissionFlagsBits.AddReactions,
-  PermissionFlagsBits.UseApplicationCommands,
-];
-
 function isHighStaffTicketRoleId(roleId?, highStaffRoleId = HIGHSTAFF_ROLE_ID) {
   const id = String(roleId || "").trim();
   const hs = String(highStaffRoleId || "").trim();
@@ -130,30 +111,6 @@ function buildTicketOpenerCreateOverwrite(userId?, allowBits?) {
   return buildTicketMemberCreateOverwrite(userId, { allow: allowBits });
 }
 
-function buildTicketStaffSpectateCreateOverwrite(roleId?) {
-  const id = normalizeOverwriteTargetId(roleId);
-  if (!id) return null;
-  return buildTicketRoleCreateOverwrite(id, {
-    allow: TICKET_STAFF_SPECTATE_CREATE_ALLOW,
-    deny: [PermissionFlagsBits.SendMessages],
-  });
-}
-
-function buildHighStaffTicketWriteCreateOverwrite(roleId = HIGHSTAFF_ROLE_ID) {
-  const id = normalizeOverwriteTargetId(roleId);
-  if (!id) return null;
-  return buildTicketRoleCreateOverwrite(id, {
-    allow: HIGHSTAFF_TICKET_WRITE_CREATE_ALLOW,
-  });
-}
-
-function buildTicketStaffRoleCreateOverwrite(roleId?, highStaffRoleId = HIGHSTAFF_ROLE_ID) {
-  if (isHighStaffTicketRoleId(roleId, highStaffRoleId)) {
-    return buildHighStaffTicketWriteCreateOverwrite(roleId);
-  }
-  return buildTicketStaffSpectateCreateOverwrite(roleId);
-}
-
 async function applyHighStaffTicketWriteOverwrite(channel?, roleId = HIGHSTAFF_ROLE_ID) {
   await editTicketRoleOverwrite(channel, roleId, HIGHSTAFF_TICKET_WRITE_OVERWRITES);
 }
@@ -181,7 +138,6 @@ export = {
   buildTicketEveryoneDenyViewCreateOverwrite,
   buildTicketRoleDenyViewCreateOverwrite,
   buildTicketOpenerCreateOverwrite,
-  buildTicketStaffRoleCreateOverwrite,
   applyHighStaffTicketWriteOverwrite,
   applyTicketStaffRoleOverwrites,
 };

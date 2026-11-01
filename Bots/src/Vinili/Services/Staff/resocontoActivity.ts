@@ -228,4 +228,4 @@ function serializeCostanzaChart(overview?) {
     .sort((a?, b?) => String(a.dayKey).localeCompare(String(b.dayKey)));
 }
 
-export = { collectResocontoVoiceExcludeIds, buildResocontoOverviewOptions, buildResocontoActivityScope, isGuildMemberCacheLikelyComplete, fetchGuildMembersByPagesForResoconto, buildCostanzaLines, overviewLooksLikeEmptyFallback, serializeCostanzaChart };
+export = { collectResocontoVoiceExcludeIds, buildResocontoOverviewOptions, isGuildMemberCacheLikelyComplete, fetchGuildMembersByPagesForResoconto, buildCostanzaLines, overviewLooksLikeEmptyFallback, serializeCostanzaChart };

@@ -85,21 +85,6 @@ function isUnknownDiscordResourceError(err?) {
     return code === 10003 || code === 10008;
 }
 
-async function clearOrphanBoardPointers(guildId?, boardChannelId?, boardMessageId?) {
-  const gid = String(guildId || "").trim();
-  const bc = String(boardChannelId || "").trim();
-  const bm = String(boardMessageId || "").trim();
-  if (!gid || !bc || !bm) return 0;
-  const res = await timedRepostQuery(
-    GuildRepost.updateMany(
-      { guildId: gid, boardChannelId: bc, boardMessageId: bm },
-      { $set: { boardChannelId: "", boardMessageId: "" } },
-    ),
-    "repost clear orphan board pointers",
-  ).catch(() => null);
-  return Number(res?.modifiedCount || res?.nModified || 0);
-}
-
 function attachmentKeepRefs(message?) {
   const list =
     typeof message?.attachments?.values === "function"
@@ -193,73 +178,4 @@ async function applyBoardMessageRemovedState(guild?, boardChannelId?, boardMessa
     .catch(() => boardMsg.delete().catch(() => null));
 }
 
-async function syncAllBoardRepostButtons(client?, options: Record<string, any> = {}) {
-  const limit = Math.max(50, Math.min(8000, Number(options.limit) || 2500));
-  const delayMs = Math.max(0, Math.min(2000, Number(options.delayMs) || 250));
-  await ensureRepostDbReady().catch(() => null);
-
-  const groups = await timedRepostQuery(
-    GuildRepost.aggregate([
-      {
-        $match: {
-          boardChannelId: { $nin: ["", null] },
-          boardMessageId: { $nin: ["", null] },
-        },
-      },
-      { $sort: { createdAt: -1 } },
-      {
-        $group: {
-          _id: { guildId: "$guildId", boardChannelId: "$boardChannelId", boardMessageId: "$boardMessageId" },
-          repostId: { $first: "$_id" },
-          lastAt: { $first: "$createdAt" },
-        },
-      },
-      { $sort: { lastAt: -1 } },
-      { $limit: limit },
-    ]),
-    "repost board sync groups",
-  ).catch(() => []);
-
-  let updated = 0;
-  let failed = 0;
-  let scanned = 0;
-  let skipped = 0;
-  let orphaned = 0;
-  let orphanDocsCleared = 0;
-
-  for (const row of groups || []) {
-    scanned += 1;
-    const gid = String(row?._id?.guildId || "").trim();
-    const bc = String(row?._id?.boardChannelId || "").trim();
-    const bm = String(row?._id?.boardMessageId || "").trim();
-    if (!gid || !bc || !bm) {
-      skipped += 1;
-      continue;
-    }
-    const guild = client?.guilds?.cache?.get(gid) || (await client?.guilds?.fetch(gid).catch(() => null));
-    if (!guild) {
-      failed += 1;
-      continue;
-    }
-    const result: any = await syncBoardMessageComponentsDetailed(guild, bc, bm).catch((err?) => ({
-      ok: false,
-      reason: "sync_threw",
-      detail: err?.message || String(err),
-    }));
-    if (result?.ok) {
-      updated += 1;
-    } else if (result?.orphan) {
-      const cleared = await clearOrphanBoardPointers(gid, bc, bm);
-      orphaned += 1;
-      orphanDocsCleared += cleared;
-      skipped += 1;
-    } else {
-      failed += 1;
-    }
-    if (delayMs > 0) await new Promise((resolve?) => setTimeout(resolve, delayMs));
-  }
-
-  return { scanned, updated, failed, skipped, orphaned, orphanDocsCleared };
-}
-
-export = { REPOST_DB_MS, ensureRepostDbReady, timedRepostQuery, clearOrphanBoardPointers, editBoardMessageKeepAttachments, syncBoardMessageComponentsDetailed, syncBoardMessageComponents, ensureBoardRepostaButton, applyBoardMessageRemovedState, syncAllBoardRepostButtons };
+export = { REPOST_DB_MS, ensureRepostDbReady, timedRepostQuery, editBoardMessageKeepAttachments, syncBoardMessageComponents, ensureBoardRepostaButton, applyBoardMessageRemovedState };

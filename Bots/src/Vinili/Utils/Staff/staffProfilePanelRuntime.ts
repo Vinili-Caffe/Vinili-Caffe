@@ -2,9 +2,7 @@ const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js") a
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
 const IDs = require("../Config/ids") as typeof import("../Config/ids");
 const { getGuildMemberCached } = require("../Interaction/interactionEntityCache") as typeof import("../Interaction/interactionEntityCache");
-const { STAFF_WARN_RESET_MS, STAFF_WARN_THREE_NEGATIVES_REASON } = require("../../Services/Staff/staffWarnService") as typeof import("../../Services/Staff/staffWarnService");
-const { countModActionsByMod } = require("../Moderation/modCaseStore") as typeof import("../Moderation/modCaseStore");
-const { buildPauseListPayload } = require("../Pause/pauseListRuntime") as typeof import("../Pause/pauseListRuntime");
+const { STAFF_WARN_THREE_NEGATIVES_REASON } = require("../../Services/Staff/staffWarnService") as typeof import("../../Services/Staff/staffWarnService");
 const { roleChoiceAppliesTo, PAUSE_ROLE_PM } = require("../Pause/pauseHandlersUtils") as typeof import("../Pause/pauseHandlersUtils");
 const { memberHasStaffRole } = require("../Community/staffListUtils") as typeof import("../Community/staffListUtils");
 const { applyPronounGenderToTextForMember } = require("../Community/pronounGenderUtils") as typeof import("../Community/pronounGenderUtils");
@@ -21,13 +19,9 @@ const {
 } = require("../Discord/guildDiscordIdentity") as typeof import("../Discord/guildDiscordIdentity");
 const {
   resolveSerataFilmAttendanceForWeek,
-  buildSerataFilmAttendanceDescriptionLine,
-  buildSerataFilmAttendanceButtonRow,
 } = require("./serataFilmAttendanceUtils") as typeof import("./serataFilmAttendanceUtils");
-const { reconcileStaffValutazioneCounters } = require("./staffDocUtils") as typeof import("./staffDocUtils");
 const {
   resolvePmCommandsChannelMention,
-  formatChannelMentionFromChannel,
 } = require("../Partner/partnersChatChannelUtils") as typeof import("../Partner/partnersChatChannelUtils");
 const PANEL_PREFIX = "staff_profile_panel";
 const SECTION_HOME = "home";
@@ -227,12 +221,6 @@ function resolveStaffProfileKind(member?) {
   return PROFILE_FULL;
 }
 
-function targetMayReceivePartnerManagerPex(member?) {
-  const pmId = String(IDs.roles?.PartnerManager || "").trim();
-  if (!pmId || !member?.roles?.cache) return false;
-  return !member.roles.cache.has(pmId);
-}
-
 
 export = {
   PANEL_PREFIX,
@@ -247,5 +235,4 @@ export = {
   resolveStaffProfileDisplayRoleId,
   viewerIsFounder,
   targetIsFounder,
-  targetMayReceivePartnerManagerPex,
 };

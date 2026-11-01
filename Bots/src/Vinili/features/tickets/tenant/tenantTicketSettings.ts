@@ -572,5 +572,4 @@ export = {
   getTicketSettingsForGuild,
   saveTicketSettings,
   getTicketTypeStaffRoleIds,
-  DASHBOARD_DEFAULT_CATEGORY_NAME,
 };

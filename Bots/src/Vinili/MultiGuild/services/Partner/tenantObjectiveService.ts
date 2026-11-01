@@ -512,5 +512,4 @@ export = {
   evaluateTenantObjectives,
   setTenantObjectiveFlag,
   recordTenantBugReport,
-  buildObjectiveProgress,
 };

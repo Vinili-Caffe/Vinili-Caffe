@@ -1,7 +1,7 @@
 /** Repost: roulette (un repost a caso) e i repost di un utente. */
 const { GuildRepost } = require("../../Schemas/Community/repostSchema") as typeof import("../../Schemas/Community/repostSchema");
 const { resolveRoulettePostChannel } = require("../../Utils/Quote/repostRoulettePostChannel") as typeof import("../../Utils/Quote/repostRoulettePostChannel");
-const { serializableMediaFiles, isAudioAttachmentMeta, isImageAttachmentMeta, prepareRepostSendMedia, resolveRepostMediaFilesForSend } = require("./repostMedia") as typeof import("./repostMedia");
+const { serializableMediaFiles, isImageAttachmentMeta, prepareRepostSendMedia, resolveRepostMediaFilesForSend } = require("./repostMedia") as typeof import("./repostMedia");
 const { messageJumpUrl, buildRouletteEmbed, buildRepostaButtonRow } = require("./repostEmbeds") as typeof import("./repostEmbeds");
 
 const ROULETTE_RECENT_LIMIT = Math.max(
@@ -180,27 +180,4 @@ function resolveRepostPreviewImageUrl(row?) {
   return "";
 }
 
-function formatMyRepostPreview(row?, boardUrl = "") {
-  const text = String(row?.content || "").trim();
-  if (text) {
-    return text.length > 80 ? `${text.slice(0, 79)}…` : text;
-  }
-  const jump = String(boardUrl || "").trim();
-  const link = (label?) => (jump ? `[${label}](${jump})` : label);
-  const imageUrl = resolveRepostPreviewImageUrl(row);
-  if (imageUrl) {
-    const isGif = /\.gif(\?|$)/i.test(imageUrl);
-    return `🖼️ ${link(isGif ? "GIF" : "Immagine")}`;
-  }
-  const files = serializableMediaFiles(row?.mediaFiles);
-  if (files.some((file?) => isAudioAttachmentMeta(file.name))) {
-    return `🎵 ${link("Clip audio")}`;
-  }
-  if (files.length) {
-    const name = files[0].name || "Allegato";
-    return `📎 ${link(name)}`;
-  }
-  return "";
-}
-
-export = { isRepostDisabledInGuild, sendRepostRoulette, listRepostsByUser, resolveRepostPreviewImageUrl, formatMyRepostPreview };
+export = { isRepostDisabledInGuild, sendRepostRoulette, listRepostsByUser, resolveRepostPreviewImageUrl };

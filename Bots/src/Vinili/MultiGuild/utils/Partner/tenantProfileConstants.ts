@@ -1,4 +1,4 @@
-const { TENANT_LANGUAGES, TENANT_LANGUAGE_OPTIONS, LANGUAGE_PICKER_ROWS, BADGE_COPY, OBJECTIVE_COPY, buildObjectiveDefs, normalizeTenantLanguage, t, getLanguageFlag, getLanguageLabel, resolveTenantLanguage } = require("./tenantPartnershipI18n/index") as typeof import("./tenantPartnershipI18n/index");
+const { TENANT_LANGUAGES, TENANT_LANGUAGE_OPTIONS, LANGUAGE_PICKER_ROWS, OBJECTIVE_COPY, normalizeTenantLanguage, t, getLanguageFlag, getLanguageLabel, resolveTenantLanguage } = require("./tenantPartnershipI18n/index") as typeof import("./tenantPartnershipI18n/index");
 const { TENANT_PARTNERSHIP_ARROWS } = require("./tenantPartnershipArrows") as typeof import("./tenantPartnershipArrows");
 const { BADGE_DEFS } = require("./tenantObjectiveDefs") as typeof import("./tenantObjectiveDefs");
 const MAX_SELECTED_BADGES = 2;
@@ -23,8 +23,4 @@ const TENANT_PROFILE_BADGE_ARROWS = Object.freeze({
   collapseUp: TENANT_PARTNERSHIP_ARROWS.up,
 });
 
-function buildObjectiveDefsLocal() {
-  return buildObjectiveDefs();
-}
-
-export = { MAX_SELECTED_BADGES, BADGES_PER_PAGE, BADGES_BROWSE_PER_PAGE, OBJECTIVES_PER_PAGE, NOTIFICATIONS_LIMIT, TENANT_PROFILE_SECTIONS, TENANT_PROFILE_BADGE_ARROWS, TENANT_PARTNERSHIP_ARROWS, TENANT_LANGUAGES, TENANT_LANGUAGE_OPTIONS, LANGUAGE_PICKER_ROWS, BADGE_DEFS, BADGE_COPY, OBJECTIVE_COPY, buildObjectiveDefs: buildObjectiveDefsLocal, normalizeTenantLanguage, getLanguageFlag, getLanguageLabel, t, resolveTenantLanguage };
+export = { MAX_SELECTED_BADGES, BADGES_PER_PAGE, BADGES_BROWSE_PER_PAGE, OBJECTIVES_PER_PAGE, NOTIFICATIONS_LIMIT, TENANT_PROFILE_SECTIONS, TENANT_PROFILE_BADGE_ARROWS, TENANT_PARTNERSHIP_ARROWS, TENANT_LANGUAGES, TENANT_LANGUAGE_OPTIONS, LANGUAGE_PICKER_ROWS, BADGE_DEFS, OBJECTIVE_COPY, normalizeTenantLanguage, getLanguageFlag, getLanguageLabel, t, resolveTenantLanguage };

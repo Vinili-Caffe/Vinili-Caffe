@@ -259,5 +259,4 @@ export = {
   buildLoadStatusEmbed,
   buildLoadCancelResultEmbed,
   sortChannels,
-  formatRoleList,
 };

@@ -1,4 +1,3 @@
-const cron = require("node-cron") as typeof import("node-cron");
 const { runCronDetached } = require("../../../shared/scheduling/cronDetached") as typeof import("../../../shared/scheduling/cronDetached");
 const { isMongoReady } = require("../../Utils/Database/mongoConnect") as typeof import("../../Utils/Database/mongoConnect");
 const IDs: any = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
@@ -17,7 +16,6 @@ const {
 const MAIN_GUILD_ID = String(IDs.guilds?.main || "");
 const SERATA_FILM_CHANNEL_ID = String(IDs.channels?.serataFilm || "1497535199813042306").trim();
 const SERATA_FILM_MIN_MS = 30 * 60 * 1000;
-const AUTO_SYNC_CRON = "*/5 * * * *";
 const STABLE_NO_INVITE_MS = 75 * 1000;
 const SUPPORT_AUTO_REMOVE_STABLE_MS = 5 * 60 * 1000;
 const STAFF_BOOST_AUTO_KEY = "staff_boost_server";
@@ -623,63 +621,6 @@ async function syncAllStaffAutoValutazioni(client?, options: Record<string, any>
   return members.length;
 }
 
-async function runStaffAutoValutazioniSyncLocked(client?, source = "loop") {
-  if (autoValutazioniSuspended || !isMongoReady()) return;
-  if (autoValutazioniSyncRunning) {
-    if (source !== "loop") {
-      warnAutoValutazioni(`[STAFF AUTO VALUTAZIONI] ${source} skipped: previous sync still running.`);
-    }
-    return;
-  }
-  autoValutazioniSyncRunning = true;
-  const startedAt = Date.now();
-  let memberCount = 0;
-  try {
-    memberCount = await syncAllStaffAutoValutazioni(client, { preferCache: source === "loop" });
-  } catch (err) {
-    warnAutoValutazioni(`[STAFF AUTO VALUTAZIONI] ${source} failed:`, err?.message || err);
-  } finally {
-    const elapsedMs = Date.now() - startedAt;
-    autoValutazioniSyncRunning = false;
-    if (elapsedMs > 60_000) {
-      warnAutoValutazioni(`[STAFF AUTO VALUTAZIONI] ${source} slow sync: ${elapsedMs}ms (${memberCount} staff).`);
-    }
-  }
-}
-
-function startStaffAutoValutazioniLoop(client?) {
-  if (!client || autoWeeklyLoops.has(client)) return;
-  if (autoValutazioniSuspended) return;
-  autoWeeklyLoops.add(client);
-  if (!autoValutazioniCleanupStarted) {
-    autoValutazioniCleanupStarted = true;
-    cleanupMalformedAutoValutazioni().catch(() => null);
-  }
-  const scheduleCron = () => {
-    if (autoValutazioniSuspended) return;
-    if (client.__staffAutoValutazioniCronStarted) return;
-    client.__staffAutoValutazioniCronStarted = true;
-    cron.schedule(
-      AUTO_SYNC_CRON,
-      runCronDetached("[STAFF AUTO VALUTAZIONI] cron", () => runStaffAutoValutazioniSyncLocked(client, "loop")),
-      { timezone: "Europe/Rome", noOverlap: true },
-    );
-  };
-      const forceStartupSync = ["1", "true", "yes"].includes(
-    String(process.env.STAFF_AUTO_VALUTAZIONI_SYNC_ON_STARTUP || process.env.FULL_STARTUP_SYNC || "")
-      .trim()
-      .toLowerCase(),
-  );
-  if (forceStartupSync) {
-    const firstSync = setTimeout(() => {
-      runStaffAutoValutazioniSyncLocked(client, "first_sync").finally(() => scheduleCron());
-    }, 15_000);
-    firstSync.unref?.();
-    return;
-  }
-  scheduleCron();
-}
-
 function suspendStaffAutoValutazioni() {
   autoValutazioniSuspended = true;
 }
@@ -1044,12 +985,10 @@ export = {
   resolveAutoValutazioneCreateKeysFromMemberUpdate,
   handleStaffBoostAutoValutazioneMemberUpdate,
   syncAllStaffAutoValutazioni,
-  startStaffAutoValutazioniLoop,
   suspendStaffAutoValutazioni,
   startSerataFilmSession,
   finishSerataFilmSessionsForChannel,
   handleSerataFilmScheduledEventUpdate,
   handleSerataFilmVoiceState,
   restoreActiveSerataFilmSessions,
-  SERATA_FILM_CHANNEL_ID,
 };

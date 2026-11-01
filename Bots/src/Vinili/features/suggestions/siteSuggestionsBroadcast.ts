@@ -401,5 +401,4 @@ export = {
   invalidateLeftMemberSiteCaches,
   broadcastSiteRealtime,
   notifyExternalSiteRealtime,
-  SITE_REALTIME_WS_PATH,
 };

@@ -50,13 +50,6 @@ function serializableMediaFiles(files?) {
     .filter((entry?) => entry.url);
 }
 
-function discordFilesFromStored(stored?) {
-  return serializableMediaFiles(stored).map((entry?, index?) => ({
-    attachment: entry.url,
-    name: entry.name || `file-${index + 1}`,
-  }));
-}
-
 function isAudioAttachmentMeta(name?, contentType = "") {
   const n = String(name || "").toLowerCase();
   const ct = String(contentType || "").toLowerCase();
@@ -192,4 +185,4 @@ function extractRepostPayload(targetMessage?) {
   return { text, imageUrl, files, hasContent: Boolean(text || imageUrl || files.length) };
 }
 
-export = { MIN_AUDIO_ATTACHMENT_BYTES, pickImageUrlFromMessage, serializableMediaFiles, discordFilesFromStored, isAudioAttachmentMeta, isImageAttachmentMeta, prepareRepostSendMedia, fetchAttachmentBuilderFromUrl, resolveRepostMediaFilesForSend, resolvePayloadFilesForSend, extractRepostPayload };
+export = { pickImageUrlFromMessage, serializableMediaFiles, isAudioAttachmentMeta, isImageAttachmentMeta, prepareRepostSendMedia, resolveRepostMediaFilesForSend, resolvePayloadFilesForSend, extractRepostPayload };

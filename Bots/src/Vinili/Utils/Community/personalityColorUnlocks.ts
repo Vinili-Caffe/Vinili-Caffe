@@ -13,7 +13,6 @@ const PERSONALITY_NORMAL_COLOR_ROLE_IDS_ALL = [
   "1544830982702628946",
   "1544830980265873448",
 ];
-const EMOJI_COLOR_TIER = "<:VC_EXP:1482534670896730143>";
 const BASE_PLUS_COLOR_ROLE_IDS_ORDERED = [
   IDs.roles.redPlus,
   IDs.roles.orangePlus,
@@ -116,15 +115,6 @@ function listUnlockedTierRoleIds(numericLevel?) {
   return [...new Set([...fromTier, ...fromGated])];
 }
 
-function tierColorDefForRoleId(roleId?) {
-  const id = String(roleId || "").trim();
-  return (
-    getTierExclusiveColorDefs().find((d?) => d.roleId === id) ||
-    getLevelGatedPlusColorDefs().find((d?) => d.roleId === id) ||
-    null
-  );
-}
-
 function listUnlockedNaturalRoleIds() {
   return [...PERSONALITY_NORMAL_COLOR_ROLE_IDS_ALL];
 }
@@ -144,27 +134,6 @@ function isAllowedColorValue(value?, member?, numericLevel?, canPickPlus?) {
   return false;
 }
 
-function buildProfileTierColorSelectOptionsWithRemove(guild?, numericLevel?) {
-  const removeOpt = {
-    label: "Rimuovi colore",
-    value: "remove",
-    description: "Rimuovi i colori esclusivi di livello",
-    emoji: "<:vegax:1443934876440068179>",
-  };
-  const tierIds = listUnlockedTierRoleIds(numericLevel).filter((rid?) => guild?.roles?.cache?.has?.(rid));
-  const opts = [removeOpt];
-  for (const rid of tierIds) {
-    const def = tierColorDefForRoleId(rid);
-    opts.push({
-      label: `Lv${def?.minLevel || "?"} · ${roleLabel(guild, rid)}`.slice(0, 100),
-      value: rid,
-      emoji: EMOJI_COLOR_TIER,
-      description: `Da livello ${def?.minLevel || "?"}`,
-    });
-  }
-  return opts.slice(0, 25);
-}
-
 export = {
   PERSONALITY_NORMAL_COLOR_ROLE_IDS_ALL,
   getAllPersonalityChatColorRoleIds,
@@ -175,5 +144,4 @@ export = {
   listUnlockedNaturalRoleIds,
   isAllowedColorValue,
   roleLabel,
-  buildProfileTierColorSelectOptionsWithRemove,
 };

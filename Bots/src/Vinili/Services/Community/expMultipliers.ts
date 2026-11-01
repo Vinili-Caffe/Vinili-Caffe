@@ -271,4 +271,4 @@ async function getGlobalMultiplier(guildId?) {
   return settings.effectiveMultiplier;
 }
 
-export = { DEFAULT_MULTIPLIER, settingsCache, ROLE_MULTIPLIERS, normalizeSettingsDoc, getGuildExpSettings, getRoleMultiplier, combineWeeklyExpMultiplier, getResolvedWeeklyExpMultiplier, getGlobalMultiplier };
+export = { DEFAULT_MULTIPLIER, settingsCache, normalizeSettingsDoc, getGuildExpSettings, getRoleMultiplier, combineWeeklyExpMultiplier, getResolvedWeeklyExpMultiplier, getGlobalMultiplier };

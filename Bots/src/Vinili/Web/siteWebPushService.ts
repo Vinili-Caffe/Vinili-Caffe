@@ -486,9 +486,6 @@ async function sendWebPushTestToEndpoint(userId?, endpointRaw?) {
 async function noteWebPushShown(_idRaw?, _dedupeKeyRaw?, _meta: Record<string, any> = {}) {
   return { ok: true, ignoredForHedge: true, client: null };
 }
-async function wasWebPushShown(_idRaw?, _dedupeKeyRaw?) {
-  return false;
-}
 export = {
   getPublicVapidKey,
   isPushEnabled,
@@ -498,5 +495,4 @@ export = {
   sendWebPushToUser,
   sendWebPushTestToEndpoint,
   noteWebPushShown,
-  wasWebPushShown,
 };

@@ -178,7 +178,6 @@ function registerPronounGenderReplyHook() {
 
 export = {
   resolveMemberPronounGender,
-  applyPronounGenderToText,
   applyPronounGenderToTextForMember,
   applyPronounGenderToEmbedForMember,
   applyPronounGenderToPayload,

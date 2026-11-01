@@ -151,7 +151,5 @@ async function autoUnclaimOpenTicketsClaimedByUser(guild?, formerClaimantUserId?
 }
 
 export = {
-  buildTicketPanelUnclaimedButtonRow,
   autoUnclaimOpenTicketsClaimedByUser,
-  applyChannelPermissionOverwritesAfterUnclaim,
 };

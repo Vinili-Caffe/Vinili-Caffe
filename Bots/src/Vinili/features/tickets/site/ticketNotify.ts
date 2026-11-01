@@ -563,4 +563,4 @@ function startWebTicketSlaNotifLoop(client?) {
   return webTicketSlaLoopHandle;
 }
 
-export = { MAX_CONTENT, emitTicketEvent, listStaffRecipientsForCategory, refreshStaffTicketQueueNotif, notifyStaffNewTicket, notifyMentionedUsers, notifyUserTicketEvent, purgeTicketNotifications, notifyTicketChatMessage, createSystemMessage, ticketBroadcastPayload, clearTicketSlaNotifsForTicket, sweepWebTicketSlaNotifications, startWebTicketSlaNotifLoop };
+export = { MAX_CONTENT, emitTicketEvent, listStaffRecipientsForCategory, refreshStaffTicketQueueNotif, notifyStaffNewTicket, notifyMentionedUsers, notifyUserTicketEvent, purgeTicketNotifications, notifyTicketChatMessage, createSystemMessage, ticketBroadcastPayload, clearTicketSlaNotifsForTicket, startWebTicketSlaNotifLoop };

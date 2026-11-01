@@ -157,5 +157,4 @@ function startGlobalExpEventAnnouncementLoop(client?) {
 
 export = {
   startGlobalExpEventAnnouncementLoop,
-  runGlobalExpEventStartAnnouncementCheck,
 };

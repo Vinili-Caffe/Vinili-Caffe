@@ -401,5 +401,4 @@ export = {
   publishSinglePanel,
   publishMultiPanel,
   DEFAULT_OPTION_META,
-  TICKET_MEDIA_URL,
 };

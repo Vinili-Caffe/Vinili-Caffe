@@ -226,22 +226,8 @@ async function sweepStalePreMemberRoles(client?, options: Record<string, any> = 
   return { scanned, fixed };
 }
 
-function startPreMemberRoleSweepLoop(client?) {
-  if (preMemberSweepLoopHandle) return preMemberSweepLoopHandle;
-  const tick = () => {
-    sweepStalePreMemberRoles(client, { limit: 200 }).catch((err?) => {
-      global.logger?.warn?.("[preMemberRole] sweep failed:", err?.message || err);
-    });
-  };
-  tick();
-  preMemberSweepLoopHandle = setInterval(tick, SWEEP_INTERVAL_MS);
-  preMemberSweepLoopHandle.unref?.();
-  return preMemberSweepLoopHandle;
-}
-
 export = {
   syncPreMemberRoleForMember,
   handlePreMemberRoleOnMemberUpdate,
   sweepStalePreMemberRoles,
-  startPreMemberRoleSweepLoop,
 };

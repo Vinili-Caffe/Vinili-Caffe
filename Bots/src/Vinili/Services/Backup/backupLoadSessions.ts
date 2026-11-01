@@ -202,4 +202,4 @@ function deleteLoadSession(sessionId?) {
   persistRuntimeSnapshotNow();
 }
 
-export = { LOAD_ACTIONS, DEFAULT_ACTIONS, DEFAULT_MESSAGES_LIMIT, ACTIVE_LOAD_STALE_MS, activeLoadsByGuild, persistRuntimeSnapshotNow, ensureRuntimeLoaded, sleep, sanitizeActions, normalizeMessagesLimit, formatMessagesLimit, createLoadSession, getLoadSession, updateLoadSessionActions, updateLoadSessionMessagesLimit, deleteLoadSession };
+export = { LOAD_ACTIONS, DEFAULT_MESSAGES_LIMIT, ACTIVE_LOAD_STALE_MS, activeLoadsByGuild, persistRuntimeSnapshotNow, ensureRuntimeLoaded, sleep, sanitizeActions, normalizeMessagesLimit, formatMessagesLimit, createLoadSession, getLoadSession, updateLoadSessionActions, updateLoadSessionMessagesLimit, deleteLoadSession };

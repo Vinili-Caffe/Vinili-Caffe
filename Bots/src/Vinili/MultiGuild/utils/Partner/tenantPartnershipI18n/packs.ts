@@ -617,4 +617,4 @@ applyVarHelpPacks(UI_PACKS);
 applyHelpUiPacks(UI_PACKS);
 applyGeneratedPacks(UI_PACKS, BADGE_COPY, OBJECTIVE_COPY);
 
-export = { UI_PACKS, BADGE_COPY, OBJECTIVE_COPY };
+export = { UI_PACKS, OBJECTIVE_COPY };

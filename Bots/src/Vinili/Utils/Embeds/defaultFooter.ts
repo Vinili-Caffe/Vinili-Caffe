@@ -327,12 +327,10 @@ function installEmbedFooterPatch() {
 
 export = {
   DEFAULT_FOOTER_TEXT,
-  sanitizeEmbedFooterText,
   applyDefaultFooter,
   applyDefaultFooterToEmbeds,
   stripDefaultFooterInternals,
   installEmbedFooterPatch,
   installOutgoingMessageEmbedPatch,
-  installEmbedMediaFallbackPatch,
   setEmbedBrandDefaultColor,
 };

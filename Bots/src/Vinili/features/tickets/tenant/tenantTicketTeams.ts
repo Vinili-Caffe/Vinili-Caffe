@@ -335,7 +335,6 @@ export = {
   BOT_STATE_KEY,
   MAX_TEAMS,
   MAX_MEMBERS,
-  DEFAULT_TEAM_SEED,
   TEAM_PERM_KEYS,
   newTeamId,
   normalizeTeamId,

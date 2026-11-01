@@ -1320,5 +1320,4 @@ export = {
   enqueuePartnershipHistoryMigration,
   getPartnershipHistoryMigrationStatus,
   undoPartnershipHistoryMigration,
-  QUEUE_STATE_KEY_LARGE,
 };

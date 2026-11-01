@@ -116,4 +116,4 @@ function formatHoursFromSeconds(seconds?) {
   return `${hours.toFixed(2)}h`;
 }
 
-export = { STAFF_ACTIVITY_LIMITS, STAFF_LIMITS_MSG_PER_HOUR_SWAP, scaleStaffActivityLimits, evaluateStaffWeeklyLimitsWithSwap, evaluateStaffWeeklyLimitsAtMultiplier, formatStaffLimitsSwapLine, STAFF_SANCTION_LIMITS, toSafeNumber, formatHoursFromSeconds };
+export = { STAFF_ACTIVITY_LIMITS, STAFF_LIMITS_MSG_PER_HOUR_SWAP, evaluateStaffWeeklyLimitsWithSwap, evaluateStaffWeeklyLimitsAtMultiplier, formatStaffLimitsSwapLine, STAFF_SANCTION_LIMITS, toSafeNumber, formatHoursFromSeconds };

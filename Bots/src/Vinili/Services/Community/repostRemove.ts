@@ -6,7 +6,6 @@ const { isClipRepostDoc } = require("./repostClips") as typeof import("./repostC
 const { REPOST_REMOVE_PREFIX } = require("./repostEmbeds") as typeof import("./repostEmbeds");
 const { timedRepostQuery, syncBoardMessageComponents, applyBoardMessageRemovedState } = require("./repostBoardSync") as typeof import("./repostBoardSync");
 
-const MYREPOST_DEL_PREFIX = "myrepost_del:";
 const EPHEMERAL_FLAG = 1 << 6;
 
 function memberCanForceDeleteClip(member?) {
@@ -154,23 +153,6 @@ async function findClickerRepostForBoardAnchor(guildId?, anchorDoc?, clickerUser
   ).catch(() => null);
 }
 
-function parseMyRepostDeleteButton(customId?) {
-  const id = String(customId || "");
-  const match = id.match(/^myrepost_del:([a-f0-9]{24}):(\d{16,20}):(\d{16,20}):(\d+):(\d+)$/i);
-  if (!match) return null;
-  return {
-    repostId: match[1],
-    requesterId: match[2],
-    targetUserId: match[3],
-    page: Math.max(1, Number(match[4]) || 1),
-    totalPages: Math.max(1, Number(match[5]) || 1),
-  };
-}
-
-function isMyRepostDeleteButton(customId?) {
-  return String(customId || "").startsWith(MYREPOST_DEL_PREFIX);
-}
-
 async function handleRepostRemoveButton(interaction?) {
   const parsed = parseRepostRemoveButton(interaction.customId);
   if (!parsed || !interaction.guild) return;
@@ -245,4 +227,4 @@ async function handleRepostRemoveButton(interaction?) {
   }).catch(() => null);
 }
 
-export = { MYREPOST_DEL_PREFIX, EPHEMERAL_FLAG, deleteUserRepostEntry, parseRepostRemoveButton, isRepostRemoveButton, parseMyRepostDeleteButton, isMyRepostDeleteButton, handleRepostRemoveButton };
+export = { EPHEMERAL_FLAG, deleteUserRepostEntry, isRepostRemoveButton, handleRepostRemoveButton };

@@ -8,7 +8,6 @@ const {
 } = require("../../Web/websiteGuildMemberFetch") as typeof import("../../Web/websiteGuildMemberFetch");
 const { memberIsHighStaffEligible } = require("./siteStaffDashboardApi") as typeof import("./siteStaffDashboardApi");
 const { readProfileCache, readStaleProfileCache, readAnyStaleProfileCacheForTarget, warmStaffRosterMembers, writeProfileCache, clearStaffProfileCacheForUser } = require("./staffProfileCache") as typeof import("./staffProfileCache");
-const { isOnStaffCareerLadder, isPartnerManagerRole } = require("./staffProfileCareer") as typeof import("./staffProfileCareer");
 const { buildStaffProfilePayloadForWeb } = require("./staffProfilePayload") as typeof import("./staffProfilePayload");
 
 
@@ -327,6 +326,5 @@ async function handleSiteStaffProfileGet(client?, req?, res?) {
 
 export = {
   handleSiteStaffProfileGet,
-  buildStaffProfilePayloadForWeb,
   clearStaffProfileCacheForUser,
 };

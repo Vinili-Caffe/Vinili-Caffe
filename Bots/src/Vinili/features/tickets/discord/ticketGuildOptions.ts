@@ -89,40 +89,6 @@ function buildTicketControlButtons(guildId?, overrides = null) {
   return new ActionRowBuilder().addComponents(...buttons.slice(0, 5));
 }
 
-function buildClaimedControlButtons(guildId?, overrides = null) {
-  const s = getOptions(guildId);
-  const o = overrides && typeof overrides === "object" ? overrides : {};
-  const hideClose = resolveNullableBool(o.hideCloseButton, s.hideCloseButton);
-  const hideCloseReason = resolveNullableBool(o.hideCloseReasonButton, s.hideCloseReasonButton);
-  const buttons = [];
-  if (!hideClose) {
-    buttons.push(
-      new ButtonBuilder()
-        .setCustomId("close_ticket")
-        .setEmoji("🔒")
-        .setLabel("Chiudi")
-        .setStyle(ButtonStyle.Danger),
-    );
-  }
-  if (!hideCloseReason) {
-    buttons.push(
-      new ButtonBuilder()
-        .setCustomId("close_ticket_motivo")
-        .setEmoji("🔒")
-        .setLabel("Chiudi Con Motivo")
-        .setStyle(ButtonStyle.Danger),
-    );
-  }
-  buttons.push(
-    new ButtonBuilder()
-      .setCustomId("unclaim")
-      .setEmoji("<a:VC_Unlock:1482532082466029608>")
-      .setLabel("Unclaim")
-      .setStyle(ButtonStyle.Secondary),
-  );
-  return new ActionRowBuilder().addComponents(...buttons.slice(0, 5));
-}
-
 function openerAllowBitsToMemberOverwrite(allowBits?) {
   const bits = Array.isArray(allowBits) ? allowBits : [];
   const has = (flag?) => bits.some((b?) => b === flag);
@@ -218,6 +184,5 @@ export = {
   resolveTicketPanel,
   resolveTranscriptLogChannelId,
   buildTicketControlButtons,
-  buildClaimedControlButtons,
   syncOpenTicketOpenerPermissions,
 };

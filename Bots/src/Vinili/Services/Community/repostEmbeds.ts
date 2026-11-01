@@ -209,4 +209,4 @@ function buildRepostPrivacyBlockedEmbed(authorLabel?) {
     .setFooter({ text: `Se hai bisogno di condividere il messaggio, usa uno screenshot o chiedi il permesso diretto. ${dateText}` });
 }
 
-export = { REPOST_COLOR, REPOST_BTN_PREFIX, REPOST_SRC_PREFIX, REPOST_REMOVE_PREFIX, messageJumpUrl, buildShareAckEmbed, buildBoardEmbed, buildRouletteEmbed, buildRepostaSourceButtonRow, buildAckRepostaComponents, buildRepostaButtonRow, buildBoardMessageComponents, buildRepostRemovedEmbed, buildRepostPrivacyBlockedEmbed };
+export = { REPOST_BTN_PREFIX, REPOST_SRC_PREFIX, REPOST_REMOVE_PREFIX, messageJumpUrl, buildShareAckEmbed, buildBoardEmbed, buildRouletteEmbed, buildAckRepostaComponents, buildRepostaButtonRow, buildBoardMessageComponents, buildRepostRemovedEmbed, buildRepostPrivacyBlockedEmbed };

@@ -227,4 +227,4 @@ function coerceMonthKey(raw?) {
   return coerce(raw);
 }
 
-export = { MS_PER_DAY, getRomeDayStartUtcMs, parseItalianDate, getPauseDaysBetween, getTodayUtc, getCurrentYearBoundsUtc, countOverlapDays, countEffectiveOverlapDays, rangesOverlap, getMonthBoundsUtc, filterPausesByMonth, getRomeMonthKey, getMonthKeyForPauseCount, getStaffWeekKeyNow, coerceMonthKey };
+export = { MS_PER_DAY, getRomeDayStartUtcMs, parseItalianDate, getPauseDaysBetween, getTodayUtc, getCurrentYearBoundsUtc, countOverlapDays, countEffectiveOverlapDays, rangesOverlap, filterPausesByMonth, getMonthKeyForPauseCount, getStaffWeekKeyNow, coerceMonthKey };

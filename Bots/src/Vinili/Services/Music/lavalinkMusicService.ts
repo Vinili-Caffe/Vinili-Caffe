@@ -1,8 +1,8 @@
 
 const { getGuildMusicVoiceChannelId, guildMusicSessionBlocksOtherVoiceChannels, guildHasMusicVoiceResumeHint, markMusicVoiceLeaveIntentional, handleMusicBotVoiceDisconnect } = require("./musicVoice") as typeof import("./musicVoice");
 const { isLavalinkUsable, initLavalinkMusicIfEnabled } = require("./musicEngine") as typeof import("./musicEngine");
-const { fetchGuildQueueEntryRows, fetchGuildUpcomingQueueRows, fetchGuildRequestedSessionRows, fetchGuildNextUpDetails, fetchGuildNowPlayingDetails, formatQueue, nowPlayingStatus } = require("./musicQueueView") as typeof import("./musicQueueView");
-const { setGuildMusicVolume, skipGuild, stopGuild, pauseToggle, pauseGuildTrack, resumeGuildTrack, clearGuildQueue } = require("./musicControls") as typeof import("./musicControls");
+const { fetchGuildQueueEntryRows, fetchGuildUpcomingQueueRows, fetchGuildRequestedSessionRows, fetchGuildNextUpDetails, fetchGuildNowPlayingDetails } = require("./musicQueueView") as typeof import("./musicQueueView");
+const { setGuildMusicVolume, skipGuild, stopGuild, pauseGuildTrack, resumeGuildTrack, clearGuildQueue } = require("./musicControls") as typeof import("./musicControls");
 const { getNowPlayingEmbedTitle, toggleRepeatOneGuild, previousGuildTrack, shuffleGuildQueue, rewindGuildTrack, restartQueueGuild } = require("./musicQueueControls") as typeof import("./musicQueueControls");
 const { resumeMusicVoiceAfterAfkProbe, suspendMusicVoiceForAfkProbe } = require("./musicAfk") as typeof import("./musicAfk");
 const { playMusicRequest } = require("./musicPlayRequest") as typeof import("./musicPlayRequest");
@@ -31,17 +31,14 @@ export = {
   setGuildMusicVolume,
   skipGuild,
   stopGuild,
-  formatQueue,
   clearGuildQueue,
   shuffleGuildQueue,
   toggleRepeatOneGuild,
   previousGuildTrack,
-  pauseToggle,
   pauseGuildTrack,
   resumeGuildTrack,
   rewindGuildTrack,
   restartQueueGuild,
-  nowPlayingStatus,
   handleMusicBotVoiceDisconnect,
   shouldDeferTtsLeaveForMusicEmptyVc,
   getGuildMusicVoiceChannelId,

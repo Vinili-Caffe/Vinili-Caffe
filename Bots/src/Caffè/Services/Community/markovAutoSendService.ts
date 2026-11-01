@@ -625,5 +625,4 @@ async function handleMarkovReplyMessageCreate(message?, client?) {
 export = {
   handleMarkovAutoSendMessageCreate,
   handleMarkovReplyMessageCreate,
-  isBotClientMessage,
 };

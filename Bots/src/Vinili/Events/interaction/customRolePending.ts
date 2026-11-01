@@ -201,24 +201,10 @@ function ensurePendingLoaded() {
   }
 }
 
-function hasPendingRoleGrantFor({ guildId, requesterId, targetId, roleId }) {
-  ensurePendingLoaded();
-  const now = Date.now();
-  for (const req of pendingRoleGrants.values()) {
-    if (now > Number(req.expiresAt || 0)) continue;
-    if (String(req.guildId || "") !== String(guildId || "")) continue;
-    if (String(req.requesterId || "") !== String(requesterId || "")) continue;
-    if (String(req.targetId || "") !== String(targetId || "")) continue;
-    if (String(req.roleId || "") !== String(roleId || "")) continue;
-    return true;
-  }
-  return false;
-}
-
 function getPendingRoleGrantByToken(token?) {
   if (!token) return null;
   ensurePendingLoaded();
   return pendingRoleGrants.get(String(token)) || null;
 }
 
-export = { pendingRoleGrants, pendingSiteRoleRequests, PENDING_SITE_ROLE_DOC, persistPendingSiteRoleRequest, deletePendingSiteRoleRequest, resolvePendingSiteRoleRequest, persistPendingRoleGrant, deletePendingRoleGrant, resolvePendingRoleGrant, persistPendingNow, ensurePendingLoaded, hasPendingRoleGrantFor, getPendingRoleGrantByToken };
+export = { pendingRoleGrants, pendingSiteRoleRequests, PENDING_SITE_ROLE_DOC, persistPendingSiteRoleRequest, deletePendingSiteRoleRequest, resolvePendingSiteRoleRequest, persistPendingRoleGrant, deletePendingRoleGrant, resolvePendingRoleGrant, persistPendingNow, ensurePendingLoaded, getPendingRoleGrantByToken };

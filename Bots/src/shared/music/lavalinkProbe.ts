@@ -98,7 +98,6 @@ async function waitUntilLavalinkReady(opts: Record<string, any> = {}) {
 
 export = {
   parseLavalinkHost,
-  probeLavalinkTcp,
   probeLavalinkHttpReady,
   isTransientLavalinkConnectError,
   waitUntilLavalinkReady,

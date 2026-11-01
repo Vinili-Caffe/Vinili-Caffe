@@ -480,4 +480,4 @@ async function handleStanzaPanelPromptMessageCreate(message?) {
   return false;
 }
 
-export = { handleStanzaRenameMessageCreate, handleStanzaEmojiMessageCreate, handleStanzaLimitMessageCreate, handleStanzaDescMessageCreate, handleStanzaViceMessageCreate, handleStanzaPanelPromptMessageCreate };
+export = { handleStanzaPanelPromptMessageCreate };

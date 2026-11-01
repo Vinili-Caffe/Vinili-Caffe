@@ -240,5 +240,4 @@ async function stabilizeRepostMedia(client?, doc?) {
 export = {
   stabilizeQuoteMedia,
   stabilizeRepostMedia,
-  fetchBoardMessageMedia,
 };

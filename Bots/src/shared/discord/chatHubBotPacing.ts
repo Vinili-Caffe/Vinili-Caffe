@@ -8,6 +8,5 @@ export = {
   extendChatHubQuietUntil: coordination.extendChatHubQuietUntil,
   msUntilOtherBotGap: coordination.msUntilOtherBotGap,
   msUntilChatHubAllowsPost: coordination.msUntilChatHubAllowsPost,
-  waitForChatHubBotGap: coordination.waitForChatHubBotGap,
   waitForChatHubSlot: coordination.waitForChatHubSlot,
 };

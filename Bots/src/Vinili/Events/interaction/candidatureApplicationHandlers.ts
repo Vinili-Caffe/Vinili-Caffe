@@ -2,7 +2,7 @@ const path = require("path") as typeof import("path");
 const { registerShutdownFlush, armShutdownCheckpoint } = require("../../../shared/recovery/shutdownCheckpoint") as typeof import("../../../shared/recovery/shutdownCheckpoint");
 const { APPLICATION_TYPES, cooldownByUserAndType, cooldownStorageKey, loadCooldownMap, persistCooldownMap } = require("./candidatureEligibility") as typeof import("./candidatureEligibility");
 const { DRAFT_TTL_MS, APPLICATION_COOLDOWN_MS, draftByStateKey, APPLICATIONS, persistDraftMap, resolveSubmissionChannel } = require("./candidatureEmbeds") as typeof import("./candidatureEmbeds");
-const { memberHasCandidatureReviewAccess, parseCandidateTypeFromMessage, listCandidatureApplications, listPendingCandidatureApplications, getCandidatureApplicationDetail } = require("./candidatureList") as typeof import("./candidatureList");
+const { memberHasCandidatureReviewAccess, parseCandidateTypeFromMessage, listCandidatureApplications, getCandidatureApplicationDetail } = require("./candidatureList") as typeof import("./candidatureList");
 const { webRejectCandidateApplication, webAcceptCandidateApplication } = require("./candidatureDecision") as typeof import("./candidatureDecision");
 const { resolveWebsiteCandidatureMember, getCandidatureEligibilitySummary, submitCandidatureWebsite } = require("./candidatureWebsite") as typeof import("./candidatureWebsite");
 
@@ -119,7 +119,6 @@ export = {
   memberHasCandidatureReviewAccess,
   parseCandidateTypeFromMessage,
   listCandidatureApplications,
-  listPendingCandidatureApplications,
   getCandidatureApplicationDetail,
   webRejectCandidateApplication,
   webAcceptCandidateApplication,

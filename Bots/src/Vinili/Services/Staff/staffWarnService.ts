@@ -162,44 +162,11 @@ async function applyFullDepex(guild?, member?, currentRoleId?) {
   return { ok: true, roleRemoved: currentRoleId };
 }
 
-async function runStaffWarnSixMonthReset(client?) {
-  const guildId = IDs.guilds?.main;
-  if (!guildId) return;
-  const now = Date.now();
-  const docs = await ActivityUserProfile.find(
-    { guildId, "staff.firstWarnStaffAt": { $ne: null, $lte: new Date(now - STAFF_WARN_RESET_MS) } },
-    { userId: 1, "staff.warnCount": 1, "staff.firstWarnStaffAt": 1 },
-  ).lean();
-  for (const doc of docs) {
-    await ActivityUserProfile.updateOne(
-      { guildId, userId: doc.userId },
-      { $set: { "staff.warnCount": 0, "staff.warnReasons": [], "staff.firstWarnStaffAt": null } },
-    ).catch(() => null);
-  }
-  if (docs.length > 0) {
-    global.logger?.info?.(`[STAFF WARN] Reset ${docs.length} staff warn(s) (6 mesi dal primo).`);
-  }
-}
-
-function startStaffWarnResetLoop(client?) {
-  runStaffWarnSixMonthReset(client).catch((err?) => {
-    global.logger?.error?.("[STAFF WARN] Reset 6 mesi fallito:", err);
-  });
-  const intervalMs = 24 * 60 * 60 * 1000;
-  const timer = setInterval(() => {
-    runStaffWarnSixMonthReset(client).catch(() => {});
-  }, intervalMs);
-  timer.unref?.();
-  return timer;
-}
-
 export = {
   NEGATIVES_PER_STAFF_WARN,
-  STAFF_WARN_RESET_MS,
   STAFF_WARN_THREE_NEGATIVES_REASON,
   addStaffWarnFromNegatives,
   getHighestStaffRoleId,
   applyDepexOneLevel,
   applyFullDepex,
-  startStaffWarnResetLoop,
 };

@@ -15,18 +15,4 @@ function voteCountMonthKeyRome(date = new Date()) {
   return `${y}-${m}`;
 }
 
-function romeMonthStartMs(now = new Date()) {
-  const end = Number.isFinite(now.getTime()) ? now.getTime() : Date.now();
-  const k = voteCountMonthKeyRome(new Date(end));
-  let lo = end - 50 * 86400000;
-  if (lo < 0) lo = 0;
-  let hi = end;
-  while (lo < hi) {
-    const mid = Math.floor((lo + hi) / 2);
-    if (voteCountMonthKeyRome(new Date(mid)) === k) hi = mid;
-    else lo = mid + 1;
-  }
-  return lo;
-}
-
-export = { voteCountMonthKeyRome, romeMonthStartMs };
+export = { voteCountMonthKeyRome };

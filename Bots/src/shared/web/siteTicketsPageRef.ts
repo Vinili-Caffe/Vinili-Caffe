@@ -28,13 +28,6 @@ function siteTicketsPageDiscordRef(category?) {
   return `[ticket \`${cat.toUpperCase()}\` sul sito](${url})`;
 }
 
-function siteTicketsPagePlainRef(category?) {
-  const cat = String(category || "").trim();
-  const url = siteTicketsPageUrl();
-  if (!cat) return `ticket sul sito: ${url}`;
-  return `ticket \`${cat.toUpperCase()}\` sul sito: ${url}`;
-}
-
 function siteUserProfilePageUrl() {
   return `${sitePublicOrigin().replace(/\/+$/, "")}/personalizza/`;
 }
@@ -49,10 +42,7 @@ function siteUserProfilePagePlainRef() {
 
 export = {
   sitePublicOrigin,
-  siteTicketsPageUrl,
   siteTicketsPageDiscordRef,
-  siteTicketsPagePlainRef,
-  siteUserProfilePageUrl,
   siteUserProfilePageDiscordRef,
   siteUserProfilePagePlainRef,
 };

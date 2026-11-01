@@ -414,5 +414,4 @@ export = {
   ensureTenantUpdatesWebhook,
   clearTenantUpdatesWebhook,
   handlePossiblePublishedBotUpdate,
-  messageBecamePublished,
 };

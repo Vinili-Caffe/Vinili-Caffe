@@ -247,5 +247,4 @@ function isCustomVocRecreationBlocked(customRoleLean?, nowMs = Date.now()) {
 export = {
   runCustomVocWeeklyEnforcement,
   isCustomVocRecreationBlocked,
-  evaluateCustomVocTarget,
 };

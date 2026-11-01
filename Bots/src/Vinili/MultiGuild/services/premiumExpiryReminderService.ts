@@ -338,5 +338,4 @@ function startPremiumExpiryReminderLoop(client?, opts: Record<string, any> = {})
 
 export = {
   startPremiumExpiryReminderLoop,
-  sendPremiumExpiryReminderDm,
 };

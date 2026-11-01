@@ -299,6 +299,5 @@ export = {
   handleSiteStaffOrganicoGet,
   handleSiteStaffOrganicoPost,
   warmSiteStaffOrganicoCache,
-  buildPexDepexHistory,
   classifyPexDepexKind,
 };

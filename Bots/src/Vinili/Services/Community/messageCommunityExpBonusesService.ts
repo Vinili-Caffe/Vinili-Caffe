@@ -439,4 +439,4 @@ async function handleMessageCommunityExpBonuses(message?) {
   await tryAwardWelcomeGreetingFromMessageBonus(message);
 }
 
-export = { getRomeDateKey, handleMessageCommunityExpBonuses, awardWelcomeGreetingExpFromReaction, scheduleWelcomeGreetingExpBackup, tryClaimWelcomeGreetingExp };
+export = { getRomeDateKey, handleMessageCommunityExpBonuses, awardWelcomeGreetingExpFromReaction, scheduleWelcomeGreetingExpBackup };

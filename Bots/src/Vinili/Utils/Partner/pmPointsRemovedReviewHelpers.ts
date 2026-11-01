@@ -32,6 +32,5 @@ function buildUpdatedLogContent(originalContent?, isConfirm?, reviewerUserId?) {
 
 export = {
   disableRows,
-  buildReviewStatusLine,
   buildUpdatedLogContent,
 };

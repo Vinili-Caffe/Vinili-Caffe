@@ -240,4 +240,4 @@ async function botCanManageVoiceHubs(guild?) {
   }
 }
 
-export = { INDEX_SUFFIX_RE, MIN_SUFFIX_DIGITS, getGameVoiceHubCategoryId, isGameVoiceHubsEnabled, isGameVoiceHubChannel, getDuoHubChannelIds, getHubChannelIds, getPublicVoiceHubCategoryId, isPublicVoiceHubId, stripVoiceSuffix, parseVoiceSuffixIndex, toSuperscriptNumber, isHubCreateDisabledForChannel, voiceHubGroupKeyFromName, voiceHubGroupKey, resolveHubGroupKey, resolveHubSpawnBaseName, isHubGroupSpawnChannel, botCanManageVoiceHubs };
+export = { INDEX_SUFFIX_RE, MIN_SUFFIX_DIGITS, getGameVoiceHubCategoryId, isGameVoiceHubsEnabled, isGameVoiceHubChannel, getHubChannelIds, getPublicVoiceHubCategoryId, isPublicVoiceHubId, stripVoiceSuffix, parseVoiceSuffixIndex, toSuperscriptNumber, isHubCreateDisabledForChannel, voiceHubGroupKeyFromName, resolveHubGroupKey, resolveHubSpawnBaseName, isHubGroupSpawnChannel, botCanManageVoiceHubs };

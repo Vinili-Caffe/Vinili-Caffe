@@ -98,5 +98,4 @@ async function purgeObsoleteApplicationCommands(
 export = {
   purgeObsoleteApplicationCommands,
   DEFAULT_OBSOLETE_SLASH_NAMES,
-  normalizeObsoleteCommand,
 };

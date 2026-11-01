@@ -298,4 +298,4 @@ async function tickInviteActiveCompiti(client?, opts: Record<string, any> = {}) 
   return hits;
 }
 
-export = { resolveGuildId, tickStaffCompitiDeadlines, tickStaffCompitiAssignments, tryAutoSubmitCompito, tickInviteActiveCompiti };
+export = { resolveGuildId, tickStaffCompitiDeadlines, tickStaffCompitiAssignments, tryAutoSubmitCompito };

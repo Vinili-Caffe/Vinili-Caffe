@@ -57,4 +57,4 @@ function resolveBotPhotoMedia(fileName?) {
   return { mediaName: path.basename(name), mediaUrl: url, files: [] as any[] };
 }
 
-export = { botPhotoCdnUrl, resolveBotPhotoMedia, CDN_ORIGIN };
+export = { botPhotoCdnUrl, resolveBotPhotoMedia };

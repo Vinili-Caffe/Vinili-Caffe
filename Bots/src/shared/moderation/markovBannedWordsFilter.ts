@@ -212,5 +212,4 @@ function filterBannedLines(lines?) {
 export = {
   isMarkovBannedText,
   filterBannedLines,
-  loadBannedTerms,
 };

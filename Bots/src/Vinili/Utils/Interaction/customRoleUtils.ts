@@ -24,29 +24,6 @@ async function replyEphemeral(interaction?, payload?) {
   return interaction.reply(payload).catch(() => {});
 }
 
-function parseRoleActionId(customId?) {
-  const parts = String(customId || "").split(":");
-  if (parts.length !== 3) return null;
-  const [head, ownerId, roleId] = parts;
-  if (!head || !ownerId || !roleId) return null;
-  return { head, ownerId, roleId };
-}
-
-function parseVoiceActionId(customId?) {
-  const parts = String(customId || "").split(":");
-  if (parts.length !== 3) return null;
-  const [head, ownerId, channelId] = parts;
-  if (!head || !ownerId || !channelId) return null;
-  if (
-    head !== "customvoc_name" &&
-    head !== "customvoc_emoji" &&
-    head !== "customvoc_add" &&
-    head !== "customvoc_remove"
-  )
-    return null;
-  return { head, ownerId, channelId };
-}
-
 function findCustomVoiceByRole(guild?, roleId?) {
   if (!guild || !roleId) return null;
   return (
@@ -189,12 +166,6 @@ function normalizeCustomVocEmojiValue(raw?) {
   return "";
 }
 
-function extractCustomVocEmojiFromMessage(message?) {
-  const content = String(message?.content || "").trim();
-  if (!content) return "";
-  return normalizeCustomVocEmojiValue(content);
-}
-
 function sanitizeVoiceBaseName(name?) {
   const clean = String(name || "")
     .replace(/[^\p{L}\p{N}_ ',.!?\-']/gu, "")
@@ -251,4 +222,4 @@ function buildCustomVocName(emoji?, baseName?) {
   return `${prefix}${safeBase.slice(0, maxBaseLength)}`;
 }
 
-export = { fetchGuildChannel, fetchGuildMember, fetchGuildRole, replyEphemeral, parseRoleActionId, parseVoiceActionId, findCustomVoiceByRole, findCustomVoiceByOwner, listCustomPrivateVoiceChannelsByOwner, discoverCustomPrivateVoiceOwnersFromGuild, canManageRole, refreshEmbedRoleLine, sanitizeVoiceBaseName, parseCustomVocName, buildCustomVocName, normalizeCustomVocEmojiValue, extractCustomVocEmojiFromMessage };
+export = { fetchGuildChannel, fetchGuildMember, fetchGuildRole, replyEphemeral, findCustomVoiceByRole, findCustomVoiceByOwner, listCustomPrivateVoiceChannelsByOwner, discoverCustomPrivateVoiceOwnersFromGuild, canManageRole, refreshEmbedRoleLine, sanitizeVoiceBaseName, parseCustomVocName, buildCustomVocName, normalizeCustomVocEmojiValue };

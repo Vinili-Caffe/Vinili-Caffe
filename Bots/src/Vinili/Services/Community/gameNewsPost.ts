@@ -185,4 +185,4 @@ async function postItem(client?, cfg?, item?) {
   };
 }
 
-export = { resolveConfig, loadState, saveState, buildArticleContent, postItem };
+export = { resolveConfig, loadState, saveState, postItem };

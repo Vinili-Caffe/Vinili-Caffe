@@ -663,7 +663,6 @@ export = {
   resolveTopChannelEntries,
   resolveTopUserEntriesForCanvas,
   buildTopChannelPayload,
-  buildTopChannelComponents,
   buildTopPageJumpModal,
   normalizeLookbackDays,
   normalizeTopView,

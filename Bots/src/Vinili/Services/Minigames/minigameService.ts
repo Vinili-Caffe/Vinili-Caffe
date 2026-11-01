@@ -9,10 +9,10 @@ const { clearRolePingSentThisStart } = require("./minigameRolePing") as typeof i
 const { sendMinigameMessage } = require("./minigameDiscord") as typeof import("./minigameDiscord");
 const { resolveMinigameGuildIdAsync, purgeExpiredMinigameDbState, leaveFindBotVoiceChannel } = require("./minigameRound") as typeof import("./minigameRound");
 const { LAST_PLAYED_ROTATION_SIZE, getConfig, getAvailableGameTypes, saveRotationState, getNextGameType, requeueGameType } = require("./minigameConfig") as typeof import("./minigameConfig");
-const { suppressMinigameSnipe, isMinigameSnipeSuppressed, pickSnipeEntryForChannel, shouldSkipStoringSnipe, redactSnipeContentForMinigame } = require("./minigameSnipe") as typeof import("./minigameSnipe");
+const { suppressMinigameSnipe, pickSnipeEntryForChannel, shouldSkipStoringSnipe, redactSnipeContentForMinigame } = require("./minigameSnipe") as typeof import("./minigameSnipe");
 const { startTreasureHuntGame } = require("./minigameTreasureHunt") as typeof import("./minigameTreasureHunt");
 const { startStandardMemoryEmojiGame } = require("./minigameMemory") as typeof import("./minigameMemory");
-const { hasFindBotVoiceSession, shouldDeferTtsLeaveForFindBotVoiceMinigame, startFindBotGame, startFindBotVoiceGame } = require("./minigameFindBot") as typeof import("./minigameFindBot");
+const { shouldDeferTtsLeaveForFindBotVoiceMinigame, startFindBotGame, startFindBotVoiceGame } = require("./minigameFindBot") as typeof import("./minigameFindBot");
 const { startGuessNumberGame, startGuessWordGame, startGuessFlagGame, startGuessPlayerGame, startGuessSongGame, startGuessCapitalGame, startGuessRegionCapitalGame, startGuessReverseCapitalGame, startFastTypeGame, startGuessTeamGame, startGuessSingerGame, startGuessAlbumGame, startHangmanGame, startItalianGkGame, startDrivingQuizGame, startMathExpressionGame, startGuessYearGame, startCompleteVerseGame, startGuessEmojiGame, startQuoteFilmGame, startCompleteProverbGame, startSynonymAntonymGame, startGuessCityGame } = require("./minigameQuizGames") as typeof import("./minigameQuizGames");
 const { restoreActiveGames } = require("./minigameRestore") as typeof import("./minigameRestore");
 const { isStaleOrInvalidActiveGame, closeStaleActiveMinigameChannel, handleMinigameReaction, handleMinigameMessage, handleMinigameButton, isMinigameFloodExemptChannel, handleMinigameVoiceState } = require("./minigameHandlers") as typeof import("./minigameHandlers");
@@ -534,4 +534,4 @@ function clearGameForChannel(channelId?, client = null, guildId = null) {
   }
 }
 
-export = { startMinigameLoop, restoreActiveGames, bootstrapMinigameScheduler, handleMinigameMessage, handleMinigameButton, handleMinigameReaction, handleMinigameVoiceState, shouldDeferTtsLeaveForFindBotVoiceMinigame, hasFindBotVoiceSession, clearGameForChannel, isMinigameFloodExemptChannel, isMinigameChannelBusy, isMainChatMinigameChannelBusy, getActiveGameForChannel, getConfig, isMinigameSnipeSuppressed, pickSnipeEntryForChannel, redactSnipeContentForMinigame, suppressMinigameSnipe, shouldSkipStoringSnipe, startHalloweenTrickOrTreatGameForAlternate, processHalloweenMinigamesShowcaseForce };
+export = { startMinigameLoop, bootstrapMinigameScheduler, handleMinigameMessage, handleMinigameButton, handleMinigameReaction, handleMinigameVoiceState, shouldDeferTtsLeaveForFindBotVoiceMinigame, clearGameForChannel, isMinigameFloodExemptChannel, isMinigameChannelBusy, isMainChatMinigameChannelBusy, getActiveGameForChannel, getConfig, pickSnipeEntryForChannel, redactSnipeContentForMinigame, suppressMinigameSnipe, shouldSkipStoringSnipe, startHalloweenTrickOrTreatGameForAlternate, processHalloweenMinigamesShowcaseForce };

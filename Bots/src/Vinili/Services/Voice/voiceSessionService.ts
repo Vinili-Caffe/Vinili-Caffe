@@ -94,10 +94,4 @@ function clearVoiceSession(guildId?) {
   return deleted;
 }
 
-function isDifferentVoiceSession(guildId?, channelId?) {
-  const current = getVoiceSession(guildId);
-  if (!current?.channelId) return false;
-  return String(current.channelId) !== String(channelId || "");
-}
-
-export = { getVoiceSession, setVoiceSession, clearVoiceSession, isDifferentVoiceSession };
+export = { getVoiceSession, setVoiceSession, clearVoiceSession };

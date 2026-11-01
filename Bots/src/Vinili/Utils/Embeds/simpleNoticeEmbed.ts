@@ -192,5 +192,4 @@ function coercePlainContentToNoticePayload(payload?, guild?, options: Record<str
 export = {
   buildSimpleNoticePayload,
   coercePlainContentToNoticePayload,
-  isMentionOnlyContent,
 };

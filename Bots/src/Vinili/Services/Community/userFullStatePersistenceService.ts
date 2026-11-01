@@ -624,5 +624,4 @@ export = {
   persistUserFullState,
   schedulePersistUserFullState,
   startUserFullStatePersistenceLoop,
-  captureOwnedRoleDetails,
 };

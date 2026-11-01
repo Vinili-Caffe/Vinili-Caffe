@@ -1,7 +1,7 @@
 const fs = require("fs") as typeof import("fs");
 const path = require("path") as typeof import("path");
 const { VINILI_ROOT } = require("../../../core/paths") as typeof import("../../../core/paths");
-const { TRANSCRIPT_MOBILE_CSS, isModernTranscriptHtml, upgradeLegacyTranscriptHtml } = require("./transcriptStyles") as typeof import("./transcriptStyles");
+const { TRANSCRIPT_MOBILE_CSS, upgradeLegacyTranscriptHtml } = require("./transcriptStyles") as typeof import("./transcriptStyles");
 const { escapeHtml, formatDate, createMediaBudget, renderRichTextPlain, messageAuthorLabel, messageContentToHtml } = require("./transcriptRender") as typeof import("./transcriptRender");
 
 
@@ -411,7 +411,6 @@ export = {
   createTranscriptHtml,
   saveTranscriptHtml,
   upgradeLegacyTranscriptHtml,
-  isModernTranscriptHtml,
   resolveExistingTranscriptHtmlPath,
   fetchAllMessages,
 };

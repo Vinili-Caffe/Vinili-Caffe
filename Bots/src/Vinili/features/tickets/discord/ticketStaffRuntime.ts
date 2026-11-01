@@ -7,14 +7,12 @@ const { getTicketPanelConfig } = require("./ticketPanelConfig") as typeof import
 const { memberCanAccessPerksTicket } = require("./ticketPerksStaffRoles") as typeof import("./ticketPerksStaffRoles");
 const { memberCanAccessPartnershipTicket } = require("./ticketPartnershipStaffRoles") as typeof import("./ticketPartnershipStaffRoles");
 const {
-  buildTicketStaffRoleCreateOverwrite,
   buildTicketEveryoneDenyViewCreateOverwrite,
   buildTicketOpenerCreateOverwrite,
   buildTicketRoleDenyViewCreateOverwrite,
   buildTicketRoleCreateOverwrite,
 } = require("./ticketHighStaffOverwrites") as typeof import("./ticketHighStaffOverwrites");
-const { buildTicketPanelUnclaimedButtonRow } = require("./ticketAutoUnclaimOnStaffLoss") as typeof import("./ticketAutoUnclaimOnStaffLoss");
-const { buildClaimedControlButtons, resolveTicketPanel } = require("./ticketGuildOptions") as typeof import("./ticketGuildOptions");
+const { resolveTicketPanel } = require("./ticketGuildOptions") as typeof import("./ticketGuildOptions");
 const IDs = require("../../../Utils/Config/ids") as typeof import("../../../Utils/Config/ids");
 const { getGuildMemberCached } = require("../../../Utils/Interaction/interactionEntityCache") as typeof import("../../../Utils/Interaction/interactionEntityCache");
 const STAFF_ROLE_ID = IDs.roles.Staff;

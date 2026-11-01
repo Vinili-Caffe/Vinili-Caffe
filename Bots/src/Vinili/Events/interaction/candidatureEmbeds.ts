@@ -389,4 +389,4 @@ async function postCandidatureToVisioneModuli(client?, guild?, user?, type?, ans
   return { ok: true, nextAllowedAt, messageId: String(sent?.id || "") };
 }
 
-export = { APPLY_PEX_PREFIX, DRAFT_TTL_MS, APPLICATION_COOLDOWN_MS, APPLICATION_ACCEPTED_COLOR, applicationTypeLabel, draftByStateKey, APPLICATIONS, loadDraftMap, persistDraftMap, buildFinalThanksPlainMessage, setApplicationMessageStatusColor, resolveSubmissionChannel, postCandidatureToVisioneModuli };
+export = { APPLY_PEX_PREFIX, DRAFT_TTL_MS, APPLICATION_COOLDOWN_MS, APPLICATION_ACCEPTED_COLOR, applicationTypeLabel, draftByStateKey, APPLICATIONS, persistDraftMap, buildFinalThanksPlainMessage, setApplicationMessageStatusColor, resolveSubmissionChannel, postCandidatureToVisioneModuli };

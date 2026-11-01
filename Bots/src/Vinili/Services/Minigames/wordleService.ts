@@ -164,10 +164,6 @@ function langLabel(lang?) {
   return String(normalizeWordleLang(lang) || "it").toUpperCase();
 }
 
-function isWordleCustomId(customId?) {
-  return /^wordle:(guess|lang|help|modal):/.test(String(customId || ""));
-}
-
 export = {
   MAX_ATTEMPTS,
   WORD_LEN,
@@ -182,5 +178,4 @@ export = {
   statusLabel,
   langLabel,
   pickDailyAnswer,
-  isWordleCustomId,
 };

@@ -222,4 +222,4 @@ async function hasPendingMuteMirrorSnapshot(guildId?, userId?) {
   return saved.length > 0;
 }
 
-export = { memorySnapshots, isPostUnmuteReconciliationCurrent, profileResyncMadeChanges, markPostUnmuteReconciliationComplete, markRecentUnmuteProfileRecovery, wasRecentUnmuteProfileRecoveryDone, markMuteMirrorStaffProtect, clearMuteMirrorStaffProtect, isMuteMirrorStaffProtectActive, memberIsInMuteMirrorState, shouldSuppressStaffDepexForMuteMirror, snapshotKey, normalizeSnapshotRoleIds, dbReady, loadProfileMuteSnapshotRoleIds, loadSnapshot, memberLooksRoleWiped, isCommunicationTimeoutActive, hasPendingMuteMirrorSnapshot };
+export = { memorySnapshots, isPostUnmuteReconciliationCurrent, profileResyncMadeChanges, markPostUnmuteReconciliationComplete, markRecentUnmuteProfileRecovery, wasRecentUnmuteProfileRecoveryDone, markMuteMirrorStaffProtect, clearMuteMirrorStaffProtect, memberIsInMuteMirrorState, shouldSuppressStaffDepexForMuteMirror, snapshotKey, normalizeSnapshotRoleIds, dbReady, loadProfileMuteSnapshotRoleIds, loadSnapshot, memberLooksRoleWiped, isCommunicationTimeoutActive, hasPendingMuteMirrorSnapshot };

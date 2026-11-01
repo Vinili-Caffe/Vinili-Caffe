@@ -160,13 +160,8 @@ async function getEffectiveJoinedAt(member?) {
   return discordMemberJoinedAt(member);
 }
 
-function getEffectiveJoinedTimestamp(member?) {
-  return getEffectiveJoinedAt(member).then((date?) => (date ? date.getTime() : 0));
-}
-
 export = {
   recordEffectiveMemberJoin,
   recordEffectiveMemberLeave,
   getEffectiveJoinedAt,
-  getEffectiveJoinedTimestamp,
 };

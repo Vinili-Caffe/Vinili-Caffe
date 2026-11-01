@@ -1,6 +1,6 @@
 /** Attività: somme, classifiche interne e grafico per giorno. */
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
-const { DAY_MS, getDayBoundsForDateKey } = require("./activityTime") as typeof import("./activityTime");
+const { DAY_MS } = require("./activityTime") as typeof import("./activityTime");
 const { shouldSkipBackfillRow } = require("./activityBackfill") as typeof import("./activityBackfill");
 
 function safeTopRank(map?, targetId?) {
@@ -40,22 +40,6 @@ function secondsInLastNDays(startedAt?, days?, nowMs = Date.now()) {
   const effectiveStartMs = Math.max(startMs, windowStartMs);
   if (effectiveStartMs >= nowMs) return 0;
   return Math.max(0, Math.floor((nowMs - effectiveStartMs) / 1000));
-}
-
-function secondsInDateKeys(startedAt?, dateKeys?, nowMs = Date.now()) {
-  const startMs = new Date(startedAt).getTime();
-  if (!Number.isFinite(startMs) || startMs >= nowMs) return 0;
-  const dateKeySet = new Set(Array.isArray(dateKeys) ? dateKeys : []);
-  if (!dateKeySet.size) return 0;
-  let total = 0;
-  for (const dateKey of dateKeySet) {
-    const bounds = getDayBoundsForDateKey(dateKey);
-    if (!bounds) continue;
-    const overlapStart = Math.max(startMs, bounds.startMs);
-    const overlapEnd = Math.min(nowMs, bounds.endMs);
-    if (overlapEnd > overlapStart) total += Math.floor((overlapEnd - overlapStart) / 1000);
-  }
-  return total;
 }
 
 async function loadLiveVoiceSessions(guildId?) {
@@ -292,4 +276,4 @@ function buildChartByDayFromHourlyRows(
   return byDay;
 }
 
-export = { safeTopRank, pushMapValue, topNFromMap, toMapFromTopList, secondsInLastNDays, secondsInDateKeys, loadLiveVoiceSessions, getLiveVoiceOverlay, aggregateFromHourlyRows, sumVoiceSecondsFromHourRow, sumTextFromHourRow, aggregateUserHourlyRows, buildChartByDayFromHourlyRows };
+export = { safeTopRank, pushMapValue, topNFromMap, toMapFromTopList, secondsInLastNDays, loadLiveVoiceSessions, getLiveVoiceOverlay, aggregateFromHourlyRows, sumVoiceSecondsFromHourRow, sumTextFromHourRow, aggregateUserHourlyRows, buildChartByDayFromHourlyRows };

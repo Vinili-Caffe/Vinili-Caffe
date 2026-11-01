@@ -2,10 +2,7 @@ const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js") a
 
 const {
   sitePublicOrigin: sharedSitePublicOrigin,
-  siteTicketsPageUrl,
   siteTicketsPageDiscordRef,
-  siteTicketsPagePlainRef,
-  siteUserProfilePageUrl,
   siteUserProfilePageDiscordRef,
   siteUserProfilePagePlainRef,
 } = require("../../shared/web/siteTicketsPageRef") as typeof import("../../shared/web/siteTicketsPageRef");
@@ -132,10 +129,7 @@ export = {
   isWorkflowMessageId,
   sitePublicOrigin,
   siteWorkflowUrl,
-  siteTicketsPageUrl,
   siteTicketsPageDiscordRef,
-  siteTicketsPagePlainRef,
-  siteUserProfilePageUrl,
   siteUserProfilePageDiscordRef,
   siteUserProfilePagePlainRef,
   buildSiteLinkRow,

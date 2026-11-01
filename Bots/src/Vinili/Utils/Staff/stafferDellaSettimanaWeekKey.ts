@@ -162,7 +162,6 @@ export = {
   getLastSunday21BoundaryMsAtOrBefore,
   createUtcFromRomeLocal,
   monthKeyForStaffWeekKey,
-  formatRomeMonthKey,
   coerceMonthKey,
   resolveStafferBonusMonthKey,
   monthKeyForRomeDateViaIsoWeek,
