@@ -125,7 +125,11 @@ async function removePlusColorsIfNotEligible(member?) {
   const unlocks = require("../../Utils/Community/personalityColorUnlocks") as typeof import("../../Utils/Community/personalityColorUnlocks");
   const canPickPlus = await unlocks.memberHasPlusColorFullEligibilityAsync(member);
   const level = await unlocks.fetchNumericProfileLevel(member.guild.id, member.id);
-  const allowedPlus = new Set(unlocks.listUnlockedPlusRoleIds(member.guild, canPickPlus, level));
+  /* i "& Black" sono colori di livello: restano a chi ha il livello anche senza Plus */
+  const allowedPlus = new Set([
+    ...unlocks.listUnlockedPlusRoleIds(member.guild, canPickPlus, level),
+    ...unlocks.listUnlockedTierRoleIds(level),
+  ]);
 
   const heldPlusRoles = PLUS_COLOR_ROLE_IDS.filter((roleId?) => member.roles.cache.has(roleId));
   const removableRoleIds = heldPlusRoles.filter((roleId?) => {

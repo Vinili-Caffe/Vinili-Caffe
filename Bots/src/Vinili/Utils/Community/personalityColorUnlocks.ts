@@ -129,18 +129,10 @@ async function memberHasPlusColorFullEligibilityAsync(member?) {
   return Boolean(w2 || w3);
 }
 
-function listUnlockedPlusRoleIds(guild?, canPickPlus?, numericLevel = 0) {
+/** Solo i gradienti Plus: i "& Black" (livello 125/150/200) sono colori di livello, stanno in listUnlockedTierRoleIds. */
+function listUnlockedPlusRoleIds(guild?, canPickPlus?, _numericLevel = 0) {
   if (!canPickPlus || !guild?.roles?.cache) return [];
-  const lv = Number(numericLevel) || 0;
-  const out = [];
-  for (const rid of BASE_PLUS_COLOR_ROLE_IDS_ORDERED) {
-    if (guild.roles.cache.has(rid)) out.push(rid);
-  }
-  for (const { roleId, minLevel } of getLevelGatedPlusColorDefs()) {
-    if (!roleId || !guild.roles.cache.has(roleId)) continue;
-    if (lv >= minLevel) out.push(roleId);
-  }
-  return out;
+  return BASE_PLUS_COLOR_ROLE_IDS_ORDERED.filter((rid?) => guild.roles.cache.has(rid));
 }
 
 function listUnlockedTierRoleIds(numericLevel?) {
