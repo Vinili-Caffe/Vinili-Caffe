@@ -1,48 +1,11 @@
-const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js") as typeof import("discord.js");
-const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
 const IDs = require("../Config/ids") as typeof import("../Config/ids");
-const { getGuildMemberCached } = require("../Interaction/interactionEntityCache") as typeof import("../Interaction/interactionEntityCache");
-const { STAFF_WARN_THREE_NEGATIVES_REASON } = require("../../Services/Staff/staffWarnService") as typeof import("../../Services/Staff/staffWarnService");
-const { roleChoiceAppliesTo, PAUSE_ROLE_PM } = require("../Pause/pauseHandlersUtils") as typeof import("../Pause/pauseHandlersUtils");
 const { memberHasStaffRole } = require("../Community/staffListUtils") as typeof import("../Community/staffListUtils");
-const { applyPronounGenderToTextForMember } = require("../Community/pronounGenderUtils") as typeof import("../Community/pronounGenderUtils");
-const { getStaffRoleEmojiByRoleId } = require("../Community/staffRoleEmoji") as typeof import("../Community/staffRoleEmoji");
 const { resolvePartnerTotalEarned } = require("./partnerPointsDisplayUtils") as typeof import("./partnerPointsDisplayUtils");
-const { PARTNER_MANAGER_REDEEM_TIERS } = require("./partnerPointsUtils") as typeof import("./partnerPointsUtils");
-const { PARTNER_MILESTONE_REWARD_LABELS } = require("./partnerManagerMilestoneDm") as typeof import("./partnerManagerMilestoneDm");
-const { buildPartnerRewardDiscountBanner } = require("../../../shared/partner/partnerManagerRewardTiers") as typeof import("../../../shared/partner/partnerManagerRewardTiers");
-const {
-  accountUsername,
-  memberDisplayName,
-  memberLabelWithUsername,
-  userAvatarUrlDynamic,
-} = require("../Discord/guildDiscordIdentity") as typeof import("../Discord/guildDiscordIdentity");
-const {
-  resolveSerataFilmAttendanceForWeek,
-} = require("./serataFilmAttendanceUtils") as typeof import("./serataFilmAttendanceUtils");
-const {
-  resolvePmCommandsChannelMention,
-} = require("../Partner/partnersChatChannelUtils") as typeof import("../Partner/partnersChatChannelUtils");
-const PANEL_PREFIX = "staff_profile_panel";
-const SECTION_HOME = "home";
-const SECTION_VALUTAZIONI = "valutazioni";
-const SECTION_WARN = "warn";
-const SECTION_PAUSE = "pause";
-const SECTION_MODSTATS = "modstats";
-const SECTION_SHOP = "shop";
-const STAFF_HP_BUTTON_SECTION_IDS = new Set([SECTION_HOME, SECTION_VALUTAZIONI, SECTION_WARN, SECTION_PAUSE, SECTION_MODSTATS, SECTION_SHOP]);
-const STAFF_HP_SECTION_CHAR_MAP = { [SECTION_HOME]: "h", [SECTION_VALUTAZIONI]: "v", [SECTION_WARN]: "w", [SECTION_PAUSE]: "p", [SECTION_MODSTATS]: "m", [SECTION_SHOP]: "q" };
-const STAFF_HP_SECTION_CHAR_REVERSE = Object.fromEntries(Object.entries(STAFF_HP_SECTION_CHAR_MAP).map(([sec, ch]) => [ch, sec]));
-const STAFF_HP_BUTTON_ACTION_FULL_TO_SHORT = { pex_menu: "pxm", depex_menu: "dxm", val_add_menu: "vam", val_remove_menu: "vrm", pex: "pex", pex_helper: "phl", pex_mod: "pmo", pex_senior_moderator: "psm", pex_director: "pdr", pex_admin: "pxa", pex_manager: "pmg", pex_founder: "pfn", pex_pm: "ppm", depex: "dpx", depex_full: "dff", depex_staff: "dst", depex_pm_only: "dpo", valpos: "vps", valneg: "vng", warn: "wrn", valpos_rm: "vpr", valneg_rm: "vnr", warn_rm: "wrr", ppm_add: "pma", ppm_remove: "pmr" };
-const STAFF_HP_BUTTON_ACTION_SHORT_TO_FULL = Object.fromEntries(Object.entries(STAFF_HP_BUTTON_ACTION_FULL_TO_SHORT).map(([full, short]) => [short, full]));
 const PROFILE_FULL = "full";
 const PROFILE_PM_ONLY = "pm_only";
 const PROFILE_PROSPECT = "prospect";
 const STAFF_ROLE_PRIORITY = [String(IDs.roles.Director), String(IDs.roles.SeniorModerator), String(IDs.roles.Mod), String(IDs.roles.Helper), String(IDs.roles.Staff)].filter(Boolean);
 const STAFF_PROFILE_DISPLAY_ROLE_PRIORITY = [IDs.roles.Founder, IDs.roles.Manager, IDs.roles.Admin, IDs.roles.Director, IDs.roles.HighStaff, String(IDs.roles.SeniorModerator), String(IDs.roles.Mod), String(IDs.roles.Helper), IDs.roles.PartnerManager, String(IDs.roles.Staff), IDs.roles.Blogger].filter(Boolean);
-const STAFF_LADDER_ROLE_IDS_FOR_PANEL = [String(IDs.roles.Helper), String(IDs.roles.Mod), String(IDs.roles.SeniorModerator), String(IDs.roles.Director), String(IDs.roles.Admin), String(IDs.roles.Manager), String(IDs.roles.Founder)].filter(Boolean).map((id?) => String(id));
-const STAFF_PANEL_NON_PM_ROLE_IDS = [String(IDs.roles?.Founder), String(IDs.roles?.Manager), String(IDs.roles?.Admin), String(IDs.roles?.Director), String(IDs.roles?.HighStaff), String(IDs.roles?.SeniorModerator), String(IDs.roles?.Mod), String(IDs.roles?.Helper), String(IDs.roles?.Staff)].filter(Boolean).map((id?) => String(id));
-const STAFF_PANEL_NAV_ROLE_PRIORITY = [String(IDs.roles?.Founder), String(IDs.roles?.Manager), String(IDs.roles?.Admin), String(IDs.roles?.Director), String(IDs.roles?.HighStaff), String(IDs.roles?.SeniorModerator), String(IDs.roles?.Mod), String(IDs.roles?.Helper), String(IDs.roles?.Staff)].filter(Boolean).map((id?) => String(id));
 
 function resolveStaffPartnerPointsDisplay(staffObj?) {
   return resolvePartnerTotalEarned(staffObj);
@@ -223,8 +186,6 @@ function resolveStaffProfileKind(member?) {
 
 
 export = {
-  PANEL_PREFIX,
-  SECTION_HOME,
   PROFILE_FULL,
   PROFILE_PM_ONLY,
   PROFILE_PROSPECT,

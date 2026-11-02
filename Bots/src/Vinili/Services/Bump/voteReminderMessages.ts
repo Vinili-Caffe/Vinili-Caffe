@@ -4,8 +4,8 @@ const { ActivityUserProfile } = require("../../Schemas/Community/communitySchema
 const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
 const { shouldBlockDm } = require("../../Utils/noDmList") as typeof import("../../Utils/noDmList");
 const { isUserDmPrivacyBlockedError, notifyDmPrivacyBlockedInCommands } = require("../../../shared/discord/dmPrivacyNotice") as typeof import("../../../shared/discord/dmPrivacyNotice");
-const { enqueueSiteInAppNotification } = require("../../features/notifications/siteInAppNotificationsService") as typeof import("../../features/notifications/siteInAppNotificationsService");
-const { shouldSkipDiscordDmForActiveWebPush } = require("../../Web/siteNotifPrefs") as typeof import("../../Web/siteNotifPrefs");
+const { enqueueSiteInAppNotification } = require("../../site/notifications/siteInAppNotificationsService") as typeof import("../../site/notifications/siteInAppNotificationsService");
+const { shouldSkipDiscordDmForActiveWebPush } = require("../../site/http/siteNotifPrefs") as typeof import("../../site/http/siteNotifPrefs");
 const { getClientChannelCached, getClientGuildCached, getGuildMemberCached, getUserCached } = require("../../Utils/Interaction/interactionEntityCache") as typeof import("../../Utils/Interaction/interactionEntityCache");
 const { DISCADIA_VOTE_ROOT, voteListingKey, claimVoteReminderSlot, releaseVoteReminderSlot, voteReminderLockKey } = require("./voteReminderState") as typeof import("./voteReminderState");
 

@@ -84,27 +84,10 @@ async function completePartnerManagerRedeemForGuild(
     global.logger?.warn?.("[partnerManagerRedeem] history log failed:", logErr?.message || logErr);
   }
 
-  const { getPartnershipLogChannelIds } = require("../Partner/partnershipConfigResolver") as typeof import("../Partner/partnershipConfigResolver");
-  const { primary: logChannelId } = getPartnershipLogChannelIds(guild?.id);
-  const removedPointsChannel = logChannelId ? guild.channels?.cache?.get(logChannelId) : null;
-  const actor = actorUser;
+  /* Shop/punti PM: solo sito (niente post canale Discord). */
   const targetPmUser = await client.users.fetch(uid).catch(() => null);
   const pmMention = targetPmUser ? String(targetPmUser) : `<@${uid}>`;
   const rewardName = PARTNER_REWARD_LABELS[tier] || `premio ${tier}`;
-  if (removedPointsChannel) {
-    await removedPointsChannel
-      .send({
-        content:
-          `<:VC_PartnerManager:1494286911286808576> Partner Manager\: ${pmMention}\n` +
-          `<:VC_Staff:1494286904089247754> Staffer: ${actor}\n` +
-          `<:VC_reason:1478517122929004544> **Premio riscattato** (\`${pointCost}\` punti — ${rewardName}).` +
-          (reasonText ? `\n<:VC_Dot:1482532364222595303> Motivo: ${reasonText}` : "") +
-          `\n<:VC_Partner:1482527213780729896> Nuovo Saldo: \`${ptsBefore}\` → \`${ptsAfter}\`` +
-          (postRedeemNote ? `\n${postRedeemNote.trim()}` : "") +
-          (autoApplySummary ? `\n${autoApplySummary}` : ""),
-      })
-      .catch(() => null);
-  }
 
   const userMessage =
     `<a:VC_Verified:1482532479637127188> Riscattati **${pointCost}** punti a ${pmMention} (${rewardName}). Nuovo saldo: \`${ptsAfter}\`.` +

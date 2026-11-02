@@ -6,17 +6,10 @@ const EMPTY_PERMISSIONS = { slash: {}, prefix: {}, channels: {}, buttons: {}, se
 let idsFallbackCache = null;
 const LIVE_MEMBER_CACHE_TTL_MS = 15_000;
 const liveMemberCache = new Map();
+/* Solo sticky #sanzioni (guida staff Discord cancellata). */
 const STAFF_GUIDE_BUTTON_IDS = new Set([
   "regolamento",
-  "regole_staff",
-  "limiti",
-  "pause",
-  "valutazioni",
   "moderazione_staff",
-  "warnstaff",
-  "pex",
-  "lineeguida",
-  "comandi",
   "generalimoderazione",
   "testualimoderazione",
   "vocalimoderazione",
@@ -127,4 +120,16 @@ async function hasAnyRoleWithEventGrants(member?, roleIds?, guildId?, userId?) {
   return false;
 }
 
-export = { EMPTY_PERMISSIONS, LIVE_MEMBER_CACHE_TTL_MS, liveMemberCache, STAFF_GUIDE_BUTTON_IDS, getStaffGuideAccessRoleIds, isPartnerManagerOnlyMember, getIdsConfig, resolveRoleReference, normalizeRoleList, resolveLiveMemberGuildUser, hasAnyRoleWithEventGrants };
+export = {
+  EMPTY_PERMISSIONS,
+  LIVE_MEMBER_CACHE_TTL_MS,
+  liveMemberCache,
+  STAFF_GUIDE_BUTTON_IDS,
+  getStaffGuideAccessRoleIds,
+  isPartnerManagerOnlyMember,
+  getIdsConfig,
+  resolveRoleReference,
+  normalizeRoleList,
+  resolveLiveMemberGuildUser,
+  hasAnyRoleWithEventGrants,
+};

@@ -313,7 +313,7 @@ async function addHalloweenCandy({
   const next = readCandyRaw(doc);
   const owned = normalizeOwnedIds(next?.owned);
   try {
-    const { invalidateProfileCacheForUser } = require(__eventCoreVinili("Web/siteUsersLeaderboardApi"));
+    const { invalidateProfileCacheForUser } = require(__eventCoreVinili("site/http/siteUsersLeaderboardApi"));
     invalidateProfileCacheForUser(g, u);
   } catch {
     /* optional */
@@ -343,7 +343,7 @@ async function addHalloweenCandy({
         }).catch(() => null);
       }
       try {
-        const { invalidateProfileCacheForUser } = require(__eventCoreVinili("Web/siteUsersLeaderboardApi"));
+        const { invalidateProfileCacheForUser } = require(__eventCoreVinili("site/http/siteUsersLeaderboardApi"));
         invalidateProfileCacheForUser(mainId, u);
       } catch {
         /* optional */

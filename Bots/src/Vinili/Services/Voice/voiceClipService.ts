@@ -310,7 +310,7 @@ async function exportClipFromCommand(ctx?) {
     }
 
     /* bachecaSite1: sul server principale la clip va sulla Bacheca del sito, non nel canale */
-    const bachecaSite = require("../../features/bacheca/bachecaSite") as typeof import("../../features/bacheca/bachecaSite");
+    const bachecaSite = require("../../site/bacheca/bachecaSite") as typeof import("../../site/bacheca/bachecaSite");
     if (bachecaSite.isBachecaSiteGuild(guildId)) {
       let siteTotal;
       try {
@@ -319,7 +319,7 @@ async function exportClipFromCommand(ctx?) {
         global.logger?.warn?.("[clip] counter failed:", err?.message || err);
         return { ok: false, message: "Contatore clip non disponibile. Riprova tra poco." };
       }
-      const { registerBachecaClip } = require("../../features/bacheca/bachecaClip") as typeof import("../../features/bacheca/bachecaClip");
+      const { registerBachecaClip } = require("../../site/bacheca/bachecaClip") as typeof import("../../site/bacheca/bachecaClip");
       const saved = await registerBachecaClip({ guildId, requester, requesterId, mp3Path, transcription, totalPosts: siteTotal });
       if (!saved.ok) return { ok: false, message: "Non riesco a salvare la clip in Bacheca. Riprova tra poco." };
       const {

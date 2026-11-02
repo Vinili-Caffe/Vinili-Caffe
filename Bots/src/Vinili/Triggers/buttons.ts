@@ -47,64 +47,9 @@ function logButtonErr(err?, opts: Record<string, any> = {}) {
   else global.logger?.error?.("[buttons]", msg);
 }
 
-/** Sezioni guida staff Discord dismesse → /staff/guida/ (contenuto già sul sito via API). */
-const DISCORD_STAFF_GUIDE_REDIRECT_IDS = new Set([
-  "warnstaff",
-  "pex",
-  "valutazioni",
-  "pause",
-  "limiti",
-  "lineeguida",
-  "comandi",
-  "compiti_fissi",
-  "guidapartners",
-  "guidamiddle",
-  "middle_ticket",
-  "middle_selfie",
-  "middle_follower",
-  "middle_partnership",
-  "regole_staff",
-]);
-
-async function replyStaffGuideMovedToSite(interaction?) {
-  let url = "https://www.viniliecaffe.it/staff/guida/";
-  try {
-    const { siteWorkflowUrl } = require("../Web/discordWorkflowUiGate") as typeof import("../Web/discordWorkflowUiGate");
-    url = siteWorkflowUrl("guida") || url;
-  } catch (_) {}
-  await interaction
-    .reply({
-      content: `<:discordstaff:1443651872258003005> La **guida staff** è sul sito: ${url}`,
-      flags: PRIVATE_FLAG,
-    })
-    .catch((err?) => {
-      logButtonErr(err);
-      return null;
-    });
-  return true;
-}
-
+/* Guida staff Discord rimossa (solo sito). Restano sticky #sanzioni. */
 async function handleStaffButtons(interaction?) {
   if (!interaction.isButton()) return false;
-
-  if (interaction.customId && interaction.customId.startsWith("staff_warn_depex:")) {
-    let url = "https://www.viniliecaffe.it/user/?tab=staff";
-    try {
-      const { siteWorkflowUrl } = require("../Web/discordWorkflowUiGate") as typeof import("../Web/discordWorkflowUiGate");
-      const base = siteWorkflowUrl("userProfile") || "https://www.viniliecaffe.it/user/";
-      url = `${base}${base.includes("?") ? "&" : "?"}tab=staff`;
-    } catch (_) {}
-    await interaction
-      .reply({
-        content: `<:VC_Staff:1494286904089247754> Le azioni warn/depex si gestiscono sul **sito**: ${url}`,
-        flags: PRIVATE_FLAG,
-      })
-      .catch((err?) => {
-        logButtonErr(err);
-        return null;
-      });
-    return true;
-  }
 
   /* Sticky sanzioni utenti (#sanzioni) — resta su Discord. */
   if (interaction.customId == "moderazione_staff" || interaction.customId == "regolamento") {
@@ -116,10 +61,6 @@ async function handleStaffButtons(interaction?) {
         return null;
       });
     return true;
-  }
-
-  if (DISCORD_STAFF_GUIDE_REDIRECT_IDS.has(String(interaction.customId || ""))) {
-    return replyStaffGuideMovedToSite(interaction);
   }
 
   if (interaction.customId == "generalimoderazione") {

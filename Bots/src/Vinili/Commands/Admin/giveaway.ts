@@ -1,17 +1,6 @@
 const { SlashCommandBuilder, ChannelType } = require("discord.js") as typeof import("discord.js");
 const { safeEditReply } = require("../../../shared/discord/replyRuntime") as typeof import("../../../shared/discord/replyRuntime");
-const {
-  parseDuration,
-  buildGiveawayEmbed,
-  buildEnterButton,
-  createGiveaway,
-  setGiveawayMessageId,
-  endGiveawayByMessageId,
-  editGiveawayByMessageId,
-  deleteGiveawayByMessageId,
-  rerollGiveawayByMessageId,
-  scheduleGiveawayEnd,
-} = require("../../Services/Giveaway/giveawayService") as typeof import("../../Services/Giveaway/giveawayService");
+const { parseDuration, buildGiveawayEmbed, buildEnterButton, createGiveaway, setGiveawayMessageId, endGiveawayByMessageId, editGiveawayByMessageId, deleteGiveawayByMessageId, rerollGiveawayByMessageId, scheduleGiveawayEnd } = require("../../Services/Giveaway/giveawayService") as typeof import("../../Services/Giveaway/giveawayService");
 const EPHEMERAL_FLAG = 1 << 6;
 
 function parseMessageIdFromOption(value?) {
@@ -146,7 +135,6 @@ export = {
           prize,
           durationMs,
           winnerCount,
-          requireMorgames: false,
         });
 
         const embed = buildGiveawayEmbed(giveaway);

@@ -355,7 +355,7 @@ async function deleteStaffRelatedMessagesFromConfiguredChannels(guild?, userId?,
         IDs.channels?.pause,
         ...( (() => {
           try {
-            const { isDiscordStaffChannelPostsEnabled } = require("../../Web/discordWorkflowUiGate") as typeof import("../../Web/discordWorkflowUiGate");
+            const { isDiscordStaffChannelPostsEnabled } = require("../../site/http/discordWorkflowUiGate") as typeof import("../../site/http/discordWorkflowUiGate");
             if (!isDiscordStaffChannelPostsEnabled()) return [];
           } catch (_) {
             return [];

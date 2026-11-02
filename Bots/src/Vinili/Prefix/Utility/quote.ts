@@ -8,7 +8,7 @@ const { registerQuoteBoardPost, buildQuoteBoardComponents } = require("../../Uti
 const { QuotePrivacy } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
 const { accountUsername, memberDisplayName, memberLabelWithUsername, guildMemberDisplayAvatarUrlDynamic, guildMemberDisplayAvatarUrlStatic } = require("../../Utils/Discord/guildDiscordIdentity") as typeof import("../../Utils/Discord/guildDiscordIdentity");
 const { isRepostDisabledInGuild } = require("../../Services/Community/repostService") as typeof import("../../Services/Community/repostService");
-const { SITE_BOARD_CHANNEL, isBachecaSiteGuild, newBachecaItemId, buildBachecaLinkButton, putBachecaMedia, broadcastBachecaChanged } = require("../../features/bacheca/bachecaSite") as typeof import("../../features/bacheca/bachecaSite");
+const { SITE_BOARD_CHANNEL, isBachecaSiteGuild, newBachecaItemId, buildBachecaLinkButton, putBachecaMedia, broadcastBachecaChanged } = require("../../site/bacheca/bachecaSite") as typeof import("../../site/bacheca/bachecaSite");
 const { TENANT_EMBED_COLOR } = require("../../MultiGuild/utils/tenantEmbedBranding") as typeof import("../../MultiGuild/utils/tenantEmbedBranding");
 const {
   getTenantBoardsSync,

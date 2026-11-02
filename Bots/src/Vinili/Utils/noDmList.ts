@@ -285,7 +285,7 @@ async function sendDm(user?, payload?, options: Record<string, any> = {}) {
   if (!user?.send) return null;
   if (options.skipIfWebPush) {
     try {
-      const { shouldSkipDiscordDmForActiveWebPush } = require("../Web/siteNotifPrefs") as typeof import("../Web/siteNotifPrefs");
+      const { shouldSkipDiscordDmForActiveWebPush } = require("../site/http/siteNotifPrefs") as typeof import("../site/http/siteNotifPrefs");
       const skip = await shouldSkipDiscordDmForActiveWebPush(
         guildId || IDs.guilds?.main,
         user.id,

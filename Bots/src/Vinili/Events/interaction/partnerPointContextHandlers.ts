@@ -21,7 +21,7 @@ const IN_RULE = "regolaViolata";
 const EPHEMERAL = MessageFlags.Ephemeral;
 
 async function resolvePartnerLogChannel(guild?) {
-  const { isDiscordStaffChannelPostsEnabled } = require("../../Web/discordWorkflowUiGate") as typeof import("../../Web/discordWorkflowUiGate");
+  const { isDiscordStaffChannelPostsEnabled } = require("../../site/http/discordWorkflowUiGate") as typeof import("../../site/http/discordWorkflowUiGate");
   if (!isDiscordStaffChannelPostsEnabled()) return null;
   const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
   const { primary, fallback } = getPartnershipLogChannelIds(guild?.id);
@@ -120,7 +120,7 @@ async function handlePartnerSegnalaModal(interaction?) {
   }
   if (entryMessageId(entry)) {
     try {
-      const { notifyPuntiToltiPending, memberDisplayName } = require("../../features/staff/siteStaffEventNotifications") as typeof import("../../features/staff/siteStaffEventNotifications");
+      const { notifyPuntiToltiPending, memberDisplayName } = require("../../site/staff/siteStaffEventNotifications") as typeof import("../../site/staff/siteStaffEventNotifications");
       const reporterMember = await guild.members.fetch(parsed.actorId).catch(() => null);
       void notifyPuntiToltiPending({
         guild,
@@ -244,7 +244,7 @@ async function handlePartnerEliminaMainModal(interaction?) {
   });
   if (entry && deleteResult.pointsAdjusted) {
     try {
-      const { notifyPuntiToltiPointsRemoved, memberDisplayName } = require("../../features/staff/siteStaffEventNotifications") as typeof import("../../features/staff/siteStaffEventNotifications");
+      const { notifyPuntiToltiPointsRemoved, memberDisplayName } = require("../../site/staff/siteStaffEventNotifications") as typeof import("../../site/staff/siteStaffEventNotifications");
       const actorMember = await guild.members.fetch(parsed.actorId).catch(() => null);
       void notifyPuntiToltiPointsRemoved({
         guild,
@@ -338,7 +338,7 @@ async function handlePartnerRimuoviModal(interaction?) {
   });
   if (entry?.id || entry?._id) {
     try {
-      const { notifyPuntiToltiPointsRemoved, memberDisplayName } = require("../../features/staff/siteStaffEventNotifications") as typeof import("../../features/staff/siteStaffEventNotifications");
+      const { notifyPuntiToltiPointsRemoved, memberDisplayName } = require("../../site/staff/siteStaffEventNotifications") as typeof import("../../site/staff/siteStaffEventNotifications");
       const actorMember = await guild.members.fetch(parsed.actorId).catch(() => null);
       void notifyPuntiToltiPointsRemoved({
         guild,

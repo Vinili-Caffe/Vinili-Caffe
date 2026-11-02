@@ -1,9 +1,9 @@
 /** Resoconti settimanali: pause dello staff durante la settimana. */
 const IDs: any = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
 const { applyPronounGenderToTextForMember } = require("../../Utils/Community/pronounGenderUtils") as typeof import("../../Utils/Community/pronounGenderUtils");
-const { normalizePauseRoleChoice, roleChoiceAppliesTo, PAUSE_ROLE_PM } = require("../../Utils/Pause/pauseHandlersUtils") as typeof import("../../Utils/Pause/pauseHandlersUtils");
+const { normalizePauseRoleChoice, roleChoiceAppliesTo, PAUSE_ROLE_PM } = require("../../site/staff/pause/pauseHandlersUtils") as typeof import("../../site/staff/pause/pauseHandlersUtils");
 /* pauseHalfDay1: le mezze giornate contano nel resoconto solo se mattina + pomeriggio dello stesso giorno */
-const { pausesForWeeklyRules } = require("../../Utils/Pause/pauseHalfDay") as typeof import("../../Utils/Pause/pauseHalfDay");
+const { pausesForWeeklyRules } = require("../../site/staff/pause/pauseHalfDay") as typeof import("../../site/staff/pause/pauseHalfDay");
 const { getRomeDateParts, createUtcFromRomeLocal, addDaysToRomeYmd, parseItalianDate, getRomeStartOfDayUtc } = require("./resocontoTime") as typeof import("./resocontoTime");
 
 function pauseRoleAppliesToSection(pauseRole?, sectionRole?) {

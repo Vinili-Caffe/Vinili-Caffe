@@ -735,14 +735,10 @@ const activityUserProfileSchema = new Schema(
             default: () => ({}),
           },
         },
+        /* Halloween candy wallet: Mixed archivato — dati Mongo restano, niente schema attivo */
         halloween: {
-          candy: {
-            eventKey: { type: String, default: "" },
-            balance: { type: Number, default: 0 },
-            earned: { type: Number, default: 0 },
-            owned: { type: [String], default: [] },
-            updatedAt: { type: Date, default: null },
-          },
+          type: Schema.Types.Mixed,
+          default: undefined,
         },
         /* starWarsEvent1: wallet Mixed (casse/avvento/fazione/PEI/army) — strict schema altrimenti claim 500 */
         starwars: {

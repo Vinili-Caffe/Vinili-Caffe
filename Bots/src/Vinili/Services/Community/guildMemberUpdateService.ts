@@ -4,18 +4,17 @@ const { didStaffMembershipChange, didStaffListDisplayRolesChange, memberHasStaff
 const { memberHasPartnerManagerRole, memberHasAnyStaffPresenceForDepexSync, buildStaffPartnerManagerIdUnsetUpdate } = require("../../Utils/Staff/staffPmUtils") as typeof import("../../Utils/Staff/staffPmUtils");
 const { deleteStaffPauseRequestChannelMessages, deleteStaffRelatedMessagesFromConfiguredChannels, archiveStaffRolesHistoryThenUnsetStaff } = require("../../Utils/Staff/staffDocUtils") as typeof import("../../Utils/Staff/staffDocUtils");
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
-const { grantBestStaffPauseBonusYear, scheduleAcceptedPauseMessagesRefreshAfterRankChange, getMemberStaffRankRoleId } = require("../../Utils/Pause/pauseHandlersUtils") as typeof import("../../Utils/Pause/pauseHandlersUtils");
+const { grantBestStaffPauseBonusYear, scheduleAcceptedPauseMessagesRefreshAfterRankChange, getMemberStaffRankRoleId } = require("../../site/staff/pause/pauseHandlersUtils") as typeof import("../../site/staff/pause/pauseHandlersUtils");
 const { onStafferDellaSettimanaRoleAdded } = require("../Staff/stafferDellaSettimanaService") as typeof import("../Staff/stafferDellaSettimanaService");
 const { setWelcomeContextActive } = require("../../Utils/Message/officialMessageCommunityHandlers") as typeof import("../../Utils/Message/officialMessageCommunityHandlers");
 const { syncClanTagRolesForUserEverywhereAfterMemberEvent } = require("./clanTagRoleService") as typeof import("./clanTagRoleService");
 const { syncPersistentAutoValutazioniForMember, handleStaffBoostAutoValutazioneMemberUpdate, resolveAutoValutazioneCreateKeysFromMemberUpdate } = require("../Staff/staffAutoValutazioniService") as typeof import("../Staff/staffAutoValutazioniService");
-const { handleMainGuildMemberUpdate } = require("../Staff/staffAccessMirrorService") as typeof import("../Staff/staffAccessMirrorService");
 const { shouldSendPublicMemberAnnouncement } = require("../../Utils/Community/memberPublicAnnouncementGate") as typeof import("../../Utils/Community/memberPublicAnnouncementGate");
 const { runDeferredJoinAnnouncements } = require("../../Events/guildMemberAdd") as typeof import("../../Events/guildMemberAdd");
 const { handlePreMemberRoleOnMemberUpdate } = require("../../Utils/Community/preMemberRoleService") as typeof import("../../Utils/Community/preMemberRoleService");
 const { syncStaffChatThreadsForMemberChange } = require("../Staff/staffChatThreadsService") as typeof import("../Staff/staffChatThreadsService");
 const { syncStaffCmdsThreadsForMemberChange } = require("../Staff/staffCmdsThreadsService") as typeof import("../Staff/staffCmdsThreadsService");
-const { autoUnclaimOpenTicketsClaimedByUser } = require("../../features/tickets/discord/ticketAutoUnclaimOnStaffLoss") as typeof import("../../features/tickets/discord/ticketAutoUnclaimOnStaffLoss");
+const { autoUnclaimOpenTicketsClaimedByUser } = require("../../MultiGuild/tickets/discord/ticketAutoUnclaimOnStaffLoss") as typeof import("../../MultiGuild/tickets/discord/ticketAutoUnclaimOnStaffLoss");
 const { syncMutedMirrorRoleFromMemberUpdate, memberIsInMuteMirrorState, shouldSuppressStaffDepexForMuteMirror } = require("../Moderation/mutedMirrorRoleService") as typeof import("../Moderation/mutedMirrorRoleService");
 const { maybeAnnounceDonationPackageInSupporters } = require("../../Utils/Community/donationPackageSupportersAnnounce") as typeof import("../../Utils/Community/donationPackageSupportersAnnounce");
 const { maybeAnnounceManualSocialRolesAndGrantPicPermsBundle } = require("../../Utils/Community/manualSocialRoleAnnounceAndPicPerms") as typeof import("../../Utils/Community/manualSocialRoleAnnounceAndPicPerms");
@@ -101,8 +100,8 @@ export = {
         global.logger?.warn?.("[guildMemberUpdate] muted mirror role:", newMember.id, err?.message || err);
       });
       try {
-        const { memberIsMuted } = require("../../Events/interaction/unmuteWebsiteHandlers") as typeof import("../../Events/interaction/unmuteWebsiteHandlers");
-        const { autoClosePendingAppealsForUser } = require("../../features/staff/siteStaffAppealsRuntime") as typeof import("../../features/staff/siteStaffAppealsRuntime");
+        const { memberIsMuted } = require("../../site/staff/appeals/unmuteWebsiteHandlers") as typeof import("../../site/staff/appeals/unmuteWebsiteHandlers");
+        const { autoClosePendingAppealsForUser } = require("../../site/staff/siteStaffAppealsRuntime") as typeof import("../../site/staff/siteStaffAppealsRuntime");
         const wasMuted = memberIsMuted(oldMember);
         const isMuted = memberIsMuted(newMember);
         if (wasMuted && !isMuted) {
@@ -118,11 +117,7 @@ export = {
         await syncClanTagRolesForUserEverywhereAfterMemberEvent(resolvedClientForClan, newMember.user);
       }
 
-      const botClient = client || newMember.client;
-      if (newMember?.guild?.id === IDs.guilds.main && botClient) {
-        await handleMainGuildMemberUpdate(oldMember, newMember).catch((err?) => {
-          global.logger?.warn?.("[guildMemberUpdate] staff access mirror:", newMember.id, err?.message || err);
-        });
+      if (newMember?.guild?.id === IDs.guilds.main) {
         const stafferDelMeseId = String(IDs.roles?.StafferDelMese || "").trim();
         if (
           stafferDelMeseId &&
@@ -186,7 +181,7 @@ export = {
                 const {
                   cancelPendingResocontiWorkflowForUser,
                   autoCancelPendingPausesIfNotEligible,
-                } = require("../../features/workflow/siteStaffWorkflowStore") as typeof import("../../features/workflow/siteStaffWorkflowStore");
+                } = require("../../site/workflow/siteStaffWorkflowStore") as typeof import("../../site/workflow/siteStaffWorkflowStore");
                                 await cancelPendingResocontiWorkflowForUser(newMember.guild.id, newMember.id, {
                   kind: "s",
                   statusLabel: "Annullato (depex)",
@@ -217,7 +212,7 @@ export = {
                 global.logger?.warn?.("[guildMemberUpdate] ticket auto-unclaim on depex:", newMember.id, err?.message || err);
               });
               try {
-                require("../../Web/siteReviewsApi").scheduleExStaffReviewsPurge(botClient);
+                require("../../site/http/siteReviewsApi").scheduleExStaffReviewsPurge(botClient);
               } catch (_) {}
             }
           }
@@ -236,7 +231,7 @@ export = {
                 const {
                   cancelPendingResocontiWorkflowForUser,
                   autoCancelPendingPausesIfNotEligible,
-                } = require("../../features/workflow/siteStaffWorkflowStore") as typeof import("../../features/workflow/siteStaffWorkflowStore");
+                } = require("../../site/workflow/siteStaffWorkflowStore") as typeof import("../../site/workflow/siteStaffWorkflowStore");
                 await cancelPendingResocontiWorkflowForUser(newMember.guild.id, newMember.id, {
                   kind: "p",
                   statusLabel: "Annullato (depex PM)",

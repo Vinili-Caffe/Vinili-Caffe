@@ -1,0 +1,58 @@
+{
+  "_note": "Snapshot da config.json live (evento archiviato).",
+  "extractedAt": "2026-11-02T11:46:31.450Z",
+  "halloweenEvent": {
+    "enabled": false,
+    "eventKey": "halloween_2026",
+    "timezone": "Europe/Rome",
+    "startDate": "2026-10-24T12:00:00",
+    "endDate": "2026-11-02T12:00:00",
+    "testGuildForceLive": false,
+    "reactLeaderboardChannelId": "1562454089801928764"
+  },
+  "halloweenEmojiHunt": {
+    "enabled": false,
+    "emoji": "<:VC_Halloween:1558964785113206824>",
+    "hourStart": 8,
+    "hourEnd": 24,
+    "slotMinutes": 30,
+    "activeDurationMs": 900000,
+    "rewardCandy": 1,
+    "messageHistoryLimit": 40,
+    "minCandidateAgeMs": 30000,
+    "maxCandidateAgeMs": 21600000
+  },
+  "halloweenRuntime": {
+    "disabled": true
+  },
+  "minigames": {
+    "halloweenExclusiveDuringEvent": false,
+    "halloweenQuiz": {
+      "durationMs": 180000,
+      "rewardExp": 150
+    },
+    "halloweenFindGhost": {
+      "durationMs": 300000,
+      "rewardExp": 200
+    },
+    "halloweenMissingEmoji": {
+      "durationMs": 180000,
+      "rewardExp": 150
+    },
+    "halloweenCountBats": {
+      "durationMs": 180000,
+      "rewardExp": 150
+    },
+    "halloweenTrickOrTreat": {
+      "durationMs": 900000,
+      "rewardExp": 100,
+      "treatChancePercent": 80,
+      "candyOnTreat": 1
+    },
+    "halloweenCandyDrop": {
+      "enabled": false,
+      "chancePercent": 6,
+      "amount": 1
+    }
+  }
+}

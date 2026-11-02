@@ -41,6 +41,7 @@ const MINIGAME_LAST_MINUTE = 45;
 const MINIGAME_SLOT_MINUTES = [0, 15, 30, 45];
 let lastMinigameSlotKey = null;
 const MINIGAME_INTERVAL_SLOT_SLACK_MS = Math.max(0, Math.min(5 * 60 * 1000, Number(process.env.MINIGAME_INTERVAL_SLOT_SLACK_MS ?? 90_000)));
+/* Halloween archiviato: tipi custom non avviati dal core. */
 const HALLOWEEN_STARTER_GAME_TYPES = new Set([
   "halloweenFindGhost",
   "halloweenQuiz",
@@ -49,20 +50,8 @@ const HALLOWEEN_STARTER_GAME_TYPES = new Set([
   "halloweenTrickOrTreat",
 ]);
 
-async function startHalloweenTrickOrTreatGameForAlternate(client?, cfg?) {
-  try {
-    let totCfg = cfg;
-    if (!totCfg?.channelId) {
-      totCfg = getConfig(client);
-    }
-    if (!totCfg?.channelId) return false;
-    const { startHalloweenTrickOrTreatGameForAlternate: startTot } =
-      require("./minigameTrickOrTreat") as typeof import("./minigameTrickOrTreat");
-    return Boolean(await startTot(client, totCfg));
-  } catch (err) {
-    warnMinigame(err);
-    return false;
-  }
+async function startHalloweenTrickOrTreatGameForAlternate(_client?, _cfg?) {
+  return false;
 }
 
 async function processHalloweenMinigamesShowcaseForce(_client?) {}
@@ -131,16 +120,6 @@ function isMainChatMinigameChannelBusy() {
 async function safeStartGameByType(client?, cfg?, gameType?) {
   try {
     if (HALLOWEEN_STARTER_GAME_TYPES.has(String(gameType || ""))) {
-      const {
-        startHalloweenQuizGame,
-        startHalloweenFindGhostGame,
-        startHalloweenMissingEmojiGame,
-        startHalloweenCountBatsGame,
-      } = require("./minigameHalloweenGames") as typeof import("./minigameHalloweenGames");
-      if (gameType === "halloweenQuiz") return startHalloweenQuizGame(client, cfg);
-      if (gameType === "halloweenFindGhost") return startHalloweenFindGhostGame(client, cfg);
-      if (gameType === "halloweenMissingEmoji") return startHalloweenMissingEmojiGame(client, cfg);
-      if (gameType === "halloweenCountBats") return startHalloweenCountBatsGame(client, cfg);
       return false;
     }
     if (gameType === "guessWord") return startGuessWordGame(client, cfg);

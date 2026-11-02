@@ -3,21 +3,21 @@ const {
   resolveDiscordOauthClientIdForSite,
   resolveDiscordOauthRedirectUriForSite,
   normalizeSiteOAuthReturnPath,
-} = require("../../Web/verifyOauthPublicUrl") as typeof import("../../Web/verifyOauthPublicUrl");
+} = require("../../site/http/verifyOauthPublicUrl") as typeof import("../../site/http/verifyOauthPublicUrl");
 
 function isCandidatureWebsiteApiEnabled() {
   return ["1", "true", "yes", "on"].includes(String(process.env.WEBSITE_CANDIDATURE_HTTP || "").trim().toLowerCase());
 }
-const { mountWebTicketRoutes } = require("../../features/tickets/site/webTicketRoutes") as typeof import("../../features/tickets/site/webTicketRoutes");
-const { mountDashboardTicketRoutes } = require("../../features/tickets/dashboard/dashboardTicketRoutes") as typeof import("../../features/tickets/dashboard/dashboardTicketRoutes");
-const { mountBoardsRoutes } = require("../../features/boards/boardsRoutes") as typeof import("../../features/boards/boardsRoutes");
-const { mountBachecaRoutes } = require("../../features/bacheca/bachecaRoutes") as typeof import("../../features/bacheca/bachecaRoutes");
-const { mountSuggestionsRoutes } = require("../../features/suggestions/suggestionsRoutes") as typeof import("../../features/suggestions/suggestionsRoutes");
-const { mountContestRoutes } = require("../../features/contest/contestRoutes") as typeof import("../../features/contest/contestRoutes");
-const { mountWorkflowRoutes } = require("../../features/workflow/workflowRoutes") as typeof import("../../features/workflow/workflowRoutes");
-const { mountNotificationsRoutes } = require("../../features/notifications/notificationsRoutes") as typeof import("../../features/notifications/notificationsRoutes");
-const { mountStaffRoutes } = require("../../features/staff/staffRoutes") as typeof import("../../features/staff/staffRoutes");
-const { mountDashboardRoutes } = require("../../features/dashboard/dashboardRoutes") as typeof import("../../features/dashboard/dashboardRoutes");
+const { mountWebTicketRoutes } = require("../../site/tickets/webTicketRoutes") as typeof import("../../site/tickets/webTicketRoutes");
+const { mountDashboardTicketRoutes } = require("../../MultiGuild/tickets/dashboard/dashboardTicketRoutes") as typeof import("../../MultiGuild/tickets/dashboard/dashboardTicketRoutes");
+const { mountBoardsRoutes } = require("../../site/boards/boardsRoutes") as typeof import("../../site/boards/boardsRoutes");
+const { mountBachecaRoutes } = require("../../site/bacheca/bachecaRoutes") as typeof import("../../site/bacheca/bachecaRoutes");
+const { mountSuggestionsRoutes } = require("../../site/suggestions/suggestionsRoutes") as typeof import("../../site/suggestions/suggestionsRoutes");
+const { mountContestRoutes } = require("../../site/contest/contestRoutes") as typeof import("../../site/contest/contestRoutes");
+const { mountWorkflowRoutes } = require("../../site/workflow/workflowRoutes") as typeof import("../../site/workflow/workflowRoutes");
+const { mountNotificationsRoutes } = require("../../site/notifications/notificationsRoutes") as typeof import("../../site/notifications/notificationsRoutes");
+const { mountStaffRoutes } = require("../../site/staff/staffRoutes") as typeof import("../../site/staff/staffRoutes");
+const { mountDashboardRoutes } = require("../../MultiGuild/dashboard/dashboardRoutes") as typeof import("../../MultiGuild/dashboard/dashboardRoutes");
 
 
 
@@ -32,7 +32,7 @@ function mountSiteWebhookRoutes(app?, client?, deps?) {
   const normalizeHeaderSecret = deps.normalizeHeaderSecret;
   const siteCandidatureCorsMiddleware = deps.siteCorsMiddleware;
   /* pageTune1: ETag/304 su GET pubblici boards/wiki/reviews/suggestions */
-  const { sendJsonWithEtag, weakEtagFromJson } = require("../../Web/siteHttpEtag") as typeof import("../../Web/siteHttpEtag");
+  const { sendJsonWithEtag, weakEtagFromJson } = require("../../site/http/siteHttpEtag") as typeof import("../../site/http/siteHttpEtag");
   function replyJsonEtag(req?, res?, out?, opts: Record<string, any> = {}) {
     const status = Number(out && out.status) || Number(opts.status) || 200;
     if (!out || out.ok === false) {
@@ -112,12 +112,12 @@ function mountSiteWebhookRoutes(app?, client?, deps?) {
 
   if (isCandidatureWebsiteApiEnabled()) {
     app.use(siteCandidatureCorsMiddleware);
-    const { submitCandidatureWebsite, getCandidatureEligibilitySummary } = require("../../Events/interaction/candidatureApplicationHandlers") as typeof import("../../Events/interaction/candidatureApplicationHandlers");
-    const { getWebsiteUnbanEligibility, submitWebsiteUnban } = require("../../Events/interaction/unbanWebsiteHandlers") as typeof import("../../Events/interaction/unbanWebsiteHandlers");
+    const { submitCandidatureWebsite, getCandidatureEligibilitySummary } = require("../../site/staff/candidature/candidatureApplicationHandlers") as typeof import("../../site/staff/candidature/candidatureApplicationHandlers");
+    const { getWebsiteUnbanEligibility, submitWebsiteUnban } = require("../../site/staff/appeals/unbanWebsiteHandlers") as typeof import("../../site/staff/appeals/unbanWebsiteHandlers");
     const {
       getWebsiteUnmuteEligibility,
       submitWebsiteUnmute,
-    } = require("../../Events/interaction/unmuteWebsiteHandlers") as typeof import("../../Events/interaction/unmuteWebsiteHandlers");
+    } = require("../../site/staff/appeals/unmuteWebsiteHandlers") as typeof import("../../site/staff/appeals/unmuteWebsiteHandlers");
     app.get("/webhooks/site-candidature/eligibility", async (req?, res?) => {
       try {
         const accessToken = normalizeHeaderSecret(req.headers.authorization);
@@ -232,24 +232,24 @@ function mountSiteWebhookRoutes(app?, client?, deps?) {
     );
   }
 
-  const { buildCommunityRulesSitePayload } = require("../../Web/communityRulesPayload") as typeof import("../../Web/communityRulesPayload");
-  const { handleSiteUsersLeaderboardGet } = require("../../Web/siteUsersLeaderboardApi") as typeof import("../../Web/siteUsersLeaderboardApi");
-  const { handleSiteVoteGet } = require("../../Web/siteVoteApi") as typeof import("../../Web/siteVoteApi");
-  const { handleSiteWordleTodayGet, handleSiteWordleGuessPost } = require("../../Web/siteWordleApi") as typeof import("../../Web/siteWordleApi");
-  const { handleSiteLiveEventGet } = require("../../Web/siteLiveEventApi") as typeof import("../../Web/siteLiveEventApi");
-  const { handleSiteRolesGet } = require("../../Web/siteRolesApi") as typeof import("../../Web/siteRolesApi");
-  const { submitSiteRoleRequest, leaveSiteRole, getSiteRoleRequestStates } = require("../../Web/siteRoleRequestApi") as typeof import("../../Web/siteRoleRequestApi");
-  const { getRankCardCustomization, getServerAvatarOnly, updateRankCardCustomization, getRankCardPreview, getPublicRankCardPreview } = require("../../Web/siteRankCardApi") as typeof import("../../Web/siteRankCardApi");
-  const { getSiteWrapped } = require("../../Web/siteWrappedApi") as typeof import("../../Web/siteWrappedApi");
-  const { getCustomProfileCustomization, getCustomProfileGuildEmojis, mutateCustomProfile } = require("../../Web/siteCustomProfileApi") as typeof import("../../Web/siteCustomProfileApi");
-  const { getProfileExtras, mutateProfileExtras } = require("../../Web/siteProfileExtrasApi") as typeof import("../../Web/siteProfileExtrasApi");
-  const { getWelcomePronouns } = require("../../Web/siteWelcomePronounsApi") as typeof import("../../Web/siteWelcomePronounsApi");
-  const { handleSiteGuildJoinPost } = require("../../Web/siteGuildJoinApi") as typeof import("../../Web/siteGuildJoinApi");
-  const { getSiteReviews, submitSiteReview, deleteSiteReview, toggleSiteReviewLike, upsertServerReviewReply } = require("../../Web/siteReviewsApi") as typeof import("../../Web/siteReviewsApi");
+  const { buildCommunityRulesSitePayload } = require("../../site/http/communityRulesPayload") as typeof import("../../site/http/communityRulesPayload");
+  const { handleSiteUsersLeaderboardGet } = require("../../site/http/siteUsersLeaderboardApi") as typeof import("../../site/http/siteUsersLeaderboardApi");
+  const { handleSiteVoteGet } = require("../../site/http/siteVoteApi") as typeof import("../../site/http/siteVoteApi");
+  const { handleSiteWordleTodayGet, handleSiteWordleGuessPost } = require("../../site/http/siteWordleApi") as typeof import("../../site/http/siteWordleApi");
+  const { handleSiteLiveEventGet } = require("../../site/http/siteLiveEventApi") as typeof import("../../site/http/siteLiveEventApi");
+  const { handleSiteRolesGet } = require("../../site/http/siteRolesApi") as typeof import("../../site/http/siteRolesApi");
+  const { submitSiteRoleRequest, leaveSiteRole, getSiteRoleRequestStates } = require("../../site/http/siteRoleRequestApi") as typeof import("../../site/http/siteRoleRequestApi");
+  const { getRankCardCustomization, getServerAvatarOnly, updateRankCardCustomization, getRankCardPreview, getPublicRankCardPreview } = require("../../site/http/siteRankCardApi") as typeof import("../../site/http/siteRankCardApi");
+  const { getSiteWrapped } = require("../../site/http/siteWrappedApi") as typeof import("../../site/http/siteWrappedApi");
+  const { getCustomProfileCustomization, getCustomProfileGuildEmojis, mutateCustomProfile } = require("../../site/http/siteCustomProfileApi") as typeof import("../../site/http/siteCustomProfileApi");
+  const { getProfileExtras, mutateProfileExtras } = require("../../site/http/siteProfileExtrasApi") as typeof import("../../site/http/siteProfileExtrasApi");
+  const { getWelcomePronouns } = require("../../site/http/siteWelcomePronounsApi") as typeof import("../../site/http/siteWelcomePronounsApi");
+  const { handleSiteGuildJoinPost } = require("../../site/http/siteGuildJoinApi") as typeof import("../../site/http/siteGuildJoinApi");
+  const { getSiteReviews, submitSiteReview, deleteSiteReview, toggleSiteReviewLike, upsertServerReviewReply } = require("../../site/http/siteReviewsApi") as typeof import("../../site/http/siteReviewsApi");
   const {
     ensureBoardsVoteReminderScheduler,
     ensureBoardsStatsScheduler,
-  } = require("../../features/boards/siteBoardsApi") as typeof import("../../features/boards/siteBoardsApi");
+  } = require("../../site/boards/siteBoardsApi") as typeof import("../../site/boards/siteBoardsApi");
   try {
     ensureBoardsStatsScheduler(client);
   } catch (_) {}
@@ -263,17 +263,17 @@ function mountSiteWebhookRoutes(app?, client?, deps?) {
     staffSetBotFeedbackDecision,
     staffDeleteBotFeedback,
     serveBotFeedbackFile,
-  } = require("../../Web/siteBotFeedbackApi") as typeof import("../../Web/siteBotFeedbackApi");
+  } = require("../../site/http/siteBotFeedbackApi") as typeof import("../../site/http/siteBotFeedbackApi");
   const {
     handleSiteSeratafilmAccessGet,
     handleSiteSeratafilmFilmGet,
-  } = require("../../Web/siteSeratafilmAccessApi") as typeof import("../../Web/siteSeratafilmAccessApi");
+  } = require("../../site/http/siteSeratafilmAccessApi") as typeof import("../../site/http/siteSeratafilmAccessApi");
   const {
     handleSiteChromePrefsGet,
     handleSiteChromePrefsPost,
-  } = require("../../Web/siteChromePrefsApi") as typeof import("../../Web/siteChromePrefsApi");
-  const { handleSiteCookieConsentGet } = require("../../Web/siteCookieConsentApi") as typeof import("../../Web/siteCookieConsentApi");
-  const { fetchDiscordOAuthMe } = require("../../Web/discordOauthMe") as typeof import("../../Web/discordOauthMe");
+  } = require("../../site/http/siteChromePrefsApi") as typeof import("../../site/http/siteChromePrefsApi");
+  const { handleSiteCookieConsentGet } = require("../../site/http/siteCookieConsentApi") as typeof import("../../site/http/siteCookieConsentApi");
+  const { fetchDiscordOAuthMe } = require("../../site/http/discordOauthMe") as typeof import("../../site/http/discordOauthMe");
   const {
     handleSiteConfessionaleGet,
     handleSiteConfessionalePost,
@@ -281,7 +281,7 @@ function mountSiteWebhookRoutes(app?, client?, deps?) {
     handleSiteConfessionaleDeletePost,
     handleSiteConfessionaleResolvePost,
     handleSiteConfessionaleReopenPost,
-  } = require("../../Web/siteConfessionaleApi") as typeof import("../../Web/siteConfessionaleApi");
+  } = require("../../site/http/siteConfessionaleApi") as typeof import("../../site/http/siteConfessionaleApi");
   // Hogwarts event retired — API always 410 (finale prizes live elsewhere).
   app.use("/webhooks/site-hogwarts-sorting", (_req?, res?) => {
     return res.status(410).json({
@@ -303,7 +303,7 @@ function mountSiteWebhookRoutes(app?, client?, deps?) {
 
   /* Icona guild main live (OG / component-embed thumb) — niente gif fissa in repo */
   {
-    const { handleSiteGuildIconGet } = require("../../Web/siteGuildIconApi") as typeof import("../../Web/siteGuildIconApi");
+    const { handleSiteGuildIconGet } = require("../../site/http/siteGuildIconApi") as typeof import("../../site/http/siteGuildIconApi");
     app.get("/webhooks/site-guild-icon", (req?, res?) => handleSiteGuildIconGet(client, req, res));
     app.head("/webhooks/site-guild-icon", (req?, res?) => handleSiteGuildIconGet(client, req, res));
   }
@@ -313,7 +313,7 @@ function mountSiteWebhookRoutes(app?, client?, deps?) {
     const {
       handleSiteUserPresenceHeartbeat,
       handleSiteUserPresenceQuery,
-    } = require("../../Web/siteUserPresenceApi") as typeof import("../../Web/siteUserPresenceApi");
+    } = require("../../site/http/siteUserPresenceApi") as typeof import("../../site/http/siteUserPresenceApi");
     app.post("/webhooks/site-user-presence", (req?, res?) => handleSiteUserPresenceHeartbeat(req, res));
     app.post("/webhooks/site-user-presence/query", (req?, res?) => handleSiteUserPresenceQuery(req, res));
     app.get("/webhooks/site-user-presence/query", (req?, res?) => handleSiteUserPresenceQuery(req, res));
@@ -330,11 +330,11 @@ function mountSiteWebhookRoutes(app?, client?, deps?) {
   app.get("/webhooks/site-wordle/today", (req?, res?) => handleSiteWordleTodayGet(client, req, res));
   app.post("/webhooks/site-wordle/guess", (req?, res?) => handleSiteWordleGuessPost(client, req, res));
   /* wordleStatsSync1: statistiche Wordle sul profilo (stesse su telefono e PC) */
-  app.get("/webhooks/site-wordle/stats", (req?, res?) => require("../../Web/siteWordleStatsApi").handleSiteWordleStatsGet(client, req, res));
-  app.post("/webhooks/site-wordle/stats", (req?, res?) => require("../../Web/siteWordleStatsApi").handleSiteWordleStatsPost(client, req, res));
+  app.get("/webhooks/site-wordle/stats", (req?, res?) => require("../../site/http/siteWordleStatsApi").handleSiteWordleStatsGet(client, req, res));
+  app.post("/webhooks/site-wordle/stats", (req?, res?) => require("../../site/http/siteWordleStatsApi").handleSiteWordleStatsPost(client, req, res));
   /* wordleDailySync1: partita del giorno sul profilo (no rifarla da altro device) */
-  app.get("/webhooks/site-wordle/daily", (req?, res?) => require("../../Web/siteWordleDailyApi").handleSiteWordleDailyGet(client, req, res));
-  app.post("/webhooks/site-wordle/daily", (req?, res?) => require("../../Web/siteWordleDailyApi").handleSiteWordleDailyPost(client, req, res));
+  app.get("/webhooks/site-wordle/daily", (req?, res?) => require("../../site/http/siteWordleDailyApi").handleSiteWordleDailyGet(client, req, res));
+  app.post("/webhooks/site-wordle/daily", (req?, res?) => require("../../site/http/siteWordleDailyApi").handleSiteWordleDailyPost(client, req, res));
   mountNotificationsRoutes(app, client);
   app.get("/webhooks/site-seratafilm-access", (req?, res?) => handleSiteSeratafilmAccessGet(client, req, res));
   app.get("/webhooks/site-seratafilm-film", (req?, res?) => handleSiteSeratafilmFilmGet(client, req, res));
@@ -342,17 +342,17 @@ function mountSiteWebhookRoutes(app?, client?, deps?) {
   app.post("/webhooks/site-chrome-prefs", (req?, res?) => handleSiteChromePrefsPost(client, req, res));
   /* siteClientErrors1: errori JavaScript dei visitatori → logs/site-client-errors.log */
   app.post("/webhooks/site-client-error", (req?, res?) => {
-    const { handleSiteClientErrorPost } = require("../../Web/siteClientErrorsApi") as typeof import("../../Web/siteClientErrorsApi");
+    const { handleSiteClientErrorPost } = require("../../site/http/siteClientErrorsApi") as typeof import("../../site/http/siteClientErrorsApi");
     return handleSiteClientErrorPost(req, res);
   });
   app.get("/webhooks/site-client-error/recent", (req?, res?) => {
-    const { handleSiteClientErrorRecent } = require("../../Web/siteClientErrorsApi") as typeof import("../../Web/siteClientErrorsApi");
+    const { handleSiteClientErrorRecent } = require("../../site/http/siteClientErrorsApi") as typeof import("../../site/http/siteClientErrorsApi");
     return handleSiteClientErrorRecent(req, res);
   });
   app.get("/webhooks/site-cookie-consent", (req?, res?) => handleSiteCookieConsentGet(client, req, res));
   /* siteBoot1: me skim + unread + theme/prefs in un round-trip */
   try {
-    const { handleSiteBootGet } = require("../../Web/siteBootApi") as typeof import("../../Web/siteBootApi");
+    const { handleSiteBootGet } = require("../../site/http/siteBootApi") as typeof import("../../site/http/siteBootApi");
     app.get("/webhooks/site-boot", (req?, res?) => handleSiteBootGet(client, req, res));
   } catch (eBootRoute) {
     global.logger?.warn?.("[WEBHOOK] site-boot mount skipped:", eBootRoute?.message || eBootRoute);
@@ -397,7 +397,7 @@ function mountSiteWebhookRoutes(app?, client?, deps?) {
     handleSiteConfessionaleReopenPost(client, req, res),
   );
   mountWorkflowRoutes(app, client);
-  const { handleSiteUserWorkflowsGet } = require("../../Web/siteUserWorkflowApi") as typeof import("../../Web/siteUserWorkflowApi");
+  const { handleSiteUserWorkflowsGet } = require("../../site/http/siteUserWorkflowApi") as typeof import("../../site/http/siteUserWorkflowApi");
   app.get("/webhooks/site-user-workflows", (req?, res?) => handleSiteUserWorkflowsGet(client, req, res));
   mountWebTicketRoutes(app, client);
 
@@ -442,17 +442,17 @@ function mountSiteWebhookRoutes(app?, client?, deps?) {
     return handleSiteLiveEventGet(client, req, res);
   });
   app.get("/webhooks/site-twitch-live", (req?, res?) => {
-    const { handleSiteTwitchLiveGet } = require("../../Web/siteTwitchLiveApi") as typeof import("../../Web/siteTwitchLiveApi");
+    const { handleSiteTwitchLiveGet } = require("../../site/http/siteTwitchLiveApi") as typeof import("../../site/http/siteTwitchLiveApi");
     return handleSiteTwitchLiveGet(client, req, res);
   });
   app.get("/webhooks/site-twitch-live/thumb", (req?, res?) => {
-    const { handleSiteTwitchLiveThumb } = require("../../Web/siteTwitchLiveApi") as typeof import("../../Web/siteTwitchLiveApi");
+    const { handleSiteTwitchLiveThumb } = require("../../site/http/siteTwitchLiveApi") as typeof import("../../site/http/siteTwitchLiveApi");
     return handleSiteTwitchLiveThumb(client, req, res);
   });
   app.get("/webhooks/site-wiki-help", async (req?, res?) => {
     try {
-      const { getWikiHelpAccess } = require("../../Web/siteWikiHelpApi") as typeof import("../../Web/siteWikiHelpApi");
-      const { parseViewAsFromReq } = require("../../Web/siteViewAsPreview") as typeof import("../../Web/siteViewAsPreview");
+      const { getWikiHelpAccess } = require("../../site/http/siteWikiHelpApi") as typeof import("../../site/http/siteWikiHelpApi");
+      const { parseViewAsFromReq } = require("../../site/http/siteViewAsPreview") as typeof import("../../site/http/siteViewAsPreview");
       const accessToken = normalizeHeaderSecret(req.headers.authorization);
       const bot = String(req.query?.bot || req.query?.pane || "prod");
       const viewAs = parseViewAsFromReq(req);
@@ -764,7 +764,7 @@ function mountSiteWebhookRoutes(app?, client?, deps?) {
         });
       }
       const section = String(req.query?.section || req.query?.target || "").trim();
-      const { parseViewAsFromReq } = require("../../Web/siteViewAsPreview") as typeof import("../../Web/siteViewAsPreview");
+      const { parseViewAsFromReq } = require("../../site/http/siteViewAsPreview") as typeof import("../../site/http/siteViewAsPreview");
       const out = await getProfileExtras(client, {
         accessToken,
         section,
@@ -902,7 +902,7 @@ function mountSiteWebhookRoutes(app?, client?, deps?) {
 
   /* starWarsEvento: HS-only finché publicEnabled=false */
   {
-    const sw = require("../../Web/siteStarWarsEventoApi") as typeof import("../../Web/siteStarWarsEventoApi");
+    const sw = require("../../site/http/siteStarWarsEventoApi") as typeof import("../../site/http/siteStarWarsEventoApi");
     app.get("/webhooks/site-evento", (req?, res?) => sw.handleSiteEventoStatusGet(client, req, res));
     app.get("/webhooks/site-evento/avvento", (req?, res?) => sw.handleSiteEventoAvventoGet(client, req, res));
     app.post("/webhooks/site-evento/avvento/claim", (req?, res?) => sw.handleSiteEventoAvventoClaimPost(client, req, res));
@@ -928,7 +928,7 @@ function mountSiteWebhookRoutes(app?, client?, deps?) {
 
   app.get("/webhooks/site-discussion-images/:scope/:docId/:fileName", (req?, res?) => {
     try {
-      require("../../Web/siteDiscussionImages").serveDiscussionImage(req, res);
+      require("../../site/http/siteDiscussionImages").serveDiscussionImage(req, res);
     } catch (err) {
       global.logger?.error?.("[WEBHOOK] site-discussion image:", err);
       if (!res.headersSent) res.status(500).end();

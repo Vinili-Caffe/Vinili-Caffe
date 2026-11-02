@@ -1,8 +1,6 @@
 /** Permessi: pulsanti. */
 const { PermissionFlagsBits } = require("discord.js") as typeof import("discord.js");
 const { ensureStaffCmdsThreadIdsHydrated } = require("../Staff/staffCmdsChannelUtils") as typeof import("../Staff/staffCmdsChannelUtils");
-const { hasEventWeekWinnerGrant } = require("../../Services/Community/weekWinnerGrantsService") as typeof import("../../Services/Community/weekWinnerGrantsService");
-const { interactionHasResocontoButtonAccess, hasCandidatureReviewAccess, isResocontoInteraction, isCandidatureStaffReviewInteraction } = require("../Staff/resocontoAccess") as typeof import("../Staff/resocontoAccess");
 const { STAFF_GUIDE_BUTTON_IDS, getStaffGuideAccessRoleIds, isPartnerManagerOnlyMember, resolveRoleReference, normalizeRoleList } = require("./permStaffGuide") as typeof import("./permStaffGuide");
 const { isAllowedGuildForComponents, tryTenantHelpNavComponentBypass, tryTenantUtilityComponentBypass, tryTenantPartnershipSetupBypass, isMainGuild } = require("./permTenantBypass") as typeof import("./permTenantBypass");
 const { CANDIDATURE_BLACKLIST_ROLE_ID, isTicketInteraction, isProfilePanelInteraction, checkTenantProfilePanelPermission, checkProfilePanelControlPermission, isCustomRoleSystemInteraction, isApplyOrCandidatureInteraction, getPendingCustomRoleGrant, extractOwnerIdFromMessageMention } = require("./permInteractionKinds") as typeof import("./permInteractionKinds");
@@ -147,26 +145,6 @@ async function checkButtonPermission(interaction?) {
     };
   }
 
-  if (isMainGuild(guildId) && isCandidatureStaffReviewInteraction(customId)) {
-    const allowed = hasCandidatureReviewAccess(interaction);
-    return {
-      allowed,
-      reason: allowed ? null : "missing_role",
-      requiredRoles: normalizeRoleList(["roles.Admin", "roles.Manager", "roles.Founder"]),
-      ownerId: null,
-    };
-  }
-
-  if (isMainGuild(guildId) && isResocontoInteraction(customId)) {
-    const allowed = interactionHasResocontoButtonAccess(interaction);
-    return {
-      allowed,
-      reason: allowed ? null : "missing_role",
-      requiredRoles: null,
-      ownerId: null,
-    };
-  }
-
   if (!customId) {
     return { allowed: true, reason: null, requiredRoles: null, ownerId: null };
   }
@@ -176,8 +154,7 @@ async function checkButtonPermission(interaction?) {
     const isGiveawayEnter =
       id.startsWith("giveaway_enter:") ||
       id.startsWith("giveaway_leave:") ||
-      id.startsWith("giveaway_count:") ||
-      id.startsWith("giveaway_morgames_retry:");
+      id.startsWith("giveaway_count:");
     const isGiveawayReroll = id.startsWith("giveaway_reroll:");
     if (isGiveawayEnter || isGiveawayReroll) {
       try {
@@ -331,11 +308,6 @@ async function checkButtonPermission(interaction?) {
   }
 
   if (hasRoleConstraint && !rolePass) {
-    if (customId === "personality_colors_plus" && guildId && interaction?.user?.id) {
-      const week2Grant = await hasEventWeekWinnerGrant(guildId, interaction.user.id, 2).catch(() => false);
-      const week3Grant = await hasEventWeekWinnerGrant(guildId, interaction.user.id, 3).catch(() => false);
-      if (week2Grant || week3Grant) return { allowed: true, reason: null, requiredRoles: null, ownerId: null };
-    }
     return {
       allowed: false,
       reason: "missing_role",

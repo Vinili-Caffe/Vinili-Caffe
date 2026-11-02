@@ -1087,9 +1087,6 @@
     "giveaway_enter:*": [
       "roles.Member"
     ],
-    "giveaway_morgames_retry:*": [
-      "roles.Member"
-    ],
     "giveaway_reroll:*": [
       "roles.HighStaff"
     ],
@@ -1396,26 +1393,8 @@
     "error_unsolved": {
       "permissions": "Administrator"
     },
-    "comandi": [
-      "roles.Staff"
-    ],
-    "compiti_fissi": [
-      "roles.Helper",
-      "roles.Mod",
-      "roles.HighStaff"
-    ],
     "generalimoderazione": [
       "roles.Staff"
-    ],
-    "guidamiddle": [
-      "roles.SeniorModerator",
-      "roles.Director",
-      "roles.HighStaff"
-    ],
-    "guidapartners": [
-      "roles.PartnerManager",
-      "roles.Director",
-      "roles.HighStaff"
     ],
     "help_next_*": [
       "roles.Member"
@@ -1468,19 +1447,8 @@
     "info_strike_prev:*": {
       "ownerFromMessageMention": true
     },
-    "limiti": [
-      "roles.Staff"
-    ],
-    "lineeguida": [
-      "roles.Staff"
-    ],
     "metodi": [
       "roles.Member"
-    ],
-    "middle_*": [
-      "roles.SeniorModerator",
-      "roles.Director",
-      "roles.HighStaff"
     ],
     "moderazione_staff": [
       "roles.Staff"
@@ -1492,17 +1460,11 @@
       "roles.PartnerManager",
       "roles.HighStaff"
     ],
-    "pause": [
-      "roles.Staff"
-    ],
     "ping": [
       "roles.Member"
     ],
     "plb_*": [
       "roles.Member"
-    ],
-    "pex": [
-      "roles.Staff"
     ],
     "prev": [
       "roles.PartnerManager",
@@ -1512,9 +1474,6 @@
       "roles.Member"
     ],
     "regolamento": [
-      "roles.Staff"
-    ],
-    "regole_staff": [
       "roles.Staff"
     ],
     "rifiuta": {
@@ -1647,9 +1606,6 @@
     "ticket_panel_nav_closerequest": null,
     "ticket_panel_nav_transfer": null,
     "ticket_panel_reopen_pick": null,
-    "valutazioni": [
-      "roles.Staff"
-    ],
     "apply_helper": [
       "roles.Member"
     ],
@@ -1674,22 +1630,6 @@
       ],
       "ownerSegment": 2
     },
-    "apply_pex:*": [
-      "roles.Admin",
-      "roles.Manager",
-      "roles.Founder"
-    ],
-    "apply_reject:*": [
-      "roles.Admin",
-      "roles.Manager",
-      "roles.Founder"
-    ],
-    "website_unban_acc:*": [
-      "roles.HighStaff"
-    ],
-    "website_unban_rej:*": [
-      "roles.HighStaff"
-    ],
     "candidature_premi_partner": [
       "roles.Member"
     ],
@@ -1816,9 +1756,6 @@
     },
     "vocalimoderazione": [
       "roles.Staff"
-    ],
-    "warnstaff": [
-      "roles.Staff"
     ]
   },
   "selectMenus": {
@@ -1927,40 +1864,6 @@
     "usage_guide:*": {
       "ownerSegment": 2
     },
-    "personality_age": [
-      "roles.Member"
-    ],
-    "personality_colors_1": [
-      "roles.Member"
-    ],
-    "personality_colors_plus": [
-      "roles.Donator",
-      "roles.VIP",
-      "roles.Level50",
-      "roles.ServerBooster",
-      "roles.VIPplus"
-    ],
-    "personality_dm": [
-      "roles.Member"
-    ],
-    "personality_mentions": [
-      "roles.Member"
-    ],
-    "personality_hobby": [
-      "roles.Member"
-    ],
-    "personality_pronouns": [
-      "roles.Member"
-    ],
-    "personality_region": [
-      "roles.Member"
-    ],
-    "personality_relationship": [
-      "roles.Member"
-    ],
-    "personality_zodiac": [
-      "roles.Member"
-    ],
     "stats_top_channel_view_select*": {
       "ownerSegment": 1
     },
@@ -2055,9 +1958,6 @@
       "ownerSegment": 1
     },
     "apply_form:*": {
-      "ownerSegment": 2
-    },
-    "apply_pex_modal:*": {
       "ownerSegment": 2
     },
     "top_page_modal:*": {

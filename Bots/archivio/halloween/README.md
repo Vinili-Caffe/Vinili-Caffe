@@ -1,29 +1,31 @@
-# Plugin evento halloween
+# Plugin evento Halloween (archivio)
 
-Codice sotto `archivio/halloween/src/Vinili/` (layout Hogwarts).
+Pack completo sotto `archivio/halloween/src/Vinili/`.
 
-## Live (`Bots/src/Vinili`)
+## Stato live (post 2026)
 
-**Shim rimasti (solo plugin):**
-- `EventPlugins/halloween/register.ts`
-- `EventPlugins/halloween/runtimeKillSwitch.ts`
+**Non caricato a boot.** Il core Vinili non registra più `EventPlugins/halloween` e non `require` il pack.
 
-**Stub locale (evento staccato):**
-- `Utils/Minigames/halloweenMinigameHooks.ts` — export invariati, tutti i gate Halloween disattivati; bank vuote.
+In live resta solo:
+- `Utils/Minigames/halloweenMinigameHooks.ts` — stub locale (gate/tema off, bank vuote)
+- `profile.events.halloween` come **Mixed** (candy wallet storico in Mongo, **nessuna cancellazione DB**)
+- rami restore/handler per tipi `halloween*` già persistiti (chiudono / rispondono “terminato”)
+- contest `sfondi-halloween` → vedi `archivio/contest-sfondi/` (EVENTS live vuoto)
 
-**Rimosso dal live** (solo in archivio sotto):
-- `Data/Minigames/halloweenMinigameBanks.ts`
-- `Services/Community/halloweenCandyService.ts`
-- `Services/Community/halloweenEmojiHuntService.ts`
-- `Services/Community/halloweenReactLeaderboardService.ts`
-- `Services/Minigames/minigameHalloweenGames.ts`
-- `Services/Minigames/minigameHalloweenShowcaseService.ts`
-- `Services/Minigames/minigameTrickOrTreat.ts`
-- `Utils/Eventi/halloweenCandyCatalog.ts`
-- `Utils/Eventi/halloweenEventConfig.ts`
-- `Utils/Minigames/halloweenCandyAlternate.ts`
-- `Utils/Minigames/halloweenEmojiHuntUi.ts`
-- `Utils/Minigames/halloweenFindGhostUi.ts`
-- `Utils/Minigames/halloweenTrickOrTreatUi.ts`
+Config live: **tolta**. Snapshot in `Config/config.halloween.json` (runtime/event/emojiHunt + pezzi minigames).
 
-Riattivazione: ripristinare shim + wiring minigame/reazioni/API profilo come in archivio.
+## Contenuto archivio
+
+- candy / emoji hunt / react leaderboard
+- minigiochi Halloween + Trick or Treat + showcase
+- banks, catalog, event config, UI
+- `EventPlugins/halloween/register` + `runtimeKillSwitch`
+
+## Riattivazione futura (solo se serve di nuovo)
+
+1. Ripristinare shim da questo pack verso `Bots/src/Vinili` (plugin, hunt service, games, ToT, hooks reali).
+2. Riagganciare `registerEventPlugins`, `messageReactionAdd`, starter in `minigameService`.
+3. Riabilitare date/flag in `config.json`.
+4. Se serve di nuovo lo schema candy tipizzato, ripristinare i path sotto `profile.events.halloween` (oggi Mixed).
+
+Non dare per scontato un Halloween annuale: il 2027 può restare archiviato.

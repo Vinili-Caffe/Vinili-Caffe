@@ -85,7 +85,7 @@ function memberHasTicketStaffRoles(member?, guildId?) {
 function memberHasConfiguredTicketTypeRoles(member?, guildId?, ticketType?) {
   if (!member?.roles?.cache) return false;
   try {
-    const { getTicketTypeStaffRoleIds } = require("../tenant/tenantTicketSettings") as typeof import("../tenant/tenantTicketSettings");
+    const { getTicketTypeStaffRoleIds } = require("../../../MultiGuild/tickets/tenant/tenantTicketSettings") as typeof import("../../../MultiGuild/tickets/tenant/tenantTicketSettings");
     const ids = uniqueIds(getTicketTypeStaffRoleIds(guildId, ticketType));
     return ids.some((rid?) => member.roles.cache.has(rid));
   } catch {
@@ -95,7 +95,7 @@ function memberHasConfiguredTicketTypeRoles(member?, guildId?, ticketType?) {
 
 function rawMemberHasConfiguredTicketTypeRoles(guildId?, ticketType?, rawRoleIds?) {
   try {
-    const { getTicketTypeStaffRoleIds } = require("../tenant/tenantTicketSettings") as typeof import("../tenant/tenantTicketSettings");
+    const { getTicketTypeStaffRoleIds } = require("../../../MultiGuild/tickets/tenant/tenantTicketSettings") as typeof import("../../../MultiGuild/tickets/tenant/tenantTicketSettings");
     const ids = new Set(uniqueIds(getTicketTypeStaffRoleIds(guildId, ticketType)));
     return uniqueIds(rawRoleIds).some((rid?) => ids.has(rid));
   } catch {
@@ -164,7 +164,7 @@ async function userHasTicketStaffInGuild(client?, guildId?, userId?, ticketType 
     if (memberHasConfiguredTicketTypeRoles(member, guildId, ticketType)) return true;
     if (memberHasTicketStaffRoles(member, guildId)) return true;
     try {
-      const { hasStaffTicketRole } = require("../discord/ticketStaffPanelBuild") as typeof import("../discord/ticketStaffPanelBuild");
+      const { hasStaffTicketRole } = require("../../../MultiGuild/tickets/discord/ticketStaffPanelBuild") as typeof import("../../../MultiGuild/tickets/discord/ticketStaffPanelBuild");
       if (hasStaffTicketRole(member, ticketType)) return true;
     } catch (_) {}
   }
@@ -203,7 +203,7 @@ async function canUserViewTicketTranscript(client?, userId?, ticketDoc?) {
   }
 
   try {
-    const { refreshTicketConfigCache } = require("../tenant/tenantTicketSettings") as typeof import("../tenant/tenantTicketSettings");
+    const { refreshTicketConfigCache } = require("../../../MultiGuild/tickets/tenant/tenantTicketSettings") as typeof import("../../../MultiGuild/tickets/tenant/tenantTicketSettings");
     await refreshTicketConfigCache().catch(() => null);
   } catch (_) {}
 

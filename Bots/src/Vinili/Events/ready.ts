@@ -45,7 +45,6 @@ const { startStreamerStageGuardLoop } = require("../Services/Community/streamerS
 /* staffWarnChannelMigration + staffNegativesWarnConversion → archivio/codice-morto (one-shot fatti) */
 const { syncAllStaffAutoValutazioni, restoreActiveSerataFilmSessions, cleanupMalformedAutoValutazioni } = require("../Services/Staff/staffAutoValutazioniService") as typeof import("../Services/Staff/staffAutoValutazioniService");
 const { reconcileResocontoReviewerRewardAutoValutazioni } = require("../Services/Staff/resocontoReviewerRewardService") as typeof import("../Services/Staff/resocontoReviewerRewardService");
-const { purgeDuplicateCompitoSettimanaleValutazioni } = require("../Services/Staff/compitoSettimanaleDuplicatePurgeService") as typeof import("../Services/Staff/compitoSettimanaleDuplicatePurgeService");
 const { runScheduledEnds, syncActiveGiveawayButtons, scheduleActiveGiveawayEnds } = require("../Services/Giveaway/giveawayService") as typeof import("../Services/Giveaway/giveawayService");
 const { retroSyncGuildLevels, healLevelRolesForGuildOnStartup } = require("../Services/Community/expService") as typeof import("../Services/Community/expService");
 const { runFullCleanupUsersNotInServer } = require("../Services/Community/cleanupUsersNotInServerService") as typeof import("../Services/Community/cleanupUsersNotInServerService");
@@ -593,12 +592,6 @@ function buildDeferredStartupTasks(client?, primaryScheduler?, engagementTick?) 
       run: () => (reconcileResocontoReviewerRewardAutoValutazioni as any)(client),
     },
     {
-      label: "purge duplicate compito settimanale valutazioni",
-      weight: 82,
-      enabled: false,
-      run: () => purgeDuplicateCompitoSettimanaleValutazioni(client, { dryRun: true }),
-    },
-    {
       label: "verification tenure backfill",
       weight: 85,
       enabled: primaryScheduler && fullSync && shouldRunVerificationTenureBackfill(client),
@@ -976,7 +969,7 @@ async function restoreBumpReminders(client?) {
   /* pushHedgeBootRecover1: dopo restart ri-arma hedge per unread senza /push/shown
      (SIGINT alle 12:39 uccideva i timer RAM → Top.gg claimato ma zero banner iOS). */
   try {
-    const { recoverUnreadApplePushHedges } = require("../features/notifications/siteInAppNotificationsService") as typeof import("../features/notifications/siteInAppNotificationsService");
+    const { recoverUnreadApplePushHedges } = require("../site/notifications/siteInAppNotificationsService") as typeof import("../site/notifications/siteInAppNotificationsService");
     setTimeout(() => {
       recoverUnreadApplePushHedges({ maxAgeMs: 6 * 60 * 60 * 1000, limitUsers: 50 }).catch((err?) => {
         global.logger?.warn?.("[PUSH HEDGE RECOVER]", err?.message || err);
@@ -1031,7 +1024,7 @@ async function restoreCoreStartupState(client?) {
     global.logger?.warn?.("[antiNuke] quarantine restore failed:", err?.message || err);
   }
   try {
-    const { restoreChatDmFallbacksOnStartup } = require("../Web/siteChatDmFallback") as typeof import("../Web/siteChatDmFallback");
+    const { restoreChatDmFallbacksOnStartup } = require("../site/http/siteChatDmFallback") as typeof import("../site/http/siteChatDmFallback");
     if (typeof restoreChatDmFallbacksOnStartup === "function") {
       await restoreChatDmFallbacksOnStartup(client);
     }
@@ -1160,7 +1153,7 @@ function startPrimaryLoops(client?, engagementTick?) {
     ["[MOD CASE LIFECYCLE] Failed to start loop", () => startModCaseLifecycleLoop(client)],
     ["[TICKET AUTO CLOSE PROMPT] Failed to start loop", () => startTicketAutoClosePromptLoop(client)],
     ["[WEB TICKET SLA] Failed to start loop", () => {
-      const { startWebTicketSlaNotifLoop } = require("../features/tickets/site/siteWebTicketsApi") as typeof import("../features/tickets/site/siteWebTicketsApi");
+      const { startWebTicketSlaNotifLoop } = require("../site/tickets/siteWebTicketsApi") as typeof import("../site/tickets/siteWebTicketsApi");
       startWebTicketSlaNotifLoop(client);
     }],
     ["[TRANSCRIPT CLEANUP] Failed to start loop", () => startTranscriptCleanupLoop()],
@@ -1176,7 +1169,7 @@ function startPrimaryLoops(client?, engagementTick?) {
       "[PEX IMPORT] import cronologia pex/depex fallito",
       () => {
         const t = setTimeout(() => {
-          const { importOldPexDepex } = require("../features/staff/pexDepexImport") as typeof import("../features/staff/pexDepexImport");
+          const { importOldPexDepex } = require("../site/staff/pexDepexImport") as typeof import("../site/staff/pexDepexImport");
           importOldPexDepex(client).catch((err) => global.logger?.error?.("[PEX IMPORT]", err));
         }, 2 * 60_000);
         t.unref?.();
@@ -1498,13 +1491,6 @@ export = {
       }, CLEANUP_USERS_NOT_IN_SERVER_INTERVAL_MS);
       if (iv?.unref) iv.unref();
     }
-
-    setTimeout(() => {
-      const { sweepAccessGuild } = require("../Services/Staff/staffAccessMirrorService") as typeof import("../Services/Staff/staffAccessMirrorService");
-      sweepAccessGuild(client).catch((err?) => {
-        global.logger?.warn?.("[STAFF ACCESS MIRROR] startup sweep failed:", err);
-      });
-    }, 30_000).unref?.();
 
     const { applyBotPresence, installBotPresenceKeeper } = require("../../shared/discord/botPresenceActivity") as typeof import("../../shared/discord/botPresenceActivity");
     await applyBotPresence(client);

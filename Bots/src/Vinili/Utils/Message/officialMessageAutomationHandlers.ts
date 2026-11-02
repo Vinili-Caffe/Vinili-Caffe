@@ -29,8 +29,7 @@ const PAUSE_CHANNEL_ID = IDs.channels.pause;
 const SANZIONI_CHANNEL_ID = getSanzioniChannelId();
 const VOTE_ROLE_ID = IDs.roles.Voter;
 const VOTE_URL = IDs.links.vote;
-const DEFAULT_THREAD_VOTE_REACTION = "👍";
-const DEFAULT_THREAD_VOTE_LOOKBACK_LIMIT = 100;
+const DEFAULT_VOTE_REACTION_FALLBACK = "👍";
 const MOVIE_NIGHT_THREAD_PARENT_ID = String(IDs.channels?.eventAnnouncements || "1481660281032675510");
 const MOVIE_NIGHT_THREAD_NAME = "SERATA FILM";
 const MOVIE_NIGHT_THREAD_REACTION = "<a:VC_Vote:1482535223001485473>";
@@ -111,75 +110,13 @@ function isDiscordInviteLinkMessage(message?) {
   );
 }
 
-function normalizeThreadVoteText(raw?) {
+function normalizePlainVoteText(raw?) {
   return String(raw || "")
     .normalize("NFKC")
     .toLowerCase()
     .replace(/[^\p{L}\p{N}\s]/gu, " ")
     .replace(/\s+/g, " ")
     .trim();
-}
-
-function normalizeNamedVoteThreadName(raw?) {
-  return String(raw || "")
-    .normalize("NFKC")
-    .trim()
-    .replace(/\s+/g, " ")
-    .toUpperCase();
-}
-
-function normalizeNamedThreadRule(rule?, fallbackReactionEmoji?) {
-  if (!rule || typeof rule !== "object") return null;
-  const parentChannelId = String(rule.parentChannelId || "").trim();
-  const threadName = normalizeNamedVoteThreadName(rule.threadName || "");
-  if (!/^\d{16,20}$/.test(parentChannelId) || !threadName) return null;
-  const reactionEmoji =
-    String(rule.reactionEmoji || fallbackReactionEmoji || DEFAULT_THREAD_VOTE_REACTION).trim()
-    || DEFAULT_THREAD_VOTE_REACTION;
-  return {
-    parentChannelId,
-    threadName,
-    reactionEmoji,
-    preventDuplicates: rule.preventDuplicates === true,
-    lookbackLimit: Math.max(
-      20,
-      Math.min(200, Number(rule.duplicateLookbackLimit || DEFAULT_THREAD_VOTE_LOOKBACK_LIMIT)),
-    ),
-  };
-}
-
-function threadMatchesNamedVoteRule(thread?, rule?) {
-  if (!thread?.isThread?.() || !rule) return false;
-  if (String(thread.parentId || "") !== rule.parentChannelId) return false;
-  const currentName = normalizeNamedVoteThreadName(thread.name || "");
-  return currentName === rule.threadName || currentName.includes(rule.threadName);
-}
-
-async function ensureBotJoinedVoteThread(thread?) {
-  const me = String(thread?.guild?.members?.me?.id || thread?.client?.user?.id || "").trim();
-  if (!me || !thread?.members?.add) return;
-  await thread.members.add(me).catch(() => null);
-}
-
-function resolveThreadVoteRule(message?, cfg?) {
-  if (!message?.channel?.isThread?.() || !cfg) return null;
-  const threadId = String(message.channelId || "");
-  if (cfg.threadIds.includes(threadId)) {
-    return {
-      reactionEmoji: cfg.reactionEmoji,
-      preventDuplicates: cfg.preventDuplicates,
-      lookbackLimit: cfg.lookbackLimit,
-    };
-  }
-  for (const rule of cfg.namedThreads || []) {
-    if (!threadMatchesNamedVoteRule(message.channel, rule)) continue;
-    return {
-      reactionEmoji: rule.reactionEmoji,
-      preventDuplicates: rule.preventDuplicates,
-      lookbackLimit: rule.lookbackLimit,
-    };
-  }
-  return null;
 }
 
 function normalizeMovieNightThreadName(raw?) {
@@ -208,13 +145,13 @@ function movieNightProposalTextsMatch(leftRaw?, rightRaw?) {
   const rightTitle = normalizeMovieNightProposalForCompare(rightRaw);
   if (leftTitle && rightTitle && leftTitle === rightTitle) return true;
   if (leftTitle && rightTitle && movieNightTitlesMatch(leftTitle, rightTitle)) return true;
-  const leftText = normalizeThreadVoteText(leftRaw);
-  const rightText = normalizeThreadVoteText(rightRaw);
+  const leftText = normalizePlainVoteText(leftRaw);
+  const rightText = normalizePlainVoteText(rightRaw);
   return Boolean(leftText && rightText && leftText === rightText);
 }
 
 function messageHasMovieNightProposalContent(raw?) {
-  return Boolean(normalizeMovieNightProposalForCompare(raw) || normalizeThreadVoteText(raw));
+  return Boolean(normalizeMovieNightProposalForCompare(raw) || normalizePlainVoteText(raw));
 }
 
 async function fetchMovieNightThreadMessages(thread?, max = MOVIE_NIGHT_THREAD_DUPLICATE_LOOKBACK_MAX) {
@@ -297,72 +234,8 @@ async function handleMovieNightVoteMessage(message?) {
   }
 
   const reacted = await message.react(MOVIE_NIGHT_THREAD_REACTION).then(() => true).catch(() => false);
-  if (!reacted && (MOVIE_NIGHT_THREAD_REACTION as any) !== DEFAULT_THREAD_VOTE_REACTION) {
-    await message.react(DEFAULT_THREAD_VOTE_REACTION).catch(() => {});
-  }
-  return false;
-}
-
-function getThreadVoteConfig(client?) {
-  const cfg = client?.config?.threadVote;
-  if (!cfg || typeof cfg !== "object") return null;
-  const threadIds = Array.isArray(cfg.threadIds)
-    ? cfg.threadIds.map((id?) => String(id || "").trim()).filter((id?) => /^\d{16,20}$/.test(id))
-    : [];
-  const fallbackReaction =
-    String(cfg.reactionEmoji || DEFAULT_THREAD_VOTE_REACTION).trim() || DEFAULT_THREAD_VOTE_REACTION;
-  const namedThreads = (Array.isArray(cfg.namedThreads) ? cfg.namedThreads : [])
-    .map((rule?) => normalizeNamedThreadRule(rule, fallbackReaction))
-    .filter(Boolean);
-  return {
-    enabled: cfg.enabled !== false,
-    preventDuplicates: cfg.preventDuplicates !== false,
-    reactionEmoji: fallbackReaction,
-    lookbackLimit: Math.max(
-      20,
-      Math.min(200, Number(cfg.duplicateLookbackLimit || DEFAULT_THREAD_VOTE_LOOKBACK_LIMIT)),
-    ),
-    threadIds,
-    namedThreads,
-  };
-}
-
-async function handleThreadVoteMessage(message?, client?) {
-  if (!message?.guild) return false;
-  if (message.author?.bot || message.webhookId || message.system) return false;
-  if (!message.channel?.isThread?.()) return false;
-  const cfg = getThreadVoteConfig(client);
-  if (!cfg?.enabled) return false;
-  const rule = resolveThreadVoteRule(message, cfg);
-  if (!rule) return false;
-
-  const normalizedCurrent = normalizeThreadVoteText(message.content);
-  if (rule.preventDuplicates && normalizedCurrent) {
-    const lookback = Math.max(20, Math.min(200, Number(rule.lookbackLimit || cfg.lookbackLimit)));
-    const recent = await message.channel.messages
-      .fetch({ limit: lookback })
-      .catch(() => null);
-    const duplicate = recent?.find((msg?) => {
-      if (!msg || String(msg.id) === String(message.id)) return false;
-      if (msg.author?.bot || msg.webhookId || msg.system) return false;
-      return normalizeThreadVoteText(msg.content) === normalizedCurrent;
-    });
-    if (duplicate) {
-      await message.delete().catch(() => {});
-      const warning = await message.channel
-        .send({
-          content: `${message.author} questa proposta è già presente nel thread. Evita duplicati.`,
-        })
-        .catch(() => null);
-      if (warning) scheduleMessageDeletion(warning, EPHEMERAL_TTL_NORMAL_MS);
-      return true;
-    }
-  }
-
-  await ensureBotJoinedVoteThread(message.channel);
-  const reacted = await message.react(rule.reactionEmoji).then(() => true).catch(() => false);
-  if (!reacted && rule.reactionEmoji !== DEFAULT_THREAD_VOTE_REACTION) {
-    await message.react(DEFAULT_THREAD_VOTE_REACTION).catch(() => {});
+  if (!reacted && (MOVIE_NIGHT_THREAD_REACTION as any) !== DEFAULT_VOTE_REACTION_FALLBACK) {
+    await message.react(DEFAULT_VOTE_REACTION_FALLBACK).catch(() => {});
   }
   return false;
 }
@@ -1109,7 +982,7 @@ async function handlePauseChannelMessage(message?) {
   const pauseChannelId = String(IDs.channels.pause || "");
   if (!pauseChannelId || String(message.channelId) !== pauseChannelId) return false;
   if (message.author?.bot || message.webhookId || message.system) return false;
-  const { siteWorkflowUrl } = require("../../Web/discordWorkflowUiGate") as typeof import("../../Web/discordWorkflowUiGate");
+  const { siteWorkflowUrl } = require("../../site/http/discordWorkflowUiGate") as typeof import("../../site/http/discordWorkflowUiGate");
   const warning = await message.channel
     .send({ content: `${message.author} le richieste pausa si inviano **solo sul sito**:
 ${siteWorkflowUrl("pause")}` })
@@ -1251,4 +1124,4 @@ async function processAllRecentAutomationMessages(client?) {
   await processRecentCommandsChannelMessages(client);
 }
 
-export = { channelAllowsMedia, getCachedOrFetchMember, handleDisboardBump, handleDiscadiaBump, handlePauseChannelMessage, handleSanzioniChannelMessage, handleThreadVoteMessage, handleMovieNightVoteMessage, handleVoteManagerMessage, hasMediaPermission, isDiscordInviteLinkMessage, isMediaMessage, processRecentVoteChannelMessages, processRecentCommandsChannelMessages, processAllRecentAutomationMessages, processDiscadiaVote };
+export = { channelAllowsMedia, getCachedOrFetchMember, handleDisboardBump, handleDiscadiaBump, handlePauseChannelMessage, handleSanzioniChannelMessage, handleMovieNightVoteMessage, handleVoteManagerMessage, hasMediaPermission, isDiscordInviteLinkMessage, isMediaMessage, processRecentVoteChannelMessages, processRecentCommandsChannelMessages, processAllRecentAutomationMessages, processDiscadiaVote };

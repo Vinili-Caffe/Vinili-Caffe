@@ -2,7 +2,6 @@ const { formatItalianMinutesPlain } = require("../Utils/Text/italianDurationLabe
 const { AuditLogEvent, ChannelType, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, } = require("discord.js") as typeof import("discord.js");
 const { toDiscordTimestamp, yesNo, formatAuditActor, buildAuditExtraLines, resolveChannelRolesLogChannel, resolveResponsible, } = require("../Utils/Logging/channelRolesLogUtils") as typeof import("../Utils/Logging/channelRolesLogUtils");
 const { handleThreadCreationAction: antiNukeHandleThreadCreationAction } = require("../Services/Moderation/antiNukeService") as typeof import("../Services/Moderation/antiNukeService");
-const { handleIdeaBugCategoryThreadCreate } = require("../Services/Community/ideaBugThreadService") as typeof import("../Services/Community/ideaBugThreadService");
 const { isViniliFullFeatureGuild } = require("../MultiGuild/core/guildFeatureScope") as typeof import("../MultiGuild/core/guildFeatureScope");
 const THREAD_CREATE_ACTION = AuditLogEvent?.ThreadCreate ?? 110;
 
@@ -35,9 +34,6 @@ export = {
     try {
       if (!thread?.guild || !thread?.id) return;
       if (!isViniliFullFeatureGuild(thread.guild.id)) return;
-      await handleIdeaBugCategoryThreadCreate(thread).catch((err?) => {
-        global.logger?.warn?.("[threadCreate] idea bug category ping failed:", err?.message || err);
-      });
       const audit = await resolveResponsibleWithRetry(thread.guild, thread.id);
       const executorId = String(audit?.executor?.id || "");
       const responsible = formatAuditActor(audit.executor);

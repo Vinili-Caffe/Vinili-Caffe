@@ -127,7 +127,7 @@ async function getStaffListNewBadgeRoleIdsByUser(guildId?) {
 }
 
 async function getStaffListPausedUserIds(guildId?) {
-  const { hasActiveAcceptedStaffPause, getTodayUtc } = require("../Pause/pauseHandlersUtils") as typeof import("../Pause/pauseHandlersUtils");
+  const { hasActiveAcceptedStaffPause, getTodayUtc } = require("../../site/staff/pause/pauseHandlersUtils") as typeof import("../../site/staff/pause/pauseHandlersUtils");
   const today = getTodayUtc();
   const gid = String(guildId);
   const docs = await ActivityUserProfile.find(

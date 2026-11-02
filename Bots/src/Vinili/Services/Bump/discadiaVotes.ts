@@ -125,18 +125,18 @@ async function recordDiscadiaVote(client?, guildId?, userId?, options: Record<st
 
   /* voteWsLive1: invalida cache /vote/ + ping WS subito (anche se ancora sulla pagina o in PWA). */
   try {
-    const { invalidateSiteVoteCache } = require("../../Web/siteVoteApi") as typeof import("../../Web/siteVoteApi");
+    const { invalidateSiteVoteCache } = require("../../site/http/siteVoteApi") as typeof import("../../site/http/siteVoteApi");
     invalidateSiteVoteCache(mainGuildId, userId);
   } catch (_) {}
   try {
-    const { broadcastSiteVotesChanged } = require("../../features/suggestions/siteSuggestionsBroadcast") as typeof import("../../features/suggestions/siteSuggestionsBroadcast");
+    const { broadcastSiteVotesChanged } = require("../../site/suggestions/siteSuggestionsBroadcast") as typeof import("../../site/suggestions/siteSuggestionsBroadcast");
     broadcastSiteVotesChanged({ userId: String(userId || "").trim(), platform: voteListing });
   } catch (_) {}
 
   /* smartNotifLifecycle1: al voto → via reminder inbox+OS di quella piattaforma */
   try {
     clearVoteReminderPhoneRetries(userId, voteListing);
-    const { removeSiteInAppNotificationsMatching } = require("../../features/notifications/siteInAppNotificationsService") as typeof import("../../features/notifications/siteInAppNotificationsService");
+    const { removeSiteInAppNotificationsMatching } = require("../../site/notifications/siteInAppNotificationsService") as typeof import("../../site/notifications/siteInAppNotificationsService");
     void removeSiteInAppNotificationsMatching({
       userId: String(userId || "").trim(),
       prefixes: [`vote_reminder_${voteListing}_`],

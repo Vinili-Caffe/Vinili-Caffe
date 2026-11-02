@@ -1,0 +1,14 @@
+{
+  "key": "sfondi-halloween",
+  "kind": "sfondi",
+  "title": "Contest sfondi Halloween",
+  "blurb": "Invia uno sfondo PC e/o mobile e vota gli altri in stile swipe.",
+  "startMs": "2026-10-26T19:00:00+01:00",
+  "endMs": "2026-10-30T21:00:00+01:00",
+  "maxPerCategory": 1,
+  "categories": [
+    { "id": "pc", "label": "PC" },
+    { "id": "mobile", "label": "Telefono / tablet" }
+  ],
+  "publicOpen": true
+}

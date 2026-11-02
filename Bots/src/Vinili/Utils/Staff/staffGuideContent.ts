@@ -1,6 +1,6 @@
 const IDs = require("../Config/ids") as typeof import("../Config/ids");
 const { MOD_RULE_DETAIL } = require("../Moderation/modRegolamentoConstants") as typeof import("../Moderation/modRegolamentoConstants");
-const { siteWorkflowUrl } = require("../../Web/discordWorkflowUiGate") as typeof import("../../Web/discordWorkflowUiGate");
+const { siteWorkflowUrl } = require("../../site/http/discordWorkflowUiGate") as typeof import("../../site/http/discordWorkflowUiGate");
 
 function staffSanctionRuleIntro(ruleKey?) {
   const body = MOD_RULE_DETAIL[ruleKey];

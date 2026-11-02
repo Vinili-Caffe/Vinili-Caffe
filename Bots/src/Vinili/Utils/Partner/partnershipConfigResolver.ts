@@ -485,17 +485,10 @@ function getPartnershipLogsChannelId(guildId?) {
 }
 
 function getPointsRemovedLogChannelId(guildId?) {
+  /* Main Vinili: punti tolti / shop = solo sito. Tenant multi-guild possono avere canale dedicato. */
+  if (isMainPartnershipSettingsGuild(guildId)) return null;
   const cfg = resolvePartnershipConfigSync(guildId);
-  const id = cfg?.pointsRemovedChannelId || null;
-  if (!id) return null;
-  const legacyPuntiTolti = String(IDs.channels?.puntiTolti || "").trim();
-  if (legacyPuntiTolti && String(id) === legacyPuntiTolti) {
-    try {
-      const { isDiscordStaffChannelPostsEnabled } = require("../../Web/discordWorkflowUiGate") as typeof import("../../Web/discordWorkflowUiGate");
-      if (!isDiscordStaffChannelPostsEnabled()) return null;
-    } catch (_) {}
-  }
-  return id;
+  return cfg?.pointsRemovedChannelId || null;
 }
 
 function resolvePartnershipLifecycleLogChannelId(guildId?) {
@@ -503,10 +496,14 @@ function resolvePartnershipLifecycleLogChannelId(guildId?) {
 }
 
 function resolvePointsCustomLogChannelId(guildId?) {
+  if (isMainPartnershipSettingsGuild(guildId)) return null;
   return getPointsRemovedLogChannelId(guildId) || getPartnershipLogsChannelId(guildId);
 }
 
 function getPartnershipLogChannelIds(guildId?) {
+  if (isMainPartnershipSettingsGuild(guildId)) {
+    return { primary: null, fallback: null };
+  }
   const pointsChannelId = resolvePointsCustomLogChannelId(guildId);
   return {
     primary: pointsChannelId,

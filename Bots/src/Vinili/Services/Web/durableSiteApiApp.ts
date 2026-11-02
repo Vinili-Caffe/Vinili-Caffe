@@ -42,7 +42,7 @@ installEmbedFooterPatch();
 installOutgoingMessageEmbedPatch(discord);
 const { createSiteApiRestClient } = require("./siteApiRestClient") as typeof import("./siteApiRestClient");
 const { mountSiteWebhookRoutes } = require("./siteWebhookRoutes") as typeof import("./siteWebhookRoutes");
-const { mountSiteApiRateLimit } = require("../../Web/siteApiRateLimit") as typeof import("../../Web/siteApiRateLimit");
+const { mountSiteApiRateLimit } = require("../../site/http/siteApiRateLimit") as typeof import("../../site/http/siteApiRateLimit");
 
 function normalizeHeaderSecret(raw?) {
   if (raw == null) return "";
@@ -283,13 +283,13 @@ async function main() {
   };
 
   app.get("/webhooks/site-api/health", (_req?, res?) => {
-    const { sendStackHealth } = require("../../Web/stackHealth") as typeof import("../../Web/stackHealth");
+    const { sendStackHealth } = require("../../site/http/stackHealth") as typeof import("../../site/http/stackHealth");
     return sendStackHealth(client, _req, res, { service: "site-api", includeLavalink: false });
   });
   app.get("/webhooks/site-api/perf", (_req?, res?) => {
     let oauth = { size: 0, inflight: 0, ttlMs: 0 };
     try {
-      oauth = require("../../Web/discordOauthMe").getDiscordOAuthMeCacheStats();
+      oauth = require("../../site/http/discordOauthMe").getDiscordOAuthMeCacheStats();
     } catch (_) {}
     res.setHeader("Cache-Control", "no-store");
     return res.status(200).json({
@@ -301,7 +301,7 @@ async function main() {
     });
   });
   app.get("/webhooks/health", (req?, res?) => {
-    const { sendStackHealth } = require("../../Web/stackHealth") as typeof import("../../Web/stackHealth");
+    const { sendStackHealth } = require("../../site/http/stackHealth") as typeof import("../../site/http/stackHealth");
     return sendStackHealth(client, req, res, { service: "site-api", includeLavalink: false });
   });
   app.get("/webhooks/status", (_req?, res?) => {
@@ -339,7 +339,7 @@ async function main() {
     try {
       if (type === "staff_pauses_changed") {
         try {
-          const { invalidateStaffPauseCalendarCache } = require("../../features/staff/siteStaffPauseApi") as typeof import("../../features/staff/siteStaffPauseApi");
+          const { invalidateStaffPauseCalendarCache } = require("../../site/staff/siteStaffPauseApi") as typeof import("../../site/staff/siteStaffPauseApi");
           invalidateStaffPauseCalendarCache();
         } catch {
                   }
@@ -347,7 +347,7 @@ async function main() {
       /* leaveProfileLive1: bots → site-api: wipe profile/staff/member caches before WS fanout */
       if (type === "member_left") {
         try {
-          const { invalidateLeftMemberSiteCaches } = require("../../features/suggestions/siteSuggestionsBroadcast") as typeof import("../../features/suggestions/siteSuggestionsBroadcast");
+          const { invalidateLeftMemberSiteCaches } = require("../../site/suggestions/siteSuggestionsBroadcast") as typeof import("../../site/suggestions/siteSuggestionsBroadcast");
           invalidateLeftMemberSiteCaches(body.userId, body.guildId);
         } catch {
                   }
@@ -355,13 +355,13 @@ async function main() {
       /* voteWsLive1: cache /vote/ vive nel processo site-api — invalida qui al ping dai bots */
       if (type === "votes_changed") {
         try {
-          const { invalidateSiteVoteCache } = require("../../Web/siteVoteApi") as typeof import("../../Web/siteVoteApi");
+          const { invalidateSiteVoteCache } = require("../../site/http/siteVoteApi") as typeof import("../../site/http/siteVoteApi");
           const gid = String(client?.config?.mainGuildId || "").trim();
           invalidateSiteVoteCache(gid, body.userId);
         } catch {
                   }
       }
-      const { broadcastSiteRealtime } = require("../../features/suggestions/siteSuggestionsBroadcast") as typeof import("../../features/suggestions/siteSuggestionsBroadcast");
+      const { broadcastSiteRealtime } = require("../../site/suggestions/siteSuggestionsBroadcast") as typeof import("../../site/suggestions/siteSuggestionsBroadcast");
       broadcastSiteRealtime({ ...body, at: body.at || new Date().toISOString() });
     } catch (err) {
       return res.status(500).json({ ok: false, error: "broadcast_failed", message: err?.message || String(err) });
@@ -404,7 +404,7 @@ async function main() {
     server.maxHeadersCount = 100;
   } catch (_) {}
   try {
-    const { attachSiteSuggestionsWsServer } = require("../../features/suggestions/siteSuggestionsBroadcast") as typeof import("../../features/suggestions/siteSuggestionsBroadcast");
+    const { attachSiteSuggestionsWsServer } = require("../../site/suggestions/siteSuggestionsBroadcast") as typeof import("../../site/suggestions/siteSuggestionsBroadcast");
     attachSiteSuggestionsWsServer(server);
   } catch (err) {
     console.warn("[SITE-API] WebSocket init:", err?.message || err);
@@ -416,7 +416,7 @@ async function main() {
       loadSiteApiCommandsBg();
     });
     try {
-      const { warmSiteRolesCache } = require("../../Web/siteRolesApi") as typeof import("../../Web/siteRolesApi");
+      const { warmSiteRolesCache } = require("../../site/http/siteRolesApi") as typeof import("../../site/http/siteRolesApi");
       const warmRoles = () => {
         try {
           warmSiteRolesCache(client);
@@ -433,7 +433,7 @@ async function main() {
     }
     /* siteApiW4: warm users + live-event so first public hit isn't cold */
     try {
-      const { warmSiteUsersLeaderboardCache } = require("../../Web/siteUsersLeaderboardApi") as typeof import("../../Web/siteUsersLeaderboardApi");
+      const { warmSiteUsersLeaderboardCache } = require("../../site/http/siteUsersLeaderboardApi") as typeof import("../../site/http/siteUsersLeaderboardApi");
       const warmUsers = () => {
         warmSiteUsersLeaderboardCache(client).catch((e?) => {
           console.warn("[SITE-API] site-users warm:", e?.message || e);
@@ -446,7 +446,7 @@ async function main() {
       console.warn("[SITE-API] site-users warm init:", err?.message || err);
     }
     try {
-      const { warmSiteLiveEventCache } = require("../../Web/siteLiveEventApi") as typeof import("../../Web/siteLiveEventApi");
+      const { warmSiteLiveEventCache } = require("../../site/http/siteLiveEventApi") as typeof import("../../site/http/siteLiveEventApi");
       setTimeout(() => {
         warmSiteLiveEventCache(client);
       }, 3000);
@@ -455,7 +455,7 @@ async function main() {
     }
     /* apiWarmSwr1: wiki / boards / staff roster+organico / dash deps */
     try {
-      const { warmSiteWikiHelpCache } = require("../../Web/siteWikiHelpApi") as typeof import("../../Web/siteWikiHelpApi");
+      const { warmSiteWikiHelpCache } = require("../../site/http/siteWikiHelpApi") as typeof import("../../site/http/siteWikiHelpApi");
       const warmWiki = () => {
         warmSiteWikiHelpCache(client).catch((e?) => {
           console.warn("[SITE-API] site-wiki-help warm:", e?.message || e);
@@ -467,7 +467,7 @@ async function main() {
       console.warn("[SITE-API] site-wiki-help warm init:", err?.message || err);
     }
     try {
-      const { warmSiteBoardsListingsCache } = require("../../features/boards/siteBoardsApi") as typeof import("../../features/boards/siteBoardsApi");
+      const { warmSiteBoardsListingsCache } = require("../../site/boards/siteBoardsApi") as typeof import("../../site/boards/siteBoardsApi");
       const warmBoards = () => {
         warmSiteBoardsListingsCache(client).catch((e?) => {
           console.warn("[SITE-API] site-boards warm:", e?.message || e);
@@ -479,9 +479,9 @@ async function main() {
       console.warn("[SITE-API] site-boards warm init:", err?.message || err);
     }
     try {
-      const { warmStaffRosterCache } = require("../../features/staff/siteStaffRosterCache") as typeof import("../../features/staff/siteStaffRosterCache");
-      const { warmSiteStaffOrganicoCache } = require("../../features/staff/siteStaffOrganicoApi") as typeof import("../../features/staff/siteStaffOrganicoApi");
-      const { warmSiteStaffDashboardDeps } = require("../../features/staff/siteStaffDashboardApi") as typeof import("../../features/staff/siteStaffDashboardApi");
+      const { warmStaffRosterCache } = require("../../site/staff/siteStaffRosterCache") as typeof import("../../site/staff/siteStaffRosterCache");
+      const { warmSiteStaffOrganicoCache } = require("../../site/staff/siteStaffOrganicoApi") as typeof import("../../site/staff/siteStaffOrganicoApi");
+      const { warmSiteStaffDashboardDeps } = require("../../site/staff/siteStaffDashboardApi") as typeof import("../../site/staff/siteStaffDashboardApi");
       const warmStaff = () => {
         warmStaffRosterCache(client)
           .then(() =>
@@ -501,7 +501,7 @@ async function main() {
     }
     /* apiWarmSwr2: twitch PIP + vote board + reviews list + compiti workers */
     try {
-      const { warmSiteTwitchLiveCache } = require("../../Web/siteTwitchLiveApi") as typeof import("../../Web/siteTwitchLiveApi");
+      const { warmSiteTwitchLiveCache } = require("../../site/http/siteTwitchLiveApi") as typeof import("../../site/http/siteTwitchLiveApi");
       const warmLivePip = () => {
         warmSiteTwitchLiveCache(client).catch((e?) => {
           console.warn("[SITE-API] live-pip warm:", e?.message || e);
@@ -513,7 +513,7 @@ async function main() {
       console.warn("[SITE-API] live-pip warm init:", err?.message || err);
     }
     try {
-      const { warmSiteVoteBoardCache } = require("../../Web/siteVoteApi") as typeof import("../../Web/siteVoteApi");
+      const { warmSiteVoteBoardCache } = require("../../site/http/siteVoteApi") as typeof import("../../site/http/siteVoteApi");
       const warmVote = () => {
         warmSiteVoteBoardCache(client).catch((e?) => {
           console.warn("[SITE-API] site-vote warm:", e?.message || e);
@@ -530,7 +530,7 @@ async function main() {
       console.warn("[SITE-API] site-vote warm init:", err?.message || err);
     }
     try {
-      const { warmSiteReviewsListCache } = require("../../Web/siteReviewsApi") as typeof import("../../Web/siteReviewsApi");
+      const { warmSiteReviewsListCache } = require("../../site/http/siteReviewsApi") as typeof import("../../site/http/siteReviewsApi");
       const warmReviews = () => {
         warmSiteReviewsListCache(client).catch((e?) => {
           console.warn("[SITE-API] site-reviews warm:", e?.message || e);
@@ -539,7 +539,7 @@ async function main() {
       setTimeout(warmReviews, 3000);
       setInterval(warmReviews, Math.max(25_000, Number(process.env.VC_SITE_WARM_REVIEWS_MS || 60_000) || 60_000)).unref?.();
       // recensioni di chi non è più staff: pulizia all'avvio e ogni 6 ore
-      const { purgeExStaffReviews } = require("../../Web/siteReviewsApi") as typeof import("../../Web/siteReviewsApi");
+      const { purgeExStaffReviews } = require("../../site/http/siteReviewsApi") as typeof import("../../site/http/siteReviewsApi");
       const purgeExStaff = () => {
         purgeExStaffReviews(client).catch((e?) => console.warn("[SITE-API] purge ex staff reviews:", e?.message || e));
       };
@@ -549,7 +549,7 @@ async function main() {
       console.warn("[SITE-API] site-reviews warm init:", err?.message || err);
     }
     try {
-      const { warmSiteStaffCompitiWorkersCache } = require("../../features/staff/siteStaffCompitiApi") as typeof import("../../features/staff/siteStaffCompitiApi");
+      const { warmSiteStaffCompitiWorkersCache } = require("../../site/staff/siteStaffCompitiApi") as typeof import("../../site/staff/siteStaffCompitiApi");
       const warmCompiti = () => {
         warmSiteStaffCompitiWorkersCache(client).catch((e?) => {
           console.warn("[SITE-API] compiti workers warm:", e?.message || e);

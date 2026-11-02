@@ -35,7 +35,7 @@ async function bumpCandidatureCooldownAfterDepexOneLevel(userId?) {
   const id = String(userId || "").trim();
   if (!/^\d{16,20}$/.test(id)) return;
   try {
-    const { bumpApplicationCooldownAfterStaffDepex } = require("../../Events/interaction/candidatureApplicationHandlers") as typeof import("../../Events/interaction/candidatureApplicationHandlers");
+    const { bumpApplicationCooldownAfterStaffDepex } = require("../../site/staff/candidature/candidatureApplicationHandlers") as typeof import("../../site/staff/candidature/candidatureApplicationHandlers");
     if (typeof bumpApplicationCooldownAfterStaffDepex === "function") {
       await bumpApplicationCooldownAfterStaffDepex(id);
     }

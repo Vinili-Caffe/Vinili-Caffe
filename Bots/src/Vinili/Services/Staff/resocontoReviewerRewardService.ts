@@ -317,7 +317,7 @@ async function reviewerAlreadyHasCompitoForWeekSegment(guild?, staff?, weekKey?,
 }
 
 async function channelHasActiveCompitoForWeekSegment(guild?, staff?, weekKey?, segment?, userId?) {
-  const { isDiscordStaffChannelPostsEnabled } = require("../../Web/discordWorkflowUiGate") as typeof import("../../Web/discordWorkflowUiGate");
+  const { isDiscordStaffChannelPostsEnabled } = require("../../site/http/discordWorkflowUiGate") as typeof import("../../site/http/discordWorkflowUiGate");
   if (!isDiscordStaffChannelPostsEnabled()) return false;
   const wk = String(weekKey || "");
   const seg = String(segment || "");

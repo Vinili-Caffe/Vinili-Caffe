@@ -57,7 +57,7 @@ function isTicketInteraction(customId?) {
 
 function isProfilePanelInteraction(customId?) {
   if (!customId || typeof customId !== "string") return false;
-  return String(customId).trim().startsWith("profile_panel:") || String(customId).trim().startsWith("staff_profile_panel:") || String(customId).trim().startsWith("staff_pm_shop:") || String(customId).trim().startsWith("staff_val_neg_trade:");
+  return String(customId).trim().startsWith("profile_panel:") || String(customId).trim().startsWith("staff_pm_shop:") || String(customId).trim().startsWith("staff_val_neg_trade:");
 }
 
 function checkTenantProfilePanelPermission(interaction?, customId?) {

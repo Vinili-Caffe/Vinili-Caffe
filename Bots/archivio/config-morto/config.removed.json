@@ -1,0 +1,121 @@
+{
+  "_note": "Config morta rimossa dal live.",
+  "extractedAt": "2026-11-02T11:46:31.466Z",
+  "counting": {
+    "enabled": false
+  },
+  "globalExpEvents": [
+    {
+      "key": "august_double_exp_2026",
+      "enabled": true,
+      "startDate": "2026-08-01",
+      "endDate": "2026-08-31",
+      "multiplier": 2,
+      "announce": {
+        "enabled": true,
+        "channelId": "1481660281032675510",
+        "content": "# <:VC_EXP:1482534670896730143> EVENTO DOUBLE EXP <:VC_EXP:1482534670896730143>  \n\n> <a:VC_Calendar:1482706208149475358> Nella giornata di sabato 1 Agosto , al posto della consueta serata film, il server ospiterà un evento per tutto il mese.\n\n## <:VC_PinkQuestionMark:1471892611026391306> Come funziona?\n<:VC_HarryPotter:1508772790634025030> **A partire dalle ore 12**, sul nostro server Discord, si attiverà un **moltiplicatore globale** del __2x__. Esso funzionerà naturalmente sia in vocale che in testuale.\n\n> <:VC_Mention:1482526855289634997> Seguici sui social per bonus improvvisi:\n- [Instagram](https://www.instagram.com/viniliecaffe)\n- [TikTok](https://www.tiktok.com/@viniliecaffe)\n\n<a:VC_Ping:1482694298687246377>︲<@&1532732097398046801> . <@&1531247315841585162> . @everyone"
+      }
+    }
+  ],
+  "dailyChannelMessageStats": {
+    "scheduleEnabled": false,
+    "reportChannelId": "1502241464724361256",
+    "reportGuildId": "1462458562507964584"
+  },
+  "serverEconomyFull": {
+    "enabled": false,
+    "earnSplitMinPct": 30,
+    "earnSplitMaxPct": 70,
+    "minBet": 2,
+    "maxBet": 50,
+    "dailyBetCap": 200,
+    "work": {
+      "cooldownMs": 3600000,
+      "minReward": 3,
+      "maxReward": 8,
+      "streakStepPct": 1,
+      "streakMaxBonusPct": 8,
+      "streakGraceMs": 10800000
+    },
+    "daily": {
+      "cooldownMs": 86400000,
+      "reward": 15,
+      "streakStepPct": 2,
+      "streakMaxBonusPct": 20,
+      "streakGraceMs": 172800000
+    },
+    "weekly": {
+      "cooldownMs": 604800000,
+      "reward": 70,
+      "streakStepPct": 4,
+      "streakMaxBonusPct": 40,
+      "streakGraceMs": 1209600000
+    },
+    "monthly": {
+      "cooldownMs": 2592000000,
+      "reward": 200,
+      "streakStepPct": 8,
+      "streakMaxBonusPct": 80,
+      "streakGraceMs": 5356800000
+    },
+    "rob": {
+      "cooldownMs": 10800000,
+      "successChance": 25,
+      "minTargetBalance": 25,
+      "minSteal": 5,
+      "maxSteal": 30,
+      "failPenalty": 15,
+      "targetProtectionMs": 43200000
+    },
+    "roulette": {
+      "cooldownMs": 5000,
+      "numberPayout": 36,
+      "simplePayout": 2
+    },
+    "rps": {
+      "cooldownMs": 5000,
+      "winPayout": 2
+    },
+    "slots": {
+      "cooldownMs": 5000,
+      "pairPayout": 3,
+      "triplePayout": 12,
+      "jackpotPayout": 55
+    },
+    "blackjack": {
+      "cooldownMs": 5000,
+      "winPayout": 2,
+      "blackjackPayout": 2.5
+    },
+    "coinflip": {
+      "cooldownMs": 5000,
+      "winPayout": 2
+    },
+    "tris": {
+      "enabled": false,
+      "cooldownMs": 5000,
+      "winPayout": 2,
+      "botRandomPct": 35
+    },
+    "scratch": {
+      "cooldownMs": 5000,
+      "pairPayout": 0,
+      "triplePayout": 2,
+      "quadPayout": 3.5,
+      "fivePayout": 7,
+      "jackpotPayout": 15
+    },
+    "shop": {
+      "enabled": false,
+      "purchaseCooldownMs": 3000
+    },
+    "bridge": {
+      "enabled": false,
+      "caffePerGaleone": 4,
+      "minCaffeConvert": 8,
+      "maxCaffeConvert": 120,
+      "dailyGaleoniCap": 40
+    }
+  }
+}

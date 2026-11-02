@@ -148,19 +148,9 @@ async function listPmPointsRemovedEntries({
   };
 }
 
-async function syncDiscordReviewMessage(guild?, entry?, isConfirm?, reviewerUserId?) {
-  const channelId = String(entry?.discordChannelId || "").trim();
-  const messageId = String(entry?.discordMessageId || "").trim();
-  if (!guild || !channelId || !messageId) return;
-  const channel =
-    guild.channels.cache.get(channelId) || (await getGuildChannelCached(guild, channelId).catch(() => null));
-  if (!channel?.messages?.fetch) return;
-  const message = await channel.messages.fetch(messageId).catch(() => null);
-  if (!message?.id) return;
-  const updatedContent = buildUpdatedLogContent(String(message.content || ""), isConfirm, reviewerUserId);
-  await message
-    .edit({ content: updatedContent, components: disableRows(message.components) })
-    .catch(() => null);
+async function syncDiscordReviewMessage(_guild?, _entry?, _isConfirm?, _reviewerUserId?) {
+  /* Punti tolti: review solo sito — niente edit messaggio Discord. */
+  return;
 }
 
 async function reviewPmPointsRemovedEntry({ guild, entryRef, isConfirm, reviewerUserId }) {
@@ -202,7 +192,7 @@ async function reviewPmPointsRemovedEntry({ guild, entryRef, isConfirm, reviewer
     const spendable = resolvePartnerPointsShown(staffData?.staff);
     const saldoHint = Number(spendable) !== Number(total) ? ` · Saldo shop: \`${spendable}\`` : "";
     try {
-      const { notifyPuntiToltiReviewed, notifyPuntiToltiPointsRemoved } = require("../../features/staff/siteStaffEventNotifications") as typeof import("../../features/staff/siteStaffEventNotifications");
+      const { notifyPuntiToltiReviewed, notifyPuntiToltiPointsRemoved } = require("../../site/staff/siteStaffEventNotifications") as typeof import("../../site/staff/siteStaffEventNotifications");
       const reporterId = String(entry.reporterUserId || "").trim();
       if (/^\d{16,22}$/.test(reporterId)) {
         void notifyPuntiToltiReviewed({
@@ -242,7 +232,7 @@ async function reviewPmPointsRemovedEntry({ guild, entryRef, isConfirm, reviewer
   ).catch(() => null);
   await syncDiscordReviewMessage(guild, entry, false, reviewerId);
   try {
-    const { notifyPuntiToltiReviewed } = require("../../features/staff/siteStaffEventNotifications") as typeof import("../../features/staff/siteStaffEventNotifications");
+    const { notifyPuntiToltiReviewed } = require("../../site/staff/siteStaffEventNotifications") as typeof import("../../site/staff/siteStaffEventNotifications");
     const reporterId = String(entry.reporterUserId || "").trim();
     if (/^\d{16,22}$/.test(reporterId)) {
       void notifyPuntiToltiReviewed({
@@ -290,20 +280,11 @@ async function logPmPointsRemoved({
     source,
   });
   if (!entry) return null;
-  if (mirrorChannel?.isTextBased?.() && mirrorContent) {
-    const { isDiscordStaffChannelPostsEnabled } = require("../../Web/discordWorkflowUiGate") as typeof import("../../Web/discordWorkflowUiGate");
-    if (!isDiscordStaffChannelPostsEnabled()) return entry;
-    const sendOpts: Record<string, any> = { content: mirrorContent, __skipNoticeEmbed: true };
-    if (Array.isArray(mirrorComponents) && mirrorComponents.length) sendOpts.components = mirrorComponents;
-    if (mirrorAllowedMentions !== undefined) sendOpts.allowedMentions = mirrorAllowedMentions;
-    const sent = await mirrorChannel.send(sendOpts).catch(() => null);
-    if (sent?.id) {
-      return attachDiscordMirror(entryMessageId(entry), {
-        discordMessageId: sent.id,
-        discordChannelId: sent.channelId || mirrorChannel.id,
-      });
-    }
-  }
+  /* Niente mirror Discord (shop/punti tolti = sito). */
+  void mirrorChannel;
+  void mirrorContent;
+  void mirrorComponents;
+  void mirrorAllowedMentions;
   return entry;
 }
 

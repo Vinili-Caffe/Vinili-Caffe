@@ -692,7 +692,7 @@ async function startWebhookServer(client?) {
 
   app.get("/webhooks/coffee/health", async (req?, res?) => {
     try {
-      const { probeCoffeeHealth } = require("../../Web/stackHealth") as typeof import("../../Web/stackHealth");
+      const { probeCoffeeHealth } = require("../../site/http/stackHealth") as typeof import("../../site/http/stackHealth");
       const coffee = await probeCoffeeHealth(1500);
       return res.status(coffee.ok ? 200 : 503).json({
         ok: coffee.ok,
@@ -708,7 +708,7 @@ async function startWebhookServer(client?) {
   });
 
   app.get("/webhooks/health", (req?, res?) => {
-    const { sendStackHealth } = require("../../Web/stackHealth") as typeof import("../../Web/stackHealth");
+    const { sendStackHealth } = require("../../site/http/stackHealth") as typeof import("../../site/http/stackHealth");
     return sendStackHealth(client, req, res, { service: "bots", includeLavalink: true, includeCoffee: true });
   });
 
@@ -734,7 +734,7 @@ async function startWebhookServer(client?) {
   const http = require("node:http") as typeof import("node:http");
   const server = http.createServer(app);
   try {
-    const { attachSiteSuggestionsWsServer } = require("../../features/suggestions/siteSuggestionsBroadcast") as typeof import("../../features/suggestions/siteSuggestionsBroadcast");
+    const { attachSiteSuggestionsWsServer } = require("../../site/suggestions/siteSuggestionsBroadcast") as typeof import("../../site/suggestions/siteSuggestionsBroadcast");
     attachSiteSuggestionsWsServer(server);
   } catch (err) {
     global.logger?.warn?.("[WEBHOOK] WebSocket suggerimenti (init):", err?.message || err);

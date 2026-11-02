@@ -13,7 +13,7 @@ const { REPOST_BTN_PREFIX, REPOST_SRC_PREFIX, messageJumpUrl, buildShareAckEmbed
 const { REPOST_DB_MS, ensureRepostDbReady, timedRepostQuery, ensureBoardRepostaButton } = require("./repostBoardSync") as typeof import("./repostBoardSync");
 const { EPHEMERAL_FLAG } = require("./repostRemove") as typeof import("./repostRemove");
 const { isRepostDisabledInGuild } = require("./repostRoulette") as typeof import("./repostRoulette");
-const { SITE_BOARD_CHANNEL, isBachecaSiteGuild, isSiteBoardChannel, newBachecaItemId, bachecaItemUrl, mirrorUrlToBacheca, broadcastBachecaChanged } = require("../../features/bacheca/bachecaSite") as typeof import("../../features/bacheca/bachecaSite");
+const { SITE_BOARD_CHANNEL, isBachecaSiteGuild, isSiteBoardChannel, newBachecaItemId, bachecaItemUrl, mirrorUrlToBacheca, broadcastBachecaChanged } = require("../../site/bacheca/bachecaSite") as typeof import("../../site/bacheca/bachecaSite");
 
 const REPOST_DISABLED_MESSAGE = "I repost sono disattivati su questo server per ora.";
 
@@ -311,7 +311,7 @@ async function createRepostFromMessage(ctx?) {
     boardUrl = messageJumpUrl(guildId, boardChannel.id, boardMsg.id);
     void (async () => {
       try {
-        const { stabilizeRepostMedia } = require("../../features/boards/boardMediaStable") as typeof import("../../features/boards/boardMediaStable");
+        const { stabilizeRepostMedia } = require("../../site/boards/boardMediaStable") as typeof import("../../site/boards/boardMediaStable");
         const lean = await GuildRepost.findById(doc._id).lean().catch(() => null);
         if (lean) await stabilizeRepostMedia(guild?.client, lean);
       } catch (_) {}
@@ -439,26 +439,25 @@ async function handleRepostaButton(interaction?) {
     return { handled: true };
   }
 
-    if (usePublicAck && !result.boardMessage) {
-    await interaction.deleteReply().catch(() => {});
-    await interaction
-      .followUp({
-        embeds: [result.ackEmbed],
-        components: [],
-        flags: EPHEMERAL_FLAG,
-        allowedMentions: { parse: [] },
-      })
-      .catch(() => {});
-    return { handled: true };
-  }
-
+  // Site bacheca: boardMessage resta null (niente post Discord). Non cancellare il defer
+  // pubblico — editReply con l'ack (link bacheca). Prima: deleteReply + followUp ephemeral
+  // → "ci sta lavorando" spariva e l'ack spesso non arrivava.
   await interaction
     .editReply({
       embeds: [result.ackEmbed],
       components: usePublicAck && Array.isArray(result.ackComponents) ? result.ackComponents : [],
       allowedMentions: usePublicAck && reposterId ? { users: [reposterId] } : { parse: [] },
     })
-    .catch(() => {});
+    .catch(async () => {
+      await interaction
+        .followUp({
+          embeds: [result.ackEmbed],
+          components: [],
+          flags: EPHEMERAL_FLAG,
+          allowedMentions: { parse: [] },
+        })
+        .catch(() => {});
+    });
 
   return { handled: true };
 }

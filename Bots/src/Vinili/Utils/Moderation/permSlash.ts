@@ -279,10 +279,10 @@ async function hasAnyRoleWithLiveFallback(entity?, roleIds?) {
 
   if (hasAnyRole(entity?.member, roleIds)) return true;
 
-    let member = await fetchLiveMember(entity, { preferFresh: false });
+  let member = await fetchLiveMember(entity, { preferFresh: false });
   if (member && hasAnyRole(member, roleIds)) return true;
 
-    member = await fetchLiveMember(entity, { preferFresh: true });
+  member = await fetchLiveMember(entity, { preferFresh: true });
   if (member && hasAnyRole(member, roleIds)) return true;
   if (member) {
     return hasAnyRoleWithEventGrants(member, roleIds, member.guild?.id, member.id);

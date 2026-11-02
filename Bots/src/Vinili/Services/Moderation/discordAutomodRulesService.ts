@@ -2,7 +2,7 @@ const fs = require("fs") as typeof import("fs");
 const path = require("path") as typeof import("path");
 const { AutoModerationActionType, AutoModerationRuleEventType, AutoModerationRuleKeywordPresetType, AutoModerationRuleTriggerType, ChannelType, PermissionsBitField } = require("discord.js") as typeof import("discord.js");
 const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
-const { isTicketCategoryName, isChannelInTicketCategory, isTicketChannelName } = require("../../features/tickets/discord/ticketCategoryUtils") as typeof import("../../features/tickets/discord/ticketCategoryUtils");
+const { isTicketCategoryName, isChannelInTicketCategory, isTicketChannelName } = require("../../MultiGuild/tickets/discord/ticketCategoryUtils") as typeof import("../../MultiGuild/tickets/discord/ticketCategoryUtils");
 const {
   collectDiscordAutomodExemptChannelIds,
   getAutomodExemptCategoryIds,

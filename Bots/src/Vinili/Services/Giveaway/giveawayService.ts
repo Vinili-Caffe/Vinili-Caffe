@@ -1,22 +1,11 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js") as typeof import("discord.js");
 const Giveaway = require("../../Schemas/Giveaway/giveawaySchema");
 const { getClientChannelCached } = require("../../Utils/Interaction/interactionEntityCache") as typeof import("../../Utils/Interaction/interactionEntityCache");
-/* Morgames verify → archivio/codice-morto/.../morgamesDiscordGiveawayVerify.ts (requisito giveaway dismesso). */
-const MORGAMES_SITE_URL = "https://morgames.app";
-function isMorgamesVerifyConfigured() {
-  return false;
-}
-async function verifyDiscordUserLinked() {
-  return { ok: true, linked: true };
-}
-async function filterLinkedDiscordUsers(ids?) {
-  return Array.isArray(ids) ? ids : [];
-}
+/* Morgames verify → archivio/codice-morto (requisito giveaway dismesso). */
 const GIVEAWAY_ENTER_PREFIX = "giveaway_enter:";
 const GIVEAWAY_LEAVE_PREFIX = "giveaway_leave:";
 const GIVEAWAY_COUNT_PREFIX = "giveaway_count:";
 const GIVEAWAY_REROLL_PREFIX = "giveaway_reroll:";
-const GIVEAWAY_MORGAMES_RETRY_PREFIX = "giveaway_morgames_retry:";
 
 const MAX_TIMEOUT_MS = 2_147_483_647;
 const pendingEndTimers = new Map();
@@ -48,7 +37,6 @@ function buildGiveawayEmbed(giveaway?, options: Record<string, any> = {}) {
     ended,
     cancelled,
     winnerIds = [],
-    requireMorgames,
   } = giveaway;
   void participants;
   const endDate = new Date(endAt);
@@ -68,13 +56,6 @@ function buildGiveawayEmbed(giveaway?, options: Record<string, any> = {}) {
       inline: true,
     },
   ];
-  if (requireMorgames) {
-    fields.push({
-      name: "Requisito obbligatorio",
-      value: `Account [Morgames](${MORGAMES_SITE_URL}) collegato con Discord`,
-      inline: false,
-    });
-  }
 
   const embed = new EmbedBuilder()
     .setColor(isCancelled ? "#992d22" : "#5865F2")
@@ -128,7 +109,7 @@ function buildRerollButton(giveawayId?) {
   );
 }
 
-async function createGiveaway({ guildId, channelId, hostId, hostTag, prize, durationMs, winnerCount, requireMorgames }) {
+async function createGiveaway({ guildId, channelId, hostId, hostTag, prize, durationMs, winnerCount }) {
   const endAt = new Date(Date.now() + durationMs);
   const doc = await Giveaway.create({
     guildId,
@@ -141,7 +122,6 @@ async function createGiveaway({ guildId, channelId, hostId, hostTag, prize, dura
     hostTag: hostTag || "",
     participants: [],
     ended: false,
-    requireMorgames: Boolean(requireMorgames),
   });
   return doc;
 }
@@ -173,16 +153,12 @@ async function replyGiveawayEphemeral(interaction?, payload?) {
 async function enterGiveaway(interaction?, client?, opts?) {
   opts = opts || {};
   const customId = String(interaction?.customId || "");
-  const fromRetry = Boolean(opts.fromMorgamesRetry) || customId.startsWith(GIVEAWAY_MORGAMES_RETRY_PREFIX);
   let giveawayId = "";
-  if (fromRetry && customId.startsWith(GIVEAWAY_MORGAMES_RETRY_PREFIX)) {
-    giveawayId = customId.slice(GIVEAWAY_MORGAMES_RETRY_PREFIX.length).trim();
-  } else if (customId.startsWith(GIVEAWAY_ENTER_PREFIX)) {
+  if (customId.startsWith(GIVEAWAY_ENTER_PREFIX)) {
     giveawayId = customId.slice(GIVEAWAY_ENTER_PREFIX.length).trim();
   } else if (opts.giveawayId) {
     giveawayId = String(opts.giveawayId).trim();
   }
-  if (!giveawayId && !fromRetry && !customId.startsWith(GIVEAWAY_ENTER_PREFIX)) return false;
   if (!giveawayId) return false;
 
   const ephemeral = { flags: 1 << 6 };
@@ -211,11 +187,6 @@ async function enterGiveaway(interaction?, client?, opts?) {
 
   const userId = String(interaction.user?.id || "");
   const wasIn = giveaway.participants && giveaway.participants.includes(userId);
-
-  /* Morgames archived: requisito storico ignorato. */
-  void fromRetry;
-  void isMorgamesVerifyConfigured;
-  void verifyDiscordUserLinked;
 
   const updated = await Giveaway.findOneAndUpdate(
     { _id: giveawayId, ended: false },
@@ -326,14 +297,10 @@ const GIVEAWAY_READ_PROJECTION = {
   cancelled: 1,
   winnerIds: 1,
   guildId: 1,
-  requireMorgames: 1,
 };
 
 async function resolveEligibleParticipants(giveaway?) {
-  const participants = Array.isArray(giveaway?.participants) ? giveaway.participants : [];
-  /* Morgames archived: niente filtro linked. */
-  void filterLinkedDiscordUsers;
-  return participants;
+  return Array.isArray(giveaway?.participants) ? giveaway.participants : [];
 }
 
 async function endGiveaway(giveawayId?, client?) {
@@ -711,7 +678,6 @@ export = {
   GIVEAWAY_LEAVE_PREFIX,
   GIVEAWAY_COUNT_PREFIX,
   GIVEAWAY_REROLL_PREFIX,
-  GIVEAWAY_MORGAMES_RETRY_PREFIX,
   parseDuration,
   buildGiveawayEmbed,
   buildEnterButton,

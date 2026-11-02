@@ -2,16 +2,8 @@ const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Conf
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
 const { getGuildChannelCached, getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache") as typeof import("../../Utils/Interaction/interactionEntityCache");
 const { ensureStaff } = require("../../Utils/Staff/staffDocUtils") as typeof import("../../Utils/Staff/staffDocUtils");
-const {
-  ensureStaffProfileDoc,
-  getStaffDoc,
-  valutazionePositiveRemoveCore,
-  makeRemovalEmbed,
-  makeLogEmbed,
-} = require("../../Utils/Staff/valutazionePanelActions") as typeof import("../../Utils/Staff/valutazionePanelActions");
-
+const { ensureStaffProfileDoc, getStaffDoc, valutazionePositiveRemoveCore, makeRemovalEmbed, makeLogEmbed } = require("../../Utils/Staff/valutazionePanelActions") as typeof import("../../Utils/Staff/valutazionePanelActions");
 const { getResocontoReviewerUserIdsForSegment } = require("../../Utils/Staff/resocontoAccess") as typeof import("../../Utils/Staff/resocontoAccess");
-
 const COMPITO_SETTIMANALE_REASON = "Compito settimanale completato.";
 const PURGE_REASON = "Ripulizia duplicato automatico (compito settimanale resoconti).";
 const ORPHAN_PURGE_FOOTER = "Messaggio duplicato rimosso dal log (orphan).";
@@ -558,7 +550,7 @@ async function purgeDuplicateCompitoSettimanaleForMember(guild?, member?, channe
 }
 
 async function purgeDuplicateCompitoSettimanaleValutazioni(client?, opts: Record<string, any> = {}) {
-  const { isDiscordStaffChannelPostsEnabled } = require("../../Web/discordWorkflowUiGate") as typeof import("../../Web/discordWorkflowUiGate");
+  const { isDiscordStaffChannelPostsEnabled } = require("../../site/http/discordWorkflowUiGate") as typeof import("../../site/http/discordWorkflowUiGate");
   if (!isDiscordStaffChannelPostsEnabled()) return { ok: false, skipped: "staff_discord_posts_disabled" };
   const dryRun = Boolean(opts.dryRun);
   const guildId = String(IDs.guilds?.main || "");

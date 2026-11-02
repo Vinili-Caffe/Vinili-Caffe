@@ -142,7 +142,7 @@ function resolveNotOwnerPanelHint(customId?) {
   ) {
     return { label: "pannello", command: null, siteReopen: siteUserProfilePageDiscordRef() };
   }
-  if (id.startsWith("staff_profile_panel:") || id.startsWith("staff_pm_shop:") || id.startsWith("staff_val_neg_trade:")) {
+  if (id.startsWith("staff_pm_shop:") || id.startsWith("staff_val_neg_trade:")) {
     return { label: "pannello staff", command: null };
   }
   if (id.startsWith("security_panel:")) return { label: "pannello", command: "+security" };

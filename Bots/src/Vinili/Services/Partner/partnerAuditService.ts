@@ -187,7 +187,7 @@ async function resolveTextLogChannel(guild?, channelId?) {
 }
 
 async function logPointRemoval(guild?, staffUserId?, reason?, action?) {
-  const { isDiscordStaffChannelPostsEnabled } = require("../../Web/discordWorkflowUiGate") as typeof import("../../Web/discordWorkflowUiGate");
+  const { isDiscordStaffChannelPostsEnabled } = require("../../site/http/discordWorkflowUiGate") as typeof import("../../site/http/discordWorkflowUiGate");
   const { primary: primaryId, fallback: fallbackId } = getPartnershipLogChannelIds(guild?.id);
   const hardFallback = isDiscordStaffChannelPostsEnabled()
     ? String(IDs.channels?.puntiTolti || "").trim()

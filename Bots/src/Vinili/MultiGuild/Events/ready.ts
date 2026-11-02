@@ -2,13 +2,10 @@ const { listTenantGuildIds } = require("../core/guildRegistry") as typeof import
 const { getProtectedGuildIds } = require("../core/viniliProtectedGuilds") as typeof import("../core/viniliProtectedGuilds");
 const { isMultiGuildLayerEnabled, autoRegisterGuildsOnJoin } = require("../core/env") as typeof import("../core/env");
 const { connectMongo, isMongoReady } = require("../../Utils/Database/mongoConnect") as typeof import("../../Utils/Database/mongoConnect");
-const {
-  bootstrapTenantRegistryFromClient,
-  refreshDynamicGuildRowsCache,
-} = require("../core/tenantRegistryStore") as typeof import("../core/tenantRegistryStore");
+const { bootstrapTenantRegistryFromClient, refreshDynamicGuildRowsCache } = require("../core/tenantRegistryStore") as typeof import("../core/tenantRegistryStore");
 const { refreshTenantGuildSettingsCache } = require("../core/tenantGuildSettings") as typeof import("../core/tenantGuildSettings");
 const { refreshPartnershipConfigCache } = require("../core/tenantPartnershipSettings") as typeof import("../core/tenantPartnershipSettings");
-const { refreshTicketConfigCache } = require("../../features/tickets/tenant/tenantTicketSettings") as typeof import("../../features/tickets/tenant/tenantTicketSettings");
+const { refreshTicketConfigCache } = require("../../MultiGuild/tickets/tenant/tenantTicketSettings") as typeof import("../../MultiGuild/tickets/tenant/tenantTicketSettings");
 const { leaveAllBlacklistedGuilds } = require("../../Services/Moderation/botUsageBlacklistService") as typeof import("../../Services/Moderation/botUsageBlacklistService");
 
 export = {

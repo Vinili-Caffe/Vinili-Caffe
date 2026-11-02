@@ -7,7 +7,7 @@ const { ensureStaff } = require("../../Utils/Staff/staffDocUtils") as typeof imp
 const { ensureStaffProfileDoc, getStaffDoc, valutazionePositiveAddCore, valutazioneNegativeAddCore } = require("../../Utils/Staff/valutazionePanelActions") as typeof import("../../Utils/Staff/valutazionePanelActions");
 const { getOrCreateStaffDoc } = require("../../Utils/Staff/staffDocUtils") as typeof import("../../Utils/Staff/staffDocUtils");
 const { resolveStaffRole } = require("./weeklyStaffResocontoService") as typeof import("./weeklyStaffResocontoService");
-const { hasActiveAcceptedStaffPause } = require("../../Utils/Pause/pauseHandlersUtils") as typeof import("../../Utils/Pause/pauseHandlersUtils");
+const { hasActiveAcceptedStaffPause } = require("../../site/staff/pause/pauseHandlersUtils") as typeof import("../../site/staff/pause/pauseHandlersUtils");
 const {
   getSerataFilmSaturdayKeyForSession,
   isSerataFilmAbsentExcused,
@@ -322,7 +322,7 @@ async function ensureAutoValutazione(guild?, member?, key?, type?, reason?, opti
     // Site-first: Mongo + notifica sito. Discord channel solo se DISCORD_STAFF_CHANNEL_POSTS=1.
     let channel = null;
     try {
-      const { isDiscordStaffChannelPostsEnabled } = require("../../Web/discordWorkflowUiGate") as typeof import("../../Web/discordWorkflowUiGate");
+      const { isDiscordStaffChannelPostsEnabled } = require("../../site/http/discordWorkflowUiGate") as typeof import("../../site/http/discordWorkflowUiGate");
       if (isDiscordStaffChannelPostsEnabled()) {
         channel = await resolveValutazioniChannel(guild);
       }

@@ -1241,41 +1241,13 @@ ${game.previewUrl}`,
 
   if (String(interaction.customId || "").startsWith("minigame_trickortreat:")) {
     try {
-      const {
-        handleHalloweenTrickOrTreatButton,
-        getTrickOrTreatGame,
-        trickOrTreatMapKey,
-      } = require("./minigameTrickOrTreat") as typeof import("./minigameTrickOrTreat");
-      const winCfg = getConfig(client) || {};
-      const channelId = String(interaction.channelId || winCfg.channelId || "").trim();
-      const wantId = String(interaction.customId || "");
-      let game =
-        (channelId && getTrickOrTreatGame(channelId)) ||
-        activeGames.get(trickOrTreatMapKey(channelId)) ||
-        null;
-      if (!game || game.type !== "halloweenTrickOrTreat" || String(game.customId || "") !== wantId) {
-        game = null;
-        for (const [, g] of activeGames.entries()) {
-          if (g?.type === "halloweenTrickOrTreat" && String(g.customId || "") === wantId) {
-            game = g;
-            break;
-          }
-        }
-      }
-      if (!game) {
-        await interaction
-          .reply({
-            content: "<:cancel:1461730653677551691> Round Trick or Treat non attivo.",
-            flags: 1 << 6,
-          })
-          .catch(() => {});
-        return true;
-      }
-      await handleHalloweenTrickOrTreatButton(interaction, game, {
-        ...winCfg,
-        channelId: channelId || winCfg.channelId,
-        guildId: interaction.guildId || winCfg.guildId,
-      });
+      await interaction
+        .reply({
+          content: "<:cancel:1461730653677551691> Trick or Treat è terminato (evento Halloween archiviato).",
+          flags: 1 << 6,
+        })
+        .catch(() => {});
+      return true;
     } catch (err) {
       warnMinigame(err);
       await interaction

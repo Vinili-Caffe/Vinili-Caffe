@@ -108,7 +108,7 @@ async function sendRepostRoulette(client?, guildId?) {
   if (!rouletteChannel?.isTextBased?.()) return false;
 
   /* bachecaSite1: le clip nuove nascono sulla Bacheca del sito (sorgente "site") */
-  const { isSiteBoardChannel, bachecaItemUrl } = require("../../features/bacheca/bachecaSite") as typeof import("../../features/bacheca/bachecaSite");
+  const { isSiteBoardChannel, bachecaItemUrl } = require("../../site/bacheca/bachecaSite") as typeof import("../../site/bacheca/bachecaSite");
   const sourceUrl = isSiteBoardChannel(doc.sourceChannelId)
     ? bachecaItemUrl(doc.sourceMessageId)
     : messageJumpUrl(guildId, doc.sourceChannelId, doc.sourceMessageId);

@@ -1,8 +1,5 @@
 /** Permessi: menu a tendina e moduli. */
 const { ensureStaffCmdsThreadIdsHydrated } = require("../Staff/staffCmdsChannelUtils") as typeof import("../Staff/staffCmdsChannelUtils");
-const { hasEventWeekWinnerGrant } = require("../../Services/Community/weekWinnerGrantsService") as typeof import("../../Services/Community/weekWinnerGrantsService");
-const { interactionHasResocontoButtonAccess, hasCandidatureReviewAccess, isResocontoInteraction, isCandidatureStaffReviewInteraction } = require("../Staff/resocontoAccess") as typeof import("../Staff/resocontoAccess");
-const { normalizeRoleList } = require("./permStaffGuide") as typeof import("./permStaffGuide");
 const { isAllowedGuildForComponents, tryTenantUtilityComponentBypass, tryTenantPartnershipSetupBypass, isMainGuild } = require("./permTenantBypass") as typeof import("./permTenantBypass");
 const { isTicketInteraction, isProfilePanelInteraction, checkProfilePanelControlPermission, isCustomRoleSystemInteraction, isApplyOrCandidatureInteraction, extractOwnerIdFromMessageMention } = require("./permInteractionKinds") as typeof import("./permInteractionKinds");
 const { asRequiredRoles } = require("./permReferences") as typeof import("./permReferences");
@@ -49,10 +46,6 @@ async function checkStringSelectPermission(interaction?) {
 
   const profilePanelGate = await checkProfilePanelControlPermission(interaction, customId);
   if (profilePanelGate) return profilePanelGate;
-
-  if (customId === "staff_guide_menu") {
-    return { allowed: true, reason: null, requiredRoles: null, ownerId: null };
-  }
 
   const data = loadPermissions();
   await ensureStaffCmdsThreadIdsHydrated().catch(() => {});
@@ -143,11 +136,6 @@ async function checkStringSelectPermission(interaction?) {
   }
 
   if (hasRoleConstraint && !rolePass) {
-    if (customId === "personality_colors_plus" && guildId && interaction?.user?.id) {
-      const week2Grant = await hasEventWeekWinnerGrant(guildId, interaction.user.id, 2).catch(() => false);
-      const week3Grant = await hasEventWeekWinnerGrant(guildId, interaction.user.id, 3).catch(() => false);
-      if (week2Grant || week3Grant) return { allowed: true, reason: null, requiredRoles: null, ownerId: null };
-    }
     return {
       allowed: false,
       reason: "missing_role",
@@ -228,26 +216,6 @@ async function checkModalPermission(interaction?) {
     return {
       allowed: true,
       reason: null,
-      requiredRoles: null,
-      ownerId: null,
-    };
-  }
-
-  if (isMainGuild(guildId) && isCandidatureStaffReviewInteraction(customId)) {
-    const allowed = hasCandidatureReviewAccess(interaction);
-    return {
-      allowed,
-      reason: allowed ? null : "missing_role",
-      requiredRoles: normalizeRoleList(["roles.Admin", "roles.Manager", "roles.Founder"]),
-      ownerId: null,
-    };
-  }
-
-  if (isMainGuild(guildId) && isResocontoInteraction(customId)) {
-    const allowed = interactionHasResocontoButtonAccess(interaction);
-    return {
-      allowed,
-      reason: allowed ? null : "missing_role",
       requiredRoles: null,
       ownerId: null,
     };
@@ -349,11 +317,6 @@ async function checkModalPermission(interaction?) {
   }
 
   if (hasRoleConstraint && !rolePass) {
-    if (customId === "personality_colors_plus" && guildId && interaction?.user?.id) {
-      const week2Grant = await hasEventWeekWinnerGrant(guildId, interaction.user.id, 2).catch(() => false);
-      const week3Grant = await hasEventWeekWinnerGrant(guildId, interaction.user.id, 3).catch(() => false);
-      if (week2Grant || week3Grant) return { allowed: true, reason: null, requiredRoles: null, ownerId: null };
-    }
     return {
       allowed: false,
       reason: "missing_role",

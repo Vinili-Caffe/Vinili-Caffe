@@ -9,13 +9,13 @@ const { getStaffRoleEmojiByRoleId } = require("../../Utils/Community/staffRoleEm
 const { ensureStaff } = require("../../Utils/Staff/staffDocUtils") as typeof import("../../Utils/Staff/staffDocUtils");
 const { getStaffDoc } = require("../../Utils/Staff/valutazionePanelActions") as typeof import("../../Utils/Staff/valutazionePanelActions");
 const { STAFF_ACTIVITY_LIMITS, evaluateStaffWeeklyLimitsWithSwap, evaluateStaffWeeklyLimitsAtMultiplier, formatStaffLimitsSwapLine, STAFF_SANCTION_LIMITS, toSafeNumber, formatHoursFromSeconds } = require("./resocontoLimits") as typeof import("./resocontoLimits");
-const { getRomeDateParts, createUtcFromRomeLocal, getCurrentResocontoPexWeekWindowUtc, getPmResocontoWindow } = require("./resocontoTime") as typeof import("./resocontoTime");
+const { getRomeDateParts, getCurrentResocontoPexWeekWindowUtc, getPmResocontoWindow } = require("./resocontoTime") as typeof import("./resocontoTime");
 const { collectResocontoVoiceExcludeIds, buildResocontoOverviewOptions, buildCostanzaLines, overviewLooksLikeEmptyFallback, serializeCostanzaChart } = require("./resocontoActivity") as typeof import("./resocontoActivity");
 const { getStaffPauseLine, hadPauseAtLeastOneDayDuringWeek, didPauseEndDuringWeek, wasPartnerManagerInPauseForResocontoWeek, getPmResocontoPauseDisplayLine } = require("./resocontoPauses") as typeof import("./resocontoPauses");
 const { isPmResocontoExcludedUserId, resolveStaffRole, collectResocontoDiscordMemberIdsForSegment, wasPexedInWeek, wasPmPromotedInResocontoSkipWindow, shouldSkipResocontoForPexInCalendarWeek, wasPexedOnResocontoDay, wasPmPexedInWeek, wasPromotedToRoleInWindow, wasFirstStaffPromotionFromMemberInWindow } = require("./resocontoMembers") as typeof import("./resocontoMembers");
 const { computeActivityGrade, computeBehaviorGrade, buildStaffResocontoAzioneDisplay, computePmAction, pmActionToKey } = require("./resocontoGrades") as typeof import("./resocontoGrades");
 const { STAFF_LIMITS_POSITIVE_MULTIPLIER, shouldSkipLimitAutovalutazioniForStaffMember, shouldSkipSanctionAutovalutazioniForStaffMember, applyWeeklyStaffAutoValutazioniForMember } = require("./resocontoAutoValutazioni") as typeof import("./resocontoAutoValutazioni");
-const { buildResocontoButtons, createResocontoThread, countPmWeeklyPartners, getWeeklySanctionCountByMod, resolveChannel, recentStaffResocontoMessageExists, recentPmResocontoMessageExists, sendResocontoMessageWithRetry, hydrateGuildMembersForResoconto } = require("./resocontoMessages") as typeof import("./resocontoMessages");
+const { countPmWeeklyPartners, getWeeklySanctionCountByMod, hydrateGuildMembersForResoconto } = require("./resocontoMessages") as typeof import("./resocontoMessages");
 
 const BOT_STATE_KEY_LAST_RESOCONTO = "lastResocontoRun";
 
@@ -75,16 +75,9 @@ async function runWeeklyStaffResocontoSegment(client?, segment?, opts: Record<st
   const forceTarget = Boolean(opts.force && /^\d{16,20}$/.test(targetUserId));
   const ignorePostedState = Boolean(opts.ignorePostedState);
 
-  const {
-    isDiscordWorkflowChannelPostsEnabled,
-    isDiscordStaffChannelPostsEnabled,
-    newSiteWorkflowMessageId,
-  } = require("../../Web/discordWorkflowUiGate") as typeof import("../../Web/discordWorkflowUiGate");
-  const discordPostsEnabled =
-    isDiscordStaffChannelPostsEnabled() && isDiscordWorkflowChannelPostsEnabled();
+  const { newSiteWorkflowMessageId } = require("../../site/http/discordWorkflowUiGate") as typeof import("../../site/http/discordWorkflowUiGate");
 
   const guildId = String(IDs.guilds?.main || "");
-  const channelId = String(IDs.channels?.resocontiStaff || "");
   if (!guildId) return { sent: 0, eligible: 0, segment };
 
   const guild = await getClientGuildCached(client, guildId);
@@ -97,14 +90,8 @@ async function runWeeklyStaffResocontoSegment(client?, segment?, opts: Record<st
   const now = new Date();
   const resocontoScope = buildResocontoOverviewOptions(guild, now);
 
-  const channel =
-    discordPostsEnabled && channelId ? await resolveChannel(client, channelId) : null;
-  const useDiscordPosts = Boolean(discordPostsEnabled && channel?.isTextBased?.());
-
   const { weekStart, weekEnd } = getPmResocontoWindow(now);
   const pexSkipWindow = getCurrentResocontoPexWeekWindowUtc(now);
-  const nowRomeParts = getRomeDateParts(now);
-  const resocontoMessageSince = createUtcFromRomeLocal(nowRomeParts.year, nowRomeParts.month, nowRomeParts.day, 0, 0, 0);
   const closingPartsForResocontoKey = getRomeDateParts(pexSkipWindow.windowEndExclusive);
   const resocontoWeekKey = `${closingPartsForResocontoKey.year}-${String(closingPartsForResocontoKey.month).padStart(2, "0")}-${String(closingPartsForResocontoKey.day).padStart(2, "0")}`;
   const staffResocontoPostedIds = await loadStaffResocontoPostedIds(guildId, resocontoWeekKey);
@@ -227,9 +214,7 @@ async function runWeeklyStaffResocontoSegment(client?, segment?, opts: Record<st
       staffRoleId &&
       (
         hadStaffRoleResocontoPostedThisCycle(staffResocontoPostedIds, staffRoleId, userId) ||
-        (useDiscordPosts
-          ? await recentStaffResocontoMessageExists(channel, userId, staffRoleId, resocontoMessageSince)
-          : await hasSiteResocontoThisWeek(userId, "s"))
+        (await hasSiteResocontoThisWeek(userId, "s"))
       );
     const shouldSkipStaffResoconto =
       matchStaffSegment &&
@@ -361,101 +346,49 @@ async function runWeeklyStaffResocontoSegment(client?, segment?, opts: Record<st
       const pauseLine = getStaffPauseLine(staffDoc, "Staff", member);
       if (pauseLine) contentLines.push(pauseLine);
 
-      const staffComponents = [
-        buildResocontoButtons(
-          "s",
-          userId,
-          actionKey,
-          staffRoleId,
-        ),
-      ];
-
       const contentBody = contentLines.join("\n");
       let staffMsg = null;
-      if (useDiscordPosts) {
-        staffMsg = await sendResocontoMessageWithRetry(
-          channel,
-          {
-            content: contentBody,
-            ...(staffComponents.length ? { components: staffComponents } : {}),
+      const siteMessageId = newSiteWorkflowMessageId();
+      try {
+        const { persistResocontoWorkflowFromPayload } = require("../../site/workflow/siteStaffWorkflowStore") as typeof import("../../site/workflow/siteStaffWorkflowStore");
+        await persistResocontoWorkflowFromPayload(guild, {
+          messageId: siteMessageId,
+          channelId: "site",
+          userId,
+          kind: "s",
+          roleId: staffRoleId,
+          actionKey,
+          content: contentBody,
+          status: "pending",
+          createdAt: new Date(),
+          weekKey: resocontoWeekKey,
+          workflowFields: {
+            costanzaChart: serializeCostanzaChart(overview),
+            activityGrade,
+            behaviorGrade,
+            azioneDisplay: action,
+            weeklyMessages,
+            weeklyVoiceSeconds,
+            isNewStaff: Boolean(graceNewStaffRole),
+            inPause: Boolean(currentlyInPause || inPauseDuringWeek),
+            pauseEnded: Boolean(endedPauseDuringWeek),
+            activityLimits: limits
+              ? { messages: Number(limits.messages || 0), hours: Number(limits.hours || 0) }
+              : null,
+            sanctionLimit: sanctionLimit != null ? Number(sanctionLimit) : null,
+            weeklySanctions: Number(weeklySanctions) || 0,
           },
-          { userId, segment },
-        );
-      } else {
-        const siteMessageId = newSiteWorkflowMessageId();
-        try {
-          const { persistResocontoWorkflowFromPayload } = require("../../features/workflow/siteStaffWorkflowStore") as typeof import("../../features/workflow/siteStaffWorkflowStore");
-          await persistResocontoWorkflowFromPayload(guild, {
-            messageId: siteMessageId,
-            channelId: "site",
-            userId,
-            kind: "s",
-            roleId: staffRoleId,
-            actionKey,
-            content: contentBody,
-            status: "pending",
-            createdAt: new Date(),
-            weekKey: resocontoWeekKey,
-            workflowFields: {
-              costanzaChart: serializeCostanzaChart(overview),
-              activityGrade,
-              behaviorGrade,
-              azioneDisplay: action,
-              weeklyMessages,
-              weeklyVoiceSeconds,
-              isNewStaff: Boolean(graceNewStaffRole),
-              inPause: Boolean(currentlyInPause || inPauseDuringWeek),
-              pauseEnded: Boolean(endedPauseDuringWeek),
-              activityLimits: limits
-                ? { messages: Number(limits.messages || 0), hours: Number(limits.hours || 0) }
-                : null,
-              sanctionLimit: sanctionLimit != null ? Number(sanctionLimit) : null,
-              weeklySanctions: Number(weeklySanctions) || 0,
-            },
-          });
-          staffMsg = { id: siteMessageId };
-        } catch (err) {
-          global.logger?.warn?.("[WEEKLY STAFF RESOCONTO] site persist failed:", err?.message || err);
-          staffMsg = null;
-        }
+        });
+        staffMsg = { id: siteMessageId };
+      } catch (err) {
+        global.logger?.warn?.("[WEEKLY STAFF RESOCONTO] site persist failed:", err?.message || err);
+        staffMsg = null;
       }
       if (staffMsg) {
         sentCount += 1;
         completedCount += 1;
         try {
-          if (useDiscordPosts) {
-            const { persistResocontoWorkflowFromMessage } = require("../../features/workflow/siteStaffWorkflowStore") as typeof import("../../features/workflow/siteStaffWorkflowStore");
-            await persistResocontoWorkflowFromMessage(
-              guild,
-              staffMsg,
-              {
-                kind: "s",
-                userId,
-                roleId: staffRoleId,
-                actionKey,
-                workflowFields: {
-                  costanzaChart: serializeCostanzaChart(overview),
-                  activityGrade,
-                  behaviorGrade,
-                  azioneDisplay: action,
-                  weeklyMessages,
-                  weeklyVoiceSeconds,
-                  isNewStaff: Boolean(graceNewStaffRole),
-                  inPause: Boolean(currentlyInPause || inPauseDuringWeek),
-                  pauseEnded: Boolean(endedPauseDuringWeek),
-                  activityLimits: limits
-                    ? { messages: Number(limits.messages || 0), hours: Number(limits.hours || 0) }
-                    : null,
-                  sanctionLimit: sanctionLimit != null ? Number(sanctionLimit) : null,
-                  weeklySanctions: Number(weeklySanctions) || 0,
-                },
-              },
-              "pending",
-            );
-          }
-        } catch (_) {}
-        try {
-          const { notifyInboxStaffNewItem } = require("../../features/workflow/siteStaffWorkflowNotifications") as typeof import("../../features/workflow/siteStaffWorkflowNotifications");
+          const { notifyInboxStaffNewItem } = require("../../site/workflow/siteStaffWorkflowNotifications") as typeof import("../../site/workflow/siteStaffWorkflowNotifications");
           const subjectName = String(member?.displayName || member?.user?.username || userId).trim();
           void notifyInboxStaffNewItem({
             guild,
@@ -470,9 +403,6 @@ async function runWeeklyStaffResocontoSegment(client?, segment?, opts: Record<st
             dedupeKey: `inbox:resoconti:new:${staffMsg?.id || userId}`,
           }).catch(() => 0);
         } catch (_) {}
-        if (useDiscordPosts) {
-          await createResocontoThread(staffMsg, userId, member.user?.username, staffDoc, segment, staffRoleId);
-        }
         await appendStaffResocontoPostedId(guildId, resocontoWeekKey, userId);
         await appendStaffResocontoPostedRoleId(guildId, resocontoWeekKey, userId, staffRoleId);
         staffResocontoPostedIds.add(userId);
@@ -515,9 +445,7 @@ async function runWeeklyStaffResocontoSegment(client?, segment?, opts: Record<st
       matchPmSegment &&
       !forceTarget &&
       !ignorePostedState &&
-      (useDiscordPosts
-        ? await recentPmResocontoMessageExists(channel, userId, resocontoMessageSince)
-        : await hasSiteResocontoThisWeek(userId, "p"));
+      (await hasSiteResocontoThisWeek(userId, "p"));
     const pmWindow = matchPmSegment ? getPmResocontoWindow(new Date()) : null;
     const pmPromotedInResocontoWindow = pmWindow
       ? wasPmPromotedInResocontoSkipWindow(staffDoc, pmWindow.weekStart, pmWindow.weekEnd)
@@ -563,72 +491,38 @@ async function runWeeklyStaffResocontoSegment(client?, segment?, opts: Record<st
       ];
       if (pmPauseLine) pmContentLines.push(pmPauseLine);
 
-      const pmComponents = [buildResocontoButtons("p", userId, pmActionToKey(basePmAction))];
       const pmContentBody = pmContentLines.join("\n");
       let pmMsg = null;
-      if (useDiscordPosts) {
-        pmMsg = await sendResocontoMessageWithRetry(
-          channel,
-          {
-            content: pmContentBody,
-            ...(pmComponents.length ? { components: pmComponents } : {}),
+      const siteMessageId = newSiteWorkflowMessageId();
+      try {
+        const { persistResocontoWorkflowFromPayload } = require("../../site/workflow/siteStaffWorkflowStore") as typeof import("../../site/workflow/siteStaffWorkflowStore");
+        await persistResocontoWorkflowFromPayload(guild, {
+          messageId: siteMessageId,
+          channelId: "site",
+          userId,
+          kind: "p",
+          roleId: null,
+          actionKey: pmActionToKey(basePmAction),
+          content: pmContentBody,
+          status: "pending",
+          createdAt: new Date(),
+          weekKey: resocontoWeekKey,
+          workflowFields: {
+            weeklyPartners,
+            azioneDisplay: String(action || ""),
+            isNewStaff: Boolean(pmPexedInCurrentWeek || pmPromotedInResocontoWindow),
+            inPause: Boolean(pmCurrentlyInPause || pmInPauseDuringWeek),
           },
-          { userId, segment },
-        );
-      } else {
-        const siteMessageId = newSiteWorkflowMessageId();
-        try {
-          const { persistResocontoWorkflowFromPayload } = require("../../features/workflow/siteStaffWorkflowStore") as typeof import("../../features/workflow/siteStaffWorkflowStore");
-          await persistResocontoWorkflowFromPayload(guild, {
-            messageId: siteMessageId,
-            channelId: "site",
-            userId,
-            kind: "p",
-            roleId: null,
-            actionKey: pmActionToKey(basePmAction),
-            content: pmContentBody,
-            status: "pending",
-            createdAt: new Date(),
-            weekKey: resocontoWeekKey,
-            workflowFields: {
-              weeklyPartners,
-              azioneDisplay: String(action || ""),
-              isNewStaff: Boolean(pmPexedInCurrentWeek || pmPromotedInResocontoWindow),
-              inPause: Boolean(pmCurrentlyInPause || pmInPauseDuringWeek),
-            },
-          });
-          pmMsg = { id: siteMessageId };
-        } catch (err) {
-          global.logger?.warn?.("[WEEKLY STAFF RESOCONTO] site PM persist failed:", err?.message || err);
-          pmMsg = null;
-        }
+        });
+        pmMsg = { id: siteMessageId };
+      } catch (err) {
+        global.logger?.warn?.("[WEEKLY STAFF RESOCONTO] site PM persist failed:", err?.message || err);
+        pmMsg = null;
       }
       if (pmMsg) {
         sentCount += 1;
         try {
-          if (useDiscordPosts) {
-            const { persistResocontoWorkflowFromMessage } = require("../../features/workflow/siteStaffWorkflowStore") as typeof import("../../features/workflow/siteStaffWorkflowStore");
-            await persistResocontoWorkflowFromMessage(
-              guild,
-              pmMsg,
-              {
-                kind: "p",
-                userId,
-                roleId: null,
-                actionKey: pmActionToKey(basePmAction),
-                workflowFields: {
-                  weeklyPartners,
-                  azioneDisplay: String(action || ""),
-                  isNewStaff: Boolean(pmPexedInCurrentWeek || pmPromotedInResocontoWindow),
-                  inPause: Boolean(pmCurrentlyInPause || pmInPauseDuringWeek),
-                },
-              },
-              "pending",
-            );
-          }
-        } catch (_) {}
-        try {
-          const { notifyInboxStaffNewItem } = require("../../features/workflow/siteStaffWorkflowNotifications") as typeof import("../../features/workflow/siteStaffWorkflowNotifications");
+          const { notifyInboxStaffNewItem } = require("../../site/workflow/siteStaffWorkflowNotifications") as typeof import("../../site/workflow/siteStaffWorkflowNotifications");
           const subjectName = String(member?.displayName || member?.user?.username || userId).trim();
           void notifyInboxStaffNewItem({
             guild,
@@ -642,9 +536,6 @@ async function runWeeklyStaffResocontoSegment(client?, segment?, opts: Record<st
             dedupeKey: `inbox:resoconti:new:${pmMsg?.id || userId}`,
           }).catch(() => 0);
         } catch (_) {}
-        if (useDiscordPosts) {
-          await createResocontoThread(pmMsg, userId, member.user?.username, staffDoc, "pm");
-        }
       }
     } else if (matchPmSegment) {
       const reason = alreadyHadPmResocontoThisCycle

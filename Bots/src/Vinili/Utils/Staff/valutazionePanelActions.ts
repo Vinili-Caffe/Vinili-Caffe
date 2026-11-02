@@ -16,7 +16,6 @@ const {
   NEGATIVES_PER_STAFF_WARN,
 } = require("../../Services/Staff/staffWarnService") as typeof import("../../Services/Staff/staffWarnService");
 const { syncStaffDbAndPauseChannelAfterDepex } = require("./staffPmUtils") as typeof import("./staffPmUtils");
-const { resolveStaffValutazioniChannel, resolveStaffPexDepexChannel } = require("./staffChannelUtils") as typeof import("./staffChannelUtils");
 const { accountUsername, guildMemberDisplayAvatarUrlDynamic, resolveEmbedUserAvatarUrl } = require("../Discord/guildDiscordIdentity") as typeof import("../Discord/guildDiscordIdentity");
 const { TENANT_EMBED_COLOR } = require("../../MultiGuild/utils/tenantEmbedBranding") as typeof import("../../MultiGuild/utils/tenantEmbedBranding");
 
@@ -28,7 +27,7 @@ function clearWebStaffProfileCache(userId?, action = "valutazione") {
   const uid = String(userId || "").trim();
   if (!/^\d{16,22}$/.test(uid)) return;
   try {
-    require("../../features/staff/siteStaffProfileApi").clearStaffProfileCacheForUser(uid, { action });
+    require("../../site/staff/siteStaffProfileApi").clearStaffProfileCacheForUser(uid, { action });
   } catch (_) {}
 }
 
@@ -139,9 +138,8 @@ function makeRemovalEmbed(actor?, user?, title?, description?, reason?, updatedL
     .setColor(VALUTAZIONE_EMBED_COLOR);
 }
 
-async function sendChannelEmbed(channel?, payload?) {
-  if (!channel) return null;
-  return channel.send(payload).catch(() => null);
+async function sendChannelEmbed(_channel?, _payload?) {
+  return null;
 }
 
 function getValutazioneEntry(staff?, kind?, index?, reason?) {
@@ -279,110 +277,13 @@ function resolveValutazioneRemoveIndex(staff?, kind?, removeId?) {
   return -1;
 }
 
-async function resolveValutazioneRemoveIndexFromMessages(guild?, staff?, kind?, removeId?) {
-  const n = Math.floor(Number(removeId));
-  if (!guild || !Number.isInteger(n) || n < 1) return -1;
-
-  const listName = kind === "negative" ? "negativeValutazioni" : "positiveValutazioni";
-  const reasonsName = kind === "negative" ? "negativeReasons" : "positiveReasons";
-  const list = Array.isArray(staff?.[listName]) ? staff[listName] : [];
-  const reasons = Array.isArray(staff?.[reasonsName]) ? staff[reasonsName] : [];
-  if (!list.length) return -1;
-
-  for (let i = 0; i < list.length; i += 1) {
-    if (i >= reasons.length) break;
-    const entry = list[i];
-    const channelId = String(entry?.channelId || "").trim();
-    const messageId = String(entry?.messageId || "").trim();
-    if (!channelId || !messageId) continue;
-
-    const channel = guild.channels.cache.get(channelId) || (await getGuildChannelCached(guild, channelId));
-    if (!channel?.messages?.fetch) continue;
-    const message = await channel.messages.fetch(messageId).catch(() => null);
-    const embed = message?.embeds?.[0];
-    if (!embed) continue;
-
-    const idMatch = String(embed.description || "").match(VALUTAZIONE_EMBED_ID_RE);
-    if (idMatch && Number(idMatch[1]) === n) return i;
-
-    const titleMatch = String(embed.title || "").match(VALUTAZIONE_EMBED_TITLE_NUM_RE);
-    if (titleMatch && Number(titleMatch[1]) === n) return i;
-  }
-  return -1;
+async function resolveValutazioneRemoveIndexFull(_guild?, staff?, kind?, removeId?, _targetUserId = null) {
+  /* Solo indice DB — niente fetch/scan canale Discord. */
+  return resolveValutazioneRemoveIndex(staff, kind, removeId);
 }
 
-async function resolveValutazioneRemoveIndexFromChannelScan(guild?, staff?, kind?, removeId?, targetUserId?) {
-  const n = Math.floor(Number(removeId));
-  const userId = String(targetUserId || "").trim();
-  if (!guild || !userId || !Number.isInteger(n) || n < 1) return -1;
-
-  const channelId = String(IDs.channels?.valutazioniStaff || "").trim();
-  if (!channelId) return -1;
-  const { isDiscordStaffChannelPostsEnabled } = require("../../Web/discordWorkflowUiGate") as typeof import("../../Web/discordWorkflowUiGate");
-  if (!isDiscordStaffChannelPostsEnabled()) return -1;
-  const channel = guild.channels.cache.get(channelId) || (await getGuildChannelCached(guild, channelId));
-  if (!channel?.messages?.fetch) return -1;
-
-  const reasonsName = kind === "negative" ? "negativeReasons" : "positiveReasons";
-  const listName = kind === "negative" ? "negativeValutazioni" : "positiveValutazioni";
-  const reasons = Array.isArray(staff?.[reasonsName]) ? staff[reasonsName] : [];
-  const list = Array.isArray(staff?.[listName]) ? staff[listName] : [];
-  const mention = `<@${userId}>`;
-
-  let before = null;
-  for (let scanned = 0; scanned < 800; scanned += 100) {
-    const batch = await channel.messages.fetch({ limit: 100, before }).catch(() => null);
-    if (!batch?.size) break;
-    for (const msg of batch.values()) {
-      const content = String(msg.content || "");
-      if (!content.includes(mention) && !content.includes(userId)) continue;
-      const embed = msg.embeds?.[0];
-      if (!embed) continue;
-
-      const idMatch = String(embed.description || "").match(VALUTAZIONE_EMBED_ID_RE);
-      const titleMatch = String(embed.title || "").match(VALUTAZIONE_EMBED_TITLE_NUM_RE);
-      const matchesId =
-        (idMatch && Number(idMatch[1]) === n) ||
-        (titleMatch && Number(titleMatch[1]) === n);
-      if (!matchesId) continue;
-
-      const byMsg = list.findIndex((entry?) => String(entry?.messageId || "") === String(msg.id));
-      if (byMsg >= 0 && byMsg < reasons.length) return byMsg;
-
-      const reasonChunks = String(embed.description || "").match(/__([^_\n]+)__/g) || [];
-      const embedReason = String(reasonChunks[1] || "").replace(/^__|__$/g, "").trim();
-      if (!embedReason) continue;
-      for (let i = 0; i < reasons.length; i += 1) {
-        if (String(reasons[i] || "") !== embedReason) continue;
-        const linkedId = String(list[i]?.messageId || "");
-        if (!linkedId || linkedId === String(msg.id)) return i;
-      }
-    }
-    before = batch.last()?.id;
-    if (!before) break;
-  }
-  return -1;
-}
-
-async function resolveValutazioneRemoveIndexFull(guild?, staff?, kind?, removeId?, targetUserId = null) {
-  const direct = resolveValutazioneRemoveIndex(staff, kind, removeId);
-  if (direct >= 0) return direct;
-  const fromLogs = await resolveValutazioneRemoveIndexFromMessages(guild, staff, kind, removeId);
-  if (fromLogs >= 0) return fromLogs;
-  return resolveValutazioneRemoveIndexFromChannelScan(guild, staff, kind, removeId, targetUserId);
-}
-
-async function editOriginalValutazioneMessage(guild?, entry?, embed?) {
-  const { isDiscordStaffChannelPostsEnabled } = require("../../Web/discordWorkflowUiGate") as typeof import("../../Web/discordWorkflowUiGate");
-  if (!isDiscordStaffChannelPostsEnabled()) return false;
-  const channelId = String(entry?.channelId || "").trim();
-  const messageId = String(entry?.messageId || "").trim();
-  if (!guild || !channelId || !messageId) return false;
-  const channel = guild.channels.cache.get(channelId) || (await getGuildChannelCached(guild, channelId));
-  if (!channel?.messages?.fetch) return false;
-  const message = await channel.messages.fetch(messageId).catch(() => null);
-  if (!message?.edit) return false;
-  return message.edit({ content: "", embeds: [embed], components: [] }).then(() => true).catch(() => false);
+async function editOriginalValutazioneMessage(_guild?, _entry?, _embed?) {
+  return false;
 }
 
 async function syncProfileStaffFromDb(profileDoc?, guildId?, userId?) {
@@ -426,7 +327,7 @@ async function valutazionePositiveAddCore(profileDoc?, staffUser?, reason?, acto
   await profileDoc.save();
   await mirrorValTrackHistory(guildId, userId, "val_pos", reason, actor, counts.sectionCount);
   try {
-    const { notifyStaffValutazione, memberDisplayName } = require("../../features/staff/siteStaffEventNotifications") as typeof import("../../features/staff/siteStaffEventNotifications");
+    const { notifyStaffValutazione, memberDisplayName } = require("../../site/staff/siteStaffEventNotifications") as typeof import("../../site/staff/siteStaffEventNotifications");
     void notifyStaffValutazione({
       guild: channel?.guild || null,
       staffUserId: userId,
@@ -481,7 +382,7 @@ async function valutazionePositiveRemoveCore(profileDoc?, staffUser?, removeId?,
   const edited = await editOriginalValutazioneMessage(channel?.guild || null, originalEntry, embed);
   if (!edited) await sendChannelEmbed(channel, { embeds: [embed] });
   try {
-    const { notifyStaffValutazioneRemoved, memberDisplayName } = require("../../features/staff/siteStaffEventNotifications") as typeof import("../../features/staff/siteStaffEventNotifications");
+    const { notifyStaffValutazioneRemoved, memberDisplayName } = require("../../site/staff/siteStaffEventNotifications") as typeof import("../../site/staff/siteStaffEventNotifications");
     void notifyStaffValutazioneRemoved({
       guild: channel?.guild || null,
       staffUserId: String(staffUser?.id || ""),
@@ -548,11 +449,7 @@ async function valutazioneNegativeAddCore(guild?, profileDoc?, staffUser?, reaso
     profileDoc.markModified("staff");
     await profileDoc.save().catch(() => null);
   }
-  if (warnResult.added && warnChannel) {
-    const warnEmbed = await buildAutoStaffWarnFromNegativesEmbed(actor, staffUser, warnResult.warnCount, guild);
-    await warnChannel.send({ content: formatStaffMention(staffUser), embeds: [warnEmbed] }).catch(() => null);
-    /* Prompt depex Discord (staff_warn_depex) rimosso: decisione High Staff sul sito. */
-  }
+  /* Warn/depex log Discord rimossi: decisioni e storico solo sul sito. */
   if (warnResult.added && warnResult.shouldFullDepex) {
     const member = await getGuildMemberCached(guild, staffUser.id);
     if (member) {
@@ -576,20 +473,12 @@ async function valutazioneNegativeAddCore(guild?, profileDoc?, staffUser?, reaso
             guildMemberDisplayAvatarUrlDynamic(memberAfterFull || staffUser, { size: 128 }) ||
             null,
         });
-        const pexDepexChannel = await resolveStaffPexDepexChannel(guild);
-        if (pexDepexChannel?.isTextBased?.()) {
-          await pexDepexChannel.send({
-            content: `**<:cancel:1461730653677551691> DEPEX** ${formatStaffMention(staffUser)}\n` +
-              `<:VC_Staff:1494286904089247754> \`${currentRoleId}\` <a:VC_Arrow:1482706699365257397> Nessuno\n` +
-              `<:VC_reason:1478517122929004544> __Depex automatico: 3 warn staff (valutazioni negative).__`,
-          __skipNoticeEmbed: true,
-          }).catch(() => null);
-        }
+        /* Log canale pex/depex Discord rimosso — notifica sito sotto. */
       }
     }
   }
   try {
-    const { notifyStaffValutazione, notifyStaffWarn, notifyStaffPexDepex, memberDisplayName } = require("../../features/staff/siteStaffEventNotifications") as typeof import("../../features/staff/siteStaffEventNotifications");
+    const { notifyStaffValutazione, notifyStaffWarn, notifyStaffPexDepex, memberDisplayName } = require("../../site/staff/siteStaffEventNotifications") as typeof import("../../site/staff/siteStaffEventNotifications");
     void notifyStaffValutazione({
       guild,
       staffUserId: staffUser.id,
@@ -667,7 +556,7 @@ async function valutazioneNegativeRemoveCore(profileDoc?, staffUser?, removeId?,
   const edited = await editOriginalValutazioneMessage(channel?.guild || null, originalEntry, embed);
   if (!edited) await sendChannelEmbed(channel, { embeds: [embed] });
   try {
-    const { notifyStaffValutazioneRemoved, memberDisplayName } = require("../../features/staff/siteStaffEventNotifications") as typeof import("../../features/staff/siteStaffEventNotifications");
+    const { notifyStaffValutazioneRemoved, memberDisplayName } = require("../../site/staff/siteStaffEventNotifications") as typeof import("../../site/staff/siteStaffEventNotifications");
     void notifyStaffValutazioneRemoved({
       guild: channel?.guild || null,
       staffUserId: String(staffUser?.id || ""),
@@ -806,14 +695,12 @@ async function convertOldestNegativesToStaffWarn(s?, count?, actor?, staffUser?,
 
 async function runValutazionePositiveAddForPanel(guild?, actorMember?, staffUser?, reason?) {
   try {
-    const channel =
-      (await resolveStaffValutazioniChannel(guild));
     const profileDoc = await ensureStaffProfileDoc(
       await getStaffDoc(guild.id, staffUser.id),
       guild.id,
       staffUser.id,
     );
-    await valutazionePositiveAddCore(profileDoc, staffUser, reason, actorFromMember(actorMember), channel);
+    await valutazionePositiveAddCore(profileDoc, staffUser, reason, actorFromMember(actorMember), null);
     return { ok: true };
   } catch (err) {
     global.logger.error(err);
@@ -823,14 +710,12 @@ async function runValutazionePositiveAddForPanel(guild?, actorMember?, staffUser
 
 async function runValutazioneNegativeAddForPanel(guild?, actorMember?, staffUser?, reason?) {
   try {
-    const channel =
-      (await resolveStaffValutazioniChannel(guild));
     const profileDoc = await ensureStaffProfileDoc(
       await getStaffDoc(guild.id, staffUser.id),
       guild.id,
       staffUser.id,
     );
-    await valutazioneNegativeAddCore(guild, profileDoc, staffUser, reason, actorFromMember(actorMember), channel);
+    await valutazioneNegativeAddCore(guild, profileDoc, staffUser, reason, actorFromMember(actorMember), null);
     return { ok: true };
   } catch (err) {
     global.logger.error(err);
@@ -840,8 +725,6 @@ async function runValutazioneNegativeAddForPanel(guild?, actorMember?, staffUser
 
 async function runValutazionePositiveRemoveForPanel(guild?, actorMember?, staffUser?, removeId?, reason?) {
   try {
-    const channel =
-      (await resolveStaffValutazioniChannel(guild));
     const profileDoc = await ensureStaffProfileDoc(
       await getStaffDoc(guild.id, staffUser.id),
       guild.id,
@@ -853,7 +736,7 @@ async function runValutazionePositiveRemoveForPanel(guild?, actorMember?, staffU
       removeId,
       reason,
       actorFromMember(actorMember),
-      channel,
+      null,
     );
     return res.ok ? { ok: true } : { ok: false, message: res.message };
   } catch (err) {
@@ -866,8 +749,7 @@ async function runValutazioneNegativeRemoveForPanel(guild?, actorMember?, staffU
   try {
     const tradeCountRaw = Math.floor(Number(options?.positiveTradeCount || 0));
     const tradeCount = Number.isFinite(tradeCountRaw) && tradeCountRaw > 0 ? tradeCountRaw : 0;
-    const channel =
-      (await resolveStaffValutazioniChannel(guild));
+    const channel = null;
     const profileDoc = await ensureStaffProfileDoc(
       await getStaffDoc(guild.id, staffUser.id),
       guild.id,
@@ -1053,8 +935,6 @@ async function runValutazioneNegTradeForPanel(guild?, actorMember?, staffUser?, 
     return { ok: false, message: "<:VC_Attention:1482534443632558151> Solo **High Staff** può eseguire questo scambio per un altro staffer." };
   }
   try {
-    const channel =
-      (await resolveStaffValutazioniChannel(guild));
     const profileDoc = await ensureStaffProfileDoc(
       await getStaffDoc(guild.id, staffUser.id),
       guild.id,
@@ -1066,7 +946,7 @@ async function runValutazioneNegTradeForPanel(guild?, actorMember?, staffUser?, 
       staffUser,
       negativeRemoveId1Based,
       actorFromMember(actorMember),
-      channel,
+      null,
       guild,
       tradeReason,
     );
@@ -1081,8 +961,6 @@ async function runValutazionePosPauseTradeForPanel(guild?, actorMember?, staffUs
     return { ok: false, message: "<:VC_Attention:1482534443632558151> Solo **High Staff** può registrare questo scambio." };
   }
   try {
-    const channel =
-      (await resolveStaffValutazioniChannel(guild));
     const profileDoc = await ensureStaffProfileDoc(
       await getStaffDoc(guild.id, staffUser.id),
       guild.id,
@@ -1094,7 +972,7 @@ async function runValutazionePosPauseTradeForPanel(guild?, actorMember?, staffUs
       positiveCount,
       pauseDays,
       actorFromMember(actorMember),
-      channel,
+      null,
       guild,
     );
   } catch (err) {

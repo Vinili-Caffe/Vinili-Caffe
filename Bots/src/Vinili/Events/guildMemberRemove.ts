@@ -1,6 +1,6 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, AuditLogEvent, PermissionsBitField, } = require("discord.js") as typeof import("discord.js");
-const { closeOpenTicketsForGuildUser } = require("../features/tickets/discord/ticketCloseRuntime") as typeof import("../features/tickets/discord/ticketCloseRuntime");
-const { autoUnclaimOpenTicketsClaimedByUser } = require("../features/tickets/discord/ticketAutoUnclaimOnStaffLoss") as typeof import("../features/tickets/discord/ticketAutoUnclaimOnStaffLoss");
+const { closeOpenTicketsForGuildUser } = require("../MultiGuild/tickets/discord/ticketCloseRuntime") as typeof import("../MultiGuild/tickets/discord/ticketCloseRuntime");
+const { autoUnclaimOpenTicketsClaimedByUser } = require("../MultiGuild/tickets/discord/ticketAutoUnclaimOnStaffLoss") as typeof import("../MultiGuild/tickets/discord/ticketAutoUnclaimOnStaffLoss");
 const { ActivityUserProfile, UserLeaveBackup } = require("../Schemas/Community/communitySchemas") as typeof import("../Schemas/Community/communitySchemas");
 const IDs = require("../Utils/Config/ids") as typeof import("../Utils/Config/ids");
 const { getGuildChannelCached, getClientGuildCached } = require("../Utils/Interaction/interactionEntityCache") as typeof import("../Utils/Interaction/interactionEntityCache");
@@ -20,10 +20,9 @@ const { handleKickBanAction: antiNukeHandleKickBanAction } = require("../Service
 const { consumeRecentJoinGateKick } = require("../Utils/Moderation/joinGateKickCache") as typeof import("../Utils/Moderation/joinGateKickCache");
 const { guildMemberDisplayAvatarUrlDynamic } = require("../Utils/Discord/guildDiscordIdentity") as typeof import("../Utils/Discord/guildDiscordIdentity");
 const { trackMemberLeave } = require("../Services/Community/dailyMemberStatsService") as typeof import("../Services/Community/dailyMemberStatsService");
-const { handleMainGuildMemberRemove } = require("../Services/Staff/staffAccessMirrorService") as typeof import("../Services/Staff/staffAccessMirrorService");
-const { cancelOpenPausesOnMemberLeave } = require("../Utils/Pause/pauseHandlersUtils") as typeof import("../Utils/Pause/pauseHandlersUtils");
+const { cancelOpenPausesOnMemberLeave } = require("../site/staff/pause/pauseHandlersUtils") as typeof import("../site/staff/pause/pauseHandlersUtils");
 const { appendStaffRolesHistoryEntry } = require("../Utils/Staff/staffDocUtils") as typeof import("../Utils/Staff/staffDocUtils");
-const { identityFromMember } = require("../features/staff/siteStaffRosterCache") as typeof import("../features/staff/siteStaffRosterCache");
+const { identityFromMember } = require("../site/staff/siteStaffRosterCache") as typeof import("../site/staff/siteStaffRosterCache");
 
 function isViniliFullFeatureGuild(guildId?) {
   try {
@@ -128,7 +127,7 @@ async function closeOpenWebTicketsForMember(member?, closeReason = "Utente uscit
     closeOpenWebTicketsForGuildUser,
     autoUnclaimOpenWebTicketsClaimedByUser,
     removeLeftUserFromOpenWebTickets,
-  } = require("../features/tickets/site/siteWebTicketsApi") as typeof import("../features/tickets/site/siteWebTicketsApi");
+  } = require("../site/tickets/siteWebTicketsApi") as typeof import("../site/tickets/siteWebTicketsApi");
   const client = member.client;
   const guildId = member.guild?.id;
   const userId = member.id;
@@ -721,7 +720,7 @@ export = {
         });
         let autoCloseOnLeaveTenant = true;
         try {
-          const { getTicketSettingsSync } = require("../features/tickets/tenant/tenantTicketSettings") as typeof import("../features/tickets/tenant/tenantTicketSettings");
+          const { getTicketSettingsSync } = require("../MultiGuild/tickets/tenant/tenantTicketSettings") as typeof import("../MultiGuild/tickets/tenant/tenantTicketSettings");
           autoCloseOnLeaveTenant =
             getTicketSettingsSync(member.guild.id)?.autoCloseOnUserLeave !== false;
         } catch (_) {
@@ -739,7 +738,7 @@ export = {
           const {
             autoUnclaimOpenWebTicketsClaimedByUser,
             removeLeftUserFromOpenWebTickets,
-          } = require("../features/tickets/site/siteWebTicketsApi") as typeof import("../features/tickets/site/siteWebTicketsApi");
+          } = require("../site/tickets/siteWebTicketsApi") as typeof import("../site/tickets/siteWebTicketsApi");
           await autoUnclaimOpenWebTicketsClaimedByUser(member.client, member.guild.id, member.id, {
             reason: "perché è uscito dal server",
             claimerName: member.user?.globalName || member.user?.username || "",
@@ -754,9 +753,6 @@ export = {
         return;
       }
 
-      await handleMainGuildMemberRemove(member).catch((err?) => {
-        global.logger?.warn?.("[guildMemberRemove] staff access mirror:", member.id, err?.message || err);
-      });
       await trackMemberLeave(member).catch((err?) => {
         global.logger?.warn?.("[guildMemberRemove] daily member stats:", err?.message || err);
       });
@@ -787,7 +783,7 @@ export = {
 
       let autoCloseOnLeave = true;
       try {
-        const { getTicketSettingsSync } = require("../features/tickets/tenant/tenantTicketSettings") as typeof import("../features/tickets/tenant/tenantTicketSettings");
+        const { getTicketSettingsSync } = require("../MultiGuild/tickets/tenant/tenantTicketSettings") as typeof import("../MultiGuild/tickets/tenant/tenantTicketSettings");
         autoCloseOnLeave = getTicketSettingsSync(guild.id)?.autoCloseOnUserLeave !== false;
       } catch (_) {
         autoCloseOnLeave = true;
@@ -814,7 +810,7 @@ export = {
         const {
           autoUnclaimOpenWebTicketsClaimedByUser,
           removeLeftUserFromOpenWebTickets,
-        } = require("../features/tickets/site/siteWebTicketsApi") as typeof import("../features/tickets/site/siteWebTicketsApi");
+        } = require("../site/tickets/siteWebTicketsApi") as typeof import("../site/tickets/siteWebTicketsApi");
         await autoUnclaimOpenWebTicketsClaimedByUser(member.client, member.guild.id, member.id, {
           reason: wasKicked
             ? "perché è stato kickato dal server"
@@ -831,7 +827,7 @@ export = {
         global.logger?.warn?.("[guildMemberRemove] ticket auto-unclaim on leave:", member.id, err?.message || err);
       });
       try {
-        require("../Web/siteReviewsApi").scheduleExStaffReviewsPurge(client || member.client);
+        require("../site/http/siteReviewsApi").scheduleExStaffReviewsPurge(client || member.client);
       } catch (_) {}
       await handlePmStaffPartnershipWipeOnLeave(member, activeClient).catch((err?) => {
         global.logger?.warn?.(
@@ -846,7 +842,7 @@ export = {
         global.logger?.warn?.("[guildMemberRemove] cancel pauses:", err?.message || err);
       });
       try {
-        const { cancelPendingPauseWorkflowForUser, cancelPendingResocontiWorkflowForUser } = require("../features/workflow/siteStaffWorkflowStore") as typeof import("../features/workflow/siteStaffWorkflowStore");
+        const { cancelPendingPauseWorkflowForUser, cancelPendingResocontiWorkflowForUser } = require("../site/workflow/siteStaffWorkflowStore") as typeof import("../site/workflow/siteStaffWorkflowStore");
         await cancelPendingPauseWorkflowForUser(member.guild.id, member.id, {
           statusLabel: "Annullato (uscita)",
           decidedBy: "system",
@@ -874,7 +870,7 @@ export = {
         const {
           broadcastSiteMemberLeft,
           broadcastSiteLiveStatsChangedDebounced,
-        } = require("../features/suggestions/siteSuggestionsBroadcast") as typeof import("../features/suggestions/siteSuggestionsBroadcast");
+        } = require("../site/suggestions/siteSuggestionsBroadcast") as typeof import("../site/suggestions/siteSuggestionsBroadcast");
         broadcastSiteMemberLeft(member.id, guild.id);
         broadcastSiteLiveStatsChangedDebounced();
       } catch (err) {

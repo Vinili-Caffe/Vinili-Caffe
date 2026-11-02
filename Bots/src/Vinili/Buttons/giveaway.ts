@@ -3,7 +3,6 @@ const {
   GIVEAWAY_LEAVE_PREFIX,
   GIVEAWAY_COUNT_PREFIX,
   GIVEAWAY_REROLL_PREFIX,
-  GIVEAWAY_MORGAMES_RETRY_PREFIX,
   enterGiveaway,
   leaveGiveaway,
   showGiveawayJoinCount,
@@ -17,15 +16,13 @@ function match(interaction?) {
     id.startsWith(GIVEAWAY_ENTER_PREFIX) ||
     id.startsWith(GIVEAWAY_LEAVE_PREFIX) ||
     id.startsWith(GIVEAWAY_COUNT_PREFIX) ||
-    id.startsWith(GIVEAWAY_REROLL_PREFIX) ||
-    id.startsWith(GIVEAWAY_MORGAMES_RETRY_PREFIX)
+    id.startsWith(GIVEAWAY_REROLL_PREFIX)
   );
 }
 
 async function execute(interaction?, client?) {
   const id = String(interaction.customId || "");
-  if (id.startsWith(GIVEAWAY_ENTER_PREFIX) || id.startsWith(GIVEAWAY_MORGAMES_RETRY_PREFIX)) {
-    /* Retry Morgames → stesso enter (requisito Morgames dismesso). */
+  if (id.startsWith(GIVEAWAY_ENTER_PREFIX)) {
     return (await enterGiveaway(interaction, client)) === true;
   }
   if (id.startsWith(GIVEAWAY_LEAVE_PREFIX)) {

@@ -14,7 +14,6 @@ const { syncMutedMirrorOnMemberJoin } = require("../Services/Moderation/mutedMir
 const { cancelCustomPerksDiscordCleanupQueue } = require("../Services/Community/customPerksDiscordCleanupQueueService") as typeof import("../Services/Community/customPerksDiscordCleanupQueueService");
 const { handleTenantPartnerManagerRejoin } = require("../Services/Partner/partnerManagerLeaveService") as typeof import("../Services/Partner/partnerManagerLeaveService");
 const { shouldApplyMainPartnershipFilters } = require("../Utils/Partner/partnershipConfigResolver") as typeof import("../Utils/Partner/partnershipConfigResolver");
-const { handleAccessGuildMemberAdd } = require("../Services/Staff/staffAccessMirrorService") as typeof import("../Services/Staff/staffAccessMirrorService");
 const { isAlreadyVerifiedInThisGuild } = require("../Utils/Interaction/verifyUtils") as typeof import("../Utils/Interaction/verifyUtils");
 const { syncPreMemberRoleForMember } = require("../Utils/Community/preMemberRoleService") as typeof import("../Utils/Community/preMemberRoleService");
 const { ghostPingNewMemberOnJoin } = require("../Utils/Message/ghostPingOnChannelEnter") as typeof import("../Utils/Message/ghostPingOnChannelEnter");
@@ -54,12 +53,6 @@ export = {
   async execute(member?) {
     try {
       if (!member?.guild || !member?.user) return;
-      if (await handleAccessGuildMemberAdd(member).catch((err?) => {
-        global.logger?.warn?.("[guildMemberAdd] staff access mirror:", member.guild?.id, member.id, err?.message || err);
-        return false;
-      })) {
-        return;
-      }
 
       /* test join → sync ruoli dal main subito */
       try {
@@ -106,7 +99,7 @@ export = {
         global.logger?.warn?.("[guildMemberAdd] daily member stats:", err?.message || err);
       });
       try {
-        const { broadcastSiteLiveStatsChangedDebounced } = require("../features/suggestions/siteSuggestionsBroadcast") as typeof import("../features/suggestions/siteSuggestionsBroadcast");
+        const { broadcastSiteLiveStatsChangedDebounced } = require("../site/suggestions/siteSuggestionsBroadcast") as typeof import("../site/suggestions/siteSuggestionsBroadcast");
         broadcastSiteLiveStatsChangedDebounced();
       } catch (_) {}
       const joinGateConfig = getJoinGateConfigSnapshot();

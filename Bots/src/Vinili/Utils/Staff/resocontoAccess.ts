@@ -91,81 +91,6 @@ function memberHasResocontoButtonAccess(member?, payload: Record<string, any> = 
   return memberIsResocontoReviewerForSegment(member, null, staffRoleId);
 }
 
-function parseResocontoPayloadFromCustomId(customId?) {
-  const raw = String(customId || "");
-  if (raw.startsWith("resoconto_apply:") || raw.startsWith("resoconto_reject:")) {
-    const parts = raw.split(":");
-    const kind = String(parts[1] || "");
-    const userId = String(parts[2] || "");
-    if (kind === "s") {
-      return { kind, userId, roleId: String(parts[3] || "") };
-    }
-    if (kind === "p") {
-      return { kind, userId, roleId: null };
-    }
-  }
-  if (raw.startsWith("resoconto_override:")) {
-    const parts = raw.split(":");
-    const kind = String(parts[1] || "");
-    if (kind === "s") {
-      return { kind, userId: String(parts[2] || ""), roleId: String(parts[3] || "") };
-    }
-    if (kind === "p") {
-      return { kind, userId: String(parts[2] || ""), roleId: null };
-    }
-  }
-  if (raw.startsWith("resoconto_reason:")) {
-    const parts = raw.split(":");
-    const kind = String(parts[1] || "");
-    if (kind === "s") {
-      return { kind, userId: String(parts[2] || ""), roleId: String(parts[3] || "") };
-    }
-    if (kind === "p") {
-      return { kind, userId: String(parts[2] || ""), roleId: null };
-    }
-  }
-  return null;
-}
-
-function interactionHasResocontoButtonAccess(interaction?) {
-  const payload = parseResocontoPayloadFromCustomId(interaction?.customId);
-  if (!payload) return false;
-  return memberHasResocontoButtonAccess(interaction?.member, payload);
-}
-
-function hasCandidatureReviewAccess(interaction?) {
-  const member = interaction?.member;
-  const userId = String(interaction?.user?.id || member?.id || "").trim();
-  const ownerId = String(interaction?.guild?.ownerId || "").trim();
-  if (userId && ownerId && userId === ownerId) return true;
-
-  if (!member?.roles?.cache) return false;
-
-  const allowed = [IDs.roles?.Admin, IDs.roles?.Manager, IDs.roles?.Founder, IDs.roles?.Director]
-    .filter(Boolean)
-    .map((id?) => String(id));
-    return allowed.some((roleId?) => member.roles.cache.has(roleId));
-}
-
-function isResocontoInteraction(customId?) {
-  const id = String(customId || "");
-  return (
-    id.startsWith("resoconto_apply:") ||
-    id.startsWith("resoconto_reject:") ||
-    id.startsWith("resoconto_override:") ||
-    id.startsWith("resoconto_reason:")
-  );
-}
-
-function isCandidatureStaffReviewInteraction(customId?) {
-  const id = String(customId || "");
-  return (
-    id.startsWith("apply_pex:") ||
-    id.startsWith("apply_reject:") ||
-    id.startsWith("apply_pex_modal:")
-  );
-}
-
 export = {
   getResocontoReviewerUserIdsForSegment,
   getResocontoSegmentsForReviewerUserId,
@@ -175,9 +100,4 @@ export = {
   memberIsExcludedFromResocontoReviewerReward,
   getResocontoButtonAllowedRoleIds,
   memberHasResocontoButtonAccess,
-  interactionHasResocontoButtonAccess,
-  parseResocontoPayloadFromCustomId,
-  hasCandidatureReviewAccess,
-  isResocontoInteraction,
-  isCandidatureStaffReviewInteraction,
 };

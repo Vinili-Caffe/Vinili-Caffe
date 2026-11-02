@@ -1,8 +1,6 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, AttachmentBuilder, ChannelType, } = require("discord.js") as typeof import("discord.js");
 const { skullboardFindOneLean, skullboardUpsert } = require("../Utils/Global/globalSettingsGuildStores") as typeof import("../Utils/Global/globalSettingsGuildStores");
 const { handleMinigameReaction } = require("../Services/Minigames/minigameService") as typeof import("../Services/Minigames/minigameService");
-const { handleHalloweenEmojiHuntReaction } = require("../Services/Community/halloweenEmojiHuntService") as typeof import("../Services/Community/halloweenEmojiHuntService");
-const { handleIdeaBugReaction } = require("../Services/Community/ideaBugThreadService") as typeof import("../Services/Community/ideaBugThreadService");
 const IDs = require("../Utils/Config/ids") as typeof import("../Utils/Config/ids");
 const { getGuildChannelCached, getGuildMemberCached } = require("../Utils/Interaction/interactionEntityCache") as typeof import("../Utils/Interaction/interactionEntityCache");
 const { cacheRoleIcon } = require("../Utils/Cache/roleIconCache") as typeof import("../Utils/Cache/roleIconCache");
@@ -303,12 +301,8 @@ export = {
 
       try {
         const client = reaction.client || reaction.message?.client || user?.client;
-        const huntHandled = await handleHalloweenEmojiHuntReaction(client, reaction, user);
-        if (huntHandled) return;
         const handled = await handleMinigameReaction(client, reaction, user);
         if (handled) return;
-        const ideaBugHandled = await handleIdeaBugReaction(reaction, user);
-        if (ideaBugHandled) return;
       } catch (mgErr) {
         global.logger?.error?.("[ReactionAdd] event reaction handler:", mgErr?.message || mgErr);
       }
@@ -319,7 +313,7 @@ export = {
       if ((message.embeds?.length || 0) > 0) return;
 
       /* bachecaSite1: sul server principale la 💀 appende il messaggio sulla Bacheca del sito */
-      const bachecaSite = require("../features/bacheca/bachecaSite") as typeof import("../features/bacheca/bachecaSite");
+      const bachecaSite = require("../site/bacheca/bachecaSite") as typeof import("../site/bacheca/bachecaSite");
       const siteBoard = bachecaSite.isBachecaSiteGuild(message.guild.id);
       const skullChannelId = siteBoard ? "" : resolveSkullboardChannelId(message.guild.id);
       if (!siteBoard && !skullChannelId) return;
@@ -379,7 +373,7 @@ export = {
       }
 
       if (siteBoard) {
-        const { registerBachecaSkull } = require("../features/bacheca/bachecaSkull") as typeof import("../features/bacheca/bachecaSkull");
+        const { registerBachecaSkull } = require("../site/bacheca/bachecaSkull") as typeof import("../site/bacheca/bachecaSkull");
         const saved = await registerBachecaSkull({
           message,
           member,

@@ -666,7 +666,7 @@ async function applyWeeklyStaffAutoValutazioniForMember({
 
   if (reachedTripleWeeklyLimits && !inPauseAtLeastOneDay && guild?.id && userId) {
     try {
-      const { tryAutoSubmitCompito } = require("../../features/staff/siteStaffCompitiAutoComplete") as typeof import("../../features/staff/siteStaffCompitiAutoComplete");
+      const { tryAutoSubmitCompito } = require("../../site/staff/siteStaffCompitiAutoComplete") as typeof import("../../site/staff/siteStaffCompitiAutoComplete");
       await tryAutoSubmitCompito(global.botClient || guild?.client, {
         guildId: guild.id,
         userId,

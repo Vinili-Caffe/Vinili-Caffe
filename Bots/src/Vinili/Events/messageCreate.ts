@@ -5,14 +5,11 @@ const { recordMessageActivity } = require("../Services/Community/activityService
 const { handleMessageCommunityExpBonuses } = require("../Services/Community/messageCommunityExpBonusesService") as typeof import("../Services/Community/messageCommunityExpBonusesService");
 const { trackMessageEngagement } = require("../Services/Community/dailyEngagementStatsService") as typeof import("../Services/Community/dailyEngagementStatsService");
 const { trackChannelMessage } = require("../Services/Community/dailyChannelMessageStatsService") as typeof import("../Services/Community/dailyChannelMessageStatsService");
-const { handleIdeaBugMessage } = require("../Services/Community/ideaBugThreadService") as typeof import("../Services/Community/ideaBugThreadService");
-const { handleStaffProofRequestMessage } = require("../Services/Staff/staffProofRequestThreadService") as typeof import("../Services/Staff/staffProofRequestThreadService");
-const { handleMainStaffAlertThreadMessage } = require("../Services/Staff/mainStaffAlertThreadService") as typeof import("../Services/Staff/mainStaffAlertThreadService");
 const { handleOfficialPrefixMessage } = require("../Utils/Prefix/officialPrefixDispatcher") as typeof import("../Utils/Prefix/officialPrefixDispatcher");
-const { channelAllowsMedia, getCachedOrFetchMember, handleDisboardBump, handleDiscadiaBump, handleMovieNightVoteMessage, handlePauseChannelMessage, handleSanzioniChannelMessage, handleThreadVoteMessage, handleVoteManagerMessage, hasMediaPermission, isDiscordInviteLinkMessage, isMediaMessage, } = require("../Utils/Message/officialMessageAutomationHandlers") as typeof import("../Utils/Message/officialMessageAutomationHandlers");
+const { channelAllowsMedia, getCachedOrFetchMember, handleDisboardBump, handleDiscadiaBump, handleMovieNightVoteMessage, handlePauseChannelMessage, handleSanzioniChannelMessage, handleVoteManagerMessage, hasMediaPermission, isDiscordInviteLinkMessage, isMediaMessage, } = require("../Utils/Message/officialMessageAutomationHandlers") as typeof import("../Utils/Message/officialMessageAutomationHandlers");
 const { handleAfk, handleMentionAutoReactions, handleMentionAutoResponses, handleWordReactions, logEventError, } = require("../Utils/Message/officialMessageCommunityHandlers") as typeof import("../Utils/Message/officialMessageCommunityHandlers");
 const { runAutoModMessage } = require("../Services/Moderation/automodService") as typeof import("../Services/Moderation/automodService");
-const { handleTicketMemberPromptMessage } = require("../features/tickets/discord/ticketMemberPrompt") as typeof import("../features/tickets/discord/ticketMemberPrompt");
+const { handleTicketMemberPromptMessage } = require("../MultiGuild/tickets/discord/ticketMemberPrompt") as typeof import("../MultiGuild/tickets/discord/ticketMemberPrompt");
 const { handleUntrustedBotMessage, handleUntrustedApplicationMessage } = require("../Services/Moderation/trustedBotGuardService") as typeof import("../Services/Moderation/trustedBotGuardService");
 const IDs = require("../Utils/Config/ids") as typeof import("../Utils/Config/ids");
 const { EPHEMERAL_TTL_SHORT_MS, scheduleMessageDeletion } = require("../Utils/Config/ephemeralMessageTtl") as typeof import("../Utils/Config/ephemeralMessageTtl");
@@ -508,7 +505,6 @@ export = {
           return;
         }
         if (await handleMovieNightVoteMessage(message)) return;
-        if (await handleThreadVoteMessage(message, resolvedClient)) return;
         if (await handlePauseChannelMessage(message)) return;
         if (await handleSanzioniChannelMessage(message)) return;
       }
@@ -535,30 +531,6 @@ export = {
       } catch (error) {
         logEventError(resolvedClient, "TICKET MEMBER PROMPT ERROR", error);
       }
-    }
-
-    if (message.guild) {
-      setImmediate(() => {
-        handleIdeaBugMessage(message).catch((err?) =>
-          logEventError(resolvedClient, "IDEA BUG THREAD ERROR", err),
-        );
-      });
-    }
-
-    if (message.guild) {
-      setImmediate(() => {
-        handleStaffProofRequestMessage(message).catch((err?) =>
-          logEventError(resolvedClient, "STAFF PROOF THREAD ERROR", err),
-        );
-      });
-    }
-
-    if (message.guild) {
-      setImmediate(() => {
-        handleMainStaffAlertThreadMessage(message).catch((err?) =>
-          logEventError(resolvedClient, "MAIN STAFF ALERT THREAD ERROR", err),
-        );
-      });
     }
 
     if (message.guild) {

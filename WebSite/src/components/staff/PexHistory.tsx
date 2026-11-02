@@ -4,12 +4,13 @@ import { useEffect, useMemo, useState } from "react";
 import { ArrowDownCircle, ArrowRight, ArrowUpCircle, History, Search } from "lucide-react";
 import { Avatar } from "@/components/Avatar";
 import { SmartLink } from "@/components/SmartLink";
+import { Pagination, pageSlice } from "@/components/ui/Pagination";
 import { cn } from "@/lib/cn";
 import { loadPexHistory, type PexHistoryItem } from "@/lib/staffManage";
 
 type KindFilter = "all" | "pex" | "depex";
 
-const PAGE = 30;
+const PAGE_SIZE = 10;
 
 /** Cronologia pex/depex in Gestione: tutti o solo il membro selezionato, con motivo, data e chi l'ha fatto. */
 export function PexHistory({
@@ -26,7 +27,7 @@ export function PexHistory({
   const [onlyMember, setOnlyMember] = useState(false);
   const [kind, setKind] = useState<KindFilter>("all");
   const [q, setQ] = useState("");
-  const [shown, setShown] = useState(PAGE);
+  const [pageNum, setPageNum] = useState(1);
 
   const filterId = onlyMember && member ? member.userId : null;
 
@@ -40,7 +41,7 @@ export function PexHistory({
       }
       setError("");
       setItems(r.data.pexHistory || []);
-      setShown(PAGE);
+      setPageNum(1);
     });
     return () => {
       alive = false;
@@ -62,6 +63,8 @@ export function PexHistory({
     return { all: list.length, pex: list.filter((i) => i.kind === "pex").length, depex: list.filter((i) => i.kind === "depex").length };
   }, [items]);
 
+  const { page: pageSafe, totalPages, slice } = pageSlice(filtered, pageNum, PAGE_SIZE);
+
   return (
     <section className="rounded-2xl bg-gradient-to-b from-caramel/[0.08] via-roast/80 to-roast p-4 ring-1 ring-sand/15 sm:p-5">
       <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
@@ -79,7 +82,7 @@ export function PexHistory({
             value={q}
             onChange={(e) => {
               setQ(e.target.value);
-              setShown(PAGE);
+              setPageNum(1);
             }}
             placeholder="Cerca nome, ruolo, motivo…"
             className="w-full rounded-full bg-espresso/80 py-2 pl-9 pr-3 text-sm outline-none ring-1 ring-sand/15 placeholder:text-crema/30 focus:ring-caramel/50"
@@ -101,7 +104,7 @@ export function PexHistory({
             aria-pressed={kind === value}
             onClick={() => {
               setKind(value);
-              setShown(PAGE);
+              setPageNum(1);
             }}
             className={cn(
               "rounded-full px-3 py-1.5 text-sm font-semibold ring-1 transition",
@@ -115,7 +118,10 @@ export function PexHistory({
           <button
             type="button"
             aria-pressed={onlyMember}
-            onClick={() => setOnlyMember((v) => !v)}
+            onClick={() => {
+              setOnlyMember((v) => !v);
+              setPageNum(1);
+            }}
             className={cn(
               "ml-auto rounded-full px-3 py-1.5 text-sm font-semibold ring-1 transition",
               onlyMember ? "bg-caramel/20 text-ember ring-caramel/35" : "bg-crema/5 text-crema/65 ring-sand/15 hover:text-crema",
@@ -138,8 +144,8 @@ export function PexHistory({
         <p className="py-8 text-center text-sm text-crema/50">Nessun pex o depex trovato.</p>
       ) : (
         <>
-          <ol className="space-y-2">
-            {filtered.slice(0, shown).map((it, i) => {
+          <ol id="gestione-cronologia" className="scroll-mt-28 space-y-2">
+            {slice.map((it, i) => {
               const up = it.kind === "pex";
               return (
                 <li
@@ -185,17 +191,13 @@ export function PexHistory({
               );
             })}
           </ol>
-          {filtered.length > shown ? (
-            <div className="mt-3 flex justify-center">
-              <button
-                type="button"
-                onClick={() => setShown((n) => n + PAGE)}
-                className="rounded-full bg-crema/8 px-4 py-2 text-sm font-semibold text-crema/75 ring-1 ring-sand/15 hover:text-crema"
-              >
-                Mostra altri ({filtered.length - shown})
-              </button>
-            </div>
-          ) : null}
+          <Pagination
+            page={pageSafe}
+            totalPages={totalPages}
+            onChange={setPageNum}
+            scrollToId="gestione-cronologia"
+            className="mt-4"
+          />
         </>
       )}
     </section>

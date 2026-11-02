@@ -22,7 +22,7 @@ const PM_ACTIONS = new Set(["dp", "rc", "nl"]);
 
 function fireResocontoPexDepexNotif(guild?, actor?, targetUser?, kind?, oldRoleId?, newRoleId?, reason?, sourceHint?) {
   try {
-    const { notifyStaffPexDepex, memberDisplayName } = require("../../features/staff/siteStaffEventNotifications") as typeof import("../../features/staff/siteStaffEventNotifications");
+    const { notifyStaffPexDepex, memberDisplayName } = require("../../site/staff/siteStaffEventNotifications") as typeof import("../../site/staff/siteStaffEventNotifications");
     const actorUser = actor?.user || actor;
     void notifyStaffPexDepex({
       guild,
@@ -41,7 +41,7 @@ function fireResocontoPexDepexNotif(guild?, actor?, targetUser?, kind?, oldRoleI
 
 function fireResocontoOutcomeNotif(guild?, actor?, targetUserId?, actionKey?, reason?, messageId?) {
   try {
-    const { notifyResocontoOutcome, memberDisplayName } = require("../../features/staff/siteStaffEventNotifications") as typeof import("../../features/staff/siteStaffEventNotifications");
+    const { notifyResocontoOutcome, memberDisplayName } = require("../../site/staff/siteStaffEventNotifications") as typeof import("../../site/staff/siteStaffEventNotifications");
     const actorUser = actor?.user || actor;
     void notifyResocontoOutcome({
       guild,
@@ -183,7 +183,7 @@ async function bumpCandidatureCooldownAfterStaffRemoval(userId?) {
   const uid = String(userId || "").trim();
   if (!/^\d{16,20}$/.test(uid)) return;
   try {
-    const { bumpApplicationCooldownAfterStaffDepex } = require("./candidatureApplicationHandlers") as typeof import("./candidatureApplicationHandlers");
+    const { bumpApplicationCooldownAfterStaffDepex } = require("../../site/staff/candidature/candidatureApplicationHandlers") as typeof import("../../site/staff/candidature/candidatureApplicationHandlers");
     if (typeof bumpApplicationCooldownAfterStaffDepex === "function") {
       await bumpApplicationCooldownAfterStaffDepex(uid);
     }
@@ -248,7 +248,7 @@ async function resolvePexDepexChannel(guild?) {
 }
 
 async function sendPexDepexLog(guild?, type?, targetUser?, oldRoleId?, newRoleId?, reason?) {
-  const { isDiscordStaffChannelPostsEnabled } = require("../../Web/discordWorkflowUiGate") as typeof import("../../Web/discordWorkflowUiGate");
+  const { isDiscordStaffChannelPostsEnabled } = require("../../site/http/discordWorkflowUiGate") as typeof import("../../site/http/discordWorkflowUiGate");
   if (!isDiscordStaffChannelPostsEnabled()) return;
   const channel = await resolvePexDepexChannel(guild);
   if (!channel?.isTextBased?.()) return;
@@ -289,7 +289,7 @@ async function syncResocontoWorkflowOutcome(guild?, channelId?, messageId?, opts
   let idOk = /^\d{16,22}$/.test(mid);
   if (!idOk) {
     try {
-      const { isWorkflowMessageId } = require("../../Web/discordWorkflowUiGate") as typeof import("../../Web/discordWorkflowUiGate");
+      const { isWorkflowMessageId } = require("../../site/http/discordWorkflowUiGate") as typeof import("../../site/http/discordWorkflowUiGate");
       idOk = isWorkflowMessageId(mid);
     } catch (_) {}
   }
@@ -309,7 +309,7 @@ async function syncResocontoWorkflowOutcome(guild?, channelId?, messageId?, opts
   if (!statusLabel && !accepted) statusLabel = "Azione negata";
   if (!statusLabel && accepted) {
     try {
-      const { resocontoActionLabelForKey } = require("../../features/workflow/siteStaffWorkflowStore") as typeof import("../../features/workflow/siteStaffWorkflowStore");
+      const { resocontoActionLabelForKey } = require("../../site/workflow/siteStaffWorkflowStore") as typeof import("../../site/workflow/siteStaffWorkflowStore");
       statusLabel = resocontoActionLabelForKey(workflowActionKey) || "Accettata";
     } catch {
       statusLabel = "Accettata";
@@ -318,7 +318,7 @@ async function syncResocontoWorkflowOutcome(guild?, channelId?, messageId?, opts
 
   if (/azione confermata da|azione negata da/i.test(rawBody)) {
     try {
-      const { parseResocontoOutcomeFromContent } = require("../../features/workflow/siteStaffWorkflowStore") as typeof import("../../features/workflow/siteStaffWorkflowStore");
+      const { parseResocontoOutcomeFromContent } = require("../../site/workflow/siteStaffWorkflowStore") as typeof import("../../site/workflow/siteStaffWorkflowStore");
       const outcome = parseResocontoOutcomeFromContent(rawBody);
       status = outcome?.rejected ? "rejected" : "accepted";
       if (outcome?.label) statusLabel = outcome.label;
@@ -345,7 +345,7 @@ async function syncResocontoWorkflowOutcome(guild?, channelId?, messageId?, opts
       buildWorkflowDedupeKey,
       parseResocontoFromMessage,
       resocontoWorkflowItemFromDoc,
-    } = require("../../features/workflow/siteStaffWorkflowStore") as typeof import("../../features/workflow/siteStaffWorkflowStore");
+    } = require("../../site/workflow/siteStaffWorkflowStore") as typeof import("../../site/workflow/siteStaffWorkflowStore");
     let doc = await updateStaffWorkflowFromMessage(guild.id, "resoconti", mid, status, syncExtras);
     if (!doc && msg) {
       const payload = parseResocontoFromMessage(msg);
@@ -375,7 +375,7 @@ async function syncResocontoWorkflowOutcome(guild?, channelId?, messageId?, opts
         });
         if (doc && status !== "pending") {
           try {
-            const { broadcastSiteStaffWorkflowChanged } = require("../../features/suggestions/siteSuggestionsBroadcast") as typeof import("../../features/suggestions/siteSuggestionsBroadcast");
+            const { broadcastSiteStaffWorkflowChanged } = require("../../site/suggestions/siteSuggestionsBroadcast") as typeof import("../../site/suggestions/siteSuggestionsBroadcast");
             broadcastSiteStaffWorkflowChanged("resoconti");
           } catch (_) {}
         }
@@ -404,7 +404,7 @@ async function syncResocontoWorkflowOutcome(guild?, channelId?, messageId?, opts
         });
         if (doc && status !== "pending") {
           try {
-            const { broadcastSiteStaffWorkflowChanged } = require("../../features/suggestions/siteSuggestionsBroadcast") as typeof import("../../features/suggestions/siteSuggestionsBroadcast");
+            const { broadcastSiteStaffWorkflowChanged } = require("../../site/suggestions/siteSuggestionsBroadcast") as typeof import("../../site/suggestions/siteSuggestionsBroadcast");
             broadcastSiteStaffWorkflowChanged("resoconti");
           } catch (_) {}
         }
@@ -840,13 +840,7 @@ function resolveResocontoChannelId(channelId?) {
   const fromArg = String(channelId || "").trim();
   if (fromArg === "site") return "site";
   if (/^\d{16,22}$/.test(fromArg)) return fromArg;
-  const configured = String(IDs.channels?.resocontiStaff || IDs.channels?.valutazioniStaff || "").trim();
-  if (configured) return configured;
-  try {
-    const { isDiscordWorkflowChannelPostsEnabled } = require("../../Web/discordWorkflowUiGate") as typeof import("../../Web/discordWorkflowUiGate");
-    if (!isDiscordWorkflowChannelPostsEnabled()) return "site";
-  } catch (_) {}
-  return "";
+  return "site";
 }
 
 function buildWebResocontoAlternatives(kind?) {
@@ -874,9 +868,8 @@ async function decideResocontoFromWeb(guild?, actorMember?, opts: Record<string,
   const overrideActionKey = String(opts.overrideActionKey || opts.altActionKey || "").trim().toLowerCase();
   const proposedActionKey = String(opts.actionKey || "").trim().toLowerCase();
 
-  const { isWorkflowMessageId, isDiscordWorkflowChannelPostsEnabled } = require("../../Web/discordWorkflowUiGate") as typeof import("../../Web/discordWorkflowUiGate");
-  const discordPosts = isDiscordWorkflowChannelPostsEnabled();
-  if (!channelId && !discordPosts) channelId = "site";
+  const { isWorkflowMessageId } = require("../../site/http/discordWorkflowUiGate") as typeof import("../../site/http/discordWorkflowUiGate");
+  if (!channelId) channelId = "site";
 
   if (!guild || !actorMember?.id) {
     return { ok: false, status: 400, error: "bad_request", message: "Richiesta non valida." };
@@ -890,14 +883,6 @@ async function decideResocontoFromWeb(guild?, actorMember?, opts: Record<string,
       status: 400,
       error: "missing_fields",
       message: "messageId e userId richiesti.",
-    };
-  }
-  if (discordPosts && !channelId) {
-    return {
-      ok: false,
-      status: 400,
-      error: "missing_fields",
-      message: "messageId, userId e canale resoconti richiesti.",
     };
   }
   if (kind !== "s" && kind !== "p") {
@@ -934,7 +919,7 @@ async function decideResocontoFromWeb(guild?, actorMember?, opts: Record<string,
   const ensureResocontoItem = (syncedItem?, extra: Record<string, any> = {}) => {
     if (syncedItem) return syncedItem;
     try {
-      const { resocontoWorkflowItemFromSnapshot } = require("../../features/workflow/siteStaffWorkflowStore") as typeof import("../../features/workflow/siteStaffWorkflowStore");
+      const { resocontoWorkflowItemFromSnapshot } = require("../../site/workflow/siteStaffWorkflowStore") as typeof import("../../site/workflow/siteStaffWorkflowStore");
       return resocontoWorkflowItemFromSnapshot({ ...resocontoItemCtx, ...extra });
     } catch {
       return null;
@@ -949,7 +934,7 @@ async function decideResocontoFromWeb(guild?, actorMember?, opts: Record<string,
   let dbWorkflowDetail = null;
   if (!activeMessage) {
     try {
-      const { getStaffWorkflowDetailFromDb } = require("../../features/workflow/siteStaffWorkflowStore") as typeof import("../../features/workflow/siteStaffWorkflowStore");
+      const { getStaffWorkflowDetailFromDb } = require("../../site/workflow/siteStaffWorkflowStore") as typeof import("../../site/workflow/siteStaffWorkflowStore");
       dbWorkflowDetail = await getStaffWorkflowDetailFromDb(
         guild.client,
         guild.id,
@@ -1000,7 +985,7 @@ async function decideResocontoFromWeb(guild?, actorMember?, opts: Record<string,
   const decisionLabel = (actionKey?, rejected = false) => {
     if (rejected) return "Azione negata";
     try {
-      const { resocontoActionLabelForKey } = require("../../features/workflow/siteStaffWorkflowStore") as typeof import("../../features/workflow/siteStaffWorkflowStore");
+      const { resocontoActionLabelForKey } = require("../../site/workflow/siteStaffWorkflowStore") as typeof import("../../site/workflow/siteStaffWorkflowStore");
       return resocontoActionLabelForKey(actionKey) || "Accettata";
     } catch {
       return "Accettata";
@@ -1028,7 +1013,7 @@ async function decideResocontoFromWeb(guild?, actorMember?, opts: Record<string,
   let resolvedProposedKey = proposedActionKey;
   if (!overrideActionKey && !resolvedProposedKey && activeMessage) {
     try {
-      const { parseResocontoFromMessage } = require("../../features/workflow/siteStaffWorkflowStore") as typeof import("../../features/workflow/siteStaffWorkflowStore");
+      const { parseResocontoFromMessage } = require("../../site/workflow/siteStaffWorkflowStore") as typeof import("../../site/workflow/siteStaffWorkflowStore");
       const parsed = parseResocontoFromMessage(activeMessage);
       resolvedProposedKey = String(parsed?.actionKey || "").trim().toLowerCase();
     } catch (_) {}

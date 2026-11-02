@@ -2,7 +2,7 @@
 const { MOVIE_NIGHT_DISPLAY_TIME, buildMovieNightFinalClosingLines, formatMovieNightStaffDateLabel } = require("./movieNightSchedule") as typeof import("./movieNightSchedule");
 const { MOVIE_NIGHT_EVENT_CHANNEL_ID } = require("./movieNightEvents") as typeof import("./movieNightEvents");
 const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
-const { siteWorkflowUrl } = require("../../Web/discordWorkflowUiGate") as typeof import("../../Web/discordWorkflowUiGate");
+const { siteWorkflowUrl } = require("../../site/http/discordWorkflowUiGate") as typeof import("../../site/http/discordWorkflowUiGate");
 
 const EVENTS_ROLE_ID = String(IDs.roles?.Events || "1544830669023346688");
 /* serataFilmPingMerge1: Serata Film eliminato → ping Events */

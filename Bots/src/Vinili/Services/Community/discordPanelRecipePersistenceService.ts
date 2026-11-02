@@ -5,21 +5,14 @@ const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Conf
 const Embeds = require("../../Embeds/index") as typeof import("../../Embeds/index");
 const {
   getEnabledDiscordPanelNames,
-  siteReplacesForPanel,
 } = require("../../Utils/Config/discordPanelsConfig") as typeof import("../../Utils/Config/discordPanelsConfig");
 
 const MAIN_GUILD_ID = String(IDs.guilds?.main || "1329080093599076474");
 
+/* Solo pannelli Discord ancora publishati (info + sanzioni). Gli altri → sito. */
 const PANEL_CHANNEL_RESOLVERS = {
   info: () => String(IDs.channels?.info || "").trim() || null,
   sanzioni: () => String(IDs.channels?.sanzioniUtenti || "").trim() || null,
-  ruoli: () => String(IDs.channels?.ruoliColori || "").trim() || null,
-  ticket: () => String(IDs.channels?.ticket || IDs.channels?.tickets || "").trim() || null,
-  verify: () => String(IDs.channels?.verify || "").trim() || null,
-  candidature: () => String(IDs.channels?.candidatureStaff || "").trim() || null,
-  pause: () => String(IDs.channels?.pause || "").trim() || null,
-  staff: () => String(IDs.channels?.guidaStaff || IDs.channels?.guidaMid || "").trim() || null,
-  staffList: () => String(IDs.channels?.staffList || "").trim() || null,
 };
 
 const DISABLED_MESSAGE_SLOT_KEYS = Object.freeze([
@@ -70,7 +63,6 @@ function recipesComparableSnapshot(payload?) {
       order: r.order,
       enabled: Boolean(r.enabled),
       channelId: r.channelId || null,
-      siteReplaces: r.siteReplaces ?? null,
       messageSlots: r.messageSlots || {},
     })),
   });
@@ -122,7 +114,6 @@ async function persistDiscordPanelRecipes(extra: Record<string, any> = {}) {
       order: p.order,
       enabled: Boolean(p.enabled),
       channelId,
-      siteReplaces: siteReplacesForPanel(p.name),
       messageSlots: channelId && slotsByChannel[channelId] ? slotsByChannel[channelId] : {},
     };
   });

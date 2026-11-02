@@ -622,7 +622,7 @@ function resolveRestoredTicketsCategoryName(name?) {
   const {
     TICKETS_CATEGORY_NAME,
     TICKETS_OVERFLOW_SEPARATOR,
-  } = require("../../features/tickets/discord/ticketCategoryUtils") as typeof import("../../features/tickets/discord/ticketCategoryUtils");
+  } = require("../../MultiGuild/tickets/discord/ticketCategoryUtils") as typeof import("../../MultiGuild/tickets/discord/ticketCategoryUtils");
   const raw = String(name || "");
   if (!isTicketsCategoryName(raw)) return null;
   if (ticketsCategoryCoreLabel(raw) !== "tickets") return null;
