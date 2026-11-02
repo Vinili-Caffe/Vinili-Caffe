@@ -1,12 +1,12 @@
 /** Aggiornamento membri: ruoli perk, colori, storico staff, vocale e ruolo personalizzati. */
 const { PermissionsBitField } = require("discord.js") as typeof import("discord.js");
 const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
-const { getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache") as typeof import("../../Utils/Interaction/interactionEntityCache");
-const { ensureStaff } = require("../../Utils/Staff/staffDocUtils") as typeof import("../../Utils/Staff/staffDocUtils");
+const { getGuildMemberCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
+const { ensureStaff } = require("../../Staff/utils/staffDocUtils") as typeof import("../../Staff/utils/staffDocUtils");
 const { ActivityUserProfile, CustomRole } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
 const { hasEventWeekWinnerGrant } = require("./weekWinnerGrantsService") as typeof import("./weekWinnerGrantsService");
 const { hasExtraCustomPerksUnlock } = require("../../Utils/Community/customPerksUnlock") as typeof import("../../Utils/Community/customPerksUnlock");
-const { wasRoleRestoredByMuteMirror } = require("../../Utils/Moderation/muteRestoreAnnounceSuppress") as typeof import("../../Utils/Moderation/muteRestoreAnnounceSuppress");
+const { wasRoleRestoredByMuteMirror } = require("../../Moderation/utils/muteRestoreAnnounceSuppress") as typeof import("../../Moderation/utils/muteRestoreAnnounceSuppress");
 
 const PERK_ROLE_ID = IDs.roles.PicPerms;
 const CUSTOM_ROLE_VOC_ELIGIBLE_ROLE_IDS = [IDs.roles.VIP, IDs.roles.DoubleBooster, IDs.roles.Level50, IDs.roles.Level70, IDs.roles.Donator, IDs.roles.vip, IDs.roles.VIPplus].filter(Boolean);
@@ -43,7 +43,7 @@ async function recordManualStaffRoleHistoryIfNeeded(oldMember?, newMember?) {
   const guildId = String(newMember?.guild?.id || "").trim();
   if (!guildId || guildId !== String(IDs.guilds?.main || "")) return;
   if (newMember?.user?.bot) return;
-  const { isSocialRoleAnnounceGloballySuppressed } = require("../../Utils/Moderation/muteRestoreAnnounceSuppress") as typeof import("../../Utils/Moderation/muteRestoreAnnounceSuppress");
+  const { isSocialRoleAnnounceGloballySuppressed } = require("../../Moderation/utils/muteRestoreAnnounceSuppress") as typeof import("../../Moderation/utils/muteRestoreAnnounceSuppress");
   if (isSocialRoleAnnounceGloballySuppressed()) return;
     const founderRoleId = String(IDs.roles?.Founder || "").trim();
   if (founderRoleId && newMember?.roles?.cache?.has?.(founderRoleId)) return;

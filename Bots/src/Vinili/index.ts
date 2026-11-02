@@ -13,13 +13,13 @@ const { EventEmitter } = require("events") as typeof import("events");
 const APP_ROOT = __dirname;
 const { acquireSingleInstanceLock, installHandlers, listFoldersIfExists, loadEnvFiles, } = require("../shared/runtime/fsRuntime") as typeof import("../shared/runtime/fsRuntime");
 const { initializeCommandCollections } = require("../shared/runtime/clientRuntime") as typeof import("../shared/runtime/clientRuntime");
-const { connectMongo, isMongoReady } = require("./Utils/Database/mongoConnect") as typeof import("./Utils/Database/mongoConnect");
+const { connectMongo, isMongoReady } = require("../shared/db/mongoConnect") as typeof import("../shared/db/mongoConnect");
 
 loadEnvFiles(APP_ROOT);
 try {
   require("../shared/scheduling/nodeCronMissFilter").installNodeCronMissFilter();
 } catch (_) {}
-global.logger = require("./Utils/Moderation/logger");
+global.logger = require("./Moderation/utils/logger");
 try {
   const { setMusicBotHooks } = require("../shared/music/musicBotHooks") as typeof import("../shared/music/musicBotHooks");
   setMusicBotHooks({
@@ -32,7 +32,7 @@ if (process.env.RUN_UNDER_LOADER !== "1") {
   acquireSingleInstanceLock("vinili-caffe-official-bot");
 }
 
-const { installEmbedFooterPatch, installOutgoingMessageEmbedPatch, applyDefaultFooterToEmbeds } = require("./Utils/Embeds/defaultFooter") as typeof import("./Utils/Embeds/defaultFooter");
+const { installEmbedFooterPatch, installOutgoingMessageEmbedPatch, applyDefaultFooterToEmbeds } = require("../shared/embeds/defaultFooter") as typeof import("../shared/embeds/defaultFooter");
 const { setDefaultFooterApplier, installOutgoingEditBrandingPatch } = require("../shared/discord/replyRuntime") as typeof import("../shared/discord/replyRuntime");
 const { buildInitialClientPresenceOptions, installBotPresenceHooks, patchClientPresenceGuard } = require("../shared/discord/botPresenceActivity") as typeof import("../shared/discord/botPresenceActivity");
 const { installGatewayShardListenerCeiling } = require("../shared/discord/gatewayListenerCeiling") as typeof import("../shared/discord/gatewayListenerCeiling");
@@ -99,12 +99,12 @@ try {
   process.exit(1);
 }
 
-client.logs = require("./Utils/Moderation/logs");
+client.logs = require("./Moderation/utils/logs");
 
 const { assertBotTokenIdentity } = require("../shared/config/env") as typeof import("../shared/config/env");
 const envToken = process.env.DISCORD_TOKEN || process.env.DISCORD_TOKEN_OFFICIAL;
 /* mongoSingleSource1 */
-const envMongoUrl = require("./Utils/Database/mongoConnect").buildMongoUrl(client);
+const envMongoUrl = require("../shared/db/mongoConnect").buildMongoUrl(client);
 client.config.token = envToken || client.config.token;
 client.config.mongoURL = envMongoUrl || client.config.mongoURL;
 applyListenerCeiling(client, client.config);
@@ -131,11 +131,27 @@ client.reloadScope = async (scope?) => {
   const reloadCommands = async () => {
     clearCacheByDir("Commands");
     clearCacheByDir(path.join("MultiGuild", "Commands"));
+    clearCacheByDir(path.join("Partner", "discord", "slash"));
+    clearCacheByDir(path.join("Giveaway", "discord", "slash"));
+    clearCacheByDir(path.join("Staff", "discord", "slash"));
     const folders = listFoldersIfExists(path.join(APP_ROOT, "Commands"));
     await client.handleCommands(folders, path.join(APP_ROOT, "Commands"));
   };
 
-  const reloadPrefix = async () => { clearCacheByDir("Prefix"); const folders = listFoldersIfExists(path.join(APP_ROOT, "Prefix")); await client.prefixCommands(folders, path.join(APP_ROOT, "Prefix")); };
+  const reloadPrefix = async () => {
+    clearCacheByDir("Prefix");
+    clearCacheByDir(path.join("Partner", "discord", "prefix"));
+    clearCacheByDir(path.join("Stats", "discord", "prefix"));
+    clearCacheByDir(path.join("Minigames", "discord", "prefix"));
+    clearCacheByDir(path.join("Backup", "discord", "prefix"));
+    clearCacheByDir(path.join("Level", "discord", "prefix"));
+    clearCacheByDir(path.join("..", "shared", "tts", "discord"));
+    clearCacheByDir(path.join("..", "shared", "music", "discord"));
+    clearCacheByDir(path.join("Moderation", "discord", "prefix"));
+    clearCacheByDir(path.join("MultiGuild", "Prefix"));
+    const folders = listFoldersIfExists(path.join(APP_ROOT, "Prefix"));
+    await client.prefixCommands(folders, path.join(APP_ROOT, "Prefix"));
+  };
 
   const reloadEvents = () => { clearCacheByDir("Events"); client.handleEvents(path.join(APP_ROOT, "Events")); };
 
@@ -148,7 +164,23 @@ client.reloadScope = async (scope?) => {
   const reloadButtons = async () => {
     clearCacheByDir("Buttons");
     clearCacheByDir(path.join("MultiGuild", "Buttons"));
+    clearCacheByDir(path.join("Partner", "discord", "buttons"));
+    clearCacheByDir(path.join("Stats", "discord", "buttons"));
+    clearCacheByDir(path.join("Giveaway", "discord", "buttons"));
+    clearCacheByDir(path.join("Minigames", "discord", "buttons"));
+    clearCacheByDir(path.join("Backup", "discord", "buttons"));
+    clearCacheByDir(path.join("Level", "discord", "buttons"));
+    clearCacheByDir(path.join("..", "shared", "music", "discord", "buttons"));
+    clearCacheByDir(path.join("Moderation", "discord", "buttons"));
     await client.loadButtonHandlers([
+      path.join(APP_ROOT, "Partner", "discord", "buttons"),
+      path.join(APP_ROOT, "Stats", "discord", "buttons"),
+      path.join(APP_ROOT, "Giveaway", "discord", "buttons"),
+      path.join(APP_ROOT, "Minigames", "discord", "buttons"),
+      path.join(APP_ROOT, "Backup", "discord", "buttons"),
+      path.join(APP_ROOT, "Level", "discord", "buttons"),
+      path.join(APP_ROOT, "..", "shared", "music", "discord", "buttons"),
+      path.join(APP_ROOT, "Moderation", "discord", "buttons"),
       path.join(APP_ROOT, "Buttons"),
       path.join(APP_ROOT, "MultiGuild", "Buttons"),
     ]);
@@ -156,9 +188,36 @@ client.reloadScope = async (scope?) => {
 
   if (scope === "triggers") return reloadTriggers();
   if (scope === "buttons") return reloadButtons();
-  if (scope === "services") return clearCacheByDir("Services");
-  if (scope === "utils") return clearCacheByDir("Utils");
-  if (scope === "schemas") return clearCacheByDir("Schemas");
+  if (scope === "services") {
+    clearCacheByDir("Services");
+    clearCacheByDir(path.join("..", "shared", "tts", "services"));
+    clearCacheByDir(path.join("..", "shared", "music", "services"));
+    clearCacheByDir(path.join("..", "shared", "music", "discord"));
+    clearCacheByDir(path.join("Moderation", "services"));
+    clearCacheByDir(path.join("Moderation", "utils"));
+    clearCacheByDir(path.join("Stats", "runtime"));
+    clearCacheByDir(path.join("Giveaway", "services"));
+    clearCacheByDir(path.join("Minigames", "services"));
+    clearCacheByDir(path.join("Staff", "services"));
+    clearCacheByDir(path.join("Backup", "services"));
+    clearCacheByDir(path.join("Backup", "workers"));
+    clearCacheByDir(path.join("Level", "services"));
+    return;
+  }
+  if (scope === "utils") {
+    clearCacheByDir("Utils");
+    clearCacheByDir(path.join("Minigames", "utils"));
+    clearCacheByDir(path.join("Staff", "utils"));
+    clearCacheByDir(path.join("Backup", "utils"));
+    clearCacheByDir(path.join("Level", "utils"));
+    return;
+  }
+  if (scope === "schemas") {
+    clearCacheByDir("Schemas");
+    clearCacheByDir(path.join("Giveaway", "schemas"));
+    clearCacheByDir(path.join("Minigames", "data"));
+    return;
+  }
 
   if (scope === "handlers") {
     await reloadCommands();
@@ -171,6 +230,24 @@ client.reloadScope = async (scope?) => {
 
   if (scope === "all") {
     clearCacheByDir("Services");
+    clearCacheByDir(path.join("..", "shared", "tts", "services"));
+    clearCacheByDir(path.join("..", "shared", "music", "services"));
+    clearCacheByDir(path.join("..", "shared", "music", "discord"));
+    clearCacheByDir(path.join("Moderation", "services"));
+    clearCacheByDir(path.join("Moderation", "utils"));
+    clearCacheByDir(path.join("Stats", "runtime"));
+    clearCacheByDir(path.join("Giveaway", "services"));
+    clearCacheByDir(path.join("Giveaway", "schemas"));
+    clearCacheByDir(path.join("Minigames", "services"));
+    clearCacheByDir(path.join("Minigames", "utils"));
+    clearCacheByDir(path.join("Minigames", "data"));
+    clearCacheByDir(path.join("Staff", "services"));
+    clearCacheByDir(path.join("Staff", "utils"));
+    clearCacheByDir(path.join("Backup", "services"));
+    clearCacheByDir(path.join("Backup", "utils"));
+    clearCacheByDir(path.join("Backup", "workers"));
+    clearCacheByDir(path.join("Level", "services"));
+    clearCacheByDir(path.join("Level", "utils"));
     clearCacheByDir("Utils");
     clearCacheByDir("Schemas");
     await reloadCommands();
@@ -222,6 +299,14 @@ initializeCommandCollections(client, { includeSnipes: true });
         client.__slashCommandsReady = true;
       }),
       client.loadButtonHandlers([
+        path.join(APP_ROOT, "Partner", "discord", "buttons"),
+        path.join(APP_ROOT, "Stats", "discord", "buttons"),
+        path.join(APP_ROOT, "Giveaway", "discord", "buttons"),
+        path.join(APP_ROOT, "Minigames", "discord", "buttons"),
+        path.join(APP_ROOT, "Backup", "discord", "buttons"),
+        path.join(APP_ROOT, "Level", "discord", "buttons"),
+        path.join(APP_ROOT, "..", "shared", "music", "discord", "buttons"),
+        path.join(APP_ROOT, "Moderation", "discord", "buttons"),
         path.join(APP_ROOT, "Buttons"),
         path.join(APP_ROOT, "MultiGuild", "Buttons"),
       ]),

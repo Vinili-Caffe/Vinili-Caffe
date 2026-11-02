@@ -2,7 +2,7 @@ const { ghostPingUserIfHuman } = require("../Utils/Message/ghostPingOnChannelEnt
 const {
   resolveManagedStaffThreadContext,
   pruneUnauthorizedStaffThreadMembers,
-} = require("../Utils/Staff/staffManagedThreadsGuard") as typeof import("../Utils/Staff/staffManagedThreadsGuard");
+} = require("../Staff/utils/staffManagedThreadsGuard") as typeof import("../Staff/utils/staffManagedThreadsGuard");
 
 function resolveThread(thread?, addedMembers?, removedMembers?) {
   if (thread?.isThread?.()) return thread;

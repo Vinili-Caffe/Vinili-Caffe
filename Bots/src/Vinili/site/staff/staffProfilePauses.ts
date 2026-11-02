@@ -1,6 +1,6 @@
 /** Profilo staff: pausa attuale e storico delle pause. */
 const { getPausePhase, getPauseStatusLabel, getTodayUtc, parseItalianDate, PAUSE_ROLE_STAFF, PAUSE_ROLE_PM, roleChoiceAppliesTo, formatPauseRoleLabelForMessage, getMemberRoleLabel, normalizePauseRoleChoice } = require("../../site/staff/pause/pauseHandlersUtils") as typeof import("../../site/staff/pause/pauseHandlersUtils");
-const { PROFILE_PM_ONLY } = require("../../Utils/Staff/staffProfilePanelRuntime") as typeof import("../../Utils/Staff/staffProfilePanelRuntime");
+const { PROFILE_PM_ONLY } = require("../../Staff/utils/staffProfilePanelRuntime") as typeof import("../../Staff/utils/staffProfilePanelRuntime");
 
 function stripDiscordDecorations(text?) {
   return String(text || "")

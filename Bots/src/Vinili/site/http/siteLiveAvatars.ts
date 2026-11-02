@@ -7,7 +7,7 @@ const {
   normalizeDiscordCdnAvatarUrl,
   sitePreferredAvatarUrl,
   userGlobalAvatarUrlDynamic,
-} = require("../../Utils/Discord/guildDiscordIdentity") as typeof import("../../Utils/Discord/guildDiscordIdentity");
+} = require("../../../shared/discord/guildDiscordIdentity") as typeof import("../../../shared/discord/guildDiscordIdentity");
 
 function stabilizeDiscordCdnAvatarUrl(url?, { size = 128 } = {}) {
   return normalizeDiscordCdnAvatarUrl(url, { size, preferAnimated: false });

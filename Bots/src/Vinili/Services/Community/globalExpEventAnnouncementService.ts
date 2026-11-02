@@ -3,7 +3,7 @@ const botConfig = require("../../config.json") as typeof import("../../config.js
 const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
 const { GlobalSettings } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
 const { parseScheduleMs } = require("../../Utils/Eventi/eventDates") as typeof import("../../Utils/Eventi/eventDates");
-const { getClientChannelCached } = require("../../Utils/Interaction/interactionEntityCache") as typeof import("../../Utils/Interaction/interactionEntityCache");
+const { getClientChannelCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
 const { runCronDetached } = require("../../../shared/scheduling/cronDetached") as typeof import("../../../shared/scheduling/cronDetached");
 
 const TIME_ZONE = "Europe/Rome";

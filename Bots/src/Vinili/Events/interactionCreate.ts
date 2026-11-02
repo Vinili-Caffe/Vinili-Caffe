@@ -4,7 +4,7 @@ const {
   handleSlashCommand,
 } = require("./interaction/commandHandlers") as typeof import("./interaction/commandHandlers");
 const { handleButtonInteraction } = require("./interaction/buttonHandlers") as typeof import("./interaction/buttonHandlers");
-const { handlePartnerModal } = require("./interaction/partnerModal") as typeof import("./interaction/partnerModal");
+const { handlePartnerModal } = require("./../Partner/discord/modals/partnerModal") as typeof import("./../Partner/discord/modals/partnerModal");
 const { handleSanzionaModal } = require("./interaction/sanzionaHandlers") as typeof import("./interaction/sanzionaHandlers");
 const { handleCustomRoleInteraction } = require("./interaction/customRoleHandlers") as typeof import("./interaction/customRoleHandlers");
 const {
@@ -40,7 +40,7 @@ export = {
       }
 
       try {
-        const topChannel = require("../Buttons/stats/topChannelHandler") as typeof import("../Buttons/stats/topChannelHandler");
+        const topChannel = require("../Stats/discord/buttons/topChannelHandler") as typeof import("../Stats/discord/buttons/topChannelHandler");
         if (
           typeof topChannel.isTopChannelInteraction === "function" &&
           topChannel.isTopChannelInteraction(interaction) &&

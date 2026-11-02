@@ -1,5 +1,5 @@
 /** Notizie giochi: lettura dell'articolo (pagina, riassunto, link veri di Google News). */
-const axios = require("axios") as typeof import("axios").default;
+const axios = require("axios") as any;
 const { hasDisallowedScript, isNearTitleDuplicate } = require("./gameNewsDedupe") as typeof import("./gameNewsDedupe");
 const { ARTICLE_BRIEF_MAX, stripHtml, stripLeadingTitleEcho, trimBriefAtSentence, cleanArticleBrief, decodeXml } = require("./gameNewsText") as typeof import("./gameNewsText");
 

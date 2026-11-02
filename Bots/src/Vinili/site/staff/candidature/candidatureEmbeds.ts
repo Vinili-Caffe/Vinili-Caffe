@@ -1,9 +1,9 @@
 const { EmbedBuilder } = require("discord.js") as typeof import("discord.js");
 const IDs = require("../../../Utils/Config/ids") as typeof import("../../../Utils/Config/ids");
-const { getGuildChannelCached } = require("../../../Utils/Interaction/interactionEntityCache") as typeof import("../../../Utils/Interaction/interactionEntityCache");
+const { getGuildChannelCached } = require("../../../../shared/discord/interactionEntityCache") as typeof import("../../../../shared/discord/interactionEntityCache");
 const { TENANT_EMBED_COLOR } = require("../../../MultiGuild/utils/tenantEmbedBranding") as typeof import("../../../MultiGuild/utils/tenantEmbedBranding");
-const { accountUsername, guildMemberDisplayAvatarUrlDynamic } = require("../../../Utils/Discord/guildDiscordIdentity") as typeof import("../../../Utils/Discord/guildDiscordIdentity");
-const { getBotState, setBotState } = require("../../../Utils/BotState/botStateStore") as typeof import("../../../Utils/BotState/botStateStore");
+const { accountUsername, guildMemberDisplayAvatarUrlDynamic } = require("../../../../shared/discord/guildDiscordIdentity") as typeof import("../../../../shared/discord/guildDiscordIdentity");
+const { getBotState, setBotState } = require("../../../../shared/botState/botStateStore") as typeof import("../../../../shared/botState/botStateStore");
 const { normalizeApplicationType, cooldownByUserAndType, cooldownStorageKey, loadCooldownMap, persistCooldownMap } = require("./candidatureEligibility") as typeof import("./candidatureEligibility");
 const { HELPER_QUESTIONS, PARTNER_MANAGER_QUESTIONS, BLOGGER_QUESTIONS } = require("../../../Utils/Community/candidatureApplicationsCatalog") as typeof import("../../../Utils/Community/candidatureApplicationsCatalog");
 const APPLY_PEX_PREFIX = "apply_pex";

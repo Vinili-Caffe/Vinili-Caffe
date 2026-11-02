@@ -1,11 +1,7 @@
 {
   "prefix": ",",
-  "developers": [
-    "295500038401163264"
-  ],
   "mainGuildId": "1329080093599076474",
   "channels": {
-    "ticketLogs": "1442569290682208296",
     "chat": "1442569130573303898",
     "commands": "1442569138114662490",
     "stanzaLobbyVoice": "1499754530076626964"
@@ -15,7 +11,6 @@
     "1442569078379118755"
   ],
   "chatReminder": {
-    "channelId": "1442569130573303898",
     "timeZone": "Europe/Rome",
     "startHour": 8,
     "endHour": 24,
@@ -25,19 +20,12 @@
   },
   "status": "idle",
   "presence": {
-    "activityName": "viniliecaffe.it | .gg/viniliecaffe | ,help",
-    "streamUrl": "",
-    "forbiddenSectionEvent": {
-      "enabled": true,
-      "startDate": "2026-06-20T12:00:00",
-      "endDate": "2026-09-01T10:00:00",
-      "bookEmoji": "📖"
-    }
+    "activityName": "viniliecaffe.it | discord.gg/viniliecaffe",
+    "streamUrl": ""
   },
   "tts": {
     "enabled": true,
     "lang": "it",
-    "maxChars": 1000,
     "autojoin": false,
     "includeUsername": false,
     "stayConnected": false,
@@ -45,7 +33,6 @@
   },
   "voiceTranscription": {
     "enabled": true,
-    "channelIds": [],
     "maxDurationSec": 120,
     "language": "it",
     "invite": ".gg/viniliecaffe",
@@ -53,10 +40,6 @@
     "restoreOnRestart": true,
     "restoreLookbackMs": 7200000,
     "restoreFetchLimit": 50
-  },
-  "music": {
-    "restoreVoiceOnRestart": true,
-    "restoreVoiceMaxSnapshotAgeMs": 86400000
   },
   "markov": {
     "enabled": true,

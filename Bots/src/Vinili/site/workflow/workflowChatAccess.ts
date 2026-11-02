@@ -1,7 +1,7 @@
 /** Chat del workflow: chi può leggere e scrivere (staff o persona invitata). */
 const { assertWebsiteStaffAccess, normalizeHeaderSecret, memberCanViewResocontiInbox } = require("../staff/siteStaffAccessApi") as typeof import("../staff/siteStaffAccessApi");
 const { resolveWebsiteGuildMember } = require("../../site/http/siteRoleRequestApi") as typeof import("../../site/http/siteRoleRequestApi");
-const { memberIsHighStaffEligible, memberCanReviewAppelli } = require("../../Utils/Staff/staffRoleHierarchy") as typeof import("../../Utils/Staff/staffRoleHierarchy");
+const { memberIsHighStaffEligible, memberCanReviewAppelli } = require("../../Staff/utils/staffRoleHierarchy") as typeof import("../../Staff/utils/staffRoleHierarchy");
 const { memberHasCandidatureReviewAccess } = require("../../site/staff/candidature/candidatureApplicationHandlers") as typeof import("../../site/staff/candidature/candidatureApplicationHandlers");
 const { resolveMainGuild } = require("./workflowChatAuthors") as typeof import("./workflowChatAuthors");
 const { loadWorkflowDoc, isInviteOnlyQueue, normalizeSubjectChat, subjectChatHasActive, subjectChatEverInvited, ensurePauseWorkflowFromKey, ensureInviteQueueWorkflowFromKey, withTimeout } = require("./workflowChatSubject") as typeof import("./workflowChatSubject");

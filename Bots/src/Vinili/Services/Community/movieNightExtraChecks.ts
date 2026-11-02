@@ -28,9 +28,9 @@ const { fetchItalianMovieDescription } = require("./movieNightDescriptions") as 
 const { ANNOUNCEMENT_CHANNEL_ID } = require("./movieNightVotes") as typeof import("./movieNightVotes");
 const { fetchAnnouncementChannel, fetchStaffCommunicationChannel } = require("./movieNightStatus") as typeof import("./movieNightStatus");
 const { openMovieNightStagePermissions, isSerataFilmStageLive } = require("./movieNightStage") as typeof import("./movieNightStage");
-const { getClientGuildCached, getGuildChannelCached } = require("../../Utils/Interaction/interactionEntityCache") as typeof import("../../Utils/Interaction/interactionEntityCache");
+const { getClientGuildCached, getGuildChannelCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
 const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
-const { startSerataFilmSession } = require("../Staff/staffAutoValutazioniService") as typeof import("../Staff/staffAutoValutazioniService");
+const { startSerataFilmSession } = require("../../Staff/services/staffAutoValutazioniService") as typeof import("../../Staff/services/staffAutoValutazioniService");
 
 async function runExtraMovieNightFinalAnnouncementCheck(client?, opts: Record<string, any> = {}) {
   const now = opts.now || new Date();

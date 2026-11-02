@@ -1,8 +1,8 @@
 /** Serata film: controllo di cosa è già stato pubblicato (annuncio finale, messaggio staff, chiusura stage). */
 const { getRomeWeekKey, getRomeSaturdayKeyForWeek, isMovieNightFixedScheduleSkipWeek, getFixedMovieTitleForWeek, getWeekKeyStartMs } = require("./movieNightSchedule") as typeof import("./movieNightSchedule");
 const { ANNOUNCEMENT_CHANNEL_ID } = require("./movieNightVotes") as typeof import("./movieNightVotes");
-const { setBotState } = require("../../Utils/BotState/botStateStore") as typeof import("../../Utils/BotState/botStateStore");
-const { getClientGuildCached, getGuildChannelCached } = require("../../Utils/Interaction/interactionEntityCache") as typeof import("../../Utils/Interaction/interactionEntityCache");
+const { setBotState } = require("../../../shared/botState/botStateStore") as typeof import("../../../shared/botState/botStateStore");
+const { getClientGuildCached, getGuildChannelCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
 const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
 
 const STATE_KEY = "movieNightAnnouncement.v1";

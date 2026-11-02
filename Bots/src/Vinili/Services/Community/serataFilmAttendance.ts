@@ -4,7 +4,7 @@
  * Era dentro la classifica case di Hogwarts (ora in Bots/archivio), che ci calcolava i punti casa.
  */
 const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
-const { getGuildChannelCached } = require("../../Utils/Interaction/interactionEntityCache") as typeof import("../../Utils/Interaction/interactionEntityCache");
+const { getGuildChannelCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
 const attendanceSessions = new Map();
 const SERATA_FILM_VOICE_CHANNEL_ID = String(IDs.channels?.serataFilm || "1497535199813042306").trim();
 

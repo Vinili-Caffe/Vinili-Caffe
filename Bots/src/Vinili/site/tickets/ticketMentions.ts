@@ -64,7 +64,7 @@ async function listTicketMessageAuthorIds(ticketId?) {
 async function collectTicketParticipantRoleIds(guild?, userIds?) {
   const roleIds = new Set();
   if (!guild || !userIds?.size) return roleIds;
-  const { getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache") as typeof import("../../Utils/Interaction/interactionEntityCache");
+  const { getGuildMemberCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
   for (const uid of userIds) {
     const member = await getGuildMemberCached(guild, uid).catch(() => null);
     if (!member?.roles?.cache) continue;

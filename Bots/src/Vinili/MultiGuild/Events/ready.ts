@@ -1,12 +1,12 @@
 const { listTenantGuildIds } = require("../core/guildRegistry") as typeof import("../core/guildRegistry");
 const { getProtectedGuildIds } = require("../core/viniliProtectedGuilds") as typeof import("../core/viniliProtectedGuilds");
 const { isMultiGuildLayerEnabled, autoRegisterGuildsOnJoin } = require("../core/env") as typeof import("../core/env");
-const { connectMongo, isMongoReady } = require("../../Utils/Database/mongoConnect") as typeof import("../../Utils/Database/mongoConnect");
+const { connectMongo, isMongoReady } = require("../../../shared/db/mongoConnect") as typeof import("../../../shared/db/mongoConnect");
 const { bootstrapTenantRegistryFromClient, refreshDynamicGuildRowsCache } = require("../core/tenantRegistryStore") as typeof import("../core/tenantRegistryStore");
 const { refreshTenantGuildSettingsCache } = require("../core/tenantGuildSettings") as typeof import("../core/tenantGuildSettings");
-const { refreshPartnershipConfigCache } = require("../core/tenantPartnershipSettings") as typeof import("../core/tenantPartnershipSettings");
+const { refreshPartnershipConfigCache } = require("../../Partner/core/tenantPartnershipSettings") as typeof import("../../Partner/core/tenantPartnershipSettings");
 const { refreshTicketConfigCache } = require("../../MultiGuild/tickets/tenant/tenantTicketSettings") as typeof import("../../MultiGuild/tickets/tenant/tenantTicketSettings");
-const { leaveAllBlacklistedGuilds } = require("../../Services/Moderation/botUsageBlacklistService") as typeof import("../../Services/Moderation/botUsageBlacklistService");
+const { leaveAllBlacklistedGuilds } = require("../../Moderation/services/botUsageBlacklistService") as typeof import("../../Moderation/services/botUsageBlacklistService");
 
 export = {
   name: "ready",
@@ -57,7 +57,7 @@ export = {
 
             setTimeout(() => {
       try {
-        const { runTenantOfflineRecoveryTick } = require("../services/Partner/tenantOfflineRecoveryService") as typeof import("../services/Partner/tenantOfflineRecoveryService");
+        const { runTenantOfflineRecoveryTick } = require("../../Partner/services/tenantOfflineRecoveryService") as typeof import("../../Partner/services/tenantOfflineRecoveryService");
         void runTenantOfflineRecoveryTick(client, {
           minIntervalMs: 60_000,
           force: false,

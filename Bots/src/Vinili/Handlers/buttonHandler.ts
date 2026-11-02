@@ -64,17 +64,26 @@ export = (client?) => {
   client.buttonHandlers = client.buttonHandlers || [];
 
   client.loadButtonHandlers = async (basePaths?) => {
+    const partnerButtons = path.resolve(__dirname, "..", "Partner", "discord", "buttons");
+    const statsButtons = path.resolve(__dirname, "..", "Stats", "discord", "buttons");
+    const musicButtons = path.resolve(__dirname, "..", "..", "shared", "music", "discord", "buttons");
+    const moderationButtons = path.resolve(__dirname, "..", "Moderation", "discord", "buttons");
     const defaults = [
+      partnerButtons,
+      statsButtons,
+      musicButtons,
+      moderationButtons,
       path.resolve(__dirname, "..", "Buttons"),
       path.resolve(__dirname, "..", "MultiGuild", "Buttons"),
     ];
     const dirs = Array.isArray(basePaths)
       ? basePaths
       : basePaths
-        ? [basePaths, path.resolve(__dirname, "..", "MultiGuild", "Buttons")]
+        ? [basePaths, partnerButtons, statsButtons, musicButtons, moderationButtons, path.resolve(__dirname, "..", "MultiGuild", "Buttons")]
         : defaults;
 
     const loaded = [];
+    const seenNames = new Set();
     for (const { dir, fullPath } of collectHandlerPaths(dirs)) {
       const key = path.relative(dir, fullPath);
       const fileName = path.basename(fullPath).replace(/\.(cjs|mjs|js|cts|mts|ts)$/i, "");
@@ -88,6 +97,9 @@ export = (client?) => {
         }
         const name = mod.name || fileName;
         if (REMOVED_BUTTON_HANDLER_NAMES.has(String(name).trim())) continue;
+        const nameKey = String(name).trim().toLowerCase();
+        if (seenNames.has(nameKey)) continue;
+        seenNames.add(nameKey);
         loaded.push({
           name,
           order: typeof mod.order === "number" ? mod.order : 100,

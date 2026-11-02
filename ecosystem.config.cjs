@@ -251,7 +251,7 @@ module.exports = {
        riavvia gira subito una volta, ma il backup è al massimo uno al giorno (marker su disco). */
     ensurePm2App(
       "auto-backup",
-      "Vinili/Services/Web/autoBackupWorkerApp.js",
+      "Vinili/Backup/workers/autoBackupWorkerApp.js",
       "480M",
       { AUTO_BACKUP_WORKER: "1", AUTO_BACKUP_ONCE: "1" },
       "--max-old-space-size=380",

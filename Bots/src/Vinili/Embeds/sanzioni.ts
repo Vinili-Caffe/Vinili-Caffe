@@ -1,6 +1,6 @@
 const IDs = require("../Utils/Config/ids") as typeof import("../Utils/Config/ids");
-const { getClientChannelCached } = require("../Utils/Interaction/interactionEntityCache") as typeof import("../Utils/Interaction/interactionEntityCache");
-const { ensureModerationStickyPanel } = require("../Utils/Moderation/moderationStickyPanelRuntime") as typeof import("../Utils/Moderation/moderationStickyPanelRuntime");
+const { getClientChannelCached } = require("../../shared/discord/interactionEntityCache") as typeof import("../../shared/discord/interactionEntityCache");
+const { ensureModerationStickyPanel } = require("../Moderation/utils/moderationStickyPanelRuntime") as typeof import("../Moderation/utils/moderationStickyPanelRuntime");
 
 async function run(client?) {
   const channelId = String(IDs.channels?.sanzioniUtenti || "1442569245878648924").trim();

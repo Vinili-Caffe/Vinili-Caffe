@@ -155,7 +155,7 @@ async function handleSiteStaffWorkflowChatMentionsGet(client?, req?, res?) {
     let roles = [];
     if (access.isStaffReviewer && filter !== "users") {
       try {
-        const { listGuildPickerData } = require("../../MultiGuild/dashboard/siteDashboardPartnershipApi") as typeof import("../../MultiGuild/dashboard/siteDashboardPartnershipApi");
+        const { listGuildPickerData } = require("../../Partner/dashboard/siteDashboardPartnershipApi") as typeof import("../../Partner/dashboard/siteDashboardPartnershipApi");
         const pickers = await listGuildPickerData(client, guildId, { force: false });
         const allowedRoleIds = new Set();
         for (const u of users) {

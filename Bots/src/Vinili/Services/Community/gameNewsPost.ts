@@ -1,8 +1,8 @@
 /** Notizie giochi: configurazione, stato salvato e pubblicazione nel canale. */
 const { ChannelType } = require("discord.js") as typeof import("discord.js");
 const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
-const { getBotState, setBotState } = require("../../Utils/BotState/botStateStore") as typeof import("../../Utils/BotState/botStateStore");
-const { getClientGuildCached, getGuildChannelCached } = require("../../Utils/Interaction/interactionEntityCache") as typeof import("../../Utils/Interaction/interactionEntityCache");
+const { getBotState, setBotState } = require("../../../shared/botState/botStateStore") as typeof import("../../../shared/botState/botStateStore");
+const { getClientGuildCached, getGuildChannelCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
 const { defaultGamesCatalog, reconcileGameIdentity } = require("./gameNewsCatalog") as typeof import("./gameNewsCatalog");
 const { BLOCKED_NEWS_HOST_RE, hasDisallowedScript, stripSourceSuffix, isNearTitleDuplicate } = require("./gameNewsDedupe") as typeof import("./gameNewsDedupe");
 const { trimBriefAtSentence, cleanArticleBrief, translateToItalian } = require("./gameNewsText") as typeof import("./gameNewsText");

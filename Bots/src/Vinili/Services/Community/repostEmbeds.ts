@@ -1,7 +1,7 @@
 /** Repost: embed e pulsanti (conferma, bacheca, roulette, rimozione). */
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js") as typeof import("discord.js");
-const { accountUsername, guildMemberDisplayAvatarUrlDynamic } = require("../../Utils/Discord/guildDiscordIdentity") as typeof import("../../Utils/Discord/guildDiscordIdentity");
-const { DEFAULT_FOOTER_TEXT } = require("../../Utils/Embeds/defaultFooter") as typeof import("../../Utils/Embeds/defaultFooter");
+const { accountUsername, guildMemberDisplayAvatarUrlDynamic } = require("../../../shared/discord/guildDiscordIdentity") as typeof import("../../../shared/discord/guildDiscordIdentity");
+const { DEFAULT_FOOTER_TEXT } = require("../../../shared/embeds/defaultFooter") as typeof import("../../../shared/embeds/defaultFooter");
 const { pickRepostAckPhrase } = require("../../Data/Community/repostAckPhrases") as typeof import("../../Data/Community/repostAckPhrases");
 const { TENANT_EMBED_COLOR } = require("../../MultiGuild/utils/tenantEmbedBranding") as typeof import("../../MultiGuild/utils/tenantEmbedBranding");
 const { resolveQuotedAuthorIdFromQuoteMessage, isClipRepostDoc } = require("./repostClips") as typeof import("./repostClips");

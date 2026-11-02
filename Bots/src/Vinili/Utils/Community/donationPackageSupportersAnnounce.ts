@@ -1,8 +1,8 @@
 const { EmbedBuilder } = require("discord.js") as typeof import("discord.js");
 const IDs = require("../Config/ids") as typeof import("../Config/ids");
-const { memberDisplayName, guildMemberDisplayAvatarUrlDynamic } = require("../Discord/guildDiscordIdentity") as typeof import("../Discord/guildDiscordIdentity");
-const { getGuildChannelCached, getGuildMemberCached } = require("../Interaction/interactionEntityCache") as typeof import("../Interaction/interactionEntityCache");
-const { wasRoleRestoredByMuteMirror } = require("../../Services/Moderation/mutedMirrorRoleService") as typeof import("../../Services/Moderation/mutedMirrorRoleService");
+const { memberDisplayName, guildMemberDisplayAvatarUrlDynamic } = require("../../../shared/discord/guildDiscordIdentity") as typeof import("../../../shared/discord/guildDiscordIdentity");
+const { getGuildChannelCached, getGuildMemberCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
+const { wasRoleRestoredByMuteMirror } = require("../../Moderation/services/mutedMirrorRoleService") as typeof import("../../Moderation/services/mutedMirrorRoleService");
 const { MENTION_RESPONSE_PERK_LINE_DISCORD } = require("./mentionResponseAccessUtils") as typeof import("./mentionResponseAccessUtils");
 const { collectRecentRoleAddsFromAudit } = require("./supportersChannelEmbedRecoveryUtils") as typeof import("./supportersChannelEmbedRecoveryUtils");
 

@@ -2,7 +2,7 @@
 const cron = require("node-cron") as typeof import("node-cron");
 const { runCronDetached } = require("../../../shared/scheduling/cronDetached") as typeof import("../../../shared/scheduling/cronDetached");
 const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
-const { getClientGuildCached } = require("../../Utils/Interaction/interactionEntityCache") as typeof import("../../Utils/Interaction/interactionEntityCache");
+const { getClientGuildCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
 const { TIME_ZONE, createUtcFromRomeLocal, getLastSunday21BoundaryMsAtOrBefore, buildLast7DaysHourKeys } = require("./winnersTime") as typeof import("./winnersTime");
 const { ROYALE_MINIGAME_ROLE_ID, syncRoyaleMinigameTotalRole } = require("./winnersRoles") as typeof import("./winnersRoles");
 const { cleanupExpiredMonthlyVoterRewards, reconcileDuplicateActiveMonthlyRewardRoles, cleanupExpiredMonthlyTopRewards } = require("./winnersMonthlyRewards") as typeof import("./winnersMonthlyRewards");

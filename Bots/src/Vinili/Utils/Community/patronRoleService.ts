@@ -1,8 +1,8 @@
 const { EmbedBuilder, PermissionsBitField } = require("discord.js") as typeof import("discord.js");
 const IDs = require("../Config/ids") as typeof import("../Config/ids");
-const { getGuildChannelCached, getGuildMemberCached } = require("../Interaction/interactionEntityCache") as typeof import("../Interaction/interactionEntityCache");
+const { getGuildChannelCached, getGuildMemberCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
 const { shouldSendPublicMemberAnnouncement } = require("./memberPublicAnnouncementGate") as typeof import("./memberPublicAnnouncementGate");
-const { memberDisplayName, guildMemberDisplayAvatarUrlDynamic } = require("../Discord/guildDiscordIdentity") as typeof import("../Discord/guildDiscordIdentity");
+const { memberDisplayName, guildMemberDisplayAvatarUrlDynamic } = require("../../../shared/discord/guildDiscordIdentity") as typeof import("../../../shared/discord/guildDiscordIdentity");
 const { applyPronounGenderToEmbedForMember } = require("./pronounGenderUtils") as typeof import("./pronounGenderUtils");
 
 const MAIN_GUILD_ID = String(IDs.guilds?.main || "");

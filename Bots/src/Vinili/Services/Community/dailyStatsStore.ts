@@ -18,7 +18,7 @@ const dailyStatsSchema = new Schema(
 );
 dailyStatsSchema.index({ scope: 1, guildId: 1, dateKey: 1 }, { unique: true });
 
-const DailyStats: import("mongoose").Model<import("mongoose").InferSchemaType<typeof dailyStatsSchema>> =
+const DailyStats: any =
   models.DailyStats ||
   model("DailyStats", dailyStatsSchema, DAILY_STATS_COLLECTION);
 

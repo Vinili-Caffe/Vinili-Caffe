@@ -1,10 +1,10 @@
 /** Vincitori attività: annuncio del mese. */
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js") as typeof import("discord.js");
-const { MESSAGE_EXP } = require("./expService") as typeof import("./expService");
+const { MESSAGE_EXP } = require("../../Level/services/expService") as typeof import("../../Level/services/expService");
 const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
 const { siteTicketsPageDiscordRef } = require("../../../shared/web/siteTicketsPageRef") as typeof import("../../../shared/web/siteTicketsPageRef");
-const { getClientChannelCached, getClientGuildCached } = require("../../Utils/Interaction/interactionEntityCache") as typeof import("../../Utils/Interaction/interactionEntityCache");
-const { guildIconUrl } = require("../../Utils/Discord/guildDiscordIdentity") as typeof import("../../Utils/Discord/guildDiscordIdentity");
+const { getClientChannelCached, getClientGuildCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
+const { guildIconUrl } = require("../../../shared/discord/guildDiscordIdentity") as typeof import("../../../shared/discord/guildDiscordIdentity");
 const { getPreviousRomeCalendarMonth } = require("./winnersTime") as typeof import("./winnersTime");
 const { loadMonthlyRowsFromRomeCalendarMonth, resolveTopThreeUsers, uniqueRankingByUserId } = require("./winnersRows") as typeof import("./winnersRows");
 const { updateMonthlyWinnerRoles } = require("./winnersRoles") as typeof import("./winnersRoles");

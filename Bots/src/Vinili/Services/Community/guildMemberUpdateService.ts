@@ -1,21 +1,21 @@
 
 const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
 const { didStaffMembershipChange, didStaffListDisplayRolesChange, memberHasStaffRole } = require("../../Utils/Community/staffListUtils") as typeof import("../../Utils/Community/staffListUtils");
-const { memberHasPartnerManagerRole, memberHasAnyStaffPresenceForDepexSync, buildStaffPartnerManagerIdUnsetUpdate } = require("../../Utils/Staff/staffPmUtils") as typeof import("../../Utils/Staff/staffPmUtils");
-const { deleteStaffPauseRequestChannelMessages, deleteStaffRelatedMessagesFromConfiguredChannels, archiveStaffRolesHistoryThenUnsetStaff } = require("../../Utils/Staff/staffDocUtils") as typeof import("../../Utils/Staff/staffDocUtils");
+const { memberHasPartnerManagerRole, memberHasAnyStaffPresenceForDepexSync, buildStaffPartnerManagerIdUnsetUpdate } = require("../../Staff/utils/staffPmUtils") as typeof import("../../Staff/utils/staffPmUtils");
+const { deleteStaffPauseRequestChannelMessages, deleteStaffRelatedMessagesFromConfiguredChannels, archiveStaffRolesHistoryThenUnsetStaff } = require("../../Staff/utils/staffDocUtils") as typeof import("../../Staff/utils/staffDocUtils");
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
 const { grantBestStaffPauseBonusYear, scheduleAcceptedPauseMessagesRefreshAfterRankChange, getMemberStaffRankRoleId } = require("../../site/staff/pause/pauseHandlersUtils") as typeof import("../../site/staff/pause/pauseHandlersUtils");
-const { onStafferDellaSettimanaRoleAdded } = require("../Staff/stafferDellaSettimanaService") as typeof import("../Staff/stafferDellaSettimanaService");
+const { onStafferDellaSettimanaRoleAdded } = require("../../Staff/services/stafferDellaSettimanaService") as typeof import("../../Staff/services/stafferDellaSettimanaService");
 const { setWelcomeContextActive } = require("../../Utils/Message/officialMessageCommunityHandlers") as typeof import("../../Utils/Message/officialMessageCommunityHandlers");
 const { syncClanTagRolesForUserEverywhereAfterMemberEvent } = require("./clanTagRoleService") as typeof import("./clanTagRoleService");
-const { syncPersistentAutoValutazioniForMember, handleStaffBoostAutoValutazioneMemberUpdate, resolveAutoValutazioneCreateKeysFromMemberUpdate } = require("../Staff/staffAutoValutazioniService") as typeof import("../Staff/staffAutoValutazioniService");
+const { syncPersistentAutoValutazioniForMember, handleStaffBoostAutoValutazioneMemberUpdate, resolveAutoValutazioneCreateKeysFromMemberUpdate } = require("../../Staff/services/staffAutoValutazioniService") as typeof import("../../Staff/services/staffAutoValutazioniService");
 const { shouldSendPublicMemberAnnouncement } = require("../../Utils/Community/memberPublicAnnouncementGate") as typeof import("../../Utils/Community/memberPublicAnnouncementGate");
 const { runDeferredJoinAnnouncements } = require("../../Events/guildMemberAdd") as typeof import("../../Events/guildMemberAdd");
 const { handlePreMemberRoleOnMemberUpdate } = require("../../Utils/Community/preMemberRoleService") as typeof import("../../Utils/Community/preMemberRoleService");
-const { syncStaffChatThreadsForMemberChange } = require("../Staff/staffChatThreadsService") as typeof import("../Staff/staffChatThreadsService");
-const { syncStaffCmdsThreadsForMemberChange } = require("../Staff/staffCmdsThreadsService") as typeof import("../Staff/staffCmdsThreadsService");
+const { syncStaffChatThreadsForMemberChange } = require("../../Staff/services/staffChatThreadsService") as typeof import("../../Staff/services/staffChatThreadsService");
+const { syncStaffCmdsThreadsForMemberChange } = require("../../Staff/services/staffCmdsThreadsService") as typeof import("../../Staff/services/staffCmdsThreadsService");
 const { autoUnclaimOpenTicketsClaimedByUser } = require("../../MultiGuild/tickets/discord/ticketAutoUnclaimOnStaffLoss") as typeof import("../../MultiGuild/tickets/discord/ticketAutoUnclaimOnStaffLoss");
-const { syncMutedMirrorRoleFromMemberUpdate, memberIsInMuteMirrorState, shouldSuppressStaffDepexForMuteMirror } = require("../Moderation/mutedMirrorRoleService") as typeof import("../Moderation/mutedMirrorRoleService");
+const { syncMutedMirrorRoleFromMemberUpdate, memberIsInMuteMirrorState, shouldSuppressStaffDepexForMuteMirror } = require("../../Moderation/services/mutedMirrorRoleService") as typeof import("../../Moderation/services/mutedMirrorRoleService");
 const { maybeAnnounceDonationPackageInSupporters } = require("../../Utils/Community/donationPackageSupportersAnnounce") as typeof import("../../Utils/Community/donationPackageSupportersAnnounce");
 const { maybeAnnounceManualSocialRolesAndGrantPicPermsBundle } = require("../../Utils/Community/manualSocialRoleAnnounceAndPicPerms") as typeof import("../../Utils/Community/manualSocialRoleAnnounceAndPicPerms");
 const { maybeSyncPatronRoleForMember } = require("../../Utils/Community/patronRoleService") as typeof import("../../Utils/Community/patronRoleService");
@@ -212,7 +212,7 @@ export = {
                 global.logger?.warn?.("[guildMemberUpdate] ticket auto-unclaim on depex:", newMember.id, err?.message || err);
               });
               try {
-                require("../../site/http/siteReviewsApi").scheduleExStaffReviewsPurge(botClient);
+                require("../../site/http/siteReviewsApi").scheduleExStaffReviewsPurge(client);
               } catch (_) {}
             }
           }

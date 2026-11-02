@@ -3,7 +3,7 @@ const { MOVIE_NIGHT_DISPLAY_TIME, getRomeParts, getRomeWeekKey, getHarryPotterMo
 const { MOVIE_NIGHT_NAME, fetchMovieNightEventById, findCurrentWeekMovieNightEvent, resolveTitleFromMovieNightEvent } = require("./movieNightEvents") as typeof import("./movieNightEvents");
 const { EVENTS_ROLE_ID, SERATA_FILM_ROLE_ID, buildTieBreakerAnnouncementMessage } = require("./movieNightMessages") as typeof import("./movieNightMessages");
 const { resolveCanonicalMovieTitle } = require("./movieNightDescriptions") as typeof import("./movieNightDescriptions");
-const { getClientGuildCached, getGuildChannelCached } = require("../../Utils/Interaction/interactionEntityCache") as typeof import("../../Utils/Interaction/interactionEntityCache");
+const { getClientGuildCached, getGuildChannelCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
 const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
 const { extractMovieNightProposalTitle, movieNightTitleCompareKey } = require("../../Utils/Community/movieNightProposal") as typeof import("../../Utils/Community/movieNightProposal");
 

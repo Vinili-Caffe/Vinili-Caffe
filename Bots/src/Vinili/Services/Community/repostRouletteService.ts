@@ -56,7 +56,7 @@ function isMainChatHubChannel(channelId?) {
 
 function isMinigameChannelBusyInProcess(channelId?) {
   try {
-    const { isMinigameChannelBusy } = require("../Minigames/minigameService") as typeof import("../Minigames/minigameService");
+    const { isMinigameChannelBusy } = require("../../Minigames/services/minigameService") as typeof import("../../Minigames/services/minigameService");
     return Boolean(isMinigameChannelBusy(channelId));
   } catch {
     return false;

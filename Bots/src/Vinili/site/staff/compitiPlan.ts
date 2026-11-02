@@ -299,7 +299,7 @@ async function ensureStafferCompitiSwapBonus(client?, guildId?, userId?, monthKe
     const {
       getStaffWeekKeyNow,
       resolveStafferBonusMonthKey,
-    } = require("../../Utils/Staff/stafferDellaSettimanaWeekKey") as typeof import("../../Utils/Staff/stafferDellaSettimanaWeekKey");
+    } = require("../../Staff/utils/stafferDellaSettimanaWeekKey") as typeof import("../../Staff/utils/stafferDellaSettimanaWeekKey");
     const weekKey = getStaffWeekKeyNow();
     const mk = resolveStafferBonusMonthKey({ weekKey, monthKey });
     await grantCompitiSwapBonus(guildId, userId, 1, { weekKey, monthKey: mk });
@@ -319,9 +319,9 @@ async function isNewStaffCompitiGrace({ guildId, userId, member = null, now = ne
       getCurrentResocontoPexWeekWindowUtc,
       wasFirstStaffPromotionFromMemberInWindow,
       resolveStaffRole,
-    } = require("../../Services/Staff/weeklyStaffResocontoService") as typeof import("../../Services/Staff/weeklyStaffResocontoService");
-    const { getStaffDoc } = require("../../Utils/Staff/valutazionePanelActions") as typeof import("../../Utils/Staff/valutazionePanelActions");
-    const { ensureStaff } = require("../../Utils/Staff/staffDocUtils") as typeof import("../../Utils/Staff/staffDocUtils");
+    } = require("../../Staff/services/weeklyStaffResocontoService") as typeof import("../../Staff/services/weeklyStaffResocontoService");
+    const { getStaffDoc } = require("../../Staff/utils/valutazionePanelActions") as typeof import("../../Staff/utils/valutazionePanelActions");
+    const { ensureStaff } = require("../../Staff/utils/staffDocUtils") as typeof import("../../Staff/utils/staffDocUtils");
     const staffRoleId = member ? resolveStaffRole(member) : null;
     if (!staffRoleId) return false;
     const window = getCurrentResocontoPexWeekWindowUtc(now);

@@ -1,13 +1,13 @@
 /** Join gate: controllo del nome dopo l'ingresso. */
 const { EmbedBuilder, PermissionsBitField } = require("discord.js") as typeof import("discord.js");
 const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
-const { getGuildChannelCached } = require("../../Utils/Interaction/interactionEntityCache") as typeof import("../../Utils/Interaction/interactionEntityCache");
-const { getJoinGateConfigSnapshot } = require("../Moderation/joinGateService") as typeof import("../Moderation/joinGateService");
-const { resolveJoinGateConfiguredExempt } = require("../Moderation/joinGateExemptUtils") as typeof import("../Moderation/joinGateExemptUtils");
+const { getGuildChannelCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
+const { getJoinGateConfigSnapshot } = require("../../Moderation/services/joinGateService") as typeof import("../../Moderation/services/joinGateService");
+const { resolveJoinGateConfiguredExempt } = require("../../Moderation/services/joinGateExemptUtils") as typeof import("../../Moderation/services/joinGateExemptUtils");
 const { ARROW } = require("../../Utils/Logging/channelRolesLogUtils") as typeof import("../../Utils/Logging/channelRolesLogUtils");
-const { createModCase, getModConfig, logModCase } = require("../../Utils/Moderation/moderation") as typeof import("../../Utils/Moderation/moderation");
-const { buildUnbanRequestRow } = require("../../Utils/Moderation/unbanRequestButton") as typeof import("../../Utils/Moderation/unbanRequestButton");
-const { guildMemberDisplayAvatarUrlDynamic } = require("../../Utils/Discord/guildDiscordIdentity") as typeof import("../../Utils/Discord/guildDiscordIdentity");
+const { createModCase, getModConfig, logModCase } = require("../../Moderation/utils/moderation") as typeof import("../../Moderation/utils/moderation");
+const { buildUnbanRequestRow } = require("../../Moderation/utils/unbanRequestButton") as typeof import("../../Moderation/utils/unbanRequestButton");
+const { guildMemberDisplayAvatarUrlDynamic } = require("../../../shared/discord/guildDiscordIdentity") as typeof import("../../../shared/discord/guildDiscordIdentity");
 
 function buildJoinGateTriggeredEmbed(member?, reason?) {
   return new EmbedBuilder()
@@ -115,7 +115,7 @@ async function enforceJoinGatePostJoinUsername(oldMember?, newMember?) {
       .catch(() => false);
   } else if (action === "timeout" && canTimeout) {
     try {
-      const { captureMuteRoleSnapshot } = require("../Moderation/mutedMirrorRoleService") as typeof import("../Moderation/mutedMirrorRoleService");
+      const { captureMuteRoleSnapshot } = require("../../Moderation/services/mutedMirrorRoleService") as typeof import("../../Moderation/services/mutedMirrorRoleService");
       await captureMuteRoleSnapshot(newMember, { reason: "JoinGate post-join (pre-timeout)" });
     } catch (err) {
       global.logger?.warn?.("[JoinGate post-join] pre-timeout snapshot:", newMember.id, err?.message || err);
@@ -130,7 +130,7 @@ async function enforceJoinGatePostJoinUsername(oldMember?, newMember?) {
 
   if (!punished && appliedAction !== "log" && canTimeout) {
     try {
-      const { captureMuteRoleSnapshot } = require("../Moderation/mutedMirrorRoleService") as typeof import("../Moderation/mutedMirrorRoleService");
+      const { captureMuteRoleSnapshot } = require("../../Moderation/services/mutedMirrorRoleService") as typeof import("../../Moderation/services/mutedMirrorRoleService");
       await captureMuteRoleSnapshot(newMember, { reason: "JoinGate post-join fallback (pre-timeout)" });
     } catch (err) {
       global.logger?.warn?.("[JoinGate post-join] fallback pre-timeout snapshot:", newMember.id, err?.message || err);

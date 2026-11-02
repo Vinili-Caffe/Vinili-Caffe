@@ -1,14 +1,14 @@
 const path = require("path") as typeof import("path");
 const { readSnapshotWithMeta, writeSnapshotWithMeta } = require("../../../shared/recovery/snapshotStore") as typeof import("../../../shared/recovery/snapshotStore");
 const { registerShutdownFlush, armShutdownCheckpoint } = require("../../../shared/recovery/shutdownCheckpoint") as typeof import("../../../shared/recovery/shutdownCheckpoint");
-const { applyDefaultFooterToEmbeds } = require("../Embeds/defaultFooter") as typeof import("../Embeds/defaultFooter");
+const { applyDefaultFooterToEmbeds } = require("../../../shared/embeds/defaultFooter") as typeof import("../../../shared/embeds/defaultFooter");
 const { checkPrefixPermission, getPrefixRequiredRoles, buildGlobalPermissionDeniedEmbed, buildGlobalChannelDeniedEmbed } = require("../Moderation/commandPermissions") as typeof import("../Moderation/commandPermissions");
 const { buildCooldownErrorEmbed, buildBusyCommandErrorEmbed, buildMissingArgumentsErrorEmbed, buildInternalCommandErrorEmbed } = require("../Moderation/commandErrorEmbeds") as typeof import("../Moderation/commandErrorEmbeds");
 const { buildErrorLogEmbed } = require("../../../shared/discord/errorLogEmbed") as typeof import("../../../shared/discord/errorLogEmbed");
-const { showPrefixUsageGuide } = require("../Moderation/prefixUsageGuide") as typeof import("../Moderation/prefixUsageGuide");
+const { showPrefixUsageGuide } = require("../../../shared/prefix/prefixUsageGuide") as typeof import("../../../shared/prefix/prefixUsageGuide");
 const IDs: any = require("../Config/ids") as typeof import("../Config/ids");
 const { getCentralChannel } = require("../Logging/commandUsageLogger") as typeof import("../Logging/commandUsageLogger");
-const { EPHEMERAL_TTL_SHORT_MS } = require("../Config/ephemeralMessageTtl") as typeof import("../Config/ephemeralMessageTtl");
+const { EPHEMERAL_TTL_SHORT_MS } = require("../../../shared/utils/ephemeralMessageTtl") as typeof import("../../../shared/utils/ephemeralMessageTtl");
 const PREFIX_COOLDOWN_BYPASS_ROLE_ID = IDs.roles?.HighStaff || IDs.roles?.Founder || null;
 const PREFIX_PRECHECK_TIMEOUT_MS = 4000;
 const PREFIX_EXECUTION_TIMEOUT_MS = Math.max(15_000, Number(process.env.PREFIX_EXECUTION_TIMEOUT_MS || 120_000));

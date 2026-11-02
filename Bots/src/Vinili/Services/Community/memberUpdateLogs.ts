@@ -1,11 +1,11 @@
 /** Aggiornamento membri: log di nickname, timeout e ruoli. */
 const { EmbedBuilder, PermissionsBitField, AuditLogEvent } = require("discord.js") as typeof import("discord.js");
 const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
-const { getGuildChannelCached } = require("../../Utils/Interaction/interactionEntityCache") as typeof import("../../Utils/Interaction/interactionEntityCache");
+const { getGuildChannelCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
 const { formatAuditActor, resolveChannelRolesLogChannel, resolveResponsible } = require("../../Utils/Logging/channelRolesLogUtils") as typeof import("../../Utils/Logging/channelRolesLogUtils");
 const { resolveModLogChannel, formatResponsible, nowDiscordTs } = require("../../Utils/Logging/modAuditLogUtils") as typeof import("../../Utils/Logging/modAuditLogUtils");
-const { handleMemberRoleAddition: antiNukeHandleMemberRoleAddition } = require("../Moderation/antiNukeService") as typeof import("../Moderation/antiNukeService");
-const { handleStaffRoleAssignmentGuard } = require("../Moderation/staffRoleAssignmentGuardService") as typeof import("../Moderation/staffRoleAssignmentGuardService");
+const { handleMemberRoleAddition: antiNukeHandleMemberRoleAddition } = require("../../Moderation/services/antiNukeService") as typeof import("../../Moderation/services/antiNukeService");
+const { handleStaffRoleAssignmentGuard } = require("../../Moderation/services/staffRoleAssignmentGuardService") as typeof import("../../Moderation/services/staffRoleAssignmentGuardService");
 const { shouldSendPublicMemberAnnouncement, normalVerificationCompletedBetween } = require("../../Utils/Community/memberPublicAnnouncementGate") as typeof import("../../Utils/Community/memberPublicAnnouncementGate");
 
 const AUDIT_FETCH_LIMIT = 20;

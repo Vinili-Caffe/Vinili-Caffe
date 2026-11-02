@@ -231,7 +231,7 @@ async function handleSiteStaffProfileGet(client?, req?, res?) {
         const WORKFLOW_DOC = SITE_DOCUMENT_TYPE.STAFF_WORKFLOW;
         let weekKey = "";
         try {
-          const { getResocontoCycleWeekKey } = require("../../Services/Staff/weeklyStaffResocontoService") as typeof import("../../Services/Staff/weeklyStaffResocontoService");
+          const { getResocontoCycleWeekKey } = require("../../Staff/services/weeklyStaffResocontoService") as typeof import("../../Staff/services/weeklyStaffResocontoService");
           weekKey = String(getResocontoCycleWeekKey() || "").trim();
         } catch (_) {
           weekKey = "";

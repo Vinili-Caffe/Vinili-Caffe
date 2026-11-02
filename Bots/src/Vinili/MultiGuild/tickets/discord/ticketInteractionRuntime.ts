@@ -1,5 +1,5 @@
 const Ticket = require("../../../Schemas/Ticket/ticketSchema");
-const { getClientGuildCached, getGuildChannelCached, getGuildMemberCached } = require("../../../Utils/Interaction/interactionEntityCache") as typeof import("../../../Utils/Interaction/interactionEntityCache");
+const { getClientGuildCached, getGuildChannelCached, getGuildMemberCached } = require("../../../../shared/discord/interactionEntityCache") as typeof import("../../../../shared/discord/interactionEntityCache");
 const CHANNEL_WARM_TTL_MS = 5 * 60_000;
 const guildChannelWarmCache = new Map();
 function getCachedEntity(cache?, key?) {

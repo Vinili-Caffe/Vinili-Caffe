@@ -1,5 +1,5 @@
 /** Workflow staff: salvataggio di candidature, appelli e resoconti appena inviati. */
-const { getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache") as typeof import("../../Utils/Interaction/interactionEntityCache");
+const { getGuildMemberCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
 const { stripDiscordDecorations, weekKeyFromDate, buildWorkflowDedupeKey, normalizeStatus, statusLabelFor, resocontoActionLabelForKey, extractResocontoAzioneText, formatResocontoProposedLabel, buildResocontoInboxPreview, deriveResocontoStatusLabel, resolveResocontoDocStatus, normalizeResocontoActionKey } = require("./workflowLabels") as typeof import("./workflowLabels");
 const { memberToSubjectFields, resolveWorkflowSubject } = require("./workflowSubjects") as typeof import("./workflowSubjects");
 const { parseNumberedQaBlocks } = require("./workflowSerialize") as typeof import("./workflowSerialize");

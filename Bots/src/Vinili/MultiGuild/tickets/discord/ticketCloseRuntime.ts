@@ -6,7 +6,7 @@ const { getNextTicketId } = require("./ticketIdUtils") as typeof import("./ticke
 const { sendDm } = require("../../../Utils/noDmList") as typeof import("../../../Utils/noDmList");
 const IDs = require("../../../Utils/Config/ids") as typeof import("../../../Utils/Config/ids");
 const { getClientGuildCached, getGuildChannelCached, getGuildMemberCached } = require("./ticketInteractionRuntime") as typeof import("./ticketInteractionRuntime");
-const { getClientChannelCached, getUserCached } = require("../../../Utils/Interaction/interactionEntityCache") as typeof import("../../../Utils/Interaction/interactionEntityCache");
+const { getClientChannelCached, getUserCached } = require("../../../../shared/discord/interactionEntityCache") as typeof import("../../../../shared/discord/interactionEntityCache");
 const { findOpenTicketsForGuildUser } = require("./ticketGuildUserQueries") as typeof import("./ticketGuildUserQueries");
 const {
   closeDmFailedNote,

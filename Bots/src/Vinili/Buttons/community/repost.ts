@@ -1,11 +1,4 @@
-const {
-  REPOST_BTN_PREFIX,
-  REPOST_SRC_PREFIX,
-  REPOST_REMOVE_PREFIX,
-  handleRepostaButton,
-  handleRepostRemoveButton,
-  isRepostRemoveButton,
-} = require("../../Services/Community/repostService") as typeof import("../../Services/Community/repostService");
+const { REPOST_BTN_PREFIX, REPOST_SRC_PREFIX, REPOST_REMOVE_PREFIX, handleRepostaButton, handleRepostRemoveButton, isRepostRemoveButton } = require("../../Services/Community/repostService") as typeof import("../../Services/Community/repostService");
 
 function match(interaction?) {
   const id = String(interaction?.customId || "");

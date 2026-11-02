@@ -22,6 +22,7 @@
   "author": "terronizzarsi",
   "license": "MIT",
   "dependencies": {
+    "esbuild": "^0.28.0",
     "tsx": "^4.23.15"
   }
 }

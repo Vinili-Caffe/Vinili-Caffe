@@ -7,17 +7,17 @@ const { minigameStateFindOneLean, minigameStateDeleteOne } = require(__eventCore
 const { ActivityUserProfile } = require(__eventCoreVinili("Schemas/Community/communitySchemas"));
 const { addExpWithLevel, shouldIgnoreExpForMember, incrementMinigameWinCounters } = require(__eventCoreVinili("Services/Community/expService"));
 const IDs = require(__eventCoreVinili("Utils/Config/ids"));
-const { getGuildMemberCached } = require(__eventCoreVinili("Utils/Interaction/interactionEntityCache"));
+const { getGuildMemberCached } = require(__path.join(__path.resolve(__dirname, "../../../../../../src/shared/discord/interactionEntityCache")));
 const { isWithinHalloweenCandyHours } = require("../../Utils/Minigames/halloweenMinigameHooks") as typeof import("../../Utils/Minigames/halloweenMinigameHooks");
 const { addHalloweenCandyWithPassAlong, buildHalloweenCandyUnlockPayload, resolveEventKey: resolveHalloweenCandyEventKey } = require("../Community/halloweenCandyService") as typeof import("../Community/halloweenCandyService");
 const { buildTrickOrTreatRoundEmbed, buildTrickOrTreatEndedEmbed, buildTrickReplyEmbed, buildAlreadyKnockedEmbed, buildTrickOrTreatJumpUrl, buildTrickOrTreatHintMessage } = require("../../Utils/Minigames/halloweenTrickOrTreatUi") as typeof import("../../Utils/Minigames/halloweenTrickOrTreatUi");
-const { warnMinigame, logMinigameDebug } = require(__eventCoreVinili("Services/Minigames/minigameLog"));
-const { getChannelCached } = require(__eventCoreVinili("Services/Minigames/minigameUtils"));
-const { normalizeRewardExp } = require(__eventCoreVinili("Services/Minigames/minigameText"));
-const { nextGameHook, activeGames, clearMinigameRoundTimers } = require(__eventCoreVinili("Services/Minigames/minigameState"));
-const { sendMinigameRolePing } = require(__eventCoreVinili("Services/Minigames/minigameRolePing"));
-const { sendMinigameMessage } = require(__eventCoreVinili("Services/Minigames/minigameDiscord"));
-const { markSent, TOT_STATE_SUFFIX, saveActiveGame, parseStateTarget } = require(__eventCoreVinili("Services/Minigames/minigameRound"));
+const { warnMinigame, logMinigameDebug } = require(__eventCoreVinili("Minigames/services/minigameLog"));
+const { getChannelCached } = require(__eventCoreVinili("Minigames/services/minigameUtils"));
+const { normalizeRewardExp } = require(__eventCoreVinili("Minigames/services/minigameText"));
+const { nextGameHook, activeGames, clearMinigameRoundTimers } = require(__eventCoreVinili("Minigames/services/minigameState"));
+const { sendMinigameRolePing } = require(__eventCoreVinili("Minigames/services/minigameRolePing"));
+const { sendMinigameMessage } = require(__eventCoreVinili("Minigames/services/minigameDiscord"));
+const { markSent, TOT_STATE_SUFFIX, saveActiveGame, parseStateTarget } = require(__eventCoreVinili("Minigames/services/minigameRound"));
 
 /** ToT ≠ slot minigioco: chiave RAM + doc Mongo dedicati, così Impiccato/ecc. non li sovrascrivono. */
 const TOT_MAP_SUFFIX = "::halloweenTrickOrTreat";

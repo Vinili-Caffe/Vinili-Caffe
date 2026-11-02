@@ -1,7 +1,7 @@
 const __path = require("path") as typeof import("path");
 const __eventCoreVinili = (rel: string) => __path.join(__path.resolve(__dirname, "../../../../../../src/Vinili"), rel);
 
-const { memberIsHighStaffEligible } = require(__eventCoreVinili("Utils/Staff/staffRoleHierarchy"));
+const { memberIsHighStaffEligible } = require(__eventCoreVinili("Staff/utils/staffRoleHierarchy"));
 const { staffSpawn } = require("../../Services/Community/starWarsDiscordMinigamesService") as typeof import("../../Services/Community/starWarsDiscordMinigamesService");
 
 const KINDS = [

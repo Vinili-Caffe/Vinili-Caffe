@@ -1,8 +1,8 @@
 const { EmbedBuilder } = require("discord.js") as typeof import("discord.js");
 const IDs: any = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
-const { getGuildMemberCached, getGuildChannelCached } = require("../../Utils/Interaction/interactionEntityCache") as typeof import("../../Utils/Interaction/interactionEntityCache");
-const { memberDisplayName, guildMemberDisplayAvatarUrlDynamic } = require("../../Utils/Discord/guildDiscordIdentity") as typeof import("../../Utils/Discord/guildDiscordIdentity");
-const { wasRoleRestoredByMuteMirror, isSocialRoleAnnounceGloballySuppressed } = require("../../Utils/Moderation/muteRestoreAnnounceSuppress") as typeof import("../../Utils/Moderation/muteRestoreAnnounceSuppress");
+const { getGuildMemberCached, getGuildChannelCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
+const { memberDisplayName, guildMemberDisplayAvatarUrlDynamic } = require("../../../shared/discord/guildDiscordIdentity") as typeof import("../../../shared/discord/guildDiscordIdentity");
+const { wasRoleRestoredByMuteMirror, isSocialRoleAnnounceGloballySuppressed } = require("../../Moderation/utils/muteRestoreAnnounceSuppress") as typeof import("../../Moderation/utils/muteRestoreAnnounceSuppress");
 const { applyPronounGenderToEmbedForMember } = require("../../Utils/Community/pronounGenderUtils") as typeof import("../../Utils/Community/pronounGenderUtils");
 const GLOBAL_GUILDED_ROLE_ID = IDs.roles.Guilded;
 const MAIN_GUILD_ID = IDs.guilds.main;

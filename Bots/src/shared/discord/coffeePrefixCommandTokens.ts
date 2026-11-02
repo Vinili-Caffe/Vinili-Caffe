@@ -1,5 +1,4 @@
 const COFFEE_PREFIX_COMMAND_NAMES = new Set([
-  "help",
   "join",
   "leave",
   "set",

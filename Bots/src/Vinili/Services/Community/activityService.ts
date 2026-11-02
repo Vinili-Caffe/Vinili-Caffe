@@ -1,5 +1,5 @@
 
-const { isMongoReady } = require("../../Utils/Database/mongoConnect") as typeof import("../../Utils/Database/mongoConnect");
+const { isMongoReady } = require("../../../shared/db/mongoConnect") as typeof import("../../../shared/db/mongoConnect");
 const { isExcludedActivityChannel } = require("./activityChannels") as typeof import("./activityChannels");
 const { loadDailyRows, loadHourlyRows } = require("./activityRows") as typeof import("./activityRows");
 const { hydrateProfileActivityBucketsFromGuild } = require("./activityBackfill") as typeof import("./activityBackfill");
@@ -16,9 +16,10 @@ let liveVoiceExpSuspended = false;
 const liveVoiceExpClients = new Set();
 
 function startLiveVoiceExpLoop(client?, intervalMs?) {
-  const dedicated = String(process.env.COMMUNITY_POLL_WORKER || "").trim() === "1";
-  const external = String(process.env.COMMUNITY_POLL_EXTERNAL || "").trim() === "1";
-  if (external && !dedicated) return null;
+  /* EXP vocale live sul gateway (bots-vinyls): serve la cache canali.
+     Su community-poll (REST) isChannelEligibleForMemberExp non risolva i canali → EXP solo a leave. */
+  if (client?._isSiteApiRestClient) return null;
+  if (String(process.env.COMMUNITY_POLL_WORKER || "").trim() === "1") return null;
   const resolved = Number(intervalMs ?? LIVE_VOICE_EXP_DEFAULT_INTERVAL_MS) || LIVE_VOICE_EXP_DEFAULT_INTERVAL_MS;
   const safeInterval = Math.max(10_000, Math.min(300_000, resolved));
   if (client?._liveVoiceExpInterval) return client._liveVoiceExpInterval;

@@ -3,8 +3,8 @@ const { GuildFeatureBucket } = require("../../../Schemas/Guild/guildFeatureBucke
 const IDs = require("../../../Utils/Config/ids") as typeof import("../../../Utils/Config/ids");
 const { memberCanAccessPerksTicket } = require("./ticketPerksStaffRoles") as typeof import("./ticketPerksStaffRoles");
 const { memberCanAccessPartnershipTicket } = require("./ticketPartnershipStaffRoles") as typeof import("./ticketPartnershipStaffRoles");
-const { userAvatarUrlDynamic } = require("../../../Utils/Discord/guildDiscordIdentity") as typeof import("../../../Utils/Discord/guildDiscordIdentity");
-const { getGuildMemberCached } = require("../../../Utils/Interaction/interactionEntityCache") as typeof import("../../../Utils/Interaction/interactionEntityCache");
+const { userAvatarUrlDynamic } = require("../../../../shared/discord/guildDiscordIdentity") as typeof import("../../../../shared/discord/guildDiscordIdentity");
+const { getGuildMemberCached } = require("../../../../shared/discord/interactionEntityCache") as typeof import("../../../../shared/discord/interactionEntityCache");
 const STAFF_ROLE_ID = IDs.roles.Staff;
 const HIGHSTAFF_ROLE_ID = IDs.roles.HighStaff;
 const SUPPORT_TICKET_STAFF_ROLE_IDS = [
@@ -34,7 +34,7 @@ function hasStaffTicketRole(member?, ticketType?) {
   }
   if (type === "high" || type === "highstaff") {
     try {
-      const { memberHasConfiguredRole, memberHasRoleId } = require("../../../Utils/Staff/staffRoleHierarchy") as typeof import("../../../Utils/Staff/staffRoleHierarchy");
+      const { memberHasConfiguredRole, memberHasRoleId } = require("../../../Staff/utils/staffRoleHierarchy") as typeof import("../../../Staff/utils/staffRoleHierarchy");
       if (memberHasConfiguredRole(member, "HighStaff")) return true;
       return Boolean(HIGHSTAFF_ROLE_ID && memberHasRoleId(member, HIGHSTAFF_ROLE_ID));
     } catch {
@@ -42,7 +42,7 @@ function hasStaffTicketRole(member?, ticketType?) {
     }
   }
   try {
-    const { memberHasRoleId } = require("../../../Utils/Staff/staffRoleHierarchy") as typeof import("../../../Utils/Staff/staffRoleHierarchy");
+    const { memberHasRoleId } = require("../../../Staff/utils/staffRoleHierarchy") as typeof import("../../../Staff/utils/staffRoleHierarchy");
     return SUPPORT_TICKET_STAFF_ROLE_IDS.some((id?) => memberHasRoleId(member, id));
   } catch {
     return SUPPORT_TICKET_STAFF_ROLE_IDS.some((id?) => member.roles.cache.has(id));

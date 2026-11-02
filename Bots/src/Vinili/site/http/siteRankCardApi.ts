@@ -8,9 +8,9 @@ const {
   listRankCardFonts,
   getRankCardThemeFromDoc,
 } = require("../../Utils/Render/rankCardTheme") as typeof import("../../Utils/Render/rankCardTheme");
-const { getUserRanks, getResolvedWeeklyExpMultiplier } = require("../../Services/Community/expService") as typeof import("../../Services/Community/expService");
-const renderRankCanvas = require("../../Utils/Render/rankCanvas");
-const { guildMemberDisplayAvatarUrlForSite, memberDisplayName } = require("../../Utils/Discord/guildDiscordIdentity") as typeof import("../../Utils/Discord/guildDiscordIdentity");
+const { getUserRanks, getResolvedWeeklyExpMultiplier } = require("../../Level/services/expService") as typeof import("../../Level/services/expService");
+const renderRankCanvas = require("../../Level/utils/rankCanvas");
+const { guildMemberDisplayAvatarUrlForSite, memberDisplayName } = require("../../../shared/discord/guildDiscordIdentity") as typeof import("../../../shared/discord/guildDiscordIdentity");
 const { animatedDiscordCdnAvatarUrl } = require("./siteLiveAvatars") as typeof import("./siteLiveAvatars");
 
 const VIP_PLUS_ROLE_ID = String(IDs?.roles?.["VIP+"] || "1544830868575625276").trim();

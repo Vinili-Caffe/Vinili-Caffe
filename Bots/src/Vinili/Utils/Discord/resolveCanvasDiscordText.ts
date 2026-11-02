@@ -1,4 +1,4 @@
-const { accountUsername } = require("./guildDiscordIdentity") as typeof import("./guildDiscordIdentity");
+const { accountUsername } = require("../../../shared/discord/guildDiscordIdentity") as typeof import("../../../shared/discord/guildDiscordIdentity");
 
 async function resolveCanvasDiscordMarkup(guild?, client?, text?) {
   let s = String(text || "");

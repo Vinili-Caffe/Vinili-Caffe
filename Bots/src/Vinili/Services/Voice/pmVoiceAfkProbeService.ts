@@ -1,6 +1,6 @@
 const { joinVoiceChannel, getVoiceConnection, VoiceConnectionStatus, entersState } = require("@discordjs/voice") as typeof import("@discordjs/voice");
-const { getClientGuildCached, getGuildChannelCached } = require("../../Utils/Interaction/interactionEntityCache") as typeof import("../../Utils/Interaction/interactionEntityCache");
-const { getMemberWatchEntry, isPendingAlert } = require("../Staff/pmVoiceAfkWatchService") as typeof import("../Staff/pmVoiceAfkWatchService");
+const { getClientGuildCached, getGuildChannelCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
+const { getMemberWatchEntry, isPendingAlert } = require("../../Staff/services/pmVoiceAfkWatchService") as typeof import("../../Staff/services/pmVoiceAfkWatchService");
 const PROBE_LISTEN_MS = Math.max( 30_000, Number(process.env.VC_PM_AFK_PROBE_LISTEN_MS || 90_000) );
 const PROBE_JOIN_TIMEOUT_MS = 15_000;
 const PROBE_JOIN_ATTEMPTS = 3;
@@ -46,7 +46,7 @@ async function captureReturnVoiceContext(client?, guildId?) {
   const gid = String(guildId || "").trim();
   if (!gid) return { mode: "none", channelId: null };
 
-  const music = require("../Music/lavalinkMusicService") as typeof import("../Music/lavalinkMusicService");
+  const music = require("../../../shared/music/services/lavalinkMusicService") as typeof import("../../../shared/music/services/lavalinkMusicService");
   const sh = client?.shoukaku;
   const shConn = sh?.connections?.get(gid);
   const shPlayer = sh?.players?.get(gid);
@@ -62,7 +62,7 @@ async function captureReturnVoiceContext(client?, guildId?) {
   const {
     getTtsReturnChannelIdForGuild,
     snapshotTtsQueueForGuild,
-  } = require("../TTS/ttsService") as typeof import("../TTS/ttsService");
+  } = require("../../../shared/tts/services/ttsService") as typeof import("../../../shared/tts/services/ttsService");
   const ttsChannelId = getTtsReturnChannelIdForGuild(gid);
   const nativeConn = getVoiceConnection(gid);
   const nativeChannelId = nativeConn?.joinConfig?.channelId
@@ -82,14 +82,14 @@ async function suspendActiveVoiceForProbe(client?, guildId?, returnCtx?) {
   const gid = String(guildId || "").trim();
   if (!gid) return;
   if (returnCtx?.mode === "music") {
-    const music = require("../Music/lavalinkMusicService") as typeof import("../Music/lavalinkMusicService");
+    const music = require("../../../shared/music/services/lavalinkMusicService") as typeof import("../../../shared/music/services/lavalinkMusicService");
     await music.suspendMusicVoiceForAfkProbe(client, gid).catch((err?) => {
       global.logger?.warn?.("[VOICE AFK PROBE] music suspend:", err?.message || err);
     });
     return;
   }
   if (returnCtx?.mode === "tts") {
-    const { suspendTtsVoiceForAfkProbe } = require("../TTS/ttsService") as typeof import("../TTS/ttsService");
+    const { suspendTtsVoiceForAfkProbe } = require("../../../shared/tts/services/ttsService") as typeof import("../../../shared/tts/services/ttsService");
     await suspendTtsVoiceForAfkProbe(client, gid).catch((err?) => {
       global.logger?.warn?.("[VOICE AFK PROBE] tts suspend:", err?.message || err);
     });
@@ -108,7 +108,7 @@ async function restoreVoiceAfterProbe(client?, guildId?, returnCtx?) {
   }
 
   if (returnCtx.mode === "music") {
-    const music = require("../Music/lavalinkMusicService") as typeof import("../Music/lavalinkMusicService");
+    const music = require("../../../shared/music/services/lavalinkMusicService") as typeof import("../../../shared/music/services/lavalinkMusicService");
     await music.resumeMusicVoiceAfterAfkProbe(client, gid).catch((err?) => {
       global.logger?.warn?.("[VOICE AFK PROBE] music resume:", err?.message || err);
     });
@@ -116,7 +116,7 @@ async function restoreVoiceAfterProbe(client?, guildId?, returnCtx?) {
   }
 
   if (returnCtx.mode === "tts" && returnCtx.channelId) {
-    const { resumeTtsVoiceAfterAfkProbe } = require("../TTS/ttsService") as typeof import("../TTS/ttsService");
+    const { resumeTtsVoiceAfterAfkProbe } = require("../../../shared/tts/services/ttsService") as typeof import("../../../shared/tts/services/ttsService");
     await resumeTtsVoiceAfterAfkProbe(client, gid, returnCtx.channelId, returnCtx.ttsQueue).catch((err?) => {
       global.logger?.warn?.("[VOICE AFK PROBE] tts resume:", err?.message || err);
     });
@@ -175,7 +175,7 @@ async function releaseGuildVoiceForProbe(client?, guildId?) {
   const gid = String(guildId || "").trim();
   if (!gid) return;
   if (client?.shoukaku?.connections?.get(gid)?.channelId) {
-    const music = require("../Music/lavalinkMusicService") as typeof import("../Music/lavalinkMusicService");
+    const music = require("../../../shared/music/services/lavalinkMusicService") as typeof import("../../../shared/music/services/lavalinkMusicService");
     music.markMusicVoiceLeaveIntentional(client, gid);
     await client.shoukaku.leaveVoiceChannel(gid).catch(() => {});
   }
@@ -241,7 +241,7 @@ function buildAfkProbeTtsPrompt(listenSec?) {
 async function playAfkProbeTtsPrompt(client?, connection?, listenSec?) {
   if (!connection) return false;
   try {
-    const { resolveDefaultTtsLang, playOneShotTtsOnConnection } = require("../TTS/ttsService") as typeof import("../TTS/ttsService");
+    const { resolveDefaultTtsLang, playOneShotTtsOnConnection } = require("../../../shared/tts/services/ttsService") as typeof import("../../../shared/tts/services/ttsService");
     const lang = resolveDefaultTtsLang(client);
     const text = buildAfkProbeTtsPrompt(listenSec);
     return await playOneShotTtsOnConnection(connection, text, lang);
@@ -412,7 +412,7 @@ async function startPmVoiceAfkProbe(client?, opts: Record<string, any> = {}) {
         alertMessageId = sent.messageId;
         const probe = activeProbeByGuild.get(guildId);
         if (probe) probe.alertMessageId = alertMessageId;
-        const { markPmAfkAlertSent } = require("../Staff/pmVoiceAfkWatchService") as typeof import("../Staff/pmVoiceAfkWatchService");
+        const { markPmAfkAlertSent } = require("../../Staff/services/pmVoiceAfkWatchService") as typeof import("../../Staff/services/pmVoiceAfkWatchService");
         markPmAfkAlertSent(guildId, targetUserId, sent.channelId, sent.messageId);
         alertReady?.resolve(sent);
       } else if (alertReady) {
@@ -449,7 +449,7 @@ async function startPmVoiceAfkProbe(client?, opts: Record<string, any> = {}) {
 
     if (heard) {
       await deleteProbeAlertMessage(client, guildId, voiceChannelId, alertMessageId);
-      const { clearPmVoiceAfkCountdown } = require("../Staff/pmVoiceAfkWatchService") as typeof import("../Staff/pmVoiceAfkWatchService");
+      const { clearPmVoiceAfkCountdown } = require("../../Staff/services/pmVoiceAfkWatchService") as typeof import("../../Staff/services/pmVoiceAfkWatchService");
       clearPmVoiceAfkCountdown(guildId, targetUserId);
       return;
     }
@@ -460,7 +460,7 @@ async function startPmVoiceAfkProbe(client?, opts: Record<string, any> = {}) {
     const liveMember = await liveGuild?.members?.fetch?.(targetUserId).catch(() => null);
     if (!liveMember?.voice?.channelId || String(liveMember.voice.channelId) !== voiceChannelId) {
       await deleteProbeAlertMessage(client, guildId, voiceChannelId, alertMessageId);
-      const { clearPmVoiceAfkCountdown } = require("../Staff/pmVoiceAfkWatchService") as typeof import("../Staff/pmVoiceAfkWatchService");
+      const { clearPmVoiceAfkCountdown } = require("../../Staff/services/pmVoiceAfkWatchService") as typeof import("../../Staff/services/pmVoiceAfkWatchService");
       clearPmVoiceAfkCountdown(guildId, targetUserId);
       return;
     }

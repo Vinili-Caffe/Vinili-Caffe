@@ -32,7 +32,7 @@ function iconUrlFromGuildParts(guildId: string, icon: string, size: number, forc
 
 async function resolveIconTarget(client?, { size = 512, forceStatic = false } = {}) {
   const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
-  const { guildIconUrl } = require("../../Utils/Discord/guildDiscordIdentity") as typeof import("../../Utils/Discord/guildDiscordIdentity");
+  const { guildIconUrl } = require("../../../shared/discord/guildDiscordIdentity") as typeof import("../../../shared/discord/guildDiscordIdentity");
   const guildId = String(client?.config?.mainGuildId || IDs?.guilds?.main || "").trim();
   const guild = guildId && client?.guilds?.cache?.get?.(guildId) ? client.guilds.cache.get(guildId) : null;
   if (guild?.icon) {

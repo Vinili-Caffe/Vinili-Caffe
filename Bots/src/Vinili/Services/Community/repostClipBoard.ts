@@ -1,7 +1,7 @@
 /** Repost: pubblicazione delle clip vocali in bacheca. */
 const { AttachmentBuilder } = require("discord.js") as typeof import("discord.js");
 const { GuildRepost } = require("../../Schemas/Community/repostSchema") as typeof import("../../Schemas/Community/repostSchema");
-const { accountUsername, guildMemberDisplayAvatarUrlDynamic } = require("../../Utils/Discord/guildDiscordIdentity") as typeof import("../../Utils/Discord/guildDiscordIdentity");
+const { accountUsername, guildMemberDisplayAvatarUrlDynamic } = require("../../../shared/discord/guildDiscordIdentity") as typeof import("../../../shared/discord/guildDiscordIdentity");
 const { buildBoardMessageComponents } = require("./repostEmbeds") as typeof import("./repostEmbeds");
 const { timedRepostQuery, editBoardMessageKeepAttachments } = require("./repostBoardSync") as typeof import("./repostBoardSync");
 const { isRepostDisabledInGuild } = require("./repostRoulette") as typeof import("./repostRoulette");

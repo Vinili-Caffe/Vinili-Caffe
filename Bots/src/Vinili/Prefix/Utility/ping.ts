@@ -2,8 +2,8 @@ const { pingDbLatencyMs } = require("../../Utils/Global/globalSettingsBucket") a
 const { executePingCommand } = require("../../../shared/discord/pingRuntime") as typeof import("../../../shared/discord/pingRuntime");
 const { isViniliFullFeatureGuild } = require("../../MultiGuild/core/guildFeatureScope") as typeof import("../../MultiGuild/core/guildFeatureScope");
 const { resolveEmbedColorForGuild } = require("../../MultiGuild/utils/tenantEmbedBranding") as typeof import("../../MultiGuild/utils/tenantEmbedBranding");
-const { t } = require("../../MultiGuild/utils/Partner/tenantPartnershipI18n/index") as typeof import("../../MultiGuild/utils/Partner/tenantPartnershipI18n/index");
-const { resolveTenantLanguageForMessage } = require("../../MultiGuild/utils/Partner/tenantPartnershipPrefixMessages") as typeof import("../../MultiGuild/utils/Partner/tenantPartnershipPrefixMessages");
+const { t } = require("../../Partner/i18n/tenantPartnershipI18n/index") as typeof import("../../Partner/i18n/tenantPartnershipI18n/index");
+const { resolveTenantLanguageForMessage } = require("../../Partner/tenant/tenantPartnershipPrefixMessages") as typeof import("../../Partner/tenant/tenantPartnershipPrefixMessages");
 
 export = {
   name: "ping",

@@ -27,7 +27,7 @@ const {
 } = require("../../site/http/discordApplicationCommandPermissions") as typeof import("../../site/http/discordApplicationCommandPermissions");
 const { verifyDashboardGuildAccess } = require("./siteDashboardApi") as typeof import("./siteDashboardApi");
 const { listGuildPickerData } = require("./siteDashboardPartnershipApi") as typeof import("./siteDashboardPartnershipApi");
-const { buildPrefixAclFromPermissionsJson } = require("../../Utils/Moderation/commandPermissions") as typeof import("../../Utils/Moderation/commandPermissions");
+const { buildPrefixAclFromPermissionsJson } = require("../../Moderation/utils/commandPermissions") as typeof import("../../Moderation/utils/commandPermissions");
 
 let cachedIds = null;
 function resolveBotApplicationId(client?) {

@@ -1,6 +1,6 @@
 /** Ruoli personalizzati: approvazione delle richieste (staff e proprietario). */
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, PermissionsBitField } = require("discord.js") as typeof import("discord.js");
-const { getClientGuildCached, getUserCached } = require("../../Utils/Interaction/interactionEntityCache") as typeof import("../../Utils/Interaction/interactionEntityCache");
+const { getClientGuildCached, getUserCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
 const { fetchGuildChannel, fetchGuildMember, fetchGuildRole } = require("../../Utils/Interaction/customRoleUtils") as typeof import("../../Utils/Interaction/customRoleUtils");
 const { deletePendingSiteRoleRequest, resolvePendingSiteRoleRequest, deletePendingRoleGrant, resolvePendingRoleGrant, persistPendingNow, ensurePendingLoaded } = require("./customRolePending") as typeof import("./customRolePending");
 const { PRIVATE_FLAG } = require("./customRoleHelpers") as typeof import("./customRoleHelpers");

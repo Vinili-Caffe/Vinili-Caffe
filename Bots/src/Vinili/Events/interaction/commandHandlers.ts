@@ -1,16 +1,16 @@
 const { ButtonBuilder, ActionRowBuilder, ButtonStyle, PermissionFlagsBits, MessageFlags } = require("discord.js") as typeof import("discord.js");
 const { DEFAULT_OBSOLETE_SLASH_NAMES } = require("../../../shared/discord/purgeObsoleteApplicationCommands") as typeof import("../../../shared/discord/purgeObsoleteApplicationCommands");
 const { safeReply: safeReplyHelper } = require("../../../shared/discord/replyRuntime") as typeof import("../../../shared/discord/replyRuntime");
-const{applyDefaultFooterToEmbeds,}=require("../../Utils/Embeds/defaultFooter") as typeof import("../../Utils/Embeds/defaultFooter");
-const { checkSlashPermission, getSlashRequiredRoles, buildGlobalPermissionDeniedEmbed, buildGlobalChannelDeniedEmbed, } = require("../../Utils/Moderation/commandPermissions") as typeof import("../../Utils/Moderation/commandPermissions");
-const { replyInteractionSetupRequired } = require("../../MultiGuild/utils/Partner/tenantSetupRequiredReply") as typeof import("../../MultiGuild/utils/Partner/tenantSetupRequiredReply");
-const { getUserCommandCooldownSeconds, consumeUserCooldown, } = require("../../Utils/Moderation/commandCooldown") as typeof import("../../Utils/Moderation/commandCooldown");
-const { buildCooldownErrorEmbed, buildBusyCommandErrorEmbed, buildInternalCommandErrorEmbed, } = require("../../Utils/Moderation/commandErrorEmbeds") as typeof import("../../Utils/Moderation/commandErrorEmbeds");
+const{applyDefaultFooterToEmbeds,}=require("../../../shared/embeds/defaultFooter") as typeof import("../../../shared/embeds/defaultFooter");
+const { checkSlashPermission, getSlashRequiredRoles, buildGlobalPermissionDeniedEmbed, buildGlobalChannelDeniedEmbed, } = require("../../Moderation/utils/commandPermissions") as typeof import("../../Moderation/utils/commandPermissions");
+const { replyInteractionSetupRequired } = require("../../Partner/tenant/tenantSetupRequiredReply") as typeof import("../../Partner/tenant/tenantSetupRequiredReply");
+const { getUserCommandCooldownSeconds, consumeUserCooldown, } = require("../../Moderation/utils/commandCooldown") as typeof import("../../Moderation/utils/commandCooldown");
+const { buildCooldownErrorEmbed, buildBusyCommandErrorEmbed, buildInternalCommandErrorEmbed, } = require("../../Moderation/utils/commandErrorEmbeds") as typeof import("../../Moderation/utils/commandErrorEmbeds");
 const { buildErrorLogEmbed } = require("../../../shared/discord/errorLogEmbed") as typeof import("../../../shared/discord/errorLogEmbed");
 const { getCentralChannel } = require("../../Utils/Logging/commandUsageLogger") as typeof import("../../Utils/Logging/commandUsageLogger");
 const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
-const { shouldBlockModerationCommands } = require("../../Services/Moderation/antiNukeService") as typeof import("../../Services/Moderation/antiNukeService");
-const { getSecurityLockState } = require("../../Services/Moderation/securityOrchestratorService") as typeof import("../../Services/Moderation/securityOrchestratorService");
+const { shouldBlockModerationCommands } = require("../../Moderation/services/antiNukeService") as typeof import("../../Moderation/services/antiNukeService");
+const { getSecurityLockState } = require("../../Moderation/services/securityOrchestratorService") as typeof import("../../Moderation/services/securityOrchestratorService");
 const {
   registerInteractionShutdownGuard,
   trackInteractionStart,
@@ -131,14 +131,14 @@ async function handleSlashCommand(interaction?, client?) {
     return interaction.reply({ content: "<a:VC_Lock:1482526739044368476> Comandi di moderazione temporaneamente bloccati.", flags: 1 << 6 });
   }
   if (isModerationSlashCommand && interaction.channel && !(expectsModal && isContextMenu)) {
-    const { staffChatCommandsDeniedReplyContent } = require("../../Utils/Staff/staffChatChannelUtils") as typeof import("../../Utils/Staff/staffChatChannelUtils");
+    const { staffChatCommandsDeniedReplyContent } = require("../../Staff/utils/staffChatChannelUtils") as typeof import("../../Staff/utils/staffChatChannelUtils");
     const deniedStaffChat = await staffChatCommandsDeniedReplyContent(interaction.channel).catch(() => null);
     if (deniedStaffChat) {
       return interaction.reply({ content: deniedStaffChat, flags: 1 << 6 });
     }
   }
   if (interaction.channel && !(expectsModal && isContextMenu)) {
-    const { partnershipPublishChannelCommandsDeniedReplyContent } = require("../../Utils/Partner/partnersChatChannelUtils") as typeof import("../../Utils/Partner/partnersChatChannelUtils");
+    const { partnershipPublishChannelCommandsDeniedReplyContent } = require("../../Partner/runtime/partnersChatChannelUtils") as typeof import("../../Partner/runtime/partnersChatChannelUtils");
     const deniedPublishChannel = partnershipPublishChannelCommandsDeniedReplyContent(interaction.channel, {
       commandName: interaction.commandName,
     });
@@ -149,7 +149,7 @@ async function handleSlashCommand(interaction?, client?) {
   const isAdminCommand=String(command?.category||"").toLowerCase()==="admin";
     let forceEphemeralDefer = !isAdminCommand && command?.publicReply !== true;
   if (command?.publicReply === true) {
-    const { userWantsPartnershipCommandPrivacy } = require("../../MultiGuild/utils/Partner/tenantProfileEphemeral") as typeof import("../../MultiGuild/utils/Partner/tenantProfileEphemeral");
+    const { userWantsPartnershipCommandPrivacy } = require("../../Partner/tenant/tenantProfileEphemeral") as typeof import("../../Partner/tenant/tenantProfileEphemeral");
     const wantsPrivate = await userWantsPartnershipCommandPrivacy(
       interaction.guildId || interaction.guild?.id,
       interaction.user?.id,
@@ -171,14 +171,14 @@ async function handleSlashCommand(interaction?, client?) {
       return replyInteractionSetupRequired(interaction);
     }
     if (slashPermission?.reason === "tenant_partnership_only" && slashPermission?.message) {
-      const { buildSimpleNoticePayload } = require("../../Utils/Embeds/simpleNoticeEmbed") as typeof import("../../Utils/Embeds/simpleNoticeEmbed");
+      const { buildSimpleNoticePayload } = require("../../../shared/embeds/simpleNoticeEmbed") as typeof import("../../../shared/embeds/simpleNoticeEmbed");
       return interaction.reply({
         ...buildSimpleNoticePayload(slashPermission.message, interaction.guild, { ephemeral: true }),
         flags: 1 << 6,
       });
     }
     if (slashPermission?.reason === "main_guild_only") {
-      const { buildSimpleNoticePayload } = require("../../Utils/Embeds/simpleNoticeEmbed") as typeof import("../../Utils/Embeds/simpleNoticeEmbed");
+      const { buildSimpleNoticePayload } = require("../../../shared/embeds/simpleNoticeEmbed") as typeof import("../../../shared/embeds/simpleNoticeEmbed");
       return interaction.reply({
         ...buildSimpleNoticePayload(
           slashPermission.message || "<:vegax:1443934876440068179> Comando disponibile solo sul server principale.",
@@ -189,7 +189,7 @@ async function handleSlashCommand(interaction?, client?) {
       });
     }
     if (slashPermission?.message) {
-      const { buildSimpleNoticePayload } = require("../../Utils/Embeds/simpleNoticeEmbed") as typeof import("../../Utils/Embeds/simpleNoticeEmbed");
+      const { buildSimpleNoticePayload } = require("../../../shared/embeds/simpleNoticeEmbed") as typeof import("../../../shared/embeds/simpleNoticeEmbed");
       return interaction.reply({
         ...buildSimpleNoticePayload(slashPermission.message, interaction.guild, { ephemeral: true }),
         flags: 1 << 6,

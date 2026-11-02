@@ -1,6 +1,6 @@
 const { EmbedBuilder, PermissionFlagsBits } = require("discord.js") as typeof import("discord.js");
 const IDs = require("../Config/ids") as typeof import("../Config/ids");
-const { getGuildMemberCached } = require("../Interaction/entityCache") as typeof import("../Interaction/entityCache");
+const { getGuildMemberCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
 const { loadPermissions } = require("./permissionsStore") as typeof import("./permissionsStore");
 const TEST_MAIN_GUILD_ID = IDs?.guilds?.test || null;
 const OFFICIAL_MAIN_GUILD_ID = IDs?.guilds?.main || null;

@@ -1,7 +1,7 @@
 /** Chat del workflow: nome, avatar e ruolo di chi scrive. */
 const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
-const { guildMemberDisplayAvatarUrlStatic, userAvatarUrlStatic, discordDefaultAvatarUrl, accountUsername } = require("../../Utils/Discord/guildDiscordIdentity") as typeof import("../../Utils/Discord/guildDiscordIdentity");
-const { resolveStaffProfileDisplayRoleId } = require("../../Utils/Staff/staffProfilePanelRuntime") as typeof import("../../Utils/Staff/staffProfilePanelRuntime");
+const { guildMemberDisplayAvatarUrlStatic, userAvatarUrlStatic, discordDefaultAvatarUrl, accountUsername } = require("../../../shared/discord/guildDiscordIdentity") as typeof import("../../../shared/discord/guildDiscordIdentity");
+const { resolveStaffProfileDisplayRoleId } = require("../../Staff/utils/staffProfilePanelRuntime") as typeof import("../../Staff/utils/staffProfilePanelRuntime");
 const { stripDiscordDecorations } = require("../staff/siteStaffRosterCache") as typeof import("../staff/siteStaffRosterCache");
 
 async function resolveMainGuild(client?) {

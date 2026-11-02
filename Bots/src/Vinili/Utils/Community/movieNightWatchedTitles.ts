@@ -3,7 +3,7 @@
  * Storico film già proiettati alle serate + match per bloccare nuovi suggerimenti.
  */
 
-const { getBotState, setBotState } = require("../BotState/botStateStore") as typeof import("../BotState/botStateStore");
+const { getBotState, setBotState } = require("../../../shared/botState/botStateStore") as typeof import("../../../shared/botState/botStateStore");
 const {
   extractMovieNightProposalTitle,
   movieNightTitleCompareKey,

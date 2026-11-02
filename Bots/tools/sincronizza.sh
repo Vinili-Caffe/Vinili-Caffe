@@ -9,6 +9,13 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 PROCS="${PROCS:-bots-vinyls bots-coffee site-api bot-workers vote-intake}"
+# Sync completo ancora compila in locale: serve Bots/node_modules (esbuild).
+# Per publish normali usa tools/pubblica.sh (compile sulla VPS, zero node_modules locale).
+if ! node -e "require('esbuild')" >/dev/null 2>&1; then
+  echo "sincronizza: manca esbuild in Bots/node_modules. Per i deploy normali usa bash tools/pubblica.sh (compile remota)." >&2
+  echo "Solo se ti serve sync completo: cd Bots && npm i --omit=dev  (poi rilancia)." >&2
+  exit 1
+fi
 TMP="build/sync"
 rm -rf "$TMP"; mkdir -p "$TMP"
 

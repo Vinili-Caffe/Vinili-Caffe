@@ -53,7 +53,7 @@ sitePmPointsRemovedSchema.index(
   },
 );
 
-const SitePmPointsRemovedEntry: import("mongoose").Model<import("mongoose").InferSchemaType<typeof sitePmPointsRemovedSchema>> =
+const SitePmPointsRemovedEntry: any =
   models.SitePmPointsRemovedEntry ||
   model("SitePmPointsRemovedEntry", sitePmPointsRemovedSchema, "sitepmpointsremoved");
 

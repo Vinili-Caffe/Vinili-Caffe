@@ -1,11 +1,11 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, } = require("discord.js") as typeof import("discord.js");
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
 const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
-const { getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache") as typeof import("../../Utils/Interaction/interactionEntityCache");
-const { MESSAGE_EXP, VOICE_EXP_PER_MINUTE, getLevelInfo } = require("../../Services/Community/expService") as typeof import("../../Services/Community/expService");
+const { getGuildMemberCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
+const { MESSAGE_EXP, VOICE_EXP_PER_MINUTE, getLevelInfo } = require("../../Level/services/expService") as typeof import("../../Level/services/expService");
 const { isChannelInTicketCategory } = require("../../MultiGuild/tickets/discord/ticketCategoryUtils") as typeof import("../../MultiGuild/tickets/discord/ticketCategoryUtils");
 const { memberHasStaffRole } = require("../../Utils/Community/staffListUtils") as typeof import("../../Utils/Community/staffListUtils");
-const { guildIconUrl } = require("../../Utils/Discord/guildDiscordIdentity") as typeof import("../../Utils/Discord/guildDiscordIdentity");
+const { guildIconUrl } = require("../../../shared/discord/guildDiscordIdentity") as typeof import("../../../shared/discord/guildDiscordIdentity");
 const TOP_LIMIT = 10;
 const TIME_ZONE = "Europe/Rome";
 const LEADERBOARD_CACHE_TTL_MS = 30 * 1000;
@@ -356,7 +356,7 @@ async function computeLeaderboardRows(guild?, mode = "alltime", maxCandidates = 
     const expUsers = profileExpUsers.map((d?) => ({ userId: d?.userId, totalExp: d?.profile?.totals?.exp?.totalExp, level: d?.profile?.totals?.exp?.level }));
     const expByUser = new Map(expUsers.map((d?) => [String(d.userId), { totalExp: Number(d.totalExp || 0), level: Number(d.level || 0) }]),);
     for (const row of rows) {
-      const eu = expByUser.get(row.userId);
+      const eu: any = expByUser.get(row.userId);
       if (eu != null) {
         row.level = eu.level > 0 ? eu.level : getLevelInfo(eu.totalExp).level;
       }

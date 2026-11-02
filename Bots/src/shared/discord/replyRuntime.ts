@@ -478,7 +478,7 @@ function prepareMessageEditPayload(payload?, source = null) {
 function maybeCoercePlainNoticeEmbed(payload?, source?) {
   if (payload == null) return payload;
   try {
-    const { coercePlainContentToNoticePayload } = require("../../Vinili/Utils/Embeds/simpleNoticeEmbed") as typeof import("../../Vinili/Utils/Embeds/simpleNoticeEmbed");
+    const { coercePlainContentToNoticePayload } = require("../embeds/simpleNoticeEmbed") as typeof import("../embeds/simpleNoticeEmbed");
     const guild = source?.guild || source?.channel?.guild || null;
     return coercePlainContentToNoticePayload(payload, guild) || payload;
   } catch {

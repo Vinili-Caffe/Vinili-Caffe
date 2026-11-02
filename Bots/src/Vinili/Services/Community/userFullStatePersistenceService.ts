@@ -1,13 +1,13 @@
 "use strict";
 
-const axios = require("axios") as typeof import("axios").default;
+const axios = require("axios") as any;
 const {
   ActivityUserProfile,
   UserFullDiscordStateHistory,
   GlobalSettings,
 } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
-const { isValidGuildUserId } = require("../../Utils/DB/validateWriteIds") as typeof import("../../Utils/DB/validateWriteIds");
-const { getClientGuildCached, getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache") as typeof import("../../Utils/Interaction/interactionEntityCache");
+const { isValidGuildUserId } = require("../../../shared/db/validateWriteIds") as typeof import("../../../shared/db/validateWriteIds");
+const { getClientGuildCached, getGuildMemberCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
 const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
 const {
   isTrackedPersonalityRoleId,
@@ -262,7 +262,7 @@ async function persistUserFullState(guildId?, userId?, options: Record<string, a
     const {
       memberIsInMuteMirrorState,
       hasPendingMuteMirrorSnapshot,
-    } = require("../Moderation/mutedMirrorRoleService") as typeof import("../Moderation/mutedMirrorRoleService");
+    } = require("../../Moderation/services/mutedMirrorRoleService") as typeof import("../../Moderation/services/mutedMirrorRoleService");
     if (memberIsInMuteMirrorState(member) || (await hasPendingMuteMirrorSnapshot(gid, uid).catch(() => false))) {
       skipRoleShrink = true;
       shrinkMute = true;

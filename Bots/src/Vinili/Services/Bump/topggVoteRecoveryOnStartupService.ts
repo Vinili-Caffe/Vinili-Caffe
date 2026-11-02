@@ -1,4 +1,4 @@
-const axios = require("axios") as typeof import("axios").default;
+const axios = require("axios") as any;
 const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
 const { isVoteListingRecordedAtOrAfter } = require("./bumpService") as typeof import("./bumpService");
 const { processDiscadiaVote } = require("../../Utils/Message/officialMessageAutomationHandlers") as typeof import("../../Utils/Message/officialMessageAutomationHandlers");

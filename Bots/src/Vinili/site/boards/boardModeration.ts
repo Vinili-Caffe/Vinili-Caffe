@@ -2,7 +2,7 @@
 const mongoose = require("mongoose") as typeof import("mongoose");
 const { SiteDocument } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
 const { assertWebsiteStaffAccess } = require("../staff/siteStaffAccessApi") as typeof import("../staff/siteStaffAccessApi");
-const { memberIsHighStaffEligible } = require("../../Utils/Staff/staffRoleHierarchy") as typeof import("../../Utils/Staff/staffRoleHierarchy");
+const { memberIsHighStaffEligible } = require("../../Staff/utils/staffRoleHierarchy") as typeof import("../../Staff/utils/staffRoleHierarchy");
 const { sanitizeText } = require("./boardSanitize") as typeof import("./boardSanitize");
 const { BL, emitBoardsChanged, featureGate } = require("./boardReviews") as typeof import("./boardReviews");
 const { refreshListingStats } = require("./boardStats") as typeof import("./boardStats");

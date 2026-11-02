@@ -5,7 +5,7 @@
  */
 "use strict";
 
-const wordle = require("../../Services/Minigames/wordleService") as typeof import("../../Services/Minigames/wordleService");
+const wordle = require("../../Minigames/services/wordleService") as typeof import("../../Minigames/services/wordleService");
 const {
   cleanGame,
   loadDailyGame,

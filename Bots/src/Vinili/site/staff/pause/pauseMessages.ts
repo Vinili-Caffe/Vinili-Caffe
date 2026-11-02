@@ -305,14 +305,14 @@ function getValPosTradedPauseBonusDays(staffDoc?) {
 }
 
 function resolveStafferBonusMonthKey(opts: Record<string, any> = {}) {
-  const { resolveStafferBonusMonthKey: resolve } = require("../../../Utils/Staff/stafferDellaSettimanaWeekKey") as typeof import("../../../Utils/Staff/stafferDellaSettimanaWeekKey");
+  const { resolveStafferBonusMonthKey: resolve } = require("../../../Staff/utils/stafferDellaSettimanaWeekKey") as typeof import("../../../Staff/utils/stafferDellaSettimanaWeekKey");
   return resolve(opts);
 }
 
 function grantEntryMonthKey(grant?) {
   const mk = coerceMonthKey(grant?.monthKey);
   if (mk) return mk;
-  const { monthKeyForStaffWeekKey } = require("../../../Utils/Staff/stafferDellaSettimanaWeekKey") as typeof import("../../../Utils/Staff/stafferDellaSettimanaWeekKey");
+  const { monthKeyForStaffWeekKey } = require("../../../Staff/utils/stafferDellaSettimanaWeekKey") as typeof import("../../../Staff/utils/stafferDellaSettimanaWeekKey");
   return monthKeyForStaffWeekKey(grant?.weekKey) || "";
 }
 
@@ -350,7 +350,7 @@ function computeWeekBonusDaysConsumed(pauses?, monthKey = null) {
     if (!start) continue;
     if (start < yearStart || start > yearEnd) continue;
     if (mk) {
-      const { monthKeyForRomeDateViaIsoWeek } = require("../../../Utils/Staff/stafferDellaSettimanaWeekKey") as typeof import("../../../Utils/Staff/stafferDellaSettimanaWeekKey");
+      const { monthKeyForRomeDateViaIsoWeek } = require("../../../Staff/utils/stafferDellaSettimanaWeekKey") as typeof import("../../../Staff/utils/stafferDellaSettimanaWeekKey");
       if (monthKeyForRomeDateViaIsoWeek(start) !== mk) continue;
     }
     total += n;

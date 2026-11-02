@@ -2,8 +2,8 @@
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require("discord.js") as typeof import("discord.js");
 const { SiteDocument } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
 const crypto = require("crypto") as typeof import("crypto");
-const { getClientGuildCached, getGuildChannelCached, getUserCached } = require("../../Utils/Interaction/interactionEntityCache") as typeof import("../../Utils/Interaction/interactionEntityCache");
-const { userAvatarUrlDynamic } = require("../../Utils/Discord/guildDiscordIdentity") as typeof import("../../Utils/Discord/guildDiscordIdentity");
+const { getClientGuildCached, getGuildChannelCached, getUserCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
+const { userAvatarUrlDynamic } = require("../../../shared/discord/guildDiscordIdentity") as typeof import("../../../shared/discord/guildDiscordIdentity");
 const { fetchGuildChannel, fetchGuildMember, fetchGuildRole } = require("../../Utils/Interaction/customRoleUtils") as typeof import("../../Utils/Interaction/customRoleUtils");
 const { pendingRoleGrants, pendingSiteRoleRequests, PENDING_SITE_ROLE_DOC, persistPendingSiteRoleRequest, deletePendingSiteRoleRequest, resolvePendingSiteRoleRequest, persistPendingRoleGrant, deletePendingRoleGrant, resolvePendingRoleGrant, persistPendingNow, ensurePendingLoaded } = require("./customRolePending") as typeof import("./customRolePending");
 

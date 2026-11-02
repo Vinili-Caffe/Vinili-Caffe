@@ -1,7 +1,7 @@
 /** Serata film: permessi dello stage e stato di chiusura. */
 const { OverwriteType } = require("discord.js") as typeof import("discord.js");
 const { MOVIE_NIGHT_EVENT_CHANNEL_ID } = require("./movieNightEvents") as typeof import("./movieNightEvents");
-const { getGuildChannelCached } = require("../../Utils/Interaction/interactionEntityCache") as typeof import("../../Utils/Interaction/interactionEntityCache");
+const { getGuildChannelCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
 const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
 
 async function openMovieNightStagePermissions(guild?) {

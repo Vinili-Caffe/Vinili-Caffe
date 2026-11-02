@@ -12,7 +12,7 @@ const {
   editTicketRoleOverwrite,
 } = require("./ticketHighStaffOverwrites") as typeof import("./ticketHighStaffOverwrites");
 const { GuildFeatureBucket } = require("../../../Schemas/Guild/guildFeatureBucketSchema") as typeof import("../../../Schemas/Guild/guildFeatureBucketSchema");
-const { getGuildChannelCached } = require("../../../Utils/Interaction/interactionEntityCache") as typeof import("../../../Utils/Interaction/interactionEntityCache");
+const { getGuildChannelCached } = require("../../../../shared/discord/interactionEntityCache") as typeof import("../../../../shared/discord/interactionEntityCache");
 const { buildTicketControlButtons, resolveTicketPanel } = require("./ticketGuildOptions") as typeof import("./ticketGuildOptions");
 const TICKET_ROLE_UNCLAIMED_SPECTATE = TICKET_STAFF_SPECTATE_OVERWRITES;
 

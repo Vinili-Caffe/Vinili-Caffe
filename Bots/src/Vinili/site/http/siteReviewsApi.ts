@@ -7,14 +7,14 @@ const RV = SITE_DOCUMENT_TYPE.REVIEW;
 const { enqueueSiteInAppNotification } = require("../notifications/siteInAppNotificationsService") as typeof import("../notifications/siteInAppNotificationsService");
 const { broadcastSiteReviewsChanged } = require("../suggestions/siteSuggestionsBroadcast") as typeof import("../suggestions/siteSuggestionsBroadcast");
 const { resolveWebsiteGuildMember } = require("./siteRoleRequestApi") as typeof import("./siteRoleRequestApi");
-const { getLevelInfo, getTotalExpForLevel, addExpWithLevel } = require("../../Services/Community/expService") as typeof import("../../Services/Community/expService");
-const { syncPersistentAutoValutazioniForMember, removeAutoValutazione } = require("../../Services/Staff/staffAutoValutazioniService") as typeof import("../../Services/Staff/staffAutoValutazioniService");
+const { getLevelInfo, getTotalExpForLevel, addExpWithLevel } = require("../../Level/services/expService") as typeof import("../../Level/services/expService");
+const { syncPersistentAutoValutazioniForMember, removeAutoValutazione } = require("../../Staff/services/staffAutoValutazioniService") as typeof import("../../Staff/services/staffAutoValutazioniService");
 const {
   userAvatarUrlDynamic,
   guildMemberDisplayAvatarUrlDynamic,
   guildMemberDisplayAvatarUrlStatic,
   memberDisplayName,
-} = require("../../Utils/Discord/guildDiscordIdentity") as typeof import("../../Utils/Discord/guildDiscordIdentity");
+} = require("../../../shared/discord/guildDiscordIdentity") as typeof import("../../../shared/discord/guildDiscordIdentity");
 const {
   applyLiveAvatarToSuggestionLike,
   resolveSiteAvatarUrl,

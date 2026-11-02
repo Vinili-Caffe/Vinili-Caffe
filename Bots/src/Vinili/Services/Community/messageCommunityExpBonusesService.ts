@@ -1,7 +1,7 @@
 const mongoose = require("mongoose") as typeof import("mongoose");
 const { SiteDocument, SITE_DOCUMENT_TYPE } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
-const { isValidGuildUserId } = require("../../Utils/DB/validateWriteIds") as typeof import("../../Utils/DB/validateWriteIds");
-const { addExpWithLevel, shouldIgnoreExpForMember, isLevelExpGuild } = require("./expService") as typeof import("./expService");
+const { isValidGuildUserId } = require("../../../shared/db/validateWriteIds") as typeof import("../../../shared/db/validateWriteIds");
+const { addExpWithLevel, shouldIgnoreExpForMember, isLevelExpGuild } = require("../../Level/services/expService") as typeof import("../../Level/services/expService");
 const { isExcludedActivityChannel } = require("./activityService") as typeof import("./activityService");
 const { isViniliFullFeatureGuild } = require("../../MultiGuild/core/guildFeatureScope") as typeof import("../../MultiGuild/core/guildFeatureScope");
 const {
@@ -13,7 +13,7 @@ const {
   normalizeWelcomeJoinTargetUserId,
   isValidWelcomeJoinTargetUserId,
 } = require("../../Utils/Message/officialMessageCommunityHandlers") as typeof import("../../Utils/Message/officialMessageCommunityHandlers");
-const { scheduleMessageDeletion } = require("../../Utils/Config/ephemeralMessageTtl") as typeof import("../../Utils/Config/ephemeralMessageTtl");
+const { scheduleMessageDeletion } = require("../../../shared/utils/ephemeralMessageTtl") as typeof import("../../../shared/utils/ephemeralMessageTtl");
 const TIME_ZONE = "Europe/Rome";
 const FIRST_MESSAGE_DAILY_EXP = 150;
 const WELCOME_GREETING_EXP = 30;

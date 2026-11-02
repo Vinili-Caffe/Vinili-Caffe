@@ -6,7 +6,7 @@ const {
   applyBrandingBannerImage,
   createStandardGifAttachment,
 } = require("../utils/tenantEmbedBranding") as typeof import("../utils/tenantEmbedBranding");
-const { applyDefaultFooter } = require("../../Utils/Embeds/defaultFooter") as typeof import("../../Utils/Embeds/defaultFooter");
+const { applyDefaultFooter } = require("../../../shared/embeds/defaultFooter") as typeof import("../../../shared/embeds/defaultFooter");
 
 const AUDIT_DELAY_MS = 2000;
 const AUDIT_MAX_AGE_MS = 30_000;

@@ -284,7 +284,7 @@ async function handleSiteWebTicketsMentionsGet(client?, req?, res?) {
         /* ticketAddUserSearch1: snowflake ID → fetch diretto (members.search non trova gli ID) */
         if (/^\d{16,22}$/.test(q)) {
           try {
-            const { getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache") as typeof import("../../Utils/Interaction/interactionEntityCache");
+            const { getGuildMemberCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
             const byId =
               (await getGuildMemberCached(guild, q).catch(() => null)) ||
               guild.members?.cache?.get?.(q) ||
@@ -324,7 +324,7 @@ async function handleSiteWebTicketsMentionsGet(client?, req?, res?) {
     let roles = [];
   if (actingAsStaff && mentionScope?.allowedRoleIds?.size) {
     try {
-      const { listGuildPickerData } = require("../../MultiGuild/dashboard/siteDashboardPartnershipApi") as typeof import("../../MultiGuild/dashboard/siteDashboardPartnershipApi");
+      const { listGuildPickerData } = require("../../Partner/dashboard/siteDashboardPartnershipApi") as typeof import("../../Partner/dashboard/siteDashboardPartnershipApi");
       const pickers = await listGuildPickerData(client, guildId, { force: false });
       roles = (Array.isArray(pickers?.roles) ? pickers.roles : [])
         .filter((r?) => r && String(r.id) !== String(guildId))
@@ -365,7 +365,7 @@ async function handleSiteWebTicketsMentionsGet(client?, req?, res?) {
       (await client?.guilds?.fetch?.(guildId).catch?.(() => null)) ||
       null;
     if (guild) {
-      const { getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache") as typeof import("../../Utils/Interaction/interactionEntityCache");
+      const { getGuildMemberCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
       const filtered = [];
       for (const row of users) {
         if (filtered.length >= 20) break;

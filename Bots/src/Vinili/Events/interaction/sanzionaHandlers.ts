@@ -1,4 +1,4 @@
-const { parseDuration } = require("../../Utils/Moderation/moderation") as typeof import("../../Utils/Moderation/moderation");
+const { parseDuration } = require("../../Moderation/utils/moderation") as typeof import("../../Moderation/utils/moderation");
 const {
   normalizeRuleDot,
   countPreviousRuleCases,
@@ -6,8 +6,8 @@ const {
   buildDefaultReason,
   buildDynoArgs,
   KNOWN_RULE_DOTS,
-} = require("../../Utils/Moderation/staffRegolamentoSteps") as typeof import("../../Utils/Moderation/staffRegolamentoSteps");
-const { runDynoFromInteraction, replyEphemeral } = require("../../Utils/Moderation/moderationInteractionBridge") as typeof import("../../Utils/Moderation/moderationInteractionBridge");
+} = require("../../Moderation/utils/staffRegolamentoSteps") as typeof import("../../Moderation/utils/staffRegolamentoSteps");
+const { runDynoFromInteraction, replyEphemeral } = require("../../Moderation/utils/moderationInteractionBridge") as typeof import("../../Moderation/utils/moderationInteractionBridge");
 
 const IN_RULE = "sanziona_regola";
 const IN_REASON = "sanziona_motivo";

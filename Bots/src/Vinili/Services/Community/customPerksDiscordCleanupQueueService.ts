@@ -3,8 +3,8 @@ const {
   UserLeaveBackup,
   CustomRole,
 } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
-const { isValidGuildUserId } = require("../../Utils/DB/validateWriteIds") as typeof import("../../Utils/DB/validateWriteIds");
-const { getClientGuildCached } = require("../../Utils/Interaction/interactionEntityCache") as typeof import("../../Utils/Interaction/interactionEntityCache");
+const { isValidGuildUserId } = require("../../../shared/db/validateWriteIds") as typeof import("../../../shared/db/validateWriteIds");
+const { getClientGuildCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
 const { deleteDiscordCustomPerkArtifacts } = require("./customRoleExpiryService") as typeof import("./customRoleExpiryService");
 const { resolveNextLeaveBackupExpiryClock } = require("./userLeaveBackupService") as typeof import("./userLeaveBackupService");
 

@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Pubblica sulla VPS (/opt/bot/bots-ts/src). Si scrive sempre in TypeScript: qui ogni .ts viene compilato
-# in .js (tools/compila.mjs) e sulla VPS il .js prende il posto del .ts (niente tsx a runtime).
+# Pubblica sulla VPS (/opt/bot/bots-ts/src). I .ts si caricano e si compilano SULLA VPS (esbuild lì):
+# in locale non serve Bots/node_modules. Sulla VPS il .js prende il posto del .ts (niente tsx a runtime).
 # Gli altri file (json, immagini…) si caricano così come sono.
 # Uso (da Git Bash, dalla cartella Bots):
 #   bash tools/pubblica.sh "Vinili/Utils/noDmPanel.ts Vinili/Triggers/buttons.ts" "bots-vinyls"
 #   bash tools/pubblica.sh "Vinili/Utils/Web/siteStaffCompitiApi.ts" "site-api bot-workers"
-#   PROVA=1 bash tools/pubblica.sh "…" "…"   → compila e controlla, niente sulla VPS
+#   PROVA=1 bash tools/pubblica.sh "…" "…"   → compile remota + check, niente install/restart
 # Percorsi relativi a src/. Backup in /root/vc_bot_bak_<data>. Processi: bots-vinyls, bots-coffee,
 # site-api, bot-workers (vote-drain/scheduler/poll/partnership), vote-intake (Top.gg/Discadia), auto-backup.
 set -euo pipefail
@@ -13,8 +13,11 @@ FILES="${1:?file da pubblicare (relativi a src/, es. Vinili/Utils/x.ts)}"
 PROCS="${2:?processi da riavviare (es. bots-vinyls, bots-coffee, site-api, bot-workers)}"
 cd "$(dirname "$0")/.."
 
+BOTS_TS_REMOTE="/opt/bot/bots-ts"
+tmp_name() { echo "$1" | tr '/' '_'; }
+
 TS_LIST=""
-UP_LIST=""
+OTHER_LIST=""
 for f in $FILES; do
   f="${f#./}"
   f="${f#src/}"
@@ -22,50 +25,103 @@ for f in $FILES; do
   if [[ "$f" == *.ts && "$f" != *.d.ts ]]; then
     [[ "$f" == "Vinili/Utils/Config/idsCatalog.ts" ]] && { echo "idsCatalog.js lo rigenera il bot sulla VPS: non si sovrascrive" >&2; exit 1; }
     TS_LIST="$TS_LIST $f"
-    UP_LIST="$UP_LIST ${f%.ts}.js"
   else
-    UP_LIST="$UP_LIST $f"
+    OTHER_LIST="$OTHER_LIST $f"
   fi
 done
 
-if [ -n "$TS_LIST" ]; then
-  # shellcheck disable=SC2086
-  node tools/compila.mjs $TS_LIST
-  for f in $TS_LIST; do node --check "build/js/${f%.ts}.js"; done
-fi
-
-if [ -n "${PROVA:-}" ]; then
-  for f in $UP_LIST; do echo "ok (prova): $f"; done
-  echo "prova finita: niente caricato sulla VPS"
-  exit 0
-fi
-
-ssh vinili '[ ! -f /opt/bot/bots-ts/src/wait-for-lavalink.ts ]' || {
+ssh vinili "[ ! -f $BOTS_TS_REMOTE/src/wait-for-lavalink.ts ]" || {
   echo "la VPS gira ancora con tsx sui .ts: lancia prima una volta bash tools/passa-a-js.sh" >&2
   exit 1
 }
 
-for f in $UP_LIST; do
-  if [[ "$f" == *.js && -f "build/js/$f" && -f "src/${f%.js}.ts" ]]; then src="build/js/$f"; else src="src/$f"; fi
-  scp -q "$src" "vinili:/tmp/vcbot_$(echo "$f" | tr '/' '_')"
+# Tooling compile sulla VPS (idempotente)
+scp -q tools/compila.mjs "vinili:$BOTS_TS_REMOTE/tools/compila.mjs"
+scp -q tsconfig.json "vinili:$BOTS_TS_REMOTE/tsconfig.json"
+scp -q package.json "vinili:$BOTS_TS_REMOTE/package.json"
+
+for f in $TS_LIST; do
+  scp -q "src/$f" "vinili:/tmp/vcbot_$(tmp_name "$f")"
+done
+for f in $OTHER_LIST; do
+  scp -q "src/$f" "vinili:/tmp/vcbot_$(tmp_name "$f")"
 done
 
-echo "carico su /opt/bot/bots-ts/src e riavvio: $PROCS"
-ssh vinili "FILES='$UP_LIST' PROCS='$PROCS' bash -s" <<'REMOTE'
+if [ -n "${PROVA:-}" ]; then
+  ssh vinili "TS_LIST='$TS_LIST' OTHER_LIST='$OTHER_LIST' BOTS_TS='$BOTS_TS_REMOTE' bash -s" <<'REMOTE'
 set -euo pipefail
+tmp_name() { echo "$1" | tr '/' '_'; }
+STAGE=$(mktemp -d /tmp/vc_pubblica_prova.XXXXXX)
+cleanup() { rm -rf "$STAGE"; }
+trap cleanup EXIT
+mkdir -p "$STAGE/src"
+cp -a "$BOTS_TS/tsconfig.json" "$STAGE/tsconfig.json" 2>/dev/null || true
+for f in $TS_LIST; do
+  mkdir -p "$STAGE/src/$(dirname "$f")"
+  cp -a "/tmp/vcbot_$(tmp_name "$f")" "$STAGE/src/$f"
+done
+if [ -n "${TS_LIST// /}" ]; then
+  # shellcheck disable=SC2086
+  COMPILA_ROOT="$STAGE" node "$BOTS_TS/tools/compila.mjs" $TS_LIST
+  for f in $TS_LIST; do
+    js="${f%.ts}.js"
+    node --check "$STAGE/build/js/$js"
+    echo "ok (prova): $js"
+  done
+fi
+for f in $OTHER_LIST; do
+  echo "ok (prova): $f"
+done
+echo "prova finita: niente installato sulla VPS"
+for f in $TS_LIST $OTHER_LIST; do
+  rm -f "/tmp/vcbot_$(tmp_name "$f")"
+done
+REMOTE
+  exit 0
+fi
+
+echo "carico su $BOTS_TS_REMOTE/src e riavvio: $PROCS"
+ssh vinili "TS_LIST='$TS_LIST' OTHER_LIST='$OTHER_LIST' PROCS='$PROCS' BOTS_TS='$BOTS_TS_REMOTE' bash -s" <<'REMOTE'
+set -euo pipefail
+tmp_name() { echo "$1" | tr '/' '_'; }
 B=/root/vc_bot_bak_$(date +%Y%m%d-%H%M%S)
 mkdir -p "$B"
-for f in $FILES; do
-  tmp="/tmp/vcbot_$(echo "$f" | tr '/' '_')"
-  dest="/opt/bot/bots-ts/src/$f"
+
+if [ -n "${TS_LIST// /}" ]; then
+  STAGE=$(mktemp -d /tmp/vc_pubblica_stage.XXXXXX)
+  mkdir -p "$STAGE/src"
+  cp -a "$BOTS_TS/tsconfig.json" "$STAGE/tsconfig.json" 2>/dev/null || true
+  for f in $TS_LIST; do
+    mkdir -p "$STAGE/src/$(dirname "$f")"
+    cp -a "/tmp/vcbot_$(tmp_name "$f")" "$STAGE/src/$f"
+  done
+  # shellcheck disable=SC2086
+  COMPILA_ROOT="$STAGE" node "$BOTS_TS/tools/compila.mjs" $TS_LIST
+  for f in $TS_LIST; do
+    js="${f%.ts}.js"
+    node --check "$STAGE/build/js/$js"
+    dest="$BOTS_TS/src/$js"
+    mkdir -p "$B/$(dirname "$js")" "$(dirname "$dest")"
+    [ -f "$dest" ] && cp -a "$dest" "$B/$js"
+    ts="$BOTS_TS/src/$f"
+    if [ -f "$ts" ]; then cp -a "$ts" "$B/$f"; rm -f "$ts"; fi
+    install -m 644 "$STAGE/build/js/$js" "$dest"
+    rm -f "/tmp/vcbot_$(tmp_name "$f")"
+    echo "pubblicato: $js"
+  done
+  rm -rf "$STAGE"
+fi
+
+for f in $OTHER_LIST; do
+  tmp="/tmp/vcbot_$(tmp_name "$f")"
+  dest="$BOTS_TS/src/$f"
   mkdir -p "$B/$(dirname "$f")" "$(dirname "$dest")"
   [ -f "$dest" ] && cp -a "$dest" "$B/$f"
-  # il .ts al posto del quale arriva il .js: nel backup e via (due file uguali verrebbero caricati due volte)
-  ts="${dest%.js}.ts"
-  if [[ "$f" == *.js && -f "$ts" ]]; then cp -a "$ts" "$B/${f%.js}.ts"; rm -f "$ts"; fi
   install -m 644 "$tmp" "$dest"
   rm -f "$tmp"
+  echo "pubblicato: $f"
 done
+
 for p in $PROCS; do pm2 restart "$p" >/dev/null 2>&1 || echo "ATTENZIONE: pm2 non trova $p (non riavviato)"; done
 sleep 12
 pm2 ls | grep -E " ($(echo $PROCS | tr ' ' '|')) " || pm2 ls

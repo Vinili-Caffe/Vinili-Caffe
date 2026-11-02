@@ -1,5 +1,5 @@
 /** Serata film: date, settimane e calendario fisso (ora di Roma). */
-const { getBotState, setBotState } = require("../../Utils/BotState/botStateStore") as typeof import("../../Utils/BotState/botStateStore");
+const { getBotState, setBotState } = require("../../../shared/botState/botStateStore") as typeof import("../../../shared/botState/botStateStore");
 
 const TIME_ZONE = "Europe/Rome";
 const FINAL_ANNOUNCE_FRIDAY_WEEKDAY = 5;

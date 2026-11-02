@@ -1,6 +1,6 @@
 const { AuditLogEvent, EmbedBuilder } = require("discord.js") as typeof import("discord.js");
 const { buildAuditExtraLines } = require("../Utils/Logging/channelRolesLogUtils") as typeof import("../Utils/Logging/channelRolesLogUtils");
-const { handleVanityGuard: antiNukeHandleVanityGuard } = require("../Services/Moderation/antiNukeService") as typeof import("../Services/Moderation/antiNukeService");
+const { handleVanityGuard: antiNukeHandleVanityGuard } = require("../Moderation/services/antiNukeService") as typeof import("../Moderation/services/antiNukeService");
 const { resolveModLogChannel, fetchRecentAuditEntry, formatResponsible, nowDiscordTs, } = require("../Utils/Logging/modAuditLogUtils") as typeof import("../Utils/Logging/modAuditLogUtils");
 const { isViniliFullFeatureGuild } = require("../MultiGuild/core/guildFeatureScope") as typeof import("../MultiGuild/core/guildFeatureScope");
 

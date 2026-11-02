@@ -100,7 +100,7 @@ const WEB_TICKET_COMMAND_PRIORITY = [
 
 function listPrefixCommandsForStaff(client?, member?, userId?, ticketCategory?) {
   const prefix = String(client?.config?.prefix || IDs.prefix || "+").trim() || "+";
-  const { isPrefixCommandAllowedInWebTicket } = require("../../Utils/Moderation/commandPermissions") as typeof import("../../Utils/Moderation/commandPermissions");
+  const { isPrefixCommandAllowedInWebTicket } = require("../../Moderation/utils/commandPermissions") as typeof import("../../Moderation/utils/commandPermissions");
   const guildId = resolveGuildId(client);
   const seen = new Set();
   const commands = [];
@@ -242,7 +242,7 @@ function loadSlashCommandsFromDisk() {
 }
 
 function listSlashCommandsForStaff(client?, member?, userId?, ticketCategory?) {
-  const { isSlashCommandAllowedInWebTicket } = require("../../Utils/Moderation/commandPermissions") as typeof import("../../Utils/Moderation/commandPermissions");
+  const { isSlashCommandAllowedInWebTicket } = require("../../Moderation/utils/commandPermissions") as typeof import("../../Moderation/utils/commandPermissions");
   const guildId = resolveGuildId(client);
   const seen = new Set();
   const commands = [];

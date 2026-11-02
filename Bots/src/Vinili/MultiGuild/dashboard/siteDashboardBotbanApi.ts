@@ -1,5 +1,5 @@
 const { Routes } = require("discord.js") as typeof import("discord.js");
-const axios = require("axios") as typeof import("axios").default;
+const axios = require("axios") as any;
 const { assertDashboardHighStaffAccess } = require("./siteDashboardApi") as typeof import("./siteDashboardApi");
 const {
   normalizeSnowflake,
@@ -10,7 +10,7 @@ const {
   patchGuildBotUsageBlacklistMeta,
   removeGuildBotUsageBlacklist,
   leaveGuildIfPresent,
-} = require("../../Services/Moderation/botUsageBlacklistService") as typeof import("../../Services/Moderation/botUsageBlacklistService");
+} = require("../../Moderation/services/botUsageBlacklistService") as typeof import("../../Moderation/services/botUsageBlacklistService");
 const { isViniliProtectedGuild, normalizeGuildId } = require("../../MultiGuild/core/viniliProtectedGuilds") as typeof import("../../MultiGuild/core/viniliProtectedGuilds");
 
 function fail(status?, error?, message?) {
@@ -225,7 +225,7 @@ async function enrichBotbanEntry(client?, row?, caches: Record<string, any> = {}
           extractInviteCode,
           fetchInviteGuildMeta,
           findStoredPartnerMetaForGuildId,
-        } = require("../../Utils/Partner/partnershipBlacklistDisplay") as typeof import("../../Utils/Partner/partnershipBlacklistDisplay");
+        } = require("../../Partner/runtime/partnershipBlacklistDisplay") as typeof import("../../Partner/runtime/partnershipBlacklistDisplay");
 
         let partner = partnerMetaCache.get(base.id);
         if (partner === undefined) {
@@ -383,7 +383,7 @@ async function addDashboardBotban(client?, accessToken?, body: Record<string, an
     } catch (_) {}
     if (!guildName) {
       try {
-        const { findStoredPartnerMetaForGuildId } = require("../../Utils/Partner/partnershipBlacklistDisplay") as typeof import("../../Utils/Partner/partnershipBlacklistDisplay");
+        const { findStoredPartnerMetaForGuildId } = require("../../Partner/runtime/partnershipBlacklistDisplay") as typeof import("../../Partner/runtime/partnershipBlacklistDisplay");
         const partner = await findStoredPartnerMetaForGuildId(id).catch(() => null);
         if (partner?.guildName && isUsableGuildDisplayName(partner.guildName)) {
           guildName = partner.guildName;

@@ -1,6 +1,6 @@
 const { safeEditReply } = require("../../../shared/discord/replyRuntime") as typeof import("../../../shared/discord/replyRuntime");
 const { SlashCommandBuilder } = require("discord.js") as typeof import("discord.js");
-const { getGuildChannelCached } = require("../../Utils/Interaction/entityCache") as typeof import("../../Utils/Interaction/entityCache");
+const { getGuildChannelCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
 const EPHEMERAL_FLAG = 1 << 6;
 const MESSAGE_LINK_REGEX = /https?:\/\/(?:ptb\.|canary\.)?discord(?:app)?\.com\/channels\/(\d+)\/(\d+)\/(\d+)/;
 

@@ -4,8 +4,8 @@ const { EVENTS_ROLE_ID, SERATA_FILM_ROLE_ID, buildDiscordEventUrl, buildFinalMov
 const { isFallbackMovieDescription, fetchItalianMovieDescription } = require("./movieNightDescriptions") as typeof import("./movieNightDescriptions");
 const { hydrateMovieNightStateForWeek, resolveFinalMovieTitle } = require("./movieNightVotes") as typeof import("./movieNightVotes");
 const { STATE_KEY, STAFF_COMMUNICATION_CHANNEL_ID, isStageCloseMessageForWeekKey, fetchStaffCommunicationChannel, isMovieNightFinalPublicAnnouncePresent, movieNightStaffCommunicationStatePatch, fetchFinalAnnouncementMessage, resolveMovieNightStaffCommunicationStatus } = require("./movieNightStatus") as typeof import("./movieNightStatus");
-const { getBotState, setBotState } = require("../../Utils/BotState/botStateStore") as typeof import("../../Utils/BotState/botStateStore");
-const { isMongoReady } = require("../../Utils/Database/mongoConnect") as typeof import("../../Utils/Database/mongoConnect");
+const { getBotState, setBotState } = require("../../../shared/botState/botStateStore") as typeof import("../../../shared/botState/botStateStore");
+const { isMongoReady } = require("../../../shared/db/mongoConnect") as typeof import("../../../shared/db/mongoConnect");
 const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
 
 let movieNightFinalRepairRunning = false;

@@ -2,7 +2,7 @@ const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js") a
 const { personalityPanelFindOneAndUpdate, personalityPanelUpdateOne } = require("../Utils/Global/globalSettingsGuildStores") as typeof import("../Utils/Global/globalSettingsGuildStores");
 const IDs = require("../Utils/Config/ids") as typeof import("../Utils/Config/ids");
 const INFO_CHANNEL_ID = IDs.channels.info;
-const { getClientChannelCached } = require("../Utils/Interaction/interactionEntityCache") as typeof import("../Utils/Interaction/interactionEntityCache");
+const { getClientChannelCached } = require("../../shared/discord/interactionEntityCache") as typeof import("../../shared/discord/interactionEntityCache");
 const { upsertPanelMessage } = require("../../shared/discord/panelUpsertRuntime") as typeof import("../../shared/discord/panelUpsertRuntime");
 const { siteTicketsPageDiscordRef, siteUserProfilePageDiscordRef } = require("../../shared/web/siteTicketsPageRef") as typeof import("../../shared/web/siteTicketsPageRef");
 const { buildVcPagePayload } = require("../Utils/Embeds/vcPageEmbedV2") as typeof import("../Utils/Embeds/vcPageEmbedV2");
@@ -23,15 +23,12 @@ async function run(client?) {
     return;
   }
   const infoIntroText = [
-    "<a:VC_HeartsBlue:1468686100045369404> Benvenuto/a su **Vinili & Caffè**, l'unico server in Italia non tossico e __incentrato sulla socializzazione__.",
+    "<a:VC_HeartsBlue:1468686100045369404> Benvenut* su **Vinili & Caffè**, l'unico server in Italia non tossico e __incentrato sulla socializzazione__.",
     "",
     "<a:VC_HeartBlue:1448673354751021190> **Personalizza il tuo profilo:**",
-    `<:VC_Reply:1482532158080942191> Dal ${siteUserProfilePageDiscordRef()} potrai selezionare i ruoli e il colore da aggiungere al tuo profilo per completarlo: come età, menzioni, passioni e molto altro!`,
+    `<:VC_Reply:1482532158080942191> Dalla pagina [PERSONALIZZA](https://viniliecaffe.it/personalizza) potrai selezionare i ruoli e il colore da aggiungere al tuo profilo per completarlo: come età, menzioni, passioni e molto altro!`,
     "",
     `Dubbi o problemi? Apri un ${siteTicketsPageDiscordRef("SUPPORTO")}: lo staff vi risponderà il prima possibile!`,
-  ].join("\n");
-  const infoGuildTagsText = [
-    "<:VC_Reply:1482532158080942191> Metti la tag **V&C** sul tuo profilo Discord e ricevi il ruolo **Guilded**: immagini e link in chat e nickname personalizzato!",
   ].join("\n");
   const infoLinksText = [
     "<:VC_Instagram:1482526710426767360> [Seguici su Instagram](https://www.instagram.com/viniliecaffe/)",
@@ -58,14 +55,14 @@ async function run(client?) {
       .setLabel("︲SPONSOR")
       .setEmoji("<:pinnednew:1443670849990430750>")
       .setStyle(ButtonStyle.Link)
-      .setURL("https://viniliecaffe.it/sponsor"),
-    new ButtonBuilder()
-      .setLabel("︲PERKS")
-      .setEmoji("<:VC_PurpleFlower:1469463879149944943>")
-      .setStyle(ButtonStyle.Link)
-      .setURL("https://viniliecaffe.it/perks"),
+      .setURL("https://viniliecaffe.it/sponsor")
   );
   const row2 = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+    .setLabel("︲PERKS")
+    .setEmoji("<:VC_PurpleFlower:1469463879149944943>")
+    .setStyle(ButtonStyle.Link)
+    .setURL("https://viniliecaffe.it/perks"),
     new ButtonBuilder()
       .setLabel("︲CANDIDATURE")
       .setEmoji("<:VC_Collab:1482534540089098260>")
@@ -75,7 +72,7 @@ async function run(client?) {
       .setLabel("︲TICKETS")
       .setEmoji("<:VC_Ticket:1482535175283019888>")
       .setStyle(ButtonStyle.Link)
-      .setURL("https://viniliecaffe.it/tickets"),
+      .setURL("https://viniliecaffe.it/tickets")
   );
 
   const guildId = channel.guild?.id;

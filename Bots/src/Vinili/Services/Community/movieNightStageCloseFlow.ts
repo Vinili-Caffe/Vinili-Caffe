@@ -1,4 +1,4 @@
-const BotState = require("../../Schemas/BotState/botStateSchema") as typeof import("../../Schemas/BotState/botStateSchema");
+const BotState = require("../../Schemas/BotState/botStateSchema") as any;
 const { getRomeWeekKey, shouldAttemptMovieNightStageCloseRecovery, getHarryPotterMovieNightScheduleForWeek, getFixedMovieTitleForWeek, resolveExtraMovieNightDateKey } = require("./movieNightSchedule") as typeof import("./movieNightSchedule");
 const { MOVIE_NIGHT_EVENT_CHANNEL_ID } = require("./movieNightEvents") as typeof import("./movieNightEvents");
 const { SERATA_FILM_ROLE_ID, buildMovieNightEndAnnouncementMessage } = require("./movieNightMessages") as typeof import("./movieNightMessages");
@@ -13,12 +13,12 @@ const {
 } = require("./movieNightReviewThread") as typeof import("./movieNightReviewThread");
 const { closeMovieNightStagePermissions, isSerataFilmStageLive } = require("./movieNightStage") as typeof import("./movieNightStage");
 const { COMPACT_BOTSTATE_KEY } = BotState;
-const { getBotState, setBotState } = require("../../Utils/BotState/botStateStore") as typeof import("../../Utils/BotState/botStateStore");
-const { isMongoReady } = require("../../Utils/Database/mongoConnect") as typeof import("../../Utils/Database/mongoConnect");
-const { getClientGuildCached } = require("../../Utils/Interaction/interactionEntityCache") as typeof import("../../Utils/Interaction/interactionEntityCache");
+const { getBotState, setBotState } = require("../../../shared/botState/botStateStore") as typeof import("../../../shared/botState/botStateStore");
+const { isMongoReady } = require("../../../shared/db/mongoConnect") as typeof import("../../../shared/db/mongoConnect");
+const { getClientGuildCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
 const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
 const { snapshotSerataFilmAttendance, clearSerataFilmAttendanceSession } = require("./serataFilmAttendance") as typeof import("./serataFilmAttendance");
-const { finishSerataFilmSessionsForChannel } = require("../Staff/staffAutoValutazioniService") as typeof import("../Staff/staffAutoValutazioniService");
+const { finishSerataFilmSessionsForChannel } = require("../../Staff/services/staffAutoValutazioniService") as typeof import("../../Staff/services/staffAutoValutazioniService");
 
 let movieNightStageCloseRecoveryRunning = false;
 const movieNightStageCloseLocksByWeek = new Map();

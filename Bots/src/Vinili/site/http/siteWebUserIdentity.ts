@@ -1,9 +1,9 @@
-const { getGuildMemberCached, getUserCached } = require("../../Utils/Interaction/interactionEntityCache") as typeof import("../../Utils/Interaction/interactionEntityCache");
+const { getGuildMemberCached, getUserCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
 const {
   accountUsername,
   userAvatarUrlDynamic,
   sitePreferredAvatarUrl,
-} = require("../../Utils/Discord/guildDiscordIdentity") as typeof import("../../Utils/Discord/guildDiscordIdentity");
+} = require("../../../shared/discord/guildDiscordIdentity") as typeof import("../../../shared/discord/guildDiscordIdentity");
 const { identityFromMember } = require("../staff/siteStaffRosterCache") as typeof import("../staff/siteStaffRosterCache");
 
 const DEFAULT_BATCH = 5;

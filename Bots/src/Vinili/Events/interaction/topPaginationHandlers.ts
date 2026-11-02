@@ -1,4 +1,4 @@
-const { TOP_CHANNEL_PAGE_MODAL_CUSTOM_ID_PREFIX, TOP_CHANNEL_PAGE_MODAL_INPUT_CUSTOM_ID, buildTopChannelPayload, normalizeLookbackDays, normalizeTopView, normalizeControlsView, normalizePage, } = require("../../Prefix/Stats/top") as typeof import("../../Prefix/Stats/top");
+const { TOP_CHANNEL_PAGE_MODAL_CUSTOM_ID_PREFIX, TOP_CHANNEL_PAGE_MODAL_INPUT_CUSTOM_ID, buildTopChannelPayload, normalizeLookbackDays, normalizeTopView, normalizeControlsView, normalizePage, } = require("../../Stats/discord/prefix/top") as typeof import("../../Stats/discord/prefix/top");
 const SNOWFLAKE_RE = /^\d{16,20}$/;
 
 function parseTopPageModalCustomId(rawCustomId?) {

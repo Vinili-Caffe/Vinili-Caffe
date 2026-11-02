@@ -1,10 +1,10 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, AttachmentBuilder, ChannelType, } = require("discord.js") as typeof import("discord.js");
 const { skullboardFindOneLean, skullboardUpsert } = require("../Utils/Global/globalSettingsGuildStores") as typeof import("../Utils/Global/globalSettingsGuildStores");
-const { handleMinigameReaction } = require("../Services/Minigames/minigameService") as typeof import("../Services/Minigames/minigameService");
+const { handleMinigameReaction } = require("../Minigames/services/minigameService") as typeof import("../Minigames/services/minigameService");
 const IDs = require("../Utils/Config/ids") as typeof import("../Utils/Config/ids");
-const { getGuildChannelCached, getGuildMemberCached } = require("../Utils/Interaction/interactionEntityCache") as typeof import("../Utils/Interaction/interactionEntityCache");
+const { getGuildChannelCached, getGuildMemberCached } = require("../../shared/discord/interactionEntityCache") as typeof import("../../shared/discord/interactionEntityCache");
 const { cacheRoleIcon } = require("../Utils/Cache/roleIconCache") as typeof import("../Utils/Cache/roleIconCache");
-const { guildMemberDisplayAvatarUrlDynamic, memberDisplayName } = require("../Utils/Discord/guildDiscordIdentity") as typeof import("../Utils/Discord/guildDiscordIdentity");
+const { guildMemberDisplayAvatarUrlDynamic, memberDisplayName } = require("../../shared/discord/guildDiscordIdentity") as typeof import("../../shared/discord/guildDiscordIdentity");
 const { resolveCanvasDiscordMarkup } = require("../Utils/Discord/resolveCanvasDiscordText") as typeof import("../Utils/Discord/resolveCanvasDiscordText");
 
 function isViniliFullFeatureGuild(guildId?) {

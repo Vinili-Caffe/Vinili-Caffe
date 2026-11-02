@@ -148,7 +148,7 @@ async function executeListedSlashCommand(client, actor, ticket, rawInput, { guil
   }
   const cmd = findChatInputCommand(client, name);
   const ticketCategory = normalizeCategory(ticket.category) || String(ticket.category || "").toLowerCase();
-  const { isSlashCommandAllowedInWebTicket } = require("../../Utils/Moderation/commandPermissions") as typeof import("../../Utils/Moderation/commandPermissions");
+  const { isSlashCommandAllowedInWebTicket } = require("../../Moderation/utils/commandPermissions") as typeof import("../../Moderation/utils/commandPermissions");
   if (
     !cmd ||
     !isSlashCommandAllowedInWebTicket({
@@ -386,7 +386,7 @@ async function executeWebTicketPrefixCommand(client?, actor?, ticket?, rawInput?
 
   const cmdName = String(resolved.name || "").toLowerCase();
   const ticketCategory = normalizeCategory(ticket.category) || String(ticket.category || "").toLowerCase();
-  const { isPrefixCommandAllowedInWebTicket } = require("../../Utils/Moderation/commandPermissions") as typeof import("../../Utils/Moderation/commandPermissions");
+  const { isPrefixCommandAllowedInWebTicket } = require("../../Moderation/utils/commandPermissions") as typeof import("../../Moderation/utils/commandPermissions");
   if (
     !isPrefixCommandAllowedInWebTicket({
       member: actor.member,

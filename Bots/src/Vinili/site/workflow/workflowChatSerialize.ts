@@ -1,6 +1,6 @@
 /** Chat del workflow: messaggi, reazioni e conferme di lettura. */
 const { SiteWorkflowChatMessage } = require("../../Schemas/Web/siteWorkflowChatSchemas") as typeof import("../../Schemas/Web/siteWorkflowChatSchemas");
-const { discordDefaultAvatarUrl } = require("../../Utils/Discord/guildDiscordIdentity") as typeof import("../../Utils/Discord/guildDiscordIdentity");
+const { discordDefaultAvatarUrl } = require("../../../shared/discord/guildDiscordIdentity") as typeof import("../../../shared/discord/guildDiscordIdentity");
 
 const MAX_REACTION_USERS = 80;
 

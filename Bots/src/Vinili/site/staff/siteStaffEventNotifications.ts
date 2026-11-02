@@ -5,7 +5,7 @@ const {
   STAFF_HIGH_STAFF_ELIGIBLE_KEYS,
   staffLadderRoleIds,
   staffRoleId,
-} = require("../../Utils/Staff/staffRoleHierarchy") as typeof import("../../Utils/Staff/staffRoleHierarchy");
+} = require("../../Staff/utils/staffRoleHierarchy") as typeof import("../../Staff/utils/staffRoleHierarchy");
 
 const RECIPIENT_CACHE_TTL_MS = 60_000;
 const recipientCache = new Map();

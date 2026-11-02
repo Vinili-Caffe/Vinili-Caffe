@@ -1,19 +1,19 @@
 
 const IDs = require("../Utils/Config/ids") as typeof import("../Utils/Config/ids");
 const { scheduleMemberCounterRefresh, updateMemberCounterNow } = require("../Utils/Community/memberCounterUtils") as typeof import("../Utils/Community/memberCounterUtils");
-const { processJoinRaidForMember } = require("../Services/Moderation/joinRaidService") as typeof import("../Services/Moderation/joinRaidService");
-const { getJoinGateConfigSnapshot, } = require("../Services/Moderation/joinGateService") as typeof import("../Services/Moderation/joinGateService");
-const { resolveJoinGateConfiguredExempt, } = require("../Services/Moderation/joinGateExemptUtils") as typeof import("../Services/Moderation/joinGateExemptUtils");
+const { processJoinRaidForMember } = require("../Moderation/services/joinRaidService") as typeof import("../Moderation/services/joinRaidService");
+const { getJoinGateConfigSnapshot, } = require("../Moderation/services/joinGateService") as typeof import("../Moderation/services/joinGateService");
+const { resolveJoinGateConfiguredExempt, } = require("../Moderation/services/joinGateExemptUtils") as typeof import("../Moderation/services/joinGateExemptUtils");
 const { shouldSendPublicMemberAnnouncement } = require("../Utils/Community/memberPublicAnnouncementGate") as typeof import("../Utils/Community/memberPublicAnnouncementGate");
-const { getSecurityLockState } = require("../Services/Moderation/securityOrchestratorService") as typeof import("../Services/Moderation/securityOrchestratorService");
-const { markJoinGateSuspiciousAccount, } = require("../Services/Moderation/joinGateSuspiciousService") as typeof import("../Services/Moderation/joinGateSuspiciousService");
-const { getClientGuildCached, getGuildChannelCached, getGuildMemberCached } = require("../Utils/Interaction/interactionEntityCache") as typeof import("../Utils/Interaction/interactionEntityCache");
+const { getSecurityLockState } = require("../Moderation/services/securityOrchestratorService") as typeof import("../Moderation/services/securityOrchestratorService");
+const { markJoinGateSuspiciousAccount, } = require("../Moderation/services/joinGateSuspiciousService") as typeof import("../Moderation/services/joinGateSuspiciousService");
+const { getClientGuildCached, getGuildChannelCached, getGuildMemberCached } = require("../../shared/discord/interactionEntityCache") as typeof import("../../shared/discord/interactionEntityCache");
 const { activateWelcomeContextForGuild, refreshWelcomeContextForGuild } = require("../Utils/Message/officialMessageCommunityHandlers") as typeof import("../Utils/Message/officialMessageCommunityHandlers");
 const { restoreUserOnJoin } = require("../Services/Community/userLeaveBackupService") as typeof import("../Services/Community/userLeaveBackupService");
-const { syncMutedMirrorOnMemberJoin } = require("../Services/Moderation/mutedMirrorRoleService") as typeof import("../Services/Moderation/mutedMirrorRoleService");
+const { syncMutedMirrorOnMemberJoin } = require("../Moderation/services/mutedMirrorRoleService") as typeof import("../Moderation/services/mutedMirrorRoleService");
 const { cancelCustomPerksDiscordCleanupQueue } = require("../Services/Community/customPerksDiscordCleanupQueueService") as typeof import("../Services/Community/customPerksDiscordCleanupQueueService");
-const { handleTenantPartnerManagerRejoin } = require("../Services/Partner/partnerManagerLeaveService") as typeof import("../Services/Partner/partnerManagerLeaveService");
-const { shouldApplyMainPartnershipFilters } = require("../Utils/Partner/partnershipConfigResolver") as typeof import("../Utils/Partner/partnershipConfigResolver");
+const { handleTenantPartnerManagerRejoin } = require("../Partner/services/partnerManagerLeaveService") as typeof import("../Partner/services/partnerManagerLeaveService");
+const { shouldApplyMainPartnershipFilters } = require("../Partner/core/partnershipConfigResolver") as typeof import("../Partner/core/partnershipConfigResolver");
 const { isAlreadyVerifiedInThisGuild } = require("../Utils/Interaction/verifyUtils") as typeof import("../Utils/Interaction/verifyUtils");
 const { syncPreMemberRoleForMember } = require("../Utils/Community/preMemberRoleService") as typeof import("../Utils/Community/preMemberRoleService");
 const { ghostPingNewMemberOnJoin } = require("../Utils/Message/ghostPingOnChannelEnter") as typeof import("../Utils/Message/ghostPingOnChannelEnter");
@@ -58,7 +58,7 @@ export = {
       try {
         const { isTestMirrorGuild } = require("../Utils/Config/testGuildMirrorRemap") as typeof import("../Utils/Config/testGuildMirrorRemap");
         if (isTestMirrorGuild(member.guild.id) && !member.user.bot) {
-          const { syncTestMemberRolesFromMain } = require("../Services/Partner/testGuildMirrorSyncService") as typeof import("../Services/Partner/testGuildMirrorSyncService");
+          const { syncTestMemberRolesFromMain } = require("../Partner/services/testGuildMirrorSyncService") as typeof import("../Partner/services/testGuildMirrorSyncService");
           void syncTestMemberRolesFromMain(member)
             .then((out?) => {
               if (out?.ok && out.changed) {

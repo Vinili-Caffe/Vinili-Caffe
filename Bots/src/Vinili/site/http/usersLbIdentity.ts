@@ -1,7 +1,7 @@
 /** Classifiche utenti: nome e avatar delle persone (dal server o da Discord). */
 const { Routes } = require("discord.js") as typeof import("discord.js");
 const { getRankCardThemeFromDoc, resolveRankCardWallpaper } = require("../../Utils/Render/rankCardTheme") as typeof import("../../Utils/Render/rankCardTheme");
-const { userAvatarUrlStatic, userAvatarUrlDynamic, guildMemberDisplayAvatarUrlDynamic, guildMemberDisplayAvatarUrlStatic, guildMemberDisplayAvatarUrlForSite } = require("../../Utils/Discord/guildDiscordIdentity") as typeof import("../../Utils/Discord/guildDiscordIdentity");
+const { userAvatarUrlStatic, userAvatarUrlDynamic, guildMemberDisplayAvatarUrlDynamic, guildMemberDisplayAvatarUrlStatic, guildMemberDisplayAvatarUrlForSite } = require("../../../shared/discord/guildDiscordIdentity") as typeof import("../../../shared/discord/guildDiscordIdentity");
 const { stabilizeDiscordCdnAvatarUrl, animatedDiscordCdnAvatarUrl } = require("./siteLiveAvatars") as typeof import("./siteLiveAvatars");
 const { fetchWebsiteGuildMember, readCachedWebsiteMember } = require("./websiteGuildMemberFetch") as typeof import("./websiteGuildMemberFetch");
 const { sendJsonWithEtag, weakEtagFromJson } = require("./siteHttpEtag") as typeof import("./siteHttpEtag");

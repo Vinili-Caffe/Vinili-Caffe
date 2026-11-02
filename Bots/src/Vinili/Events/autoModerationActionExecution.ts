@@ -1,13 +1,13 @@
 const {
   runDiscordNativeAutomodExecution,
   pingStaffForAutomodExecution,
-} = require("../Services/Moderation/automodService") as typeof import("../Services/Moderation/automodService");
-const { RULE_PREFIX, resolveAutomodExecutionRule } = require("../Services/Moderation/discordAutomodRulesService") as typeof import("../Services/Moderation/discordAutomodRulesService");
+} = require("../Moderation/services/automodService") as typeof import("../Moderation/services/automodService");
+const { RULE_PREFIX, resolveAutomodExecutionRule } = require("../Moderation/services/discordAutomodRulesService") as typeof import("../Moderation/services/discordAutomodRulesService");
 
 function scheduleAutomodSanzioniStickyReposition(client?) {
   if (!client) return;
   try {
-    const { maybeRepositionModerationSticky } = require("../Utils/Moderation/moderationStickyPanelRuntime") as typeof import("../Utils/Moderation/moderationStickyPanelRuntime");
+    const { maybeRepositionModerationSticky } = require("../Moderation/utils/moderationStickyPanelRuntime") as typeof import("../Moderation/utils/moderationStickyPanelRuntime");
     void maybeRepositionModerationSticky(null, client, { delayMs: 3000 }).catch(() => null);
   } catch (_) {}
 }

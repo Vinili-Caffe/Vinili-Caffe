@@ -181,6 +181,42 @@ function ensurePrefixUsageMetadata(command?) {
   }
 }
 
+function loadPrefixFilesFromDir(dirPath?, folderLabel?, newPcommands?, newAliases?, statusMap?) {
+  if (!dirPath || !fs.existsSync(dirPath)) return;
+  const files = fs
+    .readdirSync(dirPath)
+    .filter((f?) => /\.(cjs|mjs|js|cts|mts|ts)$/i.test(f) && !f.endsWith(".d.ts"));
+  for (const file of files) {
+    const fullPath = path.join(dirPath, file);
+    const key = `${folderLabel}/${file}`;
+    try {
+      delete require.cache[require.resolve(fullPath)];
+      const command = require(fullPath);
+      if (!command || !command.name) {
+        statusMap.set(key, "Missing name");
+        continue;
+      }
+      if (REMOVED_PREFIX_COMMANDS.has(String(command.name || "").trim().toLowerCase())) {
+        continue;
+      }
+      if (command.skipLoad || command.skipPrefix) {
+        continue;
+      }
+      command.folder = command.folder || folderLabel;
+      ensurePrefixSubcommandMetadata(command);
+      ensurePrefixUsageMetadata(command);
+      newPcommands.set(command.name, command);
+      statusMap.set(key, "Loaded");
+      if (Array.isArray(command.aliases)) {
+        for (const alias of command.aliases) newAliases.set(alias, command.name);
+      }
+    } catch (err) {
+      statusMap.set(key, "Error loading");
+      global.logger.error(`[PREFIX_COMMANDS] Failed to load ${key}:`, err);
+    }
+  }
+}
+
 export = (client?) => {
   client.prefixCommands = async (folders?, basePath?) => {
     const prefixBase = basePath || path.resolve(__dirname, "..", "Prefix");
@@ -189,37 +225,134 @@ export = (client?) => {
     const statusMap = new Map();
 
     for (const folder of folders) {
-      const folderPath = path.join(prefixBase, folder);
-      const files = fs.readdirSync(folderPath).filter((f?) => /\.(cjs|mjs|js|cts|mts|ts)$/i.test(f) && !f.endsWith(".d.ts"));
-      for (const file of files) {
-        const fullPath = path.join(prefixBase, folder, file);
-        const key = `${folder}/${file}`;
-        try {
-          delete require.cache[require.resolve(fullPath)];
-          const command = require(fullPath);
-          if (!command || !command.name) {
-            statusMap.set(key, "Missing name");
-            continue;
-          }
-          if (REMOVED_PREFIX_COMMANDS.has(String(command.name || "").trim().toLowerCase())) {
-            continue;
-          }
-          if (command.skipLoad || command.skipPrefix) {
-            continue;
-          }
-          command.folder = command.folder || folder;
-          ensurePrefixSubcommandMetadata(command);
-          ensurePrefixUsageMetadata(command);
-          newPcommands.set(command.name, command);
-          statusMap.set(key, "Loaded");
-          if (Array.isArray(command.aliases)) {
-            for (const alias of command.aliases)
-              newAliases.set(alias, command.name);
-          }
-        } catch (err) {
-          statusMap.set(key, "Error loading");
-          global.logger.error(`[PREFIX_COMMANDS] Failed to load ${key}:`, err);
+      loadPrefixFilesFromDir(
+        path.join(prefixBase, folder),
+        folder,
+        newPcommands,
+        newAliases,
+        statusMap,
+      );
+    }
+
+    // Partnership prefix vive in Partner/discord/prefix (niente facade sotto Prefix/)
+    loadPrefixFilesFromDir(
+      path.resolve(__dirname, "..", "Partner", "discord", "prefix"),
+      "Partnership",
+      newPcommands,
+      newAliases,
+      statusMap,
+    );
+
+    // Stats prefix vive in Stats/discord/prefix (niente facade sotto Prefix/Stats)
+    loadPrefixFilesFromDir(
+      path.resolve(__dirname, "..", "Stats", "discord", "prefix"),
+      "Stats",
+      newPcommands,
+      newAliases,
+      statusMap,
+    );
+
+    // Minigames prefix (es. +ship)
+    loadPrefixFilesFromDir(
+      path.resolve(__dirname, "..", "Minigames", "discord", "prefix"),
+      "Minigames",
+      newPcommands,
+      newAliases,
+      statusMap,
+    );
+
+    // Backup prefix (+backup)
+    loadPrefixFilesFromDir(
+      path.resolve(__dirname, "..", "Backup", "discord", "prefix"),
+      "Admin",
+      newPcommands,
+      newAliases,
+      statusMap,
+    );
+
+    // Level prefix (+rank, +level)
+    loadPrefixFilesFromDir(
+      path.resolve(__dirname, "..", "Level", "discord", "prefix"),
+      "Level",
+      newPcommands,
+      newAliases,
+      statusMap,
+    );
+
+    // TTS prefix = shared
+    try {
+      const voiceSession = require("../Services/Voice/voiceSessionService") as typeof import("../Services/Voice/voiceSessionService");
+      const { buildTtsCommands } = require("../../shared/tts/discord/prefixCommands") as typeof import("../../shared/tts/discord/prefixCommands");
+      const sharedTts = buildTtsCommands({
+        prefix: "+",
+        coffee: false,
+        getVoiceSession: voiceSession.getVoiceSession,
+        setVoiceSession: voiceSession.setVoiceSession,
+        clearVoiceSession: voiceSession.clearVoiceSession,
+        executeLeavePartnership: (message?) => {
+          const { executeLeavePartnership } = require("../Partner/tenant/tenantPartnershipLeaveRuntime") as typeof import("../Partner/tenant/tenantPartnershipLeaveRuntime");
+          return executeLeavePartnership(message);
+        },
+      });
+      for (const command of sharedTts as any[]) {
+        if (!command?.name) continue;
+        command.folder = command.folder || "TTS";
+        newPcommands.set(command.name, command);
+        statusMap.set(`TTS/${command.name}.shared`, "Loaded.");
+        if (Array.isArray(command.aliases)) {
+          for (const alias of command.aliases) newAliases.set(alias, command.name);
         }
+      }
+    } catch (err) {
+      global.logger?.error?.("[PREFIX] TTS shared commands:", err);
+    }
+
+    // Music prefix = shared (controls + views); runtime list UI resta bot-local
+    try {
+      const { buildMusicListPayload } = require("../../shared/music/discord/musicListUiRuntime") as typeof import("../../shared/music/discord/musicListUiRuntime");
+      const { buildMusicControlCommands } = require("../../shared/music/discord/prefixControls") as typeof import("../../shared/music/discord/prefixControls");
+      const { buildMusicViewCommands } = require("../../shared/music/discord/prefixViews") as typeof import("../../shared/music/discord/prefixViews");
+      const sharedMusic = [
+        ...buildMusicControlCommands({ prefix: "+", coffee: false }),
+        ...buildMusicViewCommands({ prefix: "+", coffee: false, buildMusicListPayload }),
+      ];
+      for (const command of sharedMusic as any[]) {
+        if (!command?.name) continue;
+        command.folder = command.folder || "Music";
+        newPcommands.set(command.name, command);
+        statusMap.set(`Music/${command.name}.shared`, "Loaded.");
+        if (Array.isArray(command.aliases)) {
+          for (const alias of command.aliases) newAliases.set(alias, command.name);
+        }
+      }
+    } catch (err) {
+      global.logger?.error?.("[PREFIX] Music shared commands:", err);
+    }
+
+    // Moderation prefix vive in Moderation/discord/prefix
+    loadPrefixFilesFromDir(
+      path.resolve(__dirname, "..", "Moderation", "discord", "prefix"),
+      "Moderation",
+      newPcommands,
+      newAliases,
+      statusMap,
+    );
+
+    // Prefix MultiGuild (es. +help tenant-only)
+    const mgPrefixBase = path.resolve(__dirname, "..", "MultiGuild", "Prefix");
+    if (fs.existsSync(mgPrefixBase)) {
+      const mgFolders = fs
+        .readdirSync(mgPrefixBase, { withFileTypes: true })
+        .filter((e?) => e.isDirectory())
+        .map((e?) => e.name);
+      for (const folder of mgFolders) {
+        loadPrefixFilesFromDir(
+          path.join(mgPrefixBase, folder),
+          folder,
+          newPcommands,
+          newAliases,
+          statusMap,
+        );
       }
     }
 

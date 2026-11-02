@@ -1,7 +1,7 @@
 /** Attività: incremento dei contatori di messaggi e vocale. */
-const { isMongoReady } = require("../../Utils/Database/mongoConnect") as typeof import("../../Utils/Database/mongoConnect");
+const { isMongoReady } = require("../../../shared/db/mongoConnect") as typeof import("../../../shared/db/mongoConnect");
 const { ActivityGuildHourly, ACTIVITY_LEGACY_DAILY_DISABLED, ACTIVITY_LEGACY_HOURLY_DISABLED } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
-const { isValidGuildUserIdChannelId } = require("../../Utils/DB/validateWriteIds") as typeof import("../../Utils/DB/validateWriteIds");
+const { isValidGuildUserIdChannelId } = require("../../../shared/db/validateWriteIds") as typeof import("../../../shared/db/validateWriteIds");
 const { getDayKey, getHourKey } = require("./activityTime") as typeof import("./activityTime");
 const { profileActivityCollection } = require("./activityRows") as typeof import("./activityRows");
 

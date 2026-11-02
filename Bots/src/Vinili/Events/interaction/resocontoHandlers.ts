@@ -1,18 +1,18 @@
 const { EmbedBuilder } = require("discord.js") as typeof import("discord.js");
 const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
-const { getGuildChannelCached, getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache") as typeof import("../../Utils/Interaction/interactionEntityCache");
-const { getOrCreateStaffDoc, deleteThreadForMessage, ensureStaff } = require("../../Utils/Staff/staffDocUtils") as typeof import("../../Utils/Staff/staffDocUtils");
-const { initPartnerManagerFieldsIfMissing, syncStaffDbAndPauseChannelAfterDepex } = require("../../Utils/Staff/staffPmUtils") as typeof import("../../Utils/Staff/staffPmUtils");
-const { applyDepexOneLevel, getHighestStaffRoleId } = require("../../Services/Staff/staffWarnService") as typeof import("../../Services/Staff/staffWarnService");
+const { getGuildChannelCached, getGuildMemberCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
+const { getOrCreateStaffDoc, deleteThreadForMessage, ensureStaff } = require("../../Staff/utils/staffDocUtils") as typeof import("../../Staff/utils/staffDocUtils");
+const { initPartnerManagerFieldsIfMissing, syncStaffDbAndPauseChannelAfterDepex } = require("../../Staff/utils/staffPmUtils") as typeof import("../../Staff/utils/staffPmUtils");
+const { applyDepexOneLevel, getHighestStaffRoleId } = require("../../Staff/services/staffWarnService") as typeof import("../../Staff/services/staffWarnService");
 const { memberHasStaffRole } = require("../../Utils/Community/staffListUtils") as typeof import("../../Utils/Community/staffListUtils");
 const { getStaffRoleEmojiByRoleId } = require("../../Utils/Community/staffRoleEmoji") as typeof import("../../Utils/Community/staffRoleEmoji");
 const { clearStaffPendingPurgeAt } = require("../../Services/Community/userLeaveBackupService") as typeof import("../../Services/Community/userLeaveBackupService");
-const { userAvatarUrlDynamic } = require("../../Utils/Discord/guildDiscordIdentity") as typeof import("../../Utils/Discord/guildDiscordIdentity");
+const { userAvatarUrlDynamic } = require("../../../shared/discord/guildDiscordIdentity") as typeof import("../../../shared/discord/guildDiscordIdentity");
 const {
   memberHasResocontoButtonAccess,
-} = require("../../Utils/Staff/resocontoAccess") as typeof import("../../Utils/Staff/resocontoAccess");
-const { stripStafferAwardRoles } = require("../../Utils/Staff/staffRoleHierarchy") as typeof import("../../Utils/Staff/staffRoleHierarchy");
-const { onResocontoOutcomeRecorded } = require("../../Services/Staff/resocontoReviewerRewardService") as typeof import("../../Services/Staff/resocontoReviewerRewardService");
+} = require("../../Staff/utils/resocontoAccess") as typeof import("../../Staff/utils/resocontoAccess");
+const { stripStafferAwardRoles } = require("../../Staff/utils/staffRoleHierarchy") as typeof import("../../Staff/utils/staffRoleHierarchy");
+const { onResocontoOutcomeRecorded } = require("../../Staff/services/resocontoReviewerRewardService") as typeof import("../../Staff/services/resocontoReviewerRewardService");
 const RESOCONTO_APPLY_PREFIX = "resoconto_apply";
 const RESOCONTO_REJECT_PREFIX = "resoconto_reject";
 const WEEKLY_LIMITS_POSITIVE_REASON = "Limiti settimanali completati.";
@@ -243,7 +243,7 @@ async function applyDepexSideEffects(guild?, member?, roleId?) {
 }
 
 async function resolvePexDepexChannel(guild?) {
-  const { resolveStaffPexDepexChannel } = require("../../Utils/Staff/staffChannelUtils") as typeof import("../../Utils/Staff/staffChannelUtils");
+  const { resolveStaffPexDepexChannel } = require("../../Staff/utils/staffChannelUtils") as typeof import("../../Staff/utils/staffChannelUtils");
   return resolveStaffPexDepexChannel(guild);
 }
 
@@ -456,7 +456,7 @@ async function applyStaffAction(guild?, actor?, payload?, reasonOverride = null)
     const {
       shouldSkipManualResocontoVp,
       resolveResocontoWeekKey,
-    } = require("../../Services/Staff/weeklyStaffResocontoService") as typeof import("../../Services/Staff/weeklyStaffResocontoService");
+    } = require("../../Staff/services/weeklyStaffResocontoService") as typeof import("../../Staff/services/weeklyStaffResocontoService");
     const staffDoc = ensureStaff(profileDoc);
     const reason = String(reasonOverride || "").trim() || WEEKLY_LIMITS_POSITIVE_REASON;
     if (
@@ -465,9 +465,9 @@ async function applyStaffAction(guild?, actor?, payload?, reasonOverride = null)
     ) {
       return "<:success:1461731530333229226> Valutazione Positiva già registrata.";
     }
-    const { resolveStaffValutazioniChannel } = require("../../Utils/Staff/staffChannelUtils") as typeof import("../../Utils/Staff/staffChannelUtils");
+    const { resolveStaffValutazioniChannel } = require("../../Staff/utils/staffChannelUtils") as typeof import("../../Staff/utils/staffChannelUtils");
     const channel = await resolveStaffValutazioniChannel(guild);
-    const { valutazionePositiveAddCore } = require("../../Utils/Staff/valutazionePanelActions") as typeof import("../../Utils/Staff/valutazionePanelActions");
+    const { valutazionePositiveAddCore } = require("../../Staff/utils/valutazionePanelActions") as typeof import("../../Staff/utils/valutazionePanelActions");
     const result = await valutazionePositiveAddCore(profileDoc, targetUser, reason, actor, channel);
     if (!(result?.ok || result?.message)) {
       return "<a:VC_Alert:1482706673176150077> Errore registrazione valutazione positiva.";
@@ -480,7 +480,7 @@ async function applyStaffAction(guild?, actor?, payload?, reasonOverride = null)
     const {
       shouldSkipManualResocontoVn,
       resolveResocontoWeekKey,
-    } = require("../../Services/Staff/weeklyStaffResocontoService") as typeof import("../../Services/Staff/weeklyStaffResocontoService");
+    } = require("../../Staff/services/weeklyStaffResocontoService") as typeof import("../../Staff/services/weeklyStaffResocontoService");
     const staffDoc = ensureStaff(profileDoc);
     const reason = String(reasonOverride || "").trim() || WEEKLY_LIMITS_NEGATIVE_REASON;
     if (
@@ -489,9 +489,9 @@ async function applyStaffAction(guild?, actor?, payload?, reasonOverride = null)
     ) {
       return "<:success:1461731530333229226> Valutazione Negativa già registrata.";
     }
-    const { resolveStaffValutazioniChannel } = require("../../Utils/Staff/staffChannelUtils") as typeof import("../../Utils/Staff/staffChannelUtils");
+    const { resolveStaffValutazioniChannel } = require("../../Staff/utils/staffChannelUtils") as typeof import("../../Staff/utils/staffChannelUtils");
     const channel = await resolveStaffValutazioniChannel(guild);
-    const { valutazioneNegativeAddCore } = require("../../Utils/Staff/valutazionePanelActions") as typeof import("../../Utils/Staff/valutazionePanelActions");
+    const { valutazioneNegativeAddCore } = require("../../Staff/utils/valutazionePanelActions") as typeof import("../../Staff/utils/valutazionePanelActions");
     const result = await valutazioneNegativeAddCore(guild, profileDoc, targetUser, reason, actor, channel);
     if (!(result?.ok || result?.message)) {
       return "<a:VC_Alert:1482706673176150077> Errore registrazione valutazione negativa.";
@@ -644,7 +644,7 @@ async function applyStaffResocontoPendingValutazioni(
     shouldSkipManualResocontoVp,
     shouldSkipManualResocontoVn,
     resolveResocontoWeekKey,
-  } = require("../../Services/Staff/weeklyStaffResocontoService") as typeof import("../../Services/Staff/weeklyStaffResocontoService");
+  } = require("../../Staff/services/weeklyStaffResocontoService") as typeof import("../../Staff/services/weeklyStaffResocontoService");
   const actions = Array.isArray(pendingActions) ? pendingActions : [];
   if (!actions.length) {
     return "<:success:1461731530333229226> Valutazioni già registrate dal sistema.";
@@ -724,7 +724,7 @@ async function resolveStaffResocontoApplyExecution(guild?, payload?) {
         shouldSkipManualResocontoVp,
         shouldSkipManualResocontoVn,
         resolveResocontoWeekKey,
-      } = require("../../Services/Staff/weeklyStaffResocontoService") as typeof import("../../Services/Staff/weeklyStaffResocontoService");
+      } = require("../../Staff/services/weeklyStaffResocontoService") as typeof import("../../Staff/services/weeklyStaffResocontoService");
       const profileDoc = await getOrCreateStaffDoc(guild.id, payload.userId).catch(() => null);
       const staffDoc = profileDoc ? ensureStaff(profileDoc) : null;
       const weekKey = resolveResocontoWeekKey();
@@ -753,7 +753,7 @@ async function resolveStaffResocontoApplyExecution(guild?, payload?) {
     };
   }
 
-  const { buildStaffResocontoApplyPlanForMember } = require("../../Services/Staff/weeklyStaffResocontoService") as typeof import("../../Services/Staff/weeklyStaffResocontoService");
+  const { buildStaffResocontoApplyPlanForMember } = require("../../Staff/services/weeklyStaffResocontoService") as typeof import("../../Staff/services/weeklyStaffResocontoService");
   const plan = await buildStaffResocontoApplyPlanForMember(
     guild,
     payload.userId,

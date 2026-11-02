@@ -1,7 +1,7 @@
 /** Community ops: tenure verifica (NuovoUtente / Veterano / OG) e sweep. */
 const mongoose = require("mongoose") as typeof import("mongoose");
 const { PermissionsBitField } = require("discord.js") as typeof import("discord.js");
-const { addRolesAndGetMember, getClientGuildCached, getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache") as typeof import("../../Utils/Interaction/interactionEntityCache");
+const { addRolesAndGetMember, getClientGuildCached, getGuildMemberCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
 const IDs: any = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
 const { getEffectiveJoinedAt } = require("./effectiveMemberJoinService") as typeof import("./effectiveMemberJoinService");

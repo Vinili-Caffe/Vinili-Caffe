@@ -1,6 +1,6 @@
 const { EmbedBuilder } = require("discord.js") as typeof import("discord.js");
 const { MENTION_RESPONSE_PERK_LINE_DISCORD } = require("./mentionResponseAccessUtils") as typeof import("./mentionResponseAccessUtils");
-const { accountUsername, guildMemberDisplayAvatarUrlDynamic } = require("../Discord/guildDiscordIdentity") as typeof import("../Discord/guildDiscordIdentity");
+const { accountUsername, guildMemberDisplayAvatarUrlDynamic } = require("../../../shared/discord/guildDiscordIdentity") as typeof import("../../../shared/discord/guildDiscordIdentity");
 const BOOST_ANNOUNCE_STAFF_PING_ROLE_ID = "1442568910070349985";
 
 function buildBoostEmbed(member?, boostCount?) {

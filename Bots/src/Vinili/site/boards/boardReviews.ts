@@ -301,7 +301,7 @@ async function listListingReviews(client?, payload: Record<string, any> = {}) {
 
   const pageReviews = [];
   for (const r of pageSlice) {
-    const doc = docById.get(String(r.id));
+    const doc: any = docById.get(String(r.id));
     if (!doc) {
       pageReviews.push(r);
       continue;

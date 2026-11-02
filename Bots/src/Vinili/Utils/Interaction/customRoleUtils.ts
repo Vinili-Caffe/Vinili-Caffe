@@ -1,5 +1,5 @@
 const { EmbedBuilder, ChannelType, PermissionsBitField, OverwriteType } = require("discord.js") as typeof import("discord.js");
-const { getGuildChannelCached, getGuildMemberCached, getGuildRoleCached } = require("./interactionEntityCache") as typeof import("./interactionEntityCache");
+const { getGuildChannelCached, getGuildMemberCached, getGuildRoleCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
 const { getCustomPrivateCategoryIdSet, isChannelInCustomPrivateCategory } = require("../Community/customPrivateCategoryUtils") as typeof import("../Community/customPrivateCategoryUtils");
 
 async function fetchGuildChannel(guild?, channelId?) {

@@ -51,9 +51,27 @@ function resolveCommandLoadRoots(commandFolders?, basePath?) {
     });
   }
   const mgBase = path.resolve(__dirname, "..", "MultiGuild", "Commands");
-  const already = roots.some((r?) => path.resolve(r.basePath) === mgBase);
-  if (!already && fs.existsSync(mgBase)) {
+  const alreadyMg = roots.some((r?) => path.resolve(r.basePath) === mgBase);
+  if (!alreadyMg && fs.existsSync(mgBase)) {
     roots.push({ basePath: mgBase, folders: listFoldersIfExists(mgBase) });
+  }
+  // Slash partnership in Partner/discord/slash (file flat → categoria Partnership)
+  const partnerSlash = path.resolve(__dirname, "..", "Partner", "discord", "slash");
+  const alreadyPartner = roots.some((r?) => path.resolve(r.basePath) === partnerSlash);
+  if (!alreadyPartner && fs.existsSync(partnerSlash)) {
+    roots.push({
+      basePath: partnerSlash,
+      folders: [""],
+      category: "Partnership",
+    });
+  }
+  const giveawaySlash = path.resolve(__dirname, "..", "Giveaway", "discord", "slash");
+  if (!roots.some((r?) => path.resolve(r.basePath) === giveawaySlash) && fs.existsSync(giveawaySlash)) {
+    roots.push({ basePath: giveawaySlash, folders: [""], category: "Admin" });
+  }
+  const staffSlash = path.resolve(__dirname, "..", "Staff", "discord", "slash");
+  if (!roots.some((r?) => path.resolve(r.basePath) === staffSlash) && fs.existsSync(staffSlash)) {
+    roots.push({ basePath: staffSlash, folders: [""], category: "Staff" });
   }
   return roots;
 }
@@ -74,8 +92,9 @@ export = (client?) => {
     const roots = resolveCommandLoadRoots(commandFolders, basePath);
     for (const root of roots) {
       for (const folder of root.folders || []) {
-        const folderPath = path.join(root.basePath, folder);
-        if (!fs.existsSync(folderPath)) continue;
+        const folderPath = folder === "" ? root.basePath : path.join(root.basePath, folder);
+        if (!fs.existsSync(folderPath) || !fs.statSync(folderPath).isDirectory()) continue;
+        const categoryLabel = root.category || folder || "Partnership";
         const commandFiles = fs
           .readdirSync(folderPath)
           .filter((f?) => {
@@ -88,7 +107,7 @@ export = (client?) => {
 
         for (const file of commandFiles) {
           const filePath = path.join(folderPath, file);
-          const key = `${folder}/${file}`;
+          const key = `${categoryLabel}/${file}`;
           try {
             delete require.cache[require.resolve(filePath)];
             const command = require(filePath);
@@ -112,7 +131,7 @@ export = (client?) => {
             }
 
             if (typeof command.category === "undefined") {
-              command.category = folder;
+              command.category = categoryLabel;
             }
             if (!String(command.helpDescription || "").trim()) {
               command.helpDescription = String(command.description || "").trim();

@@ -1,10 +1,10 @@
 const { AuditLogEvent, EmbedBuilder } = require("discord.js") as typeof import("discord.js");
 const { buildAuditExtraLines } = require("../Utils/Logging/channelRolesLogUtils") as typeof import("../Utils/Logging/channelRolesLogUtils");
-const { handlePruneAction: antiNukeHandlePruneAction } = require("../Services/Moderation/antiNukeService") as typeof import("../Services/Moderation/antiNukeService");
+const { handlePruneAction: antiNukeHandlePruneAction } = require("../Moderation/services/antiNukeService") as typeof import("../Moderation/services/antiNukeService");
 const { resolveModLogChannel, formatResponsible, nowDiscordTs, } = require("../Utils/Logging/modAuditLogUtils") as typeof import("../Utils/Logging/modAuditLogUtils");
 const IDs = require("../Utils/Config/ids") as typeof import("../Utils/Config/ids");
 const { grantBestStaffPauseBonusYear } = require("../site/staff/pause/pauseHandlersUtils") as typeof import("../site/staff/pause/pauseHandlersUtils");
-const { onStafferDellaSettimanaRoleAdded } = require("../Services/Staff/stafferDellaSettimanaService") as typeof import("../Services/Staff/stafferDellaSettimanaService");
+const { onStafferDellaSettimanaRoleAdded } = require("../Staff/services/stafferDellaSettimanaService") as typeof import("../Staff/services/stafferDellaSettimanaService");
 const { isViniliFullFeatureGuild } = require("../MultiGuild/core/guildFeatureScope") as typeof import("../MultiGuild/core/guildFeatureScope");
 const MEMBER_ROLE_UPDATE_ACTION = AuditLogEvent.MemberRoleUpdate ?? 25;
 

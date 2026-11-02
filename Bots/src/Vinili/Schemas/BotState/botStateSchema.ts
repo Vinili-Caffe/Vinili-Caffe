@@ -42,7 +42,7 @@ const BotStateSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
-const BotState: import("mongoose").Model<import("mongoose").InferSchemaType<typeof BotStateSchema>> =
+const BotState: any =
   mongoose.models.BotState || mongoose.model("BotState", BotStateSchema);
 
 module.exports = BotState;

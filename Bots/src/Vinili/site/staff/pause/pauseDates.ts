@@ -218,12 +218,12 @@ function getMonthKeyForPauseCount(dataRichiesta?, dataRitorno?) {
 }
 
 function getStaffWeekKeyNow(now = new Date()) {
-  const { getStaffWeekKeyNow: resolveWeekKey } = require("../../../Utils/Staff/stafferDellaSettimanaWeekKey") as typeof import("../../../Utils/Staff/stafferDellaSettimanaWeekKey");
+  const { getStaffWeekKeyNow: resolveWeekKey } = require("../../../Staff/utils/stafferDellaSettimanaWeekKey") as typeof import("../../../Staff/utils/stafferDellaSettimanaWeekKey");
   return resolveWeekKey(now);
 }
 
 function coerceMonthKey(raw?) {
-  const { coerceMonthKey: coerce } = require("../../../Utils/Staff/stafferDellaSettimanaWeekKey") as typeof import("../../../Utils/Staff/stafferDellaSettimanaWeekKey");
+  const { coerceMonthKey: coerce } = require("../../../Staff/utils/stafferDellaSettimanaWeekKey") as typeof import("../../../Staff/utils/stafferDellaSettimanaWeekKey");
   return coerce(raw);
 }
 

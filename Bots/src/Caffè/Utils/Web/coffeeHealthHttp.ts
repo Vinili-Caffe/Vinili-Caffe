@@ -48,7 +48,7 @@ function startCoffeeHealthHttpServer(client?) {
           return;
         }
         const roleIds = parseRolesQuery(rawUrl);
-        const help = require("../../Prefix/Utility/help") as typeof import("../../Prefix/Utility/help");
+        const help = require("../Prefix/wikiHelpCatalog") as typeof import("../Prefix/wikiHelpCatalog");
         if (typeof help.buildWikiHelpCatalog !== "function") {
           json(res, 500, { ok: false, error: "catalog_unavailable" });
           return;

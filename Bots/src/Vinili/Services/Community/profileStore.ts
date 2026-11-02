@@ -1,5 +1,5 @@
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
-const { isValidGuildUserId } = require("../../Utils/DB/validateWriteIds") as typeof import("../../Utils/DB/validateWriteIds");
+const { isValidGuildUserId } = require("../../../shared/db/validateWriteIds") as typeof import("../../../shared/db/validateWriteIds");
 const { validateMentionResponseText } = require("../../Utils/Community/mentionResponseValidation") as typeof import("../../Utils/Community/mentionResponseValidation");
 
 function asStrings(values = []) {

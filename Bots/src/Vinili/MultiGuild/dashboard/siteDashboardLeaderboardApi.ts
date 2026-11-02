@@ -1,16 +1,16 @@
 const {
   getPartnershipConfigSync,
   refreshPartnershipConfigCache,
-} = require("../../MultiGuild/core/tenantPartnershipSettings") as typeof import("../../MultiGuild/core/tenantPartnershipSettings");
+} = require("../../Partner/core/tenantPartnershipSettings") as typeof import("../../Partner/core/tenantPartnershipSettings");
 const {
   fetchLeaderboardRows,
   findRankEntry,
   normalizeCategory,
   normalizePeriod,
-} = require("../../MultiGuild/services/Partner/tenantLeaderboardService") as typeof import("../../MultiGuild/services/Partner/tenantLeaderboardService");
-const { guildIconUrl, userAvatarUrlDynamic } = require("../../Utils/Discord/guildDiscordIdentity") as typeof import("../../Utils/Discord/guildDiscordIdentity");
+} = require("../../Partner/services/tenantLeaderboardService") as typeof import("../../Partner/services/tenantLeaderboardService");
+const { guildIconUrl, userAvatarUrlDynamic } = require("../../../shared/discord/guildDiscordIdentity") as typeof import("../../../shared/discord/guildDiscordIdentity");
 const { verifyDashboardGuildAccess } = require("./siteDashboardApi") as typeof import("./siteDashboardApi");
-const { getBotState } = require("../../Utils/BotState/botStateStore") as typeof import("../../Utils/BotState/botStateStore");
+const { getBotState } = require("../../../shared/botState/botStateStore") as typeof import("../../../shared/botState/botStateStore");
 
 const DEFAULT_PER_PAGE = 12;
 const MAX_PER_PAGE = 24;
@@ -129,7 +129,7 @@ async function filterRowsToPartnerManagers(client?, guildId?, rows?) {
   const list = Array.isArray(rows) ? rows : [];
   if (!list.length) return [];
 
-  const { getPartnerManagerRoleId } = require("../../Utils/Partner/partnershipConfigResolver") as typeof import("../../Utils/Partner/partnershipConfigResolver");
+  const { getPartnerManagerRoleId } = require("../../Partner/core/partnershipConfigResolver") as typeof import("../../Partner/core/partnershipConfigResolver");
   const roleId = String(getPartnerManagerRoleId(guildId) || "").trim();
   if (!roleId) return [];
 

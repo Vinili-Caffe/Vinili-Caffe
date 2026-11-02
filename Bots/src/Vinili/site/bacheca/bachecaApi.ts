@@ -11,7 +11,7 @@
 const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
 const { GuildBoardPost, GuildSkullPost } = require("../../Schemas/Community/guildBoardPostSchema") as typeof import("../../Schemas/Community/guildBoardPostSchema");
 const { resolveWebsiteGuildMember } = require("../../site/http/siteRoleRequestApi") as typeof import("../../site/http/siteRoleRequestApi");
-const { getClientGuildCached } = require("../../Utils/Interaction/interactionEntityCache") as typeof import("../../Utils/Interaction/interactionEntityCache");
+const { getClientGuildCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
 const { BACHECA_EMOJIS, toggleBachecaReaction, loadBachecaReactions } = require("./bachecaReactions") as typeof import("./bachecaReactions");
 const { broadcastBachecaChanged, isSiteBoardChannel } = require("./bachecaSite") as typeof import("./bachecaSite");
 

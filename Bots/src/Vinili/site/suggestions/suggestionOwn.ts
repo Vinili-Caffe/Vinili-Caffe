@@ -4,14 +4,14 @@ const { SiteDocument } = require("../../Schemas/Community/communitySchemas") as 
 const { normalizeSuggestionBoard, validateSuggestionTopicTag, suggestionBoardOf, boardListQuery, scrubDiscordDefaultAvatarUrl, sanitizeBody, normalizeSuggestionKind } = require("./suggestionFields") as typeof import("./suggestionFields");
 const { broadcastSiteSuggestionsChanged } = require("./siteSuggestionsBroadcast") as typeof import("./siteSuggestionsBroadcast");
 const { resolveWebsiteGuildMember } = require("../../site/http/siteRoleRequestApi") as typeof import("../../site/http/siteRoleRequestApi");
-const { guildMemberDisplayAvatarUrlDynamic, guildMemberDisplayAvatarUrlStatic } = require("../../Utils/Discord/guildDiscordIdentity") as typeof import("../../Utils/Discord/guildDiscordIdentity");
-const { recordTenantBugReport } = require("../../MultiGuild/services/Partner/tenantObjectiveService") as typeof import("../../MultiGuild/services/Partner/tenantObjectiveService");
+const { guildMemberDisplayAvatarUrlDynamic, guildMemberDisplayAvatarUrlStatic } = require("../../../shared/discord/guildDiscordIdentity") as typeof import("../../../shared/discord/guildDiscordIdentity");
+const { recordTenantBugReport } = require("../../Partner/services/tenantObjectiveService") as typeof import("../../Partner/services/tenantObjectiveService");
 const { resolveSiteAvatarUrl } = require("../../site/http/siteLiveAvatars") as typeof import("../../site/http/siteLiveAvatars");
 const { SG, denyStaffBoardIfNeeded, saveSuggestionImages, deleteSuggestionFiles } = require("./suggestionFiles") as typeof import("./suggestionFiles");
 const { suggestionNotifOpenUrl, notifyHighStaffNewSuggestion, deleteSuggestionNotifications, notifySuggestionAuthor } = require("./suggestionNotify") as typeof import("./suggestionNotify");
 const { serializeSuggestion } = require("./suggestionSerialize") as typeof import("./suggestionSerialize");
 const { displayNameForMember } = require("./suggestionComments") as typeof import("./suggestionComments");
-const { memberCanAccessStaffFeedbackBoard } = require("../../Utils/Staff/staffGuideAccess") as typeof import("../../Utils/Staff/staffGuideAccess");
+const { memberCanAccessStaffFeedbackBoard } = require("../../Staff/utils/staffGuideAccess") as typeof import("../../Staff/utils/staffGuideAccess");
 
 const MAX_SUGGESTION_LEN = 2000;
 

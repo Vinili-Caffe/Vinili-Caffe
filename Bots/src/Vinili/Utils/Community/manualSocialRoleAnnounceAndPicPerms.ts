@@ -1,12 +1,12 @@
 const { EmbedBuilder, PermissionsBitField, AuditLogEvent } = require("discord.js") as typeof import("discord.js");
 const IDs = require("../Config/ids") as typeof import("../Config/ids");
-const { getGuildChannelCached, getGuildMemberCached } = require("../Interaction/interactionEntityCache") as typeof import("../Interaction/interactionEntityCache");
+const { getGuildChannelCached, getGuildMemberCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
 const { shouldSendPublicMemberAnnouncement } = require("./memberPublicAnnouncementGate") as typeof import("./memberPublicAnnouncementGate");
 const {
   wasRoleRestoredByMuteMirror,
   memberIsInMuteMirrorState,
-} = require("../../Services/Moderation/mutedMirrorRoleService") as typeof import("../../Services/Moderation/mutedMirrorRoleService");
-const { accountUsername, guildMemberDisplayAvatarUrlDynamic } = require("../Discord/guildDiscordIdentity") as typeof import("../Discord/guildDiscordIdentity");
+} = require("../../Moderation/services/mutedMirrorRoleService") as typeof import("../../Moderation/services/mutedMirrorRoleService");
+const { accountUsername, guildMemberDisplayAvatarUrlDynamic } = require("../../../shared/discord/guildDiscordIdentity") as typeof import("../../../shared/discord/guildDiscordIdentity");
 const { applyPronounGenderToEmbedForMember } = require("./pronounGenderUtils") as typeof import("./pronounGenderUtils");
 const { collectGuildedRoleIds } = require("./rejoinConditionalRoleEligibility") as typeof import("./rejoinConditionalRoleEligibility");
 const { fetchNumericProfileLevel } = require("./personalityColorUnlocks") as typeof import("./personalityColorUnlocks");
@@ -316,7 +316,7 @@ async function sendSelfieVerifiedRoleAnnounce(member?, channel?, roleId?, title?
 }
 
 async function recoverManualSocialRoleAnnouncesOnStartup(client?, opts: Record<string, any> = {}) {
-  const { isSocialRoleAnnounceGloballySuppressed } = require("../Moderation/muteRestoreAnnounceSuppress") as typeof import("../Moderation/muteRestoreAnnounceSuppress");
+  const { isSocialRoleAnnounceGloballySuppressed } = require("../../Moderation/utils/muteRestoreAnnounceSuppress") as typeof import("../../Moderation/utils/muteRestoreAnnounceSuppress");
   if (isSocialRoleAnnounceGloballySuppressed()) return { ok: false, reason: "suppressed" };
   const {
     isRecoveryPrimaryShard,
@@ -392,7 +392,7 @@ async function recoverManualSocialRoleAnnouncesOnStartup(client?, opts: Record<s
 async function maybeAnnounceManualSocialRolesAndGrantPicPermsBundle(oldMember?, newMember?) {
   if (!oldMember || !newMember?.guild || !newMember.user) return;
   if (String(newMember.guild.id) !== MAIN_GUILD_ID) return;
-  const { isSocialRoleAnnounceGloballySuppressed } = require("../Moderation/muteRestoreAnnounceSuppress") as typeof import("../Moderation/muteRestoreAnnounceSuppress");
+  const { isSocialRoleAnnounceGloballySuppressed } = require("../../Moderation/utils/muteRestoreAnnounceSuppress") as typeof import("../../Moderation/utils/muteRestoreAnnounceSuppress");
   if (isSocialRoleAnnounceGloballySuppressed()) return;
   if (!rolesCacheChanged(oldMember, newMember)) return;
 

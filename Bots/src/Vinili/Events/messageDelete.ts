@@ -1,9 +1,9 @@
 const { EmbedBuilder, MessageFlagsBitField } = require("discord.js") as typeof import("discord.js");
 const IDs = require("../Utils/Config/ids") as typeof import("../Utils/Config/ids");
-const { getGuildChannelCached } = require("../Utils/Interaction/interactionEntityCache") as typeof import("../Utils/Interaction/interactionEntityCache");
+const { getGuildChannelCached } = require("../../shared/discord/interactionEntityCache") as typeof import("../../shared/discord/interactionEntityCache");
 const { toDiscordTimestamp } = require("../Utils/Logging/channelRolesLogUtils") as typeof import("../Utils/Logging/channelRolesLogUtils");
-const { handlePartnerDescriptionMessageDelete } = require("../Services/Partner/partnerDescriptionSyncService") as typeof import("../Services/Partner/partnerDescriptionSyncService");
-const { handleTenantPartnerDescriptionMessageDelete } = require("../MultiGuild/services/Partner/tenantPartnerDescriptionService") as typeof import("../MultiGuild/services/Partner/tenantPartnerDescriptionService");
+const { handlePartnerDescriptionMessageDelete } = require("../Partner/services/partnerDescriptionSyncService") as typeof import("../Partner/services/partnerDescriptionSyncService");
+const { handleTenantPartnerDescriptionMessageDelete } = require("../Partner/services/tenantPartnerDescriptionService") as typeof import("../Partner/services/tenantPartnerDescriptionService");
 
 function isViniliFullFeatureGuild(guildId?) {
   try {
@@ -231,7 +231,7 @@ export = {
 
       const payload: any = buildSnipePayload(resolved, channelId);
       try {
-        const { shouldSkipStoringSnipe } = require("../Services/Minigames/minigameService") as typeof import("../Services/Minigames/minigameService");
+        const { shouldSkipStoringSnipe } = require("../Minigames/services/minigameService") as typeof import("../Minigames/services/minigameService");
         if (shouldSkipStoringSnipe(resolvedClient, channelId, payload)) return;
       } catch (_) {}
       const existing = resolvedClient.snipes.get(channelId);

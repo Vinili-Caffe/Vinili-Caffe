@@ -120,7 +120,7 @@ guildFeatureBucketSchema.index({ "tickets.open": 1, "tickets.createdAt": 1 });
 guildFeatureBucketSchema.index({ "giveaways.messageId": 1 }, { unique: true, sparse: true });
 guildFeatureBucketSchema.index({ "giveaways.ended": 1, "giveaways.endAt": 1 });
 
-const GuildFeatureBucket: import("mongoose").Model<import("mongoose").InferSchemaType<typeof guildFeatureBucketSchema>> =
+const GuildFeatureBucket: any =
   models.GuildFeatureBucket || model("GuildFeatureBucket", guildFeatureBucketSchema);
 
 async function ensureGuildFeatureBucket(guildId?) {

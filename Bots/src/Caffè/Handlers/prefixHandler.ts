@@ -86,6 +86,8 @@ export = (client?) => {
     const statusMap = new Map();
 
     for (const folder of folders) {
+      // TTS e Music vivono in shared (buildTtsCommands / buildMusic*)
+      if (folder === "TTS" || folder === "Music") continue;
       const folderPath = path.join(prefixBase, folder);
       if (!fs.existsSync(folderPath)) continue;
       const files = fs.readdirSync(folderPath).filter((f?) => /\.(cjs|mjs|js|cts|mts|ts)$/i.test(f) && !f.endsWith(".d.ts"));
@@ -117,6 +119,58 @@ export = (client?) => {
           global.logger?.error?.(`[PREFIX] Failed to load ${key}:`, err);
         }
       }
+    }
+
+    try {
+      const voiceSession = require("../Services/Voice/voiceSessionService") as typeof import("../Services/Voice/voiceSessionService");
+      const { buildTtsCommands } = require("../../shared/tts/discord/prefixCommands") as typeof import("../../shared/tts/discord/prefixCommands");
+      const sharedTts = buildTtsCommands({
+        prefix: runtimePrefix || ",",
+        coffee: true,
+        getVoiceSession: voiceSession.getVoiceSession,
+        setVoiceSession: voiceSession.setVoiceSession,
+        clearVoiceSession: voiceSession.clearVoiceSession,
+      });
+      for (const command of sharedTts as any[]) {
+        if (!command?.name) continue;
+        command.folder = command.folder || "TTS";
+        ensurePrefixSubcommandMetadata(command);
+        ensurePrefixUsageMetadata(command, runtimePrefix);
+        newPcommands.set(command.name, command);
+        statusMap.set(`TTS/${command.name}.shared`, "Loaded.");
+        if (Array.isArray(command.aliases)) {
+          for (const alias of command.aliases) newAliases.set(alias, command.name);
+        }
+      }
+    } catch (err) {
+      global.logger?.error?.("[PREFIX] TTS shared commands:", err);
+    }
+
+    try {
+      const { buildMusicListPayload } = require("../../shared/music/discord/musicListUiRuntime") as typeof import("../../shared/music/discord/musicListUiRuntime");
+      const { buildMusicControlCommands } = require("../../shared/music/discord/prefixControls") as typeof import("../../shared/music/discord/prefixControls");
+      const { buildMusicViewCommands } = require("../../shared/music/discord/prefixViews") as typeof import("../../shared/music/discord/prefixViews");
+      const sharedMusic = [
+        ...buildMusicControlCommands({ prefix: runtimePrefix || ",", coffee: true }),
+        ...buildMusicViewCommands({
+          prefix: runtimePrefix || ",",
+          coffee: true,
+          buildMusicListPayload,
+        }),
+      ];
+      for (const command of sharedMusic as any[]) {
+        if (!command?.name) continue;
+        command.folder = command.folder || "Music";
+        ensurePrefixSubcommandMetadata(command);
+        ensurePrefixUsageMetadata(command, runtimePrefix);
+        newPcommands.set(command.name, command);
+        statusMap.set(`Music/${command.name}.shared`, "Loaded.");
+        if (Array.isArray(command.aliases)) {
+          for (const alias of command.aliases) newAliases.set(alias, command.name);
+        }
+      }
+    } catch (err) {
+      global.logger?.error?.("[PREFIX] Music shared commands:", err);
     }
 
     client.pcommands.clear();

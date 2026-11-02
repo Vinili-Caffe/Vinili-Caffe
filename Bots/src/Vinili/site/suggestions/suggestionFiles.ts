@@ -9,7 +9,7 @@ const { suggestionBoardOf } = require("./suggestionFields") as typeof import("./
 const { resolveWebsiteGuildMember } = require("../../site/http/siteRoleRequestApi") as typeof import("../../site/http/siteRoleRequestApi");
 const { normalizeHeaderSecret } = require("../staff/siteStaffAccessApi") as typeof import("../staff/siteStaffAccessApi");
 const { resolveSiteUploadRoot } = require("../../site/http/siteUploadRoots") as typeof import("../../site/http/siteUploadRoots");
-const { memberCanAccessStaffFeedbackBoard } = require("../../Utils/Staff/staffGuideAccess") as typeof import("../../Utils/Staff/staffGuideAccess");
+const { memberCanAccessStaffFeedbackBoard } = require("../../Staff/utils/staffGuideAccess") as typeof import("../../Staff/utils/staffGuideAccess");
 
 const SG = SITE_DOCUMENT_TYPE.SUGGESTION;
 

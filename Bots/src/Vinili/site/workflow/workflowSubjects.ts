@@ -1,6 +1,6 @@
 /** Workflow staff: la persona di cui parla ogni richiesta (nome, avatar dal server). */
-const { getUserCached } = require("../../Utils/Interaction/interactionEntityCache") as typeof import("../../Utils/Interaction/interactionEntityCache");
-const { guildMemberDisplayAvatarUrlDynamic, userAvatarUrlDynamic, normalizeDiscordCdnAvatarUrl, sitePreferredAvatarUrl } = require("../../Utils/Discord/guildDiscordIdentity") as typeof import("../../Utils/Discord/guildDiscordIdentity");
+const { getUserCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
+const { guildMemberDisplayAvatarUrlDynamic, userAvatarUrlDynamic, normalizeDiscordCdnAvatarUrl, sitePreferredAvatarUrl } = require("../../../shared/discord/guildDiscordIdentity") as typeof import("../../../shared/discord/guildDiscordIdentity");
 const { stripDiscordDecorations, isSnowflakeLikeLabel } = require("./workflowLabels") as typeof import("./workflowLabels");
 
 function isGenericWorkflowSubjectLabel(value?, doc?) {

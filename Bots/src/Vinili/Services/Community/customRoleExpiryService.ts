@@ -6,7 +6,7 @@ const {
   collectBlockedSystemRoleIds,
   isCustomRolePurgeDryRun,
 } = require("../../Utils/Community/userCustomRoleFilter") as typeof import("../../Utils/Community/userCustomRoleFilter");
-const { getClientGuildCached, getGuildChannelCached, getGuildRoleCached } = require("../../Utils/Interaction/interactionEntityCache") as typeof import("../../Utils/Interaction/interactionEntityCache");
+const { getClientGuildCached, getGuildChannelCached, getGuildRoleCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
 const CUSTOM_VOICE_CATEGORY_ID = IDs.categories.categoryPrivate;
 const CHECK_INTERVAL_MS = 60 * 1000;
 let expiryLoopHandle = null;

@@ -1,7 +1,7 @@
 const IDs: any = require("../Config/ids") as typeof import("../Config/ids");
 const {
   getClientGuildCached,
-} = require("./interactionEntityCache") as typeof import("./interactionEntityCache");
+} = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
 
 const CANONICAL_MAIN_GUILD_ID = "1329080093599076474";
 const MAIN_GUILD_ID = String(IDs.guilds?.main || CANONICAL_MAIN_GUILD_ID);

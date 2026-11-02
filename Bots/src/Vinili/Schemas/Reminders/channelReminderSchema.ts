@@ -23,9 +23,8 @@ const channelReminderSchema = new Schema(
 channelReminderSchema.index({ sentAt: 1, sendAt: 1 });
 channelReminderSchema.index({ userId: 1, sentAt: 1 });
 
-const ChannelReminder: import("mongoose").Model<
-  import("mongoose").InferSchemaType<typeof channelReminderSchema>
-> = models.ChannelReminder || model("ChannelReminder", channelReminderSchema, COLLECTION);
+const ChannelReminder: any =
+  models.ChannelReminder || model("ChannelReminder", channelReminderSchema, COLLECTION);
 
 export = {
   COLLECTION,

@@ -6,7 +6,7 @@ const { staffAvgRatingMap, resolveRateableStaffer, clampStarRating, serializeTic
 const { emitTicketEvent, notifyUserTicketEvent, createSystemMessage } = require("./ticketNotify") as typeof import("./ticketNotify");
 const { resolveMemberOrStaff, loadTicketForActor } = require("./ticketCommands") as typeof import("./ticketCommands");
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
-const { getOrCreateStaffDoc } = require("../../Utils/Staff/staffDocUtils") as typeof import("../../Utils/Staff/staffDocUtils");
+const { getOrCreateStaffDoc } = require("../../Staff/utils/staffDocUtils") as typeof import("../../Staff/utils/staffDocUtils");
 const { sendWebTicketDiscordLog } = require("./webTicketDiscordLog") as typeof import("./webTicketDiscordLog");
 const { requireOpenStaffPanel, jsonTicketMutation } = require("./siteWebTicketsMembers") as typeof import("./siteWebTicketsMembers");
 

@@ -4,7 +4,7 @@ const { ActivityUserProfile, CustomRole } = require("../Schemas/Community/commun
 const IDs = require("../Utils/Config/ids") as typeof import("../Utils/Config/ids");
 const { hasEventWeekWinnerGrant } = require("../Services/Community/weekWinnerGrantsService") as typeof import("../Services/Community/weekWinnerGrantsService");
 const { hasExtraCustomPerksUnlock } = require("../Utils/Community/customPerksUnlock") as typeof import("../Utils/Community/customPerksUnlock");
-const { addRolesAndGetMember, getGuildRoleCached } = require("../Utils/Interaction/interactionEntityCache") as typeof import("../Utils/Interaction/interactionEntityCache");
+const { addRolesAndGetMember, getGuildRoleCached } = require("../../shared/discord/interactionEntityCache") as typeof import("../../shared/discord/interactionEntityCache");
 const { isAlreadyVerifiedInThisGuild } = require("../Utils/Interaction/verifyUtils") as typeof import("../Utils/Interaction/verifyUtils");
 const { upsertVerifiedMember, applyTenureForMember } = require("../Services/Community/communityOpsService") as typeof import("../Services/Community/communityOpsService");
 const { resolveVoteRoleIdForGuild } = require("../Utils/Community/resolveVoteRoleId") as typeof import("../Utils/Community/resolveVoteRoleId");
@@ -26,7 +26,7 @@ async function restoreDiscadiaVoteRoleOnRejoin(member?) {
   const guildId = String(member.guild.id);
   if (String(guildId) !== String(IDs.guilds.main || "")) return;
   try {
-    const { memberIsInMuteMirrorState, shouldDeferRoleRestoreForMuteMirror } = require("../Services/Moderation/mutedMirrorRoleService") as typeof import("../Services/Moderation/mutedMirrorRoleService");
+    const { memberIsInMuteMirrorState, shouldDeferRoleRestoreForMuteMirror } = require("../Moderation/services/mutedMirrorRoleService") as typeof import("../Moderation/services/mutedMirrorRoleService");
     if (memberIsInMuteMirrorState(member)) return;
     if (await shouldDeferRoleRestoreForMuteMirror(member).catch(() => false)) return;
   } catch (_) {}
@@ -61,7 +61,7 @@ async function restoreDiscadiaVoteRoleOnRejoin(member?) {
 async function restoreCustomRoleOnRejoin(member?) {
   if (!member?.guild || !member?.id) return;
   try {
-    const { memberIsInMuteMirrorState, shouldDeferRoleRestoreForMuteMirror } = require("../Services/Moderation/mutedMirrorRoleService") as typeof import("../Services/Moderation/mutedMirrorRoleService");
+    const { memberIsInMuteMirrorState, shouldDeferRoleRestoreForMuteMirror } = require("../Moderation/services/mutedMirrorRoleService") as typeof import("../Moderation/services/mutedMirrorRoleService");
     if (memberIsInMuteMirrorState(member)) return;
     if (await shouldDeferRoleRestoreForMuteMirror(member).catch(() => false)) return;
   } catch (_) {}
@@ -105,7 +105,7 @@ async function maybeApplyVerificationTenureOnJoin(member?) {
   const guild = member.guild;
   if (!isAlreadyVerifiedInThisGuild(member, guild.id)) return;
   try {
-    const { shouldDeferRoleRestoreForMuteMirror, memberIsInMuteMirrorState } = require("../Services/Moderation/mutedMirrorRoleService") as typeof import("../Services/Moderation/mutedMirrorRoleService");
+    const { shouldDeferRoleRestoreForMuteMirror, memberIsInMuteMirrorState } = require("../Moderation/services/mutedMirrorRoleService") as typeof import("../Moderation/services/mutedMirrorRoleService");
     if (memberIsInMuteMirrorState(member)) return;
     if (await shouldDeferRoleRestoreForMuteMirror(member).catch(() => false)) return;
     const record = await upsertVerifiedMember(guild.id, member.id, new Date());

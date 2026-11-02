@@ -10,7 +10,7 @@ const __eventCoreVinili = (rel: string) => __path.join(__path.resolve(__dirname,
 
 const { resolveStarWarsEventConfig, isStarWarsPublicWindowOpen } = require("./starWarsEventConfig") as typeof import("./starWarsEventConfig");
 const { FEATURES, resolveFeatureStateNow } = require("./starWarsEventCalendar") as typeof import("./starWarsEventCalendar");
-const { memberIsHighStaffEligible } = require(__eventCoreVinili("Utils/Staff/staffRoleHierarchy"));
+const { memberIsHighStaffEligible } = require(__eventCoreVinili("Staff/utils/staffRoleHierarchy"));
 
 function readBool(v?, fallback?) {
   if (v === true || v === false) return v;

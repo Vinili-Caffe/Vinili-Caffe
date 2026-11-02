@@ -4,15 +4,15 @@ const {
   applyBrandingBannerImage,
   createStandardGifAttachment,
 } = require("../utils/tenantEmbedBranding") as typeof import("../utils/tenantEmbedBranding");
-const { applyDefaultFooter } = require("../../Utils/Embeds/defaultFooter") as typeof import("../../Utils/Embeds/defaultFooter");
-const { getBotState, setBotState } = require("../../Utils/BotState/botStateStore") as typeof import("../../Utils/BotState/botStateStore");
-const { isMongoReady } = require("../../Utils/Database/mongoConnect") as typeof import("../../Utils/Database/mongoConnect");
+const { applyDefaultFooter } = require("../../../shared/embeds/defaultFooter") as typeof import("../../../shared/embeds/defaultFooter");
+const { getBotState, setBotState } = require("../../../shared/botState/botStateStore") as typeof import("../../../shared/botState/botStateStore");
+const { isMongoReady } = require("../../../shared/db/mongoConnect") as typeof import("../../../shared/db/mongoConnect");
 const {
   ensureTenantPremiumCacheFresh,
   getTenantPremiumSync,
 } = require("../core/tenantPremium") as typeof import("../core/tenantPremium");
 const { pickRandomWritableTextChannel } = require("./guildJoinWelcomeDmService") as typeof import("./guildJoinWelcomeDmService");
-const { guildIconUrl } = require("../../Utils/Discord/guildDiscordIdentity") as typeof import("../../Utils/Discord/guildDiscordIdentity");
+const { guildIconUrl } = require("../../../shared/discord/guildDiscordIdentity") as typeof import("../../../shared/discord/guildDiscordIdentity");
 const {
   tPremium,
   resolvePremiumNotifyLanguage,

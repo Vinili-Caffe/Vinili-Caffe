@@ -1,6 +1,7 @@
 /**
  * Worker esterno: poll HTTP / sweep pesanti fuori da bots-vinyls.
- * Twitch + Game news + live voice EXP + userFullState + movie night.
+ * Twitch + Game news + userFullState + movie night.
+ * Live voice EXP resta su bots-vinyls (gateway + cache canali).
  */
 const mongoose = require("mongoose") as typeof import("mongoose");
 const {
@@ -14,10 +15,9 @@ const {
 const { createSiteApiRestClient } = require("./siteApiRestClient") as typeof import("./siteApiRestClient");
 const { startTwitchLiveAlertLoop } = require("../Community/twitchLiveAlertService") as typeof import("../Community/twitchLiveAlertService");
 const { startGameNewsAlertLoop } = require("../Community/gameNewsAlertService") as typeof import("../Community/gameNewsAlertService");
-const { startLiveVoiceExpLoop } = require("../Community/activityService") as typeof import("../Community/activityService");
 const { startUserFullStatePersistenceLoop } = require("../Community/userFullStatePersistenceService") as typeof import("../Community/userFullStatePersistenceService");
 const { startMovieNightAnnouncementLoop } = require("../Community/movieNightAnnouncementService") as typeof import("../Community/movieNightAnnouncementService");
-const { startDailyPartnerAuditLoop } = require("../Partner/partnerAuditService") as typeof import("../Partner/partnerAuditService");
+const { startDailyPartnerAuditLoop } = require("../../Partner/services/partnerAuditService") as typeof import("../../Partner/services/partnerAuditService");
 
 loadDotEnv();
 process.env.COMMUNITY_POLL_WORKER = "1";
@@ -52,13 +52,12 @@ async function main(shared?: { client?: any } | null) {
   /* Avvio immediato (niente delay 90s — siamo già un processo dedicato) */
   startTwitchLiveAlertLoop(client);
   startGameNewsAlertLoop(client);
-  startLiveVoiceExpLoop(client);
   startUserFullStatePersistenceLoop(client);
   startMovieNightAnnouncementLoop(client);
   startDailyPartnerAuditLoop(client);
 
   console.log(
-    `[COMMUNITY-POLL] online as ${client.user?.tag || client.user?.username || "bot"} (twitch/gamenews/voiceExp/fullState/movieNight/partnerAudit)`,
+    `[COMMUNITY-POLL] online as ${client.user?.tag || client.user?.username || "bot"} (twitch/gamenews/fullState/movieNight/partnerAudit)`,
   );
 }
 

@@ -1,14 +1,14 @@
 /** Profilo staff: dati del profilo mostrati sul sito. */
 const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
-const { accountUsername, memberDisplayName, userAvatarUrlDynamic, guildMemberDisplayAvatarUrlForSite, discordDefaultAvatarUrl } = require("../../Utils/Discord/guildDiscordIdentity") as typeof import("../../Utils/Discord/guildDiscordIdentity");
-const { summarizeModActionsByModWindows } = require("../../Utils/Moderation/modCaseStore") as typeof import("../../Utils/Moderation/modCaseStore");
+const { accountUsername, memberDisplayName, userAvatarUrlDynamic, guildMemberDisplayAvatarUrlForSite, discordDefaultAvatarUrl } = require("../../../shared/discord/guildDiscordIdentity") as typeof import("../../../shared/discord/guildDiscordIdentity");
+const { summarizeModActionsByModWindows } = require("../../Moderation/utils/modCaseStore") as typeof import("../../Moderation/utils/modCaseStore");
 const { getValPosTradedPauseBonusDays, computeStaffPauseDayBudget, PAUSE_ROLE_STAFF, PAUSE_ROLE_PM, roleChoiceAppliesTo } = require("../../site/staff/pause/pauseHandlersUtils") as typeof import("../../site/staff/pause/pauseHandlersUtils");
-const { resolveStaffProfileKind, buildFullProfileRoleLabelForEmbed, buildStaffProfileRoleBadges, resolveStaffProfileDisplayRoleId, viewerIsFounder, targetIsFounder, PROFILE_FULL, PROFILE_PM_ONLY, PROFILE_PROSPECT } = require("../../Utils/Staff/staffProfilePanelRuntime") as typeof import("../../Utils/Staff/staffProfilePanelRuntime");
-const { resolvePartnerPointsShown, resolvePartnerTotalEarned } = require("../../Utils/Staff/partnerPointsDisplayUtils") as typeof import("../../Utils/Staff/partnerPointsDisplayUtils");
+const { resolveStaffProfileKind, buildFullProfileRoleLabelForEmbed, buildStaffProfileRoleBadges, resolveStaffProfileDisplayRoleId, viewerIsFounder, targetIsFounder, PROFILE_FULL, PROFILE_PM_ONLY, PROFILE_PROSPECT } = require("../../Staff/utils/staffProfilePanelRuntime") as typeof import("../../Staff/utils/staffProfilePanelRuntime");
+const { resolvePartnerPointsShown, resolvePartnerTotalEarned } = require("../../Staff/utils/partnerPointsDisplayUtils") as typeof import("../../Staff/utils/partnerPointsDisplayUtils");
 const { applyPronounGenderToTextForMember } = require("../../Utils/Community/pronounGenderUtils") as typeof import("../../Utils/Community/pronounGenderUtils");
-const { resolveSerataFilmAttendanceForWeek } = require("../../Utils/Staff/serataFilmAttendanceUtils") as typeof import("../../Utils/Staff/serataFilmAttendanceUtils");
-const { loadLegacyStaffByUserIds, mergeStaffEmbedded } = require("../../Utils/Staff/staffLegacyMerge") as typeof import("../../Utils/Staff/staffLegacyMerge");
+const { resolveSerataFilmAttendanceForWeek } = require("../../Staff/utils/serataFilmAttendanceUtils") as typeof import("../../Staff/utils/serataFilmAttendanceUtils");
+const { loadLegacyStaffByUserIds, mergeStaffEmbedded } = require("../../Staff/utils/staffLegacyMerge") as typeof import("../../Staff/utils/staffLegacyMerge");
 const { PROFILE_PAYLOAD_VERSION } = require("./staffProfileCache") as typeof import("./staffProfileCache");
 const { stripDiscordDecorations, resolvePauseSnapshot, serializePauseHistory } = require("./staffProfilePauses") as typeof import("./staffProfilePauses");
 const { serializeRolesHistory, resolveTenureIso, formatTenureLabel } = require("./staffProfileCareer") as typeof import("./staffProfileCareer");

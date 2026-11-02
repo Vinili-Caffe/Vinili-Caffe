@@ -1,6 +1,6 @@
 /** Recovery embed boost mancanti e conteggio guild fresco. */
 const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
-const { getGuildChannelCached, getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache") as typeof import("../../Utils/Interaction/interactionEntityCache");
+const { getGuildChannelCached, getGuildMemberCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
 const { getAnnouncedBoostSlots, ensureBoostSlotsSynced } = require("../../Utils/Community/boostSlotAnnounceTracker") as typeof import("../../Utils/Community/boostSlotAnnounceTracker");
 const { noteBoostEmbedsSentRecently, recentBoostEmbedsSentCount, nativeBoostSeenSince, markBoostAnnounceHandled, isBoostAnnounceHandled, countRecentBotBoostAnnouncesForUser, countRecentBotBoostAnnouncesForUserMulti, resolveBoostAnnounceSyncState, markBoostAnnounceHandledIfSynced, rememberBoostAnnounce, resolveBoostSlotTarget, boostAnnouncePeriodSinceMs, syncAnnouncedBoostSlotsFromChannelCount } = require("./boostAnnounceState") as typeof import("./boostAnnounceState");
 const { collectRecentNativeBoosterCandidates } = require("./boostNative") as typeof import("./boostNative");

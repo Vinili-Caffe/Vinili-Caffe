@@ -1,8 +1,8 @@
 /** Attività: EXP in tempo reale a chi è in vocale. */
-const { isMongoReady } = require("../../Utils/Database/mongoConnect") as typeof import("../../Utils/Database/mongoConnect");
-const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
-const { isValidGuildUserIdChannelId } = require("../../Utils/DB/validateWriteIds") as typeof import("../../Utils/DB/validateWriteIds");
-const { addExpWithLevel, VOICE_EXP_PER_MINUTE, shouldIgnoreExpForMember, isLevelExpGuild } = require("./expService") as typeof import("./expService");
+const { isMongoReady } = require("../../../shared/db/mongoConnect") as typeof import("../../../shared/db/mongoConnect");
+const { ActivityUserProfile, ACTIVITY_MAIN_GUILD_ID } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
+const { isValidGuildUserIdChannelId } = require("../../../shared/db/validateWriteIds") as typeof import("../../../shared/db/validateWriteIds");
+const { addExpWithLevel, VOICE_EXP_PER_MINUTE, shouldIgnoreExpForMember, isLevelExpGuild } = require("../../Level/services/expService") as typeof import("../../Level/services/expService");
 const { resolveVoiceExpMultiplier, computeVoiceExpFromSeconds } = require("../../Utils/Community/voiceExpChannelUtils") as typeof import("../../Utils/Community/voiceExpChannelUtils");
 const { bumpDailyVoice, bumpHourlyVoice } = require("./activityBumps") as typeof import("./activityBumps");
 const { recordVoiceSessionEnd, isCountableVoiceState } = require("./activityRecord") as typeof import("./activityRecord");
@@ -14,6 +14,8 @@ async function syncLiveVoiceSessionsFromGateway(client?) {
   for (const guild of client.guilds.cache.values()) {
     const guildId = String(guild?.id || "");
     if (!guildId) continue;
+    /* Sessioni live EXP solo sul guild livelli (main): evita ghost su tenant MultiGuild. */
+    if (!isLevelExpGuild(guildId)) continue;
 
     const activeUserIds = new Set();
     for (const state of guild.voiceStates?.cache?.values?.() || []) {
@@ -114,7 +116,10 @@ async function runLiveVoiceExpTick(client?) {
   if (!client?.guilds?.cache) return;
   if (!isMongoReady()) return;
   const nowMs = Date.now();
-  const rows = await ActivityUserProfile.find({ "profile.totals.sessionStartedAt": { $ne: null } })
+  const mainGuildId = String(ACTIVITY_MAIN_GUILD_ID || "").trim();
+  const sessionFilter: Record<string, any> = { "profile.totals.sessionStartedAt": { $ne: null } };
+  if (mainGuildId) sessionFilter.guildId = mainGuildId;
+  const rows = await ActivityUserProfile.find(sessionFilter)
     .select("guildId userId profile.totals.sessionStartedAt profile.totals.sessionChannelId profile.totals.expAwardedSeconds profile.totals.voiceActivityBucketFlushSeconds")
     .sort({ "profile.totals.sessionStartedAt": 1 })
     .limit(LIVE_VOICE_EXP_BATCH_SIZE)
@@ -128,7 +133,21 @@ async function runLiveVoiceExpTick(client?) {
     const startedAt = row?.profile?.totals?.sessionStartedAt;
     const channelId = String(row?.profile?.totals?.sessionChannelId || "");
     if (!guildId || !userId || !startedAt || !channelId) continue;
-    if (!isLevelExpGuild(guildId)) continue;
+    if (!isLevelExpGuild(guildId)) {
+      /* Chiudi sessioni ghost su guild senza livelli (non devono restare in coda). */
+      await ActivityUserProfile.updateOne(
+        { guildId, userId },
+        {
+          $set: {
+            "profile.totals.sessionStartedAt": null,
+            "profile.totals.sessionChannelId": null,
+            "profile.totals.expAwardedSeconds": 0,
+            "profile.totals.voiceActivityBucketFlushSeconds": 0,
+          },
+        },
+      ).catch(() => { });
+      continue;
+    }
 
     const guild = client.guilds.cache.get(guildId) || (await client.guilds.fetch(guildId).catch(() => null));
     if (!guild) continue;
@@ -136,7 +155,7 @@ async function runLiveVoiceExpTick(client?) {
     let member = guild.members?.cache?.get(userId) || null;
     if (!member) {
       try {
-        const { getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache") as typeof import("../../Utils/Interaction/interactionEntityCache");
+        const { getGuildMemberCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
         member = await getGuildMemberCached(guild, userId);
       } catch (_) {
         member = await guild.members?.fetch(userId).catch(() => null);

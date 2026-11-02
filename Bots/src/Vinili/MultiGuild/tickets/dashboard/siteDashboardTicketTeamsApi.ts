@@ -15,7 +15,7 @@ const {
   ensureGuildDefaultTeam,
   refreshTicketTeamsCache,
 } = require("../tenant/tenantTicketTeams") as typeof import("../tenant/tenantTicketTeams");
-const { isMainGuild } = require("../../../Utils/Moderation/permTenantBypass") as typeof import("../../../Utils/Moderation/permTenantBypass");
+const { isMainGuild } = require("../../../Moderation/utils/permTenantBypass") as typeof import("../../../Moderation/utils/permTenantBypass");
 
 const REASON_MESSAGES = {
   invalid_guild: "Server non valido.",

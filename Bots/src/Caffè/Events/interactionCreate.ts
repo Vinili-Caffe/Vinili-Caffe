@@ -255,7 +255,7 @@ export = {
 
       if (interaction.isButton?.()) {
         const customId = String(interaction.customId || "");
-        const gw = require("../../Vinili/Services/Giveaway/giveawayService") as typeof import("../../Vinili/Services/Giveaway/giveawayService");
+        const gw = require("../../Vinili/Giveaway/services/giveawayService") as typeof import("../../Vinili/Giveaway/services/giveawayService");
         if (customId.startsWith("giveaway_enter:")) {
           const handled = await gw.enterGiveaway(interaction, client);
           if (handled) return;

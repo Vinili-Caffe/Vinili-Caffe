@@ -34,7 +34,7 @@ async function resolveGuildMemberById(client?, userId?) {
     (await client?.guilds?.fetch?.(guildId).catch?.(() => null)) ||
     null;
   if (!guild) return null;
-  const { getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache") as typeof import("../../Utils/Interaction/interactionEntityCache");
+  const { getGuildMemberCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
   return getGuildMemberCached(guild, id).catch(() => null);
 }
 

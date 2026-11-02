@@ -2,8 +2,8 @@
 const { getRomeWeekKey, getRomeSaturdayKeyForWeek } = require("./movieNightSchedule") as typeof import("./movieNightSchedule");
 const { withReviewThreadMentionInEndContent } = require("./movieNightMessages") as typeof import("./movieNightMessages");
 const { STATE_KEY, isStageCloseMessageForWeekKey, resolveTextChannelForMovieNight } = require("./movieNightStatus") as typeof import("./movieNightStatus");
-const { getBotState, setBotState } = require("../../Utils/BotState/botStateStore") as typeof import("../../Utils/BotState/botStateStore");
-const { getClientGuildCached } = require("../../Utils/Interaction/interactionEntityCache") as typeof import("../../Utils/Interaction/interactionEntityCache");
+const { getBotState, setBotState } = require("../../../shared/botState/botStateStore") as typeof import("../../../shared/botState/botStateStore");
+const { getClientGuildCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
 const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
 const { mergeWatchedTitleEntries } = require("../../Utils/Community/movieNightWatchedTitles") as typeof import("../../Utils/Community/movieNightWatchedTitles");
 

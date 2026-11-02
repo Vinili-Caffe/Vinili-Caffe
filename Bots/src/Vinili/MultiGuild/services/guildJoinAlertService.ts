@@ -1,6 +1,6 @@
 const { ChannelType, EmbedBuilder, PermissionsBitField } = require("discord.js") as typeof import("discord.js");
-const { getBotState, setBotState } = require("../../Utils/BotState/botStateStore") as typeof import("../../Utils/BotState/botStateStore");
-const { getClientChannelCached, getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache") as typeof import("../../Utils/Interaction/interactionEntityCache");
+const { getBotState, setBotState } = require("../../../shared/botState/botStateStore") as typeof import("../../../shared/botState/botStateStore");
+const { getClientChannelCached, getGuildMemberCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
 const { isViniliProtectedGuild } = require("../core/viniliProtectedGuilds") as typeof import("../core/viniliProtectedGuilds");
 const { isMultiGuildLayerEnabled } = require("../core/env") as typeof import("../core/env");
 const joinAlertConfig = require("../config/joinAlert.json") as typeof import("../config/joinAlert.json");
@@ -245,7 +245,7 @@ async function handleBotJoinedGuild(client?, guild?) {
       logMessageId: logMessage?.id || null,
     });
     try {
-      const { maybeSyncPartnershipInviteFromManaged } = require("../../Services/Partner/partnershipInviteService") as typeof import("../../Services/Partner/partnershipInviteService");
+      const { maybeSyncPartnershipInviteFromManaged } = require("../../Partner/services/partnershipInviteService") as typeof import("../../Partner/services/partnershipInviteService");
       await maybeSyncPartnershipInviteFromManaged(guild.id, inviteRow);
     } catch (_) {}
   }
@@ -268,7 +268,7 @@ async function handleManagedInviteDeleted(client?, invite?) {
   const fresh = await guild.fetch().catch(() => guild);
   let preferredChannelId = null;
   try {
-    const { getPartnershipConfig } = require("../core/tenantPartnershipSettings") as typeof import("../core/tenantPartnershipSettings");
+    const { getPartnershipConfig } = require("../../Partner/core/tenantPartnershipSettings") as typeof import("../../Partner/core/tenantPartnershipSettings");
     const cfg = await getPartnershipConfig(guild.id).catch(() => null);
     preferredChannelId = cfg?.partnershipsChannelId || managed.channelId || null;
   } catch (_) {
@@ -292,7 +292,7 @@ async function handleManagedInviteDeleted(client?, invite?) {
   });
 
   try {
-    const { maybeSyncPartnershipInviteFromManaged } = require("../../Services/Partner/partnershipInviteService") as typeof import("../../Services/Partner/partnershipInviteService");
+    const { maybeSyncPartnershipInviteFromManaged } = require("../../Partner/services/partnershipInviteService") as typeof import("../../Partner/services/partnershipInviteService");
     await maybeSyncPartnershipInviteFromManaged(guild.id, recreated);
   } catch (_) {}
 

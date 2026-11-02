@@ -1,9 +1,9 @@
 const { EmbedBuilder, AuditLogEvent, PermissionsBitField, } = require("discord.js") as typeof import("discord.js");
-const { handleMusicBotVoiceDisconnect } = require("../Services/Music/lavalinkMusicService") as typeof import("../Services/Music/lavalinkMusicService");
-const { leaveTtsGuild, handleTtsBotVoiceMove, isTtsPostJoinVoiceGraceActive } = require("../Services/TTS/ttsService") as typeof import("../Services/TTS/ttsService");
+const { handleMusicBotVoiceDisconnect } = require("../../shared/music/services/lavalinkMusicService") as typeof import("../../shared/music/services/lavalinkMusicService");
+const { leaveTtsGuild, handleTtsBotVoiceMove, isTtsPostJoinVoiceGraceActive } = require("../../shared/tts/services/ttsService") as typeof import("../../shared/tts/services/ttsService");
 const { handleVoiceActivity, } = require("../Services/Community/activityService") as typeof import("../Services/Community/activityService");
 const { trackVoiceEngagement } = require("../Services/Community/dailyEngagementStatsService") as typeof import("../Services/Community/dailyEngagementStatsService");
-const { handleSerataFilmVoiceState } = require("../Services/Staff/staffAutoValutazioniService") as typeof import("../Services/Staff/staffAutoValutazioniService");
+const { handleSerataFilmVoiceState } = require("../Staff/services/staffAutoValutazioniService") as typeof import("../Staff/services/staffAutoValutazioniService");
 const { handleSerataFilmAttendanceVoiceState } = require("../Services/Community/serataFilmAttendance") as typeof import("../Services/Community/serataFilmAttendance");
 const IDs = require("../Utils/Config/ids") as typeof import("../Utils/Config/ids");
 
@@ -356,7 +356,7 @@ export = {
       global.logger?.error?.("[DAILY ENGAGEMENT VOICE ERROR]", error);
     }
     try {
-      const { handleMinigameVoiceState } = require("../Services/Minigames/minigameService") as typeof import("../Services/Minigames/minigameService");
+      const { handleMinigameVoiceState } = require("../Minigames/services/minigameService") as typeof import("../Minigames/services/minigameService");
       await handleMinigameVoiceState(oldState, newState, client);
     } catch (error) {
       global.logger?.error?.("[MINIGAMES] voiceStateUpdate failed:", error);
@@ -376,7 +376,7 @@ export = {
 
         
     try {
-      const { handlePmVoiceAfkVoiceState } = require("../Services/Staff/pmVoiceAfkWatchService") as typeof import("../Services/Staff/pmVoiceAfkWatchService");
+      const { handlePmVoiceAfkVoiceState } = require("../Staff/services/pmVoiceAfkWatchService") as typeof import("../Staff/services/pmVoiceAfkWatchService");
       await handlePmVoiceAfkVoiceState(oldState, newState, client);
     } catch (error) {
       global.logger?.error?.("[PM AFK WATCH] voiceStateUpdate failed:", error);
@@ -433,8 +433,8 @@ export = {
 
     const humans = botChannel.members.filter((m?) => !m.user.bot);
     if (humans.size === 0) {
-      const { shouldDeferTtsLeaveForFindBotVoiceMinigame } = require("../Services/Minigames/minigameService") as typeof import("../Services/Minigames/minigameService");
-      const { shouldDeferTtsLeaveForMusicEmptyVc } = require("../Services/Music/lavalinkMusicService") as typeof import("../Services/Music/lavalinkMusicService");
+      const { shouldDeferTtsLeaveForFindBotVoiceMinigame } = require("../Minigames/services/minigameService") as typeof import("../Minigames/services/minigameService");
+      const { shouldDeferTtsLeaveForMusicEmptyVc } = require("../../shared/music/services/lavalinkMusicService") as typeof import("../../shared/music/services/lavalinkMusicService");
       if (shouldDeferTtsLeaveForFindBotVoiceMinigame(client, guild.id, botChannel.id)) {
       } else if (shouldDeferTtsLeaveForMusicEmptyVc(client, guild.id)) {
       } else {

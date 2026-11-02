@@ -1,6 +1,6 @@
 const crypto = require("node:crypto") as typeof import("node:crypto");
-const { getBotState, setBotState } = require("../../../Utils/BotState/botStateStore") as typeof import("../../../Utils/BotState/botStateStore");
-const { isMongoReady } = require("../../../Utils/Database/mongoConnect") as typeof import("../../../Utils/Database/mongoConnect");
+const { getBotState, setBotState } = require("../../../../shared/botState/botStateStore") as typeof import("../../../../shared/botState/botStateStore");
+const { isMongoReady } = require("../../../../shared/db/mongoConnect") as typeof import("../../../../shared/db/mongoConnect");
 const { normalizeGuildId } = require("../../../MultiGuild/core/viniliProtectedGuilds") as typeof import("../../../MultiGuild/core/viniliProtectedGuilds");
 
 const BOT_STATE_KEY = "multiGuildTicketForms.v1";

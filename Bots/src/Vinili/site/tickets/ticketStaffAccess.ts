@@ -6,8 +6,8 @@ const { avatarForMember, normalizeCategory } = require("./ticketNames") as typeo
 const { hasStaffTicketRole } = require("../../MultiGuild/tickets/discord/ticketStaffPanelBuild") as typeof import("../../MultiGuild/tickets/discord/ticketStaffPanelBuild");
 const { memberIsResocontoPmReviewer } = require("../../MultiGuild/tickets/discord/ticketPartnershipStaffRoles") as typeof import("../../MultiGuild/tickets/discord/ticketPartnershipStaffRoles");
 const { canClaimTicket } = require("../../MultiGuild/tickets/discord/ticketStaffRuntime") as typeof import("../../MultiGuild/tickets/discord/ticketStaffRuntime");
-const { getPartnerManagerRoleId } = require("../../Utils/Partner/partnershipConfigResolver") as typeof import("../../Utils/Partner/partnershipConfigResolver");
-const { memberIsHighStaffEligible } = require("../../Utils/Staff/staffRoleHierarchy") as typeof import("../../Utils/Staff/staffRoleHierarchy");
+const { getPartnerManagerRoleId } = require("../../Partner/core/partnershipConfigResolver") as typeof import("../../Partner/core/partnershipConfigResolver");
+const { memberIsHighStaffEligible } = require("../../Staff/utils/staffRoleHierarchy") as typeof import("../../Staff/utils/staffRoleHierarchy");
 
 const WEB_TICKET_STAFF_ROLE_PRIORITY = [
   IDs.roles?.Founder,
@@ -306,7 +306,7 @@ async function buildStaffRoleMapForUserIds(client?, guildId?, userIds?, { nameHi
     await ensureGuildMembersLoaded(guild, snowflakes.slice(0, 24));
   } catch {
       }
-  const { getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache") as typeof import("../../Utils/Interaction/interactionEntityCache");
+  const { getGuildMemberCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
 
   await Promise.all(
     snowflakes.slice(0, 24).map(async (uid?) => {

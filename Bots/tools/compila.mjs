@@ -4,6 +4,7 @@
 // Il .js non va mai accanto al .ts: i caricatori di comandi/eventi caricherebbero i file due volte.
 //   node tools/compila.mjs                       → tutto src/ in build/js/
 //   node tools/compila.mjs Vinili/x.ts Caffè/y.ts → solo quei file
+// COMPILA_ROOT=/tmp/stage  → usa stage/src e stage/build (pubblica remota)
 import { createRequire } from "node:module";
 import fs from "node:fs";
 import path from "node:path";
@@ -12,12 +13,18 @@ import { fileURLToPath } from "node:url";
 const require = createRequire(import.meta.url);
 const esbuild = require("esbuild");
 const HERE = path.dirname(fileURLToPath(import.meta.url));
-const ROOT = path.resolve(HERE, "..");
+const ROOT = process.env.COMPILA_ROOT
+  ? path.resolve(String(process.env.COMPILA_ROOT))
+  : path.resolve(HERE, "..");
 const SRC = path.join(ROOT, "src");
 const ARCHIVIO = path.join(ROOT, "archivio");
 const OUT = path.join(ROOT, "build", "js");
 const OUT_ARCH = path.join(ROOT, "build", "archivio");
-const tsconfig = JSON.parse(fs.readFileSync(path.join(ROOT, "tsconfig.json"), "utf8"));
+const tsconfigPath = path.join(ROOT, "tsconfig.json");
+const tsconfigFallback = path.join(HERE, "..", "tsconfig.json");
+const tsconfig = JSON.parse(
+  fs.readFileSync(fs.existsSync(tsconfigPath) ? tsconfigPath : tsconfigFallback, "utf8"),
+);
 // node20: sulla VPS c'è anche Node 20 nel PATH (pm2 usa il 22 di nvm): il codice deve andare su entrambi
 const NODE_TARGET = "node20";
 

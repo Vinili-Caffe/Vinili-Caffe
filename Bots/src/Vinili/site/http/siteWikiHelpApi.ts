@@ -127,7 +127,7 @@ function collectMemberRoleIds(member?) {
 
 function buildCatalogSafe(client?, roleIds?) {
   try {
-    const help = require("../../Prefix/Utility/help") as typeof import("../../Prefix/Utility/help");
+    const help = require("../../Utils/Prefix/wikiHelpCatalog") as typeof import("../../Utils/Prefix/wikiHelpCatalog");
     if (typeof help.buildWikiHelpCatalog !== "function") return null;
     return help.buildWikiHelpCatalog(client, roleIds);
   } catch (err) {

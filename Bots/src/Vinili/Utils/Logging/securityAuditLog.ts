@@ -1,7 +1,7 @@
 const { EmbedBuilder } = require("discord.js") as typeof import("discord.js");
-const { getGuildChannelCached } = require("../Interaction/interactionEntityCache") as typeof import("../Interaction/interactionEntityCache");
+const { getGuildChannelCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
 const IDs = require("../Config/ids") as typeof import("../Config/ids");
-const { getSecurityStaticsSnapshot } = require("../../Services/Moderation/securityProfilesService") as typeof import("../../Services/Moderation/securityProfilesService");
+const { getSecurityStaticsSnapshot } = require("../../Moderation/services/securityProfilesService") as typeof import("../../Moderation/services/securityProfilesService");
 const EMBED_DESCRIPTION_MAX = 4096;
 const EMBED_TITLE_MAX = 256;
 const DEFAULT_LOG_CHANNEL_IDS = [IDs.channels?.activityLogs, IDs.channels?.modLogs].filter(Boolean).map(String);

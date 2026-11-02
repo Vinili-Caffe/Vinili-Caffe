@@ -1,7 +1,7 @@
 /** Ticket dal sito: nomi, etichette, categorie, avatar e nome del canale. */
 const IDs: any = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
 const { WEB_TICKET_CATEGORIES } = require("../../features/tickets/data/siteWebTicketSchemas") as typeof import("../../features/tickets/data/siteWebTicketSchemas");
-const { guildMemberDisplayAvatarUrlDynamic, guildMemberDisplayAvatarUrlStatic, sitePreferredAvatarUrl } = require("../../Utils/Discord/guildDiscordIdentity") as typeof import("../../Utils/Discord/guildDiscordIdentity");
+const { guildMemberDisplayAvatarUrlDynamic, guildMemberDisplayAvatarUrlStatic, sitePreferredAvatarUrl } = require("../../../shared/discord/guildDiscordIdentity") as typeof import("../../../shared/discord/guildDiscordIdentity");
 const { resolveSiteAvatarUrl } = require("../http/siteLiveAvatars") as typeof import("../http/siteLiveAvatars");
 const { getTicketPanelConfig } = require("../../MultiGuild/tickets/discord/ticketPanelConfig") as typeof import("../../MultiGuild/tickets/discord/ticketPanelConfig");
 const { buildTicketChannelName, sanitizeTicketChannelTail } = require("../../MultiGuild/tickets/discord/ticketNamingRuntime") as typeof import("../../MultiGuild/tickets/discord/ticketNamingRuntime");

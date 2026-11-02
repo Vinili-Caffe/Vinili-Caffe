@@ -6,9 +6,9 @@ const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Conf
 const { SiteDocument, SITE_DOCUMENT_TYPE } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
 const { resolveWebsiteGuildMember } = require("./siteRoleRequestApi") as typeof import("./siteRoleRequestApi");
 const { normalizeHeaderSecret } = require("../staff/siteStaffAccessApi") as typeof import("../staff/siteStaffAccessApi");
-const { guildMemberDisplayAvatarUrlDynamic, guildMemberDisplayAvatarUrlStatic } = require("../../Utils/Discord/guildDiscordIdentity") as typeof import("../../Utils/Discord/guildDiscordIdentity");
+const { guildMemberDisplayAvatarUrlDynamic, guildMemberDisplayAvatarUrlStatic } = require("../../../shared/discord/guildDiscordIdentity") as typeof import("../../../shared/discord/guildDiscordIdentity");
 const { enqueueSiteInAppNotification } = require("../notifications/siteInAppNotificationsService") as typeof import("../notifications/siteInAppNotificationsService");
-const { recordTenantBugReport } = require("../../MultiGuild/services/Partner/tenantObjectiveService") as typeof import("../../MultiGuild/services/Partner/tenantObjectiveService");
+const { recordTenantBugReport } = require("../../Partner/services/tenantObjectiveService") as typeof import("../../Partner/services/tenantObjectiveService");
 const {
   applyLiveAvatarToSuggestionLike,
   collectUserIdsFromSuggestionLikeDocs,
@@ -731,7 +731,7 @@ async function staffSetBotFeedbackDecision(client?, payload: Record<string, any>
       .catch(() => null);
     if (claimed) {
       try {
-        const { refreshPartnershipConfigCache } = require("../../MultiGuild/core/tenantPartnershipSettings") as typeof import("../../MultiGuild/core/tenantPartnershipSettings");
+        const { refreshPartnershipConfigCache } = require("../../Partner/core/tenantPartnershipSettings") as typeof import("../../Partner/core/tenantPartnershipSettings");
         await refreshPartnershipConfigCache().catch(() => null);
       } catch (_) {}
       void recordTenantBugReport(client, resolved.guild.id, authorId).catch(() => null);

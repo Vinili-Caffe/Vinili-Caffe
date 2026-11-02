@@ -467,7 +467,7 @@ process.on("exit", () => {
 
 async function bootBots() {
   try {
-    const { buildMongoUrl, waitForMongoReachable } = require("./Vinili/Utils/Database/mongoConnect") as typeof import("./Vinili/Utils/Database/mongoConnect");
+    const { buildMongoUrl, waitForMongoReachable } = require("./shared/db/mongoConnect") as typeof import("./shared/db/mongoConnect");
     const mongoUrl = buildMongoUrl(null);
     if (mongoUrl) {
       console.log("[Loader] Attesa MongoDB...");

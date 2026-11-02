@@ -1,6 +1,6 @@
 const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
 const { assertWebsiteStaffAccess, normalizeHeaderSecret, memberCanViewResocontiInbox } = require("../staff/siteStaffAccessApi") as typeof import("../staff/siteStaffAccessApi");
-const { memberIsHighStaffEligible, memberCanReviewAppelli, memberHasDirectorRole } = require("../../Utils/Staff/staffRoleHierarchy") as typeof import("../../Utils/Staff/staffRoleHierarchy");
+const { memberIsHighStaffEligible, memberCanReviewAppelli, memberHasDirectorRole } = require("../../Staff/utils/staffRoleHierarchy") as typeof import("../../Staff/utils/staffRoleHierarchy");
 const { SiteDocument, SITE_DOCUMENT_TYPE } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
 const {
   acceptPauseRequestWeb,
@@ -21,7 +21,7 @@ const {
   buildWorkflowDedupeKey,
 } = require("./siteStaffWorkflowStore") as typeof import("./siteStaffWorkflowStore");
 const { decideResocontoFromWeb } = require("../../Events/interaction/resocontoHandlers") as typeof import("../../Events/interaction/resocontoHandlers");
-const { memberHasResocontoButtonAccess } = require("../../Utils/Staff/resocontoAccess") as typeof import("../../Utils/Staff/resocontoAccess");
+const { memberHasResocontoButtonAccess } = require("../../Staff/utils/resocontoAccess") as typeof import("../../Staff/utils/resocontoAccess");
 
 const WORKFLOW_DOC = SITE_DOCUMENT_TYPE.STAFF_WORKFLOW;
 const QUEUES = new Set(["summary", "pause", "candidature", "appelli", "resoconti", "revisione"]);
@@ -119,7 +119,7 @@ async function buildWorkflowSummary(client?, member?, canManageHighStaff?) {
 
   let resocontoWeekKey = "";
   try {
-    const { getResocontoCycleWeekKey } = require("../../Services/Staff/weeklyStaffResocontoService") as typeof import("../../Services/Staff/weeklyStaffResocontoService");
+    const { getResocontoCycleWeekKey } = require("../../Staff/services/weeklyStaffResocontoService") as typeof import("../../Staff/services/weeklyStaffResocontoService");
     resocontoWeekKey = String(getResocontoCycleWeekKey() || "").trim();
   } catch {
     resocontoWeekKey = "";

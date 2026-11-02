@@ -1,9 +1,9 @@
 const { PermissionFlagsBits } = require("discord.js") as typeof import("discord.js");
 const IDs = require("../../../Utils/Config/ids") as typeof import("../../../Utils/Config/ids");
-const { getResocontoReviewerUserIdsForSegment } = require("../../../Utils/Staff/resocontoAccess") as typeof import("../../../Utils/Staff/resocontoAccess");
+const { getResocontoReviewerUserIdsForSegment } = require("../../../Staff/utils/resocontoAccess") as typeof import("../../../Staff/utils/resocontoAccess");
 
-const { getPartnerManagerRoleId } = require("../../../Utils/Partner/partnershipConfigResolver") as typeof import("../../../Utils/Partner/partnershipConfigResolver");
-const { memberHasRoleId } = require("../../../Utils/Staff/staffRoleHierarchy") as typeof import("../../../Utils/Staff/staffRoleHierarchy");
+const { getPartnerManagerRoleId } = require("../../../Partner/core/partnershipConfigResolver") as typeof import("../../../Partner/core/partnershipConfigResolver");
+const { memberHasRoleId } = require("../../../Staff/utils/staffRoleHierarchy") as typeof import("../../../Staff/utils/staffRoleHierarchy");
 const {
   applyTicketStaffRoleOverwrites,
   editTicketMemberOverwrite,
@@ -53,7 +53,7 @@ function memberIsResocontoPmReviewer(member?) {
 function memberCanManagePartnerManagers(member?) {
   if (!member) return false;
   try {
-    const { memberIsHighStaffEligible } = require("../../../Utils/Staff/staffRoleHierarchy") as typeof import("../../../Utils/Staff/staffRoleHierarchy");
+    const { memberIsHighStaffEligible } = require("../../../Staff/utils/staffRoleHierarchy") as typeof import("../../../Staff/utils/staffRoleHierarchy");
     if (memberIsHighStaffEligible(member)) return true;
   } catch {
       }

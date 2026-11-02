@@ -1,5 +1,5 @@
-const { getBotState, setBotState } = require("../../../Utils/BotState/botStateStore") as typeof import("../../../Utils/BotState/botStateStore");
-const { isMongoReady } = require("../../../Utils/Database/mongoConnect") as typeof import("../../../Utils/Database/mongoConnect");
+const { getBotState, setBotState } = require("../../../../shared/botState/botStateStore") as typeof import("../../../../shared/botState/botStateStore");
+const { isMongoReady } = require("../../../../shared/db/mongoConnect") as typeof import("../../../../shared/db/mongoConnect");
 const { normalizeGuildId } = require("../../../MultiGuild/core/viniliProtectedGuilds") as typeof import("../../../MultiGuild/core/viniliProtectedGuilds");
 const IDs = require("../../../Utils/Config/ids") as typeof import("../../../Utils/Config/ids");
 const { TICKETS_CATEGORY_NAME } = require("../discord/ticketCategoryUtils") as typeof import("../discord/ticketCategoryUtils");

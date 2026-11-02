@@ -5,26 +5,26 @@ const {
   resolveStaffProfileKind,
   resolveStaffPartnerPointsDisplay,
   PROFILE_PM_ONLY,
-} = require("../../Utils/Staff/staffProfilePanelRuntime") as typeof import("../../Utils/Staff/staffProfilePanelRuntime");
+} = require("../../Staff/utils/staffProfilePanelRuntime") as typeof import("../../Staff/utils/staffProfilePanelRuntime");
 const {
   resolvePartnerPointsShown,
   resolvePartnerTotalEarned,
-} = require("../../Utils/Staff/partnerPointsDisplayUtils") as typeof import("../../Utils/Staff/partnerPointsDisplayUtils");
+} = require("../../Staff/utils/partnerPointsDisplayUtils") as typeof import("../../Staff/utils/partnerPointsDisplayUtils");
 const {
   TOP_LIMIT,
   fetchSortedPartners,
   pickTopPartnerRowsInGuild,
-} = require("../../Utils/Partner/partnerLeaderboardRuntime") as typeof import("../../Utils/Partner/partnerLeaderboardRuntime");
-const { listPartnershipBlacklistGuilds } = require("../../Services/Partner/partnershipBlacklistService") as typeof import("../../Services/Partner/partnershipBlacklistService");
+} = require("../../Partner/runtime/partnerLeaderboardRuntime") as typeof import("../../Partner/runtime/partnerLeaderboardRuntime");
+const { listPartnershipBlacklistGuilds } = require("../../Partner/services/partnershipBlacklistService") as typeof import("../../Partner/services/partnershipBlacklistService");
 const {
   resolveSerataFilmAttendanceForWeek,
   setSerataFilmWillAttend,
   canEditSerataFilmAttendance,
-} = require("../../Utils/Staff/serataFilmAttendanceUtils") as typeof import("../../Utils/Staff/serataFilmAttendanceUtils");
+} = require("../../Staff/utils/serataFilmAttendanceUtils") as typeof import("../../Staff/utils/serataFilmAttendanceUtils");
 const {
   STAFF_HIGH_STAFF_ELIGIBLE_KEYS,
   memberHasAnyRoleKey,
-} = require("../../Utils/Staff/staffRoleHierarchy") as typeof import("../../Utils/Staff/staffRoleHierarchy");
+} = require("../../Staff/utils/staffRoleHierarchy") as typeof import("../../Staff/utils/staffRoleHierarchy");
 const { assertWebsiteStaffAccess, normalizeHeaderSecret } = require("./siteStaffAccessApi") as typeof import("./siteStaffAccessApi");
 const { buildPmShopCatalogForWeb } = require("./siteStaffPmShopApi") as typeof import("./siteStaffPmShopApi");
 const { memberIsPm } = require("./siteStaffRosterCache") as typeof import("./siteStaffRosterCache");

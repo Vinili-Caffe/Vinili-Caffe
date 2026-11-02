@@ -19,7 +19,7 @@ async function enrichResocontoDetailChart(detail?, doc?, guild?) {
           collectResocontoVoiceExcludeIds,
           getResocontoWeekRangeFromWeekKey,
           serializeCostanzaChart,
-        } = require("../../Services/Staff/weeklyStaffResocontoService") as typeof import("../../Services/Staff/weeklyStaffResocontoService");
+        } = require("../../Staff/services/weeklyStaffResocontoService") as typeof import("../../Staff/services/weeklyStaffResocontoService");
         const weekKey = String(detail.weekKey || doc?.workflowWeekKey || "").trim();
         const range = getResocontoWeekRangeFromWeekKey(weekKey);
         const scope = guild ? buildResocontoOverviewOptions(guild, range?.weekEnd || new Date()) : {};
@@ -258,7 +258,7 @@ async function enrichResocontoRolesHistory(detail?, doc?, guild?) {
     const histRaw = Array.isArray(profile?.staff?.rolesHistory) ? profile.staff.rolesHistory : [];
     let hist = histRaw;
     try {
-      const { isHiddenManualStaffCareerReason } = require("../../Utils/Staff/staffTrackHistory") as typeof import("../../Utils/Staff/staffTrackHistory");
+      const { isHiddenManualStaffCareerReason } = require("../../Staff/utils/staffTrackHistory") as typeof import("../../Staff/utils/staffTrackHistory");
       hist = histRaw.filter((row?) => !isHiddenManualStaffCareerReason(row?.reason));
     } catch (_) {}
     if (!hist.length) {

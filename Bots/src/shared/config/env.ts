@@ -5,7 +5,7 @@ function getToken(config: Record<string, any> = {}, envKey = "DISCORD_TOKEN") {
 function getMongoUrl(config: Record<string, any> = {}) {
   /* mongoSingleSource1: stessa regola di Vinili/Utils/Database/mongoConnect */
   try {
-    const { buildMongoUrl } = require("../../Vinili/Utils/Database/mongoConnect") as typeof import("../../Vinili/Utils/Database/mongoConnect");
+    const { buildMongoUrl } = require("../db/mongoConnect") as typeof import("../db/mongoConnect");
     const url = buildMongoUrl({ config: { mongoURL: config?.mongoURL || config?.mongoUrl } });
     if (url) return url;
   } catch (_) {}

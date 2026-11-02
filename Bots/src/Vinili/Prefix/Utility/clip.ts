@@ -4,7 +4,7 @@ const {
   exportClipFromCommand,
   parseClipDurationSec,
 } = require("../../Services/Voice/voiceClipService") as typeof import("../../Services/Voice/voiceClipService");
-const { EPHEMERAL_TTL_SHORT_MS, scheduleMessageDeletion } = require("../../Utils/Config/ephemeralMessageTtl") as typeof import("../../Utils/Config/ephemeralMessageTtl");
+const { EPHEMERAL_TTL_SHORT_MS, scheduleMessageDeletion } = require("../../../shared/utils/ephemeralMessageTtl") as typeof import("../../../shared/utils/ephemeralMessageTtl");
 const { TENANT_EMBED_COLOR } = require("../../MultiGuild/utils/tenantEmbedBranding") as typeof import("../../MultiGuild/utils/tenantEmbedBranding");
 const { isTenantBoardFeatureEnabledSync } = require("../../MultiGuild/core/tenantGuildSettings") as typeof import("../../MultiGuild/core/tenantGuildSettings");
 

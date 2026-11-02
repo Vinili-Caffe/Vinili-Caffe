@@ -1,4 +1,4 @@
-const axios = require("axios") as typeof import("axios").default;
+const axios = require("axios") as any;
 const fs = require("fs") as typeof import("fs");
 const os = require("os") as typeof import("os");
 const path = require("path") as typeof import("path");

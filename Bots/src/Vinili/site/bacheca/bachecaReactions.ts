@@ -18,7 +18,7 @@ const bachecaReactionSchema = new Schema(
 bachecaReactionSchema.index({ guildId: 1, itemId: 1, userId: 1, emoji: 1 }, { unique: true });
 bachecaReactionSchema.index({ guildId: 1, itemId: 1 });
 
-const BachecaReaction: import("mongoose").Model<import("mongoose").InferSchemaType<typeof bachecaReactionSchema>> =
+const BachecaReaction: any =
   models.BachecaReaction || model("BachecaReaction", bachecaReactionSchema);
 
 /** Mette o toglie la reazione. Ritorna se adesso c'è. */

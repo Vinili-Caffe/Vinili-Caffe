@@ -395,7 +395,7 @@ async function expireActiveIfNeeded(client?, cfg?, guildId?, state?) {
 
 async function trySpawnTotInstead(client?, guildId?, channelId?) {
   try {
-    const minigameService = require(__eventCoreVinili("Services/Minigames/minigameService"));
+    const minigameService = require(__eventCoreVinili("Minigames/services/minigameService"));
     const cfg = typeof minigameService.getConfig === "function" ? minigameService.getConfig(client) : null;
     if (!cfg) return false;
     const totCfg = {

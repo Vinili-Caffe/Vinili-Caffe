@@ -3,7 +3,7 @@ const { EmbedBuilder } = require("discord.js") as typeof import("discord.js");
 const {
   pickSnipeEntryForChannel,
   redactSnipeContentForMinigame,
-} = require("../../Services/Minigames/minigameService") as typeof import("../../Services/Minigames/minigameService");
+} = require("../../Minigames/services/minigameService") as typeof import("../../Minigames/services/minigameService");
 
 export = {
   name: "snipe",

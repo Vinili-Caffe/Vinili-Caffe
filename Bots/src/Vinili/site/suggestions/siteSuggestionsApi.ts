@@ -17,7 +17,7 @@ const { createSiteSuggestion, setSiteSuggestionVote, updateOwnSiteSuggestion, de
 
 const LIST_LIMIT = 60;
 
-const { memberCanAccessStaffFeedbackBoard } = require("../../Utils/Staff/staffGuideAccess") as typeof import("../../Utils/Staff/staffGuideAccess");
+const { memberCanAccessStaffFeedbackBoard } = require("../../Staff/utils/staffGuideAccess") as typeof import("../../Staff/utils/staffGuideAccess");
 
 async function resolveGuild(client?) {
   const guildId = String(client?.config?.mainGuildId || IDs.guilds?.main || "").trim();

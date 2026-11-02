@@ -1,13 +1,13 @@
 const { EmbedBuilder, PermissionsBitField, ActivityType } = require("discord.js") as typeof import("discord.js");
 const mongoose = require("mongoose") as typeof import("mongoose");
 const { ActivityUserProfile } = require("../Schemas/Community/communitySchemas") as typeof import("../Schemas/Community/communitySchemas");
-const { ensureMongoReady, isMongoTransientError } = require("../Utils/Database/mongoConnect") as typeof import("../Utils/Database/mongoConnect");
+const { ensureMongoReady, isMongoTransientError } = require("../../shared/db/mongoConnect") as typeof import("../../shared/db/mongoConnect");
 const IDs = require("../Utils/Config/ids") as typeof import("../Utils/Config/ids");
 const { shouldSendPublicMemberAnnouncement } = require("../Utils/Community/memberPublicAnnouncementGate") as typeof import("../Utils/Community/memberPublicAnnouncementGate");
-const { getGuildChannelCached, getGuildMemberCached } = require("../Utils/Interaction/interactionEntityCache") as typeof import("../Utils/Interaction/interactionEntityCache");
-const { accountUsername, guildMemberDisplayAvatarUrlDynamic } = require("../Utils/Discord/guildDiscordIdentity") as typeof import("../Utils/Discord/guildDiscordIdentity");
+const { getGuildChannelCached, getGuildMemberCached } = require("../../shared/discord/interactionEntityCache") as typeof import("../../shared/discord/interactionEntityCache");
+const { accountUsername, guildMemberDisplayAvatarUrlDynamic } = require("../../shared/discord/guildDiscordIdentity") as typeof import("../../shared/discord/guildDiscordIdentity");
 const { applyPronounGenderToEmbedForMember } = require("../Utils/Community/pronounGenderUtils") as typeof import("../Utils/Community/pronounGenderUtils");
-const { syncPersistentAutoValutazioniForMember } = require("../Services/Staff/staffAutoValutazioniService") as typeof import("../Services/Staff/staffAutoValutazioniService");
+const { syncPersistentAutoValutazioniForMember } = require("../Staff/services/staffAutoValutazioniService") as typeof import("../Staff/services/staffAutoValutazioniService");
 const {
   textHasSupporterStatusLink,
   normalizeSupporterStatusText,

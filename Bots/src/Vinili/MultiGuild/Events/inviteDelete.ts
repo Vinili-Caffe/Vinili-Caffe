@@ -1,6 +1,6 @@
 const { isMultiGuildLayerEnabled } = require("../core/env") as typeof import("../core/env");
 const { handleManagedInviteDeleted } = require("../services/guildJoinAlertService") as typeof import("../services/guildJoinAlertService");
-const { handlePartnershipInviteDeleted } = require("../../Services/Partner/partnershipInviteService") as typeof import("../../Services/Partner/partnershipInviteService");
+const { handlePartnershipInviteDeleted } = require("../../Partner/services/partnershipInviteService") as typeof import("../../Partner/services/partnershipInviteService");
 
 export = {
   name: "inviteDelete",

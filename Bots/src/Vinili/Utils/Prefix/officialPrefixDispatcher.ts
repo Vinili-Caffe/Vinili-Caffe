@@ -2,7 +2,7 @@ const { ButtonBuilder, ButtonStyle, ActionRowBuilder } = require("discord.js") a
 const path = require("path") as typeof import("path");
 const { readSnapshotWithMeta, writeSnapshotWithMeta } = require("../../../shared/recovery/snapshotStore") as typeof import("../../../shared/recovery/snapshotStore");
 const { registerShutdownFlush, armShutdownCheckpoint } = require("../../../shared/recovery/shutdownCheckpoint") as typeof import("../../../shared/recovery/shutdownCheckpoint");
-const { applyDefaultFooterToEmbeds } = require("../Embeds/defaultFooter") as typeof import("../Embeds/defaultFooter");
+const { applyDefaultFooterToEmbeds } = require("../../../shared/embeds/defaultFooter") as typeof import("../../../shared/embeds/defaultFooter");
 const {
   applyTenantPayloadBranding,
   stripTenantBrandingInternals,
@@ -23,16 +23,16 @@ function finalizePrefixOutgoingPayload(payload?, guild?) {
     }),
   );
 }
-const { checkPrefixPermission, getPrefixRequiredRoles, buildGlobalPermissionDeniedEmbed, buildGlobalChannelDeniedEmbed, } = require("../Moderation/commandPermissions") as typeof import("../Moderation/commandPermissions");
-const { getUserCommandCooldownSeconds, consumeUserCooldown, } = require("../Moderation/commandCooldown") as typeof import("../Moderation/commandCooldown");
-const { buildCooldownErrorEmbed, buildBusyCommandErrorEmbed, buildMissingArgumentsErrorEmbed, buildInternalCommandErrorEmbed, } = require("../Moderation/commandErrorEmbeds") as typeof import("../Moderation/commandErrorEmbeds");
+const { checkPrefixPermission, getPrefixRequiredRoles, buildGlobalPermissionDeniedEmbed, buildGlobalChannelDeniedEmbed, } = require("../../Moderation/utils/commandPermissions") as typeof import("../../Moderation/utils/commandPermissions");
+const { getUserCommandCooldownSeconds, consumeUserCooldown, } = require("../../Moderation/utils/commandCooldown") as typeof import("../../Moderation/utils/commandCooldown");
+const { buildCooldownErrorEmbed, buildBusyCommandErrorEmbed, buildMissingArgumentsErrorEmbed, buildInternalCommandErrorEmbed, } = require("../../Moderation/utils/commandErrorEmbeds") as typeof import("../../Moderation/utils/commandErrorEmbeds");
 const { buildErrorLogEmbed } = require("../../../shared/discord/errorLogEmbed") as typeof import("../../../shared/discord/errorLogEmbed");
 const { getCentralChannel } = require("../Logging/commandUsageLogger") as typeof import("../Logging/commandUsageLogger");
-const { shouldBlockModerationCommands } = require("../../Services/Moderation/antiNukeService") as typeof import("../../Services/Moderation/antiNukeService");
-const { getSecurityLockState } = require("../../Services/Moderation/securityOrchestratorService") as typeof import("../../Services/Moderation/securityOrchestratorService");
-const { showPrefixUsageGuide } = require("../Moderation/prefixUsageGuide") as typeof import("../Moderation/prefixUsageGuide");
+const { shouldBlockModerationCommands } = require("../../Moderation/services/antiNukeService") as typeof import("../../Moderation/services/antiNukeService");
+const { getSecurityLockState } = require("../../Moderation/services/securityOrchestratorService") as typeof import("../../Moderation/services/securityOrchestratorService");
+const { showPrefixUsageGuide } = require("../../../shared/prefix/prefixUsageGuide") as typeof import("../../../shared/prefix/prefixUsageGuide");
 const IDs = require("../Config/ids") as typeof import("../Config/ids");
-const { EPHEMERAL_TTL_SHORT_MS } = require("../Config/ephemeralMessageTtl") as typeof import("../Config/ephemeralMessageTtl");
+const { EPHEMERAL_TTL_SHORT_MS } = require("../../../shared/utils/ephemeralMessageTtl") as typeof import("../../../shared/utils/ephemeralMessageTtl");
 const PREFIX_COOLDOWN_BYPASS_ROLE_ID = IDs.roles.Staff;
 const PREFIX_PRECHECK_TIMEOUT_MS = 12_000;
 const PREFIX_EXECUTION_TIMEOUT_MS = Math.max(15_000, Number(process.env.PREFIX_EXECUTION_TIMEOUT_MS || 120_000),);
@@ -206,7 +206,7 @@ function hasSendablePayload(data?) {
 }
 
 async function sendTemporaryMessage(channel?, payload?, ttlMs?) {
-  const { coercePlainContentToNoticePayload } = require("../Embeds/simpleNoticeEmbed") as typeof import("../Embeds/simpleNoticeEmbed");
+  const { coercePlainContentToNoticePayload } = require("../../../shared/embeds/simpleNoticeEmbed") as typeof import("../../../shared/embeds/simpleNoticeEmbed");
   let out = coercePlainContentToNoticePayload(payload, channel?.guild) || payload;
   if (channel?.guild) {
     out = finalizePrefixOutgoingPayload(out, channel.guild) || out;
@@ -220,7 +220,7 @@ async function sendTemporaryMessage(channel?, payload?, ttlMs?) {
 }
 
 async function sendTemporaryReply(message?, payload?, ttlMs?) {
-  const { coercePlainContentToNoticePayload } = require("../Embeds/simpleNoticeEmbed") as typeof import("../Embeds/simpleNoticeEmbed");
+  const { coercePlainContentToNoticePayload } = require("../../../shared/embeds/simpleNoticeEmbed") as typeof import("../../../shared/embeds/simpleNoticeEmbed");
   let out = coercePlainContentToNoticePayload(payload, message?.guild) || payload;
   if (message?.guild) {
     out = finalizePrefixOutgoingPayload(out, message.guild) || out;
@@ -456,7 +456,7 @@ async function executePrefixCommandRuntime({
       }),
     ]);
     try {
-      const { maybeApplyTenantEphemeralCommandCleanup } = require("../../MultiGuild/utils/Partner/tenantProfileEphemeral") as typeof import("../../MultiGuild/utils/Partner/tenantProfileEphemeral");
+      const { maybeApplyTenantEphemeralCommandCleanup } = require("../../Partner/tenant/tenantProfileEphemeral") as typeof import("../../Partner/tenant/tenantProfileEphemeral");
       void maybeApplyTenantEphemeralCommandCleanup(execMessage, cmdName);
     } catch (_) {}
   } catch (error) {
@@ -636,7 +636,7 @@ async function handleOfficialPrefixMessage({ message, resolvedClient, defaultPre
     const {
       partnershipPublishChannelCommandsDeniedReplyContent,
       sendPartnersChatDeniedPrefixCleanup,
-    } = require("../Partner/partnersChatChannelUtils") as typeof import("../Partner/partnersChatChannelUtils");
+    } = require("../../Partner/runtime/partnersChatChannelUtils") as typeof import("../../Partner/runtime/partnersChatChannelUtils");
     const deniedPublishChannel = partnershipPublishChannelCommandsDeniedReplyContent(message.channel, {
       commandName: command?.name,
     });
@@ -695,8 +695,8 @@ async function handleOfficialPrefixMessage({ message, resolvedClient, defaultPre
 
   const commandFolder = String(command.folder || "").toLowerCase();
   if (["staff", "admin"].includes(commandFolder)) {
-    const { staffChatCommandsDeniedReplyContent } = require("../Staff/staffChatChannelUtils") as typeof import("../Staff/staffChatChannelUtils");
-    const { sendPartnersChatDeniedPrefixCleanup, partnersChatPartnerCommandDeniedReplyContent } = require("../Partner/partnersChatChannelUtils") as typeof import("../Partner/partnersChatChannelUtils");
+    const { staffChatCommandsDeniedReplyContent } = require("../../Staff/utils/staffChatChannelUtils") as typeof import("../../Staff/utils/staffChatChannelUtils");
+    const { sendPartnersChatDeniedPrefixCleanup, partnersChatPartnerCommandDeniedReplyContent } = require("../../Partner/runtime/partnersChatChannelUtils") as typeof import("../../Partner/runtime/partnersChatChannelUtils");
     const deniedStaffChat = await staffChatCommandsDeniedReplyContent(message.channel).catch(() => null);
     if (deniedStaffChat) {
       await deleteCommandMessage();
@@ -789,7 +789,7 @@ async function handleOfficialPrefixMessage({ message, resolvedClient, defaultPre
     }
     if (permissionResult?.reason === "multi_guild_tenant_mod_permission") {
       await deleteCommandMessage();
-      const { buildSimpleNoticePayload } = require("../Embeds/simpleNoticeEmbed") as typeof import("../Embeds/simpleNoticeEmbed");
+      const { buildSimpleNoticePayload } = require("../../../shared/embeds/simpleNoticeEmbed") as typeof import("../../../shared/embeds/simpleNoticeEmbed");
       await sendTemporaryMessage(
         message.channel,
         buildSimpleNoticePayload(

@@ -1,6 +1,6 @@
 /** Repost: pulsanti dei messaggi in bacheca sempre aggiornati. */
 const { GuildRepost } = require("../../Schemas/Community/repostSchema") as typeof import("../../Schemas/Community/repostSchema");
-const { ensureMongoReady, withMongoTimeout } = require("../../Utils/Database/mongoConnect") as typeof import("../../Utils/Database/mongoConnect");
+const { ensureMongoReady, withMongoTimeout } = require("../../../shared/db/mongoConnect") as typeof import("../../../shared/db/mongoConnect");
 const { REPOST_REMOVE_PREFIX, buildBoardMessageComponents, buildRepostRemovedEmbed } = require("./repostEmbeds") as typeof import("./repostEmbeds");
 
 const REPOST_DB_MS = 7000;

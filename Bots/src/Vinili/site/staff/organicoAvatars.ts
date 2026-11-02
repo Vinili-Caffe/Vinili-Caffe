@@ -2,7 +2,7 @@
 const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
 const { resolveWebUserIdentitiesBatch, resolveWebUserIdentity, safeDisplayLabel, isSnowflakeLabel, FALLBACK_LABEL } = require("../../site/http/siteWebUserIdentity") as typeof import("../../site/http/siteWebUserIdentity");
-const { sitePreferredAvatarUrl, normalizeDiscordCdnAvatarUrl, remoteImageUrlLoads } = require("../../Utils/Discord/guildDiscordIdentity") as typeof import("../../Utils/Discord/guildDiscordIdentity");
+const { sitePreferredAvatarUrl, normalizeDiscordCdnAvatarUrl, remoteImageUrlLoads } = require("../../../shared/discord/guildDiscordIdentity") as typeof import("../../../shared/discord/guildDiscordIdentity");
 
 const organicoCache = new Map();
 

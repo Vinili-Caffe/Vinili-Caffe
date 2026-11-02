@@ -456,7 +456,7 @@ async function buildStaffPauseCalendarPayload(client?, year?, month?) {
   const {
     memberHasAnyStaffPresenceForDepexSync,
     memberHasPartnerManagerRole,
-  } = require("../../Utils/Staff/staffPmUtils") as typeof import("../../Utils/Staff/staffPmUtils");
+  } = require("../../Staff/utils/staffPmUtils") as typeof import("../../Staff/utils/staffPmUtils");
   function calendarMemberEligible(member?, ruoloRaw?) {
     if (!member) return false;
     const role = String(ruoloRaw || "Staff")

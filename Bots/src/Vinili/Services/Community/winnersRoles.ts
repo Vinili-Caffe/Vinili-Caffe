@@ -1,7 +1,7 @@
 /** Vincitori attività: ruoli dei vincitori (settimana, mese, minigiochi). */
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
 const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
-const { getClientGuildCached, getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache") as typeof import("../../Utils/Interaction/interactionEntityCache");
+const { getClientGuildCached, getGuildMemberCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
 const { REQUIRED_MEMBER_ROLE_ID } = require("./winnersRows") as typeof import("./winnersRows");
 
 const MESSAGE_WINNER_ROLE_ID = IDs.roles.TopWeeklyText;

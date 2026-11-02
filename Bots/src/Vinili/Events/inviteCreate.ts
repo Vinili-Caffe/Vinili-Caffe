@@ -1,7 +1,7 @@
 const { AuditLogEvent, EmbedBuilder, PermissionsBitField } = require("discord.js") as typeof import("discord.js");
 const IDs = require("../Utils/Config/ids") as typeof import("../Utils/Config/ids");
-const { handleInviteCreationAction: antiNukeHandleInviteCreationAction, isAntiNukePanicActive, isWhitelistedExecutorAsync, } = require("../Services/Moderation/antiNukeService") as typeof import("../Services/Moderation/antiNukeService");
-const { getSecurityLockState } = require("../Services/Moderation/securityOrchestratorService") as typeof import("../Services/Moderation/securityOrchestratorService");
+const { handleInviteCreationAction: antiNukeHandleInviteCreationAction, isAntiNukePanicActive, isWhitelistedExecutorAsync, } = require("../Moderation/services/antiNukeService") as typeof import("../Moderation/services/antiNukeService");
+const { getSecurityLockState } = require("../Moderation/services/securityOrchestratorService") as typeof import("../Moderation/services/securityOrchestratorService");
 const { toDiscordTimestamp } = require("../Utils/Logging/channelRolesLogUtils") as typeof import("../Utils/Logging/channelRolesLogUtils");
 const { isViniliFullFeatureGuild } = require("../MultiGuild/core/guildFeatureScope") as typeof import("../MultiGuild/core/guildFeatureScope");
 const INVITE_CREATE_ACTION = AuditLogEvent?.InviteCreate ?? 40;

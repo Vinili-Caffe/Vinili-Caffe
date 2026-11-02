@@ -1,7 +1,7 @@
 const { safeMessageReply } = require("../../../shared/discord/replyRuntime") as typeof import("../../../shared/discord/replyRuntime");
 const { EmbedBuilder, escapeMarkdown } = require("discord.js") as typeof import("discord.js");
 const { setAfk } = require("../../Services/Community/profileStore") as typeof import("../../Services/Community/profileStore");
-const { scheduleMessageDeletion } = require("../../Utils/Config/ephemeralMessageTtl") as typeof import("../../Utils/Config/ephemeralMessageTtl");
+const { scheduleMessageDeletion } = require("../../../shared/utils/ephemeralMessageTtl") as typeof import("../../../shared/utils/ephemeralMessageTtl");
 const AFK_MISSING_REASON_TTL_MS = 3000;
 
 export = {

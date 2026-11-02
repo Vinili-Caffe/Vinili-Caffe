@@ -1,5 +1,5 @@
 /** Notizie giochi: pulizia e traduzione dei testi. */
-const axios = require("axios") as typeof import("axios").default;
+const axios = require("axios") as any;
 const { JUNK_TITLE_RE, normComparable, stripSourceSuffix, isNearTitleDuplicate } = require("./gameNewsDedupe") as typeof import("./gameNewsDedupe");
 
 const MYMEMORY_BASE = "https://api.mymemory.translated.net/get";

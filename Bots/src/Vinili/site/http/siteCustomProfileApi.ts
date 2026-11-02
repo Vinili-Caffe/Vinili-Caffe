@@ -23,7 +23,7 @@ const { resolveCustomRoleState } = require("../../Utils/Community/customRoleStat
 const { getCustomRoleSlotCapWithContest, getCustomRoleSlotCapFromRoles } = require("../../Utils/Community/customRoleSlots") as typeof import("../../Utils/Community/customRoleSlots");
 const { hasExtraCustomPerksUnlock } = require("../../Utils/Community/customPerksUnlock") as typeof import("../../Utils/Community/customPerksUnlock");
 const { hasEventWeekWinnerGrant } = require("../../Services/Community/weekWinnerGrantsService") as typeof import("../../Services/Community/weekWinnerGrantsService");
-const { fetchPartnerManagerTimedPerkLean, partnerManagerCustomBundleActiveFromLean } = require("../../Utils/Staff/partnerManagerTimedPerks") as typeof import("../../Utils/Staff/partnerManagerTimedPerks");
+const { fetchPartnerManagerTimedPerkLean, partnerManagerCustomBundleActiveFromLean } = require("../../Staff/utils/partnerManagerTimedPerks") as typeof import("../../Staff/utils/partnerManagerTimedPerks");
 
 const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
@@ -145,7 +145,7 @@ async function getCustomProfileGuildEmojis(client?, { accessToken, force = false
   }
 
   try {
-    const { listGuildPickerData } = require("../../MultiGuild/dashboard/siteDashboardPartnershipApi") as typeof import("../../MultiGuild/dashboard/siteDashboardPartnershipApi");
+    const { listGuildPickerData } = require("../../Partner/dashboard/siteDashboardPartnershipApi") as typeof import("../../Partner/dashboard/siteDashboardPartnershipApi");
     const pickers = await listGuildPickerData(client, guildId, { force: force === true });
     const emojis = Array.isArray(pickers?.emojis) ? pickers.emojis : [];
     return {

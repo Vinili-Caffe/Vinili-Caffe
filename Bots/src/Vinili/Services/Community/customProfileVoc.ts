@@ -4,13 +4,13 @@
 const { ChannelType, OverwriteType, PermissionsBitField } = require("discord.js") as typeof import("discord.js");
 const { CustomRole, ActivityUserProfile } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
 const { hasExtraCustomPerksUnlock } = require("../../Utils/Community/customPerksUnlock") as typeof import("../../Utils/Community/customPerksUnlock");
-const { fetchPartnerManagerTimedPerkLean, partnerManagerCustomBundleActiveFromLean } = require("../../Utils/Staff/partnerManagerTimedPerks") as typeof import("../../Utils/Staff/partnerManagerTimedPerks");
+const { fetchPartnerManagerTimedPerkLean, partnerManagerCustomBundleActiveFromLean } = require("../../Staff/utils/partnerManagerTimedPerks") as typeof import("../../Staff/utils/partnerManagerTimedPerks");
 const { buildCustomVocName, parseCustomVocName, sanitizeVoiceBaseName, normalizeCustomVocEmojiValue } = require("../../Utils/Interaction/customRoleUtils") as typeof import("../../Utils/Interaction/customRoleUtils");
 const { buildCustomVocCreateOverwrites, ensureCustomVocChannelBaseline, CUSTOM_VOC_MEMBER_PERMS, applyOverwrite } = require("./customVocPermissionsService") as typeof import("./customVocPermissionsService");
 const { ensureCustomPrivateCategory } = require("../../Utils/Community/customPrivateCategoryUtils") as typeof import("../../Utils/Community/customPrivateCategoryUtils");
 const { isCustomVocRecreationBlocked } = require("./customVocWeeklyActivityService") as typeof import("./customVocWeeklyActivityService");
 const { getLastSunday21BoundaryMsAtOrBefore } = require("../../Utils/Community/customVocWeeklyActivityUtils") as typeof import("../../Utils/Community/customVocWeeklyActivityUtils");
-const { accountUsername } = require("../../Utils/Discord/guildDiscordIdentity") as typeof import("../../Utils/Discord/guildDiscordIdentity");
+const { accountUsername } = require("../../../shared/discord/guildDiscordIdentity") as typeof import("../../../shared/discord/guildDiscordIdentity");
 const { memberCanCreateCustomVoc, okPersist } = require("./customProfileShared") as typeof import("./customProfileShared");
 
 async function createCustomVoc({ client, guild, member, ownerId }) {

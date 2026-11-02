@@ -1,7 +1,7 @@
 const { PermissionFlagsBits } = require("discord.js") as typeof import("discord.js");
 const IDs = require("../Config/ids") as typeof import("../Config/ids");
 const { handleOfficialPrefixMessage } = require("./officialPrefixDispatcher") as typeof import("./officialPrefixDispatcher");
-const { getGuildMemberCached } = require("../Interaction/entityCache") as typeof import("../Interaction/entityCache");
+const { getGuildMemberCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
 const USER_MENTION_PREFIX_REGEX = /^<@!?\d+>/;
 const WRONG_PREFIX_HINT_CHANNEL_IDS = new Set([IDs.channels?.commands, IDs.channels?.staffCmds].filter(Boolean).map(String));
 const TEMPORARY_NOTICE_LIFETIME_MS = 8000;
@@ -88,7 +88,6 @@ async function maybeSendWrongPrefixHint(message?, client?, validPrefix = ",") {
   const command = resolvePrefixCommandByToken(client, attempt.token);
   if (!command) return false;
   const commandName = String(command.name || "").toLowerCase();
-  if (commandName === "help") return false;
   if (!shouldSendWrongPrefixHint(message, attempt.usedPrefix, commandName)) {
     return true;
   }

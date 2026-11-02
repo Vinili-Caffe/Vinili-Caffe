@@ -10,17 +10,17 @@ const {
   memberHasAnyRoleKey,
   memberCanReviewAppelli,
   memberHasDirectorRole,
-} = require("../../Utils/Staff/staffRoleHierarchy") as typeof import("../../Utils/Staff/staffRoleHierarchy");
+} = require("../../Staff/utils/staffRoleHierarchy") as typeof import("../../Staff/utils/staffRoleHierarchy");
 const { memberIsResocontoPmReviewer } = require("../../MultiGuild/tickets/discord/ticketPartnershipStaffRoles") as typeof import("../../MultiGuild/tickets/discord/ticketPartnershipStaffRoles");
 const {
   getResocontoSegmentsForReviewerUserId,
   memberHasResocontoReviewerRole,
-} = require("../../Utils/Staff/resocontoAccess") as typeof import("../../Utils/Staff/resocontoAccess");
+} = require("../../Staff/utils/resocontoAccess") as typeof import("../../Staff/utils/resocontoAccess");
 const {
   accountUsername,
   userAvatarUrlDynamic,
   discordDefaultAvatarUrl,
-} = require("../../Utils/Discord/guildDiscordIdentity") as typeof import("../../Utils/Discord/guildDiscordIdentity");
+} = require("../../../shared/discord/guildDiscordIdentity") as typeof import("../../../shared/discord/guildDiscordIdentity");
 const {
   parseViewAsFromReq,
   canUseViewAs,

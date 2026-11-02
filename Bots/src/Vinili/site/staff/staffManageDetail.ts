@@ -2,14 +2,14 @@
 const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
 const { memberHasStaffRole, memberIsBlogger } = require("../../Utils/Community/staffListUtils") as typeof import("../../Utils/Community/staffListUtils");
-const { resolveStaffProfileDisplayRoleId, buildFullProfileRoleLabelForEmbed, resolveStaffProfileKind, resolveStaffPartnerPointsDisplay, PROFILE_PROSPECT, PROFILE_PM_ONLY } = require("../../Utils/Staff/staffProfilePanelRuntime") as typeof import("../../Utils/Staff/staffProfilePanelRuntime");
-const { resolvePartnerPointsShown, resolvePartnerTotalEarned } = require("../../Utils/Staff/partnerPointsDisplayUtils") as typeof import("../../Utils/Staff/partnerPointsDisplayUtils");
-const { getHighestLadderRole, getNextLadderRoleId, peekDepexLadderTargetRoleId, assertStaffCareerHierarchy, staffLadderRankIndex, getMemberStaffLadderRank } = require("../../Utils/Staff/staffPanelActions") as typeof import("../../Utils/Staff/staffPanelActions");
-const { viewerIsFounder } = require("../../Utils/Staff/staffProfilePanelRuntime") as typeof import("../../Utils/Staff/staffProfilePanelRuntime");
+const { resolveStaffProfileDisplayRoleId, buildFullProfileRoleLabelForEmbed, resolveStaffProfileKind, resolveStaffPartnerPointsDisplay, PROFILE_PROSPECT, PROFILE_PM_ONLY } = require("../../Staff/utils/staffProfilePanelRuntime") as typeof import("../../Staff/utils/staffProfilePanelRuntime");
+const { resolvePartnerPointsShown, resolvePartnerTotalEarned } = require("../../Staff/utils/partnerPointsDisplayUtils") as typeof import("../../Staff/utils/partnerPointsDisplayUtils");
+const { getHighestLadderRole, getNextLadderRoleId, peekDepexLadderTargetRoleId, assertStaffCareerHierarchy, staffLadderRankIndex, getMemberStaffLadderRank } = require("../../Staff/utils/staffPanelActions") as typeof import("../../Staff/utils/staffPanelActions");
+const { viewerIsFounder } = require("../../Staff/utils/staffProfilePanelRuntime") as typeof import("../../Staff/utils/staffProfilePanelRuntime");
 const { getCachedStaffRoster, identityFromMember, memberIsPm, stripDiscordDecorations } = require("./siteStaffRosterCache") as typeof import("./siteStaffRosterCache");
-const { buildStaffTrackTimeline, isHiddenManualStaffCareerReason } = require("../../Utils/Staff/staffTrackHistory") as typeof import("../../Utils/Staff/staffTrackHistory");
+const { buildStaffTrackTimeline, isHiddenManualStaffCareerReason } = require("../../Staff/utils/staffTrackHistory") as typeof import("../../Staff/utils/staffTrackHistory");
 const { getTodayUtc, getCurrentYearBoundsUtc, computeStaffPauseDayBudget, getPausePhase, getPauseStatusLabel, computePauseScaledDaysThisYear, getPauseTimingText, hasActiveAcceptedStaffPause } = require("../../site/staff/pause/pauseHandlersUtils") as typeof import("../../site/staff/pause/pauseHandlersUtils");
-const { loadStaffTrackStatsByUserIds } = require("../../Utils/Staff/staffLegacyMerge") as typeof import("../../Utils/Staff/staffLegacyMerge");
+const { loadStaffTrackStatsByUserIds } = require("../../Staff/utils/staffLegacyMerge") as typeof import("../../Staff/utils/staffLegacyMerge");
 
 function indexedReasonLines(list?, limit = 40) {
   if (!Array.isArray(list) || !list.length) return [];
@@ -408,7 +408,7 @@ function buildProspectPexChoices(viewerMember?, { fromPartnerManager = false } =
 async function buildMemberDetail(guild?, targetMember?, pausedSet?, viewerMember = null) {
   const guildId = String(guild.id);
   const uid = String(targetMember.id);
-  const { loadLegacyStaffByUserIds, mergeStaffEmbedded } = require("../../Utils/Staff/staffLegacyMerge") as typeof import("../../Utils/Staff/staffLegacyMerge");
+  const { loadLegacyStaffByUserIds, mergeStaffEmbedded } = require("../../Staff/utils/staffLegacyMerge") as typeof import("../../Staff/utils/staffLegacyMerge");
   const [doc, legacyMap] = await Promise.all([
     ActivityUserProfile.findOne({ guildId, userId: uid })
       .select("staff")
@@ -482,7 +482,7 @@ async function buildMemberDetail(guild?, targetMember?, pausedSet?, viewerMember
 
   if (memberIsPm(targetMember) || isPmOnly) {
     try {
-      const { getUserPartnershipScoresForGuild } = require("../../MultiGuild/services/Partner/tenantLeaderboardService") as typeof import("../../MultiGuild/services/Partner/tenantLeaderboardService");
+      const { getUserPartnershipScoresForGuild } = require("../../Partner/services/tenantLeaderboardService") as typeof import("../../Partner/services/tenantLeaderboardService");
       const scores: any = await getUserPartnershipScoresForGuild(guildId, uid);
       partnerPointsSpendable = Math.max(0, Math.floor(Number(scores?.points ?? partnerPointsSpendable) || 0));
       partnerPointsEarned = Math.max(

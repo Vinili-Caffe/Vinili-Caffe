@@ -1,10 +1,10 @@
 const { logBotReady } = require("../../shared/discord/readyLog") as typeof import("../../shared/discord/readyLog");
-const { restoreTtsConnections } = require("../Services/TTS/ttsService") as typeof import("../Services/TTS/ttsService");
+const { restoreTtsConnections } = require("../../shared/tts/services/ttsService") as typeof import("../../shared/tts/services/ttsService");
 const { startHourlyReminderLoop } = require("../Services/Community/chatReminderService") as typeof import("../Services/Community/chatReminderService");
 const { restoreStanzaRoomsFromSnapshot } = require("../Services/Voice/stanzaVoiceRoomsService") as typeof import("../Services/Voice/stanzaVoiceRoomsService");
 const { restorePendingVoiceTranscriptions } = require("../Services/Voice/voiceTranscriptionService") as typeof import("../Services/Voice/voiceTranscriptionService");
 const { printRecoveryHealthOnce } = require("../../shared/recovery/recoveryHealth") as typeof import("../../shared/recovery/recoveryHealth");
-const { isMongoReady } = require("../../Vinili/Utils/Database/mongoConnect") as typeof import("../../Vinili/Utils/Database/mongoConnect");
+const { isMongoReady } = require("../../shared/db/mongoConnect") as typeof import("../../shared/db/mongoConnect");
 
 async function restoreTtsState(client?) {
   await restoreTtsConnections(client);
@@ -44,7 +44,7 @@ export = {
       global.logger?.error?.("[CHAT REMINDER] Failed to start hourly loop:", err?.message || err);
     }
     try {
-      const { initLavalinkMusicIfEnabled } = require("../Services/Music/lavalinkMusicService") as typeof import("../Services/Music/lavalinkMusicService");
+      const { initLavalinkMusicIfEnabled } = require("../../shared/music/services/lavalinkMusicService") as typeof import("../../shared/music/services/lavalinkMusicService");
       initLavalinkMusicIfEnabled(activeClient);
     } catch (err) {
       global.logger?.warn?.("[MUSIC] init:", err?.message || err);

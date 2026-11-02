@@ -4,12 +4,12 @@ const {
   resolveStaffProfileDisplayRoleId,
   buildFullProfileRoleLabelForEmbed,
   resolveStaffProfileKind,
-} = require("../../Utils/Staff/staffProfilePanelRuntime") as typeof import("../../Utils/Staff/staffProfilePanelRuntime");
+} = require("../../Staff/utils/staffProfilePanelRuntime") as typeof import("../../Staff/utils/staffProfilePanelRuntime");
 const {
   memberIsHighStaffEligible,
   memberHasDirectorRole,
   memberCanReviewAppelli,
-} = require("../../Utils/Staff/staffRoleHierarchy") as typeof import("../../Utils/Staff/staffRoleHierarchy");
+} = require("../../Staff/utils/staffRoleHierarchy") as typeof import("../../Staff/utils/staffRoleHierarchy");
 const { assertWebsiteStaffAccess, normalizeHeaderSecret } = require("./siteStaffAccessApi") as typeof import("./siteStaffAccessApi");
 const {
   getCachedStaffRoster,

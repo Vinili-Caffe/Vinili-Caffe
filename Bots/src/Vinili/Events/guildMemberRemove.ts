@@ -3,25 +3,25 @@ const { closeOpenTicketsForGuildUser } = require("../MultiGuild/tickets/discord/
 const { autoUnclaimOpenTicketsClaimedByUser } = require("../MultiGuild/tickets/discord/ticketAutoUnclaimOnStaffLoss") as typeof import("../MultiGuild/tickets/discord/ticketAutoUnclaimOnStaffLoss");
 const { ActivityUserProfile, UserLeaveBackup } = require("../Schemas/Community/communitySchemas") as typeof import("../Schemas/Community/communitySchemas");
 const IDs = require("../Utils/Config/ids") as typeof import("../Utils/Config/ids");
-const { getGuildChannelCached, getClientGuildCached } = require("../Utils/Interaction/interactionEntityCache") as typeof import("../Utils/Interaction/interactionEntityCache");
+const { getGuildChannelCached, getClientGuildCached } = require("../../shared/discord/interactionEntityCache") as typeof import("../../shared/discord/interactionEntityCache");
 const { scheduleMemberCounterRefresh } = require("../Utils/Community/memberCounterUtils") as typeof import("../Utils/Community/memberCounterUtils");
 const { getStaffRoleEmojiByRoleId } = require("../Utils/Community/staffRoleEmoji") as typeof import("../Utils/Community/staffRoleEmoji");
 const { queueIdsCatalogSync } = require("../Utils/Config/idsAutoSync") as typeof import("../Utils/Config/idsAutoSync");
 const { runCleanupAfterMemberLeave } = require("../Services/Community/cleanupUsersNotInServerService") as typeof import("../Services/Community/cleanupUsersNotInServerService");
 const { backupUserOnLeave } = require("../Services/Community/userLeaveBackupService") as typeof import("../Services/Community/userLeaveBackupService");
-const { handleMuteMirrorOnMemberLeave } = require("../Services/Moderation/mutedMirrorRoleService") as typeof import("../Services/Moderation/mutedMirrorRoleService");
+const { handleMuteMirrorOnMemberLeave } = require("../Moderation/services/mutedMirrorRoleService") as typeof import("../Moderation/services/mutedMirrorRoleService");
 const {
   handleTenantPartnerManagerLeave,
-} = require("../Services/Partner/partnerManagerLeaveService") as typeof import("../Services/Partner/partnerManagerLeaveService");
+} = require("../Partner/services/partnerManagerLeaveService") as typeof import("../Partner/services/partnerManagerLeaveService");
 const { enqueueCustomPerksDiscordCleanupAfterLeave } = require("../Services/Community/customPerksDiscordCleanupQueueService") as typeof import("../Services/Community/customPerksDiscordCleanupQueueService");
 const { purgeLeftMemberCustomPerksFromDiscord } = require("../Services/Community/customRoleLeftMemberDiscordCleanupService") as typeof import("../Services/Community/customRoleLeftMemberDiscordCleanupService");
 const { buildAuditExtraLines } = require("../Utils/Logging/channelRolesLogUtils") as typeof import("../Utils/Logging/channelRolesLogUtils");
-const { handleKickBanAction: antiNukeHandleKickBanAction } = require("../Services/Moderation/antiNukeService") as typeof import("../Services/Moderation/antiNukeService");
-const { consumeRecentJoinGateKick } = require("../Utils/Moderation/joinGateKickCache") as typeof import("../Utils/Moderation/joinGateKickCache");
-const { guildMemberDisplayAvatarUrlDynamic } = require("../Utils/Discord/guildDiscordIdentity") as typeof import("../Utils/Discord/guildDiscordIdentity");
+const { handleKickBanAction: antiNukeHandleKickBanAction } = require("../Moderation/services/antiNukeService") as typeof import("../Moderation/services/antiNukeService");
+const { consumeRecentJoinGateKick } = require("../Moderation/utils/joinGateKickCache") as typeof import("../Moderation/utils/joinGateKickCache");
+const { guildMemberDisplayAvatarUrlDynamic } = require("../../shared/discord/guildDiscordIdentity") as typeof import("../../shared/discord/guildDiscordIdentity");
 const { trackMemberLeave } = require("../Services/Community/dailyMemberStatsService") as typeof import("../Services/Community/dailyMemberStatsService");
 const { cancelOpenPausesOnMemberLeave } = require("../site/staff/pause/pauseHandlersUtils") as typeof import("../site/staff/pause/pauseHandlersUtils");
-const { appendStaffRolesHistoryEntry } = require("../Utils/Staff/staffDocUtils") as typeof import("../Utils/Staff/staffDocUtils");
+const { appendStaffRolesHistoryEntry } = require("../Staff/utils/staffDocUtils") as typeof import("../Staff/utils/staffDocUtils");
 const { identityFromMember } = require("../site/staff/siteStaffRosterCache") as typeof import("../site/staff/siteStaffRosterCache");
 
 function isViniliFullFeatureGuild(guildId?) {
@@ -189,7 +189,7 @@ async function resolveLeaveStaffRoleIdsFromDb(guildId?, userId?) {
 
   try {
     const { expandRemappedRoleIds, remapRoleIdForward } = require("../Utils/Config/emergencyRoleIdRemap") as typeof import("../Utils/Config/emergencyRoleIdRemap");
-    const { staffLadderRoleIds, STAFF_LADDER_KEYS_HIGH_TO_LOW } = require("../Utils/Staff/staffRoleHierarchy") as typeof import("../Utils/Staff/staffRoleHierarchy");
+    const { staffLadderRoleIds, STAFF_LADDER_KEYS_HIGH_TO_LOW } = require("../Staff/utils/staffRoleHierarchy") as typeof import("../Staff/utils/staffRoleHierarchy");
     const pmIds = new Set(expandRemappedRoleIds(PARTNER_MANAGER_ROLE_ID).map(String));
     const ladderIds = staffLadderRoleIds(STAFF_LADDER_KEYS_HIGH_TO_LOW);
     // organicoLeaveStaffBare1: generic Staff/HighStaff are tracked on Discord but not on the pex ladder.
@@ -381,7 +381,7 @@ async function handleTrackedStaffLeave(member?) {
         { $set: { staffPendingPurgeAt: pruneAt, updatedAt: new Date() } },
       ).catch(() => {});
       try {
-        const { archiveStaffRolesHistoryThenUnsetStaff } = require("../Utils/Staff/staffDocUtils") as typeof import("../Utils/Staff/staffDocUtils");
+        const { archiveStaffRolesHistoryThenUnsetStaff } = require("../Staff/utils/staffDocUtils") as typeof import("../Staff/utils/staffDocUtils");
         await archiveStaffRolesHistoryThenUnsetStaff(guild.id, member.id);
       } catch (err) {
         global.logger?.warn?.(
@@ -407,7 +407,7 @@ async function handleTrackedStaffLeave(member?) {
   const pmLabel = pmRole?.name || "Partner Manager";
 
   const resignChannel = await (async () => {
-    const { resolveStaffPexDepexChannel } = require("../Utils/Staff/staffChannelUtils") as typeof import("../Utils/Staff/staffChannelUtils");
+    const { resolveStaffPexDepexChannel } = require("../Staff/utils/staffChannelUtils") as typeof import("../Staff/utils/staffChannelUtils");
     return resolveStaffPexDepexChannel(guild);
   })();
 
@@ -452,7 +452,7 @@ async function handleTrackedStaffLeave(member?) {
 
   // Persist leave depex into retention immediately so leave-cleanup replaceOne cannot drop it.
   try {
-    const { archiveStaffRolesHistoryThenUnsetStaff } = require("../Utils/Staff/staffDocUtils") as typeof import("../Utils/Staff/staffDocUtils");
+    const { archiveStaffRolesHistoryThenUnsetStaff } = require("../Staff/utils/staffDocUtils") as typeof import("../Staff/utils/staffDocUtils");
     await archiveStaffRolesHistoryThenUnsetStaff(guild.id, member.id);
   } catch (err) {
     global.logger?.warn?.(
@@ -468,7 +468,7 @@ async function handlePmStaffPartnershipWipeOnLeave(member?, client?) {
   if (!guild?.id || String(guild.id) !== String(MAIN_GUILD_ID)) return;
   if (!PARTNER_MANAGER_ROLE_ID || !member.roles?.cache?.has(PARTNER_MANAGER_ROLE_ID)) return;
 
-  const { deletePartnershipsForPmStaffLeave } = require("../MultiGuild/services/Partner/tenantPartnershipDeleteService") as typeof import("../MultiGuild/services/Partner/tenantPartnershipDeleteService");
+  const { deletePartnershipsForPmStaffLeave } = require("../Partner/services/tenantPartnershipDeleteService") as typeof import("../Partner/services/tenantPartnershipDeleteService");
   const removed = await deletePartnershipsForPmStaffLeave(
     guild,
     member.id,

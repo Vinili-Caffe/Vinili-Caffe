@@ -163,11 +163,11 @@ const siteWebTicketCounterSchema = new Schema({
   seq: { type: Number, default: 0 },
 });
 
-const SiteWebTicket: import("mongoose").Model<import("mongoose").InferSchemaType<typeof siteWebTicketSchema>> = models.SiteWebTicket || model("SiteWebTicket", siteWebTicketSchema, "sitewebtickets");
-const SiteWebTicketMessage: import("mongoose").Model<import("mongoose").InferSchemaType<typeof siteWebTicketMessageSchema>> =
+const SiteWebTicket: any = models.SiteWebTicket || model("SiteWebTicket", siteWebTicketSchema, "sitewebtickets");
+const SiteWebTicketMessage: any =
   models.SiteWebTicketMessage ||
   model("SiteWebTicketMessage", siteWebTicketMessageSchema, "sitewebticketmessages");
-const SiteWebTicketCounter: import("mongoose").Model<import("mongoose").InferSchemaType<typeof siteWebTicketCounterSchema>> =
+const SiteWebTicketCounter: any =
   models.SiteWebTicketCounter ||
   model("SiteWebTicketCounter", siteWebTicketCounterSchema, "sitewebticketcounters");
 

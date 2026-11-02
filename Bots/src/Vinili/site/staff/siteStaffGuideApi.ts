@@ -4,14 +4,14 @@ const { assertWebsiteStaffAccess, normalizeHeaderSecret } = require("./siteStaff
 const {
   listReadableStaffGuideSections,
   memberCanReadStaffGuideSection,
-} = require("../../Utils/Staff/staffGuideAccess") as typeof import("../../Utils/Staff/staffGuideAccess");
+} = require("../../Staff/utils/staffGuideAccess") as typeof import("../../Staff/utils/staffGuideAccess");
 const {
   buildStaffGuideIntroMarkdown,
   buildStaffGuideSectionMarkdown,
   getStaffGuideSectionMeta,
   getStaffGuideChildSectionIds,
   listStaffGuideSectionMeta,
-} = require("../../Utils/Staff/staffGuideContent") as typeof import("../../Utils/Staff/staffGuideContent");
+} = require("../../Staff/utils/staffGuideContent") as typeof import("../../Staff/utils/staffGuideContent");
 const {
   discordGuideMarkdownToHtml: convertGuideMarkdown,
   buildDefaultUserNameMap,

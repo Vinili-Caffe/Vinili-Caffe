@@ -8,7 +8,7 @@ const {
   isPartnershipSetupComplete,
   refreshPartnershipConfigCache,
   listConfiguredPartnershipGuildIds,
-} = require("../../MultiGuild/core/tenantPartnershipSettings") as typeof import("../../MultiGuild/core/tenantPartnershipSettings");
+} = require("../../Partner/core/tenantPartnershipSettings") as typeof import("../../Partner/core/tenantPartnershipSettings");
 const {
   getTenantDashboardRoleIdsSync,
   refreshTenantGuildSettingsCache,
@@ -21,8 +21,8 @@ const { resolveWebsiteGuildMember } = require("../../site/http/siteRoleRequestAp
 const {
   STAFF_HIGH_STAFF_ELIGIBLE_KEYS,
   memberHasAnyRoleKey,
-} = require("../../Utils/Staff/staffRoleHierarchy") as typeof import("../../Utils/Staff/staffRoleHierarchy");
-const { isGuildBotUsageBlacklisted, listBotUsageBlacklist, isUserBotUsageBlacklisted } = require("../../Services/Moderation/botUsageBlacklistService") as typeof import("../../Services/Moderation/botUsageBlacklistService");
+} = require("../../Staff/utils/staffRoleHierarchy") as typeof import("../../Staff/utils/staffRoleHierarchy");
+const { isGuildBotUsageBlacklisted, listBotUsageBlacklist, isUserBotUsageBlacklisted } = require("../../Moderation/services/botUsageBlacklistService") as typeof import("../../Moderation/services/botUsageBlacklistService");
 
 const PERM_ADMIN = 0x8n;
 const PERM_MANAGE_GUILD = 0x20n;
@@ -84,7 +84,7 @@ function botDevOnlyDenied() {
 
 function isDashboardBotDevUser(client?, userId?) {
   try {
-    const { getDevIds } = require("../../Utils/Moderation/commandPermissions") as typeof import("../../Utils/Moderation/commandPermissions");
+    const { getDevIds } = require("../../Moderation/utils/commandPermissions") as typeof import("../../Moderation/utils/commandPermissions");
     return getDevIds(client).includes(String(userId || "").trim());
   } catch {
     return false;
@@ -872,7 +872,7 @@ async function getDashboardGuildOverview(client?, accessToken?, guildId?) {
   const partnership = getPartnershipConfigSync(gid);
   const resolvedPartnership = (() => {
     try {
-      const { resolvePartnershipConfigSync } = require("../../Utils/Partner/partnershipConfigResolver") as typeof import("../../Utils/Partner/partnershipConfigResolver");
+      const { resolvePartnershipConfigSync } = require("../../Partner/core/partnershipConfigResolver") as typeof import("../../Partner/core/partnershipConfigResolver");
       return resolvePartnershipConfigSync(gid);
     } catch (_) {
       return null;

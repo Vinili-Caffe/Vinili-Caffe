@@ -1,15 +1,15 @@
 const { EmbedBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder } = require("discord.js") as typeof import("discord.js");
 const { recordDiscadiaBump, recordDiscadiaVote, recordBump, awardBumpVoteExp, getVoteCooldownMs, isVoteListingRecordedAtOrAfter } = require("../../Services/Bump/bumpService") as typeof import("../../Services/Bump/bumpService");
-const { addExpWithLevel, shouldIgnoreExpForMember } = require("../../Services/Community/expService") as typeof import("../../Services/Community/expService");
+const { addExpWithLevel, shouldIgnoreExpForMember } = require("../../Level/services/expService") as typeof import("../../Level/services/expService");
 const { upsertVoteRole } = require("../../Services/Community/communityOpsService") as typeof import("../../Services/Community/communityOpsService");
 const {
   maybeRepositionModerationSticky,
   isModerationStickyPanelMessage,
   getSanzioniChannelId,
-} = require("../Moderation/moderationStickyPanelRuntime") as typeof import("../Moderation/moderationStickyPanelRuntime");
+} = require("../../Moderation/utils/moderationStickyPanelRuntime") as typeof import("../../Moderation/utils/moderationStickyPanelRuntime");
 const IDs = require("../Config/ids") as typeof import("../Config/ids");
-const { getGuildChannelCached, getGuildMemberCached } = require("../Interaction/interactionEntityCache") as typeof import("../Interaction/interactionEntityCache");
-const { EPHEMERAL_TTL_NORMAL_MS, scheduleMessageDeletion } = require("../Config/ephemeralMessageTtl") as typeof import("../Config/ephemeralMessageTtl");
+const { getGuildChannelCached, getGuildMemberCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
+const { EPHEMERAL_TTL_NORMAL_MS, scheduleMessageDeletion } = require("../../../shared/utils/ephemeralMessageTtl") as typeof import("../../../shared/utils/ephemeralMessageTtl");
 const {
   normalizeMovieNightProposalForCompare,
   movieNightTitlesMatch,
@@ -20,7 +20,7 @@ const {
   isProposedMovieNightTitleAlreadyWatched,
 } = require("../Community/movieNightWatchedTitles") as typeof import("../Community/movieNightWatchedTitles");
 const { validateMovieNightProposalContent } = require("../Community/movieNightProposalRules") as typeof import("../Community/movieNightProposalRules");
-const { getBotState } = require("../BotState/botStateStore") as typeof import("../BotState/botStateStore");
+const { getBotState } = require("../../../shared/botState/botStateStore") as typeof import("../../../shared/botState/botStateStore");
 const MOVIE_NIGHT_STATE_KEY = "movieNightAnnouncement.v1";
 const { TENANT_EMBED_COLOR } = require("../../MultiGuild/utils/tenantEmbedBranding") as typeof import("../../MultiGuild/utils/tenantEmbedBranding");
 const VOTE_CHANNEL_ID = IDs.channels.supporters;
@@ -587,7 +587,7 @@ async function processDiscadiaVote(guild?, user?, client?, options: Record<strin
   }
 
   const { DIVIDER_URL: dividerUrl } = require("../../../shared/discord/constants") as typeof import("../../../shared/discord/constants");
-  const { userAvatarUrlStatic } = require("../Discord/guildDiscordIdentity") as typeof import("../Discord/guildDiscordIdentity");
+  const { userAvatarUrlStatic } = require("../../../shared/discord/guildDiscordIdentity") as typeof import("../../../shared/discord/guildDiscordIdentity");
   const voteCooldownHours = Math.max(1, Math.round(voteCooldownMs / (60 * 60 * 1000)));
   const voteAgainHoursLabel = voteCooldownHours === 1 ? "1 ora" : `${voteCooldownHours} ore`;
   const voteLabel = typeof resolvedVoteCount === "number" ? `${resolvedVoteCount}°` : "";

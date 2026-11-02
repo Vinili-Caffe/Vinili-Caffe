@@ -4,7 +4,7 @@ const {
   accountUsername,
   userAvatarUrlDynamic,
   sitePreferredAvatarUrl,
-} = require("../../Utils/Discord/guildDiscordIdentity") as typeof import("../../Utils/Discord/guildDiscordIdentity");
+} = require("../../../shared/discord/guildDiscordIdentity") as typeof import("../../../shared/discord/guildDiscordIdentity");
 const {
   STAFF_LIST_SECTION_ROLE_IDS,
   memberHasStaffRole,
@@ -16,7 +16,7 @@ const {
   resolveStaffProfileDisplayRoleId,
   buildFullProfileRoleLabelForEmbed,
   resolveStaffProfileKind,
-} = require("../../Utils/Staff/staffProfilePanelRuntime") as typeof import("../../Utils/Staff/staffProfilePanelRuntime");
+} = require("../../Staff/utils/staffProfilePanelRuntime") as typeof import("../../Staff/utils/staffProfilePanelRuntime");
 
 const ROSTER_TTL_MS = 5 * 60_000;
 const PAUSED_TTL_MS = 45_000;

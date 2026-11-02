@@ -1,6 +1,6 @@
 /** Community ops: orchestrazione numbering categorie e coda debounce. */
 const { ChannelType } = require("discord.js") as typeof import("discord.js");
-const { getClientGuildCached } = require("../../Utils/Interaction/interactionEntityCache") as typeof import("../../Utils/Interaction/interactionEntityCache");
+const { getClientGuildCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
 const IDs: any = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
 const { guildTimers, guildRenumberInflight, guildRenumberPending } = require("./communityOpsRuntime") as typeof import("./communityOpsRuntime");
 const {

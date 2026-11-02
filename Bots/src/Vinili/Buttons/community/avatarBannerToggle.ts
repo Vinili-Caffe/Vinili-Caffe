@@ -1,6 +1,6 @@
 const { AVATAR_MODE_PREFIX, buildAvatarPayload } = require("../../Prefix/Utility/avatar") as typeof import("../../Prefix/Utility/avatar");
 const { BANNER_MODE_PREFIX, buildBannerPayload } = require("../../Prefix/Utility/banner") as typeof import("../../Prefix/Utility/banner");
-const { getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache") as typeof import("../../Utils/Interaction/interactionEntityCache");
+const { getGuildMemberCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
 
 function match(interaction?) {
   if (!interaction?.isButton?.()) return false;

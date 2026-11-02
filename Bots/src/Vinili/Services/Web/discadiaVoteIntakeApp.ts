@@ -137,7 +137,7 @@ async function main() {
     process.exit(1);
   }
   /* mongoSingleSource1 */
-  const mongo = require("../../Utils/Database/mongoConnect").buildMongoUrl();
+  const mongo = require("../../../shared/db/mongoConnect").buildMongoUrl();
   if (!mongo) {
     console.error("[DISCADIA INTAKE] Missing MONGO_URL");
     process.exit(1);

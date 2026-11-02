@@ -6,11 +6,11 @@ const {
   STAFF_HIGH_STAFF_ELIGIBLE_KEYS,
   staffLadderRoleIds,
   staffRoleId,
-} = require("../../Utils/Staff/staffRoleHierarchy") as typeof import("../../Utils/Staff/staffRoleHierarchy");
+} = require("../../Staff/utils/staffRoleHierarchy") as typeof import("../../Staff/utils/staffRoleHierarchy");
 const {
   getResocontoReviewerUserIdsForSegment,
   getResocontoButtonAllowedRoleIds,
-} = require("../../Utils/Staff/resocontoAccess") as typeof import("../../Utils/Staff/resocontoAccess");
+} = require("../../Staff/utils/resocontoAccess") as typeof import("../../Staff/utils/resocontoAccess");
 
 const RECIPIENT_CACHE_TTL_MS = 5 * 60_000;
 const recipientCache = new Map();

@@ -37,7 +37,7 @@ function loadVinylsConfig() {
 function resolveMongoUrl() {
   /* mongoSingleSource1 */
   try {
-    return require("../../Utils/Database/mongoConnect").buildMongoUrl() || "";
+    return require("../../../shared/db/mongoConnect").buildMongoUrl() || "";
   } catch (_) {
     return (
       process.env.MONGO_URL_LOCAL ||
@@ -65,7 +65,7 @@ function installConsoleLogger() {
 function installWorkerEmbedPatches() {
   try {
     const discord = require("discord.js") as typeof import("discord.js");
-    const { installEmbedFooterPatch } = require("../../Utils/Embeds/defaultFooter") as typeof import("../../Utils/Embeds/defaultFooter");
+    const { installEmbedFooterPatch } = require("../../../shared/embeds/defaultFooter") as typeof import("../../../shared/embeds/defaultFooter");
     const {
       installOutgoingEditBrandingPatch,
       setTenantEmbedBrandingApplier,

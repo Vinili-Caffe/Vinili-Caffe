@@ -3,12 +3,12 @@ const { queueCategoryRenumber, } = require("../Services/Community/communityOpsSe
 const { queueIdsCatalogSync } = require("../Utils/Config/idsAutoSync") as typeof import("../Utils/Config/idsAutoSync");
 const { markDeletedChannelSnapshot, } = require("../Utils/Community/channelSnapshotUtils") as typeof import("../Utils/Community/channelSnapshotUtils");
 const { toDiscordTimestamp, channelTypeLabel, formatAuditActor, buildAuditExtraLines, resolveChannelRolesLogChannel, resolveResponsible } = require("../Utils/Logging/channelRolesLogUtils") as typeof import("../Utils/Logging/channelRolesLogUtils");
-const { handleChannelDeletionAction: antiNukeHandleChannelDeletionAction } = require("../Services/Moderation/antiNukeService") as typeof import("../Services/Moderation/antiNukeService");
-const { clearGameForChannel } = require("../Services/Minigames/minigameService") as typeof import("../Services/Minigames/minigameService");
-const { finishSerataFilmSessionsForChannel } = require("../Services/Staff/staffAutoValutazioniService") as typeof import("../Services/Staff/staffAutoValutazioniService");
+const { handleChannelDeletionAction: antiNukeHandleChannelDeletionAction } = require("../Moderation/services/antiNukeService") as typeof import("../Moderation/services/antiNukeService");
+const { clearGameForChannel } = require("../Minigames/services/minigameService") as typeof import("../Minigames/services/minigameService");
+const { finishSerataFilmSessionsForChannel } = require("../Staff/services/staffAutoValutazioniService") as typeof import("../Staff/services/staffAutoValutazioniService");
 const { isTicketCategoryName } = require("../MultiGuild/tickets/discord/ticketCategoryUtils") as typeof import("../MultiGuild/tickets/discord/ticketCategoryUtils");
 const { tryDeleteEmptyCustomPrivateCategory } = require("../Utils/Community/customPrivateCategoryUtils") as typeof import("../Utils/Community/customPrivateCategoryUtils");
-const { shouldResyncAutomodForChannel, scheduleDiscordAutomodRulesResync } = require("../Services/Moderation/discordAutomodRulesService") as typeof import("../Services/Moderation/discordAutomodRulesService");
+const { shouldResyncAutomodForChannel, scheduleDiscordAutomodRulesResync } = require("../Moderation/services/discordAutomodRulesService") as typeof import("../Moderation/services/discordAutomodRulesService");
 const { handleCustomPrivateVoiceChannelDelete } = require("../Services/Community/customVocChannelCleanupService") as typeof import("../Services/Community/customVocChannelCleanupService");
 const { ChannelType } = require("discord.js") as typeof import("discord.js");
 
@@ -158,7 +158,7 @@ export = {
       try {
         const { getMainGuildId } = require("../Utils/Config/testGuildMirrorRemap") as typeof import("../Utils/Config/testGuildMirrorRemap");
         if (String(channel.guildId) === String(getMainGuildId() || "")) {
-          const { mirrorMainChannelDeleteToTest } = require("../Services/Partner/testGuildMirrorSyncService") as typeof import("../Services/Partner/testGuildMirrorSyncService");
+          const { mirrorMainChannelDeleteToTest } = require("../Partner/services/testGuildMirrorSyncService") as typeof import("../Partner/services/testGuildMirrorSyncService");
           void mirrorMainChannelDeleteToTest(client, channel).catch((err?) => {
             global.logger?.warn?.("[channelDelete] test mirror:", err?.message || err);
           });

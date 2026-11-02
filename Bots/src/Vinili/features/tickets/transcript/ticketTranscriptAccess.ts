@@ -3,7 +3,7 @@ const IDs: any = require("../../../Utils/Config/ids") as typeof import("../../..
 const {
   STAFF_HIGH_STAFF_ELIGIBLE_KEYS,
   memberHasAnyRoleKey,
-} = require("../../../Utils/Staff/staffRoleHierarchy") as typeof import("../../../Utils/Staff/staffRoleHierarchy");
+} = require("../../../Staff/utils/staffRoleHierarchy") as typeof import("../../../Staff/utils/staffRoleHierarchy");
 
 function resolveMainGuildId(client?) {
   return String(client?.config?.mainGuildId || IDs.guilds?.main || "").trim();

@@ -4,7 +4,7 @@ const {
   DEFAULT_TICKET_WELCOME_COLOR,
   getDefaultWelcomeDescription,
 } = require("./ticketUiDefaults") as typeof import("./ticketUiDefaults");
-const { DEFAULT_LANGUAGE } = require("../../../MultiGuild/utils/Partner/tenantPartnershipI18n/languages") as typeof import("../../../MultiGuild/utils/Partner/tenantPartnershipI18n/languages");
+const { DEFAULT_LANGUAGE } = require("../../../Partner/i18n/tenantPartnershipI18n/languages") as typeof import("../../../Partner/i18n/tenantPartnershipI18n/languages");
 
 const DAYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
 const MENTION_TOKENS = new Set(["everyone", "here", "opener"]);

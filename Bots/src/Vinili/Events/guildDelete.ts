@@ -1,7 +1,7 @@
-const { clearGuildState } = require("../Services/Moderation/joinRaidService") as typeof import("../Services/Moderation/joinRaidService");
+const { clearGuildState } = require("../Moderation/services/joinRaidService") as typeof import("../Moderation/services/joinRaidService");
 const { isMultiGuildLayerEnabled } = require("../MultiGuild/core/env") as typeof import("../MultiGuild/core/env");
 const { isViniliProtectedGuild } = require("../MultiGuild/core/viniliProtectedGuilds") as typeof import("../MultiGuild/core/viniliProtectedGuilds");
-const { handleTenantGuildBotRemoved } = require("../MultiGuild/services/Partner/tenantPartnershipLeaveService") as typeof import("../MultiGuild/services/Partner/tenantPartnershipLeaveService");
+const { handleTenantGuildBotRemoved } = require("../Partner/services/tenantPartnershipLeaveService") as typeof import("../Partner/services/tenantPartnershipLeaveService");
 
 export = {
   name: "guildDelete",
@@ -14,7 +14,7 @@ export = {
         const {
           appendBotGuildLifecycleEvent,
           snapshotGuildMeta,
-        } = require("../Services/Moderation/botGuildLifecycleLogService") as typeof import("../Services/Moderation/botGuildLifecycleLogService");
+        } = require("../Moderation/services/botGuildLifecycleLogService") as typeof import("../Moderation/services/botGuildLifecycleLogService");
         await appendBotGuildLifecycleEvent({
           type: "leave",
           guildId: guild.id,

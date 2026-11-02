@@ -1,6 +1,6 @@
 
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
-const { getLevelInfo, getGlobalMultiplier, getGuildExpSettings, getResolvedWeeklyExpMultiplier } = require("../../Services/Community/expService") as typeof import("../../Services/Community/expService");
+const { getLevelInfo, getGlobalMultiplier, getGuildExpSettings, getResolvedWeeklyExpMultiplier } = require("../../Level/services/expService") as typeof import("../../Level/services/expService");
 const {
   getRomeDayKey,
 } = require("../../Utils/Community/leaderboardHelpers") as typeof import("../../Utils/Community/leaderboardHelpers");
@@ -505,7 +505,7 @@ async function handleSiteUsersLeaderboardGet(client?, req?, res?) {
         const rows = [];
         for (let i = 0; i < slice.length; i += 1) {
           const agg = slice[i];
-          const d = docMap.get(String(agg.userId));
+          const d: any = docMap.get(String(agg.userId));
           if (!d) continue;
           const rank = skip + i + 1;
           const overrides = computedOverridesFromAgg(rankBoard, rankPeriod, agg);

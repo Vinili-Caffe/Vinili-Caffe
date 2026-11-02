@@ -1,5 +1,5 @@
-// Tipi di "compatibilità JavaScript" per il codice dei bot (solo controllo dei tipi: non finisce nel JS compilato).
-import "discord.js";
+// Tipi di "compatibilità JavaScript" per il codice dei bot (solo IDE: non finisce nel JS compilato).
+// Nessun import reale: in locale non c’è node_modules (compile sulla VPS).
 
 declare global {
   // Il codice scorre oggetti di forma libera (dati Mongo, JSON, mappe costruite al volo):
@@ -10,18 +10,4 @@ declare global {
   }
 }
 
-// Il client Discord dei bot porta campi propri (config, commands, collezioni, timer…) aggiunti a runtime.
-declare module "discord.js" {
-  interface Client {
-    [key: string]: any;
-  }
-  // i colori arrivano da config e variabili (stringhe "#rrggbb" o numeri): discord.js li accetta, il tipo no
-  interface EmbedBuilder {
-    setColor(color: any): this;
-  }
-  // le righe dei modali si costruiscono con new ActionRowBuilder() senza specificare il tipo di componente
-  interface ModalBuilder {
-    addComponents(...components: any[]): this;
-    setComponents(...components: any[]): this;
-  }
-}
+export {};

@@ -12,7 +12,7 @@ const { REST } = require("@discordjs/rest") as typeof import("@discordjs/rest");
 const {
   isGuildBotUsageBlacklisted,
   leaveGuildIfPresent,
-} = require("../../Services/Moderation/botUsageBlacklistService") as typeof import("../../Services/Moderation/botUsageBlacklistService");
+} = require("../../Moderation/services/botUsageBlacklistService") as typeof import("../../Moderation/services/botUsageBlacklistService");
 
 async function syncTenantGiveawayCommands(client?, guildId?) {
   const gid = String(guildId || "").trim();
@@ -64,7 +64,7 @@ export = {
         const {
           appendBotGuildLifecycleEvent,
           snapshotGuildMeta,
-        } = require("../../Services/Moderation/botGuildLifecycleLogService") as typeof import("../../Services/Moderation/botGuildLifecycleLogService");
+        } = require("../../Moderation/services/botGuildLifecycleLogService") as typeof import("../../Moderation/services/botGuildLifecycleLogService");
         await appendBotGuildLifecycleEvent({
           type: "botban_leave",
           guildId: guild.id,
@@ -92,7 +92,7 @@ export = {
       const {
         appendBotGuildLifecycleEvent,
         snapshotGuildMeta,
-      } = require("../../Services/Moderation/botGuildLifecycleLogService") as typeof import("../../Services/Moderation/botGuildLifecycleLogService");
+      } = require("../../Moderation/services/botGuildLifecycleLogService") as typeof import("../../Moderation/services/botGuildLifecycleLogService");
       await appendBotGuildLifecycleEvent({
         type: "join",
         guildId: guild.id,

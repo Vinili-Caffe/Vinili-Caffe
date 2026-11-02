@@ -1,5 +1,5 @@
 const mongoose = require("mongoose") as typeof import("mongoose");
-const { isMongoReady } = require("../../Utils/Database/mongoConnect") as typeof import("../../Utils/Database/mongoConnect");
+const { isMongoReady } = require("../../../shared/db/mongoConnect") as typeof import("../../../shared/db/mongoConnect");
 
 function resolveLavalinkTarget() {
   const raw = String(process.env.LAVALINK_HOST || process.env.LAVALINK_URL || "127.0.0.1:2333").trim();

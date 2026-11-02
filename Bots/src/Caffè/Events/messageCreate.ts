@@ -1,5 +1,5 @@
 const { dispatchPrefixMessage } = require("../Utils/Prefix/prefixDispatcher") as typeof import("../Utils/Prefix/prefixDispatcher");
-const { handleTtsMessage } = require("../Services/TTS/ttsService") as typeof import("../Services/TTS/ttsService");
+const { handleTtsMessage } = require("../../shared/tts/services/ttsService") as typeof import("../../shared/tts/services/ttsService");
 const { recordReminderActivity } = require("../Services/Community/chatReminderService") as typeof import("../Services/Community/chatReminderService");
 const { handleStanzaPanelPromptMessageCreate } = require("../Services/Voice/stanzaVoiceRoomsService") as typeof import("../Services/Voice/stanzaVoiceRoomsService");
 const { handleVoiceTranscriptionMessage } = require("../Services/Voice/voiceTranscriptionService") as typeof import("../Services/Voice/voiceTranscriptionService");

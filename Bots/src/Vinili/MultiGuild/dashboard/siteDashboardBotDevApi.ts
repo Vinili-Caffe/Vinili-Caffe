@@ -9,15 +9,15 @@ const {
   addUserBotUsageBlacklist,
   leaveGuildIfPresent,
   normalizeSnowflake,
-} = require("../../Services/Moderation/botUsageBlacklistService") as typeof import("../../Services/Moderation/botUsageBlacklistService");
+} = require("../../Moderation/services/botUsageBlacklistService") as typeof import("../../Moderation/services/botUsageBlacklistService");
 const {
   listBotGuildLifecycleEvents,
   appendBotGuildLifecycleEvent,
   snapshotGuildMeta,
-} = require("../../Services/Moderation/botGuildLifecycleLogService") as typeof import("../../Services/Moderation/botGuildLifecycleLogService");
+} = require("../../Moderation/services/botGuildLifecycleLogService") as typeof import("../../Moderation/services/botGuildLifecycleLogService");
 const { loadTenantRegistryMap } = require("../../MultiGuild/core/tenantRegistryStore") as typeof import("../../MultiGuild/core/tenantRegistryStore");
-const { handleTenantGuildBotRemoved } = require("../../MultiGuild/services/Partner/tenantPartnershipLeaveService") as typeof import("../../MultiGuild/services/Partner/tenantPartnershipLeaveService");
-const { guildIconUrl } = require("../../Utils/Discord/guildDiscordIdentity") as typeof import("../../Utils/Discord/guildDiscordIdentity");
+const { handleTenantGuildBotRemoved } = require("../../Partner/services/tenantPartnershipLeaveService") as typeof import("../../Partner/services/tenantPartnershipLeaveService");
+const { guildIconUrl } = require("../../../shared/discord/guildDiscordIdentity") as typeof import("../../../shared/discord/guildDiscordIdentity");
 const {
   getPremiumCredits,
   adjustPremiumCredits,

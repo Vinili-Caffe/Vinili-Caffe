@@ -1,7 +1,7 @@
 /** Attività: documento dell'utente e analisi del messaggio (media, emoji, comandi). */
-const { isMongoTransientError } = require("../../Utils/Database/mongoConnect") as typeof import("../../Utils/Database/mongoConnect");
+const { isMongoTransientError } = require("../../../shared/db/mongoConnect") as typeof import("../../../shared/db/mongoConnect");
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
-const { isValidGuildUserId } = require("../../Utils/DB/validateWriteIds") as typeof import("../../Utils/DB/validateWriteIds");
+const { isValidGuildUserId } = require("../../../shared/db/validateWriteIds") as typeof import("../../../shared/db/validateWriteIds");
 const { getDayKey, getWeekKey } = require("./activityTime") as typeof import("./activityTime");
 const { logActivityBumpError } = require("./activityBumps") as typeof import("./activityBumps");
 

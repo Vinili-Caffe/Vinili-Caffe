@@ -1,12 +1,12 @@
 const { SiteDocument } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
-const { getBotState, setBotState } = require("../../Utils/BotState/botStateStore") as typeof import("../../Utils/BotState/botStateStore");
+const { getBotState, setBotState } = require("../../../shared/botState/botStateStore") as typeof import("../../../shared/botState/botStateStore");
 const { parseCandidateTypeFromMessage } = require("../../site/staff/candidature/candidatureApplicationHandlers") as typeof import("../../site/staff/candidature/candidatureApplicationHandlers");
 const {
   parseAppealFromMessageOrEmbed,
   deriveAppealStatus,
   autoCloseObsoletePendingAppeals,
 } = require("../staff/siteStaffAppealsRuntime") as typeof import("../staff/siteStaffAppealsRuntime");
-const { memberHasResocontoButtonAccess } = require("../../Utils/Staff/resocontoAccess") as typeof import("../../Utils/Staff/resocontoAccess");
+const { memberHasResocontoButtonAccess } = require("../../Staff/utils/resocontoAccess") as typeof import("../../Staff/utils/resocontoAccess");
 const { buildWorkflowDedupeKey, resocontoActionLabelForKey, buildResocontoInboxPreview, deriveResocontoStaffFlags, parseResocontoOutcomeFromContent, deriveResocontoStatusLabel, resolveResocontoDocStatus } = require("./workflowLabels") as typeof import("./workflowLabels");
 const { memberToSubjectFields } = require("./workflowSubjects") as typeof import("./workflowSubjects");
 const { WORKFLOW_DOC, upsertStaffWorkflowItem, updateStaffWorkflowStatusByDedupe, updateStaffWorkflowFromMessage, updateStaffWorkflowFromPause } = require("./workflowWrites") as typeof import("./workflowWrites");

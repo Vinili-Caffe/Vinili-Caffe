@@ -6,7 +6,7 @@ const {
 } = require("discord.js") as typeof import("discord.js");
 const { buildVcRichFromClassicFields } = require("../../../Utils/Embeds/vcPageEmbedV2") as typeof import("../../../Utils/Embeds/vcPageEmbedV2");
 const { upsertPanelMessage } = require("../../../../shared/discord/panelUpsertRuntime") as typeof import("../../../../shared/discord/panelUpsertRuntime");
-const { getClientChannelCached } = require("../../../Utils/Interaction/interactionEntityCache") as typeof import("../../../Utils/Interaction/interactionEntityCache");
+const { getClientChannelCached } = require("../../../../shared/discord/interactionEntityCache") as typeof import("../../../../shared/discord/interactionEntityCache");
 const {
   getGuildPanels,
   mutateGuildPanels,

@@ -22,7 +22,7 @@ const __eventCoreVinili = (rel: string) => __path.join(__path.resolve(__dirname,
 
 const IDs = require(__eventCoreVinili("Utils/Config/ids"));
 const { resolveWebsiteGuildMember } = require(__eventCoreVinili("site/http/siteRoleRequestApi"));
-const { memberIsHighStaffEligible } = require(__eventCoreVinili("Utils/Staff/staffRoleHierarchy"));
+const { memberIsHighStaffEligible } = require(__eventCoreVinili("Staff/utils/staffRoleHierarchy"));
 const {
   resolveStarWarsEventConfig,
   isStarWarsPublicWindowOpen,

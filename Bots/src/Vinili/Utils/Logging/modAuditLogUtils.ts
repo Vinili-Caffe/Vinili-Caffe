@@ -1,6 +1,6 @@
 const { PermissionsBitField, EmbedBuilder } = require("discord.js") as typeof import("discord.js");
-const { getGuildChannelCached } = require("../Interaction/interactionEntityCache") as typeof import("../Interaction/interactionEntityCache");
-const { accountUsername, guildMemberDisplayAvatarUrlDynamic } = require("../Discord/guildDiscordIdentity") as typeof import("../Discord/guildDiscordIdentity");
+const { getGuildChannelCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
+const { accountUsername, guildMemberDisplayAvatarUrlDynamic } = require("../../../shared/discord/guildDiscordIdentity") as typeof import("../../../shared/discord/guildDiscordIdentity");
 const { resolveModLogChannelId } = require("../../MultiGuild/utils/tenantModLogChannel") as typeof import("../../MultiGuild/utils/tenantModLogChannel");
 
 function logModLogSendFailure(guild?, channel?, err?, context?) {

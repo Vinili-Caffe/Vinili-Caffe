@@ -1,9 +1,9 @@
 /** Ingresso membri: join gate (DM, espulsione, log). */
 const { EmbedBuilder } = require("discord.js") as typeof import("discord.js");
 const IDs = require("../Utils/Config/ids") as typeof import("../Utils/Config/ids");
-const { getJoinGateConfigSnapshot } = require("../Services/Moderation/joinGateService") as typeof import("../Services/Moderation/joinGateService");
-const { getGuildChannelCached } = require("../Utils/Interaction/interactionEntityCache") as typeof import("../Utils/Interaction/interactionEntityCache");
-const { guildMemberDisplayAvatarUrlDynamic } = require("../Utils/Discord/guildDiscordIdentity") as typeof import("../Utils/Discord/guildDiscordIdentity");
+const { getJoinGateConfigSnapshot } = require("../Moderation/services/joinGateService") as typeof import("../Moderation/services/joinGateService");
+const { getGuildChannelCached } = require("../../shared/discord/interactionEntityCache") as typeof import("../../shared/discord/interactionEntityCache");
+const { guildMemberDisplayAvatarUrlDynamic } = require("../../shared/discord/guildDiscordIdentity") as typeof import("../../shared/discord/guildDiscordIdentity");
 const { resolveGuildChannel } = require("./joinInvites") as typeof import("./joinInvites");
 const { kickForJoinGate } = require("./joinBots") as typeof import("./joinBots");
 const { toUnix, formatAccountAge } = require("./joinSuspicious") as typeof import("./joinSuspicious");

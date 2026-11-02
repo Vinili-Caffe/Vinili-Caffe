@@ -10,13 +10,13 @@ const { maybePublishMovieNightStaffCommunication, repairFinalMovieNightAnnouncem
 const { handleMovieNightStageClose, runMovieNightStageCloseRecoveryCheck } = require("./movieNightStageCloseFlow") as typeof import("./movieNightStageCloseFlow");
 const { runExtraMovieNightEventStartCheck } = require("./movieNightExtraChecks") as typeof import("./movieNightExtraChecks");
 const { startMovieNightAnnouncementLoop: startMovieNightAnnouncementLoopImpl } = require("./movieNightAnnouncementLoop") as typeof import("./movieNightAnnouncementLoop");
-const { getBotState, setBotState } = require("../../Utils/BotState/botStateStore") as typeof import("../../Utils/BotState/botStateStore");
-const { isMongoReady } = require("../../Utils/Database/mongoConnect") as typeof import("../../Utils/Database/mongoConnect");
-const { getClientGuildCached, getGuildChannelCached } = require("../../Utils/Interaction/interactionEntityCache") as typeof import("../../Utils/Interaction/interactionEntityCache");
+const { getBotState, setBotState } = require("../../../shared/botState/botStateStore") as typeof import("../../../shared/botState/botStateStore");
+const { isMongoReady } = require("../../../shared/db/mongoConnect") as typeof import("../../../shared/db/mongoConnect");
+const { getClientGuildCached, getGuildChannelCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
 const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
 const { mergeWatchedTitleEntries } = require("../../Utils/Community/movieNightWatchedTitles") as typeof import("../../Utils/Community/movieNightWatchedTitles");
 const { startSerataFilmAttendanceSession, restoreSerataFilmAttendanceSession } = require("./serataFilmAttendance") as typeof import("./serataFilmAttendance");
-const { startSerataFilmSession } = require("../Staff/staffAutoValutazioniService") as typeof import("../Staff/staffAutoValutazioniService");
+const { startSerataFilmSession } = require("../../Staff/services/staffAutoValutazioniService") as typeof import("../../Staff/services/staffAutoValutazioniService");
 
 let movieNightAnnouncementRunning = false;
 let movieNightThreadCloseRunning = false;

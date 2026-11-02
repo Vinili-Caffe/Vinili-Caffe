@@ -82,7 +82,7 @@ async function listStaffWorkflowFromDb(client?, guildId?, queue?, opts: Record<s
   if (q === "resoconti") {
     if (!week) {
       try {
-        const { getResocontoCycleWeekKey } = require("../../Services/Staff/weeklyStaffResocontoService") as typeof import("../../Services/Staff/weeklyStaffResocontoService");
+        const { getResocontoCycleWeekKey } = require("../../Staff/services/weeklyStaffResocontoService") as typeof import("../../Staff/services/weeklyStaffResocontoService");
         week = String(getResocontoCycleWeekKey() || "").trim();
       } catch {
         week = "";

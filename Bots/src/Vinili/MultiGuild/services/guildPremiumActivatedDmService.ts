@@ -4,9 +4,9 @@ const {
   applyBrandingBannerImage,
   createStandardGifAttachment,
 } = require("../utils/tenantEmbedBranding") as typeof import("../utils/tenantEmbedBranding");
-const { applyDefaultFooter } = require("../../Utils/Embeds/defaultFooter") as typeof import("../../Utils/Embeds/defaultFooter");
+const { applyDefaultFooter } = require("../../../shared/embeds/defaultFooter") as typeof import("../../../shared/embeds/defaultFooter");
 const { pickRandomWritableTextChannel } = require("./guildJoinWelcomeDmService") as typeof import("./guildJoinWelcomeDmService");
-const { guildIconUrl } = require("../../Utils/Discord/guildDiscordIdentity") as typeof import("../../Utils/Discord/guildDiscordIdentity");
+const { guildIconUrl } = require("../../../shared/discord/guildDiscordIdentity") as typeof import("../../../shared/discord/guildDiscordIdentity");
 const {
   tPremium,
   formatPremiumDuration,

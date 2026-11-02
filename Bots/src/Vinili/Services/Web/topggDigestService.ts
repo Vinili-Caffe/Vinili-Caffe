@@ -1,7 +1,7 @@
-const axios = require("axios") as typeof import("axios").default;
+const axios = require("axios") as any;
 const { EmbedBuilder } = require("discord.js") as typeof import("discord.js");
-const { getClientChannelCached } = require("../../Utils/Interaction/interactionEntityCache") as typeof import("../../Utils/Interaction/interactionEntityCache");
-const { getBotState, setBotState } = require("../../Utils/BotState/botStateStore") as typeof import("../../Utils/BotState/botStateStore");
+const { getClientChannelCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
+const { getBotState, setBotState } = require("../../../shared/botState/botStateStore") as typeof import("../../../shared/botState/botStateStore");
 
 const TOPGG_REVIEW_SNAPSHOT_KEY = "topgg_review_digest_snapshot";
 

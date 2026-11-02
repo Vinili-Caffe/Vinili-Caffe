@@ -1,7 +1,7 @@
 /** Boost: recupero degli annunci mancati (per utente e all'avvio). */
 const { PermissionsBitField, AuditLogEvent } = require("discord.js") as typeof import("discord.js");
 const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
-const { getGuildChannelCached, getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache") as typeof import("../../Utils/Interaction/interactionEntityCache");
+const { getGuildChannelCached, getGuildMemberCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
 const { ensureBoostSlotsSynced } = require("../../Utils/Community/boostSlotAnnounceTracker") as typeof import("../../Utils/Community/boostSlotAnnounceTracker");
 const { resolveNativeBoostMessageUserId, boostAnnounceLooksLikeBoost, textMentionsUserId, getBoostSystemMessageTypes, parseNativeBoostSlotCount, resolveBoostNativeScanChannelsAsync } = require("./boostAnnounceState") as typeof import("./boostAnnounceState");
 const { sleep } = require("./memberUpdateLogs") as typeof import("./memberUpdateLogs");

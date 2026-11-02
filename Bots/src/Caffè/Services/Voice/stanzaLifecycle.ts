@@ -1,7 +1,7 @@
 /** Stanze vocali: creazione dalla lobby, stanza vuota o occupata, chiusura. */
 const { ChannelType, OverwriteType, PermissionsBitField } = require("discord.js") as typeof import("discord.js");
 const IDs: any = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
-const { accountUsername } = require("../../Utils/Discord/guildDiscordIdentity") as typeof import("../../Utils/Discord/guildDiscordIdentity");
+const { accountUsername } = require("../../../shared/discord/guildDiscordIdentity") as typeof import("../../../shared/discord/guildDiscordIdentity");
 const { STANZA_LOBBY_VOICE_ID, getStanzaCategoryParentId, resolveStanzaVoiceCreatePlacement, placeStanzaAfterGroupTail, applyStanzaVoiceCreatePosition, stanzaChannelMeta } = require("./stanzaPlacement") as typeof import("./stanzaPlacement");
 const { STANZA_DEFAULT_EMOJI, sanitizeStanzaLabel, buildStanzaCreateName, persistStanzaSnapshotNow } = require("./stanzaNames") as typeof import("./stanzaNames");
 const { isStanzaGuildAllowed, stanzaVisitorVoiceSession, ownerKey, notifyStanzaVisitorJoin } = require("./stanzaVisitors") as typeof import("./stanzaVisitors");

@@ -1,17 +1,17 @@
 const { EmbedBuilder, AttachmentBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlagsBitField } = require("discord.js") as typeof import("discord.js");
 const IDs = require("../Utils/Config/ids") as typeof import("../Utils/Config/ids");
-const { getGuildChannelCached } = require("../Utils/Interaction/interactionEntityCache") as typeof import("../Utils/Interaction/interactionEntityCache");
-const { runAutoModMessage } = require("../Services/Moderation/automodService") as typeof import("../Services/Moderation/automodService");
+const { getGuildChannelCached } = require("../../shared/discord/interactionEntityCache") as typeof import("../../shared/discord/interactionEntityCache");
+const { runAutoModMessage } = require("../Moderation/services/automodService") as typeof import("../Moderation/services/automodService");
 const { handleDisboardBump, handleDiscadiaBump, handleVoteManagerMessage } = require("../Utils/Message/officialMessageAutomationHandlers") as typeof import("../Utils/Message/officialMessageAutomationHandlers");
 const { handleMentionAutoReactions, handleWordReactions } = require("../Utils/Message/officialMessageCommunityHandlers") as typeof import("../Utils/Message/officialMessageCommunityHandlers");
 const { toDiscordTimestamp } = require("../Utils/Logging/channelRolesLogUtils") as typeof import("../Utils/Logging/channelRolesLogUtils");
-const { handlePartnerDescriptionMessageUpsert, isPartnerDescriptionChannel } = require("../Services/Partner/partnerDescriptionSyncService") as typeof import("../Services/Partner/partnerDescriptionSyncService");
+const { handlePartnerDescriptionMessageUpsert, isPartnerDescriptionChannel } = require("../Partner/services/partnerDescriptionSyncService") as typeof import("../Partner/services/partnerDescriptionSyncService");
 const {
   handleTenantPartnerDescriptionMessageUpsert,
   isTenantPartnerDescriptionChannel,
-} = require("../MultiGuild/services/Partner/tenantPartnerDescriptionService") as typeof import("../MultiGuild/services/Partner/tenantPartnerDescriptionService");
-const { shouldDeleteHumanPartnershipsChannelMessage } = require("../Utils/Partner/partnerPointContextUtils") as typeof import("../Utils/Partner/partnerPointContextUtils");
-const { tryResolvePendingManualPartnershipOnUpdate } = require("../MultiGuild/services/Partner/tenantManualPartnershipService") as typeof import("../MultiGuild/services/Partner/tenantManualPartnershipService");
+} = require("../Partner/services/tenantPartnerDescriptionService") as typeof import("../Partner/services/tenantPartnerDescriptionService");
+const { shouldDeleteHumanPartnershipsChannelMessage } = require("../Partner/runtime/partnerPointContextUtils") as typeof import("../Partner/runtime/partnerPointContextUtils");
+const { tryResolvePendingManualPartnershipOnUpdate } = require("../Partner/services/tenantManualPartnershipService") as typeof import("../Partner/services/tenantManualPartnershipService");
 
 function isViniliFullFeatureGuild(guildId?) {
   try {
@@ -305,13 +305,13 @@ export = {
           global.logger?.error?.("[messageUpdate] automodazione failed:", error);
         }
         try {
-          const { maybeBlockDiscordHeadingMarkdown } = require("../Services/Moderation/discordHeadingMarkdownBlock") as typeof import("../Services/Moderation/discordHeadingMarkdownBlock");
+          const { maybeBlockDiscordHeadingMarkdown } = require("../Moderation/services/discordHeadingMarkdownBlock") as typeof import("../Moderation/services/discordHeadingMarkdownBlock");
           if (await maybeBlockDiscordHeadingMarkdown(updated)) return;
         } catch (error) {
           global.logger?.error?.("[messageUpdate] blocco markdown discord failed:", error);
         }
         try {
-          const { handleStaffManagedThreadRoleMentionMessage } = require("../Utils/Staff/staffManagedThreadsGuard") as typeof import("../Utils/Staff/staffManagedThreadsGuard");
+          const { handleStaffManagedThreadRoleMentionMessage } = require("../Staff/utils/staffManagedThreadsGuard") as typeof import("../Staff/utils/staffManagedThreadsGuard");
           if (await handleStaffManagedThreadRoleMentionMessage(updated)) return;
         } catch (error) {
           global.logger?.error?.("[messageUpdate] staff thread role mention guard failed:", error);

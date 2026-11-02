@@ -2,11 +2,11 @@
 // ends: solo testo ("fino al …"), lo sconto non si spegne da solo: così server e browser mostrano sempre lo stesso prezzo.
 
 export const PROMO = {
-  percent: 20,
+  percent: 0,
   title: "Sconto del 20%",
   text: "Su tutti i pacchetti di donazioni e sponsor.",
-  /* fine dell'evento Halloween */
-  ends: "2026-11-02T12:00:00+01:00" as string | null,
+  /* fine dell'evento Halloween (era 2026-11-02T12:00+01) — percent=0 spegne banner/prezzi */
+  ends: null as string | null,
 };
 
 export const promoOn = () => PROMO.percent > 0;

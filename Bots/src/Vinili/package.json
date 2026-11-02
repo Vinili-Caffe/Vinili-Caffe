@@ -16,7 +16,7 @@
     "automod:sync-words": "node ../scripts/sync-automod-wordlists.js Vinili",
     "test:critical": "node ../scripts/test-critical-systems.js Vinili",
     "test:prefix-metadata": "node ../scripts/test-prefix-metadata.js Vinili",
-    "i18n:tenant": "node Utils/Partner/tenantPartnershipI18n/scripts/generate-tenant-i18n.cjs"
+    "i18n:tenant": "node Partner/i18n/tenantPartnershipI18n/scripts/generate-tenant-i18n.cjs"
   },
   "dependencies": {
     "@discordjs/opus": "^0.10.0",

@@ -4,7 +4,7 @@ const { memberIsHighStaffEligible } = require("./siteStaffDashboardApi") as type
 const {
   runValutazioneNegTradeForPanel,
   runValutazionePosPauseTradeForPanel,
-} = require("../../Utils/Staff/valutazionePanelActions") as typeof import("../../Utils/Staff/valutazionePanelActions");
+} = require("../../Staff/utils/valutazionePanelActions") as typeof import("../../Staff/utils/valutazionePanelActions");
 
 function stripDiscordDecorations(text?) {
   return String(text || "")

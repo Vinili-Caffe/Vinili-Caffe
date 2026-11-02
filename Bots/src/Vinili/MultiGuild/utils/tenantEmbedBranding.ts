@@ -2,7 +2,7 @@ const { EmbedBuilder } = require("discord.js") as typeof import("discord.js");
 const { isMultiGuildLayerEnabled } = require("../core/env") as typeof import("../core/env");
 const { isViniliProtectedGuild } = require("../core/viniliProtectedGuilds") as typeof import("../core/viniliProtectedGuilds");
 const { shouldApplyMultiGuildLayer } = require("../core/accessPolicy") as typeof import("../core/accessPolicy");
-const { guildIconUrl, userAvatarUrlDynamic } = require("../../Utils/Discord/guildDiscordIdentity") as typeof import("../../Utils/Discord/guildDiscordIdentity");
+const { guildIconUrl, userAvatarUrlDynamic } = require("../../../shared/discord/guildDiscordIdentity") as typeof import("../../../shared/discord/guildDiscordIdentity");
 const { botPhotoCdnUrl } = require("../../Utils/Discord/botPhotosCdn") as typeof import("../../Utils/Discord/botPhotosCdn");
 
 const TENANT_EMBED_COLOR = "#826bc2";
@@ -96,7 +96,7 @@ function shouldUseTenantEmbedBranding(guildId?) {
   if (!gid || isViniliProtectedGuild(gid) || !isMultiGuildLayerEnabled()) return false;
   if (shouldApplyMultiGuildLayer(gid)) return true;
   try {
-    const { isPartnershipOperational } = require("../../Utils/Partner/partnershipConfigResolver") as typeof import("../../Utils/Partner/partnershipConfigResolver");
+    const { isPartnershipOperational } = require("../../Partner/core/partnershipConfigResolver") as typeof import("../../Partner/core/partnershipConfigResolver");
     return isPartnershipOperational(gid);
   } catch {
     return false;

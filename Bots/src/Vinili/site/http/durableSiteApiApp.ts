@@ -37,7 +37,7 @@ const discord = require("discord.js") as typeof import("discord.js");
 const {
   installEmbedFooterPatch,
   installOutgoingMessageEmbedPatch,
-} = require("../../Utils/Embeds/defaultFooter") as typeof import("../../Utils/Embeds/defaultFooter");
+} = require("../../../shared/embeds/defaultFooter") as typeof import("../../../shared/embeds/defaultFooter");
 installEmbedFooterPatch();
 installOutgoingMessageEmbedPatch(discord);
 const { createSiteApiRestClient } = require("../../Services/Web/siteApiRestClient") as typeof import("../../Services/Web/siteApiRestClient");
@@ -131,7 +131,7 @@ async function main() {
   process.env.SITE_API_PROCESS = "1";
   const port = Number(process.env.SITE_API_PORT || 3020) || 3020;
   /* mongoSingleSource1 */
-  const { buildMongoUrl } = require("../../Utils/Database/mongoConnect") as typeof import("../../Utils/Database/mongoConnect");
+  const { buildMongoUrl } = require("../../../shared/db/mongoConnect") as typeof import("../../../shared/db/mongoConnect");
   const mongo = buildMongoUrl();
   if (!mongo) {
     console.error("[SITE-API] Missing MONGO_URL / MONGO_URL_LOCAL");
@@ -167,7 +167,7 @@ async function main() {
     serverSelectionTimeoutMS: 8_000,
   });
   try {
-    const { refreshPartnershipConfigCache } = require("../../MultiGuild/core/tenantPartnershipSettings") as typeof import("../../MultiGuild/core/tenantPartnershipSettings");
+    const { refreshPartnershipConfigCache } = require("../../Partner/core/tenantPartnershipSettings") as typeof import("../../Partner/core/tenantPartnershipSettings");
     const { refreshTenantGuildSettingsCache } = require("../../MultiGuild/core/tenantGuildSettings") as typeof import("../../MultiGuild/core/tenantGuildSettings");
     await Promise.all([
       refreshPartnershipConfigCache().catch(() => null),
@@ -563,7 +563,7 @@ async function main() {
     try {
       const {
         startPartnershipHistoryMigrationWorker,
-      } = require("../../MultiGuild/services/Partner/tenantPartnershipHistoryMigrationService") as typeof import("../../MultiGuild/services/Partner/tenantPartnershipHistoryMigrationService");
+      } = require("../../Partner/services/tenantPartnershipHistoryMigrationService") as typeof import("../../Partner/services/tenantPartnershipHistoryMigrationService");
       startPartnershipHistoryMigrationWorker(client);
     } catch (err) {
       console.warn("[SITE-API] partnership migration worker:", err?.message || err);

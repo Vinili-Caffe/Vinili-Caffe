@@ -6,16 +6,16 @@ const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("
 const { getHalloweenQuizBank, buildHalloweenMissingEmojiRound, buildHalloweenCountBatsRound } = require("../../Utils/Minigames/halloweenMinigameHooks") as typeof import("../../Utils/Minigames/halloweenMinigameHooks");
 const { buildHalloweenFindGhostFoundEmbed } = require("../../Utils/Minigames/halloweenFindGhostUi") as typeof import("../../Utils/Minigames/halloweenFindGhostUi");
 const { formatItalianMinutesBold } = require(__eventCoreVinili("Utils/Text/italianDurationLabels"));
-const { polishItalianQuestionText, buildPromptImageAttachment } = require(__eventCoreVinili("Services/Minigames/minigameImages"));
-const { MINIGAME_EMBED_COLOR, buildItalianGkEmbed, buildFindBotEmbed, buildTimeoutFindBotEmbed } = require(__eventCoreVinili("Services/Minigames/minigameEmbeds"));
-const { buildAliases } = require(__eventCoreVinili("Services/Minigames/minigameSources"));
-const { getChannelCached } = require(__eventCoreVinili("Services/Minigames/minigameUtils"));
-const { normalizeRewardExp, buildRevealHint } = require(__eventCoreVinili("Services/Minigames/minigameText"));
-const { activeGames, pickQuestionAvoidRecent } = require(__eventCoreVinili("Services/Minigames/minigameState"));
-const { sendMinigameRolePing } = require(__eventCoreVinili("Services/Minigames/minigameRolePing"));
-const { sendMinigameMessage } = require(__eventCoreVinili("Services/Minigames/minigameDiscord"));
-const { markSent, saveActiveGame, scheduleMinigameRoundTimeout, scheduleMinuteHint, scheduleGenericHint } = require(__eventCoreVinili("Services/Minigames/minigameRound"));
-const { scheduleFindMinigameTimeout, pickRandomFindBotChannel } = require(__eventCoreVinili("Services/Minigames/minigameFindBot"));
+const { polishItalianQuestionText, buildPromptImageAttachment } = require(__eventCoreVinili("Minigames/services/minigameImages"));
+const { MINIGAME_EMBED_COLOR, buildItalianGkEmbed, buildFindBotEmbed, buildTimeoutFindBotEmbed } = require(__eventCoreVinili("Minigames/services/minigameEmbeds"));
+const { buildAliases } = require(__eventCoreVinili("Minigames/services/minigameSources"));
+const { getChannelCached } = require(__eventCoreVinili("Minigames/services/minigameUtils"));
+const { normalizeRewardExp, buildRevealHint } = require(__eventCoreVinili("Minigames/services/minigameText"));
+const { activeGames, pickQuestionAvoidRecent } = require(__eventCoreVinili("Minigames/services/minigameState"));
+const { sendMinigameRolePing } = require(__eventCoreVinili("Minigames/services/minigameRolePing"));
+const { sendMinigameMessage } = require(__eventCoreVinili("Minigames/services/minigameDiscord"));
+const { markSent, saveActiveGame, scheduleMinigameRoundTimeout, scheduleMinuteHint, scheduleGenericHint } = require(__eventCoreVinili("Minigames/services/minigameRound"));
+const { scheduleFindMinigameTimeout, pickRandomFindBotChannel } = require(__eventCoreVinili("Minigames/services/minigameFindBot"));
 
 async function startHalloweenQuizGame(client?, cfg?) {
   const channelId = cfg.channelId;

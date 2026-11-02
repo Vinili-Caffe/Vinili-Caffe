@@ -1,5 +1,5 @@
 /** Candidature: accetta o rifiuta dal sito. */
-const { deleteThreadForMessage } = require("../../../Utils/Staff/staffDocUtils") as typeof import("../../../Utils/Staff/staffDocUtils");
+const { deleteThreadForMessage } = require("../../../Staff/utils/staffDocUtils") as typeof import("../../../Staff/utils/staffDocUtils");
 const { APPLICATION_TYPES } = require("./candidatureEligibility") as typeof import("./candidatureEligibility");
 const { applicationTypeLabel, setApplicationMessageStatusColor, resolveSubmissionChannel } = require("./candidatureEmbeds") as typeof import("./candidatureEmbeds");
 const { applyCandidatePex } = require("./candidaturePex") as typeof import("./candidaturePex");

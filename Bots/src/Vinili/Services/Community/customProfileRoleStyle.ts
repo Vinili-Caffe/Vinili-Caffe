@@ -2,7 +2,7 @@
 
 /** Custom profile: colore (solido/gradiente/holo) e icona del ruolo custom. */
 const { PermissionsBitField } = require("discord.js") as typeof import("discord.js");
-const axios = require("axios") as typeof import("axios").default;
+const axios = require("axios") as any;
 const {
   HOLO,
   MAX_ROLE_ICON_BYTES,

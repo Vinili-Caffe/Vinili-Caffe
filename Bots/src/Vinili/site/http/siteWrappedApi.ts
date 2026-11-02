@@ -1,8 +1,8 @@
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
 const { resolveWebsiteGuildMember } = require("./siteRoleRequestApi") as typeof import("./siteRoleRequestApi");
 const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
-const { getUserRanks } = require("../../Services/Community/expService") as typeof import("../../Services/Community/expService");
-const { guildMemberDisplayAvatarUrlForSite, memberDisplayName } = require("../../Utils/Discord/guildDiscordIdentity") as typeof import("../../Utils/Discord/guildDiscordIdentity");
+const { getUserRanks } = require("../../Level/services/expService") as typeof import("../../Level/services/expService");
+const { guildMemberDisplayAvatarUrlForSite, memberDisplayName } = require("../../../shared/discord/guildDiscordIdentity") as typeof import("../../../shared/discord/guildDiscordIdentity");
 const { animatedDiscordCdnAvatarUrl } = require("./siteLiveAvatars") as typeof import("./siteLiveAvatars");
 
 const RECENT_DAYS = 90;

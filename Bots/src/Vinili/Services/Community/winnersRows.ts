@@ -1,9 +1,9 @@
 /** Vincitori attività: righe di attività del periodo e classifiche. */
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
-const { VOICE_EXP_PER_MINUTE } = require("./expService") as typeof import("./expService");
+const { VOICE_EXP_PER_MINUTE } = require("../../Level/services/expService") as typeof import("../../Level/services/expService");
 const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
 const { isChannelInTicketCategory } = require("../../MultiGuild/tickets/discord/ticketCategoryUtils") as typeof import("../../MultiGuild/tickets/discord/ticketCategoryUtils");
-const { getGuildRoleCached } = require("../../Utils/Interaction/interactionEntityCache") as typeof import("../../Utils/Interaction/interactionEntityCache");
+const { getGuildRoleCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
 const { getLastSunday21BoundaryMsAtOrBefore, buildLast7DaysHourKeys, buildCalendarMonthHourKeys, buildLastHoursHourKeys, hourKeyToBoundsMs, overlapRangeMs } = require("./winnersTime") as typeof import("./winnersTime");
 
 const REQUIRED_MEMBER_ROLE_ID = String(IDs.roles.Member || "");

@@ -1,6 +1,6 @@
 const { EmbedBuilder, PermissionFlagsBits } = require("discord.js") as typeof import("discord.js");
-const { handleTtsMessage } = require("../Services/TTS/ttsService") as typeof import("../Services/TTS/ttsService");
-const { handleMinigameMessage } = require("../Services/Minigames/minigameService") as typeof import("../Services/Minigames/minigameService");
+const { handleTtsMessage } = require("../../shared/tts/services/ttsService") as typeof import("../../shared/tts/services/ttsService");
+const { handleMinigameMessage } = require("../Minigames/services/minigameService") as typeof import("../Minigames/services/minigameService");
 const { recordMessageActivity } = require("../Services/Community/activityService") as typeof import("../Services/Community/activityService");
 const { handleMessageCommunityExpBonuses } = require("../Services/Community/messageCommunityExpBonusesService") as typeof import("../Services/Community/messageCommunityExpBonusesService");
 const { trackMessageEngagement } = require("../Services/Community/dailyEngagementStatsService") as typeof import("../Services/Community/dailyEngagementStatsService");
@@ -8,20 +8,20 @@ const { trackChannelMessage } = require("../Services/Community/dailyChannelMessa
 const { handleOfficialPrefixMessage } = require("../Utils/Prefix/officialPrefixDispatcher") as typeof import("../Utils/Prefix/officialPrefixDispatcher");
 const { channelAllowsMedia, getCachedOrFetchMember, handleDisboardBump, handleDiscadiaBump, handleMovieNightVoteMessage, handlePauseChannelMessage, handleSanzioniChannelMessage, handleVoteManagerMessage, hasMediaPermission, isDiscordInviteLinkMessage, isMediaMessage, } = require("../Utils/Message/officialMessageAutomationHandlers") as typeof import("../Utils/Message/officialMessageAutomationHandlers");
 const { handleAfk, handleMentionAutoReactions, handleMentionAutoResponses, handleWordReactions, logEventError, } = require("../Utils/Message/officialMessageCommunityHandlers") as typeof import("../Utils/Message/officialMessageCommunityHandlers");
-const { runAutoModMessage } = require("../Services/Moderation/automodService") as typeof import("../Services/Moderation/automodService");
+const { runAutoModMessage } = require("../Moderation/services/automodService") as typeof import("../Moderation/services/automodService");
 const { handleTicketMemberPromptMessage } = require("../MultiGuild/tickets/discord/ticketMemberPrompt") as typeof import("../MultiGuild/tickets/discord/ticketMemberPrompt");
-const { handleUntrustedBotMessage, handleUntrustedApplicationMessage } = require("../Services/Moderation/trustedBotGuardService") as typeof import("../Services/Moderation/trustedBotGuardService");
+const { handleUntrustedBotMessage, handleUntrustedApplicationMessage } = require("../Moderation/services/trustedBotGuardService") as typeof import("../Moderation/services/trustedBotGuardService");
 const IDs = require("../Utils/Config/ids") as typeof import("../Utils/Config/ids");
-const { EPHEMERAL_TTL_SHORT_MS, scheduleMessageDeletion } = require("../Utils/Config/ephemeralMessageTtl") as typeof import("../Utils/Config/ephemeralMessageTtl");
+const { EPHEMERAL_TTL_SHORT_MS, scheduleMessageDeletion } = require("../../shared/utils/ephemeralMessageTtl") as typeof import("../../shared/utils/ephemeralMessageTtl");
 const { isCoffeePrefixCommandToken } = require("../../shared/discord/coffeePrefixCommandTokens") as typeof import("../../shared/discord/coffeePrefixCommandTokens");
 const guildMemberUpdateExtras = require("../Services/Community/boostAnnounceRecoveryService") as typeof import("../Services/Community/boostAnnounceRecoveryService");
-const { handlePartnerDescriptionMessageUpsert, isPartnerDescriptionChannel } = require("../Services/Partner/partnerDescriptionSyncService") as typeof import("../Services/Partner/partnerDescriptionSyncService");
+const { handlePartnerDescriptionMessageUpsert, isPartnerDescriptionChannel } = require("../Partner/services/partnerDescriptionSyncService") as typeof import("../Partner/services/partnerDescriptionSyncService");
 const {
   handleTenantPartnerDescriptionMessageUpsert,
   isTenantPartnerDescriptionChannel,
-} = require("../MultiGuild/services/Partner/tenantPartnerDescriptionService") as typeof import("../MultiGuild/services/Partner/tenantPartnerDescriptionService");
-const { shouldDeleteHumanPartnershipsChannelMessage, isHumanPartnershipChannelMessage } = require("../Utils/Partner/partnerPointContextUtils") as typeof import("../Utils/Partner/partnerPointContextUtils");
-const { tryProcessManualPartnershipMessage } = require("../MultiGuild/services/Partner/tenantManualPartnershipService") as typeof import("../MultiGuild/services/Partner/tenantManualPartnershipService");
+} = require("../Partner/services/tenantPartnerDescriptionService") as typeof import("../Partner/services/tenantPartnerDescriptionService");
+const { shouldDeleteHumanPartnershipsChannelMessage, isHumanPartnershipChannelMessage } = require("../Partner/runtime/partnerPointContextUtils") as typeof import("../Partner/runtime/partnerPointContextUtils");
+const { tryProcessManualPartnershipMessage } = require("../Partner/services/tenantManualPartnershipService") as typeof import("../Partner/services/tenantManualPartnershipService");
 const STAFF_BYPASS_PERMISSIONS = [PermissionFlagsBits.Administrator, PermissionFlagsBits.ManageGuild, PermissionFlagsBits.ManageChannels, PermissionFlagsBits.ManageRoles, PermissionFlagsBits.ManageMessages, PermissionFlagsBits.KickMembers, PermissionFlagsBits.BanMembers, PermissionFlagsBits.ModerateMembers,];
 const FORCE_DELETE_CHANNEL_IDS = new Set([IDs.channels.messagesAutoDelete].filter(Boolean).map((id?) => String(id)));
 const MEDIA_BLOCK_EXEMPT_CATEGORY_ID = IDs.categories.categorChat;
@@ -50,7 +50,7 @@ async function executeTenantPartnershipMessageFlow(message?, resolvedClient?, de
     if (manualResult?.handled) return;
     const prefixCommand = resolveOfficialPrefixCommandFromMessage(message, resolvedClient, defaultPrefix);
     if (prefixCommand) {
-      const { sendPartnersChatDeniedPrefixCleanup, partnershipPublishChannelCommandsDeniedReplyContent } = require("../Utils/Partner/partnersChatChannelUtils") as typeof import("../Utils/Partner/partnersChatChannelUtils");
+      const { sendPartnersChatDeniedPrefixCleanup, partnershipPublishChannelCommandsDeniedReplyContent } = require("../Partner/runtime/partnersChatChannelUtils") as typeof import("../Partner/runtime/partnersChatChannelUtils");
       const denied = partnershipPublishChannelCommandsDeniedReplyContent(message.channel);
       if (denied) {
         await sendPartnersChatDeniedPrefixCleanup(message, denied).catch(() => null);
@@ -436,7 +436,7 @@ export = {
       if (manualResult?.handled) return;
       const prefixCommand = resolveOfficialPrefixCommandFromMessage(message, resolvedClient, defaultPrefix);
       if (prefixCommand) {
-        const { sendPartnersChatDeniedPrefixCleanup, partnershipPublishChannelCommandsDeniedReplyContent } = require("../Utils/Partner/partnersChatChannelUtils") as typeof import("../Utils/Partner/partnersChatChannelUtils");
+        const { sendPartnersChatDeniedPrefixCleanup, partnershipPublishChannelCommandsDeniedReplyContent } = require("../Partner/runtime/partnersChatChannelUtils") as typeof import("../Partner/runtime/partnersChatChannelUtils");
         const denied = partnershipPublishChannelCommandsDeniedReplyContent(message.channel);
         if (denied) {
           await sendPartnersChatDeniedPrefixCleanup(message, denied).catch(() => null);
@@ -460,7 +460,7 @@ export = {
       }
       if (message.guild && !message.system) {
         try {
-          const { maybeBlockDiscordHeadingMarkdown } = require("../Services/Moderation/discordHeadingMarkdownBlock") as typeof import("../Services/Moderation/discordHeadingMarkdownBlock");
+          const { maybeBlockDiscordHeadingMarkdown } = require("../Moderation/services/discordHeadingMarkdownBlock") as typeof import("../Moderation/services/discordHeadingMarkdownBlock");
           if (await maybeBlockDiscordHeadingMarkdown(message)) return;
         } catch (error) {
           logEventError(resolvedClient, "HEADING MARKDOWN BLOCK ERROR", error);
@@ -512,7 +512,7 @@ export = {
 
     if (!isEditedPrefixExecution && message.guild) {
       try {
-        const { handleStaffManagedThreadRoleMentionMessage } = require("../Utils/Staff/staffManagedThreadsGuard") as typeof import("../Utils/Staff/staffManagedThreadsGuard");
+        const { handleStaffManagedThreadRoleMentionMessage } = require("../Staff/utils/staffManagedThreadsGuard") as typeof import("../Staff/utils/staffManagedThreadsGuard");
         if (await handleStaffManagedThreadRoleMentionMessage(message)) return;
       } catch (error) {
         logEventError(resolvedClient, "STAFF THREAD ROLE MENTION GUARD ERROR", error);
@@ -564,7 +564,7 @@ export = {
           handleMinigameMessage(message, resolvedClient),
           handleAfk(message),
           (async () => {
-            const { handlePmVoiceAfkChatMessage } = require("../Services/Staff/pmVoiceAfkWatchService") as typeof import("../Services/Staff/pmVoiceAfkWatchService");
+            const { handlePmVoiceAfkChatMessage } = require("../Staff/services/pmVoiceAfkWatchService") as typeof import("../Staff/services/pmVoiceAfkWatchService");
             return handlePmVoiceAfkChatMessage(message, resolvedClient);
           })(),
           handleMentionAutoReactions(message),

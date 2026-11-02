@@ -7,8 +7,8 @@ const { resolveCustomRoleState } = require("../../Utils/Community/customRoleStat
 const { getCustomRoleSlotCapFromRoles, getCustomRoleSlotCapWithContest } = require("../../Utils/Community/customRoleSlots") as typeof import("../../Utils/Community/customRoleSlots");
 const { hasExtraCustomPerksUnlock } = require("../../Utils/Community/customPerksUnlock") as typeof import("../../Utils/Community/customPerksUnlock");
 const { hasEventWeekWinnerGrant } = require("./weekWinnerGrantsService") as typeof import("./weekWinnerGrantsService");
-const { fetchPartnerManagerTimedPerkLean, partnerManagerCustomBundleActiveFromLean } = require("../../Utils/Staff/partnerManagerTimedPerks") as typeof import("../../Utils/Staff/partnerManagerTimedPerks");
-const { accountUsername } = require("../../Utils/Discord/guildDiscordIdentity") as typeof import("../../Utils/Discord/guildDiscordIdentity");
+const { fetchPartnerManagerTimedPerkLean, partnerManagerCustomBundleActiveFromLean } = require("../../Staff/utils/partnerManagerTimedPerks") as typeof import("../../Staff/utils/partnerManagerTimedPerks");
+const { accountUsername } = require("../../../shared/discord/guildDiscordIdentity") as typeof import("../../../shared/discord/guildDiscordIdentity");
 const { ANCHOR_ROLE_ID, okPersist, trimRoleName } = require("./customProfileShared") as typeof import("./customProfileShared");
 
 async function createCustomRole({ client, guild, member, ownerId, slot = "primary" }) {

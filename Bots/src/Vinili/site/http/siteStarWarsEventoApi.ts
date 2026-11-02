@@ -1,2 +1,3 @@
 /* shim → archivio/starwars */
-export = require("../../../../archivio/starwars/src/Vinili/Web/siteStarWarsEventoApi");
+const api = require("../../../../archivio/starwars/src/Vinili/Web/siteStarWarsEventoApi") as any;
+export = api;

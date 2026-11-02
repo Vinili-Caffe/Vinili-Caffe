@@ -1,6 +1,6 @@
-const { getBotState } = require("../../Utils/BotState/botStateStore") as typeof import("../../Utils/BotState/botStateStore");
+const { getBotState } = require("../../../shared/botState/botStateStore") as typeof import("../../../shared/botState/botStateStore");
 const BotState = require("../../Schemas/BotState/botStateSchema");
-const { isMongoReady } = require("../../Utils/Database/mongoConnect") as typeof import("../../Utils/Database/mongoConnect");
+const { isMongoReady } = require("../../../shared/db/mongoConnect") as typeof import("../../../shared/db/mongoConnect");
 const { grantTenantPremium, getTenantPremium } = require("../../MultiGuild/core/tenantPremium") as typeof import("../../MultiGuild/core/tenantPremium");
 
 const BOT_STATE_KEY = "premiumCredits.v1";

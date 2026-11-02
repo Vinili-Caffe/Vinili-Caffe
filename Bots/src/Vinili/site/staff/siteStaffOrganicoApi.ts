@@ -10,7 +10,7 @@ const {
 const {
   userAvatarUrlDynamic,
   sitePreferredAvatarUrl,
-} = require("../../Utils/Discord/guildDiscordIdentity") as typeof import("../../Utils/Discord/guildDiscordIdentity");
+} = require("../../../shared/discord/guildDiscordIdentity") as typeof import("../../../shared/discord/guildDiscordIdentity");
 const { sendJsonWithEtag, weakEtagFromJson } = require("../../site/http/siteHttpEtag") as typeof import("../../site/http/siteHttpEtag");
 const { organicoCache, normalizeHistoryAvatarUrl, hasRealDiscordAvatarUrl, isEmbedDiscordAvatarUrl, pickHistoryAvatarUrl, organicoCacheKey } = require("./organicoAvatars") as typeof import("./organicoAvatars");
 const { classifyPexDepexKind, rosterMembersById, buildPexDepexHistory, historyIdentityIncomplete, warmMissingHistoryIdentities } = require("./organicoHistory") as typeof import("./organicoHistory");

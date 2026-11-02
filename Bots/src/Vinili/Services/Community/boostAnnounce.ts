@@ -1,7 +1,7 @@
 /** Boost: annuncio di un boost nuovo e ruolo doppio booster (orchestrazione memberUpdate). */
 const { PermissionsBitField, AuditLogEvent } = require("discord.js") as typeof import("discord.js");
 const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
-const { getGuildChannelCached } = require("../../Utils/Interaction/interactionEntityCache") as typeof import("../../Utils/Interaction/interactionEntityCache");
+const { getGuildChannelCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
 const { getAnnouncedBoostSlots, setAnnouncedBoostSlots, deleteAnnouncedBoostSlots, ensureBoostSlotsSynced, persistAnnouncedBoostSlotsToDb } = require("../../Utils/Community/boostSlotAnnounceTracker") as typeof import("../../Utils/Community/boostSlotAnnounceTracker");
 const { boostAnnounceCache, nativeBoostSeenSince, shouldSkipDuplicateBoostAnnounce } = require("./boostAnnounceState") as typeof import("./boostAnnounceState");
 const { NATIVE_BOOST_ACCUMULATE_MS } = require("./boostNative") as typeof import("./boostNative");

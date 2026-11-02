@@ -17,12 +17,43 @@ loadEnvFiles(APP_ROOT);
 try {
   require("../shared/scheduling/nodeCronMissFilter").installNodeCronMissFilter();
 } catch (_) {}
+/* Music/TTS shared: snapshot + hook Coffee prima di qualsiasi require music/tts */
+process.env.MUSIC_QUEUE_SNAPSHOT_PATH =
+  process.env.MUSIC_QUEUE_SNAPSHOT_PATH || path.join(APP_ROOT, "Data", "musicQueueSnapshot.json");
+process.env.TTS_QUEUE_SNAPSHOT_PATH =
+  process.env.TTS_QUEUE_SNAPSHOT_PATH || path.join(APP_ROOT, "Data", "ttsQueueSnapshot.json");
+try {
+  const { setMusicBotHooks } = require("../shared/music/musicBotHooks") as typeof import("../shared/music/musicBotHooks");
+  const loadSharedTts = () =>
+    require("../shared/tts/services/ttsService") as typeof import("../shared/tts/services/ttsService");
+  setMusicBotHooks({
+    profile: "coffee",
+    nowPlayingTitle: "Now playing",
+    nowPlayingVerifiedPrefix: "<a:VC_Verified:1482532479637127188>",
+    enableVoiceCapture: false,
+    purgeTtsVoicePersistence: async (guildId?, client?) => {
+      const tts = loadSharedTts();
+      if (typeof tts.purgeTtsVoicePersistence === "function") {
+        return tts.purgeTtsVoicePersistence(guildId, client);
+      }
+    },
+    leaveTtsGuild: async (guildId?, client?) => {
+      const tts = loadSharedTts();
+      if (typeof tts.leaveTtsGuild === "function") {
+        return tts.leaveTtsGuild(guildId, client);
+      }
+    },
+    startVoiceContinuousCapture: async () => {},
+    stopVoiceContinuousCapture: async () => {},
+    isVoiceCaptureActive: () => false,
+  });
+} catch (_) {}
 try {
   const {
     installEmbedFooterPatch,
     installOutgoingMessageEmbedPatch,
     setEmbedBrandDefaultColor,
-  } = require("../Vinili/Utils/Embeds/defaultFooter") as typeof import("../Vinili/Utils/Embeds/defaultFooter");
+  } = require("../shared/embeds/defaultFooter") as typeof import("../shared/embeds/defaultFooter");
   // Caffè keeps the shared copyright footer, but uses coffee brown — not tenant purple.
   setEmbedBrandDefaultColor("#6f4e37");
   installEmbedFooterPatch();
@@ -86,7 +117,7 @@ try {
 }
 
 const { getToken, getMongoUrl, ensureToken, assertBotTokenIdentity } = require("../shared/config/env") as typeof import("../shared/config/env");
-const { connectMongo, isMongoReady } = require("../Vinili/Utils/Database/mongoConnect") as typeof import("../Vinili/Utils/Database/mongoConnect");
+const { connectMongo, isMongoReady } = require("../shared/db/mongoConnect") as typeof import("../shared/db/mongoConnect");
 client.config.token = getToken(client.config, "DISCORD_TOKEN_TEST");
 client.config.mongoURL = getMongoUrl(client.config);
 ensureToken(client.config.token, "Bot Test (DISCORD_TOKEN_TEST)");

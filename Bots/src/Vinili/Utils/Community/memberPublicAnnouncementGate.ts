@@ -1,5 +1,5 @@
 const IDs = require("../Config/ids") as typeof import("../Config/ids");
-const { resolveJoinGateConfiguredExempt } = require("../../Services/Moderation/joinGateExemptUtils") as typeof import("../../Services/Moderation/joinGateExemptUtils");
+const { resolveJoinGateConfiguredExempt } = require("../../Moderation/services/joinGateExemptUtils") as typeof import("../../Moderation/services/joinGateExemptUtils");
 
 const MAIN_GUILD_ID = String(IDs.guilds?.main || "");
 const MEMBER_ROLE_ID = String(IDs.roles?.Member || "");

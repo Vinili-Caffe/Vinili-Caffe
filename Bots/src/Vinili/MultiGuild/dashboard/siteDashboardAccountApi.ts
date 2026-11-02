@@ -4,7 +4,7 @@ const {
   serializePremiumPublic,
 } = require("../../MultiGuild/core/tenantPremium") as typeof import("../../MultiGuild/core/tenantPremium");
 const { isViniliProtectedGuild } = require("../../MultiGuild/core/viniliProtectedGuilds") as typeof import("../../MultiGuild/core/viniliProtectedGuilds");
-const { getClientGuildCached } = require("../../Utils/Interaction/interactionEntityCache") as typeof import("../../Utils/Interaction/interactionEntityCache");
+const { getClientGuildCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
 const {
   assertDashboardHighStaffAccess,
   listDashboardGuilds,

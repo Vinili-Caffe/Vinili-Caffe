@@ -12,7 +12,7 @@ const {
   deleteUserRepostEntry,
 } = require("../../Services/Community/repostService") as typeof import("../../Services/Community/repostService");
 const { resolveWebsiteGuildMember } = require("../../site/http/siteRoleRequestApi") as typeof import("../../site/http/siteRoleRequestApi");
-const { getClientGuildCached } = require("../../Utils/Interaction/interactionEntityCache") as typeof import("../../Utils/Interaction/interactionEntityCache");
+const { getClientGuildCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
 const {
   stabilizeQuoteMedia,
   stabilizeRepostMedia,

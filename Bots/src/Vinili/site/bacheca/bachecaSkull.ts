@@ -1,6 +1,6 @@
 /** Bacheca sul sito: messaggio appeso con la 💀 (immagine della card e allegati sul CDN, testo salvato). */
 const { GuildSkullPost } = require("../../Schemas/Community/guildBoardPostSchema") as typeof import("../../Schemas/Community/guildBoardPostSchema");
-const { accountUsername, guildMemberDisplayAvatarUrlDynamic } = require("../../Utils/Discord/guildDiscordIdentity") as typeof import("../../Utils/Discord/guildDiscordIdentity");
+const { accountUsername, guildMemberDisplayAvatarUrlDynamic } = require("../../../shared/discord/guildDiscordIdentity") as typeof import("../../../shared/discord/guildDiscordIdentity");
 const { SITE_BOARD_CHANNEL, newBachecaItemId, putBachecaMedia, mirrorUrlToBacheca, broadcastBachecaChanged } = require("./bachecaSite") as typeof import("./bachecaSite");
 
 async function registerBachecaSkull(ctx: {

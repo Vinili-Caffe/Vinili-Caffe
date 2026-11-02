@@ -6,7 +6,7 @@ const {
   normalizeCategoryName,
   TICKETS_OVERFLOW_SEPARATOR,
 } = require("./ticketCategoryUtils") as typeof import("./ticketCategoryUtils");
-const { getGuildChannelCached } = require("../../../Utils/Interaction/interactionEntityCache") as typeof import("../../../Utils/Interaction/interactionEntityCache");
+const { getGuildChannelCached } = require("../../../../shared/discord/interactionEntityCache") as typeof import("../../../../shared/discord/interactionEntityCache");
 const { warmGuildChannels } = require("./ticketInteractionRuntime") as typeof import("./ticketInteractionRuntime");
 const { buildTicketRoleCreateOverwrite } = require("./ticketHighStaffOverwrites") as typeof import("./ticketHighStaffOverwrites");
 
@@ -149,7 +149,7 @@ async function resolveAutoTicketCategory(guild?, interaction?) {
   if (!category) return null;
   await category.setPosition(0).catch(() => { });
   try {
-    const { scheduleDiscordAutomodRulesResync } = require("../../../Services/Moderation/discordAutomodRulesService") as typeof import("../../../Services/Moderation/discordAutomodRulesService");
+    const { scheduleDiscordAutomodRulesResync } = require("../../../Moderation/services/discordAutomodRulesService") as typeof import("../../../Moderation/services/discordAutomodRulesService");
     scheduleDiscordAutomodRulesResync(interaction.client);
   } catch (_) {}
   return category;

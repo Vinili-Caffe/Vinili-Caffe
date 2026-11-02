@@ -9,7 +9,7 @@ const { MAX_REACTION_KINDS, MAX_REACTION_USERS, parseReactionInput, normalizeRea
 const { webTicketMessageKindForActor, serializeMessage, resolveReplyTargetForTicket, serializeMessageWithStaffRating, refreshTicketLastMessageFields, previewFromContent, serializeTicketForActor } = require("./ticketSerialize") as typeof import("./ticketSerialize");
 const { MAX_CONTENT, emitTicketEvent, refreshStaffTicketQueueNotif, notifyMentionedUsers, notifyTicketChatMessage, ticketBroadcastPayload } = require("./ticketNotify") as typeof import("./ticketNotify");
 const { isWebTicketPrefixInput, runWebTicketPrefixCommandFlow, resolveMemberOrStaff, loadTicketForActor } = require("./ticketCommands") as typeof import("./ticketCommands");
-const { memberIsHighStaffEligible } = require("../../Utils/Staff/staffRoleHierarchy") as typeof import("../../Utils/Staff/staffRoleHierarchy");
+const { memberIsHighStaffEligible } = require("../../Staff/utils/staffRoleHierarchy") as typeof import("../../Staff/utils/staffRoleHierarchy");
 const { consumeWebTicketMessageRateLimit, checkWebTicketUserMessageAutomod } = require("./webTicketMessageGuard") as typeof import("./webTicketMessageGuard");
 const { sendWebTicketMessageActivityLog } = require("./webTicketDiscordLog") as typeof import("./webTicketDiscordLog");
 const { handleSiteWebTicketsPresencePost, handleSiteWebTicketsReadPost, handleSiteWebTicketsTypingPost, handleSiteWebTicketsEmojisGet, handleSiteWebTicketsMentionsGet, handleSiteWebTicketsResolvePost, handleSiteWebTicketsFileGet } = require("./siteWebTicketsChatExtras") as typeof import("./siteWebTicketsChatExtras");

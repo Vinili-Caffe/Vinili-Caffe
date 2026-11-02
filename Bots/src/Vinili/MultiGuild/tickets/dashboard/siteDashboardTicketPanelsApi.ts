@@ -13,7 +13,7 @@ const {
 } = require("../tenant/tenantTicketPanels") as typeof import("../tenant/tenantTicketPanels");
   const { getTicketSettingsForGuild } = require("../tenant/tenantTicketSettings") as typeof import("../tenant/tenantTicketSettings");
   const { publishSinglePanel, publishMultiPanel } = require("../discord/ticketPanelPublishRuntime") as typeof import("../discord/ticketPanelPublishRuntime");
-  const { isMainGuild } = require("../../../Utils/Moderation/permTenantBypass") as typeof import("../../../Utils/Moderation/permTenantBypass");
+  const { isMainGuild } = require("../../../Moderation/utils/permTenantBypass") as typeof import("../../../Moderation/utils/permTenantBypass");
   const { supportHoursLabel, defaultWelcomeForTicketType, isWelcomeEmpty } = require("../discord/ticketPanelOptions") as typeof import("../discord/ticketPanelOptions");
   const {
     ensureGuildDefaultTeam,

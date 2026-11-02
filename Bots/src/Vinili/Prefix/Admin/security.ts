@@ -1,12 +1,12 @@
 const{EmbedBuilder,PermissionsBitField,ActionRowBuilder,StringSelectMenuBuilder,ButtonBuilder,ButtonStyle,}=require("discord.js") as typeof import("discord.js");
 const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
 const { safeMessageReply } = require("../../../shared/discord/replyRuntime") as typeof import("../../../shared/discord/replyRuntime");
-const{ getAntiNukeStatusSnapshot, stopAntiNukePanic, setAntiNukeConfigSnapshot }=require("../../Services/Moderation/antiNukeService") as typeof import("../../Services/Moderation/antiNukeService");
-const{getSecurityStaticsSnapshot,getSecurityProfilesSnapshot,}=require("../../Services/Moderation/securityProfilesService") as typeof import("../../Services/Moderation/securityProfilesService");
-const{getJoinRaidStatusSnapshot,setJoinRaidConfigSnapshot,stopJoinRaidWindowForGuild,}=require("../../Services/Moderation/joinRaidService") as typeof import("../../Services/Moderation/joinRaidService");
-const{getJoinGateConfigSnapshot,updateJoinGateConfig,}=require("../../Services/Moderation/joinGateService") as typeof import("../../Services/Moderation/joinGateService");
-const{ getAutoModConfigSnapshot, getAutoModRulesSnapshot, getAutoModPanicSnapshot, updateAutoModConfig, clearAutoModPanicState }=require("../../Services/Moderation/automodService") as typeof import("../../Services/Moderation/automodService");
-const { getSecurityLockState, invalidateSecurityLockCache } = require("../../Services/Moderation/securityOrchestratorService") as typeof import("../../Services/Moderation/securityOrchestratorService");
+const{ getAntiNukeStatusSnapshot, stopAntiNukePanic, setAntiNukeConfigSnapshot }=require("../../Moderation/services/antiNukeService") as typeof import("../../Moderation/services/antiNukeService");
+const{getSecurityStaticsSnapshot,getSecurityProfilesSnapshot,}=require("../../Moderation/services/securityProfilesService") as typeof import("../../Moderation/services/securityProfilesService");
+const{getJoinRaidStatusSnapshot,setJoinRaidConfigSnapshot,stopJoinRaidWindowForGuild,}=require("../../Moderation/services/joinRaidService") as typeof import("../../Moderation/services/joinRaidService");
+const{getJoinGateConfigSnapshot,updateJoinGateConfig,}=require("../../Moderation/services/joinGateService") as typeof import("../../Moderation/services/joinGateService");
+const{ getAutoModConfigSnapshot, getAutoModRulesSnapshot, getAutoModPanicSnapshot, updateAutoModConfig, clearAutoModPanicState }=require("../../Moderation/services/automodService") as typeof import("../../Moderation/services/automodService");
+const { getSecurityLockState, invalidateSecurityLockCache } = require("../../Moderation/services/securityOrchestratorService") as typeof import("../../Moderation/services/securityOrchestratorService");
 const { sendSecurityAuditLog } = require("../../Utils/Logging/securityAuditLog") as typeof import("../../Utils/Logging/securityAuditLog");
 
 const STAFF_ROLE_IDS = [

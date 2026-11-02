@@ -209,7 +209,7 @@ async function applyValutazione(client?, guildId?, userId?, type?, weekKey?) {
     if (!guild) return false;
     const member = await guild.members.fetch(userId).catch(() => null);
     if (!member) return false;
-    const { ensureAutoValutazione } = require("../../Services/Staff/staffAutoValutazioniService") as typeof import("../../Services/Staff/staffAutoValutazioniService");
+    const { ensureAutoValutazione } = require("../../Staff/services/staffAutoValutazioniService") as typeof import("../../Staff/services/staffAutoValutazioniService");
     const key = `staff_compiti:${weekKey}`;
     const reason = type === "positive" ? REASON_OK : REASON_FAIL;
     const out = await ensureAutoValutazione(guild, member, key, type, reason);

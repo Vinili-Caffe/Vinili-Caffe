@@ -1,9 +1,9 @@
 const { ActivityUserProfile, UserLeaveBackup } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
-const { addRolesAndGetMember, getClientGuildCached, getGuildMemberCached, getGuildRoleCached } = require("../../Utils/Interaction/interactionEntityCache") as typeof import("../../Utils/Interaction/interactionEntityCache");
-const { isValidGuildUserId } = require("../../Utils/DB/validateWriteIds") as typeof import("../../Utils/DB/validateWriteIds");
-const { deleteStaffPauseRequestChannelMessages, deleteStaffRelatedMessagesFromConfiguredChannels, archiveStaffRolesHistoryThenUnsetStaff } = require("../../Utils/Staff/staffDocUtils") as typeof import("../../Utils/Staff/staffDocUtils");
+const { addRolesAndGetMember, getClientGuildCached, getGuildMemberCached, getGuildRoleCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
+const { isValidGuildUserId } = require("../../../shared/db/validateWriteIds") as typeof import("../../../shared/db/validateWriteIds");
+const { deleteStaffPauseRequestChannelMessages, deleteStaffRelatedMessagesFromConfiguredChannels, archiveStaffRolesHistoryThenUnsetStaff } = require("../../Staff/utils/staffDocUtils") as typeof import("../../Staff/utils/staffDocUtils");
 const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
-const { isCommunicationTimeoutActive, hasPendingMuteMirrorSnapshot, shouldDeferRoleRestoreForMuteMirror } = require("../Moderation/mutedMirrorRoleService") as typeof import("../Moderation/mutedMirrorRoleService");
+const { isCommunicationTimeoutActive, hasPendingMuteMirrorSnapshot, shouldDeferRoleRestoreForMuteMirror } = require("../../Moderation/services/mutedMirrorRoleService") as typeof import("../../Moderation/services/mutedMirrorRoleService");
 const { filterRoleIdsEligibleForRejoinRestore, sanitizeConditionalRolesAfterRejoin, resetBoostSlotsIfNotBoosting } = require("../../Utils/Community/rejoinConditionalRoleEligibility") as typeof import("../../Utils/Community/rejoinConditionalRoleEligibility");
 const { applyTenureForMember } = require("./communityOpsService") as typeof import("./communityOpsService");
 const TENURE_RESTORE_EXCLUDED_ROLE_IDS = new Set(

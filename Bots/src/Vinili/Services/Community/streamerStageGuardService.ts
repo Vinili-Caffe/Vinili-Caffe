@@ -7,7 +7,7 @@ const fs = require("fs") as typeof import("fs");
 const path = require("path") as typeof import("path");
 const { ChannelType, PermissionFlagsBits } = require("discord.js") as typeof import("discord.js");
 const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
-const { getClientGuildCached } = require("../../Utils/Interaction/interactionEntityCache") as typeof import("../../Utils/Interaction/interactionEntityCache");
+const { getClientGuildCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
 
 const CONFIG_PATH = path.join(__dirname, "..", "..", "config.json");
 const CHECK_MS = 5 * 60_000;

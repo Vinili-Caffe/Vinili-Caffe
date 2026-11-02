@@ -4,16 +4,16 @@ const { AvatarPrivacy, BannerPrivacy, ActivityUserProfile, } = require("../Schem
 const IDs = require("../Utils/Config/ids") as typeof import("../Utils/Config/ids");
 const { MENTION_RESPONSE_PERK_BODY, MENTION_RESPONSE_PERK_LINE_DISCORD } = require("../Utils/Community/mentionResponseAccessUtils") as typeof import("../Utils/Community/mentionResponseAccessUtils");
 const { siteTicketsPageDiscordRef } = require("../../shared/web/siteTicketsPageRef") as typeof import("../../shared/web/siteTicketsPageRef");
-const { getGuildMemberCached, getUserCached } = require("../Utils/Interaction/interactionEntityCache") as typeof import("../Utils/Interaction/interactionEntityCache");
-const { checkButtonPermission, checkStringSelectPermission, buildGlobalPermissionDeniedEmbed, buildGlobalChannelDeniedEmbed, buildGlobalNotYourControlEmbed, } = require("../Utils/Moderation/commandPermissions") as typeof import("../Utils/Moderation/commandPermissions");
-const { applyDefaultFooterToEmbeds } = require("../Utils/Embeds/defaultFooter") as typeof import("../Utils/Embeds/defaultFooter");
+const { getGuildMemberCached, getUserCached } = require("../../shared/discord/interactionEntityCache") as typeof import("../../shared/discord/interactionEntityCache");
+const { checkButtonPermission, checkStringSelectPermission, buildGlobalPermissionDeniedEmbed, buildGlobalChannelDeniedEmbed, buildGlobalNotYourControlEmbed, } = require("../Moderation/utils/commandPermissions") as typeof import("../Moderation/utils/commandPermissions");
+const { applyDefaultFooterToEmbeds } = require("../../shared/embeds/defaultFooter") as typeof import("../../shared/embeds/defaultFooter");
 const { TENANT_EMBED_COLOR } = require("../MultiGuild/utils/tenantEmbedBranding") as typeof import("../MultiGuild/utils/tenantEmbedBranding");
-const { accountUsername, guildMemberDisplayAvatarUrlDynamic } = require("../Utils/Discord/guildDiscordIdentity") as typeof import("../Utils/Discord/guildDiscordIdentity");
+const { accountUsername, guildMemberDisplayAvatarUrlDynamic } = require("../../shared/discord/guildDiscordIdentity") as typeof import("../../shared/discord/guildDiscordIdentity");
 const PRIVATE_FLAG = 1 << 6;
 const MONO_GUILD_DENIED_TEXT = "Questo bot è utilizzabile solo sul server principale di Vinili & Caffè.";
-const { MOD_RULE_DETAIL } = require("../Utils/Moderation/modRegolamentoConstants") as typeof import("../Utils/Moderation/modRegolamentoConstants");
-const { buildStaffGuideSectionMarkdown } = require("../Utils/Staff/staffGuideContent") as typeof import("../Utils/Staff/staffGuideContent");
-const {  buildModerationGuideStickyPayload, moderationGuideEmbedColor } = require("../Utils/Moderation/moderationGuidePanelComponents") as typeof import("../Utils/Moderation/moderationGuidePanelComponents");
+const { MOD_RULE_DETAIL } = require("../Moderation/utils/modRegolamentoConstants") as typeof import("../Moderation/utils/modRegolamentoConstants");
+const { buildStaffGuideSectionMarkdown } = require("../Staff/utils/staffGuideContent") as typeof import("../Staff/utils/staffGuideContent");
+const {  buildModerationGuideStickyPayload, moderationGuideEmbedColor } = require("../Moderation/utils/moderationGuidePanelComponents") as typeof import("../Moderation/utils/moderationGuidePanelComponents");
 
 function v2Text(content?) {
   return new TextDisplayBuilder().setContent(String(content || ""));

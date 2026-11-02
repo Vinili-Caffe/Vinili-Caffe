@@ -1,7 +1,7 @@
 const IDs = require("../Config/ids") as typeof import("../Config/ids");
 const { isAlreadyVerifiedInThisGuild } = require("../Interaction/verifyUtils") as typeof import("../Interaction/verifyUtils");
-const { getGuildMemberCached, addRolesAndGetMember, getClientGuildCached } = require("../Interaction/interactionEntityCache") as typeof import("../Interaction/interactionEntityCache");
-const { memberIsInMuteMirrorState } = require("../../Services/Moderation/mutedMirrorRoleService") as typeof import("../../Services/Moderation/mutedMirrorRoleService");
+const { getGuildMemberCached, addRolesAndGetMember, getClientGuildCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
+const { memberIsInMuteMirrorState } = require("../../Moderation/services/mutedMirrorRoleService") as typeof import("../../Moderation/services/mutedMirrorRoleService");
 
 const SWEEP_INTERVAL_MS = 10 * 60 * 1000;
 const SWEEP_MEMBER_DELAY_MS = 120;

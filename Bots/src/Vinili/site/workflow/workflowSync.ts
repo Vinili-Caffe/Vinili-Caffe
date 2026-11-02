@@ -1,7 +1,7 @@
 /** Workflow staff: allineamento dello store con appelli, resoconti e pause. */
 const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
 const { SiteDocument, ActivityUserProfile } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
-const { getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache") as typeof import("../../Utils/Interaction/interactionEntityCache");
+const { getGuildMemberCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
 const { getPauseStatusLabel, getTodayUtc } = require("../../site/staff/pause/pauseHandlersUtils") as typeof import("../../site/staff/pause/pauseHandlersUtils");
 const { resolveSubmissionChannel } = require("../../site/staff/candidature/candidatureApplicationHandlers") as typeof import("../../site/staff/candidature/candidatureApplicationHandlers");
 const { parseAppealFromMessageOrEmbed, deriveAppealStatus, appealSanctionStillActive, closeAppealAsObsolete } = require("../staff/siteStaffAppealsRuntime") as typeof import("../staff/siteStaffAppealsRuntime");
@@ -12,7 +12,7 @@ const { WORKFLOW_DOC, upsertStaffWorkflowItem, updateStaffWorkflowFromPause } = 
 const { upsertPauseWorkflowFromPause } = require("./workflowQueries") as typeof import("./workflowQueries");
 
 function memberStillRelevantForStaffResoconto(member?, roleId?) {
-  const { memberHasAnyStaffPresenceForDepexSync } = require("../../Utils/Staff/staffPmUtils") as typeof import("../../Utils/Staff/staffPmUtils");
+  const { memberHasAnyStaffPresenceForDepexSync } = require("../../Staff/utils/staffPmUtils") as typeof import("../../Staff/utils/staffPmUtils");
   if (!member) return false;
   const rid = String(roleId || "").trim();
   if (rid && !member.roles?.cache?.has?.(rid)) return false;
@@ -20,7 +20,7 @@ function memberStillRelevantForStaffResoconto(member?, roleId?) {
 }
 
 function memberStillRelevantForResoconto(member?, kind?, roleId?) {
-  const { memberHasPartnerManagerRole } = require("../../Utils/Staff/staffPmUtils") as typeof import("../../Utils/Staff/staffPmUtils");
+  const { memberHasPartnerManagerRole } = require("../../Staff/utils/staffPmUtils") as typeof import("../../Staff/utils/staffPmUtils");
   const k = String(kind || "").trim().toLowerCase();
   if (!member) return false;
   if (k === "p") return memberHasPartnerManagerRole(member);
@@ -39,7 +39,7 @@ function memberEligibleForPauseRole(member?, ruoloRichiesto?) {
   const {
     memberHasAnyStaffPresenceForDepexSync,
     memberHasPartnerManagerRole,
-  } = require("../../Utils/Staff/staffPmUtils") as typeof import("../../Utils/Staff/staffPmUtils");
+  } = require("../../Staff/utils/staffPmUtils") as typeof import("../../Staff/utils/staffPmUtils");
   if (!member) return false;
   const role = String(ruoloRichiesto || "Staff")
     .trim()
@@ -63,7 +63,7 @@ async function autoCancelPendingPausesIfNotEligible(guild?, userId?, options: Re
   const uid = String(userId || "").trim();
   if (!gid || !uid) return 0;
   const { getStaffPauseRecord, updatePauseInDb } = require("../../site/staff/pause/pauseHandlersUtils") as typeof import("../../site/staff/pause/pauseHandlersUtils");
-  const { resolveGuildMemberPresence } = require("../../Utils/Interaction/interactionEntityCache") as typeof import("../../Utils/Interaction/interactionEntityCache");
+  const { resolveGuildMemberPresence } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
   const presence = await resolveGuildMemberPresence(guild, uid, { preferFresh: true }).catch(() => ({
     member: null,
     left: false,
@@ -103,7 +103,7 @@ async function reconcilePendingPauseWorkflows(client?, guildId?) {
     client?.guilds?.cache?.get(gid) || (await client?.guilds?.fetch(gid).catch(() => null));
   if (!guild) return 0;
   const { getStaffPauseRecord } = require("../../site/staff/pause/pauseHandlersUtils") as typeof import("../../site/staff/pause/pauseHandlersUtils");
-  const { resolveGuildMemberPresence } = require("../../Utils/Interaction/interactionEntityCache") as typeof import("../../Utils/Interaction/interactionEntityCache");
+  const { resolveGuildMemberPresence } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
   const pendingDocs = await SiteDocument.find({
     docType: WORKFLOW_DOC,
     guildId: gid,

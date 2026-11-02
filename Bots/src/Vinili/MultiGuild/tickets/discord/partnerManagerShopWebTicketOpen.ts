@@ -6,11 +6,11 @@ const {
   WEB_TICKET_STATUS,
 } = require("../../../features/tickets/data/siteWebTicketSchemas") as typeof import("../../../features/tickets/data/siteWebTicketSchemas");
 const { ActivityUserProfile } = require("../../../Schemas/Community/communitySchemas") as typeof import("../../../Schemas/Community/communitySchemas");
-const { resolvePartnerPointsShown } = require("../../../Utils/Staff/partnerPointsDisplayUtils") as typeof import("../../../Utils/Staff/partnerPointsDisplayUtils");
+const { resolvePartnerPointsShown } = require("../../../Staff/utils/partnerPointsDisplayUtils") as typeof import("../../../Staff/utils/partnerPointsDisplayUtils");
 const {
   partnerManagerRedeemButtonLabel,
   getPartnerRewardPointCost,
-} = require("../../../Utils/Staff/partnerPointsUtils") as typeof import("../../../Utils/Staff/partnerPointsUtils");
+} = require("../../../Staff/utils/partnerPointsUtils") as typeof import("../../../Staff/utils/partnerPointsUtils");
 const { getTicketPanelConfig } = require("./ticketPanelConfig") as typeof import("./ticketPanelConfig");
 const { buildTicketChannelName } = require("./ticketNamingRuntime") as typeof import("./ticketNamingRuntime");
 
@@ -32,7 +32,7 @@ function sitePublicOrigin() {
 
 function displayNameForMember(member?) {
   try {
-    const { memberDisplayName, accountUsername } = require("../../../Utils/Discord/guildDiscordIdentity") as typeof import("../../../Utils/Discord/guildDiscordIdentity");
+    const { memberDisplayName, accountUsername } = require("../../../../shared/discord/guildDiscordIdentity") as typeof import("../../../../shared/discord/guildDiscordIdentity");
     return memberDisplayName(member) || accountUsername(member) || "Utente";
   } catch (_) {
     return String(member?.nickname || member?.displayName || member?.user?.username || "").trim() || "Utente";
@@ -41,7 +41,7 @@ function displayNameForMember(member?) {
 
 function avatarForMember(member?) {
   try {
-    const { userAvatarUrlDynamic } = require("../../../Utils/Discord/guildDiscordIdentity") as typeof import("../../../Utils/Discord/guildDiscordIdentity");
+    const { userAvatarUrlDynamic } = require("../../../../shared/discord/guildDiscordIdentity") as typeof import("../../../../shared/discord/guildDiscordIdentity");
     return userAvatarUrlDynamic(member, { size: 128 }) || "";
   } catch (_) {
     return "";

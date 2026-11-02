@@ -6,7 +6,7 @@ const { escapeHtml, formatDate, createMediaBudget, renderRichTextPlain, messageA
 
 
 const BOT_ROOT = VINILI_ROOT;
-const { userAvatarUrlDynamic } = require("../../../Utils/Discord/guildDiscordIdentity") as typeof import("../../../Utils/Discord/guildDiscordIdentity");
+const { userAvatarUrlDynamic } = require("../../../../shared/discord/guildDiscordIdentity") as typeof import("../../../../shared/discord/guildDiscordIdentity");
 
 async function fetchAllMessages(channel?, maxMessages = 2000) {
   const results = [];

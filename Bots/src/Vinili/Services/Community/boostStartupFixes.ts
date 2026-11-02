@@ -1,10 +1,10 @@
 /** Boost: correzioni all'avvio (secondi boost, doppio booster, booster mai annunciati). */
 const { PermissionsBitField } = require("discord.js") as typeof import("discord.js");
 const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
-const { getGuildChannelCached, getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache") as typeof import("../../Utils/Interaction/interactionEntityCache");
+const { getGuildChannelCached, getGuildMemberCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
 const { getAnnouncedBoostSlots, ensureBoostSlotsSynced, clearAnnouncedBoostSlotsMemoryForGuild } = require("../../Utils/Community/boostSlotAnnounceTracker") as typeof import("../../Utils/Community/boostSlotAnnounceTracker");
-const { isValidGuildUserId } = require("../../Utils/DB/validateWriteIds") as typeof import("../../Utils/DB/validateWriteIds");
+const { isValidGuildUserId } = require("../../../shared/db/validateWriteIds") as typeof import("../../../shared/db/validateWriteIds");
 const { textMentionsUserId, countRecentBotBoostAnnouncesForUser, extractBoostAnnounceTargetUserId, extractEmbedDescription, buildBoostAnnounceEmbedIndex } = require("./boostAnnounceState") as typeof import("./boostAnnounceState");
 const { collectRecentNativeBoosterCandidates, countNativeBoostSlotsInRecentMessages } = require("./boostNative") as typeof import("./boostNative");
 const { sleep } = require("./memberUpdateLogs") as typeof import("./memberUpdateLogs");

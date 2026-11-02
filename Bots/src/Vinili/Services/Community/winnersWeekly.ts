@@ -1,10 +1,10 @@
 /** Vincitori attività: annuncio della settimana. */
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js") as typeof import("discord.js");
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
-const { VOICE_EXP_PER_MINUTE } = require("./expService") as typeof import("./expService");
+const { VOICE_EXP_PER_MINUTE } = require("../../Level/services/expService") as typeof import("../../Level/services/expService");
 const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
-const { getClientChannelCached, getClientGuildCached } = require("../../Utils/Interaction/interactionEntityCache") as typeof import("../../Utils/Interaction/interactionEntityCache");
-const { guildIconUrl } = require("../../Utils/Discord/guildDiscordIdentity") as typeof import("../../Utils/Discord/guildDiscordIdentity");
+const { getClientChannelCached, getClientGuildCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
+const { guildIconUrl } = require("../../../shared/discord/guildDiscordIdentity") as typeof import("../../../shared/discord/guildDiscordIdentity");
 const { getLastSunday21BoundaryMsAtOrBefore, getWeekKey, getMinigameRankWeekKeyForPublish, buildAnchorDateFromWeekKey } = require("./winnersTime") as typeof import("./winnersTime");
 const { WEEKLY_WINNERS_EXCLUDED_ROLE_IDS, wasStaffDuringWeeklyActivityWindow, effectiveMinigameWeeklyScoreForRankWeek, loadWeeklyRowsFromHourlyWindow, loadDailyRowsFromHourlyWindow, resolveTopThreeUsers, resolveMinigameTopForced, uniqueRankingByUserId, deduplicateTopTwoLists } = require("./winnersRows") as typeof import("./winnersRows");
 const { MINIGAME_WINNER_ROLE_ID, pickFirstAvailable, updateWeeklyWinnerRoles, syncRoyaleMinigameTotalRole } = require("./winnersRoles") as typeof import("./winnersRoles");

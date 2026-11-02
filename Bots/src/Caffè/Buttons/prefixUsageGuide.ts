@@ -1,7 +1,7 @@
 const {
   parseUsageGuideCustomId,
   handleUsageGuideInteraction,
-} = require("../Utils/Moderation/prefixUsageGuide") as typeof import("../Utils/Moderation/prefixUsageGuide");
+} = require("../../shared/prefix/prefixUsageGuide") as typeof import("../../shared/prefix/prefixUsageGuide");
 
 export = {
   name: "prefixUsageGuide",

@@ -1,16 +1,16 @@
 const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
-const { accountUsername, userAvatarUrlStatic } = require("../../Utils/Discord/guildDiscordIdentity") as typeof import("../../Utils/Discord/guildDiscordIdentity");
+const { accountUsername, userAvatarUrlStatic } = require("../../../shared/discord/guildDiscordIdentity") as typeof import("../../../shared/discord/guildDiscordIdentity");
 const { assertDashboardHighStaffAccess, isDashboardBotDevUser } = require("./siteDashboardApi") as typeof import("./siteDashboardApi");
-const { getTenantProfileSnapshot } = require("../../MultiGuild/services/Partner/tenantProfileProgressService") as typeof import("../../MultiGuild/services/Partner/tenantProfileProgressService");
+const { getTenantProfileSnapshot } = require("../../Partner/services/tenantProfileProgressService") as typeof import("../../Partner/services/tenantProfileProgressService");
 const {
   getTenantProfilePrefs,
   updateTenantProfilePrefs,
-} = require("../../MultiGuild/services/Partner/tenantProfilePreferencesService") as typeof import("../../MultiGuild/services/Partner/tenantProfilePreferencesService");
-const { setTenantObjectiveFlag } = require("../../MultiGuild/services/Partner/tenantObjectiveService") as typeof import("../../MultiGuild/services/Partner/tenantObjectiveService");
+} = require("../../Partner/services/tenantProfilePreferencesService") as typeof import("../../Partner/services/tenantProfilePreferencesService");
+const { setTenantObjectiveFlag } = require("../../Partner/services/tenantObjectiveService") as typeof import("../../Partner/services/tenantObjectiveService");
 const {
   listTenantStaffNotifications,
   countUnreadNotifications,
-} = require("../../MultiGuild/services/Partner/tenantStaffNotificationService") as typeof import("../../MultiGuild/services/Partner/tenantStaffNotificationService");
+} = require("../../Partner/services/tenantStaffNotificationService") as typeof import("../../Partner/services/tenantStaffNotificationService");
 const {
   BADGE_DEFS,
   MAX_SELECTED_BADGES,
@@ -18,7 +18,7 @@ const {
   TENANT_LANGUAGE_OPTIONS,
   normalizeTenantLanguage,
   getLanguageLabel,
-} = require("../../MultiGuild/utils/Partner/tenantProfileConstants") as typeof import("../../MultiGuild/utils/Partner/tenantProfileConstants");
+} = require("../../Partner/tenant/tenantProfileConstants") as typeof import("../../Partner/tenant/tenantProfileConstants");
 
 function mainGuildId(client?) {
   return String(client?.config?.mainGuildId || IDs.guilds?.main || "").trim();

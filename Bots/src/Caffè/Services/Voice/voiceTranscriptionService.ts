@@ -2,11 +2,11 @@ const fs = require("fs") as typeof import("fs");
 const path = require("path") as typeof import("path");
 const os = require("os") as typeof import("os");
 const { spawn } = require("child_process") as typeof import("child_process");
-const axios = require("axios") as typeof import("axios").default;
+const axios = require("axios") as any;
 const FormData = require("form-data") as typeof import("form-data");
 const ffmpegStatic = require("ffmpeg-static") as typeof import("ffmpeg-static");
 const { EmbedBuilder } = require("discord.js") as typeof import("discord.js");
-const { accountUsername, userAvatarUrlDynamic } = require("../../Utils/Discord/guildDiscordIdentity") as typeof import("../../Utils/Discord/guildDiscordIdentity");
+const { accountUsername, userAvatarUrlDynamic } = require("../../../shared/discord/guildDiscordIdentity") as typeof import("../../../shared/discord/guildDiscordIdentity");
 const { reportRecoveryHealth } = require("../../../shared/recovery/recoveryHealth") as typeof import("../../../shared/recovery/recoveryHealth");
 const {
   getVoiceTranscriptionCheckpoint,

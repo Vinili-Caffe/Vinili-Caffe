@@ -1,7 +1,7 @@
 /** Compiti staff: chi fa i compiti e cosa vede chi li guarda. */
 const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
-const { accountUsername, userAvatarUrlDynamic, discordDefaultAvatarUrl } = require("../../Utils/Discord/guildDiscordIdentity") as typeof import("../../Utils/Discord/guildDiscordIdentity");
-const { memberIsHighStaffEligible } = require("../../Utils/Staff/staffRoleHierarchy") as typeof import("../../Utils/Staff/staffRoleHierarchy");
+const { accountUsername, userAvatarUrlDynamic, discordDefaultAvatarUrl } = require("../../../shared/discord/guildDiscordIdentity") as typeof import("../../../shared/discord/guildDiscordIdentity");
+const { memberIsHighStaffEligible } = require("../../Staff/utils/staffRoleHierarchy") as typeof import("../../Staff/utils/staffRoleHierarchy");
 const { remapRoleIdForward } = require("../../Utils/Config/emergencyRoleIdRemap") as typeof import("../../Utils/Config/emergencyRoleIdRemap");
 const { parseViewAsFromReq, compitiRoleOverride } = require("../../site/http/siteViewAsPreview") as typeof import("../../site/http/siteViewAsPreview");
 const { isAutoTask, taskById } = require("./siteStaffCompitiCatalog") as typeof import("./siteStaffCompitiCatalog");
