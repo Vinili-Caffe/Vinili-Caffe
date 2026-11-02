@@ -5,8 +5,8 @@ export { UiProviders } from "./providers";
 export { ToastProvider, showToast, hideToast, hideLoadLinger, useToast } from "./toast";
 export type { ToastItem, ToastOptions } from "./toast";
 
-export { DialogProvider, confirmDialog, alertDialog, chooseDialog, promptDialog, useDialog } from "./dialog";
-export type { DialogChoice, DialogOptions } from "./dialog";
+export { DialogProvider, confirmDialog, alertDialog, chooseDialog, promptDialog, promptPairDialog, useDialog } from "./dialog";
+export type { DialogChoice, DialogOptions, PromptPairResult } from "./dialog";
 
 export { LightboxProvider, LightboxImage, openLightbox, closeLightbox, lightboxIsOpen, useLightbox, isImageUrl, isVideoUrl } from "./lightbox";
 export type { LightboxItem } from "./lightbox";

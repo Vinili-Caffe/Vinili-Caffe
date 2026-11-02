@@ -78,7 +78,13 @@ export = (client?) => {
         if (!fs.existsSync(folderPath)) continue;
         const commandFiles = fs
           .readdirSync(folderPath)
-          .filter((f?) => /\.(cjs|mjs|js|cts|mts|ts)$/i.test(f) && !f.endsWith(".d.ts"));
+          .filter((f?) => {
+            if (!/\.(cjs|mjs|js|cts|mts|ts)$/i.test(f) || f.endsWith(".d.ts")) return false;
+            const base = f.replace(/\.(cjs|mjs|js|cts|mts|ts)$/i, "");
+            /* *Helpers = moduli interni, non comandi deployabili (come Buttons) */
+            if (base.endsWith("Helpers")) return false;
+            return true;
+          });
 
         for (const file of commandFiles) {
           const filePath = path.join(folderPath, file);

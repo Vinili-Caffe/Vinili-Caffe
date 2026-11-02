@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { ArrowLeftRight, CalendarDays, Check, ExternalLink, Gift, Loader2, Minus, Plus, ShieldAlert, Trash2, X } from "lucide-react";
 import { Avatar } from "@/components/Avatar";
-import { confirmDialog, promptDialog, showToast } from "@/components/ui";
+import { confirmDialog, promptDialog, promptPairDialog, showToast } from "@/components/ui";
 import {
   PT_STATUS,
   decidePause,
@@ -302,20 +302,28 @@ export function PmSheet({ ctx }: { ctx: Ctx }) {
     if (!n) return;
     const amount = Number.parseInt(n, 10);
     if (!Number.isInteger(amount) || amount < 1 || amount > 500) return showToast("Quantità punti tra 1 e 500.", true);
-    const reason = await askReason(add ? "Motivo dell'aggiunta" : "Motivo della rimozione");
-    if (!reason) return;
-    let messageLink = "";
-    if (!add) {
-      const link = await promptDialog({
-        title: "Link messaggio partner (opzionale)",
-        inputLabel: "Se lo inserisci, elimina anche la partnership",
-        placeholder: "https://discord.com/channels/… (lascia vuoto = solo punti)",
-        maxLength: 200,
-      });
-      if (link === null) return;
-      messageLink = link.trim();
+    if (add) {
+      const reason = await askReason("Motivo dell'aggiunta");
+      if (!reason) return;
+      run(() => pmPoints(token, userId, true, amount, reason), "Punti aggiornati.");
+      return;
     }
-    run(() => pmPoints(token, userId, add, amount, reason, messageLink || undefined), "Punti aggiornati.");
+    const pair = await promptPairDialog({
+      title: "Togli punti PM",
+      inputLabel: "Motivo",
+      placeholder: "Min. 3 caratteri…",
+      multiline: true,
+      maxLength: 500,
+      secondInputLabel: "Link messaggio",
+      secondPlaceholder: "https://discord.com/channels/… (opzionale → elimina anche partnership)",
+      secondMaxLength: 200,
+      secondRequired: false,
+    });
+    if (!pair) return;
+    const reason = pair.value.trim();
+    if (reason.length < 3) return showToast("Serve un motivo di almeno 3 caratteri.", true);
+    const messageLink = pair.second.trim();
+    run(() => pmPoints(token, userId, false, amount, reason, messageLink || undefined), "Punti aggiornati.");
   };
   const redeem = async (tier: number, reward: string, cost: number) => {
     if (!(await confirmDialog({ title: `Riscattare "${reward}"?`, message: `Costa ${cost} punti PM. Riscatto manuale High Staff (sito).`, confirmLabel: "Riscatta" }))) return;
@@ -415,16 +423,21 @@ export function PtSheet({ ctx }: { ctx: Ctx }) {
   useEffect(() => void load(), [load]);
 
   const createReport = async () => {
-    const rule = await askReason("Regola violata");
-    if (!rule) return;
-    const link = await promptDialog({
-      title: "Link messaggio partner",
-      inputLabel: "Messaggio di descrizione nel canale partnership",
-      placeholder: "https://discord.com/channels/…",
-      maxLength: 200,
+    const pair = await promptPairDialog({
+      title: "Regola violata",
+      inputLabel: "Motivo",
+      placeholder: "Min. 3 caratteri…",
+      multiline: true,
+      maxLength: 500,
+      secondInputLabel: "Link messaggio",
+      secondPlaceholder: "https://discord.com/channels/…",
+      secondMaxLength: 200,
+      secondRequired: true,
     });
-    if (link === null) return;
-    const messageLink = link.trim();
+    if (!pair) return;
+    const rule = pair.value.trim();
+    if (rule.length < 3) return showToast("Serve un motivo di almeno 3 caratteri.", true);
+    const messageLink = pair.second.trim();
     if (!messageLink) return showToast("Serve il link del messaggio partner.", true);
     run(() => reportPuntiTolti(token, userId, rule, messageLink), "Segnalazione inviata.").then((ok) => {
       if (ok) void load();

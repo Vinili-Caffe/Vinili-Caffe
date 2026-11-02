@@ -31,9 +31,20 @@ export type DialogOptions = {
   value?: string;
   maxLength?: number;
   multiline?: boolean;
+  /** Secondo campo (es. link messaggio) nello stesso prompt. */
+  secondInputLabel?: string;
+  secondPlaceholder?: string;
+  secondDefaultValue?: string;
+  secondMaxLength?: number;
+  secondRequired?: boolean;
+  secondMultiline?: boolean;
 };
 
+export type PromptPairResult = { value: string; second: string };
+
 type DialogKind = "confirm" | "alert" | "choose" | "prompt";
+
+type DialogResult = boolean | string | PromptPairResult | null;
 
 type DialogRequest = {
   id: number;
@@ -49,26 +60,32 @@ type DialogRequest = {
   defaultValue: string;
   maxLength: number;
   multiline: boolean;
-  resolve: (value: boolean | string | null) => void;
+  secondFieldLabel: string;
+  secondPlaceholder: string;
+  secondDefaultValue: string;
+  secondMaxLength: number;
+  secondRequired: boolean;
+  secondMultiline: boolean;
+  resolve: (value: DialogResult) => void;
 };
 
 const dialogStore = createStore<DialogRequest | null>(null);
 let seq = 0;
 
-function cancelValue(kind: DialogKind): boolean | string | null {
+function cancelValue(kind: DialogKind): DialogResult {
   if (kind === "confirm") return false;
   if (kind === "alert") return true;
   return null;
 }
 
-function finishDialog(value: boolean | string | null) {
+function finishDialog(value: DialogResult) {
   const cur = dialogStore.get();
   if (!cur) return;
   dialogStore.set(null);
   cur.resolve(value);
 }
 
-function openDialog(kind: DialogKind, opts: DialogOptions = {}): Promise<boolean | string | null> {
+function openDialog(kind: DialogKind, opts: DialogOptions = {}): Promise<DialogResult> {
   const title = String(
     opts.title || (kind === "alert" ? "Avviso" : kind === "prompt" ? "Inserisci" : "Conferma"),
   ).trim();
@@ -76,6 +93,7 @@ function openDialog(kind: DialogKind, opts: DialogOptions = {}): Promise<boolean
     opts.confirmLabel || opts.okLabel || (kind === "alert" ? "OK" : "Conferma"),
   ).trim();
   const max = Number(opts.maxLength);
+  const secondMax = Number(opts.secondMaxLength);
   const pending = dialogStore.get();
   if (pending) finishDialog(cancelValue(pending.kind));
   return new Promise((resolve) => {
@@ -93,6 +111,12 @@ function openDialog(kind: DialogKind, opts: DialogOptions = {}): Promise<boolean
       defaultValue: String(opts.defaultValue != null ? opts.defaultValue : opts.value != null ? opts.value : ""),
       maxLength: Number.isFinite(max) && max >= 1 ? max : 500,
       multiline: opts.multiline === true,
+      secondFieldLabel: String(opts.secondInputLabel || "").trim(),
+      secondPlaceholder: String(opts.secondPlaceholder || "").trim(),
+      secondDefaultValue: String(opts.secondDefaultValue || ""),
+      secondMaxLength: Number.isFinite(secondMax) && secondMax >= 1 ? secondMax : 200,
+      secondRequired: opts.secondRequired === true,
+      secondMultiline: opts.secondMultiline === true,
       resolve,
     });
   });
@@ -115,11 +139,26 @@ export function chooseDialog(opts: DialogOptions = {}): Promise<string | null> {
 
 export function promptDialog(opts: DialogOptions | string = {}): Promise<string | null> {
   const o = typeof opts === "string" ? { label: opts } : opts;
-  return openDialog("prompt", o).then((v) => (v == null ? null : String(v)));
+  return openDialog("prompt", o).then((v) => {
+    if (v == null) return null;
+    if (typeof v === "object" && "value" in v) return String(v.value ?? "");
+    return String(v);
+  });
+}
+
+/** Prompt con due campi (es. motivo + link messaggio). */
+export function promptPairDialog(opts: DialogOptions = {}): Promise<PromptPairResult | null> {
+  return openDialog("prompt", opts).then((v) => {
+    if (v == null) return null;
+    if (typeof v === "object" && "value" in v && "second" in v) {
+      return { value: String(v.value ?? ""), second: String(v.second ?? "") };
+    }
+    return { value: String(v), second: "" };
+  });
 }
 
 export function useDialog() {
-  return { confirm: confirmDialog, alert: alertDialog, choose: chooseDialog, prompt: promptDialog };
+  return { confirm: confirmDialog, alert: alertDialog, choose: chooseDialog, prompt: promptDialog, promptPair: promptPairDialog };
 }
 
 function trapTab(e: KeyboardEvent, root: HTMLElement) {
@@ -145,10 +184,12 @@ export function DialogProvider({ children }: { children: ReactNode }) {
   const titleId = useId();
   const panelRef = useRef<HTMLDivElement>(null);
   const draftRef = useRef("");
+  const secondDraftRef = useRef("");
   const seenId = useRef(0);
   if (req && seenId.current !== req.id) {
     seenId.current = req.id;
     draftRef.current = req.defaultValue;
+    secondDraftRef.current = req.secondDefaultValue;
   }
   if (!req) seenId.current = 0;
 
@@ -168,8 +209,16 @@ export function DialogProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!req) return;
     draftRef.current = req.defaultValue;
+    secondDraftRef.current = req.secondDefaultValue;
     setChromeOpen("ui-dialog", true);
     const prevFocus = document.activeElement as HTMLElement | null;
+    const resolvePrompt = () => {
+      if (req.secondFieldLabel) {
+        finishDialog({ value: draftRef.current, second: secondDraftRef.current });
+      } else {
+        finishDialog(draftRef.current);
+      }
+    };
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         e.preventDefault();
@@ -184,7 +233,7 @@ export function DialogProvider({ children }: { children: ReactNode }) {
           finishDialog(true);
         } else if (req.kind === "prompt" && tag === "input") {
           e.preventDefault();
-          finishDialog(draftRef.current);
+          resolvePrompt();
         }
       } else if (e.key === "Tab" && panelRef.current) {
         trapTab(e, panelRef.current);
@@ -253,7 +302,7 @@ export function DialogProvider({ children }: { children: ReactNode }) {
                   transition={{ duration: 0.18 }}
                   className={cn(
                     "relative z-[1] w-full rounded-3xl bg-roast p-6 shadow-[0_30px_80px_-30px_rgba(0,0,0,0.65)] ring-1 ring-sand/15",
-                    req.multiline ? "max-w-lg" : "max-w-md",
+                    req.multiline || req.secondFieldLabel ? "max-w-lg" : "max-w-md",
                   )}
                 >
                   <DialogIcon kind={req.kind} danger={req.danger} />
@@ -262,10 +311,10 @@ export function DialogProvider({ children }: { children: ReactNode }) {
                   </h2>
                   {hasMessage ? <div className="mt-2 text-sm leading-relaxed text-sand">{req.message}</div> : null}
                   {req.kind === "prompt" ? (
-                    <PromptField key={req.id} req={req} draftRef={draftRef} />
+                    <PromptField key={req.id} req={req} draftRef={draftRef} secondDraftRef={secondDraftRef} />
                   ) : null}
                   <div className={cn("mt-5 flex gap-2", req.kind === "choose" ? "flex-col" : "flex-wrap justify-end")}>
-                    <DialogActions req={req} draftRef={draftRef} />
+                    <DialogActions req={req} draftRef={draftRef} secondDraftRef={secondDraftRef} />
                   </div>
                 </motion.div>
               </motion.div>
@@ -295,12 +344,17 @@ function DialogIcon({ kind, danger }: { kind: DialogKind; danger: boolean }) {
 function PromptField({
   req,
   draftRef,
+  secondDraftRef,
 }: {
   req: DialogRequest;
   draftRef: MutableRefObject<string>;
+  secondDraftRef: MutableRefObject<string>;
 }) {
   const fieldId = useId();
-  const common = {
+  const secondId = useId();
+  const inputClass =
+    "mt-1 w-full rounded-2xl bg-espresso/60 px-3 py-2.5 text-sm text-crema ring-1 ring-sand/20 outline-none placeholder:text-crema/35 focus:ring-caramel/50";
+  const primary = {
     id: fieldId,
     defaultValue: req.defaultValue,
     placeholder: req.placeholder,
@@ -308,35 +362,83 @@ function PromptField({
     onChange: (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
       draftRef.current = e.target.value;
     },
-    className:
-      "mt-1 w-full rounded-2xl bg-espresso/60 px-3 py-2.5 text-sm text-crema ring-1 ring-sand/20 outline-none placeholder:text-crema/35 focus:ring-caramel/50",
+    className: inputClass,
   };
   return (
-    <div className="mt-4">
-      {req.fieldLabel ? (
-        <label htmlFor={fieldId} className="text-xs font-semibold uppercase tracking-[0.18em] text-caramel">
-          {req.fieldLabel}
-        </label>
-      ) : (
-        <label htmlFor={fieldId} className="sr-only">
-          Motivo
-        </label>
-      )}
-      {req.multiline ? (
-        <textarea {...common} rows={8} className={cn(common.className, "min-h-40 max-h-[42vh] resize-y")} />
-      ) : (
-        <input {...common} type="text" autoComplete="off" />
-      )}
+    <div className="mt-4 space-y-4">
+      <div>
+        {req.fieldLabel ? (
+          <label htmlFor={fieldId} className="text-xs font-semibold uppercase tracking-[0.18em] text-caramel">
+            {req.fieldLabel}
+          </label>
+        ) : (
+          <label htmlFor={fieldId} className="sr-only">
+            Motivo
+          </label>
+        )}
+        {req.multiline ? (
+          <textarea {...primary} rows={req.secondFieldLabel ? 4 : 8} className={cn(inputClass, req.secondFieldLabel ? "min-h-24 max-h-[28vh] resize-y" : "min-h-40 max-h-[42vh] resize-y")} />
+        ) : (
+          <input {...primary} type="text" autoComplete="off" />
+        )}
+      </div>
+      {req.secondFieldLabel ? (
+        <div>
+          <label htmlFor={secondId} className="text-xs font-semibold uppercase tracking-[0.18em] text-caramel">
+            {req.secondFieldLabel}
+            {req.secondRequired ? "" : " (opzionale)"}
+          </label>
+          {req.secondMultiline ? (
+            <textarea
+              id={secondId}
+              defaultValue={req.secondDefaultValue}
+              placeholder={req.secondPlaceholder}
+              maxLength={req.secondMaxLength}
+              rows={3}
+              onChange={(e) => {
+                secondDraftRef.current = e.target.value;
+              }}
+              className={cn(inputClass, "min-h-20 max-h-[24vh] resize-y")}
+            />
+          ) : (
+            <input
+              id={secondId}
+              type="url"
+              autoComplete="off"
+              defaultValue={req.secondDefaultValue}
+              placeholder={req.secondPlaceholder}
+              maxLength={req.secondMaxLength}
+              onChange={(e) => {
+                secondDraftRef.current = e.target.value;
+              }}
+              className={inputClass}
+            />
+          )}
+        </div>
+      ) : null}
     </div>
   );
+}
+
+function resolvePromptValue(
+  req: DialogRequest,
+  draftRef: MutableRefObject<string>,
+  secondDraftRef: MutableRefObject<string>,
+): DialogResult {
+  if (req.secondFieldLabel) {
+    return { value: draftRef.current, second: secondDraftRef.current };
+  }
+  return draftRef.current;
 }
 
 function DialogActions({
   req,
   draftRef,
+  secondDraftRef,
 }: {
   req: DialogRequest;
   draftRef: MutableRefObject<string>;
+  secondDraftRef: MutableRefObject<string>;
 }) {
   if (req.kind === "alert") {
     return (
@@ -377,7 +479,7 @@ function DialogActions({
       <button
         type="button"
         data-vc-dialog="ok"
-        onClick={() => finishDialog(req.kind === "prompt" ? draftRef.current : true)}
+        onClick={() => finishDialog(req.kind === "prompt" ? resolvePromptValue(req, draftRef, secondDraftRef) : true)}
         className={req.danger ? dangerBtn : primaryBtn}
       >
         {req.confirmLabel}

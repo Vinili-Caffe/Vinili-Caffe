@@ -413,6 +413,8 @@ function loadSlashCommandMeta() {
         const dir = path.join(root, folder.name);
         for (const file of fs.readdirSync(dir)) {
           if (!/\.(cjs|mjs|js|cts|mts|ts)$/i.test(file) || file.endsWith(".d.ts")) continue;
+          const baseName = file.replace(/\.(cjs|mjs|js|cts|mts|ts)$/i, "");
+          if (baseName.endsWith("Helpers")) continue;
           try {
             const mod = require(path.join(dir, file));
             if (mod?.skipDeploy === true) continue;
