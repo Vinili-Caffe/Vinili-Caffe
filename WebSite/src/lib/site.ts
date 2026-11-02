@@ -76,7 +76,6 @@ export const REACT_PAGES = new Set([
   "/evento/accademia/",
   "/evento/gara/",
   "/evento/miniera/",
-  "/contest/",
   "/privacy/",
   "/cookie/",
   "/terms/",
