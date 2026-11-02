@@ -110,7 +110,6 @@ async function run(client?) {
     title: "Ti diamo il benvenuto nella nostra community!",
     body: infoIntroText,
     sections: [
-      { heading: "<:VC_Firework:1470796227913322658> LA NOSTRA GUILD TAG", body: infoGuildTagsText },
       { heading: "<:VC_Link:1482460590894088222> Links", body: infoLinksText },
       { heading: "<:VC_Info:1482526956703580372> Informazioni", body: infoMetaText },
     ],

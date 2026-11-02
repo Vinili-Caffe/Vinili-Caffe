@@ -13,10 +13,7 @@ const PRIVATE_FLAG = 1 << 6;
 const MONO_GUILD_DENIED_TEXT = "Questo bot è utilizzabile solo sul server principale di Vinili & Caffè.";
 const { MOD_RULE_DETAIL } = require("../Utils/Moderation/modRegolamentoConstants") as typeof import("../Utils/Moderation/modRegolamentoConstants");
 const { buildStaffGuideSectionMarkdown } = require("../Utils/Staff/staffGuideContent") as typeof import("../Utils/Staff/staffGuideContent");
-const {
-  buildModerationGuideStickyPayload,
-  moderationGuideEmbedColor,
-} = require("../Utils/Moderation/moderationGuidePanelComponents") as typeof import("../Utils/Moderation/moderationGuidePanelComponents");
+const {  buildModerationGuideStickyPayload, moderationGuideEmbedColor } = require("../Utils/Moderation/moderationGuidePanelComponents") as typeof import("../Utils/Moderation/moderationGuidePanelComponents");
 
 function v2Text(content?) {
   return new TextDisplayBuilder().setContent(String(content || ""));

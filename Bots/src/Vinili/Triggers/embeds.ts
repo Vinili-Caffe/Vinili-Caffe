@@ -1,10 +1,6 @@
 const Embeds = require("../Embeds/index") as typeof import("../Embeds/index");
 const { isDiscordPanelEnabled } = require("../Utils/Config/discordPanelsConfig") as typeof import("../Utils/Config/discordPanelsConfig");
-const {
-  persistDiscordPanelRecipes,
-  cleanupDisabledDiscordPanelMessages,
-} = require("../Services/Community/discordPanelRecipePersistenceService") as typeof import("../Services/Community/discordPanelRecipePersistenceService");
-
+const { persistDiscordPanelRecipes, cleanupDisabledDiscordPanelMessages } = require("../Services/Community/discordPanelRecipePersistenceService") as typeof import("../Services/Community/discordPanelRecipePersistenceService");
 const LOG_PANELS = String(process.env.LOG_PANELS || "0") === "1";
 
 async function runPanelTask(section?, label?, runner?, client?) {
