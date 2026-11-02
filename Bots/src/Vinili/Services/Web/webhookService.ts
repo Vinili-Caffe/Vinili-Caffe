@@ -614,16 +614,7 @@ async function startWebhookServer(client?) {
     next();
   };
 
-  const skipSiteRoutesOnBots = ["1", "true", "yes", "on"].includes(
-    String(process.env.SITE_API_EXTERNAL || "").trim().toLowerCase(),
-  );
-  if (!skipSiteRoutesOnBots) {
-    const { mountSiteWebhookRoutes } = require("./siteWebhookRoutes") as typeof import("./siteWebhookRoutes");
-    mountSiteWebhookRoutes(app, client, {
-      normalizeHeaderSecret,
-      siteCorsMiddleware: siteCandidatureCorsMiddleware,
-    });
-  }
+  /* Site HTTP: solo processo site-api (Vinili/site/http/durableSiteApiApp). Niente dual-mount sui bots. */
 
   if (shouldStartTopggVoteHttpWebhook(client)) {
     if (!topggSecret) {

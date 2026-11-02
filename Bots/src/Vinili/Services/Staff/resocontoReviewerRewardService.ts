@@ -329,7 +329,7 @@ async function channelHasActiveCompitoForWeekSegment(guild?, staff?, weekKey?, s
   const channel = await getGuildChannelCached(guild, channelId).catch(() => null);
   if (!channel?.isTextBased?.()) return false;
 
-  const { collectActiveCompitoMessagesFromChannel } = require("./compitoSettimanaleDuplicatePurgeService") as typeof import("./compitoSettimanaleDuplicatePurgeService");
+  const { collectActiveCompitoMessagesFromChannel } = require("./compitoChannelScan") as typeof import("./compitoChannelScan");
   const byUser = await collectActiveCompitoMessagesFromChannel(channel, 0);
   const entries = byUser.get(uid) || [];
   if (!entries.length) return false;

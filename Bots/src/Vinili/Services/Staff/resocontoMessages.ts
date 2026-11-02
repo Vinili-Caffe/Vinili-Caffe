@@ -1,5 +1,4 @@
-/** Resoconti: helper DB/hydration. Post/thread/scan Discord dismessi (inbox solo sito). */
-const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
+/** Resoconti: helper DB/hydration. Post/thread Discord dismessi (inbox solo sito). */
 const { aggregateSanctionsByModInWeek } = require("../../Utils/Moderation/modCaseStore") as typeof import("../../Utils/Moderation/modCaseStore");
 const { fetchGuildMembersRespectingGatewayRateLimit } = require("../../Utils/Discord/gatewayMemberFetch") as typeof import("../../Utils/Discord/gatewayMemberFetch");
 const { isGuildMemberCacheLikelyComplete, fetchGuildMembersByPagesForResoconto } = require("./resocontoActivity") as typeof import("./resocontoActivity");
@@ -7,30 +6,6 @@ const { isGuildMemberCacheLikelyComplete, fetchGuildMembersByPagesForResoconto }
 const SANCTION_ACTIONS = new Set(["WARN", "MUTE", "KICK", "BAN"]);
 const resocontoMemberHydrationStateByGuild = new Map();
 const RESOCONTO_MEMBER_HYDRATE_TTL_MS = 2 * 60 * 1000;
-
-function buildResocontoButtons(_kind?, _userId?, _actionKey?, _roleId = null) {
-  return null;
-}
-
-async function createResocontoThread(_message?, _userId?, _userLabel = null, _staffDoc = null, _segment = null, _staffRoleId = null) {
-  return;
-}
-
-async function recentStaffResocontoMessageExists(_channel?, _userId?, _roleId?, _sinceDate?) {
-  return false;
-}
-
-async function recentPmResocontoMessageExists(_channel?, _userId?, _sinceDate?) {
-  return false;
-}
-
-async function sendResocontoMessageWithRetry(_channel?, _payload?, _meta?) {
-  return null;
-}
-
-async function resolveChannel(_client?, _channelId?) {
-  return null;
-}
 
 function countPmWeeklyPartners(staffDoc?, weekStart?, weekEnd?) {
   const actions = Array.isArray(staffDoc?.partnerActions) ? staffDoc.partnerActions : [];
@@ -111,13 +86,7 @@ async function hydrateGuildMembersForResoconto(guild?, segment?) {
 }
 
 export = {
-  buildResocontoButtons,
-  createResocontoThread,
   countPmWeeklyPartners,
   getWeeklySanctionCountByMod,
-  resolveChannel,
-  recentStaffResocontoMessageExists,
-  recentPmResocontoMessageExists,
-  sendResocontoMessageWithRetry,
   hydrateGuildMembersForResoconto,
 };

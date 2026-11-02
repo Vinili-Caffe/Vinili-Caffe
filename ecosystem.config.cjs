@@ -220,7 +220,7 @@ module.exports = {
     ),
     ensurePm2App(
       "site-api",
-      "Vinili/Services/Web/durableSiteApiApp.js",
+      "Vinili/site/http/durableSiteApiApp.js",
       "620M",
       {
         SITE_API_PORT: "3020",
