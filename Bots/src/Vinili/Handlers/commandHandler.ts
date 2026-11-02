@@ -34,62 +34,117 @@ function findGiveawayDeployCommand(commands = []) {
   ) || null;
 }
 
+function resolveCommandLoadRoots(commandFolders?, basePath?) {
+  const { listFoldersIfExists } = require("../../shared/runtime/fsRuntime") as typeof import("../../shared/runtime/fsRuntime");
+  const roots = [];
+  if (Array.isArray(commandFolders) && commandFolders[0] && commandFolders[0].basePath) {
+    for (const row of commandFolders) {
+      const bp = String(row?.basePath || "").trim();
+      if (!bp) continue;
+      const folders = Array.isArray(row.folders) ? row.folders : listFoldersIfExists(bp);
+      roots.push({ basePath: bp, folders });
+    }
+  } else if (basePath) {
+    roots.push({
+      basePath,
+      folders: Array.isArray(commandFolders) ? commandFolders : listFoldersIfExists(basePath),
+    });
+  }
+  const mgBase = path.resolve(__dirname, "..", "MultiGuild", "Commands");
+  const already = roots.some((r?) => path.resolve(r.basePath) === mgBase);
+  if (!already && fs.existsSync(mgBase)) {
+    roots.push({ basePath: mgBase, folders: listFoldersIfExists(mgBase) });
+  }
+  return roots;
+}
+
 export = (client?) => {
   client.handleCommands = async (commandFolders?, basePath?) => {
     const statusMap = new Map();
     client.commandArray = [];
     client.commands.clear();
 
-    const parseCommandMeta=(command?) => {const commandJson=typeof command?.data?.toJSON==="function"?command.data.toJSON():null;const name=command?.data?.name||commandJson?.name||command?.name||null;const type=command?.data?.type??commandJson?.type??1;return{name,type,json:commandJson};};for(const folder of commandFolders){const folderPath = path.join(basePath, folder);
-      if (!fs.existsSync(folderPath)) continue;
-      const commandFiles = fs.readdirSync(folderPath).filter((f?) => /\.(cjs|mjs|js|cts|mts|ts)$/i.test(f) && !f.endsWith(".d.ts"));
+    const parseCommandMeta = (command?) => {
+      const commandJson = typeof command?.data?.toJSON === "function" ? command.data.toJSON() : null;
+      const name = command?.data?.name || commandJson?.name || command?.name || null;
+      const type = command?.data?.type ?? commandJson?.type ?? 1;
+      return { name, type, json: commandJson };
+    };
 
-      for (const file of commandFiles) {
-        const filePath = path.join(folderPath, file);
-        const key = `${folder}/${file}`;
-        try {
-          delete require.cache[require.resolve(filePath)];
-          const command = require(filePath);
-          const meta = parseCommandMeta(command);
-          if (!meta.name) {
-            global.logger.error(`[COMMANDS] Invalid command file ${file}`);
-            statusMap.set(key, "Invalid");
-            continue;
+    const roots = resolveCommandLoadRoots(commandFolders, basePath);
+    for (const root of roots) {
+      for (const folder of root.folders || []) {
+        const folderPath = path.join(root.basePath, folder);
+        if (!fs.existsSync(folderPath)) continue;
+        const commandFiles = fs
+          .readdirSync(folderPath)
+          .filter((f?) => /\.(cjs|mjs|js|cts|mts|ts)$/i.test(f) && !f.endsWith(".d.ts"));
+
+        for (const file of commandFiles) {
+          const filePath = path.join(folderPath, file);
+          const key = `${folder}/${file}`;
+          try {
+            delete require.cache[require.resolve(filePath)];
+            const command = require(filePath);
+            const meta = parseCommandMeta(command);
+            if (!meta.name) {
+              global.logger.error(`[COMMANDS] Invalid command file ${file}`);
+              statusMap.set(key, "Invalid");
+              continue;
+            }
+
+            const obsoleteName = String(meta.name || "")
+              .trim()
+              .toLowerCase();
+            if (
+              (Array.isArray(DEFAULT_OBSOLETE_SLASH_NAMES) ? DEFAULT_OBSOLETE_SLASH_NAMES : []).some(
+                (n?) => String(n || "").trim().toLowerCase() === obsoleteName,
+              )
+            ) {
+              statusMap.set(key, "Skipped");
+              continue;
+            }
+
+            if (typeof command.category === "undefined") {
+              command.category = folder;
+            }
+            if (!String(command.helpDescription || "").trim()) {
+              command.helpDescription = String(command.description || "").trim();
+            }
+
+            const commandKey = `${String(meta.name).trim().toLowerCase()}:${meta.type}`;
+            if (client.commands.has(commandKey) || client.commands.has(`${meta.name}:${meta.type}`)) {
+              global.logger.warn?.(`[COMMANDS] Duplicate skipped ${key} (${commandKey})`);
+              statusMap.set(key, "Duplicate");
+              continue;
+            }
+            client.commands.set(`${meta.name}:${meta.type}`, command);
+
+            if (command.skipDeploy) {
+              statusMap.set(key, "Skipped");
+              continue;
+            }
+
+            const deployJson = meta.json || command.data.toJSON();
+            command._helpDataJson = deployJson;
+            const deployName = String(deployJson?.name || meta.name || "").trim().toLowerCase();
+            const deployType = Number(deployJson?.type ?? meta.type ?? 1);
+            const alreadyDeploy = client.commandArray.some(
+              (c?) =>
+                String(c?.name || "").trim().toLowerCase() === deployName &&
+                Number(c?.type ?? 1) === deployType,
+            );
+            if (alreadyDeploy) {
+              global.logger.warn?.(`[COMMANDS] Duplicate deploy skipped ${key}`);
+              statusMap.set(key, "Duplicate");
+              continue;
+            }
+            client.commandArray.push(deployJson);
+            statusMap.set(key, "Loaded");
+          } catch (err) {
+            global.logger.error(`[COMMANDS] Failed to load ${file}:`, err);
+            statusMap.set(key, "Error loading");
           }
-
-          const obsoleteName = String(meta.name || "")
-            .trim()
-            .toLowerCase();
-          if (
-            (Array.isArray(DEFAULT_OBSOLETE_SLASH_NAMES) ? DEFAULT_OBSOLETE_SLASH_NAMES : []).some(
-              (n?) => String(n || "").trim().toLowerCase() === obsoleteName,
-            )
-          ) {
-            statusMap.set(key, "Skipped");
-            continue;
-          }
-
-          if (typeof command.category === "undefined") {
-            command.category = folder;
-          }
-          if (!String(command.helpDescription || "").trim()) {
-            command.helpDescription = String(command.description || "").trim();
-          }
-
-          client.commands.set(`${meta.name}:${meta.type}`, command);
-
-          if (command.skipDeploy) {
-            statusMap.set(key, "Skipped");
-            continue;
-          }
-
-          const deployJson = meta.json || command.data.toJSON();
-          command._helpDataJson = deployJson;
-          client.commandArray.push(deployJson);
-          statusMap.set(key, "Loaded");
-        } catch (err) {
-          global.logger.error(`[COMMANDS] Failed to load ${file}:`, err);
-          statusMap.set(key, "Error loading");
         }
       }
     }

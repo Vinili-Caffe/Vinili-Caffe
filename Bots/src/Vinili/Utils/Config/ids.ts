@@ -384,7 +384,6 @@ const ids: Record<string, any> = {
     fmbot: "356268235697553409",
     Statbot: "491769129318088714",
     Poketwo: "716390085896962058",
-    PokeName: "874910942490677270",
     ViniliCaffeBot: "1329118940110127204",
     ViniliCaffeBotTest: "1466495522474037463",
     ViniliTest: "1564724685554589746",

@@ -56,10 +56,7 @@ const HELP_CHANNEL_PM_ONLY_ID = "1495544523848286340";
 const HELP_CHANNEL_STAFF_COMMANDS_ID = String(IDs.channels?.staffCmds || "1442569262689554444");
 const HELP_PRIVILEGED_ROLE_IDS = [ IDs.roles.Founder, IDs.roles.Manager, IDs.roles.HighStaff, IDs.roles.Admin, IDs.roles.Director, IDs.roles.SeniorModerator, IDs.roles.Mod, IDs.roles.Helper, IDs.roles.Staff, IDs.roles.PartnerManager].filter(Boolean);
 const CONTEXT_CATEGORY_OVERRIDES = {
-  "aggiungi punti": "staff",
-  "rimuovi punti": "staff",
   partnership: "staff",
-  "elimina partnership": "staff",
 };
 const PERMISSIONS_CACHE_TTL_MS = 30_000;
 const HELP_STATE_TIMEOUT_MS = Math.max(500, Math.min(10_000, Number(process.env.HELP_STATE_TIMEOUT_MS ?? 2_500)));

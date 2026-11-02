@@ -128,7 +128,12 @@ global.botClient = client;
 client.reloadScope = async (scope?) => {
   const clearCacheByDir = (dirName?) => { const abs = path.join(APP_ROOT, dirName); if (!fs.existsSync(abs)) return; for (const key of Object.keys(require.cache)) { if (!key.startsWith(abs)) continue; delete require.cache[key]; } };
 
-  const reloadCommands = async () => { clearCacheByDir("Commands"); const folders = listFoldersIfExists(path.join(APP_ROOT, "Commands")); await client.handleCommands(folders, path.join(APP_ROOT, "Commands")); };
+  const reloadCommands = async () => {
+    clearCacheByDir("Commands");
+    clearCacheByDir(path.join("MultiGuild", "Commands"));
+    const folders = listFoldersIfExists(path.join(APP_ROOT, "Commands"));
+    await client.handleCommands(folders, path.join(APP_ROOT, "Commands"));
+  };
 
   const reloadPrefix = async () => { clearCacheByDir("Prefix"); const folders = listFoldersIfExists(path.join(APP_ROOT, "Prefix")); await client.prefixCommands(folders, path.join(APP_ROOT, "Prefix")); };
 
@@ -140,7 +145,14 @@ client.reloadScope = async (scope?) => {
   if (scope === "prefix") return reloadPrefix();
   if (scope === "events") return reloadEvents();
 
-  const reloadButtons = async () => { clearCacheByDir("Buttons"); await client.loadButtonHandlers(path.join(APP_ROOT, "Buttons")); };
+  const reloadButtons = async () => {
+    clearCacheByDir("Buttons");
+    clearCacheByDir(path.join("MultiGuild", "Buttons"));
+    await client.loadButtonHandlers([
+      path.join(APP_ROOT, "Buttons"),
+      path.join(APP_ROOT, "MultiGuild", "Buttons"),
+    ]);
+  };
 
   if (scope === "triggers") return reloadTriggers();
   if (scope === "buttons") return reloadButtons();
@@ -209,7 +221,10 @@ initializeCommandCollections(client, { includeSnipes: true });
       client.handleCommands(commandFolders, path.join(APP_ROOT, "Commands")).then(() => {
         client.__slashCommandsReady = true;
       }),
-      client.loadButtonHandlers(path.join(APP_ROOT, "Buttons")),
+      client.loadButtonHandlers([
+        path.join(APP_ROOT, "Buttons"),
+        path.join(APP_ROOT, "MultiGuild", "Buttons"),
+      ]),
     ]);
     client.__bootCommandsReady = true;
     const cmdsMs = Date.now() - slashButtonsStartedAt;

@@ -84,7 +84,7 @@ function chunk(array?, size?) {
 }
 
 function buildStrikeButtons(ownerId?, targetId?, page?, totalPages?) {
-  return require("../../Buttons/infoStrike").buildStrikeButtons(ownerId, targetId, page, totalPages);
+  return require("../../Buttons/moderation/infoStrike").buildStrikeButtons(ownerId, targetId, page, totalPages);
 }
 
 export = {

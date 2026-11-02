@@ -5,15 +5,6 @@
         "roles.PartnerManager"
       ]
     },
-    "segnala": {
-      "roles": [
-        "roles.SeniorModerator",
-        "roles.Director"
-      ],
-      "channels": [
-        "channels.partnerships"
-      ]
-    },
     "sanziona": {
       "roles": [
         "roles.Staff"
@@ -28,21 +19,6 @@
           "roles.HighStaff"
         ]
       }
-    },
-    "elimina partnership": {
-      "roles": [
-        "roles.HighStaff"
-      ],
-      "channels": [
-        "channels.partnerships",
-        "channels.partnerLogs"
-      ]
-    },
-    "aggiungi punti": {
-      "permissions": "Administrator"
-    },
-    "rimuovi punti": {
-      "permissions": "Administrator"
     },
     "giveaway": {
       "roles": [

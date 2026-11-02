@@ -5,7 +5,6 @@ const {
 } = require("./interaction/commandHandlers") as typeof import("./interaction/commandHandlers");
 const { handleButtonInteraction } = require("./interaction/buttonHandlers") as typeof import("./interaction/buttonHandlers");
 const { handlePartnerModal } = require("./interaction/partnerModal") as typeof import("./interaction/partnerModal");
-const { handlePartnerPointContextModal } = require("./interaction/partnerPointContextHandlers") as typeof import("./interaction/partnerPointContextHandlers");
 const { handleSanzionaModal } = require("./interaction/sanzionaHandlers") as typeof import("./interaction/sanzionaHandlers");
 const { handleCustomRoleInteraction } = require("./interaction/customRoleHandlers") as typeof import("./interaction/customRoleHandlers");
 const {
@@ -41,7 +40,7 @@ export = {
       }
 
       try {
-        const topChannel = require("../Buttons/topChannelHandler") as typeof import("../Buttons/topChannelHandler");
+        const topChannel = require("../Buttons/stats/topChannelHandler") as typeof import("../Buttons/stats/topChannelHandler");
         if (
           typeof topChannel.isTopChannelInteraction === "function" &&
           topChannel.isTopChannelInteraction(interaction) &&
@@ -90,7 +89,6 @@ export = {
 
       if (isModal) {
         if (await handleSanzionaModal(interaction, resolvedClient)) return;
-        if (await handlePartnerPointContextModal(interaction)) return;
         if (await handlePartnerModal(interaction)) return;
         if (await handleCustomRoleInteraction(interaction)) return;
         if (await handleButtonInteraction(interaction, resolvedClient)) return;

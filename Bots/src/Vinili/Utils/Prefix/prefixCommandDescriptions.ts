@@ -94,14 +94,9 @@ const PREFIX_SUBCOMMAND_DESCRIPTIONS = Object.freeze({
 
 const APPLICATION_COMMAND_DESCRIPTIONS = Object.freeze({
   partnership: "Apre il flusso per inviare una partnership.",
-  Partnership: "Menu contesto messaggio: invia una partnership dal messaggio selezionato.",
-  "Elimina partnership":
-  "Menu contesto messaggio: elimina una partnership dal log o dal messaggio selezionato.",
-  "Aggiungi punti": "Menu contesto utente: aggiunge punti partnership al membro selezionato.",
-  "Rimuovi punti": "Menu contesto utente: rimuove punti partnership dal membro selezionato.",
-  Segnala: "Menu contesto messaggio: segnala una descrizione partnership.",
+  "Partner messaggio": "Menu contesto messaggio: invia una partnership dal messaggio selezionato (solo MultiGuild).",
   Sanziona: "Menu contesto utente: apre il flusso sanzione moderazione.",
-  delete: "Elimina risorse partnership tramite ID log.",
+  delete: "Elimina una partnership tramite ID log (solo MultiGuild).",
   giveaway: "Crea o gestisci un giveaway.",
   poll: "Crea un poll.",
   role: "Gestione ruoli di massa.",

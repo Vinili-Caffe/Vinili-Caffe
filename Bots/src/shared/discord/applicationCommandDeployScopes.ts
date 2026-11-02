@@ -3,9 +3,8 @@ const { Routes } = require("discord-api-types/v10") as typeof import("discord-ap
 
 const GLOBAL_TENANT_COMMAND_NAMES = new Set([
   "partnership",
-  "elimina partnership",
-  "aggiungi punti",
-  "rimuovi punti",
+  "partner messaggio",
+  "delete",
 ]);
 
 function isGlobalTenantCommand(name?) {

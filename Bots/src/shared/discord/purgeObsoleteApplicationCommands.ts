@@ -9,12 +9,23 @@ const DEFAULT_OBSOLETE_SLASH_NAMES = [
   "gringott",
   "aggiungi-punti",
   "rimuovi-punti",
+  "aggiungi punti",
+  "rimuovi punti",
   "rimuovi",
+  "segnala",
+  "elimina partnership",
   "kick",
 ];
 
 const DEFAULT_OBSOLETE_TYPED_COMMANDS = [
-    { name: "sanziona", type: 3 },
+  { name: "sanziona", type: 3 },
+  { name: "rimuovi", type: 3 },
+  { name: "segnala", type: 3 },
+  { name: "elimina partnership", type: 3 },
+  /* vecchio context omonimo di /partnership → conflitto deploy globale */
+  { name: "partnership", type: 3 },
+  { name: "aggiungi punti", type: 2 },
+  { name: "rimuovi punti", type: 2 },
 ];
 
 function normalizeObsoleteCommand(entry?) {

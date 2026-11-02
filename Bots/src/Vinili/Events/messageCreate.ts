@@ -354,12 +354,6 @@ export = {
           }
         }
         if (message.author?.bot || message.webhookId || message.applicationId) {
-          try {
-            const { maybeDeletePokeNameOutsideAllowedChannel } = require("../Services/Moderation/pokeNameChannelBlockService") as typeof import("../Services/Moderation/pokeNameChannelBlockService");
-            if (await maybeDeletePokeNameOutsideAllowedChannel(message)) return;
-          } catch (error) {
-            logEventError(resolvedClient, "POKE-NAME CHANNEL BLOCK ERROR", error);
-          }
           if (await handleDisboardBump(message, resolvedClient)) {
             cancelAutomationMessageRecheck(message.id);
             return;

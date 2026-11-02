@@ -6,7 +6,7 @@ async function execute(interaction?, client?) {
 
 function match(interaction?) {
   const id = String(interaction?.customId || "");
-  return id.startsWith("minigame_") || id.startsWith("mg_");
+  return id.startsWith("minigame_");
 }
 
 export = { name: "minigame", order: 80, match, execute };

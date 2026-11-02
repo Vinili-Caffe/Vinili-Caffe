@@ -1,19 +1,13 @@
 "use strict";
-
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
 const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
 const { getOrCreateStaffDoc, ensureStaff } = require("../../Utils/Staff/staffDocUtils") as typeof import("../../Utils/Staff/staffDocUtils");
 const { getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache") as typeof import("../../Utils/Interaction/interactionEntityCache");
-const {
-  getHighestStaffLadderRoleId,
-  STAFF_LADDER_KEYS_HIGH_TO_LOW,
-} = require("../../Utils/Staff/staffRoleHierarchy") as typeof import("../../Utils/Staff/staffRoleHierarchy");
-
+const { getHighestStaffLadderRoleId, STAFF_LADDER_KEYS_HIGH_TO_LOW } = require("../../Utils/Staff/staffRoleHierarchy") as typeof import("../../Utils/Staff/staffRoleHierarchy");
 const NEGATIVES_PER_STAFF_WARN = 3;
 const STAFF_WARN_THREE_NEGATIVES_REASON = "Warn assegnato per aver raggiunto le 3 valutazioni negative";
 const STAFF_WARN_RESET_MONTHS = 6;
 const STAFF_WARN_RESET_MS = STAFF_WARN_RESET_MONTHS * 30 * 24 * 60 * 60 * 1000;
-
 const ROLE_STAFF = String(IDs.roles.Staff);
 const ROLE_HIGH_STAFF = String(IDs.roles.HighStaff);
 const ROLE_MEMBER = String(IDs.roles.Member || "");
@@ -24,7 +18,6 @@ const ROLE_DIRECTOR = String(IDs.roles.Director);
 const ROLE_ADMIN = String(IDs.roles.Admin);
 const ROLE_MANAGER = String(IDs.roles.Manager || "");
 const ROLE_OWNER = String(IDs.roles.Founder || "");
-
 const STAFF_ROLES_HIGH_TO_LOW = require("../../Utils/Staff/staffRoleHierarchy").staffLadderRoleIds(STAFF_LADDER_KEYS_HIGH_TO_LOW);
 
 function getHighestStaffRoleId(member?) {

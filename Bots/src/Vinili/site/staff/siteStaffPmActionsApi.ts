@@ -82,6 +82,7 @@ async function handleSiteStaffPmActionsPost(client?, req?, res?) {
       const userId = String(body.userId || "").trim();
       const amount = Number.parseInt(String(body.amount ?? "1"), 10);
       const reason = String(body.reason || body.motivo || "").trim().slice(0, 400);
+      const rawMessageLink = String(body.messageLink || body.messageUrl || "").trim();
       if (!/^\d{16,20}$/.test(userId)) {
         return res.status(400).json({ ok: false, error: "invalid_user", message: "Utente non valido." });
       }
@@ -92,6 +93,63 @@ async function handleSiteStaffPmActionsPost(client?, req?, res?) {
       if (!targetMember || !memberIsPm(targetMember)) {
         return res.status(400).json({ ok: false, error: "not_pm", message: "L'utente non è Partner Manager." });
       }
+
+      let parsedLink = null;
+      let partnershipDeleted = false;
+      if (action === "points_remove" && rawMessageLink) {
+        const {
+          parseDiscordMessageLink,
+          buildPartnershipMessageLink,
+        } = require("../../Utils/Partner/partnerPointContextUtils") as typeof import("../../Utils/Partner/partnerPointContextUtils");
+        parsedLink = parseDiscordMessageLink(rawMessageLink);
+        if (!parsedLink || parsedLink.guildId !== guildId) {
+          return res.status(400).json({
+            ok: false,
+            error: "invalid_message_link",
+            message: "Link messaggio Discord non valido (deve essere del server principale).",
+          });
+        }
+        const channel =
+          guild.channels.cache.get(parsedLink.channelId) ||
+          (await guild.channels.fetch(parsedLink.channelId).catch(() => null));
+        const targetMessage = channel?.messages
+          ? await channel.messages.fetch(parsedLink.messageId).catch(() => null)
+          : null;
+        if (!targetMessage?.id) {
+          return res.status(400).json({
+            ok: false,
+            error: "message_not_found",
+            message: "Messaggio partnership non trovato.",
+          });
+        }
+        const { deletePartnershipFromContextMessage } = require("../../MultiGuild/services/Partner/tenantPartnershipDeleteService") as typeof import("../../MultiGuild/services/Partner/tenantPartnershipDeleteService");
+        const deleteResult = await deletePartnershipFromContextMessage(
+          guild,
+          targetMessage,
+          String(access.member?.id || ""),
+          client,
+          "site_hs_points_remove",
+        );
+        if (!deleteResult?.ok) {
+          return res.status(400).json({
+            ok: false,
+            error: "partnership_not_found",
+            message:
+              "Non riesco a identificare la partnership da quel messaggio. Controlla il link o togli solo i punti senza link.",
+          });
+        }
+        partnershipDeleted = true;
+        parsedLink = {
+          ...parsedLink,
+          canonicalLink: buildPartnershipMessageLink(
+            guildId,
+            parsedLink.channelId,
+            parsedLink.messageId,
+          ),
+          deletedPmUserId: String(deleteResult.pmUserId || userId).trim() || userId,
+        };
+      }
+
       let updated = null;
       if (action === "points_add") {
         updated = await addPartnerPoints(guildId, userId, amount, { client, guild });
@@ -118,6 +176,7 @@ async function handleSiteStaffPmActionsPost(client?, req?, res?) {
           const { logPmPointsRemoved } = require("../../Utils/Partner/pmPointsRemovedStore") as typeof import("../../Utils/Partner/pmPointsRemovedStore");
           const { getPartnershipLogChannelIds } = require("../../Utils/Partner/partnershipConfigResolver") as typeof import("../../Utils/Partner/partnershipConfigResolver");
           const { isDiscordStaffChannelPostsEnabled } = require("../../site/http/discordWorkflowUiGate") as typeof import("../../site/http/discordWorkflowUiGate");
+          const { buildPartnerPointLogContent } = require("../../Utils/Partner/partnerPointContextUtils") as typeof import("../../Utils/Partner/partnerPointContextUtils");
           const channelIds = getPartnershipLogChannelIds(guild.id);
           const hardFallback = isDiscordStaffChannelPostsEnabled()
             ? String(IDs.channels?.puntiTolti || "").trim()
@@ -136,21 +195,30 @@ async function handleSiteStaffPmActionsPost(client?, req?, res?) {
             Math.floor(Number(updated._partnerPointsRemoved ?? amount) || 0),
           );
           const ruleText = reason || "Punti rimossi da High Staff (sito)";
-          const mention = `<@${userId}>`;
-          const logLines = [
-            `<:VC_PartnerManager:1494286911286808576> ${mention}`,
-            `<:VC_reason:1478517122929004544> ${ruleText}`,
-            `<:VC_Dot:1482532364222595303> −${removedAmount} punti (sito)`,
-          ];
+          const messageLink = parsedLink?.canonicalLink || "";
+          const actorUserId = String(access.member?.id || "");
+          const mirrorContent = messageLink
+            ? buildPartnerPointLogContent({
+                pmUserId: userId,
+                rule: ruleText,
+                messageLink,
+                actorUserId,
+              })
+            : [
+                `<:VC_PartnerManager:1494286911286808576> <@${userId}>`,
+                `<:VC_reason:1478517122929004544> ${ruleText}`,
+                `<:VC_Dot:1482532364222595303> −${removedAmount} punti (sito)`,
+              ].join("\n");
           const entry = await logPmPointsRemoved({
             guild,
             pmUserId: userId,
             rule: ruleText,
-            actorUserId: String(access.member?.id || ""),
+            messageLink: messageLink || null,
+            actorUserId,
             status: "logged",
-            source: "site_hs_manual",
+            source: partnershipDeleted ? "partnership_delete" : "site_hs_manual",
             mirrorChannel,
-            mirrorContent: logLines.join("\n"),
+            mirrorContent,
           });
           pointsRemovedLogged = Boolean(entry);
         } catch (logErr) {
@@ -164,14 +232,16 @@ async function handleSiteStaffPmActionsPost(client?, req?, res?) {
         const { clearStaffProfileCacheForUser } = require("./siteStaffProfileApi") as typeof import("./siteStaffProfileApi");
         clearStaffProfileCacheForUser(userId);
       } catch (_) {}
+      const baseMsg = formatPartnerPointsChange(action === "points_add" ? "add" : "remove", amount);
       return res.status(200).json({
         ok: true,
-        message: formatPartnerPointsChange(action === "points_add" ? "add" : "remove", amount),
+        message: partnershipDeleted ? `${baseMsg} Partnership eliminata.` : baseMsg,
         points,
         redeemSpend,
         partnerCount,
         pointsEarned,
         pointsRemovedLogged,
+        partnershipDeleted,
       });
     }
 

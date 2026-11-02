@@ -346,8 +346,6 @@ async function checkSlashPermission(interaction?, options: Record<string, any> =
     const cmd = String(interaction?.commandName || "").toLowerCase();
     const sub = String(interaction.options?.getSubcommand?.(false) || "").toLowerCase();
     const tenantDeleteAllowed = cmd === "delete" && sub === "partnership";
-    const tenantDeleteContextAllowed = cmd === "elimina partnership";
-    const tenantPointsContextAllowed = cmd === "aggiungi punti" || cmd === "rimuovi punti";
     if (cmd === "giveaway") {
       try {
         const { isTenantFeatureEnabled } = require("../../MultiGuild/core/accessPolicy") as typeof import("../../MultiGuild/core/accessPolicy");
@@ -376,7 +374,7 @@ async function checkSlashPermission(interaction?, options: Record<string, any> =
         global.logger?.warn?.("[commandPermissions] tenant giveaway gate:", err?.message || err);
       }
     }
-    if (cmd !== "partnership" && !tenantDeleteAllowed && !tenantDeleteContextAllowed && !tenantPointsContextAllowed) {
+    if (cmd !== "partnership" && !tenantDeleteAllowed) {
       const message =
         "<:vegax:1443934876440068179> Su questo server sono disponibili solo i comandi **partnership**.";
       if (options.returnDetails) {

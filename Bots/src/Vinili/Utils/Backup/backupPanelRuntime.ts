@@ -11,7 +11,7 @@ const {
   buildBackupPanelNavRow,
   SECTION_HOME,
 } = require("./backupPanelNav") as typeof import("./backupPanelNav");
-const { renderList } = require("../../Buttons/backupList") as typeof import("../../Buttons/backupList");
+const { renderList } = require("../../Buttons/backup/backupList") as typeof import("../../Buttons/backup/backupList");
 
 const MODAL_ROOT = "backup_panel_modal";
 

@@ -1,20 +1,7 @@
-const {
-  SlashCommandBuilder,
-  ModalBuilder,
-  TextInputBuilder,
-  TextInputStyle,
-  ActionRowBuilder,
-} = require("discord.js") as typeof import("discord.js");
+const { SlashCommandBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = require("discord.js") as typeof import("discord.js");
 const { safeReply } = require("../../../shared/discord/replyRuntime") as typeof import("../../../shared/discord/replyRuntime");
-const {
-  partnersChatPartnerCommandDeniedReplyContent,
-} = require("../../Utils/Partner/partnersChatChannelUtils") as typeof import("../../Utils/Partner/partnersChatChannelUtils");
-const {
-  isPartnershipOperational,
-  resolvePartnershipConfigSync,
-  isPartnershipSkipManagerAllowed,
-  buildSkipDeniedEmbed,
-} = require("../../Utils/Partner/partnershipConfigResolver") as typeof import("../../Utils/Partner/partnershipConfigResolver");
+const { partnersChatPartnerCommandDeniedReplyContent } = require("../../Utils/Partner/partnersChatChannelUtils") as typeof import("../../Utils/Partner/partnersChatChannelUtils");
+const { isPartnershipOperational, resolvePartnershipConfigSync, isPartnershipSkipManagerAllowed, buildSkipDeniedEmbed } = require("../../Utils/Partner/partnershipConfigResolver") as typeof import("../../Utils/Partner/partnershipConfigResolver");
 const { replyInteractionSetupRequired } = require("../../MultiGuild/utils/Partner/tenantSetupRequiredReply") as typeof import("../../MultiGuild/utils/Partner/tenantSetupRequiredReply");
 const EPHEMERAL_FLAG = 1 << 6;
 

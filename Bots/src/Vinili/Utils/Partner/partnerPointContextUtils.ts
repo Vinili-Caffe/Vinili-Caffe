@@ -1,23 +1,5 @@
-const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = require("discord.js") as typeof import("discord.js");
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
 const { getPartnershipChannelId } = require("./partnershipConfigResolver") as typeof import("./partnershipConfigResolver");
-const {
-  findPartnerActionByGlobalLogId,
-  findPartnerActionByMessage,
-} = require("../../MultiGuild/services/Partner/tenantPartnershipDeleteService") as typeof import("../../MultiGuild/services/Partner/tenantPartnershipDeleteService");
-const { extractPartnershipLogIdFromMessage } = require("./partnershipLogMessageUtils") as typeof import("./partnershipLogMessageUtils");
-
-const MAIN_PARTNERSHIP_REMOVE_MODAL_PREFIX = "pem_m:";
-const MAIN_PARTNERSHIP_REMOVE_RULE_INPUT = "regolaViolata";
-const DISCORD_CUSTOM_ID_MAX = 100;
-
-function buildPartnerPointModalCustomId(prefix?, actorId?, pmUserId?, messageId?, channelId?) {
-  const id = `${prefix}${actorId}:${pmUserId}:${messageId}:${channelId}`;
-  if (id.length > DISCORD_CUSTOM_ID_MAX) {
-    throw new Error(`partner modal customId too long (${id.length}>${DISCORD_CUSTOM_ID_MAX})`);
-  }
-  return id;
-}
 
 function buildPartnershipMessageLink(guildId?, channelId?, messageId?) {
   const g = String(guildId || "").trim();
@@ -25,6 +7,23 @@ function buildPartnershipMessageLink(guildId?, channelId?, messageId?) {
   const m = String(messageId || "").trim();
   if (!/^\d{16,20}$/.test(g) || !/^\d{16,20}$/.test(c) || !/^\d{16,20}$/.test(m)) return "";
   return `https://discord.com/channels/${g}/${c}/${m}`;
+}
+
+const DISCORD_MESSAGE_LINK_REGEX =
+  /https?:\/\/(?:ptb\.|canary\.)?discord(?:app)?\.com\/channels\/(\d+)\/(\d+)\/(\d+)/i;
+
+function parseDiscordMessageLink(link?) {
+  const raw = String(link || "").trim();
+  if (!raw) return null;
+  const match = raw.match(DISCORD_MESSAGE_LINK_REGEX);
+  if (!match) return null;
+  const guildId = String(match[1] || "").trim();
+  const channelId = String(match[2] || "").trim();
+  const messageId = String(match[3] || "").trim();
+  if (!/^\d{16,20}$/.test(guildId) || !/^\d{16,20}$/.test(channelId) || !/^\d{16,20}$/.test(messageId)) {
+    return null;
+  }
+  return { guildId, channelId, messageId };
 }
 
 function isPartnershipDescriptionMessage(message?) {
@@ -103,22 +102,6 @@ function buildPartnerPointLogContent({
   return lines.join("\n");
 }
 
-function parsePartnerPointModalId(customId?, prefix?) {
-  const raw = String(customId || "");
-  if (!raw.startsWith(prefix)) return null;
-  const parts = raw.split(":");
-  if (parts.length < 5) return null;
-  const actorId = String(parts[1] || "").trim();
-  const pmUserId = String(parts[2] || "").trim();
-  const partnershipMsgId = String(parts[3] || "").trim();
-  const channelId = String(parts[4] || "").trim();
-  if (!/^\d{16,20}$/.test(actorId)) return null;
-  if (!/^\d{16,20}$/.test(pmUserId)) return null;
-  if (!/^\d{16,20}$/.test(partnershipMsgId)) return null;
-  if (!/^\d{16,20}$/.test(channelId)) return null;
-  return { actorId, pmUserId, partnershipMsgId, channelId };
-}
-
 function memberIsHighStaffForPointReview(member?) {
   if (!member?.roles?.cache) return false;
   const IDs = require("../Config/ids") as typeof import("../Config/ids");
@@ -154,73 +137,13 @@ function shouldDeleteHumanPartnershipsChannelMessage(message?) {
   return true;
 }
 
-async function resolveMainPartnershipRemoveTarget(guild?, message?) {
-  if (!guild?.id || !message?.id) return null;
-
-  const logId = extractPartnershipLogIdFromMessage(message);
-  if (logId) {
-    const match = await findPartnerActionByGlobalLogId(guild.id, logId);
-    if (match?.doc?.userId) {
-      return { pmUserId: String(match.doc.userId), message, match };
-    }
-  }
-
-  const byMessage = await findPartnerActionByMessage(guild.id, message);
-  if (byMessage?.doc?.userId) {
-    return { pmUserId: String(byMessage.doc.userId), message, match: byMessage };
-  }
-
-  const pmUserId = await resolvePartnerManagerUserIdFromMessage(guild.id, message.id);
-  if (pmUserId) return { pmUserId, message, match: null };
-  return null;
-}
-
-function buildMainPartnershipRemoveModal(interaction?, target?) {
-  const modal = new ModalBuilder()
-    .setCustomId(
-      buildPartnerPointModalCustomId(
-        MAIN_PARTNERSHIP_REMOVE_MODAL_PREFIX,
-        interaction.user.id,
-        target.pmUserId,
-        target.message.id,
-        target.message.channelId,
-      ),
-    )
-    .setTitle("Elimina partnership");
-  modal.addComponents(
-    new ActionRowBuilder().addComponents(
-      new TextInputBuilder()
-        .setCustomId(MAIN_PARTNERSHIP_REMOVE_RULE_INPUT)
-        .setLabel("Regola violata")
-        .setStyle(TextInputStyle.Paragraph)
-        .setPlaceholder("Indica la regola violata dalla partner")
-        .setRequired(true)
-        .setMaxLength(500),
-    ),
-  );
-  return modal;
-}
-
-function parseMainPartnershipRemoveModalId(customId?) {
-  return (
-    parsePartnerPointModalId(customId, MAIN_PARTNERSHIP_REMOVE_MODAL_PREFIX) ||
-    parsePartnerPointModalId(customId, "partner_elimina_main_m:")
-  );
-}
-
 export = {
-  MAIN_PARTNERSHIP_REMOVE_MODAL_PREFIX,
-  MAIN_PARTNERSHIP_REMOVE_RULE_INPUT,
   buildPartnershipMessageLink,
+  parseDiscordMessageLink,
   isPartnershipDescriptionMessage,
   resolvePartnerManagerUserIdFromMessage,
-  resolveMainPartnershipRemoveTarget,
-  buildMainPartnershipRemoveModal,
-  parseMainPartnershipRemoveModalId,
-  buildPartnerPointModalCustomId,
   buildPartnerPointLogContent,
   getPartnerPointHighStaffPingRoleIds,
-  parsePartnerPointModalId,
   memberIsHighStaffForPointReview,
   isHumanPartnershipChannelMessage,
   shouldDeleteHumanPartnershipsChannelMessage,

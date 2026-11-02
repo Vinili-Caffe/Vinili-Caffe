@@ -9,7 +9,7 @@ const { renderTopStatisticsCanvas, renderTopLeaderboardPageCanvas } = require(".
 const { getOrBuildStatsCanvasBuffer } = require("../../Utils/Stats/statsCanvasCache") as typeof import("../../Utils/Stats/statsCanvasCache");
 const { upsertChannelSnapshot, syncGuildChannelSnapshots, getChannelSnapshotMap } = require("../../Utils/Community/channelSnapshotUtils") as typeof import("../../Utils/Community/channelSnapshotUtils");
 const { getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache") as typeof import("../../Utils/Interaction/interactionEntityCache");
-const topComponents = require("../../Buttons/topChannel/components") as typeof import("../../Buttons/topChannel/components");
+const topComponents = require("../../Buttons/stats/topChannel/components") as typeof import("../../Buttons/stats/topChannel/components");
 
 const TOP_CHANNEL_DIRECT_CHANNEL_IDS = new Set([IDs.channels.commands, IDs.channels.staffCmds].filter(Boolean).map(String));
 

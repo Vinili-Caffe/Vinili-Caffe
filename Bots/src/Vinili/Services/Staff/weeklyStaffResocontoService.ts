@@ -15,15 +15,6 @@ const { STAFF_LIMITS_POSITIVE_MULTIPLIER, shouldSkipManualResocontoVp, shouldSki
 const { getWeeklySanctionCountByMod } = require("./resocontoMessages") as typeof import("./resocontoMessages");
 const { runWeeklyStaffResocontoSegment } = require("./resocontoSegment") as typeof import("./resocontoSegment");
 const { runWeeklyLimitAutoValutazioniCatchupSegment } = require("./resocontoCatchup") as typeof import("./resocontoCatchup");
-
-
-
-
-
-
-
-
-
 const RESOCONTO_CRON_EXPRESSION = "0 15 * * 0";
 const RESOCONTO_SUNDAY_SEGMENTS = ["pm", "helper", "mod", "senior_moderator", "director"];
 const STAFF_RESOCONTO_SEGMENTS = ["helper", "mod", "senior_moderator", "director"];

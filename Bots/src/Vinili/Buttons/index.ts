@@ -1,10 +1,11 @@
+/** Barrel parziale per Prefix/Stats e buttonParsers (non è il registry del loader). */
 export = {
-  server: require("./server"),
-  me: require("./me"),
-  user: require("./user"),
-  channel: require("./channel"),
-  blacklist: require("./blacklist"),
-  backupInfo: require("./backupInfo"),
-  backupList: require("./backupList"),
-  topChannelComponents: require("./topChannel/components"),
+  server: require("./stats/server"),
+  me: require("./stats/me"),
+  user: require("./stats/user"),
+  channel: require("./stats/channel"),
+  blacklist: require("./moderation/blacklist"),
+  backupInfo: require("./backup/backupInfo"),
+  backupList: require("./backup/backupList"),
+  topChannelComponents: require("./stats/topChannel/components"),
 };

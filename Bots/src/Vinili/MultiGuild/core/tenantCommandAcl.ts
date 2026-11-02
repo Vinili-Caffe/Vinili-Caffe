@@ -52,43 +52,13 @@ const TENANT_SLASH_COMMAND_DEFS = Object.freeze([
     examples: ["/partnership", "/partnership @manager"],
   },
   {
-    name: "Partnership",
-    displayName: "Partnership",
+    name: "Partner messaggio",
+    displayName: "Partner messaggio",
     type: "message",
     discordType: 3,
     feature: "partnership",
     description: "Menu contesto messaggio: invia una partnership dal messaggio selezionato.",
-    usage: "Clic destro su un messaggio → App → Partnership",
-    examples: [],
-  },
-  {
-    name: "Elimina partnership",
-    displayName: "Elimina partnership",
-    type: "message",
-    discordType: 3,
-    feature: "partnership",
-    description: "Menu contesto messaggio: elimina una partnership dal log o dal messaggio selezionato.",
-    usage: "Clic destro su un messaggio → App → Elimina partnership",
-    examples: [],
-  },
-  {
-    name: "Aggiungi punti",
-    displayName: "Aggiungi punti",
-    type: "user",
-    discordType: 2,
-    feature: "partnership",
-    description: "Menu contesto utente: aggiunge punti partnership al membro selezionato.",
-    usage: "Clic destro su un utente → App → Aggiungi punti",
-    examples: [],
-  },
-  {
-    name: "Rimuovi punti",
-    displayName: "Rimuovi punti",
-    type: "user",
-    discordType: 2,
-    feature: "partnership",
-    description: "Menu contesto utente: rimuove punti partnership dal membro selezionato.",
-    usage: "Clic destro su un utente → App → Rimuovi punti",
+    usage: "Clic destro su un messaggio → App → Partner messaggio",
     examples: [],
   },
 ]);
@@ -430,59 +400,60 @@ function loadSlashCommandMeta() {
   const items = [];
   const seen = new Set();
   const obsoleteNames = getObsoleteSlashNameSet();
+  const roots = [
+    path.resolve(__dirname, "../../Commands"),
+    path.resolve(__dirname, "../Commands"),
+  ];
   try {
-    const root = path.resolve(__dirname, "../../Commands");
-    if (!fs.existsSync(root)) {
-      slashMetaCache = items;
-      return items;
-    }
-    for (const folder of fs.readdirSync(root, { withFileTypes: true })) {
-      if (!folder.isDirectory()) continue;
-      const category = folderToCategoryId(folder.name);
-      const dir = path.join(root, folder.name);
-      for (const file of fs.readdirSync(dir)) {
-        if (!/\.(cjs|mjs|js|cts|mts|ts)$/i.test(file) || file.endsWith(".d.ts")) continue;
-        try {
-          const mod = require(path.join(dir, file));
-          if (mod?.skipDeploy === true) continue;
-          const data = mod?.data;
-          if (!data || typeof data.toJSON !== "function") continue;
-          const json = data.toJSON();
-          const discordName = String(json?.name || "").trim();
-          if (!discordName) continue;
-          if (obsoleteNames.has(discordName.toLowerCase())) continue;
-          const discordType = Number(json?.type) || 1;
-          const type = discordTypeToSlashKind(discordType);
-          const aclKey = `s:${discordType}:${discordName}`;
-          if (seen.has(aclKey)) continue;
-          seen.add(aclKey);
-                    let cat = category;
-          const nameLc = discordName.toLowerCase();
-          if (
-            GLOBAL_TENANT_COMMAND_NAMES.has(nameLc) ||
-            nameLc === "delete" ||
-            nameLc === "segnala" ||
-            /partnership|punti/i.test(discordName)
-          ) {
-            cat = "partnership";
-          }
-          items.push({
-            name: aclKey,
-            displayName: discordType === 1 ? `/${discordName}` : discordName,
-            category: cat,
-            kind: "slash",
-            type,
-            discordType,
-            discordName,
-            typeLabel: SLASH_TYPE_LABELS[type] || SLASH_TYPE_LABELS.chat,
-            description: resolveApplicationCommandDescription(discordName, json?.description),
-            usage: discordType === 1 ? `/${discordName}` : "",
-            examples: [],
-            aliases: [],
-            cooldownSeconds: null,
-            syncsToDiscord: true,
-          });
-        } catch (_) {}
+    for (const root of roots) {
+      if (!fs.existsSync(root)) continue;
+      for (const folder of fs.readdirSync(root, { withFileTypes: true })) {
+        if (!folder.isDirectory()) continue;
+        const category = folderToCategoryId(folder.name);
+        const dir = path.join(root, folder.name);
+        for (const file of fs.readdirSync(dir)) {
+          if (!/\.(cjs|mjs|js|cts|mts|ts)$/i.test(file) || file.endsWith(".d.ts")) continue;
+          try {
+            const mod = require(path.join(dir, file));
+            if (mod?.skipDeploy === true) continue;
+            const data = mod?.data;
+            if (!data || typeof data.toJSON !== "function") continue;
+            const json = data.toJSON();
+            const discordName = String(json?.name || "").trim();
+            if (!discordName) continue;
+            if (obsoleteNames.has(discordName.toLowerCase())) continue;
+            const discordType = Number(json?.type) || 1;
+            const type = discordTypeToSlashKind(discordType);
+            const aclKey = `s:${discordType}:${discordName}`;
+            if (seen.has(aclKey)) continue;
+            seen.add(aclKey);
+            let cat = category;
+            const nameLc = discordName.toLowerCase();
+            if (
+              GLOBAL_TENANT_COMMAND_NAMES.has(nameLc) ||
+              nameLc === "delete" ||
+              /partnership/i.test(discordName)
+            ) {
+              cat = "partnership";
+            }
+            items.push({
+              name: aclKey,
+              displayName: discordType === 1 ? `/${discordName}` : discordName,
+              category: cat,
+              kind: "slash",
+              type,
+              discordType,
+              discordName,
+              typeLabel: SLASH_TYPE_LABELS[type] || SLASH_TYPE_LABELS.chat,
+              description: resolveApplicationCommandDescription(discordName, json?.description),
+              usage: discordType === 1 ? `/${discordName}` : "",
+              examples: [],
+              aliases: [],
+              cooldownSeconds: null,
+              syncsToDiscord: true,
+            });
+          } catch (_) {}
+        }
       }
     }
   } catch (_) {}

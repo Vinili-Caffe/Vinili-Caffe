@@ -195,7 +195,15 @@ export function StaffCardView({ token, userId, access, onNavigate }: { token: st
 
   const isHS = Boolean(access?.isHighStaff);
   const actions = new Set(mng?.actions ?? []);
-  const ctx: StatCtx = { token, userId, card, isHighStaff: isHS, actions, onChanged: refresh };
+  const ctx: StatCtx = {
+    token,
+    userId,
+    card,
+    isHighStaff: isHS,
+    canReportPuntiTolti: Boolean(access?.canReviewPmPointsRemoved),
+    actions,
+    onChanged: refresh,
+  };
   const p = card.partner;
   const showPm = Boolean(card.role?.isPm && p);
   const canManageCareer = Boolean(mng?.canManage && !mng.readOnly && !card.isSelf && mng.member && actions.size);

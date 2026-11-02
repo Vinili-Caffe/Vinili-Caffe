@@ -50,15 +50,6 @@ const TENANT_UTILITY_COMPONENT_PREFIXES = [
   "repost_src:",
   "repost_remove:",
   "quote_remove:",
-  "myrepost_page_",
-  "myrepost_del:",
-  "myrepost_close:",
-  "myclip_page_",
-  "myclip_del:",
-  "myclip_close:",
-  "myquote_page_",
-  "myquote_del:",
-  "myquote_close:",
 ];
 
 const TENANT_PARTNERSHIP_SETUP_PREFIXES = [
@@ -204,9 +195,6 @@ async function checkTenantPartnershipSlashAccess(interaction?, options: Record<s
   const tenantPartnerCommands = new Set([
     "partnership",
     "delete",
-    "elimina partnership",
-    "aggiungi punti",
-    "rimuovi punti",
   ]);
   if (!guildId || isMainGuild(guildId) || !tenantPartnerCommands.has(cmd)) return null;
   if (!isPartnershipOperational(guildId)) {
@@ -243,40 +231,6 @@ async function checkTenantPartnershipSlashAccess(interaction?, options: Record<s
     }
     return allowed;
   }
-  if (cmd === "elimina partnership") {
-    const {
-      memberCanManageTenantPartnershipSettings,
-      TENANT_PARTNERSHIP_ADMIN_DENIED_MESSAGE,
-    } = require("../../MultiGuild/utils/Partner/tenantPartnershipAdminAccess") as typeof import("../../MultiGuild/utils/Partner/tenantPartnershipAdminAccess");
-    const allowed = memberCanManageTenantPartnershipSettings(interaction.member, interaction.guild);
-    if (options.returnDetails) {
-      return {
-        allowed,
-        reason: allowed ? null : "missing_role",
-        requiredRoles: null,
-        channels: null,
-        message: allowed ? null : TENANT_PARTNERSHIP_ADMIN_DENIED_MESSAGE,
-      };
-    }
-    return allowed;
-  }
-  if (cmd === "aggiungi punti" || cmd === "rimuovi punti") {
-    const allowed = Boolean(
-      interaction.member?.permissions?.has?.(PermissionFlagsBits.Administrator),
-    );
-    if (options.returnDetails) {
-      return {
-        allowed,
-        reason: allowed ? null : "missing_permission",
-        requiredRoles: null,
-        channels: null,
-        message: allowed
-          ? null
-          : "<a:VC_Cross:1482532424570376253> Solo un **Amministratore** può usare questo comando.",
-      };
-    }
-    return allowed;
-  }
   if (cmd === "delete") {
     const sub = String(interaction.options?.getSubcommand?.(false) || "").toLowerCase();
     if (sub !== "partnership") {
@@ -307,18 +261,6 @@ async function checkTenantPartnershipSlashAccess(interaction?, options: Record<s
       };
     }
     return allowed;
-  }
-  if (cmd === "segnala") {
-    if (options.returnDetails) {
-      return {
-        allowed: false,
-        reason: "main_guild_only",
-        requiredRoles: null,
-        channels: null,
-        message: "<:vegax:1443934876440068179> Questo comando è disponibile solo sul server principale.",
-      };
-    }
-    return false;
   }
 }
 

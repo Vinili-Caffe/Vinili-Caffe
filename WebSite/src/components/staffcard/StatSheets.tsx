@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { ArrowLeftRight, CalendarDays, Check, ExternalLink, Gift, Loader2, Minus, Plus, Trash2, X } from "lucide-react";
+import { ArrowLeftRight, CalendarDays, Check, ExternalLink, Gift, Loader2, Minus, Plus, ShieldAlert, Trash2, X } from "lucide-react";
 import { Avatar } from "@/components/Avatar";
 import { confirmDialog, promptDialog, showToast } from "@/components/ui";
 import {
@@ -13,6 +13,7 @@ import {
   manage,
   pmPoints,
   redeemShop,
+  reportPuntiTolti,
   reviewPuntiTolti,
   valTrade,
   type PauseItem,
@@ -23,7 +24,15 @@ import {
 import { cn } from "@/lib/cn";
 import { ReasonRow } from "./Sheet";
 
-type Ctx = { token: string; userId: string; card: StaffCard; isHighStaff: boolean; actions: Set<string>; onChanged: () => void };
+type Ctx = {
+  token: string;
+  userId: string;
+  card: StaffCard;
+  isHighStaff: boolean;
+  canReportPuntiTolti: boolean;
+  actions: Set<string>;
+  onChanged: () => void;
+};
 
 /** Esegue un'azione, mostra l'esito e ricarica la scheda. */
 function useRun(onChanged: () => void) {
@@ -294,7 +303,19 @@ export function PmSheet({ ctx }: { ctx: Ctx }) {
     const amount = Number.parseInt(n, 10);
     if (!Number.isInteger(amount) || amount < 1 || amount > 500) return showToast("Quantità punti tra 1 e 500.", true);
     const reason = await askReason(add ? "Motivo dell'aggiunta" : "Motivo della rimozione");
-    if (reason) run(() => pmPoints(token, userId, add, amount, reason), "Punti aggiornati.");
+    if (!reason) return;
+    let messageLink = "";
+    if (!add) {
+      const link = await promptDialog({
+        title: "Link messaggio partner (opzionale)",
+        inputLabel: "Se lo inserisci, elimina anche la partnership",
+        placeholder: "https://discord.com/channels/… (lascia vuoto = solo punti)",
+        maxLength: 200,
+      });
+      if (link === null) return;
+      messageLink = link.trim();
+    }
+    run(() => pmPoints(token, userId, add, amount, reason, messageLink || undefined), "Punti aggiornati.");
   };
   const redeem = async (tier: number, reward: string, cost: number) => {
     if (!(await confirmDialog({ title: `Riscattare "${reward}"?`, message: `Costa ${cost} punti PM. Riscatto manuale High Staff (sito).`, confirmLabel: "Riscatta" }))) return;
@@ -387,53 +408,77 @@ const PT_TONE: Record<string, string> = {
 };
 
 export function PtSheet({ ctx }: { ctx: Ctx }) {
-  const { token, userId } = ctx;
+  const { token, userId, canReportPuntiTolti } = ctx;
   const { busy, run } = useRun(ctx.onChanged);
   const [items, setItems] = useState<PtItem[] | null>(null);
   const load = useCallback(() => loadPuntiTolti(token, userId).then((r) => setItems(r.ok ? r.data.items : [])), [token, userId]);
   useEffect(() => void load(), [load]);
 
+  const createReport = async () => {
+    const rule = await askReason("Regola violata");
+    if (!rule) return;
+    const link = await promptDialog({
+      title: "Link messaggio partner",
+      inputLabel: "Messaggio di descrizione nel canale partnership",
+      placeholder: "https://discord.com/channels/…",
+      maxLength: 200,
+    });
+    if (link === null) return;
+    const messageLink = link.trim();
+    if (!messageLink) return showToast("Serve il link del messaggio partner.", true);
+    run(() => reportPuntiTolti(token, userId, rule, messageLink), "Segnalazione inviata.").then((ok) => {
+      if (ok) void load();
+    });
+  };
+
   return (
-    <ul className="space-y-3">
-      {items === null && <li className="h-20 animate-pulse rounded-2xl bg-crema/[0.04]" />}
-      {items?.length === 0 && <li className="text-sm text-crema/50">Nessun punto tolto.</li>}
-      {items?.map((it) => (
-        <li key={it.messageId} className="rounded-2xl bg-crema/[0.04] p-4 ring-1 ring-sand/10">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="font-semibold">{it.rule}</span>
-            <span className={cn("rounded-full px-2.5 py-0.5 text-xs font-bold", PT_TONE[it.status] || PT_TONE.logged)}>{PT_STATUS[it.status] || "Registrata"}</span>
-            <span className="ml-auto text-xs text-crema/45 lining-nums">{new Date(it.createdAt).toLocaleDateString("it-IT", { day: "numeric", month: "short" })}</span>
-          </div>
-          {it.reporter && (
-            <p className="mt-2 flex items-center gap-2 text-xs text-crema/55">
-              <Avatar src={it.reporter.avatarUrl} name={it.reporter.displayName} className="size-5 text-[0.55rem]" /> Segnalato da {it.reporter.displayName}
-            </p>
-          )}
-          <div className="mt-2 flex flex-wrap gap-3 text-xs">
-            {it.messageLink && (
-              <a href={it.messageLink} target="_blank" rel="noopener" className="inline-flex items-center gap-1 text-caramel hover:text-ember">
-                <ExternalLink className="size-3.5" /> Messaggio
-              </a>
-            )}
-            {it.invite && (
-              <a href={it.invite} target="_blank" rel="noopener" className="inline-flex items-center gap-1 text-caramel hover:text-ember">
-                <ExternalLink className="size-3.5" /> Invito
-              </a>
-            )}
-          </div>
-          {it.canReview && it.status === "pending" && (
-            <div className="mt-3 flex gap-2">
-              <button type="button" disabled={busy} onClick={() => run(() => reviewPuntiTolti(token, it.messageId, true), "Punto tolto confermato.").then((ok) => { if (ok) void load(); })} className={cn(btn, "bg-[#a83a2c] text-crema")}>
-                {busy ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />} Conferma
-              </button>
-              <button type="button" disabled={busy} onClick={() => run(() => reviewPuntiTolti(token, it.messageId, false), "Punto tolto negato.").then((ok) => { if (ok) void load(); })} className={cn(btn, "bg-crema/8 ring-1 ring-sand/25")}>
-                Nega
-              </button>
+    <div className="space-y-4">
+      {canReportPuntiTolti && (
+        <button type="button" disabled={busy} onClick={() => void createReport()} className={cn(btn, "bg-ember/20 text-ember ring-1 ring-ember/30")}>
+          <ShieldAlert className="size-4" /> Nuova segnalazione
+        </button>
+      )}
+      <ul className="space-y-3">
+        {items === null && <li className="h-20 animate-pulse rounded-2xl bg-crema/[0.04]" />}
+        {items?.length === 0 && <li className="text-sm text-crema/50">Nessun punto tolto.</li>}
+        {items?.map((it) => (
+          <li key={it.messageId} className="rounded-2xl bg-crema/[0.04] p-4 ring-1 ring-sand/10">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="font-semibold">{it.rule}</span>
+              <span className={cn("rounded-full px-2.5 py-0.5 text-xs font-bold", PT_TONE[it.status] || PT_TONE.logged)}>{PT_STATUS[it.status] || "Registrata"}</span>
+              <span className="ml-auto text-xs text-crema/45 lining-nums">{new Date(it.createdAt).toLocaleDateString("it-IT", { day: "numeric", month: "short" })}</span>
             </div>
-          )}
-        </li>
-      ))}
-    </ul>
+            {it.reporter && (
+              <p className="mt-2 flex items-center gap-2 text-xs text-crema/55">
+                <Avatar src={it.reporter.avatarUrl} name={it.reporter.displayName} className="size-5 text-[0.55rem]" /> Segnalato da {it.reporter.displayName}
+              </p>
+            )}
+            <div className="mt-2 flex flex-wrap gap-3 text-xs">
+              {it.messageLink && (
+                <a href={it.messageLink} target="_blank" rel="noopener" className="inline-flex items-center gap-1 text-caramel hover:text-ember">
+                  <ExternalLink className="size-3.5" /> Messaggio
+                </a>
+              )}
+              {it.invite && (
+                <a href={it.invite} target="_blank" rel="noopener" className="inline-flex items-center gap-1 text-caramel hover:text-ember">
+                  <ExternalLink className="size-3.5" /> Invito
+                </a>
+              )}
+            </div>
+            {it.canReview && it.status === "pending" && (
+              <div className="mt-3 flex gap-2">
+                <button type="button" disabled={busy} onClick={() => run(() => reviewPuntiTolti(token, it.messageId, true), "Punto tolto confermato.").then((ok) => { if (ok) void load(); })} className={cn(btn, "bg-[#a83a2c] text-crema")}>
+                  {busy ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />} Conferma
+                </button>
+                <button type="button" disabled={busy} onClick={() => run(() => reviewPuntiTolti(token, it.messageId, false), "Punto tolto negato.").then((ok) => { if (ok) void load(); })} className={cn(btn, "bg-crema/8 ring-1 ring-sand/25")}>
+                  Nega
+                </button>
+              </div>
+            )}
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 

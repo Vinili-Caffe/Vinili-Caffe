@@ -111,7 +111,193 @@ async function handleSiteStaffPmPointsRemovedPost(client?, req?, res?) {
     if (!access.ok) {
       return res.status(access.status).json({ ok: false, error: access.error, message: access.message });
     }
-    if (!memberIsHighStaffForPointReview(access.member)) {
+
+    const body = req.body && typeof req.body === "object" ? req.body : {};
+    const action = String(body.action || "").trim().toLowerCase();
+    const canReview = memberIsHighStaffForPointReview(access.member);
+
+    const guildId = String(IDs.guilds.main || "");
+    const guild =
+      client.guilds.cache.get(guildId) || (await client.guilds.fetch(guildId).catch(() => null));
+    if (!guild) {
+      return res.status(503).json({ ok: false, error: "guild_unavailable", message: "Server non disponibile." });
+    }
+
+    if (action === "report") {
+      if (!canReview) {
+        return res.status(403).json({
+          ok: false,
+          error: "forbidden",
+          message: "Solo High Staff o gestore PM può inviare segnalazioni.",
+        });
+      }
+      const pmUserId = String(body.pmUserId || body.userId || "").trim();
+      const rule = String(body.rule || body.reason || body.motivo || "").trim().slice(0, 500);
+      const rawMessageLink = String(body.messageLink || body.messageUrl || "").trim();
+      if (!/^\d{16,20}$/.test(pmUserId)) {
+        return res.status(400).json({ ok: false, error: "invalid_user", message: "Partner Manager non valido." });
+      }
+      if (rule.length < 3) {
+        return res.status(400).json({ ok: false, error: "invalid_rule", message: "Indica la regola violata (min. 3 caratteri)." });
+      }
+      const {
+        parseDiscordMessageLink,
+        buildPartnershipMessageLink,
+        buildPartnerPointLogContent,
+        getPartnerPointHighStaffPingRoleIds,
+        isPartnershipDescriptionMessage,
+        resolvePartnerManagerUserIdFromMessage,
+      } = require("../../Utils/Partner/partnerPointContextUtils") as typeof import("../../Utils/Partner/partnerPointContextUtils");
+      const parsedLink = parseDiscordMessageLink(rawMessageLink);
+      if (!parsedLink || parsedLink.guildId !== guildId) {
+        return res.status(400).json({
+          ok: false,
+          error: "invalid_message_link",
+          message: "Incolla un link messaggio Discord valido del server principale.",
+        });
+      }
+      const channel =
+        guild.channels.cache.get(parsedLink.channelId) ||
+        (await guild.channels.fetch(parsedLink.channelId).catch(() => null));
+      const targetMessage = channel?.messages
+        ? await channel.messages.fetch(parsedLink.messageId).catch(() => null)
+        : null;
+      if (!targetMessage?.id) {
+        return res.status(400).json({
+          ok: false,
+          error: "message_not_found",
+          message: "Messaggio non trovato.",
+        });
+      }
+      if (!isPartnershipDescriptionMessage(targetMessage)) {
+        return res.status(400).json({
+          ok: false,
+          error: "not_partnership_description",
+          message:
+            "Usa il link del messaggio di descrizione partner (canale partnership), non il ringraziamento.",
+        });
+      }
+      const linkedPm =
+        (await resolvePartnerManagerUserIdFromMessage(guildId, targetMessage.id)) || "";
+      if (!linkedPm) {
+        return res.status(400).json({
+          ok: false,
+          error: "pm_not_found",
+          message: "Non trovo il Partner Manager collegato a questa partner.",
+        });
+      }
+      if (linkedPm !== pmUserId) {
+        return res.status(400).json({
+          ok: false,
+          error: "pm_mismatch",
+          message: "Quel messaggio non risulta collegato a questo Partner Manager.",
+        });
+      }
+      const { memberHasPartnerManagerRole } = require("../../Utils/Partner/partnershipConfigResolver") as typeof import("../../Utils/Partner/partnershipConfigResolver");
+      const pmMember = await guild.members.fetch(pmUserId).catch(() => null);
+      if (!memberHasPartnerManagerRole(pmMember, guildId)) {
+        return res.status(400).json({
+          ok: false,
+          error: "not_pm",
+          message: "L'utente non è più Partner Manager.",
+        });
+      }
+
+      const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js") as typeof import("discord.js");
+      const {
+        logPmPointsRemoved,
+        entryMessageId,
+      } = require("../../Utils/Partner/pmPointsRemovedStore") as typeof import("../../Utils/Partner/pmPointsRemovedStore");
+      const { getPartnershipLogChannelIds } = require("../../Utils/Partner/partnershipConfigResolver") as typeof import("../../Utils/Partner/partnershipConfigResolver");
+      const { isDiscordStaffChannelPostsEnabled } = require("../../site/http/discordWorkflowUiGate") as typeof import("../../site/http/discordWorkflowUiGate");
+
+      const messageLink = buildPartnershipMessageLink(
+        guildId,
+        parsedLink.channelId,
+        parsedLink.messageId,
+      );
+      const reporterUserId = String(access.member?.id || "");
+      const content = buildPartnerPointLogContent({
+        pmUserId,
+        rule,
+        messageLink,
+        reporterUserId,
+        pingHighStaff: true,
+        statusLine: "<:VC_Attention:1482534443632558151> In attesa di conferma High Staff.",
+      });
+      const row = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId(`partner_pt_ok:${pmUserId}:${reporterUserId}`)
+          .setLabel("Conferma rimozione")
+          .setStyle(ButtonStyle.Danger),
+        new ButtonBuilder()
+          .setCustomId(`partner_pt_no:${pmUserId}:${reporterUserId}`)
+          .setLabel("Nega segnalazione")
+          .setStyle(ButtonStyle.Secondary),
+      );
+
+      let mirrorChannel = null;
+      if (isDiscordStaffChannelPostsEnabled()) {
+        const channelIds = getPartnershipLogChannelIds(guild.id);
+        const hardFallback = String(IDs.channels?.puntiTolti || "").trim();
+        for (const cid of [channelIds.primary, channelIds.fallback, hardFallback]) {
+          if (!cid) continue;
+          mirrorChannel = guild.channels.cache.get(cid) || null;
+          if (mirrorChannel?.isTextBased?.()) break;
+          mirrorChannel = null;
+        }
+      }
+
+      const entry = await logPmPointsRemoved({
+        guild,
+        pmUserId,
+        rule,
+        messageLink,
+        reporterUserId,
+        status: "pending",
+        source: "report",
+        mirrorChannel,
+        mirrorContent: content,
+        mirrorComponents: [row],
+        mirrorAllowedMentions: { roles: getPartnerPointHighStaffPingRoleIds() },
+      });
+      if (!entry) {
+        return res.status(500).json({
+          ok: false,
+          error: "log_failed",
+          message: "Impossibile registrare la segnalazione.",
+        });
+      }
+
+      if (entryMessageId(entry)) {
+        try {
+          const { notifyPuntiToltiPending, memberDisplayName } = require("./siteStaffEventNotifications") as typeof import("./siteStaffEventNotifications");
+          const reporterMember = access.member;
+          void notifyPuntiToltiPending({
+            guild,
+            pmUserId,
+            pmName: memberDisplayName(pmMember, null, pmUserId),
+            reporterName: memberDisplayName(reporterMember, null, reporterUserId),
+            rule,
+            messageId: entryMessageId(entry),
+          }).catch(() => 0);
+        } catch (_) {}
+      }
+
+      try {
+        const { clearStaffProfileCacheForUser } = require("./siteStaffProfileApi") as typeof import("./siteStaffProfileApi");
+        clearStaffProfileCacheForUser(pmUserId);
+      } catch (_) {}
+
+      return res.status(200).json({
+        ok: true,
+        message: "Segnalazione inviata. In attesa di conferma High Staff.",
+        messageId: entryMessageId(entry),
+        status: "pending",
+      });
+    }
+
+    if (!canReview) {
       return res.status(403).json({
         ok: false,
         error: "forbidden",
@@ -119,21 +305,12 @@ async function handleSiteStaffPmPointsRemovedPost(client?, req?, res?) {
       });
     }
 
-    const body = req.body && typeof req.body === "object" ? req.body : {};
-    const action = String(body.action || "").trim().toLowerCase();
     const messageId = String(body.messageId || "").trim();
     if (!messageId) {
       return res.status(400).json({ ok: false, error: "invalid_message", message: "messageId non valido." });
     }
     if (action !== "confirm" && action !== "deny") {
       return res.status(400).json({ ok: false, error: "invalid_action", message: "Azione non valida." });
-    }
-
-    const guildId = String(IDs.guilds.main || "");
-    const guild =
-      client.guilds.cache.get(guildId) || (await client.guilds.fetch(guildId).catch(() => null));
-    if (!guild) {
-      return res.status(503).json({ ok: false, error: "guild_unavailable", message: "Server non disponibile." });
     }
 
     const entry = await findPmPointsRemovedEntry(guildId, messageId);

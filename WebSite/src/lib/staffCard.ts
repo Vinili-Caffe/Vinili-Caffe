@@ -194,8 +194,21 @@ export const manage = (token: string, body: { action: string; userId: string; re
   call<{ message: string }>("/webhooks/site-staff-manage", token, body);
 export const valTrade = (token: string, body: { action: "neg_trade"; userId: string; negativeId: number } | { action: "pos_pause_trade"; userId: string; positiveCount: number; pauseDays: number }) =>
   call<{ message?: string }>("/webhooks/site-staff-valtrade", token, body);
-export const pmPoints = (token: string, userId: string, add: boolean, amount: number, reason: string) =>
-  call<{ message?: string }>("/webhooks/site-staff-pm-actions", token, { action: add ? "points_add" : "points_remove", userId, amount, reason });
+export const pmPoints = (
+  token: string,
+  userId: string,
+  add: boolean,
+  amount: number,
+  reason: string,
+  messageLink?: string,
+) =>
+  call<{ message?: string }>("/webhooks/site-staff-pm-actions", token, {
+    action: add ? "points_add" : "points_remove",
+    userId,
+    amount,
+    reason,
+    ...(messageLink ? { messageLink } : {}),
+  });
 
 export const loadShop = (token: string, userId: string) =>
   call<{ items: ShopRedeem[]; partner?: StaffCard["partner"] }>(`/webhooks/site-staff-pm-shop?${q({ userId, limit: 30 })}`, token);
@@ -206,6 +219,13 @@ export const loadPuntiTolti = (token: string, pmUserId: string) =>
   call<{ items: PtItem[]; canReview: boolean }>(`/webhooks/site-staff-pm-points-removed?${q({ pmUserId })}`, token);
 export const reviewPuntiTolti = (token: string, messageId: string, confirm: boolean) =>
   call<{ message?: string }>("/webhooks/site-staff-pm-points-removed", token, { action: confirm ? "confirm" : "deny", messageId });
+export const reportPuntiTolti = (token: string, pmUserId: string, rule: string, messageLink: string) =>
+  call<{ message?: string }>("/webhooks/site-staff-pm-points-removed", token, {
+    action: "report",
+    pmUserId,
+    rule,
+    messageLink,
+  });
 
 /* pageSize 20: staff+PM nella stessa settimana = 2 item (dual track) */
 export const loadResoconti = (token: string, userId: string, week?: string) =>

@@ -26,7 +26,7 @@ const TENANT_PARTNERSHIP_CATALOG = [
   { id: "settings", invoke: "+settings", example: "+settings", permissions: "manage_server" },
   { id: "leave_partnership", invoke: "+leave", syntaxKey: "help_cmd_leave_partnership_syntax", example: "+leave partnership", permissions: "manage_server" },
   { id: "description", invoke: "+description", example: "+description", permissions: "partner_manager" },
-  { id: "ctx_partnership", invoke: "Partnership", example: "Tasto destro → Apps → Partnership", permissions: "partner_manager" },
+  { id: "ctx_partnership", invoke: "Partner messaggio", example: "Tasto destro → Apps → Partner messaggio", permissions: "partner_manager" },
   { id: "slash_partnership", invoke: "/partnership", example: "/partnership", permissions: "partner_manager" },
   { id: "ctx_delete_partnership", invoke: "Elimina partnership", example: "Tasto destro sul messaggio → Apps → Elimina partnership", permissions: "admin_or_manage" },
   { id: "points", invoke: "+points", syntaxKey: "help_cmd_points_syntax", example: "+points", permissions: "partner_manager" },

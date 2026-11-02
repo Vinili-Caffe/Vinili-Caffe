@@ -138,10 +138,7 @@ function isPartnershipPublishChannel(channel?) {
   return false;
 }
 
-const PARTNERSHIP_PUBLISH_CHANNEL_ALLOWED_COMMANDS = new Set([
-  "segnala",
-  "elimina partnership",
-]);
+const PARTNERSHIP_PUBLISH_CHANNEL_ALLOWED_COMMANDS = new Set([]);
 
 function partnershipPublishChannelCommandsDeniedReplyContent(channel?, options: Record<string, any> = {}) {
   if (!isPartnershipPublishChannel(channel)) return null;
