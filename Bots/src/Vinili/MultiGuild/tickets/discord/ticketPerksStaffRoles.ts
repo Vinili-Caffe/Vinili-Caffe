@@ -1,4 +1,4 @@
-const IDs = require("../../../Utils/Config/ids") as typeof import("../../../Utils/Config/ids");
+const IDs = require("../../../Config/ids") as typeof import("../../../Config/ids");
 const SENIOR_MODERATOR_ROLE_ID = IDs.roles.SeniorModerator;
 const DIRECTOR_ROLE_ID = IDs.roles.Director;
 const HIGHSTAFF_ROLE_ID = IDs.roles.HighStaff;

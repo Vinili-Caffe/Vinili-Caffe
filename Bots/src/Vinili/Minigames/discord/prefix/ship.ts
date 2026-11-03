@@ -3,7 +3,7 @@ const { AttachmentBuilder, EmbedBuilder } = require("discord.js") as typeof impo
 const { getGuildMemberCached } = require("../../../../shared/discord/interactionEntityCache") as typeof import("../../../../shared/discord/interactionEntityCache");
 const { guildMemberDisplayAvatarUrlDynamic, guildMemberDisplayAvatarUrlStatic, userAvatarUrlDynamic, userAvatarUrlStatic } = require("../../../../shared/discord/guildDiscordIdentity") as typeof import("../../../../shared/discord/guildDiscordIdentity");
 const { safeMessageReply } = require("../../../../shared/discord/replyRuntime") as typeof import("../../../../shared/discord/replyRuntime");
-const renderShipCanvas = require("../../../Utils/Render/shipCanvas") as typeof import("../../../Utils/Render/shipCanvas");
+const renderShipCanvas = require("../../../Community/utils/Render/shipCanvas") as typeof import("../../../Community/utils/Render/shipCanvas");
 
 function extractId(raw?) {
   if (!raw) return null;

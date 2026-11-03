@@ -14,9 +14,13 @@ export = (client?) => {
   client.buttonHandlers = client.buttonHandlers || [];
 
   client.loadButtonHandlers = async (basePath?) => {
-    const localButtons = path.resolve(__dirname, "..", "Buttons");
+    const root = path.resolve(__dirname, "..");
+    const moduleButtonDirs = [
+      path.join(root, "Voice", "discord", "buttons"),
+      path.join(root, "Community", "discord", "buttons"),
+    ];
     const sharedMusicButtons = path.resolve(__dirname, "..", "..", "shared", "music", "discord", "buttons");
-    const dirs = basePath ? [basePath] : [localButtons, sharedMusicButtons];
+    const dirs = basePath ? [basePath] : [...moduleButtonDirs, sharedMusicButtons];
     const loaded = [];
     const seenNames = new Set();
 

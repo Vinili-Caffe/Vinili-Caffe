@@ -1,5 +1,5 @@
 const { ChannelType, EmbedBuilder, PermissionsBitField } = require("discord.js") as typeof import("discord.js");
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
+const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { getClientGuildCached, getGuildChannelCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
 const MAIN_GUILD_ID = String(IDs.guilds?.main || "").trim();
 const PM_AFK_VOICE_CATEGORY_ID = String( process.env.VC_PM_AFK_WATCH_CATEGORY_ID || IDs.categories?.categoryPublics || "1442569076902989844" ).trim();
@@ -31,7 +31,7 @@ function channelHasBlockingOfficialPresence(channel?, client = null) {
   if (!channel?.members || !PM_AFK_EXEMPT_BOT_IDS.size) return false;
   let probeActive = false;
   try {
-    const { isProbeActive } = require("../../Services/Voice/pmVoiceAfkProbeService") as typeof import("../../Services/Voice/pmVoiceAfkProbeService");
+    const { isProbeActive } = require("./pmVoiceAfkProbeService") as typeof import("./pmVoiceAfkProbeService");
     probeActive = isProbeActive(channel.guild?.id);
   } catch (_) {}
   const selfBotId = String(
@@ -56,7 +56,7 @@ function isAloneHumanInChannel(member?, channel?) {
 function isPublicAfkWatchTargetChannel(channel?, client?) {
   if (!channel) return false;
   if (PM_AFK_LOUNGE_VOICE_CHANNEL_IDS.has(String(channel.id || ""))) return true;
-  const { isPublicVoiceHubId, isSpawnedHubChannel } = require("../../Services/Voice/publicVoiceHubService") as typeof import("../../Services/Voice/publicVoiceHubService");
+  const { isPublicVoiceHubId, isSpawnedHubChannel } = require("../../Community/services/publicVoiceHubService") as typeof import("../../Community/services/publicVoiceHubService");
   const resolvedClient = client || channel.client || channel.guild?.client || null;
   if (isPublicVoiceHubId(channel.id, resolvedClient)) return true;
   if (isSpawnedHubChannel(channel, resolvedClient)) return true;
@@ -192,7 +192,7 @@ function evaluateMemberVoiceWatch(member?, opts?, client = null) {
       void cancelPendingPmAfkAlert(client, guildId, member.id).catch(() => null);
     } else {
       try {
-        const { abortPmVoiceAfkProbe } = require("../../Services/Voice/pmVoiceAfkProbeService") as typeof import("../../Services/Voice/pmVoiceAfkProbeService");
+        const { abortPmVoiceAfkProbe } = require("./pmVoiceAfkProbeService") as typeof import("./pmVoiceAfkProbeService");
         abortPmVoiceAfkProbe(guildId);
       } catch (_) {}
       clearMemberWatch(guildId, member.id);
@@ -209,7 +209,7 @@ async function deletePmAfkUserAlertMessage(client?, guildId?, userId?) {
   const alertChannelId = String(entry.alertChannelId || entry.channelId || "");
   const alertMessageId = String(entry.alertMessageId || "");
   if (!client || !alertChannelId || !alertMessageId) return false;
-  const { deleteProbeAlertMessage } = require("../../Services/Voice/pmVoiceAfkProbeService") as typeof import("../../Services/Voice/pmVoiceAfkProbeService");
+  const { deleteProbeAlertMessage } = require("./pmVoiceAfkProbeService") as typeof import("./pmVoiceAfkProbeService");
   return deleteProbeAlertMessage(client, guildId, alertChannelId, alertMessageId);
 }
 
@@ -218,7 +218,7 @@ async function cancelPendingPmAfkAlert(client?, guildId?, userId?, opts?) {
   const uid = String(userId || "");
   if (!gid || !uid) return false;
   try {
-    const { abortPmVoiceAfkProbe } = require("../../Services/Voice/pmVoiceAfkProbeService") as typeof import("../../Services/Voice/pmVoiceAfkProbeService");
+    const { abortPmVoiceAfkProbe } = require("./pmVoiceAfkProbeService") as typeof import("./pmVoiceAfkProbeService");
     abortPmVoiceAfkProbe(gid);
   } catch (_) {}
   const key = memberWatchKey(gid, uid);
@@ -231,7 +231,7 @@ async function cancelPendingPmAfkAlert(client?, guildId?, userId?, opts?) {
   const alertChannelId = String(entry.alertChannelId || entry.channelId || "");
   const alertMessageId = String(entry.alertMessageId || "");
   if (!keepMessage && client && alertChannelId && alertMessageId) {
-    const { deleteProbeAlertMessage } = require("../../Services/Voice/pmVoiceAfkProbeService") as typeof import("../../Services/Voice/pmVoiceAfkProbeService");
+    const { deleteProbeAlertMessage } = require("./pmVoiceAfkProbeService") as typeof import("./pmVoiceAfkProbeService");
     await deleteProbeAlertMessage(client, gid, alertChannelId, alertMessageId);
   }
   clearMemberWatch(gid, uid);
@@ -261,7 +261,7 @@ async function maybeCancelPendingAlertOnVoiceLeave(client?, oldState?, newState?
     return;
   }
   try {
-    const { abortPmVoiceAfkProbe } = require("../../Services/Voice/pmVoiceAfkProbeService") as typeof import("../../Services/Voice/pmVoiceAfkProbeService");
+    const { abortPmVoiceAfkProbe } = require("./pmVoiceAfkProbeService") as typeof import("./pmVoiceAfkProbeService");
     abortPmVoiceAfkProbe(guild.id);
   } catch (_) {}
   clearMemberWatch(guild.id, userId);
@@ -286,7 +286,7 @@ function rescanPmAfkWatchChannels(guild?, channelIds?, oldState?, client?) {
           void cancelPendingPmAfkAlert(client, guild.id, member.id).catch(() => null);
         } else {
           try {
-            const { abortPmVoiceAfkProbe } = require("../../Services/Voice/pmVoiceAfkProbeService") as typeof import("../../Services/Voice/pmVoiceAfkProbeService");
+            const { abortPmVoiceAfkProbe } = require("./pmVoiceAfkProbeService") as typeof import("./pmVoiceAfkProbeService");
             abortPmVoiceAfkProbe(guild.id);
           } catch (_) {}
           clearMemberWatch(guild.id, member.id);
@@ -318,7 +318,7 @@ async function handlePmVoiceAfkChatMessage(message?, client?) {
   const entry = getMemberWatchEntry(message.guild.id, message.author.id);
   if (!isPendingAlert(entry)) return false;
   try {
-    const { abortPmVoiceAfkProbe } = require("../../Services/Voice/pmVoiceAfkProbeService") as typeof import("../../Services/Voice/pmVoiceAfkProbeService");
+    const { abortPmVoiceAfkProbe } = require("./pmVoiceAfkProbeService") as typeof import("./pmVoiceAfkProbeService");
     abortPmVoiceAfkProbe(message.guild.id);
   } catch (_) {}
   await cancelPendingPmAfkAlert(client, message.guild.id, message.author.id);
@@ -331,7 +331,7 @@ function handlePmVoiceAfkSpeakingProbe(client?, oldState?, newState?) {
   const userId = String(newState.id || newState.member?.id || "");
   if (!userId || newState.member?.user?.bot) return;
   try {
-    const { notifyProbeSpeechHeard } = require("../../Services/Voice/pmVoiceAfkProbeService") as typeof import("../../Services/Voice/pmVoiceAfkProbeService");
+    const { notifyProbeSpeechHeard } = require("./pmVoiceAfkProbeService") as typeof import("./pmVoiceAfkProbeService");
     notifyProbeSpeechHeard(newState.guild.id, userId);
   } catch (_) {}
 }

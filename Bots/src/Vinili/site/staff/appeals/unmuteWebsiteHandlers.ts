@@ -1,4 +1,4 @@
-const IDs = require("../../../Utils/Config/ids") as typeof import("../../../Utils/Config/ids");
+const IDs = require("../../../Config/ids") as typeof import("../../../Config/ids");
 const { newSiteWorkflowMessageId } = require("../../http/discordWorkflowUiGate") as typeof import("../../http/discordWorkflowUiGate");
 const { getBotState, setBotState } = require("../../../../shared/botState/botStateStore") as typeof import("../../../../shared/botState/botStateStore");
 const {

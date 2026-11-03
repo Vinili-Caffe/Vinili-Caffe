@@ -1,5 +1,5 @@
-const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
+const { ActivityUserProfile } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
+const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 
 const THIRTY_DAYS_MS = 30 * 86400000;
 
@@ -29,7 +29,7 @@ function partnerManagerVipActiveFromLean(lean?) {
 
 function memberHasRemappedRoleIds(member?, roleIds?) {
   try {
-    const { memberHasAnyRemappedRole } = require("../../Utils/Config/emergencyRoleIdRemap") as typeof import("../../Utils/Config/emergencyRoleIdRemap");
+    const { memberHasAnyRemappedRole } = require("../../Config/emergencyRoleIdRemap") as typeof import("../../Config/emergencyRoleIdRemap");
     return Boolean(memberHasAnyRemappedRole(member, roleIds));
   } catch (_) {
     const cache = member?.roles?.cache;
@@ -57,7 +57,7 @@ function memberHasVipPlusRole(member?) {
 
 function memberHasCustomRoleOrVocPermission(member?) {
   try {
-    const { memberHasCustomRolePanelAccess } = require("../../Utils/Community/customRoleSlots") as typeof import("../../Utils/Community/customRoleSlots");
+    const { memberHasCustomRolePanelAccess } = require("../../Community/utils/customRoleSlots") as typeof import("../../Community/utils/customRoleSlots");
     if (memberHasCustomRolePanelAccess(member)) return true;
   } catch (_) {}
   const vocRoleIds = [

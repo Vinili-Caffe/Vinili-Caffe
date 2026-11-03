@@ -1,7 +1,7 @@
 /** Ticket dal sito: ruoli dello staff, chi vede quali categorie, chi può scrivere o gestire. */
-const IDs: any = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
-const { WEB_TICKET_CATEGORIES, WEB_TICKET_STATUS } = require("../../features/tickets/data/siteWebTicketSchemas") as typeof import("../../features/tickets/data/siteWebTicketSchemas");
-const { memberHasStaffRole } = require("../../Utils/Community/staffListUtils") as typeof import("../../Utils/Community/staffListUtils");
+const IDs: any = require("../../Config/ids") as typeof import("../../Config/ids");
+const { WEB_TICKET_CATEGORIES, WEB_TICKET_STATUS } = require("../../MultiGuild/tickets/data/siteWebTicketSchemas") as typeof import("../../MultiGuild/tickets/data/siteWebTicketSchemas");
+const { memberHasStaffRole } = require("../../Community/utils/staffListUtils") as typeof import("../../Community/utils/staffListUtils");
 const { avatarForMember, normalizeCategory } = require("./ticketNames") as typeof import("./ticketNames");
 const { hasStaffTicketRole } = require("../../MultiGuild/tickets/discord/ticketStaffPanelBuild") as typeof import("../../MultiGuild/tickets/discord/ticketStaffPanelBuild");
 const { memberIsResocontoPmReviewer } = require("../../MultiGuild/tickets/discord/ticketPartnershipStaffRoles") as typeof import("../../MultiGuild/tickets/discord/ticketPartnershipStaffRoles");

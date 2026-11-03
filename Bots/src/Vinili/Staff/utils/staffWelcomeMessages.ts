@@ -1,6 +1,6 @@
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
-const { getStaffChatThreadIds, getStaffCmdsThreadIds } = require("../../Utils/Global/globalSettingsBucket") as typeof import("../../Utils/Global/globalSettingsBucket");
-const { applyPronounGenderToTextForMember } = require("../../Utils/Community/pronounGenderUtils") as typeof import("../../Utils/Community/pronounGenderUtils");
+const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
+const { getStaffChatThreadIds, getStaffCmdsThreadIds } = require("../../Community/services/globalSettingsBucket") as typeof import("../../Community/services/globalSettingsBucket");
+const { applyPronounGenderToTextForMember } = require("../../Community/utils/pronounGenderUtils") as typeof import("../../Community/utils/pronounGenderUtils");
 const { resolveStaffChatPmThread } = require("./staffChatChannelUtils") as typeof import("./staffChatChannelUtils");
 const { getGuildChannelCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
 const { siteWorkflowUrl } = require("../../site/http/discordWorkflowUiGate") as typeof import("../../site/http/discordWorkflowUiGate");

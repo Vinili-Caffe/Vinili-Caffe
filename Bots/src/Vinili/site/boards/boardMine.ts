@@ -2,7 +2,7 @@
 const fs = require("node:fs") as typeof import("node:fs");
 const path = require("node:path") as typeof import("node:path");
 const mongoose = require("mongoose") as typeof import("mongoose");
-const { SiteDocument } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
+const { SiteDocument } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
 const { buildKnownBotGuildIdSet, syncKnownBotGuildIdsFromRest } = require("../../MultiGuild/dashboard/siteDashboardApi") as typeof import("../../MultiGuild/dashboard/siteDashboardApi");
 const { snowflakeOk, slugify, sanitizeText, sanitizeUrl, sanitizeTags, sanitizeCategories, sanitizeLocales, sanitizeSocials, discordGuildBannerUrl, discordGuildIconUrl, preferAnimatedDiscordMediaUrl, discordGuildInviteHint, sanitizeAccent, sanitizeBoardFeatures } = require("./boardSanitize") as typeof import("./boardSanitize");
 const { BOARD_BANNER_UPLOAD_ROOT, isUploadedBoardBannerUrl, resolveBoardsUser } = require("./boardBanners") as typeof import("./boardBanners");

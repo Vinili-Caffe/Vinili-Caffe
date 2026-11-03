@@ -123,7 +123,7 @@ function normalizePings(raw?) {
   const customRoleIdRaw = normalizeRoleId(raw.customRoleId ?? raw.cr);
   let customRoleId = customRoleIdRaw;
   try {
-    const { remapRoleIdForward } = require("../../Utils/Config/emergencyRoleIdRemap") as typeof import("../../Utils/Config/emergencyRoleIdRemap");
+    const { remapRoleIdForward } = require("../../Config/emergencyRoleIdRemap") as typeof import("../../Config/emergencyRoleIdRemap");
     customRoleId = remapRoleIdForward(customRoleIdRaw) || customRoleIdRaw;
   } catch (_) {}
   const customRoleMembers = normalizePositiveInt(raw.customRoleMembers ?? raw.crm);
@@ -445,7 +445,7 @@ async function setPartnerManagerRole(guildId?, roleId?) {
   let id = roleId ? normalizeRoleId(roleId) : null;
   if (roleId && !id) return { ok: false, reason: "invalid_role" };
   try {
-    const { remapRoleIdForward } = require("../../Utils/Config/emergencyRoleIdRemap") as typeof import("../../Utils/Config/emergencyRoleIdRemap");
+    const { remapRoleIdForward } = require("../../Config/emergencyRoleIdRemap") as typeof import("../../Config/emergencyRoleIdRemap");
     if (id) id = remapRoleIdForward(id) || id;
   } catch (_) {}
   const prev = getPartnershipConfigSync(guildId);
@@ -537,7 +537,7 @@ async function setManagerBadgeRole(guildId?, roleId?) {
   let id = roleId ? normalizeRoleId(roleId) : null;
   if (roleId && !id) return { ok: false, reason: "invalid_role" };
   try {
-    const { remapRoleIdForward } = require("../../Utils/Config/emergencyRoleIdRemap") as typeof import("../../Utils/Config/emergencyRoleIdRemap");
+    const { remapRoleIdForward } = require("../../Config/emergencyRoleIdRemap") as typeof import("../../Config/emergencyRoleIdRemap");
     if (id) id = remapRoleIdForward(id) || id;
   } catch (_) {}
   const prev = getPartnershipConfigSync(guildId);

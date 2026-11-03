@@ -1,6 +1,6 @@
 const { resolveGuildAccess } = require("../core/guildRegistry") as typeof import("../core/guildRegistry");
 const { getTenantChannelMapSync } = require("../core/tenantGuildSettings") as typeof import("../core/tenantGuildSettings");
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
+const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 
 function normalizeModLogChannelId(value?) {
   const id = String(value || "").trim();

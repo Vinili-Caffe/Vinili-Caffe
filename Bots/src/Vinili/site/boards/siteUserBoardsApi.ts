@@ -5,12 +5,12 @@
  */
 "use strict";
 
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
-const { listQuotesByUser, deleteUserQuoteEntry } = require("../../Utils/Quote/quoteBoardService") as typeof import("../../Utils/Quote/quoteBoardService");
+const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
+const { listQuotesByUser, deleteUserQuoteEntry } = require("../../Community/utils/Quote/quoteBoardService") as typeof import("../../Community/utils/Quote/quoteBoardService");
 const {
   listRepostsByUser,
   deleteUserRepostEntry,
-} = require("../../Services/Community/repostService") as typeof import("../../Services/Community/repostService");
+} = require("../../Community/services/repostService") as typeof import("../../Community/services/repostService");
 const { resolveWebsiteGuildMember } = require("../../site/http/siteRoleRequestApi") as typeof import("../../site/http/siteRoleRequestApi");
 const { getClientGuildCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
 const {

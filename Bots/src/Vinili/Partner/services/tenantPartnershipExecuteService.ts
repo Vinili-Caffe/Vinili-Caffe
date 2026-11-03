@@ -1,7 +1,7 @@
 const { EmbedBuilder } = require("discord.js") as typeof import("discord.js");
 const { getOrCreateStaffDoc, ensureStaff } = require("../../Staff/utils/staffDocUtils") as typeof import("../../Staff/utils/staffDocUtils");
 const { initPartnerManagerFieldsIfMissing } = require("../../Staff/utils/staffPmUtils") as typeof import("../../Staff/utils/staffPmUtils");
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
+const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { isPartnershipGuildBlacklisted } = require("./partnershipBlacklistService") as typeof import("./partnershipBlacklistService");
 const { isTenantPartnershipGuildBlacklisted } = require("./tenantPartnershipBlacklistService") as typeof import("./tenantPartnershipBlacklistService");
 const { isGuildBotUsageBlacklisted } = require("../../Moderation/services/botUsageBlacklistService") as typeof import("../../Moderation/services/botUsageBlacklistService");

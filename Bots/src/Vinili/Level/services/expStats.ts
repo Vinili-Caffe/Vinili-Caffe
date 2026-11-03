@@ -1,5 +1,5 @@
 /** EXP: statistiche e posizioni dell'utente, riallineamento dei livelli. */
-const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
+const { ActivityUserProfile } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
 const { isValidGuildUserId } = require("../../../shared/db/validateWriteIds") as typeof import("../../../shared/db/validateWriteIds");
 const { getIsoWeekKey, getLevelInfo, repairExpTotals } = require("./expLevels") as typeof import("./expLevels");
 const { syncLevelRolesForMember } = require("./expRoles") as typeof import("./expRoles");

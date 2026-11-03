@@ -1,4 +1,4 @@
-const { ghostPingUserIfHuman } = require("../Utils/Message/ghostPingOnChannelEnter") as typeof import("../Utils/Message/ghostPingOnChannelEnter");
+const { ghostPingUserIfHuman } = require("../Community/services/ghostPingOnChannelEnter") as typeof import("../Community/services/ghostPingOnChannelEnter");
 const {
   resolveManagedStaffThreadContext,
   pruneUnauthorizedStaffThreadMembers,

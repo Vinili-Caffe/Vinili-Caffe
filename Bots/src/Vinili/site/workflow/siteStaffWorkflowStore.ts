@@ -1,4 +1,4 @@
-const { SiteDocument } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
+const { SiteDocument } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
 const { getBotState, setBotState } = require("../../../shared/botState/botStateStore") as typeof import("../../../shared/botState/botStateStore");
 const { parseCandidateTypeFromMessage } = require("../../site/staff/candidature/candidatureApplicationHandlers") as typeof import("../../site/staff/candidature/candidatureApplicationHandlers");
 const {

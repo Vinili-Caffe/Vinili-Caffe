@@ -1,7 +1,7 @@
-const { ModCase, GlobalSettings, ActivityUserProfile } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
-const { MOD_CASES_PATH } = require("../../Utils/Community/activityUserProfilePaths") as typeof import("../../Utils/Community/activityUserProfilePaths");
-const { normalizeModConfigFromGlobal } = require("../../Utils/Global/globalSettingsGuildStores") as typeof import("../../Utils/Global/globalSettingsGuildStores");
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
+const { ModCase, GlobalSettings, ActivityUserProfile } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
+const { MOD_CASES_PATH } = require("../../Community/utils/activityUserProfilePaths") as typeof import("../../Community/utils/activityUserProfilePaths");
+const { normalizeModConfigFromGlobal } = require("../../Community/services/globalSettingsGuildStores") as typeof import("../../Community/services/globalSettingsGuildStores");
+const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 
 const BOT_MODERATOR_IDS = new Set(
   Object.values(IDs?.bots || {})

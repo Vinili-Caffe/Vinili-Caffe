@@ -1,4 +1,4 @@
-﻿/** TTS: motore (stato per server, collegamento al vocale, coda e riproduzione) e salvataggio della coda. */
+/** TTS: motore (stato per server, collegamento al vocale, coda e riproduzione) e salvataggio della coda. */
 const { joinVoiceChannel, getVoiceConnection, createAudioPlayer, createAudioResource, AudioPlayerStatus, entersState, VoiceConnectionStatus, StreamType } = require("@discordjs/voice") as typeof import("@discordjs/voice");
 const { isVoiceTransportError, voiceTransportErrorMessage } = require("../../discord/voiceTransportErrors") as typeof import("../../discord/voiceTransportErrors");
 const { getTtsVoiceJoinPolicy, voiceJoinRetryWaitMs } = require("../../discord/ttsVoiceJoinPolicy") as typeof import("../../discord/ttsVoiceJoinPolicy");
@@ -351,7 +351,7 @@ function cleanupAllTtsStateForGuild(guildId?) {
 }
 
 async function leaveTtsGuild(guildId?, client?) {
-  const { stopVoiceContinuousCapture } = require("../../../Vinili/Services/Voice/voiceContinuousCaptureService") as typeof import("../../../Vinili/Services/Voice/voiceContinuousCaptureService");
+  const { stopVoiceContinuousCapture } = require("../../../Vinili/Community/services/voiceContinuousCaptureService") as typeof import("../../../Vinili/Community/services/voiceContinuousCaptureService");
   await stopVoiceContinuousCapture(guildId, client).catch(() => null);
   markTtsVoiceDisconnectSuppress(guildId);
   clearTtsPostJoinVoiceGrace(guildId);
@@ -453,6 +453,12 @@ async function saveVoiceState(guildId?, channelId?, botUserId?) {
       { upsert: true, new: true },
     );
   } catch (error) {
+    if (
+      error?.name === "MongoNotConnectedError" ||
+      /Client must be connected before running operations/i.test(String(error?.message || error || ""))
+    ) {
+      return;
+    }
     global.logger?.error?.("[TTS] Failed to save voice state", error);
   }
 }
@@ -464,6 +470,12 @@ async function clearVoiceState(guildId?, botUserId?) {
   try {
     await voiceDeleteOne({ guildId, botUserId: bid });
   } catch (error) {
+    if (
+      error?.name === "MongoNotConnectedError" ||
+      /Client must be connected before running operations/i.test(String(error?.message || error || ""))
+    ) {
+      return;
+    }
     global.logger?.error?.("[TTS] Failed to clear voice state", error);
   }
 }

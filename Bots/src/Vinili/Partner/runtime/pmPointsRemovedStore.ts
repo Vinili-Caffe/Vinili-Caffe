@@ -1,6 +1,6 @@
 const {
   SitePmPointsRemovedEntry,
-} = require("../../Schemas/Web/sitePmPointsRemovedSchemas") as typeof import("../../Schemas/Web/sitePmPointsRemovedSchemas");
+} = require("../schemas/sitePmPointsRemovedSchemas") as typeof import("../schemas/sitePmPointsRemovedSchemas");
 const { removePartnerPoints, formatPartnerPointsChange } = require("../../Staff/utils/partnerPointsUtils") as typeof import("../../Staff/utils/partnerPointsUtils");
 const { resolvePartnerTotalEarned, resolvePartnerPointsShown } = require("../../Staff/utils/partnerPointsDisplayUtils") as typeof import("../../Staff/utils/partnerPointsDisplayUtils");
 const { memberHasPartnerManagerRole } = require("../core/partnershipConfigResolver") as typeof import("../core/partnershipConfigResolver");

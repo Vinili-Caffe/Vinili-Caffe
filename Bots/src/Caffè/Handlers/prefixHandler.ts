@@ -79,50 +79,60 @@ function ensurePrefixUsageMetadata(command?, prefix = ",") {
 
 export = (client?) => {
   client.prefixCommands = async (folders = [], basePath?) => {
-    const prefixBase = basePath || path.resolve(__dirname, "..", "Prefix");
     const runtimePrefix = String(client?.config?.prefix || ",");
     const newPcommands = new client.pcommands.constructor();
     const newAliases = new client.aliases.constructor();
     const statusMap = new Map();
 
-    for (const folder of folders) {
-      // TTS e Music vivono in shared (buildTtsCommands / buildMusic*)
-      if (folder === "TTS" || folder === "Music") continue;
-      const folderPath = path.join(prefixBase, folder);
-      if (!fs.existsSync(folderPath)) continue;
-      const files = fs.readdirSync(folderPath).filter((f?) => /\.(cjs|mjs|js|cts|mts|ts)$/i.test(f) && !f.endsWith(".d.ts"));
-      for (const file of files) {
-        const fullPath = path.join(prefixBase, folder, file);
-        const key = `${folder}/${file}`;
-        try {
-          delete require.cache[require.resolve(fullPath)];
-          const command = require(fullPath);
-          if (!command || !command.name) {
-            statusMap.set(key, "Missing name.");
-            continue;
-          }
-          if (command.skipLoad || command.skipPrefix) {
-            continue;
-          }
-          command.folder = command.folder || folder;
-          ensurePrefixSubcommandMetadata(command);
-          ensurePrefixUsageMetadata(command, runtimePrefix);
-
-          newPcommands.set(command.name, command);
-          statusMap.set(key, "Loaded.");
-
-          if (Array.isArray(command.aliases)) {
-            for (const alias of command.aliases) newAliases.set(alias, command.name);
-          }
-        } catch (err) {
-          statusMap.set(key, "Error loading.");
-          global.logger?.error?.(`[PREFIX] Failed to load ${key}:`, err);
+    function loadPrefixFile(fullPath?, folderLabel?) {
+      const key = `${folderLabel}/${path.basename(fullPath)}`;
+      try {
+        delete require.cache[require.resolve(fullPath)];
+        const command = require(fullPath);
+        if (!command || !command.name) {
+          statusMap.set(key, "Missing name.");
+          return;
         }
+        if (command.skipLoad || command.skipPrefix) return;
+        command.folder = command.folder || folderLabel;
+        ensurePrefixSubcommandMetadata(command);
+        ensurePrefixUsageMetadata(command, runtimePrefix);
+        newPcommands.set(command.name, command);
+        statusMap.set(key, "Loaded.");
+        if (Array.isArray(command.aliases)) {
+          for (const alias of command.aliases) newAliases.set(alias, command.name);
+        }
+      } catch (err) {
+        statusMap.set(key, "Error loading.");
+        global.logger?.error?.(`[PREFIX] Failed to load ${key}:`, err);
+      }
+    }
+
+    // Community (e altri moduli) — flat dirs under */discord/prefix
+    const modulePrefixDirs = [
+      path.resolve(__dirname, "..", "Community", "discord", "prefix"),
+    ];
+    if (basePath) modulePrefixDirs.unshift(basePath);
+    for (const dir of modulePrefixDirs) {
+      if (!fs.existsSync(dir)) continue;
+      const folderLabel = path.basename(path.dirname(path.dirname(dir))) || "prefix";
+      for (const file of fs.readdirSync(dir).filter((f?) => /\.(cjs|mjs|js|cts|mts|ts)$/i.test(f) && !f.endsWith(".d.ts"))) {
+        loadPrefixFile(path.join(dir, file), folderLabel);
+      }
+    }
+    // legacy optional Prefix/<folder> if still present
+    const legacyPrefixBase = path.resolve(__dirname, "..", "Prefix");
+    for (const folder of folders) {
+      if (folder === "TTS" || folder === "Music") continue;
+      const folderPath = path.join(legacyPrefixBase, folder);
+      if (!fs.existsSync(folderPath)) continue;
+      for (const file of fs.readdirSync(folderPath).filter((f?) => /\.(cjs|mjs|js|cts|mts|ts)$/i.test(f) && !f.endsWith(".d.ts"))) {
+        loadPrefixFile(path.join(folderPath, file), folder);
       }
     }
 
     try {
-      const voiceSession = require("../Services/Voice/voiceSessionService") as typeof import("../Services/Voice/voiceSessionService");
+      const voiceSession = require("../Voice/services/voiceSessionService") as typeof import("../Voice/services/voiceSessionService");
       const { buildTtsCommands } = require("../../shared/tts/discord/prefixCommands") as typeof import("../../shared/tts/discord/prefixCommands");
       const sharedTts = buildTtsCommands({
         prefix: runtimePrefix || ",",

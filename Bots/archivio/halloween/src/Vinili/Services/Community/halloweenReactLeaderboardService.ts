@@ -6,8 +6,8 @@ const __eventCoreVinili = (rel: string) => __path.join(__path.resolve(__dirname,
  * Canale test default: 1562454089801928764
  */
 const { EmbedBuilder } = require("discord.js") as typeof import("discord.js");
-const { SiteDocument, SITE_DOCUMENT_TYPE } = require(__eventCoreVinili("Schemas/Community/communitySchemas"));
-const IDs = require(__eventCoreVinili("Utils/Config/ids"));
+const { SiteDocument, SITE_DOCUMENT_TYPE } = require(__eventCoreVinili("Community/schemas/communitySchemas"));
+const IDs = require(__eventCoreVinili("Config/ids"));
 const {
   resolveHalloweenEventConfig,
   isHalloweenEventWindowOpen,

@@ -1,6 +1,6 @@
 /** Minigiochi: avvio round, salvataggio stato e canale. */
 const { minigameStateFindOneAndUpdate } = require("../../../shared/botState/domainStatesStore") as typeof import("../../../shared/botState/domainStatesStore");
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
+const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { getChannelCached } = require("./minigameUtils") as typeof import("./minigameUtils");
 const { lastSentAtByChannel } = require("./minigameActivity") as typeof import("./minigameActivity");
 const { standbyChannels } = require("./minigameState") as typeof import("./minigameState");

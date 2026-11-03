@@ -1,6 +1,6 @@
 
-const { SiteDocument, SITE_DOCUMENT_TYPE } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
-const { SiteWorkflowChatMessage } = require("../../Schemas/Web/siteWorkflowChatSchemas") as typeof import("../../Schemas/Web/siteWorkflowChatSchemas");
+const { SiteDocument, SITE_DOCUMENT_TYPE } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
+const { SiteWorkflowChatMessage } = require("./siteWorkflowChatSchemas") as typeof import("./siteWorkflowChatSchemas");
 const { broadcastSiteRealtime } = require("../suggestions/siteSuggestionsBroadcast") as typeof import("../suggestions/siteSuggestionsBroadcast");
 const { buildSiteLinkRow, subjectWorkflowChatPath } = require("../../site/http/discordWorkflowUiGate") as typeof import("../../site/http/discordWorkflowUiGate");
 const { resolveMainGuild, displayNameForMember } = require("./workflowChatAuthors") as typeof import("./workflowChatAuthors");

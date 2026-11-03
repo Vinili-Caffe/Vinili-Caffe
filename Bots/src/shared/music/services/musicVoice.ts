@@ -1,6 +1,6 @@
-﻿/** Musica: canale vocale del bot (chi può comandarlo, entrata, uscita, disconnessioni). */
+/** Musica: canale vocale del bot (chi può comandarlo, entrata, uscita, disconnessioni). */
 const { EmbedBuilder, PermissionsBitField } = require("discord.js") as typeof import("discord.js");
-const IDs = require("../../../Vinili/Utils/Config/ids") as typeof import("../../../Vinili/Utils/Config/ids");
+const IDs = require("../../../Vinili/Config/ids") as typeof import("../../../Vinili/Config/ids");
 const { getVoiceConnection, VoiceConnectionStatus } = require("@discordjs/voice") as typeof import("@discordjs/voice");
 const { applyDefaultFooterToEmbeds } = require("../../embeds/defaultFooter") as typeof import("../../embeds/defaultFooter");
 const path = require("path") as typeof import("path");
@@ -34,7 +34,7 @@ async function musicStopCapture(guildId?) {
     return (h.stopVoiceContinuousCapture as any)(guildId);
   }
   try {
-    const { stopVoiceContinuousCapture } = require("../../../Vinili/Services/Voice/voiceContinuousCaptureService") as typeof import("../../../Vinili/Services/Voice/voiceContinuousCaptureService");
+    const { stopVoiceContinuousCapture } = require("../../../Vinili/Community/services/voiceContinuousCaptureService") as typeof import("../../../Vinili/Community/services/voiceContinuousCaptureService");
     return stopVoiceContinuousCapture(guildId);
   } catch (_) {}
 }
@@ -293,7 +293,7 @@ async function clearBlockingNativeVoiceForMusic(guildId?, client?) {
       await (musicStopCapture as any)(gid, client).catch(() => {});
     } catch (_) {}
     try {
-      const { clearVoiceSession } = require("../../../Vinili/Services/Voice/voiceSessionService") as typeof import("../../../Vinili/Services/Voice/voiceSessionService");
+      const { clearVoiceSession } = require("../../../Vinili/Community/services/voiceSessionService") as typeof import("../../../Vinili/Community/services/voiceSessionService");
       clearVoiceSession(gid);
     } catch (_) {}
     try {
@@ -424,7 +424,7 @@ async function handleMusicBotVoiceDisconnect(client?, guild?) {
   if (!intentional && !keepForResume) {
     await musicPurgeTts(gid, client).catch(() => {});
     try {
-      const { clearVoiceSession } = require("../../../Vinili/Services/Voice/voiceSessionService") as typeof import("../../../Vinili/Services/Voice/voiceSessionService");
+      const { clearVoiceSession } = require("../../../Vinili/Community/services/voiceSessionService") as typeof import("../../../Vinili/Community/services/voiceSessionService");
       clearVoiceSession(gid);
     } catch (_) {}
   }

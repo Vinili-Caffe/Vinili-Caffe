@@ -1,4 +1,4 @@
-﻿/** Musica: uscita automatica per inattività (coda vuota / VC vuoto). */
+/** Musica: uscita automatica per inattività (coda vuota / VC vuoto). */
 const { EmbedBuilder } = require("discord.js") as typeof import("discord.js");
 const { applyDefaultFooterToEmbeds } = require("../../embeds/defaultFooter") as typeof import("../../embeds/defaultFooter");
 const { guildQueues, endListeners, musicIdleSince, leaveMusicVoiceChannelMarked, musicLeaveTts } = require("./musicVoice") as typeof import("./musicVoice");
@@ -47,7 +47,7 @@ async function tickMusicInactivity(client?) {
   for (const [guildId, conn] of sh.connections) {
     const gid = String(guildId || "").trim();
     if (!gid || !conn?.channelId) continue;
-    const { isGuildClipRecording } = require("../../../Vinili/Services/Voice/voiceClipService") as typeof import("../../../Vinili/Services/Voice/voiceClipService");
+    const { isGuildClipRecording } = require("../../../Vinili/Community/services/voiceClipService") as typeof import("../../../Vinili/Community/services/voiceClipService");
     if (isGuildClipRecording(gid)) {
       musicIdleSince.delete(gid);
       continue;

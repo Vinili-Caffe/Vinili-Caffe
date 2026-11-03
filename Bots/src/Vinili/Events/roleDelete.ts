@@ -1,7 +1,7 @@
 const { AuditLogEvent, EmbedBuilder } = require("discord.js") as typeof import("discord.js");
-const { queueIdsCatalogSync } = require("../Utils/Config/idsAutoSync") as typeof import("../Utils/Config/idsAutoSync");
-const { toDiscordTimestamp, yesNo, formatAuditActor, buildAuditExtraLines, resolveChannelRolesLogChannel, resolveResponsible } = require("../Utils/Logging/channelRolesLogUtils") as typeof import("../Utils/Logging/channelRolesLogUtils");
-const { handleRoleDeletionAction: antiNukeHandleRoleDeletionAction } = require("../Moderation/services/antiNukeService") as typeof import("../Moderation/services/antiNukeService");
+const { queueIdsCatalogSync } = require("../Config/idsAutoSync") as typeof import("../Config/idsAutoSync");
+const { toDiscordTimestamp, yesNo, formatAuditActor, buildAuditExtraLines, resolveChannelRolesLogChannel, resolveResponsible } = require("../Moderation/utils/channelRolesLogUtils") as typeof import("../Moderation/utils/channelRolesLogUtils");
+const { handleRoleDeletionAction: antiNukeHandleRoleDeletionAction } = require("../Security/services/antiNukeService") as typeof import("../Security/services/antiNukeService");
 const { isViniliFullFeatureGuild } = require("../MultiGuild/core/guildFeatureScope") as typeof import("../MultiGuild/core/guildFeatureScope");
 const ROLE_DELETE_ACTION = AuditLogEvent?.RoleDelete ?? 32;
 
@@ -67,7 +67,7 @@ export = {
     if (client) {
       queueIdsCatalogSync(client, guildId, "roleDelete");
       try {
-        const { getMainGuildId } = require("../Utils/Config/testGuildMirrorRemap") as typeof import("../Utils/Config/testGuildMirrorRemap");
+        const { getMainGuildId } = require("../Config/testGuildMirrorRemap") as typeof import("../Config/testGuildMirrorRemap");
         if (String(guildId) === String(getMainGuildId() || "")) {
           const { mirrorMainRoleDeleteToTest } = require("../Partner/services/testGuildMirrorSyncService") as typeof import("../Partner/services/testGuildMirrorSyncService");
           void mirrorMainRoleDeleteToTest(client, role).catch((err?) => {

@@ -1,11 +1,11 @@
-const Ticket = require("../../../Schemas/Ticket/ticketSchema");
+const Ticket = require("../data/guildFeatureBucketTicketModel");
 const { verifyDashboardGuildAccess } = require("../../dashboard/siteDashboardApi") as typeof import("../../dashboard/siteDashboardApi");
 const {
   getTicketSettingsForGuild,
   saveTicketSettings,
   TICKET_TYPES,
 } = require("../tenant/tenantTicketSettings") as typeof import("../tenant/tenantTicketSettings");
-const { listGuildPickerData } = require("../../dashboard/siteDashboardPartnershipApi") as typeof import("../../dashboard/siteDashboardPartnershipApi");
+const { listGuildPickerData } = require("../../../Partner/dashboard/siteDashboardPartnershipApi") as typeof import("../../../Partner/dashboard/siteDashboardPartnershipApi");
 const { fail, coerceOpen, serializeTicketRow, normalizeSnowflakeQuery, resolveDiscordUserLabels, findGuildUserIdsMatchingUsername, invalidateSlimClosedTicketsCache, firstQueryValue, listDashboardTranscripts, getDashboardTranscriptHtml } = require("./dashboardTranscriptsApi") as typeof import("./dashboardTranscriptsApi");
 
 

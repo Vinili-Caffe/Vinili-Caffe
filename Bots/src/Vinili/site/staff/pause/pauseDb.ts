@@ -1,6 +1,6 @@
 /** Pause: lettura e aggiornamento nel database, giorni usati. */
 const mongoose = require("mongoose") as typeof import("mongoose");
-const { ActivityUserProfile } = require("../../../Schemas/Community/communitySchemas") as typeof import("../../../Schemas/Community/communitySchemas");
+const { ActivityUserProfile } = require("../../../Community/schemas/communitySchemas") as typeof import("../../../Community/schemas/communitySchemas");
 const { MS_PER_DAY, parseItalianDate, getPauseDaysBetween, getTodayUtc, getCurrentYearBoundsUtc, countEffectiveOverlapDays } = require("./pauseDates") as typeof import("./pauseDates");
 const { HALF_DAY_WEIGHT, isHalfDayPause, halfDayScaledDays } = require("./pauseHalfDay") as typeof import("./pauseHalfDay");
 

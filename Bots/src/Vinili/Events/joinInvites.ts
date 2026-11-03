@@ -1,15 +1,15 @@
 /** Ingresso membri: inviti (chi ha invitato, traguardi e premi). */
 const { EmbedBuilder, PermissionsBitField, MessageFlags } = require("discord.js") as typeof import("discord.js");
-const { ActivityUserProfile, InviteReminderState } = require("../Schemas/Community/communitySchemas") as typeof import("../Schemas/Community/communitySchemas");
-const IDs = require("../Utils/Config/ids") as typeof import("../Utils/Config/ids");
-const { shouldBlockDm } = require("../Utils/noDmList") as typeof import("../Utils/noDmList");
+const { ActivityUserProfile, InviteReminderState } = require("../Community/schemas/communitySchemas") as typeof import("../Community/schemas/communitySchemas");
+const IDs = require("../Config/ids") as typeof import("../Config/ids");
+const { shouldBlockDm } = require("../Community/utils/noDmList") as typeof import("../Community/utils/noDmList");
 const { addRolesAndGetMember, getGuildChannelCached, getGuildMemberCached, getGuildRoleCached } = require("../../shared/discord/interactionEntityCache") as typeof import("../../shared/discord/interactionEntityCache");
 const { applyDefaultFooterToEmbeds } = require("../../shared/embeds/defaultFooter") as typeof import("../../shared/embeds/defaultFooter");
 const { shouldApplyMainPartnershipFilters } = require("../Partner/core/partnershipConfigResolver") as typeof import("../Partner/core/partnershipConfigResolver");
 const { getPartnershipConfigSync } = require("../Partner/core/tenantPartnershipSettings") as typeof import("../Partner/core/tenantPartnershipSettings");
 const { recordPartnershipInviteJoin } = require("../Partner/services/tenantPartnershipJoinStatsService") as typeof import("../Partner/services/tenantPartnershipJoinStatsService");
 const { guildMemberDisplayAvatarUrlDynamic } = require("../../shared/discord/guildDiscordIdentity") as typeof import("../../shared/discord/guildDiscordIdentity");
-const { applyPronounGenderToEmbedForMember } = require("../Utils/Community/pronounGenderUtils") as typeof import("../Utils/Community/pronounGenderUtils");
+const { applyPronounGenderToEmbedForMember } = require("../Community/utils/pronounGenderUtils") as typeof import("../Community/utils/pronounGenderUtils");
 
 const THANKS_CHANNEL_ID = IDs.channels.supporters;
 const INFO_PERKS_CHANNEL_ID = IDs.channels.info;

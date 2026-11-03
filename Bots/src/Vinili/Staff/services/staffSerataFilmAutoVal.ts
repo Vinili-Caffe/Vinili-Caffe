@@ -1,4 +1,4 @@
-const IDs: any = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
+const IDs: any = require("../../Config/ids") as typeof import("../../Config/ids");
 const { getGuildChannelCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
 const { resolveStaffRole } = require("./weeklyStaffResocontoService") as typeof import("./weeklyStaffResocontoService");
 const { hasActiveAcceptedStaffPause } = require("../../site/staff/pause/pauseHandlersUtils") as typeof import("../../site/staff/pause/pauseHandlersUtils");
@@ -7,7 +7,7 @@ const {
   isSerataFilmAbsentExcused,
   loadSerataFilmStaffAttendanceByUserId,
 } = require("../../Staff/utils/serataFilmAttendanceUtils") as typeof import("../../Staff/utils/serataFilmAttendanceUtils");
-const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
+const { ActivityUserProfile } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
 const path = require("path") as typeof import("path");
 const fs = require("fs") as typeof import("fs");
 

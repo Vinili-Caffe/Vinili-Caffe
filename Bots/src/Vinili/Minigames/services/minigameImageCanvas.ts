@@ -1,7 +1,7 @@
 /** Minigiochi: rendering canvas per prompt, cartelli, impiccato. */
 const axios = require("axios") as any;
-const { registerCanvasFonts, fontStackPrimaryOnly } = require("../../Utils/Render/canvasFonts") as typeof import("../../Utils/Render/canvasFonts");
-const { drawLabelWithEmoji, tokenizeEmojiText } = require("../../Utils/Render/canvasEmojiRichText") as typeof import("../../Utils/Render/canvasEmojiRichText");
+const { registerCanvasFonts, fontStackPrimaryOnly } = require("../../Community/utils/Render/canvasFonts") as typeof import("../../Community/utils/Render/canvasFonts");
+const { drawLabelWithEmoji, tokenizeEmojiText } = require("../../Community/utils/Render/canvasEmojiRichText") as typeof import("../../Community/utils/Render/canvasEmojiRichText");
 const { AttachmentBuilder } = require("discord.js") as typeof import("discord.js");
 const { polishItalianQuestionText, loadImageBufferFromUrl } = require("./minigameImageRemote") as typeof import("./minigameImageRemote");
 

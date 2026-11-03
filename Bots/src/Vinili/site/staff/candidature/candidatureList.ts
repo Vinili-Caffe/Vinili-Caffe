@@ -1,5 +1,5 @@
 /** Candidature: elenco e dettaglio per lo staff sul sito. */
-const IDs = require("../../../Utils/Config/ids") as typeof import("../../../Utils/Config/ids");
+const IDs = require("../../../Config/ids") as typeof import("../../../Config/ids");
 const { APPLICATION_TYPES } = require("./candidatureEligibility") as typeof import("./candidatureEligibility");
 const { APPLY_PEX_PREFIX, resolveSubmissionChannel } = require("./candidatureEmbeds") as typeof import("./candidatureEmbeds");
 
@@ -162,7 +162,7 @@ async function resolveCandidatureBoundFromStore(guildId?, messageId?, type?, use
     return { boundType, boundUserId };
   }
   try {
-    const { SiteDocument, SITE_DOCUMENT_TYPE } = require("../../../Schemas/Community/communitySchemas") as typeof import("../../../Schemas/Community/communitySchemas");
+    const { SiteDocument, SITE_DOCUMENT_TYPE } = require("../../../Community/schemas/communitySchemas") as typeof import("../../../Community/schemas/communitySchemas");
     const mid = String(messageId || "").trim();
     if (!mid || !guildId) return { boundType, boundUserId };
     const bare = mid.includes(":") ? mid.split(":").slice(1).join(":") : mid;

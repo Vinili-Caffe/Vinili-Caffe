@@ -4,12 +4,12 @@
  */
 "use strict";
 
-const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
+const { ActivityUserProfile } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
 const { fetchDiscordOAuthMe } = require("./discordOauthMe") as typeof import("./discordOauthMe");
 const { resolveWebsiteGuildMember } = require("./siteRoleRequestApi") as typeof import("./siteRoleRequestApi");
 const { sanitizeChromePrefs } = require("./siteChromePrefsApi") as typeof import("./siteChromePrefsApi");
 const { countSiteInAppUnreadForUser } = require("../notifications/siteInAppNotificationsService") as typeof import("../notifications/siteInAppNotificationsService");
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
+const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 
 function normalizeHeaderSecret(raw?) {
   if (raw == null) return "";

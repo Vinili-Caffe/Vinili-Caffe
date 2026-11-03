@@ -297,7 +297,7 @@ async function applyPunishment(member?, reasons?) {
         });
     }
   } else if (action === "quarantine") {
-    const { quarantineExecutor } = require("./antiNukeService") as typeof import("./antiNukeService");
+    const { quarantineExecutor } = require("../../Security/services/antiNukeService") as typeof import("../../Security/services/antiNukeService");
     const quarantine = await quarantineExecutor(
       guild,
       member.id,

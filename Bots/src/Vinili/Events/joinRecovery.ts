@@ -1,14 +1,14 @@
 /** Ingresso membri: benvenuti mancati (dopo un riavvio o un errore). */
-const { ActivityUserProfile } = require("../Schemas/Community/communitySchemas") as typeof import("../Schemas/Community/communitySchemas");
-const IDs = require("../Utils/Config/ids") as typeof import("../Utils/Config/ids");
-const { shouldSendPublicMemberAnnouncement } = require("../Utils/Community/memberPublicAnnouncementGate") as typeof import("../Utils/Community/memberPublicAnnouncementGate");
+const { ActivityUserProfile } = require("../Community/schemas/communitySchemas") as typeof import("../Community/schemas/communitySchemas");
+const IDs = require("../Config/ids") as typeof import("../Config/ids");
+const { shouldSendPublicMemberAnnouncement } = require("../Community/utils/memberPublicAnnouncementGate") as typeof import("../Community/utils/memberPublicAnnouncementGate");
 const { getClientGuildCached, getGuildChannelCached, getGuildMemberCached, isUnknownDiscordMemberError } = require("../../shared/discord/interactionEntityCache") as typeof import("../../shared/discord/interactionEntityCache");
-const { activateWelcomeContextForGuild } = require("../Utils/Message/officialMessageCommunityHandlers") as typeof import("../Utils/Message/officialMessageCommunityHandlers");
-const { restoreUserOnJoin } = require("../Services/Community/userLeaveBackupService") as typeof import("../Services/Community/userLeaveBackupService");
+const { activateWelcomeContextForGuild } = require("../Community/services/officialMessageCommunityHandlers") as typeof import("../Community/services/officialMessageCommunityHandlers");
+const { restoreUserOnJoin } = require("../Community/services/userLeaveBackupService") as typeof import("../Community/services/userLeaveBackupService");
 const { syncMutedMirrorOnMemberJoin } = require("../Moderation/services/mutedMirrorRoleService") as typeof import("../Moderation/services/mutedMirrorRoleService");
-const { cancelCustomPerksDiscordCleanupQueue } = require("../Services/Community/customPerksDiscordCleanupQueueService") as typeof import("../Services/Community/customPerksDiscordCleanupQueueService");
+const { cancelCustomPerksDiscordCleanupQueue } = require("../Community/services/customPerksDiscordCleanupQueueService") as typeof import("../Community/services/customPerksDiscordCleanupQueueService");
 const { accountUsername } = require("../../shared/discord/guildDiscordIdentity") as typeof import("../../shared/discord/guildDiscordIdentity");
-const { syncPreMemberRoleForMember } = require("../Utils/Community/preMemberRoleService") as typeof import("../Utils/Community/preMemberRoleService");
+const { syncPreMemberRoleForMember } = require("../Community/utils/preMemberRoleService") as typeof import("../Community/utils/preMemberRoleService");
 const { isMongoReady } = require("../../shared/db/mongoConnect") as typeof import("../../shared/db/mongoConnect");
 const { resolveGuildChannel, resolveInviteInfo, inviteCodeFromInfo, trackInviteJoin, announceInviteInfo, maybeSendInviteReward, maybeSendInviteNearRewardReminder } = require("./joinInvites") as typeof import("./joinInvites");
 const { sendWelcomeChannelAnnouncement, markJoinAnnounceSent } = require("./joinBots") as typeof import("./joinBots");

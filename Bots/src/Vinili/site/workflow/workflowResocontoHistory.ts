@@ -1,6 +1,6 @@
 /** Workflow staff: grafico e storico dei ruoli nel dettaglio di un resoconto. */
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
-const { SiteDocument } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
+const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
+const { SiteDocument } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
 
 async function enrichResocontoDetailChart(detail?, doc?, guild?) {
   if (!detail || String(detail.kind || "").toLowerCase() !== "s") return detail;
@@ -13,7 +13,7 @@ async function enrichResocontoDetailChart(detail?, doc?, guild?) {
     const guildId = String(guild?.id || doc?.guildId || "").trim();
     if (userId && guildId) {
       try {
-        const { getUserOverviewStats } = require("../../Services/Community/activityService") as typeof import("../../Services/Community/activityService");
+        const { getUserOverviewStats } = require("../../Community/services/activityService") as typeof import("../../Community/services/activityService");
         const {
           buildResocontoOverviewOptions,
           collectResocontoVoiceExcludeIds,
@@ -206,7 +206,7 @@ async function enrichResocontoRolesHistory(detail?, doc?, guild?) {
     if (/^\d{16,22}$/.test(raw)) {
       let id = raw;
       try {
-        const { remapKnownRoleSnowflake } = require("../../Utils/Config/emergencyRoleIdRemap") as typeof import("../../Utils/Config/emergencyRoleIdRemap");
+        const { remapKnownRoleSnowflake } = require("../../Config/emergencyRoleIdRemap") as typeof import("../../Config/emergencyRoleIdRemap");
         const mapped = remapKnownRoleSnowflake(raw);
         if (mapped) id = mapped;
       } catch (_) {}
@@ -250,7 +250,7 @@ async function enrichResocontoRolesHistory(detail?, doc?, guild?) {
     : [];
 
   try {
-    const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
+    const { ActivityUserProfile } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
     const profile = await ActivityUserProfile.findOne({ guildId, userId })
       .select("staff.rolesHistory")
       .lean()

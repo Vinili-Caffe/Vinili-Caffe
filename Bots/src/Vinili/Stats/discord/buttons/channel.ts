@@ -1,6 +1,6 @@
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle, AttachmentBuilder } = require("discord.js") as typeof import("discord.js");
-const { getChannelOverviewStats } = require("../../../Services/Community/activityService") as typeof import("../../../Services/Community/activityService");
-const { renderChannelActivityCanvas, formatCanvasChannelLabel, prefetchStatsCanvasAvatar } = require("../../../Utils/Render/activityCanvas") as typeof import("../../../Utils/Render/activityCanvas");
+const { getChannelOverviewStats } = require("../../../Community/services/activityService") as typeof import("../../../Community/services/activityService");
+const { renderChannelActivityCanvas, formatCanvasChannelLabel, prefetchStatsCanvasAvatar } = require("../../../Community/utils/Render/activityCanvas") as typeof import("../../../Community/utils/Render/activityCanvas");
 const { getOrBuildStatsCanvasBuffer } = require("../../runtime/statsCanvasCache") as typeof import("../../runtime/statsCanvasCache");
 const { guildIconUrl } = require("../../../../shared/discord/guildDiscordIdentity") as typeof import("../../../../shared/discord/guildDiscordIdentity");
 const { resolveTopUserEntriesForCanvas } = require("../prefix/top") as typeof import("../prefix/top");
@@ -24,7 +24,7 @@ function match(interaction?) {
 }
 
 async function execute(interaction?) {
-  const { parseChannelCustomId, denyIfNotOwner, sendControlErrorFallback } = require("../../../Utils/Interaction/buttonParsers") as typeof import("../../../Utils/Interaction/buttonParsers");
+  const { parseChannelCustomId, denyIfNotOwner, sendControlErrorFallback } = require("./buttonParsers") as typeof import("./buttonParsers");
   const parsed = parseChannelCustomId(interaction.customId);
   if (!parsed) return false;
   const denied = await denyIfNotOwner(interaction, parsed.ownerId);

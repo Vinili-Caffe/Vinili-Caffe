@@ -1,5 +1,5 @@
 const { GuildScheduledEventStatus } = require("discord.js") as typeof import("discord.js");
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
+const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { sendJsonWithEtag, weakEtagFromParts } = require("./siteHttpEtag") as typeof import("./siteHttpEtag");
 
 const CACHE_TTL_MS = 20_000;

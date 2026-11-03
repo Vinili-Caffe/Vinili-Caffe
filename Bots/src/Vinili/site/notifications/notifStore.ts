@@ -1,5 +1,5 @@
 /** Notifiche del sito: salvataggio della inbox di un utente (e migrazione dal formato vecchio). */
-const { SiteDocument, SITE_DOCUMENT_TYPE } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
+const { SiteDocument, SITE_DOCUMENT_TYPE } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
 const { normalizeUserId, normalizeKind } = require("./notifKinds") as typeof import("./notifKinds");
 
 const NOTIF = SITE_DOCUMENT_TYPE.IN_APP_NOTIFICATION;

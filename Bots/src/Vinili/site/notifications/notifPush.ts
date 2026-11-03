@@ -1,6 +1,6 @@
 /** Notifiche del sito: push sul telefono e avviso in tempo reale ai client. */
-const { SiteDocument } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
+const { SiteDocument } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
+const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { buildSkipContext, isKindMuted, KIND_TO_GROUP } = require("../../site/http/siteNotifPrefs") as typeof import("../../site/http/siteNotifPrefs");
 const { normalizeUserId, normalizeKind, isVoteRegisteredNotification, isDedicatedInboxQueueAlert } = require("./notifKinds") as typeof import("./notifKinds");
 const { inboxQuery, migrateLegacyInAppNotificationsForUser } = require("./notifStore") as typeof import("./notifStore");

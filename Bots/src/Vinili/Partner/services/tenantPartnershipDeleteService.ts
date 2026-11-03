@@ -1,4 +1,4 @@
-const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
+const { ActivityUserProfile } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
 const { deletePartnerActionMessages } = require("./partnerManagerLeaveService") as typeof import("./partnerManagerLeaveService");
 const { invalidateLeaderboardCache } = require("./tenantLeaderboardService") as typeof import("./tenantLeaderboardService");
 const { evaluateTenantObjectives } = require("./tenantObjectiveService") as typeof import("./tenantObjectiveService");

@@ -1,4 +1,4 @@
-const { getStaffChatThreadIds, getStaffCmdsThreadIds } = require("../../Utils/Global/globalSettingsBucket") as typeof import("../../Utils/Global/globalSettingsBucket");
+const { getStaffChatThreadIds, getStaffCmdsThreadIds } = require("../../Community/services/globalSettingsBucket") as typeof import("../../Community/services/globalSettingsBucket");
 const {
   getStaffCmdsThreadIdsCache,
   staffCmdsChannelId,

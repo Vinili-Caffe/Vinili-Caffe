@@ -1,11 +1,11 @@
-const { queueIdsCatalogSync } = require("../Utils/Config/idsAutoSync") as typeof import("../Utils/Config/idsAutoSync");
+const { queueIdsCatalogSync } = require("../Config/idsAutoSync") as typeof import("../Config/idsAutoSync");
 const { EmbedBuilder } = require("discord.js") as typeof import("discord.js");
-const IDs = require("../Utils/Config/ids") as typeof import("../Utils/Config/ids");
+const IDs = require("../Config/ids") as typeof import("../Config/ids");
 const { getGuildChannelCached, getGuildMemberCached } = require("../../shared/discord/interactionEntityCache") as typeof import("../../shared/discord/interactionEntityCache");
 const { getJoinGateConfigSnapshot } = require("../Moderation/services/joinGateService") as typeof import("../Moderation/services/joinGateService");
 const { resolveJoinGateConfiguredExempt } = require("../Moderation/services/joinGateExemptUtils") as typeof import("../Moderation/services/joinGateExemptUtils");
 const { kickForJoinGate, matchUsernameFilters, getJoinGateNameCandidate } = require("./guildMemberAdd") as typeof import("./guildMemberAdd");
-const { syncClanTagRolesForUserEverywhere } = require("../Services/Community/clanTagRoleService") as typeof import("../Services/Community/clanTagRoleService");
+const { syncClanTagRolesForUserEverywhere } = require("../Community/services/clanTagRoleService") as typeof import("../Community/services/clanTagRoleService");
 const { syncPersistentAutoValutazioniForMember } = require("../Staff/services/staffAutoValutazioniService") as typeof import("../Staff/services/staffAutoValutazioniService");
 const { guildMemberDisplayAvatarUrlDynamic } = require("../../shared/discord/guildDiscordIdentity") as typeof import("../../shared/discord/guildDiscordIdentity");
 const USER_UPDATE_DEDUPE_MS = 15_000;

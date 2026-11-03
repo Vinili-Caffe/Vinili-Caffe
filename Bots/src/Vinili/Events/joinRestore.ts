@@ -1,13 +1,13 @@
 /** Ingresso membri: ruoli rimessi a chi rientra (voto Discadia, ruolo personalizzato, anzianità). */
 const { PermissionsBitField } = require("discord.js") as typeof import("discord.js");
-const { ActivityUserProfile, CustomRole } = require("../Schemas/Community/communitySchemas") as typeof import("../Schemas/Community/communitySchemas");
-const IDs = require("../Utils/Config/ids") as typeof import("../Utils/Config/ids");
-const { hasEventWeekWinnerGrant } = require("../Services/Community/weekWinnerGrantsService") as typeof import("../Services/Community/weekWinnerGrantsService");
-const { hasExtraCustomPerksUnlock } = require("../Utils/Community/customPerksUnlock") as typeof import("../Utils/Community/customPerksUnlock");
+const { ActivityUserProfile, CustomRole } = require("../Community/schemas/communitySchemas") as typeof import("../Community/schemas/communitySchemas");
+const IDs = require("../Config/ids") as typeof import("../Config/ids");
+const { hasEventWeekWinnerGrant } = require("../Community/services/weekWinnerGrantsService") as typeof import("../Community/services/weekWinnerGrantsService");
+const { hasExtraCustomPerksUnlock } = require("../Community/utils/customPerksUnlock") as typeof import("../Community/utils/customPerksUnlock");
 const { addRolesAndGetMember, getGuildRoleCached } = require("../../shared/discord/interactionEntityCache") as typeof import("../../shared/discord/interactionEntityCache");
-const { isAlreadyVerifiedInThisGuild } = require("../Utils/Interaction/verifyUtils") as typeof import("../Utils/Interaction/verifyUtils");
-const { upsertVerifiedMember, applyTenureForMember } = require("../Services/Community/communityOpsService") as typeof import("../Services/Community/communityOpsService");
-const { resolveVoteRoleIdForGuild } = require("../Utils/Community/resolveVoteRoleId") as typeof import("../Utils/Community/resolveVoteRoleId");
+const { isAlreadyVerifiedInThisGuild } = require("../Community/utils/verifyUtils") as typeof import("../Community/utils/verifyUtils");
+const { upsertVerifiedMember, applyTenureForMember } = require("../Community/services/communityOpsService") as typeof import("../Community/services/communityOpsService");
+const { resolveVoteRoleIdForGuild } = require("../Community/utils/resolveVoteRoleId") as typeof import("../Community/utils/resolveVoteRoleId");
 
 const VOTE_ROLE_ID = IDs.roles.Voter;
 const DISCADIA_VOTE_ROOT = "profile.totals.exp.bumpVoteRewards.discadia_vote";

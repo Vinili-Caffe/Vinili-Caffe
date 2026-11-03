@@ -1,10 +1,10 @@
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle, AttachmentBuilder } = require("discord.js") as typeof import("discord.js");
-const { getUserOverviewStats } = require("../../../Services/Community/activityService") as typeof import("../../../Services/Community/activityService");
+const { getUserOverviewStats } = require("../../../Community/services/activityService") as typeof import("../../../Community/services/activityService");
 const { resolveTopChannelEntries } = require("../prefix/top") as typeof import("../prefix/top");
-const { renderUserActivityCanvas, prefetchStatsCanvasAvatar } = require("../../../Utils/Render/activityCanvas") as typeof import("../../../Utils/Render/activityCanvas");
+const { renderUserActivityCanvas, prefetchStatsCanvasAvatar } = require("../../../Community/utils/Render/activityCanvas") as typeof import("../../../Community/utils/Render/activityCanvas");
 const { getOrBuildStatsCanvasBuffer } = require("../../runtime/statsCanvasCache") as typeof import("../../runtime/statsCanvasCache");
 const { accountUsername, guildMemberDisplayAvatarUrlStatic, userAvatarUrlStatic } = require("../../../../shared/discord/guildDiscordIdentity") as typeof import("../../../../shared/discord/guildDiscordIdentity");
-const { getEffectiveJoinedAt } = require("../../../Services/Community/effectiveMemberJoinService") as typeof import("../../../Services/Community/effectiveMemberJoinService");
+const { getEffectiveJoinedAt } = require("../../../Community/services/effectiveMemberJoinService") as typeof import("../../../Community/services/effectiveMemberJoinService");
 const ME_REFRESH_CUSTOM_ID_PREFIX = "me_refresh";
 const ME_PERIOD_OPEN_CUSTOM_ID_PREFIX = "me_period_open";
 const ME_PERIOD_SET_CUSTOM_ID_PREFIX = "me_period_set";
@@ -25,7 +25,7 @@ function match(interaction?) {
 }
 
 async function execute(interaction?, client?) {
-  const { parseMeCustomId, denyIfNotOwner, sendControlErrorFallback } = require("../../../Utils/Interaction/buttonParsers") as typeof import("../../../Utils/Interaction/buttonParsers");
+  const { parseMeCustomId, denyIfNotOwner, sendControlErrorFallback } = require("./buttonParsers") as typeof import("./buttonParsers");
   const parsed = parseMeCustomId(interaction.customId);
   if (!parsed) return false;
   const denied = await denyIfNotOwner(interaction, parsed.ownerId);

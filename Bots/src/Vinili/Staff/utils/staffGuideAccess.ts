@@ -1,4 +1,4 @@
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
+const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { listStaffGuideSectionMeta } = require("./staffGuideContent") as typeof import("./staffGuideContent");
 
 const STAFF_GUIDE_LADDER_SECTION_IDS = new Set([

@@ -1,7 +1,7 @@
 /** Notifiche del sito: invio di una notifica nuova. */
-const { SiteDocument } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
+const { SiteDocument } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
 const mongoose = require("mongoose") as typeof import("mongoose");
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
+const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { shouldSkipSiteInAppNotif } = require("../../site/http/siteNotifPrefs") as typeof import("../../site/http/siteNotifPrefs");
 const { normalizeUserId, normalizeKind, isVoteRegisteredNotification, resolveNotifChannel } = require("./notifKinds") as typeof import("./notifKinds");
 const { normalizeTicketId, ticketIdFromOpenUrl, mergeNotifFromNames, buildCollapsedTicketChatCopy, buildCollapsedDigestCopy } = require("./notifCopy") as typeof import("./notifCopy");

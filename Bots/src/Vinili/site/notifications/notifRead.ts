@@ -1,5 +1,5 @@
 /** Notifiche del sito: segna come lette ed elimina. */
-const { SiteDocument } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
+const { SiteDocument } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
 const mongoose = require("mongoose") as typeof import("mongoose");
 const { normalizeUserId } = require("./notifKinds") as typeof import("./notifKinds");
 const { normalizeTicketId, ticketIdFromOpenUrl, inboxItemMatchesTicket } = require("./notifCopy") as typeof import("./notifCopy");

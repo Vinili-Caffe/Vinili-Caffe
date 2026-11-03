@@ -1,7 +1,7 @@
 const cron = require("node-cron") as typeof import("node-cron");
 const { getBotState, setBotState } = require("../../../shared/botState/botStateStore") as typeof import("../../../shared/botState/botStateStore");
-const IDs: any = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
-const { getUserOverviewStats } = require("../../Services/Community/activityService") as typeof import("../../Services/Community/activityService");
+const IDs: any = require("../../Config/ids") as typeof import("../../Config/ids");
+const { getUserOverviewStats } = require("../../Community/services/activityService") as typeof import("../../Community/services/activityService");
 const { getGuildMemberCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
 const { ensureStaff } = require("../../Staff/utils/staffDocUtils") as typeof import("../../Staff/utils/staffDocUtils");
 const { ensureStaffProfileDoc, getStaffDoc } = require("../../Staff/utils/valutazionePanelActions") as typeof import("../../Staff/utils/valutazionePanelActions");

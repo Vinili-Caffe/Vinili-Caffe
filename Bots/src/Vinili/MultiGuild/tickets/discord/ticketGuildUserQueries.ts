@@ -1,4 +1,4 @@
-const { GuildFeatureBucket } = require("../../../Schemas/Guild/guildFeatureBucketSchema") as typeof import("../../../Schemas/Guild/guildFeatureBucketSchema");
+const { GuildFeatureBucket } = require("../../schemas/guildFeatureBucketSchema") as typeof import("../../schemas/guildFeatureBucketSchema");
 
 function ticketSubdocToPlain(t?) {
   if (!t) return null;

@@ -1,13 +1,13 @@
 
-const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
+const { ActivityUserProfile } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
 const { getLevelInfo, getGlobalMultiplier, getGuildExpSettings, getResolvedWeeklyExpMultiplier } = require("../../Level/services/expService") as typeof import("../../Level/services/expService");
 const {
   getRomeDayKey,
-} = require("../../Utils/Community/leaderboardHelpers") as typeof import("../../Utils/Community/leaderboardHelpers");
-const { discordRoleIconUrl } = require("../../Utils/Discord/discordRoleIconUrl") as typeof import("../../Utils/Discord/discordRoleIconUrl");
-const { getEffectiveJoinedAt } = require("../../Services/Community/effectiveMemberJoinService") as typeof import("../../Services/Community/effectiveMemberJoinService");
+} = require("../../Community/utils/leaderboardHelpers") as typeof import("../../Community/utils/leaderboardHelpers");
+const { discordRoleIconUrl } = require("../utils/discordRoleIconUrl") as typeof import("../utils/discordRoleIconUrl");
+const { getEffectiveJoinedAt } = require("../../Community/services/effectiveMemberJoinService") as typeof import("../../Community/services/effectiveMemberJoinService");
 const { isLitePerf, resolveSitePerfTier } = require("./sitePerfHints") as typeof import("./sitePerfHints");
-const { getRomeDateParts } = require("../../Services/Community/birthdayService") as typeof import("../../Services/Community/birthdayService");
+const { getRomeDateParts } = require("../../Community/services/birthdayService") as typeof import("../../Community/services/birthdayService");
 const { LIST_CACHE_TTL_MS, LIST_STALE_KEEP_MS, listCache, listCacheInflight, cacheGet, cacheSet, startCacheBuild, cacheGetOrBuild, cacheLookupMeta } = require("./usersLbCache") as typeof import("./usersLbCache");
 const { parseIntSafe, nInt, resolveGuildId, parseBoard, parsePeriod, resolveRankBoardPeriod, isComputedListBoard, parseCalendarMonth, parseCalendarYear, boardQuery, boardSort, boardSelect, numericSortExpr, parseSearchUserId } = require("./usersLbParams") as typeof import("./usersLbParams");
 const { replyUsers, siteSafeRankCard, siteSafeResolvedWallpaper, siteMemberAvatarUrl, resolveIdentitiesForList, resolveMembersApprox, publicDisplayNameFromMemberOrUser, identityFromCacheOnly } = require("./usersLbIdentity") as typeof import("./usersLbIdentity");

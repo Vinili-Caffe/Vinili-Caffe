@@ -1,10 +1,10 @@
 /** Ruoli personalizzati: controlli e utilità (proprietario, colore, icona, pannello). */
 const { PermissionsBitField } = require("discord.js") as typeof import("discord.js");
-const { CustomRole } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
-const { findEmojiByShortName, resolveStoredCustomEmojiFromClient } = require("../../Utils/Community/mentionReactionPanelUtils") as typeof import("../../Utils/Community/mentionReactionPanelUtils");
-const { resolveCustomRoleState, buildExpiryText } = require("../../Utils/Community/customRoleState") as typeof import("../../Utils/Community/customRoleState");
-const { fetchGuildRole, replyEphemeral, refreshEmbedRoleLine } = require("../../Utils/Interaction/customRoleUtils") as typeof import("../../Utils/Interaction/customRoleUtils");
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
+const { CustomRole } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
+const { findEmojiByShortName, resolveStoredCustomEmojiFromClient } = require("../../Community/utils/mentionReactionPanelUtils") as typeof import("../../Community/utils/mentionReactionPanelUtils");
+const { resolveCustomRoleState, buildExpiryText } = require("../../Community/utils/customRoleState") as typeof import("../../Community/utils/customRoleState");
+const { fetchGuildRole, replyEphemeral, refreshEmbedRoleLine } = require("../../Community/utils/customRoleUtils") as typeof import("../../Community/utils/customRoleUtils");
+const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 
 const PRIVATE_FLAG = 1 << 6;
 const MAX_ROLE_ICON_BYTES = 2 * 1024 * 1024;

@@ -25,7 +25,7 @@ async function maxTicketNumberForGuild(guildId?) {
   let maxTicketNumber = 0;
 
   try {
-    const { GuildFeatureBucket } = require("../../../Schemas/Guild/guildFeatureBucketSchema") as typeof import("../../../Schemas/Guild/guildFeatureBucketSchema");
+    const { GuildFeatureBucket } = require("../../schemas/guildFeatureBucketSchema") as typeof import("../../schemas/guildFeatureBucketSchema");
     const agg = await GuildFeatureBucket.aggregate([
       { $match: { guildId: gid } },
       { $unwind: "$tickets" },
@@ -61,7 +61,7 @@ async function getNextTicketId(guildId?) {
   const {
     GuildFeatureBucket,
     ensureGuildFeatureBucket,
-  } = require("../../../Schemas/Guild/guildFeatureBucketSchema") as typeof import("../../../Schemas/Guild/guildFeatureBucketSchema");
+  } = require("../../schemas/guildFeatureBucketSchema") as typeof import("../../schemas/guildFeatureBucketSchema");
   await ensureGuildFeatureBucket(gid);
 
     let updated = await GuildFeatureBucket.findOneAndUpdate(
@@ -109,7 +109,7 @@ async function reseedCounterFromTickets(_TicketModel?, guildId?) {
   const {
     GuildFeatureBucket,
     ensureGuildFeatureBucket,
-  } = require("../../../Schemas/Guild/guildFeatureBucketSchema") as typeof import("../../../Schemas/Guild/guildFeatureBucketSchema");
+  } = require("../../schemas/guildFeatureBucketSchema") as typeof import("../../schemas/guildFeatureBucketSchema");
   await ensureGuildFeatureBucket(gid);
   const baseline = await maxTicketNumberForGuild(gid);
   await GuildFeatureBucket.updateOne(

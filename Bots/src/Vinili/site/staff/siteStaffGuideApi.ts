@@ -1,5 +1,5 @@
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
-const { sanitizeDiscordChannelName } = require("../../Utils/Discord/discordDisplayName") as typeof import("../../Utils/Discord/discordDisplayName");
+const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
+const { sanitizeDiscordChannelName } = require("../utils/discordDisplayName") as typeof import("../utils/discordDisplayName");
 const { assertWebsiteStaffAccess, normalizeHeaderSecret } = require("./siteStaffAccessApi") as typeof import("./siteStaffAccessApi");
 const {
   listReadableStaffGuideSections,

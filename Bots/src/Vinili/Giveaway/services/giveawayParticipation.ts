@@ -1,4 +1,4 @@
-const Giveaway = require("../../Giveaway/schemas/giveawaySchema");
+const Giveaway = require("./guildFeatureBucketGiveawayModel");
 const { GIVEAWAY_ENTER_PREFIX, GIVEAWAY_LEAVE_PREFIX, GIVEAWAY_COUNT_PREFIX } = require("./giveawayUi") as typeof import("./giveawayUi");
 
 async function replyGiveawayEphemeral(interaction?, payload?) {

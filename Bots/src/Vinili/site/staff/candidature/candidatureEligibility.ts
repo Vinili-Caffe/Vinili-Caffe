@@ -1,5 +1,5 @@
 /** Candidature: chi può candidarsi (ruoli, attese). */
-const IDs = require("../../../Utils/Config/ids") as typeof import("../../../Utils/Config/ids");
+const IDs = require("../../../Config/ids") as typeof import("../../../Config/ids");
 const { getBotState, setBotState } = require("../../../../shared/botState/botStateStore") as typeof import("../../../../shared/botState/botStateStore");
 
 const NOMODULI_ROLE_ID = IDs.roles.blacklistModuli;

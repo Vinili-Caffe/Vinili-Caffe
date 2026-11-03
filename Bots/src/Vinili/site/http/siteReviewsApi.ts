@@ -1,7 +1,7 @@
 const { EmbedBuilder } = require("discord.js") as typeof import("discord.js");
 const mongoose = require("mongoose") as typeof import("mongoose");
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
-const { SiteDocument, ActivityUserProfile, SITE_DOCUMENT_TYPE } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
+const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
+const { SiteDocument, ActivityUserProfile, SITE_DOCUMENT_TYPE } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
 
 const RV = SITE_DOCUMENT_TYPE.REVIEW;
 const { enqueueSiteInAppNotification } = require("../notifications/siteInAppNotificationsService") as typeof import("../notifications/siteInAppNotificationsService");

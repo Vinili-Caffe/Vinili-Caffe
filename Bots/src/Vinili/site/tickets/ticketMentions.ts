@@ -1,8 +1,8 @@
 /** Ticket dal sito: menzioni di utenti, ruoli e canali (chi si può menzionare e cosa si vede). */
 const mongoose = require("mongoose") as typeof import("mongoose");
 const { ChannelType, PermissionFlagsBits } = require("discord.js") as typeof import("discord.js");
-const { SiteWebTicketMessage } = require("../../features/tickets/data/siteWebTicketSchemas") as typeof import("../../features/tickets/data/siteWebTicketSchemas");
-const { sanitizeDiscordChannelName } = require("../../Utils/Discord/discordDisplayName") as typeof import("../../Utils/Discord/discordDisplayName");
+const { SiteWebTicketMessage } = require("../../MultiGuild/tickets/data/siteWebTicketSchemas") as typeof import("../../MultiGuild/tickets/data/siteWebTicketSchemas");
+const { sanitizeDiscordChannelName } = require("../utils/discordDisplayName") as typeof import("../utils/discordDisplayName");
 const { displayNameForMember, avatarForMember, resolveGuildId } = require("./ticketNames") as typeof import("./ticketNames");
 const { resolveStaffRoleForMember, resolveCommunityRoleForMember, resolveClientGuild, listAddedUsers } = require("./ticketStaffAccess") as typeof import("./ticketStaffAccess");
 

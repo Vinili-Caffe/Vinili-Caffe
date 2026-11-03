@@ -2,7 +2,7 @@ const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require("
 const mongoose = require("mongoose") as typeof import("mongoose");
 const IDs = require("../Config/ids") as typeof import("../Config/ids");
 const { getCountingConfigFromBucket } = require("../Global/globalSettingsBucket") as typeof import("../Global/globalSettingsBucket");
-const { ActivityUserProfile, SiteDocument, SITE_DOCUMENT_TYPE } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
+const { ActivityUserProfile, SiteDocument, SITE_DOCUMENT_TYPE } = require("../../../../../../src/Vinili/Community/schemas/communitySchemas") as typeof import("../../../../../../src/Vinili/Community/schemas/communitySchemas");
 
 const COUNTING_RESTORE_DOC_TYPE = SITE_DOCUMENT_TYPE.COUNTING_RESTORE_TOKEN;
 const { isValidGuildUserId } = require("../DB/validateWriteIds") as typeof import("../DB/validateWriteIds");

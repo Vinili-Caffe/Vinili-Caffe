@@ -1,9 +1,9 @@
 /** EXP: messaggi di passaggio di livello e dei perk. */
-const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
+const { ActivityUserProfile } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
 const { isValidGuildUserId } = require("../../../shared/db/validateWriteIds") as typeof import("../../../shared/db/validateWriteIds");
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
+const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { getGuildChannelCached, getGuildMemberCached, getClientGuildCached, getClientChannelCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
-const { sendLevelMilestoneSupportersAnnouncement } = require("../../Utils/Community/levelMilestoneSupportersAnnounceEmbeds") as typeof import("../../Utils/Community/levelMilestoneSupportersAnnounceEmbeds");
+const { sendLevelMilestoneSupportersAnnouncement } = require("../../Community/utils/levelMilestoneSupportersAnnounceEmbeds") as typeof import("../../Community/utils/levelMilestoneSupportersAnnounceEmbeds");
 const { applyDefaultFooterToEmbeds } = require("../../../shared/embeds/defaultFooter") as typeof import("../../../shared/embeds/defaultFooter");
 const { isLevelExpGuild, formatMemberMention, repairExpTotals, resolveLevelUpAnnounceLevel } = require("./expLevels") as typeof import("./expLevels");
 const { memberDisplayName, resolveEmbedUserAvatarUrl } = require("../../../shared/discord/guildDiscordIdentity") as typeof import("../../../shared/discord/guildDiscordIdentity");
@@ -191,7 +191,7 @@ function scheduleEventLevelUpMessage(clientOrGuild?, guildId?, userId?, level?, 
 
 async function sendLevelUpPayload(channel?, member?, payload?) {
   if (!channel || !member || !payload) return;
-  const { applyPronounGenderToPayload } = require("../../Utils/Community/pronounGenderUtils") as typeof import("../../Utils/Community/pronounGenderUtils");
+  const { applyPronounGenderToPayload } = require("../../Community/utils/pronounGenderUtils") as typeof import("../../Community/utils/pronounGenderUtils");
   const outgoing = applyDefaultFooterToEmbeds(
     applyPronounGenderToPayload(
       {

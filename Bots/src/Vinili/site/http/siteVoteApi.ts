@@ -1,7 +1,7 @@
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
-const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
+const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
+const { ActivityUserProfile } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
 const { userAvatarUrlDynamic, sitePreferredAvatarUrl } = require("../../../shared/discord/guildDiscordIdentity") as typeof import("../../../shared/discord/guildDiscordIdentity");
-const { voteCountMonthKeyRome } = require("../../Utils/romeVoteMonthKey") as typeof import("../../Utils/romeVoteMonthKey");
+const { voteCountMonthKeyRome } = require("../../Community/utils/romeVoteMonthKey") as typeof import("../../Community/utils/romeVoteMonthKey");
 const { sendJsonWithEtag, weakEtagFromJson } = require("./siteHttpEtag") as typeof import("./siteHttpEtag");
 
 /* voteFastConfirm1: chi ha appena votato deve vedersi subito il voto. Classifica pubblica 20 s,

@@ -1,11 +1,11 @@
 const { EmbedBuilder, AuditLogEvent, PermissionsBitField, } = require("discord.js") as typeof import("discord.js");
 const { handleMusicBotVoiceDisconnect } = require("../../shared/music/services/lavalinkMusicService") as typeof import("../../shared/music/services/lavalinkMusicService");
 const { leaveTtsGuild, handleTtsBotVoiceMove, isTtsPostJoinVoiceGraceActive } = require("../../shared/tts/services/ttsService") as typeof import("../../shared/tts/services/ttsService");
-const { handleVoiceActivity, } = require("../Services/Community/activityService") as typeof import("../Services/Community/activityService");
-const { trackVoiceEngagement } = require("../Services/Community/dailyEngagementStatsService") as typeof import("../Services/Community/dailyEngagementStatsService");
+const { handleVoiceActivity, } = require("../Community/services/activityService") as typeof import("../Community/services/activityService");
+const { trackVoiceEngagement } = require("../Community/services/dailyEngagementStatsService") as typeof import("../Community/services/dailyEngagementStatsService");
 const { handleSerataFilmVoiceState } = require("../Staff/services/staffAutoValutazioniService") as typeof import("../Staff/services/staffAutoValutazioniService");
-const { handleSerataFilmAttendanceVoiceState } = require("../Services/Community/serataFilmAttendance") as typeof import("../Services/Community/serataFilmAttendance");
-const IDs = require("../Utils/Config/ids") as typeof import("../Utils/Config/ids");
+const { handleSerataFilmAttendanceVoiceState } = require("../Community/services/serataFilmAttendance") as typeof import("../Community/services/serataFilmAttendance");
+const IDs = require("../Config/ids") as typeof import("../Config/ids");
 
 function isViniliFullFeatureGuild(guildId?) {
   try {
@@ -335,7 +335,7 @@ export = {
     }
 
     try {
-      const { handleCustomVocVoiceStateUpdate } = require("../Services/Community/customVocPermissionsService") as typeof import("../Services/Community/customVocPermissionsService");
+      const { handleCustomVocVoiceStateUpdate } = require("../Community/services/customVocPermissionsService") as typeof import("../Community/services/customVocPermissionsService");
       await handleCustomVocVoiceStateUpdate(oldState, newState);
     } catch (error) {
       global.logger?.error?.("[CUSTOM VOC PERMS] voiceStateUpdate failed:", error);
@@ -362,7 +362,7 @@ export = {
       global.logger?.error?.("[MINIGAMES] voiceStateUpdate failed:", error);
     }
     try {
-      const { handlePublicVoiceHubJoin, handlePublicVoiceHubEmpty } = require("../Services/Voice/publicVoiceHubService") as typeof import("../Services/Voice/publicVoiceHubService");
+      const { handlePublicVoiceHubJoin, handlePublicVoiceHubEmpty } = require("../Community/services/publicVoiceHubService") as typeof import("../Community/services/publicVoiceHubService");
       if (
         client?.config?.publicVoiceHubs?.enabled !== false ||
         client?.config?.gameVoiceHubs?.enabled !== false
@@ -382,7 +382,7 @@ export = {
       global.logger?.error?.("[PM AFK WATCH] voiceStateUpdate failed:", error);
     }
     try {
-      const { syncCaptureVoiceChannelMember } = require("../Services/Voice/voiceContinuousCaptureService") as typeof import("../Services/Voice/voiceContinuousCaptureService");
+      const { syncCaptureVoiceChannelMember } = require("../Community/services/voiceContinuousCaptureService") as typeof import("../Community/services/voiceContinuousCaptureService");
       if (newState?.channelId && newState.member && !newState.member.user?.bot) {
         syncCaptureVoiceChannelMember(newState.guild?.id, newState.member);
       }

@@ -224,7 +224,7 @@ function clearAutoModPanicState(guildId?) {
   const key = String(guildId || "").trim();
   if (key) GUILD_PANIC_STATE.delete(key);
   try {
-    const { invalidateSecurityLockCache } = require("./securityOrchestratorService") as typeof import("./securityOrchestratorService");
+    const { invalidateSecurityLockCache } = require("../../Security/services/securityOrchestratorService") as typeof import("../../Security/services/securityOrchestratorService");
     invalidateSecurityLockCache(key);
   } catch (_) {}
 }

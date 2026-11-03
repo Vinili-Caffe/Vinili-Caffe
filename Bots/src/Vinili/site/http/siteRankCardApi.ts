@@ -1,13 +1,13 @@
-const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
+const { ActivityUserProfile } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
 const { resolveWebsiteGuildMember } = require("./siteRoleRequestApi") as typeof import("./siteRoleRequestApi");
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
+const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const {
   mergeRankCardTheme,
   DEFAULT_RANK_CARD_THEME,
   listRankCardWallpapers,
   listRankCardFonts,
   getRankCardThemeFromDoc,
-} = require("../../Utils/Render/rankCardTheme") as typeof import("../../Utils/Render/rankCardTheme");
+} = require("../../Community/utils/Render/rankCardTheme") as typeof import("../../Community/utils/Render/rankCardTheme");
 const { getUserRanks, getResolvedWeeklyExpMultiplier } = require("../../Level/services/expService") as typeof import("../../Level/services/expService");
 const renderRankCanvas = require("../../Level/utils/rankCanvas");
 const { guildMemberDisplayAvatarUrlForSite, memberDisplayName } = require("../../../shared/discord/guildDiscordIdentity") as typeof import("../../../shared/discord/guildDiscordIdentity");

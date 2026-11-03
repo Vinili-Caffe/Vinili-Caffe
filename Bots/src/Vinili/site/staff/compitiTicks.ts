@@ -1,6 +1,6 @@
 /** Compiti staff: controlli periodici (scadenze, assegnazioni, invio automatico, inviti). */
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
-const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
+const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
+const { ActivityUserProfile } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
 const { notifyCompitiSubmitted, notifyCompitiMissed, notifyCompitiAutoFailed, notifyCompitiDeadlineSoon, taskLabelFromMeta } = require("./siteStaffCompitiNotifications") as typeof import("./siteStaffCompitiNotifications");
 const { TASKS_META, ALLOWED_TASK_IDS, isAutoTask, taskById } = require("./siteStaffCompitiCatalog") as typeof import("./siteStaffCompitiCatalog");
 const { currentRomeIsoWeekKey, sundaySubmitDeadlineMs, sundayReviewDeadlineMs, compitiActiveMonthKey, dateKeysForIsoWeekKey, deadlinesPayload } = require("./compitiCalendar") as typeof import("./compitiCalendar");

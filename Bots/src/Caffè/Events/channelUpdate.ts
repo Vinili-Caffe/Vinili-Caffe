@@ -1,4 +1,4 @@
-const { handleStanzaChannelUpdate } = require("../Services/Voice/stanzaVoiceRoomsService") as typeof import("../Services/Voice/stanzaVoiceRoomsService");
+const { handleStanzaChannelUpdate } = require("../Voice/services/stanzaVoiceRoomsService") as typeof import("../Voice/services/stanzaVoiceRoomsService");
 
 export = {
   name: "channelUpdate",

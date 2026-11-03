@@ -3,7 +3,7 @@ const {
   addPartnershipBlacklistGuildBucket,
   removePartnershipBlacklistGuildBucket,
   listPartnershipBlacklistGuildsBucket,
-} = require("../../Utils/Global/globalSettingsBucket") as typeof import("../../Utils/Global/globalSettingsBucket");
+} = require("../../Community/services/globalSettingsBucket") as typeof import("../../Community/services/globalSettingsBucket");
 
 function normalizeGuildId(id?) {
   const s = String(id || "").trim();

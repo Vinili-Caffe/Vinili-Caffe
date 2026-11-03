@@ -1,4 +1,4 @@
-﻿/** TTS: ripresa dei collegamenti e dei messaggi persi dopo un riavvio. */
+/** TTS: ripresa dei collegamenti e dei messaggi persi dopo un riavvio. */
 const { getTtsVoiceJoinPolicy } = require("../../discord/ttsVoiceJoinPolicy") as typeof import("../../discord/ttsVoiceJoinPolicy");
 const { voiceFindOneAndUpdate, voiceFindManyLeanForBot } = require("../../botState/domainStatesStore") as typeof import("../../botState/domainStatesStore");
 const { getClientChannelCached } = require("../../discord/interactionEntityCache") as typeof import("../../discord/interactionEntityCache");
@@ -42,7 +42,7 @@ async function joinTtsChannel(voiceChannel?) {
     return null;
   });
   if (!connection) return { ok: false, reason: "join_failed" };
-  const { startVoiceContinuousCapture } = require("../../../Vinili/Services/Voice/voiceContinuousCaptureService") as typeof import("../../../Vinili/Services/Voice/voiceContinuousCaptureService");
+  const { startVoiceContinuousCapture } = require("../../../Vinili/Community/services/voiceContinuousCaptureService") as typeof import("../../../Vinili/Community/services/voiceContinuousCaptureService");
   await startVoiceContinuousCapture({
     guildId: voiceChannel.guild.id,
     voiceChannel,
@@ -52,6 +52,13 @@ async function joinTtsChannel(voiceChannel?) {
     global.logger?.warn?.("[TTS] voice capture start:", err?.message || err);
   });
   return { ok: true };
+}
+
+function isMongoGoneError(err?) {
+  return (
+    err?.name === "MongoNotConnectedError" ||
+    /Client must be connected before running operations/i.test(String(err?.message || err || ""))
+  );
 }
 
 async function saveTtsLastMessageProgress(guildId?, channelId?, messageId?, createdTimestamp?, botUserId?) {
@@ -77,6 +84,8 @@ async function saveTtsLastMessageProgress(guildId?, channelId?, messageId?, crea
       { upsert: true, new: true },
     );
   } catch (error) {
+    /* SIGINT/restart: Mongo già chiuso, niente da loggare come errore. */
+    if (isMongoGoneError(error)) return;
     global.logger?.error?.("[TTS] Failed to save last TTS message progress", error);
   }
 }

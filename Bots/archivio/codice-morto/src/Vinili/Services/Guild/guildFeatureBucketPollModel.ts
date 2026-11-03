@@ -1,7 +1,7 @@
 const {
   GuildFeatureBucket,
   ensureGuildFeatureBucket,
-} = require("../../Schemas/Guild/guildFeatureBucketSchema") as typeof import("../../Schemas/Guild/guildFeatureBucketSchema");
+} = require("../../../../../../src/Vinili/MultiGuild/schemas/guildFeatureBucketSchema") as typeof import("../../../../../../src/Vinili/MultiGuild/schemas/guildFeatureBucketSchema");
 
 const COUNTER_FILTER_QUESTION = "__counter__";
 

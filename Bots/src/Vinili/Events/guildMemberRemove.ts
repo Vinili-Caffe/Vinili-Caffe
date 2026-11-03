@@ -1,25 +1,25 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, AuditLogEvent, PermissionsBitField, } = require("discord.js") as typeof import("discord.js");
 const { closeOpenTicketsForGuildUser } = require("../MultiGuild/tickets/discord/ticketCloseRuntime") as typeof import("../MultiGuild/tickets/discord/ticketCloseRuntime");
 const { autoUnclaimOpenTicketsClaimedByUser } = require("../MultiGuild/tickets/discord/ticketAutoUnclaimOnStaffLoss") as typeof import("../MultiGuild/tickets/discord/ticketAutoUnclaimOnStaffLoss");
-const { ActivityUserProfile, UserLeaveBackup } = require("../Schemas/Community/communitySchemas") as typeof import("../Schemas/Community/communitySchemas");
-const IDs = require("../Utils/Config/ids") as typeof import("../Utils/Config/ids");
+const { ActivityUserProfile, UserLeaveBackup } = require("../Community/schemas/communitySchemas") as typeof import("../Community/schemas/communitySchemas");
+const IDs = require("../Config/ids") as typeof import("../Config/ids");
 const { getGuildChannelCached, getClientGuildCached } = require("../../shared/discord/interactionEntityCache") as typeof import("../../shared/discord/interactionEntityCache");
-const { scheduleMemberCounterRefresh } = require("../Utils/Community/memberCounterUtils") as typeof import("../Utils/Community/memberCounterUtils");
-const { getStaffRoleEmojiByRoleId } = require("../Utils/Community/staffRoleEmoji") as typeof import("../Utils/Community/staffRoleEmoji");
-const { queueIdsCatalogSync } = require("../Utils/Config/idsAutoSync") as typeof import("../Utils/Config/idsAutoSync");
-const { runCleanupAfterMemberLeave } = require("../Services/Community/cleanupUsersNotInServerService") as typeof import("../Services/Community/cleanupUsersNotInServerService");
-const { backupUserOnLeave } = require("../Services/Community/userLeaveBackupService") as typeof import("../Services/Community/userLeaveBackupService");
+const { scheduleMemberCounterRefresh } = require("../Community/utils/memberCounterUtils") as typeof import("../Community/utils/memberCounterUtils");
+const { getStaffRoleEmojiByRoleId } = require("../Community/utils/staffRoleEmoji") as typeof import("../Community/utils/staffRoleEmoji");
+const { queueIdsCatalogSync } = require("../Config/idsAutoSync") as typeof import("../Config/idsAutoSync");
+const { runCleanupAfterMemberLeave } = require("../Community/services/cleanupUsersNotInServerService") as typeof import("../Community/services/cleanupUsersNotInServerService");
+const { backupUserOnLeave } = require("../Community/services/userLeaveBackupService") as typeof import("../Community/services/userLeaveBackupService");
 const { handleMuteMirrorOnMemberLeave } = require("../Moderation/services/mutedMirrorRoleService") as typeof import("../Moderation/services/mutedMirrorRoleService");
 const {
   handleTenantPartnerManagerLeave,
 } = require("../Partner/services/partnerManagerLeaveService") as typeof import("../Partner/services/partnerManagerLeaveService");
-const { enqueueCustomPerksDiscordCleanupAfterLeave } = require("../Services/Community/customPerksDiscordCleanupQueueService") as typeof import("../Services/Community/customPerksDiscordCleanupQueueService");
-const { purgeLeftMemberCustomPerksFromDiscord } = require("../Services/Community/customRoleLeftMemberDiscordCleanupService") as typeof import("../Services/Community/customRoleLeftMemberDiscordCleanupService");
-const { buildAuditExtraLines } = require("../Utils/Logging/channelRolesLogUtils") as typeof import("../Utils/Logging/channelRolesLogUtils");
-const { handleKickBanAction: antiNukeHandleKickBanAction } = require("../Moderation/services/antiNukeService") as typeof import("../Moderation/services/antiNukeService");
+const { enqueueCustomPerksDiscordCleanupAfterLeave } = require("../Community/services/customPerksDiscordCleanupQueueService") as typeof import("../Community/services/customPerksDiscordCleanupQueueService");
+const { purgeLeftMemberCustomPerksFromDiscord } = require("../Community/services/customRoleLeftMemberDiscordCleanupService") as typeof import("../Community/services/customRoleLeftMemberDiscordCleanupService");
+const { buildAuditExtraLines } = require("../Moderation/utils/channelRolesLogUtils") as typeof import("../Moderation/utils/channelRolesLogUtils");
+const { handleKickBanAction: antiNukeHandleKickBanAction } = require("../Security/services/antiNukeService") as typeof import("../Security/services/antiNukeService");
 const { consumeRecentJoinGateKick } = require("../Moderation/utils/joinGateKickCache") as typeof import("../Moderation/utils/joinGateKickCache");
 const { guildMemberDisplayAvatarUrlDynamic } = require("../../shared/discord/guildDiscordIdentity") as typeof import("../../shared/discord/guildDiscordIdentity");
-const { trackMemberLeave } = require("../Services/Community/dailyMemberStatsService") as typeof import("../Services/Community/dailyMemberStatsService");
+const { trackMemberLeave } = require("../Community/services/dailyMemberStatsService") as typeof import("../Community/services/dailyMemberStatsService");
 const { cancelOpenPausesOnMemberLeave } = require("../site/staff/pause/pauseHandlersUtils") as typeof import("../site/staff/pause/pauseHandlersUtils");
 const { appendStaffRolesHistoryEntry } = require("../Staff/utils/staffDocUtils") as typeof import("../Staff/utils/staffDocUtils");
 const { identityFromMember } = require("../site/staff/siteStaffRosterCache") as typeof import("../site/staff/siteStaffRosterCache");
@@ -36,7 +36,7 @@ function isViniliFullFeatureGuild(guildId?) {
 const AUDIT_FETCH_LIMIT = 20;
 const AUDIT_LOOKBACK_MS = 120 * 1000;
 function buildStaffTrackedRoleIdSet() {
-  const { expandRemappedRoleIds } = require("../Utils/Config/emergencyRoleIdRemap") as typeof import("../Utils/Config/emergencyRoleIdRemap");
+  const { expandRemappedRoleIds } = require("../Config/emergencyRoleIdRemap") as typeof import("../Config/emergencyRoleIdRemap");
   const keys = [
     "PartnerManager",
     "Staff",
@@ -163,7 +163,7 @@ function getHighestStaffTrackedRoleExcludingPm(member?) {
   if (!member?.roles?.cache) return null;
   const pmIds = new Set();
   try {
-    const { expandRemappedRoleIds } = require("../Utils/Config/emergencyRoleIdRemap") as typeof import("../Utils/Config/emergencyRoleIdRemap");
+    const { expandRemappedRoleIds } = require("../Config/emergencyRoleIdRemap") as typeof import("../Config/emergencyRoleIdRemap");
     for (const id of expandRemappedRoleIds(PARTNER_MANAGER_ROLE_ID)) pmIds.add(String(id));
   } catch {
     if (PARTNER_MANAGER_ROLE_ID) pmIds.add(PARTNER_MANAGER_ROLE_ID);
@@ -188,7 +188,7 @@ async function resolveLeaveStaffRoleIdsFromDb(guildId?, userId?) {
   if (!doc) return { ladderRoleId: null, hasPm: false };
 
   try {
-    const { expandRemappedRoleIds, remapRoleIdForward } = require("../Utils/Config/emergencyRoleIdRemap") as typeof import("../Utils/Config/emergencyRoleIdRemap");
+    const { expandRemappedRoleIds, remapRoleIdForward } = require("../Config/emergencyRoleIdRemap") as typeof import("../Config/emergencyRoleIdRemap");
     const { staffLadderRoleIds, STAFF_LADDER_KEYS_HIGH_TO_LOW } = require("../Staff/utils/staffRoleHierarchy") as typeof import("../Staff/utils/staffRoleHierarchy");
     const pmIds = new Set(expandRemappedRoleIds(PARTNER_MANAGER_ROLE_ID).map(String));
     const ladderIds = staffLadderRoleIds(STAFF_LADDER_KEYS_HIGH_TO_LOW);
@@ -343,7 +343,7 @@ async function handleTrackedStaffLeave(member?) {
   let highestStaffExPm = getHighestStaffTrackedRoleExcludingPm(member);
   let hasPm = false;
   try {
-    const { memberHasAnyRemappedRole } = require("../Utils/Config/emergencyRoleIdRemap") as typeof import("../Utils/Config/emergencyRoleIdRemap");
+    const { memberHasAnyRemappedRole } = require("../Config/emergencyRoleIdRemap") as typeof import("../Config/emergencyRoleIdRemap");
     hasPm = Boolean(PARTNER_MANAGER_ROLE_ID && memberHasAnyRemappedRole(member, PARTNER_MANAGER_ROLE_ID));
   } catch {
     hasPm = Boolean(PARTNER_MANAGER_ROLE_ID && member.roles?.cache?.has(PARTNER_MANAGER_ROLE_ID));

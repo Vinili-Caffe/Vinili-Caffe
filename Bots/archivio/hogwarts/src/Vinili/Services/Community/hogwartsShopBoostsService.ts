@@ -1,5 +1,5 @@
 const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
-const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
+const { ActivityUserProfile } = require("../../../../../../src/Vinili/Community/schemas/communitySchemas") as typeof import("../../../../../../src/Vinili/Community/schemas/communitySchemas");
 const { getShopItemById, SHOP_CATEGORIES } = require("../../Utils/Web/hogwartsShopCatalog") as typeof import("../../Utils/Web/hogwartsShopCatalog");
 const { resolveHogwartsEventConfig } = require("../../Utils/Web/hogwartsSortingConfig") as typeof import("../../Utils/Web/hogwartsSortingConfig");
 const { housePointPeriodKey, resolvePeriodBounds } = require("../../Utils/Web/hogwartsHousePointPeriods") as typeof import("../../Utils/Web/hogwartsHousePointPeriods");

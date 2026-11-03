@@ -1,5 +1,5 @@
 const { EmbedBuilder } = require("discord.js") as typeof import("discord.js");
-const { buildVcRichFromClassicFields } = require("../../../Utils/Embeds/vcPageEmbedV2") as typeof import("../../../Utils/Embeds/vcPageEmbedV2");
+const { buildVcRichFromClassicFields } = require("../../../../shared/embeds/vcPageEmbedV2") as typeof import("../../../../shared/embeds/vcPageEmbedV2");
 const {
   DEFAULT_TICKET_WELCOME_COLOR,
   getDefaultWelcomeDescription,

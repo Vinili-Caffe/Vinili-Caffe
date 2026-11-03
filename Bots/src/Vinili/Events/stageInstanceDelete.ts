@@ -1,5 +1,5 @@
-const { handleMovieNightStageClose } = require("../Services/Community/movieNightAnnouncementService") as typeof import("../Services/Community/movieNightAnnouncementService");
-const { snapshotSerataFilmAttendance } = require("../Services/Community/serataFilmAttendance") as typeof import("../Services/Community/serataFilmAttendance");
+const { handleMovieNightStageClose } = require("../Community/services/movieNightAnnouncementService") as typeof import("../Community/services/movieNightAnnouncementService");
+const { snapshotSerataFilmAttendance } = require("../Community/services/serataFilmAttendance") as typeof import("../Community/services/serataFilmAttendance");
 
 export = {
   name: "stageInstanceDelete",

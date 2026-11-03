@@ -11,7 +11,7 @@
    notifica da solo, anche se il service worker non parte. Gli altri il formato classico letto da /sw.js. */
 const crypto = require("crypto");
 const webpush = require("web-push");
-const { SiteDocument, SITE_DOCUMENT_TYPE } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
+const { SiteDocument, SITE_DOCUMENT_TYPE } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
 
 const DOC = SITE_DOCUMENT_TYPE.WEB_PUSH_SUBSCRIPTION;
 const DEFAULT_SITE_ORIGIN = "https://www.viniliecaffe.it";

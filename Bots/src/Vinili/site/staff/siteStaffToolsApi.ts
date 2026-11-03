@@ -1,6 +1,6 @@
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
-const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
-const Ticket = require("../../Schemas/Ticket/ticketSchema");
+const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
+const { ActivityUserProfile } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
+const Ticket = require("../../MultiGuild/tickets/data/guildFeatureBucketTicketModel");
 const {
   resolveStaffProfileKind,
   resolveStaffPartnerPointsDisplay,
@@ -26,7 +26,7 @@ const {
   memberHasAnyRoleKey,
 } = require("../../Staff/utils/staffRoleHierarchy") as typeof import("../../Staff/utils/staffRoleHierarchy");
 const { assertWebsiteStaffAccess, normalizeHeaderSecret } = require("./siteStaffAccessApi") as typeof import("./siteStaffAccessApi");
-const { buildPmShopCatalogForWeb } = require("./siteStaffPmShopApi") as typeof import("./siteStaffPmShopApi");
+const { buildPmShopCatalogForWeb } = require("../../Partner/site/siteStaffPmShopApi") as typeof import("../../Partner/site/siteStaffPmShopApi");
 const { memberIsPm } = require("./siteStaffRosterCache") as typeof import("./siteStaffRosterCache");
 const { sendJsonWithEtag, weakEtagFromParts } = require("../../site/http/siteHttpEtag") as typeof import("../../site/http/siteHttpEtag");
 const { resolveWebUserIdentitiesBatch } = require("../../site/http/siteWebUserIdentity") as typeof import("../../site/http/siteWebUserIdentity");

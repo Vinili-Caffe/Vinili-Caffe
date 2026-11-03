@@ -1,12 +1,12 @@
 const { EmbedBuilder } = require("discord.js") as typeof import("discord.js");
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
+const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { getGuildChannelCached, getGuildMemberCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
 const { getOrCreateStaffDoc, deleteThreadForMessage, ensureStaff } = require("../../Staff/utils/staffDocUtils") as typeof import("../../Staff/utils/staffDocUtils");
 const { initPartnerManagerFieldsIfMissing, syncStaffDbAndPauseChannelAfterDepex } = require("../../Staff/utils/staffPmUtils") as typeof import("../../Staff/utils/staffPmUtils");
 const { applyDepexOneLevel, getHighestStaffRoleId } = require("../../Staff/services/staffWarnService") as typeof import("../../Staff/services/staffWarnService");
-const { memberHasStaffRole } = require("../../Utils/Community/staffListUtils") as typeof import("../../Utils/Community/staffListUtils");
-const { getStaffRoleEmojiByRoleId } = require("../../Utils/Community/staffRoleEmoji") as typeof import("../../Utils/Community/staffRoleEmoji");
-const { clearStaffPendingPurgeAt } = require("../../Services/Community/userLeaveBackupService") as typeof import("../../Services/Community/userLeaveBackupService");
+const { memberHasStaffRole } = require("../../Community/utils/staffListUtils") as typeof import("../../Community/utils/staffListUtils");
+const { getStaffRoleEmojiByRoleId } = require("../../Community/utils/staffRoleEmoji") as typeof import("../../Community/utils/staffRoleEmoji");
+const { clearStaffPendingPurgeAt } = require("../../Community/services/userLeaveBackupService") as typeof import("../../Community/services/userLeaveBackupService");
 const { userAvatarUrlDynamic } = require("../../../shared/discord/guildDiscordIdentity") as typeof import("../../../shared/discord/guildDiscordIdentity");
 const {
   memberHasResocontoButtonAccess,

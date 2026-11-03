@@ -8,7 +8,7 @@ const path = require("node:path") as typeof import("node:path");
 const {
   GuildQuoteBoard,
   GuildRepost,
-} = require("../../Schemas/Community/guildBoardPostSchema") as typeof import("../../Schemas/Community/guildBoardPostSchema");
+} = require("../../Community/schemas/guildBoardPostSchema") as typeof import("../../Community/schemas/guildBoardPostSchema");
 const {
   getClientGuildCached,
   getGuildChannelCached,

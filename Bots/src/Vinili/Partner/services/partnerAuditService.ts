@@ -1,8 +1,8 @@
 const cron = require("node-cron") as typeof import("node-cron");
 const { runCronDetached } = require("../../../shared/scheduling/cronDetached") as typeof import("../../../shared/scheduling/cronDetached");
 const axios = require("axios") as any;
-const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
+const { ActivityUserProfile } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
+const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { getGuildChannelCached, getClientGuildCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
 const {
   getPartnershipChannelId,

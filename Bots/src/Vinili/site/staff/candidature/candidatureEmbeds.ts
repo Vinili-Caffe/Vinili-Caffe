@@ -1,11 +1,11 @@
 const { EmbedBuilder } = require("discord.js") as typeof import("discord.js");
-const IDs = require("../../../Utils/Config/ids") as typeof import("../../../Utils/Config/ids");
+const IDs = require("../../../Config/ids") as typeof import("../../../Config/ids");
 const { getGuildChannelCached } = require("../../../../shared/discord/interactionEntityCache") as typeof import("../../../../shared/discord/interactionEntityCache");
 const { TENANT_EMBED_COLOR } = require("../../../MultiGuild/utils/tenantEmbedBranding") as typeof import("../../../MultiGuild/utils/tenantEmbedBranding");
 const { accountUsername, guildMemberDisplayAvatarUrlDynamic } = require("../../../../shared/discord/guildDiscordIdentity") as typeof import("../../../../shared/discord/guildDiscordIdentity");
 const { getBotState, setBotState } = require("../../../../shared/botState/botStateStore") as typeof import("../../../../shared/botState/botStateStore");
 const { normalizeApplicationType, cooldownByUserAndType, cooldownStorageKey, loadCooldownMap, persistCooldownMap } = require("./candidatureEligibility") as typeof import("./candidatureEligibility");
-const { HELPER_QUESTIONS, PARTNER_MANAGER_QUESTIONS, BLOGGER_QUESTIONS } = require("../../../Utils/Community/candidatureApplicationsCatalog") as typeof import("../../../Utils/Community/candidatureApplicationsCatalog");
+const { HELPER_QUESTIONS, PARTNER_MANAGER_QUESTIONS, BLOGGER_QUESTIONS } = require("../../../Community/utils/candidatureApplicationsCatalog") as typeof import("../../../Community/utils/candidatureApplicationsCatalog");
 const APPLY_PEX_PREFIX = "apply_pex";
 const DRAFT_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const APPLICATION_COOLDOWN_MS = 15 * 24 * 60 * 60 * 1000;

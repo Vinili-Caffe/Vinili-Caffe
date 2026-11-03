@@ -1,18 +1,18 @@
 const { EmbedBuilder, PermissionsBitField, ActivityType } = require("discord.js") as typeof import("discord.js");
 const mongoose = require("mongoose") as typeof import("mongoose");
-const { ActivityUserProfile } = require("../Schemas/Community/communitySchemas") as typeof import("../Schemas/Community/communitySchemas");
+const { ActivityUserProfile } = require("../Community/schemas/communitySchemas") as typeof import("../Community/schemas/communitySchemas");
 const { ensureMongoReady, isMongoTransientError } = require("../../shared/db/mongoConnect") as typeof import("../../shared/db/mongoConnect");
-const IDs = require("../Utils/Config/ids") as typeof import("../Utils/Config/ids");
-const { shouldSendPublicMemberAnnouncement } = require("../Utils/Community/memberPublicAnnouncementGate") as typeof import("../Utils/Community/memberPublicAnnouncementGate");
+const IDs = require("../Config/ids") as typeof import("../Config/ids");
+const { shouldSendPublicMemberAnnouncement } = require("../Community/utils/memberPublicAnnouncementGate") as typeof import("../Community/utils/memberPublicAnnouncementGate");
 const { getGuildChannelCached, getGuildMemberCached } = require("../../shared/discord/interactionEntityCache") as typeof import("../../shared/discord/interactionEntityCache");
 const { accountUsername, guildMemberDisplayAvatarUrlDynamic } = require("../../shared/discord/guildDiscordIdentity") as typeof import("../../shared/discord/guildDiscordIdentity");
-const { applyPronounGenderToEmbedForMember } = require("../Utils/Community/pronounGenderUtils") as typeof import("../Utils/Community/pronounGenderUtils");
+const { applyPronounGenderToEmbedForMember } = require("../Community/utils/pronounGenderUtils") as typeof import("../Community/utils/pronounGenderUtils");
 const { syncPersistentAutoValutazioniForMember } = require("../Staff/services/staffAutoValutazioniService") as typeof import("../Staff/services/staffAutoValutazioniService");
 const {
   textHasSupporterStatusLink,
   normalizeSupporterStatusText,
   SUPPORTER_STATUS_LINK_HINT_IT,
-} = require("../Utils/Community/supporterStatusLink") as typeof import("../Utils/Community/supporterStatusLink");
+} = require("../Community/utils/supporterStatusLink") as typeof import("../Community/utils/supporterStatusLink");
 const MAIN_GUILD_ID = String(IDs.guilds?.main || "");
 const ROLE_ID = IDs.roles.Fan;
 const PERK_ROLE_ID = IDs.roles.PicPerms;
@@ -332,7 +332,7 @@ async function executeFanRemoval(member?, channel?) {
   }
 
   try {
-    const { tryRevokePicPermsIfIneligible } = require("../Utils/Community/manualSocialRoleAnnounceAndPicPerms") as typeof import("../Utils/Community/manualSocialRoleAnnounceAndPicPerms");
+    const { tryRevokePicPermsIfIneligible } = require("../Community/utils/manualSocialRoleAnnounceAndPicPerms") as typeof import("../Community/utils/manualSocialRoleAnnounceAndPicPerms");
     const freshAfterFan = (await refreshMember(member.guild, member.id)) || member;
     await tryRevokePicPermsIfIneligible(freshAfterFan);
   } catch (err) {
@@ -805,7 +805,7 @@ async function startPendingFlow(member?, channel?) {
 }
 
 async function recoverSupporterStatusAnnouncesOnStartup(client?, opts: Record<string, any> = {}) {
-  const { isRecoveryPrimaryShard, recoverySleep } = require("../Utils/Community/supportersChannelEmbedRecoveryUtils") as typeof import("../Utils/Community/supportersChannelEmbedRecoveryUtils");
+  const { isRecoveryPrimaryShard, recoverySleep } = require("../Community/utils/supportersChannelEmbedRecoveryUtils") as typeof import("../Community/utils/supportersChannelEmbedRecoveryUtils");
   if (!isRecoveryPrimaryShard(client)) return { ok: false, reason: "not_primary_shard" };
   if (!MAIN_GUILD_ID) return { ok: false, reason: "no_main_guild" };
   const guild = client.guilds.cache.get(MAIN_GUILD_ID) || (await client.guilds.fetch(MAIN_GUILD_ID).catch(() => null));
@@ -841,7 +841,7 @@ async function recoverSupporterStatusAnnouncesOnStartup(client?, opts: Record<st
       }
     }
     if (!needsRecovery) continue;
-    const { botSupportersEmbedExistsForUser, EMBED_DEDUPE_LOOKBACK_MS } = require("../Utils/Community/supportersChannelEmbedRecoveryUtils") as typeof import("../Utils/Community/supportersChannelEmbedRecoveryUtils");
+    const { botSupportersEmbedExistsForUser, EMBED_DEDUPE_LOOKBACK_MS } = require("../Community/utils/supportersChannelEmbedRecoveryUtils") as typeof import("../Community/utils/supportersChannelEmbedRecoveryUtils");
     const fanEmbedExists = await botSupportersEmbedExistsForUser(
       channel,
       uid,

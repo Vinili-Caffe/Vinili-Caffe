@@ -9,7 +9,7 @@ const {
   assertDashboardHighStaffAccess,
   listDashboardGuilds,
 } = require("./siteDashboardApi") as typeof import("./siteDashboardApi");
-const { getPremiumCredits } = require("../../Services/Community/premiumCreditsService") as typeof import("../../Services/Community/premiumCreditsService");
+const { getPremiumCredits } = require("../../Community/services/premiumCreditsService") as typeof import("../../Community/services/premiumCreditsService");
 
 function guildDisplayIcon(guild?) {
   if (!guild) return null;

@@ -1,6 +1,6 @@
 /** Bacheca sul sito: clip vocale salvata senza messaggio nel canale (mp3 sul CDN). */
 const fs = require("fs") as typeof import("fs");
-const { GuildRepost } = require("../../Schemas/Community/repostSchema") as typeof import("../../Schemas/Community/repostSchema");
+const { GuildRepost } = require("../../Community/schemas/guildBoardPostSchema") as typeof import("../../Community/schemas/guildBoardPostSchema");
 const { accountUsername, guildMemberDisplayAvatarUrlDynamic } = require("../../../shared/discord/guildDiscordIdentity") as typeof import("../../../shared/discord/guildDiscordIdentity");
 const { SITE_BOARD_CHANNEL, newBachecaItemId, bachecaItemUrl, putBachecaMedia, broadcastBachecaChanged } = require("./bachecaSite") as typeof import("./bachecaSite");
 

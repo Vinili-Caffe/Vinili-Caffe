@@ -1,5 +1,5 @@
 /** Chat del workflow: suggerimenti di menzioni ed emoji. */
-const { SiteWorkflowChatMessage } = require("../../Schemas/Web/siteWorkflowChatSchemas") as typeof import("../../Schemas/Web/siteWorkflowChatSchemas");
+const { SiteWorkflowChatMessage } = require("./siteWorkflowChatSchemas") as typeof import("./siteWorkflowChatSchemas");
 const { listGuildMentionChannels, memberCanViewChannelId } = require("../tickets/siteWebTicketsApi") as typeof import("../tickets/siteWebTicketsApi");
 const { displayNameForMember } = require("./workflowChatAuthors") as typeof import("./workflowChatAuthors");
 const { bearerFromRequest, resolveWorkflowChatAccess } = require("./workflowChatAccess") as typeof import("./workflowChatAccess");

@@ -1,7 +1,7 @@
-const { formatItalianMinutesPlain } = require("../Utils/Text/italianDurationLabels") as typeof import("../Utils/Text/italianDurationLabels");
+const { formatItalianMinutesPlain } = require("../../shared/utils/italianDurationLabels") as typeof import("../../shared/utils/italianDurationLabels");
 const { AuditLogEvent, ChannelType, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, } = require("discord.js") as typeof import("discord.js");
-const { toDiscordTimestamp, yesNo, formatAuditActor, buildAuditExtraLines, resolveChannelRolesLogChannel, resolveResponsible, } = require("../Utils/Logging/channelRolesLogUtils") as typeof import("../Utils/Logging/channelRolesLogUtils");
-const { handleThreadCreationAction: antiNukeHandleThreadCreationAction } = require("../Moderation/services/antiNukeService") as typeof import("../Moderation/services/antiNukeService");
+const { toDiscordTimestamp, yesNo, formatAuditActor, buildAuditExtraLines, resolveChannelRolesLogChannel, resolveResponsible, } = require("../Moderation/utils/channelRolesLogUtils") as typeof import("../Moderation/utils/channelRolesLogUtils");
+const { handleThreadCreationAction: antiNukeHandleThreadCreationAction } = require("../Security/services/antiNukeService") as typeof import("../Security/services/antiNukeService");
 const { isViniliFullFeatureGuild } = require("../MultiGuild/core/guildFeatureScope") as typeof import("../MultiGuild/core/guildFeatureScope");
 const THREAD_CREATE_ACTION = AuditLogEvent?.ThreadCreate ?? 110;
 

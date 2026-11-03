@@ -18,7 +18,7 @@ const {
 const { extractInviteCode, extractInviteCodeFromUrl } = require("../runtime/partnershipMessageUtils") as typeof import("../runtime/partnershipMessageUtils");
 const { getOrCreateStaffDoc, ensureStaff } = require("../../Staff/utils/staffDocUtils") as typeof import("../../Staff/utils/staffDocUtils");
 const { initPartnerManagerFieldsIfMissing } = require("../../Staff/utils/staffPmUtils") as typeof import("../../Staff/utils/staffPmUtils");
-const BotState = require("../../Schemas/BotState/botStateSchema");
+const BotState = require("../../../shared/schemas/botState/botStateSchema");
 
 const QUEUE_STATE_KEY_LARGE = "tenantPartnershipHistoryMigrationQueue.v1";
 const QUEUE_STATE_KEY_SMALL = "tenantPartnershipHistoryMigrationQueue.small.v1";
@@ -1251,7 +1251,7 @@ async function undoPartnershipHistoryMigration(guildId?, opts: Record<string, an
   }
 
   const jobId = String(job.id);
-  const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
+  const { ActivityUserProfile } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
   const {
     countPartnerCreateActions,
     getPartnerServerResetMs,

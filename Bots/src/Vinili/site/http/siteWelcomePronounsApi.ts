@@ -1,7 +1,7 @@
 "use strict";
 
 const { resolveWebsiteGuildMember } = require("./siteRoleRequestApi") as typeof import("./siteRoleRequestApi");
-const { resolveWelcomeBadge } = require("../../Utils/Community/pronounWelcomeUtils") as typeof import("../../Utils/Community/pronounWelcomeUtils");
+const { resolveWelcomeBadge } = require("../../Community/utils/pronounWelcomeUtils") as typeof import("../../Community/utils/pronounWelcomeUtils");
 const { fetchWebsiteGuildMember, clearWebsiteMemberCaches } = require("./websiteGuildMemberFetch") as typeof import("./websiteGuildMemberFetch");
 
 const CACHE_TTL_MS = 45_000;

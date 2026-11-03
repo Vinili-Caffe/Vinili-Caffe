@@ -1,21 +1,21 @@
 const { PermissionsBitField } = require("discord.js") as typeof import("discord.js");
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
-const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
+const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
+const { ActivityUserProfile } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
 const { isValidGuildUserId } = require("../../../shared/db/validateWriteIds") as typeof import("../../../shared/db/validateWriteIds");
 const { getClientGuildCached, getGuildMemberCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
 const { ensureMongoReady } = require("../../../shared/db/mongoConnect") as typeof import("../../../shared/db/mongoConnect");
 const { getUserExpStats, syncLevelRolesForMember } = require("../../Level/services/expService") as typeof import("../../Level/services/expService");
-const { applyTenureForMember } = require("../../Services/Community/communityOpsService") as typeof import("../../Services/Community/communityOpsService");
-const { applyZodiacRoleFromBirthday } = require("../../Utils/Community/zodiacRoles") as typeof import("../../Utils/Community/zodiacRoles");
-const { applyAgeBracketRoleFromBirthday } = require("../../Utils/Community/ageBracketRoles") as typeof import("../../Utils/Community/ageBracketRoles");
-const { restorePersistedPersonalityRoles, persistMuteRoleSnapshotToProfile, loadStoredPersonalityRoleIds } = require("../../Utils/Community/personalityRolePersistence") as typeof import("../../Utils/Community/personalityRolePersistence");
+const { applyTenureForMember } = require("../../Community/services/communityOpsService") as typeof import("../../Community/services/communityOpsService");
+const { applyZodiacRoleFromBirthday } = require("../../Community/utils/zodiacRoles") as typeof import("../../Community/utils/zodiacRoles");
+const { applyAgeBracketRoleFromBirthday } = require("../../Community/utils/ageBracketRoles") as typeof import("../../Community/utils/ageBracketRoles");
+const { restorePersistedPersonalityRoles, persistMuteRoleSnapshotToProfile, loadStoredPersonalityRoleIds } = require("../../Community/utils/personalityRolePersistence") as typeof import("../../Community/utils/personalityRolePersistence");
 const {
   registerMuteMirrorRestoreRoleSuppress,
   wasRoleRestoredByMuteMirror,
 } = require("../utils/muteRestoreAnnounceSuppress") as typeof import("../utils/muteRestoreAnnounceSuppress");
-const { syncClanTagRolesForUserEverywhereAfterMemberEvent } = require("../../Services/Community/clanTagRoleService") as typeof import("../../Services/Community/clanTagRoleService");
-const { hasEventWeekWinnerGrant } = require("../../Services/Community/weekWinnerGrantsService") as typeof import("../../Services/Community/weekWinnerGrantsService");
-const { hasExtraCustomPerksUnlock } = require("../../Utils/Community/customPerksUnlock") as typeof import("../../Utils/Community/customPerksUnlock");
+const { syncClanTagRolesForUserEverywhereAfterMemberEvent } = require("../../Community/services/clanTagRoleService") as typeof import("../../Community/services/clanTagRoleService");
+const { hasEventWeekWinnerGrant } = require("../../Community/services/weekWinnerGrantsService") as typeof import("../../Community/services/weekWinnerGrantsService");
+const { hasExtraCustomPerksUnlock } = require("../../Community/utils/customPerksUnlock") as typeof import("../../Community/utils/customPerksUnlock");
 const { setMemberRolesSafe, resolveGuildBotMember } = require("./muteRoleRest") as typeof import("./muteRoleRest");
 const { isPostUnmuteReconciliationCurrent, markPostUnmuteReconciliationComplete, wasRecentUnmuteProfileRecoveryDone, markMuteMirrorStaffProtect, memberIsInMuteMirrorState, shouldSuppressStaffDepexForMuteMirror, dbReady, loadProfileMuteSnapshotRoleIds, loadSnapshot, isCommunicationTimeoutActive, hasPendingMuteMirrorSnapshot } = require("./muteStaffProtect") as typeof import("./muteStaffProtect");
 const { EMPTY_SNAPSHOT_COOLDOWN_MS, upsertSnapshot, hasSnapshot, isEmptySnapshotOnCooldown, markEmptySnapshotCooldown, clearEmptySnapshotCooldown, recoverSnapshotRoleIdsFallback, clearSnapshot, collectSnapshotRoleIds, buildRolesWhileMuted, resolveMutedRoleContext, shouldDeferRoleRestoreForMuteMirror, captureMuteRoleSnapshot } = require("./muteSnapshot") as typeof import("./muteSnapshot");

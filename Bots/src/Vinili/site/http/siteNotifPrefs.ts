@@ -1,9 +1,9 @@
 "use strict";
 
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
-const { getProfile, upsertProfile } = require("../../Services/Community/profileStore") as typeof import("../../Services/Community/profileStore");
-const { shouldBlockDm } = require("../../Utils/noDmList") as typeof import("../../Utils/noDmList");
-const { memberHasStaffRole } = require("../../Utils/Community/staffListUtils") as typeof import("../../Utils/Community/staffListUtils");
+const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
+const { getProfile, upsertProfile } = require("../../Community/services/profileStore") as typeof import("../../Community/services/profileStore");
+const { shouldBlockDm } = require("../../Community/utils/noDmList") as typeof import("../../Community/utils/noDmList");
+const { memberHasStaffRole } = require("../../Community/utils/staffListUtils") as typeof import("../../Community/utils/staffListUtils");
 
 /* notifUseful1: extended site notif groups + digest queue toggles */
 const SITE_NOTIF_GROUPS = Object.freeze([

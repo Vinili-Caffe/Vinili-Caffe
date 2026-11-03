@@ -1,4 +1,4 @@
-﻿const { EmbedBuilder } = require("discord.js") as typeof import("discord.js");
+const { EmbedBuilder } = require("discord.js") as typeof import("discord.js");
 const { guildIconUrl, userAvatarUrlDynamic, userAvatarUrlStatic } = require("../discord/guildDiscordIdentity") as typeof import("../discord/guildDiscordIdentity");
 function loadTenantEmbedBranding() {
   try {
@@ -226,7 +226,7 @@ function normalizeOutgoingPayload(payload?, guild?) {
 
   let next = payload;
   try {
-    const { applyEmergencyRoleRemapToOutgoingPayload } = require("../../Vinili/Utils/Config/emergencyRoleIdRemap") as typeof import("../../Vinili/Utils/Config/emergencyRoleIdRemap");
+    const { applyEmergencyRoleRemapToOutgoingPayload } = require("../../Vinili/Config/emergencyRoleIdRemap") as typeof import("../../Vinili/Config/emergencyRoleIdRemap");
     next = applyEmergencyRoleRemapToOutgoingPayload(next);
   } catch (_) {}
 

@@ -1,5 +1,5 @@
 const { PermissionsBitField } = require("discord.js") as typeof import("discord.js");
-const IDs = require("../../../Utils/Config/ids") as typeof import("../../../Utils/Config/ids");
+const IDs = require("../../../Config/ids") as typeof import("../../../Config/ids");
 const { getGuildMemberCached } = require("../../../../shared/discord/interactionEntityCache") as typeof import("../../../../shared/discord/interactionEntityCache");
 const { createModCase, logModCase } = require("../../utils/moderation") as typeof import("../../utils/moderation");
 const { findModLogsPage } = require("../../utils/modCaseStore") as typeof import("../../utils/modCaseStore");

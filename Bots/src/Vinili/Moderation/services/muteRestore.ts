@@ -1,6 +1,6 @@
 /** Mute: ripristino dei ruoli alla fine del timeout. */
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
-const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
+const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
+const { ActivityUserProfile } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
 const { getGuildMemberCached, isUnknownDiscordMemberError } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
 const { getUserExpStats, syncLevelRolesForMember } = require("../../Level/services/expService") as typeof import("../../Level/services/expService");
 const { registerMuteMirrorRestoreRoleSuppress } = require("../utils/muteRestoreAnnounceSuppress") as typeof import("../utils/muteRestoreAnnounceSuppress");

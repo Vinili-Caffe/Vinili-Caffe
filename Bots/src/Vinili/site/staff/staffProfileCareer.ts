@@ -1,6 +1,6 @@
 /** Profilo staff: carriera nello staff (pex e depex, anzianità). */
-const { viniliPath } = require("../../core/paths") as typeof import("../../core/paths");
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
+const { viniliPath } = require("../../paths") as typeof import("../../paths");
+const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { isHiddenManualStaffCareerReason } = require("../../Staff/utils/staffTrackHistory") as typeof import("../../Staff/utils/staffTrackHistory");
 const { stripDiscordDecorations } = require("./staffProfilePauses") as typeof import("./staffProfilePauses");
 

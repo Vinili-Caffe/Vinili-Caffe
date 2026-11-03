@@ -2,7 +2,7 @@
 
 const { resolveWebsiteGuildMember } = require("./siteRoleRequestApi") as typeof import("./siteRoleRequestApi");
 const { buildCustomProfileData } = require("./siteUsersLeaderboardApi") as typeof import("./siteUsersLeaderboardApi");
-const { CustomRole } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
+const { CustomRole } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
 const {
   createCustomRole,
   deleteCustomRole,
@@ -18,20 +18,20 @@ const {
   addCustomVocMember,
   removeCustomVocMember,
   memberHasGradientHoloAccess,
-} = require("../../Services/Community/customProfileMutations") as typeof import("../../Services/Community/customProfileMutations");
-const { resolveCustomRoleState } = require("../../Utils/Community/customRoleState") as typeof import("../../Utils/Community/customRoleState");
-const { getCustomRoleSlotCapWithContest, getCustomRoleSlotCapFromRoles } = require("../../Utils/Community/customRoleSlots") as typeof import("../../Utils/Community/customRoleSlots");
-const { hasExtraCustomPerksUnlock } = require("../../Utils/Community/customPerksUnlock") as typeof import("../../Utils/Community/customPerksUnlock");
-const { hasEventWeekWinnerGrant } = require("../../Services/Community/weekWinnerGrantsService") as typeof import("../../Services/Community/weekWinnerGrantsService");
+} = require("../../Community/services/customProfileMutations") as typeof import("../../Community/services/customProfileMutations");
+const { resolveCustomRoleState } = require("../../Community/utils/customRoleState") as typeof import("../../Community/utils/customRoleState");
+const { getCustomRoleSlotCapWithContest, getCustomRoleSlotCapFromRoles } = require("../../Community/utils/customRoleSlots") as typeof import("../../Community/utils/customRoleSlots");
+const { hasExtraCustomPerksUnlock } = require("../../Community/utils/customPerksUnlock") as typeof import("../../Community/utils/customPerksUnlock");
+const { hasEventWeekWinnerGrant } = require("../../Community/services/weekWinnerGrantsService") as typeof import("../../Community/services/weekWinnerGrantsService");
 const { fetchPartnerManagerTimedPerkLean, partnerManagerCustomBundleActiveFromLean } = require("../../Staff/utils/partnerManagerTimedPerks") as typeof import("../../Staff/utils/partnerManagerTimedPerks");
 
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
-const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
+const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
+const { ActivityUserProfile } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
 const {
   buildCustomVocWeeklyActivityPanelState,
   CUSTOM_VOC_WEEKLY_MIN_SECONDS,
   CUSTOM_VOC_MAX_FAILED_WEEKS,
-} = require("../../Utils/Community/customVocWeeklyActivityUtils") as typeof import("../../Utils/Community/customVocWeeklyActivityUtils");
+} = require("../../Community/utils/customVocWeeklyActivityUtils") as typeof import("../../Community/utils/customVocWeeklyActivityUtils");
 
 const CUSTOM_VOC_CREATE_ROLE_IDS = [IDs?.roles?.VIP, IDs?.roles?.DoubleBooster, IDs?.roles?.VIPplus, IDs?.roles?.["VIP+"], IDs?.roles?.Level50].filter(Boolean);
 
@@ -83,7 +83,7 @@ async function loadVoiceWeeklyActivity(guildId?, userId?) {
     }
     let hydrated = profileLean;
     try {
-      const { hydrateProfileActivityBucketsFromGuild } = require("../../Services/Community/activityService") as typeof import("../../Services/Community/activityService");
+      const { hydrateProfileActivityBucketsFromGuild } = require("../../Community/services/activityService") as typeof import("../../Community/services/activityService");
       hydrated = await hydrateProfileActivityBucketsFromGuild(gid, uid, profileLean);
     } catch (_) {}
     return buildCustomVocWeeklyActivityPanelState(merged, hydrated);

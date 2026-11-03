@@ -1,6 +1,6 @@
 const { OverwriteType } = require("discord.js") as typeof import("discord.js");
-const { GuildFeatureBucket } = require("../../../Schemas/Guild/guildFeatureBucketSchema") as typeof import("../../../Schemas/Guild/guildFeatureBucketSchema");
-const IDs = require("../../../Utils/Config/ids") as typeof import("../../../Utils/Config/ids");
+const { GuildFeatureBucket } = require("../../schemas/guildFeatureBucketSchema") as typeof import("../../schemas/guildFeatureBucketSchema");
+const IDs = require("../../../Config/ids") as typeof import("../../../Config/ids");
 const { memberCanAccessPerksTicket } = require("./ticketPerksStaffRoles") as typeof import("./ticketPerksStaffRoles");
 const { memberCanAccessPartnershipTicket } = require("./ticketPartnershipStaffRoles") as typeof import("./ticketPartnershipStaffRoles");
 const { userAvatarUrlDynamic } = require("../../../../shared/discord/guildDiscordIdentity") as typeof import("../../../../shared/discord/guildDiscordIdentity");

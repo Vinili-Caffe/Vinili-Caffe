@@ -1,9 +1,9 @@
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
-const { CustomRole } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
+const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
+const { CustomRole } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
 const { userAvatarUrlDynamic } = require("../../../shared/discord/guildDiscordIdentity") as typeof import("../../../shared/discord/guildDiscordIdentity");
-const { discordRoleIconUrl } = require("../../Utils/Discord/discordRoleIconUrl") as typeof import("../../Utils/Discord/discordRoleIconUrl");
-const { isArchivedEventRoleId } = require("../../Utils/Community/userCustomRoleFilter") as typeof import("../../Utils/Community/userCustomRoleFilter");
-const { collectBlockedSystemRoleIds, isListableUserCustomRole } = require("../../Utils/Community/userCustomRoleFilter") as typeof import("../../Utils/Community/userCustomRoleFilter");
+const { discordRoleIconUrl } = require("../utils/discordRoleIconUrl") as typeof import("../utils/discordRoleIconUrl");
+const { isArchivedEventRoleId } = require("../../Community/utils/userCustomRoleFilter") as typeof import("../../Community/utils/userCustomRoleFilter");
+const { collectBlockedSystemRoleIds, isListableUserCustomRole } = require("../../Community/utils/userCustomRoleFilter") as typeof import("../../Community/utils/userCustomRoleFilter");
 const { sendJsonWithEtag, weakEtagFromParts } = require("./siteHttpEtag") as typeof import("./siteHttpEtag");
 
 const CACHE_TTL_MS = 90_000;

@@ -1,12 +1,12 @@
 /** Profilo staff: dati del profilo mostrati sul sito. */
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
-const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
+const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
+const { ActivityUserProfile } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
 const { accountUsername, memberDisplayName, userAvatarUrlDynamic, guildMemberDisplayAvatarUrlForSite, discordDefaultAvatarUrl } = require("../../../shared/discord/guildDiscordIdentity") as typeof import("../../../shared/discord/guildDiscordIdentity");
 const { summarizeModActionsByModWindows } = require("../../Moderation/utils/modCaseStore") as typeof import("../../Moderation/utils/modCaseStore");
 const { getValPosTradedPauseBonusDays, computeStaffPauseDayBudget, PAUSE_ROLE_STAFF, PAUSE_ROLE_PM, roleChoiceAppliesTo } = require("../../site/staff/pause/pauseHandlersUtils") as typeof import("../../site/staff/pause/pauseHandlersUtils");
 const { resolveStaffProfileKind, buildFullProfileRoleLabelForEmbed, buildStaffProfileRoleBadges, resolveStaffProfileDisplayRoleId, viewerIsFounder, targetIsFounder, PROFILE_FULL, PROFILE_PM_ONLY, PROFILE_PROSPECT } = require("../../Staff/utils/staffProfilePanelRuntime") as typeof import("../../Staff/utils/staffProfilePanelRuntime");
 const { resolvePartnerPointsShown, resolvePartnerTotalEarned } = require("../../Staff/utils/partnerPointsDisplayUtils") as typeof import("../../Staff/utils/partnerPointsDisplayUtils");
-const { applyPronounGenderToTextForMember } = require("../../Utils/Community/pronounGenderUtils") as typeof import("../../Utils/Community/pronounGenderUtils");
+const { applyPronounGenderToTextForMember } = require("../../Community/utils/pronounGenderUtils") as typeof import("../../Community/utils/pronounGenderUtils");
 const { resolveSerataFilmAttendanceForWeek } = require("../../Staff/utils/serataFilmAttendanceUtils") as typeof import("../../Staff/utils/serataFilmAttendanceUtils");
 const { loadLegacyStaffByUserIds, mergeStaffEmbedded } = require("../../Staff/utils/staffLegacyMerge") as typeof import("../../Staff/utils/staffLegacyMerge");
 const { PROFILE_PAYLOAD_VERSION } = require("./staffProfileCache") as typeof import("./staffProfileCache");
@@ -368,7 +368,7 @@ async function buildStaffProfilePayloadForWeb(client?, member?, user?, opts: Rec
           const pointsEarned = Math.max(0, Math.floor(Number(resolvePartnerTotalEarned(staff) || 0)));
           const partnerCount = Math.max(0, Math.floor(Number(staff.partnerCount || 0)));
           const redeemSpend = Math.max(0, Math.floor(Number(staff.partnerRedeemSpend || 0)));
-          const { buildPmShopCatalogForWeb } = require("./siteStaffPmShopApi") as typeof import("./siteStaffPmShopApi");
+          const { buildPmShopCatalogForWeb } = require("../../Partner/site/siteStaffPmShopApi") as typeof import("../../Partner/site/siteStaffPmShopApi");
           return {
             points,
             pointsEarned,

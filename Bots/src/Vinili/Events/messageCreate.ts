@@ -1,20 +1,20 @@
 const { EmbedBuilder, PermissionFlagsBits } = require("discord.js") as typeof import("discord.js");
 const { handleTtsMessage } = require("../../shared/tts/services/ttsService") as typeof import("../../shared/tts/services/ttsService");
 const { handleMinigameMessage } = require("../Minigames/services/minigameService") as typeof import("../Minigames/services/minigameService");
-const { recordMessageActivity } = require("../Services/Community/activityService") as typeof import("../Services/Community/activityService");
-const { handleMessageCommunityExpBonuses } = require("../Services/Community/messageCommunityExpBonusesService") as typeof import("../Services/Community/messageCommunityExpBonusesService");
-const { trackMessageEngagement } = require("../Services/Community/dailyEngagementStatsService") as typeof import("../Services/Community/dailyEngagementStatsService");
-const { trackChannelMessage } = require("../Services/Community/dailyChannelMessageStatsService") as typeof import("../Services/Community/dailyChannelMessageStatsService");
-const { handleOfficialPrefixMessage } = require("../Utils/Prefix/officialPrefixDispatcher") as typeof import("../Utils/Prefix/officialPrefixDispatcher");
-const { channelAllowsMedia, getCachedOrFetchMember, handleDisboardBump, handleDiscadiaBump, handleMovieNightVoteMessage, handlePauseChannelMessage, handleSanzioniChannelMessage, handleVoteManagerMessage, hasMediaPermission, isDiscordInviteLinkMessage, isMediaMessage, } = require("../Utils/Message/officialMessageAutomationHandlers") as typeof import("../Utils/Message/officialMessageAutomationHandlers");
-const { handleAfk, handleMentionAutoReactions, handleMentionAutoResponses, handleWordReactions, logEventError, } = require("../Utils/Message/officialMessageCommunityHandlers") as typeof import("../Utils/Message/officialMessageCommunityHandlers");
+const { recordMessageActivity } = require("../Community/services/activityService") as typeof import("../Community/services/activityService");
+const { handleMessageCommunityExpBonuses } = require("../Community/services/messageCommunityExpBonusesService") as typeof import("../Community/services/messageCommunityExpBonusesService");
+const { trackMessageEngagement } = require("../Community/services/dailyEngagementStatsService") as typeof import("../Community/services/dailyEngagementStatsService");
+const { trackChannelMessage } = require("../Community/services/dailyChannelMessageStatsService") as typeof import("../Community/services/dailyChannelMessageStatsService");
+const { handleOfficialPrefixMessage } = require("../core/officialPrefixDispatcher") as typeof import("../core/officialPrefixDispatcher");
+const { channelAllowsMedia, getCachedOrFetchMember, handleDisboardBump, handleDiscadiaBump, handleMovieNightVoteMessage, handlePauseChannelMessage, handleSanzioniChannelMessage, handleVoteManagerMessage, hasMediaPermission, isDiscordInviteLinkMessage, isMediaMessage, } = require("../Community/services/officialMessageAutomationHandlers") as typeof import("../Community/services/officialMessageAutomationHandlers");
+const { handleAfk, handleMentionAutoReactions, handleMentionAutoResponses, handleWordReactions, logEventError, } = require("../Community/services/officialMessageCommunityHandlers") as typeof import("../Community/services/officialMessageCommunityHandlers");
 const { runAutoModMessage } = require("../Moderation/services/automodService") as typeof import("../Moderation/services/automodService");
 const { handleTicketMemberPromptMessage } = require("../MultiGuild/tickets/discord/ticketMemberPrompt") as typeof import("../MultiGuild/tickets/discord/ticketMemberPrompt");
 const { handleUntrustedBotMessage, handleUntrustedApplicationMessage } = require("../Moderation/services/trustedBotGuardService") as typeof import("../Moderation/services/trustedBotGuardService");
-const IDs = require("../Utils/Config/ids") as typeof import("../Utils/Config/ids");
+const IDs = require("../Config/ids") as typeof import("../Config/ids");
 const { EPHEMERAL_TTL_SHORT_MS, scheduleMessageDeletion } = require("../../shared/utils/ephemeralMessageTtl") as typeof import("../../shared/utils/ephemeralMessageTtl");
 const { isCoffeePrefixCommandToken } = require("../../shared/discord/coffeePrefixCommandTokens") as typeof import("../../shared/discord/coffeePrefixCommandTokens");
-const guildMemberUpdateExtras = require("../Services/Community/boostAnnounceRecoveryService") as typeof import("../Services/Community/boostAnnounceRecoveryService");
+const guildMemberUpdateExtras = require("../Community/services/boostAnnounceRecoveryService") as typeof import("../Community/services/boostAnnounceRecoveryService");
 const { handlePartnerDescriptionMessageUpsert, isPartnerDescriptionChannel } = require("../Partner/services/partnerDescriptionSyncService") as typeof import("../Partner/services/partnerDescriptionSyncService");
 const {
   handleTenantPartnerDescriptionMessageUpsert,
@@ -337,7 +337,7 @@ export = {
                 .catch(() => null);
             }, 5000).unref?.();
           }
-          const boostChannelId = require("../Utils/Config/ids").channels?.supporters;
+          const boostChannelId = require("../Config/ids").channels?.supporters;
           const boostChannel =
             (boostChannelId && message.guild.channels.cache.get(boostChannelId)) ||
             message.channel;

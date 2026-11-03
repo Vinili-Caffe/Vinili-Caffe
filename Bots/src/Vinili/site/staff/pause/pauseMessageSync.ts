@@ -1,5 +1,5 @@
 /** Pause: sync messaggi Discord dismesso (solo sito). Resta cancel su leave → DB/workflow. */
-const { ActivityUserProfile } = require("../../../Schemas/Community/communitySchemas") as typeof import("../../../Schemas/Community/communitySchemas");
+const { ActivityUserProfile } = require("../../../Community/schemas/communitySchemas") as typeof import("../../../Community/schemas/communitySchemas");
 const { getPausePhase } = require("./pauseMessages") as typeof import("./pauseMessages");
 const { getStaffPauseRecord } = require("./pauseMessages") as typeof import("./pauseMessages");
 const { updatePauseInDb, computeConsumedDaysForCancelledPause } = require("./pauseDb") as typeof import("./pauseDb");

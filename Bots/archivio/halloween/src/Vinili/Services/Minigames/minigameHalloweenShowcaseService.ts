@@ -38,7 +38,7 @@ async function processHalloweenMinigamesShowcaseForce(client?) {
 
   let doc = null;
   try {
-    const { SiteDocument, SITE_DOCUMENT_TYPE } = require(__eventCoreVinili("Schemas/Community/communitySchemas"));
+    const { SiteDocument, SITE_DOCUMENT_TYPE } = require(__eventCoreVinili("Community/schemas/communitySchemas"));
     doc = await SiteDocument.findOne({
       docType: SITE_DOCUMENT_TYPE.HOGWARTS_REACT_PRESS,
       dedupeKey: HALLOWEEN_SHOWCASE_DEDUPE,
@@ -60,7 +60,7 @@ async function processHalloweenMinigamesShowcaseForce(client?) {
   const includeHunt = raw.includeHunt !== false;
 
   try {
-    const { SiteDocument, SITE_DOCUMENT_TYPE } = require(__eventCoreVinili("Schemas/Community/communitySchemas"));
+    const { SiteDocument, SITE_DOCUMENT_TYPE } = require(__eventCoreVinili("Community/schemas/communitySchemas"));
     await SiteDocument.findOneAndUpdate(
       { guildId: doc.guildId, docType: SITE_DOCUMENT_TYPE.HOGWARTS_REACT_PRESS, dedupeKey: HALLOWEEN_SHOWCASE_DEDUPE },
       { $set: { "rawWebhook.pending": false, "rawWebhook.startedAtMs": Date.now(), updatedAt: new Date() } },

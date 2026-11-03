@@ -1,6 +1,6 @@
 const { handleMusicBotVoiceDisconnect, shouldDeferTtsLeaveForMusicEmptyVc } = require("../../shared/music/services/lavalinkMusicService") as typeof import("../../shared/music/services/lavalinkMusicService");
 const { leaveTtsGuild, handleTtsBotVoiceMove, isTtsPostJoinVoiceGraceActive } = require("../../shared/tts/services/ttsService") as typeof import("../../shared/tts/services/ttsService");
-const { finalizeStanzaVisitorVoiceSessionIfLeft, handleStanzaVoiceLobbyJoin, handleStanzaVoiceOccupied, handleStanzaVoiceEmpty, handleStanzaVoiceSilenceSync } = require("../Services/Voice/stanzaVoiceRoomsService") as typeof import("../Services/Voice/stanzaVoiceRoomsService");
+const { finalizeStanzaVisitorVoiceSessionIfLeft, handleStanzaVoiceLobbyJoin, handleStanzaVoiceOccupied, handleStanzaVoiceEmpty, handleStanzaVoiceSilenceSync } = require("../Voice/services/stanzaVoiceRoomsService") as typeof import("../Voice/services/stanzaVoiceRoomsService");
 
 export = {
   name: "voiceStateUpdate",

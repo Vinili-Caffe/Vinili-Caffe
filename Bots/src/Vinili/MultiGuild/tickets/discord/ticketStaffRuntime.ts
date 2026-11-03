@@ -13,7 +13,7 @@ const {
   buildTicketRoleCreateOverwrite,
 } = require("./ticketHighStaffOverwrites") as typeof import("./ticketHighStaffOverwrites");
 const { resolveTicketPanel } = require("./ticketGuildOptions") as typeof import("./ticketGuildOptions");
-const IDs = require("../../../Utils/Config/ids") as typeof import("../../../Utils/Config/ids");
+const IDs = require("../../../Config/ids") as typeof import("../../../Config/ids");
 const { getGuildMemberCached } = require("../../../../shared/discord/interactionEntityCache") as typeof import("../../../../shared/discord/interactionEntityCache");
 const STAFF_ROLE_ID = IDs.roles.Staff;
 const HIGHSTAFF_ROLE_ID = IDs.roles.HighStaff;

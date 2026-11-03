@@ -1,5 +1,5 @@
 const { PermissionFlagsBits } = require("discord.js") as typeof import("discord.js");
-const IDs = require("../../../Utils/Config/ids") as typeof import("../../../Utils/Config/ids");
+const IDs = require("../../../Config/ids") as typeof import("../../../Config/ids");
 const { getResocontoReviewerUserIdsForSegment } = require("../../../Staff/utils/resocontoAccess") as typeof import("../../../Staff/utils/resocontoAccess");
 
 const { getPartnerManagerRoleId } = require("../../../Partner/core/partnershipConfigResolver") as typeof import("../../../Partner/core/partnershipConfigResolver");

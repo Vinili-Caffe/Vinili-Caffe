@@ -1,9 +1,9 @@
 /** Ingresso membri: bot aggiunti al server (ruoli, log, chi li ha aggiunti). */
 const { EmbedBuilder, PermissionsBitField, AuditLogEvent, UserFlagsBitField, MessageFlags } = require("discord.js") as typeof import("discord.js");
 const { DIVIDER_URL } = require("../../shared/discord/constants") as typeof import("../../shared/discord/constants");
-const { ActivityUserProfile } = require("../Schemas/Community/communitySchemas") as typeof import("../Schemas/Community/communitySchemas");
-const IDs = require("../Utils/Config/ids") as typeof import("../Utils/Config/ids");
-const { queueIdsCatalogSync } = require("../Utils/Config/idsAutoSync") as typeof import("../Utils/Config/idsAutoSync");
+const { ActivityUserProfile } = require("../Community/schemas/communitySchemas") as typeof import("../Community/schemas/communitySchemas");
+const IDs = require("../Config/ids") as typeof import("../Config/ids");
+const { queueIdsCatalogSync } = require("../Config/idsAutoSync") as typeof import("../Config/idsAutoSync");
 const { registerJoinRaidSecuritySignal } = require("../Moderation/services/joinRaidService") as typeof import("../Moderation/services/joinRaidService");
 const { getJoinGateConfigSnapshot } = require("../Moderation/services/joinGateService") as typeof import("../Moderation/services/joinGateService");
 const { resolveJoinGateConfiguredExempt } = require("../Moderation/services/joinGateExemptUtils") as typeof import("../Moderation/services/joinGateExemptUtils");
@@ -13,9 +13,9 @@ const { buildUnbanRequestRow } = require("../Moderation/utils/unbanRequestButton
 const { enforceUntrustedBotMember, punishMemberForBotAbuse, buildTrustedBotIdSet, isDiscordOfficialActor } = require("../Moderation/services/trustedBotGuardService") as typeof import("../Moderation/services/trustedBotGuardService");
 const { addRolesAndGetMember, getGuildChannelCached, getGuildMemberCached } = require("../../shared/discord/interactionEntityCache") as typeof import("../../shared/discord/interactionEntityCache");
 const { applyDefaultFooterToEmbeds } = require("../../shared/embeds/defaultFooter") as typeof import("../../shared/embeds/defaultFooter");
-const { refreshWelcomeContextForGuild } = require("../Utils/Message/officialMessageCommunityHandlers") as typeof import("../Utils/Message/officialMessageCommunityHandlers");
+const { refreshWelcomeContextForGuild } = require("../Community/services/officialMessageCommunityHandlers") as typeof import("../Community/services/officialMessageCommunityHandlers");
 const { guildMemberDisplayAvatarUrlDynamic, accountUsername } = require("../../shared/discord/guildDiscordIdentity") as typeof import("../../shared/discord/guildDiscordIdentity");
-const { buildMemberWelcomePhrase } = require("../Utils/Community/pronounWelcomeUtils") as typeof import("../Utils/Community/pronounWelcomeUtils");
+const { buildMemberWelcomePhrase } = require("../Community/utils/pronounWelcomeUtils") as typeof import("../Community/utils/pronounWelcomeUtils");
 const { formatInviteCountIt, formatInviteLinkForJoinMessage, resolveGuildChannel, resolveInviteInfo } = require("./joinInvites") as typeof import("./joinInvites");
 
 const INVITE_LOG_CHANNEL_ID = IDs.channels.chat;

@@ -5,7 +5,7 @@ const __eventCoreVinili = (rel: string) => __path.join(__path.resolve(__dirname,
  * Alternanza dolcetto/scherzetto (Trick or Treat) ↔ caccia emoji (reaction).
  * Stato per guild in SiteDocument.
  */
-const { SiteDocument, SITE_DOCUMENT_TYPE } = require(__eventCoreVinili("Schemas/Community/communitySchemas"));
+const { SiteDocument, SITE_DOCUMENT_TYPE } = require(__eventCoreVinili("Community/schemas/communitySchemas"));
 
 const DOC_TYPE = SITE_DOCUMENT_TYPE.HOGWARTS_REACT_PRESS;
 const DOC_OWNER = "__halloween_candy_alternate__";

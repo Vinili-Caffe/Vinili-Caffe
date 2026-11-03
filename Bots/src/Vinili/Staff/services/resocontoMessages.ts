@@ -1,6 +1,6 @@
 /** Resoconti: helper DB/hydration. Post/thread Discord dismessi (inbox solo sito). */
 const { aggregateSanctionsByModInWeek } = require("../../Moderation/utils/modCaseStore") as typeof import("../../Moderation/utils/modCaseStore");
-const { fetchGuildMembersRespectingGatewayRateLimit } = require("../../Utils/Discord/gatewayMemberFetch") as typeof import("../../Utils/Discord/gatewayMemberFetch");
+const { fetchGuildMembersRespectingGatewayRateLimit } = require("../../../shared/discord/gatewayMemberFetch") as typeof import("../../../shared/discord/gatewayMemberFetch");
 const { isGuildMemberCacheLikelyComplete, fetchGuildMembersByPagesForResoconto } = require("./resocontoActivity") as typeof import("./resocontoActivity");
 
 const SANCTION_ACTIONS = new Set(["WARN", "MUTE", "KICK", "BAN"]);

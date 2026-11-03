@@ -1,4 +1,4 @@
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
+const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { accountUsername, userAvatarUrlStatic } = require("../../../shared/discord/guildDiscordIdentity") as typeof import("../../../shared/discord/guildDiscordIdentity");
 const { assertDashboardHighStaffAccess, isDashboardBotDevUser } = require("./siteDashboardApi") as typeof import("./siteDashboardApi");
 const { getTenantProfileSnapshot } = require("../../Partner/services/tenantProfileProgressService") as typeof import("../../Partner/services/tenantProfileProgressService");

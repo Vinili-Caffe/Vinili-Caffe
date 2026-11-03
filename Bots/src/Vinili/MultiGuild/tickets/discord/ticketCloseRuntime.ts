@@ -1,10 +1,10 @@
 const { EmbedBuilder, ButtonBuilder, ActionRowBuilder, ButtonStyle, } = require("discord.js") as typeof import("discord.js");
-const Ticket = require("../../../Schemas/Ticket/ticketSchema");
-const { createTranscript, createTranscriptHtml, } = require("../../../features/tickets/transcript/transcriptUtils") as typeof import("../../../features/tickets/transcript/transcriptUtils");
-const { buildTicketTranscriptViewUrl, prepareTicketTranscriptSecureFields, buildTicketTranscriptActionRow } = require("../../../features/tickets/transcript/ticketTranscriptSecure") as typeof import("../../../features/tickets/transcript/ticketTranscriptSecure");
+const Ticket = require("../data/guildFeatureBucketTicketModel");
+const { createTranscript, createTranscriptHtml, } = require("../transcript/transcriptUtils") as typeof import("../transcript/transcriptUtils");
+const { buildTicketTranscriptViewUrl, prepareTicketTranscriptSecureFields, buildTicketTranscriptActionRow } = require("../transcript/ticketTranscriptSecure") as typeof import("../transcript/ticketTranscriptSecure");
 const { getNextTicketId } = require("./ticketIdUtils") as typeof import("./ticketIdUtils");
-const { sendDm } = require("../../../Utils/noDmList") as typeof import("../../../Utils/noDmList");
-const IDs = require("../../../Utils/Config/ids") as typeof import("../../../Utils/Config/ids");
+const { sendDm } = require("../../../Community/utils/noDmList") as typeof import("../../../Community/utils/noDmList");
+const IDs = require("../../../Config/ids") as typeof import("../../../Config/ids");
 const { getClientGuildCached, getGuildChannelCached, getGuildMemberCached } = require("./ticketInteractionRuntime") as typeof import("./ticketInteractionRuntime");
 const { getClientChannelCached, getUserCached } = require("../../../../shared/discord/interactionEntityCache") as typeof import("../../../../shared/discord/interactionEntityCache");
 const { findOpenTicketsForGuildUser } = require("./ticketGuildUserQueries") as typeof import("./ticketGuildUserQueries");

@@ -1,5 +1,5 @@
 const { EmbedBuilder } = require("discord.js") as typeof import("discord.js");
-const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
+const { ActivityUserProfile } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
 const { OBJECTIVE_DEFS } = require("../tenant/tenantObjectiveDefs") as typeof import("../tenant/tenantObjectiveDefs");
 const { OBJECTIVE_COPY } = require("../tenant/tenantProfileConstants") as typeof import("../tenant/tenantProfileConstants");
 const { t, resolveTenantLanguage } = require("../i18n/tenantPartnershipI18n/index") as typeof import("../i18n/tenantPartnershipI18n/index");
@@ -12,7 +12,7 @@ const {
 const { getPartnerLeaderboardWeekBoundsUtc } = require("../../Staff/services/weeklyStaffResocontoService") as typeof import("../../Staff/services/weeklyStaffResocontoService");
 const { getRomeDayKey } = require("./tenantPartnershipJoinStatsService") as typeof import("./tenantPartnershipJoinStatsService");
 const { sendUserDirectMessage } = require("../../../shared/discord/dmPrivacyNotice") as typeof import("../../../shared/discord/dmPrivacyNotice");
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
+const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const {
   getPartnershipConfigSync,
   getAllPartnershipConfigCacheRows,

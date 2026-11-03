@@ -4,7 +4,7 @@ const {
   ButtonStyle,
   StringSelectMenuBuilder,
 } = require("discord.js") as typeof import("discord.js");
-const { buildVcRichFromClassicFields } = require("../../../Utils/Embeds/vcPageEmbedV2") as typeof import("../../../Utils/Embeds/vcPageEmbedV2");
+const { buildVcRichFromClassicFields } = require("../../../../shared/embeds/vcPageEmbedV2") as typeof import("../../../../shared/embeds/vcPageEmbedV2");
 const { upsertPanelMessage } = require("../../../../shared/discord/panelUpsertRuntime") as typeof import("../../../../shared/discord/panelUpsertRuntime");
 const { getClientChannelCached } = require("../../../../shared/discord/interactionEntityCache") as typeof import("../../../../shared/discord/interactionEntityCache");
 const {
@@ -19,7 +19,7 @@ const {
   TICKET_OPEN_MENU_CUSTOM_ID,
   DEFAULT_DROPDOWN_PLACEHOLDER,
 } = require("./ticketOpenMenuComponents") as typeof import("./ticketOpenMenuComponents");
-const { personalityPanelUpdateOne } = require("../../../Utils/Global/globalSettingsGuildStores") as typeof import("../../../Utils/Global/globalSettingsGuildStores");
+const { personalityPanelUpdateOne } = require("../../../Community/services/globalSettingsGuildStores") as typeof import("../../../Community/services/globalSettingsGuildStores");
 const {
   DEFAULT_TICKET_PANEL_TITLE,
   DEFAULT_TICKET_PANEL_COLOR,
@@ -32,7 +32,7 @@ const {
   resolveTicketBotLanguage,
 } = require("./ticketUiDefaults") as typeof import("./ticketUiDefaults");
 
-const { resolveBotPhotoMedia, botPhotoCdnUrl } = require("../../../Utils/Discord/botPhotosCdn") as typeof import("../../../Utils/Discord/botPhotosCdn");
+const { resolveBotPhotoMedia, botPhotoCdnUrl } = require("../../../../shared/discord/botPhotosCdn") as typeof import("../../../../shared/discord/botPhotosCdn");
 const TICKET_MEDIA_NAME = "ticket.gif";
 const TICKET_MEDIA = resolveBotPhotoMedia(TICKET_MEDIA_NAME);
 const TICKET_MEDIA_URL = TICKET_MEDIA.mediaUrl || botPhotoCdnUrl(TICKET_MEDIA_NAME);

@@ -1,8 +1,8 @@
 /** Dashboard dei server: elenco delle trascrizioni dei ticket chiusi e apertura di una trascrizione. */
-const Ticket = require("../../../Schemas/Ticket/ticketSchema");
+const Ticket = require("../data/guildFeatureBucketTicketModel");
 const { verifyDashboardGuildAccess } = require("../../dashboard/siteDashboardApi") as typeof import("../../dashboard/siteDashboardApi");
 const { getTicketSettingsForGuild, TICKET_TYPES } = require("../tenant/tenantTicketSettings") as typeof import("../tenant/tenantTicketSettings");
-const { buildTicketTranscriptViewUrl, buildTicketTranscriptApiUrl, transcriptViewExpired } = require("../../../features/tickets/transcript/ticketTranscriptSecure") as typeof import("../../../features/tickets/transcript/ticketTranscriptSecure");
+const { buildTicketTranscriptViewUrl, buildTicketTranscriptApiUrl, transcriptViewExpired } = require("../transcript/ticketTranscriptSecure") as typeof import("../transcript/ticketTranscriptSecure");
 
 function fail(status?, error?, message?) {
   return { ok: false, status, error, message };
@@ -176,7 +176,7 @@ async function findGuildUserIdsMatchingUsername(client?, guildId?, usernameQuery
 }
 
 async function loadSlimClosedTicketsForGuild(guildId?, options: Record<string, any> = {}) {
-  const { GuildFeatureBucket } = require("../../../Schemas/Guild/guildFeatureBucketSchema") as typeof import("../../../Schemas/Guild/guildFeatureBucketSchema");
+  const { GuildFeatureBucket } = require("../../schemas/guildFeatureBucketSchema") as typeof import("../../schemas/guildFeatureBucketSchema");
   const gid = String(guildId || "").trim();
   if (!gid) return [];
   const bypassCache = options.bypassCache === true;
@@ -408,7 +408,7 @@ async function getDashboardTranscriptHtml(client?, accessToken?, guildId?, ticke
       }
 
   const fs = require("fs") as typeof import("fs");
-  const { upgradeLegacyTranscriptHtml, resolveExistingTranscriptHtmlPath } = require("../../../features/tickets/transcript/transcriptUtils") as typeof import("../../../features/tickets/transcript/transcriptUtils");
+  const { upgradeLegacyTranscriptHtml, resolveExistingTranscriptHtmlPath } = require("../transcript/transcriptUtils") as typeof import("../transcript/transcriptUtils");
   const meta = {
     ticketId: String(ticket._id || ""),
     ticketNumber: ticket.ticketNumber != null ? Number(ticket.ticketNumber) : null,

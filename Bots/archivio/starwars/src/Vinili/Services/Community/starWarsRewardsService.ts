@@ -7,8 +7,8 @@
 const __path = require("path") as typeof import("path");
 const __eventCoreVinili = (rel: string) => __path.join(__path.resolve(__dirname, "../../../../../../src/Vinili"), rel);
 
-const { ActivityUserProfile } = require(__eventCoreVinili("Schemas/Community/communitySchemas"));
-const { isValidGuildUserId } = require(__eventCoreVinili("Utils/DB/validateWriteIds"));
+const { ActivityUserProfile } = require(__eventCoreVinili("Community/schemas/communitySchemas"));
+const { isValidGuildUserId } = require(__eventCoreVinili("../shared/db/validateWriteIds"));
 const { resolveStarWarsEventConfig } = require("../../Utils/Eventi/starWarsEventConfig") as typeof import("../../Utils/Eventi/starWarsEventConfig");
 const { CRATE_LABELS, ADVENT_EVENT_KEY } = require("../../Utils/Eventi/starWarsAdventCatalog") as typeof import("../../Utils/Eventi/starWarsAdventCatalog");
 const { getStarWarsWallet, publicWallet, ROOT } = require("./starWarsEventWalletService") as typeof import("./starWarsEventWalletService");

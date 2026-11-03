@@ -1,6 +1,6 @@
 "use strict";
 
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
+const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { fetchDiscordOAuthMe } = require("./discordOauthMe") as typeof import("./discordOauthMe");
 
 const JOIN_COOLDOWN_MS = 60_000;

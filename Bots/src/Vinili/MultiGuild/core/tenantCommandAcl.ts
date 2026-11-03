@@ -18,7 +18,7 @@ const { GLOBAL_TENANT_COMMAND_NAMES } = require("../../../shared/discord/applica
 const {
   resolvePrefixCommandDescription,
   resolveApplicationCommandDescription,
-} = require("../../Utils/Prefix/prefixCommandDescriptions") as typeof import("../../Utils/Prefix/prefixCommandDescriptions");
+} = require("./prefixCommandDescriptions") as typeof import("./prefixCommandDescriptions");
 
 const CATEGORY_META = {
   utility: { label: "Utility", order: 10 },
@@ -98,7 +98,7 @@ function isGaleoniEconomyPrefixCommand(commandName?) {
 function shouldSkipAclForGaleoniEconomy(message?, commandName?) {
   if (!isGaleoniEconomyPrefixCommand(commandName)) return false;
   try {
-    const { resolveEconomyMode } = require("../../Services/Community/activeEconomyService") as typeof import("../../Services/Community/activeEconomyService");
+    const { resolveEconomyMode } = require("../../Community/services/activeEconomyService") as typeof import("../../Community/services/activeEconomyService");
     return resolveEconomyMode(message?.client) === "galeoni";
   } catch (_) {
     return false;

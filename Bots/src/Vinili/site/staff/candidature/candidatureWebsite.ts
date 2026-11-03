@@ -1,10 +1,10 @@
 /** Candidature: invio dal sito. */
-const IDs = require("../../../Utils/Config/ids") as typeof import("../../../Utils/Config/ids");
+const IDs = require("../../../Config/ids") as typeof import("../../../Config/ids");
 const { fetchDiscordMe, fetchOAuthGuildMemberResult, synthMemberFromOAuth } = require("./candidatureOAuth") as typeof import("./candidatureOAuth");
 const { NOMODULI_ROLE_ID, normalizeApplicationType, hasAnyRoleMember, checkMemberCandidatureEligibility } = require("./candidatureEligibility") as typeof import("./candidatureEligibility");
 const { APPLICATIONS, buildFinalThanksPlainMessage, postCandidatureToVisioneModuli } = require("./candidatureEmbeds") as typeof import("./candidatureEmbeds");
 const { readCachedWebsiteMember, writeCachedWebsiteMember, ensureWebsiteGuild, fetchWebsiteGuildMember, isUnknownMemberError } = require("../../http/websiteGuildMemberFetch") as typeof import("../../http/websiteGuildMemberFetch");
-const { findQuestionLabel } = require("../../../Utils/Community/candidatureApplicationsCatalog") as typeof import("../../../Utils/Community/candidatureApplicationsCatalog");
+const { findQuestionLabel } = require("../../../Community/utils/candidatureApplicationsCatalog") as typeof import("../../../Community/utils/candidatureApplicationsCatalog");
 
  // rolesPrefetchNoise1: UA + slightly longer; was bare abort@2800
 let lastDiscordMeWarnAt = 0;

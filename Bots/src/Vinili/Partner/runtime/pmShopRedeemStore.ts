@@ -1,4 +1,4 @@
-const { SitePmShopRedeemEntry } = require("../../Schemas/Web/sitePmShopRedeemSchemas") as typeof import("../../Schemas/Web/sitePmShopRedeemSchemas");
+const { SitePmShopRedeemEntry } = require("../schemas/sitePmShopRedeemSchemas") as typeof import("../schemas/sitePmShopRedeemSchemas");
 const { PARTNER_REWARD_LABELS } = require("../../../shared/partner/partnerManagerRewardTiers") as typeof import("../../../shared/partner/partnerManagerRewardTiers");
 
 function entryId(doc?) {

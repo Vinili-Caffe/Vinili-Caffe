@@ -3,7 +3,7 @@
  *  I server esterni (tenant) restano sul loro canale come prima. */
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js") as typeof import("discord.js");
 const mongoose = require("mongoose") as typeof import("mongoose");
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
+const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { putSiteCdnObject, isSiteCdnConfigured } = require("../../site/http/siteCdnMedia") as typeof import("../../site/http/siteCdnMedia");
 
 const SITE_BOARD_CHANNEL = "site";

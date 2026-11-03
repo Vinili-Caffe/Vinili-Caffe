@@ -10,7 +10,7 @@ const {
 } = require("discord.js") as typeof import("discord.js");
 const { safeMessageReply } = require("../../../../shared/discord/replyRuntime") as typeof import("../../../../shared/discord/replyRuntime");
 const { getGuildExpSettings, getLevelInfo } = require("../../services/expService") as typeof import("../../services/expService");
-const { ActivityUserProfile } = require("../../../Schemas/Community/communitySchemas") as typeof import("../../../Schemas/Community/communitySchemas");
+const { ActivityUserProfile } = require("../../../Community/schemas/communitySchemas") as typeof import("../../../Community/schemas/communitySchemas");
 const SERVER_SECTIONS = ["home", "settings", "channels", "roles", "multi"];
 
 function discordUserDisplayName(userLike?) {

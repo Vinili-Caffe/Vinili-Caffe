@@ -3,7 +3,7 @@ const { isMultiGuildLayerEnabled } = require("../core/env") as typeof import("..
 const { isViniliProtectedGuild } = require("../core/viniliProtectedGuilds") as typeof import("../core/viniliProtectedGuilds");
 const { shouldApplyMultiGuildLayer } = require("../core/accessPolicy") as typeof import("../core/accessPolicy");
 const { guildIconUrl, userAvatarUrlDynamic } = require("../../../shared/discord/guildDiscordIdentity") as typeof import("../../../shared/discord/guildDiscordIdentity");
-const { botPhotoCdnUrl } = require("../../Utils/Discord/botPhotosCdn") as typeof import("../../Utils/Discord/botPhotosCdn");
+const { botPhotoCdnUrl } = require("../../../shared/discord/botPhotosCdn") as typeof import("../../../shared/discord/botPhotosCdn");
 
 const TENANT_EMBED_COLOR = "#826bc2";
 const LEGACY_VINILI_EMBED_COLOR = "#6f4e37";

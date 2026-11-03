@@ -1,5 +1,5 @@
 /** Classifiche utenti: parametri della richiesta e ordinamento nel database. */
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
+const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 
 function parseIntSafe(v?, min?, max?, def?) {
   const n = parseInt(String(v || ""), 10);

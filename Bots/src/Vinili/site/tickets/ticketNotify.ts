@@ -1,6 +1,6 @@
 /** Ticket dal sito: eventi in tempo reale, notifiche a staff e utenti, avvisi di attesa (SLA). */
-const IDs: any = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
-const { WEB_TICKET_STATUS, SiteWebTicket, SiteWebTicketMessage } = require("../../features/tickets/data/siteWebTicketSchemas") as typeof import("../../features/tickets/data/siteWebTicketSchemas");
+const IDs: any = require("../../Config/ids") as typeof import("../../Config/ids");
+const { WEB_TICKET_STATUS, SiteWebTicket, SiteWebTicketMessage } = require("../../MultiGuild/tickets/data/siteWebTicketSchemas") as typeof import("../../MultiGuild/tickets/data/siteWebTicketSchemas");
 const { enqueueSiteInAppNotification, removeInboxItemByDedupeKey, removeSiteInAppNotificationsForTicket } = require("../notifications/siteInAppNotificationsService") as typeof import("../notifications/siteInAppNotificationsService");
 const { shouldSkipWebTicketInAppNotif } = require("./webTicketPagePresence") as typeof import("./webTicketPagePresence");
 const { broadcastSiteWebTicketsEvent } = require("../suggestions/siteSuggestionsBroadcast") as typeof import("../suggestions/siteSuggestionsBroadcast");

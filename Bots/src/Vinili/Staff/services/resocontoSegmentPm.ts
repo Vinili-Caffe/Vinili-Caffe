@@ -1,5 +1,5 @@
 /** Resoconti settimanali: invio resoconto Partner Manager per un membro. */
-const { STAFF_NEW_EMOJI } = require("../../Utils/Community/staffListUtils") as typeof import("../../Utils/Community/staffListUtils");
+const { STAFF_NEW_EMOJI } = require("../../Community/utils/staffListUtils") as typeof import("../../Community/utils/staffListUtils");
 const { getPmResocontoWindow } = require("./resocontoTime") as typeof import("./resocontoTime");
 const { wasPartnerManagerInPauseForResocontoWeek, getPmResocontoPauseDisplayLine } = require("./resocontoPauses") as typeof import("./resocontoPauses");
 const { isPmResocontoExcludedUserId, wasPmPromotedInResocontoSkipWindow, wasPmPexedInWeek } = require("./resocontoMembers") as typeof import("./resocontoMembers");

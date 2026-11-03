@@ -1,6 +1,6 @@
-const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
-const { memberHasStaffRole } = require("../../Utils/Community/staffListUtils") as typeof import("../../Utils/Community/staffListUtils");
+const { ActivityUserProfile } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
+const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
+const { memberHasStaffRole } = require("../../Community/utils/staffListUtils") as typeof import("../../Community/utils/staffListUtils");
 const {
   deleteStaffPauseRequestChannelMessages,
   deleteStaffRelatedMessagesFromConfiguredChannels,
@@ -8,7 +8,7 @@ const {
   resetStaffLadderTrackInDb,
 } = require("./staffDocUtils") as typeof import("./staffDocUtils");
 const { getHighestStaffLadderRoleId } = require("./staffRoleHierarchy") as typeof import("./staffRoleHierarchy");
-const { memberHasAnyRemappedRole, remapRoleIdForward } = require("../../Utils/Config/emergencyRoleIdRemap") as typeof import("../../Utils/Config/emergencyRoleIdRemap");
+const { memberHasAnyRemappedRole, remapRoleIdForward } = require("../../Config/emergencyRoleIdRemap") as typeof import("../../Config/emergencyRoleIdRemap");
 
 function getPartnerManagerRoleIdLive() {
   return remapRoleIdForward(IDs.roles?.PartnerManager) || String(IDs.roles?.PartnerManager || "").trim() || null;
@@ -19,7 +19,7 @@ function memberHasPartnerManagerRole(member?) {
   if (!roleId || !member) return false;
   if (memberHasAnyRemappedRole(member, roleId)) return true;
   try {
-    const { memberHasRoleNameMatch } = require("../../Utils/Config/emergencyRoleIdRemap") as typeof import("../../Utils/Config/emergencyRoleIdRemap");
+    const { memberHasRoleNameMatch } = require("../../Config/emergencyRoleIdRemap") as typeof import("../../Config/emergencyRoleIdRemap");
     return memberHasRoleNameMatch(member, /partner\s*manager/i);
   } catch {
     return false;

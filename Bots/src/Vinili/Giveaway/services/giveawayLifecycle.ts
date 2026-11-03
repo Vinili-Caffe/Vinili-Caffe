@@ -1,4 +1,4 @@
-const Giveaway = require("../../Giveaway/schemas/giveawaySchema");
+const Giveaway = require("./guildFeatureBucketGiveawayModel");
 const { getClientChannelCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
 const {
   GIVEAWAY_REROLL_PREFIX,

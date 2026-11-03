@@ -1,5 +1,5 @@
 const { EmbedBuilder } = require("discord.js") as typeof import("discord.js");
-const { SiteDocument, SITE_DOCUMENT_TYPE } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
+const { SiteDocument, SITE_DOCUMENT_TYPE } = require("../../../../../../src/Vinili/Community/schemas/communitySchemas") as typeof import("../../../../../../src/Vinili/Community/schemas/communitySchemas");
 const { resolveHogwartsEventConfig } = require("../../Utils/Web/hogwartsSortingConfig") as typeof import("../../Utils/Web/hogwartsSortingConfig");
 const { getHouseMeta } = require("../../Utils/Web/hogwartsSortingBank") as typeof import("../../Utils/Web/hogwartsSortingBank");
 const { CONSUMABLE_BOOST_TYPES, CONSUMABLE_BOOST_SCOPES } = require("../../Utils/Web/hogwartsShopConsumablesCatalog") as typeof import("../../Utils/Web/hogwartsShopConsumablesCatalog");
@@ -440,7 +440,7 @@ async function grantHousePointsWithMult(client?, guildId?, userId?, basePoints?,
 }
 
 async function extendFinaleChaosBoost(client, { guildId, userId, houseId, boostType, boostScope, durationMs, eventKey, item }) {
-  const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
+  const { ActivityUserProfile } = require("../../../../../../src/Vinili/Community/schemas/communitySchemas") as typeof import("../../../../../../src/Vinili/Community/schemas/communitySchemas");
   const gid = normalizeId(guildId);
   const uid = normalizeId(userId);
   const type = boostType === "exp" ? CONSUMABLE_BOOST_TYPES.EXP : CONSUMABLE_BOOST_TYPES.HOUSE_POINTS;

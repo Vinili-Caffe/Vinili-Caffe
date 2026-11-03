@@ -1,5 +1,5 @@
 /** Workflow staff: settimane, stati ed etichette (resoconti e pause). */
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
+const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { formatPauseRoleLabelForMessage, normalizePauseRoleChoice } = require("../../site/staff/pause/pauseHandlersUtils") as typeof import("../../site/staff/pause/pauseHandlersUtils");
 
 const RESOCONTO_LIST_ROLE_RANK = new Map(

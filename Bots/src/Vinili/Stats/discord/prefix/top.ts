@@ -1,13 +1,13 @@
 const { AttachmentBuilder, ChannelType } = require("discord.js") as typeof import("discord.js");
 const { safeMessageReply } = require("../../../../shared/discord/replyRuntime") as typeof import("../../../../shared/discord/replyRuntime");
-const IDs = require("../../../Utils/Config/ids") as typeof import("../../../Utils/Config/ids");
-const { getServerOverviewStats } = require("../../../Services/Community/activityService") as typeof import("../../../Services/Community/activityService");
-const { ActivityUserProfile } = require("../../../Schemas/Community/communitySchemas") as typeof import("../../../Schemas/Community/communitySchemas");
+const IDs = require("../../../Config/ids") as typeof import("../../../Config/ids");
+const { getServerOverviewStats } = require("../../../Community/services/activityService") as typeof import("../../../Community/services/activityService");
+const { ActivityUserProfile } = require("../../../Community/schemas/communitySchemas") as typeof import("../../../Community/schemas/communitySchemas");
 const { getLevelInfo, getTopExpGainsInPeriod, PERIOD_LOOKBACK_DAYS } = require("../../../Level/services/expService") as typeof import("../../../Level/services/expService");
-const { voteCountMonthKeyRome } = require("../../../Utils/romeVoteMonthKey") as typeof import("../../../Utils/romeVoteMonthKey");
-const { renderTopStatisticsCanvas, renderTopLeaderboardPageCanvas } = require("../../../Utils/Render/activityCanvas") as typeof import("../../../Utils/Render/activityCanvas");
+const { voteCountMonthKeyRome } = require("../../../Community/utils/romeVoteMonthKey") as typeof import("../../../Community/utils/romeVoteMonthKey");
+const { renderTopStatisticsCanvas, renderTopLeaderboardPageCanvas } = require("../../../Community/utils/Render/activityCanvas") as typeof import("../../../Community/utils/Render/activityCanvas");
 const { getOrBuildStatsCanvasBuffer } = require("../../runtime/statsCanvasCache") as typeof import("../../runtime/statsCanvasCache");
-const { upsertChannelSnapshot, syncGuildChannelSnapshots, getChannelSnapshotMap } = require("../../../Utils/Community/channelSnapshotUtils") as typeof import("../../../Utils/Community/channelSnapshotUtils");
+const { upsertChannelSnapshot, syncGuildChannelSnapshots, getChannelSnapshotMap } = require("../../../Community/utils/channelSnapshotUtils") as typeof import("../../../Community/utils/channelSnapshotUtils");
 const { getGuildMemberCached } = require("../../../../shared/discord/interactionEntityCache") as typeof import("../../../../shared/discord/interactionEntityCache");
 const topComponents = require("../buttons/topChannel/components") as typeof import("../buttons/topChannel/components");
 

@@ -1,5 +1,5 @@
 /** Compiti staff: settimane salvate per utente (pulizia, valutazioni, bozze vuote). */
-const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
+const { ActivityUserProfile } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
 const { ALLOWED_TASK_IDS, isAutoTask } = require("./siteStaffCompitiCatalog") as typeof import("./siteStaffCompitiCatalog");
 const { weekKeysInRomeMonth } = require("./compitiCalendar") as typeof import("./compitiCalendar");
 const { MAX_PROOFS } = require("./compitiProofs") as typeof import("./compitiProofs");

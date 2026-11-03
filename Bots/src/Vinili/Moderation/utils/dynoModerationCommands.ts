@@ -1,11 +1,11 @@
 declare const targetMember: any; // usato solo dopo typeof targetMember !== "undefined"
 const { EmbedBuilder, PermissionsBitField, ActionRowBuilder, ButtonBuilder, ButtonStyle, } = require("discord.js") as typeof import("discord.js");
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
+const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { resolveCaseByGuildCaseId, resolveCaseByContextMessageId, appendCaseEditStore, setCaseReasonStore, setCaseDurationStore, findActiveModerations, countModLogsForUser, findModLogsPage, findOpenCases, findActiveWarns } = require("./modCaseStore") as typeof import("./modCaseStore");
 const { appendCaseEdit, closeCasePersist, createModCase, getModConfig, getHighestModerationRelevantRolePosition, logModCase, parseDuration, formatDuration } = require("./moderation") as typeof import("./moderation");
 const { resolveTarget } = require("./prefixModeration") as typeof import("./prefixModeration");
-const { resolveModLogChannel, sendStaffActionToModLogs, sendModCommandUsageToModLogs } = require("../../Utils/Logging/modAuditLogUtils") as typeof import("../../Utils/Logging/modAuditLogUtils");
-const { sendDm } = require("../../Utils/noDmList") as typeof import("../../Utils/noDmList");
+const { resolveModLogChannel, sendStaffActionToModLogs, sendModCommandUsageToModLogs } = require("./modAuditLogUtils") as typeof import("./modAuditLogUtils");
+const { sendDm } = require("../../Community/utils/noDmList") as typeof import("../../Community/utils/noDmList");
 const { userAvatarUrlDynamic } = require("../../../shared/discord/guildDiscordIdentity") as typeof import("../../../shared/discord/guildDiscordIdentity");
 const { buildUnbanRequestRow } = require("./unbanRequestButton") as typeof import("./unbanRequestButton");
 const { buildUnmuteRequestRow } = require("./unmuteRequestButton") as typeof import("./unmuteRequestButton");

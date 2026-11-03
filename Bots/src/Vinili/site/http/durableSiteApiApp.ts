@@ -40,7 +40,7 @@ const {
 } = require("../../../shared/embeds/defaultFooter") as typeof import("../../../shared/embeds/defaultFooter");
 installEmbedFooterPatch();
 installOutgoingMessageEmbedPatch(discord);
-const { createSiteApiRestClient } = require("../../Services/Web/siteApiRestClient") as typeof import("../../Services/Web/siteApiRestClient");
+const { createSiteApiRestClient } = require("../../site/http/siteApiRestClient") as typeof import("../../site/http/siteApiRestClient");
 const { mountSiteWebhookRoutes } = require("./siteWebhookRoutes") as typeof import("./siteWebhookRoutes");
 const { mountSiteApiRateLimit } = require("./siteApiRateLimit") as typeof import("./siteApiRateLimit");
 
@@ -122,7 +122,7 @@ function loadVinylsConfig() {
   const configPath = path.join(ROOT, "Vinili", "config.json");
   const cfg = JSON.parse(fs.readFileSync(configPath, "utf8"));
   try {
-    require("../../Utils/Config/emergencyRoleIdRemap").applyEmergencyRoleRemapToConfig(cfg);
+    require("../../Config/emergencyRoleIdRemap").applyEmergencyRoleRemapToConfig(cfg);
   } catch (_) {}
   return cfg;
 }

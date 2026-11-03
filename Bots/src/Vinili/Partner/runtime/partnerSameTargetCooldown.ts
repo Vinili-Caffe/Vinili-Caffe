@@ -1,4 +1,4 @@
-const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
+const { ActivityUserProfile } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
 
 const PARTNER_SAME_TARGET_COOLDOWN_MS = 12 * 60 * 60 * 1000;
 

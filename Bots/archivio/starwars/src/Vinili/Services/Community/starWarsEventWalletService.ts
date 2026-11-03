@@ -8,9 +8,9 @@
 const __path = require("path") as typeof import("path");
 const __eventCoreVinili = (rel: string) => __path.join(__path.resolve(__dirname, "../../../../../../src/Vinili"), rel);
 
-const { ActivityUserProfile } = require(__eventCoreVinili("Schemas/Community/communitySchemas"));
-const { isValidGuildUserId } = require(__eventCoreVinili("Utils/DB/validateWriteIds"));
-const { addPremiumCredits } = require(__eventCoreVinili("Services/Community/premiumCreditsService"));
+const { ActivityUserProfile } = require(__eventCoreVinili("Community/schemas/communitySchemas"));
+const { isValidGuildUserId } = require(__eventCoreVinili("../shared/db/validateWriteIds"));
+const { addPremiumCredits } = require(__eventCoreVinili("Community/services/premiumCreditsService"));
 const { resolveStarWarsEventConfig } = require("../../Utils/Eventi/starWarsEventConfig") as typeof import("../../Utils/Eventi/starWarsEventConfig");
 const {
   ADVENT_EVENT_KEY,

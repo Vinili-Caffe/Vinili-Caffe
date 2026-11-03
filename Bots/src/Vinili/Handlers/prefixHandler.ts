@@ -234,6 +234,15 @@ export = (client?) => {
       );
     }
 
+    // Community utility prefix (+afk, +avatar, +repost, …) — niente facade sotto Prefix/Utility
+    loadPrefixFilesFromDir(
+      path.resolve(__dirname, "..", "Community", "discord", "prefix"),
+      "Utility",
+      newPcommands,
+      newAliases,
+      statusMap,
+    );
+
     // Partnership prefix vive in Partner/discord/prefix (niente facade sotto Prefix/)
     loadPrefixFilesFromDir(
       path.resolve(__dirname, "..", "Partner", "discord", "prefix"),
@@ -279,9 +288,18 @@ export = (client?) => {
       statusMap,
     );
 
+    // Security prefix (+security)
+    loadPrefixFilesFromDir(
+      path.resolve(__dirname, "..", "Security", "discord", "prefix"),
+      "Admin",
+      newPcommands,
+      newAliases,
+      statusMap,
+    );
+
     // TTS prefix = shared
     try {
-      const voiceSession = require("../Services/Voice/voiceSessionService") as typeof import("../Services/Voice/voiceSessionService");
+      const voiceSession = require("../Community/services/voiceSessionService") as typeof import("../Community/services/voiceSessionService");
       const { buildTtsCommands } = require("../../shared/tts/discord/prefixCommands") as typeof import("../../shared/tts/discord/prefixCommands");
       const sharedTts = buildTtsCommands({
         prefix: "+",

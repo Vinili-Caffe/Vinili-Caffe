@@ -1,4 +1,4 @@
-﻿/** TTS: pausa durante il controllo AFK e annunci singoli. */
+/** TTS: pausa durante il controllo AFK e annunci singoli. */
 const { getVoiceConnection, createAudioPlayer, createAudioResource, AudioPlayerStatus, StreamType } = require("@discordjs/voice") as typeof import("@discordjs/voice");
 const fs = require("fs") as typeof import("fs");
 const path = require("path") as typeof import("path");
@@ -23,7 +23,7 @@ async function suspendTtsVoiceForAfkProbe(client?, guildId?) {
   const activeChannelId = String(channelId || conn?.joinConfig?.channelId || "").trim();
   if (!activeChannelId && !conn) return { active: false };
 
-  const { stopVoiceContinuousCapture } = require("../../../Vinili/Services/Voice/voiceContinuousCaptureService") as typeof import("../../../Vinili/Services/Voice/voiceContinuousCaptureService");
+  const { stopVoiceContinuousCapture } = require("../../../Vinili/Community/services/voiceContinuousCaptureService") as typeof import("../../../Vinili/Community/services/voiceContinuousCaptureService");
   await stopVoiceContinuousCapture(gid, client).catch(() => null);
 
   const state = ttsStates.get(activeChannelId);

@@ -1,5 +1,5 @@
 const { OverwriteType, PermissionFlagsBits } = require("discord.js") as typeof import("discord.js");
-const IDs = require("../../../Utils/Config/ids") as typeof import("../../../Utils/Config/ids");
+const IDs = require("../../../Config/ids") as typeof import("../../../Config/ids");
 
 const HIGHSTAFF_ROLE_ID = IDs.roles.HighStaff;
 const SNOWFLAKE_RE = /^\d{16,22}$/;

@@ -1,4 +1,4 @@
-﻿/** Musica: richiesta di riproduzione (ricerca, coda, avvio). */
+/** Musica: richiesta di riproduzione (ricerca, coda, avvio). */
 const { EmbedBuilder } = require("discord.js") as typeof import("discord.js");
 const { memberDisplayName, userAvatarUrlDynamic } = require("../../discord/guildDiscordIdentity") as typeof import("../../discord/guildDiscordIdentity");
 const { getMusicSearchMode, isYoutubeLikeUrl, logMusic, lavalinkErrorHint, isPlainTextMusicQuery, normalizeOpenSpotifyHttpUrl, isSpotifyPodcastOnlyInput, isOpenSpotifyMusicUrlInput } = require("./musicSearch") as typeof import("./musicSearch");
@@ -14,7 +14,7 @@ function musicIsCaptureActive(guildId?) {
   const h = musicHooks();
   if (typeof h.isVoiceCaptureActive === "function") return (h.isVoiceCaptureActive as any)(guildId);
   try {
-    const { isVoiceCaptureActive } = require("../../../Vinili/Services/Voice/voiceContinuousCaptureService") as typeof import("../../../Vinili/Services/Voice/voiceContinuousCaptureService");
+    const { isVoiceCaptureActive } = require("../../../Vinili/Community/services/voiceContinuousCaptureService") as typeof import("../../../Vinili/Community/services/voiceContinuousCaptureService");
     return isVoiceCaptureActive(guildId);
   } catch (_) {
     return false;
@@ -96,7 +96,7 @@ async function playMusicRequest(ctx?, query?) {
   }
 
   const guildId = guild.id;
-  const { isGuildClipRecording } = require("../../../Vinili/Services/Voice/voiceClipService") as typeof import("../../../Vinili/Services/Voice/voiceClipService");
+  const { isGuildClipRecording } = require("../../../Vinili/Community/services/voiceClipService") as typeof import("../../../Vinili/Community/services/voiceClipService");
   if (isGuildClipRecording(guildId)) {
     const musicDuringClip = guildMusicSessionBlocksOtherVoiceChannels(client, guildId);
     if (!musicDuringClip.blocked) {

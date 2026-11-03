@@ -1,10 +1,10 @@
 const { AttachmentBuilder } = require("discord.js") as typeof import("discord.js");
 const { safeMessageReply } = require("../../../../shared/discord/replyRuntime") as typeof import("../../../../shared/discord/replyRuntime");
-const { ActivityUserProfile } = require("../../../Schemas/Community/communitySchemas") as typeof import("../../../Schemas/Community/communitySchemas");
+const { ActivityUserProfile } = require("../../../Community/schemas/communitySchemas") as typeof import("../../../Community/schemas/communitySchemas");
 const { getUserRanks, getResolvedWeeklyExpMultiplier } = require("../../services/expService") as typeof import("../../services/expService");
 const renderRankCanvas = require("../../utils/rankCanvas");
-const { getRankCardThemeFromDoc } = require("../../../Utils/Render/rankCardTheme") as typeof import("../../../Utils/Render/rankCardTheme");
-const IDs = require("../../../Utils/Config/ids") as typeof import("../../../Utils/Config/ids");
+const { getRankCardThemeFromDoc } = require("../../../Community/utils/Render/rankCardTheme") as typeof import("../../../Community/utils/Render/rankCardTheme");
+const IDs = require("../../../Config/ids") as typeof import("../../../Config/ids");
 const { guildMemberDisplayAvatarUrlDynamic, memberDisplayName } = require("../../../../shared/discord/guildDiscordIdentity") as typeof import("../../../../shared/discord/guildDiscordIdentity");
 
 function resolvePreferredAvatarUrl(member?, user?) {

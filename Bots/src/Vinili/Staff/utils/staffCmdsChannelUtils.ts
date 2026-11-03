@@ -1,5 +1,5 @@
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
-const { getStaffCmdsThreadIds } = require("../../Utils/Global/globalSettingsBucket") as typeof import("../../Utils/Global/globalSettingsBucket");
+const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
+const { getStaffCmdsThreadIds } = require("../../Community/services/globalSettingsBucket") as typeof import("../../Community/services/globalSettingsBucket");
 
 let threadIdsCache = { pm: null, high: null };
 

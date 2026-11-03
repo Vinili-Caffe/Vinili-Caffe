@@ -1,12 +1,12 @@
 /** Organico staff: storico di pex e depex con i nomi delle persone. */
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
-const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
+const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
+const { ActivityUserProfile } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
 const { STAFF_LADDER_KEYS_HIGH_TO_LOW, staffLadderRoleIds } = require("../../Staff/utils/staffRoleHierarchy") as typeof import("../../Staff/utils/staffRoleHierarchy");
 const { stripDiscordDecorations } = require("./siteStaffRosterCache") as typeof import("./siteStaffRosterCache");
 const { isHiddenManualStaffCareerReason } = require("../../Staff/utils/staffTrackHistory") as typeof import("../../Staff/utils/staffTrackHistory");
 const { resolveWebUserIdentitiesBatch, identityFallback, safeDisplayLabel, isSnowflakeLabel, FALLBACK_LABEL } = require("../../site/http/siteWebUserIdentity") as typeof import("../../site/http/siteWebUserIdentity");
 const { userAvatarUrlDynamic, sitePreferredAvatarUrl } = require("../../../shared/discord/guildDiscordIdentity") as typeof import("../../../shared/discord/guildDiscordIdentity");
-const { remapKnownRoleSnowflake } = require("../../Utils/Config/emergencyRoleIdRemap") as typeof import("../../Utils/Config/emergencyRoleIdRemap");
+const { remapKnownRoleSnowflake } = require("../../Config/emergencyRoleIdRemap") as typeof import("../../Config/emergencyRoleIdRemap");
 const { normalizeHistoryAvatarUrl, hasRealDiscordAvatarUrl, pickHistoryAvatarUrl, syncHealRecentHistoryAvatars, warmHealHistoryAvatarUrls, persistHistoryIdentitySnapshots } = require("./organicoAvatars") as typeof import("./organicoAvatars");
 
 const PM_ROLE_ID = String(IDs.roles?.PartnerManager || "").trim();

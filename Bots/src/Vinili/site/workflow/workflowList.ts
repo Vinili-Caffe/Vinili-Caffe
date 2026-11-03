@@ -1,5 +1,5 @@
 /** Workflow staff: elenco delle richieste per lo staff (filtri e pagine). */
-const { SiteDocument } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
+const { SiteDocument } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
 const { RESOCONTO_LIST_ROLE_RANK, RESOCONTO_LIST_RANK_FALLBACK, cleanPauseSubjectDisplayName } = require("./workflowLabels") as typeof import("./workflowLabels");
 const { isGenericWorkflowSubjectLabel, pickSubjectDisplayName, hasRealDiscordAvatarUrl, preferAnimatedStoredAvatarUrl, isWorkflowRoleSlug } = require("./workflowSubjects") as typeof import("./workflowSubjects");
 const { docToListItem } = require("./workflowSerialize") as typeof import("./workflowSerialize");

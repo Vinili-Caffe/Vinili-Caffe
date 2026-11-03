@@ -1,8 +1,8 @@
 /** Classifiche utenti: ruolo e vocale personalizzati nel profilo. */
 const { PermissionsBitField, OverwriteType } = require("discord.js") as typeof import("discord.js");
-const { CustomRole } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
-const { findCustomVoiceByOwner, findCustomVoiceByRole } = require("../../Utils/Interaction/customRoleUtils") as typeof import("../../Utils/Interaction/customRoleUtils");
-const { discordRoleIconUrl } = require("../../Utils/Discord/discordRoleIconUrl") as typeof import("../../Utils/Discord/discordRoleIconUrl");
+const { CustomRole } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
+const { findCustomVoiceByOwner, findCustomVoiceByRole } = require("../../Community/utils/customRoleUtils") as typeof import("../../Community/utils/customRoleUtils");
+const { discordRoleIconUrl } = require("../utils/discordRoleIconUrl") as typeof import("../utils/discordRoleIconUrl");
 const { siteMemberAvatarUrl, resolveCustomProfileOwnerMember } = require("./usersLbIdentity") as typeof import("./usersLbIdentity");
 
 function roleHexPair(role?) {
@@ -145,7 +145,7 @@ async function buildCustomProfileData(guild?, userId?, opts?) {
     let roleMemberCount = Number(role?.members?.size) || 0;
     let secondaryMemberCount = Number(secondaryRole?.members?.size) || 0;
     try {
-      const { getFreshMemberIdSnapshot } = require("../../Utils/Discord/threadRoleMembers") as typeof import("../../Utils/Discord/threadRoleMembers");
+      const { getFreshMemberIdSnapshot } = require("../../Community/utils/threadRoleMembers") as typeof import("../../Community/utils/threadRoleMembers");
       const snap = getFreshMemberIdSnapshot(guild.id);
       if (snap?.byRole) {
         if (role?.id) {
@@ -295,7 +295,7 @@ async function buildCustomProfileData(guild?, userId?, opts?) {
     }
   }
     try {
-    const { getFreshMemberIdSnapshot } = require("../../Utils/Discord/threadRoleMembers") as typeof import("../../Utils/Discord/threadRoleMembers");
+    const { getFreshMemberIdSnapshot } = require("../../Community/utils/threadRoleMembers") as typeof import("../../Community/utils/threadRoleMembers");
     const snap = getFreshMemberIdSnapshot(guild.id);
     if (snap?.byRole && role?.id) {
       const ids = snap.byRole.get(String(role.id)) || [];
@@ -365,7 +365,7 @@ async function buildCustomProfileData(guild?, userId?, opts?) {
     roleSharedCount = Math.max(roleSharedCount, fromCache);
   }
   try {
-    const { getFreshMemberIdSnapshot } = require("../../Utils/Discord/threadRoleMembers") as typeof import("../../Utils/Discord/threadRoleMembers");
+    const { getFreshMemberIdSnapshot } = require("../../Community/utils/threadRoleMembers") as typeof import("../../Community/utils/threadRoleMembers");
     const snap = getFreshMemberIdSnapshot(guild.id);
     if (snap?.byRole && role?.id) {
       const ids = snap.byRole.get(String(role.id)) || [];
@@ -386,7 +386,7 @@ async function buildCustomProfileData(guild?, userId?, opts?) {
     }
   }
   try {
-    const { getFreshMemberIdSnapshot } = require("../../Utils/Discord/threadRoleMembers") as typeof import("../../Utils/Discord/threadRoleMembers");
+    const { getFreshMemberIdSnapshot } = require("../../Community/utils/threadRoleMembers") as typeof import("../../Community/utils/threadRoleMembers");
     const snap = getFreshMemberIdSnapshot(guild.id);
     if (snap?.byRole && secondaryRole?.id) {
       const ids = snap.byRole.get(String(secondaryRole.id)) || [];
@@ -445,7 +445,7 @@ async function buildCustomProfileData(guild?, userId?, opts?) {
     secondaryRoleSharedCount = Math.max(secondaryRoleSharedCount, fromCache);
   }
   try {
-    const { getFreshMemberIdSnapshot } = require("../../Utils/Discord/threadRoleMembers") as typeof import("../../Utils/Discord/threadRoleMembers");
+    const { getFreshMemberIdSnapshot } = require("../../Community/utils/threadRoleMembers") as typeof import("../../Community/utils/threadRoleMembers");
     const snap = getFreshMemberIdSnapshot(guild.id);
     if (snap?.byRole && secondaryRole?.id) {
       const ids = snap.byRole.get(String(secondaryRole.id)) || [];

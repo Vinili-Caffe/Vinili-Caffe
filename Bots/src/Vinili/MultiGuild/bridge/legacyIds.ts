@@ -13,7 +13,7 @@ function applyMapOverlay(target?, overlay?) {
 }
 
 function buildIdsOverlay(entry?, baseIds = null) {
-  const base = baseIds || require("../../Utils/Config/ids");
+  const base = baseIds || require("../../Config/ids");
   const roles = applyMapOverlay(cloneSection(base.roles), entry?.roleMap);
   const channels = applyMapOverlay(cloneSection(base.channels), entry?.channelMap);
   return {

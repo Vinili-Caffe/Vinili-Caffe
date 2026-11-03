@@ -1,5 +1,5 @@
 /** Minigiochi: messaggio in chat durante una partita. */
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
+const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { normalizeUserAnswerText } = require("./minigameText") as typeof import("./minigameText");
 const { getActivityWindowMs, getActivityScopeKey, recordActivity, canCountMessageForActivity } = require("./minigameActivity") as typeof import("./minigameActivity");
 const { activeGames, channelWinClosing, isMinigameRehydrateBlocked, clearActiveGame } = require("./minigameState") as typeof import("./minigameState");

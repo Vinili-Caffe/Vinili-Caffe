@@ -1,4 +1,4 @@
-const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
+const { ActivityUserProfile } = require("../../../../../../src/Vinili/Community/schemas/communitySchemas") as typeof import("../../../../../../src/Vinili/Community/schemas/communitySchemas");
 const { CURRENCY_CAFFE, CURRENCY_VINILI, formatCurrency, getServerWallet, spendCurrency } = require("./serverWalletService") as typeof import("./serverWalletService");
 const { getShopItemById, listShopItems } = require("../../Utils/Economy/serverShopCatalog") as typeof import("../../Utils/Economy/serverShopCatalog");
 

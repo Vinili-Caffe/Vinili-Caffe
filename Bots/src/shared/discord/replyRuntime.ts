@@ -489,7 +489,7 @@ function maybeCoercePlainNoticeEmbed(payload?, source?) {
 function finalizeOutgoingPayload(payload?, source?) {
   let next = payload;
   try {
-    const { applyEmergencyRoleRemapToOutgoingPayload } = require("../../Vinili/Utils/Config/emergencyRoleIdRemap") as typeof import("../../Vinili/Utils/Config/emergencyRoleIdRemap");
+    const { applyEmergencyRoleRemapToOutgoingPayload } = require("../../Vinili/Config/emergencyRoleIdRemap") as typeof import("../../Vinili/Config/emergencyRoleIdRemap");
     next = applyEmergencyRoleRemapToOutgoingPayload(next);
   } catch (_) {}
   next = maybeCoercePlainNoticeEmbed(next, source);

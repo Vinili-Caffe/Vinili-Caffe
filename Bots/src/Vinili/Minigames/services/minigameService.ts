@@ -1,6 +1,6 @@
 
 const { minigameStateDeleteOne, minigameStateDeleteMany, minigameRotationDeleteOne, minigameRotationDeleteMany } = require("../../../shared/botState/domainStatesStore") as typeof import("../../../shared/botState/domainStatesStore");
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
+const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { logMinigameSpawn, logMaybeStartSkip, warnMinigame, logMinigameDebug, is429Error } = require("./minigameLog") as typeof import("./minigameLog");
 const { getMinigameRomeTime, getChannelSafe, getChannelCached, isWithinAllowedWindow } = require("./minigameUtils") as typeof import("./minigameUtils");
 const { lastSentAtByChannel, getActivityWindowMs, getMinMessages, getRecentActivityStats, computeAdaptiveMinMessages, isReadyByActivity, assessFreshSpawnChatActivity, getActivityScopeKey, backfillRecentChatActivityFromHistory, isFailsafeDue } = require("./minigameActivity") as typeof import("./minigameActivity");

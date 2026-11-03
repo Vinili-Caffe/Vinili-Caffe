@@ -1,11 +1,11 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, AttachmentBuilder, ChannelType, } = require("discord.js") as typeof import("discord.js");
-const { skullboardFindOneLean, skullboardUpsert } = require("../Utils/Global/globalSettingsGuildStores") as typeof import("../Utils/Global/globalSettingsGuildStores");
+const { skullboardFindOneLean, skullboardUpsert } = require("../Community/services/globalSettingsGuildStores") as typeof import("../Community/services/globalSettingsGuildStores");
 const { handleMinigameReaction } = require("../Minigames/services/minigameService") as typeof import("../Minigames/services/minigameService");
-const IDs = require("../Utils/Config/ids") as typeof import("../Utils/Config/ids");
+const IDs = require("../Config/ids") as typeof import("../Config/ids");
 const { getGuildChannelCached, getGuildMemberCached } = require("../../shared/discord/interactionEntityCache") as typeof import("../../shared/discord/interactionEntityCache");
-const { cacheRoleIcon } = require("../Utils/Cache/roleIconCache") as typeof import("../Utils/Cache/roleIconCache");
+const { cacheRoleIcon } = require("../../shared/cache/roleIconCache") as typeof import("../../shared/cache/roleIconCache");
 const { guildMemberDisplayAvatarUrlDynamic, memberDisplayName } = require("../../shared/discord/guildDiscordIdentity") as typeof import("../../shared/discord/guildDiscordIdentity");
-const { resolveCanvasDiscordMarkup } = require("../Utils/Discord/resolveCanvasDiscordText") as typeof import("../Utils/Discord/resolveCanvasDiscordText");
+const { resolveCanvasDiscordMarkup } = require("../Community/utils/Render/resolveCanvasDiscordText") as typeof import("../Community/utils/Render/resolveCanvasDiscordText");
 
 function isViniliFullFeatureGuild(guildId?) {
   try {
@@ -231,7 +231,7 @@ async function renderSkullCanvas(
   hasMedia?,
   hasEmbedOnly?,
 ) {
-  const renderSkullboardCanvas = require("../Utils/Render/skullboardCanvas") as typeof import("../Utils/Render/skullboardCanvas");
+  const renderSkullboardCanvas = require("../Community/utils/Render/skullboardCanvas") as typeof import("../Community/utils/Render/skullboardCanvas");
   return renderSkullboardCanvas({
     avatarUrl: guildMemberDisplayAvatarUrlDynamic(member || message.author, { size: 256 }) || "",
     username: sanitizeUsername(member, message.author),
@@ -336,7 +336,7 @@ export = {
       if (existing?.postMessageId) {
         if (siteBoard) {
           /* altre 💀 sullo stesso messaggio: il conteggio sul sito sale */
-          const { GuildSkullPost } = require("../Schemas/Community/guildBoardPostSchema") as typeof import("../Schemas/Community/guildBoardPostSchema");
+          const { GuildSkullPost } = require("../Community/schemas/guildBoardPostSchema") as typeof import("../Community/schemas/guildBoardPostSchema");
           await GuildSkullPost.updateOne(
             { guildId: message.guild.id, sourceMessageId: message.id },
             { $max: { skullCount: Math.max(1, Number(reaction.count || 1)) } },

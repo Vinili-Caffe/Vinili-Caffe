@@ -1,9 +1,9 @@
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle, AttachmentBuilder } = require("discord.js") as typeof import("discord.js");
-const { getUserOverviewStats } = require("../../../Services/Community/activityService") as typeof import("../../../Services/Community/activityService");
+const { getUserOverviewStats } = require("../../../Community/services/activityService") as typeof import("../../../Community/services/activityService");
 const { resolveTopChannelEntries } = require("../prefix/top") as typeof import("../prefix/top");
-const { renderUserActivityCanvas } = require("../../../Utils/Render/activityCanvas") as typeof import("../../../Utils/Render/activityCanvas");
+const { renderUserActivityCanvas } = require("../../../Community/utils/Render/activityCanvas") as typeof import("../../../Community/utils/Render/activityCanvas");
 const { memberDisplayName, userAvatarUrlDynamic } = require("../../../../shared/discord/guildDiscordIdentity") as typeof import("../../../../shared/discord/guildDiscordIdentity");
-const { getEffectiveJoinedAt } = require("../../../Services/Community/effectiveMemberJoinService") as typeof import("../../../Services/Community/effectiveMemberJoinService");
+const { getEffectiveJoinedAt } = require("../../../Community/services/effectiveMemberJoinService") as typeof import("../../../Community/services/effectiveMemberJoinService");
 const USER_REFRESH_CUSTOM_ID_PREFIX = "user_refresh";
 const USER_PERIOD_OPEN_CUSTOM_ID_PREFIX = "user_period_open";
 const USER_PERIOD_SET_CUSTOM_ID_PREFIX = "user_period_set";
@@ -24,7 +24,7 @@ function match(interaction?) {
 }
 
 async function execute(interaction?, client?) {
-  const { parseUserCustomId, denyIfNotOwner, sendControlErrorFallback } = require("../../../Utils/Interaction/buttonParsers") as typeof import("../../../Utils/Interaction/buttonParsers");
+  const { parseUserCustomId, denyIfNotOwner, sendControlErrorFallback } = require("./buttonParsers") as typeof import("./buttonParsers");
   const parsed = parseUserCustomId(interaction.customId);
   if (!parsed) return false;
   const denied = await denyIfNotOwner(interaction, parsed.ownerId);

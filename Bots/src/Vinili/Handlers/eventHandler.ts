@@ -40,8 +40,27 @@ export = (client?) => {
       ],
     );
 
-    for (const file of listJsFilesRecursive(absBase)) {
-      const rel = path.relative(absBase, file).replace(/\\/g, "/");
+    const viniliRoot = path.dirname(absBase);
+    const extraEventFiles = [
+      path.join(viniliRoot, "Community", "services", "guildMemberUpdateService.js"),
+    ];
+    const files = [
+      ...listJsFilesRecursive(absBase),
+      ...extraEventFiles.filter((f?) => {
+        try {
+          require.resolve(f);
+          return true;
+        } catch {
+          return false;
+        }
+      }),
+    ];
+
+    for (const file of files) {
+      const underEvents = file.startsWith(absBase + path.sep) || file.startsWith(absBase + "/");
+      const rel = underEvents
+        ? path.relative(absBase, file).replace(/\\/g, "/")
+        : path.relative(viniliRoot, file).replace(/\\/g, "/");
       try {
         if (skipEvents.has(rel) || skipEvents.has(path.basename(rel).replace(/\.(cjs|mjs|js|cts|mts|ts)$/i, ""))) continue;
         delete require.cache[require.resolve(file)];
@@ -81,7 +100,12 @@ export = (client?) => {
     )) {
       const folder = path.dirname(rel).replace(/\\/g, "/");
       const file = path.basename(rel);
-      let folderLabel = folder === "." ? "Events" : `Events/${folder}`;
+      let folderLabel =
+        folder === "."
+          ? "Events"
+          : folder.startsWith("Community/") || folder.startsWith("Staff/") || folder.startsWith("Partner/")
+            ? folder
+            : `Events/${folder}`;
       if (folderLabel.length > maxFolder) folderLabel = folderLabel.slice(0, maxFolder - 1) + "…";
       const fileShort = file.length > maxFile ? file.slice(0, maxFile - 1) + "…" : file;
       const statusShort = status.length > maxStatus ? status.slice(0, maxStatus - 1) + "…" : status;

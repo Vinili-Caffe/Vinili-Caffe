@@ -1,7 +1,7 @@
 /** Minigiochi: premi (exp, serie di vittorie, risposta veloce, ruoli premio, caramelle di Halloween). */
-const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
+const { ActivityUserProfile } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
 const { addExpWithLevel, shouldIgnoreExpForMember, incrementMinigameWinCounters } = require("../../Level/services/expService") as typeof import("../../Level/services/expService");
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
+const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { getGuildMemberCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
 const { warnMinigame } = require("./minigameLog") as typeof import("./minigameLog");
 const { EXP_REWARDS, buildRewardEmbed } = require("./minigameEmbeds") as typeof import("./minigameEmbeds");
@@ -65,7 +65,7 @@ async function computeMinigameAwardForUser({ guildId, userId, cfg, baseExp, star
     warnMinigame(err);
   }
   if (client) {
-    const { scheduleRoyaleMinigameRoleSync } = require("../../Services/Community/weeklyActivityWinnersService") as typeof import("../../Services/Community/weeklyActivityWinnersService");
+    const { scheduleRoyaleMinigameRoleSync } = require("../../Community/services/weeklyActivityWinnersService") as typeof import("../../Community/services/weeklyActivityWinnersService");
     scheduleRoyaleMinigameRoleSync(client);
   }
   const nextTotal = Number(doc?.profile?.totals?.exp?.minigame?.totalExp ?? 0);
@@ -154,7 +154,7 @@ async function awardMinigameWinToUser({
     warnMinigame(err);
   }
   if (client) {
-    const { scheduleRoyaleMinigameRoleSync } = require("../../Services/Community/weeklyActivityWinnersService") as typeof import("../../Services/Community/weeklyActivityWinnersService");
+    const { scheduleRoyaleMinigameRoleSync } = require("../../Community/services/weeklyActivityWinnersService") as typeof import("../../Community/services/weeklyActivityWinnersService");
     scheduleRoyaleMinigameRoleSync(client);
   }
   const nextTotal = Number(doc?.profile?.totals?.exp?.minigame?.totalExp ?? 0);

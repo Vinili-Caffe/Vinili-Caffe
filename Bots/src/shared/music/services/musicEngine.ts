@@ -1,4 +1,4 @@
-﻿/** Musica: il motore (sessioni per server, avvio dei brani, fine brano, collegamento a Lavalink). */
+/** Musica: il motore (sessioni per server, avvio dei brani, fine brano, collegamento a Lavalink). */
 const { Shoukaku, Connectors, Constants, Utils } = require("shoukaku") as typeof import("shoukaku");
 const { logMusic } = require("./musicSearch") as typeof import("./musicSearch");
 const { musicHooks } = require("./musicVoice") as typeof import("./musicVoice");
@@ -37,7 +37,7 @@ async function musicStartCapture(opts?) {
   if (typeof h.startVoiceContinuousCapture === "function") {
     return (h.startVoiceContinuousCapture as any)(opts);
   }
-  const { startVoiceContinuousCapture } = require("../../../Vinili/Services/Voice/voiceContinuousCaptureService") as typeof import("../../../Vinili/Services/Voice/voiceContinuousCaptureService");
+  const { startVoiceContinuousCapture } = require("../../../Vinili/Community/services/voiceContinuousCaptureService") as typeof import("../../../Vinili/Community/services/voiceContinuousCaptureService");
   return startVoiceContinuousCapture(opts);
 }
 

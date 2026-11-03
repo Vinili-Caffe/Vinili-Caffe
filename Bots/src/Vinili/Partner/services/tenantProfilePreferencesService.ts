@@ -1,4 +1,4 @@
-const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
+const { ActivityUserProfile } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
 const { normalizeTenantLanguage } = require("../i18n/tenantPartnershipI18n/languages") as typeof import("../i18n/tenantPartnershipI18n/languages");
 const { BADGE_DEFS } = require("../tenant/tenantObjectiveDefs") as typeof import("../tenant/tenantObjectiveDefs");
 const {

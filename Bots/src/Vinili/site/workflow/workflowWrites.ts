@@ -1,6 +1,6 @@
 /** Workflow staff: creazione e aggiornamento delle richieste. */
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
-const { SiteDocument, SITE_DOCUMENT_TYPE } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
+const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
+const { SiteDocument, SITE_DOCUMENT_TYPE } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
 const { stripDiscordDecorations, weekKeyFromDate, buildWorkflowDedupeKey, normalizeStatus, statusLabelFor, normalizeResocontoActionKey } = require("./workflowLabels") as typeof import("./workflowLabels");
 const { pickSubjectDisplayName } = require("./workflowSubjects") as typeof import("./workflowSubjects");
 const { snowflakeToDate } = require("./workflowSerialize") as typeof import("./workflowSerialize");

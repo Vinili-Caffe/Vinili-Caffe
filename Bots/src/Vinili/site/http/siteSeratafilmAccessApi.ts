@@ -2,7 +2,7 @@ const crypto = require("crypto") as typeof import("crypto");
 const fs = require("fs") as typeof import("fs");
 const path = require("path") as typeof import("path");
 const { resolveWebsiteCandidatureMember } = require("../staff/candidature/candidatureApplicationHandlers") as typeof import("../staff/candidature/candidatureApplicationHandlers");
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
+const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 /* Pagina serata film riservata all'High Staff (stesso elenco usato per l'anteprima degli eventi) */
 const HIGH_STAFF_ACCESS_ROLE_IDS = [IDs.roles?.Founder, IDs.roles?.Admin, IDs.roles?.HighStaff, IDs.roles?.Director]
   .map((id?) => String(id || "").trim())

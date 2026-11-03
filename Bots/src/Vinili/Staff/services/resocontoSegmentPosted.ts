@@ -53,7 +53,7 @@ function hadStaffRoleResocontoPostedThisCycle(staffResocontoPostedIds?, staffRol
 
 async function hasSiteResocontoThisWeek(guildId?, resocontoWeekKey?, userId?, kind?) {
   try {
-    const { SiteDocument, SITE_DOCUMENT_TYPE } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
+    const { SiteDocument, SITE_DOCUMENT_TYPE } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
     const doc = await SiteDocument.findOne({
       docType: SITE_DOCUMENT_TYPE.STAFF_WORKFLOW,
       guildId,

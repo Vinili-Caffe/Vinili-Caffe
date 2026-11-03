@@ -1,6 +1,6 @@
 /** Automod: pipeline su messageCreate / messageUpdate. */
-const IDs: any = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
-const { isSecurityProfileImmune } = require("./securityProfilesService") as typeof import("./securityProfilesService");
+const IDs: any = require("../../Config/ids") as typeof import("../../Config/ids");
+const { isSecurityProfileImmune } = require("../../Security/services/securityProfilesService") as typeof import("../../Security/services/securityProfilesService");
 const { CORE_EXEMPT_USER_IDS } = require("./joinGateExemptUtils") as typeof import("./joinGateExemptUtils");
 const { getGuildMemberCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
 const { nowMs, looksLikeLegitConversation, stripQuotedAndCodeText, trimWindow } = require("./automodText") as typeof import("./automodText");

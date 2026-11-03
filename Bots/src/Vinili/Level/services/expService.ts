@@ -1,7 +1,7 @@
-const { ActivityUserProfile, GlobalSettings, LEVEL_HISTORY_MAX_ENTRIES } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
+const { ActivityUserProfile, GlobalSettings, LEVEL_HISTORY_MAX_ENTRIES } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
 const { isValidGuildUserId } = require("../../../shared/db/validateWriteIds") as typeof import("../../../shared/db/validateWriteIds");
 const { isMongoReady } = require("../../../shared/db/mongoConnect") as typeof import("../../../shared/db/mongoConnect");
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
+const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { getGuildChannelCached, getGuildRoleCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
 const { isLevelExpGuild, getIsoWeekKey, getCurrentWeekKey, getLevelInfo, getTotalExpForLevel, repairExpTotals, resolveLevelUpAnnounceLevel } = require("./expLevels") as typeof import("./expLevels");
 const { DEFAULT_MULTIPLIER, settingsCache, normalizeSettingsDoc, getGuildExpSettings, getRoleMultiplier, combineWeeklyExpMultiplier, getResolvedWeeklyExpMultiplier, getGlobalMultiplier } = require("./expMultipliers") as typeof import("./expMultipliers");

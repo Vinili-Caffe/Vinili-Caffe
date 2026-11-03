@@ -1,5 +1,5 @@
 const { EmbedBuilder } = require("discord.js") as typeof import("discord.js");
-const BotState = require("../../Schemas/BotState/botStateSchema");
+const BotState = require("../../../shared/schemas/botState/botStateSchema");
 const { isMongoReady } = require("../../../shared/db/mongoConnect") as typeof import("../../../shared/db/mongoConnect");
 const { getGuildChannelCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
 const { formatPartnershipPingDisplay } = require("../../Partner/runtime/partnershipPingUtils") as typeof import("../../Partner/runtime/partnershipPingUtils");

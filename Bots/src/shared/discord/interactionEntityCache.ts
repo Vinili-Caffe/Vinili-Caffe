@@ -59,7 +59,7 @@ async function getGuildChannelCached(guild?, channelId?, options: Record<string,
   if (!guild || !channelId) return null;
   let resolvedId = String(channelId);
   try {
-    const { remapChannelIdForGuild } = require("../../Vinili/Utils/Config/testGuildMirrorRemap") as typeof import("../../Vinili/Utils/Config/testGuildMirrorRemap");
+    const { remapChannelIdForGuild } = require("../../Vinili/Config/testGuildMirrorRemap") as typeof import("../../Vinili/Config/testGuildMirrorRemap");
     resolvedId = remapChannelIdForGuild(guild.id, channelId) || resolvedId;
   } catch (_) {}
   return getOrFetchEntity({
@@ -139,7 +139,7 @@ async function getGuildRoleCached(guild?, roleId?, options: Record<string, any> 
   if (!guild || !roleId) return null;
   let resolvedId = String(roleId);
   try {
-    const { remapRoleIdForGuild } = require("../../Vinili/Utils/Config/testGuildMirrorRemap") as typeof import("../../Vinili/Utils/Config/testGuildMirrorRemap");
+    const { remapRoleIdForGuild } = require("../../Vinili/Config/testGuildMirrorRemap") as typeof import("../../Vinili/Config/testGuildMirrorRemap");
     resolvedId = remapRoleIdForGuild(guild.id, roleId) || resolvedId;
   } catch (_) {}
   return getOrFetchEntity({

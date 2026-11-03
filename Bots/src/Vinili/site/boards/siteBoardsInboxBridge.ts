@@ -2,8 +2,8 @@
  * boardsInboxRevisione1: Bacheca pending → coda Inbox "revisione" (Server|Bot).
  * boardsInboxSelfNotif1: notifica anche il mittente se è staff (revisione).
  */
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
-const { SITE_DOCUMENT_TYPE } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
+const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
+const { SITE_DOCUMENT_TYPE } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
 
 const BL = SITE_DOCUMENT_TYPE.BOARD_LISTING;
 const QUEUE = "revisione";

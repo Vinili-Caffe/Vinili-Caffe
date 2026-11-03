@@ -113,7 +113,7 @@ function registerPanicTrigger(guildId?, userId?, options: Record<string, any> = 
   const nowActive = state.activeUntil > at;
   if (!alreadyActive && nowActive) {
     try {
-      const { invalidateSecurityLockCache } = require("./securityOrchestratorService") as typeof import("./securityOrchestratorService");
+      const { invalidateSecurityLockCache } = require("../../Security/services/securityOrchestratorService") as typeof import("../../Security/services/securityOrchestratorService");
       invalidateSecurityLockCache(guildId);
     } catch (_) {}
   }

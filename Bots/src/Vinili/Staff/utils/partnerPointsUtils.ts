@@ -1,4 +1,4 @@
-const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
+const { ActivityUserProfile } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
 const { resolvePartnerPointsShown } = require("./partnerPointsDisplayUtils") as typeof import("./partnerPointsDisplayUtils");
 const {
   PARTNER_REWARD_CANONICAL_TIERS,

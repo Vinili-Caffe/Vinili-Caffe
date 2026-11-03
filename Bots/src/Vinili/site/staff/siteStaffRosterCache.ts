@@ -1,5 +1,5 @@
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
-const { ActivityUserProfile, GlobalSettings } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
+const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
+const { ActivityUserProfile, GlobalSettings } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
 const {
   accountUsername,
   userAvatarUrlDynamic,
@@ -11,7 +11,7 @@ const {
   memberIsBlogger,
   memberOnStaffList,
   getStaffListPausedUserIds,
-} = require("../../Utils/Community/staffListUtils") as typeof import("../../Utils/Community/staffListUtils");
+} = require("../../Community/utils/staffListUtils") as typeof import("../../Community/utils/staffListUtils");
 const {
   resolveStaffProfileDisplayRoleId,
   buildFullProfileRoleLabelForEmbed,

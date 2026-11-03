@@ -1,7 +1,7 @@
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
+const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { enqueueSiteInAppNotification } = require("../notifications/siteInAppNotificationsService") as typeof import("../notifications/siteInAppNotificationsService");
 const { userPrefersNotifDigest } = require("../../site/http/siteNotifPrefs") as typeof import("../../site/http/siteNotifPrefs");
-const { collectHumanMemberIdsWithRole } = require("../../Utils/Discord/threadRoleMembers") as typeof import("../../Utils/Discord/threadRoleMembers");
+const { collectHumanMemberIdsWithRole } = require("../../Community/utils/threadRoleMembers") as typeof import("../../Community/utils/threadRoleMembers");
 const {
   STAFF_HIGH_STAFF_ELIGIBLE_KEYS,
   staffLadderRoleIds,

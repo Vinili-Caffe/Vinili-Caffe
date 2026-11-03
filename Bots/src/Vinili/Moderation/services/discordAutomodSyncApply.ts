@@ -5,8 +5,8 @@ const {
   AutoModerationRuleTriggerType,
   PermissionsBitField,
 } = require("discord.js") as typeof import("discord.js");
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
-const { ACTIVITY_MAIN_GUILD_ID } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
+const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
+const { ACTIVITY_MAIN_GUILD_ID } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
 const {
   readAutomodConfig,
   isDiscordNativeConfigEnabled,

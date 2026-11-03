@@ -120,8 +120,8 @@ function parseWordArrayFile(filePath?) {
 }
 
 function loadCustomHateWords() {
-  const singleFile = path.resolve(__dirname, "../Config/automodRacistWords.json");
-  const folderPath = path.resolve(__dirname, "../Config/automodRacistWords");
+  const singleFile = path.resolve(__dirname, "../config/automodRacistWords.json");
+  const folderPath = path.resolve(__dirname, "../config/automodRacistWords");
   const all = new Set(parseWordArrayFile(singleFile));
   try {
     if (fs.existsSync(folderPath)) {

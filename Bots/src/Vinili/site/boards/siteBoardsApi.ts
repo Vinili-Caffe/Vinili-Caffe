@@ -1,6 +1,6 @@
 
 const mongoose = require("mongoose") as typeof import("mongoose");
-const { SiteDocument } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
+const { SiteDocument } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
 const { BOARD_CATEGORIES, BOARD_LOCALES, BOARD_LOCALE_LABELS, BOARD_CATEGORY_LABELS, BOARD_TAG_CATALOG } = require("./boardCatalog") as typeof import("./boardCatalog");
 const { slugify, sanitizeText, tagMatchesQuery } = require("./boardSanitize") as typeof import("./boardSanitize");
 const { uploadBoardBanner, serveBoardBannerFile, resolveBoardsUser } = require("./boardBanners") as typeof import("./boardBanners");

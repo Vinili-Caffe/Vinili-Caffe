@@ -2,8 +2,8 @@ const __path = require("path") as typeof import("path");
 const __eventCoreVinili = (rel: string) => __path.join(__path.resolve(__dirname, "../../../../../../src/Vinili"), rel);
 
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js") as typeof import("discord.js");
-const { ActivityUserProfile } = require(__eventCoreVinili("Schemas/Community/communitySchemas"));
-const { isValidGuildUserId } = require(__eventCoreVinili("Utils/DB/validateWriteIds"));
+const { ActivityUserProfile } = require(__eventCoreVinili("Community/schemas/communitySchemas"));
+const { isValidGuildUserId } = require(__eventCoreVinili("../shared/db/validateWriteIds"));
 const { resolveHalloweenEventConfig, isHalloweenEventLive } = require("../../Utils/Eventi/halloweenEventConfig") as typeof import("../../Utils/Eventi/halloweenEventConfig");
 const {
   getHalloweenCandyById,
@@ -321,7 +321,7 @@ async function addHalloweenCandy({
 
   /* testGuildForceLive: sito legge sempre guild main → mirror caramelle sul main */
   try {
-    const IDs = require(__eventCoreVinili("Utils/Config/ids"));
+    const IDs = require(__eventCoreVinili("Config/ids"));
     const { isHalloweenForceLiveOnTestGuild } = require("../../Utils/Eventi/halloweenEventConfig") as typeof import("../../Utils/Eventi/halloweenEventConfig");
     const mainId = normalizeId(IDs.guilds?.main);
     const testId = normalizeId(IDs.guilds?.test);

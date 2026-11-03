@@ -20,7 +20,7 @@ function mountDashboardRoutes(app?, client?, ctx: Record<string, any> = {}) {
     getDashboardPartnershipManagers,
     adjustDashboardPartnershipManagerPoints,
     getDashboardPartnershipHistory,
-  } = require("./siteDashboardPartnershipApi") as typeof import("./siteDashboardPartnershipApi");
+  } = require("../../Partner/dashboard/siteDashboardPartnershipApi") as typeof import("../../Partner/dashboard/siteDashboardPartnershipApi");
   const { getDashboardPartnershipLeaderboard } = require("./siteDashboardLeaderboardApi") as typeof import("./siteDashboardLeaderboardApi");
   const {
     getDashboardGuildSettings,
@@ -57,7 +57,7 @@ function mountDashboardRoutes(app?, client?, ctx: Record<string, any> = {}) {
   } = require("./siteDashboardTenantProfileApi") as typeof import("./siteDashboardTenantProfileApi");
   const { getDashboardAccountSummary } = require("./siteDashboardAccountApi") as typeof import("./siteDashboardAccountApi");
   const { exportSelfGdprData, eraseSelfGdprData } = require("./siteDashboardGdprApi") as typeof import("./siteDashboardGdprApi");
-  const { getPremiumCredits, spendCreditsForTenantPremium } = require("../../Services/Community/premiumCreditsService") as typeof import("../../Services/Community/premiumCreditsService");
+  const { getPremiumCredits, spendCreditsForTenantPremium } = require("../../Community/services/premiumCreditsService") as typeof import("../../Community/services/premiumCreditsService");
   const { fetchDiscordUser } = require("./siteDashboardApi") as typeof import("./siteDashboardApi");
   app.get("/webhooks/site-dashboard/access", async (req?, res?) => {
     try {

@@ -44,8 +44,8 @@ const LEET_MAP = new Map([
   ["|", "i"],
 ]);
 
-const RACIST_WORDS_DIR = path.resolve(__dirname, "../../Vinili/Utils/Config/automodRacistWords");
-const RACIST_WORDS_FILE = path.resolve(__dirname, "../../Vinili/Utils/Config/automodRacistWords.json");
+const RACIST_WORDS_DIR = path.resolve(__dirname, "../../Vinili/Config/automodRacistWords");
+const RACIST_WORDS_FILE = path.resolve(__dirname, "../../Vinili/Config/automodRacistWords.json");
 
 let cachedTerms = null;
 let cachedSubstringTerms = null;

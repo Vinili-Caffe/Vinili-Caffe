@@ -1,8 +1,8 @@
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
+const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const {
   remapRoleIdForward,
   memberHasAnyRemappedRole,
-} = require("../../Utils/Config/emergencyRoleIdRemap") as typeof import("../../Utils/Config/emergencyRoleIdRemap");
+} = require("../../Config/emergencyRoleIdRemap") as typeof import("../../Config/emergencyRoleIdRemap");
 
 const STAFF_LADDER_KEYS_HIGH_TO_LOW = Object.freeze([
   "Founder",

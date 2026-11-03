@@ -1,12 +1,12 @@
 /** Ticket dal sito: come ticket e messaggi vengono mandati al sito (autore, risposte, letture, voti allo staff, anteprime, doppioni). */
 const mongoose = require("mongoose") as typeof import("mongoose");
-const { WEB_TICKET_STATUS, SiteWebTicketMessage } = require("../../features/tickets/data/siteWebTicketSchemas") as typeof import("../../features/tickets/data/siteWebTicketSchemas");
+const { WEB_TICKET_STATUS, SiteWebTicketMessage } = require("../../MultiGuild/tickets/data/siteWebTicketSchemas") as typeof import("../../MultiGuild/tickets/data/siteWebTicketSchemas");
 const { weakEtagFromParts } = require("../http/siteHttpEtag") as typeof import("../http/siteHttpEtag");
 const { CATEGORY_LABELS, formatWebTicketDisplayName, webTicketNameTail, buildWebTicketChannelName, scrubStoredTicketAvatarUrl, sanitizeText } = require("./ticketNames") as typeof import("./ticketNames");
 const { cleanStaffRoleDisplayName, buildStaffRoleMapForUserIds, listAddedUsers, ticketHasAddedUser, buildTicketPermissions } = require("./ticketStaffAccess") as typeof import("./ticketStaffAccess");
 const { withTicketFileAccessToken } = require("./ticketMedia") as typeof import("./ticketMedia");
 const { serializeReactions } = require("./ticketReactions") as typeof import("./ticketReactions");
-const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
+const { ActivityUserProfile } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
 
 const webTicketsListCache = new Map();
 

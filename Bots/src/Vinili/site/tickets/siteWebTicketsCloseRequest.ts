@@ -1,11 +1,11 @@
 /** Ticket dal sito, gestione: richiesta di chiusura (manda, accetta, rifiuta) e voto allo staff. */
-const { WEB_TICKET_STATUS } = require("../../features/tickets/data/siteWebTicketSchemas") as typeof import("../../features/tickets/data/siteWebTicketSchemas");
+const { WEB_TICKET_STATUS } = require("../../MultiGuild/tickets/data/siteWebTicketSchemas") as typeof import("../../MultiGuild/tickets/data/siteWebTicketSchemas");
 const { displayNameForMember, sanitizeText } = require("./ticketNames") as typeof import("./ticketNames");
 const { buildTicketPermissions } = require("./ticketStaffAccess") as typeof import("./ticketStaffAccess");
 const { staffAvgRatingMap, resolveRateableStaffer, clampStarRating, serializeTicket } = require("./ticketSerialize") as typeof import("./ticketSerialize");
 const { emitTicketEvent, notifyUserTicketEvent, createSystemMessage } = require("./ticketNotify") as typeof import("./ticketNotify");
 const { resolveMemberOrStaff, loadTicketForActor } = require("./ticketCommands") as typeof import("./ticketCommands");
-const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
+const { ActivityUserProfile } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
 const { getOrCreateStaffDoc } = require("../../Staff/utils/staffDocUtils") as typeof import("../../Staff/utils/staffDocUtils");
 const { sendWebTicketDiscordLog } = require("./webTicketDiscordLog") as typeof import("./webTicketDiscordLog");
 const { requireOpenStaffPanel, jsonTicketMutation } = require("./siteWebTicketsMembers") as typeof import("./siteWebTicketsMembers");

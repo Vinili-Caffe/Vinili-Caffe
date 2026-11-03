@@ -1,6 +1,6 @@
 
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
-const { SiteDocument } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
+const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
+const { SiteDocument } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
 const { normalizeSuggestionBoard, boardListQuery, scrubDiscordDefaultAvatarUrl, avatarHashFromDiscordUrl } = require("./suggestionFields") as typeof import("./suggestionFields");
 const { resolveWebsiteGuildMember } = require("../../site/http/siteRoleRequestApi") as typeof import("../../site/http/siteRoleRequestApi");
 const {

@@ -1,6 +1,6 @@
 /** Permessi: comandi ammessi nei ticket aperti dal sito. */
 const path = require("path") as typeof import("path");
-const IDs: any = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
+const IDs: any = require("../../Config/ids") as typeof import("../../Config/ids");
 const { resolveRoleReference, normalizeRoleList } = require("./permStaffGuide") as typeof import("./permStaffGuide");
 const { resolvePermissionReference, normalizePermissionList } = require("./permReferences") as typeof import("./permReferences");
 

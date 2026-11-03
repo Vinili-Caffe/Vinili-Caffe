@@ -3,6 +3,9 @@ const { logBootTable } = require("../../shared/runtime/bootTableRuntime") as typ
 
 export = (client?) => {
   client.logBootTables = () => {
-    logBootTable(["Handlers", "Triggers", "Services", "Schemas", "Prefix", "Events"], path.join(__dirname, ".."));
+    logBootTable(
+      ["Handlers", "Community", "Voice", "Moderation", "Staff", "Events", "core", "Config"],
+      path.join(__dirname, ".."),
+    );
   };
 };

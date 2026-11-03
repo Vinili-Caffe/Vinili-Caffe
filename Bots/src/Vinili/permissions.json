@@ -1324,9 +1324,6 @@
     "profile_panel:*": {
       "ownerSegment": 2
     },
-    "hogwarts_spell_list:*": [
-      "roles.Member"
-    ],
     "pm_shop_ack:*": {
       "roles": [
         "roles.Member",
@@ -1445,9 +1442,6 @@
     "prev": [
       "roles.PartnerManager",
       "roles.HighStaff"
-    ],
-    "r_multiplier_info": [
-      "roles.Member"
     ],
     "regolamento": [
       "roles.Staff"
@@ -1724,11 +1718,6 @@
     },
     "user_refresh*": {
       "ownerSegment": 1
-    },
-    "wcVote:*": {
-      "roles": [
-        "roles.Member"
-      ]
     },
     "vocalimoderazione": [
       "roles.Staff"

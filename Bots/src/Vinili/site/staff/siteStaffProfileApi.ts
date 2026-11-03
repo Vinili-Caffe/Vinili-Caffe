@@ -1,5 +1,5 @@
 
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
+const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { assertWebsiteStaffAccess, normalizeHeaderSecret } = require("./siteStaffAccessApi") as typeof import("./siteStaffAccessApi");
 const {
   fetchWebsiteGuildMember,
@@ -227,7 +227,7 @@ async function handleSiteStaffProfileGet(client?, req?, res?) {
       const guildId = String(IDs.guilds?.main || targetMember?.guild?.id || "").trim();
       const uid = String(targetUserId || "").trim();
       if (guildId && uid) {
-        const { SiteDocument, SITE_DOCUMENT_TYPE } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
+        const { SiteDocument, SITE_DOCUMENT_TYPE } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
         const WORKFLOW_DOC = SITE_DOCUMENT_TYPE.STAFF_WORKFLOW;
         let weekKey = "";
         try {
@@ -290,7 +290,7 @@ async function handleSiteStaffProfileGet(client?, req?, res?) {
 
         const tasks = [countResoPending()];
         if (payload.partner) {
-          const { SitePmPointsRemovedEntry } = require("../../Schemas/Web/sitePmPointsRemovedSchemas") as typeof import("../../Schemas/Web/sitePmPointsRemovedSchemas");
+          const { SitePmPointsRemovedEntry } = require("../../Partner/schemas/sitePmPointsRemovedSchemas") as typeof import("../../Partner/schemas/sitePmPointsRemovedSchemas");
           tasks.push(
             SitePmPointsRemovedEntry.countDocuments({
               guildId,

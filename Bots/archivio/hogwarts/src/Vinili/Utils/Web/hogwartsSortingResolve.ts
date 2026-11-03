@@ -1,4 +1,4 @@
-const { SiteDocument, SITE_DOCUMENT_TYPE } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
+const { SiteDocument, SITE_DOCUMENT_TYPE } = require("../../../../../../src/Vinili/Community/schemas/communitySchemas") as typeof import("../../../../../../src/Vinili/Community/schemas/communitySchemas");
 const { isValidGuildUserId } = require("../DB/validateWriteIds") as typeof import("../DB/validateWriteIds");
 const { HOUSES } = require("./hogwartsSortingBank") as typeof import("./hogwartsSortingBank");
 const SORTING_DOC = SITE_DOCUMENT_TYPE.HOGWARTS_SORTING;

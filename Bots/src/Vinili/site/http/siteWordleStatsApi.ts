@@ -4,7 +4,7 @@
    Unione tra dispositivi: vince la cronologia con più partite giocate (a parità, quella più recente). */
 "use strict";
 
-const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
+const { ActivityUserProfile } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
 const { resolveWebsiteGuildMember } = require("./siteRoleRequestApi") as typeof import("./siteRoleRequestApi");
 
 const LANGS = new Set(["it", "en", "es", "fr", "de", "pt"]);

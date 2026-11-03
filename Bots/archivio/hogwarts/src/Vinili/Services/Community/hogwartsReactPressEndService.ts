@@ -1,5 +1,5 @@
 const { EmbedBuilder } = require("discord.js") as typeof import("discord.js");
-const { SiteDocument, SITE_DOCUMENT_TYPE } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
+const { SiteDocument, SITE_DOCUMENT_TYPE } = require("../../../../../../src/Vinili/Community/schemas/communitySchemas") as typeof import("../../../../../../src/Vinili/Community/schemas/communitySchemas");
 const { getPremiLaReactConfig, isPremiLaReactEventEnded } = require("./hogwartsReactPressService") as typeof import("./hogwartsReactPressService");
 const { addGaleoni, formatGaleoni } = require("./gringottService") as typeof import("./gringottService");
 const { resolveHogwartsEventConfig } = require("../../Utils/Web/hogwartsSortingConfig") as typeof import("../../Utils/Web/hogwartsSortingConfig");
@@ -7,7 +7,7 @@ const { getHouseMeta, HOUSES } = require("../../Utils/Web/hogwartsSortingBank") 
 const { housePointPeriodKey } = require("../../Utils/Web/hogwartsHousePointPeriods") as typeof import("../../Utils/Web/hogwartsHousePointPeriods");
 const { getGuildChannelCached, getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache") as typeof import("../../Utils/Interaction/interactionEntityCache");
 const { getBotState, setBotState } = require("../../Utils/BotState/botStateStore") as typeof import("../../Utils/BotState/botStateStore");
-const { isValidGuildUserId } = require("../../Utils/DB/validateWriteIds") as typeof import("../../Utils/DB/validateWriteIds");
+const { isValidGuildUserId } = require("../../../../../../src/shared/db/validateWriteIds") as typeof import("../../../../../../src/shared/db/validateWriteIds");
 const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
 const REACT_PRESS_DOC = SITE_DOCUMENT_TYPE.HOGWARTS_REACT_PRESS;
 const SORTING_DOC = SITE_DOCUMENT_TYPE.HOGWARTS_SORTING;

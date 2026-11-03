@@ -1,10 +1,10 @@
 /** Classifiche utenti: ricerca di un utente e sue statistiche. */
-const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
+const { ActivityUserProfile } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
 const { getLevelInfo, getGlobalMultiplier, getGuildExpSettings, getResolvedWeeklyExpMultiplier } = require("../../Level/services/expService") as typeof import("../../Level/services/expService");
-const { computeWeeklyExpFromProfileDoc, getRomeDayKey } = require("../../Utils/Community/leaderboardHelpers") as typeof import("../../Utils/Community/leaderboardHelpers");
-const { discordRoleIconUrl } = require("../../Utils/Discord/discordRoleIconUrl") as typeof import("../../Utils/Discord/discordRoleIconUrl");
+const { computeWeeklyExpFromProfileDoc, getRomeDayKey } = require("../../Community/utils/leaderboardHelpers") as typeof import("../../Community/utils/leaderboardHelpers");
+const { discordRoleIconUrl } = require("../utils/discordRoleIconUrl") as typeof import("../utils/discordRoleIconUrl");
 const { fetchWebsiteGuildMember, readCachedWebsiteMember } = require("./websiteGuildMemberFetch") as typeof import("./websiteGuildMemberFetch");
-const { getRomeDateParts } = require("../../Services/Community/birthdayService") as typeof import("../../Services/Community/birthdayService");
+const { getRomeDateParts } = require("../../Community/services/birthdayService") as typeof import("../../Community/services/birthdayService");
 const { listCache } = require("./usersLbCache") as typeof import("./usersLbCache");
 const { nInt, parsePeriod, numericSortExpr } = require("./usersLbParams") as typeof import("./usersLbParams");
 const { PROFILE_MEMBER_SOFT_TIMEOUT_MS, siteSafeRankCard, siteSafeResolvedWallpaper, siteMemberAvatarUrl, publicDisplayNameFromMemberOrUser, resolveMemberForProfileFast, fetchUserIdentity, pickMembersFromGuild } = require("./usersLbIdentity") as typeof import("./usersLbIdentity");

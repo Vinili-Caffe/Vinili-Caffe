@@ -1,7 +1,7 @@
 const { AuditLogEvent, EmbedBuilder, PermissionsBitField } = require("discord.js") as typeof import("discord.js");
-const IDs = require("../Utils/Config/ids") as typeof import("../Utils/Config/ids");
+const IDs = require("../Config/ids") as typeof import("../Config/ids");
 const { getGuildChannelCached } = require("../../shared/discord/interactionEntityCache") as typeof import("../../shared/discord/interactionEntityCache");
-const { toDiscordTimestamp } = require("../Utils/Logging/channelRolesLogUtils") as typeof import("../Utils/Logging/channelRolesLogUtils");
+const { toDiscordTimestamp } = require("../Moderation/utils/channelRolesLogUtils") as typeof import("../Moderation/utils/channelRolesLogUtils");
 const { isViniliFullFeatureGuild } = require("../MultiGuild/core/guildFeatureScope") as typeof import("../MultiGuild/core/guildFeatureScope");
 const INVITE_DELETE_ACTION = AuditLogEvent?.InviteDelete ?? 42;
 const AUDIT_FETCH_LIMIT = 20;

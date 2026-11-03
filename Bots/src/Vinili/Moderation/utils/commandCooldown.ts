@@ -2,8 +2,8 @@ const mongoose = require("mongoose") as typeof import("mongoose");
 const path = require("path") as typeof import("path");
 const { readSnapshotWithMeta, writeSnapshotWithMeta } = require("../../../shared/recovery/snapshotStore") as typeof import("../../../shared/recovery/snapshotStore");
 const { registerShutdownFlush, armShutdownCheckpoint } = require("../../../shared/recovery/shutdownCheckpoint") as typeof import("../../../shared/recovery/shutdownCheckpoint");
-const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
+const { ActivityUserProfile } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
+const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const ROLE_COOLDOWN_BYPASS = IDs.roles.Staff;
 const ROLE_DOUBLE_BOOSTER = IDs.roles.DoubleBooster;
 const ROLE_SERVER_BOOSTER = IDs.roles.ServerBooster;
@@ -139,7 +139,7 @@ async function getUserCommandCooldownSeconds({ guildId, userId, member }) {
   let seconds = computeCooldownSeconds(member, level);
   if (seconds > 5 && guildId && userId && isDbReady()) {
     try {
-      const { hasEventWeekWinnerGrant } = require("../../Services/Community/weekWinnerGrantsService") as typeof import("../../Services/Community/weekWinnerGrantsService");
+      const { hasEventWeekWinnerGrant } = require("../../Community/services/weekWinnerGrantsService") as typeof import("../../Community/services/weekWinnerGrantsService");
       if (await hasEventWeekWinnerGrant(guildId, userId, 2)) seconds = 5;
     } catch (err) {
       global.logger?.warn?.("[commandCooldown] ", err?.message || err);

@@ -1,7 +1,7 @@
 const DEFAULT_CUSTOM_ROLE_PING_DELAY_MS = 5 * 60 * 1000;
 function remapPingRoleId(roleId?) {
   try {
-    const { remapRoleIdForward } = require("../../Utils/Config/emergencyRoleIdRemap") as typeof import("../../Utils/Config/emergencyRoleIdRemap");
+    const { remapRoleIdForward } = require("../../Config/emergencyRoleIdRemap") as typeof import("../../Config/emergencyRoleIdRemap");
     return remapRoleIdForward(roleId) || String(roleId || "").trim() || null;
   } catch (_) {
     const s = String(roleId || "").trim();

@@ -1,7 +1,7 @@
 /** Automod: profilo bad-user, strike timeout e snapshot membro. */
-const { ActivityUserProfile, ACTIVITY_MAIN_GUILD_ID } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
-const { automodBadUser } = require("../../Utils/Community/activityUserProfilePaths") as typeof import("../../Utils/Community/activityUserProfilePaths");
-const { isExtraOwner } = require("./securityProfilesService") as typeof import("./securityProfilesService");
+const { ActivityUserProfile, ACTIVITY_MAIN_GUILD_ID } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
+const { automodBadUser } = require("../../Community/utils/activityUserProfilePaths") as typeof import("../../Community/utils/activityUserProfilePaths");
+const { isExtraOwner } = require("../../Security/services/securityProfilesService") as typeof import("../../Security/services/securityProfilesService");
 const { isJoinGateSuspiciousAccount } = require("./joinGateSuspiciousService") as typeof import("./joinGateSuspiciousService");
 const { nowMs } = require("./automodText") as typeof import("./automodText");
 const { BAD_USER_CACHE, USER_STATE, isDbReady, getCachedBadUser, setCachedBadUser, isAutoModRoleExemptMember } = require("./automodExempt") as typeof import("./automodExempt");

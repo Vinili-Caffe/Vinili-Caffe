@@ -12,7 +12,7 @@ function mountStaffRoutes(app?, client?, ctx: Record<string, any> = {}) {
   const { handleSiteStaffDashboardGet } = require("./siteStaffDashboardApi") as typeof import("./siteStaffDashboardApi");
   const { handleSiteStaffManageGet, handleSiteStaffManagePost } = require("./siteStaffManageApi") as typeof import("./siteStaffManageApi");
   const { handleSiteStaffOrganicoGet, handleSiteStaffOrganicoPost } = require("./siteStaffOrganicoApi") as typeof import("./siteStaffOrganicoApi");
-  const { handleSiteStaffPmActionsPost } = require("./siteStaffPmActionsApi") as typeof import("./siteStaffPmActionsApi");
+  const { handleSiteStaffPmActionsPost } = require("../../Partner/site/siteStaffPmActionsApi") as typeof import("../../Partner/site/siteStaffPmActionsApi");
   const { handleSiteStaffValTradePost } = require("./siteStaffValTradeApi") as typeof import("./siteStaffValTradeApi");
   const { handleSiteStaffModLookupGet } = require("./siteStaffModApi") as typeof import("./siteStaffModApi");
   const {
@@ -44,13 +44,13 @@ function mountStaffRoutes(app?, client?, ctx: Record<string, any> = {}) {
   const {
     handleSiteStaffPmShopPost,
     handleSiteStaffPmShopGet,
-  } = require("./siteStaffPmShopApi") as typeof import("./siteStaffPmShopApi");
+  } = require("../../Partner/site/siteStaffPmShopApi") as typeof import("../../Partner/site/siteStaffPmShopApi");
   app.get("/webhooks/site-staff-pm-shop", (req?, res?) => handleSiteStaffPmShopGet(client, req, res));
   app.post("/webhooks/site-staff-pm-shop", (req?, res?) => handleSiteStaffPmShopPost(client, req, res));
   const {
     handleSiteStaffPmPointsRemovedGet,
     handleSiteStaffPmPointsRemovedPost,
-  } = require("./siteStaffPmPointsRemovedApi") as typeof import("./siteStaffPmPointsRemovedApi");
+  } = require("../../Partner/site/siteStaffPmPointsRemovedApi") as typeof import("../../Partner/site/siteStaffPmPointsRemovedApi");
   app.get("/webhooks/site-staff-pm-points-removed", (req?, res?) =>
     handleSiteStaffPmPointsRemovedGet(client, req, res),
   );

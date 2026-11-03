@@ -1,6 +1,6 @@
 /** Chat del workflow: invio, reazioni, modifica ed eliminazione dei messaggi. */
 const mongoose = require("mongoose") as typeof import("mongoose");
-const { SiteWorkflowChatMessage } = require("../../Schemas/Web/siteWorkflowChatSchemas") as typeof import("../../Schemas/Web/siteWorkflowChatSchemas");
+const { SiteWorkflowChatMessage } = require("./siteWorkflowChatSchemas") as typeof import("./siteWorkflowChatSchemas");
 const { notifyWorkflowChatNewMessage, notifyWorkflowMentions } = require("./siteStaffWorkflowNotifications") as typeof import("./siteStaffWorkflowNotifications");
 const { clearTyping: clearChatTyping } = require("../../site/http/siteChatTyping") as typeof import("../../site/http/siteChatTyping");
 const { sanitizeWebTicketMentionsToScope, sanitizeWebTicketChannelMentions } = require("../tickets/siteWebTicketsApi") as typeof import("../tickets/siteWebTicketsApi");

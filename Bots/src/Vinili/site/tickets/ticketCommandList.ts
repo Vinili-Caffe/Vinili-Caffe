@@ -1,11 +1,11 @@
 /** Ticket dal sito: elenco dei comandi del bot (prefisso e slash) che lo staff può lanciare dalla chat. */
 const fs = require("node:fs") as typeof import("node:fs");
 const path = require("node:path") as typeof import("node:path");
-const { viniliPath } = require("../../core/paths") as typeof import("../../core/paths");
+const { viniliPath } = require("../../paths") as typeof import("../../paths");
 const mongoose = require("mongoose") as typeof import("mongoose");
 const { ApplicationCommandType, ApplicationCommandOptionType } = require("discord.js") as typeof import("discord.js");
-const IDs: any = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
-const { SiteWebTicket } = require("../../features/tickets/data/siteWebTicketSchemas") as typeof import("../../features/tickets/data/siteWebTicketSchemas");
+const IDs: any = require("../../Config/ids") as typeof import("../../Config/ids");
+const { SiteWebTicket } = require("../../MultiGuild/tickets/data/siteWebTicketSchemas") as typeof import("../../MultiGuild/tickets/data/siteWebTicketSchemas");
 const { resolveWebsiteGuildMember } = require("../http/siteRoleRequestApi") as typeof import("../http/siteRoleRequestApi");
 const { fetchWebsiteGuildMember } = require("../http/websiteGuildMemberFetch") as typeof import("../http/websiteGuildMemberFetch");
 const { normalizeHeaderSecret } = require("../staff/siteStaffAccessApi") as typeof import("../staff/siteStaffAccessApi");

@@ -1,5 +1,5 @@
 /** Workflow staff: da documento del database a voce di elenco e dettaglio. */
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
+const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { getPauseStatusLabel, getPausePhase, getTodayUtc, formatPauseRoleLabelForMessage } = require("../../site/staff/pause/pauseHandlersUtils") as typeof import("../../site/staff/pause/pauseHandlersUtils");
 const { stripDiscordDecorations, weekKeyFromDate, formatWeekLabel, normalizeStatus, statusLabelFor, pauseTrackRoleKey, cleanPauseSubjectDisplayName, pauseRoleDisplayLabel, extractResocontoAzioneText, formatResocontoProposedLabel, buildResocontoInboxPreview, deriveResocontoStaffFlags, deriveResocontoStatusLabel, resolveResocontoDocStatus, normalizeResocontoActionKey, parseResocontoBodyFields } = require("./workflowLabels") as typeof import("./workflowLabels");
 const { pickSubjectDisplayName, hasRealDiscordAvatarUrl, preferAnimatedStoredAvatarUrl, liveWorkflowAvatarUrl, cleanAppealPreviewText, readStoredSubject } = require("./workflowSubjects") as typeof import("./workflowSubjects");

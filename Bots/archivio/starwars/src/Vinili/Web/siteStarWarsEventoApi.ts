@@ -20,7 +20,7 @@
 const __path = require("path") as typeof import("path");
 const __eventCoreVinili = (rel: string) => __path.join(__path.resolve(__dirname, "../../../../../src/Vinili"), rel);
 
-const IDs = require(__eventCoreVinili("Utils/Config/ids"));
+const IDs = require(__eventCoreVinili("Config/ids"));
 const { resolveWebsiteGuildMember } = require(__eventCoreVinili("site/http/siteRoleRequestApi"));
 const { memberIsHighStaffEligible } = require(__eventCoreVinili("Staff/utils/staffRoleHierarchy"));
 const {

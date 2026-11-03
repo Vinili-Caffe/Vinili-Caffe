@@ -1,5 +1,5 @@
 /** Resoconti settimanali: chi riceve il resoconto, ordine per ruolo, pex recenti. */
-const IDs: any = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
+const IDs: any = require("../../Config/ids") as typeof import("../../Config/ids");
 const { toSafeNumber } = require("./resocontoLimits") as typeof import("./resocontoLimits");
 const { getRomeDateParts, parseRomeWallClock } = require("./resocontoTime") as typeof import("./resocontoTime");
 

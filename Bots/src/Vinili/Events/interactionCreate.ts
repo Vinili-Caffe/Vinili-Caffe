@@ -10,8 +10,8 @@ const { handleCustomRoleInteraction } = require("./interaction/customRoleHandler
 const {
   acquireButtonSpamGuard,
   runPermissionGate,
-} = require("../Utils/Interaction/interactionRuntimeGuards") as typeof import("../Utils/Interaction/interactionRuntimeGuards");
-const { logInteractionError } = require("../Utils/Interaction/interactionErrorHandler") as typeof import("../Utils/Interaction/interactionErrorHandler");
+} = require("./interaction/interactionRuntimeGuards") as typeof import("./interaction/interactionRuntimeGuards");
+const { logInteractionError } = require("./interaction/interactionErrorHandler") as typeof import("./interaction/interactionErrorHandler");
 
 export = {
   name: "interactionCreate",

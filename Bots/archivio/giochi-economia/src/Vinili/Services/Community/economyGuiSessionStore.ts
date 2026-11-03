@@ -1,5 +1,5 @@
-const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
-const { isValidGuildUserId } = require("../../Utils/DB/validateWriteIds") as typeof import("../../Utils/DB/validateWriteIds");
+const { ActivityUserProfile } = require("../../../../../../src/Vinili/Community/schemas/communitySchemas") as typeof import("../../../../../../src/Vinili/Community/schemas/communitySchemas");
+const { isValidGuildUserId } = require("../../../../../../src/shared/db/validateWriteIds") as typeof import("../../../../../../src/shared/db/validateWriteIds");
 const { ensureMongoReady, isMongoReady } = require("../../Utils/Database/mongoConnect") as typeof import("../../Utils/Database/mongoConnect");
 
 const GUI_SESSIONS_ROOT = "profile.economy.server.guiSessions";

@@ -5,7 +5,7 @@
  * Test-only roles/channels (not mirrored from main) are never deleted.
  */
 const { ChannelType, PermissionsBitField } = require("discord.js") as typeof import("discord.js");
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
+const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const {
   getMainGuildId,
   getTestGuildId,
@@ -16,7 +16,7 @@ const {
   loadMaps,
   channelKey,
   remapDeepConfigForTestGuild,
-} = require("../../Utils/Config/testGuildMirrorRemap") as typeof import("../../Utils/Config/testGuildMirrorRemap");
+} = require("../../Config/testGuildMirrorRemap") as typeof import("../../Config/testGuildMirrorRemap");
 
 const DEFAULT_INTERVAL_MS = 6 * 60 * 60 * 1000;
 let mirrorTimer = null;

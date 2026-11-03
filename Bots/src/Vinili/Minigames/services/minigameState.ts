@@ -58,7 +58,7 @@ async function clearActiveGame(client?, cfg?, gameHint = null) {
   await minigameStateDeleteOne({ guildId, channelId }).catch(() => { });
   if (!activeGames.has(channelId) && !pendingGames.has(channelId)) {
     try {
-      const { scheduleRepostRouletteAfterMinigame } = require("../../Services/Community/repostRouletteService") as typeof import("../../Services/Community/repostRouletteService");
+      const { scheduleRepostRouletteAfterMinigame } = require("../../Community/services/repostRouletteService") as typeof import("../../Community/services/repostRouletteService");
       scheduleRepostRouletteAfterMinigame(client, guildId, channelId);
     } catch (err) {
       warnMinigame(err);

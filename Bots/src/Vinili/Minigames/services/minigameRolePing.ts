@@ -1,6 +1,6 @@
 /** Minigiochi: menzione del ruolo all'avvio, con anti-doppione anche dopo un riavvio. */
-const { SiteDocument, SITE_DOCUMENT_TYPE } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
+const { SiteDocument, SITE_DOCUMENT_TYPE } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
+const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const mongoose = require("mongoose") as typeof import("mongoose");
 
 const rolePingSentThisStart = new Set();

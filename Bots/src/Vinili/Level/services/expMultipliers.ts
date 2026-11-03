@@ -1,9 +1,9 @@
 /** EXP: moltiplicatori (ruoli, eventi, settimana). */
-const { GlobalSettings } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
+const { GlobalSettings } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
+const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const botConfig = require("../../config.json") as typeof import("../../config.json");
 const { isDiscordSnowflake } = require("./expLevels") as typeof import("./expLevels");
-const { parseScheduleMs, parseScheduleEndMs } = require("../../Utils/Eventi/eventDates") as typeof import("../../Utils/Eventi/eventDates");
+const { parseScheduleMs, parseScheduleEndMs } = require("../../Community/utils/eventDates") as typeof import("../../Community/utils/eventDates");
 
 const DEFAULT_MULTIPLIER = 1;
 const MAX_COMBINED_MULTIPLIER = 8;

@@ -1,4 +1,4 @@
-const { ActivityUserProfile } = require("../../../Schemas/Community/communitySchemas") as typeof import("../../../Schemas/Community/communitySchemas");
+const { ActivityUserProfile } = require("../../../Community/schemas/communitySchemas") as typeof import("../../../Community/schemas/communitySchemas");
 const { getLevelInfo, getTotalExpForLevel, recordLevelHistory, syncLevelRolesForMember, sendLevelUpAnnouncement } = require("../../services/expService") as typeof import("../../services/expService");
 const { getGuildMemberCached } = require("../../../../shared/discord/interactionEntityCache") as typeof import("../../../../shared/discord/interactionEntityCache");
 const { PRIVATE_FLAG, asInt, buildModal, buildSimpleEmbed } = require("./levelPanelModalsHelpers") as typeof import("./levelPanelModalsHelpers");

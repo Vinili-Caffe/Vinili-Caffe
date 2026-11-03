@@ -1,9 +1,9 @@
 const { EmbedBuilder, PermissionsBitField } = require("discord.js") as typeof import("discord.js");
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
+const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { getGuildChannelCached, getGuildMemberCached, getGuildRoleCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
 const { syncMutedMirrorRoleFromMemberUpdate } = require("./mutedMirrorRoleService") as typeof import("./mutedMirrorRoleService");
 const { createModCase, getModConfig, logModCase } = require("../utils/moderation") as typeof import("../utils/moderation");
-const { isWhitelistedExecutor } = require("./antiNukeService") as typeof import("./antiNukeService");
+const { isWhitelistedExecutor } = require("../../Security/services/antiNukeService") as typeof import("../../Security/services/antiNukeService");
 
 const EXTRA_PROTECTED_ROLE_IDS = Object.freeze([
   "1442568888096391260",

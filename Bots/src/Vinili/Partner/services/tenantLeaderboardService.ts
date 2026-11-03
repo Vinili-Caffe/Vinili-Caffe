@@ -1,4 +1,4 @@
-const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
+const { ActivityUserProfile } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
 const { listOperationalPartnershipGuildIds } = require("../core/partnershipConfigResolver") as typeof import("../core/partnershipConfigResolver");
 const { getPartnerLeaderboardWeekBoundsUtc } = require("../../Staff/services/weeklyStaffResocontoService") as typeof import("../../Staff/services/weeklyStaffResocontoService");
 const { resolvePartnerPointsShown, resolvePartnerTotalEarned, resolvePartnerHistoryAttributed, getPartnerServerResetMs, countPartnerCreateActions, legacyPartnerCountFloor } = require("../../Staff/utils/partnerPointsDisplayUtils") as typeof import("../../Staff/utils/partnerPointsDisplayUtils");

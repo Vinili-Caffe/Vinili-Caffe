@@ -1,6 +1,6 @@
 const mongoose = require("mongoose") as typeof import("mongoose");
-const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
-const { joinGateSuspicious } = require("../../Utils/Community/activityUserProfilePaths") as typeof import("../../Utils/Community/activityUserProfilePaths");
+const { ActivityUserProfile } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
+const { joinGateSuspicious } = require("../../Community/utils/activityUserProfilePaths") as typeof import("../../Community/utils/activityUserProfilePaths");
 const CACHE = new Map();
 const DEFAULT_TTL_MS = 3 * 24 * 60 * 60_000;
 

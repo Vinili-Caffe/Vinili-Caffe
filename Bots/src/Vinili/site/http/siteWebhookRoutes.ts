@@ -902,7 +902,7 @@ function mountSiteWebhookRoutes(app?, client?, deps?) {
 
   /* starWarsEvento: HS-only finché publicEnabled=false */
   {
-    const sw = require("../../site/http/siteStarWarsEventoApi") as typeof import("../../site/http/siteStarWarsEventoApi");
+    const sw = require("../../../../archivio/starwars/src/Vinili/Web/siteStarWarsEventoApi") as any;
     app.get("/webhooks/site-evento", (req?, res?) => sw.handleSiteEventoStatusGet(client, req, res));
     app.get("/webhooks/site-evento/avvento", (req?, res?) => sw.handleSiteEventoAvventoGet(client, req, res));
     app.post("/webhooks/site-evento/avvento/claim", (req?, res?) => sw.handleSiteEventoAvventoClaimPost(client, req, res));

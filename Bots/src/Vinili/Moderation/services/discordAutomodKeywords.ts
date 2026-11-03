@@ -2,9 +2,9 @@ const fs = require("fs") as typeof import("fs");
 const path = require("path") as typeof import("path");
 const { loadAutomodScamConfig } = require("../utils/automodScamConfig") as typeof import("../utils/automodScamConfig");
 
-const AUTOMOD_CONFIG_PATH = path.resolve(__dirname, "../../Utils/Config/automodConfig.json");
-const RACIST_WORDS_FILE = path.resolve(__dirname, "../../Utils/Config/automodRacistWords.json");
-const RACIST_WORDS_DIR = path.resolve(__dirname, "../../Utils/Config/automodRacistWords");
+const AUTOMOD_CONFIG_PATH = path.resolve(__dirname, "../config/automodConfig.json");
+const RACIST_WORDS_FILE = path.resolve(__dirname, "../config/automodRacistWords.json");
+const RACIST_WORDS_DIR = path.resolve(__dirname, "../config/automodRacistWords");
 const AUTOMOD_SCAM_CONFIG = loadAutomodScamConfig();
 const LINK_BLACKLIST_DOMAINS = AUTOMOD_SCAM_CONFIG.domains?.length ? AUTOMOD_SCAM_CONFIG.domains : ["dsc.gg"];
 const KEYWORDS_PER_RULE = 1000;

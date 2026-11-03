@@ -1,7 +1,7 @@
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
+const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { fetchDiscordUser } = require("./siteDashboardApi") as typeof import("./siteDashboardApi");
-const { exportUserGdprData } = require("../../Services/Community/gdprUserDataExportService") as typeof import("../../Services/Community/gdprUserDataExportService");
-const { eraseUserGdprData } = require("../../Services/Community/gdprUserDataEraseService") as typeof import("../../Services/Community/gdprUserDataEraseService");
+const { exportUserGdprData } = require("../../Community/services/gdprUserDataExportService") as typeof import("../../Community/services/gdprUserDataExportService");
+const { eraseUserGdprData } = require("../../Community/services/gdprUserDataEraseService") as typeof import("../../Community/services/gdprUserDataEraseService");
 
 const EXPORT_COOLDOWN_MS = 15 * 60 * 1000;
 const ERASE_COOLDOWN_MS = 60 * 60 * 1000;

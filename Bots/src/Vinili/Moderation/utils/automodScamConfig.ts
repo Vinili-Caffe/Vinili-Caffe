@@ -1,7 +1,7 @@
 const fs = require("fs") as typeof import("fs");
 const path = require("path") as typeof import("path");
 
-const CONFIG_PATH = path.resolve(__dirname, "../Config/automodScamConfig.json");
+const CONFIG_PATH = path.resolve(__dirname, "../config/automodScamConfig.json");
 
 const DEFAULT_SCAM_CONFIG = {
   domains: ["dsc.gg", "depxbit.com", "depixbit.com"],

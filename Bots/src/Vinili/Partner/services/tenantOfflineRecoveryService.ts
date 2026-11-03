@@ -15,7 +15,7 @@ const {
   BOT_STATE_KEY: PARTNERSHIP_CONFIG_KEY,
 } = require("../core/tenantPartnershipSettings") as typeof import("../core/tenantPartnershipSettings");
 const { getPartnerManagerRoleId, memberHasPartnerManagerRole } = require("../core/partnershipConfigResolver") as typeof import("../core/partnershipConfigResolver");
-const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
+const { ActivityUserProfile } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
 const { handleTenantGuildBotRemoved } = require("./tenantPartnershipLeaveService") as typeof import("./tenantPartnershipLeaveService");
 const { resetTenantPartnerServerScoreOnRoleRemove } = require("./tenantPartnerManagerRoleService") as typeof import("./tenantPartnerManagerRoleService");
 

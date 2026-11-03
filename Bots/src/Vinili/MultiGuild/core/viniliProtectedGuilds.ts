@@ -1,6 +1,6 @@
 const fs = require("fs") as typeof import("fs");
 const path = require("path") as typeof import("path");
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
+const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 let protectedSetCache = null;
 
 function normalizeGuildId(input?) {

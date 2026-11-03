@@ -59,7 +59,7 @@ try {
   installEmbedFooterPatch();
   installOutgoingMessageEmbedPatch(discord);
 } catch (_) {}
-global.logger = require("./Utils/Moderation/logger");
+global.logger = require("./Moderation/utils/logger");
 if (process.env.RUN_UNDER_LOADER !== "1") {
   acquireSingleInstanceLock("vinili-caffe-test-bot");
 }
@@ -130,22 +130,18 @@ applyListenerCeiling(client, client.config);
 installGatewayShardListenerCeiling(client);
 installBotPresenceHooks(client);
 
-client.logs = require("./Utils/Moderation/logs");
+client.logs = require("./Moderation/utils/logs");
 initializeCommandCollections(client);
 
 installHandlers(APP_ROOT, client);
 
-const prefixFolders = listFoldersIfExists(path.join(APP_ROOT, "Prefix"));
-const commandsDir = path.join(APP_ROOT, "Commands");
-const commandFolders = listFoldersIfExists(commandsDir);
+const slashRoot = path.join(APP_ROOT, "Staff", "discord", "slash");
 
 (async () => {
   if (typeof client.prefixCommands === "function") {
-    await client
-      .prefixCommands(prefixFolders, path.join(APP_ROOT, "Prefix"))
-      .catch((err?) => {
-        global.logger.error(" prefixCommands:", err);
-      });
+    await client.prefixCommands().catch((err?) => {
+      global.logger.error(" prefixCommands:", err);
+    });
   }
 
   if (typeof client.handleEvents === "function") {
@@ -153,15 +149,14 @@ const commandFolders = listFoldersIfExists(commandsDir);
   }
 
   if (typeof client.handleCommands === "function") {
-    await client
-      .handleCommands(commandFolders, commandsDir)
-      .catch((err?) => {
-        global.logger.error(" handleCommands:", err);
-      });
+    // Flat slash files under Staff/discord/slash
+    await client.handleCommands(["."], slashRoot).catch((err?) => {
+      global.logger.error(" handleCommands:", err);
+    });
   }
 
   if (typeof client.loadButtonHandlers === "function") {
-    await client.loadButtonHandlers(path.join(APP_ROOT, "Buttons")).catch((err?) => {
+    await client.loadButtonHandlers().catch((err?) => {
       global.logger.error(" loadButtonHandlers:", err);
     });
   }

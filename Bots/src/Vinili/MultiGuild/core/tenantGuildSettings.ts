@@ -131,7 +131,7 @@ function normalizeBoardFeaturesPatch(raw?) {
 
 function freeTierQuoteStyle() {
   try {
-    const { defaultQuoteStyle } = require("../../Utils/Quote/quoteStyle") as typeof import("../../Utils/Quote/quoteStyle");
+    const { defaultQuoteStyle } = require("../../Community/utils/Quote/quoteStyle") as typeof import("../../Community/utils/Quote/quoteStyle");
         return { ...defaultQuoteStyle(), avatarMode: "static" };
   } catch {
     return {
@@ -166,7 +166,7 @@ function guildAllowsCustomQuoteStyleSync(guildId?) {
 
 function readQuoteStyleFromBoardsBlob(b?, guildId = null) {
   try {
-    const { decodeQuoteStyleCompact, defaultQuoteStyle } = require("../../Utils/Quote/quoteStyle") as typeof import("../../Utils/Quote/quoteStyle");
+    const { decodeQuoteStyleCompact, defaultQuoteStyle } = require("../../Community/utils/Quote/quoteStyle") as typeof import("../../Community/utils/Quote/quoteStyle");
     if (guildId && !guildAllowsCustomQuoteStyleSync(guildId)) {
       return freeTierQuoteStyle();
     }
@@ -210,7 +210,7 @@ function applyProtectedBoardsCatalogOverlay(guildId?, boards?) {
      i suoi contenuti vanno sulla Bacheca del sito. Gli altri server protetti usano i canali che impostano. */
   let mainId = "";
   try {
-    const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
+    const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
     mainId = String(IDs?.guilds?.main || "").trim();
   } catch {
     mainId = "";
@@ -585,7 +585,7 @@ async function setTenantBoards(guildId?, patch?) {
     let quoteStyleEncoded = null;
     if (hasQuoteStyle) {
       try {
-        const { encodeQuoteStyleCompact, normalizeQuoteStyle } = require("../../Utils/Quote/quoteStyle") as typeof import("../../Utils/Quote/quoteStyle");
+        const { encodeQuoteStyleCompact, normalizeQuoteStyle } = require("../../Community/utils/Quote/quoteStyle") as typeof import("../../Community/utils/Quote/quoteStyle");
         quoteStyleEncoded = encodeQuoteStyleCompact(normalizeQuoteStyle(patch.quoteStyle));
       } catch {
         return { ok: false, reason: "invalid_boards" };
@@ -668,7 +668,7 @@ async function setTenantBoards(guildId?, patch?) {
   let quoteStyleEncoded = null;
   if (quoteStylePresent) {
     try {
-      const { encodeQuoteStyleCompact, normalizeQuoteStyle } = require("../../Utils/Quote/quoteStyle") as typeof import("../../Utils/Quote/quoteStyle");
+      const { encodeQuoteStyleCompact, normalizeQuoteStyle } = require("../../Community/utils/Quote/quoteStyle") as typeof import("../../Community/utils/Quote/quoteStyle");
       quoteStyleEncoded = encodeQuoteStyleCompact(normalizeQuoteStyle(patch.quoteStyle));
     } catch {
       return { ok: false, reason: "invalid_boards" };

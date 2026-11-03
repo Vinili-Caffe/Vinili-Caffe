@@ -1,5 +1,5 @@
 /** Notifiche del sito: sostituzione e rimozione (per chiave, per filtro, per ticket). */
-const { SiteDocument } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
+const { SiteDocument } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
 const { normalizeUserId, resolveNotifChannel } = require("./notifKinds") as typeof import("./notifKinds");
 const { normalizeTicketId, ticketIdFromOpenUrl, inboxItemMatchesTicket, mergeNotifFromNames, buildCollapsedTicketChatCopy, buildCollapsedDigestCopy } = require("./notifCopy") as typeof import("./notifCopy");
 const { NOTIF, inboxQuery, migrateLegacyInAppNotificationsForUser } = require("./notifStore") as typeof import("./notifStore");

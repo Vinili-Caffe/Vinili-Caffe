@@ -416,9 +416,6 @@
   "dailyChannelMessageStats": {
     "scheduleEnabled": false
   },
-  "serverEconomy": {
-    "enabled": false
-  },
   "categoryNumbering": {
     "enabled": true,
     "debounceMs": 1200,

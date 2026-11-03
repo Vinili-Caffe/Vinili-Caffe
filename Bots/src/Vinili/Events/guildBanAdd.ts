@@ -1,7 +1,7 @@
 const { AuditLogEvent, EmbedBuilder } = require("discord.js") as typeof import("discord.js");
-const { buildAuditExtraLines } = require("../Utils/Logging/channelRolesLogUtils") as typeof import("../Utils/Logging/channelRolesLogUtils");
-const { resolveModLogChannel, fetchRecentAuditEntry, formatResponsible, nowDiscordTs, } = require("../Utils/Logging/modAuditLogUtils") as typeof import("../Utils/Logging/modAuditLogUtils");
-const { handleKickBanAction: antiNukeHandleKickBanAction } = require("../Moderation/services/antiNukeService") as typeof import("../Moderation/services/antiNukeService");
+const { buildAuditExtraLines } = require("../Moderation/utils/channelRolesLogUtils") as typeof import("../Moderation/utils/channelRolesLogUtils");
+const { resolveModLogChannel, fetchRecentAuditEntry, formatResponsible, nowDiscordTs, } = require("../Moderation/utils/modAuditLogUtils") as typeof import("../Moderation/utils/modAuditLogUtils");
+const { handleKickBanAction: antiNukeHandleKickBanAction } = require("../Security/services/antiNukeService") as typeof import("../Security/services/antiNukeService");
 const { closeOpenTicketsForGuildUser } = require("../MultiGuild/tickets/discord/ticketCloseRuntime") as typeof import("../MultiGuild/tickets/discord/ticketCloseRuntime");
 const { isViniliFullFeatureGuild } = require("../MultiGuild/core/guildFeatureScope") as typeof import("../MultiGuild/core/guildFeatureScope");
 

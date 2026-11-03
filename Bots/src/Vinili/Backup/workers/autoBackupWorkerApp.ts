@@ -5,8 +5,8 @@ const {
   resolveMongoUrl,
   resolveDiscordToken,
   installConsoleLogger,
-} = require("../../Services/Web/workerAppBootstrap") as typeof import("../../Services/Web/workerAppBootstrap");
-const { createSiteApiRestClient } = require("../../Services/Web/siteApiRestClient") as typeof import("../../Services/Web/siteApiRestClient");
+} = require("../../site/workers/workerAppBootstrap") as typeof import("../../site/workers/workerAppBootstrap");
+const { createSiteApiRestClient } = require("../../site/http/siteApiRestClient") as typeof import("../../site/http/siteApiRestClient");
 const { startAutoBackupLoop, runAutoBackupTick, listAutoBackupGuildIds } = require("../services/autoBackupService") as typeof import("../services/autoBackupService");
 
 loadDotEnv();

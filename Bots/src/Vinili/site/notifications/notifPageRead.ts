@@ -1,5 +1,5 @@
 /** Notifiche del sito: segna come lette quelle della pagina che l'utente sta guardando. */
-const { SiteDocument } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
+const { SiteDocument } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
 const { normalizeUserId, normalizeKind } = require("./notifKinds") as typeof import("./notifKinds");
 const { TICKET_ID_RE, normalizeTicketId, entityIdFromHashToken, ticketIdFromOpenUrl } = require("./notifCopy") as typeof import("./notifCopy");
 const { inboxQuery, migrateLegacyInAppNotificationsForUser } = require("./notifStore") as typeof import("./notifStore");

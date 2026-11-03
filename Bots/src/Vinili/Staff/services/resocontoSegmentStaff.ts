@@ -1,8 +1,8 @@
 /** Resoconti settimanali: invio resoconto staff per un membro. */
 const { ensureStaff } = require("../../Staff/utils/staffDocUtils") as typeof import("../../Staff/utils/staffDocUtils");
 const { getStaffDoc } = require("../../Staff/utils/valutazionePanelActions") as typeof import("../../Staff/utils/valutazionePanelActions");
-const { STAFF_NEW_EMOJI } = require("../../Utils/Community/staffListUtils") as typeof import("../../Utils/Community/staffListUtils");
-const { getStaffRoleEmojiByRoleId } = require("../../Utils/Community/staffRoleEmoji") as typeof import("../../Utils/Community/staffRoleEmoji");
+const { STAFF_NEW_EMOJI } = require("../../Community/utils/staffListUtils") as typeof import("../../Community/utils/staffListUtils");
+const { getStaffRoleEmojiByRoleId } = require("../../Community/utils/staffRoleEmoji") as typeof import("../../Community/utils/staffRoleEmoji");
 const { STAFF_ACTIVITY_LIMITS, evaluateStaffWeeklyLimitsWithSwap, evaluateStaffWeeklyLimitsAtMultiplier, formatStaffLimitsSwapLine, STAFF_SANCTION_LIMITS, toSafeNumber, formatHoursFromSeconds } = require("./resocontoLimits") as typeof import("./resocontoLimits");
 const { buildCostanzaLines, overviewLooksLikeEmptyFallback, serializeCostanzaChart } = require("./resocontoActivity") as typeof import("./resocontoActivity");
 const { getStaffPauseLine, hadPauseAtLeastOneDayDuringWeek, didPauseEndDuringWeek } = require("./resocontoPauses") as typeof import("./resocontoPauses");

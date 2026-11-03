@@ -1,5 +1,5 @@
 /** Bacheche: statistiche dei server (membri, tag del server) aggiornate periodicamente. */
-const { SiteDocument } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
+const { SiteDocument } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
 const { snowflakeOk, discordGuildIconUrl, preferAnimatedDiscordMediaUrl } = require("./boardSanitize") as typeof import("./boardSanitize");
 const { BL, MAIN_GUILD_ID, featureGate, fetchGuildPreferLite } = require("./boardReviews") as typeof import("./boardReviews");
 const { recomputeListingScore } = require("./boardVotes") as typeof import("./boardVotes");

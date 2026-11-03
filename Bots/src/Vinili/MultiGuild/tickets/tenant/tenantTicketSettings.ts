@@ -1,7 +1,7 @@
 const { getBotState, setBotState } = require("../../../../shared/botState/botStateStore") as typeof import("../../../../shared/botState/botStateStore");
 const { isMongoReady } = require("../../../../shared/db/mongoConnect") as typeof import("../../../../shared/db/mongoConnect");
 const { normalizeGuildId } = require("../../../MultiGuild/core/viniliProtectedGuilds") as typeof import("../../../MultiGuild/core/viniliProtectedGuilds");
-const IDs = require("../../../Utils/Config/ids") as typeof import("../../../Utils/Config/ids");
+const IDs = require("../../../Config/ids") as typeof import("../../../Config/ids");
 const { TICKETS_CATEGORY_NAME } = require("../discord/ticketCategoryUtils") as typeof import("../discord/ticketCategoryUtils");
 
 const DASHBOARD_DEFAULT_CATEGORY_NAME = "Tickets";

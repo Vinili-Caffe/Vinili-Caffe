@@ -1,9 +1,9 @@
 const { AuditLogEvent, EmbedBuilder, OverwriteType } = require("discord.js") as typeof import("discord.js");
-const { queueCategoryRenumber, isCategoryNumberingBotRename, } = require("../Services/Community/communityOpsService") as typeof import("../Services/Community/communityOpsService");
-const { queueIdsCatalogSync } = require("../Utils/Config/idsAutoSync") as typeof import("../Utils/Config/idsAutoSync");
-const { upsertChannelSnapshot, } = require("../Utils/Community/channelSnapshotUtils") as typeof import("../Utils/Community/channelSnapshotUtils");
-const { toDiscordTimestamp, channelDisplay, channelTypeLabel, formatAuditActor, permissionList, permissionDiff, buildAuditExtraLines, resolveChannelRolesLogChannel, resolveResponsible } = require("../Utils/Logging/channelRolesLogUtils") as typeof import("../Utils/Logging/channelRolesLogUtils");
-const { handleChannelOverwrite: antiNukeHandleChannelOverwrite } = require("../Moderation/services/antiNukeService") as typeof import("../Moderation/services/antiNukeService");
+const { queueCategoryRenumber, isCategoryNumberingBotRename, } = require("../Community/services/communityOpsService") as typeof import("../Community/services/communityOpsService");
+const { queueIdsCatalogSync } = require("../Config/idsAutoSync") as typeof import("../Config/idsAutoSync");
+const { upsertChannelSnapshot, } = require("../Community/utils/channelSnapshotUtils") as typeof import("../Community/utils/channelSnapshotUtils");
+const { toDiscordTimestamp, channelDisplay, channelTypeLabel, formatAuditActor, permissionList, permissionDiff, buildAuditExtraLines, resolveChannelRolesLogChannel, resolveResponsible } = require("../Moderation/utils/channelRolesLogUtils") as typeof import("../Moderation/utils/channelRolesLogUtils");
+const { handleChannelOverwrite: antiNukeHandleChannelOverwrite } = require("../Security/services/antiNukeService") as typeof import("../Security/services/antiNukeService");
 const { isViniliFullFeatureGuild } = require("../MultiGuild/core/guildFeatureScope") as typeof import("../MultiGuild/core/guildFeatureScope");
 const CHANNEL_UPDATE_ACTION = AuditLogEvent?.ChannelUpdate ?? 11;
 const OVERWRITE_CREATE_ACTION = AuditLogEvent?.ChannelOverwriteCreate ?? 13;

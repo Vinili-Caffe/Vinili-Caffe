@@ -1,8 +1,8 @@
 /** pexImport1: importa una volta i pex/depex vecchi dal canale #pex-depex nella cronologia della Gestione.
  *  Salta quelli già presenti nel database (stesso tipo entro 36 ore) e segna in BotState che l'ha fatto. */
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
-const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
-const BotState = require("../../Schemas/BotState/botStateSchema");
+const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
+const { ActivityUserProfile } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
+const BotState = require("../../../shared/schemas/botState/botStateSchema");
 const { classifyPexDepexKind } = require("./organicoHistory") as typeof import("./organicoHistory");
 
 const STATE_KEY = "pexDepexImport_v1";

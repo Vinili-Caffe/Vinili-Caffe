@@ -11,7 +11,7 @@ const { MessageFlags } = require("discord.js") as typeof import("discord.js");
 const {
   buildVcSitePageSharePayload,
   SITE_CAFFE_ACCENT_INT,
-} = require("../../Utils/Embeds/vcPageEmbedV2") as typeof import("../../Utils/Embeds/vcPageEmbedV2");
+} = require("../Embeds/vcPageEmbedV2") as typeof import("../Embeds/vcPageEmbedV2");
 
 const SITE_HOSTS = new Set(["www.viniliecaffe.it", "viniliecaffe.it"]);
 const URL_RE = /https?:\/\/(?:www\.)?viniliecaffe\.it\/[^\s<>\]\)\"']*/gi;

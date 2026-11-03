@@ -1,6 +1,6 @@
 const fs = require("fs") as typeof import("fs");
 const path = require("path") as typeof import("path");
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
+const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 
 const HIGH_STAFF_ROLE_ID = String(IDs.roles?.HighStaff || "");
 const HIGH_STAFF_MENTION = HIGH_STAFF_ROLE_ID ? `<@&${HIGH_STAFF_ROLE_ID}>` : null;
@@ -40,7 +40,7 @@ const JOIN_RAID_CONFIG = {
 
 const JOIN_RAID_CONFIG_PATH = path.resolve(
   __dirname,
-  "../../Utils/Config/joinRaidConfig.json",
+  "../config/joinRaidConfig.json",
 );
 
 function readJsonSafe(filePath?, fallback?) {

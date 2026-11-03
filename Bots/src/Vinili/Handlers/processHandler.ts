@@ -9,7 +9,7 @@ export = () => {
     logInfo: (message?) => logs.success(String(message)),
     onBeforeFlush: async () => {
       try {
-        require("../Services/Community/activityService").suspendAllLiveVoiceExp();
+        require("../Community/services/activityService").suspendAllLiveVoiceExp();
       } catch {}
       try {
         require("../Staff/services/staffAutoValutazioniService").suspendStaffAutoValutazioni();

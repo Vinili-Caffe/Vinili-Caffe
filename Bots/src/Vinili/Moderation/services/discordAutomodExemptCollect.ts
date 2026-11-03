@@ -1,7 +1,7 @@
 const fs = require("fs") as typeof import("fs");
 const path = require("path") as typeof import("path");
 const { ChannelType } = require("discord.js") as typeof import("discord.js");
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
+const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { isTicketCategoryName, isChannelInTicketCategory, isTicketChannelName } = require("../../MultiGuild/tickets/discord/ticketCategoryUtils") as typeof import("../../MultiGuild/tickets/discord/ticketCategoryUtils");
 const {
   collectDiscordAutomodExemptChannelIds,
@@ -13,7 +13,7 @@ const MAX_EXEMPT_CHANNELS = 50;
 /** Channel IDs Discord AutoMod rejected (CHANNEL_TYPE_INVALID / no longer exists). */
 const REJECTED_EXEMPT_PATH = path.resolve(
   __dirname,
-  "../../Utils/Config/automodRejectedExemptChannels.json",
+  "../config/automodRejectedExemptChannels.json",
 );
 const rejectedExemptChannelIds = new Set();
 const pruneLogOnce = new Set();

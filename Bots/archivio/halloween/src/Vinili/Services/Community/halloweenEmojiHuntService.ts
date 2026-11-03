@@ -1,8 +1,8 @@
 const __path = require("path") as typeof import("path");
 const __eventCoreVinili = (rel: string) => __path.join(__path.resolve(__dirname, "../../../../../../src/Vinili"), rel);
 
-const { SiteDocument, SITE_DOCUMENT_TYPE } = require(__eventCoreVinili("Schemas/Community/communitySchemas"));
-const IDs = require(__eventCoreVinili("Utils/Config/ids"));
+const { SiteDocument, SITE_DOCUMENT_TYPE } = require(__eventCoreVinili("Community/schemas/communitySchemas"));
+const IDs = require(__eventCoreVinili("Config/ids"));
 const {
   isHalloweenEventLive,
   resolveHalloweenEventConfig,
@@ -80,7 +80,7 @@ function resolveHuntChannelIdForGuild(guildId?, baseChannelId?) {
   const base = normalizeId(baseChannelId);
   if (!gid || !base) return base;
   try {
-    const { remapChannelIdForGuild, isTestMirrorGuild } = require(__eventCoreVinili("Utils/Config/testGuildMirrorRemap"));
+    const { remapChannelIdForGuild, isTestMirrorGuild } = require(__eventCoreVinili("Config/testGuildMirrorRemap"));
     if (isTestMirrorGuild(gid)) return remapChannelIdForGuild(gid, base) || base;
   } catch (_) {}
   return base;

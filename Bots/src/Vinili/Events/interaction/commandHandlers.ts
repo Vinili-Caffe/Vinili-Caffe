@@ -7,10 +7,10 @@ const { replyInteractionSetupRequired } = require("../../Partner/tenant/tenantSe
 const { getUserCommandCooldownSeconds, consumeUserCooldown, } = require("../../Moderation/utils/commandCooldown") as typeof import("../../Moderation/utils/commandCooldown");
 const { buildCooldownErrorEmbed, buildBusyCommandErrorEmbed, buildInternalCommandErrorEmbed, } = require("../../Moderation/utils/commandErrorEmbeds") as typeof import("../../Moderation/utils/commandErrorEmbeds");
 const { buildErrorLogEmbed } = require("../../../shared/discord/errorLogEmbed") as typeof import("../../../shared/discord/errorLogEmbed");
-const { getCentralChannel } = require("../../Utils/Logging/commandUsageLogger") as typeof import("../../Utils/Logging/commandUsageLogger");
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
-const { shouldBlockModerationCommands } = require("../../Moderation/services/antiNukeService") as typeof import("../../Moderation/services/antiNukeService");
-const { getSecurityLockState } = require("../../Moderation/services/securityOrchestratorService") as typeof import("../../Moderation/services/securityOrchestratorService");
+const { getCentralChannel } = require("./commandUsageLogger") as typeof import("./commandUsageLogger");
+const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
+const { shouldBlockModerationCommands } = require("../../Security/services/antiNukeService") as typeof import("../../Security/services/antiNukeService");
+const { getSecurityLockState } = require("../../Security/services/securityOrchestratorService") as typeof import("../../Security/services/securityOrchestratorService");
 const {
   registerInteractionShutdownGuard,
   trackInteractionStart,

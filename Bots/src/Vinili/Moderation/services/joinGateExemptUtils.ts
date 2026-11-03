@@ -2,7 +2,7 @@ const { getGuildMemberCached } = require("../../../shared/discord/interactionEnt
 const {
   isSecurityProfileImmune,
   hasAdminsProfileCapability,
-} = require("./securityProfilesService") as typeof import("./securityProfilesService");
+} = require("../../Security/services/securityProfilesService") as typeof import("../../Security/services/securityProfilesService");
 
 const CORE_EXEMPT_USER_IDS = new Set([
   "1466495522474037463",

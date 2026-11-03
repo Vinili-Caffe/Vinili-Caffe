@@ -1,4 +1,4 @@
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
+const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { resolveGuildAccess } = require("./guildRegistry") as typeof import("./guildRegistry");
 const { createFeatureGate } = require("./featureGate") as typeof import("./featureGate");
 const { buildIdsOverlay } = require("../bridge/legacyIds") as typeof import("../bridge/legacyIds");

@@ -1,5 +1,5 @@
 /** Minigiochi: attività della chat che decide quando far partire un gioco. */
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
+const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { warnMinigame } = require("./minigameLog") as typeof import("./minigameLog");
 const { getMinigameRomeTime, getChannelCached } = require("./minigameUtils") as typeof import("./minigameUtils");
 

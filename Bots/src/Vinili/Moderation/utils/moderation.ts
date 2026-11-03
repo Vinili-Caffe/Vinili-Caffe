@@ -1,7 +1,7 @@
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
-const { GlobalSettings } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
-const { normalizeModConfigFromGlobal } = require("../../Utils/Global/globalSettingsGuildStores") as typeof import("../../Utils/Global/globalSettingsGuildStores");
-const { sendStaffActionToModLogs } = require("../../Utils/Logging/modAuditLogUtils") as typeof import("../../Utils/Logging/modAuditLogUtils");
+const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
+const { GlobalSettings } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
+const { normalizeModConfigFromGlobal } = require("../../Community/services/globalSettingsGuildStores") as typeof import("../../Community/services/globalSettingsGuildStores");
+const { sendStaffActionToModLogs } = require("./modAuditLogUtils") as typeof import("./modAuditLogUtils");
 const { createModCaseStore, closeCaseByRef } = require("./modCaseStore") as typeof import("./modCaseStore");
 
 async function getModConfig(guildId?) {

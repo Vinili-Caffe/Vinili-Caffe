@@ -2,77 +2,77 @@ const config = require("../config.json") as typeof import("../config.json");
 const { isMongoReady } = require("../../shared/db/mongoConnect") as typeof import("../../shared/db/mongoConnect");
 const cron = require("node-cron") as typeof import("node-cron");
 const { runCronDetached } = require("../../shared/scheduling/cronDetached") as typeof import("../../shared/scheduling/cronDetached");
-const { restorePendingVoteReminders, restorePendingDiscadiaReminders, restorePendingReminders, startBumpDueReminderSweepLoop, startDiscadiaVoteReminderLoop, } = require("../Services/Bump/bumpService") as typeof import("../Services/Bump/bumpService");
-const { shouldRunDiscadiaVoteMonthRepairOnStartup, repairDiscadiaVoteMonthRowsForMainGuild, startDiscadiaVoteMonthRolloverCron } = require("../Services/Bump/discadiaVoteMonthRepairOnStartupService") as typeof import("../Services/Bump/discadiaVoteMonthRepairOnStartupService");
-const { processAllRecentAutomationMessages } = require("../Utils/Message/officialMessageAutomationHandlers") as typeof import("../Utils/Message/officialMessageAutomationHandlers");
-const { recoverMissedTopggVotesOnStartup } = require("../Services/Bump/topggVoteRecoveryOnStartupService") as typeof import("../Services/Bump/topggVoteRecoveryOnStartupService");
-const { restoreWelcomeSessionsFromDb } = require("../Utils/Message/officialMessageCommunityHandlers") as typeof import("../Utils/Message/officialMessageCommunityHandlers");
+const { restorePendingVoteReminders, restorePendingDiscadiaReminders, restorePendingReminders, startBumpDueReminderSweepLoop, startDiscadiaVoteReminderLoop, } = require("../Community/services/bumpService") as typeof import("../Community/services/bumpService");
+const { shouldRunDiscadiaVoteMonthRepairOnStartup, repairDiscadiaVoteMonthRowsForMainGuild, startDiscadiaVoteMonthRolloverCron } = require("../Community/services/discadiaVoteMonthRepairOnStartupService") as typeof import("../Community/services/discadiaVoteMonthRepairOnStartupService");
+const { processAllRecentAutomationMessages } = require("../Community/services/officialMessageAutomationHandlers") as typeof import("../Community/services/officialMessageAutomationHandlers");
+const { recoverMissedTopggVotesOnStartup } = require("../Community/services/topggVoteRecoveryOnStartupService") as typeof import("../Community/services/topggVoteRecoveryOnStartupService");
+const { restoreWelcomeSessionsFromDb } = require("../Community/services/officialMessageCommunityHandlers") as typeof import("../Community/services/officialMessageCommunityHandlers");
 /* counting → archivio/codice-morto (ChannelBan/Restore + Buttons/countingRestore) */
 const { bootstrapSupporter, recoverSupporterStatusAnnouncesOnStartup } = require("./presenceUpdate") as typeof import("./presenceUpdate");
 const { restoreTtsConnections } = require("../../shared/tts/services/ttsService") as typeof import("../../shared/tts/services/ttsService");
-const { runDueChannelReminders, } = require("../Services/Reminders/channelReminderService") as typeof import("../Services/Reminders/channelReminderService");
+const { runDueChannelReminders, } = require("../Community/services/channelReminderService") as typeof import("../Community/services/channelReminderService");
 const { bootstrapMinigameScheduler } = require("../Minigames/services/minigameSchedulerService") as typeof import("../Minigames/services/minigameSchedulerService");
-const { startVerificationTenureLoop, backfillVerificationTenure, runAllGuilds: renumberAllCategories } = require("../Services/Community/communityOpsService") as typeof import("../Services/Community/communityOpsService");
-const { startBirthdayLoop } = require("../Services/Community/birthdayService") as typeof import("../Services/Community/birthdayService");
-const { startDailyMemberStatsLoop } = require("../Services/Community/dailyMemberStatsService") as typeof import("../Services/Community/dailyMemberStatsService");
-const { startDailyEngagementStatsLoop } = require("../Services/Community/dailyEngagementStatsService") as typeof import("../Services/Community/dailyEngagementStatsService");
-const { startDailyChannelMessageStatsLoop } = require("../Services/Community/dailyChannelMessageStatsService") as typeof import("../Services/Community/dailyChannelMessageStatsService");
-const { migrateLegacyDailyStatsCollections } = require("../Services/Community/dailyStatsStore") as typeof import("../Services/Community/dailyStatsStore");
+const { startVerificationTenureLoop, backfillVerificationTenure, runAllGuilds: renumberAllCategories } = require("../Community/services/communityOpsService") as typeof import("../Community/services/communityOpsService");
+const { startBirthdayLoop } = require("../Community/services/birthdayService") as typeof import("../Community/services/birthdayService");
+const { startDailyMemberStatsLoop } = require("../Community/services/dailyMemberStatsService") as typeof import("../Community/services/dailyMemberStatsService");
+const { startDailyEngagementStatsLoop } = require("../Community/services/dailyEngagementStatsService") as typeof import("../Community/services/dailyEngagementStatsService");
+const { startDailyChannelMessageStatsLoop } = require("../Community/services/dailyChannelMessageStatsService") as typeof import("../Community/services/dailyChannelMessageStatsService");
+const { migrateLegacyDailyStatsCollections } = require("../Community/services/dailyStatsStore") as typeof import("../Community/services/dailyStatsStore");
 const { restoreTempBans } = require("../Moderation/services/joinRaidService") as typeof import("../Moderation/services/joinRaidService");
 const { sweepExpiredCommunicationTimeoutMirrors, reconcileIncompleteActiveMuteMirrors } = require("../Moderation/services/mutedMirrorRoleService") as typeof import("../Moderation/services/mutedMirrorRoleService");
-const { sweepStalePreMemberRoles } = require("../Utils/Community/preMemberRoleService") as typeof import("../Utils/Community/preMemberRoleService");
+const { sweepStalePreMemberRoles } = require("../Community/utils/preMemberRoleService") as typeof import("../Community/utils/preMemberRoleService");
 const { sendBannedUnbanLinkDms, shouldRunBannedUnbanDmOnStartup } = require("../Moderation/services/bannedUnbanDmService") as typeof import("../Moderation/services/bannedUnbanDmService");
-const { rehydrateAntiNukePanicForGuild } = require("../Moderation/services/antiNukeService") as typeof import("../Moderation/services/antiNukeService");
+const { rehydrateAntiNukePanicForGuild } = require("../Security/services/antiNukeService") as typeof import("../Security/services/antiNukeService");
 const { isViniliFullFeatureGuild } = require("../MultiGuild/core/guildFeatureScope") as typeof import("../MultiGuild/core/guildFeatureScope");
-const { syncLiveVoiceSessionsFromGateway, startLiveVoiceExpLoop, } = require("../Services/Community/activityService") as typeof import("../Services/Community/activityService");
+const { syncLiveVoiceSessionsFromGateway, startLiveVoiceExpLoop, } = require("../Community/services/activityService") as typeof import("../Community/services/activityService");
 const { syncPmVoiceAfkWatchFromGateway } = require("../Staff/services/pmVoiceAfkWatchService") as typeof import("../Staff/services/pmVoiceAfkWatchService");
-const { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop, } = require("../Services/Community/customRoleExpiryService") as typeof import("../Services/Community/customRoleExpiryService");
+const { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop, } = require("../Community/services/customRoleExpiryService") as typeof import("../Community/services/customRoleExpiryService");
 const { startDailyPartnerAuditLoop, } = require("../Partner/services/partnerAuditService") as typeof import("../Partner/services/partnerAuditService");
 const { syncPartnerDescription } = require("../Partner/services/partnerDescriptionSyncService") as typeof import("../Partner/services/partnerDescriptionSyncService");
 const { syncAllTenantPartnerDescriptions } = require("../Partner/services/tenantPartnerDescriptionService") as typeof import("../Partner/services/tenantPartnerDescriptionService");
 const { startStaffChatThreadsLoop } = require("../Staff/services/staffChatThreadsService") as typeof import("../Staff/services/staffChatThreadsService");
 const { startStaffCmdsThreadsLoop } = require("../Staff/services/staffCmdsThreadsService") as typeof import("../Staff/services/staffCmdsThreadsService");
-const { startPublicVoiceHubSetup } = require("../Services/Voice/publicVoiceHubService") as typeof import("../Services/Voice/publicVoiceHubService");
-const { startTicketAutoClosePromptLoop, startTranscriptCleanupLoop, } = require("../features/tickets/transcript/ticketMaintenanceService") as typeof import("../features/tickets/transcript/ticketMaintenanceService");
+const { startPublicVoiceHubSetup } = require("../Community/services/publicVoiceHubService") as typeof import("../Community/services/publicVoiceHubService");
+const { startTicketAutoClosePromptLoop, startTranscriptCleanupLoop, } = require("../MultiGuild/tickets/transcript/ticketMaintenanceService") as typeof import("../MultiGuild/tickets/transcript/ticketMaintenanceService");
 const { startAutoBackupLoop } = require("../Backup/services/autoBackupService") as typeof import("../Backup/services/autoBackupService");
 const { startModCaseLifecycleLoop } = require("../Moderation/services/modCaseLifecycleService") as typeof import("../Moderation/services/modCaseLifecycleService");
 const { startWeeklyStaffResocontoLoop } = require("../Staff/services/weeklyStaffResocontoService") as typeof import("../Staff/services/weeklyStaffResocontoService");
-const { startWeeklyActivityWinnersLoop } = require("../Services/Community/weeklyActivityWinnersService") as typeof import("../Services/Community/weeklyActivityWinnersService");
+const { startWeeklyActivityWinnersLoop } = require("../Community/services/weeklyActivityWinnersService") as typeof import("../Community/services/weeklyActivityWinnersService");
 const { startStafferDellaSettimanaLoop } = require("../Staff/services/stafferDellaSettimanaService") as typeof import("../Staff/services/stafferDellaSettimanaService");
-const { startTwitchLiveAlertLoop } = require("../Services/Community/twitchLiveAlertService") as typeof import("../Services/Community/twitchLiveAlertService");
-const { startGameNewsAlertLoop } = require("../Services/Community/gameNewsAlertService") as typeof import("../Services/Community/gameNewsAlertService");
-const { startStreamerStageGuardLoop } = require("../Services/Community/streamerStageGuardService") as typeof import("../Services/Community/streamerStageGuardService");
+const { startTwitchLiveAlertLoop } = require("../Community/services/twitchLiveAlertService") as typeof import("../Community/services/twitchLiveAlertService");
+const { startGameNewsAlertLoop } = require("../Community/services/gameNewsAlertService") as typeof import("../Community/services/gameNewsAlertService");
+const { startStreamerStageGuardLoop } = require("../Community/services/streamerStageGuardService") as typeof import("../Community/services/streamerStageGuardService");
 /* staffWarnChannelMigration + staffNegativesWarnConversion → archivio/codice-morto (one-shot fatti) */
 const { syncAllStaffAutoValutazioni, restoreActiveSerataFilmSessions, cleanupMalformedAutoValutazioni } = require("../Staff/services/staffAutoValutazioniService") as typeof import("../Staff/services/staffAutoValutazioniService");
 const { reconcileResocontoReviewerRewardAutoValutazioni } = require("../Staff/services/resocontoReviewerRewardService") as typeof import("../Staff/services/resocontoReviewerRewardService");
 const { runScheduledEnds, syncActiveGiveawayButtons, scheduleActiveGiveawayEnds } = require("../Giveaway/services/giveawayService") as typeof import("../Giveaway/services/giveawayService");
 const { retroSyncGuildLevels, healLevelRolesForGuildOnStartup } = require("../Level/services/expService") as typeof import("../Level/services/expService");
-const { runFullCleanupUsersNotInServer } = require("../Services/Community/cleanupUsersNotInServerService") as typeof import("../Services/Community/cleanupUsersNotInServerService");
-const { startStaffGracePurgeLoop } = require("../Services/Community/userLeaveBackupService") as typeof import("../Services/Community/userLeaveBackupService");
-const { startUserFullStatePersistenceLoop } = require("../Services/Community/userFullStatePersistenceService") as typeof import("../Services/Community/userFullStatePersistenceService");
-const { startDbMaintenanceLoop } = require("../Services/Community/dbMaintenanceService") as typeof import("../Services/Community/dbMaintenanceService");
-const { startVoteQueueLoop } = require("../Services/Web/discadiaVoteQueueService") as typeof import("../Services/Web/discadiaVoteQueueService");
-const { startWebhookServer, shouldStartBotHttpServer } = require("../Services/Web/webhookService") as typeof import("../Services/Web/webhookService");
+const { runFullCleanupUsersNotInServer } = require("../Community/services/cleanupUsersNotInServerService") as typeof import("../Community/services/cleanupUsersNotInServerService");
+const { startStaffGracePurgeLoop } = require("../Community/services/userLeaveBackupService") as typeof import("../Community/services/userLeaveBackupService");
+const { startUserFullStatePersistenceLoop } = require("../Community/services/userFullStatePersistenceService") as typeof import("../Community/services/userFullStatePersistenceService");
+const { startDbMaintenanceLoop } = require("../Community/services/dbMaintenanceService") as typeof import("../Community/services/dbMaintenanceService");
+const { startVoteQueueLoop } = require("../site/http/discadiaVoteQueueService") as typeof import("../site/http/discadiaVoteQueueService");
+const { startWebhookServer, shouldStartBotHttpServer } = require("../site/http/webhookService") as typeof import("../site/http/webhookService");
 const { checkAndInstallPackages } = require("../Moderation/utils/checkPackages") as typeof import("../Moderation/utils/checkPackages");
-const { startMovieNightAnnouncementLoop, recoverMovieNightAnnouncementsOnStartup, ensureMovieNightStaffCommunicationOnStartup } = require("../Services/Community/movieNightAnnouncementService") as typeof import("../Services/Community/movieNightAnnouncementService");
-const { startGlobalExpEventAnnouncementLoop } = require("../Services/Community/globalExpEventAnnouncementService") as typeof import("../Services/Community/globalExpEventAnnouncementService");
+const { startMovieNightAnnouncementLoop, recoverMovieNightAnnouncementsOnStartup, ensureMovieNightStaffCommunicationOnStartup } = require("../Community/services/movieNightAnnouncementService") as typeof import("../Community/services/movieNightAnnouncementService");
+const { startGlobalExpEventAnnouncementLoop } = require("../Community/services/globalExpEventAnnouncementService") as typeof import("../Community/services/globalExpEventAnnouncementService");
 const { printRecoveryHealthOnce } = require("../../shared/recovery/recoveryHealth") as typeof import("../../shared/recovery/recoveryHealth");
-const IDs = require("../Utils/Config/ids") as typeof import("../Utils/Config/ids");
-const guildMemberUpdateExtras = require("../Services/Community/boostAnnounceRecoveryService") as typeof import("../Services/Community/boostAnnounceRecoveryService");
+const IDs = require("../Config/ids") as typeof import("../Config/ids");
+const guildMemberUpdateExtras = require("../Community/services/boostAnnounceRecoveryService") as typeof import("../Community/services/boostAnnounceRecoveryService");
 const guildMemberAddExtras = require("./guildMemberAdd") as typeof import("./guildMemberAdd");
-const { recoverDonationPackageAnnouncesOnStartup } = require("../Utils/Community/donationPackageSupportersAnnounce") as typeof import("../Utils/Community/donationPackageSupportersAnnounce");
-const { recoverManualSocialRoleAnnouncesOnStartup } = require("../Utils/Community/manualSocialRoleAnnounceAndPicPerms") as typeof import("../Utils/Community/manualSocialRoleAnnounceAndPicPerms");
-const { reconcilePatronRolesOnStartup, recoverPatronAnnouncesOnStartup } = require("../Utils/Community/patronRoleService") as typeof import("../Utils/Community/patronRoleService");
+const { recoverDonationPackageAnnouncesOnStartup } = require("../Community/utils/donationPackageSupportersAnnounce") as typeof import("../Community/utils/donationPackageSupportersAnnounce");
+const { recoverManualSocialRoleAnnouncesOnStartup } = require("../Community/utils/manualSocialRoleAnnounceAndPicPerms") as typeof import("../Community/utils/manualSocialRoleAnnounceAndPicPerms");
+const { reconcilePatronRolesOnStartup, recoverPatronAnnouncesOnStartup } = require("../Community/utils/patronRoleService") as typeof import("../Community/utils/patronRoleService");
 const { revokeAllPremiumBySource } = require("../MultiGuild/core/tenantPremium") as typeof import("../MultiGuild/core/tenantPremium");
 const { startPremiumExpiryReminderLoop } = require("../MultiGuild/services/premiumExpiryReminderService") as typeof import("../MultiGuild/services/premiumExpiryReminderService");
-const { recoverLevelMilestoneSupportersAnnouncesOnStartup } = require("../Utils/Community/levelMilestoneSupportersAnnounceEmbeds") as typeof import("../Utils/Community/levelMilestoneSupportersAnnounceEmbeds");
-const startupPanelsTrigger = require("../Triggers/embeds") as typeof import("../Triggers/embeds");
-const { queueIdsCatalogSync } = require("../Utils/Config/idsAutoSync") as typeof import("../Utils/Config/idsAutoSync");
-const { syncAllMembersClanTags } = require("../Services/Community/clanTagRoleService") as typeof import("../Services/Community/clanTagRoleService");
-const { syncZodiacRolesFromStoredBirthdays } = require("../Utils/Community/zodiacRoles") as typeof import("../Utils/Community/zodiacRoles");
-const { syncAgeBracketRolesFromStoredBirthdays } = require("../Utils/Community/ageBracketRoles") as typeof import("../Utils/Community/ageBracketRoles");
-const { postTopggStatsDigestIfConfigured } = require("../Services/Web/topggDigestService") as typeof import("../Services/Web/topggDigestService");
-const { formatDurationMs, runPhasedStartupTasks, } = require("../Utils/Startup/readyStartupRuntime") as typeof import("../Utils/Startup/readyStartupRuntime");
+const { recoverLevelMilestoneSupportersAnnouncesOnStartup } = require("../Community/utils/levelMilestoneSupportersAnnounceEmbeds") as typeof import("../Community/utils/levelMilestoneSupportersAnnounceEmbeds");
+const startupPanelsTrigger = require("../Community/discord/panels/startupPanels") as typeof import("../Community/discord/panels/startupPanels");
+const { queueIdsCatalogSync } = require("../Config/idsAutoSync") as typeof import("../Config/idsAutoSync");
+const { syncAllMembersClanTags } = require("../Community/services/clanTagRoleService") as typeof import("../Community/services/clanTagRoleService");
+const { syncZodiacRolesFromStoredBirthdays } = require("../Community/utils/zodiacRoles") as typeof import("../Community/utils/zodiacRoles");
+const { syncAgeBracketRolesFromStoredBirthdays } = require("../Community/utils/ageBracketRoles") as typeof import("../Community/utils/ageBracketRoles");
+const { postTopggStatsDigestIfConfigured } = require("../site/http/topggDigestService") as typeof import("../site/http/topggDigestService");
+const { formatDurationMs, runPhasedStartupTasks, } = require("../../shared/runtime/readyStartupRuntime") as typeof import("../../shared/runtime/readyStartupRuntime");
 const { logBotReady } = require("../../shared/discord/readyLog") as typeof import("../../shared/discord/readyLog");
 const { sweepExpiredPartnerManagerTimedPerks } = require("../Staff/utils/partnerManagerTimedPerks") as typeof import("../Staff/utils/partnerManagerTimedPerks");
 const {
@@ -556,7 +556,7 @@ function buildDeferredStartupTasks(client?, primaryScheduler?, engagementTick?) 
           tryDeleteEmptyCustomPrivateCategory,
           listCustomPrivateCategories,
           syncCustomPrivateCategoryLayout,
-        } = require("../Utils/Community/customPrivateCategoryUtils") as typeof import("../Utils/Community/customPrivateCategoryUtils");
+        } = require("../Community/utils/customPrivateCategoryUtils") as typeof import("../Community/utils/customPrivateCategoryUtils");
         for (const cat of listCustomPrivateCategories(guild)) {
           await syncCustomPrivateCategoryLayout(guild, cat).catch(() => null);
         }
@@ -806,13 +806,13 @@ async function processPendingPrefixCommands(client?) {
     global.logger?.warn?.("[READY] pending prefix skip: pcommands non pronti");
     return;
   }
-  const { handleOfficialPrefixMessage, ensurePrefixQueueLoaded } = require("../Utils/Prefix/officialPrefixDispatcher") as typeof import("../Utils/Prefix/officialPrefixDispatcher");
+  const { handleOfficialPrefixMessage, ensurePrefixQueueLoaded } = require("../core/officialPrefixDispatcher") as typeof import("../core/officialPrefixDispatcher");
     try {
     ensurePrefixQueueLoaded(client);
   } catch (err) {
     global.logger?.warn?.("[READY] prefix queue restore:", err?.message || err);
   }
-  const { getCachedOrFetchMember } = require("../Utils/Message/officialMessageAutomationHandlers") as typeof import("../Utils/Message/officialMessageAutomationHandlers");
+  const { getCachedOrFetchMember } = require("../Community/services/officialMessageAutomationHandlers") as typeof import("../Community/services/officialMessageAutomationHandlers");
   const { resolveCommandPrefixForGuildFresh } = require("../MultiGuild/core/tenantGuildSettings") as typeof import("../MultiGuild/core/tenantGuildSettings");
   const { PermissionFlagsBits } = require("discord.js") as typeof import("discord.js");
   const fallbackPrefix = String(client?.config?.prefix || "+").trim();
@@ -1016,7 +1016,7 @@ async function restoreCoreStartupState(client?) {
     global.logger?.warn?.("[partnerManagerLeave] grace restore failed:", err?.message || err);
   }
   try {
-    const { restoreAntiNukeQuarantineTimersOnStartup } = require("../Moderation/services/antiNukeService") as typeof import("../Moderation/services/antiNukeService");
+    const { restoreAntiNukeQuarantineTimersOnStartup } = require("../Security/services/antiNukeService") as typeof import("../Security/services/antiNukeService");
     if (typeof restoreAntiNukeQuarantineTimersOnStartup === "function") {
       restoreAntiNukeQuarantineTimersOnStartup(client);
     }
@@ -1066,7 +1066,9 @@ function panelsCodeFingerprint() {
       }
     }
   };
-  walk(pathMod.join(__dirname, "..", "Embeds"));
+  walk(pathMod.join(__dirname, "..", "Community", "discord", "panels"));
+  walk(pathMod.join(__dirname, "..", "Moderation", "discord", "panels"));
+  walk(pathMod.join(__dirname, "..", "..", "shared", "embeds"));
   return hash.digest("hex");
 }
 
@@ -1322,7 +1324,7 @@ export = {
     client.setMaxListeners(maxListeners);
     require("events").EventEmitter.defaultMaxListeners = maxListeners;
     try {
-      require("../Utils/Community/pronounGenderUtils").registerPronounGenderReplyHook();
+      require("../Community/utils/pronounGenderUtils").registerPronounGenderReplyHook();
     } catch (err) {
       global.logger?.warn?.("[PRONOUN-GENDER] hook init:", err?.message || err);
     }
@@ -1387,7 +1389,7 @@ export = {
       }
             try {
         const { sweepUntrustedBotsInGuild } = require("../Moderation/services/trustedBotGuardService") as typeof import("../Moderation/services/trustedBotGuardService");
-        const mainGuildId = String(require("../Utils/Config/ids").guilds?.main || "").trim();
+        const mainGuildId = String(require("../Config/ids").guilds?.main || "").trim();
         if (mainGuildId) {
           setTimeout(() => {
             const guild = client.guilds.cache.get(mainGuildId);

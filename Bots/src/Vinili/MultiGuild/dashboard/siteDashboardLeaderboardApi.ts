@@ -212,7 +212,7 @@ async function getDashboardPartnershipLeaderboard(client?, accessToken?, guildId
   let partnersMembers = null;
   if (category === "partners" && guild) {
     try {
-      const { fetchMembers } = require("../../Utils/Community/leaderboardHelpers") as typeof import("../../Utils/Community/leaderboardHelpers");
+      const { fetchMembers } = require("../../Community/utils/leaderboardHelpers") as typeof import("../../Community/utils/leaderboardHelpers");
       const ids = slice.map((r?) => String(r.userId || "").trim()).filter(Boolean);
       if (access.userId) ids.push(String(access.userId));
       partnersMembers = await fetchMembers(guild, ids);

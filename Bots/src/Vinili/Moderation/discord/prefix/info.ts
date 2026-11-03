@@ -1,8 +1,8 @@
 const { EmbedBuilder, PermissionsBitField, UserFlagsBitField } = require("discord.js") as typeof import("discord.js");
-const IDs = require("../../../Utils/Config/ids") as typeof import("../../../Utils/Config/ids");
+const IDs = require("../../../Config/ids") as typeof import("../../../Config/ids");
 const { safeMessageReply } = require("../../../../shared/discord/replyRuntime") as typeof import("../../../../shared/discord/replyRuntime");
 const { getAutoModMemberSnapshot, isAutoModRoleExemptMember, } = require("../../services/automodService") as typeof import("../../services/automodService");
-const{isWhitelistedExecutor,}=require("../../services/antiNukeService") as typeof import("../../services/antiNukeService");
+const{isWhitelistedExecutor,}=require("../../../Security/services/antiNukeService") as typeof import("../../../Security/services/antiNukeService");
 const { memberDisplayName, memberLabelWithUsername, guildMemberDisplayAvatarUrlDynamic } = require("../../../../shared/discord/guildDiscordIdentity") as typeof import("../../../../shared/discord/guildDiscordIdentity");
 
 function boolIcon(value?) {

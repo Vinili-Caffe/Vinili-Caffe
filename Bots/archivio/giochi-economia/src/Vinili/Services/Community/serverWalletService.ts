@@ -1,6 +1,6 @@
 const { randomInt } = require("node:crypto") as typeof import("node:crypto");
-const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
-const { isValidGuildUserId } = require("../../../shared/db/validateWriteIds") as typeof import("../../../shared/db/validateWriteIds");
+const { ActivityUserProfile } = require("../../../../../../src/Vinili/Community/schemas/communitySchemas") as typeof import("../../../../../../src/Vinili/Community/schemas/communitySchemas");
+const { isValidGuildUserId } = require("../../../../../../src/shared/db/validateWriteIds") as typeof import("../../../../../../src/shared/db/validateWriteIds");
 const WALLET_PATH = "profile.economy.server";
 const VINILI_PATH = `${WALLET_PATH}.vinili`;
 const CAFFE_PATH = `${WALLET_PATH}.caffe`;

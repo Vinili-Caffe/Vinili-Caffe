@@ -1,9 +1,9 @@
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
+const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const {
   ActivityUserProfile,
   SiteDocument,
   SITE_DOCUMENT_TYPE,
-} = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
+} = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
 const {
   parseItalianDate,
   filterPausesByMonth,

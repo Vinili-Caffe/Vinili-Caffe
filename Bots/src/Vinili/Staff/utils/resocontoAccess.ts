@@ -1,4 +1,4 @@
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
+const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 
 /** Reviewer per-user vuoti: tutti i resoconti vanno all'High Staff (ruolo). */
 const RESOCONTO_SEGMENT_REVIEWER_USER_IDS = {

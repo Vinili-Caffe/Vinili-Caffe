@@ -75,7 +75,7 @@ try {
   );
   const vinylsConfig = require("./config.json") as typeof import("./config.json");
   try {
-    require("./Utils/Config/emergencyRoleIdRemap").applyEmergencyRoleRemapToConfig(vinylsConfig);
+    require("./Config/emergencyRoleIdRemap").applyEmergencyRoleRemapToConfig(vinylsConfig);
   } catch (_) {}
   /* perfP0: intents curati (niente Object.values di tutto il gateway) */
   const baseIntents = resolveGatewayIntents(discord, { includePresences: true });
@@ -140,11 +140,13 @@ client.reloadScope = async (scope?) => {
 
   const reloadPrefix = async () => {
     clearCacheByDir("Prefix");
+    clearCacheByDir(path.join("Community", "discord", "prefix"));
     clearCacheByDir(path.join("Partner", "discord", "prefix"));
     clearCacheByDir(path.join("Stats", "discord", "prefix"));
     clearCacheByDir(path.join("Minigames", "discord", "prefix"));
     clearCacheByDir(path.join("Backup", "discord", "prefix"));
     clearCacheByDir(path.join("Level", "discord", "prefix"));
+    clearCacheByDir(path.join("Security", "discord", "prefix"));
     clearCacheByDir(path.join("..", "shared", "tts", "discord"));
     clearCacheByDir(path.join("..", "shared", "music", "discord"));
     clearCacheByDir(path.join("Moderation", "discord", "prefix"));
@@ -155,14 +157,17 @@ client.reloadScope = async (scope?) => {
 
   const reloadEvents = () => { clearCacheByDir("Events"); client.handleEvents(path.join(APP_ROOT, "Events")); };
 
-  const reloadTriggers = () => { clearCacheByDir("Triggers"); client.handleTriggers(APP_ROOT); };
+  const reloadTriggers = () => {
+    clearCacheByDir("Triggers");
+    clearCacheByDir(path.join("Community", "discord", "panels"));
+    client.handleTriggers(APP_ROOT);
+  };
 
   if (scope === "commands") return reloadCommands();
   if (scope === "prefix") return reloadPrefix();
   if (scope === "events") return reloadEvents();
 
   const reloadButtons = async () => {
-    clearCacheByDir("Buttons");
     clearCacheByDir(path.join("MultiGuild", "Buttons"));
     clearCacheByDir(path.join("Partner", "discord", "buttons"));
     clearCacheByDir(path.join("Stats", "discord", "buttons"));
@@ -170,20 +175,11 @@ client.reloadScope = async (scope?) => {
     clearCacheByDir(path.join("Minigames", "discord", "buttons"));
     clearCacheByDir(path.join("Backup", "discord", "buttons"));
     clearCacheByDir(path.join("Level", "discord", "buttons"));
+    clearCacheByDir(path.join("Security", "discord", "buttons"));
+    clearCacheByDir(path.join("Community", "discord", "buttons"));
     clearCacheByDir(path.join("..", "shared", "music", "discord", "buttons"));
     clearCacheByDir(path.join("Moderation", "discord", "buttons"));
-    await client.loadButtonHandlers([
-      path.join(APP_ROOT, "Partner", "discord", "buttons"),
-      path.join(APP_ROOT, "Stats", "discord", "buttons"),
-      path.join(APP_ROOT, "Giveaway", "discord", "buttons"),
-      path.join(APP_ROOT, "Minigames", "discord", "buttons"),
-      path.join(APP_ROOT, "Backup", "discord", "buttons"),
-      path.join(APP_ROOT, "Level", "discord", "buttons"),
-      path.join(APP_ROOT, "..", "shared", "music", "discord", "buttons"),
-      path.join(APP_ROOT, "Moderation", "discord", "buttons"),
-      path.join(APP_ROOT, "Buttons"),
-      path.join(APP_ROOT, "MultiGuild", "Buttons"),
-    ]);
+    await client.loadButtonHandlers();
   };
 
   if (scope === "triggers") return reloadTriggers();
@@ -202,6 +198,10 @@ client.reloadScope = async (scope?) => {
     clearCacheByDir(path.join("Backup", "services"));
     clearCacheByDir(path.join("Backup", "workers"));
     clearCacheByDir(path.join("Level", "services"));
+    clearCacheByDir(path.join("Security", "services"));
+    clearCacheByDir(path.join("Community", "services"));
+    clearCacheByDir(path.join("MultiGuild", "tickets", "data"));
+    clearCacheByDir(path.join("MultiGuild", "tickets", "transcript"));
     return;
   }
   if (scope === "utils") {
@@ -210,12 +210,15 @@ client.reloadScope = async (scope?) => {
     clearCacheByDir(path.join("Staff", "utils"));
     clearCacheByDir(path.join("Backup", "utils"));
     clearCacheByDir(path.join("Level", "utils"));
+    clearCacheByDir(path.join("Security", "utils"));
+    clearCacheByDir(path.join("Community", "utils"));
     return;
   }
   if (scope === "schemas") {
     clearCacheByDir("Schemas");
     clearCacheByDir(path.join("Giveaway", "schemas"));
     clearCacheByDir(path.join("Minigames", "data"));
+    clearCacheByDir(path.join("MultiGuild", "tickets", "data"));
     return;
   }
 
@@ -248,6 +251,12 @@ client.reloadScope = async (scope?) => {
     clearCacheByDir(path.join("Backup", "workers"));
     clearCacheByDir(path.join("Level", "services"));
     clearCacheByDir(path.join("Level", "utils"));
+    clearCacheByDir(path.join("Security", "services"));
+    clearCacheByDir(path.join("Security", "utils"));
+    clearCacheByDir(path.join("Community", "services"));
+    clearCacheByDir(path.join("Community", "utils"));
+    clearCacheByDir(path.join("MultiGuild", "tickets", "data"));
+    clearCacheByDir(path.join("MultiGuild", "tickets", "transcript"));
     clearCacheByDir("Utils");
     clearCacheByDir("Schemas");
     await reloadCommands();
@@ -298,18 +307,7 @@ initializeCommandCollections(client, { includeSnipes: true });
       client.handleCommands(commandFolders, path.join(APP_ROOT, "Commands")).then(() => {
         client.__slashCommandsReady = true;
       }),
-      client.loadButtonHandlers([
-        path.join(APP_ROOT, "Partner", "discord", "buttons"),
-        path.join(APP_ROOT, "Stats", "discord", "buttons"),
-        path.join(APP_ROOT, "Giveaway", "discord", "buttons"),
-        path.join(APP_ROOT, "Minigames", "discord", "buttons"),
-        path.join(APP_ROOT, "Backup", "discord", "buttons"),
-        path.join(APP_ROOT, "Level", "discord", "buttons"),
-        path.join(APP_ROOT, "..", "shared", "music", "discord", "buttons"),
-        path.join(APP_ROOT, "Moderation", "discord", "buttons"),
-        path.join(APP_ROOT, "Buttons"),
-        path.join(APP_ROOT, "MultiGuild", "Buttons"),
-      ]),
+      client.loadButtonHandlers(),
     ]);
     client.__bootCommandsReady = true;
     const cmdsMs = Date.now() - slashButtonsStartedAt;

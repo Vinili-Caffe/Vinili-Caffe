@@ -1,12 +1,12 @@
 const { EmbedBuilder } = require("discord.js") as typeof import("discord.js");
-const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
+const { ActivityUserProfile } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
 const {
   getOrCreateStaffDoc,
   ensureStaff,
   incrementStaffValutazioneCounters,
   appendStaffRolesHistoryEntry,
 } = require("./staffDocUtils") as typeof import("./staffDocUtils");
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
+const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { getGuildChannelCached, getGuildMemberCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
 const {
   addStaffWarnFromNegatives,

@@ -113,7 +113,7 @@ function openerAllowBitsToMemberOverwrite(allowBits?) {
 async function syncOpenTicketOpenerPermissions(client?, guildId?) {
   const gid = String(guildId || "").trim();
   if (!gid || !client) return { updated: 0, checked: 0 };
-  const Ticket = require("../../../Schemas/Ticket/ticketSchema");
+  const Ticket = require("../data/guildFeatureBucketTicketModel");
   const { editTicketMemberOverwrite } = require("./ticketHighStaffOverwrites") as typeof import("./ticketHighStaffOverwrites");
   const { getGuildChannelCached } = require("./ticketInteractionRuntime") as typeof import("./ticketInteractionRuntime");
   const guild =

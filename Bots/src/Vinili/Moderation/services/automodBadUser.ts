@@ -1,6 +1,6 @@
 
-const { ActivityUserProfile, ACTIVITY_MAIN_GUILD_ID } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
-const { automodBadUser } = require("../../Utils/Community/activityUserProfilePaths") as typeof import("../../Utils/Community/activityUserProfilePaths");
+const { ActivityUserProfile, ACTIVITY_MAIN_GUILD_ID } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
+const { automodBadUser } = require("../../Community/utils/activityUserProfilePaths") as typeof import("../../Community/utils/activityUserProfilePaths");
 const { isValidGuildUserId } = require("../../../shared/db/validateWriteIds") as typeof import("../../../shared/db/validateWriteIds");
 const { violationKeyLabelIt } = require("../utils/modRegolamentoConstants") as typeof import("../utils/modRegolamentoConstants");
 const { BAD_USER_CACHE, isDbReady } = require("./automodExempt") as typeof import("./automodExempt");

@@ -1,8 +1,8 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js") as typeof import("discord.js");
-const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
+const { ActivityUserProfile } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
 const { getPartnerLeaderboardWeekBoundsUtc } = require("../../Staff/services/weeklyStaffResocontoService") as typeof import("../../Staff/services/weeklyStaffResocontoService");
-const { TOP_LIMIT, rankLabel, formatUserLabel, fetchMembers } = require("../../Utils/Community/leaderboardHelpers") as typeof import("../../Utils/Community/leaderboardHelpers");
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
+const { TOP_LIMIT, rankLabel, formatUserLabel, fetchMembers } = require("../../Community/utils/leaderboardHelpers") as typeof import("../../Community/utils/leaderboardHelpers");
+const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const PLB_MODE_PREFIX = "plb_mode:";
 const {
   resolvePartnerPointsShown,

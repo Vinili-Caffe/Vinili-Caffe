@@ -1,6 +1,6 @@
 /** EXP: ruoli di livello e perk (aggiunta, rimozione, correzione). */
-const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
+const { ActivityUserProfile } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
+const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { getGuildMemberCached, getGuildRoleCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
 const { isLevelExpGuild } = require("./expLevels") as typeof import("./expLevels");
 const { LEVEL_ROLE_MAP } = require("./expLevelUp") as typeof import("./expLevelUp");
@@ -195,7 +195,7 @@ async function syncLevelRolesForMember(guild?, userId?, level?) {
   if (!freshMember) return awarded;
   if (safeLevel >= 10) await addPerkRoleIfPossible(freshMember);
   else {
-    const { tryRevokePicPermsIfIneligible } = require("../../Utils/Community/manualSocialRoleAnnounceAndPicPerms") as typeof import("../../Utils/Community/manualSocialRoleAnnounceAndPicPerms");
+    const { tryRevokePicPermsIfIneligible } = require("../../Community/utils/manualSocialRoleAnnounceAndPicPerms") as typeof import("../../Community/utils/manualSocialRoleAnnounceAndPicPerms");
     await tryRevokePicPermsIfIneligible(freshMember);
   }
   return awarded;

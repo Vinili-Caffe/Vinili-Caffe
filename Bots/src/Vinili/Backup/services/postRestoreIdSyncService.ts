@@ -9,10 +9,10 @@ const {
   remapChannelIdForward,
   remapDeepIdsInPlace,
   normalizeId,
-} = require("../../Utils/Config/emergencyIdRemap") as typeof import("../../Utils/Config/emergencyIdRemap");
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
+} = require("../../Config/emergencyIdRemap") as typeof import("../../Config/emergencyIdRemap");
+const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { GlobalSettings, ActivityUserProfile, UserLeaveBackup } =
-  require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
+  require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
 
 const MAIN_GUILD_ID = String(IDs.guilds?.main || "1329080093599076474").trim();
 
@@ -253,7 +253,7 @@ async function runPostRestoreIdSync({
 
   // Apply onto in-memory ids for this process immediately.
   try {
-    const { applyEmergencyIdRemapToIds } = require("../../Utils/Config/emergencyIdRemap") as typeof import("../../Utils/Config/emergencyIdRemap");
+    const { applyEmergencyIdRemapToIds } = require("../../Config/emergencyIdRemap") as typeof import("../../Config/emergencyIdRemap");
     applyEmergencyIdRemapToIds(IDs);
   } catch (_) {}
 

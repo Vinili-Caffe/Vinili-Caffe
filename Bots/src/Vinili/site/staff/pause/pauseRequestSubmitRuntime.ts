@@ -1,5 +1,5 @@
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js") as typeof import("discord.js");
-const IDs = require("../../../Utils/Config/ids") as typeof import("../../../Utils/Config/ids");
+const IDs = require("../../../Config/ids") as typeof import("../../../Config/ids");
 const { EPHEMERAL_TTL_NORMAL_MS, scheduleMessageDeletion } = require("../../../../shared/utils/ephemeralMessageTtl") as typeof import("../../../../shared/utils/ephemeralMessageTtl");
 const { createPauseRequest, PAUSE_REQUEST_ROLE_IDS } = require("./pauseRequestRuntime") as typeof import("./pauseRequestRuntime");
 

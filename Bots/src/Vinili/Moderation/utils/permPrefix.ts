@@ -1,6 +1,6 @@
 /** Permessi: comandi con il prefisso. */
 const { PermissionFlagsBits } = require("discord.js") as typeof import("discord.js");
-const IDs: any = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
+const IDs: any = require("../../Config/ids") as typeof import("../../Config/ids");
 const { isPartnerPmDailyCommandsThread } = require("../../Partner/runtime/partnersChatChannelUtils") as typeof import("../../Partner/runtime/partnersChatChannelUtils");
 const { ensureStaffCmdsThreadIdsHydrated } = require("../../Staff/utils/staffCmdsChannelUtils") as typeof import("../../Staff/utils/staffCmdsChannelUtils");
 const { isChannelInTicketCategory } = require("../../MultiGuild/tickets/discord/ticketCategoryUtils") as typeof import("../../MultiGuild/tickets/discord/ticketCategoryUtils");

@@ -1,8 +1,8 @@
-const IDs: any = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
+const IDs: any = require("../../Config/ids") as typeof import("../../Config/ids");
 const {
   isPublicVoiceHubId,
   isSpawnedHubChannel,
-} = require("../../Services/Voice/publicVoiceHubService") as typeof import("../../Services/Voice/publicVoiceHubService");
+} = require("../../Community/services/publicVoiceHubService") as typeof import("../../Community/services/publicVoiceHubService");
 
 const STANZA_LOBBY_VOICE_ID = String(IDs.channels?.stanzaLobbyVoice || "").trim();
 

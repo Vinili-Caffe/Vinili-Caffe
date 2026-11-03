@@ -1,6 +1,6 @@
 /** Minigiochi: embed di avvio delle domande. */
 const { EmbedBuilder } = require("discord.js") as typeof import("discord.js");
-const { formatItalianMinutesBold } = require("../../Utils/Text/italianDurationLabels") as typeof import("../../Utils/Text/italianDurationLabels");
+const { formatItalianMinutesBold } = require("../../../shared/utils/italianDurationLabels") as typeof import("../../../shared/utils/italianDurationLabels");
 const { MINIGAME_EMBED_COLOR, DRIVING_QUIZ_LETTERS } = require("./minigameEmbedShared") as typeof import("./minigameEmbedShared");
 
 function buildGuessNumberEmbed(min?, max?, rewardExp?, durationMs?) {

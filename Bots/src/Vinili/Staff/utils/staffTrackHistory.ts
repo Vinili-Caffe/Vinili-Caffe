@@ -1,6 +1,6 @@
 "use strict";
 
-const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
+const { ActivityUserProfile } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
 const { stripDiscordDecorations } = require("../../site/staff/siteStaffRosterCache") as typeof import("../../site/staff/siteStaffRosterCache");
 
 const TRACK_KINDS = new Set([

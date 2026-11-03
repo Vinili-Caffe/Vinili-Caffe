@@ -1,6 +1,6 @@
 /** Automod: ban e timeout membro. */
 const { PermissionsBitField } = require("discord.js") as typeof import("discord.js");
-const { isExtraOwner } = require("./securityProfilesService") as typeof import("./securityProfilesService");
+const { isExtraOwner } = require("../../Security/services/securityProfilesService") as typeof import("../../Security/services/securityProfilesService");
 const { pickPrimaryAutomodRegolaBucket, getAutomodRegolaSanction, formatRegolaDotFromBucket } = require("../utils/modRegolamentoConstants") as typeof import("../utils/modRegolamentoConstants");
 const { nowMs } = require("./automodText") as typeof import("./automodText");
 const { DISCORD_TIMEOUT_MAX_MS, getRegolaTimeoutStrikeCount, incrementRegolaTimeoutStrike } = require("./automodBadUser") as typeof import("./automodBadUser");

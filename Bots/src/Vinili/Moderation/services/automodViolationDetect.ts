@@ -1,5 +1,5 @@
 /** Rilevamento violazioni AutoMod su singolo messaggio (estratto da automodService). */
-const { getSecurityStaticsSnapshot } = require("./securityProfilesService") as typeof import("./securityProfilesService");
+const { getSecurityStaticsSnapshot } = require("../../Security/services/securityProfilesService") as typeof import("../../Security/services/securityProfilesService");
 const { isMinigameFloodExemptChannel } = require("../../Minigames/services/minigameService") as typeof import("../../Minigames/services/minigameService");
 const { detectGrabbedScamImage } = require("../utils/grabbedScamImageMatcher") as typeof import("../utils/grabbedScamImageMatcher");
 const {

@@ -1,6 +1,6 @@
 const fs = require("fs") as typeof import("fs");
 const path = require("path") as typeof import("path");
-const JOIN_GATE_CONFIG_PATH=path.resolve(__dirname,"../../Utils/Config/joinGateConfig.json",);
+const JOIN_GATE_CONFIG_PATH=path.resolve(__dirname,"../config/joinGateConfig.json",);
 const VALID_ACTIONS = new Set(["log", "timeout", "kick", "ban"]);
 const DEFAULT_JOIN_GATE_CONFIG={enabled:true,dmPunishedMembers:true,escalateRaidOnJoinGatePunish:false,noAvatar:{enabled:true,action:"log",},newAccounts:{enabled:true,minAgeDays:3,action:"kick",},botAdditions:{enabled:true,action:"kick",},unverifiedBotAdditions:{enabled:true,action:"kick",},trustedBotOnly:{enabled:true,action:"ban",punishAdder:true,punishAdderAction:"ban",extraBotIds:[],},untrustedBotMessages:{enabled:true,},untrustedUserInstallApps:{enabled:true,punishActorAction:"ban",},suspiciousAccount:{enabled:true,action:"log",},advertisingName:{enabled:true,action:"kick",},usernameFilter:{enabled:true,postJoinEnabled:true,action:"kick",strictWords:["discord staff","discord support","nitro free","steam gift","free nitro","airdrop",],wildcardWords:["*discord*support*","*discord*staff*","*nitro*free*","*steam*gift*","*crypto*airdrop*",],},};
 

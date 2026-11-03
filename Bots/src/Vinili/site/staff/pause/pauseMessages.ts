@@ -1,6 +1,6 @@
 /** Pause: testi e pulsanti dei messaggi di pausa. */
-const { ActivityUserProfile } = require("../../../Schemas/Community/communitySchemas") as typeof import("../../../Schemas/Community/communitySchemas");
-const IDs = require("../../../Utils/Config/ids") as typeof import("../../../Utils/Config/ids");
+const { ActivityUserProfile } = require("../../../Community/schemas/communitySchemas") as typeof import("../../../Community/schemas/communitySchemas");
+const IDs = require("../../../Config/ids") as typeof import("../../../Config/ids");
 const { MS_PER_DAY, parseItalianDate, getTodayUtc, getCurrentYearBoundsUtc, getMonthKeyForPauseCount, getStaffWeekKeyNow, coerceMonthKey } = require("./pauseDates") as typeof import("./pauseDates");
 const { PAUSE_ROLE_STAFF, PAUSE_ROLE_PM, PAUSE_ROLE_BOTH, computeStaffersInPauseByRoleForRange, getStaffRankLimitKey, resolvePauseStaffRankRoleId, computeStaffersInPauseByStaffRankForRange, getMemberRoleLabel, normalizePauseRoleChoice, getPauseRoleLimit, getBasePauseLimit } = require("./pauseRoles") as typeof import("./pauseRoles");
 

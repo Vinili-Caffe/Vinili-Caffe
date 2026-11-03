@@ -23,7 +23,7 @@ function humanizeIdKey(key?) {
 
 function loadIdsCatalogEntries() {
   try {
-    const catalog = require("../../Utils/Config/idsCatalog") as typeof import("../../Utils/Config/idsCatalog");
+    const catalog = require("../../Config/idsCatalog") as typeof import("../../Config/idsCatalog");
     return catalog && catalog.entries ? catalog.entries : null;
   } catch {
     return null;
@@ -32,7 +32,7 @@ function loadIdsCatalogEntries() {
 
 function sanitizeChannelLabel(raw?) {
   try {
-    const { sanitizeDiscordChannelName } = require("../../Utils/Discord/discordDisplayName") as typeof import("../../Utils/Discord/discordDisplayName");
+    const { sanitizeDiscordChannelName } = require("../utils/discordDisplayName") as typeof import("../utils/discordDisplayName");
     return sanitizeDiscordChannelName(raw) || String(raw || "").trim();
   } catch {
     return String(raw || "")

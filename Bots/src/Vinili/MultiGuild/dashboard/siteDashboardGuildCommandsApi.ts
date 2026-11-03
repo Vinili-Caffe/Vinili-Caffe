@@ -26,7 +26,7 @@ const {
   loadSlashAclMapFromDiscord,
 } = require("../../site/http/discordApplicationCommandPermissions") as typeof import("../../site/http/discordApplicationCommandPermissions");
 const { verifyDashboardGuildAccess } = require("./siteDashboardApi") as typeof import("./siteDashboardApi");
-const { listGuildPickerData } = require("./siteDashboardPartnershipApi") as typeof import("./siteDashboardPartnershipApi");
+const { listGuildPickerData } = require("../../Partner/dashboard/siteDashboardPartnershipApi") as typeof import("../../Partner/dashboard/siteDashboardPartnershipApi");
 const { buildPrefixAclFromPermissionsJson } = require("../../Moderation/utils/commandPermissions") as typeof import("../../Moderation/utils/commandPermissions");
 
 let cachedIds = null;
@@ -40,7 +40,7 @@ function resolveBotApplicationId(client?) {
   const fromClient = client?.application?.id || client?.user?.id || "";
   if (/^\d{16,22}$/.test(String(fromClient).trim())) return String(fromClient).trim();
   try {
-    if (!cachedIds) cachedIds = require("../../Utils/Config/ids");
+    if (!cachedIds) cachedIds = require("../../Config/ids");
     const id = cachedIds?.bots?.ViniliCaffeBot;
     if (/^\d{16,22}$/.test(String(id || "").trim())) return String(id).trim();
   } catch (_) {}

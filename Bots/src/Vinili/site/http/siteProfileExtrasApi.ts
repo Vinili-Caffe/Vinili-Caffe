@@ -7,12 +7,12 @@ const {
   DM_CATEGORIES,
   DM_CATEGORY_ALL,
   DM_CATEGORY_LABELS,
-} = require("../../Utils/noDmList") as typeof import("../../Utils/noDmList");
+} = require("../../Community/utils/noDmList") as typeof import("../../Community/utils/noDmList");
 const {
   PRIVACY_CONTENT_KINDS,
   PRIVACY_CONTENT_LABELS,
   privacyContentModel,
-} = require("../../Utils/privacyContentKinds") as typeof import("../../Utils/privacyContentKinds");
+} = require("../../Community/utils/privacyContentKinds") as typeof import("../../Community/utils/privacyContentKinds");
 const {
   getBirthdayProfile,
   setBirthdayProfile,
@@ -20,36 +20,36 @@ const {
   getMentionResponse,
   setMentionResponse,
   clearMentionResponse,
-} = require("../../Services/Community/profileStore") as typeof import("../../Services/Community/profileStore");
-const { MentionReaction } = require("../../Schemas/Community/autoInteractionSchemas") as typeof import("../../Schemas/Community/autoInteractionSchemas");
+} = require("../../Community/services/profileStore") as typeof import("../../Community/services/profileStore");
+const { MentionReaction } = require("../../Community/schemas/autoInteractionSchemas") as typeof import("../../Community/schemas/autoInteractionSchemas");
 const {
   memberHasCustomReactionRoleAccess,
   getCustomReactionMax,
   parseReactionTokens,
   toDisplay,
-} = require("../../Utils/Community/mentionReactionPanelUtils") as typeof import("../../Utils/Community/mentionReactionPanelUtils");
+} = require("../../Community/utils/mentionReactionPanelUtils") as typeof import("../../Community/utils/mentionReactionPanelUtils");
 const {
   memberHasMentionResponseAccess,
   MENTION_RESPONSE_ACCESS_HINT_IT,
-} = require("../../Utils/Community/mentionResponseAccessUtils") as typeof import("../../Utils/Community/mentionResponseAccessUtils");
-const colorUnlocks = require("../../Utils/Community/personalityColorUnlocks") as typeof import("../../Utils/Community/personalityColorUnlocks");
+} = require("../../Community/utils/mentionResponseAccessUtils") as typeof import("../../Community/utils/mentionResponseAccessUtils");
+const colorUnlocks = require("../../Community/utils/personalityColorUnlocks") as typeof import("../../Community/utils/personalityColorUnlocks");
 const {
   PERSONALITY_CATEGORY_ROLE_IDS,
   persistPersonalityRoleDelta,
-} = require("../../Utils/Community/personalityRolePersistence") as typeof import("../../Utils/Community/personalityRolePersistence");
-const { ROLE_PANEL_CATEGORY_KEYS, normalizeRolePanelCategory } = require("../../Utils/Community/ruoliColoriPanelComponents") as typeof import("../../Utils/Community/ruoliColoriPanelComponents");
+} = require("../../Community/utils/personalityRolePersistence") as typeof import("../../Community/utils/personalityRolePersistence");
+const { ROLE_PANEL_CATEGORY_KEYS, normalizeRolePanelCategory } = require("../../Community/utils/ruoliColoriPanelComponents") as typeof import("../../Community/utils/ruoliColoriPanelComponents");
 const {
   inferBirthYearFromAge,
   tryCelebrateBirthdayAfterProfileSave,
   isBirthdayDayChangeLocked,
   getRomeDateParts,
-} = require("../../Services/Community/birthdayService") as typeof import("../../Services/Community/birthdayService");
+} = require("../../Community/services/birthdayService") as typeof import("../../Community/services/birthdayService");
 const {
   getSerializedSiteNotifPrefs,
   mutateSiteNotifPrefs,
 } = require("./siteNotifPrefs") as typeof import("./siteNotifPrefs");
 const { applyViewAsToResolvedMember } = require("./siteViewAsPreview") as typeof import("./siteViewAsPreview");
-const { discordRoleIconUrl } = require("../../Utils/Discord/discordRoleIconUrl") as typeof import("../../Utils/Discord/discordRoleIconUrl");
+const { discordRoleIconUrl } = require("../utils/discordRoleIconUrl") as typeof import("../utils/discordRoleIconUrl");
 
 const ROLE_PANEL_LABELS = Object.freeze({
   pronouns: "Pronomi",

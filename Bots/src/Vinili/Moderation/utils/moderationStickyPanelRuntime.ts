@@ -1,6 +1,6 @@
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
+const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { getGuildChannelCached, getClientChannelCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
-const { personalityPanelUpdateOne } = require("../../Utils/Global/globalSettingsGuildStores") as typeof import("../../Utils/Global/globalSettingsGuildStores");
+const { personalityPanelUpdateOne } = require("../../Community/services/globalSettingsGuildStores") as typeof import("../../Community/services/globalSettingsGuildStores");
 const {
   MOD_GUIDE_BUTTON_IDS,
   buildModerationGuideStickyPayload,
@@ -56,7 +56,7 @@ function isModerationStickyPanelMessage(message?) {
 }
 
 async function getSanzioniPanelRow(channelId?) {
-  const { GlobalSettings } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
+  const { GlobalSettings } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
   const doc = await GlobalSettings.findOne({ guildId: MAIN_GUILD_ID })
     .select("personalityPanels")
     .lean()
@@ -129,7 +129,7 @@ async function ensureModerationStickyPanel(client?, channelRef?) {
     // Already sticky at bottom → edit in place (no delete/recreate race).
     if (last && isModerationStickyPanelMessage(last)) {
       const { isComponentsV2Message } = require("../../../shared/discord/panelUpsertRuntime") as typeof import("../../../shared/discord/panelUpsertRuntime");
-      const { isComponentsV2Payload } = require("../../Utils/Embeds/vcPageEmbedV2") as typeof import("../../Utils/Embeds/vcPageEmbedV2");
+      const { isComponentsV2Payload } = require("../../../shared/embeds/vcPageEmbedV2") as typeof import("../../../shared/embeds/vcPageEmbedV2");
       if (isComponentsV2Payload(payload) && !isComponentsV2Message(last)) {
         await last.delete().catch(() => null);
       } else {

@@ -3,7 +3,7 @@ const path = require("path") as typeof import("path");
 const zlib = require("zlib") as typeof import("zlib");
 const crypto = require("crypto") as typeof import("crypto");
 const { promisify } = require("util") as typeof import("util");
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
+const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const gunzipAsync = promisify(zlib.gunzip);
 const gzipAsync = promisify(zlib.gzip);
 

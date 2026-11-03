@@ -116,7 +116,7 @@ async function userStillNeedsDm(entry?) {
 }
 
 async function ticketStillNeedsDm(entry?) {
-  const { SiteWebTicketMessage } = require("../../features/tickets/data/siteWebTicketSchemas") as typeof import("../../features/tickets/data/siteWebTicketSchemas");
+  const { SiteWebTicketMessage } = require("../../MultiGuild/tickets/data/siteWebTicketSchemas") as typeof import("../../MultiGuild/tickets/data/siteWebTicketSchemas");
   const mid = String(entry.messageId || "").trim();
   if (!mid) return { ok: false, reason: "no_message" };
 
@@ -143,7 +143,7 @@ async function ticketStillNeedsDm(entry?) {
 }
 
 async function workflowStillNeedsDm(entry?) {
-  const { SiteWorkflowChatMessage } = require("../../Schemas/Web/siteWorkflowChatSchemas") as typeof import("../../Schemas/Web/siteWorkflowChatSchemas");
+  const { SiteWorkflowChatMessage } = require("../workflow/siteWorkflowChatSchemas") as typeof import("../workflow/siteWorkflowChatSchemas");
   const mid = String(entry.messageId || "").trim();
   if (!mid) return { ok: false, reason: "no_message" };
 
@@ -184,7 +184,7 @@ async function fireFallback(key?, entry?) {
     if (!user?.send) return { sent: false, reason: "no_user" };
 
     const { buildSiteLinkRow } = require("./discordWorkflowUiGate") as typeof import("./discordWorkflowUiGate");
-    const { sendDm } = require("../../Utils/noDmList") as typeof import("../../Utils/noDmList");
+    const { sendDm } = require("../../Community/utils/noDmList") as typeof import("../../Community/utils/noDmList");
 
     const label = entry.label || (entry.scope === "ticket" ? "ticket" : "chat");
     const preview = String(entry.body || "").replace(/\s+/g, " ").trim().slice(0, 160);

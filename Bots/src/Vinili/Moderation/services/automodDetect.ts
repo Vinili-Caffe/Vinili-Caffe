@@ -1,6 +1,6 @@
 /** Automod: riconoscimento delle violazioni in un messaggio. */
-const IDs: any = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
-const { ACTIVITY_MAIN_GUILD_ID } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
+const IDs: any = require("../../Config/ids") as typeof import("../../Config/ids");
+const { ACTIVITY_MAIN_GUILD_ID } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
 const { TEXT_RULES, nowMs } = require("./automodText") as typeof import("./automodText");
 const { PANIC_MODE, getPanicState } = require("./automodEmbeds") as typeof import("./automodEmbeds");
 const { findHateSpeechMatch } = require("../utils/automodHateSpeechMatch") as typeof import("../utils/automodHateSpeechMatch");

@@ -1,9 +1,9 @@
 const { ChannelType } = require("discord.js") as typeof import("discord.js");
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
+const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const {
   isChannelInCustomPrivateCategory,
   getCustomPrivateCategoryIdSet,
-} = require("../../Utils/Community/customPrivateCategoryUtils") as typeof import("../../Utils/Community/customPrivateCategoryUtils");
+} = require("../../Community/utils/customPrivateCategoryUtils") as typeof import("../../Community/utils/customPrivateCategoryUtils");
 
 function readStreamVoiceChannelIdsFromClient(client?) {
   const ids = new Set();
@@ -88,7 +88,7 @@ function isLimitateAutomodExemptChannel(channel?, guild?, client = null) {
     const {
       isPublicVoiceHubId,
       isSpawnedHubChannel,
-    } = require("../../Services/Voice/publicVoiceHubService") as typeof import("../../Services/Voice/publicVoiceHubService");
+    } = require("../../Community/services/publicVoiceHubService") as typeof import("../../Community/services/publicVoiceHubService");
     if (typeof isPublicVoiceHubId === "function" && isPublicVoiceHubId(chId, hubClient)) return true;
     if (typeof isSpawnedHubChannel === "function" && isSpawnedHubChannel(channel, hubClient)) return true;
   } catch (_) {}

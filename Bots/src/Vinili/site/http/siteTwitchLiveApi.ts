@@ -4,7 +4,7 @@ const {
   getAppAccessToken,
   fetchLiveStreams,
   buildStreamThumbnailUrl,
-} = require("../../Services/Community/twitchLiveAlertService") as typeof import("../../Services/Community/twitchLiveAlertService");
+} = require("../../Community/services/twitchLiveAlertService") as typeof import("../../Community/services/twitchLiveAlertService");
 const { sendJsonWithEtag, weakEtagFromParts } = require("./siteHttpEtag") as typeof import("./siteHttpEtag");
 
 const CACHE_TTL_MS = 25_000;

@@ -1,9 +1,9 @@
 /** Automod: messaggi nel canale, log per lo staff e casi di moderazione. */
 const { EmbedBuilder } = require("discord.js") as typeof import("discord.js");
 const path = require("path") as typeof import("path");
-const IDs: any = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
+const IDs: any = require("../../Config/ids") as typeof import("../../Config/ids");
 const { pickPrimaryAutomodRegolaBucket, formatRegolaDotFromBucket, buildAutomodRegolaSummaryLine, violationKeyLabelIt, MOD_RULE_DETAIL } = require("../utils/modRegolamentoConstants") as typeof import("../utils/modRegolamentoConstants");
-const { formatItalianMinutesPlain } = require("../../Utils/Text/italianDurationLabels") as typeof import("../../Utils/Text/italianDurationLabels");
+const { formatItalianMinutesPlain } = require("../../../shared/utils/italianDurationLabels") as typeof import("../../../shared/utils/italianDurationLabels");
 const { createModCase, getModConfig, logModCase, formatDuration } = require("../utils/moderation") as typeof import("../utils/moderation");
 const { getGuildChannelCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
 const { memberDisplayName } = require("../../../shared/discord/guildDiscordIdentity") as typeof import("../../../shared/discord/guildDiscordIdentity");
@@ -18,7 +18,7 @@ const ACTION_CHANNEL_LOG_COOLDOWN_MS = 6_000;
 const ACTION_CHANNEL_NOTICE_DELETE_MS = 10_000;
 const NATIVE_STAFF_PING_COOLDOWN_MS = 8_000;
 const PANIC_MODE = { enabled: true, considerActivityHistory: true, useGlobalBadUsersDb: true, triggerCount: 3, triggerWindowMs: 10 * 60_000, durationMs: 10 * 60_000, raidWindowMs: 120_000, raidUserThreshold: 6, raidYoungThreshold: 4, lockCommands: false, };
-const AUTOMOD_METRICS_PATH = path.resolve(__dirname, "../../Utils/Config/automodMetrics.json",);
+const AUTOMOD_METRICS_PATH = path.resolve(__dirname, "../config/automodMetrics.json",);
 const automodMetrics = readJsonSafe(AUTOMOD_METRICS_PATH, { guilds: {} });
 let metricsSaveTimer = null;
 

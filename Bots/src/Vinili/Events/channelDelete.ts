@@ -1,15 +1,15 @@
 const { AuditLogEvent, EmbedBuilder } = require("discord.js") as typeof import("discord.js");
-const { queueCategoryRenumber, } = require("../Services/Community/communityOpsService") as typeof import("../Services/Community/communityOpsService");
-const { queueIdsCatalogSync } = require("../Utils/Config/idsAutoSync") as typeof import("../Utils/Config/idsAutoSync");
-const { markDeletedChannelSnapshot, } = require("../Utils/Community/channelSnapshotUtils") as typeof import("../Utils/Community/channelSnapshotUtils");
-const { toDiscordTimestamp, channelTypeLabel, formatAuditActor, buildAuditExtraLines, resolveChannelRolesLogChannel, resolveResponsible } = require("../Utils/Logging/channelRolesLogUtils") as typeof import("../Utils/Logging/channelRolesLogUtils");
-const { handleChannelDeletionAction: antiNukeHandleChannelDeletionAction } = require("../Moderation/services/antiNukeService") as typeof import("../Moderation/services/antiNukeService");
+const { queueCategoryRenumber, } = require("../Community/services/communityOpsService") as typeof import("../Community/services/communityOpsService");
+const { queueIdsCatalogSync } = require("../Config/idsAutoSync") as typeof import("../Config/idsAutoSync");
+const { markDeletedChannelSnapshot, } = require("../Community/utils/channelSnapshotUtils") as typeof import("../Community/utils/channelSnapshotUtils");
+const { toDiscordTimestamp, channelTypeLabel, formatAuditActor, buildAuditExtraLines, resolveChannelRolesLogChannel, resolveResponsible } = require("../Moderation/utils/channelRolesLogUtils") as typeof import("../Moderation/utils/channelRolesLogUtils");
+const { handleChannelDeletionAction: antiNukeHandleChannelDeletionAction } = require("../Security/services/antiNukeService") as typeof import("../Security/services/antiNukeService");
 const { clearGameForChannel } = require("../Minigames/services/minigameService") as typeof import("../Minigames/services/minigameService");
 const { finishSerataFilmSessionsForChannel } = require("../Staff/services/staffAutoValutazioniService") as typeof import("../Staff/services/staffAutoValutazioniService");
 const { isTicketCategoryName } = require("../MultiGuild/tickets/discord/ticketCategoryUtils") as typeof import("../MultiGuild/tickets/discord/ticketCategoryUtils");
-const { tryDeleteEmptyCustomPrivateCategory } = require("../Utils/Community/customPrivateCategoryUtils") as typeof import("../Utils/Community/customPrivateCategoryUtils");
+const { tryDeleteEmptyCustomPrivateCategory } = require("../Community/utils/customPrivateCategoryUtils") as typeof import("../Community/utils/customPrivateCategoryUtils");
 const { shouldResyncAutomodForChannel, scheduleDiscordAutomodRulesResync } = require("../Moderation/services/discordAutomodRulesService") as typeof import("../Moderation/services/discordAutomodRulesService");
-const { handleCustomPrivateVoiceChannelDelete } = require("../Services/Community/customVocChannelCleanupService") as typeof import("../Services/Community/customVocChannelCleanupService");
+const { handleCustomPrivateVoiceChannelDelete } = require("../Community/services/customVocChannelCleanupService") as typeof import("../Community/services/customVocChannelCleanupService");
 const { ChannelType } = require("discord.js") as typeof import("discord.js");
 
 function isViniliFullFeatureGuild(guildId?) {
@@ -101,7 +101,7 @@ export = {
     await markDeletedChannelSnapshot(channel).catch(() => { });
 
     try {
-      const { isProtectedStreamerStageChannelId, ensureStreamerStageChannel } = require("../Services/Community/streamerStageGuardService") as typeof import("../Services/Community/streamerStageGuardService");
+      const { isProtectedStreamerStageChannelId, ensureStreamerStageChannel } = require("../Community/services/streamerStageGuardService") as typeof import("../Community/services/streamerStageGuardService");
       if (isProtectedStreamerStageChannelId(channel.id, client) || /Streaming diunk|Streaming D1uk/i.test(String(channel.name || ""))) {
         global.logger?.warn?.("[channelDelete] protected streamer stage deleted — recreating:", channel.id, channel.name);
         await ensureStreamerStageChannel(client).catch((err?) => {
@@ -156,7 +156,7 @@ export = {
         scheduleDiscordAutomodRulesResync(client);
       }
       try {
-        const { getMainGuildId } = require("../Utils/Config/testGuildMirrorRemap") as typeof import("../Utils/Config/testGuildMirrorRemap");
+        const { getMainGuildId } = require("../Config/testGuildMirrorRemap") as typeof import("../Config/testGuildMirrorRemap");
         if (String(channel.guildId) === String(getMainGuildId() || "")) {
           const { mirrorMainChannelDeleteToTest } = require("../Partner/services/testGuildMirrorSyncService") as typeof import("../Partner/services/testGuildMirrorSyncService");
           void mirrorMainChannelDeleteToTest(client, channel).catch((err?) => {

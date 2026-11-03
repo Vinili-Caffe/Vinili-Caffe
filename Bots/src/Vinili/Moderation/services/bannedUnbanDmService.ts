@@ -5,7 +5,7 @@ const {
   EmbedBuilder,
 } = require("discord.js") as typeof import("discord.js");
 const mongoose = require("mongoose") as typeof import("mongoose");
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
+const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { getBotState, setBotState } = require("../../../shared/botState/botStateStore") as typeof import("../../../shared/botState/botStateStore");
 
 const BOT_STATE_KEY = "dmBannedUnbanLinkStartupOnce.v1";

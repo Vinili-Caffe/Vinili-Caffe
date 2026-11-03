@@ -1,5 +1,5 @@
-const Ticket = require("../../../Schemas/Ticket/ticketSchema");
-const IDs = require("../../../Utils/Config/ids") as typeof import("../../../Utils/Config/ids");
+const Ticket = require("../../../MultiGuild/tickets/data/guildFeatureBucketTicketModel");
+const IDs = require("../../../Config/ids") as typeof import("../../../Config/ids");
 const { getPartnerDescriptionTextOrSync } = require("../../services/partnerDescriptionSyncService") as typeof import("../../services/partnerDescriptionSyncService");
 const { getTenantPartnerDescriptionTextOrSync } = require("../../services/tenantPartnerDescriptionService") as typeof import("../../services/tenantPartnerDescriptionService");
 const {

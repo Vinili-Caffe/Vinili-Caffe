@@ -36,7 +36,7 @@ const {
   restoreTempBans,
   applyPunishment,
 } = require("./joinRaidPunish") as typeof import("./joinRaidPunish");
-const { isSecurityProfileImmune, hasAdminsProfileCapability } = require("./securityProfilesService") as typeof import("./securityProfilesService");
+const { isSecurityProfileImmune, hasAdminsProfileCapability } = require("../../Security/services/securityProfilesService") as typeof import("../../Security/services/securityProfilesService");
 const { CORE_EXEMPT_USER_IDS } = require("./joinGateExemptUtils") as typeof import("./joinGateExemptUtils");
 const { getGuildMemberCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
 
@@ -286,7 +286,7 @@ async function activateJoinRaidWindow(
     );
     scheduleJoinRaidReport(guild);
     try {
-      const { invalidateSecurityLockCache } = require("./securityOrchestratorService") as typeof import("./securityOrchestratorService");
+      const { invalidateSecurityLockCache } = require("../../Security/services/securityOrchestratorService") as typeof import("../../Security/services/securityOrchestratorService");
       invalidateSecurityLockCache(guild.id);
     } catch (_) {}
     return { ok: true, activated: !wasActive, raidUntil: state.raidUntil };
@@ -307,7 +307,7 @@ async function registerJoinRaidSecuritySignal(
   const raid = await activateJoinRaidWindow(member.guild, reason, minMs || 0);
   if (options?.enableAntiNuke && member.guild) {
     try {
-      const { enableAntiNukePanic } = require("./antiNukeService") as typeof import("./antiNukeService");
+      const { enableAntiNukePanic } = require("../../Security/services/antiNukeService") as typeof import("../../Security/services/antiNukeService");
       await enableAntiNukePanic(
         member.guild,
         reason,
@@ -333,7 +333,7 @@ async function registerJoinRaidSecuritySignal(
     } catch (_) {}
   }
   try {
-    const { invalidateSecurityLockCache } = require("./securityOrchestratorService") as typeof import("./securityOrchestratorService");
+    const { invalidateSecurityLockCache } = require("../../Security/services/securityOrchestratorService") as typeof import("../../Security/services/securityOrchestratorService");
     invalidateSecurityLockCache(member.guild.id);
   } catch (_) {}
   return { ok: true, raid };
@@ -418,7 +418,7 @@ async function stopJoinRaidWindowForGuild(guildId?) {
     }
   });
   try {
-    const { invalidateSecurityLockCache } = require("./securityOrchestratorService") as typeof import("./securityOrchestratorService");
+    const { invalidateSecurityLockCache } = require("../../Security/services/securityOrchestratorService") as typeof import("../../Security/services/securityOrchestratorService");
     invalidateSecurityLockCache(key);
   } catch (_) {}
 }

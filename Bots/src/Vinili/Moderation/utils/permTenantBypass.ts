@@ -2,7 +2,7 @@
 const fs = require("fs") as typeof import("fs");
 const path = require("path") as typeof import("path");
 const { PermissionFlagsBits } = require("discord.js") as typeof import("discord.js");
-const IDs: any = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
+const IDs: any = require("../../Config/ids") as typeof import("../../Config/ids");
 const { isPartnershipOperational, memberHasPartnerManagerRole, SETUP_REQUIRED_REPLY } = require("../../Partner/core/partnershipConfigResolver") as typeof import("../../Partner/core/partnershipConfigResolver");
 
 function getMainGuildIdFallback() {

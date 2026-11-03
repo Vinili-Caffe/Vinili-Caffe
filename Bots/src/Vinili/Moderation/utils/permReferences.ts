@@ -1,6 +1,6 @@
 /** Permessi: lettura di ruoli, permessi e canali scritti in permissions.json. */
 const { PermissionsBitField, PermissionFlagsBits } = require("discord.js") as typeof import("discord.js");
-const IDs: any = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
+const IDs: any = require("../../Config/ids") as typeof import("../../Config/ids");
 const { getStaffCmdsThreadIdsCache } = require("../../Staff/utils/staffCmdsChannelUtils") as typeof import("../../Staff/utils/staffCmdsChannelUtils");
 const { getIdsConfig, normalizeRoleList } = require("./permStaffGuide") as typeof import("./permStaffGuide");
 

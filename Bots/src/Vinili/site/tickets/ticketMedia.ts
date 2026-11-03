@@ -1,7 +1,7 @@
 /** Ticket dal sito: immagini e video allegati, salvataggio su disco e link firmati per scaricarli. */
 const fs = require("node:fs") as typeof import("node:fs");
 const path = require("node:path") as typeof import("node:path");
-const { viniliPath } = require("../../core/paths") as typeof import("../../core/paths");
+const { viniliPath } = require("../../paths") as typeof import("../../paths");
 const crypto = require("node:crypto") as typeof import("node:crypto");
 
 const MAX_IMAGES = 3;

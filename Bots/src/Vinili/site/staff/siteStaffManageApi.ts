@@ -1,5 +1,5 @@
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
-const { memberHasStaffRole, getStaffListPausedUserIds } = require("../../Utils/Community/staffListUtils") as typeof import("../../Utils/Community/staffListUtils");
+const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
+const { memberHasStaffRole, getStaffListPausedUserIds } = require("../../Community/utils/staffListUtils") as typeof import("../../Community/utils/staffListUtils");
 const { ensureWebsiteGuild } = require("../../site/http/websiteGuildMemberFetch") as typeof import("../../site/http/websiteGuildMemberFetch");
 const {
   getCachedStaffRoster,

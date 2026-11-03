@@ -318,7 +318,7 @@ async function autoClosePendingAppealsForUser(guild?, userId?, kind = "", opts: 
   const filterKind = String(kind || "").trim().toLowerCase();
   if (!gid || !/^\d{16,20}$/.test(uid)) return 0;
 
-  const { SiteDocument } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
+  const { SiteDocument } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
   const filter: Record<string, any> = {
     docType: WORKFLOW_DOC,
     guildId: gid,
@@ -363,7 +363,7 @@ async function autoCloseObsoletePendingAppeals(guild?, opts: Record<string, any>
   const gid = String(guild?.id || "").trim();
   if (!gid || !guild) return 0;
 
-  const { SiteDocument } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
+  const { SiteDocument } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
   const pendingDocs = await SiteDocument.find({
     docType: WORKFLOW_DOC,
     guildId: gid,

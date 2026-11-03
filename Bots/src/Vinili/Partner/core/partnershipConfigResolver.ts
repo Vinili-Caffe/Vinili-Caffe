@@ -1,6 +1,6 @@
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
+const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { EmbedBuilder } = require("discord.js") as typeof import("discord.js");
-const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
+const { ActivityUserProfile } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
 const { isViniliFullFeatureGuild } = require("../../MultiGuild/core/guildFeatureScope") as typeof import("../../MultiGuild/core/guildFeatureScope");
 const { getPartnershipConfigSync, isPartnershipSetupComplete } = require("../../Partner/core/tenantPartnershipSettings") as typeof import("../../Partner/core/tenantPartnershipSettings");
 const { PARTNER_SAME_TARGET_COOLDOWN_MS } = require("../runtime/partnerSameTargetCooldown") as typeof import("../runtime/partnerSameTargetCooldown");
@@ -9,7 +9,7 @@ const {
   expandRemappedRoleIds,
   memberHasAnyRemappedRole,
   memberHasRoleNameMatch,
-} = require("../../Utils/Config/emergencyRoleIdRemap") as typeof import("../../Utils/Config/emergencyRoleIdRemap");
+} = require("../../Config/emergencyRoleIdRemap") as typeof import("../../Config/emergencyRoleIdRemap");
 
 function preferLivePartnerManagerRoleId(rawRoleId?, { preferIds = true } = {}) {
   const fromRaw = remapRoleIdForward(rawRoleId);
@@ -89,7 +89,7 @@ function buildLegacyPartnershipConfig(guildId?) {
     tenantPrefixToolkitEnabled: true,
   };
   try {
-    const { remapDeepConfigForTestGuild } = require("../../Utils/Config/testGuildMirrorRemap") as typeof import("../../Utils/Config/testGuildMirrorRemap");
+    const { remapDeepConfigForTestGuild } = require("../../Config/testGuildMirrorRemap") as typeof import("../../Config/testGuildMirrorRemap");
     return remapDeepConfigForTestGuild(gid, cfg);
   } catch (_) {
     return cfg;
@@ -206,7 +206,7 @@ function mergeMainPartnershipConfig(guildId?) {
     tenantPrefixToolkitEnabled: true,
   };
   try {
-    const { remapDeepConfigForTestGuild } = require("../../Utils/Config/testGuildMirrorRemap") as typeof import("../../Utils/Config/testGuildMirrorRemap");
+    const { remapDeepConfigForTestGuild } = require("../../Config/testGuildMirrorRemap") as typeof import("../../Config/testGuildMirrorRemap");
     return remapDeepConfigForTestGuild(guildId, merged);
   } catch (_) {
     return merged;

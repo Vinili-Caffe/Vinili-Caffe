@@ -2,8 +2,8 @@ const fs = require("fs") as typeof import("fs");
 const path = require("path") as typeof import("path");
 const crypto = require("crypto") as typeof import("crypto");
 
-const REFS_DIR = path.resolve(__dirname, "../Config/grabbedScamRefs");
-const HASHES_PATH = path.resolve(__dirname, "../Config/grabbedScamImageHashes.json");
+const REFS_DIR = path.resolve(__dirname, "../config/grabbedScamRefs");
+const HASHES_PATH = path.resolve(__dirname, "../config/grabbedScamImageHashes.json");
 
 const MAX_BYTES = 10 * 1024 * 1024;
 const MAX_ATTACHMENTS = 3;

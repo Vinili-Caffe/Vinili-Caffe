@@ -1,7 +1,7 @@
 /** Ingresso membri: benvenuto nel canale e in DM. */
 const { EmbedBuilder } = require("discord.js") as typeof import("discord.js");
-const IDs = require("../Utils/Config/ids") as typeof import("../Utils/Config/ids");
-const { shouldBlockDm } = require("../Utils/noDmList") as typeof import("../Utils/noDmList");
+const IDs = require("../Config/ids") as typeof import("../Config/ids");
+const { shouldBlockDm } = require("../Community/utils/noDmList") as typeof import("../Community/utils/noDmList");
 const { notifyDmPrivacyBlockedInCommands } = require("../../shared/discord/dmPrivacyNotice") as typeof import("../../shared/discord/dmPrivacyNotice");
 const { guildIconUrl, accountUsername } = require("../../shared/discord/guildDiscordIdentity") as typeof import("../../shared/discord/guildDiscordIdentity");
 const { getVerifiedPlusBotsCount } = require("./joinBots") as typeof import("./joinBots");

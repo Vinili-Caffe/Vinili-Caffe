@@ -1,7 +1,7 @@
 /** Permessi: comandi slash. */
 const fs = require("fs") as typeof import("fs");
 const { PermissionFlagsBits } = require("discord.js") as typeof import("discord.js");
-const IDs: any = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
+const IDs: any = require("../../Config/ids") as typeof import("../../Config/ids");
 const { getStaffCmdsThreadIdsCache, ensureStaffCmdsThreadIdsHydrated, isHighStaffCommandsThread, isStaffCmdsPmCommandsThreadSync } = require("../../Staff/utils/staffCmdsChannelUtils") as typeof import("../../Staff/utils/staffCmdsChannelUtils");
 const { buildSlashLookupKeys } = require("./temporaryCommandPermissions") as typeof import("./temporaryCommandPermissions");
 const { getGuildMemberCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
@@ -32,7 +32,7 @@ function loadPermissions() {
     const raw = fs.readFileSync(permissionsPath, "utf-8");
     const parsed = JSON.parse(raw) || {};
     try {
-      require("../../Utils/Config/emergencyRoleIdRemap").remapDeepRoleIdsInPlace(parsed);
+      require("../../Config/emergencyRoleIdRemap").remapDeepRoleIdsInPlace(parsed);
     } catch (_) {}
     const normalized = { slash: parsed.slash || {}, prefix: parsed.prefix || {}, channels: parsed.channels || {}, buttons: parsed.buttons || {}, selectMenus: parsed.selectMenus || {}, modals: parsed.modals || {}, };
     cache = {
@@ -232,7 +232,7 @@ function hasAnyRole(member?, roleIds?) {
   if (memberSatisfiesRequiredRolesByStaffRank(member, normalized)) return true;
   if (!memberRoleCacheLooksUsable(member)) return false;
   try {
-    const { memberHasAnyRemappedRole } = require("../../Utils/Config/emergencyRoleIdRemap") as typeof import("../../Utils/Config/emergencyRoleIdRemap");
+    const { memberHasAnyRemappedRole } = require("../../Config/emergencyRoleIdRemap") as typeof import("../../Config/emergencyRoleIdRemap");
     if (memberHasAnyRemappedRole(member, normalized)) return true;
   } catch {
   }

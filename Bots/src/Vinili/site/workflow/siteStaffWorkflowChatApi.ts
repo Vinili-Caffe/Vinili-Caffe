@@ -3,7 +3,7 @@ const path = require("path") as typeof import("path");
 const mongoose = require("mongoose") as typeof import("mongoose");
 const {
   SiteWorkflowChatMessage,
-} = require("../../Schemas/Web/siteWorkflowChatSchemas") as typeof import("../../Schemas/Web/siteWorkflowChatSchemas");
+} = require("./siteWorkflowChatSchemas") as typeof import("./siteWorkflowChatSchemas");
 const { setTyping: setChatTyping, clearTyping: clearChatTyping } = require("../../site/http/siteChatTyping") as typeof import("../../site/http/siteChatTyping");
 const { loadAuthorAvatarOverrides, loadAuthorRoleOverrides, displayNameForMember } = require("./workflowChatAuthors") as typeof import("./workflowChatAuthors");
 const { MAX_IMAGES, UPLOAD_ROOT, uploadFolderKey } = require("./workflowChatMedia") as typeof import("./workflowChatMedia");

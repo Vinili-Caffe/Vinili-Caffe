@@ -1,5 +1,5 @@
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
-const Ticket = require("../../Schemas/Ticket/ticketSchema");
+const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
+const Ticket = require("../../MultiGuild/tickets/data/guildFeatureBucketTicketModel");
 const { scheduleMessageDeletion, EPHEMERAL_TTL_SHORT_MS } = require("../../../shared/utils/ephemeralMessageTtl") as typeof import("../../../shared/utils/ephemeralMessageTtl");
 const { isViniliFullFeatureGuild } = require("../../MultiGuild/core/guildFeatureScope") as typeof import("../../MultiGuild/core/guildFeatureScope");
 const { getPartnersChatChannelId, getPmCommandsCategoryIds, tenantPmCommandsZoneConfigured, getPartnershipChannelId } = require("../core/partnershipConfigResolver") as typeof import("../core/partnershipConfigResolver");
@@ -9,7 +9,7 @@ const {
   getStaffCmdsThreadIdsCache,
 } = require("../../Staff/utils/staffCmdsChannelUtils") as typeof import("../../Staff/utils/staffCmdsChannelUtils");
 const { isChannelOrThreadUnderStaffChat } = require("../../Staff/utils/staffChatChannelUtils") as typeof import("../../Staff/utils/staffChatChannelUtils");
-const { getStaffCmdsThreadIds } = require("../../Utils/Global/globalSettingsBucket") as typeof import("../../Utils/Global/globalSettingsBucket");
+const { getStaffCmdsThreadIds } = require("../../Community/services/globalSettingsBucket") as typeof import("../../Community/services/globalSettingsBucket");
 
 function partnersChatChannelId(guildId?) {
   const gid = String(guildId || "").trim();

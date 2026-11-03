@@ -14,8 +14,8 @@ const {
   ButtonBuilder,
   ButtonStyle,
 } = require("discord.js") as typeof import("discord.js");
-const { SiteDocument, SITE_DOCUMENT_TYPE } = require(__eventCoreVinili("Schemas/Community/communitySchemas"));
-const IDs = require(__eventCoreVinili("Utils/Config/ids"));
+const { SiteDocument, SITE_DOCUMENT_TYPE } = require(__eventCoreVinili("Community/schemas/communitySchemas"));
+const IDs = require(__eventCoreVinili("Config/ids"));
 const {
   FEATURES,
   canAutoSpawnFeature,
@@ -641,7 +641,7 @@ async function tryDeckMessage(message?, client?) {
     const claimed = await claimRound(kind, message.author.id);
     if (!claimed) return true;
     const field = kind === "deck_pg" ? "deckPG" : "deckReliquie";
-    const { ActivityUserProfile } = require(__eventCoreVinili("Schemas/Community/communitySchemas"));
+    const { ActivityUserProfile } = require(__eventCoreVinili("Community/schemas/communitySchemas"));
     const { ROOT } = require("./starWarsEventWalletService") as typeof import("./starWarsEventWalletService");
     await ActivityUserProfile.findOneAndUpdate(
       { guildId: message.guildId, userId: message.author.id },
@@ -728,7 +728,7 @@ async function tryPuntaCommand(message?, client?) {
     await message.reply("Crediti insufficienti.").catch(() => null);
     return true;
   }
-  const { ActivityUserProfile } = require(__eventCoreVinili("Schemas/Community/communitySchemas"));
+  const { ActivityUserProfile } = require(__eventCoreVinili("Community/schemas/communitySchemas"));
   const { ROOT } = require("./starWarsEventWalletService") as typeof import("./starWarsEventWalletService");
   await ActivityUserProfile.findOneAndUpdate(
     { guildId: message.guildId, userId: message.author.id, [`${ROOT}.credits`]: { $gte: amount } },

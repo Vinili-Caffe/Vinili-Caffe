@@ -1,5 +1,5 @@
 /** Resoconti settimanali: ore in vocale, canali esclusi e membri del server. */
-const IDs: any = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
+const IDs: any = require("../../Config/ids") as typeof import("../../Config/ids");
 const { toSafeNumber } = require("./resocontoLimits") as typeof import("./resocontoLimits");
 const { wait, getCurrentResocontoPexWeekWindowUtc, dayKeyToWeekdayLabel } = require("./resocontoTime") as typeof import("./resocontoTime");
 

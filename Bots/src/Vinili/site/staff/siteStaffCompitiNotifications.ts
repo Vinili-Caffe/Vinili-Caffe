@@ -2,7 +2,7 @@
  * In-app inbox notifications for staff weekly compiti.
  * Marker: staffCompitiNotif1
  */
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
+const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const {
   getHighStaffRecipientUserIds,
   notifyUsers,

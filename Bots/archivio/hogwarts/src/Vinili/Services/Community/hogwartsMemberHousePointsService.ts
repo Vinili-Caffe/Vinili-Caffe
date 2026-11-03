@@ -1,4 +1,4 @@
-const { SiteDocument, SITE_DOCUMENT_TYPE } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
+const { SiteDocument, SITE_DOCUMENT_TYPE } = require("../../../../../../src/Vinili/Community/schemas/communitySchemas") as typeof import("../../../../../../src/Vinili/Community/schemas/communitySchemas");
 const { normalizeHouseInput } = require("./hogwartsManualHousePointsService") as typeof import("./hogwartsManualHousePointsService");
 const { fetchSortedHouseMemberDocs } = require("./hogwartsHouseAdminService") as typeof import("./hogwartsHouseAdminService");
 

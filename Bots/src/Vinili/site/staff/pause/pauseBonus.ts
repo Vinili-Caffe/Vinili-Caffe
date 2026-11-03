@@ -1,5 +1,5 @@
 /** Pause: giorni bonus (miglior staffer, scambi). */
-const { ActivityUserProfile } = require("../../../Schemas/Community/communitySchemas") as typeof import("../../../Schemas/Community/communitySchemas");
+const { ActivityUserProfile } = require("../../../Community/schemas/communitySchemas") as typeof import("../../../Community/schemas/communitySchemas");
 const { isValidGuildUserId } = require("../../../../shared/db/validateWriteIds") as typeof import("../../../../shared/db/validateWriteIds");
 const { getTodayUtc, getStaffWeekKeyNow } = require("./pauseDates") as typeof import("./pauseDates");
 const { getBasePauseLimit } = require("./pauseRoles") as typeof import("./pauseRoles");

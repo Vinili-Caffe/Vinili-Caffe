@@ -8,8 +8,8 @@
  * DELETE /webhooks/site-bacheca                 Bearer + { id }         → chi l'ha pubblicato lo toglie
  * Con Authorization (facoltativo) nelle GET arrivano anche le reazioni di chi guarda.
  */
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
-const { GuildBoardPost, GuildSkullPost } = require("../../Schemas/Community/guildBoardPostSchema") as typeof import("../../Schemas/Community/guildBoardPostSchema");
+const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
+const { GuildBoardPost, GuildSkullPost } = require("../../Community/schemas/guildBoardPostSchema") as typeof import("../../Community/schemas/guildBoardPostSchema");
 const { resolveWebsiteGuildMember } = require("../../site/http/siteRoleRequestApi") as typeof import("../../site/http/siteRoleRequestApi");
 const { getClientGuildCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
 const { BACHECA_EMOJIS, toggleBachecaReaction, loadBachecaReactions } = require("./bachecaReactions") as typeof import("./bachecaReactions");
@@ -189,7 +189,7 @@ function itemSourceId(doc?) {
 async function viewerRepostedSources(guildId: string, rows: any[], viewerId: string) {
   const sources = rows.map((r) => itemSourceId(r.doc || r)).filter((s) => /^\d{16,20}$/.test(s));
   if (!viewerId || !sources.length) return new Set<string>();
-  const { GuildRepost } = require("../../Schemas/Community/repostSchema") as typeof import("../../Schemas/Community/repostSchema");
+  const { GuildRepost } = require("../../Community/schemas/guildBoardPostSchema") as typeof import("../../Community/schemas/guildBoardPostSchema");
   const found: any[] = await GuildRepost.find({ guildId, reposterUserId: viewerId, sourceMessageId: { $in: sources } })
     .select("sourceMessageId")
     .lean()
@@ -310,7 +310,7 @@ async function handleBachecaRepost(client?, req?, res?) {
     const id = String(body.id || "").trim();
     if (!ITEM_ID_RE.test(id)) return res.status(400).json({ ok: false, error: "bad_request" });
     const guildId = mainGuildId();
-    const { isRepostDisabledInGuild } = require("../../Services/Community/repostRoulette") as typeof import("../../Services/Community/repostRoulette");
+    const { isRepostDisabledInGuild } = require("../../Community/services/repostRoulette") as typeof import("../../Community/services/repostRoulette");
     if (isRepostDisabledInGuild(guildId)) {
       return res.status(403).json({ ok: false, error: "disabled", message: "I repost sono disattivati per ora." });
     }
@@ -326,13 +326,13 @@ async function handleBachecaRepost(client?, req?, res?) {
     }
     const isQuote = first.type === "quote";
     const sourceAuthorId = String(isQuote ? first.quotedUserId : first.sourceAuthorId || "");
-    const { RepostPrivacy } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
+    const { RepostPrivacy } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
     const blocked = await RepostPrivacy.findOne({ guildId, userId: sourceAuthorId }).lean().catch(() => null);
     if ((blocked as any)?.blocked) {
       return res.status(403).json({ ok: false, error: "privacy", message: "Questa persona ha bloccato i repost dei suoi messaggi." });
     }
-    const { GuildRepost } = require("../../Schemas/Community/repostSchema") as typeof import("../../Schemas/Community/repostSchema");
-    const { nextRepostCount } = require("../../Utils/Quote/quoteCounter") as typeof import("../../Utils/Quote/quoteCounter");
+    const { GuildRepost } = require("../../Community/schemas/guildBoardPostSchema") as typeof import("../../Community/schemas/guildBoardPostSchema");
+    const { nextRepostCount } = require("../../Community/utils/Quote/quoteCounter") as typeof import("../../Community/utils/Quote/quoteCounter");
     const totalPosts = await nextRepostCount(guildId).catch(() => 0);
     await GuildRepost.create({
       guildId,
@@ -373,7 +373,7 @@ async function handleBachecaDelete(client?, req?, res?) {
     const first = docs[0];
     let result: any = { ok: false, message: "Non puoi togliere questo contenuto." };
     if (first.type === "quote") {
-      const { deleteUserQuoteEntry } = require("../../Utils/Quote/quoteBoardService") as typeof import("../../Utils/Quote/quoteBoardService");
+      const { deleteUserQuoteEntry } = require("../../Community/utils/Quote/quoteBoardService") as typeof import("../../Community/utils/Quote/quoteBoardService");
       result = await deleteUserQuoteEntry({ guild, quoteId: String(first._id), userId: viewerId });
     } else if (first.type === "skull") {
       if (String(first.sourceAuthorId) === viewerId) {
@@ -383,7 +383,7 @@ async function handleBachecaDelete(client?, req?, res?) {
     } else {
       const own = docs.find((d) => String(d.reposterUserId) === viewerId);
       if (own) {
-        const { deleteUserRepostEntry } = require("../../Services/Community/repostService") as typeof import("../../Services/Community/repostService");
+        const { deleteUserRepostEntry } = require("../../Community/services/repostService") as typeof import("../../Community/services/repostService");
         result = await deleteUserRepostEntry({ guild, client, repostId: String(own._id), userId: viewerId });
       }
     }

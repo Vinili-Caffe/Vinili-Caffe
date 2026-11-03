@@ -1,14 +1,14 @@
 /** Automod: analisi del testo e dei link (truffe, NSFW, domini, inviti, emoji, maiuscole). */
 const path = require("path") as typeof import("path");
 const axios = require("axios") as any;
-const IDs: any = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
+const IDs: any = require("../../Config/ids") as typeof import("../../Config/ids");
 const { loadAutomodScamConfig } = require("../utils/automodScamConfig") as typeof import("../utils/automodScamConfig");
 const { readJsonSafe } = require("./automodConfigSanitize") as typeof import("./automodConfigSanitize");
 
 const URL_EXPANSION_CACHE = new Map();
 const TEXT_RULES = { regularMessage: { enabled: true, heat: 15, timeoutMs: 15 * 60_000, }, suspiciousAccount: { enabled: true, heat: 7, timeoutMs: 15 * 60_000, }, similarMessage: { enabled: true, heat: 22, ratio: 0.8, timeoutMs: 15 * 60_000, }, emojis: { enabled: true, heat: 9, minCount: 8, timeoutMs: 15 * 60_000, }, newLines: { enabled: true, heat: 5, minCount: 6, timeoutMs: 15 * 60_000, }, zalgo: { enabled: true, heat: 1.5, minCount: 6, timeoutMs: 15 * 60_000, }, characters: { enabled: true, lowercaseHeat: 0.08, uppercaseHeat: 0.12, minChars: 40, timeoutMs: 15 * 60_000, }, inviteLinks: { enabled: true, heat: 100, timeoutMs: 60 * 60_000, }, maliciousLinks: { enabled: true, heat: 100, timeoutMs: 60 * 60_000, }, nsfwLinks: { enabled: true, crawlShorteners: true, heat: 100, timeoutMs: 30 * 60_000, }, wordBlacklist: { enabled: true, useProfaneList: false, useVulgarList: false, useRacistList: true, heat: 100, timeoutMs: 45 * 60_000, }, linkBlacklist: { enabled: true, heat: 100, timeoutMs: 45 * 60_000, domains: ["dsc.gg"], }, crossServerForward: { enabled: true, heat: 100, timeoutMs: 0, }, };
 const AUTOMOD_SCAM_CONFIG = loadAutomodScamConfig();
-const AUTOMOD_CONFIG_PATH = path.resolve(__dirname, "../../Utils/Config/automodConfig.json",);
+const AUTOMOD_CONFIG_PATH = path.resolve(__dirname, "../config/automodConfig.json",);
 const SHORTENER_HOSTS = new Set(["bit.ly", "tinyurl.com", "t.co", "cutt.ly", "is.gd", "rebrand.ly", "tiny.cc", "shorturl.at", "goo.gl", "ow.ly", "buff.ly",]);
 
 const rawAutomodRuntimeConfig = readJsonSafe(AUTOMOD_CONFIG_PATH, {});

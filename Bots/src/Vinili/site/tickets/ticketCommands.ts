@@ -1,15 +1,15 @@
 
 const mongoose = require("mongoose") as typeof import("mongoose");
 const { ChannelType, Collection, ApplicationCommandType } = require("discord.js") as typeof import("discord.js");
-const IDs: any = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
-const { SiteWebTicketMessage } = require("../../features/tickets/data/siteWebTicketSchemas") as typeof import("../../features/tickets/data/siteWebTicketSchemas");
+const IDs: any = require("../../Config/ids") as typeof import("../../Config/ids");
+const { SiteWebTicketMessage } = require("../../MultiGuild/tickets/data/siteWebTicketSchemas") as typeof import("../../MultiGuild/tickets/data/siteWebTicketSchemas");
 const { knownBotDisplayName, buildWebTicketChannelName, sanitizeText, normalizeCategory, resolveGuildId } = require("./ticketNames") as typeof import("./ticketNames");
 const { buildTicketPermissions } = require("./ticketStaffAccess") as typeof import("./ticketStaffAccess");
 const { rememberBotUserId, serializeMessage, refreshTicketLastMessageFields, serializeTicket, previewFromContent, serializeTicketForActor } = require("./ticketSerialize") as typeof import("./ticketSerialize");
 const { MAX_CONTENT, emitTicketEvent } = require("./ticketNotify") as typeof import("./ticketNotify");
-const { handleOfficialPrefixMessage } = require("../../Utils/Prefix/officialPrefixDispatcher") as typeof import("../../Utils/Prefix/officialPrefixDispatcher");
+const { handleOfficialPrefixMessage } = require("../../core/officialPrefixDispatcher") as typeof import("../../core/officialPrefixDispatcher");
 const { resolveMemberOrStaff, loadTicketForActor, slashCommandJson, loadSlashCommandsFromDisk, handleSiteWebTicketsCommandsGet } = require("./ticketCommandList") as typeof import("./ticketCommandList");
-const { extractCommandOutput, wrapCapturedMessage, buildWebTicketSlashOptions, executeWebTicketPartnershipSlash } = require("./ticketPartnershipCommand") as typeof import("./ticketPartnershipCommand");
+const { extractCommandOutput, wrapCapturedMessage, buildWebTicketSlashOptions, executeWebTicketPartnershipSlash } = require("../../Partner/site/ticketPartnershipCommand") as typeof import("../../Partner/site/ticketPartnershipCommand");
 
 
 

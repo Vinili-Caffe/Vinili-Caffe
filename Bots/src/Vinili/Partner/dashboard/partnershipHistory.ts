@@ -173,7 +173,7 @@ async function softPersistPartnerHistoryMeta(guildId?, meta: Record<string, any>
   if (!gid || !guildName || !code) return;
   if (/^(server\s+sconosciuto|partner)$/i.test(guildName) || /^discord\.gg\//i.test(guildName)) return;
 
-  const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
+  const { ActivityUserProfile } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
   const inviteRe = new RegExp(`discord(?:app)?\\.(?:gg|com)/(?:invite/)?${escapeRegExp(code)}`, "i");
 
   const docs = await ActivityUserProfile.find({

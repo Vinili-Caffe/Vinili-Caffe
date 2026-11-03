@@ -26,7 +26,7 @@ try {
 process.env.PARTNERSHIP_MIGRATION_WORKER = "1";
 
 const mongoose = require("mongoose") as typeof import("mongoose");
-const { createSiteApiRestClient } = require("../../Services/Web/siteApiRestClient") as typeof import("../../Services/Web/siteApiRestClient");
+const { createSiteApiRestClient } = require("../../site/http/siteApiRestClient") as typeof import("../../site/http/siteApiRestClient");
 const {
   startPartnershipHistoryMigrationWorker,
 } = require("../../Partner/services/tenantPartnershipHistoryMigrationService") as typeof import("../../Partner/services/tenantPartnershipHistoryMigrationService");

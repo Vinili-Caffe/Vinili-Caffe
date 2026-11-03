@@ -1,6 +1,6 @@
 /** Suggerimenti: decisioni dello staff (accetta, rifiuta, decisione, elimina). */
 const mongoose = require("mongoose") as typeof import("mongoose");
-const { SiteDocument } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
+const { SiteDocument } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
 const { suggestionBoardOf, sanitizeStaffReason } = require("./suggestionFields") as typeof import("./suggestionFields");
 const { broadcastSiteSuggestionsChanged } = require("./siteSuggestionsBroadcast") as typeof import("./siteSuggestionsBroadcast");
 const { resolveWebsiteGuildMember } = require("../../site/http/siteRoleRequestApi") as typeof import("../../site/http/siteRoleRequestApi");

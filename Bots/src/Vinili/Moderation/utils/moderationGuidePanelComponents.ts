@@ -1,7 +1,7 @@
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js") as typeof import("discord.js");
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
+const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { buildStaffGuideSectionMarkdown } = require("../../Staff/utils/staffGuideContent") as typeof import("../../Staff/utils/staffGuideContent");
-const { buildVcPagePayload } = require("../../Utils/Embeds/vcPageEmbedV2") as typeof import("../../Utils/Embeds/vcPageEmbedV2");
+const { buildVcPagePayload } = require("../../../shared/embeds/vcPageEmbedV2") as typeof import("../../../shared/embeds/vcPageEmbedV2");
 
 const MOD_GUIDE_BUTTON_IDS = Object.freeze([
   "generalimoderazione",

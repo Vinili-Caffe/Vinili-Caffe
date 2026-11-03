@@ -1,6 +1,6 @@
 const { resolveWebsiteGuildMember } = require("./siteRoleRequestApi") as typeof import("./siteRoleRequestApi");
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
-const { isEconomyCommandsVisible } = require("../../Services/Community/activeEconomyService") as typeof import("../../Services/Community/activeEconomyService");
+const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
+const { isEconomyCommandsVisible } = require("../../Community/services/activeEconomyService") as typeof import("../../Community/services/activeEconomyService");
 const {
   normalizeViewAs,
   canUseViewAs,
@@ -127,7 +127,7 @@ function collectMemberRoleIds(member?) {
 
 function buildCatalogSafe(client?, roleIds?) {
   try {
-    const help = require("../../Utils/Prefix/wikiHelpCatalog") as typeof import("../../Utils/Prefix/wikiHelpCatalog");
+    const help = require("./wikiHelpCatalog") as typeof import("./wikiHelpCatalog");
     if (typeof help.buildWikiHelpCatalog !== "function") return null;
     return help.buildWikiHelpCatalog(client, roleIds);
   } catch (err) {

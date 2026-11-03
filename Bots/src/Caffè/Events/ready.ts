@@ -1,8 +1,8 @@
 const { logBotReady } = require("../../shared/discord/readyLog") as typeof import("../../shared/discord/readyLog");
 const { restoreTtsConnections } = require("../../shared/tts/services/ttsService") as typeof import("../../shared/tts/services/ttsService");
-const { startHourlyReminderLoop } = require("../Services/Community/chatReminderService") as typeof import("../Services/Community/chatReminderService");
-const { restoreStanzaRoomsFromSnapshot } = require("../Services/Voice/stanzaVoiceRoomsService") as typeof import("../Services/Voice/stanzaVoiceRoomsService");
-const { restorePendingVoiceTranscriptions } = require("../Services/Voice/voiceTranscriptionService") as typeof import("../Services/Voice/voiceTranscriptionService");
+const { startHourlyReminderLoop } = require("../Community/services/chatReminderService") as typeof import("../Community/services/chatReminderService");
+const { restoreStanzaRoomsFromSnapshot } = require("../Voice/services/stanzaVoiceRoomsService") as typeof import("../Voice/services/stanzaVoiceRoomsService");
+const { restorePendingVoiceTranscriptions } = require("../Voice/services/voiceTranscriptionService") as typeof import("../Voice/services/voiceTranscriptionService");
 const { printRecoveryHealthOnce } = require("../../shared/recovery/recoveryHealth") as typeof import("../../shared/recovery/recoveryHealth");
 const { isMongoReady } = require("../../shared/db/mongoConnect") as typeof import("../../shared/db/mongoConnect");
 
@@ -17,7 +17,7 @@ export = {
     const activeClient = client || _readyClient;
     logBotReady(activeClient);
     try {
-      const { startCoffeeHealthHttpServer } = require("../Utils/Web/coffeeHealthHttp") as typeof import("../Utils/Web/coffeeHealthHttp");
+      const { startCoffeeHealthHttpServer } = require("../site/http/coffeeHealthHttp") as typeof import("../site/http/coffeeHealthHttp");
       startCoffeeHealthHttpServer(activeClient);
     } catch (err) {
       global.logger?.warn?.("[HEALTH] Coffee init:", err?.message || err);
@@ -50,15 +50,15 @@ export = {
       global.logger?.warn?.("[MUSIC] init:", err?.message || err);
     }
     try {
-      const { startMarkovKeeperHttpServer } = require("../Services/Community/markovKeeperHttpService") as typeof import("../Services/Community/markovKeeperHttpService");
-      const { startMarkovBackfill } = require("../Services/Community/markovMessageCollectorService") as typeof import("../Services/Community/markovMessageCollectorService");
+      const { startMarkovKeeperHttpServer } = require("../Community/services/markovKeeperHttpService") as typeof import("../Community/services/markovKeeperHttpService");
+      const { startMarkovBackfill } = require("../Community/services/markovMessageCollectorService") as typeof import("../Community/services/markovMessageCollectorService");
       startMarkovKeeperHttpServer(activeClient);
       startMarkovBackfill(activeClient);
     } catch (err) {
       global.logger?.warn?.("[MARKOV] init:", err?.message || err);
     }
     try {
-      const { ensurePrefixQueueLoaded } = require("../Utils/Prefix/officialPrefixDispatcher") as typeof import("../Utils/Prefix/officialPrefixDispatcher");
+      const { ensurePrefixQueueLoaded } = require("../core/officialPrefixDispatcher") as typeof import("../core/officialPrefixDispatcher");
       ensurePrefixQueueLoaded(activeClient);
     } catch (err) {
       global.logger?.warn?.("[PREFIX] queue restore:", err?.message || err);

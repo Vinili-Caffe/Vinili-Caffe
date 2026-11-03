@@ -1,7 +1,7 @@
 const cron = require("node-cron") as typeof import("node-cron");
 const { EmbedBuilder } = require("discord.js") as typeof import("discord.js");
 const { runCronDetached } = require("../../../shared/scheduling/cronDetached") as typeof import("../../../shared/scheduling/cronDetached");
-const { SiteDocument } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
+const { SiteDocument } = require("../../../../../../src/Vinili/Community/schemas/communitySchemas") as typeof import("../../../../../../src/Vinili/Community/schemas/communitySchemas");
 const { resolveHogwartsEventConfig, isEventWindowOpen } = require("../../Utils/Web/hogwartsSortingConfig") as typeof import("../../Utils/Web/hogwartsSortingConfig");
 const { applyBurrobirraToPayload } = require("../../Utils/Minigames/burrobirraDistortion") as typeof import("../../Utils/Minigames/burrobirraDistortion");
 const { BURROBIRRA_EMBED_IMAGE_URL } = require("../../Utils/Minigames/burrobirraEmbedImage") as typeof import("../../Utils/Minigames/burrobirraEmbedImage");

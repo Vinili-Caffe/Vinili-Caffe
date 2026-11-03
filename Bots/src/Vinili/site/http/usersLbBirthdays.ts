@@ -1,7 +1,7 @@
 /** Classifiche utenti: compleanni del mese. */
 const { readCachedWebsiteMember } = require("./websiteGuildMemberFetch") as typeof import("./websiteGuildMemberFetch");
-const { listBirthdaysForMonth } = require("../../Services/Community/profileStore") as typeof import("../../Services/Community/profileStore");
-const { getRomeDateParts } = require("../../Services/Community/birthdayService") as typeof import("../../Services/Community/birthdayService");
+const { listBirthdaysForMonth } = require("../../Community/services/profileStore") as typeof import("../../Community/services/profileStore");
+const { getRomeDateParts } = require("../../Community/services/birthdayService") as typeof import("../../Community/services/birthdayService");
 const { fetchUserIdentity } = require("./usersLbIdentity") as typeof import("./usersLbIdentity");
 
 const IT_MONTH_NAMES = [

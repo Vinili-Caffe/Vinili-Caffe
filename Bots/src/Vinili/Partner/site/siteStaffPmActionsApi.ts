@@ -1,4 +1,4 @@
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
+const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { assertWebsiteStaffAccess, normalizeHeaderSecret } = require("../../site/staff/siteStaffAccessApi") as typeof import("../../site/staff/siteStaffAccessApi");
 const { memberIsPm } = require("../../site/staff/siteStaffRosterCache") as typeof import("../../site/staff/siteStaffRosterCache");
 const {

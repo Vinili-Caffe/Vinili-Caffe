@@ -1,5 +1,5 @@
 /** Resoconti settimanali: limiti di attività e sanzioni per ruolo. */
-const IDs: any = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
+const IDs: any = require("../../Config/ids") as typeof import("../../Config/ids");
 
 const STAFF_ACTIVITY_LIMITS = {
   [String(IDs.roles.Helper)]: { messages: 400, hours: 4 },

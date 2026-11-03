@@ -1,4 +1,4 @@
-const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
+const { ActivityUserProfile } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
 const { getPartnershipChannelId } = require("../core/partnershipConfigResolver") as typeof import("../core/partnershipConfigResolver");
 
 function buildPartnershipMessageLink(guildId?, channelId?, messageId?) {
@@ -65,14 +65,14 @@ async function resolvePartnerManagerUserIdFromMessage(guildId?, messageId?) {
 }
 
 function buildPartnerPointHighStaffPingLine() {
-  const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
+  const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
   const roleId = String(IDs.roles?.HighStaff || "").trim();
   if (!/^\d{16,20}$/.test(roleId)) return "";
   return `<@&${roleId}>`;
 }
 
 function getPartnerPointHighStaffPingRoleIds() {
-  const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
+  const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
   const roleId = String(IDs.roles?.HighStaff || "").trim();
   return /^\d{16,20}$/.test(roleId) ? [roleId] : [];
 }
@@ -104,7 +104,7 @@ function buildPartnerPointLogContent({
 
 function memberIsHighStaffForPointReview(member?) {
   if (!member?.roles?.cache) return false;
-  const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
+  const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
   const ids = [IDs.roles?.HighStaff, IDs.roles?.Founder, IDs.roles?.Manager, IDs.roles?.Admin].filter(Boolean).map(String);
   if (ids.some((rid?) => member.roles.cache.has(rid))) return true;
   try {

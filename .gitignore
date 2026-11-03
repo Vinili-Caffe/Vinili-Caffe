@@ -216,12 +216,34 @@ Vinyls/Data/uploads/**
 Vinyls/Data/Hogwarts/*.jsonl
 Vinyls/Data/noDmList.json*
 Vinyls/Data/ticketReopenOutsideSessions.json*
-shared/discord/chatHubPacing.snapshot.json
+
+# Runtime-only (VPS / se lanci il bot in locale): non tenere in tree
+Bots/src/Vinili/Data/
+Bots/src/Caffè/Data/
+Bots/src/shared/cache/RoleIcons/
+# Anti-scam image refs: solo VPS (automod); in locale ~3MB inutili
+Bots/src/Vinili/Moderation/config/grabbedScamRefs/
+# Copie sync / dump catalogo / metriche / stato runtime: non codice
+Bots/src/Vinili/Config/*.server
+Bots/src/Vinili/Config/idsCatalog.snapshot.txt
+Bots/src/Vinili/Config/idsCatalog.js
+Bots/src/Vinili/Moderation/config/automodMetrics.json
+Bots/src/Vinili/Moderation/config/automodRejectedExemptChannels.json
+Bots/src/Vinili/Security/config/securityProfiles.json
+Bots/src/shared/discord/chatHubPacing.snapshot.json
+# Backup / dump one-shot (mai in repo; non servono sulla VPS come codice)
+**/*.bak
+**/*.bak-*
+**/*.js.server
+**/*.ts.server
+Bots/src/Vinili/Config/site.config.json.bak-*
 
 # Calendario evento
 .claude
 .vercel
+.vscode/*
 .env*
+.cursorignore/*
 
 # ── BOTS: non più in root (runtime = bots-ts/dist) ──
 /Vinyls/
@@ -233,10 +255,17 @@ shared/discord/chatHubPacing.snapshot.json
 .DS_Store
 *.pem
 WebSite/next-env.d.ts
+WebSite/.next/
+WebSite/out/
+WebSite/.cache/
+WebSite/tsconfig.tsbuildinfo
 WebSite/scripts/_tmp_*
 WebSite/build/
 
+# ── Bots local caches (non commitare; non servono in tree) ──
+Bots/.cache/
+Bots/build/
+Bots/.tsbuildinfo
+
 # Mai ricreare: nome vecchio post-rename → solo WebSite/
 WebSiteReact/
-
-Bots/build/

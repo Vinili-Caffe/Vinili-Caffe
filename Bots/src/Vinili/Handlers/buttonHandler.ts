@@ -35,7 +35,7 @@ const REMOVED_BUTTON_HANDLER_NAMES = new Set([
 function isNonHandlerFile(relativeKey?) {
   const rel = String(relativeKey || "").replace(/\\/g, "/");
   const base = path.basename(rel).replace(/\.(cjs|mjs|js|cts|mts|ts)$/i, "");
-  if (base === "index" || base === "components" || base.endsWith("Helpers")) return true;
+  if (base === "index" || base === "components" || base === "idBarrel" || base === "buttonParsers" || base.endsWith("Helpers")) return true;
   if (rel.endsWith("/topChannel/components.ts") || rel.endsWith("/topChannel/components.js")) return true;
   return false;
 }
@@ -68,18 +68,30 @@ export = (client?) => {
     const statsButtons = path.resolve(__dirname, "..", "Stats", "discord", "buttons");
     const musicButtons = path.resolve(__dirname, "..", "..", "shared", "music", "discord", "buttons");
     const moderationButtons = path.resolve(__dirname, "..", "Moderation", "discord", "buttons");
+    const communityButtons = path.resolve(__dirname, "..", "Community", "discord", "buttons");
+    const giveawayButtons = path.resolve(__dirname, "..", "Giveaway", "discord", "buttons");
+    const minigamesButtons = path.resolve(__dirname, "..", "Minigames", "discord", "buttons");
+    const backupButtons = path.resolve(__dirname, "..", "Backup", "discord", "buttons");
+    const levelButtons = path.resolve(__dirname, "..", "Level", "discord", "buttons");
+    const securityButtons = path.resolve(__dirname, "..", "Security", "discord", "buttons");
+    const multiGuildButtons = path.resolve(__dirname, "..", "MultiGuild", "Buttons");
     const defaults = [
       partnerButtons,
       statsButtons,
+      giveawayButtons,
+      minigamesButtons,
+      backupButtons,
+      levelButtons,
+      securityButtons,
+      communityButtons,
       musicButtons,
       moderationButtons,
-      path.resolve(__dirname, "..", "Buttons"),
-      path.resolve(__dirname, "..", "MultiGuild", "Buttons"),
+      multiGuildButtons,
     ];
     const dirs = Array.isArray(basePaths)
       ? basePaths
       : basePaths
-        ? [basePaths, partnerButtons, statsButtons, musicButtons, moderationButtons, path.resolve(__dirname, "..", "MultiGuild", "Buttons")]
+        ? [basePaths, ...defaults]
         : defaults;
 
     const loaded = [];

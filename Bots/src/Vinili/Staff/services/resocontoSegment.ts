@@ -1,7 +1,7 @@
 /** Resoconti settimanali: invio dei resoconti di un ruolo. */
-const IDs: any = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
-const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
-const { getUserOverviewStats } = require("../../Services/Community/activityService") as typeof import("../../Services/Community/activityService");
+const IDs: any = require("../../Config/ids") as typeof import("../../Config/ids");
+const { ActivityUserProfile } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
+const { getUserOverviewStats } = require("../../Community/services/activityService") as typeof import("../../Community/services/activityService");
 const { getClientGuildCached, getGuildMemberCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
 const { getRomeDateParts, getCurrentResocontoPexWeekWindowUtc, getPmResocontoWindow } = require("./resocontoTime") as typeof import("./resocontoTime");
 const { collectResocontoVoiceExcludeIds, buildResocontoOverviewOptions } = require("./resocontoActivity") as typeof import("./resocontoActivity");

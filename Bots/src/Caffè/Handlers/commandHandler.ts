@@ -3,7 +3,7 @@ const { Routes } = require("discord-api-types/v10") as typeof import("discord-ap
 const fs = require("fs") as typeof import("fs");
 const path = require("path") as typeof import("path");
 const ascii = require("ascii-table");
-const IDs = require("../Utils/Config/ids") as typeof import("../Utils/Config/ids");
+const IDs = require("../Config/ids") as typeof import("../Config/ids");
 const { clearCommandDeployCache, isCommandDeployRequired, markCommandDeployComplete } = require("../../shared/runtime/commandDeployCache") as typeof import("../../shared/runtime/commandDeployCache");
 const { purgeObsoleteApplicationCommands } = require("../../shared/discord/purgeObsoleteApplicationCommands") as typeof import("../../shared/discord/purgeObsoleteApplicationCommands");
 const LOG_COMMANDS = String(process.env.LOG_COMMANDS || "0") === "1";
@@ -26,13 +26,14 @@ export = (client?) => {
     client.commands.clear();
 
     const parseCommandMeta =(command?)=>{const commandJson = typeof command ?. data ?. toJSON === "function" ? command.data.toJSON():null;const name = command ?. data ?. name || commandJson ?. name || command ?. name || null;const type = command ?. data ?. type ?? commandJson ?. type ??1;return {name,type,json:commandJson};};for(const folder of commandFolders) {
-      const folderPath = path.join(basePath, folder);
+      const folderPath = folder === "." ? basePath : path.join(basePath, folder);
       if (!fs.existsSync(folderPath)) continue;
+      const categoryLabel = folder === "." ? "Staff" : folder;
       const commandFiles = fs.readdirSync(folderPath).filter((f?)=>/\.(cjs|mjs|js|cts|mts|ts)$/i.test(f) && !f.endsWith(".d.ts"));
 
       for (const file of commandFiles) {
         const fullPath = path.join(folderPath, file);
-        const key = `${folder}/${file}`;
+        const key = `${categoryLabel}/${file}`;
         try {
           delete require.cache[require.resolve(fullPath)];
           const command = require(fullPath);
@@ -43,7 +44,7 @@ export = (client?) => {
           }
 
           if (typeof command.category === "undefined") {
-            command.category = folder;
+            command.category = categoryLabel;
           }
           if (!String(command.helpDescription || "").trim()) {
             command.helpDescription = String(command.description || "").trim();

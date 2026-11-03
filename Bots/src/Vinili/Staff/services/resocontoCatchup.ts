@@ -1,7 +1,7 @@
 /** Resoconti settimanali: recupero delle valutazioni automatiche saltate. */
-const IDs: any = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
-const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
-const { getUserOverviewStats } = require("../../Services/Community/activityService") as typeof import("../../Services/Community/activityService");
+const IDs: any = require("../../Config/ids") as typeof import("../../Config/ids");
+const { ActivityUserProfile } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
+const { getUserOverviewStats } = require("../../Community/services/activityService") as typeof import("../../Community/services/activityService");
 const { getClientGuildCached, getGuildMemberCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
 const { STAFF_ACTIVITY_LIMITS, STAFF_SANCTION_LIMITS } = require("./resocontoLimits") as typeof import("./resocontoLimits");
 const { getRomeDateParts, getCurrentResocontoPexWeekWindowUtc, getStaffResocontoEvaluationWindow } = require("./resocontoTime") as typeof import("./resocontoTime");

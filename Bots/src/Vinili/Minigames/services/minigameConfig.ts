@@ -1,6 +1,6 @@
 /** Minigiochi: configurazione letta dal bot, giochi disponibili e rotazione giornaliera dei tipi. */
 const { minigameRotationFindOneLean, minigameRotationFindOneAndUpdate } = require("../../../shared/botState/domainStatesStore") as typeof import("../../../shared/botState/domainStatesStore");
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
+const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { getMemoryEmojiBank } = require("../../Minigames/data/minigameBanks") as typeof import("../../Minigames/data/minigameBanks");
 const {
   isHalloweenEventLiveForMinigames,

@@ -10,13 +10,33 @@ export = (client?) => {
 
     const root = basePath || path.resolve(__dirname, "..");
     const triggersRoot = path.join(root, "Triggers");
-    const files = listRelativeJsFiles(triggersRoot);
+    const extraFiles = [
+      path.join(root, "Community", "discord", "panels", "startupPanels.js"),
+    ];
+    const files = [
+      ...listRelativeJsFiles(triggersRoot).map((rel?) => ({
+        abs: path.join(triggersRoot, rel),
+        label: rel,
+      })),
+      ...extraFiles
+        .filter((f?) => {
+          try {
+            require.resolve(f);
+            return true;
+          } catch {
+            return false;
+          }
+        })
+        .map((abs?) => ({
+          abs,
+          label: path.relative(root, abs).replace(/\\/g, "/"),
+        })),
+    ];
     const statusMap = new Map();
     let loaded = 0;
 
-    for (const rel of files) {
+    for (const { abs: triggerPath, label: rel } of files) {
       try {
-        const triggerPath = path.join(triggersRoot, rel);
         delete require.cache[require.resolve(triggerPath)];
         const trigger = require(triggerPath);
         if (!trigger?.name || typeof trigger.execute !== "function") {
@@ -52,7 +72,7 @@ export = (client?) => {
     for (const [rel, status] of Array.from(statusMap.entries()).sort((a?, b?) => a[0].localeCompare(b[0]))) {
       const folder = path.dirname(rel).replace(/\\/g, "/");
       const file = path.basename(rel);
-      const folderLabel = folder === "." ? "Triggers" : `Triggers/${folder}`;
+      const folderLabel = folder === "." ? "Triggers" : folder;
       table.addRow(folderLabel, file, status);
     }
 

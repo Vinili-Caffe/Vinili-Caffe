@@ -1,7 +1,7 @@
 const cron = require("node-cron") as typeof import("node-cron");
 const { ActionRowBuilder, AttachmentBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, MessageFlags, ThreadAutoArchiveDuration, OverwriteType } = require("discord.js") as typeof import("discord.js");
 const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
-const { isValidGuildUserId } = require("../../Utils/DB/validateWriteIds") as typeof import("../../Utils/DB/validateWriteIds");
+const { isValidGuildUserId } = require("../../../../../../src/shared/db/validateWriteIds") as typeof import("../../../../../../src/shared/db/validateWriteIds");
 const { loadHourlyRows } = require("./activityService") as typeof import("./activityService");
 const {
   MESSAGE_EXP,
@@ -11,7 +11,7 @@ const {
   getUserExpStats,
   getTotalExpForLevel,
 } = require("./expService") as typeof import("./expService");
-const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
+const { ActivityUserProfile } = require("../../../../../../src/Vinili/Community/schemas/communitySchemas") as typeof import("../../../../../../src/Vinili/Community/schemas/communitySchemas");
 const { WeeklyContestBundle, WeeklyContestMeta } = require("../../Schemas/Community/weeklyContestSchemas") as typeof import("../../Schemas/Community/weeklyContestSchemas");
 const { getClientChannelCached, getGuildChannelCached, getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache") as typeof import("../../Utils/Interaction/interactionEntityCache");
 const {

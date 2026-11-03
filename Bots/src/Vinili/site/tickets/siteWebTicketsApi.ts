@@ -5,7 +5,7 @@ const {
   SiteWebTicket,
   SiteWebTicketMessage,
   nextWebTicketNumber,
-} = require("../../features/tickets/data/siteWebTicketSchemas") as typeof import("../../features/tickets/data/siteWebTicketSchemas");
+} = require("../../MultiGuild/tickets/data/siteWebTicketSchemas") as typeof import("../../MultiGuild/tickets/data/siteWebTicketSchemas");
 const { sendJsonWithEtag } = require("../http/siteHttpEtag") as typeof import("../http/siteHttpEtag");
 const { CATEGORY_LABELS, displayNameForMember, buildWebTicketChannelName, avatarForMember, liveTicketAvatarUrl, sanitizeText, normalizeCategory, resolveWebTicketCategories, resolveGuildId } = require("./ticketNames") as typeof import("./ticketNames");
 const { resolveCommunityRoleForMember, buildStaffRoleMapForUserIds, listAccessibleTicketCategories, resolveClientGuild, ticketHasAddedUser, buildTicketPermissions } = require("./ticketStaffAccess") as typeof import("./ticketStaffAccess");

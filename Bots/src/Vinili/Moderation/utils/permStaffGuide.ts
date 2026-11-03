@@ -1,6 +1,6 @@
 /** Permessi: accesso ai pulsanti della guida staff. */
-const IDs: any = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
-const { hasEventWeekWinnerGrant } = require("../../Services/Community/weekWinnerGrantsService") as typeof import("../../Services/Community/weekWinnerGrantsService");
+const IDs: any = require("../../Config/ids") as typeof import("../../Config/ids");
+const { hasEventWeekWinnerGrant } = require("../../Community/services/weekWinnerGrantsService") as typeof import("../../Community/services/weekWinnerGrantsService");
 
 const EMPTY_PERMISSIONS = { slash: {}, prefix: {}, channels: {}, buttons: {}, selectMenus: {}, modals: {}, };
 let idsFallbackCache = null;
@@ -42,7 +42,7 @@ function isPartnerManagerOnlyMember(member?) {
 function getIdsConfig() {
   if (idsFallbackCache) return idsFallbackCache;
   try {
-    idsFallbackCache = require("../../Utils/Config/ids");
+    idsFallbackCache = require("../../Config/ids");
     return idsFallbackCache;
   } catch {
     return {};
@@ -80,7 +80,7 @@ function resolveRoleReference(value?) {
   }
   if (!resolved) return null;
   try {
-    const { remapRoleIdForward } = require("../../Utils/Config/emergencyRoleIdRemap") as typeof import("../../Utils/Config/emergencyRoleIdRemap");
+    const { remapRoleIdForward } = require("../../Config/emergencyRoleIdRemap") as typeof import("../../Config/emergencyRoleIdRemap");
     return remapRoleIdForward(resolved) || resolved;
   } catch {
     return resolved;

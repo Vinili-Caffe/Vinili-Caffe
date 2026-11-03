@@ -1,5 +1,5 @@
 /** Profilo staff: cache dei profili già calcolati. */
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
+const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { readCachedWebsiteMember } = require("../../site/http/websiteGuildMemberFetch") as typeof import("../../site/http/websiteGuildMemberFetch");
 
 const PROFILE_CACHE_TTL_MS = 120_000;

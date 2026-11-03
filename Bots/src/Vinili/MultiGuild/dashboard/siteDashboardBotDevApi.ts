@@ -23,7 +23,7 @@ const {
   adjustPremiumCredits,
   listPremiumCreditHolders,
   findLastPremiumSpendForGuild,
-} = require("../../Services/Community/premiumCreditsService") as typeof import("../../Services/Community/premiumCreditsService");
+} = require("../../Community/services/premiumCreditsService") as typeof import("../../Community/services/premiumCreditsService");
 const {
   getTenantPremium,
   revokeTenantPremium,

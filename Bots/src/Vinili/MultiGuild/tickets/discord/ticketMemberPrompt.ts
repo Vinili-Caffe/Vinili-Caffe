@@ -1,5 +1,5 @@
 const { InteractionWebhook } = require("discord.js") as typeof import("discord.js");
-const Ticket = require("../../../Schemas/Ticket/ticketSchema");
+const Ticket = require("../data/guildFeatureBucketTicketModel");
 const { getGuildMemberCached } = require("../../../../shared/discord/interactionEntityCache") as typeof import("../../../../shared/discord/interactionEntityCache");
 const { isTicketOpenedByMember, memberCanActAsTicketStaff } = require("./ticketStaffPanelBuild") as typeof import("./ticketStaffPanelBuild");
 const { editTicketMemberOverwrite } = require("./ticketHighStaffOverwrites") as typeof import("./ticketHighStaffOverwrites");

@@ -1,10 +1,10 @@
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
-const { CustomRole, SiteDocument, SITE_DOCUMENT_TYPE } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
+const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
+const { CustomRole, SiteDocument, SITE_DOCUMENT_TYPE } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
 
 const COOLDOWN = SITE_DOCUMENT_TYPE.ROLE_REQUEST_COOLDOWN;
 const { createSiteRoleJoinRequest } = require("../../Events/interaction/customRoleHandlers") as typeof import("../../Events/interaction/customRoleHandlers");
-const { isArchivedEventRoleId } = require("../../Utils/Community/userCustomRoleFilter") as typeof import("../../Utils/Community/userCustomRoleFilter");
-const { collectBlockedSystemRoleIds, isListableUserCustomRole } = require("../../Utils/Community/userCustomRoleFilter") as typeof import("../../Utils/Community/userCustomRoleFilter");
+const { isArchivedEventRoleId } = require("../../Community/utils/userCustomRoleFilter") as typeof import("../../Community/utils/userCustomRoleFilter");
+const { collectBlockedSystemRoleIds, isListableUserCustomRole } = require("../../Community/utils/userCustomRoleFilter") as typeof import("../../Community/utils/userCustomRoleFilter");
 const { fetchWebsiteGuildMember, isOnNegativeCache, readCachedWebsiteMember, writeCachedWebsiteMember, ensureWebsiteGuild } = require("./websiteGuildMemberFetch") as typeof import("./websiteGuildMemberFetch");
 const { DISCORD_OAUTH_UA, fetchDiscordOAuthMe } = require("./discordOauthMe") as typeof import("./discordOauthMe");
 

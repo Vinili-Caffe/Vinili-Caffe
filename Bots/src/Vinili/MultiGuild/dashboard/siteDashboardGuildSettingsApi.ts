@@ -17,7 +17,7 @@ const {
   normalizeBoardsMode,
 } = require("../../MultiGuild/core/tenantGuildSettings") as typeof import("../../MultiGuild/core/tenantGuildSettings");
 const { verifyDashboardGuildAccess } = require("./siteDashboardApi") as typeof import("./siteDashboardApi");
-const { listGuildPickerData } = require("./siteDashboardPartnershipApi") as typeof import("./siteDashboardPartnershipApi");
+const { listGuildPickerData } = require("../../Partner/dashboard/siteDashboardPartnershipApi") as typeof import("../../Partner/dashboard/siteDashboardPartnershipApi");
 const {
   ensureTenantPremiumCacheFresh,
   getTenantPremiumSync,
@@ -412,7 +412,7 @@ async function patchDashboardGuildSettings(client?, accessToken?, guildId?, body
       const {
         ensureTenantUpdatesWebhook,
         clearTenantUpdatesWebhook,
-      } = require("../../Services/Community/botUpdatesRelayService") as typeof import("../../Services/Community/botUpdatesRelayService");
+      } = require("../../Community/services/botUpdatesRelayService") as typeof import("../../Community/services/botUpdatesRelayService");
       if (channelId) {
         const ensured = await ensureTenantUpdatesWebhook(client, gid, channelId);
         if (!ensured.ok) {

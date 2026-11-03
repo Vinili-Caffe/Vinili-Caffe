@@ -1,7 +1,7 @@
 /** Gestione staff: elenco dello staff e scheda del singolo membro. */
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
-const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
-const { memberHasStaffRole, memberIsBlogger } = require("../../Utils/Community/staffListUtils") as typeof import("../../Utils/Community/staffListUtils");
+const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
+const { ActivityUserProfile } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
+const { memberHasStaffRole, memberIsBlogger } = require("../../Community/utils/staffListUtils") as typeof import("../../Community/utils/staffListUtils");
 const { resolveStaffProfileDisplayRoleId, buildFullProfileRoleLabelForEmbed, resolveStaffProfileKind, resolveStaffPartnerPointsDisplay, PROFILE_PROSPECT, PROFILE_PM_ONLY } = require("../../Staff/utils/staffProfilePanelRuntime") as typeof import("../../Staff/utils/staffProfilePanelRuntime");
 const { resolvePartnerPointsShown, resolvePartnerTotalEarned } = require("../../Staff/utils/partnerPointsDisplayUtils") as typeof import("../../Staff/utils/partnerPointsDisplayUtils");
 const { getHighestLadderRole, getNextLadderRoleId, peekDepexLadderTargetRoleId, assertStaffCareerHierarchy, staffLadderRankIndex, getMemberStaffLadderRank } = require("../../Staff/utils/staffPanelActions") as typeof import("../../Staff/utils/staffPanelActions");
@@ -273,7 +273,7 @@ async function buildRoster(client?) {
     for (const m of sec.members) userIds.push(m.userId);
   }
   const guildId = String(roster.guildId || IDs.guilds.main || "");
-  const { getStaffListNewBadgeRoleIdsByUser } = require("../../Utils/Community/staffListUtils") as typeof import("../../Utils/Community/staffListUtils");
+  const { getStaffListNewBadgeRoleIdsByUser } = require("../../Community/utils/staffListUtils") as typeof import("../../Community/utils/staffListUtils");
   const [statsByUser, newBadgeByUser] = await Promise.all([
     loadStaffTrackStatsByUserIds(guildId, userIds),
     getStaffListNewBadgeRoleIdsByUser(guildId).catch(() => new Map()),

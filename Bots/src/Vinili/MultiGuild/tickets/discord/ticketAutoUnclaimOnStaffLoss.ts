@@ -1,8 +1,8 @@
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js") as typeof import("discord.js");
 const { buildTicketFlowRich }: any = require("./ticketUxMessages") as typeof import("./ticketUxMessages");
-const { isComponentsV2Message } = require("../../../Utils/Embeds/vcPageEmbedV2") as typeof import("../../../Utils/Embeds/vcPageEmbedV2");
-const Ticket = require("../../../Schemas/Ticket/ticketSchema");
-const IDs = require("../../../Utils/Config/ids") as typeof import("../../../Utils/Config/ids");
+const { isComponentsV2Message } = require("../../../../shared/embeds/vcPageEmbedV2") as typeof import("../../../../shared/embeds/vcPageEmbedV2");
+const Ticket = require("../data/guildFeatureBucketTicketModel");
+const IDs = require("../../../Config/ids") as typeof import("../../../Config/ids");
 const { PERKS_STAFF_ROLE_IDS } = require("./ticketPerksStaffRoles") as typeof import("./ticketPerksStaffRoles");
 const { applyPartnershipTicketRoleOverwrites } = require("./ticketPartnershipStaffRoles") as typeof import("./ticketPartnershipStaffRoles");
 const {
@@ -11,7 +11,7 @@ const {
   applyTicketStaffRoleOverwrites,
   editTicketRoleOverwrite,
 } = require("./ticketHighStaffOverwrites") as typeof import("./ticketHighStaffOverwrites");
-const { GuildFeatureBucket } = require("../../../Schemas/Guild/guildFeatureBucketSchema") as typeof import("../../../Schemas/Guild/guildFeatureBucketSchema");
+const { GuildFeatureBucket } = require("../../schemas/guildFeatureBucketSchema") as typeof import("../../schemas/guildFeatureBucketSchema");
 const { getGuildChannelCached } = require("../../../../shared/discord/interactionEntityCache") as typeof import("../../../../shared/discord/interactionEntityCache");
 const { buildTicketControlButtons, resolveTicketPanel } = require("./ticketGuildOptions") as typeof import("./ticketGuildOptions");
 const TICKET_ROLE_UNCLAIMED_SPECTATE = TICKET_STAFF_SPECTATE_OVERWRITES;

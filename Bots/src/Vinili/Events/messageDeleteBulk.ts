@@ -1,6 +1,6 @@
 const { EmbedBuilder, AttachmentBuilder, AuditLogEvent, PermissionsBitField, MessageFlagsBitField, } = require("discord.js") as typeof import("discord.js");
-const IDs = require("../Utils/Config/ids") as typeof import("../Utils/Config/ids");
-const { toDiscordTimestamp } = require("../Utils/Logging/channelRolesLogUtils") as typeof import("../Utils/Logging/channelRolesLogUtils");
+const IDs = require("../Config/ids") as typeof import("../Config/ids");
+const { toDiscordTimestamp } = require("../Moderation/utils/channelRolesLogUtils") as typeof import("../Moderation/utils/channelRolesLogUtils");
 const { isViniliFullFeatureGuild } = require("../MultiGuild/core/guildFeatureScope") as typeof import("../MultiGuild/core/guildFeatureScope");
 const VERIFICATION_EXCLUDED_CHANNEL_IDS=new Set([IDs.channels.verify,IDs.channels.clickMe,IDs.channels.activityLogs].filter(Boolean).map((id?) => String(id)));
 const AUDIT_LOOKBACK_MS = 120 * 1000;

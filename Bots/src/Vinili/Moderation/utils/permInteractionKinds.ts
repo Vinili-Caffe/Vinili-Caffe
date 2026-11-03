@@ -1,6 +1,6 @@
 /** Permessi: riconoscimento del tipo di interazione (ticket, backup, profilo, ruoli, candidature). */
-const IDs: any = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
-const { parseProfilePanelOwnerIdFromCustomId, resolveProfilePanelControl } = require("../../Utils/Community/profilePanelControl") as typeof import("../../Utils/Community/profilePanelControl");
+const IDs: any = require("../../Config/ids") as typeof import("../../Config/ids");
+const { parseProfilePanelOwnerIdFromCustomId, resolveProfilePanelControl } = require("../../Community/utils/profilePanelControl") as typeof import("../../Community/utils/profilePanelControl");
 
 const CANDIDATURE_BLACKLIST_ROLE_ID = String(
   IDs?.roles?.blacklistModuli || "1463248874725576879",

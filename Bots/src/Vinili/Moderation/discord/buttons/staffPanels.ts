@@ -1,4 +1,4 @@
-const triggersButtons = require("../../../Triggers/buttons") as typeof import("../../../Triggers/buttons");
+const triggersButtons = require("../../utils/legacyPanelButtons") as typeof import("../../utils/legacyPanelButtons");
 
 /** Sticky #sanzioni + classifica views avatar/banner + unblock/quote. */
 const STAFF_PANEL_EXACT_IDS = new Set([

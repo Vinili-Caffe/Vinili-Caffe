@@ -1,8 +1,8 @@
 /** Candidature: accettazione e pex del candidato. */
-const IDs = require("../../../Utils/Config/ids") as typeof import("../../../Utils/Config/ids");
+const IDs = require("../../../Config/ids") as typeof import("../../../Config/ids");
 const { getGuildChannelCached, getGuildMemberCached } = require("../../../../shared/discord/interactionEntityCache") as typeof import("../../../../shared/discord/interactionEntityCache");
 const { getOrCreateStaffDoc, deleteThreadForMessage, ensureStaff } = require("../../../Staff/utils/staffDocUtils") as typeof import("../../../Staff/utils/staffDocUtils");
-const { clearStaffPendingPurgeAt } = require("../../../Services/Community/userLeaveBackupService") as typeof import("../../../Services/Community/userLeaveBackupService");
+const { clearStaffPendingPurgeAt } = require("../../../Community/services/userLeaveBackupService") as typeof import("../../../Community/services/userLeaveBackupService");
 const { sendPartnerManagerWelcome, sendHelperWelcome } = require("../../../Staff/utils/staffWelcomeMessages") as typeof import("../../../Staff/utils/staffWelcomeMessages");
 const { HELPER_ROLE_ID, PARTNER_MANAGER_ROLE_ID, normalizeApplicationType, getTargetRoleIdByType } = require("./candidatureEligibility") as typeof import("./candidatureEligibility");
 const { APPLICATION_ACCEPTED_COLOR, applicationTypeLabel, setApplicationMessageStatusColor } = require("./candidatureEmbeds") as typeof import("./candidatureEmbeds");

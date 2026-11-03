@@ -1,9 +1,9 @@
 const { ChannelType } = require("discord.js") as typeof import("discord.js");
 const { getOrCreateStaffDoc } = require("../../../Staff/utils/staffDocUtils") as typeof import("../../../Staff/utils/staffDocUtils");
-const IDs = require("../../../Utils/Config/ids") as typeof import("../../../Utils/Config/ids");
+const IDs = require("../../../Config/ids") as typeof import("../../../Config/ids");
 const { getOnePausePerMonthWarning, getOneWeekBetweenWarning, normalizePauseRoleChoice, PAUSE_ROLE_STAFF, PAUSE_ROLE_PM, PAUSE_ROLE_BOTH } = require("./pauseHandlersUtils") as typeof import("./pauseHandlersUtils");
 const { getGuildChannelCached, getClientChannelCached } = require("../../../../shared/discord/interactionEntityCache") as typeof import("../../../../shared/discord/interactionEntityCache");
-const { hydrateGuildMembersForRolePings } = require("../../../Utils/Discord/threadRoleMembers") as typeof import("../../../Utils/Discord/threadRoleMembers");
+const { hydrateGuildMembersForRolePings } = require("../../../Community/utils/threadRoleMembers") as typeof import("../../../Community/utils/threadRoleMembers");
 const { getTodayUtc: getRomeTodayUtc } = require("./pauseDates") as typeof import("./pauseDates");
 const { normalizeHalfDay, halfDayLabel, canRequestHalfDayToday, getHalfDayConflict, getHalfDayLimitWarnings } = require("./pauseHalfDay") as typeof import("./pauseHalfDay");
 const MS_PER_DAY = 24 * 60 * 60 * 1000;

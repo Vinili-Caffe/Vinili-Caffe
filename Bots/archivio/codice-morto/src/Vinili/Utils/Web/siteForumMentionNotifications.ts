@@ -1,6 +1,6 @@
 const mongoose = require("mongoose") as typeof import("mongoose");
 const IDs = require("../Config/ids") as typeof import("../Config/ids");
-const { SiteDocument, SITE_DOCUMENT_TYPE } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
+const { SiteDocument, SITE_DOCUMENT_TYPE } = require("../../../../../../src/Vinili/Community/schemas/communitySchemas") as typeof import("../../../../../../src/Vinili/Community/schemas/communitySchemas");
 const { migrateLegacyInAppNotificationsForUser } = require("./siteInAppNotificationsService") as typeof import("./siteInAppNotificationsService");
 
 const NOTIF = SITE_DOCUMENT_TYPE.IN_APP_NOTIFICATION;

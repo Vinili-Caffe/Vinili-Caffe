@@ -2,8 +2,8 @@
 const fs = require("node:fs") as typeof import("node:fs");
 const path = require("node:path") as typeof import("node:path");
 const mongoose = require("mongoose") as typeof import("mongoose");
-const { SiteWebTicket, SiteWebTicketMessage } = require("../../features/tickets/data/siteWebTicketSchemas") as typeof import("../../features/tickets/data/siteWebTicketSchemas");
-const { sanitizeDiscordChannelName } = require("../../Utils/Discord/discordDisplayName") as typeof import("../../Utils/Discord/discordDisplayName");
+const { SiteWebTicket, SiteWebTicketMessage } = require("../../MultiGuild/tickets/data/siteWebTicketSchemas") as typeof import("../../MultiGuild/tickets/data/siteWebTicketSchemas");
+const { sanitizeDiscordChannelName } = require("../utils/discordDisplayName") as typeof import("../utils/discordDisplayName");
 const { setWebTicketPagePresence, clearWebTicketPagePresence } = require("./webTicketPagePresence") as typeof import("./webTicketPagePresence");
 const { setTyping: setChatTyping, clearTyping: clearChatTyping } = require("../http/siteChatTyping") as typeof import("../http/siteChatTyping");
 const { knownBotDisplayName, displayNameForMember, avatarForMember, scrubStoredTicketAvatarUrl, normalizeCategory, resolveGuildId } = require("./ticketNames") as typeof import("./ticketNames");

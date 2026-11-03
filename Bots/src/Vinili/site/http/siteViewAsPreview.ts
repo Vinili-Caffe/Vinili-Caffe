@@ -3,7 +3,7 @@
  * Header: X-VC-View-As: real|logout|member|helper|mod|senior|director|highstaff|pm
  * Marker: viewAsRoleHard1
  */
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
+const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { memberHasConfiguredRole } = require("../../Staff/utils/staffRoleHierarchy") as typeof import("../../Staff/utils/staffRoleHierarchy");
 
 const VIEW_AS_HEADER = "x-vc-view-as";

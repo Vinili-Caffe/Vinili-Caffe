@@ -1,5 +1,5 @@
 /** Workflow staff: annullo automatico di resoconti e pause non più validi. */
-const { SiteDocument } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
+const { SiteDocument } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
 const { getGuildMemberCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
 const { WORKFLOW_DOC, updateStaffWorkflowStatusByDedupe } = require("./workflowWrites") as typeof import("./workflowWrites");
 const { memberStillRelevantForResoconto, resocontoAutoCancelLabel, memberEligibleForPauseRole, autoCancelPendingPausesIfNotEligible, reconcilePendingPauseWorkflows } = require("./workflowSync") as typeof import("./workflowSync");

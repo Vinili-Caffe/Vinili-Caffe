@@ -1,6 +1,6 @@
 /** Minigiochi: fetch immagini remote, normalizzazione testo e metadati artista. */
 const axios = require("axios") as any;
-const { safeLoadImage } = require("../../Utils/Render/safeLoadImage") as typeof import("../../Utils/Render/safeLoadImage");
+const { safeLoadImage } = require("../../Community/utils/Render/safeLoadImage") as typeof import("../../Community/utils/Render/safeLoadImage");
 const { AttachmentBuilder } = require("discord.js") as typeof import("discord.js");
 const { warnMinigame } = require("./minigameLog") as typeof import("./minigameLog");
 

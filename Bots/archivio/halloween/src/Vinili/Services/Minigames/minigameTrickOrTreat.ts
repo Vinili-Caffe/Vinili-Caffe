@@ -4,9 +4,9 @@ const __eventCoreVinili = (rel: string) => __path.join(__path.resolve(__dirname,
 /** Halloween – dolcetto o scherzetto: slot a parte, bottone, timer e ripristino dopo un riavvio. */
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js") as typeof import("discord.js");
 const { minigameStateFindOneLean, minigameStateDeleteOne } = require(__eventCoreVinili("Utils/BotState/domainStatesStore"));
-const { ActivityUserProfile } = require(__eventCoreVinili("Schemas/Community/communitySchemas"));
+const { ActivityUserProfile } = require(__eventCoreVinili("Community/schemas/communitySchemas"));
 const { addExpWithLevel, shouldIgnoreExpForMember, incrementMinigameWinCounters } = require(__eventCoreVinili("Services/Community/expService"));
-const IDs = require(__eventCoreVinili("Utils/Config/ids"));
+const IDs = require(__eventCoreVinili("Config/ids"));
 const { getGuildMemberCached } = require(__path.join(__path.resolve(__dirname, "../../../../../../src/shared/discord/interactionEntityCache")));
 const { isWithinHalloweenCandyHours } = require("../../Utils/Minigames/halloweenMinigameHooks") as typeof import("../../Utils/Minigames/halloweenMinigameHooks");
 const { addHalloweenCandyWithPassAlong, buildHalloweenCandyUnlockPayload, resolveEventKey: resolveHalloweenCandyEventKey } = require("../Community/halloweenCandyService") as typeof import("../Community/halloweenCandyService");

@@ -1,7 +1,7 @@
 const { AuditLogEvent, EmbedBuilder, PermissionsBitField } = require("discord.js") as typeof import("discord.js");
-const IDs = require("../Utils/Config/ids") as typeof import("../Utils/Config/ids");
+const IDs = require("../Config/ids") as typeof import("../Config/ids");
 const { getGuildChannelCached, getGuildMemberCached } = require("../../shared/discord/interactionEntityCache") as typeof import("../../shared/discord/interactionEntityCache");
-const { handleWebhookCreationAction: antiNukeHandleWebhookCreationAction, handleWebhookUpdateAction: antiNukeHandleWebhookUpdateAction, handleWebhookDeletionAction: antiNukeHandleWebhookDeletionAction, } = require("../Moderation/services/antiNukeService") as typeof import("../Moderation/services/antiNukeService");
+const { handleWebhookCreationAction: antiNukeHandleWebhookCreationAction, handleWebhookUpdateAction: antiNukeHandleWebhookUpdateAction, handleWebhookDeletionAction: antiNukeHandleWebhookDeletionAction, } = require("../Security/services/antiNukeService") as typeof import("../Security/services/antiNukeService");
 const { isViniliFullFeatureGuild } = require("../MultiGuild/core/guildFeatureScope") as typeof import("../MultiGuild/core/guildFeatureScope");
 const WEBHOOK_CREATE_ACTION = AuditLogEvent?.WebhookCreate ?? 50;
 const WEBHOOK_UPDATE_ACTION = AuditLogEvent?.WebhookUpdate ?? 51;

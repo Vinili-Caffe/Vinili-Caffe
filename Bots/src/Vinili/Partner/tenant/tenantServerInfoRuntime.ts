@@ -8,7 +8,7 @@ const { guildIconUrl } = require("../../../shared/discord/guildDiscordIdentity")
 const { listConfiguredPartnershipGuildIds } = require("../core/tenantPartnershipSettings") as typeof import("../core/tenantPartnershipSettings");
 const { buildTenantLookupNotFoundPayload } = require("./tenantLookupNotFoundRuntime") as typeof import("./tenantLookupNotFoundRuntime");
 const { t } = require("../i18n/tenantPartnershipI18n/index") as typeof import("../i18n/tenantPartnershipI18n/index");
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
+const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { isPartnershipOperational } = require("../core/partnershipConfigResolver") as typeof import("../core/partnershipConfigResolver");
 const SNOWFLAKE_RE = /^\d{16,20}$/;
 
@@ -57,7 +57,7 @@ async function resolveTargetGuild(client?, sourceGuild?, guildId?) {
 async function buildTenantServerInfoPayload(client?, sourceGuild?, options: Record<string, any> = {}) {
   const lang = options.lang || "it";
   const lookupContext = { guild: sourceGuild, client, lang };
-  const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
+  const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
   const mainId = String(IDs.guilds?.main || "").trim();
   const sourceId = String(sourceGuild?.id || "").trim();
   const allowCross = Boolean(mainId && sourceId === mainId);

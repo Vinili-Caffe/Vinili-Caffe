@@ -1,11 +1,11 @@
-const { dispatchPrefixMessage } = require("../Utils/Prefix/prefixDispatcher") as typeof import("../Utils/Prefix/prefixDispatcher");
+const { dispatchPrefixMessage } = require("../core/prefixDispatcher") as typeof import("../core/prefixDispatcher");
 const { handleTtsMessage } = require("../../shared/tts/services/ttsService") as typeof import("../../shared/tts/services/ttsService");
-const { recordReminderActivity } = require("../Services/Community/chatReminderService") as typeof import("../Services/Community/chatReminderService");
-const { handleStanzaPanelPromptMessageCreate } = require("../Services/Voice/stanzaVoiceRoomsService") as typeof import("../Services/Voice/stanzaVoiceRoomsService");
-const { handleVoiceTranscriptionMessage } = require("../Services/Voice/voiceTranscriptionService") as typeof import("../Services/Voice/voiceTranscriptionService");
-const { ingestMarkovMessageCreate } = require("../Services/Community/markovMessageCollectorService") as typeof import("../Services/Community/markovMessageCollectorService");
-const { handleMarkovAutoSendMessageCreate, handleMarkovReplyMessageCreate } = require("../Services/Community/markovAutoSendService") as typeof import("../Services/Community/markovAutoSendService");
-const IDs = require("../Utils/Config/ids") as typeof import("../Utils/Config/ids");
+const { recordReminderActivity } = require("../Community/services/chatReminderService") as typeof import("../Community/services/chatReminderService");
+const { handleStanzaPanelPromptMessageCreate } = require("../Voice/services/stanzaVoiceRoomsService") as typeof import("../Voice/services/stanzaVoiceRoomsService");
+const { handleVoiceTranscriptionMessage } = require("../Voice/services/voiceTranscriptionService") as typeof import("../Voice/services/voiceTranscriptionService");
+const { ingestMarkovMessageCreate } = require("../Community/services/markovMessageCollectorService") as typeof import("../Community/services/markovMessageCollectorService");
+const { handleMarkovAutoSendMessageCreate, handleMarkovReplyMessageCreate } = require("../Community/services/markovAutoSendService") as typeof import("../Community/services/markovAutoSendService");
+const IDs = require("../Config/ids") as typeof import("../Config/ids");
 const REMINDER_CHANNEL_ID = IDs.channels?.chat || null;
 
 export = {

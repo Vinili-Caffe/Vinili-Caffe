@@ -1,4 +1,4 @@
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
+const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { assertWebsiteStaffAccess, normalizeHeaderSecret } = require("../../site/staff/siteStaffAccessApi") as typeof import("../../site/staff/siteStaffAccessApi");
 const { memberIsPm } = require("../../site/staff/siteStaffRosterCache") as typeof import("../../site/staff/siteStaffRosterCache");
 const { resolvePartnerPointsShown, resolvePartnerTotalEarned } = require("../../Staff/utils/partnerPointsDisplayUtils") as typeof import("../../Staff/utils/partnerPointsDisplayUtils");
@@ -14,7 +14,7 @@ const {
 } = require("../../../shared/partner/partnerManagerRewardTiers") as typeof import("../../../shared/partner/partnerManagerRewardTiers");
 const { completePartnerManagerRedeemForGuild } = require("../../Staff/utils/partnerManagerRedeemRuntime") as typeof import("../../Staff/utils/partnerManagerRedeemRuntime");
 const { openPartnerManagerShopWebTicketForMember } = require("../../MultiGuild/tickets/discord/partnerManagerShopWebTicketOpen") as typeof import("../../MultiGuild/tickets/discord/partnerManagerShopWebTicketOpen");
-const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
+const { ActivityUserProfile } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
 const { clearStaffProfileCacheForUser } = require("../../site/staff/siteStaffProfileApi") as typeof import("../../site/staff/siteStaffProfileApi");
 const { resolvePartnerManagerShopInstantBlocks } = require("../../Staff/utils/partnerManagerTimedPerks") as typeof import("../../Staff/utils/partnerManagerTimedPerks");
 const { listPmShopRedeems } = require("../../Partner/runtime/pmShopRedeemStore") as typeof import("../../Partner/runtime/pmShopRedeemStore");

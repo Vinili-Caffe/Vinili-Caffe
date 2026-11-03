@@ -1,13 +1,13 @@
 const crypto = require("crypto") as typeof import("crypto");
 const mongoose = require("mongoose") as typeof import("mongoose");
 const { saveDiscussionImages, signDiscussionImageUrls } = require("./siteDiscussionImages") as typeof import("./siteDiscussionImages");
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
-const { SiteDocument, SITE_DOCUMENT_TYPE } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
+const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
+const { SiteDocument, SITE_DOCUMENT_TYPE } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
 const { assertWebsiteStaffAccess, normalizeHeaderSecret, memberCanUseOpsStaffPages } = require("../staff/siteStaffAccessApi") as typeof import("../staff/siteStaffAccessApi");
 const { resolveWebsiteGuildMember } = require("./siteRoleRequestApi") as typeof import("./siteRoleRequestApi");
 const { broadcastSiteConfessionaleChanged } = require("../suggestions/siteSuggestionsBroadcast") as typeof import("../suggestions/siteSuggestionsBroadcast");
 const { enqueueSiteInAppNotification, removeSiteInAppNotificationsMatching } = require("../notifications/siteInAppNotificationsService") as typeof import("../notifications/siteInAppNotificationsService");
-const { STAFF_ROLE_IDS } = require("../../Utils/Community/staffListUtils") as typeof import("../../Utils/Community/staffListUtils");
+const { STAFF_ROLE_IDS } = require("../../Community/utils/staffListUtils") as typeof import("../../Community/utils/staffListUtils");
 const { sendJsonWithEtag, weakEtagFromJson } = require("./siteHttpEtag") as typeof import("./siteHttpEtag");
 
 const DOC = SITE_DOCUMENT_TYPE.CONFESSIONALE;

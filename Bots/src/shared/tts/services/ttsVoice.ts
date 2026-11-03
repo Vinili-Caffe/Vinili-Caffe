@@ -1,4 +1,4 @@
-﻿/** TTS: collegamento al vocale (entrata, spostamenti, disconnessioni, musica). */
+/** TTS: collegamento al vocale (entrata, spostamenti, disconnessioni, musica). */
 const { getGuildMemberCached } = require("../../discord/interactionEntityCache") as typeof import("../../discord/interactionEntityCache");
 const { ttsStates, ttsLastJoinAtByGuild, guildLocks, getLockedChannelId, setLockedChannel, clearLockedChannel, clearTtsPostJoinVoiceGrace, markTtsVoiceDisconnectSuppress, resolveMusicBlocksTtsForGuild, findLockedChannelIdByGuild, cleanupAllTtsStateForGuild, saveVoiceState, clearVoiceState } = require("./ttsEngine") as typeof import("./ttsEngine");
 
@@ -79,7 +79,7 @@ async function handleTtsBotVoiceMove({ voiceChannel, oldChannelId }) {
   clearLockedChannel(guildId, oldId);
   setLockedChannel(guildId, newId);
   await saveVoiceState(guildId, newId, String(voiceChannel.client?.user?.id || ""));
-  const { startVoiceContinuousCapture } = require("../../../Vinili/Services/Voice/voiceContinuousCaptureService") as typeof import("../../../Vinili/Services/Voice/voiceContinuousCaptureService");
+  const { startVoiceContinuousCapture } = require("../../../Vinili/Community/services/voiceContinuousCaptureService") as typeof import("../../../Vinili/Community/services/voiceContinuousCaptureService");
   await startVoiceContinuousCapture({
     guildId,
     voiceChannel,

@@ -1,8 +1,8 @@
 /** Bacheche: recensioni dei server (elenco, scrittura, like, segnalazioni, risposte) e allineamento con le recensioni del sito. */
 const crypto = require("crypto") as typeof import("crypto");
 const mongoose = require("mongoose") as typeof import("mongoose");
-const { SiteDocument, SITE_DOCUMENT_TYPE } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
+const { SiteDocument, SITE_DOCUMENT_TYPE } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
+const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { BOARD_CATEGORIES, BOARD_LOCALES } = require("./boardCatalog") as typeof import("./boardCatalog");
 const { snowflakeOk, sanitizeText, preferAnimatedDiscordMediaUrl } = require("./boardSanitize") as typeof import("./boardSanitize");
 const { resolveBoardsUser } = require("./boardBanners") as typeof import("./boardBanners");

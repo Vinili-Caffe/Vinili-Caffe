@@ -1,8 +1,8 @@
 const { AuditLogEvent, EmbedBuilder } = require("discord.js") as typeof import("discord.js");
-const { buildAuditExtraLines } = require("../Utils/Logging/channelRolesLogUtils") as typeof import("../Utils/Logging/channelRolesLogUtils");
-const { handlePruneAction: antiNukeHandlePruneAction } = require("../Moderation/services/antiNukeService") as typeof import("../Moderation/services/antiNukeService");
-const { resolveModLogChannel, formatResponsible, nowDiscordTs, } = require("../Utils/Logging/modAuditLogUtils") as typeof import("../Utils/Logging/modAuditLogUtils");
-const IDs = require("../Utils/Config/ids") as typeof import("../Utils/Config/ids");
+const { buildAuditExtraLines } = require("../Moderation/utils/channelRolesLogUtils") as typeof import("../Moderation/utils/channelRolesLogUtils");
+const { handlePruneAction: antiNukeHandlePruneAction } = require("../Security/services/antiNukeService") as typeof import("../Security/services/antiNukeService");
+const { resolveModLogChannel, formatResponsible, nowDiscordTs, } = require("../Moderation/utils/modAuditLogUtils") as typeof import("../Moderation/utils/modAuditLogUtils");
+const IDs = require("../Config/ids") as typeof import("../Config/ids");
 const { grantBestStaffPauseBonusYear } = require("../site/staff/pause/pauseHandlersUtils") as typeof import("../site/staff/pause/pauseHandlersUtils");
 const { onStafferDellaSettimanaRoleAdded } = require("../Staff/services/stafferDellaSettimanaService") as typeof import("../Staff/services/stafferDellaSettimanaService");
 const { isViniliFullFeatureGuild } = require("../MultiGuild/core/guildFeatureScope") as typeof import("../MultiGuild/core/guildFeatureScope");

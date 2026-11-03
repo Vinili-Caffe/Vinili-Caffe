@@ -1,7 +1,7 @@
 const __path = require("path") as typeof import("path");
 const __eventCoreVinili = (rel: string) => __path.join(__path.resolve(__dirname, "../../../../../../src/Vinili"), rel);
 
-const { parseEventDateMs } = require(__eventCoreVinili("Utils/Eventi/eventDates"));
+const { parseEventDateMs } = require(__eventCoreVinili("Community/utils/eventDates"));
 
 const DEFAULT_EVENT_KEY = "halloween_2026";
 
@@ -15,7 +15,7 @@ function readBool(v?, fallback?) {
 
 function getTestGuildIdSafe() {
   try {
-    const IDs = require(__eventCoreVinili("Utils/Config/ids"));
+    const IDs = require(__eventCoreVinili("Config/ids"));
     return String(IDs.guilds?.test || "").trim();
   } catch (_) {
     return "";

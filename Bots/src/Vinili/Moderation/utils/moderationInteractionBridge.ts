@@ -1,5 +1,5 @@
 const { Collection } = require("discord.js") as typeof import("discord.js");
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
+const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { executeDynoModerationCommand } = require("./dynoModerationCommands") as typeof import("./dynoModerationCommands");
 const { checkPrefixPermission } = require("./commandPermissions") as typeof import("./commandPermissions");
 

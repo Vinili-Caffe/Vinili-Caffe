@@ -10,7 +10,7 @@ const {
 const { buildTicketChannelName } = require("./ticketNamingRuntime");
 const { getTicketPanelConfig } = require("./ticketPanelConfig");
 const { partnerManagerRedeemButtonLabel, getPartnerRewardPointCost } = require("../Staff/partnerPointsUtils") as typeof import("../Staff/partnerPointsUtils");
-const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
+const { ActivityUserProfile } = require("../../../../../../src/Vinili/Community/schemas/communitySchemas") as typeof import("../../../../../../src/Vinili/Community/schemas/communitySchemas");
 const { resolvePartnerPointsShown } = require("../Staff/partnerPointsDisplayUtils") as typeof import("../Staff/partnerPointsDisplayUtils");
 const {
   buildTicketEveryoneDenyViewCreateOverwrite,

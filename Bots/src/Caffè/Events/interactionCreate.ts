@@ -1,10 +1,10 @@
 const { InteractionType, EmbedBuilder } = require("discord.js") as typeof import("discord.js");
-const IDs = require("../Utils/Config/ids") as typeof import("../Utils/Config/ids");
+const IDs = require("../Config/ids") as typeof import("../Config/ids");
 const { buildErrorLogEmbed } = require("../../shared/discord/errorLogEmbed") as typeof import("../../shared/discord/errorLogEmbed");
-const { checkButtonPermission, checkStringSelectPermission, checkModalPermission, checkSlashPermission, buildGlobalPermissionDeniedEmbed, buildGlobalNotYourControlEmbed, } = require("../Utils/Moderation/commandPermissions") as typeof import("../Utils/Moderation/commandPermissions");
+const { checkButtonPermission, checkStringSelectPermission, checkModalPermission, checkSlashPermission, buildGlobalPermissionDeniedEmbed, buildGlobalNotYourControlEmbed, } = require("../Moderation/utils/commandPermissions") as typeof import("../Moderation/utils/commandPermissions");
 const { handleButtonInteraction } = require("./interaction/buttonHandlers") as typeof import("./interaction/buttonHandlers");
 const { safeReply } = require("../../shared/discord/replyRuntime") as typeof import("../../shared/discord/replyRuntime");
-const { getCentralChannel } = require("../Utils/Logging/commandUsageLogger") as typeof import("../Utils/Logging/commandUsageLogger");
+const { getCentralChannel } = require("./interaction/commandUsageLogger") as typeof import("./interaction/commandUsageLogger");
 const PRIVATE_FLAG = 1 << 6;
 const BUTTON_SPAM_COOLDOWN_MS = 1200;
 const BUTTON_INFLIGHT_TTL_MS = 15000;

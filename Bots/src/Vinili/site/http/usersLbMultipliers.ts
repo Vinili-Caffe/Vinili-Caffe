@@ -1,6 +1,6 @@
 /** Classifiche utenti: moltiplicatori della settimana e classifiche calcolate. */
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
-const { computeLeaderboardRows } = require("../../Utils/Community/leaderboardHelpers") as typeof import("../../Utils/Community/leaderboardHelpers");
+const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
+const { computeLeaderboardRows } = require("../../Community/utils/leaderboardHelpers") as typeof import("../../Community/utils/leaderboardHelpers");
 const { cacheGet, cacheGetOrBuild } = require("./usersLbCache") as typeof import("./usersLbCache");
 const { nInt } = require("./usersLbParams") as typeof import("./usersLbParams");
 

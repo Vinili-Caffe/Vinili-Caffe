@@ -1,5 +1,5 @@
 const { EmbedBuilder } = require("discord.js") as typeof import("discord.js");
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
+const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const {
   JOIN_RAID_CONFIG,
   HIGH_STAFF_ROLE_ID,
@@ -16,7 +16,7 @@ const {
   CLEARED_GUILDS,
 } = require("./joinRaidState") as typeof import("./joinRaidState");
 const { getGuildChannelCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
-const { formatItalianMinutesPlain } = require("../../Utils/Text/italianDurationLabels") as typeof import("../../Utils/Text/italianDurationLabels");
+const { formatItalianMinutesPlain } = require("../../../shared/utils/italianDurationLabels") as typeof import("../../../shared/utils/italianDurationLabels");
 
 function buildInitialFlagRows(guild?, state?, limit = 8) {
   const ids = Array.isArray(state?.raidInitialFlaggedUserIds)
@@ -113,7 +113,7 @@ async function doFinalizeJoinRaidReportLocked(guild?, reason = "elapsed") {
   state.raidCaughtUserIds = [];
   scheduleStateSave(guild.id);
   try {
-    const { invalidateSecurityLockCache } = require("./securityOrchestratorService") as typeof import("./securityOrchestratorService");
+    const { invalidateSecurityLockCache } = require("../../Security/services/securityOrchestratorService") as typeof import("../../Security/services/securityOrchestratorService");
     invalidateSecurityLockCache(guild.id);
   } catch (_) {}
 }

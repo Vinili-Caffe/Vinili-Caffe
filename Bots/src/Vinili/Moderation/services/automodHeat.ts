@@ -1,5 +1,5 @@
 /** Automod: heat, profilo canale, link NSFW/blacklist, esenzioni messaggio. */
-const { isSecurityProfileImmune, hasAdminsProfileCapability, hasModeratorsProfileCapability } = require("./securityProfilesService") as typeof import("./securityProfilesService");
+const { isSecurityProfileImmune, hasAdminsProfileCapability, hasModeratorsProfileCapability } = require("../../Security/services/securityProfilesService") as typeof import("../../Security/services/securityProfilesService");
 const { CORE_EXEMPT_USER_IDS } = require("./joinGateExemptUtils") as typeof import("./joinGateExemptUtils");
 const { DEFAULT_AUTOMOD_RUNTIME } = require("./automodConfigSanitize") as typeof import("./automodConfigSanitize");
 const { TEXT_RULES, nowMs, isShortenerHost, extractUrls, isAutomodMediaEmbedUrl, expandShortUrl } = require("./automodText") as typeof import("./automodText");

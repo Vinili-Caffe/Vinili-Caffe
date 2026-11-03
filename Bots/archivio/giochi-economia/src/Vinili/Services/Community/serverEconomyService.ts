@@ -1,6 +1,6 @@
 const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
 const { randomInt } = require("node:crypto") as typeof import("node:crypto");
-const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
+const { ActivityUserProfile } = require("../../../../../../src/Vinili/Community/schemas/communitySchemas") as typeof import("../../../../../../src/Vinili/Community/schemas/communitySchemas");
 const { getGuildMemberCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
 
 /** Il membro nel server principale (i ruoli dell'economia valgono lì), anche se il comando arriva da un altro server. */

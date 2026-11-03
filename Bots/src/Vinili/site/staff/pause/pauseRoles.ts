@@ -1,6 +1,6 @@
 /** Pause: ruoli in pausa e limiti per ruolo. */
-const { ActivityUserProfile } = require("../../../Schemas/Community/communitySchemas") as typeof import("../../../Schemas/Community/communitySchemas");
-const IDs = require("../../../Utils/Config/ids") as typeof import("../../../Utils/Config/ids");
+const { ActivityUserProfile } = require("../../../Community/schemas/communitySchemas") as typeof import("../../../Community/schemas/communitySchemas");
+const IDs = require("../../../Config/ids") as typeof import("../../../Config/ids");
 const { parseItalianDate, rangesOverlap } = require("./pauseDates") as typeof import("./pauseDates");
 
 const STAFF_ROLE_PRIORITY = [

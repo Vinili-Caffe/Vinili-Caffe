@@ -1,10 +1,10 @@
 /** Mute: ruoli salvati prima del mute (salvataggio, lettura, recupero). */
 const { PermissionsBitField } = require("discord.js") as typeof import("discord.js");
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
-const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
+const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
+const { ActivityUserProfile } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
 const { isValidGuildUserId } = require("../../../shared/db/validateWriteIds") as typeof import("../../../shared/db/validateWriteIds");
 const { ensureMongoReady } = require("../../../shared/db/mongoConnect") as typeof import("../../../shared/db/mongoConnect");
-const { persistMuteRoleSnapshotToProfile, loadStoredPersonalityRoleIds } = require("../../Utils/Community/personalityRolePersistence") as typeof import("../../Utils/Community/personalityRolePersistence");
+const { persistMuteRoleSnapshotToProfile, loadStoredPersonalityRoleIds } = require("../../Community/utils/personalityRolePersistence") as typeof import("../../Community/utils/personalityRolePersistence");
 const { memorySnapshots, markMuteMirrorStaffProtect, snapshotKey, normalizeSnapshotRoleIds, dbReady, loadProfileMuteSnapshotRoleIds, loadSnapshot, isCommunicationTimeoutActive, hasPendingMuteMirrorSnapshot } = require("./muteStaffProtect") as typeof import("./muteStaffProtect");
 
 const EMPTY_SNAPSHOT_COOLDOWN_MS = 30 * 60 * 1000;

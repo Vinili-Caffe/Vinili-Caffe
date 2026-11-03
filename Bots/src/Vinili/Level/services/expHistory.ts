@@ -1,5 +1,5 @@
 /** EXP: storico dei livelli e classifiche del periodo. */
-const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
+const { ActivityUserProfile } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
 const { TIME_ZONE } = require("./expLevels") as typeof import("./expLevels");
 
 const DAY_MS = 24 * 60 * 60 * 1000;

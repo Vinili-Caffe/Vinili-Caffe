@@ -1,10 +1,10 @@
 const { AuditLogEvent, EmbedBuilder, PermissionsBitField, } = require("discord.js") as typeof import("discord.js");
-const{queueCategoryRenumber,}=require("../Services/Community/communityOpsService") as typeof import("../Services/Community/communityOpsService");
-const { queueIdsCatalogSync } = require("../Utils/Config/idsAutoSync") as typeof import("../Utils/Config/idsAutoSync");
-const{upsertChannelSnapshot,}=require("../Utils/Community/channelSnapshotUtils") as typeof import("../Utils/Community/channelSnapshotUtils");
-const { toDiscordTimestamp, channelDisplay, channelTypeLabel, yesNo, formatAuditActor, buildAuditExtraLines, resolveChannelRolesLogChannel, resolveResponsible } = require("../Utils/Logging/channelRolesLogUtils") as typeof import("../Utils/Logging/channelRolesLogUtils");
-const{handleChannelCreationAction:antiNukeHandleChannelCreationAction,}=require("../Moderation/services/antiNukeService") as typeof import("../Moderation/services/antiNukeService");
-const IDs = require("../Utils/Config/ids") as typeof import("../Utils/Config/ids");
+const{queueCategoryRenumber,}=require("../Community/services/communityOpsService") as typeof import("../Community/services/communityOpsService");
+const { queueIdsCatalogSync } = require("../Config/idsAutoSync") as typeof import("../Config/idsAutoSync");
+const{upsertChannelSnapshot,}=require("../Community/utils/channelSnapshotUtils") as typeof import("../Community/utils/channelSnapshotUtils");
+const { toDiscordTimestamp, channelDisplay, channelTypeLabel, yesNo, formatAuditActor, buildAuditExtraLines, resolveChannelRolesLogChannel, resolveResponsible } = require("../Moderation/utils/channelRolesLogUtils") as typeof import("../Moderation/utils/channelRolesLogUtils");
+const{handleChannelCreationAction:antiNukeHandleChannelCreationAction,}=require("../Security/services/antiNukeService") as typeof import("../Security/services/antiNukeService");
+const IDs = require("../Config/ids") as typeof import("../Config/ids");
 const { shouldResyncAutomodForChannel, scheduleDiscordAutomodRulesResync } = require("../Moderation/services/discordAutomodRulesService") as typeof import("../Moderation/services/discordAutomodRulesService");
 const { isViniliFullFeatureGuild } = require("../MultiGuild/core/guildFeatureScope") as typeof import("../MultiGuild/core/guildFeatureScope");
 const CHANNEL_CREATE_ACTION = AuditLogEvent?.ChannelCreate ?? 10;

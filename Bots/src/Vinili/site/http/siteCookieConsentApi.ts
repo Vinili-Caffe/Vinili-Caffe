@@ -1,6 +1,6 @@
 "use strict";
 
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
+const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { resolveWebsiteGuildMember } = require("./siteRoleRequestApi") as typeof import("./siteRoleRequestApi");
 
 const VIP_ROLE_ID = String(IDs?.roles?.VIP || "").trim();

@@ -2,7 +2,7 @@
 const fs = require("fs") as typeof import("fs");
 const path = require("path") as typeof import("path");
 const crypto = require("crypto") as typeof import("crypto");
-const { viniliPath } = require("../../core/paths") as typeof import("../../core/paths");
+const { viniliPath } = require("../../paths") as typeof import("../../paths");
 
 const MAX_IMAGES = 3;
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024;

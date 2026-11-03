@@ -1,4 +1,4 @@
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
+const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { MOD_RULE_DETAIL } = require("../../Moderation/utils/modRegolamentoConstants") as typeof import("../../Moderation/utils/modRegolamentoConstants");
 const { siteWorkflowUrl } = require("../../site/http/discordWorkflowUiGate") as typeof import("../../site/http/discordWorkflowUiGate");
 

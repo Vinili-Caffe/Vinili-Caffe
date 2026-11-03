@@ -1,10 +1,10 @@
 const { EmbedBuilder, AttachmentBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlagsBitField } = require("discord.js") as typeof import("discord.js");
-const IDs = require("../Utils/Config/ids") as typeof import("../Utils/Config/ids");
+const IDs = require("../Config/ids") as typeof import("../Config/ids");
 const { getGuildChannelCached } = require("../../shared/discord/interactionEntityCache") as typeof import("../../shared/discord/interactionEntityCache");
 const { runAutoModMessage } = require("../Moderation/services/automodService") as typeof import("../Moderation/services/automodService");
-const { handleDisboardBump, handleDiscadiaBump, handleVoteManagerMessage } = require("../Utils/Message/officialMessageAutomationHandlers") as typeof import("../Utils/Message/officialMessageAutomationHandlers");
-const { handleMentionAutoReactions, handleWordReactions } = require("../Utils/Message/officialMessageCommunityHandlers") as typeof import("../Utils/Message/officialMessageCommunityHandlers");
-const { toDiscordTimestamp } = require("../Utils/Logging/channelRolesLogUtils") as typeof import("../Utils/Logging/channelRolesLogUtils");
+const { handleDisboardBump, handleDiscadiaBump, handleVoteManagerMessage } = require("../Community/services/officialMessageAutomationHandlers") as typeof import("../Community/services/officialMessageAutomationHandlers");
+const { handleMentionAutoReactions, handleWordReactions } = require("../Community/services/officialMessageCommunityHandlers") as typeof import("../Community/services/officialMessageCommunityHandlers");
+const { toDiscordTimestamp } = require("../Moderation/utils/channelRolesLogUtils") as typeof import("../Moderation/utils/channelRolesLogUtils");
 const { handlePartnerDescriptionMessageUpsert, isPartnerDescriptionChannel } = require("../Partner/services/partnerDescriptionSyncService") as typeof import("../Partner/services/partnerDescriptionSyncService");
 const {
   handleTenantPartnerDescriptionMessageUpsert,
@@ -262,7 +262,7 @@ export = {
       if (!updated?.guild || !updated?.author) return;
 
       try {
-        const { handlePossiblePublishedBotUpdate } = require("../Services/Community/botUpdatesRelayService") as typeof import("../Services/Community/botUpdatesRelayService");
+        const { handlePossiblePublishedBotUpdate } = require("../Community/services/botUpdatesRelayService") as typeof import("../Community/services/botUpdatesRelayService");
         void handlePossiblePublishedBotUpdate(resolvedClient, previousForPublishCheck, updated).catch((err?) => {
           global.logger?.warn?.("[messageUpdate] bot updates relay:", err?.message || err);
         });

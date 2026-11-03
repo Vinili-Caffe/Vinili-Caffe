@@ -10,7 +10,7 @@ const {
   drawLabelWithEmoji,
   fitRichText,
   measureRichTextWidth,
-} = require("../../Utils/Render/canvasEmojiRichText") as typeof import("../../Utils/Render/canvasEmojiRichText");
+} = require("../../Community/utils/Render/canvasEmojiRichText") as typeof import("../../Community/utils/Render/canvasEmojiRichText");
 
 let path2dCtorMemo;
 function getPath2DConstructor() {
@@ -109,13 +109,13 @@ function drawStatIconGeometric(ctx?, icon?) {
   ctx.fillRect(14, 20, 4, 6);
   ctx.fillRect(8, 26, 16, 3.6);
 }
-const { registerCanvasFonts, fontStackWithPrimary } = require("../../Utils/Render/canvasFonts") as typeof import("../../Utils/Render/canvasFonts");
-const { safeLoadImage } = require("../../Utils/Render/safeLoadImage") as typeof import("../../Utils/Render/safeLoadImage");
+const { registerCanvasFonts, fontStackWithPrimary } = require("../../Community/utils/Render/canvasFonts") as typeof import("../../Community/utils/Render/canvasFonts");
+const { safeLoadImage } = require("../../Community/utils/Render/safeLoadImage") as typeof import("../../Community/utils/Render/safeLoadImage");
 const {
   mergeRankCardTheme,
   resolveRankCardWallpaper,
   resolveRankFontFamily,
-} = require("../../Utils/Render/rankCardTheme") as typeof import("../../Utils/Render/rankCardTheme");
+} = require("../../Community/utils/Render/rankCardTheme") as typeof import("../../Community/utils/Render/rankCardTheme");
 
 function clamp(value?, min?, max?) {
   return Math.min(max, Math.max(min, Number(value) || 0));

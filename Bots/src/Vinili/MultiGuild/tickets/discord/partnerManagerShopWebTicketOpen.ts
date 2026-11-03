@@ -1,11 +1,11 @@
-const IDs = require("../../../Utils/Config/ids") as typeof import("../../../Utils/Config/ids");
+const IDs = require("../../../Config/ids") as typeof import("../../../Config/ids");
 const {
   SiteWebTicket,
   SiteWebTicketMessage,
   nextWebTicketNumber,
   WEB_TICKET_STATUS,
-} = require("../../../features/tickets/data/siteWebTicketSchemas") as typeof import("../../../features/tickets/data/siteWebTicketSchemas");
-const { ActivityUserProfile } = require("../../../Schemas/Community/communitySchemas") as typeof import("../../../Schemas/Community/communitySchemas");
+} = require("../data/siteWebTicketSchemas") as typeof import("../data/siteWebTicketSchemas");
+const { ActivityUserProfile } = require("../../../Community/schemas/communitySchemas") as typeof import("../../../Community/schemas/communitySchemas");
 const { resolvePartnerPointsShown } = require("../../../Staff/utils/partnerPointsDisplayUtils") as typeof import("../../../Staff/utils/partnerPointsDisplayUtils");
 const {
   partnerManagerRedeemButtonLabel,

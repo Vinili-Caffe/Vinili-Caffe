@@ -1,14 +1,17 @@
 ﻿const { randomUUID } = require("crypto") as typeof import("crypto");
-const BotState = require("../../Vinili/Schemas/BotState/botStateSchema");
+const BotState = require("../schemas/botState/botStateSchema");
+const { isMongoReady } = require("../db/mongoConnect") as typeof import("../db/mongoConnect");
 
 const { COMPACT_BOTSTATE_KEY } = BotState;
 
 async function getDomainsLean() {
+  if (!isMongoReady()) return {};
   const doc = await BotState.findOne({ key: COMPACT_BOTSTATE_KEY }).lean();
   return doc?.domains || {};
 }
 
 async function ensureCompactBotState() {
+  if (!isMongoReady()) return false;
   await BotState.updateOne(
     { key: COMPACT_BOTSTATE_KEY },
     { $setOnInsert: { key: COMPACT_BOTSTATE_KEY, value: {}, domains: {} } },
@@ -16,6 +19,7 @@ async function ensureCompactBotState() {
   ).catch((err?) => {
     if (err?.code !== 11000) throw err;
   });
+  return true;
 }
 
 function arrayOrEmpty(path?) {
@@ -23,7 +27,7 @@ function arrayOrEmpty(path?) {
 }
 
 async function atomicSetArray(path?, expression?) {
-  await ensureCompactBotState();
+  if (!(await ensureCompactBotState())) return;
   await BotState.updateOne(
     { key: COMPACT_BOTSTATE_KEY },
     [{ $set: { [path]: expression } }],

@@ -1,7 +1,7 @@
-const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
+const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { assertWebsiteStaffAccess, normalizeHeaderSecret, memberCanViewResocontiInbox } = require("../staff/siteStaffAccessApi") as typeof import("../staff/siteStaffAccessApi");
 const { memberIsHighStaffEligible, memberCanReviewAppelli, memberHasDirectorRole } = require("../../Staff/utils/staffRoleHierarchy") as typeof import("../../Staff/utils/staffRoleHierarchy");
-const { SiteDocument, SITE_DOCUMENT_TYPE } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
+const { SiteDocument, SITE_DOCUMENT_TYPE } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
 const {
   acceptPauseRequestWeb,
   rejectPauseRequestWeb,
@@ -277,7 +277,7 @@ async function fetchWorkflowItemDetail(client?, guild?, access?, queue?, itemId?
   if (q === "revisione" && id) {
     void (async () => {
       try {
-        const { SiteDocument, SITE_DOCUMENT_TYPE } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
+        const { SiteDocument, SITE_DOCUMENT_TYPE } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
         const listing = await SiteDocument.findOne({
           docType: SITE_DOCUMENT_TYPE.BOARD_LISTING,
           _id: id,

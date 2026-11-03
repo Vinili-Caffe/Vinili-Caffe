@@ -1,7 +1,7 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js") as typeof import("discord.js");
-const { ActivityUserProfile, SiteDocument, SITE_DOCUMENT_TYPE } = require("../../Schemas/Community/communitySchemas") as typeof import("../../Schemas/Community/communitySchemas");
+const { ActivityUserProfile, SiteDocument, SITE_DOCUMENT_TYPE } = require("../../../../../../src/Vinili/Community/schemas/communitySchemas") as typeof import("../../../../../../src/Vinili/Community/schemas/communitySchemas");
 const { enqueueSiteInAppNotification } = require("../../Utils/Web/siteInAppNotificationsService") as typeof import("../../Utils/Web/siteInAppNotificationsService");
-const { sendDm } = require("../../Utils/noDmList") as typeof import("../../Utils/noDmList");
+const { sendDm } = require("../../Community/utils/noDmList") as typeof import("../../Community/utils/noDmList");
 const { resolveHogwartsEventConfig, isEventWindowOpen } = require("../../Utils/Web/hogwartsSortingConfig") as typeof import("../../Utils/Web/hogwartsSortingConfig");
 const { resolveSitePublicUrl } = require("../../Utils/Web/hogwartsEventAssets") as typeof import("../../Utils/Web/hogwartsEventAssets");
 const IDs = require("../../Utils/Config/ids") as typeof import("../../Utils/Config/ids");
