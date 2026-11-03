@@ -31,7 +31,7 @@ export default async function StatusPage() {
         kicker="Sistema"
         title="Stato dei"
         accent="servizi"
-        text="Stato di sito, bot, database, musica e voti — aggiornato in tempo reale."
+        text="Processi live, latenza API, uptime e storico controlli — aggiornato in tempo reale."
       />
       <StatusBoard initial={initial} />
     </SiteShell>

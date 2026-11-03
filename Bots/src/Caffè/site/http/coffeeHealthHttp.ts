@@ -71,11 +71,17 @@ function startCoffeeHealthHttpServer(client?) {
       return;
     }
     const ready = Boolean(boundClient?.isReady?.() || boundClient?.user?.id);
+    const rawGw = Number(boundClient?.ws?.ping);
+    const gatewayPingMs = Number.isFinite(rawGw) && rawGw >= 0 ? Math.round(rawGw) : null;
+    const memMb = Math.round((process.memoryUsage().rss || 0) / (1024 * 1024));
     json(res, ready ? 200 : 503, {
       ok: ready,
       status: ready ? "online" : "starting",
       service: "coffee",
       bot: boundClient?.user?.tag || boundClient?.user?.username || null,
+      gatewayPingMs,
+      uptimeSec: Math.floor(process.uptime()),
+      memMb,
       ts: new Date().toISOString(),
     });
   });

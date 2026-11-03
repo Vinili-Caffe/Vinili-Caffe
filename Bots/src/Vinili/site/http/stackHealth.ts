@@ -66,12 +66,40 @@ async function probeCoffeeHealth(timeoutMs = 1500) {
       ok,
       bot: json?.bot || null,
       status: json?.status || (ok ? "online" : "offline"),
+      gatewayPingMs: Number.isFinite(Number(json?.gatewayPingMs)) ? Number(json.gatewayPingMs) : null,
+      uptimeSec: Number.isFinite(Number(json?.uptimeSec)) ? Number(json.uptimeSec) : null,
+      memMb: Number.isFinite(Number(json?.memMb)) ? Number(json.memMb) : null,
     };
   } catch {
-    return { ok: false, bot: null, status: "unreachable" };
+    return { ok: false, bot: null, status: "unreachable", gatewayPingMs: null, uptimeSec: null, memMb: null };
   } finally {
     clearTimeout(timer);
   }
+}
+
+async function measureDiscordRestPingMs(client?) {
+  if (!client?.rest?.get) return null;
+  const { Routes } = require("discord-api-types/v10") as typeof import("discord-api-types/v10");
+  const t0 = Date.now();
+  try {
+    await client.rest.get(Routes.user("@me"));
+    return Math.max(0, Date.now() - t0);
+  } catch {
+    return null;
+  }
+}
+
+function resolveGatewayPingMs(client?) {
+  const raw = Number(client?.ws?.ping);
+  return Number.isFinite(raw) && raw >= 0 ? Math.round(raw) : null;
+}
+
+function resolveShardLabel(client?) {
+  const shardIds = Array.isArray(client?.shard?.ids)
+    ? client.shard.ids.map((id?) => Number(id)).filter((id?) => Number.isInteger(id) && id >= 0)
+    : [];
+  if (shardIds.length) return String(shardIds[0]);
+  return "0";
 }
 
 async function buildStackHealthPayload(client?, opts: Record<string, any> = {}) {
@@ -103,6 +131,10 @@ async function buildStackHealthPayload(client?, opts: Record<string, any> = {}) 
     coffee = await probeCoffeeHealth(1500);
   }
 
+  const [restPingMs] = await Promise.all([measureDiscordRestPingMs(client)]);
+  const gatewayPingMs = resolveGatewayPingMs(client);
+  const mem = process.memoryUsage();
+
   const checks = {
     bot: botReady,
     mongo: mongoOk && mongoPingMs != null,
@@ -119,7 +151,21 @@ async function buildStackHealthPayload(client?, opts: Record<string, any> = {}) 
     coffee: coffee?.bot || null,
     checks,
     mongoPingMs,
+    gatewayPingMs,
+    restPingMs,
+    shard: resolveShardLabel(client),
+    memMb: Math.round((mem.rss || 0) / (1024 * 1024)),
     uptimeSec: Math.floor(process.uptime()),
+    coffeeDetail: coffee
+      ? {
+          ok: Boolean(coffee.ok),
+          bot: coffee.bot || null,
+          status: coffee.status || null,
+          gatewayPingMs: coffee.gatewayPingMs ?? null,
+          uptimeSec: coffee.uptimeSec ?? null,
+          memMb: coffee.memMb ?? null,
+        }
+      : null,
     ts: new Date().toISOString(),
   };
 }
