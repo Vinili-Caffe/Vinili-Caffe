@@ -1,5 +1,5 @@
 // Fetch reali del resto C2: ticket (modulo, lista, pannelli, form, team, blacklist) e partnership.
-// Route: Vinili/Services/Web/siteWebhookRoutes.js → siteDashboardTicket*Api.js / siteDashboardPartnershipApi.js
+// Route: Vinili/site/http/siteWebhookRoutes.js → siteDashboardTicket*Api.js / siteDashboardPartnershipApi.js
 // Body allineati a WebSite/js/dashboard-guild-tickets.js e dashboard-guild-core.js.
 
 const BASE = "/webhooks/site-dashboard";

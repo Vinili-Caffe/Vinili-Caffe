@@ -26,7 +26,7 @@ async function isAllowedVoiceCommandChannel(guild?, channel?, options: Record<st
   const channelId = String(channel.id || "").trim();
   if (channelId && blocked.has(channelId)) return false;
   try {
-    const { isStanzaCommandChannel } = require("../../Caffè/Services/Voice/stanzaVoiceRoomsService") as typeof import("../../Caffè/Services/Voice/stanzaVoiceRoomsService");
+    const { isStanzaCommandChannel } = require("../../Caffè/Voice/services/stanzaVoiceRoomsService") as typeof import("../../Caffè/Voice/services/stanzaVoiceRoomsService");
     if (await isStanzaCommandChannel(guild, channel)) return true;
   } catch (_) {}
   return isVoiceBasedCommandChannel(channel);

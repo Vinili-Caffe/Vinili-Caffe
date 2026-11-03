@@ -1,4 +1,4 @@
-const { handleTopPaginationModal } = require("../../../Events/interaction/topPaginationHandlers") as typeof import("../../../Events/interaction/topPaginationHandlers");
+const { handleTopPaginationModal } = require("../../events/interaction/topPaginationHandlers") as typeof import("../../events/interaction/topPaginationHandlers");
 const TOP_PAGE_MODAL_PREFIX = "top_page_modal";
 
 function match(interaction?) {

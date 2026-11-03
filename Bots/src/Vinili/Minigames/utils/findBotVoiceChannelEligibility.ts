@@ -10,7 +10,7 @@ function isCoffeeManagedStanzaChannel(channel?) {
   if (!channel) return false;
   if (/Stanza di\s+/i.test(String(channel.name || ""))) return true;
   try {
-    const coffee = require("../../../Caffè/Services/Voice/stanzaVoiceRoomsService") as typeof import("../../../Caffè/Services/Voice/stanzaVoiceRoomsService");
+    const coffee = require("../../../Caffè/Voice/services/stanzaVoiceRoomsService") as typeof import("../../../Caffè/Voice/services/stanzaVoiceRoomsService");
     if (typeof coffee.isManagedStanzaRoomChannel === "function") {
       return Boolean(coffee.isManagedStanzaRoomChannel(channel, String(channel.parentId || "")));
     }

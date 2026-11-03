@@ -76,7 +76,7 @@ function supportVanityDebounceKey(guildId?, userId?) {
 }
 
 function resolvePresenceInviteState(presence?, fallback = false) {
-  const mod = require("../../Events/presenceUpdate") as typeof import("../../Events/presenceUpdate");
+  const mod = require("../../Community/events/presenceUpdate") as typeof import("../../Community/events/presenceUpdate");
   return mod.resolveInviteState(presence, fallback);
 }
 

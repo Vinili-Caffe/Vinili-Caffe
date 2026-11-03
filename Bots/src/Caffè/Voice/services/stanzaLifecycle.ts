@@ -135,7 +135,7 @@ async function handleStanzaVoiceLobbyJoin(oldState?, newState?, client?) {
       global.logger?.warn?.("[stanza] place under hub failed:", err?.message || err);
     });
     try {
-      const { reorderLimitateCategory } = require("../../../Vinili/Community/services/publicVoiceHubService") as typeof import("../../../Vinili/Community/services/publicVoiceHubService");
+      const { reorderLimitateCategory } = require("../../../shared/voice/reorderLimitateCategory") as typeof import("../../../shared/voice/reorderLimitateCategory");
       await reorderLimitateCategory(guild, client, {
         parentId: parentId || getStanzaCategoryParentId(),
         forceFetch: true,

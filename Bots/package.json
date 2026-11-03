@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node --disable-warning=ExperimentalWarning --import tsx ./src/wait-for-lavalink.ts",
     "check": "tsc -p tsconfig.json",
-    "pubblica": "bash tools/pubblica.sh"
+    "pubblica": "bash ../Deploy/pubblica.sh",
+    "clean": "node -e \"for (const p of ['.cache','build','.tsbuildinfo']) { try { require('fs').rmSync(p,{recursive:true,force:true}); console.log('rm',p) } catch (_) {} }\""
   },
   "devDependencies": {
     "@discordjs/rest": "^2.6.3",

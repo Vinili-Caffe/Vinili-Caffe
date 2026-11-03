@@ -142,7 +142,7 @@ async function applyDepexOneLevel(guild?, member?, forcedLadderRoleId = null) {
 }
 
 async function applyFullDepex(guild?, member?, currentRoleId?) {
-  const resocontoHandlers = require("../../Events/interaction/resocontoHandlers") as typeof import("../../Events/interaction/resocontoHandlers");
+  const resocontoHandlers = require("../events/interaction/resocontoHandlers") as typeof import("../events/interaction/resocontoHandlers");
   const applyDepexSideEffects = resocontoHandlers?.applyDepexSideEffects;
   if (!currentRoleId) currentRoleId = getHighestStaffRoleId(member);
   if (!currentRoleId) return { ok: false, reason: "Nessun ruolo staff trovato." };

@@ -4,7 +4,7 @@ const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ApplicationC
 const { DEFAULT_OBSOLETE_SLASH_NAMES } = require("../../shared/discord/purgeObsoleteApplicationCommands") as typeof import("../../shared/discord/purgeObsoleteApplicationCommands");
 const { safeMessageReply } = require("../../shared/discord/replyRuntime") as typeof import("../../shared/discord/replyRuntime");
 const { getGuildMemberCached } = require("../../shared/discord/interactionEntityCache") as typeof import("../../shared/discord/interactionEntityCache");
-const { loadPermissions } = require("../Moderation/permissionsStore") as typeof import("../Moderation/permissionsStore");
+const { loadPermissions } = require("../Moderation/utils/permissionsStore") as typeof import("../Moderation/utils/permissionsStore");
 const HELP_EMBED_COLOR = "#6f4e37";
 const ERROR_EMBED_COLOR = "Red";
 const PRIVATE_FLAG = 1 << 6;

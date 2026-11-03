@@ -155,7 +155,23 @@ client.reloadScope = async (scope?) => {
     await client.prefixCommands(folders, path.join(APP_ROOT, "Prefix"));
   };
 
-  const reloadEvents = () => { clearCacheByDir("Events"); client.handleEvents(path.join(APP_ROOT, "Events")); };
+  const reloadEvents = () => {
+    for (const mod of [
+      "core",
+      "Community",
+      "Moderation",
+      "Security",
+      "Staff",
+      "Stats",
+      "Partner",
+      "MultiGuild",
+    ]) {
+      clearCacheByDir(path.join(mod, "events"));
+    }
+    clearCacheByDir(path.join("Community", "services"));
+    clearCacheByDir(path.join("MultiGuild", "Events"));
+    client.handleEvents(APP_ROOT);
+  };
 
   const reloadTriggers = () => {
     clearCacheByDir("Triggers");
@@ -282,7 +298,7 @@ initializeCommandCollections(client, { includeSnipes: true });
 
     const handlersStartedAt = Date.now();
     installHandlers(APP_ROOT, client);
-    client.handleEvents(path.join(APP_ROOT, "Events"));
+    client.handleEvents(APP_ROOT);
     client.handleTriggers(APP_ROOT);
     const handlersMs = Date.now() - handlersStartedAt;
 

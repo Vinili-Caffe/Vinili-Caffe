@@ -4,9 +4,10 @@
   "private": true,
   "scripts": {
     "dev": "node node_modules/next/dist/bin/next dev",
-    "build": "node node_modules/next/dist/bin/next build && node scripts/flatten-segments.mjs && node scripts/inject-discord-component-embeds.mjs",
+    "build": "node node_modules/next/dist/bin/next build && node ../Scripts/flatten-segments.mjs && node ../Scripts/inject-discord-component-embeds.mjs",
     "lint": "node node_modules/eslint/bin/eslint.js",
-    "check": "node scripts/check-site.mjs"
+    "check": "node ../Scripts/check-site.mjs",
+    "clean": "node -e \"for (const p of ['.next','out','.cache','tsconfig.tsbuildinfo','next-env.d.ts']) { try { require('fs').rmSync(p,{recursive:true,force:true}); console.log('rm',p) } catch (_) {} }\""
   },
   "dependencies": {
     "@tailwindcss/turbopack": "^4",

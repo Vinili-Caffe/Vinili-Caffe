@@ -1,5 +1,4 @@
 /** Permessi: comandi slash. */
-const fs = require("fs") as typeof import("fs");
 const { PermissionFlagsBits } = require("discord.js") as typeof import("discord.js");
 const IDs: any = require("../../Config/ids") as typeof import("../../Config/ids");
 const { getStaffCmdsThreadIdsCache, ensureStaffCmdsThreadIdsHydrated, isHighStaffCommandsThread, isStaffCmdsPmCommandsThreadSync } = require("../../Staff/utils/staffCmdsChannelUtils") as typeof import("../../Staff/utils/staffCmdsChannelUtils");
@@ -10,42 +9,8 @@ const { EMPTY_PERMISSIONS, LIVE_MEMBER_CACHE_TTL_MS, liveMemberCache, getIdsConf
 const { isMainGuild, checkTenantPartnershipSlashAccess } = require("./permTenantBypass") as typeof import("./permTenantBypass");
 const { HIGH_STAFF_COMMANDS_ZONE_TOKEN, PM_COMMANDS_THREAD_ZONE_TOKEN, parseChannelReferenceKey, resolveChannelReference } = require("./permReferences") as typeof import("./permReferences");
 const { hasAllPermissions } = require("./permMemberChecks") as typeof import("./permMemberChecks");
-const { PERMISSIONS_CANDIDATES, PERMISSIONS_CACHE_TTL_MS, resolveSlashRoles, resolveSlashPermissions } = require("./permWebTicket") as typeof import("./permWebTicket");
-
-let cache = { filePath: null, mtimeMs: 0, data: EMPTY_PERMISSIONS, expiresAt: 0 };
-
-function loadPermissions() {
-  const now = Date.now();
-  if (cache.data && cache.expiresAt > now) return cache.data;
-  try {
-    const permissionsPath = PERMISSIONS_CANDIDATES.find((p?) => fs.existsSync(p)) || null;
-    if (!permissionsPath) return EMPTY_PERMISSIONS;
-    const stat = fs.statSync(permissionsPath);
-    if (
-      cache.data &&
-      cache.filePath === permissionsPath &&
-      cache.mtimeMs === stat.mtimeMs
-    ) {
-      cache.expiresAt = now + PERMISSIONS_CACHE_TTL_MS;
-      return cache.data;
-    }
-    const raw = fs.readFileSync(permissionsPath, "utf-8");
-    const parsed = JSON.parse(raw) || {};
-    try {
-      require("../../Config/emergencyRoleIdRemap").remapDeepRoleIdsInPlace(parsed);
-    } catch (_) {}
-    const normalized = { slash: parsed.slash || {}, prefix: parsed.prefix || {}, channels: parsed.channels || {}, buttons: parsed.buttons || {}, selectMenus: parsed.selectMenus || {}, modals: parsed.modals || {}, };
-    cache = {
-      filePath: permissionsPath,
-      mtimeMs: stat.mtimeMs,
-      data: normalized,
-      expiresAt: now + PERMISSIONS_CACHE_TTL_MS,
-    };
-    return cache.data;
-  } catch {
-    return EMPTY_PERMISSIONS;
-  }
-}
+const { resolveSlashRoles, resolveSlashPermissions } = require("./permWebTicket") as typeof import("./permWebTicket");
+const { loadPermissions } = require("./permissionsStore") as typeof import("./permissionsStore");
 
 function expandResolvedChannelReference(rawValue?, resolvedId?) {
   const key = parseChannelReferenceKey(rawValue);

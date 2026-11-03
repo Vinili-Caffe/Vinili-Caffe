@@ -9,7 +9,7 @@
     "ignoreDeprecations": "6.0",
     "noEmit": true,
     "incremental": true,
-    "tsBuildInfoFile": ".tsbuildinfo",
+    "tsBuildInfoFile": "./.cache/tsconfig.tsbuildinfo",
     "allowJs": false,
     "resolveJsonModule": true,
     "esModuleInterop": true,
@@ -19,5 +19,5 @@
     "noImplicitAny": false
   },
   "include": ["src/**/*.ts", "types/**/*.d.ts"],
-  "exclude": ["archivio/**", "node_modules/**"]
+  "exclude": ["archivio/**", "node_modules/**", "build/**", ".cache/**"]
 }

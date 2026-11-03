@@ -186,10 +186,10 @@ async function main() {
   let cmdRoot = "";
   let cmdFolders = [];
   try {
-    require("../../Handlers/prefixHandler")(client);
+    require("../../core/handlers/prefixHandler")(client);
     prefixRoot = path.join(ROOT, "Vinili", "Prefix");
     folders = listFoldersIfExists(prefixRoot);
-    require("../../Handlers/commandHandler")(client);
+    require("../../core/handlers/commandHandler")(client);
     cmdRoot = path.join(ROOT, "Vinili", "Commands");
     cmdFolders = listFoldersIfExists(cmdRoot);
   } catch (err) {

@@ -64,7 +64,7 @@ if (process.env.RUN_UNDER_LOADER !== "1") {
   acquireSingleInstanceLock("vinili-caffe-test-bot");
 }
 
-const installProcessHandlers = require("./Handlers/processHandler") as typeof import("./Handlers/processHandler");
+const installProcessHandlers = require("./core/handlers/processHandler") as typeof import("./core/handlers/processHandler");
 const { buildInitialClientPresenceOptions, installBotPresenceHooks, patchClientPresenceGuard } = require("../shared/discord/botPresenceActivity") as typeof import("../shared/discord/botPresenceActivity");
 const { installGatewayShardListenerCeiling } = require("../shared/discord/gatewayListenerCeiling") as typeof import("../shared/discord/gatewayListenerCeiling");
 const {
@@ -145,7 +145,7 @@ const slashRoot = path.join(APP_ROOT, "Staff", "discord", "slash");
   }
 
   if (typeof client.handleEvents === "function") {
-    client.handleEvents(path.join(APP_ROOT, "Events"));
+    client.handleEvents(APP_ROOT);
   }
 
   if (typeof client.handleCommands === "function") {

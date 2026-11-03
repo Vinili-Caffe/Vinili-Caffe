@@ -213,7 +213,7 @@ module.exports = {
     /* Top.gg (3014) + Discadia (3010) in un processo: prima discadia-votes e topgg-votes */
     ensurePm2App(
       "vote-intake",
-      "Vinili/Services/Web/voteIntakeApp.js",
+      "Vinili/site/workers/voteIntakeApp.js",
       "260M",
       { DISCADIA_VOTE_INTAKE_PORT: "3010", TOPGG_VOTE_INTAKE_PORT: "3014" },
       "--max-old-space-size=192",
@@ -234,7 +234,7 @@ module.exports = {
     /* vote-drain + partnership-migration + bot-scheduler + community-poll in un processo (backgroundWorkersApp) */
     ensurePm2App(
       "bot-workers",
-      "Vinili/Services/Web/backgroundWorkersApp.js",
+      "Vinili/site/workers/backgroundWorkersApp.js",
       "700M",
       {
         VOTE_QUEUE_WORKER: "1",

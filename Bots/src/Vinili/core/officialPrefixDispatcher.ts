@@ -27,7 +27,7 @@ const { checkPrefixPermission, getPrefixRequiredRoles, buildGlobalPermissionDeni
 const { getUserCommandCooldownSeconds, consumeUserCooldown, } = require("../Moderation/utils/commandCooldown") as typeof import("../Moderation/utils/commandCooldown");
 const { buildCooldownErrorEmbed, buildBusyCommandErrorEmbed, buildMissingArgumentsErrorEmbed, buildInternalCommandErrorEmbed, } = require("../Moderation/utils/commandErrorEmbeds") as typeof import("../Moderation/utils/commandErrorEmbeds");
 const { buildErrorLogEmbed } = require("../../shared/discord/errorLogEmbed") as typeof import("../../shared/discord/errorLogEmbed");
-const { getCentralChannel } = require("../Events/interaction/commandUsageLogger") as typeof import("../Events/interaction/commandUsageLogger");
+const { getCentralChannel } = require("./events/interaction/commandUsageLogger") as typeof import("./events/interaction/commandUsageLogger");
 const { shouldBlockModerationCommands } = require("../Security/services/antiNukeService") as typeof import("../Security/services/antiNukeService");
 const { getSecurityLockState } = require("../Security/services/securityOrchestratorService") as typeof import("../Security/services/securityOrchestratorService");
 const { showPrefixUsageGuide } = require("../../shared/prefix/prefixUsageGuide") as typeof import("../../shared/prefix/prefixUsageGuide");
@@ -456,7 +456,7 @@ async function executePrefixCommandRuntime({
       }),
     ]);
     try {
-      const { maybeApplyTenantEphemeralCommandCleanup } = require("../../Partner/tenant/tenantProfileEphemeral") as typeof import("../../Partner/tenant/tenantProfileEphemeral");
+      const { maybeApplyTenantEphemeralCommandCleanup } = require("../Partner/tenant/tenantProfileEphemeral") as typeof import("../Partner/tenant/tenantProfileEphemeral");
       void maybeApplyTenantEphemeralCommandCleanup(execMessage, cmdName);
     } catch (_) {}
   } catch (error) {
@@ -636,7 +636,7 @@ async function handleOfficialPrefixMessage({ message, resolvedClient, defaultPre
     const {
       partnershipPublishChannelCommandsDeniedReplyContent,
       sendPartnersChatDeniedPrefixCleanup,
-    } = require("../../Partner/runtime/partnersChatChannelUtils") as typeof import("../../Partner/runtime/partnersChatChannelUtils");
+    } = require("../Partner/runtime/partnersChatChannelUtils") as typeof import("../Partner/runtime/partnersChatChannelUtils");
     const deniedPublishChannel = partnershipPublishChannelCommandsDeniedReplyContent(message.channel, {
       commandName: command?.name,
     });
@@ -695,8 +695,8 @@ async function handleOfficialPrefixMessage({ message, resolvedClient, defaultPre
 
   const commandFolder = String(command.folder || "").toLowerCase();
   if (["staff", "admin"].includes(commandFolder)) {
-    const { staffChatCommandsDeniedReplyContent } = require("../../Staff/utils/staffChatChannelUtils") as typeof import("../../Staff/utils/staffChatChannelUtils");
-    const { sendPartnersChatDeniedPrefixCleanup, partnersChatPartnerCommandDeniedReplyContent } = require("../../Partner/runtime/partnersChatChannelUtils") as typeof import("../../Partner/runtime/partnersChatChannelUtils");
+    const { staffChatCommandsDeniedReplyContent } = require("../Staff/utils/staffChatChannelUtils") as typeof import("../Staff/utils/staffChatChannelUtils");
+    const { sendPartnersChatDeniedPrefixCleanup, partnersChatPartnerCommandDeniedReplyContent } = require("../Partner/runtime/partnersChatChannelUtils") as typeof import("../Partner/runtime/partnersChatChannelUtils");
     const deniedStaffChat = await staffChatCommandsDeniedReplyContent(message.channel).catch(() => null);
     if (deniedStaffChat) {
       await deleteCommandMessage();

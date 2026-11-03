@@ -1,0 +1,181 @@
+const { PermissionFlagsBits } = require("discord.js") as typeof import("discord.js");
+
+const USER_MENTION_PREFIX_REGEX = /^<@!?\d+>/;
+const TEMPORARY_NOTICE_LIFETIME_MS = 8000;
+const STAFF_BYPASS_PERMISSIONS = [
+  PermissionFlagsBits.Administrator,
+  PermissionFlagsBits.ManageGuild,
+  PermissionFlagsBits.ManageChannels,
+  PermissionFlagsBits.ManageRoles,
+  PermissionFlagsBits.ManageMessages,
+  PermissionFlagsBits.KickMembers,
+  PermissionFlagsBits.BanMembers,
+  PermissionFlagsBits.ModerateMembers,
+];
+
+/**
+ * Guild prefix entry: mention→prefix normalize + wrong-prefix hint + official handler.
+ * @param {object} options
+ * @param {(ctx) => any} options.handleOfficialPrefixMessage
+ * @param {object} options.ids
+ * @param {(guild, userId) => Promise<any>} [options.getCachedOrFetchMember]
+ * @param {number} [options.defaultPrefixFallback]
+ */
+function createDispatchPrefixMessage(options: Record<string, any> = {}) {
+  const IDs = options.ids || {};
+  const handleOfficialPrefixMessage = options.handleOfficialPrefixMessage;
+  const getCachedOrFetchMember = options.getCachedOrFetchMember || null;
+  const WRONG_PREFIX_HINT_CHANNEL_IDS = new Set(
+    [IDs.channels?.commands, IDs.channels?.staffCmds].filter(Boolean).map(String),
+  );
+
+  function hasAnyStaffBypassPermission(permissions?) {
+    if (!permissions || typeof permissions.has !== "function") return false;
+    return STAFF_BYPASS_PERMISSIONS.some((perm?) => permissions.has(perm));
+  }
+
+  function deleteMessageLater(message?, delayMs = TEMPORARY_NOTICE_LIFETIME_MS) {
+    if (!message || typeof message.delete !== "function") return;
+    const timer = setTimeout(() => message.delete().catch(() => {}), delayMs);
+    timer.unref?.();
+  }
+
+  async function sendTemporaryChannelNotice(channel?, payload?, delayMs = TEMPORARY_NOTICE_LIFETIME_MS) {
+    if (!channel || typeof channel.send !== "function") return null;
+    const sent = await channel.send(payload).catch(() => null);
+    if (sent) deleteMessageLater(sent, delayMs);
+    return sent;
+  }
+
+  function resolvePrefixCommandByToken(client?, token?) {
+    const safe = String(token || "").trim().toLowerCase();
+    if (!safe) return null;
+    return (
+      client?.pcommands?.get?.(safe) ||
+      client?.pcommands?.get?.(client?.aliases?.get?.(safe)) ||
+      null
+    );
+  }
+
+  function getBotMentionPrefixRegex(client?) {
+    const botId = String(client?.user?.id || "");
+    if (!/^\d+$/.test(botId)) return null;
+    return new RegExp(`^<@!?${botId}>`);
+  }
+
+  function parseWrongPrefixAttempt(content?, validPrefix = ",") {
+    const text = String(content || "").trim();
+    const safePrefix = String(validPrefix || ",");
+    if (!text || text.startsWith(safePrefix)) return null;
+    const direct = text.match(/^((?:[a-z]{1,3})?[?!./-])\s*([a-z0-9][\w-]*)/i);
+    if (direct) {
+      return {
+        usedPrefix: String(direct[1] || ""),
+        token: String(direct[2] || "").toLowerCase(),
+      };
+    }
+    const nearMiss = text.match(/^([a-z]{1,3})\s*([?!./-])\s*([a-z0-9][\w-]*)/i);
+    if (nearMiss) {
+      return {
+        usedPrefix: `${String(nearMiss[1] || "")}${String(nearMiss[2] || "")}`,
+        token: String(nearMiss[3] || "").toLowerCase(),
+      };
+    }
+    return null;
+  }
+
+  function shouldSendWrongPrefixHint(message?, usedPrefix?, commandName?) {
+    const client = message?.client;
+    if (!client) return true;
+    if (!client._wrongPrefixHintCooldown) client._wrongPrefixHintCooldown = new Map();
+    const key = [
+      String(message.guildId || "noguild"),
+      String(message.channelId || "nochannel"),
+      String(message.author?.id || "nouser"),
+      String(usedPrefix || ""),
+      String(commandName || ""),
+    ].join(":");
+    const now = Date.now();
+    const lastAt = Number(client._wrongPrefixHintCooldown.get(key) || 0);
+    if (now - lastAt < 10_000) return false;
+    client._wrongPrefixHintCooldown.set(key, now);
+    return true;
+  }
+
+  async function maybeSendWrongPrefixHint(message?, client?, validPrefix = ",") {
+    const channelId = String(message?.channelId || "");
+    if (WRONG_PREFIX_HINT_CHANNEL_IDS.size && !WRONG_PREFIX_HINT_CHANNEL_IDS.has(channelId)) {
+      return false;
+    }
+    const safePrefix = String(validPrefix || ",");
+    const attempt = parseWrongPrefixAttempt(message?.content || "", safePrefix);
+    if (!attempt?.token || !attempt?.usedPrefix) return false;
+    if (attempt.usedPrefix === safePrefix) return false;
+    if (typeof options.skipWrongPrefixHintForToken === "function") {
+      if (options.skipWrongPrefixHintForToken(attempt.token, attempt.usedPrefix, message)) {
+        return false;
+      }
+    }
+    const command = resolvePrefixCommandByToken(client, attempt.token);
+    if (!command) return false;
+    const commandName = String(command.name || "").toLowerCase();
+    if (typeof options.skipWrongPrefixHintForCommand === "function") {
+      if (options.skipWrongPrefixHintForCommand(commandName, attempt, message)) return false;
+    }
+    if (!shouldSendWrongPrefixHint(message, attempt.usedPrefix, commandName)) return true;
+    await sendTemporaryChannelNotice(message.channel, {
+      content: `\`${attempt.usedPrefix}${attempt.token}\` non è valido. Usa \`${safePrefix}${commandName}\`.`,
+    });
+    return true;
+  }
+
+  async function dispatchPrefixMessage(message?, client?) {
+    if (!message?.guild || message.author?.bot) return false;
+    const content = (message.content || "").trim();
+    if (!content) return false;
+    const safePrefix =
+      String(client?.config?.prefix || options.defaultPrefixFallback || "-").trim() || "-";
+
+    let startsWithPrefix = content.startsWith(safePrefix);
+    const botMentionPrefixRegex = getBotMentionPrefixRegex(client);
+    const startsWithBotMention = Boolean(botMentionPrefixRegex?.test(content));
+
+    if (!startsWithPrefix && USER_MENTION_PREFIX_REGEX.test(content) && !startsWithBotMention) {
+      return false;
+    }
+    if (!startsWithPrefix && !startsWithBotMention) {
+      await maybeSendWrongPrefixHint(message, client, safePrefix);
+      return false;
+    }
+    if (!startsWithPrefix && startsWithBotMention) {
+      try {
+        message.content = content
+          .replace(botMentionPrefixRegex, safePrefix)
+          .replace(/\s+/g, " ")
+          .trim();
+      } catch (e) {
+        global.logger?.warn?.("[PREFIX] mention normalize failed:", e?.message || e);
+        return false;
+      }
+    }
+
+    try {
+      await handleOfficialPrefixMessage({
+        message,
+        resolvedClient: client,
+        defaultPrefix: safePrefix,
+        overrideCommand: null,
+        maybeSendWrongPrefixHint,
+        getCachedOrFetchMember,
+        hasAnyStaffBypassPermission,
+      });
+    } catch (err) {
+      global.logger?.error?.("[PREFIX] handleOfficialPrefixMessage:", err);
+    }
+    return true;
+  }
+
+  return { dispatchPrefixMessage, maybeSendWrongPrefixHint, hasAnyStaffBypassPermission };
+}
+
+export = { createDispatchPrefixMessage };

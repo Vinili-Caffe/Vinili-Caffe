@@ -2,7 +2,7 @@ const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { CustomRole, SiteDocument, SITE_DOCUMENT_TYPE } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
 
 const COOLDOWN = SITE_DOCUMENT_TYPE.ROLE_REQUEST_COOLDOWN;
-const { createSiteRoleJoinRequest } = require("../../Events/interaction/customRoleHandlers") as typeof import("../../Events/interaction/customRoleHandlers");
+const { createSiteRoleJoinRequest } = require("../../Community/events/interaction/customRoleHandlers") as typeof import("../../Community/events/interaction/customRoleHandlers");
 const { isArchivedEventRoleId } = require("../../Community/utils/userCustomRoleFilter") as typeof import("../../Community/utils/userCustomRoleFilter");
 const { collectBlockedSystemRoleIds, isListableUserCustomRole } = require("../../Community/utils/userCustomRoleFilter") as typeof import("../../Community/utils/userCustomRoleFilter");
 const { fetchWebsiteGuildMember, isOnNegativeCache, readCachedWebsiteMember, writeCachedWebsiteMember, ensureWebsiteGuild } = require("./websiteGuildMemberFetch") as typeof import("./websiteGuildMemberFetch");

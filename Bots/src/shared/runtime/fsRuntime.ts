@@ -159,10 +159,16 @@ function acquireSingleInstanceLock(lockName?) {
 }
 
 function installHandlers(appRoot?, client?) {
-  const handlersDir = path.join(appRoot, "Handlers");
+  const root = path.resolve(String(appRoot || process.cwd()));
+  const candidates = [
+    path.join(root, "core", "handlers"),
+    path.join(root, "Handlers"),
+  ];
+  const handlersDir = candidates.find((dir?) => listJsFilesIfExists(dir).length > 0) || candidates[0];
   const handlerFiles = listJsFilesIfExists(handlersDir);
   for (const file of handlerFiles) {
-    require(path.join(handlersDir, file))(client);
+    const mod = require(path.join(handlersDir, file));
+    if (typeof mod === "function") mod(client);
   }
 }
 

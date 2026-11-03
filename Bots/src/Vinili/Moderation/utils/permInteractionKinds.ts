@@ -116,7 +116,7 @@ function isApplyOrCandidatureInteraction(customId?) {
 
 function getPendingCustomRoleGrant(token?) {
   try {
-    const mod = require("../../Events/interaction/customRoleHandlers") as typeof import("../../Events/interaction/customRoleHandlers");
+    const mod = require("../../Community/events/interaction/customRoleHandlers") as typeof import("../../Community/events/interaction/customRoleHandlers");
     if (typeof mod?.getPendingRoleGrantByToken !== "function") return null;
     return mod.getPendingRoleGrantByToken(token);
   } catch {

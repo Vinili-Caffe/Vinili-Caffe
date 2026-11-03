@@ -2,6 +2,10 @@ const ascii = require("ascii-table");
 const path = require("path") as typeof import("path");
 const { listJsFilesRecursive } = require("./fsRuntime") as typeof import("./fsRuntime");
 const {
+  discoverModuleEventFiles,
+  defaultModuleEventFolderLabel,
+} = require("./discoverModuleEventFiles") as typeof import("./discoverModuleEventFiles");
+const {
   clearBoundHandlers,
   normalizeLifecycleEventName,
   trackBoundHandler,
@@ -35,18 +39,14 @@ function resolveSkipEvents(rareDefaults?) {
   ]);
 }
 
-function defaultFolderLabel(rel?) {
-  const folder = path.dirname(String(rel || "")).replace(/\\/g, "/");
-  if (folder === ".") return "Events";
-  return `Events/${folder}`;
-}
-
 /**
  * Shared Discord event file loader (client.handleEvents).
+ * Loads legacy `Events/` (baseDir) plus `<Module>/events/**` under the bot root.
  * @param {object} [options]
  * @param {(absBase: string, botRoot: string) => string[]} [options.extraEventFiles]
  * @param {(rel: string) => string} [options.folderLabelForRel]
  * @param {string[]} [options.rareEventDefaults]
+ * @param {boolean} [options.discoverModuleEvents=true]
  */
 function installEventLoader(client?, options: Record<string, any> = {}) {
   if (!client) return;
@@ -55,14 +55,18 @@ function installEventLoader(client?, options: Record<string, any> = {}) {
   const extraEventFiles =
     typeof options.extraEventFiles === "function" ? options.extraEventFiles : null;
   const folderLabelForRel =
-    typeof options.folderLabelForRel === "function" ? options.folderLabelForRel : defaultFolderLabel;
+    typeof options.folderLabelForRel === "function"
+      ? options.folderLabelForRel
+      : defaultModuleEventFolderLabel;
   const rareDefaults = options.rareEventDefaults;
+  const discoverModules = options.discoverModuleEvents !== false;
 
   client.handleEvents = async (baseDir?) => {
     clearBoundHandlers(client, "_eventHandlers");
 
     const absBase = path.resolve(baseDir);
-    const botRoot = path.dirname(absBase);
+    const botRoot =
+      path.basename(absBase).toLowerCase() === "events" ? path.dirname(absBase) : absBase;
     const statusMap = new Map();
     const skipEvents = resolveSkipEvents(rareDefaults);
 
@@ -80,7 +84,18 @@ function installEventLoader(client?, options: Record<string, any> = {}) {
           })
       : [];
 
-    const files = [...listJsFilesRecursive(absBase), ...extras];
+    const moduleFiles = discoverModules ? discoverModuleEventFiles(botRoot) : [];
+    const legacyFiles = listJsFilesRecursive(
+      path.basename(absBase).toLowerCase() === "events" ? absBase : path.join(botRoot, "Events"),
+    );
+    const seen = new Set();
+    const files = [];
+    for (const file of [...legacyFiles, ...moduleFiles, ...extras]) {
+      const key = path.resolve(file);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      files.push(file);
+    }
 
     for (const file of files) {
       const underEvents = file.startsWith(absBase + path.sep) || file.startsWith(absBase + "/");

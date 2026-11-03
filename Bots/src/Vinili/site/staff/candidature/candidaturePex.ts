@@ -27,7 +27,7 @@ async function sendCandidatePexWelcome(guild?, member?, targetRoleId?) {
 }
 
 async function sendCandidatePexLog(guild?, member?, targetRoleId?, roleBeforeId?, reason?) {
-    const { sendPexDepexLog } = require("../../../Events/interaction/resocontoHandlers") as typeof import("../../../Events/interaction/resocontoHandlers");
+    const { sendPexDepexLog } = require("../../../Staff/events/interaction/resocontoHandlers") as typeof import("../../../Staff/events/interaction/resocontoHandlers");
   await sendPexDepexLog(
     guild,
     "pex",

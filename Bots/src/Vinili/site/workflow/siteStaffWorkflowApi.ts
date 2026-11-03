@@ -20,7 +20,7 @@ const {
   upsertStaffWorkflowItem,
   buildWorkflowDedupeKey,
 } = require("./siteStaffWorkflowStore") as typeof import("./siteStaffWorkflowStore");
-const { decideResocontoFromWeb } = require("../../Events/interaction/resocontoHandlers") as typeof import("../../Events/interaction/resocontoHandlers");
+const { decideResocontoFromWeb } = require("../../Staff/events/interaction/resocontoHandlers") as typeof import("../../Staff/events/interaction/resocontoHandlers");
 const { memberHasResocontoButtonAccess } = require("../../Staff/utils/resocontoAccess") as typeof import("../../Staff/utils/resocontoAccess");
 
 const WORKFLOW_DOC = SITE_DOCUMENT_TYPE.STAFF_WORKFLOW;

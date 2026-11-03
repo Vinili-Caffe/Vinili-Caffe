@@ -1,16 +1,5 @@
-const { ChannelType, PermissionsBitField } = require("discord.js") as typeof import("discord.js");
+﻿const { ChannelType, PermissionsBitField } = require("discord.js") as typeof import("discord.js");
 const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
-
-let VinylsIDs = null;
-function getVinylsIds() {
-  if (VinylsIDs) return VinylsIDs;
-  try {
-    VinylsIDs = require("../../../Vinili/Config/ids");
-  } catch {
-    VinylsIDs = {};
-  }
-  return VinylsIDs;
-}
 
 const INDEX_SUFFIX_RE = /[⁰¹²³⁴⁵⁶⁷⁸⁹]+$/;
 
@@ -23,8 +12,7 @@ function getPublicVoiceHubChannelIds(client?) {
   if (Array.isArray(fromConfig) && fromConfig.length) {
     return fromConfig.map((id?) => String(id || "").trim()).filter(Boolean);
   }
-  const vinyls = getVinylsIds();
-  const fromIds = Array.isArray(vinyls.publicVoiceHubChannelIds) ? vinyls.publicVoiceHubChannelIds : [];
+  const fromIds = Array.isArray(IDs.publicVoiceHubChannelIds) ? IDs.publicVoiceHubChannelIds : [];
   return fromIds.map((id?) => String(id || "").trim()).filter(Boolean);
 }
 
@@ -70,7 +58,7 @@ function getMarkovExcludedCategoryIds(config: Record<string, any> = {}) {
   const markov = config?.markov || {};
   const fromConfig = Array.isArray(markov.excludedCategoryIds) ? markov.excludedCategoryIds : [];
   const stanza = Array.isArray(IDs.stanzaDiscoveryExcludeParentIds) ? IDs.stanzaDiscoveryExcludeParentIds : [];
-  const categoryStanze = String(getVinylsIds()?.categories?.categoryStanze || "").trim();
+  const categoryStanze = String(IDs.categories?.categoryStanze || "").trim();
   const extraCategories = categoryStanze ? [categoryStanze] : [];
   return new Set([...fromConfig, ...stanza, ...extraCategories].map(String).filter(Boolean));
 }
@@ -78,8 +66,7 @@ function getMarkovExcludedCategoryIds(config: Record<string, any> = {}) {
 function getMarkovExcludedChannelIds(config: Record<string, any> = {}) {
   const markov = config?.markov || {};
   const fromConfig = Array.isArray(markov.excludedChannelIds) ? markov.excludedChannelIds : [];
-  const vinyls = getVinylsIds();
-  const poketwo = String(vinyls?.channels?.poketwo || (IDs.channels as any)?.poketwo || "").trim();
+  const poketwo = String((IDs.channels as any)?.poketwo || "").trim();
   const extras = poketwo ? [poketwo] : [];
   return new Set([...fromConfig, ...extras].map(String).filter(Boolean));
 }
