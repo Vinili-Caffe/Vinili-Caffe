@@ -1,24 +1,9 @@
 const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { sanitizeDiscordChannelName } = require("../utils/discordDisplayName") as typeof import("../utils/discordDisplayName");
 const { assertWebsiteStaffAccess, normalizeHeaderSecret } = require("./siteStaffAccessApi") as typeof import("./siteStaffAccessApi");
-const {
-  listReadableStaffGuideSections,
-  memberCanReadStaffGuideSection,
-} = require("../../Staff/utils/staffGuideAccess") as typeof import("../../Staff/utils/staffGuideAccess");
-const {
-  buildStaffGuideIntroMarkdown,
-  buildStaffGuideSectionMarkdown,
-  getStaffGuideSectionMeta,
-  getStaffGuideChildSectionIds,
-  listStaffGuideSectionMeta,
-} = require("../../Staff/utils/staffGuideContent") as typeof import("../../Staff/utils/staffGuideContent");
-const {
-  discordGuideMarkdownToHtml: convertGuideMarkdown,
-  buildDefaultUserNameMap,
-  buildDefaultRoleNameMap,
-  buildDefaultChannelNameMap,
-  humanizeIdKey,
-} = require("../../site/http/discordGuideMarkdown") as typeof import("../../site/http/discordGuideMarkdown");
+const { listReadableStaffGuideSections, memberCanReadStaffGuideSection } = require("../../Staff/utils/staffGuideAccess") as typeof import("../../Staff/utils/staffGuideAccess");
+const { buildStaffGuideSectionMarkdown, getStaffGuideSectionMeta, getStaffGuideChildSectionIds, listStaffGuideSectionMeta } = require("../../Staff/utils/staffGuideContent") as typeof import("../../Staff/utils/staffGuideContent");
+const { discordGuideMarkdownToHtml: convertGuideMarkdown, buildDefaultUserNameMap, buildDefaultRoleNameMap, buildDefaultChannelNameMap, humanizeIdKey } = require("../../site/http/discordGuideMarkdown") as typeof import("../../site/http/discordGuideMarkdown");
 
 function buildRoleNameMap(guild?) {
   const map = buildDefaultRoleNameMap(IDs);
@@ -106,6 +91,39 @@ async function resolveGuideUserNames(client?, guild?, markdown?) {
   return map;
 }
 
+function mapToRecord(map?) {
+  const out: Record<string, string> = {};
+  if (!map || typeof map.entries !== "function") return out;
+  for (const [id, name] of map.entries()) {
+    const key = String(id || "").trim();
+    const label = String(name || "").trim();
+    if (key && label) out[key] = label;
+  }
+  return out;
+}
+
+function cleanRoleDisplayName(name?) {
+  return String(name || "")
+    .replace(/^[\s༄✦✧◆◇❖★☆•·‧]+/u, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function buildMentionNamesPayload(guild?, userNames?) {
+  const rolesRaw = buildRoleNameMap(guild);
+  const roles: Record<string, string> = {};
+  for (const [id, name] of rolesRaw.entries()) {
+    const key = String(id || "").trim();
+    const label = cleanRoleDisplayName(name) || String(name || "").trim();
+    if (key && label) roles[key] = label;
+  }
+  return {
+    roles,
+    channels: mapToRecord(buildChannelNameMap(guild)),
+    users: mapToRecord(userNames || buildDefaultUserNameMap(IDs)),
+  };
+}
+
 function discordGuideMarkdownToHtml(markdown?, { guild = null, userNames = null } = {}) {
   return convertGuideMarkdown(markdown, {
     IDs,
@@ -115,20 +133,52 @@ function discordGuideMarkdownToHtml(markdown?, { guild = null, userNames = null 
   });
 }
 
+/**
+ * Compat frontend attuale (senza `names`): sostituisce le mention Discord
+ * con etichette grassetto già leggibili, così non compare più @ruolo / #canale.
+ */
+function resolveMentionsInMarkdown(markdown?, guild?, userNames?) {
+  const roles = buildRoleNameMap(guild);
+  const channels = buildChannelNameMap(guild);
+  const users = userNames || buildDefaultUserNameMap(IDs);
+  const userLabel = (id?) => {
+    const key = String(id || "");
+    if (users && typeof users.get === "function") return String(users.get(key) || "").trim();
+    if (users && typeof users === "object") return String(users[key] || "").trim();
+    return "";
+  };
+  return String(markdown || "")
+    .replace(/<@&(\d{5,32})>/g, (_m?, id?) => {
+      const name = cleanRoleDisplayName(roles.get(String(id)) || "") || "Ruolo";
+      return `**@${name}**`;
+    })
+    .replace(/<#(\d{5,32})>/g, (_m?, id?) => {
+      const name = channels.get(String(id)) || "canale";
+      return `**#${name}**`;
+    })
+    .replace(/<@!?(\d{5,32})>/g, (_m?, id?) => {
+      const name = userLabel(id) || "Utente";
+      return `**@${name}**`;
+    });
+}
+
 async function buildIntroPayload(client?, guild?) {
-  const markdown = buildStaffGuideIntroMarkdown();
-  const userNames = await resolveGuideUserNames(client, guild, markdown);
+  const rawMarkdown = "";
+  const userNames = await resolveGuideUserNames(client, guild, rawMarkdown);
+  const names = buildMentionNamesPayload(guild, userNames);
   return {
     title: "Guida staff",
-    markdown,
-    html: discordGuideMarkdownToHtml(markdown, { guild, userNames }),
+    markdown: resolveMentionsInMarkdown(rawMarkdown, guild, userNames),
+    markdownRaw: rawMarkdown,
+    html: discordGuideMarkdownToHtml(rawMarkdown, { guild, userNames }),
+    names,
   };
 }
 
 async function buildSectionPayload(client?, member?, sectionId?) {
   const meta: any = getStaffGuideSectionMeta(sectionId);
-  const markdown = buildStaffGuideSectionMarkdown(sectionId);
-  if (!meta || markdown == null) return null;
+  const rawMarkdown = buildStaffGuideSectionMarkdown(sectionId);
+  if (!meta || rawMarkdown == null) return null;
 
   const guild = member?.guild || null;
   const children = getStaffGuideChildSectionIds(sectionId)
@@ -140,13 +190,16 @@ async function buildSectionPayload(client?, member?, sectionId?) {
         : { id: cid, label: cid, description: "" };
     });
 
-  const userNames = await resolveGuideUserNames(client, guild, markdown);
+  const userNames = await resolveGuideUserNames(client, guild, rawMarkdown);
+  const names = buildMentionNamesPayload(guild, userNames);
   const payload: Record<string, any> = {
     id: meta.id,
     label: meta.label,
     description: meta.description,
-    markdown,
-    html: discordGuideMarkdownToHtml(markdown, { guild, userNames }),
+    markdown: resolveMentionsInMarkdown(rawMarkdown, guild, userNames),
+    markdownRaw: rawMarkdown,
+    html: discordGuideMarkdownToHtml(rawMarkdown, { guild, userNames }),
+    names,
   };
   if (meta.parent) payload.parent = meta.parent;
   if (children.length) payload.children = children;

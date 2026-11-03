@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { BookOpen, ChevronRight, Loader2, Search } from "lucide-react";
 import { DiscordContent } from "@/components/discord/DiscordContent";
+import { EmojiText } from "@/components/discord/EmojiText";
 import { cn } from "@/lib/cn";
 import {
   childrenOf,
@@ -15,9 +16,15 @@ import {
 import { useStaff } from "./StaffShell";
 import { Select } from "@/components/ui/Select";
 
-const INTRO_ID = "__intro__";
+/** Guide “speciali” (PM / Middle): staccate dal blocco principale nell’indice. */
+const DETACHED_SECTION_IDS = new Set(["guidapartners", "guidamiddle"]);
 
 type TocNode = GuideSectionMeta & { kids: GuideSectionMeta[] };
+
+function GuideNavIcon({ emoji }: { emoji?: string }) {
+  if (!emoji) return <span className="inline-block size-4 shrink-0" aria-hidden />;
+  return <EmojiText text={emoji} emojiClassName="!size-4 !align-middle" className="inline-flex size-4 shrink-0 items-center justify-center" />;
+}
 
 /**
  * Manuale staff: un solo pannello (indice + lettura), ricerca, niente tab/quick link.
@@ -25,8 +32,6 @@ type TocNode = GuideSectionMeta & { kids: GuideSectionMeta[] };
 export function GuideBrowser() {
   const { token } = useStaff();
   const [allSections, setAllSections] = useState<GuideSectionMeta[]>([]);
-  const [intro, setIntro] = useState("");
-  const [introTitle, setIntroTitle] = useState("Introduzione");
   const [openId, setOpenId] = useState("");
   const [content, setContent] = useState<GuideSection | null>(null);
   const [err, setErr] = useState("");
@@ -40,18 +45,27 @@ export function GuideBrowser() {
     return tops.map((t) => ({ ...t, kids: childrenOf(allSections, t.id) }));
   }, [allSections]);
 
+  const { mainTree, detachedTree } = useMemo(() => {
+    const main: TocNode[] = [];
+    const detached: TocNode[] = [];
+    for (const t of tree) {
+      if (DETACHED_SECTION_IDS.has(t.id)) detached.push(t);
+      else main.push(t);
+    }
+    return { mainTree: main, detachedTree: detached };
+  }, [tree]);
+
   const flatForSearch = useMemo(() => {
-    const out: { id: string; label: string; parent?: string }[] = [];
-    if (intro) out.push({ id: INTRO_ID, label: introTitle });
+    const out: { id: string; label: string; parent?: string; emoji?: string }[] = [];
     for (const t of tree) {
       if (t.kids.length) {
-        for (const k of t.kids) out.push({ id: k.id, label: k.label, parent: t.label });
+        for (const k of t.kids) out.push({ id: k.id, label: k.label, parent: t.label, emoji: k.emoji || t.emoji });
       } else {
-        out.push({ id: t.id, label: t.label });
+        out.push({ id: t.id, label: t.label, emoji: t.emoji });
       }
     }
     return out;
-  }, [tree, intro, introTitle]);
+  }, [tree]);
 
   const filtered = useMemo(() => {
     const n = q.trim().toLowerCase();
@@ -71,17 +85,11 @@ export function GuideBrowser() {
       }
       const secs = r.data.sections || [];
       setAllSections(secs);
-      const introMd = r.data.intro?.markdown || "";
-      setIntro(introMd);
-      setIntroTitle(r.data.intro?.title || "Introduzione");
       const tops = topLevelSections(secs);
-      const firstTop = tops[0];
+      const firstTop = tops.find((t) => !DETACHED_SECTION_IDS.has(t.id)) || tops[0];
       if (firstTop) setExpanded({ [firstTop.id]: true });
-      if (introMd) setOpenId(INTRO_ID);
-      else {
-        const kids = firstTop ? childrenOf(secs, firstTop.id) : [];
-        setOpenId(kids[0]?.id || firstTop?.id || "");
-      }
+      const kids = firstTop ? childrenOf(secs, firstTop.id) : [];
+      setOpenId(kids[0]?.id || firstTop?.id || "");
     });
     return () => {
       alive = false;
@@ -89,7 +97,7 @@ export function GuideBrowser() {
   }, [token]);
 
   useEffect(() => {
-    if (!openId || openId === INTRO_ID) {
+    if (!openId) {
       setContent(null);
       setLoadingSection(false);
       setErr("");
@@ -117,7 +125,53 @@ export function GuideBrowser() {
   function openChapter(id: string, parentId?: string) {
     setOpenId(id);
     setQ("");
-    if (parentId) setExpanded((e) => ({ ...e, [parentId]: true }));
+    const parent = parentId || allSections.find((s) => s.id === id)?.parent || undefined;
+    if (parent) setExpanded((e) => ({ ...e, [String(parent)]: true }));
+  }
+
+  function renderTocNode(t: TocNode) {
+    const hasKids = t.kids.length > 0;
+    const isOpen = Boolean(expanded[t.id]);
+    return (
+      <div key={t.id}>
+        <button
+          type="button"
+          onClick={() => {
+            if (hasKids) {
+              setExpanded((e) => ({ ...e, [t.id]: !e[t.id] }));
+              if (!expanded[t.id] && t.kids[0] && !t.kids.some((k) => k.id === openId)) openChapter(t.kids[0].id, t.id);
+            } else openChapter(t.id);
+          }}
+          className={cn(
+            "flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-left text-sm font-semibold transition",
+            openId === t.id && !hasKids ? "bg-caramel/20 text-ember ring-1 ring-caramel/30" : "text-crema/80 hover:bg-crema/6",
+          )}
+        >
+          <GuideNavIcon emoji={t.emoji} />
+          <span className="min-w-0 flex-1 leading-snug">{t.label}</span>
+          {hasKids ? <ChevronRight className={cn("size-3.5 shrink-0 text-crema/40 transition", isOpen && "rotate-90")} /> : null}
+        </button>
+        {hasKids && isOpen ? (
+          <ul className="mb-1 ml-3 space-y-0.5 border-l border-sand/15 pl-2">
+            {t.kids.map((k) => (
+              <li key={k.id}>
+                <button
+                  type="button"
+                  onClick={() => openChapter(k.id, t.id)}
+                  className={cn(
+                    "flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm transition",
+                    openId === k.id ? "bg-caramel/20 font-semibold text-ember" : "text-crema/65 hover:bg-crema/6 hover:text-crema",
+                  )}
+                >
+                  <GuideNavIcon emoji={k.emoji} />
+                  <span className="min-w-0 leading-snug">{k.label}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+      </div>
+    );
   }
 
   if (busy) return <div className="h-64 animate-pulse rounded-3xl bg-crema/6" />;
@@ -167,6 +221,7 @@ export function GuideBrowser() {
                     openId === x.id ? "bg-caramel/20 text-ember ring-1 ring-caramel/30" : "text-crema/75 hover:bg-crema/6",
                   )}
                 >
+                  <GuideNavIcon emoji={x.emoji} />
                   <span className="min-w-0">
                     <span className="block font-semibold leading-snug">{x.label}</span>
                     {x.parent ? <span className="block text-[0.65rem] text-crema/40">{x.parent}</span> : null}
@@ -178,67 +233,11 @@ export function GuideBrowser() {
             )
           ) : (
             <>
-              {intro ? (
-                <button
-                  type="button"
-                  onClick={() => openChapter(INTRO_ID)}
-                  className={cn(
-                    "mb-1 flex w-full items-center gap-1.5 rounded-xl px-2.5 py-2 text-left text-sm font-semibold transition",
-                    openId === INTRO_ID ? "bg-caramel/20 text-ember ring-1 ring-caramel/30" : "text-crema/80 hover:bg-crema/6",
-                  )}
-                >
-                  <span className="size-3.5" />
-                  {introTitle}
-                </button>
+              <div className="space-y-1">{mainTree.map(renderTocNode)}</div>
+              {detachedTree.length ? (
+                <div className="mt-3 space-y-1 border-t border-sand/15 pt-3">{detachedTree.map(renderTocNode)}</div>
               ) : null}
-              {tree.map((t) => {
-                const hasKids = t.kids.length > 0;
-                const isOpen = Boolean(expanded[t.id]) || t.kids.some((k) => k.id === openId);
-                return (
-                  <div key={t.id}>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (hasKids) {
-                          const next = !isOpen;
-                          setExpanded((e) => ({ ...e, [t.id]: next }));
-                          if (next && t.kids[0] && !t.kids.some((k) => k.id === openId)) openChapter(t.kids[0].id, t.id);
-                        } else openChapter(t.id);
-                      }}
-                      className={cn(
-                        "flex w-full items-center gap-1.5 rounded-xl px-2.5 py-2 text-left text-sm font-semibold transition",
-                        openId === t.id && !hasKids ? "bg-caramel/20 text-ember ring-1 ring-caramel/30" : "text-crema/80 hover:bg-crema/6",
-                      )}
-                    >
-                      {hasKids ? (
-                        <ChevronRight className={cn("size-3.5 shrink-0 text-crema/40 transition", isOpen && "rotate-90")} />
-                      ) : (
-                        <span className="size-3.5" />
-                      )}
-                      <span className="leading-snug">{t.label}</span>
-                    </button>
-                    {hasKids && isOpen ? (
-                      <ul className="mb-1 ml-3 space-y-0.5 border-l border-sand/15 pl-2">
-                        {t.kids.map((k) => (
-                          <li key={k.id}>
-                            <button
-                              type="button"
-                              onClick={() => openChapter(k.id, t.id)}
-                              className={cn(
-                                "w-full rounded-lg px-2 py-1.5 text-left text-sm transition",
-                                openId === k.id ? "bg-caramel/20 font-semibold text-ember" : "text-crema/65 hover:bg-crema/6 hover:text-crema",
-                              )}
-                            >
-                              {k.label}
-                            </button>
-                          </li>
-                        ))}
-                      </ul>
-                    ) : null}
-                  </div>
-                );
-              })}
-              {!tree.length && !intro ? <p className="px-2 py-3 text-sm text-crema/45">Nessuna sezione disponibile.</p> : null}
+              {!tree.length ? <p className="px-2 py-3 text-sm text-crema/45">Nessuna sezione disponibile.</p> : null}
             </>
           )}
         </nav>
@@ -249,17 +248,6 @@ export function GuideBrowser() {
           <p className="rounded-2xl bg-[#a83a2c]/15 px-4 py-3 text-sm text-[#f0a493] light:text-[#a83a2c] ring-1 ring-[#a83a2c]/30">
             {/permess/i.test(err) ? "Non hai i permessi per leggere questa sezione della guida." : err}
           </p>
-        ) : null}
-
-        {openId === INTRO_ID && intro ? (
-          <>
-            <header className="border-b border-sand/10 pb-4">
-              <h2 className="font-display text-3xl font-semibold leading-tight sm:text-4xl">{introTitle}</h2>
-            </header>
-            <div className="mt-5">
-              <DiscordContent text={intro} className="text-[0.98rem] leading-relaxed text-crema/85" />
-            </div>
-          </>
         ) : null}
 
         {loadingSection ? (
@@ -273,10 +261,18 @@ export function GuideBrowser() {
               {content.description ? <p className="mt-2 text-sm text-crema/50">{content.description}</p> : null}
             </header>
             <div className="mt-5">
-              <DiscordContent text={content.markdown || ""} className="text-[0.98rem] leading-relaxed text-crema/85" />
+              <DiscordContent
+                text={
+                  content.markdownRaw && Object.keys(content.names?.roles || {}).length
+                    ? content.markdownRaw
+                    : content.markdown || ""
+                }
+                names={content.names || {}}
+                className="text-[0.98rem] leading-relaxed text-crema/85"
+              />
             </div>
           </>
-        ) : !err && !loadingSection && openId !== INTRO_ID ? (
+        ) : !err && !loadingSection ? (
           <div className="flex h-full min-h-[12rem] flex-col items-center justify-center text-center">
             <BookOpen className="size-8 text-caramel/50" />
             <p className="mt-3 text-sm text-crema/50">Scegli un capitolo dall’indice.</p>

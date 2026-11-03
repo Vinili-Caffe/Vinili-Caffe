@@ -10,9 +10,40 @@ import { cn } from "@/lib/cn";
 /** `light`: testo su sfondo chiaro (menzioni più scure, link leggibili). */
 type Names = { users?: Record<string, string>; roles?: Record<string, string>; channels?: Record<string, string>; light?: boolean };
 
+function discordEmojiSrc(id: string, animated: boolean, size = 48, preferGif = false) {
+  if (animated && preferGif) return `https://cdn.discordapp.com/emojis/${id}.gif?size=${size}`;
+  if (animated) return `https://cdn.discordapp.com/emojis/${id}.webp?size=${size}&animated=true`;
+  return `https://cdn.discordapp.com/emojis/${id}.webp?size=${size}&quality=lossless`;
+}
+
+function DiscordEmojiImg({ id, name, animated }: { id: string; name: string; animated: boolean }) {
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={discordEmojiSrc(id, animated)}
+      alt={`:${name}:`}
+      title={`:${name}:`}
+      className="inline size-5 align-text-bottom object-contain"
+      loading="lazy"
+      decoding="async"
+      draggable={false}
+      onError={(e) => {
+        const el = e.currentTarget;
+        const tried = el.getAttribute("data-fallback");
+        if (!tried) {
+          el.setAttribute("data-fallback", "1");
+          el.src = discordEmojiSrc(id, animated, 48, true);
+          return;
+        }
+        el.style.display = "none";
+      }}
+    />
+  );
+}
+
 // niente capturing group interni: `split` li includerebbe nei pezzi
 const INLINE =
-  /(\*\*\*[\s\S]+?\*\*\*|\*\*[\s\S]+?\*\*|__[\s\S]+?__|~~[\s\S]+?~~|\|\|[\s\S]+?\|\||`[^`\n]+`|\*[^*\n]+\*|_[^_\n]+_|\[[^\]]+\]\(\s*<?(?:https?:)?\/\/[^)\s>]+>?\s*\)|<t:\d{9,12}(?::[tTdDfFR])?>|<a?:[a-zA-Z0-9_]+:\d+>|<@!?\d+>|<@&\d+>|<#\d+>|https?:\/\/[^\s<]+[^\s<.,;:!?)"'])/g;
+  /(\*\*\*[\s\S]+?\*\*\*|\*\*[\s\S]+?\*\*|__[\s\S]+?__|~~[\s\S]+?~~|\|\|[\s\S]+?\|\||`[^`\n]+`|\*[^*\n]+\*|_[^_\n]+_|\[[^\]]+\]\(\s*<?(?:https?:)?\/\/[^)\s>]+>?\s*\)|<t:\d{9,12}(?::[tTdDfFR])?>|<a?:[a-zA-Z0-9_~]+:\d+>|<@!?\d+>|<@&\d+>|<#\d+>|https?:\/\/[^\s<]+[^\s<.,;:!?)"'])/g;
 
 function formatTs(unix: string, style?: string): string {
   const ms = Number(unix) * 1000;
@@ -121,8 +152,8 @@ function inline(text: string, names: Names, key = "i"): ReactNode[] {
           {formatTs(ts[1], ts[2])}
         </time>
       );
-    const emoji = p.match(/^<(a?):([a-zA-Z0-9_]+):(\d+)>$/);
-    if (emoji) return <img key={k} src={`https://cdn.discordapp.com/emojis/${emoji[3]}.${emoji[1] ? "gif" : "webp"}?size=48`} alt={`:${emoji[2]}:`} title={`:${emoji[2]}:`} className="inline size-5 align-text-bottom" loading="lazy" />;
+    const emoji = p.match(/^<(a?):([a-zA-Z0-9_~]+):(\d+)>$/);
+    if (emoji) return <DiscordEmojiImg key={k} id={emoji[3]} name={emoji[2]} animated={Boolean(emoji[1])} />;
     const user = p.match(/^<@!?(\d+)>$/);
     if (user) return <span key={k} className={names.light ? "rounded bg-[#5865f2]/15 px-1 font-semibold text-[#3c46b8]" : "rounded bg-[#5865f2]/25 px-1 font-medium text-[#c9cdfb]"}>@{names.users?.[user[1]] ?? "utente"}</span>;
     const role = p.match(/^<@&(\d+)>$/);

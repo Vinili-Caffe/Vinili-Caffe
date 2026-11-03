@@ -5,7 +5,8 @@ import { cn } from "@/lib/cn";
 const CUSTOM_EMOJI = /<(a?):([A-Za-z0-9_~]{1,64}):(\d{15,22})>/g;
 
 export function discordEmojiUrl(id: string, animated = false, size = 48) {
-  return `https://cdn.discordapp.com/emojis/${id}.${animated ? "gif" : "webp"}?size=${size}`;
+  if (animated) return `https://cdn.discordapp.com/emojis/${id}.webp?size=${size}&animated=true`;
+  return `https://cdn.discordapp.com/emojis/${id}.webp?size=${size}&quality=lossless`;
 }
 
 /** Testo semplice: le emoji custom diventano `:nome:` (per title, aria-label, notifiche di sistema). */
@@ -22,16 +23,28 @@ export function EmojiText({ text, className, emojiClassName }: { text: string | 
   for (const m of s.matchAll(CUSTOM_EMOJI)) {
     const at = m.index ?? 0;
     if (at > last) out.push(<Fragment key={`t${at}`}>{s.slice(last, at)}</Fragment>);
+    const id = m[3];
+    const animated = m[1] === "a";
     out.push(
       // eslint-disable-next-line @next/next/no-img-element
       <img
         key={`e${at}`}
-        src={discordEmojiUrl(m[3], m[1] === "a")}
+        src={discordEmojiUrl(id, animated)}
         alt={`:${m[2]}:`}
         title={`:${m[2]}:`}
         loading="lazy"
+        decoding="async"
         draggable={false}
         className={cn("inline-block size-[1.2em] object-contain align-[-0.22em]", emojiClassName)}
+        onError={(e) => {
+          const el = e.currentTarget;
+          if (el.getAttribute("data-fallback")) {
+            el.style.display = "none";
+            return;
+          }
+          el.setAttribute("data-fallback", "1");
+          el.src = `https://cdn.discordapp.com/emojis/${id}.${animated ? "gif" : "png"}?size=48`;
+        }}
       />,
     );
     last = at + m[0].length;

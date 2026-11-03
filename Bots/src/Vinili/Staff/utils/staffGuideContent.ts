@@ -9,18 +9,18 @@ function staffSanctionRuleIntro(ruleKey?) {
 }
 
 const TOP_LEVEL_SECTION_META = [
-  { id: "regolamento", label: "Regolamento", description: "Regole e sanzioni utenti", emoji: "<:rules:1443307208543703131>" },
-  { id: "regole_staff", label: "Staff", description: "Regole di comportamento dello staff", emoji: "<:discordstaff:1443651872258003005>" },
-  { id: "limiti", label: "Limiti", description: "Obiettivi di attività settimanale", emoji: "<:reportmessage:1443670575376765130>" },
-  { id: "compiti_fissi", label: "Compiti", description: "Fasce, set mensile e provvigioni", emoji: "<:VC_Quest:1482534879257165865>" },
-  { id: "pause", label: "Pause", description: "Giorno intero e mezza giornata", emoji: "<:Clock:1330530065133338685>" },
+  { id: "regolamento", label: "Regolamento server", description: "Regole e sanzioni utenti", emoji: "<:rules:1443307208543703131>" },
+  { id: "regole_staff", label: "Regole staff", description: "Regole di comportamento dello staff", emoji: "<:discordstaff:1443651872258003005>" },
+  { id: "limiti", label: "Limiti settimanali", description: "Obiettivi di attività settimanale", emoji: "<:reportmessage:1443670575376765130>" },
+  { id: "compiti_fissi", label: "Compiti settimanali", description: "Fasce, set mensile e provvigioni", emoji: "<:VC_Quest:1482534879257165865>" },
+  { id: "pause", label: "Pause staff", description: "Giorno intero e mezza giornata", emoji: "<:Clock:1330530065133338685>" },
   { id: "lineeguida", label: "Linee guida", description: "Comportamento e buone pratiche", emoji: "<:VC_PinkQuestionMark:1471892611026391306>" },
-  { id: "comandi", label: "Comandi", description: "Comandi utili per lo staff", emoji: "<:VC_Bot:1482526555174604964>" },
-  { id: "valutazioni", label: "Valutazioni", description: "Positive, negative e automatiche", emoji: "<a:loading:1443934440614264924>" },
-  { id: "pex", label: "Pex", description: "Promozioni e requisiti", emoji: "<a:VC_LevelUp:1482527020641419415>" },
-  { id: "warnstaff", label: "Warn", description: "Come funzionano i warn staff", emoji: "<:banhammer:1443651875441217639>" },
-  { id: "guidapartners", label: "Partners", description: "Guida Partner Manager", emoji: "<:VC_PartnerManager:1494286911286808576>" },
-  { id: "guidamiddle", label: "Middle", description: "Guida Senior Mod & Director", emoji: "<:VC_Staff:1494286904089247754>" },
+  { id: "comandi", label: "Comandi staff", description: "Comandi utili per lo staff", emoji: "<:VC_Bot:1482526555174604964>" },
+  { id: "valutazioni", label: "Valutazioni staff", description: "Positive, negative e automatiche", emoji: "<a:loading:1443934440614264924>" },
+  { id: "pex", label: "Pex staff", description: "Promozioni e requisiti", emoji: "<a:VC_LevelUp:1482527020641419415>" },
+  { id: "warnstaff", label: "Warn staff", description: "Come funzionano i warn staff", emoji: "<:banhammer:1443651875441217639>" },
+  { id: "guidapartners", label: "Guida partner manager", description: "Guida Partner Manager", emoji: "<:VC_PartnerManager:1494286911286808576>" },
+  { id: "guidamiddle", label: "Guida senior mod & director", description: "Guida Senior Mod & Director", emoji: "<:VC_Staff:1494286904089247754>" },
 ];
 
 const NESTED_SECTION_META = [
@@ -48,7 +48,7 @@ const NESTED_SECTION_META = [
   {
     id: "middle_ticket",
     label: "Gestione Ticket",
-    description: "Ticket sul sito (staff)",
+    description: "Ticket sul sito ",
     parent: "guidamiddle",
     emoji: "<:VC_Ticket:1482535175283019888>",
   },
@@ -94,24 +94,21 @@ function getStaffGuideChildSectionIds(sectionId?) {
   return SECTION_CHILDREN[String(sectionId || "").trim()] || [];
 }
 
-function buildStaffGuideIntroMarkdown() {
-  const ch = IDs.channels;
+/*function buildStaffGuideIntroMarkdown() {
   return [
     "<:discordstaff:1443651872258003005> La **guida staff** è il manuale ufficiale di **Vinili & Caffè**: qui trovi regole, obiettivi di attività, procedure di moderazione e criteri di carriera.",
     "",
     "<a:VC_Alert:1482706673176150077> Ogni membro dello staff deve **conoscerla e rispettarla**. In caso di violazioni si possono ricevere **valutazioni negative**, **warn staff** e, nei casi più gravi, il **depex**.",
     "",
     "> <a:VC_Rule:1482706839928967280> Apri una sezione dal menu per leggere il capitolo completo.",
-    "",
-    "<:VC_Attention:1482534443632558151> **Canali e sito di riferimento**",
-    `<:VC_Dot:1482532364222595303> Guida staff completa: ${siteWorkflowUrl("guida")}`,
-    `<:VC_Dot:1482532364222595303> Sanzioni utenti: <#${ch.sanzioniUtenti}>`,
-    `<:VC_Dot:1482532364222595303> Ticket (supporto, perks, high, partnership): ${siteWorkflowUrl("ticketsStaff")}`,
-    `<:VC_Dot:1482532364222595303> Pause / profilo / organico / valutazioni: sul **sito staff**`,
   ].join("\n");
 }
+*/
 
 function buildModerationStaffIntroMarkdown() {
+  const ch = IDs.channels;
+  const botId = String(IDs.bots?.ViniliCaffeBot || "1329118940110127204").trim();
+  const sanzioni = String(ch?.sanzioniUtenti || "1442569245878648924").trim();
   return `<a:VC_Alarm:1482706641618079816> Per **applicare** le __sanzioni__, è necessario __attenersi__ alle **indicazioni** riportate di seguito e **consultare** le procedure disponibili nelle sottosezioni.
 
 <:VC_1:1482706338021642333> <a:VC_Arrow:1482706699365257397> Bisogna **__sempre__** allegare le **prove** (screen, video, link di messaggi).
@@ -122,9 +119,9 @@ function buildModerationStaffIntroMarkdown() {
 
 <:VC_4:1482706432347344916> <a:VC_Arrow:1482706699365257397> Per visualizzare **quante** volte un __utente__ è stato **sanzionato**, usate il comando +modlogs **__\`ID\`__**.
 
-<:VC_5:1482706459765637272> <a:VC_Arrow:1482706699365257397> Bisogna **__sempre__** sanzionare nel canale <#1442569245878648924> usando i comandi di <@1329118940110127204>
+<:VC_5:1482706459765637272> <a:VC_Arrow:1482706699365257397> Bisogna **__sempre__** sanzionare nel canale <#${sanzioni}> usando i comandi di <@${botId}>
 
-<:VC_6:1482706490769801327> <a:VC_Arrow:1482706699365257397> Ogni volta che si __oltrepassa__ il numero di **sanzioni ottenibili** si **ricomincia** il __ciclo__ di sanzioni per quella **specifica __regola__**.`;
+<:VC_6:1482706490769801327> <a:VC_Arrow:1482706699365257397> Ogni volta che si __oltrepassa__ il numero di **sanzioni ottenibili** si **ricomincia** il __ciclo__ di sanzioni per quella **specifica __regola__**`;
 }
 
 const SECTION_BUILDERS = {
@@ -143,8 +140,8 @@ const SECTION_BUILDERS = {
     `> <a:VC_Alert:1482706673176150077> La violazione di una di queste regole può comportare una **sanzione** da parte dello staff, quindi è importante __conoscerle__ e __rispettarle__.`,
 
   limiti: () =>
-    "<:VC_Info:1482526956703580372> I **`limiti settimanali`** sono dei **messaggi** e delle **ore vocali** che entro una __settimana__ si devono __raggiungere__.\n\n" +
-    "> <:VC_Attention:1482534443632558151> **Superare** i limiti di __poco__ potrebbe comportare un **depex**, mentre **superarli** di __tanto__ **__non garantisce__** un **pex**.\n\n" +
+    "<:VC_Info:1482526956703580372> I **`limiti settimanali`** sono dei **messaggi** e delle **ore vocali** che entro una __settimana__ si devono __raggiungere__.\n" +
+    "> <:VC_Attention:1482534443632558151> **Superare** i limiti di __poco__ potrebbe comportare un **depex**, mentre **superarli** di __tanto__ **__non garantisce__** un **pex**.\n" +
     "<a:VC_Arrow:1482706699365257397> <@&" +
     IDs.roles.Helper +
     ">\n" +
@@ -166,7 +163,6 @@ const SECTION_BUILDERS = {
     "<:VC_DoubleReply:1482532332509466797> **__550__** messaggi\n" +
     "<:VC_Reply:1482532158080942191> **__5,5h__** in vocale\n\n" +
     "> <:VC_Attention:1482534443632558151> Verrà **valutato** anche il **modo** in cui questi __limiti__ vengono raggiunti, ovvero se lo **staffer** è stato costante o no.\n" +
-    `> <:reportmessage:1443670575376765130> Ogni staffer per sanzionare dovrà __seguire__ la guida (sezione **Regolamento**) sul sito: ${siteWorkflowUrl("guida")}\n\n` +
     "> <a:VC_Arrow:1482706699365257397> **__LIMITI SETTIMANALI SULLE SANZIONI__**\n" +
     "<:VC_Dot:1482532364222595303> Ogni <@&" +
     IDs.roles.Helper +
@@ -186,7 +182,6 @@ const SECTION_BUILDERS = {
 
   compiti_fissi: () =>
     "<:VC_Quest:1482534879257165865> **__COMPITI SETTIMANALI__**\n\n" +
-    `<a:VC_NewsExclamation:1471891662786527253> I compiti si gestiscono **solo sul sito**: ${siteWorkflowUrl("compiti")}\n\n` +
     "<a:VC_Calendar:1482706208149475358> **Come funziona**\n" +
     "<:VC_Dot:1482532364222595303> All'inizio di ogni **mese** ricevi un **set** di **4 o 5** compiti (uno per ogni settimana del mese).\n" +
     "<:VC_Dot:1482532364222595303> Nel set c'è **sempre e obbligatoriamente 1** compito **difficile**; gli altri sono **facili** o **medi**.\n" +
@@ -194,39 +189,33 @@ const SECTION_BUILDERS = {
     "<:VC_Dot:1482532364222595303> Gli **scambi** ti danno un compito della **stessa difficoltà** di quello che stai scambiando.\n" +
     "<:VC_Dot:1482532364222595303> Compiti **manuali**: scrivi cosa hai fatto e/o allega le prove → **Invia prove**.\n" +
     "<:VC_Dot:1482532364222595303> Compiti **automatici**: li selezioni e si completano da soli.\n" +
-    "<:VC_Dot:1482532364222595303> Scadenza invio: **domenica ore 18**.\n" +
-    "<:VC_Dot:1482532364222595303> High Staff **Conferma** o **Rifiuta** sulla stessa pagina.\n" +
-    "<:VC_Dot:1482532364222595303> Se rifiutato puoi **riprovare**.\n\n" +
-    "<:VC_bluthumbsup:1482458262401061044> Compito **approvato** → **valutazione positiva**.\n" +
-    "<:VC_bluthumbsdown:1482458289131360306> Non inviato entro domenica 18 / rifiuto definitivo → **valutazione negativa**.\n\n" +
+    "<:VC_bluthumbsup:1482458262401061044> Compito **approvato** → **valutazione positiva**. Compito **rifiutato** → **riprova fino alla scadenza**\n" +
+    "<:VC_bluthumbsdown:1482458289131360306> Compito **non inviato** entro domenica 18 / compito **rifiutato** definitivamente → **valutazione negativa**.\n\n" +
     "<a:VC_Money:1482724694699278487> **Provvigione su donazioni e sponsor**\n" +
     "Se porti tu l'acquisto, ricevi una percentuale **progressiva** sul pacchetto o sulla sponsor:\n" +
-    "<:VC_Dot:1482532364222595303> **5%** — pacchetto **Donator** oppure sponsor **7 giorni** / sponsor **durante un evento**\n" +
-    "<:VC_Dot:1482532364222595303> **10%** — pacchetto **VIP** oppure sponsor **14 giorni**\n" +
-    "<:VC_Dot:1482532364222595303> **15%** — pacchetto **VIP+** oppure sponsor **30 giorni**\n" +
+    "<:VC_Dot:1482532364222595303> **5%** → pacchetto **Donator** oppure sponsor **7 giorni** / sponsor **durante un evento**\n" +
+    "<:VC_Dot:1482532364222595303> **10%** → pacchetto **VIP** oppure sponsor **14 giorni**\n" +
+    "<:VC_Dot:1482532364222595303> **15%** → pacchetto **VIP+** oppure sponsor **30 giorni**\n" +
     "> <a:VC_Alert:1482706673176150077> Per i **canali privati** la percentuale resta quella del pacchetto anche con 1 o 2 ping. **Ping aggiuntivi** o **rinnovi collaterali** non aumentano e non generano una nuova percentuale.\n\n" +
-    "<a:VC_Arrow:1482706699365257397> **Catalogo compiti** (per difficoltà)\n\n" +
+    "<a:VC_Arrow:1482706699365257397> **Catalogo compiti**\n\n" +
     "**Facile**\n" +
-    "<:VC_Dot:1482532364222595303> Completare i limiti del triplo _(auto)_\n" +
+    "<:VC_Dot:1482532364222595303> Completare i limiti del triplo\n" +
     "<:VC_Dot:1482532364222595303> Ottenere una recensione di se stessi da almeno 4 stelle\n" +
     "<:VC_Dot:1482532364222595303> Ottenere una recensione per il server da almeno 4 stelle\n" +
-    "<:VC_Dot:1482532364222595303> Dare un'idea per il server/staff/sito/evento e non farsela rifiutare _(auto)_\n\n" +
+    "<:VC_Dot:1482532364222595303> Dare un'idea per il server/staff/sito/evento e non farsela rifiutare\n\n" +
     "**Medio**\n" +
     "<:VC_Dot:1482532364222595303> Trovare un nuovo staffer\n" +
-    "<:VC_Dot:1482532364222595303> Invitare almeno 1 utente e fargli scrivere 100 messaggi o 2 ore in vocale _(auto)_\n" +
+    "<:VC_Dot:1482532364222595303> Invitare almeno 1 utente e fargli scrivere 100 messaggi o 2 ore in vocale\n" +
     "<:VC_Dot:1482532364222595303> Far boostare il server da un utente\n" +
     "<:VC_Dot:1482532364222595303> Far aggiungere il bot in un server e fargli fare il setup\n\n" +
-    "**Difficile** _(nel set mensile ce n'è sempre 1)_\n" +
+    "**Difficile**\n" +
     "<:VC_Dot:1482532364222595303> Trovare un server che compri una sponsor\n" +
     "<:VC_Dot:1482532364222595303> Trovare un server che faccia trasferimento da noi\n" +
-    "<:VC_Dot:1482532364222595303> Convincere un utente a comprare un pacchetto Donator/VIP/VIP+\n\n" +
-    `<:VC_Attention:1482534443632558151> Apri sempre la pagina **Compiti** sul sito per lo stato della settimana: ${siteWorkflowUrl("compiti")}`,
+    "<:VC_Dot:1482532364222595303> Convincere un utente a comprare un pacchetto Donator/VIP/VIP+\n\n",
 
   pause: () =>
     "<:Clock:1330530065133338685> Vinili & Caffè presenta un **sistema** di **`pause`** _sofisticato_, infatti è tutto __organizzato__ per **garantire** al meglio l'__attività__ del server.\n" +
-    `> Per __richiedere__ una pausa apri la pagina sul **sito**: ${siteWorkflowUrl("pause")}\n` +
-    "> Sul form puoi scegliere **Giorno intero** oppure **Mezza giornata** (un solo giorno + fascia).\n\n" +
-    "<a:VC_Arrow:1482706699365257397> **__LIMITI ANNUALI E CONCORRENZA__**\n" +
+   "<a:VC_Arrow:1482706699365257397> **__LIMITI ANNUALI E CONCORRENZA__**\n" +
     "<a:loading:1443934440614264924> In un anno si possono chiedere __massimo__ **`60 giorni`** di pausa che si possono usufruire in __tutti__ i **12 mesi** dell'anno.\n\n" +
     "> Nei giorni **festivi** avrete anche dei giorni in più **ulteriori** al __normale mese__:\n" +
     "<:VC_Dot:1482532364222595303> **24**, **25**, **26**, **31** __Dicembre__\n" +
@@ -256,7 +245,7 @@ const SECTION_BUILDERS = {
     "<:VC_Attention:1482534443632558151> **Pause intere:** puoi chiederne __una__ **ogni mese**. Se cade in `2` **__mesi diversi__**, conta il mese in cui viene **chiesta**, a patto che non superi i primi __`5` giorni__ dell'altro mese. Tra una richiesta e l'altra aspetta almeno **__`1 settimana`__**. Le pause intere partono **da domani** in poi.\n\n" +
     "<a:VC_pixeltime:1482535344103620771> **__MEZZE GIORNATE__**\n" +
     "<:VC_1:1482706338021642333> **Fasce:** **mattina** (fino alle 14) oppure **pomeriggio/sera** (dalle 14). Una fascia vale **0,5 giorni** del budget annuale: due mezze giornate = **1 giorno**.\n" +
-    "<:VC_2:1482706376525611090> Si possono chiedere **anche per oggi**: mattina **entro le 9**, pomeriggio **entro le 14**. Sul form le fasce di oggi già iniziate sono **disattivate**.\n" +
+    "<:VC_2:1482706376525611090> Si possono chiedere **anche per il giorno corrente**: mattina **entro le 9**, pomeriggio **entro le 14**. Sul form le fasce già iniziate sono **disattivate**.\n" +
     "<:VC_3:1482706404773990460> **Accettazione automatica:** mezza giornata per **oggi** nei limiti → accettata in automatico. Per altri giorni (o oltre i limiti) si può chiedere comunque, ma serve l'accettazione di un superiore. L'<@&1544831228690046976> può **annullare** una pausa accettata in automatico.\n" +
     "<:VC_4:1482706432347344916> **Limiti mezza giornata:** **1** a settimana e **4** al mese.\n" +
     "<:VC_5:1482706459765637272> Le mezze giornate **non contano** per la regola «una pausa al mese».\n" +
@@ -376,14 +365,10 @@ const SECTION_BUILDERS = {
       "<:VC_Reply:1482532158080942191> È **vietato** fare __partnership__ con qualsiasi tipo di __server__ `NSFW` o che violi i `ToS` di **Discord**.\n\n" +
       "<a:VC_Exclamation:1482534702077444217> **Comandi e ticket:**\n" +
       (pmCmdChannelId
-        ? `> \`/partnership\` - Utilizzabile in <#${pmCmdChannelId}> (thread comandi PM) o dal pannello comandi nei **ticket Partnership** sul sito\n`
-        : "> `/partnership` - Utilizzabile dal pannello comandi nei **ticket Partnership** sul sito\n") +
-      "> `+desc` / comandi partnership - nei **ticket Partnership** sul sito (pannello comandi del ticket)\n" +
-      `> Ticket staff: ${siteWorkflowUrl("ticketsStaff")}\n` +
-      "> Classifica punti partner: sul **sito** → [Classifiche](https://www.viniliecaffe.it/classifiche/)\n" +
-      "> `+blacklist` - Per vedere i server in blacklist\n" +
-      `> Profilo / shop PM: sul **sito staff** → ${siteWorkflowUrl("staff")}\n` +
-      `> Punti tolti: ${siteWorkflowUrl("puntiTolti")}\n\n` +
+        ? `> \`/partnership\` - Utilizzabile in <#${pmCmdChannelId}> o nei **ticket partnership** sul sito\n`
+        : "> `/partnership` - Utilizzabile nei **ticket partnership** sul sito\n") +
+      "> `+desc`→ nei **ticket Partnership** sul sito\n" +
+      `> Shop → sul **profilo staff** → ${siteWorkflowUrl("staff")}\n` +
       "<a:VC_Exclamation:1482534702077444217> **Info utili:**\n" +
       "> <a:VC_Cross:1482532424570376253> **Non ci sono requisiti per le partner**\n" +
       "> <a:VC_Verified:1482532479637127188> **Il manager deve aver completato l'inserimento o non si può fare la partner.**\n" +
@@ -506,6 +491,6 @@ export = {
   listStaffGuideSectionMeta,
   getStaffGuideSectionMeta,
   getStaffGuideChildSectionIds,
-  buildStaffGuideIntroMarkdown,
+  //buildStaffGuideIntroMarkdown,
   buildStaffGuideSectionMarkdown,
 };

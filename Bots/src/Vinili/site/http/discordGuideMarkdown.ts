@@ -245,8 +245,12 @@ function discordGuideMarkdownToHtml(markdown?, opts: Record<string, any> = {}) {
     const src = animated
       ? `https://cdn.discordapp.com/emojis/${id}.webp?size=64&animated=true`
       : `https://cdn.discordapp.com/emojis/${id}.webp?size=64&quality=lossless`;
+    const gif = `https://cdn.discordapp.com/emojis/${id}.gif?size=64`;
+    const onErr = animated
+      ? `this.onerror=null;this.src='${gif}'`
+      : `this.style.display='none'`;
     return stash(
-      `<img class="vc-emoji vc-discord-emoji vc-staff-guide-emoji" src="${src}" alt=":${escapeHtml(name)}:" width="22" height="22" loading="lazy" decoding="async" />`,
+      `<img class="vc-emoji vc-discord-emoji vc-staff-guide-emoji" src="${src}" alt=":${escapeHtml(name)}:" width="22" height="22" loading="lazy" decoding="async" onerror="${onErr}" />`,
     );
   });
 
@@ -259,7 +263,11 @@ function discordGuideMarkdownToHtml(markdown?, opts: Record<string, any> = {}) {
   });
 
   text = text.replace(/<@&(\d{5,32})>/g, (_m?, id?) => {
-    const name = roleNames.get(String(id)) || "Ruolo";
+    const raw = roleNames.get(String(id)) || "Ruolo";
+    const name = String(raw)
+      .replace(/^[\s༄✦✧◆◇❖★☆•·‧]+/u, "")
+      .replace(/\s+/g, " ")
+      .trim() || "Ruolo";
     return stash(
       `<span class="vc-staff-guide-mention vc-staff-guide-mention--role">@${escapeHtml(name)}</span>`,
     );

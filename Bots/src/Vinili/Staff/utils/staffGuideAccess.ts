@@ -116,6 +116,7 @@ function listReadableStaffGuideSections(member?) {
         label: section.label,
         description: section.description,
       };
+      if (section.emoji) out.emoji = section.emoji;
       if (section.parent) out.parent = section.parent;
       return out;
     });
