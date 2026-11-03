@@ -68,9 +68,9 @@ export function ManagePanel({ token, userId, data, onDone }: { token: string; us
       </div>
       {pick && (
         <div>
-          <label className="block">
+          <label htmlFor="reason" className="block">
             <span className="text-sm font-semibold text-crema/70">Motivo</span>
-            <textarea
+            <textarea id="reason" name="reason"
               autoFocus
               value={reason}
               onChange={(e) => setReason(e.target.value.slice(0, 500))}

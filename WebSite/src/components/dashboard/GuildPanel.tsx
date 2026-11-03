@@ -195,11 +195,11 @@ function SettingsSection({
   return (
     <div className="space-y-4">
       <div className="grid gap-3 sm:grid-cols-2">
-        <label className="block">
+        <label htmlFor="prefix" className="block">
           <span className="text-[0.65rem] font-semibold uppercase tracking-[0.18em] text-crema/45">
             Prefisso comandi
           </span>
-          <input
+          <input id="prefix" name="prefix"
             value={prefix}
             maxLength={settings.prefixMaxLength}
             disabled={prefixLocked || saving}

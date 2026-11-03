@@ -149,7 +149,7 @@ export function ConfSheet({ c, token, viewer, onClose, onUpdate }: { c: Confessi
           {mod && (
             <div className="rounded-2xl bg-crema/[0.04] p-5 ring-1 ring-caramel/25">
               <p className="text-xs font-bold uppercase tracking-[0.2em] text-caramel">Azioni High Staff</p>
-              <input
+              <input name="reason"
                 value={reason}
                 onChange={(e) => setReason(e.target.value.slice(0, 1000))}
                 placeholder="Motivo decisione (opzionale)"
@@ -225,7 +225,7 @@ export function ConfSheet({ c, token, viewer, onClose, onUpdate }: { c: Confessi
                 </p>
               ) : staff && token ? (
                 <div className="rounded-2xl bg-black/30 p-3 ring-1 ring-sand/15 focus-within:ring-caramel/60">
-                  <textarea
+                  <textarea name="message"
                     value={text}
                     onChange={(e) => setText(e.target.value.slice(0, COMMENT_MAX))}
                     onKeyDown={(e) => onComposerEnterSend(e, () => void comment())}

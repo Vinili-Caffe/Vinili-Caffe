@@ -151,6 +151,7 @@ function EllipsisJump({ totalPages, onGo }: { totalPages: number; onGo: (p: numb
       <input
         ref={inputRef}
         id={uid}
+        name="page"
         inputMode="numeric"
         pattern="[0-9]*"
         value={val}

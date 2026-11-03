@@ -143,7 +143,7 @@ export function Composer({
       <div className="mt-5">
         <StarPicker value={rating} onChange={setRating} />
       </div>
-      <textarea
+      <textarea name="review"
         value={text}
         onChange={(e) => setText(e.target.value.slice(0, MAX_LEN))}
         rows={4}

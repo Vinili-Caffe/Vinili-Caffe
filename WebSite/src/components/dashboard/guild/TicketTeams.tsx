@@ -165,7 +165,7 @@ export function TicketTeams({
           }}
         >
           <Field label="Nuovo team">
-            <input value={createName} maxLength={80} onChange={(e) => setCreateName(e.target.value)} className={fieldClass} />
+            <input name="create-team-name" value={createName} maxLength={80} onChange={(e) => setCreateName(e.target.value)} className={fieldClass} />
           </Field>
           <button type="submit" disabled={busy} className={primaryMini}>
             Crea
@@ -182,7 +182,7 @@ export function TicketTeams({
       {team ? (
         <div className="space-y-3">
           <Field label="Nome">
-            <input
+            <input name="team-name"
               value={name}
               maxLength={80}
               disabled={busy}
@@ -211,7 +211,7 @@ export function TicketTeams({
           </div>
 
           <Field label="Cerca membro">
-            <input
+            <input name="ticket-search"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Username o ID"

@@ -266,10 +266,10 @@ export function CustomChannel({
         </div>
 
         <div className="mt-5 space-y-3">
-          <label className="block">
+          <label htmlFor="name" className="block">
             <span className="text-xs font-semibold uppercase tracking-wider text-crema/50">Nome</span>
             <div className="relative mt-1.5 flex gap-2">
-              <input
+              <input id="name" name="name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 className="min-w-0 flex-1 rounded-xl bg-espresso/70 px-3 py-2.5 text-sm outline-none ring-1 ring-sand/15 focus:ring-caramel/60"
@@ -308,10 +308,10 @@ export function CustomChannel({
           </label>
 
           {target === "voice" ? (
-            <label className="block">
+            <label htmlFor="emoji" className="block">
               <span className="text-xs font-semibold uppercase tracking-wider text-crema/50">Emoji canale</span>
               <div className="relative mt-1.5 flex gap-2">
-                <input
+                <input id="emoji" name="emoji"
                   value={emoji}
                   onChange={(e) => setEmoji(e.target.value)}
                   className="min-w-0 flex-1 rounded-xl bg-espresso/70 px-3 py-2.5 text-sm outline-none ring-1 ring-sand/15 focus:ring-caramel/60"
@@ -422,7 +422,7 @@ export function CustomChannel({
                         <Smile className="size-4 text-crema/30" />
                       )}
                     </span>
-                    <input
+                    <input name="channel-icon"
                       value={iconInfo.kind === "img" && icon.startsWith("<") ? `:${iconInfo.name}:` : icon}
                       onChange={(e) => setIcon(e.target.value)}
                       onFocus={(e) => {
@@ -481,7 +481,7 @@ export function CustomChannel({
         <p className="text-xs font-semibold uppercase tracking-[0.28em] text-caramel">Condivisione</p>
         <h4 className="mt-1 font-display text-xl font-semibold">Membri</h4>
         <div className="mt-3 flex gap-2">
-          <input
+          <input name="member-id"
             value={memberId}
             onChange={(e) => setMemberId(e.target.value.replace(/\D/g, "").slice(0, 20))}
             placeholder="ID Discord"

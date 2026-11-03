@@ -287,7 +287,7 @@ export function PartnershipPanel({
               />
             </Field>
             <Field label="Rate limit stesso server">
-              <input
+              <input name="same-server-cooldown"
                 value={draft.sameServerCooldownInput}
                 placeholder="12h"
                 onChange={(e) => set({ sameServerCooldownInput: e.target.value })}
@@ -319,7 +319,7 @@ export function PartnershipPanel({
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label="Ping @here da N membri">
-              <input
+              <input name="ping-here-members"
                 type="number"
                 min={0}
                 value={draft.pings.hereMembers ?? ""}
@@ -332,7 +332,7 @@ export function PartnershipPanel({
               />
             </Field>
             <Field label="Delay @here">
-              <input
+              <input name="ping-here-delay"
                 value={draft.pings.hereDelayInput}
                 placeholder="5m"
                 onChange={(e) => set({ pings: { ...draft.pings, hereDelayInput: e.target.value } })}
@@ -340,7 +340,7 @@ export function PartnershipPanel({
               />
             </Field>
             <Field label="Ping @everyone da N membri">
-              <input
+              <input name="ping-everyone-members"
                 type="number"
                 min={0}
                 value={draft.pings.everyoneMembers ?? ""}
@@ -356,7 +356,7 @@ export function PartnershipPanel({
               />
             </Field>
             <Field label="Delay @everyone">
-              <input
+              <input name="ping-everyone-delay"
                 value={draft.pings.everyoneDelayInput}
                 placeholder="5m"
                 onChange={(e) => set({ pings: { ...draft.pings, everyoneDelayInput: e.target.value } })}
@@ -375,7 +375,7 @@ export function PartnershipPanel({
               />
             </Field>
             <Field label="Soglia ruolo custom">
-              <input
+              <input name="ping-custom-members"
                 type="number"
                 min={0}
                 value={draft.pings.customRoleMembers ?? ""}
@@ -415,7 +415,7 @@ export function PartnershipPanel({
           </div>
           {draft.partnerDesc.mode === "static" ? (
             <Field label="Testo descrizione">
-              <textarea
+              <textarea name="partner-description"
                 value={draft.partnerDesc.staticText || ""}
                 maxLength={4000}
                 rows={4}
@@ -434,14 +434,14 @@ export function PartnershipPanel({
                 onChange={(v) => set({ thankYouEmbed: { ...draft.thankYouEmbed, enabled: v } })}
               />
               <Field label="Titolo">
-                <input
+                <input name="thank-you-title"
                   value={draft.thankYouEmbed.title || ""}
                   onChange={(e) => set({ thankYouEmbed: { ...draft.thankYouEmbed, title: e.target.value || null } })}
                   className={fieldClass}
                 />
               </Field>
               <Field label="Descrizione">
-                <textarea
+                <textarea name="thank-you-description"
                   value={draft.thankYouEmbed.description || ""}
                   rows={3}
                   onChange={(e) =>
@@ -567,10 +567,10 @@ export function PartnershipPanel({
             }}
           >
             <Field label="Server o invite">
-              <input value={blTarget} onChange={(e) => setBlTarget(e.target.value)} className={fieldClass} />
+              <input name="blacklist-target" value={blTarget} onChange={(e) => setBlTarget(e.target.value)} className={fieldClass} />
             </Field>
             <Field label="Nota">
-              <input value={blNote} maxLength={500} onChange={(e) => setBlNote(e.target.value)} className={fieldClass} />
+              <input name="blacklist-note" value={blNote} maxLength={500} onChange={(e) => setBlNote(e.target.value)} className={fieldClass} />
             </Field>
             <button type="submit" disabled={busy} className={primaryMini}>
               Aggiungi
@@ -645,7 +645,7 @@ export function PartnershipPanel({
                       if (fresh.ok) setManagers(fresh.data.managers);
                     }}
                   >
-                    <input
+                    <input name="manager-points"
                       value={points[m.userId] || ""}
                       onChange={(e) => setPoints((cur) => ({ ...cur, [m.userId]: e.target.value }))}
                       inputMode="numeric"

@@ -31,6 +31,7 @@ export function Range({
   return (
     <input
       id={id}
+      name={id || "range"}
       type="range"
       min={min}
       max={max}

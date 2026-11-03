@@ -271,9 +271,9 @@ export function GestioneBoard() {
               <p className="text-xs text-crema/50">{data.counts.onPause} in pausa</p>
             ) : null}
           </div>
-          <label className="relative block min-w-[12rem] flex-1 sm:max-w-xs">
+          <label htmlFor="staff-roster-search" className="relative block min-w-[12rem] flex-1 sm:max-w-xs">
             <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-crema/40" />
-            <input
+            <input id="staff-roster-search" name="staff-roster-search"
               value={q}
               onChange={(e) => setQ(e.target.value)}
               placeholder="Cerca nome o ID…"
@@ -347,7 +347,7 @@ export function GestioneBoard() {
         <div className="mt-4 border-t border-sand/10 pt-4">
           <p className="mb-2 text-xs font-semibold text-crema/55">Pex da Member (ID Discord)</p>
           <div className="flex gap-2">
-            <input
+            <input name="discord-id"
               value={lookupId}
               onChange={(e) => setLookupId(e.target.value)}
               placeholder="ID utente Discord…"
@@ -444,9 +444,9 @@ export function GestioneBoard() {
                 </div>
                 {pick ? (
                   <div>
-                    <label className="block">
+                    <label htmlFor="reason" className="block">
                       <span className="text-sm font-semibold text-crema/70">Motivo</span>
-                      <textarea
+                      <textarea id="reason" name="reason"
                         autoFocus
                         value={reason}
                         onChange={(e) => setReason(e.target.value.slice(0, MANAGE_REASON_MAX))}

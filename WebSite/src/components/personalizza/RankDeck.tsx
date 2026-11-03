@@ -658,6 +658,7 @@ export function RankDeck({
                   {canCustomWp && (
                     <label className="mt-3 inline-flex cursor-pointer items-center gap-2 rounded-full bg-crema/8 px-4 py-2 text-xs font-semibold ring-1 ring-sand/25 hover:bg-crema/12">
                       <input
+                        name="wallpaper"
                         type="file"
                         accept="image/png,image/jpeg,image/webp,image/gif"
                         className="sr-only"

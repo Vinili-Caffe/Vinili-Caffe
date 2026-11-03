@@ -358,7 +358,7 @@ export function WikiBrowser({ initial }: { initial: Record<BotId, WikiBot> }) {
       {/* ricerca */}
       <div className="relative mt-4">
         <Search className="pointer-events-none absolute left-5 top-1/2 z-10 size-5 -translate-y-1/2 text-crema/40" />
-        <input
+        <input name="wiki-search"
           type="search"
           value={query}
           onChange={(e) => setQuery(e.target.value)}

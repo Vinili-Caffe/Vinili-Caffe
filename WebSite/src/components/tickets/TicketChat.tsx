@@ -117,9 +117,9 @@ function PartnershipFormDialog({
               </div>
             ) : (
               <>
-                <label className="flex items-center gap-2 rounded-xl bg-espresso/70 px-3 ring-1 ring-sand/15 focus-within:ring-caramel/60">
+                <label htmlFor="manager-search" className="flex items-center gap-2 rounded-xl bg-espresso/70 px-3 ring-1 ring-sand/15 focus-within:ring-caramel/60">
                   <Search className="size-4 text-crema/40" />
-                  <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Cerca manager per nome…" className="w-full bg-transparent py-2.5 text-sm outline-none placeholder:text-crema/35" />
+                  <input id="manager-search" name="manager-search" autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Cerca manager per nome…" className="w-full bg-transparent py-2.5 text-sm outline-none placeholder:text-crema/35" />
                 </label>
                 <ul className="mt-2 max-h-40 space-y-1 overflow-y-auto">
                   {hits === null && <li className="py-2 text-center text-xs text-crema/45">Cerco…</li>}
@@ -142,7 +142,7 @@ function PartnershipFormDialog({
 
           <div>
             <p className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-crema/45">Descrizione server</p>
-            <textarea
+            <textarea name="description"
               value={desc}
               onChange={(e) => setDesc(e.target.value.slice(0, MAX_CONTENT))}
               rows={5}
@@ -787,7 +787,7 @@ export function TicketChat({
                 <ImagePlus className="size-5" />
               </button>
             )}
-            <input ref={fileRef} type="file" accept="image/*" multiple hidden onChange={(e) => (addFiles(e.target.files), (e.target.value = ""))} />
+            <input name="attachments" ref={fileRef} type="file" accept="image/*" multiple hidden onChange={(e) => (addFiles(e.target.files), (e.target.value = ""))} />
             <div className="relative min-w-0 flex-1">
               {!editing && (
                 <ComposerSuggest
@@ -801,7 +801,7 @@ export function TicketChat({
                   onPick={(pick, from, to) => applySuggest(pick, from, to)}
                 />
               )}
-              <textarea
+              <textarea name="message"
                 ref={taRef}
                 value={text}
                 onChange={(e) => onType(e.target.value, e.target)}

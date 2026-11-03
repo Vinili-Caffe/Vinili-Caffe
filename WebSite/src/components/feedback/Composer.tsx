@@ -176,9 +176,9 @@ export function Composer({
           })}
         </div>
 
-        <label className="mt-5 block">
+        <label htmlFor="message" className="mt-5 block">
           <span className="text-xs font-bold uppercase tracking-[0.2em] text-ink/50">Messaggio</span>
-          <textarea
+          <textarea id="message" name="message"
             value={text}
             onChange={(e) => setText(e.target.value.slice(0, MAX_LEN))}
             rows={6}
@@ -217,7 +217,7 @@ export function Composer({
               )}
             </div>
             <p className="mt-1.5 text-xs text-ink/45">Fino a {MAX_IMAGES} foto (PNG, JPG, WebP o GIF).</p>
-            <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp,image/gif" multiple hidden onChange={(e) => (addFiles(e.target.files), (e.target.value = ""))} />
+            <input name="attachments" ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp,image/gif" multiple hidden onChange={(e) => (addFiles(e.target.files), (e.target.value = ""))} />
           </div>
         )}
 

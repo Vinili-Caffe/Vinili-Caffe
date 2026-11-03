@@ -94,7 +94,7 @@ export function EmojiPopover({
         >
           <div className="flex items-center gap-2 border-b border-sand/10 px-3 py-2">
             <Search className="size-3.5 shrink-0 text-crema/40" />
-            <input
+            <input name="emoji-search"
               autoFocus
               value={q}
               onChange={(e) => setQ(e.target.value)}

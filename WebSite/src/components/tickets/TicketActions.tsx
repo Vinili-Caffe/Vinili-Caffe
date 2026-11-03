@@ -45,9 +45,9 @@ function UserPicker({ token, ticket, mode, onPick }: { token: string; ticket: Ti
   }, [q, token, ticket.id, mode]);
   return (
     <div>
-      <label className="flex items-center gap-2 rounded-xl bg-espresso/70 px-3 ring-1 ring-sand/15 focus-within:ring-caramel/60">
+      <label htmlFor="ticket-member-search" className="flex items-center gap-2 rounded-xl bg-espresso/70 px-3 ring-1 ring-sand/15 focus-within:ring-caramel/60">
         <Search className="size-4 text-crema/40" />
-        <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Cerca per nome…" className="w-full bg-transparent py-2.5 text-sm outline-none placeholder:text-crema/35" />
+        <input id="ticket-member-search" name="ticket-member-search" autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Cerca per nome…" className="w-full bg-transparent py-2.5 text-sm outline-none placeholder:text-crema/35" />
       </label>
       <ul className="mt-3 max-h-64 space-y-1 overflow-y-auto">
         {hits === null && <li className="py-3 text-center text-sm text-crema/45">Cerco…</li>}
@@ -169,7 +169,7 @@ export function TicketActions({ token, ticket, categories = [], onDone, onError 
               <div className="mt-5">
                 {(dialog === "close" || dialog === "close-request") && (
                   <>
-                    <textarea
+                    <textarea name="close-reason"
                       value={text}
                       onChange={(e) => setText(e.target.value.slice(0, dialog === "close" ? 500 : 1800))}
                       rows={3}
@@ -204,7 +204,7 @@ export function TicketActions({ token, ticket, categories = [], onDone, onError 
                 )}
                 {dialog === "rename" && (
                   <>
-                    <input value={text} onChange={(e) => setText(e.target.value.slice(0, 120))} className="w-full rounded-xl bg-espresso/70 px-3 py-2.5 outline-none ring-1 ring-sand/15 focus:ring-caramel/60" />
+                    <input name="ticket-name" value={text} onChange={(e) => setText(e.target.value.slice(0, 120))} className="w-full rounded-xl bg-espresso/70 px-3 py-2.5 outline-none ring-1 ring-sand/15 focus:ring-caramel/60" />
                     <button type="button" disabled={busy || !text.trim()} onClick={() => run(rename(token, ticket.id, text.trim()))} className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-full bg-crema px-5 py-3 font-semibold text-espresso disabled:opacity-50">
                       {busy ? <Loader2 className="size-4 animate-spin" /> : <PenLine className="size-4" />} Rinomina
                     </button>

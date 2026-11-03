@@ -224,7 +224,7 @@ export function ConfessionaleBoard() {
               <Feather className="size-5" /> Scrivi una lettera
             </p>
             <p className="mt-1 text-sm text-ink/60">Il messaggio non salva chi lo ha scritto: niente nome, niente ID Discord.</p>
-            <textarea
+            <textarea name="message"
               value={text}
               onChange={(e) => setText(e.target.value.slice(0, MAX_LEN))}
               onFocus={() => !token && ready && setNote({ ok: false, text: t("confessionale.loginToSend") })}

@@ -146,7 +146,7 @@ export function TicketBlacklist({
           </Field>
         ) : (
           <Field label="Utente">
-            <input
+            <input name="ticket-search"
               value={query}
               onChange={(e) => {
                 setQuery(e.target.value);
@@ -158,7 +158,7 @@ export function TicketBlacklist({
           </Field>
         )}
         <Field label="Motivo">
-          <input
+          <input name="reason"
             value={reason}
             maxLength={maxReason}
             onChange={(e) => setReason(e.target.value)}

@@ -184,7 +184,7 @@ export function WorkflowChatPanel({ token, dedupeKey }: { token: string; dedupeK
 
       {data.canSend ? (
         <form onSubmit={send} className="flex gap-2 border-t border-sand/10 p-2">
-          <input
+          <input name="message"
             value={text}
             onChange={(e) => setText(e.target.value)}
             maxLength={CHAT_CONTENT_MAX}

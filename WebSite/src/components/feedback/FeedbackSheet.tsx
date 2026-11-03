@@ -209,7 +209,7 @@ export function FeedbackSheet({ s, token, viewer, onClose, onLogin, onUpdate, on
               <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.2em] text-caramel">
                 <Gavel className="size-4" /> Azioni High Staff
               </p>
-              <textarea
+              <textarea name="reason"
                 value={reason}
                 onChange={(e) => setReason(e.target.value.slice(0, 1000))}
                 rows={2}
@@ -309,7 +309,7 @@ function CommentBox({
   return (
     <div>
       <div className="flex items-end gap-2 rounded-2xl bg-espresso/60 p-2 ring-1 ring-sand/15 focus-within:ring-caramel/60">
-        <textarea
+        <textarea name="message"
           value={text}
           onChange={(e) => setText(e.target.value.slice(0, COMMENT_MAX))}
           onKeyDown={(e) => onComposerEnterSend(e, () => void send())}
@@ -362,7 +362,7 @@ function CommentItem({ c, s, token, viewer, onUpdate, replies, isReply }: { c: C
           </p>
           {editing ? (
             <div className="mt-1.5">
-              <textarea
+              <textarea name="draft"
                 value={draft}
                 onChange={(e) => setDraft(e.target.value.slice(0, COMMENT_MAX))}
                 onKeyDown={(e) =>

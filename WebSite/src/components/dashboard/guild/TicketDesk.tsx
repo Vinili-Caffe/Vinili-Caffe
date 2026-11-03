@@ -173,7 +173,7 @@ export function TicketDesk({
                 />
               </Field>
               <Field label="Max aperti per utente">
-                <input
+                <input name="max-open-tickets"
                   type="number"
                   min={1}
                   max={25}

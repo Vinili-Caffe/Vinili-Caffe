@@ -187,6 +187,10 @@ export function GuideBrowser() {
         <label className="mt-3 flex items-center gap-2 rounded-xl bg-crema/[0.06] px-2.5 ring-1 ring-sand/15 focus-within:ring-caramel/35">
           <Search className="size-3.5 shrink-0 text-crema/40" />
           <input
+            id="staff-guide-search"
+            name="guide-search"
+            type="search"
+            autoComplete="off"
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="Cerca capitolo…"

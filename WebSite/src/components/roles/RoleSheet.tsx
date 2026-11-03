@@ -144,7 +144,7 @@ export function RoleSheet({
               <>
                 <p className="text-sm font-semibold">Richiedi il ruolo</p>
                 <p className="mt-1 text-xs text-crema/50">Spiega al creatore perché lo vorresti: decide lui se dartelo.</p>
-                <textarea
+                <textarea name="reason"
                   value={reason}
                   onChange={(e) => setReason(e.target.value.slice(0, REASON_MAX))}
                   rows={3}

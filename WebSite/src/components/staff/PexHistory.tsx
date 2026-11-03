@@ -76,9 +76,9 @@ export function PexHistory({
             {onlyMember && member ? `Pex e depex di ${member.displayName}` : "Pex e depex"}
           </h3>
         </div>
-        <label className="relative block min-w-[12rem] flex-1 sm:max-w-xs">
+        <label htmlFor="pex-history-search" className="relative block min-w-[12rem] flex-1 sm:max-w-xs">
           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-crema/40" />
-          <input
+          <input id="pex-history-search" name="pex-history-search"
             value={q}
             onChange={(e) => {
               setQ(e.target.value);

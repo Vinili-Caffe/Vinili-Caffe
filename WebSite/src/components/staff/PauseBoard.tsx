@@ -411,9 +411,9 @@ export function PauseBoard() {
                   </div>
                 </fieldset>
               ) : null}
-              <label className="block text-sm">
+              <label htmlFor="reason" className="block text-sm">
                 <span className="text-xs font-semibold uppercase tracking-wider text-crema/45">Motivazione</span>
-                <textarea
+                <textarea id="reason" name="reason"
                   required
                   minLength={cal.me.reasonMin || PAUSE_REASON_MIN}
                   maxLength={reasonMax}

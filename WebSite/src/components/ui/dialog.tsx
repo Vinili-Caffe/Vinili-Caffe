@@ -356,6 +356,7 @@ function PromptField({
     "mt-1 w-full rounded-2xl bg-espresso/60 px-3 py-2.5 text-sm text-crema ring-1 ring-sand/20 outline-none placeholder:text-crema/35 focus:ring-caramel/50";
   const primary = {
     id: fieldId,
+    name: "prompt",
     defaultValue: req.defaultValue,
     placeholder: req.placeholder,
     maxLength: req.maxLength,
@@ -391,6 +392,7 @@ function PromptField({
           {req.secondMultiline ? (
             <textarea
               id={secondId}
+              name="prompt-second"
               defaultValue={req.secondDefaultValue}
               placeholder={req.secondPlaceholder}
               maxLength={req.secondMaxLength}
@@ -403,6 +405,7 @@ function PromptField({
           ) : (
             <input
               id={secondId}
+              name="prompt-second"
               type="url"
               autoComplete="off"
               defaultValue={req.secondDefaultValue}

@@ -178,9 +178,9 @@ export function SubmitListing() {
           </label>
         ) : (
           <>
-            <label className="block">
+            <label htmlFor="discord-id" className="block">
               <span className="text-xs font-semibold uppercase tracking-[0.2em] text-crema/45">Client ID bot</span>
-              <input
+              <input id="discord-id" name="discord-id"
                 value={discordId}
                 onChange={(e) => setDiscordId(e.target.value)}
                 className="mt-2 w-full rounded-2xl bg-espresso/60 px-4 py-3 text-crema outline-none ring-1 ring-sand/15"
@@ -188,9 +188,9 @@ export function SubmitListing() {
                 placeholder="Application ID"
               />
             </label>
-            <label className="block">
+            <label htmlFor="name" className="block">
               <span className="text-xs font-semibold uppercase tracking-[0.2em] text-crema/45">Nome</span>
-              <input
+              <input id="name" name="name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 className="mt-2 w-full rounded-2xl bg-espresso/60 px-4 py-3 text-crema outline-none ring-1 ring-sand/15"
@@ -200,11 +200,11 @@ export function SubmitListing() {
           </>
         )}
 
-        <label className="block">
+        <label htmlFor="tagline" className="block">
           <span className="text-xs font-semibold uppercase tracking-[0.2em] text-crema/45">
             Tagline <span className="normal-case tracking-normal text-crema/35">({tagline.length}/{minTag}+)</span>
           </span>
-          <input
+          <input id="tagline" name="tagline"
             value={tagline}
             onChange={(e) => setTagline(e.target.value)}
             className="mt-2 w-full rounded-2xl bg-espresso/60 px-4 py-3 text-crema outline-none ring-1 ring-sand/15"
@@ -212,11 +212,11 @@ export function SubmitListing() {
           />
         </label>
 
-        <label className="block">
+        <label htmlFor="description" className="block">
           <span className="text-xs font-semibold uppercase tracking-[0.2em] text-crema/45">
             Descrizione <span className="normal-case tracking-normal text-crema/35">({description.length}/{minDesc}+)</span>
           </span>
-          <textarea
+          <textarea id="description" name="description"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             rows={8}

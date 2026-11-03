@@ -219,7 +219,7 @@ export function TicketForms({
           }}
         >
           <Field label="Nuovo titolo">
-            <input
+            <input name="create-form-title"
               value={createName}
               maxLength={FORM_LIMITS.maxTitle}
               onChange={(e) => setCreateName(e.target.value)}
@@ -241,7 +241,7 @@ export function TicketForms({
       {selected ? (
         <div className="space-y-3">
           <Field label="Titolo">
-            <input
+            <input name="title"
               value={title}
               maxLength={FORM_LIMITS.maxTitle}
               onChange={(e) => setTitle(e.target.value)}
@@ -279,7 +279,7 @@ export function TicketForms({
                     />
                   </Field>
                   <Field label="Etichetta">
-                    <input
+                    <input name="label"
                       value={field.label}
                       maxLength={FORM_LIMITS.maxLabel}
                       onChange={(e) => patchField(field.id, { label: e.target.value })}
@@ -316,7 +316,7 @@ export function TicketForms({
                       />
                     </Field>
                     <Field label="Min">
-                      <input
+                      <input name="field-min-length"
                         type="number"
                         min={0}
                         max={field.style === "paragraph" ? 1024 : 255}
@@ -326,7 +326,7 @@ export function TicketForms({
                       />
                     </Field>
                     <Field label="Max">
-                      <input
+                      <input name="field-max-length"
                         type="number"
                         min={1}
                         max={field.style === "paragraph" ? 1024 : 255}
@@ -339,7 +339,7 @@ export function TicketForms({
                 ) : null}
                 {field.type === "text_input" ? (
                   <Field label="Placeholder">
-                    <input
+                    <input name="field-placeholder"
                       value={field.placeholder || ""}
                       maxLength={FORM_LIMITS.maxPlaceholder}
                       onChange={(e) => patchField(field.id, { placeholder: e.target.value || null })}
@@ -350,7 +350,7 @@ export function TicketForms({
                 {supportsMinMax(field.type) ? (
                   <div className="grid gap-2 sm:grid-cols-2">
                     <Field label="Min selezioni">
-                      <input
+                      <input name="field-min-values"
                         type="number"
                         min={0}
                         max={25}
@@ -360,7 +360,7 @@ export function TicketForms({
                       />
                     </Field>
                     <Field label="Max selezioni">
-                      <input
+                      <input name="field-max-values"
                         type="number"
                         min={1}
                         max={25}
@@ -376,7 +376,7 @@ export function TicketForms({
                     <p className={labelClass}>{TYPE_LABELS[field.type]} Options</p>
                     {field.options.map((opt, oi) => (
                       <div key={`${field.id}-${oi}`} className="flex gap-2">
-                        <input
+                        <input name="option-label"
                           value={opt.label}
                           placeholder="Label"
                           maxLength={100}

@@ -328,13 +328,13 @@ export function TicketPanels({
             />
           </Field>
           <Field label="Titolo">
-            <input value={single.title} maxLength={256} onChange={(e) => set({ title: e.target.value })} className={fieldClass} />
+            <input name="title" value={single.title} maxLength={256} onChange={(e) => set({ title: e.target.value })} className={fieldClass} />
           </Field>
           <Field label="Colore">
-            <input value={single.color} onChange={(e) => set({ color: e.target.value })} className={fieldClass} />
+            <input name="color" value={single.color} onChange={(e) => set({ color: e.target.value })} className={fieldClass} />
           </Field>
           <Field label="Testo bottone">
-            <input
+            <input name="button-text"
               value={single.buttonText}
               maxLength={80}
               onChange={(e) => set({ buttonText: e.target.value })}
@@ -350,7 +350,7 @@ export function TicketPanels({
             />
           </Field>
           <Field label="Emoji bottone">
-            <input
+            <input name="button-emoji"
               value={single.buttonEmoji || ""}
               onChange={(e) => set({ buttonEmoji: e.target.value || null })}
               placeholder="😀 oppure <:nome:id>"
@@ -367,7 +367,7 @@ export function TicketPanels({
           </Field>
         </div>
         <Field label="Contenuto">
-          <textarea
+          <textarea name="content"
             value={single.content}
             maxLength={4096}
             rows={4}
@@ -438,7 +438,7 @@ export function TicketPanels({
             />
           </Field>
           <Field label="Cooldown apertura (secondi)">
-            <input
+            <input name="open-cooldown-seconds"
               type="number"
               min={0}
               max={86400}
@@ -484,7 +484,7 @@ export function TicketPanels({
         <Disclosure title="Benvenuto">
           <div className="grid gap-3">
             <Field label="Titolo">
-              <input
+              <input name="welcome-title"
                 value={single.welcome.title}
                 maxLength={256}
                 onChange={(e) => set({ welcome: { ...single.welcome, title: e.target.value } })}
@@ -492,7 +492,7 @@ export function TicketPanels({
               />
             </Field>
             <Field label="Descrizione">
-              <textarea
+              <textarea name="welcome-description"
                 value={single.welcome.description}
                 maxLength={4096}
                 rows={4}
@@ -506,7 +506,7 @@ export function TicketPanels({
         <Disclosure title={`Orari · ${single.supportHoursLabel || "24/7"}`}>
           <div className="space-y-2">
             <Field label="Fuso">
-              <input
+              <input name="support-hours-timezone"
                 value={single.supportHours.timezone}
                 onChange={(e) => set({ supportHours: { ...single.supportHours, timezone: e.target.value || "Europe/Rome" } })}
                 className={fieldClass}
@@ -534,11 +534,15 @@ export function TicketPanels({
                   </label>
                   <div className="flex gap-1">
                     <input
+                      name={`hours-start-${day}`}
+                      aria-label={`${DAY_LABEL[day]} inizio`}
                       value={row?.start || "09:00"}
                       onChange={(e) => patchDay({ start: e.target.value })}
                       className="w-16 rounded-lg bg-espresso/70 px-1.5 py-1 text-xs text-crema ring-1 ring-sand/20"
                     />
                     <input
+                      name={`hours-end-${day}`}
+                      aria-label={`${DAY_LABEL[day]} fine`}
                       value={row?.end || "17:00"}
                       onChange={(e) => patchDay({ end: e.target.value })}
                       className="w-16 rounded-lg bg-espresso/70 px-1.5 py-1 text-xs text-crema ring-1 ring-sand/20"
@@ -731,13 +735,13 @@ export function TicketPanels({
             />
           </Field>
           <Field label="Titolo">
-            <input value={multi.title} maxLength={256} onChange={(e) => set({ title: e.target.value })} className={fieldClass} />
+            <input name="multi-title" value={multi.title} maxLength={256} onChange={(e) => set({ title: e.target.value })} className={fieldClass} />
           </Field>
           <Field label="Colore">
-            <input value={multi.color} onChange={(e) => set({ color: e.target.value })} className={fieldClass} />
+            <input name="multi-color" value={multi.color} onChange={(e) => set({ color: e.target.value })} className={fieldClass} />
           </Field>
           <Field label="Placeholder menu">
-            <input
+            <input name="dropdown-placeholder"
               value={multi.dropdownPlaceholder}
               maxLength={150}
               onChange={(e) => set({ dropdownPlaceholder: e.target.value })}
@@ -746,7 +750,7 @@ export function TicketPanels({
           </Field>
         </div>
         <Field label="Descrizione">
-          <textarea
+          <textarea name="description"
             value={multi.description}
             maxLength={4096}
             rows={3}

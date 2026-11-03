@@ -137,9 +137,9 @@ export function NewTicket({ token, categories, isStaff, onCreated, onCancel }: {
         </motion.div>
       )}
 
-      <label className="mt-6 block">
+      <label htmlFor="message" className="mt-6 block">
         <span className="text-sm font-semibold text-crema/70">Il tuo messaggio</span>
-        <textarea
+        <textarea id="message" name="message"
           value={text}
           onChange={(e) => setText(e.target.value.slice(0, MAX_CONTENT))}
           rows={5}
@@ -161,7 +161,7 @@ export function NewTicket({ token, categories, isStaff, onCreated, onCancel }: {
             <ImagePlus className="size-4" /> Allega immagini
           </button>
         )}
-        <input ref={fileRef} type="file" accept="image/*" multiple hidden onChange={(e) => (addFiles(e.target.files), (e.target.value = ""))} />
+        <input name="attachments" ref={fileRef} type="file" accept="image/*" multiple hidden onChange={(e) => (addFiles(e.target.files), (e.target.value = ""))} />
         <span className="ml-auto text-xs text-crema/40 lining-nums">
           {text.length} / {MAX_CONTENT}
         </span>

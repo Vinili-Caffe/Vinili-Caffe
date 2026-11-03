@@ -286,9 +286,9 @@ export function ExtrasPanel({
               la giornata. Dopo l&apos;annuncio non potrai più cambiare giorno/mese fino all&apos;anno prossimo.
             </p>
             <div className="mt-4 grid grid-cols-3 gap-2">
-              <label className="block">
+              <label htmlFor="day" className="block">
                 <span className="text-[0.65rem] font-semibold uppercase tracking-wider text-crema/45">Giorno</span>
-                <input
+                <input id="day" name="day"
                   type="number"
                   min={1}
                   max={31}
@@ -297,9 +297,9 @@ export function ExtrasPanel({
                   className="mt-1 w-full rounded-xl bg-espresso/70 px-3 py-2.5 text-sm outline-none ring-1 ring-sand/15 focus:ring-caramel/60"
                 />
               </label>
-              <label className="block">
+              <label htmlFor="month" className="block">
                 <span className="text-[0.65rem] font-semibold uppercase tracking-wider text-crema/45">Mese</span>
-                <input
+                <input id="month" name="month"
                   type="number"
                   min={1}
                   max={12}
@@ -308,9 +308,9 @@ export function ExtrasPanel({
                   className="mt-1 w-full rounded-xl bg-espresso/70 px-3 py-2.5 text-sm outline-none ring-1 ring-sand/15 focus:ring-caramel/60"
                 />
               </label>
-              <label className="block">
+              <label htmlFor="year" className="block">
                 <span className="text-[0.65rem] font-semibold uppercase tracking-wider text-crema/45">Anno</span>
-                <input
+                <input id="year" name="year"
                   type="number"
                   min={1900}
                   max={new Date().getFullYear()}
@@ -595,7 +595,7 @@ export function ExtrasPanel({
           <h3 className="mt-1 font-display text-2xl font-semibold">Risposta automatica</h3>
           <p className="mt-1 text-sm text-crema/55">{resp.accessHint}</p>
           <div className="relative mt-4">
-            <textarea
+            <textarea name="response"
               ref={respRef}
               value={responseText}
               onChange={(e) => setResponseText(e.target.value)}

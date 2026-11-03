@@ -148,7 +148,7 @@ export function RolesBrowser({ initial }: { initial: RolesData | null }) {
       <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
         <div className="relative flex-1">
           <Search className="pointer-events-none absolute left-5 top-1/2 z-10 size-5 -translate-y-1/2 text-crema/40" />
-          <input
+          <input name="roles-search"
             type="search"
             value={query}
             onChange={(e) => {

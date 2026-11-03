@@ -710,11 +710,11 @@ export function CompitiBoard() {
                 />
               ) : null}
 
-              <label className="block text-sm">
+              <label htmlFor="compiti-note" className="block text-sm">
                 <span className="text-xs font-semibold uppercase tracking-wider text-crema/45">
                   {hs ? "Nota dello staff" : "Scrivi"}
                 </span>
-                <textarea
+                <textarea id="compiti-note" name="compiti-note"
                   value={hs ? displayNote : note}
                   onChange={(e) => !hs && setNote(e.target.value.slice(0, COMPITI_NOTE_MAX))}
                   disabled={hs || !canEditLeaf || busy || Boolean(task?.auto)}
@@ -890,6 +890,7 @@ function ProofsBlock({
           <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-full bg-crema/8 px-3 py-1 text-xs font-semibold text-crema/75 ring-1 ring-sand/15 hover:text-crema">
             + Aggiungi
             <input
+              name="attachments"
               type="file"
               accept="image/*,.pdf,text/plain,application/pdf"
               multiple

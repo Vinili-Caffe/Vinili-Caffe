@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { BookOpen, Check, CheckCircle2, Clock, Info, Loader2, MicOff, Send, ShieldBan } from "lucide-react";
 import { AuthGateCard } from "@/components/AuthGateCard";
@@ -41,12 +41,15 @@ const TEXT: Record<AppealType, { label: string; icon: React.ReactNode; why: stri
 };
 
 function Field({ label, value, set, optional, rows = 4 }: { label: string; value: string; set: (v: string) => void; optional?: boolean; rows?: number }) {
+  const id = useId();
   return (
-    <label className="block">
+    <label htmlFor={id} className="block">
       <span className="font-semibold">
         {label} {optional && <span className="font-normal text-crema/45">(opzionale)</span>}
       </span>
       <textarea
+        id={id}
+        name="appeal-field"
         value={value}
         onChange={(e) => set(e.target.value.slice(0, APPEAL_MAX))}
         rows={rows}

@@ -106,7 +106,7 @@ export function BotFeedbackBoard() {
             </button>
           ))}
         </div>
-        <textarea
+        <textarea name="message"
           value={text}
           onChange={(e) => setText(e.target.value)}
           maxLength={MAX_LEN}

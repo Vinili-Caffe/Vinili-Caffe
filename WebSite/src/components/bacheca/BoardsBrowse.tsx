@@ -138,9 +138,9 @@ export function BoardsBrowse({ initialKind = "", initialConfig = null, initialLi
           setQ(draftQ.trim());
         }}
       >
-        <label className="relative min-w-0 flex-1">
+        <label htmlFor="listing-search" className="relative min-w-0 flex-1">
           <Search className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-crema/40" />
-          <input
+          <input id="listing-search" name="listing-search"
             value={draftQ}
             onChange={(e) => setDraftQ(e.target.value)}
             placeholder="Cerca un bot, un server, un tag…"

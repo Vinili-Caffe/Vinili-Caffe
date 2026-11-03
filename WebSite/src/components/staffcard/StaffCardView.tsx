@@ -75,9 +75,9 @@ function Navigator({ roster, current, onGo }: { roster: { label: string; members
             exit={{ opacity: 0, y: -6 }}
             className="absolute left-1/2 top-full z-40 mt-2 w-80 max-w-[calc(100vw-2rem)] -translate-x-1/2 overflow-hidden rounded-2xl bg-roast/95 shadow-[0_20px_50px_-20px_rgba(0,0,0,0.9)] ring-1 ring-sand/15 backdrop-blur-xl"
           >
-            <label className="flex items-center gap-2 border-b border-sand/10 px-3">
+            <label htmlFor="staff-card-search" className="flex items-center gap-2 border-b border-sand/10 px-3">
               <Search className="size-4 text-crema/40" />
-              <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Cerca uno staffer…" className="w-full bg-transparent py-2.5 text-sm outline-none placeholder:text-crema/35" />
+              <input id="staff-card-search" name="staff-card-search" autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Cerca uno staffer…" className="w-full bg-transparent py-2.5 text-sm outline-none placeholder:text-crema/35" />
             </label>
             <div className="max-h-80 overflow-y-auto p-1.5">
               {roster.map((s) => {

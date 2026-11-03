@@ -147,9 +147,9 @@ function ListChrome({
                 </button>
               ))}
             </div>
-            <label className="flex items-center gap-2 rounded-xl bg-espresso/70 px-3 ring-1 ring-sand/15 focus-within:ring-caramel/60">
+            <label htmlFor="ticket-list-search" className="flex items-center gap-2 rounded-xl bg-espresso/70 px-3 ring-1 ring-sand/15 focus-within:ring-caramel/60">
               <Search className="size-4 shrink-0 text-crema/40" aria-hidden />
-              <input
+              <input id="ticket-list-search" name="ticket-list-search"
                 type="search"
                 value={listSearch}
                 onChange={(e) => setListSearch(e.target.value)}

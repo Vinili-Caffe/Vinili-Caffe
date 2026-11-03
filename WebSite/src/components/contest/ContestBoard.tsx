@@ -731,10 +731,10 @@ export function ContestBoard({
                       <p className="text-xs text-crema/45">{Number(mineByCat[catSubmit]?.likes) || 0} like</p>
                     </div>
                     <div className="flex gap-2">
-                      <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-full bg-crema/10 px-3.5 py-2 text-xs font-medium text-crema ring-1 ring-crema/15 hover:bg-crema/15">
+                      <label htmlFor="contest-image" className="inline-flex cursor-pointer items-center gap-1.5 rounded-full bg-crema/10 px-3.5 py-2 text-xs font-medium text-crema ring-1 ring-crema/15 hover:bg-crema/15">
                         <Pencil className="size-3.5" />
                         Cambia
-                        <input
+                        <input id="contest-image" name="contest-image"
                           ref={replaceInputRef}
                           type="file"
                           accept="image/png,image/jpeg,image/webp"
@@ -772,6 +772,7 @@ export function ContestBoard({
                     {" · "}PNG, JPG o WEBP · max 4 MB
                   </span>
                   <input
+                    name="contest-image"
                     type="file"
                     accept="image/png,image/jpeg,image/webp"
                     className="hidden"
