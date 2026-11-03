@@ -8,6 +8,7 @@ const path = require("path") as typeof import("path");
 const { ChannelType, PermissionFlagsBits } = require("discord.js") as typeof import("discord.js");
 const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { getClientGuildCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
+const { shouldStartExternalWorkerLoop } = require("../../../shared/runtime/externalWorkerGate") as typeof import("../../../shared/runtime/externalWorkerGate");
 
 const CONFIG_PATH = path.join(__dirname, "..", "..", "config.json");
 const CHECK_MS = 5 * 60_000;
@@ -183,6 +184,7 @@ async function ensureStreamerStageChannel(client?) {
 }
 
 function startStreamerStageGuardLoop(client?) {
+  if (!shouldStartExternalWorkerLoop("COMMUNITY_POLL")) return null;
   if (!client || started.has(client)) return;
   started.add(client);
   const tick = () =>

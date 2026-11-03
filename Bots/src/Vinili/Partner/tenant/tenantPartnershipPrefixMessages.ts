@@ -32,7 +32,7 @@ async function resolveTenantLanguageForInteraction(interaction?, userId?) {
 function rewritePrefixInText(text?, guildId?, client?) {
   let out = String(text || "");
   try {
-    const { resolveCommandPrefixForGuild, rewriteDefaultCommandPrefix } = require("../../MultiGuild/core/tenantGuildSettings") as typeof import("../../MultiGuild/core/tenantGuildSettings");
+    const { resolveCommandPrefixForGuild, rewriteDefaultCommandPrefix } = require("../../../MultiGuild/core/tenantGuildSettings") as typeof import("../../../MultiGuild/core/tenantGuildSettings");
     const prefix = resolveCommandPrefixForGuild(guildId, client);
     out = rewriteDefaultCommandPrefix(out, prefix);
   } catch (_) {}

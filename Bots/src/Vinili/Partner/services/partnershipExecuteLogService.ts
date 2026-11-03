@@ -9,7 +9,7 @@ const {
 } = require("../../Partner/core/partnershipConfigResolver") as typeof import("../../Partner/core/partnershipConfigResolver");
 const { extractPartnershipLogIdFromText } = require("../../Partner/runtime/partnershipLogMessageUtils") as typeof import("../../Partner/runtime/partnershipLogMessageUtils");
 const GLOBAL_PARTNERSHIP_LOG_SEQ_KEY = "globalPartnershipLogSeq.v1";
-const LOG_COLOR = require("../../MultiGuild/utils/tenantEmbedBranding").TENANT_EMBED_COLOR;
+const LOG_COLOR = require("../../../MultiGuild/utils/tenantEmbedBranding").TENANT_EMBED_COLOR;
 const DELETE_LOG_COLOR = 0xed4245;
 
 const DELETE_REASON_LABELS = {

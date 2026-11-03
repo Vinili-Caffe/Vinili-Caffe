@@ -383,7 +383,6 @@
   "description_usage": "<:vegax:1443934876440068179> Используйте: `+description user <@пользователь | id>`",
   "description_dmFailed": "<:vegax:1443934876440068179> Не могу отправить ЛС {target}.",
   "description_dmSent": "<:vegacheckmark:1443666279058772028> Описание отправлено в ЛС {target}.",
-  "help_cmd_ping_desc": "Показывает задержку бота, БД и uptime.",
   "help_cmd_invite_desc": "Отправляет ссылку для приглашения бота.",
   "help_cmd_help_desc": "Показывает все команды или карточку команды.",
   "help_cmd_help_syntax": "(команда)",

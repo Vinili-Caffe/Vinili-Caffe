@@ -383,7 +383,6 @@
   "description_usage": "<:vegax:1443934876440068179> Usa: `+description user <@usuario | id>`",
   "description_dmFailed": "<:vegax:1443934876440068179> No puedo enviar DM a {target}.",
   "description_dmSent": "<:vegacheckmark:1443666279058772028> Descripción enviada por DM a {target}.",
-  "help_cmd_ping_desc": "Muestra latencia del bot, base de datos y uptime.",
   "help_cmd_invite_desc": "Envía el enlace para invitar al bot.",
   "help_cmd_help_desc": "Muestra todos los comandos o la ficha de un comando.",
   "help_cmd_help_syntax": "(dominio)",

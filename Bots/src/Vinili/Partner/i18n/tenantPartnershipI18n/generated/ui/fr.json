@@ -383,7 +383,6 @@
   "description_usage": "<:vegax:1443934876440068179> Utilisez : `+description user <@utilisateur | id>`",
   "description_dmFailed": "<:vegax:1443934876440068179> Impossible d'envoyer un MP à {target}.",
   "description_dmSent": "<:vegacheckmark:1443666279058772028> Description envoyée en MP à {target}.",
-  "help_cmd_ping_desc": "Affiche la latence du bot, de la base de données et l'uptime.",
   "help_cmd_invite_desc": "Envoie le lien pour inviter le bot.",
   "help_cmd_help_desc": "Affiche toutes les commandes ou la fiche d'une commande.",
   "help_cmd_help_syntax": "(commande)",

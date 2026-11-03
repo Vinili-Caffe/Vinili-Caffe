@@ -1,8 +1,8 @@
-const { resolveGuildAccess } = require("../../../MultiGuild/core/guildRegistry") as typeof import("../../../MultiGuild/core/guildRegistry");
+const { resolveGuildAccess } = require("../../../../MultiGuild/core/guildRegistry") as typeof import("../../../../MultiGuild/core/guildRegistry");
 const {
   getTenantChannelMapSync,
   resolveTenantBoardChannelIdSync,
-} = require("../../../MultiGuild/core/tenantGuildSettings") as typeof import("../../../MultiGuild/core/tenantGuildSettings");
+} = require("../../../../MultiGuild/core/tenantGuildSettings") as typeof import("../../../../MultiGuild/core/tenantGuildSettings");
 const { getGuildChannelCached } = require("../../../../shared/discord/interactionEntityCache") as typeof import("../../../../shared/discord/interactionEntityCache");
 const IDs = require("../../../Config/ids") as typeof import("../../../Config/ids");
 

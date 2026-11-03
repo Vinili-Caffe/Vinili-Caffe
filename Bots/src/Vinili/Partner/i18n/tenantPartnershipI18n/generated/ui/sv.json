@@ -383,7 +383,6 @@
   "description_usage": "<:vegax:1443934876440068179> Använd: `+description user <@användare | id>`",
   "description_dmFailed": "<:vegax:1443934876440068179> Kan inte skicka DM till {target}.",
   "description_dmSent": "<:vegacheckmark:1443666279058772028> Beskrivning skickad via DM till {target}.",
-  "help_cmd_ping_desc": "Visar bot-, databaslatens och uptime.",
   "help_cmd_invite_desc": "Skickar länken för att bjuda in botten.",
   "help_cmd_help_desc": "Visar alla kommandon eller ett kommando.",
   "help_cmd_help_syntax": "(kommando)",

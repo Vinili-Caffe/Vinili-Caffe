@@ -9,7 +9,7 @@ const { sendDm } = require("../../Community/utils/noDmList") as typeof import(".
 const { userAvatarUrlDynamic } = require("../../../shared/discord/guildDiscordIdentity") as typeof import("../../../shared/discord/guildDiscordIdentity");
 const { buildUnbanRequestRow } = require("./unbanRequestButton") as typeof import("./unbanRequestButton");
 const { buildUnmuteRequestRow } = require("./unmuteRequestButton") as typeof import("./unmuteRequestButton");
-const { isViniliProtectedGuild } = require("../../MultiGuild/core/viniliProtectedGuilds") as typeof import("../../MultiGuild/core/viniliProtectedGuilds");
+const { isViniliProtectedGuild } = require("../../../MultiGuild/core/viniliProtectedGuilds") as typeof import("../../../MultiGuild/core/viniliProtectedGuilds");
 
 function embed(client?, title?, description?, color = null) {
   return new EmbedBuilder()
@@ -180,7 +180,7 @@ async function validateModerationTarget(message?, member?, actionLabel?, targetU
 
 async function successReply(message?, subject?, verb?, reason = "") {
   const description = successText(subject, verb, String(reason || "").trim());
-  const { PREFIX_DISPATCH_BRANDING_DONE_KEY } = require("../../MultiGuild/utils/tenantEmbedBranding") as typeof import("../../MultiGuild/utils/tenantEmbedBranding");
+  const { PREFIX_DISPATCH_BRANDING_DONE_KEY } = require("../../../MultiGuild/utils/tenantEmbedBranding") as typeof import("../../../MultiGuild/utils/tenantEmbedBranding");
   const embed = new EmbedBuilder()
     .setColor("#57F287")
     .setDescription(description);

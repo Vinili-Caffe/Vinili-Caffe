@@ -1,10 +1,10 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder, StringSelectMenuOptionBuilder } = require("discord.js") as typeof import("discord.js");
-const { TENANT_EMBED_COLOR } = require("../../MultiGuild/utils/tenantEmbedBranding") as typeof import("../../MultiGuild/utils/tenantEmbedBranding");
-const { applyPartnershipPayloadBranding } = require("../../MultiGuild/utils/tenantEmbedBranding") as typeof import("../../MultiGuild/utils/tenantEmbedBranding");
+const { TENANT_EMBED_COLOR } = require("../../../MultiGuild/utils/tenantEmbedBranding") as typeof import("../../../MultiGuild/utils/tenantEmbedBranding");
+const { applyPartnershipPayloadBranding } = require("../../../MultiGuild/utils/tenantEmbedBranding") as typeof import("../../../MultiGuild/utils/tenantEmbedBranding");
 const { applyDefaultFooterToEmbeds } = require("../../../shared/embeds/defaultFooter") as typeof import("../../../shared/embeds/defaultFooter");
 const { fetchLeaderboardRows, findRankEntry, normalizeCategory, normalizePeriod } = require("../services/tenantLeaderboardService") as typeof import("../services/tenantLeaderboardService");
 const { getPartnershipConfigSync } = require("../core/tenantPartnershipSettings") as typeof import("../core/tenantPartnershipSettings");
-const { getManagedInvite } = require("../../MultiGuild/services/guildJoinAlertService") as typeof import("../../MultiGuild/services/guildJoinAlertService");
+const { getManagedInvite } = require("../../../MultiGuild/services/guildJoinAlertService") as typeof import("../../../MultiGuild/services/guildJoinAlertService");
 const { getPartnerManagerRoleId } = require("../core/partnershipConfigResolver") as typeof import("../core/partnershipConfigResolver");
 const { formatUserLabel, fetchMembers, rankLabel } = require("../../Community/utils/leaderboardHelpers") as typeof import("../../Community/utils/leaderboardHelpers");
 const { guildIconUrl } = require("../../../shared/discord/guildDiscordIdentity") as typeof import("../../../shared/discord/guildDiscordIdentity");

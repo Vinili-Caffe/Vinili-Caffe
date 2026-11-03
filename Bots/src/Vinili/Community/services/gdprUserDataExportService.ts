@@ -12,7 +12,7 @@ const {
 } = require("../schemas/communitySchemas") as typeof import("../schemas/communitySchemas");
 
 const COUNTING_RESTORE_DOC_TYPE = SITE_DOCUMENT_TYPE.COUNTING_RESTORE_TOKEN;
-const { GuildFeatureBucket } = require("../../MultiGuild/schemas/guildFeatureBucketSchema") as typeof import("../../MultiGuild/schemas/guildFeatureBucketSchema");
+const { GuildFeatureBucket } = require("../../../MultiGuild/schemas/guildFeatureBucketSchema") as typeof import("../../../MultiGuild/schemas/guildFeatureBucketSchema");
 const { GuildRepost } = require("../schemas/guildBoardPostSchema") as typeof import("../schemas/guildBoardPostSchema");
 
 const BOT_ROOT = path.resolve(__dirname, "../..");

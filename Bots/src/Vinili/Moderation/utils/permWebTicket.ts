@@ -136,7 +136,7 @@ function getDevIds(client?) {
 
 function peekMainDashboardCommandAcl(guildId?, commandName?) {
   try {
-    const { peekDashboardCommandAcl } = require("../../MultiGuild/core/tenantCommandAcl") as typeof import("../../MultiGuild/core/tenantCommandAcl");
+    const { peekDashboardCommandAcl } = require("../../../MultiGuild/core/tenantCommandAcl") as typeof import("../../../MultiGuild/core/tenantCommandAcl");
     return peekDashboardCommandAcl(guildId, commandName);
   } catch (err) {
     global.logger?.warn?.("[commandPermissions] peek dashboard ACL:", err?.message || err);

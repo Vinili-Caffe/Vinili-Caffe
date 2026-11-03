@@ -1,7 +1,7 @@
 const { EmbedBuilder } = require("discord.js") as typeof import("discord.js");
 const { safeMessageReply } = require("../../../../shared/discord/replyRuntime") as typeof import("../../../../shared/discord/replyRuntime");
 const { applyDefaultFooterToEmbeds } = require("../../../../shared/embeds/defaultFooter") as typeof import("../../../../shared/embeds/defaultFooter");
-const { applyPartnershipPayloadBranding } = require("../../../MultiGuild/utils/tenantEmbedBranding") as typeof import("../../../MultiGuild/utils/tenantEmbedBranding");
+const { applyPartnershipPayloadBranding } = require("../../../../MultiGuild/utils/tenantEmbedBranding") as typeof import("../../../../MultiGuild/utils/tenantEmbedBranding");
 const {
   listRecentPartnerGuildIds,
   parseHistoryArgs,

@@ -1,6 +1,6 @@
 const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { ActivityUserProfile } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
-const Ticket = require("../../MultiGuild/tickets/data/guildFeatureBucketTicketModel");
+const Ticket = require("../../../MultiGuild/tickets/data/guildFeatureBucketTicketModel");
 const {
   resolveStaffProfileKind,
   resolveStaffPartnerPointsDisplay,
@@ -30,7 +30,7 @@ const { buildPmShopCatalogForWeb } = require("../../Partner/site/siteStaffPmShop
 const { memberIsPm } = require("./siteStaffRosterCache") as typeof import("./siteStaffRosterCache");
 const { sendJsonWithEtag, weakEtagFromParts } = require("../../site/http/siteHttpEtag") as typeof import("../../site/http/siteHttpEtag");
 const { resolveWebUserIdentitiesBatch } = require("../../site/http/siteWebUserIdentity") as typeof import("../../site/http/siteWebUserIdentity");
-const { memberCanManagePartnerManagers } = require("../../MultiGuild/tickets/discord/ticketPartnershipStaffRoles") as typeof import("../../MultiGuild/tickets/discord/ticketPartnershipStaffRoles");
+const { memberCanManagePartnerManagers } = require("../../../MultiGuild/tickets/discord/ticketPartnershipStaffRoles") as typeof import("../../../MultiGuild/tickets/discord/ticketPartnershipStaffRoles");
 
 function memberIsHighStaff(member?) {
   return memberHasAnyRoleKey(member, STAFF_HIGH_STAFF_ELIGIBLE_KEYS);

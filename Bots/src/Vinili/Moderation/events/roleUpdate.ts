@@ -2,7 +2,7 @@ const { AuditLogEvent, EmbedBuilder } = require("discord.js") as typeof import("
 const { queueIdsCatalogSync } = require("../../Config/idsAutoSync") as typeof import("../../Config/idsAutoSync");
 const { toDiscordTimestamp, formatAuditActor, permissionDiff, buildAuditExtraLines, resolveChannelRolesLogChannel, resolveResponsible, } = require("../../Moderation/utils/channelRolesLogUtils") as typeof import("../../Moderation/utils/channelRolesLogUtils");
 const { handleRoleUpdate: antiNukeHandleRoleUpdate } = require("../../Security/services/antiNukeService") as typeof import("../../Security/services/antiNukeService");
-const { isViniliFullFeatureGuild } = require("../../MultiGuild/core/guildFeatureScope") as typeof import("../../MultiGuild/core/guildFeatureScope");
+const { isViniliFullFeatureGuild } = require("../../../MultiGuild/core/guildFeatureScope") as typeof import("../../../MultiGuild/core/guildFeatureScope");
 const ROLE_UPDATE_ACTION = AuditLogEvent?.RoleUpdate ?? 31;
 
 export = {

@@ -116,7 +116,7 @@ async function userStillNeedsDm(entry?) {
 }
 
 async function ticketStillNeedsDm(entry?) {
-  const { SiteWebTicketMessage } = require("../../MultiGuild/tickets/data/siteWebTicketSchemas") as typeof import("../../MultiGuild/tickets/data/siteWebTicketSchemas");
+  const { SiteWebTicketMessage } = require("../../../MultiGuild/tickets/data/siteWebTicketSchemas") as typeof import("../../../MultiGuild/tickets/data/siteWebTicketSchemas");
   const mid = String(entry.messageId || "").trim();
   if (!mid) return { ok: false, reason: "no_message" };
 

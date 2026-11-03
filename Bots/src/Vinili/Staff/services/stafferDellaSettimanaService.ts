@@ -4,6 +4,7 @@ const cron = require("node-cron") as typeof import("node-cron");
 const { runCronDetached } = require("../../../shared/scheduling/cronDetached") as typeof import("../../../shared/scheduling/cronDetached");
 const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { GlobalSettings } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
+const { shouldStartExternalWorkerLoop } = require("../../../shared/runtime/externalWorkerGate") as typeof import("../../../shared/runtime/externalWorkerGate");
 const {
   grantBestStaffWeekPauseBonus,
 } = require("../../site/staff/pause/pauseHandlersUtils") as typeof import("../../site/staff/pause/pauseHandlersUtils");
@@ -149,6 +150,7 @@ async function tickStafferDellaSettimanaWeek(client?) {
 
 let loopStarted = false;
 function startStafferDellaSettimanaLoop(client?) {
+  if (!shouldStartExternalWorkerLoop("COMMUNITY_POLL")) return null;
   if (loopStarted) return;
   loopStarted = true;
   // 1 min dopo i weekly winners (0 21) per non contendere il cron.

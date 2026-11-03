@@ -5,6 +5,7 @@ const { GlobalSettings } = require("../schemas/communitySchemas") as typeof impo
 const { parseScheduleMs } = require("../utils/eventDates") as typeof import("../utils/eventDates");
 const { getClientChannelCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
 const { runCronDetached } = require("../../../shared/scheduling/cronDetached") as typeof import("../../../shared/scheduling/cronDetached");
+const { shouldStartExternalWorkerLoop } = require("../../../shared/runtime/externalWorkerGate") as typeof import("../../../shared/runtime/externalWorkerGate");
 
 const TIME_ZONE = "Europe/Rome";
 const START_ANNOUNCE_CRON = "0 12 * * *";
@@ -133,6 +134,7 @@ async function runGlobalExpEventStartAnnouncementCheck(client?, nowMs = Date.now
 }
 
 function startGlobalExpEventAnnouncementLoop(client?) {
+  if (!shouldStartExternalWorkerLoop("COMMUNITY_POLL")) return null;
   if (!client) return null;
   if (announceCronTask) return announceCronTask;
 

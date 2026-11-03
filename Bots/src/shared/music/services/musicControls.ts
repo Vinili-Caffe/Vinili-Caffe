@@ -1,7 +1,7 @@
 /** Musica: comandi di base (volume, salta, stop, pausa, riprendi, svuota). */
 const { safeEmbedBoldFragment } = require("./musicSpotifyLinks") as typeof import("./musicSpotifyLinks");
 const { describeTrack, encodedFromPlayerTrack } = require("./musicMirror") as typeof import("./musicMirror");
-const { musicPurgeTts, guildQueues, endListeners, assertMusicCommandAllowed, persistMusicQueueSnapshotNow, leaveMusicVoiceChannelMarked, destroyGhostMusicStateIfBotNotInVoice } = require("./musicVoice") as typeof import("./musicVoice");
+const { musicPurgeTts, clearActiveBotVoiceSession, guildQueues, endListeners, assertMusicCommandAllowed, persistMusicQueueSnapshotNow, leaveMusicVoiceChannelMarked, destroyGhostMusicStateIfBotNotInVoice } = require("./musicVoice") as typeof import("./musicVoice");
 const { lavalinkGlobalVolumeFromUserPercent, getSession, isLavalinkUsable, initLavalinkMusicIfEnabled } = require("./musicEngine") as typeof import("./musicEngine");
 const { formatPlaybackPositionClock } = require("./musicQueueView") as typeof import("./musicQueueView");
 
@@ -143,8 +143,7 @@ async function stopGuild(interaction?) {
   persistMusicQueueSnapshotNow(client);
   await musicPurgeTts(guildId, client).catch(() => {});
   try {
-    const { clearVoiceSession } = require("../../../Vinili/Community/services/voiceSessionService") as typeof import("../../../Vinili/Community/services/voiceSessionService");
-    clearVoiceSession(guildId);
+    clearActiveBotVoiceSession(guildId);
   } catch (_) {}
   return { ok: true, message: "Musica fermata e coda svuotata." };
 }

@@ -1,6 +1,6 @@
 const { getBotState, setBotState } = require("../../../shared/botState/botStateStore") as typeof import("../../../shared/botState/botStateStore");
 const { isMongoReady } = require("../../../shared/db/mongoConnect") as typeof import("../../../shared/db/mongoConnect");
-const { isViniliProtectedGuild, normalizeGuildId } = require("../../MultiGuild/core/viniliProtectedGuilds") as typeof import("../../MultiGuild/core/viniliProtectedGuilds");
+const { isViniliProtectedGuild, normalizeGuildId } = require("../../../MultiGuild/core/viniliProtectedGuilds") as typeof import("../../../MultiGuild/core/viniliProtectedGuilds");
 const {
   hasThankYouEmbedContent,
 } = require("../../Partner/runtime/partnershipThankYouEmbed") as typeof import("../../Partner/runtime/partnershipThankYouEmbed");

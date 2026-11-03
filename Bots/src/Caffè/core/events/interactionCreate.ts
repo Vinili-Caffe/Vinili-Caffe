@@ -1,14 +1,31 @@
 const { InteractionType, EmbedBuilder } = require("discord.js") as typeof import("discord.js");
 const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
-const { buildErrorLogEmbed } = require("../../../shared/discord/errorLogEmbed") as typeof import("../../../shared/discord/errorLogEmbed");
 const { checkButtonPermission, checkStringSelectPermission, checkModalPermission, checkSlashPermission, buildGlobalPermissionDeniedEmbed, buildGlobalNotYourControlEmbed, } = require("../../Moderation/utils/commandPermissions") as typeof import("../../Moderation/utils/commandPermissions");
-const { handleButtonInteraction } = require("./interaction/buttonHandlers") as typeof import("./interaction/buttonHandlers");
-const { getCentralChannel } = require("./interaction/commandUsageLogger") as typeof import("./interaction/commandUsageLogger");
+const { createButtonInteractionDispatcher } = require("../../../shared/discord/createButtonInteractionDispatcher") as typeof import("../../../shared/discord/createButtonInteractionDispatcher");
+const { handleButtonInteraction } = createButtonInteractionDispatcher({
+  errorEmoji: "<a:VC_Alert:1482706673176150077>",
+});
+const { getCentralChannel } = require("./interactionCreateCommandLogging") as typeof import("./interactionCreateCommandLogging");
 const {
   PRIVATE_FLAG,
   acquireButtonSpamGuard,
   sendPrivateInteractionResponse,
 } = require("../../../shared/discord/interactionAck") as typeof import("../../../shared/discord/interactionAck");
+const { createInteractionErrorLogger } = require("../../../shared/discord/createInteractionErrorLogger") as typeof import("../../../shared/discord/createInteractionErrorLogger");
+const { logInteractionError } = createInteractionErrorLogger({
+  resolveErrorChannelId: () => IDs.channels.errorLogChannel || IDs.channels.serverBotLogs || null,
+  getCentralChannel,
+  userErrorPayload: {
+    embeds: [
+      new EmbedBuilder()
+        .setColor("Red")
+        .setDescription("<a:VC_Cross:1482532424570376253> Errore durante l'esecuzione dell'interazione."),
+    ],
+  },
+  onNestedError: (nestedErr?) => {
+    global.logger?.error?.("[interactionCreate] error-log", nestedErr);
+  },
+});
 const MONO_GUILD_DENIED = "Questo bot è utilizzabile solo nei server autorizzati.";
 const STANZA_BUTTON_DENIED ="<:VC_Attention:1482534443632558151> Solo il **creatore della stanza** e il **vice** possono usare questi pulsanti.";
 const INTERACTION_DEDUPE_TTL_MS = 30 * 1000;
@@ -74,42 +91,6 @@ async function runPermissionGate(interaction?) {
   }
 
   return true;
-}
-
-async function logInteractionError(interaction?, client?, err?) {
-  try {
-    global.logger?.error?.(
-      `[INTERACTION ERROR] context=${String(interaction?.commandName || interaction?.customId || "unknown")} guild=${String(interaction?.guildId || "dm")} user=${String(interaction?.user?.id || "unknown")}`,
-      err?.stack || err?.message || err,
-    );
-    const errorChannelId = IDs.channels.errorLogChannel || IDs.channels.serverBotLogs;
-    const errorChannel = errorChannelId ? await getCentralChannel(client, errorChannelId) : null;
-
-    if (errorChannel?.isTextBased?.()) {
-      const contextValue = interaction?.commandName || interaction?.customId || "unknown";
-      const embed = buildErrorLogEmbed({
-        contextLabel: "Contesto",
-        contextValue,
-        userTag: interaction?.user?.tag || "unknown",
-        error: err,
-        serverName: interaction?.guild ? `${interaction.guild.name} [${interaction.guild.id}]` : null,
-      });
-      await errorChannel.send({ embeds: [embed] }).catch(() => { });
-    }
-
-    await sendPrivateInteractionResponse(interaction, {
-      embeds: [
-        new EmbedBuilder()
-          .setColor("Red")
-          .setDescription(
-            "<a:VC_Cross:1482532424570376253> Errore durante l'esecuzione dell'interazione.",
-          ),
-      ],
-      flags: PRIVATE_FLAG,
-    });
-  } catch (nestedErr) {
-    global.logger.error("[interactionCreate] error-log", nestedErr);
-  }
 }
 
 export = {
@@ -197,16 +178,6 @@ export = {
       if (!allowedByGate) return;
 
       if (interaction.isButton?.()) {
-        const customId = String(interaction.customId || "");
-        const gw = require("../../../shared/giveaway/giveawayService") as typeof import("../../../shared/giveaway/giveawayService");
-        if (customId.startsWith("giveaway_enter:")) {
-          const handled = await gw.enterGiveaway(interaction, client);
-          if (handled) return;
-        }
-        if (customId.startsWith("giveaway_reroll:")) {
-          const handled = await gw.rerollGiveaway(interaction, client);
-          if (handled) return;
-        }
         if (await handleButtonInteraction(interaction, client)) return;
       }
     } catch (err) {

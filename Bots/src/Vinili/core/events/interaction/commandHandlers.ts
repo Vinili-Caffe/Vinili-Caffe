@@ -5,10 +5,23 @@ const{applyDefaultFooterToEmbeds,}=require("../../../../shared/embeds/defaultFoo
 const { checkSlashPermission, getSlashRequiredRoles, buildGlobalPermissionDeniedEmbed, buildGlobalChannelDeniedEmbed, } = require("../../../Moderation/utils/commandPermissions") as typeof import("../../../Moderation/utils/commandPermissions");
 const { replyInteractionSetupRequired } = require("../../../Partner/tenant/tenantSetupRequiredReply") as typeof import("../../../Partner/tenant/tenantSetupRequiredReply");
 const { getUserCommandCooldownSeconds, consumeUserCooldown, } = require("../../../Moderation/utils/commandCooldown") as typeof import("../../../Moderation/utils/commandCooldown");
-const { buildCooldownErrorEmbed, buildBusyCommandErrorEmbed, buildInternalCommandErrorEmbed, } = require("../../../Moderation/utils/commandErrorEmbeds") as typeof import("../../../Moderation/utils/commandErrorEmbeds");
-const { buildErrorLogEmbed } = require("../../../../shared/discord/errorLogEmbed") as typeof import("../../../../shared/discord/errorLogEmbed");
-const { getCentralChannel } = require("./commandUsageLogger") as typeof import("./commandUsageLogger");
+const { TENANT_EMBED_COLOR } = require("../../../../MultiGuild/utils/tenantEmbedBranding") as typeof import("../../../../MultiGuild/utils/tenantEmbedBranding");
+const { createCommandErrorEmbeds } = require("../../../../shared/moderation/createCommandErrorEmbeds") as typeof import("../../../../shared/moderation/createCommandErrorEmbeds");
 const IDs = require("../../../Config/ids") as typeof import("../../../Config/ids");
+const { buildCooldownErrorEmbed, buildBusyCommandErrorEmbed, buildInternalCommandErrorEmbed } = createCommandErrorEmbeds({
+  color: TENANT_EMBED_COLOR,
+  cancelEmoji: "<:cancel:1461730653677551691>",
+  cooldownDescription: (remaining?) =>
+    [
+      `<:VC_Attention:1482534443632558151> Aspetta **${remaining}s** prima di usare un altro comando.`,
+      "",
+      "<a:VC_Timer:1482527426557775954> Il cooldown si riduce con i ruoli:",
+      `<:VC_Dot:1482532364222595303> <@&${IDs.roles.Level30}>, <@&${IDs.roles.ServerBooster}> o <@&${IDs.roles.VIP}> <a:VC_Arrow:1482706699365257397> **15s**`,
+      `<:VC_Dot:1482532364222595303> <@&${IDs.roles.Level50}>, <@&${IDs.roles.VIPplus}> o <@&${IDs.roles.DoubleBooster}> <a:VC_Arrow:1482706699365257397> **5s**`,
+    ].join("\n"),
+});
+const { buildErrorLogEmbed } = require("../../../../shared/discord/errorLogEmbed") as typeof import("../../../../shared/discord/errorLogEmbed");
+const { getCentralChannel } = require("../interactionCreateCommandLogging") as typeof import("../interactionCreateCommandLogging");
 const { shouldBlockModerationCommands } = require("../../../Security/services/antiNukeService") as typeof import("../../../Security/services/antiNukeService");
 const { getSecurityLockState } = require("../../../Security/services/securityOrchestratorService") as typeof import("../../../Security/services/securityOrchestratorService");
 const {

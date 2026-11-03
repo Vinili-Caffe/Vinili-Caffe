@@ -2,7 +2,7 @@ const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("
 const { GuildQuoteBoard } = require("../../schemas/guildBoardPostSchema") as typeof import("../../schemas/guildBoardPostSchema");
 const { decrementQuoteCount } = require("./quoteCounter") as typeof import("./quoteCounter");
 const { resolveQuotePostChannel } = require("./quotePostChannel") as typeof import("./quotePostChannel");
-const { TENANT_EMBED_COLOR } = require("../../../MultiGuild/utils/tenantEmbedBranding") as typeof import("../../../MultiGuild/utils/tenantEmbedBranding");
+const { TENANT_EMBED_COLOR } = require("../../../../MultiGuild/utils/tenantEmbedBranding") as typeof import("../../../../MultiGuild/utils/tenantEmbedBranding");
 const {
   isRepostDisabledInGuild,
   REPOST_SRC_PREFIX,

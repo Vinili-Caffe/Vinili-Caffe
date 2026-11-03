@@ -3,7 +3,10 @@ const {
   handleAutocomplete,
   handleSlashCommand,
 } = require("./interaction/commandHandlers") as typeof import("./interaction/commandHandlers");
-const { handleButtonInteraction } = require("./interaction/buttonHandlers") as typeof import("./interaction/buttonHandlers");
+const { createButtonInteractionDispatcher } = require("../../../shared/discord/createButtonInteractionDispatcher") as typeof import("../../../shared/discord/createButtonInteractionDispatcher");
+const { handleButtonInteraction } = createButtonInteractionDispatcher({
+  errorEmoji: "<a:VC_Cross:1482532424570376253>",
+});
 const { handlePartnerModal } = require("../../Partner/discord/modals/partnerModal") as typeof import("../../Partner/discord/modals/partnerModal");
 const { handleSanzionaModal } = require("../../Moderation/events/interaction/sanzionaHandlers") as typeof import("../../Moderation/events/interaction/sanzionaHandlers");
 const { handleCustomRoleInteraction } = require("../../Community/events/interaction/customRoleHandlers") as typeof import("../../Community/events/interaction/customRoleHandlers");

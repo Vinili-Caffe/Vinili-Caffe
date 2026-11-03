@@ -443,7 +443,7 @@ export function StatusBoard({ initial }: { initial: StatusData | null }) {
       {processes.length > 0 && (
         <section className="mt-10">
           <h2 className="text-xs font-semibold uppercase tracking-[0.18em] text-crema/40">Processi live</h2>
-          <p className="mt-2 text-sm text-crema/50">Stesse misure di <code className="text-crema/70">+ping</code> / <code className="text-crema/70">,ping</code>: gateway, API Discord, database e uptime.</p>
+          <p className="mt-2 text-sm text-crema/50">Gateway Discord, API, database, uptime e RAM — letti dai processi live.</p>
           <ul className="mt-4 space-y-3">
             {processes.map((p, i) => (
               <ProcessCard key={p.id} p={p} i={i} />

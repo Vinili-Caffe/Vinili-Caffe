@@ -3,8 +3,8 @@ const {
   TENANT_EMBED_COLOR,
   LEGACY_VINILI_EMBED_COLOR,
   applyTenantPayloadBranding,
-} = require("../../Vinili/MultiGuild/utils/tenantEmbedBranding") as typeof import("../../Vinili/MultiGuild/utils/tenantEmbedBranding");
-const { isViniliProtectedGuild } = require("../../Vinili/MultiGuild/core/viniliProtectedGuilds") as typeof import("../../Vinili/MultiGuild/core/viniliProtectedGuilds");
+} = require("../../MultiGuild/utils/tenantEmbedBranding") as typeof import("../../MultiGuild/utils/tenantEmbedBranding");
+const { isViniliProtectedGuild } = require("../../MultiGuild/core/viniliProtectedGuilds") as typeof import("../../MultiGuild/core/viniliProtectedGuilds");
 
 function resolveNoticeColor(guild?) {
   const guildId = String(guild?.id || "").trim();

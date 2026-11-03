@@ -6,7 +6,7 @@ const { safeMessageReply, safeInteractionUpdate } = require("../../../shared/dis
 const {
   resolveEmbedColorForGuild,
   normalizeEmbedColorInt,
-} = require("../../MultiGuild/utils/tenantEmbedBranding") as typeof import("../../MultiGuild/utils/tenantEmbedBranding");
+} = require("../../../MultiGuild/utils/tenantEmbedBranding") as typeof import("../../../MultiGuild/utils/tenantEmbedBranding");
 const { DEFAULT_OBSOLETE_SLASH_NAMES } = require("../../../shared/discord/purgeObsoleteApplicationCommands") as typeof import("../../../shared/discord/purgeObsoleteApplicationCommands");
 const { getGuildMemberCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
 
@@ -26,7 +26,7 @@ const {
   PREFIX_COMMAND_DESCRIPTIONS: PREFIX_HELP_DESCRIPTIONS,
   PREFIX_SUBCOMMAND_DESCRIPTIONS: PREFIX_SUBCOMMAND_HELP_DESCRIPTIONS,
   APPLICATION_COMMAND_DESCRIPTIONS: CONTEXT_HELP_DESCRIPTIONS_RAW,
-} = require("../../MultiGuild/core/prefixCommandDescriptions") as typeof import("../../MultiGuild/core/prefixCommandDescriptions");
+} = require("../../../MultiGuild/core/prefixCommandDescriptions") as typeof import("../../../MultiGuild/core/prefixCommandDescriptions");
 const CONTEXT_HELP_DESCRIPTIONS = Object.freeze({
   "Aggiungi punti": (CONTEXT_HELP_DESCRIPTIONS_RAW as any)["Aggiungi punti"],
   "Rimuovi punti": (CONTEXT_HELP_DESCRIPTIONS_RAW as any)["Rimuovi punti"],
@@ -192,7 +192,7 @@ function loadPermissions() {
     return permissionsCache;
   }
   try {
-    const { loadPermissions: loadStorePermissions } = require("../../Moderation/utils/permissionsStore") as typeof import("../../Moderation/utils/permissionsStore");
+    const { loadPermissions: loadStorePermissions } = require("../../Moderation/utils/permSlash") as typeof import("../../Moderation/utils/permSlash");
     const data = loadStorePermissions() || {};
     permissionsCache = {
       slash: normalizePermissionTree(data.slash || {}),

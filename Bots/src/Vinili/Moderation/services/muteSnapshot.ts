@@ -210,7 +210,7 @@ async function shouldDeferRoleRestoreForMuteMirror(member?) {
 async function captureMuteRoleSnapshot(member?, options: Record<string, any> = {}) {
   if (!member?.guild || member.user?.bot) return { ok: false, reason: "bad_member", roleIds: [] };
   try {
-    const { isViniliFullFeatureGuild } = require("../../MultiGuild/core/guildFeatureScope") as typeof import("../../MultiGuild/core/guildFeatureScope");
+    const { isViniliFullFeatureGuild } = require("../../../MultiGuild/core/guildFeatureScope") as typeof import("../../../MultiGuild/core/guildFeatureScope");
     if (!isViniliFullFeatureGuild(member.guild.id)) return { ok: false, reason: "out_of_scope", roleIds: [] };
   } catch (_) {}
 

@@ -128,13 +128,13 @@ async function handleTenantGuildBotRemoved(guildId?) {
 
   let managedInviteRemoved = false;
   try {
-    const { removeManagedInvite } = require("../../MultiGuild/services/guildJoinAlertService") as typeof import("../../MultiGuild/services/guildJoinAlertService");
+    const { removeManagedInvite } = require("../../../MultiGuild/services/guildJoinAlertService") as typeof import("../../../MultiGuild/services/guildJoinAlertService");
     managedInviteRemoved = Boolean(await removeManagedInvite(gid));
   } catch (_) {}
 
   let registryRemoved = false;
   try {
-    const { unregisterTenantGuild } = require("../../MultiGuild/core/tenantRegistryStore") as typeof import("../../MultiGuild/core/tenantRegistryStore");
+    const { unregisterTenantGuild } = require("../../../MultiGuild/core/tenantRegistryStore") as typeof import("../../../MultiGuild/core/tenantRegistryStore");
     registryRemoved = Boolean(await unregisterTenantGuild(gid));
   } catch (_) {}
 

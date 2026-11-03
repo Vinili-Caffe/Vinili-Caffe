@@ -1,6 +1,6 @@
 /** Ticket dal sito: come ticket e messaggi vengono mandati al sito (autore, risposte, letture, voti allo staff, anteprime, doppioni). */
 const mongoose = require("mongoose") as typeof import("mongoose");
-const { WEB_TICKET_STATUS, SiteWebTicketMessage } = require("../../MultiGuild/tickets/data/siteWebTicketSchemas") as typeof import("../../MultiGuild/tickets/data/siteWebTicketSchemas");
+const { WEB_TICKET_STATUS, SiteWebTicketMessage } = require("../../../MultiGuild/tickets/data/siteWebTicketSchemas") as typeof import("../../../MultiGuild/tickets/data/siteWebTicketSchemas");
 const { weakEtagFromParts } = require("../http/siteHttpEtag") as typeof import("../http/siteHttpEtag");
 const { CATEGORY_LABELS, formatWebTicketDisplayName, webTicketNameTail, buildWebTicketChannelName, scrubStoredTicketAvatarUrl, sanitizeText } = require("./ticketNames") as typeof import("./ticketNames");
 const { cleanStaffRoleDisplayName, buildStaffRoleMapForUserIds, listAddedUsers, ticketHasAddedUser, buildTicketPermissions } = require("./ticketStaffAccess") as typeof import("./ticketStaffAccess");

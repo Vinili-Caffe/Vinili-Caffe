@@ -3,7 +3,7 @@ const { PermissionFlagsBits } = require("discord.js") as typeof import("discord.
 const IDs: any = require("../../Config/ids") as typeof import("../../Config/ids");
 const { isPartnerPmDailyCommandsThread } = require("../../Partner/runtime/partnersChatChannelUtils") as typeof import("../../Partner/runtime/partnersChatChannelUtils");
 const { ensureStaffCmdsThreadIdsHydrated } = require("../../Staff/utils/staffCmdsChannelUtils") as typeof import("../../Staff/utils/staffCmdsChannelUtils");
-const { isChannelInTicketCategory } = require("../../MultiGuild/tickets/discord/ticketCategoryUtils") as typeof import("../../MultiGuild/tickets/discord/ticketCategoryUtils");
+const { isChannelInTicketCategory } = require("../../../MultiGuild/tickets/discord/ticketCategoryUtils") as typeof import("../../../MultiGuild/tickets/discord/ticketCategoryUtils");
 const { buildPrefixLookupKeys } = require("./temporaryCommandPermissions") as typeof import("./temporaryCommandPermissions");
 const { isAllowedGuildUfficiale, isMainGuild, tryResolveMultiGuildOpenMediaBypass, tryResolveMultiGuildTenantPrefixRestriction } = require("./permTenantBypass") as typeof import("./permTenantBypass");
 const { resolvePermissionReference, normalizePermissionList } = require("./permReferences") as typeof import("./permReferences");
@@ -50,7 +50,7 @@ function resolvePrefixPermissions(data?, commandName?, subcommandName = null) {
 
 function resolveDashboardCommandAclDenial(message?, commandName?, options: Record<string, any> = {}) {
   try {
-    const { resolveTenantCommandAcl } = require("../../MultiGuild/core/tenantCommandAcl") as typeof import("../../MultiGuild/core/tenantCommandAcl");
+    const { resolveTenantCommandAcl } = require("../../../MultiGuild/core/tenantCommandAcl") as typeof import("../../../MultiGuild/core/tenantCommandAcl");
     const aclCheck = resolveTenantCommandAcl(message, commandName, options);
     if (aclCheck == null || aclCheck === true) return null;
     if (aclCheck === false) {
@@ -169,14 +169,14 @@ async function checkPrefixPermission(message?, commandName?, subcommandName = nu
   if (openMediaBypass !== null) {
     if (openMediaBypass.allowed !== false && message?.member) {
       try {
-        const { resolveTenantModerationMemberCheck } = require("../../MultiGuild/core/tenantModerationPermissions") as typeof import("../../MultiGuild/core/tenantModerationPermissions");
+        const { resolveTenantModerationMemberCheck } = require("../../../MultiGuild/core/tenantModerationPermissions") as typeof import("../../../MultiGuild/core/tenantModerationPermissions");
         const modCheck = resolveTenantModerationMemberCheck(message.member, safeCommand, options);
         if (modCheck !== null) return modCheck;
       } catch (err) {
         global.logger?.warn?.("[commandPermissions] MultiGuild tenant mod check:", err?.message || err);
       }
       try {
-        const { resolveTenantCommandAcl } = require("../../MultiGuild/core/tenantCommandAcl") as typeof import("../../MultiGuild/core/tenantCommandAcl");
+        const { resolveTenantCommandAcl } = require("../../../MultiGuild/core/tenantCommandAcl") as typeof import("../../../MultiGuild/core/tenantCommandAcl");
         const aclCheck = resolveTenantCommandAcl(message, safeCommand, options);
         if (aclCheck !== null) {
           if (typeof aclCheck === "object") return aclCheck;
@@ -292,7 +292,7 @@ async function checkPrefixPermission(message?, commandName?, subcommandName = nu
       return false;
     }
     try {
-      const { channelPassesChannelAcl } = require("../../MultiGuild/core/tenantCommandAcl") as typeof import("../../MultiGuild/core/tenantCommandAcl");
+      const { channelPassesChannelAcl } = require("../../../MultiGuild/core/tenantCommandAcl") as typeof import("../../../MultiGuild/core/tenantCommandAcl");
       if (!channelPassesChannelAcl(message?.channel, message?.channelId, dashAcl)) {
         if (options.returnDetails) {
           return {
@@ -340,7 +340,7 @@ async function checkPrefixPermission(message?, commandName?, subcommandName = nu
     let allowViaDashboardChannels = false;
     if (!allowed && !allowInPmThread && !allowInTicketChannel && !allowInVoiceOrStanzaChat) {
       try {
-        const { dashboardChannelIncludeAllows } = require("../../MultiGuild/core/tenantCommandAcl") as typeof import("../../MultiGuild/core/tenantCommandAcl");
+        const { dashboardChannelIncludeAllows } = require("../../../MultiGuild/core/tenantCommandAcl") as typeof import("../../../MultiGuild/core/tenantCommandAcl");
         allowViaDashboardChannels = dashboardChannelIncludeAllows(message, safeCommand);
       } catch (_) {}
     }
@@ -359,7 +359,7 @@ async function checkPrefixPermission(message?, commandName?, subcommandName = nu
 
   if (dashAcl && dashAcl.channelMode === "exclude" && Array.isArray(dashAcl.channelIds) && dashAcl.channelIds.length && !isWebTicketPrefixChannel) {
     try {
-      const { channelPassesChannelAcl } = require("../../MultiGuild/core/tenantCommandAcl") as typeof import("../../MultiGuild/core/tenantCommandAcl");
+      const { channelPassesChannelAcl } = require("../../../MultiGuild/core/tenantCommandAcl") as typeof import("../../../MultiGuild/core/tenantCommandAcl");
       if (!channelPassesChannelAcl(message?.channel, message?.channelId, dashAcl)) {
         if (options.returnDetails) {
           return {
@@ -392,7 +392,7 @@ async function checkPrefixPermission(message?, commandName?, subcommandName = nu
     }
     let roleOk = false;
     try {
-      const { memberPassesRoleAcl } = require("../../MultiGuild/core/tenantCommandAcl") as typeof import("../../MultiGuild/core/tenantCommandAcl");
+      const { memberPassesRoleAcl } = require("../../../MultiGuild/core/tenantCommandAcl") as typeof import("../../../MultiGuild/core/tenantCommandAcl");
       roleOk = memberPassesRoleAcl(message.member, dashAcl);
     } catch (_) {
       roleOk = false;

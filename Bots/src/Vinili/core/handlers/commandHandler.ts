@@ -4,10 +4,10 @@ const fs = require("fs") as typeof import("fs");
 const path = require("path") as typeof import("path");
 const ascii = require("ascii-table");
 const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
-const { getProtectedGuildIds, isViniliProtectedGuild } = require("../../MultiGuild/core/viniliProtectedGuilds") as typeof import("../../MultiGuild/core/viniliProtectedGuilds");
-const { isMultiGuildLayerEnabled } = require("../../MultiGuild/core/env") as typeof import("../../MultiGuild/core/env");
-const { isTenantFeatureEnabled } = require("../../MultiGuild/core/accessPolicy") as typeof import("../../MultiGuild/core/accessPolicy");
-const { resolveGuildAccess } = require("../../MultiGuild/core/guildRegistry") as typeof import("../../MultiGuild/core/guildRegistry");
+const { getProtectedGuildIds, isViniliProtectedGuild } = require("../../../MultiGuild/core/viniliProtectedGuilds") as typeof import("../../../MultiGuild/core/viniliProtectedGuilds");
+const { isMultiGuildLayerEnabled } = require("../../../MultiGuild/core/env") as typeof import("../../../MultiGuild/core/env");
+const { isTenantFeatureEnabled } = require("../../../MultiGuild/core/accessPolicy") as typeof import("../../../MultiGuild/core/accessPolicy");
+const { resolveGuildAccess } = require("../../../MultiGuild/core/guildRegistry") as typeof import("../../../MultiGuild/core/guildRegistry");
 const { isCommandDeployRequired, markCommandDeployComplete } = require("../../../shared/runtime/commandDeployCache") as typeof import("../../../shared/runtime/commandDeployCache");
 const {
   purgeObsoleteApplicationCommands,
@@ -50,7 +50,7 @@ function resolveCommandLoadRoots(commandFolders?, basePath?) {
       folders: Array.isArray(commandFolders) ? commandFolders : listFoldersIfExists(basePath),
     });
   }
-  const mgBase = path.resolve(__dirname, "..", "..", "MultiGuild", "Commands");
+  const mgBase = path.resolve(__dirname, "..", "..", "..", "MultiGuild", "discord", "slash");
   const alreadyMg = roots.some((r?) => path.resolve(r.basePath) === mgBase);
   if (!alreadyMg && fs.existsSync(mgBase)) {
     roots.push({ basePath: mgBase, folders: listFoldersIfExists(mgBase) });

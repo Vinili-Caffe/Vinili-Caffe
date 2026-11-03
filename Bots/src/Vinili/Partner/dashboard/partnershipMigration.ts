@@ -1,6 +1,6 @@
 /** Dashboard partnership: migrazione dello storico. */
 const { getPartnershipConfigSync, refreshPartnershipConfigCache } = require("../../Partner/core/tenantPartnershipSettings") as typeof import("../../Partner/core/tenantPartnershipSettings");
-const { verifyDashboardGuildAccess } = require("../../MultiGuild/dashboard/siteDashboardApi") as typeof import("../../MultiGuild/dashboard/siteDashboardApi");
+const { verifyDashboardGuildAccess } = require("../../../MultiGuild/site/dashboard/siteDashboardApi") as typeof import("../../../MultiGuild/site/dashboard/siteDashboardApi");
 const { reasonToMessage, fail } = require("./partnershipSerialize") as typeof import("./partnershipSerialize");
 const { parseOptionalId } = require("./partnershipGuildPicker") as typeof import("./partnershipGuildPicker");
 

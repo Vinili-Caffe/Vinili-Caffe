@@ -14,7 +14,7 @@ const { startTreasureHuntGame } = require("./minigameTreasureHunt") as typeof im
 const { startStandardMemoryEmojiGame } = require("./minigameMemory") as typeof import("./minigameMemory");
 const { shouldDeferTtsLeaveForFindBotVoiceMinigame, startFindBotGame, startFindBotVoiceGame } = require("./minigameFindBot") as typeof import("./minigameFindBot");
 const { startGuessNumberGame, startGuessWordGame, startGuessFlagGame, startGuessPlayerGame, startGuessSongGame, startGuessCapitalGame, startGuessRegionCapitalGame, startGuessReverseCapitalGame, startFastTypeGame, startGuessTeamGame, startGuessSingerGame, startGuessAlbumGame, startHangmanGame, startItalianGkGame, startDrivingQuizGame, startMathExpressionGame, startGuessYearGame, startCompleteVerseGame, startGuessEmojiGame, startQuoteFilmGame, startCompleteProverbGame, startSynonymAntonymGame, startGuessCityGame } = require("./minigameQuizGames") as typeof import("./minigameQuizGames");
-const { restoreActiveGames } = require("./minigameRestore") as typeof import("./minigameRestore");
+const { restoreActiveGames } = require("./minigameRestoreCore") as typeof import("./minigameRestoreCore");
 const { isStaleOrInvalidActiveGame, closeStaleActiveMinigameChannel, handleMinigameReaction, handleMinigameMessage, handleMinigameButton, isMinigameFloodExemptChannel, handleMinigameVoiceState } = require("./minigameHandlers") as typeof import("./minigameHandlers");
 
 

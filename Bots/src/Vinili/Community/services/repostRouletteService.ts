@@ -1,8 +1,8 @@
 const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { sendRepostRoulette, isRepostDisabledInGuild } = require("./repostService") as typeof import("./repostService");
-const { isMultiGuildLayerEnabled } = require("../../MultiGuild/core/env") as typeof import("../../MultiGuild/core/env");
-const { isViniliProtectedGuild } = require("../../MultiGuild/core/viniliProtectedGuilds") as typeof import("../../MultiGuild/core/viniliProtectedGuilds");
-const { canInvokePrefixCommand } = require("../../MultiGuild/core/accessPolicy") as typeof import("../../MultiGuild/core/accessPolicy");
+const { isMultiGuildLayerEnabled } = require("../../../MultiGuild/core/env") as typeof import("../../../MultiGuild/core/env");
+const { isViniliProtectedGuild } = require("../../../MultiGuild/core/viniliProtectedGuilds") as typeof import("../../../MultiGuild/core/viniliProtectedGuilds");
+const { canInvokePrefixCommand } = require("../../../MultiGuild/core/accessPolicy") as typeof import("../../../MultiGuild/core/accessPolicy");
 const { resolveRouletteChannelId } = require("../utils/Quote/repostRoulettePostChannel") as typeof import("../utils/Quote/repostRoulettePostChannel");
 const { isChatHubMinigameActive } = require("../../../shared/discord/chatHubMinigameGate") as typeof import("../../../shared/discord/chatHubMinigameGate");
 const {

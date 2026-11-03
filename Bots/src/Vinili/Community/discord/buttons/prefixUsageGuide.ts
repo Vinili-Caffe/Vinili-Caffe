@@ -12,7 +12,7 @@ export = {
   async execute(interaction?) {
     let prefix = "+";
     try {
-      const { resolveCommandPrefixForGuild } = require("../../../MultiGuild/core/tenantGuildSettings") as typeof import("../../../MultiGuild/core/tenantGuildSettings");
+      const { resolveCommandPrefixForGuild } = require("../../../../MultiGuild/core/tenantGuildSettings") as typeof import("../../../../MultiGuild/core/tenantGuildSettings");
       prefix = resolveCommandPrefixForGuild(interaction.guild?.id, interaction.client);
     } catch (_) {}
     return handleUsageGuideInteraction(interaction, { prefix });

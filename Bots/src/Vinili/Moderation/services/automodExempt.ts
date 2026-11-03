@@ -4,7 +4,7 @@ const mongoose = require("mongoose") as typeof import("mongoose");
 const IDs: any = require("../../Config/ids") as typeof import("../../Config/ids");
 const { isSecurityProfileImmune, hasAdminsProfileCapability, hasModeratorsProfileCapability } = require("../../Security/services/securityProfilesService") as typeof import("../../Security/services/securityProfilesService");
 const { CORE_EXEMPT_USER_IDS } = require("./joinGateExemptUtils") as typeof import("./joinGateExemptUtils");
-const { isChannelInTicketCategory } = require("../../MultiGuild/tickets/discord/ticketCategoryUtils") as typeof import("../../MultiGuild/tickets/discord/ticketCategoryUtils");
+const { isChannelInTicketCategory } = require("../../../MultiGuild/tickets/discord/ticketCategoryUtils") as typeof import("../../../MultiGuild/tickets/discord/ticketCategoryUtils");
 const { nowMs } = require("./automodText") as typeof import("./automodText");
 const { isAutomodExemptChannel } = require("../utils/automodChannelExemptions") as typeof import("../utils/automodChannelExemptions");
 

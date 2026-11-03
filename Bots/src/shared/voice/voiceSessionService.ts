@@ -102,4 +102,16 @@ function createVoiceSessionService(options: Record<string, any> = {}) {
   return { getVoiceSession, setVoiceSession, clearVoiceSession };
 }
 
-export = { createVoiceSessionService };
+const voiceSessionSingletons = new Map();
+
+function getVoiceSessionService(options: Record<string, any> = {}) {
+  const key = String(options.snapshotKey || options.key || "default").trim() || "default";
+  let service = voiceSessionSingletons.get(key);
+  if (!service) {
+    service = createVoiceSessionService(options);
+    voiceSessionSingletons.set(key, service);
+  }
+  return service;
+}
+
+export = { createVoiceSessionService, getVoiceSessionService };

@@ -1,5 +1,5 @@
 /** Ticket dal sito, gestione: richiesta di chiusura (manda, accetta, rifiuta) e voto allo staff. */
-const { WEB_TICKET_STATUS } = require("../../MultiGuild/tickets/data/siteWebTicketSchemas") as typeof import("../../MultiGuild/tickets/data/siteWebTicketSchemas");
+const { WEB_TICKET_STATUS } = require("../../../MultiGuild/tickets/data/siteWebTicketSchemas") as typeof import("../../../MultiGuild/tickets/data/siteWebTicketSchemas");
 const { displayNameForMember, sanitizeText } = require("./ticketNames") as typeof import("./ticketNames");
 const { buildTicketPermissions } = require("./ticketStaffAccess") as typeof import("./ticketStaffAccess");
 const { staffAvgRatingMap, resolveRateableStaffer, clampStarRating, serializeTicket } = require("./ticketSerialize") as typeof import("./ticketSerialize");

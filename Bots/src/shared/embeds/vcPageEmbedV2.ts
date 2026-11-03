@@ -20,7 +20,7 @@ const {
   LEGACY_VINILI_EMBED_COLOR_INT,
   normalizeEmbedColorInt,
   resolveEmbedColorForGuild,
-} = require("../../Vinili/MultiGuild/utils/tenantEmbedBranding") as typeof import("../../Vinili/MultiGuild/utils/tenantEmbedBranding");
+} = require("../../MultiGuild/utils/tenantEmbedBranding") as typeof import("../../MultiGuild/utils/tenantEmbedBranding");
 
 const DEFAULT_ACCENT_INT =
   normalizeEmbedColorInt(TENANT_EMBED_COLOR) || LEGACY_VINILI_EMBED_COLOR_INT || 0x6f4e37;

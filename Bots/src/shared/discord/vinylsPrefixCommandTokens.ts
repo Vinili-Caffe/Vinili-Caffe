@@ -38,7 +38,6 @@ const VINYLS_PREFIX_COMMAND_NAMES = new Set([
   "now",
   "pause",
   "pay",
-  "ping",
   "play",
   "previous",
   "profile",

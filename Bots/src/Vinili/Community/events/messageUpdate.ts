@@ -16,7 +16,7 @@ const { reemitPrefixOnMessageUpdate } = require("../../../shared/prefix/reemitPr
 
 function isViniliFullFeatureGuild(guildId?) {
   try {
-    const { isViniliFullFeatureGuild: check } = require("../../MultiGuild/core/guildFeatureScope") as typeof import("../../MultiGuild/core/guildFeatureScope");
+    const { isViniliFullFeatureGuild: check } = require("../../../MultiGuild/core/guildFeatureScope") as typeof import("../../../MultiGuild/core/guildFeatureScope");
     return check(guildId);
   } catch {
     return true;

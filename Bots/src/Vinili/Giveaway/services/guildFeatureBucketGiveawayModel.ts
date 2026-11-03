@@ -2,7 +2,7 @@ const mongoose = require("mongoose") as typeof import("mongoose");
 const {
   GuildFeatureBucket,
   ensureGuildFeatureBucket,
-} = require("../../MultiGuild/schemas/guildFeatureBucketSchema") as typeof import("../../MultiGuild/schemas/guildFeatureBucketSchema");
+} = require("../../../MultiGuild/schemas/guildFeatureBucketSchema") as typeof import("../../../MultiGuild/schemas/guildFeatureBucketSchema");
 
 function giveawayMatchesFilter(g?, filter?) {
   if (!g || !filter || typeof filter !== "object") return false;

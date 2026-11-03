@@ -1,11 +1,11 @@
 /** Ticket dal sito, gestione: membri aggiunti, trasferimento, categoria e nome del ticket. */
-const { WEB_TICKET_STATUS } = require("../../MultiGuild/tickets/data/siteWebTicketSchemas") as typeof import("../../MultiGuild/tickets/data/siteWebTicketSchemas");
+const { WEB_TICKET_STATUS } = require("../../../MultiGuild/tickets/data/siteWebTicketSchemas") as typeof import("../../../MultiGuild/tickets/data/siteWebTicketSchemas");
 const { CATEGORY_LABELS, displayNameForMember, looksLikeDiscordTicketName, extractTicketNameTail, webTicketNameTail, buildWebTicketChannelName, syncWebTicketChannelName, avatarForMember, sanitizeText, normalizeCategory, resolveGuildId, webCategoryFromPanelToken } = require("./ticketNames") as typeof import("./ticketNames");
 const { listAddedUsers, ticketHasAddedUser, buildTicketPermissions } = require("./ticketStaffAccess") as typeof import("./ticketStaffAccess");
 const { serializeMessage, resolveRateableStaffer, serializeTicket, serializeTicketForActor } = require("./ticketSerialize") as typeof import("./ticketSerialize");
 const { emitTicketEvent, refreshStaffTicketQueueNotif, notifyUserTicketEvent, createSystemMessage } = require("./ticketNotify") as typeof import("./ticketNotify");
 const { resolveMemberOrStaff, loadTicketForActor } = require("./ticketCommands") as typeof import("./ticketCommands");
-const { canClaimTicket } = require("../../MultiGuild/tickets/discord/ticketStaffRuntime") as typeof import("../../MultiGuild/tickets/discord/ticketStaffRuntime");
+const { canClaimTicket } = require("../../../MultiGuild/tickets/discord/ticketStaffRuntime") as typeof import("../../../MultiGuild/tickets/discord/ticketStaffRuntime");
 const { sendWebTicketDiscordLog } = require("./webTicketDiscordLog") as typeof import("./webTicketDiscordLog");
 
 const MAX_SUBJECT = 120;

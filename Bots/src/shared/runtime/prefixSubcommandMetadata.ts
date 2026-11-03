@@ -66,4 +66,51 @@ function ensurePrefixSubcommandMetadata(command?, options: Record<string, any> =
   return command;
 }
 
-export = { inferSubcommandsFromExecute, ensurePrefixSubcommandMetadata };
+function ensurePrefixUsageMetadata(command?, prefix = "+") {
+  const name = String(command?.name || "").trim().toLowerCase();
+  if (!name) return command;
+
+  const safePrefix = String(prefix || "+");
+  const subs = Array.isArray(command?.subcommands)
+    ? command.subcommands.map((sub?) => String(sub || "").trim().toLowerCase()).filter(Boolean)
+    : [];
+
+  const usage =
+    String(command?.usage || "").trim() ||
+    (subs.length
+      ? Boolean(command?.allowEmptyArgs)
+        ? `${safePrefix}${name} [${subs.slice(0, 8).join(" | ")}]`
+        : `${safePrefix}${name} <${subs.slice(0, 8).join(" | ")}>`
+      : Boolean(command?.args)
+        ? `${safePrefix}${name} <opzioni>`
+        : `${safePrefix}${name}`);
+  command.usage = usage;
+
+  const examples =
+    Array.isArray(command?.examples) && command.examples.some((item?) => String(item || "").trim())
+      ? command.examples
+      : subs.length >= 2
+        ? [`${safePrefix}${name} ${subs[0]}`, `${safePrefix}${name} ${subs[1]}`]
+        : subs.length === 1
+          ? [`${safePrefix}${name} ${subs[0]}`, `${safePrefix}${name}`]
+          : Boolean(command?.args)
+            ? [`${safePrefix}${name} esempio`]
+            : [`${safePrefix}${name}`];
+  command.examples = examples;
+
+  if (
+    !command.subcommandUsages ||
+    typeof command.subcommandUsages !== "object" ||
+    Array.isArray(command.subcommandUsages)
+  ) {
+    command.subcommandUsages = {};
+  }
+  for (const sub of subs) {
+    if (!String(command.subcommandUsages[sub] || "").trim()) {
+      command.subcommandUsages[sub] = `${safePrefix}${name} ${sub} ...`;
+    }
+  }
+  return command;
+}
+
+export = { inferSubcommandsFromExecute, ensurePrefixSubcommandMetadata, ensurePrefixUsageMetadata };

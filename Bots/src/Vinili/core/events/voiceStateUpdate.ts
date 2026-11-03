@@ -9,7 +9,7 @@ const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 
 function isViniliFullFeatureGuild(guildId?) {
   try {
-    const { isViniliFullFeatureGuild: check } = require("../../MultiGuild/core/guildFeatureScope") as typeof import("../../MultiGuild/core/guildFeatureScope");
+    const { isViniliFullFeatureGuild: check } = require("../../../MultiGuild/core/guildFeatureScope") as typeof import("../../../MultiGuild/core/guildFeatureScope");
     return check(guildId);
   } catch {
     return true;
@@ -375,12 +375,6 @@ export = {
     }
 
         
-    try {
-      const { handlePmVoiceAfkVoiceState } = require("../../Staff/services/pmVoiceAfkWatchService") as typeof import("../../Staff/services/pmVoiceAfkWatchService");
-      await handlePmVoiceAfkVoiceState(oldState, newState, client);
-    } catch (error) {
-      global.logger?.error?.("[PM AFK WATCH] voiceStateUpdate failed:", error);
-    }
     try {
       const { syncCaptureVoiceChannelMember } = require("../../Community/services/voiceContinuousCaptureService") as typeof import("../../Community/services/voiceContinuousCaptureService");
       if (newState?.channelId && newState.member && !newState.member.user?.bot) {

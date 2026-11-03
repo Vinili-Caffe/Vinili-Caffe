@@ -9,7 +9,7 @@ const {
 } = require("../../Staff/utils/partnerPointsDisplayUtils") as typeof import("../../Staff/utils/partnerPointsDisplayUtils");
 const { guildIconUrl } = require("../../../shared/discord/guildDiscordIdentity") as typeof import("../../../shared/discord/guildDiscordIdentity");
 const { getPartnerManagerRoleId } = require("../core/partnershipConfigResolver") as typeof import("../core/partnershipConfigResolver");
-const { applyPartnershipPayloadBranding, resolveEmbedColorForGuild } = require("../../MultiGuild/utils/tenantEmbedBranding") as typeof import("../../MultiGuild/utils/tenantEmbedBranding");
+const { applyPartnershipPayloadBranding, resolveEmbedColorForGuild } = require("../../../MultiGuild/utils/tenantEmbedBranding") as typeof import("../../../MultiGuild/utils/tenantEmbedBranding");
 
 function computeTotalPartnerScore(staff?) {
     return resolvePartnerPointsShown(staff || {});

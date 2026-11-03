@@ -3,7 +3,7 @@ const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("
 const { accountUsername, guildMemberDisplayAvatarUrlDynamic } = require("../../../shared/discord/guildDiscordIdentity") as typeof import("../../../shared/discord/guildDiscordIdentity");
 const { DEFAULT_FOOTER_TEXT } = require("../../../shared/embeds/defaultFooter") as typeof import("../../../shared/embeds/defaultFooter");
 const { pickRepostAckPhrase } = require("../utils/repostAckPhrases") as typeof import("../utils/repostAckPhrases");
-const { TENANT_EMBED_COLOR } = require("../../MultiGuild/utils/tenantEmbedBranding") as typeof import("../../MultiGuild/utils/tenantEmbedBranding");
+const { TENANT_EMBED_COLOR } = require("../../../MultiGuild/utils/tenantEmbedBranding") as typeof import("../../../MultiGuild/utils/tenantEmbedBranding");
 const { resolveQuotedAuthorIdFromQuoteMessage, isClipRepostDoc } = require("./repostClips") as typeof import("./repostClips");
 
 const REPOST_COLOR = TENANT_EMBED_COLOR;

@@ -6,6 +6,7 @@
  */
 const { ChannelType, PermissionsBitField } = require("discord.js") as typeof import("discord.js");
 const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
+const { shouldStartExternalWorkerLoop } = require("../../../shared/runtime/externalWorkerGate") as typeof import("../../../shared/runtime/externalWorkerGate");
 const {
   getMainGuildId,
   getTestGuildId,
@@ -619,6 +620,7 @@ async function runTestGuildMirrorSync(client?, opts: Record<string, any> = {}) {
 }
 
 function startTestGuildMirrorSyncLoop(client?, intervalMs = DEFAULT_INTERVAL_MS) {
+  if (!shouldStartExternalWorkerLoop("COMMUNITY_POLL")) return null;
   if (mirrorTimer) return mirrorTimer;
   const ms = Math.max(30 * 60 * 1000, Number(intervalMs) || DEFAULT_INTERVAL_MS);
   const tick = () => {

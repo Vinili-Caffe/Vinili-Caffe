@@ -10,7 +10,22 @@ const { isMainGuild, checkTenantPartnershipSlashAccess } = require("./permTenant
 const { HIGH_STAFF_COMMANDS_ZONE_TOKEN, PM_COMMANDS_THREAD_ZONE_TOKEN, parseChannelReferenceKey, resolveChannelReference } = require("./permReferences") as typeof import("./permReferences");
 const { hasAllPermissions } = require("./permMemberChecks") as typeof import("./permMemberChecks");
 const { resolveSlashRoles, resolveSlashPermissions } = require("./permWebTicket") as typeof import("./permWebTicket");
-const { loadPermissions } = require("./permissionsStore") as typeof import("./permissionsStore");
+const path = require("path") as typeof import("path");
+const { createPermissionsStore } = require("../../../shared/moderation/createPermissionsStore") as typeof import("../../../shared/moderation/createPermissionsStore");
+const { loadPermissions } = createPermissionsStore({
+  ids: IDs,
+  normalizeRoles: false,
+  cacheTtlMs: 3000,
+  permissionsCandidates: [
+    path.resolve(__dirname, "../../permissions.json"),
+    path.join(process.cwd(), "permissions.json"),
+  ],
+  transformParsed: (parsed?) => {
+    try {
+      require("../../Config/emergencyRoleIdRemap").remapDeepRoleIdsInPlace(parsed);
+    } catch (_) {}
+  },
+});
 
 function expandResolvedChannelReference(rawValue?, resolvedId?) {
   const key = parseChannelReferenceKey(rawValue);
@@ -313,7 +328,7 @@ async function checkSlashPermission(interaction?, options: Record<string, any> =
     const tenantDeleteAllowed = cmd === "delete" && sub === "partnership";
     if (cmd === "giveaway") {
       try {
-        const { isTenantFeatureEnabled } = require("../../MultiGuild/core/accessPolicy") as typeof import("../../MultiGuild/core/accessPolicy");
+        const { isTenantFeatureEnabled } = require("../../../MultiGuild/core/accessPolicy") as typeof import("../../../MultiGuild/core/accessPolicy");
         if (isTenantFeatureEnabled(guildId, "giveaway")) {
           const member = interaction.member;
           const isOwner = String(interaction.guild?.ownerId || "") === String(interaction.user?.id || "");

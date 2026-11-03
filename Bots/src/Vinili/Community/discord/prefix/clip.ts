@@ -5,8 +5,8 @@ const {
   parseClipDurationSec,
 } = require("../../../Community/services/voiceClipService") as typeof import("../../../Community/services/voiceClipService");
 const { EPHEMERAL_TTL_SHORT_MS, scheduleMessageDeletion } = require("../../../../shared/utils/ephemeralMessageTtl") as typeof import("../../../../shared/utils/ephemeralMessageTtl");
-const { TENANT_EMBED_COLOR } = require("../../../MultiGuild/utils/tenantEmbedBranding") as typeof import("../../../MultiGuild/utils/tenantEmbedBranding");
-const { isTenantBoardFeatureEnabledSync } = require("../../../MultiGuild/core/tenantGuildSettings") as typeof import("../../../MultiGuild/core/tenantGuildSettings");
+const { TENANT_EMBED_COLOR } = require("../../../../MultiGuild/utils/tenantEmbedBranding") as typeof import("../../../../MultiGuild/utils/tenantEmbedBranding");
+const { isTenantBoardFeatureEnabledSync } = require("../../../../MultiGuild/core/tenantGuildSettings") as typeof import("../../../../MultiGuild/core/tenantGuildSettings");
 
 const CLIP_DISABLED_MESSAGE = "Le clip sono disattivate su questo server.";
 

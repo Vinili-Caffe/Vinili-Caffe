@@ -148,7 +148,7 @@ async function buildThankYouEmbed({
   let custom = customRaw;
   if (custom && guild?.id) {
     try {
-      const { isTenantPremiumActive } = require("../../MultiGuild/core/tenantPremium") as typeof import("../../MultiGuild/core/tenantPremium");
+      const { isTenantPremiumActive } = require("../../../MultiGuild/core/tenantPremium") as typeof import("../../../MultiGuild/core/tenantPremium");
       const premium = await isTenantPremiumActive(guild.id);
       if (!premium) custom = null;
     } catch (_) {

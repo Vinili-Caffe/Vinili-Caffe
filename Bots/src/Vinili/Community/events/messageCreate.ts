@@ -5,15 +5,15 @@ const { recordMessageActivity } = require("../../Community/services/activityServ
 const { handleMessageCommunityExpBonuses } = require("../../Community/services/messageCommunityExpBonusesService") as typeof import("../../Community/services/messageCommunityExpBonusesService");
 const { trackMessageEngagement } = require("../../Community/services/dailyEngagementStatsService") as typeof import("../../Community/services/dailyEngagementStatsService");
 const { trackChannelMessage } = require("../../Community/services/dailyChannelMessageStatsService") as typeof import("../../Community/services/dailyChannelMessageStatsService");
-const { handleOfficialPrefixMessage } = require("../../core/officialPrefixDispatcher") as typeof import("../../core/officialPrefixDispatcher");
 const {
+  handleOfficialPrefixMessage,
   maybeSendWrongPrefixHint,
   hasAnyStaffBypassPermission,
-} = require("../../core/prefixDispatcher") as typeof import("../../core/prefixDispatcher");
+} = require("../../core/officialPrefixDispatcher") as typeof import("../../core/officialPrefixDispatcher");
 const { channelAllowsMedia, getCachedOrFetchMember, handleDisboardBump, handleDiscadiaBump, handleMovieNightVoteMessage, handlePauseChannelMessage, handleSanzioniChannelMessage, handleVoteManagerMessage, hasMediaPermission, isDiscordInviteLinkMessage, isMediaMessage, } = require("../../Community/services/officialMessageAutomationHandlers") as typeof import("../../Community/services/officialMessageAutomationHandlers");
 const { handleAfk, handleMentionAutoReactions, handleMentionAutoResponses, handleWordReactions, logEventError, } = require("../../Community/services/officialMessageCommunityHandlers") as typeof import("../../Community/services/officialMessageCommunityHandlers");
 const { runAutoModMessage } = require("../../Moderation/services/automodService") as typeof import("../../Moderation/services/automodService");
-const { handleTicketMemberPromptMessage } = require("../../MultiGuild/tickets/discord/ticketMemberPrompt") as typeof import("../../MultiGuild/tickets/discord/ticketMemberPrompt");
+const { handleTicketMemberPromptMessage } = require("../../../MultiGuild/tickets/discord/ticketMemberPrompt") as typeof import("../../../MultiGuild/tickets/discord/ticketMemberPrompt");
 const { handleUntrustedBotMessage, handleUntrustedApplicationMessage } = require("../../Moderation/services/trustedBotGuardService") as typeof import("../../Moderation/services/trustedBotGuardService");
 const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const guildMemberUpdateExtras = require("../../Community/services/boostAnnounceRecoveryService") as typeof import("../../Community/services/boostAnnounceRecoveryService");
@@ -35,7 +35,7 @@ const automationRecheckJobs = new Map();
 
 function isViniliFullFeatureGuild(guildId?) {
   try {
-    const { isViniliFullFeatureGuild: check } = require("../../MultiGuild/core/guildFeatureScope") as typeof import("../../MultiGuild/core/guildFeatureScope");
+    const { isViniliFullFeatureGuild: check } = require("../../../MultiGuild/core/guildFeatureScope") as typeof import("../../../MultiGuild/core/guildFeatureScope");
     return check(guildId);
   } catch {
     return true;
@@ -212,7 +212,7 @@ export = {
           resolveCommandPrefixForGuild,
           ensureTenantGuildSettingsCacheFresh,
           isTenantGuildSettingsCacheFresh,
-        } = require("../../MultiGuild/core/tenantGuildSettings") as typeof import("../../MultiGuild/core/tenantGuildSettings");
+        } = require("../../../MultiGuild/core/tenantGuildSettings") as typeof import("../../../MultiGuild/core/tenantGuildSettings");
         const gid = message.guild.id;
         if (!isViniliFullFeatureGuild(gid) && !isTenantGuildSettingsCacheFresh()) {
           await ensureTenantGuildSettingsCacheFresh().catch(() => null);
@@ -500,10 +500,6 @@ export = {
         Promise.allSettled([
           handleMinigameMessage(message, resolvedClient),
           handleAfk(message),
-          (async () => {
-            const { handlePmVoiceAfkChatMessage } = require("../../Staff/services/pmVoiceAfkWatchService") as typeof import("../../Staff/services/pmVoiceAfkWatchService");
-            return handlePmVoiceAfkChatMessage(message, resolvedClient);
-          })(),
           handleMentionAutoReactions(message),
           handleMentionAutoResponses(message),
           handleWordReactions(message),
@@ -511,7 +507,6 @@ export = {
           const labels = [
             "MINIGAME ERROR",
             "AFK ERROR",
-            "PM AFK CHAT ERROR",
             "MENTION REACTION ERROR",
             "MENTION RESPONSE ERROR",
             "WORD REACTIONS ERROR",

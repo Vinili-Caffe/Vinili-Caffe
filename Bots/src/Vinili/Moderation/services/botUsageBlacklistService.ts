@@ -1,6 +1,6 @@
 const { getBotState, setBotState } = require("../../../shared/botState/botStateStore") as typeof import("../../../shared/botState/botStateStore");
 const { isMongoReady } = require("../../../shared/db/mongoConnect") as typeof import("../../../shared/db/mongoConnect");
-const { isViniliProtectedGuild, normalizeGuildId } = require("../../MultiGuild/core/viniliProtectedGuilds") as typeof import("../../MultiGuild/core/viniliProtectedGuilds");
+const { isViniliProtectedGuild, normalizeGuildId } = require("../../../MultiGuild/core/viniliProtectedGuilds") as typeof import("../../../MultiGuild/core/viniliProtectedGuilds");
 
 const BOT_STATE_KEY = "botUsageBlacklist.v1";
 const CACHE_TTL_MS = 15_000;
@@ -168,7 +168,7 @@ async function leaveGuildIfPresent(client?, guildId?) {
   const name = String(guild.name || "").trim() || null;
   await guild.leave();
   try {
-    const { unregisterTenantGuild } = require("../../MultiGuild/core/tenantRegistryStore") as typeof import("../../MultiGuild/core/tenantRegistryStore");
+    const { unregisterTenantGuild } = require("../../../MultiGuild/core/tenantRegistryStore") as typeof import("../../../MultiGuild/core/tenantRegistryStore");
     await unregisterTenantGuild(gid).catch(() => null);
   } catch (_) {}
   return { ok: true, left: true, id: gid, guildName: name };

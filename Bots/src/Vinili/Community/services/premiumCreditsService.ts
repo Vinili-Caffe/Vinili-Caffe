@@ -1,7 +1,7 @@
 const { getBotState } = require("../../../shared/botState/botStateStore") as typeof import("../../../shared/botState/botStateStore");
 const BotState = require("../../../shared/schemas/botState/botStateSchema");
 const { isMongoReady } = require("../../../shared/db/mongoConnect") as typeof import("../../../shared/db/mongoConnect");
-const { grantTenantPremium, getTenantPremium } = require("../../MultiGuild/core/tenantPremium") as typeof import("../../MultiGuild/core/tenantPremium");
+const { grantTenantPremium, getTenantPremium } = require("../../../MultiGuild/core/tenantPremium") as typeof import("../../../MultiGuild/core/tenantPremium");
 
 const BOT_STATE_KEY = "premiumCredits.v1";
 const MAX_OPS = 50;
@@ -258,7 +258,7 @@ async function spendCreditsForTenantPremium(userId?, guildId?, months?, opts: Re
     opts.client || global.botClient || global.__vinylsDiscordClient || null;
   if (notifyClient) {
     try {
-      const { sendPremiumActivatedDm } = require("../../MultiGuild/services/guildPremiumActivatedDmService") as typeof import("../../MultiGuild/services/guildPremiumActivatedDmService");
+      const { sendPremiumActivatedDm } = require("../../../MultiGuild/services/guildPremiumActivatedDmService") as typeof import("../../../MultiGuild/services/guildPremiumActivatedDmService");
       void sendPremiumActivatedDm(notifyClient, {
         userId,
         guildId: gid,

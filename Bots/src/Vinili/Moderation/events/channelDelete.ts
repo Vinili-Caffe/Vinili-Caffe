@@ -6,7 +6,7 @@ const { toDiscordTimestamp, channelTypeLabel, formatAuditActor, buildAuditExtraL
 const { handleChannelDeletionAction: antiNukeHandleChannelDeletionAction } = require("../../Security/services/antiNukeService") as typeof import("../../Security/services/antiNukeService");
 const { clearGameForChannel } = require("../../Minigames/services/minigameService") as typeof import("../../Minigames/services/minigameService");
 const { finishSerataFilmSessionsForChannel } = require("../../Staff/services/staffAutoValutazioniService") as typeof import("../../Staff/services/staffAutoValutazioniService");
-const { isTicketCategoryName } = require("../../MultiGuild/tickets/discord/ticketCategoryUtils") as typeof import("../../MultiGuild/tickets/discord/ticketCategoryUtils");
+const { isTicketCategoryName } = require("../../../MultiGuild/tickets/discord/ticketCategoryUtils") as typeof import("../../../MultiGuild/tickets/discord/ticketCategoryUtils");
 const { tryDeleteEmptyCustomPrivateCategory } = require("../../Community/utils/customPrivateCategoryUtils") as typeof import("../../Community/utils/customPrivateCategoryUtils");
 const { shouldResyncAutomodForChannel, scheduleDiscordAutomodRulesResync } = require("../../Moderation/services/discordAutomodRulesService") as typeof import("../../Moderation/services/discordAutomodRulesService");
 const { handleCustomPrivateVoiceChannelDelete } = require("../../Community/services/customVocChannelCleanupService") as typeof import("../../Community/services/customVocChannelCleanupService");
@@ -14,7 +14,7 @@ const { ChannelType } = require("discord.js") as typeof import("discord.js");
 
 function isViniliFullFeatureGuild(guildId?) {
   try {
-    const { isViniliFullFeatureGuild: check } = require("../../MultiGuild/core/guildFeatureScope") as typeof import("../../MultiGuild/core/guildFeatureScope");
+    const { isViniliFullFeatureGuild: check } = require("../../../MultiGuild/core/guildFeatureScope") as typeof import("../../../MultiGuild/core/guildFeatureScope");
     return check(guildId);
   } catch {
     return true;

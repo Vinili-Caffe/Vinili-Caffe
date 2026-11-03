@@ -1,5 +1,5 @@
 const { safeMessageReply } = require("../../../shared/discord/replyRuntime") as typeof import("../../../shared/discord/replyRuntime");
-const { isViniliFullFeatureGuild } = require("../../MultiGuild/core/guildFeatureScope") as typeof import("../../MultiGuild/core/guildFeatureScope");
+const { isViniliFullFeatureGuild } = require("../../../MultiGuild/core/guildFeatureScope") as typeof import("../../../MultiGuild/core/guildFeatureScope");
 const { memberCanManageTenantPartnershipSettings } = require("../core/tenantPartnershipAdminAccess") as typeof import("../core/tenantPartnershipAdminAccess");
 const { resolveTenantLanguageForMessage, tenantNoticePayload } = require("./tenantPartnershipPrefixMessages") as typeof import("./tenantPartnershipPrefixMessages");
 const { refreshPartnershipConfigCache } = require("../core/tenantPartnershipSettings") as typeof import("../core/tenantPartnershipSettings");

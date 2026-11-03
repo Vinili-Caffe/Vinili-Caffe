@@ -4,7 +4,7 @@ const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ApplicationC
 const { DEFAULT_OBSOLETE_SLASH_NAMES } = require("../../shared/discord/purgeObsoleteApplicationCommands") as typeof import("../../shared/discord/purgeObsoleteApplicationCommands");
 const { safeMessageReply } = require("../../shared/discord/replyRuntime") as typeof import("../../shared/discord/replyRuntime");
 const { getGuildMemberCached } = require("../../shared/discord/interactionEntityCache") as typeof import("../../shared/discord/interactionEntityCache");
-const { loadPermissions } = require("../Moderation/utils/permissionsStore") as typeof import("../Moderation/utils/permissionsStore");
+const { loadPermissions } = require("../Moderation/utils/commandPermissions") as typeof import("../Moderation/utils/commandPermissions");
 const HELP_EMBED_COLOR = "#6f4e37";
 const ERROR_EMBED_COLOR = "Red";
 const PRIVATE_FLAG = 1 << 6;
@@ -19,7 +19,6 @@ const HELP_PAGE_SIZE = 18;
 const MAX_HELP_TEXT_LENGTH = 3900;
 const PREFIX_HELP_DESCRIPTIONS = {
   help: "Mostra tutti i comandi disponibili.",
-  ping: "Mostra latenza bot, database e informazioni di uptime.",
   join: "Fa entrare il bot nel tuo canale vocale.",
   leave: "Fa uscire il bot dal canale vocale.",
   voices: "Mostra le voci TTS disponibili.",

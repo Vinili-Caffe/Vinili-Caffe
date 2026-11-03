@@ -24,7 +24,7 @@ const {
 const { replyPrefixSetupRequired } = require("../../tenant/tenantSetupRequiredReply") as typeof import("../../tenant/tenantSetupRequiredReply");
 const {
   resolveEmbedColorForGuild,
-} = require("../../../MultiGuild/utils/tenantEmbedBranding") as typeof import("../../../MultiGuild/utils/tenantEmbedBranding");
+} = require("../../../../MultiGuild/utils/tenantEmbedBranding") as typeof import("../../../../MultiGuild/utils/tenantEmbedBranding");
 
 const NO_REPLY_MENTIONS = { repliedUser: false, parse: [] };
 const PRIVATE_FLAG = 1 << 6;

@@ -38,7 +38,7 @@ let activeMuteReconcileInFlight = null;
 async function syncMutedMirrorRoleFromMemberUpdate(oldMember?, newMember?) {
   if (!newMember?.guild || newMember.user?.bot) return;
   try {
-    const { isViniliFullFeatureGuild } = require("../../MultiGuild/core/guildFeatureScope") as typeof import("../../MultiGuild/core/guildFeatureScope");
+    const { isViniliFullFeatureGuild } = require("../../../MultiGuild/core/guildFeatureScope") as typeof import("../../../MultiGuild/core/guildFeatureScope");
     if (!isViniliFullFeatureGuild(newMember.guild.id)) return;
   } catch (_) {}
 
@@ -158,7 +158,7 @@ async function runSweepExpiredCommunicationTimeoutMirrors(client?, options: Reco
     const key = `${guildId}:${userId}`;
     if (!guildId || !userId || seen.has(key)) continue;
     try {
-      const { isViniliFullFeatureGuild } = require("../../MultiGuild/core/guildFeatureScope") as typeof import("../../MultiGuild/core/guildFeatureScope");
+      const { isViniliFullFeatureGuild } = require("../../../MultiGuild/core/guildFeatureScope") as typeof import("../../../MultiGuild/core/guildFeatureScope");
       if (!isViniliFullFeatureGuild(guildId)) continue;
     } catch (_) {}
     seen.add(key);
@@ -194,7 +194,7 @@ async function runSweepExpiredCommunicationTimeoutMirrors(client?, options: Reco
       const guildId = String(guildStub?.id || "").trim();
       if (!guildId) continue;
       try {
-        const { isViniliFullFeatureGuild } = require("../../MultiGuild/core/guildFeatureScope") as typeof import("../../MultiGuild/core/guildFeatureScope");
+        const { isViniliFullFeatureGuild } = require("../../../MultiGuild/core/guildFeatureScope") as typeof import("../../../MultiGuild/core/guildFeatureScope");
         if (!isViniliFullFeatureGuild(guildId)) continue;
       } catch (_) {}
 
@@ -378,7 +378,7 @@ async function syncMutedMirrorOnMemberJoin(member?) {
 async function enforceMutedStripIfNeeded(member?, options: Record<string, any> = {}) {
   if (!member?.guild || member.user?.bot) return false;
   try {
-    const { isViniliFullFeatureGuild } = require("../../MultiGuild/core/guildFeatureScope") as typeof import("../../MultiGuild/core/guildFeatureScope");
+    const { isViniliFullFeatureGuild } = require("../../../MultiGuild/core/guildFeatureScope") as typeof import("../../../MultiGuild/core/guildFeatureScope");
     if (!isViniliFullFeatureGuild(member.guild.id)) return false;
   } catch (_) {}
 
@@ -505,7 +505,7 @@ async function runReconcileIncompleteActiveMuteMirrors(client?, options: Record<
     seen.add(key);
     if (isEmptySnapshotOnCooldown(gid, uid)) return;
     try {
-      const { isViniliFullFeatureGuild } = require("../../MultiGuild/core/guildFeatureScope") as typeof import("../../MultiGuild/core/guildFeatureScope");
+      const { isViniliFullFeatureGuild } = require("../../../MultiGuild/core/guildFeatureScope") as typeof import("../../../MultiGuild/core/guildFeatureScope");
       if (!isViniliFullFeatureGuild(gid)) return;
     } catch (_) {}
     scanned += 1;
@@ -588,7 +588,7 @@ async function runReconcileIncompleteActiveMuteMirrors(client?, options: Record<
       const guildId = String(guildStub?.id || "").trim();
       if (!guildId) continue;
       try {
-        const { isViniliFullFeatureGuild } = require("../../MultiGuild/core/guildFeatureScope") as typeof import("../../MultiGuild/core/guildFeatureScope");
+        const { isViniliFullFeatureGuild } = require("../../../MultiGuild/core/guildFeatureScope") as typeof import("../../../MultiGuild/core/guildFeatureScope");
         if (!isViniliFullFeatureGuild(guildId)) continue;
       } catch (_) {}
       if (guildStub?.partial === true || !guildStub?.members?.cache?.size) continue;

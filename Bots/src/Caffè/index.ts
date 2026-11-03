@@ -10,7 +10,7 @@ const Partials = discord.Partials || {};
 const path = require("path") as typeof import("path");
 const { EventEmitter } = require("events") as typeof import("events");
 const APP_ROOT = __dirname;
-const {acquireSingleInstanceLock,installHandlers,listFoldersIfExists,loadEnvFiles,}= require("../shared/runtime/fsRuntime") as typeof import("../shared/runtime/fsRuntime");
+const {acquireSingleInstanceLock,listFoldersIfExists,loadEnvFiles,}= require("../shared/runtime/fsRuntime") as typeof import("../shared/runtime/fsRuntime");
 const { initializeCommandCollections } = require("../shared/runtime/clientRuntime") as typeof import("../shared/runtime/clientRuntime");
 
 loadEnvFiles(APP_ROOT);
@@ -59,12 +59,24 @@ try {
   installEmbedFooterPatch();
   installOutgoingMessageEmbedPatch(discord);
 } catch (_) {}
-global.logger = require("./Moderation/utils/logger");
+{
+  const { createConsoleLogs } = require("../shared/logging/consoleLogs") as typeof import("../shared/logging/consoleLogs");
+  const { createBotLogger } = require("../shared/logging/createBotLogger") as typeof import("../shared/logging/createBotLogger");
+  const coffeeLogConfig: any = require("./config.json") as typeof import("./config.json");
+  const baseLogs = createConsoleLogs({ withBuffers: false });
+  global.logger = Object.assign(
+    createBotLogger({
+      baseLogs,
+      resolveLogLevel: () => String(coffeeLogConfig.logLevel || "info"),
+    }),
+    { logs: baseLogs },
+  );
+}
 if (process.env.RUN_UNDER_LOADER !== "1") {
   acquireSingleInstanceLock("vinili-caffe-test-bot");
 }
 
-const installProcessHandlers = require("./core/handlers/processHandler") as typeof import("./core/handlers/processHandler");
+const { installProcessHandlers } = require("../shared/handlers/processHandlers") as typeof import("../shared/handlers/processHandlers");
 const { buildInitialClientPresenceOptions, installBotPresenceHooks, patchClientPresenceGuard } = require("../shared/discord/botPresenceActivity") as typeof import("../shared/discord/botPresenceActivity");
 const { installGatewayShardListenerCeiling } = require("../shared/discord/gatewayListenerCeiling") as typeof import("../shared/discord/gatewayListenerCeiling");
 const {
@@ -72,7 +84,11 @@ const {
   resolveGatewayIntents,
   resolveGatewayPartials,
 } = require("../shared/discord/clientMemoryOptions") as typeof import("../shared/discord/clientMemoryOptions");
-installProcessHandlers();
+installProcessHandlers({
+  flag: "__viniliTestProcessHandlersInstalled",
+  ignoreWarnings: true,
+  exitDelayMs: 200,
+});
 
 /* perfP0: Coffee non usa supporter vanity → niente GuildPresences */
 const intentList = resolveGatewayIntents(discord, { includePresences: false });
@@ -130,10 +146,45 @@ applyListenerCeiling(client, client.config);
 installGatewayShardListenerCeiling(client);
 installBotPresenceHooks(client);
 
-client.logs = require("./Moderation/utils/logs");
+client.logs = global.logger.logs;
 initializeCommandCollections(client);
 
-installHandlers(APP_ROOT, client);
+{
+  const { installBootTables } = require("../shared/runtime/createBootTablesInstaller") as typeof import("../shared/runtime/createBootTablesInstaller");
+  installBootTables(
+    client,
+    ["Community", "Voice", "Moderation", "Staff", "core", "Config", "site"],
+    APP_ROOT,
+  );
+
+  const { createButtonHandlersLoader } = require("../shared/runtime/createButtonHandlersLoader") as typeof import("../shared/runtime/createButtonHandlersLoader");
+  createButtonHandlersLoader({
+    isNonHandlerFile: (relativeKey?) => {
+      const rel = String(relativeKey || "").replace(/\\/g, "/");
+      const base = path.basename(rel).replace(/\.(cjs|mjs|js|cts|mts|ts)$/i, "");
+      if (base === "index" || base === "components" || base.endsWith("Helpers")) return true;
+      if (rel === "topChannel/components.ts" || rel === "topChannel/components.js") return true;
+      return false;
+    },
+    resolveDirs: () => [
+      path.join(APP_ROOT, "Voice", "discord", "buttons"),
+      path.join(APP_ROOT, "Community", "discord", "buttons"),
+      path.resolve(APP_ROOT, "..", "shared", "music", "discord", "buttons"),
+    ],
+  })(client);
+
+  require("./core/handlers/commandHandler")(client);
+  require("./core/handlers/prefixHandler")(client);
+
+  const { installEventLoader } = require("../shared/runtime/createEventLoader") as typeof import("../shared/runtime/createEventLoader");
+  const { defaultModuleEventFolderLabel } = require("../shared/runtime/discoverModuleEventFiles") as typeof import("../shared/runtime/discoverModuleEventFiles");
+  installEventLoader(client, {
+    folderLabelForRel: defaultModuleEventFolderLabel,
+  });
+
+  const { installTriggersLoader } = require("../shared/runtime/createTriggersLoader") as typeof import("../shared/runtime/createTriggersLoader");
+  installTriggersLoader(client);
+}
 
 const slashRoot = path.join(APP_ROOT, "Staff", "discord", "slash");
 

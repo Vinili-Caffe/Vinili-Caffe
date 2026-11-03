@@ -1,7 +1,7 @@
 const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { EmbedBuilder } = require("discord.js") as typeof import("discord.js");
 const { ActivityUserProfile } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
-const { isViniliFullFeatureGuild } = require("../../MultiGuild/core/guildFeatureScope") as typeof import("../../MultiGuild/core/guildFeatureScope");
+const { isViniliFullFeatureGuild } = require("../../../MultiGuild/core/guildFeatureScope") as typeof import("../../../MultiGuild/core/guildFeatureScope");
 const { getPartnershipConfigSync, isPartnershipSetupComplete } = require("../../Partner/core/tenantPartnershipSettings") as typeof import("../../Partner/core/tenantPartnershipSettings");
 const { PARTNER_SAME_TARGET_COOLDOWN_MS } = require("../runtime/partnerSameTargetCooldown") as typeof import("../runtime/partnerSameTargetCooldown");
 const {
@@ -42,7 +42,7 @@ function isMainPartnershipSettingsGuild(guildId?) {
   const gid = String(guildId || "").trim();
   if (!gid) return false;
       try {
-    const { isViniliProtectedGuild } = require("../../MultiGuild/core/viniliProtectedGuilds") as typeof import("../../MultiGuild/core/viniliProtectedGuilds");
+    const { isViniliProtectedGuild } = require("../../../MultiGuild/core/viniliProtectedGuilds") as typeof import("../../../MultiGuild/core/viniliProtectedGuilds");
     if (isViniliProtectedGuild(gid)) return true;
   } catch (_) {}
   return Boolean(gid && gid === getMainGuildId());

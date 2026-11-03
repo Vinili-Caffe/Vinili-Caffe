@@ -1,7 +1,7 @@
 const { PermissionFlagsBits } = require("discord.js") as typeof import("discord.js");
 const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { getGuildMemberCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
-const { isChannelInTicketCategory } = require("../../MultiGuild/tickets/discord/ticketCategoryUtils") as typeof import("../../MultiGuild/tickets/discord/ticketCategoryUtils");
+const { isChannelInTicketCategory } = require("../../../MultiGuild/tickets/discord/ticketCategoryUtils") as typeof import("../../../MultiGuild/tickets/discord/ticketCategoryUtils");
 
 /** Dopo strip invisibili / trim: `# Titolo` … `###### Titolo` (anche nbsp / ideographic space). */
 const DISCORD_HEADING_LINE_RE = /^#{1,6}[\t\f\v \u00a0\u3000]+/;

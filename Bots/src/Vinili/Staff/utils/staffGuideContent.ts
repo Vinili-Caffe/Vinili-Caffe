@@ -12,8 +12,8 @@ const TOP_LEVEL_SECTION_META = [
   { id: "regolamento", label: "Regolamento", description: "Regole e sanzioni utenti", emoji: "<:rules:1443307208543703131>" },
   { id: "regole_staff", label: "Staff", description: "Regole di comportamento dello staff", emoji: "<:discordstaff:1443651872258003005>" },
   { id: "limiti", label: "Limiti", description: "Obiettivi di attività settimanale", emoji: "<:reportmessage:1443670575376765130>" },
-  { id: "compiti_fissi", label: "Compiti", description: "Compiti settimanali sul sito", emoji: "<:VC_Quest:1482534879257165865>" },
-  { id: "pause", label: "Pause", description: "Come funzionano le pause staff", emoji: "<:Clock:1330530065133338685>" },
+  { id: "compiti_fissi", label: "Compiti", description: "Fasce, set mensile e provvigioni", emoji: "<:VC_Quest:1482534879257165865>" },
+  { id: "pause", label: "Pause", description: "Giorno intero e mezza giornata", emoji: "<:Clock:1330530065133338685>" },
   { id: "lineeguida", label: "Linee guida", description: "Comportamento e buone pratiche", emoji: "<:VC_PinkQuestionMark:1471892611026391306>" },
   { id: "comandi", label: "Comandi", description: "Comandi utili per lo staff", emoji: "<:VC_Bot:1482526555174604964>" },
   { id: "valutazioni", label: "Valutazioni", description: "Positive, negative e automatiche", emoji: "<a:loading:1443934440614264924>" },
@@ -188,35 +188,45 @@ const SECTION_BUILDERS = {
     "<:VC_Quest:1482534879257165865> **__COMPITI SETTIMANALI__**\n\n" +
     `<a:VC_NewsExclamation:1471891662786527253> I compiti si gestiscono **solo sul sito**: ${siteWorkflowUrl("compiti")}\n\n` +
     "<a:VC_Calendar:1482706208149475358> **Come funziona**\n" +
-    "<:VC_Dot:1482532364222595303> All'inizio di ogni **mese** ricevi un **set** di compiti (uno per ogni settimana del mese).\n" +
+    "<:VC_Dot:1482532364222595303> All'inizio di ogni **mese** ricevi un **set** di **4 o 5** compiti (uno per ogni settimana del mese).\n" +
+    "<:VC_Dot:1482532364222595303> Nel set c'è **sempre e obbligatoriamente 1** compito **difficile**; gli altri sono **facili** o **medi**.\n" +
     "<:VC_Dot:1482532364222595303> Ogni **settimana** scegli **1 compito** dal set (non puoi ripetere lo stesso compito nello stesso mese).\n" +
+    "<:VC_Dot:1482532364222595303> Gli **scambi** ti danno un compito della **stessa difficoltà** di quello che stai scambiando.\n" +
     "<:VC_Dot:1482532364222595303> Compiti **manuali**: scrivi cosa hai fatto e/o allega le prove → **Invia prove**.\n" +
-    "<:VC_Dot:1482532364222595303> Compiti **automatici**: li selezioni e si completano da soli\n" +
+    "<:VC_Dot:1482532364222595303> Compiti **automatici**: li selezioni e si completano da soli.\n" +
     "<:VC_Dot:1482532364222595303> Scadenza invio: **domenica ore 18**.\n" +
     "<:VC_Dot:1482532364222595303> High Staff **Conferma** o **Rifiuta** sulla stessa pagina.\n" +
     "<:VC_Dot:1482532364222595303> Se rifiutato puoi **riprovare**.\n\n" +
     "<:VC_bluthumbsup:1482458262401061044> Compito **approvato** → **valutazione positiva**.\n" +
     "<:VC_bluthumbsdown:1482458289131360306> Non inviato entro domenica 18 / rifiuto definitivo → **valutazione negativa**.\n\n" +
-    "<a:VC_Arrow:1482706699365257397> **Catalogo compiti**\n\n" +
-    "**Automatici**\n" +
-    "<:VC_Dot:1482532364222595303> Completare i limiti del triplo\n" +
+    "<a:VC_Money:1482724694699278487> **Provvigione su donazioni e sponsor**\n" +
+    "Se porti tu l'acquisto, ricevi una percentuale **progressiva** sul pacchetto o sulla sponsor:\n" +
+    "<:VC_Dot:1482532364222595303> **5%** — pacchetto **Donator** oppure sponsor **7 giorni** / sponsor **durante un evento**\n" +
+    "<:VC_Dot:1482532364222595303> **10%** — pacchetto **VIP** oppure sponsor **14 giorni**\n" +
+    "<:VC_Dot:1482532364222595303> **15%** — pacchetto **VIP+** oppure sponsor **30 giorni**\n" +
+    "> <a:VC_Alert:1482706673176150077> Per i **canali privati** la percentuale resta quella del pacchetto anche con 1 o 2 ping. **Ping aggiuntivi** o **rinnovi collaterali** non aumentano e non generano una nuova percentuale.\n\n" +
+    "<a:VC_Arrow:1482706699365257397> **Catalogo compiti** (per difficoltà)\n\n" +
+    "**Facile**\n" +
+    "<:VC_Dot:1482532364222595303> Completare i limiti del triplo _(auto)_\n" +
     "<:VC_Dot:1482532364222595303> Ottenere una recensione di se stessi da almeno 4 stelle\n" +
     "<:VC_Dot:1482532364222595303> Ottenere una recensione per il server da almeno 4 stelle\n" +
-    "<:VC_Dot:1482532364222595303> Dare un'idea per il server/staff/sito/evento e non farsela rifiutare\n" +
-    "<:VC_Dot:1482532364222595303> Invitare almeno 1 utente e fargli scrivere 100 messaggi o 2 ore in vocale\n\n" +
-    "**Manuali**\n" +
+    "<:VC_Dot:1482532364222595303> Dare un'idea per il server/staff/sito/evento e non farsela rifiutare _(auto)_\n\n" +
+    "**Medio**\n" +
     "<:VC_Dot:1482532364222595303> Trovare un nuovo staffer\n" +
+    "<:VC_Dot:1482532364222595303> Invitare almeno 1 utente e fargli scrivere 100 messaggi o 2 ore in vocale _(auto)_\n" +
+    "<:VC_Dot:1482532364222595303> Far boostare il server da un utente\n" +
+    "<:VC_Dot:1482532364222595303> Far aggiungere il bot in un server e fargli fare il setup\n\n" +
+    "**Difficile** _(nel set mensile ce n'è sempre 1)_\n" +
     "<:VC_Dot:1482532364222595303> Trovare un server che compri una sponsor\n" +
     "<:VC_Dot:1482532364222595303> Trovare un server che faccia trasferimento da noi\n" +
-    "<:VC_Dot:1482532364222595303> Far boostare il server da un utente\n" +
-    "<:VC_Dot:1482532364222595303> Convincere un utente a comprare un pacchetto Donator/VIP/VIP+\n" +
-    "<:VC_Dot:1482532364222595303> Far aggiungere il bot in un server e fargli fare il setup\n\n" +
+    "<:VC_Dot:1482532364222595303> Convincere un utente a comprare un pacchetto Donator/VIP/VIP+\n\n" +
     `<:VC_Attention:1482534443632558151> Apri sempre la pagina **Compiti** sul sito per lo stato della settimana: ${siteWorkflowUrl("compiti")}`,
 
   pause: () =>
     "<:Clock:1330530065133338685> Vinili & Caffè presenta un **sistema** di **`pause`** _sofisticato_, infatti è tutto __organizzato__ per **garantire** al meglio l'__attività__ del server.\n" +
-    `> Per __richiedere__ una pausa apri la pagina sul **sito**: ${siteWorkflowUrl("pause")}\n\n` +
-    "<a:VC_Arrow:1482706699365257397> **__LIMITI__**\n" +
+    `> Per __richiedere__ una pausa apri la pagina sul **sito**: ${siteWorkflowUrl("pause")}\n` +
+    "> Sul form puoi scegliere **Giorno intero** oppure **Mezza giornata** (un solo giorno + fascia).\n\n" +
+    "<a:VC_Arrow:1482706699365257397> **__LIMITI ANNUALI E CONCORRENZA__**\n" +
     "<a:loading:1443934440614264924> In un anno si possono chiedere __massimo__ **`60 giorni`** di pausa che si possono usufruire in __tutti__ i **12 mesi** dell'anno.\n\n" +
     "> Nei giorni **festivi** avrete anche dei giorni in più **ulteriori** al __normale mese__:\n" +
     "<:VC_Dot:1482532364222595303> **24**, **25**, **26**, **31** __Dicembre__\n" +
@@ -243,7 +253,15 @@ const SECTION_BUILDERS = {
     "<:VC_Dot:1482532364222595303> <@&" +
     IDs.roles.Manager +
     "> <a:VC_Arrow:1482706699365257397> __1__ **staffer**\n\n" +
-    "<:VC_Attention:1482534443632558151> Potrai chiedere __una pausa__ **ogni mese**. Se quest'ultima cade in `2` **__mesi diversi__**, verrà contato il mese in cui viene **chiesta** la __pausa__, a patto che non superi i primi __`5` giorni__ dell'altro mese. Per chiedere un'altra pausa dovrai aspettare almeno **__`1 settimana`__**\n\n" +
+    "<:VC_Attention:1482534443632558151> **Pause intere:** puoi chiederne __una__ **ogni mese**. Se cade in `2` **__mesi diversi__**, conta il mese in cui viene **chiesta**, a patto che non superi i primi __`5` giorni__ dell'altro mese. Tra una richiesta e l'altra aspetta almeno **__`1 settimana`__**. Le pause intere partono **da domani** in poi.\n\n" +
+    "<a:VC_pixeltime:1482535344103620771> **__MEZZE GIORNATE__**\n" +
+    "<:VC_1:1482706338021642333> **Fasce:** **mattina** (fino alle 14) oppure **pomeriggio/sera** (dalle 14). Una fascia vale **0,5 giorni** del budget annuale: due mezze giornate = **1 giorno**.\n" +
+    "<:VC_2:1482706376525611090> Si possono chiedere **anche per oggi**: mattina **entro le 9**, pomeriggio **entro le 14**. Sul form le fasce di oggi già iniziate sono **disattivate**.\n" +
+    "<:VC_3:1482706404773990460> **Accettazione automatica:** mezza giornata per **oggi** nei limiti → accettata in automatico. Per altri giorni (o oltre i limiti) si può chiedere comunque, ma serve l'accettazione di un superiore. L'<@&1544831228690046976> può **annullare** una pausa accettata in automatico.\n" +
+    "<:VC_4:1482706432347344916> **Limiti mezza giornata:** **1** a settimana e **4** al mese.\n" +
+    "<:VC_5:1482706459765637272> Le mezze giornate **non contano** per la regola «una pausa al mese».\n" +
+    "<:VC_6:1482706490769801327> **Resoconti:** una sola mezza giornata **non** esonera come una pausa intera; solo **due** mezze giornate nella **stessa settimana** contano come un giorno intero e il resoconto viene saltato.\n" +
+    "<:VC_7:1482706523330183218> **Non si può chiedere:** la stessa fascia due volte; un giorno già coperto da una pausa intera; una mezza giornata il giorno **subito prima o dopo** una pausa intera.\n\n" +
     "> <:banhammer:1443651875441217639> Se l'<@&1544831228690046976> verrà a conoscenza di uno **staffer** __in pausa__ ma **attivo** in un **altro server** nel periodo di tempo della pausa, **toglierà** la pausa e **sanzionerà** lo staffer.",
 
   lineeguida: () =>

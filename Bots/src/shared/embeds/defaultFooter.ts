@@ -2,7 +2,7 @@ const { EmbedBuilder } = require("discord.js") as typeof import("discord.js");
 const { guildIconUrl, userAvatarUrlDynamic, userAvatarUrlStatic } = require("../discord/guildDiscordIdentity") as typeof import("../discord/guildDiscordIdentity");
 function loadTenantEmbedBranding() {
   try {
-    return require("../../Vinili/MultiGuild/utils/tenantEmbedBranding");
+    return require("../../MultiGuild/utils/tenantEmbedBranding");
   } catch {
     return {
       TENANT_EMBED_COLOR: "#9b59b6",

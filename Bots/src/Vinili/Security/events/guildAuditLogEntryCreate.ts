@@ -5,7 +5,7 @@ const { resolveModLogChannel, formatResponsible, nowDiscordTs, } = require("../.
 const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { grantBestStaffPauseBonusYear } = require("../../site/staff/pause/pauseHandlersUtils") as typeof import("../../site/staff/pause/pauseHandlersUtils");
 const { onStafferDellaSettimanaRoleAdded } = require("../../Staff/services/stafferDellaSettimanaService") as typeof import("../../Staff/services/stafferDellaSettimanaService");
-const { isViniliFullFeatureGuild } = require("../../MultiGuild/core/guildFeatureScope") as typeof import("../../MultiGuild/core/guildFeatureScope");
+const { isViniliFullFeatureGuild } = require("../../../MultiGuild/core/guildFeatureScope") as typeof import("../../../MultiGuild/core/guildFeatureScope");
 const MEMBER_ROLE_UPDATE_ACTION = AuditLogEvent.MemberRoleUpdate ?? 25;
 
 function auditEntryChangeAddsRoleId(entry?, roleId?) {

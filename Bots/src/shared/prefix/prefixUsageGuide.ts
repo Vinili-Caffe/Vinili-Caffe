@@ -1,5 +1,5 @@
 ﻿const { ActionRowBuilder, StringSelectMenuBuilder, EmbedBuilder, MessageFlags } = require("discord.js") as typeof import("discord.js");
-const { TENANT_EMBED_COLOR, applyTenantPayloadBranding, stripTenantBrandingInternals } = require("../../Vinili/MultiGuild/utils/tenantEmbedBranding") as typeof import("../../Vinili/MultiGuild/utils/tenantEmbedBranding");
+const { TENANT_EMBED_COLOR, applyTenantPayloadBranding, stripTenantBrandingInternals } = require("../../MultiGuild/utils/tenantEmbedBranding") as typeof import("../../MultiGuild/utils/tenantEmbedBranding");
 const { buildSimpleNoticePayload } = require("../embeds/simpleNoticeEmbed") as typeof import("../embeds/simpleNoticeEmbed");
 
 const GUIDE_LIFETIME_MS = 10 * 60 * 1000;
@@ -7,7 +7,7 @@ const PRIVATE = MessageFlags.Ephemeral || 1 << 6;
 
 function guideEmbedColor(guild?) {
   try {
-    const { resolveEmbedColorForGuild } = require("../../Vinili/MultiGuild/utils/tenantEmbedBranding") as typeof import("../../Vinili/MultiGuild/utils/tenantEmbedBranding");
+    const { resolveEmbedColorForGuild } = require("../../MultiGuild/utils/tenantEmbedBranding") as typeof import("../../MultiGuild/utils/tenantEmbedBranding");
     return resolveEmbedColorForGuild(guild?.id) || TENANT_EMBED_COLOR;
   } catch {
     return TENANT_EMBED_COLOR;

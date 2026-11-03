@@ -14,7 +14,7 @@ const recentRouletteSourceKeysByGuild = new Map();
 
 function isRepostDisabledInGuild(guildId?) {
   try {
-    const { isTenantBoardFeatureEnabledSync } = require("../../MultiGuild/core/tenantGuildSettings") as typeof import("../../MultiGuild/core/tenantGuildSettings");
+    const { isTenantBoardFeatureEnabledSync } = require("../../../MultiGuild/core/tenantGuildSettings") as typeof import("../../../MultiGuild/core/tenantGuildSettings");
     return !isTenantBoardFeatureEnabledSync(guildId, "repost");
   } catch {
     return false;

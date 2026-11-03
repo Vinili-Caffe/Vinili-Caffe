@@ -18,6 +18,18 @@ const { startGameNewsAlertLoop } = require("../../Community/services/gameNewsAle
 const { startUserFullStatePersistenceLoop } = require("../../Community/services/userFullStatePersistenceService") as typeof import("../../Community/services/userFullStatePersistenceService");
 const { startMovieNightAnnouncementLoop } = require("../../Community/services/movieNightAnnouncementService") as typeof import("../../Community/services/movieNightAnnouncementService");
 const { startDailyPartnerAuditLoop } = require("../../Partner/services/partnerAuditService") as typeof import("../../Partner/services/partnerAuditService");
+const { startDailyMemberStatsLoop } = require("../../Community/services/dailyMemberStatsService") as typeof import("../../Community/services/dailyMemberStatsService");
+const { startDailyEngagementStatsLoop } = require("../../Community/services/dailyEngagementStatsService") as typeof import("../../Community/services/dailyEngagementStatsService");
+const { startDailyChannelMessageStatsLoop } = require("../../Community/services/dailyChannelMessageStatsService") as typeof import("../../Community/services/dailyChannelMessageStatsService");
+const { startWeeklyActivityWinnersLoop } = require("../../Community/services/weeklyActivityWinnersService") as typeof import("../../Community/services/weeklyActivityWinnersService");
+const { startBirthdayLoop } = require("../../Community/services/birthdayService") as typeof import("../../Community/services/birthdayService");
+const { startGlobalExpEventAnnouncementLoop } = require("../../Community/services/globalExpEventAnnouncementService") as typeof import("../../Community/services/globalExpEventAnnouncementService");
+const { startVerificationTenureLoop } = require("../../Community/services/communityOpsTenure") as typeof import("../../Community/services/communityOpsTenure");
+const { startStreamerStageGuardLoop } = require("../../Community/services/streamerStageGuardService") as typeof import("../../Community/services/streamerStageGuardService");
+const { startStafferDellaSettimanaLoop } = require("../../Staff/services/stafferDellaSettimanaService") as typeof import("../../Staff/services/stafferDellaSettimanaService");
+const { startWeeklyStaffResocontoLoop } = require("../../Staff/services/weeklyStaffResocontoService") as typeof import("../../Staff/services/weeklyStaffResocontoService");
+const { startTestGuildMirrorSyncLoop } = require("../../Partner/services/testGuildMirrorSyncService") as typeof import("../../Partner/services/testGuildMirrorSyncService");
+const { startDiscadiaVoteMonthRolloverCron } = require("../../Community/services/discadiaVoteMonthRepairOnStartupService") as typeof import("../../Community/services/discadiaVoteMonthRepairOnStartupService");
 
 loadDotEnv();
 process.env.COMMUNITY_POLL_WORKER = "1";
@@ -55,9 +67,25 @@ async function main(shared?: { client?: any } | null) {
   startUserFullStatePersistenceLoop(client);
   startMovieNightAnnouncementLoop(client);
   startDailyPartnerAuditLoop(client);
+  startDailyMemberStatsLoop(client);
+  startDailyEngagementStatsLoop(client);
+  startDailyChannelMessageStatsLoop(client);
+  startWeeklyActivityWinnersLoop(client);
+  startBirthdayLoop(client);
+  startGlobalExpEventAnnouncementLoop(client);
+  startVerificationTenureLoop(client);
+  startStreamerStageGuardLoop(client);
+  startStafferDellaSettimanaLoop(client);
+  startWeeklyStaffResocontoLoop(client);
+  startTestGuildMirrorSyncLoop(client);
+  try {
+    startDiscadiaVoteMonthRolloverCron(client);
+  } catch (err) {
+    console.error("[COMMUNITY-POLL] discadia month cron:", err?.message || err);
+  }
 
   console.log(
-    `[COMMUNITY-POLL] online as ${client.user?.tag || client.user?.username || "bot"} (twitch/gamenews/fullState/movieNight/partnerAudit)`,
+    `[COMMUNITY-POLL] online as ${client.user?.tag || client.user?.username || "bot"} (twitch/gamenews/fullState/movieNight/partnerAudit/stats/cron)`,
   );
 }
 

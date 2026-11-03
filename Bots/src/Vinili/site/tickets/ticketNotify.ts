@@ -1,6 +1,6 @@
 /** Ticket dal sito: eventi in tempo reale, notifiche a staff e utenti, avvisi di attesa (SLA). */
 const IDs: any = require("../../Config/ids") as typeof import("../../Config/ids");
-const { WEB_TICKET_STATUS, SiteWebTicket, SiteWebTicketMessage } = require("../../MultiGuild/tickets/data/siteWebTicketSchemas") as typeof import("../../MultiGuild/tickets/data/siteWebTicketSchemas");
+const { WEB_TICKET_STATUS, SiteWebTicket, SiteWebTicketMessage } = require("../../../MultiGuild/tickets/data/siteWebTicketSchemas") as typeof import("../../../MultiGuild/tickets/data/siteWebTicketSchemas");
 const { enqueueSiteInAppNotification, removeInboxItemByDedupeKey, removeSiteInAppNotificationsForTicket } = require("../notifications/siteInAppNotificationsService") as typeof import("../notifications/siteInAppNotificationsService");
 const { shouldSkipWebTicketInAppNotif } = require("./webTicketPagePresence") as typeof import("./webTicketPagePresence");
 const { broadcastSiteWebTicketsEvent } = require("../suggestions/siteSuggestionsBroadcast") as typeof import("../suggestions/siteSuggestionsBroadcast");
@@ -8,6 +8,7 @@ const { CATEGORY_LABELS, sanitizeText, normalizeCategory } = require("./ticketNa
 const { memberCanAccessTicketCategory, listAddedUsers, ticketHasAddedUser } = require("./ticketStaffAccess") as typeof import("./ticketStaffAccess");
 const { parseMentionTargets, listTicketMessageAuthorIds } = require("./ticketMentions") as typeof import("./ticketMentions");
 const { serializeTicket, previewFromContent } = require("./ticketSerialize") as typeof import("./ticketSerialize");
+const { shouldStartExternalWorkerLoop } = require("../../../shared/runtime/externalWorkerGate") as typeof import("../../../shared/runtime/externalWorkerGate");
 
 const MAX_CONTENT = 2000;
 
@@ -551,6 +552,7 @@ async function sweepWebTicketSlaNotifications(client?) {
 }
 
 function startWebTicketSlaNotifLoop(client?) {
+  if (!shouldStartExternalWorkerLoop("BOT_SCHEDULER")) return null;
   if (webTicketSlaLoopHandle) return webTicketSlaLoopHandle;
   const tick = () => {
     void sweepWebTicketSlaNotifications(client).catch((err?) =>

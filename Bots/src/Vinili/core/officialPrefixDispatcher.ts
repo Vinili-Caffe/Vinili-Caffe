@@ -5,7 +5,9 @@ const {
   applyTenantPayloadBranding,
   stripTenantBrandingInternals,
   shouldSkipPrefixDispatcherBranding,
-} = require("../MultiGuild/utils/tenantEmbedBranding") as typeof import("../MultiGuild/utils/tenantEmbedBranding");
+  TENANT_EMBED_COLOR,
+} = require("../../MultiGuild/utils/tenantEmbedBranding") as typeof import("../../MultiGuild/utils/tenantEmbedBranding");
+const IDs = require("../Config/ids") as typeof import("../Config/ids");
 const {
   checkPrefixPermission,
   getPrefixRequiredRoles,
@@ -16,19 +18,33 @@ const {
   getUserCommandCooldownSeconds,
   consumeUserCooldown,
 } = require("../Moderation/utils/commandCooldown") as typeof import("../Moderation/utils/commandCooldown");
+const { createCommandErrorEmbeds } = require("../../shared/moderation/createCommandErrorEmbeds") as typeof import("../../shared/moderation/createCommandErrorEmbeds");
 const {
   buildCooldownErrorEmbed,
   buildBusyCommandErrorEmbed,
   buildMissingArgumentsErrorEmbed,
   buildInternalCommandErrorEmbed,
-} = require("../Moderation/utils/commandErrorEmbeds") as typeof import("../Moderation/utils/commandErrorEmbeds");
+} = createCommandErrorEmbeds({
+  color: TENANT_EMBED_COLOR,
+  cancelEmoji: "<:cancel:1461730653677551691>",
+  cooldownDescription: (remaining?) =>
+    [
+      `<:VC_Attention:1482534443632558151> Aspetta **${remaining}s** prima di usare un altro comando.`,
+      "",
+      "<a:VC_Timer:1482527426557775954> Il cooldown si riduce con i ruoli:",
+      `<:VC_Dot:1482532364222595303> <@&${IDs.roles.Level30}>, <@&${IDs.roles.ServerBooster}> o <@&${IDs.roles.VIP}> <a:VC_Arrow:1482706699365257397> **15s**`,
+      `<:VC_Dot:1482532364222595303> <@&${IDs.roles.Level50}>, <@&${IDs.roles.VIPplus}> o <@&${IDs.roles.DoubleBooster}> <a:VC_Arrow:1482706699365257397> **5s**`,
+    ].join("\n"),
+});
 const { buildErrorLogEmbed } = require("../../shared/discord/errorLogEmbed") as typeof import("../../shared/discord/errorLogEmbed");
-const { getCentralChannel } = require("./events/interaction/commandUsageLogger") as typeof import("./events/interaction/commandUsageLogger");
+const { getCentralChannel } = require("./events/interactionCreateCommandLogging") as typeof import("./events/interactionCreateCommandLogging");
 const { shouldBlockModerationCommands } = require("../Security/services/antiNukeService") as typeof import("../Security/services/antiNukeService");
 const { getSecurityLockState } = require("../Security/services/securityOrchestratorService") as typeof import("../Security/services/securityOrchestratorService");
-const IDs = require("../Config/ids") as typeof import("../Config/ids");
 const { EPHEMERAL_TTL_SHORT_MS } = require("../../shared/utils/ephemeralMessageTtl") as typeof import("../../shared/utils/ephemeralMessageTtl");
 const { createOfficialPrefixDispatcher } = require("../../shared/prefix/createOfficialPrefixDispatcher") as typeof import("../../shared/prefix/createOfficialPrefixDispatcher");
+const { getCachedOrFetchMember } = require("../Community/services/officialMessageAutomationHandlers") as typeof import("../Community/services/officialMessageAutomationHandlers");
+const { isCoffeePrefixCommandToken } = require("../../shared/discord/coffeePrefixCommandTokens") as typeof import("../../shared/discord/coffeePrefixCommandTokens");
+const { createDispatchPrefixMessage } = require("../../shared/prefix/createDispatchPrefixMessage") as typeof import("../../shared/prefix/createDispatchPrefixMessage");
 
 const REMOVED_PREFIX_COMMANDS = new Set([
   "colors",
@@ -137,7 +153,7 @@ function rewriteCustomPrefixAliases(message?, resolvedClient?, defaultPrefix?) {
   return false;
 }
 
-export = createOfficialPrefixDispatcher({
+const official = createOfficialPrefixDispatcher({
   ids: IDs,
   botDataDir: path.join(__dirname, "..", "Data"),
   snapshotKey: "vinyls_prefix_queue",
@@ -261,7 +277,7 @@ export = createOfficialPrefixDispatcher({
 
       const cmdName = String(command.name || cmd || "").toLowerCase();
       if (cmdName !== "setup") {
-        const { resolveTenantPrefixFeatureCategory } = require("../MultiGuild/core/openMediaCommands") as typeof import("../MultiGuild/core/openMediaCommands");
+        const { resolveTenantPrefixFeatureCategory } = require("../../MultiGuild/core/openMediaCommands") as typeof import("../../MultiGuild/core/openMediaCommands");
         if (resolveTenantPrefixFeatureCategory(cmdName) === "partnership") {
           const deniedPartnerZone = await partnersChatPartnerCommandDeniedReplyContent(message.channel).catch(
             () => null,
@@ -416,3 +432,20 @@ export = createOfficialPrefixDispatcher({
     }
   },
 });
+
+const dispatch = createDispatchPrefixMessage({
+  ids: IDs,
+  handleOfficialPrefixMessage: official.handleOfficialPrefixMessage,
+  getCachedOrFetchMember,
+  defaultPrefixFallback: "+",
+  skipWrongPrefixHintForToken: (token?, usedPrefix?) => {
+    if (usedPrefix === "-" && isCoffeePrefixCommandToken(token)) return true;
+    return false;
+  },
+  skipWrongPrefixHintForCommand: (commandName?) => String(commandName || "").toLowerCase() === "help",
+});
+
+export = {
+  ...official,
+  ...dispatch,
+};

@@ -84,7 +84,7 @@ async function fetchJson(path: string): Promise<Record<string, unknown> | null> 
   }
 }
 
-/** Metriche live dei processi bot (stesso tipo di +ping), da /webhooks/health. */
+/** Metriche live dei processi bot, da /webhooks/health. */
 export async function loadLiveProcesses(): Promise<ProcessLive[]> {
   const health = await fetchJson("/webhooks/health");
   if (!health) return [];

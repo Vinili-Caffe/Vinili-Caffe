@@ -15,6 +15,7 @@ const { STAFF_LIMITS_POSITIVE_MULTIPLIER, shouldSkipManualResocontoVp, shouldSki
 const { getWeeklySanctionCountByMod } = require("./resocontoMessages") as typeof import("./resocontoMessages");
 const { runWeeklyStaffResocontoSegment } = require("./resocontoSegment") as typeof import("./resocontoSegment");
 const { runWeeklyLimitAutoValutazioniCatchupSegment } = require("./resocontoCatchup") as typeof import("./resocontoCatchup");
+const { shouldStartExternalWorkerLoop } = require("../../../shared/runtime/externalWorkerGate") as typeof import("../../../shared/runtime/externalWorkerGate");
 const RESOCONTO_CRON_EXPRESSION = "0 15 * * 0";
 const RESOCONTO_SUNDAY_SEGMENTS = ["pm", "helper", "mod", "senior_moderator", "director"];
 const STAFF_RESOCONTO_SEGMENTS = ["helper", "mod", "senior_moderator", "director"];
@@ -101,6 +102,7 @@ async function runSameDayPmResocontoRecovery(client?) {
 }
 
 function startWeeklyStaffResocontoLoop(client?) {
+  if (!shouldStartExternalWorkerLoop("COMMUNITY_POLL")) return null;
   if (weeklyStaffResocontoTasks.length) return weeklyStaffResocontoTasks[0];
 
   const task = cron.schedule(

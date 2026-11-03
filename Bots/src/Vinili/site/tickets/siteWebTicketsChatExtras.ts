@@ -2,7 +2,7 @@
 const fs = require("node:fs") as typeof import("node:fs");
 const path = require("node:path") as typeof import("node:path");
 const mongoose = require("mongoose") as typeof import("mongoose");
-const { SiteWebTicket, SiteWebTicketMessage } = require("../../MultiGuild/tickets/data/siteWebTicketSchemas") as typeof import("../../MultiGuild/tickets/data/siteWebTicketSchemas");
+const { SiteWebTicket, SiteWebTicketMessage } = require("../../../MultiGuild/tickets/data/siteWebTicketSchemas") as typeof import("../../../MultiGuild/tickets/data/siteWebTicketSchemas");
 const { sanitizeDiscordChannelName } = require("../utils/discordDisplayName") as typeof import("../utils/discordDisplayName");
 const { setWebTicketPagePresence, clearWebTicketPagePresence } = require("./webTicketPagePresence") as typeof import("./webTicketPagePresence");
 const { setTyping: setChatTyping, clearTyping: clearChatTyping } = require("../http/siteChatTyping") as typeof import("../http/siteChatTyping");
@@ -14,7 +14,7 @@ const { listGuildEmojisCached } = require("./ticketReactions") as typeof import(
 const { markTicketMessagesRead } = require("./ticketSerialize") as typeof import("./ticketSerialize");
 const { emitTicketEvent } = require("./ticketNotify") as typeof import("./ticketNotify");
 const { resolveMemberOrStaff, loadTicketForActor } = require("./ticketCommands") as typeof import("./ticketCommands");
-const { canClaimTicket } = require("../../MultiGuild/tickets/discord/ticketStaffRuntime") as typeof import("../../MultiGuild/tickets/discord/ticketStaffRuntime");
+const { canClaimTicket } = require("../../../MultiGuild/tickets/discord/ticketStaffRuntime") as typeof import("../../../MultiGuild/tickets/discord/ticketStaffRuntime");
 
 async function handleSiteWebTicketsPresencePost(client?, req?, res?) {
   const actor = await resolveMemberOrStaff(client, req);

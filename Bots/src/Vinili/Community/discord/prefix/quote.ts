@@ -9,11 +9,11 @@ const { QuotePrivacy } = require("../../../Community/schemas/communitySchemas") 
 const { accountUsername, memberDisplayName, memberLabelWithUsername, guildMemberDisplayAvatarUrlDynamic, guildMemberDisplayAvatarUrlStatic } = require("../../../../shared/discord/guildDiscordIdentity") as typeof import("../../../../shared/discord/guildDiscordIdentity");
 const { isRepostDisabledInGuild } = require("../../services/repostService") as typeof import("../../services/repostService");
 const { SITE_BOARD_CHANNEL, isBachecaSiteGuild, newBachecaItemId, buildBachecaLinkButton, putBachecaMedia, broadcastBachecaChanged } = require("../../../site/bacheca/bachecaSite") as typeof import("../../../site/bacheca/bachecaSite");
-const { TENANT_EMBED_COLOR } = require("../../../MultiGuild/utils/tenantEmbedBranding") as typeof import("../../../MultiGuild/utils/tenantEmbedBranding");
+const { TENANT_EMBED_COLOR } = require("../../../../MultiGuild/utils/tenantEmbedBranding") as typeof import("../../../../MultiGuild/utils/tenantEmbedBranding");
 const {
   getTenantBoardsSync,
   isTenantBoardFeatureEnabledSync,
-} = require("../../../MultiGuild/core/tenantGuildSettings") as typeof import("../../../MultiGuild/core/tenantGuildSettings");
+} = require("../../../../MultiGuild/core/tenantGuildSettings") as typeof import("../../../../MultiGuild/core/tenantGuildSettings");
 
 const QUOTE_DISABLED_MESSAGE = "Le quote sono disattivate su questo server.";
 

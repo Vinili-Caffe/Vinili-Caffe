@@ -12,6 +12,23 @@ function musicHooks() {
   return getMusicBotHooks();
 }
 
+function clearActiveBotVoiceSession(guildId?) {
+  const coffee = musicHooks()?.profile === "coffee";
+  const { getVoiceSessionService } = require("../../voice/voiceSessionService") as typeof import("../../voice/voiceSessionService");
+  getVoiceSessionService({
+    snapshotPath: path.join(
+      __dirname,
+      "..",
+      "..",
+      "..",
+      coffee ? "Caffè" : "Vinili",
+      "Data",
+      "voiceSessionSnapshot.json",
+    ),
+    snapshotKey: coffee ? "coffee_voice_sessions" : "vinyls_voice_sessions",
+  }).clearVoiceSession(guildId);
+}
+
 async function musicPurgeTts(guildId?, client?) {
   const h = musicHooks();
   if (typeof h.purgeTtsVoicePersistence === "function") {
@@ -293,8 +310,11 @@ async function clearBlockingNativeVoiceForMusic(guildId?, client?) {
       await (musicStopCapture as any)(gid, client).catch(() => {});
     } catch (_) {}
     try {
-      const { clearVoiceSession } = require("../../../Vinili/Community/services/voiceSessionService") as typeof import("../../../Vinili/Community/services/voiceSessionService");
-      clearVoiceSession(gid);
+      const { getVoiceSessionService } = require("../../voice/voiceSessionService") as typeof import("../../voice/voiceSessionService");
+      getVoiceSessionService({
+        snapshotPath: require("path").join(__dirname, "..", "..", "..", "Vinili", "Data", "voiceSessionSnapshot.json"),
+        snapshotKey: "vinyls_voice_sessions",
+      }).clearVoiceSession(gid);
     } catch (_) {}
     try {
       const leftover = getVoiceConnection(gid);
@@ -424,8 +444,11 @@ async function handleMusicBotVoiceDisconnect(client?, guild?) {
   if (!intentional && !keepForResume) {
     await musicPurgeTts(gid, client).catch(() => {});
     try {
-      const { clearVoiceSession } = require("../../../Vinili/Community/services/voiceSessionService") as typeof import("../../../Vinili/Community/services/voiceSessionService");
-      clearVoiceSession(gid);
+      const { getVoiceSessionService } = require("../../voice/voiceSessionService") as typeof import("../../voice/voiceSessionService");
+      getVoiceSessionService({
+        snapshotPath: require("path").join(__dirname, "..", "..", "..", "Vinili", "Data", "voiceSessionSnapshot.json"),
+        snapshotKey: "vinyls_voice_sessions",
+      }).clearVoiceSession(gid);
     } catch (_) {}
   }
 }
@@ -453,7 +476,7 @@ async function destroyGhostMusicStateIfBotNotInVoice(client?, guild?) {
   if (!stale) return;
   endListeners.delete(gid);
   guildQueues.delete(gid);
-  try {
+export = { nativeVoiceChannelId, musicHooks, musicPurgeTts, musicLeaveTts, clearActiveBotVoiceSession, guildQueues, endListeners, lastMusicEndHandledByGuild, musicIdleSince, MUSIC_QUEUE_SNAPSHOT_PATH, serializeEncodedLabelRows, mergeSessionSnapshotFromLivePlayer, getGuildMusicVoiceChannelId, guildMusicSessionBlocksOtherVoiceChannels, assertMusicCommandAllowed, guildHasMusicVoiceResumeHint, persistMusicQueueSnapshotNow, getShardIdForGuild, getShoukakuVoiceConnectionTimeoutSeconds, musicJoinVoiceChannelErrorMessage, clearBlockingNativeVoiceForMusic, markMusicVoiceLeaveIntentional, leaveMusicVoiceChannelMarked, handleMusicBotVoiceDisconnect, destroyGhostMusicStateIfBotNotInVoice };
     if (player) await player.destroy();
   } catch (_) {}
   try {

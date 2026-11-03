@@ -1,6 +1,6 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, AuditLogEvent, PermissionsBitField, } = require("discord.js") as typeof import("discord.js");
-const { closeOpenTicketsForGuildUser } = require("../../MultiGuild/tickets/discord/ticketCloseRuntime") as typeof import("../../MultiGuild/tickets/discord/ticketCloseRuntime");
-const { autoUnclaimOpenTicketsClaimedByUser } = require("../../MultiGuild/tickets/discord/ticketAutoUnclaimOnStaffLoss") as typeof import("../../MultiGuild/tickets/discord/ticketAutoUnclaimOnStaffLoss");
+const { closeOpenTicketsForGuildUser } = require("../../../MultiGuild/tickets/discord/ticketCloseRuntime") as typeof import("../../../MultiGuild/tickets/discord/ticketCloseRuntime");
+const { autoUnclaimOpenTicketsClaimedByUser } = require("../../../MultiGuild/tickets/discord/ticketAutoUnclaimOnStaffLoss") as typeof import("../../../MultiGuild/tickets/discord/ticketAutoUnclaimOnStaffLoss");
 const { ActivityUserProfile, UserLeaveBackup } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
 const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { getGuildChannelCached, getClientGuildCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
@@ -26,7 +26,7 @@ const { identityFromMember } = require("../../site/staff/siteStaffRosterCache") 
 
 function isViniliFullFeatureGuild(guildId?) {
   try {
-    const { isViniliFullFeatureGuild: check } = require("../../MultiGuild/core/guildFeatureScope") as typeof import("../../MultiGuild/core/guildFeatureScope");
+    const { isViniliFullFeatureGuild: check } = require("../../../MultiGuild/core/guildFeatureScope") as typeof import("../../../MultiGuild/core/guildFeatureScope");
     return check(guildId);
   } catch {
     return true;
@@ -720,7 +720,7 @@ export = {
         });
         let autoCloseOnLeaveTenant = true;
         try {
-          const { getTicketSettingsSync } = require("../../MultiGuild/tickets/tenant/tenantTicketSettings") as typeof import("../../MultiGuild/tickets/tenant/tenantTicketSettings");
+          const { getTicketSettingsSync } = require("../../../MultiGuild/tickets/tenant/tenantTicketSettings") as typeof import("../../../MultiGuild/tickets/tenant/tenantTicketSettings");
           autoCloseOnLeaveTenant =
             getTicketSettingsSync(member.guild.id)?.autoCloseOnUserLeave !== false;
         } catch (_) {
@@ -783,7 +783,7 @@ export = {
 
       let autoCloseOnLeave = true;
       try {
-        const { getTicketSettingsSync } = require("../../MultiGuild/tickets/tenant/tenantTicketSettings") as typeof import("../../MultiGuild/tickets/tenant/tenantTicketSettings");
+        const { getTicketSettingsSync } = require("../../../MultiGuild/tickets/tenant/tenantTicketSettings") as typeof import("../../../MultiGuild/tickets/tenant/tenantTicketSettings");
         autoCloseOnLeave = getTicketSettingsSync(guild.id)?.autoCloseOnUserLeave !== false;
       } catch (_) {
         autoCloseOnLeave = true;

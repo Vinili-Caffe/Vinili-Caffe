@@ -1,11 +1,11 @@
 /** Ticket dal sito: ruoli dello staff, chi vede quali categorie, chi può scrivere o gestire. */
 const IDs: any = require("../../Config/ids") as typeof import("../../Config/ids");
-const { WEB_TICKET_CATEGORIES, WEB_TICKET_STATUS } = require("../../MultiGuild/tickets/data/siteWebTicketSchemas") as typeof import("../../MultiGuild/tickets/data/siteWebTicketSchemas");
+const { WEB_TICKET_CATEGORIES, WEB_TICKET_STATUS } = require("../../../MultiGuild/tickets/data/siteWebTicketSchemas") as typeof import("../../../MultiGuild/tickets/data/siteWebTicketSchemas");
 const { memberHasStaffRole } = require("../../Community/utils/staffListUtils") as typeof import("../../Community/utils/staffListUtils");
 const { avatarForMember, normalizeCategory } = require("./ticketNames") as typeof import("./ticketNames");
-const { hasStaffTicketRole } = require("../../MultiGuild/tickets/discord/ticketStaffPanelBuild") as typeof import("../../MultiGuild/tickets/discord/ticketStaffPanelBuild");
-const { memberIsResocontoPmReviewer } = require("../../MultiGuild/tickets/discord/ticketPartnershipStaffRoles") as typeof import("../../MultiGuild/tickets/discord/ticketPartnershipStaffRoles");
-const { canClaimTicket } = require("../../MultiGuild/tickets/discord/ticketStaffRuntime") as typeof import("../../MultiGuild/tickets/discord/ticketStaffRuntime");
+const { hasStaffTicketRole } = require("../../../MultiGuild/tickets/discord/ticketStaffPanelBuild") as typeof import("../../../MultiGuild/tickets/discord/ticketStaffPanelBuild");
+const { memberIsResocontoPmReviewer } = require("../../../MultiGuild/tickets/discord/ticketPartnershipStaffRoles") as typeof import("../../../MultiGuild/tickets/discord/ticketPartnershipStaffRoles");
+const { canClaimTicket } = require("../../../MultiGuild/tickets/discord/ticketStaffRuntime") as typeof import("../../../MultiGuild/tickets/discord/ticketStaffRuntime");
 const { getPartnerManagerRoleId } = require("../../Partner/core/partnershipConfigResolver") as typeof import("../../Partner/core/partnershipConfigResolver");
 const { memberIsHighStaffEligible } = require("../../Staff/utils/staffRoleHierarchy") as typeof import("../../Staff/utils/staffRoleHierarchy");
 

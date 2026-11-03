@@ -1,4 +1,4 @@
-﻿const BotState = require("../schemas/botState/botStateSchema");
+const BotState = require("../schemas/botState/botStateSchema");
 const { isMongoReady } = require("../db/mongoConnect") as typeof import("../db/mongoConnect");
 
 const { COMPACT_BOTSTATE_KEY } = BotState;

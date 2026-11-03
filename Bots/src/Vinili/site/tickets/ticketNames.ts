@@ -1,10 +1,10 @@
 /** Ticket dal sito: nomi, etichette, categorie, avatar e nome del canale. */
 const IDs: any = require("../../Config/ids") as typeof import("../../Config/ids");
-const { WEB_TICKET_CATEGORIES } = require("../../MultiGuild/tickets/data/siteWebTicketSchemas") as typeof import("../../MultiGuild/tickets/data/siteWebTicketSchemas");
+const { WEB_TICKET_CATEGORIES } = require("../../../MultiGuild/tickets/data/siteWebTicketSchemas") as typeof import("../../../MultiGuild/tickets/data/siteWebTicketSchemas");
 const { guildMemberDisplayAvatarUrlDynamic, guildMemberDisplayAvatarUrlStatic, sitePreferredAvatarUrl } = require("../../../shared/discord/guildDiscordIdentity") as typeof import("../../../shared/discord/guildDiscordIdentity");
 const { resolveSiteAvatarUrl } = require("../http/siteLiveAvatars") as typeof import("../http/siteLiveAvatars");
-const { getTicketPanelConfig } = require("../../MultiGuild/tickets/discord/ticketPanelConfig") as typeof import("../../MultiGuild/tickets/discord/ticketPanelConfig");
-const { buildTicketChannelName, sanitizeTicketChannelTail } = require("../../MultiGuild/tickets/discord/ticketNamingRuntime") as typeof import("../../MultiGuild/tickets/discord/ticketNamingRuntime");
+const { getTicketPanelConfig } = require("../../../MultiGuild/tickets/discord/ticketPanelConfig") as typeof import("../../../MultiGuild/tickets/discord/ticketPanelConfig");
+const { buildTicketChannelName, sanitizeTicketChannelTail } = require("../../../MultiGuild/tickets/discord/ticketNamingRuntime") as typeof import("../../../MultiGuild/tickets/discord/ticketNamingRuntime");
 
 const CATEGORY_LABELS = Object.freeze({
   supporto: "Supporto",
@@ -240,7 +240,7 @@ async function resolveWebTicketCategories(guildId?) {
   const gid = String(guildId || "").trim();
   if (!gid) return defaults;
   try {
-    const { getGuildPanels } = require("../../MultiGuild/tickets/tenant/tenantTicketPanels") as typeof import("../../MultiGuild/tickets/tenant/tenantTicketPanels");
+    const { getGuildPanels } = require("../../../MultiGuild/tickets/tenant/tenantTicketPanels") as typeof import("../../../MultiGuild/tickets/tenant/tenantTicketPanels");
     const bucket = await getGuildPanels(gid);
     const byType = new Map();
     const put = (type?, title?, content?) => {

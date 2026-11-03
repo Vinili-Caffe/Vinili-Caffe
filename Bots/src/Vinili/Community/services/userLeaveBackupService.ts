@@ -6,6 +6,7 @@ const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { isCommunicationTimeoutActive, hasPendingMuteMirrorSnapshot, shouldDeferRoleRestoreForMuteMirror } = require("../../Moderation/services/mutedMirrorRoleService") as typeof import("../../Moderation/services/mutedMirrorRoleService");
 const { filterRoleIdsEligibleForRejoinRestore, sanitizeConditionalRolesAfterRejoin, resetBoostSlotsIfNotBoosting } = require("../utils/rejoinConditionalRoleEligibility") as typeof import("../utils/rejoinConditionalRoleEligibility");
 const { applyTenureForMember } = require("./communityOpsService") as typeof import("./communityOpsService");
+const { shouldStartExternalWorkerLoop } = require("../../../shared/runtime/externalWorkerGate") as typeof import("../../../shared/runtime/externalWorkerGate");
 const TENURE_RESTORE_EXCLUDED_ROLE_IDS = new Set(
   [IDs.roles?.NuovoUtente, IDs.roles?.Veterano, IDs.roles?.OG].filter(Boolean).map((id?) => String(id)),
 );
@@ -418,6 +419,7 @@ async function purgeDueStaffGraceProfiles(client = null) {
 }
 
 function startStaffGracePurgeLoop(client?) {
+  if (!shouldStartExternalWorkerLoop("BOT_SCHEDULER")) return null;
   if (!client || client._staffGracePurgeInterval) return;
   const tick = () => purgeDueStaffGraceProfiles(client).catch(() => null);
   tick();

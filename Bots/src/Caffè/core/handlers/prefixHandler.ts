@@ -4,33 +4,8 @@ const path = require("path") as typeof import("path");
 
 const {
   ensurePrefixSubcommandMetadata,
+  ensurePrefixUsageMetadata,
 } = require("../../../shared/runtime/prefixSubcommandMetadata") as typeof import("../../../shared/runtime/prefixSubcommandMetadata");
-
-function ensurePrefixUsageMetadata(command?, prefix = ",") {
-  const name = String(command ?. name || "").trim().toLowerCase();
-  if (!name) return;
-
-  const subs = Array.isArray(command ?. subcommands)? command.subcommands.map((sub?)=>String(sub || "").trim().toLowerCase(),).filter(Boolean):[];
-
-  const usage = String(command ?. usage || "").trim()||(subs.length ? Boolean(command ?. allowEmptyArgs)?`${prefix}${name} [${subs.slice(0,8).join(" | ")}]`:`${prefix}${name} <${subs.slice(0,8).join(" | ")}>`:Boolean(command ?. args)?`${prefix}${name} <opzioni>`:`${prefix}${name}`);
-  command.usage = usage;
-
-  const examples = Array.isArray(command ?. examples)&& command.examples.some((item?)=>String(item || "").trim())? command.examples:subs.length >=2?[`${prefix}${name} ${subs[0]}`,`${prefix}${name} ${subs[1]}`]:subs.length ===1?[`${prefix}${name} ${subs[0]}`,`${prefix}${name}`]:Boolean(command ?. args)?[`${prefix}${name} esempio`]:[`${prefix}${name}`];
-  command.examples = examples;
-
-  if (
-    !command.subcommandUsages ||
-    typeof command.subcommandUsages !== "object" ||
-    Array.isArray(command.subcommandUsages)
-  ) {
-    command.subcommandUsages = {};
-  }
-  for (const sub of subs) {
-    if (!String(command.subcommandUsages[sub] || "").trim()) {
-      command.subcommandUsages[sub] = `${prefix}${name} ${sub} ...`;
-    }
-  }
-}
 
 export = (client?) => {
   client.prefixCommands = async (folders = [], basePath?) => {
@@ -87,7 +62,11 @@ export = (client?) => {
     }
 
     try {
-      const voiceSession = require("../../Voice/services/voiceSessionService") as typeof import("../../Voice/services/voiceSessionService");
+      const { getVoiceSessionService } = require("../../../shared/voice/voiceSessionService") as typeof import("../../../shared/voice/voiceSessionService");
+      const voiceSession = getVoiceSessionService({
+        snapshotPath: path.join(__dirname, "..", "..", "Data", "voiceSessionSnapshot.json"),
+        snapshotKey: "coffee_voice_sessions",
+      });
       const { buildTtsCommands } = require("../../../shared/tts/discord/prefixCommands") as typeof import("../../../shared/tts/discord/prefixCommands");
       const sharedTts = buildTtsCommands({
         prefix: runtimePrefix || ",",
@@ -112,7 +91,7 @@ export = (client?) => {
     }
 
     try {
-      const { buildMusicListPayload } = require("../../../shared/music/discord/musicListUiRuntime") as typeof import("../../../shared/music/discord/musicListUiRuntime");
+      const { buildMusicListPayload } = require("../../../shared/music/discord/buttons/musicListUi") as typeof import("../../../shared/music/discord/buttons/musicListUi");
       const { buildMusicControlCommands } = require("../../../shared/music/discord/prefixControls") as typeof import("../../../shared/music/discord/prefixControls");
       const { buildMusicViewCommands } = require("../../../shared/music/discord/prefixViews") as typeof import("../../../shared/music/discord/prefixViews");
       const sharedMusic = [

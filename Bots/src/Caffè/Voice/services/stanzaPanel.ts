@@ -2,7 +2,7 @@
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, EmbedBuilder, OverwriteType, PermissionsBitField } = require("discord.js") as typeof import("discord.js");
 const fs = require("fs") as typeof import("fs");
 const IDs: any = require("../../Config/ids") as typeof import("../../Config/ids");
-const { CustomRole } = require("../../../shared/schemas/communitySchemas") as typeof import("../../../shared/schemas/communitySchemas");
+const { CustomRole } = require("../../../Vinili/Community/schemas/communitySchemas") as typeof import("../../../Vinili/Community/schemas/communitySchemas");
 const { stanzaChannelMeta, parseStanzaVoiceName } = require("./stanzaPlacement") as typeof import("./stanzaPlacement");
 const { MAIN_GUILD_ID, stanzaVoiceStatusByChannelId, stanzaBotRenameUntil, STANZA_DEFAULT_EMOJI, STANZA_SNAPSHOT_VERSION, STANZA_SNAPSHOT_PATH, normalizeStanzaDiscordUserId, sanitizeStanzaMetaViceUserId, isCanonicalStanzaVoiceName, resolveEnforcedStanzaVoiceName, rememberStanzaVoiceChannelStatus, ensureStanzaSilencedUserIds, persistStanzaSnapshotNow } = require("./stanzaNames") as typeof import("./stanzaNames");
 const { ownerKey, flushStanzaVisitorVoiceSessionsForChannel } = require("./stanzaVisitors") as typeof import("./stanzaVisitors");

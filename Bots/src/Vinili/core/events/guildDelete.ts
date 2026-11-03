@@ -1,6 +1,6 @@
 const { clearGuildState } = require("../../Moderation/services/joinRaidService") as typeof import("../../Moderation/services/joinRaidService");
-const { isMultiGuildLayerEnabled } = require("../../MultiGuild/core/env") as typeof import("../../MultiGuild/core/env");
-const { isViniliProtectedGuild } = require("../../MultiGuild/core/viniliProtectedGuilds") as typeof import("../../MultiGuild/core/viniliProtectedGuilds");
+const { isMultiGuildLayerEnabled } = require("../../../MultiGuild/core/env") as typeof import("../../../MultiGuild/core/env");
+const { isViniliProtectedGuild } = require("../../../MultiGuild/core/viniliProtectedGuilds") as typeof import("../../../MultiGuild/core/viniliProtectedGuilds");
 const { handleTenantGuildBotRemoved } = require("../../Partner/services/tenantPartnershipLeaveService") as typeof import("../../Partner/services/tenantPartnershipLeaveService");
 
 export = {

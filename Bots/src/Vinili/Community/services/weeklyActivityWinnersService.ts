@@ -8,6 +8,7 @@ const { ROYALE_MINIGAME_ROLE_ID, syncRoyaleMinigameTotalRole } = require("./winn
 const { cleanupExpiredMonthlyVoterRewards, reconcileDuplicateActiveMonthlyRewardRoles, cleanupExpiredMonthlyTopRewards } = require("./winnersMonthlyRewards") as typeof import("./winnersMonthlyRewards");
 const { publishWeeklyActivityWinners, resetWeeklyActivityCounters } = require("./winnersWeekly") as typeof import("./winnersWeekly");
 const { publishMonthlyActivityWinners } = require("./winnersMonthly") as typeof import("./winnersMonthly");
+const { shouldStartExternalWorkerLoop } = require("../../../shared/runtime/externalWorkerGate") as typeof import("../../../shared/runtime/externalWorkerGate");
 
 
 const INFO_CHANNEL_ID = IDs.channels.info;
@@ -25,6 +26,7 @@ function scheduleRoyaleMinigameRoleSync(client?, delayMs = 45_000) {
 
 let weeklyActivityWinnersLoopStarted = false;
 function startWeeklyActivityWinnersLoop(client?) {
+  if (!shouldStartExternalWorkerLoop("COMMUNITY_POLL")) return null;
   if (weeklyActivityWinnersLoopStarted) return;
   weeklyActivityWinnersLoopStarted = true;
   cron.schedule(

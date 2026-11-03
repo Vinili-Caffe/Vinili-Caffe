@@ -23,9 +23,8 @@ const { sweepExpiredCommunicationTimeoutMirrors, reconcileIncompleteActiveMuteMi
 const { sweepStalePreMemberRoles } = require("../../Community/utils/preMemberRoleService") as typeof import("../../Community/utils/preMemberRoleService");
 const { sendBannedUnbanLinkDms, shouldRunBannedUnbanDmOnStartup } = require("../../Moderation/services/bannedUnbanDmService") as typeof import("../../Moderation/services/bannedUnbanDmService");
 const { rehydrateAntiNukePanicForGuild } = require("../../Security/services/antiNukeService") as typeof import("../../Security/services/antiNukeService");
-const { isViniliFullFeatureGuild } = require("../../MultiGuild/core/guildFeatureScope") as typeof import("../../MultiGuild/core/guildFeatureScope");
+const { isViniliFullFeatureGuild } = require("../../../MultiGuild/core/guildFeatureScope") as typeof import("../../../MultiGuild/core/guildFeatureScope");
 const { syncLiveVoiceSessionsFromGateway, startLiveVoiceExpLoop, } = require("../../Community/services/activityService") as typeof import("../../Community/services/activityService");
-const { syncPmVoiceAfkWatchFromGateway } = require("../../Staff/services/pmVoiceAfkWatchService") as typeof import("../../Staff/services/pmVoiceAfkWatchService");
 const { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop, } = require("../../Community/services/customRoleExpiryService") as typeof import("../../Community/services/customRoleExpiryService");
 const { startDailyPartnerAuditLoop, } = require("../../Partner/services/partnerAuditService") as typeof import("../../Partner/services/partnerAuditService");
 const { syncPartnerDescription } = require("../../Partner/services/partnerDescriptionSyncService") as typeof import("../../Partner/services/partnerDescriptionSyncService");
@@ -33,7 +32,7 @@ const { syncAllTenantPartnerDescriptions } = require("../../Partner/services/ten
 const { startStaffChatThreadsLoop } = require("../../Staff/services/staffChatThreadsService") as typeof import("../../Staff/services/staffChatThreadsService");
 const { startStaffCmdsThreadsLoop } = require("../../Staff/services/staffCmdsThreadsService") as typeof import("../../Staff/services/staffCmdsThreadsService");
 const { startPublicVoiceHubSetup } = require("../../Community/services/publicVoiceHubService") as typeof import("../../Community/services/publicVoiceHubService");
-const { startTicketAutoClosePromptLoop, startTranscriptCleanupLoop, } = require("../../MultiGuild/tickets/transcript/ticketMaintenanceService") as typeof import("../../MultiGuild/tickets/transcript/ticketMaintenanceService");
+const { startTicketAutoClosePromptLoop, startTranscriptCleanupLoop, } = require("../../../MultiGuild/tickets/transcript/ticketMaintenanceService") as typeof import("../../../MultiGuild/tickets/transcript/ticketMaintenanceService");
 const { startAutoBackupLoop } = require("../../Backup/services/autoBackupService") as typeof import("../../Backup/services/autoBackupService");
 const { startModCaseLifecycleLoop } = require("../../Moderation/services/modCaseLifecycleService") as typeof import("../../Moderation/services/modCaseLifecycleService");
 const { startWeeklyStaffResocontoLoop } = require("../../Staff/services/weeklyStaffResocontoService") as typeof import("../../Staff/services/weeklyStaffResocontoService");
@@ -63,8 +62,8 @@ const guildMemberAddExtras = require("../../Community/events/guildMemberAdd") as
 const { recoverDonationPackageAnnouncesOnStartup } = require("../../Community/utils/donationPackageSupportersAnnounce") as typeof import("../../Community/utils/donationPackageSupportersAnnounce");
 const { recoverManualSocialRoleAnnouncesOnStartup } = require("../../Community/utils/manualSocialRoleAnnounceAndPicPerms") as typeof import("../../Community/utils/manualSocialRoleAnnounceAndPicPerms");
 const { reconcilePatronRolesOnStartup, recoverPatronAnnouncesOnStartup } = require("../../Community/utils/patronRoleService") as typeof import("../../Community/utils/patronRoleService");
-const { revokeAllPremiumBySource } = require("../../MultiGuild/core/tenantPremium") as typeof import("../../MultiGuild/core/tenantPremium");
-const { startPremiumExpiryReminderLoop } = require("../../MultiGuild/services/premiumExpiryReminderService") as typeof import("../../MultiGuild/services/premiumExpiryReminderService");
+const { revokeAllPremiumBySource } = require("../../../MultiGuild/core/tenantPremium") as typeof import("../../../MultiGuild/core/tenantPremium");
+const { startPremiumExpiryReminderLoop } = require("../../../MultiGuild/services/premiumExpiryReminderService") as typeof import("../../../MultiGuild/services/premiumExpiryReminderService");
 const { recoverLevelMilestoneSupportersAnnouncesOnStartup } = require("../../Community/utils/levelMilestoneSupportersAnnounceEmbeds") as typeof import("../../Community/utils/levelMilestoneSupportersAnnounceEmbeds");
 const startupPanelsTrigger = require("../../Community/discord/panels/startupPanels") as typeof import("../../Community/discord/panels/startupPanels");
 const { queueIdsCatalogSync } = require("../../Config/idsAutoSync") as typeof import("../../Config/idsAutoSync");
@@ -511,7 +510,7 @@ function buildDeferredStartupTasks(client?, primaryScheduler?, engagementTick?) 
     {
       label: "custom role expiry sweep",
       weight: 52,
-      enabled: primaryScheduler,
+      enabled: primaryScheduler && String(process.env.BOT_SCHEDULER_EXTERNAL || "").trim() !== "1",
       run: () => runExpiredCustomRolesSweep(client),
     },
     {
@@ -533,7 +532,10 @@ function buildDeferredStartupTasks(client?, primaryScheduler?, engagementTick?) 
       /* perfP2: indici anche senza FULL_STARTUP_SYNC (claim atomico settimanale) */
       label: "ensure MongoDB indexes (weekly / full sync)",
       weight: 76,
-      enabled: primaryScheduler && (fullSync || isStartupThrottleDue(STARTUP_THROTTLE_NS, "mongo-indexes", 7 * 24 * 60 * 60 * 1000).due),
+      enabled:
+        primaryScheduler &&
+        String(process.env.BOT_SCHEDULER_EXTERNAL || "").trim() !== "1" &&
+        (fullSync || isStartupThrottleDue(STARTUP_THROTTLE_NS, "mongo-indexes", 7 * 24 * 60 * 60 * 1000).due),
       run: async () => {
         const { tryClaimStartupWork } = require("../../../shared/runtime/startupThrottleCache") as typeof import("../../../shared/runtime/startupThrottleCache");
         const claim = tryClaimStartupWork(STARTUP_THROTTLE_NS, "mongo-indexes", 7 * 24 * 60 * 60 * 1000);
@@ -813,7 +815,7 @@ async function processPendingPrefixCommands(client?) {
     global.logger?.warn?.("[READY] prefix queue restore:", err?.message || err);
   }
   const { getCachedOrFetchMember } = require("../../Community/services/officialMessageAutomationHandlers") as typeof import("../../Community/services/officialMessageAutomationHandlers");
-  const { resolveCommandPrefixForGuildFresh } = require("../../MultiGuild/core/tenantGuildSettings") as typeof import("../../MultiGuild/core/tenantGuildSettings");
+  const { resolveCommandPrefixForGuildFresh } = require("../../../MultiGuild/core/tenantGuildSettings") as typeof import("../../../MultiGuild/core/tenantGuildSettings");
   const { PermissionFlagsBits } = require("discord.js") as typeof import("discord.js");
   const fallbackPrefix = String(client?.config?.prefix || "+").trim();
   const hasAnyStaffBypassPermission = (permissions?) => permissions && typeof permissions.has === "function" && [PermissionFlagsBits.Administrator, PermissionFlagsBits.ManageGuild, PermissionFlagsBits.ManageChannels, PermissionFlagsBits.ManageRoles, PermissionFlagsBits.ManageMessages, PermissionFlagsBits.KickMembers, PermissionFlagsBits.BanMembers, PermissionFlagsBits.ModerateMembers].some((p?) => permissions.has(p));
@@ -981,11 +983,10 @@ async function restoreBumpReminders(client?) {
 }
 
 async function restoreCoreStartupState(client?) {
-  const [bootstrap, inviteCache, liveVoiceSync, pmAfkWatchSync, joinRaidRestore] = await Promise.allSettled([
+  const [bootstrap, inviteCache, liveVoiceSync, joinRaidRestore] = await Promise.allSettled([
     bootstrapSupporter(client),
     primeInviteCache(client),
     syncLiveVoiceSessionsFromGateway(client),
-    syncPmVoiceAfkWatchFromGateway(client),
     Promise.allSettled(
       [...client.guilds.cache.values()]
         .filter((guild?) => isViniliFullFeatureGuild(guild.id))
@@ -999,8 +1000,6 @@ async function restoreCoreStartupState(client?) {
     global.logger?.error?.("[INVITE CACHE] Failed to prime:", inviteCache.reason);
   if (liveVoiceSync.status === "rejected")
     global.logger?.error?.("[VOICE LIVE SYNC ERROR]", liveVoiceSync.reason);
-  if (pmAfkWatchSync.status === "rejected")
-    global.logger?.error?.("[PM AFK WATCH] Sync fallita:", pmAfkWatchSync.reason);
   if (joinRaidRestore.status === "rejected")
     global.logger?.error?.("[JOIN RAID RESTORE ERROR]", joinRaidRestore.reason);
 
@@ -1185,6 +1184,7 @@ function startPrimaryLoops(client?, engagementTick?) {
     ["[DB MAINTENANCE] Failed to start loop", () => startDbMaintenanceLoop(client)],
     ["[STAFF GRACE PURGE] Failed to start loop", () => startStaffGracePurgeLoop(client)],
     ["[JOIN RAID RESTORE] Failed to start loop", () => {
+      if (String(process.env.BOT_SCHEDULER_EXTERNAL || "").trim() === "1") return;
       const tick = async () => {
         const guilds = [...client.guilds.cache.values()];
         for (const guild of guilds) { await restoreTempBans(guild).catch(() => { }); }
@@ -1230,6 +1230,7 @@ function startPrimaryLoops(client?, engagementTick?) {
     [
       "[PARTNER MANAGER TIMED PERKS] Failed to start loop",
       () => {
+        if (String(process.env.BOT_SCHEDULER_EXTERNAL || "").trim() === "1") return;
         const tick = () => sweepExpiredPartnerManagerTimedPerks(client).catch(() => { });
         tick();
         const timer = setInterval(tick, 5 * 60 * 1000);
@@ -1475,6 +1476,7 @@ export = {
       }
     }
 
+    /* Serve GuildMembers sul gateway — non spostare su bot-workers REST. */
     const cleanupDisabled = String(process.env.CLEANUP_USERS_NOT_IN_SERVER_ON_STARTUP || "1").trim().toLowerCase() === "0";
     if (!cleanupDisabled && (isFullStartupSyncEnabled() || shouldRunMediumStartup("cleanup-users", CLEANUP_USERS_NOT_IN_SERVER_INTERVAL_MS || 24 * 60 * 60 * 1000))) {
       const t = setTimeout(() => {

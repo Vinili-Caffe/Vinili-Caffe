@@ -2,7 +2,7 @@ const { EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder, StringSelectMen
 const { resolvePartnershipConfigSync } = require("../core/partnershipConfigResolver") as typeof import("../core/partnershipConfigResolver");
 const { formatPingDelayDisplay, formatPingDelayForInput, formatPingMemberThresholdForInput } = require("./partnershipPingUtils") as typeof import("./partnershipPingUtils");
 const { hasThankYouEmbedContent, resolveThankYouEmbedEditorValues, truncateModalValue, formatThankYouEmbedValueForModal } = require("./partnershipThankYouEmbed") as typeof import("./partnershipThankYouEmbed");
-const { applyPartnershipPayloadBranding, TENANT_EMBED_COLOR } = require("../../MultiGuild/utils/tenantEmbedBranding") as typeof import("../../MultiGuild/utils/tenantEmbedBranding");
+const { applyPartnershipPayloadBranding, TENANT_EMBED_COLOR } = require("../../../MultiGuild/utils/tenantEmbedBranding") as typeof import("../../../MultiGuild/utils/tenantEmbedBranding");
 const { applyLocalizedTenantFooter } = require("../../Partner/i18n/tenantPartnershipI18n/tenantPartnershipFooter") as typeof import("../../Partner/i18n/tenantPartnershipI18n/tenantPartnershipFooter");
 const { t } = require("../../Partner/i18n/tenantPartnershipI18n/index") as typeof import("../../Partner/i18n/tenantPartnershipI18n/index");
 const { TENANT_PARTNERSHIP_ARROWS } = require("../../Partner/tenant/tenantPartnershipArrows") as typeof import("../../Partner/tenant/tenantPartnershipArrows");

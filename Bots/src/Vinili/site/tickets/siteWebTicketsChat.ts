@@ -1,6 +1,6 @@
 
 const mongoose = require("mongoose") as typeof import("mongoose");
-const { WEB_TICKET_STATUS, SiteWebTicketMessage } = require("../../MultiGuild/tickets/data/siteWebTicketSchemas") as typeof import("../../MultiGuild/tickets/data/siteWebTicketSchemas");
+const { WEB_TICKET_STATUS, SiteWebTicketMessage } = require("../../../MultiGuild/tickets/data/siteWebTicketSchemas") as typeof import("../../../MultiGuild/tickets/data/siteWebTicketSchemas");
 const { displayNameForMember, avatarForMember, sanitizeText } = require("./ticketNames") as typeof import("./ticketNames");
 const { resolveStaffRoleForMember, resolveCommunityRoleForMember, memberIsHighStaff, buildTicketPermissions } = require("./ticketStaffAccess") as typeof import("./ticketStaffAccess");
 const { resolveTicketMentionScope, memberCanViewChannelId } = require("./ticketMentions") as typeof import("./ticketMentions");

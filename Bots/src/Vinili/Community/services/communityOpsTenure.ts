@@ -5,6 +5,7 @@ const { addRolesAndGetMember, getClientGuildCached, getGuildMemberCached } = req
 const { ActivityUserProfile } = require("../schemas/communitySchemas") as typeof import("../schemas/communitySchemas");
 const IDs: any = require("../../Config/ids") as typeof import("../../Config/ids");
 const { getEffectiveJoinedAt } = require("./effectiveMemberJoinService") as typeof import("./effectiveMemberJoinService");
+const { shouldStartExternalWorkerLoop } = require("../../../shared/runtime/externalWorkerGate") as typeof import("../../../shared/runtime/externalWorkerGate");
 
 const MAIN_GUILD_ID = IDs.guilds.main;
 const ROLE_STAGE_1 = IDs.roles.NuovoUtente;
@@ -176,6 +177,7 @@ async function runTenureSweep(client?) {
 }
 
 function startVerificationTenureLoop(client?) {
+  if (!shouldStartExternalWorkerLoop("COMMUNITY_POLL")) return null;
   if (verificationTenureLoopHandle) return verificationTenureLoopHandle;
   verificationTenureLoopHandle = setInterval(
     () => {

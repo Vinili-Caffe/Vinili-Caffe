@@ -12,7 +12,7 @@ const {
 } = require("../schemas/communitySchemas") as typeof import("../schemas/communitySchemas");
 
 const COUNTING_RESTORE_DOC_TYPE = SITE_DOCUMENT_TYPE.COUNTING_RESTORE_TOKEN;
-const { GuildFeatureBucket } = require("../../MultiGuild/schemas/guildFeatureBucketSchema") as typeof import("../../MultiGuild/schemas/guildFeatureBucketSchema");
+const { GuildFeatureBucket } = require("../../../MultiGuild/schemas/guildFeatureBucketSchema") as typeof import("../../../MultiGuild/schemas/guildFeatureBucketSchema");
 const { GuildRepost } = require("../schemas/guildBoardPostSchema") as typeof import("../schemas/guildBoardPostSchema");
 
 /* Log su disco dell'evento Hogwarts (concluso, codice in Bots/archivio): i dati restano, quindi si cancellano su richiesta */

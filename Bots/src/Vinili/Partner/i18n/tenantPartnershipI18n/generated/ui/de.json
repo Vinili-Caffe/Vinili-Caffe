@@ -383,7 +383,6 @@
   "description_usage": "<:vegax:1443934876440068179> Nutze: `+description user <@Nutzer | id>`",
   "description_dmFailed": "<:vegax:1443934876440068179> Ich kann {target} keine DM senden.",
   "description_dmSent": "<:vegacheckmark:1443666279058772028> Beschreibung per DM an {target} gesendet.",
-  "help_cmd_ping_desc": "Zeigt Bot-, Datenbank-Latenz und Uptime.",
   "help_cmd_invite_desc": "Sendet den Link zum Einladen des Bots.",
   "help_cmd_help_desc": "Zeigt alle Befehle oder die Karte eines Befehls.",
   "help_cmd_help_syntax": "(Befehl)",

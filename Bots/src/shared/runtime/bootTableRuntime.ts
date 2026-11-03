@@ -7,11 +7,12 @@ function logBootTable(categories = [], baseDir = process.cwd()) {
   let total = 0;
 
   for (const category of safeCategories) {
-    const absBase = path.resolve(baseDir, category);
+    const absBase = path.isAbsolute(category) ? path.resolve(category) : path.resolve(baseDir, category);
+    const label = path.isAbsolute(category) ? path.basename(absBase) : category;
     const files = listJsFilesRecursive(absBase);
     const count = files.length;
     total += count;
-    summary.push(`${category}: ${count}`);
+    summary.push(`${label}: ${count}`);
   }
 
   if (!summary.length) return;

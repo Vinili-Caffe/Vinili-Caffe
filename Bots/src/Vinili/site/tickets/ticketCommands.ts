@@ -2,7 +2,7 @@
 const mongoose = require("mongoose") as typeof import("mongoose");
 const { ChannelType, Collection, ApplicationCommandType } = require("discord.js") as typeof import("discord.js");
 const IDs: any = require("../../Config/ids") as typeof import("../../Config/ids");
-const { SiteWebTicketMessage } = require("../../MultiGuild/tickets/data/siteWebTicketSchemas") as typeof import("../../MultiGuild/tickets/data/siteWebTicketSchemas");
+const { SiteWebTicketMessage } = require("../../../MultiGuild/tickets/data/siteWebTicketSchemas") as typeof import("../../../MultiGuild/tickets/data/siteWebTicketSchemas");
 const { knownBotDisplayName, buildWebTicketChannelName, sanitizeText, normalizeCategory, resolveGuildId } = require("./ticketNames") as typeof import("./ticketNames");
 const { buildTicketPermissions } = require("./ticketStaffAccess") as typeof import("./ticketStaffAccess");
 const { rememberBotUserId, serializeMessage, refreshTicketLastMessageFields, serializeTicket, previewFromContent, serializeTicketForActor } = require("./ticketSerialize") as typeof import("./ticketSerialize");

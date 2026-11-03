@@ -158,7 +158,7 @@ async function checkButtonPermission(interaction?) {
     const isGiveawayReroll = id.startsWith("giveaway_reroll:");
     if (isGiveawayEnter || isGiveawayReroll) {
       try {
-        const { isTenantFeatureEnabled } = require("../../MultiGuild/core/accessPolicy") as typeof import("../../MultiGuild/core/accessPolicy");
+        const { isTenantFeatureEnabled } = require("../../../MultiGuild/core/accessPolicy") as typeof import("../../../MultiGuild/core/accessPolicy");
         if (isTenantFeatureEnabled(guildId, "giveaway")) {
           if (isGiveawayEnter) {
             return { allowed: true, reason: null, requiredRoles: null, ownerId: null };

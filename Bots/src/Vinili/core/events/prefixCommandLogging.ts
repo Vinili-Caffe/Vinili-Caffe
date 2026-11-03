@@ -1,5 +1,5 @@
-const { logCommandUsage } = require("./interaction/commandUsageLogger") as typeof import("./interaction/commandUsageLogger");
 const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
+const { logCommandUsage } = require("./interactionCreateCommandLogging") as typeof import("./interactionCreateCommandLogging");
 const { createPrefixCommandLogging } = require("../../../shared/discord/createCommandLoggingEvents") as typeof import("../../../shared/discord/createCommandLoggingEvents");
 
 export = createPrefixCommandLogging({

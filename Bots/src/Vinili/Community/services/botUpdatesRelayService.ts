@@ -8,7 +8,7 @@ const {
   listTenantUpdatesTargetsSync,
   setTenantUpdatesWebhook,
   ensureTenantGuildSettingsCacheFresh,
-} = require("../../MultiGuild/core/tenantGuildSettings") as typeof import("../../MultiGuild/core/tenantGuildSettings");
+} = require("../../../MultiGuild/core/tenantGuildSettings") as typeof import("../../../MultiGuild/core/tenantGuildSettings");
 
 const SOURCE_CHANNEL_ID = String(IDs.channels?.botUpdatesSource || "1525817647210561711");
 const WEBHOOK_NAME_FALLBACK = "Vinili";

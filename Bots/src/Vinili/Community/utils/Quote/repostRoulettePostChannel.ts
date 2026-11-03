@@ -1,6 +1,6 @@
-const { isViniliProtectedGuild } = require("../../../MultiGuild/core/viniliProtectedGuilds") as typeof import("../../../MultiGuild/core/viniliProtectedGuilds");
-const { resolveGuildAccess } = require("../../../MultiGuild/core/guildRegistry") as typeof import("../../../MultiGuild/core/guildRegistry");
-const { getTenantChannelMapSync } = require("../../../MultiGuild/core/tenantGuildSettings") as typeof import("../../../MultiGuild/core/tenantGuildSettings");
+const { isViniliProtectedGuild } = require("../../../../MultiGuild/core/viniliProtectedGuilds") as typeof import("../../../../MultiGuild/core/viniliProtectedGuilds");
+const { resolveGuildAccess } = require("../../../../MultiGuild/core/guildRegistry") as typeof import("../../../../MultiGuild/core/guildRegistry");
+const { getTenantChannelMapSync } = require("../../../../MultiGuild/core/tenantGuildSettings") as typeof import("../../../../MultiGuild/core/tenantGuildSettings");
 const { getGuildChannelCached } = require("../../../../shared/discord/interactionEntityCache") as typeof import("../../../../shared/discord/interactionEntityCache");
 const IDs = require("../../../Config/ids") as typeof import("../../../Config/ids");
 

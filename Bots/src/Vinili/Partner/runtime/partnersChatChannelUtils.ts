@@ -1,7 +1,7 @@
 const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
-const Ticket = require("../../MultiGuild/tickets/data/guildFeatureBucketTicketModel");
+const Ticket = require("../../../MultiGuild/tickets/data/guildFeatureBucketTicketModel");
 const { scheduleMessageDeletion, EPHEMERAL_TTL_SHORT_MS } = require("../../../shared/utils/ephemeralMessageTtl") as typeof import("../../../shared/utils/ephemeralMessageTtl");
-const { isViniliFullFeatureGuild } = require("../../MultiGuild/core/guildFeatureScope") as typeof import("../../MultiGuild/core/guildFeatureScope");
+const { isViniliFullFeatureGuild } = require("../../../MultiGuild/core/guildFeatureScope") as typeof import("../../../MultiGuild/core/guildFeatureScope");
 const { getPartnersChatChannelId, getPmCommandsCategoryIds, tenantPmCommandsZoneConfigured, getPartnershipChannelId } = require("../core/partnershipConfigResolver") as typeof import("../core/partnershipConfigResolver");
 const {
   isChannelOrThreadUnderStaffCmds,

@@ -37,8 +37,8 @@ function isAllowedGuildForComponents(guildId?) {
   if (MAIN_GUILD_ID && s === String(MAIN_GUILD_ID)) return true;
   if (ALLOWED_GUILD_IDS.has(s)) return true;
   try {
-    const { isMultiGuildLayerEnabled } = require("../../MultiGuild/core/env") as typeof import("../../MultiGuild/core/env");
-    const { shouldApplyMultiGuildLayer } = require("../../MultiGuild/core/accessPolicy") as typeof import("../../MultiGuild/core/accessPolicy");
+    const { isMultiGuildLayerEnabled } = require("../../../MultiGuild/core/env") as typeof import("../../../MultiGuild/core/env");
+    const { shouldApplyMultiGuildLayer } = require("../../../MultiGuild/core/accessPolicy") as typeof import("../../../MultiGuild/core/accessPolicy");
     if (isMultiGuildLayerEnabled() && shouldApplyMultiGuildLayer(s)) return true;
   } catch {
       }
@@ -93,9 +93,9 @@ function isTenantHelpNavComponentInteraction(customId?) {
 function tryTenantHelpNavComponentBypass(guildId?, customId?) {
   if (!guildId || !isTenantHelpNavComponentInteraction(customId)) return null;
   try {
-    const { isMultiGuildLayerEnabled } = require("../../MultiGuild/core/env") as typeof import("../../MultiGuild/core/env");
-    const { resolveGuildAccess } = require("../../MultiGuild/core/guildRegistry") as typeof import("../../MultiGuild/core/guildRegistry");
-    const { isViniliFullFeatureGuild } = require("../../MultiGuild/core/guildFeatureScope") as typeof import("../../MultiGuild/core/guildFeatureScope");
+    const { isMultiGuildLayerEnabled } = require("../../../MultiGuild/core/env") as typeof import("../../../MultiGuild/core/env");
+    const { resolveGuildAccess } = require("../../../MultiGuild/core/guildRegistry") as typeof import("../../../MultiGuild/core/guildRegistry");
+    const { isViniliFullFeatureGuild } = require("../../../MultiGuild/core/guildFeatureScope") as typeof import("../../../MultiGuild/core/guildFeatureScope");
     if (!isMultiGuildLayerEnabled()) return null;
     if (isViniliFullFeatureGuild(guildId)) return null;
     const access = resolveGuildAccess(guildId);
@@ -114,9 +114,9 @@ function tryTenantHelpNavComponentBypass(guildId?, customId?) {
 function tryTenantManagedComponentBypass(guildId?, customId?, category?) {
   if (!guildId || isAllowedGuildForComponents(guildId)) return null;
   try {
-    const { isMultiGuildLayerEnabled } = require("../../MultiGuild/core/env") as typeof import("../../MultiGuild/core/env");
+    const { isMultiGuildLayerEnabled } = require("../../../MultiGuild/core/env") as typeof import("../../../MultiGuild/core/env");
     if (!isMultiGuildLayerEnabled()) return null;
-    const { canInvokePrefixCommand } = require("../../MultiGuild/core/accessPolicy") as typeof import("../../MultiGuild/core/accessPolicy");
+    const { canInvokePrefixCommand } = require("../../../MultiGuild/core/accessPolicy") as typeof import("../../../MultiGuild/core/accessPolicy");
     const gate = canInvokePrefixCommand(guildId, category);
     if (gate.managed && gate.ok) {
       return { allowed: true, reason: null, requiredRoles: null, ownerId: null };
@@ -266,7 +266,7 @@ async function checkTenantPartnershipSlashAccess(interaction?, options: Record<s
 
 function tryResolveMultiGuildOpenMediaBypass(guildId?, commandName?, options?) {
   try {
-    const { resolveOpenMediaPrefixBypass } = require("../../MultiGuild/core/openMediaCommands") as typeof import("../../MultiGuild/core/openMediaCommands");
+    const { resolveOpenMediaPrefixBypass } = require("../../../MultiGuild/core/openMediaCommands") as typeof import("../../../MultiGuild/core/openMediaCommands");
     return resolveOpenMediaPrefixBypass(guildId, commandName, options);
   } catch (err) {
     global.logger?.warn?.("[commandPermissions] MultiGuild open media bypass:", err?.message || err);
@@ -276,7 +276,7 @@ function tryResolveMultiGuildOpenMediaBypass(guildId?, commandName?, options?) {
 
 function tryResolveMultiGuildTenantPrefixRestriction(guildId?, commandName?, options?) {
   try {
-    const { resolveTenantPrefixRestriction } = require("../../MultiGuild/core/tenantPrefixGate") as typeof import("../../MultiGuild/core/tenantPrefixGate");
+    const { resolveTenantPrefixRestriction } = require("../../../MultiGuild/core/tenantPrefixGate") as typeof import("../../../MultiGuild/core/tenantPrefixGate");
     return resolveTenantPrefixRestriction(guildId, commandName, options);
   } catch (err) {
     global.logger?.warn?.("[commandPermissions] MultiGuild tenant prefix gate:", err?.message || err);

@@ -4,7 +4,8 @@ const { asCacheMap } = require("./restPermissions") as typeof import("./restPerm
 const { wrapUser } = require("./restUserRole") as typeof import("./restUserRole");
 const { wrapChannel } = require("./restMessage") as typeof import("./restMessage");
 const { wrapMember } = require("./restMember") as typeof import("./restMember");
-const { enrichGuildRoles, enrichGuildEmojis, enrichGuildStickers, wrapGuild } = require("./restGuild") as typeof import("./restGuild");
+const { enrichGuildRoles, enrichGuildEmojis, enrichGuildStickers } = require("./restGuildEnrich") as typeof import("./restGuildEnrich");
+const { wrapGuild } = require("./restGuildWrap") as typeof import("./restGuildWrap");
 
 
 async function createSiteApiRestClient(config?, token?, options: Record<string, any> = {}) {

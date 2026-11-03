@@ -3,6 +3,7 @@ const { ChannelType, PermissionsBitField } = require("discord.js") as typeof imp
 const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { ActivityUserProfile } = require("../schemas/communitySchemas") as typeof import("../schemas/communitySchemas");
 const { getClientChannelCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
+const { shouldStartExternalWorkerLoop } = require("../../../shared/runtime/externalWorkerGate") as typeof import("../../../shared/runtime/externalWorkerGate");
 const {
   addToSetDailyStatsValue,
   findDailyStats,
@@ -276,6 +277,7 @@ async function sendDailyEngagementReport(client?, dateKey?, opts: Record<string,
 }
 
 function startDailyEngagementStatsLoop(client?) {
+  if (!shouldStartExternalWorkerLoop("COMMUNITY_POLL")) return null;
   if (!client || dailyEngagementCron) return dailyEngagementCron;
 
   dailyEngagementCron = cron.schedule(

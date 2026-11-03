@@ -2,7 +2,7 @@
 const { ActivityUserProfile } = require("../schemas/communitySchemas") as typeof import("../schemas/communitySchemas");
 const { VOICE_EXP_PER_MINUTE } = require("../../Level/services/expService") as typeof import("../../Level/services/expService");
 const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
-const { isChannelInTicketCategory } = require("../../MultiGuild/tickets/discord/ticketCategoryUtils") as typeof import("../../MultiGuild/tickets/discord/ticketCategoryUtils");
+const { isChannelInTicketCategory } = require("../../../MultiGuild/tickets/discord/ticketCategoryUtils") as typeof import("../../../MultiGuild/tickets/discord/ticketCategoryUtils");
 const { getGuildRoleCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
 const { getLastSunday21BoundaryMsAtOrBefore, buildLast7DaysHourKeys, buildCalendarMonthHourKeys, buildLastHoursHourKeys, hourKeyToBoundsMs, overlapRangeMs } = require("./winnersTime") as typeof import("./winnersTime");
 

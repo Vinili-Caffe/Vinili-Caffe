@@ -17,8 +17,19 @@ const { startModCaseLifecycleLoop } = require("../../Moderation/services/modCase
 const { startCustomRoleExpiryLoop } = require("../../Community/services/customRoleExpiryService") as typeof import("../../Community/services/customRoleExpiryService");
 const { runDueChannelReminders } = require("../../Community/services/channelReminderService") as typeof import("../../Community/services/channelReminderService");
 const { startTenantOfflineRecoveryLoop } = require("../../Partner/services/tenantOfflineRecoveryService") as typeof import("../../Partner/services/tenantOfflineRecoveryService");
-const { isMultiGuildLayerEnabled } = require("../../MultiGuild/core/env") as typeof import("../../MultiGuild/core/env");
+const { isMultiGuildLayerEnabled } = require("../../../MultiGuild/core/env") as typeof import("../../../MultiGuild/core/env");
 const { tickStaffCompitiDeadlines, tickStaffCompitiAssignments } = require("../staff/siteStaffCompitiApi") as typeof import("../staff/siteStaffCompitiApi");
+const { startPremiumExpiryReminderLoop } = require("../../../MultiGuild/services/premiumExpiryReminderService") as typeof import("../../../MultiGuild/services/premiumExpiryReminderService");
+const {
+  startTicketAutoClosePromptLoop,
+  startTranscriptCleanupLoop,
+} = require("../../../MultiGuild/tickets/transcript/ticketMaintenanceService") as typeof import("../../../MultiGuild/tickets/transcript/ticketMaintenanceService");
+const { startWebTicketSlaNotifLoop } = require("../tickets/ticketNotify") as typeof import("../tickets/ticketNotify");
+const { startDbMaintenanceLoop } = require("../../Community/services/dbMaintenanceService") as typeof import("../../Community/services/dbMaintenanceService");
+const { startStaffGracePurgeLoop } = require("../../Community/services/userLeaveBackupService") as typeof import("../../Community/services/userLeaveBackupService");
+const { sweepExpiredPartnerManagerTimedPerks } = require("../../Staff/utils/partnerManagerTimedPerks") as typeof import("../../Staff/utils/partnerManagerTimedPerks");
+const { restoreTempBans } = require("../../Moderation/services/joinRaidService") as typeof import("../../Moderation/services/joinRaidService");
+const { ensureMongoIndexes } = require("../../../shared/db/mongoConnect") as typeof import("../../../shared/db/mongoConnect");
 
 loadDotEnv();
 process.env.BOT_SCHEDULER_WORKER = "1";
@@ -109,10 +120,41 @@ async function main(shared?: { client?: any } | null) {
       minIntervalMs: 5 * 60 * 1000,
       startupDelayMs: 12_000,
     });
+    startPremiumExpiryReminderLoop(client);
+    startTicketAutoClosePromptLoop(client);
+    startTranscriptCleanupLoop();
   }
 
+  startWebTicketSlaNotifLoop(client);
+  startDbMaintenanceLoop(client);
+  startStaffGracePurgeLoop(client);
+
+  const partnerPerksTick = () => sweepExpiredPartnerManagerTimedPerks(client).catch(() => {});
+  partnerPerksTick();
+  const partnerPerksTimer = setInterval(partnerPerksTick, 5 * 60 * 1000);
+  partnerPerksTimer.unref?.();
+
+  const JOIN_RAID_RESTORE_INTERVAL_MS = Number(process.env.JOIN_RAID_RESTORE_INTERVAL_MS) || 10 * 60 * 1000;
+  const joinRaidTick = async () => {
+    const guilds = [...(client.guilds?.cache?.values?.() || [])];
+    for (const guild of guilds) {
+      await restoreTempBans(guild).catch(() => {});
+    }
+  };
+  joinRaidTick().catch(() => {});
+  const joinRaidTimer = setInterval(() => {
+    joinRaidTick().catch(() => {});
+  }, JOIN_RAID_RESTORE_INTERVAL_MS);
+  joinRaidTimer.unref?.();
+
+  ensureMongoIndexes({ reason: "bot_scheduler_worker" }).catch((err?) => {
+    console.warn("[BOT-SCHEDULER] ensureMongoIndexes:", err?.message || err);
+  });
+
+  /* cleanup users-not-in-server resta su bots-vinyls (serve member list gateway; REST worker non ce l'ha) */
+
   console.log(
-    `[BOT-SCHEDULER] online as ${client.user?.tag || client.user?.username || "bot"}`,
+    `[BOT-SCHEDULER] online as ${client.user?.tag || client.user?.username || "bot"} (giveaway/reminders/compiti/tickets/maintenance)`,
   );
 }
 

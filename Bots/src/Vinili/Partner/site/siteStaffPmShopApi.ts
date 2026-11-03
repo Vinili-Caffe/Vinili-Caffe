@@ -13,7 +13,7 @@ const {
   isPartnerRewardDiscountActive,
 } = require("../../../shared/partner/partnerManagerRewardTiers") as typeof import("../../../shared/partner/partnerManagerRewardTiers");
 const { completePartnerManagerRedeemForGuild } = require("../../Staff/utils/partnerManagerRedeemRuntime") as typeof import("../../Staff/utils/partnerManagerRedeemRuntime");
-const { openPartnerManagerShopWebTicketForMember } = require("../../MultiGuild/tickets/discord/partnerManagerShopWebTicketOpen") as typeof import("../../MultiGuild/tickets/discord/partnerManagerShopWebTicketOpen");
+const { openPartnerManagerShopWebTicketForMember } = require("../../../MultiGuild/tickets/discord/partnerManagerShopWebTicketOpen") as typeof import("../../../MultiGuild/tickets/discord/partnerManagerShopWebTicketOpen");
 const { ActivityUserProfile } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
 const { clearStaffProfileCacheForUser } = require("../../site/staff/siteStaffProfileApi") as typeof import("../../site/staff/siteStaffProfileApi");
 const { resolvePartnerManagerShopInstantBlocks } = require("../../Staff/utils/partnerManagerTimedPerks") as typeof import("../../Staff/utils/partnerManagerTimedPerks");

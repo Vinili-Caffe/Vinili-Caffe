@@ -1,6 +1,6 @@
 const { MessageFlags } = require("discord.js") as typeof import("discord.js");
 const { scheduleMessageDeletion } = require("../../../shared/utils/ephemeralMessageTtl") as typeof import("../../../shared/utils/ephemeralMessageTtl");
-const { isViniliFullFeatureGuild } = require("../../MultiGuild/core/guildFeatureScope") as typeof import("../../MultiGuild/core/guildFeatureScope");
+const { isViniliFullFeatureGuild } = require("../../../MultiGuild/core/guildFeatureScope") as typeof import("../../../MultiGuild/core/guildFeatureScope");
 const { userWantsTenantEphemeralCommands } = require("../services/tenantProfilePreferencesService") as typeof import("../services/tenantProfilePreferencesService");
 
 const TENANT_EPHEMERAL_REPLY_MS = 45_000;

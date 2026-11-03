@@ -33,7 +33,7 @@ function buildModerationGuideDescription() {
 }
 
 function moderationGuideEmbedColor() {
-  const { resolveEmbedColorForGuild } = require("../../MultiGuild/utils/tenantEmbedBranding") as typeof import("../../MultiGuild/utils/tenantEmbedBranding");
+  const { resolveEmbedColorForGuild } = require("../../../MultiGuild/utils/tenantEmbedBranding") as typeof import("../../../MultiGuild/utils/tenantEmbedBranding");
   return resolveEmbedColorForGuild(String(IDs.guilds?.main || "")) || "#826bc2";
 }
 

@@ -6,7 +6,7 @@ const { toDiscordTimestamp, channelDisplay, channelTypeLabel, yesNo, formatAudit
 const{handleChannelCreationAction:antiNukeHandleChannelCreationAction,}=require("../../Security/services/antiNukeService") as typeof import("../../Security/services/antiNukeService");
 const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { shouldResyncAutomodForChannel, scheduleDiscordAutomodRulesResync } = require("../../Moderation/services/discordAutomodRulesService") as typeof import("../../Moderation/services/discordAutomodRulesService");
-const { isViniliFullFeatureGuild } = require("../../MultiGuild/core/guildFeatureScope") as typeof import("../../MultiGuild/core/guildFeatureScope");
+const { isViniliFullFeatureGuild } = require("../../../MultiGuild/core/guildFeatureScope") as typeof import("../../../MultiGuild/core/guildFeatureScope");
 const CHANNEL_CREATE_ACTION = AuditLogEvent?.ChannelCreate ?? 10;
 const AUDIT_RETRY_ATTEMPTS = 3;
 const AUDIT_RETRY_DELAY_MS = 700;
@@ -15,7 +15,7 @@ const QUARANTINE_ROLE_ID=String(IDs.roles?.Muted||"1442568884833095832",);
 async function forceQuarantineOverwrite(channel?) {
   if (!channel?.guild || !QUARANTINE_ROLE_ID) return;
   if (channel?.isThread?.()) return;
-  const { isChannelInTicketCategory } = require("../../MultiGuild/tickets/discord/ticketCategoryUtils") as typeof import("../../MultiGuild/tickets/discord/ticketCategoryUtils");
+  const { isChannelInTicketCategory } = require("../../../MultiGuild/tickets/discord/ticketCategoryUtils") as typeof import("../../../MultiGuild/tickets/discord/ticketCategoryUtils");
   if (isChannelInTicketCategory(channel)) return;
 
   const me = channel.guild.members?.me;

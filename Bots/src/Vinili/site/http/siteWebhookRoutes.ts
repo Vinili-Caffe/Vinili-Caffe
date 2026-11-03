@@ -9,7 +9,7 @@ function isCandidatureWebsiteApiEnabled() {
   return ["1", "true", "yes", "on"].includes(String(process.env.WEBSITE_CANDIDATURE_HTTP || "").trim().toLowerCase());
 }
 const { mountWebTicketRoutes } = require("../../site/tickets/webTicketRoutes") as typeof import("../../site/tickets/webTicketRoutes");
-const { mountDashboardTicketRoutes } = require("../../MultiGuild/tickets/dashboard/dashboardTicketRoutes") as typeof import("../../MultiGuild/tickets/dashboard/dashboardTicketRoutes");
+const { mountDashboardTicketRoutes } = require("../../../MultiGuild/tickets/dashboard/dashboardTicketRoutes") as typeof import("../../../MultiGuild/tickets/dashboard/dashboardTicketRoutes");
 const { mountBoardsRoutes } = require("../../site/boards/boardsRoutes") as typeof import("../../site/boards/boardsRoutes");
 const { mountBachecaRoutes } = require("../../site/bacheca/bachecaRoutes") as typeof import("../../site/bacheca/bachecaRoutes");
 const { mountSuggestionsRoutes } = require("../../site/suggestions/suggestionsRoutes") as typeof import("../../site/suggestions/suggestionsRoutes");
@@ -17,7 +17,7 @@ const { mountContestRoutes } = require("../../site/contest/contestRoutes") as ty
 const { mountWorkflowRoutes } = require("../../site/workflow/workflowRoutes") as typeof import("../../site/workflow/workflowRoutes");
 const { mountNotificationsRoutes } = require("../../site/notifications/notificationsRoutes") as typeof import("../../site/notifications/notificationsRoutes");
 const { mountStaffRoutes } = require("../../site/staff/staffRoutes") as typeof import("../../site/staff/staffRoutes");
-const { mountDashboardRoutes } = require("../../MultiGuild/dashboard/dashboardRoutes") as typeof import("../../MultiGuild/dashboard/dashboardRoutes");
+const { mountDashboardRoutes } = require("../../../MultiGuild/site/dashboard/dashboardRoutes") as typeof import("../../../MultiGuild/site/dashboard/dashboardRoutes");
 
 
 
@@ -900,8 +900,8 @@ function mountSiteWebhookRoutes(app?, client?, deps?) {
   } catch (_) {}
   mountContestRoutes(app, client, { normalizeHeaderSecret });
 
-  /* starWarsEvento: HS-only finché publicEnabled=false */
-  {
+  /* starWarsEvento: HS-only finché publicEnabled=false (archivio: non far cadere site-api se il pack è rotto) */
+  try {
     const sw = require("../../../../archivio/starwars/src/Vinili/Web/siteStarWarsEventoApi") as any;
     app.get("/webhooks/site-evento", (req?, res?) => sw.handleSiteEventoStatusGet(client, req, res));
     app.get("/webhooks/site-evento/avvento", (req?, res?) => sw.handleSiteEventoAvventoGet(client, req, res));
@@ -924,6 +924,8 @@ function mountSiteWebhookRoutes(app?, client?, deps?) {
     app.get("/webhooks/site-evento/traditore", (req?, res?) => sw.handleSiteEventoTraditoreGet(client, req, res));
     app.post("/webhooks/site-evento/traditore", (req?, res?) => sw.handleSiteEventoTraditorePost(client, req, res));
     app.post("/webhooks/site-evento/phase-end", (req?, res?) => sw.handleSiteEventoPhaseEndPost(client, req, res));
+  } catch (err) {
+    global.logger?.warn?.("[WEBHOOK] starWars site-evento mount skipped:", err?.message || err);
   }
 
   app.get("/webhooks/site-discussion-images/:scope/:docId/:fileName", (req?, res?) => {

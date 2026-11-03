@@ -1,6 +1,6 @@
 const { PermissionsBitField } = require("discord.js") as typeof import("discord.js");
-const { isMultiGuildLayerEnabled } = require("../../MultiGuild/core/env") as typeof import("../../MultiGuild/core/env");
-const { isViniliProtectedGuild } = require("../../MultiGuild/core/viniliProtectedGuilds") as typeof import("../../MultiGuild/core/viniliProtectedGuilds");
+const { isMultiGuildLayerEnabled } = require("../../../MultiGuild/core/env") as typeof import("../../../MultiGuild/core/env");
+const { isViniliProtectedGuild } = require("../../../MultiGuild/core/viniliProtectedGuilds") as typeof import("../../../MultiGuild/core/viniliProtectedGuilds");
 const {
   getPartnershipConfig,
   getPartnershipConfigSync,
@@ -13,7 +13,7 @@ const {
   deleteGuildInviteByCode,
   isInviteEligibleTextChannel,
   sendOrUpdateJoinLog,
-} = require("../../MultiGuild/services/guildJoinAlertService") as typeof import("../../MultiGuild/services/guildJoinAlertService");
+} = require("../../../MultiGuild/services/guildJoinAlertService") as typeof import("../../../MultiGuild/services/guildJoinAlertService");
 
 const RECREATE_LOCKS = new Map();
 const RECREATE_COOLDOWN_MS = 8000;

@@ -1,11 +1,11 @@
 /** Dashboard partnership: impostazioni (lettura e modifica). */
 const { getPartnershipConfigSync, refreshPartnershipConfigCache, isPartnershipSetupComplete, savePartnershipConfig, completePartnershipSetup, normalizePings, normalizeThankYouEmbed, normalizeLeaveAction, normalizeContentFilters } = require("../../Partner/core/tenantPartnershipSettings") as typeof import("../../Partner/core/tenantPartnershipSettings");
-const { isViniliFullFeatureGuild } = require("../../MultiGuild/core/guildFeatureScope") as typeof import("../../MultiGuild/core/guildFeatureScope");
+const { isViniliFullFeatureGuild } = require("../../../MultiGuild/core/guildFeatureScope") as typeof import("../../../MultiGuild/core/guildFeatureScope");
 const { resolvePartnershipConfigSync } = require("../../Partner/core/partnershipConfigResolver") as typeof import("../../Partner/core/partnershipConfigResolver");
 const { parsePingMemberThresholdInput, parsePingDelayInput } = require("../../Partner/runtime/partnershipPingUtils") as typeof import("../../Partner/runtime/partnershipPingUtils");
 const { setTenantObjectiveFlag } = require("../../Partner/services/tenantObjectiveService") as typeof import("../../Partner/services/tenantObjectiveService");
-const { verifyDashboardGuildAccess } = require("../../MultiGuild/dashboard/siteDashboardApi") as typeof import("../../MultiGuild/dashboard/siteDashboardApi");
-const { ensureTenantPremiumCacheFresh, getTenantPremiumSync, serializePremiumPublic, isTenantPremiumActiveSync } = require("../../MultiGuild/core/tenantPremium") as typeof import("../../MultiGuild/core/tenantPremium");
+const { verifyDashboardGuildAccess } = require("../../../MultiGuild/site/dashboard/siteDashboardApi") as typeof import("../../../MultiGuild/site/dashboard/siteDashboardApi");
+const { ensureTenantPremiumCacheFresh, getTenantPremiumSync, serializePremiumPublic, isTenantPremiumActiveSync } = require("../../../MultiGuild/core/tenantPremium") as typeof import("../../../MultiGuild/core/tenantPremium");
 const { reasonToMessage, fail, serializePartnership } = require("./partnershipSerialize") as typeof import("./partnershipSerialize");
 const { listGuildPickerData, maybeEnsureInvite, parseOptionalId } = require("./partnershipGuildPicker") as typeof import("./partnershipGuildPicker");
 

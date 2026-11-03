@@ -80,7 +80,7 @@ async function startWebhookServer(client?) {
   app.use(express.urlencoded({ extended: true, limit: "256kb" }));
 
   try {
-    const { mountTicketTranscriptRoutes } = require("../../MultiGuild/tickets/transcript/ticketTranscriptHttp") as typeof import("../../MultiGuild/tickets/transcript/ticketTranscriptHttp");
+    const { mountTicketTranscriptRoutes } = require("../../../MultiGuild/tickets/transcript/ticketTranscriptHttp") as typeof import("../../../MultiGuild/tickets/transcript/ticketTranscriptHttp");
     mountTicketTranscriptRoutes(app, client);
   } catch (err) {
     global.logger?.warn?.("[WEBHOOK] ticket-transcript routes:", err?.message || err);

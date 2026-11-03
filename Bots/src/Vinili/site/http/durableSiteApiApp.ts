@@ -168,7 +168,7 @@ async function main() {
   });
   try {
     const { refreshPartnershipConfigCache } = require("../../Partner/core/tenantPartnershipSettings") as typeof import("../../Partner/core/tenantPartnershipSettings");
-    const { refreshTenantGuildSettingsCache } = require("../../MultiGuild/core/tenantGuildSettings") as typeof import("../../MultiGuild/core/tenantGuildSettings");
+    const { refreshTenantGuildSettingsCache } = require("../../../MultiGuild/core/tenantGuildSettings") as typeof import("../../../MultiGuild/core/tenantGuildSettings");
     await Promise.all([
       refreshPartnershipConfigCache().catch(() => null),
       refreshTenantGuildSettingsCache().catch(() => null),

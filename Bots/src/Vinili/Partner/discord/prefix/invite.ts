@@ -4,7 +4,7 @@ const IDs = require("../../../Config/ids") as typeof import("../../../Config/ids
 const {
   applyPartnershipPayloadBranding,
   resolveEmbedColorForGuild,
-} = require("../../../MultiGuild/utils/tenantEmbedBranding") as typeof import("../../../MultiGuild/utils/tenantEmbedBranding");
+} = require("../../../../MultiGuild/utils/tenantEmbedBranding") as typeof import("../../../../MultiGuild/utils/tenantEmbedBranding");
 const { t } = require("../../i18n/tenantPartnershipI18n/index") as typeof import("../../i18n/tenantPartnershipI18n/index");
 const { resolveTenantLanguageForMessage } = require("../../tenant/tenantPartnershipPrefixMessages") as typeof import("../../tenant/tenantPartnershipPrefixMessages");
 const { shouldApplyMainPartnershipFilters } = require("../../core/partnershipConfigResolver") as typeof import("../../core/partnershipConfigResolver");

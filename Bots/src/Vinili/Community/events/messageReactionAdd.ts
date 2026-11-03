@@ -9,7 +9,7 @@ const { resolveCanvasDiscordMarkup } = require("../../Community/utils/Render/res
 
 function isViniliFullFeatureGuild(guildId?) {
   try {
-    const { isViniliFullFeatureGuild: check } = require("../../MultiGuild/core/guildFeatureScope") as typeof import("../../MultiGuild/core/guildFeatureScope");
+    const { isViniliFullFeatureGuild: check } = require("../../../MultiGuild/core/guildFeatureScope") as typeof import("../../../MultiGuild/core/guildFeatureScope");
     return check(guildId);
   } catch {
     return true;
@@ -29,7 +29,7 @@ function resolveSkullboardChannelId(guildId?) {
     const {
       isTenantBoardFeatureEnabledSync,
       resolveTenantBoardChannelIdSync,
-    } = require("../../MultiGuild/core/tenantGuildSettings") as typeof import("../../MultiGuild/core/tenantGuildSettings");
+    } = require("../../../MultiGuild/core/tenantGuildSettings") as typeof import("../../../MultiGuild/core/tenantGuildSettings");
     if (gid && !isTenantBoardFeatureEnabledSync(gid, "skull")) return null;
     const fromTenant = gid ? resolveTenantBoardChannelIdSync(gid, "skull") : null;
     if (fromTenant) return fromTenant;

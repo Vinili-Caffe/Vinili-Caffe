@@ -1,5 +1,5 @@
 const { safeMessageReply } = require("../../../../shared/discord/replyRuntime") as typeof import("../../../../shared/discord/replyRuntime");
-const { shouldApplyMultiGuildLayer } = require("../../../MultiGuild/core/accessPolicy") as typeof import("../../../MultiGuild/core/accessPolicy");
+const { shouldApplyMultiGuildLayer } = require("../../../../MultiGuild/core/accessPolicy") as typeof import("../../../../MultiGuild/core/accessPolicy");
 const {
   isPartnershipOperational,
   isProfilePmModeArg,

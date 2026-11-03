@@ -24,7 +24,6 @@ const VINYLS_ARG_COMMANDS = new Set([
   "banner",
   "afk",
   "repost",
-  "ping",
   "settings",
 ]);
 

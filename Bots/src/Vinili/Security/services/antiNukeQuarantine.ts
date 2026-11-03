@@ -26,7 +26,7 @@ let antinukeQuarantineRestored = false;
 
 function isAntiNukeScopeGuild(guildId?) {
   try {
-    const { isViniliFullFeatureGuild } = require("../../MultiGuild/core/guildFeatureScope") as typeof import("../../MultiGuild/core/guildFeatureScope");
+    const { isViniliFullFeatureGuild } = require("../../../MultiGuild/core/guildFeatureScope") as typeof import("../../../MultiGuild/core/guildFeatureScope");
     return isViniliFullFeatureGuild(guildId);
   } catch {
     return true;

@@ -9,7 +9,7 @@ const {
 const {
   getProtectedGuildIds,
   isViniliProtectedGuild,
-} = require("../../MultiGuild/core/viniliProtectedGuilds") as typeof import("../../MultiGuild/core/viniliProtectedGuilds");
+} = require("../../../MultiGuild/core/viniliProtectedGuilds") as typeof import("../../../MultiGuild/core/viniliProtectedGuilds");
 
 const MIN_BACKUP_GAP_MS = 50 * 60 * 1000;
 const MAX_MANUAL_BACKUPS = 50;

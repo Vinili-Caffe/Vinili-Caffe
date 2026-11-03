@@ -93,48 +93,13 @@ function getPermissionSubcommands(commandName?) {
 
 const {
   ensurePrefixSubcommandMetadata: ensurePrefixSubcommandMetadataShared,
+  ensurePrefixUsageMetadata,
 } = require("../../../shared/runtime/prefixSubcommandMetadata") as typeof import("../../../shared/runtime/prefixSubcommandMetadata");
 
 function ensurePrefixSubcommandMetadata(command?) {
   ensurePrefixSubcommandMetadataShared(command, {
     extraSubcommands: getPermissionSubcommands(command?.name),
   });
-}
-
-function ensurePrefixUsageMetadata(command?) {
-  const prefix = "+";
-  const name=String(command?.name||"").trim().toLowerCase();
-  if (!name) return;
-
-  const subs=Array.isArray(command?.subcommands)?command.subcommands.map((sub?) => String(sub||"").trim().toLowerCase(),).filter(Boolean):[];
-
-  const usage=String(command?.usage||"").trim()||(subs.length?Boolean(command?.allowEmptyArgs)?`${prefix}${name} [${subs.slice(0,8).join(" | ")}]`
-        : `${prefix}${name} <${subs.slice(0,8).join(" | ")}>`
-      : Boolean(command?.args)
-        ? `${prefix}${name}<opzioni>`
-        : `${prefix}${name}`);
-  command.usage = usage;
-
-  const examples=Array.isArray(command?.examples)&&command.examples.some((item?) => String(item||"").trim())?command.examples:subs.length>=2?[`${prefix}${name}${subs[0]}`, `${prefix}${name}${subs[1]}`]
-        : subs.length === 1
-          ? [`${prefix}${name}${subs[0]}`, `${prefix}${name}`]
-          : Boolean(command?.args)
-            ? [`${prefix}${name}esempio`]
-            : [`${prefix}${name}`];
-  command.examples = examples;
-
-  if (
-    !command.subcommandUsages ||
-    typeof command.subcommandUsages !== "object" ||
-    Array.isArray(command.subcommandUsages)
-  ) {
-    command.subcommandUsages = {};
-  }
-  for (const sub of subs) {
-    if (!String(command.subcommandUsages[sub] || "").trim()) {
-      command.subcommandUsages[sub] = `${prefix}${name} ${sub} ...`;
-    }
-  }
 }
 
 function loadPrefixFilesFromDir(dirPath?, folderLabel?, newPcommands?, newAliases?, statusMap?) {
@@ -160,7 +125,7 @@ function loadPrefixFilesFromDir(dirPath?, folderLabel?, newPcommands?, newAliase
       }
       command.folder = command.folder || folderLabel;
       ensurePrefixSubcommandMetadata(command);
-      ensurePrefixUsageMetadata(command);
+      ensurePrefixUsageMetadata(command, "+");
       newPcommands.set(command.name, command);
       statusMap.set(key, "Loaded");
       if (Array.isArray(command.aliases)) {
@@ -255,7 +220,11 @@ export = (client?) => {
 
     // TTS prefix = shared
     try {
-      const voiceSession = require("../../Community/services/voiceSessionService") as typeof import("../../Community/services/voiceSessionService");
+      const { getVoiceSessionService } = require("../../../shared/voice/voiceSessionService") as typeof import("../../../shared/voice/voiceSessionService");
+      const voiceSession = getVoiceSessionService({
+        snapshotPath: path.join(__dirname, "..", "..", "Data", "voiceSessionSnapshot.json"),
+        snapshotKey: "vinyls_voice_sessions",
+      });
       const { buildTtsCommands } = require("../../../shared/tts/discord/prefixCommands") as typeof import("../../../shared/tts/discord/prefixCommands");
       const sharedTts = buildTtsCommands({
         prefix: "+",
@@ -283,7 +252,7 @@ export = (client?) => {
 
     // Music prefix = shared (controls + views); runtime list UI resta bot-local
     try {
-      const { buildMusicListPayload } = require("../../../shared/music/discord/musicListUiRuntime") as typeof import("../../../shared/music/discord/musicListUiRuntime");
+      const { buildMusicListPayload } = require("../../../shared/music/discord/buttons/musicListUi") as typeof import("../../../shared/music/discord/buttons/musicListUi");
       const { buildMusicControlCommands } = require("../../../shared/music/discord/prefixControls") as typeof import("../../../shared/music/discord/prefixControls");
       const { buildMusicViewCommands } = require("../../../shared/music/discord/prefixViews") as typeof import("../../../shared/music/discord/prefixViews");
       const sharedMusic = [
@@ -313,7 +282,7 @@ export = (client?) => {
     );
 
     // Prefix MultiGuild (es. +help tenant-only)
-    const mgPrefixBase = path.resolve(__dirname, "..", "..", "MultiGuild", "Prefix");
+    const mgPrefixBase = path.resolve(__dirname, "..", "..", "..", "MultiGuild", "discord", "prefix");
     if (fs.existsSync(mgPrefixBase)) {
       const mgFolders = fs
         .readdirSync(mgPrefixBase, { withFileTypes: true })

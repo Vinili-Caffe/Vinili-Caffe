@@ -11,7 +11,7 @@ const fs = require("fs") as typeof import("fs");
 const path = require("path") as typeof import("path");
 const { EventEmitter } = require("events") as typeof import("events");
 const APP_ROOT = __dirname;
-const { acquireSingleInstanceLock, installHandlers, listFoldersIfExists, loadEnvFiles, } = require("../shared/runtime/fsRuntime") as typeof import("../shared/runtime/fsRuntime");
+const { acquireSingleInstanceLock, listFoldersIfExists, loadEnvFiles, } = require("../shared/runtime/fsRuntime") as typeof import("../shared/runtime/fsRuntime");
 const { initializeCommandCollections } = require("../shared/runtime/clientRuntime") as typeof import("../shared/runtime/clientRuntime");
 const { connectMongo, isMongoReady } = require("../shared/db/mongoConnect") as typeof import("../shared/db/mongoConnect");
 
@@ -19,7 +19,25 @@ loadEnvFiles(APP_ROOT);
 try {
   require("../shared/scheduling/nodeCronMissFilter").installNodeCronMissFilter();
 } catch (_) {}
-global.logger = require("./Moderation/utils/logger");
+{
+  const { createConsoleLogs } = require("../shared/logging/consoleLogs") as typeof import("../shared/logging/consoleLogs");
+  const { createBotLogger } = require("../shared/logging/createBotLogger") as typeof import("../shared/logging/createBotLogger");
+  const vinylsLogConfig = require("./config.json") as typeof import("./config.json");
+  const baseLogs = createConsoleLogs({ withBuffers: true });
+  global.logger = Object.assign(
+    createBotLogger({
+      baseLogs,
+      resolveLogLevel: () => {
+        const fromEnv = String(process.env.LOG_LEVEL || process.env.VC_LOG_LEVEL || "")
+          .trim()
+          .toLowerCase();
+        if (fromEnv) return fromEnv;
+        return String(vinylsLogConfig.logLevel || "info");
+      },
+    }),
+    { logs: baseLogs },
+  );
+}
 try {
   const { setMusicBotHooks } = require("../shared/music/musicBotHooks") as typeof import("../shared/music/musicBotHooks");
   setMusicBotHooks({
@@ -99,7 +117,7 @@ try {
   process.exit(1);
 }
 
-client.logs = require("./Moderation/utils/logs");
+client.logs = global.logger.logs;
 
 const { assertBotTokenIdentity } = require("../shared/config/env") as typeof import("../shared/config/env");
 const envToken = process.env.DISCORD_TOKEN || process.env.DISCORD_TOKEN_OFFICIAL;
@@ -130,7 +148,7 @@ client.reloadScope = async (scope?) => {
 
   const reloadCommands = async () => {
     clearCacheByDir("Commands");
-    clearCacheByDir(path.join("MultiGuild", "Commands"));
+    clearCacheByDir(path.join("..", "MultiGuild", "discord", "slash"));
     clearCacheByDir(path.join("Partner", "discord", "slash"));
     clearCacheByDir(path.join("Giveaway", "discord", "slash"));
     clearCacheByDir(path.join("Staff", "discord", "slash"));
@@ -150,7 +168,7 @@ client.reloadScope = async (scope?) => {
     clearCacheByDir(path.join("..", "shared", "tts", "discord"));
     clearCacheByDir(path.join("..", "shared", "music", "discord"));
     clearCacheByDir(path.join("Moderation", "discord", "prefix"));
-    clearCacheByDir(path.join("MultiGuild", "Prefix"));
+    clearCacheByDir(path.join("..", "MultiGuild", "discord", "prefix"));
     const folders = listFoldersIfExists(path.join(APP_ROOT, "Prefix"));
     await client.prefixCommands(folders, path.join(APP_ROOT, "Prefix"));
   };
@@ -164,12 +182,11 @@ client.reloadScope = async (scope?) => {
       "Staff",
       "Stats",
       "Partner",
-      "MultiGuild",
     ]) {
       clearCacheByDir(path.join(mod, "events"));
     }
     clearCacheByDir(path.join("Community", "services"));
-    clearCacheByDir(path.join("MultiGuild", "Events"));
+    clearCacheByDir(path.join("..", "MultiGuild", "events"));
     client.handleEvents(APP_ROOT);
   };
 
@@ -184,7 +201,7 @@ client.reloadScope = async (scope?) => {
   if (scope === "events") return reloadEvents();
 
   const reloadButtons = async () => {
-    clearCacheByDir(path.join("MultiGuild", "Buttons"));
+    clearCacheByDir(path.join("..", "MultiGuild", "discord", "buttons"));
     clearCacheByDir(path.join("Partner", "discord", "buttons"));
     clearCacheByDir(path.join("Stats", "discord", "buttons"));
     clearCacheByDir(path.join("Giveaway", "discord", "buttons"));
@@ -216,8 +233,8 @@ client.reloadScope = async (scope?) => {
     clearCacheByDir(path.join("Level", "services"));
     clearCacheByDir(path.join("Security", "services"));
     clearCacheByDir(path.join("Community", "services"));
-    clearCacheByDir(path.join("MultiGuild", "tickets", "data"));
-    clearCacheByDir(path.join("MultiGuild", "tickets", "transcript"));
+    clearCacheByDir(path.join("..", "MultiGuild", "tickets", "data"));
+    clearCacheByDir(path.join("..", "MultiGuild", "tickets", "transcript"));
     return;
   }
   if (scope === "utils") {
@@ -234,7 +251,7 @@ client.reloadScope = async (scope?) => {
     clearCacheByDir("Schemas");
     clearCacheByDir(path.join("Giveaway", "schemas"));
     clearCacheByDir(path.join("Minigames", "data"));
-    clearCacheByDir(path.join("MultiGuild", "tickets", "data"));
+    clearCacheByDir(path.join("..", "MultiGuild", "tickets", "data"));
     return;
   }
 
@@ -271,8 +288,8 @@ client.reloadScope = async (scope?) => {
     clearCacheByDir(path.join("Security", "utils"));
     clearCacheByDir(path.join("Community", "services"));
     clearCacheByDir(path.join("Community", "utils"));
-    clearCacheByDir(path.join("MultiGuild", "tickets", "data"));
-    clearCacheByDir(path.join("MultiGuild", "tickets", "transcript"));
+    clearCacheByDir(path.join("..", "MultiGuild", "tickets", "data"));
+    clearCacheByDir(path.join("..", "MultiGuild", "tickets", "transcript"));
     clearCacheByDir("Utils");
     clearCacheByDir("Schemas");
     await reloadCommands();
@@ -297,13 +314,127 @@ initializeCommandCollections(client, { includeSnipes: true });
     const mongoMs = Date.now() - mongoStartedAt;
 
     const handlersStartedAt = Date.now();
-    installHandlers(APP_ROOT, client);
+    {
+      const { installProcessHandlers } = require("../shared/handlers/processHandlers") as typeof import("../shared/handlers/processHandlers");
+      const logs = global.logger.logs;
+      installProcessHandlers({
+        flag: "__viniliProcessHandlersInstalled",
+        logError: (message?) => logs.error(`[ERROR] ${message}`),
+        logWarn: (message?) => logs.warn(String(message)),
+        logInfo: (message?) => logs.success(String(message)),
+        onBeforeFlush: async () => {
+          try {
+            require("./Community/services/activityService").suspendAllLiveVoiceExp();
+          } catch {}
+          try {
+            require("./Staff/services/staffAutoValutazioniService").suspendStaffAutoValutazioni();
+          } catch {}
+        },
+        onAfterFlush: async (signal?) => {
+          try {
+            const { closeMongoGraceful } = require("../shared/db/mongoConnect") as typeof import("../shared/db/mongoConnect");
+            await closeMongoGraceful(signal);
+          } catch (err) {
+            logs.error(`[ERROR] Mongo close failed: ${err?.stack || err}`);
+          }
+        },
+        exitDelayMs: 150,
+      });
+
+      const { installBootTables } = require("../shared/runtime/createBootTablesInstaller") as typeof import("../shared/runtime/createBootTablesInstaller");
+      installBootTables(
+        client,
+        [
+          "Community",
+          "Moderation",
+          "Security",
+          "Staff",
+          "Partner",
+          path.join(APP_ROOT, "..", "MultiGuild"),
+          "Minigames",
+          "Level",
+          "Giveaway",
+          "Stats",
+          "Backup",
+          "Config",
+          "core",
+          "site",
+        ],
+        APP_ROOT,
+      );
+
+      const { createButtonHandlersLoader } = require("../shared/runtime/createButtonHandlersLoader") as typeof import("../shared/runtime/createButtonHandlersLoader");
+      const REMOVED_BUTTON_HANDLER_NAMES = new Set([
+        "balGui",
+        "incomeClaimGui",
+        "blackjackGui",
+        "coinflipGui",
+        "duelGui",
+        "robGui",
+        "rouletteGui",
+        "rpsGui",
+        "scratchGui",
+        "shopGui",
+        "slotsGui",
+        "trisGui",
+        "classificaToggle",
+        "myquoteDelete",
+        "myrepostDelete",
+        "myclipDelete",
+        "myquotePagination",
+        "myrepostPagination",
+        "myclipPagination",
+        "colorsCommand",
+        "candidature",
+        "ticket",
+        "websiteUnbanSite",
+        "websiteUnmuteSite",
+        "resoconto",
+        "profile",
+      ]);
+      createButtonHandlersLoader({
+        removedHandlerNames: REMOVED_BUTTON_HANDLER_NAMES,
+        resolveDirs: () => [
+          path.join(APP_ROOT, "Partner", "discord", "buttons"),
+          path.join(APP_ROOT, "Stats", "discord", "buttons"),
+          path.join(APP_ROOT, "Giveaway", "discord", "buttons"),
+          path.join(APP_ROOT, "Minigames", "discord", "buttons"),
+          path.join(APP_ROOT, "Backup", "discord", "buttons"),
+          path.join(APP_ROOT, "Level", "discord", "buttons"),
+          path.join(APP_ROOT, "Security", "discord", "buttons"),
+          path.join(APP_ROOT, "Community", "discord", "buttons"),
+          path.resolve(APP_ROOT, "..", "shared", "music", "discord", "buttons"),
+          path.join(APP_ROOT, "Moderation", "discord", "buttons"),
+          path.join(APP_ROOT, "..", "MultiGuild", "discord", "buttons"),
+        ],
+      })(client);
+
+      require("./core/handlers/commandHandler")(client);
+      require("./core/handlers/prefixHandler")(client);
+
+      const { installEventLoader } = require("../shared/runtime/createEventLoader") as typeof import("../shared/runtime/createEventLoader");
+      const { defaultModuleEventFolderLabel } = require("../shared/runtime/discoverModuleEventFiles") as typeof import("../shared/runtime/discoverModuleEventFiles");
+      installEventLoader(client, {
+        extraEventFiles: (_absBase?, botRoot?) => {
+          const root = botRoot || APP_ROOT;
+          return [path.join(root, "Community", "services", "guildMemberUpdateService.js")];
+        },
+        folderLabelForRel: defaultModuleEventFolderLabel,
+      });
+
+      const { installTriggersLoader } = require("../shared/runtime/createTriggersLoader") as typeof import("../shared/runtime/createTriggersLoader");
+      installTriggersLoader(client, {
+        extraFiles: (root?) => [
+          path.join(root, "Community", "discord", "panels", "startupPanels.js"),
+        ],
+      });
+    }
     client.handleEvents(APP_ROOT);
     client.handleTriggers(APP_ROOT);
     const handlersMs = Date.now() - handlersStartedAt;
 
     try {
-      require("./MultiGuild/index").attachToClient(client);
+      require("../MultiGuild/index").attachToClient(client);
     } catch (err) {
       global.logger?.warn?.("[MultiGuild] attach failed:", err?.message || err);
     }

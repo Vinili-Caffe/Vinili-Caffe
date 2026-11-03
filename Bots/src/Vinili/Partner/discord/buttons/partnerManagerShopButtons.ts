@@ -1,9 +1,9 @@
 const IDs = require("../../../Config/ids") as typeof import("../../../Config/ids");
-const Ticket = require("../../../MultiGuild/tickets/data/guildFeatureBucketTicketModel");
+const Ticket = require("../../../../MultiGuild/tickets/data/guildFeatureBucketTicketModel");
 const { EmbedBuilder } = require("discord.js") as typeof import("discord.js");
 const { completePartnerManagerRedeemForGuild } = require("../../../Staff/utils/partnerManagerRedeemRuntime") as typeof import("../../../Staff/utils/partnerManagerRedeemRuntime");
 const { parsePartnerManagerShopAckCustomId, matchPartnerManagerShopAckInteraction, memberCanAckPartnerManagerShopRedeem } = require("../../../Staff/utils/partnerManagerShopAckRuntime") as typeof import("../../../Staff/utils/partnerManagerShopAckRuntime");
-const { closeTicket } = require("../../../MultiGuild/tickets/discord/ticketCloseRuntime") as typeof import("../../../MultiGuild/tickets/discord/ticketCloseRuntime");
+const { closeTicket } = require("../../../../MultiGuild/tickets/discord/ticketCloseRuntime") as typeof import("../../../../MultiGuild/tickets/discord/ticketCloseRuntime");
 const { safeReply: safeReplyHelper, safeEditReply: safeEditReplyHelper } = require("../../../../shared/discord/replyRuntime") as typeof import("../../../../shared/discord/replyRuntime");
 const PRIVATE_FLAG = 1 << 6;
 

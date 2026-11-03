@@ -19,7 +19,7 @@ const {
   applyLiveAvatarToSuggestionLike,
   resolveSiteAvatarUrl,
 } = require("./siteLiveAvatars") as typeof import("./siteLiveAvatars");
-const { TENANT_EMBED_COLOR } = require("../../MultiGuild/utils/tenantEmbedBranding") as typeof import("../../MultiGuild/utils/tenantEmbedBranding");
+const { TENANT_EMBED_COLOR } = require("../../../MultiGuild/utils/tenantEmbedBranding") as typeof import("../../../MultiGuild/utils/tenantEmbedBranding");
 
 /* boardsImportSiteServerReviews1: lazy require evita cicli con siteBoardsApi */
 function mirrorSiteServerReviewToBoard(doc?) {

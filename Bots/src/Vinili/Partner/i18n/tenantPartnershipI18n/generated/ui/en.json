@@ -384,7 +384,6 @@
   "description_usage": "<:vegax:1443934876440068179> Use: `+description user <@user | id>`",
   "description_dmFailed": "<:vegax:1443934876440068179> I can't send a DM to {target}.",
   "description_dmSent": "<:vegacheckmark:1443666279058772028> Description sent via DM to {target}.",
-  "help_cmd_ping_desc": "Checks bot latency, database latency, and connection status.",
   "help_cmd_invite_desc": "Generates the invite link to add the bot to another server.",
   "help_cmd_help_desc": "Opens the guide to the commands available on this server.",
   "help_cmd_help_syntax": "(command)",

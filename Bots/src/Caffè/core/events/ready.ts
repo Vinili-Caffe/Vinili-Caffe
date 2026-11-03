@@ -39,26 +39,31 @@ export = {
       global.logger?.warn?.("[stanza] snapshot restore failed:", err?.message || err);
     });
     try {
-      startHourlyReminderLoop(activeClient);
-    } catch (err) {
-      global.logger?.error?.("[CHAT REMINDER] Failed to start hourly loop:", err?.message || err);
-    }
-    try {
       const { initLavalinkMusicIfEnabled } = require("../../../shared/music/services/lavalinkMusicService") as typeof import("../../../shared/music/services/lavalinkMusicService");
       initLavalinkMusicIfEnabled(activeClient);
     } catch (err) {
       global.logger?.warn?.("[MUSIC] init:", err?.message || err);
     }
+    /* Defer non-gateway-critical loops so ready stays light (no coffee worker process). */
+    setTimeout(() => {
+      try {
+        startHourlyReminderLoop(activeClient);
+      } catch (err) {
+        global.logger?.error?.("[CHAT REMINDER] Failed to start hourly loop:", err?.message || err);
+      }
+    }, 45_000).unref?.();
+    setTimeout(() => {
+      try {
+        const { startMarkovKeeperHttpServer } = require("../../Community/services/markovKeeperHttpService") as typeof import("../../Community/services/markovKeeperHttpService");
+        const { startMarkovBackfill } = require("../../Community/services/markovMessageCollectorService") as typeof import("../../Community/services/markovMessageCollectorService");
+        startMarkovKeeperHttpServer(activeClient);
+        startMarkovBackfill(activeClient);
+      } catch (err) {
+        global.logger?.warn?.("[MARKOV] init:", err?.message || err);
+      }
+    }, 60_000).unref?.();
     try {
-      const { startMarkovKeeperHttpServer } = require("../../Community/services/markovKeeperHttpService") as typeof import("../../Community/services/markovKeeperHttpService");
-      const { startMarkovBackfill } = require("../../Community/services/markovMessageCollectorService") as typeof import("../../Community/services/markovMessageCollectorService");
-      startMarkovKeeperHttpServer(activeClient);
-      startMarkovBackfill(activeClient);
-    } catch (err) {
-      global.logger?.warn?.("[MARKOV] init:", err?.message || err);
-    }
-    try {
-      const { ensurePrefixQueueLoaded } = require("../../core/officialPrefixDispatcher") as typeof import("../../core/officialPrefixDispatcher");
+      const { ensurePrefixQueueLoaded } = require("../../core/prefixDispatcher") as typeof import("../../core/prefixDispatcher");
       ensurePrefixQueueLoaded(activeClient);
     } catch (err) {
       global.logger?.warn?.("[PREFIX] queue restore:", err?.message || err);

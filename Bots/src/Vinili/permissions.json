@@ -180,16 +180,6 @@
         "channels.highCmds"
       ]
     },
-    "ping": {
-      "roles": [
-        "roles.Member"
-      ],
-      "channels": [
-        "channels.commands",
-        "channels.staffCmds",
-        "channels.highCmds"
-      ]
-    },
     "invite": {
       "roles": [
         "roles.Member"

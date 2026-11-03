@@ -363,7 +363,7 @@ function prepareFreshCreatePayload(payload?, { stripReference = false } = {}) {
 
 function resolveTenantBrandingHelpers() {
   try {
-    return require("../../Vinili/MultiGuild/utils/tenantEmbedBranding");
+    return require("../../MultiGuild/utils/tenantEmbedBranding");
   } catch {
     return null;
   }

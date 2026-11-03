@@ -111,6 +111,8 @@ async function repairDiscadiaVoteMonthRowsForMainGuild(client?, mode = "startup"
 }
 
 function startDiscadiaVoteMonthRolloverCron(client?) {
+  const { shouldStartExternalWorkerLoop } = require("../../../shared/runtime/externalWorkerGate") as typeof import("../../../shared/runtime/externalWorkerGate");
+  if (!shouldStartExternalWorkerLoop("COMMUNITY_POLL")) return;
   if (!client || client._discadiaVoteMonthRolloverCron) return;
   if (!shouldRunDiscadiaVoteMonthRolloverCron(client)) return;
     client._discadiaVoteMonthRolloverCron = cron.schedule(

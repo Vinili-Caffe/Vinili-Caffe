@@ -70,12 +70,12 @@ function installWorkerEmbedPatches() {
       installOutgoingEditBrandingPatch,
       setTenantEmbedBrandingApplier,
     } = require("../../../shared/discord/replyRuntime") as typeof import("../../../shared/discord/replyRuntime");
-    const { registerTenantEmbedBrandingApplier } = require("../../MultiGuild/utils/tenantEmbedBranding") as typeof import("../../MultiGuild/utils/tenantEmbedBranding");
+    const { registerTenantEmbedBrandingApplier } = require("../../../MultiGuild/utils/tenantEmbedBranding") as typeof import("../../../MultiGuild/utils/tenantEmbedBranding");
     installEmbedFooterPatch();
     installOutgoingEditBrandingPatch(discord);
     registerTenantEmbedBrandingApplier();
     setTenantEmbedBrandingApplier((payload?, context?) =>
-      require("../../MultiGuild/utils/tenantEmbedBranding").applyTenantPayloadBranding(payload, {
+      require("../../../MultiGuild/utils/tenantEmbedBranding").applyTenantPayloadBranding(payload, {
         ...context,
         partnershipBranding: true,
       }),

@@ -3,7 +3,7 @@ const { SiteDocument, SITE_DOCUMENT_TYPE } = require("../schemas/communitySchema
 const { isValidGuildUserId } = require("../../../shared/db/validateWriteIds") as typeof import("../../../shared/db/validateWriteIds");
 const { addExpWithLevel, shouldIgnoreExpForMember, isLevelExpGuild } = require("../../Level/services/expService") as typeof import("../../Level/services/expService");
 const { isExcludedActivityChannel } = require("./activityService") as typeof import("./activityService");
-const { isViniliFullFeatureGuild } = require("../../MultiGuild/core/guildFeatureScope") as typeof import("../../MultiGuild/core/guildFeatureScope");
+const { isViniliFullFeatureGuild } = require("../../../MultiGuild/core/guildFeatureScope") as typeof import("../../../MultiGuild/core/guildFeatureScope");
 const {
   matchesWelcomeGreetingForExp,
   resolveWelcomeGreetingSessionId,

@@ -1,7 +1,42 @@
-const { EmbedBuilder, PermissionFlagsBits } = require("discord.js") as typeof import("discord.js");
+const path = require("path") as typeof import("path");
+const { PermissionFlagsBits } = require("discord.js") as typeof import("discord.js");
 const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { getGuildMemberCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
-const { loadPermissions } = require("./permissionsStore") as typeof import("./permissionsStore");
+const { createPermissionsStore } = require("../../../shared/moderation/createPermissionsStore") as typeof import("../../../shared/moderation/createPermissionsStore");
+const { createPermissionPolicyHelpers } = require("../../../shared/moderation/permissionPolicyHelpers") as typeof import("../../../shared/moderation/permissionPolicyHelpers");
+const { createPermissionDeniedEmbeds } = require("../../../shared/moderation/createPermissionDeniedEmbeds") as typeof import("../../../shared/moderation/createPermissionDeniedEmbeds");
+const { loadPermissions } = createPermissionsStore({
+  ids: IDs,
+  permissionsCandidates: [
+    path.resolve(__dirname, "../../permissions.json"),
+    path.join(process.cwd(), "permissions.json"),
+  ],
+});
+const {
+  resolveRoleReference,
+  normalizeRoleList,
+  asRequiredRoles,
+  normalizeChannelList,
+  channelMatchesPolicyChannelList,
+  resolveCommandChannelPolicy,
+  resolvePrefixCommandChannels,
+  buildSlashLookupKeys,
+  buildPrefixLookupKeys,
+  hasAnyRole,
+  resolveSlashRoles,
+  resolvePrefixRoles,
+  resolveComponentPolicy,
+  normalizeComponentPolicy,
+} = createPermissionPolicyHelpers({ ids: IDs });
+const {
+  buildGlobalPermissionDeniedEmbed,
+  buildGlobalChannelDeniedEmbed,
+  buildGlobalNotYourControlEmbed,
+} = createPermissionDeniedEmbeds({
+  color: "#6f4e37",
+  normalizeRoleList,
+  filterRolesByGuildCache: true,
+});
 const TEST_MAIN_GUILD_ID = IDs?.guilds?.test || null;
 const OFFICIAL_MAIN_GUILD_ID = IDs?.guilds?.main || null;
 const TEST_SCOPE_GUILD_IDS = new Set(
@@ -20,151 +55,10 @@ function isExternalGuild(guildId?) {
   return guildId != null && !isTestMainScopeGuild(guildId);
 }
 
-function resolveRoleReference(value?) {
-  if (value == null) return null;
-  const raw = String(value).trim();
-  if (!raw) return null;
-  if (/^\d{16,20}$/.test(raw)) return raw;
-
-  let key = raw;
-  if (key.startsWith("ids.roles.")) key = key.slice("ids.roles.".length);
-  else if (key.startsWith("roles.")) key = key.slice("roles.".length);
-
-  const resolved = IDs?.roles?.[key];
-  return resolved ? String(resolved) : null;
-}
-
-function normalizeRoleList(roleIds?) {
-  if (!Array.isArray(roleIds)) return roleIds;
-  return roleIds.map((value?) => resolveRoleReference(value)).filter(Boolean);
-}
-
-function asRequiredRoles(roles?) {
-  if (roles == null) return null;
-  const list = normalizeRoleList(Array.isArray(roles) ? roles : [roles]);
-  return Array.isArray(list) && list.length ? list : null;
-}
-
-function resolveChannelReference(value?) {
-  if (value == null) return null;
-  const raw = String(value).trim();
-  if (!raw) return null;
-  if (/^\d{16,20}$/.test(raw)) return raw;
-
-  let key = raw;
-  if (key.startsWith("ids.channels.")) key = key.slice("ids.channels.".length);
-  else if (key.startsWith("channels.")) key = key.slice("channels.".length);
-
-  const resolved = IDs?.channels?.[key];
-  return resolved ? String(resolved) : null;
-}
-
-function normalizeChannelList(channelIds?) {
-  if (!Array.isArray(channelIds)) return channelIds;
-  return channelIds
-    .map((value?) => resolveChannelReference(value))
-    .filter(Boolean);
-}
-
-function channelMatchesPolicyChannelList(channel?, policyIds?) {
-  const ids = (Array.isArray(policyIds) ? policyIds : []).map(String).filter(Boolean);
-  if (!ids.length) return false;
-  const ch = channel;
-  if (!ch?.id) return false;
-  if (ids.includes(String(ch.id))) return true;
-  if (typeof ch.isThread === "function" && ch.isThread()) {
-    const parent = String(ch.parentId || "");
-    return Boolean(parent && ids.includes(parent));
-  }
-  return false;
-}
-
-function resolveCommandChannelPolicy(data?, keys?) {
-  const map = data?.channels;
-  if (!map || typeof map !== "object") return null;
-  for (const key of keys || []) {
-    if (!Object.prototype.hasOwnProperty.call(map, key)) continue;
-    const normalized = normalizeChannelList(map[key]);
-    if (Array.isArray(normalized)) return normalized;
-  }
-  return null;
-}
-
-function resolvePrefixCommandChannels(data?, commandName?, subcommandName = null) {
-  const cmd = data?.prefix?.[commandName];
-  if (!cmd || typeof cmd !== "object") return null;
-  const subcommands = cmd.subcommands || {};
-  if (
-    subcommandName &&
-    subcommands[subcommandName] &&
-    typeof subcommands[subcommandName] === "object" &&
-    Array.isArray(subcommands[subcommandName].channels)
-  ) {
-    return normalizeChannelList(subcommands[subcommandName].channels);
-  }
-  if (Array.isArray(cmd.channels)) return normalizeChannelList(cmd.channels);
-  return null;
-}
-
-function buildSlashLookupKeys(commandName?, groupName?, subcommandName?) {
-  const command = String(commandName || "").trim().toLowerCase();
-  const group = String(groupName || "").trim().toLowerCase();
-  const sub = String(subcommandName || "").trim().toLowerCase();
-  const out = [];
-  if (!command) return out;
-  if (group && sub) {
-    out.push(`${command}.${group}.${sub}`);
-    out.push(`${command}.${group}_${sub}`);
-    out.push(`${command}.${group}-${sub}`);
-  }
-  if (sub) out.push(`${command}.${sub}`);
-  out.push(command);
-  return out;
-}
-
-function buildPrefixLookupKeys(commandName?, subcommandName?) {
-  const command = String(commandName || "").trim().toLowerCase();
-  const sub = String(subcommandName || "").trim().toLowerCase();
-  const out = [];
-  if (!command) return out;
-  if (sub) out.push(`${command}.${sub}`);
-  out.push(command);
-  return out;
-}
-
-function collectMemberRoleIds(member?) {
-  if (!member) return new Set();
-  const ids = new Set();
-
-  if (member?.roles?.cache && typeof member.roles.cache.forEach === "function") {
-    member.roles.cache.forEach((_?, roleId?) => ids.add(String(roleId)));
-  }
-  if (Array.isArray(member?.roles)) {
-    for (const roleId of member.roles) {
-      if (roleId) ids.add(String(roleId));
-    }
-  }
-  if (Array.isArray(member?._roles)) {
-    for (const roleId of member._roles) {
-      if (roleId) ids.add(String(roleId));
-    }
-  }
-
-  return ids;
-}
-
-function hasAnyRole(member?, roleIds?) {
-  const normalized = normalizeRoleList(roleIds);
-  if (!Array.isArray(normalized)) return true;
-  if (normalized.length === 0) return false;
-  const memberRoleIds = collectMemberRoleIds(member);
-  if (!memberRoleIds.size) return false;
-  return normalized.some((roleId?) => memberRoleIds.has(String(roleId)));
-}
 
 async function fetchLiveMember(entity?) {
   const guild = entity?.guild || entity?.member?.guild || null;
-  const userId = entity ?. user ?. id || entity ?. author ?. id || entity ?. member ?. id || entity ?. member ?. user ?. id || null;
+  const userId = entity?.user?.id || entity?.author?.id || entity?.member?.id || entity?.member?.user?.id || null;
   if (!guild || !userId || typeof guild.members?.fetch !== "function") return null;
   return getGuildMemberCached(guild, userId, {
     ttlMs: 15_000,
@@ -186,91 +80,6 @@ async function hasAdminPermissionWithFallback(entity?) {
   return Boolean(
     freshMember?.permissions?.has?.(PermissionFlagsBits.Administrator),
   );
-}
-
-function resolveSlashRoles(data?, commandName?, groupName?, subcommandName?) {
-  const cmd = data?.slash?.[commandName];
-  if (!cmd) return null;
-  if (Array.isArray(cmd)) return normalizeRoleList(cmd);
-  if (typeof cmd !== "object") return null;
-  const subcommands = cmd.subcommands || {};
-  if (groupName && subcommandName) {
-    const key = `${groupName}.${subcommandName}`;
-    if (Array.isArray(subcommands[key])) return normalizeRoleList(subcommands[key]);
-  }
-  if (subcommandName && Array.isArray(subcommands[subcommandName])) {
-    return normalizeRoleList(subcommands[subcommandName]);
-  }
-  if (Array.isArray(cmd.roles)) return normalizeRoleList(cmd.roles);
-  if (typeof cmd.roles === "string") {
-    const resolved = resolveRoleReference(cmd.roles);
-    return resolved ? [resolved] : [];
-  }
-  return null;
-}
-
-function resolvePrefixRoles(data?, commandName?, subcommandName = null) {
-  const cmd = data?.prefix?.[commandName];
-  if (!cmd) return null;
-  if (Array.isArray(cmd)) return normalizeRoleList(cmd);
-  if (typeof cmd !== "object") return null;
-  const subcommands = cmd.subcommands || {};
-  if (subcommandName && Array.isArray(subcommands[subcommandName])) {
-    return normalizeRoleList(subcommands[subcommandName]);
-  }
-  if (Array.isArray(cmd.roles)) return normalizeRoleList(cmd.roles);
-  if (typeof cmd.roles === "string") {
-    const resolved = resolveRoleReference(cmd.roles);
-    return resolved ? [resolved] : [];
-  }
-  return null;
-}
-
-function resolveComponentPolicy(map?, customId?) {
-  if (!map || typeof map !== "object") return null;
-  if (Object.prototype.hasOwnProperty.call(map, customId)) return map[customId];
-
-  const wildcardKeys = Object.keys(map).filter((key?)=>key.endsWith("*")).sort((a?,b?)=>b.length - a.length);
-
-  for (const key of wildcardKeys) {
-    const prefix = key.slice(0, -1);
-    if (customId.startsWith(prefix)) return map[key];
-  }
-  return null;
-}
-
-function normalizeComponentPolicy(policy?) {
-  if (policy == null) return null;
-
-  if (typeof policy === "string") {
-    const resolved = resolveRoleReference(policy);
-    return { roles: resolved ? [resolved] : [] };
-  }
-
-  if (Array.isArray(policy)) return { roles: normalizeRoleList(policy) };
-
-  if (typeof policy === "object") {
-    let roles = null;
-    if (Array.isArray(policy.roles)) roles = normalizeRoleList(policy.roles);
-    else if (typeof policy.roles === "string") {
-      const resolved = resolveRoleReference(policy.roles);
-      roles = resolved ? [resolved] : [];
-    }
-
-    const ownerSegment = Number.isFinite(Number.parseInt(policy.ownerSegment,10))? Number.parseInt(policy.ownerSegment,10):null;
-
-    return {
-      roles,
-      ownerSegment,
-      ownerSeparator:
-        typeof policy.ownerSeparator === "string" && policy.ownerSeparator
-          ? policy.ownerSeparator
-          : ":",
-      ownerFromMessageMention: Boolean(policy.ownerFromMessageMention),
-    };
-  }
-
-  return null;
 }
 
 function extractOwnerIdFromMessageMention(message?) {
@@ -655,70 +464,4 @@ function getPrefixRequiredRoles(commandName?, subcommandName = null) {
   return resolvePrefixRoles(data, commandName, subcommandName);
 }
 
-function buildGlobalPermissionDeniedEmbed(requiredRoleIds = [], entityLabel = "comando", customDescription = null, guild = null) {
-  let roles = normalizeRoleList(Array.isArray(requiredRoleIds) ? requiredRoleIds : []);
-  if (guild?.roles?.cache) {
-    roles = roles.filter((id?) => guild.roles.cache.has(String(id)));
-  }
-  const rolesText = roles.length
-    ? roles.map((id?) => `<@&${id}>`).join(", ")
-    : "<:VC_Attention:1482534443632558151> Nessun ruolo configurato.";
-  const description =
-    customDescription != null
-      ? customDescription
-      : `<:VC_Lock:1482526739044368476> Questo ${entityLabel} è riservato ad una categoria di utenti specifici.`;
-
-  const embed = new EmbedBuilder()
-    .setColor("#6f4e37")
-    .setTitle("<:VC_Lock:1482526739044368476> **Non hai i permessi**")
-    .setDescription(description);
-
-  if (roles.length > 0) {
-    embed.addFields({
-      name: "<a:VC_Rocket:1468544312475123753> **Per sbloccarlo:**",
-      value: `<a:VC_Arrow:1482706699365257397> Ottieni uno dei seguenti ruoli: ${rolesText}`,
-    });
-  }
-  return embed;
-}
-
-function buildGlobalChannelDeniedEmbed(allowedChannelIds = [], entityLabel = "comando", viewer = null) {
-  const { formatVisibleChannelMentionsList } = require("../../../shared/discord/visibleChannelMentions") as typeof import("../../../shared/discord/visibleChannelMentions");
-  const rawIds = Array.isArray(allowedChannelIds) ? allowedChannelIds : [];
-  const channelsText = formatVisibleChannelMentionsList(rawIds, viewer, {
-    sep: ", ",
-    emptyFallback: "",
-  });
-  const hasVisibleChannels = Boolean(channelsText);
-
-  const embed = new EmbedBuilder()
-    .setColor("#6f4e37")
-    .setTitle("<:VC_Lock:1482526739044368476> **Non hai i permessi**")
-    .setDescription(`<:VC_Lock:1482526739044368476> Questo ${entityLabel} è disponibile solo in canali specifici.`);
-  if (hasVisibleChannels) {
-    embed.addFields({
-      name: "<a:VC_Rocket:1468544312475123753> **Per sbloccarlo:**",
-      value: `<a:VC_Arrow:1482706699365257397> Usa il comando in uno dei seguenti canali: ${channelsText}`,
-    });
-  } else if (rawIds.some((id?) => /^\d{5,30}$/.test(String(id || "").trim()))) {
-    embed.addFields({
-      name: "<a:VC_Rocket:1468544312475123753> **Per sbloccarlo:**",
-      value: "<a:VC_Arrow:1482706699365257397> Usa il comando in un canale consentito (quelli a cui hai accesso).",
-    });
-  } else {
-    embed.addFields({
-      name: "<a:VC_Rocket:1468544312475123753> **Per sbloccarlo:**",
-      value: "<:VC_Attention:1482534443632558151> Nessun canale configurato.",
-    });
-  }
-  return embed;
-}
-
-function buildGlobalNotYourControlEmbed() {
-  return new EmbedBuilder()
-    .setColor("#6f4e37")
-    .setTitle("<:VC_Lock:1482526739044368476> **Accesso negato**")
-    .setDescription("<:VC_Attention:1482534443632558151> Questo controllo non è associato al tuo comando.");
-}
-
-export = { checkSlashPermission, checkPrefixPermission, checkButtonPermission, checkStringSelectPermission, checkModalPermission, getSlashRequiredRoles, getPrefixRequiredRoles, buildGlobalPermissionDeniedEmbed, buildGlobalChannelDeniedEmbed, buildGlobalNotYourControlEmbed, hasAnyRole, resolveRoleReference, normalizeRoleList };
+export = { loadPermissions, checkSlashPermission, checkPrefixPermission, checkButtonPermission, checkStringSelectPermission, checkModalPermission, getSlashRequiredRoles, getPrefixRequiredRoles, buildGlobalPermissionDeniedEmbed, buildGlobalChannelDeniedEmbed, buildGlobalNotYourControlEmbed, hasAnyRole, resolveRoleReference, normalizeRoleList };

@@ -11,7 +11,7 @@ const { accountUsername, guildMemberDisplayAvatarUrlDynamic } = require("../../.
 const { DEFAULT_FOOTER_TEXT } = require("../../../shared/embeds/defaultFooter") as typeof import("../../../shared/embeds/defaultFooter");
 const { transcribeClipAudioFile } = require("./voiceClipTranscribe") as typeof import("./voiceClipTranscribe");
 const { registerClipBoardPost } = require("./repostService") as typeof import("./repostService");
-const { TENANT_EMBED_COLOR } = require("../../MultiGuild/utils/tenantEmbedBranding") as typeof import("../../MultiGuild/utils/tenantEmbedBranding");
+const { TENANT_EMBED_COLOR } = require("../../../MultiGuild/utils/tenantEmbedBranding") as typeof import("../../../MultiGuild/utils/tenantEmbedBranding");
 const {
   CAPTURE_MAX_SEC,
   PCM_CHANNELS,
@@ -20,7 +20,7 @@ const {
   getVoiceCaptureInfo,
   isVoiceCaptureActive,
 } = require("./voiceContinuousCaptureService") as typeof import("./voiceContinuousCaptureService");
-const { isTenantClipTranscriptionEnabledSync } = require("../../MultiGuild/core/tenantGuildSettings") as typeof import("../../MultiGuild/core/tenantGuildSettings");
+const { isTenantClipTranscriptionEnabledSync } = require("../../../MultiGuild/core/tenantGuildSettings") as typeof import("../../../MultiGuild/core/tenantGuildSettings");
 
 const CLIP_MIN_SEC = 3;
 const CLIP_DEFAULT_SEC = 30;
@@ -324,7 +324,7 @@ async function exportClipFromCommand(ctx?) {
       if (!saved.ok) return { ok: false, message: "Non riesco a salvare la clip in Bacheca. Riprova tra poco." };
       const {
         resolveCommandPrefixForGuild: prefixFor,
-      } = require("../../MultiGuild/core/tenantGuildSettings") as typeof import("../../MultiGuild/core/tenantGuildSettings");
+      } = require("../../../MultiGuild/core/tenantGuildSettings") as typeof import("../../../MultiGuild/core/tenantGuildSettings");
       const ackEmbed = buildClipAckEmbed({
         requesterId,
         boardUrl: saved.boardUrl,
@@ -351,7 +351,7 @@ async function exportClipFromCommand(ctx?) {
 
     const {
       resolveCommandPrefixForGuild,
-    } = require("../../MultiGuild/core/tenantGuildSettings") as typeof import("../../MultiGuild/core/tenantGuildSettings");
+    } = require("../../../MultiGuild/core/tenantGuildSettings") as typeof import("../../../MultiGuild/core/tenantGuildSettings");
     const prefix = resolveCommandPrefixForGuild(guildId, client);
     const voiceChannelName = extracted.voiceChannelName || voiceChannel.name;
     const boardEmbed = buildClipBoardEmbed({

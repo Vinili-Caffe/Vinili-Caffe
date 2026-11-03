@@ -4,6 +4,7 @@ const { ActivityUserProfile } = require("../schemas/communitySchemas") as typeof
 const { listBirthdayDue, markBirthdayCelebratedByIds } = require("./profileStore") as typeof import("./profileStore");
 const { applyAgeBracketRoleFromBirthday } = require("../utils/ageBracketRoles") as typeof import("../utils/ageBracketRoles");
 const { getGuildMemberCached, getGuildChannelCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
+const { shouldStartExternalWorkerLoop } = require("../../../shared/runtime/externalWorkerGate") as typeof import("../../../shared/runtime/externalWorkerGate");
 const DEFAULT_TIME_ZONE = "Europe/Rome";
 const BIRTHDAY_ROLE_ID = String(IDs?.roles?.birthdayFlair || "").trim();
 const BIRTHDAY_REACTIONS = ["<a:VC_Events:1482706144953897223>", "<a:VC_HelloKittyGift:1329447876857958471>",];
@@ -267,6 +268,7 @@ async function runBirthdayTick(client?, opts: Record<string, any> = {}) {
 }
 
 function startBirthdayLoop(client?) {
+  if (!shouldStartExternalWorkerLoop("COMMUNITY_POLL")) return null;
   if (!client || birthdayCronMain) return birthdayCronMain;
   birthdayCronMain = cron.schedule(
     "0 0 * * *",

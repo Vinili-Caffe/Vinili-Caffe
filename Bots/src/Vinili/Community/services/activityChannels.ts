@@ -1,6 +1,6 @@
 /** Attività: canali esclusi dal conteggio. */
 const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
-const { isChannelInTicketCategory } = require("../../MultiGuild/tickets/discord/ticketCategoryUtils") as typeof import("../../MultiGuild/tickets/discord/ticketCategoryUtils");
+const { isChannelInTicketCategory } = require("../../../MultiGuild/tickets/discord/ticketCategoryUtils") as typeof import("../../../MultiGuild/tickets/discord/ticketCategoryUtils");
 
 const EXCLUDED_ACTIVITY_CHANNEL_IDS = new Set(
   [IDs.channels?.ticket, IDs.channels?.ticketLogs]

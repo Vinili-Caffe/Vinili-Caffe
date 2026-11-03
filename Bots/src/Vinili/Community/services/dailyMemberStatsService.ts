@@ -2,6 +2,7 @@ const cron = require("node-cron") as typeof import("node-cron");
 const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { ActivityUserProfile, UserLeaveBackup } = require("../schemas/communitySchemas") as typeof import("../schemas/communitySchemas");
 const { getClientChannelCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
+const { shouldStartExternalWorkerLoop } = require("../../../shared/runtime/externalWorkerGate") as typeof import("../../../shared/runtime/externalWorkerGate");
 const {
   findDailyStats,
   getOrCreateDailyStats,
@@ -171,6 +172,7 @@ async function sendDailyMemberStatsReport(client?, dateKey?, opts: Record<string
 }
 
 function startDailyMemberStatsLoop(client?) {
+  if (!shouldStartExternalWorkerLoop("COMMUNITY_POLL")) return null;
   if (!client || dailyMemberStatsCron) return dailyMemberStatsCron;
 
   dailyMemberStatsCron = cron.schedule(

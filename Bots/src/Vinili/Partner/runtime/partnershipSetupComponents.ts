@@ -1,7 +1,7 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle } = require("discord.js") as typeof import("discord.js");
 const { getPartnershipConfigSync } = require("../../Partner/core/tenantPartnershipSettings") as typeof import("../../Partner/core/tenantPartnershipSettings");
 const { formatPingMemberThresholdForInput } = require("./partnershipPingUtils") as typeof import("./partnershipPingUtils");
-const { applyPartnershipPayloadBranding } = require("../../MultiGuild/utils/tenantEmbedBranding") as typeof import("../../MultiGuild/utils/tenantEmbedBranding");
+const { applyPartnershipPayloadBranding } = require("../../../MultiGuild/utils/tenantEmbedBranding") as typeof import("../../../MultiGuild/utils/tenantEmbedBranding");
 const { t } = require("../../Partner/i18n/tenantPartnershipI18n/index") as typeof import("../../Partner/i18n/tenantPartnershipI18n/index");
 const { TENANT_PARTNERSHIP_ARROWS } = require("../../Partner/tenant/tenantPartnershipArrows") as typeof import("../../Partner/tenant/tenantPartnershipArrows");
 const { formatPingsSummary, channelLine, roleLine } = require("../../Partner/tenant/tenantPartnershipAdminRuntime") as typeof import("../../Partner/tenant/tenantPartnershipAdminRuntime");

@@ -9,7 +9,7 @@ const { runValutazionePositiveAddForPanel, runValutazioneNegativeAddForPanel, ru
 const { assertWebsiteStaffAccess, normalizeHeaderSecret } = require("./siteStaffAccessApi") as typeof import("./siteStaffAccessApi");
 const { memberIsHighStaffEligible } = require("./siteStaffDashboardApi") as typeof import("./siteStaffDashboardApi");
 const { memberIsPm, stripDiscordDecorations, invalidateStaffRosterCache } = require("./siteStaffRosterCache") as typeof import("./siteStaffRosterCache");
-const { memberIsResocontoPmReviewer } = require("../../MultiGuild/tickets/discord/ticketPartnershipStaffRoles") as typeof import("../../MultiGuild/tickets/discord/ticketPartnershipStaffRoles");
+const { memberIsResocontoPmReviewer } = require("../../../MultiGuild/tickets/discord/ticketPartnershipStaffRoles") as typeof import("../../../MultiGuild/tickets/discord/ticketPartnershipStaffRoles");
 const { acceptPauseRequestWeb, rejectPauseRequestWeb, cancelPauseRequestWeb } = require("../../site/staff/pause/pauseWebActionsRuntime") as typeof import("../../site/staff/pause/pauseWebActionsRuntime");
 const { buildMemberDetail } = require("./staffManageDetail") as typeof import("./staffManageDetail");
 
