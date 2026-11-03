@@ -1,122 +1,23 @@
-const ascii = require("ascii-table");
 const path = require("path") as typeof import("path");
-const { listJsFilesRecursive } = require("../../shared/runtime/fsRuntime") as typeof import("../../shared/runtime/fsRuntime");
-const { clearBoundHandlers, normalizeLifecycleEventName, trackBoundHandler } = require("../../shared/runtime/loaderRuntime") as typeof import("../../shared/runtime/loaderRuntime");
+const { installEventLoader } = require("../../shared/runtime/createEventLoader") as typeof import("../../shared/runtime/createEventLoader");
 
 export = (client?) => {
-  if (!client._eventHandlers) client._eventHandlers = new Map();
-
-  client.handleEvents = async (baseDir?) => {
-    clearBoundHandlers(client, "_eventHandlers");
-
-    const absBase = path.resolve(baseDir);
-    const statusMap = new Map();
-    let loaded = 0;
-
-    /* Eventi rari caricati di default; skip solo con VC_SKIP_RARE_EVENTS=1 o VC_SKIP_EVENTS */
-    const RARE_EVENT_DEFAULTS = [
-      "emojiCreate",
-      "emojiDelete",
-      "emojiUpdate",
-      "stickerCreate",
-      "stickerDelete",
-      "stickerUpdate",
-      "stageInstanceDelete",
-      "webhookUpdate",
-      "channelPinsUpdate",
-      "threadMembersUpdate",
-      "guildScheduledEventCreate",
-      "guildScheduledEventUpdate",
-      "guildScheduledEventDelete",
-    ];
-    const skipRare = String(process.env.VC_SKIP_RARE_EVENTS || "").trim() === "1";
-    const skipEvents = new Set(
-      [
-        ...(skipRare ? RARE_EVENT_DEFAULTS : []),
-        ...String(process.env.VC_SKIP_EVENTS || "")
-          .split(/[,+\s]+/)
-          .map((s?) => s.trim())
-          .filter(Boolean),
-      ],
-    );
-
-    const viniliRoot = path.dirname(absBase);
-    const extraEventFiles = [
-      path.join(viniliRoot, "Community", "services", "guildMemberUpdateService.js"),
-    ];
-    const files = [
-      ...listJsFilesRecursive(absBase),
-      ...extraEventFiles.filter((f?) => {
-        try {
-          require.resolve(f);
-          return true;
-        } catch {
-          return false;
-        }
-      }),
-    ];
-
-    for (const file of files) {
-      const underEvents = file.startsWith(absBase + path.sep) || file.startsWith(absBase + "/");
-      const rel = underEvents
-        ? path.relative(absBase, file).replace(/\\/g, "/")
-        : path.relative(viniliRoot, file).replace(/\\/g, "/");
-      try {
-        if (skipEvents.has(rel) || skipEvents.has(path.basename(rel).replace(/\.(cjs|mjs|js|cts|mts|ts)$/i, ""))) continue;
-        delete require.cache[require.resolve(file)];
-        const event = require(file);
-        if (!event?.name || typeof event.execute !== "function") continue;
-        if (skipEvents.has(String(event.name))) continue;
-
-        const eventName = normalizeLifecycleEventName(event.name);
-        const handler = async (...args) => {
-          return Promise.resolve(event.execute(...args, client)).catch((err?) => {
-            global.logger?.error?.(`[EVENT ${eventName}]`, err);
-          });
-        };
-
-        const bind = event.once ? client.once.bind(client) : client.on.bind(client);
-        bind(eventName, handler);
-
-        trackBoundHandler(client, "_eventHandlers", eventName, handler);
-
-        statusMap.set(
-          rel,
-          eventName === event.name ? "Loaded" : `Loaded as ${eventName}`,
-        );
-        loaded += 1;
-      } catch (err) {
-        statusMap.set(rel, "Error loading");
-        global.logger.error(`[EVENTS] Failed to load ${rel}:`, err);
+  installEventLoader(client, {
+    extraEventFiles: (absBase?) => {
+      const botRoot = path.dirname(absBase);
+      return [path.join(botRoot, "Community", "services", "guildMemberUpdateService.js")];
+    },
+    folderLabelForRel: (rel?) => {
+      const folder = path.dirname(String(rel || "")).replace(/\\/g, "/");
+      if (folder === ".") return "Events";
+      if (
+        folder.startsWith("Community/") ||
+        folder.startsWith("Staff/") ||
+        folder.startsWith("Partner/")
+      ) {
+        return folder;
       }
-    }
-
-    const table = new ascii().setHeading("Folder", "File", "Status");
-    const maxFolder = 18;
-    const maxFile = 32;
-    const maxStatus = 18;
-    for (const [rel, status] of Array.from(statusMap.entries()).sort((a?, b?) =>
-      a[0].localeCompare(b[0]),
-    )) {
-      const folder = path.dirname(rel).replace(/\\/g, "/");
-      const file = path.basename(rel);
-      let folderLabel =
-        folder === "."
-          ? "Events"
-          : folder.startsWith("Community/") || folder.startsWith("Staff/") || folder.startsWith("Partner/")
-            ? folder
-            : `Events/${folder}`;
-      if (folderLabel.length > maxFolder) folderLabel = folderLabel.slice(0, maxFolder - 1) + "…";
-      const fileShort = file.length > maxFile ? file.slice(0, maxFile - 1) + "…" : file;
-      const statusShort = status.length > maxStatus ? status.slice(0, maxStatus - 1) + "…" : status;
-      table.addRow(folderLabel, fileShort, statusShort);
-    }
-
-    const LOG_EVENTS = String(process.env.LOG_EVENTS || process.env.LOG_COMMANDS || "0") === "1";
-    if (LOG_EVENTS) {
-      const tableStr = table.toString();
-      tableStr.split("\n").forEach((line?) => global.logger.info(line));
-    }
-    /* Conteggio incluso in [BOOT] Loaded modules. */
-  };
+      return `Events/${folder}`;
+    },
+  });
 };

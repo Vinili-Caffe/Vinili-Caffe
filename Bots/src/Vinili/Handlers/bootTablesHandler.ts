@@ -1,8 +1,27 @@
 const path = require("path") as typeof import("path");
-const { logBootTable } = require("../../shared/runtime/bootTableRuntime") as typeof import("../../shared/runtime/bootTableRuntime");
+const { installBootTables } = require("../../shared/runtime/createBootTablesInstaller") as typeof import("../../shared/runtime/createBootTablesInstaller");
 
 export = (client?) => {
-  client.logBootTables = () => {
-    logBootTable(["Handlers", "Services", "Utils", "Schemas"], path.join(__dirname, ".."));
-  };
+  installBootTables(
+    client,
+    [
+      "Handlers",
+      "Community",
+      "Moderation",
+      "Security",
+      "Staff",
+      "Partner",
+      "MultiGuild",
+      "Minigames",
+      "Level",
+      "Giveaway",
+      "Stats",
+      "Backup",
+      "Events",
+      "Config",
+      "core",
+      "site",
+    ],
+    path.join(__dirname, ".."),
+  );
 };
