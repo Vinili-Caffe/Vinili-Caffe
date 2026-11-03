@@ -234,9 +234,11 @@ export function GuideBrowser() {
           ) : (
             <>
               <div className="space-y-1">{mainTree.map(renderTocNode)}</div>
-              {detachedTree.length ? (
-                <div className="mt-3 space-y-1 border-t border-sand/15 pt-3">{detachedTree.map(renderTocNode)}</div>
-              ) : null}
+              {detachedTree.map((t) => (
+                <div key={`detached-${t.id}`} className="mt-3 border-t border-sand/15 pt-3">
+                  {renderTocNode(t)}
+                </div>
+              ))}
               {!tree.length ? <p className="px-2 py-3 text-sm text-crema/45">Nessuna sezione disponibile.</p> : null}
             </>
           )}
