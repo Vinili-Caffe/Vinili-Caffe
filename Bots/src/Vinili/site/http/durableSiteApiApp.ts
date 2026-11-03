@@ -198,15 +198,18 @@ async function main() {
 
   async function loadSiteApiCommandsBg() {
     try {
-      if (typeof client.prefixCommands === "function" && folders.length) {
-        await client.prefixCommands(folders, prefixRoot);
+      /* Prefix/Commands legacy possono essere assenti: i loader caricano comunque i path modulo. */
+      if (typeof client.prefixCommands === "function") {
+        await client.prefixCommands(folders, prefixRoot || path.join(ROOT, "Vinili", "Prefix"));
         client.__prefixCommandsReady = true;
       }
-      if (typeof client.handleCommands === "function" && cmdFolders.length) {
-        await client.handleCommands(cmdFolders, cmdRoot);
+      if (typeof client.handleCommands === "function") {
+        await client.handleCommands(cmdFolders, cmdRoot || path.join(ROOT, "Vinili", "Commands"));
         client.__slashCommandsReady = true;
       }
-      console.log("[SITE-API] commands ready (bg)");
+      console.log(
+        `[SITE-API] commands ready (bg) prefix=${client.pcommands?.size || 0} slash=${client.commands?.size || 0}`,
+      );
     } catch (err) {
       console.warn("[SITE-API] prefix commands load:", err?.message || err);
     }
